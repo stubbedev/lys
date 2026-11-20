@@ -28,7 +28,10 @@ type ScreenshotConfig struct {
 	// Output directory for screenshots. Empty uses the XDG Pictures directory.
 	OutputDirectory string `cfg:"output-directory,type=Directory"`
 	// Saved file name, formatted with `chrono`/`strftime` specifiers.
-	FilenameFormat StrftimeFormat `cfg:"filename-format"`
+	// `{counter}` numbers the files 1, 2, 3 and on, one past the highest
+	// number already saved under the same name; a name without it gets
+	// -2, -3 and on when it is taken.
+	FilenameFormat ScreenshotFilename `cfg:"filename-format"`
 	// Copy the captured image to the clipboard.
 	CopyToClipboard bool `cfg:"copy-to-clipboard"`
 	// Show a desktop notification after capturing. With the thumbnail
@@ -98,7 +101,7 @@ func DefaultsScreenshot() ScreenshotConfig {
 	return ScreenshotConfig{
 		Icon:              "ld-camera-symbolic",
 		OutputDirectory:   "",
-		FilenameFormat:    mustStrftime("Screenshot_%Y-%m-%d_%H-%M-%S.png"),
+		FilenameFormat:    mustScreenshotFilename("Screenshot_%Y-%m-%d_%H-%M-%S.png"),
 		CopyToClipboard:   true,
 		Notify:            true,
 		ThumbnailMs:       5000,

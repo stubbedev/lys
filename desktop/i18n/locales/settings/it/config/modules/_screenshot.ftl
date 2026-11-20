@@ -9,7 +9,7 @@ settings-modules-screenshot-output-directory = Cartella di destinazione
     .description = Dove vengono salvate le schermate (vuoto usa la cartella XDG Immagini)
 
 settings-modules-screenshot-filename-format = Formato del nome file
-    .description = Nome del file salvato, con gli specificatori strftime
+    .description = Nome del file salvato, con gli specificatori strftime; {"{"}counter{"}"} numera i file 1, 2, 3 e così via
 
 settings-modules-screenshot-copy-to-clipboard = Copia negli appunti
     .description = Copia l'immagine acquisita negli appunti

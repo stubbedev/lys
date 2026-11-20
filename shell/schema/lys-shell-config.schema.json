@@ -8785,9 +8785,9 @@
           "description": "Copy the captured image to the clipboard."
         },
         "filename-format": {
-          "$ref": "#/$defs/StrftimeFormat",
+          "$ref": "#/$defs/ScreenshotFilename",
           "default": "Screenshot_%Y-%m-%d_%H-%M-%S.png",
-          "description": "Saved file name, formatted with `chrono`/`strftime` specifiers."
+          "description": "Saved file name, formatted with `chrono`/`strftime` specifiers.\n`{counter}` numbers the files 1, 2, 3 and on, one past the highest\nnumber already saved under the same name; a name without it gets\n-2, -3 and on when it is taken."
         },
         "icon": {
           "$ref": "#/$defs/string",
@@ -8911,6 +8911,11 @@
           "type": "string"
         }
       ]
+    },
+    "ScreenshotFilename": {
+      "description": "A strftime pattern (`Screenshot_%Y-%m-%d.png`) that may hold `{counter}` once, which numbers the files 1, 2, 3 and on.",
+      "format": "screenshot-filename",
+      "type": "string"
     },
     "Secret": {
       "description": "A secret, or `$NAME` to read it from the environment.",

@@ -5,7 +5,7 @@ settings-modules-screenshot-output-directory = Pasta de destino
     .description = Onde as capturas de ecrã são guardadas (vazio usa a pasta XDG de imagens)
 
 settings-modules-screenshot-filename-format = Formato do nome do ficheiro
-    .description = Nome do ficheiro guardado, com especificadores strftime
+    .description = Nome do ficheiro guardado, com especificadores strftime; {"{"}counter{"}"} numera os ficheiros 1, 2, 3 e assim por diante
 
 settings-modules-screenshot-copy-to-clipboard = Copiar para a área de transferência
     .description = Copiar a imagem capturada para a área de transferência

@@ -9,7 +9,7 @@ settings-modules-screenshot-output-directory = Ausgabeordner
     .description = Wo Bildschirmfotos gespeichert werden (leer verwendet den XDG-Bilderordner)
 
 settings-modules-screenshot-filename-format = Dateinamenformat
-    .description = Name der gespeicherten Datei mit strftime-Platzhaltern
+    .description = Name der gespeicherten Datei mit strftime-Platzhaltern; {"{"}counter{"}"} nummeriert die Dateien 1, 2, 3 und so weiter
 
 settings-modules-screenshot-copy-to-clipboard = In die Zwischenablage kopieren
     .description = Das aufgenommene Bild in die Zwischenablage kopieren

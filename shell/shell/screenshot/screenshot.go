@@ -221,7 +221,7 @@ func (h *Host) save(img *image.RGBA) (string, error) {
 	if err := os.MkdirAll(dir, 0o755); err != nil { //nolint:gosec // the user's pictures directory
 		return "", fmt.Errorf("cannot create %s: %w", dir, err)
 	}
-	path, err := saveNew(img, filepath.Join(dir, cfg.FilenameFormat.Layout().Format(h.Now())))
+	path, err := saveNew(img, dir, cfg.FilenameFormat.At(h.Now()))
 	if err != nil {
 		return "", err
 	}
@@ -516,16 +516,21 @@ func (h *Host) pick(caller portaldialogs.Caller, opts colorpicker.Options) (colo
 	}, opts)
 }
 
-// maxNameTries bounds the numbered names saveNew tries.
+// maxNameTries bounds the names saveNew tries.
 const maxNameTries = 100
 
-// saveNew saves under path, or "name-2.png", "name-3.png", ... when
-// that exists: two captures in the same second (the default name's
-// resolution) never overwrite each other. The PNG is written and synced
-// to a temporary file beside it first and linked in under the free name,
-// so no name ever holds a partial image.
-func saveNew(img image.Image, path string) (string, error) {
-	dir := filepath.Dir(path)
+// saveNew saves under name in dir. A counted name takes the number
+// after the highest one already saved under it; any other name is
+// saved as itself, or "name-2.png", "name-3.png", ... when that exists:
+// two captures in the same second (the default name's resolution) never
+// overwrite each other. The PNG is written and synced to a temporary
+// file beside it first and linked in under the free name, so no name
+// ever holds a partial image.
+func saveNew(img image.Image, dir string, name config.ScreenshotName) (string, error) {
+	first, err := firstNumber(dir, name)
+	if err != nil {
+		return "", err
+	}
 	tmp, err := os.CreateTemp(dir, ".screenshot-*.part")
 	if err != nil {
 		return "", fmt.Errorf("cannot create a screenshot in %s: %w", dir, err)
@@ -533,28 +538,51 @@ func saveNew(img image.Image, path string) (string, error) {
 	defer func() { _ = os.Remove(tmp.Name()) }()
 	if err := tmp.Chmod(0o644); err != nil {
 		_ = tmp.Close()
-		return "", fmt.Errorf("cannot save %s: %w", path, err)
+		return "", fmt.Errorf("cannot save %s: %w", filepath.Join(dir, name.Numbered(first)), err)
 	}
 	if err := writePNG(img, tmp); err != nil {
 		return "", err
 	}
-	ext := filepath.Ext(path)
-	base := strings.TrimSuffix(path, ext)
-	for i := 1; i <= maxNameTries; i++ {
-		name := path
-		if i > 1 {
-			name = fmt.Sprintf("%s-%d%s", base, i, ext)
-		}
-		err := os.Link(tmp.Name(), name)
+	for i := range maxNameTries {
+		path := filepath.Join(dir, nameTry(name, first, i))
+		err := os.Link(tmp.Name(), path)
 		if errors.Is(err, fs.ErrExist) {
 			continue
 		}
 		if err != nil {
-			return "", fmt.Errorf("cannot save %s: %w", name, err)
+			return "", fmt.Errorf("cannot save %s: %w", path, err)
 		}
-		return name, nil
+		return path, nil
 	}
-	return "", fmt.Errorf("cannot save %s: %d numbered names taken", path, maxNameTries)
+	return "", fmt.Errorf("cannot save %s: %d names taken", filepath.Join(dir, name.Numbered(first)), maxNameTries)
+}
+
+// firstNumber is the counter a counted name starts at, read from the
+// folder its files land in; any other name has no counter to read.
+func firstNumber(dir string, name config.ScreenshotName) (uint64, error) {
+	if !name.Counted() {
+		return 1, nil
+	}
+	sub := filepath.Dir(name.Numbered(1))
+	entries, err := os.ReadDir(filepath.Join(dir, sub))
+	if err != nil {
+		return 0, fmt.Errorf("cannot number a screenshot in %s: %w", filepath.Join(dir, sub), err)
+	}
+	taken := make([]string, len(entries))
+	for i, e := range entries {
+		taken[i] = filepath.Join(sub, e.Name())
+	}
+	return name.Next(taken), nil
+}
+
+// nameTry is the i-th name, from 0, saveNew tries for name.
+func nameTry(name config.ScreenshotName, first uint64, i int) string {
+	n := name.Numbered(first + uint64(i)) //nolint:gosec // i is below maxNameTries
+	if name.Counted() || i == 0 {
+		return n
+	}
+	ext := filepath.Ext(n)
+	return fmt.Sprintf("%s-%d%s", strings.TrimSuffix(n, ext), i+1, ext)
 }
 
 // WritePNG replaces path with img as a PNG, atomically: a reader sees

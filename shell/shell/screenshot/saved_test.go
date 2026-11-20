@@ -8,8 +8,11 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
+	"time"
 
+	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/lib/portaldialogs"
 
 	"github.com/stubbedev/lys/shell/shell/regionoverlay"
@@ -123,9 +126,10 @@ func interrupted(t *testing.T, write func()) {
 func TestSaveNewNeverExposesAPartialImage(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "shot.png")
+	name := shotName(t, "shot.png")
 	img := &panicking{RGBA: *image.NewRGBA(image.Rect(0, 0, 64, 64)), after: 2000}
 
-	interrupted(t, func() { _, _ = saveNew(img, path) })
+	interrupted(t, func() { _, _ = saveNew(img, dir, name) })
 
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -136,19 +140,63 @@ func TestSaveNewNeverExposesAPartialImage(t *testing.T) {
 	}
 
 	whole := image.NewRGBA(image.Rect(0, 0, 4, 4))
-	got, err := saveNew(whole, path)
+	got, err := saveNew(whole, dir, name)
 	if err != nil || got != path {
 		t.Fatalf("saveNew = %q, %v", got, err)
 	}
 	if info, err := os.Stat(got); err != nil || info.Mode().Perm() != 0o644 {
 		t.Fatalf("saved %v, %v; want mode 0644", info, err)
 	}
-	second, err := saveNew(whole, path)
+	second, err := saveNew(whole, dir, name)
 	if err != nil || second != filepath.Join(dir, "shot-2.png") {
 		t.Fatalf("a second save = %q, %v; want the numbered name", second, err)
 	}
 	if entries, _ := os.ReadDir(dir); len(entries) != 2 {
 		t.Fatalf("temporaries left behind: %v", entries)
+	}
+}
+
+func shotName(t *testing.T, format string) config.ScreenshotName {
+	t.Helper()
+	f, err := config.ParseScreenshotFilename(format)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return f.At(time.Date(2026, 9, 30, 12, 34, 56, 0, time.UTC))
+}
+
+func TestSaveNewNumbersACountedNamePastTheHighestSaved(t *testing.T) {
+	dir := t.TempDir()
+	for _, taken := range []string{"shot 4.png", "shot 2.png", "shot 9.jpg", "other 30.png"} {
+		if err := os.WriteFile(filepath.Join(dir, taken), nil, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	whole := image.NewRGBA(image.Rect(0, 0, 4, 4))
+	name := shotName(t, "shot {counter}.png")
+	for _, want := range []string{"shot 5.png", "shot 6.png"} {
+		got, err := saveNew(whole, dir, name)
+		if err != nil || got != filepath.Join(dir, want) {
+			t.Fatalf("saveNew = %q, %v; want %s", got, err, want)
+		}
+	}
+	got, err := saveNew(whole, filepath.Join(dir, "missing"), name)
+	if err == nil || !strings.Contains(err.Error(), "cannot number a screenshot in") {
+		t.Fatalf("a missing folder saved %q, %v; want the numbering error", got, err)
+	}
+}
+
+func TestSaveNewNumbersACountedNameInItsSubfolder(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "2026"), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "2026", "shot-3.png"), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	got, err := saveNew(image.NewRGBA(image.Rect(0, 0, 4, 4)), dir, shotName(t, "%Y/shot-{counter}.png"))
+	if err != nil || got != filepath.Join(dir, "2026", "shot-4.png") {
+		t.Fatalf("saveNew = %q, %v; want 2026/shot-4.png", got, err)
 	}
 }
 

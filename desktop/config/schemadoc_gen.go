@@ -1333,7 +1333,7 @@ var schemaDocs = map[string]string{
 	"ScreenshotConfig.BorderShow":                    "Display border around button.",
 	"ScreenshotConfig.ButtonBgColor":                 "Button background color token.",
 	"ScreenshotConfig.CopyToClipboard":               "Copy the captured image to the clipboard.",
-	"ScreenshotConfig.FilenameFormat":                "Saved file name, formatted with `chrono`/`strftime` specifiers.",
+	"ScreenshotConfig.FilenameFormat":                "Saved file name, formatted with `chrono`/`strftime` specifiers.\n`{counter}` numbers the files 1, 2, 3 and on, one past the highest\nnumber already saved under the same name; a name without it gets\n-2, -3 and on when it is taken.",
 	"ScreenshotConfig.Icon":                          "Bar button icon.",
 	"ScreenshotConfig.IconBgColor":                   "Icon container background color token.",
 	"ScreenshotConfig.IconColor":                     "Icon foreground color. Auto selects based on variant for contrast.",

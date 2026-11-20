@@ -77,10 +77,13 @@ func TestFieldCarriesTheFormatPlaceholders(t *testing.T) {
 }
 
 func TestStrftimeFieldsSayTheyTakeAPattern(t *testing.T) {
-	for _, path := range []string{"modules.clock.format", "login.clock-format", "login.date-format", "modules.screenshot.filename-format"} {
+	for _, path := range []string{"modules.clock.format", "login.clock-format", "login.date-format"} {
 		if m, ok := Field(path); !ok || m.Kind != FieldText || m.Type != "StrftimeFormat" {
 			t.Errorf("Field(%s) = %+v %v, want StrftimeFormat text", path, m, ok)
 		}
+	}
+	if m, ok := Field("modules.screenshot.filename-format"); !ok || m.Kind != FieldText || m.Type != "ScreenshotFilename" {
+		t.Errorf("Field(modules.screenshot.filename-format) = %+v %v, want ScreenshotFilename text", m, ok)
 	}
 	f, err := ParseStrftimeFormat("%H:%M on %A")
 	if err != nil {

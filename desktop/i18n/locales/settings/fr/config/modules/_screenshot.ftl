@@ -3,7 +3,7 @@ settings-modules-screenshot-icon = Icône
 settings-modules-screenshot-output-directory = Dossier de sortie
     .description = Emplacement des captures d'écran (vide = dossier Images XDG)
 settings-modules-screenshot-filename-format = Format du nom de fichier
-    .description = Nom du fichier enregistré, avec des spécificateurs strftime
+    .description = Nom du fichier enregistré, avec des spécificateurs strftime ; {"{"}counter{"}"} numérote les fichiers 1, 2, 3 et ainsi de suite
 settings-modules-screenshot-copy-to-clipboard = Copier dans le presse-papiers
     .description = Copier l'image capturée dans le presse-papiers
 settings-modules-screenshot-notify = Notifier

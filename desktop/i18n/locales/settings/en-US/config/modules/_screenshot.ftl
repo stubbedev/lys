@@ -9,7 +9,7 @@ settings-modules-screenshot-output-directory = Output Directory
     .description = Where screenshots are saved (empty uses the XDG Pictures directory)
 
 settings-modules-screenshot-filename-format = File Name Format
-    .description = Saved file name, using strftime specifiers
+    .description = Saved file name, using strftime specifiers; {"{"}counter{"}"} numbers the files 1, 2, 3 and on
 
 settings-modules-screenshot-copy-to-clipboard = Copy to Clipboard
     .description = Copy the captured image to the clipboard

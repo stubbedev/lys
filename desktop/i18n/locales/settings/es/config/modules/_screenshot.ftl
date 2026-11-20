@@ -9,7 +9,7 @@ settings-modules-screenshot-output-directory = Carpeta de salida
     .description = Dónde se guardan las capturas de pantalla (vacío usa la carpeta Imágenes de XDG)
 
 settings-modules-screenshot-filename-format = Formato del nombre de archivo
-    .description = Nombre del archivo guardado, con especificadores de strftime
+    .description = Nombre del archivo guardado, con especificadores de strftime; {"{"}counter{"}"} numera los archivos 1, 2, 3 y así sucesivamente
 
 settings-modules-screenshot-copy-to-clipboard = Copiar al portapapeles
     .description = Copia la imagen capturada al portapapeles

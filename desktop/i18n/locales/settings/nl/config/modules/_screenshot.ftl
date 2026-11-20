@@ -5,7 +5,7 @@ settings-modules-screenshot-output-directory = Uitvoermap
     .description = Waar schermafdrukken worden opgeslagen (leeg gebruikt de XDG-map Afbeeldingen)
 
 settings-modules-screenshot-filename-format = Formaat bestandsnaam
-    .description = Naam van het opgeslagen bestand, met strftime-specificaties
+    .description = Naam van het opgeslagen bestand, met strftime-specificaties; {"{"}counter{"}"} nummert de bestanden 1, 2, 3 enzovoort
 
 settings-modules-screenshot-copy-to-clipboard = Naar klembord kopiëren
     .description = De vastgelegde afbeelding naar het klembord kopiëren

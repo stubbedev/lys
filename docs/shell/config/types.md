@@ -1452,6 +1452,12 @@ Screen corner for the screenshot thumbnail.
 | `"bottom-right"` | Bottom-right corner. |
 | `"bottom-left"` | Bottom-left corner. |
 
+## ScreenshotFilename {#screenshot-filename}
+
+A strftime pattern (`Screenshot_%Y-%m-%d.png`) that may hold `{counter}` once, which numbers the files 1, 2, 3 and on.
+
+String.
+
 ## Secret {#secret}
 
 A secret, or `$NAME` to read it from the environment.

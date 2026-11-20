@@ -37,7 +37,7 @@ bar:
 |---|---|---|---|
 | `icon` | string | `"ld-camera-symbolic"` | Bar button icon. |
 | `output-directory` | [`Directory`](/shell/config/types#directory) | `""` | Output directory for screenshots. Empty uses the XDG Pictures directory. |
-| `filename-format` | [`StrftimeFormat`](/shell/config/types#strftime-format) | `"Screenshot_%Y-%m-%d_%H-%M-%S.png"` | Saved file name, formatted with `chrono`/`strftime` specifiers. |
+| `filename-format` | [`ScreenshotFilename`](/shell/config/types#screenshot-filename) | `"Screenshot_%Y-%m-%d_%H-%M-%S.png"` | Saved file name, formatted with `chrono`/`strftime` specifiers. `{counter}` numbers the files 1, 2, 3 and on, one past the highest number already saved under the same name; a name without it gets -2, -3 and on when it is taken. |
 | `copy-to-clipboard` | bool | `true` | Copy the captured image to the clipboard. |
 | `notify` | bool | `true` | Show a desktop notification after capturing. With the thumbnail disabled it carries Edit, Open folder and Delete buttons. |
 | `thumbnail-ms` | u32 | `5000` | How long, in milliseconds, the floating thumbnail stays after a capture; hovering it pauses the countdown. Click it to annotate, drag it into an app, or delete the capture from it. Set to 0 to disable. |
