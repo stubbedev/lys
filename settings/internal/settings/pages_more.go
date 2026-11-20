@@ -124,11 +124,11 @@ const popupMaxVisibleSoftMax = 10
 
 // osdPage is pages/osd.
 func osdPage(*config.Config) pageSpec {
-	return pageSpec{id: "osd", navKey: "settings-nav-osd", icon: "ld-monitor-symbolic", header: "settings-page-osd", lead: tryLead("settings-show-osd", osdPreview), extrasOnRows: true, sections: []sectionSpec{
+	return pageSpec{id: "osd", navKey: "settings-nav-osd", icon: "ld-monitor-symbolic", header: "settings-page-osd", lead: tryLead("settings-show-osd", showOsd), extrasOnRows: true, sections: []sectionSpec{
 		{title: "settings-section-general", rows: []rowSpec{
 			field("osd.enabled"),
 		}},
-		{title: "settings-section-display", rows: []rowSpec{
+		{title: "settings-section-display", preview: osdPreview, rows: []rowSpec{
 			field("osd.position", screenPosition),
 			field("osd.monitor"),
 			field("osd.text-align", pictureChoice(textAlignPictures)),

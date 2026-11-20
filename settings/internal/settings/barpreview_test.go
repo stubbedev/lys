@@ -119,7 +119,7 @@ func TestAPreviewWhoseFontDoesNotLoadSaysWhy(t *testing.T) {
 
 func TestAPreviewWritesNoConfig(t *testing.T) {
 	k := testKit(t, "")
-	for _, spec := range []pageSpec{barPage(nil), batteryPage(nil)} {
+	for _, spec := range []pageSpec{barPage(nil), batteryPage(nil), osdPage(nil)} {
 		p := buildPage(k, spec)
 		p.refresh()
 		p.close()

@@ -121,8 +121,4 @@ func testNotification(k *kit) error {
 	return k.notify(t.Get("settings-test-notification-summary"), t.Get("settings-test-notification-body"))
 }
 
-func osdPreview(k *kit) error {
-	return k.showToast(shellToast{label: locale.T().Get("settings-osd-preview-label"), icon: "ld-volume-2-symbolic", percentage: osdPreviewPercent})
-}
-
-const osdPreviewPercent = 60
+func showOsd(k *kit) error { return k.showToast(osdSampleToast()) }

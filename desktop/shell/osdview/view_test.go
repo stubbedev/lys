@@ -168,3 +168,20 @@ func TestOnlyATrackChangeFollowsOsdMedia(t *testing.T) {
 		t.Error("osd.media requested hid a requested track")
 	}
 }
+
+func TestPlacementPutsTheCardWhereOsdPositionSays(t *testing.T) {
+	for pos, want := range map[config.OsdPosition][2]widget.Align{
+		config.OsdTopLeft:     {widget.AlignStart, widget.AlignStart},
+		config.OsdTop:         {widget.AlignCenter, widget.AlignStart},
+		config.OsdTopRight:    {widget.AlignEnd, widget.AlignStart},
+		config.OsdRight:       {widget.AlignEnd, widget.AlignCenter},
+		config.OsdBottomRight: {widget.AlignEnd, widget.AlignEnd},
+		config.OsdBottom:      {widget.AlignCenter, widget.AlignEnd},
+		config.OsdBottomLeft:  {widget.AlignStart, widget.AlignEnd},
+		config.OsdLeft:        {widget.AlignStart, widget.AlignCenter},
+	} {
+		if h, v := Placement(pos); h != want[0] || v != want[1] {
+			t.Errorf("%s places the card at %v/%v, want %v/%v", pos, h, v, want[0], want[1])
+		}
+	}
+}

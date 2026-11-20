@@ -65,11 +65,7 @@ func drawBarOnScreen(k *kit, cfg *config.Config, font render.Font) widget.Widget
 	if cfg.Bar.Location.IsVertical() {
 		screenH = barPreviewVerticalScreenH
 	}
-	screen := widget.NewDrawingArea(0, screenH)
-	screen.OnDraw = func(cv *render.Canvas, r render.Rect) {
-		screenFrame(cv, r, func(s render.Rect) { photo(cv, s) })
-	}
-	shown := widget.NewOverlay().Append(screen)
+	shown := wallpaperScreen(screenH)
 	bar, ok := barview.Preview(cfg, font, barview.AllMonitors)
 	if !ok {
 		shown.AppendAligned(k.label(locale.T().Get("settings-bar-preview-none"), "settings-preview-state", css.Caption), widget.AlignCenter, widget.AlignCenter)
@@ -78,6 +74,16 @@ func drawBarOnScreen(k *kit, cfg *config.Config, font render.Font) widget.Widget
 	h, v := edgeAlign(bar.Edge())
 	shown.AppendAligned(bar, h, v)
 	return overflowing(shown)
+}
+
+// wallpaperScreen is a small screen showing a wallpaper, h pixels tall,
+// for a surface to be placed over.
+func wallpaperScreen(h int) *widget.Overlay {
+	screen := widget.NewDrawingArea(0, h)
+	screen.OnDraw = func(cv *render.Canvas, r render.Rect) {
+		screenFrame(cv, r, func(s render.Rect) { photo(cv, s) })
+	}
+	return widget.NewOverlay().Append(screen)
 }
 
 func edgeAlign(edge widget.BarEdge) (h, v widget.Align) {

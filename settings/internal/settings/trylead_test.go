@@ -59,7 +59,7 @@ func TestTheOSDPageShowsAVolumeToast(t *testing.T) {
 		return nil
 	}
 	pageLead(t, k, "osd").button.OnClick()
-	want := []string{"toast", locale.T().Get("settings-osd-preview-label"), "--icon", "ld-volume-2-symbolic", "--percentage", "60"}
+	want := []string{"toast", locale.T().Get("settings-osd-preview-label"), "--icon", "ld-volume-2-symbolic", "--percentage", "70"}
 	if len(ran) != 1 || !slices.Equal(ran[0], want) {
 		t.Errorf("Show OSD ran %q, want lys-shell %q", ran, want)
 	}

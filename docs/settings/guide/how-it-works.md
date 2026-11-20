@@ -15,6 +15,7 @@ lys-settings reads lys-shell's config through the packages of
 | `desktop/i18n` | Field labels; the app's own messages sit on top |
 | `desktop/settingspage` | The launcher contract below |
 | `desktop/shell/barview` | The previews: the bar and a bar item's button, drawn by lys-shell's own code from the config being edited, every module holding sample state |
+| `desktop/shell/osdview` | The OSD preview: the toast Show OSD flashes, drawn by lys-shell's own code where `osd.position` puts it |
 
 ## lys-wm
 
