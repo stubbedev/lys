@@ -6,8 +6,9 @@
 //
 // With the protocols present, a surface scales fractionally by giving
 // the compositor a wp_viewport destination in logical pixels and
-// attaching buffers of ceil(logical * preferred/120) device pixels; the
-// wl_surface buffer scale stays 1, per the fractional-scale protocol.
+// attaching buffers of logical * preferred/120 device pixels rounded to
+// nearest; the wl_surface buffer scale stays 1, per the fractional-scale
+// protocol.
 // preferred_scale is 120-based: 150 is 1.25, 240 is 2.
 package scale
 
@@ -134,21 +135,21 @@ func (c *Controller) Apply(frac120 uint32, w, h int) error {
 	if c.viewport != nil {
 		return c.viewport.SetDestination(intconv.Clamp[int32](w), intconv.Clamp[int32](h))
 	}
-	return c.surf.SetBufferScale(intconv.Clamp[int32](max(1, DeviceSize(1, frac120))))
+	return c.surf.SetBufferScale(intconv.Clamp[int32](IntegerScale(frac120)))
 }
 
-// DeviceSize rounds the logical size v up to device pixels at the
-// 120-based scale frac120, so the buffer always fully covers the
-// destination.
+// DeviceSize is the logical size v in device pixels at the 120-based
+// scale frac120, rounded to nearest with halves away from zero as
+// wp_fractional_scale_v1 specifies.
 func DeviceSize(v int, frac120 uint32) int {
 	if frac120 == 0 {
 		frac120 = Denom
 	}
-	return (v*int(frac120) + Denom - 1) / Denom
+	return (v*int(frac120) + Denom/2) / Denom
 }
 
 // IntegerScale rounds a 120-based scale up to the integer fallback:
 // 150 (1.25) needs a 2x integer buffer scale without the viewporter.
 func IntegerScale(frac120 uint32) int {
-	return max(1, DeviceSize(1, frac120))
+	return max(1, (int(frac120)+Denom-1)/Denom)
 }

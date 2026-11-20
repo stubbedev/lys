@@ -41,7 +41,7 @@ func (f *fakeViewport) Destroy() error {
 	return f.err
 }
 
-func TestDeviceSizeRoundsUp(t *testing.T) {
+func TestDeviceSizeRoundsToNearest(t *testing.T) {
 	tests := []struct {
 		name    string
 		v       int
@@ -50,9 +50,12 @@ func TestDeviceSizeRoundsUp(t *testing.T) {
 	}{
 		{"1x keeps the size", 100, 120, 100},
 		{"2x doubles", 100, 240, 200},
-		{"1.25 rounds a partial up", 33, 150, 42}, // 41.25 -> 42
+		{"1.25 rounds a quarter down", 33, 150, 41},
+		{"1.25 rounds three quarters up", 35, 150, 44},
 		{"1.25 exact", 40, 150, 50},
-		{"1.5 rounds up", 101, 180, 152}, // 151.5 -> 152
+		{"1.5 rounds a half away from zero", 101, 180, 152},
+		{"1.5 exact", 100, 180, 150},
+		{"1.75 rounds a quarter down", 3, 210, 5},
 		{"zero scale is 1x", 100, 0, 100},
 	}
 	for _, tc := range tests {
