@@ -1,10 +1,13 @@
 package settings
 
 import (
+	"errors"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/ui/widget"
 )
 
@@ -86,5 +89,41 @@ func TestThePickersGeometryIsUnderMoreOptions(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+func sharePickerTryButton(t *testing.T, k *kit) *tryButton {
+	t.Helper()
+	tries := treetest.All[*tryButton](buildPage(k, privacyPage(nil)))
+	if len(tries) != 1 {
+		t.Fatalf("the privacy page has %d try buttons, want the share picker's preview", len(tries))
+	}
+	return tries[0]
+}
+
+func TestPreviewShowsTheSharePickerThroughLysShell(t *testing.T) {
+	k := testKit(t, "")
+	var ran [][]string
+	k.shellCommand = func(args ...string) error {
+		ran = append(ran, args)
+		return nil
+	}
+	b := sharePickerTryButton(t, k)
+	b.button.OnClick()
+	if len(ran) != 1 || !slices.Equal(ran[0], []string{"portal", "show", "screen-cast-preview"}) {
+		t.Fatalf("Preview ran lys-shell %q, want portal show screen-cast-preview", ran)
+	}
+	if b.outcome.Visible() {
+		t.Errorf("a shown preview reports %q", b.outcome.Text())
+	}
+}
+
+func TestAPreviewLysShellRefusesSaysWhy(t *testing.T) {
+	k := testKit(t, "")
+	k.shellCommand = func(...string) error { return errors.New("SharePicker service not running") }
+	b := sharePickerTryButton(t, k)
+	b.button.OnClick()
+	if !b.outcome.Visible() || !strings.Contains(b.outcome.Text(), "SharePicker service not running") {
+		t.Errorf("a refused preview shows %q (visible %v)", b.outcome.Text(), b.outcome.Visible())
 	}
 }

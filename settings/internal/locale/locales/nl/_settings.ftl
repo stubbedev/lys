@@ -1843,3 +1843,4 @@ settings-matugen-source-rank = Kleur { $n }
 settings-matugen-source-none = Stel een achtergrond in om de kleuren te zien die hij biedt.
 settings-matugen-source-cycling = De diavoorstelling wisselt de achtergrond, dus de kleur wordt gekozen op zijn rang in elke afbeelding.
 settings-matugen-source-failed = De kleuren van { $file } kunnen niet worden gelezen: { $error }
+settings-share-picker-preview = Deelkiezer voorvertonen

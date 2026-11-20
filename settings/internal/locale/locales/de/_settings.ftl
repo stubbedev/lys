@@ -1853,3 +1853,4 @@ settings-matugen-source-rank = Farbe { $n }
 settings-matugen-source-none = Lege ein Hintergrundbild fest, um seine Farben zu sehen.
 settings-matugen-source-cycling = Die Diashow wechselt das Hintergrundbild, daher wird die Farbe nach ihrem Rang in jedem Bild gewählt.
 settings-matugen-source-failed = Die Farben von { $file } können nicht gelesen werden: { $error }
+settings-share-picker-preview = Freigabeauswahl in der Vorschau zeigen

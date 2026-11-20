@@ -34,7 +34,7 @@ func privacyPage(*config.Config) pageSpec {
 		header: "settings-page-privacy",
 		sections: []sectionSpec{
 			{title: "settings-section-screen-share", rows: []rowSpec{field("portal.screen-cast.reminder-days", durationChips(inDays, after(7*day), after(30*day), after(90*day), zeroAs(never)))}},
-			{title: "settings-section-share-picker", rows: []rowSpec{
+			{title: "settings-section-share-picker", preview: sharePickerTry, rows: []rowSpec{
 				field("share-picker.default-page", pictureChoice(sharePickerPagePictures)),
 				field("share-picker.hide-token-restore", invertedSwitch("settings-share-picker-offer-restore")),
 			}},
@@ -61,6 +61,12 @@ func privacyPage(*config.Config) pageSpec {
 		footer: grantsFooter,
 		links:  []pageLink{surfaceAnimationLink},
 	}
+}
+
+var sharePickerPreviewArgs = []string{"portal", "show", "screen-cast-preview"}
+
+func sharePickerTry(k *kit) widget.Widget {
+	return newTryButton(k, "settings-share-picker-preview", func() error { return k.shellCommand(sharePickerPreviewArgs...) })
 }
 
 type grantStore interface {
