@@ -310,3 +310,30 @@ func TestCustomHoursFollowTheWallClockAcrossADaylightSavingChange(t *testing.T) 
 		t.Errorf("06:59 on the change's morning is %v, want night", got)
 	}
 }
+
+func TestDayAtSaysWhenTheDayStartsAndEnds(t *testing.T) {
+	zone := time.FixedZone("UTC+2", 2*60*60)
+	noon := time.Date(2024, 6, 21, 12, 0, 0, 0, zone)
+	hours := DayAt(noon, mustHours(t, "21:00", "07:00"))
+	if want := time.Date(2024, 6, 21, 7, 0, 0, 0, zone); !hours.Start.Equal(want) || hours.Polar != 0 {
+		t.Errorf("custom hours start the day at %v (polar %v), want %v", hours.Start, hours.Polar, want)
+	}
+	if want := time.Date(2024, 6, 21, 21, 0, 0, 0, zone); !hours.End.Equal(want) {
+		t.Errorf("custom hours end the day at %v, want %v", hours.End, want)
+	}
+	london := DayAt(time.Date(2024, 12, 21, 12, 0, 0, 0, time.UTC), SunAt(mustLocation(t, 51.5074, -0.1278)))
+	if london.Polar != 0 || !london.Start.Before(london.End) || london.Start.Hour() != 7 || london.End.Hour() != 16 {
+		t.Errorf("London's midwinter day is %v to %v (polar %v), want civil dawn after 7 and dusk after 16", london.Start, london.End, london.Polar)
+	}
+	for _, tc := range []struct {
+		at   time.Time
+		want Phase
+	}{
+		{time.Date(2024, 6, 21, 12, 0, 0, 0, time.UTC), PhaseDay},
+		{time.Date(2024, 12, 21, 12, 0, 0, 0, time.UTC), PhaseNight},
+	} {
+		if got := DayAt(tc.at, SunAt(mustLocation(t, 78.2, 15.6))); got.Polar != tc.want || !got.Start.IsZero() || !got.End.IsZero() {
+			t.Errorf("Svalbard on %s: %+v, want polar %v with no start or end", tc.at.Format(time.DateOnly), got, tc.want)
+		}
+	}
+}

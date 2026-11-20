@@ -39,6 +39,26 @@ func TargetAt(now time.Time, d Daylight, transition nightschedule.Transition, ni
 	return target
 }
 
+// Day is the day a moment belongs to: when it starts and ends, or,
+// under a polar sun, Polar names the phase it stays in throughout and
+// Start and End are zero.
+type Day struct {
+	Start, End time.Time
+	Polar      Phase
+}
+
+// DayAt is the day now belongs to under d.
+func DayAt(now time.Time, d Daylight) Day {
+	st := dayAt(now, d)
+	switch {
+	case st.polarDay:
+		return Day{Polar: PhaseDay}
+	case st.polarNight:
+		return Day{Polar: PhaseNight}
+	}
+	return Day{Start: st.rise, End: st.set}
+}
+
 // NextEase is the moment the next transition after now starts, or, with
 // no transition length, the next start or end of a day; false when
 // polar days leave none in reach.
