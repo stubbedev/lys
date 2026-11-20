@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"golang.org/x/sys/unix"
+
+	"github.com/stubbedev/lys/lib/fdtest"
 )
 
 // connPair is two connected ends of a socket, closed with the test.
@@ -81,6 +83,7 @@ func TestMessageFdsAreTakenOnce(t *testing.T) {
 	if err := unix.Pipe2(pipe[:], unix.O_CLOEXEC); err != nil {
 		t.Fatal(err)
 	}
+	untaken := fdtest.WatchFD(t, pipe[1])
 	m := message{fds: []int{pipe[0], pipe[1]}}
 	fd, err := m.takeFd(0)
 	if err != nil || fd != pipe[0] {
@@ -94,8 +97,8 @@ func TestMessageFdsAreTakenOnce(t *testing.T) {
 		t.Error("an index past the fds was taken")
 	}
 	m.closeFds()
-	if _, err := unix.Write(pipe[1], []byte("x")); !errors.Is(err, unix.EBADF) {
-		t.Errorf("the untaken fd stayed open: %v", err)
+	if untaken.Open(t) {
+		t.Errorf("the untaken fd %d stayed open", pipe[1])
 	}
 }
 

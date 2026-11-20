@@ -4,7 +4,6 @@ import (
 	"errors"
 	"image"
 	"image/color"
-	"os"
 	"slices"
 	"testing"
 	"time"
@@ -12,6 +11,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/lib/drm"
+	"github.com/stubbedev/lys/lib/fdtest"
 	"github.com/stubbedev/lys/lib/fourcc"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/third_party/vk"
@@ -225,75 +225,6 @@ func TestWaitSyncFileOrdersAnotherDevicesWork(t *testing.T) {
 	}
 }
 
-const kcmpFile = 0
-
-type descriptorWatch struct{ fd, file int }
-
-func watchDescriptor(t *testing.T, fd int) descriptorWatch {
-	t.Helper()
-	if fd < 0 {
-		return descriptorWatch{fd: -1, file: -1}
-	}
-	file := dupFD(t, fd)
-	t.Cleanup(func() { _ = unix.Close(file) })
-	return descriptorWatch{fd: fd, file: file}
-}
-
-func (w descriptorWatch) closed(t *testing.T) bool {
-	t.Helper()
-	if w.fd < 0 {
-		return true
-	}
-	pid := uintptr(os.Getpid())
-	order, _, errno := unix.Syscall6(unix.SYS_KCMP, pid, pid, kcmpFile, uintptr(w.fd), uintptr(w.file), 0)
-	switch errno {
-	case 0:
-		return order != 0
-	case unix.EBADF:
-		return true
-	default:
-		t.Fatalf("comparing descriptor %d with the file it named: %v", w.fd, errno)
-		return false
-	}
-}
-
-func TestADescriptorWatchSeesTheFileNotItsNumber(t *testing.T) {
-	pipe := func() [2]int {
-		var p [2]int
-		if err := unix.Pipe2(p[:], unix.O_CLOEXEC); err != nil {
-			t.Fatal(err)
-		}
-		t.Cleanup(func() { _ = unix.Close(p[1]) })
-		return p
-	}
-	watched, other := pipe(), pipe()
-	w := watchDescriptor(t, watched[0])
-	if w.closed(t) {
-		t.Fatal("an open pipe reads as closed")
-	}
-	if err := unix.Dup3(w.file, watched[0], unix.O_CLOEXEC); err != nil {
-		t.Fatal(err)
-	}
-	if w.closed(t) {
-		t.Error("the number naming the same pipe again reads as closed")
-	}
-	if err := unix.Dup3(other[0], watched[0], unix.O_CLOEXEC); err != nil {
-		t.Fatal(err)
-	}
-	if !w.closed(t) {
-		t.Error("the number reused for another pipe reads as the watched one")
-	}
-	if err := unix.Close(watched[0]); err != nil {
-		t.Fatal(err)
-	}
-	if err := unix.Close(other[0]); err != nil {
-		t.Fatal(err)
-	}
-	if !w.closed(t) {
-		t.Error("a closed number reads as open")
-	}
-}
-
 func TestWaitSyncFileTakesTheFD(t *testing.T) {
 	d := syncDevice(t)
 	if err := d.WaitSyncFile(-1); err != nil {
@@ -310,11 +241,11 @@ func TestWaitSyncFileTakesTheFD(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer unix.Close(p[1])
-	refused := watchDescriptor(t, p[0])
+	refused := fdtest.WatchFD(t, p[0])
 	if err := d.WaitSyncFile(p[0]); err == nil {
 		t.Error("a pipe imported as a sync_file")
 	}
-	if !refused.closed(t) {
+	if refused.Open(t) {
 		t.Errorf("the refused fd %d is still open", p[0])
 	}
 	if err := d.Finish(); err != nil {
@@ -344,7 +275,7 @@ func TestWaitSyncFileOfASignalledFenceHoldsNoSemaphore(t *testing.T) {
 		t.Fatal(err)
 	}
 	waitReadable(t, fd)
-	signalled := watchDescriptor(t, fd)
+	signalled := fdtest.WatchFD(t, fd)
 	if err := d.WaitSyncFile(fd); err != nil {
 		t.Fatal(err)
 	}
@@ -354,7 +285,7 @@ func TestWaitSyncFileOfASignalledFenceHoldsNoSemaphore(t *testing.T) {
 	if len(d.waits) != 0 {
 		t.Errorf("%d semaphores wait on fences already signalled", len(d.waits))
 	}
-	if !signalled.closed(t) {
+	if signalled.Open(t) {
 		t.Errorf("the signalled fd %d is still open", fd)
 	}
 }
@@ -653,7 +584,7 @@ func TestDeviceCloseWithAFrameSignal(t *testing.T) {
 	defer tg.Close()
 	clearPass(t, d, tg)
 	syncFile(t, d)
-	kept := watchDescriptor(t, d.lastSyncFile)
+	kept := fdtest.WatchFD(t, d.lastSyncFile)
 	flushedPass(t, d, tg)
 	if d.frameSignal == 0 {
 		t.Fatal("no frame signal to close with")
@@ -662,8 +593,8 @@ func TestDeviceCloseWithAFrameSignal(t *testing.T) {
 	if d.frameSignal != 0 || d.lastSyncFileSet {
 		t.Errorf("after Close: signal %d, sync_file kept %v", d.frameSignal, d.lastSyncFileSet)
 	}
-	if !kept.closed(t) {
-		t.Errorf("the kept sync_file %d is still open", kept.fd)
+	if kept.Open(t) {
+		t.Errorf("the kept sync_file %d is still open", kept.FD())
 	}
 }
 

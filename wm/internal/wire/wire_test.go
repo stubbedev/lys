@@ -13,6 +13,7 @@ import (
 	"testing/quick"
 	"time"
 
+	"github.com/stubbedev/lys/lib/fdtest"
 	"golang.org/x/sys/unix"
 )
 
@@ -84,11 +85,6 @@ func inode(t testing.TB, fd int) uint64 {
 		t.Fatalf("fstat %d: %v", fd, err)
 	}
 	return st.Ino
-}
-
-func isOpen(fd int) bool {
-	_, err := unix.FcntlInt(uintptr(fd), unix.F_GETFD, 0)
-	return err == nil
 }
 
 func rawWrite(t testing.TB, c *Conn, b []byte) {
@@ -176,12 +172,13 @@ func TestRoundTripUntypedNewID(t *testing.T) {
 func TestRoundTripFDsInArgumentOrder(t *testing.T) {
 	a, b := pair(t)
 	first, second := pipe(t), pipe(t)
+	sent := []fdtest.Watch{fdtest.WatchFD(t, first), fdtest.WatchFD(t, second)}
 	send(t, a, 3, 1, func(e *Encoder) {
 		e.FD(first)
 		e.Uint(9)
 		e.FD(second)
 	})
-	if !isOpen(first) || !isOpen(second) {
+	if !sent[0].Open(t) || !sent[1].Open(t) {
 		t.Fatal("sending closed the caller's fds")
 	}
 	m := receive(t, b)
@@ -306,12 +303,12 @@ func TestFailedDecodeClosesTakenFDs(t *testing.T) {
 	send(t, a, 1, 0, func(e *Encoder) { e.FD(pipe(t)) })
 	rawWrite(t, a, raw(1, 1))
 	m := receive(t, b)
-	fd := m.FD()
+	taken := fdtest.WatchFD(t, m.FD())
 	m.Uint()
 	if err := m.Finish(); !errors.Is(err, ErrTruncated) {
 		t.Fatalf("Finish = %v, want ErrTruncated", err)
 	}
-	if isOpen(fd) {
+	if taken.Open(t) {
 		t.Fatal("fd taken by a failed message is still open")
 	}
 }
@@ -617,21 +614,22 @@ func TestCloseReleasesQueuedFDs(t *testing.T) {
 	if err := e.End(); err != nil {
 		t.Fatalf("End: %v", err)
 	}
-	queued := a.fdsOut[0]
+	queued := fdtest.WatchFD(t, a.fdsOut[0])
 	if err := a.Flush(); err != nil {
 		t.Fatalf("Flush: %v", err)
 	}
-	if isOpen(queued) {
+	if queued.Open(t) {
 		t.Fatal("sent fd copy is still open")
 	}
 	if err := b.Fill(); err != nil {
 		t.Fatalf("Fill: %v", err)
 	}
-	received, _ := b.fdsIn.peek(0)
+	in, _ := b.fdsIn.peek(0)
+	received := fdtest.WatchFD(t, in)
 	if err := b.Close(); err != nil {
 		t.Fatalf("Close: %v", err)
 	}
-	if isOpen(received) {
+	if received.Open(t) {
 		t.Fatal("Close left a received fd open")
 	}
 }

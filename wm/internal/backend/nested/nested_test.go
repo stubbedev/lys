@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/lib/fdtest"
 	"github.com/stubbedev/lys/lib/fourcc"
 	"github.com/stubbedev/lys/lib/waittest"
 	"golang.org/x/sys/unix"
@@ -280,14 +281,15 @@ func TestKeymapIsReadFromTheHost(t *testing.T) {
 	if _, err := unix.Write(fd, []byte(text)); err != nil {
 		t.Fatal(err)
 	}
+	keymap := fdtest.WatchFD(t, fd)
 	if err := k.Keymap(nil, cw.WlKeyboardKeymapFormatXkbV1, fd, uint32(len(text))); err != nil {
 		t.Fatal(err)
 	}
 	if got := string(k.Keyboard.Keymap()); got != "xkb_keymap { };" {
 		t.Fatalf("keymap = %q", got)
 	}
-	if _, err := unix.FcntlInt(uintptr(fd), unix.F_GETFD, 0); err == nil {
-		t.Fatal("the keymap fd was left open")
+	if keymap.Open(t) {
+		t.Fatalf("the keymap fd %d was left open", fd)
 	}
 }
 

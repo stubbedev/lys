@@ -12,6 +12,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
+	"github.com/stubbedev/lys/lib/fdtest"
 	"github.com/stubbedev/lys/lib/peercred/peercredtest"
 	"github.com/stubbedev/lys/lib/sockdir"
 	"github.com/stubbedev/lys/lib/testhome"
@@ -181,8 +182,12 @@ func TestPIDFDNamesThePeerUntilItExits(t *testing.T) {
 	if exited, err := pidfd.Exited(); err != nil || !exited {
 		t.Errorf("Exited of the reaped peer = %v, %v", exited, err)
 	}
+	watch := fdtest.WatchFD(t, fd)
 	if err := pidfd.Close(); err != nil {
 		t.Fatal(err)
+	}
+	if watch.Open(t) {
+		t.Errorf("the pidfd's descriptor %d is still open after Close", fd)
 	}
 	if _, err := pidfd.FD(); !errors.Is(err, os.ErrClosed) {
 		t.Errorf("FD of a closed pidfd = %v, want os.ErrClosed", err)

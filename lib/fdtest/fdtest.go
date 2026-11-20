@@ -1,6 +1,6 @@
-// Package fdtest reads what a process's file descriptors refer to, for
-// tests that hold a component to closing every descriptor it is
-// handed.
+// Package fdtest reads what a process's file descriptors refer to, and
+// whether a descriptor still names the file it did, for tests that hold
+// a component to closing every descriptor it is handed.
 package fdtest
 
 import (

@@ -16,6 +16,7 @@ import (
 	"time"
 
 	kdrm "github.com/stubbedev/lys/lib/drm"
+	"github.com/stubbedev/lys/lib/fdtest"
 	"github.com/stubbedev/lys/lib/fourcc"
 	"golang.org/x/sys/unix"
 
@@ -1036,9 +1037,7 @@ func TestFramesCommitAndFlip(t *testing.T) {
 	if len(fences) != 1 || r.dev.commits[0].values[[2]uint32{40, propInFence}] != uint64(fences[0]) || r.dev.commits[1].values[[2]uint32{40, propInFence}] != uint64(fences[0]) {
 		t.Fatalf("fences %v, committed %+v", fences, r.dev.commits[1].values)
 	}
-	if _, err := unix.FcntlInt(uintptr(fences[0]), unix.F_GETFD, 0); err != nil {
-		t.Fatalf("the fence fd was closed before its flip could be timed: %v", err)
-	}
+	fence := fdtest.WatchFD(t, fences[0])
 	test, real := r.dev.commits[0], r.dev.commits[1]
 	if test.flags != kdrm.AtomicTestOnly|kdrm.AtomicAllowModeset || real.flags != kdrm.AtomicNonblock|kdrm.AtomicPageFlipEvent|kdrm.AtomicAllowModeset || real.userData != 10 {
 		t.Fatalf("flags %#x then %#x, user data %d", test.flags, real.flags, real.userData)
@@ -1065,9 +1064,8 @@ func TestFramesCommitAndFlip(t *testing.T) {
 	if len(r.rec.presents) != 1 || r.rec.presents[0].Seq != 77 || r.rec.presents[0].Time == 0 {
 		t.Fatalf("presents %+v", r.rec.presents)
 	}
-	_, err := unix.FcntlInt(uintptr(fences[0]), unix.F_GETFD, 0)
-	if reused := slices.Contains(r.alloc.fences[1:], fences[0]); !errors.Is(err, unix.EBADF) && !reused {
-		t.Fatalf("the fence fd stayed open after its flip: %v", err)
+	if fence.Open(t) {
+		t.Fatalf("the fence fd %d stayed open after its flip", fence.FD())
 	}
 	if len(r.dev.commits) != 4 {
 		t.Fatalf("%d commits after the flip released the queued frame", len(r.dev.commits))

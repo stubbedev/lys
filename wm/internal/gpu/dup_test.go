@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stubbedev/lys/lib/fdtest"
 	"github.com/stubbedev/lys/lib/fourcc"
 	"golang.org/x/sys/unix"
 
@@ -82,6 +83,7 @@ func TestADuplicatedDMABUFOutlivesItsSourceAndClosesOnlyItsOwnDescriptors(t *tes
 func TestADuplicateThatFailsNamesThePlaneAndLeaksNoDescriptor(t *testing.T) {
 	open := memfd(t, "kept")
 	t.Cleanup(func() { _ = unix.Close(open) })
+	kept := fdtest.WatchFD(t, open)
 	src := gpu.DMABUF{Size: image.Pt(4, 2), Format: fourcc.NV12, Planes: []gpu.Plane{{FD: open, Stride: 4}, {FD: -1, Stride: 4}}}
 	before := openFDs(t)
 	dup, err := src.Dup()
@@ -91,7 +93,7 @@ func TestADuplicateThatFailsNamesThePlaneAndLeaksNoDescriptor(t *testing.T) {
 	if after := openFDs(t); after != before {
 		t.Fatalf("%d descriptors open after a failed duplicate, %d before it", after, before)
 	}
-	if _, err := unix.FcntlInt(uintptr(open), unix.F_GETFD, 0); err != nil {
-		t.Fatalf("the source's own descriptor: %v", err)
+	if !kept.Open(t) {
+		t.Fatalf("the failed duplicate closed the source's own descriptor %d", open)
 	}
 }

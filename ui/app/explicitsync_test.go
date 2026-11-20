@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/lib/drm"
+	"github.com/stubbedev/lys/lib/fdtest"
 	"github.com/stubbedev/lys/lib/gpu"
 	"github.com/stubbedev/lys/lib/gputest"
 	"github.com/stubbedev/lys/lib/logutil"
@@ -80,7 +81,6 @@ func explicitHarness(t *testing.T, explicit bool) (*paintHarness, *pointsSurface
 	w.surf = surf
 	var calls [2]int
 	tl := newFakeTimelines()
-	syncFile := -1
 	w.renderer = &gpuRenderer{
 		name: "test", rec: render.NewRecorder(1, 1, 1, 1), wake: func(time.Duration) {},
 		render: func(_ *render.List, _ *gpu.Target, _ []gpu.Carry, explicit bool) (gpuFrame, error) {
@@ -90,7 +90,12 @@ func explicitHarness(t *testing.T, explicit bool) (*paintHarness, *pointsSurface
 				if err != nil {
 					t.Fatal(err)
 				}
-				syncFile = fd
+				sent, frame := fdtest.WatchFD(t, fd), calls[1]
+				t.Cleanup(func() {
+					if sent.Open(t) {
+						t.Errorf("frame %d's sync_file %d was left open", frame, fd)
+					}
+				})
 				return gpuFrame{syncFile: fd}, nil
 			}
 			calls[0]++
@@ -112,13 +117,6 @@ func explicitHarness(t *testing.T, explicit bool) (*paintHarness, *pointsSurface
 		return b, nil
 	}
 	w.pool = buffer.New(w.allocator(), 3)
-	t.Cleanup(func() {
-		if syncFile >= 0 {
-			if _, err := unix.FcntlInt(uintptr(syncFile), unix.F_GETFD, 0); err == nil {
-				t.Error("a frame's sync_file was left open")
-			}
-		}
-	})
 	return h, surf, tl, &calls
 }
 

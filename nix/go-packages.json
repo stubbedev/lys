@@ -896,6 +896,7 @@
       "lib/gpu/shaders/ycbcrplanes.frag.spv"
     ],
     "testImports": [
+      "lib/fdtest",
       "lib/gputest",
       "lib/internal/nal/naltest",
       "lib/internal/vp9/vp9test",
@@ -1116,6 +1117,7 @@
       "lib/intconv"
     ],
     "testImports": [
+      "lib/fdtest",
       "lib/peercred/peercredtest",
       "lib/sockdir",
       "lib/testhome"
@@ -1132,6 +1134,7 @@
       "lib/intconv"
     ],
     "testImports": [
+      "lib/fdtest",
       "lib/pipewire/pwtest",
       "lib/sockdir",
       "lib/testhome",
@@ -4970,6 +4973,7 @@
       "wm/internal/wm"
     ],
     "testImports": [
+      "lib/fdtest",
       "lib/testhome",
       "wm/internal/looptest",
       "wm/internal/testclient",
@@ -5016,6 +5020,7 @@
       "wm/internal/wlclient/feedback"
     ],
     "testImports": [
+      "lib/fdtest",
       "lib/testhome",
       "lib/waittest",
       "wm/internal/compositor",
@@ -5328,6 +5333,7 @@
       "lib/fourcc"
     ],
     "testImports": [
+      "lib/fdtest",
       "lib/testhome",
       "wm/internal/testenv"
     ]
@@ -5502,6 +5508,7 @@
   },
   "wm/internal/loop": {
     "testImports": [
+      "lib/fdtest",
       "lib/testhome",
       "lib/waittest"
     ]
@@ -6760,6 +6767,7 @@
   },
   "wm/internal/wire": {
     "testImports": [
+      "lib/fdtest",
       "lib/testhome"
     ]
   },

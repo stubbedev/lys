@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/lib/fdtest"
 	"github.com/stubbedev/lys/lib/waittest"
 	"golang.org/x/sys/unix"
 )
@@ -41,30 +42,6 @@ func pipe(t *testing.T) (int, int) {
 	return p[0], p[1]
 }
 
-func isOpen(fd int) bool {
-	_, err := unix.FcntlInt(uintptr(fd), unix.F_GETFD, 0)
-	return err == nil
-}
-
-type openFile struct {
-	fd       int
-	dev, ino uint64
-}
-
-func opened(t *testing.T, fd int) openFile {
-	t.Helper()
-	var st unix.Stat_t
-	if err := unix.Fstat(fd, &st); err != nil {
-		t.Fatalf("fd %d: %v", fd, err)
-	}
-	return openFile{fd: fd, dev: st.Dev, ino: st.Ino}
-}
-
-func (f openFile) stillOpen() bool {
-	var st unix.Stat_t
-	return unix.Fstat(f.fd, &st) == nil && st.Dev == f.dev && st.Ino == f.ino
-}
-
 func run(t *testing.T, l *Loop) {
 	t.Helper()
 	done := make(chan error, 1)
@@ -77,6 +54,7 @@ func run(t *testing.T, l *Loop) {
 func TestFDSource(t *testing.T) {
 	l := newLoop(t)
 	r, w := pipe(t)
+	unowned := fdtest.WatchFD(t, r)
 	var got []Events
 	src, err := l.AddFD(r, Readable, func(ev Events) error {
 		got = append(got, ev)
@@ -101,7 +79,7 @@ func TestFDSource(t *testing.T) {
 	if err := src.Remove(); err != nil {
 		t.Fatal(err)
 	}
-	if !isOpen(r) {
+	if !unowned.Open(t) {
 		t.Fatal("removing an fd source closed a descriptor the loop does not own")
 	}
 	if err := src.Modify(Readable); !errors.Is(err, ErrClosed) {
@@ -117,7 +95,7 @@ func TestOnceFiresOnceAndClosesItsFD(t *testing.T) {
 	}
 	r, w := p[0], p[1]
 	t.Cleanup(func() { _ = unix.Close(w) })
-	file := opened(t, r)
+	file := fdtest.WatchFD(t, r)
 	fired := 0
 	if err := l.Once(r, func() error {
 		fired++
@@ -133,7 +111,7 @@ func TestOnceFiresOnceAndClosesItsFD(t *testing.T) {
 	if fired != 1 {
 		t.Fatalf("fired %d times, want once", fired)
 	}
-	if file.stillOpen() {
+	if file.Open(t) {
 		t.Fatal("Once left its fd open after firing")
 	}
 }
@@ -391,6 +369,7 @@ func TestCloseReleasesEverything(t *testing.T) {
 		t.Fatal(err)
 	}
 	r, _ := pipe(t)
+	unowned := fdtest.WatchFD(t, r)
 	if _, err := l.AddFD(r, Readable, func(Events) error { return nil }); err != nil {
 		t.Fatal(err)
 	}
@@ -398,16 +377,16 @@ func TestCloseReleasesEverything(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	owned := []openFile{opened(t, l.epfd), opened(t, l.mailboxFD)}
+	owned := []fdtest.Watch{fdtest.WatchFD(t, l.epfd), fdtest.WatchFD(t, l.mailboxFD)}
 	if err := l.Close(); err != nil {
 		t.Fatal(err)
 	}
 	for _, f := range owned {
-		if f.stillOpen() {
-			t.Errorf("fd %d is still open after Close", f.fd)
+		if f.Open(t) {
+			t.Errorf("fd %d is still open after Close", f.FD())
 		}
 	}
-	if !isOpen(r) {
+	if !unowned.Open(t) {
 		t.Error("Close closed a descriptor the loop does not own")
 	}
 	select {
