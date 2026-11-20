@@ -19,8 +19,9 @@ ld-coffee-symbolic
 ld-copy-symbolic
 ld-cpu-symbolic
 ld-disc-3-symbolic
-ld-droplets-symbolic
 ld-droplet-symbolic
+ld-droplets-symbolic
+ld-ellipsis-symbolic
 ld-eye-off-symbolic
 ld-eye-symbolic
 ld-file-text-symbolic
@@ -35,8 +36,8 @@ ld-hard-drive-symbolic
 ld-headphones-symbolic
 ld-headset-symbolic
 ld-image-symbolic
-ld-keyboard-symbolic
 ld-key-round-symbolic
+ld-keyboard-symbolic
 ld-laptop-symbolic
 ld-layers-symbolic
 ld-layout-dashboard-symbolic

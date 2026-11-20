@@ -103,13 +103,52 @@ func calls(srv *pulsetest.Server, cmd uint32) int {
 	return n
 }
 
+func openDeviceMenu(t *testing.T, r *soundRig, c *deviceControls) []widget.MenuItem {
+	t.Helper()
+	root, host := hosted(r.p)
+	root.Arrange(render.Rect{W: 800, H: 3000})
+	if !c.more.Visible() {
+		t.Fatal("the device has no port or profile menu")
+	}
+	c.more.OnClick()
+	if len(host.menus) != 1 {
+		t.Fatalf("the … button opened %d menus", len(host.menus))
+	}
+	return host.menus[0]
+}
+
+func menuRow(t *testing.T, items []widget.MenuItem, label string) widget.MenuItem {
+	t.Helper()
+	for _, it := range items {
+		if it.Label == label {
+			return it
+		}
+	}
+	t.Fatalf("no menu row %q", label)
+	return widget.MenuItem{}
+}
+
+func checkedRows(items []widget.MenuItem) []string {
+	var out []string
+	for _, it := range items {
+		if it.Kind == widget.ItemRadio && it.Checked {
+			out = append(out, it.Label)
+		}
+	}
+	return out
+}
+
 func TestChoosingAProfileIsOneSetCardProfileAndThePageFollowsTheServer(t *testing.T) {
 	r := startSound(t)
-	profile := r.p.output.profile
-	if !r.p.output.profileRow.Visible() || profile.Selection() != "High Fidelity Playback (A2DP Sink)" {
-		t.Fatalf("profile row shown %v on %q", r.p.output.profileRow.Visible(), profile.Selection())
+	items := openDeviceMenu(t, r, r.p.output)
+	tr := locale.T()
+	if got := checkedRows(items); !slices.Equal(got, []string{"High Fidelity Playback (A2DP Sink)"}) {
+		t.Fatalf("checked rows %q", got)
 	}
-	profile.SetSelected(1)
+	if slices.ContainsFunc(items, func(it widget.MenuItem) bool { return it.Label == tr.Get("settings-sound-port") }) {
+		t.Fatal("a device without ports lists a port group")
+	}
+	menuRow(t, items, "Headset Head Unit (HSP/HFP)").Run()()
 	if n := calls(r.srv, native.CmdSetCardProfile); n != 1 {
 		t.Fatalf("%d SET_CARD_PROFILE for one choice", n)
 	}
@@ -117,9 +156,27 @@ func TestChoosingAProfileIsOneSetCardProfileAndThePageFollowsTheServer(t *testin
 		t.Fatalf("the server's card is on %q", card.ActiveProfile)
 	}
 	r.srv.PutCard(headsetCard("off"))
-	r.l.until("the server's profile change shown", func() bool { return profile.Selection() == "Off" })
+	r.l.until("the server's profile change shown", func() bool { return r.p.output.profile == "off" })
+	if got := checkedRows(deviceMenu(r.p.output.ports, r.p.output.port, r.p.output.profiles, r.p.output.profile, nil, nil)); !slices.Equal(got, []string{"Off"}) {
+		t.Fatalf("checked rows after the server's change %q", got)
+	}
 	if n := calls(r.srv, native.CmdSetCardProfile); n != 1 {
 		t.Fatalf("following the server sent %d more SET_CARD_PROFILE", n-1)
+	}
+}
+
+func TestADeviceWithOnePortAndNoCardHasNoMenu(t *testing.T) {
+	srv := soundServer(t)
+	plain := pulsetest.Sink(5, headsetSink, "Headset", 6)
+	plain.Card, plain.Ports, plain.ActivePort = native.InvalidIndex, plain.Ports[:1], plain.Ports[0].Name
+	srv.PutSink(plain)
+	r := startSoundOn(t, srv)
+	r.l.until("the headset shown", func() bool { return r.p.output.current.Name == headsetSink })
+	if r.p.output.more.Visible() {
+		t.Fatalf("a device with ports %v and profiles %v offers a menu", r.p.output.ports, r.p.output.profiles)
+	}
+	if items := deviceMenu([]deviceOption{{"a", "A"}}, "a", nil, "", nil, nil); len(items) != 0 {
+		t.Fatalf("one port makes menu rows %+v", items)
 	}
 }
 
@@ -128,7 +185,7 @@ func TestAHeadsetSwitchedToHFPAppearsInTheInputList(t *testing.T) {
 	if got := r.p.input.devices.Items(); !slices.Equal(got, []string{"Microphone"}) {
 		t.Fatalf("inputs %q", got)
 	}
-	r.p.output.profile.SetSelected(1)
+	menuRow(t, openDeviceMenu(t, r, r.p.output), "Headset Head Unit (HSP/HFP)").Run()()
 	source := pulsetest.Source(8, "bluez_source.00_11", "Headset Microphone", native.InvalidIndex, "")
 	source.Card = headsetCardID
 	r.srv.PutSource(source)
@@ -245,10 +302,11 @@ func TestPortsVolumeMuteAndAppsReachTheServer(t *testing.T) {
 	r := startSound(t)
 	r.p.output.devices.SetSelected(0)
 	r.l.until("the speakers as the output", func() bool { return r.p.output.current.Name == "speakers" })
-	if !r.p.output.portRow.Visible() || r.p.output.port.Selection() != "Speaker" || r.p.output.port.Items()[1] != locale.T().Get("settings-sound-unplugged", i18n.Str("name", "Headphones")) {
-		t.Fatalf("ports %q on %q", r.p.output.port.Items(), r.p.output.port.Selection())
+	items := openDeviceMenu(t, r, r.p.output)
+	if got := checkedRows(items); !slices.Equal(got, []string{"Speaker"}) {
+		t.Fatalf("checked ports %q", got)
 	}
-	r.p.output.port.SetSelected(1)
+	menuRow(t, items, locale.T().Get("settings-sound-unplugged", i18n.Str("name", "Headphones"))).Run()()
 	if d, _ := r.srv.Sink(1); d.ActivePort != "headphones" {
 		t.Fatalf("the sink's port is %q", d.ActivePort)
 	}

@@ -785,10 +785,12 @@ func TestAFontRowShowsASampleInItsFamily(t *testing.T) {
 // popovers its widgets open and closes them on cue.
 type popoverHost struct {
 	opened []widget.Widget
+	menus  [][]widget.MenuItem
 	closed int
 }
 
-func (h *popoverHost) OpenMenu(widget.Boundser, render.Font, float64, []widget.MenuItem, widget.MenuOptions) {
+func (h *popoverHost) OpenMenu(_ widget.Boundser, _ render.Font, _ float64, items []widget.MenuItem, _ widget.MenuOptions) {
+	h.menus = append(h.menus, items)
 }
 
 func (h *popoverHost) OpenPopover(_ widget.Boundser, content widget.Widget, opts widget.PopoverOptions) func() {

@@ -248,12 +248,11 @@ type deviceControls struct {
 	rows       *widget.ItemGroup
 	devices    *widget.Dropdown
 	keys       []pulse.DeviceKey
-	port       *widget.Dropdown
-	portRow    *widget.Box
-	ports      []string
-	profile    *widget.Dropdown
-	profileRow *widget.Box
-	profiles   []string
+	more       *widget.Button
+	ports      []deviceOption
+	port       string
+	profiles   []deviceOption
+	profile    string
 	card       uint32
 	volume     *widgets.DebouncedSlider
 	mute       *muteToggle
@@ -285,29 +284,9 @@ func newDeviceControls(p *soundPanel, kind pulse.DeviceType) *deviceControls {
 		key := c.keys[i]
 		p.act(func(ctx context.Context, svc *pulse.Service) error { return svc.SetDefault(ctx, key) })
 	}
-	c.rows.Append(panelRow(k, t.Get("settings-sound-device"), "", c.devices))
-	c.port = widget.NewDropdown(k.face, k.textPx(), nil, 0)
-	c.port.SetAccessibleName(t.Get("settings-sound-port"))
-	c.port.OnSelect = func(i int) {
-		if p.syncing || i >= len(c.ports) {
-			return
-		}
-		key, port := c.current.Key, c.ports[i]
-		p.act(func(ctx context.Context, svc *pulse.Service) error { return svc.SetDevicePort(ctx, key, port) })
-	}
-	c.portRow = panelRow(k, t.Get("settings-sound-port"), "", c.port)
-	c.rows.Append(c.portRow)
-	c.profile = widget.NewDropdown(k.face, k.textPx(), nil, 0)
-	c.profile.SetAccessibleName(t.Get("settings-sound-profile"))
-	c.profile.OnSelect = func(i int) {
-		if p.syncing || i >= len(c.profiles) {
-			return
-		}
-		card, profile := c.card, c.profiles[i]
-		p.act(func(ctx context.Context, svc *pulse.Service) error { return svc.SetCardProfile(ctx, card, profile) })
-	}
-	c.profileRow = panelRow(k, t.Get("settings-sound-profile"), t.Attr("settings-sound-profile", "description"), c.profile)
-	c.rows.Append(c.profileRow)
+	c.more = k.iconButton("ld-ellipsis-symbolic", "settings-sound-device-options", c.openMenu, css.Flat)
+	c.more.SetAccessibleName(t.Get("settings-sound-device-options"))
+	c.rows.Append(panelRow(k, t.Get("settings-sound-device"), "", c.devices, c.more))
 	c.volume = widgets.NewDebouncedSlider(0, k.face, k.textPx(), 0, k.invoke)
 	c.volume.Knob.SetAccessibleName(t.Get("settings-sound-volume"))
 	c.volume.Write = func(v float64) func() {
@@ -360,19 +339,17 @@ func (c *deviceControls) show(devices []pulse.Device, current pulse.Device, has 
 	if selected := slices.Index(c.keys, current.Key); !slices.Equal(c.devices.Items(), names) || c.devices.Selected() != selected {
 		c.devices.SetRows(soundDeviceRows(devices, c.kind, func(d pulse.Device) string { return cmp.Or(d.Description, d.Name) }), selected)
 	}
+	c.port = current.ActivePort
 	c.ports = c.ports[:0]
-	portNames := make([]string, 0, len(current.Ports))
 	for _, port := range current.Ports {
-		c.ports = append(c.ports, port.Name)
-		name := cmp.Or(port.Description, port.Name)
+		label := cmp.Or(port.Description, port.Name)
 		if !port.Available {
-			name = t.Get("settings-sound-unplugged", i18n.Str("name", name))
+			label = t.Get("settings-sound-unplugged", i18n.Str("name", label))
 		}
-		portNames = append(portNames, name)
+		c.ports = append(c.ports, deviceOption{name: port.Name, label: label})
 	}
-	c.portRow.SetVisible(len(c.ports) > 1)
-	setChoices(c.port, portNames, slices.Index(c.ports, current.ActivePort))
 	c.showProfiles(current, cards)
+	c.more.SetVisible(len(c.ports) > 1 || len(c.profiles) > 1)
 	c.volume.Set(peakLevel(current.Volume.Levels()) * 100)
 	c.mute.show(current.Muted)
 	b, stereo := balanceOf(current.Volume.Levels(), current.ChannelMap)
@@ -385,31 +362,59 @@ func (c *deviceControls) show(devices []pulse.Device, current pulse.Device, has 
 
 func (c *deviceControls) showProfiles(current pulse.Device, cards []pulse.Card) {
 	t := locale.T()
-	c.profiles = c.profiles[:0]
+	c.profiles, c.profile = c.profiles[:0], ""
 	index, ok := current.Card.Get()
-	var card pulse.Card
-	if ok {
-		i := slices.IndexFunc(cards, func(card pulse.Card) bool { return card.Index == index })
-		ok = i >= 0
-		if ok {
-			card = cards[i]
-		}
-	}
-	c.profileRow.SetVisible(ok && len(card.Profiles) > 1)
 	if !ok {
 		return
 	}
-	c.card = card.Index
-	names := make([]string, 0, len(card.Profiles))
-	for _, profile := range card.Profiles {
-		c.profiles = append(c.profiles, profile.Name)
-		name := cmp.Or(profile.Description, profile.Name)
-		if !profile.Available {
-			name = t.Get("settings-sound-unavailable", i18n.Str("name", name))
-		}
-		names = append(names, name)
+	i := slices.IndexFunc(cards, func(card pulse.Card) bool { return card.Index == index })
+	if i < 0 {
+		return
 	}
-	setChoices(c.profile, names, slices.Index(c.profiles, card.ActiveProfile))
+	card := cards[i]
+	c.card, c.profile = card.Index, card.ActiveProfile
+	for _, profile := range card.Profiles {
+		label := cmp.Or(profile.Description, profile.Name)
+		if !profile.Available {
+			label = t.Get("settings-sound-unavailable", i18n.Str("name", label))
+		}
+		c.profiles = append(c.profiles, deviceOption{name: profile.Name, label: label})
+	}
+}
+
+func (c *deviceControls) openMenu() {
+	key, card := c.current.Key, c.card
+	items := deviceMenu(c.ports, c.port, c.profiles, c.profile,
+		func(port string) {
+			c.p.act(func(ctx context.Context, svc *pulse.Service) error { return svc.SetDevicePort(ctx, key, port) })
+		},
+		func(profile string) {
+			c.p.act(func(ctx context.Context, svc *pulse.Service) error { return svc.SetCardProfile(ctx, card, profile) })
+		})
+	widget.OpenMenu(c.more, c.more, c.p.k.face, c.p.k.textPx(), items, widget.MenuOptions{Gap: widget.PopoverGap})
+}
+
+type deviceOption struct{ name, label string }
+
+func deviceMenu(ports []deviceOption, port string, profiles []deviceOption, profile string, onPort, onProfile func(string)) []widget.MenuItem {
+	t := locale.T()
+	var items []widget.MenuItem
+	group := func(titleKey string, options []deviceOption, active string, choose func(string)) {
+		if len(options) < 2 {
+			return
+		}
+		if len(items) > 0 {
+			items = append(items, widget.MenuSeparator())
+		}
+		items = append(items, widget.MenuItem{Label: t.Get(titleKey), Kind: widget.ItemHeader})
+		for _, o := range options {
+			name := o.name
+			items = append(items, widget.MenuItem{Label: o.label, Kind: widget.ItemRadio, Group: titleKey, Checked: name == active, OnClick: func() { choose(name) }})
+		}
+	}
+	group("settings-sound-port", ports, port, onPort)
+	group("settings-sound-profile", profiles, profile, onProfile)
+	return items
 }
 
 func (c *deviceControls) showTests(current pulse.Device) {
