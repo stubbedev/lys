@@ -1,19 +1,21 @@
 package nightlight
 
 import (
+	"slices"
 	"strings"
+	"sync"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 func TestTheDaemonSwitchesAndAnnouncesTheNightLight(t *testing.T) {
 	bus := dbustest.Start(t)
-	var asked []bool
-	d := NewDaemon(func(on bool) { asked = append(asked, on) }, func(int) { t.Error("nothing asked for a preview") })
+	var asked calls[bool]
+	d := NewDaemon(asked.add, func(int) { t.Error("nothing asked for a preview") })
 	release, err := d.Export(bus.Conn(t))
 	if err != nil {
 		t.Fatal(err)
@@ -24,8 +26,8 @@ func TestTheDaemonSwitchesAndAnnouncesTheNightLight(t *testing.T) {
 	if err := obj.Call(SetEnabled, 0, true).Err; err != nil {
 		t.Fatal(err)
 	}
-	if len(asked) != 1 || !asked[0] {
-		t.Fatalf("SetEnabled(true) asked the shell for %v", asked)
+	if got := asked.list(); len(got) != 1 || !got[0] {
+		t.Fatalf("SetEnabled(true) asked the shell for %v", got)
 	}
 	changes := make(chan map[string]dbus.Variant, 4)
 	watch, err := dbusx.WatchSignals(t.Context(), client, dbusx.FromOwner(ServiceName), func(err error) { t.Error(err) },
@@ -39,13 +41,8 @@ func TestTheDaemonSwitchesAndAnnouncesTheNightLight(t *testing.T) {
 	t.Cleanup(func() { _ = watch.Stop() })
 	d.Show(false)
 	d.Show(true)
-	select {
-	case got := <-changes:
-		if on, ok := got[EnabledProperty].Value().(bool); !ok || !on {
-			t.Errorf("announced %v, want Enabled true", got)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("switching on was not announced")
+	if got := waittest.For(t, changes, "switching on announced"); got[EnabledProperty].Value() != true {
+		t.Errorf("announced %v, want Enabled true", got)
 	}
 	select {
 	case got := <-changes:
@@ -60,8 +57,8 @@ func TestTheDaemonSwitchesAndAnnouncesTheNightLight(t *testing.T) {
 
 func TestTheDaemonPreviewsOnlyATemperatureInRange(t *testing.T) {
 	bus := dbustest.Start(t)
-	var previewed []int
-	d := NewDaemon(func(bool) { t.Error("a preview switched the night light") }, func(temp int) { previewed = append(previewed, temp) })
+	var previewed calls[int]
+	d := NewDaemon(func(bool) { t.Error("a preview switched the night light") }, previewed.add)
 	release, err := d.Export(bus.Conn(t))
 	if err != nil {
 		t.Fatal(err)
@@ -77,7 +74,24 @@ func TestTheDaemonPreviewsOnlyATemperatureInRange(t *testing.T) {
 			t.Errorf("Preview(%d) = %v, want the range refused", bad, err)
 		}
 	}
-	if len(previewed) != 1 || previewed[0] != 3200 {
-		t.Errorf("previewed %v, want only 3200", previewed)
+	if got := previewed.list(); !slices.Equal(got, []int{3200}) {
+		t.Errorf("previewed %v, want only 3200", got)
 	}
+}
+
+type calls[T any] struct {
+	mu   sync.Mutex
+	seen []T
+}
+
+func (c *calls[T]) add(v T) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.seen = append(c.seen, v)
+}
+
+func (c *calls[T]) list() []T {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return slices.Clone(c.seen)
 }
