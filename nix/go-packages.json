@@ -2458,6 +2458,7 @@
       "settings/internal/wmstate",
       "shell/cava",
       "shell/service/brightness",
+      "shell/service/launcher",
       "shell/service/mail",
       "shell/service/nightlight",
       "shell/service/notifications",
@@ -2467,6 +2468,7 @@
       "shell/service/sni",
       "shell/service/sounds",
       "shell/service/sysinfo",
+      "shell/service/wallpaper",
       "ui/app",
       "ui/gtksettings",
       "ui/highlight",
@@ -3400,7 +3402,8 @@
       "desktop/styling/material",
       "lib/dbusx",
       "lib/third_party/godbus",
-      "lib/third_party/godbus/introspect"
+      "lib/third_party/godbus/introspect",
+      "lib/xdg"
     ],
     "testImports": [
       "lib/dbustest",

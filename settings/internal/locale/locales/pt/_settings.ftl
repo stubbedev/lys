@@ -1836,3 +1836,7 @@ settings-dock-preview-off = A dock está desligada, por isso nada é mostrado
 settings-dock-preview-running = Uma aplicação aberta
 settings-dock-pin = Afixar uma aplicação
 settings-dock-pinned-none = Nenhuma aplicação afixada
+settings-wallpaper-grid = Imagens
+settings-wallpaper-grid-no-folders = Não há pastas de imagens a mostrar: adicione uma em Pastas do seletor.
+settings-wallpaper-grid-empty = Não há imagens em { $folders }
+settings-wallpaper-grid-failed = Não é possível listar algumas imagens: { $error }

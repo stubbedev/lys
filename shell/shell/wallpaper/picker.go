@@ -6,7 +6,6 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/imagedecode"
-	"github.com/stubbedev/lys/lib/xdg"
 
 	engine "github.com/stubbedev/lys/shell/service/launcher"
 	"github.com/stubbedev/lys/shell/service/wallpaper"
@@ -28,18 +27,9 @@ type Picker struct {
 // loop: the error that refused or lost it, or nil once it is saved.
 func (s *Shell) NewPicker(cfg func() *config.Config, setConfig func(path string, value any, done func(error))) *Picker {
 	return &Picker{
-		svc: s.svc, config: cfg, setConfig: setConfig, pictures: picturesDir,
+		svc: s.svc, config: cfg, setConfig: setConfig, pictures: wallpaper.PicturesDir,
 		thumbs: engine.ImageThumbnails{Dir: engine.LargeThumbnailDir(), Decode: imagedecode.Open},
 	}
-}
-
-// picturesDir is XDG_PICTURES_DIR, "" when the user has none.
-func picturesDir() string {
-	dir, ok, err := xdg.OS.UserDir("XDG_PICTURES_DIR")
-	if err != nil || !ok {
-		return ""
-	}
-	return dir
 }
 
 // Images lists the pictures of the picker's directories.

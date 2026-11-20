@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/lib/xdg"
 )
 
 // FitMode is how an image is scaled to its monitor:
@@ -205,6 +206,16 @@ func extension(name string) (string, bool) {
 func exists(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil
+}
+
+// PicturesDir is XDG_PICTURES_DIR, "" when the user has none: the
+// pictures folder WallpaperConfig.PickerDirs falls back to.
+func PicturesDir() string {
+	dir, ok, err := xdg.OS.UserDir("XDG_PICTURES_DIR")
+	if err != nil || !ok {
+		return ""
+	}
+	return dir
 }
 
 // PickerImages lists the supported images of every directory, sorted by

@@ -408,7 +408,15 @@ func TestTheWallpaperCyclingDirectoryPicksAFolderAndTheWallpaperAFile(t *testing
 	for path, folder := range map[string]bool{"wallpaper.cycling-directory": true, "wallpaper.wallpaper": false} {
 		f := &fakePickers{}
 		k.pickers = f
-		c := fieldControl(k, k.store, pageRow(t, "wallpaper", path)).(*fileEditor)
+		var c *fileEditor
+		switch ctl := fieldControl(k, k.store, pageRow(t, "wallpaper", path)).(type) {
+		case *fileEditor:
+			c = ctl
+		case *wallpaperGrid:
+			c = ctl.path
+		default:
+			t.Fatalf("%s is edited by a %T, with no path to browse", path, ctl)
+		}
 		c.browse.ClickAt(widget.Point{})
 		if got := f.folderFn != nil; got != folder || (f.fileFn != nil) == folder {
 			t.Errorf("%s: asked for a folder %v, want %v", path, got, folder)

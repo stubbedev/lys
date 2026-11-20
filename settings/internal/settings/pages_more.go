@@ -277,7 +277,7 @@ func themeProviderIs(provider config.ThemeProvider) func(store) bool {
 
 func wallpaperPage(*config.Config) pageSpec {
 	return pageSpec{id: "wallpaper", navKey: "settings-nav-wallpaper", icon: "ld-image-symbolic", header: "settings-page-wallpaper", sections: []sectionSpec{
-		{title: "settings-section-general", rows: []rowSpec{field("wallpaper.wallpaper", filePath), field("wallpaper.fit-mode", pictureChoice(fitPictures)), field("wallpaper.picker-directories", folderList)}},
+		{title: "settings-section-general", rows: []rowSpec{field("wallpaper.wallpaper", wallpaperGridRow), field("wallpaper.fit-mode", pictureChoice(fitPictures)), field("wallpaper.picker-directories", folderList)}},
 		{title: "settings-section-cycling", rows: []rowSpec{
 			field("wallpaper.cycling-directory"),
 			cyclingReveal("wallpaper.cycling-directory",

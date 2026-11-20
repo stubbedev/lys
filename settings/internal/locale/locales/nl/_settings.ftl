@@ -1835,3 +1835,7 @@ settings-dock-preview-off = Het dock staat uit, dus er verschijnt niets
 settings-dock-preview-running = Een geopende app
 settings-dock-pin = App vastzetten
 settings-dock-pinned-none = Geen apps vastgezet
+settings-wallpaper-grid = Afbeeldingen
+settings-wallpaper-grid-no-folders = Geen afbeeldingsmappen om te tonen: voeg er een toe onder Kiezermappen.
+settings-wallpaper-grid-empty = Geen afbeeldingen in { $folders }
+settings-wallpaper-grid-failed = Sommige afbeeldingen kunnen niet worden opgesomd: { $error }

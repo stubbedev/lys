@@ -1,22 +1,16 @@
 package settings
 
 import (
-	"image"
-	"log"
 	"maps"
 	"slices"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
-	"github.com/stubbedev/lys/desktop/imagedecode"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
-	xdraw "golang.org/x/image/draw"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
-
-const thumbWidth = 320
 
 func monitorEntries(v any) []map[string]any {
 	items, _ := v.([]any)
@@ -67,21 +61,20 @@ func withoutMonitor(v any, name string) []any {
 
 type monitorWallpapers struct {
 	*widget.Box
-	k       *kit
-	slot    slot
-	picker  *monitorPicker
-	detail  *widget.Box
-	away    *widget.Box
-	note    *widget.Label
-	feed    *tileFeed
-	tiles   []monitorTile
-	thumbs  map[string]wallpaperThumb
-	loading map[string]bool
-	closed  bool
+	k      *kit
+	slot   slot
+	picker *monitorPicker
+	detail *widget.Box
+	away   *widget.Box
+	note   *widget.Label
+	feed   *tileFeed
+	tiles  []monitorTile
+	thumbs *thumbCache
 }
 
 func newMonitorWallpapers(k *kit, s slot) *monitorWallpapers {
-	c := &monitorWallpapers{Box: gapBox(widget.Column), k: k, slot: s, thumbs: map[string]wallpaperThumb{}, loading: map[string]bool{}}
+	c := &monitorWallpapers{Box: gapBox(widget.Column), k: k, slot: s}
+	c.thumbs = newThumbCache(k, decodeThumb, c.paintThumbs)
 	c.AddClass("monitor-wallpapers")
 	c.picker = newMonitorPicker(k, func(string) { c.showDetail() })
 	c.picker.SetAccessibleName(locale.T().Get("settings-monitors"))
@@ -97,7 +90,7 @@ func newMonitorWallpapers(k *kit, s slot) *monitorWallpapers {
 }
 
 func (c *monitorWallpapers) close() {
-	c.closed = true
+	c.thumbs.close()
 	c.feed.close()
 }
 
@@ -120,61 +113,13 @@ func (c *monitorWallpapers) wallpaperOf(name string) string {
 	return p
 }
 
-func (c *monitorWallpapers) loadThumb(path string) {
-	if path == "" || c.loading[path] {
-		return
-	}
-	if _, ok := c.thumbs[path]; ok {
-		return
-	}
-	c.loading[path] = true
-	async(c.k, func() wallpaperThumb { return decodeThumb(path) }, func(th wallpaperThumb) {
-		delete(c.loading, path)
-		if c.closed {
-			return
-		}
-		if th.failure != "" {
-			log.Printf("settings: wallpaper thumbnail: %s", th.failure)
-		}
-		c.thumbs[path] = th
-		c.paintThumbs()
-	})
-}
-
-type wallpaperThumb struct {
-	img     image.Image
-	failure string
-}
-
-func decodeThumb(path string) wallpaperThumb {
-	img, err := imagedecode.Open(path)
-	if err != nil {
-		return wallpaperThumb{failure: locale.T().Get("settings-wallpaper-thumb-failed", i18n.Str("file", path), i18n.Str("error", err.Error()))}
-	}
-	return wallpaperThumb{img: scaledThumb(img)}
-}
-
-func scaledThumb(img image.Image) image.Image {
-	b := img.Bounds()
-	if b.Dx() <= thumbWidth {
-		return img
-	}
-	h := max(1, b.Dy()*thumbWidth/b.Dx())
-	out := image.NewRGBA(image.Rect(0, 0, thumbWidth, h))
-	xdraw.ApproxBiLinear.Scale(out, out.Bounds(), img, b, xdraw.Src, nil)
-	return out
-}
-
 func (c *monitorWallpapers) paintThumbs() {
 	for _, t := range c.tiles {
-		c.picker.setThumb(t.name, c.thumbs[c.wallpaperOf(t.name)])
+		c.picker.setThumb(t.name, c.thumbs.get(c.wallpaperOf(t.name)))
 	}
 }
 
 func (c *monitorWallpapers) refresh() {
-	for _, t := range c.tiles {
-		c.loadThumb(c.wallpaperOf(t.name))
-	}
 	c.paintThumbs()
 	t := locale.T()
 	c.picker.SetVisible(len(c.tiles) > 0)
@@ -215,7 +160,6 @@ func (c *monitorWallpapers) showDetail() {
 			set: func(v any) error {
 				err := c.slot.set(withMonitorField(c.slot.get(), name, key, v))
 				c.paintThumbs()
-				c.loadThumb(c.wallpaperOf(name))
 				return err
 			},
 			unset: func() { _ = c.slot.set(withMonitorField(c.slot.get(), name, key, "")) },
