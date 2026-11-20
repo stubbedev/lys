@@ -3027,6 +3027,19 @@
       "lib/waittest"
     ]
   },
+  "shell/service/appnap": {
+    "imports": [
+      "lib/third_party/godbus",
+      "lib/wmipc",
+      "power/nap"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/dbusx",
+      "lib/testhome",
+      "lib/waittest"
+    ]
+  },
   "shell/service/backgroundapps": {
     "imports": [
       "desktop/desktopentry",
@@ -3646,6 +3659,7 @@
       "lib/xdg",
       "power/autobrightness",
       "power/energy",
+      "power/nap",
       "power/pause",
       "secrets/vault",
       "shell/cava",
@@ -3660,6 +3674,7 @@
       "shell/internal/walltimer",
       "shell/internal/widgetipc",
       "shell/service/appenergy",
+      "shell/service/appnap",
       "shell/service/backgroundapps",
       "shell/service/batteryalert",
       "shell/service/brightness",

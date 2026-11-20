@@ -249,7 +249,10 @@ type shellStart struct {
 	current *atomic.Pointer[config.Config]
 	// osdRef is the OSD once it exists; the recorder toasts through it.
 	osdRef *atomic.Pointer[osd.Osd]
-	ctx    ModuleContext
+	// napReloads ticks App Nap when a reload may have changed the nap
+	// levels.
+	napReloads chan struct{}
+	ctx        ModuleContext
 	// lateStarts are the clients that could not start without their
 	// service; each starts when the service appears.
 	lateStarts   map[string]lateStart
@@ -269,9 +272,10 @@ type shellStart struct {
 func newShellStart(application *app.Application, sess shellSession, cfg *config.Config, svc *config.Service, session *dbus.Conn, clk *timeclock.Wall) *shellStart {
 	s := &shellStart{
 		application: application, sess: sess, cfg: cfg, svc: svc, session: session,
-		current: &atomic.Pointer[config.Config]{},
-		osdRef:  &atomic.Pointer[osd.Osd]{},
-		ctx:     ModuleContext{Config: cfg, App: application, Clock: clk, Region: sessionRegion(), gen: newMountGen()},
+		current:    &atomic.Pointer[config.Config]{},
+		osdRef:     &atomic.Pointer[osd.Osd]{},
+		napReloads: make(chan struct{}, 1),
+		ctx:        ModuleContext{Config: cfg, App: application, Clock: clk, Region: sessionRegion(), gen: newMountGen()},
 	}
 	s.current.Store(cfg)
 	s.down.add(s.ctx.gen.retire)
@@ -491,6 +495,7 @@ func (s *shellStart) startServices(system *dbus.Conn) {
 	s.down.add(startAutoBrightness(&s.ctx, s.session, s.idle.keyboardLight()))
 	s.down.add(startAppEnergy(&s.ctx, s.system, s.session))
 	s.down.add(startPausedUnits(&s.ctx, s.system, s.session))
+	s.down.add(startAppNap(appNapDeps{session: s.session, system: s.system, audio: audio, inhibit: s.inhibitState, config: s.current.Load, reloads: s.napReloads}))
 	sniHost, err := startTrayHost(s.session, sniStore)
 	if err == nil {
 		s.down.add(func() { _ = sniHost.Close() })
@@ -759,6 +764,10 @@ func (s *shellStart) mount() {
 		// them apply once, as the latest.
 		reloads := newReloadQueue(application.Invoke, func(old, next *config.Config) {
 			current.Store(next)
+			select {
+			case s.napReloads <- struct{}{}:
+			default:
+			}
 			theme.SetConfig(next)
 			if barsAffected(old, next) {
 				restyle(next)
