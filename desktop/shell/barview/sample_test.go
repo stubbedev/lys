@@ -145,6 +145,31 @@ func TestTheWorkspaceSampleFollowsTheConfig(t *testing.T) {
 	}
 }
 
+func TestTheHyprlandSampleNumbersItsWorkspacesAsHyprlandDoes(t *testing.T) {
+	cfg := config.Defaults()
+	font := treetest.Font(t)
+	if got := stripLabels(SampleWorkspaces(cfg, font, compositor.Hyprland)); !slices.Equal(got, []string{"4", "5", "6"}) {
+		t.Errorf("absolute numbering previews %v, want the ids 4, 5 and 6", got)
+	}
+	cfg.Workspaces.Numbering = config.NumberingRelative
+	if got := stripLabels(SampleWorkspaces(cfg, font, compositor.Hyprland)); !slices.Equal(got, []string{"1", "2", "3"}) {
+		t.Errorf("relative numbering previews %v, want 1, 2 and 3 on the monitor", got)
+	}
+	cfg.Workspaces.LabelUseName = true
+	if got := stripLabels(SampleWorkspaces(cfg, font, compositor.Hyprland)); !slices.Equal(got, []string{"web", "2", "3"}) {
+		t.Errorf("label-use-name previews %v, want the named workspace by its name", got)
+	}
+	cfg.Workspaces.WorkspaceMap = config.WorkspaceMap{"5": {Label: new("mail")}}
+	if got := stripLabels(SampleWorkspaces(cfg, font, compositor.Hyprland)); !slices.Equal(got, []string{"web", "mail", "3"}) {
+		t.Errorf("a workspace-map label previews %v, want it over the number", got)
+	}
+	cfg.Workspaces.WorkspaceMap = nil
+	cfg.Workspaces.LabelUseName = false
+	if got := stripLabels(SampleWorkspaces(cfg, font, compositor.Niri)); !slices.Equal(got, []string{"web", "2"}) {
+		t.Errorf("Hyprland's numbering changes niri's sample to %v, want web and 2", got)
+	}
+}
+
 func TestTheWorkspaceSampleLeavesOutWhatTheConfigHides(t *testing.T) {
 	cfg := config.Defaults()
 	font := treetest.Font(t)

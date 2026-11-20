@@ -126,20 +126,19 @@ func Sample(cfg *config.Config, font render.Font, item config.BarItem, on compos
 // SampleWorkspaces is the workspace strip under cfg as compositor on
 // reads it, holding sample workspaces: the active one named and holding
 // two windows, one more holding a window, and an empty last one; mango
-// shows them as its tags.
+// shows them as its tags, and Hyprland numbers them as the workspaces
+// bound to a second monitor.
 func SampleWorkspaces(cfg *config.Config, font render.Font, on compositor.Kind) *WorkspaceStrip {
 	c := cfg.Workspaces.View(on)
-	flavor := FlavorWorkspaces
-	if on == compositor.Mango {
-		flavor = FlavorTags
-	}
 	strip := NewWorkspaceStrip(cfg, c, "", nil, WorkspaceFace(font), WorkspaceHandlers{})
-	windows := []WorkspaceWindow{
-		{ID: 1, Workspace: 1, HasWorkspace: true, Icon: c.AppIconsFallback},
-		{ID: 2, Workspace: 1, HasWorkspace: true, Icon: c.AppIconsFallback},
-		{ID: 3, Workspace: 2, HasWorkspace: true, Icon: c.AppIconsFallback},
+	switch on {
+	case compositor.Mango:
+		strip.Set(WorkspaceButtons(FlavorTags, sampleWorkspaces, sampleWindows(c, 0), c, "", strip.Vertical(), false))
+	case compositor.Hyprland:
+		strip.Set(sampleHyprland(cfg.Workspaces, c, strip.Vertical()))
+	default:
+		strip.Set(WorkspaceButtons(FlavorWorkspaces, sampleWorkspaces, sampleWindows(c, 0), c, "", strip.Vertical(), false))
 	}
-	strip.Set(WorkspaceButtons(flavor, sampleWorkspaces, windows, c, "", strip.Vertical(), false))
 	return strip
 }
 
@@ -147,6 +146,37 @@ var sampleWorkspaces = []Workspace{
 	{ID: 1, Num: 1, Name: "web", HasName: true, HasOutput: true, Active: true, Focused: true, HasWindows: true},
 	{ID: 2, Num: 2, HasOutput: true, HasWindows: true},
 	{ID: 3, Num: 3, HasOutput: true},
+}
+
+func sampleWindows(c config.CompositorWorkspacesConfig, shift uint64) []WorkspaceWindow {
+	return []WorkspaceWindow{
+		{ID: 1, Workspace: 1 + shift, HasWorkspace: true, Icon: c.AppIconsFallback},
+		{ID: 2, Workspace: 1 + shift, HasWorkspace: true, Icon: c.AppIconsFallback},
+		{ID: 3, Workspace: 2 + shift, HasWorkspace: true, Icon: c.AppIconsFallback},
+	}
+}
+
+const (
+	sampleHyprMonitor = "DP-2"
+	sampleHyprShift   = 3
+)
+
+func sampleHyprland(workspaces config.WorkspacesConfig, c config.CompositorWorkspacesConfig, vertical bool) []WorkspaceButton {
+	shifted := make([]Workspace, len(sampleWorkspaces))
+	rules := make(map[int]string, len(sampleWorkspaces))
+	for i, ws := range sampleWorkspaces {
+		ws.ID += sampleHyprShift
+		ws.Num += sampleHyprShift
+		ws.Output = sampleHyprMonitor
+		shifted[i] = ws
+		rules[ws.Num] = sampleHyprMonitor
+	}
+	buttons := WorkspaceButtons(FlavorHyprland, shifted, sampleWindows(c, sampleHyprShift), c, sampleHyprMonitor, vertical, false)
+	numbering := NewHyprNumbering(workspaces, sampleHyprMonitor, rules)
+	for i, b := range buttons {
+		buttons[i].Label, buttons[i].HasLabel = numbering.Label(b.WS.Num, b.WS.Name), true
+	}
+	return buttons
 }
 
 var sampleTime = time.Date(2026, time.March, 14, 9, 41, 0, 0, time.UTC)

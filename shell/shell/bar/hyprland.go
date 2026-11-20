@@ -122,45 +122,6 @@ func hyprIncludeActivePlaceholder(all []hyprland.Workspace, f hyprFilter) bool {
 	return !found || monitor == f.barMonitor
 }
 
-// hyprMonitorWorkspaces is the positive
-// rule ids bound to one monitor.
-func hyprMonitorWorkspaces(barMonitor string, rules map[int]string) []int {
-	var out []int
-	for id, monitor := range rules {
-		if monitor == barMonitor && id > 0 {
-			out = append(out, id)
-		}
-	}
-	sort.Ints(out)
-	return out
-}
-
-func hyprDisplayID(id int, numbering config.Numbering, barMonitor string, monitorWorkspaces []int) int {
-	if numbering != config.NumberingRelative || id <= 0 || barMonitor == "" || len(monitorWorkspaces) == 0 {
-		return id
-	}
-	for pos, wsID := range monitorWorkspaces {
-		if wsID == id {
-			return pos + 1
-		}
-	}
-	return id
-}
-
-// hyprLabel is a workspace's label, except for special workspaces:
-// Hyprland numbers those -99 upward in creation order, an id nobody
-// chose or recognizes, so a scratchpad shows its name ("special:magic"
-// as "magic") instead.
-func hyprLabel(displayID, id int, name string, useName bool) string {
-	if special, ok := strings.CutPrefix(name, "special:"); ok && id < 0 && special != "" {
-		return special
-	}
-	if useName && name != "" && name != strconv.Itoa(id) {
-		return name
-	}
-	return strconv.Itoa(displayID)
-}
-
 func hyprState(active, activeAnyMonitor bool, windows int) string {
 	switch {
 	case active:
@@ -502,7 +463,7 @@ func (m *hyprlandWorkspaces) rebuild() {
 // render is the button pass shared by a rebuild and an active change:
 // states and urgency over the current filter.
 func (m *hyprlandWorkspaces) render() {
-	monitorWorkspaces := hyprMonitorWorkspaces(m.ctx.Connector, m.rules)
+	numbering := barview.NewHyprNumbering(m.hcfg, m.ctx.Connector, m.rules)
 	perIcon := m.cfg.AppIconsShow && m.cfg.UrgentMode == config.UrgentApplication
 	windows := map[int]int{}
 	for _, ws := range m.workspaces {
@@ -522,17 +483,10 @@ func (m *hyprlandWorkspaces) render() {
 				Active: ws.id == m.activeID, HasWindows: windows[ws.id] > 0,
 			},
 		}
-		style, styled := m.cfg.WorkspaceMap[strconv.Itoa(ws.id)]
-		if styled && style.Icon != nil {
+		if style, styled := m.cfg.WorkspaceMap[strconv.Itoa(ws.id)]; styled && style.Icon != nil {
 			model.Icon = *style.Icon
 		}
-		if styled && style.Label != nil {
-			model.Label = *style.Label
-		} else {
-			display := hyprDisplayID(ws.id, m.hcfg.Numbering, m.ctx.Connector, monitorWorkspaces)
-			model.Label = hyprLabel(display, ws.id, ws.name, m.hcfg.LabelUseName)
-		}
-		model.HasLabel = true
+		model.Label, model.HasLabel = numbering.Label(ws.id, ws.name), true
 		if m.cfg.AppIconsShow {
 			model.AppIcons = hyprWorkspaceIcons(ws.id, m.clients, m.cfg, urgentAddrs)
 		}

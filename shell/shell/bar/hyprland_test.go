@@ -137,24 +137,7 @@ func TestHyprFilterWorkspaces(t *testing.T) {
 
 func containsInt(list []int, v int) bool { return slices.Contains(list, v) }
 
-func TestHyprRelativeNumberingAndNavigation(t *testing.T) {
-	rules := map[int]string{5: "DP-1", 3: "DP-1", 7: "DP-2", -1: "DP-1"}
-	monWS := hyprMonitorWorkspaces("DP-1", rules)
-	if !reflect.DeepEqual(monWS, []int{3, 5}) {
-		t.Fatalf("monitor workspaces = %v, want sorted positives", monWS)
-	}
-	if got := hyprDisplayID(5, config.NumberingRelative, "DP-1", monWS); got != 2 {
-		t.Errorf("relative 5 = %d, want 2", got)
-	}
-	if got := hyprDisplayID(10, config.NumberingRelative, "DP-1", monWS); got != 10 {
-		t.Errorf("unruled 10 = %d, want its id", got)
-	}
-	if got := hyprDisplayID(5, config.NumberingAbsolute, "DP-1", monWS); got != 5 {
-		t.Errorf("absolute = %d", got)
-	}
-	if got := hyprDisplayID(5, config.NumberingRelative, "", monWS); got != 5 {
-		t.Errorf("no bar monitor = %d", got)
-	}
+func TestHyprNavigation(t *testing.T) {
 	for _, tc := range [][4]int{{4, 1, 5, 0}, {0, -1, 5, 4}, {2, 1, 5, 3}, {2, -1, 5, 1}} {
 		if got := hyprNavigate(tc[0], tc[1], tc[2]); got != tc[3] {
 			t.Errorf("navigate(%d,%d,%d) = %d, want %d", tc[0], tc[1], tc[2], got, tc[3])
@@ -162,24 +145,7 @@ func TestHyprRelativeNumberingAndNavigation(t *testing.T) {
 	}
 }
 
-func TestHyprLabelsAndClasses(t *testing.T) {
-	if got := hyprLabel(2, 5, "5", true); got != "2" {
-		t.Errorf("default name with use-name = %q, want the display id", got)
-	}
-	if got := hyprLabel(5, 5, "web", true); got != "web" {
-		t.Errorf("custom name = %q", got)
-	}
-	if got := hyprLabel(5, 5, "web", false); got != "5" {
-		t.Errorf("use-name off = %q", got)
-	}
-	for _, useName := range []bool{false, true} {
-		if got := hyprLabel(-98, -98, "special:magic", useName); got != "magic" {
-			t.Errorf("special (use-name %v) = %q, want its name, not Hyprland's arbitrary id", useName, got)
-		}
-	}
-	if got := hyprLabel(-99, -99, "special", false); got != "-99" {
-		t.Errorf("an unnamed special workspace = %q, want the id it has no name for", got)
-	}
+func TestHyprClassesAndStates(t *testing.T) {
 	if barview.HyprIDClass(-98) != "workspace-id-neg98" || barview.HyprIDClass(3) != "workspace-id-3" {
 		t.Error("id classes wrong")
 	}
