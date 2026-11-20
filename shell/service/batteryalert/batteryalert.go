@@ -104,3 +104,29 @@ func (a SaverAt) warning() upower.WarningLevel {
 	}
 	return upower.WarningCritical
 }
+
+// OfferAt is the charge, in percent, at which a battery discharging is
+// offered Low Power, the power-saver profile, as iOS offers it at 20%.
+const OfferAt = 20
+
+// Offer remembers whether Low Power was offered since the last unplug.
+type Offer struct{ Made bool }
+
+// Step is the offer after cur, and whether to make it now: once per
+// discharge, at or below OfferAt, while active, which reads the current
+// profile only when it is asked, says the profile is not power-saver
+// already. ok false from active means there is no profile to switch.
+// Plugging in re-arms it for the next unplug.
+func (o Offer) Step(cur Reading, active func() (profile string, ok bool)) (Offer, bool) {
+	switch {
+	case cur.OnAC():
+		return Offer{}, false
+	case o.Made, cur.State != upower.StateDischarging, cur.Percentage > OfferAt:
+		return o, false
+	}
+	profile, ok := active()
+	if !ok || profile == powerprofiles.ProfilePowerSaver {
+		return o, false
+	}
+	return Offer{Made: true}, true
+}

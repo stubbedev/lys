@@ -2,9 +2,11 @@ package batteryalert_test
 
 import (
 	"context"
+	"fmt"
 	"slices"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/powerprofiles"
@@ -14,6 +16,7 @@ import (
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/waittest"
 
+	"github.com/stubbedev/lys/shell/internal/desktopnotify"
 	"github.com/stubbedev/lys/shell/service/batteryalert"
 )
 
@@ -25,8 +28,29 @@ const (
 type sent struct{ summary, body, icon string }
 
 type fakeNotifier struct {
-	mu   sync.Mutex
-	sent []sent
+	mu     sync.Mutex
+	sent   []sent
+	asked  []sent
+	answer string
+}
+
+func (f *fakeNotifier) Ask(_ context.Context, _, summary, body, icon string, actions []desktopnotify.Action, _ time.Duration) (string, bool, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.asked = append(f.asked, sent{summary, body, icon})
+	if f.answer == "" {
+		return "", false, nil
+	}
+	if !slices.ContainsFunc(actions, func(a desktopnotify.Action) bool { return a.Key == f.answer }) {
+		return "", false, fmt.Errorf("pressed %q, which the notification has no button for", f.answer)
+	}
+	return f.answer, true, nil
+}
+
+func (f *fakeNotifier) asks() []sent {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return slices.Clone(f.asked)
 }
 
 func (f *fakeNotifier) SendCritical(_ context.Context, _, summary, body, icon string) (uint32, error) {
@@ -81,8 +105,13 @@ type rig struct {
 
 func start(t *testing.T, display map[string]dbus.Variant, cfg batteryalert.Config) *rig {
 	t.Helper()
+	return startPressing(t, display, cfg, "")
+}
+
+func startPressing(t *testing.T, display map[string]dbus.Variant, cfg batteryalert.Config, press string) *rig {
+	t.Helper()
 	bus := dbustest.Start(t)
-	r := &rig{t: t, notifier: &fakeNotifier{}, profiles: &fakeProfiles{active: powerprofiles.ProfilePerformance}}
+	r := &rig{t: t, notifier: &fakeNotifier{answer: press}, profiles: &fakeProfiles{active: powerprofiles.ProfilePerformance}}
 	r.fake = upowertest.Serve(t, bus.Conn(t), display)
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
@@ -208,5 +237,60 @@ func TestAutoSaverNeverSwitches(t *testing.T) {
 	r.waitReads(displayPath, 4)
 	if got := r.profiles.switches(); len(got) != 0 {
 		t.Errorf("auto-saver-at never switched to %v", got)
+	}
+}
+
+func offered(pct string) sent {
+	return sent{i18n.T("battery-offer-low-power"), i18n.T("battery-offer-low-power-body", i18n.Str("percent", pct)), "ld-battery-low-symbolic"}
+}
+
+func TestLowPowerIsOfferedAtTwentyPercentAndTurnedOnByItsButton(t *testing.T) {
+	r := startPressing(t, upowertest.Battery(30, upower.StateDischarging, upower.WarningNone), batteryalert.Config{Notify: true}, "low-power")
+	r.fake.SetDisplay(upowertest.Battery(20, upower.StateDischarging, upower.WarningNone))
+	r.waitFor("Low Power switched on", func() bool { return len(r.profiles.switches()) == 1 })
+	if got, want := r.profiles.switches(), []string{powerprofiles.ProfilePowerSaver}; !slices.Equal(got, want) {
+		t.Errorf("switches = %v, want %v", got, want)
+	}
+	if got, want := r.notifier.asks(), []sent{offered("20")}; !slices.Equal(got, want) {
+		t.Errorf("offers = %+v, want %+v", got, want)
+	}
+}
+
+func TestLowPowerDismissedIsNotOfferedAgainUntilTheNextUnplug(t *testing.T) {
+	r := start(t, upowertest.Battery(30, upower.StateDischarging, upower.WarningNone), batteryalert.Config{Notify: true})
+	steps := []struct {
+		props  map[string]dbus.Variant
+		offers int
+	}{
+		{upowertest.Battery(20, upower.StateDischarging, upower.WarningNone), 1},
+		{upowertest.Battery(19, upower.StateDischarging, upower.WarningNone), 1},
+		{upowertest.Battery(19, upower.StateCharging, upower.WarningNone), 1},
+		{upowertest.Battery(19, upower.StateDischarging, upower.WarningNone), 2},
+	}
+	for i, s := range steps {
+		r.fake.SetDisplay(s.props)
+		r.waitReads(displayPath, i+2)
+		r.waitFor("the offers", func() bool { return len(r.notifier.asks()) >= s.offers })
+	}
+	if got, want := r.notifier.asks(), []sent{offered("20"), offered("19")}; !slices.Equal(got, want) {
+		t.Errorf("offers = %+v, want %+v", got, want)
+	}
+	if got := r.profiles.switches(); len(got) != 0 {
+		t.Errorf("a dismissed offer switched the profile to %v", got)
+	}
+}
+
+func TestLowPowerIsNotOfferedUnderPowerSaverOrWithNotificationsOff(t *testing.T) {
+	r := start(t, upowertest.Battery(30, upower.StateDischarging, upower.WarningNone), batteryalert.Config{Notify: true})
+	if err := r.profiles.SetActive(context.Background(), powerprofiles.ProfilePowerSaver); err != nil {
+		t.Fatal(err)
+	}
+	r.fake.SetDisplay(upowertest.Battery(15, upower.StateDischarging, upower.WarningNone))
+	r.waitReads(displayPath, 2)
+	quiet := start(t, upowertest.Battery(30, upower.StateDischarging, upower.WarningNone), batteryalert.Config{})
+	quiet.fake.SetDisplay(upowertest.Battery(15, upower.StateDischarging, upower.WarningNone))
+	quiet.waitReads(displayPath, 2)
+	if got := append(r.notifier.asks(), quiet.notifier.asks()...); len(got) != 0 {
+		t.Errorf("offered Low Power %+v under power-saver or with notify-low off", got)
 	}
 }

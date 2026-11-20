@@ -51,6 +51,9 @@ battery-alert-charged = Accu opgeladen
 battery-alert-charged-body = Opgeladen tot { $percent }%, je kunt de lader loskoppelen
 battery-alert-device-low = Accu van { $device } bijna leeg
 battery-alert-device-critical = Accu van { $device } kritiek laag
+battery-offer-low-power = Energiebesparing inschakelen?
+battery-offer-low-power-body = Nog { $percent }%. Energiebesparing verlaagt de verversingssnelheid, dimt het scherm iets en vraagt minder vaak gegevens op tot je de lader aansluit.
+battery-offer-low-power-action = Inschakelen
 
 battery-device-generic = Apparaat
 battery-device-mouse = Muis

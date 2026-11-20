@@ -1365,7 +1365,7 @@
         "notify-low": {
           "$ref": "#/$defs/boolean",
           "default": true,
-          "description": "Send a critical notification when the battery, or a peripheral UPower\nreports such as a wireless mouse, enters UPower's low or critical\nwarning level.\n\nThe levels follow UPower's `PercentageLow` and `PercentageCritical`.\nEach level notifies once; plugging in and unplugging again re-arms them."
+          "description": "Send a critical notification when the battery, or a peripheral UPower\nreports such as a wireless mouse, enters UPower's low or critical\nwarning level.\n\nThe levels follow UPower's `PercentageLow` and `PercentageCritical`.\nEach level notifies once; plugging in and unplugging again re-arms them.\nAt 20% on battery it also offers Low Power (the power-saver profile)\nwith a button that turns it on, once until the next unplug, and never\nwhile power-saver is already on."
         },
         "right-click": {
           "$ref": "#/$defs/ClickAction",

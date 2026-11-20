@@ -64,6 +64,9 @@ type BatteryConfig struct {
 	//
 	// The levels follow UPower's `PercentageLow` and `PercentageCritical`.
 	// Each level notifies once; plugging in and unplugging again re-arms them.
+	// At 20% on battery it also offers Low Power (the power-saver profile)
+	// with a button that turns it on, once until the next unplug, and never
+	// while power-saver is already on.
 	NotifyLow bool `cfg:"notify-low"`
 	// Notify once when the charging battery reaches this percentage. Set to
 	// 0 to disable.

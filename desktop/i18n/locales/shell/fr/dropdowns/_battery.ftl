@@ -62,6 +62,9 @@ battery-alert-charged = Batterie chargée
 battery-alert-charged-body = Chargée à { $percent } %, vous pouvez débrancher le chargeur
 battery-alert-device-low = Batterie faible : { $device }
 battery-alert-device-critical = Batterie très faible : { $device }
+battery-offer-low-power = Activer le mode économie d’énergie ?
+battery-offer-low-power-body = { $percent } % restants. Le mode économie d’énergie réduit la fréquence de rafraîchissement, assombrit légèrement l’écran et interroge moins souvent jusqu’au branchement du chargeur.
+battery-offer-low-power-action = Activer
 
 ## Peripheral Kinds
 battery-device-generic = Appareil

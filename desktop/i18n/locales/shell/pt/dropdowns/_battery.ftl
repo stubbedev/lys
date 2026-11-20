@@ -51,6 +51,9 @@ battery-alert-charged = Bateria carregada
 battery-alert-charged-body = Carregada a { $percent }%, pode desligar o carregador
 battery-alert-device-low = Bateria fraca: { $device }
 battery-alert-device-critical = Bateria criticamente fraca: { $device }
+battery-offer-low-power = Ativar o modo de poupança de energia?
+battery-offer-low-power-body = { $percent }% restantes. O modo de poupança de energia reduz a taxa de atualização, escurece ligeiramente o ecrã e consulta com menos frequência até ligar o carregador.
+battery-offer-low-power-action = Ativar
 
 battery-device-generic = Dispositivo
 battery-device-mouse = Rato

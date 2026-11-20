@@ -6,13 +6,17 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"slices"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/powerprofiles"
 	"github.com/stubbedev/lys/desktop/service/upower"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+
+	"github.com/stubbedev/lys/shell/internal/desktopnotify"
 )
 
 // Config is what the watcher reads from the user's configuration on
@@ -23,11 +27,18 @@ type Config struct {
 	SaverAt   SaverAt
 }
 
-// Notifier posts a critical notification; desktopnotify's Sender is
-// one.
+// Notifier posts a critical notification, and a notification with
+// buttons whose answer it waits for; desktopnotify's Sender is one.
 type Notifier interface {
 	SendCritical(ctx context.Context, appName, summary, body, appIcon string) (uint32, error)
+	Ask(ctx context.Context, appName, summary, body, appIcon string, actions []desktopnotify.Action, timeout time.Duration) (key string, ok bool, err error)
 }
+
+// lowPowerAction is the Low Power offer's button.
+const lowPowerAction = "low-power"
+
+// offerExpiry leaves the offer's lifetime to the notification daemon.
+const offerExpiry = -time.Millisecond
 
 // callTimeout bounds each D-Bus round trip one change causes.
 const callTimeout = 5 * time.Second
@@ -43,11 +54,14 @@ type watcher struct {
 	display     Reading
 	peripherals map[dbus.ObjectPath]Reading
 	saver       Saver
+	offer       Offer
+	asking      sync.WaitGroup
 }
 
 // Watch follows the battery and the peripherals until ctx ends: each
 // PropertiesChanged, DeviceAdded and DeviceRemoved is read and stepped
-// through Next and the saver. Nothing runs between signals. profiles
+// through Next, the saver and the Low Power offer. Nothing runs between
+// signals but an offer waiting for its answer. profiles
 // may be nil, which leaves the power profile alone.
 func Watch(ctx context.Context, battery upower.Source, profiles powerprofiles.Source, notifier Notifier, config func() Config) error {
 	displayTicks, stopDisplay, err := battery.Subscribe(ctx)
@@ -60,6 +74,7 @@ func Watch(ctx context.Context, battery upower.Source, profiles powerprofiles.So
 	}
 	w := &watcher{battery: battery, profiles: profiles, notifier: notifier, config: config, peripherals: map[dbus.ObjectPath]Reading{}}
 	go func() {
+		defer w.asking.Wait()
 		defer stopping("the battery", stopDisplay)
 		defer stopping("the peripherals", stopPeripherals)
 		w.readDisplay(ctx)
@@ -109,6 +124,45 @@ func (w *watcher) readDisplay(ctx context.Context) {
 	}
 	w.display = cur
 	w.stepSaver(call, cfg.SaverAt, cur)
+	w.stepOffer(ctx, call, cfg.Notify, cur)
+}
+
+func (w *watcher) stepOffer(life, call context.Context, notify bool, cur Reading) {
+	next, offer := w.offer.Step(cur, func() (string, bool) {
+		if !notify || w.profiles == nil {
+			return "", false
+		}
+		snap, err := w.profiles.Read(call)
+		if err != nil {
+			log.Printf("battery alerts: power profile: %v", err)
+			return "", false
+		}
+		if !snap.Available || !slices.Contains(snap.Profiles, powerprofiles.ProfilePowerSaver) {
+			return "", false
+		}
+		return snap.Active, true
+	})
+	w.offer = next
+	if offer {
+		w.asking.Go(func() { w.offerLowPower(life, cur) })
+	}
+}
+
+func (w *watcher) offerLowPower(ctx context.Context, cur Reading) {
+	actions := []desktopnotify.Action{{Key: lowPowerAction, Label: i18n.T("battery-offer-low-power-action")}}
+	key, pressed, err := w.notifier.Ask(ctx, appName, i18n.T("battery-offer-low-power"), i18n.T("battery-offer-low-power-body", percentArg(cur)), "ld-battery-low-symbolic", actions, offerExpiry)
+	if err != nil {
+		log.Printf("battery alerts: offer Low Power: %v", err)
+		return
+	}
+	if !pressed || key != lowPowerAction {
+		return
+	}
+	call, cancel := context.WithTimeout(ctx, callTimeout)
+	defer cancel()
+	if err := w.profiles.SetActive(call, powerprofiles.ProfilePowerSaver); err != nil {
+		log.Printf("battery alerts: switch to the %s profile: %v", powerprofiles.ProfilePowerSaver, err)
+	}
 }
 
 func (w *watcher) stepSaver(ctx context.Context, at SaverAt, cur Reading) {

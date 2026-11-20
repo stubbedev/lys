@@ -62,6 +62,9 @@ battery-alert-charged = Battery charged
 battery-alert-charged-body = Charged to { $percent }%, you can unplug the charger
 battery-alert-device-low = { $device } battery low
 battery-alert-device-critical = { $device } battery critically low
+battery-offer-low-power = Turn on Low Power?
+battery-offer-low-power-body = { $percent }% remaining. Low Power lowers the refresh rate, dims the display slightly and polls less until you plug in.
+battery-offer-low-power-action = Turn On
 
 ## Peripheral Kinds
 battery-device-generic = Device

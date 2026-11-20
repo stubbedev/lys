@@ -2995,7 +2995,8 @@
       "desktop/i18n",
       "desktop/service/powerprofiles",
       "desktop/service/upower",
-      "lib/third_party/godbus"
+      "lib/third_party/godbus",
+      "shell/internal/desktopnotify"
     ],
     "testImports": [
       "desktop/service/upower/upowertest",

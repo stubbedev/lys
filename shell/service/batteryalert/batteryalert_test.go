@@ -126,3 +126,52 @@ func TestSaverSwitchesAtItsLevelAndRestoresOnAC(t *testing.T) {
 		})
 	}
 }
+
+func TestLowPowerIsOfferedOncePerUnplugAtTwentyPercent(t *testing.T) {
+	type step struct {
+		cur    Reading
+		active string
+		offer  bool
+	}
+	for _, tc := range []struct {
+		name  string
+		steps []step
+	}{
+		{"once at twenty, again after the next unplug", []step{
+			{discharging(25, upower.WarningNone), powerprofiles.ProfileBalanced, false},
+			{discharging(20, upower.WarningNone), powerprofiles.ProfileBalanced, true},
+			{discharging(15, upower.WarningNone), powerprofiles.ProfileBalanced, false},
+			{discharging(9, upower.WarningLow), powerprofiles.ProfileBalanced, false},
+			{charging(9), powerprofiles.ProfileBalanced, false},
+			{discharging(9, upower.WarningLow), powerprofiles.ProfileBalanced, true},
+		}},
+		{"not while power-saver is on, then once it is turned off", []step{
+			{discharging(18, upower.WarningNone), powerprofiles.ProfilePowerSaver, false},
+			{discharging(17, upower.WarningNone), powerprofiles.ProfilePerformance, true},
+		}},
+		{"never on AC or in an unknown state", []step{
+			{charging(10), powerprofiles.ProfileBalanced, false},
+			{Reading{Percentage: 10, State: upower.StateFullyCharged}, powerprofiles.ProfileBalanced, false},
+			{Reading{Percentage: 15, State: upower.StateUnknown}, powerprofiles.ProfileBalanced, false},
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var o Offer
+			for i, st := range tc.steps {
+				next, offer := o.Step(st.cur, func() (string, bool) { return st.active, true })
+				if offer != st.offer {
+					t.Errorf("step %d: offer %v, want %v", i, offer, st.offer)
+				}
+				o = next
+			}
+		})
+	}
+	var o Offer
+	if _, offer := o.Step(discharging(10, upower.WarningLow), func() (string, bool) { return "", false }); offer {
+		t.Error("offered Low Power without a power profile to switch")
+	}
+	asked := false
+	if _, offer := o.Step(discharging(30, upower.WarningNone), func() (string, bool) { asked = true; return powerprofiles.ProfileBalanced, true }); offer || asked {
+		t.Errorf("above twenty percent: offer %v, profile read %v; want neither", offer, asked)
+	}
+}

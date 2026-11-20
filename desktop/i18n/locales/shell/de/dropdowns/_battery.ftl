@@ -62,6 +62,9 @@ battery-alert-charged = Akku geladen
 battery-alert-charged-body = Auf { $percent } % geladen, Sie können das Ladegerät trennen
 battery-alert-device-low = { $device }: Akku schwach
 battery-alert-device-critical = { $device }: Akku kritisch schwach
+battery-offer-low-power = Energiesparmodus einschalten?
+battery-offer-low-power-body = { $percent } % verbleibend. Der Energiesparmodus senkt die Bildwiederholrate, dimmt den Bildschirm leicht und fragt seltener ab, bis Sie das Ladegerät anschließen.
+battery-offer-low-power-action = Einschalten
 
 ## Peripheral Kinds
 battery-device-generic = Gerät

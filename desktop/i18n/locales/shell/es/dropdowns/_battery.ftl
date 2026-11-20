@@ -62,6 +62,9 @@ battery-alert-charged = Batería cargada
 battery-alert-charged-body = Cargada al { $percent }%, puede desenchufar el cargador
 battery-alert-device-low = Batería de { $device } baja
 battery-alert-device-critical = Batería de { $device } críticamente baja
+battery-offer-low-power = ¿Activar el modo de bajo consumo?
+battery-offer-low-power-body = Queda un { $percent }%. El modo de bajo consumo reduce la frecuencia de actualización, atenúa ligeramente la pantalla y consulta con menos frecuencia hasta que conecte el cargador.
+battery-offer-low-power-action = Activar
 
 ## Peripheral Kinds
 battery-device-generic = Dispositivo

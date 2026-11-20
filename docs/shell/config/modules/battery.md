@@ -66,6 +66,9 @@ The percentage is divided evenly among icons. With 5 icons:
 
 The levels follow UPower's `PercentageLow` and `PercentageCritical`.
 Each level notifies once; plugging in and unplugging again re-arms them.
+At 20% on battery it also offers Low Power (the power-saver profile)
+with a button that turns it on, once until the next unplug, and never
+while power-saver is already on.
 
 :::
 

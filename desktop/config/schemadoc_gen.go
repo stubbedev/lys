@@ -189,7 +189,7 @@ var schemaDocs = map[string]string{
 	"BatteryConfig.LevelIcons":                       "Icons for battery levels from empty to full.\n\nThe percentage is divided evenly among icons. With 5 icons:\n0-20% uses icons\\[0\\], 21-40% uses icons\\[1\\], etc.",
 	"BatteryConfig.MiddleClick":                      "Action on middle click.",
 	"BatteryConfig.NotifyChargedAt":                  "Notify once when the charging battery reaches this percentage. Set to\n0 to disable.",
-	"BatteryConfig.NotifyLow":                        "Send a critical notification when the battery, or a peripheral UPower\nreports such as a wireless mouse, enters UPower's low or critical\nwarning level.\n\nThe levels follow UPower's `PercentageLow` and `PercentageCritical`.\nEach level notifies once; plugging in and unplugging again re-arms them.",
+	"BatteryConfig.NotifyLow":                        "Send a critical notification when the battery, or a peripheral UPower\nreports such as a wireless mouse, enters UPower's low or critical\nwarning level.\n\nThe levels follow UPower's `PercentageLow` and `PercentageCritical`.\nEach level notifies once; plugging in and unplugging again re-arms them.\nAt 20% on battery it also offers Low Power (the power-saver profile)\nwith a button that turns it on, once until the next unplug, and never\nwhile power-saver is already on.",
 	"BatteryConfig.RightClick":                       "Action on right click.",
 	"BatteryConfig.ScrollDown":                       "Action on scroll down.",
 	"BatteryConfig.ScrollUp":                         "Action on scroll up.",

@@ -62,6 +62,9 @@ battery-alert-charged = Batteria carica
 battery-alert-charged-body = Carica al { $percent }%, puoi scollegare il caricatore
 battery-alert-device-low = Batteria di { $device } scarica
 battery-alert-device-critical = Batteria di { $device } criticamente scarica
+battery-offer-low-power = Attivare il risparmio energetico?
+battery-offer-low-power-body = { $percent }% rimanente. Il risparmio energetico riduce la frequenza di aggiornamento, attenua leggermente lo schermo e interroga meno spesso finché non colleghi il caricatore.
+battery-offer-low-power-action = Attiva
 
 ## Peripheral Kinds
 battery-device-generic = Dispositivo
