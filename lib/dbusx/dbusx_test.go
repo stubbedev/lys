@@ -2,6 +2,7 @@ package dbusx_test
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"strings"
 	"syscall"
@@ -383,5 +384,24 @@ func TestExportRefusesAnEmptyInterface(t *testing.T) {
 	_, err := dbusx.Export(dbustest.SessionConn(t), "/dev/stubbe/lys/Empty", dbusx.Interface{Name: "dev.stubbe.lys.Empty1"})
 	if err == nil || !strings.Contains(err.Error(), "dev.stubbe.lys.Empty1") {
 		t.Errorf("Export = %v, want an error naming the interface", err)
+	}
+}
+
+func TestUnownedNamesACallToANameNobodyOwns(t *testing.T) {
+	bus := dbustest.Start(t)
+	conn := bus.Conn(t)
+	err := conn.Object("org.example.Nobody", "/").Call("org.example.Nobody.Ping", 0).Err
+	if !dbusx.Unowned(fmt.Errorf("pinging: %w", err)) {
+		t.Errorf("a call to an unowned name: %v, want Unowned", err)
+	}
+	var owner string
+	err = conn.BusObject().Call("org.freedesktop.DBus.GetNameOwner", 0, "org.example.Nobody").Store(&owner)
+	if !dbusx.Unowned(err) {
+		t.Errorf("asking for an unowned name's owner: %v, want Unowned", err)
+	}
+	for _, other := range []error{nil, errors.New("closed"), dbusx.Failed("it broke")} {
+		if dbusx.Unowned(other) {
+			t.Errorf("%v is Unowned", other)
+		}
 	}
 }

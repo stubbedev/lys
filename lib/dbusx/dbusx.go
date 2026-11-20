@@ -42,6 +42,13 @@ const (
 	introspectableIface = "org.freedesktop.DBus.Introspectable"
 )
 
+// Unowned reports a call that failed because nobody owns the name it
+// was sent to.
+func Unowned(err error) bool {
+	de, ok := errors.AsType[dbus.Error](err)
+	return ok && (de.Name == ErrServiceUnknown || de.Name == errNameHasNoOwner)
+}
+
 // Failed is fdo::Error::Failed(msg).
 func Failed(msg string) *dbus.Error { return dbus.NewError(ErrFailed, []any{msg}) }
 

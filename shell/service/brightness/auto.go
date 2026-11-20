@@ -120,7 +120,7 @@ func (a *Auto) read(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, autoTimeout)
 	defer cancel()
 	state, err := a.client.State(ctx)
-	if absent(err) {
+	if dbusx.Unowned(err) {
 		a.set(ControlManual)
 		return nil
 	}
@@ -180,14 +180,8 @@ func ResumeAuto(ctx context.Context, conn *dbus.Conn) error {
 	ctx, cancel := context.WithTimeout(ctx, autoTimeout)
 	defer cancel()
 	err := autobrightness.NewClient(conn).Resume(ctx)
-	if absent(err) {
+	if dbusx.Unowned(err) {
 		return fmt.Errorf("%w: %w", ErrAutoNotRunning, err)
 	}
 	return err
-}
-
-// absent reports a call that failed because nobody owns the name.
-func absent(err error) bool {
-	de, ok := errors.AsType[dbus.Error](err)
-	return ok && (de.Name == "org.freedesktop.DBus.Error.ServiceUnknown" || de.Name == "org.freedesktop.DBus.Error.NameHasNoOwner")
 }

@@ -93,7 +93,7 @@ func (a *Apps) refresh(ctx context.Context) {
 	defer cancel()
 	var raw []map[string]dbus.Variant
 	err := a.conn.Object(BusName, Path).CallWithContext(ctx, "org.freedesktop.DBus.Properties.Get", 0, Interface, Property).Store(&raw)
-	absent := isAbsent(err)
+	absent := dbusx.Unowned(err)
 	if err != nil && !absent && ctx.Err() == nil {
 		log.Printf("background apps: read %s: %v", Property, err)
 	}
@@ -109,12 +109,6 @@ func (a *Apps) refresh(ctx context.Context) {
 	if !same {
 		a.changes.Publish(struct{}{})
 	}
-}
-
-// isAbsent reports a call that failed because nobody owns the name.
-func isAbsent(err error) bool {
-	var de dbus.Error
-	return errors.As(err, &de) && (de.Name == "org.freedesktop.DBus.Error.ServiceUnknown" || de.Name == "org.freedesktop.DBus.Error.NameHasNoOwner")
 }
 
 // parse reads the monitor's entries, skipping (and logging) one without
