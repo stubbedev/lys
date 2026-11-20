@@ -66,12 +66,12 @@ func itemTime(unix uint64, zone *time.Location) string {
 	return time.Unix(intconv.Must[int64](unix), 0).In(zone).Format(itemTimeLayout)
 }
 
-func keyringItemText(it client.Item) string {
-	parts := []string{strings.ToLower(it.Label)}
+func keyringItemTexts(it client.Item) []string {
+	texts := []string{it.Label}
 	for _, k := range slices.Sorted(maps.Keys(it.Attributes)) {
-		parts = append(parts, strings.ToLower(it.Attributes[k]))
+		texts = append(texts, it.Attributes[k])
 	}
-	return strings.Join(parts, " ")
+	return texts
 }
 
 var openKeyring = func(ctx context.Context) (*client.Client, func(), error) {
@@ -342,11 +342,10 @@ func (p *passwordsPanel) showItems() {
 		p.list.Append(w)
 		p.rows = append(p.rows, w)
 	}
-	words := strings.Fields(strings.ToLower(p.filter.Text()))
+	filter := newWordFilter(p.filter.Text())
 	expandedShown := false
 	for _, it := range p.items {
-		text := keyringItemText(it)
-		if slices.ContainsFunc(words, func(w string) bool { return !strings.Contains(text, w) }) {
+		if !filter.matches(keyringItemTexts(it)...) {
 			continue
 		}
 		add(p.itemRow(it))

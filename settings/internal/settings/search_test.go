@@ -312,3 +312,22 @@ func TestAPanelControlIsFoundAndOpensItsPage(t *testing.T) {
 		t.Errorf("the time zone link opened %q", w.pageID)
 	}
 }
+
+func TestAWordFilterMatchesWhenEveryWordIsInOneOfTheTexts(t *testing.T) {
+	for _, c := range []struct {
+		query string
+		texts []string
+		want  bool
+	}{
+		{"", []string{"anything"}, true},
+		{"pdf", []string{"application/pdf", "PDF document"}, true},
+		{"PDF Doc", []string{"application/pdf", "PDF document"}, true},
+		{"pdf odt", []string{"application/pdf", "PDF document"}, false},
+		{"tionPDF", []string{"application", "PDF"}, false},
+		{"x", nil, false},
+	} {
+		if got := newWordFilter(c.query).matches(c.texts...); got != c.want {
+			t.Errorf("%q over %q matches %v, want %v", c.query, c.texts, got, c.want)
+		}
+	}
+}

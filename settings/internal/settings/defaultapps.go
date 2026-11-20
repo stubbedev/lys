@@ -204,15 +204,13 @@ func (d *defaultApps) show(ix appIndex) {
 
 func (d *defaultApps) showTypes() {
 	d.types.Clear()
-	words := strings.Fields(strings.ToLower(d.filter.Text()))
+	filter := newWordFilter(d.filter.Text())
 	rows := widget.NewItemGroup()
 	d.types.Append(rows, false)
 	shown := 0
 	for _, mimeType := range d.ix.types {
 		name := d.ix.names[mimeType]
-		if slices.ContainsFunc(words, func(w string) bool {
-			return !strings.Contains(mimeType, w) && !strings.Contains(strings.ToLower(name), w)
-		}) {
+		if !filter.matches(mimeType, name) {
 			continue
 		}
 		if shown == fileTypesShown {

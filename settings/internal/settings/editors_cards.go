@@ -412,14 +412,13 @@ func (c *cardList) applyFilter() {
 		return
 	}
 	c.filter.SetVisible(len(c.cards) > 0)
-	words := strings.Fields(strings.ToLower(c.filter.Text()))
+	filter := newWordFilter(c.filter.Text())
 	search := itemText
 	if c.spec.search != nil {
 		search = func(v any) string { m, _ := v.(map[string]any); return c.spec.search(m) }
 	}
 	for i, cd := range c.cards {
-		text := strings.ToLower(search(c.local[i]))
-		cd.root.SetVisible(!slices.ContainsFunc(words, func(w string) bool { return !strings.Contains(text, w) }))
+		cd.root.SetVisible(filter.matches(search(c.local[i])))
 	}
 	c.showGroups()
 }

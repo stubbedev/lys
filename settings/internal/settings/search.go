@@ -109,11 +109,20 @@ func settingIndex(sections []navSection) []settingEntry {
 	return out
 }
 
+type wordFilter []string
+
+func newWordFilter(query string) wordFilter { return strings.Fields(strings.ToLower(query)) }
+
+func (f wordFilter) matches(texts ...string) bool {
+	text := strings.ToLower(strings.Join(texts, "\n"))
+	return !slices.ContainsFunc(f, func(w string) bool { return !strings.Contains(text, w) })
+}
+
 // searchSettings ranks the entries every word of query matches: a word
 // matching the label fuzzily outranks one found in the page or section
 // name, which outranks one found in the description.
 func searchSettings(index []settingEntry, query string) []settingEntry {
-	words := strings.Fields(strings.ToLower(query))
+	words := newWordFilter(query)
 	if len(words) == 0 {
 		return nil
 	}
