@@ -451,6 +451,7 @@
   },
   "desktop/shell/barview": {
     "imports": [
+      "desktop/compositor",
       "desktop/config",
       "desktop/glob",
       "desktop/i18n",
@@ -461,7 +462,6 @@
       "ui/widget"
     ],
     "testImports": [
-      "desktop/compositor",
       "desktop/shell/treetest"
     ]
   },

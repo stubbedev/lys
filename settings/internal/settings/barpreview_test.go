@@ -119,12 +119,68 @@ func TestAPreviewWhoseFontDoesNotLoadSaysWhy(t *testing.T) {
 
 func TestAPreviewWritesNoConfig(t *testing.T) {
 	k := testKit(t, "")
-	for _, spec := range []pageSpec{barPage(nil), batteryPage(nil), osdPage(nil), notificationsPage(nil)} {
+	for _, spec := range []pageSpec{barPage(nil), batteryPage(nil), workspacesPage(nil), osdPage(nil), notificationsPage(nil)} {
 		p := buildPage(k, spec)
 		p.refresh()
 		p.close()
 	}
 	if got := runtimeFile(t, k); got != "" {
 		t.Errorf("building and refreshing the previews wrote %q", got)
+	}
+}
+
+func previewedWorkspaceLabels(t *testing.T, p *settingsPage) []string {
+	t.Helper()
+	strips := treetest.All[*widget.SegmentIndicator](previewedBar(t, p))
+	if len(strips) != 1 || !strips[0].HasClass("workspaces") {
+		t.Fatalf("the preview shows %d segment rows, want one workspace strip", len(strips))
+	}
+	var labels []string
+	for _, w := range treetest.WithClass(strips[0], "workspace-label") {
+		labels = append(labels, w.(*widget.Label).Text())
+	}
+	return labels
+}
+
+func TestTheWorkspacesPagePreviewsTheStripItsDraftDraws(t *testing.T) {
+	k := testKit(t, "")
+	p := buildPage(k, workspacesPage(nil))
+	before := previewedWorkspaceLabels(t, p)
+	if len(before) == 0 {
+		t.Fatal("the default strip previews no labels")
+	}
+	set(t, k, p, "modules.workspaces.workspace-map", map[string]any{"1": map[string]any{"label": "one"}})
+	if got := previewedWorkspaceLabels(t, p); len(got) != len(before) || got[0] != "one" {
+		t.Errorf("a workspace-map label for 1 previews %v, want one first", got)
+	}
+	set(t, k, p, "modules.workspaces.display-mode", "none")
+	if got := previewedWorkspaceLabels(t, p); len(got) != 0 {
+		t.Errorf("display-mode none previews labels %v", got)
+	}
+}
+
+func TestARefusedWorkspacesValueLeavesThePreviewAsItWas(t *testing.T) {
+	k := testKit(t, "")
+	p := buildPage(k, workspacesPage(nil))
+	before := previewedWorkspaceLabels(t, p)
+	if err := k.store.set("modules.workspaces.display-mode", "sideways"); err == nil {
+		t.Fatal("display-mode sideways was accepted")
+	}
+	p.refresh()
+	if got := previewedWorkspaceLabels(t, p); !slices.Equal(got, before) {
+		t.Errorf("a refused display-mode previews %v, want %v as before", got, before)
+	}
+}
+
+func TestTheBarPagePreviewsTheWorkspaceStrip(t *testing.T) {
+	k := testKit(t, "bar:\n  layout:\n    - monitor: \"*\"\n      show: true\n      left: [workspaces]\n")
+	p := buildPage(k, barPage(nil))
+	if got := previewedWorkspaceLabels(t, p); len(got) == 0 {
+		t.Error("the bar previews a workspace strip without labels")
+	}
+	for _, w := range treetest.WithClass(previewedBar(t, p), "workspaces") {
+		if _, ok := w.(*widget.SegmentIndicator); !ok || len(treetest.All[*barview.Button](w)) != 0 {
+			t.Errorf("the workspaces module previews as %T, want the strip alone", w)
+		}
 	}
 }

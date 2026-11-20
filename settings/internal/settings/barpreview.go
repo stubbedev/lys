@@ -66,7 +66,7 @@ func drawBarOnScreen(k *kit, cfg *config.Config, font render.Font) widget.Widget
 		screenH = barPreviewVerticalScreenH
 	}
 	shown := wallpaperScreen(screenH)
-	bar, ok := barview.Preview(cfg, font, barview.AllMonitors)
+	bar, ok := barview.Preview(cfg, font, barview.AllMonitors, sessionCompositor())
 	if !ok {
 		shown.AppendAligned(k.label(locale.T().Get("settings-bar-preview-none"), "settings-preview-state", css.Caption), widget.AlignCenter, widget.AlignCenter)
 		return shown
@@ -109,7 +109,7 @@ func overflowing(w widget.Widget) *widget.Scroll {
 func barItemPreview(module config.BarModule) func(k *kit) widget.Widget {
 	return func(k *kit) widget.Widget {
 		return newLivePreview(k, "settings-bar-item-preview", func(_ *kit, cfg *config.Config, font render.Font) widget.Widget {
-			return barview.SampleBar(cfg, font, config.BarLayout{Monitor: barview.AllMonitors, Show: true, Center: []config.BarItem{{Module: module}}})
+			return barview.SampleBar(cfg, font, config.BarLayout{Monitor: barview.AllMonitors, Show: true, Center: []config.BarItem{{Module: module}}}, sessionCompositor())
 		})
 	}
 }
