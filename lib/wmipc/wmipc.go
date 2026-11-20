@@ -241,6 +241,7 @@ type Window struct {
 	ID         uint64 `json:"id"`
 	AppID      string `json:"app_id"`
 	Title      string `json:"title"`
+	PID        int32  `json:"pid"`
 	Workspace  int    `json:"workspace"`
 	Output     string `json:"output"`
 	Rect       Rect   `json:"rect"`
