@@ -5,10 +5,13 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/stubbedev/lys/desktop/service/powerprofiles"
 )
 
 // pollHub is one sampler per config key across the bars, paused while the
-// session is idle or locked. A nil hub is a hub of its own for each join.
+// session is idle or locked, and what nobody waits for stretched under Low
+// Power. A nil hub is a hub of its own for each join.
 type pollHub struct {
 	mu        sync.Mutex
 	samplers  map[string]pollMember
@@ -16,6 +19,7 @@ type pollHub struct {
 	analyzers map[string]*cavaAnalyzer
 	idle      atomic.Bool
 	locked    atomic.Bool
+	lowPower  atomic.Bool
 	work      sync.WaitGroup
 }
 
@@ -74,6 +78,19 @@ func (h *pollHub) setLocked(on bool) {
 	h.resumed()
 }
 
+func (h *pollHub) setLowPower(on bool) { h.lowPower.Store(on) }
+
+// pace is how long a refresh held back by p waits for an interval of
+// every: stretched under Low Power, but never the time. A nil hub never
+// stretches.
+func (h *pollHub) pace(p pollPause, every time.Duration) time.Duration {
+	return powerprofiles.Paced(every, h != nil && p == pauseIdleOrLocked && h.lowPower.Load())
+}
+
+func (h *pollHub) pacer(p pollPause) func(time.Duration) time.Duration {
+	return func(every time.Duration) time.Duration { return h.pace(p, every) }
+}
+
 func (h *pollHub) resumed() {
 	h.mu.Lock()
 	members := make([]pollMember, 0, len(h.members))
@@ -89,15 +106,17 @@ func (h *pollHub) resumed() {
 func (h *pollHub) waitWork() { h.work.Wait() }
 
 // pollSource starts what fires a sampler until ctx ends, on goroutines
-// spawn starts, each returning once ctx has ended.
-type pollSource func(ctx context.Context, spawn func(func()), fire func()) error
+// spawn starts, each returning once ctx has ended; pace is what an
+// interval of the sampler's lasts now.
+type pollSource func(ctx context.Context, spawn func(func()), fire func(), pace func(time.Duration) time.Duration) error
 
-// pollGrid fires at once and then on the shared grid of every.
+// pollGrid fires at once and then on the shared grid of every, as paced
+// at each wait.
 func pollGrid(every time.Duration) pollSource {
-	return func(ctx context.Context, spawn func(func()), fire func()) error {
+	return func(ctx context.Context, spawn func(func()), fire func(), pace func(time.Duration) time.Duration) error {
 		spawn(func() {
 			fire()
-			timer := time.NewTimer(untilPollGrid(time.Now(), every))
+			timer := time.NewTimer(untilPollGrid(time.Now(), pace(every)))
 			defer timer.Stop()
 			for {
 				select {
@@ -106,7 +125,7 @@ func pollGrid(every time.Duration) pollSource {
 				case <-timer.C:
 				}
 				fire()
-				timer.Reset(untilPollGrid(time.Now(), every))
+				timer.Reset(untilPollGrid(time.Now(), pace(every)))
 			}
 		})
 		return nil
@@ -182,7 +201,7 @@ func joinSampler[T any](ctx context.Context, h *pollHub, spec samplerSpec[T], de
 	}
 	life, cancel := context.WithCancel(context.Background())
 	s.cancel = cancel
-	if err := spec.source(life, h.work.Go, s.fire); err != nil {
+	if err := spec.source(life, h.work.Go, s.fire, h.pacer(spec.pause)); err != nil {
 		cancel()
 		s.leave(&deliver)
 		return err

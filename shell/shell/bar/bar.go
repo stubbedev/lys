@@ -562,6 +562,9 @@ func (s *shellStart) mount() {
 	polls := newPollHub()
 	s.polls = polls
 	baseCtx.Polls = polls
+	if s.ctx.PowerProfiles != nil {
+		s.down.add(followLowPower(s.ctx.PowerProfiles, polls.setLowPower, s.weatherSvc.SetLowPower))
+	}
 	if application.IdleNotifyAvailable() {
 		stopIdle, err := application.OnIdle(pollIdleAfter, func() { polls.setIdle(true) }, func() { polls.setIdle(false) })
 		if err != nil {

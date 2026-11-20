@@ -5,10 +5,12 @@ import (
 	"errors"
 	"log"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/stubbedev/lys/desktop/feed"
 	"github.com/stubbedev/lys/desktop/geo"
+	"github.com/stubbedev/lys/desktop/service/powerprofiles"
 )
 
 // Settings is everything a poll depends on (the builder's fields and
@@ -52,8 +54,10 @@ type FetchFunc func(ctx context.Context, s Settings, now time.Time) (*Weather, e
 
 // Service polls the configured provider and caches the last successful
 // fetch. After the first poll it only fetches while something is
-// subscribed.
+// subscribed, and under Low Power it waits LowPowerStretch intervals.
 type Service struct {
+	lowPower atomic.Bool
+
 	mu       sync.Mutex
 	settings Settings
 	weather  *Weather
@@ -154,13 +158,24 @@ func (s *Service) Close() {
 	httpClient.CloseIdleConnections()
 }
 
-func (s *Service) poll(ctx context.Context, settings Settings) {
+// SetLowPower stretches the wait after the next poll while on.
+func (s *Service) SetLowPower(on bool) { s.lowPower.Store(on) }
+
+// defaultInterval is the poll interval of settings without one.
+const defaultInterval = 30 * time.Minute
+
+// wait is how long a poll with settings waits for the next.
+func (s *Service) wait(settings Settings) time.Duration {
 	interval := settings.Interval
 	if interval <= 0 {
-		interval = 30 * time.Minute
+		interval = defaultInterval
 	}
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
+	return powerprofiles.Paced(interval, s.lowPower.Load())
+}
+
+func (s *Service) poll(ctx context.Context, settings Settings) {
+	timer := time.NewTimer(s.wait(settings))
+	defer timer.Stop()
 	first := true
 	for {
 		if first || s.changes.Len() > 0 {
@@ -174,8 +189,9 @@ func (s *Service) poll(ctx context.Context, settings Settings) {
 		select {
 		case <-ctx.Done():
 			return
-		case <-ticker.C:
+		case <-timer.C:
 		}
+		timer.Reset(s.wait(settings))
 	}
 }
 

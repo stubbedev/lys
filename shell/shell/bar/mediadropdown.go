@@ -531,24 +531,25 @@ func (v *mediaView) buildPicker() {
 }
 
 // follow keeps the view current while open: service ticks refresh,
-// and the position polls once a second (MPRIS signals no position
-// changes).
+// and the position polls once a second, stretched under Low Power (MPRIS
+// signals no position changes).
 func (v *mediaView) follow(life context.Context) {
 	v.refresh()
 	ticks, unsubscribe := v.src.Subscribe()
 	v.pollPosition()
 	v.ctx.Go(func() {
 		defer unsubscribe()
-		ticker := time.NewTicker(mediaPositionPollEvery)
-		defer ticker.Stop()
+		timer := time.NewTimer(v.ctx.Polls.pace(pauseIdleOrLocked, mediaPositionPollEvery))
+		defer timer.Stop()
 		for {
 			select {
 			case <-life.Done():
 				return
 			case <-ticks:
 				v.ctx.Invoke(v.refresh)
-			case <-ticker.C:
+			case <-timer.C:
 				v.pollPosition()
+				timer.Reset(v.ctx.Polls.pace(pauseIdleOrLocked, mediaPositionPollEvery))
 			}
 		}
 	})

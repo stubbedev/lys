@@ -31,7 +31,8 @@ import (
 )
 
 // dashboardPoll paces what has no change signal while the dashboard is
-// open: system stats, network rates, and the media position.
+// open: system stats, network rates, and the media position, stretched
+// under Low Power.
 const dashboardPoll = time.Second
 
 const dashboardDiskPolls = 30
@@ -979,13 +980,14 @@ func (v *dashboardView) startPolling(life context.Context) {
 		v.pollMu.Lock()
 		v.diskIn = 0
 		v.pollMu.Unlock()
-		ticker := time.NewTicker(dashboardPoll)
-		defer ticker.Stop()
+		timer := time.NewTimer(v.ctx.Polls.pace(pauseIdleOrLocked, dashboardPoll))
+		defer timer.Stop()
 		for life.Err() == nil {
 			v.poll()
 			select {
 			case <-life.Done():
-			case <-ticker.C:
+			case <-timer.C:
+				timer.Reset(v.ctx.Polls.pace(pauseIdleOrLocked, dashboardPoll))
 			}
 		}
 	})

@@ -3490,7 +3490,8 @@
   "shell/service/weather": {
     "imports": [
       "desktop/feed",
-      "desktop/geo"
+      "desktop/geo",
+      "desktop/service/powerprofiles"
     ],
     "testImports": [
       "lib/waittest"

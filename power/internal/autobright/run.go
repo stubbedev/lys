@@ -70,58 +70,16 @@ func (s displaySessions) Display(ctx context.Context) (Session, error) {
 	return session, nil
 }
 
-// ppdProfile reads power-profiles-daemon's active profile at start and
-// again on each of its property changes.
+// ppdProfile is power-profiles-daemon's active profile.
 type ppdProfile struct {
 	source powerprofiles.Source
 	log    *slog.Logger
 }
 
 func (p ppdProfile) Saver(ctx context.Context) (<-chan bool, error) {
-	ticks, stop, err := p.source.Subscribe(ctx)
-	if err != nil {
-		return nil, err
-	}
-	out := make(chan bool, 1)
-	go func() {
-		defer close(out)
-		defer func() {
-			if err := stop(); err != nil {
-				p.log.Warn("stopping the power profile watch", "err", err)
-			}
-		}()
-		for {
-			saver, err := p.read(ctx)
-			if err != nil {
-				p.log.Error("reading the power profile", "err", err)
-				return
-			}
-			select {
-			case <-out:
-			default:
-			}
-			out <- saver
-			select {
-			case <-ctx.Done():
-				return
-			case _, ok := <-ticks:
-				if !ok {
-					return
-				}
-			}
-		}
-	}()
-	return out, nil
-}
-
-func (p ppdProfile) read(ctx context.Context) (bool, error) {
-	ctx, cancel := context.WithTimeout(ctx, config.BusTimeout)
-	defer cancel()
-	snap, err := p.source.Read(ctx)
-	if err != nil {
-		return false, err
-	}
-	return snap.Available && snap.Active == powerprofiles.ProfilePowerSaver, nil
+	return powerprofiles.FollowSaver(ctx, p.source, config.BusTimeout, func(err error) {
+		p.log.Error("following the power profile", "err", err)
+	})
 }
 
 func closing(what string, err error) error {

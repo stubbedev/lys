@@ -5,7 +5,9 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
+	"github.com/stubbedev/lys/desktop/service/powerprofiles"
 	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/shell/internal/apptest"
@@ -14,12 +16,13 @@ import (
 type firedByHand struct {
 	mu   sync.Mutex
 	fire func()
+	pace func(time.Duration) time.Duration
 }
 
-func (f *firedByHand) source(_ context.Context, _ func(func()), fire func()) error {
+func (f *firedByHand) source(_ context.Context, _ func(func()), fire func(), pace func(time.Duration) time.Duration) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.fire = fire
+	f.fire, f.pace = fire, pace
 	return nil
 }
 
@@ -143,5 +146,43 @@ func TestSamplerSameReadingPostsNothing(t *testing.T) {
 	src.tick(4)
 	if posted != 1 {
 		t.Errorf("%d posts for one unchanging reading, want 1", posted)
+	}
+}
+
+func TestLowPowerStretchesPollsButNeverTheTime(t *testing.T) {
+	h := testPollHub(t)
+	polls, clock := &firedByHand{}, &firedByHand{}
+	var reads, closes atomic.Int32
+	for _, j := range []struct {
+		key   string
+		pause pollPause
+		src   *firedByHand
+	}{{"cpu", pauseIdleOrLocked, polls}, {"clock", pauseLocked, clock}} {
+		if err := joinSampler(t.Context(), h, countingSpec(j.key, j.pause, j.src.source, &reads, &closes), func(int32) {}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	paced := func(src *firedByHand) time.Duration {
+		src.mu.Lock()
+		defer src.mu.Unlock()
+		return src.pace(time.Second)
+	}
+	check := func(when string, poll time.Duration) {
+		t.Helper()
+		if got := paced(polls); got != poll {
+			t.Errorf("%s a 1s poll waits %v, want %v", when, got, poll)
+		}
+		if got := paced(clock); got != time.Second {
+			t.Errorf("%s the clock's 1s waits %v, want 1s", when, got)
+		}
+	}
+	check("before Low Power", time.Second)
+	h.setLowPower(true)
+	check("under Low Power", powerprofiles.LowPowerStretch*time.Second)
+	h.setLowPower(false)
+	check("after Low Power", time.Second)
+	var none *pollHub
+	if got := none.pace(pauseIdleOrLocked, time.Second); got != time.Second {
+		t.Errorf("a nil hub paces 1s as %v", got)
 	}
 }

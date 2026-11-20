@@ -155,7 +155,7 @@ func newWorldClock(ctx ModuleContext) (Module, error) {
 	spec := samplerSpec[worldClockShown]{
 		key:   configKey("world-clock", ctx.Config),
 		pause: pauseLocked,
-		source: func(life context.Context, spawn func(func()), fire func()) error {
+		source: func(life context.Context, spawn func(func()), fire func(), _ func(time.Duration) time.Duration) error {
 			changes, stop := ctx.Clock.Changes()
 			spawn(func() { fireOnTicks(life, changes, stop, fire) })
 			spawn(func() {

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/geo"
+	"github.com/stubbedev/lys/desktop/service/powerprofiles"
 	"github.com/stubbedev/lys/lib/waittest"
 )
 
@@ -502,5 +503,24 @@ func TestANewPlaceDropsTheOldForecastButANewIntervalKeepsIt(t *testing.T) {
 	waittest.Until(t, func() bool { return svc.Status().Kind == Failed }, "the failure for B")
 	if w := svc.Weather(); w != nil {
 		t.Errorf("after moving to B, which failed, the forecast for %q is still shown", w.Location.Name())
+	}
+}
+
+func TestLowPowerStretchesTheWaitBetweenPolls(t *testing.T) {
+	svc := newService(Settings{Interval: time.Hour}, func(context.Context, Settings, time.Time) (*Weather, error) { return &Weather{}, nil }, retryDelay)
+	t.Cleanup(svc.Close)
+	if got := svc.wait(svc.settings); got != time.Hour {
+		t.Errorf("an hourly poll waits %v outside Low Power, want 1h", got)
+	}
+	svc.SetLowPower(true)
+	if got, want := svc.wait(svc.settings), powerprofiles.LowPowerStretch*time.Hour; got != want {
+		t.Errorf("an hourly poll waits %v under Low Power, want %v", got, want)
+	}
+	if got, want := svc.wait(Settings{}), powerprofiles.LowPowerStretch*defaultInterval; got != want {
+		t.Errorf("a poll without an interval waits %v under Low Power, want %v", got, want)
+	}
+	svc.SetLowPower(false)
+	if got := svc.wait(svc.settings); got != time.Hour {
+		t.Errorf("an hourly poll waits %v after Low Power, want 1h", got)
 	}
 }
