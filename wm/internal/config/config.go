@@ -166,6 +166,7 @@ type rawConfig struct {
 }
 
 type rawLayerRule struct {
+	Enabled            *bool            `yaml:"enabled"`
 	Namespace          *At[string]      `yaml:"namespace"`
 	BlockOutFrom       *At[string]      `yaml:"block_out_from"`
 	Animation          *At[rawRuleAnim] `yaml:"animation"`
@@ -658,6 +659,7 @@ func (m rawMatch) empty() bool {
 
 type rawRule struct {
 	rawMatch      `yaml:",inline"`
+	Enabled       *bool            `yaml:"enabled"`
 	Exclude       *At[rawMatch]    `yaml:"exclude"`
 	Workspace     *At[string]      `yaml:"workspace"`
 	Output        *At[string]      `yaml:"output"`
@@ -2082,7 +2084,9 @@ func ParseLayers(accent render.Color, layers ...Layer) (Config, error) {
 		}
 	}
 	for i, r := range raw.Rules {
-		cfg.Rules = append(cfg.Rules, p.rule(i, r))
+		if rule := p.rule(i, r); enabled(r.V.Enabled) {
+			cfg.Rules = append(cfg.Rules, rule)
+		}
 	}
 	env := maps.Clone(sessionEnv)
 	for _, name := range slices.Sorted(maps.Keys(raw.Env)) {
@@ -2305,6 +2309,9 @@ func (p *parser) props(r rawRule, key string) wm.Props {
 }
 
 func ParseProp(key, value string) (wm.Decision, error) {
+	if key == "enabled" {
+		return wm.Decision{}, fmt.Errorf("config: setprop %s: switches a rule in the config file, not a property of one window", key)
+	}
 	var v yaml.Node
 	if err := yaml.Unmarshal([]byte(value), &v); err != nil || len(v.Content) != 1 {
 		return wm.Decision{}, fmt.Errorf("config: setprop %s: %q is not a YAML value", key, value)
@@ -2353,9 +2360,15 @@ func (p *parser) layerRules(raw []At[rawLayerRule]) []wm.LayerRule {
 			opacity := float32(*v)
 			r.Opacity = &opacity
 		}
-		out = append(out, r)
+		if enabled(at.V.Enabled) {
+			out = append(out, r)
+		}
 	}
 	return out
+}
+
+func enabled(switched *bool) bool {
+	return switched == nil || *switched
 }
 
 func (p *parser) animation(a *At[rawRuleAnim], key string) *wm.WindowAnimation {
@@ -2376,7 +2389,7 @@ func (p *parser) animation(a *At[rawRuleAnim], key string) *wm.WindowAnimation {
 }
 
 func blursAnyLayer(rules []At[rawLayerRule]) bool {
-	return slices.ContainsFunc(rules, func(r At[rawLayerRule]) bool { return r.V.Blur != nil && *r.V.Blur })
+	return slices.ContainsFunc(rules, func(r At[rawLayerRule]) bool { return enabled(r.V.Enabled) && r.V.Blur != nil && *r.V.Blur })
 }
 
 var removedKeys = map[string]string{

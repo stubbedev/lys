@@ -3991,6 +3991,10 @@
           "dim_around": {
             "type": "boolean"
           },
+          "enabled": {
+            "type": "boolean",
+            "default": true
+          },
           "namespace": {
             "type": "string"
           },
@@ -5565,6 +5569,10 @@
           },
           "dim_inactive": {
             "type": "boolean"
+          },
+          "enabled": {
+            "type": "boolean",
+            "default": true
           },
           "exclude": {
             "type": "object",

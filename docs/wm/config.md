@@ -111,7 +111,7 @@ Some defaults depend on the renderer chosen at startup:
 | GLES on llvmpipe or softpipe, Vulkan on lavapipe or SwiftShader | No blur, the overview's included; `ext_background_effect_v1` is offered without blur |
 | Software renderer (`--renderer soft`) | Also no shadow and no animated workspace switch |
 
-Setting `decoration.blur.enabled` or a layer rule's `blur: true` takes blur
+Setting `decoration.blur.enabled` or an enabled layer rule's `blur: true` takes blur
 back on any renderer; `overview.blur`, `decoration.shadow.enabled` and
 `animations.events.workspaces` do the same for theirs.
 
@@ -820,6 +820,7 @@ earlier ones.
 | Key | Value |
 | --- | --- |
 | `namespace` | Required. Regular expression on the namespace |
+| `enabled` | `false`: the rule is checked but not applied. Default `true` |
 | `blur` | `true`: blur behind the surface and its popups with `decoration.blur` |
 | `blur_alpha_threshold` | 0 to 1: blur only under texels with alpha above it |
 | `animation` | `false`, or `{in: <style>, out: <style>}` with `layers_in`/`layers_out` styles |
@@ -915,6 +916,8 @@ rules:
 ```
 
 Later rules override earlier ones. A rule needs at least one matcher.
+`enabled: false` keeps a rule in the file, checked like any other, without
+applying it; the default is `true`.
 `lys-wmctl dispatch setprop <id> <key> <value>` applies a rule key to one
 window until it closes (`setprop 7 border {width: 4}`).
 

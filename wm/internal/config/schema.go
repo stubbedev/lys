@@ -251,6 +251,8 @@ func annotations() map[string]annotation {
 		"decoration.blur.specular.strength": at(0, 1, nil),
 		"decoration.blur.specular.width":    atLeastAnn(1, nil),
 		"showdesktop.peek":                  at(1, 50, wm.DefaultPeek),
+		"rules[].enabled":                   {def: true},
+		"layer_rules[].enabled":             {def: true},
 		"rules[].blur_look.tint":            colorAnn(nil),
 		"rules[].app_id":                    formatAnn(regexFormat),
 		"rules[].title":                     formatAnn(regexFormat),

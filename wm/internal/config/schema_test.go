@@ -45,6 +45,8 @@ var requires = map[string]map[string]any{
 	"rules[].blur_look.tint":        {"rules[].app_id": "foot"},
 	"rules[].on_activate":           {"rules[].app_id": "foot"},
 	"rules[].content":               {"rules[].app_id": "foot"},
+	"rules[].enabled":               {"rules[].app_id": "foot"},
+	"layer_rules[].enabled":         {"layer_rules[].namespace": "^bar$"},
 	"outputs[].vrr":                 {"outputs[].match": "DP-1"},
 	"gestures.swipe[].scope":        {"gestures.swipe[].fingers": 4, "gestures.swipe[].direction": "down", "gestures.swipe[].drive": "overview"},
 	"outputs[].hdr":                 {"outputs[].match": "DP-1"},
@@ -65,10 +67,8 @@ var requires = map[string]map[string]any{
 
 func document(t *testing.T, path string, value any) []byte {
 	t.Helper()
-	doc := nested(path, value)
-	for _, other := range slices.Sorted(maps.Keys(requires[path])) {
-		merge(doc, nested(other, requires[path][other]))
-	}
+	doc := required(path)
+	merge(doc, nested(path, value))
 	data, err := json.Marshal(doc)
 	if err != nil {
 		t.Fatal(err)
@@ -312,8 +312,16 @@ func comparable(c Config) string {
 
 var writtenTogether = map[string]string{"decoration.shadow.color": "decoration.shadow.color_inactive"}
 
-func withDefaults(paths ...string) map[string]any {
+func required(path string) map[string]any {
 	doc := map[string]any{}
+	for _, other := range slices.Sorted(maps.Keys(requires[path])) {
+		merge(doc, nested(other, requires[path][other]))
+	}
+	return doc
+}
+
+func withDefaults(paths ...string) map[string]any {
+	doc := required(paths[0])
 	for _, path := range paths {
 		merge(doc, nested(path, annotations()[path].def))
 	}
@@ -357,16 +365,20 @@ func TestEveryPublishedDefaultIsWhatTheConfigGetsWithoutTheKey(t *testing.T) {
 		parse := func(data []byte) (Config, error) {
 			return ParseLayers(accent, Layer{Source: SourceConfig, File: "schema.yaml", Data: data})
 		}
-		empty, err := parse(nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		want := comparable(empty)
 		for _, path := range slices.Sorted(maps.Keys(annotations())) {
 			def := annotations()[path].def
 			if def == nil {
 				continue
 			}
+			base, err := json.Marshal(required(path))
+			if err != nil {
+				t.Fatal(err)
+			}
+			without, err := parse(base)
+			if err != nil {
+				t.Fatalf("%s: the keys it needs are refused: %v", path, err)
+			}
+			want := comparable(without)
 			paths := []string{path}
 			if other, ok := writtenTogether[path]; ok {
 				paths = append(paths, other)

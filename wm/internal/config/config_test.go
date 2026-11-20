@@ -1261,6 +1261,53 @@ func TestLayerRules(t *testing.T) {
 	}
 }
 
+func TestADisabledRuleIsCheckedButNotApplied(t *testing.T) {
+	c, err := Parse("t.yaml", []byte(`rules:
+  - {app_id: ^foot$, rounding: 3}
+  - {app_id: ^foot$, rounding: 9, enabled: false}
+  - {app_id: ^mpv$, float: true, enabled: true}
+layer_rules:
+  - {namespace: ^bar$, rounding: 4}
+  - {namespace: ^bar$, rounding: 8, enabled: false}
+  - {namespace: ^dock$, blur: true, enabled: false}
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(c.Rules) != 2 || len(c.LayerRules) != 1 {
+		t.Fatalf("%d window rules and %d layer rules apply, want 2 and 1", len(c.Rules), len(c.LayerRules))
+	}
+	if d := wm.Decide(c.Rules, wm.Subject{AppID: "foot"}); d.Rounding == nil || *d.Rounding != 3 {
+		t.Errorf("foot took the disabled rule: %+v", d.Props)
+	}
+	if d := wm.Decide(c.Rules, wm.Subject{AppID: "mpv"}); d.Mode != wm.RuleFloat {
+		t.Errorf("mpv lost its enabled rule: %+v", d)
+	}
+	if p := wm.DecideLayer(c.LayerRules, "bar"); p.Rounding == nil || *p.Rounding != 4 {
+		t.Errorf("bar took the disabled rule: %+v", p)
+	}
+	if p := wm.DecideLayer(c.LayerRules, "dock"); p.Blur != nil {
+		t.Errorf("dock took the disabled rule: %+v", p)
+	}
+	if !c.Slower[render.CPUDriver].Decor.Blur.Withhold {
+		t.Error("a disabled layer rule's blur counted as a layer that blurs")
+	}
+	for text, want := range map[string]string{
+		"rules:\n  - {app_id: a, rounding: -1, enabled: false}\n":            "t.yaml:2: rules[0].rounding:",
+		"rules:\n  - {enabled: false}\n":                                     "t.yaml:2: rules[0]:",
+		"rules:\n  - {app_id: a, enabled: maybe}\n":                          "line 2: cannot unmarshal",
+		"layer_rules:\n  - {enabled: false}\n":                               "t.yaml:2: layer_rules[0].namespace:",
+		"layer_rules:\n  - {namespace: ^bar$, opacity: 2, enabled: false}\n": "t.yaml:2: layer_rules[0].opacity:",
+	} {
+		if _, err := Parse("t.yaml", []byte(text)); err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("%q: %v, want %s", text, err, want)
+		}
+	}
+	if _, err := ParseProp("enabled", "false"); err == nil {
+		t.Error("setprop took enabled, which no single window has")
+	}
+}
+
 func TestAnOutputsICCProfile(t *testing.T) {
 	dir := t.TempDir()
 	good, err := os.ReadFile("../harness/testdata/display-p3.icc")
