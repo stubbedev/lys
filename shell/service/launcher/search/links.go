@@ -41,7 +41,7 @@ func (l *Links) Load(_ context.Context, publish func([]Entry)) {
 	for _, q := range l.links {
 		id := "quicklink:" + q.Name
 		e := Entry{ID: id, Learn: id, Title: q.Name, Subtitle: q.URL, Keywords: q.Keyword, Icon: linkIcon(q.Icon), Data: q}
-		if strings.Contains(q.URL, "{query}") && q.Keyword != "" {
+		if strings.Contains(q.URL, config.QueryToken) && q.Keyword != "" {
 			e.Completion = q.Keyword + " "
 		}
 		entries = append(entries, e)
@@ -75,7 +75,7 @@ func (l *Links) Answer(query string) []Entry {
 		if q.Keyword != word {
 			continue
 		}
-		if target, ok := fillTemplate(q.URL, rest); ok {
+		if target, ok := config.FillQueryURL(q.URL, rest); ok {
 			out = append(out, Entry{
 				ID: "quicklink-filled:" + q.Name, Learn: "quicklink:" + q.Name, Title: q.Name + ": " + rest, Subtitle: target,
 				Icon: linkIcon(q.Icon), Data: filledLink{name: q.Name, url: target},
@@ -91,7 +91,7 @@ func (l *Links) Actions(e Entry) []Action {
 	case filledLink:
 		return l.urlActions(d.url)
 	case config.LauncherQuicklink:
-		if !strings.Contains(d.URL, "{query}") {
+		if !strings.Contains(d.URL, config.QueryToken) {
 			return l.urlActions(d.URL)
 		}
 		// Enter on a link that wants a query asks for one.
@@ -121,7 +121,7 @@ func (l *Links) queryLevel(q config.LauncherQuicklink) *Level {
 	return &Level{
 		Title: q.Name, Placeholder: i18n.T("launcher-placeholder-query"), SubmitTitle: i18n.T("launcher-action-open"),
 		Submit: func(_ context.Context, text string) Outcome {
-			target, ok := fillTemplate(q.URL, strings.TrimSpace(text))
+			target, ok := config.FillQueryURL(q.URL, strings.TrimSpace(text))
 			if !ok {
 				return Stay{}
 			}

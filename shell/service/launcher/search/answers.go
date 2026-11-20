@@ -2,11 +2,11 @@ package search
 
 import (
 	"context"
-	"net/url"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 
 	"github.com/stubbedev/lys/shell/service/launcher/answer"
@@ -182,23 +182,13 @@ func (*Web) Spec() Spec { return Spec{Section: SectionWeb} }
 // Load implements Provider.
 func (*Web) Load(context.Context, func([]Entry)) {}
 
-// fillTemplate puts the escaped query in a URL template. A template
-// with no {query} has nowhere to put it, which is a config mistake to
-// show (the row stays out), not a silent search for nothing.
-func fillTemplate(template, query string) (string, bool) {
-	if !strings.Contains(template, "{query}") {
-		return "", false
-	}
-	return strings.ReplaceAll(template, "{query}", url.QueryEscape(query)), true
-}
-
 // Answer implements Answerer.
 func (w *Web) Answer(query string) []Entry {
 	q := strings.TrimSpace(query)
 	if q == "" {
 		return nil
 	}
-	target, ok := fillTemplate(w.template, q)
+	target, ok := config.FillQueryURL(w.template, q)
 	if !ok {
 		return nil
 	}
