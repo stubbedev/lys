@@ -13,6 +13,7 @@ import (
 const (
 	pixYUYV = 'Y' | 'U'<<8 | 'Y'<<16 | 'V'<<24
 	pixMJPG = 'M' | 'J'<<8 | 'P'<<16 | 'G'<<24
+	pixGREY = 'G' | 'R'<<8 | 'E'<<16 | 'Y'<<24
 )
 
 // fourccName spells a V4L2 fourcc.

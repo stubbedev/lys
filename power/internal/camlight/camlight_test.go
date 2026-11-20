@@ -36,6 +36,7 @@ type fakeMeter struct {
 	startErr error
 	lumaErr  error
 	flicker  bool
+	infrared bool
 
 	controls map[v4l2.ControlID]int32
 	sets     []v4l2.ControlID
@@ -51,6 +52,8 @@ func newFake(scene float64) *fakeMeter {
 		v4l2.ControlGain:             64,
 	}}
 }
+
+func (f *fakeMeter) Infrared() (bool, error) { return f.infrared, nil }
 
 func (f *fakeMeter) Start() error {
 	if f.startErr != nil {
@@ -240,20 +243,29 @@ func TestFindWithoutCamerasIsErrNone(t *testing.T) {
 	}
 }
 
-func TestHasExposureNeedsBothControls(t *testing.T) {
+func TestMeasuresNeedsBothControlsAndAColourCamera(t *testing.T) {
 	f := newFake(1)
-	ok, err := f.camera().hasExposure()
+	ok, err := f.camera().measures()
 	if err != nil || !ok {
 		t.Errorf("a camera with exposure controls: %v, %v", ok, err)
 	}
 	none := &noExposure{fakeMeter: newFake(1)}
 	c := Camera{device: "/dev/video2", params: params, open: func(string) (meter, error) { return none, nil }}
-	ok, err = c.hasExposure()
+	ok, err = c.measures()
 	if err != nil || ok {
 		t.Errorf("a camera without exposure_absolute: %v, %v", ok, err)
 	}
 	if !none.closed {
 		t.Error("the probed camera was left open")
+	}
+	ir := newFake(1)
+	ir.infrared = true
+	ok, err = ir.camera().measures()
+	if err != nil || ok {
+		t.Errorf("an infrared camera with exposure controls: %v, %v, want skipped", ok, err)
+	}
+	if !ir.closed {
+		t.Error("the probed infrared camera was left open")
 	}
 }
 

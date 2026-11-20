@@ -43,6 +43,7 @@ type Params struct {
 
 // meter is the part of a v4l2.Meter a sample uses.
 type meter interface {
+	Infrared() (bool, error)
 	Start() error
 	QueryControl(id v4l2.ControlID) (v4l2.ControlRange, error)
 	Control(id v4l2.ControlID) (int32, error)
@@ -61,8 +62,9 @@ type Camera struct {
 func openMeter(device string) (meter, error) { return v4l2.OpenMeter(device) }
 
 // Find returns the first capture node in dir, in number order, that has
-// manual exposure; ErrNone when there is none. It reads controls only,
-// so no camera switches on.
+// manual exposure and is no infrared camera, whose frames show its own
+// illuminator rather than the room; ErrNone when there is none. It reads
+// formats and controls only, so no camera switches on.
 func Find(dir string, p Params) (Camera, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -82,7 +84,7 @@ func Find(dir string, p Params) (Camera, error) {
 			continue
 		}
 		c := Camera{device: device, params: p, open: openMeter}
-		ok, err := c.hasExposure()
+		ok, err := c.measures()
 		if err != nil {
 			return Camera{}, err
 		}
@@ -93,12 +95,15 @@ func Find(dir string, p Params) (Camera, error) {
 	return Camera{}, fmt.Errorf("%w in %s", ErrNone, dir)
 }
 
-func (c Camera) hasExposure() (ok bool, err error) {
+func (c Camera) measures() (ok bool, err error) {
 	m, err := c.open(c.device)
 	if err != nil {
 		return false, err
 	}
 	defer func() { err = errors.Join(err, m.Close()) }()
+	if infrared, err := m.Infrared(); err != nil || infrared {
+		return false, err
+	}
 	for _, id := range []v4l2.ControlID{v4l2.ControlExposureAuto, v4l2.ControlExposureAbsolute} {
 		if _, err := m.QueryControl(id); errors.Is(err, v4l2.ErrNoControl) {
 			return false, nil

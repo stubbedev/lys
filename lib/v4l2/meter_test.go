@@ -25,6 +25,7 @@ func TestMeterStructSizesAndRequests(t *testing.T) {
 		"v4l2_control":     {unsafe.Sizeof(v4l2Control{}), 8},
 		"v4l2_queryctrl":   {unsafe.Sizeof(v4l2Queryctrl{}), 68},
 		"v4l2_frmsizeenum": {unsafe.Sizeof(v4l2Frmsizeenum{}), 44},
+		"v4l2_fmtdesc":     {unsafe.Sizeof(v4l2Fmtdesc{}), 64},
 	} {
 		if c.got != c.want {
 			t.Errorf("%s is %d bytes, want %d", name, c.got, c.want)
@@ -35,6 +36,7 @@ func TestMeterStructSizesAndRequests(t *testing.T) {
 		"VIDIOC_S_CTRL":          {vidiocSCtrl, iowr(28, unsafe.Sizeof(v4l2Control{}))},
 		"VIDIOC_QUERYCTRL":       {vidiocQueryctrl, iowr(36, unsafe.Sizeof(v4l2Queryctrl{}))},
 		"VIDIOC_ENUM_FRAMESIZES": {vidiocEnumFramesizes, iowr(74, unsafe.Sizeof(v4l2Frmsizeenum{}))},
+		"VIDIOC_ENUM_FMT":        {vidiocEnumFmt, iowr(2, unsafe.Sizeof(v4l2Fmtdesc{}))},
 	} {
 		if c.got != c.want {
 			t.Errorf("%s is %#x, want %#x", name, c.got, c.want)
@@ -42,9 +44,21 @@ func TestMeterStructSizesAndRequests(t *testing.T) {
 	}
 }
 
-// A YUYV frame's mean luma averages its Y samples only, row by row
-// within the stride.
-func TestMeanLumaOfYUYV(t *testing.T) {
+func meanLuma(f cameraFrame, data []byte) (float64, error) {
+	var dst image.Gray
+	if err := lumaInto(f, data, &dst); err != nil {
+		return 0, err
+	}
+	var sum uint64
+	for _, v := range dst.Pix {
+		sum += uint64(v)
+	}
+	return float64(sum) / float64(len(dst.Pix)), nil
+}
+
+// A YUYV frame's luma plane is its Y samples only, row by row within the
+// stride.
+func TestLumaOfYUYV(t *testing.T) {
 	f := cameraFrame{width: 4, height: 2, format: pixYUYV, stride: 10}
 	data := []byte{
 		10, 200, 20, 200, 30, 200, 40, 200, 255, 255,
@@ -59,6 +73,34 @@ func TestMeanLumaOfYUYV(t *testing.T) {
 	}
 	if _, err := meanLuma(f, data[:12]); err == nil {
 		t.Error("a short YUYV frame measured")
+	}
+	var dst image.Gray
+	if err := lumaInto(f, data, &dst); err != nil {
+		t.Fatal(err)
+	}
+	if want := []byte{10, 20, 30, 40, 50, 60, 70, 80}; !bytes.Equal(dst.Pix, want) || dst.Rect != image.Rect(0, 0, 4, 2) {
+		t.Errorf("luma plane %v %v, want %v at 4x2", dst.Pix, dst.Rect, want)
+	}
+}
+
+// A GREY frame is its own luma plane, row by row within the stride, and
+// the plane reuses the pixels it is given when they are enough.
+func TestLumaOfGREY(t *testing.T) {
+	f := cameraFrame{width: 3, height: 2, format: pixGREY, stride: 4}
+	data := []byte{1, 2, 3, 99, 4, 5, 6}
+	dst := image.Gray{Pix: make([]byte, 0, 16)}
+	backing := &dst.Pix[:1][0]
+	if err := lumaInto(f, data, &dst); err != nil {
+		t.Fatal(err)
+	}
+	if want := []byte{1, 2, 3, 4, 5, 6}; !bytes.Equal(dst.Pix, want) || dst.Stride != 3 || dst.Rect != image.Rect(0, 0, 3, 2) {
+		t.Errorf("luma plane %v stride %d %v, want %v at 3x2", dst.Pix, dst.Stride, dst.Rect, want)
+	}
+	if &dst.Pix[0] != backing {
+		t.Error("a plane with room enough was reallocated")
+	}
+	if err := lumaInto(f, data[:5], &dst); err == nil {
+		t.Error("a short GREY frame copied")
 	}
 }
 
@@ -113,6 +155,9 @@ func TestMeterOfANonCamera(t *testing.T) {
 	if _, err := m.MeanLuma(time.Second); err == nil {
 		t.Error("a meter that never streamed measured")
 	}
+	if _, err := m.Infrared(); err == nil || !strings.Contains(err.Error(), "VIDIOC_ENUM_FMT") {
+		t.Errorf("/dev/null's formats: %v, want an ioctl failure", err)
+	}
 	if err := m.Start(); err == nil || !strings.Contains(err.Error(), "v4l2: camera /dev/null") {
 		t.Errorf("/dev/null streamed: %v", err)
 	}
@@ -142,6 +187,11 @@ func TestRealCameraMeters(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Logf("%s exposure %d-%d", device, r.Min, r.Max)
+	infrared, err := m.Infrared()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("%s infrared: %v", device, infrared)
 	if err := m.Start(); err != nil {
 		t.Fatal(err)
 	}
@@ -154,5 +204,12 @@ func TestRealCameraMeters(t *testing.T) {
 		if luma < 0 || luma > 255 {
 			t.Errorf("mean luma %v", luma)
 		}
+	}
+	var plane image.Gray
+	if err := m.Luma(5*time.Second, &plane); err != nil {
+		t.Fatal(err)
+	}
+	if plane.Rect.Empty() {
+		t.Error("an empty luma plane")
 	}
 }
