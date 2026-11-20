@@ -342,21 +342,29 @@ func iconMapSpec() listSpec {
 }
 
 func pairMapSpec(keyPlaceholder string, fill bool, value func(k *kit, value *string, changed func()) widget.Widget) listSpec {
+	return mapSpec(func(k *kit, pair [2]string, changed func()) listItem {
+		row := mapItem{Box: gapBox(widget.Row), key: k.entry(), value: &pair[1]}
+		row.key.SetPlaceholder(locale.T().Get(keyPlaceholder))
+		row.key.SetText(pair[0])
+		row.key.OnChanged = func(string) { changed() }
+		row.Append(row.key, true)
+		row.editor = value(k, row.value, changed)
+		row.AppendAligned(row.editor, fill, widget.AlignCenter)
+		return row
+	}, func(key string) bool { return key != "" })
+}
+
+// mapSpec is a map of strings as a row per pair, a pair stored once keep
+// holds for its key.
+func mapSpec(item func(k *kit, pair [2]string, changed func()) listItem, keep func(key string) bool) listSpec {
 	return listSpec{
 		addKey: "settings-map-add", rowClass: "string-map-row", blank: always([2]string{}), classes: []string{"string-map-editor"}, listCls: "string-map",
 		item: func(k *kit, v any, changed func()) listItem {
 			pair, _ := v.([2]string)
-			row := mapItem{Box: gapBox(widget.Row), key: k.entry(), value: &pair[1]}
-			row.key.SetPlaceholder(locale.T().Get(keyPlaceholder))
-			row.key.SetText(pair[0])
-			row.key.OnChanged = func(string) { changed() }
-			row.Append(row.key, true)
-			row.editor = value(k, row.value, changed)
-			row.AppendAligned(row.editor, fill, widget.AlignCenter)
-			return row
+			return item(k, pair, changed)
 		},
 		decode: decodePairs,
-		encode: encodePairs(func(pair [2]string) bool { return pair[0] != "" }),
+		encode: encodePairs(func(pair [2]string) bool { return keep(pair[0]) }),
 	}
 }
 

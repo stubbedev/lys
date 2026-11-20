@@ -34,6 +34,7 @@ const wmSchema = `{"type":"object","properties":{
 "pointer":{"type":"object","properties":{"accel_profile":{"type":"string","enum":["adaptive","flat"],"default":"flat"}}},
 "keyboard":{"type":"object","properties":{"layout":{"type":"string","format":"lys-wm-xkb-layout"},"variant":{"type":"string","format":"lys-wm-xkb-variant"},"options":{"type":"string","format":"lys-wm-xkb-options"},"model":{"type":"string","format":"lys-wm-xkb-model"},"rules":{"type":"string","format":"lys-wm-xkb-rules"}}}}},
 "gpu":{"type":"string","format":"lys-wm-drm-device"},
+"env":{"type":"object","additionalProperties":{"type":"string"}},
 "palette":{"type":"object","additionalProperties":{"type":"string"},"default":{"red":"#f38ba8","blue":"#89b4fa"}},
 "tabs":{"type":"object","properties":{"font":{"type":"string","format":"lys-wm-font-file"},"icon_theme":{"type":"string","format":"lys-wm-icon-theme"},"label":{"type":"string"}}}}}`
 
