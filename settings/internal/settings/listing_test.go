@@ -1,10 +1,15 @@
 package settings
 
 import (
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
 	"testing"
+
+	"github.com/stubbedev/lys/desktop/i18n"
+
+	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
 func put(t *testing.T, path, content string) {
@@ -64,11 +69,18 @@ func TestTheDRMDevicesAreTheCardsWithTheirDrivers(t *testing.T) {
 
 func TestTheInterfacesSensorsAndPAMServicesAreListed(t *testing.T) {
 	h := fakeHost(t, nil)
-	for _, n := range []string{"lo", "wlan0", "eth0"} {
-		put(t, h.path("sys/class/net", n, "operstate"), "up")
+	for n, state := range map[string]string{"lo": "unknown", "wlan0": "up", "eth0": "down", "tun0": "unknown"} {
+		put(t, h.path("sys/class/net", n, "operstate"), state+"\n")
 	}
-	if got := values(h.interfaces()); !slices.Equal(got, []string{"eth0", "wlan0"}) {
-		t.Fatalf("interfaces %q", got)
+	tr := locale.T()
+	nets := h.interfaces()
+	states := map[string]string{}
+	for _, c := range nets {
+		states[c.value] = c.group
+	}
+	want := map[string]string{"wlan0": tr.Get("settings-interface-up"), "eth0": tr.Get("settings-interface-down"), "tun0": tr.Get("settings-interface-unknown")}
+	if !maps.Equal(states, want) {
+		t.Fatalf("interfaces %v, want %v", states, want)
 	}
 	put(t, h.path("sys/class/hwmon/hwmon0/name"), "k10temp\n")
 	put(t, h.path("sys/class/hwmon/hwmon0/temp1_input"), "45000")
@@ -79,6 +91,13 @@ func TestTheInterfacesSensorsAndPAMServicesAreListed(t *testing.T) {
 	got := h.sensors()
 	if !slices.Equal(values(got), []string{"Tctl", "temp1"}) || got[0].group != "k10temp" || got[1].group != "nvme" {
 		t.Fatalf("sensors %+v", got)
+	}
+	if want := tr.Get("settings-sensor-reading", i18n.Str("sensor", "Tctl"), i18n.Int("celsius", 45)); got[0].label != want {
+		t.Errorf("the sensor reads %q, want %q", got[0].label, want)
+	}
+	put(t, h.path("sys/class/hwmon/hwmon1/temp1_input"), "")
+	if got := h.sensors(); got[1].label != "temp1" {
+		t.Errorf("a sensor with no reading reads %q", got[1].label)
 	}
 	put(t, h.path("etc/pam.d/login"), "")
 	put(t, h.path("etc/pam.d/lys-lock"), "")

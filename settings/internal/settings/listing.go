@@ -8,12 +8,16 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/lib/xcursor"
 	"github.com/stubbedev/lys/lib/xdg"
 	"github.com/stubbedev/lys/lib/xkb"
 	"github.com/stubbedev/lys/lib/xkb/registry"
+
+	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
 type choice struct {
@@ -102,11 +106,32 @@ func (h host) drmDevices() []choice {
 func (h host) interfaces() []choice {
 	var out []choice
 	for _, e := range entries(h.path("sys", "class", "net")) {
-		if e.Name() != "lo" {
-			out = append(out, choice{value: e.Name(), label: e.Name()})
+		if e.Name() == "lo" {
+			continue
 		}
+		state := readTrimmed(h.path("sys", "class", "net", e.Name(), "operstate"))
+		out = append(out, choice{value: e.Name(), label: e.Name(), group: interfaceState(state)})
 	}
 	return sortedChoices(out)
+}
+
+func interfaceState(operstate string) string {
+	t := locale.T()
+	switch operstate {
+	case "up":
+		return t.Get("settings-interface-up")
+	case "down", "lowerlayerdown", "dormant":
+		return t.Get("settings-interface-down")
+	}
+	return t.Get("settings-interface-unknown")
+}
+
+func sensorReading(label, millidegrees string) string {
+	m, err := strconv.ParseInt(millidegrees, 10, 64)
+	if err != nil {
+		return label
+	}
+	return locale.T().Get("settings-sensor-reading", i18n.Str("sensor", label), i18n.Int("celsius", (m+500)/1000))
 }
 
 func (h host) sensors() []choice {
@@ -120,11 +145,8 @@ func (h host) sensors() []choice {
 			if !ok || !strings.HasPrefix(sensor, "temp") {
 				continue
 			}
-			label := readTrimmed(filepath.Join(dir, sensor+"_label"))
-			if label == "" {
-				label = sensor
-			}
-			out = append(out, choice{value: label, label: label, group: name})
+			label := cmp.Or(readTrimmed(filepath.Join(dir, sensor+"_label")), sensor)
+			out = append(out, choice{value: label, label: sensorReading(label, readTrimmed(filepath.Join(dir, e.Name()))), group: name})
 		}
 	}
 	return sortedChoices(out)
