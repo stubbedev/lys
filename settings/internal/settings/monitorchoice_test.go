@@ -92,3 +92,20 @@ func TestADisplayFieldRefusesAFollowValueItDoesNotTake(t *testing.T) {
 	}()
 	fieldControl(k, k.store, field("launcher.monitor", monitorChoiceRow(primaryMonitor)))
 }
+
+func TestThemingFollowsTheFirstDisplayUntilOneIsNamed(t *testing.T) {
+	k := testKit(t, "")
+	fakeHeads(t, []displays.Head{head("eDP-1", 0), head("DP-1", 1920)}, nil)
+	c := fieldControl(k, k.store, pageRow(t, "theme", "styling.theming-monitor")).(*monitorChoice)
+	if !c.follow.On() || c.follow.AccessibleName() != locale.T().Get("settings-monitor-first") {
+		t.Fatalf("theming follows %v under %q", c.follow.On(), c.follow.AccessibleName())
+	}
+	c.follow.SetOn(false)
+	if got := k.store.value("styling.theming-monitor"); got != "eDP-1" {
+		t.Fatalf("naming a display stored %v", got)
+	}
+	c.follow.SetOn(true)
+	if got := k.store.value("styling.theming-monitor"); got != "" {
+		t.Errorf("following the first display stored %v", got)
+	}
+}

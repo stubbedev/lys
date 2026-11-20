@@ -261,7 +261,7 @@ func themePage(*config.Config) pageSpec {
 			field("styling.high-contrast"),
 			field("styling.reduce-transparency"),
 			field("styling.theme-provider", pictureChoice(themeProviderPictures)),
-			field("styling.theming-monitor"),
+			field("styling.theming-monitor", monitorChoiceRow(firstMonitor)),
 		}},
 		{title: "settings-section-palette", when: themeProviderIs(config.ThemeProviderLysShell), rows: []rowSpec{
 			themePreset(),

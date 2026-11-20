@@ -19,6 +19,7 @@ type monitorSpecial struct{ value, key string }
 var (
 	primaryMonitor = monitorSpecial{value: "primary", key: "settings-monitor-primary"}
 	focusedMonitor = monitorSpecial{value: "", key: "settings-monitor-focused"}
+	firstMonitor   = monitorSpecial{value: "", key: "settings-monitor-first"}
 )
 
 // monitorChoiceRow picks one display on a drawing of them, or follows
