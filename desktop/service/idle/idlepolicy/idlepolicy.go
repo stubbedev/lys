@@ -115,6 +115,7 @@ type Policy struct {
 	DimPercent      DimPercent
 	Sleep           logind.PowerAction
 	LockBeforeSleep bool
+	Attention       Attention
 }
 
 // Arm is one stage armed on a power source: it runs after After of idle.
