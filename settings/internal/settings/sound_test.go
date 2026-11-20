@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/binary"
 	"math"
+	"os"
 	"slices"
+	"strconv"
 	"testing"
 	"time"
 
@@ -329,7 +331,7 @@ func TestPortsVolumeMuteAndAppsReachTheServer(t *testing.T) {
 		d, _ := r.srv.Sink(1)
 		return d.Volume[0] == 0x8000 && d.Volume[1] == 0x4000
 	})
-	row := r.p.appRows[pulse.StreamKey{Index: 40, Type: pulse.StreamPlayback}]
+	row := r.p.playing.rows[pulse.StreamKey{Index: 40, Type: pulse.StreamPlayback}]
 	if row.title.Text() != "Firefox" || row.detail.Text() != "Song" || row.icon.Name() != "firefox" {
 		t.Fatalf("app row %q, %q with icon %q", row.title.Text(), row.detail.Text(), row.icon.Name())
 	}
@@ -441,4 +443,79 @@ func TestAnAppWithoutAnIconShowsTheGenericAppIcon(t *testing.T) {
 	if got := streamIcon(pulse.AudioStream{Media: pulse.MediaInfo{IconName: "mpv"}}); got != "mpv" {
 		t.Errorf("a stream naming mpv's icon shows %q", got)
 	}
+}
+
+func recorder(index, source uint32, name string) native.StreamInfo {
+	st := firefox()
+	st.Index, st.Device, st.Name = index, source, "Recording"
+	st.Props = native.PropList{"application.name": name, "application.process.id": "1", "application.icon_name": "audio-recorder"}
+	return st
+}
+
+func TestAnAppIsMovedToAnotherOutputFromItsRow(t *testing.T) {
+	r := startSound(t)
+	row := r.p.playing.rows[pulse.StreamKey{Index: 40, Type: pulse.StreamPlayback}]
+	if !row.route.Visible() || row.route.Selection() != "Speakers" {
+		t.Fatalf("the route shows %q, visible %v", row.route.Selection(), row.route.Visible())
+	}
+	row.route.SetSelected(slices.Index(row.route.Items(), "Headset"))
+	r.l.until("the stream moved on the server", func() bool {
+		st, _ := r.srv.SinkInput(40)
+		return st.Device == 5
+	})
+	if n := calls(r.srv, native.CmdMoveSinkInput); n != 1 {
+		t.Fatalf("%d MOVE_SINK_INPUT for one choice", n)
+	}
+	r.l.until("the move shown", func() bool { return row.route.Selection() == "Headset" })
+	if n := calls(r.srv, native.CmdMoveSinkInput); n != 1 {
+		t.Fatalf("following the server sent %d more MOVE_SINK_INPUT", n-1)
+	}
+}
+
+func TestOneOutputOffersNoRoute(t *testing.T) {
+	srv := soundServer(t)
+	srv.RemoveSink(5)
+	srv.RemoveSource(6)
+	srv.SetDefaults("speakers", "mic")
+	r := startSoundOn(t, srv)
+	r.l.until("one output listed", func() bool { return len(r.p.output.devices.Items()) == 1 })
+	if row := r.p.playing.rows[pulse.StreamKey{Index: 40, Type: pulse.StreamPlayback}]; row.route.Visible() {
+		t.Fatalf("a route among %q is offered", row.route.Items())
+	}
+}
+
+func TestTheAppsRecordingTheMicrophoneAreListedAndMuted(t *testing.T) {
+	srv := soundServer(t)
+	srv.PutSourceOutput(recorder(60, 10, "Recorder"))
+	srv.PutSourceOutput(recorder(61, 2, "Visualizer"))
+	paused := recorder(62, 10, "Paused")
+	paused.Corked = true
+	srv.PutSourceOutput(paused)
+	r := startSoundOn(t, srv)
+	key := pulse.StreamKey{Index: 60, Type: pulse.StreamRecord}
+	r.l.until("the recorder listed", func() bool { return r.p.recording.rows[key] != nil })
+	if got := r.p.recording.keys; !slices.Equal(got, []pulse.StreamKey{key}) {
+		t.Fatalf("recording streams %v, want the microphone's running one alone", got)
+	}
+	row := r.p.recording.rows[key]
+	if row.title.Text() != "Recorder" || row.icon.Name() != "audio-recorder" || row.mute.glyph.Name() != micGlyphs.sounding || r.p.recording.empty.Visible() {
+		t.Fatalf("row %q with icon %q and glyph %q, empty shown %v", row.title.Text(), row.icon.Name(), row.mute.glyph.Name(), r.p.recording.empty.Visible())
+	}
+	row.mute.OnClick()
+	if st, _ := srv.SourceOutput(60); !st.Mute {
+		t.Fatal("the recorder was not muted")
+	}
+	srv.RemoveSourceOutput(60)
+	r.l.until("the recorder gone", func() bool { return r.p.recording.empty.Visible() && len(r.p.recording.keys) == 0 })
+}
+
+func TestTheSettingsOwnLevelMeterIsNotAnAppRecording(t *testing.T) {
+	srv := soundServer(t)
+	meter := recorder(63, 10, "lys-settings")
+	meter.Props["application.process.id"] = strconv.Itoa(os.Getpid())
+	srv.PutSourceOutput(meter)
+	srv.PutSourceOutput(recorder(64, 10, "Recorder"))
+	r := startSoundOn(t, srv)
+	want := []pulse.StreamKey{{Index: 64, Type: pulse.StreamRecord}}
+	r.l.until("the recorder listed", func() bool { return slices.Equal(r.p.recording.keys, want) })
 }

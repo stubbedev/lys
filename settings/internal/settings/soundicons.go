@@ -1,6 +1,8 @@
 package settings
 
 import (
+	"cmp"
+	"slices"
 	"strings"
 
 	"github.com/stubbedev/lys/desktop/service/pulse"
@@ -34,11 +36,23 @@ func soundDeviceIcon(d pulse.Device, kind pulse.DeviceType) string {
 	return "ld-speaker-symbolic"
 }
 
-func soundDeviceRows(devices []pulse.Device, kind pulse.DeviceType, label func(pulse.Device) string) []widget.DropdownRow {
-	rows := make([]widget.DropdownRow, len(devices))
-	for i, d := range devices {
-		icon := soundDeviceIcon(d, kind)
-		rows[i] = widget.DropdownRow{Label: label(d), Leading: func() widget.Widget { return widget.NewThemeIcon(icon, appIconPx) }}
+func soundDeviceName(d pulse.Device) string { return cmp.Or(d.Description, d.Name) }
+
+func showSoundDevices(d *widget.Dropdown, devices []pulse.Device, kind pulse.DeviceType, current pulse.DeviceKey) []pulse.DeviceKey {
+	keys := make([]pulse.DeviceKey, len(devices))
+	names := make([]string, len(devices))
+	for i, dev := range devices {
+		keys[i], names[i] = dev.Key, soundDeviceName(dev)
 	}
-	return rows
+	selected := slices.Index(keys, current)
+	if slices.Equal(d.Items(), names) && d.Selected() == selected {
+		return keys
+	}
+	rows := make([]widget.DropdownRow, len(devices))
+	for i, dev := range devices {
+		icon := soundDeviceIcon(dev, kind)
+		rows[i] = widget.DropdownRow{Label: names[i], Leading: func() widget.Widget { return widget.NewThemeIcon(icon, appIconPx) }}
+	}
+	d.SetRows(rows, selected)
+	return keys
 }

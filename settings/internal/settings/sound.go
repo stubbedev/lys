@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"slices"
 	"sync/atomic"
 	"time"
@@ -13,7 +14,9 @@ import (
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/pulse"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
+	"github.com/stubbedev/lys/lib/intconv"
 	"github.com/stubbedev/lys/lib/pulse/native"
+	"github.com/stubbedev/lys/shell/service/privacy"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
 
@@ -41,6 +44,7 @@ func soundPage(*config.Config) pageSpec {
 			{"sound.input-device", "settings-sound-input-device", "settings-section-sound-input"},
 			{"sound.input-level", "settings-sound-level", "settings-section-sound-input"},
 			{"sound.apps", "settings-section-sound-apps", "settings-section-sound-apps"},
+			{"sound.recording", "settings-section-sound-recording", "settings-section-sound-recording"},
 		},
 		sections: []sectionSpec{{title: "settings-section-sound-alerts", rows: []rowSpec{
 			field("modules.notifications.sounds"),
@@ -57,26 +61,24 @@ type soundConnection struct {
 
 type soundPanel struct {
 	*widget.Box
-	k       *kit
-	svc     *pulse.Service
-	stop    func()
-	capture *pulse.Capture
-	problem *widget.Label
-	output  *deviceControls
-	input   *deviceControls
-	meter   *levelMeter
-	apps    *widget.ItemGroup
-	noApps  *widget.Item
-	appRows map[pulse.StreamKey]*appRow
-	appKeys []pulse.StreamKey
-	ticked  atomic.Bool
-	closed  bool
-	syncing bool
+	k         *kit
+	svc       *pulse.Service
+	stop      func()
+	capture   *pulse.Capture
+	problem   *widget.Label
+	output    *deviceControls
+	input     *deviceControls
+	meter     *levelMeter
+	playing   *streamList
+	recording *streamList
+	ticked    atomic.Bool
+	closed    bool
+	syncing   bool
 }
 
 func soundLead(k *kit) widget.Widget {
 	t := locale.T()
-	p := &soundPanel{Box: sectionStack(), k: k, appRows: map[pulse.StreamKey]*appRow{}}
+	p := &soundPanel{Box: sectionStack(), k: k}
 	p.problem = wrapped(k.label("", css.Error, css.Caption))
 	p.problem.SetVisible(false)
 	p.Append(p.problem, false)
@@ -85,14 +87,12 @@ func soundLead(k *kit) widget.Widget {
 	p.meter = newLevelMeter(k)
 	p.meter.SetAccessibleName(t.Get("settings-sound-level"))
 	p.input.rows.Append(panelRow(k, t.Get("settings-sound-level"), "", p.meter))
-	p.apps = widget.NewItemGroup()
-	p.noApps = k.emptyRow("ld-volume-x-symbolic", t.Get("settings-sound-no-apps"))
-	apps := gapBox(widget.Column)
-	apps.Append(p.noApps, false)
-	apps.Append(p.apps, false)
+	p.playing = newStreamList(p, playbackStreams)
+	p.recording = newStreamList(p, recordingStreams)
 	p.Append(newSection(k, "settings-section-sound-output", p.output.body), false)
 	p.Append(newSection(k, "settings-section-sound-input", p.input.body), false)
-	p.Append(newSection(k, "settings-section-sound-apps", apps), false)
+	p.Append(newSection(k, "settings-section-sound-apps", p.playing.body), false)
+	p.Append(newSection(k, "settings-section-sound-recording", p.recording.body), false)
 	p.connect()
 	return p
 }
@@ -208,35 +208,77 @@ func (p *soundPanel) render() {
 	out, hasOut := p.svc.DefaultOutput()
 	p.output.show(outDevices, out.Device, hasOut, cards)
 	in, hasIn := p.svc.DefaultInput()
-	var inDevices []pulse.Device
-	for _, d := range p.svc.InputDevices() {
+	inputs := p.svc.InputDevices()
+	var inDevices, microphones []pulse.Device
+	for _, d := range inputs {
+		if !d.IsMonitor() {
+			microphones = append(microphones, d.Device)
+		}
 		if !d.IsMonitor() || (hasIn && d.Key == in.Key) {
 			inDevices = append(inDevices, d.Device)
 		}
 	}
 	p.input.show(inDevices, in.Device, hasIn, cards)
-	p.showApps(p.svc.PlaybackStreams())
+	p.playing.show(p.svc.PlaybackStreams(), outDevices)
+	p.recording.show(microphoneStreams(p.svc.RecordingStreams(), inputs), microphones)
 }
 
-func (p *soundPanel) showApps(streams []pulse.AudioStream) {
+func microphoneStreams(streams []pulse.AudioStream, inputs []pulse.InputDevice) []pulse.AudioStream {
+	users := privacy.MicUsers(streams, inputs, intconv.Clamp[uint32](os.Getpid()))
+	return slices.DeleteFunc(slices.Clone(streams), func(s pulse.AudioStream) bool {
+		return !slices.ContainsFunc(users, func(u privacy.MicUser) bool { return u.Stream == s.Key })
+	})
+}
+
+type streamKind struct {
+	device              pulse.DeviceType
+	glyphs              muteGlyphs
+	emptyIcon, emptyKey string
+	routeKey            string
+}
+
+var (
+	playbackStreams  = streamKind{device: pulse.DeviceOutput, glyphs: speakerGlyphs, emptyIcon: "ld-volume-x-symbolic", emptyKey: "settings-sound-no-apps", routeKey: "settings-sound-app-output"}
+	recordingStreams = streamKind{device: pulse.DeviceInput, glyphs: micGlyphs, emptyIcon: "ld-mic-off-symbolic", emptyKey: "settings-sound-no-recording", routeKey: "settings-sound-app-input"}
+)
+
+type streamList struct {
+	p     *soundPanel
+	kind  streamKind
+	body  *widget.Box
+	group *widget.ItemGroup
+	empty *widget.Item
+	rows  map[pulse.StreamKey]*appRow
+	keys  []pulse.StreamKey
+}
+
+func newStreamList(p *soundPanel, kind streamKind) *streamList {
+	l := &streamList{p: p, kind: kind, body: gapBox(widget.Column), group: widget.NewItemGroup(), rows: map[pulse.StreamKey]*appRow{}}
+	l.empty = p.k.emptyRow(kind.emptyIcon, locale.T().Get(kind.emptyKey))
+	l.body.Append(l.empty, false)
+	l.body.Append(l.group, false)
+	return l
+}
+
+func (l *streamList) show(streams []pulse.AudioStream, devices []pulse.Device) {
 	keys := make([]pulse.StreamKey, len(streams))
 	for i, s := range streams {
 		keys[i] = s.Key
 	}
-	if !slices.Equal(keys, p.appKeys) {
-		p.apps.Clear()
-		clear(p.appRows)
+	if !slices.Equal(keys, l.keys) {
+		l.group.Clear()
+		clear(l.rows)
 		for _, s := range streams {
-			row := newAppRow(p, s.Key)
-			p.appRows[s.Key] = row
-			p.apps.Append(row.Box)
+			row := newAppRow(l.p, l.kind, s.Key)
+			l.rows[s.Key] = row
+			l.group.Append(row.Box)
 		}
-		p.appKeys = keys
+		l.keys = keys
 	}
-	p.noApps.SetVisible(len(streams) == 0)
-	p.apps.SetVisible(len(streams) > 0)
+	l.empty.SetVisible(len(streams) == 0)
+	l.group.SetVisible(len(streams) > 0)
 	for _, s := range streams {
-		p.appRows[s.Key].show(s)
+		l.rows[s.Key].show(s, devices)
 	}
 }
 
@@ -331,14 +373,7 @@ func (c *deviceControls) show(devices []pulse.Device, current pulse.Device, has 
 		return
 	}
 	c.current = current
-	c.keys = make([]pulse.DeviceKey, len(devices))
-	names := make([]string, len(devices))
-	for i, d := range devices {
-		c.keys[i], names[i] = d.Key, cmp.Or(d.Description, d.Name)
-	}
-	if selected := slices.Index(c.keys, current.Key); !slices.Equal(c.devices.Items(), names) || c.devices.Selected() != selected {
-		c.devices.SetRows(soundDeviceRows(devices, c.kind, func(d pulse.Device) string { return cmp.Or(d.Description, d.Name) }), selected)
-	}
+	c.keys = showSoundDevices(c.devices, devices, c.kind, current.Key)
 	c.port = current.ActivePort
 	c.ports = c.ports[:0]
 	for _, port := range current.Ports {
@@ -449,20 +484,31 @@ func setChoices(d *widget.Dropdown, items []string, selected int) {
 
 type appRow struct {
 	*widget.Box
+	kind   streamKind
 	icon   *widget.Icon
 	title  *widget.Label
 	detail *widget.Label
+	route  *widget.Dropdown
+	routes []pulse.DeviceKey
 	volume *widgets.DebouncedSlider
 	mute   *muteToggle
 	levels []float64
 }
 
-func newAppRow(p *soundPanel, key pulse.StreamKey) *appRow {
+func newAppRow(p *soundPanel, kind streamKind, key pulse.StreamKey) *appRow {
 	k := p.k
-	r := &appRow{icon: widget.NewThemeIconFallback(appFallbackIcon, appIconPx)}
+	r := &appRow{kind: kind, icon: widget.NewThemeIconFallback(appFallbackIcon, appIconPx)}
 	r.icon.AddClass("sound-app-icon")
 	r.title = k.label("", "setting-label")
 	r.detail = k.label("", "setting-description", css.Caption, css.DimLabel)
+	r.route = widget.NewDropdown(k.face, k.textPx(), nil, 0)
+	r.route.OnSelect = func(i int) {
+		if p.syncing || i >= len(r.routes) {
+			return
+		}
+		device := r.routes[i]
+		p.act(func(ctx context.Context, svc *pulse.Service) error { return svc.MoveStream(ctx, key, device) })
+	}
 	r.volume = widgets.NewDebouncedSlider(0, k.face, k.textPx(), 0, k.invoke)
 	r.volume.Write = func(v float64) func() {
 		levels := scaledTo(r.levels, v/100)
@@ -470,7 +516,7 @@ func newAppRow(p *soundPanel, key pulse.StreamKey) *appRow {
 			return svc.SetStreamVolume(ctx, key, pulse.NewVolume(levels))
 		})
 	}
-	r.mute = newMuteToggle(k, speakerGlyphs, func(on bool) {
+	r.mute = newMuteToggle(k, kind.glyphs, func(on bool) {
 		if p.syncing {
 			return
 		}
@@ -484,23 +530,31 @@ func newAppRow(p *soundPanel, key pulse.StreamKey) *appRow {
 	r.AddClass(css.Small, "setting-row", "sound-app")
 	r.AppendAligned(r.icon, false, widget.AlignCenter)
 	r.AppendAligned(text, true, widget.AlignCenter)
+	r.AppendAligned(r.route, false, widget.AlignCenter)
 	r.AppendAligned(r.mute, false, widget.AlignCenter)
 	r.AppendAligned(r.volume, false, widget.AlignCenter)
 	return r
 }
 
-func (r *appRow) show(s pulse.AudioStream) {
+func (r *appRow) show(s pulse.AudioStream, devices []pulse.Device) {
 	t := locale.T()
 	name := cmp.Or(s.ApplicationName, s.Binary, s.Name)
 	r.title.SetText(name)
 	r.icon.SetThemeName(streamIcon(s))
 	r.detail.SetText(cmp.Or(s.Media.Title, s.Name))
+	r.showRoutes(s, devices, name)
 	r.volume.Knob.SetAccessibleName(t.Get("settings-sound-app-volume", i18n.Str("app", name)))
 	r.mute.name(t.Get("settings-sound-app-mute", i18n.Str("app", name)))
 	r.levels = s.Volume.Levels()
 	r.volume.Knob.SetEnabled(s.HasVolume && s.VolumeWritable)
 	r.volume.Set(peakLevel(r.levels) * 100)
 	r.mute.show(s.Muted)
+}
+
+func (r *appRow) showRoutes(s pulse.AudioStream, devices []pulse.Device, name string) {
+	r.route.SetAccessibleName(locale.T().Get(r.kind.routeKey, i18n.Str("app", name)))
+	r.route.SetVisible(len(devices) > 1)
+	r.routes = showSoundDevices(r.route, devices, r.kind.device, pulse.DeviceKey{Index: s.DeviceIndex, Type: r.kind.device})
 }
 
 func streamIcon(s pulse.AudioStream) string {

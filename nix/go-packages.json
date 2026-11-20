@@ -2325,6 +2325,7 @@
       "shell/cava",
       "shell/service/mail",
       "shell/service/notifications",
+      "shell/service/privacy",
       "shell/service/shellipc",
       "shell/service/sni",
       "shell/service/sysinfo",
