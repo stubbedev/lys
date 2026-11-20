@@ -35,7 +35,7 @@ func workspacesPage(*config.Config) pageSpec {
 	sections := []sectionSpec{
 		{title: "settings-section-general", rows: []rowSpec{
 			key("monitor-specific"), keyWith("workspace-ignore", workspaceIgnoreRow(on)), key("hide-trailing-empty"), key("hide-empty"),
-			key("min-workspace-count"), key("min-tag-count"), key("show-special"),
+			key("min-workspace-count"), key("min-tag-count"), key("show-special"), key("window-previews"),
 		}},
 		{title: "settings-section-display", rows: []rowSpec{
 			key("display-mode"), key("label-strategy"), key("label-use-name"), key("numbering"), keyWith("divider", workspaceDividerRow),

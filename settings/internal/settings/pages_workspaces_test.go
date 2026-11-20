@@ -179,3 +179,41 @@ func TestATypedWorkspacePatternIsHiddenOnce(t *testing.T) {
 		t.Fatalf("a repeat shows %q", c.problem.Text())
 	}
 }
+
+const windowPreviewsPath = workspacesModule + ".window-previews"
+
+func TestEveryCompositorShowsTheWorkspaceWindowPreviewsRow(t *testing.T) {
+	for _, env := range []string{compositor.LysWMSocketEnv, compositor.HyprlandSocketEnv, compositor.NiriSocketEnv, compositor.MangoSocketEnv, compositor.SwaySocketEnv, ""} {
+		runCompositor(t, env)
+		if !slices.Contains(workspaceKeysShown(t), "window-previews") {
+			t.Errorf("%q: window-previews is not shown", env)
+		}
+	}
+}
+
+func TestTheWorkspaceWindowPreviewsRowWritesTheKey(t *testing.T) {
+	k := testKit(t, "")
+	spec := pageRow(t, "workspaces", windowPreviewsPath)
+	if label := locale.T().Get(spec.labelKey()); label == "" || label == spec.labelKey() {
+		t.Errorf("the row reads %q", label)
+	}
+	c, ok := fieldControl(k, k.store, spec).(*toggle)
+	if !ok {
+		t.Fatalf("the row is a %T, want a switch", fieldControl(k, k.store, spec))
+	}
+	if c.On() {
+		t.Fatal("window previews are on by default")
+	}
+	c.Toggle()
+	if v := k.store.value(windowPreviewsPath); v != true {
+		t.Fatalf("turning previews on stored %v, want true", v)
+	}
+	c.Toggle()
+	if v := k.store.value(windowPreviewsPath); v != false {
+		t.Fatalf("turning previews off stored %v, want false", v)
+	}
+	k2 := testKit(t, "modules:\n  workspaces:\n    window-previews: true\n")
+	if c := fieldControl(k2, k2.store, spec).(*toggle); !c.On() {
+		t.Error("with window-previews: true the switch is off")
+	}
+}
