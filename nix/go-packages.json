@@ -567,6 +567,17 @@
       "desktop/shell/treetest"
     ]
   },
+  "desktop/shell/cavaview": {
+    "imports": [
+      "desktop/config",
+      "desktop/styling",
+      "lib/render",
+      "ui/widget"
+    ],
+    "testImports": [
+      "lib/testhome"
+    ]
+  },
   "desktop/shell/launcherview": {
     "imports": [
       "desktop/config",
@@ -3427,6 +3438,7 @@
       "desktop/settingspage",
       "desktop/shell/apptheme",
       "desktop/shell/barview",
+      "desktop/shell/cavaview",
       "desktop/shell/layers",
       "desktop/shell/lockclient",
       "desktop/shell/notifyview",

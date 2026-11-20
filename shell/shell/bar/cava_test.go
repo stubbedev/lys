@@ -10,187 +10,11 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
-	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/desktop/shell/cavaview"
 	"github.com/stubbedev/lys/lib/waittest"
-	"github.com/stubbedev/lys/ui/widget"
 
 	analyzer "github.com/stubbedev/lys/shell/cava"
 )
-
-var (
-	cavaRed   = render.RGB(0xff, 0, 0)
-	cavaBlack = render.RGB(0, 0, 0)
-)
-
-// paintSpectrum paints one frame of s into a w x h canvas and returns
-// a pixel reader.
-func paintSpectrum(s *spectrum, w, h int, values ...float64) func(x, y int) render.Color {
-	widget.SizeWithin(s, widget.Size{W: 1000, H: 1000})
-	s.Arrange(render.Rect{W: w, H: h})
-	data := make([]byte, render.Stride(w)*h)
-	cv := render.New(data, render.Stride(w), w, h)
-	cv.Clear(cv.Rect(), cavaBlack)
-	if values != nil {
-		s.SetFrame(values)
-	}
-	s.Paint(cv)
-	return func(x, y int) render.Color {
-		start := y*render.Stride(w) + x*4
-		return render.ColorFromBytes(data[start : start+4])
-	}
-}
-
-func cavaTestConfig(bars int) config.CavaConfig {
-	cfg := config.DefaultsCava()
-	cfg.Bars = config.BarCount(bars)
-	cfg.BarWidth = 4
-	cfg.BarGap = 2
-	cfg.InternalPadding = config.Size{}
-	return cfg
-}
-
-func TestSpectrumLength(t *testing.T) {
-	cfg := cavaTestConfig(10)
-	cfg.BarWidth, cfg.BarGap = 6, 1
-	cfg.InternalPadding = config.Size{Value: 8, Unit: config.SizePixels}
-	s := newSpectrum(cfg, 10, cavaRed, 1, false)
-	if s.length != 2*8+10*6+9*1 {
-		t.Errorf("length = %d, want %d", s.length, 2*8+10*6+9*1)
-	}
-	got := widget.SizeWithin(s, widget.Size{W: 1000, H: 1000})
-	if got != (widget.Size{W: s.length, H: s.thick}) || s.Measure(widget.Row, widget.Unknown).Min != s.length {
-		t.Errorf("horizontal size = %+v", got)
-	}
-	v := newSpectrum(cfg, 10, cavaRed, 1, true)
-	if got := widget.SizeWithin(v, widget.Size{W: 1000, H: 1000}); got != (widget.Size{W: v.thick, H: v.length}) {
-		t.Errorf("vertical size = %+v, want the length along the height", got)
-	}
-	if cavaWidgetLength(1, 3, 1, 0) != 3 || cavaWidgetLength(20, 3, 1, 8) != 95 || cavaWidgetLength(0, 3, 1, 0) != 1 {
-		t.Error("calculate_widget_length")
-	}
-}
-
-func TestSpectrumPaintsBarsByDirection(t *testing.T) {
-	for _, tc := range []struct {
-		dir           config.CavaDirection
-		top, mid, bot render.Color // probes at y 1, 7, 18 of a 20px canvas
-	}{
-		{config.CavaDirectionNormal, cavaBlack, cavaBlack, cavaRed}, // 10..20
-		{config.CavaDirectionReverse, cavaRed, cavaRed, cavaBlack},  // 0..10
-		{config.CavaDirectionMirror, cavaBlack, cavaRed, cavaBlack}, // 5..15
-	} {
-		cfg := cavaTestConfig(2)
-		cfg.Direction = tc.dir
-		px := paintSpectrum(newSpectrum(cfg, 2, cavaRed, 1, false), 30, 20, 0.5, 0.5)
-		if px(1, 1) != tc.top || px(1, 7) != tc.mid || px(1, 18) != tc.bot {
-			t.Errorf("%s: probes %#08x %#08x %#08x", tc.dir, px(1, 1), px(1, 7), px(1, 18))
-		}
-		if px(5, 18) != cavaBlack && tc.dir == config.CavaDirectionNormal {
-			t.Error("the gap between bars was painted")
-		}
-	}
-}
-
-func TestSpectrumSilentBarsKeepTheirMinimum(t *testing.T) {
-	px := paintSpectrum(newSpectrum(cavaTestConfig(1), 1, cavaRed, 1, false), 10, 20, 0)
-	if px(1, 19) != cavaRed || px(1, 18) != cavaRed || px(1, 17) != cavaBlack {
-		t.Error("a silent bar must still draw the minimum bar height (2px)")
-	}
-	// Before the first frame nothing paints.
-	empty := newSpectrum(cavaTestConfig(0), 0, cavaRed, 1, false)
-	if px := paintSpectrum(empty, 10, 20); px(1, 19) != cavaBlack {
-		t.Error("an empty frame painted")
-	}
-}
-
-func TestSpectrumPadsOnlyAlongTheBar(t *testing.T) {
-	cfg := cavaTestConfig(1)
-	cfg.InternalPadding = config.Size{Value: 5, Unit: config.SizePixels}
-	px := paintSpectrum(newSpectrum(cfg, 1, cavaRed, 1, false), 20, 20, 1)
-	if px(2, 10) != cavaBlack || px(6, 10) != cavaRed {
-		t.Error("the bar does not start after the padding")
-	}
-	if px(6, 0) != cavaRed || px(6, 19) != cavaRed {
-		t.Error("a full bar must run the whole height: the padding is only along the bar")
-	}
-}
-
-func TestSpectrumPeakCapsFall(t *testing.T) {
-	cfg := cavaTestConfig(1)
-	cfg.BarWidth = 10
-	cfg.Style = config.CavaStylePeaks
-	s := newSpectrum(cfg, 1, cavaRed, 1, false)
-	paintSpectrum(s, 20, 40, 0.9)
-	px := paintSpectrum(s, 20, 40, 0.1)
-	if s.peaks[0] != 0.9-cavaPeakGravity {
-		t.Errorf("peak = %v, want 0.9 less one frame of gravity", s.peaks[0])
-	}
-	// The cap sits just above the fallen peak, 40*(1-0.885) = 4.6px down.
-	if px(2, 3) != cavaRed || px(2, 10) != cavaBlack {
-		t.Errorf("cap probes %#08x / %#08x", px(2, 3), px(2, 10))
-	}
-	bars := newSpectrum(cavaTestConfig(1), 1, cavaRed, 1, false)
-	paintSpectrum(bars, 20, 40, 0.9)
-	if px := paintSpectrum(bars, 20, 40, 0.1); px(2, 3) != cavaBlack {
-		t.Error("the bars style drew a peak cap")
-	}
-}
-
-func TestSpectrumWave(t *testing.T) {
-	for _, tc := range []struct {
-		dir           config.CavaDirection
-		top, mid, bot render.Color
-	}{
-		{config.CavaDirectionNormal, cavaBlack, cavaBlack, cavaRed},
-		{config.CavaDirectionReverse, cavaRed, cavaBlack, cavaBlack},
-		{config.CavaDirectionMirror, cavaBlack, cavaRed, cavaBlack},
-	} {
-		cfg := cavaTestConfig(3)
-		cfg.Style = config.CavaStyleWave
-		cfg.Direction = tc.dir
-		px := paintSpectrum(newSpectrum(cfg, 3, cavaRed, 1, false), 30, 40, 0.4, 0.4, 0.4)
-		if px(15, 2) != tc.top || px(15, 20) != tc.mid || px(15, 37) != tc.bot {
-			t.Errorf("%s wave probes %#08x %#08x %#08x", tc.dir, px(15, 2), px(15, 20), px(15, 37))
-		}
-	}
-	// A peak in the middle rises above its flat neighbors.
-	cfg := cavaTestConfig(3)
-	cfg.Style = config.CavaStyleWave
-	px := paintSpectrum(newSpectrum(cfg, 3, cavaRed, 1, false), 30, 40, 0.1, 0.9, 0.1)
-	if px(15, 10) != cavaRed || px(1, 10) != cavaBlack {
-		t.Error("the curve does not follow the values")
-	}
-}
-
-func TestSpectrumVerticalTurnsAQuarter(t *testing.T) {
-	cfg := cavaTestConfig(2)
-	s := newSpectrum(cfg, 2, cavaRed, 1, true)
-	// On a vertical bar the first bar sits at the bottom and grows from
-	// the right edge leftward (translate to the bottom, rotate -90°).
-	px := paintSpectrum(s, 20, 30, 0.5, 0)
-	if px(15, 28) != cavaRed || px(5, 28) != cavaBlack {
-		t.Errorf("first bar probes %#08x / %#08x", px(15, 28), px(5, 28))
-	}
-	if px(15, 23) != cavaBlack || px(19, 23) != cavaRed {
-		t.Error("the second (silent) bar must be its 2px minimum at the right edge")
-	}
-}
-
-func TestCavaBarsSplitForStereo(t *testing.T) {
-	cfg := config.DefaultsCava()
-	cfg.Bars = 21
-	if b, ch := cavaBars(cfg); b != 21 || ch != 1 {
-		t.Errorf("mono = %d/%d", b, ch)
-	}
-	cfg.Stereo = true
-	if b, ch := cavaBars(cfg); b != 22 || ch != 2 {
-		t.Errorf("stereo of 21 = %d/%d, want 22 over 2 channels", b, ch)
-	}
-	cfg.Bars = 20
-	if b, _ := cavaBars(cfg); b != 20 {
-		t.Errorf("stereo of 20 = %d", b)
-	}
-}
 
 func TestNewCavaBuildsEveryStyleAndStereo(t *testing.T) {
 	for _, style := range []config.CavaStyle{config.CavaStyleBars, config.CavaStyleWave, config.CavaStylePeaks} {
@@ -203,8 +27,8 @@ func TestNewCavaBuildsEveryStyleAndStereo(t *testing.T) {
 			t.Fatalf("%s: %v", style, err)
 		}
 		m := module.(*cavaModule)
-		if m.analyzer.plan.Channels() != 2 || len(m.paint.values) != 10 {
-			t.Errorf("%s stereo: %d channels, %d values", style, m.analyzer.plan.Channels(), len(m.paint.values))
+		if m.analyzer.plan.Channels() != 2 || len(m.paint.Values()) != 10 {
+			t.Errorf("%s stereo: %d channels, %d values", style, m.analyzer.plan.Channels(), len(m.paint.Values()))
 		}
 		if got := len(m.analyzer.plan.Execute(nil, nil)); got != 10 {
 			t.Errorf("a stereo frame has %d values, want 10", got)
@@ -351,7 +175,7 @@ func TestCavaModuleEndsWithItsGeneration(t *testing.T) {
 	ticking := true
 	a := newCavaAnalyzer(plan, in, 10, config.CavaStyleBars, nil, time.Second/60,
 		func(time.Duration, func()) func() { return func() { ticking = false } })
-	a.join(life, testSpawn(t), newCavaBarSlot(newSpectrum(config.DefaultsCava(), 10, 0, 1, false), func(fn func()) { fn() }))
+	a.join(life, testSpawn(t), newCavaBarSlot(cavaview.NewSpectrum(config.DefaultsCava(), 10, 0, 1, false), func(fn func()) { fn() }))
 	if !ticking {
 		t.Fatal("the ticker stopped before the generation retired")
 	}
@@ -384,7 +208,7 @@ func newLoopedCava(t *testing.T) (*cavaModule, *fakeCavaInput, *cavaLoop) {
 	in := &fakeCavaInput{stopped: make(chan struct{})}
 	loop := &cavaLoop{}
 	a := newCavaAnalyzer(plan, in, 10, config.CavaStyleBars, nil, time.Second/60, loop.every)
-	m := &cavaModule{paint: newSpectrum(config.DefaultsCava(), 10, 0, 1, false), analyzer: a}
+	m := &cavaModule{paint: cavaview.NewSpectrum(config.DefaultsCava(), 10, 0, 1, false), analyzer: a}
 	a.join(t.Context(), testSpawn(t), newCavaBarSlot(m.paint, func(fn func()) { fn() }))
 	return m, in, loop
 }
@@ -425,7 +249,7 @@ func TestCavaFallsToRestBeforeParking(t *testing.T) {
 	for range 30 {
 		loop.tick()
 	}
-	if !slices.ContainsFunc(m.paint.values, func(v float64) bool { return v > cavaStill }) {
+	if !slices.ContainsFunc(m.paint.Values(), func(v float64) bool { return v > cavaview.Still }) {
 		t.Fatal("the bars never rose")
 	}
 	in.next = make([]float64, m.analyzer.plan.InputSize())
@@ -450,36 +274,13 @@ func TestCavaStaysStoppedWhenSoundFollowsItsGeneration(t *testing.T) {
 	loop := &cavaLoop{}
 	life, retire := context.WithCancel(context.Background())
 	a := newCavaAnalyzer(plan, in, 10, config.CavaStyleBars, nil, time.Second/60, loop.every)
-	a.join(life, testSpawn(t), newCavaBarSlot(newSpectrum(config.DefaultsCava(), 10, 0, 1, false), func(fn func()) { fn() }))
+	a.join(life, testSpawn(t), newCavaBarSlot(cavaview.NewSpectrum(config.DefaultsCava(), 10, 0, 1, false), func(fn func()) { fn() }))
 	loop.tick()
 	retire()
 	waittest.For(t, in.stopped, "the capture to stop with its generation")
 	in.onSound()
 	if loop.tick != nil {
 		t.Error("sound restarted a retired module")
-	}
-}
-
-func TestSpectrumIgnoresChangesBelowAPixel(t *testing.T) {
-	s := newSpectrum(cavaTestConfig(1), 1, cavaRed, 1, false)
-	if !s.SetFrame([]float64{0.5}) {
-		t.Fatal("a real change reported no movement")
-	}
-	if s.SetFrame([]float64{0.5 + cavaStill/2}) {
-		t.Error("a sub-pixel change asked for a paint")
-	}
-	if !s.SetFrame([]float64{0.5 + cavaStill}) {
-		t.Error("the drift never added up to a paint")
-	}
-	peaks := cavaTestConfig(1)
-	peaks.Style = config.CavaStylePeaks
-	p := newSpectrum(peaks, 1, cavaRed, 1, false)
-	p.SetFrame([]float64{0.9})
-	if !p.SetFrame([]float64{0.9 - 0.3}) {
-		t.Error("a fallen bar did not paint")
-	}
-	if !p.SetFrame([]float64{0.9 - 0.3}) {
-		t.Error("a falling cap must keep painting while the bar holds still")
 	}
 }
 
@@ -498,8 +299,8 @@ func TestCavaOneCaptureAndAnalyzerForTwoBars(t *testing.T) {
 	}
 	var posted []func()
 	post := func(fn func()) { posted = append(posted, fn) }
-	bar1 := newSpectrum(config.DefaultsCava(), 10, 0, 1, false)
-	bar2 := newSpectrum(config.DefaultsCava(), 10, 0, 1, false)
+	bar1 := cavaview.NewSpectrum(config.DefaultsCava(), 10, 0, 1, false)
+	bar2 := cavaview.NewSpectrum(config.DefaultsCava(), 10, 0, 1, false)
 	first, err := hub.cavaAnalyzer("cava/x", build)
 	if err != nil {
 		t.Fatal(err)
@@ -523,13 +324,13 @@ func TestCavaOneCaptureAndAnalyzerForTwoBars(t *testing.T) {
 	if len(posted) != 2 {
 		t.Fatalf("%d calls waiting on the loop after three frames, want one per bar", len(posted))
 	}
-	if slices.ContainsFunc(bar1.values, func(v float64) bool { return v != 0 }) {
+	if slices.ContainsFunc(bar1.Values(), func(v float64) bool { return v != 0 }) {
 		t.Fatal("the analyzer touched a bar's widget off the loop")
 	}
 	for _, apply := range posted {
 		apply()
 	}
-	if !slices.ContainsFunc(bar1.values, func(v float64) bool { return v > cavaStill }) || !slices.Equal(bar1.values, bar2.values) {
-		t.Errorf("the bars show %v and %v, want the same frame", bar1.values, bar2.values)
+	if !slices.ContainsFunc(bar1.Values(), func(v float64) bool { return v > cavaview.Still }) || !slices.Equal(bar1.Values(), bar2.Values()) {
+		t.Errorf("the bars show %v and %v, want the same frame", bar1.Values(), bar2.Values())
 	}
 }
