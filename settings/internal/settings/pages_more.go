@@ -84,7 +84,7 @@ func notificationsPage(*config.Config) pageSpec {
 		}},
 		{title: "settings-section-popup-display", preview: notificationPreview, rows: []rowSpec{
 			field("modules.notifications.popup-position", screenPosition),
-			field("modules.notifications.popup-monitor"),
+			field("modules.notifications.popup-monitor", monitorChoiceRow(primaryMonitor)),
 			field("modules.notifications.popup-duration", durationChips(inMilliseconds, after(3*time.Second), after(5*time.Second), after(10*time.Second), after(30*time.Second))),
 			field("modules.notifications.popup-hover-pause"),
 			field("modules.notifications.popup-max-visible", countSlider(1, popupMaxVisibleSoftMax)),
@@ -131,7 +131,7 @@ func osdPage(*config.Config) pageSpec {
 		}},
 		{title: "settings-section-display", preview: osdPreview, rows: []rowSpec{
 			field("osd.position", screenPosition),
-			field("osd.monitor"),
+			field("osd.monitor", monitorChoiceRow(primaryMonitor)),
 			field("osd.text-align", pictureChoice(textAlignPictures)),
 			field("osd.duration", durationChips(inMilliseconds, after(time.Second), after(1500*time.Millisecond), after(2500*time.Millisecond), after(5*time.Second))),
 			field("osd.border"),
@@ -156,7 +156,7 @@ func launcherPage(*config.Config) pageSpec {
 			field("launcher.location", screenPosition),
 			field("launcher.width", sizeBase(config.LauncherWidthBaseRem)),
 			field("launcher.lines"),
-			field("launcher.monitor"),
+			field("launcher.monitor", monitorChoiceRow(focusedMonitor)),
 			field("launcher.modes", launcherModesRow),
 			field("launcher.display-names", displayNamesRow),
 			field("launcher.sidebar-mode"),
