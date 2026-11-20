@@ -1096,3 +1096,7 @@ enum-wm-scroll-button-middle = Central
 enum-wm-scroll-button-right = Direito
 enum-wm-scroll-button-side = Lateral
 enum-wm-scroll-button-task = Tarefa
+wm-preview-tabs = Pré-visualização da barra de separadores
+wm-preview-tab-active = Em foco
+wm-preview-tab-inactive = Outra janela
+wm-preview-tab-urgent = Pede atenção

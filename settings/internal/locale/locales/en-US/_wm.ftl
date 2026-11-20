@@ -1100,3 +1100,7 @@ enum-wm-scroll-button-middle = Middle
 enum-wm-scroll-button-right = Right
 enum-wm-scroll-button-side = Side
 enum-wm-scroll-button-task = Task
+wm-preview-tabs = Tab bar preview
+wm-preview-tab-active = Focused
+wm-preview-tab-inactive = Other window
+wm-preview-tab-urgent = Wants attention

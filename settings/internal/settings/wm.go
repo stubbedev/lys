@@ -603,7 +603,9 @@ func wmTilingPage() pageSpec {
 		sectionSpec{title: "wm-section-layout", rows: wmFields("layout", "scroll.center", columnPresetsPath)},
 		sectionSpec{title: "wm-section-autotile", rows: switchedBy("autotile.enabled",
 			wmField("autotile.ephemeral"), wmField("autotile.min_trigger", softPixels(0, 1200)), wmField("autotile.divisor"))},
-		sectionSpec{title: "wm-section-tabs", rows: append([]rowSpec{wmField("tabs.height", softPixels(16, 48))}, wmFields("tabs.padding", "tabs.text_height", "tabs.text_padding", "tabs.font", "tabs.icon_theme",
+		sectionSpec{title: "wm-section-tabs", preview: newTabPreview, rows: append([]rowSpec{
+			wmField("tabs.height", softPixels(16, 48)), wmField("tabs.padding", softPixels(0, 16)), wmField("tabs.text_height", softPixels(8, 24)), wmField("tabs.text_padding", softPixels(0, 24)),
+		}, wmFields("tabs.font", "tabs.icon_theme",
 			"tabs.active.background", "tabs.active.text", "tabs.inactive.background", "tabs.inactive.text", "tabs.urgent.background", "tabs.urgent.text")...)},
 	)
 }

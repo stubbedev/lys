@@ -1100,3 +1100,7 @@ enum-wm-scroll-button-middle = Milieu
 enum-wm-scroll-button-right = Droit
 enum-wm-scroll-button-side = Latéral
 enum-wm-scroll-button-task = Tâche
+wm-preview-tabs = Aperçu de la barre d'onglets
+wm-preview-tab-active = Active
+wm-preview-tab-inactive = Autre fenêtre
+wm-preview-tab-urgent = Demande l'attention

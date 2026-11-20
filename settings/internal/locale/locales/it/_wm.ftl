@@ -1100,3 +1100,7 @@ enum-wm-scroll-button-middle = Centrale
 enum-wm-scroll-button-right = Destro
 enum-wm-scroll-button-side = Laterale
 enum-wm-scroll-button-task = Attività
+wm-preview-tabs = Anteprima della barra delle schede
+wm-preview-tab-active = Attiva
+wm-preview-tab-inactive = Altra finestra
+wm-preview-tab-urgent = Chiede attenzione

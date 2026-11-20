@@ -1095,3 +1095,7 @@ enum-wm-scroll-button-middle = Midden
 enum-wm-scroll-button-right = Rechts
 enum-wm-scroll-button-side = Zijkant
 enum-wm-scroll-button-task = Taak
+wm-preview-tabs = Voorbeeld van de tabbalk
+wm-preview-tab-active = Gefocust
+wm-preview-tab-inactive = Ander venster
+wm-preview-tab-urgent = Vraagt aandacht

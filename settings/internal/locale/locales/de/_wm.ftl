@@ -1098,3 +1098,7 @@ enum-wm-scroll-button-middle = Mitte
 enum-wm-scroll-button-right = Rechts
 enum-wm-scroll-button-side = Seite
 enum-wm-scroll-button-task = Aufgabe
+wm-preview-tabs = Vorschau der Tableiste
+wm-preview-tab-active = Fokussiert
+wm-preview-tab-inactive = Anderes Fenster
+wm-preview-tab-urgent = Will Aufmerksamkeit
