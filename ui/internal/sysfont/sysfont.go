@@ -392,6 +392,22 @@ func Warm(ctx context.Context) {
 	_, _ = UIMono()
 }
 
+// RegularFace is where the face of an installed family closest to its
+// regular one lies. A generic, an embedded family or one not installed
+// has no such face of its own, and is an error.
+func RegularFace(family string) (fontscan.Location, error) {
+	if _, err := fontmap(context.Background()); err != nil {
+		return fontscan.Location{}, err
+	}
+	storeMu.Lock()
+	defer storeMu.Unlock()
+	faces := installedFaces(family)
+	if len(faces) == 0 {
+		return fontscan.Location{}, fmt.Errorf("sysfont: %q is no installed font family", family)
+	}
+	return closestFace(faces, regAspect).loc, nil
+}
+
 // Best resolves the family a widget asks for: any installed family
 // name (symbol and emoji faces included, even though they lack latin
 // coverage), or a CSS generic - sans-serif, serif, monospace. Size is

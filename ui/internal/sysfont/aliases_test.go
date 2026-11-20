@@ -111,3 +111,27 @@ func TestFamilyKeyMatchesFamilies(t *testing.T) {
 		}
 	}
 }
+
+func TestRegularFaceIsWhereAnInstalledFamilysRegularFaceLies(t *testing.T) {
+	mustSans(t)
+	regular := fontscan.Location{File: "/fonts/LysTest-Regular.ttf"}
+	bold := fontscan.Location{File: "/fonts/LysTest-Bold.ttf"}
+	storeMu.Lock()
+	saved, savedBuilt := aliasIndex, aliasIndexBuilt
+	aliasIndex = map[string][]systemFace{"lystestregularfamily": {{bold, aspect(font.WeightBold, font.StyleNormal)}, {regular, aspect(font.WeightNormal, font.StyleNormal)}}}
+	aliasIndexBuilt = true
+	storeMu.Unlock()
+	t.Cleanup(func() {
+		storeMu.Lock()
+		aliasIndex, aliasIndexBuilt = saved, savedBuilt
+		storeMu.Unlock()
+	})
+	if got, err := RegularFace("Lys Test Regular Family"); err != nil || got != regular {
+		t.Errorf("the family's regular face is at %v, %v; want %v", got, err, regular)
+	}
+	for _, family := range []string{fontscan.Monospace, "Lys Test No Such Family"} {
+		if got, err := RegularFace(family); err == nil {
+			t.Errorf("%s has a face of its own at %v", family, got)
+		}
+	}
+}

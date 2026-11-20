@@ -19,6 +19,17 @@ func Font(family string, sizePx float64) (*render.Typeface, error) {
 	return sysfont.Best(family, sizePx)
 }
 
+// FontFile is the file holding the regular face of an installed font
+// family, which may be a collection of faces. A generic family, an
+// embedded one or one not installed is an error.
+func FontFile(family string) (string, error) {
+	loc, err := sysfont.RegularFace(family)
+	if err != nil {
+		return "", err
+	}
+	return loc.File, nil
+}
+
 // UIFont returns the default look's face: Geist, embedded in the
 // binary, the family the theme's controls are designed around.
 // sizePx follows Font.
