@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/lib/intconv"
@@ -409,7 +410,7 @@ func newSystray(ctx ModuleContext) (Module, error) {
 		store:   ctx.SNI,
 		tray:    ctx.Tray,
 		entries: make(map[string]*trayEntry),
-		root:    widget.NewBox(widget.Row, trayItemGap(ctx), 0),
+		root:    widget.NewBox(widget.Row, barview.TrayItemGapPx(ctx.Config), 0),
 		scale:   deviceScale{1, 1},
 	}
 	m.root.AddClass("systray")
@@ -491,11 +492,6 @@ func (m *systrayModule) retire() {
 	for _, e := range m.entries {
 		e.retireIcon()
 	}
-}
-
-// trayItemGap is item-gap in pixels (resolved at 1 rem).
-func trayItemGap(ctx ModuleContext) int {
-	return int(math.Round(ctx.Config.Systray.ItemGap.ResolvePx(styling.RemBase, float64(ctx.Config.Bar.Scale))))
 }
 
 // iconPx is icon-scale resolved at the 1.25 rem base.

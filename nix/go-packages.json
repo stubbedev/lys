@@ -578,6 +578,19 @@
       "lib/testhome"
     ]
   },
+  "desktop/shell/dockview": {
+    "imports": [
+      "desktop/config",
+      "desktop/shell/barview",
+      "desktop/shell/widgets",
+      "desktop/styling",
+      "lib/render",
+      "ui/widget"
+    ],
+    "testImports": [
+      "desktop/shell/treetest"
+    ]
+  },
   "desktop/shell/launcherview": {
     "imports": [
       "desktop/config",
@@ -3444,6 +3457,7 @@
       "desktop/shell/apptheme",
       "desktop/shell/barview",
       "desktop/shell/cavaview",
+      "desktop/shell/dockview",
       "desktop/shell/layers",
       "desktop/shell/lockclient",
       "desktop/shell/notifyview",

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/shell/dockview"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
@@ -149,10 +150,10 @@ func minimizedModule(t *testing.T, cfg *config.Config, src *fakeToplevels) (*min
 	return mod, host
 }
 
-func taskEntries(m *minimizedWindowsModule) []*taskButton {
-	var out []*taskButton
+func taskEntries(m *minimizedWindowsModule) []*dockview.TaskButton {
+	var out []*dockview.TaskButton
 	for _, c := range m.root.Children() {
-		out = append(out, c.(*taskButton))
+		out = append(out, c.(*dockview.TaskButton))
 	}
 	return out
 }
@@ -204,7 +205,7 @@ func TestShowWhenEmptyKeepsTheModuleIcon(t *testing.T) {
 	cfg.MinimizedWindows.ShowWhenEmpty = true
 	m, _ := minimizedModule(t, cfg, &fakeToplevels{})
 	entries := taskEntries(m)
-	if !m.root.Visible() || len(entries) != 1 || entries[0].icon != cfg.MinimizedWindows.Icon {
+	if !m.root.Visible() || len(entries) != 1 || entries[0].Icon() != cfg.MinimizedWindows.Icon {
 		t.Fatalf("visible %v, entries %d", m.root.Visible(), len(entries))
 	}
 }

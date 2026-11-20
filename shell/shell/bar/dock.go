@@ -9,6 +9,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/shell/dockview"
 	"github.com/stubbedev/lys/desktop/shell/layers"
 	"github.com/stubbedev/lys/lib/intconv"
 	"github.com/stubbedev/lys/lib/render"
@@ -18,10 +19,6 @@ import (
 
 	"github.com/stubbedev/lys/shell/shell/layering"
 )
-
-// dockMinimizedAlpha is the running indicator's opacity while every
-// window of its app is minimized.
-const dockMinimizedAlpha = 0.35
 
 // dockPathPinned is the config path of the pinned apps the dock's menu
 // writes.
@@ -177,8 +174,7 @@ type dock struct {
 	slot   *widget.Box
 	reveal *widget.DrawingArea
 	axis   widget.Axis
-	px     int
-	zoom   dockZoom
+	zoom   dockview.Zoom
 	// hovered is the app whose entry is under the pointer, empty for none.
 	hovered string
 	entries map[string]*dockEntry
@@ -201,7 +197,7 @@ type dock struct {
 }
 
 type dockEntry struct {
-	*taskButton
+	*dockview.TaskButton
 	indicator *widget.DrawingArea
 	app       dockApp
 }
@@ -213,20 +209,12 @@ func newDock(ctx ModuleContext, cfg config.DockConfig, output *app.Output, after
 		cfg:     cfg,
 		hub:     ctx.Tasks,
 		output:  output,
-		axis:    widget.Row,
+		axis:    dockview.Axis(cfg.Edge),
+		zoom:    dockview.ZoomOf(cfg, ctx.Config),
 		entries: map[string]*dockEntry{},
 		launch:  launchApp,
 	}
-	if cfg.Edge.IsVertical() {
-		d.axis = widget.Column
-	}
-	d.px = taskIconPx(cfg.IconSize, ctx.Config)
-	d.zoom = dockZoom{base: d.px}
-	if cfg.HoverZoom {
-		d.zoom.peak = taskIconPx(cfg.HoverZoomSize, ctx.Config)
-	}
-	d.panel = &arrangedBox{Box: widget.NewBox(d.axis, trayItemGap(ctx), 0), arranged: d.claim}
-	d.panel.AddClass("dock", string(cfg.Edge))
+	d.panel = &arrangedBox{Box: dockview.NewPanel(cfg, ctx.Config), arranged: d.claim}
 	d.reveal = widget.NewDrawingArea(revealPx, revealPx)
 	d.reveal.AddClass("dock-reveal")
 	d.reveal.SetVisible(false)
@@ -237,7 +225,7 @@ func newDock(ctx ModuleContext, cfg config.DockConfig, output *app.Output, after
 	d.surface = &dockSurface{Box: widget.NewBox(across, 0, 0), d: d}
 	d.slot = widget.NewBox(d.axis, 0, 0)
 	d.slot.Append(d.panel, true)
-	edgeAlign(d.slot, cfg.Edge)
+	dockview.Seat(d.slot, cfg.Edge)
 	d.surface.AddClass("dock-surface")
 	d.surface.Append(d.slot, true)
 	d.surface.Append(d.reveal, false)
@@ -296,7 +284,7 @@ func (d *dock) render() {
 			d.entries[a.appID] = e
 		}
 		e.app = a
-		e.setIcon(d.hub.appIcon(a.appID, d.cfg.Icon), d.cfg.Icon)
+		e.SetIcon(d.hub.appIcon(a.appID, d.cfg.Icon), d.cfg.Icon)
 		e.SetTooltip(d.hub.appName(a.appID))
 		e.SetClass("running", a.running())
 		e.SetClass("minimized", a.minimized())
@@ -312,16 +300,9 @@ func (d *dock) render() {
 }
 
 func (d *dock) newEntry() *dockEntry {
-	e := &dockEntry{indicator: widget.NewDrawingArea(max(d.px/6, 3), max(d.px/6, 3))}
-	e.indicator.AddClass("dock-indicator")
-	e.indicator.OnDraw = func(cv *render.Canvas, r render.Rect) {
-		if e.app.minimized() {
-			defer cv.PopAlpha(cv.PushAlpha(dockMinimizedAlpha))
-		}
-		cv.RoundedRect(r, min(r.W, r.H)/2, widget.Current().Accent)
-	}
-	e.taskButton = newTaskButton(d.ctx, d.px, "task-item", e.indicator)
-	e.AddClass("dock-item")
+	e := &dockEntry{}
+	e.TaskButton, e.indicator = dockview.NewEntry(d.zoom.Base, d.ctx.Invoke, func() bool { return e.app.minimized() })
+	styledTask(d.ctx, e.TaskButton)
 	e.OnClick = func() { d.activate(e.app) }
 	e.SetOnPointer(func(ev widget.PointerEvent) bool {
 		switch {
@@ -475,35 +456,6 @@ func (d *dock) applyHidden(hide bool) {
 	d.fitHeadroom()
 }
 
-// dockZoom is how entries grow under the pointer: the hovered one to
-// peak, its neighbors halfway; a peak no larger than base is no zoom.
-type dockZoom struct{ base, peak int }
-
-func (z dockZoom) on() bool { return z.peak > z.base }
-
-// px is the icon size of an entry steps entries from the hovered one.
-func (z dockZoom) px(steps int) int {
-	if !z.on() {
-		return z.base
-	}
-	switch steps {
-	case 0:
-		return z.peak
-	case 1:
-		return (z.base + z.peak) / 2
-	}
-	return z.base
-}
-
-// growth is how much a zoomed dock outgrows its resting size along its
-// edge and across it.
-func (z dockZoom) growth() (along, across int) {
-	if !z.on() {
-		return 0, 0
-	}
-	return z.px(0) - z.base + 2*(z.px(1)-z.base), z.peak - z.base
-}
-
 // hoverEntry zooms around the app whose entry the pointer entered, and
 // back once it left without entering another.
 func (d *dock) hoverEntry(appID string, on bool) {
@@ -523,11 +475,7 @@ func (d *dock) hoverEntry(appID string, on bool) {
 func (d *dock) applyZoom() {
 	at := slices.IndexFunc(d.shown, func(a dockApp) bool { return a.appID == d.hovered })
 	for i, a := range d.shown {
-		steps := -1
-		if at >= 0 {
-			steps = max(i-at, at-i)
-		}
-		d.entries[a.appID].resize(d.zoom.px(steps))
+		d.entries[a.appID].Resize(d.zoom.PxAt(i, at))
 	}
 }
 
@@ -556,7 +504,7 @@ func (d *dock) measured(size widget.Size) {
 // fitHeadroom keeps the shown surface large enough for the zoomed
 // entries, so hovering never resizes it; a hidden dock is its strip.
 func (d *dock) fitHeadroom() {
-	along, across := d.zoom.growth()
+	along, across := d.zoom.Growth()
 	if d.hide.hidden || along == 0 {
 		d.surface.SetSizeRequest(0, 0)
 		return
@@ -574,21 +522,6 @@ func (d *dock) thickness() int {
 		return d.size.H
 	}
 	return d.size.W
-}
-
-// edgeAlign seats w against edge, centered along it.
-func edgeAlign(w *widget.Box, edge config.DockEdge) {
-	switch edge {
-	case config.DockEdgeBottom:
-		w.SetHAlign(widget.AlignCenter)
-		w.SetVAlign(widget.AlignEnd)
-	case config.DockEdgeLeft:
-		w.SetHAlign(widget.AlignStart)
-		w.SetVAlign(widget.AlignCenter)
-	case config.DockEdgeRight:
-		w.SetHAlign(widget.AlignEnd)
-		w.SetVAlign(widget.AlignCenter)
-	}
 }
 
 // dockSurface is the dock's root: it takes pointer input on the panel

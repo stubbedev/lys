@@ -77,8 +77,8 @@ func TestTheDockListsPinnedAppsThenOpenOnes(t *testing.T) {
 	if got, want := r.apps(), []string{"firefox", "org.gnome.Nautilus", "foot"}; !slices.Equal(got, want) {
 		t.Fatalf("apps = %v, want %v", got, want)
 	}
-	if e := r.d.entries["firefox"]; !e.HasClass("running") || e.icon != "firefox" || e.TooltipText() != "Firefox" {
-		t.Errorf("the open pinned app shows running %v, icon %q, tooltip %q", e.HasClass("running"), e.icon, e.TooltipText())
+	if e := r.d.entries["firefox"]; !e.HasClass("running") || e.Icon() != "firefox" || e.TooltipText() != "Firefox" {
+		t.Errorf("the open pinned app shows running %v, icon %q, tooltip %q", e.HasClass("running"), e.Icon(), e.TooltipText())
 	}
 	if e := r.d.entries["org.gnome.Nautilus"]; e.HasClass("running") || e.indicator.Visible() {
 		t.Error("a closed pinned app shows running")
@@ -281,7 +281,7 @@ func TestADockLaunchesAPinnedAppFromItsDesktopEntry(t *testing.T) {
 	t.Cleanup(func() { onHeadlessLoop(func() bool { d.close(); return true }) })
 	waitHeadless(t, "the desktop entry's name and icon", func() bool {
 		e := d.entries["org.example.TouchProbe"]
-		return e.TooltipText() == "Touch Probe" && e.icon == "touch-probe"
+		return e.TooltipText() == "Touch Probe" && e.Icon() == "touch-probe"
 	})
 	onHeadlessLoop(func() bool { d.entries["org.example.TouchProbe"].ClickAt(widget.Point{}); return true })
 	waitHeadless(t, "the entry's Exec run once", func() bool {
@@ -314,7 +314,7 @@ func TestHoveringADockEntryZoomsItAndItsNeighbors(t *testing.T) {
 	sizes := func() []int {
 		out := make([]int, len(r.d.shown))
 		for i, a := range r.d.shown {
-			out[i] = r.d.entries[a.appID].px
+			out[i] = r.d.entries[a.appID].Px()
 		}
 		return out
 	}
@@ -345,11 +345,11 @@ func TestHoveringADockEntryZoomsItAndItsNeighbors(t *testing.T) {
 		r := newDockRig(t, off)
 		r.d.hoverEntry("b", true)
 		for _, a := range r.d.shown {
-			if px := r.d.entries[a.appID].px; px != 40 {
+			if px := r.d.entries[a.appID].Px(); px != 40 {
 				t.Fatalf("%s: hovering b sized %s to %d", name, a.appID, px)
 			}
 		}
-		if along, across := r.d.zoom.growth(); along != 0 || across != 0 {
+		if along, across := r.d.zoom.Growth(); along != 0 || across != 0 {
 			t.Fatalf("%s: the dock keeps %dx%d headroom", name, along, across)
 		}
 	}
@@ -372,7 +372,7 @@ func TestAZoomingDockKeepsHeadroomAndTakesInputOnItsPanel(t *testing.T) {
 	if rest.W == 0 || rest.H == 0 {
 		t.Fatalf("the laid-out dock measured %v", rest)
 	}
-	along, across := r.d.zoom.growth()
+	along, across := r.d.zoom.Growth()
 	if got := r.d.surface.SizeRequest(); got != (widget.Size{W: rest.W + along, H: rest.H + across}) {
 		t.Fatalf("the shown dock requests %v, want its %v rest plus %dx%d headroom", got, rest, along, across)
 	}

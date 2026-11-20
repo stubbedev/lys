@@ -6,6 +6,8 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/shell/barview"
+	"github.com/stubbedev/lys/desktop/shell/dockview"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
@@ -30,9 +32,9 @@ type minimizedWindowsModule struct {
 	root     *arrangedBox
 	axis     widget.Axis
 	px       int
-	entries  map[taskWindow]*taskButton
+	entries  map[taskWindow]*dockview.TaskButton
 	shown    []taskWindow
-	empty    *taskButton
+	empty    *dockview.TaskButton
 	host     app.Host
 	rects    *rectOwner
 	unfollow func()
@@ -47,13 +49,13 @@ func newMinimizedWindows(ctx ModuleContext) (Module, error) {
 		cfg:     ctx.Config.MinimizedWindows,
 		hub:     ctx.Tasks,
 		axis:    widget.Row,
-		entries: map[taskWindow]*taskButton{},
+		entries: map[taskWindow]*dockview.TaskButton{},
 	}
 	if ctx.Config.Bar.Location.IsVertical() {
 		m.axis = widget.Column
 	}
-	m.px = taskIconPx(m.cfg.IconSize, ctx.Config)
-	m.root = &arrangedBox{Box: widget.NewBox(m.axis, trayItemGap(ctx), 0), arranged: m.claim}
+	m.px = dockview.IconPx(m.cfg.IconSize, ctx.Config)
+	m.root = &arrangedBox{Box: widget.NewBox(m.axis, barview.TrayItemGapPx(ctx.Config), 0), arranged: m.claim}
 	m.root.AddClass("minimized-windows")
 	m.rects = m.hub.windows.owner()
 	m.unfollow = m.hub.windows.subscribe(m.render)
@@ -90,7 +92,7 @@ func (m *minimizedWindowsModule) render() {
 			e = m.newEntry(w)
 			m.entries[w] = e
 		}
-		e.setIcon(m.hub.appIcon(w.AppID(), m.cfg.Icon), m.cfg.Icon)
+		e.SetIcon(m.hub.appIcon(w.AppID(), m.cfg.Icon), m.cfg.Icon)
 		e.SetTooltip(m.hub.windowTooltip(w))
 		m.root.Append(e, false)
 	}
@@ -101,7 +103,7 @@ func (m *minimizedWindowsModule) render() {
 	m.root.SetVisible(len(windows) > 0 || m.cfg.ShowWhenEmpty)
 }
 
-func (m *minimizedWindowsModule) newEntry(w taskWindow) *taskButton {
+func (m *minimizedWindowsModule) newEntry(w taskWindow) *dockview.TaskButton {
 	e := newTaskButton(m.ctx, m.px, "task-item")
 	e.OnClick = w.Activate
 	e.SetOnPointer(func(ev widget.PointerEvent) bool {
@@ -122,11 +124,11 @@ func (m *minimizedWindowsModule) newEntry(w taskWindow) *taskButton {
 }
 
 // emptyEntry is the module's icon while nothing is minimized.
-func (m *minimizedWindowsModule) emptyEntry() *taskButton {
+func (m *minimizedWindowsModule) emptyEntry() *dockview.TaskButton {
 	if m.empty == nil {
 		m.empty = newTaskButton(m.ctx, m.px, "task-item")
 		m.empty.AddClass("task-empty")
-		m.empty.setIcon(m.cfg.Icon, m.cfg.Icon)
+		m.empty.SetIcon(m.cfg.Icon, m.cfg.Icon)
 		m.empty.SetTooltip(i18n.T("bar-task-none"))
 	}
 	return m.empty
