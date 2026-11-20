@@ -507,9 +507,23 @@ func (d *fakeDM) cmdline() string {
 	return string(bytes.ReplaceAll(data, []byte{0}, []byte{' '}))
 }
 
+// fromOutside is the daemon's descriptors that name a file this test
+// process also holds: ones the test binary itself inherited from whatever
+// started it (a CI runner leaves some open across exec), which every
+// child inherits in turn and the daemon never opened.
+func (d *fakeDM) fromOutside() map[int]bool {
+	d.t.Helper()
+	out := map[int]bool{}
+	for _, pair := range fdtest.Shared(d.t, os.Getpid(), d.pid) {
+		out[pair[1]] = true
+	}
+	return out
+}
+
 func (d *fakeDM) handoverLeft() error {
 	d.t.Helper()
 	var left []error
+	outside := d.fromOutside()
 	dir := fmt.Sprintf("/proc/%d/fdinfo", d.pid)
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -520,7 +534,7 @@ func (d *fakeDM) handoverLeft() error {
 		if err != nil {
 			d.t.Fatalf("descriptor %q in %s: %v", entry.Name(), dir, err)
 		}
-		if fd < firstHandoverFD {
+		if fd < firstHandoverFD || outside[fd] {
 			continue
 		}
 		info, err := os.ReadFile(filepath.Join(dir, entry.Name()))
@@ -535,7 +549,7 @@ func (d *fakeDM) handoverLeft() error {
 		}
 	}
 	for _, pair := range fdtest.Shared(d.t, d.pid, d.pid) {
-		if pair[0] >= firstHandoverFD && pair[0] < pair[1] {
+		if pair[0] >= firstHandoverFD && pair[0] < pair[1] && !outside[pair[0]] {
 			left = append(left, fmt.Errorf("descriptors %d and %d hold one file", pair[0], pair[1]))
 		}
 	}
@@ -591,8 +605,9 @@ func (d *fakeDM) socketsOn(name string) int {
 
 func (d *fakeDM) requireNothingInherited(worker int) {
 	d.t.Helper()
+	outside := d.fromOutside()
 	for _, pair := range fdtest.Shared(d.t, worker, d.pid) {
-		if pair[0] >= firstHandoverFD {
+		if pair[0] >= firstHandoverFD && !outside[pair[1]] {
 			d.t.Errorf("worker %d holds on descriptor %d the file the daemon holds on %d: the daemon leaked it into the session", worker, pair[0], pair[1])
 		}
 	}
