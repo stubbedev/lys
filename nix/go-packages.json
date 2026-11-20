@@ -2350,6 +2350,7 @@
       "settings/internal/locale/locales"
     ]
   },
+  "settings/internal/proxyenv": {},
   "settings/internal/settings": {
     "imports": [
       "desktop/compositor",
@@ -2413,6 +2414,7 @@
       "secrets/control",
       "settings/internal/displays",
       "settings/internal/locale",
+      "settings/internal/proxyenv",
       "settings/internal/wmconfig",
       "settings/internal/wmstate",
       "shell/cava",
