@@ -7,6 +7,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/pango"
+	"github.com/stubbedev/lys/desktop/shell/vaultlogin"
 	"github.com/stubbedev/lys/secrets/vault"
 
 	engine "github.com/stubbedev/lys/shell/service/launcher"
@@ -65,7 +66,7 @@ func (m *vaultMode) AllowsCustom() bool { return m.phase == vaultUnlock || m.pha
 func (m *vaultMode) Load(context.Context) engine.ModeState {
 	v, err := m.host.vault()
 	if err != nil {
-		return m.unusable(i18n.T("dropdown-bitwarden-unavailable") + ": " + bwErrorText(err))
+		return m.unusable(i18n.T("dropdown-bitwarden-unavailable") + ": " + vaultlogin.ErrorText(err))
 	}
 	return m.fresh(v, "")
 }
@@ -134,7 +135,7 @@ func vaultRow(name, caption, icon string) engine.Item {
 func (m *vaultMode) Activate(ctx context.Context, target engine.Target, kind engine.ActivateKind, input string) engine.Action {
 	v, err := m.host.vault()
 	if err != nil {
-		return engine.ActionReload{State: m.unusable(bwErrorText(err))}
+		return engine.ActionReload{State: m.unusable(vaultlogin.ErrorText(err))}
 	}
 	switch m.phase {
 	case vaultUnlock:
@@ -142,7 +143,7 @@ func (m *vaultMode) Activate(ctx context.Context, target engine.Target, kind eng
 			return engine.ActionNothing{}
 		}
 		if err := v.Unlock(ctx, input); err != nil {
-			return engine.ActionReload{State: m.password(vaultUnlock, bwErrorText(err))}
+			return engine.ActionReload{State: m.password(vaultUnlock, vaultlogin.ErrorText(err))}
 		}
 		return engine.ActionReload{State: m.fresh(v, "")}
 	case vaultReprompt:
@@ -190,10 +191,10 @@ func (m *vaultMode) pick(ctx context.Context, v bwVault, it vault.Item, f vault.
 func (m *vaultMode) copy(ctx context.Context, v bwVault, it vault.Item, f vault.Field, password string) engine.Action {
 	value, err := v.Field(ctx, it.ID, f, password)
 	if errors.Is(err, vault.ErrWrongPassword) {
-		return engine.ActionReload{State: m.password(vaultReprompt, bwErrorText(err))}
+		return engine.ActionReload{State: m.password(vaultReprompt, vaultlogin.ErrorText(err))}
 	}
 	if err != nil {
-		return engine.ActionReload{State: m.fresh(v, bwErrorText(err))}
+		return engine.ActionReload{State: m.fresh(v, vaultlogin.ErrorText(err))}
 	}
 	done := make(chan error, 1)
 	m.invoke(func() {
@@ -205,7 +206,7 @@ func (m *vaultMode) copy(ctx context.Context, v bwVault, it vault.Item, f vault.
 		return engine.ActionNothing{}
 	case err := <-done:
 		if err != nil {
-			return engine.ActionReload{State: m.fresh(v, bwErrorText(err))}
+			return engine.ActionReload{State: m.fresh(v, vaultlogin.ErrorText(err))}
 		}
 		return engine.ActionClose{}
 	}

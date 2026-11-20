@@ -6,6 +6,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/network"
+	"github.com/stubbedev/lys/desktop/shell/vaultlogin"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
 )
@@ -79,7 +80,7 @@ func (f *netSaveOffer) save() {
 			f.saveBtn.SetEnabled(true)
 			if err != nil {
 				log.Printf("network: save %s to the vault: %v", o.Name, err)
-				f.errText.SetText(bwErrorText(err))
+				f.errText.SetText(vaultlogin.ErrorText(err))
 				f.errText.SetVisible(true)
 				return
 			}

@@ -696,6 +696,12 @@
       "ui/widget"
     ]
   },
+  "desktop/shell/vaultlogin": {
+    "imports": [
+      "desktop/i18n",
+      "secrets/vault"
+    ]
+  },
   "desktop/shell/widgets": {
     "imports": [
       "desktop/config",
@@ -3524,6 +3530,7 @@
       "desktop/shell/lockclient",
       "desktop/shell/notifyview",
       "desktop/shell/reveal",
+      "desktop/shell/vaultlogin",
       "desktop/shell/widgets",
       "desktop/spawn",
       "desktop/strftime",

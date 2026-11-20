@@ -16,6 +16,7 @@ import (
 	"github.com/stubbedev/lys/desktop/service/clipboard"
 	"github.com/stubbedev/lys/desktop/service/network"
 	"github.com/stubbedev/lys/desktop/shell/barview"
+	"github.com/stubbedev/lys/desktop/shell/vaultlogin"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/secrets/vault"
 	"github.com/stubbedev/lys/ui/app"
@@ -283,7 +284,7 @@ func (h *bitwardenHost) reportSync(err error) {
 		h.notify(i18n.T("dropdown-bitwarden-notify-logged-out"), i18n.T("dropdown-bitwarden-notify-logged-out-body"))
 		return
 	}
-	h.notify(i18n.T("dropdown-bitwarden-notify-sync-failed"), bwErrorText(err))
+	h.notify(i18n.T("dropdown-bitwarden-notify-sync-failed"), vaultlogin.ErrorText(err))
 }
 
 // bitwardenLabel is the label: {{ count }} is the open vault's item

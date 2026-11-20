@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/shell/vaultlogin"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/lib/render"
@@ -125,35 +126,6 @@ func bwMatches(items []vault.Item, query string, max int) ([]vault.Item, int) {
 	return shown, total
 }
 
-// bwErrorText is an operation's failure as the dropdown says it.
-func bwErrorText(err error) string {
-	switch {
-	case errors.Is(err, vault.ErrWrongPassword):
-		return i18n.T("dropdown-bitwarden-error-wrong-password")
-	case errors.Is(err, vault.ErrInvalidCredentials):
-		return i18n.T("dropdown-bitwarden-error-credentials")
-	case errors.Is(err, vault.ErrLoginRequired):
-		return i18n.T("dropdown-bitwarden-error-login-required")
-	case errors.Is(err, vault.ErrUnreachable):
-		return i18n.T("dropdown-bitwarden-error-network")
-	}
-	if se, ok := errors.AsType[*vault.ServerError](err); ok {
-		if se.Retryable() {
-			return i18n.T("dropdown-bitwarden-error-unavailable")
-		}
-		return i18n.T("dropdown-bitwarden-error-server", i18n.Str("message", se.Message))
-	}
-	return err.Error()
-}
-
-// bwChallenge is a login waiting on a code: the attempt to repeat and
-// what the server asked for.
-type bwChallenge struct {
-	req       vault.LoginRequest
-	newDevice bool
-	provider  vault.TwoFactorProvider
-}
-
 // bwCopyRequest is a copy waiting on the master password reprompt.
 type bwCopyRequest struct {
 	item  vault.Item
@@ -183,7 +155,7 @@ type bitwardenView struct {
 	// was one.
 	state      vault.State
 	started    bool
-	pending    *bwChallenge
+	pending    *vaultlogin.Challenge
 	copying    *bwCopyRequest
 	generating bool
 
@@ -646,10 +618,9 @@ func (v *bitwardenView) apply() {
 // setError shows err under the page; the server asking for a code is
 // the code step, not an error.
 func (v *bitwardenView) setError(err error) {
-	_, challenged := errors.AsType[*vault.TwoFactorRequiredError](err)
 	text := ""
-	if err != nil && !challenged && !errors.Is(err, vault.ErrNewDeviceVerification) {
-		text = bwErrorText(err)
+	if err != nil && !vaultlogin.Asks(err) {
+		text = vaultlogin.ErrorText(err)
 	}
 	setCaption(v.errLabel, text)
 }
@@ -747,45 +718,23 @@ func (v *bitwardenView) login() {
 // step.
 func (v *bitwardenView) attempt(req vault.LoginRequest) {
 	v.run(func(ctx context.Context) error { return v.vault.Login(ctx, req) }, func(err error) {
-		tf, challenged := errors.AsType[*vault.TwoFactorRequiredError](err)
-		switch {
-		case challenged:
-			v.challenge(&bwChallenge{req: req, provider: bwProvider(tf.Providers)})
-		case errors.Is(err, vault.ErrNewDeviceVerification):
-			v.challenge(&bwChallenge{req: req, newDevice: true})
-		case err == nil:
+		if c, ok := vaultlogin.ChallengeOf(req, err); ok {
+			v.challenge(&c)
+			return
+		}
+		if err == nil {
 			v.pending = nil
 		}
 	})
 }
 
-// bwProvider picks the second factor to ask for: the authenticator app
-// when the account has one, else the emailed code.
-func bwProvider(ps []vault.TwoFactorProvider) vault.TwoFactorProvider {
-	for _, p := range ps {
-		if p == vault.TwoFactorAuthenticator {
-			return p
-		}
-	}
-	return vault.TwoFactorEmail
-}
-
 // challenge shows the code step for c.
-func (v *bitwardenView) challenge(c *bwChallenge) {
+func (v *bitwardenView) challenge(c *vaultlogin.Challenge) {
 	v.pending = c
 	v.code.SetText("")
-	switch {
-	case c.newDevice:
-		v.codeTitle.SetText(i18n.T("dropdown-bitwarden-new-device-title"))
-		v.codeDesc.SetText(i18n.T("dropdown-bitwarden-new-device-desc", i18n.Str("email", c.req.Email)))
-	case c.provider == vault.TwoFactorEmail:
-		v.codeTitle.SetText(i18n.T("dropdown-bitwarden-two-factor-title"))
-		v.codeDesc.SetText(i18n.T("dropdown-bitwarden-two-factor-email", i18n.Str("email", c.req.Email)))
-	default:
-		v.codeTitle.SetText(i18n.T("dropdown-bitwarden-two-factor-title"))
-		v.codeDesc.SetText(i18n.T("dropdown-bitwarden-two-factor-app"))
-	}
-	v.sendEmail.SetVisible(!c.newDevice && c.provider == vault.TwoFactorEmail)
+	v.codeTitle.SetText(c.Title())
+	v.codeDesc.SetText(c.Description())
+	v.sendEmail.SetVisible(c.Emailed())
 	v.pages.Show(bwPageChallenge)
 	v.focus(v.code)
 }
@@ -794,7 +743,7 @@ func (v *bitwardenView) sendCode() {
 	if v.pending == nil {
 		return
 	}
-	req := v.pending.req
+	req := v.pending.Request
 	v.run(func(ctx context.Context) error { return v.vault.SendLoginEmail(ctx, req) }, nil)
 }
 
@@ -803,13 +752,7 @@ func (v *bitwardenView) submitCode() {
 	if c == nil || v.code.Text() == "" {
 		return
 	}
-	req := c.req
-	if c.newDevice {
-		req.NewDeviceOTP = v.code.Text()
-	} else {
-		req.TwoFactor = &vault.TwoFactor{Provider: c.provider, Code: v.code.Text()}
-	}
-	v.attempt(req)
+	v.attempt(c.Answer(v.code.Text()))
 }
 
 func (v *bitwardenView) back() {
@@ -946,7 +889,7 @@ func reportCopy(l *widget.Label, field string, ttl time.Duration, err error) {
 	if err != nil {
 		log.Printf("bitwarden: copy %s: %v", field, err)
 		l.AddClass(css.Error)
-		setCaption(l, bwErrorText(err))
+		setCaption(l, vaultlogin.ErrorText(err))
 		return
 	}
 	msg := i18n.T("dropdown-bitwarden-copied", i18n.Str("field", field))

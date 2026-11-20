@@ -297,25 +297,6 @@ func TestBitwardenMatches(t *testing.T) {
 	}
 }
 
-// Each failure reads as what the user can do about it; an unknown one
-// keeps its own text.
-func TestBitwardenErrorText(t *testing.T) {
-	for err, want := range map[error]string{
-		vault.ErrWrongPassword:                           i18n.T("dropdown-bitwarden-error-wrong-password"),
-		fmt.Errorf("unlock: %w", vault.ErrWrongPassword): i18n.T("dropdown-bitwarden-error-wrong-password"),
-		vault.ErrInvalidCredentials:                      i18n.T("dropdown-bitwarden-error-credentials"),
-		vault.ErrLoginRequired:                           i18n.T("dropdown-bitwarden-error-login-required"),
-		&vault.ServerError{Status: 503}:                  i18n.T("dropdown-bitwarden-error-unavailable"),
-		&vault.ServerError{Status: 400, Message: "no"}:   i18n.T("dropdown-bitwarden-error-server", i18n.Str("message", "no")),
-		vault.ErrUnreachable:                             i18n.T("dropdown-bitwarden-error-network"),
-		errors.New("odd"):                                "odd",
-	} {
-		if got := bwErrorText(err); got != want {
-			t.Errorf("%v = %q, want %q", err, got, want)
-		}
-	}
-}
-
 // The label counts the open vault's items and is empty while locked.
 func TestBitwardenLabel(t *testing.T) {
 	if got := bitwardenLabel("{{ count }} items", vault.Status{State: vault.StateUnlocked, Items: 7}); got != "7 items" {
@@ -396,7 +377,7 @@ func TestBitwardenNewDeviceAndEmailCode(t *testing.T) {
 	view.password.entry.SetText("hunter2")
 	onHeadlessLoop(func() struct{} { view.loginForm.Submit(); return struct{}{} })
 	waitIdle(t, view)
-	if page(view) != bwPageChallenge || !view.pending.newDevice {
+	if page(view) != bwPageChallenge || !view.pending.NewDevice {
 		t.Fatalf("page %s, pending %+v", page(view), view.pending)
 	}
 	view.code.SetText("998877")

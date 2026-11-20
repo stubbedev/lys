@@ -10,6 +10,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/service/clipboard"
+	"github.com/stubbedev/lys/desktop/shell/vaultlogin"
 	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/secrets/vault"
 
@@ -53,7 +54,7 @@ func TestVaultModeUnlocksInTheMaskedInput(t *testing.T) {
 		t.Error("an empty password was tried")
 	}
 	st = reloaded(t, m.Activate(ctx, engine.NoRow, custom("wrong"), "wrong"))
-	if !st.Password || st.Message == nil || *st.Message != bwErrorText(vault.ErrWrongPassword) {
+	if !st.Password || st.Message == nil || *st.Message != vaultlogin.ErrorText(vault.ErrWrongPassword) {
 		t.Errorf("after a wrong password %+v, want the prompt saying so", st)
 	}
 	v.set(func(f *fakeVault) { f.unlockErr = nil })
