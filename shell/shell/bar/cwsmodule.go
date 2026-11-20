@@ -3,18 +3,16 @@ package bar
 import (
 	"context"
 	"log"
-	"math"
 	"slices"
 	"strconv"
 	"sync"
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/desktop/spawn"
-	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/wmipc"
-	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
 )
 
@@ -24,8 +22,8 @@ const cwsBlinkInterval = 500 * time.Millisecond
 // cwsBackend is one compositor's side of the module: the snapshot,
 // the focus actions the click bindings map to, and the event stream.
 type cwsBackend interface {
-	snapshot() ([]cwsWorkspace, []cwsWindow, error)
-	focus(ctx context.Context, ws cwsWorkspace) error
+	snapshot() ([]barview.Workspace, []cwsWindow, error)
+	focus(ctx context.Context, ws barview.Workspace) error
 	focusNext(ctx context.Context) error
 	focusPrevious(ctx context.Context) error
 	focusLast(ctx context.Context) error
@@ -35,7 +33,7 @@ type cwsBackend interface {
 
 // cwsActions are the compositor requests the bindings map to.
 type cwsActions struct {
-	focus    func(ws cwsWorkspace) cwsAction
+	focus    func(ws barview.Workspace) cwsAction
 	next     func() cwsAction
 	previous func() cwsAction
 	last     func() cwsAction
@@ -50,25 +48,15 @@ type cwsAction func(ctx context.Context) error
 // config, the resolved face, and the actions. The sway/niri/mango
 // module and the hyprland module each carry one.
 type cwsView struct {
-	ctx      ModuleContext
-	cfg      config.CompositorWorkspacesConfig
-	kind     string
-	flavor   cwsFlavor
-	boldFace render.Font
-	segs     *widget.SegmentIndicator
-	actions  cwsActions
-	// otherMonitor is hyprland's active-on-other-monitor-color, nil for
-	// the other compositors.
+	ctx          ModuleContext
+	cfg          config.CompositorWorkspacesConfig
+	kind         string
+	flavor       barview.WorkspaceFlavor
+	strip        *barview.WorkspaceStrip
+	actions      cwsActions
 	otherMonitor *config.ColorValue
-	circle       int
-	// shown are the models the segments show, in order; segShown what
-	// each segment holds of its model.
-	shown    []cwsButtonModel
-	segShown []cwsSegmentShown
-	// preview shows a workspace's windows on a hover rest; previewOf
-	// lists them, nil where the module cannot.
-	preview   *windowPreview
-	previewOf func(ws cwsWorkspace) []previewWindow
+	preview      *windowPreview
+	previewOf    func(ws barview.Workspace) []previewWindow
 }
 
 // cwsModule is the sway/niri/mango workspaces component: the container,
@@ -78,9 +66,10 @@ type cwsModule struct {
 	cwsView
 	backend cwsBackend
 
-	workspaces []cwsWorkspace
+	workspaces []barview.Workspace
 	windows    []cwsWindow
-	models     []cwsButtonModel
+	shown      []barview.WorkspaceWindow
+	models     []barview.WorkspaceButton
 
 	blinkOn    bool
 	blinkStop  func()
@@ -90,20 +79,19 @@ type cwsModule struct {
 
 // newCwsModule builds the module over a connected backend and, with a
 // live loop, subscribes to its events.
-func newCwsModule(ctx ModuleContext, kind string, flavor cwsFlavor, cfg config.CompositorWorkspacesConfig, backend cwsBackend) *cwsModule {
+func newCwsModule(ctx ModuleContext, kind string, flavor barview.WorkspaceFlavor, cfg config.CompositorWorkspacesConfig, backend cwsBackend) *cwsModule {
 	m := &cwsModule{ctx: ctx, cfg: cfg, kind: kind, flavor: flavor, backend: backend}
 	m.actions = cwsActions{
-		focus: func(ws cwsWorkspace) cwsAction {
+		focus: func(ws barview.Workspace) cwsAction {
 			return func(ctx context.Context) error { return backend.focus(ctx, ws) }
 		},
 		next:     func() cwsAction { return backend.focusNext },
 		previous: func() cwsAction { return backend.focusPrevious },
 		last:     func() cwsAction { return backend.focusLast },
 	}
-	m.boldFace = cwsBoldFace(ctx, m.labelPx())
 	newCwsRow(&m.cwsView)
 	m.previewOf = m.workspaceWindows
-	m.hideUntilRead(m.segs)
+	m.hideUntilRead(m.strip.Segments())
 	reads := newOffLoopRead(ctx, kind+"-workspaces", m.read, m.apply)
 	if ctx.App == nil {
 		reads.first()
@@ -126,21 +114,17 @@ func newCwsModule(ctx ModuleContext, kind string, flavor cwsFlavor, cfg config.C
 	return m
 }
 
-// cwsBoldFace resolves the .workspace-label face: font-sans at
-// --weight-bold. Headless contexts (tests) keep the context's face.
-func cwsBoldFace(ctx ModuleContext, px float64) render.Font {
-	if ctx.App == nil || ctx.Config == nil || px <= 0 {
+// cwsBoldFace is the .workspace-label face. Headless contexts (tests)
+// keep the context's face.
+func cwsBoldFace(ctx ModuleContext) render.Font {
+	if ctx.App == nil {
 		return ctx.Font
 	}
-	face, err := app.FontWeighted(ctx.Config.General.FontSans, px, 700, false)
-	if err != nil {
-		return ctx.Font
-	}
-	return app.FontFallback(face)
+	return barview.WorkspaceFace(ctx.Font)
 }
 
 type cwsSnapshot struct {
-	workspaces []cwsWorkspace
+	workspaces []barview.Workspace
 	windows    []cwsWindow
 }
 
@@ -152,6 +136,7 @@ func (m *cwsModule) read(context.Context) (cwsSnapshot, error) {
 // apply takes a snapshot on the loop and rebuilds.
 func (m *cwsModule) apply(s cwsSnapshot) {
 	m.workspaces, m.windows = s.workspaces, s.windows
+	m.shown = cwsShownWindows(s.windows, m.cfg)
 	m.rebuild()
 	m.syncBlink()
 	if f, ok := m.backend.(cwsTitleFilter); ok {
@@ -161,23 +146,23 @@ func (m *cwsModule) apply(s cwsSnapshot) {
 }
 
 type cwsTitleFilter interface {
-	hideTitles(shown []cwsButtonModel, windows []cwsWindow)
+	hideTitles(shown []barview.WorkspaceButton, windows []cwsWindow)
 }
 
 // rebuild recomputes the button models from the cached snapshot and
 // shows them; models equal to those shown touch no widget.
 func (m *cwsModule) rebuild() {
-	models := cwsBuildModels(m.flavor, m.workspaces, m.windows, m.cfg, m.ctx.Connector, m.vertical(), m.blinkOn)
-	displayed := make([]cwsWorkspace, len(models))
+	models := barview.WorkspaceButtons(m.flavor, m.workspaces, m.shown, m.cfg, m.ctx.Connector, m.strip.Vertical(), m.blinkOn)
+	displayed := make([]barview.Workspace, len(models))
 	for i, model := range models {
-		displayed[i] = model.ws
+		displayed[i] = model.WS
 	}
-	m.urgentSeen = m.cfg.UrgentShow && cwsAnyUrgent(displayed, m.windows)
-	if m.models != nil && slices.EqualFunc(models, m.models, cwsButtonModel.same) {
+	m.urgentSeen = m.cfg.UrgentShow && barview.AnyUrgentWorkspace(displayed, m.shown)
+	if m.models != nil && slices.EqualFunc(models, m.models, barview.WorkspaceButton.Same) {
 		return
 	}
 	m.models = models
-	m.setSegments(m.models)
+	m.strip.Set(m.models)
 }
 
 // syncBlink runs the pulse exactly while something
@@ -220,43 +205,8 @@ func (m *cwsModule) stopBlink() {
 	}
 }
 
-// vertical reports a side-docked bar.
-func (m *cwsView) vertical() bool {
-	if m.ctx.Config == nil {
-		return false
-	}
-	loc := m.ctx.Config.Bar.Location
-	return loc == config.LocationLeft || loc == config.LocationRight
-}
-
-func (m *cwsView) scale() float64 { return float64(m.ctx.Config.Bar.Scale) }
-
-// labelPx is label-size resolved against the workspace label base.
-func (m *cwsView) labelPx() float64 {
-	return math.Round(m.cfg.LabelSize.ResolvePx(config.WorkspaceLabelBaseRem*styling.RemBase, m.scale()))
-}
-
-// iconPx is icon-size resolved against the workspace icon base.
-func (m *cwsView) iconPx() int {
-	return int(math.Round(m.cfg.IconSize.ResolvePx(config.WorkspaceIconBaseRem*styling.RemBase, m.scale())))
-}
-
-// iconGapPx is the icon gap in pixels: a scale is rem without the
-// bar scale, pixels are literal.
-func (m *cwsView) iconGapPx() int {
-	if m.cfg.IconGap.Unit == config.SizePixels {
-		return int(math.Round(float64(m.cfg.IconGap.Value)))
-	}
-	return int(math.Round(float64(m.cfg.IconGap.Value) * styling.RemBase))
-}
-
-// paddingPx is workspace-padding at a 1 rem base.
-func (m *cwsView) paddingPx() int {
-	return int(math.Round(m.cfg.WorkspacePad.ResolvePx(styling.RemBase, m.scale())))
-}
-
 // dispatchClick runs action for a clicked workspace.
-func (m *cwsView) dispatchClick(action config.WorkspaceClickAction, ws cwsWorkspace) {
+func (m *cwsView) dispatchClick(action config.WorkspaceClickAction, ws barview.Workspace) {
 	if action.Kind == config.WorkspaceClickFocusThis {
 		m.run(m.actions.focus(ws))
 		return
@@ -279,7 +229,7 @@ func (m *cwsView) dispatchScroll(action config.WorkspaceClickAction) {
 		m.run(m.actions.last())
 	case config.WorkspaceClickDropdown:
 		if m.ctx.Dropdowns != nil {
-			if err := m.ctx.Dropdowns.open(m.ctx.Connector, action.Arg, m.segs, openedByAnchor); err != nil {
+			if err := m.ctx.Dropdowns.open(m.ctx.Connector, action.Arg, m.strip.Segments(), openedByAnchor); err != nil {
 				log.Printf("%s-workspaces: dropdown %q: %v", m.kind, action.Arg, err)
 			}
 		}
@@ -298,7 +248,7 @@ func (m *cwsView) run(fn func(context.Context) error) {
 	}()
 }
 
-func (m *cwsModule) Root() widget.Widget { return m.segs }
+func (m *cwsModule) Root() widget.Widget { return m.strip.Segments() }
 
 // ownsChrome opts out of the module-button wrapper: the workspaces
 // component draws its own segments.
@@ -319,7 +269,7 @@ func (m *cwsModule) closeIPC() {
 
 // workspaceWindows is what a workspace preview shows: the workspace's
 // windows, placed where lys-wm's geometry says on lys-wm.
-func (m *cwsModule) workspaceWindows(ws cwsWorkspace) []previewWindow {
+func (m *cwsModule) workspaceWindows(ws barview.Workspace) []previewWindow {
 	rects := map[uint64]wmipc.Rect{}
 	if m.kind == "lys-wm" && m.ctx.Tasks != nil {
 		if windows, ok := m.ctx.Tasks.geometry(); ok {
@@ -330,7 +280,7 @@ func (m *cwsModule) workspaceWindows(ws cwsWorkspace) []previewWindow {
 	}
 	var out []previewWindow
 	for _, w := range m.windows {
-		if !w.hasWorkspace || w.workspace != ws.id {
+		if !w.hasWorkspace || w.workspace != ws.ID {
 			continue
 		}
 		rect, placed := rects[w.id]

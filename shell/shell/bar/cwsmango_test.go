@@ -79,7 +79,7 @@ func newTestMango(t *testing.T, cfg *config.Config, connector string) *cwsModule
 func tagIndices(m *cwsModule) []uint64 {
 	out := make([]uint64, 0, len(m.models))
 	for _, model := range m.models {
-		out = append(out, model.ws.id)
+		out = append(out, model.WS.ID)
 	}
 	return out
 }
@@ -135,25 +135,25 @@ func TestMangoTagButtonsAndClients(t *testing.T) {
 		t.Fatalf("models = %+v", m.models)
 	}
 	one, three := m.models[0], m.models[1]
-	if one.label != "1" || three.label != "web" {
-		t.Errorf("labels = %q, %q, want the index and the tag-map label", one.label, three.label)
+	if one.Label != "1" || three.Label != "web" {
+		t.Errorf("labels = %q, %q, want the index and the tag-map label", one.Label, three.Label)
 	}
 	// DP-2's client is not this monitor's; client 6 sits on both tags.
 	var ids []uint64
-	for _, icon := range one.appIcons {
-		ids = append(ids, icon.windowIDs...)
+	for _, icon := range one.AppIcons {
+		ids = append(ids, icon.WindowIDs...)
 	}
 	if !reflect.DeepEqual(ids, []uint64{6, 2}) {
 		t.Errorf("tag 1 clients = %v, want [6 2] in list order", ids)
 	}
-	if len(three.appIcons) != 1 || three.appIcons[0].windowIDs[0] != 6 {
-		t.Errorf("tag 3 clients = %+v", three.appIcons)
+	if len(three.AppIcons) != 1 || three.AppIcons[0].WindowIDs[0] != 6 {
+		t.Errorf("tag 3 clients = %+v", three.AppIcons)
 	}
 	want := []string{"workspace", "active", "indicator-background", "tag-1"}
-	if !reflect.DeepEqual(one.classes, want) {
-		t.Errorf("classes = %v, want %v (no focused, tag-N)", one.classes, want)
+	if !reflect.DeepEqual(one.Classes, want) {
+		t.Errorf("classes = %v, want %v (no focused, tag-N)", one.Classes, want)
 	}
-	if !widget.HasClass(m.segs, "mango") {
+	if !widget.HasClass(m.strip.Segments(), "mango") {
 		t.Error("container misses the mango class")
 	}
 }
@@ -164,7 +164,7 @@ func TestMangoClicksDispatch(t *testing.T) {
 	cfg := config.Defaults()
 	cfg.Workspaces.MiddleClick = config.ParseWorkspaceClickAction("focus:last")
 	m := newTestMango(t, cfg, "DP-1")
-	b := m.segs.Segment(0)
+	b := m.strip.Segments().Segment(0)
 	expect := func(want string) {
 		t.Helper()
 		if got := waittest.For(t, dispatched, "the dispatch "+want); got != want {
@@ -173,7 +173,7 @@ func TestMangoClicksDispatch(t *testing.T) {
 	}
 	b.ClickAt(widget.Point{})
 	expect("dispatch view,1")
-	router, p := treetest.Pointer(m.segs, b, 500, 40)
+	router, p := treetest.Pointer(m.strip.Segments(), b, 500, 40)
 	router.Axis(0, 1, 0)
 	expect("dispatch viewtoright")
 	router.Axis(0, -1, 0)
@@ -184,33 +184,5 @@ func TestMangoClicksDispatch(t *testing.T) {
 	case got := <-dispatched:
 		t.Fatalf("focus:last dispatched %q", got)
 	case <-time.After(quietWindow):
-	}
-}
-
-func TestMangoShowRules(t *testing.T) {
-	tag := cwsButtonModel{flavor: cwsTags, label: "1", hasLabel: true}
-	iconed := cwsButtonModel{flavor: cwsTags, label: "1", hasLabel: true, icon: "ld-globe-symbolic"}
-	if !iconed.showLabel(config.DisplayModeLabel) || iconed.showIcon(config.DisplayModeLabel) {
-		t.Error("label mode: tags show the label even with a mapped icon, and no icon")
-	}
-	if iconed.showLabel(config.DisplayModeIcon) || !iconed.showIcon(config.DisplayModeIcon) {
-		t.Error("icon mode: the mapped icon replaces the label")
-	}
-	if !tag.showLabel(config.DisplayModeIcon) {
-		t.Error("icon mode without a mapped icon falls back to the label")
-	}
-	if tag.showLabel(config.DisplayModeNone) || iconed.showIcon(config.DisplayModeNone) {
-		t.Error("none shows something")
-	}
-}
-
-func TestMangoOverrideTargetsTagClass(t *testing.T) {
-	red, _ := config.ParseColorValue("#ff0000")
-	m := map[string]config.WorkspaceStyle{"4": {Color: &red}}
-	if c, ok := cwsOverrideColor([]string{"tag-4"}, m); !ok || c != red {
-		t.Errorf("tag-4 override = %v %v", c, ok)
-	}
-	if _, ok := cwsOverrideColor([]string{"tag-5"}, m); ok {
-		t.Error("tag-5 picked up tag 4's color")
 	}
 }

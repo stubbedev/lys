@@ -11,6 +11,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/compositor"
 	"github.com/stubbedev/lys/desktop/service/lyswm"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/lib/intconv"
 	"github.com/stubbedev/lys/lib/wmipc"
 
@@ -23,7 +24,7 @@ import (
 // newSwayWorkspaces is the workspaces module on sway.
 func newSwayWorkspaces(ctx ModuleContext) (Module, error) {
 	cfg := ctx.Config.Workspaces.View(compositor.Sway)
-	return newCwsModule(ctx, "sway", cwsWorkspaces, cfg, &connectingBackend{connect: func() (cwsBackend, error) {
+	return newCwsModule(ctx, "sway", barview.FlavorWorkspaces, cfg, &connectingBackend{connect: func() (cwsBackend, error) {
 		conn, err := sway.Connect()
 		if err != nil {
 			return nil, err
@@ -34,7 +35,7 @@ func newSwayWorkspaces(ctx ModuleContext) (Module, error) {
 
 // newNiriWorkspaces is the workspaces module on niri.
 func newNiriWorkspaces(ctx ModuleContext) (Module, error) {
-	return newCwsModule(ctx, "niri", cwsWorkspaces, ctx.Config.Workspaces.View(compositor.Niri), &connectingBackend{connect: func() (cwsBackend, error) {
+	return newCwsModule(ctx, "niri", barview.FlavorWorkspaces, ctx.Config.Workspaces.View(compositor.Niri), &connectingBackend{connect: func() (cwsBackend, error) {
 		conn, err := niri.Connect()
 		if err != nil {
 			return nil, err
@@ -70,7 +71,7 @@ func (b *connectingBackend) connected() (cwsBackend, error) {
 	return conn, nil
 }
 
-func (b *connectingBackend) snapshot() ([]cwsWorkspace, []cwsWindow, error) {
+func (b *connectingBackend) snapshot() ([]barview.Workspace, []cwsWindow, error) {
 	conn, err := b.connected()
 	if err != nil {
 		return nil, nil, err
@@ -78,7 +79,7 @@ func (b *connectingBackend) snapshot() ([]cwsWorkspace, []cwsWindow, error) {
 	return conn.snapshot()
 }
 
-func (b *connectingBackend) focus(ctx context.Context, ws cwsWorkspace) error {
+func (b *connectingBackend) focus(ctx context.Context, ws barview.Workspace) error {
 	conn, err := b.connected()
 	if err != nil {
 		return err
@@ -138,7 +139,7 @@ type swayBackend struct {
 	byID   map[uint64]sway.Workspace
 }
 
-func (b *swayBackend) snapshot() ([]cwsWorkspace, []cwsWindow, error) {
+func (b *swayBackend) snapshot() ([]barview.Workspace, []cwsWindow, error) {
 	replies, err := b.conn.Workspaces()
 	if err != nil {
 		return nil, nil, err
@@ -163,15 +164,15 @@ func (b *swayBackend) snapshot() ([]cwsWorkspace, []cwsWindow, error) {
 		windows = append(windows, cw)
 	}
 	byID := make(map[uint64]sway.Workspace, len(replies))
-	workspaces := make([]cwsWorkspace, 0, len(replies))
+	workspaces := make([]barview.Workspace, 0, len(replies))
 	for _, r := range replies {
 		id := uint64(r.ID)
 		byID[id] = r
-		workspaces = append(workspaces, cwsWorkspace{
-			id: id, num: r.Num, name: r.Name, hasName: true,
-			output: r.Output, hasOutput: true,
-			urgent: r.Urgent, active: r.Visible, focused: r.Focused,
-			hasWindows: occupied[id],
+		workspaces = append(workspaces, barview.Workspace{
+			ID: id, Num: r.Num, Name: r.Name, HasName: true,
+			Output: r.Output, HasOutput: true,
+			Urgent: r.Urgent, Active: r.Visible, Focused: r.Focused,
+			HasWindows: occupied[id],
 		})
 	}
 	b.mu.Lock()
@@ -182,12 +183,12 @@ func (b *swayBackend) snapshot() ([]cwsWorkspace, []cwsWindow, error) {
 
 // focus focuses ws by id: resolved against the snapshot, or a con_id
 // focus for an id the snapshot lost.
-func (b *swayBackend) focus(ctx context.Context, ws cwsWorkspace) error {
+func (b *swayBackend) focus(ctx context.Context, ws barview.Workspace) error {
 	b.mu.Lock()
-	reply, ok := b.byID[ws.id]
+	reply, ok := b.byID[ws.ID]
 	b.mu.Unlock()
 	if !ok {
-		return b.conn.RunCommand(ctx, "[con_id="+strconv.FormatUint(ws.id, 10)+"] focus")
+		return b.conn.RunCommand(ctx, "[con_id="+strconv.FormatUint(ws.ID, 10)+"] focus")
 	}
 	return b.conn.FocusWorkspace(ctx, reply)
 }
@@ -213,7 +214,7 @@ type niriBackend struct {
 	conn *niri.Conn
 }
 
-func (b *niriBackend) snapshot() ([]cwsWorkspace, []cwsWindow, error) {
+func (b *niriBackend) snapshot() ([]barview.Workspace, []cwsWindow, error) {
 	replies, err := b.conn.Workspaces()
 	if err != nil {
 		return nil, nil, err
@@ -222,18 +223,18 @@ func (b *niriBackend) snapshot() ([]cwsWorkspace, []cwsWindow, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	workspaces := make([]cwsWorkspace, 0, len(replies))
+	workspaces := make([]barview.Workspace, 0, len(replies))
 	for _, r := range replies {
-		ws := cwsWorkspace{
-			id: r.ID, num: int(r.Idx),
-			urgent: r.IsUrgent, active: r.IsActive, focused: r.IsFocused,
-			hasWindows: r.ActiveWindowID != nil,
+		ws := barview.Workspace{
+			ID: r.ID, Num: int(r.Idx),
+			Urgent: r.IsUrgent, Active: r.IsActive, Focused: r.IsFocused,
+			HasWindows: r.ActiveWindowID != nil,
 		}
 		if r.Name != nil {
-			ws.name, ws.hasName = *r.Name, true
+			ws.Name, ws.HasName = *r.Name, true
 		}
 		if r.Output != nil {
-			ws.output, ws.hasOutput = *r.Output, true
+			ws.Output, ws.HasOutput = *r.Output, true
 		}
 		workspaces = append(workspaces, ws)
 	}
@@ -259,8 +260,8 @@ func (b *niriBackend) snapshot() ([]cwsWorkspace, []cwsWindow, error) {
 	return workspaces, windows, nil
 }
 
-func (b *niriBackend) focus(ctx context.Context, ws cwsWorkspace) error {
-	return b.conn.FocusWorkspaceID(ctx, ws.id)
+func (b *niriBackend) focus(ctx context.Context, ws barview.Workspace) error {
+	return b.conn.FocusWorkspaceID(ctx, ws.ID)
 }
 
 func (b *niriBackend) focusNext(ctx context.Context) error { return b.conn.FocusWorkspaceDown(ctx) }
@@ -277,7 +278,7 @@ func (b *niriBackend) close()                                      { _ = b.conn.
 // from construction.
 func newMangoWorkspaces(ctx ModuleContext) (Module, error) {
 	cfg := ctx.Config.Workspaces
-	return newCwsModule(ctx, "mango", cwsTags, cfg.View(compositor.Mango), &connectingBackend{connect: func() (cwsBackend, error) {
+	return newCwsModule(ctx, "mango", barview.FlavorTags, cfg.View(compositor.Mango), &connectingBackend{connect: func() (cwsBackend, error) {
 		w, err := mango.Watch()
 		if err != nil {
 			return nil, err
@@ -316,22 +317,22 @@ func chooseMonitor(monitors []mango.Monitor, connector string) (mango.Monitor, b
 	return mango.Monitor{}, false
 }
 
-func (b *mangoBackend) snapshot() ([]cwsWorkspace, []cwsWindow, error) {
+func (b *mangoBackend) snapshot() ([]barview.Workspace, []cwsWindow, error) {
 	monitors, clients := b.watch.State()
 	monitor, ok := chooseMonitor(monitors, b.connector)
 	if !ok {
 		return nil, nil, nil
 	}
-	tags := make([]cwsWorkspace, 0, len(monitor.Tags))
+	tags := make([]barview.Workspace, 0, len(monitor.Tags))
 	for _, tag := range monitor.Tags {
 		if b.hideEmpty && tag.ClientCount == 0 && !tag.IsActive && int(tag.Index) > b.minTagCount {
 			continue
 		}
-		tags = append(tags, cwsWorkspace{
-			id: uint64(tag.Index), num: int(tag.Index),
-			output: monitor.Name, hasOutput: true,
-			urgent: tag.IsUrgent, active: tag.IsActive,
-			hasWindows: tag.ClientCount > 0,
+		tags = append(tags, barview.Workspace{
+			ID: uint64(tag.Index), Num: int(tag.Index),
+			Output: monitor.Name, HasOutput: true,
+			Urgent: tag.IsUrgent, Active: tag.IsActive,
+			HasWindows: tag.ClientCount > 0,
 		})
 	}
 	windows := make([]cwsWindow, 0, len(clients))
@@ -350,10 +351,10 @@ func (b *mangoBackend) snapshot() ([]cwsWorkspace, []cwsWindow, error) {
 	return tags, windows, nil
 }
 
-func (b *mangoBackend) focus(_ context.Context, ws cwsWorkspace) error {
-	tag, err := intconv.Exact[uint32](ws.id)
+func (b *mangoBackend) focus(_ context.Context, ws barview.Workspace) error {
+	tag, err := intconv.Exact[uint32](ws.ID)
 	if err != nil {
-		return fmt.Errorf("mango: tag %d: %w", ws.id, err)
+		return fmt.Errorf("mango: tag %d: %w", ws.ID, err)
 	}
 	return mango.ViewTag(tag)
 }
@@ -374,7 +375,7 @@ func newLysWMWorkspaces(ctx ModuleContext) (Module, error) {
 	if cwsFollowsTitles(cfg) {
 		titles = &lysWMTitles{}
 	}
-	return newCwsModule(ctx, "lys-wm", cwsWorkspaces, cfg, lysWMBackend{titles: titles}), nil
+	return newCwsModule(ctx, "lys-wm", barview.FlavorWorkspaces, cfg, lysWMBackend{titles: titles}), nil
 }
 
 var lysWMWorkspaceEvents = []wmipc.EventKind{
@@ -395,18 +396,18 @@ func (t *lysWMTitles) hides(window uint64) bool {
 	return hidden != nil && (*hidden)[window]
 }
 
-func (b lysWMBackend) hideTitles(shown []cwsButtonModel, windows []cwsWindow) {
+func (b lysWMBackend) hideTitles(shown []barview.WorkspaceButton, windows []cwsWindow) {
 	if b.titles == nil {
 		return
 	}
 	hidden := make(map[uint64]bool, len(windows))
 	for _, w := range windows {
-		hidden[w.id] = !w.hasWorkspace || !slices.ContainsFunc(shown, func(m cwsButtonModel) bool { return m.ws.id == w.workspace })
+		hidden[w.id] = !w.hasWorkspace || !slices.ContainsFunc(shown, func(m barview.WorkspaceButton) bool { return m.WS.ID == w.workspace })
 	}
 	b.titles.hidden.Store(&hidden)
 }
 
-func (lysWMBackend) snapshot() ([]cwsWorkspace, []cwsWindow, error) {
+func (lysWMBackend) snapshot() ([]barview.Workspace, []cwsWindow, error) {
 	replies, err := lyswm.Workspaces()
 	if err != nil {
 		return nil, nil, err
@@ -419,7 +420,7 @@ func (lysWMBackend) snapshot() ([]cwsWorkspace, []cwsWindow, error) {
 	return workspaces, windows, nil
 }
 
-func lysWMModels(replies []wmipc.Workspace, all []wmipc.Window) ([]cwsWorkspace, []cwsWindow) {
+func lysWMModels(replies []wmipc.Workspace, all []wmipc.Window) ([]barview.Workspace, []cwsWindow) {
 	urgent := map[int]bool{}
 	windows := make([]cwsWindow, 0, len(all))
 	for _, w := range all {
@@ -429,20 +430,20 @@ func lysWMModels(replies []wmipc.Workspace, all []wmipc.Window) ([]cwsWorkspace,
 			app: appicons.Window{AppID: w.AppID, HasAppID: w.AppID != "", Title: w.Title, HasTitle: w.Title != ""},
 		})
 	}
-	workspaces := make([]cwsWorkspace, 0, len(replies))
+	workspaces := make([]barview.Workspace, 0, len(replies))
 	for _, r := range replies {
-		workspaces = append(workspaces, cwsWorkspace{
-			id: uint64(r.ID), num: r.ID,
-			output: r.Output, hasOutput: true,
-			urgent: urgent[r.ID], active: r.Visible, focused: r.Focused,
-			hasWindows: r.Windows > 0,
+		workspaces = append(workspaces, barview.Workspace{
+			ID: uint64(r.ID), Num: r.ID,
+			Output: r.Output, HasOutput: true,
+			Urgent: urgent[r.ID], Active: r.Visible, Focused: r.Focused,
+			HasWindows: r.Windows > 0,
 		})
 	}
 	return workspaces, windows
 }
 
-func (lysWMBackend) focus(_ context.Context, ws cwsWorkspace) error {
-	return lyswm.Dispatch("workspace " + strconv.Itoa(ws.num))
+func (lysWMBackend) focus(_ context.Context, ws barview.Workspace) error {
+	return lyswm.Dispatch("workspace " + strconv.Itoa(ws.Num))
 }
 
 func (lysWMBackend) focusNext(context.Context) error { return lyswm.Dispatch("workspace e+1") }

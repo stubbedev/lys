@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/widget"
@@ -28,7 +29,7 @@ func buildRootOnHeadlessLoop(ctx ModuleContext, layout config.BarLayout, connect
 	return onHeadlessLoop(func() *widget.Bar { return buildRoot(ctx, layout, connector) })
 }
 
-func newCwsModuleOnHeadlessLoop(ctx ModuleContext, kind string, flavor cwsFlavor, cfg config.CompositorWorkspacesConfig, backend cwsBackend) *cwsModule {
+func newCwsModuleOnHeadlessLoop(ctx ModuleContext, kind string, flavor barview.WorkspaceFlavor, cfg config.CompositorWorkspacesConfig, backend cwsBackend) *cwsModule {
 	return onHeadlessLoop(func() *cwsModule { return newCwsModule(ctx, kind, flavor, cfg, backend) })
 }
 

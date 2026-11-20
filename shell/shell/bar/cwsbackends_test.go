@@ -124,22 +124,22 @@ func TestSwayBackendMapsTheSnapshot(t *testing.T) {
 		t.Fatalf("models = %d, want 3", len(m.models))
 	}
 	one, two, chat := m.models[0], m.models[1], m.models[2]
-	if !one.ws.active || !one.ws.hasWindows || !one.ws.focused {
-		t.Errorf("ws 1 = %+v, want visible/occupied/focused", one.ws)
+	if !one.WS.Active || !one.WS.HasWindows || !one.WS.Focused {
+		t.Errorf("ws 1 = %+v, want visible/occupied/focused", one.WS)
 	}
-	if two.ws.hasWindows || !two.ws.urgent {
-		t.Errorf("ws 2 = %+v, want empty and urgent", two.ws)
+	if two.WS.HasWindows || !two.WS.Urgent {
+		t.Errorf("ws 2 = %+v, want empty and urgent", two.WS)
 	}
 	// Unnumbered sorts last; name-or-index labels it by name.
-	if chat.ws.id != 30 || chat.label != "chat" {
+	if chat.WS.ID != 30 || chat.Label != "chat" {
 		t.Errorf("last = %+v, want the unnumbered chat workspace", chat)
 	}
 	// Occupancy comes from the tree, not sway's visible flag.
-	if !chat.ws.active || chat.ws.hasWindows {
-		t.Errorf("chat = %+v, want visible (active) but empty", chat.ws)
+	if !chat.WS.Active || chat.WS.HasWindows {
+		t.Errorf("chat = %+v, want visible (active) but empty", chat.WS)
 	}
-	if m.shown[0].label != "1" {
-		t.Errorf("label = %q", m.shown[0].label)
+	if m.strip.Shown()[0].Label != "1" {
+		t.Errorf("label = %q", m.strip.Shown()[0].Label)
 	}
 }
 
@@ -191,13 +191,13 @@ func TestNiriBackendMapsTheSnapshot(t *testing.T) {
 		t.Fatalf("models = %+v, want the trailing empty hidden", m.models)
 	}
 	first, web := m.models[0], m.models[1]
-	if first.label != "1" || !first.ws.hasWindows || web.label != "web" || web.ws.hasWindows {
+	if first.Label != "1" || !first.WS.HasWindows || web.Label != "web" || web.WS.HasWindows {
 		t.Errorf("models = %+v / %+v", first, web)
 	}
 	// Scrolling order: column 1 (kitty), column 2 (foot), floating last.
 	var ids []uint64
-	for _, icon := range first.appIcons {
-		ids = append(ids, icon.windowIDs[0])
+	for _, icon := range first.AppIcons {
+		ids = append(ids, icon.WindowIDs[0])
 	}
 	if len(ids) != 3 || ids[0] != 3 || ids[1] != 1 || ids[2] != 2 {
 		t.Errorf("app icon order = %v, want [3 1 2]", ids)

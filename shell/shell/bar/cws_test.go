@@ -2,14 +2,14 @@ package bar
 
 import (
 	"context"
-	"reflect"
-	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/stubbedev/lys/desktop/compositor"
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/lib/render"
@@ -17,265 +17,34 @@ import (
 	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/anim"
 	"github.com/stubbedev/lys/ui/widget"
-
-	"github.com/stubbedev/lys/shell/internal/appicons"
 )
 
-func occupiedWS(id uint64, num int, output string) cwsWorkspace {
-	return cwsWorkspace{id: id, num: num, output: output, hasOutput: true, hasWindows: true}
+func occupiedWS(id uint64, num int, output string) barview.Workspace {
+	return barview.Workspace{ID: id, Num: num, Output: output, HasOutput: true, HasWindows: true}
 }
 
-func emptyWS(id uint64, num int, output string) cwsWorkspace {
-	return cwsWorkspace{id: id, num: num, output: output, hasOutput: true}
-}
-
-func wsIDs(list []cwsWorkspace) []uint64 {
-	out := make([]uint64, len(list))
-	for i, ws := range list {
-		out[i] = ws.id
-	}
-	return out
-}
-
-func TestCwsShowsEmptyWorkspacesWithoutHideTrailing(t *testing.T) {
-	named := emptyWS(3, 3, "DP-1")
-	named.name, named.hasName = "web", true
-	got := cwsCollectDisplayed([]cwsWorkspace{occupiedWS(1, 1, "DP-1"), emptyWS(2, 2, "DP-1"), named}, cwsFilter{})
-	if !reflect.DeepEqual(wsIDs(got), []uint64{1, 2, 3}) {
-		t.Errorf("ids = %v", wsIDs(got))
-	}
-}
-
-func TestCwsHideTrailingEmptyDropsOnlyTheTail(t *testing.T) {
-	all := []cwsWorkspace{occupiedWS(1, 1, "DP-1"), emptyWS(2, 2, "DP-1"), occupiedWS(3, 3, "DP-1"), emptyWS(4, 4, "DP-1"), emptyWS(5, 1, "HDMI-A-1")}
-	got := cwsCollectDisplayed(all, cwsFilter{hideTrailingEmpty: true})
-	// The inner empty 2 stays; each output's empty tail goes.
-	if !reflect.DeepEqual(wsIDs(got), []uint64{1, 2, 3}) {
-		t.Errorf("ids = %v, want the trailing empties of both outputs dropped", wsIDs(got))
-	}
-	// An occupied tail is kept.
-	got = cwsCollectDisplayed([]cwsWorkspace{emptyWS(1, 1, "DP-1"), occupiedWS(2, 2, "DP-1")}, cwsFilter{hideTrailingEmpty: true})
-	if !reflect.DeepEqual(wsIDs(got), []uint64{1, 2}) {
-		t.Errorf("ids = %v, want an occupied tail kept", wsIDs(got))
-	}
-}
-
-func TestCwsIgnoreByNameNumberAndID(t *testing.T) {
-	scratch := emptyWS(3, 3, "DP-1")
-	scratch.name, scratch.hasName = "scratch", true
-	all := []cwsWorkspace{occupiedWS(1, 1, "DP-1"), occupiedWS(2, 2, "DP-1"), scratch, occupiedWS(40, 9, "DP-1")}
-	if got := cwsCollectDisplayed(all, cwsFilter{ignore: []string{"scr*"}}); !reflect.DeepEqual(wsIDs(got), []uint64{1, 2, 40}) {
-		t.Errorf("name glob: %v", wsIDs(got))
-	}
-	if got := cwsCollectDisplayed(all, cwsFilter{ignore: []string{"?"}}); !reflect.DeepEqual(wsIDs(got), []uint64{}) {
-		t.Errorf("single-digit number glob: %v, want all ignored", wsIDs(got))
-	}
-	if got := cwsCollectDisplayed(all, cwsFilter{ignore: []string{"40"}}); !reflect.DeepEqual(wsIDs(got), []uint64{1, 2, 3}) {
-		t.Errorf("stable id: %v", wsIDs(got))
-	}
-	// Case-sensitive, as the wildcard crate is.
-	if got := cwsCollectDisplayed(all, cwsFilter{ignore: []string{"SCRATCH"}}); len(got) != 4 {
-		t.Errorf("case-insensitive match: %v", wsIDs(got))
-	}
-}
-
-func TestCwsOrdersByOutputThenNumber(t *testing.T) {
-	unnumbered := occupiedWS(9, -1, "DP-1")
-	all := []cwsWorkspace{occupiedWS(3, 2, "DP-2"), unnumbered, occupiedWS(1, 2, "DP-1"), occupiedWS(2, 1, "DP-2")}
-	if got := cwsCollectDisplayed(all, cwsFilter{}); !reflect.DeepEqual(wsIDs(got), []uint64{1, 9, 2, 3}) {
-		t.Errorf("ids = %v, want output order, number order, unnumbered last", wsIDs(got))
-	}
-}
-
-func TestCwsMonitorSpecific(t *testing.T) {
-	all := []cwsWorkspace{occupiedWS(1, 1, "DP-1"), occupiedWS(2, 1, "DP-2"), {id: 3, num: 1}}
-	if got := cwsCollectDisplayed(all, cwsFilter{monitorSpecific: true, barMonitor: "DP-1"}); !reflect.DeepEqual(wsIDs(got), []uint64{1}) {
-		t.Errorf("scoped = %v, want DP-1's only (an outputless workspace is not on any bar)", wsIDs(got))
-	}
-	// Scoping off, or no bar monitor, shows everything.
-	if got := cwsCollectDisplayed(all, cwsFilter{monitorSpecific: false, barMonitor: "DP-1"}); len(got) != 3 {
-		t.Errorf("unscoped = %v", wsIDs(got))
-	}
-	if got := cwsCollectDisplayed(all, cwsFilter{monitorSpecific: true}); len(got) != 3 {
-		t.Errorf("no bar monitor = %v", wsIDs(got))
-	}
-}
-
-func TestCwsLabelStrategies(t *testing.T) {
-	for _, tc := range []struct {
-		num      int
-		name     string
-		hasName  bool
-		strategy config.LabelStrategy
-		want     string
-		ok       bool
-	}{
-		{3, "web", true, config.LabelIndex, "3", true},
-		{3, "web", true, config.LabelNameOrIndex, "web", true},
-		{3, "", false, config.LabelNameOrIndex, "3", true},
-		{3, "", false, config.LabelNameOnly, "", false},
-		{3, "web", true, config.LabelIndexAndName, "3: web", true},
-		{3, "", false, config.LabelIndexAndName, "3", true},
-		// sway's unnumbered workspaces
-		{-1, "chat", true, config.LabelIndex, "", false},
-		{-1, "chat", true, config.LabelIndexAndName, "chat", true},
-		{-1, "", false, config.LabelIndexAndName, "", false},
-	} {
-		got, ok := cwsLabel(tc.num, tc.name, tc.hasName, tc.strategy)
-		if got != tc.want || ok != tc.ok {
-			t.Errorf("label(%d, %q, %s) = %q %v, want %q %v", tc.num, tc.name, tc.strategy, got, ok, tc.want, tc.ok)
-		}
-	}
-}
-
-func TestCwsStylePrefersNameThenID(t *testing.T) {
-	m := map[string]config.WorkspaceStyle{
-		"web": {Label: new("W")},
-		"5":   {Label: new("five")},
-	}
-	named := cwsWorkspace{id: 5, name: "web", hasName: true}
-	if s, ok := cwsStyleFor(named, m); !ok || *s.Label != "W" {
-		t.Errorf("named = %+v %v, want the name entry", s, ok)
-	}
-	unmatched := cwsWorkspace{id: 5, name: "mail", hasName: true}
-	if s, ok := cwsStyleFor(unmatched, m); !ok || *s.Label != "five" {
-		t.Errorf("fallback = %+v %v, want the id entry", s, ok)
-	}
-	if _, ok := cwsStyleFor(cwsWorkspace{id: 6}, m); ok {
-		t.Error("no entry matched but a style came back")
-	}
-}
-
-func TestCwsNameClassSanitizes(t *testing.T) {
-	if got := cwsNameClass("2:web ü"); got != "ws-name-2_web__" {
-		t.Errorf("class = %q", got)
-	}
-	if got := cwsIDClass(5); got != "ws-id-5" {
-		t.Errorf("id class = %q", got)
-	}
-}
-
-func TestCwsOverrideColorCascade(t *testing.T) {
-	red, _ := config.ParseColorValue("#ff0000")
-	green, _ := config.ParseColorValue("#00ff00")
-	m := map[string]config.WorkspaceStyle{
-		"5":   {Color: &red},
-		"web": {Color: &green},
-		"x":   {Icon: new("no-color")},
-	}
-	// A numeric key reaches the id class; later keys win.
-	if c, ok := cwsOverrideColor([]string{"ws-id-5"}, m); !ok || c != red {
-		t.Errorf("id match = %v %v", c, ok)
-	}
-	if c, ok := cwsOverrideColor([]string{"ws-id-5", "ws-name-web"}, m); !ok || c != green {
-		t.Errorf("both match = %v %v, want the later key (web)", c, ok)
-	}
-	// A numeric key also reaches a numeric name.
-	if c, ok := cwsOverrideColor([]string{"ws-id-99", "ws-name-5"}, m); !ok || c != red {
-		t.Errorf("numeric name = %v %v", c, ok)
-	}
-	if _, ok := cwsOverrideColor([]string{"ws-id-7", "ws-name-x"}, m); ok {
-		t.Error("a colorless entry produced an override")
-	}
-}
-
-func TestCwsAppIconsDedupeOrderAndUrgency(t *testing.T) {
-	cfg := config.DefaultsWorkspaces().View(compositor.Niri)
-	windows := []cwsWindow{
-		{id: 3, workspace: 1, hasWorkspace: true, app: appicons.Window{AppID: "firefox", HasAppID: true}, order: [2]int{2, 1}},
-		{id: 1, workspace: 1, hasWorkspace: true, app: appicons.Window{AppID: "foot", HasAppID: true}, order: [2]int{1, 1}},
-		{id: 2, workspace: 1, hasWorkspace: true, app: appicons.Window{AppID: "firefox", HasAppID: true}, order: [2]int{3, 1}, urgent: true},
-		{id: 9, workspace: 2, hasWorkspace: true},
-	}
-	on := cwsWindowsOn(windows, 1)
-	if len(on) != 3 || on[0].id != 1 || on[1].id != 3 || on[2].id != 2 {
-		t.Fatalf("windows on 1 = %+v, want layout order", on)
-	}
-	icons := cwsCollectAppIcons(on, cfg, map[uint64]bool{2: true})
-	if len(icons) != 2 || !reflect.DeepEqual(icons[1].windowIDs, []uint64{3, 2}) || !icons[1].urgent || icons[0].urgent {
-		t.Fatalf("deduped = %+v", icons)
-	}
-	cfg.AppIconsDedupe = false
-	if icons := cwsCollectAppIcons(on, cfg, nil); len(icons) != 3 {
-		t.Fatalf("no dedupe = %+v, want one icon per window", icons)
-	}
-}
-
-func TestCwsBuildModelsBlinkGatesUrgency(t *testing.T) {
-	cfg := config.DefaultsWorkspaces().View(compositor.Sway)
-	urgent := occupiedWS(1, 1, "DP-1")
-	urgent.urgent = true
-	all := []cwsWorkspace{urgent}
-	on := cwsBuildModels(cwsWorkspaces, all, nil, cfg, "DP-1", false, true)
-	if !hasClass(on[0].classes, "urgent") {
-		t.Errorf("blink on: classes %v miss urgent", on[0].classes)
-	}
-	off := cwsBuildModels(cwsWorkspaces, all, nil, cfg, "DP-1", false, false)
-	if hasClass(off[0].classes, "urgent") {
-		t.Errorf("blink off: classes %v carry urgent", off[0].classes)
-	}
-	cfg.UrgentShow = false
-	if m := cwsBuildModels(cwsWorkspaces, all, nil, cfg, "DP-1", false, true); hasClass(m[0].classes, "urgent") {
-		t.Error("urgent-show = false still marks the class")
-	}
-	cfg.UrgentShow, cfg.UrgentMode = true, config.UrgentApplication
-	if m := cwsBuildModels(cwsWorkspaces, all, nil, cfg, "DP-1", false, true); !hasClass(m[0].classes, "urgent-application") {
-		t.Error("urgent-mode application misses its class")
-	}
-}
-
-func TestCwsClassesMatchComputeCSSClasses(t *testing.T) {
-	cfg := config.DefaultsWorkspaces().View(compositor.Niri)
-	ws := occupiedWS(5, 2, "DP-1")
-	ws.active, ws.focused, ws.name, ws.hasName = true, true, "web", true
-	m := cwsBuildModels(cwsWorkspaces, []cwsWorkspace{ws}, nil, cfg, "", true, false)
-	want := []string{"workspace", "active", "focused", "indicator-background", "vertical", "ws-id-5", "ws-name-web"}
-	if !reflect.DeepEqual(m[0].classes, want) {
-		t.Errorf("classes = %v, want %v", m[0].classes, want)
-	}
-}
-
-func TestCwsShowRules(t *testing.T) {
-	cfg := config.DefaultsWorkspaces().View(compositor.Niri)
-	labelled := cwsButtonModel{label: "1", hasLabel: true}
-	if !labelled.showLabel(cfg.DisplayMode) || labelled.showIcon(cfg.DisplayMode) || labelled.showDivider(cfg) {
-		t.Error("a labelled button without app icons: label only")
-	}
-	iconed := cwsButtonModel{label: "1", hasLabel: true, icon: "ld-globe-symbolic"}
-	if iconed.showLabel(cfg.DisplayMode) || !iconed.showIcon(cfg.DisplayMode) {
-		t.Error("a mapped icon replaces the label")
-	}
-	if iconed.showIcon(config.DisplayModeNone) || labelled.showLabel(config.DisplayModeNone) {
-		t.Error("display-mode none shows something")
-	}
-	cfg.AppIconsShow = true
-	if !labelled.showDivider(cfg) {
-		t.Error("app icons on: the divider shows beside the label")
-	}
-	cfg.Divider = ""
-	if labelled.showDivider(cfg) {
-		t.Error("an empty divider shows")
-	}
+func emptyWS(id uint64, num int, output string) barview.Workspace {
+	return barview.Workspace{ID: id, Num: num, Output: output, HasOutput: true}
 }
 
 // fakeCws records the actions the bindings reach.
 type fakeCws struct {
-	workspaces []cwsWorkspace
+	workspaces []barview.Workspace
 	windows    []cwsWindow
 	calls      chan string
 	closed     bool
 }
 
-func newFakeCws(workspaces []cwsWorkspace, windows []cwsWindow) *fakeCws {
+func newFakeCws(workspaces []barview.Workspace, windows []cwsWindow) *fakeCws {
 	return &fakeCws{workspaces: workspaces, windows: windows, calls: make(chan string, 16)}
 }
 
-func (f *fakeCws) snapshot() ([]cwsWorkspace, []cwsWindow, error) {
+func (f *fakeCws) snapshot() ([]barview.Workspace, []cwsWindow, error) {
 	return f.workspaces, f.windows, nil
 }
 
-func (f *fakeCws) focus(_ context.Context, ws cwsWorkspace) error {
-	f.calls <- "focus:" + cwsIDClass(ws.id)
+func (f *fakeCws) focus(_ context.Context, ws barview.Workspace) error {
+	f.calls <- "focus:ws-id-" + strconv.FormatUint(ws.ID, 10)
 	return nil
 }
 func (f *fakeCws) focusNext(context.Context) error     { f.calls <- "next"; return nil }
@@ -306,26 +75,26 @@ func newTestCws(t *testing.T, cfg config.CompositorWorkspacesConfig, backend cws
 	t.Helper()
 	ctx := newTestContext(t, config.Defaults())
 	ctx.Connector = "DP-1"
-	return newCwsModuleOnHeadlessLoop(ctx, "niri", cwsWorkspaces, cfg, backend)
+	return newCwsModuleOnHeadlessLoop(ctx, "niri", barview.FlavorWorkspaces, cfg, backend)
 }
 
 func TestCwsModuleBuildsOneSegmentPerDisplayedWorkspace(t *testing.T) {
 	active := occupiedWS(1, 1, "DP-1")
-	active.active = true
-	f := newFakeCws([]cwsWorkspace{active, occupiedWS(2, 2, "DP-1"), emptyWS(3, 3, "DP-1"), occupiedWS(4, 1, "HDMI-A-1")}, nil)
+	active.Active = true
+	f := newFakeCws([]barview.Workspace{active, occupiedWS(2, 2, "DP-1"), emptyWS(3, 3, "DP-1"), occupiedWS(4, 1, "HDMI-A-1")}, nil)
 	m := newTestCws(t, config.DefaultsWorkspaces().View(compositor.Niri), f)
 	// niri hides the trailing empty 3; 4 is another output's.
-	if n := m.segs.Count(); n != 2 {
+	if n := m.strip.Segments().Count(); n != 2 {
 		t.Fatalf("segments = %d, want 2", n)
 	}
-	if !widget.HasClass(m.segs, "workspaces") || !widget.HasClass(m.segs, "niri") {
+	if !widget.HasClass(m.strip.Segments(), "workspaces") || !widget.HasClass(m.strip.Segments(), "niri") {
 		t.Error("the row misses the workspaces/niri classes")
 	}
-	if m.segs.Active() != 0 || !widget.HasClass(m.segs.Segment(0), "active") || widget.HasClass(m.segs.Segment(1), "active") {
-		t.Errorf("active segment = %d, want the first alone", m.segs.Active())
+	if m.strip.Segments().Active() != 0 || !widget.HasClass(m.strip.Segments().Segment(0), "active") || widget.HasClass(m.strip.Segments().Segment(1), "active") {
+		t.Errorf("active segment = %d, want the first alone", m.strip.Segments().Active())
 	}
 	for _, c := range []string{"workspace", "occupied", "ws-id-2"} {
-		if !widget.HasClass(m.segs.Segment(1), c) {
+		if !widget.HasClass(m.strip.Segments().Segment(1), c) {
 			t.Errorf("the second segment misses %q", c)
 		}
 	}
@@ -339,19 +108,19 @@ func TestCwsModuleBuildsOneSegmentPerDisplayedWorkspace(t *testing.T) {
 // workspaces: a class the old state put on a segment does not stay.
 func TestCwsRefreshMovesTheStates(t *testing.T) {
 	one, two := occupiedWS(1, 1, "DP-1"), emptyWS(2, 2, "DP-1")
-	one.active, one.focused = true, true
-	f := newFakeCws([]cwsWorkspace{one, two, occupiedWS(3, 3, "DP-1")}, nil)
+	one.Active, one.Focused = true, true
+	f := newFakeCws([]barview.Workspace{one, two, occupiedWS(3, 3, "DP-1")}, nil)
 	wcfg := config.DefaultsWorkspaces()
 	wcfg.HideTrailingEmpty = false
 	m := newTestCws(t, wcfg.View(compositor.Sway), f)
-	one.active, one.focused, two.active, two.focused, two.hasWindows = false, false, true, true, true
-	f.workspaces = []cwsWorkspace{one, two, emptyWS(5, 5, "DP-1")}
+	one.Active, one.Focused, two.Active, two.Focused, two.HasWindows = false, false, true, true, true
+	f.workspaces = []barview.Workspace{one, two, emptyWS(5, 5, "DP-1")}
 	if err := readAndApply(m.read, m.apply); err != nil {
 		t.Fatal(err)
 	}
-	first, second, third := m.segs.Segment(0), m.segs.Segment(1), m.segs.Segment(2)
-	if m.segs.Active() != 1 || widget.HasClass(first, "active") || widget.HasClass(first, "focused") || !widget.HasClass(second, "focused") {
-		t.Errorf("active = %d, first %v, second %v; want the second alone active and focused", m.segs.Active(), first.Classes(), second.Classes())
+	first, second, third := m.strip.Segments().Segment(0), m.strip.Segments().Segment(1), m.strip.Segments().Segment(2)
+	if m.strip.Segments().Active() != 1 || widget.HasClass(first, "active") || widget.HasClass(first, "focused") || !widget.HasClass(second, "focused") {
+		t.Errorf("active = %d, first %v, second %v; want the second alone active and focused", m.strip.Segments().Active(), first.Classes(), second.Classes())
 	}
 	if widget.HasClass(third, "occupied") || widget.HasClass(third, "ws-id-3") || !widget.HasClass(third, "empty") || !widget.HasClass(third, "ws-id-5") {
 		t.Errorf("the third segment, now workspace 5 and empty, carries %v", third.Classes())
@@ -379,7 +148,7 @@ func paintCwsBar(m *cwsModule, bar *widget.Bar, size widget.Size) (has func(i in
 	data := make([]byte, render.Stride(size.W)*size.H)
 	bar.Paint(render.New(data, render.Stride(size.W), size.W, size.H))
 	has = func(i int, c render.Color) bool {
-		r := m.segs.Segment(i).Bounds()
+		r := m.strip.Segments().Segment(i).Bounds()
 		for y := r.Y; y < r.Y+r.H; y++ {
 			for x := r.X; x < r.X+r.W; x++ {
 				if pixelAt(data, size.W, x, y) == c {
@@ -390,7 +159,7 @@ func paintCwsBar(m *cwsModule, bar *widget.Bar, size widget.Size) (has func(i in
 		return false
 	}
 	rest = func(i int) render.Color {
-		r := m.segs.Segment(i).Bounds()
+		r := m.strip.Segments().Segment(i).Bounds()
 		return pixelAt(data, size.W, r.X+3, r.Y+r.H/2)
 	}
 	return has, rest
@@ -413,8 +182,8 @@ func TestCwsPaintsTheConfiguredColors(t *testing.T) {
 	red, _ := config.ParseColorValue("#ff0000")
 	wcfg.WorkspaceMap = map[string]config.WorkspaceStyle{"4": {Color: &red}}
 	active := occupiedWS(1, 1, "DP-1")
-	active.active = true
-	m := newCwsModuleOnHeadlessLoop(ctx, "niri", cwsWorkspaces, wcfg, newFakeCws([]cwsWorkspace{active, occupiedWS(2, 2, "DP-1"), emptyWS(3, 3, "DP-1"), occupiedWS(4, 4, "DP-1")}, nil))
+	active.Active = true
+	m := newCwsModuleOnHeadlessLoop(ctx, "niri", barview.FlavorWorkspaces, wcfg, newFakeCws([]barview.Workspace{active, occupiedWS(2, 2, "DP-1"), emptyWS(3, 3, "DP-1"), occupiedWS(4, 4, "DP-1")}, nil))
 	bar, size := cwsBar(t, ctx, m)
 	has, rest := paintCwsBar(m, bar, size)
 	accent, onAccent := resolve(wcfg.ActiveColor), resolve(mustToken(config.TokenFgOnAccent))
@@ -444,15 +213,15 @@ func TestCwsUnderlinesTheActiveWorkspace(t *testing.T) {
 	wcfg := config.DefaultsWorkspaces().View(compositor.Niri)
 	wcfg.ActiveIndicator = config.ActiveUnderline
 	active := occupiedWS(1, 1, "DP-1")
-	active.active = true
-	m := newCwsModuleOnHeadlessLoop(ctx, "niri", cwsWorkspaces, wcfg, newFakeCws([]cwsWorkspace{active}, nil))
+	active.Active = true
+	m := newCwsModuleOnHeadlessLoop(ctx, "niri", barview.FlavorWorkspaces, wcfg, newFakeCws([]barview.Workspace{active}, nil))
 	bar, size := cwsBar(t, ctx, m)
 	accent, _ := styling.ResolveColor(wcfg.ActiveColor, palette)
 	widget.SizeWithin(bar, availSize(size.W, size.H))
 	bar.Arrange(render.Rect{W: size.W, H: size.H})
 	data := make([]byte, render.Stride(size.W)*size.H)
 	bar.Paint(render.New(data, render.Stride(size.W), size.W, size.H))
-	r := m.segs.Segment(0).Bounds()
+	r := m.strip.Segments().Segment(0).Bounds()
 	if got := pixelAt(data, size.W, r.X+r.W/2, r.Y+r.H-1); got != accent {
 		t.Errorf("bottom edge %#08x, want the active color %#08x", uint32(got), uint32(accent))
 	}
@@ -473,16 +242,16 @@ func TestCwsSegmentShadesUnderThePointer(t *testing.T) {
 	ctx := styledContext(t, cfg)
 	ctx.Connector = "DP-1"
 	active := occupiedWS(1, 1, "DP-1")
-	active.active = true
-	m := newCwsModuleOnHeadlessLoop(ctx, "niri", cwsWorkspaces, config.DefaultsWorkspaces().View(compositor.Niri), newFakeCws([]cwsWorkspace{active, occupiedWS(2, 2, "DP-1")}, nil))
+	active.Active = true
+	m := newCwsModuleOnHeadlessLoop(ctx, "niri", barview.FlavorWorkspaces, config.DefaultsWorkspaces().View(compositor.Niri), newFakeCws([]barview.Workspace{active, occupiedWS(2, 2, "DP-1")}, nil))
 	bar, size := cwsBar(t, ctx, m)
 	_, rest := paintCwsBar(m, bar, size)
 	before, activeRest := rest(1), rest(0)
-	router, _ := treetest.Pointer(bar, m.segs.Segment(1), size.W, size.H)
+	router, _ := treetest.Pointer(bar, m.strip.Segments().Segment(1), size.W, size.H)
 	if _, rest = paintCwsBar(m, bar, size); rest(1) == before {
 		t.Errorf("the hovered segment paints %#08x, as at rest", uint32(rest(1)))
 	}
-	router.Move(widget.Point{X: m.segs.Segment(0).Bounds().X + 2, Y: size.H / 2})
+	router.Move(widget.Point{X: m.strip.Segments().Segment(0).Bounds().X + 2, Y: size.H / 2})
 	if _, rest = paintCwsBar(m, bar, size); rest(1) != before || rest(0) != activeRest {
 		t.Errorf("after the pointer moved on: %#08x (rest %#08x), active %#08x (rest %#08x)", uint32(rest(1)), uint32(before), uint32(rest(0)), uint32(activeRest))
 	}
@@ -501,9 +270,9 @@ func TestCwsSegmentMinSize(t *testing.T) {
 		wcfg := config.DefaultsWorkspaces().View(compositor.Niri)
 		wcfg.LabelSize = config.Size{Value: tc.label, Unit: config.SizePixels}
 		wcfg.WorkspacePad = config.Size{Value: tc.pad, Unit: config.SizePixels}
-		m := newCwsModuleOnHeadlessLoop(ctx, "niri", cwsWorkspaces, wcfg, newFakeCws([]cwsWorkspace{occupiedWS(1, 1, "DP-1")}, nil))
+		m := newCwsModuleOnHeadlessLoop(ctx, "niri", barview.FlavorWorkspaces, wcfg, newFakeCws([]barview.Workspace{occupiedWS(1, 1, "DP-1")}, nil))
 		cwsBar(t, ctx, m)
-		if r := m.segs.Segment(0).Bounds(); r.W < tc.atLeast || r.H < 24 || (tc.atLeast == 24 && (r.W != 24 || r.H != 24)) {
+		if r := m.strip.Segments().Segment(0).Bounds(); r.W < tc.atLeast || r.H < 24 || (tc.atLeast == 24 && (r.W != 24 || r.H != 24)) {
 			t.Errorf("label %vpx, padding %vpx: segment %v, want at least %dx24", tc.label, tc.pad, r, tc.atLeast)
 		}
 	}
@@ -519,7 +288,7 @@ func TestCwsSegmentsCenterInASideBar(t *testing.T) {
 	ctx.Connector = "DP-1"
 	palette := ctx.Theme.RenderPalette()
 	wcfg := config.DefaultsWorkspaces().View(compositor.Niri)
-	m := newCwsModuleOnHeadlessLoop(ctx, "niri", cwsWorkspaces, wcfg, newFakeCws([]cwsWorkspace{occupiedWS(1, 1, "DP-1"), occupiedWS(2, 2, "DP-1")}, nil))
+	m := newCwsModuleOnHeadlessLoop(ctx, "niri", barview.FlavorWorkspaces, wcfg, newFakeCws([]barview.Workspace{occupiedWS(1, 1, "DP-1"), occupiedWS(2, 2, "DP-1")}, nil))
 	factories["test-cws"] = func(ModuleContext) (Module, error) { return m, nil }
 	defer delete(factories, "test-cws")
 	bar := buildRootOnHeadlessLoop(ctx, config.BarLayout{Monitor: "*", Left: []config.BarItem{{Module: "test-cws"}, {Module: "clock"}}}, "DP-1")
@@ -528,7 +297,7 @@ func TestCwsSegmentsCenterInASideBar(t *testing.T) {
 	bar.Arrange(render.Rect{W: size.W, H: size.H})
 	data := make([]byte, render.Stride(size.W)*size.H)
 	bar.Paint(render.New(data, render.Stride(size.W), size.W, size.H))
-	box, seg := m.segs.Bounds(), m.segs.Segment(1).Bounds()
+	box, seg := m.strip.Segments().Bounds(), m.strip.Segments().Segment(1).Bounds()
 	if d := (seg.X + seg.W/2) - (box.X + box.W/2); d < -1 || d > 1 || seg.W != seg.H {
 		t.Errorf("segment %v in the row %v: want a circle centered across the row", seg, box)
 	}
@@ -546,61 +315,13 @@ func TestCwsSegmentsCenterInASideBar(t *testing.T) {
 	}
 }
 
-// classesIn lists the classes of every widget under w, in tree order.
-func classesIn(w widget.Widget) []string {
-	var out []string
-	walkTree(w, func(w widget.Widget) bool {
-		if c, ok := w.(interface{ Classes() []string }); ok {
-			out = append(out, c.Classes()...)
-		}
-		return true
-	})
-	return out
-}
-
-// A segment holds the workspace's identity and, with app-icons-show,
-// its app icons: the label with the divider after it, a mapped icon in
-// the label's place (hyprland's as its custom icon), an urgent app's
-// icon marked urgent, and the empty icon for a workspace without apps.
-func TestCwsSegmentContent(t *testing.T) {
-	cfg := config.DefaultsWorkspaces().View(compositor.Niri)
-	m := newTestCws(t, cfg, newFakeCws(nil, nil))
-	labelled := cwsButtonModel{label: "1", hasLabel: true}
-	if got := classesIn(m.segmentContent(labelled, &cwsSegmentShown{})); !slices.Contains(got, "workspace-label") || slices.Contains(got, "workspace-icons") || slices.Contains(got, "workspace-divider") {
-		t.Errorf("app icons off: content classes %v, want the label alone", got)
-	}
-	m.cfg.AppIconsShow = true
-	apps := cwsButtonModel{label: "1", hasLabel: true, appIcons: []cwsAppIcon{{name: "foot"}, {name: "firefox", urgent: true}}}
-	got := classesIn(m.segmentContent(apps, &cwsSegmentShown{}))
-	for _, c := range []string{"workspace-label", "workspace-divider", "workspace-icons", "urgent"} {
-		if !slices.Contains(got, c) {
-			t.Errorf("app icons on: content classes %v miss %q", got, c)
-		}
-	}
-	if slices.Contains(got, "workspace-icon-empty") || strings.Count(strings.Join(got, " "), "workspace-icon ") != 2 {
-		t.Errorf("two apps: content classes %v, want their two icons and no empty one", got)
-	}
-	if got := classesIn(m.segmentContent(cwsButtonModel{label: "1", hasLabel: true}, &cwsSegmentShown{})); !slices.Contains(got, "workspace-icon-empty") {
-		t.Errorf("no apps: content classes %v, want the empty icon", got)
-	}
-	m.cfg.AppIconsShow = false
-	mapped := cwsButtonModel{label: "1", hasLabel: true, icon: "ld-globe-symbolic"}
-	if got := classesIn(m.segmentContent(mapped, &cwsSegmentShown{})); slices.Contains(got, "workspace-label") || !slices.Contains(got, "workspace-icon") {
-		t.Errorf("mapped icon: content classes %v, want the icon in the label's place", got)
-	}
-	mapped.flavor = cwsHyprland
-	if got := classesIn(m.segmentContent(mapped, &cwsSegmentShown{})); !slices.Contains(got, "workspace-custom-icon") || slices.Contains(got, "workspace-icon") {
-		t.Errorf("hyprland mapped icon: content classes %v, want the custom icon", got)
-	}
-}
-
 func TestCwsClicksRouteThroughTheRouter(t *testing.T) {
-	f := newFakeCws([]cwsWorkspace{occupiedWS(1, 1, "DP-1"), occupiedWS(2, 2, "DP-1")}, nil)
+	f := newFakeCws([]barview.Workspace{occupiedWS(1, 1, "DP-1"), occupiedWS(2, 2, "DP-1")}, nil)
 	cfg := config.DefaultsWorkspaces().View(compositor.Sway)
 	cfg.Click.MiddleClick = config.ParseWorkspaceClickAction("focus:last")
 	m := newTestCws(t, cfg, f)
-	second := m.segs.Segment(1)
-	router, p := treetest.Pointer(m.segs, second, 500, 40)
+	second := m.strip.Segments().Segment(1)
+	router, p := treetest.Pointer(m.strip.Segments(), second, 500, 40)
 	if !second.Hovered {
 		t.Error("routed hover missed the segment")
 	}
@@ -621,16 +342,16 @@ func TestCwsClicksRouteThroughTheRouter(t *testing.T) {
 }
 
 func TestCwsScrollIgnoresFocusThis(t *testing.T) {
-	f := newFakeCws([]cwsWorkspace{occupiedWS(1, 1, "DP-1")}, nil)
+	f := newFakeCws([]barview.Workspace{occupiedWS(1, 1, "DP-1")}, nil)
 	cfg := config.DefaultsWorkspaces().View(compositor.Sway)
 	cfg.Click.ScrollDown = config.ParseWorkspaceClickAction("focus:this")
 	cfg.Click.ScrollUp = config.ParseWorkspaceClickAction("")
 	m := newTestCws(t, cfg, f)
 	behind := widget.NewBox(widget.Row, 0, 0)
-	behind.Append(m.segs, false)
+	behind.Append(m.strip.Segments(), false)
 	reached := 0
 	behind.SetOnScroll(func(widget.ScrollEvent) bool { reached++; return true })
-	router, _ := treetest.Pointer(behind, m.segs.Segment(0), 500, 40)
+	router, _ := treetest.Pointer(behind, m.strip.Segments().Segment(0), 500, 40)
 	router.Axis(0, 1, 0)
 	router.Axis(0, -1, 0)
 	if reached != 0 {
@@ -641,21 +362,21 @@ func TestCwsScrollIgnoresFocusThis(t *testing.T) {
 
 func TestCwsBlinkRunsOnlyWhileUrgent(t *testing.T) {
 	urgent := occupiedWS(1, 1, "DP-1")
-	urgent.urgent = true
-	f := newFakeCws([]cwsWorkspace{urgent}, nil)
+	urgent.Urgent = true
+	f := newFakeCws([]barview.Workspace{urgent}, nil)
 	m := newTestCws(t, config.DefaultsWorkspaces().View(compositor.Niri), f)
 	if m.blinkStop == nil || !m.blinkOn {
 		t.Fatal("urgent workspace: blink not started on")
 	}
-	if seg := m.segs.Segment(0); !widget.HasClass(seg, "urgent") || !widget.HasClass(seg, "occupied") {
+	if seg := m.strip.Segments().Segment(0); !widget.HasClass(seg, "urgent") || !widget.HasClass(seg, "occupied") {
 		t.Errorf("blink on: segment carries %v, want urgent and still occupied", seg.Classes())
 	}
 	m.blinkTick()
-	if m.blinkOn || widget.HasClass(m.segs.Segment(0), "urgent") {
+	if m.blinkOn || widget.HasClass(m.strip.Segments().Segment(0), "urgent") {
 		t.Error("tick did not toggle the pulse off")
 	}
 	// Urgency clears: the blink stops and stays off.
-	f.workspaces = []cwsWorkspace{occupiedWS(1, 1, "DP-1")}
+	f.workspaces = []barview.Workspace{occupiedWS(1, 1, "DP-1")}
 	if err := readAndApply(m.read, m.apply); err != nil {
 		t.Fatal(err)
 	}
@@ -684,8 +405,8 @@ func TestCwsUrgentPulseFadesTheSegment(t *testing.T) {
 	palette := ctx.Theme.RenderPalette()
 	wcfg := config.DefaultsWorkspaces().View(compositor.Niri)
 	urgent := occupiedWS(1, 1, "DP-1")
-	urgent.urgent = true
-	m := newCwsModuleOnHeadlessLoop(ctx, "niri", cwsWorkspaces, wcfg, newFakeCws([]cwsWorkspace{urgent}, nil))
+	urgent.Urgent = true
+	m := newCwsModuleOnHeadlessLoop(ctx, "niri", barview.FlavorWorkspaces, wcfg, newFakeCws([]barview.Workspace{urgent}, nil))
 	occupied, _ := styling.ResolveColor(wcfg.OccupiedColor, palette)
 	bar, size := cwsBar(t, ctx, m)
 	if has, _ := paintCwsBar(m, bar, size); has(0, occupied) {
@@ -700,13 +421,13 @@ func TestCwsUrgentPulseFadesTheSegment(t *testing.T) {
 func TestCwsBorderShowUsesTheButtonBorder(t *testing.T) {
 	cfg := config.DefaultsWorkspaces().View(compositor.Niri)
 	m := newTestCws(t, cfg, newFakeCws(nil, nil))
-	if widget.HasClass(m.segs, "border-all") || !strings.Contains(m.segs.InlineStyle(), "--ws-border-width: 0px") {
-		t.Errorf("border-show off: classes %v, style %q; want no border", m.segs.Classes(), m.segs.InlineStyle())
+	if widget.HasClass(m.strip.Segments(), "border-all") || !strings.Contains(m.strip.Segments().InlineStyle(), "--ws-border-width: 0px") {
+		t.Errorf("border-show off: classes %v, style %q; want no border", m.strip.Segments().Classes(), m.strip.Segments().InlineStyle())
 	}
 	cfg.BorderShow = true
 	m = newTestCws(t, cfg, newFakeCws(nil, nil))
-	if !widget.HasClass(m.segs, "border-all") || !strings.Contains(m.segs.InlineStyle(), "--ws-border-width: 1px") {
-		t.Errorf("border-show on: classes %v, style %q; want the button border at the default all location", m.segs.Classes(), m.segs.InlineStyle())
+	if !widget.HasClass(m.strip.Segments(), "border-all") || !strings.Contains(m.strip.Segments().InlineStyle(), "--ws-border-width: 1px") {
+		t.Errorf("border-show on: classes %v, style %q; want the button border at the default all location", m.strip.Segments().Classes(), m.strip.Segments().InlineStyle())
 	}
 }
 
@@ -719,7 +440,7 @@ func TestCwsModuleIsNotWrappedInButtonChrome(t *testing.T) {
 	if err := mountInto(row, ctx, "test-cws"); err != nil {
 		t.Fatal(err)
 	}
-	if got := row.Children()[0]; got != widget.Widget(m.segs) {
+	if got := row.Children()[0]; got != widget.Widget(m.strip.Segments()) {
 		t.Errorf("appended %T, want the container itself", got)
 	}
 }
@@ -733,13 +454,13 @@ func TestTheOldWorkspaceModulesAreGone(t *testing.T) {
 	}
 }
 
-func segmentLabel(m *cwsModule, i int) *widget.Label { return findLabel(m.segs.Segment(i)) }
+func segmentLabel(m *cwsModule, i int) *widget.Label { return findLabel(m.strip.Segments().Segment(i)) }
 
 func TestCwsKeepsContentThatStillShowsTheSame(t *testing.T) {
 	urgent := occupiedWS(1, 1, "DP-1")
-	urgent.urgent = true
+	urgent.Urgent = true
 	other := occupiedWS(2, 2, "DP-1")
-	f := newFakeCws([]cwsWorkspace{urgent, other}, nil)
+	f := newFakeCws([]barview.Workspace{urgent, other}, nil)
 	m := newTestCws(t, config.DefaultsWorkspaces().View(compositor.Sway), f)
 	first, second := segmentLabel(m, 0), segmentLabel(m, 1)
 	for range 3 {
@@ -748,16 +469,16 @@ func TestCwsKeepsContentThatStillShowsTheSame(t *testing.T) {
 			t.Fatal("a blink rebuilt the labels")
 		}
 	}
-	other.active = true
-	f.workspaces = []cwsWorkspace{urgent, other}
+	other.Active = true
+	f.workspaces = []barview.Workspace{urgent, other}
 	if err := readAndApply(m.read, m.apply); err != nil {
 		t.Fatal(err)
 	}
 	if segmentLabel(m, 0) != first || segmentLabel(m, 1) != second {
 		t.Fatal("a change of state rebuilt the labels")
 	}
-	other.num = 7
-	f.workspaces = []cwsWorkspace{urgent, other}
+	other.Num = 7
+	f.workspaces = []barview.Workspace{urgent, other}
 	if err := readAndApply(m.read, m.apply); err != nil {
 		t.Fatal(err)
 	}
@@ -772,9 +493,9 @@ func TestCwsKeepsContentThatStillShowsTheSame(t *testing.T) {
 func TestCwsAppIconUrgencyBlinksOnTheKeptIcon(t *testing.T) {
 	cfg := config.DefaultsWorkspaces().View(compositor.Sway)
 	cfg.AppIconsShow = true
-	f := newFakeCws([]cwsWorkspace{occupiedWS(1, 1, "DP-1")}, []cwsWindow{{id: 9, workspace: 1, hasWorkspace: true, urgent: true}})
+	f := newFakeCws([]barview.Workspace{occupiedWS(1, 1, "DP-1")}, []cwsWindow{{id: 9, workspace: 1, hasWorkspace: true, urgent: true}})
 	m := newTestCws(t, cfg, f)
-	icons := func() []widget.Widget { return treetest.WithClass(m.segs, "workspace-icon") }
+	icons := func() []widget.Widget { return treetest.WithClass(m.strip.Segments(), "workspace-icon") }
 	icon := icons()[0]
 	if !widget.HasClass(icon, "urgent") {
 		t.Fatal("the urgent window's icon starts unmarked with the blink on")
@@ -798,9 +519,9 @@ func TestCwsSwitchMovesTheLabelColors(t *testing.T) {
 	resolve := func(cv config.ColorValue) render.Color { c, _ := styling.ResolveColor(cv, palette); return c }
 	wcfg := config.DefaultsWorkspaces().View(compositor.Niri)
 	one, two := occupiedWS(1, 1, "DP-1"), occupiedWS(2, 2, "DP-1")
-	one.active = true
-	f := newFakeCws([]cwsWorkspace{one, two}, nil)
-	m := newCwsModuleOnHeadlessLoop(ctx, "niri", cwsWorkspaces, wcfg, f)
+	one.Active = true
+	f := newFakeCws([]barview.Workspace{one, two}, nil)
+	m := newCwsModuleOnHeadlessLoop(ctx, "niri", barview.FlavorWorkspaces, wcfg, f)
 	bar, size := cwsBar(t, ctx, m)
 	has, _ := paintCwsBar(m, bar, size)
 	occupied := resolve(wcfg.OccupiedColor)
@@ -808,8 +529,8 @@ func TestCwsSwitchMovesTheLabelColors(t *testing.T) {
 		t.Fatal("before the switch only the second label should hold the occupied color")
 	}
 	switchTo := func(oneActive bool) {
-		one.active, two.active = oneActive, !oneActive
-		f.workspaces = []cwsWorkspace{one, two}
+		one.Active, two.Active = oneActive, !oneActive
+		f.workspaces = []barview.Workspace{one, two}
 		if err := readAndApply(m.read, m.apply); err != nil {
 			t.Fatal(err)
 		}

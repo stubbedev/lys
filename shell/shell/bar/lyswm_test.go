@@ -11,6 +11,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/service/lyswm/lyswmtest"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/wmipc"
@@ -41,10 +42,10 @@ func TestLysWMModels(t *testing.T) {
 		t.Fatal(err)
 	}
 	workspaces, windows := lysWMModels(replies, wins)
-	want := []cwsWorkspace{
-		{id: 1, num: 1, output: "DP-1", hasOutput: true, urgent: true, hasWindows: true},
-		{id: 2, num: 2, output: "DP-1", hasOutput: true, active: true, focused: true},
-		{id: 3, num: 3, output: "HDMI-A-1", hasOutput: true, active: true, hasWindows: true},
+	want := []barview.Workspace{
+		{ID: 1, Num: 1, Output: "DP-1", HasOutput: true, Urgent: true, HasWindows: true},
+		{ID: 2, Num: 2, Output: "DP-1", HasOutput: true, Active: true, Focused: true},
+		{ID: 3, Num: 3, Output: "HDMI-A-1", HasOutput: true, Active: true, HasWindows: true},
 	}
 	if !reflect.DeepEqual(workspaces, want) {
 		t.Errorf("workspaces =\n%+v\nwant\n%+v", workspaces, want)
@@ -77,7 +78,7 @@ func TestLysWMWorkspacesShowTheBarOutputsNumbers(t *testing.T) {
 	m := newTestLysWM(t, config.Defaults(), "DP-1")
 	labels := make([]string, 0, len(m.models))
 	for _, model := range m.models {
-		labels = append(labels, model.label)
+		labels = append(labels, model.Label)
 	}
 	if !reflect.DeepEqual(labels, []string{"1", "2"}) {
 		t.Errorf("DP-1's bar shows %v, want its workspaces 1 and 2", labels)
@@ -96,8 +97,8 @@ func TestLysWMWorkspacesClicksDispatch(t *testing.T) {
 	cfg := config.Defaults()
 	cfg.Workspaces.MiddleClick = config.ParseWorkspaceClickAction("focus:last")
 	m := newTestLysWM(t, cfg, "DP-1")
-	first := m.segs.Segment(0)
-	router, p := treetest.Pointer(m.segs, first, 500, 40)
+	first := m.strip.Segments().Segment(0)
+	router, p := treetest.Pointer(m.strip.Segments(), first, 500, 40)
 	router.Press(widget.BTNLeft, p, 0)
 	router.Release(widget.BTNLeft, p)
 	f.ExpectDispatch(t, "workspace 1")

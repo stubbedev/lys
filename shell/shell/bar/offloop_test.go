@@ -16,6 +16,7 @@ import (
 	"github.com/stubbedev/lys/desktop/service/network"
 	"github.com/stubbedev/lys/desktop/service/powerprofiles"
 	"github.com/stubbedev/lys/desktop/service/upower"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/logtest"
 	"github.com/stubbedev/lys/lib/waittest"
@@ -233,7 +234,7 @@ type heldCws struct {
 	ticks chan struct{}
 }
 
-func (s heldCws) snapshot() ([]cwsWorkspace, []cwsWindow, error) {
+func (s heldCws) snapshot() ([]barview.Workspace, []cwsWindow, error) {
 	s.h.wait()
 	return s.fakeCws.snapshot()
 }
@@ -265,7 +266,7 @@ func TestHeadlessLoopRunsWhileAReadIsBlocked(t *testing.T) {
 			return Create("battery", ctx)
 		}},
 		{name: "workspaces", create: func(ctx ModuleContext, h *heldRead, ticks chan struct{}) (Module, error) {
-			return newCwsModule(ctx, "niri", cwsWorkspaces, config.DefaultsWorkspaces().View(compositor.Niri), heldCws{newFakeCws(nil, nil), h, ticks}), nil
+			return newCwsModule(ctx, "niri", barview.FlavorWorkspaces, config.DefaultsWorkspaces().View(compositor.Niri), heldCws{newFakeCws(nil, nil), h, ticks}), nil
 		}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -415,10 +416,10 @@ func TestTrayLookComparesPixmapBytes(t *testing.T) {
 	}
 }
 
-func cwsCostWorkspaces() []cwsWorkspace {
+func cwsCostWorkspaces() []barview.Workspace {
 	urgent := occupiedWS(1, 1, "DP-1")
-	urgent.urgent = true
-	all := []cwsWorkspace{urgent}
+	urgent.Urgent = true
+	all := []barview.Workspace{urgent}
 	for i := 2; i <= 8; i++ {
 		all = append(all, occupiedWS(uint64(i), i, "DP-1"))
 	}
@@ -431,7 +432,7 @@ func TestCwsEqualModelsAllocateLittle(t *testing.T) {
 	windows := []cwsWindow{{id: 1, workspace: 1, hasWorkspace: true}}
 	f := newFakeCws(cwsCostWorkspaces(), windows)
 	m := newTestCws(t, cfg, f)
-	icon := func() widget.Widget { return treetest.WithClass(m.segs, "workspace-icon")[0] }
+	icon := func() widget.Widget { return treetest.WithClass(m.strip.Segments(), "workspace-icon")[0] }
 	shown, models := icon(), &m.models[0]
 	f.windows = []cwsWindow{{id: 1, workspace: 1, hasWorkspace: true, app: appicons.Window{Title: "another", HasTitle: true}}}
 	got := testing.AllocsPerRun(100, func() {
@@ -469,7 +470,7 @@ func TestHeadlessHyprlandLoopRunsWhileAReadIsBlocked(t *testing.T) {
 	apptest.Answer(t, "the loop ran during the read", ran)
 	free()
 	apptest.Until(t, a, "the event's workspace shown", func() bool {
-		return slices.ContainsFunc(m.models, func(b cwsButtonModel) bool { return b.ws.id == 7 })
+		return slices.ContainsFunc(m.models, func(b barview.WorkspaceButton) bool { return b.WS.ID == 7 })
 	})
 }
 

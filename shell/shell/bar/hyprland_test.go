@@ -15,6 +15,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/compositor"
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/sockdir"
 	"github.com/stubbedev/lys/lib/waittest"
@@ -180,7 +181,7 @@ func TestHyprLabelsAndClasses(t *testing.T) {
 	if got := hyprLabel(-99, -99, "special", false); got != "-99" {
 		t.Errorf("an unnamed special workspace = %q, want the id it has no name for", got)
 	}
-	if hyprIDClass(-98) != "workspace-id-neg98" || hyprIDClass(3) != "workspace-id-3" {
+	if barview.HyprIDClass(-98) != "workspace-id-neg98" || barview.HyprIDClass(3) != "workspace-id-3" {
 		t.Error("id classes wrong")
 	}
 	if hyprState(true, true, 1) != "active" || hyprState(false, true, 1) != "active-other-monitor" ||
@@ -221,7 +222,7 @@ func TestHyprWorkspaceIconsDedupeByClass(t *testing.T) {
 	clients[3].Workspace.ID = 2
 	cfg := config.DefaultsWorkspaces().View(compositor.Hyprland)
 	icons := hyprWorkspaceIcons(1, clients, cfg, map[string]bool{"b": true})
-	if len(icons) != 2 || len(icons[0].windowIDs) != 2 || !icons[0].urgent || icons[1].urgent {
+	if len(icons) != 2 || len(icons[0].WindowIDs) != 2 || !icons[0].Urgent || icons[1].Urgent {
 		t.Fatalf("deduped = %+v", icons)
 	}
 	cfg.AppIconsDedupe = false
@@ -368,10 +369,10 @@ func newTestHypr(t *testing.T, mutate func(*config.Config)) (*fakeHypr, *hyprlan
 	return f, module.(*hyprlandWorkspaces)
 }
 
-func modelIDs(models []cwsButtonModel) []int {
+func modelIDs(models []barview.WorkspaceButton) []int {
 	out := make([]int, len(models))
 	for i, m := range models {
-		out[i] = m.ws.num
+		out[i] = m.WS.Num
 	}
 	return out
 }
@@ -390,47 +391,47 @@ func TestHyprlandModuleBuildsTheBarMonitorsRow(t *testing.T) {
 		t.Fatalf("ids = %v, want DP-1's workspaces with the special first", got)
 	}
 	special, one, two := m.models[0], m.models[1], m.models[2]
-	if !hasClass(one.classes, "active") || !hasClass(two.classes, "empty") || !hasClass(special.classes, "special") {
-		t.Errorf("classes = %v / %v / %v", one.classes, two.classes, special.classes)
+	if !slices.Contains(one.Classes, "active") || !slices.Contains(two.Classes, "empty") || !slices.Contains(special.Classes, "special") {
+		t.Errorf("classes = %v / %v / %v", one.Classes, two.Classes, special.Classes)
 	}
 	want := []string{"workspace", "indicator-background", "workspace-id-1", "active"}
-	if !reflect.DeepEqual(one.classes, want) {
-		t.Errorf("classes = %v, want %v", one.classes, want)
+	if !reflect.DeepEqual(one.Classes, want) {
+		t.Errorf("classes = %v, want %v", one.Classes, want)
 	}
-	if one.label != "1" || special.label != "magic" {
-		t.Errorf("labels = %q %q", one.label, special.label)
+	if one.Label != "1" || special.Label != "magic" {
+		t.Errorf("labels = %q %q", one.Label, special.Label)
 	}
-	if !widget.HasClass(m.segs, "workspaces") || widget.HasClass(m.segs, "hyprland") {
+	if !widget.HasClass(m.strip.Segments(), "workspaces") || widget.HasClass(m.strip.Segments(), "hyprland") {
 		t.Error("the hyprland container is plain .workspaces")
 	}
 }
 
 func TestHyprlandActiveOnOtherMonitor(t *testing.T) {
 	_, m := newTestHypr(t, func(c *config.Config) { c.Workspaces.MonitorSpecific = false })
-	var three *cwsButtonModel
+	var three *barview.WorkspaceButton
 	for i := range m.models {
-		if m.models[i].ws.num == 3 {
+		if m.models[i].WS.Num == 3 {
 			three = &m.models[i]
 		}
 	}
-	if three == nil || !hasClass(three.classes, "active-other-monitor") {
+	if three == nil || !slices.Contains(three.Classes, "active-other-monitor") {
 		t.Fatalf("workspace 3 (DP-2's active) = %+v", three)
 	}
 	var seg *widget.Button
-	for i, model := range m.shown {
-		if model.ws.num == 3 {
-			seg = m.segs.Segment(i)
+	for i, model := range m.strip.Shown() {
+		if model.WS.Num == 3 {
+			seg = m.strip.Segments().Segment(i)
 		}
 	}
 	if seg == nil || !widget.HasClass(seg, "active-other-monitor") || widget.HasClass(seg, "active") {
 		t.Fatal("workspace 3's segment is not marked active on another monitor alone")
 	}
 	want := "--ws-active-other-monitor-color: " + m.hcfg.ActiveOnOtherMonitorColor.ToCSS() + ";"
-	if !strings.Contains(m.segs.InlineStyle(), want) {
-		t.Errorf("row style %q misses %q", m.segs.InlineStyle(), want)
+	if !strings.Contains(m.strip.Segments().InlineStyle(), want) {
+		t.Errorf("row style %q misses %q", m.strip.Segments().InlineStyle(), want)
 	}
 	niri := newTestCws(t, config.DefaultsWorkspaces().View(compositor.Niri), newFakeCws(nil, nil))
-	if strings.Contains(niri.segs.InlineStyle(), "--ws-active-other-monitor-color") {
+	if strings.Contains(niri.strip.Segments().InlineStyle(), "--ws-active-other-monitor-color") {
 		t.Error("a compositor without the state declares its color")
 	}
 }
@@ -441,8 +442,8 @@ func TestHyprlandUrgencyFromEvents(t *testing.T) {
 	if m.blinkStop == nil || !m.blinkOn {
 		t.Fatal("urgent window did not start the blink")
 	}
-	if !hasClass(m.models[1].classes, "urgent") {
-		t.Errorf("workspace 1 classes %v miss urgent", m.models[1].classes)
+	if !slices.Contains(m.models[1].Classes, "urgent") {
+		t.Errorf("workspace 1 classes %v miss urgent", m.models[1].Classes)
 	}
 	// Focusing another window keeps it; focusing the urgent one clears.
 	handleNow(t, m, hyprland.Event{Kind: hyprland.EventActiveWindowV2, Address: "aa"})
@@ -450,7 +451,7 @@ func TestHyprlandUrgencyFromEvents(t *testing.T) {
 		t.Fatal("focusing an unrelated window cleared urgency")
 	}
 	handleNow(t, m, hyprland.Event{Kind: hyprland.EventActiveWindowV2, Address: "bb"})
-	if len(m.urgent) != 0 || m.blinkStop != nil || hasClass(m.models[1].classes, "urgent") {
+	if len(m.urgent) != 0 || m.blinkStop != nil || slices.Contains(m.models[1].Classes, "urgent") {
 		t.Error("focusing the urgent window left the pulse running")
 	}
 	// Switching to the urgent window's workspace clears it too.
@@ -468,16 +469,16 @@ func TestHyprlandPerIconUrgency(t *testing.T) {
 	})
 	handleNow(t, m, hyprland.Event{Kind: hyprland.EventUrgent, Address: "bb"})
 	one := m.models[1]
-	if hasClass(one.classes, "urgent") {
+	if slices.Contains(one.Classes, "urgent") {
 		t.Error("per-icon mode marked the whole button")
 	}
-	if len(one.appIcons) != 2 || one.appIcons[0].urgent || !one.appIcons[1].urgent {
-		t.Errorf("icons = %+v, want firefox's icon urgent", one.appIcons)
+	if len(one.AppIcons) != 2 || one.AppIcons[0].Urgent || !one.AppIcons[1].Urgent {
+		t.Errorf("icons = %+v, want firefox's icon urgent", one.AppIcons)
 	}
 	// The blink's off phase clears the icon.
 	m.blinkOn = false
 	m.render()
-	if m.models[1].appIcons[1].urgent {
+	if m.models[1].AppIcons[1].Urgent {
 		t.Error("off phase kept the icon urgent")
 	}
 }
@@ -507,7 +508,7 @@ func TestHyprlandMinCountPlaceholdersAndRelativeRules(t *testing.T) {
 		t.Errorf("with rules = %v, want placeholder 4", got)
 	}
 	// Relative numbering: 2 and 4 are DP-1's first and second.
-	labels := []string{m.models[2].label, m.models[3].label}
+	labels := []string{m.models[2].Label, m.models[3].Label}
 	if !reflect.DeepEqual(labels, []string{"1", "2"}) {
 		t.Errorf("relative labels = %v", labels)
 	}
@@ -520,7 +521,7 @@ func TestHyprlandClicksDispatch(t *testing.T) {
 		waittest.Until(t, func() bool { return len(f.dispatched()) >= n }, fmt.Sprintf("%d dispatches", n))
 		return f.dispatched()
 	}
-	buttons := []*widget.Button{m.segs.Segment(0), m.segs.Segment(1), m.segs.Segment(2)}
+	buttons := []*widget.Button{m.strip.Segments().Segment(0), m.strip.Segments().Segment(1), m.strip.Segments().Segment(2)}
 	buttons[2].ClickAt(widget.Point{})
 	if got := wait(1); got[0] != "hl.dsp.focus({workspace = 2})" {
 		t.Errorf("focus = %q", got[0])
@@ -533,7 +534,7 @@ func TestHyprlandClicksDispatch(t *testing.T) {
 		t.Errorf("special dispatches = %q", got[1:])
 	}
 	// Scroll down from active 1 walks to 2 in the displayed order.
-	router, p := treetest.Pointer(m.segs, buttons[1], 500, 40)
+	router, p := treetest.Pointer(m.strip.Segments(), buttons[1], 500, 40)
 	router.Axis(0, 1, 0)
 	if got := wait(4); got[3] != "hl.dsp.focus({workspace = 2})" {
 		t.Errorf("next = %q", got[3])

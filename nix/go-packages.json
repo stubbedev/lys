@@ -452,6 +452,7 @@
   "desktop/shell/barview": {
     "imports": [
       "desktop/config",
+      "desktop/glob",
       "desktop/i18n",
       "desktop/strftime",
       "desktop/styling",
@@ -460,6 +461,7 @@
       "ui/widget"
     ],
     "testImports": [
+      "desktop/compositor",
       "desktop/shell/treetest"
     ]
   },

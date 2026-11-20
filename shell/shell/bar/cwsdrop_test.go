@@ -1,12 +1,14 @@
 package bar
 
 import (
+	"math"
 	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/compositor"
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/anim"
@@ -26,28 +28,28 @@ func cwsDropContext(t *testing.T, location config.Location, scale float32) Modul
 	return ctx
 }
 
-func activeWS(id uint64) cwsWorkspace {
+func activeWS(id uint64) barview.Workspace {
 	ws := occupiedWS(id, int(id), "DP-1")
-	ws.active = true
+	ws.Active = true
 	return ws
 }
 
-func namedWS(id uint64, name string) cwsWorkspace {
+func namedWS(id uint64, name string) barview.Workspace {
 	ws := occupiedWS(id, int(id), "DP-1")
-	ws.name, ws.hasName = name, true
+	ws.Name, ws.HasName = name, true
 	return ws
 }
 
-func threeWorkspaces(active int) []cwsWorkspace {
-	out := []cwsWorkspace{occupiedWS(1, 1, "DP-1"), occupiedWS(2, 2, "DP-1"), occupiedWS(3, 3, "DP-1")}
-	out[active].active = true
+func threeWorkspaces(active int) []barview.Workspace {
+	out := []barview.Workspace{occupiedWS(1, 1, "DP-1"), occupiedWS(2, 2, "DP-1"), occupiedWS(3, 3, "DP-1")}
+	out[active].Active = true
 	return out
 }
 
-func cwsDropModule(t *testing.T, ctx ModuleContext, wcfg config.CompositorWorkspacesConfig, workspaces []cwsWorkspace) (*cwsModule, *fakeCws, *widget.Bar, widget.Size) {
+func cwsDropModule(t *testing.T, ctx ModuleContext, wcfg config.CompositorWorkspacesConfig, workspaces []barview.Workspace) (*cwsModule, *fakeCws, *widget.Bar, widget.Size) {
 	t.Helper()
 	f := newFakeCws(workspaces, nil)
-	m := newCwsModuleOnHeadlessLoop(ctx, "niri", cwsWorkspaces, wcfg, f)
+	m := newCwsModuleOnHeadlessLoop(ctx, "niri", barview.FlavorWorkspaces, wcfg, f)
 	bar, size := cwsBar(t, ctx, m)
 	return m, f, bar, size
 }
@@ -110,11 +112,11 @@ func TestCwsSegmentsAreCircles(t *testing.T) {
 					ctx := cwsDropContext(t, location, scale)
 					wcfg := config.DefaultsWorkspaces().View(compositor.Niri)
 					tc.edit(&wcfg)
-					m, _, bar, size := cwsDropModule(t, ctx, wcfg, []cwsWorkspace{activeWS(1), occupiedWS(10, 10, "DP-1")})
+					m, _, bar, size := cwsDropModule(t, ctx, wcfg, []barview.Workspace{activeWS(1), occupiedWS(10, 10, "DP-1")})
 					relayCwsBar(bar, size)
-					first := m.segs.Segment(0).Bounds()
-					for i := range m.segs.Count() {
-						r := m.segs.Segment(i).Bounds()
+					first := m.strip.Segments().Segment(0).Bounds()
+					for i := range m.strip.Segments().Count() {
+						r := m.strip.Segments().Segment(i).Bounds()
 						if r.W != r.H || r.W == 0 {
 							t.Errorf("segment %d is %dx%d, want a circle", i, r.W, r.H)
 						}
@@ -130,10 +132,10 @@ func TestCwsSegmentsAreCircles(t *testing.T) {
 
 func TestCwsCircleContentIsCentered(t *testing.T) {
 	ctx := cwsDropContext(t, config.LocationTop, 1)
-	m, _, bar, size := cwsDropModule(t, ctx, config.DefaultsWorkspaces().View(compositor.Niri), []cwsWorkspace{activeWS(1), occupiedWS(10, 10, "DP-1")})
+	m, _, bar, size := cwsDropModule(t, ctx, config.DefaultsWorkspaces().View(compositor.Niri), []barview.Workspace{activeWS(1), occupiedWS(10, 10, "DP-1")})
 	relayCwsBar(bar, size)
-	for i := range m.segs.Count() {
-		seg := m.segs.Segment(i)
+	for i := range m.strip.Segments().Count() {
+		seg := m.strip.Segments().Segment(i)
 		kids := seg.Children()
 		if len(kids) != 1 {
 			t.Fatalf("segment %d has %d children", i, len(kids))
@@ -157,12 +159,12 @@ func TestCwsContentPastTheCircleIsAPill(t *testing.T) {
 		name     string
 		location config.Location
 		edit     func(*config.CompositorWorkspacesConfig)
-		ws       []cwsWorkspace
+		ws       []barview.Workspace
 		tall     bool
 	}{
 		{"app icons", config.LocationTop, func(c *config.CompositorWorkspacesConfig) { c.AppIconsShow = true }, nil, false},
 		{"app icons down a side bar", config.LocationLeft, func(c *config.CompositorWorkspacesConfig) { c.AppIconsShow = true }, nil, true},
-		{"long name", config.LocationTop, func(c *config.CompositorWorkspacesConfig) { c.LabelStrategy = config.LabelNameOrIndex }, []cwsWorkspace{namedWS(1, "browser")}, false},
+		{"long name", config.LocationTop, func(c *config.CompositorWorkspacesConfig) { c.LabelStrategy = config.LabelNameOrIndex }, []barview.Workspace{namedWS(1, "browser")}, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := cwsDropContext(t, tc.location, 1)
@@ -170,16 +172,16 @@ func TestCwsContentPastTheCircleIsAPill(t *testing.T) {
 			tc.edit(&wcfg)
 			ws := tc.ws
 			if ws == nil {
-				ws = []cwsWorkspace{activeWS(1)}
+				ws = []barview.Workspace{activeWS(1)}
 			}
-			ws[0].active = true
+			ws[0].Active = true
 			m, _, bar, size := cwsDropModule(t, ctx, wcfg, ws)
 			relayCwsBar(bar, size)
-			r := m.segs.Segment(0).Bounds()
+			r := m.strip.Segments().Segment(0).Bounds()
 			if tc.tall && r.H <= r.W || !tc.tall && r.W <= r.H {
 				t.Errorf("segment %dx%d, want a pill along the bar", r.W, r.H)
 			}
-			assertDropOn(t, m.segs, 0)
+			assertDropOn(t, m.strip.Segments(), 0)
 			data := paintCwsPixels(bar, size)
 			if got, center := pixelAt(data, size.W, r.X, r.Y), pixelAt(data, size.W, r.X+r.W/2, r.Y+1); got == center {
 				t.Errorf("the pill's corner %#08x paints like its fill: it has no end radius", uint32(got))
@@ -195,14 +197,14 @@ func TestCwsIndicatorPaintsTheCircleInTheActiveColor(t *testing.T) {
 	accent, _ := styling.ResolveColor(wcfg.ActiveColor, palette)
 	m, _, bar, size := cwsDropModule(t, ctx, wcfg, threeWorkspaces(1))
 	data := paintCwsPixels(bar, size)
-	seg := m.segs.Segment(1).Bounds()
+	seg := m.strip.Segments().Segment(1).Bounds()
 	if got := pixelAt(data, size.W, seg.X+2, seg.Y+seg.H/2); got != accent {
 		t.Errorf("inside the circle %#08x, want the active color %#08x", uint32(got), uint32(accent))
 	}
 	if got := pixelAt(data, size.W, seg.X, seg.Y); got == accent {
 		t.Error("the circle's corner paints the active color")
 	}
-	other := m.segs.Segment(0).Bounds()
+	other := m.strip.Segments().Segment(0).Bounds()
 	if got := pixelAt(data, size.W, other.X+2, other.Y+other.H/2); got == accent {
 		t.Error("an inactive segment paints the active color")
 	}
@@ -214,8 +216,8 @@ func TestCwsIndicatorEndsOnTheActiveSegment(t *testing.T) {
 			ctx := cwsDropContext(t, location, 1)
 			m, f, bar, size := cwsDropModule(t, ctx, config.DefaultsWorkspaces().View(compositor.Niri), threeWorkspaces(0))
 			relayCwsBar(bar, size)
-			assertDropOn(t, m.segs, 0)
-			assertDropAtRest(t, m.segs)
+			assertDropOn(t, m.strip.Segments(), 0)
+			assertDropAtRest(t, m.strip.Segments())
 
 			restore := widget.SetAnimationsInstant(true)
 			defer restore()
@@ -224,8 +226,8 @@ func TestCwsIndicatorEndsOnTheActiveSegment(t *testing.T) {
 				t.Fatal(err)
 			}
 			relayCwsBar(bar, size)
-			assertDropAtRest(t, m.segs)
-			assertDropOn(t, m.segs, 2)
+			assertDropAtRest(t, m.strip.Segments())
+			assertDropOn(t, m.strip.Segments(), 2)
 		})
 	}
 }
@@ -236,19 +238,19 @@ func TestCwsSwitchStartsTheIndicatorTravelling(t *testing.T) {
 			ctx := cwsDropContext(t, location, 1)
 			m, f, bar, size := cwsDropModule(t, ctx, config.DefaultsWorkspaces().View(compositor.Niri), threeWorkspaces(0))
 			relayCwsBar(bar, size)
-			start := m.segs.EnableDrop().Bounds()
+			start := m.strip.Segments().EnableDrop().Bounds()
 			f.workspaces = threeWorkspaces(2)
 			if err := readAndApply(m.read, m.apply); err != nil {
 				t.Fatal(err)
 			}
 			relayCwsBar(bar, size)
-			if !m.segs.EnableDrop().Moving() {
+			if !m.strip.Segments().EnableDrop().Moving() {
 				t.Error("a workspace switch did not start the indicator")
 			}
-			if got := m.segs.EnableDrop().Bounds(); got != start {
+			if got := m.strip.Segments().EnableDrop().Bounds(); got != start {
 				t.Errorf("the indicator jumped from %v to %v on the frame the switch landed", start, got)
 			}
-			if !widget.HasClass(m.segs.Segment(2), "active") {
+			if !widget.HasClass(m.strip.Segments().Segment(2), "active") {
 				t.Error("the target segment lacks its active class")
 			}
 		})
@@ -259,14 +261,14 @@ func TestCwsNoIndicatorWhenNothingIsActive(t *testing.T) {
 	ctx := cwsDropContext(t, config.LocationTop, 1)
 	wcfg := config.DefaultsWorkspaces().View(compositor.Niri)
 	accent, _ := styling.ResolveColor(wcfg.ActiveColor, ctx.Theme.RenderPalette())
-	m, f, bar, size := cwsDropModule(t, ctx, wcfg, []cwsWorkspace{occupiedWS(1, 1, "DP-1"), occupiedWS(2, 2, "DP-1")})
+	m, f, bar, size := cwsDropModule(t, ctx, wcfg, []barview.Workspace{occupiedWS(1, 1, "DP-1"), occupiedWS(2, 2, "DP-1")})
 	assertNone := func(when string) {
 		t.Helper()
 		data := paintCwsPixels(bar, size)
-		if !m.segs.EnableDrop().Bounds().Empty() || m.segs.Active() != -1 {
-			t.Errorf("%s: indicator at %v, active %d", when, m.segs.EnableDrop().Bounds(), m.segs.Active())
+		if !m.strip.Segments().EnableDrop().Bounds().Empty() || m.strip.Segments().Active() != -1 {
+			t.Errorf("%s: indicator at %v, active %d", when, m.strip.Segments().EnableDrop().Bounds(), m.strip.Segments().Active())
 		}
-		assertDropAtRest(t, m.segs)
+		assertDropAtRest(t, m.strip.Segments())
 		for i := range data {
 			if i%4 == 0 && render.ColorFromBytes(data[i:]) == accent {
 				t.Fatalf("%s: the active color is painted", when)
@@ -274,14 +276,14 @@ func TestCwsNoIndicatorWhenNothingIsActive(t *testing.T) {
 		}
 	}
 	assertNone("never active")
-	f.workspaces = []cwsWorkspace{activeWS(1), occupiedWS(2, 2, "DP-1")}
+	f.workspaces = []barview.Workspace{activeWS(1), occupiedWS(2, 2, "DP-1")}
 	if err := readAndApply(m.read, m.apply); err != nil {
 		t.Fatal(err)
 	}
 	relayCwsBar(bar, size)
-	assertDropOn(t, m.segs, 0)
-	assertDropAtRest(t, m.segs)
-	f.workspaces = []cwsWorkspace{occupiedWS(1, 1, "DP-1"), occupiedWS(2, 2, "DP-1")}
+	assertDropOn(t, m.strip.Segments(), 0)
+	assertDropAtRest(t, m.strip.Segments())
+	f.workspaces = []barview.Workspace{occupiedWS(1, 1, "DP-1"), occupiedWS(2, 2, "DP-1")}
 	if err := readAndApply(m.read, m.apply); err != nil {
 		t.Fatal(err)
 	}
@@ -292,15 +294,15 @@ func TestCwsRebuildWithTheSameActiveDoesNotAnimate(t *testing.T) {
 	ctx := cwsDropContext(t, config.LocationTop, 1)
 	m, _, bar, size := cwsDropModule(t, ctx, config.DefaultsWorkspaces().View(compositor.Niri), threeWorkspaces(1))
 	relayCwsBar(bar, size)
-	before := m.segs.EnableDrop().Bounds()
+	before := m.strip.Segments().EnableDrop().Bounds()
 	for range 3 {
 		if err := readAndApply(m.read, m.apply); err != nil {
 			t.Fatal(err)
 		}
 		relayCwsBar(bar, size)
-		assertDropAtRest(t, m.segs)
+		assertDropAtRest(t, m.strip.Segments())
 	}
-	if got := m.segs.EnableDrop().Bounds(); got != before {
+	if got := m.strip.Segments().EnableDrop().Bounds(); got != before {
 		t.Errorf("the indicator moved from %v to %v", before, got)
 	}
 }
@@ -309,14 +311,14 @@ func TestCwsWorkspaceRemovedBeforeTheActiveDoesNotAnimate(t *testing.T) {
 	ctx := cwsDropContext(t, config.LocationTop, 1)
 	m, f, bar, size := cwsDropModule(t, ctx, config.DefaultsWorkspaces().View(compositor.Niri), threeWorkspaces(2))
 	relayCwsBar(bar, size)
-	assertDropOn(t, m.segs, 2)
+	assertDropOn(t, m.strip.Segments(), 2)
 	f.workspaces = f.workspaces[1:]
 	if err := readAndApply(m.read, m.apply); err != nil {
 		t.Fatal(err)
 	}
 	relayCwsBar(bar, size)
-	assertDropAtRest(t, m.segs)
-	assertDropOn(t, m.segs, 1)
+	assertDropAtRest(t, m.strip.Segments())
+	assertDropOn(t, m.strip.Segments(), 1)
 }
 
 func TestCwsWorkspaceRemovedMidFlightLandsOnTheRightSegment(t *testing.T) {
@@ -328,7 +330,7 @@ func TestCwsWorkspaceRemovedMidFlightLandsOnTheRightSegment(t *testing.T) {
 		t.Fatal(err)
 	}
 	relayCwsBar(bar, size)
-	if !m.segs.EnableDrop().Moving() {
+	if !m.strip.Segments().EnableDrop().Moving() {
 		t.Fatal("the switch did not start the indicator")
 	}
 	restore := widget.SetAnimationsInstant(true)
@@ -338,10 +340,10 @@ func TestCwsWorkspaceRemovedMidFlightLandsOnTheRightSegment(t *testing.T) {
 		t.Fatal(err)
 	}
 	relayCwsBar(bar, size)
-	assertDropAtRest(t, m.segs)
-	assertDropOn(t, m.segs, 1)
-	if !widget.HasClass(m.segs.Segment(1), "active") || m.segs.Count() != 2 {
-		t.Errorf("active marks %v on %d segments", m.segs.Segment(1).Classes(), m.segs.Count())
+	assertDropAtRest(t, m.strip.Segments())
+	assertDropOn(t, m.strip.Segments(), 1)
+	if !widget.HasClass(m.strip.Segments().Segment(1), "active") || m.strip.Segments().Count() != 2 {
+		t.Errorf("active marks %v on %d segments", m.strip.Segments().Segment(1).Classes(), m.strip.Segments().Count())
 	}
 }
 
@@ -352,7 +354,7 @@ func TestCwsWorkspaceMapTintsTheIndicator(t *testing.T) {
 	wcfg.WorkspaceMap = map[string]config.WorkspaceStyle{"1": {Color: &red}}
 	m, f, bar, size := cwsDropModule(t, ctx, wcfg, threeWorkspaces(0))
 	data := paintCwsPixels(bar, size)
-	seg := m.segs.Segment(0).Bounds()
+	seg := m.strip.Segments().Segment(0).Bounds()
 	if got := pixelAt(data, size.W, seg.X+2, seg.Y+seg.H/2); got != render.RGB(0xff, 0, 0) {
 		t.Errorf("the mapped active workspace's indicator paints %#08x, want its color", uint32(got))
 	}
@@ -364,7 +366,7 @@ func TestCwsWorkspaceMapTintsTheIndicator(t *testing.T) {
 	}
 	accent, _ := styling.ResolveColor(wcfg.ActiveColor, ctx.Theme.RenderPalette())
 	data = paintCwsPixels(bar, size)
-	seg = m.segs.Segment(1).Bounds()
+	seg = m.strip.Segments().Segment(1).Bounds()
 	if got := pixelAt(data, size.W, seg.X+2, seg.Y+seg.H/2); got != accent {
 		t.Errorf("an unmapped active workspace's indicator paints %#08x, want the active color %#08x", uint32(got), uint32(accent))
 	}
@@ -375,11 +377,11 @@ func TestCwsUrgentPulseFadesTheActiveIndicator(t *testing.T) {
 	wcfg := config.DefaultsWorkspaces().View(compositor.Niri)
 	accent, _ := styling.ResolveColor(wcfg.ActiveColor, ctx.Theme.RenderPalette())
 	ws := activeWS(1)
-	ws.urgent = true
-	m, _, bar, size := cwsDropModule(t, ctx, wcfg, []cwsWorkspace{ws})
+	ws.Urgent = true
+	m, _, bar, size := cwsDropModule(t, ctx, wcfg, []barview.Workspace{ws})
 	rest := func() render.Color {
 		data := paintCwsPixels(bar, size)
-		seg := m.segs.Segment(0).Bounds()
+		seg := m.strip.Segments().Segment(0).Bounds()
 		return pixelAt(data, size.W, seg.X+2, seg.Y+seg.H/2)
 	}
 	if got := rest(); got == accent {
@@ -400,9 +402,9 @@ func TestCwsUrgentApplicationModeLeavesTheIndicatorWhole(t *testing.T) {
 	wcfg := config.DefaultsWorkspaces().View(compositor.Niri)
 	wcfg.UrgentMode = config.UrgentApplication
 	ws := activeWS(1)
-	ws.urgent = true
-	m, _, _, _ := cwsDropModule(t, ctx, wcfg, []cwsWorkspace{ws})
-	if widget.HasClass(m.segs.EnableDrop(), "urgent") {
+	ws.Urgent = true
+	m, _, _, _ := cwsDropModule(t, ctx, wcfg, []barview.Workspace{ws})
+	if widget.HasClass(m.strip.Segments().EnableDrop(), "urgent") {
 		t.Error("urgent-mode application fades the indicator")
 	}
 }
@@ -422,7 +424,7 @@ func TestCwsUnderlineTravelsAsTheIndicator(t *testing.T) {
 				return r.X + r.W/2, r.Y + r.H - 1
 			}
 			data := paintCwsPixels(bar, size)
-			seg := m.segs.Segment(0).Bounds()
+			seg := m.strip.Segments().Segment(0).Bounds()
 			x, y := mark(seg)
 			if got := pixelAt(data, size.W, x, y); got != accent {
 				t.Errorf("the underline at (%d,%d) paints %#08x, want %#08x", x, y, uint32(got), uint32(accent))
@@ -435,7 +437,7 @@ func TestCwsUnderlineTravelsAsTheIndicator(t *testing.T) {
 				t.Fatal(err)
 			}
 			relayCwsBar(bar, size)
-			if !m.segs.EnableDrop().Moving() {
+			if !m.strip.Segments().EnableDrop().Moving() {
 				t.Error("the underline did not start travelling")
 			}
 			restore := widget.SetAnimationsInstant(true)
@@ -445,8 +447,8 @@ func TestCwsUnderlineTravelsAsTheIndicator(t *testing.T) {
 				t.Fatal(err)
 			}
 			data = paintCwsPixels(bar, size)
-			assertDropOn(t, m.segs, 2)
-			x, y = mark(m.segs.Segment(2).Bounds())
+			assertDropOn(t, m.strip.Segments(), 2)
+			x, y = mark(m.strip.Segments().Segment(2).Bounds())
 			if got := pixelAt(data, size.W, x, y); got != accent {
 				t.Errorf("the settled underline at (%d,%d) paints %#08x, want %#08x", x, y, uint32(got), uint32(accent))
 			}
@@ -466,39 +468,39 @@ func hostHyprRow(t *testing.T, segs *widget.SegmentIndicator) (layout func()) {
 
 func TestHyprlandIndicatorIgnoresAnotherMonitorsSwitch(t *testing.T) {
 	_, m := newTestHypr(t, nil)
-	layout := hostHyprRow(t, m.segs)
+	layout := hostHyprRow(t, m.strip.Segments())
 	layout()
-	before, active := m.segs.EnableDrop().Bounds(), m.segs.Active()
+	before, active := m.strip.Segments().EnableDrop().Bounds(), m.strip.Segments().Active()
 	if before.Empty() || active < 0 {
 		t.Fatalf("the bar's monitor shows no active workspace: indicator %v, active %d", before, active)
 	}
 	handleNow(t, m, hyprland.Event{Kind: hyprland.EventWorkspaceV2, ID: 3, Name: "3"})
 	layout()
-	assertDropAtRest(t, m.segs)
-	if m.segs.Active() != active || m.segs.EnableDrop().Bounds() != before {
-		t.Errorf("another monitor's switch moved active to %d, indicator to %v", m.segs.Active(), m.segs.EnableDrop().Bounds())
+	assertDropAtRest(t, m.strip.Segments())
+	if m.strip.Segments().Active() != active || m.strip.Segments().EnableDrop().Bounds() != before {
+		t.Errorf("another monitor's switch moved active to %d, indicator to %v", m.strip.Segments().Active(), m.strip.Segments().EnableDrop().Bounds())
 	}
 }
 
 func TestHyprlandIndicatorTravelsOnTheBarsMonitor(t *testing.T) {
 	_, m := newTestHypr(t, nil)
-	layout := hostHyprRow(t, m.segs)
+	layout := hostHyprRow(t, m.strip.Segments())
 	layout()
-	if m.segs.Count() < 2 {
-		t.Fatalf("%d segments, the test needs two", m.segs.Count())
+	if m.strip.Segments().Count() < 2 {
+		t.Fatalf("%d segments, the test needs two", m.strip.Segments().Count())
 	}
 	target := 0
-	if m.segs.Active() == 0 {
+	if m.strip.Segments().Active() == 0 {
 		target = 1
 	}
-	id := m.shown[target].ws.num
+	id := m.strip.Shown()[target].WS.Num
 	m.monitors[0].ActiveWS.ID = id
 	handleNow(t, m, hyprland.Event{Kind: hyprland.EventWorkspaceV2, ID: id})
 	layout()
-	if m.segs.Active() != target {
-		t.Fatalf("active %d, want %d", m.segs.Active(), target)
+	if m.strip.Segments().Active() != target {
+		t.Fatalf("active %d, want %d", m.strip.Segments().Active(), target)
 	}
-	if !m.segs.EnableDrop().Moving() {
+	if !m.strip.Segments().EnableDrop().Moving() {
 		t.Error("the switch on the bar's monitor did not start the indicator")
 	}
 }
@@ -516,33 +518,33 @@ func assertSharedLook(t *testing.T, name string, segs *widget.SegmentIndicator) 
 func TestEveryWorkspacesModuleSharesTheLook(t *testing.T) {
 	for _, kind := range []string{"sway", "niri", "lys-wm"} {
 		ctx := cwsDropContext(t, config.LocationTop, 1)
-		m := newCwsModuleOnHeadlessLoop(ctx, kind, cwsWorkspaces, config.DefaultsWorkspaces().View(compositor.Niri), newFakeCws(threeWorkspaces(0), nil))
-		assertSharedLook(t, kind, m.segs)
+		m := newCwsModuleOnHeadlessLoop(ctx, kind, barview.FlavorWorkspaces, config.DefaultsWorkspaces().View(compositor.Niri), newFakeCws(threeWorkspaces(0), nil))
+		assertSharedLook(t, kind, m.strip.Segments())
 	}
 	ctx := cwsDropContext(t, config.LocationTop, 1)
-	tags := newCwsModuleOnHeadlessLoop(ctx, "mango", cwsTags, config.DefaultsWorkspaces().View(compositor.Niri), newFakeCws(threeWorkspaces(0), nil))
-	assertSharedLook(t, "mango", tags.segs)
+	tags := newCwsModuleOnHeadlessLoop(ctx, "mango", barview.FlavorTags, config.DefaultsWorkspaces().View(compositor.Niri), newFakeCws(threeWorkspaces(0), nil))
+	assertSharedLook(t, "mango", tags.strip.Segments())
 	_, hypr := newTestHypr(t, nil)
-	assertSharedLook(t, "hyprland", hypr.segs)
+	assertSharedLook(t, "hyprland", hypr.strip.Segments())
 }
 
 func TestHyprlandWorkspaceDestroyedBeforeTheActiveDoesNotAnimate(t *testing.T) {
 	f, m := newTestHypr(t, nil)
 	f.set("j/workspaces", `[{"id":1,"name":"1","monitor":"DP-1","windows":1},{"id":2,"name":"2","monitor":"DP-1","windows":1},{"id":4,"name":"4","monitor":"DP-1","windows":1}]`)
 	f.set("j/monitors", `[{"id":0,"name":"DP-1","activeWorkspace":{"id":2,"name":"2"},"focused":true}]`)
-	layout := hostHyprRow(t, m.segs)
+	layout := hostHyprRow(t, m.strip.Segments())
 	defer widget.SetAnimationsInstant(true)()
 	handleNow(t, m, hyprland.Event{Kind: hyprland.EventCreateWspcV2, ID: 4, Name: "4"})
 	layout()
-	if m.segs.Active() != 1 {
-		t.Fatalf("active %d of %d, want workspace 2 at index 1", m.segs.Active(), m.segs.Count())
+	if m.strip.Segments().Active() != 1 {
+		t.Fatalf("active %d of %d, want workspace 2 at index 1", m.strip.Segments().Active(), m.strip.Segments().Count())
 	}
 	widget.SetAnimationsInstant(false)
 	f.set("j/workspaces", `[{"id":2,"name":"2","monitor":"DP-1","windows":1},{"id":4,"name":"4","monitor":"DP-1","windows":1}]`)
 	handleNow(t, m, hyprland.Event{Kind: hyprland.EventDestroyWspcV2, ID: 1, Name: "1"})
 	layout()
-	assertDropAtRest(t, m.segs)
-	assertDropOn(t, m.segs, 0)
+	assertDropAtRest(t, m.strip.Segments())
+	assertDropOn(t, m.strip.Segments(), 0)
 }
 
 func TestCwsLongNamePillTakesThePadding(t *testing.T) {
@@ -550,14 +552,16 @@ func TestCwsLongNamePillTakesThePadding(t *testing.T) {
 	wcfg := config.DefaultsWorkspaces().View(compositor.Niri)
 	wcfg.LabelStrategy = config.LabelNameOrIndex
 	long := namedWS(1, "browser")
-	long.active = true
-	m, _, bar, size := cwsDropModule(t, ctx, wcfg, []cwsWorkspace{long, occupiedWS(2, 2, "DP-1")})
+	long.Active = true
+	m, _, bar, size := cwsDropModule(t, ctx, wcfg, []barview.Workspace{long, occupiedWS(2, 2, "DP-1")})
 	relayCwsBar(bar, size)
-	want := m.measureLabel("browser").W + 2*m.paddingPx()
-	if got := m.segs.Segment(0).Bounds().W; got < want {
+	pad := int(math.Round(wcfg.WorkspacePad.ResolvePx(styling.RemBase, 1)))
+	segs := m.strip.Segments()
+	want := findLabel(segs.Segment(0)).Bounds().W + 2*pad
+	if got := segs.Segment(0).Bounds().W; got < want {
 		t.Errorf("the pill is %d wide, want at least the name and its padding, %d", got, want)
 	}
-	if r := m.segs.Segment(1).Bounds(); r.W != r.H {
+	if r := segs.Segment(1).Bounds(); r.W != r.H {
 		t.Errorf("the short label beside it is %dx%d, want a circle", r.W, r.H)
 	}
 }
@@ -589,18 +593,18 @@ func TestHyprlandOtherMonitorFillsItsOwnCircle(t *testing.T) {
 	bar, size := cwsBar(t, ctx, m)
 	data := paintCwsPixels(bar, size)
 	other := -1
-	for i, model := range m.shown {
-		if model.ws.num == 3 {
+	for i, model := range m.strip.Shown() {
+		if model.WS.Num == 3 {
 			other = i
 		}
 	}
 	if other < 0 {
 		t.Fatal("workspace 3 is not shown")
 	}
-	if other == m.segs.Active() {
+	if other == m.strip.Segments().Active() {
 		t.Fatal("workspace 3 is the bar's own active workspace")
 	}
-	r := m.segs.Segment(other).Bounds()
+	r := m.strip.Segments().Segment(other).Bounds()
 	fill := render.RGB(0, 0x80, 0x80)
 	if got := pixelAt(data, size.W, r.X+2, r.Y+r.H/2); got != fill {
 		t.Errorf("inside the circle %#08x, want the other-monitor color %#08x", uint32(got), uint32(fill))
@@ -608,7 +612,7 @@ func TestHyprlandOtherMonitorFillsItsOwnCircle(t *testing.T) {
 	if got := pixelAt(data, size.W, r.X, r.Y); got == fill {
 		t.Error("the other-monitor fill has a square corner")
 	}
-	assertDropOn(t, m.segs, m.segs.Active())
+	assertDropOn(t, m.strip.Segments(), m.strip.Segments().Active())
 }
 
 func TestCwsSecondRebuildBeforeTheNextFrameKeepsTheTravel(t *testing.T) {
@@ -622,7 +626,7 @@ func TestCwsSecondRebuildBeforeTheNextFrameKeepsTheTravel(t *testing.T) {
 		}
 	}
 	relayCwsBar(bar, size)
-	if !m.segs.EnableDrop().Moving() {
+	if !m.strip.Segments().EnableDrop().Moving() {
 		t.Error("a second event for the same switch cancelled the travel")
 	}
 }
@@ -630,22 +634,22 @@ func TestCwsSecondRebuildBeforeTheNextFrameKeepsTheTravel(t *testing.T) {
 func TestCwsLeavingAnEmptyWorkspaceTravelsFromInsideTheRow(t *testing.T) {
 	ctx := cwsDropContext(t, config.LocationTop, 1)
 	last := emptyWS(3, 3, "DP-1")
-	last.active = true
+	last.Active = true
 	wcfg := config.DefaultsWorkspaces().View(compositor.Niri)
 	wcfg.HideTrailingEmpty = false
-	m, f, bar, size := cwsDropModule(t, ctx, wcfg, []cwsWorkspace{occupiedWS(1, 1, "DP-1"), occupiedWS(2, 2, "DP-1"), last})
+	m, f, bar, size := cwsDropModule(t, ctx, wcfg, []barview.Workspace{occupiedWS(1, 1, "DP-1"), occupiedWS(2, 2, "DP-1"), last})
 	relayCwsBar(bar, size)
-	assertDropOn(t, m.segs, 2)
+	assertDropOn(t, m.strip.Segments(), 2)
 	first := activeWS(1)
-	f.workspaces = []cwsWorkspace{first, occupiedWS(2, 2, "DP-1")}
+	f.workspaces = []barview.Workspace{first, occupiedWS(2, 2, "DP-1")}
 	if err := readAndApply(m.read, m.apply); err != nil {
 		t.Fatal(err)
 	}
 	relayCwsBar(bar, size)
-	if !m.segs.EnableDrop().Moving() {
+	if !m.strip.Segments().EnableDrop().Moving() {
 		t.Error("the switch did not start the indicator")
 	}
-	d, row := m.segs.EnableDrop().Bounds(), m.segs.Bounds()
+	d, row := m.strip.Segments().EnableDrop().Bounds(), m.strip.Segments().Bounds()
 	if d.Empty() || d.X < row.X || d.X+d.W > row.X+row.W {
 		t.Errorf("the indicator at %v in the shrunken row %v", d, row)
 	}

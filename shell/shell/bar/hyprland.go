@@ -14,6 +14,7 @@ import (
 	"github.com/stubbedev/lys/desktop/compositor"
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/glob"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/lib/wmipc"
 	"github.com/stubbedev/lys/ui/widget"
 
@@ -171,13 +172,6 @@ func hyprLabel(displayID, id int, name string, useName bool) string {
 	return strconv.Itoa(displayID)
 }
 
-func hyprIDClass(id int) string {
-	if id < 0 {
-		return "workspace-id-neg" + strconv.Itoa(-id)
-	}
-	return "workspace-id-" + strconv.Itoa(id)
-}
-
 func hyprState(active, activeAnyMonitor bool, windows int) string {
 	switch {
 	case active:
@@ -234,8 +228,8 @@ func hyprResolveIcon(class, title string, userMap map[string]string, fallback st
 // hyprWorkspaceIcons is one icon per client on
 // the workspace, or per case-folded class under dedupe (the first
 // client of a class picks the icon).
-func hyprWorkspaceIcons(id int, clients []hyprland.Client, cfg config.CompositorWorkspacesConfig, urgent map[string]bool) []cwsAppIcon {
-	var out []cwsAppIcon
+func hyprWorkspaceIcons(id int, clients []hyprland.Client, cfg config.CompositorWorkspacesConfig, urgent map[string]bool) []barview.WorkspaceAppIcon {
+	var out []barview.WorkspaceAppIcon
 	seen := map[string]int{}
 	for i, c := range clients {
 		if c.Workspace.ID != id {
@@ -244,16 +238,16 @@ func hyprWorkspaceIcons(id int, clients []hyprland.Client, cfg config.Compositor
 		key := strings.ToLower(c.Class)
 		if cfg.AppIconsDedupe {
 			if idx, ok := seen[key]; ok {
-				out[idx].windowIDs = append(out[idx].windowIDs, uint64(i))
-				out[idx].urgent = out[idx].urgent || urgent[c.Address]
+				out[idx].WindowIDs = append(out[idx].WindowIDs, uint64(i))
+				out[idx].Urgent = out[idx].Urgent || urgent[c.Address]
 				continue
 			}
 			seen[key] = len(out)
 		}
-		out = append(out, cwsAppIcon{
-			name:      hyprResolveIcon(c.Class, c.Title, cfg.AppIconMap, cfg.AppIconsFallback),
-			windowIDs: []uint64{uint64(i)},
-			urgent:    urgent[c.Address],
+		out = append(out, barview.WorkspaceAppIcon{
+			Name:      hyprResolveIcon(c.Class, c.Title, cfg.AppIconMap, cfg.AppIconsFallback),
+			WindowIDs: []uint64{uint64(i)},
+			Urgent:    urgent[c.Address],
 		})
 	}
 	return out
@@ -285,7 +279,7 @@ type hyprlandWorkspaces struct {
 	firstRead
 
 	filtered []hyprFiltered
-	models   []cwsButtonModel
+	models   []barview.WorkspaceButton
 }
 
 func newHyprlandWorkspaces(ctx ModuleContext) (Module, error) {
@@ -294,24 +288,23 @@ func newHyprlandWorkspaces(ctx ModuleContext) (Module, error) {
 	}
 	hcfg := ctx.Config.Workspaces
 	m := &hyprlandWorkspaces{
-		ctx: ctx, cfg: hcfg.View(compositor.Hyprland), flavor: cwsHyprland, otherMonitor: &hcfg.ActiveOnOtherMonitorColor,
+		ctx: ctx, cfg: hcfg.View(compositor.Hyprland), flavor: barview.FlavorHyprland, otherMonitor: &hcfg.ActiveOnOtherMonitorColor,
 		hcfg:   hcfg,
 		conn:   ctx.Hyprland,
 		urgent: map[string]bool{},
 		rules:  map[int]string{},
 	}
 	m.actions = cwsActions{
-		focus:    func(ws cwsWorkspace) cwsAction { return m.switchTo(ws.num) },
+		focus:    func(ws barview.Workspace) cwsAction { return m.switchTo(ws.Num) },
 		next:     func() cwsAction { return m.navigate(1) },
 		previous: func() cwsAction { return m.navigate(-1) },
 		last: func() cwsAction {
 			return func(context.Context) error { return m.conn.Dispatch(hyprland.FocusPreviousWorkspace()) }
 		},
 	}
-	m.boldFace = cwsBoldFace(ctx, m.labelPx())
 	newCwsRow(&m.cwsView)
 	m.previewOf = m.workspaceWindows
-	m.hideUntilRead(m.segs)
+	m.hideUntilRead(m.strip.Segments())
 	m.firstDue.Store(true)
 	m.rulesDue.Store(true)
 	m.reads = newOffLoopRead(ctx, "workspaces", m.read, m.apply)
@@ -527,43 +520,43 @@ func (m *hyprlandWorkspaces) render() {
 	for _, ws := range m.workspaces {
 		windows[ws.ID] = ws.Windows
 	}
-	m.models = make([]cwsButtonModel, 0, len(m.filtered))
+	m.models = make([]barview.WorkspaceButton, 0, len(m.filtered))
 	for _, ws := range m.filtered {
 		isUrgent := m.blinkOn && m.cfg.UrgentShow && m.hasUrgentWindow(ws.id)
 		var urgentAddrs map[string]bool
 		if isUrgent && perIcon {
 			urgentAddrs = m.urgent
 		}
-		model := cwsButtonModel{
-			flavor: cwsHyprland,
-			ws: cwsWorkspace{
-				id: uint64(ws.id), num: ws.id, name: ws.name, hasName: ws.name != "",
-				active: ws.id == m.activeID, hasWindows: windows[ws.id] > 0,
+		model := barview.WorkspaceButton{
+			Flavor: barview.FlavorHyprland,
+			WS: barview.Workspace{
+				ID: uint64(ws.id), Num: ws.id, Name: ws.name, HasName: ws.name != "",
+				Active: ws.id == m.activeID, HasWindows: windows[ws.id] > 0,
 			},
 		}
 		style, styled := m.cfg.WorkspaceMap[strconv.Itoa(ws.id)]
 		if styled && style.Icon != nil {
-			model.icon = *style.Icon
+			model.Icon = *style.Icon
 		}
 		if styled && style.Label != nil {
-			model.label = *style.Label
+			model.Label = *style.Label
 		} else {
 			display := hyprDisplayID(ws.id, m.hcfg.Numbering, m.ctx.Connector, monitorWorkspaces)
-			model.label = hyprLabel(display, ws.id, ws.name, m.hcfg.LabelUseName)
+			model.Label = hyprLabel(display, ws.id, ws.name, m.hcfg.LabelUseName)
 		}
-		model.hasLabel = true
+		model.HasLabel = true
 		if m.cfg.AppIconsShow {
-			model.appIcons = hyprWorkspaceIcons(ws.id, m.clients, m.cfg, urgentAddrs)
+			model.AppIcons = hyprWorkspaceIcons(ws.id, m.clients, m.cfg, urgentAddrs)
 		}
 		// With urgent addresses and icons to carry them
 		// the icons pulse and the button does not; otherwise the button
 		// takes the workspace's urgency (the icons were resolved without
 		// addresses, so none of them is marked).
-		model.urgent = isUrgent && (len(urgentAddrs) == 0 || len(model.appIcons) == 0)
-		model.classes = m.classes(ws.id, hyprState(model.ws.active, m.activeAny[ws.id], windows[ws.id]), model.urgent)
+		model.Urgent = isUrgent && (len(urgentAddrs) == 0 || len(model.AppIcons) == 0)
+		model.Classes = m.classes(ws.id, hyprState(model.WS.Active, m.activeAny[ws.id], windows[ws.id]), model.Urgent)
 		m.models = append(m.models, model)
 	}
-	m.setSegments(m.models)
+	m.strip.Set(m.models)
 }
 
 func (m *hyprlandWorkspaces) classes(id int, state string, urgent bool) []string {
@@ -571,10 +564,10 @@ func (m *hyprlandWorkspaces) classes(id int, state string, urgent bool) []string
 	if id < 0 {
 		classes = append(classes, "special")
 	}
-	if m.vertical() {
+	if m.strip.Vertical() {
 		classes = append(classes, "vertical")
 	}
-	classes = append(classes, hyprIDClass(id), state)
+	classes = append(classes, barview.HyprIDClass(id), state)
 	if urgent {
 		classes = append(classes, "urgent")
 	}
@@ -815,7 +808,7 @@ func (m *hyprlandWorkspaces) navigate(direction int) cwsAction {
 	return m.switchTo(list[hyprNavigate(current, direction, len(list))].id)
 }
 
-func (m *hyprlandWorkspaces) Root() widget.Widget { return m.segs }
+func (m *hyprlandWorkspaces) Root() widget.Widget { return m.strip.Segments() }
 
 func (m *hyprlandWorkspaces) ownsChrome() {}
 
@@ -824,10 +817,10 @@ func (m *hyprlandWorkspaces) Stop() { m.stopBlink() }
 
 // workspaceWindows is what a workspace preview shows: the workspace's
 // mapped windows where Hyprland places them.
-func (m *hyprlandWorkspaces) workspaceWindows(ws cwsWorkspace) []previewWindow {
+func (m *hyprlandWorkspaces) workspaceWindows(ws barview.Workspace) []previewWindow {
 	var out []previewWindow
 	for _, c := range m.clients {
-		if c.Workspace.ID != ws.num || !c.Mapped || c.Hidden {
+		if c.Workspace.ID != ws.Num || !c.Mapped || c.Hidden {
 			continue
 		}
 		out = append(out, previewWindow{
