@@ -1884,3 +1884,5 @@ settings-matugen-source-cycling = Die Diashow wechselt das Hintergrundbild, dahe
 settings-matugen-source-failed = Die Farben von { $file } können nicht gelesen werden: { $error }
 settings-share-picker-preview = Freigabeauswahl in der Vorschau zeigen
 settings-pam-check-failed = Nicht gespeichert: Die Sperre könnte Sie über { $service } nicht entsperren. { $reason }
+settings-checking = { $value } wird vor dem Speichern geprüft…
+settings-check-timed-out = Nicht gespeichert: Die Prüfung wurde nicht innerhalb von { $seconds } Sekunden fertig.

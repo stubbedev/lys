@@ -17,17 +17,21 @@ import (
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
-const shellCommandTimeout = 5 * time.Second
+const commandTimeout = 5 * time.Second
 
-func runShellCommand(args ...string) error { return runCommand(identity.Name, args...) }
+func runShellCommand(args ...string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), commandTimeout)
+	defer cancel()
+	return runCommand(ctx, identity.Name, args...)
+}
 
 const loginProgram = "lys-login"
 
-func checkPAMService(service string) error { return runCommand(loginProgram, "check-pam", service) }
+func checkPAMService(ctx context.Context, service string) error {
+	return runCommand(ctx, loginProgram, "check-pam", service)
+}
 
-func runCommand(program string, args ...string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), shellCommandTimeout)
-	defer cancel()
+func runCommand(ctx context.Context, program string, args ...string) error {
 	out, err := exec.CommandContext(ctx, program, args...).CombinedOutput() //nolint:gosec // a lys program with argv the pages build
 	if err != nil {
 		return fmt.Errorf("%s %s: %w: %s", program, strings.Join(args, " "), err, strings.TrimSpace(string(out)))
@@ -49,7 +53,7 @@ func sendNotification(summary, body string) error {
 		return fmt.Errorf("connect to the session bus: %w", err)
 	}
 	defer func() { _ = conn.Close() }()
-	ctx, cancel := context.WithTimeout(context.Background(), shellCommandTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), commandTimeout)
 	defer cancel()
 	call := conn.Object(notificationsName, notificationsPath).CallWithContext(ctx, notificationsNotify, 0,
 		notificationSender(), uint32(0), testNotificationIcon, summary, body, []string{}, map[string]dbus.Variant{}, serverDefaultExpiresIn)

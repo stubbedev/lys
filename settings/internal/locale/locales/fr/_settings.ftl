@@ -1887,3 +1887,5 @@ settings-matugen-source-cycling = Le diaporama change le fond d’écran : la co
 settings-matugen-source-failed = Impossible de lire les couleurs de { $file } : { $error }
 settings-share-picker-preview = Prévisualiser le sélecteur de partage
 settings-pam-check-failed = Non enregistré : le verrouillage ne pourrait pas vous déverrouiller via { $service }. { $reason }
+settings-checking = Vérification de { $value } avant l’enregistrement…
+settings-check-timed-out = Non enregistré : la vérification ne s’est pas terminée en { $seconds } secondes.

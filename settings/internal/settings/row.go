@@ -1,7 +1,10 @@
 package settings
 
 import (
+	"context"
+	"fmt"
 	"log"
+	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/geo"
@@ -82,7 +85,7 @@ type kit struct {
 	// with the arguments given; the tests stub both.
 	notify       func(summary, body string) error
 	shellCommand func(args ...string) error
-	checkPAM     func(service string) error
+	checkPAM     func(ctx context.Context, service string) error
 	// openURI opens a URI with the user's default app for it.
 	openURI func(uri string) error
 	// overlays shows content on the output named on top of everything,
@@ -271,7 +274,8 @@ type settingRow struct {
 }
 
 // newFieldRow is the row for spec with its field's control, whose refused
-// writes the row reports under its label.
+// writes the row reports under its label. A row with a vet writes a value,
+// its reset's included, only once the vet passed it.
 func newFieldRow(k *kit, be backend, spec rowSpec) *settingRow {
 	var r *settingRow
 	report := func(err error) {
@@ -279,31 +283,99 @@ func newFieldRow(k *kit, be backend, spec rowSpec) *settingRow {
 			r.showProblem(err)
 		}
 	}
-	writes := be
-	if spec.vet != nil {
-		writes = vettingBackend{be, func(v any) error { return spec.vet(k, v) }}
+	if spec.vet == nil {
+		r = newSettingRow(k, be, spec, fieldControl(k, reportingBackend{be, report}, spec))
+		return r
 	}
-	r = newSettingRow(k, be, spec, fieldControl(k, reportingBackend{writes, report}, spec))
+	v := &vetter{k: k, check: func(ctx context.Context, value any) error { return spec.vet(ctx, k, value) }}
+	vetted := vettingBackend{reportingBackend{be, report}, v}
+	r = newSettingRow(k, vetted, spec, fieldControl(k, vetted, spec))
+	v.row = r
 	return r
 }
 
+// vettingBackend hands every write and reset to its vetter, which makes it
+// once the vet passed the value it would leave.
 type vettingBackend struct {
 	backend
-	vet func(v any) error
+	v *vetter
 }
 
 func (b vettingBackend) slot(path string) slot {
 	s := b.backend.slot(path)
 	return slot{
 		get: s.get,
-		set: func(v any) error {
-			if err := b.vet(v); err != nil {
-				return err
-			}
-			return s.set(v)
+		set: func(value any) error {
+			b.v.start(value, func() error { return s.set(value) })
+			return nil
 		},
 		unset: s.unset,
 	}
+}
+
+func (b vettingBackend) reset(path string) {
+	d, ok := b.defaultOf(path)
+	if !ok {
+		b.v.row.showProblem(fmt.Errorf("settings: %s has no default to check before resetting it", path))
+		return
+	}
+	b.v.start(d, func() error {
+		b.backend.reset(path)
+		return nil
+	})
+}
+
+// vetter runs a row's vet off the loop while the row says the value is
+// being checked: a value that passed is written, one that failed or took
+// longer than commandTimeout on the kit's clock is refused. A newer value
+// drops the check of the one before.
+type vetter struct {
+	k       *kit
+	check   func(ctx context.Context, value any) error
+	row     *settingRow
+	current uint64
+	cancel  context.CancelFunc
+}
+
+func (v *vetter) start(value any, write func() error) {
+	v.drop()
+	v.current++
+	run := v.current
+	ctx, cancel := context.WithCancel(context.Background())
+	v.cancel = cancel
+	v.row.showPending(value)
+	stop := v.k.clock.AfterFunc(commandTimeout, func() {
+		v.k.invoke(func() { v.settle(run, checkTimedOut{}, write) })
+	})
+	async(v.k, func() error { return v.check(ctx, value) }, func(err error) {
+		stop()
+		v.settle(run, err, write)
+	})
+}
+
+func (v *vetter) drop() {
+	if v.cancel != nil {
+		v.cancel()
+		v.cancel = nil
+	}
+}
+
+func (v *vetter) settle(run uint64, err error, write func() error) {
+	if run != v.current || v.cancel == nil {
+		return
+	}
+	v.drop()
+	if err == nil {
+		err = write()
+	}
+	v.row.showProblem(err)
+	v.row.refresh()
+}
+
+type checkTimedOut struct{}
+
+func (checkTimedOut) Error() string {
+	return locale.T().Get("settings-check-timed-out", i18n.Int("seconds", int64(commandTimeout/time.Second)))
 }
 
 // reportingBackend hands report the outcome of every write through its
@@ -331,10 +403,18 @@ func (b reportingBackend) slot(path string) slot {
 
 // showProblem shows why a value was refused, or hides the line for nil.
 func (r *settingRow) showProblem(err error) {
+	r.problem.SetClass(css.Error, true)
 	r.problem.SetVisible(err != nil)
 	if err != nil {
 		r.problem.SetText(err.Error())
 	}
+}
+
+// showPending says the value is being checked before it is written.
+func (r *settingRow) showPending(value any) {
+	r.problem.SetClass(css.Error, false)
+	r.problem.SetText(locale.T().Get("settings-checking", i18n.Str("value", fmt.Sprint(value))))
+	r.problem.SetVisible(true)
 }
 
 // newSettingRow lays a row out: a full-width control
@@ -387,8 +467,8 @@ func newSettingRow(k *kit, be backend, spec rowSpec, ctl control) *settingRow {
 		if d, ok := ctl.(interface{ discardDraft() }); ok {
 			d.discardDraft()
 		}
-		be.reset(spec.path)
 		r.showProblem(nil)
+		be.reset(spec.path)
 	}, "setting-reset", css.Ghost)
 	slot := widget.NewBox(widget.Row, 0, 0)
 	slot.AddClass("setting-control")

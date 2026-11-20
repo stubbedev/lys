@@ -1885,3 +1885,5 @@ settings-matugen-source-cycling = La presentación cambia el fondo de pantalla, 
 settings-matugen-source-failed = No se pueden leer los colores de { $file }: { $error }
 settings-share-picker-preview = Previsualizar el selector para compartir
 settings-pam-check-failed = No guardado: el bloqueo no podría desbloquearte mediante { $service }. { $reason }
+settings-checking = Comprobando { $value } antes de guardar…
+settings-check-timed-out = No guardado: la comprobación no terminó en { $seconds } segundos.

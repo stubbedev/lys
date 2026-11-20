@@ -1884,3 +1884,5 @@ settings-matugen-source-cycling = The slideshow changes the wallpaper, so the co
 settings-matugen-source-failed = The colors of { $file } cannot be read: { $error }
 settings-share-picker-preview = Preview the share picker
 settings-pam-check-failed = Not saved: the lock could not unlock you through { $service }. { $reason }
+settings-checking = Checking { $value } before saving…
+settings-check-timed-out = Not saved: the check did not finish within { $seconds } seconds.

@@ -1874,3 +1874,5 @@ settings-matugen-source-cycling = De diavoorstelling wisselt de achtergrond, dus
 settings-matugen-source-failed = De kleuren van { $file } kunnen niet worden gelezen: { $error }
 settings-share-picker-preview = Deelkiezer voorvertonen
 settings-pam-check-failed = Niet opgeslagen: de vergrendeling kan je niet ontgrendelen via { $service }. { $reason }
+settings-checking = { $value } wordt gecontroleerd voor het opslaan…
+settings-check-timed-out = Niet opgeslagen: de controle was niet binnen { $seconds } seconden klaar.

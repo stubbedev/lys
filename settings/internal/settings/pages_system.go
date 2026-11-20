@@ -1,6 +1,7 @@
 package settings
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -91,12 +92,12 @@ const lockBlurSoftMax = 100
 var ownCursor = shownWhen("login.greeter.match-cursor", switchedOff)
 
 var pamServiceRow rowOpt = func(r *rowSpec) {
-	r.vet = func(k *kit, v any) error {
+	r.vet = func(ctx context.Context, k *kit, v any) error {
 		service, ok := v.(string)
 		if !ok {
 			return fmt.Errorf("settings: %v is no PAM service name", v)
 		}
-		if err := k.checkPAM(service); err != nil {
+		if err := k.checkPAM(ctx, service); err != nil {
 			return pamRefusal{service: service, err: err}
 		}
 		return nil

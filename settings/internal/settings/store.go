@@ -247,7 +247,15 @@ type backend interface {
 	field(path string) (config.FieldMeta, bool)
 	slot(path string) slot
 	reset(path string)
+	defaultOf(path string) (any, bool)
 	source(path string) sourceInfo
+}
+
+// defaultOf is the value a reset leaves at path, false for an optional
+// field the defaults leave unset.
+func (s store) defaultOf(path string) (any, bool) {
+	d := s.defaultValue(path)
+	return d, d != nil
 }
 
 func (s store) field(path string) (config.FieldMeta, bool) { return config.Field(path) }
