@@ -1867,15 +1867,15 @@ func (b *ChipBuilder) Content(child Node) *ChipBuilder {
 	return b
 }
 
-// Leading calls (*widget.Chip).SetLeading.
-func (b *ChipBuilder) Leading(child Node) *ChipBuilder {
-	b.do(func(s *Scope, w *widget.Chip) { w.SetLeading(build(s, child)) })
+// Dismiss calls (*widget.Chip).SetDismiss.
+func (b *ChipBuilder) Dismiss(name func(text string) string, arg func()) *ChipBuilder {
+	b.do(func(s *Scope, w *widget.Chip) { w.SetDismiss(name, arg) })
 	return b
 }
 
-// OnDismiss calls (*widget.Chip).SetOnDismiss.
-func (b *ChipBuilder) OnDismiss(arg func()) *ChipBuilder {
-	b.do(func(s *Scope, w *widget.Chip) { w.SetOnDismiss(arg) })
+// Leading calls (*widget.Chip).SetLeading.
+func (b *ChipBuilder) Leading(child Node) *ChipBuilder {
+	b.do(func(s *Scope, w *widget.Chip) { w.SetLeading(build(s, child)) })
 	return b
 }
 

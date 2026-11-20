@@ -65,6 +65,7 @@ settings-icon-clear = Symbol entfernen
 settings-icon-search = Symbole suchen …
 settings-list-add = Hinzufügen
 settings-list-remove = Entfernen
+settings-chip-remove = { $name } entfernen
 settings-list-filter = Filtern
 settings-card-expand = Details anzeigen
 settings-card-collapse = Details ausblenden

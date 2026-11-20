@@ -62,6 +62,7 @@ settings-icon-clear = Pictogram wissen
 settings-icon-search = Pictogrammen zoeken...
 settings-list-add = Toevoegen
 settings-list-remove = Verwijderen
+settings-chip-remove = { $name } verwijderen
 settings-list-filter = Filteren
 settings-card-expand = Details tonen
 settings-card-collapse = Details verbergen

@@ -19,17 +19,18 @@ const chipDismissPx = 12
 
 // Chip is a badge-shaped control: an optional leading widget, its text
 // (or any content in its place, an entry for a renamable chip), and,
-// while OnDismiss is set, a dismiss button that is keyboard reachable.
+// while a dismiss is set, a dismiss button that is keyboard reachable.
 // It styles as the chip element, the dismissible class while it has
 // the button. In a ChipBox it drags by its body.
 type Chip struct {
 	composite
-	row       *Box
-	label     *Label
-	leading   Widget
-	content   Widget
-	dismiss   *Button
-	onDismiss func()
+	row         *Box
+	label       *Label
+	leading     Widget
+	content     Widget
+	dismiss     *Button
+	onDismiss   func()
+	dismissName func(text string) string
 	// box is the ChipBox holding the chip, nil outside one.
 	box *ChipBox
 }
@@ -49,7 +50,6 @@ func NewChip(face render.Font, text string) *Chip {
 			c.onDismiss()
 		}
 	}
-	c.syncDismissName()
 	c.initComposite(c, c.row)
 	c.boxed = true
 	return c
@@ -91,22 +91,38 @@ func (c *Chip) SetContent(w Widget) {
 	c.row.InsertAligned(at, w, false, AlignCenter)
 }
 
-// SetOnDismiss shows the dismiss button, which runs fn; nil hides it.
-func (c *Chip) SetOnDismiss(fn func()) {
-	had := c.onDismiss != nil
-	c.onDismiss = fn
-	switch {
-	case fn != nil && !had:
+// SetDismiss shows the dismiss button, which runs fn. name gives the
+// button's accessible name for the chip's text, in the user's language
+// (lys-ui has no messages of its own), and names it again whenever the
+// text changes. Both are required.
+func (c *Chip) SetDismiss(name func(text string) string, fn func()) {
+	if name == nil || fn == nil {
+		panic("widget: Chip.SetDismiss needs both the button's name and what it runs")
+	}
+	if c.onDismiss == nil {
 		c.row.AppendAligned(c.dismiss, false, AlignCenter)
 		c.AddClass("dismissible")
-	case fn == nil && had:
-		c.row.Remove(c.dismiss)
-		c.RemoveClass("dismissible")
 	}
+	c.onDismiss, c.dismissName = fn, name
+	c.syncDismissName()
+}
+
+// RemoveDismiss hides the dismiss button.
+func (c *Chip) RemoveDismiss() {
+	if c.onDismiss == nil {
+		return
+	}
+	c.onDismiss, c.dismissName = nil, nil
+	c.row.Remove(c.dismiss)
+	c.RemoveClass("dismissible")
 }
 
 // syncDismissName names the dismiss button after the chip.
-func (c *Chip) syncDismissName() { c.dismiss.SetAccessibleName("Remove " + c.label.Text()) }
+func (c *Chip) syncDismissName() {
+	if c.dismissName != nil {
+		c.dismiss.SetAccessibleName(c.dismissName(c.label.Text()))
+	}
+}
 
 // HitTest keeps the dismiss button's and the content's controls their
 // presses; anywhere else is the chip's own, its drag handle.

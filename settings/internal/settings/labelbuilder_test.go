@@ -6,7 +6,40 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/i18n"
+
+	"github.com/stubbedev/lys/settings/internal/locale"
 )
+
+func TestAChipsRemoveButtonIsNamedInEveryLanguage(t *testing.T) {
+	available, err := locale.Assets().Available()
+	if err != nil {
+		t.Fatal(err)
+	}
+	names := map[string]string{}
+	for _, lang := range available {
+		tr, err := i18n.Select(locale.Assets(), []i18n.LangID{lang})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !tr.Has("settings-chip-remove") {
+			t.Errorf("%s: no settings-chip-remove", lang)
+		}
+		name := chipRemoveName(tr)("Uhr")
+		if !strings.Contains(name, "Uhr") || strings.Contains(name, "No localization") {
+			t.Errorf("%s: the remove button reads %q, which does not name the chip", lang, name)
+		}
+		names[lang.String()] = name
+	}
+	if got, want := unisolated(names["de"]), "Uhr entfernen"; got != want {
+		t.Errorf("de: the remove button reads %q, want %q", got, want)
+	}
+	for lang, name := range names {
+		if lang != "en-US" && name == names["en-US"] {
+			t.Errorf("%s: the remove button reads the English %q", lang, name)
+		}
+	}
+}
 
 func TestATemplateSplitsIntoPlaceholdersAndTextAndJoinsBack(t *testing.T) {
 	tokens := []string{"{percent}", "{time}", "{p}"}

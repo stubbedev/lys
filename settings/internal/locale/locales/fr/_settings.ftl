@@ -430,6 +430,7 @@ settings-inherited = Hérité
 settings-icon-clear = Effacer l'icône
 settings-list-add = Ajouter
 settings-list-remove = Supprimer
+settings-chip-remove = Supprimer { $name }
 settings-list-filter = Filtrer
 settings-card-expand = Afficher les détails
 settings-card-collapse = Masquer les détails

@@ -2010,11 +2010,11 @@ func TestLayoutEditorModulesAndGroups(t *testing.T) {
 	if g := storedLayouts(k)[0].Left[1].Group; g == nil || g.Name != "sys!" || group.Text() != "sys!" {
 		t.Errorf("group %+v, chip %q", g, group.Text())
 	}
-	click(root, treetest.Button(t, group, "Remove CPU"))
+	click(root, treetest.Button(t, group, chipRemoveName(locale.T())("CPU")))
 	if g := storedLayouts(k)[0].Left[1].Group; len(g.Modules) != 1 || g.Modules[0].Module != "ram" {
 		t.Errorf("after removing cpu: %+v", g)
 	}
-	click(root, treetest.Button(t, zoneChips(t, root, c, 0, zoneLeft), "Remove Clock"))
+	click(root, treetest.Button(t, zoneChips(t, root, c, 0, zoneLeft), chipRemoveName(locale.T())("Clock")))
 	if got := storedLayouts(k)[0].Left; len(got) != 1 || got[0].Group == nil {
 		t.Errorf("left after removing clock: %+v", got)
 	}
@@ -2058,7 +2058,7 @@ func TestLayoutEditorChipsMoveByDrag(t *testing.T) {
 	if g := storedLayouts(k)[0].Center[0].Group; g == nil || g.Name != "sys!" {
 		t.Errorf("renaming the moved group wrote %+v", g)
 	}
-	click(root, treetest.Button(t, right, "Remove Audio"))
+	click(root, treetest.Button(t, right, chipRemoveName(locale.T())("Audio")))
 	if got := modules(storedLayouts(k)[0].Right); !slices.Equal(got, []string{"battery"}) {
 		t.Errorf("removing the reordered audio module left %v", got)
 	}
@@ -2085,7 +2085,7 @@ func TestLayoutEditorLeavesSnapshotsAlone(t *testing.T) {
 	snap := k.store.svc.Config()
 	left := zoneChips(t, root, c, 0, zoneLeft)
 	treetest.First[*widget.Entry](t, left.ChipAt(1)).Insert("x")
-	click(root, treetest.Button(t, left, "Remove Clock"))
+	click(root, treetest.Button(t, left, chipRemoveName(locale.T())("Clock")))
 	if l := snap.Bar.Layout[0].Left; l[0].Module != "clock" || l[1].Group.Name != "sys" {
 		t.Errorf("the old snapshot changed: %+v %+v", l[0], l[1].Group)
 	}

@@ -41,12 +41,14 @@ func dragChip(t *testing.T, c *Chip, target *ChipBox, p Point) {
 	dc.OnDone(0)
 }
 
-// The dismiss button shows while OnDismiss is set and runs it; presses
+func entfernen(text string) string { return text + " entfernen" }
+
+// The dismiss button shows while a dismiss is set and runs it; presses
 // elsewhere on the chip are the chip's own, its drag handle.
 func TestChipDismiss(t *testing.T) {
 	c := NewChip(goldenFace(t), "clock")
 	dismissed := 0
-	c.SetOnDismiss(func() { dismissed++ })
+	c.SetDismiss(entfernen, func() { dismissed++ })
 	arrangeTree(t, c, 200, 40)
 	if !c.HasClass("dismissible") || parentOf(c.dismiss) == nil {
 		t.Fatal("a dismissible chip shows no button")
@@ -62,12 +64,9 @@ func TestChipDismiss(t *testing.T) {
 	if dismissed != 1 {
 		t.Errorf("dismissed %d times", dismissed)
 	}
-	if Describe(c.dismiss).Name != "Remove clock" {
-		t.Errorf("dismiss button named %q", Describe(c.dismiss).Name)
-	}
-	c.SetOnDismiss(nil)
+	c.RemoveDismiss()
 	if c.HasClass("dismissible") || len(c.row.Children()) != 1 {
-		t.Error("clearing OnDismiss kept the button")
+		t.Error("removing the dismiss kept the button")
 	}
 	if NewChip(goldenFace(t), "loose").DragContent() != nil {
 		t.Error("a chip in no box offered a drag")
@@ -160,7 +159,7 @@ func TestGoldenChips(t *testing.T) {
 			b := newChipBox(t, "workspaces", "clock", "battery", "network")
 			b.ChipAt(0).SetLeading(NewColorSwatch(render.RGB(0x3b, 0x82, 0xf6)))
 			for _, c := range b.Chips()[1:] {
-				c.SetOnDismiss(func() {})
+				c.SetDismiss(entfernen, func() {})
 			}
 			b.dropAt = 2
 			frame := NewBox(Column, 0, 12)
@@ -188,5 +187,42 @@ func TestChipBoxIsAStyledBox(t *testing.T) {
 	}
 	if inner.style(inner).Background == group.style(group).Background {
 		t.Error("a nested chip has its group's background")
+	}
+}
+
+// The dismiss button reads the name the caller gives in its language,
+// for the chip's text now and after it changes; lys-ui adds no words.
+func TestChipDismissIsNamedInTheCallersLanguage(t *testing.T) {
+	c := NewChip(goldenFace(t), "clock")
+	if name := Describe(c.dismiss).Name; name != "" {
+		t.Errorf("a chip without a dismiss names its button %q", name)
+	}
+	c.SetDismiss(entfernen, func() {})
+	if name := Describe(c.dismiss).Name; name != "clock entfernen" {
+		t.Errorf("dismiss button named %q, want %q", name, "clock entfernen")
+	}
+	c.SetText("Uhr")
+	if name := Describe(c.dismiss).Name; name != "Uhr entfernen" {
+		t.Errorf("after a new text the dismiss button is named %q, want %q", name, "Uhr entfernen")
+	}
+}
+
+func TestChipDismissWithoutANameOrActionPanics(t *testing.T) {
+	for name, set := range map[string]func(*Chip){
+		"no name":   func(c *Chip) { c.SetDismiss(nil, func() {}) },
+		"no action": func(c *Chip) { c.SetDismiss(entfernen, nil) },
+	} {
+		t.Run(name, func(t *testing.T) {
+			c := NewChip(goldenFace(t), "clock")
+			defer func() {
+				if recover() == nil {
+					t.Error("SetDismiss took a dismiss it cannot name or run")
+				}
+				if c.HasClass("dismissible") {
+					t.Error("a refused dismiss showed the button")
+				}
+			}()
+			set(c)
+		})
 	}
 }

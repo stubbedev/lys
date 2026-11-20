@@ -138,6 +138,8 @@ type demo struct {
 // section is the demo titled title showing body.
 func section(title string, body ...ui.Node) demo { return demo{title: title, body: body} }
 
+func removeChip(text string) string { return "Remove " + text }
+
 // opens names the gesture and the point that open the demo's overlay.
 func (d demo) opens(g gesture, target func() image.Point) demo {
 	d.gesture, d.target = g, target
@@ -586,9 +588,9 @@ func (g *gallery) demos(send func(galleryMsg)) []demo {
 		section("Checkbox", ui.Aligned(ui.CheckButton(true).Child(ui.Label("Accept terms and conditions")), widget.AlignStart)),
 		section("Chip", ui.ChipBox().
 			Append(ui.Chip("workspaces").Leading(ui.ColorSwatch(render.RGB(0x3b, 0x82, 0xf6)))).
-			Append(ui.Chip("clock").OnDismiss(func() {})).
-			Append(ui.Chip("battery").OnDismiss(func() {})).
-			Append(ui.Chip("network").OnDismiss(func() {})).
+			Append(ui.Chip("clock").Dismiss(removeChip, func() {})).
+			Append(ui.Chip("battery").Dismiss(removeChip, func() {})).
+			Append(ui.Chip("network").Dismiss(removeChip, func() {})).
 			Classes(demoSmall)),
 		section("Collapsible", ui.Expander("@stubbedev starred 3 repositories", ui.Column(
 			ui.Label("stubbedev/lys-ui"), ui.Label("stubbedev/lys-shell"), ui.Label("stubbedev/lys-wm"),

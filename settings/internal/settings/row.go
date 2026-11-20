@@ -4,6 +4,7 @@ import (
 	"log"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/apptheme"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/desktop/styling"
@@ -123,6 +124,10 @@ func (k *kit) entry() *widget.Entry {
 	e := widget.NewEntry(k.face, k.textPx(), 0)
 	e.SetTextWidth(widget.GTKTextWidth)
 	return e
+}
+
+func chipRemoveName(tr *i18n.Loader) func(text string) string {
+	return func(text string) string { return tr.Get("settings-chip-remove", i18n.Str("name", text)) }
 }
 
 // searchField is a picker's search entry: an entry showing the

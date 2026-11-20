@@ -309,7 +309,7 @@ func (c *layoutEditor) zoneRow(at zoneRef, labels *widget.SizeGroup) widget.Widg
 func (c *layoutEditor) chip(item config.BarItem) *widget.Chip {
 	if item.Group == nil {
 		chip := c.moduleChip(item.Module)
-		chip.SetOnDismiss(func() { c.removeItem(chip) })
+		chip.SetDismiss(chipRemoveName(locale.T()), func() { c.removeItem(chip) })
 		return chip
 	}
 	chip := widget.NewChip(c.k.face, item.Group.Name)
@@ -328,7 +328,7 @@ func (c *layoutEditor) chip(item config.BarItem) *widget.Chip {
 	content.AppendAligned(name, false, widget.AlignCenter)
 	for m, mod := range item.Group.Modules {
 		sub := c.moduleChip(mod.Module)
-		sub.SetOnDismiss(func() {
+		sub.SetDismiss(chipRemoveName(locale.T()), func() {
 			g := c.group(chip)
 			g.Modules = slices.Delete(g.Modules, m, m+1)
 			c.commit()
@@ -347,7 +347,7 @@ func (c *layoutEditor) chip(item config.BarItem) *widget.Chip {
 	}, "chip-add", css.Ghost)
 	content.AppendAligned(add, false, widget.AlignCenter)
 	chip.SetContent(content)
-	chip.SetOnDismiss(func() { c.removeItem(chip) })
+	chip.SetDismiss(chipRemoveName(locale.T()), func() { c.removeItem(chip) })
 	return chip
 }
 

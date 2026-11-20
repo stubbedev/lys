@@ -192,7 +192,7 @@ func (e *mailQueryEditor) refresh() {
 	e.chips.Clear()
 	for i, q := range terms {
 		chip := widget.NewChip(e.k.face, q.label())
-		chip.SetOnDismiss(func() {
+		chip.SetDismiss(chipRemoveName(locale.T()), func() {
 			e.terms = slices.Delete(e.terms, i, i+1)
 			e.write()
 		})

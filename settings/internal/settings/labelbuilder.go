@@ -147,7 +147,7 @@ func (b *labelBuilder) refresh() {
 		if s.token == "" {
 			chip.AddClass("label-builder-text")
 		}
-		chip.SetOnDismiss(func() {
+		chip.SetDismiss(chipRemoveName(locale.T()), func() {
 			b.segs = slices.Delete(b.segs, i, i+1)
 			b.write()
 		})
