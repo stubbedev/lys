@@ -2946,6 +2946,19 @@
       "ui/widget"
     ]
   },
+  "shell/service/appenergy": {
+    "imports": [
+      "desktop/feed",
+      "lib/dbusx",
+      "lib/third_party/godbus",
+      "power/energy"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/testhome",
+      "lib/waittest"
+    ]
+  },
   "shell/service/backgroundapps": {
     "imports": [
       "desktop/desktopentry",
@@ -3527,6 +3540,7 @@
       "lib/wlr",
       "lib/wmipc",
       "lib/xdg",
+      "power/energy",
       "secrets/vault",
       "shell/cava",
       "shell/internal/appicons",
@@ -3539,6 +3553,7 @@
       "shell/internal/portal",
       "shell/internal/walltimer",
       "shell/internal/widgetipc",
+      "shell/service/appenergy",
       "shell/service/backgroundapps",
       "shell/service/batteryalert",
       "shell/service/brightness",

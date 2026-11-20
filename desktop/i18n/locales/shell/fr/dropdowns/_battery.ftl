@@ -44,6 +44,16 @@ dropdown-battery-no-battery-description = Alimentation sur secteur
 ## Peripherals
 dropdown-battery-devices = Appareils
 
+## Significant Energy
+dropdown-battery-energy = Utilisent beaucoup d’énergie
+dropdown-battery-energy-none = Aucune app n’utilise beaucoup d’énergie
+dropdown-battery-energy-measuring = Mesure en cours…
+dropdown-battery-energy-cpu = { $percent } % d’un processeur
+dropdown-battery-energy-watts = { $watts }, { $percent } % d’un processeur
+dropdown-battery-energy-show = Afficher
+dropdown-battery-energy-quit = Quitter
+dropdown-battery-energy-quit-failed = Impossible de quitter { $app } : { $error }
+
 ## Alerts
 battery-alert-low = Batterie faible
 battery-alert-critical = Batterie très faible

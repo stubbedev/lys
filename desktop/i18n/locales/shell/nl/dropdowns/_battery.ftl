@@ -35,6 +35,15 @@ dropdown-battery-no-battery-description = Werkt op netstroom
 
 dropdown-battery-devices = Apparaten
 
+dropdown-battery-energy = Gebruiken veel energie
+dropdown-battery-energy-none = Geen apps gebruiken veel energie
+dropdown-battery-energy-measuring = Meten…
+dropdown-battery-energy-cpu = { $percent }% van een CPU
+dropdown-battery-energy-watts = { $watts }, { $percent }% van een CPU
+dropdown-battery-energy-show = Tonen
+dropdown-battery-energy-quit = Stoppen
+dropdown-battery-energy-quit-failed = Kan { $app } niet stoppen: { $error }
+
 battery-alert-low = Accu bijna leeg
 battery-alert-critical = Accu kritiek laag
 battery-alert-remaining = Nog { $percent }%

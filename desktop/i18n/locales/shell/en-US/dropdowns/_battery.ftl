@@ -44,6 +44,16 @@ dropdown-battery-no-battery-description = Running on AC power
 ## Peripherals
 dropdown-battery-devices = Devices
 
+## Significant Energy
+dropdown-battery-energy = Using Significant Energy
+dropdown-battery-energy-none = No apps are using significant energy
+dropdown-battery-energy-measuring = Measuring…
+dropdown-battery-energy-cpu = { $percent }% of a CPU
+dropdown-battery-energy-watts = { $watts }, { $percent }% of a CPU
+dropdown-battery-energy-show = Show
+dropdown-battery-energy-quit = Quit
+dropdown-battery-energy-quit-failed = Could not quit { $app }: { $error }
+
 ## Alerts
 battery-alert-low = Battery low
 battery-alert-critical = Battery critically low

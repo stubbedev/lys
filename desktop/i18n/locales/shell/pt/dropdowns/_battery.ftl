@@ -35,6 +35,15 @@ dropdown-battery-no-battery-description = A funcionar com alimentação CA
 
 dropdown-battery-devices = Dispositivos
 
+dropdown-battery-energy = Utilizam muita energia
+dropdown-battery-energy-none = Nenhuma aplicação utiliza muita energia
+dropdown-battery-energy-measuring = A medir…
+dropdown-battery-energy-cpu = { $percent }% de um CPU
+dropdown-battery-energy-watts = { $watts }, { $percent }% de um CPU
+dropdown-battery-energy-show = Mostrar
+dropdown-battery-energy-quit = Sair
+dropdown-battery-energy-quit-failed = Não foi possível fechar { $app }: { $error }
+
 battery-alert-low = Bateria fraca
 battery-alert-critical = Bateria criticamente fraca
 battery-alert-remaining = { $percent }% restantes
