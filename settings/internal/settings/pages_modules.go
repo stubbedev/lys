@@ -445,6 +445,12 @@ func powerProfilesPage(*config.Config) pageSpec {
 
 var powerMenuActions = []string{"lock", "logout", "suspend", "reboot", "shutdown"}
 
+func sessionCommandRow(path string) rowOpt {
+	return withEditor(func(k *kit, s slot, _ config.FieldMeta) control {
+		return newCommandMenu(k, s, commandChoices(path), sessionMenu)
+	})
+}
+
 // powerPage is pages/modules/power: the power menu's buttons, with what
 // each runs under Advanced.
 func powerPage(*config.Config) pageSpec {
@@ -453,7 +459,8 @@ func powerPage(*config.Config) pageSpec {
 	commands := make([]rowSpec, len(powerMenuActions))
 	for i, a := range powerMenuActions {
 		buttons[i] = field(m + ".show-" + a)
-		commands[i] = field(m+"."+a+"-command", enabledBy(m+".show-"+a))
+		command := m + "." + a + "-command"
+		commands[i] = field(command, enabledBy(m+".show-"+a), sessionCommandRow(command))
 	}
 	return pageSpec{id: "power", navKey: "settings-nav-power-menu", icon: "ld-power-symbolic", header: "settings-page-power-menu", sections: []sectionSpec{
 		{title: "settings-section-general", rows: []rowSpec{

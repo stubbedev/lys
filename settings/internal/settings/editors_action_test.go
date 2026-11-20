@@ -84,3 +84,52 @@ func TestACustomClickCommandCanBeRunOnce(t *testing.T) {
 		}
 	}
 }
+
+func powerCommand(t *testing.T, k *kit, path string) *actionEditor {
+	t.Helper()
+	c, ok := fieldControl(k, k.store, pageRow(t, "power", path)).(*actionEditor)
+	if !ok {
+		t.Fatalf("%s is not a command menu", path)
+	}
+	return c
+}
+
+func TestAPowerButtonsCommandIsPickedFromTheSessionActions(t *testing.T) {
+	k := testKit(t, "")
+	const path = "modules.power.logout-command"
+	c := powerCommand(t, k, path)
+	tr := locale.T()
+	want := []string{tr.Get("settings-command-default"), tr.Get("settings-command-end-session"), tr.Get("settings-command-end-user"), tr.Get("settings-action-custom")}
+	if items := c.drop.Items(); !slices.Equal(items, want) {
+		t.Fatalf("offers %q, want %q", items, want)
+	}
+	if c.drop.Selected() != 0 || c.reveal.Revealed() {
+		t.Fatalf("the default shows as %d, custom %v", c.drop.Selected(), c.reveal.Revealed())
+	}
+	c.drop.OnSelect(1)
+	if v := k.store.value(path); v != "loginctl terminate-session self" {
+		t.Fatalf("stored %v", v)
+	}
+	c.drop.OnSelect(c.customIndex())
+	c.entry.SetText("my-logout")
+	if v := k.store.value(path); v != "my-logout" || !c.reveal.Revealed() {
+		t.Fatalf("custom stored %v, shown %v", v, c.reveal.Revealed())
+	}
+}
+
+func TestAPowerButtonsCommandOffersNoNoneAndNoTryingIt(t *testing.T) {
+	k := testKit(t, "modules:\n  power:\n    shutdown-command: my-poweroff\n")
+	c := powerCommand(t, k, "modules.power.shutdown-command")
+	if slices.Contains(c.drop.Items(), locale.T().Get("settings-action-none")) {
+		t.Fatalf("a session command offers None: %q", c.drop.Items())
+	}
+	if c.run != nil {
+		t.Fatal("a session command offers to run it")
+	}
+	if c.drop.Selected() != c.customIndex() || c.entry.Text() != "my-poweroff" {
+		t.Fatalf("a custom command shows as %d with %q", c.drop.Selected(), c.entry.Text())
+	}
+	if slices.Contains(c.drop.Items(), locale.T().Get("settings-command-reboot")) {
+		t.Fatalf("shut down offers a reboot: %q", c.drop.Items())
+	}
+}

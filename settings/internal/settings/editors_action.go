@@ -12,14 +12,26 @@ import (
 // actionChoice is ActionChoice: a preset command and its label's message.
 type actionChoice struct{ key, command string }
 
-// actionEditor is ActionControl over a click action's command string
-// (ClickAction and WorkspaceClickAction both encode as one): the
-// presets, None, and a custom command whose entry slides in, writes as
-// it is typed and can be run once to try it.
+// commandMenu is what an actionEditor offers beside its presets.
+type commandMenu int
+
+const (
+	// clickMenu offers None, and a custom command that can be run once.
+	clickMenu commandMenu = iota
+	// sessionMenu offers neither: a session command always runs
+	// something, and trying one would lock or end the session.
+	sessionMenu
+)
+
+// actionEditor is ActionControl over a command string (a click action,
+// which ClickAction and WorkspaceClickAction both encode as one, or a
+// session command): the presets, None where the menu has it, and a
+// custom command whose entry slides in and writes as it is typed.
 type actionEditor struct {
 	*widget.Box
 	k       *kit
 	slot    slot
+	menu    commandMenu
 	choices []actionChoice
 	drop    *widget.Dropdown
 	entry   *widget.Entry
@@ -30,13 +42,20 @@ type actionEditor struct {
 }
 
 func newActionEditor(k *kit, s slot, choices []actionChoice) *actionEditor {
-	c := &actionEditor{Box: gapBox(widget.Column), k: k, slot: s, choices: choices}
+	return newCommandMenu(k, s, choices, clickMenu)
+}
+
+func newCommandMenu(k *kit, s slot, choices []actionChoice, menu commandMenu) *actionEditor {
+	c := &actionEditor{Box: gapBox(widget.Column), k: k, slot: s, menu: menu, choices: choices}
 	t := locale.T()
 	labels := make([]string, 0, len(choices)+2)
 	for _, ch := range choices {
 		labels = append(labels, t.Get(ch.key))
 	}
-	labels = append(labels, t.Get("settings-action-none"), t.Get("settings-action-custom"))
+	if menu == clickMenu {
+		labels = append(labels, t.Get("settings-action-none"))
+	}
+	labels = append(labels, t.Get("settings-action-custom"))
 	c.drop = widget.NewDropdown(k.face, k.textPx(), labels, 0)
 	c.drop.OnSelect = c.selected
 	c.entry = k.entry()
@@ -48,8 +67,10 @@ func newActionEditor(k *kit, s slot, choices []actionChoice) *actionEditor {
 	}
 	custom := gapBox(widget.Column)
 	custom.Append(c.entry, false)
-	c.run = newCommandRun(k, s, "settings-command-run-empty")
-	custom.Append(c.run, false)
+	if menu == clickMenu {
+		c.run = newCommandRun(k, s, "settings-command-run-empty")
+		custom.Append(c.run, false)
+	}
 	c.reveal = widget.NewRevealer(custom)
 	c.reveal.SetTransition(widget.RevealSlideDown)
 	c.reveal.SetCollapse(true)
@@ -66,8 +87,19 @@ func (c *actionEditor) command() string {
 	return s
 }
 
-func (c *actionEditor) noneIndex() int   { return len(c.choices) }
-func (c *actionEditor) customIndex() int { return len(c.choices) + 1 }
+func (c *actionEditor) noneIndex() int {
+	if c.menu != clickMenu {
+		return -1
+	}
+	return len(c.choices)
+}
+
+func (c *actionEditor) customIndex() int {
+	if c.menu != clickMenu {
+		return len(c.choices)
+	}
+	return len(c.choices) + 1
+}
 
 func (c *actionEditor) choiceIndex(command string) int {
 	return slices.IndexFunc(c.choices, func(ch actionChoice) bool { return ch.command == command })
@@ -80,7 +112,7 @@ func (c *actionEditor) selected(i int) {
 		return
 	}
 	switch {
-	case i < c.noneIndex():
+	case i < len(c.choices):
 		c.custom = false
 		c.reveal.SetRevealed(false)
 		_ = c.slot.set(c.choices[i].command)
@@ -107,7 +139,7 @@ func (c *actionEditor) refresh() {
 	i := c.choiceIndex(command)
 	switch {
 	case i >= 0:
-	case command == "" && !c.custom:
+	case command == "" && !c.custom && c.menu == clickMenu:
 		i = c.noneIndex()
 	default:
 		i = c.customIndex()
