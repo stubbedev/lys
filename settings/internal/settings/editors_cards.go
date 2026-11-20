@@ -118,6 +118,9 @@ type cardSpec struct {
 	searchable bool
 	search     func(item map[string]any) string
 	filterKey  string
+	// filter, when set, is a search entry outside the list that narrows
+	// its cards in place of its own; its owner applies it.
+	filter *widget.SearchEntry
 	// group, when set, files each card under a heading: the groups in the
 	// order of their rank, each card within its group in list order.
 	group func(item map[string]any) cardGroupKey
@@ -151,7 +154,8 @@ type cardList struct {
 	cards []*card
 	// filter narrows the cards shown to those matching it; nil when the
 	// list is not searchable.
-	filter *widget.SearchEntry
+	filter    *widget.SearchEntry
+	ownFilter bool
 	// draft says why the cards are not written while the target would
 	// refuse them; drafted is the stored value they were drafted over and
 	// checks counts the checks asked, so only the latest answer applies.
@@ -214,7 +218,11 @@ type clashOwner struct{ value, owner string }
 func newCardList(k *kit, s slot, spec cardSpec) *cardList {
 	c := &cardList{Box: gapBox(widget.Column), k: k, slot: s, spec: spec}
 	c.AddClass(append([]string{"card-form-editor"}, spec.classes...)...)
-	if spec.searchable {
+	switch {
+	case spec.filter != nil:
+		c.filter = spec.filter
+	case spec.searchable:
+		c.ownFilter = true
 		c.filter = widget.NewSearchEntry(k.face, k.textPx(), locale.T().Get(cmp.Or(spec.filterKey, "settings-list-filter")))
 		c.filter.SetDelay(0)
 		c.filter.OnSearchChanged = func(string) { c.applyFilter() }
@@ -411,7 +419,9 @@ func (c *cardList) applyFilter() {
 	if c.filter == nil {
 		return
 	}
-	c.filter.SetVisible(len(c.cards) > 0)
+	if c.ownFilter {
+		c.filter.SetVisible(len(c.cards) > 0)
+	}
 	filter := newWordFilter(c.filter.Text())
 	search := itemText
 	if c.spec.search != nil {
@@ -421,6 +431,11 @@ func (c *cardList) applyFilter() {
 		cd.root.SetVisible(filter.matches(search(c.local[i])))
 	}
 	c.showGroups()
+}
+
+// anyShown reports whether a card of the list is shown.
+func (c *cardList) anyShown() bool {
+	return slices.ContainsFunc(c.cards, func(cd *card) bool { return cd.root.Visible() })
 }
 
 // showGroups shows the headings of the groups with a card shown.

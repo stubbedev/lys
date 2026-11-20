@@ -1,6 +1,7 @@
 package settings
 
 import (
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget/css"
 
@@ -19,13 +20,13 @@ const (
 // confirmDialog is lys-ui's alert asking the question messages under key
 // name: key-title over key-description, key-cancel and the destructive
 // key-confirm. It is modal, Esc cancels, Enter does nothing, and only the
-// confirm response runs onConfirm.
-func confirmDialog(k *kit, key string, onConfirm func()) app.DialogConfig {
+// confirm response runs onConfirm. args fill the title and description.
+func confirmDialog(k *kit, key string, onConfirm func(), args ...i18n.Arg) app.DialogConfig {
 	t := locale.T()
-	body := k.label(t.Get(key+"-description"), css.DimLabel)
+	body := k.label(t.Get(key+"-description", args...), css.DimLabel)
 	body.SetWrap(true)
 	return app.DialogConfig{
-		Title:   t.Get(key + "-title"),
+		Title:   t.Get(key+"-title", args...),
 		Width:   confirmDialogWidth,
 		Content: body,
 		Buttons: []app.DialogButton{

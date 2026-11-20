@@ -556,7 +556,7 @@ func TestARecordedAppShortcutPressesWhatTheAppRegistered(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(state, "lys-shell", "portal-shortcuts.json"), []byte(`{"org.example.Recorder":[{"id":"start","description":"Start recording"}]}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.file.Apply([]wmconfig.Edit{{Path: []string{"binds"}, Value: []any{map[string]any{"chord": "SUPER + SHIFT + K", "action": "kill"}}}}); err != nil {
+	if _, err := s.file.Apply([]wmconfig.Edit{{Path: []string{"binds"}, Value: []any{map[string]any{"chord": "SUPER + SHIFT + K", "action": "kill"}}}, {Path: []string{"submaps"}, Value: nil}}); err != nil {
 		t.Fatal(err)
 	}
 	bin := buildApp(t)
@@ -571,7 +571,7 @@ func TestARecordedAppShortcutPressesWhatTheAppRegistered(t *testing.T) {
 			}
 		}
 		time.Sleep(settle / 6)
-		for _, key := range []string{"Tab", "Tab", "Tab", "Tab", "Tab", "space"} {
+		for _, key := range []string{"Tab", "Tab", "Tab", "Tab", "Tab", "Tab", "space"} {
 			press(t, key)
 		}
 		if within(s.inhibiting) {

@@ -47,47 +47,19 @@ func wmObjects(path string, title ...string) rowSpec {
 func newWMObjects(k *kit, s slot, spec wmObjectSpec, check func(items []any) func() error) *cardList {
 	item := append(slices.Clone(spec.schema), wmconfig.Each)
 	var apps map[string]string
-	cards := cardSpec{
+	list := newCardList(k, s, cardSpec{
 		check:      check,
 		title:      func(item map[string]any, number int) string { return wmCardTitle(item, number, spec.title, apps) },
 		fields:     wmItemFields(k.wm, item, nil, spec.labels),
 		blank:      func() map[string]any { return map[string]any{} },
 		searchable: true,
 		collapsed:  true,
-	}
-	var binds *bindNames
-	if f, ok := k.wm.schema.Field(append(item, chordKey)); ok && f.Format == wmChordFormat {
-		action, _ := k.wm.schema.Field(append(item, actionKey))
-		binds = &bindNames{actions: action.Actions}
-		cards.title = binds.bindLabel
-		cards.group = binds.group
-		cards.search = binds.searchText
-		cards.filterKey = "wm-binds-search"
-		cards.aside = func(k *kit) cardAside { return newBindAside(k, binds) }
-		cards.clashKey = chordKey
-		switch spec.schema[0] {
-		case bindsKey:
-			cards.clashOthers = func() []clashOwner { return submapOwners(k.wm, binds) }
-			cards.resetKey = "wm-binds-reset"
-			cards.reset = func(items []map[string]any, i int) (map[string]any, bool) {
-				builtIn, _ := k.wm.defaultOf(bindsKey)
-				defaults, _ := builtIn.([]any)
-				return bindDefault(items, i, defaults)
-			}
-		case submapsKey:
-			cards.clashOthers = func() []clashOwner { return bindOwners(k.wm.value(bindsKey), binds, "") }
-		}
-		cards.keep = func(m map[string]any) bool { chord, _ := m[chordKey].(string); return chord != "" }
-	}
-	list := newCardList(k, s, cards)
-	if binds == nil && !slices.Contains(spec.title, appIDKey) {
+	})
+	if !slices.Contains(spec.title, appIDKey) {
 		return list
 	}
 	dirs := desktopentry.ApplicationDirs()
 	async(k, func() installedApps { return scanInstalled(dirs) }, func(ix installedApps) {
-		if binds != nil {
-			binds.launches = launchNames(ix)
-		}
 		apps = appNames(ix)
 		list.rebuild()
 	})
@@ -237,65 +209,6 @@ func nestedSlot(s slot, keys []string) slot {
 			_ = parent.set(m)
 		},
 	}
-}
-
-// wmSubmaps is the submaps row: a card per named set of binds, its name
-// and its binds, the sets in name order.
-func wmSubmaps() rowSpec {
-	binds := wmObjectSpec{schema: []string{"submaps", wmconfig.Each}, labels: "binds", title: []string{"chord", "action"}}
-	spec := cardSpec{
-		identity: &cardField{key: "name", label: "wm-submaps-name", editor: func(k *kit, s slot) control { return newText(k, s, false) }},
-		fields: []cardField{{key: "binds", label: "wm-binds", fill: true, editor: func(k *kit, s slot) control {
-			return newWMObjects(k, s, binds, nil)
-		}}},
-		blank:  func() map[string]any { return map[string]any{"name": "", "binds": []any{}} },
-		keep:   func(item map[string]any) bool { name, _ := item["name"].(string); return name != "" },
-		unique: "name",
-	}
-	return wmField("submaps", func(r *rowSpec) {
-		r.fullWidth = true
-		r.editor = func(k *kit, s slot, _ config.FieldMeta) control {
-			check := k.wm.checker("submaps")
-			spec := spec
-			spec.check = func(items []any) func() error { return check(namedMap(items)) }
-			return newCardList(k, namedLists(s), spec)
-		}
-	})
-}
-
-// namedLists shows a mapping of name to list as a list of {name, binds}
-// items in name order, and writes such items back as the mapping.
-func namedLists(s slot) slot {
-	return slot{
-		get: func() any {
-			m, _ := s.get().(map[string]any)
-			out := make([]any, 0, len(m))
-			for _, name := range slices.Sorted(maps.Keys(m)) {
-				out = append(out, map[string]any{"name": name, "binds": m[name]})
-			}
-			return out
-		},
-		set: func(v any) error {
-			items, _ := v.([]any)
-			return s.set(namedMap(items))
-		},
-		unset: s.unset,
-	}
-}
-
-// namedMap is {name, binds} items as the mapping of name to binds.
-func namedMap(items []any) map[string]any {
-	out := make(map[string]any, len(items))
-	for _, it := range items {
-		m, _ := it.(map[string]any)
-		name, _ := m["name"].(string)
-		binds := m["binds"]
-		if binds == nil {
-			binds = []any{}
-		}
-		out[name] = binds
-	}
-	return out
 }
 
 func wmListRow(path string) rowSpec {

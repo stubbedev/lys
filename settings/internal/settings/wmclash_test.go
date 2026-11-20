@@ -4,15 +4,14 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/stubbedev/lys/desktop/shell/treetest"
 )
 
 const clashingModes = "binds:\n  - {chord: SUPER + Q, action: kill}\n  - {chord: SUPER + Return, action: exec foot}\nsubmaps:\n  resize:\n    - {chord: super + q, action: kill}\n    - {chord: Escape, action: kill}\n"
 
 func TestABindClashingWithAModeIsMarkedOnBoth(t *testing.T) {
 	k, w, _, _ := wmKit(t, clashingModes)
-	binds := fieldControl(k, w, wmObjects("binds", "chord", "action")).(*cardList)
+	table := fieldControl(k, w, wmShortcutsRow()).(*shortcutTable)
+	binds := table.main
 	if !binds.cards[0].clash.Visible() {
 		t.Fatal("a bind whose chord a mode binds too is not marked")
 	}
@@ -26,11 +25,10 @@ func TestABindClashingWithAModeIsMarkedOnBoth(t *testing.T) {
 		t.Fatal("a bind no mode shares is marked")
 	}
 
-	modes := fieldControl(k, w, wmSubmaps()).(*cardList)
-	inner := treetest.All[*cardList](modes.cards[0].root)
-	if len(inner) != 1 {
-		t.Fatalf("the mode holds %d bind lists", len(inner))
+	if len(table.group) != 1 {
+		t.Fatalf("%d modes in the table", len(table.group))
 	}
+	inner := []*cardList{table.group[0].list}
 	if !inner[0].cards[0].clash.Visible() || inner[0].cards[1].clash.Visible() {
 		t.Fatalf("in the mode, the shared chord marked %v, its own one %v", inner[0].cards[0].clash.Visible(), inner[0].cards[1].clash.Visible())
 	}

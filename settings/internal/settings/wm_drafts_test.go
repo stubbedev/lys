@@ -10,9 +10,9 @@ import (
 
 func TestANewCardIsADraftUntilLysWMTakesIt(t *testing.T) {
 	k, w, fake, files := wmKit(t, "")
-	row := newFieldRow(k, w, wmObjects("binds", "chord", "action"))
+	row := newFieldRow(k, w, wmShortcutsRow())
 	k.onWMChange = row.refresh
-	c := row.ctl.(*cardList)
+	c := row.ctl.(*shortcutTable).main
 	fake.reject = "binds[1].chord: is empty"
 	treetest.WithClass(c, "list-control-add")[0].(*widget.Button).OnClick()
 	if len(c.local) != 2 || !c.draft.Visible() || !strings.Contains(c.draft.Text(), "binds[1].chord: is empty") {
@@ -37,9 +37,9 @@ func TestANewCardIsADraftUntilLysWMTakesIt(t *testing.T) {
 
 func TestResettingARowDropsItsDraft(t *testing.T) {
 	k, w, fake, _ := wmKit(t, "")
-	row := newFieldRow(k, w, wmObjects("binds", "chord", "action"))
+	row := newFieldRow(k, w, wmShortcutsRow())
 	k.onWMChange = row.refresh
-	c := row.ctl.(*cardList)
+	c := row.ctl.(*shortcutTable).main
 	fake.reject = "binds[1].chord: is empty"
 	treetest.WithClass(c, "list-control-add")[0].(*widget.Button).OnClick()
 	if !c.draft.Visible() {

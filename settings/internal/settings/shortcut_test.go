@@ -55,7 +55,7 @@ func TestChordsThatMeanTheSameKeyClashInOnePass(t *testing.T) {
 func bindCards(t *testing.T, declared string) (*cardList, wmFiles) {
 	t.Helper()
 	k, w, _, files := wmKit(t, declared)
-	return fieldControl(k, w, wmObjects("binds", "chord", "action")).(*cardList), files
+	return fieldControl(k, w, wmShortcutsRow()).(*shortcutTable).main, files
 }
 
 func openCard(c *cardList, i int) {

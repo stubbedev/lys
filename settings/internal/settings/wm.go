@@ -203,6 +203,13 @@ func (w *wmBackend) base() map[string]any {
 	return w.builtIn
 }
 
+// baseValue is the key's value under the overrides: the config file's, else
+// the built-in config's.
+func (w *wmBackend) baseValue(path string) any {
+	v, _ := wmconfig.Lookup(w.base(), wmPath(path))
+	return v
+}
+
 func (w *wmBackend) value(path string) any {
 	keys := wmPath(path)
 	tree := wmconfig.Merge(w.base(), w.overrides)
@@ -569,9 +576,8 @@ const wmBindsID = "wm-binds"
 
 func wmBindsPage() pageSpec {
 	return wmPage(wmBindsID, "ld-key-round-symbolic",
-		sectionSpec{title: "wm-section-binds", rows: []rowSpec{wmObjects("binds", "chord", "action")}},
+		sectionSpec{title: "wm-section-binds", rows: []rowSpec{wmShortcutsRow()}},
 		sectionSpec{title: "wm-section-app-shortcuts", rows: []rowSpec{appShortcutsRow(), wmField("client_hotkeys")}},
-		sectionSpec{title: "wm-section-submaps", advanced: true, rows: []rowSpec{wmSubmaps()}},
 	)
 }
 
@@ -589,9 +595,15 @@ func wmSessionPage() pageSpec {
 // over the overrides and the edits still queued, without writing it: the
 // work runs off the loop and says why lys-wm would not.
 func (w *wmBackend) checker(path string) func(v any) func() error {
-	return func(v any) func() error {
-		edit := wmconfig.Edit{Path: wmPath(path), Value: v}
-		edits := append(slices.DeleteFunc(slices.Clone(w.pending), func(e wmconfig.Edit) bool { return slices.Equal(e.Path, edit.Path) }), edit)
-		return func() error { return w.file.Check(edits) }
-	}
+	return func(v any) func() error { return w.checkEdits(wmconfig.Edit{Path: wmPath(path), Value: v}) }
+}
+
+// checkEdits is the work asking lys-wm whether it would take edits, landing
+// together, over the overrides and the edits still queued.
+func (w *wmBackend) checkEdits(edits ...wmconfig.Edit) func() error {
+	queued := slices.DeleteFunc(slices.Clone(w.pending), func(e wmconfig.Edit) bool {
+		return slices.ContainsFunc(edits, func(n wmconfig.Edit) bool { return slices.Equal(e.Path, n.Path) })
+	})
+	all := append(queued, edits...)
+	return func() error { return w.file.Check(all) }
 }

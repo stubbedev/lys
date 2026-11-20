@@ -513,7 +513,7 @@ func TestAChoiceSlotRefusesANameItDoesNotOffer(t *testing.T) {
 func TestBindsAreCardsWithAFilter(t *testing.T) {
 	const declared = "# keep\nbinds:\n  - {chord: SUPER + Q, action: kill}\n  - {chord: SUPER + F, action: fullscreen, flags: [locked]}\ntearing: true\n"
 	k, w, _, files := wmKit(t, declared)
-	c := fieldControl(k, w, wmObjects("binds", "chord", "action")).(*cardList)
+	c := fieldControl(k, w, wmShortcutsRow()).(*shortcutTable).main
 	if len(c.cards) != 2 || c.cards[1].title.Text() != "fullscreen" {
 		t.Fatalf("%d cards, the second titled %q", len(c.cards), c.cards[1].title.Text())
 	}
@@ -612,21 +612,6 @@ func TestAnOffOrObjectKeyInheritsTurnsOffOrTakesItsFields(t *testing.T) {
 	}
 	if sw.choice.Selected() != switchInherit || sw.body.Visible() {
 		t.Fatalf("inherit shows %d, fields shown %v", sw.choice.Selected(), sw.body.Visible())
-	}
-}
-
-func TestSubmapsAreNamedCardsOfBinds(t *testing.T) {
-	k, w, _, files := wmKit(t, "submaps:\n  resize:\n    - {chord: Left, action: resizeactive -20 0}\n  apps:\n    - {chord: F, action: exec firefox}\n")
-	c := fieldControl(k, w, wmSubmaps()).(*cardList)
-	if len(c.local) != 2 || c.local[0]["name"] != "apps" || c.local[1]["name"] != "resize" {
-		t.Fatalf("submaps %v, want apps then resize", c.local)
-	}
-	if err := c.fieldSlot(0, "name").set("launch"); err != nil {
-		t.Fatal(err)
-	}
-	got := fileText(t, files.runtime)
-	if !strings.Contains(got, "launch:") || strings.Contains(got, "apps:") || !strings.Contains(got, "resize:") {
-		t.Fatalf("%q", got)
 	}
 }
 
@@ -982,8 +967,9 @@ func TestAnUnlistedDRMDeviceIsKeptAndMarked(t *testing.T) {
 func TestALongCardTitleShrinksInsteadOfWideningTheList(t *testing.T) {
 	long := "exec lys-shell launcher -show clipboard && wtype -M ctrl v -m ctrl && notify-send \"Pasted selection\" " + strings.Repeat("and more ", 20)
 	k, w, _, _ := wmKit(t, "binds:\n  - {chord: SUPER + V, action: '"+strings.ReplaceAll(long, "'", "''")+"'}\n")
-	c := fieldControl(k, w, wmObjects("binds", "chord", "action")).(*cardList)
-	short := fieldControl(k, w, wmObjects("binds", "chord")).(*cardList)
+	c := fieldControl(k, w, wmShortcutsRow()).(*shortcutTable).main
+	k, w, _, _ = wmKit(t, "binds:\n  - {chord: SUPER + V, action: kill}\n")
+	short := fieldControl(k, w, wmShortcutsRow()).(*shortcutTable).main
 	if got, base := c.Measure(widget.Row, widget.Unknown).Min, short.Measure(widget.Row, widget.Unknown).Min; got > base {
 		t.Fatalf("a long title makes the list at least %dpx wide, a short one %dpx", got, base)
 	}

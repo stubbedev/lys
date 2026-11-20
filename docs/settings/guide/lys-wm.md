@@ -15,7 +15,7 @@ key does.
 | Tiling & Tabs | `wm-tiling` | `autotile`, `tabs` |
 | Keyboard | `wm-keyboard` | `input.keyboard`, `cursor` |
 | Mouse & Touchpad | `wm-pointer` | `input.pointer`, `input.touchpad`, `gestures`, `input.trackpoint` |
-| Keyboard Shortcuts | `wm-binds` | `binds`, app shortcuts, `submaps` |
+| Keyboard Shortcuts | `wm-binds` | `binds` and `submaps` in one table, app shortcuts |
 | Displays | `wm-outputs` | Output layout, `primary_output`, `color_management`, `tearing`, `gpu`, `lid_action` |
 | Rules & Session | `wm-session` | `rules`, `env`, `xwayland`, `palette` |
 
@@ -80,6 +80,19 @@ lys-wm does not know. An app's bind counts as a screenshot or media one by its
 key (Print, the volume, media and brightness keys) or by the program it runs
 (such as `grim`, `wpctl` or `playerctl`). The search field above finds a bind by
 what it does, its group, its action as written or its keys.
+
+Each mode (`submaps`) follows the groups as one of its own, headed by its name
+and the chord that enters it, a recorder writing the bind `submap <name>`; a
+mode no bind enters says so. Its binds are listed under it and edited like any
+other. **Add a mode** asks for a name and the chord that enters it, and writes
+the mode with `Escape` leading back out (`submap reset`) beside the bind
+entering it, in one change lys-wm checks first. A name already taken, or
+`reset` (which leaves every mode), is refused, as is a chord another bind holds.
+Renaming a mode renames every bind entering it, in the binds and in other modes,
+keeping the rest of each bind. Deleting one asks first, then drops it and every
+bind entering it. A mode `config.yaml` or the built-in config defines cannot be
+removed by an override, so a deleted one is written as `name: null`, which
+lys-wm reads as a mode with no binds and the table leaves out.
 
 A bind's action is picked from lys-wm's actions, grouped the same way, and its
 arguments are set by the form lys-wm describes for that action: a direction or
