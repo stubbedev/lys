@@ -36,6 +36,9 @@ type pageSpec struct {
 	// extrasOnRows drops the lead and footer with the last row: they act
 	// on the rows.
 	extrasOnRows bool
+	// unlisted keeps the page out of the sidebar while links and search
+	// still reach it.
+	unlisted bool
 }
 
 // panelSetting is a control a page builds itself rather than from a

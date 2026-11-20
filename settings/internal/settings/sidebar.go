@@ -28,16 +28,22 @@ func newSidebar(k *kit, sections []navSection, active string, content, search wi
 	s.SetHeader(header)
 
 	for _, sec := range sections {
-		items := make([]widget.SidebarItem, len(sec.pages))
-		for i, p := range sec.pages {
+		items := make([]widget.SidebarItem, 0, len(sec.pages))
+		for _, p := range sec.pages {
+			if p.unlisted && p.id != active {
+				continue
+			}
 			id := p.id
-			items[i] = widget.SidebarItem{
+			items = append(items, widget.SidebarItem{
 				Label:      t.Get(p.navKey),
 				ID:         id,
 				Icon:       k.icon(p.icon, "sidebar-item-icon"),
 				Active:     id == active,
 				OnActivate: func() { onNavigate(id) },
-			}
+			})
+		}
+		if len(items) == 0 {
+			continue
 		}
 		s.AddCollapsibleGroup(t.Get(sec.key), true, items...)
 	}

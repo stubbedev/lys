@@ -135,6 +135,7 @@ func barItemSections(cfg *config.Config) []navSection {
 			if !ok {
 				log.Panicf("settings: bar item group %s names no module page %q", g.key, id)
 			}
+			p.unlisted = unlistedOptional(cfg, id)
 			pages = append(pages, p)
 		}
 		out = append(out, navSection{key: g.key, pages: pages})
