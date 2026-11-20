@@ -57,6 +57,7 @@ func TestReadDecodesEveryProperty(t *testing.T) {
 		"Energy":                   dbus.MakeVariant(20.0),
 		"EnergyFull":               dbus.MakeVariant(55.0),
 		"Capacity":                 dbus.MakeVariant(91.0),
+		"ChargeCycles":             dbus.MakeVariant(int32(104)),
 		"WarningLevel":             dbus.MakeVariant(uint32(4)),
 		"ChargeEndThreshold":       dbus.MakeVariant(uint32(80)),
 		"ChargeThresholdSupported": dbus.MakeVariant(true),
@@ -68,7 +69,7 @@ func TestReadDecodesEveryProperty(t *testing.T) {
 	}
 	want := Device{
 		Percentage: 42.5, State: StateCharging, TimeToFull: 30 * time.Minute,
-		IsPresent: true, EnergyRate: 12.3, Energy: 20, EnergyFull: 55, Capacity: 91,
+		IsPresent: true, EnergyRate: 12.3, Energy: 20, EnergyFull: 55, Capacity: 91, ChargeCycles: 104,
 		WarningLevel: WarningCritical, ChargeEndThreshold: 80,
 		ChargeThresholdSupported: true, ChargeThresholdEnabled: true,
 	}
@@ -91,6 +92,18 @@ func TestReadToleratesMissingAndMistypedProperties(t *testing.T) {
 	}
 	if dev != (Device{Percentage: 10}) {
 		t.Errorf("Read = %+v, want only the percentage", dev)
+	}
+}
+
+func TestUnknownChargeCyclesReadAsZero(t *testing.T) {
+	bus := dbustest.Start(t)
+	serveDevice(t, bus, map[string]dbus.Variant{"ChargeCycles": dbus.MakeVariant(int32(-1))})
+	dev, err := NewOn(bus.Conn(t)).Read(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if dev.ChargeCycles != 0 {
+		t.Errorf("UPower's -1 read as %d cycles", dev.ChargeCycles)
 	}
 }
 

@@ -23,6 +23,19 @@ dropdown-battery-limit-to = Beperken tot { $threshold }%
 dropdown-battery-resumes-at = Hervat opladen bij { $threshold }%
 dropdown-battery-charge-limit-not-supported = Laadlimiet wordt op dit apparaat niet ondersteund
 dropdown-battery-charge-limit-failed = Kan de laadlimiet niet wijzigen
+dropdown-battery-health-cycles = Conditie, { $cycles ->
+    [one] { $cycles } cyclus
+   *[other] { $cycles } cycli
+}
+dropdown-battery-hold = Blijft op { $limit }% om de batterij te sparen
+dropdown-battery-hold-until = Blijft op { $limit }% om de batterij te sparen; vol om { $time }
+dropdown-battery-hold-off = Laadt tot 100%: geen laadlimiet ingesteld
+dropdown-battery-full-requested = Laadt tot 100% tot je de stekker eruit haalt
+dropdown-battery-full-unplug = Laadt tot 100% voor wanneer je meestal loskoppelt, vol om { $time }
+dropdown-battery-full-event = Laadt tot 100% voor je afspraak om { $time }
+dropdown-battery-full-travel = Laadt tot 100% weg van je bureau
+dropdown-battery-charge-full = Nu volledig opladen
+dropdown-battery-charge-full-failed = Kan volledig opladen niet starten
 
 dropdown-battery-power-profile = Energieprofiel
 dropdown-battery-profile-saver = Besparing

@@ -23,6 +23,19 @@ dropdown-battery-limit-to = Limitar a { $threshold }%
 dropdown-battery-resumes-at = Retoma o carregamento a { $threshold }%
 dropdown-battery-charge-limit-not-supported = O limite de carga não é suportado neste dispositivo
 dropdown-battery-charge-limit-failed = Não foi possível alterar o limite de carga
+dropdown-battery-health-cycles = Estado, { $cycles ->
+    [one] { $cycles } ciclo
+   *[other] { $cycles } ciclos
+}
+dropdown-battery-hold = Mantida a { $limit }% para proteger a bateria
+dropdown-battery-hold-until = Mantida a { $limit }% para proteger a bateria; cheia às { $time }
+dropdown-battery-hold-off = A carregar até 100%: sem limite de carga
+dropdown-battery-full-requested = A carregar até 100% até desligar o carregador
+dropdown-battery-full-unplug = A carregar até 100% para quando costuma desligar, cheia às { $time }
+dropdown-battery-full-event = A carregar até 100% para o seu evento às { $time }
+dropdown-battery-full-travel = A carregar até 100% longe da secretária
+dropdown-battery-charge-full = Carregar totalmente agora
+dropdown-battery-charge-full-failed = Não foi possível começar a carregar totalmente
 
 dropdown-battery-power-profile = Perfil de energia
 dropdown-battery-profile-saver = Poupança

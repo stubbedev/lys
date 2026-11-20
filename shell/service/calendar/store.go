@@ -358,6 +358,16 @@ func compareOccurrences(a, b Occurrence) int {
 // Next is the first timed occurrence starting at now or later, within a
 // week.
 func (s *Store) Next(now time.Time) (Occurrence, bool) {
+	return s.nextWhere(now, func(Occurrence) bool { return true })
+}
+
+// NextAway is the first timed occurrence with a location starting after
+// now, within a week: one the user leaves the desk for.
+func (s *Store) NextAway(now time.Time) (Occurrence, bool) {
+	return s.nextWhere(now, func(o Occurrence) bool { return o.Location != "" && o.Start.After(now) })
+}
+
+func (s *Store) nextWhere(now time.Time, match func(Occurrence) bool) (Occurrence, bool) {
 	now = now.In(s.loc)
 	until := now.Add(nextHorizon)
 	s.mu.Lock()
@@ -370,7 +380,7 @@ func (s *Store) Next(now time.Time) (Occurrence, bool) {
 		}
 		for d := startDay; d <= len(m.days); d++ {
 			for _, o := range m.days[d-1] {
-				if !o.AllDay && !o.Start.Before(now) && o.Start.Before(until) {
+				if !o.AllDay && !o.Start.Before(now) && o.Start.Before(until) && match(o) {
 					return o, true
 				}
 			}

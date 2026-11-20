@@ -3152,6 +3152,19 @@
       "lib/waittest"
     ]
   },
+  "shell/service/chargestate": {
+    "imports": [
+      "lib/third_party/godbus",
+      "power/charge",
+      "shell/internal/clock",
+      "shell/service/powerprop"
+    ],
+    "testImports": [
+      "desktop/fakeclock",
+      "lib/dbustest",
+      "lib/testhome"
+    ]
+  },
   "shell/service/clipboardipc": {
     "imports": [
       "lib/dbusx",
@@ -3710,6 +3723,7 @@
       "lib/wmipc",
       "lib/xdg",
       "power/autobrightness",
+      "power/charge",
       "power/energy",
       "power/nap",
       "power/pause",
@@ -3731,6 +3745,7 @@
       "shell/service/batteryalert",
       "shell/service/brightness",
       "shell/service/calendar",
+      "shell/service/chargestate",
       "shell/service/clipboardipc",
       "shell/service/dnssd",
       "shell/service/idle",

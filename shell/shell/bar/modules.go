@@ -94,7 +94,9 @@ type ModuleContext struct {
 	// PausedUnits is what lys-power pauses on battery, nil without a
 	// system bus.
 	PausedUnits pausedUnitsSource
-	Nightlight  *nightlightService
+	// Charge is lys-power's charge policy, nil without a system bus.
+	Charge     chargeSource
+	Nightlight *nightlightService
 	// NightlightBus announces the night light on the session bus, nil
 	// without one.
 	NightlightBus *nightlight.Daemon

@@ -29,6 +29,19 @@ dropdown-battery-limit-to = Auf { $threshold } % begrenzen
 dropdown-battery-resumes-at = Laden wird bei { $threshold } % fortgesetzt
 dropdown-battery-charge-limit-not-supported = Ladegrenze wird auf diesem Gerät nicht unterstützt
 dropdown-battery-charge-limit-failed = Ladegrenze konnte nicht geändert werden
+dropdown-battery-health-cycles = Zustand, { $cycles ->
+    [one] { $cycles } Ladezyklus
+   *[other] { $cycles } Ladezyklen
+}
+dropdown-battery-hold = Hält { $limit } %, um den Akku zu schonen
+dropdown-battery-hold-until = Hält { $limit } %, um den Akku zu schonen; voll um { $time }
+dropdown-battery-hold-off = Lädt auf 100 %: keine Ladegrenze gesetzt
+dropdown-battery-full-requested = Lädt auf 100 %, bis du den Stecker ziehst
+dropdown-battery-full-unplug = Lädt auf 100 % für dein übliches Abstecken, voll um { $time }
+dropdown-battery-full-event = Lädt auf 100 % für deinen Termin um { $time }
+dropdown-battery-full-travel = Lädt auf 100 % fern vom Schreibtisch
+dropdown-battery-charge-full = Jetzt voll laden
+dropdown-battery-charge-full-failed = Volles Laden konnte nicht gestartet werden
 
 ## Power Profile
 dropdown-battery-power-profile = Energieprofil

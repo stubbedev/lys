@@ -193,6 +193,21 @@ func TestNextIsTheFirstTimedEventFromNow(t *testing.T) {
 	}
 }
 
+func TestNextAwayIsTheFirstEventWithALocationStillAhead(t *testing.T) {
+	s, _ := newFixtureStore(t, fixture)
+	loc := copenhagen(t)
+	o, ok := s.NextAway(time.Date(2026, 10, 20, 8, 0, 0, 0, loc))
+	if !ok || o.Summary != "Lunch, with Ann" {
+		t.Errorf("next away on Oct 20 = %+v, %v; want lunch at the cafe", o, ok)
+	}
+	if o, ok := s.NextAway(o.Start); ok {
+		t.Errorf("an event that starts now is still ahead: %+v", o)
+	}
+	if o, ok := s.NextAway(time.Date(2026, 11, 3, 8, 0, 0, 0, loc)); ok {
+		t.Errorf("events without a location are away: %+v", o)
+	}
+}
+
 func TestAnAlarmFiresOneNotificationAtItsTrigger(t *testing.T) {
 	dir := writeFixture(t, map[string]string{
 		"call.ics": "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:call\r\nSUMMARY:Call\r\nDTSTART:20260101T100000Z\r\nDTEND:20260101T103000Z\r\n" +

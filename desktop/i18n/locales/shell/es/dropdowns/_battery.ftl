@@ -29,6 +29,19 @@ dropdown-battery-limit-to = Limitar al { $threshold }%
 dropdown-battery-resumes-at = Reanuda la carga al { $threshold }%
 dropdown-battery-charge-limit-not-supported = Este dispositivo no admite el límite de carga
 dropdown-battery-charge-limit-failed = No se pudo cambiar el límite de carga
+dropdown-battery-health-cycles = Salud, { $cycles ->
+    [one] { $cycles } ciclo
+   *[other] { $cycles } ciclos
+}
+dropdown-battery-hold = Se mantiene al { $limit } % para proteger la batería
+dropdown-battery-hold-until = Se mantiene al { $limit } % para proteger la batería; llena a las { $time }
+dropdown-battery-hold-off = Cargando al 100 %: no hay límite de carga
+dropdown-battery-full-requested = Cargando al 100 % hasta que desconectes
+dropdown-battery-full-unplug = Cargando al 100 % para cuando sueles desconectar, llena a las { $time }
+dropdown-battery-full-event = Cargando al 100 % para tu evento a las { $time }
+dropdown-battery-full-travel = Cargando al 100 % lejos de tu escritorio
+dropdown-battery-charge-full = Cargar al máximo ahora
+dropdown-battery-charge-full-failed = No se pudo empezar a cargar al máximo
 
 ## Power Profile
 dropdown-battery-power-profile = Perfil de energía

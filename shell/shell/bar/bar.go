@@ -495,6 +495,7 @@ func (s *shellStart) startServices(system *dbus.Conn) {
 	s.down.add(startAutoBrightness(&s.ctx, s.session, s.idle.keyboardLight()))
 	s.down.add(startAppEnergy(&s.ctx, s.system, s.session))
 	s.down.add(startPausedUnits(&s.ctx, s.system, s.session))
+	s.down.add(startCharge(&s.ctx, s.system))
 	s.down.add(startAppNap(appNapDeps{session: s.session, system: s.system, audio: audio, inhibit: s.inhibitState, config: s.current.Load, reloads: s.napReloads}))
 	sniHost, err := startTrayHost(s.session, sniStore)
 	if err == nil {

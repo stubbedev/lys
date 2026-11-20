@@ -91,7 +91,10 @@ type Device struct {
 	EnergyFull float64
 	// Capacity is the health percentage (full against design); 0 when
 	// unknown.
-	Capacity     float64
+	Capacity float64
+	// ChargeCycles is the battery's charge cycle count; 0 when unknown,
+	// as UPower's -1 and drivers' 0 both mean.
+	ChargeCycles uint32
 	WarningLevel WarningLevel
 	// ChargeEndThreshold is the charge limit percentage.
 	ChargeEndThreshold       uint32
@@ -117,6 +120,7 @@ func deviceFromProps(props map[string]dbus.Variant) Device {
 	var d Device
 	var state, warning uint32
 	var tte, ttf int64
+	var cycles int32
 	read := propReader(props)
 	read("Percentage", &d.Percentage)
 	read("State", &state)
@@ -127,10 +131,12 @@ func deviceFromProps(props map[string]dbus.Variant) Device {
 	read("Energy", &d.Energy)
 	read("EnergyFull", &d.EnergyFull)
 	read("Capacity", &d.Capacity)
+	read("ChargeCycles", &cycles)
 	read("WarningLevel", &warning)
 	read("ChargeEndThreshold", &d.ChargeEndThreshold)
 	read("ChargeThresholdSupported", &d.ChargeThresholdSupported)
 	read("ChargeThresholdEnabled", &d.ChargeThresholdEnabled)
+	d.ChargeCycles = uint32(max(cycles, 0))
 	d.State = StateFromUint32(state)
 	d.WarningLevel = WarningFromUint32(warning)
 	d.TimeToEmpty = time.Duration(tte) * time.Second

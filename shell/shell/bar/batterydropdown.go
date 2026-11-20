@@ -7,12 +7,14 @@ import (
 	"math"
 	"slices"
 	"strconv"
+	"time"
 
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/powerprofiles"
 	"github.com/stubbedev/lys/desktop/service/upower"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/power/charge"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
 
@@ -160,11 +162,17 @@ type batteryView struct {
 	drawValue, drawLabel                    *widget.Label
 	capacityValue, capacityLabel            *widget.Label
 	healthDot                               *widget.Box
-	healthText                              *widget.Label
+	healthText, healthLabel                 *widget.Label
+	health                                  *widget.Box
 	chargeCard                              *widget.Box
 	charge                                  *widget.Item
 	chargeUnsupported                       *widget.Alert
 	chargeSwitch                            *widget.Switch
+	// chargeFull asks lys-power for a full charge.
+	chargeFull *widget.Button
+	// dev is the battery as last read, which lys-power's charge policy
+	// is shown against.
+	dev upower.Device
 	// chargeFailed says why the last charge-limit write failed.
 	chargeFailed *widget.Alert
 	// syncing marks programmatic switch moves.
@@ -300,6 +308,9 @@ func (v *batteryView) batterySection() widget.Widget {
 	v.chargeSwitch = namedSwitch(i18n.T("dropdown-battery-charge-limit"), false)
 	v.chargeSwitch.OnChanged = v.chargeToggled
 	v.charge.AddAction(v.chargeSwitch)
+	fullLabel := widget.NewLabel(v.font, v.px, i18n.T("dropdown-battery-charge-full"), 0)
+	v.chargeFull = dropdownButton(fullLabel, v.requestFull, "battery-charge-full", css.Small)
+	v.charge.AddAction(v.chargeFull)
 	v.chargeCard = widget.NewBox(widget.Column, 0, 0)
 	v.chargeCard.AddClass(css.Card)
 	v.chargeCard.Append(v.charge, false)
@@ -336,17 +347,15 @@ func (v *batteryView) healthDetail() *widget.Box {
 	th := widget.Current()
 	health := widget.NewBox(widget.Row, th.Spacing/2, 0)
 	v.healthDot = statusDot("health-dot")
-	var healthLabel *widget.Label
-	v.healthText, healthLabel = v.detailLabels()
-	healthLabel.SetText(i18n.T("dropdown-battery-health"))
+	v.healthText, v.healthLabel = v.detailLabels()
 	health.AppendAligned(v.healthDot, false, widget.AlignCenter)
 	health.Append(v.healthText, false)
-	box := widget.NewBox(widget.Column, 0, 0)
-	box.AddClass("battery-detail")
-	box.AppendAligned(health, false, widget.AlignEnd)
-	healthLabel.SetAlignment(render.AlignEnd)
-	box.Append(healthLabel, false)
-	return box
+	v.health = widget.NewBox(widget.Column, 0, 0)
+	v.health.AddClass("battery-detail")
+	v.health.AppendAligned(health, false, widget.AlignEnd)
+	v.healthLabel.SetAlignment(render.AlignEnd)
+	v.health.Append(v.healthLabel, false)
+	return v.health
 }
 
 // infoNote is the note a section shows when a feature is missing: lys-ui's alert with the info icon.
@@ -445,9 +454,39 @@ func (v *batteryView) applyDevice(dev upower.Device, ok bool) {
 		v.drawLabel.SetText(i18n.T("dropdown-battery-draw"))
 		v.capacityLabel.SetText(i18n.T("dropdown-battery-capacity"))
 	}
+	v.health.SetVisible(dev.Capacity > 0)
 	v.setVariant(v.healthDot, healthClass(dev.Capacity))
 	v.healthText.SetText(healthValue(dev.Capacity))
+	v.healthLabel.SetText(healthCaption(dev.ChargeCycles))
 
+	v.dev = dev
+	v.applyChargeLimit()
+}
+
+// healthCaption names the health detail, with the cycle count when the
+// battery reports one.
+func healthCaption(cycles uint32) string {
+	if cycles == 0 {
+		return i18n.T("dropdown-battery-health")
+	}
+	return i18n.T("dropdown-battery-health-cycles", i18n.Int("cycles", int64(cycles)))
+}
+
+// applyChargeLimit shows lys-power's charge policy and its charge to
+// full while it manages the battery, else UPower's charge limit switch.
+func (v *batteryView) applyChargeLimit() {
+	if st, ok := v.chargePolicy(); ok {
+		v.chargeCard.SetVisible(true)
+		v.chargeUnsupported.SetVisible(false)
+		v.charge.SetTitle(chargeExplanation(st, v.timeOfDay))
+		v.charge.SetDescription("")
+		v.chargeSwitch.SetVisible(false)
+		v.chargeFull.SetVisible(!st.Reason.Full())
+		return
+	}
+	dev := v.dev
+	v.chargeFull.SetVisible(false)
+	v.chargeSwitch.SetVisible(true)
 	v.chargeCard.SetVisible(dev.ChargeThresholdSupported)
 	v.chargeUnsupported.SetVisible(!dev.ChargeThresholdSupported)
 	v.charge.SetTitle(i18n.T("dropdown-battery-limit-to",
@@ -455,6 +494,38 @@ func (v *batteryView) applyDevice(dev upower.Device, ok bool) {
 	v.charge.SetDescription(i18n.T("dropdown-battery-resumes-at",
 		i18n.Str("threshold", strconv.FormatUint(uint64(resumeThreshold(dev.ChargeEndThreshold)), 10))))
 	v.syncChargeSwitch(dev.ChargeThresholdEnabled)
+}
+
+// chargePolicy is lys-power's charge policy, false while lys-power is
+// not running or manages no battery.
+func (v *batteryView) chargePolicy() (charge.State, bool) {
+	if v.ctx.Charge == nil {
+		return charge.State{}, false
+	}
+	st, running := v.ctx.Charge.Value()
+	return st, running && st.Reason != charge.ReasonUnmanaged
+}
+
+// timeOfDay renders t in the shell's clock format and zone.
+func (v *batteryView) timeOfDay(t time.Time) string {
+	if v.ctx.Clock != nil {
+		t = t.In(v.ctx.Clock.Now().Location())
+	}
+	return clockText(t, calendarIs12h(v.ctx.Config.Clock.Format.String()), shellClockNames())
+}
+
+// requestFull asks lys-power for a full charge off the loop, the button
+// insensitive meanwhile; a failure says why under the card.
+func (v *batteryView) requestFull() {
+	src := v.ctx.Charge
+	if src == nil {
+		return
+	}
+	v.chargeFull.SetEnabled(false)
+	serviceWrite(v.ctx, src.ChargeFull, func(err error) {
+		v.chargeFull.SetEnabled(true)
+		reportWrite(v.chargeFailed, "battery", i18n.T("dropdown-battery-charge-full-failed"), err)
+	})
 }
 
 func (v *batteryView) syncChargeSwitch(on bool) {
@@ -587,6 +658,9 @@ func (v *batteryView) follow(life context.Context) {
 	}
 	if src := v.ctx.PowerProfiles; src != nil {
 		followInto(life, "power profiles", src.Subscribe, v.profiles)
+	}
+	if src := v.ctx.Charge; src != nil {
+		followTicks(life, src.Subscribe, func() { v.ctx.Invoke(v.applyChargeLimit) })
 	}
 	v.energy.follow(life)
 	v.paused.follow(life)
