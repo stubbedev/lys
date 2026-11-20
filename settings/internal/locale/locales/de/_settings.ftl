@@ -621,6 +621,14 @@ settings-privacy-table-screencast = Bildschirmfreigabe ohne Nachfrage
 settings-privacy-table-screenshot = Bildschirmfotos
 settings-privacy-table-usb = USB-Gerät
 settings-privacy-table-wallpaper = Hintergrundbild
+settings-privacy-resource-camera = Kamera
+settings-privacy-resource-microphone = Mikrofon
+settings-privacy-resource-speakers = Lautsprecher
+settings-privacy-resource-apps = { $count ->
+    [0] Keine App
+    [one] Eine App
+   *[other] { $count } Apps
+}
 settings-nav-idle = Leerlauf & Energie
 settings-page-idle = Leerlauf & Energie
 settings-section-idle-dim = Abdunkeln

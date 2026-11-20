@@ -611,6 +611,14 @@ settings-privacy-table-screencast = Scherm delen zonder te vragen
 settings-privacy-table-screenshot = Schermafdrukken
 settings-privacy-table-usb = USB-apparaat
 settings-privacy-table-wallpaper = Achtergrond
+settings-privacy-resource-camera = Camera
+settings-privacy-resource-microphone = Microfoon
+settings-privacy-resource-speakers = Luidsprekers
+settings-privacy-resource-apps = { $count ->
+    [0] Geen app
+    [one] Eén app
+   *[other] { $count } apps
+}
 settings-nav-idle = Inactiviteit en energie
 settings-page-idle = Inactiviteit en energie
 settings-section-idle-dim = Dimmen

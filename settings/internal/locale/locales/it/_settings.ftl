@@ -621,6 +621,14 @@ settings-privacy-table-screencast = Condivisione dello schermo senza chiedere
 settings-privacy-table-screenshot = Schermate
 settings-privacy-table-usb = Dispositivo USB
 settings-privacy-table-wallpaper = Sfondo
+settings-privacy-resource-camera = Fotocamera
+settings-privacy-resource-microphone = Microfono
+settings-privacy-resource-speakers = Altoparlanti
+settings-privacy-resource-apps = { $count ->
+    [0] Nessuna app
+    [one] Un'app
+   *[other] { $count } app
+}
 settings-nav-idle = Inattività e alimentazione
 settings-page-idle = Inattività e alimentazione
 settings-section-idle-dim = Attenuazione

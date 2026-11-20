@@ -116,6 +116,12 @@ func twoApps() []permissions.App {
 	}
 }
 
+func grantsByAppFooter(k *kit) *grantsList {
+	l := grantsFooter(k).(*grantsList)
+	l.view.SetSelected(grantsByApp)
+	return l
+}
+
 func revokeButtons(root widget.Widget) []*widget.Button {
 	var out []*widget.Button
 	for _, b := range treetest.All[*widget.Button](root) {
@@ -141,7 +147,7 @@ func TestPrivacyPageListsAndRevokesGrants(t *testing.T) {
 	}
 	f := &fakeGrants{apps: twoApps()}
 	serveGrants(t, f)
-	footer := grantsFooter(k)
+	footer := grantsByAppFooter(k)
 	labels := strings.Join(treetest.Labels(footer), "\n")
 	for _, want := range []string{"com.obsproject.Studio", "org.app", locale.T().Get("settings-privacy-table-devices") + " · camera", "Toggle recording"} {
 		if !strings.Contains(labels, want) {
@@ -162,7 +168,7 @@ func TestPrivacyPageListsAndRevokesGrants(t *testing.T) {
 	if len(revokeButtons(footer)) != 2 {
 		t.Error("the revoked grant kept its button")
 	}
-	footer.(*grantsList).close()
+	footer.close()
 	if f.opened != 1 || f.closed != 1 || len(f.watches) != 1 || f.watching() != 0 {
 		t.Errorf("opened the grants %d times, closed them %d, %d of %d watches left; want one connection and one watch for the page's life", f.opened, f.closed, f.watching(), len(f.watches))
 	}
@@ -174,7 +180,7 @@ func TestPrivacyPageFailuresAreShown(t *testing.T) {
 	k := testKit(t, "")
 	f := &fakeGrants{apps: twoApps(), failRevoke: errors.New("the store went away")}
 	serveGrants(t, f)
-	footer := grantsFooter(k)
+	footer := grantsByAppFooter(k)
 	revokeButtons(footer)[0].ClickAt(widget.Point{})
 	labels := strings.Join(treetest.Labels(footer), "\n")
 	if !strings.Contains(labels, locale.T().Get("settings-privacy-revoke-failed")+": the store went away") || !strings.Contains(labels, "com.obsproject.Studio") {
@@ -219,7 +225,7 @@ func TestBackgroundAndNotificationsAreSwitchesAndTheStoreIsFollowed(t *testing.T
 	k := testKit(t, "")
 	f := &fakeGrants{apps: appsWithSwitches()}
 	serveGrants(t, f)
-	footer := grantsFooter(k).(*grantsList)
+	footer := grantsByAppFooter(k)
 	switches := treetest.All[*widget.Switch](footer)
 	if len(switches) != 3 || !switches[0].On() || switches[1].On() {
 		t.Fatalf("%d switches, the first on %v, the second on %v", len(switches), switches[0].On(), switches[1].On())
@@ -248,16 +254,77 @@ func TestBackgroundAndNotificationsAreSwitchesAndTheStoreIsFollowed(t *testing.T
 	}
 }
 
-func TestTheGrantsReadByPermission(t *testing.T) {
+func resourceHeader(t *testing.T, root widget.Widget, key string) *widget.Item {
+	t.Helper()
+	for _, it := range treetest.All[*widget.Item](root) {
+		if slices.Contains(treetest.Labels(it), locale.T().Get(key)) {
+			return it
+		}
+	}
+	t.Fatalf("no row for %s", key)
+	return nil
+}
+
+func TestTheGrantsReadByResourceWithHowManyAppsHoldEach(t *testing.T) {
 	k := testKit(t, "")
-	serveGrants(t, &fakeGrants{apps: appsWithSwitches()})
+	apps := append(appsWithSwitches(), permissions.App{ID: "org.cam", Grants: []permissions.Grant{
+		{Table: permissions.Devices, ID: "camera", Value: "yes"},
+		{Table: permissions.Devices, ID: "projector", Value: "no"},
+	}})
+	serveGrants(t, &fakeGrants{apps: apps})
 	footer := grantsFooter(k).(*grantsList)
-	footer.view.SetSelected(grantsByTable)
+	tr := locale.T()
+	count := func(n int64) string { return tr.Get("settings-privacy-resource-apps", i18n.Int("count", n)) }
+	for key, want := range map[string]string{
+		"settings-privacy-resource-camera":     count(1),
+		"settings-privacy-resource-microphone": count(0),
+		"settings-privacy-table-location":      count(0),
+		"settings-privacy-table-background":    count(2),
+		"settings-privacy-table-devices":       count(1),
+	} {
+		if labels := treetest.Labels(resourceHeader(t, footer, key)); !slices.Contains(labels, want) {
+			t.Errorf("%s reads %q, want %q", key, labels, want)
+		}
+	}
 	labels := treetest.Labels(footer)
-	bg := locale.T().Get("settings-privacy-table-background")
-	at := slices.Index(labels, bg)
-	if at < 0 || !slices.Contains(labels[at:], "org.app · background") || !slices.Contains(labels[at:], "org.other · background") {
-		t.Fatalf("by permission:\n%s", strings.Join(labels, "\n"))
+	if slices.Contains(labels, tr.Get("settings-privacy-table-wallpaper")) || slices.Contains(labels, "org.other") {
+		t.Fatalf("collapsed, a resource no app holds is listed or an app shows:\n%s", strings.Join(labels, "\n"))
+	}
+	resourceHeader(t, footer, "settings-privacy-table-background").ClickAt(widget.Point{})
+	labels = treetest.Labels(footer)
+	at := slices.Index(labels, tr.Get("settings-privacy-table-background"))
+	if at < 0 || !slices.Contains(labels[at:], "org.app") || !slices.Contains(labels[at:], "org.other") || slices.Contains(labels, "org.cam") {
+		t.Fatalf("background open:\n%s", strings.Join(labels, "\n"))
+	}
+	if n := len(treetest.All[*widget.Switch](footer)); n != 2 {
+		t.Fatalf("%d switches under background, want one per app", n)
+	}
+	resourceHeader(t, footer, "settings-privacy-table-background").ClickAt(widget.Point{})
+	if labels := treetest.Labels(footer); slices.Contains(labels, "org.other") {
+		t.Fatalf("closed again, background still lists its apps:\n%s", strings.Join(labels, "\n"))
+	}
+	resourceHeader(t, footer, "settings-privacy-resource-microphone").ClickAt(widget.Point{})
+	if n := len(treetest.All[*widget.Switch](footer)) + len(revokeButtons(footer)); n != 0 {
+		t.Fatalf("a resource no app holds opened %d controls", n)
+	}
+}
+
+func TestEveryGrantBelongsToAResource(t *testing.T) {
+	for _, table := range permissions.Tables {
+		for _, id := range []string{"camera", "microphone", "speakers", "token", ""} {
+			if _, ok := resourceOf(permissions.Grant{Table: table, ID: id}); !ok {
+				t.Errorf("a %s grant of %q belongs to no resource", table, id)
+			}
+		}
+	}
+	if r, _ := resourceOf(permissions.Grant{Table: permissions.Devices, ID: "camera"}); r != cameraResource {
+		t.Errorf("a camera grant belongs to %s", r.key)
+	}
+	if r, _ := resourceOf(permissions.Grant{Table: permissions.Devices, ID: "projector"}); r.key != "settings-privacy-table-devices" {
+		t.Errorf("an unknown device belongs to %s, want the devices table", r.key)
+	}
+	if _, ok := resourceOf(permissions.Grant{Table: "no-such-table"}); ok {
+		t.Error("a table the store does not have belongs to a resource")
 	}
 }
 
@@ -269,6 +336,7 @@ func TestTabReachesEveryGrantSwitch(t *testing.T) {
 	w.stack.SetTransition(widget.StackNone, 0)
 	apptheme.New(cfg).Attach(w.root)
 	w.show(settingspage.PrivacyID)
+	treetest.First[*grantsList](t, w.page).view.SetSelected(grantsByApp)
 	w.root.Arrange(render.Rect{W: 1400, H: 6000})
 	router := &widget.Router{Root: w.root}
 	if err := router.SetFocus(w.search); err != nil {

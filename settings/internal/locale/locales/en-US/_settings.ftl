@@ -621,6 +621,14 @@ settings-privacy-table-screencast = Screen sharing without asking
 settings-privacy-table-screenshot = Screenshots
 settings-privacy-table-usb = USB device
 settings-privacy-table-wallpaper = Wallpaper
+settings-privacy-resource-camera = Camera
+settings-privacy-resource-microphone = Microphone
+settings-privacy-resource-speakers = Speakers
+settings-privacy-resource-apps = { $count ->
+    [0] No app
+    [one] One app
+   *[other] { $count } apps
+}
 settings-nav-idle = Idle & Power
 settings-page-idle = Idle & Power
 settings-section-idle-dim = Dim

@@ -70,12 +70,12 @@ type grantStore interface {
 const grantsTimeout = 5 * time.Second
 
 var (
-	switchedTables = []permissions.Table{permissions.Background, permissions.Notifications}
-	readOnlyTables = []permissions.Table{permissions.GameMode, permissions.Realtime}
-	permissionYes  = []string{"yes"}
-	permissionNo   = []string{"no"}
-	grantsByApp    = 0
-	grantsByTable  = 1
+	switchedTables   = []permissions.Table{permissions.Background, permissions.Notifications}
+	readOnlyTables   = []permissions.Table{permissions.GameMode, permissions.Realtime}
+	permissionYes    = []string{"yes"}
+	permissionNo     = []string{"no"}
+	grantsByResource = 0
+	grantsByApp      = 1
 )
 
 var openGrants = func() (grantStore, func(), error) {
@@ -107,6 +107,7 @@ type grantsList struct {
 	view      *widget.Dropdown
 	apps      []permissions.App
 	installed installedApps
+	opened    map[privacyResource]bool
 	failure   string
 	problem   string
 }
@@ -123,8 +124,8 @@ var privacyLinks = []pageLink{
 
 func grantsFooter(k *kit) widget.Widget {
 	t := locale.T()
-	l := &grantsList{Box: sectionStack(), k: k, rows: widget.NewBox(widget.Column, 0, 0)}
-	l.view = widget.NewDropdown(k.face, k.textPx(), []string{t.Get("settings-privacy-by-app"), t.Get("settings-privacy-by-permission")}, grantsByApp)
+	l := &grantsList{Box: sectionStack(), k: k, rows: widget.NewBox(widget.Column, 0, 0), opened: map[privacyResource]bool{}}
+	l.view = widget.NewDropdown(k.face, k.textPx(), []string{t.Get("settings-privacy-by-permission"), t.Get("settings-privacy-by-app")}, grantsByResource)
 	l.view.SetAccessibleName(t.Get("settings-privacy-view"))
 	l.view.OnSelect = func(int) { l.render() }
 	body := widget.NewBox(widget.Column, 0, 0)
@@ -205,24 +206,8 @@ func (l *grantsList) render() {
 		group.Append(l.k.emptyRow("ld-shield-check-symbolic", t.Get("settings-privacy-none")))
 		return
 	}
-	if l.view.Selected() == grantsByTable {
-		for _, table := range permissions.Tables {
-			first := true
-			for _, app := range l.apps {
-				for _, g := range app.Grants {
-					if g.Table != table {
-						continue
-					}
-					if first {
-						header := widget.NewItem(l.k.face, t.Get("settings-privacy-table-"+string(table)), "")
-						header.AddClass("settings-privacy-app")
-						group.Append(header)
-						first = false
-					}
-					group.Append(l.grantRow(app.ID, g, l.appTitle(app.ID)+" · "+g.ID))
-				}
-			}
-		}
+	if l.view.Selected() == grantsByResource {
+		l.renderByResource(group)
 		return
 	}
 	for _, app := range l.apps {
@@ -257,15 +242,53 @@ func (l *grantsList) appHeader(id string) *widget.Item {
 	}
 	header := widget.NewItem(l.k.face, title, detail)
 	header.AddClass("settings-privacy-app")
-	icon := appFallbackIcon
-	if a, ok := l.installed.byID[id]; ok && a.Icon() != "" {
-		icon = a.Icon()
-	}
-	header.SetMedia(widget.NewThemeIcon(icon, appIconPx), true)
+	header.SetMedia(widget.NewThemeIcon(l.appIcon(id), appIconPx), true)
 	return header
 }
 
-func (l *grantsList) grantRow(app string, g permissions.Grant, title string) widget.Widget {
+func (l *grantsList) appIcon(id string) string {
+	if a, ok := l.installed.byID[id]; ok && a.Icon() != "" {
+		return a.Icon()
+	}
+	return appFallbackIcon
+}
+
+func (l *grantsList) renderByResource(group *widget.ItemGroup) {
+	t := locale.T()
+	for _, r := range privacyResources {
+		held := resourceGrants(l.apps, r)
+		if len(held) == 0 && !r.core {
+			continue
+		}
+		header := widget.NewItem(l.k.face, t.Get(r.key), t.Get("settings-privacy-resource-apps", i18n.Int("count", countApps(held))))
+		header.AddClass("settings-privacy-app")
+		header.SetMedia(l.k.icon(r.icon), false)
+		group.Append(header)
+		if len(held) == 0 {
+			continue
+		}
+		open := l.opened[r]
+		chevron := "ld-chevron-right-symbolic"
+		if open {
+			chevron = "ld-chevron-down-symbolic"
+		}
+		header.AddAction(l.k.icon(chevron))
+		header.SetOnActivate(func() {
+			l.opened[r] = !open
+			l.render()
+		})
+		if !open {
+			continue
+		}
+		for _, h := range held {
+			row := l.grantRow(h.app, h.grant, l.appTitle(h.app))
+			row.SetMedia(widget.NewThemeIcon(l.appIcon(h.app), appIconPx), true)
+			group.Append(row)
+		}
+	}
+}
+
+func (l *grantsList) grantRow(app string, g permissions.Grant, title string) *widget.Item {
 	t := locale.T()
 	row := widget.NewItem(l.k.face, title, grantWords(g))
 	row.AddClass(css.Small, "settings-privacy-grant")
