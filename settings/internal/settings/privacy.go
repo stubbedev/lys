@@ -35,11 +35,14 @@ func privacyPage(*config.Config) pageSpec {
 		sections: []sectionSpec{
 			{title: "settings-section-screen-share", rows: []rowSpec{field("portal.screen-cast.reminder-days", durationChips(inDays, after(7*day), after(30*day), after(90*day), zeroAs(never)))}},
 			{title: "settings-section-share-picker", rows: []rowSpec{
-				field("share-picker.default-page"), field("share-picker.hide-token-restore"),
+				field("share-picker.default-page", pictureChoice(sharePickerPagePictures)),
+				field("share-picker.hide-token-restore", invertedSwitch("settings-share-picker-offer-restore")),
+			}},
+			{title: "settings-section-share-picker-layout", advanced: true, rows: []rowSpec{
 				field("share-picker.width", sizeBase(config.SharePickerWidthBaseRem)),
 				field("share-picker.height", sizeBase(config.SharePickerHeightBaseRem)),
-				field("share-picker.resize-size"),
 				field("share-picker.widget-size", sizeBase(config.SharePickerWidgetBaseRem)),
+				field("share-picker.resize-size", countChips(inVideoLines, 360, 480, 720, 1080)),
 			}},
 			{title: "settings-section-share-picker-windows", advanced: true, rows: []rowSpec{
 				field("share-picker.windows-spacing", sizeBase(config.SharePickerWindowsSpacingBaseRem)),

@@ -314,6 +314,39 @@ func alignedBars(cv *render.Canvas, r render.Rect, align config.OsdTextAlign) {
 	}
 }
 
+func windowGrid(cv *render.Canvas, r render.Rect) {
+	th := widget.Current()
+	gap := max(2, r.H/10)
+	w, h := (r.W-gap)/2, (r.H-gap)/2
+	for i := range 4 {
+		miniWindow(cv, render.Rect{X: r.X + (i%2)*(w+gap), Y: r.Y + (i/2)*(h+gap), W: w, H: h}, th.CardColor(), th.Border)
+	}
+}
+
+func twoScreens(cv *render.Canvas, r render.Rect) {
+	gap := max(2, r.W/12)
+	w := (r.W - gap) / 2
+	h := w * 2 / 3
+	y := r.Y + (r.H-h)/2
+	for i := range 2 {
+		screenFrame(cv, render.Rect{X: r.X + i*(w+gap), Y: y, W: w, H: h}, func(s render.Rect) { photo(cv, s) })
+	}
+}
+
+func screenRegion(cv *render.Canvas, r render.Rect) {
+	screenFrame(cv, r, func(s render.Rect) {
+		photo(cv, s)
+		region := render.Rect{X: s.X + s.W/4, Y: s.Y + s.H/4, W: s.W / 2, H: s.H / 2}
+		cv.RoundedBorder(region, render.UniformCorners(tileRadius/4), render.UniformInsets(max(1, r.H/40)), widget.Current().Accent)
+	})
+}
+
+var sharePickerPagePictures = map[string]picture{
+	string(config.SharePickerWindows): drawn(windowGrid),
+	string(config.SharePickerOutputs): drawn(twoScreens),
+	string(config.SharePickerRegion):  drawn(screenRegion),
+}
+
 var textAlignPictures = map[string]picture{
 	string(config.OsdTextAlignStart):  drawn(func(cv *render.Canvas, r render.Rect) { alignedBars(cv, r, config.OsdTextAlignStart) }),
 	string(config.OsdTextAlignCenter): drawn(func(cv *render.Canvas, r render.Rect) { alignedBars(cv, r, config.OsdTextAlignCenter) }),

@@ -123,11 +123,15 @@ const (
 	inPixels countUnit = iota
 	inEntries
 	inFrames
+	inVideoLines
 )
 
 func (u countUnit) words(n int64) string {
-	if u == inFrames {
+	switch u {
+	case inFrames:
 		return locale.T().Get("settings-framerate", i18n.Int("n", n))
+	case inVideoLines:
+		return locale.T().Get("settings-video-height", i18n.Int("n", n))
 	}
 	return compactCount(locale.T(), n)
 }
@@ -147,7 +151,7 @@ func compactCount(tr *i18n.Loader, n int64) string {
 
 func (u countUnit) custom() customUnit {
 	switch u {
-	case inPixels:
+	case inPixels, inVideoLines:
 		return customUnit{per: 1, name: "settings-unit-pixels", least: 1}
 	case inEntries:
 		return customUnit{per: 1, name: "settings-unit-entries", least: 1}

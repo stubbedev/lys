@@ -110,6 +110,24 @@ func (c *toggle) refresh() {
 	c.syncing = false
 }
 
+// negated is s seen through a not: on while the bool it holds is false.
+func negated(s slot) slot {
+	return slot{
+		get:   func() any { on, _ := s.get().(bool); return !on },
+		set:   func(v any) error { on, _ := v.(bool); return s.set(!on) },
+		unset: s.unset,
+	}
+}
+
+// invertedSwitch is a switch labelled by key that is on while the bool
+// is off, for a field named for what it takes away.
+func invertedSwitch(key string) rowOpt {
+	return func(r *rowSpec) {
+		r.key = key
+		r.editor = func(k *kit, s slot, _ config.FieldMeta) control { return newToggle(k, negated(s)) }
+	}
+}
+
 // enumSelect is EnumSelectControl: a dropdown of the variants'
 // labels, falling back to the raw value where a label is missing.
 type enumSelect struct {
