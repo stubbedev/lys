@@ -3469,7 +3469,7 @@
         },
         "suspend-action": {
           "$ref": "#/$defs/SleepAction",
-          "default": "suspend",
+          "default": "auto",
           "description": "How the suspend stage sleeps, through logind. lys-wm's `lid_action`\ntakes the same values."
         }
       },
@@ -9115,6 +9115,11 @@
       "description": "A sleep logind offers, named as its HandleLidSwitch and IdleAction name it.",
       "oneOf": [
         {
+          "const": "auto",
+          "description": "Suspend, then hibernate where logind allows it without asking, else suspend.",
+          "type": "string"
+        },
+        {
           "const": "suspend",
           "description": "Suspend to RAM.",
           "type": "string"
@@ -11509,7 +11514,7 @@
           "ac": "never",
           "battery": "15m"
         },
-        "suspend-action": "suspend"
+        "suspend-action": "auto"
       },
       "description": "Built-in idle policy: dim, lock, screens off and suspend."
     },

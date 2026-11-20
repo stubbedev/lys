@@ -677,6 +677,7 @@ enum-wm-follows-mouse-loose = When the pointer enters another window
 enum-wm-follows-mouse-off = Click to focus
 enum-wm-layout-scroll = Scrolling columns
 enum-wm-layout-tree = Tiling tree
+enum-wm-lid-action-auto = Suspend, then hibernate if possible
 enum-wm-lid-action-hibernate = Hibernate
 enum-wm-lid-action-hybrid-sleep = Hybrid sleep
 enum-wm-lid-action-ignore = Do nothing

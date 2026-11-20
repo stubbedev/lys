@@ -72,7 +72,7 @@ func DefaultsIdle() IdleConfig {
 		Lock:              IdleTimeouts{AC: mustIdleTimeout("5m"), Battery: mustIdleTimeout("3m")},
 		ScreenOff:         IdleTimeouts{AC: mustIdleTimeout("10m"), Battery: mustIdleTimeout("5m")},
 		Suspend:           IdleTimeouts{AC: mustIdleTimeout("never"), Battery: mustIdleTimeout("15m")},
-		SuspendAction:     SleepActionSuspend,
+		SuspendAction:     SleepActionAuto,
 		LockBeforeSleep:   true,
 	}
 }
@@ -102,6 +102,8 @@ type SleepAction string
 
 // SleepAction values.
 const (
+	// Suspend, then hibernate where logind allows it without asking, else suspend.
+	SleepActionAuto SleepAction = "auto"
 	// Suspend to RAM.
 	SleepActionSuspend SleepAction = "suspend"
 	// Hibernate to disk.
@@ -112,11 +114,13 @@ const (
 	SleepActionSuspendThenHibernate SleepAction = "suspend-then-hibernate"
 )
 
-var _ = registerEnum(SleepActionSuspend, SleepActionHibernate, SleepActionHybridSleep, SleepActionSuspendThenHibernate)
+var _ = registerEnum(SleepActionAuto, SleepActionSuspend, SleepActionHibernate, SleepActionHybridSleep, SleepActionSuspendThenHibernate)
 
 // PowerAction is the logind sleep the action names.
 func (a SleepAction) PowerAction() logind.PowerAction {
 	switch a {
+	case SleepActionAuto:
+		return logind.AutoSleep
 	case SleepActionSuspend:
 		return logind.Suspend
 	case SleepActionHibernate:

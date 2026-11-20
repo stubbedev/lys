@@ -17,6 +17,7 @@ settings-idle-timeouts-battery = Na bateria
     .description = Tempo de inatividade como uma duração, como 90s, 5m ou 1h30m, ou never
 
 ## SleepAction variants
+enum-sleep-action-auto = Suspender e depois hibernar, se possível
 enum-sleep-action-suspend = Suspender
 enum-sleep-action-hibernate = Hibernar
 enum-sleep-action-hybrid-sleep = Suspensão híbrida

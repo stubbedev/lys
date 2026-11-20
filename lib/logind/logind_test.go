@@ -379,8 +379,9 @@ func TestPowerActionNames(t *testing.T) {
 		logind.SuspendThenHibernate: "suspend-then-hibernate",
 		logind.Reboot:               "reboot",
 		logind.PowerOff:             "poweroff",
+		logind.AutoSleep:            "auto",
 		0:                           "PowerAction(0)",
-		7:                           "PowerAction(7)",
+		8:                           "PowerAction(8)",
 	} {
 		if got := a.String(); got != want {
 			t.Errorf("%d.String() = %q, want %q", a, got, want)
@@ -422,13 +423,74 @@ func TestEverySleepActionCallsItsLogindMethod(t *testing.T) {
 
 func TestSleepActionsAreTheSleepingPowerActions(t *testing.T) {
 	t.Parallel()
-	want := []logind.PowerAction{logind.Suspend, logind.Hibernate, logind.HybridSleep, logind.SuspendThenHibernate}
+	want := []logind.PowerAction{logind.AutoSleep, logind.Suspend, logind.Hibernate, logind.HybridSleep, logind.SuspendThenHibernate}
 	if got := logind.SleepActions(); !slices.Equal(got, want) {
 		t.Errorf("SleepActions() = %v, want %v", got, want)
 	}
 	for _, a := range []logind.PowerAction{logind.Reboot, logind.PowerOff} {
 		if slices.Contains(logind.SleepActions(), a) {
 			t.Errorf("SleepActions() holds %s", a)
+		}
+	}
+}
+
+func TestAutoSleepHibernatesOnlyWhereLogindAllowsItWithoutAsking(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		can   string
+		want  logind.PowerAction
+		event logindtest.Event
+	}{
+		{"yes", logind.SuspendThenHibernate, logindtest.EventSuspendThenHibernate},
+		{"na", logind.Suspend, logindtest.EventSuspend},
+		{"no", logind.Suspend, logindtest.EventSuspend},
+		{"challenge", logind.Suspend, logindtest.EventSuspend},
+	} {
+		t.Run(tc.can, func(t *testing.T) {
+			t.Parallel()
+			fake, m := manager(t, logindtest.Config{Display: display, Can: map[string]string{"CanSuspendThenHibernate": tc.can, "CanSuspend": "challenge"}})
+			if got, err := m.Resolve(t.Context(), logind.AutoSleep); err != nil || got != tc.want {
+				t.Fatalf("Resolve(auto) = %s, %v; want %s", got, err, tc.want)
+			}
+			wantCan := logind.NeedsAuthentication
+			if tc.want == logind.SuspendThenHibernate {
+				wantCan = logind.Available
+			}
+			if got, err := m.CanPower(t.Context(), logind.AutoSleep); err != nil || got != wantCan {
+				t.Errorf("CanPower(auto) = %d, %v; want %d, the answer for %s", got, err, wantCan, tc.want)
+			}
+			if err := m.Power(t.Context(), logind.AutoSleep); err != nil {
+				t.Fatalf("Power(auto): %v", err)
+			}
+			if got := fake.Events.Load(); !slices.Equal(got, []logindtest.Event{tc.event}) {
+				t.Errorf("events %v, want %s", got, tc.event)
+			}
+		})
+	}
+}
+
+func TestAutoSleepFailsWithoutLogindsAnswerInsteadOfGuessing(t *testing.T) {
+	t.Parallel()
+	fake, m := manager(t, logindtest.Config{Display: display})
+	fake.Refuse("Manager.CanSuspendThenHibernate", dbus.NewError("org.freedesktop.DBus.Error.AccessDenied", []any{"no"}))
+	if err := m.Power(t.Context(), logind.AutoSleep); err == nil || !strings.Contains(err.Error(), "choose the sleep for auto") {
+		t.Errorf("Power(auto) without CanSuspendThenHibernate = %v", err)
+	}
+	if got := fake.Events.Load(); len(got) != 0 {
+		t.Errorf("a sleep ran without logind's answer: %v", got)
+	}
+}
+
+func TestDeepestTakesSuspendThenHibernateOnlyWhenAvailable(t *testing.T) {
+	t.Parallel()
+	for can, want := range map[logind.Availability]logind.PowerAction{
+		logind.Available:           logind.SuspendThenHibernate,
+		logind.NeedsAuthentication: logind.Suspend,
+		logind.Denied:              logind.Suspend,
+		logind.Unsupported:         logind.Suspend,
+	} {
+		if got := logind.Deepest(can); got != want {
+			t.Errorf("Deepest(%d) = %s, want %s", can, got, want)
 		}
 	}
 }

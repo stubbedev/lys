@@ -22,6 +22,9 @@ const (
 	SuspendThenHibernate
 	Reboot
 	PowerOff
+	// AutoSleep is suspend-then-hibernate where logind allows it without
+	// asking, and suspend everywhere else.
+	AutoSleep
 )
 
 var powerActions = [...]struct{ name, method string }{
@@ -31,11 +34,36 @@ var powerActions = [...]struct{ name, method string }{
 	SuspendThenHibernate: {"suspend-then-hibernate", "SuspendThenHibernate"},
 	Reboot:               {"reboot", "Reboot"},
 	PowerOff:             {"poweroff", "PowerOff"},
+	AutoSleep:            {"auto", ""},
 }
 
 // SleepActions are the actions that put the system to sleep.
 func SleepActions() []PowerAction {
-	return []PowerAction{Suspend, Hibernate, HybridSleep, SuspendThenHibernate}
+	return []PowerAction{AutoSleep, Suspend, Hibernate, HybridSleep, SuspendThenHibernate}
+}
+
+// Deepest is the sleep AutoSleep takes, given logind's answer to
+// CanSuspendThenHibernate: suspend-then-hibernate only when it runs
+// without asking, since nobody is there to answer a password prompt.
+func Deepest(canSuspendThenHibernate Availability) PowerAction {
+	if canSuspendThenHibernate == Available {
+		return SuspendThenHibernate
+	}
+	return Suspend
+}
+
+// Resolve is the action logind takes for action: AutoSleep asks
+// CanSuspendThenHibernate and picks through Deepest, every other action
+// is itself.
+func (m Manager) Resolve(ctx context.Context, action PowerAction) (PowerAction, error) {
+	if action != AutoSleep {
+		return action, nil
+	}
+	can, err := m.canMethod(ctx, SuspendThenHibernate)
+	if err != nil {
+		return 0, fmt.Errorf("logind: choose the sleep for %s: %w", action, err)
+	}
+	return Deepest(can), nil
 }
 
 func (a PowerAction) valid() bool { return a >= Suspend && int(a) < len(powerActions) }
@@ -49,7 +77,7 @@ func (a PowerAction) String() string {
 }
 
 func (a PowerAction) method() (string, error) {
-	if !a.valid() {
+	if !a.valid() || a == AutoSleep {
 		return "", fmt.Errorf("logind: no power action %s", a)
 	}
 	return powerActions[a].method, nil
@@ -76,8 +104,17 @@ const (
 var availabilities = map[string]Availability{"yes": Available, "challenge": NeedsAuthentication, "no": Denied, "na": Unsupported}
 
 // CanPower asks logind whether the caller may take action, through its
-// Can method for the action (CanSuspend, CanHibernate, ...).
+// Can method for the action (CanSuspend, CanHibernate, ...); for
+// AutoSleep, for the sleep it resolves to.
 func (m Manager) CanPower(ctx context.Context, action PowerAction) (Availability, error) {
+	resolved, err := m.Resolve(ctx, action)
+	if err != nil {
+		return 0, err
+	}
+	return m.canMethod(ctx, resolved)
+}
+
+func (m Manager) canMethod(ctx context.Context, action PowerAction) (Availability, error) {
 	method, err := action.method()
 	if err != nil {
 		return 0, err

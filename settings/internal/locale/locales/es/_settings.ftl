@@ -1307,6 +1307,15 @@ settings-sleep-detail-suspend = Mantiene tu trabajo en memoria con muy poca ener
 settings-sleep-detail-hibernate = Guarda tu trabajo en el disco y se apaga: no gasta energía, tarda más en despertar
 settings-sleep-detail-hybrid-sleep = Duerme y además guarda tu trabajo en el disco, así un corte de luz no pierde nada
 settings-sleep-detail-suspend-then-hibernate = Duerme y, pasado un rato, hiberna para ahorrar batería
+settings-sleep-detail-auto = Duerme y, pasado un rato, hiberna donde este ordenador puede, para que un portátil cerrado no se quede sin batería
+settings-sleep-detail-auto-hibernates = Duerme e hiberna antes de que la batería se agote, para que un portátil cerrado no se quede sin batería
+settings-sleep-detail-auto-suspends = Solo suspende, porque este ordenador no puede hibernar: { $reason }
+settings-hibernate-blocker-kernel-unsupported = el kernel no admite la hibernación
+settings-hibernate-blocker-lockdown = el kernel está en modo lockdown, que impide hibernar
+settings-hibernate-blocker-no-swap = no hay swap donde guardar la memoria
+settings-hibernate-blocker-small-swap = la swap es más pequeña que la memoria
+settings-hibernate-blocker-no-resume-device = la línea de comandos del kernel no indica ningún dispositivo resume=
+settings-hibernate-blockers-unknown = no se sabe por qué: { $reason }
 settings-sleep-unavailable = { $action } (no disponible)
 settings-sleep-reason-unsupported = { $action } no es posible en este sistema, por ejemplo sin swap desde la que reanudar
 settings-sleep-reason-denied = { $action } no está permitido para tu cuenta

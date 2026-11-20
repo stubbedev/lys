@@ -1309,6 +1309,15 @@ settings-sleep-detail-suspend = Garde votre travail en mémoire avec très peu d
 settings-sleep-detail-hibernate = Enregistre votre travail sur le disque et s’éteint : aucune énergie consommée, réveil plus lent
 settings-sleep-detail-hybrid-sleep = Se met en veille et enregistre aussi votre travail sur le disque : une coupure de courant ne perd rien
 settings-sleep-detail-suspend-then-hibernate = Se met en veille, puis hiberne au bout d’un moment pour ménager la batterie
+settings-sleep-detail-auto = Se met en veille, puis hiberne au bout d’un moment là où cet ordinateur le peut, pour qu’un portable fermé ne se vide pas
+settings-sleep-detail-auto-hibernates = Se met en veille, puis hiberne avant que la batterie ne s’épuise, pour qu’un portable fermé ne se vide pas
+settings-sleep-detail-auto-suspends = Veille seulement, car cet ordinateur ne peut pas hiberner : { $reason }
+settings-hibernate-blocker-kernel-unsupported = le noyau ne prend pas en charge l’hibernation
+settings-hibernate-blocker-lockdown = le noyau est en mode lockdown, qui refuse l’hibernation
+settings-hibernate-blocker-no-swap = il n’y a pas de swap où enregistrer la mémoire
+settings-hibernate-blocker-small-swap = la swap est plus petite que la mémoire
+settings-hibernate-blocker-no-resume-device = la ligne de commande du noyau ne nomme aucun périphérique resume=
+settings-hibernate-blockers-unknown = la raison est inconnue : { $reason }
 settings-sleep-unavailable = { $action } (indisponible)
 settings-sleep-reason-unsupported = { $action } n’est pas possible sur ce système, par exemple sans swap depuis laquelle reprendre
 settings-sleep-reason-denied = { $action } n’est pas autorisé pour votre compte

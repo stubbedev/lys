@@ -232,7 +232,11 @@ func (m Manager) ActivateSession(ctx context.Context, id SessionID) error {
 // interactively: polkit decides without a prompt, as it does for the
 // active local session.
 func (m Manager) Power(ctx context.Context, action PowerAction) error {
-	method, err := action.method()
+	resolved, err := m.Resolve(ctx, action)
+	if err != nil {
+		return err
+	}
+	method, err := resolved.method()
 	if err != nil {
 		return err
 	}

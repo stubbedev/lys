@@ -1296,6 +1296,15 @@ settings-sleep-detail-suspend = Houdt je werk in het geheugen met heel weinig st
 settings-sleep-detail-hibernate = Slaat je werk op schijf op en schakelt uit: geen stroomverbruik, trager wakker
 settings-sleep-detail-hybrid-sleep = Slaapt en slaat je werk ook op schijf op, zodat een stroomstoring niets verliest
 settings-sleep-detail-suspend-then-hibernate = Slaapt en gaat na een tijdje in sluimerstand om de accu te sparen
+settings-sleep-detail-auto = Slaapt en gaat na een tijdje in sluimerstand waar deze computer dat kan, zodat een dichtgeklapte laptop niet leegloopt
+settings-sleep-detail-auto-hibernates = Slaapt en gaat in sluimerstand voordat de accu bijna leeg is, zodat een dichtgeklapte laptop niet leegloopt
+settings-sleep-detail-auto-suspends = Alleen pauzestand, omdat deze computer niet in sluimerstand kan: { $reason }
+settings-hibernate-blocker-kernel-unsupported = de kernel ondersteunt geen sluimerstand
+settings-hibernate-blocker-lockdown = de kernel staat in lockdown-modus, die sluimerstand weigert
+settings-hibernate-blocker-no-swap = er is geen swap om het geheugen in op te slaan
+settings-hibernate-blocker-small-swap = de swap is kleiner dan het geheugen
+settings-hibernate-blocker-no-resume-device = de kernelopdrachtregel noemt geen resume=-apparaat
+settings-hibernate-blockers-unknown = de reden is onbekend: { $reason }
 settings-sleep-unavailable = { $action } (niet beschikbaar)
 settings-sleep-reason-unsupported = { $action } is op dit systeem niet mogelijk, bijvoorbeeld zonder swap om van te hervatten
 settings-sleep-reason-denied = { $action } is niet toegestaan voor je account

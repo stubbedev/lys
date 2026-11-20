@@ -677,6 +677,7 @@ enum-wm-follows-mouse-loose = Wenn der Zeiger ein anderes Fenster betritt
 enum-wm-follows-mouse-off = Zum Fokussieren klicken
 enum-wm-layout-scroll = Scrollende Spalten
 enum-wm-layout-tree = Kachelbaum
+enum-wm-lid-action-auto = Bereitschaft, dann Ruhezustand wenn möglich
 enum-wm-lid-action-hibernate = Ruhezustand
 enum-wm-lid-action-hybrid-sleep = Hybrider Ruhezustand
 enum-wm-lid-action-ignore = Nichts tun

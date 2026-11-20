@@ -1533,6 +1533,7 @@ A sleep logind offers, named as its HandleLidSwitch and IdleAction name it.
 
 | Value | Meaning |
 |---|---|
+| `"auto"` | Suspend, then hibernate where logind allows it without asking, else suspend. |
 | `"suspend"` | Suspend to RAM. |
 | `"hibernate"` | Hibernate to disk. |
 | `"hybrid-sleep"` | Suspend to RAM and disk at once; a power loss resumes from disk. |

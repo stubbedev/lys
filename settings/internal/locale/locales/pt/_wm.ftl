@@ -674,6 +674,7 @@ enum-wm-follows-mouse-loose = Quando o ponteiro entra noutra janela
 enum-wm-follows-mouse-off = Clicar para focar
 enum-wm-layout-scroll = Colunas deslizantes
 enum-wm-layout-tree = Árvore em mosaico
+enum-wm-lid-action-auto = Suspender e depois hibernar, se possível
 enum-wm-lid-action-hibernate = Hibernar
 enum-wm-lid-action-hybrid-sleep = Suspensão híbrida
 enum-wm-lid-action-ignore = Não fazer nada

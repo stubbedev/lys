@@ -1075,11 +1075,13 @@ lid_action: suspend-then-hibernate
 On the drm backend lys-wm inhibits logind's lid handling and applies the lid
 policy itself: when the lid is closed, no output besides the `eDP-*` panels is
 on and displaying (as for the panel rule in [outputs](#outputs)), and the
-machine is on battery, it asks logind for the sleep this key names. The values
-are logind's `HandleLidSwitch` sleeps, each calling the logind method of that
-name: `suspend` (the default), `hibernate`, `hybrid-sleep` and
-`suspend-then-hibernate` (which hibernates after logind's
-`HibernateDelaySec`). `ignore` does nothing on a lid close, and logind does
+machine is on battery, it asks logind for the sleep this key names. `auto`
+(the default) is `suspend-then-hibernate` where logind's
+`CanSuspendThenHibernate` answers `yes`, and `suspend` everywhere else. The
+other values are logind's `HandleLidSwitch` sleeps, each calling the logind
+method of that name: `suspend`, `hibernate`, `hybrid-sleep` and
+`suspend-then-hibernate` (which hibernates after logind's `HibernateDelaySec`,
+or, where that is unset, before the battery runs low). `ignore` does nothing on a lid close, and logind does
 nothing either, since lys-wm still holds its inhibitor. lys-shell's idle
 policy takes the same values in [`idle.suspend-action`](/shell/config/idle).
 Read at startup.

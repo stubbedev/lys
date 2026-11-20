@@ -73,8 +73,8 @@ func TestIdleDefaultsArmPerPowerSource(t *testing.T) {
 }
 
 func TestTheSuspendActionNamesTheLogindSleepItRuns(t *testing.T) {
-	if got := DefaultsIdle().Policy().Sleep; got != logind.Suspend {
-		t.Errorf("default suspend-action sleeps through %s, want suspend", got)
+	if got := DefaultsIdle().Policy().Sleep; got != logind.AutoSleep {
+		t.Errorf("default suspend-action sleeps through %s, want auto", got)
 	}
 	variants := enumVariants(typeOf[SleepAction]())
 	want := make([]string, 0, len(logind.SleepActions()))
@@ -98,11 +98,11 @@ func TestTheSuspendActionNamesTheLogindSleepItRuns(t *testing.T) {
 func TestAnUnknownSuspendActionIsTheConfigsError(t *testing.T) {
 	cfg, err := LoadFile(writeFile(t, t.TempDir(), "config.yaml", "idle:\n  suspend-action: ignore\n  dim-percent: 40\n"))
 	var d Diagnostic
-	const want = "unknown variant `ignore`, expected one of `suspend`, `hibernate`, `hybrid-sleep`, `suspend-then-hibernate`"
+	const want = "unknown variant `ignore`, expected one of `auto`, `suspend`, `hibernate`, `hybrid-sleep`, `suspend-then-hibernate`"
 	if !errors.As(err, &d) || d.Field("Field") != "idle.suspend-action" || d.Field("Error") != want {
 		t.Fatalf("suspend-action ignore: error %v, want %q", err, want)
 	}
-	if cfg.Idle.SuspendAction != SleepActionSuspend || cfg.Idle.DimPercent.MarshalConfig() != int64(40) {
+	if cfg.Idle.SuspendAction != DefaultsIdle().SuspendAction || cfg.Idle.DimPercent.MarshalConfig() != int64(40) {
 		t.Errorf("suspend-action ignore: action %q dim %v, want the default kept and the valid sibling applied", cfg.Idle.SuspendAction, cfg.Idle.DimPercent.MarshalConfig())
 	}
 }

@@ -4266,13 +4266,14 @@
     "lid_action": {
       "type": "string",
       "enum": [
+        "auto",
         "hibernate",
         "hybrid-sleep",
         "ignore",
         "suspend",
         "suspend-then-hibernate"
       ],
-      "default": "suspend"
+      "default": "auto"
     },
     "outputs": {
       "type": "array",

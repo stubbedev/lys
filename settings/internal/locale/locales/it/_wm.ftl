@@ -677,6 +677,7 @@ enum-wm-follows-mouse-loose = Quando il puntatore entra in un’altra finestra
 enum-wm-follows-mouse-off = Clic per il focus
 enum-wm-layout-scroll = Colonne scorrevoli
 enum-wm-layout-tree = Albero a tasselli
+enum-wm-lid-action-auto = Sospensione, poi ibernazione se possibile
 enum-wm-lid-action-hibernate = Iberna
 enum-wm-lid-action-hybrid-sleep = Sospensione ibrida
 enum-wm-lid-action-ignore = Non fare nulla

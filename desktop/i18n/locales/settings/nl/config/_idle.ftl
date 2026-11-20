@@ -17,6 +17,7 @@ settings-idle-timeouts-battery = Op accu
     .description = Inactiviteitstijd als duur zoals 90s, 5m of 1h30m, of never
 
 ## SleepAction variants
+enum-sleep-action-auto = Pauzestand, dan slaapstand indien mogelijk
 enum-sleep-action-suspend = Pauzestand
 enum-sleep-action-hibernate = Slaapstand
 enum-sleep-action-hybrid-sleep = Hybride slaap

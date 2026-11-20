@@ -674,6 +674,7 @@ enum-wm-follows-mouse-loose = Als de aanwijzer een ander venster binnengaat
 enum-wm-follows-mouse-off = Klik om te focussen
 enum-wm-layout-scroll = Scrollende kolommen
 enum-wm-layout-tree = Tegelboom
+enum-wm-lid-action-auto = Pauzestand, dan slaapstand indien mogelijk
 enum-wm-lid-action-hibernate = Slaapstand
 enum-wm-lid-action-hybrid-sleep = Hybride slaap
 enum-wm-lid-action-ignore = Niets doen

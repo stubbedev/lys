@@ -1389,6 +1389,7 @@ var schemaDocs = map[string]string{
 	"SharePickerPage=windows":                        "Per-window previews.",
 	"SignedNormalizedF64":                            "Floating-point value clamped to -1.0 to 1.0.",
 	"SleepAction":                                    "A sleep logind offers, named as its HandleLidSwitch and IdleAction name it.",
+	"SleepAction=auto":                               "Suspend, then hibernate where logind allows it without asking, else suspend.",
 	"SleepAction=hibernate":                          "Hibernate to disk.",
 	"SleepAction=hybrid-sleep":                       "Suspend to RAM and disk at once; a power loss resumes from disk.",
 	"SleepAction=suspend":                            "Suspend to RAM.",

@@ -111,6 +111,7 @@ func (r *sleepRecorder) Sleep(action logind.PowerAction) error {
 
 func TestTheLidPolicySleepsThroughTheConfiguredAction(t *testing.T) {
 	for name, want := range map[string]logind.PowerAction{
+		"auto":                   logind.AutoSleep,
 		"suspend":                logind.Suspend,
 		"hibernate":              logind.Hibernate,
 		"hybrid-sleep":           logind.HybridSleep,

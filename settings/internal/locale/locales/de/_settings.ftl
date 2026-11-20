@@ -1306,6 +1306,15 @@ settings-sleep-detail-suspend = Hält deine Arbeit mit wenig Strom im Speicher u
 settings-sleep-detail-hibernate = Speichert deine Arbeit auf die Festplatte und schaltet ab: kein Stromverbrauch, langsameres Aufwachen
 settings-sleep-detail-hybrid-sleep = Schläft und speichert deine Arbeit zusätzlich auf die Festplatte, damit ein Stromausfall nichts verliert
 settings-sleep-detail-suspend-then-hibernate = Schläft und wechselt nach einer Weile in den Ruhezustand, um den Akku zu schonen
+settings-sleep-detail-auto = Schläft und wechselt nach einer Weile in den Ruhezustand, wo dieser Computer das kann, damit ein zugeklappter Laptop nicht leerläuft
+settings-sleep-detail-auto-hibernates = Schläft und wechselt in den Ruhezustand, bevor der Akku knapp wird, damit ein zugeklappter Laptop nicht leerläuft
+settings-sleep-detail-auto-suspends = Nur Bereitschaft, da dieser Computer nicht in den Ruhezustand wechseln kann: { $reason }
+settings-hibernate-blocker-kernel-unsupported = der Kernel unterstützt keinen Ruhezustand
+settings-hibernate-blocker-lockdown = der Kernel ist im Lockdown-Modus, der den Ruhezustand verweigert
+settings-hibernate-blocker-no-swap = es gibt keinen Swap, in den der Speicher gesichert werden kann
+settings-hibernate-blocker-small-swap = der Swap ist kleiner als der Arbeitsspeicher
+settings-hibernate-blocker-no-resume-device = die Kernel-Befehlszeile nennt kein resume=-Gerät
+settings-hibernate-blockers-unknown = der Grund ist unbekannt: { $reason }
 settings-sleep-unavailable = { $action } (nicht verfügbar)
 settings-sleep-reason-unsupported = { $action } ist auf diesem System nicht möglich, etwa ohne Swap zum Fortsetzen
 settings-sleep-reason-denied = { $action } ist für dein Konto nicht erlaubt

@@ -13,6 +13,7 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/apptheme"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/desktop/styling"
+	"github.com/stubbedev/lys/lib/hibernate"
 	"github.com/stubbedev/lys/lib/render"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/ui/widget"
@@ -79,9 +80,11 @@ type kit struct {
 	cameras      func() (cameraSource, func(), error)
 	screenShares func() (shareSource, func(), error)
 	// i2c says which I2C buses there are and which this user may open.
-	i2c        func() i2cAccess
-	copySecret func(text string) error
-	copyText   func(text string) error
+	i2c func() i2cAccess
+	// hibernation names what keeps the system from hibernating.
+	hibernation func() ([]hibernate.Blocker, error)
+	copySecret  func(text string) error
+	copyText    func(text string) error
 	// notify sends a desktop notification, shellCommand runs lys-shell
 	// with the arguments given; the tests stub both.
 	notify       func(summary, body string) error

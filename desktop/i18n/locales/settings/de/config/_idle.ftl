@@ -21,6 +21,7 @@ settings-idle-timeouts-battery = Im Akkubetrieb
     .description = Leerlaufzeit als Dauer wie 90s, 5m oder 1h30m, oder never
 
 ## SleepAction variants
+enum-sleep-action-auto = Bereitschaft, dann Ruhezustand wenn möglich
 enum-sleep-action-suspend = Bereitschaft
 enum-sleep-action-hibernate = Ruhezustand
 enum-sleep-action-hybrid-sleep = Hybrider Schlaf

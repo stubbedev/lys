@@ -1306,6 +1306,15 @@ settings-sleep-detail-suspend = Keeps your work in memory on a trickle of power 
 settings-sleep-detail-hibernate = Saves your work to disk and turns off: no power used, slower to wake
 settings-sleep-detail-hybrid-sleep = Sleeps and also saves your work to disk, so a power cut loses nothing
 settings-sleep-detail-suspend-then-hibernate = Sleeps, then hibernates after a while to spare the battery
+settings-sleep-detail-auto = Sleeps, then hibernates after a while where this computer can, so a closed laptop does not run flat
+settings-sleep-detail-auto-hibernates = Sleeps, then hibernates before the battery runs low, so a closed laptop does not run flat
+settings-sleep-detail-auto-suspends = Suspends only, since this computer cannot hibernate: { $reason }
+settings-hibernate-blocker-kernel-unsupported = the kernel has no hibernation
+settings-hibernate-blocker-lockdown = the kernel is in lockdown mode, which refuses hibernation
+settings-hibernate-blocker-no-swap = there is no swap to save the memory to
+settings-hibernate-blocker-small-swap = the swap is smaller than the memory
+settings-hibernate-blocker-no-resume-device = the kernel command line names no resume= device
+settings-hibernate-blockers-unknown = the reason is unknown: { $reason }
 settings-sleep-unavailable = { $action } (not available)
 settings-sleep-reason-unsupported = { $action } is not possible on this system, for example without swap to resume from
 settings-sleep-reason-denied = { $action } is not allowed for your account

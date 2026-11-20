@@ -13,14 +13,30 @@ import (
 
 type LidAction struct{ sleep logind.PowerAction }
 
-var DefaultLidAction = LidAction{sleep: logind.Suspend}
+var DefaultLidAction = LidAction{sleep: logind.AutoSleep}
 
 func LidActions() map[string]LidAction {
-	actions := map[string]LidAction{"ignore": {}}
-	for _, a := range logind.SleepActions() {
-		actions[a.String()] = LidAction{sleep: a}
+	actions := map[string]LidAction{}
+	for _, a := range append([]LidAction{{}}, sleepLidActions()...) {
+		actions[a.String()] = a
 	}
 	return actions
+}
+
+func sleepLidActions() []LidAction {
+	sleeps := logind.SleepActions()
+	out := make([]LidAction, len(sleeps))
+	for i, s := range sleeps {
+		out[i] = LidAction{sleep: s}
+	}
+	return out
+}
+
+func (a LidAction) String() string {
+	if a.sleep == 0 {
+		return "ignore"
+	}
+	return a.sleep.String()
 }
 
 func (a LidAction) Sleep() (logind.PowerAction, bool) {

@@ -13,6 +13,7 @@ import (
 	"github.com/stubbedev/lys/desktop/service/clipboard"
 	"github.com/stubbedev/lys/desktop/shell/apptheme"
 	"github.com/stubbedev/lys/desktop/shell/barview"
+	"github.com/stubbedev/lys/lib/hibernate"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
@@ -98,6 +99,7 @@ func Run(page, setting string) error {
 		checkPAM:      checkPAMService,
 		openURI:       openWithDefaultApp,
 		i2c:           systemHost.i2cAccess,
+		hibernation:   func() ([]hibernate.Blocker, error) { return hibernate.Blockers(os.DirFS("/")) },
 		mailCount:     countMail,
 		barFont:       barview.Font,
 		familyFont:    loadFamily,

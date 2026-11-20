@@ -318,15 +318,15 @@ func TestEachLidActionSleepsThroughItsLogindMethod(t *testing.T) {
 	}
 }
 
-func TestTheIgnoreLidActionSleepsThroughNothingAndTheDefaultSuspends(t *testing.T) {
+func TestTheIgnoreLidActionSleepsThroughNothingAndTheDefaultIsAuto(t *testing.T) {
 	if action, ok := LidActions()["ignore"].Sleep(); ok {
 		t.Errorf("ignore sleeps through %s", action)
 	}
-	if action, ok := DefaultLidAction.Sleep(); !ok || action != logind.Suspend {
-		t.Errorf("the default lid action sleeps through %s %v, want suspend", action, ok)
+	if action, ok := DefaultLidAction.Sleep(); !ok || action != logind.AutoSleep {
+		t.Errorf("the default lid action sleeps through %s %v, want auto", action, ok)
 	}
 	names := slices.Sorted(maps.Keys(LidActions()))
-	if want := []string{"hibernate", "hybrid-sleep", "ignore", "suspend", "suspend-then-hibernate"}; !slices.Equal(names, want) {
+	if want := []string{"auto", "hibernate", "hybrid-sleep", "ignore", "suspend", "suspend-then-hibernate"}; !slices.Equal(names, want) {
 		t.Errorf("lid actions %v, want %v", names, want)
 	}
 }

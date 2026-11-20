@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/lib/hibernate"
 	"github.com/stubbedev/lys/lib/logind"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
@@ -23,11 +25,24 @@ var sleepRefusals = map[logind.Availability]string{
 }
 
 type sleepAvailability struct {
-	can map[string]logind.Availability
-	err error
+	can      map[string]logind.Availability
+	err      error
+	blockers hibernationBlockers
+}
+
+type hibernationBlockers struct {
+	found []hibernate.Blocker
+	err   error
 }
 
 func querySleepActions(k *kit, variants []string) sleepAvailability {
+	found, err := k.hibernation()
+	a := queryLogind(k, variants)
+	a.blockers = hibernationBlockers{found: found, err: err}
+	return a
+}
+
+func queryLogind(k *kit, variants []string) sleepAvailability {
 	conn, err := k.systemBus()
 	if err != nil {
 		return sleepAvailability{err: err}
@@ -57,6 +72,7 @@ type sleepActionSelect struct {
 	problem  *widget.Label
 	can      map[string]logind.Availability
 	unknown  error
+	blockers hibernationBlockers
 	refused  string
 	syncing  bool
 }
@@ -77,7 +93,7 @@ func newSleepActionSelect(k *kit, s slot, meta config.FieldMeta) *sleepActionSel
 }
 
 func (c *sleepActionSelect) know(a sleepAvailability) {
-	c.can, c.unknown = a.can, a.err
+	c.can, c.unknown, c.blockers = a.can, a.err, a.blockers
 	c.refresh()
 }
 
@@ -120,7 +136,7 @@ func (c *sleepActionSelect) refresh() {
 	c.syncing = true
 	c.dropdown.SetItems(shown, at)
 	c.syncing = false
-	c.detail.SetText(t.Get("settings-sleep-detail-" + current))
+	c.detail.SetText(c.describe(current))
 	problem := ""
 	switch {
 	case c.unknown != nil:
@@ -132,4 +148,35 @@ func (c *sleepActionSelect) refresh() {
 	}
 	c.problem.SetText(problem)
 	c.problem.SetVisible(problem != "")
+}
+
+func (c *sleepActionSelect) describe(v string) string {
+	t := locale.T()
+	if v != string(config.SleepActionAuto) {
+		return t.Get("settings-sleep-detail-" + v)
+	}
+	deep := string(config.SleepActionSuspendThenHibernate)
+	can, known := c.can[deep]
+	switch {
+	case !known:
+		return t.Get("settings-sleep-detail-auto")
+	case can == logind.Available:
+		return t.Get("settings-sleep-detail-auto-hibernates")
+	}
+	return t.Get("settings-sleep-detail-auto-suspends", i18n.Str("reason", c.blockers.reason(t.Get(sleepRefusals[can], i18n.Str("action", c.label(deep))))))
+}
+
+func (b hibernationBlockers) reason(refusal string) string {
+	t := locale.T()
+	if b.err != nil {
+		return t.Get("settings-hibernate-blockers-unknown", i18n.Str("reason", b.err.Error()))
+	}
+	if len(b.found) == 0 {
+		return refusal
+	}
+	reasons := make([]string, len(b.found))
+	for i, found := range b.found {
+		reasons[i] = t.Get("settings-hibernate-blocker-" + found.String())
+	}
+	return strings.Join(reasons, "; ")
 }

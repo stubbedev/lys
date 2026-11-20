@@ -1026,6 +1026,7 @@
     ]
   },
   "lib/gputest": {},
+  "lib/hibernate": {},
   "lib/i18n": {
     "imports": [
       "lib/xdg"
@@ -2592,6 +2593,7 @@
       "lib/atomicfile",
       "lib/dbusx",
       "lib/glibclocale",
+      "lib/hibernate",
       "lib/intconv",
       "lib/logind",
       "lib/pam",

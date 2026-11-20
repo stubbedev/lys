@@ -677,6 +677,7 @@ enum-wm-follows-mouse-loose = Quand le pointeur entre dans une autre fenêtre
 enum-wm-follows-mouse-off = Cliquer pour activer
 enum-wm-layout-scroll = Colonnes défilantes
 enum-wm-layout-tree = Arbre de pavage
+enum-wm-lid-action-auto = Veille, puis hibernation si possible
 enum-wm-lid-action-hibernate = Hiberner
 enum-wm-lid-action-hybrid-sleep = Veille hybride
 enum-wm-lid-action-ignore = Ne rien faire
