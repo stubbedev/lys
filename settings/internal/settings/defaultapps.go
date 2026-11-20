@@ -7,6 +7,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/desktopentry"
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/mime"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
@@ -54,6 +55,7 @@ type appIndex struct {
 	byType map[string][]desktopentry.App
 	types  []string
 	mime   desktopentry.MimeApps
+	user   desktopentry.UserAssociations
 	names  map[string]string
 }
 
@@ -126,7 +128,22 @@ type defaultApps struct {
 	problem *widget.Label
 }
 
-var setDefaults = desktopentry.SetDefaults
+var (
+	setDefaults          = desktopentry.SetDefaults
+	resetAssociations    = desktopentry.ResetTypeAssociations
+	readUserAssociations = desktopentry.ReadUserAssociations
+)
+
+type indexedApps struct {
+	ix  appIndex
+	err error
+}
+
+func withUserAssociations(ix appIndex) indexedApps {
+	user, err := readUserAssociations()
+	ix.user = user
+	return indexedApps{ix, err}
+}
 
 func defaultAppsFooter(k *kit) widget.Widget {
 	d := &defaultApps{k: k}
@@ -146,8 +163,31 @@ func defaultAppsFooter(k *kit) widget.Widget {
 	typesBody.Append(d.types, false)
 	content.Append(newSection(k, "settings-section-default-types", typesBody), false)
 	dirs, lists := desktopentry.ApplicationDirs(), desktopentry.MimeAppsLists()
-	async(k, func() appIndex { return indexApps(dirs, lists, mimeDescriber()) }, d.show)
+	async(k, func() indexedApps { return withUserAssociations(indexApps(dirs, lists, mimeDescriber())) }, d.reread)
 	return content
+}
+
+func (d *defaultApps) fail(err error) {
+	d.problem.SetVisible(err != nil)
+	if err != nil {
+		d.problem.SetText(err.Error())
+	}
+}
+
+func (d *defaultApps) reread(r indexedApps) {
+	d.fail(r.err)
+	d.show(r.ix)
+}
+
+func (d *defaultApps) write(change func() error) {
+	ix := d.ix
+	async(d.k, func() indexedApps {
+		if err := change(); err != nil {
+			return indexedApps{ix, err}
+		}
+		ix.mime = desktopentry.ReadMimeApps(desktopentry.MimeAppsLists())
+		return withUserAssociations(ix)
+	}, d.reread)
 }
 
 func (d *defaultApps) show(ix appIndex) {
@@ -190,6 +230,14 @@ func (d *defaultApps) chooser(title string, types []string) widget.Widget {
 	row.SetElement("item")
 	row.AddClass(css.Small, "setting-row", "default-app")
 	row.AppendAligned(d.k.label(title, "setting-label"), true, widget.AlignCenter)
+	if d.ix.user.Overrides(types) {
+		reset := d.k.button(d.k.label(locale.T().Get("settings-default-reset")), func() {
+			d.write(func() error { return resetAssociations(types) })
+		}, css.Small, css.Flat)
+		reset.SetAccessibleName(locale.T().Get("settings-default-reset-named", i18n.Str("name", title)))
+		reset.SetTooltip(locale.T().Get("settings-default-reset-tooltip"))
+		row.AppendAligned(reset, false, widget.AlignCenter)
+	}
 	if len(apps) == 0 {
 		row.AppendAligned(d.k.label(locale.T().Get("settings-default-none"), css.DimLabel), false, widget.AlignCenter)
 		return row
@@ -218,15 +266,7 @@ func (d *defaultApps) chooser(title string, types []string) widget.Widget {
 			return
 		}
 		id := apps[i-offset].ID
-		async(d.k, func() error { return setDefaults(id, types) }, func(err error) {
-			d.problem.SetVisible(err != nil)
-			if err != nil {
-				d.problem.SetText(err.Error())
-				return
-			}
-			d.ix.mime = desktopentry.ReadMimeApps(desktopentry.MimeAppsLists())
-			d.show(d.ix)
-		})
+		d.write(func() error { return setDefaults(id, types) })
 	}
 	row.AppendAligned(dd, false, widget.AlignCenter)
 	return row

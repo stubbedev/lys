@@ -1,6 +1,7 @@
 package settings
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"slices"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/desktopentry"
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
@@ -56,11 +58,7 @@ func TestPickingABrowserWritesItsThreeKeysAtOnceFromOneScan(t *testing.T) {
 	beforeSet := setDefaults
 	setDefaults = func(id string, types []string) error { writes = append(writes, types); return beforeSet(id, types) }
 	t.Cleanup(func() { setDefaults = beforeSet })
-	k := testKit(t, "")
-	w := newWindow(k, k.store.svc.Config(), func(_ time.Duration, fn func()) { fn() })
-	w.stack.SetTransition(widget.StackNone, 0)
-	w.show(defaultAppsID)
-	w.root.Arrange(render.Rect{W: 1400, H: 6000})
+	w := defaultAppsWindow(t)
 	if scans != 1 {
 		t.Fatalf("%d scans of the applications for one page, want one", scans)
 	}
@@ -102,6 +100,76 @@ func TestPickingABrowserWritesItsThreeKeysAtOnceFromOneScan(t *testing.T) {
 	}
 	if !slices.Equal(types, []string{"application/pdf"}) {
 		t.Fatalf("the pdf filter shows the types %q", types)
+	}
+}
+
+func resetButton(root widget.Widget, title string) *widget.Button {
+	name := locale.T().Get("settings-default-reset-named", i18n.Str("name", title))
+	for _, b := range treetest.All[*widget.Button](root) {
+		if b.AccessibleName() == name {
+			return b
+		}
+	}
+	return nil
+}
+
+func defaultAppsWindow(t *testing.T) *window {
+	t.Helper()
+	k := testKit(t, "")
+	w := newWindow(k, k.store.svc.Config(), func(_ time.Duration, fn func()) { fn() })
+	w.stack.SetTransition(widget.StackNone, 0)
+	w.show(defaultAppsID)
+	w.root.Arrange(render.Rect{W: 1400, H: 6000})
+	return w
+}
+
+func TestResetGivesACategoryBackToTheSystemDefault(t *testing.T) {
+	config := defaultAppsFixture(t)
+	w := defaultAppsWindow(t)
+	if resetButton(w.page, "PDF documents") != nil {
+		t.Fatal("a category the user never chose for offers a reset")
+	}
+	web := resetButton(w.page, "Web browser")
+	if web == nil {
+		t.Fatal("the web browser the user chose offers no reset")
+	}
+	web.OnClick()
+	got := fileText(t, filepath.Join(config, "mimeapps.list"))
+	if strings.Contains(got, "x-scheme-handler/https") || !strings.Contains(got, "image/png=chromium.desktop;") {
+		t.Fatalf("after the reset the user's list reads %q", got)
+	}
+	if resetButton(w.page, "Web browser") != nil {
+		t.Error("the reset category still offers a reset")
+	}
+	if dd := dropdownNamed(t, w.page, "Web browser"); dd.Items()[dd.Selected()] != "Chromium" {
+		t.Errorf("after the reset the web browser reads %q, want the first that declares the types", dd.Items()[dd.Selected()])
+	}
+}
+
+func TestAResetThatFailsIsSaid(t *testing.T) {
+	defaultAppsFixture(t)
+	before := resetAssociations
+	resetAssociations = func([]string) error { return errors.New("the list is read-only") }
+	t.Cleanup(func() { resetAssociations = before })
+	w := defaultAppsWindow(t)
+	resetButton(w.page, "Web browser").OnClick()
+	if labels := strings.Join(treetest.Labels(w.page), "|"); !strings.Contains(labels, "the list is read-only") {
+		t.Fatalf("a failed reset left the page reading %q", labels)
+	}
+	if resetButton(w.page, "Web browser") == nil {
+		t.Error("a failed reset took the reset away")
+	}
+}
+
+func TestAMalformedUserListIsSaidAndOffersNoReset(t *testing.T) {
+	config := defaultAppsFixture(t)
+	put(t, filepath.Join(config, "mimeapps.list"), "x-scheme-handler/https=firefox.desktop;\n")
+	w := defaultAppsWindow(t)
+	if labels := strings.Join(treetest.Labels(w.page), "|"); !strings.Contains(labels, "mimeapps.list") {
+		t.Fatalf("a malformed list left the page reading %q", labels)
+	}
+	if resetButton(w.page, "Web browser") != nil {
+		t.Error("a malformed list offers a reset")
 	}
 }
 
