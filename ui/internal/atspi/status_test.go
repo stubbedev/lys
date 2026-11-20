@@ -7,11 +7,11 @@ import (
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/dbusx"
+	"github.com/stubbedev/lys/lib/fdtest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/ui/internal/atspi/proto"
-	"github.com/stubbedev/lys/ui/internal/fdtest"
 )
 
 // fakeStatus plays at-spi-bus-launcher's org.a11y.Status properties.

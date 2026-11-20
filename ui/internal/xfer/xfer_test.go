@@ -10,9 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/lib/fdtest"
 	"github.com/stubbedev/lys/lib/waittest"
-
-	"github.com/stubbedev/lys/ui/internal/fdtest"
 )
 
 func TestReadReturnsTheWholeSmallPayload(t *testing.T) {

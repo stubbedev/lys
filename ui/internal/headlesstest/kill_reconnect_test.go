@@ -11,8 +11,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/lib/fdtest"
+
 	"github.com/stubbedev/lys/ui/clienttest"
-	"github.com/stubbedev/lys/ui/internal/fdtest"
 )
 
 func TestHeadlessReconnectRebuildsWindows(t *testing.T) {

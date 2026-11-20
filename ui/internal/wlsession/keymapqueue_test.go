@@ -10,13 +10,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/lib/fdtest"
 	"github.com/stubbedev/lys/lib/testbuild"
 	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
 	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/xkb"
 	"golang.org/x/sys/unix"
-
-	"github.com/stubbedev/lys/ui/internal/fdtest"
 )
 
 func goroutineID() string {

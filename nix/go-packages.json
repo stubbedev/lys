@@ -822,6 +822,11 @@
       "lib/waittest"
     ]
   },
+  "lib/fdtest": {
+    "imports": [
+      "lib/waittest"
+    ]
+  },
   "lib/fourcc": {
     "testImports": [
       "lib/testbuild"
@@ -4138,6 +4143,7 @@
     ],
     "testImports": [
       "lib/dbustest",
+      "lib/fdtest",
       "lib/gputest",
       "lib/media/demux",
       "lib/testbuild",
@@ -4145,7 +4151,6 @@
       "lib/vinput",
       "lib/waittest",
       "lib/wltest",
-      "ui/internal/fdtest",
       "ui/internal/headlesstest",
       "ui/internal/headlesstest/inproc"
     ]
@@ -4440,11 +4445,11 @@
     ],
     "testImports": [
       "lib/dbustest",
+      "lib/fdtest",
       "lib/testbuild",
       "lib/testhome",
       "lib/waittest",
-      "ui/atspitest",
-      "ui/internal/fdtest"
+      "ui/atspitest"
     ]
   },
   "ui/internal/atspi/proto": {
@@ -4486,8 +4491,8 @@
       "ui/transfer"
     ],
     "testImports": [
+      "lib/fdtest",
       "lib/waittest",
-      "ui/internal/fdtest",
       "ui/internal/headlesstest"
     ]
   },
@@ -4510,8 +4515,8 @@
       "ui/internal/xfer"
     ],
     "testImports": [
-      "lib/waittest",
-      "ui/internal/fdtest"
+      "lib/fdtest",
+      "lib/waittest"
     ]
   },
   "ui/internal/dragdrop": {
@@ -4523,16 +4528,11 @@
       "ui/transfer"
     ],
     "testImports": [
-      "lib/waittest",
-      "ui/internal/fdtest"
-    ]
-  },
-  "ui/internal/emoji": {},
-  "ui/internal/fdtest": {
-    "imports": [
+      "lib/fdtest",
       "lib/waittest"
     ]
   },
+  "ui/internal/emoji": {},
   "ui/internal/headlesstest": {
     "imports": [
       "lib/intconv",
@@ -4546,11 +4546,11 @@
     ],
     "testImports": [
       "lib/capture",
+      "lib/fdtest",
       "lib/render",
       "lib/testhome",
       "ui/app",
       "ui/clienttest",
-      "ui/internal/fdtest",
       "ui/widget"
     ]
   },
@@ -4598,9 +4598,9 @@
     ],
     "testImports": [
       "lib/dbustest",
+      "lib/fdtest",
       "lib/testhome",
-      "lib/waittest",
-      "ui/internal/fdtest"
+      "lib/waittest"
     ]
   },
   "ui/internal/popup": {
@@ -4754,17 +4754,17 @@
       "ui/internal/worker"
     ],
     "testImports": [
+      "lib/fdtest",
       "lib/testbuild",
       "lib/waittest",
-      "lib/wltest",
-      "ui/internal/fdtest"
+      "lib/wltest"
     ]
   },
   "ui/internal/worker": {},
   "ui/internal/xfer": {
     "testImports": [
-      "lib/waittest",
-      "ui/internal/fdtest"
+      "lib/fdtest",
+      "lib/waittest"
     ]
   },
   "ui/media": {
