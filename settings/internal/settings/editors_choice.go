@@ -194,10 +194,6 @@ func wmSibling(k *kit, path, key string) string {
 	return v
 }
 
-var soundNameRow = withEditor(func(k *kit, s slot, meta config.FieldMeta) control {
-	return newChoiceEditor(k, s, choiceSpec{list: systemLists[listSoundNames], special: meta.Variants, free: true})
-})
-
 func programRow(list string) rowOpt {
 	return withEditor(func(k *kit, s slot, meta config.FieldMeta) control {
 		return newChoiceEditor(k, s, choiceSpec{list: systemLists[list], special: meta.Variants, free: true, optional: meta.Optional, browse: (*kit).appCommandButton})

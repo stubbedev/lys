@@ -2328,8 +2328,10 @@
       "shell/service/privacy",
       "shell/service/shellipc",
       "shell/service/sni",
+      "shell/service/sounds",
       "shell/service/sysinfo",
       "ui/app",
+      "ui/gtksettings",
       "ui/highlight",
       "ui/widget",
       "ui/widget/css"
