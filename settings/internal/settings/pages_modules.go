@@ -61,7 +61,7 @@ func modulePages(cfg *config.Config) []pageSpec {
 			links = append(slices.Clone(links), dropdownSizesLink)
 		}
 		if len(links) > 0 {
-			pages[i].footer = relatedLinks(links)
+			pages[i].links = links
 		}
 	}
 	return pages

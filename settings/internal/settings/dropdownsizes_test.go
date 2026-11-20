@@ -72,7 +72,7 @@ func TestAModulePageLinksToTheDropdownSizesInsteadOfOwningThem(t *testing.T) {
 				}
 			}
 		}
-		if p.footer == nil {
+		if !slices.Contains(p.links, dropdownSizesLink) {
 			t.Errorf("the %s page has no link to its dropdown's size", id)
 		}
 	}

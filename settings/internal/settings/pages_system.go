@@ -75,11 +75,10 @@ func lockPage(*config.Config) pageSpec {
 				field("login.lock.blank-timeout-ms", durationChips(inMilliseconds, zeroAs(never), after(30*time.Second), after(time.Minute), after(5*time.Minute), after(10*time.Minute))),
 			}},
 			{title: "settings-section-lock-advanced", advanced: true, rows: fields("login.lock.pam-service", "login.lock.lock-on-start")},
-			{title: "settings-section-animation", advanced: true, rows: surfaceAnimationRows("animations.lock")},
 			{title: "settings-section-login-screen", rows: []rowSpec{field("login.greeter.show-user-list"), field("login.greeter.show-power-buttons"), field("login.greeter.fingerprint", fingerprintRow), field("login.greeter.screen-reader")}},
 			{title: "settings-section-cursor", rows: []rowSpec{field("login.greeter.cursor-theme"), field("login.greeter.cursor-size", countChips(inPixels, 24, 32, 48, 64, 96))}},
 		},
-		footer: lockFooter, extrasOnRows: true,
+		footer: lockFooter, links: []pageLink{surfaceAnimationLink}, extrasOnRows: true,
 	}
 }
 

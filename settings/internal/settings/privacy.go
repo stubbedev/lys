@@ -52,7 +52,6 @@ func privacyPage(*config.Config) pageSpec {
 				field("share-picker.outputs-spacing", sizeBase(config.SharePickerOutputsSpacingBaseRem)),
 				field("share-picker.outputs-show-label"), field("share-picker.outputs-respect-scaling"),
 			}},
-			{title: "settings-section-share-picker-animation", advanced: true, rows: surfaceAnimationRows("animations.share-picker")},
 			{title: "settings-section-lockdown", rows: fields("portal.lockdown.disable-camera", "portal.lockdown.disable-microphone",
 				"portal.lockdown.disable-location", "portal.lockdown.disable-sound-output", "portal.lockdown.disable-printing",
 				"portal.lockdown.disable-save-to-disk", "portal.lockdown.disable-application-handlers")},
@@ -60,6 +59,7 @@ func privacyPage(*config.Config) pageSpec {
 			{title: "settings-section-clipboard", rows: fields("clipboard.persist", "clipboard.history-mib", "clipboard.pinned-mib")},
 		},
 		footer: grantsFooter,
+		links:  []pageLink{surfaceAnimationLink},
 	}
 }
 

@@ -133,7 +133,7 @@ func firstPage(sections []navSection) string {
 
 func motionPage(*config.Config) pageSpec {
 	return pageSpec{
-		id: "motion", navKey: "settings-nav-motion", icon: "ld-zap-symbolic",
+		id: motionPageID, navKey: "settings-nav-motion", icon: "ld-zap-symbolic",
 		header: "settings-page-motion",
 		sections: []sectionSpec{
 			{title: "settings-section-general", rows: []rowSpec{
@@ -147,11 +147,8 @@ func motionPage(*config.Config) pageSpec {
 			{title: "settings-section-direction", advanced: true, rows: animatedRows(
 				field("animations.enter"), field("animations.exit"),
 				field("animations.enter-duration", animationDuration), field("animations.exit-duration", animationDuration),
+				surfaceAnimationTable(),
 			)},
-			{title: "settings-animations-power", advanced: true, rows: animatedRows(surfaceAnimationRows("animations.power")...)},
-			{title: "settings-animations-dialog", advanced: true, rows: animatedRows(surfaceAnimationRows("animations.dialog")...)},
-			{title: "settings-animations-file-chooser", advanced: true, rows: animatedRows(surfaceAnimationRows("animations.file-chooser")...)},
-			{title: "settings-animations-print", advanced: true, rows: animatedRows(surfaceAnimationRows("animations.print")...)},
 			{title: "wm-section-overview", rows: []rowSpec{wmField("overview.blur"), wmField("overview.dim", fraction), wmField("switcher.open_delay"), wmField("showdesktop.peek")}},
 			{title: "wm-section-drag", rows: wmFields("drag_preview.enabled", "drag_preview.opacity", "drag_preview.blur", "drag_preview.snap_distance",
 				"drag_preview.snap_windows", "drag_preview.drag_switch.width", "drag_preview.drag_switch.frames")},

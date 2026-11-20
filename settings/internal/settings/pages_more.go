@@ -53,9 +53,7 @@ func barPage(*config.Config) pageSpec {
 			field("bar.dropdown-opacity", percentage),
 			dropdownSizeTable(),
 		}},
-		{title: "settings-section-dropdown-animation", advanced: true, rows: surfaceAnimationRows("animations.dropdown")},
-		{title: "settings-animations-menu", advanced: true, rows: surfaceAnimationRows("animations.menu")},
-	}}
+	}, links: []pageLink{surfaceAnimationLink}}
 }
 
 // bordered is a border's location row and the rows styling it, shown
@@ -118,8 +116,7 @@ func notificationsPage(*config.Config) pageSpec {
 			field("modules.notifications.popup-margin-y", sizeBase(config.PopupMarginBaseRem)),
 			field("modules.notifications.popup-gap", sizeBase(config.PopupGapBaseRem)),
 		}},
-		{title: "settings-section-animation", advanced: true, rows: surfaceAnimationRows("animations.notifications")},
-	}, footer: relatedLinks([]pageLink{dropdownSizesLink})}
+	}, links: []pageLink{dropdownSizesLink, surfaceAnimationLink}}
 }
 
 const popupMaxVisibleSoftMax = 10
@@ -145,8 +142,7 @@ func osdPage(*config.Config) pageSpec {
 			field("osd.layer"),
 			field("osd.margin", sizeBase(config.OsdMarginBaseRem)),
 		}},
-		{title: "settings-section-animation", advanced: true, rows: surfaceAnimationRows("animations.osd")},
-	}}
+	}, links: []pageLink{surfaceAnimationLink}}
 }
 
 // launcherPage is pages/launcher entry.
@@ -194,8 +190,7 @@ func launcherPage(*config.Config) pageSpec {
 			field("launcher.keybindings", launcherKeysRow),
 			field("launcher.mouse-bindings", launcherMouseRow),
 		}},
-		{title: "settings-section-animation", advanced: true, rows: surfaceAnimationRows("animations.launcher")},
-	}, footer: relatedLinks([]pageLink{{"launcher-modes", "settings-launcher-link-modes"}})}
+	}, links: []pageLink{{"launcher-modes", "settings-launcher-link-modes"}, surfaceAnimationLink}}
 }
 
 // The launcher's sliders: the widths and line counts nearly every setup
@@ -292,8 +287,7 @@ func wallpaperPage(*config.Config) pageSpec {
 			),
 		}},
 		{title: "settings-section-display", rows: []rowSpec{field("wallpaper.monitors", monitorWallpaperRow, func(r *rowSpec) { r.fullWidth = true })}},
-		{title: "settings-section-animation", rows: surfaceAnimationRows("animations.wallpaper")},
-	}}
+	}, links: []pageLink{surfaceAnimationLink}}
 }
 
 // dockRow is a dock row, in use only while the dock is shown.

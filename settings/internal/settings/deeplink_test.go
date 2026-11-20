@@ -150,7 +150,7 @@ func TestASettingBelowTheFoldIsScrolledIntoView(t *testing.T) {
 	w.root.Arrange(render.Rect{W: width, H: height})
 	var last *settingRow
 	for i := len(w.page.rows) - 1; i >= 0 && last == nil; i-- {
-		if !w.page.rows[i].Bounds().Empty() {
+		if b := w.page.rows[i].Bounds(); !b.Empty() && b.H <= height {
 			last = w.page.rows[i]
 		}
 	}
@@ -194,13 +194,12 @@ func TestASettingOnAnotherPageBelowTheFoldIsScrolledIntoView(t *testing.T) {
 	w.openPage("theme")
 	const width, height = 900, 600
 	w.root.Arrange(render.Rect{W: width, H: height})
-	spec, _ := pageByID(w.sections, "bar")
-	rows := spec.sections[len(spec.sections)-1].rows
-	w.open(launch{setting: rows[len(rows)-1].path})
+	const below = "bar.dropdown-opacity"
+	w.open(launch{setting: below})
 	for range 3 {
 		w.root.Arrange(render.Rect{W: width, H: height})
 	}
-	last := w.page.rows[len(w.page.rows)-1]
+	last := w.page.rows[slices.IndexFunc(w.page.rows, func(r *settingRow) bool { return r.path == below })]
 	if b, view := last.Bounds(), w.page.Bounds(); b.Y < view.Y || b.Y+b.H > view.Y+view.H {
 		t.Fatalf("the revealed row at %+v is outside the page's view %+v", b, view)
 	}

@@ -131,13 +131,13 @@ func TestDeviceLikeModulePagesLinkToTheirDevicePages(t *testing.T) {
 		if !ok {
 			t.Fatalf("no %s page", module)
 		}
-		if p.footer == nil {
+		if len(p.links) == 0 {
 			t.Errorf("the %s page links nowhere", module)
 			continue
 		}
 		var opened []string
 		k.openPage = func(id string) { opened = append(opened, id) }
-		for _, b := range treetest.All[*widget.Button](p.footer(k)) {
+		for _, b := range treetest.All[*widget.Button](linksSection(k, "settings-section-related", p.links)) {
 			b.OnClick()
 		}
 		if !slices.Equal(opened, want) {
@@ -153,7 +153,7 @@ func TestAModuleLinkToAPageNotInstalledIsLeftOut(t *testing.T) {
 	if !ok {
 		t.Fatal("no keyboard-input page")
 	}
-	if labels := treetest.Labels(p.footer(k)); len(labels) != 0 {
+	if labels := treetest.Labels(linksSection(k, "settings-section-related", p.links)); len(labels) != 0 {
 		t.Errorf("without lys-wm the Keyboard Input page links to %q", labels)
 	}
 }
@@ -327,7 +327,7 @@ func TestModulePagesWithNothingElsewhereHaveNoLinks(t *testing.T) {
 		if !ok {
 			t.Fatalf("no %s page", id)
 		}
-		if p.footer != nil {
+		if len(p.links) > 0 {
 			t.Errorf("the %s page has related links", id)
 		}
 	}
@@ -360,13 +360,13 @@ func TestTheResourcePagesAndTheDashboardLinkToTheirOneThresholdSet(t *testing.T)
 		if !ok {
 			t.Fatalf("no %s page", module)
 		}
-		if p.footer == nil {
+		if len(p.links) == 0 {
 			t.Errorf("the %s page links nowhere", module)
 			continue
 		}
 		var opened []string
 		k.openPage = func(id string) { opened = append(opened, id) }
-		for _, b := range treetest.All[*widget.Button](p.footer(k)) {
+		for _, b := range treetest.All[*widget.Button](linksSection(k, "settings-section-related", p.links)) {
 			b.OnClick()
 		}
 		if !slices.Contains(opened, thresholdsPageID) {

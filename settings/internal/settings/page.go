@@ -28,6 +28,7 @@ type pageSpec struct {
 	// footer, when set, builds what follows the sections (the greeter's
 	// apply button).
 	footer func(k *kit) widget.Widget
+	links  []pageLink
 	// panel names what the lead and footer build, for search and links.
 	panel []panelSetting
 	// wm says the rows are lys-wm's, not lys-shell's.
@@ -399,6 +400,9 @@ func buildPage(k *kit, spec pageSpec) *settingsPage {
 	}
 	if spec.footer != nil {
 		content.Append(p.own(p.extra(spec.footer(k))), false)
+	}
+	if len(spec.links) > 0 {
+		content.Append(linksSection(k, "settings-section-related", spec.links), false)
 	}
 	p.Scroll = widget.NewScroll(k.pageColumn(content))
 	p.VerticalOnly, p.ShowBars, p.FillY = true, true, true

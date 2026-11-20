@@ -306,9 +306,33 @@ func sizeSlider(rem, loPx, hiPx float64) rowOpt {
 	})
 }
 
-// surfaceAnimationRows are surface_animation_rows for the [animations]
-// surface at prefix: the optional enter and exit transitions and
-// durations, each its own field.
+const motionPageID = "motion"
+
+var surfaceAnimationLink = pageLink{motionPageID, "settings-link-surface-animation"}
+
+func animationSurfaces() []string {
+	var surfaces []string
+	for _, p := range config.LeafPaths() {
+		if _, ok := config.Field(p + ".enter-duration"); ok && strings.HasPrefix(p, "animations.") {
+			surfaces = append(surfaces, p)
+		}
+	}
+	return surfaces
+}
+
+func surfaceAnimationTable() rowSpec {
+	surfaces := animationSurfaces()
+	rows := make([]gridRow, len(surfaces))
+	for i, s := range surfaces {
+		key, ok := config.I18nKey(s)
+		if !ok {
+			log.Panicf("settings: the animated surface %s has no label", s)
+		}
+		rows[i] = gridRow{key: key, cells: surfaceAnimationRows(s)}
+	}
+	return cellGridRow("settings-surface-animations", []string{"settings-animations-enter", "settings-animations-exit", "settings-animations-enter-duration", "settings-animations-exit-duration"}, rows...)
+}
+
 func surfaceAnimationRows(prefix string) []rowSpec {
 	return []rowSpec{
 		field(prefix+".enter", withKey("settings-animations-enter")),

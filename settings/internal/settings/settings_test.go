@@ -2448,39 +2448,44 @@ func TestALayoutChipAndThePickerNameModulesReadably(t *testing.T) {
 func TestAnimationDurationRowsStopAtTheConfigMaximum(t *testing.T) {
 	k := testKit(t, "")
 	p, _ := pageByID(layout(config.Defaults(), bothParts), "motion")
-	seen := 0
+	var rows []rowSpec
 	for _, sec := range p.sections {
-		for _, r := range sec.rows {
-			if !strings.HasSuffix(r.path, "duration") || r.action {
-				continue
-			}
-			seen++
-			var spin *widget.SpinButton
-			switch c := fieldControl(k, k.store, r).(type) {
-			case *number:
-				spin = c.SpinButton
-			case *optionalNumber:
-				spin = c.SpinButton
-			case *softRange:
-				spin = c.number.SpinButton
-			default:
-				t.Fatalf("%s: a %T, not a number", r.path, c)
-			}
-			spin.SelectAll()
-			spin.Insert("4294967295")
-			spin.KeyAction(widget.KeyEnter, 0)
-			if v := k.store.value(r.path); v != int64(config.AnimationMSMax) {
-				t.Errorf("%s: typing 4294967295 stored %v, want %d", r.path, v, config.AnimationMSMax)
-			}
-			spin.SelectAll()
-			spin.Insert("450")
-			spin.KeyAction(widget.KeyEnter, 0)
-			if v := k.store.value(r.path); v != int64(450) {
-				t.Errorf("%s: typing 450 stored %v", r.path, v)
-			}
+		rows = append(rows, sec.rows...)
+	}
+	for _, s := range animationSurfaces() {
+		rows = append(rows, surfaceAnimationRows(s)...)
+	}
+	seen := 0
+	for _, r := range rows {
+		if !strings.HasSuffix(r.path, "duration") || r.action {
+			continue
+		}
+		seen++
+		var spin *widget.SpinButton
+		switch c := fieldControl(k, k.store, r).(type) {
+		case *number:
+			spin = c.SpinButton
+		case *optionalNumber:
+			spin = c.SpinButton
+		case *softRange:
+			spin = c.number.SpinButton
+		default:
+			t.Fatalf("%s: a %T, not a number", r.path, c)
+		}
+		spin.SelectAll()
+		spin.Insert("4294967295")
+		spin.KeyAction(widget.KeyEnter, 0)
+		if v := k.store.value(r.path); v != int64(config.AnimationMSMax) {
+			t.Errorf("%s: typing 4294967295 stored %v, want %d", r.path, v, config.AnimationMSMax)
+		}
+		spin.SelectAll()
+		spin.Insert("450")
+		spin.KeyAction(widget.KeyEnter, 0)
+		if v := k.store.value(r.path); v != int64(450) {
+			t.Errorf("%s: typing 450 stored %v", r.path, v)
 		}
 	}
-	if want := 5 + 2*4; seen != want {
+	if want := 5 + 2*len(animationSurfaces()); seen != want {
 		t.Fatalf("%d duration rows on the animations page, want %d", seen, want)
 	}
 }

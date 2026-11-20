@@ -54,7 +54,7 @@ func dateTimePage(*config.Config) pageSpec {
 		sections: []sectionSpec{
 			{title: "settings-section-date-calendar", rows: []rowSpec{field("modules.clock.calendar-weekday-start", weekStartRow)}},
 		},
-		footer: relatedLinks(dateTimeLinks),
+		links: dateTimeLinks,
 		panel: []panelSetting{
 			{"date-time.automatic", "settings-date-ntp", "settings-section-date-system"},
 			{"date-time.manual", "settings-date-manual", "settings-section-date-system"},
