@@ -11,6 +11,7 @@ import (
 	"github.com/stubbedev/lys/desktop/service/idleinhibit/inhibitduration"
 	"github.com/stubbedev/lys/desktop/service/mpris"
 	"github.com/stubbedev/lys/desktop/service/pulse"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/secrets/vault"
 
 	"github.com/stubbedev/lys/shell/service/recorder"
@@ -47,8 +48,8 @@ func TestEveryModuleRendersExactlyItsDeclaredPlaceholders(t *testing.T) {
 		"modules.ram.format":            renderedNames(ramContext(sysinfo.Memory{})),
 		"modules.storage.format":        renderedNames(storageContext(sysinfo.Storage{})),
 		"modules.idle-inhibit.format":   renderedNames(idleInhibitVars(false, inhibitduration.Duration{}, 0)),
-		"modules.keybind-mode.format":   renderedNames(keybindModeVars("")),
-		"modules.keyboard-input.format": renderedNames(keyboardLayoutVars("us", nil)),
+		"modules.keybind-mode.format":   renderedNames(barview.KeybindModeVars("")),
+		"modules.keyboard-input.format": renderedNames(barview.KeyboardLayoutVars("us", nil)),
 		"modules.mail.format":           renderedNames(mailVars(3)),
 		"modules.media.format":          renderedNames(mediaVars(mpris.Player{})),
 		"modules.netstat.format":        renderedNames(netstatVars(sysinfo.Rate{})),

@@ -5,7 +5,6 @@ import (
 	"log"
 
 	"github.com/stubbedev/lys/desktop/compositor"
-	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/jinja"
 	"github.com/stubbedev/lys/desktop/service/hyprland"
 	"github.com/stubbedev/lys/desktop/service/lyswm"
@@ -16,15 +15,7 @@ import (
 // keybindModeLabel renders format: an empty submap
 // renders the "default" vocabulary word through the mode placeholder.
 func keybindModeLabel(format, submap string) string {
-	return jinja.RenderOr(format, keybindModeVars(submap))
-}
-
-func keybindModeVars(submap string) map[string]any {
-	mode := submap
-	if mode == "" {
-		mode = i18n.T("bar-keybind-mode-default")
-	}
-	return map[string]any{"mode": mode}
+	return jinja.RenderOr(format, barview.KeybindModeVars(submap))
 }
 
 // keybindModeVisible reports visibility: auto-hide

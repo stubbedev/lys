@@ -23,11 +23,66 @@ func Preview(cfg *config.Config, font render.Font, connector string, on composit
 }
 
 // SampleBar is a bar of layout's items on compositor on, every module a
-// Sample.
-func SampleBar(cfg *config.Config, font render.Font, layout config.BarLayout, on compositor.Kind) *widget.Bar {
+// Sample in the state states give it.
+func SampleBar(cfg *config.Config, font render.Font, layout config.BarLayout, on compositor.Kind, states ...State) *widget.Bar {
 	return NewBar(cfg, layout, "", func(row *widget.Box, item config.BarItem) {
-		row.Append(Sample(cfg, font, item, on), false)
+		row.Append(Sample(cfg, font, item, on, states...), false)
 	})
+}
+
+// State is a real state of one module for its Sample to show in place of
+// its sample placeholders, and what a press on its button does.
+type State struct {
+	module  config.BarModule
+	vars    map[string]any
+	pressed func()
+}
+
+// KeybindModeState is keybind-mode in submap, the default one for "".
+func KeybindModeState(submap string) State {
+	return State{module: config.ModuleKeybindMode, vars: KeybindModeVars(submap)}
+}
+
+// KeyboardInputState is keyboard-input on the layout the compositor
+// names, under the short names aliases gives layouts.
+func KeyboardInputState(layout string, aliases map[string]string) State {
+	return State{module: config.ModuleKeyboardInput, vars: KeyboardLayoutVars(layout, aliases)}
+}
+
+// OnPress is s with pressed run on a press of the module's button.
+func (s State) OnPress(pressed func()) State {
+	s.pressed = pressed
+	return s
+}
+
+// KeybindModeVars are keybind-mode's format variables in submap: the
+// default submap, "", is the "default" vocabulary word.
+func KeybindModeVars(submap string) map[string]any {
+	mode := submap
+	if mode == "" {
+		mode = i18n.T("bar-keybind-mode-default")
+	}
+	return map[string]any{"mode": mode}
+}
+
+// KeyboardLayoutVars are keyboard-input's format variables on layout:
+// the layout and its alias, the layout itself while aliases gives it
+// none.
+func KeyboardLayoutVars(layout string, aliases map[string]string) map[string]any {
+	alias, ok := aliases[layout]
+	if !ok {
+		alias = layout
+	}
+	return map[string]any{"layout": layout, "alias": alias}
+}
+
+func stateOf(m config.BarModule, states []State) (State, bool) {
+	for _, s := range states {
+		if s.module == m {
+			return s, true
+		}
+	}
+	return State{}, false
 }
 
 // Sample is item's module as the bar draws it, holding sample state
@@ -35,8 +90,9 @@ func SampleBar(cfg *config.Config, font render.Font, layout config.BarLayout, on
 // workspace strip of SampleWorkspaces on compositor on, or the module's
 // button in its module box with the icon the module starts with and a
 // sample label, under the module's button config. A module with no
-// icon of its own shows its title.
-func Sample(cfg *config.Config, font render.Font, item config.BarItem, on compositor.Kind) widget.Widget {
+// icon of its own shows its title. A module one of states is for shows
+// that state instead.
+func Sample(cfg *config.Config, font render.Font, item config.BarItem, on compositor.Kind, states ...State) widget.Widget {
 	switch item.Module {
 	case config.ModuleSeparator:
 		rule := NewSeparator(cfg)
@@ -49,8 +105,16 @@ func Sample(cfg *config.Config, font render.Font, item config.BarItem, on compos
 	}
 	name := string(item.Module)
 	icon, hasIcon := cfg.ModuleIcon(item.Module)
-	b := NewButton(cfg, font, Icon(icon), sampleLabel(cfg, item.Module, hasIcon))
+	label := sampleLabel(cfg, item.Module, hasIcon)
+	state, live := stateOf(item.Module, states)
+	if live {
+		label = jinja.RenderOr(moduleFormats[item.Module](cfg), state.vars)
+	}
+	b := NewButton(cfg, font, Icon(icon), label)
 	b.Configure(ModuleTitle(name, cfg), ModuleButton(name, cfg))
+	if state.pressed != nil {
+		b.OnClick = state.pressed
+	}
 	wrap := ModuleBox(item)
 	wrap.Append(b, false)
 	return wrap

@@ -203,3 +203,43 @@ func TestASampleLabelShowsWhatTheModuleShowsForAFormatItCannotRender(t *testing.
 		t.Errorf("mail, which replaces rather than renders, previews %q, want the format as written", got)
 	}
 }
+
+func TestAStateShowsItsModulesRealStateInPlaceOfTheSamples(t *testing.T) {
+	cfg := config.Defaults()
+	cfg.KeybindMode.Format = "[{{ mode }}]"
+	cfg.KeyboardInput.Format = "{{ alias }}"
+	font := treetest.Font(t)
+	layout := config.BarLayout{Monitor: AllMonitors, Show: true, Center: []config.BarItem{{Module: config.ModuleKeybindMode}, {Module: config.ModuleKeyboardInput}}}
+	pressed := 0
+	bar := SampleBar(cfg, font, layout, compositor.LysWM,
+		KeybindModeState("move"),
+		KeyboardInputState("German", map[string]string{"German": "DE"}).OnPress(func() { pressed++ }))
+	if got := sampleButton(t, bar, "keybind-mode").Label().Text(); got != "[move]" {
+		t.Errorf("keybind-mode in move shows %q, want [move]", got)
+	}
+	keyboard := sampleButton(t, bar, "keyboard-input")
+	if got := keyboard.Label().Text(); got != "DE" {
+		t.Errorf("keyboard-input on German aliased DE shows %q, want DE", got)
+	}
+	keyboard.ClickAt(widget.Point{})
+	if pressed != 1 {
+		t.Errorf("a press on the keyboard-input chip ran its state's press %d times, want once", pressed)
+	}
+	bar = SampleBar(cfg, font, layout, compositor.LysWM, KeybindModeState(""), KeyboardInputState("French", map[string]string{"German": "DE"}))
+	if got := sampleButton(t, bar, "keybind-mode").Label().Text(); got != "["+i18n.T("bar-keybind-mode-default")+"]" {
+		t.Errorf("keybind-mode in the default submap shows %q, want the default word", got)
+	}
+	if got := sampleButton(t, bar, "keyboard-input").Label().Text(); got != "French" {
+		t.Errorf("keyboard-input on a layout without an alias shows %q, want the layout's own name", got)
+	}
+}
+
+func TestAModuleWithoutAStateKeepsItsSamples(t *testing.T) {
+	cfg := config.Defaults()
+	cfg.KeybindMode.Format = "[{{ mode }}]"
+	layout := config.BarLayout{Monitor: AllMonitors, Show: true, Center: []config.BarItem{{Module: config.ModuleKeybindMode}}}
+	bar := SampleBar(cfg, treetest.Font(t), layout, compositor.LysWM, KeyboardInputState("German", nil))
+	if got, want := sampleButton(t, bar, "keybind-mode").Label().Text(), sampleFormatLabel(config.ModuleKeybindMode, "[{{ mode }}]"); got != want || got == "[move]" {
+		t.Errorf("keybind-mode with only a keyboard state shows %q, want its sample %q", got, want)
+	}
+}
