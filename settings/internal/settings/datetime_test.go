@@ -3,6 +3,7 @@ package settings
 import (
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/dbusx"
@@ -283,6 +285,27 @@ func TestTheFormatsWriteLocaleConfAndChangeThePreview(t *testing.T) {
 	if got := preview(); !strings.Contains(got, "£1,234.50") {
 		t.Fatalf("the preview did not follow LC_MONETARY: %q", got)
 	}
+	tr := locale.T()
+	unitsLine := func() string {
+		for _, lbl := range treetest.All[*widget.Label](footer) {
+			if strings.Contains(lbl.Text(), "°") {
+				return lbl.Text()
+			}
+		}
+		return ""
+	}
+	us := tr.Get("settings-region-preview-units", i18n.Str("measurement", tr.Get("settings-region-measurement-us")), i18n.Str("paper", tr.Get("settings-region-paper-letter")))
+	if got := unitsLine(); got != us {
+		t.Fatalf("the units read %q, want the language's %q", got, us)
+	}
+	dropdownNamed(t, footer, "LC_PAPER").SetSelected(1 + slices.Index(glibclocaletest.Names, "en_GB.utf8"))
+	dropdownNamed(t, footer, "LC_MEASUREMENT").SetSelected(1 + slices.Index(glibclocaletest.Names, "en_GB.utf8"))
+	metric := tr.Get("settings-region-preview-units", i18n.Str("measurement", tr.Get("settings-region-measurement-metric")), i18n.Str("paper", "A4"))
+	if got := unitsLine(); got != metric {
+		t.Fatalf("the units did not follow LC_PAPER and LC_MEASUREMENT: %q, want %q", got, metric)
+	}
+	dropdownNamed(t, footer, "LC_PAPER").SetSelected(0)
+	dropdownNamed(t, footer, "LC_MEASUREMENT").SetSelected(0)
 	dropdownNamed(t, footer, "LC_NUMERIC").SetSelected(0)
 	if got := fileText(t, filepath.Join(config, "locale.conf")); got != "# mine\nLC_MONETARY=en_GB.utf8\n" {
 		t.Fatalf("locale.conf %q after the same-as-language choice", got)
@@ -538,4 +561,37 @@ func useHostRoot(t *testing.T) host {
 	systemHost = host{root: t.TempDir(), env: before.env}
 	t.Cleanup(func() { systemHost = before })
 	return systemHost
+}
+
+func TestAPaperSizeIsNamedOrMeasured(t *testing.T) {
+	tr := locale.T()
+	for _, c := range []struct {
+		w, h uint32
+		want string
+	}{
+		{210, 297, "A4"},
+		{297, 420, "A3"},
+		{216, 279, tr.Get("settings-region-paper-letter")},
+		{216, 356, tr.Get("settings-region-paper-legal")},
+		{297, 210, tr.Get("settings-region-paper-millimetres", i18n.Str("width", "297"), i18n.Str("height", "210"))},
+		{182, 257, tr.Get("settings-region-paper-millimetres", i18n.Str("width", "182"), i18n.Str("height", "257"))},
+	} {
+		if got := paperName(c.w, c.h); got != c.want {
+			t.Errorf("%d×%d mm = %q, want %q", c.w, c.h, got, c.want)
+		}
+	}
+}
+
+func TestALocaleWithoutPaperDataIsAnError(t *testing.T) {
+	dir := glibclocaletest.Dirs(t)
+	if err := os.Remove(filepath.Join(dir, "de_DE.utf8", "LC_PAPER")); err != nil {
+		t.Fatal(err)
+	}
+	useLocales(t, glibclocale.NewSource("", dir))
+	if _, err := previewUnits("de_DE.UTF-8", "de_DE.UTF-8"); err == nil || !strings.Contains(err.Error(), "has no LC_PAPER") {
+		t.Fatalf("a locale without LC_PAPER previews with %v", err)
+	}
+	if got, err := previewUnits("en_US.UTF-8", "C"); err != nil || !strings.Contains(got, "A4") || !strings.Contains(got, locale.T().Get("settings-region-measurement-us")) {
+		t.Fatalf("en_US measurement on C paper = %q, %v", got, err)
+	}
 }

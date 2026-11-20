@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -515,10 +516,56 @@ func localeIndex(names []string, name string) int {
 	return slices.IndexFunc(names, func(n string) bool { return glibclocale.Normalize(n) == want })
 }
 
-type formatsPreview struct{ date, number, price string }
+type formatsPreview struct{ date, number, price, units string }
 
-func previewFormats(timeLocale, numericLocale, monetaryLocale string, at time.Time) (formatsPreview, error) {
-	lt, err := localeSource.Time(timeLocale)
+type formatLocales struct{ time, numeric, monetary, measurement, paper string }
+
+type paperSize struct {
+	width, height uint32
+	name          string
+}
+
+var paperSizes = []paperSize{
+	{210, 297, "A4"},
+	{297, 420, "A3"},
+	{148, 210, "A5"},
+	{216, 279, "settings-region-paper-letter"},
+	{216, 356, "settings-region-paper-legal"},
+}
+
+func paperName(w, h uint32) string {
+	t := locale.T()
+	i := slices.IndexFunc(paperSizes, func(s paperSize) bool { return s.width == w && s.height == h })
+	switch {
+	case i < 0:
+		return t.Get("settings-region-paper-millimetres", i18n.Str("width", strconv.FormatUint(uint64(w), 10)), i18n.Str("height", strconv.FormatUint(uint64(h), 10)))
+	case strings.HasPrefix(paperSizes[i].name, "settings-"):
+		return t.Get(paperSizes[i].name)
+	}
+	return paperSizes[i].name
+}
+
+func measurementName(m glibclocale.Measurement) string {
+	if m == glibclocale.USCustomary {
+		return locale.T().Get("settings-region-measurement-us")
+	}
+	return locale.T().Get("settings-region-measurement-metric")
+}
+
+func previewUnits(measurementLocale, paperLocale string) (string, error) {
+	m, err := localeSource.Measurement(measurementLocale)
+	if err != nil {
+		return "", err
+	}
+	p, err := localeSource.Paper(paperLocale)
+	if err != nil {
+		return "", err
+	}
+	return locale.T().Get("settings-region-preview-units", i18n.Str("measurement", measurementName(m)), i18n.Str("paper", paperName(p.Millimetres()))), nil
+}
+
+func previewFormats(l formatLocales, at time.Time) (formatsPreview, error) {
+	lt, err := localeSource.Time(l.time)
 	if err != nil {
 		return formatsPreview{}, err
 	}
@@ -526,15 +573,19 @@ func previewFormats(timeLocale, numericLocale, monetaryLocale string, at time.Ti
 	if err != nil {
 		return formatsPreview{}, err
 	}
-	numeric, err := localeSource.Numeric(numericLocale)
+	numeric, err := localeSource.Numeric(l.numeric)
 	if err != nil {
 		return formatsPreview{}, err
 	}
-	monetary, err := localeSource.Monetary(monetaryLocale)
+	monetary, err := localeSource.Monetary(l.monetary)
 	if err != nil {
 		return formatsPreview{}, err
 	}
-	return formatsPreview{date: date, number: numeric.Format(previewNumber, previewScale), price: monetary.Format(previewPrice, previewScale, numeric)}, nil
+	units, err := previewUnits(l.measurement, l.paper)
+	if err != nil {
+		return formatsPreview{}, err
+	}
+	return formatsPreview{date: date, number: numeric.Format(previewNumber, previewScale), price: monetary.Format(previewPrice, previewScale, numeric), units: units}, nil
 }
 
 func localeConfPath(h host) (string, error) {
@@ -601,11 +652,13 @@ func regionFormats(k *kit, lang func() string) (widget.Widget, func()) {
 		return wrapped(k.label(err.Error(), "setting-problem", css.Caption, css.Error)), func() {}
 	}
 	preview := wrapped(k.label("", "setting-description", css.Caption, css.DimLabel))
+	units := wrapped(k.label("", "setting-description", css.Caption, css.DimLabel))
 	formatsProblem := wrapped(k.label("", "setting-problem", css.Caption, css.Error))
 	formatsProblem.SetVisible(false)
 	head := widget.NewBox(widget.Column, widget.Current().Spacing/2, 0)
 	head.SetElement("item")
 	head.Append(preview, false)
+	head.Append(units, false)
 	head.Append(formatsProblem, false)
 	formats := widget.NewBox(widget.Column, 0, 0)
 	formats.Append(head, false)
@@ -618,12 +671,14 @@ func regionFormats(k *kit, lang func() string) (widget.Widget, func()) {
 			return
 		}
 		pick := func(key string) string { return cmp.Or(values[key], lang(), "C") }
-		pv, err := previewFormats(pick("LC_TIME"), pick("LC_NUMERIC"), pick("LC_MONETARY"), time.Now())
+		pv, err := previewFormats(formatLocales{pick("LC_TIME"), pick("LC_NUMERIC"), pick("LC_MONETARY"), pick("LC_MEASUREMENT"), pick("LC_PAPER")}, time.Now())
+		units.SetVisible(err == nil)
 		if err != nil {
 			preview.SetText(err.Error())
 			return
 		}
 		preview.SetText(t.Get("settings-region-preview", i18n.Str("date", pv.date), i18n.Str("number", pv.number), i18n.Str("price", pv.price)))
+		units.SetText(pv.units)
 	}
 	async(k, func() localesListing {
 		names, err := listLocales()
