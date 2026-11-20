@@ -8,6 +8,7 @@ import (
 	"github.com/stubbedev/lys/desktop/compositor"
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/service/workspaces"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
 
@@ -91,8 +92,9 @@ func workspacesCompositorNote(k *kit, on compositor.Kind) widget.Widget {
 	return wrapped(k.label(text, "settings-section-description", css.Caption, css.DimLabel))
 }
 
-// workspaceIgnoreRow is the workspaces hidden from the bar as chips: under
-// lys-wm, a chip per workspace it keeps; any name, number or pattern typed.
+// workspaceIgnoreRow is the workspaces hidden from the bar as chips: a chip
+// per workspace the running lys-wm, Hyprland, niri or sway keeps, named as
+// the bar matches it; any name, number or pattern typed.
 func workspaceIgnoreRow(on compositor.Kind) rowOpt {
 	return nameChipsRow(nameChipsSpec{
 		offered:     func(k *kit) func() offeredNames { return runningWorkspaces(k, on) },
@@ -103,9 +105,20 @@ func workspaceIgnoreRow(on compositor.Kind) rowOpt {
 }
 
 func runningWorkspaces(k *kit, on compositor.Kind) func() offeredNames {
-	if on != compositor.LysWM {
-		return func() offeredNames { return offeredNames{} }
+	switch on {
+	case compositor.LysWM:
+		return lysWMWorkspaces(k)
+	case compositor.Hyprland, compositor.Niri, compositor.Sway:
+		return func() offeredNames {
+			names, err := workspaces.IgnoreNames(on)
+			return offeredNames{names: names, err: err}
+		}
+	case compositor.Unknown, compositor.Mango:
 	}
+	return func() offeredNames { return offeredNames{} }
+}
+
+func lysWMWorkspaces(k *kit) func() offeredNames {
 	w, err := k.wmBackend()
 	if err != nil {
 		return func() offeredNames { return offeredNames{err: err} }

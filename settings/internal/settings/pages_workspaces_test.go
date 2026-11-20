@@ -1,6 +1,7 @@
 package settings
 
 import (
+	"path/filepath"
 	"reflect"
 	"slices"
 	"strings"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/compositor"
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/service/workspaces/workspacestest"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
@@ -156,12 +158,55 @@ func TestWithoutARunningLysWMTheWorkspaceChipsSayWhy(t *testing.T) {
 	}
 }
 
-func TestATypedWorkspacePatternIsHiddenOnce(t *testing.T) {
+func TestUnderHyprlandNiriAndSwayEachWorkspaceIsAChipThatHidesIt(t *testing.T) {
+	for _, tc := range []struct {
+		on     compositor.Kind
+		fake   func(testing.TB, string)
+		reply  string
+		labels []string
+		hidden string
+	}{
+		{compositor.Hyprland, workspacestest.Hyprland, `[{"id":2,"name":"2"},{"id":-1337,"name":"web"},{"id":1,"name":"1"}]`, []string{"-1337", "1", "2", "scratch*"}, "-1337"},
+		{compositor.Niri, workspacestest.Niri, `[{"id":7,"idx":2,"name":null},{"id":3,"idx":1,"name":"chat"}]`, []string{"2", "chat", "scratch*"}, "chat"},
+		{compositor.Sway, workspacestest.Sway, `[{"id":5,"num":10,"name":"10"},{"id":4,"num":-1,"name":"web"},{"id":3,"num":1,"name":"1"}]`, []string{"1", "10", "web", "scratch*"}, "10"},
+	} {
+		t.Run(tc.on.String(), func(t *testing.T) {
+			tc.fake(t, tc.reply)
+			k := testKit(t, "")
+			if err := k.store.set(workspaceIgnorePath, []any{"scratch*"}); err != nil {
+				t.Fatal(err)
+			}
+			c := workspaceIgnoreChips(t, k, tc.on)
+			if !slices.Equal(c.labels, tc.labels) || c.unread.Visible() {
+				t.Fatalf("chips %q (unread %v %q), want %q", c.labels, c.unread.Visible(), c.unread.Text(), tc.labels)
+			}
+			at := slices.Index(c.labels, tc.hidden)
+			if c.toggles[at].Active() || !c.toggles[len(c.labels)-1].Active() {
+				t.Fatal("the chips do not show what is hidden")
+			}
+			c.toggles[at].SetActive(true)
+			if got := k.store.value(workspaceIgnorePath); !reflect.DeepEqual(got, []any{"scratch*", tc.hidden}) {
+				t.Fatalf("hiding %s stored %v", tc.hidden, got)
+			}
+		})
+	}
+}
+
+func TestWithoutTheCompositorsSocketTheWorkspaceChipsSayWhy(t *testing.T) {
+	t.Setenv(compositor.SwaySocketEnv, filepath.Join(t.TempDir(), "gone.sock"))
 	k := testKit(t, "")
 	c := workspaceIgnoreChips(t, k, compositor.Sway)
+	if !c.unread.Visible() || !strings.Contains(c.unread.Text(), "sway") || len(c.labels) != 0 {
+		t.Fatalf("unread %v %q, chips %q", c.unread.Visible(), c.unread.Text(), c.labels)
+	}
+}
+
+func TestATypedWorkspacePatternIsHiddenOnce(t *testing.T) {
+	k := testKit(t, "")
+	c := workspaceIgnoreChips(t, k, compositor.Unknown)
 	tr := locale.T()
 	if len(c.labels) != 0 || c.unread.Visible() {
-		t.Fatalf("under sway the chips offer %q, unread %v", c.labels, c.unread.Visible())
+		t.Fatalf("without a compositor the chips offer %q, unread %v", c.labels, c.unread.Visible())
 	}
 	c.entry.SetText("  ")
 	c.add()
