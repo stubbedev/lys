@@ -5,34 +5,49 @@
 package buffer
 
 import (
-	"os"
+	"slices"
 	"testing"
 
+	"github.com/stubbedev/lys/lib/fdtest"
 	"github.com/stubbedev/lys/lib/render"
 )
 
-// countFDs reports how many fds this process holds. /proc/self/fd
-// includes the listing directory's own fd, but that +1 is constant, so
-// before/after comparisons are exact.
-func countFDs(t *testing.T) int {
+func watchPool(t *testing.T, a *Arena) fdtest.Watch {
 	t.Helper()
-	entries, err := os.ReadDir("/proc/self/fd")
-	if err != nil {
-		t.Skipf("no /proc/self/fd on this system: %v", err)
+	if a.file == nil {
+		t.Fatal("the arena opened no pool file for its first buffer")
 	}
-	return len(entries)
+	return fdtest.WatchFD(t, int(a.file.Fd()))
+}
+
+func requireOnePool(t *testing.T, a *Arena, pool fdtest.Watch, after string) {
+	t.Helper()
+	if a.file == nil || int(a.file.Fd()) != pool.FD() || !pool.Open(t) {
+		t.Errorf("after %s the arena's pool is no longer the file it opened on descriptor %d", after, pool.FD())
+	}
+	if held := pool.Holders(t); !slices.Equal(held, []int{pool.FD()}) {
+		t.Errorf("after %s descriptors %v hold the arena's pool, want its own %d alone", after, held, pool.FD())
+	}
+}
+
+func requirePoolClosed(t *testing.T, pool fdtest.Watch, after string) {
+	t.Helper()
+	if held := pool.Holders(t); len(held) != 0 {
+		t.Errorf("after %s descriptors %v still hold the arena's pool", after, held)
+	}
 }
 
 // TestCreateResizeCloseWindowsReturnsFds is the leak headline: N
 // window-shaped pools rotate, resize up and down over one shared arena,
-// and close - the open fd count must return to the baseline, with every
-// slot accounted for. A per-buffer memfd scheme (or a pool whose
+// and close - the arena keeps the one pool file it opened, and nothing
+// else holds it, with every slot accounted for. A per-buffer memfd scheme (or a pool whose
 // resizes orphan storage) shows up here immediately.
 func TestCreateResizeCloseWindowsReturnsFds(t *testing.T) {
 	t.Setenv("XDG_RUNTIME_DIR", t.TempDir())
-	before := countFDs(t)
 
 	arena := NewArena(nil) // one per session, in production
+	var pool fdtest.Watch
+	watched := false
 	sizes := [][2]int{{200, 40}, {320, 60}, {180, 30}, {480, 90}, {320, 60}}
 
 	const windows = 4
@@ -47,6 +62,9 @@ func TestCreateResizeCloseWindowsReturnsFds(t *testing.T) {
 				b, err := p.Acquire()
 				if err != nil {
 					t.Fatalf("acquire %dx%d: %v", sz[0], sz[1], err)
+				}
+				if !watched {
+					pool, watched = watchPool(t, arena), true
 				}
 				held = append(held, b)
 			}
@@ -67,17 +85,13 @@ func TestCreateResizeCloseWindowsReturnsFds(t *testing.T) {
 	}
 	// The session lives on: exactly one pool fd may remain, no matter
 	// how many windows, buffers, and resizes just ran.
-	if n := countFDs(t); n != before+1 {
-		t.Errorf("open fds = %d, want %d (baseline+1, the one pool fd): the window lifecycle leaks fds", n, before+1)
-	}
+	requireOnePool(t, arena, pool, "the window lifecycle")
 
 	// Session teardown: the pool proxy, mapping, and the one fd go.
 	if err := arena.Close(); err != nil {
 		t.Fatalf("arena close: %v", err)
 	}
-	if n := countFDs(t); n != before {
-		t.Errorf("open fds = %d after arena close, want baseline %d", n, before)
-	}
+	requirePoolClosed(t, pool, "the arena closed")
 	if arena.Size() != 0 || len(arena.free) != 0 {
 		t.Errorf("closed arena kept size %d and %d free slots", arena.Size(), len(arena.free))
 	}
@@ -91,25 +105,21 @@ func TestCreateResizeCloseWindowsReturnsFds(t *testing.T) {
 // create_pool, which is exactly the churn the pool removed.)
 func TestNewFileRoutesThroughSessionPool(t *testing.T) {
 	t.Setenv("XDG_RUNTIME_DIR", t.TempDir())
-	before := countFDs(t)
 
 	var oneShots []*Buffer
-	for range 8 { // eight windows' worth of buffers, one pool
+	var pool fdtest.Watch
+	for i := range 8 { // eight windows' worth of buffers, one pool
 		b, err := NewFile(nil, 64, 16, 1)
 		if err != nil {
 			t.Fatal(err)
 		}
+		if i == 0 {
+			pool = watchPool(t, sessionArena(t))
+		}
 		oneShots = append(oneShots, b)
 	}
-	if got := countFDs(t); got != before+1 {
-		t.Errorf("open fds = %d, want baseline+1 (one arena fd, got per-buffer memfds)", got)
-	}
-	arenas.Lock()
-	a := arenas.m[nil]
-	arenas.Unlock()
-	if a == nil {
-		t.Fatal("NewFile did not register a session arena")
-	}
+	a := sessionArena(t)
+	requireOnePool(t, a, pool, "eight one-shot buffers")
 	if a.Size() == 0 || a.Live() != 8 {
 		t.Errorf("arena size %d live %d, want the buffers sub-allocated", a.Size(), a.Live())
 	}
@@ -122,13 +132,20 @@ func TestNewFileRoutesThroughSessionPool(t *testing.T) {
 	if a.Live() != 0 {
 		t.Errorf("arena live = %d after all one-shots released, want 0", a.Live())
 	}
-	if n := countFDs(t); n != before+1 {
-		t.Errorf("open fds = %d after frees, want baseline+1: freeing must not churn fds", n)
-	}
+	requireOnePool(t, a, pool, "freeing the one-shot buffers")
 	CloseArenas(nil)
-	if n := countFDs(t); n != before {
-		t.Errorf("open fds = %d after CloseArenas, want baseline %d", n, before)
+	requirePoolClosed(t, pool, "CloseArenas")
+}
+
+func sessionArena(t *testing.T) *Arena {
+	t.Helper()
+	arenas.Lock()
+	a := arenas.m[nil]
+	arenas.Unlock()
+	if a == nil {
+		t.Fatal("NewFile did not register a session arena")
 	}
+	return a
 }
 
 // TestArenaGrowthReusesFreedSlots: release-then-acquire at the same size
@@ -166,19 +183,22 @@ func TestArenaGrowthReusesFreedSlots(t *testing.T) {
 }
 
 // TestArenaGrowKeepsOneFdAndWritableMemory: growth truncates the file
-// and remaps; the fd count stays at one and every generation's mapping
-// is usable.
+// and remaps; the arena keeps the one pool file it opened and every
+// generation's mapping is usable.
 func TestArenaGrowKeepsOneFdAndWritableMemory(t *testing.T) {
 	t.Setenv("XDG_RUNTIME_DIR", t.TempDir())
 	arena := NewArena(nil)
 	defer arena.Close()
 
-	baseline := countFDs(t)
+	var pool fdtest.Watch
 	var keep []*Buffer
 	for i, sz := range []int{1, 4, 16, 64, 256} {
 		b, err := arena.Acquire(sz*1024, 1, 1)
 		if err != nil {
 			t.Fatal(err)
+		}
+		if i == 0 {
+			pool = watchPool(t, arena)
 		}
 		for j := range b.Data {
 			b.Data[j] = byte(i) // both mappings must be writable
@@ -188,9 +208,7 @@ func TestArenaGrowKeepsOneFdAndWritableMemory(t *testing.T) {
 		}
 		keep = append(keep, b)
 	}
-	if n := countFDs(t); n != baseline+1 {
-		t.Errorf("open fds = %d after 5 growths, want baseline+1", n)
-	}
+	requireOnePool(t, arena, pool, "5 growths")
 	for _, b := range keep {
 		b.Release()
 	}
