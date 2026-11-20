@@ -620,6 +620,24 @@ settings-section-focus-automatic = Ativar automaticamente
     .description = Quando Não incomodar se ativa sozinho
 settings-section-focus-allowed = Permitidas
     .description = O que aparece mesmo em Não incomodar
+settings-section-dnd = Não incomodar
+    .description = Os pop-ups e os sons ficam em silêncio; as notificações continuam a chegar ao histórico
+settings-dnd-now = Não incomodar
+settings-dnd-loading = A perguntar ao lys-shell…
+settings-dnd-unavailable = Não é possível contactar as notificações do lys-shell: { $reason }
+settings-dnd-refused = O lys-shell não alterou o modo Não incomodar
+settings-dnd-status = { $status ->
+        [manual] Ligado até o desligar
+        [until] Ligado até às { $time }
+        [scheduled] Ligado até às { $time } · Horário
+        [sharing] Ligado enquanto o ecrã é partilhado
+        [fullscreen] Ligado enquanto uma janela está em ecrã inteiro
+        [held-on] Ligado até às { $time }, à frente das regras automáticas
+        [held-on-open] Ligado até as regras automáticas mudarem
+        [held-off] Desligado até às { $time }, à frente das regras automáticas
+        [held-off-open] Desligado até as regras automáticas mudarem
+       *[off] Desligado
+    }
 settings-schedule-days = Dias
 settings-schedule-from = De
 settings-schedule-to = Até

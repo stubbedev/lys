@@ -78,7 +78,7 @@ var roundingChoice = pictureChoice(roundingPictures)
 
 // notificationsPage is pages/notifications.
 func notificationsPage(*config.Config) pageSpec {
-	return pageSpec{id: "notifications", navKey: "settings-nav-notifications", icon: "ld-bell-symbolic", header: "settings-page-notifications", lead: tryLead("settings-test-notification", testNotification), extrasOnRows: true, sections: []sectionSpec{
+	return pageSpec{id: "notifications", navKey: "settings-nav-notifications", icon: "ld-bell-symbolic", header: "settings-page-notifications", lead: notificationsLead, extrasOnRows: true, panel: []panelSetting{{"notifications.dnd", "settings-dnd-now", "settings-section-dnd"}}, sections: []sectionSpec{
 		{title: "settings-section-general", rows: []rowSpec{
 			field("modules.notifications.enabled"),
 		}},

@@ -2305,6 +2305,7 @@
       "settings/internal/wmstate",
       "shell/cava",
       "shell/service/mail",
+      "shell/service/notifications",
       "shell/service/shellipc",
       "shell/service/sni",
       "shell/service/sysinfo",
@@ -2317,6 +2318,7 @@
       "settings/internal/settings/avatars"
     ],
     "testImports": [
+      "desktop/fakeclock",
       "desktop/resources",
       "desktop/service/lyswm/lyswmtest",
       "desktop/service/upower/upowertest",

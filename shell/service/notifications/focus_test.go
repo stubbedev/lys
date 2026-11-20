@@ -1,6 +1,7 @@
 package notifications
 
 import (
+	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -10,6 +11,20 @@ import (
 	"github.com/stubbedev/lys/desktop/service/notifications/notifypolicy"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
+
+func TestAFocusReasonReadsBackFromItsName(t *testing.T) {
+	for r := FocusOff; r <= FocusFullscreen; r++ {
+		got, err := ParseFocusReason(r.String())
+		if err != nil || got != r {
+			t.Errorf("%s reads back as %v (%v)", r, got, err)
+		}
+	}
+	for _, name := range []string{"", "Manual", "schedule"} {
+		if _, err := ParseFocusReason(name); !errors.Is(err, ErrFocusReason) {
+			t.Errorf("%q reads as a reason (%v)", name, err)
+		}
+	}
+}
 
 func critical() map[string]dbus.Variant {
 	return map[string]dbus.Variant{"urgency": dbus.MakeVariant(byte(2))}

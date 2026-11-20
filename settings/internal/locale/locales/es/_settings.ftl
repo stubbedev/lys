@@ -630,6 +630,24 @@ settings-section-focus-automatic = Activar automáticamente
     .description = Cuándo se activa solo No molestar
 settings-section-focus-allowed = Permitido
     .description = Lo que aparece incluso en No molestar
+settings-section-dnd = No molestar
+    .description = Las ventanas emergentes y los sonidos callan; las notificaciones siguen llegando al historial
+settings-dnd-now = No molestar
+settings-dnd-loading = Preguntando a lys-shell…
+settings-dnd-unavailable = No se puede contactar con las notificaciones de lys-shell: { $reason }
+settings-dnd-refused = lys-shell no cambió el modo No molestar
+settings-dnd-status = { $status ->
+        [manual] Activado hasta que lo desactives
+        [until] Activado hasta las { $time }
+        [scheduled] Activado hasta las { $time } · Horario
+        [sharing] Activado mientras se comparte la pantalla
+        [fullscreen] Activado mientras una ventana está a pantalla completa
+        [held-on] Activado hasta las { $time }, por encima de las reglas automáticas
+        [held-on-open] Activado hasta que cambien las reglas automáticas
+        [held-off] Desactivado hasta las { $time }, por encima de las reglas automáticas
+        [held-off-open] Desactivado hasta que cambien las reglas automáticas
+       *[off] Desactivado
+    }
 settings-schedule-days = Días
 settings-schedule-from = Desde
 settings-schedule-to = Hasta

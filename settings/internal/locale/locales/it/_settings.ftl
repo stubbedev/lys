@@ -630,6 +630,24 @@ settings-section-focus-automatic = Attiva automaticamente
     .description = Quando Non disturbare si attiva da solo
 settings-section-focus-allowed = Lasciati passare
     .description = Cosa compare anche in modalità Non disturbare
+settings-section-dnd = Non disturbare
+    .description = Popup e suoni restano in silenzio; le notifiche arrivano comunque nella cronologia
+settings-dnd-now = Non disturbare
+settings-dnd-loading = Richiesta a lys-shell…
+settings-dnd-unavailable = Impossibile raggiungere le notifiche di lys-shell: { $reason }
+settings-dnd-refused = lys-shell non ha cambiato la modalità Non disturbare
+settings-dnd-status = { $status ->
+        [manual] Attivo finché non lo disattivi
+        [until] Attivo fino alle { $time }
+        [scheduled] Attivo fino alle { $time } · Programmazione
+        [sharing] Attivo mentre lo schermo è condiviso
+        [fullscreen] Attivo mentre una finestra è a schermo intero
+        [held-on] Attivo fino alle { $time }, prima delle regole automatiche
+        [held-on-open] Attivo finché non cambiano le regole automatiche
+        [held-off] Disattivo fino alle { $time }, prima delle regole automatiche
+        [held-off-open] Disattivo finché non cambiano le regole automatiche
+       *[off] Disattivo
+    }
 settings-schedule-days = Giorni
 settings-schedule-from = Da
 settings-schedule-to = A

@@ -57,6 +57,7 @@ type kit struct {
 	bluetooth  func() (btControl, error)
 	// mailCount is how many messages a notmuch query matches.
 	mailCount func(query string) (uint32, error)
+	dnd       func() (dndControl, error)
 	// i2c says which I2C buses there are and which this user may open.
 	i2c        func() i2cAccess
 	copySecret func(text string) error

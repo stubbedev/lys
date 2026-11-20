@@ -1,6 +1,8 @@
 package notifications
 
 import (
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/stubbedev/lys/desktop/service/notifications/notifymodel"
@@ -103,3 +105,16 @@ func (in focusInputs) wake(now time.Time) (time.Time, bool) {
 var focusReasonNames = [...]string{"off", "manual", "until", "override", "scheduled", "sharing", "fullscreen"}
 
 func (r FocusReason) String() string { return focusReasonNames[r] }
+
+// ErrFocusReason is a name no do-not-disturb reason has.
+var ErrFocusReason = errors.New("not a do-not-disturb reason")
+
+// ParseFocusReason reads a reason by its name, as DndReason carries it.
+func ParseFocusReason(name string) (FocusReason, error) {
+	for r := range FocusReason(len(focusReasonNames)) {
+		if r.String() == name {
+			return r, nil
+		}
+	}
+	return FocusOff, fmt.Errorf("%q: %w", name, ErrFocusReason)
+}

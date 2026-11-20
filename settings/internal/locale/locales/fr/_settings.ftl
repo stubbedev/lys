@@ -633,6 +633,24 @@ settings-section-focus-automatic = Activation automatique
     .description = Quand le mode ne pas déranger s'active de lui-même
 settings-section-focus-allowed = Autorisé malgré tout
     .description = Ce qui s'affiche même en mode ne pas déranger
+settings-section-dnd = Ne pas déranger
+    .description = Les fenêtres et les sons restent silencieux ; les notifications arrivent quand même dans l'historique
+settings-dnd-now = Ne pas déranger
+settings-dnd-loading = Interrogation de lys-shell…
+settings-dnd-unavailable = Impossible de joindre les notifications de lys-shell : { $reason }
+settings-dnd-refused = lys-shell n'a pas basculé le mode Ne pas déranger
+settings-dnd-status = { $status ->
+        [manual] Activé jusqu'à ce que vous le désactiviez
+        [until] Activé jusqu'à { $time }
+        [scheduled] Activé jusqu'à { $time } · Programmation
+        [sharing] Activé pendant le partage de l'écran
+        [fullscreen] Activé tant qu'une fenêtre est en plein écran
+        [held-on] Activé jusqu'à { $time }, avant les règles automatiques
+        [held-on-open] Activé jusqu'au prochain changement des règles automatiques
+        [held-off] Désactivé jusqu'à { $time }, avant les règles automatiques
+        [held-off-open] Désactivé jusqu'au prochain changement des règles automatiques
+       *[off] Désactivé
+    }
 settings-schedule-days = Jours
 settings-schedule-from = De
 settings-schedule-to = À

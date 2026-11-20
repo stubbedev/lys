@@ -630,6 +630,24 @@ settings-section-focus-automatic = Automatisch einschalten
     .description = Wann sich „Nicht stören“ selbst einschaltet
 settings-section-focus-allowed = Durchgelassen
     .description = Was auch bei „Nicht stören“ erscheint
+settings-section-dnd = Bitte nicht stören
+    .description = Pop-ups und Töne bleiben still; Benachrichtigungen landen trotzdem im Verlauf
+settings-dnd-now = Bitte nicht stören
+settings-dnd-loading = lys-shell wird gefragt…
+settings-dnd-unavailable = Die Benachrichtigungen von lys-shell sind nicht erreichbar: { $reason }
+settings-dnd-refused = lys-shell hat „Bitte nicht stören“ nicht umgeschaltet
+settings-dnd-status = { $status ->
+        [manual] An, bis du es ausschaltest
+        [until] An bis { $time }
+        [scheduled] An bis { $time } · Zeitplan
+        [sharing] An, solange der Bildschirm geteilt wird
+        [fullscreen] An, solange ein Fenster im Vollbild ist
+        [held-on] An bis { $time }, vor den automatischen Regeln
+        [held-on-open] An, bis sich die automatischen Regeln ändern
+        [held-off] Aus bis { $time }, vor den automatischen Regeln
+        [held-off-open] Aus, bis sich die automatischen Regeln ändern
+       *[off] Aus
+    }
 settings-schedule-days = Tage
 settings-schedule-from = Von
 settings-schedule-to = Bis

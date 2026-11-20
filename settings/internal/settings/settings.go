@@ -84,6 +84,7 @@ func Run(page, setting string) error {
 		statuses:     tileStatuses,
 		power:        func() (powerControl, error) { return openPower(dialSystemBus) },
 		bluetooth:    func() (btControl, error) { return openBluetooth(dialSystemBus) },
+		dnd:          func() (dndControl, error) { return openDND(dialSessionBus) },
 		notify:       sendNotification,
 		shellCommand: runShellCommand,
 		openURI:      openWithDefaultApp,

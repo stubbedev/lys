@@ -620,6 +620,24 @@ settings-section-focus-automatic = Automatisch inschakelen
     .description = Wanneer niet storen zichzelf inschakelt
 settings-section-focus-allowed = Doorgelaten
     .description = Wat ook bij niet storen verschijnt
+settings-section-dnd = Niet storen
+    .description = Pop-ups en geluiden blijven stil; meldingen komen wel in de geschiedenis
+settings-dnd-now = Niet storen
+settings-dnd-loading = lys-shell wordt gevraagd…
+settings-dnd-unavailable = De meldingen van lys-shell zijn niet bereikbaar: { $reason }
+settings-dnd-refused = lys-shell heeft Niet storen niet omgezet
+settings-dnd-status = { $status ->
+        [manual] Aan tot je het uitzet
+        [until] Aan tot { $time }
+        [scheduled] Aan tot { $time } · Schema
+        [sharing] Aan zolang het scherm gedeeld wordt
+        [fullscreen] Aan zolang een venster schermvullend is
+        [held-on] Aan tot { $time }, vóór de automatische regels
+        [held-on-open] Aan tot de automatische regels veranderen
+        [held-off] Uit tot { $time }, vóór de automatische regels
+        [held-off-open] Uit tot de automatische regels veranderen
+       *[off] Uit
+    }
 settings-schedule-days = Dagen
 settings-schedule-from = Van
 settings-schedule-to = Tot

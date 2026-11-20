@@ -481,6 +481,23 @@ func formatClock(names *glibclocale.Time, s store, now time.Time) (date, clock s
 	return date, clock, nil
 }
 
+func timeOfDayText(names *glibclocale.Time, s store, at, now time.Time) (string, error) {
+	l, err := clockLayout(s)
+	if err != nil {
+		return "", err
+	}
+	format := clockTimeFormat(l.HourCycle())
+	if !dayOf(at).Equal(dayOf(now.In(at.Location()))) {
+		format = "%a " + format
+	}
+	return names.Format(format, at)
+}
+
+func dayOf(t time.Time) time.Time {
+	y, m, d := t.Date()
+	return time.Date(y, m, d, 0, 0, 0, 0, t.Location())
+}
+
 func (c *clockCard) tick() {
 	if c.closed {
 		return

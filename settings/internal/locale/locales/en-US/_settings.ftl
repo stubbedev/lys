@@ -630,6 +630,24 @@ settings-section-focus-automatic = Turn On Automatically
     .description = When do-not-disturb turns itself on
 settings-section-focus-allowed = Allowed Through
     .description = What pops up even in do-not-disturb
+settings-section-dnd = Do Not Disturb
+    .description = Popups and sounds stay quiet; notifications still reach the history
+settings-dnd-now = Do Not Disturb
+settings-dnd-loading = Asking lys-shell…
+settings-dnd-unavailable = Cannot reach lys-shell's notifications: { $reason }
+settings-dnd-refused = lys-shell did not switch do-not-disturb
+settings-dnd-status = { $status ->
+        [manual] On until you turn it off
+        [until] On until { $time }
+        [scheduled] On until { $time } · Schedule
+        [sharing] On while the screen is shared
+        [fullscreen] On while a window is fullscreen
+        [held-on] On until { $time }, ahead of the automatic rules
+        [held-on-open] On until the automatic rules change
+        [held-off] Off until { $time }, ahead of the automatic rules
+        [held-off-open] Off until the automatic rules change
+       *[off] Off
+    }
 settings-schedule-days = Days
 settings-schedule-from = From
 settings-schedule-to = To
