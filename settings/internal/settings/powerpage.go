@@ -176,6 +176,7 @@ func newPowerPanel(k *kit) *powerPanel {
 	p.Append(p.problem, false)
 	p.Append(newSection(k, "settings-power-section-battery", p.battery), false)
 	p.Append(newSection(k, "settings-power-section-mode", p.modes), false)
+	p.Append(newPausing(k), false)
 	p.battery.Append(k.label(locale.T().Get("settings-power-loading"), css.Caption, css.DimLabel), false)
 	type opened struct {
 		ctl   powerControl

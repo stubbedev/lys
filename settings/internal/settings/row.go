@@ -61,6 +61,7 @@ type kit struct {
 	network    func() (netControl, error)
 	statuses   map[string]tileStatus
 	power      func() (powerControl, error)
+	pausing    func() (pauseControl, error)
 	battery    *batteryPresence
 	bluetooth  func() (btControl, error)
 	// mailCount is how many messages a notmuch query matches.

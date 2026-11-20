@@ -185,14 +185,6 @@ func (f *fakeSystemd) ListUnitFilesByPatterns(_, patterns []string) ([]struct{ P
 	return out, nil
 }
 
-type listedUnit struct {
-	Name, Description, Load, Active, Sub, Following string
-	Path                                            dbus.ObjectPath
-	JobID                                           uint32
-	JobType                                         string
-	JobPath                                         dbus.ObjectPath
-}
-
 func (f *fakeSystemd) ListUnitsByNames(names []string) ([]listedUnit, *dbus.Error) {
 	f.count("ListUnitsByNames")
 	out := make([]listedUnit, 0, len(names))

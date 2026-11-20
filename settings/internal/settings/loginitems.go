@@ -237,6 +237,14 @@ const (
 	systemdUnit    = systemdName + ".Unit"
 )
 
+type listedUnit struct {
+	Name, Description, Load, Active, Sub, Following string
+	Path                                            dbus.ObjectPath
+	JobID                                           uint32
+	JobType                                         string
+	JobPath                                         dbus.ObjectPath
+}
+
 type systemdUser struct {
 	conn    *dbus.Conn
 	resolve func(string) (string, error)
@@ -273,13 +281,7 @@ func (s systemdUser) units(ctx context.Context) ([]userUnit, error) {
 	if err := s.manager().CallWithContext(ctx, systemdManager+".ListUnitFilesByPatterns", 0, []string{}, names).Store(&files); err != nil {
 		return nil, fmt.Errorf("list the unit files of %v: %w", names, err)
 	}
-	var listed []struct {
-		Name, Description, Load, Active, Sub, Following string
-		Path                                            dbus.ObjectPath
-		JobID                                           uint32
-		JobType                                         string
-		JobPath                                         dbus.ObjectPath
-	}
+	var listed []listedUnit
 	if err := s.manager().CallWithContext(ctx, systemdManager+".ListUnitsByNames", 0, names).Store(&listed); err != nil {
 		return nil, fmt.Errorf("list the units %v: %w", names, err)
 	}

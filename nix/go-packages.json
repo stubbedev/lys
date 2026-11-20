@@ -2237,6 +2237,11 @@
       "lib/third_party/godbus",
       "power/internal/statefile",
       "power/pause"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/polkit/polkittest",
+      "lib/testhome"
     ]
   },
   "power/internal/predict": {
@@ -2259,6 +2264,11 @@
     "imports": [
       "lib/dbusx",
       "lib/third_party/godbus"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/intconv",
+      "lib/testhome"
     ]
   },
   "secrets/client": {
@@ -2526,6 +2536,7 @@
       "lib/xkb/registry",
       "login/dmsocket",
       "login/greeterconfig",
+      "power/pause",
       "secrets/client",
       "secrets/control",
       "secrets/vault",

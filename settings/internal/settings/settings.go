@@ -83,6 +83,7 @@ func Run(page, setting string) error {
 		network:       func() (netControl, error) { return openNetwork(dialSystemBus) },
 		statuses:      tileStatuses,
 		power:         func() (powerControl, error) { return openPower(dialSystemBus) },
+		pausing:       func() (pauseControl, error) { return openPausing(dialSystemBus, dialSessionBus) },
 		bluetooth:     func() (btControl, error) { return openBluetooth(dialSystemBus) },
 		dnd:           func() (dndControl, error) { return openDND(dialSessionBus) },
 		nightlight:    func() (nightlightControl, error) { return openNightlight(dialSessionBus) },
