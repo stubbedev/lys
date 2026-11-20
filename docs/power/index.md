@@ -6,7 +6,8 @@ the `lys-power-brightness` user service it can also set the screen brightness
 from the room's light: see [Automatic brightness](#automatic-brightness).
 
 A battery left plugged in at 100% wears out fast. So while the laptop is on
-AC, lys-power holds the charge between **75%** and **80%**. It learns at what
+AC, lys-power holds the charge at a limit you choose, **80%** unless you
+choose 85, 90, 95 or 100%. It learns at what
 time the charger usually comes out and charges to **100%** in the two hours
 before then. You leave with a full battery that did not spend the night at
 full.
@@ -24,28 +25,52 @@ power-profiles-daemon, only the charge policy applies.
 
 ## The charge policy
 
-- Each unplug is recorded with its weekday and minute, in
+- The charge limit is a choice of 80, 85, 90, 95 or 100%, 80% until one is
+  chosen, kept in `/var/lib/lys-power/charge-limit`. Charging resumes 5
+  points under it, so 80% holds between 75% and 80%. 100% turns the hold
+  off. Settings' Power & Battery page chooses it over
+  `dev.stubbe.lys.Charge1`.
+- Each unplug is recorded with its weekday, its minute and whether the
+  laptop was docked during that time on AC, in
   `/var/lib/lys-power/unplugs`. The last 60 unplugs are kept.
-- On unplug, the 75-80% thresholds come back at once, and a pending `full`
-  request is cleared.
-- On AC, the charge limit rises to 95-100% when a `full` request is pending,
-  or when the predicted unplug is less than 120 minutes away.
+- The laptop is docked while an external display is connected (any DRM
+  connector other than eDP, LVDS, DSI, writeback or virtual). Without any
+  display connector to tell by, the dock state is unknown.
+- On unplug, the limit comes back at once, and a pending `full` request is
+  cleared.
+- On AC the battery charges to full (95-100%):
+  - while a `full` request is pending;
+  - within 120 minutes of the next calendar event away from the desk, which
+    lys-shell passes over the bus: a timed event with a location. lys-power
+    keeps only its start time, in `/run/battery-charge/departure`, and an
+    event already started opens nothing;
+  - on a bare charger, undocked, which counts as travelling;
+  - docked, when the unplugs recorded from the dock predict an unplug less
+    than 120 minutes away; with the dock state unknown, when any recorded
+    unplugs do. Otherwise it holds at the limit.
 - The prediction is the lower quartile of the recorded unplug minutes that are
   still ahead today. Unplugs on the same weekday are used first, and every
   weekday's when the same weekday has fewer than 3. With fewer than 3 records
-  ahead there is no prediction, and the charge stays at 75-80%. Once the
-  usual unplug time has passed, the charge stays at 75-80% overnight.
+  ahead there is no prediction, and the charge holds at the limit. Once the
+  usual unplug time has passed, the charge holds overnight.
 - The kernel only exposes `charge_control_start_threshold` and
   `charge_control_end_threshold`. lys-power writes the end threshold first when
   raising them and the start threshold first when lowering them, as embedded
   controllers require, and never rewrites values already in place.
+- The policy, why the battery holds or charges to full and when it is meant
+  to be full, is the `State` property of `dev.stubbe.lys.Charge1` on the
+  system bus, which lys-shell's battery dropdown shows. Its `SetLimit`,
+  `ChargeFull` and `SetDeparture` methods need the polkit action
+  `dev.stubbe.lys.power.charge`, which an active local session holds.
 
 The service wakes only when something can change the result:
 
 - UPower's `OnBattery` property changes (plug or unplug);
-- a `full` request appears in `/run/battery-charge`;
-- the time the prediction raises or lowers the limit arrives, on a wall-clock
-  timer that still fires on time after a suspend;
+- a `full` request or a departure appears in `/run/battery-charge`;
+- the charge limit changes;
+- a display is connected or disconnected (a DRM uevent);
+- the time the prediction or an event raises or lowers the limit arrives,
+  on a wall-clock timer that still fires on time after a suspend;
 - the service receives `SIGHUP`.
 
 On battery it sets no timer. Without a system bus it checks the power source
@@ -58,7 +83,8 @@ atomically.
 lys-power run       Evaluate continuously (the service runs this)
 lys-power once      Evaluate once
 lys-power full      Charge to 100% until the next unplug
-lys-power status    Print the power source, thresholds, profile, prediction and device power
+lys-power status    Print the power source, thresholds, battery health and cycles,
+                    charge limit, dock, profile, prediction and device power
 lys-power predict   Print the predicted unplug time
 lys-power energy [-for 10s] [-threads] [-json]
                     Measure what each app costs in power, CPU, wakeups and GPU time

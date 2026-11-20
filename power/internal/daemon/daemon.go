@@ -18,11 +18,13 @@ import (
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
+	"github.com/stubbedev/lys/power/charge"
+	"github.com/stubbedev/lys/power/internal/busauth"
+	"github.com/stubbedev/lys/power/internal/chargepolicy"
 	"github.com/stubbedev/lys/power/internal/config"
 	"github.com/stubbedev/lys/power/internal/energyd"
 	"github.com/stubbedev/lys/power/internal/history"
 	"github.com/stubbedev/lys/power/internal/pauser"
-	"github.com/stubbedev/lys/power/internal/predict"
 	"github.com/stubbedev/lys/power/internal/profiles"
 	"github.com/stubbedev/lys/power/internal/slack"
 	"github.com/stubbedev/lys/power/internal/statefile"
@@ -37,11 +39,6 @@ type ProfileClient interface {
 	Set(name string) error
 }
 
-var (
-	baseThresholds = supply.Thresholds{Start: config.BaseStart, End: config.BaseEnd}
-	fullThresholds = supply.Thresholds{Start: config.FullStart, End: config.FullEnd}
-)
-
 // Result reports what one evaluation observed and changed.
 type Result struct {
 	OnAC           bool
@@ -52,6 +49,8 @@ type Result struct {
 	// Applied holds the thresholds written by this evaluation, nil when
 	// they were already in place or not managed.
 	Applied *supply.Thresholds
+	// Charge is the charge policy as decided.
+	Charge charge.State
 	// Recheck is when the outcome next changes with the passage of time
 	// alone; zero means only an event can change it.
 	Recheck time.Time
@@ -111,6 +110,16 @@ func Eval(cfg config.Config, log *slog.Logger, now time.Time, pc ProfileClient) 
 	}
 	result := Result{OnAC: onAC}
 
+	in, err := ChargeInput(cfg, now, onAC)
+	if err != nil {
+		return result, err
+	}
+	docked, err := exists(cfg.DockedPath())
+	if err != nil {
+		return result, fmt.Errorf("checking the docked mark: %w", err)
+	}
+	result.Charge = charge.State{Limit: in.Limit, Reason: charge.ReasonUnmanaged, Dock: in.Dock}
+
 	if prev != cur {
 		if err := writeLastAC(cfg.LastACPath(), cur); err != nil {
 			return result, err
@@ -119,6 +128,7 @@ func Eval(cfg config.Config, log *slog.Logger, now time.Time, pc ProfileClient) 
 	}
 
 	if prev == acMains && cur == acBattery {
+		at.Docked = docked
 		if err := history.Add(cfg.HistoryPath(), at, config.HistMax); err != nil {
 			return result, fmt.Errorf("recording unplug: %w", err)
 		}
@@ -128,6 +138,9 @@ func Eval(cfg config.Config, log *slog.Logger, now time.Time, pc ProfileClient) 
 			return result, fmt.Errorf("clearing charge-to-full flag: %w", err)
 		}
 		result.ClearedFullNow = cleared
+	}
+	if err := recordDocked(cfg, onAC, prev != cur, in.Dock); err != nil {
+		return result, err
 	}
 
 	battery, err := sup.Battery()
@@ -146,55 +159,18 @@ func Eval(cfg config.Config, log *slog.Logger, now time.Time, pc ProfileClient) 
 		return result, nil
 	}
 
-	want, recheck, err := wantedThresholds(cfg, now, at, onAC)
-	if err != nil {
-		return result, err
-	}
-	result.Recheck = recheck
+	decision := chargepolicy.Decide(in)
+	result.Recheck = decision.Recheck
 
-	changed, err := battery.SetThresholds(want)
+	changed, err := battery.SetThresholds(decision.Thresholds)
 	if err != nil {
 		return result, fmt.Errorf("setting charge thresholds: %w", err)
 	}
 	if changed {
-		result.Applied = &want
+		result.Applied = &decision.Thresholds
 	}
+	result.Charge = decision.State
 	return result, nil
-}
-
-// wantedThresholds decides the charge thresholds, and when that decision
-// next changes with time alone. On battery the base thresholds hold; on AC
-// the ceiling rises to full for a pending charge-to-full request or while
-// the top-up window before the predicted unplug is open. The weekday, and
-// with it the whole prediction, turns over at midnight.
-func wantedThresholds(cfg config.Config, now time.Time, at history.Entry, onAC bool) (supply.Thresholds, time.Time, error) {
-	if !onAC {
-		return baseThresholds, time.Time{}, nil
-	}
-	fullNow, err := exists(cfg.FullNowPath())
-	if err != nil {
-		return supply.Thresholds{}, time.Time{}, fmt.Errorf("checking charge-to-full flag: %w", err)
-	}
-	if fullNow {
-		return fullThresholds, time.Time{}, nil
-	}
-
-	entries, err := history.Load(cfg.HistoryPath())
-	if err != nil {
-		return supply.Thresholds{}, time.Time{}, fmt.Errorf("reading unplug history: %w", err)
-	}
-
-	want := baseThresholds
-	if predict.TopUp(entries, at, config.MinSamples, config.TopupWindowMin) {
-		want = fullThresholds
-	}
-
-	year, month, day := now.Date()
-	recheck := time.Date(year, month, day+1, 0, 0, 0, 0, now.Location())
-	if minute, ok := predict.NextChange(entries, at, config.MinSamples, config.TopupWindowMin); ok {
-		recheck = time.Date(year, month, day, minute/60, minute%60, 0, 0, now.Location())
-	}
-	return want, recheck, nil
 }
 
 // applyProfile switches ppd to the profile for the power source and returns
@@ -228,7 +204,8 @@ func applyProfile(log *slog.Logger, pc ProfileClient, onAC bool) string {
 // something can change the outcome: an AC edge (UPower's OnBattery), a
 // charge-to-full request (inotify on the runtime directory), the next
 // time-based change Eval reports (a wall-clock timer that survives suspend
-// and clock changes), a change to the units paused on battery, or SIGHUP.
+// and clock changes), a change to the units paused on battery, a new
+// charge limit, a display connected or disconnected, or SIGHUP.
 // On battery it pauses the units chosen for it and on AC resumes them,
 // retrying every Tick while any of that fails. Without a system bus it falls back to
 // checking the power source every Tick; losing the bus ends it with an
@@ -245,6 +222,8 @@ func Run(ctx context.Context, cfg config.Config, log *slog.Logger) error {
 	var discharging chan bool
 	var pz *pauser.Pauser
 	var pauses <-chan struct{}
+	var chargeChanges *charges
+	var limits <-chan struct{}
 	conn, err := dbusx.DialSystem(ctx, config.BusTimeout)
 	if err != nil {
 		log.Warn("system bus unavailable: no power profiles, polling the power source", "err", err, "every", config.Tick)
@@ -284,6 +263,16 @@ func Run(ctx context.Context, cfg config.Config, log *slog.Logger) error {
 		} else {
 			defer releaseNap()
 		}
+		chargeChanges = newCharges(cfg, conn, busauth.Polkit(conn, ChargeAction), log)
+		defer chargeChanges.close()
+		limits = chargeChanges.wakes
+	}
+
+	displays, err := watchDisplays()
+	if err != nil {
+		log.Warn("display hotplug unseen, the dock state follows other events", "err", err)
+	} else {
+		defer closeLogged(log, "uevent socket", displays)
 	}
 
 	requests, err := watchDir(cfg.RuntimeDir)
@@ -319,6 +308,9 @@ func Run(ctx context.Context, cfg config.Config, log *slog.Logger) error {
 			log.Info("applied", "result", result)
 		}
 		devices.follow(ctx)
+		if err == nil && chargeChanges != nil {
+			chargeChanges.publish(result.Charge)
+		}
 		if err == nil && discharging != nil {
 			latest(discharging, result.Discharging())
 		}
@@ -344,6 +336,8 @@ func Run(ctx context.Context, cfg config.Config, log *slog.Logger) error {
 		case <-acEdges:
 		case <-requests.wakes():
 		case <-pauses:
+		case <-limits:
+		case <-displays.wakes():
 		case <-hup:
 		}
 	}

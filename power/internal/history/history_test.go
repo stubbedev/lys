@@ -84,3 +84,27 @@ func TestLoadSkipsMalformedLines(t *testing.T) {
 		t.Errorf("Load() = %v, want %v", entries, want)
 	}
 }
+
+func TestDockedUnplugsRoundTripBesideOlderLines(t *testing.T) {
+	t.Parallel()
+	path := filepath.Join(t.TempDir(), "unplugs")
+	if err := os.WriteFile(path, []byte("1 600\n2 610 docked\n3 620 undocked\n4 630 docked extra\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := Add(path, Entry{Dow: 5, Minute: 640, Docked: true}, 10); err != nil {
+		t.Fatal(err)
+	}
+	entries, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []Entry{{Dow: 1, Minute: 600}, {Dow: 2, Minute: 610, Docked: true}, {Dow: 5, Minute: 640, Docked: true}}
+	if len(entries) != len(want) {
+		t.Fatalf("Load() = %v, want %v", entries, want)
+	}
+	for i := range want {
+		if entries[i] != want[i] {
+			t.Errorf("entries[%d] = %+v, want %+v", i, entries[i], want[i])
+		}
+	}
+}

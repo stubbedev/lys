@@ -186,6 +186,82 @@ func (b Battery) DischargeMicrowatts() (uint64, bool, error) {
 	return uint64(float64(current) * float64(voltage) / 1e6), true, nil
 }
 
+// CapacityUnit is what a Capacity counts: microwatt-hours from the
+// energy_* attributes or microampere-hours from the charge_* ones.
+type CapacityUnit uint8
+
+const (
+	UnitEnergy CapacityUnit = iota + 1
+	UnitCharge
+)
+
+// Capacity is what a battery holds when full, now and as designed, in
+// one unit.
+type Capacity struct {
+	Full, Design uint64
+	Unit         CapacityUnit
+}
+
+// Percent is the capacity now against the design.
+func (c Capacity) Percent() float64 {
+	return float64(c.Full) * 100 / float64(c.Design)
+}
+
+var capacityAttrs = [...]struct {
+	full, design string
+	unit         CapacityUnit
+}{
+	{"energy_full", "energy_full_design", UnitEnergy},
+	{"charge_full", "charge_full_design", UnitCharge},
+}
+
+// Capacity reads the battery's full and design capacity, from the
+// energy_* pair or else the charge_* pair, never one of each. It is
+// false when neither pair is complete or the design reads 0, so health
+// is hidden instead of computed from a wrong number.
+func (b Battery) Capacity() (Capacity, bool, error) {
+	for _, attrs := range capacityAttrs {
+		full, ok, err := b.optionalCounter(attrs.full)
+		if err != nil {
+			return Capacity{}, false, err
+		}
+		if !ok {
+			continue
+		}
+		design, ok, err := b.optionalCounter(attrs.design)
+		if err != nil {
+			return Capacity{}, false, err
+		}
+		if !ok || design == 0 {
+			continue
+		}
+		return Capacity{Full: full, Design: design, Unit: attrs.unit}, true, nil
+	}
+	return Capacity{}, false, nil
+}
+
+// Cycles reads the battery's charge cycle count. It is false when the
+// battery reports none, or 0, which drivers report when they do not
+// know.
+func (b Battery) Cycles() (uint64, bool, error) {
+	cycles, ok, err := b.optionalCounter("cycle_count")
+	if err != nil || !ok {
+		return 0, false, err
+	}
+	return cycles, cycles > 0, nil
+}
+
+func (b Battery) optionalCounter(attr string) (uint64, bool, error) {
+	value, err := b.counter(attr)
+	if errors.Is(err, fs.ErrNotExist) {
+		return 0, false, nil
+	}
+	if err != nil {
+		return 0, false, err
+	}
+	return value, true, nil
+}
+
 func (b Battery) counter(attr string) (uint64, error) {
 	path := filepath.Join(b.Path, attr)
 	raw, err := readTrim(path)

@@ -9,8 +9,10 @@
 </p>
 
 A battery kept plugged in at 100% wears out fast. While the laptop is on AC,
-lys-power holds the charge between 75% and 80%, learns when the charger usually
-comes out, and charges to 100% in the two hours before that moment. It also
+lys-power holds the charge at a limit you choose (80% unless you pick 85, 90,
+95 or 100%), learns when the charger usually comes out, and charges to 100% in
+the two hours before that moment, before a calendar event away from the desk,
+or on a bare charger away from a dock. It also
 switches the [power-profiles-daemon](https://gitlab.freedesktop.org/upower/power-profiles-daemon)
 profile on every AC edge: `performance` on AC, `power-saver` on battery.
 On battery it powers down idle devices, as macOS does: PCI runtime power

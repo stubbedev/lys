@@ -16,12 +16,18 @@ import (
 // MinutesPerDay bounds Entry.Minute.
 const MinutesPerDay = 24 * 60
 
-// Entry is one recorded unplug: ISO weekday (1 = Monday .. 7 = Sunday) and
-// minute of the local day.
+// Entry is one recorded unplug: ISO weekday (1 = Monday .. 7 = Sunday),
+// minute of the local day, and whether the laptop left a dock.
 type Entry struct {
 	Dow    int
 	Minute int
+	Docked bool
 }
+
+// dockedMark ends the line of an unplug from a dock. Lines without it,
+// among them every line written before docks were told apart, are
+// unplugs from a bare charger or an unknown one.
+const dockedMark = "docked"
 
 // At places t on the local weekly clock the history is recorded in.
 func At(t time.Time) Entry {
@@ -69,21 +75,26 @@ func Add(path string, entry Entry, keep int) error {
 	if len(entries) > keep {
 		entries = entries[len(entries)-keep:]
 	}
-	buf := make([]byte, 0, len(entries)*len("7 1439\n"))
+	buf := make([]byte, 0, len(entries)*len("7 1439 "+dockedMark+"\n"))
 	for _, e := range entries {
 		buf = strconv.AppendInt(buf, int64(e.Dow), 10)
 		buf = append(buf, ' ')
 		buf = strconv.AppendInt(buf, int64(e.Minute), 10)
+		if e.Docked {
+			buf = append(buf, " "+dockedMark...)
+		}
 		buf = append(buf, '\n')
 	}
 	return statefile.Write(path, buf)
 }
 
 func parse(line string) (Entry, bool) {
-	dow, minute, ok := strings.Cut(strings.TrimSpace(line), " ")
-	if !ok {
+	fields := strings.Fields(line)
+	docked := len(fields) == 3 && fields[2] == dockedMark
+	if len(fields) != 2 && !docked {
 		return Entry{}, false
 	}
+	dow, minute := fields[0], fields[1]
 	d, err := strconv.Atoi(dow)
 	if err != nil || d < 1 || d > 7 {
 		return Entry{}, false
@@ -92,5 +103,5 @@ func parse(line string) (Entry, bool) {
 	if err != nil || m < 0 || m >= MinutesPerDay {
 		return Entry{}, false
 	}
-	return Entry{Dow: d, Minute: m}, true
+	return Entry{Dow: d, Minute: m, Docked: docked}, true
 }

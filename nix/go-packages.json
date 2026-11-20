@@ -2121,13 +2121,27 @@
       "lib/waittest"
     ]
   },
+  "power/charge": {
+    "imports": [
+      "lib/dbusx",
+      "lib/third_party/godbus",
+      "power/internal/busauth"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/intconv",
+      "lib/testhome"
+    ]
+  },
   "power/cmd/lys-power": {
     "imports": [
       "lib/buildinfo",
       "lib/dbusx",
       "lib/third_party/godbus",
+      "power/charge",
       "power/energy",
       "power/internal/autobright",
+      "power/internal/chargepolicy",
       "power/internal/config",
       "power/internal/daemon",
       "power/internal/devicepower",
@@ -2174,10 +2188,27 @@
       "lib/waittest"
     ]
   },
+  "power/internal/busauth": {
+    "imports": [
+      "lib/intconv",
+      "lib/peercred",
+      "lib/polkit",
+      "lib/third_party/godbus"
+    ]
+  },
   "power/internal/camlight": {
     "imports": [
       "lib/v4l2",
       "power/internal/ambient"
+    ]
+  },
+  "power/internal/chargepolicy": {
+    "imports": [
+      "power/charge",
+      "power/internal/config",
+      "power/internal/history",
+      "power/internal/predict",
+      "power/internal/supply"
     ]
   },
   "power/internal/config": {
@@ -2190,13 +2221,17 @@
   "power/internal/daemon": {
     "imports": [
       "lib/dbusx",
+      "lib/polkit",
       "lib/third_party/godbus",
+      "power/charge",
+      "power/internal/busauth",
+      "power/internal/chargepolicy",
       "power/internal/config",
       "power/internal/devicepower",
+      "power/internal/dock",
       "power/internal/energyd",
       "power/internal/history",
       "power/internal/pauser",
-      "power/internal/predict",
       "power/internal/profiles",
       "power/internal/slack",
       "power/internal/statefile",
@@ -2211,6 +2246,11 @@
     "imports": [
       "lib/intconv",
       "lib/third_party/godbus"
+    ]
+  },
+  "power/internal/dock": {
+    "imports": [
+      "power/charge"
     ]
   },
   "power/internal/energyd": {
@@ -2244,15 +2284,15 @@
   "power/internal/pauser": {
     "imports": [
       "lib/dbusx",
-      "lib/intconv",
-      "lib/peercred",
       "lib/polkit",
       "lib/third_party/godbus",
+      "power/internal/busauth",
       "power/internal/statefile",
       "power/pause"
     ],
     "testImports": [
       "lib/dbustest",
+      "lib/intconv",
       "lib/polkit/polkittest",
       "lib/testhome"
     ]
@@ -2292,7 +2332,8 @@
   "power/pause": {
     "imports": [
       "lib/dbusx",
-      "lib/third_party/godbus"
+      "lib/third_party/godbus",
+      "power/internal/busauth"
     ],
     "testImports": [
       "lib/dbustest",

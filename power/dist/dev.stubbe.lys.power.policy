@@ -15,4 +15,14 @@
       <allow_active>auth_admin_keep</allow_active>
     </defaults>
   </action>
+  <action id="dev.stubbe.lys.power.charge">
+    <description>Choose how far the battery charges</description>
+    <message>Authentication is required to choose how far the battery charges</message>
+    <icon_name>battery</icon_name>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>yes</allow_active>
+    </defaults>
+  </action>
 </policyconfig>

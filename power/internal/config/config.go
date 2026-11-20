@@ -37,16 +37,6 @@ var LegacyStateDirs = [...]string{
 	"/var/lib/power-source",
 }
 
-// Charge thresholds in percent of full capacity. The battery holds between
-// BaseStart and BaseEnd while docked, and charges to FullStart..FullEnd
-// while a top-up window is open or a charge-to-full request is pending.
-const (
-	BaseStart = 75
-	BaseEnd   = 80
-	FullStart = 95
-	FullEnd   = 100
-)
-
 const (
 	// TopupWindowMin is how many minutes before the predicted unplug the
 	// ceiling rises to full.
@@ -197,6 +187,24 @@ func (c Config) LastACPath() string {
 // paused.
 func (c Config) PausePath() string {
 	return filepath.Join(c.StateDir, "pause")
+}
+
+// LimitPath holds the charge limit the user chose.
+func (c Config) LimitPath() string {
+	return filepath.Join(c.StateDir, "charge-limit")
+}
+
+// DockedPath marks that the laptop was docked while on AC since the last
+// plug, so an unplug that undocks it too is recorded as one from the
+// dock whichever the kernel announces first.
+func (c Config) DockedPath() string {
+	return filepath.Join(c.StateDir, "docked")
+}
+
+// DeparturePath holds the start of the next calendar event away from
+// the desk, in seconds since the epoch.
+func (c Config) DeparturePath() string {
+	return filepath.Join(c.RuntimeDir, "departure")
 }
 
 // FullNowPath is the charge-to-full request flag.

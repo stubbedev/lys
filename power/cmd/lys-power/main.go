@@ -9,11 +9,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/fs"
 	"log/slog"
 	"os"
 	"os/signal"
-	"strconv"
 	"syscall"
 	"time"
 
@@ -21,7 +19,9 @@ import (
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
+	"github.com/stubbedev/lys/power/charge"
 	"github.com/stubbedev/lys/power/internal/autobright"
+	"github.com/stubbedev/lys/power/internal/chargepolicy"
 	"github.com/stubbedev/lys/power/internal/config"
 	"github.com/stubbedev/lys/power/internal/daemon"
 	"github.com/stubbedev/lys/power/internal/devicepower"
@@ -172,13 +172,8 @@ func withBus(log *slog.Logger, fn func(*dbus.Conn) error) error {
 }
 
 func requestFull(cfg config.Config) error {
-	path := cfg.FullNowPath()
-	err := os.WriteFile(path, []byte(strconv.FormatInt(time.Now().Unix(), 10)), 0o600)
-	if errors.Is(err, fs.ErrNotExist) {
-		return fmt.Errorf("%s is missing, is lys-power.service running?", cfg.RuntimeDir)
-	}
-	if err != nil {
-		return fmt.Errorf("writing %s: %w", path, err)
+	if err := daemon.RequestFull(cfg, time.Now()); err != nil {
+		return err
 	}
 	fmt.Println("Charging to 100%. The cap comes back when you unplug.")
 	return nil
@@ -214,21 +209,24 @@ func status(cfg config.Config, now time.Time, conn *dbus.Conn) (string, error) {
 		} else {
 			out = fmt.Appendf(out, "battery:     %s (thresholds unavailable: %v)\n", battery.Name, err)
 		}
+		if out, err = appendHealth(out, *battery); err != nil {
+			return "", err
+		}
 	}
 
-	out = appendProfile(out, client)
-
-	_, err = os.Lstat(cfg.FullNowPath())
-	out = fmt.Appendf(out, "full-now:    %v\n", err == nil)
-
-	entries, err := history.Load(cfg.HistoryPath())
+	in, err := daemon.ChargeInput(cfg, now, onAC)
 	if err != nil {
 		return "", err
 	}
-	out = fmt.Appendf(out, "history:     %d unplugs\n", len(entries))
+	out = appendCharge(out, in, chargepolicy.Decide(in).State)
+
+	out = appendProfile(out, client)
+
+	out = fmt.Appendf(out, "full-now:    %v\n", in.Requested)
+	out = fmt.Appendf(out, "history:     %d unplugs\n", len(in.History))
 
 	at := history.At(now)
-	if predicted, ok := predict.Next(entries, at, config.MinSamples); ok {
+	if predicted, ok := predict.Next(in.History, at, config.MinSamples); ok {
 		out = fmt.Appendf(out, "prediction:  %s at %02d:%02d, top-up window opens %d min before\n",
 			weekday(at.Dow), predicted/60, predicted%60, config.TopupWindowMin)
 	} else {
@@ -238,6 +236,50 @@ func status(cfg config.Config, now time.Time, conn *dbus.Conn) (string, error) {
 	devices, err := daemon.PlanDevices(context.Background(), cfg, conn)
 	out = appendDevices(out, cfg.Devices.Mode, devices, err)
 	return string(out), nil
+}
+
+func appendHealth(out []byte, battery supply.Battery) ([]byte, error) {
+	capacity, ok, err := battery.Capacity()
+	if err != nil {
+		return nil, err
+	}
+	cycles, hasCycles, err := battery.Cycles()
+	if err != nil {
+		return nil, err
+	}
+	switch {
+	case ok && hasCycles:
+		out = fmt.Appendf(out, "health:      %s, %d cycles\n", healthText(capacity), cycles)
+	case ok:
+		out = fmt.Appendf(out, "health:      %s, cycles not reported\n", healthText(capacity))
+	case hasCycles:
+		out = fmt.Appendf(out, "health:      no design capacity reported, %d cycles\n", cycles)
+	default:
+		out = fmt.Appendf(out, "health:      not reported\n")
+	}
+	return out, nil
+}
+
+func healthText(c supply.Capacity) string {
+	unit := "Wh"
+	if c.Unit == supply.UnitCharge {
+		unit = "Ah"
+	}
+	return fmt.Sprintf("%.0f%% (%.2f of %.2f %s designed)", c.Percent(), float64(c.Full)/1e6, float64(c.Design)/1e6, unit)
+}
+
+func appendCharge(out []byte, in chargepolicy.Input, st charge.State) []byte {
+	out = fmt.Appendf(out, "limit:       %d%% (charging resumes under %d%%)\n", st.Limit.Percent(), st.Limit.Resume())
+	out = fmt.Appendf(out, "dock:        %s\n", st.Dock)
+	if in.Departure.After(in.Now) {
+		out = fmt.Appendf(out, "departure:   %s\n", in.Departure.Format("Mon 15:04"))
+	} else {
+		out = fmt.Appendf(out, "departure:   none ahead\n")
+	}
+	if st.FullBy.IsZero() {
+		return fmt.Appendf(out, "charge:      %s\n", st.Reason)
+	}
+	return fmt.Appendf(out, "charge:      %s, full by %s\n", st.Reason, st.FullBy.Format("Mon 15:04"))
 }
 
 func appendDevices(out []byte, mode devicepower.Mode, state daemon.DeviceState, err error) []byte {
