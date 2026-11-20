@@ -210,14 +210,22 @@ func columnWidths(widths []wm.ColumnWidth) []any {
 	return out
 }
 
+const (
+	accelStep   = ".accel_points.step"
+	accelPoints = ".accel_points.points"
+)
+
 func device(prefix string, accel any) map[string]annotation {
 	return map[string]annotation{
-		prefix + ".click_method":   {enum: slices.Sorted(maps.Keys(clickMethods))},
-		prefix + ".scroll_method":  {enum: slices.Sorted(maps.Keys(scrollMethods))},
-		prefix + ".accel_profile":  {enum: slices.Sorted(maps.Keys(accelProfiles)), def: accel},
-		prefix + ".tap_button_map": {enum: slices.Sorted(maps.Keys(tapButtonMaps))},
-		prefix + ".accel_speed":    at(-1, 1, nil),
-		prefix + ".scroll_factor":  above(0, 100, nil),
+		prefix + ".click_method":    {enum: slices.Sorted(maps.Keys(clickMethods))},
+		prefix + ".scroll_method":   {enum: slices.Sorted(maps.Keys(scrollMethods))},
+		prefix + ".accel_profile":   {enum: slices.Sorted(maps.Keys(accelProfiles)), def: accel},
+		prefix + ".tap_button_map":  {enum: slices.Sorted(maps.Keys(tapButtonMaps))},
+		prefix + ".accel_speed":     at(-1, 1, nil),
+		prefix + ".scroll_factor":   above(0, 100, nil),
+		prefix + accelStep:          above(0, session.MaxAccelStep, nil),
+		prefix + accelPoints:        {minItems: new(session.MinAccelPoints), maxItems: new(session.MaxAccelPoints)},
+		prefix + accelPoints + "[]": at(0, session.MaxAccelPoint, nil),
 	}
 }
 

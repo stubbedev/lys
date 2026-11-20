@@ -3644,12 +3644,18 @@
                 "properties": {
                   "points": {
                     "type": "array",
+                    "minItems": 2,
+                    "maxItems": 64,
                     "items": {
-                      "type": "number"
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 10000
                     }
                   },
                   "step": {
-                    "type": "number"
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "maximum": 10000
                   }
                 },
                 "additionalProperties": false
@@ -3850,12 +3856,18 @@
               "properties": {
                 "points": {
                   "type": "array",
+                  "minItems": 2,
+                  "maxItems": 64,
                   "items": {
-                    "type": "number"
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 10000
                   }
                 },
                 "step": {
-                  "type": "number"
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "maximum": 10000
                 }
               },
               "additionalProperties": false
@@ -3959,12 +3971,18 @@
               "properties": {
                 "points": {
                   "type": "array",
+                  "minItems": 2,
+                  "maxItems": 64,
                   "items": {
-                    "type": "number"
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 10000
                   }
                 },
                 "step": {
-                  "type": "number"
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "maximum": 10000
                 }
               },
               "additionalProperties": false
@@ -4068,12 +4086,18 @@
               "properties": {
                 "points": {
                   "type": "array",
+                  "minItems": 2,
+                  "maxItems": 64,
                   "items": {
-                    "type": "number"
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 10000
                   }
                 },
                 "step": {
-                  "type": "number"
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "maximum": 10000
                 }
               },
               "additionalProperties": false

@@ -42,7 +42,7 @@ func nested(path string, value any) map[string]any {
 
 var wildcardKeys = map[string]string{"animations.events": "windows"}
 
-var requires = map[string]map[string]any{
+var requires = withAccelCurves(map[string]map[string]any{
 	"binds[].flags[]":                        {"binds[].chord": "SUPER + Q", "binds[].action": "kill"},
 	"submaps.*[].flags[]":                    {"submaps.*[].chord": "SUPER + Q", "submaps.*[].action": "kill"},
 	"rules[].blur_look.tint":                 {"rules[].app_id": "foot"},
@@ -79,6 +79,17 @@ var requires = map[string]map[string]any{
 	"workspaces[].persistent":                {"workspaces[].id": 2},
 	"workspaces[].on_created_empty":          {"workspaces[].id": 2},
 	"scratchpads.*.hide_on_workspace_switch": {"scratchpads.*.exec": "foot"},
+})
+
+var accelCurvePrefixes = []string{"input.pointer", "input.touchpad", "input.trackpoint", "input.devices.*"}
+
+func withAccelCurves(out map[string]map[string]any) map[string]map[string]any {
+	for _, prefix := range accelCurvePrefixes {
+		out[prefix+accelStep] = map[string]any{prefix + accelPoints: []any{0.0, 1.0}}
+		out[prefix+accelPoints] = map[string]any{prefix + accelStep: 1.0}
+		out[prefix+accelPoints+"[]"] = map[string]any{prefix + accelStep: 1.0, prefix + accelPoints + "[]": 0.0}
+	}
+	return out
 }
 
 var requiresFor = map[string]map[string]map[string]any{
@@ -291,7 +302,14 @@ func TestEveryPublishedBoundIsWhatTheParserEnforces(t *testing.T) {
 	}
 }
 
-var itemFillers = map[string]any{"input.devices.*.calibration": 1.0, "input.devices.*.region": 0.25, "decoration.shadow.offset": 3, "scroll.presets": 0.5}
+var itemFillers = withAccelFillers(map[string]any{"input.devices.*.calibration": 1.0, "input.devices.*.region": 0.25, "decoration.shadow.offset": 3, "scroll.presets": 0.5})
+
+func withAccelFillers(out map[string]any) map[string]any {
+	for _, prefix := range accelCurvePrefixes {
+		out[prefix+accelPoints] = 1.0
+	}
+	return out
+}
 
 func TestEveryPublishedItemCountIsWhatTheParserEnforces(t *testing.T) {
 	for _, path := range slices.Sorted(maps.Keys(annotations())) {
@@ -375,6 +393,10 @@ func merge(into, from map[string]any) {
 			nextItem, nextOK := nextList[0].(map[string]any)
 			if ok && nextOK {
 				merge(haveItem, nextItem)
+				continue
+			}
+			if !ok && !nextOK {
+				into[key] = append(slices.Clone(haveList), nextList...)
 				continue
 			}
 		}
