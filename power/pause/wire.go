@@ -9,6 +9,8 @@ import (
 
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+
+	"github.com/stubbedev/lys/power/internal/busauth"
 )
 
 const (
@@ -75,15 +77,10 @@ func fromWire(w wireState) (State, error) {
 	return s, nil
 }
 
-type Caller struct {
-	Sender string
-	UID    uint32
-	PID    uint32
-}
-
-type Refusal struct{ Reason string }
-
-func (r Refusal) Error() string { return r.Reason }
+type (
+	Caller  = busauth.Caller
+	Refusal = busauth.Refusal
+)
 
 type Handler interface {
 	PickSystem(ctx context.Context, caller Caller, units []Unit) error
@@ -135,23 +132,10 @@ type methods struct {
 	h    Handler
 }
 
-func (m methods) caller(ctx context.Context, sender dbus.Sender) (Caller, error) {
-	var creds map[string]dbus.Variant
-	if err := m.conn.BusObject().CallWithContext(ctx, "org.freedesktop.DBus.GetConnectionCredentials", 0, string(sender)).Store(&creds); err != nil {
-		return Caller{}, fmt.Errorf("read the credentials of %s: %w", sender, err)
-	}
-	uid, uidOK := creds["UnixUserID"].Value().(uint32)
-	pid, pidOK := creds["ProcessID"].Value().(uint32)
-	if !uidOK || !pidOK {
-		return Caller{}, fmt.Errorf("the bus gives %s no uid or pid: %v", sender, creds)
-	}
-	return Caller{Sender: string(sender), UID: uid, PID: pid}, nil
-}
-
 func (m methods) call(timeout time.Duration, sender dbus.Sender, do func(context.Context, Caller) error) *dbus.Error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	c, err := m.caller(ctx, sender)
+	c, err := busauth.Of(ctx, m.conn, sender)
 	if err == nil {
 		err = do(ctx, c)
 	}

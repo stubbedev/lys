@@ -12,47 +12,19 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/stubbedev/lys/lib/intconv"
-	"github.com/stubbedev/lys/lib/peercred"
 	"github.com/stubbedev/lys/lib/polkit"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
+	"github.com/stubbedev/lys/power/internal/busauth"
 	"github.com/stubbedev/lys/power/internal/statefile"
 	"github.com/stubbedev/lys/power/pause"
 )
 
 const SystemAction polkit.Action = "dev.stubbe.lys.power.pause-system-units"
 
-type Authorizer func(ctx context.Context, c pause.Caller) error
+type Authorizer = busauth.Authorizer
 
-func Polkit(conn *dbus.Conn) Authorizer {
-	return func(ctx context.Context, c pause.Caller) error {
-		pid, err := intconv.Exact[int32](c.PID)
-		if err != nil {
-			return fmt.Errorf("ask polkit about pid %d of uid %d: %w", c.PID, c.UID, err)
-		}
-		process, err := polkit.ProcessOf(peercred.Credentials{UID: c.UID, PID: pid})
-		if err != nil {
-			return err
-		}
-		result, err := polkit.NewAuthority(conn).CheckAuthorization(ctx, process, SystemAction, polkit.AllowUserInteraction)
-		if err != nil {
-			return err
-		}
-		switch verdict := result.Verdict(); verdict {
-		case polkit.Authorized:
-			return nil
-		case polkit.Dismissed:
-			return pause.Refusal{Reason: fmt.Sprintf("the authentication for %s was dismissed", SystemAction)}
-		case polkit.Challenge:
-			return pause.Refusal{Reason: fmt.Sprintf("%s needs authentication and no polkit agent answered for uid %d", SystemAction, c.UID)}
-		case polkit.Denied:
-			return pause.Refusal{Reason: fmt.Sprintf("polkit does not authorize uid %d for %s", c.UID, SystemAction)}
-		default:
-			return fmt.Errorf("polkit: unknown verdict %s on %s", verdict, SystemAction)
-		}
-	}
-}
+func Polkit(conn *dbus.Conn) Authorizer { return busauth.Polkit(conn, SystemAction) }
 
 type stored struct {
 	Picks   []pause.Unit `json:"picks"`
