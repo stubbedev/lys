@@ -24,8 +24,10 @@ import (
 	"github.com/stubbedev/lys/power/internal/pauser"
 	"github.com/stubbedev/lys/power/internal/predict"
 	"github.com/stubbedev/lys/power/internal/profiles"
+	"github.com/stubbedev/lys/power/internal/slack"
 	"github.com/stubbedev/lys/power/internal/statefile"
 	"github.com/stubbedev/lys/power/internal/supply"
+	"github.com/stubbedev/lys/power/nap"
 )
 
 // ProfileClient is the slice of power-profiles-daemon the manager needs. A
@@ -276,6 +278,12 @@ func Run(ctx context.Context, cfg config.Config, log *slog.Logger) error {
 		}
 		defer release()
 		pauses = pz.Wakes()
+		releaseNap, err := nap.Serve(conn, slack.Tree{Cgroup: cfg.CgroupDir, Proc: cfg.ProcDir})
+		if err != nil {
+			log.Error("apps hidden from the user keep their timer slack", "err", err)
+		} else {
+			defer releaseNap()
+		}
 	}
 
 	requests, err := watchDir(cfg.RuntimeDir)

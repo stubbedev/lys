@@ -7,7 +7,7 @@ lysGo.build {
 
   subPackages = ["power/cmd/lys-power"];
 
-  resources = ["power/dist/lys-power.service" "power/dist/lys-power-brightness.service" "power/dist/lys-power.tmpfiles" "power/dist/dev.stubbe.lys.Energy1.conf" "power/dist/dev.stubbe.lys.Pause1.conf" "power/dist/dev.stubbe.lys.power.policy"];
+  resources = ["power/dist/lys-power.service" "power/dist/lys-power-brightness.service" "power/dist/lys-power.tmpfiles" "power/dist/dev.stubbe.lys.Energy1.conf" "power/dist/dev.stubbe.lys.Pause1.conf" "power/dist/dev.stubbe.lys.power.policy" "power/dist/dev.stubbe.lys.Nap1.conf"];
 
   ldflags = [
     "-s"
@@ -25,6 +25,7 @@ lysGo.build {
     install -Dm644 power/dist/dev.stubbe.lys.Energy1.conf $out/share/dbus-1/system.d/dev.stubbe.lys.Energy1.conf
     install -Dm644 power/dist/dev.stubbe.lys.Pause1.conf $out/share/dbus-1/system.d/dev.stubbe.lys.Pause1.conf
     install -Dm644 power/dist/dev.stubbe.lys.power.policy $out/share/polkit-1/actions/dev.stubbe.lys.power.policy
+    install -Dm644 power/dist/dev.stubbe.lys.Nap1.conf $out/share/dbus-1/system.d/dev.stubbe.lys.Nap1.conf
   '';
 
   doInstallCheck = true;
@@ -37,6 +38,7 @@ lysGo.build {
     grep -qF '<allow own="dev.stubbe.lys.Energy1"/>' $out/share/dbus-1/system.d/dev.stubbe.lys.Energy1.conf
     grep -qF '<allow own="dev.stubbe.lys.Pause1"/>' $out/share/dbus-1/system.d/dev.stubbe.lys.Pause1.conf
     grep -qF 'dev.stubbe.lys.power.pause-system-units' $out/share/polkit-1/actions/dev.stubbe.lys.power.policy
+    grep -qF '<allow own="dev.stubbe.lys.Nap1"/>' $out/share/dbus-1/system.d/dev.stubbe.lys.Nap1.conf
     runHook postInstallCheck
   '';
 

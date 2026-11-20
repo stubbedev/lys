@@ -2193,8 +2193,10 @@
       "power/internal/pauser",
       "power/internal/predict",
       "power/internal/profiles",
+      "power/internal/slack",
       "power/internal/statefile",
-      "power/internal/supply"
+      "power/internal/supply",
+      "power/nap"
     ],
     "testImports": [
       "lib/waittest"
@@ -2254,10 +2256,26 @@
       "lib/third_party/godbus"
     ]
   },
+  "power/internal/slack": {
+    "imports": [
+      "power/internal/meter",
+      "power/nap"
+    ]
+  },
   "power/internal/statefile": {},
   "power/internal/supply": {
     "imports": [
       "lib/intconv"
+    ]
+  },
+  "power/nap": {
+    "imports": [
+      "lib/dbusx",
+      "lib/intconv",
+      "lib/third_party/godbus"
+    ],
+    "testImports": [
+      "lib/dbustest"
     ]
   },
   "power/pause": {

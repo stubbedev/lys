@@ -146,6 +146,17 @@ until it succeeds.
 The state is the `State` property of `dev.stubbe.lys.Pause1` on the system
 bus, which every user may read; `PickSystem`, `PickUser` and `Resume` change
 it.
+## Timer slack for napping apps
+
+An app the user cannot see naps, as on macOS (see lys-shell's App Nap). Part
+of a nap is a larger timer slack, so the app's timers coalesce, and writing
+another task's `/proc/<tid>/timerslack_ns` takes `CAP_SYS_NICE`. lys-power
+offers it on the system bus as `SetTimerSlack(unit, nanoseconds)` of
+`dev.stubbe.lys.Nap1`: for the calling user's own unit (a scope or service in
+`user@<uid>.service`), it writes the slack of every thread in the unit's
+cgroup that the user owns, and 0 restores the kernel's default. Threads of
+other users in that cgroup, such as `sudo`, and other users' units are never
+touched, and the slack is at most a second.
 
 ## Automatic brightness
 
@@ -282,6 +293,8 @@ The `.deb` and `.rpm` on the
 system bus policies `dev.stubbe.lys.Energy1.conf` and
 `dev.stubbe.lys.Pause1.conf`, and the polkit action
 `dev.stubbe.lys.power.policy`. They enable nothing:
+`lys-power-brightness.service`, the tmpfiles rule `lys-power.conf` and the
+`dev.stubbe.lys.Nap1.conf`. They enable nothing:
 
 ```sh
 sudo systemctl enable --now lys-power
@@ -295,6 +308,9 @@ Install the binary as `/usr/bin/lys-power`, the unit under
 `/usr/lib/tmpfiles.d/lys-power.conf`, `dev.stubbe.lys.Energy1.conf` and
 `dev.stubbe.lys.Pause1.conf` under `/usr/share/dbus-1/system.d/` and
 `dev.stubbe.lys.power.policy` under `/usr/share/polkit-1/actions/`, then run
+`/usr/lib/tmpfiles.d/lys-power.conf` and `dev.stubbe.lys.Energy1.conf` and
+`dev.stubbe.lys.Nap1.conf` under
+`/usr/share/dbus-1/system.d/`, then run
 `sudo systemd-tmpfiles --create lys-power.conf` and enable the unit.
 
 lys-power needs a battery that exposes `charge_control_*_threshold` (ThinkPad,

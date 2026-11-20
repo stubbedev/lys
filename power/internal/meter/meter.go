@@ -71,7 +71,7 @@ func (m Meter) Sample(now func() time.Time) (energy.Sample, Gaps, error) {
 	return s, gaps, nil
 }
 
-func gone(err error) bool {
+func Gone(err error) bool {
 	return errors.Is(err, fs.ErrNotExist) || errors.Is(err, syscall.ESRCH)
 }
 
@@ -107,7 +107,7 @@ func (m Meter) units() ([]string, error) {
 
 func subdirs(dir string) ([]string, error) {
 	entries, err := os.ReadDir(dir)
-	if gone(err) {
+	if Gone(err) {
 		return nil, nil
 	}
 	if err != nil {
@@ -133,13 +133,13 @@ func hasSlice(dir string) (bool, error) {
 func (m Meter) group(rel string, seen map[energy.DRMClient]bool, gaps *Gaps) (energy.Group, bool, error) {
 	dir := filepath.Join(m.Cgroup, rel)
 	cpu, err := usage(filepath.Join(dir, "cpu.stat"))
-	if gone(err) {
+	if Gone(err) {
 		return energy.Group{}, false, nil
 	}
 	if err != nil {
 		return energy.Group{}, false, err
 	}
-	pids, err := procs(dir)
+	pids, err := IDs(dir, "cgroup.procs")
 	if err != nil {
 		return energy.Group{}, false, err
 	}
@@ -156,10 +156,10 @@ func (m Meter) group(rel string, seen map[energy.DRMClient]bool, gaps *Gaps) (en
 	return g, true, nil
 }
 
-func procs(dir string) ([]uint32, error) {
-	var pids []uint32
+func IDs(dir, file string) ([]uint32, error) {
+	var ids []uint32
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
-		if gone(err) {
+		if Gone(err) {
 			return fs.SkipDir
 		}
 		if err != nil {
@@ -168,27 +168,27 @@ func procs(dir string) ([]uint32, error) {
 		if !d.IsDir() {
 			return nil
 		}
-		raw, err := os.ReadFile(filepath.Join(path, "cgroup.procs"))
-		if gone(err) {
+		raw, err := os.ReadFile(filepath.Join(path, file))
+		if Gone(err) {
 			return nil
 		}
 		if err != nil {
-			return fmt.Errorf("reading %s/cgroup.procs: %w", path, err)
+			return fmt.Errorf("reading %s/%s: %w", path, file, err)
 		}
 		for field := range strings.FieldsSeq(string(raw)) {
-			pid, err := strconv.ParseUint(field, 10, 32)
+			id, err := strconv.ParseUint(field, 10, 32)
 			if err != nil {
-				return fmt.Errorf("parsing %s/cgroup.procs: %w", path, err)
+				return fmt.Errorf("parsing %s/%s: %w", path, file, err)
 			}
-			pids = append(pids, uint32(pid))
+			ids = append(ids, uint32(id))
 		}
 		return nil
 	})
 	if err != nil {
 		return nil, err
 	}
-	slices.Sort(pids)
-	return slices.Compact(pids), nil
+	slices.Sort(ids)
+	return slices.Compact(ids), nil
 }
 
 func usage(path string) (time.Duration, error) {
@@ -213,7 +213,7 @@ func usage(path string) (time.Duration, error) {
 func (m Meter) process(g *energy.Group, pid uint32, seen map[energy.DRMClient]bool, gaps *Gaps) (bool, error) {
 	dir := filepath.Join(m.Proc, strconv.FormatUint(uint64(pid), 10))
 	comm, err := readTrim(filepath.Join(dir, "comm"))
-	if gone(err) {
+	if Gone(err) {
 		return false, nil
 	}
 	if err != nil {
@@ -223,7 +223,7 @@ func (m Meter) process(g *energy.Group, pid uint32, seen map[energy.DRMClient]bo
 		g.Command = comm
 	}
 	tids, err := os.ReadDir(filepath.Join(dir, "task"))
-	if gone(err) {
+	if Gone(err) {
 		return false, nil
 	}
 	if err != nil {
@@ -235,7 +235,7 @@ func (m Meter) process(g *energy.Group, pid uint32, seen map[energy.DRMClient]bo
 			return false, fmt.Errorf("thread %q of %d: %w", e.Name(), pid, err)
 		}
 		name, switches, err := threadStatus(filepath.Join(dir, "task", e.Name(), "status"))
-		if gone(err) {
+		if Gone(err) {
 			continue
 		}
 		if err != nil {
@@ -278,7 +278,7 @@ func threadStatus(path string) (name string, switches uint64, err error) {
 
 func (m Meter) clients(g *energy.Group, dir string, seen map[energy.DRMClient]bool, gaps *Gaps) error {
 	fds, err := os.ReadDir(filepath.Join(dir, "fd"))
-	if gone(err) {
+	if Gone(err) {
 		return nil
 	}
 	if errors.Is(err, fs.ErrPermission) {
@@ -290,7 +290,7 @@ func (m Meter) clients(g *energy.Group, dir string, seen map[energy.DRMClient]bo
 	}
 	for _, fd := range fds {
 		target, err := os.Readlink(filepath.Join(dir, "fd", fd.Name()))
-		if gone(err) {
+		if Gone(err) {
 			continue
 		}
 		if errors.Is(err, fs.ErrPermission) {
@@ -304,7 +304,7 @@ func (m Meter) clients(g *energy.Group, dir string, seen map[energy.DRMClient]bo
 			continue
 		}
 		raw, err := os.ReadFile(filepath.Join(dir, "fdinfo", fd.Name()))
-		if gone(err) {
+		if Gone(err) {
 			continue
 		}
 		if errors.Is(err, fs.ErrPermission) {
