@@ -9,6 +9,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/identity"
+	"github.com/stubbedev/lys/desktop/service/notifications/notifymodel"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/app"
@@ -76,7 +77,7 @@ func TestResolveIcon(t *testing.T) {
 }
 
 func TestUrgency(t *testing.T) {
-	low, normal, crit := notifications.UrgencyLow, notifications.UrgencyNormal, notifications.UrgencyCritical
+	low, normal, crit := notifymodel.UrgencyLow, notifymodel.UrgencyNormal, notifymodel.UrgencyCritical
 	if UrgencyClass(low) != "low" || UrgencyClass(normal) != "normal" || UrgencyClass(crit) != "critical" {
 		t.Error("urgency classes")
 	}
@@ -89,7 +90,7 @@ func TestUrgency(t *testing.T) {
 		{config.UrgencyBarThresholdNormal, [3]bool{false, true, true}},
 		{config.UrgencyBarThresholdCritical, [3]bool{false, false, true}},
 	} {
-		for i, u := range []notifications.Urgency{low, normal, crit} {
+		for i, u := range []notifymodel.Urgency{low, normal, crit} {
 			if got := UrgencyBarVisible(u, tc.th); got != tc.want[i] {
 				t.Errorf("UrgencyBarVisible(%v, %s) = %v", u, tc.th, got)
 			}

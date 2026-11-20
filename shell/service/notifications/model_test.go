@@ -8,6 +8,7 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/stubbedev/lys/desktop/service/notifications/notifymodel"
 	"github.com/stubbedev/lys/lib/dbustest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
@@ -20,14 +21,6 @@ func TestParseActions(t *testing.T) {
 	want := []Action{{ID: "reply", Label: "Reply"}, {ID: "delete", Label: "Delete"}, {ID: "odd", Label: "odd"}}
 	if !slices.Equal(got, want) {
 		t.Errorf("= %v, want %v", got, want)
-	}
-}
-
-func TestUrgencyFromByte(t *testing.T) {
-	for in, want := range map[byte]Urgency{0: UrgencyLow, 1: UrgencyNormal, 2: UrgencyCritical, 9: UrgencyNormal} {
-		if got := UrgencyFromByte(in); got != want {
-			t.Errorf("UrgencyFromByte(%d) = %v, want %v", in, got, want)
-		}
 	}
 }
 
@@ -51,7 +44,7 @@ func rgbImage(w, h, stride int32) dbus.Variant {
 func TestDecodeHints(t *testing.T) {
 	none := func(imageData) (string, bool) { t.Error("cached without image data"); return "", false }
 	h := decodeHints(nil, none)
-	if !reflect.DeepEqual(h, hints{urgency: UrgencyNormal}) {
+	if !reflect.DeepEqual(h, hints{urgency: notifymodel.UrgencyNormal}) {
 		t.Errorf("no hints = %+v, want normal urgency only", h)
 	}
 	h = decodeHints(map[string]dbus.Variant{
@@ -61,13 +54,13 @@ func TestDecodeHints(t *testing.T) {
 		"transient":     dbus.MakeVariant(true),
 		"resident":      dbus.MakeVariant(true),
 	}, none)
-	want := hints{urgency: UrgencyCritical, imagePath: "/img.png", desktopEntry: "firefox", transient: true, resident: true}
+	want := hints{urgency: notifymodel.UrgencyCritical, imagePath: "/img.png", desktopEntry: "firefox", transient: true, resident: true}
 	if !reflect.DeepEqual(h, want) {
 		t.Errorf("hints = %+v, want %+v", h, want)
 	}
 	// Mistyped hints keep their defaults.
 	h = decodeHints(map[string]dbus.Variant{"urgency": dbus.MakeVariant(int32(2)), "transient": dbus.MakeVariant("yes")}, none)
-	if h.urgency != UrgencyNormal || h.transient {
+	if h.urgency != notifymodel.UrgencyNormal || h.transient {
 		t.Errorf("mistyped = %+v", h)
 	}
 }
@@ -242,7 +235,7 @@ func TestServerNotifyDecodesHints(t *testing.T) {
 		t.Fatal(err)
 	}
 	n := history(t, svc)[0]
-	if n.ID != id || n.Urgency != UrgencyCritical || n.ImagePath == "" {
+	if n.ID != id || n.Urgency != notifymodel.UrgencyCritical || n.ImagePath == "" {
 		t.Errorf("stored = %+v", n)
 	}
 	if _, err := os.Stat(n.ImagePath); err != nil {

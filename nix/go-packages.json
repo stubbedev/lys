@@ -370,6 +370,7 @@
     ]
   },
   "desktop/service/nightlight/nightschedule": {},
+  "desktop/service/notifications/notifymodel": {},
   "desktop/service/notifications/notifypolicy": {},
   "desktop/service/powerprofiles": {
     "imports": [
@@ -2989,6 +2990,7 @@
       "desktop/fileuri",
       "desktop/glob",
       "desktop/identity",
+      "desktop/service/notifications/notifymodel",
       "desktop/service/notifications/notifypolicy",
       "lib/atomicfile",
       "lib/buildinfo",
@@ -3104,6 +3106,7 @@
   "shell/service/sounds": {
     "imports": [
       "desktop/glob",
+      "desktop/service/notifications/notifymodel",
       "desktop/service/sounds/soundpolicy",
       "lib/intconv",
       "lib/media/vorbis",
@@ -3536,6 +3539,7 @@
       "desktop/config",
       "desktop/i18n",
       "desktop/identity",
+      "desktop/service/notifications/notifymodel",
       "desktop/shell/widgets",
       "lib/render",
       "shell/internal/appicons",

@@ -18,6 +18,7 @@ import (
 	"github.com/stubbedev/lys/desktop/feed"
 	"github.com/stubbedev/lys/desktop/glob"
 	"github.com/stubbedev/lys/desktop/identity"
+	"github.com/stubbedev/lys/desktop/service/notifications/notifymodel"
 	"github.com/stubbedev/lys/desktop/service/notifications/notifypolicy"
 	"github.com/stubbedev/lys/lib/atomicfile"
 	"github.com/stubbedev/lys/lib/buildinfo"
@@ -80,7 +81,7 @@ type Notification struct {
 	// default, zero never expires, positive is milliseconds.
 	ExpireMS int32
 	Added    time.Time
-	Urgency  Urgency
+	Urgency  notifymodel.Urgency
 	// ImagePath is the image-path hint, or the cached PNG of inline
 	// image data.
 	ImagePath    string

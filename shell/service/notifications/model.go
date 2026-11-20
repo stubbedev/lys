@@ -4,29 +4,9 @@ import (
 	"path/filepath"
 
 	"github.com/stubbedev/lys/desktop/fileuri"
+	"github.com/stubbedev/lys/desktop/service/notifications/notifymodel"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
-
-// Urgency is the spec's urgency hint.
-type Urgency uint8
-
-// Urgency levels.
-const (
-	UrgencyLow Urgency = iota
-	UrgencyNormal
-	UrgencyCritical
-)
-
-// UrgencyFromByte reads the urgency hint: 0 low, 2 critical, anything else normal.
-func UrgencyFromByte(v byte) Urgency {
-	switch v {
-	case 0:
-		return UrgencyLow
-	case 2:
-		return UrgencyCritical
-	}
-	return UrgencyNormal
-}
 
 // Action is one notification action: the id ActionInvoked reports, its
 // label, and what the button does when the
@@ -61,7 +41,7 @@ func ParseActions(raw []string) []Action {
 
 // hints are the decoded Notify hints the shell reads.
 type hints struct {
-	urgency          Urgency
+	urgency          notifymodel.Urgency
 	imagePath        string
 	desktopEntry     string
 	transient        bool
@@ -80,9 +60,9 @@ type hints struct {
 // image_data and icon_data) is cached as a PNG whose path replaces
 // image-path; cache turns pixels into a path.
 func decodeHints(raw map[string]dbus.Variant, cache func(imageData) (string, bool)) hints {
-	h := hints{urgency: UrgencyNormal}
+	h := hints{urgency: notifymodel.UrgencyNormal}
 	if v, ok := raw["urgency"].Value().(byte); ok {
-		h.urgency = UrgencyFromByte(v)
+		h.urgency = notifymodel.UrgencyFromByte(v)
 	}
 	h.imagePath, _ = raw["image-path"].Value().(string)
 	h.desktopEntry, _ = raw["desktop-entry"].Value().(string)

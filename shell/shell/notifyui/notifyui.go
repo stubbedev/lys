@@ -16,6 +16,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/identity"
+	"github.com/stubbedev/lys/desktop/service/notifications/notifymodel"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/app"
@@ -88,25 +89,25 @@ func mappedIcon(appName string) Icon {
 }
 
 // UrgencyClass is the CSS class of an urgency: low, normal, or critical.
-func UrgencyClass(u notifications.Urgency) string {
+func UrgencyClass(u notifymodel.Urgency) string {
 	switch u {
-	case notifications.UrgencyLow:
+	case notifymodel.UrgencyLow:
 		return "low"
-	case notifications.UrgencyCritical:
+	case notifymodel.UrgencyCritical:
 		return "critical"
 	}
 	return "normal"
 }
 
 // UrgencyBarVisible reports whether an urgency reaches the bar's threshold.
-func UrgencyBarVisible(u notifications.Urgency, threshold config.UrgencyBarThreshold) bool {
+func UrgencyBarVisible(u notifymodel.Urgency, threshold config.UrgencyBarThreshold) bool {
 	switch threshold {
 	case config.UrgencyBarThresholdLow:
 		return true
 	case config.UrgencyBarThresholdNormal:
-		return u >= notifications.UrgencyNormal
+		return u >= notifymodel.UrgencyNormal
 	case config.UrgencyBarThresholdCritical:
-		return u >= notifications.UrgencyCritical
+		return u >= notifymodel.UrgencyCritical
 	}
 	return false
 }

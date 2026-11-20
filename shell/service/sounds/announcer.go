@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/glob"
+	"github.com/stubbedev/lys/desktop/service/notifications/notifymodel"
 	"github.com/stubbedev/lys/desktop/service/sounds/soundpolicy"
 	"github.com/stubbedev/lys/lib/pulse/native"
 
@@ -100,7 +101,7 @@ func (a *Announcer) load(path string) (native.Sample, error) {
 
 func (a *Announcer) sound(policy soundpolicy.Policy, n *notifications.Notification) (path, event string, ok bool) {
 	switch {
-	case policy.Mode == soundpolicy.Off, policy.Mode == soundpolicy.Critical && n.Urgency != notifications.UrgencyCritical:
+	case policy.Mode == soundpolicy.Off, policy.Mode == soundpolicy.Critical && n.Urgency != notifymodel.UrgencyCritical:
 		return "", "", false
 	case n.SuppressSound, !a.svc.Audible(n), a.muted():
 		return "", "", false

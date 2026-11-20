@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/fakeclock"
+	"github.com/stubbedev/lys/desktop/service/notifications/notifymodel"
 	"github.com/stubbedev/lys/desktop/service/notifications/notifypolicy"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/waittest"
@@ -74,7 +75,7 @@ func TestStoreRoundTrip(t *testing.T) {
 	// The inline pixels win over image-path, as cached by Notify; the
 	// image_path column keeps that file.
 	want := history(t, svc)[0].ImagePath
-	if n.Urgency != UrgencyCritical || n.DesktopEntry != "org.mail" || n.ImagePath != want || want == "" || want == "/tmp/pic.png" || !n.Resident {
+	if n.Urgency != notifymodel.UrgencyCritical || n.DesktopEntry != "org.mail" || n.ImagePath != want || want == "" || want == "/tmp/pic.png" || !n.Resident {
 		t.Errorf("decoded hints: urgency %v entry %q image %q resident %v", n.Urgency, n.DesktopEntry, n.ImagePath, n.Resident)
 	}
 	// The hints column holds the typed hints only: no inline pixels, no
@@ -153,7 +154,7 @@ func TestStoreReadsSignedHintsNullColumnsAndTheImagePath(t *testing.T) {
 	if n.ID != 572 || n.AppName != "Gmail" || n.Body != "" || n.AppIcon != "" || n.ExpireMS != -1 || n.ReplacesID != 0 {
 		t.Errorf("fields = %+v", n)
 	}
-	if n.Urgency != UrgencyCritical || n.DesktopEntry != "gmail" || n.ImagePath != "/icons/gmail.svg" {
+	if n.Urgency != notifymodel.UrgencyCritical || n.DesktopEntry != "gmail" || n.ImagePath != "/icons/gmail.svg" {
 		t.Errorf("hints: urgency %v entry %q image %q", n.Urgency, n.DesktopEntry, n.ImagePath)
 	}
 	if _, ok := n.DefaultAction(); !ok {
@@ -167,7 +168,7 @@ func TestStoreReadsSignedHintsNullColumnsAndTheImagePath(t *testing.T) {
 	if _, err := st.db.Exec(`UPDATE notifications SET hints = 'not json' WHERE id = 572`); err != nil {
 		t.Fatal(err)
 	}
-	if got, err := st.Page(nil, MaxPage); err != nil || len(got) != 1 || got[0].Urgency != UrgencyNormal {
+	if got, err := st.Page(nil, MaxPage); err != nil || len(got) != 1 || got[0].Urgency != notifymodel.UrgencyNormal {
 		t.Errorf("broken hints: %v, %v", got, err)
 	}
 }
@@ -649,7 +650,7 @@ func TestHintsAreParsedNotKept(t *testing.T) {
 	}, 0)
 	settle(svc)
 	n := history(t, svc)[0]
-	if n.ID != id || n.Urgency != UrgencyLow || n.DesktopEntry != "org.mail" || !n.Resident || n.Transient || n.ImagePath != "/tmp/pic.png" {
+	if n.ID != id || n.Urgency != notifymodel.UrgencyLow || n.DesktopEntry != "org.mail" || !n.Resident || n.Transient || n.ImagePath != "/tmp/pic.png" {
 		t.Errorf("typed fields = %+v", n)
 	}
 	if a, ok := n.DefaultAction(); !ok || a.Label != "Open" || len(n.Actions) != 2 {

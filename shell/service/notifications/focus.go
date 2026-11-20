@@ -3,12 +3,13 @@ package notifications
 import (
 	"time"
 
+	"github.com/stubbedev/lys/desktop/service/notifications/notifymodel"
 	"github.com/stubbedev/lys/desktop/service/notifications/notifypolicy"
 )
 
 // allows reports whether n pops up through do-not-disturb.
 func allows(r notifypolicy.FocusRules, n *Notification) bool {
-	if r.AllowCritical && n.Urgency == UrgencyCritical {
+	if r.AllowCritical && n.Urgency == notifymodel.UrgencyCritical {
 		return true
 	}
 	for _, pattern := range r.AllowApps {
