@@ -304,45 +304,73 @@ func (db *Database) IsA(mimeType, base string) bool {
 // Comment is mimeType's description in English ("JPEG image"), from
 // the first data directory whose mime/<type>.xml has one; "" for a type
 // none describes. Each type's file is read once.
-func (db *Database) Comment(mimeType string) string {
-	mimeType = db.canonical(mimeType)
-	if c, ok := db.comments.Load(mimeType); ok {
-		return c.(string) //nolint:errcheck // only strings are stored
+func (db *Database) Comment(mimeType string) string { return db.CommentIn(mimeType, nil) }
+
+// CommentIn is mimeType's description in the first of langs the file
+// translates it to, each tried as written ("pt_BR") and then as its
+// language alone ("pt"), else in English.
+func (db *Database) CommentIn(mimeType string, langs []string) string {
+	comments := db.commentsOf(db.canonical(mimeType))
+	for _, lang := range langs {
+		lang = strings.ReplaceAll(lang, "-", "_")
+		if c, ok := comments[lang]; ok {
+			return c
+		}
+		base, _, _ := strings.Cut(lang, "_")
+		if c, ok := comments[base]; ok {
+			return c
+		}
 	}
-	comment := ""
+	return comments[""]
+}
+
+func (db *Database) commentsOf(mimeType string) map[string]string {
+	if c, ok := db.comments.Load(mimeType); ok {
+		return c.(map[string]string) //nolint:errcheck // only comment maps are stored
+	}
+	comments := map[string]string{}
 	for _, dir := range db.dirs {
-		if c, ok := readComment(filepath.Join(dir, "mime", mimeType+".xml")); ok {
-			comment = c
+		if c, ok := readComments(filepath.Join(dir, "mime", mimeType+".xml")); ok {
+			comments = c
 			break
 		}
 	}
-	db.comments.Store(mimeType, comment)
-	return comment
+	db.comments.Store(mimeType, comments)
+	return comments
 }
 
-// readComment is the untranslated <comment> of a per-type file that
-// update-mime-database wrote.
-func readComment(path string) (string, bool) {
+// readComments is every <comment> of a per-type file that
+// update-mime-database wrote, by its xml:lang ("" for the untranslated
+// one); false when the file cannot be read or holds no untranslated one.
+func readComments(path string) (map[string]string, bool) {
 	f, err := os.Open(path) //nolint:gosec // a shared-mime-info file in a data directory
 	if err != nil {
-		return "", false
+		return nil, false
 	}
 	defer func() { _ = f.Close() }()
+	out := map[string]string{}
 	dec := xml.NewDecoder(f)
 	for {
 		tok, err := dec.Token()
 		if err != nil {
-			return "", false
+			_, ok := out[""]
+			return out, ok
 		}
 		start, ok := tok.(xml.StartElement)
-		if !ok || start.Name.Local != "comment" || slices.ContainsFunc(start.Attr, func(a xml.Attr) bool { return a.Name.Local == "lang" }) {
+		if !ok || start.Name.Local != "comment" {
 			continue
+		}
+		lang := ""
+		for _, a := range start.Attr {
+			if a.Name.Local == "lang" {
+				lang = a.Value
+			}
 		}
 		var text string
 		if err := dec.DecodeElement(&text, &start); err != nil {
-			return "", false
+			return nil, false
 		}
-		return text, true
+		out[lang] = text
 	}
 }
 

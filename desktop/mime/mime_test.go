@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -164,6 +165,14 @@ func TestComment(t *testing.T) {
 		if got := db.Comment(typ); got != want {
 			t.Errorf("Comment(%s) = %q, want %q", typ, got, want)
 		}
+	}
+	for langs, want := range map[string]string{"de": "JPEG-Bild", "de_AT": "JPEG-Bild", "de-CH": "JPEG-Bild", "fr": "JPEG image", "": "JPEG image"} {
+		if got := db.CommentIn("image/jpeg", strings.Fields(langs)); got != want {
+			t.Errorf("CommentIn(image/jpeg, %q) = %q, want %q", langs, got, want)
+		}
+	}
+	if got := db.CommentIn("video/matroska", []string{"de"}); got != "Matroska video" {
+		t.Errorf("an untranslated comment in German reads %q", got)
 	}
 	if err := os.Remove(filepath.Join(first, "mime", "image", "jpeg.xml")); err != nil {
 		t.Fatal(err)
