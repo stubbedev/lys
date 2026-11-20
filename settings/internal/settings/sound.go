@@ -300,7 +300,7 @@ type deviceControls struct {
 	mute       *muteToggle
 	balance    *widgets.DebouncedSlider
 	balanceRow *widget.Box
-	tests      *widget.Box
+	tests      *widget.Grid
 	testsRow   *widget.Box
 	testMap    native.ChannelMap
 	current    pulse.Device
@@ -357,7 +357,8 @@ func newDeviceControls(p *soundPanel, kind pulse.DeviceType) *deviceControls {
 	c.balanceRow = panelRow(k, t.Get("settings-sound-balance"), "", c.balance)
 	c.rows.Append(c.balanceRow)
 	if kind == pulse.DeviceOutput {
-		c.tests = gapBox(widget.Row)
+		c.tests = widget.NewGrid(widget.Current().Spacing, widget.Current().Spacing).SetColumnHomogeneous(true)
+		c.tests.AddClass("sound-speakers")
 		c.testsRow = panelRow(k, t.Get("settings-sound-test"), t.Attr("settings-sound-test", "description"), c.tests)
 		c.rows.Append(c.testsRow)
 	}
@@ -457,22 +458,8 @@ func (c *deviceControls) showTests(current pulse.Device) {
 	if slices.Equal(c.testMap, current.ChannelMap) {
 		return
 	}
-	t := locale.T()
 	c.testMap = slices.Clone(current.ChannelMap)
-	c.tests.Clear()
-	for i, position := range c.testMap {
-		name := t.Get("settings-sound-channel-" + position.String())
-		b := c.p.k.button(c.p.k.label(name), nil, css.Secondary)
-		b.SetAccessibleName(t.Get("settings-sound-test-channel", i18n.Str("channel", name)))
-		channels, channel := c.testMap, i
-		b.OnClick = func() {
-			sink := c.current.Name
-			c.p.act(func(ctx context.Context, svc *pulse.Service) error {
-				return playTestTone(ctx, svc, sink, channels, channel)
-			})
-		}
-		c.tests.Append(b, false)
-	}
+	c.showSpeakers(c.testMap)
 }
 
 func setChoices(d *widget.Dropdown, items []string, selected int) {
