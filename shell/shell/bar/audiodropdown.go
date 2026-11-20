@@ -411,7 +411,7 @@ func newVolumeSection(v *audioView, kind audioKind) *volumeSection {
 	s.item.AddAction(widget.NewThemeIcon("ld-chevron-right-symbolic", itemIconPx))
 	s.Append(s.item, false)
 
-	s.slider = widgets.NewDebouncedSlider(0, v.font, v.px, 0, v.ctx.Invoke)
+	s.slider = widgets.NewDebouncedSlider(0, v.font, v.px, 0, v.ctx.Invoke, v.ctx.Clock)
 	s.slider.ValueLabel().AddClass("audio-slider-value", css.Numeric)
 	s.slider.Write = s.volumeWrite
 	s.slider.OnValue = func(float64) { s.syncMuteIcon() }
@@ -623,7 +623,7 @@ func newAppVolumeItem(v *audioView, r appVolume) *appVolumeItem {
 	it.item.AddAction(it.mute)
 	it.Append(it.item, false)
 
-	it.slider = widgets.NewDebouncedSlider(r.vol.AveragePercentage(), nil, 0, 0, v.ctx.Invoke)
+	it.slider = widgets.NewDebouncedSlider(r.vol.AveragePercentage(), nil, 0, 0, v.ctx.Invoke, v.ctx.Clock)
 	it.slider.AddClass("audio-app-slider")
 	it.slider.Write = it.volumeWrite
 	it.slider.OnValue = func(float64) { it.sync() }

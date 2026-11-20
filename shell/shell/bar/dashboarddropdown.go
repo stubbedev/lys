@@ -386,7 +386,7 @@ func (v *dashboardView) controls() widget.Widget {
 	}, css.Ghost, css.Icon, css.Small)
 	mute.AddClass("dashboard-volume-icon")
 	row.AppendAligned(mute, false, widget.AlignCenter)
-	slider := widgets.NewDebouncedSlider(0, v.font, v.px, 0, v.ctx.Invoke)
+	slider := widgets.NewDebouncedSlider(0, v.font, v.px, 0, v.ctx.Invoke, v.ctx.Clock)
 	slider.ValueLabel().AddClass("dashboard-slider-value", css.Numeric)
 	slider.Knob.AddClass("dashboard-slider")
 	slider.Write = func(pct float64) func() {
@@ -510,7 +510,7 @@ func (v *dashboardView) media() widget.Widget {
 	compact.AppendAligned(info, true, widget.AlignCenter)
 	compact.AppendAligned(controls, false, widget.AlignCenter)
 
-	seek := widgets.NewDebouncedSlider(0, nil, 0, 0, v.ctx.Invoke)
+	seek := widgets.NewDebouncedSlider(0, nil, 0, 0, v.ctx.Invoke, v.ctx.Clock)
 	seek.Knob.AddClass("media-seek-slider", "dashboard-slider")
 	elapsed := v.label("0:00")
 	elapsed.AddClass("media-time", css.Caption, css.DimLabel, css.Numeric)

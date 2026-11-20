@@ -95,6 +95,7 @@ func Run(page, setting string) error {
 		barFont:      barview.Font,
 		familyFont:   loadFamily,
 		forgetImage:  application.ForgetImage,
+		clock:        wallClock{},
 	}
 	after := func(d time.Duration, fn func()) {
 		time.AfterFunc(d, func() { application.Invoke(fn) })

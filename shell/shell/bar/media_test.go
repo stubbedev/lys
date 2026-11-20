@@ -18,6 +18,7 @@ import (
 	"github.com/stubbedev/lys/desktop/service/mpris"
 	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
@@ -348,7 +349,7 @@ func TestMediaDropdownTransport(t *testing.T) {
 	}
 
 	// A position read moves the knob unless it is held (or just let go).
-	v.seek.SetClock(func() time.Time { return time.Now().Add(time.Second) })
+	v.seek.SetClock(aheadClock{Clock: ctx.Clock, by: time.Second})
 	v.setPosition(45 * time.Second)
 	if v.seek.Value() != 75 || v.position.Text() != "0:45" {
 		t.Errorf("position = %v / %q, want 75 / 0:45", v.seek.Value(), v.position.Text())
@@ -648,3 +649,10 @@ func TestMediaRefusedControlShowsWhy(t *testing.T) {
 		t.Errorf("a refused pick: alert %v %q", v.failed.Visible(), v.failed.Description())
 	}
 }
+
+type aheadClock struct {
+	widgets.Clock
+	by time.Duration
+}
+
+func (c aheadClock) Now() time.Time { return c.Clock.Now().Add(c.by) }

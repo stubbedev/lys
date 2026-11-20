@@ -260,7 +260,7 @@ type slider struct {
 const sliderPrecision = 100
 
 func newSlider(k *kit, s slot, lo, hi float64, whole bool, format func(float64) string) *slider {
-	c := &slider{DebouncedSlider: widgets.NewRangedSlider(lo, hi, lo, k.face, k.textPx(), 0, k.invoke), k: k, slot: s}
+	c := &slider{DebouncedSlider: widgets.NewRangedSlider(lo, hi, lo, k.face, k.textPx(), 0, k.invoke, k.clock), k: k, slot: s}
 	c.SetFormat(format)
 	c.OnCommit = func(v float64) {
 		if whole {

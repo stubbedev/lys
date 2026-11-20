@@ -361,7 +361,7 @@ func dateTimeLead(k *kit) widget.Widget {
 				p.do("SetNTP", on, interactive)
 			}
 		}
-		manual := newManualTime(k, clockNow())
+		manual := newManualTime(k, k.clock.Now())
 		manual.set.OnClick = func() {
 			at, err := manual.at(p.props.str("Timezone"))
 			if err != nil {
@@ -410,11 +410,9 @@ type clockCard struct {
 	zone   *widget.Label
 	sync   *widget.Label
 	names  *glibclocale.Time
-	timer  *time.Timer
+	stop   func() bool
 	closed bool
 }
-
-var clockNow = time.Now
 
 func newClockCard(k *kit) *clockCard {
 	c := &clockCard{Box: widget.NewBox(widget.Column, widget.Current().Spacing/2, 0), k: k}
@@ -499,7 +497,7 @@ func (c *clockCard) tick() {
 	if c.closed {
 		return
 	}
-	now := clockNow()
+	now := c.k.clock.Now()
 	date, clock, err := formatClock(c.names, c.k.store, now)
 	if err != nil {
 		date = err.Error()
@@ -507,7 +505,7 @@ func (c *clockCard) tick() {
 	c.date.SetText(date)
 	c.clock.SetText(clock)
 	next := now.Truncate(time.Minute).Add(time.Minute).Sub(now)
-	c.timer = time.AfterFunc(next, func() { c.k.invoke(c.tick) })
+	c.stop = c.k.clock.AfterFunc(next, func() { c.k.invoke(c.tick) })
 }
 
 func zoneLine(zone string, now time.Time) (string, error) {
@@ -530,7 +528,7 @@ func syncKey(ntp, synchronized bool) string {
 }
 
 func (c *clockCard) showSystem(zone string, ntp, synchronized bool) {
-	line, err := zoneLine(zone, clockNow())
+	line, err := zoneLine(zone, c.k.clock.Now())
 	if err != nil {
 		line = err.Error()
 	}
@@ -541,16 +539,16 @@ func (c *clockCard) showSystem(zone string, ntp, synchronized bool) {
 }
 
 func (c *clockCard) retick() {
-	if c.timer != nil {
-		c.timer.Stop()
+	if c.stop != nil {
+		c.stop()
 	}
 	c.tick()
 }
 
 func (c *clockCard) close() {
 	c.closed = true
-	if c.timer != nil {
-		c.timer.Stop()
+	if c.stop != nil {
+		c.stop()
 	}
 }
 

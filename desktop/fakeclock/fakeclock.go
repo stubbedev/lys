@@ -23,7 +23,10 @@ type timer struct {
 }
 
 // New is a clock standing at a fixed UTC instant.
-func New() *Clock { return &Clock{now: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)} }
+func New() *Clock { return At(time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)) }
+
+// At is a clock standing at now.
+func At(now time.Time) *Clock { return &Clock{now: now} }
 
 // Now is the clock's current instant.
 func (c *Clock) Now() time.Time {

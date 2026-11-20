@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/desktop/fakeclock"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/dbustest"
@@ -476,10 +477,8 @@ func clockCardAt(t *testing.T, config, timeLocale string) *clockCard {
 	t.Helper()
 	useLocales(t, glibclocale.NewSource("", glibclocaletest.Dirs(t)))
 	t.Setenv("LC_ALL", timeLocale)
-	before := clockNow
-	clockNow = func() time.Time { return time.Date(2026, time.November, 19, 14, 5, 0, 0, time.UTC) }
-	t.Cleanup(func() { clockNow = before })
 	k := testKit(t, config)
+	k.clock = fakeclock.At(time.Date(2026, time.November, 19, 14, 5, 0, 0, time.UTC))
 	c := newClockCard(k)
 	t.Cleanup(c.close)
 	return c

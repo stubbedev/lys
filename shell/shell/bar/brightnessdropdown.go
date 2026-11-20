@@ -186,7 +186,7 @@ func (v *brightnessView) item(d brightness.Device, multi bool) widget.Widget {
 	head.SetMedia(widget.NewThemeIcon(brightnessDeviceIcon, itemIconPx), false)
 	card.Append(head, false)
 
-	slider := widgets.NewDebouncedSlider(d.Percentage(), v.font, v.px, 0, v.ctx.Invoke)
+	slider := widgets.NewDebouncedSlider(d.Percentage(), v.font, v.px, 0, v.ctx.Invoke, v.ctx.Clock)
 	slider.ValueLabel().AddClass("brightness-slider-value", css.Numeric)
 	name := d.Name
 	slider.Write = func(pct float64) func() { return v.write(name, pct) }

@@ -37,3 +37,21 @@ func TestAdvanceFiresDueTimersInOrder(t *testing.T) {
 		t.Errorf("now = start+%v after Advance(30ms)", got)
 	}
 }
+
+func TestAClockStandsWhereItIsStarted(t *testing.T) {
+	at := time.Date(2026, time.November, 19, 14, 5, 0, 0, time.UTC)
+	c := At(at)
+	if !c.Now().Equal(at) {
+		t.Fatalf("a clock started at %v stands at %v", at, c.Now())
+	}
+	fired := false
+	c.AfterFunc(time.Minute, func() { fired = true })
+	c.Advance(time.Minute - time.Nanosecond)
+	if fired {
+		t.Fatal("a timer fired before its minute had passed")
+	}
+	c.Advance(time.Nanosecond)
+	if !fired || !c.Now().Equal(at.Add(time.Minute)) {
+		t.Errorf("after a minute: fired %v, now %v", fired, c.Now())
+	}
+}

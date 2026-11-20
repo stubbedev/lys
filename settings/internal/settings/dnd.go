@@ -280,7 +280,7 @@ func (p *dndPanel) show(st dndState) {
 	p.toggle.SetEnabled(true)
 	p.toggle.SetOn(st.on)
 	p.syncing = false
-	p.status.SetText(dndStatusText(p.k, st, clockNow()))
+	p.status.SetText(dndStatusText(p.k, st, p.k.clock.Now()))
 }
 
 func dndStatusText(k *kit, st dndState, now time.Time) string {

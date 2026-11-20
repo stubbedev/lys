@@ -11,6 +11,7 @@ import (
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/waittest"
 
+	"github.com/stubbedev/lys/desktop/fakeclock"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 )
 
@@ -42,19 +43,18 @@ func (l *testLoop) wait(t *testing.T, what string, cond func() bool) {
 
 func testFont(t *testing.T) render.Font { return treetest.Font(t) }
 
-func newTestSlider(t *testing.T) (*DebouncedSlider, *[]float64, *time.Time) {
+func newTestSlider(t *testing.T) (*DebouncedSlider, *[]float64, *fakeclock.Clock) {
 	t.Helper()
-	return newTestSliderOn(t, &testLoop{})
+	return newTestSliderOn(t, func(fn func()) { fn() })
 }
 
-func newTestSliderOn(t *testing.T, loop *testLoop) (*DebouncedSlider, *[]float64, *time.Time) {
+func newTestSliderOn(t *testing.T, invoke func(func())) (*DebouncedSlider, *[]float64, *fakeclock.Clock) {
 	t.Helper()
-	clock := time.Unix(1000, 0)
+	clock := fakeclock.New()
 	commits := &[]float64{}
-	d := NewDebouncedSlider(50, testFont(t), 12, 0, loop.invoke)
-	d.now = func() time.Time { return clock }
+	d := NewDebouncedSlider(50, testFont(t), 12, 0, invoke, clock)
 	d.OnCommit = func(v float64) { *commits = append(*commits, v) }
-	return d, commits, &clock
+	return d, commits, clock
 }
 
 // The first move commits at once; moves inside 100ms leave one trailing
@@ -71,14 +71,17 @@ func TestDebouncedSliderThrottlesAndCommitsOnRelease(t *testing.T) {
 	if d.trailing == nil {
 		t.Fatal("no trailing commit scheduled")
 	}
-	*clock = clock.Add(150 * time.Millisecond)
+	clock.Advance(150 * time.Millisecond)
+	if !slices.Equal(*commits, []float64{60, 62}) || d.trailing != nil {
+		t.Fatalf("after the throttle window commits = %v (trailing %v), want the last move's trailing commit", *commits, d.trailing != nil)
+	}
 	d.Knob.SetValue(70)
-	if !slices.Equal(*commits, []float64{60, 70}) || d.trailing != nil {
-		t.Fatalf("after the throttle window commits = %v (trailing %v)", *commits, d.trailing != nil)
+	if !slices.Equal(*commits, []float64{60, 62}) || d.trailing == nil {
+		t.Fatalf("a move 50ms after the trailing commit committed at once: %v (trailing %v)", *commits, d.trailing != nil)
 	}
 	d.Knob.SetPressed(false)
-	if !slices.Equal(*commits, []float64{60, 70, 70}) {
-		t.Fatalf("release commits = %v", *commits)
+	if !slices.Equal(*commits, []float64{60, 62, 70}) || d.trailing != nil {
+		t.Fatalf("release commits = %v (trailing %v), want the final value once and no trailing commit left", *commits, d.trailing != nil)
 	}
 	if got := d.label.Text(); got != "70%" {
 		t.Errorf("label = %q", got)
@@ -87,11 +90,16 @@ func TestDebouncedSliderThrottlesAndCommitsOnRelease(t *testing.T) {
 
 func TestDebouncedSliderTrailingCommitLands(t *testing.T) {
 	loop := &testLoop{}
-	d, commits, _ := newTestSliderOn(t, loop)
+	d, commits, clock := newTestSliderOn(t, loop.invoke)
 	loop.mu.Lock()
 	d.Knob.SetValue(10)
 	d.Knob.SetValue(20)
+	early := len(*commits)
 	loop.mu.Unlock()
+	if early != 1 {
+		t.Fatalf("%d commits before the throttle passed, want only the first move", early)
+	}
+	clock.Advance(sliderThrottle)
 	loop.wait(t, "the trailing commit", func() bool { return len(*commits) == 2 })
 	if (*commits)[1] != 20 {
 		t.Errorf("trailing = %v, want the last value", *commits)
@@ -112,12 +120,12 @@ func TestDebouncedSliderIgnoresExternalValuesWhileInteracting(t *testing.T) {
 		t.Error("an external value moved a held slider")
 	}
 	d.Knob.SetPressed(false)
-	*clock = clock.Add(100 * time.Millisecond)
+	clock.Advance(100 * time.Millisecond)
 	d.Set(80)
 	if d.Value() != 30 {
 		t.Error("an external value landed inside the release grace")
 	}
-	*clock = clock.Add(100 * time.Millisecond)
+	clock.Advance(100 * time.Millisecond)
 	d.Set(80)
 	if d.Value() != 80 {
 		t.Error("an external value after the grace did not land")
@@ -129,7 +137,7 @@ func TestDebouncedSliderResetBypassesTheReleaseGrace(t *testing.T) {
 	d.Knob.SetPressed(true)
 	d.Knob.SetValue(80)
 	d.Knob.SetPressed(false)
-	*clock = clock.Add(10 * time.Millisecond)
+	clock.Advance(10 * time.Millisecond)
 	d.Set(50)
 	if d.Value() != 80 {
 		t.Fatalf("an outside value inside the release grace moved the knob to %v", d.Value())
@@ -148,7 +156,7 @@ func TestDebouncedSliderResetBypassesTheReleaseGrace(t *testing.T) {
 
 func TestDebouncedSliderResetDropsTheTrailingCommit(t *testing.T) {
 	loop := &testLoop{}
-	d, commits, _ := newTestSliderOn(t, loop)
+	d, commits, _ := newTestSliderOn(t, loop.invoke)
 	loop.mu.Lock()
 	d.Knob.SetValue(10)
 	d.Knob.SetValue(20)
@@ -164,7 +172,7 @@ func TestDebouncedSliderResetDropsTheTrailingCommit(t *testing.T) {
 
 // A ranged slider spans its own bounds and labels with its format.
 func TestRangedSliderBoundsAndFormat(t *testing.T) {
-	d := NewRangedSlider(500, 5000, 900, testFont(t), 12, 0, (&testLoop{}).invoke)
+	d := NewRangedSlider(500, 5000, 900, testFont(t), 12, 0, (&testLoop{}).invoke, fakeclock.New())
 	d.SetFormat(func(v float64) string { return strconv.FormatFloat(v/1000, 'f', 1, 64) + "s" })
 	if got := d.Label().Text(); got != "0.9s" {
 		t.Errorf("label = %q, want the new format", got)
@@ -173,7 +181,7 @@ func TestRangedSliderBoundsAndFormat(t *testing.T) {
 	if d.Value() != 5000 {
 		t.Errorf("value = %v, want clamped to the max", d.Value())
 	}
-	if NewDebouncedSlider(0, nil, 0, 0, nil).Label() != nil {
+	if NewDebouncedSlider(0, nil, 0, 0, nil, fakeclock.New()).Label() != nil {
 		t.Error("a fontless slider has a label")
 	}
 }
@@ -184,7 +192,7 @@ func TestRangedSliderBoundsAndFormat(t *testing.T) {
 // has passed.
 func TestDebouncedSliderWritesInOrderLatestWins(t *testing.T) {
 	loop := &testLoop{}
-	d, _, clock := newTestSliderOn(t, loop)
+	d, _, clock := newTestSliderOn(t, loop.invoke)
 	var mu sync.Mutex
 	var writes []float64
 	inflight, most := 0, 0
@@ -219,9 +227,9 @@ func TestDebouncedSliderWritesInOrderLatestWins(t *testing.T) {
 	waitWrites(60)
 
 	loop.mu.Lock()
-	*clock = clock.Add(150 * time.Millisecond)
+	clock.Advance(150 * time.Millisecond)
 	d.Knob.SetValue(70)
-	*clock = clock.Add(150 * time.Millisecond)
+	clock.Advance(150 * time.Millisecond)
 	d.Knob.SetValue(80)
 	d.Knob.SetPressed(false)
 	loop.mu.Unlock()
@@ -232,7 +240,7 @@ func TestDebouncedSliderWritesInOrderLatestWins(t *testing.T) {
 	}
 
 	loop.mu.Lock()
-	*clock = clock.Add(time.Second)
+	clock.Advance(time.Second)
 	d.Set(10)
 	if d.Value() != 80 {
 		t.Error("an outside value landed while a write was pending")
@@ -252,7 +260,7 @@ func TestDebouncedSliderWritesInOrderLatestWins(t *testing.T) {
 	if d.Value() != 80 {
 		t.Error("an outside value landed inside the grace after the last write")
 	}
-	*clock = clock.Add(200 * time.Millisecond)
+	clock.Advance(200 * time.Millisecond)
 	d.Set(10)
 	if d.Value() != 10 {
 		t.Error("an outside value after the grace did not land")

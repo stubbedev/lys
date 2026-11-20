@@ -1,10 +1,13 @@
 package settings
 
 import (
+	"fmt"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/fakeclock"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/ui/widget"
 
@@ -280,5 +283,24 @@ func TestModulePagesWithNothingElsewhereHaveNoLinks(t *testing.T) {
 		if p.footer != nil {
 			t.Errorf("the %s page has related links", id)
 		}
+	}
+}
+
+func TestASlidersTrailingCommitWaitsForTheKitsClock(t *testing.T) {
+	k := testKit(t, "modules:\n  separator:\n    size: 2\n")
+	clock := fakeclock.New()
+	k.clock = clock
+	c, ok := fieldControl(k, k.store, pageRow(t, "separator", "modules.separator.size")).(*softRange)
+	if !ok {
+		t.Fatal("the separator's thickness is not a pixel slider")
+	}
+	c.slider.Knob.SetValue(3)
+	c.slider.Knob.SetValue(4)
+	if got := fmt.Sprint(k.store.value("modules.separator.size")); got != "3" {
+		t.Fatalf("before the throttle passed the size is %v, want the first move alone", got)
+	}
+	clock.Advance(time.Second)
+	if got := fmt.Sprint(k.store.value("modules.separator.size")); got != "4" {
+		t.Errorf("after the throttle passed the size is %v, want the last move", got)
 	}
 }

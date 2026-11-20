@@ -329,7 +329,7 @@ func newDeviceControls(p *soundPanel, kind pulse.DeviceType) *deviceControls {
 	c.more = k.iconButton("ld-ellipsis-symbolic", "settings-sound-device-options", c.openMenu, css.Flat)
 	c.more.SetAccessibleName(t.Get("settings-sound-device-options"))
 	c.rows.Append(panelRow(k, t.Get("settings-sound-device"), "", c.devices, c.more))
-	c.volume = widgets.NewDebouncedSlider(0, k.face, k.textPx(), 0, k.invoke)
+	c.volume = widgets.NewDebouncedSlider(0, k.face, k.textPx(), 0, k.invoke, k.clock)
 	c.volume.Knob.SetAccessibleName(t.Get("settings-sound-volume"))
 	c.volume.Write = func(v float64) func() {
 		key, levels := c.current.Key, scaledTo(c.current.Volume.Levels(), v/100)
@@ -346,7 +346,7 @@ func newDeviceControls(p *soundPanel, kind pulse.DeviceType) *deviceControls {
 	})
 	c.mute.name(t.Get(muteKey))
 	c.rows.Append(panelRow(k, t.Get("settings-sound-volume"), "", c.mute, c.volume))
-	c.balance = widgets.NewRangedSlider(-balanceRange, balanceRange, 0, nil, 0, 0, k.invoke)
+	c.balance = widgets.NewRangedSlider(-balanceRange, balanceRange, 0, nil, 0, 0, k.invoke, k.clock)
 	c.balance.Knob.SetAccessibleName(t.Get("settings-sound-balance"))
 	c.balance.Write = func(b float64) func() {
 		key, levels := c.current.Key, withBalance(c.current.Volume.Levels(), c.current.ChannelMap, b/balanceRange)
@@ -496,7 +496,7 @@ func newAppRow(p *soundPanel, kind streamKind, key pulse.StreamKey) *appRow {
 		device := r.routes[i]
 		p.act(func(ctx context.Context, svc *pulse.Service) error { return svc.MoveStream(ctx, key, device) })
 	}
-	r.volume = widgets.NewDebouncedSlider(0, k.face, k.textPx(), 0, k.invoke)
+	r.volume = widgets.NewDebouncedSlider(0, k.face, k.textPx(), 0, k.invoke, k.clock)
 	r.volume.Write = func(v float64) func() {
 		levels := scaledTo(r.levels, v/100)
 		return p.write(func(ctx context.Context, svc *pulse.Service) error {

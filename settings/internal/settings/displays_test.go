@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/desktop/fakeclock"
 	"github.com/stubbedev/lys/desktop/shell/apptheme"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/render"
@@ -41,6 +42,7 @@ type displaysRig struct {
 	l     *loop
 	p     *displaysPanel
 	shown []string
+	clock *fakeclock.Clock
 }
 
 func twoOutputs(t *testing.T) (*wmtest.Session, *kit, *loop) {
@@ -64,7 +66,9 @@ func twoOutputs(t *testing.T) (*wmtest.Session, *kit, *loop) {
 func startDisplays(t *testing.T) *displaysRig {
 	t.Helper()
 	s, k, l := twoOutputs(t)
-	r := &displaysRig{s: s, k: k, l: l}
+	clock := fakeclock.New()
+	k.clock = clock
+	r := &displaysRig{s: s, k: k, l: l, clock: clock}
 	k.overlays = func(output string, _ widget.Widget, _ bool) (func(), error) {
 		r.shown = append(r.shown, output)
 		return func() {}, nil
@@ -185,9 +189,6 @@ func TestDraggingTheSecondOutputLeftAndKeepingWritesPositionsLysWMTakes(t *testi
 }
 
 func TestATimeoutWithoutKeepRestoresThePositionsAndWritesNothing(t *testing.T) {
-	before := revertAfter
-	revertAfter = 300 * time.Millisecond
-	t.Cleanup(func() { revertAfter = before })
 	r := startDisplays(t)
 	file := r.config(t)
 	original := r.outputs(t)
@@ -197,6 +198,14 @@ func TestATimeoutWithoutKeepRestoresThePositionsAndWritesNothing(t *testing.T) {
 		t.Fatalf("no confirmation: %s", r.p.status.Text())
 	}
 	waittest.UntilSlow(t, func() bool { return r.outputs(t)[secondOutput].Rect.X == 0 }, "the applied layout")
+	for range revertAfter/time.Second - 1 {
+		r.clock.Advance(time.Second)
+		r.l.settle()
+	}
+	if r.p.confirm == nil {
+		t.Fatal("the layout reverted before its time ran out")
+	}
+	r.clock.Advance(time.Second)
 	r.l.until("the revert", func() bool { return r.p.confirm == nil })
 	waittest.UntilSlow(t, func() bool {
 		o := r.outputs(t)

@@ -600,6 +600,7 @@
       "ui/widget"
     ],
     "testImports": [
+      "desktop/fakeclock",
       "desktop/shell/apptheme",
       "desktop/shell/treetest",
       "lib/testhome",

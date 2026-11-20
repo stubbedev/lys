@@ -17,6 +17,14 @@ const (
 	sliderGrace    = 150 * time.Millisecond
 )
 
+// Clock is the time a slider throttles by: now, and fn run once d has
+// passed, which the stop it returns cancels. The slider hands fn's work
+// to its invoke, so the clock may call fn on any goroutine.
+type Clock interface {
+	Now() time.Time
+	AfterFunc(d time.Duration, fn func()) (stop func() bool)
+}
+
 // DebouncedSlider is a slider with an optional value label that commits (backend writes) at most every 100ms while
 // dragged, with a trailing commit of the last value and one on release,
 // and ignores external values while held and for 150ms after.
@@ -46,8 +54,8 @@ type DebouncedSlider struct {
 	dragging     bool
 	dragEnded    time.Time
 	lastCommit   time.Time
-	trailing     *time.Timer
-	now          func() time.Time
+	trailing     func() bool
+	clock        Clock
 
 	// wmu guards the write queue: want is the latest commit's write,
 	// queued whether it awaits running, writing whether a drain runs.
@@ -81,7 +89,7 @@ func (s *pressSlider) SetPressed(on bool) {
 	case on && !was:
 		d.dragging, d.dragEnded = true, time.Time{}
 	case !on && was:
-		d.dragging, d.dragEnded = false, d.now()
+		d.dragging, d.dragEnded = false, d.clock.Now()
 		d.cancelTrailing()
 		d.commit(s.Value())
 	}
@@ -89,15 +97,18 @@ func (s *pressSlider) SetPressed(on bool) {
 
 // NewDebouncedSlider builds a 0-100 slider (every lys-shell slider is a
 // percentage); with a font the
-// value label shows (Format, default whole percent). invoke runs the
-// trailing commit on the loop.
-func NewDebouncedSlider(value float64, font render.Font, px float64, color render.Color, invoke func(func())) *DebouncedSlider {
-	return NewRangedSlider(0, 100, value, font, px, color, invoke)
+// value label shows (Format, default whole percent). clock times the
+// throttle and invoke runs the trailing commit on the loop.
+func NewDebouncedSlider(value float64, font render.Font, px float64, color render.Color, invoke func(func()), clock Clock) *DebouncedSlider {
+	return NewRangedSlider(0, 100, value, font, px, color, invoke, clock)
 }
 
 // NewRangedSlider is NewDebouncedSlider over [min, max].
-func NewRangedSlider(min, max, value float64, font render.Font, px float64, color render.Color, invoke func(func())) *DebouncedSlider {
-	d := &DebouncedSlider{Box: widget.NewBox(widget.Row, 8, 0), invoke: invoke, now: time.Now}
+func NewRangedSlider(min, max, value float64, font render.Font, px float64, color render.Color, invoke func(func()), clock Clock) *DebouncedSlider {
+	if clock == nil {
+		panic("widgets: a slider needs a clock")
+	}
+	d := &DebouncedSlider{Box: widget.NewBox(widget.Row, 8, 0), invoke: invoke, clock: clock}
 	d.Format = func(v float64) string { return strconv.FormatFloat(v, 'f', 0, 64) + "%" }
 	d.Knob = &pressSlider{Slider: widget.NewSlider(min, max, 0, value), owner: d}
 	d.Knob.OnChanged = d.changed
@@ -135,13 +146,13 @@ func (d *DebouncedSlider) changed(v float64) {
 	if d.programmatic {
 		return
 	}
-	if d.lastCommit.IsZero() || d.now().Sub(d.lastCommit) >= sliderThrottle {
+	if d.lastCommit.IsZero() || d.clock.Now().Sub(d.lastCommit) >= sliderThrottle {
 		d.cancelTrailing()
 		d.commit(v)
 		return
 	}
 	d.cancelTrailing()
-	d.trailing = time.AfterFunc(sliderThrottle, func() {
+	d.trailing = d.clock.AfterFunc(sliderThrottle, func() {
 		d.invoke(func() {
 			d.trailing = nil
 			d.commit(v)
@@ -150,7 +161,7 @@ func (d *DebouncedSlider) changed(v float64) {
 }
 
 func (d *DebouncedSlider) commit(v float64) {
-	d.lastCommit = d.now()
+	d.lastCommit = d.clock.Now()
 	if d.OnCommit != nil {
 		d.OnCommit(v)
 	}
@@ -181,7 +192,7 @@ func (d *DebouncedSlider) drain() {
 		if !d.queued {
 			d.writing = false
 			d.wmu.Unlock()
-			d.invoke(func() { d.landed = d.now() })
+			d.invoke(func() { d.landed = d.clock.Now() })
 			return
 		}
 		write := d.want
@@ -200,7 +211,7 @@ func (d *DebouncedSlider) writePending() bool {
 
 func (d *DebouncedSlider) cancelTrailing() {
 	if d.trailing != nil {
-		d.trailing.Stop()
+		d.trailing()
 		d.trailing = nil
 	}
 }
@@ -215,7 +226,7 @@ func (d *DebouncedSlider) interacting() bool {
 	if d.landed.After(since) {
 		since = d.landed
 	}
-	return !since.IsZero() && d.now().Sub(since) < sliderGrace
+	return !since.IsZero() && d.clock.Now().Sub(since) < sliderGrace
 }
 
 // Set is set_value_external: an outside value, ignored while the user
@@ -255,6 +266,11 @@ func (d *DebouncedSlider) SetFormat(format func(float64) string) {
 // Label is the value label, nil without a font.
 func (d *DebouncedSlider) Label() *widget.Label { return d.label }
 
-// SetClock replaces the clock the throttle and the release grace read
-// (a test seam).
-func (d *DebouncedSlider) SetClock(now func() time.Time) { d.now = now }
+// SetClock replaces the clock the throttle, the trailing commit and the
+// release grace run on.
+func (d *DebouncedSlider) SetClock(c Clock) {
+	if c == nil {
+		panic("widgets: a slider needs a clock")
+	}
+	d.clock = c
+}

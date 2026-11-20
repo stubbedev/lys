@@ -43,7 +43,7 @@ func newNightlightCard(ctx ModuleContext, font render.Font, px float64, svc *nig
 	c.item.AddAction(c.toggle)
 	row.Append(c.item, false)
 
-	c.slider = widgets.NewRangedSlider(nightlight.MinTemp, nightlight.NeutralTemp, nightlight.NeutralTemp, font, px, 0, ctx.Invoke)
+	c.slider = widgets.NewRangedSlider(nightlight.MinTemp, nightlight.NeutralTemp, nightlight.NeutralTemp, font, px, 0, ctx.Invoke, ctx.Clock)
 	c.slider.SetFormat(func(v float64) string { return kelvinText(nightlightTemperature(v)) })
 	c.slider.Knob.AddClass("brightness-nightlight-slider")
 	c.slider.ValueLabel().AddClass("brightness-slider-value", css.Numeric)

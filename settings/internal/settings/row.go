@@ -41,6 +41,8 @@ type kit struct {
 	openPage     func(id string)
 	// invoke runs a function on the loop (the slider's trailing commit).
 	invoke func(func())
+	// clock times every delayed callback, whose work goes through invoke.
+	clock widgets.Clock
 	// pickers opens popovers and dialogs; nil without a window.
 	pickers pickers
 	// wm is lys-wm's config once a page of it was opened; onWMChange

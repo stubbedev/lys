@@ -29,10 +29,10 @@ const (
 	identifyFor    = 2 * time.Second
 	minCustomScale = 0.25
 	maxCustomScale = 10
+	revertAfter    = 15 * time.Second
 )
 
 var (
-	revertAfter     = 15 * time.Second
 	scalePresets    = []float64{1, 1.25, 1.5, 1.75, 2, 2.5, 3}
 	arrangedKeys    = []string{"match", "mode", "position", "scale", "disabled"}
 	connectDisplays = func(onHeads func([]displays.Head)) (displayManager, error) { return displays.Connect(onHeads) }
@@ -96,7 +96,7 @@ type confirmation struct {
 	applied  []displays.Setting
 	heads    []displays.Head
 	deadline time.Time
-	timer    *time.Timer
+	stop     func() bool
 	boxes    []*confirmBox
 	overlays []func()
 }
@@ -480,7 +480,7 @@ func (p *displaysPanel) identifyOutputs(names []string) {
 			continue
 		}
 		p.identified = append(p.identified, done)
-		time.AfterFunc(identifyFor, func() { p.k.invoke(done) })
+		p.k.clock.AfterFunc(identifyFor, func() { p.k.invoke(done) })
 	}
 }
 
@@ -515,7 +515,7 @@ func (p *displaysPanel) applyLayout() {
 }
 
 func (p *displaysPanel) startConfirm(previous, applied []displays.Setting, heads []displays.Head) {
-	c := &confirmation{previous: previous, applied: applied, heads: heads, deadline: time.Now().Add(revertAfter)}
+	c := &confirmation{previous: previous, applied: applied, heads: heads, deadline: p.k.clock.Now().Add(revertAfter)}
 	p.confirm = c
 	inline := p.newConfirmBox()
 	c.boxes = append(c.boxes, inline)
@@ -559,7 +559,7 @@ func (p *displaysPanel) tick() {
 	if c == nil {
 		return
 	}
-	left := time.Until(c.deadline)
+	left := c.deadline.Sub(p.k.clock.Now())
 	if left <= 0 {
 		p.revertLayout()
 		return
@@ -569,7 +569,7 @@ func (p *displaysPanel) tick() {
 	for _, b := range c.boxes {
 		b.countdown.SetText(text)
 	}
-	c.timer = time.AfterFunc(min(left, time.Second), func() { p.k.invoke(p.tick) })
+	c.stop = p.k.clock.AfterFunc(min(left, time.Second), func() { p.k.invoke(p.tick) })
 }
 
 func (p *displaysPanel) endConfirm() *confirmation {
@@ -578,8 +578,8 @@ func (p *displaysPanel) endConfirm() *confirmation {
 		return nil
 	}
 	p.confirm = nil
-	if c.timer != nil {
-		c.timer.Stop()
+	if c.stop != nil {
+		c.stop()
 	}
 	for _, done := range c.overlays {
 		done()
