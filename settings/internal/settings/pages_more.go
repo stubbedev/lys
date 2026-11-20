@@ -337,9 +337,9 @@ func dockPage(*config.Config) pageSpec {
 			field("dock.pinned", appList, dockRow),
 		}},
 		{title: "settings-section-appearance", rows: []rowSpec{
-			field("dock.icon-size", sizeBase(config.TaskIconBaseRem), dockRow),
+			field("dock.icon-size", iconScale(config.TaskIconBaseRem, 1, 4), dockRow),
 			field("dock.hover-zoom", dockRow),
-			field("dock.hover-zoom-size", sizeBase(config.TaskIconBaseRem), dockRow, shownWhen("dock.hover-zoom", switchedOn)),
+			field("dock.hover-zoom-size", iconScale(config.TaskIconBaseRem, 1, 6), dockRow, shownWhen("dock.hover-zoom", switchedOn)),
 			field("dock.icon", iconRow, dockRow),
 		}},
 	}}
