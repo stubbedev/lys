@@ -12,7 +12,6 @@ settings-custom-modules-editor = Modules personnalisés
     .description = Des modules qui affichent la sortie d'une commande dans la barre
 settings-theme-preset = Thème prédéfini
     .description = Remplacer la palette actuelle par un thème prédéfini
-settings-theme-preset-apply = Parcourir les thèmes
 settings-layout-add = Ajouter une disposition de moniteur
 settings-layout-add-module = Ajouter un module
 settings-layout-add-group = Ajouter un groupe

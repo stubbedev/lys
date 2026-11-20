@@ -12,7 +12,6 @@ settings-custom-modules-editor = Custom Modules
     .description = Modules that show a command's output in the bar
 settings-theme-preset = Theme Preset
     .description = Overwrite the current palette with a predefined theme
-settings-theme-preset-apply = Browse presets
 settings-layout-add = Add Monitor Layout
 settings-layout-add-module = Add module
 settings-layout-add-group = Add group

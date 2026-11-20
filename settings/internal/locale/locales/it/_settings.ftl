@@ -12,7 +12,6 @@ settings-custom-modules-editor = Moduli personalizzati
     .description = Moduli che mostrano nella barra l'output di un comando
 settings-theme-preset = Tema predefinito
     .description = Sovrascrive la tavolozza attuale con un tema predefinito
-settings-theme-preset-apply = Sfoglia i temi
 settings-layout-add = Aggiungi disposizione monitor
 settings-layout-add-module = Aggiungi modulo
 settings-layout-add-group = Aggiungi gruppo

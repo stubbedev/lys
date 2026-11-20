@@ -9,7 +9,6 @@ settings-custom-modules-editor = Aangepaste modules
     .description = Modules die de uitvoer van een opdracht in de balk tonen
 settings-theme-preset = Themavoorinstelling
     .description = Het huidige palet overschrijven met een vooraf gedefinieerd thema
-settings-theme-preset-apply = Voorinstellingen bekijken
 settings-layout-add = Monitorindeling toevoegen
 settings-layout-add-module = Module toevoegen
 settings-layout-add-group = Groep toevoegen

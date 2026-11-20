@@ -2,6 +2,8 @@ package settings
 
 import (
 	"log"
+	"strings"
+	"unicode"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/lib/render"
@@ -28,6 +30,7 @@ type choiceCards struct {
 	slot    slot
 	cards   []*choiceCard
 	current string
+	cardW   int
 }
 
 type choiceCard struct {
@@ -45,7 +48,7 @@ func newChoiceCards(k *kit, s slot, meta config.FieldMeta, pictures map[string]p
 }
 
 func newCards(k *kit, s slot, values, labels []string, pictures map[string]picture) *choiceCards {
-	c := &choiceCards{FlowBox: widget.NewWrapBox(choiceCardGap, choiceCardGap, widget.JustifyStart), slot: s}
+	c := &choiceCards{FlowBox: widget.NewWrapBox(choiceCardGap, choiceCardGap, widget.JustifyStart), slot: s, cardW: choiceCardW}
 	c.AddClass("choice-cards")
 	for i, v := range values {
 		card := &choiceCard{Base: widget.NewBase(), k: k, owner: c, value: v, label: labels[i], pic: pictures[v]}
@@ -78,7 +81,7 @@ func (c *choiceCards) choose(value string) {
 
 func (c *choiceCard) Measure(axis widget.Axis, _ int) widget.Sizes {
 	if axis == widget.Row {
-		return widget.FixedSizes(choiceCardW)
+		return widget.FixedSizes(c.owner.cardW)
 	}
 	return widget.FixedSizes(choiceCardH)
 }
@@ -123,8 +126,8 @@ func (c *choiceCard) Paint(cv *render.Canvas) {
 	default:
 		cv.RoundedBorder(b, corners, render.UniformInsets(1), th.Border)
 	}
-	text := render.Rect{X: b.X, Y: b.Y + choicePicH, W: b.W, H: b.H - choicePicH}
-	c.k.face.DrawAligned(cv, c.label, text, c.k.textPx(), th.Text, render.AlignCenter)
+	text := render.Rect{X: b.X + choiceCardGap, Y: b.Y + choicePicH, W: b.W - 2*choiceCardGap, H: b.H - choicePicH}
+	c.k.face.DrawAligned(cv, fitLabel(c.k.face, c.label, text.W, c.k.textPx()), text, c.k.textPx(), th.Text, render.AlignCenter)
 }
 
 func (c *choiceCard) HitTest(p widget.Point) widget.Widget {
@@ -315,4 +318,20 @@ var textAlignPictures = map[string]picture{
 	string(config.OsdTextAlignStart):  drawn(func(cv *render.Canvas, r render.Rect) { alignedBars(cv, r, config.OsdTextAlignStart) }),
 	string(config.OsdTextAlignCenter): drawn(func(cv *render.Canvas, r render.Rect) { alignedBars(cv, r, config.OsdTextAlignCenter) }),
 	string(config.OsdTextAlignEnd):    drawn(func(cv *render.Canvas, r render.Rect) { alignedBars(cv, r, config.OsdTextAlignEnd) }),
+}
+
+// fitLabel is label cut to width w at px with an ellipsis, whole when
+// it fits.
+func fitLabel(face render.Font, label string, w int, px float64) string {
+	fits := func(s string) bool { return face.Shape(s, px).Advance() <= float64(w) }
+	if fits(label) {
+		return label
+	}
+	runes := []rune(label)
+	for n := len(runes) - 1; n > 0; n-- {
+		if cut := strings.TrimRightFunc(string(runes[:n]), unicode.IsSpace) + "…"; fits(cut) {
+			return cut
+		}
+	}
+	return "…"
 }

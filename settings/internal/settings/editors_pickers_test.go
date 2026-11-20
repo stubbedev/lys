@@ -574,13 +574,6 @@ func TestIconPickerOpensAtTheCurrentIcon(t *testing.T) {
 
 // searchPickerOpeners open each list picker on fake pickers.
 var searchPickerOpeners = map[string]func(t *testing.T) (*kit, *searchPicker){
-	"theme preset": func(t *testing.T) (*kit, *searchPicker) {
-		k := testKit(t, "")
-		k.pickers = &fakePickers{}
-		c := newThemeSelector(k)
-		c.btn.ClickAt(widget.Point{})
-		return k, c.picker
-	},
 	"module": func(t *testing.T) (*kit, *searchPicker) {
 		k, c := newTestLayout(t)
 		return k, c.pickModule(nil, func(config.BarModule) {})
@@ -757,7 +750,7 @@ func TestSearchPickerFitsItsWidestRow(t *testing.T) {
 			}
 		})
 	}
-	p := styledSearchPicker(t, searchPickerOpeners["theme preset"])
+	p := styledSearchPicker(t, searchPickerOpeners["module"])
 	natural := p.root.Bounds()
 	widget.ArrangeAsChild(p.root, render.Rect{X: natural.X, Y: natural.Y, W: natural.W / 2, H: natural.H})
 	px := paintPicker(p.root)

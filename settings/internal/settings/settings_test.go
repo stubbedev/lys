@@ -19,6 +19,7 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/desktop/styling"
+	"github.com/stubbedev/lys/lib/logtest"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/sockdir"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
@@ -1344,39 +1345,75 @@ func TestToastPresetCards(t *testing.T) {
 	}
 }
 
-func TestThemeSelectorApplies(t *testing.T) {
+func TestThemePresetsAreCardsInTheirOwnColorsAndOneAppliesItsPalette(t *testing.T) {
 	k := testKit(t, "")
-	f := &fakePickers{}
-	k.pickers = f
 	themes := config.BuiltinThemes()
 	if len(themes) < 2 {
 		t.Fatal("test premise: built-in themes")
 	}
-	spec := themePreset()
-	row := newFieldRow(k, k.store, spec)
-	c := row.ctl.(*themeSelector)
-	if c.badge.Visible() {
-		t.Error("no base theme shows a badge")
+	row := newFieldRow(k, k.store, themePreset())
+	c := row.ctl.(*choiceCards)
+	if len(c.cards) != len(themes) {
+		t.Fatalf("%d theme cards, want the %d built-ins", len(c.cards), len(themes))
 	}
-	c.btn.ClickAt(widget.Point{})
-	if len(c.picker.all) != len(themes) {
-		t.Fatalf("picker lists %d themes, want the %d built-ins", len(c.picker.all), len(themes))
+	if c.current != "" {
+		t.Errorf("no base theme marks %q chosen", c.current)
+	}
+	for _, card := range c.cards {
+		if card.pic.draw == nil {
+			t.Fatalf("the %s card draws no desktop", card.value)
+		}
 	}
 	pick := themes[1]
-	c.picker.rows.ChildAt(1).ClickAt(widget.Point{})
+	if c.cards[1].label != themeTitle(pick.Name) {
+		t.Errorf("the card reads %q, want %q", c.cards[1].label, themeTitle(pick.Name))
+	}
+	c.cards[1].KeyAction(widget.KeyEnter, 0)
 	if v := k.store.value("styling.palette_base_theme"); v != pick.Name {
 		t.Errorf("base theme %v, want %s", v, pick.Name)
 	}
 	if v := k.store.value("styling.palette.primary"); !strings.EqualFold(v.(string), pick.Palette.Primary) {
 		t.Errorf("primary %v, want %s", v, pick.Palette.Primary)
 	}
-	if !c.badge.Visible() || c.badge.Text() != pick.Name || f.closed != 1 {
-		t.Errorf("badge %q visible %v, closed %d", c.badge.Text(), c.badge.Visible(), f.closed)
+	if c.current != pick.Name {
+		t.Errorf("the chosen card is %q, want %s", c.current, pick.Name)
 	}
-	// An action row shows no source badge or reset, even overridden.
 	row.refresh()
 	if row.badge.Visible() || row.reset.Enabled() {
 		t.Error("the action row shows its source")
+	}
+	if err := c.slot.set("no-such-theme"); err == nil {
+		t.Error("an unknown theme was applied")
+	}
+}
+
+func TestAThemeWithABrokenColorIsLeftOutOfThePresets(t *testing.T) {
+	k := testKit(t, "")
+	before := availableThemes
+	availableThemes = func(store) []config.ThemeEntry {
+		good := config.BuiltinThemes()[0]
+		bad := good
+		bad.Name, bad.Palette.Primary = "broken", "teal"
+		return []config.ThemeEntry{good, bad}
+	}
+	t.Cleanup(func() { availableThemes = before })
+	logged := logtest.Capture(t)
+	c := themeCards(k)
+	if len(c.cards) != 1 || !strings.Contains(logged.String(), "broken") {
+		t.Fatalf("%d cards, logged %q; want the broken theme left out and named", len(c.cards), logged.String())
+	}
+}
+
+func TestACardLabelTooLongEndsInAnEllipsis(t *testing.T) {
+	k := testKit(t, "")
+	px := k.textPx()
+	if got := fitLabel(k.face, "Nord", 200, px); got != "Nord" {
+		t.Errorf("a label that fits became %q", got)
+	}
+	long := "Monokai Pro Ristretto Extra Long"
+	got := fitLabel(k.face, long, 60, px)
+	if !strings.HasSuffix(got, "…") || len(got) >= len(long) || k.face.Shape(got, px).Advance() > 60 {
+		t.Errorf("a long label became %q", got)
 	}
 }
 
