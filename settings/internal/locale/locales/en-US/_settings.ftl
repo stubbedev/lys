@@ -581,7 +581,22 @@ settings-login-apps-system = Installed for every user
 settings-login-apps-user = Yours
 settings-login-services-unavailable = The user service manager did not answer
 settings-login-services-none = The session wants no user service
-settings-login-services-state = { $active }, { $file }
+settings-login-services-state = { $active ->
+        [active] Running
+        [activating] Starting
+        [deactivating] Stopping
+        [failed] Failed
+       *[other] Not running
+    }, { $file ->
+        [enabled] on at login
+        [disabled] off
+        [static] always with its target
+        [generated] generated
+        [masked] masked
+       *[other] { $file }
+    }
+settings-login-services-failed = Failed at login
+    .description = This service did not start when you logged in
 settings-login-services-nix = Managed by your Nix configuration
 settings-nav-default-apps = Default Apps
 settings-page-default-apps = Default Apps

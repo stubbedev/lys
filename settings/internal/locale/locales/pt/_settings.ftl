@@ -571,7 +571,22 @@ settings-login-apps-system = Instalado para todos os utilizadores
 settings-login-apps-user = Seu
 settings-login-services-unavailable = O gestor de serviços do utilizador não respondeu
 settings-login-services-none = A sessão não requer nenhum serviço de utilizador
-settings-login-services-state = { $active }, { $file }
+settings-login-services-state = { $active ->
+        [active] Em execução
+        [activating] A iniciar
+        [deactivating] A parar
+        [failed] Falhou
+       *[other] Parado
+    }, { $file ->
+        [enabled] ativado ao iniciar sessão
+        [disabled] desativado
+        [static] sempre com o seu alvo
+        [generated] gerado
+        [masked] mascarado
+       *[other] { $file }
+    }
+settings-login-services-failed = Falhou ao iniciar sessão
+    .description = Este serviço não arrancou ao iniciar sessão
 settings-login-services-nix = Gerido pela sua configuração do Nix
 settings-nav-default-apps = Aplicações predefinidas
 settings-page-default-apps = Aplicações predefinidas

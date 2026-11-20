@@ -571,7 +571,22 @@ settings-login-apps-system = Geïnstalleerd voor elke gebruiker
 settings-login-apps-user = Van jou
 settings-login-services-unavailable = De gebruikersdienstbeheerder antwoordde niet
 settings-login-services-none = De sessie heeft geen gebruikersdienst nodig
-settings-login-services-state = { $active }, { $file }
+settings-login-services-state = { $active ->
+        [active] Actief
+        [activating] Start
+        [deactivating] Stopt
+        [failed] Mislukt
+       *[other] Niet actief
+    }, { $file ->
+        [enabled] aan bij aanmelden
+        [disabled] uit
+        [static] altijd met zijn doel
+        [generated] gegenereerd
+        [masked] gemaskeerd
+       *[other] { $file }
+    }
+settings-login-services-failed = Mislukt bij aanmelden
+    .description = Deze dienst is bij het aanmelden niet gestart
 settings-login-services-nix = Beheerd door je Nix-configuratie
 settings-nav-default-apps = Standaardtoepassingen
 settings-page-default-apps = Standaardtoepassingen

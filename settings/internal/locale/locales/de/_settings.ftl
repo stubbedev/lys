@@ -581,7 +581,22 @@ settings-login-apps-system = Für alle Benutzer installiert
 settings-login-apps-user = Ihre
 settings-login-services-unavailable = Der Benutzerdienst-Manager hat nicht geantwortet
 settings-login-services-none = Die Sitzung fordert keinen Benutzerdienst an
-settings-login-services-state = { $active }, { $file }
+settings-login-services-state = { $active ->
+        [active] Läuft
+        [activating] Startet
+        [deactivating] Stoppt
+        [failed] Fehlgeschlagen
+       *[other] Läuft nicht
+    }, { $file ->
+        [enabled] bei der Anmeldung an
+        [disabled] aus
+        [static] immer mit seinem Ziel
+        [generated] erzeugt
+        [masked] gesperrt
+       *[other] { $file }
+    }
+settings-login-services-failed = Bei der Anmeldung fehlgeschlagen
+    .description = Dieser Dienst ist bei der Anmeldung nicht gestartet
 settings-login-services-nix = Von deiner Nix-Konfiguration verwaltet
 settings-nav-default-apps = Standard-Apps
 settings-page-default-apps = Standard-Apps

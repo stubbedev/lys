@@ -547,3 +547,37 @@ func TestANixUnitShowsALockAndTheCommandsFoldAwayAfterTheApps(t *testing.T) {
 		t.Errorf("open at login is at %d, the commands at %d", apps, commands)
 	}
 }
+
+func TestAServiceThatFailedAtLoginSaysSo(t *testing.T) {
+	d, root := autostartFixture(t)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Dir(d.user))
+	t.Setenv("XDG_CONFIG_DIRS", filepath.Join(root, "etc")+":"+filepath.Join(root, "vendor"))
+	manager := &staticManager{units_: []userUnit{
+		{name: "syncthing.service", description: "Syncthing", active: "failed", fileState: "enabled", path: "/home/me/.config/systemd/user/syncthing.service"},
+		{name: "mpd.service", description: "Music Player Daemon", active: "active", fileState: "enabled", path: "/home/me/.config/systemd/user/mpd.service"},
+	}}
+	before := openUserManager
+	openUserManager = func() (userManager, func(), error) { return manager, func() {}, nil }
+	t.Cleanup(func() { openUserManager = before })
+	k := testKit(t, "")
+	cfg := k.store.svc.Config()
+	w := newWindow(k, cfg, func(_ time.Duration, fn func()) { fn() })
+	w.show(loginItemsID)
+	failed := locale.T().Get("settings-login-services-failed")
+	var badges []string
+	for _, b := range treetest.All[*widget.Badge](w.page) {
+		if b.Text() == failed {
+			badges = append(badges, b.Text())
+		}
+	}
+	if len(badges) != 1 {
+		t.Fatalf("%d failed badges, want one for syncthing alone", len(badges))
+	}
+	var details []string
+	for _, l := range treetest.All[*widget.Label](w.page) {
+		details = append(details, strings.NewReplacer("\u2068", "", "\u2069", "").Replace(l.Text()))
+	}
+	if !slices.Contains(details, "syncthing.service · Failed, on at login") || !slices.Contains(details, "mpd.service · Running, on at login") {
+		t.Fatalf("the services read %q", details)
+	}
+}

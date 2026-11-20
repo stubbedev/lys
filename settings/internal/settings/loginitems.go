@@ -450,6 +450,12 @@ func (l *loginItems) serviceRow(u userUnit) widget.Widget {
 	t := locale.T()
 	detail := t.Get("settings-login-services-state", i18n.Str("active", u.active), i18n.Str("file", cmp.Or(u.fileState, "-")))
 	row := l.itemRow("", cmp.Or(u.description, u.name), u.name+" · "+detail)
+	if u.active == "failed" {
+		failed := l.k.badge(t.Get("settings-login-services-failed"), "error")
+		failed.SetVariant(widget.BadgeDestructive)
+		failed.SetTooltip(t.Attr("settings-login-services-failed", "description"))
+		row.AddAction(failed)
+	}
 	if u.nix() {
 		lock := l.k.icon("ld-lock-symbolic", "login-item-managed")
 		lock.SetTooltip(t.Get("settings-login-services-nix"))
