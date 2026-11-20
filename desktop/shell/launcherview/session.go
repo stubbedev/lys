@@ -86,11 +86,7 @@ func (s *Session) SetRows(n int) {
 func (s *Session) SetTabs(modes []string, names map[string]string, active int, pick func(int)) {
 	s.Tabs.Clear()
 	for i, mode := range modes {
-		label := mode
-		if shown, ok := names[mode]; ok {
-			label = shown
-		}
-		b := widget.NewButton(widget.NewLabel(s.font, FontPx(), label, 0), 0, 0)
+		b := widget.NewButton(widget.NewLabel(s.font, FontPx(), ModeName(mode, names), 0), 0, 0)
 		b.AddClass("launcher-tab")
 		if i == active {
 			b.AddClass("active")
@@ -99,6 +95,15 @@ func (s *Session) SetTabs(modes []string, names map[string]string, active int, p
 		b.OnClick = func() { pick(i) }
 		s.Tabs.Append(b, true)
 	}
+}
+
+// ModeName is how the launcher names mode: as names says, else the mode
+// itself.
+func ModeName(mode string, names map[string]string) string {
+	if shown, ok := names[mode]; ok {
+		return shown
+	}
+	return mode
 }
 
 // TargetIn is the panel's size in an output, extra pixels wider than the

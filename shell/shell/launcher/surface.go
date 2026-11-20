@@ -413,13 +413,7 @@ func (s *Surface) onState(st engineState) {
 		s.d.FireHook(a.ui.hooks.ModeChanged, engine.HookContext{Input: a.hookInput(), Mode: name})
 	}
 	a.modeName = name
-	shown := st.prompt
-	if a.ui.prompt != nil {
-		shown = *a.ui.prompt
-	} else if named, ok := a.ui.displayNames[st.prompt]; ok {
-		shown = named
-	}
-	a.views.SetChip(shown)
+	a.views.SetChip(deref(a.ui.prompt, launcherview.ModeName(st.prompt, a.ui.displayNames)))
 	message := st.message
 	if a.ui.errorMessage != nil {
 		message = a.ui.errorMessage
