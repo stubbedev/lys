@@ -2,11 +2,14 @@ package settings
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 	"reflect"
 	"slices"
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/ui/widget"
 	"golang.org/x/text/language"
 	"golang.org/x/text/language/display"
 
@@ -14,6 +17,8 @@ import (
 )
 
 const ocrPath = "modules.screenshot.ocr-languages"
+
+const installedOCRLanguages = "List of available languages in \"/t/\" (4):\ndeu\neng\nfra\nosd\n"
 
 func TestTesseractsLanguageListIsReadWithoutItsHeadingOrOSD(t *testing.T) {
 	for out, want := range map[string][]string{
@@ -58,10 +63,8 @@ func TestTheOCRLanguagesAreListedByNameWithTheirCodeBeneath(t *testing.T) {
 
 func ocrChecklist(t *testing.T, yaml, out string, err error) (*kit, *checklist) {
 	t.Helper()
-	was := tesseractListLangs
-	tesseractListLangs = func() (string, error) { return out, err }
-	t.Cleanup(func() { tesseractListLangs = was })
 	k := testKit(t, yaml)
+	tesseractListLangs = func() (string, error) { return out, err }
 	c, ok := fieldControl(k, k.store, pageRow(t, "screenshot", ocrPath)).(*checklist)
 	if !ok {
 		t.Fatal("the text recognition languages are not a checklist")
@@ -103,5 +106,29 @@ func TestWithoutTesseractThePageSaysTextCannotBeRead(t *testing.T) {
 	_, c = ocrChecklist(t, "", "", errors.New("tesseract --list-langs: exit status 1"))
 	if !slices.Contains(treetest.Labels(c), "tesseract --list-langs: exit status 1") {
 		t.Errorf("a failing tesseract reads %q", treetest.Labels(c))
+	}
+}
+
+func TestATestKitListsItsOwnLanguagesAndDisksNotTheHosts(t *testing.T) {
+	k := testKit(t, "")
+	bin := t.TempDir()
+	writeFile(t, filepath.Join(bin, tesseractBinary), "#!/bin/sh\nprintf 'jpn\\n'\n")
+	if err := os.Chmod(filepath.Join(bin, tesseractBinary), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	switches := func(page, path string) []string {
+		var names []string
+		for _, s := range treetest.All[*widget.Switch](fieldControl(k, k.store, pageRow(t, page, path))) {
+			names = append(names, s.AccessibleName())
+		}
+		slices.Sort(names)
+		return names
+	}
+	if got, want := switches("screenshot", ocrPath), []string{"English", "French", "German"}; !slices.Equal(got, want) {
+		t.Errorf("the languages read %q, want %q", got, want)
+	}
+	if got, want := switches("storage", storageMountPath), []string{"/", "/mnt/data"}; !slices.Equal(got, want) {
+		t.Errorf("the disks read %q, want %q", got, want)
 	}
 }

@@ -13,10 +13,8 @@ import (
 
 func diskListWith(t *testing.T, yaml string, disks ...sysinfo.Disk) (*kit, *checklist) {
 	t.Helper()
-	was := mountedDisks
-	mountedDisks = func() []sysinfo.Disk { return slices.Clone(disks) }
-	t.Cleanup(func() { mountedDisks = was })
 	k := testKit(t, yaml)
+	mountedDisks = func() []sysinfo.Disk { return slices.Clone(disks) }
 	c, ok := fieldControl(k, k.store, pageRow(t, "storage", storageMountPath)).(*checklist)
 	if !ok {
 		t.Fatal("the storage page does not list the disks")

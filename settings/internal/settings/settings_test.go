@@ -23,6 +23,7 @@ import (
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/sockdir"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/shell/service/sysinfo"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/transfer"
 	"github.com/stubbedev/lys/ui/widget"
@@ -49,6 +50,10 @@ func testKit(t *testing.T, configYAML string) *kit {
 	lists := systemLists
 	systemLists = fixedLists()
 	t.Cleanup(func() { systemLists = lists })
+	langs, disks := tesseractListLangs, mountedDisks
+	tesseractListLangs = func() (string, error) { return installedOCRLanguages, nil }
+	mountedDisks = func() []sysinfo.Disk { return slices.Clone(rootAndData) }
+	t.Cleanup(func() { tesseractListLangs, mountedDisks = langs, disks })
 	return &kit{face: face, mono: face, store: s, parts: bothParts, invoke: func(fn func()) { fn() }, systemBus: func() (*dbus.Conn, error) { return nil, errors.New("no system bus in the tests") }, network: func() (netControl, error) { return nil, errors.New("no NetworkManager in the tests") }, power: func() (powerControl, error) { return nil, errors.New("no UPower in the tests") }, bluetooth: func() (btControl, error) { return nil, errors.New("no BlueZ in the tests") }, notify: func(string, string) error { return errors.New("no notification daemon in the tests") }, shellCommand: func(...string) error { return errors.New("no lys-shell in the tests") }, openURI: func(string) error { return errors.New("no default apps in the tests") }, i2c: func() i2cAccess { return i2cAccess{} }, mailCount: func(string) (uint32, error) { return 0, errors.New("no notmuch in the tests") }, copySecret: func(string) error { return errors.New("no clipboard in the tests") }, copyText: func(string) error { return errors.New("no clipboard in the tests") }, barFont: barview.Font, familyFont: func(string) (render.Font, error) { return face, nil }, forgetImage: func(render.ImageID) {}, dnd: func() (dndControl, error) { return nil, errors.New("no lys-shell in the tests") }}
 }
 
