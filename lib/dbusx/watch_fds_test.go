@@ -2,7 +2,7 @@ package dbusx_test
 
 import (
 	"context"
-	"os"
+	"slices"
 	"sync"
 	"testing"
 
@@ -10,17 +10,20 @@ import (
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/dbusx"
+	"github.com/stubbedev/lys/lib/fdtest"
+	"github.com/stubbedev/lys/lib/intconv"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/waittest"
 )
 
-func openDescriptors(t *testing.T) int {
+func copiesOf(t *testing.T, fd dbus.UnixFD) []dbus.UnixFD {
 	t.Helper()
-	entries, err := os.ReadDir("/proc/self/fd")
-	if err != nil {
-		t.Fatal(err)
+	held := fdtest.Holders(t, int(fd))
+	copies := make([]dbus.UnixFD, len(held))
+	for i, h := range held {
+		copies[i] = intconv.Must[dbus.UnixFD](h)
 	}
-	return len(entries) - 1
+	return copies
 }
 
 func inodeOf(t *testing.T, fd dbus.UnixFD) uint64 {
@@ -61,7 +64,6 @@ func TestWatchesOfOneSignalEachOwnItsDescriptor(t *testing.T) {
 	pipe := dbustest.NewPipe(t)
 	write := pipe.Write
 	inode := inodeOf(t, write)
-	before := openDescriptors(t)
 	if err := handSignal.Emit(w.service, watchedPath, handed{FD: write}); err != nil {
 		t.Fatal(err)
 	}
@@ -78,16 +80,16 @@ func TestWatchesOfOneSignalEachOwnItsDescriptor(t *testing.T) {
 			t.Errorf("descriptor %d is inode %d, want the pipe's %d", fd, got, inode)
 		}
 	}
-	if got := openDescriptors(t); got != before+2 {
-		t.Errorf("%d descriptors open with the signal handled, want the %d before and one per watch that routes it", got, before)
+	if got, want := copiesOf(t, write), slices.Sorted(slices.Values([]dbus.UnixFD{first, second})); !slices.Equal(got, want) {
+		t.Errorf("descriptors %v hold the sent pipe with the signal handled, want one per watch that routes it, %v", got, want)
 	}
 	for _, fd := range []dbus.UnixFD{first, second} {
 		if err := unix.Close(int(fd)); err != nil {
 			t.Errorf("close descriptor %d: %v", fd, err)
 		}
 	}
-	if got := openDescriptors(t); got != before {
-		t.Errorf("%d descriptors open once both watches closed their own, want the %d before", got, before)
+	if got := copiesOf(t, write); len(got) != 0 {
+		t.Errorf("descriptors %v hold the sent pipe once both watches closed their own", got)
 	}
 	pipe.RequireEveryCopyClosed(t)
 }
@@ -116,7 +118,6 @@ func TestAWatchThatEndsClosesTheDescriptorsItNeverRead(t *testing.T) {
 	}
 	pipe := dbustest.NewPipe(t)
 	write := pipe.Write
-	before := openDescriptors(t)
 	const sent = 8
 	for range sent {
 		if err := handSignal.Emit(w.service, watchedPath, handed{FD: write}); err != nil {
@@ -148,8 +149,8 @@ func TestAWatchThatEndsClosesTheDescriptorsItNeverRead(t *testing.T) {
 	if len(took) == 0 || len(took) > sent {
 		t.Fatalf("the handler took %d descriptors of %d sent", len(took), sent)
 	}
-	if got := openDescriptors(t); got != before+len(took) {
-		t.Errorf("%d descriptors open after the watch ended, want the %d before and the %d its handler took: the unread ones leaked", got, before, len(took))
+	if got, want := copiesOf(t, write), slices.Sorted(slices.Values(took)); !slices.Equal(got, want) {
+		t.Errorf("descriptors %v hold the sent pipe after the watch ended, want the %v its handler took: the unread ones leaked", got, want)
 	}
 	for _, fd := range took {
 		if err := unix.Close(int(fd)); err != nil {
@@ -174,7 +175,6 @@ func TestAWatchClosesTheDescriptorsInArgumentsItsSignalDoesNotDeclare(t *testing
 
 	pipe := dbustest.NewPipe(t)
 	write := pipe.Write
-	before := openDescriptors(t)
 	if err := w.service.Emit(watchedPath, tickSignal.Name(), uint32(1), write, []dbus.UnixFD{write}); err != nil {
 		t.Fatal(err)
 	}
@@ -186,8 +186,8 @@ func TestAWatchClosesTheDescriptorsInArgumentsItsSignalDoesNotDeclare(t *testing
 			t.Fatalf("Tick %d, want %d", got, want)
 		}
 	}
-	if got := openDescriptors(t); got != before {
-		t.Errorf("%d descriptors open with the Tick handled, want the %d before: those in the arguments Tick does not declare belong to nobody", got, before)
+	if got := copiesOf(t, write); len(got) != 0 {
+		t.Errorf("descriptors %v hold the sent pipe with the Tick handled: those in the arguments Tick does not declare belong to nobody", got)
 	}
 	pipe.RequireEveryCopyClosed(t)
 }

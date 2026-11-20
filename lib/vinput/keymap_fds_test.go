@@ -2,15 +2,13 @@ package vinput
 
 import (
 	"encoding/binary"
-	"errors"
-	"maps"
 	"net"
 	"os"
-	"strconv"
 	"syscall"
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/lib/fdtest"
 	"github.com/stubbedev/lys/lib/keymapfd"
 	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
 	"github.com/stubbedev/lys/lib/third_party/wayland/wlclient"
@@ -25,32 +23,6 @@ const (
 	keymapRelayRequest = 16
 	keymapPeerWait     = 10 * time.Second
 )
-
-// descriptors is what every descriptor of the process is open on. The
-// directory read's own descriptor is gone by the time it is resolved.
-func descriptors(t *testing.T) map[int]string {
-	t.Helper()
-	entries, err := os.ReadDir("/proc/self/fd")
-	if err != nil {
-		t.Fatal(err)
-	}
-	open := make(map[int]string, len(entries))
-	for _, e := range entries {
-		fd, err := strconv.Atoi(e.Name())
-		if err != nil {
-			t.Fatalf("descriptor %q: %v", e.Name(), err)
-		}
-		target, err := os.Readlink("/proc/self/fd/" + e.Name())
-		if errors.Is(err, os.ErrNotExist) {
-			continue
-		}
-		if err != nil {
-			t.Fatal(err)
-		}
-		open[fd] = target
-	}
-	return open
-}
 
 func keymapEvent(keyboard wl.ProxyId, format, size uint32) []byte {
 	msg := binary.NativeEndian.AppendUint32(nil, uint32(keyboard))
@@ -127,7 +99,6 @@ func TestKeymapEventsLeaveNoDescriptorBehind(t *testing.T) {
 			event := keymapEvent(keyboard.Id(), tc.format, size)
 			rights := syscall.UnixRights(int(keymap.Fd()))
 
-			before := descriptors(t)
 			for i := range keymapEvents {
 				if _, _, err := compositor.WriteMsgUnix(event, rights, nil); err != nil {
 					t.Fatal(err)
@@ -151,8 +122,8 @@ func TestKeymapEventsLeaveNoDescriptorBehind(t *testing.T) {
 					t.Fatalf("relay %d carries %q and the device keeps %q, want %q", i, got, v.keymap, text)
 				}
 			}
-			if after := descriptors(t); !maps.Equal(before, after) {
-				t.Errorf("%d keymap events changed the open descriptors\nbefore: %v\nafter:  %v", keymapEvents, before, after)
+			if held := fdtest.Holders(t, int(keymap.Fd())); len(held) != 0 {
+				t.Errorf("descriptors %v still hold the keymap after %d keymap events handed it over", held, keymapEvents)
 			}
 		})
 	}
