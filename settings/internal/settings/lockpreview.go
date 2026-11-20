@@ -10,6 +10,7 @@ import (
 	"github.com/stubbedev/lys/desktop/imagedecode"
 	"github.com/stubbedev/lys/desktop/shell/lockview"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
+	"github.com/stubbedev/lys/lib/logind"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
@@ -25,25 +26,59 @@ const (
 
 var lockPreviewMoment = time.Date(2026, time.March, 14, 9, 41, 0, 0, time.UTC)
 
-// lockPreview is lys-login's lock screen drawn from the config the
-// window edits, at a fixed moment, for a sample account.
-func lockPreview(k *kit) widget.Widget {
-	bg := k.lockBackdrop()
-	p := newLivePreview(k, "settings-lock-preview", func(k *kit, cfg *config.Config, font render.Font) widget.Widget {
-		return drawLockOnScreen(k, cfg, font, bg)
-	})
-	bg.redraw = p.configChanged
-	return p
+const lockPreviewBatteryPercent = 80
+
+var lockPreviewModes = [...]struct {
+	mode  lockview.Mode
+	label string
+}{
+	{lockview.Lock, "settings-lock-preview-lock"},
+	{lockview.Greeter, "settings-lock-preview-greeter"},
 }
 
-func drawLockOnScreen(k *kit, cfg *config.Config, font render.Font, bg *lockBackdrop) widget.Widget {
-	shown := bg.show(lockBackdropKey{path: cfg.Login.Background.ImagePath(cfg.Wallpaper.Wallpaper), sigma: cfg.Login.Blur.Sigma()})
-	t := locale.T()
-	account := lockview.NewAccountTile(font, t.Get("settings-lock-preview-account"))
-	surface := lockview.Build(lockview.Spec{
-		Mode: lockview.Lock, Config: cfg.Login, Font: font, Backdrop: shown.backdrop,
-		Identity: account.Root,
+// lockPreview is lys-login's screen drawn from the config the window
+// edits, at a fixed moment, for sample accounts: the lock screen or the
+// greeter, as the switch above it picks.
+func lockPreview(k *kit) widget.Widget {
+	bg := k.lockBackdrop()
+	mode := lockview.Lock
+	p := newLivePreview(k, "settings-lock-preview", func(k *kit, cfg *config.Config, font render.Font) widget.Widget {
+		return drawLockOnScreen(k, cfg, font, bg, mode)
 	})
+	bg.redraw = p.configChanged
+	modes := widget.NewToggleGroup()
+	modes.AddClass("settings-lock-preview-mode")
+	for _, m := range lockPreviewModes {
+		modes.Append(k.label(locale.T().Get(m.label)))
+	}
+	modes.OnChanged = func(i int) {
+		mode = lockPreviewModes[i].mode
+		p.configChanged()
+	}
+	column := widget.NewBox(widget.Column, widget.Current().Spacing, 0)
+	column.AppendAligned(modes, false, widget.AlignCenter)
+	column.Append(p, false)
+	return &lockPreviewPanel{Box: column, preview: p}
+}
+
+// lockPreviewPanel is the lock preview under the switch between its
+// screens.
+type lockPreviewPanel struct {
+	*widget.Box
+	preview *livePreview
+}
+
+func (l *lockPreviewPanel) configChanged() { l.preview.configChanged() }
+
+func drawLockOnScreen(k *kit, cfg *config.Config, font render.Font, bg *lockBackdrop, mode lockview.Mode) widget.Widget {
+	shown := bg.show(lockBackdropKey{path: cfg.Login.Background.ImagePath(cfg.Wallpaper.Wallpaper), sigma: cfg.Login.Blur.Sigma()})
+	spec := lockview.Spec{Mode: mode, Config: cfg.Login, Font: font, Backdrop: shown.backdrop}
+	fingerprint := lockPreviewSpec(&spec, cfg, font)
+	surface := lockview.Build(spec)
+	if mode == lockview.Greeter {
+		surface.Prompt.Username.SetVisible(!lockview.ListsUsers(cfg.Login.Greeter, len(lockPreviewAccounts())))
+	}
+	surface.Prompt.SetFingerprint(fingerprint)
 	surface.Prompt.SetTime(lockview.TimeTexts(cfg.Login, lockPreviewMoment))
 	surface.Prompt.Reveal.SetDuration(0)
 	surface.Prompt.Reveal.SetRevealed(true)
@@ -58,6 +93,58 @@ func drawLockOnScreen(k *kit, cfg *config.Config, font render.Font, bg *lockBack
 		column.Append(wrapped(k.label(note, "settings-preview-state", css.Caption, css.DimLabel)), false)
 	}
 	return column
+}
+
+// lockPreviewSpec fills spec's mode's rows as cfg shows them, with
+// sample state, and reports whether the fingerprint prompt stands in for
+// the password.
+func lockPreviewSpec(spec *lockview.Spec, cfg *config.Config, font render.Font) (fingerprint bool) {
+	switch spec.Mode {
+	case lockview.Greeter:
+		g := cfg.Login.Greeter
+		users := lockview.UserRow()
+		accounts := lockPreviewAccounts()
+		users.SetVisible(lockview.ListsUsers(g, len(accounts)))
+		for i, name := range accounts {
+			u := lockview.NewUserButton(font, name)
+			u.SetSelected(i == 0)
+			users.Append(u.Button, false)
+		}
+		spec.Identity = users
+		spec.Greeter.Power, _ = lockview.GreeterFooter(font, g, func(logind.PowerAction) {})
+		fingerprint = g.Fingerprint
+	case lockview.Lock:
+		l := cfg.Login.Lock
+		spec.Identity = lockview.NewAccountTile(font, lockPreviewAccounts()[0]).Root
+		if l.ShowMedia {
+			media := lockview.NewMediaRow(font, func() {}, func() {})
+			media.Set(lockPreviewTrack(), true)
+			spec.Lock.Status = media.Root
+		}
+		if l.ShowBattery {
+			battery := lockview.NewBatteryChip(font, cfg.Battery.ChargingIcon)
+			battery.Set(lockview.BatteryLevel{Percent: lockPreviewBatteryPercent}, true)
+			spec.Lock.Corner = battery.Root
+		}
+		if l.ShowSwitchUser {
+			spec.Lock.Footer = lockview.SwitchUserButton(font, func() {})
+		}
+		fingerprint = l.Fingerprint
+	}
+	if fingerprint {
+		spec.Fingerprint = lockview.NewFingerprint(func() {})
+	}
+	return fingerprint
+}
+
+func lockPreviewAccounts() []string {
+	t := locale.T()
+	return []string{t.Get("settings-lock-preview-account"), t.Get("settings-lock-preview-second-account")}
+}
+
+func lockPreviewTrack() lockview.Track {
+	t := locale.T()
+	return lockview.Track{Title: t.Get("settings-lock-preview-track"), Artist: t.Get("settings-lock-preview-artist"), Playing: true, CanNext: true}
 }
 
 type lockBackdropKey struct {

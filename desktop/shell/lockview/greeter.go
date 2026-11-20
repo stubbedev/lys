@@ -97,7 +97,7 @@ func powerRow(font render.Font, act func(logind.PowerAction)) *widget.Box {
 	} {
 		btn := widget.NewButton(widget.NewThemeIcon(b.icon, PowerIconPx), 0, 0)
 		btn.AddClass("lock-power-button", css.Ghost, css.Icon, css.Large)
-		btn.SetAccessibleName(b.name)
+		nameControl(btn, b.name)
 		btn.OnClick = func() { act(b.action) }
 		name := widget.NewLabel(font, widgets.TextPx(styling.Caption, 1), b.name, 0)
 		name.AddClass("lock-power-name")

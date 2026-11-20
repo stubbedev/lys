@@ -12,6 +12,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/shell/lockview"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
@@ -55,9 +56,19 @@ func writePNG(t *testing.T, name string) string {
 	return path
 }
 
+func backdropImages(preview *livePreview) []*widget.Image {
+	var pics []*widget.Image
+	for _, pic := range treetest.All[*widget.Image](preview) {
+		if !pic.HasClass("lock-media-art") {
+			pics = append(pics, pic)
+		}
+	}
+	return pics
+}
+
 func previewedBackdrop(t *testing.T, k *kit, preview *livePreview) render.ImageID {
 	t.Helper()
-	if pics := treetest.All[*widget.Image](preview); len(pics) != 1 {
+	if pics := backdropImages(preview); len(pics) != 1 {
 		t.Fatalf("the lock preview draws %d images, want the backdrop", len(pics))
 	}
 	held := k.lockBackdrop().showing.backdrop
@@ -84,7 +95,7 @@ func TestTheLockPagePreviewsTheLockScreenItsDraftDraws(t *testing.T) {
 	if len(treetest.WithClass(preview, "lock-secret")) != 1 {
 		t.Error("the lock preview has no password field")
 	}
-	if len(treetest.WithClass(preview, "lock-bg")) != 1 || len(treetest.All[*widget.Image](preview)) != 0 {
+	if len(treetest.WithClass(preview, "lock-bg")) != 1 || len(backdropImages(preview)) != 0 {
 		t.Error("the default colour background previews no colour fill")
 	}
 
@@ -132,7 +143,7 @@ func TestALockBackgroundThatCannotBeShownPreviewsTheColourAndWhy(t *testing.T) {
 	set(t, k, p, "login.background-image", missing)
 	set(t, k, p, "login.background-mode", string(config.BackgroundImage))
 	preview, labels := previewedLock(t, p)
-	if len(treetest.All[*widget.Image](preview)) != 0 || len(treetest.WithClass(preview, "lock-bg")) != 1 {
+	if len(backdropImages(preview)) != 0 || len(treetest.WithClass(preview, "lock-bg")) != 1 {
 		t.Error("an unreadable image does not preview the colour fill")
 	}
 	_, err := os.Open(missing)
@@ -164,5 +175,128 @@ func TestTheLockPreviewLetsGoOfABackdropTheDraftNoLongerNames(t *testing.T) {
 	set(t, k, p, "login.background-mode", string(config.BackgroundColor))
 	if !slices.Equal(forgotten, []render.ImageID{held}) {
 		t.Errorf("switching to the colour forgot %v, want the held backdrop %v", forgotten, held)
+	}
+}
+
+func lockPreviewMode(t *testing.T, p *settingsPage, mode lockview.Mode) {
+	t.Helper()
+	found := treetest.WithClass(p, "settings-lock-preview-mode")
+	if len(found) != 1 {
+		t.Fatalf("the lock page holds %d preview mode switches", len(found))
+	}
+	for i, m := range lockPreviewModes {
+		if m.mode == mode {
+			found[0].(*widget.ToggleGroup).SetActive(i)
+			return
+		}
+	}
+	t.Fatalf("no preview mode %v", mode)
+}
+
+func shownWithClass(t *testing.T, preview *livePreview, class string) bool {
+	t.Helper()
+	found := treetest.WithClass(preview, class)
+	switch len(found) {
+	case 0:
+		return false
+	case 1:
+		return found[0].(interface{ Visible() bool }).Visible()
+	}
+	t.Fatalf("the lock preview holds %d %s", len(found), class)
+	return false
+}
+
+func TestTheLockPreviewShowsTheRowsItsDraftTurnsOn(t *testing.T) {
+	k := testKit(t, "")
+	p := buildPage(k, lockPage(nil))
+	preview, labels := previewedLock(t, p)
+	tr := locale.T()
+	for _, want := range []string{tr.Get("settings-lock-preview-track"), tr.Get("settings-lock-preview-artist"), i18n.T("lock-battery", i18n.Str("percent", "80")), i18n.T("lock-switch-user"), i18n.T("lock-fingerprint-touch")} {
+		if !slices.Contains(labels, want) {
+			t.Errorf("the default lock preview shows %v, want %q", labels, want)
+		}
+	}
+	for _, class := range []string{"lock-media", "lock-battery", "lock-switch-user", "lock-fingerprint"} {
+		if !shownWithClass(t, preview, class) {
+			t.Errorf("the default lock preview hides its %s", class)
+		}
+	}
+	if shownWithClass(t, preview, "lock-secret") {
+		t.Error("the fingerprint mode previews the password entry instead of the reader")
+	}
+
+	for _, c := range []struct{ key, class string }{
+		{"login.lock.show-media", "lock-media"},
+		{"login.lock.show-battery", "lock-battery"},
+		{"login.lock.show-switch-user", "lock-switch-user"},
+		{"login.lock.fingerprint", "lock-fingerprint"},
+	} {
+		set(t, k, p, c.key, false)
+		preview, _ = previewedLock(t, p)
+		if shownWithClass(t, preview, c.class) {
+			t.Errorf("%s off still previews the %s", c.key, c.class)
+		}
+	}
+	if !shownWithClass(t, preview, "lock-secret") {
+		t.Error("fingerprint off previews no password entry")
+	}
+}
+
+func TestTheLockPreviewDrawsTheGreeterItsDraftDraws(t *testing.T) {
+	k := testKit(t, "")
+	p := buildPage(k, lockPage(nil))
+	lockPreviewMode(t, p, lockview.Greeter)
+	if got := runtimeFile(t, k); got != "" {
+		t.Errorf("switching the previewed screen wrote %q", got)
+	}
+	preview, labels := previewedLock(t, p)
+	greeter := i18n.Greeter()
+	for _, want := range append(lockPreviewAccounts(), greeter.Get("greeter-sleep"), greeter.Get("greeter-restart"), greeter.Get("greeter-shutdown")) {
+		if !slices.Contains(labels, want) {
+			t.Errorf("the greeter preview shows %v, want %q", labels, want)
+		}
+	}
+	if users := treetest.WithClass(preview, "lock-user-button"); len(users) != len(lockPreviewAccounts()) || !slices.Contains(users[0].(*widget.Button).Classes(), "selected") {
+		t.Errorf("the greeter preview lists %d accounts, the first selected: want %d", len(users), len(lockPreviewAccounts()))
+	}
+	if shownWithClass(t, preview, "lock-user") || shownWithClass(t, preview, "lock-media") || shownWithClass(t, preview, "lock-switch-user") {
+		t.Error("the greeter preview shows the username entry over its list, or the lock's own rows")
+	}
+	if !shownWithClass(t, preview, "lock-fingerprint") {
+		t.Error("the greeter's fingerprint previews no reader")
+	}
+	untippedIconButtons(t, "the greeter preview", preview)
+
+	set(t, k, p, "login.greeter.show-user-list", false)
+	set(t, k, p, "login.greeter.show-power-buttons", false)
+	set(t, k, p, "login.greeter.fingerprint", false)
+	preview, _ = previewedLock(t, p)
+	if shownWithClass(t, preview, "lock-users") || !shownWithClass(t, preview, "lock-user") {
+		t.Error("show-user-list off previews the list instead of the username entry")
+	}
+	if len(treetest.WithClass(preview, "lock-power-button")) != 0 {
+		t.Error("show-power-buttons off previews power buttons")
+	}
+	if shownWithClass(t, preview, "lock-fingerprint") || !shownWithClass(t, preview, "lock-secret") {
+		t.Error("the greeter's fingerprint off previews the reader")
+	}
+
+	draft := runtimeFile(t, k)
+	lockPreviewMode(t, p, lockview.Lock)
+	preview, _ = previewedLock(t, p)
+	if len(treetest.WithClass(preview, "lock-user")) != 0 {
+		t.Error("switching back to the lock screen keeps the greeter's username entry")
+	}
+	if got := runtimeFile(t, k); got != draft {
+		t.Errorf("switching the previewed screen rewrote the draft %q as %q", draft, got)
+	}
+}
+
+func TestTheLockPreviewShowsIconsTheAppShips(t *testing.T) {
+	listed := listedIcons(t)
+	for _, icon := range slices.Concat(lockview.Icons(), lockview.MediaIcons(), lockview.PowerIcons()) {
+		if !slices.Contains(listed, icon) {
+			t.Errorf("the lock preview draws %s, which resources/icons.txt does not list", icon)
+		}
 	}
 }

@@ -17,7 +17,7 @@ lys-settings reads lys-shell's config through the packages of
 | `desktop/shell/barview` | The previews: the bar and a bar item's button, drawn by lys-shell's own code from the config being edited, every module holding sample state |
 | `desktop/shell/osdview` | The OSD preview: the toast Show OSD flashes, drawn by lys-shell's own code where `osd.position` puts it |
 | `desktop/shell/notifyview` | The notification preview: the popup Send test notification sends, drawn by lys-shell's own code where `popup-position` puts it |
-| `desktop/shell/lockview` | The lock screen preview: lys-login's own lock screen drawn from the config being edited, its background blurred as lys-login blurs it, at a fixed moment for a sample account |
+| `desktop/shell/lockview` | The lock screen preview: lys-login's own lock screen or greeter drawn from the config being edited, its background blurred as lys-login blurs it, at a fixed moment for sample accounts, with a sample track, battery charge and the fingerprint prompt where the config shows them |
 | `desktop/shell/launcherview` | The launcher preview: lys-shell's own panel drawn from the config being edited where `launcher.location` puts it, at its width and lines, with its mode tabs, font and a chosen style preset, listing sample apps a test query filters |
 
 ## lys-wm

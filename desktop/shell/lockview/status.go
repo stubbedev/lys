@@ -61,7 +61,7 @@ func NewMediaRow(font render.Font, onPlayPause, onNext func()) *MediaRow {
 	m.Artist.AddClass("lock-media-artist", css.DimLabel)
 	m.Play = mediaControl(m.playIcon, onPlayPause)
 	m.Next = mediaControl(widget.NewThemeIcon(nextIcon, mediaControlPx), onNext)
-	m.Next.SetAccessibleName(i18n.T("lock-media-next"))
+	nameControl(m.Next, i18n.T("lock-media-next"))
 	track := widget.NewBox(widget.Column, 0, 0)
 	track.Append(m.Title, false).Append(m.Artist, false)
 	m.Root = widget.NewBox(widget.Row, th.Spacing, 0)
@@ -80,6 +80,11 @@ func mediaControl(icon *widget.Icon, onClick func()) *widget.Button {
 	b.SetCursorName("pointer")
 	b.OnClick = onClick
 	return b
+}
+
+func nameControl(b *widget.Button, name string) {
+	b.SetAccessibleName(name)
+	b.SetTooltip(name)
 }
 
 // Set shows t, or hides the row when nothing plays.
@@ -101,7 +106,7 @@ func (m *MediaRow) Set(t Track, playing bool) {
 		icon, name = pauseIcon, i18n.T("lock-media-pause")
 	}
 	m.playIcon.SetThemeName(icon)
-	m.Play.SetAccessibleName(name)
+	nameControl(m.Play, name)
 	m.Next.SetVisible(t.CanNext)
 }
 

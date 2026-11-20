@@ -58,7 +58,11 @@ func TestTheGreeterFooterHoldsThePowerButtonsTheConfigShows(t *testing.T) {
 		t.Errorf("the power row reads %v, want %v", got, names)
 	}
 	for _, name := range names {
-		treetest.Button(t, power, name).OnClick()
+		b := treetest.Button(t, power, name)
+		if b.TooltipText() != name {
+			t.Errorf("the %s button is tipped %q", name, b.TooltipText())
+		}
+		b.OnClick()
 	}
 	if want := []logind.PowerAction{logind.Suspend, logind.Reboot, logind.PowerOff}; !slices.Equal(acted, want) {
 		t.Errorf("the power buttons ran %v, want %v", acted, want)

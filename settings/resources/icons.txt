@@ -26,6 +26,7 @@ ld-eye-off-symbolic
 ld-eye-symbolic
 ld-file-text-symbolic
 ld-film-symbolic
+ld-fingerprint-symbolic
 ld-folder-open-symbolic
 ld-folder-symbolic
 ld-gamepad-2-symbolic
@@ -59,6 +60,7 @@ ld-palette-symbolic
 ld-panel-bottom-symbolic
 ld-panel-top-open-symbolic
 ld-panel-top-symbolic
+ld-pause-symbolic
 ld-pencil-symbolic
 ld-play-symbolic
 ld-plug-zap-symbolic
@@ -72,6 +74,7 @@ ld-scale-symbolic
 ld-search-symbolic
 ld-settings-symbolic
 ld-shield-check-symbolic
+ld-skip-forward-symbolic
 ld-smartphone-symbolic
 ld-speaker-symbolic
 ld-square-symbolic

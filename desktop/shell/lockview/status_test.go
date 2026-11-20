@@ -16,8 +16,11 @@ func TestTheMediaRowShowsATrackAndHidesWithoutOne(t *testing.T) {
 	if !m.Root.Visible() || m.Title.Text() != "Blue in Green" || m.Artist.Text() != "Miles Davis" || !m.Next.Visible() {
 		t.Errorf("a playing track shows %v, reading %q by %q, next %v", m.Root.Visible(), m.Title.Text(), m.Artist.Text(), m.Next.Visible())
 	}
-	if m.Play.AccessibleName() != i18n.T("lock-media-pause") {
-		t.Errorf("a playing track's button is named %q", m.Play.AccessibleName())
+	if m.Play.AccessibleName() != i18n.T("lock-media-pause") || m.Play.TooltipText() != i18n.T("lock-media-pause") {
+		t.Errorf("a playing track's button is named %q, tipped %q", m.Play.AccessibleName(), m.Play.TooltipText())
+	}
+	if m.Next.TooltipText() != i18n.T("lock-media-next") {
+		t.Errorf("the next button is tipped %q", m.Next.TooltipText())
 	}
 	m.Set(Track{Title: "So What"}, true)
 	if m.Artist.Visible() || m.Next.Visible() || m.Play.AccessibleName() != i18n.T("lock-media-play") {
