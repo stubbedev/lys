@@ -16,6 +16,7 @@ import (
 	"github.com/stubbedev/lys/desktop/fileuri"
 	"github.com/stubbedev/lys/desktop/fswatch"
 	"github.com/stubbedev/lys/desktop/mime"
+	"github.com/stubbedev/lys/desktop/shell/layers"
 	"github.com/stubbedev/lys/desktop/shell/reveal"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/desktop/styling"
@@ -1179,7 +1180,7 @@ func (c *Chooser) show() {
 			Anchor:        app.AnchorTop | app.AnchorBottom | app.AnchorLeft | app.AnchorRight,
 			ExclusiveZone: -1,
 			Keyboard:      keyboard,
-			Namespace:     "lys-shell-file-chooser",
+			Namespace:     layers.FileChooser.Name(),
 			OnKey:         keys.OnKey(c.d.KeySym, c.key),
 			OnPress:       func(button uint32, _ widget.Widget) { c.press(button) },
 		},

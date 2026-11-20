@@ -462,6 +462,7 @@
       "desktop/shell/treetest"
     ]
   },
+  "desktop/shell/layers": {},
   "desktop/shell/lockclient": {
     "imports": [
       "desktop/config",
@@ -3231,6 +3232,7 @@
       "desktop/settingspage",
       "desktop/shell/apptheme",
       "desktop/shell/barview",
+      "desktop/shell/layers",
       "desktop/shell/lockclient",
       "desktop/shell/reveal",
       "desktop/shell/widgets",
@@ -3354,6 +3356,7 @@
     "imports": [
       "desktop/config",
       "desktop/identity",
+      "desktop/shell/layers",
       "lib/render",
       "lib/third_party/gomath",
       "lib/xdg",
@@ -3421,6 +3424,7 @@
       "desktop/imagedecode",
       "desktop/mime",
       "desktop/offheap",
+      "desktop/shell/layers",
       "desktop/shell/reveal",
       "desktop/shell/widgets",
       "desktop/shlex",
@@ -3467,6 +3471,7 @@
     "imports": [
       "desktop/config",
       "desktop/i18n",
+      "desktop/shell/layers",
       "desktop/shell/reveal",
       "desktop/shell/widgets",
       "desktop/styling",
@@ -3551,6 +3556,7 @@
       "desktop/i18n",
       "desktop/service/mpris",
       "desktop/service/pulse",
+      "desktop/shell/layers",
       "desktop/shell/reveal",
       "desktop/shell/widgets",
       "desktop/styling",
@@ -3573,6 +3579,7 @@
     "imports": [
       "desktop/config",
       "desktop/i18n",
+      "desktop/shell/layers",
       "desktop/shell/reveal",
       "desktop/shell/widgets",
       "desktop/styling",
@@ -3601,6 +3608,7 @@
       "desktop/desktopentry",
       "desktop/fileuri",
       "desktop/imagedecode",
+      "desktop/shell/layers",
       "desktop/shell/reveal",
       "desktop/shell/widgets",
       "desktop/styling",
@@ -3627,6 +3635,7 @@
     "imports": [
       "desktop/config",
       "desktop/i18n",
+      "desktop/shell/layers",
       "desktop/shell/reveal",
       "desktop/shell/widgets",
       "desktop/styling",
@@ -3645,6 +3654,7 @@
     "imports": [
       "desktop/config",
       "desktop/fileuri",
+      "desktop/shell/layers",
       "desktop/shell/reveal",
       "desktop/shell/widgets",
       "desktop/styling",
@@ -3682,6 +3692,7 @@
   "shell/shell/regionoverlay": {
     "imports": [
       "desktop/i18n",
+      "desktop/shell/layers",
       "desktop/shell/widgets",
       "desktop/styling",
       "lib/render",
@@ -3741,6 +3752,7 @@
     "imports": [
       "desktop/config",
       "desktop/i18n",
+      "desktop/shell/layers",
       "desktop/shell/reveal",
       "desktop/shell/widgets",
       "desktop/styling",
@@ -3775,6 +3787,7 @@
   "shell/shell/shotthumb": {
     "imports": [
       "desktop/config",
+      "desktop/shell/layers",
       "lib/render",
       "shell/internal/clock",
       "shell/shell/keys",
@@ -3798,6 +3811,7 @@
       "desktop/offheap",
       "desktop/outputsize",
       "desktop/service/wallpaper/extract",
+      "desktop/shell/layers",
       "desktop/styling/material",
       "lib/atomicfile",
       "lib/intconv",

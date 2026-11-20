@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/stubbedev/lys/desktop/shell/layers"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
 	"github.com/stubbedev/lys/ui/app"
@@ -193,14 +194,14 @@ func OpenSession[T any](ctx context.Context, g *Gate, loop Loop, frames Frames, 
 // covering the output and holding the keyboard. It plays no exit motion
 // whatever the application's surface motion, so Close ends its painting: the
 // requester frees the frozen frames the surface paints once it has its answer.
-func OpenSurface(a *app.Application, out *app.Output, namespace string, root widget.Widget, onKey func(*widget.Router, uint32, app.Mods)) (*app.LayerWindow, error) {
+func OpenSurface(a *app.Application, out *app.Output, surface layers.Surface, root widget.Widget, onKey func(*widget.Router, uint32, app.Mods)) (*app.LayerWindow, error) {
 	return a.NewLayer(app.LayerConfig{
 		Output:        out,
 		Layer:         app.LayerOverlay,
 		Anchor:        app.AnchorTop | app.AnchorBottom | app.AnchorLeft | app.AnchorRight,
 		ExclusiveZone: -1,
 		Keyboard:      app.KeyboardExclusive,
-		Namespace:     namespace,
+		Namespace:     surface.Name(),
 		Root:          root,
 		OwnMotion:     true,
 		OnKey:         onKey,

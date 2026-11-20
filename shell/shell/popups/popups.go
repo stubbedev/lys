@@ -14,6 +14,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/shell/layers"
 	"github.com/stubbedev/lys/desktop/shell/reveal"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/desktop/styling"
@@ -749,7 +750,7 @@ func (p *Popups) ensureWindow(out *app.Output) (window, *widget.Box, error) {
 		Layer:          layering.For(p.cfg.General, cfg.PopupLayer),
 		Anchor:         popupAnchors(cfg.PopupPosition),
 		Margin:         popupMargins(cfg, scale),
-		Namespace:      "lys-shell-notification-popup",
+		Namespace:      layers.NotificationPopup.Name(),
 		Keyboard:       app.KeyboardOnDemand,
 		Root:           p.host,
 		BackgroundBlur: p.cfg.Styling.Translucent(),

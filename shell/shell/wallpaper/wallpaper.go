@@ -15,6 +15,7 @@ import (
 	"github.com/stubbedev/lys/desktop/imagedecode"
 	"github.com/stubbedev/lys/desktop/outputsize"
 	"github.com/stubbedev/lys/desktop/service/wallpaper/extract"
+	"github.com/stubbedev/lys/desktop/shell/layers"
 	"github.com/stubbedev/lys/desktop/styling/material"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/ui/app"
@@ -377,7 +378,7 @@ func (surf *surface) openLayer() {
 		Anchor:        app.AnchorTop | app.AnchorBottom | app.AnchorLeft | app.AnchorRight,
 		ExclusiveZone: -1,
 		Keyboard:      app.KeyboardNone,
-		Namespace:     "lys-shell-wallpaper",
+		Namespace:     layers.Wallpaper.Name(),
 		Root:          surf.view,
 		Background:    backdrop,
 		OnClosed: func() {

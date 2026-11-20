@@ -24,6 +24,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/identity"
+	"github.com/stubbedev/lys/desktop/shell/layers"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/xdg"
 	"github.com/stubbedev/lys/lib/xkb"
@@ -196,7 +197,7 @@ func (p *Picker) show(frames map[string]render.StillImage, ch chan result, opts 
 			continue
 		}
 		l := &surface{p: p, frame: frame, logicalW: mon.Width, logicalH: mon.Height, hoverSwatch: -1}
-		layer, err := regionoverlay.OpenSurface(p.app, out, "lys-shell-color-picker", l, keys.OnKey(p.app.KeySym, p.key))
+		layer, err := regionoverlay.OpenSurface(p.app, out, layers.ColorPicker, l, keys.OnKey(p.app.KeySym, p.key))
 		if err != nil {
 			log.Printf("color picker: surface on %s: %v", mon.Connector, err)
 			continue

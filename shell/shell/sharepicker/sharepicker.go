@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/shell/layers"
 	"github.com/stubbedev/lys/desktop/shell/reveal"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/desktop/styling"
@@ -368,7 +369,7 @@ func (p *Picker) spec() dialogsurface.Spec {
 			Layer:         app.LayerOverlay,
 			ExclusiveZone: -1,
 			Keyboard:      app.KeyboardExclusive,
-			Namespace:     "lys-shell-share-picker",
+			Namespace:     layers.SharePicker.Name(),
 			OnKey:         keys.OnKey(p.app.KeySym, p.key),
 			OnPresented:   p.presented,
 		},

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/shell/layers"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/transfer"
@@ -28,7 +29,6 @@ const (
 	margin       = 16
 	closePx      = 22
 	swipeDismiss = 80
-	namespace    = "lys-shell-screenshot-thumbnail"
 )
 
 var (
@@ -100,7 +100,7 @@ func (t *Thumbnail) Show(s Shot, out *app.Output, cfg config.ScreenshotConfig) e
 		Anchor:    anchor,
 		Margin:    margins(anchor),
 		Keyboard:  app.KeyboardOnDemand,
-		Namespace: namespace,
+		Namespace: layers.ScreenshotThumbnail.Name(),
 		Root:      f.view,
 		OnKey: keys.OnEscape(t.d.KeySym, func() {
 			if t.cur == f {

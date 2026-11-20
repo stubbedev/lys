@@ -6,6 +6,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/shell/layers"
 	"github.com/stubbedev/lys/desktop/shell/reveal"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/anim"
@@ -90,7 +91,7 @@ func panelLayer(translucent bool, output *app.Output, f *panelFrame, keys func(a
 		Anchor:         app.AnchorTop | app.AnchorBottom | app.AnchorLeft | app.AnchorRight,
 		ExclusiveZone:  -1,
 		Keyboard:       app.KeyboardExclusive,
-		Namespace:      "lys-shell-launcher",
+		Namespace:      layers.Launcher.Name(),
 		Root:           f.root,
 		Output:         output,
 		OwnMotion:      true,

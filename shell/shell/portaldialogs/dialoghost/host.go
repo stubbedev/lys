@@ -11,6 +11,7 @@ import (
 	"github.com/stubbedev/lys/desktop/desktopentry"
 	"github.com/stubbedev/lys/desktop/fileuri"
 	"github.com/stubbedev/lys/desktop/imagedecode"
+	"github.com/stubbedev/lys/desktop/shell/layers"
 	"github.com/stubbedev/lys/desktop/shell/reveal"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/desktop/styling"
@@ -684,7 +685,7 @@ func (h *Dialogs) show(caller portaldialogs.Caller, card *widget.Card) {
 			Layer:         app.LayerOverlay,
 			ExclusiveZone: -1,
 			Keyboard:      keyboard,
-			Namespace:     "lys-shell-portal-dialog",
+			Namespace:     layers.PortalDialog.Name(),
 			OnKey:         keys.OnEscape(h.d.KeySym, func() { h.escape() }),
 		},
 		Failed: func() { h.finish(false, "") },

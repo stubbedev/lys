@@ -6,6 +6,7 @@ import (
 	"log"
 	"slices"
 
+	"github.com/stubbedev/lys/desktop/shell/layers"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/xkb"
 	"github.com/stubbedev/lys/ui/app"
@@ -127,7 +128,7 @@ func (o *WindowPick) show(ch chan windowResult, windows []Window, screen string)
 			}
 			a.legend = legend(o.font, append(items, legendItem{[]keyCap{{text: "Esc"}}, "window-pick-picker"})...)
 		}
-		layer, err := OpenSurface(o.app, out, "lys-shell-window-pick", overlayRoot(a, o.sheet),
+		layer, err := OpenSurface(o.app, out, layers.WindowPick, overlayRoot(a, o.sheet),
 			keys.OnKey(o.app.KeySym, func(_ *widget.Router, sym xkb.Keysym, _ app.Mods) { o.key(sym) }))
 		if err != nil {
 			log.Printf("window pick: surface on %s: %v", a.mon.Connector, err)

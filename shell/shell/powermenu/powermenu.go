@@ -17,6 +17,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/shell/layers"
 	"github.com/stubbedev/lys/desktop/shell/reveal"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/desktop/styling"
@@ -175,7 +176,7 @@ func (m *Menu) open(cfg *config.Config, shown []Action, focus int) {
 		Anchor:         app.AnchorTop | app.AnchorBottom | app.AnchorLeft | app.AnchorRight,
 		ExclusiveZone:  -1,
 		Keyboard:       app.KeyboardExclusive,
-		Namespace:      "lys-shell-power-menu",
+		Namespace:      layers.PowerMenu.Name(),
 		Root:           root,
 		BackgroundBlur: cfg.Styling.Translucent(),
 		KeyCapture: func(a app.Accel) bool {

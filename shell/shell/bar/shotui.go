@@ -7,6 +7,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/shell/layers"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/lib/render"
@@ -215,7 +216,7 @@ func (u *shotUI) working(cancel func()) func() {
 			Anchor:    app.AnchorTop,
 			Margin:    app.Margins{Top: sizes.margin},
 			Keyboard:  app.KeyboardExclusive,
-			Namespace: "lys-shell-screenshot-reading",
+			Namespace: layers.ScreenshotReading.Name(),
 			Root:      box,
 			OnKey:     keys.OnEscape(u.app.KeySym, cancel),
 		})

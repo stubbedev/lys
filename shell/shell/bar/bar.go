@@ -27,6 +27,7 @@ import (
 	"github.com/stubbedev/lys/desktop/service/upower"
 	"github.com/stubbedev/lys/desktop/shell/apptheme"
 	"github.com/stubbedev/lys/desktop/shell/barview"
+	"github.com/stubbedev/lys/desktop/shell/layers"
 	"github.com/stubbedev/lys/desktop/shell/lockclient"
 	"github.com/stubbedev/lys/desktop/spawn"
 	"github.com/stubbedev/lys/desktop/styling"
@@ -901,7 +902,7 @@ func barConfigFor(ctx ModuleContext, layout config.BarLayout, output *app.Output
 		Bar:       buildRoot(ctx, layout, output.Name),
 		Layer:     layering.For(ctx.Config.General, ctx.Config.Bar.Layer),
 		Exclusive: barExclusive(ctx.Config.Bar, layout),
-		Namespace: "lys-shell-bar-" + output.Name,
+		Namespace: layers.Bar.On(output.Name),
 	}
 }
 

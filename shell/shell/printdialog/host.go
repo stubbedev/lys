@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/shell/layers"
 	"github.com/stubbedev/lys/desktop/shell/reveal"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/desktop/styling"
@@ -457,7 +458,7 @@ func (h *Dialog) show(caller portaldialogs.Caller, card *widget.Card) {
 			Layer:         app.LayerOverlay,
 			ExclusiveZone: -1,
 			Keyboard:      app.KeyboardOnDemand,
-			Namespace:     "lys-shell-print",
+			Namespace:     layers.Print.Name(),
 			OnKey:         keys.OnEscape(h.d.KeySym, func() { h.finish(prepared{}, false) }),
 		},
 		Failed: func() { h.finish(prepared{}, false) },

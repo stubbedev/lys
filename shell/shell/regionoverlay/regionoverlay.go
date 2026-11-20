@@ -21,6 +21,7 @@ import (
 	"slices"
 
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/shell/layers"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/lib/render"
@@ -258,7 +259,7 @@ func (o *Overlay) open(frames map[string]render.StillImage) {
 	for i, out := range outs {
 		mon := o.monitors[i]
 		a := &area{o: o, mon: mon, frame: frames[mon.Connector]}
-		layer, err := OpenSurface(o.app, out, "lys-shell-region-overlay", o.surfaceRoot(a),
+		layer, err := OpenSurface(o.app, out, layers.RegionOverlay, o.surfaceRoot(a),
 			keys.OnKey(o.app.KeySym, func(_ *widget.Router, sym xkb.Keysym, mods app.Mods) { o.key(sym, mods) }))
 		if err != nil {
 			log.Printf("region overlay: surface on %s: %v", mon.Connector, err)

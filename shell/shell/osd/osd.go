@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/shell/layers"
 	"github.com/stubbedev/lys/desktop/shell/reveal"
 	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/lib/render"
@@ -206,7 +207,7 @@ func (o *Osd) place() bool {
 		Anchor:         anchor,
 		Margin:         margin,
 		Keyboard:       app.KeyboardNone,
-		Namespace:      "lys-shell-osd",
+		Namespace:      layers.OSD.Name(),
 		Root:           f.rev,
 		BackgroundBlur: o.cfg.Styling.Translucent(),
 	})

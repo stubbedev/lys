@@ -9,6 +9,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/shell/layers"
 	"github.com/stubbedev/lys/lib/intconv"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/wmipc"
@@ -627,7 +628,7 @@ func (h *dockHost) open(output *app.Output, cfg config.DockConfig) (surfaceLayer
 		Layer:     layering.For(ctx.Config.General, config.LayerTop),
 		Anchor:    dockAnchor(cfg.Edge),
 		Keyboard:  app.KeyboardNone,
-		Namespace: "lys-shell-dock-" + output.Name,
+		Namespace: layers.Dock.On(output.Name),
 		Root:      w.root,
 		OnResize:  func(int, int) { w.reserve() },
 	})
