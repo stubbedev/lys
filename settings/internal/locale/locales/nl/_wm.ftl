@@ -1034,3 +1034,48 @@ wm-scroll-presets-pixels = Pixels
 wm-scroll-presets-add = Breedte toevoegen
 wm-scroll-presets-add-width = Een kolom van { $width } breed toevoegen
 wm-scroll-presets-remove = Deze breedte verwijderen
+wm-section-touch-gestures = Aanraakschermgebaren
+    .description = Vegen op een aanraakscherm en wat ze doen
+wm-gestures-touch = Aanraakvegen
+    .description = Vanaf een rand naar binnen vegen, of met drie of meer vingers ergens op het scherm
+wm-gestures-touch-add = Aanraakveeg toevoegen
+wm-gestures-touch-start = Begint
+wm-gestures-touch-does = Doet
+wm-gestures-touch-fingers-anywhere = Vingers overal
+wm-gestures-touch-fingers = Vingers
+wm-gestures-touch-direction = Richting
+wm-gestures-touch-run = Een actie uitvoeren
+wm-gestures-touch-follow = De vingers volgen
+wm-gestures-touch-edge-title = { $edge ->
+        [top] Vanaf de bovenrand naar binnen vegen
+        [bottom] Vanaf de onderrand naar binnen vegen
+        [left] Vanaf de linkerrand naar binnen vegen
+        [right] Vanaf de rechterrand naar binnen vegen
+       *[other] Vanaf een rand naar binnen vegen
+    }
+wm-gestures-touch-fingers-title = { $direction ->
+        [left] Met { $fingers } vingers naar links vegen
+        [right] Met { $fingers } vingers naar rechts vegen
+        [up] Met { $fingers } vingers omhoog vegen
+        [down] Met { $fingers } vingers omlaag vegen
+        [horizontal] Met { $fingers } vingers opzij vegen
+        [vertical] Met { $fingers } vingers omhoog of omlaag vegen
+        [any] Met { $fingers } vingers alle kanten op vegen
+       *[other] Met { $fingers } vingers vegen
+    }
+enum-wm-edge-top = Bovenrand
+enum-wm-edge-bottom = Onderrand
+enum-wm-edge-left = Linkerrand
+enum-wm-edge-right = Rechterrand
+enum-wm-direction-left = Links
+enum-wm-direction-right = Rechts
+enum-wm-direction-up = Omhoog
+enum-wm-direction-down = Omlaag
+enum-wm-direction-horizontal = Opzij
+enum-wm-direction-vertical = Omhoog of omlaag
+enum-wm-direction-any = Alle kanten op
+enum-wm-drive-workspaces = Werkbladen
+enum-wm-drive-overview = Overzicht
+enum-wm-drive-view = Kolommen scrollen
+enum-wm-drive-move = Venster verplaatsen
+enum-wm-drive-resize = Venstergrootte wijzigen

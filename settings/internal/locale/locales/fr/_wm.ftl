@@ -1039,3 +1039,48 @@ wm-scroll-presets-pixels = Pixels
 wm-scroll-presets-add = Ajouter une largeur
 wm-scroll-presets-add-width = Ajouter une colonne de { $width } de large
 wm-scroll-presets-remove = Retirer cette largeur
+wm-section-touch-gestures = Gestes de l'écran tactile
+    .description = Les balayages sur un écran tactile et ce qu'ils font
+wm-gestures-touch = Balayages tactiles
+    .description = Balayer depuis un bord, ou avec trois doigts ou plus n'importe où sur l'écran
+wm-gestures-touch-add = Ajouter un balayage tactile
+wm-gestures-touch-start = Commence
+wm-gestures-touch-does = Fait
+wm-gestures-touch-fingers-anywhere = Doigts n'importe où
+wm-gestures-touch-fingers = Doigts
+wm-gestures-touch-direction = Direction
+wm-gestures-touch-run = Lancer une action
+wm-gestures-touch-follow = Suivre les doigts
+wm-gestures-touch-edge-title = { $edge ->
+        [top] Balayer depuis le bord supérieur
+        [bottom] Balayer depuis le bord inférieur
+        [left] Balayer depuis le bord gauche
+        [right] Balayer depuis le bord droit
+       *[other] Balayer depuis un bord
+    }
+wm-gestures-touch-fingers-title = { $direction ->
+        [left] Balayer à { $fingers } doigts vers la gauche
+        [right] Balayer à { $fingers } doigts vers la droite
+        [up] Balayer à { $fingers } doigts vers le haut
+        [down] Balayer à { $fingers } doigts vers le bas
+        [horizontal] Balayer à { $fingers } doigts sur le côté
+        [vertical] Balayer à { $fingers } doigts vers le haut ou le bas
+        [any] Balayer à { $fingers } doigts dans tous les sens
+       *[other] Balayer à { $fingers } doigts
+    }
+enum-wm-edge-top = Bord supérieur
+enum-wm-edge-bottom = Bord inférieur
+enum-wm-edge-left = Bord gauche
+enum-wm-edge-right = Bord droit
+enum-wm-direction-left = Gauche
+enum-wm-direction-right = Droite
+enum-wm-direction-up = Haut
+enum-wm-direction-down = Bas
+enum-wm-direction-horizontal = Sur le côté
+enum-wm-direction-vertical = Haut ou bas
+enum-wm-direction-any = Tous les sens
+enum-wm-drive-workspaces = Espaces de travail
+enum-wm-drive-overview = Vue d'ensemble
+enum-wm-drive-view = Faire défiler les colonnes
+enum-wm-drive-move = Déplacer la fenêtre
+enum-wm-drive-resize = Redimensionner la fenêtre

@@ -980,7 +980,6 @@ var unlistedWMKeys = map[string]string{
 	"primary_output":                       "set by the Displays page's Primary display switch on the selected display",
 	"animations.curves":                    "a curve editor, planned in #138",
 	"animations.events":                    "per-event animations with the curve editor, planned in #138",
-	"gestures.touch":                       "illustrated touch gesture cards, planned in #138",
 	"input.devices":                        "a per-device list fed from lys-wm's input devices, #122 and #138",
 	"input.pointer.accel_points.points":    "the custom acceleration curve editor, planned in #138",
 	"input.pointer.accel_points.step":      "the custom acceleration curve editor, planned in #138",

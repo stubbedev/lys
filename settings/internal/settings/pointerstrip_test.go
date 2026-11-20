@@ -31,6 +31,7 @@ func TestTheMouseAndTouchpadPageGatesEachSectionOnItsDevice(t *testing.T) {
 	want := map[string]wmipc.DeviceClass{
 		"wm-section-pointer": wmipc.ClassPointer, "wm-section-touchpad": wmipc.ClassTouchpad,
 		"wm-section-gestures": wmipc.ClassTouchpad, "wm-section-trackpoint": wmipc.ClassTrackpoint,
+		"wm-section-touch-gestures": "",
 	}
 	got := map[string]wmipc.DeviceClass{}
 	for _, s := range wmPointerPage().sections {

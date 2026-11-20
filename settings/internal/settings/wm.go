@@ -624,8 +624,9 @@ func wmPointerPage() pageSpec {
 			"input.touchpad.left_handed", "input.touchpad.tap_button_map", "input.touchpad.scroll_button_lock", "input.touchpad.disabled_on_external_mouse")},
 		sectionSpec{title: "wm-section-gestures", hardware: wmipc.ClassTouchpad, rows: []rowSpec{
 			wmObjects("gestures.swipe", "fingers", "direction", "modifiers"), wmObjects("gestures.pinch", "fingers", "direction", "modifiers"),
-			wmObjects("gestures.hold", "fingers", "modifiers"), wmField("gestures.distance"), wmField("gestures.edge_width"),
+			wmObjects("gestures.hold", "fingers", "modifiers"), wmField("gestures.distance"),
 		}},
+		sectionSpec{title: "wm-section-touch-gestures", rows: []rowSpec{touchGesturesRow(), wmField("gestures.edge_width", softPixels(4, 64))}},
 		sectionSpec{title: "wm-section-trackpoint", advanced: true, hardware: wmipc.ClassTrackpoint, rows: wmFields("input.trackpoint.natural_scroll", "input.trackpoint.middle_emulation", "input.trackpoint.scroll_method", "input.trackpoint.accel_profile", "input.trackpoint.accel_speed", "input.trackpoint.scroll_factor",
 			"input.trackpoint.left_handed", "input.trackpoint.tap", "input.trackpoint.tap_button_map", "input.trackpoint.drag_lock", "input.trackpoint.click_method",
 			"input.trackpoint.scroll_button_lock", "input.trackpoint.disable_while_typing", "input.trackpoint.disabled_on_external_mouse")},

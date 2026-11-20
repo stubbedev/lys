@@ -1039,3 +1039,48 @@ wm-scroll-presets-pixels = Píxeles
 wm-scroll-presets-add = Añadir anchura
 wm-scroll-presets-add-width = Añadir una columna de { $width } de ancho
 wm-scroll-presets-remove = Quitar esta anchura
+wm-section-touch-gestures = Gestos de pantalla táctil
+    .description = Deslizamientos en una pantalla táctil y lo que hacen
+wm-gestures-touch = Deslizamientos táctiles
+    .description = Deslizar desde un borde, o con tres o más dedos en cualquier parte de la pantalla
+wm-gestures-touch-add = Añadir deslizamiento táctil
+wm-gestures-touch-start = Empieza
+wm-gestures-touch-does = Hace
+wm-gestures-touch-fingers-anywhere = Dedos en cualquier parte
+wm-gestures-touch-fingers = Dedos
+wm-gestures-touch-direction = Dirección
+wm-gestures-touch-run = Ejecutar una acción
+wm-gestures-touch-follow = Seguir los dedos
+wm-gestures-touch-edge-title = { $edge ->
+        [top] Deslizar desde el borde superior
+        [bottom] Deslizar desde el borde inferior
+        [left] Deslizar desde el borde izquierdo
+        [right] Deslizar desde el borde derecho
+       *[other] Deslizar desde un borde
+    }
+wm-gestures-touch-fingers-title = { $direction ->
+        [left] Deslizar con { $fingers } dedos a la izquierda
+        [right] Deslizar con { $fingers } dedos a la derecha
+        [up] Deslizar con { $fingers } dedos hacia arriba
+        [down] Deslizar con { $fingers } dedos hacia abajo
+        [horizontal] Deslizar con { $fingers } dedos de lado
+        [vertical] Deslizar con { $fingers } dedos hacia arriba o abajo
+        [any] Deslizar con { $fingers } dedos en cualquier dirección
+       *[other] Deslizar con { $fingers } dedos
+    }
+enum-wm-edge-top = Borde superior
+enum-wm-edge-bottom = Borde inferior
+enum-wm-edge-left = Borde izquierdo
+enum-wm-edge-right = Borde derecho
+enum-wm-direction-left = Izquierda
+enum-wm-direction-right = Derecha
+enum-wm-direction-up = Arriba
+enum-wm-direction-down = Abajo
+enum-wm-direction-horizontal = De lado
+enum-wm-direction-vertical = Arriba o abajo
+enum-wm-direction-any = Cualquier dirección
+enum-wm-drive-workspaces = Espacios de trabajo
+enum-wm-drive-overview = Vista general
+enum-wm-drive-view = Desplazar columnas
+enum-wm-drive-move = Mover ventana
+enum-wm-drive-resize = Redimensionar ventana

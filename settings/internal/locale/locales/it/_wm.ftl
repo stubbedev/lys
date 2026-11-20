@@ -1039,3 +1039,48 @@ wm-scroll-presets-pixels = Pixel
 wm-scroll-presets-add = Aggiungi larghezza
 wm-scroll-presets-add-width = Aggiungi una colonna larga { $width }
 wm-scroll-presets-remove = Rimuovi questa larghezza
+wm-section-touch-gestures = Gesti del touchscreen
+    .description = Gli scorrimenti su un touchscreen e cosa fanno
+wm-gestures-touch = Scorrimenti touch
+    .description = Scorrere dal bordo, o con tre o più dita in qualsiasi punto dello schermo
+wm-gestures-touch-add = Aggiungi scorrimento touch
+wm-gestures-touch-start = Inizia
+wm-gestures-touch-does = Fa
+wm-gestures-touch-fingers-anywhere = Dita ovunque
+wm-gestures-touch-fingers = Dita
+wm-gestures-touch-direction = Direzione
+wm-gestures-touch-run = Esegui un'azione
+wm-gestures-touch-follow = Segui le dita
+wm-gestures-touch-edge-title = { $edge ->
+        [top] Scorri dal bordo superiore
+        [bottom] Scorri dal bordo inferiore
+        [left] Scorri dal bordo sinistro
+        [right] Scorri dal bordo destro
+       *[other] Scorri da un bordo
+    }
+wm-gestures-touch-fingers-title = { $direction ->
+        [left] Scorri con { $fingers } dita a sinistra
+        [right] Scorri con { $fingers } dita a destra
+        [up] Scorri con { $fingers } dita in alto
+        [down] Scorri con { $fingers } dita in basso
+        [horizontal] Scorri con { $fingers } dita di lato
+        [vertical] Scorri con { $fingers } dita in alto o in basso
+        [any] Scorri con { $fingers } dita in ogni direzione
+       *[other] Scorri con { $fingers } dita
+    }
+enum-wm-edge-top = Bordo superiore
+enum-wm-edge-bottom = Bordo inferiore
+enum-wm-edge-left = Bordo sinistro
+enum-wm-edge-right = Bordo destro
+enum-wm-direction-left = Sinistra
+enum-wm-direction-right = Destra
+enum-wm-direction-up = Su
+enum-wm-direction-down = Giù
+enum-wm-direction-horizontal = Di lato
+enum-wm-direction-vertical = Su o giù
+enum-wm-direction-any = Ogni direzione
+enum-wm-drive-workspaces = Spazi di lavoro
+enum-wm-drive-overview = Panoramica
+enum-wm-drive-view = Scorri le colonne
+enum-wm-drive-move = Sposta la finestra
+enum-wm-drive-resize = Ridimensiona la finestra

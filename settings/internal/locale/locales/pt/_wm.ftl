@@ -1035,3 +1035,48 @@ wm-scroll-presets-pixels = Píxeis
 wm-scroll-presets-add = Adicionar largura
 wm-scroll-presets-add-width = Adicionar uma coluna com { $width } de largura
 wm-scroll-presets-remove = Remover esta largura
+wm-section-touch-gestures = Gestos do ecrã tátil
+    .description = Deslizes num ecrã tátil e o que fazem
+wm-gestures-touch = Deslizes táteis
+    .description = Deslizar a partir de uma margem, ou com três ou mais dedos em qualquer parte do ecrã
+wm-gestures-touch-add = Adicionar deslize tátil
+wm-gestures-touch-start = Começa
+wm-gestures-touch-does = Faz
+wm-gestures-touch-fingers-anywhere = Dedos em qualquer parte
+wm-gestures-touch-fingers = Dedos
+wm-gestures-touch-direction = Direção
+wm-gestures-touch-run = Executar uma ação
+wm-gestures-touch-follow = Seguir os dedos
+wm-gestures-touch-edge-title = { $edge ->
+        [top] Deslizar a partir da margem superior
+        [bottom] Deslizar a partir da margem inferior
+        [left] Deslizar a partir da margem esquerda
+        [right] Deslizar a partir da margem direita
+       *[other] Deslizar a partir de uma margem
+    }
+wm-gestures-touch-fingers-title = { $direction ->
+        [left] Deslizar com { $fingers } dedos para a esquerda
+        [right] Deslizar com { $fingers } dedos para a direita
+        [up] Deslizar com { $fingers } dedos para cima
+        [down] Deslizar com { $fingers } dedos para baixo
+        [horizontal] Deslizar com { $fingers } dedos para o lado
+        [vertical] Deslizar com { $fingers } dedos para cima ou para baixo
+        [any] Deslizar com { $fingers } dedos em qualquer sentido
+       *[other] Deslizar com { $fingers } dedos
+    }
+enum-wm-edge-top = Margem superior
+enum-wm-edge-bottom = Margem inferior
+enum-wm-edge-left = Margem esquerda
+enum-wm-edge-right = Margem direita
+enum-wm-direction-left = Esquerda
+enum-wm-direction-right = Direita
+enum-wm-direction-up = Cima
+enum-wm-direction-down = Baixo
+enum-wm-direction-horizontal = Para o lado
+enum-wm-direction-vertical = Cima ou baixo
+enum-wm-direction-any = Qualquer sentido
+enum-wm-drive-workspaces = Áreas de trabalho
+enum-wm-drive-overview = Vista geral
+enum-wm-drive-view = Deslocar as colunas
+enum-wm-drive-move = Mover a janela
+enum-wm-drive-resize = Redimensionar a janela

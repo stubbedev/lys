@@ -1037,3 +1037,48 @@ wm-scroll-presets-pixels = Pixel
 wm-scroll-presets-add = Breite hinzufügen
 wm-scroll-presets-add-width = Eine { $width } breite Spalte hinzufügen
 wm-scroll-presets-remove = Diese Breite entfernen
+wm-section-touch-gestures = Touchscreen-Gesten
+    .description = Wischgesten auf einem Touchscreen und was sie tun
+wm-gestures-touch = Wischgesten
+    .description = Vom Rand hinein wischen, oder mit drei oder mehr Fingern irgendwo auf dem Bildschirm
+wm-gestures-touch-add = Wischgeste hinzufügen
+wm-gestures-touch-start = Beginnt
+wm-gestures-touch-does = Bewirkt
+wm-gestures-touch-fingers-anywhere = Finger irgendwo
+wm-gestures-touch-fingers = Finger
+wm-gestures-touch-direction = Richtung
+wm-gestures-touch-run = Aktion ausführen
+wm-gestures-touch-follow = Den Fingern folgen
+wm-gestures-touch-edge-title = { $edge ->
+        [top] Vom oberen Rand hinein wischen
+        [bottom] Vom unteren Rand hinein wischen
+        [left] Vom linken Rand hinein wischen
+        [right] Vom rechten Rand hinein wischen
+       *[other] Von einem Rand hinein wischen
+    }
+wm-gestures-touch-fingers-title = { $direction ->
+        [left] Mit { $fingers } Fingern nach links wischen
+        [right] Mit { $fingers } Fingern nach rechts wischen
+        [up] Mit { $fingers } Fingern nach oben wischen
+        [down] Mit { $fingers } Fingern nach unten wischen
+        [horizontal] Mit { $fingers } Fingern seitwärts wischen
+        [vertical] Mit { $fingers } Fingern nach oben oder unten wischen
+        [any] Mit { $fingers } Fingern in jede Richtung wischen
+       *[other] Mit { $fingers } Fingern wischen
+    }
+enum-wm-edge-top = Oberer Rand
+enum-wm-edge-bottom = Unterer Rand
+enum-wm-edge-left = Linker Rand
+enum-wm-edge-right = Rechter Rand
+enum-wm-direction-left = Links
+enum-wm-direction-right = Rechts
+enum-wm-direction-up = Oben
+enum-wm-direction-down = Unten
+enum-wm-direction-horizontal = Seitwärts
+enum-wm-direction-vertical = Oben oder unten
+enum-wm-direction-any = Jede Richtung
+enum-wm-drive-workspaces = Arbeitsflächen
+enum-wm-drive-overview = Übersicht
+enum-wm-drive-view = Spalten scrollen
+enum-wm-drive-move = Fenster verschieben
+enum-wm-drive-resize = Fenstergröße ändern

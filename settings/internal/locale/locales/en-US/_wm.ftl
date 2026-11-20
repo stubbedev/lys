@@ -1039,3 +1039,48 @@ wm-scroll-presets-pixels = Pixels
 wm-scroll-presets-add = Add width
 wm-scroll-presets-add-width = Add a column { $width } wide
 wm-scroll-presets-remove = Remove this width
+wm-section-touch-gestures = Touchscreen gestures
+    .description = Swipes on a touchscreen and what they do
+wm-gestures-touch = Touch swipes
+    .description = Swipes in from an edge, or with three or more fingers anywhere on the screen
+wm-gestures-touch-add = Add touch swipe
+wm-gestures-touch-start = Starts
+wm-gestures-touch-does = Does
+wm-gestures-touch-fingers-anywhere = Fingers anywhere
+wm-gestures-touch-fingers = Fingers
+wm-gestures-touch-direction = Direction
+wm-gestures-touch-run = Run an action
+wm-gestures-touch-follow = Follow the fingers
+wm-gestures-touch-edge-title = { $edge ->
+        [top] Swipe in from the top edge
+        [bottom] Swipe in from the bottom edge
+        [left] Swipe in from the left edge
+        [right] Swipe in from the right edge
+       *[other] Swipe in from an edge
+    }
+wm-gestures-touch-fingers-title = { $direction ->
+        [left] { $fingers }-finger swipe left
+        [right] { $fingers }-finger swipe right
+        [up] { $fingers }-finger swipe up
+        [down] { $fingers }-finger swipe down
+        [horizontal] { $fingers }-finger swipe sideways
+        [vertical] { $fingers }-finger swipe up or down
+        [any] { $fingers }-finger swipe any way
+       *[other] { $fingers }-finger swipe
+    }
+enum-wm-edge-top = Top edge
+enum-wm-edge-bottom = Bottom edge
+enum-wm-edge-left = Left edge
+enum-wm-edge-right = Right edge
+enum-wm-direction-left = Left
+enum-wm-direction-right = Right
+enum-wm-direction-up = Up
+enum-wm-direction-down = Down
+enum-wm-direction-horizontal = Sideways
+enum-wm-direction-vertical = Up or down
+enum-wm-direction-any = Any way
+enum-wm-drive-workspaces = Workspaces
+enum-wm-drive-overview = Overview
+enum-wm-drive-view = Scroll columns
+enum-wm-drive-move = Move window
+enum-wm-drive-resize = Resize window
