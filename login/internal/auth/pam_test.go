@@ -33,6 +33,7 @@ type fakePAM struct {
 	permit        bool
 	changeBatches [][]pamMessage
 	chauthtokRC   int32
+	acctBatches   [][]pamMessage
 }
 
 func (f *fakePAM) start(service, user string, converse func([]pamMessage) ([]pamReply, int32)) (pamTxn, error) {
@@ -77,6 +78,11 @@ func (t *fakeTxn) authenticate() int32 {
 
 func (t *fakeTxn) acctMgmt() int32 {
 	t.f.calls = append(t.f.calls, "acct_mgmt")
+	for _, batch := range t.f.acctBatches {
+		if _, code := t.converse(batch); code != pamSuccess {
+			return pamConvErr
+		}
+	}
 	return t.f.acctRC
 }
 

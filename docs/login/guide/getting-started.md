@@ -10,6 +10,7 @@ lys-login is one binary with these modes:
 | `lys-login upgrade` | Moves the running daemon to a new build in place. |
 | `lys-login apply-config` | Changes the login screen from your session. |
 | `lys-login record-cursor` | Hands your session's cursor to the daemon for the next greeter. |
+| `lys-login check-pam` | Tells whether the lock can unlock you through a PAM service. |
 | `lys-login switch-user` | Locks the running sessions and shows a greeter for another user. |
 
 [Command line](/login/reference/cli) lists every flag.

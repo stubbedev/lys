@@ -9,6 +9,7 @@
 //	                 [-- <greet args...>]
 //	lys-login apply-config [--config PATH] <STAGED.yaml>
 //	lys-login record-cursor
+//	lys-login check-pam SERVICE
 //	lys-login switch-user
 //	lys-login upgrade [-- <daemon args...>]
 //
@@ -30,7 +31,9 @@
 // password. upgrade, run as root from the new build, moves the
 // running daemon to that build in place: its sessions keep running on the
 // workers they have, and a failure leaves the old daemon running and says
-// why.
+// why. check-pam tells whether the lock can unlock the user running it
+// through a PAM service, without a password: the service exists and its
+// account stack accepts the user; it authenticates nothing.
 package main
 
 import (
@@ -59,7 +62,7 @@ import (
 	"github.com/stubbedev/lys/login/internal/lock"
 )
 
-const usage = "usage: lys-login greet [options] [-- <session argv...>] | lys-login lock | lys-login daemon [options] [-- <greet args...>] | lys-login apply-config [--config PATH] <STAGED.yaml> | lys-login record-cursor | lys-login switch-user | lys-login upgrade [-- <daemon args...>]"
+const usage = "usage: lys-login greet [options] [-- <session argv...>] | lys-login lock | lys-login daemon [options] [-- <greet args...>] | lys-login apply-config [--config PATH] <STAGED.yaml> | lys-login record-cursor | lys-login check-pam SERVICE | lys-login switch-user | lys-login upgrade [-- <daemon args...>]"
 
 func init() { runtime.LockOSThread() }
 
@@ -95,6 +98,8 @@ func main() {
 		os.Exit(applyConfig(args))
 	case "record-cursor":
 		os.Exit(recordCursor(args))
+	case "check-pam":
+		os.Exit(checkPAM(args))
 	case "switch-user":
 		os.Exit(switchUser(args))
 	default:
@@ -265,6 +270,18 @@ func recordCursor(args []string) int {
 		return 1
 	}
 	fmt.Println("wrote", dest)
+	return 0
+}
+
+func checkPAM(args []string) int {
+	if len(args) != 1 {
+		fmt.Fprintf(os.Stderr, "lys-login check-pam: want one PAM service, got %d arguments\n", len(args))
+		return 2
+	}
+	if err := auth.CheckService(args[0], auth.CurrentUsername()); err != nil {
+		fmt.Fprintln(os.Stderr, "lys-login check-pam:", err)
+		return 1
+	}
 	return 0
 }
 

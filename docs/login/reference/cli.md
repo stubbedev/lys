@@ -96,6 +96,19 @@ Sends the session's cursor to the daemon and prints the file written. Exits 0
 without recording when the session names no cursor. See
 [Configuration](/login/guide/configuration#cursor).
 
+## lys-login check-pam
+
+```text
+lys-login check-pam SERVICE
+```
+
+Tells whether the lock can unlock you through the PAM service `SERVICE`,
+without asking for a password: the service is a file in `/etc/pam.d` or
+`/usr/lib/pam.d`, and its account stack accepts you. It authenticates nothing,
+so no failed attempt is counted. Exits 0 when it can, 1 with the reason when it
+cannot, and 2 on a usage error. lys-settings runs it before it saves
+`login.lock.pam-service`.
+
 ## lys-login switch-user
 
 ```text
