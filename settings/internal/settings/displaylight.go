@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"math"
 	"time"
 
@@ -207,13 +208,8 @@ var nightlightSwitch = switchSpec[bool]{
 		}
 		return ctl, nil
 	},
-	on: func(on bool) bool { return on },
-	words: func(_ *kit, on bool) string {
-		if on {
-			return locale.T().Get("settings-nightlight-is-on")
-		}
-		return locale.T().Get("settings-nightlight-is-off")
-	},
+	on:          func(on bool) bool { return on },
+	words:       func(k *kit, on bool) string { return nightlightWords(k, on, k.clock.Now()) },
 	label:       "settings-nightlight-now",
 	loading:     "settings-shell-asking",
 	unavailable: "settings-nightlight-unavailable",
@@ -221,6 +217,39 @@ var nightlightSwitch = switchSpec[bool]{
 }
 
 func nightlightNow(k *kit) widget.Widget { return newShellSwitch(k, nightlightSwitch) }
+
+// nightlightWords say whether the night light is on and, under a
+// schedule, until when a switch holds: a switch made now lasts until
+// the schedule's next change and the schedule then keeps it to the end
+// of the night.
+func nightlightWords(k *kit, on bool, now time.Time) string {
+	t := locale.T()
+	cfg := k.store.svc.Config().Nightlight
+	switch {
+	case !cfg.AutoSchedule && on:
+		return t.Get("settings-nightlight-is-on")
+	case !cfg.AutoSchedule:
+		return t.Get("settings-nightlight-is-off")
+	case cfg.Schedule == config.NightlightScheduleSun && on:
+		return t.Get("settings-nightlight-on-until-sunrise")
+	case cfg.Schedule == config.NightlightScheduleSun:
+		return t.Get("settings-nightlight-turn-on-until-sunrise")
+	}
+	morning := cfg.CustomHours.Hours().To()
+	end := morning.On(now)
+	if !end.After(now) {
+		end = morning.On(now.AddDate(0, 0, 1))
+	}
+	at, err := timeOfDayText(sessionTimeLocale(), k.store, end, now)
+	if err != nil {
+		at = morning.String()
+		log.Printf("settings: the night light's end as the clock shows it, showing %s: %v", at, err)
+	}
+	if on {
+		return t.Get("settings-nightlight-on-until", i18n.Str("time", at))
+	}
+	return t.Get("settings-nightlight-turn-on-until", i18n.Str("time", at))
+}
 
 var kelvin = withEditor(func(k *kit, s slot, _ config.FieldMeta) control { return newKelvinEditor(k, s) })
 
@@ -298,12 +327,11 @@ func kelvinTrack() []render.Color {
 	out := make([]render.Color, kelvinStops)
 	for i := range out {
 		temp := warmestKelvin + (coolestKelvin-warmestKelvin)*i/(kelvinStops-1)
-		tint, err := nightlight.NewSetting(temp, 100)
+		setting, err := nightlight.NewSetting(temp, 100)
 		if err != nil {
 			panic(fmt.Sprintf("settings: the night light slider's %dK: %v", temp, err))
 		}
-		m := tint.Matrix()
-		out[i] = render.RGB(channel(m[0]), channel(m[4]), channel(m[8]))
+		out[i] = tint(setting)
 	}
 	return out
 }

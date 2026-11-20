@@ -46,6 +46,8 @@ type shellSwitch[S any] struct {
 	toggle  *widget.Switch
 	status  *widget.Label
 	problem *widget.Label
+	state   S
+	known   bool
 	syncing bool
 	unread  bool
 	closed  bool
@@ -166,7 +168,16 @@ func (p *shellSwitch[S]) show(st S) {
 	p.toggle.SetEnabled(true)
 	p.toggle.SetOn(p.spec.on(st))
 	p.syncing = false
+	p.state, p.known = st, true
 	p.status.SetText(p.spec.words(p.k, st))
+}
+
+// configChanged says the state again, in words that may follow the
+// config.
+func (p *shellSwitch[S]) configChanged() {
+	if p.known {
+		p.status.SetText(p.spec.words(p.k, p.state))
+	}
 }
 
 func (p *shellSwitch[S]) close() {

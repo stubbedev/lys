@@ -4,6 +4,7 @@ import (
 	"log"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/geo"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/apptheme"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
@@ -59,13 +60,16 @@ type kit struct {
 	battery    *batteryPresence
 	bluetooth  func() (btControl, error)
 	// mailCount is how many messages a notmuch query matches.
-	mailCount    func(query string) (uint32, error)
-	dnd          func() (dndControl, error)
-	nightlight   func() (nightlightControl, error)
-	brightness   func() (brightnessControl, error)
-	vault        func() (vaultControl, error)
-	cameras      func() (cameraSource, func(), error)
-	screenShares func() (shareSource, func(), error)
+	mailCount  func(query string) (uint32, error)
+	dnd        func() (dndControl, error)
+	nightlight func() (nightlightControl, error)
+	// nightLocation is where lys-shell last found itself for the night
+	// light, fs.ErrNotExist before it ever did.
+	nightLocation func() (geo.Coordinates, error)
+	brightness    func() (brightnessControl, error)
+	vault         func() (vaultControl, error)
+	cameras       func() (cameraSource, func(), error)
+	screenShares  func() (shareSource, func(), error)
 	// i2c says which I2C buses there are and which this user may open.
 	i2c        func() i2cAccess
 	copySecret func(text string) error
