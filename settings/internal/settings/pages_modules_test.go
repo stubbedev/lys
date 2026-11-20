@@ -198,8 +198,8 @@ func TestThePrivacyPageLeadsToTheOnlineLyrics(t *testing.T) {
 	for _, b := range treetest.All[*widget.Button](footer) {
 		b.OnClick()
 	}
-	if !slices.Equal(opened, []string{"media"}) {
-		t.Errorf("the Privacy page's links opened %q", opened)
+	if !slices.Contains(opened, "media") {
+		t.Errorf("the Privacy page's links opened %q, not the Media page", opened)
 	}
 }
 

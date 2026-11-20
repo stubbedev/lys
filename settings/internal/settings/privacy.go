@@ -115,7 +115,11 @@ type grantsList struct {
 // whose ID it could not read.
 const unidentifiedApp = "[Invalid UTF-8]"
 
-var privacyLinks = []pageLink{{"media", "settings-privacy-link-media-detail"}}
+var privacyLinks = []pageLink{
+	{"lock", "settings-privacy-link-lock-detail"},
+	{"launcher-modes", "settings-privacy-link-launcher-detail"},
+	{"media", "settings-privacy-link-media-detail"},
+}
 
 func grantsFooter(k *kit) widget.Widget {
 	t := locale.T()

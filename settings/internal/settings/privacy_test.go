@@ -396,3 +396,20 @@ func TestAGrantReadsAsWordsNotTheStoresValues(t *testing.T) {
 		t.Errorf("the value words are not translated, or an unknown value is lost: %q, %q", word("yes"), word("no,ask"))
 	}
 }
+
+func TestPrivacyLinksToWhatTheLockScreenShowsAndWhatFileSearchReads(t *testing.T) {
+	k := testKit(t, "")
+	k.nav = layout(k.store.svc.Config(), bothParts)
+	var opened []string
+	k.openPage = func(id string) { opened = append(opened, id) }
+	for _, b := range treetest.All[*widget.Button](linksSection(k, "settings-section-related", privacyLinks)) {
+		b.OnClick()
+	}
+	if !slices.Equal(opened, []string{"lock", "launcher-modes", "media"}) {
+		t.Errorf("the related links opened %q", opened)
+	}
+	k.nav = nil
+	if labels := treetest.Labels(linksSection(k, "settings-section-related", privacyLinks)); len(labels) != 0 {
+		t.Errorf("without the pages the links read %q", labels)
+	}
+}
