@@ -82,6 +82,7 @@ type Config struct {
 	Rules            []wm.Rule
 	Swallow          Swallow
 	Outputs          OutputRules
+	PrimaryOutput    *wm.OutputMatch
 	VirtualOutputs   []VirtualOutput
 	ColorManagement  bool
 	Tearing          bool
@@ -203,6 +204,7 @@ type Compositor struct {
 	seat               *seat.Seat
 	keyboards          []backend.KeyboardLEDs
 	deviceOutputs      map[string]wm.OutputMatch
+	primaryOutput      *wm.OutputMatch
 	devices            []backend.Device
 	leds               xkb.Locks
 	shell              *shell.Shell
@@ -512,6 +514,7 @@ func (c *Compositor) adopt(cfg Config, m binds.Map) {
 	c.adoptBinds(m)
 	c.virtualConfig = cfg.VirtualOutputs
 	c.deviceOutputs = cfg.DeviceOutputs
+	c.primaryOutput = cfg.PrimaryOutput
 	c.colorManagement = cfg.ColorManagement
 	c.clientHotkeys = cfg.ClientHotkeys
 	c.tearing, c.icons, c.inheritTimeout, c.holdBound = cfg.Tearing, cfg.Icons, cfg.InheritTimeout, cfg.HoldBound

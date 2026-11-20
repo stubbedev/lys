@@ -168,7 +168,9 @@ type OutputCapabilities struct {
 }
 
 // Output is a client's view of one entry of the outputs result.
-// Capabilities is nil from a lys-wm that predates them.
+// Capabilities is nil from a lys-wm that predates them. Primary marks the
+// output primary_output names; none is primary when it is unset or names
+// no connected output.
 type Output struct {
 	Name         string              `json:"name"`
 	Description  string              `json:"description"`
@@ -179,6 +181,7 @@ type Output struct {
 	Focused      bool                `json:"focused"`
 	Powered      bool                `json:"powered"`
 	Capabilities *OutputCapabilities `json:"capabilities,omitempty"`
+	Primary      bool                `json:"primary,omitempty"`
 }
 
 // Capability is one kind of input an input device sends.

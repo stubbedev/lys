@@ -180,6 +180,20 @@ which also tone-maps HDR clients on SDR outputs. Client ICC profiles must be
 matrix-shaper with one parametric, gamma or sRGB curve; others fail with
 `unsupported`.
 
+## primary_output {#primary_output}
+
+```yaml
+primary_output: desc:Dell Inc. DELL U2720Q
+```
+
+The output desktop shells treat as primary: lys-shell shows its OSD and
+notification popups there while their `monitor` is `"primary"`. A connector
+name or `desc:` plus the start of the EDID make, model and serial, as in an
+[`outputs`](#outputs) `match`; `"*"` is refused. One key, so one primary: when
+the text matches several outputs, the first placed one is primary. IPC
+[`outputs`](./ipc) marks it `primary`. Unset, or matching no placed output,
+nothing is primary and shells pick their own (lys-shell the first output).
+
 ## virtual_outputs {#virtual_outputs}
 
 In-memory outputs, created at startup and kept across reloads, for streaming a

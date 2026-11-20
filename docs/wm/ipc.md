@@ -71,6 +71,7 @@ does not know.
 | `zoom` | The zoom factor; absent at 1 |
 | `transform` | `90`, `flipped-270`, ...; absent when normal |
 | `mirror_of` | The output this one [mirrors](./config#outputs) |
+| `primary` | Present and true on the one output [`primary_output`](./config#primary_output) names: the first placed output it matches. No output has it while the key is unset or matches no placed output, and a mirror never does |
 | `capabilities` | What the output can do, whatever its rule asks: `hdr`, an HDR signal (the panel's EDID and the connector allow one and the renderer has the float targets HDR composites in); `vrr`, adaptive sync; `max_bitdepth`, `8` or `10`, the deepest frames its primary plane scans out. Every output takes every `transform`, as lys-wm rotates in its renderer |
 
 **`workspaces`**: open workspaces in ID order;

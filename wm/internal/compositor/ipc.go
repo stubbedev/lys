@@ -43,6 +43,7 @@ func (c *Compositor) Snapshot() ipc.Snapshot {
 		ReducedMotion:  c.animations.Reduced(),
 		ConfigProblems: ipc.ConfigProblems(c.configProblems),
 	}
+	primary := c.primary()
 	for _, o := range c.outputs {
 		b := o.Backend()
 		mode := b.State().Mode
@@ -63,6 +64,7 @@ func (c *Compositor) Snapshot() ipc.Snapshot {
 			Zoom:         c.ipcZoom(o),
 			Transform:    ipcTransform(o.Transform()),
 			Capabilities: c.capabilities[b],
+			Primary:      o == primary,
 		})
 	}
 	for _, m := range c.mirrors {

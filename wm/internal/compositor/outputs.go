@@ -713,3 +713,17 @@ func (i Insets) inset(r image.Rectangle) image.Rectangle {
 	}
 	return out
 }
+
+func (c *Compositor) primary() *output.Output {
+	if c.primaryOutput == nil {
+		return nil
+	}
+	i := slices.IndexFunc(c.outputs, func(o *output.Output) bool {
+		b := o.Backend()
+		return c.primaryOutput.Matches(b.Name(), b.Description())
+	})
+	if i < 0 {
+		return nil
+	}
+	return c.outputs[i]
+}

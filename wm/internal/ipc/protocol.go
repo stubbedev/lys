@@ -186,6 +186,7 @@ type Output struct {
 	Transform    string                   `json:"transform,omitempty"`
 	MirrorOf     string                   `json:"mirror_of,omitempty"`
 	Capabilities wmipc.OutputCapabilities `json:"capabilities"`
+	Primary      bool                     `json:"primary,omitempty"`
 }
 
 type Workspace struct {

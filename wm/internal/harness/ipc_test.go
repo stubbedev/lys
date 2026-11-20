@@ -462,3 +462,56 @@ func TestOutputsReportWhatEachCanDoWhateverTheConfigAsks(t *testing.T) {
 		t.Errorf("outputs %v, want HEADLESS-1 and PLAIN-1", caps)
 	}
 }
+
+func primaries(h *Harness) []string {
+	var out []string
+	for _, o := range query[[]wmipc.Output](h, wmipc.KindOutputs) {
+		if o.Primary {
+			out = append(out, o.Name)
+		}
+	}
+	return out
+}
+
+func awaitOutputEvent(t *testing.T, lines <-chan string, what string, want func(wmipc.Output) bool) {
+	t.Helper()
+	for {
+		var e struct {
+			Event  wmipc.EventKind `json:"event"`
+			Output json.RawMessage `json:"output"`
+		}
+		if err := json.Unmarshal([]byte(nextEvent(t, lines, what)), &e); err != nil {
+			t.Fatal(err)
+		}
+		var o wmipc.Output
+		if e.Event == wmipc.EventOutput && json.Unmarshal(e.Output, &o) == nil && want(o) {
+			return
+		}
+	}
+}
+
+func TestOutputsReportThePrimaryOutputTheConfigNames(t *testing.T) {
+	t.Parallel()
+	var cfg compositor.Config
+	h := StartWith(t, func(c *compositor.Config) {
+		c.PrimaryOutput = &wm.OutputMatch{Name: "HEADLESS-2"}
+		cfg = *c
+	}, small, small)
+	if got := primaries(h); !slices.Equal(got, []string{"HEADLESS-2"}) {
+		t.Fatalf("primary outputs %v, want HEADLESS-2", got)
+	}
+	lines := h.watch()
+	cfg.PrimaryOutput = &wm.OutputMatch{Description: "Headless output"}
+	h.Do(func(_ *headless.Backend, c *compositor.Compositor) error { return c.Reconfigure(cfg) })
+	awaitOutputEvent(t, lines, "HEADLESS-1 turning primary", func(o wmipc.Output) bool { return o.Name == "HEADLESS-1" && o.Primary })
+	if got := primaries(h); !slices.Equal(got, []string{"HEADLESS-1"}) {
+		t.Errorf("with a description both outputs start with, primary outputs %v, want only the first, HEADLESS-1", got)
+	}
+	for _, m := range []*wm.OutputMatch{{Name: "DP-9"}, nil} {
+		cfg.PrimaryOutput = m
+		h.Do(func(_ *headless.Backend, c *compositor.Compositor) error { return c.Reconfigure(cfg) })
+		if got := primaries(h); len(got) != 0 {
+			t.Errorf("with primary_output %+v, primary outputs %v, want none", m, got)
+		}
+	}
+}

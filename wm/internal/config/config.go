@@ -127,6 +127,7 @@ type rawConfig struct {
 	HiddenFrameRate *At[int]                     `yaml:"hidden_frame_rate"`
 	PowerSaverRate  *At[int]                     `yaml:"power_saver_frame_rate"`
 	HoldOpening     bool                         `yaml:"hold_opening"`
+	PrimaryOutput   *At[string]                  `yaml:"primary_output"`
 	Outputs         []At[rawOutput]              `yaml:"outputs"`
 	VirtualOutputs  []At[rawVirtualOutput]       `yaml:"virtual_outputs"`
 	Input           rawInput                     `yaml:"input"`
@@ -735,6 +736,7 @@ type Config struct {
 	Input           session.InputConfig
 	Cursor          compositor.CursorBehavior
 	Outputs         compositor.OutputRules
+	PrimaryOutput   *wm.OutputMatch
 	VirtualOutputs  []compositor.VirtualOutput
 	ColorManagement bool
 	ClientHotkeys   bool
@@ -1257,9 +1259,10 @@ func (p *parser) mode(a *At[string], key string) compositor.ModePolicy {
 }
 
 const (
-	outputFallback = "*"
-	minLuminance   = 1
-	maxLuminance   = 10000
+	outputFallback   = "*"
+	outputDescPrefix = "desc:"
+	minLuminance     = 1
+	maxLuminance     = 10000
 )
 
 func (p *parser) output(i int, at At[rawOutput], corners compositor.HotCornerSet) compositor.OutputRule {
@@ -1270,11 +1273,12 @@ func (p *parser) output(i int, at At[rawOutput], corners compositor.HotCornerSet
 		p.fail(at.Line, key+".match", "is missing; give a connector name, desc:<description> or %q", outputFallback)
 		return rule
 	}
-	switch {
-	case r.Match.V == "":
+	switch r.Match.V {
+	case "":
 		p.fail(r.Match.Line, key+".match", "needs a connector name, desc:<description> or %q", outputFallback)
-	case r.Match.V != outputFallback:
-		rule.Match = outputMatch(r.Match.V)
+	case outputFallback:
+	default:
+		rule.Match, _ = p.namedOutput(*r.Match, key+".match")
 	}
 	if r.Mode != nil {
 		rule.Mode = p.mode(r.Mode, key+".mode")
@@ -1287,10 +1291,7 @@ func (p *parser) output(i int, at At[rawOutput], corners compositor.HotCornerSet
 		rule.Transform = &t
 	}
 	if r.Mirror != nil {
-		if r.Mirror.V == "" || r.Mirror.V == outputFallback {
-			p.fail(r.Mirror.Line, key+".mirror", "needs a connector name or desc:<description> of the output to show")
-		} else {
-			m := outputMatch(r.Mirror.V)
+		if m, ok := p.namedOutput(*r.Mirror, key+".mirror"); ok {
 			rule.Mirror = &m
 		}
 	}
@@ -1555,14 +1556,14 @@ func (p *parser) deviceOutputs(devices map[string]rawNamedDevice) map[string]wm.
 		if a == nil {
 			continue
 		}
-		if a.V == "" {
-			p.fail(a.Line, fmt.Sprintf("input.devices.%q.output", name), "needs a connector name or desc:<description>")
+		m, ok := p.namedOutput(*a, fmt.Sprintf("input.devices.%q.output", name))
+		if !ok {
 			continue
 		}
 		if out == nil {
 			out = map[string]wm.OutputMatch{}
 		}
-		out[name] = outputMatch(a.V)
+		out[name] = m
 	}
 	return out
 }
@@ -2074,6 +2075,11 @@ func ParseLayers(accent render.Color, layers ...Layer) (Config, error) {
 		}
 		fallback, cfg.Outputs.Fallback = true, rule
 	}
+	if raw.PrimaryOutput != nil {
+		if m, ok := p.namedOutput(*raw.PrimaryOutput, "primary_output"); ok {
+			cfg.PrimaryOutput = &m
+		}
+	}
 	cfg.VirtualOutputs = p.virtualOutputs(raw.VirtualOutputs)
 	for i, b := range raw.Binds {
 		cfg.Binds = append(cfg.Binds, p.bind("", i, b, raw.Submaps))
@@ -2160,7 +2166,7 @@ func (c Config) Compositor(keymaps xkb.Keymaps, font *gtext.Typeface) (composito
 	cfg.DeviceOutputs = c.DeviceOutputs
 	cfg.CursorBehavior = c.Cursor
 	cfg.WM, cfg.Binds, cfg.Decor, cfg.Rules, cfg.Outputs, cfg.Tearing = c.WM, b, c.Decor, c.Rules, c.Outputs, c.Tearing
-	cfg.VirtualOutputs = c.VirtualOutputs
+	cfg.VirtualOutputs, cfg.PrimaryOutput = c.VirtualOutputs, c.PrimaryOutput
 	cfg.ColorManagement = c.ColorManagement
 	cfg.ClientHotkeys = c.ClientHotkeys
 	cfg.HiddenFrame, cfg.HoldOpening = c.HiddenFrame, c.HoldOpening
@@ -2185,11 +2191,16 @@ func (c Config) Compositor(keymaps xkb.Keymaps, font *gtext.Typeface) (composito
 	return cfg, nil
 }
 
-func outputMatch(text string) wm.OutputMatch {
-	if desc, ok := strings.CutPrefix(text, "desc:"); ok {
-		return wm.OutputMatch{Description: desc}
+func (p *parser) namedOutput(a At[string], key string) (wm.OutputMatch, bool) {
+	desc, byDesc := strings.CutPrefix(a.V, outputDescPrefix)
+	switch {
+	case byDesc && desc != "":
+		return wm.OutputMatch{Description: desc}, true
+	case byDesc || a.V == "" || a.V == outputFallback:
+		p.fail(a.Line, key, "%q needs a connector name or %s<description>", a.V, outputDescPrefix)
+		return wm.OutputMatch{}, false
 	}
-	return wm.OutputMatch{Name: text}
+	return wm.OutputMatch{Name: a.V}, true
 }
 
 func (p *parser) match(m rawMatch, key string) wm.Match {
@@ -2227,11 +2238,9 @@ func (p *parser) placement(r rawRule, key string, d wm.Decision) wm.Decision {
 		}
 	}
 	if r.Output != nil {
-		if r.Output.V == "" {
-			p.fail(r.Output.Line, key+".output", "needs a connector name or desc:<description>")
+		if m, ok := p.namedOutput(*r.Output, key+".output"); ok {
+			d.Output = &m
 		}
-		m := outputMatch(r.Output.V)
-		d.Output = &m
 	}
 	if r.Position != nil {
 		switch r.Position.V {
@@ -2440,8 +2449,9 @@ func (p *parser) workspaceRules(raw []At[rawWorkspaceRule], globalGaps wm.Gaps) 
 			rule.Name = r.Name.V
 		}
 		if r.Output != nil {
-			m := outputMatch(r.Output.V)
-			rule.Bind = &m
+			if m, ok := p.namedOutput(*r.Output, key+".output"); ok {
+				rule.Bind = &m
+			}
 		}
 		if r.Default && r.Output == nil {
 			p.fail(at.Line, key+".default", "needs output, the output that shows it first")

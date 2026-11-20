@@ -1526,6 +1526,30 @@ func TestADeviceOutputParsesIntoAnOutputMatch(t *testing.T) {
 	}
 }
 
+func TestPrimaryOutputNamesOneOutput(t *testing.T) {
+	for text, want := range map[string]*wm.OutputMatch{
+		"primary_output: DP-1\n":               {Name: "DP-1"},
+		"primary_output: \"desc:Dell Inc.\"\n": {Description: "Dell Inc."},
+		"tearing: false\n":                     nil,
+	} {
+		if got := compositorOf(t, text).PrimaryOutput; !reflect.DeepEqual(got, want) {
+			t.Errorf("%q: primary output %+v, want %+v", text, got, want)
+		}
+	}
+	for _, text := range []string{
+		"primary_output: \"\"\n",
+		"primary_output: \"*\"\n",
+		"primary_output: \"desc:\"\n",
+	} {
+		if _, err := Parse("t.yaml", []byte(text)); err == nil || !strings.Contains(err.Error(), "t.yaml:1: primary_output:") || !strings.Contains(err.Error(), "needs a connector name or desc:<description>") {
+			t.Errorf("%q: %v, want it refused as naming no output", text, err)
+		}
+	}
+	if _, err := Parse("t.yaml", []byte("primary_output: [DP-1, HDMI-A-1]\n")); err == nil {
+		t.Error("two primary outputs parse")
+	}
+}
+
 func TestBindFlagsDescriptionsAndModifierTaps(t *testing.T) {
 	cfg := compositorOf(t, `binds:
   - {chord: SUPER, action: exec launcher, description: Open the launcher}

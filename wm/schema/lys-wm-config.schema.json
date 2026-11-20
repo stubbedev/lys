@@ -5416,6 +5416,9 @@
       "minimum": 0,
       "default": 60
     },
+    "primary_output": {
+      "type": "string"
+    },
     "rules": {
       "type": "array",
       "items": {
