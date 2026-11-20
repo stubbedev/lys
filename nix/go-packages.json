@@ -3592,6 +3592,19 @@
       "lib/testhome"
     ]
   },
+  "shell/service/sleepreport": {
+    "imports": [
+      "desktop/i18n",
+      "lib/third_party/godbus",
+      "power/sleep",
+      "shell/service/powerprop"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/testhome",
+      "lib/waittest"
+    ]
+  },
   "shell/service/sni": {
     "imports": [
       "desktop/feed",
@@ -3808,6 +3821,7 @@
       "shell/service/screenshare",
       "shell/service/sharepreview",
       "shell/service/shellipc",
+      "shell/service/sleepreport",
       "shell/service/sni",
       "shell/service/sounds",
       "shell/service/sysinfo",
