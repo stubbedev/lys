@@ -51,7 +51,7 @@ func LookOf(cfg *config.Config) Look {
 func (l Look) CSS() string {
 	var css strings.Builder
 	if font := strings.TrimSpace(l.Font); font != "" {
-		fmt.Fprintf(&css, ".launcher-surface { %s }\n", fontProperties(font))
+		fmt.Fprintf(&css, ".launcher-panel { %s }\n", fontProperties(font))
 	}
 	css.WriteString(l.Style)
 	if strings.TrimSpace(css.String()) == "" {

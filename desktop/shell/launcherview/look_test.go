@@ -1,10 +1,15 @@
 package launcherview
 
 import (
+	"math"
 	"strings"
 	"testing"
 
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/ui/widget"
+
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/shell/treetest"
 )
 
 func TestLookOfIsWhatTheLauncherSectionSets(t *testing.T) {
@@ -31,7 +36,7 @@ func TestALooksCSSIsItsFontThenItsStyle(t *testing.T) {
 		t.Error("a blank font made a stylesheet")
 	}
 	css := Look{Font: "Inter 12"}.CSS()
-	if !strings.Contains(css, `font-family: "Inter"`) || !strings.Contains(css, "font-size: 12pt") || !strings.HasPrefix(css, ".launcher-surface {") {
+	if !strings.Contains(css, `font-family: "Inter"`) || !strings.Contains(css, "font-size: 12pt") || !strings.HasPrefix(css, ".launcher-panel {") {
 		t.Errorf("font css = %q (a preset must not reach the rest of the shell)", css)
 	}
 	if got := (Look{Style: ".launcher-row { padding: 0; }"}).CSS(); got != ".launcher-row { padding: 0; }" {
@@ -40,6 +45,25 @@ func TestALooksCSSIsItsFontThenItsStyle(t *testing.T) {
 	both := Look{Font: "Inter 12", Style: ".launcher-row { padding: 0; }"}.CSS()
 	if !strings.Contains(both, `font-family: "Inter"`) || !strings.HasSuffix(both, ".launcher-row { padding: 0; }") {
 		t.Errorf("font and preset = %q", both)
+	}
+}
+
+func TestALooksFontReachesThePanelsLabels(t *testing.T) {
+	face := treetest.Font(t)
+	rowPx := func(look Look) float64 {
+		s := testSession(t, look)
+		s.SetRows(1)
+		still := NewStill(s)
+		if sheet, ok := look.Stylesheet(0); ok {
+			still.AttachStylesheet(sheet)
+		}
+		widget.SizeWithin(still, widget.Size{W: 1200, H: 800})
+		still.Arrange(render.Rect{W: 1200, H: 800})
+		return treetest.RenderedTextPx(treetest.LabelReading(t, still, "row 0"), face)
+	}
+	plain := rowPx(Look{Width: 500, Lines: 3})
+	if got := rowPx(Look{Width: 500, Lines: 3, Font: "Sans 40px"}); math.Abs(got-40) > 1 {
+		t.Errorf("a 40px launcher font renders a row at %.1fpx, at %.1fpx without one", got, plain)
 	}
 }
 
