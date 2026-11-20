@@ -11,7 +11,6 @@ import (
 
 // The endpoints; tests repoint them at a local server.
 var (
-	GeocodingURL      = "https://geocoding-api.open-meteo.com/v1/search"
 	OpenMeteoURL      = "https://api.open-meteo.com/v1/forecast"
 	VisualCrossingURL = "https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline"
 	WeatherAPIURL     = "https://api.weatherapi.com/v1/forecast.json"

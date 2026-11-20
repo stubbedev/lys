@@ -127,7 +127,7 @@ func LoadFile(path string) (*Config, error) {
 	if err != nil {
 		return Defaults(), err
 	}
-	tree = migrateLogin(tree)
+	tree = migrate(tree)
 	cfg := Defaults()
 	var diags []error
 	apply := &layerApply{kind: configLayer, sink: func(d Diagnostic) { diags = append(diags, d) }}

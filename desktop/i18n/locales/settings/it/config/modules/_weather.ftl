@@ -6,7 +6,7 @@ settings-modules-weather-provider = Provider
     .description = Provider dei dati meteo
 
 settings-modules-weather-location = Località
-    .description = Nome della città o coordinate "lat,lon"
+    .description = La città a cui si riferisce la previsione
 
 settings-modules-weather-units = Unità di temperatura
     .description = Metrico (Celsius) o imperiale (Fahrenheit)

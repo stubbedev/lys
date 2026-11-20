@@ -23,7 +23,7 @@ bar:
 | Field | Type | Default | Description |
 |---|---|---|---|
 | `provider` | [`WeatherProvider`](/shell/config/types#weather-provider) | `"open-meteo"` | Weather data provider. |
-| `location` | string | `"San Francisco"` | Location for weather data (city name or "lat,lon" coordinates). |
+| `location` | [`Place`](/shell/config/types#place) | `{...}` | Where the forecast is for: `name` as shown, `latitude` and `longitude`. |
 | `units` | [`TemperatureUnit`](/shell/config/types#temperature-unit) | `"metric"` | Temperature unit. |
 | `format` | string | `"{{ temp }}{{ temp_unit }}"` | Format string for the label. |
 | `time-format` | [`TimeFormat`](/shell/config/types#time-format) | `"12h"` | Time display format for sunrise/sunset and hourly forecast. |
@@ -36,6 +36,14 @@ bar:
 | `tooltip` | bool | `true` | Show the module's state in a tooltip on hover. |
 | `label-show` | bool | `true` | Display temperature label. |
 | `label-max-length` | u32 | `0` | Max label characters before truncation with ellipsis. Set to 0 to disable. |
+
+::: details More about `location`
+
+The former `"latitude,longitude"` string still reads, as a place
+without a name; a city name alone is refused, since looking it up
+picked the first of every place with that name.
+
+:::
 
 ::: details More about `format`
 
@@ -85,7 +93,10 @@ bar:
 modules:
   weather:
     provider: open-meteo
-    location: San Francisco
+    location:
+      latitude: 37.7749
+      longitude: -122.4194
+      name: San Francisco
     units: metric
     format: '{{ temp }}{{ temp_unit }}'
     time-format: 12h

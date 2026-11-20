@@ -4,12 +4,11 @@ import (
 	"context"
 	"errors"
 	"log"
-	"strconv"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/stubbedev/lys/desktop/feed"
+	"github.com/stubbedev/lys/desktop/geo"
 )
 
 // Settings is everything a poll depends on (the builder's fields and
@@ -18,22 +17,9 @@ import (
 type Settings struct {
 	Interval          time.Duration
 	Provider          ProviderKind
-	Location          LocationQuery
+	Location          geo.Place
 	VisualCrossingKey string
 	WeatherAPIKey     string
-}
-
-// ParseLocation reads "lat,lon" when both
-// halves are numbers, otherwise a city name.
-func ParseLocation(s string) LocationQuery {
-	if lat, lon, ok := strings.Cut(s, ","); ok {
-		la, err1 := strconv.ParseFloat(strings.TrimSpace(lat), 64)
-		lo, err2 := strconv.ParseFloat(strings.TrimSpace(lon), 64)
-		if err1 == nil && err2 == nil {
-			return Coords(la, lo)
-		}
-	}
-	return City(s)
 }
 
 // StatusKind is the fetch lifecycle.
@@ -46,13 +32,12 @@ const (
 	Failed
 )
 
-// Status is the lifecycle with the failure of Failed: its category,
-// the provider missing a key, and the location that did not resolve.
+// Status is the lifecycle with the failure of Failed: its category and
+// the provider missing a key.
 type Status struct {
 	Kind     StatusKind
 	Error    ErrorKind
 	Provider string
-	Query    string
 }
 
 // retry policy.
@@ -215,7 +200,7 @@ func (s *Service) publish(ctx context.Context, weather *Weather, err error) {
 func failedStatus(err error) Status {
 	st := Status{Kind: Failed, Error: ErrOther}
 	if e, ok := errors.AsType[*Error](err); ok {
-		st.Error, st.Provider, st.Query = e.Kind, e.Provider, e.Query
+		st.Error, st.Provider = e.Kind, e.Provider
 	}
 	return st
 }
@@ -249,25 +234,20 @@ func retryDelay(err error, attempt int) time.Duration {
 	return initialRetryDelay << (attempt - 1)
 }
 
-// fetchWeather resolves the location and fetches from the configured
-// provider; a keyed provider without its key is ErrAPIKeyMissing.
+// fetchWeather fetches from the configured provider; a keyed provider
+// without its key is ErrAPIKeyMissing.
 func fetchWeather(ctx context.Context, s Settings, now time.Time) (*Weather, error) {
-	resolved, err := resolve(ctx, s.Location)
-	if err != nil {
-		log.Printf("weather: cannot resolve location: %v", err)
-		return nil, err
-	}
 	switch s.Provider {
 	case VisualCrossing:
 		if s.VisualCrossingKey == "" {
 			return nil, apiKeyMissing(visualCrossingProvider)
 		}
-		return fetchVisualCrossing(ctx, s.VisualCrossingKey, s.Location, resolved, now)
+		return fetchVisualCrossing(ctx, s.VisualCrossingKey, s.Location, now)
 	case WeatherAPI:
 		if s.WeatherAPIKey == "" {
 			return nil, apiKeyMissing(weatherAPIProvider)
 		}
-		return fetchWeatherAPI(ctx, s.WeatherAPIKey, s.Location, resolved, now)
+		return fetchWeatherAPI(ctx, s.WeatherAPIKey, s.Location, now)
 	}
-	return fetchOpenMeteo(ctx, resolved, now)
+	return fetchOpenMeteo(ctx, s.Location, now)
 }

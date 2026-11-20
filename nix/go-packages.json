@@ -24,6 +24,7 @@
   "desktop/config": {
     "imports": [
       "desktop/compositor",
+      "desktop/geo",
       "desktop/glob",
       "desktop/i18n",
       "desktop/identity",
@@ -84,6 +85,7 @@
       "lib/waittest"
     ]
   },
+  "desktop/geo": {},
   "desktop/glob": {},
   "desktop/i18n": {
     "imports": [
@@ -2173,6 +2175,7 @@
       "desktop/compositor",
       "desktop/config",
       "desktop/desktopentry",
+      "desktop/geo",
       "desktop/i18n",
       "desktop/identity",
       "desktop/imagedecode",
@@ -2934,6 +2937,7 @@
   },
   "shell/service/nightlight": {
     "imports": [
+      "desktop/geo",
       "desktop/identity",
       "desktop/service/nightlight/nightschedule",
       "lib/atomicfile",
@@ -3176,7 +3180,8 @@
   },
   "shell/service/weather": {
     "imports": [
-      "desktop/feed"
+      "desktop/feed",
+      "desktop/geo"
     ],
     "testImports": [
       "lib/waittest"
@@ -3189,6 +3194,7 @@
       "desktop/desktopentry",
       "desktop/feed",
       "desktop/fileuri",
+      "desktop/geo",
       "desktop/glob",
       "desktop/i18n",
       "desktop/identity",
@@ -3204,7 +3210,6 @@
       "desktop/service/network",
       "desktop/service/network/secrets",
       "desktop/service/network/vpntext",
-      "desktop/service/nightlight/nightschedule",
       "desktop/service/powerprofiles",
       "desktop/service/pulse",
       "desktop/service/recorder/devicechoice",

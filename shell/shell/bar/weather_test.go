@@ -94,7 +94,7 @@ func TestWorldClockDefaultsMatchSchema(t *testing.T) {
 	if cfg.WorldClock.Format != "{{ tz('UTC', '%H:%M %Z') }}" {
 		t.Errorf("format = %q", cfg.WorldClock.Format)
 	}
-	if cfg.Weather.Format != "{{ temp }}{{ temp_unit }}" || cfg.Weather.Location != "San Francisco" || cfg.Weather.RefreshIntervalSeconds != 1800 {
+	if cfg.Weather.Format != "{{ temp }}{{ temp_unit }}" || cfg.Weather.Location.Place().Name() != "San Francisco" || cfg.Weather.RefreshIntervalSeconds != 1800 {
 		t.Errorf("weather = %+v", cfg.Weather)
 	}
 	if cfg.Weather.Units != config.TemperatureUnitMetric {
@@ -146,7 +146,7 @@ func TestWeatherFormatLabel(t *testing.T) {
 
 func TestLoadFileAppliesWeatherAndWorldClock(t *testing.T) {
 	path := t.TempDir() + "/config.yaml"
-	good := "modules:\n  weather:\n    location: Oslo\n    units: imperial\n    refresh-interval-seconds: 60\n  world-clock:\n    format: \"{{ tz('Europe/Oslo', '%H:%M') }}\"\n"
+	good := "modules:\n  weather:\n    location:\n      name: Oslo\n      latitude: 59.91\n      longitude: 10.75\n    units: imperial\n    refresh-interval-seconds: 60\n  world-clock:\n    format: \"{{ tz('Europe/Oslo', '%H:%M') }}\"\n"
 	if err := osWrite(path, good); err != nil {
 		t.Fatal(err)
 	}
@@ -154,7 +154,7 @@ func TestLoadFileAppliesWeatherAndWorldClock(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadFile: %v", err)
 	}
-	if c.Weather.Location != "Oslo" || c.Weather.Units != config.TemperatureUnitImperial || c.Weather.RefreshIntervalSeconds != 60 {
+	if c.Weather.Location.Place().Name() != "Oslo" || c.Weather.Units != config.TemperatureUnitImperial || c.Weather.RefreshIntervalSeconds != 60 {
 		t.Errorf("weather = %+v", c.Weather)
 	}
 	if c.WorldClock.Format != "{{ tz('Europe/Oslo', '%H:%M') }}" {
@@ -164,6 +164,7 @@ func TestLoadFileAppliesWeatherAndWorldClock(t *testing.T) {
 	for _, bad := range []string{
 		"modules:\n  weather:\n    units: kelvin\n",
 		"modules:\n  weather:\n    refresh-interval-seconds: -1\n",
+		"modules:\n  weather:\n    location: Oslo\n",
 	} {
 		if err := osWrite(path, bad); err != nil {
 			t.Fatal(err)

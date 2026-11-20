@@ -9,16 +9,13 @@ settings-modules-nightlight-gamma = Gamma
     .description = Display gamma percentage when filter is enabled (0-200)
 
 settings-modules-nightlight-auto-schedule = Auto Schedule
-    .description = Ease the filter on at dusk and off at dawn. Follows civil dawn and dusk at the location GeoClue reports, or at the coordinates below when both are set
+    .description = Ease the filter on at dusk and off at dawn. Follows civil dawn and dusk at the location below
 
 settings-modules-nightlight-transition-duration = Transition
     .description = Length of the transition between day and night in minutes, 0 for an instant switch (0-120)
 
-settings-modules-nightlight-latitude = Latitude
-    .description = Latitude in decimal degrees (north positive, -90 to 90). Set with the longitude, it overrides GeoClue
-
-settings-modules-nightlight-longitude = Longitude
-    .description = Longitude in decimal degrees (east positive, -180 to 180). Set with the latitude, it overrides GeoClue
+settings-modules-nightlight-location = Location
+    .description = Where the schedule follows the sun: found automatically, or a city you pick
 
 settings-modules-nightlight-icon-off = Icon Off
     .description = Icon when filter is disabled

@@ -115,7 +115,7 @@ func TestMountMakesNoBlockingBusCallOnTheLoop(t *testing.T) {
 func keepWeatherLocal(t *testing.T) {
 	server := httptest.NewServer(http.NotFoundHandler())
 	t.Cleanup(server.Close)
-	endpoints := []*string{&weather.GeocodingURL, &weather.OpenMeteoURL, &weather.VisualCrossingURL, &weather.WeatherAPIURL}
+	endpoints := []*string{&weather.OpenMeteoURL, &weather.VisualCrossingURL, &weather.WeatherAPIURL}
 	for _, endpoint := range endpoints {
 		was := *endpoint
 		*endpoint = server.URL

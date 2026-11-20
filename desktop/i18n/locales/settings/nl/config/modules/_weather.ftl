@@ -2,7 +2,7 @@ settings-modules-weather-provider = Leverancier
     .description = Leverancier van weergegevens
 
 settings-modules-weather-location = Locatie
-    .description = Plaatsnaam of "lat,lon"-coördinaten
+    .description = De stad waarvoor de voorspelling geldt
 
 settings-modules-weather-units = Temperatuureenheid
     .description = Metrisch (Celsius) of imperiaal (Fahrenheit)

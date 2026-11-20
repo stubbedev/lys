@@ -9,16 +9,13 @@ settings-modules-nightlight-gamma = Gamma
     .description = Bildschirm-Gamma in Prozent bei aktivem Filter (0–200)
 
 settings-modules-nightlight-auto-schedule = Automatischer Zeitplan
-    .description = Den Filter in der Abenddämmerung sanft ein- und in der Morgendämmerung ausblenden. Folgt der bürgerlichen Dämmerung am von GeoClue gemeldeten Standort oder an den Koordinaten unten, wenn beide gesetzt sind
+    .description = Den Filter in der Abenddämmerung sanft ein- und in der Morgendämmerung ausblenden. Folgt der bürgerlichen Dämmerung am Ort unten
 
 settings-modules-nightlight-transition-duration = Übergang
     .description = Dauer des Übergangs zwischen Tag und Nacht in Minuten, 0 für sofortiges Umschalten (0–120)
 
-settings-modules-nightlight-latitude = Breitengrad
-    .description = Breitengrad in Dezimalgrad (Norden positiv, -90 bis 90). Zusammen mit dem Längengrad überschreibt er GeoClue
-
-settings-modules-nightlight-longitude = Längengrad
-    .description = Längengrad in Dezimalgrad (Osten positiv, -180 bis 180). Zusammen mit dem Breitengrad überschreibt er GeoClue
+settings-modules-nightlight-location = Ort
+    .description = Wo der Zeitplan der Sonne folgt: automatisch ermittelt oder eine gewählte Stadt
 
 settings-modules-nightlight-icon-off = Symbol für aus
     .description = Symbol, wenn der Filter deaktiviert ist

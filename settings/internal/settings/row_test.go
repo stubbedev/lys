@@ -44,7 +44,7 @@ func TestRowSaysWhyAValueWasRefused(t *testing.T) {
 
 func TestTextCommitsWhenItLosesTheKeys(t *testing.T) {
 	k := testKit(t, "")
-	const path = "modules.weather.location"
+	const path = "modules.screenshot.label"
 	entry := newText(k, pathSlot(k.store, path), false)
 	other := widget.NewSwitch(false)
 	root := widget.NewBox(widget.Column, 0, 0)

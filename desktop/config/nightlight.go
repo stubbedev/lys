@@ -1,8 +1,6 @@
 package config
 
 import (
-	"errors"
-
 	"github.com/stubbedev/lys/desktop/service/nightlight/nightschedule"
 )
 
@@ -37,9 +35,8 @@ type NightlightConfig struct {
 	// Transitions are centered on civil dawn and dusk (sun 6 degrees below the
 	// horizon). During polar day or night the filter stays off or on.
 	//
-	// The location is `latitude` and `longitude` when both are set (0, 0
-	// counts as unset), otherwise GeoClue's, whose last fix is kept in the
-	// state directory. Without a usable location the schedule does not run;
+	// The location is `location`: a pinned place, or with `"auto"` GeoClue's
+	// fix, the last of which is kept in the state directory. Without a usable location the schedule does not run;
 	// the tooltip and the log say why.
 	//
 	// When no GeoClue agent runs, lys-shell registers as one during the
@@ -54,7 +51,7 @@ type NightlightConfig struct {
 	//
 	// When GeoClue answers but finds no fix, it has no source that can place
 	// the machine: set `url` under `[wifi]`, describe the location in
-	// `/etc/geolocation`, or set `latitude` and `longitude`.
+	// `/etc/geolocation`, or pin a place in `location`.
 	//
 	// A manual click cancels a running transition, applies at once, and holds
 	// until the next transition begins.
@@ -62,14 +59,13 @@ type NightlightConfig struct {
 	// Length of the transition between day and night, in whole minutes, centered
 	// on civil dawn or dusk. 0 switches at once. Range: 0-120.
 	TransitionDuration NightlightTransition `cfg:"transition-duration"`
-	// Latitude for the schedule, in decimal degrees (north positive). Range: -90
-	// to 90. Unset uses GeoClue. Set together with `longitude`, it overrides
-	// GeoClue. Only used when `auto-schedule` is on.
-	Latitude *float64 `cfg:"latitude"`
-	// Longitude for the schedule, in decimal degrees (east positive). Range:
-	// -180 to 180. Unset uses GeoClue. Set together with `latitude`, it overrides
-	// GeoClue. Only used when `auto-schedule` is on.
-	Longitude *float64 `cfg:"longitude"`
+	// Where the schedule follows the sun: `"auto"` asks GeoClue, a place
+	// (`name`, `latitude`, `longitude`) pins it. Only used when
+	// `auto-schedule` is on.
+	//
+	// The former `latitude` and `longitude` keys still read, as a place
+	// without a name; 0, 0 among them is taken as unset.
+	Location AutoPlace `cfg:"location"`
 	// Icon when filter is disabled (showing normal daylight colors).
 	IconOff string `cfg:"icon-off"`
 	// Icon when filter is enabled (showing warm night colors).
@@ -114,6 +110,7 @@ func DefaultsNightlight() NightlightConfig {
 		Gamma:              100,
 		AutoSchedule:       false,
 		TransitionDuration: mustNightlightTransition(15),
+		Location:           AutoPlace{},
 		IconOff:            "ld-sun-symbolic",
 		IconOn:             "ld-moon-symbolic",
 		BorderShow:         false,
@@ -137,24 +134,6 @@ func DefaultsNightlight() NightlightConfig {
 // Clicks returns the five input bindings.
 func (c NightlightConfig) Clicks() ClickConfig {
 	return ClickConfig{c.LeftClick, c.RightClick, c.MiddleClick, c.ScrollUp, c.ScrollDown}
-}
-
-// PinnedLocation is the position latitude and longitude name: false with
-// neither set, and an error with only one set, off the globe, or at 0, 0
-// (nightlight.ErrNullIsland), which older default configs still spell
-// out.
-func (c NightlightConfig) PinnedLocation() (nightschedule.Location, bool, error) {
-	if c.Latitude == nil && c.Longitude == nil {
-		return nightschedule.Location{}, false, nil
-	}
-	if c.Latitude == nil || c.Longitude == nil {
-		return nightschedule.Location{}, false, errors.New("nightlight: set both latitude and longitude, or neither")
-	}
-	loc, err := nightschedule.NewLocation(*c.Latitude, *c.Longitude)
-	if err != nil {
-		return nightschedule.Location{}, false, err
-	}
-	return loc, true, nil
 }
 
 // NightlightTransition is the ease's length, refused at load outside

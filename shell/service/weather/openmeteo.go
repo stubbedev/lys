@@ -6,6 +6,8 @@ import (
 	"net/url"
 	"strconv"
 	"time"
+
+	"github.com/stubbedev/lys/desktop/geo"
 )
 
 const openMeteoProvider = "open-meteo"
@@ -65,10 +67,11 @@ type openMeteoDaily struct {
 
 // fetchOpenMeteo fetches from Open-Meteo: metric units, the location's own
 // timezone, seven days.
-func fetchOpenMeteo(ctx context.Context, resolved Location, now time.Time) (*Weather, error) {
+func fetchOpenMeteo(ctx context.Context, place geo.Place, now time.Time) (*Weather, error) {
+	at := place.Coordinates()
 	query := url.Values{
-		"latitude":         {strconv.FormatFloat(resolved.Lat, 'f', -1, 64)},
-		"longitude":        {strconv.FormatFloat(resolved.Lon, 'f', -1, 64)},
+		"latitude":         {strconv.FormatFloat(at.Latitude(), 'f', -1, 64)},
+		"longitude":        {strconv.FormatFloat(at.Longitude(), 'f', -1, 64)},
 		"hourly":           {openMeteoHourlyParams},
 		"daily":            {openMeteoDailyParams},
 		"temperature_unit": {"celsius"},
@@ -80,12 +83,12 @@ func fetchOpenMeteo(ctx context.Context, resolved Location, now time.Time) (*Wea
 	if err := getJSON(ctx, openMeteoProvider, OpenMeteoURL, query, false, &data); err != nil {
 		return nil, err
 	}
-	return parseOpenMeteo(&data, resolved, now)
+	return parseOpenMeteo(&data, place, now)
 }
 
 // parseOpenMeteo builds the model: the current conditions are the
 // hour in progress, the hourly forecast the 24 hours from it.
-func parseOpenMeteo(data *openMeteoResponse, resolved Location, now time.Time) (*Weather, error) {
+func parseOpenMeteo(data *openMeteoResponse, place geo.Place, now time.Time) (*Weather, error) {
 	zone := time.FixedZone(data.Timezone, data.UTCOffsetSeconds)
 	h := &data.Hourly
 	start := currentHourIndex(h.Time, now, zone)
@@ -109,7 +112,7 @@ func parseOpenMeteo(data *openMeteoResponse, resolved Location, now time.Time) (
 	if err != nil {
 		return nil, err
 	}
-	return buildWeather(current.current(), hourly, daily, resolved, zone, now), nil
+	return buildWeather(current.current(), hourly, daily, place, zone, now), nil
 }
 
 // current drops the forecast-only fields.

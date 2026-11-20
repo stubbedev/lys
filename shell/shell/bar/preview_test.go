@@ -233,7 +233,7 @@ func dropdownFixtures() []dropdownFixture {
 				daily[i] = weather.Daily{Date: now.AddDate(0, 0, i), TempLow: 11, TempHigh: weather.Temperature(18 + i%3), Condition: weather.CondCloudy}
 			}
 			svc := fixedWeather(&weather.Weather{
-				Zone: time.Local, UpdatedAt: now, Location: weather.Location{City: "San Francisco", Region: "California"},
+				Zone: time.Local, UpdatedAt: now, Location: config.DefaultsWeather().Location.Place(),
 				Astronomy: weather.Astronomy{Sunrise: weather.TimeOfDay{Hour: 7, Minute: 28}, Sunset: weather.TimeOfDay{Hour: 18, Minute: 18}},
 				Current:   weather.Current{Temperature: 13, Condition: weather.CondClear, Humidity: 62, WindSpeed: 9},
 				Hourly:    hourly, Daily: daily,

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/geo"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/desktop/strftime"
@@ -22,13 +23,14 @@ import (
 func TestWeatherSettingsMapsTheConfig(t *testing.T) {
 	t.Setenv("LYS_SHELL_TEST_WEATHER_KEY", "s3cret")
 	cfg := config.Defaults().Weather
-	cfg.Location = "52.5,13.4"
+	oslo := geo.NewPlace("Oslo", mustCoordinates(59.91, 10.75))
+	cfg.Location = config.NewPlace(oslo)
 	cfg.Provider = config.WeatherProviderWeatherApi
 	ref := "$LYS_SHELL_TEST_WEATHER_KEY"
 	cfg.WeatherapiKey = &ref
 	cfg.RefreshIntervalSeconds = 90
 	s := weatherSettings(cfg)
-	if s.Provider != weather.WeatherAPI || !s.Location.Coordinates || s.Interval != 90*time.Second {
+	if s.Provider != weather.WeatherAPI || s.Location != oslo || s.Interval != 90*time.Second {
 		t.Errorf("settings = %+v", s)
 	}
 	if s.WeatherAPIKey != "s3cret" {
@@ -43,6 +45,17 @@ func TestWeatherSettingsMapsTheConfig(t *testing.T) {
 	cfg.WeatherapiKey = &missing
 	if got := weatherSettings(cfg).WeatherAPIKey; got != "" {
 		t.Errorf("unset variable key = %q", got)
+	}
+}
+
+func TestWeatherNamesItsPlaceOrElseItsCoordinates(t *testing.T) {
+	at := mustCoordinates(59.9139, 10.7522)
+	if got := weatherLocationDisplay(geo.NewPlace("Oslo", at)); got != "Oslo" {
+		t.Errorf("a named place reads %q", got)
+	}
+	want := i18n.T("dropdown-weather-coordinates", i18n.Float("latitude", 59.91), i18n.Float("longitude", 10.75))
+	if got := weatherLocationDisplay(geo.NewPlace("", at)); got != want || got == "" || strings.Contains(got, "Oslo") {
+		t.Errorf("an unnamed place reads %q, want %q", got, want)
 	}
 }
 
@@ -126,8 +139,8 @@ func TestWeatherErrorTextNamesTheCause(t *testing.T) {
 	if got := weatherErrorText(weather.Status{Kind: weather.Failed, Error: weather.ErrAPIKeyMissing, Provider: "weatherapi"}); got != i18n.T("dropdown-weather-error-api-key", i18n.Str("provider", "weatherapi")) {
 		t.Errorf("api key = %q", got)
 	}
-	if got := weatherErrorText(weather.Status{Kind: weather.Failed, Error: weather.ErrLocationNotFound, Query: "Atlantis"}); got != i18n.T("dropdown-weather-error-location", i18n.Str("query", "Atlantis")) {
-		t.Errorf("location = %q", got)
+	if got := weatherErrorText(weather.Status{Kind: weather.Failed, Error: weather.ErrNetwork}); got != i18n.T("dropdown-weather-error-network") {
+		t.Errorf("network = %q", got)
 	}
 	if got := weatherErrorText(weather.Status{Kind: weather.Failed}); got != i18n.T("dropdown-weather-error-unknown") {
 		t.Errorf("other = %q", got)
@@ -194,7 +207,7 @@ func TestWeatherModuleFollowsTheService(t *testing.T) {
 func TestWeatherDropdownShowsTheStatusPage(t *testing.T) {
 	cfg := config.Defaults()
 	ctx := newTestContext(t, cfg)
-	svc := fixedWeather(nil, &weather.Error{Kind: weather.ErrLocationNotFound, Query: "Atlantis"})
+	svc := fixedWeather(nil, &weather.Error{Kind: weather.ErrAPIKeyMissing, Provider: "weatherapi"})
 	defer svc.Close()
 	ctx.Weather = svc
 	var v *weatherView
@@ -203,7 +216,7 @@ func TestWeatherDropdownShowsTheStatusPage(t *testing.T) {
 	if got := v.pages.Visible(); got != "error" {
 		t.Errorf("page = %q, want error", got)
 	}
-	if got := v.errorText.Text(); got != i18n.T("dropdown-weather-error-location", i18n.Str("query", "Atlantis")) {
+	if got := v.errorText.Text(); got != i18n.T("dropdown-weather-error-api-key", i18n.Str("provider", "weatherapi")) {
 		t.Errorf("error text = %q", got)
 	}
 
@@ -296,7 +309,7 @@ func TestWeatherPagesCenterTheirContent(t *testing.T) {
 	}
 	centered("loading-weather")
 
-	fail := fixedWeather(nil, &weather.Error{Kind: weather.ErrLocationNotFound, Query: "Atlantis"})
+	fail := fixedWeather(nil, &weather.Error{Kind: weather.ErrAPIKeyMissing, Provider: "weatherapi"})
 	defer fail.Close()
 	waitHeadless(t, "the failed status", func() bool { return fail.Status().Kind == weather.Failed })
 	ctx.Weather = fail
@@ -571,7 +584,7 @@ func TestWeatherFailedRefreshShowsTheDataUnderAnAlert(t *testing.T) {
 		t.Error("a successful fetch shows the stale alert")
 	}
 
-	script.set(nil, &weather.Error{Kind: weather.ErrLocationNotFound, Query: "Atlantis"})
+	script.set(nil, &weather.Error{Kind: weather.ErrAPIKeyMissing, Provider: "weatherapi"})
 	svc.Refresh()
 	waitHeadless(t, "the failed status", func() bool { return svc.Status().Kind == weather.Failed })
 	v.refresh()
@@ -582,7 +595,7 @@ func TestWeatherFailedRefreshShowsTheDataUnderAnAlert(t *testing.T) {
 	if !ok {
 		t.Fatal("the stale alert is not lys-ui's Alert")
 	}
-	if alert.Title() != i18n.T("dropdown-weather-stale-title") || alert.Description() != i18n.T("dropdown-weather-error-location", i18n.Str("query", "Atlantis")) {
+	if alert.Title() != i18n.T("dropdown-weather-stale-title") || alert.Description() != i18n.T("dropdown-weather-error-api-key", i18n.Str("provider", "weatherapi")) {
 		t.Errorf("alert = %q / %q", alert.Title(), alert.Description())
 	}
 	if got := len(v.loaded.Children()); got != 6 {
@@ -638,9 +651,9 @@ func TestWeatherModuleIsStaleOnlyWhileTheRefreshFails(t *testing.T) {
 		t.Fatal("a current reading is marked stale")
 	}
 
-	script.set(nil, &weather.Error{Kind: weather.ErrLocationNotFound, Query: "Atlantis"})
+	script.set(nil, &weather.Error{Kind: weather.ErrAPIKeyMissing, Provider: "weatherapi"})
 	svc.Refresh()
-	reason := i18n.T("dropdown-weather-error-location", i18n.Str("query", "Atlantis"))
+	reason := i18n.T("dropdown-weather-error-api-key", i18n.Str("provider", "weatherapi"))
 	want := i18n.T("weather-stale", i18n.Str("reading", "11°C"), i18n.Str("reason", reason))
 	waitHeadless(t, "the stale class and its reason", func() bool { return stale() && wm.btn.Detail() == want })
 	if got := onHeadlessLoop(func() string { return wm.btn.Label().Text() }); got != "11°C" {

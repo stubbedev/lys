@@ -7,16 +7,18 @@ import (
 	"fmt"
 	"math"
 	"time"
+
+	"github.com/stubbedev/lys/desktop/geo"
 )
 
 // Weather is one fetch: the current conditions, the next 24 hours, the
-// next 7 days, the resolved location, today's sunrise and sunset, and
+// next 7 days, the place it is for, today's sunrise and sunset, and
 // the location's time zone, which every forecast time is in.
 type Weather struct {
 	Current   Current
 	Hourly    []Hourly
 	Daily     []Daily
-	Location  Location
+	Location  geo.Place
 	Astronomy Astronomy
 	Zone      *time.Location
 	UpdatedAt time.Time
@@ -77,16 +79,6 @@ type Daily struct {
 	Sunset           TimeOfDay
 }
 
-// Location is where the forecast is for. Coordinates passed directly
-// resolve with an empty city and country.
-type Location struct {
-	City    string
-	Region  string
-	Country string
-	Lat     float64
-	Lon     float64
-}
-
 // Astronomy is today's sun times.
 type Astronomy struct {
 	Sunrise TimeOfDay
@@ -102,35 +94,6 @@ func (t TimeOfDay) String() string { return fmt.Sprintf("%02d:%02d", t.Hour, t.M
 
 // minutes orders times of day.
 func (t TimeOfDay) minutes() int { return t.Hour*60 + t.Minute }
-
-// LocationQuery is what to forecast: coordinates, or a city name with
-// an optional ISO country code.
-type LocationQuery struct {
-	Coordinates bool
-	Lat, Lon    float64
-	City        string
-	Country     string
-}
-
-// Coords is a coordinate query.
-func Coords(lat, lon float64) LocationQuery {
-	return LocationQuery{Coordinates: true, Lat: lat, Lon: lon}
-}
-
-// City is a city-name query.
-func City(name string) LocationQuery { return LocationQuery{City: name} }
-
-// providerPath is the location segment Visual Crossing and WeatherAPI
-// take: "lat,lon", "name,country", or the name.
-func (q LocationQuery) providerPath() string {
-	switch {
-	case q.Coordinates:
-		return fmt.Sprintf("%v,%v", q.Lat, q.Lon)
-	case q.Country != "":
-		return q.City + "," + q.Country
-	}
-	return q.City
-}
 
 // Condition is the weather condition a provider reports.
 type Condition int
@@ -342,7 +305,7 @@ func precipitation(provider string, mm float64) (Precipitation, error) {
 
 // buildWeather assembles a provider's readings: today's sun times come
 // from the first forecast day, 06:00/18:00 without one.
-func buildWeather(current Current, hourly []Hourly, daily []Daily, location Location, zone *time.Location, now time.Time) *Weather {
+func buildWeather(current Current, hourly []Hourly, daily []Daily, location geo.Place, zone *time.Location, now time.Time) *Weather {
 	astro := Astronomy{Sunrise: TimeOfDay{Hour: 6}, Sunset: TimeOfDay{Hour: 18}}
 	if len(daily) > 0 {
 		astro = Astronomy{Sunrise: daily[0].Sunrise, Sunset: daily[0].Sunset}

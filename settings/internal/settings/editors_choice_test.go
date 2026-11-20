@@ -66,7 +66,6 @@ var freeFormRows = []string{
 	"modules.bitwarden.network-folder",
 	"modules.bitwarden.portal-folder",
 	"modules.screenshot.label",
-	"modules.weather.location",
 	"modules.workspaces.divider",
 }
 
@@ -113,13 +112,13 @@ func TestNoShellRowFallsBackToPlainTextUnlessItIsFreeForm(t *testing.T) {
 		t.Fatalf("rows on the plain text editor that are not on the free-form list: %v", got)
 	}
 	k2 := testKit(t, "")
-	rows := append(shellRows(), field("modules.weather.location"))
+	rows := append(shellRows(), field("modules.screenshot.label"))
 	if got := plainTextRows(t, k2, k2.store, rows); len(got) != 0 {
 		t.Fatalf("a free-form row was flagged: %v", got)
 	}
-	freeFormRows = slices.DeleteFunc(slices.Clone(freeFormRows), func(p string) bool { return p == "modules.weather.location" })
-	defer func() { freeFormRows = append(freeFormRows, "modules.weather.location") }()
-	if got := plainTextRows(t, k2, k2.store, shellRows()); !slices.Equal(got, []string{"modules.weather.location"}) {
+	freeFormRows = slices.DeleteFunc(slices.Clone(freeFormRows), func(p string) bool { return p == "modules.screenshot.label" })
+	defer func() { freeFormRows = append(freeFormRows, "modules.screenshot.label") }()
+	if got := plainTextRows(t, k2, k2.store, shellRows()); !slices.Equal(got, []string{"modules.screenshot.label"}) {
 		t.Fatalf("a text row off the list was not flagged: %v", got)
 	}
 }
@@ -424,7 +423,7 @@ func TestASecretIsMasked(t *testing.T) {
 	if v := k.store.value(path); v != "s3cret" {
 		t.Fatalf("%v", v)
 	}
-	if plain := shellControl(t, k, "modules.weather.location").(*text); plain.Echo() != widget.EchoNormal {
+	if plain := shellControl(t, k, "modules.screenshot.label").(*text); plain.Echo() != widget.EchoNormal {
 		t.Fatal("a free-form row is masked")
 	}
 }

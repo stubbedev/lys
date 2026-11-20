@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/desktop/geo"
 	desktopidentity "github.com/stubbedev/lys/desktop/identity"
-	"github.com/stubbedev/lys/desktop/service/nightlight/nightschedule"
 	"github.com/stubbedev/lys/lib/dbustest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/third_party/godbus/prop"
@@ -161,7 +161,7 @@ func TestQueryLocationOverGeoClue(t *testing.T) {
 // A fix of 0, 0 is an agent with nothing to say, not a position.
 func TestQueryLocationRefusesANullFix(t *testing.T) {
 	_, conn := serveGeoClue(t, 0, 0)
-	if _, err := QueryLocation(context.Background(), conn); !errors.Is(err, nightschedule.ErrNullIsland) {
+	if _, err := QueryLocation(context.Background(), conn); !errors.Is(err, geo.ErrNullIsland) {
 		t.Errorf("err = %v, want ErrNullIsland", err)
 	}
 }

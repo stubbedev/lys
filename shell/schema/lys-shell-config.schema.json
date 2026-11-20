@@ -667,6 +667,19 @@
         "auto"
       ]
     },
+    "AutoPlace": {
+      "description": "`\"auto\"` to follow GeoClue, or a place: `name`, `latitude` and\n`longitude`.",
+      "oneOf": [
+        {
+          "const": "auto",
+          "description": "Follow the machine's location through GeoClue.",
+          "type": "string"
+        },
+        {
+          "$ref": "#/$defs/Place"
+        }
+      ]
+    },
     "AutoSaverLevel": {
       "oneOf": [
         {
@@ -6320,9 +6333,8 @@
             "label-color": "fg-default",
             "label-max-length": 0,
             "label-show": true,
-            "latitude": null,
             "left-click": ":toggle",
-            "longitude": null,
+            "location": "auto",
             "middle-click": "",
             "right-click": "",
             "scroll-down": "",
@@ -6634,7 +6646,11 @@
             "label-max-length": 0,
             "label-show": true,
             "left-click": "dropdown:weather",
-            "location": "San Francisco",
+            "location": {
+              "latitude": 37.7749,
+              "longitude": -122.4194,
+              "name": "San Francisco"
+            },
             "middle-click": "",
             "provider": "open-meteo",
             "refresh-interval-seconds": 1800,
@@ -7089,7 +7105,7 @@
         "auto-schedule": {
           "$ref": "#/$defs/boolean",
           "default": false,
-          "description": "Automatically ease the filter on at dusk and off at dawn, following the\nsun at the machine's location.\n\nTransitions are centered on civil dawn and dusk (sun 6 degrees below the\nhorizon). During polar day or night the filter stays off or on.\n\nThe location is `latitude` and `longitude` when both are set (0, 0\ncounts as unset), otherwise GeoClue's, whose last fix is kept in the\nstate directory. Without a usable location the schedule does not run;\nthe tooltip and the log say why.\n\nWhen no GeoClue agent runs, lys-shell registers as one during the\nlookup, which needs it on GeoClue's agent whitelist. The deb and rpm\ninstall `/etc/geoclue/conf.d/50-lys-shell.conf`, and the NixOS module's\n`autoInstallDependencies` sets it up. From the tarball, install its\n`geoclue-lys-shell.conf` at that path and restart geoclue. GeoClue\nbefore 2.7 reads no `conf.d`: add the file's `lys-shell` entry to\n`/etc/geoclue/geoclue.conf` and `lys-shell` to `whitelist` under\n`[agent]`. A drop-in `whitelist` replaces the main file's, so the\nshipped one repeats upstream's list; add any agents you rely on.\n\nWhen GeoClue answers but finds no fix, it has no source that can place\nthe machine: set `url` under `[wifi]`, describe the location in\n`/etc/geolocation`, or set `latitude` and `longitude`.\n\nA manual click cancels a running transition, applies at once, and holds\nuntil the next transition begins."
+          "description": "Automatically ease the filter on at dusk and off at dawn, following the\nsun at the machine's location.\n\nTransitions are centered on civil dawn and dusk (sun 6 degrees below the\nhorizon). During polar day or night the filter stays off or on.\n\nThe location is `location`: a pinned place, or with `\"auto\"` GeoClue's\nfix, the last of which is kept in the state directory. Without a usable location the schedule does not run;\nthe tooltip and the log say why.\n\nWhen no GeoClue agent runs, lys-shell registers as one during the\nlookup, which needs it on GeoClue's agent whitelist. The deb and rpm\ninstall `/etc/geoclue/conf.d/50-lys-shell.conf`, and the NixOS module's\n`autoInstallDependencies` sets it up. From the tarball, install its\n`geoclue-lys-shell.conf` at that path and restart geoclue. GeoClue\nbefore 2.7 reads no `conf.d`: add the file's `lys-shell` entry to\n`/etc/geoclue/geoclue.conf` and `lys-shell` to `whitelist` under\n`[agent]`. A drop-in `whitelist` replaces the main file's, so the\nshipped one repeats upstream's list; add any agents you rely on.\n\nWhen GeoClue answers but finds no fix, it has no source that can place\nthe machine: set `url` under `[wifi]`, describe the location in\n`/etc/geolocation`, or pin a place in `location`.\n\nA manual click cancels a running transition, applies at once, and holds\nuntil the next transition begins."
         },
         "border-color": {
           "$ref": "#/$defs/ColorValue",
@@ -7188,20 +7204,15 @@
           "default": true,
           "description": "Display label."
         },
-        "latitude": {
-          "$ref": "#/$defs/Nullable_double",
-          "default": null,
-          "description": "Latitude for the schedule, in decimal degrees (north positive). Range: -90\nto 90. Unset uses GeoClue. Set together with `longitude`, it overrides\nGeoClue. Only used when `auto-schedule` is on."
-        },
         "left-click": {
           "$ref": "#/$defs/ClickAction",
           "default": ":toggle",
           "description": "Action on left click. Default toggles blue light filter."
         },
-        "longitude": {
-          "$ref": "#/$defs/Nullable_double",
-          "default": null,
-          "description": "Longitude for the schedule, in decimal degrees (east positive). Range:\n-180 to 180. Unset uses GeoClue. Set together with `latitude`, it overrides\nGeoClue. Only used when `auto-schedule` is on."
+        "location": {
+          "$ref": "#/$defs/AutoPlace",
+          "default": "auto",
+          "description": "Where the schedule follows the sun: `\"auto\"` asks GeoClue, a place\n(`name`, `latitude`, `longitude`) pins it. Only used when\n`auto-schedule` is on.\n\nThe former `latitude` and `longitude` keys still read, as a place\nwithout a name; 0, 0 among them is taken as unset."
         },
         "middle-click": {
           "$ref": "#/$defs/ClickAction",
@@ -7592,13 +7603,6 @@
         }
       ]
     },
-    "Nullable_double": {
-      "format": "double",
-      "type": [
-        "number",
-        "null"
-      ]
-    },
     "Numbering": {
       "description": "How workspace numbers are displayed.",
       "oneOf": [
@@ -7892,6 +7896,33 @@
       "description": "Absolute length in pixels (e.g. \"400px\").",
       "pattern": "^[0-9]+(\\.[0-9]+)?px$",
       "type": "string"
+    },
+    "Place": {
+      "description": "A place: `name` as shown, `latitude` and `longitude` in decimal degrees.",
+      "properties": {
+        "latitude": {
+          "default": 0.0,
+          "description": "Latitude in decimal degrees, north positive, from -90 to 90.",
+          "format": "double",
+          "maximum": 90.0,
+          "minimum": -90.0,
+          "type": "number"
+        },
+        "longitude": {
+          "default": 0.0,
+          "description": "Longitude in decimal degrees, east positive, from -180 to 180.",
+          "format": "double",
+          "maximum": 180.0,
+          "minimum": -180.0,
+          "type": "number"
+        },
+        "name": {
+          "default": "",
+          "description": "The place's name as shown, such as the city; left out for a position\nset by hand.",
+          "type": "string"
+        }
+      },
+      "type": "object"
     },
     "PopupCloseBehavior": {
       "description": "Behavior when the close button is clicked on a popup card.",
@@ -10390,9 +10421,13 @@
           "description": "Action on left click."
         },
         "location": {
-          "$ref": "#/$defs/string",
-          "default": "San Francisco",
-          "description": "Location for weather data (city name or \"lat,lon\" coordinates)."
+          "$ref": "#/$defs/Place",
+          "default": {
+            "latitude": 37.7749,
+            "longitude": -122.4194,
+            "name": "San Francisco"
+          },
+          "description": "Where the forecast is for: `name` as shown, `latitude` and `longitude`.\n\nThe former `\"latitude,longitude\"` string still reads, as a place\nwithout a name; a city name alone is refused, since looking it up\npicked the first of every place with that name."
         },
         "middle-click": {
           "$ref": "#/$defs/ClickAction",
@@ -11971,9 +12006,8 @@
           "label-color": "fg-default",
           "label-max-length": 0,
           "label-show": true,
-          "latitude": null,
           "left-click": ":toggle",
-          "longitude": null,
+          "location": "auto",
           "middle-click": "",
           "right-click": "",
           "scroll-down": "",
@@ -12241,7 +12275,11 @@
           "label-max-length": 0,
           "label-show": true,
           "left-click": "dropdown:weather",
-          "location": "San Francisco",
+          "location": {
+            "latitude": 37.7749,
+            "longitude": -122.4194,
+            "name": "San Francisco"
+          },
           "middle-click": "",
           "provider": "open-meteo",
           "refresh-interval-seconds": 1800,

@@ -61,7 +61,7 @@ func TestLoadFileAppliesNightlight(t *testing.T) {
 		// The documented ranges are not enforced (plain u32/f64 in the
 		// Rust schema); a wrong type is.
 		"modules:\n  nightlight:\n    temperature: warm\n",
-		"modules:\n  nightlight:\n    latitude: true\n",
+		"modules:\n  nightlight:\n    location: true\n",
 		"modules:\n  nightlight:\n    gamma: -1\n",
 	} {
 		if err := osWrite(path, bad); err != nil {

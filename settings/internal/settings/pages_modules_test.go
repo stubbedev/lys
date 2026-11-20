@@ -242,7 +242,7 @@ func TestBitwardenSeparatesTheAccountItsSecurityAndItsIntegrations(t *testing.T)
 func TestTheNightLightScheduleRowsShowOnlyWithTheSchedule(t *testing.T) {
 	k := testKit(t, "modules:\n  nightlight:\n    auto-schedule: false\n")
 	p := layoutPage(t, k, "nightlight")
-	rows := []*settingRow{rowOf(t, p, "modules.nightlight.transition-duration"), rowOf(t, p, "modules.nightlight.latitude"), rowOf(t, p, "modules.nightlight.longitude")}
+	rows := []*settingRow{rowOf(t, p, "modules.nightlight.transition-duration"), rowOf(t, p, "modules.nightlight.location")}
 	for _, r := range rows {
 		if r.Visible() {
 			t.Errorf("%s shows without the schedule", r.path)

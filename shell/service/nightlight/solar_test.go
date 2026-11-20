@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys/desktop/service/nightlight/nightschedule"
+	"github.com/stubbedev/lys/desktop/geo"
 )
 
 func utc(y int, m time.Month, d, h, min int) time.Time {
@@ -128,7 +128,7 @@ func TestPhaseFollowsTheSolarDayAcrossUTCMidnight(t *testing.T) {
 	for _, tc := range []struct {
 		name string
 		now  time.Time
-		loc  nightschedule.Location
+		loc  geo.Coordinates
 		want Phase
 	}{
 		{"sydney morning, late on the UTC date", utc(2024, 6, 21, 22, 0), mustLocation(t, -33.8688, 151.2093), PhaseDay},

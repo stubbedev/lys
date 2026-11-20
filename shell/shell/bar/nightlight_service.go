@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/geo"
 	"github.com/stubbedev/lys/desktop/identity"
-	"github.com/stubbedev/lys/desktop/service/nightlight/nightschedule"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/xdg"
 
@@ -40,7 +40,7 @@ type sunsetEnv struct {
 	open       func(changed func()) (colourFilter, error)
 	now        func() time.Time
 	stateDir   string
-	locate     func(ctx context.Context) (nightschedule.Location, error)
+	locate     func(ctx context.Context) (geo.Coordinates, error)
 	clockJumps func(ctx context.Context, onJump func()) error
 }
 
@@ -59,9 +59,9 @@ func liveSunsetEnv(vars xdg.Env, system *dbus.Conn) (sunsetEnv, error) {
 		},
 		now:      time.Now,
 		stateDir: dir,
-		locate: func(ctx context.Context) (nightschedule.Location, error) {
+		locate: func(ctx context.Context) (geo.Coordinates, error) {
 			if system == nil {
-				return nightschedule.Location{}, errors.New("geoclue: the shell has no system bus connection")
+				return geo.Coordinates{}, errors.New("geoclue: the shell has no system bus connection")
 			}
 			return nightlight.QueryLocation(ctx, system)
 		},
@@ -93,7 +93,7 @@ type nightlightService struct {
 	heldThroughEase bool
 	stepping        bool
 
-	location    *nightschedule.Location
+	location    *geo.Coordinates
 	locationErr error
 	pinned      bool
 	lookupErr   string
@@ -128,8 +128,9 @@ func newNightlightService(ctx ModuleContext, env sunsetEnv) *nightlightService {
 		log.Print(s.nightErr)
 		s.refused = s.nightErr
 	}
-	if cfg.AutoSchedule {
-		s.resolvePinnedLocation()
+	if place, pinned := cfg.Location.Pinned(); cfg.AutoSchedule && pinned {
+		at := place.Coordinates()
+		s.pinned, s.location = true, &at
 	}
 	s.onOwner(func() {
 		filter, err := env.open(func() { s.onOwner(s.readRefusal) })
@@ -142,7 +143,7 @@ func newNightlightService(ctx ModuleContext, env sunsetEnv) *nightlightService {
 			return
 		}
 		s.filter = filter
-		var remembered *nightschedule.Location
+		var remembered *geo.Coordinates
 		if cfg.AutoSchedule && !s.pinned {
 			remembered = s.readRememberedLocation()
 		}
@@ -245,20 +246,7 @@ func (w *serialWorker) drain() {
 	}
 }
 
-func (s *nightlightService) resolvePinnedLocation() {
-	pinned, ok, err := s.cfg.PinnedLocation()
-	switch {
-	case errors.Is(err, nightschedule.ErrNullIsland):
-		log.Printf("%v: ignoring latitude and longitude, using GeoClue", err)
-	case err != nil:
-		s.pinned, s.locationErr = true, err
-		log.Printf("%v: the auto-schedule has no location", err)
-	case ok:
-		s.pinned, s.location = true, &pinned
-	}
-}
-
-func (s *nightlightService) readRememberedLocation() *nightschedule.Location {
+func (s *nightlightService) readRememberedLocation() *geo.Coordinates {
 	remembered, err := nightlight.LoadLocation(s.env.stateDir)
 	switch {
 	case err == nil:
@@ -377,7 +365,7 @@ func (s *nightlightService) refreshRefusal(refused error) {
 	s.notify()
 }
 
-func (s *nightlightService) setLocation(loc nightschedule.Location) {
+func (s *nightlightService) setLocation(loc geo.Coordinates) {
 	s.lookupErr, s.locationErr = "", nil
 	if s.location != nil && *s.location == loc {
 		return

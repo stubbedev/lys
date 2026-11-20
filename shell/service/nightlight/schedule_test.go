@@ -5,12 +5,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/desktop/geo"
 	"github.com/stubbedev/lys/desktop/service/nightlight/nightschedule"
 )
 
-func mustLocation(t *testing.T, latitude, longitude float64) nightschedule.Location {
+func mustLocation(t *testing.T, latitude, longitude float64) geo.Coordinates {
 	t.Helper()
-	loc, err := nightschedule.NewLocation(latitude, longitude)
+	loc, err := geo.NewCoordinates(latitude, longitude)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -131,7 +132,7 @@ func TestPolarDatesHaveNoTransition(t *testing.T) {
 	tr := mustTransition(t, 15)
 	for _, tc := range []struct {
 		name  string
-		loc   nightschedule.Location
+		loc   geo.Coordinates
 		date  time.Time
 		phase Phase
 	}{

@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/desktop/geo"
 	"github.com/stubbedev/lys/lib/waittest"
 )
 
@@ -99,17 +100,6 @@ func TestCurrentHourIndexIsTheHourInProgress(t *testing.T) {
 	}
 }
 
-func TestParseLocationCoordinatesOrCity(t *testing.T) {
-	if got := ParseLocation(" 52.52 , 13.40 "); !got.Coordinates || got.Lat != 52.52 || got.Lon != 13.40 {
-		t.Errorf("coords = %+v", got)
-	}
-	// A comma without two numbers is a city name, kept whole.
-	if got := ParseLocation("Paris, France"); got.Coordinates || got.City != "Paris, France" {
-		t.Errorf("city = %+v", got)
-	}
-}
-
-// openMeteoFixture is a two-hour, one-day Open-Meteo reply.
 func openMeteoFixture(offset int, hours ...string) string {
 	n := len(hours)
 	arr := func(v float64) string {
@@ -147,6 +137,20 @@ func serveJSON(t *testing.T, status int, body string, seen *atomic.Value) string
 	return srv.URL
 }
 
+func mustCoordinates(t *testing.T, latitude, longitude float64) geo.Coordinates {
+	t.Helper()
+	at, err := geo.NewCoordinates(latitude, longitude)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return at
+}
+
+func testPlace(t *testing.T, name string) geo.Place {
+	t.Helper()
+	return geo.NewPlace(name, mustCoordinates(t, 52.52, 13.405))
+}
+
 func repoint(t *testing.T, target *string, url string) {
 	t.Helper()
 	old := *target
@@ -156,8 +160,9 @@ func repoint(t *testing.T, target *string, url string) {
 
 func TestOpenMeteoParsesAndClampsTheReadings(t *testing.T) {
 	now := time.Date(2026, 10, 1, 14, 30, 0, 0, time.UTC)
-	repoint(t, &OpenMeteoURL, serveJSON(t, 200, openMeteoFixture(0, "2026-10-01T14:00", "2026-10-01T15:00"), nil))
-	w, err := fetchOpenMeteo(context.Background(), Location{City: "Berlin", Lat: 52.5, Lon: 13.4}, now)
+	var seen atomic.Value
+	repoint(t, &OpenMeteoURL, serveJSON(t, 200, openMeteoFixture(0, "2026-10-01T14:00", "2026-10-01T15:00"), &seen))
+	w, err := fetchOpenMeteo(context.Background(), geo.NewPlace("Berlin", mustCoordinates(t, 52.52, 13.405)), now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -179,15 +184,18 @@ func TestOpenMeteoParsesAndClampsTheReadings(t *testing.T) {
 	if w.Astronomy.Sunrise.String() != "07:12" || w.Astronomy.Sunset.String() != "18:45" {
 		t.Errorf("astronomy = %v %v", w.Astronomy.Sunrise, w.Astronomy.Sunset)
 	}
-	if w.Location.City != "Berlin" {
+	if w.Location.Name() != "Berlin" {
 		t.Errorf("location = %+v", w.Location)
+	}
+	if u := seen.Load().(string); !strings.Contains(u, "latitude=52.52&") || !strings.Contains(u, "longitude=13.405&") {
+		t.Errorf("request = %s, want the place's own coordinates", u)
 	}
 }
 
 func TestOpenMeteoMissingDataIsAParseError(t *testing.T) {
 	body := `{"hourly":{"time":["2026-10-01T14:00"],"temperature_2m":[]},"daily":{"time":[]}}`
 	repoint(t, &OpenMeteoURL, serveJSON(t, 200, body, nil))
-	_, err := fetchOpenMeteo(context.Background(), Location{}, time.Date(2026, 10, 1, 14, 30, 0, 0, time.UTC))
+	_, err := fetchOpenMeteo(context.Background(), testPlace(t, ""), time.Date(2026, 10, 1, 14, 30, 0, 0, time.UTC))
 	var e *Error
 	if !errors.As(err, &e) || e.Kind != ErrOther || e.Retryable() || !strings.Contains(err.Error(), "missing data") {
 		t.Fatalf("err = %v, want a non-retryable missing-data parse error", err)
@@ -231,11 +239,11 @@ func TestVisualCrossingSkipsPastHoursAndReadsIcons(t *testing.T) {
 		`"icon":"thunder-rain","hours":[` + hour("14:00:00", "rain") + `,` + hour("15:00:00", "snow-showers-day") + `]}]}`
 	var seen atomic.Value
 	repoint(t, &VisualCrossingURL, serveJSON(t, 200, body, &seen))
-	w, err := fetchVisualCrossing(context.Background(), "k3y", City("New York"), Location{}, now)
+	w, err := fetchVisualCrossing(context.Background(), "k3y", geo.NewPlace("New York", mustCoordinates(t, 40.7128, -74.006)), now)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if u := seen.Load().(string); !strings.Contains(u, "/New%20York?") || !strings.Contains(u, "key=k3y") {
+	if u := seen.Load().(string); !strings.Contains(u, "/40.7128%2C-74.006?") || !strings.Contains(u, "key=k3y") {
 		t.Errorf("request = %s", u)
 	}
 	if w.Current.Condition != CondClear || w.Current.IsDay {
@@ -259,7 +267,7 @@ func TestWeatherAPIParses12HourSunTimes(t *testing.T) {
 		`"day":{"maxtemp_c":10,"mintemp_c":2,"avgtemp_c":7,"maxwind_kph":15,"totalprecip_mm":3,"avghumidity":70,"daily_chance_of_rain":60,"condition":{"code":1195},"uv":2},` +
 		`"astro":{"sunrise":"06:58 AM","sunset":"06:41 pm"},"hour":[` + h("2026-10-01 14:00", 1183) + `,` + h("2026-10-01 15:00", 1279) + `]}]}}`
 	repoint(t, &WeatherAPIURL, serveJSON(t, 200, body, nil))
-	w, err := fetchWeatherAPI(context.Background(), "k", Coords(1, 2), Location{}, now)
+	w, err := fetchWeatherAPI(context.Background(), "k", geo.NewPlace("", mustCoordinates(t, 1, 2)), now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -275,25 +283,11 @@ func TestWeatherAPIParses12HourSunTimes(t *testing.T) {
 }
 
 func TestKeyedProvidersWithoutAKeyFailFast(t *testing.T) {
-	repoint(t, &GeocodingURL, serveJSON(t, 200, `{"results":[{"latitude":1,"longitude":2,"name":"X","country":"Y"}]}`, nil))
 	for _, p := range []ProviderKind{VisualCrossing, WeatherAPI} {
-		_, err := fetchWeather(context.Background(), Settings{Provider: p, Location: City("X")}, time.Now())
+		_, err := fetchWeather(context.Background(), Settings{Provider: p, Location: testPlace(t, "X")}, time.Now())
 		if kindOf(err) != ErrAPIKeyMissing {
 			t.Errorf("provider %v without a key: err = %v", p, err)
 		}
-	}
-}
-
-func TestUnknownCityIsLocationNotFound(t *testing.T) {
-	repoint(t, &GeocodingURL, serveJSON(t, 200, `{}`, nil))
-	_, err := resolve(context.Background(), City("Atlantis"))
-	var e *Error
-	if !errors.As(err, &e) || e.Kind != ErrLocationNotFound || e.Query != "Atlantis" {
-		t.Fatalf("err = %v", err)
-	}
-	// Coordinates never geocode.
-	if loc, err := resolve(context.Background(), Coords(3, 4)); err != nil || loc.Lat != 3 || loc.City != "" {
-		t.Fatalf("coords = %+v, %v", loc, err)
 	}
 }
 
@@ -306,12 +300,12 @@ func TestServiceRetriesOnlyRetryableFailures(t *testing.T) {
 		if calls.Add(1) < 3 {
 			return nil, rateLimited("p")
 		}
-		return &Weather{Location: Location{City: "ok"}}, nil
+		return &Weather{Location: testPlace(t, "ok")}, nil
 	}
 	svc := newService(Settings{Interval: time.Hour}, flaky, func(error, int) time.Duration { return time.Millisecond })
 	defer svc.Close()
 	waittest.Until(t, func() bool { return svc.Status().Kind == Loaded }, "the third attempt to land")
-	if calls.Load() != 3 || svc.Weather().Location.City != "ok" {
+	if calls.Load() != 3 || svc.Weather().Location.Name() != "ok" {
 		t.Errorf("calls %d weather %+v", calls.Load(), svc.Weather())
 	}
 
@@ -352,7 +346,7 @@ func TestConfigureRestartsOnlyOnChange(t *testing.T) {
 		calls.Add(1)
 		return &Weather{}, nil
 	}
-	s := Settings{Interval: time.Hour, Location: City("A")}
+	s := Settings{Interval: time.Hour, Location: testPlace(t, "A")}
 	svc := newService(s, count, retryDelay)
 	defer svc.Close()
 	waittest.Until(t, func() bool { return calls.Load() == 1 }, "the first fetch")
@@ -361,7 +355,7 @@ func TestConfigureRestartsOnlyOnChange(t *testing.T) {
 	if calls.Load() != 1 {
 		t.Fatal("unchanged settings refetched")
 	}
-	s.Location = City("B")
+	s.Location = testPlace(t, "B")
 	svc.Configure(s)
 	waittest.Until(t, func() bool { return calls.Load() == 2 }, "the refetch for the new location")
 }
@@ -399,12 +393,9 @@ func TestRefreshRefetchesWithTheSameSettings(t *testing.T) {
 	waittest.Until(t, func() bool { return calls.Load() == 2 }, "the refetch")
 }
 
-func TestFailedStatusCarriesTheProviderAndQuery(t *testing.T) {
+func TestFailedStatusCarriesTheProvider(t *testing.T) {
 	if st := failedStatus(apiKeyMissing("weatherapi")); st.Kind != Failed || st.Error != ErrAPIKeyMissing || st.Provider != "weatherapi" {
 		t.Errorf("key status = %+v", st)
-	}
-	if st := failedStatus(locationNotFound("Atlantis")); st.Error != ErrLocationNotFound || st.Query != "Atlantis" {
-		t.Errorf("location status = %+v", st)
 	}
 	if st := failedStatus(errors.New("plain")); st.Error != ErrOther {
 		t.Errorf("plain error status = %+v", st)
@@ -417,7 +408,7 @@ func TestFailedStatusCarriesTheProviderAndQuery(t *testing.T) {
 func TestOpenMeteoReadsTheLocationsZone(t *testing.T) {
 	now := time.Date(2026, 10, 1, 21, 30, 0, 0, time.UTC)
 	repoint(t, &OpenMeteoURL, serveJSON(t, 200, openMeteoFixture(-7*3600, "2026-10-01T13:00", "2026-10-01T14:00", "2026-10-01T15:00"), nil))
-	w, err := fetchOpenMeteo(context.Background(), Location{City: "San Francisco"}, now)
+	w, err := fetchOpenMeteo(context.Background(), testPlace(t, "San Francisco"), now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -441,7 +432,7 @@ func TestKeyedProvidersReadTheLocationsZone(t *testing.T) {
 		`"day":{"maxtemp_c":10,"mintemp_c":2,"condition":{"code":1000}},"astro":{"sunrise":"07:00 AM","sunset":"06:40 PM"},"hour":[` +
 		`{"time":"2026-10-01 14:00","temp_c":8,"condition":{"code":1000}},{"time":"2026-10-01 15:00","temp_c":8,"condition":{"code":1000}}]}]}}`
 	repoint(t, &WeatherAPIURL, serveJSON(t, 200, wa, nil))
-	w, err := fetchWeatherAPI(context.Background(), "k", Coords(1, 2), Location{}, now)
+	w, err := fetchWeatherAPI(context.Background(), "k", geo.NewPlace("", mustCoordinates(t, 1, 2)), now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -452,7 +443,7 @@ func TestKeyedProvidersReadTheLocationsZone(t *testing.T) {
 		t.Errorf("weatherapi hourly %+v, want only the location's 15:00 ahead of its 14:30", w.Hourly)
 	}
 	repoint(t, &WeatherAPIURL, serveJSON(t, 200, `{"location":{"localtime":"bogus"},"current":{},"forecast":{"forecastday":[]}}`, nil))
-	if _, err := fetchWeatherAPI(context.Background(), "k", Coords(1, 2), Location{}, now); err == nil || !strings.Contains(err.Error(), "localtime") {
+	if _, err := fetchWeatherAPI(context.Background(), "k", geo.NewPlace("", mustCoordinates(t, 1, 2)), now); err == nil || !strings.Contains(err.Error(), "localtime") {
 		t.Errorf("an unreadable location clock = %v, want a parse error naming it", err)
 	}
 
@@ -460,7 +451,7 @@ func TestKeyedProvidersReadTheLocationsZone(t *testing.T) {
 		`"days":[{"datetime":"2026-10-01","tempmax":15,"tempmin":5,"icon":"clear-day","sunrise":"07:00:00","sunset":"18:40:00","hours":[` +
 		`{"datetime":"14:00:00","icon":"clear-day"},{"datetime":"15:00:00","icon":"clear-day"}]}]}`
 	repoint(t, &VisualCrossingURL, serveJSON(t, 200, vc, nil))
-	w, err = fetchVisualCrossing(context.Background(), "k", City("San Francisco"), Location{}, now)
+	w, err = fetchVisualCrossing(context.Background(), "k", testPlace(t, "San Francisco"), now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -489,12 +480,12 @@ func TestCloseReturnsOnceEveryPollHasEnded(t *testing.T) {
 
 func TestANewPlaceDropsTheOldForecastButANewIntervalKeepsIt(t *testing.T) {
 	byCity := func(_ context.Context, s Settings, _ time.Time) (*Weather, error) {
-		if s.Location == City("B") {
-			return nil, locationNotFound("B")
+		if s.Location == testPlace(t, "B") {
+			return nil, httpError(openMeteoProvider, errors.New("unreachable"))
 		}
-		return &Weather{Location: Location{City: "A"}}, nil
+		return &Weather{Location: testPlace(t, "A")}, nil
 	}
-	s := Settings{Interval: time.Hour, Location: City("A")}
+	s := Settings{Interval: time.Hour, Location: testPlace(t, "A")}
 	svc := newService(s, byCity, func(error, int) time.Duration { return time.Millisecond })
 	defer svc.Close()
 	waittest.Until(t, func() bool { return svc.Status().Kind == Loaded }, "the forecast for A")
@@ -502,14 +493,14 @@ func TestANewPlaceDropsTheOldForecastButANewIntervalKeepsIt(t *testing.T) {
 	s.Interval = 2 * time.Hour
 	svc.Configure(s)
 	waittest.Until(t, func() bool { return svc.Status().Kind == Loaded }, "the refetch at the new interval")
-	if w := svc.Weather(); w == nil || w.Location.City != "A" {
+	if w := svc.Weather(); w == nil || w.Location.Name() != "A" {
 		t.Fatalf("a new interval dropped the forecast: %+v", w)
 	}
 
-	s.Location = City("B")
+	s.Location = testPlace(t, "B")
 	svc.Configure(s)
 	waittest.Until(t, func() bool { return svc.Status().Kind == Failed }, "the failure for B")
 	if w := svc.Weather(); w != nil {
-		t.Errorf("after moving to B, which failed, the forecast for %q is still shown", w.Location.City)
+		t.Errorf("after moving to B, which failed, the forecast for %q is still shown", w.Location.Name())
 	}
 }

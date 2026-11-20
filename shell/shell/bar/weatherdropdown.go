@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/geo"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/desktop/strftime"
@@ -55,13 +56,14 @@ func weatherDayLabel(date time.Time) string {
 	return i18n.T(ids[date.Weekday()])
 }
 
-// weatherLocationDisplay is "city, region", else
-// "city, country".
-func weatherLocationDisplay(l weather.Location) string {
-	if l.Region != "" {
-		return l.City + ", " + l.Region
+// weatherLocationDisplay is the place's name, or its coordinates when
+// it has none.
+func weatherLocationDisplay(p geo.Place) string {
+	if p.Name() != "" {
+		return p.Name()
 	}
-	return l.City + ", " + l.Country
+	at := p.Coordinates()
+	return i18n.T("dropdown-weather-coordinates", i18n.Float("latitude", math.Round(at.Latitude()*100)/100), i18n.Float("longitude", math.Round(at.Longitude()*100)/100))
 }
 
 // weatherUpdatedAgo is the header's "Updated Nm ago" (never negative).
@@ -102,8 +104,6 @@ func weatherErrorText(st weather.Status) string {
 	switch st.Error {
 	case weather.ErrAPIKeyMissing:
 		return i18n.T("dropdown-weather-error-api-key", i18n.Str("provider", st.Provider))
-	case weather.ErrLocationNotFound:
-		return i18n.T("dropdown-weather-error-location", i18n.Str("query", st.Query))
 	case weather.ErrNetwork:
 		return i18n.T("dropdown-weather-error-network")
 	case weather.ErrRateLimited:

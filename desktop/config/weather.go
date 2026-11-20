@@ -6,8 +6,12 @@ package config
 type WeatherConfig struct {
 	// Weather data provider.
 	Provider WeatherProvider `cfg:"provider"`
-	// Location for weather data (city name or "lat,lon" coordinates).
-	Location string `cfg:"location"`
+	// Where the forecast is for: `name` as shown, `latitude` and `longitude`.
+	//
+	// The former `"latitude,longitude"` string still reads, as a place
+	// without a name; a city name alone is refused, since looking it up
+	// picked the first of every place with that name.
+	Location Place `cfg:"location"`
 	// Temperature unit.
 	Units TemperatureUnit `cfg:"units"`
 	// Format string for the label.
@@ -66,7 +70,7 @@ type WeatherConfig struct {
 func DefaultsWeather() WeatherConfig {
 	return WeatherConfig{
 		Provider:               WeatherProviderOpenMeteo,
-		Location:               "San Francisco",
+		Location:               mustPlace("San Francisco", 37.7749, -122.4194),
 		Units:                  TemperatureUnitMetric,
 		Format:                 "{{ temp }}{{ temp_unit }}",
 		TimeFormat:             TimeFormat12h,

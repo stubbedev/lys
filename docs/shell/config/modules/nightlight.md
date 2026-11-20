@@ -27,8 +27,7 @@ bar:
 | `gamma` | u32 | `100` | Display gamma percentage when filter is enabled. Range: 0-200. |
 | `auto-schedule` | bool | `false` | Automatically ease the filter on at dusk and off at dawn, following the sun at the machine's location. |
 | `transition-duration` | [`NightlightTransition`](/shell/config/types#nightlight-transition) | `15` | Length of the transition between day and night, in whole minutes, centered on civil dawn or dusk. 0 switches at once. Range: 0-120. |
-| `latitude` | f64 or null | `null` | Latitude for the schedule, in decimal degrees (north positive). Range: -90 to 90. Unset uses GeoClue. Set together with `longitude`, it overrides GeoClue. Only used when `auto-schedule` is on. |
-| `longitude` | f64 or null | `null` | Longitude for the schedule, in decimal degrees (east positive). Range: -180 to 180. Unset uses GeoClue. Set together with `latitude`, it overrides GeoClue. Only used when `auto-schedule` is on. |
+| `location` | [`AutoPlace`](/shell/config/types#auto-place) | `"auto"` | Where the schedule follows the sun: `"auto"` asks GeoClue, a place (`name`, `latitude`, `longitude`) pins it. Only used when `auto-schedule` is on. |
 | `icon-off` | string | `"ld-sun-symbolic"` | Icon when filter is disabled (showing normal daylight colors). |
 | `icon-on` | string | `"ld-moon-symbolic"` | Icon when filter is enabled (showing warm night colors). |
 | `border-show` | bool | `false` | Display border around button. |
@@ -71,9 +70,8 @@ the module's tooltip.
 Transitions are centered on civil dawn and dusk (sun 6 degrees below the
 horizon). During polar day or night the filter stays off or on.
 
-The location is `latitude` and `longitude` when both are set (0, 0
-counts as unset), otherwise GeoClue's, whose last fix is kept in the
-state directory. Without a usable location the schedule does not run;
+The location is `location`: a pinned place, or with `"auto"` GeoClue's
+fix, the last of which is kept in the state directory. Without a usable location the schedule does not run;
 the tooltip and the log say why.
 
 When no GeoClue agent runs, lys-shell registers as one during the
@@ -88,10 +86,17 @@ shipped one repeats upstream's list; add any agents you rely on.
 
 When GeoClue answers but finds no fix, it has no source that can place
 the machine: set `url` under `[wifi]`, describe the location in
-`/etc/geolocation`, or set `latitude` and `longitude`.
+`/etc/geolocation`, or pin a place in `location`.
 
 A manual click cancels a running transition, applies at once, and holds
 until the next transition begins.
+
+:::
+
+::: details More about `location`
+
+The former `latitude` and `longitude` keys still read, as a place
+without a name; 0, 0 among them is taken as unset.
 
 :::
 
@@ -125,6 +130,7 @@ modules:
     gamma: 100
     auto-schedule: false
     transition-duration: 15
+    location: auto
     icon-off: ld-sun-symbolic
     icon-on: ld-moon-symbolic
     border-show: false

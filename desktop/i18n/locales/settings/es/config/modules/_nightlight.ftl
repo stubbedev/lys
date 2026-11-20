@@ -9,16 +9,13 @@ settings-modules-nightlight-gamma = Gamma
     .description = Porcentaje de gamma de la pantalla cuando el filtro está activado (0-200)
 
 settings-modules-nightlight-auto-schedule = Programación automática
-    .description = Activa el filtro gradualmente al anochecer y lo desactiva al amanecer. Sigue el amanecer y el anochecer civiles en la ubicación que indica GeoClue, o en las coordenadas siguientes si ambas están definidas
+    .description = Activa el filtro gradualmente al anochecer y lo desactiva al amanecer. Sigue el amanecer y el anochecer civiles en la ubicación siguiente
 
 settings-modules-nightlight-transition-duration = Transición
     .description = Duración de la transición entre el día y la noche en minutos, 0 para un cambio instantáneo (0-120)
 
-settings-modules-nightlight-latitude = Latitud
-    .description = Latitud en grados decimales (norte positivo, -90 a 90). Definida junto con la longitud, prevalece sobre GeoClue
-
-settings-modules-nightlight-longitude = Longitud
-    .description = Longitud en grados decimales (este positivo, -180 a 180). Definida junto con la latitud, prevalece sobre GeoClue
+settings-modules-nightlight-location = Ubicación
+    .description = Dónde sigue el horario al sol: detectada automáticamente o una ciudad elegida
 
 settings-modules-nightlight-icon-off = Icono de desactivado
     .description = Icono cuando el filtro está desactivado

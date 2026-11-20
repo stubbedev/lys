@@ -5,6 +5,8 @@ import (
 	"math"
 	"net/url"
 	"time"
+
+	"github.com/stubbedev/lys/desktop/geo"
 )
 
 const visualCrossingProvider = "visual-crossing"
@@ -48,17 +50,17 @@ type vcResponse struct {
 }
 
 // fetchVisualCrossing fetches from Visual Crossing: the timeline API with
-// the query in the path, metric, current + hours + days.
-func fetchVisualCrossing(ctx context.Context, key string, q LocationQuery, resolved Location, now time.Time) (*Weather, error) {
+// the coordinates in the path, metric, current + hours + days.
+func fetchVisualCrossing(ctx context.Context, key string, place geo.Place, now time.Time) (*Weather, error) {
 	query := url.Values{"key": {key}, "unitGroup": {"metric"}, "include": {"current,hours,days"}, "iconSet": {"icons2"}}
 	var data vcResponse
-	if err := getJSON(ctx, visualCrossingProvider, VisualCrossingURL+"/"+url.PathEscape(q.providerPath()), query, true, &data); err != nil {
+	if err := getJSON(ctx, visualCrossingProvider, VisualCrossingURL+"/"+url.PathEscape(place.Coordinates().String()), query, true, &data); err != nil {
 		return nil, err
 	}
-	return parseVisualCrossing(&data, resolved, now)
+	return parseVisualCrossing(&data, place, now)
 }
 
-func parseVisualCrossing(data *vcResponse, resolved Location, now time.Time) (*Weather, error) {
+func parseVisualCrossing(data *vcResponse, place geo.Place, now time.Time) (*Weather, error) {
 	zone := time.FixedZone(data.Timezone, int(math.Round(data.Tzoffset*3600)))
 	cur := data.CurrentConditions
 	current, err := vcHour(cur, cur.Sunrise, cur.Sunset)
@@ -102,7 +104,7 @@ func parseVisualCrossing(data *vcResponse, resolved Location, now time.Time) (*W
 		}
 		daily = append(daily, d)
 	}
-	return buildWeather(current.current(), hourly, daily, resolved, zone, now), nil
+	return buildWeather(current.current(), hourly, daily, place, zone, now), nil
 }
 
 func vcHour(c vcConditions, sunrise, sunset string) (Hourly, error) {

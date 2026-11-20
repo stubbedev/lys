@@ -286,7 +286,7 @@ func (s *Service) setSessionMotion(say sessionMotion) {
 // a reload: config leaves they shadow get the "change ignored"
 // warning.
 func build(configTree, runtimeTree any, warn *table, sink DiagnosticSink) (layers, error) {
-	migrated, runtimeTree := migrateLogin(configTree), migrateLogin(runtimeTree)
+	migrated, runtimeTree := migrate(configTree), migrate(runtimeTree)
 	cfg := Defaults()
 	ca := &layerApply{kind: configLayer, sink: sink, staged: newTable()}
 	if warn != nil {

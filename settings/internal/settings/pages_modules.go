@@ -299,8 +299,7 @@ func nightlightPage(*config.Config) pageSpec {
 		{title: "settings-section-nightlight-schedule", rows: []rowSpec{
 			field(m + ".auto-schedule"),
 			field(m+".transition-duration", durationChips(inMinutes, zeroAs(instant), after(15*time.Minute), after(30*time.Minute), after(time.Hour)), scheduled),
-			field(m+".latitude", optionalFloat(-90.0, 90.0, 0.1, 4), scheduled),
-			field(m+".longitude", optionalFloat(-180.0, 180.0, 0.1, 4), scheduled),
+			field(m+".location", locationRow(automaticOrPinned), scheduled),
 		}},
 		{title: "settings-section-nightlight-display", advanced: true, rows: []rowSpec{field(m+".gamma", gammaPercent)}},
 		{title: "settings-section-nightlight-look", rows: []rowSpec{
@@ -547,7 +546,7 @@ func weatherPage(*config.Config) pageSpec {
 	return pageSpec{id: "weather", navKey: "settings-nav-weather", icon: "ld-cloud-sun-symbolic", header: "settings-page-weather", sections: []sectionSpec{
 		{title: "settings-section-general", rows: []rowSpec{
 			field("modules.weather.provider"),
-			field("modules.weather.location"),
+			field("modules.weather.location", locationRow(pinnedOnly)),
 			field("modules.weather.units"),
 			field("modules.weather.format"),
 			field("modules.weather.time-format"),

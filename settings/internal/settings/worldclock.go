@@ -1,10 +1,9 @@
 package settings
 
 import (
-	"bufio"
 	"errors"
 	"fmt"
-	"os"
+	"log"
 	"regexp"
 	"slices"
 	"strings"
@@ -133,27 +132,14 @@ func clocksOf(items []any) []zoneClock {
 	return out
 }
 
-var zoneinfoDirs = []string{"usr/share/zoneinfo", "usr/share/lib/zoneinfo", "etc/zoneinfo"}
-
 func (h host) timeZones() []choice {
 	zones := []string{localZoneName, "UTC"}
-	for _, dir := range zoneinfoDirs {
-		f, err := os.Open(h.path(dir, "zone1970.tab"))
-		if err != nil {
-			continue
-		}
-		sc := bufio.NewScanner(f)
-		for sc.Scan() {
-			line := sc.Text()
-			if strings.HasPrefix(line, "#") {
-				continue
-			}
-			if cols := strings.Split(line, "\t"); len(cols) >= 3 {
-				zones = append(zones, cols[2])
-			}
-		}
-		_ = f.Close()
-		break
+	rows, err := h.zoneTable()
+	if err != nil {
+		log.Printf("settings: the time zones beyond %s and UTC: %v", localZoneName, err)
+	}
+	for _, r := range rows {
+		zones = append(zones, r.zone)
 	}
 	slices.Sort(zones[2:])
 	return timezoneChoices(zones)

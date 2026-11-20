@@ -105,14 +105,6 @@ func (c *optionalNumber) refresh() {
 	}
 }
 
-// optionalFloat is an optional fractional number's row: the override
-// switch and a spin over [lo, hi] with digits decimals, starting at 0.
-func optionalFloat(lo, hi, step float64, digits int) rowOpt {
-	return withEditor(func(k *kit, s slot, _ config.FieldMeta) control {
-		return newOptionalNumber(k, s, lo, hi, step, 0, digits)
-	})
-}
-
 // Size modes (editors/size).
 const (
 	sizeScale = iota

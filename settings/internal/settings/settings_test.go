@@ -212,7 +212,7 @@ func TestNumberWritesWholeNumbersAndClamps(t *testing.T) {
 
 func TestTextCommitsOnEnterWithTheDirtyBadge(t *testing.T) {
 	k := testKit(t, "")
-	const path = "modules.weather.location"
+	const path = "modules.screenshot.label"
 	meta, _ := config.Field(path)
 	c, _ := autoEditor(k, pathSlot(k.store, path), path, meta)
 	tx := c.(*text)
@@ -556,20 +556,21 @@ func TestOptionalEnumInheritsOrPicks(t *testing.T) {
 
 // A coordinate keeps its fraction and can go back to unset; a whole
 // number editor would round it away.
-func TestOptionalCoordinateKeepsItsFraction(t *testing.T) {
-	const path = "modules.nightlight.latitude"
+func TestAnOptionalFractionKeepsItsFraction(t *testing.T) {
 	k := testKit(t, "")
-	c := newOptionalNumber(k, pathSlot(k.store, path), -90, 90, 0.1, 0, 4)
+	var stored any
+	s := slot{get: func() any { return stored }, set: func(v any) error { stored = v; return nil }, unset: func() { stored = nil }}
+	c := newOptionalNumber(k, s, -90, 90, 0.1, 0, 4)
 	if !c.Empty() || c.Placeholder() != locale.T().Get("settings-inherited") {
-		t.Fatal("an unset coordinate does not read as inherited")
+		t.Fatal("an unset fraction does not read as inherited")
 	}
 	c.KeyAction(widget.KeyUp, 0)
-	if v, ok := k.store.value(path).(float64); !ok || math.Abs(v-0.1) > 1e-9 {
-		t.Fatalf("a step wrote %v, want 0.1", k.store.value(path))
+	if v, ok := stored.(float64); !ok || math.Abs(v-0.1) > 1e-9 {
+		t.Fatalf("a step wrote %v, want 0.1", stored)
 	}
 	emptySpin(c.SpinButton)
-	if k.store.svc.Source(path) != config.SourceDefault || k.store.value(path) != nil {
-		t.Errorf("emptying kept %v", k.store.value(path))
+	if stored != nil {
+		t.Errorf("emptying kept %v", stored)
 	}
 }
 

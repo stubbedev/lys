@@ -5,16 +5,13 @@ settings-modules-nightlight-gamma = Gamma
     .description = Gammapercentage van het beeldscherm als het filter is ingeschakeld (0-200)
 
 settings-modules-nightlight-auto-schedule = Automatisch schema
-    .description = Het filter geleidelijk inschakelen bij schemering en uitschakelen bij dageraad. Volgt de burgerlijke dageraad en schemering op de locatie die GeoClue meldt, of op de coördinaten hieronder als beide zijn ingesteld
+    .description = Het filter geleidelijk inschakelen bij schemering en uitschakelen bij dageraad. Volgt de burgerlijke dageraad en schemering op de locatie hieronder
 
 settings-modules-nightlight-transition-duration = Overgang
     .description = Duur van de overgang tussen dag en nacht in minuten, 0 voor direct wisselen (0-120)
 
-settings-modules-nightlight-latitude = Breedtegraad
-    .description = Breedtegraad in decimale graden (noord positief, -90 tot 90). Samen met de lengtegraad ingesteld overschrijft dit GeoClue
-
-settings-modules-nightlight-longitude = Lengtegraad
-    .description = Lengtegraad in decimale graden (oost positief, -180 tot 180). Samen met de breedtegraad ingesteld overschrijft dit GeoClue
+settings-modules-nightlight-location = Locatie
+    .description = Waar het schema de zon volgt: automatisch gevonden of een gekozen stad
 
 settings-modules-nightlight-icon-off = Pictogram uit
     .description = Pictogram als het filter uitgeschakeld is

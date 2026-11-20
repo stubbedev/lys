@@ -9,7 +9,7 @@ import (
 	"math"
 	"time"
 
-	"github.com/stubbedev/lys/desktop/service/nightlight/nightschedule"
+	"github.com/stubbedev/lys/desktop/geo"
 	"github.com/stubbedev/lys/lib/third_party/gomath"
 )
 
@@ -50,7 +50,7 @@ type sunTimes struct {
 // solarDayAt is the civil solar day now belongs to, the one whose solar
 // noon is nearest: a UTC date's day spills across midnight away from
 // Greenwich, so the date alone can name the wrong one.
-func solarDayAt(now time.Time, loc nightschedule.Location) sunTimes {
+func solarDayAt(now time.Time, loc geo.Coordinates) sunTimes {
 	nearest := sunTimesFor(now, loc.Latitude(), loc.Longitude(), civilTwilightAltitude)
 	for _, days := range []time.Duration{-24, 24} {
 		st := sunTimesFor(now.Add(days*time.Hour), loc.Latitude(), loc.Longitude(), civilTwilightAltitude)
@@ -64,7 +64,7 @@ func solarDayAt(now time.Time, loc nightschedule.Location) sunTimes {
 // PhaseAt is day from civil dawn up to civil dusk of the solar day now
 // belongs to, night otherwise; polar day is day and polar night is
 // night.
-func PhaseAt(now time.Time, loc nightschedule.Location) Phase {
+func PhaseAt(now time.Time, loc geo.Coordinates) Phase {
 	st := solarDayAt(now, loc)
 	switch {
 	case st.polarDay:

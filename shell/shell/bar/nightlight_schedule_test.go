@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/geo"
 	"github.com/stubbedev/lys/desktop/identity"
-	"github.com/stubbedev/lys/desktop/service/nightlight/nightschedule"
 	"github.com/stubbedev/lys/lib/logtest"
 	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/xdg"
@@ -66,8 +66,8 @@ func (f *fakeSunset) env(t *testing.T) sunsetEnv {
 		},
 		now:      func() time.Time { return f.clock },
 		stateDir: t.TempDir(),
-		locate: func(context.Context) (nightschedule.Location, error) {
-			return nightschedule.Location{}, errors.New("no GeoClue in this test")
+		locate: func(context.Context) (geo.Coordinates, error) {
+			return geo.Coordinates{}, errors.New("no GeoClue in this test")
 		},
 		clockJumps: func(ctx context.Context, _ func()) error {
 			<-ctx.Done()
@@ -115,9 +115,16 @@ func newTestNightlight(t *testing.T, cfg *config.Config, env sunsetEnv) *nightli
 func sunsetConfig(auto bool) *config.Config {
 	cfg := config.Defaults()
 	cfg.Nightlight.AutoSchedule = auto
-	lat, lng := 55.6, 12.5
-	cfg.Nightlight.Latitude, cfg.Nightlight.Longitude = &lat, &lng
+	cfg.Nightlight.Location = config.PinPlace(geo.NewPlace("Copenhagen", mustCoordinates(55.6, 12.5)))
 	return cfg
+}
+
+func mustCoordinates(latitude, longitude float64) geo.Coordinates {
+	at, err := geo.NewCoordinates(latitude, longitude)
+	if err != nil {
+		panic(err)
+	}
+	return at
 }
 
 // unpinnedConfig has the schedule on with no coordinates, as a new
@@ -128,9 +135,9 @@ func unpinnedConfig() *config.Config {
 	return cfg
 }
 
-func mustLocation(t *testing.T, latitude, longitude float64) nightschedule.Location {
+func mustLocation(t *testing.T, latitude, longitude float64) geo.Coordinates {
 	t.Helper()
-	loc, err := nightschedule.NewLocation(latitude, longitude)
+	loc, err := geo.NewCoordinates(latitude, longitude)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -392,7 +399,7 @@ func TestNightlightPinnedCoordinatesBeatGeoClue(t *testing.T) {
 			var asked atomic.Int32
 			located := make(chan struct{}, 8)
 			sydney := mustLocation(t, -33.87, 151.21)
-			env.locate = func(context.Context) (nightschedule.Location, error) {
+			env.locate = func(context.Context) (geo.Coordinates, error) {
 				asked.Add(1)
 				located <- struct{}{}
 				return sydney, nil
@@ -509,70 +516,6 @@ func TestNightlightKeepsItsLocationThroughAFailedLookup(t *testing.T) {
 	m.svc.evaluate()
 	if fake.running {
 		t.Error("the schedule stopped following the location it had")
-	}
-}
-
-// A spelled-out 0, 0 was the old default: it is ignored with a warning
-// and GeoClue is used, never the sun over the Atlantic.
-func TestNightlightIgnoresSpelledOutNullCoordinates(t *testing.T) {
-	logs := logtest.Capture(t)
-	cfg := unpinnedConfig()
-	lat, lng := 0.0, 0.0
-	cfg.Nightlight.Latitude, cfg.Nightlight.Longitude = &lat, &lng
-	fake := &fakeSunset{clock: sunsetNight}
-	m := newTestNightlight(t, cfg, fake.env(t))
-	m.svc.evaluate()
-	if fake.running {
-		t.Error("0, 0 drove the schedule")
-	}
-	if m.svc.pinned {
-		t.Error("0, 0 kept GeoClue out")
-	}
-	if !strings.Contains(logs.String(), "0, 0") {
-		t.Errorf("log = %q, want the warning", logs.String())
-	}
-	m.svc.setLocation(mustLocation(t, 55.6, 12.5))
-	if !fake.running {
-		t.Error("GeoClue did not take over from 0, 0")
-	}
-}
-
-// One coordinate, or an impossible pair, is a mistake to show rather
-// than to paper over with GeoClue.
-func TestNightlightShowsABadCoordinatePair(t *testing.T) {
-	logs := logtest.Capture(t)
-	cfg := unpinnedConfig()
-	lat := 55.6
-	cfg.Nightlight.Latitude = &lat
-	fake := &fakeSunset{clock: sunsetNight}
-	env := fake.env(t)
-	var asked atomic.Int32
-	env.locate = func(context.Context) (nightschedule.Location, error) {
-		asked.Add(1)
-		return mustLocation(t, 55.6, 12.5), nil
-	}
-	m := newTestNightlight(t, cfg, env)
-	chrome := widget.NewBox(widget.Row, 0, 0)
-	m.setChrome(chrome)
-	m.svc.run()
-	t.Cleanup(m.svc.stop)
-	time.Sleep(quietWindow)
-	headlessLoop.Lock()
-	defer headlessLoop.Unlock()
-	if fake.starts != 0 {
-		t.Error("half a coordinate pair started the filter")
-	}
-	if asked.Load() != 0 {
-		t.Error("half a coordinate pair fell back to GeoClue")
-	}
-	if tip := m.btn.Detail(); !strings.Contains(tip, "both latitude and longitude") {
-		t.Errorf("tooltip = %q, want the mistake", tip)
-	}
-	if !widget.HasClass(chrome, "nightlight-no-location") {
-		t.Error("no nightlight-no-location class")
-	}
-	if !strings.Contains(logs.String(), "both latitude and longitude") {
-		t.Errorf("log = %q, want the mistake", logs.String())
 	}
 }
 

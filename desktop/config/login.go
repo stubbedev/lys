@@ -154,7 +154,7 @@ func LoadGreeter(path string, sink DiagnosticSink) (*Config, error) {
 	if err != nil {
 		errs = append(errs, err)
 	}
-	configTree, runtimeTree = migrateLogin(configTree), migrateLogin(runtimeTree)
+	configTree, runtimeTree = migrate(configTree), migrate(runtimeTree)
 	built, err := build(configTree, runtimeTree, nil, sink)
 	cfg := built.cfg
 	if err != nil {

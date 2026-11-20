@@ -108,6 +108,15 @@ An audio source name.
 
 String.
 
+## AutoPlace {#auto-place}
+
+`"auto"` to follow GeoClue, or a place: `name`, `latitude` and
+`longitude`.
+
+| Value | Meaning |
+|---|---|
+| `"auto"` | Follow the machine's location through GeoClue. |
+
 ## AutoSaverLevel {#auto-saver-level}
 
 | Value | Meaning |
@@ -1284,6 +1293,16 @@ Serialises as `uint8`.
 Absolute length in pixels (e.g. "400px").
 
 String matching `^[0-9]+(\.[0-9]+)?px$`.
+
+## Place {#place}
+
+A place: `name` as shown, `latitude` and `longitude` in decimal degrees.
+
+| Field | Description |
+|---|---|
+| `name` | The place's name as shown, such as the city; left out for a position |
+| `latitude` | Latitude in decimal degrees, north positive, from -90 to 90. |
+| `longitude` | Longitude in decimal degrees, east positive, from -180 to 180. |
 
 ## PopupCloseBehavior {#popup-close-behavior}
 

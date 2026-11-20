@@ -159,7 +159,7 @@ func weatherVars(w *weather.Weather, imperial bool) map[string]any {
 func weatherSettings(cfg config.WeatherConfig) weather.Settings {
 	s := weather.Settings{
 		Interval: time.Duration(cfg.RefreshIntervalSeconds) * time.Second,
-		Location: weather.ParseLocation(cfg.Location),
+		Location: cfg.Location.Place(),
 	}
 	switch cfg.Provider {
 	case config.WeatherProviderVisualCrossing:

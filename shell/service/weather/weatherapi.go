@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/stubbedev/lys/desktop/geo"
 )
 
 const weatherAPIProvider = "weatherapi"
@@ -70,16 +72,16 @@ type waResponse struct {
 
 // fetchWeatherAPI fetches from WeatherAPI.com: seven days, no air quality or
 // alerts.
-func fetchWeatherAPI(ctx context.Context, key string, q LocationQuery, resolved Location, now time.Time) (*Weather, error) {
-	query := url.Values{"key": {key}, "q": {q.providerPath()}, "days": {"7"}, "aqi": {"no"}, "alerts": {"no"}}
+func fetchWeatherAPI(ctx context.Context, key string, place geo.Place, now time.Time) (*Weather, error) {
+	query := url.Values{"key": {key}, "q": {place.Coordinates().String()}, "days": {"7"}, "aqi": {"no"}, "alerts": {"no"}}
 	var data waResponse
 	if err := getJSON(ctx, weatherAPIProvider, WeatherAPIURL, query, true, &data); err != nil {
 		return nil, err
 	}
-	return parseWeatherAPI(&data, resolved, now)
+	return parseWeatherAPI(&data, place, now)
 }
 
-func parseWeatherAPI(data *waResponse, resolved Location, now time.Time) (*Weather, error) {
+func parseWeatherAPI(data *waResponse, place geo.Place, now time.Time) (*Weather, error) {
 	zone, err := waZone(data)
 	if err != nil {
 		return nil, err
@@ -121,7 +123,7 @@ func parseWeatherAPI(data *waResponse, resolved Location, now time.Time) (*Weath
 		}
 		daily = append(daily, d)
 	}
-	return buildWeather(current.current(), hourly, daily, resolved, zone, now), nil
+	return buildWeather(current.current(), hourly, daily, place, zone, now), nil
 }
 
 // waZone is the location's zone: the offset between its local wall time

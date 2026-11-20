@@ -13,18 +13,15 @@ type ErrorKind int
 const (
 	ErrOther ErrorKind = iota
 	ErrAPIKeyMissing
-	ErrLocationNotFound
 	ErrNetwork
 	ErrRateLimited
 )
 
-// Error is one failed geocode or fetch.
+// Error is one failed fetch.
 type Error struct {
 	Kind ErrorKind
-	// Provider names the failing endpoint ("open-meteo", "geocoding").
+	// Provider names the failing endpoint ("open-meteo").
 	Provider string
-	// Query is the unresolved location of ErrLocationNotFound.
-	Query string
 	// Status is the HTTP status of a non-2xx reply, 0 otherwise.
 	Status int
 	msg    string
@@ -41,7 +38,7 @@ func (e *Error) Error() string {
 func (e *Error) Unwrap() error { return e.cause }
 
 // Retryable reports whether a fetch is retried: transport failures, server
-// errors, and rate limits are retried; parse, location, and key errors
+// errors, and rate limits are retried; parse and key errors
 // are not.
 func (e *Error) Retryable() bool {
 	switch e.Kind {
@@ -71,10 +68,6 @@ func rateLimited(provider string) *Error {
 
 func apiKeyMissing(provider string) *Error {
 	return &Error{Kind: ErrAPIKeyMissing, Provider: provider, msg: provider + " requires an API key in config"}
-}
-
-func locationNotFound(query string) *Error {
-	return &Error{Kind: ErrLocationNotFound, Query: query, msg: "location '" + query + "' not found"}
 }
 
 // kindOf is the UI category of any error.
