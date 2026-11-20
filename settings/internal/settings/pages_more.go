@@ -205,7 +205,7 @@ func launcherModesPage(*config.Config) pageSpec {
 			field("launcher.drun.match-fields", enumList),
 			field("launcher.drun.display-format"),
 			field("launcher.drun.show-actions"),
-			field("launcher.drun.url-launcher"),
+			field("launcher.drun.url-launcher", browserRow),
 		}},
 		{title: "settings-section-launcher-run", rows: []rowSpec{
 			field("launcher.run.run-command"),
@@ -219,7 +219,7 @@ func launcherModesPage(*config.Config) pageSpec {
 			field("launcher.window.close-on-delete"),
 		}},
 		{title: "settings-section-launcher-ssh", rows: []rowSpec{
-			field("launcher.ssh.client"),
+			field("launcher.ssh.client", sshClientRow),
 			field("launcher.ssh.command"),
 			field("launcher.ssh.parse-hosts"),
 			field("launcher.ssh.parse-known-hosts"),
@@ -229,7 +229,7 @@ func launcherModesPage(*config.Config) pageSpec {
 			field("launcher.filebrowser.sorting-method"),
 			field("launcher.filebrowser.directories-first"),
 			field("launcher.filebrowser.show-hidden"),
-			field("launcher.filebrowser.command"),
+			field("launcher.filebrowser.command", fileManagerRow),
 		}},
 		{title: "settings-section-launcher-combi", rows: []rowSpec{
 			field("launcher.combi.modes", launcherModesRow),

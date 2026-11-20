@@ -198,7 +198,7 @@ func (h host) programs() []choice {
 	return sortedChoices(out)
 }
 
-func (h host) terminals() []choice {
+func (h host) appsIn(category string) []choice {
 	var out []choice
 	for _, data := range h.env.DataSearchPath() {
 		dir := filepath.Join(data, "applications")
@@ -208,7 +208,7 @@ func (h host) terminals() []choice {
 			}
 			entry := filepath.Join(dir, e.Name())
 			categories := strings.Split(iniValue(entry, "Desktop Entry", "Categories"), ";")
-			if !slices.Contains(categories, "TerminalEmulator") {
+			if !slices.Contains(categories, category) {
 				continue
 			}
 			fields := strings.Fields(iniValue(entry, "Desktop Entry", "Exec"))
@@ -220,6 +220,18 @@ func (h host) terminals() []choice {
 		}
 	}
 	return sortedChoices(out)
+}
+
+func (h host) terminals() []choice { return h.appsIn("TerminalEmulator") }
+
+func (h host) browsers() []choice { return h.appsIn("WebBrowser") }
+
+func (h host) fileManagers() []choice { return h.appsIn("FileManager") }
+
+var sshClientNames = []string{"ssh", "mosh", "autossh", "et", "dbclient", "tsh"}
+
+func (h host) sshClients() []choice {
+	return slices.DeleteFunc(h.programs(), func(c choice) bool { return !slices.Contains(sshClientNames, c.value) })
 }
 
 var fontExtensions = []string{".ttf", ".otf", ".ttc"}

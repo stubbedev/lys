@@ -28,6 +28,9 @@ const (
 	wmModelFormat   = "lys-wm-xkb-model"
 	wmRulesFormat   = "lys-wm-xkb-rules"
 	typeTerminal    = "Terminal"
+	listBrowsers    = "browser"
+	listFileManager = "file-manager"
+	listSSHClients  = "ssh-client"
 	listSoundNames  = "sound-name"
 	listTimeZones   = "time-zone"
 )
@@ -44,6 +47,9 @@ func hostLists(h host) map[string]lister {
 		"CursorTheme":       h.cursorThemes,
 		"Program":           h.programs,
 		typeTerminal:        h.terminals,
+		listBrowsers:        h.browsers,
+		listFileManager:     h.fileManagers,
+		listSSHClients:      h.sshClients,
 		listSoundNames:      h.soundNames,
 		listTimeZones:       h.timeZones,
 		listMailTags:        mailTags,
@@ -182,9 +188,18 @@ var soundNameRow = withEditor(func(k *kit, s slot, meta config.FieldMeta) contro
 	return newChoiceEditor(k, s, choiceSpec{list: systemLists[listSoundNames], special: meta.Variants, free: true})
 })
 
-var terminalRow = withEditor(func(k *kit, s slot, meta config.FieldMeta) control {
-	return newChoiceEditor(k, s, choiceSpec{list: systemLists[typeTerminal], special: meta.Variants, free: true})
-})
+func programRow(list string) rowOpt {
+	return withEditor(func(k *kit, s slot, meta config.FieldMeta) control {
+		return newChoiceEditor(k, s, choiceSpec{list: systemLists[list], special: meta.Variants, free: true, optional: meta.Optional, browse: (*kit).appCommandButton})
+	})
+}
+
+var (
+	terminalRow    = programRow(typeTerminal)
+	browserRow     = programRow(listBrowsers)
+	fileManagerRow = programRow(listFileManager)
+	sshClientRow   = programRow(listSSHClients)
+)
 
 type choiceSpec struct {
 	list     lister

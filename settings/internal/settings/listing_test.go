@@ -126,6 +126,28 @@ func TestTheProgramsAndTerminalsAreListed(t *testing.T) {
 	if len(got) != 1 || got[0].value != "foot" || got[0].label != "Foot" {
 		t.Fatalf("terminals %+v", got)
 	}
+	put(t, filepath.Join(data, "applications/nautilus.desktop"), "[Desktop Entry]\nName=Files\nExec=nautilus --new-window %U\nCategories=GNOME;Utility;Core;FileManager;\n")
+	put(t, filepath.Join(data, "applications/chromium.desktop"), "[Desktop Entry]\nName=Chromium\nExec=chromium %U\nCategories=Network;WebBrowser;\n")
+	if got := h.fileManagers(); len(got) != 1 || got[0].value != "nautilus" || got[0].label != "Files" {
+		t.Errorf("file managers %+v", got)
+	}
+	if got := values(h.browsers()); !slices.Equal(got, []string{"chromium"}) {
+		t.Errorf("browsers %q, want chromium alone", got)
+	}
+}
+
+func TestTheSSHClientsAreTheInstalledOnes(t *testing.T) {
+	bin := t.TempDir()
+	h := fakeHost(t, map[string]string{"PATH": bin})
+	for _, name := range []string{"ssh", "mosh", "foot"} {
+		put(t, filepath.Join(bin, name), "")
+		if err := os.Chmod(filepath.Join(bin, name), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := values(h.sshClients()); !slices.Equal(got, []string{"mosh", "ssh"}) {
+		t.Fatalf("ssh clients %q", got)
+	}
 }
 
 func TestTheFontFilesAreFoundUnderTheFontDirectories(t *testing.T) {

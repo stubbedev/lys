@@ -22,6 +22,9 @@ var listFixtures = map[string][]choice{
 	"CursorTheme":       {{value: "Bibata", label: "Bibata Modern"}},
 	"Program":           {{value: "foot", label: "foot"}, {value: "ssh", label: "ssh"}, {value: "xdg-open", label: "xdg-open"}},
 	typeTerminal:        {{value: "foot", label: "Foot"}, {value: "kitty", label: "kitty"}},
+	listBrowsers:        {{value: "firefox", label: "Firefox"}},
+	listFileManager:     {{value: "nautilus", label: "Files"}},
+	listSSHClients:      {{value: "mosh", label: "mosh"}, {value: "ssh", label: "ssh"}},
 	listSoundNames:      {{value: "message-new-instant", label: "message-new-instant"}},
 	listMediaPlayers:    {{value: "*spotify*", label: "spotify"}, {value: "*firefox*", label: "firefox"}},
 	listMailTags:        {{value: "inbox", label: "inbox"}, {value: "spam", label: "spam"}, {value: "unread", label: "unread"}},
@@ -223,14 +226,14 @@ func TestAnEmptyListStillKeepsTypesAndClears(t *testing.T) {
 func TestSpecialValuesComeFirstWithTheirLabels(t *testing.T) {
 	k := testKit(t, "")
 	for path, want := range map[string][]string{
-		"osd.monitor":                {"primary", "DP-1"},
-		"modules.netstat.interface":  {"auto", "eth0", "wlan0"},
-		"modules.cpu.temp-sensor":    {"auto", "Tctl"},
-		"modules.cava.source":        {"auto", "speakers.monitor"},
-		"launcher.monitor":           {"", "DP-1", "HDMI-A-1"},
-		"login.lock.pam-service":     {shellDefault("login.lock.pam-service"), "login", "lys-lock"},
-		"login.greeter.cursor-theme": {"", "Bibata"},
-		"launcher.ssh.client":        {"", "foot", "ssh", "xdg-open"},
+		"osd.monitor":                 {"primary", "DP-1"},
+		"modules.netstat.interface":   {"auto", "eth0", "wlan0"},
+		"modules.cpu.temp-sensor":     {"auto", "Tctl"},
+		"modules.cava.source":         {"auto", "speakers.monitor"},
+		"launcher.monitor":            {"", "DP-1", "HDMI-A-1"},
+		"login.lock.pam-service":      {shellDefault("login.lock.pam-service"), "login", "lys-lock"},
+		"login.greeter.cursor-theme":  {"", "Bibata"},
+		"login.greeter.screen-reader": {"", "orca", "foot", "ssh", "xdg-open"},
 	} {
 		c := shellControl(t, k, path).(*choiceEditor)
 		p := openChoices(t, k, c)
@@ -248,7 +251,7 @@ func TestSpecialValuesComeFirstWithTheirLabels(t *testing.T) {
 
 func TestAProgramIsAListedNameOrAPath(t *testing.T) {
 	k := testKit(t, "")
-	const path = "launcher.ssh.client"
+	const path = "login.greeter.screen-reader"
 	c := shellControl(t, k, path).(*choiceEditor)
 	for value, unknown := range map[string]bool{"ssh": false, "/opt/bin/ssh": false, "not-installed": true} {
 		if err := k.store.set(path, value); err != nil {
@@ -274,6 +277,36 @@ func TestTheTerminalRowListsTerminalEmulators(t *testing.T) {
 	}
 	if c.unknown.Visible() {
 		t.Fatal("a terminal command is never unknown")
+	}
+}
+
+func TestTheLauncherCommandsOfferWhatIsInstalledForThem(t *testing.T) {
+	k := testKit(t, "")
+	for path, want := range map[string][]string{
+		"launcher.ssh.client":          {"mosh", "ssh"},
+		"launcher.drun.url-launcher":   {"firefox"},
+		"launcher.filebrowser.command": {"nautilus"},
+	} {
+		c, ok := fieldControl(k, k.store, pageRow(t, "launcher-modes", path)).(*choiceEditor)
+		if !ok {
+			t.Fatalf("%s is not picked from a list", path)
+		}
+		p := openChoices(t, k, c)
+		for _, v := range want {
+			if !slices.Contains(p.all, v) {
+				t.Errorf("%s does not offer %q: %q", path, v, p.all)
+			}
+		}
+		if slices.Contains(p.all, "xdg-open") || slices.Contains(p.all, "foot") {
+			t.Errorf("%s offers programs that are not for it: %q", path, p.all)
+		}
+		if c.browse == nil {
+			t.Errorf("%s does not offer to run an installed app", path)
+		}
+		pickName(t, p, want[0])
+		if v := k.store.value(path); v != want[0] {
+			t.Errorf("%s stored %v", path, v)
+		}
 	}
 }
 
