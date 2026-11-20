@@ -59,9 +59,6 @@ settings-modules-storage-scroll-up = Scorrimento in alto
 settings-modules-storage-scroll-down = Scorrimento in basso
     .description = Comando della shell allo scorrimento in basso
 
-settings-modules-storage-thresholds = Soglie
-    .description = Soglie di colore che cambiano in base ai livelli del valore
-
 ## Format placeholders
 
 settings-modules-storage-format-placeholder-percent = Utilizzo del disco (0-100)

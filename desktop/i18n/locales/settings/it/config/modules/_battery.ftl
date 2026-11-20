@@ -59,9 +59,6 @@ settings-modules-battery-format = Formato
 settings-modules-battery-left-click = Clic sinistro
     .description = Azione al clic sinistro
 
-settings-modules-battery-thresholds = Soglie
-    .description = Soglie di colore che cambiano in base ai livelli del valore
-
 settings-modules-battery-notify-low = Notifiche di batteria scarica
     .description = Notifica quando la batteria o una periferica raggiunge il livello basso o critico
 

@@ -55,9 +55,6 @@ settings-modules-battery-format = Formato
 settings-modules-battery-left-click = Clique esquerdo
     .description = Ação ao clicar com o botão esquerdo
 
-settings-modules-battery-thresholds = Limiares
-    .description = Limiares de cor que mudam consoante o nível do valor
-
 settings-modules-battery-notify-low = Notificações de bateria fraca
     .description = Notificar quando a bateria ou um periférico atinge o nível fraco ou crítico
 

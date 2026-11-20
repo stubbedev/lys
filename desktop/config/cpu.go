@@ -55,25 +55,6 @@ type CpuConfig struct {
 	ScrollUp ClickAction `cfg:"scroll-up"`
 	// Action on scroll down.
 	ScrollDown ClickAction `cfg:"scroll-down"`
-	// Dynamic color thresholds based on CPU usage percentage.
-	//
-	// Entries are checked in order; the last matching entry wins for each
-	// color slot. Use `above` for high-value warnings (e.g., high CPU usage).
-	//
-	// ## Example
-	//
-	// ```yaml
-	// modules:
-	//   cpu:
-	//     thresholds:
-	//       - above: 70
-	//         icon-color: status-warning
-	//         label-color: status-warning
-	//       - above: 90
-	//         icon-color: status-error
-	//         label-color: status-error
-	// ```
-	Thresholds []ThresholdEntry `cfg:"thresholds"`
 }
 
 // DefaultsCpu returns the schema defaults.
@@ -98,7 +79,6 @@ func DefaultsCpu() CpuConfig {
 		MiddleClick:    ClickAction{},
 		ScrollUp:       ClickAction{},
 		ScrollDown:     ClickAction{},
-		Thresholds:     []ThresholdEntry{},
 	}
 }
 

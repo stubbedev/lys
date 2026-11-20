@@ -1600,8 +1600,8 @@ both conditions must be satisfied (AND logic).
 ### YAML Example
 
 ```yaml
-# under modules.cpu
-thresholds:
+# under thresholds
+cpu:
 - {above: 70, icon-color: status-warning, label-color: status-warning}
 - {above: 90, icon-color: status-error, label-color: status-error}
 ```

@@ -52,9 +52,6 @@ settings-modules-ram-scroll-up = Deslocar para cima
 settings-modules-ram-scroll-down = Deslocar para baixo
     .description = Comando da shell ao deslocar para baixo
 
-settings-modules-ram-thresholds = Limiares
-    .description = Limiares de cor que mudam consoante o nível do valor
-
 settings-modules-ram-format-placeholder-percent = Utilização de memória (0-100)
 
 settings-modules-ram-format-placeholder-used-gib = Memória usada em GiB

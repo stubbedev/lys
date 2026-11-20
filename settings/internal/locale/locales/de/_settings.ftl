@@ -292,6 +292,7 @@ settings-nav-theme = Thema
 settings-nav-wallpaper = Hintergrundbild
 settings-nav-bar = Leiste
 settings-nav-dock = Dock
+settings-nav-thresholds = Warnstufen
 settings-nav-notifications = Benachrichtigungen
 settings-nav-osd = OSD
 settings-nav-audio = Audio
@@ -333,6 +334,7 @@ settings-page-lock = Anmelde- & Sperrbildschirm
 settings-page-theme = Thema
 settings-page-wallpaper = Hintergrundbild
 settings-page-dock = Dock
+settings-page-thresholds = Warnstufen
 settings-page-notifications = Benachrichtigungen
 settings-page-osd = OSD
 settings-page-audio = Audio
@@ -752,6 +754,7 @@ settings-module-link-power-detail = Ladestand, Ladegrenze, Energiemodus und Warn
 settings-module-link-bluetooth-detail = Bluetooth einschalten sowie Geräte koppeln und verbinden
 settings-module-link-date-time-detail = Die Zeitzone und der erste Wochentag des Kalenders
 settings-module-link-idle-detail = Die Zeiten für Abdunkeln, Sperren, Bildschirm aus und Ruhezustand, die Wachhalten anhält
+settings-module-link-thresholds-detail = Wann CPU, Arbeitsspeicher, Datenträger und Akku eine Warnung zeigen, in der Leiste und im Dashboard
 settings-module-link-binds-detail = Die Modi festlegen und die Tasten, die sie öffnen
 settings-module-link-input-detail = Tastaturbelegungen hinzufügen und ordnen
 settings-privacy-link-media-detail = Online-Liedtexte senden Interpret, Titel, Album und Länge jedes Titels an lrclib.net
@@ -1273,22 +1276,14 @@ settings-range-windows = { $n ->
 }
 settings-share-picker-windows-per-row = Fenster pro Zeile
     .description = Die wenigsten und die meisten Fensterkarten in einer Zeile
-settings-dashboard-usage-levels = Auslastung
-    .description = Wann die Ringe für CPU, Speicher und Datenträger auf Warnung, dann auf Fehler wechseln
 settings-dashboard-temp-levels = Temperatur
     .description = Wann der Ring der CPU-Temperatur auf Warnung, dann auf Fehler wechselt
-settings-dashboard-battery-levels = Akku
-    .description = Ab welchem Ladestand oder darunter der Akku eine Warnung, dann kritisch zeigt
 settings-level-warning = Warnung
 settings-level-error = Fehler
-settings-level-critical = Kritisch
 settings-level-band = { $to ->
    *[other] Gezeigt von { $from } bis { $to } %
 }
 settings-level-muted = Gezeigt, solange stummgeschaltet
-settings-level-unit-percent = { $n ->
-   *[other] { $n } %
-}
 settings-level-unit-celsius = { $n ->
    *[other] { $n } °C
 }

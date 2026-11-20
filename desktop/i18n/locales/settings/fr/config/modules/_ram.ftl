@@ -56,9 +56,6 @@ settings-modules-ram-scroll-up = Défilement vers le haut
 settings-modules-ram-scroll-down = Défilement vers le bas
     .description = Commande à exécuter au défilement vers le bas
 
-settings-modules-ram-thresholds = Seuils
-    .description = Seuils de couleur qui changent selon le niveau de valeur
-
 ## Format placeholders
 
 settings-modules-ram-format-placeholder-percent = Utilisation de la mémoire (0-100)

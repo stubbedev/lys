@@ -48,25 +48,6 @@ type RamConfig struct {
 	ScrollUp ClickAction `cfg:"scroll-up"`
 	// Action on scroll down.
 	ScrollDown ClickAction `cfg:"scroll-down"`
-	// Dynamic color thresholds based on RAM usage percentage.
-	//
-	// Entries are checked in order; the last matching entry wins for each
-	// color slot. Use `above` for high-value warnings (e.g., high memory usage).
-	//
-	// ## Example
-	//
-	// ```yaml
-	// modules:
-	//   ram:
-	//     thresholds:
-	//       - above: 80
-	//         icon-color: status-warning
-	//         label-color: status-warning
-	//       - above: 95
-	//         icon-color: status-error
-	//         label-color: status-error
-	// ```
-	Thresholds []ThresholdEntry `cfg:"thresholds"`
 }
 
 // DefaultsRam returns the schema defaults.
@@ -90,7 +71,6 @@ func DefaultsRam() RamConfig {
 		MiddleClick:    ClickAction{},
 		ScrollUp:       ClickAction{},
 		ScrollDown:     ClickAction{},
-		Thresholds:     []ThresholdEntry{},
 	}
 }
 

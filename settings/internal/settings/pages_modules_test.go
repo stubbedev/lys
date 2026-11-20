@@ -3,6 +3,7 @@ package settings
 import (
 	"fmt"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -121,9 +122,9 @@ func TestTheSeparatorsThicknessSlidesOverOneToFourPixels(t *testing.T) {
 func TestDeviceLikeModulePagesLinkToTheirDevicePages(t *testing.T) {
 	k := testKit(t, "")
 	k.nav = layout(k.store.svc.Config(), bothParts)
-	for module, want := range map[string]string{
-		"audio": soundID, "battery": powerPageID, "bluetooth": bluetoothPageID, "clock": dateTimeID,
-		"idle-inhibit": "idle", "keybind-mode": "wm-binds", "keyboard-input": "wm-keyboard",
+	for module, want := range map[string][]string{
+		"audio": {soundID}, "battery": {powerPageID, thresholdsPageID}, "bluetooth": {bluetoothPageID}, "clock": {dateTimeID},
+		"idle-inhibit": {"idle"}, "keybind-mode": {"wm-binds"}, "keyboard-input": {"wm-keyboard"},
 	} {
 		p, ok := pageByID(k.nav, module)
 		if !ok {
@@ -138,8 +139,8 @@ func TestDeviceLikeModulePagesLinkToTheirDevicePages(t *testing.T) {
 		for _, b := range treetest.All[*widget.Button](p.footer(k)) {
 			b.OnClick()
 		}
-		if !slices.Equal(opened, []string{want}) {
-			t.Errorf("the %s page's links opened %q, want %s", module, opened, want)
+		if !slices.Equal(opened, want) {
+			t.Errorf("the %s page's links opened %q, want %q", module, opened, want)
 		}
 	}
 }
@@ -302,5 +303,58 @@ func TestASlidersTrailingCommitWaitsForTheKitsClock(t *testing.T) {
 	clock.Advance(time.Second)
 	if got := fmt.Sprint(k.store.value("modules.separator.size")); got != "4" {
 		t.Errorf("after the throttle passed the size is %v, want the last move", got)
+	}
+}
+
+func TestTheResourcePagesAndTheDashboardLinkToTheirOneThresholdSet(t *testing.T) {
+	k := testKit(t, "")
+	k.nav = layout(k.store.svc.Config(), bothParts)
+	for _, module := range []string{"cpu", "ram", "storage", "battery", "dashboard"} {
+		p, ok := pageByID(k.nav, module)
+		if !ok {
+			t.Fatalf("no %s page", module)
+		}
+		if p.footer == nil {
+			t.Errorf("the %s page links nowhere", module)
+			continue
+		}
+		var opened []string
+		k.openPage = func(id string) { opened = append(opened, id) }
+		for _, b := range treetest.All[*widget.Button](p.footer(k)) {
+			b.OnClick()
+		}
+		if !slices.Contains(opened, thresholdsPageID) {
+			t.Errorf("the %s page's links opened %q, not the thresholds page", module, opened)
+		}
+		for _, s := range p.sections {
+			for _, r := range s.rows {
+				if strings.Contains(r.path, "threshold") || strings.Contains(r.path, "usage-") || strings.Contains(r.path, "battery-warning") || strings.Contains(r.path, "battery-critical") {
+					t.Errorf("the %s page still edits %s", module, r.path)
+				}
+			}
+		}
+	}
+	p, ok := pageByID(k.nav, thresholdsPageID)
+	if !ok {
+		t.Fatal("no thresholds page")
+	}
+	var paths []string
+	for _, s := range p.sections {
+		for _, r := range s.rows {
+			paths = append(paths, r.path)
+		}
+	}
+	if want := []string{"thresholds.cpu", "thresholds.ram", "thresholds.storage", "thresholds.battery"}; !slices.Equal(paths, want) {
+		t.Errorf("the thresholds page edits %q, want %q", paths, want)
+	}
+}
+
+func TestOnlyTheResourcePagesLinkToTheThresholds(t *testing.T) {
+	for _, id := range []string{"audio", "brightness", "notifications", "clock"} {
+		for _, l := range moduleLinks[id] {
+			if l.page == thresholdsPageID {
+				t.Errorf("the %s page links to the thresholds, which it does not read", id)
+			}
+		}
 	}
 }

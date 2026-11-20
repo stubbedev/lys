@@ -55,9 +55,6 @@ settings-modules-cpu-scroll-up = Omhoog scrollen
 settings-modules-cpu-scroll-down = Omlaag scrollen
     .description = Shell-opdracht bij omlaag scrollen
 
-settings-modules-cpu-thresholds = Drempels
-    .description = Kleurdrempels die veranderen op basis van waardeniveaus
-
 settings-modules-cpu-format-placeholder-percent = CPU-gebruik (0-100)
 
 settings-modules-cpu-format-placeholder-freq-ghz = Frequentie van de drukste kern in GHz

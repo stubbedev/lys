@@ -32,18 +32,10 @@ type DashboardConfig struct {
 	ScrollDown ClickAction `cfg:"scroll-down"`
 	// Action on left click.
 	LeftClick ClickAction `cfg:"left-click"`
-	// CPU/RAM/disk usage percent at which the dashboard rings turn warning.
-	UsageWarning float32 `cfg:"usage-warning"`
-	// CPU/RAM/disk usage percent at which the dashboard rings turn error.
-	UsageError float32 `cfg:"usage-error"`
 	// CPU temperature (°C) at which the dashboard temp ring turns warning.
 	TempWarning float32 `cfg:"temp-warning"`
 	// CPU temperature (°C) at which the dashboard temp ring turns error.
 	TempError float32 `cfg:"temp-error"`
-	// Battery percent at or below which the dashboard battery shows warning.
-	BatteryWarning float32 `cfg:"battery-warning"`
-	// Battery percent at or below which the dashboard battery shows critical.
-	BatteryCritical float32 `cfg:"battery-critical"`
 	// User session configuration
 	UserSession UserSessionConfig `cfg:"user-session"`
 }
@@ -51,22 +43,18 @@ type DashboardConfig struct {
 // DefaultsDashboard returns the schema defaults.
 func DefaultsDashboard() DashboardConfig {
 	return DashboardConfig{
-		IconOverride:    "",
-		BorderShow:      false,
-		BorderColor:     mustColor("yellow"),
-		IconColor:       mustColor("auto"),
-		IconBgColor:     mustColor("yellow"),
-		RightClick:      ClickAction{},
-		MiddleClick:     ClickAction{},
-		ScrollUp:        ClickAction{},
-		ScrollDown:      ClickAction{},
-		LeftClick:       ParseClickAction("dropdown:dashboard"),
-		UsageWarning:    60,
-		UsageError:      85,
-		TempWarning:     65,
-		TempError:       85,
-		BatteryWarning:  30,
-		BatteryCritical: 15,
+		IconOverride: "",
+		BorderShow:   false,
+		BorderColor:  mustColor("yellow"),
+		IconColor:    mustColor("auto"),
+		IconBgColor:  mustColor("yellow"),
+		RightClick:   ClickAction{},
+		MiddleClick:  ClickAction{},
+		ScrollUp:     ClickAction{},
+		ScrollDown:   ClickAction{},
+		LeftClick:    ParseClickAction("dropdown:dashboard"),
+		TempWarning:  65,
+		TempError:    85,
 		UserSession: UserSessionConfig{
 			Actions: []SessionAction{
 				SessionActionLock,

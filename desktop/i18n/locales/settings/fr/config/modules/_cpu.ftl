@@ -59,9 +59,6 @@ settings-modules-cpu-scroll-up = Défilement vers le haut
 settings-modules-cpu-scroll-down = Défilement vers le bas
     .description = Commande à exécuter au défilement vers le bas
 
-settings-modules-cpu-thresholds = Seuils
-    .description = Seuils de couleur qui changent selon le niveau de valeur
-
 ## Format placeholders
 
 settings-modules-cpu-format-placeholder-percent = Utilisation du processeur (0-100)

@@ -55,9 +55,6 @@ settings-modules-storage-scroll-up = Deslocar para cima
 settings-modules-storage-scroll-down = Deslocar para baixo
     .description = Comando da shell ao deslocar para baixo
 
-settings-modules-storage-thresholds = Limiares
-    .description = Limiares de cor que mudam consoante o nível do valor
-
 settings-modules-storage-format-placeholder-percent = Utilização do disco (0-100)
 
 settings-modules-storage-format-placeholder-used-tib = Espaço usado em TiB

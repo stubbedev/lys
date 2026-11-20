@@ -59,9 +59,6 @@ settings-modules-battery-format = Format
 settings-modules-battery-left-click = Linksklick
     .description = Aktion bei Linksklick
 
-settings-modules-battery-thresholds = Schwellenwerte
-    .description = Farbschwellen, die sich nach dem Wert ändern
-
 settings-modules-battery-notify-low = Benachrichtigungen bei schwachem Akku
     .description = Benachrichtigen, wenn der Akku oder ein Peripheriegerät den niedrigen oder kritischen Stand erreicht
 

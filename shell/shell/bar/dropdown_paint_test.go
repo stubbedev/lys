@@ -122,9 +122,9 @@ func TestBatteryGaugePaintsFromTheLevelbarRules(t *testing.T) {
 	}
 }
 
-// The dashboard rings are lys-ui's ring in the palette's colors: the
-// threshold variant recolors the sweep, and dropping the variant
-// returns it to the accent.
+// The dashboard rings are lys-ui's ring in the palette's colors: a
+// threshold's color recolors the sweep, and without one the ring shows
+// success.
 func TestStatRingPaintsTheThresholdColor(t *testing.T) {
 	restore := widget.SetAnimationsInstant(true)
 	defer restore()
@@ -146,19 +146,23 @@ func TestStatRingPaintsTheThresholdColor(t *testing.T) {
 	}
 	green := func(c render.Color) bool { return c.A() > 200 && c.G() > 150 && c.R() < 150 }
 	red := func(c render.Color) bool { return c.A() > 200 && c.R() > 150 && c.G() < 150 }
-	r.set(0.75, "75%", "success")
+	statusError := config.ColorValue{Kind: config.ColorToken, Token: config.TokenStatusError}
+	r.set(0.75, "75%", nil)
 	if n := countColor(paintRing(), green); n == 0 {
-		t.Error("the success ring painted no green")
-	}
-	r.set(0.75, "75%", "error")
-	if n := countColor(paintRing(), red); n == 0 {
-		t.Error("the error ring painted no red")
+		t.Error("a ring under every threshold painted no green")
 	}
 	fresh()
-	r.set(0.75, "75%", "success")
-	r.set(0.75, "75%", "")
-	if n := countColor(paintRing(), green); n != 0 {
-		t.Errorf("the accent ring still painted %d green pixels", n)
+	r.set(0.75, "75%", &statusError)
+	data := paintRing()
+	if n := countColor(data, red); n == 0 {
+		t.Error("a ring past the error threshold painted no red")
+	}
+	if n := countColor(data, green); n != 0 {
+		t.Errorf("a ring past the error threshold still painted %d green pixels", n)
+	}
+	r.set(0.75, "75%", nil)
+	if n := countColor(paintRing(), red); n != 0 {
+		t.Errorf("a ring back under the thresholds still painted %d red pixels", n)
 	}
 }
 
@@ -186,7 +190,7 @@ func TestStatRingTakesTheStylesheetDiameter(t *testing.T) {
 	}
 	r := newStatRing(widget.NewLabel(ctx.Font, 12, "", 0))
 	ctx.Theme.Attach(r.ring)
-	r.set(0.5, "50%", "")
+	r.set(0.5, "50%", nil)
 	sz := widget.SizeWithinAsChild(r.ring, widget.Size{W: 400, H: 400})
 	if sz.W < 60 || sz.W != sz.H {
 		t.Fatalf("the ring measures %v, want the square 4rem .stat-ring", sz)

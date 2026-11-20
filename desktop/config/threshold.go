@@ -1,5 +1,63 @@
 package config
 
+// ThresholdsConfig is the warning levels of the machine's resources:
+// one set per resource, which its bar module and the dashboard both
+// show.
+//
+// Warning levels of CPU, RAM, disk and battery, shared by their bar
+// modules and the dashboard.
+//
+// Each resource is a list of thresholds over its percentage. Entries are
+// checked in order; the last matching entry wins for each color slot.
+// The bar module recolors its button with the slots; the dashboard's
+// gauge for the resource takes the first color an entry sets, in the
+// order icon, label, button background, icon background, border, and
+// its battery card colors its icon with `icon-color` and its text with
+// `label-color`.
+//
+// ## Example
+//
+// ```yaml
+// thresholds: {cpu: [{above: 70, icon-color: status-warning}, {above: 90, icon-color: status-error}]}
+// ```
+type ThresholdsConfig struct {
+	// CPU usage percentage.
+	CPU []ThresholdEntry `cfg:"cpu"`
+	// RAM usage percentage.
+	RAM []ThresholdEntry `cfg:"ram"`
+	// Disk usage percentage of the storage module's mount, and of the
+	// root file system on the dashboard.
+	Storage []ThresholdEntry `cfg:"storage"`
+	// Battery charge percentage. Use `below` for low-charge warnings.
+	Battery []ThresholdEntry `cfg:"battery"`
+}
+
+// DefaultsThresholds returns the schema defaults: warning, then error,
+// past 60 % and 85 % of use and under 30 % and 15 % of charge.
+func DefaultsThresholds() ThresholdsConfig {
+	usage := func() []ThresholdEntry {
+		return []ThresholdEntry{
+			statusThreshold(new(60.0), nil, TokenStatusWarning),
+			statusThreshold(new(85.0), nil, TokenStatusError),
+		}
+	}
+	return ThresholdsConfig{
+		CPU:     usage(),
+		RAM:     usage(),
+		Storage: usage(),
+		Battery: []ThresholdEntry{
+			statusThreshold(nil, new(30.0), TokenStatusWarning),
+			statusThreshold(nil, new(15.0), TokenStatusError),
+		},
+	}
+}
+
+func statusThreshold(above, below *float64, token CssToken) ThresholdEntry {
+	icon := ColorValue{Kind: ColorToken, Token: token}
+	label := icon
+	return ThresholdEntry{Above: above, Below: below, IconColor: &icon, LabelColor: &label}
+}
+
 // ThresholdEntry maps a numeric range to color overrides.
 //
 // A threshold entry that maps a numeric value range to color overrides.
@@ -10,8 +68,8 @@ package config
 // ## YAML Example
 //
 // ```yaml
-// # under modules.cpu
-// thresholds:
+// # under thresholds
+// cpu:
 // - {above: 70, icon-color: status-warning, label-color: status-warning}
 // - {above: 90, icon-color: status-error, label-color: status-error}
 // ```
@@ -62,6 +120,18 @@ type ThresholdColors struct {
 func (c ThresholdColors) IsEmpty() bool {
 	return c.IconColor == nil && c.LabelColor == nil && c.IconBgColor == nil &&
 		c.ButtonBgColor == nil && c.BorderColor == nil
+}
+
+// Color is the one color a gauge shows the matching entries in: the
+// first slot set, in the order icon, label, button background, icon
+// background, border; nil when none is.
+func (c ThresholdColors) Color() *ColorValue {
+	for _, slot := range []*ColorValue{c.IconColor, c.LabelColor, c.ButtonBgColor, c.IconBgColor, c.BorderColor} {
+		if slot != nil {
+			return slot
+		}
+	}
+	return nil
 }
 
 // ResolveOr is one slot's CSS: the override's value when set, else the

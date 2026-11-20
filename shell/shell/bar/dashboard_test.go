@@ -81,7 +81,7 @@ func TestDashboardModuleIsTheIcon(t *testing.T) {
 
 func TestLoadFileAppliesDashboard(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.yaml")
-	good := "modules:\n  dashboard:\n    icon-override: x\n    usage-error: 90\n" +
+	good := "modules:\n  dashboard:\n    icon-override: x\n    temp-error: 90\n" +
 		"    right-click: \"dropdown:calendar\"\n    user-session:\n      actions: [reboot, lock]\n"
 	if err := osWrite(path, good); err != nil {
 		t.Fatal(err)
@@ -91,10 +91,10 @@ func TestLoadFileAppliesDashboard(t *testing.T) {
 		t.Fatalf("LoadFile: %v", err)
 	}
 	d := c.Dashboard
-	if d.IconOverride != "x" || d.UsageError != 90 {
+	if d.IconOverride != "x" || d.TempError != 90 {
 		t.Errorf("dashboard = %+v", d)
 	}
-	if d.UsageWarning != 60 {
+	if d.TempWarning != 65 {
 		t.Errorf("unset keys lost their defaults: %+v", d)
 	}
 	if len(d.UserSession.Actions) != 2 || d.UserSession.Actions[0] != config.SessionActionReboot || d.UserSession.Actions[1] != config.SessionActionLock {
@@ -112,7 +112,7 @@ func TestLoadFileAppliesDashboard(t *testing.T) {
 
 	for _, bad := range []string{
 		"modules:\n  dashboard:\n    user-session:\n      actions: [logout]\n",
-		"modules:\n  dashboard:\n    usage-warning: high\n",
+		"modules:\n  dashboard:\n    temp-warning: high\n",
 		"modules:\n  dashboard:\n    left-click: 3\n",
 	} {
 		if err := osWrite(path, bad); err != nil {

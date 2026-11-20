@@ -59,9 +59,6 @@ settings-modules-storage-scroll-up = Scroll Up
 settings-modules-storage-scroll-down = Scroll Down
     .description = Shell command on scroll down
 
-settings-modules-storage-thresholds = Thresholds
-    .description = Color thresholds that change based on value levels
-
 ## Format placeholders
 
 settings-modules-storage-format-placeholder-percent = Disk usage (0-100)

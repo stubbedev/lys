@@ -25,11 +25,10 @@ osd:
   presets:
     - id: saved
       label: Saved
-modules:
+thresholds:
   battery:
-    thresholds:
-      - below: 20
-        icon-color: red
+    - below: 20
+      icon-color: red
 wallpaper:
   cycling-directory: /tmp
   monitors:
@@ -209,7 +208,7 @@ func cardFieldsLineUp() pageCheck {
 	visit := func(t *testing.T, w *window) {
 		id, page := w.pageID, w.page
 		switch id {
-		case "battery":
+		case thresholdsPageID:
 			body := treetest.WithClass(page, "card-form-body")[0].(*widget.Box)
 			rows := body.Children()
 			for i := 1; i < len(rows); i++ {
@@ -236,7 +235,7 @@ func cardFieldsLineUp() pageCheck {
 	}
 	return pageCheck{visit: visit, done: func(t *testing.T) {
 		if len(checked) != 3 {
-			t.Errorf("checked %v, want the battery, wallpaper and bar pages", checked)
+			t.Errorf("checked %v, want the thresholds, wallpaper and bar pages", checked)
 		}
 	}}
 }

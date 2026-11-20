@@ -1171,7 +1171,7 @@ func TestEnumListRowsMoveAndRemove(t *testing.T) {
 
 func TestThresholdCards(t *testing.T) {
 	k := testKit(t, "")
-	path := "modules.battery.thresholds"
+	path := "thresholds.battery"
 	_ = k.store.set(path, []any{})
 	c := fieldControl(k, k.store, field(path, thresholdList)).(*thresholdEditor).cards
 	if len(c.cards) != 0 {

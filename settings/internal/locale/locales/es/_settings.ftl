@@ -292,6 +292,7 @@ settings-nav-theme = Tema
 settings-nav-wallpaper = Fondo de escritorio
 settings-nav-bar = Barra
 settings-nav-dock = Dock
+settings-nav-thresholds = Niveles de aviso
 settings-nav-notifications = Notificaciones
 settings-nav-osd = OSD
 settings-nav-audio = Audio
@@ -333,6 +334,7 @@ settings-page-lock = Inicio de sesión y pantalla de bloqueo
 settings-page-theme = Tema
 settings-page-wallpaper = Fondo de escritorio
 settings-page-dock = Dock
+settings-page-thresholds = Niveles de aviso
 settings-page-notifications = Notificaciones
 settings-page-osd = OSD
 settings-page-audio = Audio
@@ -752,6 +754,7 @@ settings-module-link-power-detail = La carga, su límite, el modo de energía y 
 settings-module-link-bluetooth-detail = Activar Bluetooth y emparejar y conectar dispositivos
 settings-module-link-date-time-detail = La zona horaria y el primer día de la semana del calendario
 settings-module-link-idle-detail = Los tiempos de atenuar, bloquear, apagar la pantalla y suspender que mantener activo pausa
+settings-module-link-thresholds-detail = Cuándo la CPU, la memoria, el disco y la batería pasan a aviso, en la barra y en el panel de control
 settings-module-link-binds-detail = Definir los modos y las teclas que los abren
 settings-module-link-input-detail = Añadir y ordenar las distribuciones de teclado
 settings-privacy-link-media-detail = Las letras en línea envían el artista, el título, el álbum y la duración de cada pista a lrclib.net
@@ -1274,22 +1277,14 @@ settings-range-windows = { $n ->
 }
 settings-share-picker-windows-per-row = Ventanas por fila
     .description = El mínimo y el máximo de tarjetas de ventana en una fila
-settings-dashboard-usage-levels = Uso
-    .description = Cuándo los anillos de CPU, memoria y disco pasan a aviso y luego a error
 settings-dashboard-temp-levels = Temperatura
     .description = Cuándo el anillo de temperatura de la CPU pasa a aviso y luego a error
-settings-dashboard-battery-levels = Batería
-    .description = Con qué carga o menos la batería muestra aviso y luego crítico
 settings-level-warning = Aviso
 settings-level-error = Error
-settings-level-critical = Crítico
 settings-level-band = { $to ->
    *[other] Se muestra de { $from } a { $to } %
 }
 settings-level-muted = Se muestra mientras está silenciado
-settings-level-unit-percent = { $n ->
-   *[other] { $n } %
-}
 settings-level-unit-celsius = { $n ->
    *[other] { $n } °C
 }

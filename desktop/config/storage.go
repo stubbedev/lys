@@ -50,25 +50,6 @@ type StorageConfig struct {
 	ScrollUp ClickAction `cfg:"scroll-up"`
 	// Action on scroll down.
 	ScrollDown ClickAction `cfg:"scroll-down"`
-	// Dynamic color thresholds based on disk usage percentage.
-	//
-	// Entries are checked in order; the last matching entry wins for each
-	// color slot. Use `above` for high-value warnings (e.g., disk nearly full).
-	//
-	// ## Example
-	//
-	// ```yaml
-	// modules:
-	//   storage:
-	//     thresholds:
-	//       - above: 70
-	//         icon-color: status-warning
-	//         label-color: status-warning
-	//       - above: 90
-	//         icon-color: status-error
-	//         label-color: status-error
-	// ```
-	Thresholds []ThresholdEntry `cfg:"thresholds"`
 }
 
 // DefaultsStorage returns the schema defaults.
@@ -93,7 +74,6 @@ func DefaultsStorage() StorageConfig {
 		MiddleClick:    ClickAction{},
 		ScrollUp:       ClickAction{},
 		ScrollDown:     ClickAction{},
-		Thresholds:     []ThresholdEntry{},
 	}
 }
 

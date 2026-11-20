@@ -11,6 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/mpris"
 	"github.com/stubbedev/lys/desktop/service/network"
@@ -650,14 +651,14 @@ func dashboardChargeLimit(dev upower.Device) string {
 
 // battery is the battery card: icon and percent, the gauge, then what
 // the power-saver toggle cannot say: whether it charges, the time left
-// or until full, and the charge limit in force, tinted by the
-// dashboard's battery thresholds. The card shows only while a battery
-// is present: a desktop's UPower display device, or none at all, leaves
-// the network card the row.
+// or until full, and the charge limit in force, tinted by the battery's
+// thresholds. The card shows only while a battery is present: a
+// desktop's UPower display device, or none at all, leaves the network
+// card the row.
 func (v *dashboardView) battery() widget.Widget {
 	card := v.card("ld-battery-full-symbolic", i18n.T("dropdown-dashboard-battery"))
 	card.SetVisible(false)
-	cfg := v.ctx.Config.Dashboard
+	thresholds := v.ctx.Config.Thresholds.Battery
 	th := widget.Current()
 	status := widget.NewBox(widget.Row, th.Spacing/2, 0)
 	status.AddClass("battery-status")
@@ -684,22 +685,18 @@ func (v *dashboardView) battery() widget.Widget {
 			return
 		}
 		pct := dev.Percentage
-		warning := pct <= float64(cfg.BatteryWarning) && pct > float64(cfg.BatteryCritical)
-		critical := pct <= float64(cfg.BatteryCritical)
+		colors := config.EvaluateThresholds(pct, thresholds)
 		icon.SetThemeName(dashboardBatteryIcon(pct, batteryCharging(dev.State)))
+		icon.SetInlineStyle(colorDecl("color", colors.IconColor))
 		percent.SetText(strconv.FormatFloat(pct, 'f', 0, 64) + "%")
-		for _, w := range []classer{icon, percent, remaining} {
-			setClass(w, "warning", warning)
-			setClass(w, "critical", critical)
-		}
+		percent.SetInlineStyle(colorDecl("color", colors.LabelColor))
 		gauge.SetValue(pct / 100)
-		setClass(gauge, "success", !warning && !critical)
-		setClass(gauge, "warning", warning)
-		setClass(gauge, "error", critical)
+		tintGauge(gauge, colors.Color())
 		state.SetText(batteryStateLabel(dev))
 		left := batteryTimeDisplay(dev)
 		remaining.SetText(left)
 		remaining.SetVisible(left != "")
+		remaining.SetInlineStyle(colorDecl("color", colors.LabelColor))
 		held := dashboardChargeLimit(dev)
 		limit.SetText(held)
 		limit.SetVisible(held != "")
@@ -810,17 +807,24 @@ func (v *dashboardView) network() widget.Widget {
 	return card
 }
 
-// dashboardThresholdClass is the ring variant class —
-// error at or past the error mark, warning at or past the warning mark,
-// else success.
-func dashboardThresholdClass(value, warning, errorAt float32) string {
-	switch {
-	case value >= errorAt:
-		return "error"
-	case value >= warning:
-		return "warning"
+func dashboardTempColor(celsius float32, cfg config.DashboardConfig) *config.ColorValue {
+	status := func(token config.CssToken) *config.ColorValue {
+		return &config.ColorValue{Kind: config.ColorToken, Token: token}
 	}
-	return "success"
+	switch {
+	case celsius >= cfg.TempError:
+		return status(config.TokenStatusError)
+	case celsius >= cfg.TempWarning:
+		return status(config.TokenStatusWarning)
+	}
+	return nil
+}
+
+func colorDecl(property string, color *config.ColorValue) string {
+	if color == nil {
+		return ""
+	}
+	return property + ": " + color.ToCSS() + ";"
 }
 
 // systemStats: CPU, RAM, root disk, and CPU temperature
@@ -844,8 +848,9 @@ func (v *dashboardView) systemStats() widget.Widget {
 	}
 	cpuRing, memRing, diskRing, tempRing := ring("dropdown-dashboard-cpu"), ring("dropdown-dashboard-ram"), ring("dropdown-dashboard-disk"), ring("dropdown-dashboard-temp")
 	card.Append(row, false)
-	usage := func(r *statRing, pct float32) {
-		r.set(float64(pct/100), strconv.FormatFloat(float64(pct), 'f', 0, 32)+"%", dashboardThresholdClass(pct, cfg.UsageWarning, cfg.UsageError))
+	thresholds := v.ctx.Config.Thresholds
+	usage := func(r *statRing, pct float32, entries []config.ThresholdEntry) {
+		r.set(float64(pct/100), strconv.FormatFloat(float64(pct), 'f', 0, 32)+"%", config.EvaluateThresholds(float64(pct), entries).Color())
 	}
 	cpuReader := &sysinfo.CPUReader{Sensor: v.ctx.Config.CPU.TempSensor, OmitFrequency: true}
 	memReader := &sysinfo.MemoryReader{}
@@ -883,17 +888,17 @@ func (v *dashboardView) systemStats() widget.Widget {
 		posted = sampled
 		return func() {
 			if now.cpu != was.cpu {
-				usage(cpuRing, now.cpu.value)
+				usage(cpuRing, now.cpu.value, thresholds.CPU)
 			}
 			if now.mem != was.mem {
-				usage(memRing, now.mem.value)
+				usage(memRing, now.mem.value, thresholds.RAM)
 			}
 			if now.disk != was.disk {
-				usage(diskRing, now.disk.value)
+				usage(diskRing, now.disk.value, thresholds.Storage)
 			}
 			if now.temp != was.temp {
 				c := now.temp.value
-				tempRing.set(float64(min(max(c/100, 0), 1)), strconv.FormatFloat(float64(c), 'f', 0, 32)+"°", dashboardThresholdClass(c, cfg.TempWarning, cfg.TempError))
+				tempRing.set(float64(min(max(c/100, 0), 1)), strconv.FormatFloat(float64(c), 'f', 0, 32)+"°", dashboardTempColor(c, cfg))
 			}
 		}
 	})

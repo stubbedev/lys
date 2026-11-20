@@ -284,6 +284,7 @@ settings-nav-theme = Thema
 settings-nav-wallpaper = Achtergrond
 settings-nav-bar = Balk
 settings-nav-dock = Dock
+settings-nav-thresholds = Waarschuwingsniveaus
 settings-nav-notifications = Meldingen
 settings-nav-osd = OSD
 settings-nav-audio = Geluid
@@ -324,6 +325,7 @@ settings-page-lock = Aanmeld- en vergrendelscherm
 settings-page-theme = Thema
 settings-page-wallpaper = Achtergrond
 settings-page-dock = Dock
+settings-page-thresholds = Waarschuwingsniveaus
 settings-page-notifications = Meldingen
 settings-page-osd = OSD
 settings-page-audio = Geluid
@@ -742,6 +744,7 @@ settings-module-link-power-detail = De lading, de laadgrens, de energiemodus en 
 settings-module-link-bluetooth-detail = Bluetooth inschakelen, en apparaten koppelen en verbinden
 settings-module-link-date-time-detail = De tijdzone en de eerste weekdag van de kalender
 settings-module-link-idle-detail = De tijden voor dimmen, vergrendelen, scherm uit en slaapstand die wakker houden pauzeert
+settings-module-link-thresholds-detail = Wanneer CPU, geheugen, schijf en batterij een waarschuwing tonen, in de balk en het dashboard
 settings-module-link-binds-detail = De modi vastleggen en de toetsen die ze openen
 settings-module-link-input-detail = Toetsenbordindelingen toevoegen en ordenen
 settings-privacy-link-media-detail = Songteksten online sturen de artiest, titel, het album en de lengte van elk nummer naar lrclib.net
@@ -1263,22 +1266,14 @@ settings-range-windows = { $n ->
 }
 settings-share-picker-windows-per-row = Vensters per rij
     .description = De minste en de meeste vensterkaarten op één rij
-settings-dashboard-usage-levels = Gebruik
-    .description = Wanneer de ringen van processor, geheugen en schijf naar waarschuwing en dan fout gaan
 settings-dashboard-temp-levels = Temperatuur
     .description = Wanneer de ring van de processortemperatuur naar waarschuwing en dan fout gaat
-settings-dashboard-battery-levels = Accu
-    .description = Bij welke lading of lager de accu een waarschuwing en dan kritiek toont
 settings-level-warning = Waarschuwing
 settings-level-error = Fout
-settings-level-critical = Kritiek
 settings-level-band = { $to ->
    *[other] Getoond van { $from } tot { $to } %
 }
 settings-level-muted = Getoond zolang het gedempt is
-settings-level-unit-percent = { $n ->
-   *[other] { $n } %
-}
 settings-level-unit-celsius = { $n ->
    *[other] { $n } °C
 }

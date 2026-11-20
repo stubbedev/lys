@@ -59,9 +59,6 @@ settings-modules-battery-format = Format
 settings-modules-battery-left-click = Left Click
     .description = Action on left click
 
-settings-modules-battery-thresholds = Thresholds
-    .description = Color thresholds that change based on value levels
-
 settings-modules-battery-notify-low = Low Battery Notifications
     .description = Notify when the battery or a peripheral reaches the low or critical level
 

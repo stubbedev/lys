@@ -70,16 +70,6 @@
 .dashboard-dropdown image.battery-icon {
   color: var(--status-success);
 }
-.dashboard-dropdown image.battery-icon.warning,
-.dashboard-dropdown .battery-percent.warning,
-.dashboard-dropdown .battery-detail.warning {
-  color: var(--status-warning);
-}
-.dashboard-dropdown image.battery-icon.critical,
-.dashboard-dropdown .battery-percent.critical,
-.dashboard-dropdown .battery-detail.critical {
-  color: var(--status-error);
-}
 
 .dashboard-dropdown .speed-stat.up image.speed-arrow {
   color: var(--status-success);

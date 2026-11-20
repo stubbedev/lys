@@ -16,6 +16,7 @@ import (
 	"github.com/stubbedev/lys/desktop/service/powerprofiles"
 	"github.com/stubbedev/lys/desktop/service/pulse"
 	"github.com/stubbedev/lys/desktop/service/upower"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
@@ -82,16 +83,69 @@ func TestDashboardSpeedAndThresholds(t *testing.T) {
 	if v, mega := dashboardSpeed(1536 * 1024); v != "1.5" || !mega {
 		t.Errorf("1.5 MiB/s = %q %v", v, mega)
 	}
-	if dashboardThresholdClass(95, 70, 90) != "error" ||
-		dashboardThresholdClass(70, 70, 90) != "warning" ||
-		dashboardThresholdClass(69.9, 70, 90) != "success" {
-		t.Error("threshold classes")
+	cfg := config.DashboardConfig{TempWarning: 70, TempError: 90}
+	token := func(c *config.ColorValue) config.CssToken {
+		if c == nil {
+			return ""
+		}
+		return c.Token
+	}
+	if token(dashboardTempColor(95, cfg)) != config.TokenStatusError ||
+		token(dashboardTempColor(70, cfg)) != config.TokenStatusWarning ||
+		dashboardTempColor(69.9, cfg) != nil {
+		t.Error("temperature colors")
+	}
+}
+
+func TestTheDashboardBatteryAndTheBarModuleShareOneThresholdSet(t *testing.T) {
+	cfg := config.Defaults()
+	blue := config.ColorValue{Kind: config.ColorToken, Token: config.TokenBlue}
+	cfg.Thresholds.Battery = []config.ThresholdEntry{{Below: ptrF(50), IconColor: &blue}}
+	device := upower.Device{Percentage: 40, State: upower.StateDischarging, IsPresent: true}
+	ctx := newTestContext(t, cfg)
+	ctx.Battery = newFakeBattery(device)
+	v := noRadiosDashboard(ctx).(*dashboardView)
+	var icon *widget.Icon
+	var percent *widget.Label
+	walkTree(v, func(w widget.Widget) bool {
+		switch w := w.(type) {
+		case *widget.Icon:
+			if w.HasClass("battery-icon") {
+				icon = w
+			}
+		case *widget.Label:
+			if w.HasClass("battery-percent") {
+				percent = w
+			}
+		}
+		return true
+	})
+	if icon == nil || percent == nil {
+		t.Fatalf("battery card icon %v, percent %v", icon, percent)
+	}
+	if got := icon.InlineStyle(); got != "color: var(--blue);" {
+		t.Errorf("the dashboard's battery icon = %q, want the shared threshold's blue", got)
+	}
+	if got := percent.InlineStyle(); got != "" {
+		t.Errorf("an entry without label-color colored the percent %q", got)
+	}
+	m := &battery{ctx: ctx, source: ctx.Battery}
+	m.icon = barview.Icon(cfg.Battery.Icon())
+	m.btn = newBarButton(ctx, m.icon, "")
+	m.apply(device)
+	if got := m.btn.Thresholds().IconColor; got == nil || *got != blue {
+		t.Errorf("the bar module's icon override = %+v, want the shared threshold's blue", got)
+	}
+	m.apply(upower.Device{Percentage: 60, State: upower.StateDischarging, IsPresent: true})
+	if !m.btn.Thresholds().IsEmpty() {
+		t.Errorf("above the shared threshold the bar module still overrides %+v", m.btn.Thresholds())
 	}
 }
 
 // The dashboard paints from the stylesheet: the battery gauge and its
-// status read threshold state classes instead of fills and tints, and
-// the quick-action icons follow the cascade.
+// status take the battery thresholds' colors as inline declarations
+// instead of fills and tints, and the quick-action icons follow the
+// cascade.
 func TestDashboardPaintsFromTheStylesheet(t *testing.T) {
 	cfg := config.Defaults()
 	ctx := styledContext(t, cfg)
@@ -120,14 +174,14 @@ func TestDashboardPaintsFromTheStylesheet(t *testing.T) {
 	if gauge.Fill != 0 {
 		t.Errorf("the gauge carries a fill %#08x", uint32(gauge.Fill))
 	}
-	if !gauge.HasClass("error") || gauge.HasClass("success") || gauge.HasClass("warning") {
-		t.Error("a critical battery did not put the gauge in the error state")
+	if got := gauge.InlineStyle(); got != "accent-color: var(--status-error);" || gauge.HasClass("success") {
+		t.Errorf("a critical battery's gauge = %q, success %v", got, gauge.HasClass("success"))
 	}
 	if got := percent.Color(); got != 0 {
 		t.Errorf("the percent carries a programmatic color %#08x", uint32(got))
 	}
-	if !percent.HasClass("critical") {
-		t.Error("a critical battery did not mark the percent")
+	if got := percent.InlineStyle(); got != "color: var(--status-error);" {
+		t.Errorf("a critical battery's percent = %q", got)
 	}
 
 	// The quick-action icons have no tint: .quick-action-icon image
@@ -401,9 +455,8 @@ func TestDashboardAlwaysHoldsTheVolumeAndMediaCards(t *testing.T) {
 	}
 }
 
-// battery-detail carries the warning/critical classes like the icon
-// and the percent.
-func TestDashboardBatteryDetailCarriesTheThresholdClasses(t *testing.T) {
+// battery-detail takes the thresholds' label color like the percent.
+func TestDashboardBatteryDetailTakesTheThresholdColor(t *testing.T) {
 	build := func(t *testing.T, pct float64) *widget.Label {
 		t.Helper()
 		cfg := config.Defaults()
@@ -422,16 +475,14 @@ func TestDashboardBatteryDetailCarriesTheThresholdClasses(t *testing.T) {
 		}
 		return detail
 	}
-	critical := build(t, 8)
-	if !critical.HasClass("critical") {
-		t.Error("a critical battery did not mark the battery-detail")
+	if got := build(t, 8).InlineStyle(); got != "color: var(--status-error);" {
+		t.Errorf("a critical battery's detail = %q", got)
 	}
-	if critical.HasClass("warning") {
-		t.Error("a critical battery also carries the warning class")
+	if got := build(t, 25).InlineStyle(); got != "color: var(--status-warning);" {
+		t.Errorf("a low battery's detail = %q", got)
 	}
-	healthy := build(t, 80)
-	if healthy.HasClass("warning") || healthy.HasClass("critical") {
-		t.Error("a healthy battery carries a threshold class")
+	if got := build(t, 80).InlineStyle(); got != "" {
+		t.Errorf("a healthy battery's detail = %q", got)
 	}
 }
 

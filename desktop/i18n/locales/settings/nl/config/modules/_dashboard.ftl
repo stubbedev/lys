@@ -28,23 +28,11 @@ settings-modules-dashboard-scroll-down = Omlaag scrollen
 settings-modules-dashboard-left-click = Linksklik
     .description = Shell-opdracht bij linksklik
 
-settings-modules-dashboard-usage-warning = Gebruikswaarschuwing
-    .description = Percentage CPU-/RAM-/schijfgebruik waarbij de ringen de waarschuwingskleur krijgen
-
-settings-modules-dashboard-usage-error = Gebruiksfout
-    .description = Percentage CPU-/RAM-/schijfgebruik waarbij de ringen de foutkleur krijgen
-
 settings-modules-dashboard-temp-warning = Temperatuurwaarschuwing
     .description = CPU-temperatuur (°C) waarbij de temperatuurring de waarschuwingskleur krijgt
 
 settings-modules-dashboard-temp-error = Temperatuurfout
     .description = CPU-temperatuur (°C) waarbij de temperatuurring de foutkleur krijgt
-
-settings-modules-dashboard-battery-warning = Accuwaarschuwing
-    .description = Accupercentage waarop of waaronder de accu op het dashboard een waarschuwing toont
-
-settings-modules-dashboard-battery-critical = Accu kritiek
-    .description = Accupercentage waarop of waaronder de accu op het dashboard kritiek toont
 
 settings-modules-dashboard-user-session-actions = Sessieacties
     .description = Sessieacties op het dashboard (lock, log-out, reboot, power-off)

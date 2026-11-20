@@ -59,9 +59,6 @@ settings-modules-cpu-scroll-up = Desplazar hacia arriba
 settings-modules-cpu-scroll-down = Desplazar hacia abajo
     .description = Orden de shell al desplazar hacia abajo
 
-settings-modules-cpu-thresholds = Umbrales
-    .description = Umbrales de color que cambian según el nivel del valor
-
 ## Format placeholders
 
 settings-modules-cpu-format-placeholder-percent = Uso de CPU (0-100)

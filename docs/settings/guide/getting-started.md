@@ -45,7 +45,7 @@ hidden, and a page left with nothing to show is gone; search, `--list-pages` and
 | Apps | `default-apps` (with the terminal the launcher opens), `login-items`, `launcher`, `launcher-modes` |
 | Privacy & Security | `privacy` (with the screen share picker), `passwords`, `lock` (the lock and login screens: the background is picked by picture and shows only the chosen kind's settings; the PAM service sits under **Unlocking**, folded away; links lead to when it locks and to fingerprints) |
 | Time & Language | `date-time`, `region` |
-| Desktop | `bar` (with its buttons and dropdowns; each dropdown's size is on its bar item's page), `dock`, `wm-windows`, `wm-effects`, `wm-tiling`, `wm-session` |
+| Desktop | `bar` (with its buttons and dropdowns; each dropdown's size is on its bar item's page), `dock`, `thresholds` (the warning levels of CPU, memory, disk and battery), `wm-windows`, `wm-effects`, `wm-tiling`, `wm-session` |
 | Bar Items: Status | `audio`, `background-apps`, `battery`, `bluetooth`, `brightness`, `cpu`, `dashboard`, `idle-inhibit`, `keybind-mode`, `keyboard-input`, `netstat`, `network`, `nightlight`, `power`, `power-profiles`, `ram`, `storage`, `systray` |
 | Bar Items: Media | `cava`, `media`, `recorder`, `screenshot` |
 | Bar Items: Productivity | `bitwarden`, `clock`, `custom`, `mail`, `separator`, `treeman`, `weather`, `world-clock` |
@@ -57,7 +57,9 @@ A bar item page only sets how the item looks and acts in the bar. Where the
 feature itself has a page, a **Related** link at its foot opens it: Audio opens
 Sound, Battery opens Battery & Power Mode, Bluetooth the Bluetooth devices,
 Clock Date & Time, Keep awake Idle & Power, Keybind Mode Keys & Gestures, and
-Keyboard Input the lys-wm Input page. A link to a page that is not installed is
+Keyboard Input the lys-wm Input page. CPU, RAM, Storage, Battery and Dashboard
+link to Warning Levels, which holds one threshold bar per resource that both
+the bar item and the dashboard show. A link to a page that is not installed is
 left out.
 
 A row that has no effect in the current state stays out of the way: the dock's
@@ -88,10 +90,9 @@ user is not in the `i2c` group), or how many buses it can use. While none can
 be opened the switch cannot be turned on, only off. The lowest brightness is a
 percent slider.
 
-The dashboard's alarm levels are three bars with two stops each, which cannot
-cross: usage (0–100 %) and CPU temperature (0–150 °C) turn to warning, then
-error, as they rise; the battery turns to warning, then critical, at or below
-its stops.
+The dashboard's CPU temperature alarm is a bar with two stops, which cannot
+cross: from 0 to 150 °C it turns to warning, then error, as it rises. Its
+usage and battery colors are the resources' own, from Warning Levels.
 
 The Cava page picks its style and direction from drawings of the bars, takes
 its frequency range as one range whose ends cannot cross, offers the framerate

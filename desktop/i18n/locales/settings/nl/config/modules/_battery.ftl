@@ -55,9 +55,6 @@ settings-modules-battery-format = Formaat
 settings-modules-battery-left-click = Linksklik
     .description = Actie bij linksklik
 
-settings-modules-battery-thresholds = Drempels
-    .description = Kleurdrempels die veranderen op basis van waardeniveaus
-
 settings-modules-battery-notify-low = Meldingen bij lage accu
     .description = Een melding geven als de accu of een randapparaat het lage of kritieke niveau bereikt
 

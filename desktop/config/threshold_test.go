@@ -135,19 +135,71 @@ modules:
 
 func TestThresholdDecodeRejectsBadEntries(t *testing.T) {
 	for _, tc := range []struct{ body, want string }{
-		{"above: 5\n        label-color: nope", "label-color"},
-		{"above: 5\n        border-color: 3", "border-color"},
+		{"above: 5\n{indent}label-color: nope", "label-color"},
+		{"above: 5\n{indent}border-color: 3", "border-color"},
 		{"above: high", "above"},
-		{"above: 5\n        abov: 6", "unknown field"},
+		{"above: 5\n{indent}abov: 6", "unknown field"},
 	} {
-		// Every module shares the one decoder; cpu goes through the
-		// sysinfo path, battery through its own table.
-		for _, module := range []string{"battery", "cpu", "audio", "brightness", "notifications"} {
-			path := writeConfig(t, "modules:\n  "+module+":\n    thresholds:\n      - "+tc.body+"\n")
+		for _, list := range []struct{ head, indent string }{
+			{"thresholds:\n  battery:\n    - ", "      "},
+			{"thresholds:\n  cpu:\n    - ", "      "},
+			{"modules:\n  audio:\n    thresholds:\n      - ", "        "},
+			{"modules:\n  brightness:\n    thresholds:\n      - ", "        "},
+			{"modules:\n  notifications:\n    thresholds:\n      - ", "        "},
+		} {
+			path := writeConfig(t, list.head+strings.ReplaceAll(tc.body, "{indent}", list.indent)+"\n")
 			_, err := LoadFile(path)
 			if err == nil || !strings.Contains(err.Error(), tc.want) {
-				t.Errorf("%s %q: err = %v, want %q", module, tc.body, err, tc.want)
+				t.Errorf("%q %q: err = %v, want %q", list.head, tc.body, err, tc.want)
 			}
 		}
+	}
+}
+
+func TestTheThresholdsSectionIsOneSetPerResource(t *testing.T) {
+	cfg, err := LoadFile(writeConfig(t, "thresholds:\n  ram:\n    - {above: 50, border-color: red}\n"))
+	if err != nil {
+		t.Fatalf("LoadFile: %v", err)
+	}
+	if len(cfg.Thresholds.RAM) != 1 || *cfg.Thresholds.RAM[0].Above != 50 || cfg.Thresholds.RAM[0].BorderColor.Token != TokenRed {
+		t.Errorf("ram = %+v", cfg.Thresholds.RAM)
+	}
+	defaults := DefaultsThresholds()
+	if len(cfg.Thresholds.CPU) != len(defaults.CPU) || len(cfg.Thresholds.Battery) != len(defaults.Battery) {
+		t.Errorf("the resources left unset lost their defaults: %+v", cfg.Thresholds)
+	}
+	for name, at := range map[string]struct {
+		entries         []ThresholdEntry
+		calm, warn, err float64
+	}{
+		"cpu":     {defaults.CPU, 59, 60, 85},
+		"ram":     {defaults.RAM, 59, 60, 85},
+		"storage": {defaults.Storage, 59, 60, 85},
+		"battery": {defaults.Battery, 31, 30, 15},
+	} {
+		if c := EvaluateThresholds(at.calm, at.entries).Color(); c != nil {
+			t.Errorf("%s at %v: %+v, want no color", name, at.calm, c)
+		}
+		if c := EvaluateThresholds(at.warn, at.entries).Color(); c == nil || c.Token != TokenStatusWarning {
+			t.Errorf("%s at %v: %+v, want the warning status", name, at.warn, c)
+		}
+		if c := EvaluateThresholds(at.err, at.entries).Color(); c == nil || c.Token != TokenStatusError {
+			t.Errorf("%s at %v: %+v, want the error status", name, at.err, c)
+		}
+	}
+}
+
+func TestAThresholdColorIsTheFirstSlotSet(t *testing.T) {
+	if c := (ThresholdColors{}).Color(); c != nil {
+		t.Errorf("no slot set = %+v", c)
+	}
+	if c := (ThresholdColors{BorderColor: cvp("red")}).Color(); c == nil || c.Token != TokenRed {
+		t.Errorf("only the border = %+v", c)
+	}
+	if c := (ThresholdColors{BorderColor: cvp("red"), LabelColor: cvp("green"), IconColor: cvp("blue")}).Color(); c == nil || c.Token != TokenBlue {
+		t.Errorf("icon, label and border = %+v, want the icon's", c)
+	}
+	if c := (ThresholdColors{IconBgColor: cvp("red"), ButtonBgColor: cvp("green")}).Color(); c == nil || c.Token != TokenGreen {
+		t.Errorf("both backgrounds = %+v, want the button's", c)
 	}
 }

@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"maps"
 	"testing"
 )
 
@@ -47,7 +48,7 @@ func unwrapJoined(err error) []error {
 }
 
 func TestRemovedDashboardCommandsPointToThePowerModule(t *testing.T) {
-	cfg, err := LoadFile(writeFile(t, t.TempDir(), "config.yaml", "modules:\n  dashboard:\n    dropdown-reboot-command: reboot-now\n    usage-error: 90\n"))
+	cfg, err := LoadFile(writeFile(t, t.TempDir(), "config.yaml", "modules:\n  dashboard:\n    dropdown-reboot-command: reboot-now\n    temp-error: 90\n"))
 	var diags []Diagnostic
 	for _, e := range unwrapJoined(err) {
 		if d, ok := errors.AsType[Diagnostic](e); ok && d.Title == "removed config key" {
@@ -60,10 +61,59 @@ func TestRemovedDashboardCommandsPointToThePowerModule(t *testing.T) {
 	if d := diags[0]; d.Kind != DiagnosticError || d.Field("Field") != "modules.dashboard.dropdown-reboot-command" || d.Hint != "modules.power.reboot-command" || d.Field("Reason") != dashboardRunsThePowerMenu {
 		t.Errorf("diagnostic = %+v", d)
 	}
-	if cfg.Dashboard.UsageError != 90 {
-		t.Errorf("the section's other keys did not apply: usage-error %v", cfg.Dashboard.UsageError)
+	if cfg.Dashboard.TempError != 90 {
+		t.Errorf("the section's other keys did not apply: temp-error %v", cfg.Dashboard.TempError)
 	}
-	if _, err := LoadFile(writeFile(t, t.TempDir(), "config.yaml", "modules:\n  dashboard:\n    usage-error: 90\n")); err != nil {
+	if _, err := LoadFile(writeFile(t, t.TempDir(), "config.yaml", "modules:\n  dashboard:\n    temp-error: 90\n")); err != nil {
 		t.Errorf("a dashboard section without removed keys = %v", err)
+	}
+}
+
+func TestTheFormerPerModuleAndDashboardThresholdsNameTheSharedSet(t *testing.T) {
+	cfg, err := LoadFile(writeFile(t, t.TempDir(), "config.yaml", `modules:
+  cpu:
+    format: "{{ percent }}"
+    thresholds: [{above: 70, icon-color: red}]
+  ram:
+    thresholds: []
+  storage:
+    thresholds: []
+  battery:
+    thresholds: []
+  dashboard:
+    usage-warning: 50
+    usage-error: 90
+    battery-warning: 40
+    battery-critical: 10
+    temp-error: 95
+`))
+	got := map[string]string{}
+	for _, e := range unwrapJoined(err) {
+		d, ok := errors.AsType[Diagnostic](e)
+		if !ok || d.Title != "removed config key" || d.Kind != DiagnosticError || d.Field("Reason") != sharedThresholds {
+			t.Errorf("diagnostic %v", e)
+			continue
+		}
+		got[d.Field("Field")] = d.Hint
+	}
+	usage := "thresholds.cpu, thresholds.ram and thresholds.storage"
+	want := map[string]string{
+		"modules.cpu.thresholds":             "thresholds.cpu",
+		"modules.ram.thresholds":             "thresholds.ram",
+		"modules.storage.thresholds":         "thresholds.storage",
+		"modules.battery.thresholds":         "thresholds.battery",
+		"modules.dashboard.usage-warning":    usage,
+		"modules.dashboard.usage-error":      usage,
+		"modules.dashboard.battery-warning":  "thresholds.battery",
+		"modules.dashboard.battery-critical": "thresholds.battery",
+	}
+	if !maps.Equal(got, want) {
+		t.Errorf("removed keys = %v, want %v", got, want)
+	}
+	if cfg.CPU.Format != "{{ percent }}" || cfg.Dashboard.TempError != 95 {
+		t.Errorf("the sections' other keys did not apply: cpu %+v, dashboard %+v", cfg.CPU, cfg.Dashboard)
+	}
+	if len(cfg.Thresholds.CPU) != len(DefaultsThresholds().CPU) {
+		t.Errorf("a removed key reached the shared set: %+v", cfg.Thresholds.CPU)
 	}
 }

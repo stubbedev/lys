@@ -85,7 +85,7 @@ func layout(cfg *config.Config, installed parts) []navSection {
 		{key: "settings-nav-privacy-security", pages: []pageSpec{privacyPage(cfg), passwordsPage(cfg), lockPage(cfg)}},
 		{key: "settings-nav-time-language", pages: []pageSpec{dateTimePage(cfg), regionPage(cfg)}},
 		{key: "settings-nav-desktop", pages: []pageSpec{
-			barPage(cfg), dockPage(cfg),
+			barPage(cfg), dockPage(cfg), thresholdsPage(cfg),
 			wmWindowsPage(), wmEffectsPage(), wmTilingPage(), wmSessionPage(),
 		}},
 	}

@@ -55,9 +55,6 @@ settings-modules-storage-scroll-up = Omhoog scrollen
 settings-modules-storage-scroll-down = Omlaag scrollen
     .description = Shell-opdracht bij omlaag scrollen
 
-settings-modules-storage-thresholds = Drempels
-    .description = Kleurdrempels die veranderen op basis van waardeniveaus
-
 settings-modules-storage-format-placeholder-percent = Schijfgebruik (0-100)
 
 settings-modules-storage-format-placeholder-used-tib = Gebruikte ruimte in TiB

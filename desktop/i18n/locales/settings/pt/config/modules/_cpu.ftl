@@ -55,9 +55,6 @@ settings-modules-cpu-scroll-up = Deslocar para cima
 settings-modules-cpu-scroll-down = Deslocar para baixo
     .description = Comando da shell ao deslocar para baixo
 
-settings-modules-cpu-thresholds = Limiares
-    .description = Limiares de cor que mudam consoante o nível do valor
-
 settings-modules-cpu-format-placeholder-percent = Utilização da CPU (0-100)
 
 settings-modules-cpu-format-placeholder-freq-ghz = Frequência do núcleo mais ocupado em GHz

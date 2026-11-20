@@ -31,7 +31,6 @@ bar:
 | `tooltip` | bool | `true` | Show the module's state in a tooltip on hover. |
 | `label-show` | bool | `true` | Display label. |
 | `label-max-length` | u32 | `0` | Max label characters before truncation. Set to 0 to disable. |
-| `thresholds` | array of [`ThresholdEntry`](/shell/config/types#threshold-entry) | `[]` | Dynamic color thresholds based on CPU usage percentage. |
 
 ::: details More about `poll-interval-ms`
 
@@ -64,27 +63,6 @@ Run `sensors` to see available labels.
 - `"{{ percent }}%"` - "45%"
 - `"{{ percent }}% @ {{ freq_ghz }}GHz"` - "45% @ 3.2GHz"
 - `"{{ percent }}% {{ temp_c }}C"` - "45% 62C"
-
-:::
-
-::: details More about `thresholds`
-
-Entries are checked in order; the last matching entry wins for each
-color slot. Use `above` for high-value warnings (e.g., high CPU usage).
-
-#### Example
-
-```yaml
-modules:
-  cpu:
-    thresholds:
-      - above: 70
-        icon-color: status-warning
-        label-color: status-warning
-      - above: 90
-        icon-color: status-error
-        label-color: status-error
-```
 
 :::
 
@@ -132,7 +110,6 @@ modules:
     middle-click: ""
     scroll-up: ""
     scroll-down: ""
-    thresholds: []
 ```
 
 

@@ -9,14 +9,14 @@ import (
 
 func thresholdKit(t *testing.T) (*kit, *thresholdEditor) {
 	t.Helper()
-	k := testKit(t, "modules:\n  cpu:\n    thresholds:\n      - {above: 70, icon-color: \"#ff0000\"}\n      - {below: 10}\n")
-	e := fieldControl(k, k.store, field("modules.cpu.thresholds", thresholdList)).(*thresholdEditor)
+	k := testKit(t, "thresholds:\n  cpu:\n    - {above: 70, icon-color: \"#ff0000\"}\n    - {below: 10}\n")
+	e := fieldControl(k, k.store, field("thresholds.cpu", thresholdList)).(*thresholdEditor)
 	e.bar.Arrange(render.Rect{W: 320, H: thresholdBarH})
 	return k, e
 }
 
 func storedBound(k *kit, entry int, key string) any {
-	items, _ := k.store.value("modules.cpu.thresholds").([]any)
+	items, _ := k.store.value("thresholds.cpu").([]any)
 	return items[entry].(map[string]any)[key]
 }
 

@@ -32,23 +32,11 @@ settings-modules-dashboard-scroll-down = Nach unten scrollen
 settings-modules-dashboard-left-click = Linksklick
     .description = Shell-Befehl bei Linksklick
 
-settings-modules-dashboard-usage-warning = Auslastungswarnung
-    .description = CPU-/RAM-/Datenträgerauslastung in Prozent, ab der die Ringe Warnung anzeigen
-
-settings-modules-dashboard-usage-error = Auslastungsfehler
-    .description = CPU-/RAM-/Datenträgerauslastung in Prozent, ab der die Ringe Fehler anzeigen
-
 settings-modules-dashboard-temp-warning = Temperaturwarnung
     .description = CPU-Temperatur (°C), ab der der Temperaturring Warnung anzeigt
 
 settings-modules-dashboard-temp-error = Temperaturfehler
     .description = CPU-Temperatur (°C), ab der der Temperaturring Fehler anzeigt
-
-settings-modules-dashboard-battery-warning = Akkuwarnung
-    .description = Akkustand in Prozent, bei oder unter dem der Dashboard-Akku Warnung anzeigt
-
-settings-modules-dashboard-battery-critical = Akku kritisch
-    .description = Akkustand in Prozent, bei oder unter dem der Dashboard-Akku kritisch anzeigt
 
 settings-modules-dashboard-user-session-actions = Sitzungsaktionen
     .description = Im Dashboard angezeigte Sitzungsaktionen (Sperren, Abmelden, Neu starten, Ausschalten)

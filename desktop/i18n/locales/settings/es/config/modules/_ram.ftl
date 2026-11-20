@@ -56,9 +56,6 @@ settings-modules-ram-scroll-up = Desplazar hacia arriba
 settings-modules-ram-scroll-down = Desplazar hacia abajo
     .description = Orden de shell al desplazar hacia abajo
 
-settings-modules-ram-thresholds = Umbrales
-    .description = Umbrales de color que cambian según el nivel del valor
-
 ## Format placeholders
 
 settings-modules-ram-format-placeholder-percent = Uso de memoria (0-100)

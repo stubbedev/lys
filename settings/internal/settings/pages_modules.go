@@ -69,12 +69,31 @@ func modulePages(cfg *config.Config) []pageSpec {
 // bar item only shows, by page.
 var moduleLinks = map[string][]pageLink{
 	"audio":          {{soundID, "settings-module-link-sound-detail"}},
-	"battery":        {{powerPageID, "settings-module-link-power-detail"}},
+	"battery":        {{powerPageID, "settings-module-link-power-detail"}, thresholdsLink},
 	"bluetooth":      {{bluetoothPageID, "settings-module-link-bluetooth-detail"}},
 	"clock":          {{dateTimeID, "settings-module-link-date-time-detail"}},
+	"cpu":            {thresholdsLink},
+	"dashboard":      {thresholdsLink},
 	"idle-inhibit":   {{"idle", "settings-module-link-idle-detail"}},
 	"keybind-mode":   {{wmBindsID, "settings-module-link-binds-detail"}},
 	"keyboard-input": {{"wm-keyboard", "settings-module-link-input-detail"}},
+	"ram":            {thresholdsLink},
+	"storage":        {thresholdsLink},
+}
+
+const thresholdsPageID = "thresholds"
+
+var thresholdsLink = pageLink{thresholdsPageID, "settings-module-link-thresholds-detail"}
+
+func thresholdsPage(*config.Config) pageSpec {
+	return pageSpec{id: thresholdsPageID, navKey: "settings-nav-thresholds", icon: "ld-activity-symbolic", header: "settings-page-thresholds", sections: []sectionSpec{
+		{title: "settings-section-thresholds", rows: []rowSpec{
+			field("thresholds.cpu", thresholdList),
+			field("thresholds.ram", thresholdList),
+			field("thresholds.storage", thresholdList),
+			field("thresholds.battery", levelThresholdList(levelScale{icons: "modules.battery.level-icons"})),
+		}},
+	}}
 }
 
 // moduleDropdowns are the dropdowns.<name> sizes the bar module pages
@@ -170,7 +189,6 @@ func batteryPage(*config.Config) pageSpec {
 			field("modules.battery.alert-icon", iconRow),
 			field("modules.battery.format"),
 			field("modules.battery.level-icons", iconList),
-			field("modules.battery.thresholds", levelThresholdList(levelScale{icons: "modules.battery.level-icons"})),
 		}},
 		barItemSection("modules.battery", actionChoices("battery")),
 	}}
@@ -252,7 +270,6 @@ func cpuPage(*config.Config) pageSpec {
 			field("modules.cpu.temp-sensor"),
 			field("modules.cpu.format"),
 			field("modules.cpu.icon-name", iconRow),
-			field("modules.cpu.thresholds", thresholdList),
 		}},
 		barItemSection("modules.cpu", actionChoices("cpu")),
 	}}
@@ -261,8 +278,6 @@ func cpuPage(*config.Config) pageSpec {
 // dashboardPage is pages/modules/dashboard.
 func dashboardPage(*config.Config) pageSpec {
 	const m = "modules.dashboard"
-	warningError := [2]string{"settings-level-warning", "settings-level-error"}
-	percent, celsius := "settings-level-unit-percent", "settings-level-unit-celsius"
 	return pageSpec{id: "dashboard", navKey: "settings-nav-dashboard", icon: "ld-layout-dashboard-symbolic", header: "settings-page-dashboard", sections: []sectionSpec{
 		{title: "settings-section-general", rows: []rowSpec{
 			field("modules.dashboard.icon-override", iconRow),
@@ -271,12 +286,8 @@ func dashboardPage(*config.Config) pageSpec {
 			field("modules.dashboard.user-session.actions", enumList),
 		}},
 		{title: "settings-section-thresholds", rows: []rowSpec{
-			rangeRow(m+".usage-warning", m+".usage-error", "settings-dashboard-usage-levels",
-				levelRange(percentLevels, percent, warningError, risingLevels)),
 			rangeRow(m+".temp-warning", m+".temp-error", "settings-dashboard-temp-levels",
-				levelRange(celsiusLevels, celsius, warningError, risingLevels)),
-			rangeRow(m+".battery-critical", m+".battery-warning", "settings-dashboard-battery-levels",
-				levelRange(percentLevels, percent, [2]string{"settings-level-critical", "settings-level-warning"}, fallingLevels)),
+				levelRange(celsiusLevels, "settings-level-unit-celsius", [2]string{"settings-level-warning", "settings-level-error"}, risingLevels)),
 		}},
 		barItemSection("modules.dashboard", actionChoices("dashboard")),
 	}}
@@ -471,7 +482,6 @@ func ramPage(*config.Config) pageSpec {
 			field("modules.ram.poll-interval-ms", pollInterval),
 			field("modules.ram.format"),
 			field("modules.ram.icon-name", iconRow),
-			field("modules.ram.thresholds", thresholdList),
 		}},
 		barItemSection("modules.ram", actionChoices("ram")),
 	}}
@@ -521,7 +531,6 @@ func storagePage(*config.Config) pageSpec {
 			field(storageMountPath, mountPoints),
 			field("modules.storage.format"),
 			field("modules.storage.icon-name", iconRow),
-			field("modules.storage.thresholds", thresholdList),
 		}},
 		barItemSection("modules.storage", actionChoices("storage")),
 	}}

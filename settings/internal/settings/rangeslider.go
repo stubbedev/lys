@@ -307,10 +307,7 @@ func (t *rangeThumb) KeyAction(a widget.KeyAction, mods widget.Mods) {
 	}
 }
 
-var (
-	percentLevels = linearAxis(0, 100, thresholdStep)
-	celsiusLevels = linearAxis(0, 150, thresholdStep)
-)
+var celsiusLevels = linearAxis(0, 150, thresholdStep)
 
 func levelRange(axis rangeAxis, unit string, names [2]string, bands func(lo, hi, top float64) []rangeBand) rangeSpec {
 	return rangeSpec{axis: axis, minGap: thresholdStep, unit: unit, names: names, bands: bands}
@@ -318,8 +315,4 @@ func levelRange(axis rangeAxis, unit string, names [2]string, bands func(lo, hi,
 
 func risingLevels(lo, hi, top float64) []rangeBand {
 	return []rangeBand{{from: lo, to: hi, tone: toneWarning}, {from: hi, to: top, tone: toneError}}
-}
-
-func fallingLevels(lo, hi, _ float64) []rangeBand {
-	return []rangeBand{{from: lo, to: hi, tone: toneWarning}, {from: 0, to: lo, tone: toneError}}
 }

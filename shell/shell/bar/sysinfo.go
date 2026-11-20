@@ -214,7 +214,7 @@ func newCpu(ctx ModuleContext) (Module, error) {
 		return reading{vars: cpuContext(cpu), value: float64(cpu.UsagePercent), ok: true}, nil
 	}
 	initial := jinja.RenderOr(c.Format, cpuContext(sysinfo.CPU{}))
-	return newPollModule(ctx, "cpu", pollConfig{c.Format, c.Thresholds, c.Icon(), c.PollIntervalMs}, initial, read, reader.Close)
+	return newPollModule(ctx, "cpu", pollConfig{c.Format, ctx.Config.Thresholds.CPU, c.Icon(), c.PollIntervalMs}, initial, read, reader.Close)
 }
 
 // newRam builds the ram module.
@@ -230,7 +230,7 @@ func newRam(ctx ModuleContext) (Module, error) {
 		return reading{vars: ramContext(mem), value: float64(usage), ok: true}, nil
 	}
 	initial := jinja.RenderOr(c.Format, ramContext(sysinfo.Memory{}))
-	return newPollModule(ctx, "ram", pollConfig{c.Format, c.Thresholds, c.Icon(), c.PollIntervalMs}, initial, read, reader.Close)
+	return newPollModule(ctx, "ram", pollConfig{c.Format, ctx.Config.Thresholds.RAM, c.Icon(), c.PollIntervalMs}, initial, read, reader.Close)
 }
 
 // newStorage builds the storage module: the configured mount points
@@ -245,5 +245,5 @@ func newStorage(ctx ModuleContext) (Module, error) {
 		}
 		return reading{vars: storageContext(s), value: float64(s.UsagePercent), ok: true}, nil
 	}
-	return newPollModule(ctx, "storage", pollConfig{c.Format, c.Thresholds, c.Icon(), c.PollIntervalMs}, "--", read, func() {})
+	return newPollModule(ctx, "storage", pollConfig{c.Format, ctx.Config.Thresholds.Storage, c.Icon(), c.PollIntervalMs}, "--", read, func() {})
 }

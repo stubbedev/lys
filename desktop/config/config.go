@@ -45,6 +45,9 @@ type Config struct {
 	Styling StylingConfig `cfg:"styling"`
 	// Module-specific configurations.
 	ModulesConfig `cfg:"modules"`
+	// Warning levels of CPU, RAM, disk and battery, shared by their bar
+	// modules and the dashboard.
+	Thresholds ThresholdsConfig `cfg:"thresholds"`
 	// On-screen display settings.
 	Osd OsdConfig `cfg:"osd"`
 	// Login screen settings: the greeter and the lock screen.
@@ -79,6 +82,7 @@ func Defaults() *Config {
 		Dropdowns:     DropdownsConfig{},
 		Styling:       DefaultsStyling(),
 		ModulesConfig: DefaultsModules(),
+		Thresholds:    DefaultsThresholds(),
 		Osd:           DefaultsOsd(),
 		Login:         DefaultsLogin(),
 		SharePicker:   DefaultsSharePicker(),

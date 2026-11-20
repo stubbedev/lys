@@ -59,9 +59,6 @@ settings-modules-battery-format = Formato
 settings-modules-battery-left-click = Clic izquierdo
     .description = Acción al hacer clic izquierdo
 
-settings-modules-battery-thresholds = Umbrales
-    .description = Umbrales de color que cambian según el nivel del valor
-
 settings-modules-battery-notify-low = Notificaciones de batería baja
     .description = Notifica cuando la batería o un periférico alcanzan el nivel bajo o crítico
 

@@ -32,23 +32,11 @@ settings-modules-dashboard-scroll-down = Scorrimento in basso
 settings-modules-dashboard-left-click = Clic sinistro
     .description = Comando della shell al clic sinistro
 
-settings-modules-dashboard-usage-warning = Avviso di utilizzo
-    .description = Percentuale di utilizzo di CPU/RAM/disco alla quale gli anelli passano allo stato di avviso
-
-settings-modules-dashboard-usage-error = Errore di utilizzo
-    .description = Percentuale di utilizzo di CPU/RAM/disco alla quale gli anelli passano allo stato di errore
-
 settings-modules-dashboard-temp-warning = Avviso di temperatura
     .description = Temperatura della CPU (°C) alla quale l'anello della temperatura passa allo stato di avviso
 
 settings-modules-dashboard-temp-error = Errore di temperatura
     .description = Temperatura della CPU (°C) alla quale l'anello della temperatura passa allo stato di errore
-
-settings-modules-dashboard-battery-warning = Avviso batteria
-    .description = Percentuale della batteria pari o inferiore alla quale la batteria della dashboard mostra un avviso
-
-settings-modules-dashboard-battery-critical = Batteria critica
-    .description = Percentuale della batteria pari o inferiore alla quale la batteria della dashboard mostra lo stato critico
 
 settings-modules-dashboard-user-session-actions = Azioni di sessione
     .description = Azioni di sessione mostrate nella dashboard (lock, log-out, reboot, power-off)

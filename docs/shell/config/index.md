@@ -33,6 +33,7 @@ Editor intellisense via JSON Schema. Install the [YAML extension](https://market
 | [`portal`](/shell/config/portal) | Desktop-portal policy for sandboxed apps. |
 | [`share-picker`](/shell/config/share-picker) | Screen-share picker shown by xdg-desktop-portal when an app requests a |
 | [`styling`](/shell/config/styling) | Theme, palette, and rounding tokens applied shell-wide. Changes recompile the stylesheet. |
+| [`thresholds`](/shell/config/thresholds) | Warning levels of CPU, RAM, disk and battery, shared by their bar |
 | [`toast-preset`](/shell/config/toast-preset) | A reusable toast preset, triggerable by id with `lys-shell toast --preset <id>`. |
 | [`wallpaper`](/shell/config/wallpaper) | Wallpaper rendering, cycling, and per-monitor overrides. |
 

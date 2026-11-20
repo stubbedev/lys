@@ -56,9 +56,6 @@ settings-modules-ram-scroll-up = Nach oben scrollen
 settings-modules-ram-scroll-down = Nach unten scrollen
     .description = Shell-Befehl beim Scrollen nach unten
 
-settings-modules-ram-thresholds = Schwellenwerte
-    .description = Farbschwellen, die sich nach dem Wert ändern
-
 ## Format placeholders
 
 settings-modules-ram-format-placeholder-percent = Speicherauslastung (0–100)

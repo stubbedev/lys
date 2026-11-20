@@ -17,6 +17,8 @@ const vaultMoved = "the Bitwarden vault moved to lys-secrets"
 // dashboardRunsThePowerMenu is why the dashboard's own session commands left.
 const dashboardRunsThePowerMenu = "the dashboard's session buttons run the power menu's commands"
 
+const sharedThresholds = "one threshold set per resource serves its bar module and the dashboard"
+
 // removedKeys are, by section path, the keys the section no longer
 // reads. Setting one is an error diagnostic naming where it went, so a
 // setting is never dropped without a word.
@@ -27,7 +29,15 @@ var removedKeys = map[string][]removedKey{
 		{"dropdown-logout-command", dashboardRunsThePowerMenu, "modules.power.logout-command"},
 		{"dropdown-reboot-command", dashboardRunsThePowerMenu, "modules.power.reboot-command"},
 		{"dropdown-poweroff-command", dashboardRunsThePowerMenu, "modules.power.shutdown-command"},
+		{"usage-warning", sharedThresholds, "thresholds.cpu, thresholds.ram and thresholds.storage"},
+		{"usage-error", sharedThresholds, "thresholds.cpu, thresholds.ram and thresholds.storage"},
+		{"battery-warning", sharedThresholds, "thresholds.battery"},
+		{"battery-critical", sharedThresholds, "thresholds.battery"},
 	},
+	"modules.cpu":     {{"thresholds", sharedThresholds, "thresholds.cpu"}},
+	"modules.ram":     {{"thresholds", sharedThresholds, "thresholds.ram"}},
+	"modules.storage": {{"thresholds", sharedThresholds, "thresholds.storage"}},
+	"modules.battery": {{"thresholds", sharedThresholds, "thresholds.battery"}},
 	"modules.bitwarden": {
 		{"lock-after", vaultMoved, "lys-secrets --vault-lock-after (services.lys-secrets.vault.lockAfter)"},
 		{"sync-interval", vaultMoved, "lys-secrets --vault-sync-interval (services.lys-secrets.vault.syncInterval)"},

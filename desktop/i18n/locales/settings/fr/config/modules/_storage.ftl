@@ -59,9 +59,6 @@ settings-modules-storage-scroll-up = Défilement vers le haut
 settings-modules-storage-scroll-down = Défilement vers le bas
     .description = Commande à exécuter au défilement vers le bas
 
-settings-modules-storage-thresholds = Seuils
-    .description = Seuils de couleur qui changent selon le niveau de valeur
-
 ## Format placeholders
 
 settings-modules-storage-format-placeholder-percent = Utilisation du disque (0-100)

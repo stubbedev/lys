@@ -58,6 +58,7 @@ var i18nPrefixes = map[string]string{
 	"NotificationConfig":        "settings-modules-notifications",
 	"NotificationDndConfig":     "settings-modules-notifications-dnd",
 	"OsdConfig":                 "settings-osd",
+	"ThresholdsConfig":          "settings-thresholds",
 	"PaletteConfig":             "settings-palette",
 	"PortalScreenCastConfig":    "settings-portal-screen-cast",
 	"PowerConfig":               "settings-modules-power",

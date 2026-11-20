@@ -196,7 +196,7 @@ func TestBatteryModuleRendersAndRestyles(t *testing.T) {
 		t.Fatal(err)
 	}
 	// label-color recolors the label; icon-color the icon.
-	cfg.Battery.Thresholds = []config.ThresholdEntry{{Below: ptrF(20), LabelColor: &cv, IconColor: &cv}}
+	cfg.Thresholds.Battery = []config.ThresholdEntry{{Below: ptrF(20), LabelColor: &cv, IconColor: &cv}}
 	cfg.Bar.Layout = []config.BarLayout{{Monitor: "*"}}
 
 	source := newFakeBattery(upower.Device{Percentage: 75, State: upower.StateDischarging, IsPresent: true})
@@ -312,11 +312,12 @@ modules:
   battery:
     format: "Bat {{ percent }}"
     label-show: false
-    thresholds:
-      - below: 15
-        icon-color: status-error
-      - above: 90
-        icon-color: status-success
+thresholds:
+  battery:
+    - below: 15
+      icon-color: status-error
+    - above: 90
+      icon-color: status-success
 `
 	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		t.Fatal(err)
@@ -328,22 +329,22 @@ modules:
 	if c.Battery.Format != "Bat {{ percent }}" || c.Battery.LabelShow {
 		t.Errorf("format/label-show = %q/%v", c.Battery.Format, c.Battery.LabelShow)
 	}
-	if len(c.Battery.Thresholds) != 2 {
-		t.Fatalf("thresholds = %+v, want 2", c.Battery.Thresholds)
+	if len(c.Thresholds.Battery) != 2 {
+		t.Fatalf("thresholds = %+v, want 2", c.Thresholds.Battery)
 	}
-	if c.Battery.Thresholds[0].Below == nil || *c.Battery.Thresholds[0].Below != 15 {
-		t.Errorf("threshold[0] = %+v", c.Battery.Thresholds[0])
+	if c.Thresholds.Battery[0].Below == nil || *c.Thresholds.Battery[0].Below != 15 {
+		t.Errorf("threshold[0] = %+v", c.Thresholds.Battery[0])
 	}
-	if c.Battery.Thresholds[1].IconColor == nil || c.Battery.Thresholds[1].IconColor.Token != config.TokenStatusSuccess || c.Battery.Thresholds[1].LabelColor != nil {
-		t.Errorf("threshold[1] = %+v", c.Battery.Thresholds[1])
+	if c.Thresholds.Battery[1].IconColor == nil || c.Thresholds.Battery[1].IconColor.Token != config.TokenStatusSuccess || c.Thresholds.Battery[1].LabelColor != nil {
+		t.Errorf("threshold[1] = %+v", c.Thresholds.Battery[1])
 	}
 }
 
 func TestLoadFileRejectsBadBattery(t *testing.T) {
 	for _, content := range []string{
-		"modules:\n  battery:\n    thresholds:\n      - below: 10\n        icon-color: nope\n",
-		"modules:\n  battery:\n    thresholds:\n      - below: low\n",
-		"modules:\n  battery:\n    thresholds:\n      - below: 10\n        label-color: nope\n",
+		"thresholds:\n  battery:\n    - below: 10\n      icon-color: nope\n",
+		"thresholds:\n  battery:\n    - below: low\n",
+		"thresholds:\n  battery:\n    - below: 10\n      label-color: nope\n",
 	} {
 		path := filepath.Join(t.TempDir(), "config.yaml")
 		if err := os.WriteFile(path, []byte(content), 0o600); err != nil {

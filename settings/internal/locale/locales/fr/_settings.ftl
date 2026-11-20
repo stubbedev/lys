@@ -191,6 +191,7 @@ settings-nav-theme = Thème
 settings-nav-wallpaper = Fond d'écran
 settings-nav-bar = Barre
 settings-nav-dock = Dock
+settings-nav-thresholds = Niveaux d’alerte
 settings-nav-notifications = Notifications
 settings-nav-osd = OSD
 settings-nav-audio = Audio
@@ -228,6 +229,7 @@ settings-page-launcher-modes = Modes du lanceur
 settings-page-theme = Thème
 settings-page-wallpaper = Fond d'écran
 settings-page-dock = Dock
+settings-page-thresholds = Niveaux d’alerte
 settings-page-notifications = Notifications
 settings-page-osd = OSD
 settings-page-audio = Audio
@@ -755,6 +757,7 @@ settings-module-link-power-detail = La charge, sa limite, le mode d’énergie e
 settings-module-link-bluetooth-detail = Activer le Bluetooth, associer et connecter des appareils
 settings-module-link-date-time-detail = Le fuseau horaire et le premier jour de la semaine du calendrier
 settings-module-link-idle-detail = Les délais d’atténuation, de verrouillage, d’extinction de l’écran et de veille que le maintien en éveil suspend
+settings-module-link-thresholds-detail = Quand le processeur, la mémoire, le disque et la batterie passent en alerte, dans la barre et le tableau de bord
 settings-module-link-binds-detail = Définir les modes et les touches qui y entrent
 settings-module-link-input-detail = Ajouter et ordonner les dispositions de clavier
 settings-privacy-link-media-detail = Les paroles en ligne envoient l’artiste, le titre, l’album et la durée de chaque morceau à lrclib.net
@@ -1276,22 +1279,14 @@ settings-range-windows = { $n ->
 }
 settings-share-picker-windows-per-row = Fenêtres par ligne
     .description = Le moins et le plus de cartes de fenêtre sur une ligne
-settings-dashboard-usage-levels = Utilisation
-    .description = Quand les anneaux du processeur, de la mémoire et du disque passent en alerte, puis en erreur
 settings-dashboard-temp-levels = Température
     .description = Quand l’anneau de température du processeur passe en alerte, puis en erreur
-settings-dashboard-battery-levels = Batterie
-    .description = À quelle charge ou en dessous la batterie passe en alerte, puis en critique
 settings-level-warning = Alerte
 settings-level-error = Erreur
-settings-level-critical = Critique
 settings-level-band = { $to ->
    *[other] Affichée de { $from } à { $to } %
 }
 settings-level-muted = Affichée tant que le son est coupé
-settings-level-unit-percent = { $n ->
-   *[other] { $n } %
-}
 settings-level-unit-celsius = { $n ->
    *[other] { $n } °C
 }

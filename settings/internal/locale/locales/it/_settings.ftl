@@ -292,6 +292,7 @@ settings-nav-theme = Tema
 settings-nav-wallpaper = Sfondo
 settings-nav-bar = Barra
 settings-nav-dock = Dock
+settings-nav-thresholds = Livelli di avviso
 settings-nav-notifications = Notifiche
 settings-nav-osd = OSD
 settings-nav-audio = Audio
@@ -333,6 +334,7 @@ settings-page-lock = Accesso e schermata di blocco
 settings-page-theme = Tema
 settings-page-wallpaper = Sfondo
 settings-page-dock = Dock
+settings-page-thresholds = Livelli di avviso
 settings-page-notifications = Notifiche
 settings-page-osd = OSD
 settings-page-audio = Audio
@@ -752,6 +754,7 @@ settings-module-link-power-detail = La carica, il suo limite, la modalità energ
 settings-module-link-bluetooth-detail = Attivare il Bluetooth, associare e connettere dispositivi
 settings-module-link-date-time-detail = Il fuso orario e il primo giorno della settimana del calendario
 settings-module-link-idle-detail = I tempi di attenuazione, blocco, spegnimento dello schermo e sospensione che il mantenere attivo sospende
+settings-module-link-thresholds-detail = Quando CPU, memoria, disco e batteria passano ad avviso, nella barra e nella dashboard
 settings-module-link-binds-detail = Definire le modalità e i tasti che vi entrano
 settings-module-link-input-detail = Aggiungere e ordinare i layout di tastiera
 settings-privacy-link-media-detail = I testi online inviano artista, titolo, album e durata di ogni brano a lrclib.net
@@ -1274,22 +1277,14 @@ settings-range-windows = { $n ->
 }
 settings-share-picker-windows-per-row = Finestre per riga
     .description = Il minimo e il massimo di schede finestra in una riga
-settings-dashboard-usage-levels = Utilizzo
-    .description = Quando gli anelli di CPU, memoria e disco passano ad avviso, poi a errore
 settings-dashboard-temp-levels = Temperatura
     .description = Quando l’anello della temperatura della CPU passa ad avviso, poi a errore
-settings-dashboard-battery-levels = Batteria
-    .description = A quale carica o sotto la batteria mostra avviso, poi critico
 settings-level-warning = Avviso
 settings-level-error = Errore
-settings-level-critical = Critico
 settings-level-band = { $to ->
    *[other] Mostrata da { $from } a { $to } %
 }
 settings-level-muted = Mostrata quando è muto
-settings-level-unit-percent = { $n ->
-   *[other] { $n } %
-}
 settings-level-unit-celsius = { $n ->
    *[other] { $n } °C
 }

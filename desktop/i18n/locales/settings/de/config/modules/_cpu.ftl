@@ -59,9 +59,6 @@ settings-modules-cpu-scroll-up = Nach oben scrollen
 settings-modules-cpu-scroll-down = Nach unten scrollen
     .description = Shell-Befehl beim Scrollen nach unten
 
-settings-modules-cpu-thresholds = Schwellenwerte
-    .description = Farbschwellen, die sich nach dem Wert ändern
-
 ## Format placeholders
 
 settings-modules-cpu-format-placeholder-percent = CPU-Auslastung (0–100)

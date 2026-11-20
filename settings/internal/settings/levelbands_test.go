@@ -42,7 +42,7 @@ func TestEachVolumeIconSitsAboveItsShareOfTheThresholdBar(t *testing.T) {
 }
 
 func TestTheLevelBandsFollowTheIconList(t *testing.T) {
-	k, e := levelEditor(t, "", "battery", "modules.battery.thresholds")
+	k, e := levelEditor(t, "", thresholdsPageID, "thresholds.battery")
 	if err := k.store.set("modules.battery.level-icons", []any{"empty", "full"}); err != nil {
 		t.Fatal(err)
 	}

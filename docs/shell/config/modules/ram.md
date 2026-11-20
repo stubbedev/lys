@@ -30,7 +30,6 @@ bar:
 | `tooltip` | bool | `true` | Show the module's state in a tooltip on hover. |
 | `label-show` | bool | `true` | Display label. |
 | `label-max-length` | u32 | `0` | Max label characters before truncation. Set to 0 to disable. |
-| `thresholds` | array of [`ThresholdEntry`](/shell/config/types#threshold-entry) | `[]` | Dynamic color thresholds based on RAM usage percentage. |
 
 ::: details More about `poll-interval-ms`
 
@@ -55,27 +54,6 @@ Faster polling increases CPU usage.
 - `"{{ percent }}%"` - "45%"
 - `"{{ used_gib }}/{{ total_gib }} GiB"` - "7.2/16.0 GiB"
 - `"{{ percent }}% (Swap: {{ swap_percent }}%)"` - "45% (Swap: 12%)"
-
-:::
-
-::: details More about `thresholds`
-
-Entries are checked in order; the last matching entry wins for each
-color slot. Use `above` for high-value warnings (e.g., high memory usage).
-
-#### Example
-
-```yaml
-modules:
-  ram:
-    thresholds:
-      - above: 80
-        icon-color: status-warning
-        label-color: status-warning
-      - above: 95
-        icon-color: status-error
-        label-color: status-error
-```
 
 :::
 
@@ -122,7 +100,6 @@ modules:
     middle-click: ""
     scroll-up: ""
     scroll-down: ""
-    thresholds: []
 ```
 
 

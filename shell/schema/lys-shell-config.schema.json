@@ -1382,11 +1382,6 @@
           "default": "",
           "description": "Action on scroll up."
         },
-        "thresholds": {
-          "$ref": "#/$defs/Array_of_ThresholdEntry",
-          "default": [],
-          "description": "Dynamic color thresholds based on battery percentage.\n\nEntries are checked in order; the last matching entry wins for each\ncolor slot. Use `below` for low-value warnings (e.g., low battery).\n\n## Example\n\n```yaml\nmodules:\n  battery:\n    thresholds:\n      - below: 40\n        icon-color: status-warning\n      - below: 20\n        icon-color: status-error\n        label-color: status-error\n```"
-        },
         "tooltip": {
           "$ref": "#/$defs/boolean",
           "default": true,
@@ -2646,11 +2641,6 @@
           "default": "auto",
           "description": "Temperature sensor label.\n\nUse `\"auto\"` for automatic detection, or specify a\nlabel (e.g., `\"Tctl\"`, `\"Package id 0\"`).\n\nRun `sensors` to see available labels."
         },
-        "thresholds": {
-          "$ref": "#/$defs/Array_of_ThresholdEntry",
-          "default": [],
-          "description": "Dynamic color thresholds based on CPU usage percentage.\n\nEntries are checked in order; the last matching entry wins for each\ncolor slot. Use `above` for high-value warnings (e.g., high CPU usage).\n\n## Example\n\n```yaml\nmodules:\n  cpu:\n    thresholds:\n      - above: 70\n        icon-color: status-warning\n        label-color: status-warning\n      - above: 90\n        icon-color: status-error\n        label-color: status-error\n```"
-        },
         "tooltip": {
           "$ref": "#/$defs/boolean",
           "default": true,
@@ -2887,16 +2877,6 @@
     "DashboardConfig": {
       "description": "Quick-access button with a distro icon; opens the dashboard dropdown.\n\n`lys-shell panel dashboard` opens or closes it from a compositor bind, on\nthe focused monitor or the one named.\n\nWhile it holds the keyboard, the arrow keys move between its controls,\nHome and End go to the first and the last, Return or Space press the\nfocused one, Escape closes it, and on a slider Left and Right change the\nvalue while Up and Down leave it.",
       "properties": {
-        "battery-critical": {
-          "$ref": "#/$defs/float",
-          "default": 15.0,
-          "description": "Battery percent at or below which the dashboard battery shows critical."
-        },
-        "battery-warning": {
-          "$ref": "#/$defs/float",
-          "default": 30.0,
-          "description": "Battery percent at or below which the dashboard battery shows warning."
-        },
         "border-color": {
           "$ref": "#/$defs/ColorValue",
           "default": "yellow",
@@ -2956,16 +2936,6 @@
           "$ref": "#/$defs/float",
           "default": 65.0,
           "description": "CPU temperature (°C) at which the dashboard temp ring turns warning."
-        },
-        "usage-error": {
-          "$ref": "#/$defs/float",
-          "default": 85.0,
-          "description": "CPU/RAM/disk usage percent at which the dashboard rings turn error."
-        },
-        "usage-warning": {
-          "$ref": "#/$defs/float",
-          "default": 60.0,
-          "description": "CPU/RAM/disk usage percent at which the dashboard rings turn warning."
         },
         "user-session": {
           "$ref": "#/$defs/UserSessionConfig",
@@ -5880,7 +5850,6 @@
             "right-click": "",
             "scroll-down": "",
             "scroll-up": "",
-            "thresholds": [],
             "tooltip": true
           },
           "description": "Battery status module."
@@ -6070,7 +6039,6 @@
             "scroll-down": "",
             "scroll-up": "",
             "temp-sensor": "auto",
-            "thresholds": [],
             "tooltip": true
           },
           "description": "CPU usage module."
@@ -6083,8 +6051,6 @@
         "dashboard": {
           "$ref": "#/$defs/DashboardConfig",
           "default": {
-            "battery-critical": 15.0,
-            "battery-warning": 30.0,
             "border-color": "yellow",
             "border-show": false,
             "icon-bg-color": "yellow",
@@ -6097,8 +6063,6 @@
             "scroll-up": "",
             "temp-error": 85.0,
             "temp-warning": 65.0,
-            "usage-error": 85.0,
-            "usage-warning": 60.0,
             "user-session": {
               "actions": [
                 "lock",
@@ -6476,7 +6440,6 @@
             "right-click": "",
             "scroll-down": "",
             "scroll-up": "",
-            "thresholds": [],
             "tooltip": true
           },
           "description": "RAM usage module."
@@ -6585,7 +6548,6 @@
             "right-click": "",
             "scroll-down": "",
             "scroll-up": "",
-            "thresholds": [],
             "tooltip": true
           },
           "description": "Storage usage module."
@@ -8347,11 +8309,6 @@
           "default": "",
           "description": "Action on scroll up."
         },
-        "thresholds": {
-          "$ref": "#/$defs/Array_of_ThresholdEntry",
-          "default": [],
-          "description": "Dynamic color thresholds based on RAM usage percentage.\n\nEntries are checked in order; the last matching entry wins for each\ncolor slot. Use `above` for high-value warnings (e.g., high memory usage).\n\n## Example\n\n```yaml\nmodules:\n  ram:\n    thresholds:\n      - above: 80\n        icon-color: status-warning\n        label-color: status-warning\n      - above: 95\n        icon-color: status-error\n        label-color: status-error\n```"
-        },
         "tooltip": {
           "$ref": "#/$defs/boolean",
           "default": true,
@@ -9339,11 +9296,6 @@
           "default": "",
           "description": "Action on scroll up."
         },
-        "thresholds": {
-          "$ref": "#/$defs/Array_of_ThresholdEntry",
-          "default": [],
-          "description": "Dynamic color thresholds based on disk usage percentage.\n\nEntries are checked in order; the last matching entry wins for each\ncolor slot. Use `above` for high-value warnings (e.g., disk nearly full).\n\n## Example\n\n```yaml\nmodules:\n  storage:\n    thresholds:\n      - above: 70\n        icon-color: status-warning\n        label-color: status-warning\n      - above: 90\n        icon-color: status-error\n        label-color: status-error\n```"
-        },
         "tooltip": {
           "$ref": "#/$defs/boolean",
           "default": true,
@@ -9663,7 +9615,7 @@
       ]
     },
     "ThresholdEntry": {
-      "description": "A threshold entry that maps a numeric value range to color overrides.\n\nAt least one of `above` or `below` must be set. When both are set,\nboth conditions must be satisfied (AND logic).\n\n## YAML Example\n\n```yaml\n# under modules.cpu\nthresholds:\n- {above: 70, icon-color: status-warning, label-color: status-warning}\n- {above: 90, icon-color: status-error, label-color: status-error}\n```",
+      "description": "A threshold entry that maps a numeric value range to color overrides.\n\nAt least one of `above` or `below` must be set. When both are set,\nboth conditions must be satisfied (AND logic).\n\n## YAML Example\n\n```yaml\n# under thresholds\ncpu:\n- {above: 70, icon-color: status-warning, label-color: status-warning}\n- {above: 90, icon-color: status-error, label-color: status-error}\n```",
       "properties": {
         "above": {
           "default": null,
@@ -9742,6 +9694,108 @@
           ],
           "default": null,
           "description": "Override label color when threshold is active."
+        }
+      },
+      "type": "object"
+    },
+    "ThresholdsConfig": {
+      "description": "Warning levels of CPU, RAM, disk and battery, shared by their bar\nmodules and the dashboard.\n\nEach resource is a list of thresholds over its percentage. Entries are\nchecked in order; the last matching entry wins for each color slot.\nThe bar module recolors its button with the slots; the dashboard's\ngauge for the resource takes the first color an entry sets, in the\norder icon, label, button background, icon background, border, and\nits battery card colors its icon with `icon-color` and its text with\n`label-color`.\n\n## Example\n\n```yaml\nthresholds: {cpu: [{above: 70, icon-color: status-warning}, {above: 90, icon-color: status-error}]}\n```",
+      "properties": {
+        "battery": {
+          "$ref": "#/$defs/Array_of_ThresholdEntry",
+          "default": [
+            {
+              "above": null,
+              "below": 30.0,
+              "border-color": null,
+              "button-bg-color": null,
+              "icon-bg-color": null,
+              "icon-color": "status-warning",
+              "label-color": "status-warning"
+            },
+            {
+              "above": null,
+              "below": 15.0,
+              "border-color": null,
+              "button-bg-color": null,
+              "icon-bg-color": null,
+              "icon-color": "status-error",
+              "label-color": "status-error"
+            }
+          ],
+          "description": "Battery charge percentage. Use `below` for low-charge warnings."
+        },
+        "cpu": {
+          "$ref": "#/$defs/Array_of_ThresholdEntry",
+          "default": [
+            {
+              "above": 60.0,
+              "below": null,
+              "border-color": null,
+              "button-bg-color": null,
+              "icon-bg-color": null,
+              "icon-color": "status-warning",
+              "label-color": "status-warning"
+            },
+            {
+              "above": 85.0,
+              "below": null,
+              "border-color": null,
+              "button-bg-color": null,
+              "icon-bg-color": null,
+              "icon-color": "status-error",
+              "label-color": "status-error"
+            }
+          ],
+          "description": "CPU usage percentage."
+        },
+        "ram": {
+          "$ref": "#/$defs/Array_of_ThresholdEntry",
+          "default": [
+            {
+              "above": 60.0,
+              "below": null,
+              "border-color": null,
+              "button-bg-color": null,
+              "icon-bg-color": null,
+              "icon-color": "status-warning",
+              "label-color": "status-warning"
+            },
+            {
+              "above": 85.0,
+              "below": null,
+              "border-color": null,
+              "button-bg-color": null,
+              "icon-bg-color": null,
+              "icon-color": "status-error",
+              "label-color": "status-error"
+            }
+          ],
+          "description": "RAM usage percentage."
+        },
+        "storage": {
+          "$ref": "#/$defs/Array_of_ThresholdEntry",
+          "default": [
+            {
+              "above": 60.0,
+              "below": null,
+              "border-color": null,
+              "button-bg-color": null,
+              "icon-bg-color": null,
+              "icon-color": "status-warning",
+              "label-color": "status-warning"
+            },
+            {
+              "above": 85.0,
+              "below": null,
+              "border-color": null,
+              "button-bg-color": null,
+              "icon-bg-color": null,
+              "icon-color": "status-error",
+              "label-color": "status-error"
+            }
+          ],
+          "description": "Disk usage percentage of the storage module's mount, and of the\nroot file system on the dashboard."
         }
       },
       "type": "object"
@@ -11602,7 +11656,6 @@
           "right-click": "",
           "scroll-down": "",
           "scroll-up": "",
-          "thresholds": [],
           "tooltip": true
         },
         "bitwarden": {
@@ -11768,13 +11821,10 @@
           "scroll-down": "",
           "scroll-up": "",
           "temp-sensor": "auto",
-          "thresholds": [],
           "tooltip": true
         },
         "custom": [],
         "dashboard": {
-          "battery-critical": 15.0,
-          "battery-warning": 30.0,
           "border-color": "yellow",
           "border-show": false,
           "icon-bg-color": "yellow",
@@ -11787,8 +11837,6 @@
           "scroll-up": "",
           "temp-error": 85.0,
           "temp-warning": 65.0,
-          "usage-error": 85.0,
-          "usage-warning": 60.0,
           "user-session": {
             "actions": [
               "lock",
@@ -12114,7 +12162,6 @@
           "right-click": "",
           "scroll-down": "",
           "scroll-up": "",
-          "thresholds": [],
           "tooltip": true
         },
         "recorder": {
@@ -12207,7 +12254,6 @@
           "right-click": "",
           "scroll-down": "",
           "scroll-up": "",
-          "thresholds": [],
           "tooltip": true
         },
         "systray": {
@@ -12457,6 +12503,92 @@
         "wallust-saturation": 0
       },
       "description": "Styling configuration (theme, fonts, scale)."
+    },
+    "thresholds": {
+      "$ref": "#/$defs/ThresholdsConfig",
+      "default": {
+        "battery": [
+          {
+            "above": null,
+            "below": 30.0,
+            "border-color": null,
+            "button-bg-color": null,
+            "icon-bg-color": null,
+            "icon-color": "status-warning",
+            "label-color": "status-warning"
+          },
+          {
+            "above": null,
+            "below": 15.0,
+            "border-color": null,
+            "button-bg-color": null,
+            "icon-bg-color": null,
+            "icon-color": "status-error",
+            "label-color": "status-error"
+          }
+        ],
+        "cpu": [
+          {
+            "above": 60.0,
+            "below": null,
+            "border-color": null,
+            "button-bg-color": null,
+            "icon-bg-color": null,
+            "icon-color": "status-warning",
+            "label-color": "status-warning"
+          },
+          {
+            "above": 85.0,
+            "below": null,
+            "border-color": null,
+            "button-bg-color": null,
+            "icon-bg-color": null,
+            "icon-color": "status-error",
+            "label-color": "status-error"
+          }
+        ],
+        "ram": [
+          {
+            "above": 60.0,
+            "below": null,
+            "border-color": null,
+            "button-bg-color": null,
+            "icon-bg-color": null,
+            "icon-color": "status-warning",
+            "label-color": "status-warning"
+          },
+          {
+            "above": 85.0,
+            "below": null,
+            "border-color": null,
+            "button-bg-color": null,
+            "icon-bg-color": null,
+            "icon-color": "status-error",
+            "label-color": "status-error"
+          }
+        ],
+        "storage": [
+          {
+            "above": 60.0,
+            "below": null,
+            "border-color": null,
+            "button-bg-color": null,
+            "icon-bg-color": null,
+            "icon-color": "status-warning",
+            "label-color": "status-warning"
+          },
+          {
+            "above": 85.0,
+            "below": null,
+            "border-color": null,
+            "button-bg-color": null,
+            "icon-bg-color": null,
+            "icon-color": "status-error",
+            "label-color": "status-error"
+          }
+        ]
+      },
+      "description": "Warning levels of CPU, RAM, disk and battery, shared by their bar\nmodules and the dashboard."
     },
     "wallpaper": {
       "$ref": "#/$defs/WallpaperConfig",

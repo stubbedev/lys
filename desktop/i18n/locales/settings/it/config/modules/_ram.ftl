@@ -56,9 +56,6 @@ settings-modules-ram-scroll-up = Scorrimento in alto
 settings-modules-ram-scroll-down = Scorrimento in basso
     .description = Comando della shell allo scorrimento in basso
 
-settings-modules-ram-thresholds = Soglie
-    .description = Soglie di colore che cambiano in base ai livelli del valore
-
 ## Format placeholders
 
 settings-modules-ram-format-placeholder-percent = Utilizzo della memoria (0-100)

@@ -55,7 +55,7 @@ func newBattery(ctx ModuleContext) (Module, error) {
 func (m *battery) apply(dev upower.Device) {
 	cfg := m.ctx.Config.Battery
 	label := batteryLabel(cfg.Format, dev.Percentage, dev.IsPresent)
-	m.btn.ApplyThresholds(dev.Percentage, cfg.Thresholds)
+	m.btn.ApplyThresholds(dev.Percentage, m.ctx.Config.Thresholds.Battery)
 	m.btn.SetLabel(label)
 	m.setIcon(cfg, dev)
 }

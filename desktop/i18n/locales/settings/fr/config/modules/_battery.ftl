@@ -59,9 +59,6 @@ settings-modules-battery-format = Format
 settings-modules-battery-left-click = Clic gauche
     .description = Action au clic gauche
 
-settings-modules-battery-thresholds = Seuils
-    .description = Seuils de couleur qui changent selon le niveau de valeur
-
 settings-modules-battery-notify-low = Notifications de batterie faible
     .description = Notifier quand la batterie ou un périphérique atteint le niveau faible ou critique
 

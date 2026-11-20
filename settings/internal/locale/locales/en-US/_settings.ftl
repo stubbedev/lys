@@ -292,6 +292,7 @@ settings-nav-theme = Theme
 settings-nav-wallpaper = Wallpaper
 settings-nav-bar = Bar
 settings-nav-dock = Dock
+settings-nav-thresholds = Warning Levels
 settings-nav-notifications = Notifications
 settings-nav-osd = OSD
 settings-nav-audio = Audio
@@ -333,6 +334,7 @@ settings-page-lock = Login & Lock Screen
 settings-page-theme = Theme
 settings-page-wallpaper = Wallpaper
 settings-page-dock = Dock
+settings-page-thresholds = Warning Levels
 settings-page-notifications = Notifications
 settings-page-osd = OSD
 settings-page-audio = Audio
@@ -752,6 +754,7 @@ settings-module-link-power-detail = The charge, its limit, the power mode and lo
 settings-module-link-bluetooth-detail = Turn Bluetooth on, and pair and connect devices
 settings-module-link-date-time-detail = The time zone and the calendar's first weekday
 settings-module-link-idle-detail = The dim, lock, screen-off and suspend times that keeping awake pauses
+settings-module-link-thresholds-detail = When CPU, memory, disk and battery turn to a warning, on the bar and the dashboard
 settings-module-link-binds-detail = Define the modes and the keys that enter them
 settings-module-link-input-detail = Add and order the keyboard layouts
 settings-privacy-link-media-detail = Online lyrics send the artist, title, album and length of every track to lrclib.net
@@ -1273,22 +1276,14 @@ settings-range-windows = { $n ->
 }
 settings-share-picker-windows-per-row = Windows Per Row
     .description = The fewest and most window cards in one row
-settings-dashboard-usage-levels = Usage
-    .description = When the CPU, memory and disk rings turn to warning, then error
 settings-dashboard-temp-levels = Temperature
     .description = When the CPU temperature ring turns to warning, then error
-settings-dashboard-battery-levels = Battery
-    .description = At or below which charge the battery shows warning, then critical
 settings-level-warning = Warning
 settings-level-error = Error
-settings-level-critical = Critical
 settings-level-band = { $to ->
    *[other] Shown from { $from } to { $to } %
 }
 settings-level-muted = Shown while muted
-settings-level-unit-percent = { $n ->
-   *[other] { $n } %
-}
 settings-level-unit-celsius = { $n ->
    *[other] { $n } °C
 }

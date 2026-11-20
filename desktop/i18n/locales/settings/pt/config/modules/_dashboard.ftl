@@ -28,23 +28,11 @@ settings-modules-dashboard-scroll-down = Deslocar para baixo
 settings-modules-dashboard-left-click = Clique esquerdo
     .description = Comando da shell ao clicar com o botão esquerdo
 
-settings-modules-dashboard-usage-warning = Aviso de utilização
-    .description = Percentagem de utilização de CPU/RAM/disco a partir da qual os anéis passam a aviso
-
-settings-modules-dashboard-usage-error = Erro de utilização
-    .description = Percentagem de utilização de CPU/RAM/disco a partir da qual os anéis passam a erro
-
 settings-modules-dashboard-temp-warning = Aviso de temperatura
     .description = Temperatura da CPU (°C) a partir da qual o anel de temperatura passa a aviso
 
 settings-modules-dashboard-temp-error = Erro de temperatura
     .description = Temperatura da CPU (°C) a partir da qual o anel de temperatura passa a erro
-
-settings-modules-dashboard-battery-warning = Aviso de bateria
-    .description = Percentagem de bateria igual ou inferior à qual a bateria do painel mostra aviso
-
-settings-modules-dashboard-battery-critical = Bateria crítica
-    .description = Percentagem de bateria igual ou inferior à qual a bateria do painel mostra estado crítico
 
 settings-modules-dashboard-user-session-actions = Ações de sessão
     .description = Ações de sessão mostradas no painel (bloquear, terminar sessão, reiniciar, encerrar)

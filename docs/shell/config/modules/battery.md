@@ -40,7 +40,6 @@ bar:
 | `label-show` | bool | `true` | Display percentage label. |
 | `format` | string | `"{{ percent }}%"` | Format string for the label. |
 | `label-max-length` | u32 | `0` | Max label characters before truncation with ellipsis. Set to 0 to disable. |
-| `thresholds` | array of [`ThresholdEntry`](/shell/config/types#threshold-entry) | `[]` | Dynamic color thresholds based on battery percentage. |
 | `notify-low` | bool | `true` | Send a critical notification when the battery, or a peripheral UPower reports such as a wireless mouse, enters UPower's low or critical warning level. |
 | `notify-charged-at` | [`Percentage`](/shell/config/types#percentage) | `0` | Notify once when the charging battery reaches this percentage. Set to 0 to disable. |
 
@@ -60,26 +59,6 @@ The percentage is divided evenly among icons. With 5 icons:
 #### Examples
 
 - `"{{ percent }}%"` - "45%"
-
-:::
-
-::: details More about `thresholds`
-
-Entries are checked in order; the last matching entry wins for each
-color slot. Use `below` for low-value warnings (e.g., low battery).
-
-#### Example
-
-```yaml
-modules:
-  battery:
-    thresholds:
-      - below: 40
-        icon-color: status-warning
-      - below: 20
-        icon-color: status-error
-        label-color: status-error
-```
 
 :::
 
@@ -138,7 +117,6 @@ modules:
     middle-click: ""
     scroll-up: ""
     scroll-down: ""
-    thresholds: []
     notify-low: true
     notify-charged-at: 0
 ```
