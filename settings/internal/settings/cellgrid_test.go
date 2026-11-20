@@ -65,5 +65,5 @@ func TestAGridRowWithTheWrongNumberOfCellsRefusesToBuild(t *testing.T) {
 		}
 	}()
 	cellGridRow("settings-network-icons", []string{"settings-wifi-title", "settings-wifi-wired"},
-		gridRow{editor: iconGridCell, cells: []string{"modules.network.wifi-disabled-icon"}})
+		gridRow{cells: gridCells([]string{"modules.network.wifi-disabled-icon"}, iconRow)})
 }

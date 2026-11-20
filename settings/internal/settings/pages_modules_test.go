@@ -123,9 +123,9 @@ func TestDeviceLikeModulePagesLinkToTheirDevicePages(t *testing.T) {
 	k := testKit(t, "")
 	k.nav = layout(k.store.svc.Config(), bothParts)
 	for module, want := range map[string][]string{
-		"audio": {soundID}, "battery": {powerPageID, thresholdsPageID}, "bluetooth": {bluetoothPageID}, "clock": {dateTimeID},
+		"audio": {soundID, barPageID}, "battery": {powerPageID, thresholdsPageID, barPageID}, "bluetooth": {bluetoothPageID, barPageID}, "clock": {dateTimeID, barPageID},
 		"idle-inhibit": {"idle"}, "keybind-mode": {"wm-binds"}, "keyboard-input": {"wm-keyboard"},
-		"brightness": {displaysID}, "nightlight": {displaysID},
+		"brightness": {displaysID, barPageID}, "nightlight": {displaysID}, "media": {barPageID},
 	} {
 		p, ok := pageByID(k.nav, module)
 		if !ok {
@@ -322,7 +322,7 @@ func TestTheNightLightStrengthSlidesInKelvin(t *testing.T) {
 }
 
 func TestModulePagesWithNothingElsewhereHaveNoLinks(t *testing.T) {
-	for _, id := range []string{"cava", "custom", "media"} {
+	for _, id := range []string{"cava", "custom", "separator"} {
 		p, ok := pageByID(layout(config.Defaults(), bothParts), id)
 		if !ok {
 			t.Fatalf("no %s page", id)

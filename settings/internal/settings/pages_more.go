@@ -6,9 +6,11 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 )
 
+const barPageID = "bar"
+
 // barGeneralPage is pages/bar/general.
 func barPage(*config.Config) pageSpec {
-	return pageSpec{id: "bar", navKey: "settings-nav-bar", icon: "ld-layout-dashboard-symbolic", header: "settings-page-bar", lead: barPreview, extrasOnRows: true, sections: []sectionSpec{
+	return pageSpec{id: barPageID, navKey: "settings-nav-bar", icon: "ld-layout-dashboard-symbolic", header: "settings-page-bar", lead: barPreview, extrasOnRows: true, sections: []sectionSpec{
 		{title: "settings-section-layout", rows: []rowSpec{
 			field("bar.location", screenPosition),
 			field("bar.exclusive"),
@@ -49,6 +51,7 @@ func barPage(*config.Config) pageSpec {
 		{title: "settings-section-dropdowns", rows: []rowSpec{
 			field("bar.dropdown-shadow"), field("bar.dropdown-autohide"), field("bar.dropdown-freeze-label"),
 			field("bar.dropdown-opacity", percentage),
+			dropdownSizeTable(),
 		}},
 		{title: "settings-section-dropdown-animation", advanced: true, rows: surfaceAnimationRows("animations.dropdown")},
 		{title: "settings-animations-menu", advanced: true, rows: surfaceAnimationRows("animations.menu")},
@@ -105,7 +108,6 @@ func notificationsPage(*config.Config) pageSpec {
 			field("modules.notifications.icon-dnd", iconRow),
 			field("modules.notifications.thresholds", thresholdList),
 		}, barItemSection("modules.notifications", actionChoices("notification")).rows...)},
-		dropdownSizeSection("notification"),
 		{title: "settings-section-notifications-advanced", advanced: true, rows: []rowSpec{
 			field("modules.notifications.popup-close-behavior"),
 			field("modules.notifications.icon-source"),
@@ -117,7 +119,7 @@ func notificationsPage(*config.Config) pageSpec {
 			field("modules.notifications.popup-gap", sizeBase(config.PopupGapBaseRem)),
 		}},
 		{title: "settings-section-animation", advanced: true, rows: surfaceAnimationRows("animations.notifications")},
-	}}
+	}, footer: relatedLinks([]pageLink{dropdownSizesLink})}
 }
 
 const popupMaxVisibleSoftMax = 10

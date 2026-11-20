@@ -10,16 +10,19 @@ import (
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
-type cellEditor func(k *kit, s slot) control
-
-func iconGridCell(k *kit, s slot) control { return newIconEditor(k, s) }
-
-func colorGridCell(k *kit, s slot) control { return newColorValueEditor(k, s) }
-
 type gridRow struct {
-	key    string
-	editor cellEditor
-	cells  []string
+	key   string
+	cells []rowSpec
+}
+
+func gridCells(paths []string, opts ...rowOpt) []rowSpec {
+	cells := make([]rowSpec, len(paths))
+	for i, p := range paths {
+		if p != "" {
+			cells[i] = field(p, opts...)
+		}
+	}
+	return cells
 }
 
 func (r gridRow) withHeader() bool { return r.key != "" }
@@ -30,9 +33,9 @@ func cellGridRow(key string, columns []string, rows ...gridRow) rowSpec {
 		if len(r.cells) != len(columns) {
 			log.Panicf("settings: the grid %s row %q has %d cells for %d columns", key, r.key, len(r.cells), len(columns))
 		}
-		for _, p := range r.cells {
-			if p != "" {
-				paths = append(paths, p)
+		for _, c := range r.cells {
+			if c.path != "" {
+				paths = append(paths, c.path)
 			}
 		}
 	}
@@ -67,11 +70,11 @@ func newCellGrid(k *kit, columns []string, rows []gridRow) *cellGrid {
 		if r.withHeader() {
 			g.Attach(k.label(t.Get(r.key)), 0, i+1, 1, 1)
 		}
-		for c, path := range r.cells {
-			if path == "" {
+		for c, spec := range r.cells {
+			if spec.path == "" {
 				continue
 			}
-			cell := r.editor(k, k.store.slot(path))
+			cell := fieldControl(k, k.store, spec)
 			g.Attach(cell, first+c, i+1, 1, 1)
 			g.cells = append(g.cells, cell)
 		}

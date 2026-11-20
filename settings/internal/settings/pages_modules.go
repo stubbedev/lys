@@ -4,6 +4,7 @@ import (
 	"log"
 	"math"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
@@ -52,13 +53,14 @@ func modulePages(cfg *config.Config) []pageSpec {
 		worldClockPage(cfg),
 	}
 	for i, p := range pages {
-		if d, ok := moduleDropdowns[p.id]; ok {
-			pages[i].sections = append(p.sections, dropdownSizeSection(d))
-		}
 		if m := config.BarModule(p.id); slices.Contains(config.BuiltinModules, m) {
 			pages[i].lead = withPlacement(m, p.lead)
 		}
-		if links, ok := moduleLinks[p.id]; ok {
+		links := moduleLinks[p.id]
+		if hasDropdown(p.id) {
+			links = append(slices.Clone(links), dropdownSizesLink)
+		}
+		if len(links) > 0 {
 			pages[i].footer = relatedLinks(links)
 		}
 	}
@@ -98,12 +100,44 @@ func thresholdsPage(*config.Config) pageSpec {
 	}}
 }
 
-// moduleDropdowns are the dropdowns.<name> sizes the bar module pages
-// carry, by page.
-var moduleDropdowns = map[string]string{
+var dropdownModules = map[string]config.BarModule{
 	"audio": "audio", "battery": "battery", "bitwarden": "bitwarden", "bluetooth": "bluetooth", "brightness": "brightness",
-	"clock": "calendar", "dashboard": "dashboard", "media": "media", "mail": "mail", "network": "network",
-	"treeman": "treeman", "weather": "weather",
+	"calendar": "clock", "dashboard": "dashboard", "mail": "mail", "media": "media", "network": "network",
+	"notification": "notifications", "treeman": "treeman", "weather": "weather",
+}
+
+var dropdownSizesLink = pageLink{barPageID, "settings-module-link-dropdown-size-detail"}
+
+func dropdownNames() []string {
+	var names []string
+	for _, p := range config.LeafPaths() {
+		if name, ok := strings.CutPrefix(p, "dropdowns."); ok {
+			names = append(names, name)
+		}
+	}
+	return names
+}
+
+func dropdownSizeTable() rowSpec {
+	names := dropdownNames()
+	rows := make([]gridRow, len(names))
+	for i, name := range names {
+		m, ok := dropdownModules[name]
+		if !ok {
+			log.Panicf("settings: the dropdown %s belongs to no bar module", name)
+		}
+		rows[i] = gridRow{key: "settings-module-" + string(m), cells: dropdownSizeRows("dropdowns." + name)}
+	}
+	return cellGridRow("settings-section-sizes", []string{"settings-dropdown-width", "settings-dropdown-height"}, rows...)
+}
+
+func hasDropdown(pageID string) bool {
+	for _, m := range dropdownModules {
+		if string(m) == pageID {
+			return true
+		}
+	}
+	return false
 }
 
 func withPlacement(m config.BarModule, lead func(k *kit) widget.Widget) func(k *kit) widget.Widget {
@@ -116,10 +150,6 @@ func withPlacement(m config.BarModule, lead func(k *kit) widget.Widget) func(k *
 		box.Append(lead(k), false)
 		return box
 	}
-}
-
-func dropdownSizeSection(dropdown string) sectionSpec {
-	return sectionSpec{title: "settings-section-dropdown-size", rows: dropdownSizeRows("dropdowns." + dropdown)}
 }
 
 func backgroundAppsPage(*config.Config) pageSpec {
@@ -438,10 +468,10 @@ func networkPage(*config.Config) pageSpec {
 		}},
 		{title: "settings-section-icons", advanced: true, rows: []rowSpec{
 			cellGridRow("settings-network-icons", []string{"settings-wifi-title", "settings-wifi-wired", "settings-vpn-section"},
-				gridRow{key: "settings-state-off", editor: iconGridCell, cells: []string{m + ".wifi-disabled-icon", "", ""}},
-				gridRow{key: "settings-state-disconnected", editor: iconGridCell, cells: []string{m + ".wifi-offline-icon", m + ".wired-disconnected-icon", m + ".vpn-disconnected-icon"}},
-				gridRow{key: "settings-state-connecting", editor: iconGridCell, cells: []string{m + ".wifi-acquiring-icon", m + ".wired-acquiring-icon", m + ".vpn-connecting-icon"}},
-				gridRow{key: "settings-state-connected", editor: iconGridCell, cells: []string{m + ".wifi-connected-icon", m + ".wired-connected-icon", m + ".vpn-connected-icon"}},
+				gridRow{key: "settings-state-off", cells: gridCells([]string{m + ".wifi-disabled-icon", "", ""}, iconRow)},
+				gridRow{key: "settings-state-disconnected", cells: gridCells([]string{m + ".wifi-offline-icon", m + ".wired-disconnected-icon", m + ".vpn-disconnected-icon"}, iconRow)},
+				gridRow{key: "settings-state-connecting", cells: gridCells([]string{m + ".wifi-acquiring-icon", m + ".wired-acquiring-icon", m + ".vpn-connecting-icon"}, iconRow)},
+				gridRow{key: "settings-state-connected", cells: gridCells([]string{m + ".wifi-connected-icon", m + ".wired-connected-icon", m + ".vpn-connected-icon"}, iconRow)},
 			),
 			field(m+".wifi-signal-icons", iconList),
 		}},
@@ -458,8 +488,8 @@ func powerProfilesPage(*config.Config) pageSpec {
 		}},
 		{title: "settings-section-power-profiles-profiles", rows: []rowSpec{
 			cellGridRow("settings-power-profiles-look", []string{"settings-power-mode-power-saver", "settings-power-mode-balanced", "settings-power-mode-performance"},
-				gridRow{key: "settings-grid-icon", editor: iconGridCell, cells: []string{m + ".icon-power-saver", m + ".icon-balanced", m + ".icon-performance"}},
-				gridRow{key: "settings-grid-color", editor: colorGridCell, cells: []string{m + ".color-power-saver", m + ".color-balanced", m + ".color-performance"}},
+				gridRow{key: "settings-grid-icon", cells: gridCells([]string{m + ".icon-power-saver", m + ".icon-balanced", m + ".icon-performance"}, iconRow)},
+				gridRow{key: "settings-grid-color", cells: gridCells([]string{m + ".color-power-saver", m + ".color-balanced", m + ".color-performance"})},
 			),
 		}},
 		barItemSection(m, actionChoices("power-profiles")),
@@ -562,7 +592,7 @@ func treemanPage(*config.Config) pageSpec {
 		{title: "settings-section-general", rows: []rowSpec{
 			field("modules.treeman.format"),
 			cellGridRow("settings-treeman-icons", []string{"settings-state-ready", "settings-state-preparing", "settings-state-tearing-down", "settings-state-failed"},
-				gridRow{editor: iconGridCell, cells: []string{"modules.treeman.icon-name", "modules.treeman.icon-preparing", "modules.treeman.icon-tearing-down", "modules.treeman.icon-failed"}},
+				gridRow{cells: gridCells([]string{"modules.treeman.icon-name", "modules.treeman.icon-preparing", "modules.treeman.icon-tearing-down", "modules.treeman.icon-failed"}, iconRow)},
 			),
 			field("modules.treeman.hide-if-empty"),
 		}},
@@ -645,7 +675,7 @@ func recorderPage(*config.Config) pageSpec {
 		}},
 		{title: "settings-section-icons", rows: []rowSpec{
 			cellGridRow("settings-recorder-icons", []string{"settings-state-idle", "settings-state-recording", "settings-state-paused", "settings-state-replay"},
-				gridRow{editor: iconGridCell, cells: []string{m + ".icon-idle", m + ".icon-recording", m + ".icon-paused", m + ".icon-replay"}},
+				gridRow{cells: gridCells([]string{m + ".icon-idle", m + ".icon-recording", m + ".icon-paused", m + ".icon-replay"}, iconRow)},
 			),
 		}},
 		barItemSection(m, actionChoices("recorder")),
