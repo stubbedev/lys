@@ -165,6 +165,32 @@ func ignoredWorkspace(ws Workspace, patterns []string) bool {
 	return false
 }
 
+// IgnoreName is the workspace-ignore entry that hides ws on sway, niri
+// and lys-wm: its name, else its number.
+func (ws Workspace) IgnoreName() string {
+	if ws.HasName {
+		return ws.Name
+	}
+	return strconv.Itoa(ws.Num)
+}
+
+// HyprlandIgnored reports whether workspace-ignore's patterns hide the
+// Hyprland workspace id: Hyprland matches each pattern as a glob against
+// the id alone.
+func HyprlandIgnored(id int, patterns []string) bool {
+	text := HyprlandIgnoreName(id)
+	for _, pattern := range patterns {
+		if glob.Glob(pattern, text) {
+			return true
+		}
+	}
+	return false
+}
+
+// HyprlandIgnoreName is the workspace-ignore entry that hides the
+// Hyprland workspace id.
+func HyprlandIgnoreName(id int) string { return strconv.Itoa(id) }
+
 func workspaceLabel(num int, name string, hasName bool, strategy config.LabelStrategy) (string, bool) {
 	numLabel, hasNum := "", num >= 0
 	if hasNum {

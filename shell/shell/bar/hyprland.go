@@ -46,22 +46,11 @@ type hyprFilter struct {
 	rules           map[int]string
 }
 
-// hyprIgnored: glob patterns against the id.
-func hyprIgnored(id int, patterns []string) bool {
-	idStr := strconv.Itoa(id)
-	for _, pattern := range patterns {
-		if glob.Glob(pattern, idStr) {
-			return true
-		}
-	}
-	return false
-}
-
 func hyprFilterWorkspaces(all []hyprland.Workspace, f hyprFilter) []hyprFiltered {
 	maxID := f.minCount
 	out := make([]hyprFiltered, 0, len(all))
 	for _, ws := range all {
-		if hyprIgnored(ws.ID, f.ignore) {
+		if barview.HyprlandIgnored(ws.ID, f.ignore) {
 			continue
 		}
 		if ws.ID < 0 && !f.showSpecial {
@@ -96,7 +85,7 @@ func hyprAddPlaceholders(out []hyprFiltered, all []hyprland.Workspace, f hyprFil
 		}
 	}
 	for id := 1; id <= maxID; id++ {
-		if existing[id] || hyprIgnored(id, f.ignore) {
+		if existing[id] || barview.HyprlandIgnored(id, f.ignore) {
 			continue
 		}
 		if f.monitorSpecific {
@@ -110,7 +99,7 @@ func hyprAddPlaceholders(out []hyprFiltered, all []hyprland.Workspace, f hyprFil
 		out = append(out, hyprFiltered{id: id})
 		existing[id] = true
 	}
-	if f.activeID > 0 && !existing[f.activeID] && !hyprIgnored(f.activeID, f.ignore) && hyprIncludeActivePlaceholder(all, f) {
+	if f.activeID > 0 && !existing[f.activeID] && !barview.HyprlandIgnored(f.activeID, f.ignore) && hyprIncludeActivePlaceholder(all, f) {
 		out = append(out, hyprFiltered{id: f.activeID})
 	}
 	return out

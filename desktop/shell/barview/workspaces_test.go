@@ -2,6 +2,7 @@ package barview
 
 import (
 	"reflect"
+	"slices"
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/compositor"
@@ -60,6 +61,46 @@ func TestWorkspaceIgnoreByNameNumberAndID(t *testing.T) {
 	}
 	if got := collectDisplayed(all, workspaceFilter{ignore: []string{"SCRATCH"}}); len(got) != 4 {
 		t.Errorf("case-insensitive match: %v", wsIDs(got))
+	}
+}
+
+func TestAWorkspacesIgnoreNameHidesItAndNotTheOthers(t *testing.T) {
+	web := occupiedWS(7, 1, "DP-1")
+	web.Name, web.HasName = "web", true
+	unnamed := occupiedWS(9, 2, "DP-1")
+	all := []Workspace{web, unnamed, occupiedWS(11, 3, "DP-1")}
+	for _, tc := range []struct {
+		ws   Workspace
+		name string
+	}{{web, "web"}, {unnamed, "2"}} {
+		if got := tc.ws.IgnoreName(); got != tc.name {
+			t.Fatalf("workspace %d is ignored as %q, want %q", tc.ws.ID, got, tc.name)
+		}
+		shown := collectDisplayed(all, workspaceFilter{ignore: []string{tc.ws.IgnoreName()}})
+		if len(shown) != len(all)-1 || slices.ContainsFunc(shown, func(w Workspace) bool { return w.ID == tc.ws.ID }) {
+			t.Errorf("ignoring %q shows %v", tc.ws.IgnoreName(), wsIDs(shown))
+		}
+	}
+}
+
+func TestHyprlandIgnoresAWorkspaceByItsIDAlone(t *testing.T) {
+	for _, tc := range []struct {
+		id       int
+		patterns []string
+		ignored  bool
+	}{
+		{4, []string{HyprlandIgnoreName(4)}, true},
+		{-98, []string{HyprlandIgnoreName(-98)}, true},
+		{12, []string{"1*"}, true},
+		{12, []string{"[0-9]2"}, true},
+		{4, []string{HyprlandIgnoreName(5), "web"}, false},
+		{12, []string{"1"}, false},
+		{12, []string{"[1"}, false},
+		{4, nil, false},
+	} {
+		if got := HyprlandIgnored(tc.id, tc.patterns); got != tc.ignored {
+			t.Errorf("workspace %d under %q: ignored %v, want %v", tc.id, tc.patterns, got, tc.ignored)
+		}
 	}
 }
 
