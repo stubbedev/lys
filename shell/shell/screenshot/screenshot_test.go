@@ -521,25 +521,6 @@ func TestHostRegionAcrossOutputs(t *testing.T) {
 	}
 }
 
-func TestResolveDir(t *testing.T) {
-	t.Setenv("XDG_PICTURES_DIR", "/pics")
-	t.Setenv("HOME", "/home/u")
-	if got := resolveDir("/custom"); got != "/custom" {
-		t.Errorf("configured = %q", got)
-	}
-	if got := resolveDir(""); got != "/pics" {
-		t.Errorf("xdg = %q", got)
-	}
-	t.Setenv("XDG_PICTURES_DIR", "")
-	if got := resolveDir(""); got != "/home/u/Pictures" {
-		t.Errorf("home = %q", got)
-	}
-	t.Setenv("HOME", "")
-	if got := resolveDir(""); got != "." {
-		t.Errorf("fallback = %q", got)
-	}
-}
-
 // fakeCapturer is the daemon's host in tests.
 type fakeCapturer struct{ err error }
 

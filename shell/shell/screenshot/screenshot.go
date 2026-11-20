@@ -217,7 +217,7 @@ func (h *Host) grab(c portaldialogs.Caller, mode, target string, pointer bool) (
 // presents its thumbnail and announces it as the section says.
 func (h *Host) save(img *image.RGBA) (string, error) {
 	cfg := h.Config()
-	dir := resolveDir(cfg.OutputDirectory)
+	dir := config.ScreenshotDirectory(cfg.OutputDirectory, xdg.OS)
 	if err := os.MkdirAll(dir, 0o755); err != nil { //nolint:gosec // the user's pictures directory
 		return "", fmt.Errorf("cannot create %s: %w", dir, err)
 	}
@@ -610,19 +610,4 @@ func encodePNG(w io.Writer, img image.Image) error {
 		return err
 	}
 	return bw.Flush()
-}
-
-// resolveDir is the save directory: the configured one, else
-// $XDG_PICTURES_DIR, else $HOME/Pictures, else the working directory.
-func resolveDir(configured string) string {
-	if configured != "" {
-		return configured
-	}
-	if dir := os.Getenv("XDG_PICTURES_DIR"); dir != "" {
-		return dir
-	}
-	if home := os.Getenv("HOME"); home != "" {
-		return filepath.Join(home, "Pictures")
-	}
-	return "."
 }

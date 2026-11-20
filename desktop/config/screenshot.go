@@ -1,5 +1,11 @@
 package config
 
+import (
+	"path/filepath"
+
+	"github.com/stubbedev/lys/lib/xdg"
+)
+
 // ScreenshotConfig configures the screenshot module.
 //
 // Screenshot capture button.
@@ -69,6 +75,22 @@ type ScreenshotConfig struct {
 	ScrollUp ClickAction `cfg:"scroll-up"`
 	// Action on scroll down.
 	ScrollDown ClickAction `cfg:"scroll-down"`
+}
+
+// ScreenshotDirectory is the directory screenshots are saved in: the
+// configured one, else $XDG_PICTURES_DIR, else ~/Pictures, else the
+// working directory.
+func ScreenshotDirectory(configured string, env xdg.Env) string {
+	if configured != "" {
+		return configured
+	}
+	if dir := env("XDG_PICTURES_DIR"); dir != "" {
+		return dir
+	}
+	if home := env("HOME"); home != "" {
+		return filepath.Join(home, "Pictures")
+	}
+	return "."
 }
 
 // DefaultsScreenshot returns the schema defaults.
