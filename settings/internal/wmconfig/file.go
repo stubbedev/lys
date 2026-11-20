@@ -592,7 +592,8 @@ const (
 	exclusiveStep = 0.01
 )
 
-// Field finds the key at path; false when this lys-wm has no such key.
+// Field finds the key at path, where a mapping's key is the mapping's
+// value; false when this lys-wm has no such key.
 func (s *Schema) Field(path []string) (Field, bool) {
 	node, ok := s.node(path)
 	if !ok || !node.hasField {
@@ -630,6 +631,9 @@ func (s *Schema) node(path []string) (*schemaNode, bool) {
 			child = node.Values
 		default:
 			child = node.property(key)
+			if child == nil {
+				child = node.Values
+			}
 		}
 		if child == nil {
 			return nil, false

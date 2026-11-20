@@ -758,7 +758,10 @@ func TestSchemaReachesListItemsAndMappingValues(t *testing.T) {
 	if f, ok := s.Field([]string{"env", Each}); !ok || f.Kind != Text {
 		t.Errorf("an env value: %+v %v", f, ok)
 	}
-	for _, path := range [][]string{{"closed", Each}, {"env", Each, Each}, {"outputs", "scale"}} {
+	if f, ok := s.Field([]string{"submaps", "resize.mode", Each, "chord"}); !ok || f.Kind != Text {
+		t.Errorf("a bind of the submap named resize.mode: %+v %v", f, ok)
+	}
+	for _, path := range [][]string{{"closed", Each}, {"closed", "b"}, {"env", Each, Each}, {"env", "PATH", "x"}, {"outputs", "scale"}} {
 		if _, ok := s.Field(path); ok {
 			t.Errorf("%v names a key", path)
 		}
