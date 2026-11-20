@@ -16,7 +16,8 @@ type Stage uint8
 
 // The stages.
 const (
-	Dim Stage = iota
+	KeyboardBacklight Stage = iota
+	Dim
 	Lock
 	ScreenOff
 	Suspend
@@ -24,9 +25,9 @@ const (
 )
 
 // Stages lists every stage in order.
-var Stages = [stageCount]Stage{Dim, Lock, ScreenOff, Suspend}
+var Stages = [stageCount]Stage{KeyboardBacklight, Dim, Lock, ScreenOff, Suspend}
 
-var stageNames = [stageCount]string{"dim", "lock", "screen-off", "suspend"}
+var stageNames = [stageCount]string{"keyboard-backlight", "dim", "lock", "screen-off", "suspend"}
 
 func (s Stage) String() string { return stageNames[s] }
 

@@ -3074,7 +3074,8 @@
       "lib/third_party/wayland/wl",
       "lib/third_party/wayland/wlclient",
       "lib/wlr",
-      "shell/service/brightness"
+      "shell/service/brightness",
+      "shell/service/kbdlight"
     ],
     "testImports": [
       "desktop/swaytest",
@@ -3097,6 +3098,15 @@
       "lib/dbustest",
       "lib/testhome",
       "lib/waittest"
+    ]
+  },
+  "shell/service/kbdlight": {
+    "imports": [
+      "lib/logind"
+    ],
+    "testImports": [
+      "lib/logind/logindtest",
+      "lib/testhome"
     ]
   },
   "shell/service/keytoggles": {
@@ -3582,6 +3592,7 @@
       "shell/service/dnssd",
       "shell/service/idle",
       "shell/service/idleinhibit",
+      "shell/service/kbdlight",
       "shell/service/keytoggles",
       "shell/service/launcher",
       "shell/service/launcher/answer",

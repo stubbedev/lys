@@ -706,6 +706,7 @@ settings-privacy-in-use-failed = The capture was not changed
 }
 settings-nav-idle = Idle & Power
 settings-page-idle = Idle & Power
+settings-section-idle-keyboard-backlight = Keyboard Light Off
 settings-section-idle-dim = Dim
 settings-section-idle-lock = Lock
 settings-section-idle-screen-off = Screens Off

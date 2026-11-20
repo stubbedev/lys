@@ -1,6 +1,6 @@
 // Package idle is the shell's built-in idle policy: after the session has
-// been idle for a stage's timeout it dims the backlights, locks, turns the
-// outputs off and suspends, each undone (where it can be) when the user is
+// been idle for a stage's timeout it turns the keyboard backlights off,
+// dims the backlights, locks, turns the outputs off and suspends, each undone (where it can be) when the user is
 // back, with timeouts per power source; and it locks before the system
 // sleeps. Idle is the compositor's ext-idle-notify-v1, so idle inhibitors
 // (a playing video, the caffeine toggle, a portal or ScreenSaver hold)
@@ -27,9 +27,10 @@ type Watcher interface {
 	Watch(after time.Duration, idle, resume func()) (stop func(), err error)
 }
 
-// Actions carry the stages out. Dim and ScreenOff return what undoes them
-// at resume.
+// Actions carry the stages out. KeyboardOff, Dim and ScreenOff return
+// what undoes them at resume.
 type Actions interface {
+	KeyboardOff() (restore func() error, err error)
 	Dim(idlepolicy.DimPercent) (restore func() error, err error)
 	Lock() error
 	ScreenOff() (restore func() error, err error)
@@ -185,6 +186,8 @@ func (s *Service) runLocked(stage idlepolicy.Stage) error {
 		err     error
 	)
 	switch stage {
+	case idlepolicy.KeyboardBacklight:
+		restore, err = s.actions.KeyboardOff()
 	case idlepolicy.Dim:
 		restore, err = s.actions.Dim(s.policy.DimPercent)
 	case idlepolicy.Lock:

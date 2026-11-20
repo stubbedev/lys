@@ -3405,7 +3405,7 @@
       ]
     },
     "IdleConfig": {
-      "description": "Built-in idle policy: dim, lock, screens off, suspend, lock before sleep.\n\nEach stage runs after the session has been idle for its timeout, with\nseparate timeouts on AC and on battery.\n\nIdle inhibitors hold every stage: a video or game holding the\ncompositor's idle inhibitor, the idle-inhibit module's toggle, a\nsandboxed app through the portal, and apps calling\n`org.freedesktop.ScreenSaver.Inhibit`. Turn `enable` off to leave idle to\nswayidle or hypridle instead.",
+      "description": "Built-in idle policy: keyboard backlight off, dim, lock, screens off,\nsuspend, lock before sleep.\n\nEach stage runs after the session has been idle for its timeout, with\nseparate timeouts on AC and on battery.\n\nIdle inhibitors hold every stage: a video or game holding the\ncompositor's idle inhibitor, the idle-inhibit module's toggle, a\nsandboxed app through the portal, and apps calling\n`org.freedesktop.ScreenSaver.Inhibit`. Turn `enable` off to leave idle to\nswayidle or hypridle instead.",
       "properties": {
         "dim": {
           "$ref": "#/$defs/IdleTimeouts",
@@ -3424,6 +3424,14 @@
           "$ref": "#/$defs/boolean",
           "default": true,
           "description": "Run the built-in idle policy. Turn it off when swayidle or hypridle\nhandles idle, so the two do not both act."
+        },
+        "keyboard-backlight": {
+          "$ref": "#/$defs/IdleTimeouts",
+          "default": {
+            "ac": "never",
+            "battery": "1m"
+          },
+          "description": "Idle time before every keyboard backlight (`*::kbd_backlight`) turns\noff. The next key press or other input turns it back on at its level."
         },
         "lock": {
           "$ref": "#/$defs/IdleTimeouts",
@@ -3607,12 +3615,12 @@
       "properties": {
         "ac": {
           "$ref": "#/$defs/IdleTimeout",
-          "default": "4m",
+          "default": "never",
           "description": "Timeout on AC power."
         },
         "battery": {
           "$ref": "#/$defs/IdleTimeout",
-          "default": "2m",
+          "default": "1m",
           "description": "Timeout on battery."
         }
       },
@@ -11447,6 +11455,10 @@
         },
         "dim-percent": 30,
         "enable": true,
+        "keyboard-backlight": {
+          "ac": "never",
+          "battery": "1m"
+        },
         "lock": {
           "ac": "5m",
           "battery": "3m"

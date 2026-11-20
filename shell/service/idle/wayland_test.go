@@ -38,6 +38,11 @@ func (a *recordingActions) Dim(idlepolicy.DimPercent) (func() error, error) {
 	return func() error { a.record("undim"); return nil }, nil
 }
 
+func (a *recordingActions) KeyboardOff() (func() error, error) {
+	a.record("keyboard-off")
+	return func() error { a.record("keyboard-on"); return nil }, nil
+}
+
 func (a *recordingActions) Lock() error { a.record("lock"); return nil }
 
 func (a *recordingActions) ScreenOff() (func() error, error) {

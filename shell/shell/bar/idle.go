@@ -14,6 +14,7 @@ import (
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
 	"github.com/stubbedev/lys/shell/service/idle"
+	"github.com/stubbedev/lys/shell/service/kbdlight"
 )
 
 // The waits of the idle policy's non-logind calls: how long lock-before-
@@ -24,10 +25,11 @@ const (
 )
 
 type idlePolicy struct {
-	svc    *idle.Service
-	comp   *idle.Compositor
-	system *dbus.Conn
-	login  *idle.Login
+	svc      *idle.Service
+	comp     *idle.Compositor
+	system   *dbus.Conn
+	login    *idle.Login
+	keyboard *kbdlight.Light
 
 	mu        sync.Mutex
 	cfg       config.IdleConfig
@@ -42,7 +44,10 @@ func startIdlePolicy(system *dbus.Conn, backlights idle.Backlights, cfg config.I
 		return nil, func() {}
 	}
 	p := &idlePolicy{comp: comp, system: system, login: idleLogin(system)}
-	actions := idle.System{Backlights: backlights, Login: p.login, Outputs: comp}
+	if p.login != nil {
+		p.keyboard = kbdlight.New(kbdlight.System{Dir: kbdlight.SysfsDir, Session: p.login.Session})
+	}
+	actions := idle.System{Keyboard: p.keyboard, Backlights: backlights, Login: p.login, Outputs: comp}
 	p.svc = idle.New(comp, actions)
 	life, stopPower := context.WithCancel(context.Background())
 	powerDone := p.followPowerSource(life)

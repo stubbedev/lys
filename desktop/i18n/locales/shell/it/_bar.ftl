@@ -32,6 +32,7 @@ bar-idle-held-by = Inattività trattenuta da { $holders }
 bar-idle-held-by-you = te
 bar-idle-all-reached = Tutte le fasi di inattività sono state eseguite
 bar-idle-next = Prossima: { $stage } dopo { $after } di inattività
+bar-idle-stage-keyboard-backlight = spegnere la retroilluminazione della tastiera
 bar-idle-stage-dim = attenuazione
 bar-idle-stage-lock = blocco
 bar-idle-stage-screen-off = schermi spenti

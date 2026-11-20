@@ -15,6 +15,7 @@ import (
 	"github.com/stubbedev/lys/lib/logind"
 
 	"github.com/stubbedev/lys/shell/service/brightness"
+	"github.com/stubbedev/lys/shell/service/kbdlight"
 )
 
 type fakeWatch struct {
@@ -46,6 +47,11 @@ type fakeActions struct{ calls []string }
 func (a *fakeActions) Dim(share idlepolicy.DimPercent) (func() error, error) {
 	a.calls = append(a.calls, "dim")
 	return func() error { a.calls = append(a.calls, "undim"); return nil }, nil
+}
+
+func (a *fakeActions) KeyboardOff() (func() error, error) {
+	a.calls = append(a.calls, "keyboard-off")
+	return func() error { a.calls = append(a.calls, "keyboard-on"); return nil }, nil
 }
 
 func (a *fakeActions) Lock() error { a.calls = append(a.calls, "lock"); return nil }
@@ -274,6 +280,9 @@ func TestStagesWithoutTheirSystemFailLoudly(t *testing.T) {
 	if restore, err := s.Dim(share); err != nil || restore != nil {
 		t.Errorf("Dim without backlights = %v, %v; want nothing to do", restore != nil, err)
 	}
+	if restore, err := s.KeyboardOff(); err != nil || restore != nil {
+		t.Errorf("KeyboardOff without keyboard backlights = %v, %v; want nothing to do", restore != nil, err)
+	}
 	if err := s.Lock(); !errors.Is(err, ErrNoLogind) {
 		t.Errorf("Lock = %v, want ErrNoLogind", err)
 	}
@@ -365,4 +374,52 @@ func TestWaitingBetweenStagesStartsNoGoroutineOrTimer(t *testing.T) {
 		t.Errorf("a goroutine left running shows as %v, want it alone", started)
 	}
 	close(left)
+}
+
+type keyboardLEDs struct{ raw uint32 }
+
+func (k *keyboardLEDs) Levels(context.Context) ([]kbdlight.Level, error) {
+	return []kbdlight.Level{{Name: "tpacpi::kbd_backlight", Raw: k.raw}}, nil
+}
+
+func (k *keyboardLEDs) Set(_ context.Context, _ string, raw uint32) error {
+	k.raw = raw
+	return nil
+}
+
+func TestTheKeyboardBacklightGoesOffAfterInactivityOnBatteryOnly(t *testing.T) {
+	leds := &keyboardLEDs{raw: 2}
+	w := &fakeWatcher{}
+	s := New(w, System{Keyboard: kbdlight.New(leds)})
+	p := testPolicy(t)
+	p.Timeouts[idlepolicy.KeyboardBacklight] = idlepolicy.Timeouts{AC: idlepolicy.Never, Battery: timeout(t, time.Minute)}
+	p.Timeouts[idlepolicy.Dim], p.Timeouts[idlepolicy.Lock], p.Timeouts[idlepolicy.ScreenOff], p.Timeouts[idlepolicy.Suspend] = idlepolicy.Timeouts{}, idlepolicy.Timeouts{}, idlepolicy.Timeouts{}, idlepolicy.Timeouts{}
+	if err := s.Configure(p, true, idlepolicy.AC); err != nil {
+		t.Fatal(err)
+	}
+	if n := len(w.live()); n != 0 {
+		t.Fatalf("on AC %d watches armed, want the keyboard backlight left on", n)
+	}
+	if err := s.SetPowerSource(idlepolicy.Battery); err != nil {
+		t.Fatal(err)
+	}
+	live := w.live()
+	if got, want := afters(live), []time.Duration{time.Minute}; !slices.Equal(got, want) {
+		t.Fatalf("on battery watches %v, want %v", got, want)
+	}
+	live[0].idle()
+	if leds.raw != 0 {
+		t.Fatalf("idle on battery left the keyboard backlight at %d", leds.raw)
+	}
+	live[0].resume()
+	if leds.raw != 2 {
+		t.Fatalf("the next input left the keyboard backlight at %d, want its 2 back", leds.raw)
+	}
+	live[0].idle()
+	if err := s.SetPowerSource(idlepolicy.AC); err != nil {
+		t.Fatal(err)
+	}
+	if leds.raw != 2 {
+		t.Errorf("plugging in left the keyboard backlight at %d, want its 2 back", leds.raw)
+	}
 }

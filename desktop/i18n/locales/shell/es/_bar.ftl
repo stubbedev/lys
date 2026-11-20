@@ -32,6 +32,7 @@ bar-idle-held-by = Inactividad retenida por { $holders }
 bar-idle-held-by-you = usted
 bar-idle-all-reached = Se han ejecutado todas las etapas de inactividad
 bar-idle-next = Siguiente: { $stage } tras { $after } de inactividad
+bar-idle-stage-keyboard-backlight = apagar luz del teclado
 bar-idle-stage-dim = atenuar
 bar-idle-stage-lock = bloquear
 bar-idle-stage-screen-off = apagar pantallas

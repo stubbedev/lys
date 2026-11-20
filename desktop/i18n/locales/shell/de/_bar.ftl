@@ -31,6 +31,7 @@ bar-idle-held-by = Leerlauf verhindert durch { $holders }
 bar-idle-held-by-you = Sie
 bar-idle-all-reached = Alle Leerlaufstufen wurden ausgeführt
 bar-idle-next = Als Nächstes: { $stage } nach { $after } Leerlauf
+bar-idle-stage-keyboard-backlight = Tastaturbeleuchtung aus
 bar-idle-stage-dim = abdunkeln
 bar-idle-stage-lock = sperren
 bar-idle-stage-screen-off = Bildschirme aus

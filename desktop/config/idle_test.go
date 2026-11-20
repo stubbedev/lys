@@ -55,11 +55,17 @@ func TestIdleTimeoutRefusesWhatItCannotCount(t *testing.T) {
 func TestIdleDefaultsArmPerPowerSource(t *testing.T) {
 	p := DefaultsIdle().Policy()
 	ac, battery := p.Arms(idlepolicy.AC), p.Arms(idlepolicy.Battery)
-	if len(ac) != 3 || len(battery) != 4 {
+	if len(ac) != 3 || len(battery) != 5 {
 		t.Fatalf("defaults arm %v on AC and %v on battery", ac, battery)
 	}
-	if battery[3].Stage != idlepolicy.Suspend || battery[3].After != 15*time.Minute {
-		t.Errorf("battery suspend = %+v", battery[3])
+	if ac[0].Stage == idlepolicy.KeyboardBacklight {
+		t.Errorf("on AC the keyboard backlight goes off by default: %+v", ac[0])
+	}
+	if battery[0].Stage != idlepolicy.KeyboardBacklight || battery[0].After != time.Minute {
+		t.Errorf("battery keyboard backlight = %+v, want off after 1m", battery[0])
+	}
+	if battery[4].Stage != idlepolicy.Suspend || battery[4].After != 15*time.Minute {
+		t.Errorf("battery suspend = %+v", battery[4])
 	}
 	if !p.LockBeforeSleep || p.DimPercent.Percent() != 30 {
 		t.Errorf("defaults = %+v", p)

@@ -709,6 +709,7 @@ settings-privacy-in-use-failed = La capture n'a pas été modifiée
 }
 settings-nav-idle = Inactivité et alimentation
 settings-page-idle = Inactivité et alimentation
+settings-section-idle-keyboard-backlight = Rétroéclairage du clavier éteint
 settings-section-idle-dim = Assombrissement
 settings-section-idle-lock = Verrouillage
 settings-section-idle-screen-off = Écrans éteints

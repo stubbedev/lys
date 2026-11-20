@@ -696,6 +696,7 @@ settings-privacy-in-use-failed = De opname is niet gewijzigd
 }
 settings-nav-idle = Inactiviteit en energie
 settings-page-idle = Inactiviteit en energie
+settings-section-idle-keyboard-backlight = Toetsenbordverlichting uit
 settings-section-idle-dim = Dimmen
 settings-section-idle-lock = Vergrendelen
 settings-section-idle-screen-off = Schermen uit

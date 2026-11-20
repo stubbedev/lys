@@ -24,6 +24,7 @@ bar-idle-held-by = Inactiviteit tegengehouden door { $holders }
 bar-idle-held-by-you = jou
 bar-idle-all-reached = Elke inactiviteitsfase is uitgevoerd
 bar-idle-next = Volgende: { $stage } na { $after } inactiviteit
+bar-idle-stage-keyboard-backlight = toetsenbordverlichting uit
 bar-idle-stage-dim = dimmen
 bar-idle-stage-lock = vergrendelen
 bar-idle-stage-screen-off = schermen uit

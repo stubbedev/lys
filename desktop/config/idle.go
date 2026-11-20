@@ -11,7 +11,8 @@ import (
 
 // IdleConfig is the idle section: the shell's built-in idle policy.
 //
-// Built-in idle policy: dim, lock, screens off, suspend, lock before sleep.
+// Built-in idle policy: keyboard backlight off, dim, lock, screens off,
+// suspend, lock before sleep.
 //
 // Each stage runs after the session has been idle for its timeout, with
 // separate timeouts on AC and on battery.
@@ -25,6 +26,9 @@ type IdleConfig struct {
 	// Run the built-in idle policy. Turn it off when swayidle or hypridle
 	// handles idle, so the two do not both act.
 	Enable bool `cfg:"enable"`
+	// Idle time before every keyboard backlight (`*::kbd_backlight`) turns
+	// off. The next key press or other input turns it back on at its level.
+	KeyboardBacklight IdleTimeouts `cfg:"keyboard-backlight"`
 	// Idle time before the backlights dim.
 	Dim IdleTimeouts `cfg:"dim"`
 	// Share of its level, in percent, a dimmed backlight keeps. Input
@@ -59,20 +63,22 @@ type IdleTimeouts struct {
 // DefaultsIdle returns the schema defaults.
 func DefaultsIdle() IdleConfig {
 	return IdleConfig{
-		Enable:          true,
-		Dim:             IdleTimeouts{AC: mustIdleTimeout("4m"), Battery: mustIdleTimeout("2m")},
-		DimPercent:      mustIdleDimPercent(30),
-		Lock:            IdleTimeouts{AC: mustIdleTimeout("5m"), Battery: mustIdleTimeout("3m")},
-		ScreenOff:       IdleTimeouts{AC: mustIdleTimeout("10m"), Battery: mustIdleTimeout("5m")},
-		Suspend:         IdleTimeouts{AC: mustIdleTimeout("never"), Battery: mustIdleTimeout("15m")},
-		SuspendAction:   SleepActionSuspend,
-		LockBeforeSleep: true,
+		Enable:            true,
+		KeyboardBacklight: IdleTimeouts{AC: mustIdleTimeout("never"), Battery: mustIdleTimeout("1m")},
+		Dim:               IdleTimeouts{AC: mustIdleTimeout("4m"), Battery: mustIdleTimeout("2m")},
+		DimPercent:        mustIdleDimPercent(30),
+		Lock:              IdleTimeouts{AC: mustIdleTimeout("5m"), Battery: mustIdleTimeout("3m")},
+		ScreenOff:         IdleTimeouts{AC: mustIdleTimeout("10m"), Battery: mustIdleTimeout("5m")},
+		Suspend:           IdleTimeouts{AC: mustIdleTimeout("never"), Battery: mustIdleTimeout("15m")},
+		SuspendAction:     SleepActionSuspend,
+		LockBeforeSleep:   true,
 	}
 }
 
 // Policy is the section as the idle service runs it.
 func (c IdleConfig) Policy() idlepolicy.Policy {
 	var p idlepolicy.Policy
+	p.Timeouts[idlepolicy.KeyboardBacklight] = c.KeyboardBacklight.timeouts()
 	p.Timeouts[idlepolicy.Dim] = c.Dim.timeouts()
 	p.Timeouts[idlepolicy.Lock] = c.Lock.timeouts()
 	p.Timeouts[idlepolicy.ScreenOff] = c.ScreenOff.timeouts()

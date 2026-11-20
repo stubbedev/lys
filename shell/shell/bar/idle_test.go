@@ -27,9 +27,10 @@ func (c *countingDim) Dim(idlepolicy.DimPercent) (func() error, error) {
 	c.dims.Add(1)
 	return func() error { c.undims.Add(1); return nil }, nil
 }
-func (c *countingDim) Lock() error                      { return nil }
-func (c *countingDim) ScreenOff() (func() error, error) { return nil, nil }
-func (c *countingDim) Sleep(logind.PowerAction) error   { return nil }
+func (c *countingDim) KeyboardOff() (func() error, error) { return nil, nil }
+func (c *countingDim) Lock() error                        { return nil }
+func (c *countingDim) ScreenOff() (func() error, error)   { return nil, nil }
+func (c *countingDim) Sleep(logind.PowerAction) error     { return nil }
 
 const dimAfter = time.Second
 

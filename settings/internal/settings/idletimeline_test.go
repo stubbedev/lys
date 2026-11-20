@@ -13,13 +13,13 @@ import (
 
 func TestTheIdleSequenceIsTheStagesInTheOrderTheyHappen(t *testing.T) {
 	at := func(d time.Duration) idleTime { return idleTime{after: d} }
-	got := idleSequence(map[idleStage]idleTime{idleDim: at(10 * time.Minute), idleLock: at(5 * time.Minute), idleScreenOff: at(5 * time.Minute), idleSuspend: {never: true}})
+	got := idleSequence(map[idleStage]idleTime{idleKeyboard: {never: true}, idleDim: at(10 * time.Minute), idleLock: at(5 * time.Minute), idleScreenOff: at(5 * time.Minute), idleSuspend: {never: true}})
 	want := []idleMark{{idleLock, 5 * time.Minute}, {idleScreenOff, 5 * time.Minute}, {idleDim, 10 * time.Minute}}
 	if !slices.Equal(got, want) {
 		t.Fatalf("sequence %v, want %v", got, want)
 	}
 	never := idleTime{never: true}
-	if got := idleSequence(map[idleStage]idleTime{idleDim: never, idleLock: never, idleScreenOff: never, idleSuspend: never}); len(got) != 0 {
+	if got := idleSequence(map[idleStage]idleTime{idleKeyboard: never, idleDim: never, idleLock: never, idleScreenOff: never, idleSuspend: never}); len(got) != 0 {
 		t.Fatalf("all never gives %v", got)
 	}
 	if got := idleSequenceText(nil); got != locale.T().Get("settings-idle-timeline-never") {
@@ -47,7 +47,7 @@ func TestTheIdleTimelineFollowsTheTimesOfEachSource(t *testing.T) {
 	if want := strings.Join([]string{mark(idleDim, 2*time.Minute), mark(idleLock, 5*time.Minute), mark(idleScreenOff, 10*time.Minute)}, " → "); ac.text.Text() != want {
 		t.Fatalf("plugged in reads %q, want %q", ac.text.Text(), want)
 	}
-	if len(battery.bar.marks) != 4 || battery.bar.marks[3] != (idleMark{idleSuspend, 15 * time.Minute}) || !battery.Visible() || tl.off.Visible() {
+	if len(battery.bar.marks) != 5 || battery.bar.marks[0] != (idleMark{idleKeyboard, time.Minute}) || battery.bar.marks[4] != (idleMark{idleSuspend, 15 * time.Minute}) || !battery.Visible() || tl.off.Visible() {
 		t.Fatalf("on battery marks %v, shown %v, off note shown %v", battery.bar.marks, battery.Visible(), tl.off.Visible())
 	}
 	if err := k.store.set("idle.lock.ac", "1m"); err != nil {

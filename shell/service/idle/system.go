@@ -10,6 +10,7 @@ import (
 	"github.com/stubbedev/lys/lib/logind"
 
 	"github.com/stubbedev/lys/shell/service/brightness"
+	"github.com/stubbedev/lys/shell/service/kbdlight"
 )
 
 // Backlights are the brightness devices the dim stage lowers.
@@ -38,6 +39,7 @@ type Outputs interface {
 // A nil Backlights has nothing to dim; a nil Login cannot lock or
 // suspend, which the stage reports.
 type System struct {
+	Keyboard   *kbdlight.Light
 	Backlights Backlights
 	Login      *Login
 	Outputs    Outputs
@@ -45,6 +47,22 @@ type System struct {
 
 // ErrNoLogind is a lock or suspend without logind on the system bus.
 var ErrNoLogind = errors.New("idle: logind is not connected")
+
+// KeyboardOff turns the keyboard backlights off until the restore, which
+// the next input runs. A nil Keyboard has nothing to turn off.
+func (s System) KeyboardOff() (func() error, error) {
+	if s.Keyboard == nil {
+		return nil, nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), backlightTimeout)
+	defer cancel()
+	err := s.Keyboard.Hold(ctx, kbdlight.Inactive, true)
+	return func() error {
+		ctx, cancel := context.WithTimeout(context.Background(), backlightTimeout)
+		defer cancel()
+		return s.Keyboard.Hold(ctx, kbdlight.Inactive, false)
+	}, err
+}
 
 // Dim lowers every backlight to share of its level; the restore puts back
 // each level exactly as it was. The dim is announced as logind's IdleHint

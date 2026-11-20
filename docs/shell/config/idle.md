@@ -7,7 +7,8 @@ outline: [2, 3]
 
 <div v-pre>
 
-Built-in idle policy: dim, lock, screens off, suspend, lock before sleep.
+Built-in idle policy: keyboard backlight off, dim, lock, screens off,
+suspend, lock before sleep.
 
 Each stage runs after the session has been idle for its timeout, with
 separate timeouts on AC and on battery.
@@ -23,6 +24,7 @@ swayidle or hypridle instead.
 | Field | Type | Default | Description |
 |---|---|---|---|
 | `enable` | bool | `true` | Run the built-in idle policy. Turn it off when swayidle or hypridle handles idle, so the two do not both act. |
+| `keyboard-backlight` | [`IdleTimeouts`](/shell/config/types#idle-timeouts) | `{...}` | Idle time before every keyboard backlight (`*::kbd_backlight`) turns off. The next key press or other input turns it back on at its level. |
 | `dim` | [`IdleTimeouts`](/shell/config/types#idle-timeouts) | `{...}` | Idle time before the backlights dim. |
 | `dim-percent` | [`IdleDimPercent`](/shell/config/types#idle-dim-percent) | `30` | Share of its level, in percent, a dimmed backlight keeps. Input restores the exact level it had. |
 | `lock` | [`IdleTimeouts`](/shell/config/types#idle-timeouts) | `{...}` | Idle time before the session locks (through logind, which starts the lock screen). |
@@ -36,6 +38,9 @@ swayidle or hypridle instead.
 ```yaml
 idle:
   enable: true
+  keyboard-backlight:
+    ac: never
+    battery: 1m
   dim:
     ac: 4m
     battery: 2m

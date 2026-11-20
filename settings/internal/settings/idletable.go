@@ -19,13 +19,14 @@ const idleNever = "never"
 type idleStage string
 
 const (
+	idleKeyboard  idleStage = "keyboard-backlight"
 	idleDim       idleStage = "dim"
 	idleLock      idleStage = "lock"
 	idleScreenOff idleStage = "screen-off"
 	idleSuspend   idleStage = "suspend"
 )
 
-var idleStages = []idleStage{idleDim, idleLock, idleScreenOff, idleSuspend}
+var idleStages = []idleStage{idleKeyboard, idleDim, idleLock, idleScreenOff, idleSuspend}
 
 type idleSource string
 

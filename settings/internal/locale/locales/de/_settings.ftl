@@ -706,6 +706,7 @@ settings-privacy-in-use-failed = Die Aufnahme wurde nicht geändert
 }
 settings-nav-idle = Leerlauf & Energie
 settings-page-idle = Leerlauf & Energie
+settings-section-idle-keyboard-backlight = Tastaturbeleuchtung aus
 settings-section-idle-dim = Abdunkeln
 settings-section-idle-lock = Sperren
 settings-section-idle-screen-off = Bildschirme aus

@@ -706,6 +706,7 @@ settings-privacy-in-use-failed = La captura no se cambió
 }
 settings-nav-idle = Inactividad y energía
 settings-page-idle = Inactividad y energía
+settings-section-idle-keyboard-backlight = Apagar luz del teclado
 settings-section-idle-dim = Atenuar
 settings-section-idle-lock = Bloquear
 settings-section-idle-screen-off = Apagar pantallas
