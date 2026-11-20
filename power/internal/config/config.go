@@ -207,6 +207,11 @@ func (c Config) DeparturePath() string {
 	return filepath.Join(c.RuntimeDir, "departure")
 }
 
+// SleepsPath keeps the reports on the last few sleeps.
+func (c Config) SleepsPath() string {
+	return filepath.Join(c.StateDir, "sleeps")
+}
+
 // FullNowPath is the charge-to-full request flag.
 func (c Config) FullNowPath() string {
 	return filepath.Join(c.RuntimeDir, "full-now")

@@ -251,6 +251,25 @@ func (b Battery) Cycles() (uint64, bool, error) {
 	return cycles, cycles > 0, nil
 }
 
+// EnergyMicrowattHours is the energy left in the battery: energy_now, or
+// on a battery that counts charge instead, charge_now at voltage_now. It
+// is false for a battery that reports neither.
+func (b Battery) EnergyMicrowattHours() (uint64, bool, error) {
+	energy, ok, err := b.optionalCounter("energy_now")
+	if err != nil || ok {
+		return energy, ok, err
+	}
+	charge, ok, err := b.optionalCounter("charge_now")
+	if err != nil || !ok {
+		return 0, false, err
+	}
+	voltage, err := b.counter("voltage_now")
+	if err != nil {
+		return 0, false, err
+	}
+	return uint64(float64(charge) * float64(voltage) / 1e6), true, nil
+}
+
 func (b Battery) optionalCounter(attr string) (uint64, bool, error) {
 	value, err := b.counter(attr)
 	if errors.Is(err, fs.ErrNotExist) {

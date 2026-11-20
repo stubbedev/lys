@@ -27,6 +27,8 @@ import (
 	"github.com/stubbedev/lys/power/internal/pauser"
 	"github.com/stubbedev/lys/power/internal/profiles"
 	"github.com/stubbedev/lys/power/internal/slack"
+	"github.com/stubbedev/lys/power/internal/sleepcheck"
+	"github.com/stubbedev/lys/power/internal/sleepd"
 	"github.com/stubbedev/lys/power/internal/statefile"
 	"github.com/stubbedev/lys/power/internal/supply"
 	"github.com/stubbedev/lys/power/nap"
@@ -247,6 +249,19 @@ func Run(ctx context.Context, cfg config.Config, log *slog.Logger) error {
 		defer func() {
 			stopEnergy()
 			<-energyDone
+		}()
+		sleepDone := make(chan struct{})
+		sleepCtx, stopSleep := context.WithCancel(ctx)
+		go func() {
+			defer close(sleepDone)
+			probe := sleepcheck.Probe{Sys: cfg.SysDir, Supply: supply.Supply{Dir: cfg.SupplyDir}}
+			if err := sleepd.Run(sleepCtx, conn, probe, cfg.SleepsPath(), log); err != nil {
+				log.Error("sleep reports stopped", "err", err)
+			}
+		}()
+		defer func() {
+			stopSleep()
+			<-sleepDone
 		}()
 		if pz, err = pauser.Load(cfg.PausePath(), pauser.Bus{SystemConn: conn, UserRuntimeDir: cfg.UserRunDir}, pauser.Polkit(conn), log); err != nil {
 			return err

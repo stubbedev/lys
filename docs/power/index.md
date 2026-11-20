@@ -84,7 +84,8 @@ lys-power run       Evaluate continuously (the service runs this)
 lys-power once      Evaluate once
 lys-power full      Charge to 100% until the next unplug
 lys-power status    Print the power source, thresholds, battery health and cycles,
-                    charge limit, dock, profile, prediction and device power
+                    charge limit, dock, profile, prediction, device power and
+                    last sleeps
 lys-power predict   Print the predicted unplug time
 lys-power energy [-for 10s] [-threads] [-json]
                     Measure what each app costs in power, CPU, wakeups and GPU time
@@ -237,6 +238,29 @@ cgroup that the user owns, and 0 restores the kernel's default. Threads of
 other users in that cgroup, such as `sudo`, and other users' units are never
 touched, and the slack is at most a second.
 
+## Sleep reports
+
+Every sleep is measured, as `pmset -g log` does on macOS. lys-power holds a
+logind delay inhibitor so that, as the system goes to sleep, it reads the
+platform's deepest-state residency (the ACPI LPIT counter
+`/sys/devices/system/cpu/cpuidle/low_power_idle_system_residency_us`, or
+Intel `pmc_core`'s `slp_s0_residency_usec` in debugfs), the battery's energy
+and the wakeup counts under `/sys/class/wakeup`; it reads them again as the
+system wakes. A sleep of at least ten minutes that spent less than 90% of its
+time in the deepest state is shallow; one that started and ended on battery
+has its drain, the energy it used divided by the time asleep. The devices that
+woke the system are the wakeup sources that fired during the sleep, the most
+often first; on Intel platforms the elements `pmc_core`'s
+`substate_requirements` reports required and unmet are what kept it shallow.
+A sleep that resumed from hibernation, whose counter started over, or a
+platform without a counter, is not judged.
+
+The last ten sleeps are kept in `/var/lib/lys-power/sleeps`, printed by
+`lys-power status`, and published as the `Sleeps` property of
+`dev.stubbe.lys.Sleep1` on the system bus, which every user may read.
+lys-shell notifies once after each shallow sleep on battery with its drain
+and what kept it shallow or woke it; a good sleep raises nothing.
+
 ## Automatic brightness
 
 Automatic brightness sets the backlight from the light in the room. It is off
@@ -375,7 +399,7 @@ system bus policies `dev.stubbe.lys.Energy1.conf` and
 `dev.stubbe.lys.Pause1.conf`, and the polkit action
 `dev.stubbe.lys.power.policy`. They enable nothing:
 `lys-power-brightness.service`, the tmpfiles rule `lys-power.conf` and the
-`dev.stubbe.lys.Nap1.conf`. They enable nothing:
+`dev.stubbe.lys.Nap1.conf` and `dev.stubbe.lys.Sleep1.conf`. They enable nothing:
 
 ```sh
 sudo systemctl enable --now lys-power
@@ -390,7 +414,7 @@ Install the binary as `/usr/bin/lys-power`, the unit under
 `dev.stubbe.lys.Pause1.conf` under `/usr/share/dbus-1/system.d/` and
 `dev.stubbe.lys.power.policy` under `/usr/share/polkit-1/actions/`, then run
 `/usr/lib/tmpfiles.d/lys-power.conf` and `dev.stubbe.lys.Energy1.conf` and
-`dev.stubbe.lys.Nap1.conf` under
+`dev.stubbe.lys.Nap1.conf` and `dev.stubbe.lys.Sleep1.conf` under
 `/usr/share/dbus-1/system.d/`, then run
 `sudo systemd-tmpfiles --create lys-power.conf` and enable the unit.
 

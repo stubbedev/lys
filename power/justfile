@@ -56,6 +56,7 @@ archive version arch=arch() dist="dist":
         dist/dev.stubbe.lys.Charge1.conf \
         dist/dev.stubbe.lys.power.policy \
         dist/dev.stubbe.lys.Nap1.conf \
+        dist/dev.stubbe.lys.Sleep1.conf \
         "${staging}/"
     tar czf "${staging}.tar.gz" "${staging}"
     rm -rf "${staging}"
@@ -87,7 +88,7 @@ smoke-test package:
     out="$(LYS_POWER_STATE_DIR="${state}" lys-power predict)"
     [[ ${out} == "no prediction: "* ]] || fail "lys-power predict without history printed ${out@Q}"
 
-    for file in /usr/lib/systemd/system/lys-power.service /usr/lib/systemd/user/lys-power-brightness.service /usr/lib/tmpfiles.d/lys-power.conf /usr/share/dbus-1/system.d/dev.stubbe.lys.Energy1.conf /usr/share/dbus-1/system.d/dev.stubbe.lys.Pause1.conf /usr/share/dbus-1/system.d/dev.stubbe.lys.Charge1.conf /usr/share/polkit-1/actions/dev.stubbe.lys.power.policy /usr/share/dbus-1/system.d/dev.stubbe.lys.Nap1.conf; do
+    for file in /usr/lib/systemd/system/lys-power.service /usr/lib/systemd/user/lys-power-brightness.service /usr/lib/tmpfiles.d/lys-power.conf /usr/share/dbus-1/system.d/dev.stubbe.lys.Energy1.conf /usr/share/dbus-1/system.d/dev.stubbe.lys.Pause1.conf /usr/share/dbus-1/system.d/dev.stubbe.lys.Charge1.conf /usr/share/polkit-1/actions/dev.stubbe.lys.power.policy /usr/share/dbus-1/system.d/dev.stubbe.lys.Nap1.conf /usr/share/dbus-1/system.d/dev.stubbe.lys.Sleep1.conf; do
         [[ -f ${file} ]] || fail "${file} is missing"
     done
     grep -qxF "ExecStart=/usr/bin/lys-power run" /usr/lib/systemd/system/lys-power.service ||

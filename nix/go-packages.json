@@ -2151,7 +2151,9 @@
       "power/internal/meter",
       "power/internal/predict",
       "power/internal/profiles",
-      "power/internal/supply"
+      "power/internal/sleepcheck",
+      "power/internal/supply",
+      "power/sleep"
     ]
   },
   "power/energy": {
@@ -2235,6 +2237,8 @@
       "power/internal/pauser",
       "power/internal/profiles",
       "power/internal/slack",
+      "power/internal/sleepcheck",
+      "power/internal/sleepd",
       "power/internal/statefile",
       "power/internal/supply",
       "power/nap"
@@ -2314,6 +2318,27 @@
       "power/nap"
     ]
   },
+  "power/internal/sleepcheck": {
+    "imports": [
+      "lib/intconv",
+      "power/internal/statefile",
+      "power/internal/supply",
+      "power/sleep"
+    ]
+  },
+  "power/internal/sleepd": {
+    "imports": [
+      "lib/dbusx",
+      "lib/logind",
+      "lib/third_party/godbus",
+      "power/internal/sleepcheck",
+      "power/sleep"
+    ],
+    "testImports": [
+      "lib/logind/logindtest",
+      "lib/waittest"
+    ]
+  },
   "power/internal/statefile": {},
   "power/internal/supply": {
     "imports": [
@@ -2340,6 +2365,17 @@
       "lib/dbustest",
       "lib/intconv",
       "lib/testhome"
+    ]
+  },
+  "power/sleep": {
+    "imports": [
+      "lib/dbusx",
+      "lib/intconv",
+      "lib/third_party/godbus"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/waittest"
     ]
   },
   "secrets/client": {

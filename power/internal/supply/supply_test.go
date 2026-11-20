@@ -192,3 +192,38 @@ func TestWritableThresholdThatWillNotOpenIsAnError(t *testing.T) {
 		t.Errorf("Writable() error %q does not name %s", err, filepath.Join(path, endAttr))
 	}
 }
+
+func TestEnergyReadsEnergyNowOrChargeAtVoltage(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		files map[string]string
+		want  uint64
+		known bool
+		err   string
+	}{
+		{"energy_now", map[string]string{"energy_now": "41230000\n", "charge_now": "1"}, 41230000, true, ""},
+		{"charge_now at voltage_now", map[string]string{"charge_now": "3000000\n", "voltage_now": "12000000\n"}, 36000000, true, ""},
+		{"neither", map[string]string{"voltage_now": "12000000\n"}, 0, false, ""},
+		{"charge without voltage", map[string]string{"charge_now": "3000000\n"}, 0, false, "voltage_now"},
+		{"energy not a number", map[string]string{"energy_now": "lots\n"}, 0, false, `"lots"`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			for file, content := range tc.files {
+				if err := os.WriteFile(filepath.Join(dir, file), []byte(content), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			got, known, err := Battery{Name: "BAT0", Path: dir}.EnergyMicrowattHours()
+			if tc.err != "" {
+				if err == nil || !strings.Contains(err.Error(), tc.err) {
+					t.Fatalf("EnergyMicrowattHours = %d, %v, %v; want an error naming %s", got, known, err, tc.err)
+				}
+				return
+			}
+			if err != nil || got != tc.want || known != tc.known {
+				t.Errorf("EnergyMicrowattHours = %d, %v, %v; want %d, %v", got, known, err, tc.want, tc.known)
+			}
+		})
+	}
+}

@@ -28,6 +28,7 @@ import (
 	"github.com/stubbedev/lys/power/internal/history"
 	"github.com/stubbedev/lys/power/internal/predict"
 	"github.com/stubbedev/lys/power/internal/profiles"
+	"github.com/stubbedev/lys/power/internal/sleepcheck"
 	"github.com/stubbedev/lys/power/internal/supply"
 )
 
@@ -37,7 +38,7 @@ Usage:
   lys-power run       Evaluate continuously (the daemon mode)
   lys-power once      Evaluate once (for timer/udev-driven setups)
   lys-power full      Request a charge to 100% until the next unplug
-  lys-power status    Print the current state and prediction
+  lys-power status    Print the current state, prediction and last sleeps
   lys-power predict   Print the predicted unplug time
   lys-power energy [-for 10s] [-threads] [-json]
                       Measure what each app costs in power, its CPU,
@@ -235,6 +236,8 @@ func status(cfg config.Config, now time.Time, conn *dbus.Conn) (string, error) {
 
 	devices, err := daemon.PlanDevices(context.Background(), cfg, conn)
 	out = appendDevices(out, cfg.Devices.Mode, devices, err)
+	sleeps, err := sleepcheck.Load(cfg.SleepsPath())
+	out = appendSleeps(out, sleeps, err, now.Location())
 	return string(out), nil
 }
 
