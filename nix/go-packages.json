@@ -157,6 +157,12 @@
       "lib/waittest"
     ]
   },
+  "desktop/jinja": {
+    "imports": [
+      "lib/intconv",
+      "lib/third_party/gomath"
+    ]
+  },
   "desktop/logging": {
     "imports": [
       "desktop/identity",
@@ -2514,12 +2520,6 @@
       "shell/internal/ipp"
     ]
   },
-  "shell/internal/jinja": {
-    "imports": [
-      "lib/intconv",
-      "lib/third_party/gomath"
-    ]
-  },
   "shell/internal/keytest": {
     "imports": [
       "lib/vinput",
@@ -2969,9 +2969,9 @@
       "desktop/fswatch",
       "desktop/i18n",
       "desktop/icons",
+      "desktop/jinja",
       "desktop/spawn",
-      "shell/internal/desktopnotify",
-      "shell/internal/jinja"
+      "shell/internal/desktopnotify"
     ],
     "testImports": [
       "desktop/i18n/locales/shell",
@@ -3255,6 +3255,7 @@
       "desktop/glob",
       "desktop/i18n",
       "desktop/identity",
+      "desktop/jinja",
       "desktop/logging",
       "desktop/mime",
       "desktop/service/bitwarden/generator",
@@ -3302,7 +3303,6 @@
       "shell/internal/clockwatch",
       "shell/internal/desktopnotify",
       "shell/internal/ipp",
-      "shell/internal/jinja",
       "shell/internal/launcheripc",
       "shell/internal/pango",
       "shell/internal/portal",

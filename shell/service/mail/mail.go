@@ -20,8 +20,7 @@ import (
 	"github.com/stubbedev/lys/desktop/fswatch"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/icons"
-
-	"github.com/stubbedev/lys/shell/internal/jinja"
+	"github.com/stubbedev/lys/desktop/jinja"
 )
 
 // Debounce coalesces a maildir-sync burst into one re-query.

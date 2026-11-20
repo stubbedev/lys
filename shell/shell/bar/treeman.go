@@ -5,10 +5,10 @@ import (
 	"strconv"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/jinja"
 	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/ui/widget"
 
-	"github.com/stubbedev/lys/shell/internal/jinja"
 	"github.com/stubbedev/lys/shell/service/treeman"
 )
 

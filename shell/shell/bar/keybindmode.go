@@ -6,11 +6,11 @@ import (
 
 	"github.com/stubbedev/lys/desktop/compositor"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/jinja"
 	"github.com/stubbedev/lys/desktop/service/lyswm"
 	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/ui/widget"
 
-	"github.com/stubbedev/lys/shell/internal/jinja"
 	"github.com/stubbedev/lys/shell/service/hyprland"
 )
 

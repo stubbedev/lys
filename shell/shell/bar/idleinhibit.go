@@ -9,13 +9,13 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/jinja"
 	"github.com/stubbedev/lys/desktop/service/idle/idlepolicy"
 	"github.com/stubbedev/lys/desktop/service/idleinhibit/inhibitduration"
 	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
 
-	"github.com/stubbedev/lys/shell/internal/jinja"
 	"github.com/stubbedev/lys/shell/service/idle"
 	"github.com/stubbedev/lys/shell/service/idleinhibit"
 )
