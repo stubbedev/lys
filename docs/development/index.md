@@ -58,7 +58,8 @@ NixOS test, one boot for all of them: `nix/desktop-vms.nix` gathers them into
 `desktop-vms-session` (lys-shell on lys-wm, the idle wakeup gate, then a
 screen shared through lys-shell's portal, each in a fresh session of the same
 boot) and
-`desktop-vms-system` (KMS, accounts-daemon, lys-secrets activation, lys-polkit,
+`desktop-vms-system` (KMS, accounts-daemon, lys-secrets activation, lys-power
+freezing a user's unit on battery, lys-polkit,
 then the clock steps and suspend of `shell/internal/clockwatch`), a CI job each.
 
 The idle wakeup gate (`nix/idle-vm.nix`) lets a still session of lys-wm,

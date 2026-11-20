@@ -52,6 +52,7 @@
               inherit (packages) btvirt;
             })
             (import ../secrets/nix/tests/activation-vm.nix self)
+            (import ../power/nix/pause-vm.nix self)
           ]
           ++ x86 [
             (import ../polkit/tests/polkit-vm.nix {
