@@ -71,9 +71,9 @@ func DefaultsWeather() WeatherConfig {
 	return WeatherConfig{
 		Provider:               WeatherProviderOpenMeteo,
 		Location:               mustPlace("San Francisco", 37.7749, -122.4194),
-		Units:                  TemperatureUnitMetric,
+		Units:                  TemperatureUnitRegion,
 		Format:                 "{{ temp }}{{ temp_unit }}",
-		TimeFormat:             TimeFormat12h,
+		TimeFormat:             TimeFormatRegion,
 		RefreshIntervalSeconds: 1800,
 		IconName:               "ld-sun-symbolic",
 		BorderShow:             false,
@@ -127,6 +127,18 @@ const (
 	TemperatureUnitMetric TemperatureUnit = "metric"
 	// Fahrenheit (imperial).
 	TemperatureUnitImperial TemperatureUnit = "imperial"
+	// The unit of the session's region: Fahrenheit where it measures in
+	// US customary units, Celsius elsewhere.
+	TemperatureUnitRegion TemperatureUnit = "region"
 )
 
-var _ = registerEnum(TemperatureUnitMetric, TemperatureUnitImperial)
+var _ = registerEnum(TemperatureUnitMetric, TemperatureUnitImperial, TemperatureUnitRegion)
+
+// Imperial reports whether temperatures read in Fahrenheit, given
+// whether the session's region measures in US customary units.
+func (u TemperatureUnit) Imperial(regionImperial bool) bool {
+	if u == TemperatureUnitRegion {
+		return regionImperial
+	}
+	return u == TemperatureUnitImperial
+}

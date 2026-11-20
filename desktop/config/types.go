@@ -256,9 +256,21 @@ const (
 	TimeFormat12h TimeFormat = "12h"
 	// 24-hour format (e.g., "06:30").
 	TimeFormat24h TimeFormat = "24h"
+	// The clock of the session's region: 12-hour where its time format
+	// is, 24-hour elsewhere.
+	TimeFormatRegion TimeFormat = "region"
 )
 
-var _ = registerEnum(TimeFormat12h, TimeFormat24h)
+var _ = registerEnum(TimeFormat12h, TimeFormat24h, TimeFormatRegion)
+
+// TwelveHour reports whether times read on a 12-hour clock, given
+// whether the session's region writes them so.
+func (f TimeFormat) TwelveHour(regionTwelveHour bool) bool {
+	if f == TimeFormatRegion {
+		return regionTwelveHour
+	}
+	return f == TimeFormat12h
+}
 
 // IsVertical reports whether a bar at the location runs top to bottom.
 func (l Location) IsVertical() bool { return l == LocationLeft || l == LocationRight }

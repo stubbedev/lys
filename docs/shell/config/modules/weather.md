@@ -24,9 +24,9 @@ bar:
 |---|---|---|---|
 | `provider` | [`WeatherProvider`](/shell/config/types#weather-provider) | `"open-meteo"` | Weather data provider. |
 | `location` | [`Place`](/shell/config/types#place) | `{...}` | Where the forecast is for: `name` as shown, `latitude` and `longitude`. |
-| `units` | [`TemperatureUnit`](/shell/config/types#temperature-unit) | `"metric"` | Temperature unit. |
+| `units` | [`TemperatureUnit`](/shell/config/types#temperature-unit) | `"region"` | Temperature unit. |
 | `format` | string | `"{{ temp }}{{ temp_unit }}"` | Format string for the label. |
-| `time-format` | [`TimeFormat`](/shell/config/types#time-format) | `"12h"` | Time display format for sunrise/sunset and hourly forecast. |
+| `time-format` | [`TimeFormat`](/shell/config/types#time-format) | `"region"` | Time display format for sunrise/sunset and hourly forecast. |
 | `refresh-interval-seconds` | u32 | `1800` | Polling interval in seconds. |
 | `visual-crossing-key` | [`Secret`](/shell/config/types#secret) or null | `null` | Visual Crossing API key. Supports `$VAR_NAME` syntax to reference environment variables from `.*.env` files in the config directory. |
 | `weatherapi-key` | [`Secret`](/shell/config/types#secret) or null | `null` | WeatherAPI.com API key. Supports `$VAR_NAME` syntax to reference environment variables from `.*.env` files in the config directory. |
@@ -97,9 +97,9 @@ modules:
       latitude: 37.7749
       longitude: -122.4194
       name: San Francisco
-    units: metric
+    units: region
     format: '{{ temp }}{{ temp_unit }}'
-    time-format: 12h
+    time-format: region
     refresh-interval-seconds: 1800
     icon-name: ld-sun-symbolic
     border-show: false

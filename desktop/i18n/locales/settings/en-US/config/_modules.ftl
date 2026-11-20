@@ -31,7 +31,9 @@ enum-weather-provider-weather-api = WeatherAPI
 ## TemperatureUnit variants
 enum-temperature-unit-metric = Metric
 enum-temperature-unit-imperial = Imperial
+enum-temperature-unit-region = Follow Region
 
 ## TimeFormat variants
 enum-time-format-twelve-hour = 12 Hour
 enum-time-format-twenty-four-hour = 24 Hour
+enum-time-format-region = Follow Region

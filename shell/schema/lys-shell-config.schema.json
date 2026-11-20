@@ -6657,9 +6657,9 @@
             "right-click": "",
             "scroll-down": "",
             "scroll-up": "",
-            "time-format": "12h",
+            "time-format": "region",
             "tooltip": true,
-            "units": "metric",
+            "units": "region",
             "visual-crossing-key": null,
             "weatherapi-key": null
           },
@@ -9623,6 +9623,11 @@
           "const": "imperial",
           "description": "Fahrenheit (imperial).",
           "type": "string"
+        },
+        {
+          "const": "region",
+          "description": "The unit of the session's region: Fahrenheit where it measures in\nUS customary units, Celsius elsewhere.",
+          "type": "string"
         }
       ]
     },
@@ -9751,6 +9756,11 @@
         {
           "const": "24h",
           "description": "24-hour format (e.g., \"06:30\").",
+          "type": "string"
+        },
+        {
+          "const": "region",
+          "description": "The clock of the session's region: 12-hour where its time format\nis, 24-hour elsewhere.",
           "type": "string"
         }
       ]
@@ -10421,7 +10431,7 @@
         },
         "time-format": {
           "$ref": "#/$defs/TimeFormat",
-          "default": "12h",
+          "default": "region",
           "description": "Time display format for sunrise/sunset and hourly forecast."
         },
         "tooltip": {
@@ -10431,7 +10441,7 @@
         },
         "units": {
           "$ref": "#/$defs/TemperatureUnit",
-          "default": "metric",
+          "default": "region",
           "description": "Temperature unit."
         },
         "visual-crossing-key": {
@@ -12246,9 +12256,9 @@
           "right-click": "",
           "scroll-down": "",
           "scroll-up": "",
-          "time-format": "12h",
+          "time-format": "region",
           "tooltip": true,
-          "units": "metric",
+          "units": "region",
           "visual-crossing-key": null,
           "weatherapi-key": null
         },

@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/geo"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
@@ -32,8 +31,8 @@ var weatherHour12h = strftime.MustCompile(clockHour12h + clockPeriod)
 
 // weatherHourLabel is "3 PM" or "15:00", the period in the given
 // names' language.
-func weatherHourLabel(t time.Time, format config.TimeFormat, names strftime.Names) string {
-	if format == config.TimeFormat24h {
+func weatherHourLabel(t time.Time, twelveHour bool, names strftime.Names) string {
+	if !twelveHour {
 		return clock24h.time.FormatIn(t, names)
 	}
 	return weatherHour12h.FormatIn(t, names)
@@ -41,9 +40,9 @@ func weatherHourLabel(t time.Time, format config.TimeFormat, names strftime.Name
 
 // weatherSunTime is "6:05 AM" or "06:05", the period in the given
 // names' language.
-func weatherSunTime(t weather.TimeOfDay, format config.TimeFormat, names strftime.Names) string {
+func weatherSunTime(t weather.TimeOfDay, twelveHour bool, names strftime.Names) string {
 	at := time.Date(0, time.January, 1, t.Hour, t.Minute, 0, 0, time.UTC)
-	return calendarClock(format == config.TimeFormat12h).time.FormatIn(at, names)
+	return calendarClock(twelveHour).time.FormatIn(at, names)
 }
 
 // weatherDayLabel is the weekday's abbreviation.
@@ -248,16 +247,17 @@ func (v *weatherView) refresh() {
 		return
 	}
 	cfg := v.ctx.Config.Weather
-	imperial := cfg.Units == config.TemperatureUnitImperial
+	imperial := cfg.Units.Imperial(v.ctx.Region.Imperial)
+	twelveHour := cfg.TimeFormat.TwelveHour(v.ctx.Region.TwelveHour)
 	v.loaded.Clear()
 	if weatherStale(st, w) {
 		v.loaded.Append(v.staleAlert(st), false)
 	}
 	v.loaded.Append(v.currentHeader(w, imperial), false)
 	v.loaded.Append(v.statsGrid(w, imperial), false)
-	v.loaded.Append(v.hourly(w, imperial, cfg.TimeFormat), false)
+	v.loaded.Append(v.hourly(w, imperial, twelveHour), false)
 	v.loaded.Append(v.daily(w, imperial), false)
-	v.loaded.Append(v.sunTimes(w, cfg.TimeFormat), false)
+	v.loaded.Append(v.sunTimes(w, twelveHour), false)
 }
 
 func (v *weatherView) staleAlert(st weather.Status) *widget.Alert {
@@ -366,12 +366,12 @@ func (v *weatherView) statsGrid(w *weather.Weather, imperial bool) widget.Widget
 }
 
 // hourly is "Now" then the next four hours.
-func (v *weatherView) hourly(w *weather.Weather, imperial bool, format config.TimeFormat) widget.Widget {
+func (v *weatherView) hourly(w *weather.Weather, imperial, twelveHour bool) widget.Widget {
 	var cells []widget.Widget
 	for i, h := range w.Hourly[:min(len(w.Hourly), weatherHourlyItems)] {
 		when := i18n.T("dropdown-weather-now")
 		if i > 0 {
-			when = weatherHourLabel(h.Time, format, shellClockNames())
+			when = weatherHourLabel(h.Time, twelveHour, shellClockNames())
 		}
 		at := v.label(when, styling.Body, "hourly-time")
 		at.AddClass(css.Caption, css.DimLabel)
@@ -433,7 +433,7 @@ func (v *weatherView) daily(w *weather.Weather, imperial bool) widget.Widget {
 const weatherBarPx = 4
 
 // sunTimes: today's sunrise and sunset, two tiles.
-func (v *weatherView) sunTimes(w *weather.Weather, format config.TimeFormat) widget.Widget {
+func (v *weatherView) sunTimes(w *weather.Weather, twelveHour bool) widget.Widget {
 	var cells []widget.Widget
 	for _, s := range []struct {
 		icon, label, class string
@@ -442,7 +442,7 @@ func (v *weatherView) sunTimes(w *weather.Weather, format config.TimeFormat) wid
 		{"ld-sunrise-symbolic", "dropdown-weather-sunrise", "sunrise", w.Astronomy.Sunrise},
 		{"ld-sunset-symbolic", "dropdown-weather-sunset", "sunset", w.Astronomy.Sunset},
 	} {
-		at := v.label(weatherSunTime(s.at, format, shellClockNames()), styling.Body, "sun-value")
+		at := v.label(weatherSunTime(s.at, twelveHour, shellClockNames()), styling.Body, "sun-value")
 		at.AddClass(css.Heading)
 		name := v.label(i18n.T(s.label), styling.Body, "sun-label")
 		name.AddClass(css.Caption, css.DimLabel)

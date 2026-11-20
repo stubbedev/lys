@@ -76,10 +76,10 @@ func TestWeatherConditionIconsHaveDayAndNight(t *testing.T) {
 
 func TestWeatherTimeLabels(t *testing.T) {
 	at := time.Date(2026, 10, 1, 15, 0, 0, 0, time.Local)
-	if got := weatherHourLabel(at, config.TimeFormat12h, strftime.English); got != "3 PM" {
+	if got := weatherHourLabel(at, true, strftime.English); got != "3 PM" {
 		t.Errorf("12h hour = %q", got)
 	}
-	if got := weatherHourLabel(at, config.TimeFormat24h, strftime.English); got != "15:00" {
+	if got := weatherHourLabel(at, false, strftime.English); got != "15:00" {
 		t.Errorf("24h hour = %q", got)
 	}
 	for _, tc := range []struct {
@@ -90,11 +90,11 @@ func TestWeatherTimeLabels(t *testing.T) {
 		{weather.TimeOfDay{Hour: 12, Minute: 0}, "12:00 PM"},
 		{weather.TimeOfDay{Hour: 18, Minute: 41}, "6:41 PM"},
 	} {
-		if got := weatherSunTime(tc.at, config.TimeFormat12h, strftime.English); got != tc.want {
+		if got := weatherSunTime(tc.at, true, strftime.English); got != tc.want {
 			t.Errorf("12h %v = %q, want %q", tc.at, got, tc.want)
 		}
 	}
-	if got := weatherSunTime(weather.TimeOfDay{Hour: 6, Minute: 5}, config.TimeFormat24h, strftime.English); got != "06:05" {
+	if got := weatherSunTime(weather.TimeOfDay{Hour: 6, Minute: 5}, false, strftime.English); got != "06:05" {
 		t.Errorf("24h sun = %q", got)
 	}
 }
@@ -103,13 +103,13 @@ func TestWeatherTimeLabels(t *testing.T) {
 // language, not Go's fixed English layout.
 func TestWeatherTwelveHourPeriodIsTranslated(t *testing.T) {
 	spanish := clockNamesIn(t, "es")
-	if got, want := weatherHourLabel(time.Date(2026, 10, 1, 9, 0, 0, 0, time.Local), config.TimeFormat12h, spanish), "9 a. m."; got != want {
+	if got, want := weatherHourLabel(time.Date(2026, 10, 1, 9, 0, 0, 0, time.Local), true, spanish), "9 a. m."; got != want {
 		t.Errorf("9 in the morning = %q, want %q", got, want)
 	}
-	if got, want := weatherSunTime(weather.TimeOfDay{Hour: 20, Minute: 15}, config.TimeFormat12h, spanish), "8:15 p. m."; got != want {
+	if got, want := weatherSunTime(weather.TimeOfDay{Hour: 20, Minute: 15}, true, spanish), "8:15 p. m."; got != want {
 		t.Errorf("a quarter past eight at night = %q, want %q", got, want)
 	}
-	if got, want := weatherSunTime(weather.TimeOfDay{Hour: 20, Minute: 15}, config.TimeFormat24h, spanish), "20:15"; got != want {
+	if got, want := weatherSunTime(weather.TimeOfDay{Hour: 20, Minute: 15}, false, spanish), "20:15"; got != want {
 		t.Errorf("the 24-hour sunset = %q, want %q, without a period", got, want)
 	}
 }
@@ -202,6 +202,43 @@ func TestWeatherModuleFollowsTheService(t *testing.T) {
 	wm := m.(*weatherModule)
 	waitForText(t, wm.btn.Label(), "20°C")
 	waitHeadless(t, "the night icon", func() bool { return wm.icon.Name() == "ld-moon-symbolic" })
+}
+
+func weatherLabelIn(t *testing.T, units config.TemperatureUnit, imperialRegion bool) string {
+	t.Helper()
+	cfg := config.Defaults()
+	cfg.Weather.Units = units
+	ctx := newTestContext(t, cfg)
+	ctx.Region.Imperial = imperialRegion
+	svc := fixedWeather(&weather.Weather{Zone: time.Local, Current: weather.Current{Temperature: 20, Condition: weather.CondClear, IsDay: true}}, nil)
+	t.Cleanup(svc.Close)
+	ctx.Weather = svc
+	ctx.gen = newMountGen()
+	t.Cleanup(ctx.gen.retire)
+	m, err := newWeather(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wm := m.(*weatherModule)
+	waitHeadless(t, "a temperature", func() bool { return strings.Contains(wm.btn.Label().Text(), "°") })
+	return wm.btn.Label().Text()
+}
+
+func TestWeatherUnitsFollowTheRegionOnlyWhenSetTo(t *testing.T) {
+	for _, c := range []struct {
+		units    config.TemperatureUnit
+		imperial bool
+		want     string
+	}{
+		{config.TemperatureUnitRegion, true, "68°F"},
+		{config.TemperatureUnitRegion, false, "20°C"},
+		{config.TemperatureUnitMetric, true, "20°C"},
+		{config.TemperatureUnitImperial, false, "68°F"},
+	} {
+		if got := weatherLabelIn(t, c.units, c.imperial); got != c.want {
+			t.Errorf("%s in an imperial region %v reads %q, want %q", c.units, c.imperial, got, c.want)
+		}
+	}
 }
 
 func TestWeatherDropdownShowsTheStatusPage(t *testing.T) {

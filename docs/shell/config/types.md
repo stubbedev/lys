@@ -1573,6 +1573,8 @@ Temperature unit for display.
 |---|---|
 | `"metric"` | Celsius (metric). |
 | `"imperial"` | Fahrenheit (imperial). |
+| `"region"` | The unit of the session's region: Fahrenheit where it measures in
+US customary units, Celsius elsewhere. |
 
 ## ThemeProvider {#theme-provider}
 
@@ -1622,6 +1624,8 @@ Time display format.
 |---|---|
 | `"12h"` | 12-hour format with AM/PM (e.g., "6:30 AM"). |
 | `"24h"` | 24-hour format (e.g., "06:30"). |
+| `"region"` | The clock of the session's region: 12-hour where its time format
+is, 24-hour elsewhere. |
 
 ## ToastPreset {#toast-preset}
 

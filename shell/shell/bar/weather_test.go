@@ -97,8 +97,8 @@ func TestWorldClockDefaultsMatchSchema(t *testing.T) {
 	if cfg.Weather.Format != "{{ temp }}{{ temp_unit }}" || cfg.Weather.Location.Place().Name() != "San Francisco" || cfg.Weather.RefreshIntervalSeconds != 1800 {
 		t.Errorf("weather = %+v", cfg.Weather)
 	}
-	if cfg.Weather.Units != config.TemperatureUnitMetric {
-		t.Errorf("units = %q", cfg.Weather.Units)
+	if cfg.Weather.Units != config.TemperatureUnitRegion || cfg.Weather.TimeFormat != config.TimeFormatRegion {
+		t.Errorf("units = %q, time format %q, want both to follow the region", cfg.Weather.Units, cfg.Weather.TimeFormat)
 	}
 	// The default world-clock left-click is empty; weather's opens its
 	// dropdown.

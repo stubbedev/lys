@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/region"
 	"github.com/stubbedev/lys/desktop/service/bluetooth"
 	"github.com/stubbedev/lys/desktop/service/clipboard"
 	"github.com/stubbedev/lys/desktop/service/mpris"
@@ -56,6 +57,9 @@ type ModuleContext struct {
 	Pulse      pulse.Source
 	Media      mpris.Source
 	Clock      *timeclock.Wall
+	// Region is the session locale's units and clock, which settings
+	// left to follow the region take.
+	Region region.Prefs
 	// Calendar holds the vdir calendars the calendar dropdown and the
 	// clock read; nil in headless construction.
 	Calendar *calendar.Store

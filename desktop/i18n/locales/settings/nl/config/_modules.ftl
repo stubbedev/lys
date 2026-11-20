@@ -24,6 +24,8 @@ enum-weather-provider-weather-api = WeatherAPI
 
 enum-temperature-unit-metric = Metrisch
 enum-temperature-unit-imperial = Imperiaal
+enum-temperature-unit-region = Volgens regio
 
 enum-time-format-twelve-hour = 12-uurs
 enum-time-format-twenty-four-hour = 24-uurs
+enum-time-format-region = Volgens regio

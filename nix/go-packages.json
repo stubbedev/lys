@@ -226,6 +226,15 @@
       "lib/waittest"
     ]
   },
+  "desktop/region": {
+    "imports": [
+      "lib/glibclocale",
+      "lib/xdg"
+    ],
+    "testImports": [
+      "lib/glibclocale/glibclocaletest"
+    ]
+  },
   "desktop/resources": {
     "embeds": [
       "desktop/resources/icons/hicolor/scalable/actions"
@@ -3269,6 +3278,7 @@
       "desktop/jinja",
       "desktop/logging",
       "desktop/mime",
+      "desktop/region",
       "desktop/service/bitwarden/generator",
       "desktop/service/bluetooth",
       "desktop/service/clipboard",
@@ -3298,6 +3308,7 @@
       "desktop/styling",
       "desktop/useraccount",
       "lib/dbusx",
+      "lib/glibclocale",
       "lib/intconv",
       "lib/logind",
       "lib/portaldialogs",

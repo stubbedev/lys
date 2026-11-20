@@ -17,6 +17,7 @@ import (
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/identity"
 	"github.com/stubbedev/lys/desktop/logging"
+	"github.com/stubbedev/lys/desktop/region"
 	"github.com/stubbedev/lys/desktop/service/bluetooth"
 	"github.com/stubbedev/lys/desktop/service/clipboard"
 	"github.com/stubbedev/lys/desktop/service/lyswm"
@@ -32,6 +33,7 @@ import (
 	"github.com/stubbedev/lys/desktop/spawn"
 	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/lib/dbusx"
+	"github.com/stubbedev/lys/lib/glibclocale"
 	"github.com/stubbedev/lys/lib/render"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/wallclock"
@@ -268,11 +270,19 @@ func newShellStart(application *app.Application, sess shellSession, cfg *config.
 		application: application, sess: sess, cfg: cfg, svc: svc, session: session,
 		current: &atomic.Pointer[config.Config]{},
 		osdRef:  &atomic.Pointer[osd.Osd]{},
-		ctx:     ModuleContext{Config: cfg, App: application, Clock: clk, gen: newMountGen()},
+		ctx:     ModuleContext{Config: cfg, App: application, Clock: clk, Region: sessionRegion(), gen: newMountGen()},
 	}
 	s.current.Store(cfg)
 	s.down.add(s.ctx.gen.retire)
 	return s
+}
+
+func sessionRegion() region.Prefs {
+	p, err := region.Read(glibclocale.System(os.Getenv), os.Getenv)
+	if err != nil {
+		log.Printf("bar: units and clocks that follow the region follow the C locale: %v", err)
+	}
+	return p
 }
 
 func (s *shellStart) fail(err error) {

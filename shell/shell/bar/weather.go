@@ -220,7 +220,7 @@ func (m *weatherModule) render() {
 		m.btn.SetDescription(weatherFailure(st))
 		return
 	}
-	label := weatherFormatLabel(cfg.Format, w, cfg.Units == config.TemperatureUnitImperial)
+	label := weatherFormatLabel(cfg.Format, w, cfg.Units.Imperial(m.ctx.Region.Imperial))
 	m.btn.SetLabel(label)
 	m.setIcon(weatherConditionIcon(w.Current.Condition, w.Current.IsDay))
 	detail := ""

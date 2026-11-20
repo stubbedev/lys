@@ -55,6 +55,26 @@ func (t *Time) Format(format string, at time.Time) (string, error) {
 	return b.String(), nil
 }
 
+// TwelveHour reports whether the locale writes the time of day on a
+// 12-hour clock: its time format, %X, names the hour as %I or %l or is
+// written with %r.
+func (t *Time) TwelveHour() bool {
+	f := t.clock
+	for i := 0; i < len(f); i++ {
+		if f[i] != '%' {
+			continue
+		}
+		i++
+		for i < len(f) && strings.IndexByte("-_0^#EO", f[i]) >= 0 {
+			i++
+		}
+		if i < len(f) && strings.IndexByte("Ilr", f[i]) >= 0 {
+			return true
+		}
+	}
+	return false
+}
+
 func (t *Time) write(b *strings.Builder, format string, m moment, depth int) error {
 	if depth > maxFormatDepth {
 		return fmt.Errorf("formats nest deeper than %d", maxFormatDepth)

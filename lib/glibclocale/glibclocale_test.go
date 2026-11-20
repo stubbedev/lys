@@ -153,6 +153,24 @@ func TestTheFormatsAreGlibcs(t *testing.T) {
 	}
 }
 
+func TestTheClockIsTwelveHourWhereTheLocalesTimeFormatSaysSo(t *testing.T) {
+	f := fixtures(t)
+	for name, want := range map[string]bool{"C": false, "en_US.UTF-8": true, "en_GB.utf8": false, "de_DE.UTF-8": false} {
+		tm, err := f.archive.Time(name)
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if got := tm.TwelveHour(); got != want {
+			t.Errorf("%s reads twelve-hour %v, want %v", name, got, want)
+		}
+	}
+	for format, want := range map[string]bool{"%r": true, "%-I:%M %p": true, "%Ol": true, "%H:%M": false, "%%I %T": false, "%": false} {
+		if got := (&Time{clock: format}).TwelveHour(); got != want {
+			t.Errorf("a time format %q reads twelve-hour %v, want %v", format, got, want)
+		}
+	}
+}
+
 func TestNumbersGroupAsTheLocaleSays(t *testing.T) {
 	for _, c := range []struct {
 		grouping string
