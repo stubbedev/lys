@@ -1,6 +1,7 @@
 package desktopentry
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -157,14 +158,9 @@ func SetDefault(id, mimeType string) error { return SetDefaults(id, []string{mim
 // and a desktop-specific list is read by Default but never written. It
 // is an error when the user has no configuration directory.
 func SetDefaults(id string, mimeTypes []string) error {
-	config, ok := xdg.OS.ConfigHome()
-	if !ok {
-		return fmt.Errorf("desktopentry: making %s the default for %s: neither XDG_CONFIG_HOME nor HOME is an absolute path", id, strings.Join(mimeTypes, ", "))
-	}
-	path := filepath.Join(config, mimeAppsList)
-	data, err := os.ReadFile(path) //nolint:gosec // the user's own mimeapps.list
-	if err != nil && !os.IsNotExist(err) {
-		return err
+	path, data, err := readUserList()
+	if err != nil {
+		return fmt.Errorf("desktopentry: making %s the default for %s: %w", id, strings.Join(mimeTypes, ", "), err)
 	}
 	lines := splitLines(data)
 	kf, parseErr := ParseKeyFile(data)
@@ -177,6 +173,83 @@ func SetDefaults(id string, mimeTypes []string) error {
 		added = append([]string{id}, slices.DeleteFunc(added, func(s string) bool { return s == id })...)
 		lines = setListKey(lines, groupAdded, mimeType, added)
 	}
+	return writeUserList(path, lines)
+}
+
+// ResetTypeAssociations is g_app_info_reset_type_associations for each
+// of mimeTypes: the user's mimeapps.list forgets its default, added and
+// removed associations for them, so the system's lists and the
+// installed apps decide again. The rest of the file is kept byte for
+// byte, and a file that names none of them is left untouched.
+func ResetTypeAssociations(mimeTypes []string) error {
+	path, data, err := readUserList()
+	if err != nil {
+		return fmt.Errorf("desktopentry: resetting the associations of %s: %w", strings.Join(mimeTypes, ", "), err)
+	}
+	lines := splitLines(data)
+	kept := lines
+	for _, mimeType := range mimeTypes {
+		for _, group := range userGroups {
+			kept = deleteKey(kept, group, mimeType)
+		}
+	}
+	if len(kept) == len(lines) {
+		return nil
+	}
+	return writeUserList(path, kept)
+}
+
+var userGroups = []string{groupDefault, groupAdded, groupRemoved}
+
+// UserAssociations is what the user's own mimeapps.list says about
+// types, read once.
+type UserAssociations struct{ file *KeyFile }
+
+// ReadUserAssociations reads the user's mimeapps.list; a user without
+// one, or without a configuration directory, has none.
+func ReadUserAssociations() (UserAssociations, error) {
+	config, ok := xdg.OS.ConfigHome()
+	if !ok {
+		return UserAssociations{}, nil
+	}
+	kf, err := LoadKeyFile(filepath.Join(config, mimeAppsList))
+	switch {
+	case os.IsNotExist(err):
+		return UserAssociations{}, nil
+	case err != nil:
+		return UserAssociations{}, fmt.Errorf("desktopentry: reading the user's %s: %w", mimeAppsList, err)
+	}
+	return UserAssociations{file: kf}, nil
+}
+
+// Overrides reports whether the user's list associates any of
+// mimeTypes, which ResetTypeAssociations undoes.
+func (u UserAssociations) Overrides(mimeTypes []string) bool {
+	if u.file == nil {
+		return false
+	}
+	return slices.ContainsFunc(mimeTypes, func(t string) bool {
+		return slices.ContainsFunc(userGroups, func(g string) bool {
+			_, ok := u.file.Raw(g, t)
+			return ok
+		})
+	})
+}
+
+func readUserList() (string, []byte, error) {
+	config, ok := xdg.OS.ConfigHome()
+	if !ok {
+		return "", nil, errors.New("neither XDG_CONFIG_HOME nor HOME is an absolute path")
+	}
+	path := filepath.Join(config, mimeAppsList)
+	data, err := os.ReadFile(path) //nolint:gosec // the user's own mimeapps.list
+	if err != nil && !os.IsNotExist(err) {
+		return "", nil, err
+	}
+	return path, data, nil
+}
+
+func writeUserList(path string, lines []string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil { //nolint:gosec // ~/.config, readable as any config dir
 		return err
 	}
@@ -202,21 +275,39 @@ func setListKey(lines []string, group, key string, values []string) []string {
 	return setKey(lines, group, key, strings.Join(values, ";")+";")
 }
 
-func setKey(lines []string, group, key, value string) []string {
-	entry := key + "=" + value
-	start, end := -1, len(lines)
+func groupSpan(lines []string, group string) (start, end int) {
+	start, end = -1, len(lines)
 	for i, l := range lines {
 		trimmed := strings.TrimSpace(l)
 		if strings.HasPrefix(trimmed, "[") && strings.HasSuffix(trimmed, "]") {
 			if start >= 0 {
-				end = i
-				break
+				return start, i
 			}
 			if trimmed == "["+group+"]" {
 				start = i
 			}
 		}
 	}
+	return start, end
+}
+
+func isKey(line, key string) bool {
+	k, _, ok := strings.Cut(line, "=")
+	return ok && strings.TrimSpace(k) == key
+}
+
+func deleteKey(lines []string, group, key string) []string {
+	start, end := groupSpan(lines, group)
+	if start < 0 {
+		return lines
+	}
+	kept := slices.DeleteFunc(slices.Clone(lines[start+1:end]), func(l string) bool { return isKey(l, key) })
+	return slices.Concat(lines[:start+1], kept, lines[end:])
+}
+
+func setKey(lines []string, group, key, value string) []string {
+	entry := key + "=" + value
+	start, end := groupSpan(lines, group)
 	if start < 0 {
 		if len(lines) > 0 && strings.TrimSpace(lines[len(lines)-1]) != "" {
 			lines = append(lines, "")
@@ -224,7 +315,7 @@ func setKey(lines []string, group, key, value string) []string {
 		return append(lines, "["+group+"]", entry)
 	}
 	for i := start + 1; i < end; i++ {
-		if k, _, ok := strings.Cut(lines[i], "="); ok && strings.TrimSpace(k) == key {
+		if isKey(lines[i], key) {
 			lines[i] = entry
 			return lines
 		}

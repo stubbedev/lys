@@ -1,6 +1,7 @@
 package desktopentry
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"slices"
@@ -230,5 +231,57 @@ func TestSetDefaultWithoutAConfigHomeWritesNoSystemList(t *testing.T) {
 	}
 	if entries, _ := os.ReadDir(system); len(entries) != 0 {
 		t.Errorf("the system config dir was written: %v", entries)
+	}
+}
+
+func TestResetForgetsTheUsersAssociationsOfTheTypesAndNothingElse(t *testing.T) {
+	cfg := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", cfg)
+	path := filepath.Join(cfg, "mimeapps.list")
+	before := "# mine\n[Default Applications]\ntext/html=firefox.desktop;\nimage/png=imv.desktop;\n\n[Added Associations]\ntext/html=firefox.desktop;\n\n[Removed Associations]\ntext/html=old.desktop;\n"
+	_ = os.WriteFile(path, []byte(before), 0o600)
+	user, err := ReadUserAssociations()
+	if err != nil || !user.Overrides([]string{"x-scheme-handler/http", "text/html"}) || user.Overrides([]string{"text/plain"}) {
+		t.Fatalf("the user's list overrides text/html %v and not text/plain (%v)", user.Overrides([]string{"text/html"}), err)
+	}
+	if err := ResetTypeAssociations([]string{"x-scheme-handler/http", "text/html"}); err != nil {
+		t.Fatal(err)
+	}
+	data, _ := os.ReadFile(path)
+	want := "# mine\n[Default Applications]\nimage/png=imv.desktop;\n\n[Added Associations]\n\n[Removed Associations]\n"
+	if string(data) != want {
+		t.Fatalf("after the reset the list reads\n%q\nwant\n%q", data, want)
+	}
+	if user, _ := ReadUserAssociations(); user.Overrides([]string{"text/html"}) || !user.Overrides([]string{"image/png"}) {
+		t.Error("the reset type is still overridden, or the other one no longer is")
+	}
+	info, _ := os.Stat(path)
+	if err := ResetTypeAssociations([]string{"text/html"}); err != nil {
+		t.Fatal(err)
+	}
+	if again, _ := os.Stat(path); !again.ModTime().Equal(info.ModTime()) {
+		t.Error("resetting a type the list does not name rewrote it")
+	}
+}
+
+func TestWithoutAUserListNothingIsOverriddenAndResetNeedsAConfigHome(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	user, err := ReadUserAssociations()
+	if err != nil || user.Overrides([]string{"text/html"}) {
+		t.Fatalf("without a list text/html is overridden %v (%v)", user.Overrides([]string{"text/html"}), err)
+	}
+	t.Setenv("HOME", "")
+	t.Setenv("XDG_CONFIG_HOME", "")
+	if err := ResetTypeAssociations([]string{"text/html"}); err == nil || !strings.Contains(err.Error(), "text/html") {
+		t.Errorf("a reset without a config home: %v, want an error naming the type", err)
+	}
+}
+
+func TestAMalformedUserListIsAnError(t *testing.T) {
+	cfg := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", cfg)
+	_ = os.WriteFile(filepath.Join(cfg, "mimeapps.list"), []byte("text/html=firefox.desktop;\n"), 0o600)
+	if _, err := ReadUserAssociations(); !errors.Is(err, ErrMalformed) {
+		t.Errorf("a key before any group read as %v, want ErrMalformed", err)
 	}
 }
