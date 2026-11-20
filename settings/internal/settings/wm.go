@@ -378,11 +378,13 @@ func (w *wmBackend) badge(path string) sourceInfo {
 	return sourceInfo{label: t.Get("settings-source-config"), tooltip: t.Attr("wm-source-file", "description"), class: "info", badge: true}
 }
 
-// edit queues a change; an edit of the same key still queued is replaced, so
-// dragging a value through ten steps writes one file.
-func (w *wmBackend) edit(e wmconfig.Edit) error {
-	w.pending = slices.DeleteFunc(w.pending, func(old wmconfig.Edit) bool { return slices.Equal(old.Path, e.Path) })
-	w.pending = append(w.pending, e)
+// edit queues changes that land in one write; an edit of the same key still
+// queued is replaced, so dragging a value through ten steps writes one file.
+func (w *wmBackend) edit(edits ...wmconfig.Edit) error {
+	for _, e := range edits {
+		w.pending = slices.DeleteFunc(w.pending, func(old wmconfig.Edit) bool { return slices.Equal(old.Path, e.Path) })
+		w.pending = append(w.pending, e)
+	}
 	w.flush()
 	return nil
 }
@@ -531,7 +533,7 @@ func wmTilingPage() pageSpec {
 
 func wmKeyboardPage() pageSpec {
 	return wmPage("wm-keyboard", "ld-keyboard-symbolic",
-		sectionSpec{title: "wm-section-keyboard", rows: wmFields("input.keyboard.layout", "input.keyboard.variant", "input.keyboard.options")},
+		sectionSpec{title: "wm-section-keyboard", rows: []rowSpec{wmField(wmLayoutPath, inputSourcesRow), wmField("input.keyboard.options")}},
 		sectionSpec{title: "wm-section-typing", rows: []rowSpec{
 			wmField("input.keyboard.repeat_rate", softPerSecond(10, 80)), wmField("input.keyboard.repeat_delay", softMilliseconds(150, 1000)), wmField("input.keyboard.numlock"),
 		}},

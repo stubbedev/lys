@@ -67,6 +67,7 @@ func hostLists(h host) map[string]lister {
 		wmModelFormat:       func() []choice { return x().models },
 		wmRulesFormat:       func() []choice { return x().rules },
 		listLayoutNames:     func() []choice { return layoutNames(x()) },
+		listXKBSource:       func() []choice { return xkbSources(x()) },
 	}
 }
 

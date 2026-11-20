@@ -46,6 +46,12 @@ var listFixtures = map[string][]choice{
 		{value: "German", label: "German", group: "de"},
 		{value: "German (no dead keys)", label: "German (no dead keys)", group: "de(nodeadkeys)"},
 	},
+	listXKBSource: {
+		{value: "dk", label: "Danish"},
+		{value: "dk(nodeadkeys)", label: "Danish (no dead keys)"},
+		{value: "us", label: "English (US)"},
+		{value: "us(intl)", label: "English (US, intl.)"},
+	},
 }
 
 func fixedLists() map[string]lister {
