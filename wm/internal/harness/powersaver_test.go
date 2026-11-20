@@ -24,7 +24,7 @@ func powerSaver(h *Harness, on bool) {
 	})
 }
 
-func drawContinuously(t *testing.T, pc *paced, w *testclient.Window, frames int) []*feedbackEvents {
+func drawContinuously(t *testing.T, pc *paced, w *testclient.Window, frames int, before ...func() error) []*feedbackEvents {
 	t.Helper()
 	shown := make([]*feedbackEvents, frames)
 	for i := range shown {
@@ -32,7 +32,7 @@ func drawContinuously(t *testing.T, pc *paced, w *testclient.Window, frames int)
 		if _, err := w.Surface.Frame(frameDone{&done}); err != nil {
 			t.Fatal(err)
 		}
-		shown[i] = pc.update(t, w.Surface, pc.c.Buffer(w.Size, i%2, quadrants))
+		shown[i] = pc.update(t, w.Surface, pc.c.Buffer(w.Size, i%2, quadrants), before...)
 		if err := pc.c.Display.Flush(); err != nil {
 			t.Fatal(err)
 		}

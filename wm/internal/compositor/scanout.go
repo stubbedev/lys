@@ -43,6 +43,7 @@ func (c *Compositor) showFrameHints(o *output.Output, sc *scene, bounds image.Re
 	if err := c.showAdaptiveSync(o, op.surface, alone); err != nil {
 		c.report(fmt.Errorf("compositor: announce the adaptive sync of %s: %w", o.Backend().Name(), err))
 	}
+	c.showContentRate(o, sc, op.surface, alone)
 	if ft, ok := o.Backend().(backend.FrameTearing); ok {
 		ft.TearFrame(alone && c.tears(op.surface))
 	}

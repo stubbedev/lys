@@ -530,6 +530,7 @@ type scene struct {
 	blurDamage  region.Set
 	blurScratch region.Set
 	cursorOnly  bool
+	contentCap  int
 	debug       debugDamage
 	composed    render.TextureTarget
 	real        backend.Frame

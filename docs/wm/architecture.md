@@ -627,6 +627,22 @@ reports the paced interval; the cursor plane keeps the mode's own. `internal/pow
 `ActiveProfile` (`org.freedesktop.UPower.PowerProfiles`, then
 `net.hadess.PowerProfiles`) off the loop; no daemon means no cap.
 
+## Content rate
+
+A surface alone on an output whose content type is video, and whose last two
+commits carried `wp_commit_timing_v1` timestamps a video frame apart (24, 25,
+30, 48, 50 or 60 Hz, within 0.5%), caps that output at the video's rate
+(`compositor/contentrate.go`): under VRR the frame interval is at least the
+video's, and at a fixed refresh every k-th vblank is used when the mode's
+refresh is k times the video's (`backend.Mode.ContentCap`, k at least 2). A
+rate the mode has no whole multiple of keeps the mode's own rate, since
+showing it on fewer vblanks would only add judder. The rate comes only from
+what the client declares, never from its measured cadence: frame callbacks
+follow the cap, so a measured rate would hold itself down. A commit without a
+timestamp, a destroyed commit timer, a second surface on the output or a
+content type other than video drops the cap at the next frame. With power
+saver on as well, the lower of the two caps applies.
+
 ## The lid
 
 lys-wm holds logind's `handle-lid-switch` inhibitor in block mode and applies

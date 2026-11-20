@@ -11,20 +11,24 @@ func (c *Compositor) SetPowerSaver(on bool) {
 
 func (c *Compositor) capFrameRates() {
 	for _, o := range c.outputs {
-		c.capFrameRate(o.Backend())
+		hz := 0
+		if sc, ok := c.scenes[o]; ok {
+			hz = sc.contentCap
+		}
+		c.capFrameRate(o.Backend(), hz)
 	}
 	for _, b := range c.unplaced() {
-		c.capFrameRate(b)
+		c.capFrameRate(b, 0)
 	}
 }
 
-func (c *Compositor) capFrameRate(b backend.Output) {
+func (c *Compositor) capFrameRate(b backend.Output, contentHz int) {
 	fc, ok := b.(backend.FrameRateCap)
 	if !ok {
 		return
 	}
-	hz := 0
-	if c.powerSaver {
+	hz := contentHz
+	if c.powerSaver && c.powerSaverRate > 0 && (hz == 0 || c.powerSaverRate < hz) {
 		hz = c.powerSaverRate
 	}
 	fc.CapFrameRate(hz)

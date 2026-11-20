@@ -28,6 +28,19 @@ type Manager struct {
 	armedAt  time.Duration
 }
 
+func (m *Manager) Interval(s *surface.Surface) time.Duration {
+	for _, t := range m.timers {
+		if t.s == s {
+			return t.interval
+		}
+	}
+	return 0
+}
+
+func (t *timer) forgetCadence() {
+	t.last, t.hasLast, t.interval = 0, false, 0
+}
+
 func (m *Manager) LastArmed() time.Duration {
 	return m.armedAt
 }
@@ -91,6 +104,7 @@ func (r requests) GetTimer(obj *sct.WpCommitTimingManagerV1, res *sct.WpCommitTi
 	t.live = true
 	server.OnDestroy(res, func() error {
 		t.live = false
+		t.forgetCadence()
 		return nil
 	})
 	return t, nil
@@ -108,6 +122,9 @@ type timer struct {
 	targets   []*commitTarget
 	spare     []*commitTarget
 	armedFor  time.Duration
+	last      time.Duration
+	hasLast   bool
+	interval  time.Duration
 }
 
 type commitTarget struct {
@@ -176,9 +193,15 @@ func (t *timer) due(at time.Duration) bool {
 
 func (t *timer) commit(u *surface.Update) error {
 	if !t.pending {
+		t.forgetCadence()
 		return nil
 	}
 	t.pending = false
+	t.interval = 0
+	if t.hasLast && t.pendingAt > t.last {
+		t.interval = t.pendingAt - t.last
+	}
+	t.last, t.hasLast = t.pendingAt, true
 	c := t.newTarget(t.pendingAt)
 	t.targets = append(t.targets, c)
 	u.Gate(c.due)

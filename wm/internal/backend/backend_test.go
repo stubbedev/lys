@@ -48,6 +48,46 @@ func TestNextVblankStaysOnTheGrid(t *testing.T) {
 	}
 }
 
+func TestAContentCapPacesAWholeMultipleOfTheContentRate(t *testing.T) {
+	for _, tc := range []struct {
+		refreshMHz int32
+		contentHz  int
+		refreshes  int64
+	}{
+		{120000, 24, 5},
+		{119880, 24, 5},
+		{120100, 24, 5},
+		{120000, 30, 4},
+		{120000, 60, 2},
+		{144000, 48, 3},
+		{144000, 24, 6},
+	} {
+		m := Mode{RefreshMHz: tc.refreshMHz}
+		capHz := m.ContentCap(tc.contentHz, false)
+		if got, want := m.PacedInterval(capHz, false), time.Duration(tc.refreshes)*m.Interval(); capHz == 0 || got != want {
+			t.Errorf("%d mHz showing %d Hz content: cap %d Hz paces at %v, want %d refreshes of %v", tc.refreshMHz, tc.contentHz, capHz, got, tc.refreshes, m.Interval())
+		}
+	}
+	for _, tc := range []struct {
+		refreshMHz int32
+		contentHz  int
+	}{
+		{120000, 25},
+		{120000, 48},
+		{120000, 50},
+		{60000, 24},
+		{60000, 60},
+		{60000, 0},
+	} {
+		if got := (Mode{RefreshMHz: tc.refreshMHz}).ContentCap(tc.contentHz, false); got != 0 {
+			t.Errorf("%d mHz showing %d Hz content capped at %d Hz, want no cap: it is not a whole multiple of a slower rate", tc.refreshMHz, tc.contentHz, got)
+		}
+	}
+	if got := (Mode{RefreshMHz: 120000}).ContentCap(25, true); got != 25 {
+		t.Errorf("under VRR 25 Hz content caps a 120 Hz mode at %d Hz, want 25", got)
+	}
+}
+
 func TestAPacedIntervalIsAWholeNumberOfRefreshesUnderTheCap(t *testing.T) {
 	for _, tc := range []struct {
 		refreshMHz int32

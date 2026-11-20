@@ -379,7 +379,7 @@ func (c *Compositor) OutputAdded(b backend.Output) error {
 }
 
 func (c *Compositor) addOutput(b backend.Output) error {
-	c.capFrameRate(b)
+	c.capFrameRate(b, 0)
 	rule := c.outputRule(b)
 	if _, _, err := c.commitOutput(b, rule); err != nil {
 		c.report(err)

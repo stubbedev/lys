@@ -96,6 +96,21 @@ func (m Mode) PacedInterval(capHz int, variable bool) time.Duration {
 	return time.Duration((int64(m.RefreshMHz)+capMHz-1)/capMHz) * interval
 }
 
+func (m Mode) ContentCap(hz int, variable bool) int {
+	if hz <= 0 {
+		return 0
+	}
+	if variable {
+		return hz
+	}
+	refresh, rate := int64(m.RefreshMHz), int64(hz)*1000
+	k := (refresh + rate/2) / rate
+	if k < 2 || max(refresh-k*rate, k*rate-refresh)*200 > refresh {
+		return 0
+	}
+	return int((refresh + k*1000 - 1) / (k * 1000))
+}
+
 type Power uint8
 
 const (
