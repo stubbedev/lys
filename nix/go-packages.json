@@ -203,6 +203,7 @@
       "lib/testhome"
     ]
   },
+  "desktop/pango": {},
   "desktop/portal/permissions": {
     "imports": [
       "desktop/identity",
@@ -2592,7 +2593,6 @@
       "shell/service/notifications"
     ]
   },
-  "shell/internal/pango": {},
   "shell/internal/portal": {
     "imports": [
       "lib/dbusx",
@@ -2927,13 +2927,13 @@
       "desktop/config",
       "desktop/desktopentry",
       "desktop/i18n",
+      "desktop/pango",
       "desktop/service/clipboard",
       "desktop/service/lyswm",
       "desktop/shlex",
       "lib/third_party/gomath",
       "lib/wmipc",
       "shell/internal/gvariant",
-      "shell/internal/pango",
       "shell/service/hyprland",
       "shell/service/launcher",
       "shell/service/mango",
@@ -2958,6 +2958,7 @@
       "desktop/desktopentry",
       "desktop/i18n",
       "desktop/identity",
+      "desktop/pango",
       "desktop/service/clipboard",
       "desktop/settingspage",
       "desktop/shlex",
@@ -2966,7 +2967,6 @@
       "lib/peercred",
       "lib/third_party/gomath",
       "lib/xdg",
-      "shell/internal/pango",
       "shell/service/launcher",
       "shell/service/launcher/answer",
       "shell/service/launcher/charnames",
@@ -3299,6 +3299,7 @@
       "desktop/jinja",
       "desktop/logging",
       "desktop/mime",
+      "desktop/pango",
       "desktop/region",
       "desktop/service/bitwarden/generator",
       "desktop/service/bluetooth",
@@ -3348,7 +3349,6 @@
       "shell/internal/desktopnotify",
       "shell/internal/ipp",
       "shell/internal/launcheripc",
-      "shell/internal/pango",
       "shell/internal/portal",
       "shell/internal/walltimer",
       "shell/internal/widgetipc",
@@ -3559,13 +3559,13 @@
     "imports": [
       "desktop/config",
       "desktop/i18n",
+      "desktop/pango",
       "desktop/shell/layers",
       "desktop/shell/reveal",
       "desktop/shell/widgets",
       "desktop/styling",
       "lib/render",
       "shell/internal/launcheripc",
-      "shell/internal/pango",
       "shell/service/launcher",
       "shell/service/launcher/charnames",
       "shell/service/launcher/modes",

@@ -8,9 +8,9 @@ import (
 	"strings"
 
 	"github.com/stubbedev/lys/desktop/desktopentry"
+	"github.com/stubbedev/lys/desktop/pango"
 	"github.com/stubbedev/lys/desktop/shlex"
 
-	"github.com/stubbedev/lys/shell/internal/pango"
 	"github.com/stubbedev/lys/shell/service/launcher"
 )
 

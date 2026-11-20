@@ -9,9 +9,9 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/pango"
 	"github.com/stubbedev/lys/desktop/settingspage"
 
-	"github.com/stubbedev/lys/shell/internal/pango"
 	"github.com/stubbedev/lys/shell/service/launcher"
 )
 

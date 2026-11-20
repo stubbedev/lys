@@ -25,7 +25,7 @@ go get github.com/stubbedev/lys
 | `settingspage` | The contract between lys-settings and the programs that open it: its command line and page list |
 | `identity` | The desktop's directory name under each XDG base directory |
 | `desktopentry`, `mime`, `opener` | Desktop entries, the shared-mime-info database, and opening a file with the default app |
-| `spawn`, `shlex`, `strftime`, `glob`, `jinja` | Running configured commands, splitting command lines, time formats, blocklist matching, the label templates module formats are written in |
+| `spawn`, `shlex`, `strftime`, `glob`, `jinja`, `pango` | Running configured commands, splitting command lines, time formats, blocklist matching, the label templates module formats are written in, Pango markup read into lys-ui's rich labels |
 
 The package documentation is on
 [pkg.go.dev](https://pkg.go.dev/github.com/stubbedev/lys/desktop).

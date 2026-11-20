@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/pango"
 	"github.com/stubbedev/lys/secrets/vault"
 
-	"github.com/stubbedev/lys/shell/internal/pango"
 	engine "github.com/stubbedev/lys/shell/service/launcher"
 	"github.com/stubbedev/lys/shell/shell/launcher"
 )

@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/opener/openertest"
+	"github.com/stubbedev/lys/desktop/pango"
 
-	"github.com/stubbedev/lys/shell/internal/pango"
 	"github.com/stubbedev/lys/shell/service/launcher"
 	"github.com/stubbedev/lys/shell/service/launcher/launchertest"
 )

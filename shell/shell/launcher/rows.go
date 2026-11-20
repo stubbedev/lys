@@ -4,11 +4,11 @@ import (
 	"context"
 	"strings"
 
+	"github.com/stubbedev/lys/desktop/pango"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
 
-	"github.com/stubbedev/lys/shell/internal/pango"
 	engine "github.com/stubbedev/lys/shell/service/launcher"
 )
 
