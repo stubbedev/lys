@@ -48,6 +48,7 @@ type netState struct {
 	radios   bool
 	airplane bool
 	vpns     []vpnRow
+	saved    []network.Profile
 	details  []linkDetail
 	proxy    *proxyState
 }
@@ -68,6 +69,7 @@ func (v vpnRow) wireguard() bool { return v.profile.Type == vpnTypeWireGuard }
 const (
 	vpnTypeVPN       = "vpn"
 	vpnTypeWireGuard = "wireguard"
+	wifiProfileType  = "802-11-wireless"
 )
 
 type netControl interface {
@@ -83,6 +85,7 @@ type netControl interface {
 	activate(ctx context.Context, profile dbus.ObjectPath) error
 	deactivate(ctx context.Context, uuid string) error
 	remove(ctx context.Context, profile dbus.ObjectPath) error
+	setAutoconnect(ctx context.Context, profile dbus.ObjectPath, on bool) error
 	vpnKinds() []network.VPNKind
 	readVPN(ctx context.Context, profile dbus.ObjectPath) (vpnProfile, error)
 	addVPN(ctx context.Context, kind, name string, values map[string]string) error
@@ -131,6 +134,7 @@ func (c *nmControl) read(ctx context.Context) (netState, error) {
 	if st.vpns, err = c.vpns(ctx); err != nil {
 		return netState{}, err
 	}
+	st.saved = savedWifi(c.svc.Settings.Profiles())
 	if st.proxy, err = c.proxy(ctx); err != nil {
 		return netState{}, err
 	}
@@ -172,6 +176,18 @@ func (c *nmControl) vpns(ctx context.Context) ([]vpnRow, error) {
 	return out, nil
 }
 
+// savedWifi are the saved Wi-Fi profiles by name.
+func savedWifi(profiles []network.Profile) []network.Profile {
+	var out []network.Profile
+	for _, p := range profiles {
+		if p.Type == wifiProfileType {
+			out = append(out, p)
+		}
+	}
+	slices.SortFunc(out, func(a, b network.Profile) int { return cmp.Or(cmp.Compare(a.ID, b.ID), cmp.Compare(a.UUID, b.UUID)) })
+	return out
+}
+
 func (c *nmControl) proxy(ctx context.Context) (*proxyState, error) {
 	prof, ok, err := c.svc.Settings.PrimaryProfile(ctx)
 	if err != nil || !ok {
@@ -198,6 +214,10 @@ func (c *nmControl) deactivate(ctx context.Context, uuid string) error {
 
 func (c *nmControl) remove(ctx context.Context, profile dbus.ObjectPath) error {
 	return c.svc.Settings.Delete(ctx, profile)
+}
+
+func (c *nmControl) setAutoconnect(ctx context.Context, profile dbus.ObjectPath, on bool) error {
+	return c.svc.Settings.SetAutoconnect(ctx, profile, on)
 }
 
 func (c *nmControl) vpnKinds() []network.VPNKind { return network.AvailableKinds() }
@@ -320,6 +340,8 @@ type networkPanel struct {
 	vpn      *widget.Box
 	vpnSec   *widget.Box
 	vpnForm  *vpnForm
+	saved    *widget.Box
+	savedSec *widget.Box
 	proxy    *proxyForm
 	proxySec *widget.Box
 	details  *widget.Box
@@ -340,6 +362,10 @@ func newNetworkPanel(k *kit) *networkPanel {
 	p.netsSec = newSection(k, "settings-wifi-networks", p.nets)
 	p.netsSec.SetVisible(false)
 	p.Append(p.netsSec, false)
+	p.saved = gapBox(widget.Column)
+	p.savedSec = newSection(k, "settings-wifi-saved-section", p.saved)
+	p.savedSec.SetVisible(false)
+	p.Append(p.savedSec, false)
 	p.vpn = gapBox(widget.Column)
 	p.vpnForm = newVPNForm(p)
 	vpnBody := gapBox(widget.Column)
@@ -395,6 +421,7 @@ func (p *networkPanel) configChanged() { p.proxy.configChanged() }
 func (p *networkPanel) unavailable(err error) {
 	p.status.Clear()
 	p.netsSec.SetVisible(false)
+	p.savedSec.SetVisible(false)
 	p.vpnSec.SetVisible(false)
 	p.proxySec.SetVisible(false)
 	p.status.Append(panelRow(p.k, locale.T().Get("settings-wifi-unavailable"), err.Error()), false)
@@ -508,6 +535,7 @@ func (p *networkPanel) show() {
 	p.status.Append(status, false)
 	p.netsSec.SetVisible(st.wifi && st.wifiOn)
 	p.showVPNs()
+	p.showSaved()
 	p.proxySec.SetVisible(true)
 	p.proxy.show(st.proxy)
 	p.showDetails()
@@ -531,7 +559,11 @@ func (p *networkPanel) show() {
 		p.run(func(ctx context.Context) error { return p.ctl.scan(ctx) })
 	}, css.Flat)
 	rescan.SetEnabled(st.wifiOn)
-	status.Append(panelRow(p.k, t.Get("settings-wifi-title"), wifiDetail(st), rescan, wifiOn))
+	wifiRow := panelRow(p.k, t.Get("settings-wifi-title"), wifiDetail(st), rescan, wifiOn)
+	if ap, ok := activeAccessPoint(st); ok {
+		wifiRow.InsertAligned(0, signalIcon(ap.Strength), false, widget.AlignCenter)
+	}
+	status.Append(wifiRow)
 	if !st.wifiOn {
 		return
 	}
@@ -560,6 +592,64 @@ func wifiDetail(st netState) string {
 		return t.Get("settings-wifi-not-connected")
 	}
 	return t.Get("settings-wifi-connected-to", i18n.Str("name", st.active), i18n.Str("address", st.snap.WifiIP4))
+}
+
+// activeAccessPoint is the strongest access point of the network
+// Wi-Fi is connected to; false while it is connected to none in range.
+func activeAccessPoint(st netState) (network.AccessPoint, bool) {
+	if !st.wifiOn || st.active == "" {
+		return network.AccessPoint{}, false
+	}
+	i := slices.IndexFunc(visibleNetworks(st.aps), func(ap network.AccessPoint) bool { return ap.Name() == st.active })
+	if i < 0 {
+		return network.AccessPoint{}, false
+	}
+	return visibleNetworks(st.aps)[i], true
+}
+
+// signalIcon draws strength as bars, its percentage its name.
+func signalIcon(strength uint8) *widget.Icon {
+	ic := widget.NewThemeIcon(wifiSignalIcons[network.SignalIndex(strength, len(wifiSignalIcons))], appIconPx)
+	ic.SetAccessibleName(locale.T().Get("settings-wifi-signal", i18n.Int("percent", int64(strength))))
+	return ic
+}
+
+// showSaved lists the saved Wi-Fi networks, in range or not, each with
+// whether it joins by itself and Forget.
+func (p *networkPanel) showSaved() {
+	p.saved.Clear()
+	t := locale.T()
+	st := p.state
+	p.savedSec.SetVisible(st.wifi && len(st.saved) > 0)
+	if len(st.saved) == 0 {
+		return
+	}
+	inRange := map[string]bool{}
+	for _, ap := range st.aps {
+		inRange[ap.Name()] = true
+	}
+	list := widget.NewItemGroup()
+	for _, prof := range st.saved {
+		name := string(prof.SSID)
+		detail := t.Get("settings-wifi-out-of-range")
+		switch {
+		case name == st.active:
+			detail = t.Get("settings-wifi-connected")
+		case inRange[name]:
+			detail = t.Get("settings-wifi-in-range")
+		}
+		auto := widget.NewSwitch(prof.Autoconnect)
+		auto.SetAccessibleName(t.Get("settings-wifi-autojoin", i18n.Str("name", prof.ID)))
+		auto.OnChanged = func(on bool) {
+			p.run(func(ctx context.Context) error { return p.ctl.setAutoconnect(ctx, prof.Path, on) })
+		}
+		forget := p.k.button(p.k.label(t.Get("settings-wifi-forget")), func() {
+			p.run(func(ctx context.Context) error { return p.ctl.remove(ctx, prof.Path) })
+		}, css.Small, css.Flat, css.DestructiveAction)
+		list.Append(panelRow(p.k, prof.ID, detail, forget, auto))
+	}
+	p.saved.Append(wrapped(p.k.label(t.Get("settings-wifi-autojoin-hint"), css.Caption, css.DimLabel)), false)
+	p.saved.Append(list, false)
 }
 
 func visibleNetworks(aps []network.AccessPoint) []network.AccessPoint {
@@ -597,7 +687,7 @@ func (p *networkPanel) networkRow(ap network.AccessPoint) widget.Widget {
 	case known:
 		detail = t.Get("settings-wifi-saved")
 	}
-	signal := widget.NewThemeIcon(wifiSignalIcons[network.SignalIndex(ap.Strength, len(wifiSignalIcons))], appIconPx)
+	signal := signalIcon(ap.Strength)
 	var controls []widget.Widget
 	if ap.Security != network.SecurityNone {
 		controls = append(controls, widget.NewThemeIcon("ld-lock-symbolic", appIconPx))

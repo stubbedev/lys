@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/network"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
@@ -33,6 +34,7 @@ type fakeNet struct {
 	added      []vpnWrite
 	updated    []vpnWrite
 	proxies    []proxyWrite
+	autojoin   []autojoinWrite
 	closed     bool
 }
 
@@ -312,5 +314,89 @@ func TestAConnectedLinkShowsItsDetails(t *testing.T) {
 	_, p = netPanel(t, f)
 	if p.detSec.Visible() {
 		t.Error("details show with nothing connected")
+	}
+}
+
+func (f *fakeNet) setAutoconnect(_ context.Context, path dbus.ObjectPath, on bool) error {
+	f.autojoin = append(f.autojoin, autojoinWrite{path, on})
+	return nil
+}
+
+type autojoinWrite struct {
+	path dbus.ObjectPath
+	on   bool
+}
+
+func savedNets() *fakeNet {
+	f := homeNets()
+	f.state.saved = savedWifi([]network.Profile{
+		{Path: "/p/3", UUID: "u3", ID: "Office VPN", Type: vpnTypeVPN},
+		{Path: "/p/2", UUID: "u2", ID: "Home", Type: wifiProfileType, SSID: []byte("Home"), Autoconnect: true},
+		{Path: "/p/1", UUID: "u1", ID: "Beach house", Type: wifiProfileType, SSID: []byte("Beach"), Autoconnect: false},
+		{Path: "/p/4", UUID: "u4", ID: "Cafe", Type: wifiProfileType, SSID: []byte("Cafe"), Autoconnect: true},
+	})
+	return f
+}
+
+func TestTheSavedNetworksAreListedInRangeOrNot(t *testing.T) {
+	f := savedNets()
+	_, p := netPanel(t, f)
+	if !p.savedSec.Visible() {
+		t.Fatal("the saved networks are hidden")
+	}
+	tr := locale.T()
+	labels := strings.Join(treetest.Labels(p.saved), "|")
+	for _, want := range []string{"Beach house|" + tr.Get("settings-wifi-out-of-range"), "Cafe|" + tr.Get("settings-wifi-in-range"), "Home|" + tr.Get("settings-wifi-connected")} {
+		if !strings.Contains(labels, want) {
+			t.Errorf("the saved networks read %q, missing %q", labels, want)
+		}
+	}
+	if strings.Contains(labels, "Office VPN") || strings.Index(labels, "Beach house") > strings.Index(labels, "Cafe") {
+		t.Errorf("the saved networks are not the Wi-Fi ones by name: %q", labels)
+	}
+	switches := treetest.All[*widget.Switch](p.saved)
+	if len(switches) != 3 || switches[0].On() || !switches[1].On() {
+		t.Fatalf("%d auto-join switches, Beach house on %v, Cafe on %v", len(switches), switches[0].On(), switches[1].On())
+	}
+	switches[0].OnChanged(true)
+	if !slices.Equal(f.autojoin, []autojoinWrite{{"/p/1", true}}) {
+		t.Errorf("switching Beach house on wrote %v", f.autojoin)
+	}
+	clickText(t, p.saved, tr.Get("settings-wifi-forget"), 0)
+	if !slices.Equal(f.removed, []dbus.ObjectPath{"/p/1"}) {
+		t.Errorf("Forget on Beach house removed %v", f.removed)
+	}
+}
+
+func TestWithoutSavedNetworksOrWifiThereIsNoSavedList(t *testing.T) {
+	_, p := netPanel(t, homeNets())
+	if p.savedSec.Visible() {
+		t.Error("an empty saved list shows")
+	}
+	f := savedNets()
+	f.state.wifi = false
+	_, p = netPanel(t, f)
+	if p.savedSec.Visible() {
+		t.Error("the saved networks show without a Wi-Fi device")
+	}
+}
+
+func TestTheConnectedNetworkShowsItsSignal(t *testing.T) {
+	_, p := netPanel(t, homeNets())
+	want := locale.T().Get("settings-wifi-signal", i18n.Int("percent", 80))
+	found := false
+	for _, ic := range treetest.All[*widget.Icon](p.status) {
+		found = found || ic.AccessibleName() == want
+	}
+	if !found {
+		t.Errorf("the Wi-Fi row shows no %q", want)
+	}
+	f := homeNets()
+	f.state.active = ""
+	_, p = netPanel(t, f)
+	for _, ic := range treetest.All[*widget.Icon](p.status) {
+		if ic.AccessibleName() == want {
+			t.Errorf("a disconnected Wi-Fi shows the signal %q", want)
+		}
 	}
 }
