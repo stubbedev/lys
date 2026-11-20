@@ -2,6 +2,7 @@ package notifications
 
 import (
 	"fmt"
+	"log"
 	"sync/atomic"
 	"time"
 
@@ -166,24 +167,57 @@ func (d *lysShellDaemon) page(before *Key, limit uint32) ([]ListRow, *dbus.Error
 	return rows, nil
 }
 
-// ServeLysShell exports dev.stubbe.lys.Notifications1 over svc.
+// ServeLysShell exports dev.stubbe.lys.Notifications1 over svc, and
+// announces Dnd, DndReason and DndUntil in a PropertiesChanged whenever
+// do-not-disturb changes, until the returned release.
 func ServeLysShell(conn *dbus.Conn, svc *Service) (func(), error) {
 	d := &lysShellDaemon{svc: svc}
 	d.popupDuration.Store(defaultPopupDuration)
-	return dbusx.Serve(conn, dbusx.Service{
-		Name:      LysShellName,
-		Path:      LysShellPath,
-		Interface: LysShellName,
-		Methods:   d,
-		Properties: dbusx.Getters{
-			"Dnd":           func() any { return svc.DND() },
-			"DndReason":     func() any { return svc.Focus().Reason.String() },
-			"DndUntil":      func() any { return unixOrZero(svc.Focus().Until) },
-			"PopupDuration": func() any { return d.popupDuration.Load() },
-			"Count":         func() any { return intconv.Clamp[uint32](svc.Count()) },
-			"PopupCount":    func() any { return intconv.Clamp[uint32](len(svc.Popups())) },
-		},
+	focus := func(f Focus) map[string]dbus.Variant {
+		return map[string]dbus.Variant{
+			"Dnd":       dbus.MakeVariant(f.On),
+			"DndReason": dbus.MakeVariant(f.Reason.String()),
+			"DndUntil":  dbus.MakeVariant(unixOrZero(f.Until)),
+		}
+	}
+	properties := dbusx.Getters{
+		"PopupDuration": func() any { return d.popupDuration.Load() },
+		"Count":         func() any { return intconv.Clamp[uint32](svc.Count()) },
+		"PopupCount":    func() any { return intconv.Clamp[uint32](len(svc.Popups())) },
+	}
+	for name := range focus(Focus{}) {
+		properties[name] = func() any { return focus(svc.Focus())[name].Value() }
+	}
+	events, stop := svc.Subscribe()
+	release, err := dbusx.Serve(conn, dbusx.Service{
+		Name:       LysShellName,
+		Path:       LysShellPath,
+		Interface:  LysShellName,
+		Methods:    d,
+		Properties: properties,
 	})
+	if err != nil {
+		stop()
+		return nil, err
+	}
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for ev := range events {
+			if ev.Kind != EventDnd {
+				continue
+			}
+			changed := dbusx.ChangedProperties{Interface: LysShellName, Changed: focus(svc.Focus()), Invalidated: []string{}}
+			if err := dbusx.PropertiesChanged.Emit(conn, LysShellPath, changed); err != nil {
+				log.Printf("notifications: announce the do-not-disturb change: %v", err)
+			}
+		}
+	}()
+	return func() {
+		stop()
+		<-done
+		release()
+	}, nil
 }
 
 func unixOrZero(t time.Time) int64 {

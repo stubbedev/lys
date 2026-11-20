@@ -7,6 +7,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/fakeclock"
 	"github.com/stubbedev/lys/lib/dbustest"
+	"github.com/stubbedev/lys/lib/dbusx"
 	"github.com/stubbedev/lys/lib/dbusx/dbusxtest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/waittest"
@@ -136,5 +137,39 @@ func TestAReplyIsSentAsNotificationRepliedToARealClient(t *testing.T) {
 	}
 	if !slices.Equal(got, []string{"replied", "closed"}) {
 		t.Errorf("signals = %v, want the reply then the close", got)
+	}
+}
+
+func TestTheDoNotDisturbStateIsAnnouncedWhenItChanges(t *testing.T) {
+	bus := dbustest.Start(t)
+	svc := newTestService(t)
+	release, err := ServeLysShell(bus.Conn(t), svc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(release)
+	watcher := bus.Conn(t)
+	signals, stop := dbusxtest.Signals(t, watcher, 4, dbus.WithMatchObjectPath(LysShellPath), dbus.WithMatchInterface(dbusx.PropertiesInterface))
+	defer stop()
+	svc.SetDND(true)
+	changed, err := dbusx.PropertiesChanged.Decode(waittest.For(t, signals, "the do-not-disturb change"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if changed.Interface != LysShellName || changed.Changed["Dnd"].Value() != true || changed.Changed["DndReason"].Value() != "manual" || changed.Changed["DndUntil"].Value() != int64(0) {
+		t.Fatalf("turning do-not-disturb on announced %+v", changed)
+	}
+	var on bool
+	if err := watcher.Object(LysShellName, LysShellPath).StoreProperty(LysShellName+".Dnd", &on); err != nil || !on {
+		t.Fatalf("Dnd reads %v (%v) after it was announced on", on, err)
+	}
+	svc.Notify("app", 0, "", "ping", "", nil, 0)
+	svc.SetDND(false)
+	changed, err = dbusx.PropertiesChanged.Decode(waittest.For(t, signals, "the do-not-disturb change"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if changed.Changed["Dnd"].Value() != false || changed.Changed["DndReason"].Value() != "off" {
+		t.Fatalf("turning do-not-disturb off announced %+v; a notification is not a do-not-disturb change", changed)
 	}
 }
