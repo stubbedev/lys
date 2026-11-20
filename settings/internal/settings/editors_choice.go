@@ -27,7 +27,6 @@ const (
 	wmOptionsFormat = "lys-wm-xkb-options"
 	wmModelFormat   = "lys-wm-xkb-model"
 	wmRulesFormat   = "lys-wm-xkb-rules"
-	typeTerminal    = "Terminal"
 	listBrowsers    = "browser"
 	listFileManager = "file-manager"
 	listSSHClients  = "ssh-client"
@@ -46,7 +45,6 @@ func hostLists(h host) map[string]lister {
 		"lys-wm-icon-theme": h.iconThemes,
 		"CursorTheme":       h.cursorThemes,
 		"Program":           h.programs,
-		typeTerminal:        h.terminals,
 		listBrowsers:        h.browsers,
 		listFileManager:     h.fileManagers,
 		listSSHClients:      h.sshClients,
@@ -207,7 +205,6 @@ func programRow(list string) rowOpt {
 }
 
 var (
-	terminalRow    = programRow(typeTerminal)
 	browserRow     = programRow(listBrowsers)
 	fileManagerRow = programRow(listFileManager)
 	sshClientRow   = programRow(listSSHClients)

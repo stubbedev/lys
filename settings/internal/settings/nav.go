@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os/exec"
+	"slices"
 	"strings"
 
 	"github.com/stubbedev/lys/desktop/config"
@@ -59,6 +60,10 @@ func (p pageSpec) on(installed parts) (pageSpec, bool) {
 		}
 	}
 	p.sections = sections
+	p.panel = slices.DeleteFunc(slices.Clone(p.panel), func(s panelSetting) bool {
+		_, shellKey := config.Field(s.path)
+		return shellKey && !installed.shell
+	})
 	if p.extrasOnRows && len(sections) == 0 {
 		p.lead, p.footer = nil, nil
 	}

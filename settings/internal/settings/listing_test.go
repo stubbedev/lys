@@ -127,7 +127,7 @@ func TestTheThemesComeFromTheIconDirectories(t *testing.T) {
 	}
 }
 
-func TestTheProgramsAndTerminalsAreListed(t *testing.T) {
+func TestTheProgramsAndAppsOfACategoryAreListed(t *testing.T) {
 	bin := t.TempDir()
 	data := t.TempDir()
 	h := fakeHost(t, map[string]string{"PATH": bin, "XDG_DATA_HOME": data, "XDG_DATA_DIRS": t.TempDir()})
@@ -139,11 +139,14 @@ func TestTheProgramsAndTerminalsAreListed(t *testing.T) {
 	if got := values(h.programs()); !slices.Equal(got, []string{"foot"}) {
 		t.Fatalf("programs %q", got)
 	}
-	put(t, filepath.Join(data, "applications/foot.desktop"), "[Desktop Entry]\nName=Foot\nExec=/usr/bin/foot --server\nCategories=System;TerminalEmulator;\n")
+	put(t, filepath.Join(data, "applications/nemo.desktop"), "[Desktop Entry]\nName=Nemo\nExec=/usr/bin/nemo --server\nCategories=System;FileManager;\n")
 	put(t, filepath.Join(data, "applications/firefox.desktop"), "[Desktop Entry]\nName=Firefox\nExec=firefox %u\nCategories=Network;\n")
-	got := h.terminals()
-	if len(got) != 1 || got[0].value != "foot" || got[0].label != "Foot" {
-		t.Fatalf("terminals %+v", got)
+	got := h.fileManagers()
+	if len(got) != 1 || got[0].value != "nemo" || got[0].label != "Nemo" {
+		t.Fatalf("file managers %+v", got)
+	}
+	if err := os.Remove(filepath.Join(data, "applications/nemo.desktop")); err != nil {
+		t.Fatal(err)
 	}
 	put(t, filepath.Join(data, "applications/nautilus.desktop"), "[Desktop Entry]\nName=Files\nExec=nautilus --new-window %U\nCategories=GNOME;Utility;Core;FileManager;\n")
 	put(t, filepath.Join(data, "applications/chromium.desktop"), "[Desktop Entry]\nName=Chromium\nExec=chromium %U\nCategories=Network;WebBrowser;\n")
@@ -229,20 +232,20 @@ func TestTheListingsReadNoDirectoryRelativeToTheWorkingDirectory(t *testing.T) {
 	t.Chdir(cwd)
 	system := t.TempDir()
 	h := fakeHost(t, map[string]string{"HOME": "home", "XDG_DATA_HOME": "data", "XDG_DATA_DIRS": "share::" + system})
-	terminal := func(name string) string {
-		return "[Desktop Entry]\nName=" + name + "\nExec=" + name + "\nCategories=TerminalEmulator;\n"
+	browser := func(name string) string {
+		return "[Desktop Entry]\nName=" + name + "\nExec=" + name + "\nCategories=WebBrowser;\n"
 	}
 	for _, data := range []string{"", "data", "share", "home/.local/share"} {
-		put(t, filepath.Join(cwd, data, "applications/stray.desktop"), terminal("stray"))
+		put(t, filepath.Join(cwd, data, "applications/stray.desktop"), browser("stray"))
 		put(t, filepath.Join(cwd, data, "fonts/Stray.ttf"), "")
 		put(t, filepath.Join(cwd, data, "sounds/stray/stereo/stray.oga"), "")
 	}
 	put(t, filepath.Join(cwd, "home/.fonts/Stray.ttf"), "")
-	put(t, filepath.Join(system, "applications/foot.desktop"), terminal("foot"))
+	put(t, filepath.Join(system, "applications/foot.desktop"), browser("foot"))
 	put(t, filepath.Join(system, "fonts/Inter.ttf"), "")
 	put(t, filepath.Join(system, "sounds/freedesktop/stereo/bell.oga"), "")
-	if got := values(h.terminals()); !slices.Equal(got, []string{"foot"}) {
-		t.Errorf("terminals %q, want the system data directory's alone", got)
+	if got := values(h.browsers()); !slices.Equal(got, []string{"foot"}) {
+		t.Errorf("browsers %q, want the system data directory's alone", got)
 	}
 	if got := values(h.fontFiles()); !slices.Equal(got, []string{filepath.Join(system, "fonts/Inter.ttf")}) {
 		t.Errorf("fonts %q, want the system data directory's alone", got)

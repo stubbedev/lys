@@ -71,6 +71,7 @@ ld-square-symbolic
 ld-sun-moon-symbolic
 ld-sun-symbolic
 ld-tablet-symbolic
+ld-terminal-symbolic
 ld-trash-2-symbolic
 ld-tv-symbolic
 ld-type-symbolic

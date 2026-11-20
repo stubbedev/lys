@@ -5,6 +5,8 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/stubbedev/lys/desktop/config"
+
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
@@ -171,7 +173,8 @@ func TestTheTerminalIsSetOnDefaultAppsAlone(t *testing.T) {
 	if slices.Contains(rowPaths(bothParts, "launcher"), "launcher.terminal") {
 		t.Error("the launcher page still holds the terminal")
 	}
-	if !slices.Contains(rowPaths(bothParts, "default-apps"), "launcher.terminal") {
+	p, _ := pageByID(layout(config.Defaults(), bothParts), defaultAppsID)
+	if !slices.ContainsFunc(p.panel, func(s panelSetting) bool { return s.path == terminalPath }) {
 		t.Error("Default Apps lost the terminal")
 	}
 }

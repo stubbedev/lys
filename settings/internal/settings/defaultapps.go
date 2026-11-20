@@ -18,6 +18,10 @@ import (
 const (
 	defaultAppsID  = "default-apps"
 	fileTypesShown = 40
+	terminalPath   = "launcher.terminal"
+	terminalIcon   = "ld-terminal-symbolic"
+	appTileIconPx  = 32
+	appTileW       = 168
 )
 
 type appCategory struct {
@@ -41,10 +45,8 @@ func defaultAppsPage(*config.Config) pageSpec {
 	return pageSpec{
 		id: defaultAppsID, navKey: "settings-nav-default-apps", icon: "ld-app-window-symbolic",
 		header: "settings-page-default-apps",
-		sections: []sectionSpec{
-			{title: "settings-section-default-terminal", rows: []rowSpec{field("launcher.terminal", terminalRow)}},
-		},
 		footer: defaultAppsFooter,
+		panel:  []panelSetting{{terminalPath, "settings-default-terminal", "settings-section-default-categories"}},
 	}
 }
 
@@ -95,6 +97,17 @@ func (ix appIndex) candidates(types []string) []desktopentry.App {
 	for _, a := range ix.all {
 		mimes := a.MimeTypes()
 		if slices.ContainsFunc(types, func(t string) bool { return slices.Contains(mimes, t) }) {
+			out = append(out, a)
+		}
+	}
+	slices.SortFunc(out, byDisplayName)
+	return out
+}
+
+func (ix appIndex) terminals() []desktopentry.App {
+	var out []desktopentry.App
+	for _, a := range ix.all {
+		if _, runs := execProgram(a.Exec()); runs && a.ShouldShow() && slices.Contains(strings.Split(a.Categories(), ";"), terminalCategory) {
 			out = append(out, a)
 		}
 	}
@@ -193,13 +206,122 @@ func (d *defaultApps) write(change func() error) {
 func (d *defaultApps) show(ix appIndex) {
 	d.ix = ix
 	d.cats.Clear()
-	rows := widget.NewItemGroup()
+	tiles := widget.NewWrapBox(choiceCardGap, choiceCardGap, widget.JustifyStart)
+	tiles.AddClass("default-app-tiles")
 	t := locale.T()
 	for _, c := range appCategories {
-		rows.Append(d.chooser(t.Get(c.key), c.types))
+		tiles.Append(d.categoryTile(t.Get(c.key), c.types))
 	}
-	d.cats.Append(rows, false)
+	if d.k.parts.shell {
+		tiles.Append(d.terminalTile())
+	}
+	d.cats.Append(tiles, false)
 	d.showTypes()
+}
+
+type appTile struct {
+	*widget.Box
+	button *widget.Button
+	app    *widget.Label
+}
+
+func (d *defaultApps) tile(title, icon, app string, pick func(anchor widget.Widget), reset func()) *appTile {
+	face := widget.NewBox(widget.Column, widget.Current().Spacing/2, 0)
+	face.AppendAligned(widget.NewThemeIcon(cmp.Or(icon, appFallbackIcon), appTileIconPx), false, widget.AlignCenter)
+	face.AppendAligned(d.k.label(title, css.Caption, css.DimLabel), false, widget.AlignCenter)
+	tile := &appTile{Box: widget.NewBox(widget.Column, widget.Current().Spacing/2, 0), app: d.k.label(app)}
+	tile.app.SetEllipsize(widget.EllipsizeEnd)
+	face.AppendAligned(tile.app, false, widget.AlignCenter)
+	tile.button = d.k.button(face, nil, css.Card, "default-app-tile")
+	tile.button.SetSizeRequest(appTileW, -1)
+	tile.button.SetAccessibleName(title)
+	tile.button.SetTooltip(app)
+	if pick == nil {
+		tile.button.SetEnabled(false)
+	} else {
+		tile.button.OnClick = func() {
+			if d.k.pickers != nil {
+				pick(tile.button)
+			}
+		}
+	}
+	tile.Append(tile.button, false)
+	if reset != nil {
+		tile.AppendAligned(d.resetButton(title, reset), false, widget.AlignCenter)
+	}
+	return tile
+}
+
+func (d *defaultApps) resetButton(title string, reset func()) *widget.Button {
+	t := locale.T()
+	b := d.k.button(d.k.label(t.Get("settings-default-reset")), reset, css.Small, css.Flat)
+	b.SetAccessibleName(t.Get("settings-default-reset-named", i18n.Str("name", title)))
+	b.SetTooltip(t.Get("settings-default-reset-tooltip"))
+	return b
+}
+
+func (d *defaultApps) typesReset(types []string) func() {
+	if !d.ix.user.Overrides(types) {
+		return nil
+	}
+	return func() { d.write(func() error { return resetAssociations(types) }) }
+}
+
+func (d *defaultApps) categoryTile(title string, types []string) *appTile {
+	t := locale.T()
+	reset := d.typesReset(types)
+	apps := d.ix.candidates(types)
+	if len(apps) == 0 {
+		return d.tile(title, "", t.Get("settings-default-none"), nil, reset)
+	}
+	pick := func(anchor widget.Widget) {
+		openAppPicker(d.k, anchor, apps, func(a desktopentry.App) {
+			d.write(func() error { return setDefaults(a.ID, types) })
+		})
+	}
+	current, mixed := d.ix.currentOf(types)
+	i := slices.IndexFunc(apps, func(a desktopentry.App) bool { return a.ID == current })
+	switch {
+	case mixed:
+		return d.tile(title, "", t.Get("settings-default-mixed"), pick, reset)
+	case i < 0:
+		return d.tile(title, "", t.Get("settings-default-unset"), pick, reset)
+	}
+	return d.tile(title, apps[i].Icon(), apps[i].DisplayName(), pick, reset)
+}
+
+func (d *defaultApps) terminalTile() *appTile {
+	t := locale.T()
+	title := t.Get("settings-default-terminal")
+	current, _ := d.k.store.value(terminalPath).(string)
+	var reset func()
+	if !d.k.store.isDefault(terminalPath) {
+		reset = func() {
+			d.k.store.reset(terminalPath)
+			d.fail(nil)
+			d.show(d.ix)
+		}
+	}
+	apps := d.ix.terminals()
+	var pick func(anchor widget.Widget)
+	if len(apps) > 0 {
+		pick = func(anchor widget.Widget) {
+			openAppPicker(d.k, anchor, apps, func(a desktopentry.App) {
+				program, _ := execProgram(a.Exec())
+				d.fail(d.k.store.set(terminalPath, program))
+				d.show(d.ix)
+			})
+		}
+	}
+	if current == "" {
+		return d.tile(title, terminalIcon, t.Get("settings-default-terminal-auto"), pick, reset)
+	}
+	for _, a := range apps {
+		if program, _ := execProgram(a.Exec()); program == current {
+			return d.tile(title, cmp.Or(a.Icon(), terminalIcon), a.DisplayName(), pick, reset)
+		}
+	}
+	return d.tile(title, terminalIcon, current, pick, reset)
 }
 
 func (d *defaultApps) showTypes() {
@@ -228,13 +350,8 @@ func (d *defaultApps) chooser(title string, types []string) widget.Widget {
 	row.SetElement("item")
 	row.AddClass(css.Small, "setting-row", "default-app")
 	row.AppendAligned(d.k.label(title, "setting-label"), true, widget.AlignCenter)
-	if d.ix.user.Overrides(types) {
-		reset := d.k.button(d.k.label(locale.T().Get("settings-default-reset")), func() {
-			d.write(func() error { return resetAssociations(types) })
-		}, css.Small, css.Flat)
-		reset.SetAccessibleName(locale.T().Get("settings-default-reset-named", i18n.Str("name", title)))
-		reset.SetTooltip(locale.T().Get("settings-default-reset-tooltip"))
-		row.AppendAligned(reset, false, widget.AlignCenter)
+	if reset := d.typesReset(types); reset != nil {
+		row.AppendAligned(d.resetButton(title, reset), false, widget.AlignCenter)
 	}
 	if len(apps) == 0 {
 		row.AppendAligned(d.k.label(locale.T().Get("settings-default-none"), css.DimLabel), false, widget.AlignCenter)

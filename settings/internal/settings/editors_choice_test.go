@@ -21,7 +21,6 @@ var listFixtures = map[string][]choice{
 	"lys-wm-icon-theme": {{value: "Adwaita", label: "Adwaita"}},
 	"CursorTheme":       {{value: "Bibata", label: "Bibata Modern"}},
 	"Program":           {{value: "foot", label: "foot"}, {value: "ssh", label: "ssh"}, {value: "xdg-open", label: "xdg-open"}},
-	typeTerminal:        {{value: "foot", label: "Foot"}, {value: "kitty", label: "kitty"}},
 	listBrowsers:        {{value: "firefox", label: "Firefox"}},
 	listFileManager:     {{value: "nautilus", label: "Files"}},
 	listSSHClients:      {{value: "mosh", label: "mosh"}, {value: "ssh", label: "ssh"}},
@@ -269,22 +268,6 @@ func TestAProgramIsAListedNameOrAPath(t *testing.T) {
 		if c.unknown.Visible() != unknown {
 			t.Errorf("%s: unknown %v", value, c.unknown.Visible())
 		}
-	}
-}
-
-func TestTheTerminalRowListsTerminalEmulators(t *testing.T) {
-	k := testKit(t, "")
-	c := shellControl(t, k, "launcher.terminal", terminalRow).(*choiceEditor)
-	p := openChoices(t, k, c)
-	if !slices.Contains(p.all, "kitty") || slices.Contains(p.all, "xdg-open") {
-		t.Fatalf("offered %q", p.all)
-	}
-	pickName(t, p, "kitty")
-	if v := k.store.value("launcher.terminal"); v != "kitty" {
-		t.Fatalf("%v", v)
-	}
-	if c.unknown.Visible() {
-		t.Fatal("a terminal command is never unknown")
 	}
 }
 

@@ -211,6 +211,11 @@ func shellRowPaths() map[string]bool {
 	rows := map[string]bool{}
 	for _, s := range layout(config.Defaults(), bothParts) {
 		for _, p := range s.pages {
+			for _, ps := range p.panel {
+				if _, shellKey := config.Field(ps.path); shellKey && !p.wm {
+					rows[ps.path] = true
+				}
+			}
 			for _, sec := range p.sections {
 				for _, r := range sec.flatRows() {
 					if !p.wm && !r.wm {

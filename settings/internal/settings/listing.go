@@ -233,18 +233,25 @@ func (h host) appsIn(category string) []choice {
 			if !slices.Contains(categories, category) {
 				continue
 			}
-			fields := strings.Fields(iniValue(entry, "Desktop Entry", "Exec"))
-			if len(fields) == 0 {
+			program, ok := execProgram(iniValue(entry, "Desktop Entry", "Exec"))
+			if !ok {
 				continue
 			}
-			program := filepath.Base(fields[0])
 			out = append(out, choice{value: program, label: cmp.Or(iniValue(entry, "Desktop Entry", "Name"), program)})
 		}
 	}
 	return sortedChoices(out)
 }
 
-func (h host) terminals() []choice { return h.appsIn("TerminalEmulator") }
+func execProgram(exec string) (string, bool) {
+	fields := strings.Fields(exec)
+	if len(fields) == 0 {
+		return "", false
+	}
+	return filepath.Base(fields[0]), true
+}
+
+const terminalCategory = "TerminalEmulator"
 
 func (h host) browsers() []choice { return h.appsIn("WebBrowser") }
 
