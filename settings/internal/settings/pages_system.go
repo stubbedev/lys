@@ -54,8 +54,10 @@ func lockPage(*config.Config) pageSpec {
 		id: "lock", navKey: "settings-nav-lock-page", icon: "ld-lock-symbolic",
 		header: "settings-page-lock",
 		sections: []sectionSpec{
-			{title: "settings-section-general", rows: fields("login.lock.enabled", "login.lock.fingerprint",
-				"login.lock.show-media", "login.lock.show-battery", "login.lock.show-switch-user")},
+			{title: "settings-section-general", rows: []rowSpec{
+				field("login.lock.enabled"), field("login.lock.fingerprint", fingerprintRow),
+				field("login.lock.show-media"), field("login.lock.show-battery"), field("login.lock.show-switch-user"),
+			}},
 			{title: "settings-section-background", rows: []rowSpec{
 				field("login.background-mode", pictureChoice(lockBackgroundPictures)),
 				field("login.background-image", filePath, shownWhen("login.background-mode", valueIn(string(config.BackgroundImage)))),
@@ -74,7 +76,7 @@ func lockPage(*config.Config) pageSpec {
 			}},
 			{title: "settings-section-lock-advanced", advanced: true, rows: fields("login.lock.pam-service", "login.lock.lock-on-start")},
 			{title: "settings-section-animation", advanced: true, rows: surfaceAnimationRows("animations.lock")},
-			{title: "settings-section-login-screen", rows: fields("login.greeter.show-user-list", "login.greeter.show-power-buttons", "login.greeter.fingerprint", "login.greeter.screen-reader")},
+			{title: "settings-section-login-screen", rows: []rowSpec{field("login.greeter.show-user-list"), field("login.greeter.show-power-buttons"), field("login.greeter.fingerprint", fingerprintRow), field("login.greeter.screen-reader")}},
 			{title: "settings-section-cursor", rows: []rowSpec{field("login.greeter.cursor-theme"), field("login.greeter.cursor-size", countChips(inPixels, 24, 32, 48, 64, 96))}},
 		},
 		footer: lockFooter, extrasOnRows: true,
@@ -115,7 +117,7 @@ var loginRuntimeDir = dmsocket.DefaultRuntimeDir
 
 var lockLinks = []pageLink{
 	{"idle", "settings-lock-link-idle-detail"},
-	{"users", "settings-lock-link-users-detail"},
+	{usersID, "settings-lock-link-users-detail"},
 }
 
 func lockLinksSection(k *kit) widget.Widget {

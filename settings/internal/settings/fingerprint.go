@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
@@ -446,4 +447,90 @@ func (s *fingerprintSection) deleteFinger(finger string) {
 		err := fp.device.call(ctx, "DeleteEnrolledFinger", finger)
 		return errors.Join(err, fp.device.call(ctx, "Release"))
 	})
+}
+
+// fingersEnrolled is how many fingers this user has enrolled on the
+// default reader, errNoReader without one (a seam for tests).
+var fingersEnrolled = func(k *kit) (int, error) {
+	conn, err := k.systemBus()
+	if err != nil {
+		return 0, err
+	}
+	defer func() { _ = conn.Close() }()
+	return withTimeout(func(ctx context.Context) (int, error) {
+		fp, err := openFprint(ctx, conn, "")
+		if err != nil {
+			return 0, err
+		}
+		fingers, err := fp.enrolled(ctx)
+		return len(fingers), err
+	})
+}
+
+// fingerprintRow is a switch letting a finger unlock, held back while no
+// reader is there or no finger is enrolled, saying which beneath it with
+// a way to enrol one.
+var fingerprintRow = withEditor(func(k *kit, s slot, _ config.FieldMeta) control {
+	return newFingerprintSwitch(k, s)
+})
+
+type fingerprintReading struct {
+	fingers int
+	err     error
+}
+
+type fingerprintSwitch struct {
+	*widget.Box
+	toggle  *toggle
+	status  *widget.Label
+	enrol   *widget.Button
+	reading fingerprintReading
+	known   bool
+}
+
+func newFingerprintSwitch(k *kit, s slot) *fingerprintSwitch {
+	c := &fingerprintSwitch{Box: gapBox(widget.Column), toggle: newToggle(k, s), status: k.label("", "setting-description", css.Caption, css.DimLabel)}
+	c.AppendAligned(c.toggle, false, widget.AlignEnd)
+	c.AppendAligned(wrapped(c.status), false, widget.AlignEnd)
+	if users, ok := pageByID(k.nav, usersID); ok {
+		c.enrol = k.button(k.label(locale.T().Get("settings-fingerprint-enrol")), func() { k.openPage(users.id) }, css.Secondary, css.Small)
+		c.AppendAligned(c.enrol, false, widget.AlignEnd)
+	}
+	async(k, func() fingerprintReading {
+		n, err := fingersEnrolled(k)
+		return fingerprintReading{n, err}
+	}, func(r fingerprintReading) {
+		c.reading, c.known = r, true
+		c.fit()
+	})
+	c.fit()
+	return c
+}
+
+func (c *fingerprintSwitch) ready() bool { return c.reading.err == nil && c.reading.fingers > 0 }
+
+func (c *fingerprintSwitch) fit() {
+	t := locale.T()
+	r := c.reading
+	c.status.SetVisible(c.known && !c.ready())
+	if c.enrol != nil {
+		c.enrol.SetVisible(c.known && r.err == nil && r.fingers == 0)
+	}
+	if !c.known {
+		return
+	}
+	switch {
+	case errors.Is(r.err, errNoReader):
+		c.status.SetText(t.Get("settings-fingerprint-no-reader"))
+	case r.err != nil:
+		c.status.SetText(r.err.Error())
+	case r.fingers == 0:
+		c.status.SetText(t.Get("settings-fingerprint-none"))
+	}
+	c.toggle.SetEnabled(c.ready() || c.toggle.On() || (r.err != nil && !errors.Is(r.err, errNoReader)))
+}
+
+func (c *fingerprintSwitch) refresh() {
+	c.toggle.refresh()
+	c.fit()
 }

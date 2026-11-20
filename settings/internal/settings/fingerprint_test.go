@@ -1,6 +1,7 @@
 package settings
 
 import (
+	"errors"
 	"slices"
 	"strings"
 	"sync/atomic"
@@ -363,5 +364,87 @@ func TestTheHandsShowEachFingerWhereItIsAndTheProgressOnTheOneEnrolled(t *testin
 		if fh.AccessibleName() != fingerName(fingers[i]) {
 			t.Errorf("finger %d is named %q", i, fh.AccessibleName())
 		}
+	}
+}
+
+func TestTheFingersEnrolledAreCountedOnTheDefaultReader(t *testing.T) {
+	for _, tc := range []struct {
+		device   bool
+		enrolled []string
+		want     int
+		noReader bool
+	}{
+		{true, []string{"right-index-finger", "left-thumb"}, 2, false},
+		{true, nil, 0, false},
+		{false, nil, 0, true},
+	} {
+		bus := dbustest.Start(t)
+		enrolled := tc.enrolled
+		serveFprint(t, bus, tc.device, &enrolled, &atomic.Bool{})
+		k := testKit(t, "")
+		k.systemBus = func() (*dbus.Conn, error) { return dbus.Connect(bus.Address) }
+		n, err := fingersEnrolled(k)
+		if n != tc.want || errors.Is(err, errNoReader) != tc.noReader || (err != nil && !tc.noReader) {
+			t.Errorf("device %v, enrolled %q: %d fingers, error %v", tc.device, tc.enrolled, n, err)
+		}
+	}
+}
+
+func TestAFingerprintSwitchIsHeldBackUntilAFingerCanUnlock(t *testing.T) {
+	tr := locale.T()
+	for _, tc := range []struct {
+		name    string
+		reading fingerprintReading
+		on      bool
+		status  string
+		enrol   bool
+		enabled bool
+	}{
+		{"a finger enrolled", fingerprintReading{fingers: 1}, false, "", false, true},
+		{"none enrolled", fingerprintReading{}, false, tr.Get("settings-fingerprint-none"), true, false},
+		{"no reader", fingerprintReading{err: errNoReader}, false, tr.Get("settings-fingerprint-no-reader"), false, false},
+		{"no reader, but on", fingerprintReading{err: errNoReader}, true, tr.Get("settings-fingerprint-no-reader"), false, true},
+		{"fprintd unreachable", fingerprintReading{err: errors.New("the system bus is gone")}, false, "the system bus is gone", false, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			yaml := "login:\n  lock:\n    fingerprint: false\n"
+			if tc.on {
+				yaml = "login:\n  lock:\n    fingerprint: true\n"
+			}
+			k := testKit(t, yaml)
+			k.nav = layout(k.store.svc.Config(), bothParts)
+			var opened []string
+			k.openPage = func(id string) { opened = append(opened, id) }
+			was := fingersEnrolled
+			fingersEnrolled = func(*kit) (int, error) { return tc.reading.fingers, tc.reading.err }
+			t.Cleanup(func() { fingersEnrolled = was })
+			c, ok := fieldControl(k, k.store, pageRow(t, "lock", "login.lock.fingerprint")).(*fingerprintSwitch)
+			if !ok {
+				t.Fatal("the lock's fingerprint row is a plain switch")
+			}
+			status := ""
+			if c.status.Visible() {
+				status = c.status.Text()
+			}
+			if status != tc.status {
+				t.Errorf("the status reads %q, want %q", status, tc.status)
+			}
+			if widget.IsEnabled(c.toggle) != tc.enabled {
+				t.Errorf("the switch is enabled %v, want %v", widget.IsEnabled(c.toggle), tc.enabled)
+			}
+			if c.enrol.Visible() != tc.enrol {
+				t.Fatalf("the way to enrol a finger is shown %v, want %v", c.enrol.Visible(), tc.enrol)
+			}
+			if tc.enrol {
+				c.enrol.OnClick()
+				if !slices.Equal(opened, []string{usersID}) {
+					t.Errorf("enrolling opened %q", opened)
+				}
+			}
+		})
+	}
+	k := testKit(t, "")
+	if _, ok := fieldControl(k, k.store, pageRow(t, "lock", "login.greeter.fingerprint")).(*fingerprintSwitch); !ok {
+		t.Error("the login screen's fingerprint row is a plain switch")
 	}
 }
