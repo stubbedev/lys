@@ -264,7 +264,7 @@ input:
 | `left_handed` | Bool: swap buttons (a tablet: turn it around) |
 | `click_method` | `button_areas`, `clickfinger`, `none` |
 | `scroll_method` | `two_finger`, `edge`, `on_button_down`, `none` |
-| `scroll_button` | Button for `on_button_down`: `left`, `right`, `middle`, `side`, `extra`, `forward`, `back`, `task`, or an evdev code above 0 (`275`) |
+| `scroll_button` | Button for `on_button_down`: `left`, `right`, `middle`, `side`, `extra`, `forward`, `back`, `task`, or an evdev code from 1 to 65535 (`275`) |
 | `scroll_button_lock` | Bool: a click on `scroll_button` toggles scrolling |
 | `tap_button_map` | `lrm` or `lmr`: buttons for one-, two-, three-finger taps |
 | `accel_profile` | `adaptive` or `flat`. Default `flat` under `input.pointer`, `adaptive` under `input.touchpad` and `input.trackpoint`; under `input.devices` the device's class |

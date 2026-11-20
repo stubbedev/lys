@@ -1452,6 +1452,11 @@ func (p *parser) between(a *At[float64], key string, lo, hi float64, open bool) 
 	return &a.V
 }
 
+const (
+	buttonCodeBits = 16
+	maxButtonCode  = 1<<buttonCodeBits - 1
+)
+
 var buttons = map[string]uint32{
 	"left": 0x110, "right": 0x111, "middle": 0x112, "side": 0x113,
 	"extra": 0x114, "forward": 0x115, "back": 0x116, "task": 0x117,
@@ -1464,9 +1469,9 @@ func (p *parser) button(a *At[buttonName], key string) *uint32 {
 	if code, ok := buttons[string(a.V)]; ok {
 		return &code
 	}
-	code, err := strconv.ParseUint(string(a.V), 10, 16)
+	code, err := strconv.ParseUint(string(a.V), 10, buttonCodeBits)
 	if err != nil || code == 0 {
-		p.fail(a.Line, key, "%q is not a button code above 0 or one of %s", a.V, strings.Join(slices.Sorted(maps.Keys(buttons)), ", "))
+		p.fail(a.Line, key, "%q is not a button code from 1 to %d or one of %s", a.V, maxButtonCode, strings.Join(slices.Sorted(maps.Keys(buttons)), ", "))
 		return nil
 	}
 	v := uint32(code)

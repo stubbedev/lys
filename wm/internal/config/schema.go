@@ -374,7 +374,7 @@ func schemaFor(t reflect.Type, path string, notes map[string]annotation) *schema
 	case t == sidesType:
 		n.OneOf = []*schemaNode{{Type: "integer"}, {Type: "array", Items: &schemaNode{Type: "integer"}}}
 	case t == buttonType:
-		n.OneOf = []*schemaNode{{Type: "string", Enum: enumValues(annotation{enum: slices.Sorted(maps.Keys(buttons))})}, {Type: "integer", Minimum: new(1.0)}}
+		n.OneOf = []*schemaNode{{Type: "string", Enum: enumValues(annotation{enum: slices.Sorted(maps.Keys(buttons))})}, {Type: "integer", Minimum: new(1.0), Maximum: new(float64(maxButtonCode))}}
 	case t == widthType:
 		n.OneOf = []*schemaNode{{Type: "number", ExclusiveMinimum: new(0.0), Maximum: new(1.0)}, {Type: "string", Pattern: pixelsPattern}}
 	case t == borderType:

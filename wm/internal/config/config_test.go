@@ -1413,6 +1413,7 @@ func TestDeviceSettingsParseIntoTypedValues(t *testing.T) {
 	for text, want := range map[string]string{
 		"input:\n  pointer:\n    scroll_button: thumb\n":                                             "t.yaml:3: input.pointer.scroll_button:",
 		"input:\n  pointer:\n    scroll_button: 0\n":                                                 "t.yaml:3: input.pointer.scroll_button:",
+		"input:\n  pointer:\n    scroll_button: 65536\n":                                             "t.yaml:3: input.pointer.scroll_button: \"65536\" is not a button code from 1 to 65535",
 		"input:\n  pointer:\n    accel_profile: flat\n    accel_points: {step: 1, points: [0, 1]}\n": "t.yaml:3: input.pointer.accel_profile: accel_points already selects",
 		"input:\n  pointer:\n    accel_points: {step: 1, points: [1]}\n":                             "t.yaml:3: input.pointer.accel_points: 1 points",
 		"input:\n  devices:\n    x:\n      region: [0.5, 0, 0.75, 1]\n":                              "t.yaml:4: input.devices.\"x\".region:",

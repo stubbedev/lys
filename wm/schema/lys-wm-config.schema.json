@@ -3565,7 +3565,8 @@
                   },
                   {
                     "type": "integer",
-                    "minimum": 1
+                    "minimum": 1,
+                    "maximum": 65535
                   }
                 ]
               },
@@ -3726,7 +3727,8 @@
                 },
                 {
                   "type": "integer",
-                  "minimum": 1
+                  "minimum": 1,
+                  "maximum": 65535
                 }
               ]
             },
@@ -3834,7 +3836,8 @@
                 },
                 {
                   "type": "integer",
-                  "minimum": 1
+                  "minimum": 1,
+                  "maximum": 65535
                 }
               ]
             },
@@ -3942,7 +3945,8 @@
                 },
                 {
                   "type": "integer",
-                  "minimum": 1
+                  "minimum": 1,
+                  "maximum": 65535
                 }
               ]
             },
