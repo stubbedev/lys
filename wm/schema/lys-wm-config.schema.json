@@ -5772,10 +5772,12 @@
         "type": "object",
         "properties": {
           "exec": {
-            "type": "string"
+            "type": "string",
+            "format": "lys-wm-command"
           },
           "hide_on_workspace_switch": {
-            "type": "boolean"
+            "type": "boolean",
+            "default": true
           },
           "size": {
             "type": "string"
@@ -6419,7 +6421,8 @@
             "additionalProperties": false
           },
           "default": {
-            "type": "boolean"
+            "type": "boolean",
+            "default": false
           },
           "gaps": {
             "type": "object",
@@ -6444,25 +6447,37 @@
             "additionalProperties": false
           },
           "id": {
-            "type": "integer"
+            "type": "integer",
+            "minimum": 1
           },
           "layout": {
-            "type": "string"
+            "type": "string",
+            "enum": [
+              "scroll",
+              "tree"
+            ]
           },
           "match": {
-            "type": "string"
+            "type": "string",
+            "enum": [
+              "any",
+              "fullscreen",
+              "single_tiled"
+            ]
           },
           "name": {
             "type": "string"
           },
           "on_created_empty": {
-            "type": "string"
+            "type": "string",
+            "format": "lys-wm-command"
           },
           "output": {
             "type": "string"
           },
           "persistent": {
-            "type": "boolean"
+            "type": "boolean",
+            "default": false
           },
           "rounding": {
             "type": "integer"

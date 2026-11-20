@@ -49,6 +49,7 @@ Schema `format`s for string keys:
 | `lys-wm-drm-device` | `gpu` | `cardN` or `/dev/dri/cardN`; never a render node | Refused; leave the key out |
 | `lys-wm-chord` | `binds[].chord`, `submaps.*[].chord` | A [chord](#binds-and-submaps) | Refused |
 | `lys-wm-action` | every `action` | An [action](./actions.md) | Refused |
+| `lys-wm-command` | `workspaces[].on_created_empty`, `scratchpads.*.exec` | A shell command, run as `exec` runs one | Nothing is run |
 | `regex` | `rules[].app_id`, `rules[].title`, `rules[].tag`, `swallow.terminals`, `swallow.except_title` | A Go (RE2) regular expression | Matches everything |
 
 XKB names are those in `/usr/share/X11/xkb/rules/evdev.xml`. A name with a
