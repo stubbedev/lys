@@ -19,12 +19,13 @@ import (
 )
 
 // ruleGroup is the part of the rule editor a key of a rule belongs in:
-// what the rule applies to, first or among the further conditions, or the
-// group of effects it is filed under.
+// the switch in its card's header, what the rule applies to, first or
+// among the further conditions, or the group of effects it is filed under.
 type ruleGroup int
 
 const (
-	ruleMatch ruleGroup = iota
+	ruleEnabled ruleGroup = iota
+	ruleMatch
 	ruleMoreMatch
 	rulePlacement
 	ruleAppearance
@@ -36,6 +37,7 @@ var ruleEffectGroups = []ruleGroup{rulePlacement, ruleAppearance, ruleBehaviour,
 
 func (g ruleGroup) labelKey() string {
 	return [...]string{
+		ruleEnabled:     wmKey(rulesLabels + "." + ruleEnabledKey),
 		ruleMatch:       "wm-rules-applies-to",
 		ruleMoreMatch:   "wm-rules-more-conditions",
 		rulePlacement:   "wm-rules-group-placement",
@@ -44,6 +46,9 @@ func (g ruleGroup) labelKey() string {
 		rulePerformance: "wm-rules-group-performance",
 	}[g]
 }
+
+// ruleEnabledKey switches a rule of either list on or off.
+const ruleEnabledKey = "enabled"
 
 // rulesLabels is the label prefix every rule list's keys share, so a key
 // window and layer rules both take reads alike in each.
@@ -66,7 +71,8 @@ type ruleKind struct {
 var windowRules = ruleKind{
 	path: rulesKey,
 	groups: map[string]ruleGroup{
-		appIDKey: ruleMatch, titleKey: ruleMatch,
+		ruleEnabledKey: ruleEnabled,
+		appIDKey:       ruleMatch, titleKey: ruleMatch,
 		"initial_app_id": ruleMoreMatch, "initial_title": ruleMoreMatch, "tag": ruleMoreMatch, "xwayland": ruleMoreMatch,
 		"is_floating": ruleMoreMatch, "is_focused": ruleMoreMatch, "is_fullscreen": ruleMoreMatch, "is_urgent": ruleMoreMatch,
 		"is_captured": ruleMoreMatch, "exclude": ruleMoreMatch,
@@ -110,8 +116,9 @@ const (
 var layerRules = ruleKind{
 	path: layerRulesKey,
 	groups: map[string]ruleGroup{
-		namespaceKey: ruleMatch,
-		"animation":  ruleAppearance, "blur": ruleAppearance, "blur_alpha_threshold": ruleAppearance, "opacity": ruleAppearance,
+		ruleEnabledKey: ruleEnabled,
+		namespaceKey:   ruleMatch,
+		"animation":    ruleAppearance, "blur": ruleAppearance, "blur_alpha_threshold": ruleAppearance, "opacity": ruleAppearance,
 		"rounding": ruleAppearance, "shadow": ruleAppearance, "dim_around": ruleAppearance,
 		"block_out_from": ruleBehaviour,
 	},
@@ -177,6 +184,7 @@ func ruleAppChoices(k *kit) []choice {
 type ruleParts struct {
 	match, more, effects []string
 	group                map[string]ruleGroup
+	toggle               cardToggle
 }
 
 func splitRuleKeys(w *wmBackend, kind ruleKind) ruleParts {
@@ -186,12 +194,15 @@ func splitRuleKeys(w *wmBackend, kind ruleKind) ruleParts {
 		log.Panicf("settings: lys-wm's %s holds no rules", kind.path)
 	}
 	parts := ruleParts{group: kind.groups}
+	switchable := false
 	for _, key := range keys {
 		g, ok := kind.groups[key]
 		if !ok {
 			log.Panicf("settings: lys-wm's %s.%s has no part in the rule editor", kind.path, key)
 		}
 		switch g {
+		case ruleEnabled:
+			parts.toggle, switchable = cardToggle{key: key, nameKey: g.labelKey()}, true
 		case ruleMatch:
 			parts.match = append(parts.match, key)
 		case ruleMoreMatch:
@@ -199,6 +210,9 @@ func splitRuleKeys(w *wmBackend, kind ruleKind) ruleParts {
 		default:
 			parts.effects = append(parts.effects, key)
 		}
+	}
+	if !switchable {
+		log.Panicf("settings: lys-wm's %s cannot be switched off", kind.path)
 	}
 	return parts
 }
@@ -227,9 +241,10 @@ func newRuleList(k *kit, s slot, kind ruleKind) *cardList {
 	var apps installedApps
 	check := w.checker(kind.path)
 	spec := cardSpec{
-		check: func(items []any) func() error { return check(items) },
-		title: func(it map[string]any, number int) string { return kind.title(it, number, apps) },
-		aside: func(k *kit) cardAside { return newRuleChips(k, parts) },
+		check:  func(items []any) func() error { return check(items) },
+		title:  func(it map[string]any, number int) string { return kind.title(it, number, apps) },
+		aside:  func(k *kit) cardAside { return newRuleChips(k, parts) },
+		toggle: &parts.toggle,
 		fields: []cardField{
 			{label: ruleMatch.labelKey(), fill: true, keys: append(slices.Clone(parts.match), parts.more...), item: func(k *kit, field func(key string) slot) control {
 				return newRuleMatch(k, kind.match(w, item), parts.more, more, field)

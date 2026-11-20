@@ -104,6 +104,7 @@ wm-rules-group-performance = Prestazioni
 wm-rules-add-effect = Aggiungi effetto…
 wm-rules-no-effects = Questa regola non cambia ancora nulla: aggiungi un effetto.
 wm-rules-remove-effect = Rimuovi questo effetto
+wm-rules-enabled = Applica questa regola
 wm-rules-apps-running = In esecuzione
 wm-rules-border = Bordo
 wm-rules-blur-look = Aspetto della sfocatura

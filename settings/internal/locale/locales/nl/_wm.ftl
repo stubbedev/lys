@@ -102,6 +102,7 @@ wm-rules-group-performance = Prestaties
 wm-rules-add-effect = Effect toevoegen…
 wm-rules-no-effects = Deze regel verandert nog niets: voeg een effect toe.
 wm-rules-remove-effect = Dit effect verwijderen
+wm-rules-enabled = Deze regel toepassen
 wm-rules-apps-running = Actief
 wm-rules-border = Rand
 wm-rules-blur-look = Uiterlijk van de vervaging

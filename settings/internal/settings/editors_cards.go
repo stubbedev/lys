@@ -3,6 +3,7 @@ package settings
 import (
 	"cmp"
 	"fmt"
+	"log"
 	"maps"
 	"math"
 	"reflect"
@@ -108,6 +109,9 @@ type cardSpec struct {
 	// aside, when set, sits in each card's header beside the title and
 	// follows the item as the title does.
 	aside func(k *kit) cardAside
+	// toggle, when set, is a switch in each card's header over an on/off
+	// key of the item.
+	toggle *cardToggle
 	// searchable heads the cards with a filter over the items' values, or
 	// over search's text of each item when set; filterKey is its
 	// placeholder (settings-list-filter).
@@ -172,6 +176,16 @@ type cardGroup struct {
 	title      *widget.Label
 }
 
+// cardToggle is an item's on/off key that is on while absent: its switch
+// writes false to turn the item off and removes the key to turn it back
+// on, so an item that is on reads as one never switched. nameKey names
+// the switch.
+type cardToggle struct {
+	key, nameKey string
+}
+
+func (tg cardToggle) on(item map[string]any) bool { return item[tg.key] != false }
+
 // cardAside is a card header's part beside its title, shown for the item.
 type cardAside interface {
 	widget.Widget
@@ -183,6 +197,8 @@ type card struct {
 	icon     *widget.Icon
 	title    *widget.Label
 	aside    cardAside
+	toggle   *widget.Switch
+	syncing  bool
 	group    int
 	identity control
 	controls []control
@@ -529,6 +545,23 @@ func (c *cardList) appendCard(i int) {
 		cd.aside = c.spec.aside(c.k)
 		header.AppendAligned(cd.aside, false, widget.AlignCenter)
 	}
+	if tg := c.spec.toggle; tg != nil {
+		cd.toggle = widget.NewSwitch(true)
+		cd.toggle.SetAccessibleName(t.Get(tg.nameKey))
+		cd.toggle.SetTooltip(t.Get(tg.nameKey))
+		cd.toggle.OnChanged = func(on bool) {
+			if cd.syncing {
+				return
+			}
+			s := c.fieldSlot(i, tg.key)
+			if on {
+				s.unset()
+			} else if err := s.set(false); err != nil {
+				log.Printf("settings: switch off item %d: %v", i, err)
+			}
+		}
+		header.AppendAligned(cd.toggle, false, widget.AlignCenter)
+	}
 	if c.spec.reset != nil {
 		cd.reset = c.k.iconButton("ld-rotate-ccw-symbolic", c.spec.resetKey, func() { c.resetItem(i) }, css.Ghost)
 		header.AppendAligned(cd.reset, false, widget.AlignCenter)
@@ -614,6 +647,20 @@ func (c *cardList) retitle(i int) {
 	}
 	if c.cards[i].aside != nil {
 		c.cards[i].aside.show(c.local[i])
+	}
+	if cd := c.cards[i]; cd.toggle != nil {
+		on := c.spec.toggle.on(c.local[i])
+		cd.syncing = true
+		cd.toggle.SetOn(on)
+		cd.syncing = false
+		if cd.title == nil {
+			return
+		}
+		if on {
+			cd.title.RemoveClass(css.DimLabel)
+		} else {
+			cd.title.AddClass(css.DimLabel)
+		}
 	}
 }
 

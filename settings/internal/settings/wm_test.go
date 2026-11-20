@@ -27,7 +27,7 @@ const wmSchema = `{"type":"object","properties":{
 "hdr":{"enum":[false,"fullscreen",true]},
 "binds":{"type":"array","items":{"type":"object","properties":{"action":{"type":"string","format":"lys-wm-action","x-lys-wm-actions":[{"name":"kill","summary":"Close"},{"name":"exec","args":"<command>","summary":"Run"},{"name":"workspace","args":"<n>","summary":"Show"}]},"chord":{"type":"string","format":"lys-wm-chord"},"flags":{"type":"array","items":{"type":"string","enum":["locked","repeating"]}}},"additionalProperties":false}},
 "submaps":{"type":"object","additionalProperties":{"type":"array","items":{"type":"object","properties":{"action":{"type":"string","format":"lys-wm-action","x-lys-wm-actions":[{"name":"kill","summary":"Close"}]},"chord":{"type":"string","format":"lys-wm-chord"}},"additionalProperties":false}}},
-"rules":{"type":"array","items":{"type":"object","properties":{"animation":{"oneOf":[{"type":"boolean","enum":[false]},{"type":"object","properties":{"in":{"type":"string"},"out":{"type":"string"}},"additionalProperties":false}]},"app_id":{"type":"string"},"blur_look":{"type":"object","properties":{"grain":{"type":"number"}}},"float":{"type":"boolean"},"title":{"type":"string"}}}},
+"rules":{"type":"array","items":{"type":"object","properties":{"animation":{"oneOf":[{"type":"boolean","enum":[false]},{"type":"object","properties":{"in":{"type":"string"},"out":{"type":"string"}},"additionalProperties":false}]},"app_id":{"type":"string"},"blur_look":{"type":"object","properties":{"grain":{"type":"number"}}},"enabled":{"type":"boolean","default":true},"float":{"type":"boolean"},"title":{"type":"string"}}}},
 "borders":{"type":"object","properties":{"active":{"default":"accent","oneOf":[{"type":"string","format":"lys-wm-color"},{"type":"object","properties":{"angle":{"type":"number"},"colors":{"type":"array","minItems":1,"maxItems":3,"items":{"type":"string"}}}}]}}},
 "decoration":{"type":"object","properties":{"active_opacity":{"type":"number","minimum":0,"maximum":1,"default":1},"shadow":{"type":"object","properties":{"color":{"type":"string","format":"lys-wm-color","default":"#00000060"}}}}},
 "input":{"type":"object","properties":{"touchpad":{"type":"object","properties":{"tap":{"type":"boolean"},"click_method":{"type":"string","enum":["none","clickfinger"]},"accel_profile":{"type":"string","enum":["adaptive","flat"],"default":"adaptive"}}},
@@ -544,19 +544,19 @@ func TestBindsAreCardsWithAFilter(t *testing.T) {
 func TestARulesNestedObjectAndToggleWriteInsideTheItem(t *testing.T) {
 	k, w, _, files := wmKit(t, "rules:\n  - {app_id: foot}\n")
 	c := fieldControl(k, w, wmObjects("rules", "app_id")).(*cardList)
-	if len(c.spec.fields) != 5 {
-		t.Fatalf("%d fields, want animation, app_id, blur_look.grain, float and title", len(c.spec.fields))
+	if len(c.spec.fields) != 6 {
+		t.Fatalf("%d fields, want animation, app_id, blur_look.grain, enabled, float and title", len(c.spec.fields))
 	}
 	if len(c.cards[0].controls) != 0 || c.cards[0].root.Children()[2].(*widget.Box).Visible() {
 		t.Fatal("a collapsed card built or shows its fields")
 	}
 	disclose := treetest.WithClass(c.cards[0].root, "card-disclose")[0].(*widget.Button)
 	disclose.ClickAt(widget.Point{})
-	if len(c.cards[0].controls) != 5 || !c.cards[0].root.Children()[2].(*widget.Box).Visible() {
+	if len(c.cards[0].controls) != 6 || !c.cards[0].root.Children()[2].(*widget.Box).Visible() {
 		t.Fatalf("opening the card built %d controls", len(c.cards[0].controls))
 	}
-	if _, ok := c.cards[0].controls[3].(*optionalEnum); !ok {
-		t.Fatalf("a rule's float takes %T, want the inherit-or-pick select", c.cards[0].controls[3])
+	if _, ok := c.cards[0].controls[4].(*optionalEnum); !ok {
+		t.Fatalf("a rule's float takes %T, want the inherit-or-pick select", c.cards[0].controls[4])
 	}
 	grain := nestedSlot(c.fieldSlot(0, "blur_look"), []string{"grain"})
 	if err := grain.set(0.5); err != nil {
@@ -570,7 +570,7 @@ func TestARulesNestedObjectAndToggleWriteInsideTheItem(t *testing.T) {
 		t.Error("dropping the last nested key left an empty object")
 	}
 	disclose.ClickAt(widget.Point{})
-	if c.cards[0].root.Children()[2].(*widget.Box).Visible() || len(c.cards[0].controls) != 5 {
+	if c.cards[0].root.Children()[2].(*widget.Box).Visible() || len(c.cards[0].controls) != 6 {
 		t.Error("closing the card left its fields shown, or rebuilt them")
 	}
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/layers"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/ui/widget"
+	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 	"github.com/stubbedev/lys/settings/internal/wmconfig"
@@ -45,7 +46,7 @@ func TestEveryKeyOfALysWMRuleHasItsPartInTheRuleEditor(t *testing.T) {
 			}
 		}
 		parts := splitRuleKeys(k.wm, kind)
-		if len(parts.match)+len(parts.more)+len(parts.effects) != len(keys) || len(parts.effects) == 0 {
+		if 1+len(parts.match)+len(parts.more)+len(parts.effects) != len(keys) || len(parts.effects) == 0 || parts.toggle.key != ruleEnabledKey {
 			t.Errorf("%s: %d keys split as %+v", kind.path, len(keys), parts)
 		}
 		for _, key := range parts.effects {
@@ -170,5 +171,48 @@ func TestALayerRuleNamesTheShellSurfaceItAppliesTo(t *testing.T) {
 	}
 	if !strings.Contains(string(got), "shadow: true") || !strings.Contains(string(got), "^my-panel$") || !strings.Contains(string(got), "blur: true") {
 		t.Errorf("adding a shadow to the second rule wrote %q", got)
+	}
+}
+
+func TestARuleCardSwitchesItsRuleOffAndBackOn(t *testing.T) {
+	k, w, _, files := wmKit(t, "rules:\n  - {app_id: foot, float: true}\n  - {app_id: mpv, enabled: false}\n")
+	c := fieldControl(k, w, wmRules(windowRules)).(*cardList)
+	foot, mpv := c.cards[0], c.cards[1]
+	if !foot.toggle.On() || foot.title.HasClass(css.DimLabel) {
+		t.Fatal("a rule without enabled reads as switched off")
+	}
+	if mpv.toggle.On() || !mpv.title.HasClass(css.DimLabel) {
+		t.Fatal("a rule with enabled: false reads as switched on")
+	}
+	if got, want := foot.toggle.AccessibleName(), locale.T().Get("wm-rules-enabled"); got != want || strings.HasPrefix(got, "wm-") {
+		t.Errorf("the switch is named %q, want %q", got, want)
+	}
+	foot.toggle.SetOn(false)
+	if got := fileText(t, files.runtime); !strings.Contains(got, "enabled: false") || !strings.Contains(got, "float: true") {
+		t.Fatalf("switching the rule off wrote %q", got)
+	}
+	if !foot.title.HasClass(css.DimLabel) {
+		t.Error("a rule switched off keeps its title bright")
+	}
+	foot.toggle.SetOn(true)
+	mpv.toggle.SetOn(true)
+	if got := fileText(t, files.runtime); strings.Contains(got, "enabled") || !strings.Contains(got, "app_id: mpv") {
+		t.Errorf("switching the rules on wrote %q, want enabled left out as lys-wm's default", got)
+	}
+	if foot.title.HasClass(css.DimLabel) || mpv.title.HasClass(css.DimLabel) {
+		t.Error("a rule switched back on keeps its title dimmed")
+	}
+}
+
+func TestALayerRuleCardSwitchesItsRuleOff(t *testing.T) {
+	k := lysWMKit(t, "layer_rules:\n  - {namespace: '^lys-shell-bar-', blur: true}\n")
+	c := fieldControl(k, k.wm, wmRules(layerRules)).(*cardList)
+	c.cards[0].toggle.SetOn(false)
+	got, err := os.ReadFile(filepath.Join(os.Getenv("XDG_CONFIG_HOME"), "lys-wm", "runtime.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(got), "enabled: false") || !strings.Contains(string(got), "blur: true") {
+		t.Errorf("switching the bar's rule off wrote %q", got)
 	}
 }
