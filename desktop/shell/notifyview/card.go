@@ -146,6 +146,7 @@ func NewCard(cfg *config.Config, font render.Font, now time.Time, c Content, h H
 	k.Head.AddAction(k.Time)
 	k.Close = widget.NewButton(widget.NewThemeIcon("ld-x-symbolic", cardGlyphPx), 0, 0)
 	k.Close.AddClass("notification-popup-close", css.Ghost, css.Icon, css.Small)
+	k.Close.SetTooltip(i18n.T("notification-popup-close"))
 	k.Close.OnClick = h.Close
 	k.Head.AddAction(k.Close)
 	k.Root.Append(k.Head, false)

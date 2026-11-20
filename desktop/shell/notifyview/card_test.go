@@ -57,6 +57,9 @@ func TestAPreviewFollowsItsConfig(t *testing.T) {
 	if card.HasClass("shadow") || card.HasClass("urgency-bar") {
 		t.Errorf("no shadow and a critical-only bar preview a normal card as %v", card.Classes())
 	}
+	if closers := treetest.All[*widget.Button](card); len(closers) != 1 || closers[0].TooltipText() != i18n.T("notification-popup-close") {
+		t.Error("the close button is not named by its tooltip")
+	}
 	if widget.CursorNameOf(card) != "" {
 		t.Error("a preview takes clicks like a card with a default action")
 	}

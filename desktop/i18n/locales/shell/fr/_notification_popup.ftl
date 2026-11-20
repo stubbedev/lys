@@ -2,6 +2,7 @@
 
 notification-popup-unknown-app = Inconnu
 notification-popup-clear-all = Tout effacer
+notification-popup-close = Fermer
 notification-popup-reply-placeholder = Répondre
 notification-popup-time-just-now = À l'instant
 notification-popup-time-minutes-ago = Il y a { $minutes } min
