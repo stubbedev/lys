@@ -302,8 +302,7 @@ func newHyprlandWorkspaces(ctx ModuleContext) (Module, error) {
 			return func(context.Context) error { return m.conn.Dispatch(hyprland.FocusPreviousWorkspace()) }
 		},
 	}
-	newCwsRow(&m.cwsView)
-	m.previewOf = m.workspaceWindows
+	newCwsRow(&m.cwsView, m.workspaceWindows)
 	m.hideUntilRead(m.strip.Segments())
 	m.firstDue.Store(true)
 	m.rulesDue.Store(true)

@@ -22,6 +22,9 @@ settings-modules-workspaces-urgent-show = Dringende anzeigen
 settings-modules-workspaces-urgent-mode = Dringlichkeitsmodus
     .description = Die ganze Arbeitsfläche oder nur das dringende App-Symbol pulsieren lassen
 
+settings-modules-workspaces-window-previews = Fenstervorschau
+    .description = Die Fenster einer Arbeitsfläche als Vorschau zeigen, wenn der Zeiger darauf ruht
+
 settings-modules-workspaces-app-icons-show = App-Symbole anzeigen
     .description = Fenstersymbole pro Arbeitsfläche anzeigen
 

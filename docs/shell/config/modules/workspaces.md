@@ -25,6 +25,7 @@ bar:
 | `display-mode` | [`DisplayMode`](/shell/config/types#display-mode) | `"label"` | What identifies each workspace button. |
 | `urgent-show` | bool | `true` | Pulse animation on workspaces with urgent windows. |
 | `urgent-mode` | [`UrgentMode`](/shell/config/types#urgent-mode) | `"workspace"` | Where the urgent pulse is applied. |
+| `window-previews` | bool | `false` | Preview a workspace's windows when the pointer rests on its button. |
 | `active-indicator` | [`ActiveIndicator`](/shell/config/types#active-indicator) | `"background"` | Visual indicator for the active workspace. |
 | `divider` | string | `" "` | Text separator between workspace identity and app icons. |
 | `app-icons-show` | bool | `false` | Show application icons for windows on each workspace. |
@@ -74,6 +75,13 @@ bar:
 - `workspace` (default): whole button pulses
 - `application`: only the urgent app icon pulses, falling back to
   `workspace` when app icons are disabled
+
+:::
+
+::: details More about `window-previews`
+
+When `false` (default), hovering a workspace does nothing and no
+window is captured.
 
 :::
 
@@ -227,6 +235,7 @@ modules:
     display-mode: label
     urgent-show: true
     urgent-mode: workspace
+    window-previews: false
     active-indicator: background
     divider: ' '
     app-icons-show: false

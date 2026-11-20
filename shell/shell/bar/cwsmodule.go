@@ -89,8 +89,7 @@ func newCwsModule(ctx ModuleContext, kind string, flavor barview.WorkspaceFlavor
 		previous: func() cwsAction { return backend.focusPrevious },
 		last:     func() cwsAction { return backend.focusLast },
 	}
-	newCwsRow(&m.cwsView)
-	m.previewOf = m.workspaceWindows
+	newCwsRow(&m.cwsView, m.workspaceWindows)
 	m.hideUntilRead(m.strip.Segments())
 	reads := newOffLoopRead(ctx, kind+"-workspaces", m.read, m.apply)
 	if ctx.App == nil {

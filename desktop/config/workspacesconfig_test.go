@@ -65,3 +65,24 @@ func TestAnOldWorkspaceModuleNamesItsReplacement(t *testing.T) {
 		t.Errorf("modules.workspaces: %v", err)
 	}
 }
+
+func TestWorkspaceWindowPreviewsAreOffUnlessTurnedOn(t *testing.T) {
+	kinds := []compositor.Kind{compositor.LysWM, compositor.Hyprland, compositor.Niri, compositor.Mango, compositor.Sway}
+	for _, on := range kinds {
+		if Defaults().Workspaces.View(on).WindowPreviews {
+			t.Errorf("%v: window previews are on by default", on)
+		}
+	}
+	cfg, err := LoadFile(writeConfig(t, "modules:\n  workspaces:\n    window-previews: true\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, on := range kinds {
+		if !cfg.Workspaces.View(on).WindowPreviews {
+			t.Errorf("%v: window-previews: true leaves previews off", on)
+		}
+	}
+	if _, err := LoadFile(writeConfig(t, "modules:\n  workspaces:\n    window-previews: sometimes\n")); err == nil || !strings.Contains(err.Error(), "window-previews") {
+		t.Errorf("window-previews: sometimes: %v, want an error naming the key", err)
+	}
+}

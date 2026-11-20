@@ -22,6 +22,9 @@ settings-modules-workspaces-urgent-show = Show Urgent
 settings-modules-workspaces-urgent-mode = Urgent Mode
     .description = Pulse the whole workspace or only the urgent app icon
 
+settings-modules-workspaces-window-previews = Window Previews
+    .description = Preview a workspace's windows when the pointer rests on it
+
 settings-modules-workspaces-app-icons-show = Show App Icons
     .description = Display window icons per workspace
 

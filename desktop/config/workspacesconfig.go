@@ -125,6 +125,11 @@ type WorkspacesConfig struct {
 	// - `application`: only the urgent app icon pulses, falling back to
 	//   `workspace` when app icons are disabled
 	UrgentMode UrgentMode `cfg:"urgent-mode"`
+	// Preview a workspace's windows when the pointer rests on its button.
+	//
+	// When `false` (default), hovering a workspace does nothing and no
+	// window is captured.
+	WindowPreviews bool `cfg:"window-previews"`
 	// Visual indicator for the active workspace.
 	ActiveIndicator ActiveIndicator `cfg:"active-indicator"`
 	// Text separator between workspace identity and app icons.
@@ -277,6 +282,7 @@ func DefaultsWorkspaces() WorkspacesConfig {
 		DisplayMode:                   DisplayModeLabel,
 		UrgentShow:                    true,
 		UrgentMode:                    UrgentWorkspace,
+		WindowPreviews:                false,
 		ActiveIndicator:               ActiveBackground,
 		Divider:                       " ",
 		AppIconsShow:                  false,
@@ -349,7 +355,7 @@ func WorkspaceKeyHonored(key string, c compositor.Kind) bool {
 func (c WorkspacesConfig) View(on compositor.Kind) CompositorWorkspacesConfig {
 	v := CompositorWorkspacesConfig{
 		MonitorSpecific: c.MonitorSpecific, HideTrailingEmpty: c.HideTrailingEmpty, DisplayMode: c.DisplayMode,
-		LabelStrategy: c.LabelStrategy, UrgentShow: c.UrgentShow, UrgentMode: c.UrgentMode,
+		LabelStrategy: c.LabelStrategy, UrgentShow: c.UrgentShow, UrgentMode: c.UrgentMode, WindowPreviews: c.WindowPreviews,
 		ActiveIndicator: c.ActiveIndicator, Divider: c.Divider, AppIconsShow: c.AppIconsShow,
 		AppIconsDedupe: c.AppIconsDedupe, AppIconsFallback: c.AppIconsFallback, AppIconsEmpty: c.AppIconsEmpty,
 		IconGap: c.IconGap, WorkspacePad: c.WorkspacePadding, IconSize: c.IconSize, LabelSize: c.LabelSize,

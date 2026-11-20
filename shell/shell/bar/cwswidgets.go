@@ -10,16 +10,20 @@ import (
 
 // newCwsRow builds the workspaces row, barview's workspace strip: a
 // primary click on a segment is OnSelect; the middle and right clicks
-// and the wheel bind on each segment, and a rest on one previews its
-// workspace's windows.
-func newCwsRow(m *cwsView) {
+// and the wheel bind on each segment, and, with window previews on, a
+// rest on one previews the windows previewOf lists.
+func newCwsRow(m *cwsView, previewOf func(ws barview.Workspace) []previewWindow) {
 	m.strip = barview.NewWorkspaceStrip(m.ctx.Config, m.cfg, m.kind, m.otherMonitor, cwsBoldFace(m.ctx), barview.WorkspaceHandlers{
 		Select:  func(i int) { m.dispatchClick(m.cfg.Click.LeftClick, m.strip.Shown()[i].WS) },
 		Pointer: m.pointer,
 		Scroll:  m.scroll,
 		Hover:   m.hoverSegment,
 	})
+	if !m.cfg.WindowPreviews {
+		return
+	}
 	m.preview = newWindowPreview(m.ctx, revealHoldOf(m.ctx))
+	m.previewOf = previewOf
 	m.ctx.OnRetire(m.preview.stop)
 }
 
@@ -49,12 +53,19 @@ func (m *cwsView) scroll(e widget.ScrollEvent) bool {
 }
 
 // Attach keeps the bar surface the window previews open from.
-func (m *cwsView) Attach(host app.Host) { m.preview.Attach(host) }
+func (m *cwsView) Attach(host app.Host) {
+	if m.preview != nil {
+		m.preview.Attach(host)
+	}
+}
 
 // hoverSegment previews segment i's workspace once the pointer rests on
-// it.
+// it, when window previews are on.
 func (m *cwsView) hoverSegment(i int, seg widget.Boundser, on bool) {
-	if !on || m.previewOf == nil || i >= len(m.strip.Shown()) {
+	if m.preview == nil {
+		return
+	}
+	if !on || i >= len(m.strip.Shown()) {
 		m.preview.hover(false, seg, nil)
 		return
 	}

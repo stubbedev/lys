@@ -22,6 +22,9 @@ settings-modules-workspaces-urgent-show = Urgent tonen
 settings-modules-workspaces-urgent-mode = Urgentiemodus
     .description = Het hele werkblad of alleen het urgente toepassingspictogram laten pulseren
 
+settings-modules-workspaces-window-previews = Venstervoorbeelden
+    .description = Een voorbeeld van de vensters van een werkblad tonen wanneer de aanwijzer erop rust
+
 settings-modules-workspaces-app-icons-show = Toepassingspictogrammen tonen
     .description = Vensterpictogrammen per werkblad tonen
 

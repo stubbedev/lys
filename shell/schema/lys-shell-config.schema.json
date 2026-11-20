@@ -6727,6 +6727,7 @@
             "show-special": true,
             "urgent-mode": "workspace",
             "urgent-show": true,
+            "window-previews": false,
             "workspace-ignore": [],
             "workspace-map": {},
             "workspace-padding": 0.5
@@ -10907,6 +10908,11 @@
           "default": true,
           "description": "Pulse animation on workspaces with urgent windows."
         },
+        "window-previews": {
+          "$ref": "#/$defs/boolean",
+          "default": false,
+          "description": "Preview a workspace's windows when the pointer rests on its button.\n\nWhen `false` (default), hovering a workspace does nothing and no\nwindow is captured."
+        },
         "workspace-ignore": {
           "$ref": "#/$defs/Array_of_string",
           "default": [],
@@ -12323,6 +12329,7 @@
           "show-special": true,
           "urgent-mode": "workspace",
           "urgent-show": true,
+          "window-previews": false,
           "workspace-ignore": [],
           "workspace-map": {},
           "workspace-padding": 0.5

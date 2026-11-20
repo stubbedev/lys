@@ -22,6 +22,9 @@ settings-modules-workspaces-urgent-show = Mostra urgenti
 settings-modules-workspaces-urgent-mode = Modalità urgente
     .description = Fa pulsare l'intero spazio di lavoro o solo l'icona dell'app urgente
 
+settings-modules-workspaces-window-previews = Anteprima delle finestre
+    .description = Mostra un'anteprima delle finestre di uno spazio di lavoro quando il puntatore si ferma su di esso
+
 settings-modules-workspaces-app-icons-show = Mostra le icone delle app
     .description = Mostra le icone delle finestre per spazio di lavoro
 

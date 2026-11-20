@@ -21,10 +21,11 @@ import (
 	"github.com/stubbedev/lys/shell/service/niri"
 )
 
-// On a real compositor a workspace's hover preview leaves the bar its
-// clicks: with the preview open, the first click on the clock opens its
-// calendar, and the preview gives way to it. Sway is the compositor the
-// workspaces module detects, whatever session the test runs inside.
+// On a real compositor, with window previews on, a workspace's hover
+// preview leaves the bar its clicks: with the preview open, the first
+// click on the clock opens its calendar, and the preview gives way to it.
+// Sway is the compositor the workspaces module detects, whatever session
+// the test runs inside.
 func TestHeadlessAClickBesideTheWorkspacePreviewReachesTheBar(t *testing.T) {
 	for _, name := range []string{wmipc.SocketEnv, "HYPRLAND_INSTANCE_SIGNATURE", niri.SocketEnv, mango.SocketEnv} {
 		t.Setenv(name, "")
@@ -33,7 +34,9 @@ func TestHeadlessAClickBesideTheWorkspacePreviewReachesTheBar(t *testing.T) {
 	t.Setenv("SWAYSOCK", filepath.Join(os.Getenv("XDG_RUNTIME_DIR"), "sway-ipc."+strconv.Itoa(os.Getuid())+"."+strconv.Itoa(sway.Pid)+".sock"))
 	startProbeProcess(t, "org.example.Probe", "probe title")
 	layout := config.BarLayout{Monitor: "*", Left: []config.BarItem{{Module: "workspaces"}}, Right: []config.BarItem{{Module: "clock"}}}
-	h := openHeadlessBar(t, config.Defaults(), layout)
+	cfg := config.Defaults()
+	cfg.Workspaces.WindowPreviews = true
+	h := openHeadlessBar(t, cfg, layout)
 	clock := h.buttons(1)[0]
 
 	var segs widget.Boundser

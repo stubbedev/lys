@@ -42,9 +42,11 @@ func (a rigActions) focus(w previewWindow) { a.r.focused = append(a.r.focused, w
 func (a rigActions) close(w previewWindow) { a.r.closedW = append(a.r.closedW, w.id) }
 
 func newPreviewRig(t *testing.T) *previewRig {
-	r := &previewRig{captured: map[string]int{}}
-	ctx := newTestContext(t, config.Defaults())
-	r.p = newWindowPreview(ctx, nil)
+	return rigPreview(newWindowPreview(newTestContext(t, config.Defaults()), nil))
+}
+
+func rigPreview(p *windowPreview) *previewRig {
+	r := &previewRig{p: p, captured: map[string]int{}}
 	r.p.after = func(d time.Duration, fn func()) func() {
 		tm := &pendingTimer{d: d, fn: fn}
 		r.timers = append(r.timers, tm)

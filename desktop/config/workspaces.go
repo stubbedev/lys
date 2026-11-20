@@ -146,6 +146,7 @@ type CompositorWorkspacesConfig struct {
 	LabelStrategy     LabelStrategy
 	UrgentShow        bool
 	UrgentMode        UrgentMode
+	WindowPreviews    bool
 	ActiveIndicator   ActiveIndicator
 	Divider           string
 	AppIconsShow      bool
