@@ -210,10 +210,13 @@ func (p windowPickers) popover(anchor, content, focus widget.Widget) (closePopov
 	return pop.Dismiss
 }
 
-func (p windowPickers) dialog(cfg app.DialogConfig) {
-	if _, err := p.app.NewDialog(p.win, cfg); err != nil {
+func (p windowPickers) dialog(cfg app.DialogConfig) (closeDialog func()) {
+	d, err := p.app.NewDialog(p.win, cfg)
+	if err != nil {
 		log.Printf("settings: dialog %q: %v", cfg.Title, err)
+		return func() {}
 	}
+	return d.Close
 }
 
 func loadFamily(family string) (render.Font, error) {

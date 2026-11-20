@@ -280,8 +280,6 @@ type usersPanel struct {
 	name        string
 	realName    *text
 	identity    *widget.Label
-	account     *widget.Box
-	password    *widget.Box
 	admin       *widget.Box
 	changer     passwordChanger
 	fingerprint *fingerprintSection
@@ -300,8 +298,7 @@ func usersFooter(k *kit) widget.Widget {
 	change := k.button(k.label(t.Get("settings-users-password-change")), p.openPasswordDialog, css.Secondary)
 	account := widget.NewItemGroup()
 	account.Append(panelRow(k, t.Get("settings-users-password"), t.Attr("settings-users-password", "description"), change))
-	p.account = newSection(k, "settings-section-users-account", account)
-	p.Append(p.account, false)
+	p.Append(newSection(k, "settings-section-users-account", account), false)
 	p.admin = gapBox(widget.Column)
 	p.admin.SetVisible(false)
 	p.Append(p.admin, false)
@@ -725,83 +722,122 @@ func (p *usersPanel) revealButton(entries ...*widget.Entry) *widget.Button {
 	return b
 }
 
-func (p *usersPanel) openPasswordDialog() {
-	if p.password != nil {
-		return
-	}
+// passwordDialogWidth is the password dialog's width.
+const passwordDialogWidth = 480
+
+// passwordForm is the password dialog's content: the three entries, the
+// strength of the new password in a meter and in words, and pam's
+// messages.
+type passwordForm struct {
+	*widget.Box
+	current, next, confirm *widget.Entry
+	messages               *widget.Label
+	busy                   bool
+}
+
+func (p *usersPanel) newPasswordForm() *passwordForm {
 	t := locale.T()
-	box := gapBox(widget.Column)
-	box.AddClass("password-change")
-	p.password = box
+	f := &passwordForm{Box: gapBox(widget.Column)}
+	f.AddClass("password-change")
 	entry := func(key string) *widget.Entry {
 		e := p.k.entry()
 		e.SetEcho(widget.EchoPassword)
 		e.SetAccessibleName(t.Get(key))
 		return e
 	}
-	current, next, confirm := entry("settings-users-password-current"), entry("settings-users-password-new"), entry("settings-users-password-confirm")
-	box.Append(panelRow(p.k, t.Get("settings-users-password-current"), "", current, p.revealButton(current)), false)
-	box.Append(panelRow(p.k, t.Get("settings-users-password-new"), "", next, p.revealButton(next, confirm)), false)
-	box.Append(panelRow(p.k, t.Get("settings-users-password-confirm"), "", confirm), false)
+	f.current, f.next, f.confirm = entry("settings-users-password-current"), entry("settings-users-password-new"), entry("settings-users-password-confirm")
+	f.Append(panelRow(p.k, t.Get("settings-users-password-current"), "", f.current, p.revealButton(f.current)), false)
+	f.Append(panelRow(p.k, t.Get("settings-users-password-new"), "", f.next, p.revealButton(f.next, f.confirm)), false)
+	f.Append(panelRow(p.k, t.Get("settings-users-password-confirm"), "", f.confirm), false)
 	meter := widget.NewLevelBar(0)
 	meter.SetAccessibleName(t.Get("settings-users-password-strength"))
 	word := p.k.label("", "password-strength", css.Caption)
-	box.Append(panelRow(p.k, t.Get("settings-users-password-strength"), "", meter, word), false)
-	messages := wrapped(p.k.label("", "setting-problem", css.Caption, css.Error))
-	messages.SetVisible(false)
-	box.Append(messages, false)
-	next.OnChanged = func(text string) {
+	f.Append(panelRow(p.k, t.Get("settings-users-password-strength"), "", meter, word), false)
+	f.messages = wrapped(p.k.label("", "setting-problem", css.Caption, css.Error))
+	f.messages.SetVisible(false)
+	f.Append(f.messages, false)
+	f.next.OnChanged = func(text string) {
 		meter.SetValue(float64(passwordStrength(text)) / strengthClasses)
 		word.SetText(strengthWord(text))
 	}
-	clear := func() {
-		for _, e := range []*widget.Entry{current, next, confirm} {
-			e.SetText("")
-		}
-	}
-	var apply *widget.Button
-	apply = p.k.button(p.k.label(t.Get("settings-users-password-apply")), func() {
-		if next.Text() != confirm.Text() {
-			messages.SetText(t.Get("settings-users-password-mismatch"))
-			messages.SetVisible(true)
-			return
-		}
-		old, pw := []byte(current.Text()), []byte(next.Text())
-		user, changer := p.user, p.changer
-		apply.SetEnabled(false)
-		async(p.k, func() passwordChange {
-			res := changer.change(user, old, pw)
-			clear0(old)
-			clear0(pw)
-			return res
-		}, func(r passwordChange) {
-			apply.SetEnabled(true)
-			text := strings.Join(r.messages, "\n")
-			if r.err != nil {
-				text = strings.TrimSpace(text + "\n" + r.err.Error())
-			}
-			messages.SetText(text)
-			messages.SetVisible(text != "")
-			if r.err == nil {
-				clear()
-				p.closePassword()
-			}
-		})
-	}, css.SuggestedAction)
-	cancel := p.k.button(p.k.label(t.Get("settings-users-password-cancel")), func() {
-		clear()
-		p.closePassword()
-	}, css.Secondary)
-	buttons := gapBox(widget.Row)
-	buttons.Append(cancel, false)
-	buttons.Append(apply, false)
-	box.Append(buttons, false)
-	p.InsertAt(slices.Index(p.Children(), widget.Widget(p.account))+1, box, false)
+	return f
 }
 
-func (p *usersPanel) closePassword() {
-	p.Remove(p.password)
-	p.password = nil
+func (f *passwordForm) say(text string) {
+	f.messages.SetText(text)
+	f.messages.SetVisible(text != "")
+}
+
+func (f *passwordForm) clear() {
+	for _, e := range []*widget.Entry{f.current, f.next, f.confirm} {
+		e.SetText("")
+	}
+}
+
+// openPasswordDialog asks for the current and the new password in a
+// modal dialog, which stays open over pam's refusal and closes once the
+// password changed.
+func (p *usersPanel) openPasswordDialog() {
+	if p.k.pickers == nil {
+		p.fail(errors.New("settings: change the password: no window to ask in"))
+		return
+	}
+	t := locale.T()
+	f := p.newPasswordForm()
+	var closeDialog func()
+	closeDialog = p.k.pickers.dialog(app.DialogConfig{
+		Title:   t.Get("settings-users-password-change"),
+		Width:   passwordDialogWidth,
+		Content: f,
+		Focus:   f.current,
+		Buttons: []app.DialogButton{
+			{Label: t.Get("settings-users-password-cancel"), Response: responseCancel, Role: app.ButtonRoleCancel, Appearance: app.AppearancePlain},
+			{Label: t.Get("settings-users-password-apply"), Response: responseConfirm, Role: app.ButtonRoleDefault, Appearance: app.AppearanceSuggested},
+		},
+		Modal:           true,
+		CancelResponse:  responseCancel,
+		DefaultResponse: responseConfirm,
+		ValidateResponse: func(r string) bool {
+			if r != responseConfirm {
+				return true
+			}
+			p.changePassword(f, func() { closeDialog() })
+			return false
+		},
+		OnClosed: f.clear,
+	})
+}
+
+// changePassword hands pam the form's passwords, saying its messages in
+// the form and calling done once the password changed.
+func (p *usersPanel) changePassword(f *passwordForm, done func()) {
+	if f.busy {
+		return
+	}
+	if f.next.Text() != f.confirm.Text() {
+		f.say(locale.T().Get("settings-users-password-mismatch"))
+		return
+	}
+	old, pw := []byte(f.current.Text()), []byte(f.next.Text())
+	user, changer := p.user, p.changer
+	f.busy = true
+	async(p.k, func() passwordChange {
+		res := changer.change(user, old, pw)
+		clear0(old)
+		clear0(pw)
+		return res
+	}, func(r passwordChange) {
+		f.busy = false
+		text := strings.Join(r.messages, "\n")
+		if r.err != nil {
+			text = strings.TrimSpace(text + "\n" + r.err.Error())
+		}
+		f.say(text)
+		if r.err == nil {
+			f.clear()
+			done()
+		}
+	})
 }
 
 func clear0(b []byte) {

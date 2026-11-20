@@ -35,8 +35,9 @@ type pickers interface {
 	// loop with its path; a dismissed chooser calls nothing.
 	openFile(fn func(path string))
 	openFolder(fn func(path string))
-	// dialog opens cfg over the window.
-	dialog(cfg app.DialogConfig)
+	// dialog opens cfg over the window; close closes it without a
+	// response.
+	dialog(cfg app.DialogConfig) (close func())
 }
 
 // fontPickerLabelChars caps the face's label (FontControl).

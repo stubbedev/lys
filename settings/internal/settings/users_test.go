@@ -9,7 +9,6 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -373,38 +372,53 @@ func pwqualityStack(t *testing.T) (passwordChanger, *fakeLogin) {
 	return pc, login
 }
 
+func passwordDialog(t *testing.T, p *usersPanel) (*fakePickers, *passwordForm) {
+	t.Helper()
+	pickers := &fakePickers{}
+	p.k.pickers = pickers
+	p.openPasswordDialog()
+	if len(pickers.dialogs) != 1 {
+		t.Fatalf("changing the password opened %d dialogs, want one", len(pickers.dialogs))
+	}
+	return pickers, pickers.dialogs[0].Content.(*passwordForm)
+}
+
 func TestAPasswordChangeShowsPwqualitysRefusalAndRekeysOnSuccess(t *testing.T) {
 	pc, login := pwqualityStack(t)
 	logged := logtest.Capture(t)
 	k := testKit(t, "")
 	p := &usersPanel{Box: gapBox(widget.Column), k: k, changer: pc, user: "nobody"}
-	p.openPasswordDialog()
-	entries := treetest.All[*widget.Entry](p)
+	pickers, f := passwordDialog(t, p)
+	entries := treetest.All[*widget.Entry](f)
 	if len(entries) != 3 {
 		t.Fatalf("%d entries", len(entries))
 	}
-	set := func(old, next, confirm string) {
+	set := func(old, next, confirm string) bool {
 		entries[0].SetText(old)
 		entries[1].SetText(next)
 		entries[2].SetText(confirm)
-		treetest.Button(t, p, "Change Password").OnClick()
+		return pickers.respond(responseConfirm)
 	}
-	set("old-secret-1", "short", "short")
-	var messages strings.Builder
-	for _, lbl := range treetest.All[*widget.Label](p) {
-		if lbl.HasClass("setting-problem") {
-			messages.WriteString(lbl.Text())
-		}
+	if set("old-secret-1", "short", "short") {
+		t.Fatal("a refused change closed the dialog")
 	}
-	if !strings.Contains(messages.String(), "BAD PASSWORD") {
-		t.Fatalf("the dialog shows %q, want pwquality's refusal", messages.String())
+	if !f.messages.Visible() || !strings.Contains(f.messages.Text(), "BAD PASSWORD") {
+		t.Fatalf("the dialog shows %q, want pwquality's refusal", f.messages.Text())
 	}
-	if login.rekeyCalls != 0 {
-		t.Fatal("a refused change rekeyed the keyring")
+	if login.rekeyCalls != 0 || pickers.dialogsClosed != 0 {
+		t.Fatalf("a refused change rekeyed %d times and closed the dialog %d times", login.rekeyCalls, pickers.dialogsClosed)
 	}
 	set("old-secret-1", "a-much-Longer-pass9", "a-much-Longer-pass9")
 	if login.rekeyCalls != 1 || login.old != "old-secret-1" || login.next != "a-much-Longer-pass9" {
 		t.Fatalf("rekey %d with %q -> %q", login.rekeyCalls, login.old, login.next)
+	}
+	if pickers.dialogsClosed != 1 {
+		t.Fatalf("the changed password closed the dialog %d times, want once", pickers.dialogsClosed)
+	}
+	for _, e := range entries {
+		if e.Text() != "" {
+			t.Fatal("a changed password is left in its entry")
+		}
 	}
 	for _, pw := range []string{"old-secret-1", "a-much-Longer-pass9", "short"} {
 		if strings.Contains(logged.String(), pw) || strings.Contains(strings.Join(os.Args, " "), pw) || strings.Contains(strings.Join(os.Environ(), " "), pw) {
@@ -413,21 +427,20 @@ func TestAPasswordChangeShowsPwqualitysRefusalAndRekeysOnSuccess(t *testing.T) {
 	}
 }
 
-func TestThePasswordFormOpensUnderItsRowAndSaysHowStrongInWords(t *testing.T) {
+func TestThePasswordDialogSaysHowStrongInWordsAndRefusesAMismatch(t *testing.T) {
 	p := usersFooter(testKit(t, "")).(*usersPanel)
 	t.Cleanup(p.close)
-	p.openPasswordDialog()
-	p.openPasswordDialog()
-	if got := len(treetest.WithClass(p, "password-change")); got != 1 {
-		t.Fatalf("opening the form twice shows %d forms", got)
-	}
-	kids := p.Children()
-	if at := slices.Index(kids, widget.Widget(p.account)); at < 0 || at+1 >= len(kids) || kids[at+1] != widget.Widget(p.password) {
-		t.Fatal("the password form is not right under the account section")
-	}
-	entries := treetest.All[*widget.Entry](p.password)
-	next, word := entries[1], treetest.WithClass(p.password, "password-strength")[0].(*widget.Label)
+	pickers, f := passwordDialog(t, p)
+	cfg := pickers.dialogs[0]
 	tr := locale.T()
+	if !cfg.Modal || cfg.CancelResponse != responseCancel || cfg.DefaultResponse != responseConfirm || cfg.Focus != widget.Widget(f.current) {
+		t.Fatalf("dialog modal %v cancel %q default %q focus %v", cfg.Modal, cfg.CancelResponse, cfg.DefaultResponse, cfg.Focus)
+	}
+	if len(treetest.WithClass(p, "password-change")) != 0 {
+		t.Fatal("the password form is drawn on the page, not in the dialog")
+	}
+	entries := treetest.All[*widget.Entry](f)
+	next, word := entries[1], treetest.WithClass(f, "password-strength")[0].(*widget.Label)
 	for pw, want := range map[string]string{"": "", "abc": tr.Get("settings-users-password-weak"), "correct-Horse-battery-9": tr.Get("settings-users-password-good"), "correct-Horse-battery-staple-9": tr.Get("settings-users-password-strong")} {
 		next.SetText(pw)
 		next.OnChanged(pw)
@@ -435,7 +448,7 @@ func TestThePasswordFormOpensUnderItsRowAndSaysHowStrongInWords(t *testing.T) {
 			t.Errorf("%q reads %q, want %q", pw, word.Text(), want)
 		}
 	}
-	reveal := treetest.WithClass(p.password, css.Icon)
+	reveal := treetest.WithClass(f, css.Icon)
 	if len(reveal) != 2 {
 		t.Fatalf("%d reveal buttons, want one for the current and one for the new password", len(reveal))
 	}
@@ -447,9 +460,29 @@ func TestThePasswordFormOpensUnderItsRowAndSaysHowStrongInWords(t *testing.T) {
 	if entries[1].Echo() != widget.EchoPassword || entries[2].Echo() != widget.EchoPassword {
 		t.Error("hiding the new password again left it shown")
 	}
-	treetest.Button(t, p.password, tr.Get("settings-users-password-cancel")).OnClick()
-	if p.password != nil || len(treetest.WithClass(p, "password-change")) != 0 {
-		t.Error("cancel left the form open")
+	entries[0].SetText("old")
+	next.SetText("one-Password-9")
+	entries[2].SetText("another-Password-9")
+	if pickers.respond(responseConfirm) || f.messages.Text() != tr.Get("settings-users-password-mismatch") {
+		t.Fatalf("a mismatch closed the dialog or reads %q", f.messages.Text())
+	}
+	if !pickers.respond(responseCancel) {
+		t.Fatal("cancel left the dialog open")
+	}
+	for _, e := range entries {
+		if e.Text() != "" {
+			t.Error("cancelling left a password in its entry")
+		}
+	}
+}
+
+func TestWithoutAWindowChangingThePasswordIsRefused(t *testing.T) {
+	p := usersFooter(testKit(t, "")).(*usersPanel)
+	t.Cleanup(p.close)
+	p.k.pickers = nil
+	p.openPasswordDialog()
+	if !p.problem.Visible() || !strings.Contains(p.problem.Text(), "no window") {
+		t.Fatalf("without a window the page says %q", p.problem.Text())
 	}
 }
 

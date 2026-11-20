@@ -648,9 +648,29 @@ type fakePickers struct {
 	fontMono               bool
 	fontFn                 func(string)
 	dialogs                []app.DialogConfig
+	dialogsClosed          int
 }
 
-func (f *fakePickers) dialog(cfg app.DialogConfig) { f.dialogs = append(f.dialogs, cfg) }
+func (f *fakePickers) dialog(cfg app.DialogConfig) func() {
+	f.dialogs = append(f.dialogs, cfg)
+	return func() { f.dialogsClosed++ }
+}
+
+// respond answers the last dialog opened with r, as its button would:
+// a response the dialog vetoes leaves it open.
+func (f *fakePickers) respond(r string) (closed bool) {
+	cfg := f.dialogs[len(f.dialogs)-1]
+	if cfg.ValidateResponse != nil && !cfg.ValidateResponse(r) {
+		return false
+	}
+	if cfg.OnResponse != nil {
+		cfg.OnResponse(r)
+	}
+	if cfg.OnClosed != nil {
+		cfg.OnClosed()
+	}
+	return true
+}
 
 func (f *fakePickers) popover(anchor, content, focus widget.Widget) func() {
 	f.anchor, f.content, f.focus = anchor, content, focus
