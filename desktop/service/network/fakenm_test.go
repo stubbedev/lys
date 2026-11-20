@@ -42,6 +42,7 @@ type fakeNM struct {
 	deactivations []dbus.ObjectPath
 	added         []ConnectionDict
 	addAndActive  []ConnectionDict
+	started       int
 	// stopping refuses new calls while stop waits out the ones in flight.
 	stopping bool
 	// devicesHeld, when set, holds every GetDevices until it closes;
@@ -371,7 +372,7 @@ func (f *fakeNM) addedAndActivated(t *testing.T) {
 	waittest.Until(t, func() bool {
 		f.mu.Lock()
 		defer f.mu.Unlock()
-		return len(f.addAndActive) == 1
+		return len(f.addAndActive) == 1 && f.started == 1
 	}, "the activation")
 }
 
@@ -417,6 +418,9 @@ func (f *fakeNM) activate(profile dbus.ObjectPath) (dbus.ObjectPath, *dbus.Error
 	if f.wifi != nil {
 		f.wifi.deviceState(DevicePrepare, DeviceReasonNone)
 	}
+	f.mu.Lock()
+	f.started++
+	f.mu.Unlock()
 	return active, nil
 }
 
