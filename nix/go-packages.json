@@ -2288,6 +2288,7 @@
       "settings/internal/wmconfig",
       "settings/internal/wmstate",
       "shell/cava",
+      "shell/service/mail",
       "shell/service/shellipc",
       "shell/service/sni",
       "shell/service/sysinfo",

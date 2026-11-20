@@ -14,6 +14,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/shell/service/mail"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
 
@@ -148,6 +149,8 @@ type mailQueryEditor struct {
 	toggle  *widget.Button
 	toggled *widget.Label
 	picker  *searchPicker
+	count   *widget.Label
+	counted string
 	editing bool
 }
 
@@ -167,7 +170,9 @@ func newMailQueryEditor(k *kit, s slot, optional bool) *mailQueryEditor {
 		e.editing = !e.editing
 		e.refresh()
 	}, css.Small, css.Flat)
+	e.count = wrapped(k.label("", "mail-query-count", css.Caption, css.DimLabel))
 	e.Append(line, false)
+	e.Append(e.count, false)
 	e.Append(e.notice, false)
 	e.AppendAligned(e.toggle, false, widget.AlignStart)
 	e.Append(e.raw, false)
@@ -204,6 +209,41 @@ func (e *mailQueryEditor) refresh() {
 	}
 	e.toggled.SetText(locale.T().Get(key))
 	e.raw.refresh()
+	e.recount()
+}
+
+type mailMatches struct {
+	n   uint32
+	err error
+}
+
+func (e *mailQueryEditor) recount() {
+	query := strings.TrimSpace(e.slot.text())
+	e.count.SetVisible(query != "")
+	if query == "" || query == e.counted {
+		return
+	}
+	e.counted = query
+	async(e.k, func() mailMatches {
+		n, err := e.k.mailCount(query)
+		return mailMatches{n, err}
+	}, func(m mailMatches) {
+		if query != e.counted {
+			return
+		}
+		t := locale.T()
+		if m.err != nil {
+			e.count.SetText(t.Get("settings-mail-query-count-failed", i18n.Str("reason", m.err.Error())))
+			return
+		}
+		e.count.SetText(t.Get("settings-mail-query-count", i18n.Int("n", int64(m.n))))
+	})
+}
+
+func countMail(query string) (uint32, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), notmuchTimeout)
+	defer cancel()
+	return mail.CLI{}.Count(ctx, query)
 }
 
 func (e *mailQueryEditor) write() {

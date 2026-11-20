@@ -1316,6 +1316,12 @@ settings-mail-query-tags = Markiert
 settings-mail-query-not-tags = Nicht markiert
 settings-mail-query-folders = Ordner
 settings-mail-query-handwritten = Diese Abfrage nutzt mehr als Markierungen und Ordner und wird daher als Text bearbeitet.
+settings-mail-query-count = { $n ->
+    [0] Keine Nachricht passt
+    [one] 1 Nachricht passt
+   *[other] { $n } Nachrichten passen
+}
+settings-mail-query-count-failed = Die Treffer ließen sich nicht zählen: { $reason }
 settings-nav-connectivity = Konnektivität
     .description = WLAN, kabelgebundene Netzwerke, Bluetooth und Flugmodus
 settings-nav-wifi = WLAN & Netzwerk

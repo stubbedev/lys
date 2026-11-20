@@ -1317,6 +1317,12 @@ settings-mail-query-tags = Con etiqueta
 settings-mail-query-not-tags = Sin etiqueta
 settings-mail-query-folders = Carpeta
 settings-mail-query-handwritten = Esta consulta usa más que etiquetas y carpetas, así que se edita como texto.
+settings-mail-query-count = { $n ->
+    [0] Ningún mensaje coincide
+    [one] Coincide 1 mensaje
+   *[other] Coinciden { $n } mensajes
+}
+settings-mail-query-count-failed = No se pudieron contar las coincidencias: { $reason }
 settings-nav-connectivity = Conectividad
     .description = Wi-Fi, redes cableadas, Bluetooth y modo avión
 settings-nav-wifi = Wi-Fi y red

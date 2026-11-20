@@ -88,6 +88,7 @@ func Run(page, setting string) error {
 		shellCommand: runShellCommand,
 		openURI:      openWithDefaultApp,
 		i2c:          systemHost.i2cAccess,
+		mailCount:    countMail,
 		barFont:      barview.Font,
 		familyFont:   loadFamily,
 	}

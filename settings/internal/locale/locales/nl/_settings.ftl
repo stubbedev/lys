@@ -1306,6 +1306,12 @@ settings-mail-query-tags = Met label
 settings-mail-query-not-tags = Zonder label
 settings-mail-query-folders = Map
 settings-mail-query-handwritten = Deze zoekopdracht gebruikt meer dan labels en mappen en wordt daarom als tekst bewerkt.
+settings-mail-query-count = { $n ->
+    [0] Geen bericht komt overeen
+    [one] 1 bericht komt overeen
+   *[other] { $n } berichten komen overeen
+}
+settings-mail-query-count-failed = De overeenkomsten konden niet worden geteld: { $reason }
 settings-nav-connectivity = Connectiviteit
     .description = Wifi, bekabelde netwerken, Bluetooth en vliegtuigmodus
 settings-nav-wifi = Wifi & netwerk

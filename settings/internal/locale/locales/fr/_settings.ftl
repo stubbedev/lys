@@ -1319,6 +1319,12 @@ settings-mail-query-tags = Étiqueté
 settings-mail-query-not-tags = Non étiqueté
 settings-mail-query-folders = Dossier
 settings-mail-query-handwritten = Cette requête utilise plus que des étiquettes et des dossiers, elle se modifie donc comme texte.
+settings-mail-query-count = { $n ->
+    [0] Aucun message ne correspond
+    [one] 1 message correspond
+   *[other] { $n } messages correspondent
+}
+settings-mail-query-count-failed = Impossible de compter les correspondances : { $reason }
 settings-nav-connectivity = Connectivité
     .description = Wi-Fi, réseaux filaires, Bluetooth et mode avion
 settings-nav-wifi = Wi-Fi et réseau

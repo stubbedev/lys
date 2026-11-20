@@ -1316,6 +1316,12 @@ settings-mail-query-tags = Tagged
 settings-mail-query-not-tags = Not tagged
 settings-mail-query-folders = Folder
 settings-mail-query-handwritten = This query uses more than tags and folders, so it is edited as text.
+settings-mail-query-count = { $n ->
+    [0] No message matches
+    [one] 1 message matches
+   *[other] { $n } messages match
+}
+settings-mail-query-count-failed = Could not count the matches: { $reason }
 settings-nav-connectivity = Connectivity
     .description = Wi-Fi, wired networks, Bluetooth and airplane mode
 settings-nav-wifi = Wi-Fi & Network

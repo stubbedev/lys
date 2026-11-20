@@ -1,6 +1,7 @@
 package settings
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"slices"
@@ -71,5 +72,72 @@ func TestTheMailQueryIsBuiltFromConditions(t *testing.T) {
 	e.refresh()
 	if !e.notice.Visible() || !e.raw.Visible() || e.add.Visible() {
 		t.Errorf("a query beyond conditions shows notice %v, raw %v, add %v", e.notice.Visible(), e.raw.Visible(), e.add.Visible())
+	}
+}
+
+func TestTheMailQuerySaysHowManyMessagesItMatches(t *testing.T) {
+	const path = "modules.mail.query"
+	k := testKit(t, "modules:\n  mail:\n    query: \"tag:unread\"\n")
+	counts := map[string]uint32{"tag:unread": 37, "tag:unread and not tag:spam": 1, "tag:none": 0}
+	var asked []string
+	k.mailCount = func(q string) (uint32, error) {
+		asked = append(asked, q)
+		n, ok := counts[q]
+		if !ok {
+			return 0, errors.New("unbalanced parenthesis")
+		}
+		return n, nil
+	}
+	e := fieldControl(k, k.store, field(path, mailQueryRow)).(*mailQueryEditor)
+	if !e.count.Visible() || unisolated(e.count.Text()) != "37 messages match" {
+		t.Fatalf("shows %q, visible %v", e.count.Text(), e.count.Visible())
+	}
+	e.refresh()
+	if len(asked) != 1 {
+		t.Errorf("an unchanged query was counted %d times", len(asked))
+	}
+	for q, want := range map[string]string{
+		"tag:unread and not tag:spam": "1 message matches",
+		"tag:none":                    "No message matches",
+		"tag:(":                       "Could not count the matches: unbalanced parenthesis",
+	} {
+		if err := k.store.set(path, q); err != nil {
+			t.Fatal(err)
+		}
+		e.refresh()
+		if unisolated(e.count.Text()) != want {
+			t.Errorf("%q shows %q, want %q", q, e.count.Text(), want)
+		}
+	}
+	if err := k.store.set(path, ""); err != nil {
+		t.Fatal(err)
+	}
+	e.refresh()
+	if e.count.Visible() {
+		t.Error("an empty query shows a count")
+	}
+}
+
+func TestALateMailCountOfAnOldQueryIsDropped(t *testing.T) {
+	const path = "modules.mail.query"
+	k := testKit(t, "modules:\n  mail:\n    query: \"tag:old\"\n")
+	var pending []func()
+	k.background = func(fn func()) { pending = append(pending, fn) }
+	k.mailCount = func(q string) (uint32, error) {
+		if q == "tag:old" {
+			return 5, nil
+		}
+		return 2, nil
+	}
+	e := fieldControl(k, k.store, field(path, mailQueryRow)).(*mailQueryEditor)
+	if err := k.store.set(path, "tag:new"); err != nil {
+		t.Fatal(err)
+	}
+	e.refresh()
+	for _, fn := range slices.Backward(pending) {
+		fn()
+	}
+	if unisolated(e.count.Text()) != "2 messages match" {
+		t.Fatalf("shows %q after the old query's count came late", e.count.Text())
 	}
 }
