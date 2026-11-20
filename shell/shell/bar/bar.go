@@ -49,6 +49,7 @@ import (
 	"github.com/stubbedev/lys/shell/service/brightness"
 	"github.com/stubbedev/lys/shell/service/idleinhibit"
 	"github.com/stubbedev/lys/shell/service/lyrics"
+	"github.com/stubbedev/lys/shell/service/nightlight"
 	"github.com/stubbedev/lys/shell/service/notifications"
 	"github.com/stubbedev/lys/shell/service/privacy"
 	"github.com/stubbedev/lys/shell/service/recorder"
@@ -672,6 +673,15 @@ func (s *shellStart) mount() {
 				application.Invoke(func() { tasks.followGeometry(geometry, geometry.Ticks(), application.Invoke) })
 				return geometry.Close
 			})
+		}
+	}
+	if s.session != nil {
+		bus := nightlight.NewDaemon(func(on bool) { application.Invoke(func() { rt.ctx.Nightlight.setEnabled(on) }) })
+		if release, err := bus.Export(s.session); err == nil {
+			s.down.add(release)
+			baseCtx.NightlightBus = bus
+		} else {
+			log.Printf("nightlight: daemon: %v", err)
 		}
 	}
 	rt.ctx = baseCtx

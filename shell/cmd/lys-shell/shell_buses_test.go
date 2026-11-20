@@ -18,7 +18,7 @@ var shellSessionNames = []string{
 	"dev.stubbe.lys.Notifications1", "org.freedesktop.Notifications", "dev.stubbe.lys.IdleInhibit1", "org.freedesktop.ScreenSaver",
 	"dev.stubbe.lys.Media1", "dev.stubbe.lys.SystemTray1", "dev.stubbe.lys.Screenshot1",
 	"dev.stubbe.lys.SharePicker1", "dev.stubbe.lys.PortalDialogs1", "dev.stubbe.lys.FileChooser1",
-	"dev.stubbe.lys.Print1",
+	"dev.stubbe.lys.Print1", "dev.stubbe.lys.Nightlight1",
 }
 
 func TestTheShellServesItsSessionNamesOnOneConnection(t *testing.T) {

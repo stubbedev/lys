@@ -183,6 +183,9 @@ func (s *nightlightService) watch(change func()) (stop func()) {
 }
 
 func (s *nightlightService) notify() {
+	if s.ctx.NightlightBus != nil {
+		s.ctx.NightlightBus.Show(s.showing())
+	}
 	for _, w := range s.watchers {
 		w.change()
 	}

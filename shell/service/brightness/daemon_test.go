@@ -136,3 +136,18 @@ func TestDaemonRefusesWithoutFocusOrWithABadLevel(t *testing.T) {
 		t.Errorf("level 101: %v", err)
 	}
 }
+
+func TestDaemonReportsTheLevelOfEachOutputADeviceDrives(t *testing.T) {
+	obj := serveDaemon(t, laptopWithMonitor(), func() (string, bool) { return "", false })
+	var levels map[string]float64
+	if err := obj.Call(ServiceName+".Levels", 0, []string{"eDP-1", "DP-2", "HDMI-A-1"}).Store(&levels); err != nil {
+		t.Fatal(err)
+	}
+	if len(levels) != 2 || levels["eDP-1"] != 50 || levels["DP-2"] != 40 {
+		t.Errorf("levels %v, want eDP-1 at 50, DP-2 at 40 and HDMI-A-1, which no device drives, left out", levels)
+	}
+	var none map[string]float64
+	if err := obj.Call(ServiceName+".Levels", 0, []string{}).Store(&none); err != nil || len(none) != 0 {
+		t.Errorf("no outputs gave %v, %v", none, err)
+	}
+}

@@ -14,6 +14,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/geo"
 	"github.com/stubbedev/lys/desktop/identity"
+	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/logtest"
 	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/xdg"
@@ -196,6 +197,38 @@ func TestNightlightToggleFlipsTheFilterAndIcon(t *testing.T) {
 	m.svc.evaluate()
 	if fake.running {
 		t.Error("evaluate drove the filter with auto-schedule off")
+	}
+}
+
+func TestTheNightlightBusSaysWhetherTheFilterIsOn(t *testing.T) {
+	bus := dbustest.Start(t)
+	daemon := nightlight.NewDaemon(func(bool) {})
+	release, err := daemon.Export(bus.Conn(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(release)
+	enabled := func() any {
+		v, err := bus.Conn(t).Object(nightlight.ServiceName, nightlight.ServicePath).GetProperty(nightlight.ServiceName + "." + nightlight.EnabledProperty)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return v.Value()
+	}
+	ctx := newTestContext(t, sunsetConfig(false))
+	ctx.NightlightBus = daemon
+	fake := &fakeSunset{clock: sunsetDay}
+	m := onHeadlessLoop(func() *nightlightModule { return newNightlightWith(ctx, fake.env(t)) })
+	if got := enabled(); got != false {
+		t.Fatalf("resting, the bus says Enabled %v", got)
+	}
+	m.RunAction(config.ParseClickAction(":toggle"))
+	if got := enabled(); got != true {
+		t.Errorf("toggled on, the bus says Enabled %v", got)
+	}
+	m.RunAction(config.ParseClickAction(":toggle"))
+	if got := enabled(); got != false {
+		t.Errorf("toggled off, the bus says Enabled %v", got)
 	}
 }
 

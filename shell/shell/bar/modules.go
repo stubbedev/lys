@@ -32,6 +32,7 @@ import (
 	"github.com/stubbedev/lys/shell/service/idleinhibit"
 	"github.com/stubbedev/lys/shell/service/lyrics"
 	"github.com/stubbedev/lys/shell/service/mail"
+	"github.com/stubbedev/lys/shell/service/nightlight"
 	"github.com/stubbedev/lys/shell/service/notifications"
 	"github.com/stubbedev/lys/shell/service/recorder"
 	"github.com/stubbedev/lys/shell/service/sni"
@@ -90,9 +91,12 @@ type ModuleContext struct {
 	// a session bus.
 	AutoBrightness autoBrightnessSource
 	Nightlight     *nightlightService
-	Bitwarden      *bitwardenHost
-	SNI            *sni.Store
-	Weather        *weather.Service
+	// NightlightBus announces the night light on the session bus, nil
+	// without one.
+	NightlightBus *nightlight.Daemon
+	Bitwarden     *bitwardenHost
+	SNI           *sni.Store
+	Weather       *weather.Service
 	// Tasks is the window list the minimized-windows modules and the docks
 	// share; nil when the compositor offers no foreign-toplevel list.
 	Tasks *taskHub

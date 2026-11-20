@@ -81,6 +81,34 @@ func (d *Daemon) Apply(output string, relative bool, percent int32) (string, flo
 	return output, level, nil
 }
 
+// Levels is the mean level of the devices driving each of outputs that
+// has one; an output no device drives is left out.
+func (d *Daemon) Levels(outputs []string) (map[string]float64, *dbus.Error) {
+	ctx, cancel := context.WithTimeout(context.Background(), daemonTimeout)
+	defer cancel()
+	devices, err := d.src.Devices(ctx)
+	if err != nil {
+		return nil, dbusx.Failed(fmt.Sprintf("brightness: read devices: %v", err))
+	}
+	return outputLevels(devices, outputs), nil
+}
+
+// outputLevels is the mean level of the devices driving each of outputs
+// that devices drive.
+func outputLevels(devices []Device, outputs []string) map[string]float64 {
+	out := make(map[string]float64, len(outputs))
+	for _, output := range outputs {
+		driving, err := ForOutput(devices, output)
+		if err != nil {
+			continue
+		}
+		if level, ok := AveragePercentage(driving); ok {
+			out[output] = level
+		}
+	}
+	return out
+}
+
 // Export serves the daemon on conn under ServiceName.
 func (d *Daemon) Export(conn *dbus.Conn) (func(), error) {
 	return dbusx.Serve(conn, dbusx.Service{
