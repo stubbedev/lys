@@ -310,7 +310,6 @@ func TestConnectAndWaitReportsStepsUntilActivated(t *testing.T) {
 		done <- w.ConnectAndWait(t.Context(), ap, "", func(s DeviceState) { steps = append(steps, s) })
 	}()
 	fx.nm.addedAndActivated(t)
-	fx.nm.wifi.deviceState(DevicePrepare, DeviceReasonNone)
 	fx.nm.wifi.deviceState(DeviceDisconnected, DeviceReasonNewActivation)
 	fx.nm.wifi.deviceState(DeviceIPConfig, DeviceReasonNone)
 	fx.nm.wifi.deviceState(DeviceActivated, DeviceReasonNone)
@@ -377,10 +376,48 @@ func TestDeviceFailureVocabulary(t *testing.T) {
 			t.Errorf("reason %d = %v, want %v", reason, got, want)
 		}
 	}
-	if done, _ := deviceStep(DeviceDisconnected, DeviceReasonUnknown, nil); done {
+	started := func() *joinWatch {
+		j := &joinWatch{}
+		if done, _ := j.step(DevicePrepare, DeviceReasonNone); done {
+			t.Fatal("the activation's start ended the watch")
+		}
+		return j
+	}
+	if done, _ := started().step(DeviceDisconnected, DeviceReasonUnknown); done {
 		t.Error("a transient disconnect ended the watch")
 	}
-	if done, err := deviceStep(DeviceDisconnected, DeviceReasonSSIDNotFound, nil); !done || err == nil {
+	if done, err := started().step(DeviceDisconnected, DeviceReasonSSIDNotFound); !done || err == nil {
 		t.Error("a real disconnect did not end the watch")
+	}
+}
+
+func TestAJoinIgnoresTheReplacedConnectionsLateTransitions(t *testing.T) {
+	var seen []DeviceState
+	j := &joinWatch{progress: func(s DeviceState) { seen = append(seen, s) }}
+	for _, late := range []struct {
+		state  DeviceState
+		reason DeviceReason
+	}{
+		{DeviceDeactivating, DeviceReasonUserRequested},
+		{DeviceDisconnected, DeviceReasonUserRequested},
+		{DeviceFailed, DeviceReasonSupplicantFailed},
+	} {
+		if done, err := j.step(late.state, late.reason); done || err != nil {
+			t.Fatalf("the replaced connection's %d (reason %d) ended the join: %v", late.state, late.reason, err)
+		}
+	}
+	if len(seen) != 0 {
+		t.Fatalf("the replaced connection's transitions were reported as progress: %v", seen)
+	}
+	for _, s := range []DeviceState{DevicePrepare, DeviceConfig, DeviceIPConfig} {
+		if done, _ := j.step(s, DeviceReasonNone); done {
+			t.Fatalf("%d ended the join", s)
+		}
+	}
+	if done, err := j.step(DeviceDisconnected, DeviceReasonUserRequested); !done || err == nil {
+		t.Error("a disconnect after the join's own activation started did not end it")
+	}
+	if !slices.Equal(seen, []DeviceState{DevicePrepare, DeviceConfig, DeviceIPConfig}) {
+		t.Errorf("progress %v, want the join's own states", seen)
 	}
 }

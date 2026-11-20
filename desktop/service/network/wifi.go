@@ -597,6 +597,7 @@ func (w *Wifi) watchJoin(ctx context.Context, progress func(DeviceState), join f
 	if err := join(ctx); err != nil {
 		return err
 	}
+	j := joinWatch{progress: progress}
 	for {
 		select {
 		case <-ctx.Done():
@@ -605,7 +606,7 @@ func (w *Wifi) watchJoin(ctx context.Context, progress func(DeviceState), join f
 			}
 			return ctx.Err()
 		case change := <-transitions:
-			done, err := deviceStep(DeviceState(change.New), DeviceReason(change.Reason), progress)
+			done, err := j.step(DeviceState(change.New), DeviceReason(change.Reason))
 			if done {
 				return err
 			}
@@ -613,9 +614,24 @@ func (w *Wifi) watchJoin(ctx context.Context, progress func(DeviceState), join f
 	}
 }
 
-// deviceStep handles one device transition during a connect: whether
-// the watch is over, and how it ended.
-func deviceStep(state DeviceState, reason DeviceReason, progress func(DeviceState)) (bool, error) {
+// joinWatch follows the device through one join. Transitions before
+// the join's activation starts belong to the connection it replaces
+// (that connection's late Deactivating and Disconnected, reason
+// user-requested), so they neither end the watch nor count as progress.
+type joinWatch struct {
+	progress func(DeviceState)
+	started  bool
+}
+
+// step handles one device transition: whether the watch is over, and
+// how it ended.
+func (j *joinWatch) step(state DeviceState, reason DeviceReason) (bool, error) {
+	if !j.started {
+		if state < DevicePrepare || state > DeviceActivated {
+			return false, nil
+		}
+		j.started = true
+	}
 	switch state {
 	case DeviceActivated:
 		return true, nil
@@ -627,8 +643,8 @@ func deviceStep(state DeviceState, reason DeviceReason, progress func(DeviceStat
 		}
 		return true, &ConnectError{Failure: classifyDeviceFailure(reason), Reason: reason}
 	}
-	if progress != nil {
-		progress(state)
+	if j.progress != nil {
+		j.progress(state)
 	}
 	return false, nil
 }

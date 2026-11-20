@@ -413,7 +413,11 @@ func (f *fakeNM) activate(profile dbus.ObjectPath) (dbus.ObjectPath, *dbus.Error
 	if uuid == "" {
 		return "", dbus.NewError("org.freedesktop.NetworkManager.UnknownConnection", []any{"no such connection"})
 	}
-	return f.startActive(uuid, ActiveActivating), nil
+	active := f.startActive(uuid, ActiveActivating)
+	if f.wifi != nil {
+		f.wifi.deviceState(DevicePrepare, DeviceReasonNone)
+	}
+	return active, nil
 }
 
 func (m fakeManager) DeactivateConnection(active dbus.ObjectPath) *dbus.Error {
