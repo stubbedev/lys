@@ -84,6 +84,8 @@ type displaysPanel struct {
 	capsNote    *widget.Label
 	caps        outputCapabilities
 	identify    *widget.Button
+	addVirtual  *widget.Button
+	virtual     []string
 	apply       *widget.Button
 	status      *widget.Label
 	confirm     *confirmation
@@ -127,6 +129,8 @@ func displaysLead(k *kit) widget.Widget {
 	inset.Top = 0
 	actions.SetPadding(inset)
 	actions.Append(p.identify, false)
+	p.addVirtual = k.button(k.label(t.Get("settings-displays-virtual-add")), p.addVirtualOutput, css.Secondary)
+	actions.Append(p.addVirtual, false)
 	actions.Append(widget.NewBox(widget.Row, 0, 0), true)
 	actions.Append(p.apply, false)
 	arrangement := gapBox(widget.Column)
@@ -317,10 +321,13 @@ func (p *displaysPanel) render() {
 	p.apply.SetEnabled(has && p.dirty() && p.confirm == nil && p.mgr != nil)
 	w, wmErr := p.k.wmBackend()
 	p.primaryAt = -1
+	p.virtual = nil
 	if wmErr == nil {
 		text, _ := w.value(primaryPath).(string)
 		p.primaryAt = displays.Primary(text, p.heads)
+		p.virtual = virtualNames(w)
 	}
+	p.addVirtual.SetVisible(wmErr == nil)
 	p.canvas.layout()
 	p.showOffTray()
 	if !has {
@@ -671,6 +678,7 @@ func (p *displaysPanel) showExtraRows() {
 	rule := func() slot { return outputRuleSlot(w, h) }
 	set, _ := rule().get().(map[string]any)
 	caps, known := p.caps.of(h.Name)
+	p.showVirtualRows(w, h.Name)
 	hidden := false
 	for _, f := range wmItemFields(w, []string{outputsPath, wmconfig.Each}, nil, outputsPath) {
 		if arranged(f) {

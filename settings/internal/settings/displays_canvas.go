@@ -3,6 +3,8 @@ package settings
 import (
 	"cmp"
 	"math"
+	"slices"
+	"strings"
 
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
@@ -30,6 +32,7 @@ type displaysCanvas struct {
 	handles []*outputHandle
 	labels  map[string]string
 	mark    string
+	virtual string
 	drag    int
 	grabX   float64
 	grabY   float64
@@ -56,13 +59,10 @@ func (c *displaysCanvas) layout() {
 	c.handles = c.handles[:len(c.rects)]
 	c.labels = headLabels(c.p.heads)
 	c.mark = locale.T().Get("settings-displays-primary-mark")
+	c.virtual = locale.T().Get("settings-displays-virtual-mark")
 	for i, h := range c.handles {
 		name := c.p.draft[c.index[i]].Name
-		accessible := cmp.Or(c.labels[name], name) + " (" + name + ")"
-		if c.index[i] == c.p.primaryAt {
-			accessible += ", " + c.mark
-		}
-		h.SetAccessibleName(accessible)
+		h.SetAccessibleName(strings.Join(append([]string{cmp.Or(c.labels[name], name) + " (" + name + ")"}, c.marks(i)...), ", "))
 	}
 	c.InvalidateLayout()
 	c.Invalidate()
@@ -110,11 +110,24 @@ func (c *displaysCanvas) Paint(cv *render.Canvas) {
 		}
 		name := c.p.draft[c.index[i]].Name
 		c.p.k.face.DrawAligned(cv, cmp.Or(c.labels[name], name), tile, c.p.k.textPx(), ink, render.AlignCenter)
-		if c.index[i] == c.p.primaryAt {
+		if marks := c.marks(i); len(marks) > 0 {
 			third := tile.H / 3
-			c.p.k.face.DrawAligned(cv, c.mark, render.Rect{X: tile.X, Y: tile.Y + tile.H - third, W: tile.W, H: third}, c.p.k.textPx(), ink, render.AlignCenter)
+			c.p.k.face.DrawAligned(cv, strings.Join(marks, " · "), render.Rect{X: tile.X, Y: tile.Y + tile.H - third, W: tile.W, H: third}, c.p.k.textPx(), ink, render.AlignCenter)
 		}
 	}
+}
+
+// marks are what tile i is besides a display: the primary one, a virtual
+// one.
+func (c *displaysCanvas) marks(i int) []string {
+	var out []string
+	if c.index[i] == c.p.primaryAt {
+		out = append(out, c.mark)
+	}
+	if slices.Contains(c.p.virtual, c.p.draft[c.index[i]].Name) {
+		out = append(out, c.virtual)
+	}
+	return out
 }
 
 func (c *displaysCanvas) HitTest(p widget.Point) widget.Widget { return c.HitLeaf(c, p) }

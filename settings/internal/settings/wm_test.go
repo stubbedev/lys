@@ -968,7 +968,7 @@ var unlistedWMKeys = map[string]string{
 	"input.touchpad.accel_points.step":     "the custom acceleration curve editor, planned in #138",
 	"input.trackpoint.accel_points.points": "the custom acceleration curve editor, planned in #138",
 	"input.trackpoint.accel_points.step":   "the custom acceleration curve editor, planned in #138",
-	"virtual_outputs":                      "virtual outputs on the Displays arrangement, planned in #138",
+	"virtual_outputs":                      "added, sized and removed on the Displays arrangement, which writes the list itself",
 	"swallow.terminals":                    "an app picker writing the match, with the window matching editor planned in #138",
 	"swallow.except_title":                 "a title match with the window matching editor planned in #138",
 }
