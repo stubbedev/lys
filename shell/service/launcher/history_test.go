@@ -57,6 +57,32 @@ func TestRemoveDeletesEntry(t *testing.T) {
 	}
 }
 
+func TestClearForgetsEveryModeAndRecordingStartsOver(t *testing.T) {
+	h := memHistory(t)
+	_ = h.RecordAt("run", "htop", 0, 25)
+	_ = h.RecordAt("drun", "firefox.desktop", 0, 25)
+	if err := h.Clear(); err != nil {
+		t.Fatal(err)
+	}
+	for _, mode := range []string{"run", "drun"} {
+		if got, err := h.Recent(mode); err != nil || len(got) != 0 {
+			t.Errorf("after a clear %s remembers %v (%v)", mode, got, err)
+		}
+	}
+	_ = h.RecordAt("run", "top", 1, 25)
+	if got, _ := h.Recent("run"); !reflect.DeepEqual(got, []string{"top"}) {
+		t.Errorf("a launch after the clear is remembered as %v", got)
+	}
+}
+
+func TestClearingAClosedHistoryIsAnError(t *testing.T) {
+	h := DeferHistory(func() (*History, error) { return OpenHistoryAt(":memory:") })
+	_ = h.Close()
+	if err := h.Clear(); !errors.Is(err, errHistoryClosed) {
+		t.Errorf("clearing a closed history = %v, want it refused", err)
+	}
+}
+
 func TestModesAreIsolated(t *testing.T) {
 	h := memHistory(t)
 	_ = h.RecordAt("run", "htop", 0, 25)

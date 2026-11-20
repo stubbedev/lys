@@ -65,7 +65,11 @@ MOUSE BINDINGS (-me-* buttons, -ml-* scroll; see -list-keybindings):
     -me-accept-entry MouseDPrimary     accept on a double click only
     -ml-row-down ScrollDown            wheel moves the selection
 
-Local commands: -help, -version, -dump-config, -dump-theme, -list-keybindings`
+HISTORY:
+    -clear-history   forget every launch the launcher ranks by
+
+Local commands: -help, -version, -dump-config, -dump-theme, -list-keybindings,
+-clear-history`
 
 // launcherDumpTheme is the -dump-theme answer: there are no rasi
 // themes.
@@ -134,6 +138,22 @@ func runLauncherLocal(local launcherLocal, stdout io.Writer) error {
 		for _, b := range launcher.EffectiveMouseBindings(cfg.Launcher.MouseBindings) {
 			fmt.Fprintf(stdout, "%s: %s\n", b.Action, b.Keys)
 		}
+	case localClearHistory:
+		return clearLauncherHistory()
+	}
+	return nil
+}
+
+// clearLauncherHistory forgets every launch in the history the shell's
+// launcher ranks by.
+func clearLauncherHistory() (err error) {
+	h, err := launcher.OpenHistory()
+	if err != nil {
+		return fmt.Errorf("clear the launcher history: %w", err)
+	}
+	defer func() { err = errors.Join(err, h.Close()) }()
+	if err := h.Clear(); err != nil {
+		return fmt.Errorf("clear the launcher history: %w", err)
 	}
 	return nil
 }

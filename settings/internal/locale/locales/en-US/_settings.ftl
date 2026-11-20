@@ -1645,6 +1645,15 @@ settings-launcher-mode-display-name = Name in the launcher
 settings-launcher-mode-shown-as = Shown as “{ $name }”
 settings-launcher-mode-no-options = This mode has no options of its own
 settings-launcher-link-modes = Turn modes on, order their tabs and set each one's options
+settings-launcher-clear-history = Clear History
+    .description = Forget every launch the launcher ranks its rows by
+settings-launcher-clear-history-button = Clear History…
+settings-launcher-clear-history-title = Clear the launcher history?
+settings-launcher-clear-history-description = The launcher forgets which apps, commands and hosts you open most and orders them from scratch. This cannot be undone.
+settings-launcher-clear-history-cancel = Cancel
+settings-launcher-clear-history-confirm = Clear History
+settings-launcher-clear-history-done = The history is cleared
+settings-launcher-clear-history-failed = The history was not cleared: { $reason }
 settings-map-mode-name-placeholder = mode name
 
 settings-map-name-placeholder = name shown

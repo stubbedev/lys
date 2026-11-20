@@ -155,6 +155,18 @@ func (h *History) Remove(mode, entry string) error {
 	return nil
 }
 
+// Clear forgets every launch of every mode.
+func (h *History) Clear() error {
+	db, err := h.conn()
+	if err != nil {
+		return err
+	}
+	if _, err := db.Exec(`DELETE FROM history`); err != nil {
+		return fmt.Errorf("history database: clear: %w", err)
+	}
+	return nil
+}
+
 // Frecency weights a mode's entries by uses x recency bucket; higher
 // ranks earlier (drun pre-orders its rows by it).
 func (h *History) Frecency(mode string) (map[string]float64, error) {

@@ -1635,6 +1635,15 @@ settings-launcher-mode-display-name = Naam in de starter
 settings-launcher-mode-shown-as = Getoond als ‘{ $name }’
 settings-launcher-mode-no-options = Deze modus heeft geen eigen opties
 settings-launcher-link-modes = Modi aanzetten, hun tabbladen ordenen en de opties van elke modus instellen
+settings-launcher-clear-history = Geschiedenis wissen
+    .description = Vergeet elke start waarop de starter zijn rijen ordent
+settings-launcher-clear-history-button = Geschiedenis wissen…
+settings-launcher-clear-history-title = De geschiedenis van de starter wissen?
+settings-launcher-clear-history-description = De starter vergeet welke apps, opdrachten en hosts je het vaakst opent en ordent ze opnieuw vanaf nul. Dit kan niet ongedaan worden gemaakt.
+settings-launcher-clear-history-cancel = Annuleren
+settings-launcher-clear-history-confirm = Geschiedenis wissen
+settings-launcher-clear-history-done = De geschiedenis is gewist
+settings-launcher-clear-history-failed = De geschiedenis is niet gewist: { $reason }
 settings-map-mode-name-placeholder = modusnaam
 
 settings-map-name-placeholder = getoonde naam

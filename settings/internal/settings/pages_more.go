@@ -171,6 +171,7 @@ func launcherPage(*config.Config) pageSpec {
 		{title: "settings-section-launcher-history", rows: []rowSpec{
 			field("launcher.history.enable"),
 			field("launcher.history.max-size", countChips(inEntries, 25, 50, 100, 500), shownWhen("launcher.history.enable", switchedOn)),
+			clearHistoryRow(),
 		}},
 		{title: "settings-section-launcher-matching", advanced: true, rows: []rowSpec{
 			field("launcher.tokenize"),

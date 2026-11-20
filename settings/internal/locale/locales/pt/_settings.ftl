@@ -1636,6 +1636,15 @@ settings-launcher-mode-display-name = Nome no lançador
 settings-launcher-mode-shown-as = Mostrado como «{ $name }»
 settings-launcher-mode-no-options = Este modo não tem opções próprias
 settings-launcher-link-modes = Ativar modos, ordenar os seus separadores e definir as opções de cada um
+settings-launcher-clear-history = Limpar o histórico
+    .description = Esquece cada arranque pelo qual o lançador ordena as suas linhas
+settings-launcher-clear-history-button = Limpar o histórico…
+settings-launcher-clear-history-title = Limpar o histórico do lançador?
+settings-launcher-clear-history-description = O lançador esquece as aplicações, os comandos e os anfitriões que abre mais vezes e ordena-os de novo do zero. Não é possível anular.
+settings-launcher-clear-history-cancel = Cancelar
+settings-launcher-clear-history-confirm = Limpar o histórico
+settings-launcher-clear-history-done = O histórico foi limpo
+settings-launcher-clear-history-failed = O histórico não foi limpo: { $reason }
 settings-map-mode-name-placeholder = nome do modo
 
 settings-map-name-placeholder = nome mostrado

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/shell/internal/launcheripc"
+	"github.com/stubbedev/lys/shell/service/launcher"
 )
 
 func parseOK(t *testing.T, args ...string) launcherInvocation {
@@ -214,6 +215,40 @@ func TestLocalCommands(t *testing.T) {
 	out.Reset()
 	if code := runLauncher([]string{"-dump-theme"}, nil, &out, io.Discard); code != 0 || !strings.Contains(out.String(), "does not use rasi themes") {
 		t.Errorf("dump-theme = %q", out.String())
+	}
+}
+
+func TestClearHistoryForgetsEveryLaunch(t *testing.T) {
+	t.Setenv("XDG_DATA_HOME", t.TempDir())
+	h, err := launcher.OpenHistory()
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = h.RecordAt("drun", "firefox.desktop", 1, 25)
+	_ = h.RecordAt("run", "htop", 1, 25)
+	_ = h.Close()
+	var out, stderr bytes.Buffer
+	if code := runLauncher([]string{"-clear-history"}, nil, &out, &stderr); code != 0 || out.Len() != 0 || stderr.Len() != 0 {
+		t.Fatalf("clear-history = %d, stdout %q, stderr %q", code, out.String(), stderr.String())
+	}
+	h, err = launcher.OpenHistory()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = h.Close() }()
+	for _, mode := range []string{"drun", "run"} {
+		if got, err := h.Recent(mode); err != nil || len(got) != 0 {
+			t.Errorf("after clear-history %s remembers %v (%v)", mode, got, err)
+		}
+	}
+}
+
+func TestClearHistoryWithoutADataDirectoryFails(t *testing.T) {
+	t.Setenv("XDG_DATA_HOME", "relative")
+	t.Setenv("HOME", "relative")
+	var stderr bytes.Buffer
+	if code := runLauncher([]string{"-clear-history"}, nil, io.Discard, &stderr); code != 1 || !strings.Contains(stderr.String(), "Error: clear the launcher history: ") {
+		t.Errorf("code = %d, stderr = %q", code, stderr.String())
 	}
 }
 

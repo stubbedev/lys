@@ -1648,6 +1648,15 @@ settings-launcher-mode-display-name = Nom dans le lanceur
 settings-launcher-mode-shown-as = Affiché comme « { $name } »
 settings-launcher-mode-no-options = Ce mode n'a pas d'options propres
 settings-launcher-link-modes = Activer les modes, ordonner leurs onglets et régler les options de chacun
+settings-launcher-clear-history = Effacer l'historique
+    .description = Oublie chaque lancement selon lequel le lanceur classe ses lignes
+settings-launcher-clear-history-button = Effacer l'historique…
+settings-launcher-clear-history-title = Effacer l'historique du lanceur ?
+settings-launcher-clear-history-description = Le lanceur oublie les applications, commandes et hôtes que vous ouvrez le plus et les classe à nouveau de zéro. Cette action est irréversible.
+settings-launcher-clear-history-cancel = Annuler
+settings-launcher-clear-history-confirm = Effacer l'historique
+settings-launcher-clear-history-done = L'historique est effacé
+settings-launcher-clear-history-failed = L'historique n'a pas été effacé : { $reason }
 settings-map-mode-name-placeholder = nom du mode
 
 settings-map-name-placeholder = nom affiché

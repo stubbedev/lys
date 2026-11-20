@@ -23,6 +23,7 @@ const (
 	localDumpConfig
 	localDumpTheme
 	localListKeybindings
+	localClearHistory
 )
 
 // launcherInvocation is a parsed `lys-shell launcher` command line.
@@ -100,6 +101,8 @@ func parseLauncherArgs(args []string, stderr io.Writer) (launcherInvocation, err
 			inv.local = localDumpTheme
 		case "list-keybindings":
 			inv.local = localListKeybindings
+		case "clear-history":
+			inv.local = localClearHistory
 		case "replace":
 			inv.replace = true
 		case "format":

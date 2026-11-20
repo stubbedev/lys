@@ -1646,6 +1646,15 @@ settings-launcher-mode-display-name = Nome nell'avviatore
 settings-launcher-mode-shown-as = Mostrata come «{ $name }»
 settings-launcher-mode-no-options = Questa modalità non ha opzioni proprie
 settings-launcher-link-modes = Attivare le modalità, ordinarne le schede e impostare le opzioni di ciascuna
+settings-launcher-clear-history = Cancella la cronologia
+    .description = Dimentica ogni avvio in base al quale l'avviatore ordina le sue righe
+settings-launcher-clear-history-button = Cancella la cronologia…
+settings-launcher-clear-history-title = Cancellare la cronologia dell'avviatore?
+settings-launcher-clear-history-description = L'avviatore dimentica quali applicazioni, comandi e host apri più spesso e li ordina da capo. L'operazione non si può annullare.
+settings-launcher-clear-history-cancel = Annulla
+settings-launcher-clear-history-confirm = Cancella la cronologia
+settings-launcher-clear-history-done = La cronologia è cancellata
+settings-launcher-clear-history-failed = La cronologia non è stata cancellata: { $reason }
 settings-map-mode-name-placeholder = nome della modalità
 
 settings-map-name-placeholder = nome mostrato

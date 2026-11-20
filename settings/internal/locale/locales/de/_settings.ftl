@@ -1645,6 +1645,15 @@ settings-launcher-mode-display-name = Name im Starter
 settings-launcher-mode-shown-as = Angezeigt als „{ $name }“
 settings-launcher-mode-no-options = Dieser Modus hat keine eigenen Optionen
 settings-launcher-link-modes = Modi einschalten, ihre Reiter ordnen und die Optionen jedes Modus festlegen
+settings-launcher-clear-history = Verlauf löschen
+    .description = Vergisst jeden Start, nach dem der Starter seine Einträge ordnet
+settings-launcher-clear-history-button = Verlauf löschen …
+settings-launcher-clear-history-title = Den Verlauf des Starters löschen?
+settings-launcher-clear-history-description = Der Starter vergisst, welche Anwendungen, Befehle und Hosts du am häufigsten öffnest, und ordnet sie von vorn. Das lässt sich nicht rückgängig machen.
+settings-launcher-clear-history-cancel = Abbrechen
+settings-launcher-clear-history-confirm = Verlauf löschen
+settings-launcher-clear-history-done = Der Verlauf ist gelöscht
+settings-launcher-clear-history-failed = Der Verlauf wurde nicht gelöscht: { $reason }
 settings-map-mode-name-placeholder = Modusname
 
 settings-map-name-placeholder = angezeigter Name
