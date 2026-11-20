@@ -117,7 +117,7 @@ var dndSwitch = switchSpec[dndState]{
 	words:       func(k *kit, s dndState) string { return dndStatusText(k, s, k.clock.Now()) },
 	section:     "settings-section-dnd",
 	label:       "settings-dnd-now",
-	loading:     "settings-dnd-loading",
+	loading:     "settings-shell-asking",
 	unavailable: "settings-dnd-unavailable",
 	refused:     "settings-dnd-refused",
 }

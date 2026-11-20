@@ -128,8 +128,9 @@ func TestNotificationsHoldDoNotDisturbAndTheBell(t *testing.T) {
 
 func TestDisplaysShowsTheArrangementOnlyWithLysWM(t *testing.T) {
 	shell, _ := pageByID(layout(config.Defaults(), parts{shell: true}), displaysID)
-	if shell.lead != nil || !slices.Equal(rowPaths(parts{shell: true}, displaysID), []string{"general.tearing-mode"}) {
-		t.Errorf("lys-shell alone: lead %v, rows %v; want only the tearing switch", shell.lead != nil, rowPaths(parts{shell: true}, displaysID))
+	rows := rowPaths(parts{shell: true}, displaysID)
+	if shell.lead != nil || slices.ContainsFunc(rows, func(r string) bool { return strings.HasPrefix(r, "wm:") }) || !slices.Contains(rows, "general.tearing-mode") || !slices.Contains(rows, "modules.nightlight.temperature") {
+		t.Errorf("lys-shell alone: lead %v, rows %v; want lys-shell's rows alone, its night light among them", shell.lead != nil, rows)
 	}
 	both, _ := pageByID(layout(config.Defaults(), bothParts), displaysID)
 	if both.lead == nil || !slices.Contains(rowPaths(bothParts, displaysID), "wm:gpu") {

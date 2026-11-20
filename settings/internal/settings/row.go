@@ -61,6 +61,8 @@ type kit struct {
 	// mailCount is how many messages a notmuch query matches.
 	mailCount    func(query string) (uint32, error)
 	dnd          func() (dndControl, error)
+	nightlight   func() (nightlightControl, error)
+	brightness   func() (brightnessControl, error)
 	cameras      func() (cameraSource, func(), error)
 	screenShares func() (shareSource, func(), error)
 	// i2c says which I2C buses there are and which this user may open.

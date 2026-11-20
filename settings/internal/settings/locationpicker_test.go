@@ -190,7 +190,7 @@ func mustTestCoordinates(t *testing.T, latitude, longitude float64) geo.Coordina
 
 func TestThePagesPickTheirLocations(t *testing.T) {
 	k := testKit(t, "")
-	for page, path := range map[string]string{"weather": "modules.weather.location", "nightlight": "modules.nightlight.location"} {
+	for page, path := range map[string]string{"weather": "modules.weather.location", displaysID: "modules.nightlight.location"} {
 		if _, ok := fieldControl(k, k.store, pageRow(t, page, path)).(*locationPicker); !ok {
 			t.Errorf("%s is not picked as a location", path)
 		}

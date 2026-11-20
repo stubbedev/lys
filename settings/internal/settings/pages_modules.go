@@ -71,12 +71,14 @@ var moduleLinks = map[string][]pageLink{
 	"audio":          {{soundID, "settings-module-link-sound-detail"}},
 	"battery":        {{powerPageID, "settings-module-link-power-detail"}, thresholdsLink},
 	"bluetooth":      {{bluetoothPageID, "settings-module-link-bluetooth-detail"}},
+	"brightness":     {{displaysID, "settings-module-link-brightness-detail"}},
 	"clock":          {{dateTimeID, "settings-module-link-date-time-detail"}},
 	"cpu":            {thresholdsLink},
 	"dashboard":      {thresholdsLink},
 	"idle-inhibit":   {{"idle", "settings-module-link-idle-detail"}},
 	"keybind-mode":   {{wmBindsID, "settings-module-link-binds-detail"}},
 	"keyboard-input": {{"wm-keyboard", "settings-module-link-input-detail"}},
+	"nightlight":     {{displaysID, "settings-module-link-nightlight-detail"}},
 	"ram":            {thresholdsLink},
 	"storage":        {thresholdsLink},
 }
@@ -237,9 +239,7 @@ func brightnessPage(*config.Config) pageSpec {
 		{title: "settings-section-general", rows: []rowSpec{
 			field("modules.brightness.format"),
 			field("modules.brightness.level-icons", iconList),
-			field("modules.brightness.min-brightness", percentage),
-			field("modules.brightness.thresholds", levelThresholdList(levelScale{icons: "modules.brightness.level-icons", floor: "modules.brightness.min-brightness"})),
-			field("modules.brightness.enable-external", ddcRow),
+			field("modules.brightness.thresholds", levelThresholdList(levelScale{icons: "modules.brightness.level-icons", floor: brightnessPath + ".min-brightness"})),
 		}},
 		barItemSection("modules.brightness", actionChoices("brightness")),
 	}}
@@ -295,11 +295,34 @@ func dashboardPage(*config.Config) pageSpec {
 
 // nightlightPage is pages/modules/nightlight.
 func nightlightPage(*config.Config) pageSpec {
-	const m = "modules.nightlight"
+	const m = nightlightPath
+	return pageSpec{id: "nightlight", navKey: "settings-nav-nightlight", icon: "ld-sun-symbolic", header: "settings-page-nightlight", sections: []sectionSpec{
+		{title: "settings-section-nightlight-look", rows: []rowSpec{
+			field(m + ".format"),
+			field(m+".icon-off", iconRow),
+			field(m+".icon-on", iconRow),
+		}},
+		barItemSection(m, actionChoices("nightlight")),
+	}}
+}
+
+const (
+	nightlightPath = "modules.nightlight"
+	brightnessPath = "modules.brightness"
+)
+
+// displayLightSections are the Displays page's brightness and night
+// light: what the brightness and night light modules do to the screen.
+func displayLightSections() []sectionSpec {
+	const m = nightlightPath
 	scheduled := shownWhen(m+".auto-schedule", switchedOn)
 	following := func(s config.NightlightSchedule) rowOpt { return shownWhen(m+".schedule", valueIn(string(s))) }
-	return pageSpec{id: "nightlight", navKey: "settings-nav-nightlight", icon: "ld-sun-symbolic", header: "settings-page-nightlight", sections: []sectionSpec{
-		{title: "settings-section-nightlight-filter", rows: []rowSpec{field(m+".temperature", kelvin)}},
+	return []sectionSpec{
+		{title: "settings-section-displays-brightness", rows: []rowSpec{
+			field(brightnessPath+".min-brightness", percentage),
+			field(brightnessPath+".enable-external", ddcRow),
+		}},
+		{title: "settings-section-nightlight-filter", preview: nightlightNow, rows: []rowSpec{field(m+".temperature", kelvin)}},
 		{title: "settings-section-nightlight-schedule", rows: []rowSpec{
 			field(m + ".auto-schedule"),
 			field(m+".schedule", scheduled),
@@ -308,13 +331,7 @@ func nightlightPage(*config.Config) pageSpec {
 			field(m+".location", locationRow(automaticOrPinned), following(config.NightlightScheduleSun)),
 		}},
 		{title: "settings-section-nightlight-display", advanced: true, rows: []rowSpec{field(m+".gamma", gammaPercent)}},
-		{title: "settings-section-nightlight-look", rows: []rowSpec{
-			field(m + ".format"),
-			field(m+".icon-off", iconRow),
-			field(m+".icon-on", iconRow),
-		}},
-		barItemSection(m, actionChoices("nightlight")),
-	}}
+	}
 }
 
 // The night light's strength, over the range its dropdown card offers.

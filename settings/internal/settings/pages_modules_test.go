@@ -125,6 +125,7 @@ func TestDeviceLikeModulePagesLinkToTheirDevicePages(t *testing.T) {
 	for module, want := range map[string][]string{
 		"audio": {soundID}, "battery": {powerPageID, thresholdsPageID}, "bluetooth": {bluetoothPageID}, "clock": {dateTimeID},
 		"idle-inhibit": {"idle"}, "keybind-mode": {"wm-binds"}, "keyboard-input": {"wm-keyboard"},
+		"brightness": {displaysID}, "nightlight": {displaysID},
 	} {
 		p, ok := pageByID(k.nav, module)
 		if !ok {
@@ -246,7 +247,7 @@ func TestBitwardenSeparatesTheAccountItsSecurityAndItsIntegrations(t *testing.T)
 func TestTheNightLightScheduleRowsShowOnlyWithTheSchedule(t *testing.T) {
 	const m = "modules.nightlight"
 	k := testKit(t, "modules:\n  nightlight:\n    auto-schedule: false\n")
-	p := layoutPage(t, k, "nightlight")
+	p := layoutPage(t, k, displaysID)
 	shown := func(want map[string]bool) {
 		t.Helper()
 		for path, visible := range want {
@@ -267,7 +268,7 @@ func TestTheNightLightScheduleRowsShowOnlyWithTheSchedule(t *testing.T) {
 func TestRevealingARowHiddenThroughAChainLandsOnTheRowInUse(t *testing.T) {
 	const m = "modules.nightlight"
 	k := testKit(t, "modules:\n  nightlight:\n    auto-schedule: false\n    schedule: custom\n")
-	p := layoutPage(t, k, "nightlight")
+	p := layoutPage(t, k, displaysID)
 	hours := rowOf(t, p, m+".custom-hours")
 	if got := p.inUse(hours); got.path != m+".auto-schedule" {
 		t.Fatalf("revealing the custom hours with the schedule off lands on %s", got.path)
@@ -281,7 +282,7 @@ func TestRevealingARowHiddenThroughAChainLandsOnTheRowInUse(t *testing.T) {
 func TestTheCustomHoursArePickedOnTheClockAndNeverMeet(t *testing.T) {
 	const path = "modules.nightlight.custom-hours"
 	k := testKit(t, "modules:\n  clock:\n    format: \"%H:%M\"\n")
-	c := fieldControl(k, k.store, pageRow(t, "nightlight", path)).(*clockRange)
+	c := fieldControl(k, k.store, pageRow(t, displaysID, path)).(*clockRange)
 	if c.from.hours[c.from.hour.Selected()] != 21 || c.to.hours[c.to.hour.Selected()] != 7 {
 		t.Fatalf("the default hours read from %d to %d", c.from.hour.Selected(), c.to.hour.Selected())
 	}
@@ -307,7 +308,7 @@ func TestTheCustomHoursArePickedOnTheClockAndNeverMeet(t *testing.T) {
 
 func TestTheNightLightStrengthSlidesInKelvin(t *testing.T) {
 	k := testKit(t, "")
-	c, ok := fieldControl(k, k.store, pageRow(t, "nightlight", "modules.nightlight.temperature")).(*slider)
+	c, ok := fieldControl(k, k.store, pageRow(t, displaysID, "modules.nightlight.temperature")).(*slider)
 	if !ok {
 		t.Fatal("the temperature is not a slider")
 	}
@@ -315,7 +316,7 @@ func TestTheNightLightStrengthSlidesInKelvin(t *testing.T) {
 	if v := k.store.value("modules.nightlight.temperature"); v != int64(3400) {
 		t.Errorf("sliding to 3400 K stored %v", v)
 	}
-	if got := sectionOf(t, "nightlight", "modules.nightlight.gamma"); got != "settings-section-nightlight-display" {
+	if got := sectionOf(t, displaysID, "modules.nightlight.gamma"); got != "settings-section-nightlight-display" {
 		t.Errorf("the gamma is under %s", got)
 	}
 }

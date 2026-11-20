@@ -379,7 +379,7 @@ func TestModuleDurationsAreChipsInTheirFieldsUnit(t *testing.T) {
 	}{
 		{"bitwarden", "modules.bitwarden.clipboard-clear", tr.Get("settings-duration-seconds", i18n.Int("n", 10)), 2, 60},
 		{"idle-inhibit", "modules.idle-inhibit.startup-duration", tr.Get("settings-duration-minutes", i18n.Int("n", 15)), 3, 120},
-		{"nightlight", "modules.nightlight.transition-duration", tr.Get("settings-duration-instant"), 0, 0},
+		{displaysID, "modules.nightlight.transition-duration", tr.Get("settings-duration-instant"), 0, 0},
 		{"cpu", "modules.cpu.poll-interval-ms", tr.Get("settings-duration-seconds", i18n.Int("n", 1)), 0, 1000},
 		{"ram", "modules.ram.poll-interval-ms", tr.Get("settings-duration-seconds", i18n.Int("n", 1)), 3, 10000},
 	} {

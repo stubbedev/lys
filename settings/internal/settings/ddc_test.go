@@ -50,7 +50,7 @@ func TestTheExternalBrightnessSwitchSaysWhatItLacks(t *testing.T) {
 		}
 		k := testKit(t, yaml)
 		k.i2c = func() i2cAccess { return tc.access }
-		c, ok := fieldControl(k, k.store, pageRow(t, "brightness", "modules.brightness.enable-external")).(*ddcSwitch)
+		c, ok := fieldControl(k, k.store, pageRow(t, displaysID, "modules.brightness.enable-external")).(*ddcSwitch)
 		if !ok {
 			t.Fatal("enable-external is a plain switch")
 		}

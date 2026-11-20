@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/lib/wmipc"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
@@ -48,7 +49,7 @@ func displaysPage() pageSpec {
 	return pageSpec{
 		id: displaysID, navKey: "settings-nav-wm-outputs", icon: "ld-monitor-symbolic",
 		header: "settings-page-wm-outputs", wmLead: true, lead: displaysLead,
-		sections: []sectionSpec{{title: "wm-section-display", rows: append(wmFields("color_management", "tearing", "gpu", "hidden_frame_rate", "power_saver_frame_rate"), field("general.tearing-mode"))}},
+		sections: append([]sectionSpec{{title: "wm-section-display", rows: append(wmFields("color_management", "tearing", "gpu", "hidden_frame_rate", "power_saver_frame_rate"), field("general.tearing-mode"))}}, displayLightSections()...),
 	}
 }
 
@@ -59,36 +60,40 @@ type displaysConnection struct {
 
 type displaysPanel struct {
 	*widget.Box
-	k          *kit
-	mgr        displayManager
-	heads      []displays.Head
-	draft      []displays.Setting
-	selected   int
-	offTray    *widget.Box
-	canvas     *displaysCanvas
-	controls   *widget.Box
-	none       *widget.Label
-	enabled    *widget.Switch
-	primary    *widget.Switch
-	primaryRow *widget.Box
-	primaryAt  int
-	resolution *widget.Dropdown
-	sizes      [][2]int
-	refresh    *widget.Dropdown
-	rates      []displays.Mode
-	scale      *widget.Dropdown
-	scales     []float64
-	custom     *widget.Entry
-	extra      *widget.ItemGroup
-	capsNote   *widget.Label
-	caps       outputCapabilities
-	identify   *widget.Button
-	apply      *widget.Button
-	status     *widget.Label
-	confirm    *confirmation
-	identified []func()
-	closed     bool
-	syncing    bool
+	k           *kit
+	mgr         displayManager
+	heads       []displays.Head
+	draft       []displays.Setting
+	selected    int
+	offTray     *widget.Box
+	canvas      *displaysCanvas
+	controls    *widget.Box
+	none        *widget.Label
+	enabled     *widget.Switch
+	primary     *widget.Switch
+	primaryRow  *widget.Box
+	primaryAt   int
+	resolution  *widget.Dropdown
+	sizes       [][2]int
+	refresh     *widget.Dropdown
+	rates       []displays.Mode
+	scale       *widget.Dropdown
+	scales      []float64
+	custom      *widget.Entry
+	extra       *widget.ItemGroup
+	capsNote    *widget.Label
+	caps        outputCapabilities
+	identify    *widget.Button
+	apply       *widget.Button
+	status      *widget.Label
+	confirm     *confirmation
+	identified  []func()
+	light       displayLight
+	lightRow    *widget.Box
+	lightSlider *widgets.DebouncedSlider
+	lightNote   *widget.Label
+	closed      bool
+	syncing     bool
 }
 
 type confirmation struct {
@@ -196,6 +201,13 @@ func (p *displaysPanel) buildControls() {
 		p.setScale(displays.ScaleValue(v))
 	}
 	rows.Append(panelRow(k, t.Get("settings-displays-scale"), t.Attr("settings-displays-scale", "description"), p.scale, p.custom))
+	p.lightSlider = widgets.NewDebouncedSlider(0, k.face, k.textPx(), 0, k.invoke, k.clock)
+	p.lightSlider.SetAccessibleName(t.Get("settings-displays-brightness"))
+	p.lightSlider.OnCommit = p.setBrightness
+	p.lightNote = detailLabel(k, "")
+	p.lightRow = panelRowWith(k, t.Get("settings-displays-brightness"), p.lightNote, p.lightSlider)
+	p.lightRow.SetVisible(false)
+	rows.Append(p.lightRow)
 	p.controls.Append(rows, false)
 	p.capsNote = wrapped(k.label("", "setting-description", css.Caption))
 	p.capsNote.SetVisible(false)
@@ -229,6 +241,7 @@ func (p *displaysPanel) close() {
 		done()
 	}
 	p.identified = nil
+	p.closeBrightness()
 	if p.mgr != nil {
 		p.mgr.Close()
 		p.mgr = nil
@@ -256,6 +269,7 @@ func (p *displaysPanel) showHeads(heads []displays.Head) {
 	p.render()
 	p.showExtraRows()
 	p.readCapabilities()
+	p.readBrightness()
 }
 
 func (p *displaysPanel) showOffTray() {
@@ -366,6 +380,7 @@ func (p *displaysPanel) render() {
 	p.refresh.SetEnabled(s.Enabled)
 	p.scale.SetEnabled(s.Enabled)
 	p.custom.SetEnabled(s.Enabled)
+	p.showBrightness()
 }
 
 func (p *displaysPanel) selectOutput(i int) {
