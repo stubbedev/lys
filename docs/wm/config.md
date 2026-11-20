@@ -1039,7 +1039,8 @@ hidden_frame_rate: 5
 ```
 
 Default 15, a positive integer: frame callbacks per second for a surface fully
-covered by opaque windows or on no output.
+covered by opaque windows or on no output. A window hidden for two seconds
+sleeps and gets none until it is shown again.
 
 ## power_saver_frame_rate {#power_saver_frame_rate}
 

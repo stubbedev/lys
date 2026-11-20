@@ -329,6 +329,7 @@ type Window struct {
 	Frames       int
 	Closed       bool
 	States       []cxdg.XdgToplevelState
+	FramedStates []cxdg.XdgToplevelState
 	buffers      *bufferSet
 	drawn        int
 	stopped      bool
@@ -689,6 +690,7 @@ func (e frameEvents) Done(cb *cw.WlCallback, _ uint32) error {
 	}
 	e.w.framePending = false
 	e.w.Frames++
+	e.w.FramedStates = append(e.w.FramedStates[:0], e.w.States...)
 	if e.w.stopped {
 		return nil
 	}

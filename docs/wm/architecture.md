@@ -653,6 +653,25 @@ timestamp, a destroyed commit timer, a second surface on the output or a
 content type other than video drops the cap at the next frame. With power
 saver on as well, the lower of the two caps applies.
 
+## Hidden windows sleep
+
+A window no output draws (minimized, on a workspace no output shows, fully
+covered by opaque windows on every output, or on an output that is off) and
+that no capture session shares is unseen (`compositor/sleep.go`). For the
+first `DefaultSleepGrace`, 2 s and not configurable, its surfaces get frame
+callbacks at `hidden_frame_rate`, so a quick workspace flick costs no redraw.
+After that it sleeps: an xdg toplevel gets the `suspended` state
+(xdg-shell v6), and none of its surfaces, subsurfaces included, get frame
+callbacks or have a FIFO barrier cleared, so neither it nor lys-wm wakes for
+it. X windows sleep the same way without the state, which X has no word for.
+
+It wakes the moment it would be seen. An arrangement that shows it again
+(a workspace switch, a restore) clears `suspended` in the same configure
+and holds the change as a resize does (see above), so the frame that shows
+it carries what it drew awake. A window uncovered, or a capture session that
+starts on it, wakes it before the frame that draws it is presented. Popups
+are their own roots and keep the hidden rate.
+
 ## The lid
 
 lys-wm holds logind's `handle-lid-switch` inhibitor in block mode and applies

@@ -117,7 +117,7 @@ func sameArrangement(a, b wm.Arrangement) bool {
 
 func (c *Compositor) awaits(w *window, p wm.Placement, wanted want) bool {
 	w.stalled = stillStalled(w.stalled, c.interaction != nil, w.top.stale())
-	return !w.stalled && p.Visible && !p.Minimized && c.outputAtRect(p.Rect) != nil && w.top.resizes(wanted)
+	return !w.stalled && p.Visible && !p.Minimized && c.outputAtRect(p.Rect) != nil && (w.top.resizes(wanted) || w.top.wakes(wanted))
 }
 
 func (c *Compositor) holdable() bool {
@@ -136,6 +136,9 @@ func (c *Compositor) sendGoal(a wm.Arrangement) ([]*window, error) {
 		w.goal = c.insets(w.top, c.decision(w), p.Look, p.Layer).content(p.Rect)
 		goal := c.wanted(w.goal, p, hasFocus && focused == w.id)
 		goal.minimized = p.Minimized
+		suspended, woke := c.suspendedFor(w, p)
+		goal.suspended = suspended
+		err = errors.Join(err, woke)
 		if c.interaction != nil && w.top.stale() && w.top.resizes(goal) {
 			c.lagging = true
 			continue
@@ -143,6 +146,7 @@ func (c *Compositor) sendGoal(a wm.Arrangement) ([]*window, error) {
 		if c.awaits(w, p, goal) {
 			awaited = append(awaited, w)
 		}
+		w.wanted = goal
 		err = errors.Join(err, c.settle(w, goal))
 	}
 	c.awaited = awaited

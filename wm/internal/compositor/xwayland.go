@@ -104,6 +104,10 @@ func (t xToplevel) resizes(w want) bool {
 	return size != t.Rect().Size() && size != t.Surface().Size()
 }
 
+func (xToplevel) wakes(want) bool {
+	return false
+}
+
 func (t xToplevel) mark() answerMark {
 	return answerMark{size: t.Applied().Rect.Size()}
 }

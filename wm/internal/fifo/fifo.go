@@ -19,13 +19,14 @@ const version = 1
 
 type Manager struct {
 	shown  func(*surface.Surface) bool
+	asleep func(*surface.Surface) bool
 	hidden func() error
 	fifos  []*fifo
 	waking []*fifo
 }
 
-func New(d *server.Display, shown func(*surface.Surface) bool, hidden func() error) (*Manager, error) {
-	m := &Manager{shown: shown, hidden: hidden}
+func New(d *server.Display, shown, asleep func(*surface.Surface) bool, hidden func() error) (*Manager, error) {
+	m := &Manager{shown: shown, asleep: asleep, hidden: hidden}
 	if _, err := d.AddGlobal(sff.WpFifoManagerV1Interface, version, m.bind); err != nil {
 		return nil, err
 	}
@@ -37,11 +38,15 @@ func (m *Manager) Latched(latched []*surface.Surface) error {
 }
 
 func (m *Manager) Expired() error {
-	return m.clear(func(f *fifo) bool { return !m.shown(f.s) })
+	return m.clear(m.pacedHidden)
 }
 
 func (m *Manager) Hidden() bool {
-	return slices.ContainsFunc(m.fifos, func(f *fifo) bool { return f.barrier && !m.shown(f.s) })
+	return slices.ContainsFunc(m.fifos, func(f *fifo) bool { return f.barrier && m.pacedHidden(f) })
+}
+
+func (m *Manager) pacedHidden(f *fifo) bool {
+	return !m.shown(f.s) && !m.asleep(f.s)
 }
 
 func (m *Manager) clear(passed func(*fifo) bool) error {
@@ -53,7 +58,7 @@ func (m *Manager) clear(passed func(*fifo) bool) error {
 		case passed(f):
 			f.barrier = false
 			m.waking = append(m.waking, f)
-		case !m.shown(f.s):
+		case m.pacedHidden(f):
 			hidden = true
 		}
 	}

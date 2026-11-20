@@ -16,7 +16,7 @@ import (
 
 func (c *Compositor) addPacing(l *loop.Loop, display *server.Display) error {
 	var err error
-	if c.fifo, err = fifo.New(display, c.drawnAnywhere, c.armHidden); err != nil {
+	if c.fifo, err = fifo.New(display, c.drawnAnywhere, c.asleep, c.armHidden); err != nil {
 		return err
 	}
 	if c.timing, err = committiming.New(display, l, c.nextFlip); err != nil {

@@ -91,6 +91,7 @@ type Config struct {
 	InheritTimeout   time.Duration
 	HoldBound        time.Duration
 	HiddenFrame      time.Duration
+	SleepGrace       time.Duration
 	PowerSaverRate   int
 	HDRHold          time.Duration
 	HoldOpening      bool
@@ -173,6 +174,7 @@ func PlainConfig(keymap *xkb.Keymap, font *gtext.Typeface) Config {
 		InheritTimeout: DefaultInheritTimeout,
 		HoldBound:      DefaultHoldBound,
 		HiddenFrame:    DefaultHiddenFrame,
+		SleepGrace:     DefaultSleepGrace,
 		PowerSaverRate: DefaultPowerSaverRate,
 		HDRHold:        DefaultHDRHold,
 		Gestures:       DefaultGestures(),
@@ -249,6 +251,7 @@ type Compositor struct {
 	txnStore           transaction
 	holdTimer          *loop.Timer
 	hidden             throttle
+	sleep              sleeper
 	holdBound          time.Duration
 	holdOpening        bool
 	holds              HoldStats
@@ -482,6 +485,9 @@ func validate(cfg Config) (binds.Map, error) {
 	if cfg.HiddenFrame <= 0 {
 		return binds.Map{}, fmt.Errorf("compositor: hidden surfaces' frame interval %v is not positive", cfg.HiddenFrame)
 	}
+	if cfg.SleepGrace <= 0 {
+		return binds.Map{}, fmt.Errorf("compositor: hidden windows' grace before they sleep %v is not positive", cfg.SleepGrace)
+	}
 	if cfg.InheritTimeout <= 0 {
 		return binds.Map{}, fmt.Errorf("compositor: inherited frame timeout %v is not positive", cfg.InheritTimeout)
 	}
@@ -525,6 +531,7 @@ func (c *Compositor) adopt(cfg Config, m binds.Map) {
 	c.hotCorners = cfg.HotCorners
 	c.hot.forget()
 	c.hidden.every = cfg.HiddenFrame
+	c.sleep.grace = cfg.SleepGrace
 	c.powerSaverRate = cfg.PowerSaverRate
 	c.hdrHold = cfg.HDRHold
 	c.capFrameRates()
@@ -618,6 +625,9 @@ func (c *Compositor) setup(l *loop.Loop, display *server.Display, b backend.Back
 		return err
 	}
 	if c.hidden.timer, err = l.AddTimer(c.hiddenFrame); err != nil {
+		return err
+	}
+	if c.sleep.timer, err = l.AddTimer(c.sleepDue); err != nil {
 		return err
 	}
 	if c.waits.timer, err = l.AddTimer(c.sweepWaits); err != nil {

@@ -65,6 +65,8 @@ type window struct {
 	initialTitle  string
 	stated        wm.Decision
 	framed        frameInsets
+	wanted        want
+	rest          rest
 }
 
 type decided struct {
@@ -294,7 +296,7 @@ func (c *Compositor) reconcile() error {
 }
 
 func (c *Compositor) publish() error {
-	return errors.Join(c.syncOverview(c.clock()), c.refocus(), c.refreshPointer(), c.scheduleAll(), c.syncForeign(), c.syncWorkspaces(), c.syncCaptureSessions(), c.updateInhibition(), c.runOnCreatedEmpty())
+	return errors.Join(c.syncOverview(c.clock()), c.refocus(), c.refreshPointer(), c.scheduleAll(), c.syncForeign(), c.syncWorkspaces(), c.syncCaptureSessions(), c.updateInhibition(), c.runOnCreatedEmpty(), c.noteSeen())
 }
 
 func errUnknownWindow(id wm.WindowID) error {

@@ -160,5 +160,5 @@ func (c *Compositor) setProp(w *window, key, value string) error {
 
 func (c *Compositor) captureSetChanged() error {
 	c.stateChanged()
-	return c.scheduleAll()
+	return errors.Join(c.scheduleAll(), c.noteSeen())
 }

@@ -122,6 +122,10 @@ func (t *Toplevel) Acked(serial uint32) bool {
 	return !t.configures.waiting(serial)
 }
 
+func (t *Toplevel) Understands(st ToplevelState) bool {
+	return st.Valid(t.resource.Base().Version())
+}
+
 func (t *Toplevel) Configure(s State) (uint32, error) {
 	if t.destroyed {
 		return 0, errors.New("shell: configure of a destroyed xdg_toplevel")
@@ -141,7 +145,7 @@ func (t *Toplevel) Configure(s State) (uint32, error) {
 	}
 	t.wireStates = t.wireStates[:0]
 	for _, st := range s.States {
-		if !st.Valid(t.resource.Base().Version()) {
+		if !t.Understands(st) {
 			continue
 		}
 		t.wireStates = binary.NativeEndian.AppendUint32(t.wireStates, uint32(st))

@@ -19,6 +19,7 @@ type want struct {
 	placed    bool
 	activated bool
 	minimized bool
+	suspended bool
 	scale     output.Scale
 }
 
@@ -40,6 +41,7 @@ type toplevel interface {
 	settled(w want) bool
 	apply(w want) error
 	resizes(w want) bool
+	wakes(w want) bool
 	mark() answerMark
 	answers(u *surface.Update, m answerMark) bool
 	synced() bool
@@ -110,38 +112,67 @@ type answerMark struct {
 	size   image.Point
 }
 
-var (
-	tiledStates = []shell.ToplevelState{
-		sxdg.XdgToplevelStateTiledLeft, sxdg.XdgToplevelStateTiledRight, sxdg.XdgToplevelStateTiledTop, sxdg.XdgToplevelStateTiledBottom,
-		sxdg.XdgToplevelStateConstrainedLeft, sxdg.XdgToplevelStateConstrainedRight, sxdg.XdgToplevelStateConstrainedTop, sxdg.XdgToplevelStateConstrainedBottom,
-	}
-	activatedTiledStates      = append(slices.Clone(tiledStates), sxdg.XdgToplevelStateActivated)
-	fullscreenStates          = []shell.ToplevelState{sxdg.XdgToplevelStateFullscreen}
-	activatedFullscreenStates = []shell.ToplevelState{sxdg.XdgToplevelStateFullscreen, sxdg.XdgToplevelStateActivated}
-	activatedStates           = []shell.ToplevelState{sxdg.XdgToplevelStateActivated}
-	maximizedStates           = []shell.ToplevelState{sxdg.XdgToplevelStateMaximized}
-	activatedMaximizedStates  = []shell.ToplevelState{sxdg.XdgToplevelStateMaximized, sxdg.XdgToplevelStateActivated}
+type placedKind uint8
+
+const (
+	placedPlain placedKind = iota
+	placedTiled
+	placedMaximized
+	placedFullscreen
+	placedKinds
 )
 
-func xdgStates(w want) []shell.ToplevelState {
-	tiled, fullscreen, maximized := w.placed && w.told == wm.LayerTiled, w.placed && w.told == wm.LayerFullscreen, w.placed && w.told == wm.LayerMaximized
-	switch {
-	case maximized && w.activated:
-		return activatedMaximizedStates
-	case maximized:
-		return maximizedStates
-	case tiled && w.activated:
-		return activatedTiledStates
-	case tiled:
-		return tiledStates
-	case fullscreen && w.activated:
-		return activatedFullscreenStates
-	case fullscreen:
-		return fullscreenStates
-	case w.activated:
-		return activatedStates
+var placedStates = [placedKinds][]shell.ToplevelState{
+	placedTiled: {
+		sxdg.XdgToplevelStateTiledLeft, sxdg.XdgToplevelStateTiledRight, sxdg.XdgToplevelStateTiledTop, sxdg.XdgToplevelStateTiledBottom,
+		sxdg.XdgToplevelStateConstrainedLeft, sxdg.XdgToplevelStateConstrainedRight, sxdg.XdgToplevelStateConstrainedTop, sxdg.XdgToplevelStateConstrainedBottom,
+	},
+	placedMaximized:  {sxdg.XdgToplevelStateMaximized},
+	placedFullscreen: {sxdg.XdgToplevelStateFullscreen},
+}
+
+var stateSets = func() (sets [placedKinds][2][2][]shell.ToplevelState) {
+	for kind, base := range placedStates {
+		for activated := range 2 {
+			for suspended := range 2 {
+				set := slices.Clone(base)
+				if activated == 1 {
+					set = append(set, sxdg.XdgToplevelStateActivated)
+				}
+				if suspended == 1 {
+					set = append(set, sxdg.XdgToplevelStateSuspended)
+				}
+				sets[kind][activated][suspended] = set
+			}
+		}
 	}
-	return nil
+	return sets
+}()
+
+func placedKindOf(w want) placedKind {
+	if !w.placed {
+		return placedPlain
+	}
+	switch w.told {
+	case wm.LayerTiled:
+		return placedTiled
+	case wm.LayerMaximized:
+		return placedMaximized
+	case wm.LayerFullscreen:
+		return placedFullscreen
+	}
+	return placedPlain
+}
+
+func bit(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
+}
+
+func xdgStates(w want) []shell.ToplevelState {
+	return stateSets[placedKindOf(w)][bit(w.activated)][bit(w.suspended)]
 }
 
 func xdgState(w want) shell.State {
@@ -167,6 +198,10 @@ func (t xdgToplevel) resizes(w want) bool {
 	was, size := t.Requested(), w.rect.Size()
 	flips := (w.placed && w.told == wm.LayerFullscreen) != was.Has(sxdg.XdgToplevelStateFullscreen) || (w.placed && w.told == wm.LayerMaximized) != was.Has(sxdg.XdgToplevelStateMaximized)
 	return flips || (size != was.Size && size != t.Geometry().Size())
+}
+
+func (t xdgToplevel) wakes(w want) bool {
+	return !w.suspended && t.Requested().Has(sxdg.XdgToplevelStateSuspended) && t.Understands(sxdg.XdgToplevelStateSuspended)
 }
 
 func (t xdgToplevel) mark() answerMark {

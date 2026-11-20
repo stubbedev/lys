@@ -245,6 +245,9 @@ func (c *Compositor) render(o *output.Output) error {
 	if err := c.throttleLeft(o, sc.shown); err != nil {
 		return err
 	}
+	if err := c.noteSeen(); err != nil {
+		return err
+	}
 	sc.cur.dropHiddenRims()
 	sc.zeroCopy = [1 + backend.MaxOverlayPlanes]*surface.Surface{}
 	if err := c.assignOverlays(o, sc, bounds, shading != nil); err != nil {

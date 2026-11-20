@@ -21,6 +21,7 @@ const (
 
 func throttled(cfg *compositor.Config) {
 	cfg.HiddenFrame = hiddenFrame
+	cfg.SleepGrace = time.Hour
 	cfg.Rules = []wm.Rule{
 		{Match: wm.Match{Title: regexp.MustCompile(`^behind$`)}, Mode: wm.RuleFloat, Size: wm.Px(80, 50)},
 		{Match: wm.Match{Title: regexp.MustCompile(`^wall$`)}, Mode: wm.RuleFloat, Size: wm.Px(120, 80)},
