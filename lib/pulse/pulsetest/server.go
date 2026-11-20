@@ -9,6 +9,7 @@ package pulsetest
 import (
 	"bufio"
 	"fmt"
+	"maps"
 	"net"
 	"path/filepath"
 	"slices"
@@ -381,6 +382,7 @@ type conn struct {
 	mu      sync.Mutex
 	version uint32
 	mask    native.SubscriptionMask
+	props   native.PropList
 }
 
 func (c *conn) subscribed(f native.Facility) bool {
@@ -609,12 +611,16 @@ func (c *conn) negotiated() uint32 {
 }
 
 func (c *conn) setClientName(tag uint32, r *native.Reader, failed func() bool) bool {
-	if r.PropList(); r.Err() != nil || !r.EOF() {
+	props := r.PropList()
+	if r.Err() != nil || !r.EOF() {
 		return false
 	}
 	if failed() {
 		return true
 	}
+	c.mu.Lock()
+	c.props = props
+	c.mu.Unlock()
 	var w native.Writer
 	w.U32(7)
 	c.reply(tag, &w)
@@ -967,6 +973,19 @@ func setDefaultHandler(sink bool) handler {
 	}
 }
 
+// streamProps is what a stream of this client reports: its own
+// properties over the client's, as PulseAudio merges them.
+func (c *conn) streamProps(own native.PropList) native.PropList {
+	c.mu.Lock()
+	out := maps.Clone(c.props)
+	c.mu.Unlock()
+	if out == nil {
+		out = native.PropList{}
+	}
+	maps.Copy(out, own)
+	return out
+}
+
 // createRecord parses CREATE_RECORD_STREAM at the negotiated version
 // (the v12-v22 flag blocks), resolves the source like pa_namereg_get
 // (null = default), and answers with the granted attributes.
@@ -1020,6 +1039,7 @@ func (c *conn) createRecord(tag uint32, r *native.Reader, failed func() bool) bo
 		c.fail(tag, native.ErrInvalid)
 		return true
 	}
+	props := c.streamProps(rec.Props)
 	s := c.s
 	s.mu.Lock()
 	name := rec.Source
@@ -1037,7 +1057,7 @@ func (c *conn) createRecord(tag uint32, r *native.Reader, failed func() bool) bo
 		s.sourceOutputs[rec.SourceOutput] = native.StreamInfo{
 			Index: rec.SourceOutput, Name: rec.Props["media.name"], OwnerModule: native.InvalidIndex,
 			Client: 7, Device: source.Index, SampleSpec: rec.SampleSpec, ChannelMap: rec.ChannelMap,
-			Volume: vol, Props: rec.Props, HasVolume: true, VolumeWritable: true,
+			Volume: vol, Props: props, HasVolume: true, VolumeWritable: true,
 			Format: native.FormatInfo{Encoding: native.EncodingPCM, Props: native.PropList{}},
 		}
 	}
