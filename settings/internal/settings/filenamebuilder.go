@@ -21,21 +21,19 @@ const (
 )
 
 var (
-	filenameDates = []string{"", "%Y-%m-%d", "%Y%m%d", "%d-%m-%Y"}
-	filenameTimes = []string{"", "%H-%M-%S", "%H%M%S", "%H-%M", "%H.%M.%S"}
+	filenameDates    = []string{"", "%Y-%m-%d", "%Y%m%d", "%d-%m-%Y"}
+	filenameTimes    = []string{"", "%H-%M-%S", "%H%M%S", "%H-%M", "%H.%M.%S"}
+	filenameCounters = []string{"", config.ScreenshotCounter}
 )
 
-type filenameParts struct{ prefix, date, clock string }
+type filenameParts struct{ prefix, date, clock, counter string }
 
 func (p filenameParts) format() string {
-	join := ""
-	if p.date != "" && p.clock != "" {
-		join = dateTimeJoin
-	}
-	return p.prefix + p.date + join + p.clock + screenshotExt
+	stamp := slices.DeleteFunc([]string{p.date, p.clock, p.counter}, func(s string) bool { return s == "" })
+	return p.prefix + strings.Join(stamp, dateTimeJoin) + screenshotExt
 }
 
-func (p filenameParts) numbered() bool { return p.date == "" && p.clock == "" }
+func (p filenameParts) fixed() bool { return p.date == "" && p.clock == "" && p.counter == "" }
 
 func filenamePrefixProblem(prefix string) string {
 	switch {
@@ -43,8 +41,25 @@ func filenamePrefixProblem(prefix string) string {
 		return "settings-filename-slash"
 	case strings.Contains(prefix, "%"):
 		return "settings-filename-percent"
+	case strings.Contains(prefix, config.ScreenshotCounter):
+		return "settings-filename-counter-in-name"
 	}
 	return ""
+}
+
+func screenshotNameParts() formatKind {
+	f := strftimeParts()
+	f.render = renderScreenshotName
+	f.insert = append(f.insert, choice{value: config.ScreenshotCounter, label: locale.T().Get("settings-filename-counter"), group: renderScreenshotName(config.ScreenshotCounter)})
+	return f
+}
+
+func renderScreenshotName(s string) string {
+	f, err := config.ParseScreenshotFilename(s)
+	if err != nil {
+		return locale.T().Get("settings-format-invalid", i18n.Str("reason", err.Error()))
+	}
+	return f.At(formatSampleTime).Numbered(1)
 }
 
 func parseFilename(format string) (filenameParts, bool) {
@@ -55,7 +70,9 @@ func parseFilename(format string) (filenameParts, bool) {
 	var candidates []filenameParts
 	for _, d := range filenameDates {
 		for _, c := range filenameTimes {
-			candidates = append(candidates, filenameParts{date: d, clock: c})
+			for _, n := range filenameCounters {
+				candidates = append(candidates, filenameParts{date: d, clock: c, counter: n})
+			}
 		}
 	}
 	slices.SortStableFunc(candidates, func(a, b filenameParts) int { return len(b.format()) - len(a.format()) })
@@ -66,7 +83,7 @@ func parseFilename(format string) (filenameParts, bool) {
 			continue
 		}
 		p.prefix = prefix
-		if p.prefix == "" && p.numbered() {
+		if p.prefix == "" && p.fixed() {
 			return filenameParts{}, false
 		}
 		return p, true
@@ -77,7 +94,7 @@ func parseFilename(format string) (filenameParts, bool) {
 var screenshotNameRow rowOpt = func(r *rowSpec) {
 	r.fullWidth = true
 	r.editor = func(k *kit, s slot, meta config.FieldMeta) control {
-		return newFilenameEditor(k, s, k.store.slot(screenshotDirPath), newLabelBuilder(k, s, meta.Optional, strftimeParts()))
+		return newFilenameEditor(k, s, k.store.slot(screenshotDirPath), newLabelBuilder(k, s, meta.Optional, screenshotNameParts()))
 	}
 }
 
@@ -90,6 +107,7 @@ type filenameEditor struct {
 	prefix   *widget.Entry
 	date     *widget.Dropdown
 	clock    *widget.Dropdown
+	counter  *widget.Dropdown
 	problem  *widget.Label
 	path     *widget.Label
 	notice   *widget.Label
@@ -102,12 +120,16 @@ type filenameEditor struct {
 
 func choiceLabels(formats []string) []string {
 	t := locale.T()
-	render := strftimeFormat().render
 	out := make([]string, len(formats))
 	for i, f := range formats {
-		out[i] = cmp.Or(render(f), t.Get("settings-filename-none"))
+		out[i] = cmp.Or(renderScreenshotName(f), t.Get("settings-filename-none"))
 	}
 	return out
+}
+
+func counterLabels() []string {
+	t := locale.T()
+	return []string{t.Get("settings-filename-none"), t.Get("settings-filename-counter-sample")}
 }
 
 func newFilenameEditor(k *kit, s, dir slot, custom *labelBuilder) *filenameEditor {
@@ -123,11 +145,14 @@ func newFilenameEditor(k *kit, s, dir slot, custom *labelBuilder) *filenameEdito
 	e.clock = widget.NewDropdown(k.face, k.textPx(), choiceLabels(filenameTimes), 0)
 	e.clock.SetAccessibleName(t.Get("settings-filename-time"))
 	e.clock.OnSelect = func(int) { e.write() }
+	e.counter = widget.NewDropdown(k.face, k.textPx(), counterLabels(), 0)
+	e.counter.SetAccessibleName(t.Get("settings-filename-counter"))
+	e.counter.OnSelect = func(int) { e.write() }
 	e.simple = gapBox(widget.Column)
 	for _, part := range []struct {
 		key string
 		w   widget.Widget
-	}{{"settings-filename-prefix", e.prefix}, {"settings-filename-date", e.date}, {"settings-filename-time", e.clock}} {
+	}{{"settings-filename-prefix", e.prefix}, {"settings-filename-date", e.date}, {"settings-filename-time", e.clock}, {"settings-filename-counter", e.counter}} {
 		line := gapBox(widget.Row)
 		line.AppendAligned(k.label(t.Get(part.key), "card-form-label", css.Caption), false, widget.AlignCenter)
 		line.Append(part.w, true)
@@ -157,7 +182,7 @@ func (e *filenameEditor) stacked() {}
 func (e *filenameEditor) dirtyBadge() *widget.Badge { return e.custom.dirtyBadge() }
 
 func (e *filenameEditor) parts() filenameParts {
-	return filenameParts{prefix: e.prefix.Text(), date: filenameDates[e.date.Selected()], clock: filenameTimes[e.clock.Selected()]}
+	return filenameParts{prefix: e.prefix.Text(), date: filenameDates[e.date.Selected()], clock: filenameTimes[e.clock.Selected()], counter: filenameCounters[e.counter.Selected()]}
 }
 
 func (e *filenameEditor) write() {
@@ -166,7 +191,7 @@ func (e *filenameEditor) write() {
 	}
 	p := e.parts()
 	key := filenamePrefixProblem(p.prefix)
-	if key == "" && p.prefix == "" && p.numbered() {
+	if key == "" && p.prefix == "" && p.fixed() {
 		key = "settings-filename-empty"
 	}
 	if key != "" {
@@ -192,6 +217,7 @@ func (e *filenameEditor) refresh() {
 		}
 		e.date.SetSelected(slices.Index(filenameDates, p.date))
 		e.clock.SetSelected(slices.Index(filenameTimes, p.clock))
+		e.counter.SetSelected(slices.Index(filenameCounters, p.counter))
 		e.syncing = false
 	}
 	e.simple.SetVisible(simple)
@@ -203,9 +229,12 @@ func (e *filenameEditor) refresh() {
 		toggleKey = "settings-filename-hide-custom"
 	}
 	e.toggled.SetText(t.Get(toggleKey))
-	full := filepath.Join(config.ScreenshotDirectory(e.dir.text(), systemHost.env), strftimeFormat().render(format))
+	full := filepath.Join(config.ScreenshotDirectory(e.dir.text(), systemHost.env), renderScreenshotName(format))
 	key := "settings-filename-path"
-	if simple && p.numbered() {
+	switch {
+	case strings.Contains(format, config.ScreenshotCounter):
+		key = "settings-filename-path-counted"
+	case simple && p.fixed():
 		key = "settings-filename-path-numbered"
 	}
 	e.path.SetText(t.Get(key, i18n.Str("path", full)))
