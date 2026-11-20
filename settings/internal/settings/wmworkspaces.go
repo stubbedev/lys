@@ -81,19 +81,26 @@ func wmScratchpadsRow() rowSpec {
 	return wmNamedCards(scratchpadsPath, "wm-scratchpads-name", nil)
 }
 
+// namedCardBody is what a named card holds below its name, and what a new
+// one starts as.
+type namedCardBody struct {
+	fields []cardField
+	blank  func() map[string]any
+}
+
 // wmNamedCards is the lys-wm mapping at path as cards: each entry a card
-// with its name in the header and its value's keys in the body, or the
-// fields given.
-func wmNamedCards(path, nameKey string, fields func(k *kit) []cardField) rowSpec {
+// with its name in the header and, unless body says otherwise, its
+// value's keys below it.
+func wmNamedCards(path, nameKey string, body func(k *kit) namedCardBody) rowSpec {
 	return wmField(path, func(r *rowSpec) {
 		r.fullWidth = true
 		r.editor = func(k *kit, s slot, _ config.FieldMeta) control {
 			check := k.wm.checker(path)
-			var body []cardField
-			if fields != nil {
-				body = fields(k)
+			var b namedCardBody
+			if body != nil {
+				b = body(k)
 			} else {
-				body = wmItemFields(k.wm, []string{path, wmconfig.Each}, nil, path)
+				b = namedCardBody{fields: wmItemFields(k.wm, []string{path, wmconfig.Each}, nil, path), blank: func() map[string]any { return map[string]any{} }}
 			}
 			return newCardList(k, namedItemsSlot(s), cardSpec{
 				check: func(items []any) func() error {
@@ -106,8 +113,8 @@ func wmNamedCards(path, nameKey string, fields func(k *kit) []cardField) rowSpec
 				identity: &cardField{key: itemNameKey, label: nameKey, editor: func(k *kit, s slot) control {
 					return newLiveText(k, s, locale.T().Get(nameKey))
 				}},
-				fields:  body,
-				blank:   func() map[string]any { return map[string]any{} },
+				fields:  b.fields,
+				blank:   b.blank,
 				keep:    presetNamed,
 				unique:  itemNameKey,
 				listCls: "card-form-list", rowClass: "card-form-row", labelCls: "card-form-label",

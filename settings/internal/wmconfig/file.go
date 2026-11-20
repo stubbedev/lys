@@ -464,6 +464,32 @@ type Field struct {
 	Default            any
 	HasDefault         bool
 	Actions            []Action
+	// Events are the animation events a mapping of them takes; Curves the
+	// built-in curves a mapping of curves may not redefine.
+	Events []Event
+	Curves []Curve
+}
+
+// Event is an animation event: its parent, whose settings it inherits,
+// and the styles it takes.
+type Event struct {
+	Name   string   `json:"name"`
+	Parent string   `json:"parent"`
+	Styles []string `json:"styles"`
+}
+
+// Curve is a built-in easing curve: a cubic bezier's control points or a
+// spring's constants, never both.
+type Curve struct {
+	Name   string      `json:"name"`
+	Bezier *[4]float64 `json:"bezier"`
+	Spring *Spring     `json:"spring"`
+}
+
+type Spring struct {
+	Stiffness float64 `json:"stiffness"`
+	Damping   float64 `json:"damping"`
+	Mass      float64 `json:"mass"`
 }
 
 type Action struct {
@@ -489,6 +515,8 @@ type schemaNode struct {
 	Properties       map[string]*schemaNode `json:"properties"`
 	Items            *schemaNode            `json:"items"`
 	Actions          []Action               `json:"x-lys-wm-actions"`
+	Events           []Event                `json:"x-lys-wm-events"`
+	Curves           []Curve                `json:"x-lys-wm-curves"`
 	// Values is a mapping's additionalProperties when it is a schema; the
 	// JSON boolean form, which says only whether other keys are allowed,
 	// leaves it nil.
@@ -571,7 +599,7 @@ func (s *Schema) Field(path []string) (Field, bool) {
 		return Field{}, false
 	}
 	f := node.asField
-	f.Variants, f.Actions = slices.Clone(f.Variants), slices.Clone(f.Actions)
+	f.Variants, f.Actions, f.Events, f.Curves = slices.Clone(f.Variants), slices.Clone(f.Actions), slices.Clone(f.Events), slices.Clone(f.Curves)
 	return f, true
 }
 
@@ -612,7 +640,12 @@ func (s *Schema) node(path []string) (*schemaNode, bool) {
 }
 
 func (n *schemaNode) readField() (Field, bool, error) {
-	f := Field{Min: -unboundedInt, Max: unboundedInt, MaxItems: unboundedInt, Format: n.Format, Actions: n.Actions}
+	f := Field{Min: -unboundedInt, Max: unboundedInt, MaxItems: unboundedInt, Format: n.Format, Actions: n.Actions, Events: n.Events, Curves: n.Curves}
+	for _, c := range n.Curves {
+		if (c.Bezier == nil) == (c.Spring == nil) {
+			return Field{}, false, fmt.Errorf("the built-in curve %q has not exactly one of bezier and spring", c.Name)
+		}
+	}
 	named, bounds := n.namedOrWhole()
 	if bounds == nil {
 		bounds = n

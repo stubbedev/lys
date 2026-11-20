@@ -149,6 +149,8 @@ func motionPage(*config.Config) pageSpec {
 				field("animations.enter-duration", animationDuration), field("animations.exit-duration", animationDuration),
 				surfaceAnimationTable(),
 			)},
+			{title: "wm-section-animation-events", advanced: true, rows: []rowSpec{wmEventsRow()}},
+			{title: "wm-section-curves", advanced: true, rows: []rowSpec{wmCurvesRow()}},
 			{title: "wm-section-overview", rows: []rowSpec{wmField("overview.blur"), wmField("overview.dim", fraction), wmField("switcher.open_delay"), wmField("showdesktop.peek")}},
 			{title: "wm-section-drag", rows: wmFields("drag_preview.enabled", "drag_preview.opacity", "drag_preview.blur", "drag_preview.snap_distance",
 				"drag_preview.snap_windows", "drag_preview.drag_switch.width", "drag_preview.drag_switch.frames")},

@@ -821,3 +821,25 @@ func TestLeavesStopAtValuesListsMappingsAndSwitches(t *testing.T) {
 		t.Fatalf("leaves %v, want %v", got, want)
 	}
 }
+
+func TestTheAnimationEventsAndBuiltInCurvesAreReadOffTheSchema(t *testing.T) {
+	s, err := ParseSchema([]byte(`{"type":"object","properties":{"animations":{"type":"object","properties":{
+"events":{"type":"object","x-lys-wm-events":[{"name":"global"},{"name":"windows_in","parent":"global","styles":["popin","slide"]}],"additionalProperties":{"type":"object","properties":{"style":{"type":"string"}}}},
+"curves":{"type":"object","x-lys-wm-curves":[{"name":"ease","bezier":[0.25,0.1,0.25,1]},{"name":"spring","spring":{"stiffness":170,"damping":26,"mass":1}}],"additionalProperties":{"type":"object"}}}}}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	events, _ := s.Field([]string{"animations", "events"})
+	if want := []Event{{Name: "global"}, {Name: "windows_in", Parent: "global", Styles: []string{"popin", "slide"}}}; !reflect.DeepEqual(events.Events, want) {
+		t.Fatalf("events %+v, want %+v", events.Events, want)
+	}
+	curves, _ := s.Field([]string{"animations", "curves"})
+	if len(curves.Curves) != 2 || *curves.Curves[0].Bezier != [4]float64{0.25, 0.1, 0.25, 1} || curves.Curves[1].Spring.Stiffness != 170 {
+		t.Fatalf("curves %+v", curves.Curves)
+	}
+	for _, bad := range []string{`{"name":"both","bezier":[0,0,1,1],"spring":{"stiffness":1,"damping":1,"mass":1}}`, `{"name":"neither"}`} {
+		if _, err := ParseSchema([]byte(`{"type":"object","properties":{"curves":{"type":"object","x-lys-wm-curves":[` + bad + `]}}}`)); err == nil {
+			t.Errorf("a built-in curve %s was taken", bad)
+		}
+	}
+}
