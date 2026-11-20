@@ -5,6 +5,7 @@ import (
 	"log"
 	"reflect"
 	"slices"
+	"sync"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
@@ -307,7 +308,7 @@ func (c *layoutEditor) zoneRow(at zoneRef, labels *widget.SizeGroup) widget.Widg
 // modules' chips, either dismissible and dragged by its body.
 func (c *layoutEditor) chip(item config.BarItem) *widget.Chip {
 	if item.Group == nil {
-		chip := widget.NewChip(c.k.face, moduleTitle(item.Module))
+		chip := c.moduleChip(item.Module)
 		chip.SetOnDismiss(func() { c.removeItem(chip) })
 		return chip
 	}
@@ -326,7 +327,7 @@ func (c *layoutEditor) chip(item config.BarItem) *widget.Chip {
 	}
 	content.AppendAligned(name, false, widget.AlignCenter)
 	for m, mod := range item.Group.Modules {
-		sub := widget.NewChip(c.k.face, moduleTitle(mod.Module))
+		sub := c.moduleChip(mod.Module)
 		sub.SetOnDismiss(func() {
 			g := c.group(chip)
 			g.Modules = slices.Delete(g.Modules, m, m+1)
@@ -424,7 +425,7 @@ func (c *layoutEditor) pickModule(anchor widget.Widget, pick func(config.BarModu
 	return openSearchPicker(c.k, anchor, c.moduleNames(), pickerSpec{
 		class: "module-picker-popover", placeholder: "settings-layout-search", maxH: modulePickerListPx, searchEntry: true,
 		row: func(k *kit, name string) widget.Widget {
-			return k.label(moduleTitle(config.BarModule(name)))
+			return moduleFace(k, config.BarModule(name))
 		},
 		text: func(name string) string { return moduleTitle(config.BarModule(name)) + " " + name },
 	}, func(name string) {
@@ -433,6 +434,52 @@ func (c *layoutEditor) pickModule(anchor widget.Widget, pick func(config.BarModu
 			pick(m)
 		}
 	})
+}
+
+// customModulesID is the page of the custom modules.
+const customModulesID = "custom"
+
+// moduleIcons are the icons of the modules that have a page of their
+// own: the page's icon.
+var moduleIcons = sync.OnceValue(func() map[string]string {
+	pages := append(modulePages(nil), notificationsPage(nil))
+	out := make(map[string]string, len(pages))
+	for _, p := range pages {
+		out[p.id] = p.icon
+	}
+	return out
+})
+
+// moduleIcon is the icon a layout shows for m, the custom modules'
+// page's for a custom one, false for a module with no page to take one
+// from.
+func moduleIcon(m config.BarModule) (string, bool) {
+	id := string(m)
+	if _, ok := m.CustomID(); ok {
+		id = customModulesID
+	}
+	icon, ok := moduleIcons()[id]
+	return icon, ok
+}
+
+// moduleFace is a module's icon, when it has one, beside its title.
+func moduleFace(k *kit, m config.BarModule) widget.Widget {
+	row := gapBox(widget.Row)
+	if icon, ok := moduleIcon(m); ok {
+		row.AppendAligned(k.icon(icon), false, widget.AlignCenter)
+	}
+	row.AppendAligned(k.label(moduleTitle(m)), false, widget.AlignCenter)
+	return row
+}
+
+// moduleChip is a module's chip: its icon, when it has one, before its
+// title.
+func (c *layoutEditor) moduleChip(m config.BarModule) *widget.Chip {
+	chip := widget.NewChip(c.k.face, moduleTitle(m))
+	if icon, ok := moduleIcon(m); ok {
+		chip.SetLeading(c.k.icon(icon))
+	}
+	return chip
 }
 
 // layoutRow is bar_layout for a row.

@@ -671,7 +671,7 @@ func systrayPage(*config.Config) pageSpec {
 
 // customPage is pages/modules/custom: a card per custom module.
 func customPage(*config.Config) pageSpec {
-	return pageSpec{id: "custom", navKey: "settings-nav-custom", icon: "ld-code-symbolic", header: "settings-page-custom", sections: []sectionSpec{
+	return pageSpec{id: customModulesID, navKey: "settings-nav-custom", icon: "ld-code-symbolic", header: "settings-page-custom", sections: []sectionSpec{
 		{title: "settings-section-general", rows: []rowSpec{field(customModulesPath, withKey("settings-custom-modules-editor"), customModulesRow)}},
 	}}
 }
