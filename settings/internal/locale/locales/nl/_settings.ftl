@@ -1149,6 +1149,7 @@ settings-wallpaper-monitor-own = Eigen achtergrond voor { $monitor }
     .description = Een andere achtergrond op dit scherm tonen in plaats van de standaard
 settings-wallpaper-monitor-fit = Passend maken
 settings-wallpaper-monitor-away = Niet verbonden; de achtergrond blijft bewaard tot je hem verwijdert
+settings-wallpaper-thumb-failed = { $file } kan niet worden weergegeven: { $error }
 settings-section-idle-when = Bij inactiviteit
     .description = Hoe lang zonder invoer voor elke stap, aan het net en op batterij
 settings-section-idle-lid = Klep

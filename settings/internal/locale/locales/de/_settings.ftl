@@ -1159,6 +1159,7 @@ settings-wallpaper-monitor-own = Eigenes Hintergrundbild für { $monitor }
     .description = Auf diesem Bildschirm ein anderes Hintergrundbild statt des Standards zeigen
 settings-wallpaper-monitor-fit = Anpassung
 settings-wallpaper-monitor-away = Nicht verbunden; sein Hintergrundbild bleibt, bis Sie es entfernen
+settings-wallpaper-thumb-failed = { $file } kann nicht angezeigt werden: { $error }
 settings-section-idle-when = Bei Inaktivität
     .description = Wie lange ohne Eingabe bis zu jedem Schritt, am Netz und im Akkubetrieb
 settings-section-idle-lid = Deckel

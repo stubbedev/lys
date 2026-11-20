@@ -1160,6 +1160,7 @@ settings-wallpaper-monitor-own = Fondo propio para { $monitor }
     .description = Mostrar un fondo distinto en esta pantalla en lugar del predeterminado
 settings-wallpaper-monitor-fit = Ajuste
 settings-wallpaper-monitor-away = No conectada; su fondo se conserva hasta que la quites
+settings-wallpaper-thumb-failed = No se puede mostrar { $file }: { $error }
 settings-section-idle-when = En inactividad
     .description = Cuánto tiempo sin actividad antes de cada paso, enchufado y con batería
 settings-section-idle-lid = Tapa

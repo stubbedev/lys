@@ -1159,6 +1159,7 @@ settings-wallpaper-monitor-own = Own wallpaper for { $monitor }
     .description = Show a different wallpaper on this display instead of the default
 settings-wallpaper-monitor-fit = Fit
 settings-wallpaper-monitor-away = Not connected; its wallpaper is kept until you remove it
+settings-wallpaper-thumb-failed = { $file } cannot be shown: { $error }
 settings-section-idle-when = When Idle
     .description = How long without input before each step, plugged in and on battery
 settings-section-idle-lid = Lid

@@ -2,14 +2,93 @@ package settings
 
 import (
 	"errors"
+	"image"
+	"image/color"
+	"image/png"
+	"os"
+	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
+	"github.com/stubbedev/lys/desktop/imagedecode"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/settings/internal/displays"
 )
+
+func wallpaperFile(t *testing.T, name string, write func(*os.File) error) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), name)
+	f, err := os.Create(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := write(f); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func tileEdge(t *testing.T, p *monitorPicker, i int) render.Color {
+	t.Helper()
+	const w, h = 400, 200
+	p.Arrange(render.Rect{W: w, H: h})
+	stride := render.Stride(w)
+	buf := make([]byte, stride*h)
+	p.Paint(render.New(buf, stride, w, h))
+	tile := p.screen(p.tiles[i].rect)
+	at := (tile.Y+tile.H/2)*stride + (tile.X+1)*4
+	return render.RGBA(buf[at+2], buf[at+1], buf[at], buf[at+3])
+}
+
+func TestAWallpaperThatCannotBeDecodedSaysSoOnItsTile(t *testing.T) {
+	broken := wallpaperFile(t, "broken.png", func(f *os.File) error {
+		_, err := f.WriteString("not a picture")
+		return err
+	})
+	good := wallpaperFile(t, "good.png", func(f *os.File) error {
+		img := image.NewRGBA(image.Rect(0, 0, 4, 4))
+		for i := range img.Pix {
+			img.Pix[i] = 0xff
+		}
+		img.Set(0, 0, color.RGBA{A: 0xff})
+		return png.Encode(f, img)
+	})
+	k := testKit(t, "wallpaper:\n  wallpaper: "+good+"\n  monitors:\n    - {name: DP-1, wallpaper: "+broken+"}\n")
+	fakeHeads(t, []displays.Head{head("DP-1", 0), head("HDMI-A-1", 1920)}, nil)
+	c := fieldControl(k, k.store, field("wallpaper.monitors", monitorWallpaperRow)).(*monitorWallpapers)
+	failed := c.picker.thumbs["DP-1"]
+	if failed.img != nil || !strings.Contains(failed.failure, broken) {
+		t.Fatalf("the broken wallpaper's tile holds %+v, want a failure naming %s", failed, broken)
+	}
+	_, decodeErr := imagedecode.Open(broken)
+	if decodeErr == nil || !strings.Contains(failed.failure, decodeErr.Error()) {
+		t.Errorf("the failure %q does not carry the decoder's error %v", failed.failure, decodeErr)
+	}
+	if name := widget.Describe(c.picker.handles[0]).Name; !strings.Contains(name, failed.failure) {
+		t.Errorf("the broken tile is named %q, without its failure", name)
+	}
+	c.picker.choose("HDMI-A-1")
+	if got, want := tileEdge(t, c.picker, 0), widget.Current().DestructiveColor(); got != want {
+		t.Errorf("the broken tile's edge is %v, want the destructive %v", got, want)
+	}
+	shown := c.picker.thumbs["HDMI-A-1"]
+	if shown.img == nil || shown.failure != "" {
+		t.Errorf("the readable wallpaper's tile holds %+v, want its picture", shown)
+	}
+	if name := widget.Describe(c.picker.handles[1]).Name; name != c.picker.tiles[1].label+" (HDMI-A-1)" {
+		t.Errorf("the readable tile is named %q", name)
+	}
+	if got := tileEdge(t, c.picker, 1); got == widget.Current().DestructiveColor() {
+		t.Error("the readable tile is drawn as failed")
+	}
+}
 
 type idleDisplays struct{ closed bool }
 

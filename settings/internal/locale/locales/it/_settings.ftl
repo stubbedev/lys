@@ -1160,6 +1160,7 @@ settings-wallpaper-monitor-own = Sfondo proprio per { $monitor }
     .description = Mostra uno sfondo diverso su questo schermo invece di quello predefinito
 settings-wallpaper-monitor-fit = Adattamento
 settings-wallpaper-monitor-away = Non collegato; il suo sfondo resta finché non lo rimuovi
+settings-wallpaper-thumb-failed = Impossibile mostrare { $file }: { $error }
 settings-section-idle-when = In inattività
     .description = Quanto tempo senza input prima di ogni passaggio, collegato e a batteria
 settings-section-idle-lid = Coperchio

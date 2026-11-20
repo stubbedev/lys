@@ -2,6 +2,7 @@ package settings
 
 import (
 	"image"
+	"log"
 	"maps"
 	"slices"
 
@@ -74,13 +75,13 @@ type monitorWallpapers struct {
 	note    *widget.Label
 	feed    *tileFeed
 	tiles   []monitorTile
-	thumbs  map[string]image.Image
+	thumbs  map[string]wallpaperThumb
 	loading map[string]bool
 	closed  bool
 }
 
 func newMonitorWallpapers(k *kit, s slot) *monitorWallpapers {
-	c := &monitorWallpapers{Box: gapBox(widget.Column), k: k, slot: s, thumbs: map[string]image.Image{}, loading: map[string]bool{}}
+	c := &monitorWallpapers{Box: gapBox(widget.Column), k: k, slot: s, thumbs: map[string]wallpaperThumb{}, loading: map[string]bool{}}
 	c.AddClass("monitor-wallpapers")
 	c.picker = newMonitorPicker(k, func(string) { c.showDetail() })
 	c.picker.SetAccessibleName(locale.T().Get("settings-monitors"))
@@ -127,20 +128,30 @@ func (c *monitorWallpapers) loadThumb(path string) {
 		return
 	}
 	c.loading[path] = true
-	async(c.k, func() image.Image {
-		img, err := imagedecode.Open(path)
-		if err != nil {
-			return nil
-		}
-		return scaledThumb(img)
-	}, func(img image.Image) {
+	async(c.k, func() wallpaperThumb { return decodeThumb(path) }, func(th wallpaperThumb) {
 		delete(c.loading, path)
-		if img == nil || c.closed {
+		if c.closed {
 			return
 		}
-		c.thumbs[path] = img
+		if th.failure != "" {
+			log.Printf("settings: wallpaper thumbnail: %s", th.failure)
+		}
+		c.thumbs[path] = th
 		c.paintThumbs()
 	})
+}
+
+type wallpaperThumb struct {
+	img     image.Image
+	failure string
+}
+
+func decodeThumb(path string) wallpaperThumb {
+	img, err := imagedecode.Open(path)
+	if err != nil {
+		return wallpaperThumb{failure: locale.T().Get("settings-wallpaper-thumb-failed", i18n.Str("file", path), i18n.Str("error", err.Error()))}
+	}
+	return wallpaperThumb{img: scaledThumb(img)}
 }
 
 func scaledThumb(img image.Image) image.Image {

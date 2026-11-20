@@ -2,7 +2,6 @@ package settings
 
 import (
 	"cmp"
-	"image"
 	"math"
 	"slices"
 	"strings"
@@ -59,7 +58,7 @@ type monitorPicker struct {
 	k        *kit
 	tiles    []monitorTile
 	handles  []*monitorHandle
-	thumbs   map[string]image.Image
+	thumbs   map[string]wallpaperThumb
 	selected []string
 	// multi toggles each display a press chooses, instead of choosing it
 	// alone.
@@ -74,17 +73,16 @@ type monitorHandle struct {
 }
 
 func newMonitorPicker(k *kit, onPick func(name string)) *monitorPicker {
-	return &monitorPicker{Base: widget.NewBase(), k: k, thumbs: map[string]image.Image{}, onPick: onPick}
+	return &monitorPicker{Base: widget.NewBase(), k: k, thumbs: map[string]wallpaperThumb{}, onPick: onPick}
 }
 
 func (p *monitorPicker) setTiles(tiles []monitorTile) {
 	p.tiles = tiles
 	p.handles = p.handles[:0]
 	for _, t := range tiles {
-		h := &monitorHandle{Base: widget.NewBase(), p: p, name: t.name}
-		h.SetAccessibleName(t.label + " (" + t.name + ")")
-		p.handles = append(p.handles, h)
+		p.handles = append(p.handles, &monitorHandle{Base: widget.NewBase(), p: p, name: t.name})
 	}
+	p.nameHandles()
 	for _, h := range p.handles {
 		widget.SetParents(p, h)
 	}
@@ -92,13 +90,25 @@ func (p *monitorPicker) setTiles(tiles []monitorTile) {
 	p.Invalidate()
 }
 
-func (p *monitorPicker) setThumb(name string, img image.Image) {
-	if img == nil {
+func (p *monitorPicker) setThumb(name string, th wallpaperThumb) {
+	if th == (wallpaperThumb{}) {
 		delete(p.thumbs, name)
 	} else {
-		p.thumbs[name] = img
+		p.thumbs[name] = th
 	}
+	p.nameHandles()
 	p.Invalidate()
+}
+
+func (p *monitorPicker) nameHandles() {
+	for i, h := range p.handles {
+		t := p.tiles[i]
+		name := t.label + " (" + t.name + ")"
+		if failure := p.thumbs[t.name].failure; failure != "" {
+			name += ": " + failure
+		}
+		h.SetAccessibleName(name)
+	}
 }
 
 func (p *monitorPicker) isSelected(name string) bool { return slices.Contains(p.selected, name) }
@@ -172,10 +182,15 @@ func (p *monitorPicker) Paint(cv *render.Canvas) {
 	for i, t := range p.tiles {
 		tile := p.screen(t.rect)
 		ink := th.Text
-		if img, ok := p.thumbs[t.name]; ok {
-			cv.DrawImageCover(img, tile, corners)
+		thumb := p.thumbs[t.name]
+		if thumb.img != nil {
+			cv.DrawImageCover(thumb.img, tile, corners)
 		} else {
 			cv.RoundedRect(tile, tileRadius, th.CardColor())
+		}
+		if thumb.failure != "" {
+			cv.RoundedBorder(tile, corners, render.UniformInsets(focusRing), th.DestructiveColor())
+			p.paintFailure(cv, tile, thumb.failure)
 		}
 		if p.isSelected(t.name) {
 			cv.RoundedBorder(tile, corners, render.UniformInsets(monitorRing), th.Accent)
@@ -188,6 +203,26 @@ func (p *monitorPicker) Paint(cv *render.Canvas) {
 		pill := render.Rect{X: tile.X + (tile.W-w)/2 - pad, Y: tile.Y + tile.H - h - 2*pad, W: w + 2*pad, H: h}
 		cv.RoundedRect(pill, tileRadius, th.CardColor())
 		p.k.face.DrawAligned(cv, t.label, pill, p.k.textPx(), ink, render.AlignCenter)
+	}
+}
+
+func (p *monitorPicker) paintFailure(cv *render.Canvas, tile render.Rect, failure string) {
+	th := widget.Current()
+	px := p.k.textPx()
+	pad := th.Padding / 2
+	lineH := int(math.Ceil(px * 1.4))
+	width := float64(tile.W - 2*pad)
+	room := max(0, (tile.H-2*lineH-4*pad)/lineH)
+	lines := render.WrapText(p.k.face, failure, width, px)
+	if len(lines) > room {
+		lines = lines[:room]
+		if room > 0 {
+			lines[room-1] = render.EllipsizeText(p.k.face, lines[room-1]+"…", render.EllipsizeEnd, width, px)
+		}
+	}
+	for i, line := range lines {
+		r := render.Rect{X: tile.X + pad, Y: tile.Y + pad + i*lineH, W: tile.W - 2*pad, H: lineH}
+		p.k.face.DrawAligned(cv, line, r, px, th.DestructiveColor(), render.AlignCenter)
 	}
 }
 
