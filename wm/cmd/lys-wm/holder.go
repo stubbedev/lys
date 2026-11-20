@@ -199,7 +199,10 @@ func (h *holder) notify(m session.HolderMsg, fds ...int) error {
 	if h.current == nil {
 		return nil
 	}
-	return session.SendHolder(h.current.fd, m, fds...)
+	if err := session.SendHolder(h.current.fd, m, fds...); !errors.Is(err, unix.EPIPE) {
+		return err
+	}
+	return nil
 }
 
 func (h *holder) DevicePaused(d session.Device) error {
