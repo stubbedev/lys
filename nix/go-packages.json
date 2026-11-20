@@ -497,6 +497,28 @@
       "lib/xdg"
     ]
   },
+  "desktop/service/workspaces": {
+    "imports": [
+      "desktop/compositor",
+      "desktop/service/hyprland",
+      "desktop/service/niri",
+      "desktop/service/sway",
+      "desktop/shell/barview"
+    ],
+    "testImports": [
+      "desktop/config",
+      "desktop/service/workspaces/workspacestest",
+      "lib/sockdir",
+      "lib/testhome"
+    ]
+  },
+  "desktop/service/workspaces/workspacestest": {
+    "imports": [
+      "desktop/compositor",
+      "lib/intconv",
+      "lib/sockdir"
+    ]
+  },
   "desktop/settingspage": {},
   "desktop/shell/apptheme": {
     "imports": [
@@ -3359,6 +3381,7 @@
       "desktop/service/rfkill",
       "desktop/service/sway",
       "desktop/service/upower",
+      "desktop/service/workspaces",
       "desktop/settingspage",
       "desktop/shell/apptheme",
       "desktop/shell/barview",

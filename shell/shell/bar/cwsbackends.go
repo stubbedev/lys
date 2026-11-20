@@ -13,6 +13,7 @@ import (
 	"github.com/stubbedev/lys/desktop/service/lyswm"
 	"github.com/stubbedev/lys/desktop/service/niri"
 	"github.com/stubbedev/lys/desktop/service/sway"
+	"github.com/stubbedev/lys/desktop/service/workspaces"
 	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/lib/intconv"
 	"github.com/stubbedev/lys/lib/wmipc"
@@ -164,21 +165,16 @@ func (b *swayBackend) snapshot() ([]barview.Workspace, []cwsWindow, error) {
 		windows = append(windows, cw)
 	}
 	byID := make(map[uint64]sway.Workspace, len(replies))
-	workspaces := make([]barview.Workspace, 0, len(replies))
+	shown := make([]barview.Workspace, 0, len(replies))
 	for _, r := range replies {
 		id := uint64(r.ID)
 		byID[id] = r
-		workspaces = append(workspaces, barview.Workspace{
-			ID: id, Num: r.Num, Name: r.Name, HasName: true,
-			Output: r.Output, HasOutput: true,
-			Urgent: r.Urgent, Active: r.Visible, Focused: r.Focused,
-			HasWindows: occupied[id],
-		})
+		shown = append(shown, workspaces.FromSway(r, occupied[id]))
 	}
 	b.mu.Lock()
 	b.byID = byID
 	b.mu.Unlock()
-	return workspaces, windows, nil
+	return shown, windows, nil
 }
 
 // focus focuses ws by id: resolved against the snapshot, or a con_id
@@ -223,20 +219,9 @@ func (b *niriBackend) snapshot() ([]barview.Workspace, []cwsWindow, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	workspaces := make([]barview.Workspace, 0, len(replies))
+	shown := make([]barview.Workspace, 0, len(replies))
 	for _, r := range replies {
-		ws := barview.Workspace{
-			ID: r.ID, Num: int(r.Idx),
-			Urgent: r.IsUrgent, Active: r.IsActive, Focused: r.IsFocused,
-			HasWindows: r.ActiveWindowID != nil,
-		}
-		if r.Name != nil {
-			ws.Name, ws.HasName = *r.Name, true
-		}
-		if r.Output != nil {
-			ws.Output, ws.HasOutput = *r.Output, true
-		}
-		workspaces = append(workspaces, ws)
+		shown = append(shown, workspaces.FromNiri(r))
 	}
 	windows := make([]cwsWindow, 0, len(all))
 	for _, w := range all {
@@ -257,7 +242,7 @@ func (b *niriBackend) snapshot() ([]barview.Workspace, []cwsWindow, error) {
 		}
 		windows = append(windows, cw)
 	}
-	return workspaces, windows, nil
+	return shown, windows, nil
 }
 
 func (b *niriBackend) focus(ctx context.Context, ws barview.Workspace) error {

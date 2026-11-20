@@ -68,6 +68,12 @@ linters:
         linters:
           - gosec
         text: "G115: integer overflow conversion (uint16 -> int16|uint32 -> int32|uint64 -> int64|int64 -> uint64)$"
+      # A sway workspace id maps int64 to uint64 bit for bit, as the bar
+      # keys the workspace and its ws-id-N CSS class by it.
+      - path: ^service/workspaces/workspaces\.go$
+        linters:
+          - gosec
+        text: "G115: integer overflow conversion int64 -> uint64$"
       # The standard library's JPEG decoder narrows bit-stream words and
       # fixed-point DCT values whose range its arithmetic bounds.
       - path: ^third_party/jpeg/
