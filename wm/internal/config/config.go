@@ -1126,9 +1126,10 @@ func (p *parser) blurPasses(a *At[int], fallback int) int {
 }
 
 const (
-	defaultBezel      = 16
-	defaultRefraction = 8
-	defaultSpecular   = 0.6
+	defaultBezel         = 16
+	defaultRefraction    = 8
+	defaultSpecular      = 0.6
+	defaultSpecularWidth = 1
 )
 
 func (p *parser) tint(a *At[string], key string) color.RGBA {
@@ -1172,7 +1173,7 @@ func (p *parser) look(r rawLook, key string) wm.LookOverride {
 		}
 	}
 	if r.Specular != nil {
-		s := wm.Specular{Strength: defaultSpecular, Width: p.positive(r.Specular.Width, key+".specular.width", 1)}
+		s := wm.Specular{Strength: defaultSpecular, Width: p.positive(r.Specular.Width, key+".specular.width", defaultSpecularWidth)}
 		if v := strength(r.Specular.Strength, "specular.strength"); v != nil {
 			s.Strength = *v
 		}

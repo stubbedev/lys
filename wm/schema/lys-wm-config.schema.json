@@ -589,11 +589,13 @@
               "properties": {
                 "amount": {
                   "type": "integer",
-                  "minimum": 0
+                  "minimum": 0,
+                  "default": 8
                 },
                 "bezel": {
                   "type": "integer",
-                  "minimum": 0
+                  "minimum": 0,
+                  "default": 16
                 }
               },
               "additionalProperties": false
@@ -615,11 +617,13 @@
                 "strength": {
                   "type": "number",
                   "minimum": 0,
-                  "maximum": 1
+                  "maximum": 1,
+                  "default": 0.6
                 },
                 "width": {
                   "type": "integer",
-                  "minimum": 1
+                  "minimum": 1,
+                  "default": 1
                 }
               },
               "additionalProperties": false
