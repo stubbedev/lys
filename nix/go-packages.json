@@ -2190,6 +2190,7 @@
       "power/internal/config",
       "power/internal/energyd",
       "power/internal/history",
+      "power/internal/pauser",
       "power/internal/predict",
       "power/internal/profiles",
       "power/internal/statefile",
@@ -2227,6 +2228,17 @@
       "power/internal/supply"
     ]
   },
+  "power/internal/pauser": {
+    "imports": [
+      "lib/dbusx",
+      "lib/intconv",
+      "lib/peercred",
+      "lib/polkit",
+      "lib/third_party/godbus",
+      "power/internal/statefile",
+      "power/pause"
+    ]
+  },
   "power/internal/predict": {
     "imports": [
       "power/internal/history"
@@ -2241,6 +2253,12 @@
   "power/internal/supply": {
     "imports": [
       "lib/intconv"
+    ]
+  },
+  "power/pause": {
+    "imports": [
+      "lib/dbusx",
+      "lib/third_party/godbus"
     ]
   },
   "secrets/client": {

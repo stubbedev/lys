@@ -28,6 +28,7 @@ in {
       systemd.packages = [cfg.package];
       systemd.tmpfiles.packages = [cfg.package];
       services.dbus.packages = [cfg.package];
+      security.polkit.enable = lib.mkDefault true;
       systemd.services.lys-power.wantedBy = ["graphical.target"];
     })
     (lib.mkIf cfg.autoBrightness.enable {

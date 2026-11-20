@@ -21,6 +21,7 @@ import (
 	"github.com/stubbedev/lys/power/internal/config"
 	"github.com/stubbedev/lys/power/internal/energyd"
 	"github.com/stubbedev/lys/power/internal/history"
+	"github.com/stubbedev/lys/power/internal/pauser"
 	"github.com/stubbedev/lys/power/internal/predict"
 	"github.com/stubbedev/lys/power/internal/profiles"
 	"github.com/stubbedev/lys/power/internal/statefile"
@@ -225,7 +226,9 @@ func applyProfile(log *slog.Logger, pc ProfileClient, onAC bool) string {
 // something can change the outcome: an AC edge (UPower's OnBattery), a
 // charge-to-full request (inotify on the runtime directory), the next
 // time-based change Eval reports (a wall-clock timer that survives suspend
-// and clock changes), or SIGHUP. Without a system bus it falls back to
+// and clock changes), a change to the units paused on battery, or SIGHUP.
+// On battery it pauses the units chosen for it and on AC resumes them,
+// retrying every Tick while any of that fails. Without a system bus it falls back to
 // checking the power source every Tick; losing the bus ends it with an
 // error.
 func Run(ctx context.Context, cfg config.Config, log *slog.Logger) error {
@@ -238,6 +241,8 @@ func Run(ctx context.Context, cfg config.Config, log *slog.Logger) error {
 	var upower *dbusx.Watch
 	var upowerDone <-chan struct{}
 	var discharging chan bool
+	var pz *pauser.Pauser
+	var pauses <-chan struct{}
 	conn, err := dbusx.DialSystem(ctx, config.BusTimeout)
 	if err != nil {
 		log.Warn("system bus unavailable: no power profiles, polling the power source", "err", err, "every", config.Tick)
@@ -262,6 +267,15 @@ func Run(ctx context.Context, cfg config.Config, log *slog.Logger) error {
 			stopEnergy()
 			<-energyDone
 		}()
+		if pz, err = pauser.Load(cfg.PausePath(), pauser.Bus{SystemConn: conn, UserRuntimeDir: cfg.UserRunDir}, pauser.Polkit(conn), log); err != nil {
+			return err
+		}
+		release, err := pz.Serve(conn)
+		if err != nil {
+			return err
+		}
+		defer release()
+		pauses = pz.Wakes()
 	}
 
 	requests, err := watchDir(cfg.RuntimeDir)
@@ -298,6 +312,9 @@ func Run(ctx context.Context, cfg config.Config, log *slog.Logger) error {
 		if err == nil && discharging != nil {
 			latest(discharging, result.Discharging())
 		}
+		if err == nil && pz != nil && applyPause(ctx, pz, result.Discharging(), log) {
+			next = earliest(next, now.Add(config.Tick))
+		}
 		if acEdges == nil {
 			next = earliest(next, now.Add(config.Tick))
 		}
@@ -316,9 +333,20 @@ func Run(ctx context.Context, cfg config.Config, log *slog.Logger) error {
 		case <-timer.wakes():
 		case <-acEdges:
 		case <-requests.wakes():
+		case <-pauses:
 		case <-hup:
 		}
 	}
+}
+
+func applyPause(ctx context.Context, pz *pauser.Pauser, onBattery bool, log *slog.Logger) (retry bool) {
+	ctx, cancel := context.WithTimeout(ctx, config.PauseTimeout)
+	defer cancel()
+	failing, err := pz.Apply(ctx, onBattery)
+	if err != nil {
+		log.Error("pausing units on battery", "err", err)
+	}
+	return failing || err != nil
 }
 
 func latest(ch chan bool, v bool) {

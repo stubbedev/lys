@@ -12,6 +12,7 @@ import (
 type sandboxMount struct {
 	path     string
 	writable bool
+	hidden   bool
 }
 
 var unitKeysWithoutMounts = []string{
@@ -106,8 +107,15 @@ func sandboxOf(t *testing.T, file string) []sandboxMount {
 				add(false, "/sys/fs/cgroup")
 			}
 		case "ProtectHome":
+			homes := []string{"/home", "/root", "/run/user"}
+			if value == "read-only" {
+				add(false, homes...)
+				continue
+			}
 			if unitBool(t, key, value) {
-				add(false, "/home", "/root", "/run/user")
+				for _, p := range homes {
+					mounts = append(mounts, sandboxMount{path: p, hidden: true})
+				}
 			}
 		case "PrivateTmp":
 			if unitBool(t, key, value) {
@@ -131,7 +139,12 @@ func sandboxOf(t *testing.T, file string) []sandboxMount {
 }
 
 func writableIn(mounts []sandboxMount, file string) bool {
-	best, writable := -1, false
+	m := mountOf(mounts, file)
+	return m.writable && !m.hidden
+}
+
+func mountOf(mounts []sandboxMount, file string) sandboxMount {
+	best, found := -1, sandboxMount{}
 	for _, m := range mounts {
 		inside := file == m.path || strings.HasPrefix(file, strings.TrimSuffix(m.path, "/")+"/")
 		if !inside {
@@ -142,10 +155,10 @@ func writableIn(mounts []sandboxMount, file string) bool {
 			depth = 0
 		}
 		if depth > best || (depth == best && !m.writable) {
-			best, writable = depth, m.writable
+			best, found = depth, m
 		}
 	}
-	return writable
+	return found
 }
 
 func TestTheServiceCanWriteTheBatteryThroughItsDeviceTree(t *testing.T) {
@@ -178,5 +191,16 @@ func TestTheServiceKeepsKernelTunablesAndTheSystemReadOnly(t *testing.T) {
 		if writableIn(mounts, file) {
 			t.Errorf("lys-power.service can write %s", file)
 		}
+	}
+}
+
+func TestTheServiceReachesEachUsersSystemdManagerWithoutWritingTheirFiles(t *testing.T) {
+	mounts := sandboxOf(t, "../../dist/lys-power.service")
+	socket := "/run/user/1000/systemd/private"
+	if mountOf(mounts, socket).hidden {
+		t.Errorf("lys-power.service cannot see %s, where it pauses a user's units", socket)
+	}
+	if writableIn(mounts, socket) || writableIn(mounts, "/home/user/.config/x") {
+		t.Error("lys-power.service can write the users' files")
 	}
 }

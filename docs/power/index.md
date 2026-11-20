@@ -108,6 +108,45 @@ once a minute on battery, and never on AC with nobody watching.
 with each thread's wakeups under `-threads` and as JSON under `-json`. Run it
 as root to read the RAPL counters and every process's GPU time.
 
+## Pausing services on battery
+
+A developer laptop often carries services that keep running at full rate on
+battery: containers, databases, indexers, maintenance timers. lys-power can
+pause the ones you choose while the laptop is on battery and resume them when
+it is plugged in again. Nothing is paused until you choose it, in lys-settings
+under **Power & Battery**.
+
+- A service or a scope (a Docker or Podman container, for example) is
+  **frozen** with the cgroup freezer, through systemd's `FreezeUnit`, the same
+  as `systemctl freeze`. It keeps its memory, its open files and its sockets,
+  and carries on where it stopped once thawed (`ThawUnit`).
+- A timer is **held**: it is stopped, so it does not elapse on battery, and
+  started again on AC. A timer with `Persistent=true` then runs what it
+  missed.
+- Your own units go through your user's systemd manager, at
+  `/run/user/<uid>/systemd/private`; system units through the system manager.
+
+Units the session or the system needs are never paused, and cannot be chosen:
+systemd's own, D-Bus, logins and sessions, lys, audio, networking, polkit,
+UPower, the power profiles, the portals and the apps of your session.
+
+Choosing system units asks for an administrator's password through polkit
+(the action `dev.stubbe.lys.power.pause-system-units`); choosing your own
+units does not. The choice and what lys-power paused are kept in
+`/var/lib/lys-power/pause`, so a restart on battery neither pauses anything
+twice nor forgets to resume it on AC.
+
+lys-shell tells you when it paused something, with **Resume for this
+session**, which resumes everything until the next unplug, and **Keep running
+on battery**, which stops pausing those units. The battery dropdown lists what
+is paused. A unit that cannot be paused or resumed is listed with systemd's
+error; a failed resume is retried every minute and on every power change
+until it succeeds.
+
+The state is the `State` property of `dev.stubbe.lys.Pause1` on the system
+bus, which every user may read; `PickSystem`, `PickUser` and `Resume` change
+it.
+
 ## Automatic brightness
 
 Automatic brightness sets the backlight from the light in the room. It is off
@@ -228,9 +267,9 @@ writing the same thresholds work against each other.
 
 The module installs `lys-power`, its system unit, wanted by
 `graphical.target`, and the tmpfiles rule that creates `/run/battery-charge`.
-It also enables `services.upower` and `services.power-profiles-daemon` with
-`mkDefault`. Set either to `false` to run without it, for example when TLP
-manages the power profiles. `autoBrightness.enable` installs the package's
+It also enables `services.upower`, `services.power-profiles-daemon` and
+`security.polkit` with `mkDefault`. Set any of them to `false` to run without
+it, for example when TLP manages the power profiles. `autoBrightness.enable` installs the package's
 user unit `lys-power-brightness.service` and has it wanted by
 `graphical-session.target`; it works with or without `enable`.
 
@@ -239,8 +278,10 @@ user unit `lys-power-brightness.service` and has it wanted by
 The `.deb` and `.rpm` on the
 [latest release](https://github.com/stubbedev/lys/releases/latest) install
 `/usr/bin/lys-power`, the unit `lys-power.service`, the user unit
-`lys-power-brightness.service`, the tmpfiles rule `lys-power.conf` and the
-system bus policy `dev.stubbe.lys.Energy1.conf`. They enable nothing:
+`lys-power-brightness.service`, the tmpfiles rule `lys-power.conf`, the
+system bus policies `dev.stubbe.lys.Energy1.conf` and
+`dev.stubbe.lys.Pause1.conf`, and the polkit action
+`dev.stubbe.lys.power.policy`. They enable nothing:
 
 ```sh
 sudo systemctl enable --now lys-power
@@ -251,8 +292,9 @@ The tarball `lys-power-<version>-<arch>-linux.tar.gz` holds the same files.
 Install the binary as `/usr/bin/lys-power`, the unit under
 `/usr/lib/systemd/system/`, `lys-power-brightness.service` under
 `/usr/lib/systemd/user/` and `lys-power.tmpfiles` as
-`/usr/lib/tmpfiles.d/lys-power.conf` and `dev.stubbe.lys.Energy1.conf` under
-`/usr/share/dbus-1/system.d/`, then run
+`/usr/lib/tmpfiles.d/lys-power.conf`, `dev.stubbe.lys.Energy1.conf` and
+`dev.stubbe.lys.Pause1.conf` under `/usr/share/dbus-1/system.d/` and
+`dev.stubbe.lys.power.policy` under `/usr/share/polkit-1/actions/`, then run
 `sudo systemd-tmpfiles --create lys-power.conf` and enable the unit.
 
 lys-power needs a battery that exposes `charge_control_*_threshold` (ThinkPad,

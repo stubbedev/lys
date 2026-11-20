@@ -39,8 +39,12 @@ install -m 0644 lys-power-brightness.service %{buildroot}%{_userunitdir}/
 
 install -D -m 0644 lys-power.tmpfiles %{buildroot}%{_tmpfilesdir}/lys-power.conf
 %{_datadir}/dbus-1/system.d/dev.stubbe.lys.Energy1.conf
+%{_datadir}/dbus-1/system.d/dev.stubbe.lys.Pause1.conf
+%{_datadir}/polkit-1/actions/dev.stubbe.lys.power.policy
 
 install -D -m 0644 dev.stubbe.lys.Energy1.conf %{buildroot}%{_datadir}/dbus-1/system.d/dev.stubbe.lys.Energy1.conf
+install -D -m 0644 dev.stubbe.lys.Pause1.conf %{buildroot}%{_datadir}/dbus-1/system.d/dev.stubbe.lys.Pause1.conf
+install -D -m 0644 dev.stubbe.lys.power.policy %{buildroot}%{_datadir}/polkit-1/actions/dev.stubbe.lys.power.policy
 
 %post
 %systemd_post lys-power.service
@@ -58,6 +62,9 @@ install -D -m 0644 dev.stubbe.lys.Energy1.conf %{buildroot}%{_datadir}/dbus-1/sy
 %{_unitdir}/lys-power.service
 %{_userunitdir}/lys-power-brightness.service
 %{_tmpfilesdir}/lys-power.conf
+%{_datadir}/dbus-1/system.d/dev.stubbe.lys.Energy1.conf
+%{_datadir}/dbus-1/system.d/dev.stubbe.lys.Pause1.conf
+%{_datadir}/polkit-1/actions/dev.stubbe.lys.power.policy
 
 %changelog
 * @DATE@ @MAINTAINER@ - @VERSION@-1

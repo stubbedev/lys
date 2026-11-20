@@ -21,6 +21,7 @@ const (
 	DefaultCgroupDir   = "/sys/fs/cgroup"
 	DefaultProcDir     = "/proc"
 	DefaultPowercapDir = "/sys/class/powercap"
+	DefaultUserRunDir  = "/run/user"
 )
 
 // LegacyStateDirs are where lys-power's predecessors kept their state,
@@ -56,6 +57,8 @@ const (
 	Tick = time.Minute
 	// BusTimeout bounds connecting to the system bus.
 	BusTimeout = 5 * time.Second
+	// PauseTimeout bounds one round of pausing and resuming units.
+	PauseTimeout = 30 * time.Second
 )
 
 // Automatic brightness. The backlight follows the room's illuminance
@@ -127,6 +130,9 @@ type Config struct {
 	CgroupDir   string
 	ProcDir     string
 	PowercapDir string
+	// UserRunDir holds each user's runtime directory, where the user's
+	// systemd manager listens.
+	UserRunDir string
 }
 
 // Load reads the configuration, applying LYS_POWER_* environment overrides.
@@ -140,6 +146,7 @@ func Load() Config {
 		CgroupDir:   env("LYS_POWER_CGROUP_DIR", DefaultCgroupDir),
 		ProcDir:     env("LYS_POWER_PROC_DIR", DefaultProcDir),
 		PowercapDir: env("LYS_POWER_POWERCAP_DIR", DefaultPowercapDir),
+		UserRunDir:  env("LYS_POWER_USER_RUN_DIR", DefaultUserRunDir),
 	}
 }
 
@@ -156,6 +163,12 @@ func HistoryIn(dir string) string {
 // LastACPath remembers the previous AC state for edge detection.
 func (c Config) LastACPath() string {
 	return filepath.Join(c.StateDir, "last-ac")
+}
+
+// PausePath records the units chosen to pause on battery and those
+// paused.
+func (c Config) PausePath() string {
+	return filepath.Join(c.StateDir, "pause")
 }
 
 // FullNowPath is the charge-to-full request flag.
