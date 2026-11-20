@@ -167,3 +167,16 @@ func TestPickWindowFailsAsDefined(t *testing.T) {
 		t.Errorf("a pick lys-wm refused: %v, want its reason", err)
 	}
 }
+
+func TestRunningAppsAreEachWindowsAppOnce(t *testing.T) {
+	got, err := RunningApps(answering(map[string]string{"windows": `[{"id":3,"app_id":"foot"},{"id":4},{"id":7,"app_id":"org.mozilla.firefox"},{"id":9,"app_id":"foot"}]`}))
+	if err != nil || !slices.Equal(got, []string{"foot", "org.mozilla.firefox"}) {
+		t.Fatalf("running apps %v, %v", got, err)
+	}
+	if _, err := RunningApps(notRunning); !errors.Is(err, ErrNotRunning) {
+		t.Errorf("no lys-wm: %v, want %v", err, ErrNotRunning)
+	}
+	if _, err := RunningApps(answering(map[string]string{"windows": "nope"})); err == nil {
+		t.Error("an answer that is no window list reads as apps")
+	}
+}

@@ -1,0 +1,136 @@
+package settings
+
+import (
+	"slices"
+	"strings"
+	"testing"
+
+	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/ui/widget"
+
+	"github.com/stubbedev/lys/settings/internal/locale"
+	"github.com/stubbedev/lys/settings/internal/wmconfig"
+)
+
+func openRule(t *testing.T, c *cardList, i int) (*ruleMatchEditor, *ruleEffects) {
+	t.Helper()
+	treetest.WithClass(c.cards[i].root, "card-disclose")[0].(*widget.Button).ClickAt(widget.Point{})
+	if len(c.cards[i].controls) != 2 {
+		t.Fatalf("an open rule holds %d parts, want what it applies to and its effects", len(c.cards[i].controls))
+	}
+	return c.cards[i].controls[0].(*ruleMatchEditor), c.cards[i].controls[1].(*ruleEffects)
+}
+
+func chipTexts(c cardAside) []string {
+	var out []string
+	for _, chip := range treetest.All[*widget.Chip](c) {
+		out = append(out, chip.Text())
+	}
+	return out
+}
+
+func TestEveryKeyOfALysWMRuleHasItsPartInTheRuleEditor(t *testing.T) {
+	k := lysWMKit(t, "")
+	for _, kind := range []ruleKind{windowRules} {
+		keys, ok := k.wm.schema.Keys([]string{kind.path, wmconfig.Each})
+		if !ok {
+			t.Fatalf("lys-wm's %s holds no rules", kind.path)
+		}
+		for key := range kind.groups {
+			if !slices.Contains(keys, key) {
+				t.Errorf("%s: %s has a part in the rule editor but is no key of lys-wm's", kind.path, key)
+			}
+		}
+		parts := splitRuleKeys(k.wm, kind)
+		if len(parts.match)+len(parts.more)+len(parts.effects) != len(keys) || len(parts.effects) == 0 {
+			t.Errorf("%s: %d keys split as %+v", kind.path, len(keys), parts)
+		}
+		for _, key := range parts.effects {
+			if label := effectLabel(key); label == wmKey(rulesLabels+"."+key) {
+				t.Errorf("%s: the effect %s has no name", kind.path, key)
+			}
+		}
+	}
+}
+
+func TestARuleShowsOnlyItsEffectsAndAddsOneFromTheMenu(t *testing.T) {
+	k, w, _, files := wmKit(t, "rules:\n  - {app_id: foot}\n")
+	c := fieldControl(k, w, wmRules(windowRules)).(*cardList)
+	if got := chipTexts(c.cards[0].aside); len(got) != 0 {
+		t.Fatalf("a rule with no effect shows the chips %v", got)
+	}
+	_, effects := openRule(t, c, 0)
+	if !effects.none.Visible() || len(effects.shown) != 0 {
+		t.Fatalf("a rule with no effect shows %v", effects.shown)
+	}
+	offered := effects.offered()
+	values := make([]string, len(offered))
+	for i, o := range offered {
+		values[i] = o.value
+	}
+	if !slices.Equal(values, []string{"float", "animation", "blur_look"}) {
+		t.Fatalf("the add menu offers %v, want the effects by group and never what the rule applies to", values)
+	}
+	if want := locale.T().Get("wm-rules-group-placement"); offered[0].group != want {
+		t.Errorf("float is offered under %q, want %q", offered[0].group, want)
+	}
+	effects.addEffect("float")
+	if got := fileText(t, files.runtime); !strings.Contains(got, "float: true") || !strings.Contains(got, "app_id: foot") {
+		t.Fatalf("adding float wrote %q", got)
+	}
+	if !slices.Equal(effects.shown, []string{"float"}) || effects.none.Visible() {
+		t.Errorf("after adding float the rule shows %v", effects.shown)
+	}
+	if got, want := chipTexts(c.cards[0].aside), []string{locale.T().Get("wm-rules-float")}; !slices.Equal(got, want) {
+		t.Errorf("the card's chips read %v, want %v", got, want)
+	}
+	before := fileText(t, files.runtime)
+	effects.addEffect("blur_look")
+	if got := fileText(t, files.runtime); got != before {
+		t.Errorf("adding an effect with no value yet wrote %q", got)
+	}
+	if !slices.Equal(effects.shown, []string{"blur_look", "float"}) {
+		t.Errorf("an effect added without a value is not shown: %v", effects.shown)
+	}
+	effects.removeEffect("float")
+	if got := fileText(t, files.runtime); strings.Contains(got, "float") || !strings.Contains(got, "app_id: foot") {
+		t.Errorf("removing float wrote %q", got)
+	}
+	effects.removeEffect("blur_look")
+	if len(effects.shown) != 0 || !effects.none.Visible() {
+		t.Errorf("after removing both the rule shows %v", effects.shown)
+	}
+}
+
+func TestTheRuleEditorKeepsWhatItDoesNotUnderstand(t *testing.T) {
+	k, w, _, files := wmKit(t, "rules:\n  - {app_id: '^(foot|kitty)$', future: 3}\n")
+	c := fieldControl(k, w, wmRules(windowRules)).(*cardList)
+	if got := c.cards[0].title.Text(); got != "^(foot|kitty)$" {
+		t.Errorf("a rule over two apps is titled %q, want its pattern", got)
+	}
+	_, effects := openRule(t, c, 0)
+	effects.addEffect("float")
+	got := fileText(t, files.runtime)
+	for _, want := range []string{"^(foot|kitty)$", "future: 3", "float: true"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("the edited rule lost %q: %q", want, got)
+		}
+	}
+}
+
+func TestFurtherConditionsShowWhenARuleHasOne(t *testing.T) {
+	k := lysWMKit(t, "rules:\n  - {app_id: foot}\n  - {app_id: foot, is_floating: true}\n")
+	c := fieldControl(k, k.wm, wmRules(windowRules)).(*cardList)
+	plain, _ := openRule(t, c, 0)
+	floating, _ := openRule(t, c, 1)
+	if plain.more.Visible() {
+		t.Error("a rule matching its app alone opens the further conditions")
+	}
+	if !floating.more.Visible() {
+		t.Error("a rule matching floating windows hides that condition")
+	}
+	plain.toggle.OnClick()
+	if !plain.more.Visible() || plain.label.Text() != locale.T().Get("wm-rules-fewer-conditions") {
+		t.Errorf("the toggle shows the conditions %t and reads %q", plain.more.Visible(), plain.label.Text())
+	}
+}

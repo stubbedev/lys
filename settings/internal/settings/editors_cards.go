@@ -35,6 +35,24 @@ type cardField struct {
 	fill       bool
 }
 
+// build is the field's control over the item whose key slots field gives.
+func (f cardField) build(k *kit, field func(key string) slot) control {
+	if f.item != nil {
+		return f.item(k, field)
+	}
+	return f.editor(k, field(f.key))
+}
+
+// fieldRow is a card field's row: its label beside its control, the
+// spare width the label's unless fill gives it to the control.
+func fieldRow(label widget.Widget, ctl control, fill bool, class string) *widget.Box {
+	row := gapBox(widget.Row)
+	row.AddClass(class)
+	row.AppendAligned(label, !fill, widget.AlignCenter)
+	row.AppendAligned(ctl, fill, widget.AlignCenter)
+	return row
+}
+
 func (s cardSpec) editedKeys() []string {
 	var out []string
 	if s.identity != nil {
@@ -70,7 +88,9 @@ var cardFormChrome = cardChrome{
 // each written item), the key duplicates of which are an error, and
 // the container classes.
 type cardSpec struct {
-	title    func(item map[string]any, number int) string
+	title func(item map[string]any, number int) string
+	// icon, when set, is the theme icon leading each card's title.
+	icon     func(item map[string]any) string
 	identity *cardField
 	fields   []cardField
 	blank    func() map[string]any
@@ -160,6 +180,7 @@ type cardAside interface {
 
 type card struct {
 	root     *widget.Box
+	icon     *widget.Icon
 	title    *widget.Label
 	aside    cardAside
 	group    int
@@ -496,6 +517,10 @@ func (c *cardList) appendCard(i int) {
 		cd.identity = id.editor(c.k, c.fieldSlot(i, id.key))
 		header.AppendAligned(cd.identity, true, widget.AlignCenter)
 	} else {
+		if c.spec.icon != nil {
+			cd.icon = widget.NewThemeIcon(c.spec.icon(c.local[i]), appIconPx)
+			header.AppendAligned(cd.icon, false, widget.AlignCenter)
+		}
 		cd.title = c.k.label("", "card-form-title", css.Heading)
 		cd.title.SetEllipsize(widget.EllipsizeEnd)
 		header.AppendAligned(cd.title, true, widget.AlignCenter)
@@ -519,17 +544,8 @@ func (c *cardList) appendCard(i int) {
 	body.AddClass(chrome.body)
 	fill := func() {
 		for _, f := range c.spec.fields {
-			var ctl control
-			if f.item != nil {
-				ctl = f.item(c.k, func(key string) slot { return c.fieldSlot(i, key) })
-			} else {
-				ctl = f.editor(c.k, c.fieldSlot(i, f.key))
-			}
-			row := gapBox(widget.Row)
-			row.AddClass(c.spec.rowClass)
-			row.AppendAligned(formLabel(f.label), !f.fill, widget.AlignCenter)
-			row.AppendAligned(ctl, f.fill, widget.AlignCenter)
-			body.Append(row, false)
+			ctl := f.build(c.k, func(key string) slot { return c.fieldSlot(i, key) })
+			body.Append(fieldRow(formLabel(f.label), ctl, f.fill, c.spec.rowClass), false)
 			cd.controls = append(cd.controls, ctl)
 		}
 	}
@@ -592,6 +608,9 @@ func (c *cardList) retitle(i int) {
 	}
 	if c.cards[i].title != nil && c.spec.title != nil {
 		c.cards[i].title.SetText(c.spec.title(c.local[i], i+1))
+	}
+	if c.cards[i].icon != nil {
+		c.cards[i].icon.SetThemeName(c.spec.icon(c.local[i]))
 	}
 	if c.cards[i].aside != nil {
 		c.cards[i].aside.show(c.local[i])

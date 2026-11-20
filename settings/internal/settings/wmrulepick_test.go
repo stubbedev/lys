@@ -39,7 +39,7 @@ func TestAPickedWindowBecomesARuleMatchingExactlyIt(t *testing.T) {
 func TestPickingAWindowAddsItsRule(t *testing.T) {
 	k, w, fake, files := wmKit(t, "rules:\n  - {app_id: foot}\n")
 	fake.running = map[string]string{"pickwindow": "7", "windows": `[{"id":3,"app_id":"foot"},{"id":7,"app_id":"org.mozilla.firefox","title":"Mozilla Firefox"}]`}
-	c := fieldControl(k, w, wmObjects(rulesKey, appIDKey)).(*cardList)
+	c := fieldControl(k, w, wmRules(windowRules)).(*cardList)
 	treetest.Button(t, c, locale.T().Get("wm-rules-pick")).OnClick()
 	if len(c.local) != 2 || c.local[1][appIDKey] != `^org\.mozilla\.firefox$` {
 		t.Fatalf("the picked window added %v", c.local)
@@ -65,7 +65,7 @@ func TestAPickThatFindsNoWindowAddsNoRuleAndSaysWhy(t *testing.T) {
 	} {
 		k, w, fake, _ := wmKit(t, "rules:\n  - {app_id: foot}\n")
 		fake.running = c.running
-		l := fieldControl(k, w, wmObjects(rulesKey, appIDKey)).(*cardList)
+		l := fieldControl(k, w, wmRules(windowRules)).(*cardList)
 		treetest.Button(t, l, locale.T().Get("wm-rules-pick")).OnClick()
 		if len(l.local) != 1 {
 			t.Errorf("%s added a rule: %v", c.name, l.local)

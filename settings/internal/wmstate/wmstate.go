@@ -113,3 +113,22 @@ func PickWindow(run wmconfig.Runner) (wmipc.Window, error) {
 		return windows[i], nil
 	})
 }
+
+// RunningApps are the app IDs of the windows lys-wm shows, each once, in
+// order.
+func RunningApps(run wmconfig.Runner) ([]string, error) {
+	windows, err := bounded(queryLimit, func(ctx context.Context) ([]wmipc.Window, error) {
+		return query[[]wmipc.Window](ctx, run, wmipc.KindWindows)
+	})
+	if err != nil {
+		return nil, err
+	}
+	ids := make([]string, 0, len(windows))
+	for _, w := range windows {
+		if w.AppID != "" {
+			ids = append(ids, w.AppID)
+		}
+	}
+	slices.Sort(ids)
+	return slices.Compact(ids), nil
+}

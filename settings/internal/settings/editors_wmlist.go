@@ -79,9 +79,6 @@ func newWMObjects(k *kit, s slot, spec wmObjectSpec, check func(items []any) fun
 		}
 		cards.keep = func(m map[string]any) bool { chord, _ := m[chordKey].(string); return chord != "" }
 	}
-	if slices.Equal(spec.schema, []string{rulesKey}) {
-		cards.pick = rulePick(k.wm)
-	}
 	list := newCardList(k, s, cards)
 	if binds == nil && !slices.Contains(spec.title, appIDKey) {
 		return list
@@ -141,33 +138,37 @@ func wmItemFields(w *wmBackend, schema, within []string, labels string) []cardFi
 	}
 	var out []cardField
 	for _, key := range keys {
-		path := append(slices.Clone(schema), key)
-		inner := append(slices.Clone(within), key)
-		label := labels + "." + key
-		if edit, ok := wmItemEditors[strings.Join(path, ".")]; ok {
-			out = append(out, cardField{label: wmKey(label), fill: true, item: func(k *kit, field func(key string) slot) control {
-				return edit(k, nestedSlot(field(inner[0]), inner[1:]), path)
-			}})
-			continue
-		}
-		f, _ := w.schema.Field(path)
-		if f.Kind == wmconfig.Switch {
-			fields := wmItemFields(w, path, nil, label)
-			out = append(out, cardField{label: wmKey(label), fill: true, item: func(k *kit, field func(key string) slot) control {
-				return newWMSwitch(k, nestedSlot(field(inner[0]), inner[1:]), fields)
-			}})
-			continue
-		}
-		if _, nested := w.schema.Keys(path); nested {
-			out = append(out, wmItemFields(w, path, inner, label)...)
-			continue
-		}
-		edit := wmLeafEditor(w, path)
-		out = append(out, cardField{label: wmKey(label), fill: f.Kind == wmconfig.Text || f.Kind == wmconfig.Composite, item: func(k *kit, field func(key string) slot) control {
-			return edit(k, nestedSlot(field(inner[0]), inner[1:]))
-		}})
+		out = append(out, wmKeyFields(w, schema, within, labels, key)...)
 	}
 	return out
+}
+
+// wmKeyFields are the card fields of key of the object whose schema is at
+// schema, as wmItemFields lays them out: one, or one per key of a nested
+// object.
+func wmKeyFields(w *wmBackend, schema, within []string, labels, key string) []cardField {
+	path := append(slices.Clone(schema), key)
+	inner := append(slices.Clone(within), key)
+	label := labels + "." + key
+	if edit, ok := wmItemEditors[strings.Join(path, ".")]; ok {
+		return []cardField{{label: wmKey(label), fill: true, item: func(k *kit, field func(key string) slot) control {
+			return edit(k, nestedSlot(field(inner[0]), inner[1:]), path)
+		}}}
+	}
+	f, _ := w.schema.Field(path)
+	if f.Kind == wmconfig.Switch {
+		fields := wmItemFields(w, path, nil, label)
+		return []cardField{{label: wmKey(label), fill: true, item: func(k *kit, field func(key string) slot) control {
+			return newWMSwitch(k, nestedSlot(field(inner[0]), inner[1:]), fields)
+		}}}
+	}
+	if _, nested := w.schema.Keys(path); nested {
+		return wmItemFields(w, path, inner, label)
+	}
+	edit := wmLeafEditor(w, path)
+	return []cardField{{label: wmKey(label), fill: f.Kind == wmconfig.Text || f.Kind == wmconfig.Composite, item: func(k *kit, field func(key string) slot) control {
+		return edit(k, nestedSlot(field(inner[0]), inner[1:]))
+	}}}
 }
 
 // wmLeafEditor is the editor of a key of a lys-wm item: a list of
