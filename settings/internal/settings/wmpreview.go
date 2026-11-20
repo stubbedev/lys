@@ -40,6 +40,7 @@ type titlebarLook struct {
 	buttons     []string
 	background  [windowFocusStates]render.Color
 	lights      map[string]render.Color
+	unlit       render.Color
 }
 
 type shadowLook struct {
@@ -259,6 +260,7 @@ func readWindowLook(value func(path string) any, colour func(text string) (rende
 			buttons:     r.words("titlebars.buttons"),
 			background:  [windowFocusStates]render.Color{r.color("titlebars.active.background"), r.color("titlebars.inactive.background")},
 			lights:      map[string]render.Color{},
+			unlit:       r.color("titlebars.inactive.text"),
 		},
 		shadow: shadowLook{
 			enabled: r.flag("decoration.shadow.enabled"),
@@ -310,15 +312,15 @@ func previewShift(n int) int {
 
 // windowFrames are where the preview puts the two windows on screen, the
 // one painted first first: side by side as tiles, or, while floating
-// windows wear title bars, the focused one floating over the other.
+// windows wear title bars, both floating, the focused one over the other.
 func windowFrames(l windowLook, screen render.Rect) [windowFocusStates]render.Rect {
 	o := l.gapOuter
 	area := render.Insets{Top: previewPixels(o[0]), Right: previewPixels(o[1]), Bottom: previewPixels(o[2]), Left: previewPixels(o[3])}.Shrink(screen)
 	if l.titlebar.shown {
 		w, h := int(float64(area.W)*windowFloatW), int(float64(area.H)*windowFloatH)
 		return [windowFocusStates]render.Rect{
-			windowFocused:   {X: area.X + (area.W-w)/2, Y: area.Y + (area.H-h)/2, W: w, H: h},
-			windowUnfocused: area,
+			windowFocused:   {X: area.X + area.W - w, Y: area.Y + area.H - h, W: w, H: h},
+			windowUnfocused: {X: area.X, Y: area.Y, W: w, H: h},
 		}
 	}
 	gap := previewPixels(l.gapInner)
@@ -361,12 +363,15 @@ func paintWindow(cv *render.Canvas, l windowLook, f windowFocus, frame, screen r
 	prev := cv.PushAlpha(l.opacity[f])
 	cv.RoundedRectCorners(inner, innerRadii, th.CardColor())
 	content := inner
-	if l.titlebar.shown && f == windowFocused {
+	if l.titlebar.shown {
 		bar := render.Rect{X: inner.X, Y: inner.Y, W: inner.W, H: min(inner.H, previewPixels(l.titlebar.height))}
 		cv.RoundedRectCorners(bar, render.Corners{TopLeft: innerRadii.TopLeft, TopRight: innerRadii.TopRight}, l.titlebar.background[f])
 		dots := make([]render.Color, len(l.titlebar.buttons))
 		for i, b := range l.titlebar.buttons {
-			dots[i] = l.titlebar.lights[b]
+			dots[i] = l.titlebar.unlit
+			if f == windowFocused {
+				dots[i] = l.titlebar.lights[b]
+			}
 		}
 		titlebarDots(cv, bar, l.titlebar.buttonsLeft, dots)
 		content = render.Rect{X: inner.X, Y: bar.Y + bar.H, W: inner.W, H: inner.H - bar.H}

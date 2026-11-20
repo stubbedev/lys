@@ -172,6 +172,38 @@ func TestTheWindowPreviewCastsTheShadowByItsOffset(t *testing.T) {
 	}
 }
 
+func TestTheUnfocusedWindowWearsTheInactiveTitleBar(t *testing.T) {
+	k := lysWMKit(t, "")
+	l, bad := readWindowLook(k.wm.value, func(text string) (render.Color, bool) { return wmColorRGB(k, text) })
+	if bad != nil {
+		t.Fatal(bad)
+	}
+	green := render.RGB(0, 0xff, 0)
+	l.shadow.enabled, l.borderWidth, l.rounding, l.dim = false, 0, 0, 0
+	l.opacity = [windowFocusStates]float64{1, 1}
+	l.titlebar.background[windowUnfocused] = green
+	const w, h = 400, windowPreviewH
+	screen := render.Rect{W: w, H: h}
+	barPixel := func(shown bool) render.Color {
+		l.titlebar.shown = shown
+		frame := windowFrames(l, screen)[windowUnfocused]
+		data := make([]byte, render.Stride(w)*h)
+		paintWindows(render.New(data, render.Stride(w), w, h), l, screen)
+		at := (frame.Y+1)*render.Stride(w) + (frame.X+frame.W/2)*4
+		return render.ColorFromBytes(data[at:])
+	}
+	if got := barPixel(true); got != green {
+		t.Errorf("the unfocused window's title bar paints %#x, want the inactive background %#x", got, green)
+	}
+	if got := barPixel(false); got == green {
+		t.Error("with title bars off the unfocused window still paints a title bar")
+	}
+	frames := windowFrames(l, screen)
+	if frames[windowUnfocused] == frames[windowFocused] || frames[windowUnfocused].W != frames[windowFocused].W {
+		t.Errorf("with title bars both windows float alike, got %+v", frames)
+	}
+}
+
 func TestAValueThePreviewCannotDrawSaysWhichInsteadOfDrawing(t *testing.T) {
 	k := lysWMKit(t, "borders:\n  active: nosuchcolour\n")
 	pv := previewOf(t, layoutPage(t, k, "wm-windows"))
