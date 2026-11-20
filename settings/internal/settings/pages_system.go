@@ -52,7 +52,7 @@ func scalePercent(v float64) string {
 func lockPage(*config.Config) pageSpec {
 	return pageSpec{
 		id: "lock", navKey: "settings-nav-lock-page", icon: "ld-lock-symbolic",
-		header: "settings-page-lock",
+		header: "settings-page-lock", lead: lockPreview,
 		sections: []sectionSpec{
 			{title: "settings-section-general", rows: []rowSpec{
 				field("login.lock.enabled"), field("login.lock.fingerprint", fingerprintRow),

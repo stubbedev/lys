@@ -2272,6 +2272,7 @@
       "desktop/shell/apptheme",
       "desktop/shell/barview",
       "desktop/shell/layers",
+      "desktop/shell/lockview",
       "desktop/shell/notifyview",
       "desktop/shell/osdview",
       "desktop/shell/widgets",

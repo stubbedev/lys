@@ -91,6 +91,7 @@ func Run(page, setting string) error {
 		mailCount:    countMail,
 		barFont:      barview.Font,
 		familyFont:   loadFamily,
+		forgetImage:  application.ForgetImage,
 	}
 	after := func(d time.Duration, fn func()) {
 		time.AfterFunc(d, func() { application.Invoke(fn) })

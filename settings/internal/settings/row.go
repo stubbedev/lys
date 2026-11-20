@@ -73,6 +73,9 @@ type kit struct {
 	barFont func(cfg *config.Config) (render.Font, error)
 	// familyFont loads a font family, for the samples of the font rows.
 	familyFont func(family string) (render.Font, error)
+	// forgetImage drops a raster's GPU copy before its pixels are freed.
+	forgetImage func(render.ImageID)
+	lockBg      *lockBackdrop
 }
 
 // async runs work off the loop and hands its result to done on it.
