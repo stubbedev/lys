@@ -142,6 +142,11 @@ func short(v float32) float64 {
 	return f
 }
 
+func swipeDriveNames() []string {
+	names := slices.Sorted(maps.Keys(gestureDrives))
+	return slices.DeleteFunc(names, func(name string) bool { return gestureDrives[name] == binds.DriveZoom })
+}
+
 func columnWidths(widths []wm.ColumnWidth) []any {
 	out := make([]any, len(widths))
 	for i, w := range widths {
@@ -295,6 +300,10 @@ func annotations() map[string]annotation {
 		"gestures.touch[].action":           actionAnn,
 		"gestures.edge_width":               atLeastAnn(1, compositor.DefaultEdgeWidth),
 		"gestures.swipe[].scope":            overviewScopes,
+		"gestures.touch[].edge":             {enum: slices.Sorted(maps.Keys(touchEdges))},
+		"gestures.touch[].direction":        {enum: slices.Sorted(maps.Keys(swipeDirections))},
+		"gestures.touch[].drive":            {enum: swipeDriveNames()},
+		"gestures.touch[].fingers":          at(minTouchFingers, compositor.MaxGestureTouches, nil),
 	}
 	for k := range compositor.CornerCount {
 		out["hot_corners."+k.String()+".action"] = actionAnn

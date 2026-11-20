@@ -2128,16 +2128,40 @@
                 ]
               },
               "direction": {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "any",
+                  "down",
+                  "horizontal",
+                  "left",
+                  "right",
+                  "up",
+                  "vertical"
+                ]
               },
               "drive": {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "move",
+                  "overview",
+                  "resize",
+                  "view",
+                  "workspaces"
+                ]
               },
               "edge": {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "bottom",
+                  "left",
+                  "right",
+                  "top"
+                ]
               },
               "fingers": {
-                "type": "integer"
+                "type": "integer",
+                "minimum": 3,
+                "maximum": 10
               }
             },
             "additionalProperties": false

@@ -49,6 +49,10 @@ var requires = map[string]map[string]any{
 	"layer_rules[].enabled":             {"layer_rules[].namespace": "^bar$"},
 	"outputs[].vrr":                     {"outputs[].match": "DP-1"},
 	"gestures.swipe[].scope":            {"gestures.swipe[].fingers": 4, "gestures.swipe[].direction": "down", "gestures.swipe[].drive": "overview"},
+	"gestures.touch[].edge":             {"gestures.touch[].action": "kill"},
+	"gestures.touch[].direction":        {"gestures.touch[].fingers": 3, "gestures.touch[].action": "kill"},
+	"gestures.touch[].drive":            {"gestures.touch[].fingers": 3, "gestures.touch[].direction": "horizontal"},
+	"gestures.touch[].fingers":          {"gestures.touch[].direction": "left", "gestures.touch[].action": "kill"},
 	"outputs[].hdr":                     {"outputs[].match": "DP-1"},
 	"outputs[].transform":               {"outputs[].match": "DP-1"},
 	"tabs.active.background":            {"tabs.active.text": "text"},
@@ -69,9 +73,24 @@ var requires = map[string]map[string]any{
 	"decoration.blur.specular.width":    {"decoration.blur.specular.strength": 0.4},
 }
 
+var requiresFor = map[string]map[string]map[string]any{
+	"gestures.touch[].direction": {"any": {"gestures.touch[].fingers": 3, "gestures.touch[].drive": "move"}},
+	"gestures.touch[].drive": {
+		"overview": {"gestures.touch[].fingers": 3, "gestures.touch[].direction": "vertical"},
+		"move":     {"gestures.touch[].fingers": 3, "gestures.touch[].direction": "any"},
+		"resize":   {"gestures.touch[].fingers": 3, "gestures.touch[].direction": "any"},
+	},
+}
+
 func document(t *testing.T, path string, value any) []byte {
 	t.Helper()
 	doc := required(path)
+	if keys, ok := requiresFor[path][fmt.Sprint(value)]; ok {
+		doc = map[string]any{}
+		for _, other := range slices.Sorted(maps.Keys(keys)) {
+			merge(doc, nested(other, keys[other]))
+		}
+	}
 	merge(doc, nested(path, value))
 	data, err := json.Marshal(doc)
 	if err != nil {
