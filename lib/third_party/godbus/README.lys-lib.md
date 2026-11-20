@@ -183,6 +183,14 @@ Drop the copy once upstream carries every fix below.
   only where `XDG_RUNTIME_DIR` names no absolute path. Pinned by
   `TestTheSessionBusIsFoundInTheRuntimeDirectory` and
   `TestARuntimeDirectoryWithoutABusHasNoSessionBus`.
+- `auth.go`, `Auth`: BEGIN goes out in one write with `NEGOTIATE_UNIX_FD`,
+  before its answer is read, as sd-bus sends it. Upstream wrote BEGIN after
+  reading the answer, right before the first message, so a server could
+  read both at once; sd-bus, serving a systemd manager's private socket,
+  then keeps that message in its buffer unparsed until more bytes arrive,
+  and a connection's lone `ThawUnit` (lys-power resuming a user's unit)
+  never got its reply. A transport without descriptors still sends BEGIN
+  after OK. Pinned by `TestBeginGoesOutWithTheUnixFDNegotiation`.
 - Import path: every source imports `github.com/stubbedev/lys/lib/third_party/godbus`
   in place of `github.com/godbus/dbus/v5`, and the copy has no go.mod
   of its own. Upstream's tests, CI files and fuzz corpus are not

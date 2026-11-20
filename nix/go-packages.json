@@ -1428,6 +1428,7 @@
   "lib/third_party/godbus": {
     "testImports": [
       "lib/dbustest",
+      "lib/sockdir",
       "lib/testbuild",
       "lib/testhome",
       "lib/waittest"

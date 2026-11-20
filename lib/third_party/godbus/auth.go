@@ -93,8 +93,10 @@ func (conn *Conn) Auth(methods []Auth) error {
 					return err
 				}
 				if ok {
+					// lys-lib patch: BEGIN goes out with NEGOTIATE_UNIX_FD, as
+					// sd-bus sends it.
 					if conn.transport.SupportsUnixFDs() {
-						err = authWriteLine(conn, []byte("NEGOTIATE_UNIX_FD"))
+						err = authWrite(conn.transport, append(authLine([]byte("NEGOTIATE_UNIX_FD")), authLine([]byte("BEGIN"))...))
 						if err != nil {
 							return err
 						}
@@ -110,9 +112,7 @@ func (conn *Conn) Auth(methods []Auth) error {
 						default:
 							return errors.New("dbus: authentication protocol error")
 						}
-					}
-					err = authWriteLine(conn.transport, []byte("BEGIN"))
-					if err != nil {
+					} else if err = authWriteLine(conn.transport, []byte("BEGIN")); err != nil {
 						return err
 					}
 					// lys-lib patch: on a goroutine Close waits for.
@@ -238,6 +238,10 @@ func authReadLine(in *bufio.Reader) ([][]byte, error) {
 // authWriteLine writes the given line in the authentication protocol format
 // (elements of data separated by a " " and terminated by "\r\n").
 func authWriteLine(out io.Writer, data ...[]byte) error {
+	return authWrite(out, authLine(data...))
+}
+
+func authLine(data ...[]byte) []byte {
 	buf := make([]byte, 0)
 	for i, v := range data {
 		buf = append(buf, v...)
@@ -246,7 +250,10 @@ func authWriteLine(out io.Writer, data ...[]byte) error {
 		}
 	}
 	buf = append(buf, '\r')
-	buf = append(buf, '\n')
+	return append(buf, '\n')
+}
+
+func authWrite(out io.Writer, buf []byte) error {
 	n, err := out.Write(buf)
 	if err != nil {
 		return err
