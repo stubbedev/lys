@@ -909,6 +909,7 @@ settings-sound-test = Testen
     .description = Spielt einen kurzen Ton auf einem Lautsprecher ab
 settings-sound-test-channel = { $channel } testen
 settings-sound-level = Eingangspegel
+settings-device-level = Aktueller Pegel dieses Geräts
 settings-sound-unplugged = { $name } (nicht angeschlossen)
 settings-sound-unavailable = { $name } (nicht verfügbar)
 settings-sound-app-volume = Lautstärke von { $app }

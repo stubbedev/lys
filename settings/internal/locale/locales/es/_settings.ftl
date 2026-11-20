@@ -909,6 +909,7 @@ settings-sound-test = Probar
     .description = Reproduce un tono corto en un altavoz
 settings-sound-test-channel = Probar { $channel }
 settings-sound-level = Nivel de entrada
+settings-device-level = Nivel en directo de este dispositivo
 settings-sound-unplugged = { $name } (desenchufado)
 settings-sound-unavailable = { $name } (no disponible)
 settings-sound-app-volume = Volumen de { $app }

@@ -180,6 +180,8 @@ func semanticEditor(k *kit, s slot, path string, meta config.FieldMeta) (control
 		spec.known = func(current string, items []choice) bool {
 			return strings.Contains(current, "/") || hasValue(items, current)
 		}
+	case "AudioSource":
+		return audioSourceEditor(k, s, spec), true
 	}
 	return newChoiceEditor(k, s, spec), true
 }

@@ -909,6 +909,7 @@ settings-sound-test = Test
     .description = Plays a short tone on one speaker
 settings-sound-test-channel = Test { $channel }
 settings-sound-level = Input Level
+settings-device-level = Live level of this device
 settings-sound-unplugged = { $name } (unplugged)
 settings-sound-unavailable = { $name } (unavailable)
 settings-sound-app-volume = { $app } volume

@@ -899,6 +899,7 @@ settings-sound-test = Testen
     .description = Speelt een korte toon af op één luidspreker
 settings-sound-test-channel = { $channel } testen
 settings-sound-level = Invoerniveau
+settings-device-level = Actueel niveau van dit apparaat
 settings-sound-unplugged = { $name } (losgekoppeld)
 settings-sound-unavailable = { $name } (niet beschikbaar)
 settings-sound-app-volume = Volume van { $app }

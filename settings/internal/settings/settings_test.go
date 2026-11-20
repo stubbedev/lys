@@ -1670,7 +1670,7 @@ func TestDeviceSelect(t *testing.T) {
 	microphoneChoices = func() []devicechoice.DeviceChoice {
 		return devicechoice.MicrophoneChoices([]devicechoice.Source{{Name: "mic", Description: "Microphone"}, {Name: "usb", Description: "USB"}})
 	}
-	mic := fieldControl(k, k.store, field("modules.recorder.microphone-device", microphoneDevice)).(*micMeter).device
+	mic := fieldControl(k, k.store, field("modules.recorder.microphone-device", microphoneDevice)).(*levelledDevice).pick.(*deviceSelect)
 	if mic.Selection() != "usb" || deliver == nil {
 		t.Fatalf("before the query: %q (query pending %v), want the saved id kept", mic.Selection(), deliver != nil)
 	}

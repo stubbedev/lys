@@ -240,8 +240,11 @@ func TestSpecialValuesComeFirstWithTheirLabels(t *testing.T) {
 		"login.greeter.cursor-theme":  {"", "Bibata"},
 		"login.greeter.screen-reader": {"", "orca", "foot", "ssh", "xdg-open"},
 	} {
-		c := shellControl(t, k, path).(*choiceEditor)
-		p := openChoices(t, k, c)
+		ctl := shellControl(t, k, path)
+		if levelled, ok := ctl.(*levelledDevice); ok {
+			ctl = levelled.pick
+		}
+		p := openChoices(t, k, ctl.(*choiceEditor))
 		if !slices.Equal(p.all, want) {
 			t.Errorf("%s offers %q, want %q", path, p.all, want)
 		}

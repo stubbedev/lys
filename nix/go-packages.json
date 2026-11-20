@@ -2287,6 +2287,7 @@
       "settings/internal/locale",
       "settings/internal/wmconfig",
       "settings/internal/wmstate",
+      "shell/cava",
       "shell/service/shellipc",
       "shell/service/sni",
       "shell/service/sysinfo",

@@ -909,6 +909,7 @@ settings-sound-test = Prova
     .description = Riproduce un breve tono su un altoparlante
 settings-sound-test-channel = Prova { $channel }
 settings-sound-level = Livello di ingresso
+settings-device-level = Livello in tempo reale di questo dispositivo
 settings-sound-unplugged = { $name } (scollegato)
 settings-sound-unavailable = { $name } (non disponibile)
 settings-sound-app-volume = Volume di { $app }
