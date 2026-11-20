@@ -9,6 +9,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/shell/vaultlogin"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/secrets/vault"
 	"github.com/stubbedev/lys/ui/widget"
@@ -19,10 +20,14 @@ import (
 
 // vaultControl is lys-secrets' Bitwarden vault, the one lys-shell's
 // Bitwarden module shows: its status, the folders of the open vault,
-// locking it, signing out, and a tick whenever it changed.
+// signing in (and asking for the emailed code), unlocking, locking,
+// signing out, and a tick whenever it changed.
 type vaultControl interface {
 	status(ctx context.Context) (vault.Status, error)
 	folders(ctx context.Context) ([]string, error)
+	login(ctx context.Context, req vault.LoginRequest) error
+	sendLoginEmail(ctx context.Context, req vault.LoginRequest) error
+	unlock(ctx context.Context, password string) error
 	lock(ctx context.Context) error
 	logout(ctx context.Context) error
 	changes(ctx context.Context) (<-chan struct{}, error)
@@ -70,6 +75,27 @@ func vaultFolders(items []vault.Item) []string {
 	return out
 }
 
+func (v *secretsVault) login(ctx context.Context, req vault.LoginRequest) error {
+	if err := v.client.Login(ctx, req); err != nil {
+		return fmt.Errorf("sign in to Bitwarden as %s: %w", req.Email, err)
+	}
+	return nil
+}
+
+func (v *secretsVault) sendLoginEmail(ctx context.Context, req vault.LoginRequest) error {
+	if err := v.client.SendLoginEmail(ctx, req); err != nil {
+		return fmt.Errorf("email a Bitwarden sign-in code to %s: %w", req.Email, err)
+	}
+	return nil
+}
+
+func (v *secretsVault) unlock(ctx context.Context, password string) error {
+	if err := v.client.Unlock(ctx, password); err != nil {
+		return fmt.Errorf("unlock the Bitwarden vault: %w", err)
+	}
+	return nil
+}
+
 func (v *secretsVault) lock(ctx context.Context) error {
 	if err := v.client.Lock(ctx); err != nil {
 		return fmt.Errorf("lock the Bitwarden vault: %w", err)
@@ -102,13 +128,17 @@ func (v *secretsVault) changes(ctx context.Context) (<-chan struct{}, error) {
 func (v *secretsVault) close() error { return v.conn.Close() }
 
 // vaultAccount is the account the Bitwarden module signs in to: who is
-// signed in and whether the vault is open, with Lock now and Sign out.
+// signed in and whether the vault is open, with Sign in, Unlock, Lock
+// now and Sign out.
 type vaultAccount struct {
 	*widget.Box
 	k       *kit
 	ctl     vaultControl
 	stop    context.CancelFunc
 	state   *widget.Label
+	login   *widget.Button
+	unlock  *widget.Button
+	form    *vaultForm
 	lock    *widget.Button
 	logout  *widget.Button
 	failed  *widget.Label
@@ -121,17 +151,23 @@ func newVaultAccount(k *kit) widget.Widget {
 	a := &vaultAccount{Box: gapBox(widget.Column), k: k}
 	a.state = wrapped(k.label(t.Get("settings-vault-asking"), "setting-label"))
 	a.lock = k.button(k.label(t.Get("settings-vault-lock")), a.lockNow, css.Small)
+	a.form = newVaultForm(a)
+	a.login = k.button(k.label(t.Get("settings-vault-login")), a.form.openLogin, css.Small, css.SuggestedAction)
+	a.unlock = k.button(k.label(t.Get("settings-vault-unlock")), a.form.openUnlock, css.Small, css.SuggestedAction)
 	a.logout = k.button(k.label(t.Get("settings-vault-logout")), a.askLogout, css.Small, css.DestructiveAction)
 	a.failed = wrapped(k.label("", "setting-problem", css.Caption, css.Error))
 	a.failed.SetVisible(false)
 	a.problem = wrapped(k.label("", "setting-problem", css.Caption, css.Error))
 	a.problem.SetVisible(false)
 	actions := gapBox(widget.Row)
+	actions.Append(a.login, false)
+	actions.Append(a.unlock, false)
 	actions.Append(a.lock, false)
 	actions.Append(a.logout, false)
 	a.Append(a.state, false)
 	a.Append(a.failed, false)
 	a.Append(actions, false)
+	a.Append(a.form, false)
 	a.Append(a.problem, false)
 	a.show(vault.Status{}, false)
 	type opened struct {
@@ -208,8 +244,13 @@ func (a *vaultAccount) show(st vault.Status, known bool) {
 	if known {
 		a.state.SetText(vaultWords(st))
 	}
+	a.login.SetVisible(known && st.State == vault.StateLoggedOut)
+	a.unlock.SetVisible(known && st.State == vault.StateLocked)
 	a.lock.SetEnabled(known && st.State == vault.StateUnlocked)
 	a.logout.SetEnabled(known && st.State != vault.StateLoggedOut)
+	if known {
+		a.form.follow(st.State)
+	}
 	a.failed.SetVisible(st.Err != nil)
 	if st.Err != nil {
 		a.failed.SetText(t.Get("settings-vault-failed", i18n.Str("reason", st.Err.Error())))
@@ -227,24 +268,29 @@ func vaultWords(st vault.Status) string {
 	return t.Get("settings-vault-logged-out")
 }
 
-func (a *vaultAccount) lockNow() { a.act(func(ctx context.Context) error { return a.ctl.lock(ctx) }) }
+func (a *vaultAccount) lockNow() {
+	a.act(func(ctx context.Context) error { return a.ctl.lock(ctx) }, nil)
+}
 
 func (a *vaultAccount) askLogout() {
 	if a.k.pickers == nil {
 		return
 	}
 	a.k.pickers.dialog(confirmDialog(a.k, "settings-vault-logout", func() {
-		a.act(func(ctx context.Context) error { return a.ctl.logout(ctx) })
+		a.act(func(ctx context.Context) error { return a.ctl.logout(ctx) }, nil)
 	}))
 }
 
-func (a *vaultAccount) act(do func(ctx context.Context) error) {
+// act runs do against the vault; then, when set, sees its outcome first
+// and reports whether it dealt with a failure, which is said otherwise.
+func (a *vaultAccount) act(do func(ctx context.Context) error, then func(err error) (handled bool)) {
 	if a.ctl == nil {
 		return
 	}
 	a.problem.SetVisible(false)
 	async(a.k, func() error { return doWithin(shellCallWait, do) }, func(err error) {
-		if err != nil {
+		handled := then != nil && then(err)
+		if err != nil && !handled {
 			a.fail(err)
 		}
 		a.reload()
@@ -252,7 +298,7 @@ func (a *vaultAccount) act(do func(ctx context.Context) error) {
 }
 
 func (a *vaultAccount) fail(err error) {
-	a.problem.SetText(err.Error())
+	a.problem.SetText(vaultlogin.ErrorText(err))
 	a.problem.SetVisible(true)
 }
 

@@ -2475,6 +2475,7 @@
       "desktop/shell/lockview",
       "desktop/shell/notifyview",
       "desktop/shell/osdview",
+      "desktop/shell/vaultlogin",
       "desktop/shell/widgets",
       "desktop/shlex",
       "desktop/spawn",
