@@ -23,6 +23,7 @@ func TestEveryChoiceOfAPictureRowHasItsPicture(t *testing.T) {
 		"modules.notifications.popup-stack": popupStackPictures,
 		"osd.text-align":                    textAlignPictures,
 		"modules.minimized-windows.scope":   windowScopePictures,
+		"animations.transition":             transitionPictures,
 	} {
 		meta, ok := config.Field(path)
 		if !ok {
@@ -63,7 +64,7 @@ func paintPicture(p picture) []byte {
 }
 
 func TestEachRoundingAndShadowDrawsItsOwnPicture(t *testing.T) {
-	for name, pictures := range map[string]map[string]picture{"rounding": roundingPictures, "shadow": shadowPictures, "button": buttonVariantPictures, "icon position": iconPositionPictures} {
+	for name, pictures := range map[string]map[string]picture{"rounding": roundingPictures, "shadow": shadowPictures, "button": buttonVariantPictures, "icon position": iconPositionPictures, "transition": transitionPictures} {
 		seen := map[string]string{}
 		for value, p := range pictures {
 			px := string(paintPicture(p))

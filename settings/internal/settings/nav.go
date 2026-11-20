@@ -133,7 +133,7 @@ func motionPage(*config.Config) pageSpec {
 		sections: []sectionSpec{
 			{title: "settings-section-general", rows: []rowSpec{
 				twinToggle("animations.enabled", "animations.enabled"), twinToggle("animations.reduced-motion", "animations.reduced_motion"),
-				animated(field("animations.transition")), animated(field("animations.indicators")),
+				animated(field("animations.transition", pictureChoice(transitionPictures))), animated(field("animations.indicators")),
 			}},
 			{title: "settings-section-speed", rows: []rowSpec{animated(speedRow())}},
 			{title: "settings-section-durations", advanced: true, rows: animatedRows(
