@@ -18,6 +18,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/imagedecode"
 	"github.com/stubbedev/lys/lib/atomicfile"
 	"github.com/stubbedev/lys/lib/intconv"
 	"github.com/stubbedev/lys/lib/pam"
@@ -27,26 +28,26 @@ import (
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
-	xdraw "golang.org/x/image/draw"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
 const (
-	usersID          = "users"
-	accountsName     = "org.freedesktop.Accounts"
-	accountsPath     = dbus.ObjectPath("/org/freedesktop/Accounts")
-	accountsUser     = accountsName + ".User"
-	avatarSide       = 512
-	avatarThumb      = 64
-	identityAvatar   = 96
-	accountAdmin     = int32(1)
-	accountStandard  = int32(0)
-	passwdService    = "passwd"
-	faceFile         = ".face"
-	avatarCacheName  = "avatar.png"
-	strengthClasses  = 4
-	strengthMinScore = 8
+	usersID           = "users"
+	accountsName      = "org.freedesktop.Accounts"
+	accountsPath      = dbus.ObjectPath("/org/freedesktop/Accounts")
+	accountsUser      = accountsName + ".User"
+	avatarSide        = 512
+	avatarThumb       = 64
+	identityAvatar    = 96
+	avatarDialogWidth = 440
+	accountAdmin      = int32(1)
+	accountStandard   = int32(0)
+	passwdService     = "passwd"
+	faceFile          = ".face"
+	avatarCacheName   = "avatar.png"
+	strengthClasses   = 4
+	strengthMinScore  = 8
 )
 
 //go:embed avatars/*.png
@@ -59,31 +60,13 @@ func usersPage(*config.Config) pageSpec {
 		footer: usersFooter,
 		panel: []panelSetting{
 			{"users.name", "settings-users-name", "settings-section-users-account"},
-			{"users.picture", "settings-section-users-avatar", "settings-section-users-avatar"},
+			{"users.picture", "settings-section-users-avatar", "settings-section-users-account"},
 			{"users.password", "settings-users-password", "settings-section-users-account"},
 			{"users.fingerprint", "settings-section-users-fingerprint", "settings-section-users-fingerprint"},
 			{"users.add", "settings-users-add", "settings-section-users-others"},
 		},
 	}
 }
-
-type avatarCrop struct {
-	zoom, panX, panY float64
-}
-
-func cropAvatar(src image.Image, c avatarCrop) *image.RGBA {
-	b := src.Bounds()
-	side := float64(min(b.Dx(), b.Dy())) / max(c.zoom, 1)
-	cx := float64(b.Min.X) + float64(float64(b.Dx())/2) + float64(clampUnit(c.panX)*(float64(b.Dx())-side)/2)
-	cy := float64(b.Min.Y) + float64(float64(b.Dy())/2) + float64(clampUnit(c.panY)*(float64(b.Dy())-side)/2)
-	half := float64(side / 2)
-	r := image.Rect(int(cx-half), int(cy-half), int(cx+half), int(cy+half)).Intersect(b)
-	out := image.NewRGBA(image.Rect(0, 0, avatarSide, avatarSide))
-	xdraw.CatmullRom.Scale(out, out.Bounds(), src, r, xdraw.Src, nil)
-	return out
-}
-
-func clampUnit(v float64) float64 { return min(max(v, -1), 1) }
 
 func encodeAvatar(img image.Image) ([]byte, error) {
 	var buf bytes.Buffer
@@ -275,7 +258,6 @@ type usersPanel struct {
 	props       sysProps
 	user        string
 	problem     *widget.Label
-	avatar      *widget.Box
 	face        *widget.Avatar
 	name        string
 	realName    *text
@@ -292,9 +274,6 @@ func usersFooter(k *kit) widget.Widget {
 	p.problem.SetVisible(false)
 	p.Append(p.problem, false)
 	p.Append(p.identityHeader(), false)
-	p.avatar = gapBox(widget.Column)
-	p.avatar.SetElement("item")
-	p.Append(newSection(k, "settings-section-users-avatar", p.avatar), false)
 	change := k.button(k.label(t.Get("settings-users-password-change")), p.openPasswordDialog, css.Secondary)
 	account := widget.NewItemGroup()
 	account.Append(panelRow(k, t.Get("settings-users-password"), t.Attr("settings-users-password", "description"), change))
@@ -302,7 +281,6 @@ func usersFooter(k *kit) widget.Widget {
 	p.admin = gapBox(widget.Column)
 	p.admin.SetVisible(false)
 	p.Append(p.admin, false)
-	p.showAvatars()
 	p.load()
 	return p
 }
@@ -325,7 +303,10 @@ func (p *usersPanel) identityHeader() widget.Widget {
 	text.Append(p.identity, false)
 	row := gapBox(widget.Row)
 	row.SetElement("item")
-	row.AppendAligned(p.face, false, widget.AlignCenter)
+	change := p.k.button(p.face, p.openAvatarDialog, css.Flat, "users-avatar-button")
+	change.SetAccessibleName(t.Get("settings-users-avatar-change"))
+	change.SetTooltip(t.Get("settings-users-avatar-change"))
+	row.AppendAligned(change, false, widget.AlignCenter)
 	row.AppendAligned(text, true, widget.AlignCenter)
 	card := widget.NewBox(widget.Column, 0, 0)
 	card.AddClass(css.Card, "settings-group", "users-identity-header")
@@ -478,42 +459,79 @@ func (p *usersPanel) callUser(method string, args ...any) {
 	}, p.fail)
 }
 
-func (p *usersPanel) showAvatars() {
-	t := locale.T()
-	grid := widget.NewFlowBox(widget.Current().Spacing, widget.Current().Spacing)
-	grid.SetSelectionMode(widget.SelectionNone)
+// stockAvatar is a picture lys-settings ships to choose as the avatar.
+type stockAvatar struct {
+	name string
+	img  image.Image
+}
+
+func stockAvatarImages() ([]stockAvatar, error) {
 	entries, err := stockAvatars.ReadDir("avatars")
+	if err != nil {
+		return nil, fmt.Errorf("list the stock avatars: %w", err)
+	}
+	out := make([]stockAvatar, 0, len(entries))
+	for _, e := range entries {
+		data, err := stockAvatars.ReadFile("avatars/" + e.Name())
+		if err != nil {
+			return nil, fmt.Errorf("read the stock avatar %s: %w", e.Name(), err)
+		}
+		img, err := png.Decode(bytes.NewReader(data))
+		if err != nil {
+			return nil, fmt.Errorf("decode the stock avatar %s: %w", e.Name(), err)
+		}
+		out = append(out, stockAvatar{strings.TrimSuffix(e.Name(), ".png"), img})
+	}
+	return out, nil
+}
+
+// openAvatarDialog offers the stock pictures and a file of the user's
+// own: a stock one is set at once, a file is cropped first.
+func (p *usersPanel) openAvatarDialog() {
+	if p.k.pickers == nil {
+		p.fail(errors.New("settings: change the picture: no window to ask in"))
+		return
+	}
+	stock, err := stockAvatarImages()
 	if err != nil {
 		p.fail(err)
 		return
 	}
-	for _, e := range entries {
-		data, err := stockAvatars.ReadFile("avatars/" + e.Name())
-		if err != nil {
-			p.fail(err)
-			return
-		}
-		img, err := png.Decode(bytes.NewReader(data))
-		if err != nil {
-			p.fail(fmt.Errorf("decode the stock avatar %s: %w", e.Name(), err))
-			return
-		}
-		name := strings.TrimSuffix(e.Name(), ".png")
-		thumb := widget.NewAvatar(p.k.face, avatarThumb, name)
-		thumb.SetImage(img)
-		b := p.k.button(thumb, func() { p.useAvatar(img, avatarCrop{zoom: 1}) }, css.Flat, "avatar-choice")
-		b.SetAccessibleName(t.Get("settings-users-avatar-stock", i18n.Str("name", name)))
+	t := locale.T()
+	var closeDialog func()
+	grid := widget.NewFlowBox(widget.Current().Spacing, widget.Current().Spacing)
+	grid.SetSelectionMode(widget.SelectionNone)
+	grid.SetMaxChildrenPerLine(len(stock))
+	for _, a := range stock {
+		thumb := widget.NewAvatar(p.k.face, avatarThumb, a.name)
+		thumb.SetImage(a.img)
+		b := p.k.button(thumb, func() {
+			closeDialog()
+			p.useAvatar(a.img, avatarCrop{zoom: avatarZoomMin})
+		}, css.Flat, "avatar-choice")
+		b.SetAccessibleName(t.Get("settings-users-avatar-stock", i18n.Str("name", a.name)))
 		grid.Append(b)
 	}
-	grid.SetMaxChildrenPerLine(len(entries))
-	p.avatar.Append(grid, false)
 	choose, _ := p.k.contentButton("ld-image-symbolic", t.Get("settings-users-avatar-file"), func() {
-		if p.k.pickers != nil {
-			p.k.pickers.openFile(p.cropFile)
-		}
+		closeDialog()
+		p.k.pickers.openFile(p.cropFile)
 	}, css.Secondary)
 	choose.SetHAlign(widget.AlignStart)
-	p.avatar.Append(choose, false)
+	content := gapBox(widget.Column)
+	content.AddClass("avatar-sheet")
+	content.Append(grid, false)
+	content.Append(choose, false)
+	closeDialog = p.k.pickers.dialog(app.DialogConfig{
+		Title:       t.Get("settings-users-avatar-change"),
+		Description: t.Attr("settings-section-users-avatar", "description"),
+		Width:       avatarDialogWidth,
+		Content:     content,
+		Buttons: []app.DialogButton{
+			{Label: t.Get("settings-users-avatar-cancel"), Response: responseCancel, Role: app.ButtonRoleCancel, Appearance: app.AppearancePlain},
+		},
+		Modal:          true,
+		CancelResponse: responseCancel,
+	})
 }
 
 type avatarSet struct {
@@ -539,41 +557,47 @@ func (p *usersPanel) useAvatar(img image.Image, c avatarCrop) {
 	})
 }
 
+// cropFile opens the picture at path in the crop dialog, set as the
+// avatar on apply.
 func (p *usersPanel) cropFile(path string) {
-	f, err := os.Open(path) //nolint:gosec // the file the user picked
+	img, err := imagedecode.Open(path)
 	if err != nil {
-		p.fail(fmt.Errorf("open %s: %w", path, err))
-		return
-	}
-	img, _, err := image.Decode(f)
-	_ = f.Close()
-	if err != nil {
-		p.fail(fmt.Errorf("decode %s: %w", path, err))
+		p.fail(fmt.Errorf("open the picture %s: %w", path, err))
 		return
 	}
 	t := locale.T()
-	c := avatarCrop{zoom: 1}
-	preview := widget.NewImage(cropAvatar(img, c))
-	preview.SetSizeRequest(avatarSide/4, avatarSide/4)
-	editor := gapBox(widget.Column)
-	editor.AddClass("avatar-crop")
-	redraw := func() { preview.SetImage(cropAvatar(img, c)) }
-	editor.Append(preview, false)
-	slider := func(key string, lo, hi, value float64, set func(float64)) {
-		s := widget.NewSlider(lo, hi, 0, value)
-		s.SetAccessibleName(t.Get(key))
-		s.OnChanged = func(v float64) { set(v); redraw() }
-		editor.Append(panelRow(p.k, t.Get(key), "", s), false)
+	zoom := widget.NewSlider(avatarZoomMin, avatarZoomMax, 0, avatarZoomMin)
+	zoom.SetAccessibleName(t.Get("settings-users-avatar-zoom"))
+	cropper := newAvatarCropper(img, func(c avatarCrop) { zoom.SetValue(c.zoom) })
+	cropper.SetAccessibleName(t.Get("settings-users-avatar-crop"))
+	zoom.OnChanged = func(v float64) {
+		c := cropper.crop
+		c.zoom = v
+		cropper.set(c)
 	}
-	slider("settings-users-avatar-zoom", 1, 4, 1, func(v float64) { c.zoom = v })
-	slider("settings-users-avatar-pan-x", -1, 1, 0, func(v float64) { c.panX = v })
-	slider("settings-users-avatar-pan-y", -1, 1, 0, func(v float64) { c.panY = v })
-	apply := p.k.button(p.k.label(t.Get("settings-users-avatar-apply")), func() {
-		p.useAvatar(img, c)
-		p.avatar.Remove(editor)
-	}, css.SuggestedAction)
-	editor.Append(apply, false)
-	p.avatar.Append(editor, false)
+	content := gapBox(widget.Column)
+	content.AddClass("avatar-crop")
+	content.AppendAligned(cropper, false, widget.AlignCenter)
+	content.Append(wrapped(p.k.label(t.Get("settings-users-avatar-crop-hint"), "setting-description", css.Caption, css.DimLabel)), false)
+	content.Append(panelRow(p.k, t.Get("settings-users-avatar-zoom"), "", zoom), false)
+	p.k.pickers.dialog(app.DialogConfig{
+		Title:   t.Get("settings-users-avatar-crop"),
+		Width:   avatarDialogWidth,
+		Content: content,
+		Focus:   cropper,
+		Buttons: []app.DialogButton{
+			{Label: t.Get("settings-users-avatar-cancel"), Response: responseCancel, Role: app.ButtonRoleCancel, Appearance: app.AppearancePlain},
+			{Label: t.Get("settings-users-avatar-apply"), Response: responseConfirm, Role: app.ButtonRoleDefault, Appearance: app.AppearanceSuggested},
+		},
+		Modal:           true,
+		CancelResponse:  responseCancel,
+		DefaultResponse: responseConfirm,
+		OnResponse: func(r string) {
+			if r == responseConfirm {
+				p.useAvatar(img, cropper.crop)
+			}
+		},
+	})
 }
 
 func (p *usersPanel) loadAdmin() {

@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"image"
-	"image/color"
 	"image/png"
 	"os"
 	"path/filepath"
@@ -123,7 +122,7 @@ func TestAStockAvatarIsOneSetIconFileAndTheNameOneSetRealName(t *testing.T) {
 	if p.realName.Text() != "Alice" || p.admin.Visible() {
 		t.Fatalf("name %q, admin section shown %v for a standard user", p.realName.Text(), p.admin.Visible())
 	}
-	treetest.WithClass(p, "avatar-choice")[0].(*widget.Button).OnClick()
+	stockAvatarChoice(t, p, 0).OnClick()
 	l.until("SetIconFile", func() bool { c, _ := user.snapshot(); return len(c) == 1 })
 	calls, _ := user.snapshot()
 	if calls[0].method != "SetIconFile" {
@@ -208,7 +207,7 @@ func TestWithoutAccountsServiceTheAvatarIsWrittenToFace(t *testing.T) {
 	if got, want := p.realName.Placeholder(), locale.T().Get("settings-users-name-unavailable"); got != want {
 		t.Fatalf("the name without AccountsService reads %q, want %q", got, want)
 	}
-	treetest.WithClass(p, "avatar-choice")[1].(*widget.Button).OnClick()
+	stockAvatarChoice(t, p, 1).OnClick()
 	l.until("~/.face", func() bool { _, err := os.Stat(filepath.Join(home, ".face")); return err == nil })
 	data, _ := os.ReadFile(filepath.Join(home, ".face"))
 	if _, err := png.Decode(bytes.NewReader(data)); err != nil {
@@ -307,27 +306,6 @@ func TestTheUsersPageOfARealAccountFitsTheWindow(t *testing.T) {
 		t.Fatalf("the users page lists %d enrolled fingers, want %d", got, len(enrolled))
 	}
 	assertPageFits(t, w)
-}
-
-func TestAnAvatarCropZoomsAndPansInsideThePicture(t *testing.T) {
-	src := image.NewRGBA(image.Rect(0, 0, 400, 200))
-	for x := range 400 {
-		for y := range 200 {
-			c := color.RGBA{0, 0, 255, 255}
-			if x < 200 {
-				c = color.RGBA{255, 0, 0, 255}
-			}
-			src.SetRGBA(x, y, c)
-		}
-	}
-	left := cropAvatar(src, avatarCrop{zoom: 1, panX: -1})
-	right := cropAvatar(src, avatarCrop{zoom: 1, panX: 1})
-	if left.RGBAAt(avatarSide/2, avatarSide/2).R != 255 || right.RGBAAt(avatarSide/2, avatarSide/2).B != 255 {
-		t.Fatalf("panning left shows %v, right %v", left.RGBAAt(avatarSide/2, avatarSide/2), right.RGBAAt(avatarSide/2, avatarSide/2))
-	}
-	if b := cropAvatar(src, avatarCrop{zoom: 3, panX: 5, panY: -5}).Bounds(); b.Dx() != avatarSide || b.Dy() != avatarSide {
-		t.Fatalf("%v", b)
-	}
 }
 
 type fakeLogin struct {
