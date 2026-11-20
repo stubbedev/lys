@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/desktopentry"
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/apptheme"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/dbustest"
@@ -579,5 +580,86 @@ func TestAServiceThatFailedAtLoginSaysSo(t *testing.T) {
 	}
 	if !slices.Contains(details, "syncthing.service · Failed, on at login") || !slices.Contains(details, "mpd.service · Running, on at login") {
 		t.Fatalf("the services read %q", details)
+	}
+}
+
+func TestAUnitsStateIsOneOfFourStatuses(t *testing.T) {
+	for active, want := range map[string]unitStatus{
+		"active": unitRunning, "activating": unitChanging, "deactivating": unitChanging, "reloading": unitChanging,
+		"failed": unitFailed, "inactive": unitStopped, "maintenance": unitStopped, "": unitStopped,
+	} {
+		if got := (userUnit{active: active}).status(); got != want {
+			t.Errorf("%q is status %d, want %d", active, got, want)
+		}
+	}
+	th := widget.Current()
+	colors := map[render.Color]unitStatus{}
+	for _, s := range []unitStatus{unitStopped, unitRunning, unitChanging, unitFailed} {
+		if other, ok := colors[s.color(th)]; ok {
+			t.Errorf("statuses %d and %d share a color", other, s)
+		}
+		colors[s.color(th)] = s
+	}
+}
+
+func servicesPage(t *testing.T, units []userUnit) (widget.Widget, *widget.SearchEntry) {
+	t.Helper()
+	d, root := autostartFixture(t)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Dir(d.user))
+	t.Setenv("XDG_CONFIG_DIRS", filepath.Join(root, "etc")+":"+filepath.Join(root, "vendor"))
+	before := openUserManager
+	openUserManager = func() (userManager, func(), error) { return &staticManager{units_: units}, func() {}, nil }
+	t.Cleanup(func() { openUserManager = before })
+	content := loginItemsLead(testKit(t, ""))
+	return content, treetest.First[*widget.SearchEntry](t, content)
+}
+
+func serviceNames(root widget.Widget) []string {
+	var out []string
+	for _, row := range treetest.WithClass(root, "login-item") {
+		if dots := treetest.WithClass(row, "login-item-status"); len(dots) == 1 {
+			out = append(out, treetest.Labels(row)[0]+"="+dots[0].(*widget.DrawingArea).AccessibleName())
+		}
+	}
+	return out
+}
+
+func TestEachServiceShowsAStatusDotAndTheFilterNarrowsThemByNameOrDescription(t *testing.T) {
+	page, filter := servicesPage(t, []userUnit{
+		{name: "mpd.service", description: "Music Player Daemon", active: "active", fileState: "enabled"},
+		{name: "syncthing.service", description: "Syncthing", active: "failed", fileState: "enabled"},
+		{name: "pipewire.service", description: "PipeWire Multimedia Service", active: "inactive", fileState: "static"},
+	})
+	running, failed, stopped := locale.T().Get("settings-login-services-status", i18n.Str("active", "active")), locale.T().Get("settings-login-services-status", i18n.Str("active", "failed")), locale.T().Get("settings-login-services-status", i18n.Str("active", "inactive"))
+	if got := serviceNames(page); !slices.Equal(got, []string{"Music Player Daemon=" + running, "Syncthing=" + failed, "PipeWire Multimedia Service=" + stopped}) {
+		t.Fatalf("the services read %q", got)
+	}
+	if !filter.Visible() {
+		t.Fatal("the filter is hidden with three services")
+	}
+	filter.SetText("SYNC")
+	filter.OnSearchChanged("SYNC")
+	if got := serviceNames(page); !slices.Equal(got, []string{"Syncthing=" + failed}) {
+		t.Fatalf("filtering by description shows %q", got)
+	}
+	filter.SetText("mpd.service")
+	filter.OnSearchChanged("mpd.service")
+	if got := serviceNames(page); !slices.Equal(got, []string{"Music Player Daemon=" + running}) {
+		t.Fatalf("filtering by unit name shows %q", got)
+	}
+	filter.SetText("bluetooth")
+	filter.OnSearchChanged("bluetooth")
+	if got := serviceNames(page); len(got) != 0 || !slices.Contains(treetest.Labels(page), locale.T().Get("settings-login-services-no-match")) {
+		t.Fatalf("a filter matching nothing shows %q and says %q", got, treetest.Labels(page))
+	}
+}
+
+func TestWithoutServicesThereIsNothingToFilter(t *testing.T) {
+	page, filter := servicesPage(t, nil)
+	if filter.Visible() {
+		t.Error("the filter shows with no service")
+	}
+	if !slices.Contains(treetest.Labels(page), locale.T().Get("settings-login-services-none")) {
+		t.Errorf("no service reads %q", treetest.Labels(page))
 	}
 }

@@ -17,6 +17,7 @@ import (
 	"github.com/stubbedev/lys/desktop/desktopentry"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/lib/atomicfile"
+	"github.com/stubbedev/lys/lib/render"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
@@ -32,6 +33,7 @@ const (
 	keySkip           = "X-systemd-skip"
 	nixStore          = "/nix/store/"
 	loginItemsTimeout = 5 * time.Second
+	statusDotPx       = 8
 )
 
 var sessionTargets = []string{"graphical-session.target", "lys-wm-session.target"}
@@ -173,6 +175,50 @@ type userUnit struct {
 	name, description, active, fileState, path string
 }
 
+type unitStatus int
+
+const (
+	unitStopped unitStatus = iota
+	unitRunning
+	unitChanging
+	unitFailed
+)
+
+func (u userUnit) status() unitStatus {
+	switch u.active {
+	case "active":
+		return unitRunning
+	case "activating", "deactivating", "reloading":
+		return unitChanging
+	case "failed":
+		return unitFailed
+	}
+	return unitStopped
+}
+
+func (s unitStatus) color(th *widget.Theme) render.Color {
+	switch s {
+	case unitRunning:
+		return th.SuccessColor()
+	case unitChanging:
+		return th.WarningColor()
+	case unitFailed:
+		return th.ErrorColor()
+	case unitStopped:
+	}
+	return th.TextMuted
+}
+
+func statusDot(status unitStatus, words string) *widget.DrawingArea {
+	dot := widget.NewDrawingArea(statusDotPx, statusDotPx)
+	dot.AddClass("login-item-status")
+	dot.SetAccessibleName(words)
+	dot.OnDraw = func(cv *render.Canvas, r render.Rect) {
+		cv.RoundedRect(r, statusDotPx/2, status.color(widget.Current()))
+	}
+	return dot
+}
+
 func (u userUnit) nix() bool { return strings.HasPrefix(u.path, nixStore) }
 
 func (u userUnit) switchable() bool {
@@ -306,6 +352,8 @@ type loginItems struct {
 	desktops []string
 	apps     *widget.Box
 	services *widget.Box
+	filter   *widget.SearchEntry
+	listing  unitsListing
 	problem  *widget.Label
 }
 
@@ -318,8 +366,15 @@ func loginItemsLead(k *kit) widget.Widget {
 	l.apps = widget.NewBox(widget.Column, 0, 0)
 	apps := newSection(k, "settings-section-login-apps", l.apps)
 	content.Append(apps, false)
+	l.filter = widget.NewSearchEntry(k.face, k.textPx(), locale.T().Get("settings-login-services-filter"))
+	l.filter.SetDelay(0)
+	l.filter.OnSearchChanged = func(string) { l.showServices(l.listing) }
+	l.filter.SetVisible(false)
 	l.services = gapBox(widget.Column)
-	content.Append(newSection(k, "settings-section-login-services", l.services), false)
+	services := gapBox(widget.Column)
+	services.Append(l.filter, false)
+	services.Append(l.services, false)
+	content.Append(newSection(k, "settings-section-login-services", services), false)
 	l.openApps(apps)
 	l.loadServices()
 	return content
@@ -431,25 +486,38 @@ func (l *loginItems) loadServices() {
 
 func (l *loginItems) showServices(r unitsListing) {
 	t := locale.T()
+	l.listing = r
 	l.services.Clear()
+	l.filter.SetVisible(r.err == nil && len(r.units) > 0)
 	if r.err != nil {
 		l.services.Append(wrapped(l.k.label(t.Get("settings-login-services-unavailable")+": "+r.err.Error(), css.Error, css.Caption)), false)
 		return
 	}
 	rows := widget.NewItemGroup()
+	filter := newWordFilter(l.filter.Text())
+	shown := 0
 	for _, u := range r.units {
-		rows.Append(l.serviceRow(u))
+		if filter.matches(u.name, u.description) {
+			rows.Append(l.serviceRow(u))
+			shown++
+		}
 	}
-	if len(r.units) == 0 {
+	switch {
+	case len(r.units) == 0:
 		rows.Append(l.k.label(t.Get("settings-login-services-none"), css.DimLabel))
+	case shown == 0:
+		rows.Append(l.k.label(t.Get("settings-login-services-no-match"), css.DimLabel))
 	}
 	l.services.Append(rows, false)
 }
 
 func (l *loginItems) serviceRow(u userUnit) widget.Widget {
 	t := locale.T()
-	detail := t.Get("settings-login-services-state", i18n.Str("active", u.active), i18n.Str("file", cmp.Or(u.fileState, "-")))
+	status := t.Get("settings-login-services-status", i18n.Str("active", u.active))
+	file := t.Get("settings-login-services-file", i18n.Str("file", cmp.Or(u.fileState, "-")))
+	detail := t.Get("settings-login-services-state", i18n.Str("status", status), i18n.Str("file", file))
 	row := l.itemRow("", cmp.Or(u.description, u.name), u.name+" · "+detail)
+	row.SetMedia(statusDot(u.status(), status), false)
 	if u.active == "failed" {
 		failed := l.k.badge(t.Get("settings-login-services-failed"), "error")
 		failed.SetVariant(widget.BadgeDestructive)
