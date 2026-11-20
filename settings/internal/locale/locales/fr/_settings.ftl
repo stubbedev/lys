@@ -343,6 +343,9 @@ settings-section-commands = Commandes
     .description = Les commandes qu'il lance
 settings-section-fonts = Polices
     .description = Les polices de toutes les surfaces
+settings-font-sample = Portez ce vieux whisky au juge blond qui fume
+settings-font-sample-mono = 0O 1lI {"{"}{"}"} => != 0x1F
+settings-font-unavailable = Impossible d’afficher { $family } : { $reason }
 settings-section-mappings = Correspondances
     .description = Les noms et icônes affichés pour les éléments correspondants
 settings-section-launcher-matching = Correspondance

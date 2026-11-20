@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/apptheme"
 	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/lib/render"
@@ -39,7 +40,10 @@ type pickers interface {
 }
 
 // fontPickerLabelChars caps the face's label (FontControl).
-const fontPickerLabelChars = 20
+const (
+	fontPickerLabelChars = 20
+	fontSamplePx         = 18
+)
 
 // fontEditor is FontControl: a menu button showing the family that
 // opens lys-ui's font dialog for families alone, monospace ones only
@@ -51,24 +55,66 @@ type fontEditor struct {
 	monospace bool
 	label     *widget.Label
 	btn       *widget.Button
+	sample    *widget.Label
+	problem   *widget.Label
+	shown     string
+}
+
+type loadedFamily struct {
+	family string
+	face   render.Font
+	err    error
 }
 
 func newFontEditor(k *kit, s slot, monospace bool) *fontEditor {
-	c := &fontEditor{Box: widget.NewBox(widget.Row, 0, 0), k: k, slot: s, monospace: monospace}
-	c.SetElement("menubutton")
-	c.AddClass("font")
+	c := &fontEditor{Box: widget.NewBox(widget.Column, widget.Current().Spacing/2, 0), k: k, slot: s, monospace: monospace}
+	menu := widget.NewBox(widget.Row, 0, 0)
+	menu.SetElement("menubutton")
+	menu.AddClass("font")
 	c.label = k.label("", "font-picker-label")
 	c.label.SetEllipsize(widget.EllipsizeEnd)
 	c.label.SetMaxWidthChars(fontPickerLabelChars)
 	c.btn = k.button(c.label, c.open, css.Outline)
-	c.Append(c.btn, false)
+	menu.Append(c.btn, false)
+	sampleKey := "settings-font-sample"
+	if monospace {
+		sampleKey = "settings-font-sample-mono"
+	}
+	c.sample = wrapped(k.label(locale.T().Get(sampleKey), "font-sample"))
+	c.sample.SetSizePx(fontSamplePx)
+	c.problem = wrapped(k.label("", "setting-problem", css.Caption, css.Error))
+	c.problem.SetVisible(false)
+	c.AppendAligned(menu, false, widget.AlignStart)
+	c.Append(c.sample, false)
+	c.Append(c.problem, false)
 	c.refresh()
 	return c
 }
 
 func (c *fontEditor) refresh() {
-	s, _ := c.slot.get().(string)
-	c.label.SetText(s)
+	family, _ := c.slot.get().(string)
+	c.label.SetText(family)
+	if family == c.shown {
+		return
+	}
+	c.shown = family
+	async(c.k, func() loadedFamily {
+		face, err := c.k.familyFont(family)
+		return loadedFamily{family, face, err}
+	}, c.showSample)
+}
+
+func (c *fontEditor) showSample(l loadedFamily) {
+	if l.family != c.shown {
+		return
+	}
+	c.problem.SetVisible(l.err != nil)
+	c.sample.SetVisible(l.err == nil)
+	if l.err != nil {
+		c.problem.SetText(locale.T().Get("settings-font-unavailable", i18n.Str("family", l.family), i18n.Str("reason", l.err.Error())))
+		return
+	}
+	c.sample.SetFace(l.face)
 }
 
 // open asks the font dialog; a pick writes the family.

@@ -69,6 +69,8 @@ type kit struct {
 	overlays func(output string, content widget.Widget, interactive bool) (close func(), err error)
 	// barFont loads the face lys-shell's bar labels in, for the previews.
 	barFont func(cfg *config.Config) (render.Font, error)
+	// familyFont loads a font family, for the samples of the font rows.
+	familyFont func(family string) (render.Font, error)
 }
 
 // async runs work off the loop and hands its result to done on it.

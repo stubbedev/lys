@@ -48,7 +48,7 @@ func testKit(t *testing.T, configYAML string) *kit {
 	lists := systemLists
 	systemLists = fixedLists()
 	t.Cleanup(func() { systemLists = lists })
-	return &kit{face: face, mono: face, store: s, parts: bothParts, invoke: func(fn func()) { fn() }, systemBus: func() (*dbus.Conn, error) { return nil, errors.New("no system bus in the tests") }, network: func() (netControl, error) { return nil, errors.New("no NetworkManager in the tests") }, power: func() (powerControl, error) { return nil, errors.New("no UPower in the tests") }, bluetooth: func() (btControl, error) { return nil, errors.New("no BlueZ in the tests") }, notify: func(string, string) error { return errors.New("no notification daemon in the tests") }, shellCommand: func(...string) error { return errors.New("no lys-shell in the tests") }, openURI: func(string) error { return errors.New("no default apps in the tests") }, i2c: func() i2cAccess { return i2cAccess{} }, barFont: barview.Font}
+	return &kit{face: face, mono: face, store: s, parts: bothParts, invoke: func(fn func()) { fn() }, systemBus: func() (*dbus.Conn, error) { return nil, errors.New("no system bus in the tests") }, network: func() (netControl, error) { return nil, errors.New("no NetworkManager in the tests") }, power: func() (powerControl, error) { return nil, errors.New("no UPower in the tests") }, bluetooth: func() (btControl, error) { return nil, errors.New("no BlueZ in the tests") }, notify: func(string, string) error { return errors.New("no notification daemon in the tests") }, shellCommand: func(...string) error { return errors.New("no lys-shell in the tests") }, openURI: func(string) error { return errors.New("no default apps in the tests") }, i2c: func() i2cAccess { return i2cAccess{} }, barFont: barview.Font, familyFont: func(string) (render.Font, error) { return face, nil }}
 }
 
 func testStore(t *testing.T, configYAML string) store {
@@ -721,6 +721,37 @@ func TestFontRowsPickTheirKind(t *testing.T) {
 		if ed.monospace != mono {
 			t.Errorf("%s editor monospace %v, want %v", path, ed.monospace, mono)
 		}
+	}
+}
+
+func TestAFontRowShowsASampleInItsFamily(t *testing.T) {
+	k := testKit(t, "general:\n  font-sans: Inter\n")
+	face := k.face
+	var loaded []string
+	k.familyFont = func(family string) (render.Font, error) {
+		loaded = append(loaded, family)
+		if family == "Missing Sans" {
+			return nil, errors.New("not installed")
+		}
+		return face, nil
+	}
+	tr := locale.T()
+	ed := fieldControl(k, k.store, pageRow(t, "fonts", "general.font-sans")).(*fontEditor)
+	if !slices.Equal(loaded, []string{"Inter"}) || !ed.sample.Visible() || ed.problem.Visible() || ed.sample.Text() != tr.Get("settings-font-sample") {
+		t.Fatalf("loaded %q, sample %q shown %v, problem shown %v", loaded, ed.sample.Text(), ed.sample.Visible(), ed.problem.Visible())
+	}
+	if err := k.store.set("general.font-sans", "Missing Sans"); err != nil {
+		t.Fatal(err)
+	}
+	ed.refresh()
+	ed.refresh()
+	want := tr.Get("settings-font-unavailable", i18n.Str("family", "Missing Sans"), i18n.Str("reason", "not installed"))
+	if !slices.Equal(loaded, []string{"Inter", "Missing Sans"}) || ed.sample.Visible() || ed.problem.Text() != want {
+		t.Fatalf("loaded %q, sample shown %v, problem %q", loaded, ed.sample.Visible(), ed.problem.Text())
+	}
+	mono := fieldControl(k, k.store, pageRow(t, "fonts", "general.font-mono")).(*fontEditor)
+	if mono.sample.Text() != tr.Get("settings-font-sample-mono") {
+		t.Errorf("the monospace sample reads %q", mono.sample.Text())
 	}
 }
 

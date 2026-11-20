@@ -548,6 +548,9 @@ settings-section-commands = Befehle
     .description = Befehle, die es ausführt
 settings-section-fonts = Schriften
     .description = Die Schriften, die jede Oberfläche verwendet
+settings-font-sample = Franz jagt im komplett verwahrlosten Taxi quer durch Bayern
+settings-font-sample-mono = 0O 1lI {"{"}{"}"} => != 0x1F
+settings-font-unavailable = { $family } kann nicht angezeigt werden: { $reason }
 settings-section-mappings = Zuordnungen
     .description = Namen und Symbole für passende Elemente
 settings-nav-privacy = Datenschutz

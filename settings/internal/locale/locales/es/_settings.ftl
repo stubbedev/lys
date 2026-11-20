@@ -548,6 +548,9 @@ settings-section-commands = Órdenes
     .description = Órdenes que ejecuta
 settings-section-fonts = Tipografías
     .description = Las tipografías que usa cada superficie
+settings-font-sample = El veloz murciélago hindú comía feliz cardillo y kiwi
+settings-font-sample-mono = 0O 1lI {"{"}{"}"} => != 0x1F
+settings-font-unavailable = No se puede mostrar { $family }: { $reason }
 settings-section-mappings = Asignaciones
     .description = Nombres e iconos que se muestran para los elementos coincidentes
 settings-nav-privacy = Privacidad

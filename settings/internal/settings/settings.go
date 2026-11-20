@@ -13,6 +13,7 @@ import (
 	"github.com/stubbedev/lys/desktop/service/clipboard"
 	"github.com/stubbedev/lys/desktop/shell/apptheme"
 	"github.com/stubbedev/lys/desktop/shell/barview"
+	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
 
@@ -88,6 +89,7 @@ func Run(page, setting string) error {
 		openURI:      openWithDefaultApp,
 		i2c:          systemHost.i2cAccess,
 		barFont:      barview.Font,
+		familyFont:   loadFamily,
 	}
 	after := func(d time.Duration, fn func()) {
 		time.AfterFunc(d, func() { application.Invoke(fn) })
@@ -212,6 +214,14 @@ func (p windowPickers) dialog(cfg app.DialogConfig) {
 	if _, err := p.app.NewDialog(p.win, cfg); err != nil {
 		log.Printf("settings: dialog %q: %v", cfg.Title, err)
 	}
+}
+
+func loadFamily(family string) (render.Font, error) {
+	face, err := app.Font(family, fontSamplePx)
+	if err != nil {
+		return nil, err
+	}
+	return app.FontFallback(face), nil
 }
 
 // font opens lys-ui's font dialog for families alone (FontButton's

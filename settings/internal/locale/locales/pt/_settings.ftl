@@ -538,6 +538,9 @@ settings-section-commands = Comandos
     .description = Comandos que executa
 settings-section-fonts = Tipos de letra
     .description = Os tipos de letra que todas as superfícies usam
+settings-font-sample = Zebras caolhas de Java querem passar fax para moças gigantes de Nova Iorque
+settings-font-sample-mono = 0O 1lI {"{"}{"}"} => != 0x1F
+settings-font-unavailable = Não é possível mostrar { $family }: { $reason }
 settings-section-mappings = Mapeamentos
     .description = Nomes e ícones mostrados para os itens correspondentes
 settings-nav-privacy = Privacidade

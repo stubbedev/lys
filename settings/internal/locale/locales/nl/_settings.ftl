@@ -538,6 +538,9 @@ settings-section-commands = Opdrachten
     .description = Opdrachten die het uitvoert
 settings-section-fonts = Lettertypen
     .description = De lettertypen die elk oppervlak gebruikt
+settings-font-sample = Pa’s wijze lynx bezag vroom het fikse aquaduct
+settings-font-sample-mono = 0O 1lI {"{"}{"}"} => != 0x1F
+settings-font-unavailable = { $family } kan niet worden getoond: { $reason }
 settings-section-mappings = Toewijzingen
     .description = Namen en pictogrammen voor overeenkomende items
 settings-nav-privacy = Privacy

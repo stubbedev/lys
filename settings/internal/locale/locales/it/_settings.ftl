@@ -548,6 +548,9 @@ settings-section-commands = Comandi
     .description = Comandi che esegue
 settings-section-fonts = Caratteri
     .description = I caratteri usati da ogni superficie
+settings-font-sample = Quel vituperabile xenofobo zelante assaggia il whisky ed esclama: alleluja!
+settings-font-sample-mono = 0O 1lI {"{"}{"}"} => != 0x1F
+settings-font-unavailable = Impossibile mostrare { $family }: { $reason }
 settings-section-mappings = Associazioni
     .description = Nomi e icone mostrati per gli elementi corrispondenti
 settings-nav-privacy = Privacy

@@ -548,6 +548,9 @@ settings-section-commands = Commands
     .description = Commands it runs
 settings-section-fonts = Fonts
     .description = The typefaces every surface uses
+settings-font-sample = The quick brown fox jumps over the lazy dog
+settings-font-sample-mono = 0O 1lI {"{"}{"}"} => != 0x1F
+settings-font-unavailable = { $family } cannot be shown: { $reason }
 settings-section-mappings = Mappings
     .description = Names and icons shown for matching items
 settings-nav-privacy = Privacy
