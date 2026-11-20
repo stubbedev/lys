@@ -33,14 +33,14 @@ func paletteHexes(p config.Palette) []string {
 	return []string{p.Bg, p.Surface, p.Elevated, p.Fg, p.FgMuted, p.Primary, p.Red, p.Yellow, p.Green, p.Blue}
 }
 
-// themeColors is a theme's palette as colors, in paletteKeys' order.
-func themeColors(th config.ThemeEntry) ([]render.Color, error) {
-	hexes := paletteHexes(th.Palette)
+// paletteColors is a palette as colors, in paletteKeys' order.
+func paletteColors(p config.Palette) ([]render.Color, error) {
+	hexes := paletteHexes(p)
 	out := make([]render.Color, len(hexes))
 	for i, hex := range hexes {
 		col, ok := styling.ParseHex(hex)
 		if !ok {
-			return nil, fmt.Errorf("theme %s: its %s %q is no hex color", th.Name, paletteKeys[i], hex)
+			return nil, fmt.Errorf("the palette's %s %q is no hex color", paletteKeys[i], hex)
 		}
 		out[i] = col
 	}
@@ -93,9 +93,9 @@ func themeCards(k *kit) *choiceCards {
 	pictures := make(map[string]picture, len(themes))
 	byName := make(map[string]config.ThemeEntry, len(themes))
 	for _, th := range themes {
-		colors, err := themeColors(th)
+		colors, err := paletteColors(th.Palette)
 		if err != nil {
-			log.Printf("settings: %v", err)
+			log.Printf("settings: theme %s: %v", th.Name, err)
 			continue
 		}
 		names = append(names, th.Name)

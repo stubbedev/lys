@@ -1,0 +1,40 @@
+package settings
+
+import (
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/ui/widget"
+	"github.com/stubbedev/lys/ui/widget/css"
+
+	"github.com/stubbedev/lys/settings/internal/locale"
+)
+
+const themePreviewH = 180
+
+// themePreview is a small desktop in the colors the draft gives
+// lys-shell's own palette.
+func themePreview(k *kit) widget.Widget {
+	return newLivePreview(k, "settings-theme-preview", drawThemeDesktop)
+}
+
+// themeDesktop is the mini desktop drawn in colors, paletteKeys' order.
+type themeDesktop struct {
+	*widget.DrawingArea
+	colors []render.Color
+}
+
+func drawThemeDesktop(k *kit, cfg *config.Config, _ render.Font) widget.Widget {
+	t := locale.T()
+	if cfg.Styling.ColorExtractor.ThemeProvider != config.ThemeProviderLysShell {
+		return wrapped(k.label(t.Get("settings-theme-preview-generated"), "settings-preview-state", css.Caption, css.DimLabel))
+	}
+	colors, err := paletteColors(cfg.Styling.ActivePalette())
+	if err != nil {
+		return wrapped(k.label(t.Get("settings-preview-failed", i18n.Str("reason", err.Error())), "settings-preview-state", css.Caption, css.DimLabel))
+	}
+	d := &themeDesktop{DrawingArea: widget.NewDrawingArea(0, themePreviewH), colors: colors}
+	d.AddClass("settings-theme-preview")
+	d.OnDraw = miniDesktop(colors)
+	return d
+}

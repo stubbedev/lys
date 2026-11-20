@@ -227,7 +227,7 @@ func launcherModesPage(*config.Config) pageSpec {
 
 // themePage is pages/styling.
 func themePage(*config.Config) pageSpec {
-	return pageSpec{id: "theme", navKey: "settings-nav-theme", icon: "ld-palette-symbolic", header: "settings-page-theme", sections: []sectionSpec{
+	return pageSpec{id: "theme", navKey: "settings-nav-theme", icon: "ld-palette-symbolic", header: "settings-page-theme", lead: themePreview, extrasOnRows: true, sections: []sectionSpec{
 		{title: "settings-section-provider", rows: []rowSpec{
 			field("styling.appearance", pictureChoice(appearancePictures)),
 			field("styling.high-contrast"),
