@@ -1,0 +1,4 @@
+[D-BUS Service]
+Name=dev.stubbe.lys.Attention1
+Exec=/usr/bin/lys-power attention
+SystemdService=lys-power-attention.service

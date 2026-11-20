@@ -1,0 +1,19 @@
+[Unit]
+Description=lys-power camera check for a face before the idle dim
+Documentation=https://github.com/stubbedev/lys/tree/main/docs/power
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+Type=dbus
+BusName=dev.stubbe.lys.Attention1
+ExecStart=/usr/bin/lys-power attention
+NoNewPrivileges=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+RestrictAddressFamilies=AF_UNIX
+SystemCallArchitectures=native
+SystemCallFilter=@system-service

@@ -91,6 +91,7 @@ lys-power energy [-for 10s] [-threads] [-json]
                     Measure what each app costs in power, CPU, wakeups and GPU time
 lys-power brightness
                     Set the backlight from the room's light (the user service runs this)
+lys-power attention Answer the idle dim's camera check (the user service the check starts runs this)
 lys-power version   Print the version
 ```
 
@@ -102,7 +103,8 @@ The environment variables `LYS_POWER_SUPPLY_DIR`, `LYS_POWER_STATE_DIR` and
 `LYS_POWER_RUNTIME_DIR` replace `/sys/class/power_supply`,
 `/var/lib/lys-power` and `/run/battery-charge`. `LYS_POWER_IIO_DIR` and
 `LYS_POWER_DEV_DIR` replace `/sys/bus/iio/devices` and `/dev`, where
-`brightness` looks for a light sensor and a camera. `LYS_POWER_CGROUP_DIR`,
+`brightness` looks for a light sensor and a camera, and `attention` for its
+cameras. `LYS_POWER_CGROUP_DIR`,
 `LYS_POWER_PROC_DIR` and `LYS_POWER_POWERCAP_DIR` replace `/sys/fs/cgroup`,
 `/proc` and `/sys/class/powercap`, where energy attribution reads.
 `LYS_POWER_SYS_DIR` replaces `/sys`, where the [device power](#device-power)
@@ -301,7 +303,12 @@ backlight stays where it is.
 **Privacy.** A frame is only averaged into a single brightness number, in
 memory. No frame is ever written to disk, kept or sent anywhere. While the
 backlight is paused, or the session is locked or in the background, the camera
-is not switched on at all.
+is not switched on at all. The [attention check](#attention-aware-dimming)
+before the idle dim keeps the same rules: its frames are only reduced to
+present or absent in memory and cleared, nothing about them is logged, written
+or sent, and it never runs while the session is locked or in the background or
+another application holds the camera. Whenever either switches the camera on,
+its privacy light lights, and lys-shell's camera indicator names lys-power.
 
 **How the backlight moves.** The light is smoothed with a moving average over
 about 30 seconds. The level follows the logarithm of the illuminance, from 5%
@@ -364,6 +371,49 @@ Your user needs access to the camera, which logind grants the user at the
 seat, and the backlight is written through logind's `SetBrightness`, so no
 group membership is needed.
 
+## Attention-aware dimming
+
+As Face ID devices check whether you are looking before they dim, lys-shell's
+idle policy can ask lys-power to look before it dims the screen. It is off
+until you turn it on in lys-settings under **Idle**, or with the `attention`
+key of lys-shell's [idle section](../shell/config/idle.md); the settings page
+explains what the camera does first.
+
+**The check.** When the dim's idle time is reached, the shell calls `Check()`
+on `dev.stubbe.lys.Attention1` at `/dev/stubbe/lys/Attention` on the session
+bus. The call starts the `lys-power-attention` user service through D-Bus
+activation, so nothing runs, and no camera is touched, until the first check.
+lys-power switches one camera on at the smallest frame size it offers, the
+infrared camera first (a capture node that streams only greyscale frames,
+lit by its own illuminator, so it sees a face in the dark), drops two frames
+while the exposure settles and judges up to three, for well under a second.
+A frame too dark to tell, an infrared camera whose illuminator is off for
+example, hands over to the next camera. The answer is `present`, `absent` or
+`unseen`:
+
+- **present**, a face turned to the screen: the dim waits one dim interval,
+  then the shell checks again. After three checks in a row without input it
+  dims anyway, so a face-shaped poster cannot keep the screen on.
+- **absent**, nobody, a turned head or the back of one: the screen dims at
+  once. With "also turn the screen off sooner", the lock and screen-off
+  stages that come after the dim follow within 30 seconds of it.
+- **unseen**, when another application is using the camera, the session is
+  locked or in the background, or every camera is too dark: the dim happens
+  as it would without the check.
+
+While the dim waits, the lock, screen-off and suspend stages set after it wait
+too, each keeping its distance from the dim, so reading a long page neither
+dims nor locks the screen. Any input starts everything from the beginning.
+
+**The detector.** A face is found with [pico](https://github.com/nenadmarkus/pico)'s
+frontal face cascade, compiled into lys-power, in pure Go: no model is
+downloaded and nothing leaves the process. It finds faces turned to the
+camera, not profiles. Its accuracy is held by tests on synthetic infrared and
+colour frames, not pictures of anyone.
+
+Without a camera the service exits with an error, the check fails, and the
+shell dims as it would without it.
+
 ## Upgrading from adaptive-power-manager
 
 On its first start with no unplug history, lys-power copies the history of
@@ -400,14 +450,17 @@ It also enables `services.upower`, `services.power-profiles-daemon` and
 `security.polkit` with `mkDefault`. Set any of them to `false` to run without
 it, for example when TLP manages the power profiles. `autoBrightness.enable` installs the package's
 user unit `lys-power-brightness.service` and has it wanted by
-`graphical-session.target`; it works with or without `enable`.
+`graphical-session.target`; it works with or without `enable`. `enable` also
+puts the attention check's user unit and its session bus activation file in
+place; the check starts it only once lys-shell's `attention` is on.
 
 ## Other distributions
 
 The `.deb` and `.rpm` on the
 [latest release](https://github.com/stubbedev/lys/releases/latest) install
-`/usr/bin/lys-power`, the unit `lys-power.service`, the user unit
-`lys-power-brightness.service`, the tmpfiles rule `lys-power.conf`, the
+`/usr/bin/lys-power`, the unit `lys-power.service`, the user units
+`lys-power-brightness.service` and `lys-power-attention.service` with its
+session bus activation file `dev.stubbe.lys.Attention1.service`, the tmpfiles rule `lys-power.conf`, the
 system bus policies `dev.stubbe.lys.Energy1.conf` and
 `dev.stubbe.lys.Pause1.conf`, and the polkit action
 `dev.stubbe.lys.power.policy`. They enable nothing:

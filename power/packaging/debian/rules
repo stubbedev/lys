@@ -25,6 +25,8 @@ override_dh_auto_install:
 
 	install -d debian/lys-power/usr/lib/systemd/user
 	install -m 0644 lys-power-brightness.service debian/lys-power/usr/lib/systemd/user/
+	install -m 0644 lys-power-attention.service debian/lys-power/usr/lib/systemd/user/
+	install -D -m 0644 dev.stubbe.lys.Attention1.service debian/lys-power/usr/share/dbus-1/services/dev.stubbe.lys.Attention1.service
 
 	install -D -m 0644 lys-power.tmpfiles debian/lys-power/usr/lib/tmpfiles.d/lys-power.conf
 

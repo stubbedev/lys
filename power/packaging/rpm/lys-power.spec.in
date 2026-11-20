@@ -20,6 +20,8 @@ lys-power holds a laptop's battery at 75-80% while it is plugged in and learns w
 
 As a user service, lys-power-brightness sets the screen brightness from an ambient light sensor, or else from short camera captures that are never kept or sent anywhere.
 
+When lys-shell's idle policy asks, the lys-power-attention user service, started over D-Bus, checks with one short camera capture whether a face is turned to the screen before it dims; the frames are never kept or sent anywhere either.
+
 The package enables nothing: start the system service with systemctl enable --now lys-power, and automatic brightness with systemctl --user enable --now lys-power-brightness.
 
 %prep
@@ -36,6 +38,8 @@ install -m 0644 lys-power.service %{buildroot}%{_unitdir}/
 
 install -d %{buildroot}%{_userunitdir}
 install -m 0644 lys-power-brightness.service %{buildroot}%{_userunitdir}/
+install -m 0644 lys-power-attention.service %{buildroot}%{_userunitdir}/
+install -D -m 0644 dev.stubbe.lys.Attention1.service %{buildroot}%{_datadir}/dbus-1/services/dev.stubbe.lys.Attention1.service
 
 install -D -m 0644 lys-power.tmpfiles %{buildroot}%{_tmpfilesdir}/lys-power.conf
 
@@ -63,6 +67,8 @@ install -D -m 0644 dev.stubbe.lys.Sleep1.conf %{buildroot}%{_datadir}/dbus-1/sys
 %{_bindir}/lys-power
 %{_unitdir}/lys-power.service
 %{_userunitdir}/lys-power-brightness.service
+%{_userunitdir}/lys-power-attention.service
+%{_datadir}/dbus-1/services/dev.stubbe.lys.Attention1.service
 %{_tmpfilesdir}/lys-power.conf
 %{_datadir}/dbus-1/system.d/dev.stubbe.lys.Energy1.conf
 %{_datadir}/dbus-1/system.d/dev.stubbe.lys.Pause1.conf

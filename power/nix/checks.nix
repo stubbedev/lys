@@ -76,6 +76,12 @@
       grep -qxF "Restart=on-failure" $user
       grep -qxF "RestrictAddressFamilies=AF_UNIX AF_NETLINK" $user
       grep -qxF "WantedBy=graphical-session.target" $user
+      attention=${pkg}/lib/systemd/user/lys-power-attention.service
+      grep -qxF "ExecStart=${lib.getExe pkg} attention" $attention
+      grep -qxF "BusName=dev.stubbe.lys.Attention1" $attention
+      grep -qxF "RestrictAddressFamilies=AF_UNIX" $attention
+      if grep -q "^WantedBy=" $attention; then echo "lys-power-attention.service is installed into a target; only the check may start it" >&2; exit 1; fi
+      grep -qxF "SystemdService=lys-power-attention.service" ${pkg}/share/dbus-1/services/dev.stubbe.lys.Attention1.service
       ${fail (userWants nixos != []) "lys-power-brightness is wanted without autoBrightness.enable"}
       ${fail (userWants bright != ["graphical-session.target"]) "with autoBrightness.enable, lys-power-brightness is wanted by ${toString (userWants bright)}, not graphical-session.target alone"}
       ${fail (userWants brightOnly != ["graphical-session.target"]) "autoBrightness.enable alone does not start lys-power-brightness with the graphical session"}

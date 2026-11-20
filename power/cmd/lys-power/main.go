@@ -2,7 +2,8 @@
 // swaps the power-profiles-daemon profile on AC edges and adaptively moves
 // the battery charge thresholds so the machine leaves the desk with a full
 // battery without spending its life plugged in at 100%. As a user service
-// it also sets the backlight from the room's light.
+// it also sets the backlight from the room's light, and answers the idle
+// dim's camera check for a face turned to the screen.
 package main
 
 import (
@@ -20,6 +21,7 @@ import (
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
 	"github.com/stubbedev/lys/power/charge"
+	"github.com/stubbedev/lys/power/internal/attend"
 	"github.com/stubbedev/lys/power/internal/autobright"
 	"github.com/stubbedev/lys/power/internal/chargepolicy"
 	"github.com/stubbedev/lys/power/internal/config"
@@ -47,11 +49,14 @@ Usage:
                       wakeups and GPU time: as root for watts
   lys-power brightness
                       Set the backlight from the room's light (a user service)
+  lys-power attention Answer the idle dim's camera check for a face turned to
+                      the screen (a user service the check starts)
   lys-power version   Print the version
 
 Paths can be overridden with LYS_POWER_SUPPLY_DIR, LYS_POWER_STATE_DIR and
 LYS_POWER_RUNTIME_DIR; where brightness looks for a light sensor and a
-camera with LYS_POWER_IIO_DIR and LYS_POWER_DEV_DIR; where energy reads
+camera with LYS_POWER_IIO_DIR and LYS_POWER_DEV_DIR, which attention
+reads for its cameras too; where energy reads
 the cgroups, processes and RAPL counters with LYS_POWER_CGROUP_DIR,
 LYS_POWER_PROC_DIR and LYS_POWER_POWERCAP_DIR; the sysfs root of the
 device power policy with LYS_POWER_SYS_DIR.
@@ -102,6 +107,10 @@ func dispatch(args []string, cfg config.Config, log *slog.Logger) error {
 		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 		defer stop()
 		return autobright.Run(ctx, cfg, log)
+	case "attention":
+		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+		defer stop()
+		return attend.Run(ctx, cfg, log)
 	case "once":
 		return withBus(log, func(conn *dbus.Conn) error {
 			var pc daemon.ProfileClient

@@ -50,6 +50,8 @@ archive version arch=arch() dist="dist":
     cp "{{ dist }}/lys-power" LICENSE \
         dist/lys-power.service \
         dist/lys-power-brightness.service \
+        dist/lys-power-attention.service \
+        dist/dev.stubbe.lys.Attention1.service \
         dist/lys-power.tmpfiles \
         dist/dev.stubbe.lys.Energy1.conf \
         dist/dev.stubbe.lys.Pause1.conf \
@@ -88,13 +90,15 @@ smoke-test package:
     out="$(LYS_POWER_STATE_DIR="${state}" lys-power predict)"
     [[ ${out} == "no prediction: "* ]] || fail "lys-power predict without history printed ${out@Q}"
 
-    for file in /usr/lib/systemd/system/lys-power.service /usr/lib/systemd/user/lys-power-brightness.service /usr/lib/tmpfiles.d/lys-power.conf /usr/share/dbus-1/system.d/dev.stubbe.lys.Energy1.conf /usr/share/dbus-1/system.d/dev.stubbe.lys.Pause1.conf /usr/share/dbus-1/system.d/dev.stubbe.lys.Charge1.conf /usr/share/polkit-1/actions/dev.stubbe.lys.power.policy /usr/share/dbus-1/system.d/dev.stubbe.lys.Nap1.conf /usr/share/dbus-1/system.d/dev.stubbe.lys.Sleep1.conf; do
+    for file in /usr/lib/systemd/system/lys-power.service /usr/lib/systemd/user/lys-power-brightness.service /usr/lib/systemd/user/lys-power-attention.service /usr/share/dbus-1/services/dev.stubbe.lys.Attention1.service /usr/lib/tmpfiles.d/lys-power.conf /usr/share/dbus-1/system.d/dev.stubbe.lys.Energy1.conf /usr/share/dbus-1/system.d/dev.stubbe.lys.Pause1.conf /usr/share/dbus-1/system.d/dev.stubbe.lys.Charge1.conf /usr/share/polkit-1/actions/dev.stubbe.lys.power.policy /usr/share/dbus-1/system.d/dev.stubbe.lys.Nap1.conf /usr/share/dbus-1/system.d/dev.stubbe.lys.Sleep1.conf; do
         [[ -f ${file} ]] || fail "${file} is missing"
     done
     grep -qxF "ExecStart=/usr/bin/lys-power run" /usr/lib/systemd/system/lys-power.service ||
         fail "lys-power.service does not run /usr/bin/lys-power"
     grep -qxF "ExecStart=/usr/bin/lys-power brightness" /usr/lib/systemd/user/lys-power-brightness.service ||
         fail "lys-power-brightness.service does not run /usr/bin/lys-power brightness"
+    grep -qxF "ExecStart=/usr/bin/lys-power attention" /usr/lib/systemd/user/lys-power-attention.service ||
+        fail "lys-power-attention.service does not run /usr/bin/lys-power attention"
 
     [[ ! -e /etc/systemd/system/graphical.target.wants/lys-power.service ]] || fail "installing enabled lys-power.service"
     [[ ! -e /etc/systemd/user/graphical-session.target.wants/lys-power-brightness.service ]] || fail "installing enabled lys-power-brightness.service"

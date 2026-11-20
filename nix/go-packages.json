@@ -2112,6 +2112,17 @@
       "lib/third_party/godbus"
     ]
   },
+  "power/attention": {
+    "imports": [
+      "desktop/service/idle/idlepolicy",
+      "lib/dbusx",
+      "lib/third_party/godbus"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/testhome"
+    ]
+  },
   "power/autobrightness": {
     "imports": [
       "lib/dbusx",
@@ -2141,6 +2152,7 @@
       "lib/third_party/godbus",
       "power/charge",
       "power/energy",
+      "power/internal/attend",
       "power/internal/autobright",
       "power/internal/chargepolicy",
       "power/internal/config",
@@ -2171,6 +2183,17 @@
   "power/internal/ambient": {
     "imports": [
       "power/autobrightness"
+    ]
+  },
+  "power/internal/attend": {
+    "imports": [
+      "desktop/service/idle/idlepolicy",
+      "lib/dbusx",
+      "lib/logind",
+      "power/attention",
+      "power/internal/config",
+      "power/internal/facecam",
+      "power/internal/presence"
     ]
   },
   "power/internal/autobright": {
@@ -2271,6 +2294,12 @@
       "lib/dbustest",
       "lib/dbusx",
       "lib/waittest"
+    ]
+  },
+  "power/internal/facecam": {
+    "imports": [
+      "lib/v4l2",
+      "power/internal/presence"
     ]
   },
   "power/internal/history": {
