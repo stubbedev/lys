@@ -30,8 +30,11 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 )
 
-// matugenMaxSourceColor clamps --source-color-index.
-const matugenMaxSourceColor = 3
+// SourceColorChoices is how many source colours matugen-source-color
+// picks among: the indices --source-color-index takes.
+const SourceColorChoices = 4
+
+const matugenMaxSourceColor = SourceColorChoices - 1
 
 // Config is the tool and its parameters. The ranged fields hold values
 // the config loader already clamped to the schema ranges;

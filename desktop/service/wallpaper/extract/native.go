@@ -115,13 +115,29 @@ func (n *Native) palette(key nativeKey, cfg Config, sample []material.ARGB) ([]b
 		return nil, err
 	}
 	n.computed++
-	data := NativePalette(sample, variant, cfg.MatugenContrast, int(min(cfg.MatugenSourceColor, matugenMaxSourceColor)))
+	data := NativePalette(sample, variant, cfg.MatugenContrast, cfg.MatugenSourceColor)
 	if len(n.recent) == nativeCacheEntries {
 		n.recent = slices.Delete(n.recent, 0, 1)
 	}
 	n.recent = append(n.recent, nativeEntry{key: key, json: data})
 	return data, nil
 }
+
+// SourceColors are the seeds a wallpaper sample offers, best first: the
+// candidates matugen-source-color picks among by index. It is never
+// empty.
+func SourceColors(sample []material.ARGB) []material.ARGB {
+	return material.Score(material.Quantize(sample, quantizeColors))
+}
+
+// SourceColorIndex is the candidate a configured source index picks
+// among count candidates: the index matugen takes, or the last
+// candidate when there are fewer.
+func SourceColorIndex(source uint8, count int) int {
+	return min(int(min(source, matugenMaxSourceColor)), count-1)
+}
+
+const quantizeColors = 128
 
 func sampleHash(sample []material.ARGB) uint64 {
 	const offset, prime = 14695981039346656037, 1099511628211
@@ -138,9 +154,9 @@ func sampleHash(sample []material.ARGB) uint64 {
 // NativePalette is the matugen-shaped JSON of the light and dark schemes
 // of the sample's seed: the source-th best seed the scorer ranks, or its
 // last when it ranks fewer.
-func NativePalette(sample []material.ARGB, variant material.Variant, contrast float64, source int) []byte {
-	seeds := material.Score(material.Quantize(sample, 128))
-	seed := seeds[min(source, len(seeds)-1)]
+func NativePalette(sample []material.ARGB, variant material.Variant, contrast float64, source uint8) []byte {
+	seeds := SourceColors(sample)
+	seed := seeds[SourceColorIndex(source, len(seeds))]
 	light := material.NewScheme(seed, variant, false, contrast)
 	dark := material.NewScheme(seed, variant, true, contrast)
 	var b bytes.Buffer

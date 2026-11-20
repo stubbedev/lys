@@ -758,6 +758,7 @@
   },
   "desktop/styling/material": {
     "imports": [
+      "lib/intconv",
       "lib/third_party/gomath"
     ]
   },

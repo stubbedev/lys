@@ -133,6 +133,64 @@ func TestEveryMatugenSchemeHasAVariant(t *testing.T) {
 	}
 }
 
+func twoHues() []material.ARGB {
+	return append(solid(material.RGB(0x20, 0x60, 0xd0), 600), solid(material.RGB(0xd0, 0x40, 0x20), 400)...)
+}
+
+func TestSourceColorsOfferEachHueOnceBestFirst(t *testing.T) {
+	got := SourceColors(twoHues())
+	if len(got) != 2 {
+		t.Fatalf("%d candidates from two hues, want 2: %v", len(got), got)
+	}
+	if got[0] == got[1] {
+		t.Errorf("the two candidates are both %s", got[0].Hex())
+	}
+	var rainbow []material.ARGB
+	for hue := range 12 {
+		rainbow = append(rainbow, solid(material.SolveHCT(float64(hue*30), 60, 55).ARGB(), 50)...)
+	}
+	if n := len(SourceColors(rainbow)); n != SourceColorChoices {
+		t.Errorf("twelve hues offer %d candidates, want the %d an index can pick", n, SourceColorChoices)
+	}
+	if solo := SourceColors(solid(material.RGB(0x80, 0x80, 0x80), 64)); len(solo) != 1 || solo[0] != material.FallbackSeed {
+		t.Errorf("a grey wallpaper offers %v, want only the fallback seed", solo)
+	}
+}
+
+func TestSourceColorIndexPicksWhatTheExtractorUses(t *testing.T) {
+	for _, tc := range []struct {
+		source uint8
+		count  int
+		want   int
+	}{{0, 4, 0}, {2, 4, 2}, {3, 4, 3}, {9, 4, 3}, {255, 4, 3}, {3, 2, 1}, {1, 1, 0}} {
+		if got := SourceColorIndex(tc.source, tc.count); got != tc.want {
+			t.Errorf("SourceColorIndex(%d, %d) = %d, want %d", tc.source, tc.count, got, tc.want)
+		}
+	}
+}
+
+func TestNativeThemesFromTheConfiguredCandidate(t *testing.T) {
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	sample := twoHues()
+	cfg := nativeConfig()
+	cfg.MatugenSourceColor = 1
+	var n Native
+	if err := n.Extract(cfg, sample); err != nil {
+		t.Fatal(err)
+	}
+	candidates := SourceColors(sample)
+	if got := readPalette(t)["source_color"]["dark"]; got != candidates[1].Hex() {
+		t.Errorf("source index 1 themes from %s, want the second candidate %s", got, candidates[1].Hex())
+	}
+	cfg.MatugenSourceColor = 7
+	if err := n.Extract(cfg, sample); err != nil {
+		t.Fatal(err)
+	}
+	if got := readPalette(t)["source_color"]["dark"]; got != candidates[1].Hex() {
+		t.Errorf("an index past the candidates themes from %s, want the last %s", got, candidates[1].Hex())
+	}
+}
+
 func TestExtractRefusesTheMaterialTool(t *testing.T) {
 	if err := Extract(t.Context(), nativeConfig(), "/any.png"); err == nil {
 		t.Error("Extract ran the material tool on a path")

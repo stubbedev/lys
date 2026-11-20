@@ -66,3 +66,28 @@ func TestSampleSkipsTranslucentPixelsAndKeepsTheAspect(t *testing.T) {
 		t.Error("an empty image gives samples")
 	}
 }
+
+func TestSampleImageReadsAnyImageAsSampleReadsItsRGBA(t *testing.T) {
+	rgba := pattern(300, 100)
+	nrgba := image.NewNRGBA(rgba.Rect)
+	copy(nrgba.Pix, rgba.Pix)
+	want := Sample(rgba, 30)
+	got := SampleImage(nrgba, 30)
+	if len(got) != len(want) {
+		t.Fatalf("%d samples from an NRGBA image, want %d", len(got), len(want))
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("sample %d is %s from an NRGBA image, want %s", i, got[i].Hex(), want[i].Hex())
+		}
+	}
+	for i := 3; i < len(nrgba.Pix); i += 4 {
+		nrgba.Pix[i] = 0x80
+	}
+	if n := len(SampleImage(nrgba, 30)); n != 0 {
+		t.Errorf("a translucent image gives %d samples, want none", n)
+	}
+	if SampleImage(image.NewNRGBA(image.Rect(0, 0, 0, 0)), 30) != nil {
+		t.Error("an empty image gives samples")
+	}
+}
