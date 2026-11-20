@@ -1339,6 +1339,7 @@
       "lib/waittest"
     ]
   },
+  "lib/shacrypt": {},
   "lib/sockdir": {
     "testImports": [
       "lib/testbuild"

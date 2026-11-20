@@ -340,6 +340,21 @@ lys-wm's tests hold those views to its own JSON.
   returns a copy of `PAM_AUTHTOK`.
 - `CheckLibrary` reports whether libpam and libc load.
 
+## shacrypt
+
+`shacrypt` is SHA-512 crypt(3), the `$6$` hash `/etc/shadow` and
+AccountsService's `SetPassword` take, in pure Go and held to the reference
+vectors of Ulrich Drepper's specification.
+
+- `Hash(password)` hashes with `NewSetting()`: a 16-character salt from
+  `crypto/rand` and the default 5000 rounds.
+- `ParseSetting` reads `$6$`, an optional `rounds=N$` (clamped to
+  1000–999999999, as glibc does) and the salt, cut at 16 characters, from a
+  setting or a stored hash. Anything else is `ErrPrefix`, `ErrRounds` or
+  `ErrSalt`.
+- `Setting.Hash` hashes with that setting; `Verify` checks a password against
+  a stored hash in constant time.
+
 ## appearance, portalsettings
 
 `appearance` holds the color scheme, accent and contrast as values.

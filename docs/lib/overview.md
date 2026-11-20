@@ -79,6 +79,7 @@ Test helpers load `libpipewire-0.3.so.0` (`pipewire/pwtest`) and `libei.so.1`
 | [`portaldialogs`](/lib/system#portaldialogs) | The `dev.stubbe.lys.PortalDialogs1` contract |
 | [`wmipc`](/lib/system#wmipc) | The wire contract of lys-wm's IPC socket |
 | [`pam`](/lib/system#pam) | libpam transactions |
+| [`shacrypt`](/lib/system#shacrypt) | SHA-512 crypt(3) password hashes |
 | [`appearance`, `portalsettings`](/lib/system#appearance-portalsettings) | Desktop preferences as xdg-desktop-portal publishes them |
 | [`icons`, `icontheme`](/lib/system#icons-icontheme) | Freedesktop icon theme lookup and raster cache |
 | [`i18n`](/lib/system#i18n) | gettext catalogs in pure Go |
