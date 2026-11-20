@@ -27,9 +27,9 @@ type avatarCrop struct {
 // slack on either side.
 func cropRect(b image.Rectangle, c avatarCrop) image.Rectangle {
 	side := float64(min(b.Dx(), b.Dy())) / max(c.zoom, avatarZoomMin)
-	cx := float64(b.Min.X) + float64(b.Dx())/2 + clampUnit(c.panX)*(float64(b.Dx())-side)/2
-	cy := float64(b.Min.Y) + float64(b.Dy())/2 + clampUnit(c.panY)*(float64(b.Dy())-side)/2
-	half := side / 2
+	cx := float64(b.Min.X) + float64(float64(b.Dx())/2) + float64(clampUnit(c.panX)*(float64(b.Dx())-side)/2)
+	cy := float64(b.Min.Y) + float64(float64(b.Dy())/2) + float64(clampUnit(c.panY)*(float64(b.Dy())-side)/2)
+	half := float64(side / 2)
 	return image.Rect(int(cx-half), int(cy-half), int(cx+half), int(cy+half)).Intersect(b)
 }
 

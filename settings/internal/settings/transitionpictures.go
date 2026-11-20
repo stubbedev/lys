@@ -76,7 +76,7 @@ var transitionPoses = map[config.AnimationType]func(t float64) pose{
 	config.AnimationGenie: func(t float64) pose {
 		p := settled()
 		p.sy, p.dy = t, (1-t)*transitionBox
-		p.sx = transitionStart + (1-transitionStart)*t
+		p.sx = transitionStart + float64((1-transitionStart)*t)
 		p.top = t
 		return p
 	},
@@ -93,13 +93,13 @@ var transitionPoses = map[config.AnimationType]func(t float64) pose{
 // from the top left.
 func (p pose) quad(cell render.Rect) [4][2]float64 {
 	half := transitionBox * float64(min(cell.W, cell.H))
-	cx := float64(cell.X) + float64(cell.W)/2 + p.dx*float64(cell.W)
-	cy := float64(cell.Y) + float64(cell.H)/2 + p.dy*float64(cell.H)
+	cx := float64(cell.X) + float64(float64(cell.W)/2) + float64(p.dx*float64(cell.W))
+	cy := float64(cell.Y) + float64(float64(cell.H)/2) + float64(p.dy*float64(cell.H))
 	hw, hh := half*p.sx, half*p.sy
 	corners := [4][2]float64{{-hw * p.top, -hh}, {hw * p.top, -hh}, {hw, hh}, {-hw, hh}}
 	sin, cos := math.Sincos(p.angle)
 	for i, c := range corners {
-		corners[i] = [2]float64{cx + c[0]*cos - c[1]*sin, cy + c[0]*sin + c[1]*cos}
+		corners[i] = [2]float64{cx + float64(c[0]*cos) - float64(c[1]*sin), cy + float64(c[0]*sin) + float64(c[1]*cos)}
 	}
 	return corners
 }
