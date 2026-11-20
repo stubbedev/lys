@@ -2,6 +2,7 @@ package widget
 
 import (
 	"math"
+	"slices"
 
 	"github.com/stubbedev/lys/lib/render"
 
@@ -32,6 +33,7 @@ type Slider struct {
 	Pressed bool
 	hovered bool
 	trough  sliderTrough
+	track   []render.Color
 
 	// OnChanged fires after every value change, including programmatic
 	// ones.
@@ -82,6 +84,33 @@ func (s *Slider) SetInverted(on bool) {
 
 // Inverted reports whether the minimum is at the far end.
 func (s *Slider) Inverted() bool { return s.inverted }
+
+// SetTrack paints the trough as an even gradient through colors, from
+// the minimum's end to the maximum's, with no highlight over it: a
+// scale whose values are colours (a temperature, a hue) shows them.
+// None clears it back to the styled trough and highlight; disabled, the
+// slider paints its plain disabled trough.
+func (s *Slider) SetTrack(colors ...render.Color) {
+	s.track = slices.Clone(colors)
+	s.Invalidate()
+}
+
+// trackGradient is the track along the slider's axis and direction.
+func (s *Slider) trackGradient() render.Gradient {
+	stops := make([]render.GradientStop, len(s.track))
+	last := float64(max(len(s.track)-1, 1))
+	for i, c := range s.track {
+		stops[i] = render.GradientStop{Pos: float64(i) / last, Color: c}
+	}
+	angle := 90.0
+	if s.axis == Column {
+		angle = 180
+	}
+	if s.inverted {
+		angle += 180
+	}
+	return render.Linear(angle, stops...)
+}
 
 // sliderTrough is the scale's trough node and its highlight and knob.
 type sliderTrough struct {
@@ -236,19 +265,13 @@ func (s *Slider) Paint(cv *render.Canvas) {
 	tr := s.troughRect()
 	tv := s.trough.style(&s.trough)
 	trRadii := radiusOr(tv, min(tr.W, tr.H)/2)
-	paintBoxBehind(cv, tv, tr, trRadii, borderOf(tv), pickc(0, tv, style.PropBackgroundColor, troughCol))
-
-	// The highlight runs from the minimum's end to the knob.
 	origin, span := s.along(tr)
 	at := origin + int(float64(span)*s.fraction())
-	lo, hi := min(origin, at), max(origin, at)
-	filled := render.Rect{X: lo, Y: tr.Y, W: hi - lo, H: tr.H}
-	if s.axis == Column {
-		filled = render.Rect{X: tr.X, Y: lo, W: tr.W, H: hi - lo}
-	}
-	hv := s.trough.highlight.style(&s.trough.highlight)
-	if hi > lo {
-		paintBoxBehind(cv, hv, filled, radiusOr(hv, trRadii.TopLeft), borderOf(hv), pickc(0, hv, style.PropBackgroundColor, fillCol))
+	if len(s.track) > 0 && IsEnabled(s) {
+		cv.PaintGradient(tr, trRadii, s.trackGradient())
+	} else {
+		paintBoxBehind(cv, tv, tr, trRadii, borderOf(tv), pickc(0, tv, style.PropBackgroundColor, troughCol))
+		s.paintHighlight(cv, tr, trRadii.TopLeft, origin, at, fillCol)
 	}
 
 	kv := s.trough.knob.style(&s.trough.knob)
@@ -261,6 +284,21 @@ func (s *Slider) Paint(cv *render.Canvas) {
 	paintBoxBehind(kfx.cv, kv, knob, radiusOr(kv, min(kw, kh)/2), borderOf(kv), pickc(0, kv, style.PropBackgroundColor, knobCol))
 	kfx.pop()
 	paintOutline(cv, v, s.bounds, radiusOr(v, 0))
+}
+
+// paintHighlight runs the highlight from the minimum's end at origin to
+// the knob at at.
+func (s *Slider) paintHighlight(cv *render.Canvas, tr render.Rect, radius, origin, at int, fill render.Color) {
+	lo, hi := min(origin, at), max(origin, at)
+	if hi <= lo {
+		return
+	}
+	filled := render.Rect{X: lo, Y: tr.Y, W: hi - lo, H: tr.H}
+	if s.axis == Column {
+		filled = render.Rect{X: tr.X, Y: lo, W: tr.W, H: hi - lo}
+	}
+	hv := s.trough.highlight.style(&s.trough.highlight)
+	paintBoxBehind(cv, hv, filled, radiusOr(hv, radius), borderOf(hv), pickc(0, hv, style.PropBackgroundColor, fill))
 }
 
 func (s *Slider) fraction() float64 {

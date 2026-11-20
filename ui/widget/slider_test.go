@@ -63,3 +63,44 @@ func TestSliderTrackAndThumb(t *testing.T) {
 		}
 	}
 }
+
+// A track paints the trough's colours from the minimum's end to the
+// maximum's, with no highlight up to the knob; cleared, inverted or
+// disabled, the slider paints what it painted before.
+func TestSliderTrackPaintsAGradient(t *testing.T) {
+	prev := Current()
+	t.Cleanup(func() { SetTheme(prev) })
+	SetTheme(DarkTheme())
+	red, blue := render.RGB(255, 0, 0), render.RGB(0, 0, 255)
+	const w, h = 200, 40
+	ends := func(s *Slider) (render.Color, render.Color) {
+		data := paintPixels(t, s, w, h)
+		tr := s.troughRect()
+		y := tr.Y + tr.H/2
+		return pxAt(data, w, tr.X+3, y), pxAt(data, w, tr.X+tr.W-4, y)
+	}
+	reddish := func(c render.Color) bool { return c.R() > 200 && c.B() < 60 }
+	bluish := func(c render.Color) bool { return c.B() > 200 && c.R() < 60 }
+
+	s := NewSlider(0, 100, 1, 50)
+	plainLo, plainHi := ends(s)
+	s.SetTrack(red, blue)
+	lo, hi := ends(s)
+	if !reddish(lo) || !bluish(hi) {
+		t.Errorf("track ends %#x .. %#x, want red .. blue", uint32(lo), uint32(hi))
+	}
+	s.SetInverted(true)
+	if lo, hi := ends(s); !bluish(lo) || !reddish(hi) {
+		t.Errorf("inverted track ends %#x .. %#x, want blue .. red", uint32(lo), uint32(hi))
+	}
+	s.SetInverted(false)
+	s.SetEnabled(false)
+	if lo, _ := ends(s); reddish(lo) {
+		t.Errorf("disabled track still paints %#x", uint32(lo))
+	}
+	s.SetEnabled(true)
+	s.SetTrack()
+	if lo, hi := ends(s); lo != plainLo || hi != plainHi {
+		t.Errorf("cleared track %#x .. %#x, want the plain %#x .. %#x", uint32(lo), uint32(hi), uint32(plainLo), uint32(plainHi))
+	}
+}
