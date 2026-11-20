@@ -1646,6 +1646,7 @@ settings-power-charge-limit-detail = { $percent ->
     [one] Stopt met laden bij { $percent }% om de batterij te sparen
    *[other] Stopt met laden bij { $percent }% om de batterij te sparen
 }
+settings-power-charge-limit-choice-detail = Houdt de batterij aan de lader op deze lading zodat hij langzamer slijt; vóór je gebruikelijke vertrek laadt hij toch helemaal op. 100% zet de limiet uit.
 settings-power-charge-limit-refused = De laadlimiet is niet gewijzigd: { $reason }
 settings-power-state-unknown = Status onbekend
 settings-power-state-charging = Bezig met laden

@@ -1656,6 +1656,7 @@ settings-power-charge-limit-detail = { $percent ->
     [one] Stops charging at { $percent }% to spare the battery
    *[other] Stops charging at { $percent }% to spare the battery
 }
+settings-power-charge-limit-choice-detail = Holds the battery at this charge on AC to slow its wear; it still charges to full before you usually leave. 100% turns the hold off.
 settings-power-charge-limit-refused = The charge limit was not changed: { $reason }
 settings-power-state-unknown = State unknown
 settings-power-state-charging = Charging

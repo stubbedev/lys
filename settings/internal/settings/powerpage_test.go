@@ -14,6 +14,7 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/dbustest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/power/charge"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
@@ -24,6 +25,7 @@ type fakePower struct {
 	profileErr error
 	profiles   []string
 	limits     []bool
+	chosen     []charge.Limit
 	following  context.Context
 	closed     bool
 }
@@ -46,6 +48,12 @@ func (f *fakePower) setProfile(_ context.Context, profile string) error {
 
 func (f *fakePower) setChargeLimit(_ context.Context, on bool) error {
 	f.limits = append(f.limits, on)
+	return nil
+}
+
+func (f *fakePower) setLimit(_ context.Context, limit charge.Limit) error {
+	f.chosen = append(f.chosen, limit)
+	f.state.charge.Limit = limit
 	return nil
 }
 
@@ -99,6 +107,41 @@ func TestTheBatteryShowsItsChargeStateTimeLeftAndHealth(t *testing.T) {
 	limit[0].OnChanged(true)
 	if !slices.Equal(f.limits, []bool{true}) {
 		t.Errorf("the charge limit switch set %v", f.limits)
+	}
+}
+
+func TestLysPowersLimitIsPickedFromItsChoicesInsteadOfUPowersSwitch(t *testing.T) {
+	f := laptop()
+	f.state.lysPower = true
+	f.state.charge = charge.State{Limit: charge.Limit85, Reason: charge.ReasonHolding, Dock: charge.DockDocked}
+	p := powerPanelOf(t, f)
+	if n := len(treetest.All[*widget.Switch](p.battery)); n != 0 {
+		t.Errorf("%d switches beside lys-power's limit", n)
+	}
+	picks := treetest.All[*widget.Dropdown](p.battery)
+	if len(picks) != 1 {
+		t.Fatalf("%d pickers on the battery card, want the charge limit", len(picks))
+	}
+	pick := picks[0]
+	if want := []string{percentText(80), percentText(85), percentText(90), percentText(95), percentText(100)}; !slices.Equal(pick.Items(), want) {
+		t.Errorf("the limits offered are %q, want %q", pick.Items(), want)
+	}
+	if pick.Selection() != percentText(85) {
+		t.Errorf("selected %q, want the limit held", pick.Selection())
+	}
+	pick.SetSelected(4)
+	if !slices.Equal(f.chosen, []charge.Limit{charge.Limit100}) {
+		t.Errorf("chose %v, want 100", f.chosen)
+	}
+}
+
+func TestAnUnmanagedBatteryKeepsUPowersSwitch(t *testing.T) {
+	f := laptop()
+	f.state.lysPower = true
+	f.state.charge = charge.State{Limit: charge.Limit80, Reason: charge.ReasonUnmanaged, Dock: charge.DockUnknown}
+	p := powerPanelOf(t, f)
+	if len(treetest.All[*widget.Switch](p.battery)) != 1 || len(treetest.All[*widget.Dropdown](p.battery)) != 0 {
+		t.Errorf("an unmanaged battery reads %q", treetest.Labels(p.battery))
 	}
 }
 

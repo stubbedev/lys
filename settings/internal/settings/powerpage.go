@@ -15,6 +15,8 @@ import (
 	"github.com/stubbedev/lys/desktop/service/upower"
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/power/charge"
+	"github.com/stubbedev/lys/shell/service/chargestate"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
 
@@ -58,15 +60,26 @@ type powerState struct {
 	upower   bool
 	battery  upower.Device
 	profiles powerprofiles.Snapshot
+	// charge is lys-power's charge policy; lysPower is false while
+	// lys-power is not on the bus.
+	charge   charge.State
+	lysPower bool
 }
 
 func (s powerState) hasBattery() bool { return s.upower && s.battery.IsPresent }
+
+// chargeManaged reports whether lys-power holds the battery's charge, so
+// its limit is chosen instead of UPower's switch.
+func (s powerState) chargeManaged() bool {
+	return s.lysPower && s.charge.Reason != charge.ReasonUnmanaged
+}
 
 type powerControl interface {
 	read(ctx context.Context) (powerState, error)
 	changes(ctx context.Context) (<-chan struct{}, error)
 	setProfile(ctx context.Context, profile string) error
 	setChargeLimit(ctx context.Context, on bool) error
+	setLimit(ctx context.Context, limit charge.Limit) error
 	close() error
 }
 
@@ -74,6 +87,7 @@ type upowerControl struct {
 	conn     *dbus.Conn
 	battery  *upower.System
 	profiles *powerprofiles.System
+	charge   *charge.Client
 }
 
 func openPower(dial func() (*dbus.Conn, error)) (powerControl, error) {
@@ -81,7 +95,7 @@ func openPower(dial func() (*dbus.Conn, error)) (powerControl, error) {
 	if err != nil {
 		return nil, fmt.Errorf("connect to the system bus: %w", err)
 	}
-	return &upowerControl{conn: conn, battery: upower.NewOn(conn), profiles: powerprofiles.NewOn(conn)}, nil
+	return &upowerControl{conn: conn, battery: upower.NewOn(conn), profiles: powerprofiles.NewOn(conn), charge: charge.NewClient(conn)}, nil
 }
 
 func serviceUnknown(err error) bool {
@@ -102,6 +116,14 @@ func (c *upowerControl) read(ctx context.Context) (powerState, error) {
 	if st.profiles, err = c.profiles.Read(ctx); err != nil {
 		return powerState{}, fmt.Errorf("read the power mode from power-profiles-daemon: %w", err)
 	}
+	st.charge, err = c.charge.State(ctx)
+	switch {
+	case dbusx.Unowned(err):
+	case err != nil:
+		return powerState{}, err
+	default:
+		st.lysPower = true
+	}
 	return st, nil
 }
 
@@ -114,7 +136,14 @@ func (c *upowerControl) changes(ctx context.Context) (<-chan struct{}, error) {
 	if err != nil {
 		return nil, errors.Join(fmt.Errorf("follow power-profiles-daemon: %w", err), stopBattery())
 	}
-	return mergeTicks("the battery and power mode", func() error { return errors.Join(stopBattery(), stopProfiles()) }, battery, profiles), nil
+	policy := chargestate.Follow(c.conn, func(err error) { log.Printf("settings: follow the charge policy: %v", err) })
+	policyTicks, unsubscribe := policy.Subscribe()
+	go func() {
+		<-ctx.Done()
+		unsubscribe()
+	}()
+	stop := func() error { return errors.Join(stopBattery(), stopProfiles(), policy.Close()) }
+	return mergeTicks("the battery, power mode and charge policy", stop, battery, profiles, policyTicks), nil
 }
 
 func (c *upowerControl) setProfile(ctx context.Context, profile string) error {
@@ -126,6 +155,10 @@ func (c *upowerControl) setProfile(ctx context.Context, profile string) error {
 
 func (c *upowerControl) setChargeLimit(ctx context.Context, on bool) error {
 	return c.battery.EnableChargeThreshold(ctx, on)
+}
+
+func (c *upowerControl) setLimit(ctx context.Context, limit charge.Limit) error {
+	return c.charge.SetLimit(ctx, limit)
 }
 
 func (c *upowerControl) close() error { return c.conn.Close() }
@@ -316,6 +349,10 @@ func (p *powerPanel) batteryRows() widget.Widget {
 	if dev.Capacity > 0 {
 		rows.Append(panelRow(p.k, t.Get("settings-power-health"), t.Get("settings-power-health-detail", i18n.Int("percent", roundPercent(dev.Capacity)))))
 	}
+	if st.chargeManaged() {
+		rows.Append(p.limitRow())
+		return rows
+	}
 	if dev.ChargeThresholdSupported {
 		limit := widget.NewSwitch(dev.ChargeThresholdEnabled)
 		limit.SetAccessibleName(t.Get("settings-power-charge-limit"))
@@ -326,6 +363,23 @@ func (p *powerPanel) batteryRows() widget.Widget {
 		rows.Append(panelRow(p.k, t.Get("settings-power-charge-limit"), detail, limit))
 	}
 	return rows
+}
+
+// limitRow picks lys-power's charge limit from the ones it takes.
+func (p *powerPanel) limitRow() widget.Widget {
+	t := locale.T()
+	limits := charge.Limits()
+	labels := make([]string, len(limits))
+	for i, l := range limits {
+		labels[i] = t.Get("settings-power-percent", i18n.Int("percent", int64(l.Percent())))
+	}
+	pick := widget.NewDropdown(p.k.face, p.k.textPx(), labels, slices.Index(limits, p.state.charge.Limit))
+	pick.SetAccessibleName(t.Get("settings-power-charge-limit"))
+	pick.OnSelect = func(i int) {
+		limit := limits[i]
+		p.run(powerActionChargeLimit, func(ctx context.Context, ctl powerControl) error { return ctl.setLimit(ctx, limit) })
+	}
+	return panelRow(p.k, t.Get("settings-power-charge-limit"), t.Get("settings-power-charge-limit-choice-detail"), pick)
 }
 
 func roundPercent(v float64) int64 { return int64(math.Round(v)) }

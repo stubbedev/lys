@@ -1656,6 +1656,7 @@ settings-power-charge-limit-detail = { $percent ->
     [one] Hört bei { $percent } % auf zu laden, um den Akku zu schonen
    *[other] Hört bei { $percent } % auf zu laden, um den Akku zu schonen
 }
+settings-power-charge-limit-choice-detail = Hält den Akku am Netzteil bei dieser Ladung, damit er langsamer altert; vor dem üblichen Aufbruch wird er trotzdem voll geladen. 100 % schaltet das Halten aus.
 settings-power-charge-limit-refused = Die Ladegrenze wurde nicht geändert: { $reason }
 settings-power-state-unknown = Zustand unbekannt
 settings-power-state-charging = Wird geladen

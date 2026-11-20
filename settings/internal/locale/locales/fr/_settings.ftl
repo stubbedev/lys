@@ -1659,6 +1659,7 @@ settings-power-charge-limit-detail = { $percent ->
     [one] Arrête la charge à { $percent } % pour ménager la batterie
    *[other] Arrête la charge à { $percent } % pour ménager la batterie
 }
+settings-power-charge-limit-choice-detail = Maintient la batterie à cette charge sur secteur pour ralentir son usure ; elle se charge quand même complètement avant votre départ habituel. 100 % désactive la limite.
 settings-power-charge-limit-refused = La limite de charge n'a pas été modifiée : { $reason }
 settings-power-state-unknown = État inconnu
 settings-power-state-charging = En charge

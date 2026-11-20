@@ -1657,6 +1657,7 @@ settings-power-charge-limit-detail = { $percent ->
     [one] Smette di caricare al { $percent }% per preservare la batteria
    *[other] Smette di caricare al { $percent }% per preservare la batteria
 }
+settings-power-charge-limit-choice-detail = Mantiene la batteria a questa carica con l'alimentatore per rallentarne l'usura; si carica comunque completamente prima che tu esca di solito. 100% disattiva il limite.
 settings-power-charge-limit-refused = Il limite di carica non è stato cambiato: { $reason }
 settings-power-state-unknown = Stato sconosciuto
 settings-power-state-charging = In carica
