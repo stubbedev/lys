@@ -51,6 +51,22 @@ func (c Curve) Percent(l Lux) float64 {
 	return c.floor + share*(c.ceiling-c.floor)
 }
 
+// Dim is the share of the curve's level the backlight keeps while the
+// power profile is power-saver, as macOS slightly dims the display on
+// battery.
+type Dim struct{ share float64 }
+
+// NewDim validates share: 0 < share <= 1, 1 being no dimming.
+func NewDim(share float64) (Dim, error) {
+	if !(share > 0 && share <= 1) {
+		return Dim{}, fmt.Errorf("low power dimming to %v of the level: want 0 < share <= 1", share)
+	}
+	return Dim{share: share}, nil
+}
+
+// Of is percent dimmed.
+func (d Dim) Of(percent float64) float64 { return percent * d.share }
+
 // Smoother is an exponential moving average of log illuminance whose
 // weight follows the time between samples: a sample tau after the last
 // moves the average 1-1/e of the way to it.

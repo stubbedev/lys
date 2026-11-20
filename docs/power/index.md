@@ -145,6 +145,13 @@ more than 6 percentage points from the current one, and then in steps over
 1.5 seconds rather than in one jump. It drives every backlight under
 `/sys/class/backlight`, through logind, as the shell's brightness keys do.
 
+**Low Power Mode.** While power-profiles-daemon's profile is `power-saver`
+(which lys-power picks on battery), the level for the room is 12% lower, as
+macOS slightly dims the display on battery. The backlight moves there, and
+back when the profile changes again, in the same gradual steps, as automatic
+brightness's own change: it does not pause it. A profile change during the
+idle dim takes effect once the shell has put the screen back.
+
 **Pausing and resuming.** When the backlight changes to a level lys-power did
 not set, from the shell's brightness slider, a brightness key or any other
 program, automatic brightness pauses and leaves the backlight alone. The

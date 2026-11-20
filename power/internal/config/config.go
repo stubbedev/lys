@@ -66,6 +66,9 @@ const (
 	BrightLux         = 3000.0
 	BrightnessFloor   = 5.0
 	BrightnessCeiling = 100.0
+	// LowPowerShare is the share of the curve's level the backlight keeps
+	// while the power profile is power-saver.
+	LowPowerShare = 0.88
 	// MinLux is the least illuminance the smoothing works with, so a
 	// sensor reading 0 in the dark keeps the logarithm finite.
 	MinLux = 0.1

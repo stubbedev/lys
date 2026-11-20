@@ -1,7 +1,8 @@
 // Package autobright runs automatic brightness: it samples the room's
 // light, smooths it, and carries the backlight along the curve in
 // gradual steps, until someone else changes the backlight, which pauses
-// it until Resume. It neither samples nor writes while the session is in
+// it until Resume. While the power profile is power-saver the curve is
+// slightly dimmed. It neither samples nor writes while the session is in
 // the background or locked.
 package autobright
 
@@ -51,6 +52,13 @@ type Publisher interface {
 	Publish(state autobrightness.State) error
 }
 
+// Profile follows whether the power profile is power-saver: the current
+// answer first, then each change, until ctx ends. The channel closing
+// before ctx ends stops the daemon.
+type Profile interface {
+	Saver(ctx context.Context) (<-chan bool, error)
+}
+
 // Clock is the time the daemon runs on.
 type Clock interface {
 	Now() time.Time
@@ -60,6 +68,7 @@ type Clock interface {
 // Params tune the daemon.
 type Params struct {
 	Curve    ambient.Curve
+	LowPower ambient.Dim
 	Smoother ambient.Smoother
 	Band     float64
 	Steps    int
@@ -73,6 +82,7 @@ type Daemon struct {
 	backlight backlight.Source
 	sessions  Sessions
 	session   Session
+	profile   Profile
 	clock     Clock
 	log       *slog.Logger
 	params    Params
@@ -80,16 +90,20 @@ type Daemon struct {
 	owner   *ambient.Owner
 	smooth  ambient.Smoother
 	steps   []float64
+	saver   bool
+	aimed   bool
 	resumes chan chan error
 }
 
 // New is a daemon that follows from the backlight's current level, in
-// the display session sessions resolves when it runs.
-func New(light Light, backlight backlight.Source, sessions Sessions, clock Clock, log *slog.Logger, p Params) *Daemon {
+// the display session sessions resolves when it runs, dimmed by
+// p.LowPower while profile says power-saver.
+func New(light Light, backlight backlight.Source, sessions Sessions, profile Profile, clock Clock, log *slog.Logger, p Params) *Daemon {
 	return &Daemon{
 		light:     light,
 		backlight: backlight,
 		sessions:  sessions,
+		profile:   profile,
 		clock:     clock,
 		log:       log,
 		params:    p,
@@ -132,6 +146,10 @@ func (d *Daemon) Run(ctx context.Context, pub Publisher) error {
 	if _, err := d.levels(ctx); err != nil {
 		return err
 	}
+	saver, err := d.profile.Saver(ctx)
+	if err != nil {
+		return fmt.Errorf("follow the power profile: %w", err)
+	}
 	sample := d.clock.After(0)
 	var step <-chan time.Time
 	for {
@@ -145,6 +163,13 @@ func (d *Daemon) Run(ctx context.Context, pub Publisher) error {
 				return d.ended(ctx)
 			}
 			if err := d.observeIfForeground(ctx, pub); err != nil {
+				return err
+			}
+		case on, ok := <-saver:
+			if !ok {
+				return d.profileEnded(ctx)
+			}
+			if err := d.lowPower(ctx, on); err != nil {
 				return err
 			}
 		case reply := <-d.resumes:
@@ -183,6 +208,33 @@ func (d *Daemon) ended(ctx context.Context) error {
 		return nil
 	}
 	return errors.New("the backlight watch ended")
+}
+
+func (d *Daemon) profileEnded(ctx context.Context) error {
+	if ctx.Err() != nil {
+		return nil
+	}
+	return errors.New("the power profile watch ended")
+}
+
+// lowPower dims or undims the target when power-saver starts or ends,
+// moving there at once as the daemon's own transition, so the change
+// neither counts as someone else's nor waits for the room to change.
+func (d *Daemon) lowPower(ctx context.Context, on bool) error {
+	if on == d.saver {
+		return nil
+	}
+	d.saver = on
+	fg, err := d.foreground(ctx)
+	if err != nil || !fg || d.owner.State() != autobrightness.Following {
+		return err
+	}
+	devices, err := d.levels(ctx)
+	if err != nil {
+		return err
+	}
+	d.retarget(devices, true)
+	return nil
 }
 
 // foreground reports whether the session is active and unlocked, the
@@ -258,6 +310,9 @@ func (d *Daemon) observe(ctx context.Context, pub Publisher) ([]backlight.Device
 		d.log.Info("the backlight was changed by someone else, pausing automatic brightness", "backlights", raw(devices))
 	} else {
 		d.log.Info("the backlight is back at its automatic level, following the room again")
+		if d.aimed != d.saver {
+			d.retarget(devices, true)
+		}
 	}
 	if err := pub.Publish(state); err != nil {
 		return nil, err
@@ -314,11 +369,14 @@ func (d *Daemon) retarget(devices []backlight.Device, force bool) {
 	}
 	current, _ := backlight.AveragePercentage(devices)
 	target := d.params.Curve.Percent(lux)
+	if d.saver {
+		target = d.params.LowPower.Of(target)
+	}
 	if !force && !ambient.Outside(current, target, d.params.Band) {
 		return
 	}
 	d.log.Debug("moving the backlight", "lux", float64(lux), "from", current, "to", target)
-	d.steps = ambient.Steps(current, target, d.params.Steps)
+	d.steps, d.aimed = ambient.Steps(current, target, d.params.Steps), d.saver
 }
 
 func (d *Daemon) step(ctx context.Context, pub Publisher) error {

@@ -209,6 +209,12 @@ func (s *sessions) set(display Session, err error) {
 	s.display, s.err = display, err
 }
 
+type profile struct{ saver chan bool }
+
+func newProfile() *profile { return &profile{saver: make(chan bool)} }
+
+func (p *profile) Saver(context.Context) (<-chan bool, error) { return p.saver, nil }
+
 type publisher struct{ states chan autobrightness.State }
 
 func (p *publisher) Publish(s autobrightness.State) error {
@@ -223,6 +229,7 @@ type harness struct {
 	back     *fakeBacklight
 	session  *session
 	sessions *sessions
+	profile  *profile
 	pub      *publisher
 	daemon   *Daemon
 	curve    ambient.Curve
@@ -249,13 +256,18 @@ func start(t *testing.T, names ...string) *harness {
 		light:   &light{readings: make(chan reading)},
 		back:    newBacklight(names...),
 		session: &session{path: "/org/freedesktop/login1/session/_32", active: true},
+		profile: newProfile(),
 		pub:     &publisher{states: make(chan autobrightness.State, 8)},
 		curve:   curve,
 		done:    make(chan error, 1),
 	}
 	h.sessions = &sessions{display: h.session}
-	h.daemon = New(h.light, h.back, h.sessions, h.clock, slog.New(slog.NewTextHandler(io.Discard, nil)), Params{
-		Curve: curve, Smoother: smoother, Band: 6, Steps: steps, Step: stepGap, Interval: interval,
+	dim, err := ambient.NewDim(0.5)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.daemon = New(h.light, h.back, h.sessions, h.profile, h.clock, slog.New(slog.NewTextHandler(io.Discard, nil)), Params{
+		Curve: curve, LowPower: dim, Smoother: smoother, Band: 6, Steps: steps, Step: stepGap, Interval: interval,
 	})
 	ctx, cancel := context.WithCancel(context.Background())
 	h.cancel = cancel
@@ -557,7 +569,7 @@ func TestEveryBacklightIsDriven(t *testing.T) {
 }
 
 func TestNoBacklightIsAnError(t *testing.T) {
-	d := New(&light{}, newBacklight(), &sessions{display: &session{active: true}}, newClock(), slog.New(slog.NewTextHandler(io.Discard, nil)), Params{Steps: steps})
+	d := New(&light{}, newBacklight(), &sessions{display: &session{active: true}}, newProfile(), newClock(), slog.New(slog.NewTextHandler(io.Discard, nil)), Params{Steps: steps})
 	if err := d.Run(context.Background(), &publisher{}); err == nil {
 		t.Fatal("the daemon ran without a backlight")
 	}
@@ -611,8 +623,100 @@ func TestAGoneDisplaySessionStopsTheDaemon(t *testing.T) {
 
 func TestNoDisplaySessionAtStartIsAnError(t *testing.T) {
 	gone := errors.New("org.freedesktop.login1.NoSuchSession")
-	d := New(&light{}, newBacklight("intel_backlight"), &sessions{err: gone}, newClock(), slog.New(slog.NewTextHandler(io.Discard, nil)), Params{Steps: steps})
+	d := New(&light{}, newBacklight("intel_backlight"), &sessions{err: gone}, newProfile(), newClock(), slog.New(slog.NewTextHandler(io.Discard, nil)), Params{Steps: steps})
 	if err := d.Run(context.Background(), &publisher{}); !errors.Is(err, gone) {
 		t.Fatalf("the daemon ran with %v, want %v", err, gone)
 	}
+}
+
+func (h *harness) powerSaver(on bool) {
+	h.t.Helper()
+	deliver(h.t, h.profile.saver, on, "the daemon to take the power profile")
+}
+
+func TestPowerSaverDimsTheCurveAndItsEndRestoresIt(t *testing.T) {
+	h := start(t)
+	h.follow(1000)
+	full := h.curve.Percent(1000)
+	h.powerSaver(true)
+	if levels := h.transition(1); math.Abs(levels[len(levels)-1]-full/2) > 1e-9 {
+		t.Fatalf("under power saver the backlight went along %v, want to %v%%", levels, full/2)
+	}
+	h.quiet()
+	h.powerSaver(true)
+	h.quiet()
+	h.powerSaver(false)
+	if levels := h.transition(1); math.Abs(levels[len(levels)-1]-full) > 1e-9 {
+		t.Fatalf("after power saver the backlight went along %v, want back to %v%%", levels, full)
+	}
+	h.quiet()
+}
+
+func TestPowerSaverLeavesAPausedBacklightAlone(t *testing.T) {
+	h := start(t)
+	h.follow(1000)
+	h.back.setAll(900)
+	h.changed()
+	h.published(autobrightness.Paused)
+	h.powerSaver(true)
+	h.quiet()
+	if got := h.back.level("intel_backlight"); got != 900 {
+		t.Fatalf("power saver moved a paused backlight to %d", got)
+	}
+}
+
+func TestPowerSaverDimmingDoesNotPauseAutomaticBrightness(t *testing.T) {
+	h := start(t)
+	next := h.follow(1000)
+	h.powerSaver(true)
+	h.transition(1)
+	h.changed()
+	h.sampleWith(next, 1000)
+	h.quiet()
+}
+
+func TestAnEndedPowerProfileWatchStopsTheDaemon(t *testing.T) {
+	h := start(t)
+	h.follow(1000)
+	close(h.profile.saver)
+	err := waittest.For(t, h.done, "the daemon to stop")
+	h.done <- nil
+	if err == nil || !strings.Contains(err.Error(), "power profile") {
+		t.Fatalf("the daemon stopped with %v, want the ended power profile watch", err)
+	}
+}
+
+func TestPowerSaverStartedDuringAnIdleDimDimsOnceItIsRestored(t *testing.T) {
+	h := start(t)
+	h.follow(1000)
+	full := h.curve.Percent(1000)
+	ours := h.back.level("intel_backlight")
+	h.session.setIdle(true)
+	h.back.setAll(ours * 30 / 100)
+	h.changed()
+	h.published(autobrightness.Paused)
+	h.powerSaver(true)
+	h.quiet()
+	h.back.setAll(ours)
+	h.changed()
+	h.published(autobrightness.Following)
+	h.session.setIdle(false)
+	if levels := h.transition(1); math.Abs(levels[len(levels)-1]-full/2) > 1e-9 {
+		t.Fatalf("after the restore the backlight went along %v, want to the dimmed %v%%", levels, full/2)
+	}
+	h.quiet()
+}
+
+func TestARestoreWithTheSameProfileStartsNoTransition(t *testing.T) {
+	h := start(t)
+	h.follow(1000)
+	ours := h.back.level("intel_backlight")
+	h.session.setIdle(true)
+	h.back.setAll(ours * 30 / 100)
+	h.changed()
+	h.published(autobrightness.Paused)
+	h.back.setAll(ours)
+	h.changed()
+	h.published(autobrightness.Following)
+	h.quiet()
 }

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/service/backlight"
+	"github.com/stubbedev/lys/desktop/service/powerprofiles"
 	"github.com/stubbedev/lys/lib/dbusx"
 	"github.com/stubbedev/lys/lib/logind"
 
@@ -50,7 +51,7 @@ func Run(ctx context.Context, cfg config.Config, log *slog.Logger) (err error) {
 	}
 	defer func() { err = errors.Join(err, closing("session bus", sessionBus.Close())) }()
 
-	d := New(light, backlight, displaySessions{logind.NewManager(system)}, realClock{}, log, p)
+	d := New(light, backlight, displaySessions{logind.NewManager(system)}, ppdProfile{source: powerprofiles.NewOn(system), log: log}, realClock{}, log, p)
 	server, release, err := autobrightness.Serve(sessionBus, autobrightness.Following, d.Resume)
 	if err != nil {
 		return err
@@ -67,6 +68,60 @@ func (s displaySessions) Display(ctx context.Context) (Session, error) {
 		return nil, err
 	}
 	return session, nil
+}
+
+// ppdProfile reads power-profiles-daemon's active profile at start and
+// again on each of its property changes.
+type ppdProfile struct {
+	source powerprofiles.Source
+	log    *slog.Logger
+}
+
+func (p ppdProfile) Saver(ctx context.Context) (<-chan bool, error) {
+	ticks, stop, err := p.source.Subscribe(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make(chan bool, 1)
+	go func() {
+		defer close(out)
+		defer func() {
+			if err := stop(); err != nil {
+				p.log.Warn("stopping the power profile watch", "err", err)
+			}
+		}()
+		for {
+			saver, err := p.read(ctx)
+			if err != nil {
+				p.log.Error("reading the power profile", "err", err)
+				return
+			}
+			select {
+			case <-out:
+			default:
+			}
+			out <- saver
+			select {
+			case <-ctx.Done():
+				return
+			case _, ok := <-ticks:
+				if !ok {
+					return
+				}
+			}
+		}
+	}()
+	return out, nil
+}
+
+func (p ppdProfile) read(ctx context.Context) (bool, error) {
+	ctx, cancel := context.WithTimeout(ctx, config.BusTimeout)
+	defer cancel()
+	snap, err := p.source.Read(ctx)
+	if err != nil {
+		return false, err
+	}
+	return snap.Available && snap.Active == powerprofiles.ProfilePowerSaver, nil
 }
 
 func closing(what string, err error) error {
@@ -114,8 +169,13 @@ func params(interval time.Duration) (Params, error) {
 	if err != nil {
 		return Params{}, err
 	}
+	dim, err := ambient.NewDim(config.LowPowerShare)
+	if err != nil {
+		return Params{}, err
+	}
 	return Params{
 		Curve:    curve,
+		LowPower: dim,
 		Smoother: smoother,
 		Band:     config.HysteresisPercent,
 		Steps:    config.TransitionSteps,

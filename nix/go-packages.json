@@ -2155,6 +2155,7 @@
   "power/internal/autobright": {
     "imports": [
       "desktop/service/backlight",
+      "desktop/service/powerprofiles",
       "lib/dbusx",
       "lib/logind",
       "lib/third_party/godbus",
