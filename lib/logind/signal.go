@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
@@ -193,9 +194,10 @@ func (m Manager) FollowLid(ctx context.Context, failed func(error), onChange fun
 	if m.obj.conn == nil {
 		return false, nil, fmt.Errorf("logind: follow the lid: %w", errZeroHandle)
 	}
+	var follow lidFollow
 	signals, err := dbusx.WatchSignals(ctx, m.obj.conn, dbusx.FromOwner(BusName),
 		func(err error) { failed(fmt.Errorf("logind: %w", err)) },
-		dbusx.On(dbusx.PropertiesChanged, ManagerPath, func(c dbusx.ChangedProperties, _ dbus.Sequence) error {
+		dbusx.On(dbusx.PropertiesChanged, ManagerPath, func(c dbusx.ChangedProperties, seq dbus.Sequence) error {
 			v, ok := c.Changed["LidClosed"]
 			if !ok {
 				return nil
@@ -204,18 +206,58 @@ func (m Manager) FollowLid(ctx context.Context, failed func(error), onChange fun
 			if err != nil {
 				return err
 			}
-			onChange(closed)
+			follow.changed(lidChange{closed: closed, seq: seq}, onChange)
 			return nil
 		}).WithArg0(ManagerInterface))
 	if err != nil {
 		return false, nil, fmt.Errorf("logind: follow the lid: %w", err)
 	}
 	w = &Watch{signals: signals, object: ManagerPath}
-	closed, err = m.LidClosed(ctx)
+	answered, err := m.obj.propertyAt(ctx, ManagerInterface, "LidClosed", &closed)
 	if err != nil {
 		return false, nil, errors.Join(fmt.Errorf("logind: follow the lid: %w", err), w.Stop())
 	}
+	follow.answer(answered, onChange)
 	return closed, w, nil
+}
+
+type lidChange struct {
+	closed bool
+	seq    dbus.Sequence
+}
+
+// lidFollow holds the lid's changes back until its first read has been
+// answered, then hands on only those logind sent after that answer: a
+// change sent before it is already in what the read returned.
+type lidFollow struct {
+	mu       sync.Mutex
+	answered dbus.Sequence
+	answerIn bool
+	pending  []lidChange
+}
+
+func (f *lidFollow) changed(c lidChange, onChange func(bool)) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if !f.answerIn {
+		f.pending = append(f.pending, c)
+		return
+	}
+	if c.seq > f.answered {
+		onChange(c.closed)
+	}
+}
+
+func (f *lidFollow) answer(answered dbus.Sequence, onChange func(bool)) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.answerIn, f.answered = true, answered
+	for _, c := range f.pending {
+		if c.seq > answered {
+			onChange(c.closed)
+		}
+	}
+	f.pending = nil
 }
 
 // Done is closed once the watch has ended and removed what it held.

@@ -93,36 +93,49 @@ type object struct {
 }
 
 func (o object) call(ctx context.Context, iface, method string, out []any, args ...any) error {
+	_, err := o.callAt(ctx, iface, method, out, args...)
+	return err
+}
+
+// callAt is call, also answering where on the connection the reply came:
+// a signal sequenced before it was sent before logind answered.
+func (o object) callAt(ctx context.Context, iface, method string, out []any, args ...any) (dbus.Sequence, error) {
 	if o.conn == nil {
-		return fmt.Errorf("logind %s: %w", describe(iface, method, args), errZeroHandle)
+		return 0, fmt.Errorf("logind %s: %w", describe(iface, method, args), errZeroHandle)
 	}
 	ctx, cancel := context.WithTimeout(ctx, CallTimeout)
 	defer cancel()
 	c := o.conn.Object(BusName, o.path).CallWithContext(ctx, iface+"."+method, 0, args...)
 	if c.Err != nil {
-		return fmt.Errorf("logind %s on %s: %w", describe(iface, method, args), o.path, c.Err)
+		return 0, fmt.Errorf("logind %s on %s: %w", describe(iface, method, args), o.path, c.Err)
 	}
 	if len(out) == 0 {
-		return nil
+		return c.ResponseSequence, nil
 	}
 	if err := c.Store(out...); err != nil {
-		return errors.Join(
+		return 0, errors.Join(
 			fmt.Errorf("logind %s on %s: decode the reply: %w", describe(iface, method, args), o.path, err),
 			dbus.CloseFDs(c.Body),
 		)
 	}
-	return nil
+	return c.ResponseSequence, nil
 }
 
 func (o object) property(ctx context.Context, iface, name string, dest any) error {
+	_, err := o.propertyAt(ctx, iface, name, dest)
+	return err
+}
+
+func (o object) propertyAt(ctx context.Context, iface, name string, dest any) (dbus.Sequence, error) {
 	var v dbus.Variant
-	if err := o.call(ctx, propertiesInterface, "Get", []any{&v}, iface, name); err != nil {
-		return err
+	answered, err := o.callAt(ctx, propertiesInterface, "Get", []any{&v}, iface, name)
+	if err != nil {
+		return 0, err
 	}
 	if err := v.Store(dest); err != nil {
-		return fmt.Errorf("logind %s.%s of %s: decode %s: %w", shortInterface(iface), name, o.path, v.Signature(), err)
+		return 0, fmt.Errorf("logind %s.%s of %s: decode %s: %w", shortInterface(iface), name, o.path, v.Signature(), err)
 	}
-	return nil
+	return answered, nil
 }
 
 func describe(iface, method string, args []any) string {
