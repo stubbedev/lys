@@ -1,5 +1,7 @@
 package config
 
+import "slices"
+
 // NapLevel is part of the battery module's configuration.
 //
 // How hard an app naps while the user cannot see it.
@@ -17,7 +19,12 @@ const (
 	NapLevelFrozen NapLevel = "frozen"
 )
 
-var _ = registerEnum(NapLevelDefault, NapLevelNever, NapLevelEfficiencyCores, NapLevelFrozen)
+var napLevels = []NapLevel{NapLevelDefault, NapLevelNever, NapLevelEfficiencyCores, NapLevelFrozen}
+
+var _ = registerEnum(napLevels...)
+
+// NapLevels are the nap levels in schema order.
+func NapLevels() []NapLevel { return slices.Clone(napLevels) }
 
 // BatteryConfig configures the battery module.
 //

@@ -8,16 +8,20 @@ import (
 )
 
 func TestEveryConfiguredNapLevelIsALevelAppNapKnows(t *testing.T) {
-	got, err := napLevels(map[string]config.NapLevel{
-		"a": config.NapLevelDefault, "b": config.NapLevelNever, "c": config.NapLevelEfficiencyCores, "d": config.NapLevelFrozen,
-	})
+	configured := map[string]config.NapLevel{}
+	for _, l := range config.NapLevels() {
+		configured[string(l)] = l
+	}
+	got, err := napLevels(configured)
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := map[string]nap.Level{"a": nap.LevelDefault, "b": nap.LevelNever, "c": nap.LevelEfficiencyCores, "d": nap.LevelFrozen}
-	for app, l := range want {
-		if got[app] != l {
-			t.Errorf("%s: %v, want %v", app, got[app], l)
+	if len(got) != len(nap.Levels()) {
+		t.Fatalf("the config names %d levels and App Nap knows %d", len(got), len(nap.Levels()))
+	}
+	for name, l := range got {
+		if l.String() != name {
+			t.Errorf("%s became %v", name, l)
 		}
 	}
 	if _, err := napLevels(map[string]config.NapLevel{"x": "deep"}); err == nil {

@@ -138,6 +138,7 @@ func powerBatteryPage(*config.Config) pageSpec {
 		sections: []sectionSpec{
 			{title: "settings-section-power-alerts", rows: fields(
 				"modules.battery.notify-low", "modules.battery.notify-charged-at", "modules.power-profiles.auto-saver-at")},
+			{title: "settings-section-power-app-nap", rows: []rowSpec{appNapRow()}},
 		},
 		footer: func(k *kit) widget.Widget { return linksSection(k, "settings-power-section-sleep", powerLinks) },
 	}
