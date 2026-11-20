@@ -175,6 +175,21 @@ func TestTheServiceCanWriteTheBatteryThroughItsDeviceTree(t *testing.T) {
 	}
 }
 
+func TestTheServiceCanWriteEveryDevicePowerKnob(t *testing.T) {
+	mounts := sandboxOf(t, "../../dist/lys-power.service")
+	for _, file := range []string{
+		"/sys/devices/pci0000:00/0000:00:14.3/power/control",
+		"/sys/devices/pci0000:00/0000:00:14.0/usb3/3-2/power/control",
+		"/sys/devices/pci0000:00/0000:00:17.0/ata1/host0/scsi_host/host0/link_power_management_policy",
+		"/sys/module/pcie_aspm/parameters/policy",
+		"/sys/module/snd_hda_intel/parameters/power_save",
+	} {
+		if !writableIn(mounts, file) {
+			t.Errorf("lys-power.service leaves %s read-only", file)
+		}
+	}
+}
+
 func TestTheServiceKeepsKernelTunablesAndTheSystemReadOnly(t *testing.T) {
 	mounts := sandboxOf(t, "../../dist/lys-power.service")
 	for _, file := range []string{

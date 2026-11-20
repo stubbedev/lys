@@ -54,17 +54,22 @@ func newFixture(t *testing.T) *fixture {
 		"ps":    "LYS_POWER_SUPPLY_DIR",
 		"state": "LYS_POWER_STATE_DIR",
 		"run":   "LYS_POWER_RUNTIME_DIR",
+		"sys":   "LYS_POWER_SYS_DIR",
 	} {
 		if err := os.MkdirAll(filepath.Join(root, dir), 0o700); err != nil {
 			t.Fatal(err)
 		}
 		t.Setenv(env, filepath.Join(root, dir))
 	}
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
 	f := &fixture{
 		root:     root,
 		profiles: &fakeProfiles{available: []string{"performance", "balanced", "power-saver"}},
 		log:      slog.New(slog.NewTextHandler(io.Discard, nil)),
-		cfg:      config.Load(),
+		cfg:      cfg,
 	}
 	f.plug(t)
 	f.writeBattery(t, "75", "80")

@@ -31,6 +31,14 @@
       autoBrightness.enable = true;
     };
     brightOnly = eval {autoBrightness.enable = true;};
+    devices = eval {
+      enable = true;
+      devicePower = {
+        policy = "off";
+        deny = ["usb:046d:c52b" "pci:8086:a840"];
+      };
+    };
+    environment = config: config.systemd.services.lys-power.environment;
     wants = nixos.systemd.services.lys-power.wantedBy;
     userWants = config: config.systemd.user.services.lys-power-brightness.wantedBy or [];
     fail = cond: message: lib.optionalString cond "echo ${lib.escapeShellArg message} >&2; exit 1";
@@ -43,7 +51,7 @@
       grep -qxF "Restart=on-failure" $unit
       grep -qxF "RestartSec=10s" $unit
       grep -qxF "ProtectSystem=strict" $unit
-      grep -qxF "ReadWritePaths=-/run/battery-charge" $unit
+      grep -qxF "ReadWritePaths=-/run/battery-charge -/sys/module/pcie_aspm/parameters/policy -/sys/module/snd_hda_intel/parameters/power_save" $unit
       grep -qxF "ReadOnlyPaths=/proc/sys -/proc/sysrq-trigger -/proc/acpi -/proc/fs -/proc/irq -/sys/kernel -/sys/module -/sys/power -/sys/firmware -/sys/fs" $unit
       if grep -qx "ProtectKernelTunables=.*" $unit; then echo "lys-power.service sets ProtectKernelTunables, which makes the charge thresholds read-only" >&2; exit 1; fi
       grep -qxF "d /run/battery-charge 0775 root users -" ${pkg}/lib/tmpfiles.d/lys-power.conf
@@ -55,6 +63,9 @@
       ${fail (!lib.elem pkg nixos.services.dbus.packages) "lys-power's system bus policy is not in services.dbus.packages"}
       ${fail (!nixos.services.upower.enable) "upower is not enabled"}
       ${fail (!nixos.services.power-profiles-daemon.enable) "power-profiles-daemon is not enabled"}
+      ${fail ((environment nixos).LYS_POWER_DEVICE_POLICY != "battery" || (environment nixos).LYS_POWER_DEVICE_DENY != "") "the device power policy does not default to battery with nothing denied"}
+      ${fail ((environment devices).LYS_POWER_DEVICE_POLICY != "off") "devicePower.policy does not reach LYS_POWER_DEVICE_POLICY"}
+      ${fail ((environment devices).LYS_POWER_DEVICE_DENY != "usb:046d:c52b pci:8086:a840") "devicePower.deny does not reach LYS_POWER_DEVICE_DENY"}
       user=${pkg}/lib/systemd/user/lys-power-brightness.service
       grep -qxF "ExecStart=${lib.getExe pkg} brightness" $user
       grep -qxF "PartOf=graphical-session.target" $user

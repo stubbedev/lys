@@ -17,6 +17,26 @@ in {
     };
 
     autoBrightness.enable = lib.mkEnableOption "automatic screen brightness, the lys-power-brightness user service, in every graphical session";
+
+    devicePower = {
+      policy = lib.mkOption {
+        type = lib.types.enum ["battery" "always" "off"];
+        default = "battery";
+        description = ''
+          When idle devices power down: `battery` on battery only, with
+          everything back at full performance on AC; `always` keeps PCI
+          runtime power management and USB autosuspend on AC as well;
+          `off` leaves every device alone.
+        '';
+      };
+
+      deny = lib.mkOption {
+        type = lib.types.listOf (lib.types.strMatching "(pci|usb):[0-9a-fA-F]{4}:[0-9a-fA-F]{4}");
+        default = [];
+        example = ["usb:046d:c52b" "pci:8086:a840"];
+        description = "Devices the device power policy never touches, as pci:vendor:device or usb:vendor:product.";
+      };
+    };
   };
 
   config = lib.mkMerge [
@@ -29,7 +49,13 @@ in {
       systemd.tmpfiles.packages = [cfg.package];
       services.dbus.packages = [cfg.package];
       security.polkit.enable = lib.mkDefault true;
-      systemd.services.lys-power.wantedBy = ["graphical.target"];
+      systemd.services.lys-power = {
+        wantedBy = ["graphical.target"];
+        environment = {
+          LYS_POWER_DEVICE_POLICY = cfg.devicePower.policy;
+          LYS_POWER_DEVICE_DENY = lib.concatStringsSep " " cfg.devicePower.deny;
+        };
+      };
     })
     (lib.mkIf cfg.autoBrightness.enable {
       environment.systemPackages = [cfg.package];

@@ -4,10 +4,13 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
+	"github.com/stubbedev/lys/power/internal/devicepower"
 	"github.com/stubbedev/lys/power/internal/meter"
 	"github.com/stubbedev/lys/power/internal/supply"
 )
@@ -22,6 +25,7 @@ const (
 	DefaultProcDir     = "/proc"
 	DefaultPowercapDir = "/sys/class/powercap"
 	DefaultUserRunDir  = "/run/user"
+	DefaultSysDir      = "/sys"
 )
 
 // LegacyStateDirs are where lys-power's predecessors kept their state,
@@ -133,10 +137,16 @@ type Config struct {
 	// UserRunDir holds each user's runtime directory, where the user's
 	// systemd manager listens.
 	UserRunDir string
+	SysDir     string
+	Devices    devicepower.Overrides
 }
 
 // Load reads the configuration, applying LYS_POWER_* environment overrides.
-func Load() Config {
+func Load() (Config, error) {
+	devices, err := loadDevices()
+	if err != nil {
+		return Config{}, err
+	}
 	return Config{
 		SupplyDir:   env("LYS_POWER_SUPPLY_DIR", DefaultSupplyDir),
 		StateDir:    env("LYS_POWER_STATE_DIR", DefaultStateDir),
@@ -147,7 +157,25 @@ func Load() Config {
 		ProcDir:     env("LYS_POWER_PROC_DIR", DefaultProcDir),
 		PowercapDir: env("LYS_POWER_POWERCAP_DIR", DefaultPowercapDir),
 		UserRunDir:  env("LYS_POWER_USER_RUN_DIR", DefaultUserRunDir),
+		SysDir:      env("LYS_POWER_SYS_DIR", DefaultSysDir),
+		Devices:     devices,
+	}, nil
+}
+
+func loadDevices() (devicepower.Overrides, error) {
+	mode, err := devicepower.ParseMode(env("LYS_POWER_DEVICE_POLICY", devicepower.ModeBattery.String()))
+	if err != nil {
+		return devicepower.Overrides{}, fmt.Errorf("reading LYS_POWER_DEVICE_POLICY: %w", err)
 	}
+	ov := devicepower.Overrides{Mode: mode}
+	for entry := range strings.FieldsSeq(os.Getenv("LYS_POWER_DEVICE_DENY")) {
+		denied, err := devicepower.ParseDenied(entry)
+		if err != nil {
+			return devicepower.Overrides{}, fmt.Errorf("reading LYS_POWER_DEVICE_DENY: %w", err)
+		}
+		ov.Deny = append(ov.Deny, denied)
+	}
+	return ov, nil
 }
 
 // HistoryPath is the unplug log.

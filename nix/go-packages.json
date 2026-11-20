@@ -2124,10 +2124,12 @@
     "imports": [
       "lib/buildinfo",
       "lib/dbusx",
+      "lib/third_party/godbus",
       "power/energy",
       "power/internal/autobright",
       "power/internal/config",
       "power/internal/daemon",
+      "power/internal/devicepower",
       "power/internal/energyd",
       "power/internal/history",
       "power/internal/meter",
@@ -2179,6 +2181,7 @@
   },
   "power/internal/config": {
     "imports": [
+      "power/internal/devicepower",
       "power/internal/meter",
       "power/internal/supply"
     ]
@@ -2188,6 +2191,7 @@
       "lib/dbusx",
       "lib/third_party/godbus",
       "power/internal/config",
+      "power/internal/devicepower",
       "power/internal/energyd",
       "power/internal/history",
       "power/internal/pauser",

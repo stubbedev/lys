@@ -58,7 +58,7 @@ atomically.
 lys-power run       Evaluate continuously (the service runs this)
 lys-power once      Evaluate once
 lys-power full      Charge to 100% until the next unplug
-lys-power status    Print the power source, thresholds, profile and prediction
+lys-power status    Print the power source, thresholds, profile, prediction and device power
 lys-power predict   Print the predicted unplug time
 lys-power energy [-for 10s] [-threads] [-json]
                     Measure what each app costs in power, CPU, wakeups and GPU time
@@ -78,6 +78,59 @@ The environment variables `LYS_POWER_SUPPLY_DIR`, `LYS_POWER_STATE_DIR` and
 `brightness` looks for a light sensor and a camera. `LYS_POWER_CGROUP_DIR`,
 `LYS_POWER_PROC_DIR` and `LYS_POWER_POWERCAP_DIR` replace `/sys/fs/cgroup`,
 `/proc` and `/sys/class/powercap`, where energy attribution reads.
+`LYS_POWER_SYS_DIR` replaces `/sys`, where the [device power](#device-power)
+policy reads and writes.
+
+## Device power
+
+macOS powers down radios, storage links, PCIe links, USB and audio whenever
+they are idle. On Linux most of that is left to TLP or `powertop --auto-tune`.
+lys-power applies a small, conservative device policy itself, when it starts
+and on every plug and unplug:
+
+| Knob | Which devices | On battery | On AC |
+| --- | --- | --- | --- |
+| PCI runtime PM (`power/control`) | Wi-Fi (`iwlwifi`, `ath11k_pci`, `ath12k_pci`, `mt7921e`, `mt7925e`), Bluetooth (`btintel_pcie`), NVMe (`nvme`), SMBus (`i801_smbus`) | `auto` | `on` |
+| USB autosuspend (`power/control`) | every device except the ones below | `auto` | `on` |
+| Wi-Fi power save (nl80211) | every station interface | on | off |
+| PCIe ASPM (`pcie_aspm.policy`) | the whole machine | `powersave` | `default` |
+| SATA link power (`link_power_management_policy`) | every AHCI host | `med_power_with_dipm` | `max_performance` |
+| HD audio power save (`snd_hda_intel.power_save`) | the whole machine | 1 s | 10 s |
+
+It never touches:
+
+- **USB input devices**: anything with a HID interface (keyboards, mice,
+  touchpads, receivers), since an autosuspended input device lags and drops
+  the first key;
+- USB audio devices, printers, Bluetooth adapters, modems and serial devices;
+- USB hubs, which the kernel already autosuspends;
+- PCI devices whose driver is not on the list above, such as the Intel
+  Management Engine and USB controllers that manage their own runtime PM;
+- any device on the denylist.
+
+PCIe ASPM stays at `powersave`, never `powersupersave`, whose L1 substates hang
+some machines. Where the firmware does not let the kernel change the ASPM
+policy, the kernel refuses it and lys-power logs that it kept the firmware's.
+NVMe drives save power through APST on their own; lys-power only checks that
+APST is enabled and shows it in `lys-power status`.
+
+On a machine without a battery the policy does nothing. While TLP,
+`auto-cpufreq` or `tuned` (without `tuned-ppd`) runs, it does nothing either,
+and says so in the log and in `lys-power status`. Without the system bus it
+cannot rule them out, so it does nothing then too.
+
+Every knob is written only when it is not already at its value, with one
+write each, and a failed write is logged with its sysfs path while the other
+knobs are still set. A value you set by hand stays until the next plug or
+unplug. `lys-power status` lists every knob, its value, the value it is moving
+to, and why a knob is or is not managed.
+
+`LYS_POWER_DEVICE_POLICY` chooses the policy: `battery` (the default) powers
+devices down on battery and puts everything back at full performance on AC;
+`always` also keeps PCI runtime PM and USB autosuspend on while on AC; `off`
+leaves every device alone. `LYS_POWER_DEVICE_DENY` lists devices never touched,
+separated by spaces, as `pci:vendor:device` or `usb:vendor:product` in hex, as
+`lspci -nn` and `lsusb` print them.
 
 ## Energy per app
 
@@ -275,6 +328,8 @@ writing the same thresholds work against each other.
 | `services.lys-power.enable` | `false` | Run the `lys-power` system service. |
 | `services.lys-power.package` | the flake's `lys-power` | The package whose units and tmpfiles rule are installed. |
 | `services.lys-power.autoBrightness.enable` | `false` | Start the `lys-power-brightness` user service, [automatic brightness](#automatic-brightness), with every graphical session. |
+| `services.lys-power.devicePower.policy` | `"battery"` | When idle devices power down, `"battery"`, `"always"` or `"off"`: see [device power](#device-power). |
+| `services.lys-power.devicePower.deny` | `[]` | Devices the device power policy never touches, such as `"usb:046d:c52b"`. |
 
 The module installs `lys-power`, its system unit, wanted by
 `graphical.target`, and the tmpfiles rule that creates `/run/battery-charge`.

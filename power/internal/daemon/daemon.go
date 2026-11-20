@@ -306,6 +306,7 @@ func Run(ctx context.Context, cfg config.Config, log *slog.Logger) error {
 	signal.Notify(hup, syscall.SIGHUP)
 	defer signal.Stop(hup)
 
+	devices := deviceFollower{cfg: cfg, conn: conn, log: log}
 	for {
 		now := time.Now()
 		result, err := Eval(cfg, log, now, pc)
@@ -317,6 +318,7 @@ func Run(ctx context.Context, cfg config.Config, log *slog.Logger) error {
 		case result.Changed():
 			log.Info("applied", "result", result)
 		}
+		devices.follow(ctx)
 		if err == nil && discharging != nil {
 			latest(discharging, result.Discharging())
 		}

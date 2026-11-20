@@ -19,10 +19,12 @@ import (
 
 	"github.com/stubbedev/lys/lib/buildinfo"
 	"github.com/stubbedev/lys/lib/dbusx"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
 	"github.com/stubbedev/lys/power/internal/autobright"
 	"github.com/stubbedev/lys/power/internal/config"
 	"github.com/stubbedev/lys/power/internal/daemon"
+	"github.com/stubbedev/lys/power/internal/devicepower"
 	"github.com/stubbedev/lys/power/internal/history"
 	"github.com/stubbedev/lys/power/internal/predict"
 	"github.com/stubbedev/lys/power/internal/profiles"
@@ -48,7 +50,12 @@ Paths can be overridden with LYS_POWER_SUPPLY_DIR, LYS_POWER_STATE_DIR and
 LYS_POWER_RUNTIME_DIR; where brightness looks for a light sensor and a
 camera with LYS_POWER_IIO_DIR and LYS_POWER_DEV_DIR; where energy reads
 the cgroups, processes and RAPL counters with LYS_POWER_CGROUP_DIR,
-LYS_POWER_PROC_DIR and LYS_POWER_POWERCAP_DIR.
+LYS_POWER_PROC_DIR and LYS_POWER_POWERCAP_DIR; the sysfs root of the
+device power policy with LYS_POWER_SYS_DIR.
+
+LYS_POWER_DEVICE_POLICY is battery (idle devices power down on battery),
+always (PCI and USB devices also sleep on AC) or off. LYS_POWER_DEVICE_DENY
+lists devices it never touches, as pci:vendor:device or usb:vendor:product.
 `
 
 func main() {
@@ -58,9 +65,13 @@ func main() {
 	}
 
 	log := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	cfg := config.Load()
+	cfg, err := config.Load()
+	if err != nil {
+		log.Error("lys-power configuration", "err", err)
+		os.Exit(2)
+	}
 
-	err := dispatch(os.Args[1:], cfg, log)
+	err = dispatch(os.Args[1:], cfg, log)
 	if err != nil {
 		if errors.Is(err, errUnknownCommand) {
 			fmt.Fprint(os.Stderr, err)
@@ -87,20 +98,28 @@ func dispatch(args []string, cfg config.Config, log *slog.Logger) error {
 		defer stop()
 		return autobright.Run(ctx, cfg, log)
 	case "once":
-		return withProfiles(log, func(client *profiles.Client) error {
+		return withBus(log, func(conn *dbus.Conn) error {
 			var pc daemon.ProfileClient
-			if client != nil {
-				pc = client
+			if conn != nil {
+				pc = profiles.New(conn)
 			}
 			result, err := daemon.Eval(cfg, log, time.Now(), pc)
 			log.Info("evaluated", "result", result)
-			return err
+			if conn == nil {
+				log.Warn("device power left alone", "err", daemon.ErrNoBus)
+				return err
+			}
+			source, serr := daemon.DeviceSource(supply.Supply{Dir: cfg.SupplyDir})
+			if serr != nil {
+				return errors.Join(err, serr)
+			}
+			return errors.Join(err, daemon.ApplyDevices(context.Background(), cfg, conn, log, source))
 		})
 	case "full":
 		return requestFull(cfg)
 	case "status":
-		return withProfiles(log, func(client *profiles.Client) error {
-			out, err := status(cfg, time.Now(), client)
+		return withBus(log, func(conn *dbus.Conn) error {
+			out, err := status(cfg, time.Now(), conn)
 			if err != nil {
 				return err
 			}
@@ -135,13 +154,13 @@ func dispatch(args []string, cfg config.Config, log *slog.Logger) error {
 	}
 }
 
-// withProfiles runs fn with a power-profiles-daemon client on a fresh
-// system bus connection, or with nil when there is no bus: one-shot
-// commands must not fail on a machine without D-Bus.
-func withProfiles(log *slog.Logger, fn func(*profiles.Client) error) error {
+// withBus runs fn with a fresh system bus connection, or with nil when
+// there is no bus: one-shot commands must not fail on a machine without
+// D-Bus.
+func withBus(log *slog.Logger, fn func(*dbus.Conn) error) error {
 	conn, err := dbusx.DialSystem(context.Background(), config.BusTimeout)
 	if err != nil {
-		log.Info("system bus unavailable, skipping power profiles", "err", err)
+		log.Info("system bus unavailable, skipping power profiles and device power", "err", err)
 		return fn(nil)
 	}
 	defer func() {
@@ -149,7 +168,7 @@ func withProfiles(log *slog.Logger, fn func(*profiles.Client) error) error {
 			log.Warn("closing system bus", "err", err)
 		}
 	}()
-	return fn(profiles.New(conn))
+	return fn(conn)
 }
 
 func requestFull(cfg config.Config) error {
@@ -167,7 +186,11 @@ func requestFull(cfg config.Config) error {
 
 // status renders the current state. The output accumulates through
 // fmt.Appendf, which cannot fail, so the caller gets one string to print.
-func status(cfg config.Config, now time.Time, client *profiles.Client) (string, error) {
+func status(cfg config.Config, now time.Time, conn *dbus.Conn) (string, error) {
+	var client *profiles.Client
+	if conn != nil {
+		client = profiles.New(conn)
+	}
 	sup := supply.Supply{Dir: cfg.SupplyDir}
 
 	var out []byte
@@ -211,7 +234,28 @@ func status(cfg config.Config, now time.Time, client *profiles.Client) (string, 
 	} else {
 		out = fmt.Appendf(out, "prediction:  none yet, holding the base thresholds\n")
 	}
+
+	devices, err := daemon.PlanDevices(context.Background(), cfg, conn)
+	out = appendDevices(out, cfg.Devices.Mode, devices, err)
 	return string(out), nil
+}
+
+func appendDevices(out []byte, mode devicepower.Mode, state daemon.DeviceState, err error) []byte {
+	out = fmt.Appendf(out, "devices:     policy %s, power source %s\n", mode, state.Source)
+	if err != nil {
+		return fmt.Appendf(out, "             %v\n", err)
+	}
+	if len(state.Rivals) > 0 {
+		out = fmt.Appendf(out, "             %v active, device power is left to it\n", state.Rivals)
+	}
+	for _, d := range state.Decisions {
+		value := string(d.Current)
+		if d.Pending() {
+			value += " -> " + string(d.Want)
+		}
+		out = fmt.Appendf(out, "  %-17s %-28s %-24s %s\n", d.Kind, d.Subject, value, d.Reason)
+	}
+	return out
 }
 
 func appendProfile(out []byte, client *profiles.Client) []byte {

@@ -13,7 +13,9 @@ lys-power holds the charge between 75% and 80%, learns when the charger usually
 comes out, and charges to 100% in the two hours before that moment. It also
 switches the [power-profiles-daemon](https://gitlab.freedesktop.org/upower/power-profiles-daemon)
 profile on every AC edge: `performance` on AC, `power-saver` on battery.
-Optionally, as a user service, it sets the screen brightness from an ambient
+On battery it powers down idle devices, as macOS does: PCI runtime power
+management, USB autosuspend (never for keyboards, mice or audio), Wi-Fi power
+save, PCIe ASPM, SATA link power and audio power save. Optionally, as a user service, it sets the screen brightness from an ambient
 light sensor or short camera captures that are never kept or sent anywhere.
 
 ## Install
@@ -39,7 +41,7 @@ brightness is `services.lys-power.autoBrightness.enable = true;` on NixOS and
 ## Usage
 
 ```sh
-lys-power status    # the power source, thresholds, profile and prediction
+lys-power status    # the power source, thresholds, profile, prediction and device power
 lys-power full      # charge to 100% until the next unplug
 lys-power predict   # the predicted unplug time
 lys-power energy    # what each app costs in power, CPU, wakeups and GPU time
