@@ -112,10 +112,10 @@ func cursorUser(users []User, lastUser string) (User, bool) {
 }
 
 // detectLastCursor is the cursor cursorUser's last session showed,
-// none without such a user.
+// none without such a user or with match-cursor off.
 func detectLastCursor(init Init) Cursor {
 	u, ok := cursorUser(init.Users, init.LastUser)
-	if !ok {
+	if !ok || !init.Config.Login.Greeter.MatchCursor {
 		return Cursor{}
 	}
 	return DetectCursor(cursorrecord.Dir, u, init.LastSession)
@@ -128,31 +128,28 @@ func detectLastCursor(init Init) Cursor {
 // nothing a user controls.
 func KioskCursor(g config.LoginGreeterConfig, records string, users []User, lastUser string) Cursor {
 	var recorded Cursor
-	if u, ok := cursorUser(users, lastUser); ok {
+	if u, ok := cursorUser(users, lastUser); ok && g.MatchCursor {
 		recorded = recordedCursor(records, u.UID)
 	}
 	return ResolveCursor(g, recorded)
 }
 
-// ResolveCursor applies install_cursor's order: an explicit [greeter]
-// key (config.yaml or runtime.yaml), the detected dotfiles, the
-// XCURSOR_* environment, then the size default. The theme may stay "".
+// ResolveCursor is the cursor the greeter shows. With match-cursor on:
+// what the last session showed (detected), the XCURSOR_* environment,
+// then cursor-theme and cursor-size. With it off: cursor-theme and
+// cursor-size, an empty theme leaving the environment's. The theme may
+// stay "".
 func ResolveCursor(g config.LoginGreeterConfig, detected Cursor) Cursor {
-	var configured Cursor
-	if g.CursorThemeExplicit {
-		configured.Theme = g.CursorTheme
-	}
-	if g.CursorSizeExplicit {
-		configured.Size = g.CursorSize
-	}
+	configured := Cursor{Theme: g.CursorTheme, Size: g.CursorSize}
 	env := Cursor{Theme: os.Getenv("XCURSOR_THEME")}
 	if n, err := strconv.ParseUint(strings.TrimSpace(os.Getenv("XCURSOR_SIZE")), 10, 32); err == nil {
 		env.Size = uint32(n)
 	}
-	resolved := configured.or(detected).or(env)
-	if resolved.Size == 0 {
-		resolved.Size = max(g.CursorSize, 1)
+	resolved := configured.or(env)
+	if g.MatchCursor {
+		resolved = detected.or(env).or(configured)
 	}
+	resolved.Size = max(resolved.Size, 1)
 	return resolved
 }
 

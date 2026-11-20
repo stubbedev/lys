@@ -65,6 +65,9 @@ settings-login-greeter-show-power-buttons = Show Power Buttons
 settings-login-greeter-fingerprint = Fingerprint Login
     .description = Log in with an enrolled fingerprint (fprintd) as well as the password
 
+settings-login-greeter-match-cursor = Match My Cursor
+    .description = Show the cursor the last session to log in showed, instead of the theme and size set here
+
 settings-login-greeter-cursor-theme = Cursor Theme
     .description = Xcursor theme used on the login screen (empty = system default)
 

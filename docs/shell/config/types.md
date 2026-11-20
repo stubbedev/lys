@@ -990,6 +990,7 @@ Greeter mode: the login screen before login, as the display manager.
 |---|---|
 | `show-user-list` | Show clickable avatars for the machine's login users. |
 | `show-power-buttons` | Show the shutdown/reboot buttons at the bottom of the screen. |
+| `match-cursor` | Show the cursor of the last user's session: the one it recorded |
 | `cursor-theme` | Xcursor theme used on the login screen (empty = system default). |
 | `cursor-size` | Logical cursor size on the login screen. Scaled automatically per |
 | `screen-reader` | Screen reader the accessibility menu and Super+Alt+S start: a |

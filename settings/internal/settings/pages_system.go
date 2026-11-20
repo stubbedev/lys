@@ -76,13 +76,19 @@ func lockPage(*config.Config) pageSpec {
 			}},
 			{title: "settings-section-lock-advanced", advanced: true, rows: []rowSpec{field("login.lock.pam-service", pamServiceRow), field("login.lock.lock-on-start")}},
 			{title: "settings-section-login-screen", rows: []rowSpec{field("login.greeter.show-user-list"), field("login.greeter.show-power-buttons"), field("login.greeter.fingerprint", fingerprintRow), field("login.greeter.screen-reader")}},
-			{title: "settings-section-cursor", rows: []rowSpec{field("login.greeter.cursor-theme"), field("login.greeter.cursor-size", countChips(inPixels, 24, 32, 48, 64, 96))}},
+			{title: "settings-section-cursor", rows: []rowSpec{
+				field("login.greeter.match-cursor"),
+				field("login.greeter.cursor-theme", ownCursor),
+				field("login.greeter.cursor-size", countChips(inPixels, 24, 32, 48, 64, 96), ownCursor),
+			}},
 		},
 		footer: lockFooter, links: []pageLink{surfaceAnimationLink}, extrasOnRows: true,
 	}
 }
 
 const lockBlurSoftMax = 100
+
+var ownCursor = shownWhen("login.greeter.match-cursor", switchedOff)
 
 var pamServiceRow rowOpt = func(r *rowSpec) {
 	r.vet = func(k *kit, v any) error {

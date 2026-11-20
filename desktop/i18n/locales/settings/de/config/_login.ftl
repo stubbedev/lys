@@ -65,6 +65,9 @@ settings-login-greeter-show-power-buttons = Energieknöpfe anzeigen
 settings-login-greeter-fingerprint = Anmeldung per Fingerabdruck
     .description = Mit einem registrierten Fingerabdruck (fprintd) zusätzlich zum Passwort anmelden
 
+settings-login-greeter-match-cursor = Meinen Zeiger übernehmen
+    .description = Den Zeiger der zuletzt angemeldeten Sitzung zeigen statt des hier gesetzten Themas und der Größe
+
 settings-login-greeter-cursor-theme = Zeigerthema
     .description = Xcursor-Thema auf dem Anmeldebildschirm (leer = Systemstandard)
 

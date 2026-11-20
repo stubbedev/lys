@@ -65,6 +65,9 @@ settings-login-greeter-show-power-buttons = Mostrar los botones de energía
 settings-login-greeter-fingerprint = Inicio de sesión con huella
     .description = Iniciar sesión con una huella registrada (fprintd) además de la contraseña
 
+settings-login-greeter-match-cursor = Igualar mi cursor
+    .description = Mostrar el cursor de la última sesión iniciada en lugar del tema y el tamaño definidos aquí
+
 settings-login-greeter-cursor-theme = Tema del cursor
     .description = Tema de Xcursor usado en la pantalla de inicio de sesión (vacío = predeterminado del sistema)
 

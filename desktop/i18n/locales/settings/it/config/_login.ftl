@@ -65,6 +65,9 @@ settings-login-greeter-show-power-buttons = Mostra i pulsanti di alimentazione
 settings-login-greeter-fingerprint = Accesso con impronta
     .description = Accedere con un'impronta registrata (fprintd) oltre che con la password
 
+settings-login-greeter-match-cursor = Usa il mio cursore
+    .description = Mostra il cursore dell'ultima sessione avviata invece del tema e della dimensione impostati qui
+
 settings-login-greeter-cursor-theme = Tema del cursore
     .description = Tema Xcursor usato nella schermata di accesso (vuoto = predefinito di sistema)
 

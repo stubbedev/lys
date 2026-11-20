@@ -36,8 +36,9 @@ self: {
   # point XCURSOR_PATH at the system icon dir, where a theme installed via
   # `environment.systemPackages` lands. Set your cursor there — install the theme
   # system-wide and export XCURSOR_THEME/XCURSOR_SIZE — and the greeter follows.
-  # An explicit `greeter.settings.login.greeter.cursor-theme`/`cursor-size`
-  # still wins; the former `greeter.settings.greeter.*` keys are read too, as
+  # A `greeter.settings.login.greeter.cursor-theme`/`cursor-size` takes the
+  # place of the system's here, and in the greeter wins over the last session's
+  # cursor with `match-cursor = false`; the former `greeter.settings.greeter.*` keys are read too, as
   # the greeter itself still reads them.
   # sessionVariables wins over variables (that's the layer users set cursor in).
   sysVars = config.environment.variables // config.environment.sessionVariables;

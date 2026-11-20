@@ -55,6 +55,7 @@ login:
   greeter:
     show-user-list: true
     show-power-buttons: true
+    match-cursor: true
     cursor-theme: ""
     cursor-size: 24
     screen-reader: orca

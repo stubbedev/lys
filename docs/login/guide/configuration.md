@@ -90,9 +90,12 @@ Who may run it:
 
 ## Cursor
 
-An explicit `login.greeter.cursor-theme` or `cursor-size` wins. Otherwise the
-greeter uses the cursor of the last user to log in, or the only user. Theme and
-size are resolved separately, first match wins:
+With `login.greeter.match-cursor: false` the greeter shows
+`login.greeter.cursor-theme` and `cursor-size`, an empty theme leaving
+`XCURSOR_THEME`'s. With `match-cursor: true`, the default, it shows the cursor of
+the last user to log in, or the only user, and the two keys apply only where
+nothing below names one. Theme and size are resolved separately, first match
+wins:
 
 1. **The session's record.** `lys-login record-cursor` sends `XCURSOR_THEME` and
    `XCURSOR_SIZE` (or `HYPRCURSOR_SIZE`) over `/run/lys-login/cursor.sock`. The
@@ -109,7 +112,7 @@ size are resolved separately, first match wins:
    parse (a line that is no `KEY=VALUE`, a size that is no positive number, a
    cursor value referencing another variable) is logged with its path, and
    `environment.d` then yields nothing.
-3. **`XCURSOR_THEME` and `XCURSOR_SIZE`** in the environment, then the default.
+3. **`XCURSOR_THEME` and `XCURSOR_SIZE`** in the environment, then `cursor-theme` and `cursor-size`.
 
 Under the daemon the cursor goes into the greeter's lys-wm kiosk config. The theme
 must be installed system-wide, where the greeter account can read it; otherwise

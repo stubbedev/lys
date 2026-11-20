@@ -151,7 +151,7 @@ func TestBackgroundImagePath(t *testing.T) {
 	}
 }
 
-func TestLoadGreeterLayersAndExplicitCursor(t *testing.T) {
+func TestLoadGreeterLayers(t *testing.T) {
 	dir := t.TempDir()
 	path := writeFile(t, dir, "config.yaml", "login:\n  greeter:\n    cursor-theme: Adwaita\n    show-user-list: false\n")
 	writeFile(t, dir, "runtime.yaml", "login:\n  greeter:\n    show-user-list: true\nbar:\n  location: bottom\n")
@@ -160,11 +160,8 @@ func TestLoadGreeterLayersAndExplicitCursor(t *testing.T) {
 		t.Fatal(err)
 	}
 	g := cfg.Login.Greeter
-	if g.CursorTheme != "Adwaita" || !g.CursorThemeExplicit {
-		t.Errorf("cursor theme = %q explicit=%v, want the config value, explicit", g.CursorTheme, g.CursorThemeExplicit)
-	}
-	if g.CursorSize != 24 || g.CursorSizeExplicit {
-		t.Errorf("cursor size = %d explicit=%v, want the unset default", g.CursorSize, g.CursorSizeExplicit)
+	if g.CursorTheme != "Adwaita" || g.CursorSize != 24 || !g.MatchCursor {
+		t.Errorf("cursor = %q %d match=%v, want the config theme, the default size, matching the session", g.CursorTheme, g.CursorSize, g.MatchCursor)
 	}
 	if !g.ShowUserList {
 		t.Error("runtime.yaml did not override config.yaml")
@@ -202,8 +199,8 @@ func TestLoadGreeterReadsARuntimeBesideAMissingConfig(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if g := cfg.Login.Greeter; g.CursorSize != 32 || !g.CursorSizeExplicit {
-		t.Errorf("cursor size = %d explicit=%v, want the runtime value", g.CursorSize, g.CursorSizeExplicit)
+	if g := cfg.Login.Greeter; g.CursorSize != 32 {
+		t.Errorf("cursor size = %d, want the runtime value", g.CursorSize)
 	}
 	if _, err := os.Lstat(path); !errors.Is(err, fs.ErrNotExist) {
 		t.Errorf("config.yaml was created: %v", err)
@@ -251,13 +248,11 @@ func TestLoadGreeterReportsALegacyRuntimeTOML(t *testing.T) {
 	}
 }
 
-// The former greeter section's cursor keys count as set: a system
-// config written for the old greeter keeps its explicit cursor.
 func TestLoadGreeterReadsTheFormerCursorKeys(t *testing.T) {
 	path := writeFile(t, t.TempDir(), "config.yaml", "greeter:\n  cursor-size: 48\n")
 	cfg, _ := LoadGreeter(path, func(Diagnostic) {})
-	if g := cfg.Login.Greeter; g.CursorSize != 48 || !g.CursorSizeExplicit {
-		t.Errorf("cursor size = %d explicit=%v", g.CursorSize, g.CursorSizeExplicit)
+	if g := cfg.Login.Greeter; g.CursorSize != 48 {
+		t.Errorf("cursor size = %d, want the former section's", g.CursorSize)
 	}
 }
 

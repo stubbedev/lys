@@ -106,6 +106,11 @@ func switchedOn(v any) bool {
 	return on
 }
 
+func switchedOff(v any) bool {
+	on, isSwitch := v.(bool)
+	return isSwitch && !on
+}
+
 // valueIn holds for a value that is one of values.
 func valueIn(values ...string) func(any) bool {
 	return func(v any) bool {

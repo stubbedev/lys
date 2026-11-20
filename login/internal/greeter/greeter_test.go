@@ -483,25 +483,37 @@ func TestKioskCursor(t *testing.T) {
 		t.Errorf("bob has no record and his dotfiles stay unread: %+v", got)
 	}
 	g := defaults
-	g.CursorTheme, g.CursorThemeExplicit = "Configured", true
-	if got := KioskCursor(g, records, []User{ada, bob}, "ada"); got != (Cursor{"Configured", 48}) {
-		t.Errorf("the config's theme over the record's: %+v", got)
+	g.CursorTheme = "Configured"
+	if got := KioskCursor(g, records, []User{ada, bob}, "ada"); got != (Cursor{"Bibata", 48}) {
+		t.Errorf("matching the session, the record over the config's theme: %+v", got)
+	}
+	g.MatchCursor = false
+	if got := KioskCursor(g, records, []User{ada, bob}, "ada"); got != (Cursor{"Configured", 24}) {
+		t.Errorf("not matching the session, the config over the record: %+v", got)
 	}
 }
 
-// TestResolveCursor pins install_cursor's order: explicit config,
-// detection, environment, the size default.
 func TestResolveCursor(t *testing.T) {
 	t.Setenv("XCURSOR_THEME", "EnvTheme")
 	t.Setenv("XCURSOR_SIZE", "18")
 	g := config.DefaultsLogin().Greeter
 	if got := ResolveCursor(g, Cursor{Theme: "Detected"}); got != (Cursor{"Detected", 18}) {
-		t.Errorf("defaults are not explicit: %+v", got)
+		t.Errorf("matching the session, detection then the environment: %+v", got)
 	}
-	g.CursorTheme, g.CursorThemeExplicit = "Configured", true
-	g.CursorSize, g.CursorSizeExplicit = 48, true
+	g.CursorTheme, g.CursorSize = "Configured", 48
+	if got := ResolveCursor(g, Cursor{"Detected", 30}); got != (Cursor{"Detected", 30}) {
+		t.Errorf("matching the session, the session over the config: %+v", got)
+	}
+	if got := ResolveCursor(g, Cursor{}); got != (Cursor{"EnvTheme", 18}) {
+		t.Errorf("matching a session that named nothing, the environment over the config: %+v", got)
+	}
+	g.MatchCursor = false
 	if got := ResolveCursor(g, Cursor{"Detected", 30}); got != (Cursor{"Configured", 48}) {
-		t.Errorf("explicit config wins: %+v", got)
+		t.Errorf("not matching the session, the config wins: %+v", got)
+	}
+	g.CursorTheme = ""
+	if got := ResolveCursor(g, Cursor{"Detected", 30}); got != (Cursor{"EnvTheme", 48}) {
+		t.Errorf("not matching, an empty theme is the system's: %+v", got)
 	}
 	t.Setenv("XCURSOR_THEME", "")
 	t.Setenv("XCURSOR_SIZE", "")

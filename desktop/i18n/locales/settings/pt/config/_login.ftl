@@ -61,6 +61,9 @@ settings-login-greeter-show-power-buttons = Mostrar botões de energia
 settings-login-greeter-fingerprint = Início de sessão por impressão digital
     .description = Iniciar sessão com uma impressão digital registada (fprintd) além da palavra-passe
 
+settings-login-greeter-match-cursor = Usar o meu cursor
+    .description = Mostrar o cursor da última sessão iniciada em vez do tema e do tamanho definidos aqui
+
 settings-login-greeter-cursor-theme = Tema do cursor
     .description = Tema Xcursor usado no ecrã de início de sessão (vazio = predefinição do sistema)
 

@@ -92,6 +92,10 @@ type LoginGreeterConfig struct {
 	ShowUserList bool `cfg:"show-user-list"`
 	// Show the shutdown/reboot buttons at the bottom of the screen.
 	ShowPowerButtons bool `cfg:"show-power-buttons"`
+	// Show the cursor of the last user's session: the one it recorded
+	// with `lys-login record-cursor`, else the one its dotfiles name.
+	// cursor-theme and cursor-size then apply only where neither says.
+	MatchCursor bool `cfg:"match-cursor"`
 	// Xcursor theme used on the login screen (empty = system default).
 	CursorTheme string `cfg:"cursor-theme,type=CursorTheme"`
 	// Logical cursor size on the login screen. Scaled automatically per
@@ -106,11 +110,6 @@ type LoginGreeterConfig struct {
 	// password alone, which also opens the login keyring. Nothing changes
 	// without fprintd or an enrolled finger.
 	Fingerprint bool `cfg:"fingerprint"`
-	// CursorThemeExplicit and CursorSizeExplicit record that a layer
-	// set the key: explicit values beat cursor auto-detection, schema
-	// defaults do not.
-	CursorThemeExplicit bool `cfg:"-"`
-	CursorSizeExplicit  bool `cfg:"-"`
 }
 
 // DefaultsLogin returns the schema defaults.
@@ -122,7 +121,7 @@ func DefaultsLogin() LoginConfig {
 		DateFormat:         mustStrftime("%A, %B %-d"),
 		ShowFailedAttempts: true,
 		Lock:               LoginLockConfig{Enabled: true, PamService: "system-auth", ShowMedia: true, ShowBattery: true, Fingerprint: true, ShowSwitchUser: true},
-		Greeter:            LoginGreeterConfig{ShowUserList: true, ShowPowerButtons: true, CursorSize: 24, ScreenReader: "orca", Fingerprint: true},
+		Greeter:            LoginGreeterConfig{ShowUserList: true, ShowPowerButtons: true, MatchCursor: true, CursorSize: 24, ScreenReader: "orca", Fingerprint: true},
 	}
 }
 
@@ -160,14 +159,6 @@ func LoadGreeter(path string, sink DiagnosticSink) (*Config, error) {
 	if err != nil {
 		errs = append(errs, err)
 	}
-	for _, tree := range []any{configTree, runtimeTree} {
-		if hasPath(tree, "login.greeter.cursor-theme") {
-			cfg.Login.Greeter.CursorThemeExplicit = true
-		}
-		if hasPath(tree, "login.greeter.cursor-size") {
-			cfg.Login.Greeter.CursorSizeExplicit = true
-		}
-	}
 	return cfg, errors.Join(errs...)
 }
 
@@ -182,7 +173,7 @@ var GreeterApplyKeys = []string{
 	"background-mode", "background-image", "background-color", "blur",
 	"show-clock", "clock-format", "date-format",
 	"greeter.show-user-list", "greeter.show-power-buttons",
-	"greeter.cursor-theme", "greeter.cursor-size", "greeter.fingerprint",
+	"greeter.match-cursor", "greeter.cursor-theme", "greeter.cursor-size", "greeter.fingerprint",
 }
 
 // Background is the background keys the lock screen and the greeter

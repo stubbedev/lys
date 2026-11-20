@@ -40,6 +40,9 @@ settings-login-greeter-show-power-buttons = Afficher les boutons d'alimentation
     .description = Afficher les boutons d'arrêt et de redémarrage en bas de l'écran de connexion
 settings-login-greeter-fingerprint = Connexion par empreinte
     .description = Se connecter avec une empreinte enregistrée (fprintd) en plus du mot de passe
+settings-login-greeter-match-cursor = Reprendre mon curseur
+    .description = Afficher le curseur de la dernière session ouverte au lieu du thème et de la taille définis ici
+
 settings-login-greeter-cursor-theme = Thème de curseur
     .description = Thème Xcursor utilisé sur l'écran de connexion (vide = valeur par défaut du système)
 settings-login-greeter-cursor-size = Taille du curseur

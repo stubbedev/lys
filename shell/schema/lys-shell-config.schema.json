@@ -5097,6 +5097,7 @@
             "cursor-size": 24,
             "cursor-theme": "",
             "fingerprint": true,
+            "match-cursor": true,
             "screen-reader": "orca",
             "show-power-buttons": true,
             "show-user-list": true
@@ -5153,6 +5154,11 @@
           "$ref": "#/$defs/boolean",
           "default": true,
           "description": "Accept an enrolled fingerprint (fprintd) alongside the password:\nwhichever comes first logs in. Turn it off to log in with the\npassword alone, which also opens the login keyring. Nothing changes\nwithout fprintd or an enrolled finger."
+        },
+        "match-cursor": {
+          "$ref": "#/$defs/boolean",
+          "default": true,
+          "description": "Show the cursor of the last user's session: the one it recorded\nwith `lys-login record-cursor`, else the one its dotfiles name.\ncursor-theme and cursor-size then apply only where neither says."
         },
         "screen-reader": {
           "$ref": "#/$defs/Program",
@@ -11605,6 +11611,7 @@
           "cursor-size": 24,
           "cursor-theme": "",
           "fingerprint": true,
+          "match-cursor": true,
           "screen-reader": "orca",
           "show-power-buttons": true,
           "show-user-list": true
