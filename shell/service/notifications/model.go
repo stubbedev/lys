@@ -46,7 +46,7 @@ type hints struct {
 	desktopEntry     string
 	transient        bool
 	resident         bool
-	progress         Progress
+	progress         notifymodel.Progress
 	stackTag         string
 	replyPlaceholder string
 	purposes         map[string]string
@@ -128,38 +128,24 @@ func parseImageData(v dbus.Variant) (imageData, bool) {
 	return img, true
 }
 
-// Progress is the value hint: a share of 0-100 percent, or none.
-type Progress struct {
-	percent uint8
-	set     bool
-}
-
-// NewProgress is percent, clamped to 0-100 as every server draws it.
-func NewProgress(percent int64) Progress {
-	return Progress{percent: uint8(min(max(percent, 0), 100)), set: true}
-}
-
-// Percent is the progress; false when the notification has none.
-func (p Progress) Percent() (uint8, bool) { return p.percent, p.set }
-
-func progressHint(v dbus.Variant) Progress {
+func progressHint(v dbus.Variant) notifymodel.Progress {
 	switch n := v.Value().(type) {
 	case int32:
-		return NewProgress(int64(n))
+		return notifymodel.NewProgress(int64(n))
 	case uint32:
-		return NewProgress(int64(n))
+		return notifymodel.NewProgress(int64(n))
 	case int64:
-		return NewProgress(n)
+		return notifymodel.NewProgress(n)
 	case uint64:
-		return NewProgress(int64(min(n, 100)))
+		return notifymodel.NewProgress(int64(min(n, 100)))
 	case int16:
-		return NewProgress(int64(n))
+		return notifymodel.NewProgress(int64(n))
 	case uint16:
-		return NewProgress(int64(n))
+		return notifymodel.NewProgress(int64(n))
 	case byte:
-		return NewProgress(int64(n))
+		return notifymodel.NewProgress(int64(n))
 	}
-	return Progress{}
+	return notifymodel.Progress{}
 }
 
 // The stack-tag hints: a notification carrying one replaces the sender's

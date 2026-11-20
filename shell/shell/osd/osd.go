@@ -205,25 +205,9 @@ func (o *Osd) place() bool {
 	return true
 }
 
-// anchors are the surface's edges: the ends osdview.Placement puts the
-// card at; along a centered axis the surface takes neither edge.
-func anchors(p config.OsdPosition) app.Anchor {
-	h, v := osdview.Placement(p)
-	var a app.Anchor
-	switch h {
-	case widget.AlignStart:
-		a |= app.AnchorLeft
-	case widget.AlignEnd:
-		a |= app.AnchorRight
-	}
-	switch v {
-	case widget.AlignStart:
-		a |= app.AnchorTop
-	case widget.AlignEnd:
-		a |= app.AnchorBottom
-	}
-	return a
-}
+// anchors are the surface's edges: those at the ends osdview.Placement
+// puts the card at.
+func anchors(p config.OsdPosition) app.Anchor { return layering.Anchors(osdview.Placement(p)) }
 
 // margins are the surface's insets: osd.margin (rem base 150px at the
 // styling scale, truncated toward zero) on each anchored edge.

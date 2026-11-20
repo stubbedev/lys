@@ -15,6 +15,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/layers"
+	"github.com/stubbedev/lys/desktop/shell/notifyview"
 	"github.com/stubbedev/lys/desktop/shell/reveal"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/desktop/styling"
@@ -28,17 +29,8 @@ import (
 	"github.com/stubbedev/lys/shell/shell/notifyui"
 )
 
-// Card geometry.
+// Popup geometry.
 const (
-	cardMaxWidthChars = 40
-	// cardBodyLines clamps a resting card's body; an expanded card
-	// shows all of it.
-	cardBodyLines = 2
-	// cardWidthPx is the card's width at scale 1, cardIconPx a file
-	// picture's size and cardGlyphPx a themed glyph's on its tile.
-	cardWidthPx = 340
-	cardIconPx  = 32
-	cardGlyphPx = 16
 	// popupGapBasePx and popupMarginBasePx are the bases the popup-gap
 	// and popup-margin-x/y multipliers scale (POPUP_GAP_BASE_REM 0.5,
 	// POPUP_MARGIN_BASE_REM 0.75, at 16px a rem).
@@ -98,11 +90,10 @@ type stack struct {
 	clear *widget.Button
 }
 
-// card is one popup (NotificationPopupCard) on lys-ui's card: the top
-// row as an Item (the app icon, the app name, the count of the cards
-// behind it, the age and the close button), the summary, the body, and
-// the action rows.
+// card is one popup: notifyview's card, inside the revealer that plays
+// its enter and exit and the swipe that takes it away.
 type card struct {
+	*notifyview.Card
 	id uint32
 	// leaving marks a card playing its exit.
 	leaving bool
@@ -110,20 +101,7 @@ type card struct {
 	// plays the card's enter and exit (the LysShellRevealer around it).
 	swipe *widget.SwipeDismiss
 	rev   *widget.Revealer
-	root  *widget.Box
-	head  *widget.Item
-	// count shows, on a collapsed stack's front card, how many cards
-	// sit behind it.
-	count    *widget.Badge
-	time     *widget.Label
-	summary  *widget.Label
-	body     *widget.RichLabel
-	progress *widget.ProgressBar
-	reply    *widget.Entry
-	close    *widget.Button
-	actions  *widget.Box
-	content  *widget.Box
-	shown    *notifications.Notification
+	shown *notifications.Notification
 }
 
 // New builds the popup host; it maps on popup-monitor among outputs
@@ -350,7 +328,7 @@ func (p *Popups) newStack(key string) *stack {
 	// content that fills it: its cards fill the pile's rects, the
 	// peeking ones narrower, and their Items would otherwise fill the
 	// output.
-	st.root.SetInlineStyle(styling.WidthStyle(int(cardWidthPx * float64(p.cfg.Styling.Scale))))
+	st.root.SetInlineStyle(styling.WidthStyle(notifyview.Width(float64(p.cfg.Styling.Scale))))
 	label := widget.NewLabel(p.font, widgets.TextPx(styling.Body, float64(p.cfg.Styling.Scale)), i18n.T("notification-popup-clear-all"), 0)
 	st.clear = widget.NewButton(label, 0, 0)
 	st.clear.AddClass("notification-popup-clear-all", css.Glass, css.Small)
@@ -377,10 +355,10 @@ func (p *Popups) refreshStack(st *stack) {
 	ids := st.liveIDs()
 	for i, c := range st.cards {
 		want[i] = c.swipe
-		c.setFull(expanded)
+		c.SetFull(expanded)
 		front := len(ids) > 0 && c.id == ids[0] && !c.leaving
-		c.count.SetText("+" + strconv.Itoa(len(ids)-1))
-		c.count.SetVisible(front && !expanded && len(ids) > 1)
+		c.Count.SetText("+" + strconv.Itoa(len(ids)-1))
+		c.Count.SetVisible(front && !expanded && len(ids) > 1)
 	}
 	reconcileChildren(pileChildren(st.pile), want)
 	st.pile.SetExpanded(expanded)
@@ -495,116 +473,59 @@ func (st *stack) liveIDs() []uint32 {
 	return ids
 }
 
-// newCard builds one card on lys-ui's parts: a card
-// holding the top row as an Item, then the summary, the body and the
-// action rows inset in line with it.
+// newCard builds one card: notifyview's card for n, its parts acting
+// on the popup.
 func (p *Popups) newCard(n *notifications.Notification) *card {
-	cfg := p.cfg.Notification
-	scale := float64(p.cfg.Styling.Scale)
-	th := widget.Current()
-	px := widgets.TextPx(styling.Body, scale)
 	c := &card{id: n.ID, shown: n}
-	c.root = widget.NewBox(widget.Column, 0, 0)
-	c.root.AddClass(css.Card, css.Glass, "notification-popup-card", notifyui.UrgencyClass(n.Urgency))
-	if cfg.PopupShadow {
-		c.root.AddClass("shadow")
-	}
-	if notifyui.UrgencyBarVisible(n.Urgency, cfg.PopupUrgencyBar) {
-		c.root.AddClass("urgency-bar")
-	}
-
-	appName := notifyui.AppLabel(n.AppName)
-	if appName == "" {
-		appName = i18n.T("notification-popup-unknown-app")
-	}
-	c.head = widget.NewItem(p.font, appName, "")
-	c.head.SetSmall(true)
-	c.head.SetEllipsize(true)
-	c.head.AddClass("notification-popup-content")
-	icon := notifyui.ResolveIcon(cfg.IconSource, n)
-	size := cardGlyphPx
-	if notifyui.IsFileIcon(icon) {
-		size = cardIconPx
-	}
-	glyph := notifyui.NewIcon(icon, size, 0, p.onLoop, nil)
-	glyph.AddClass("notification-popup-icon")
-	if notifyui.IsFileIcon(icon) {
-		glyph.AddClass("file-icon")
-	}
-	c.head.SetMedia(glyph, notifyui.IsFileIcon(icon))
-	c.count = widget.NewBadge(p.font, "")
-	c.count.AddClass("notification-popup-count")
-	c.count.SetVisible(false)
-	c.head.AddAction(c.count)
-	c.time = widget.NewLabel(p.font, px, notifyui.TimeLabel(notifyui.RelativeTime(p.now(), n.Added), "notification-popup"), 0)
-	c.time.AddClass("notification-popup-time", css.Caption, css.DimLabel)
-	c.head.AddAction(c.time)
-	c.close = widget.NewButton(widget.NewThemeIcon("ld-x-symbolic", cardGlyphPx), 0, 0)
-	c.close.AddClass("notification-popup-close", css.Ghost, css.Icon, css.Small)
 	id := n.ID
-	c.close.OnClick = func() { p.closeCard(id) }
-	c.head.AddAction(c.close)
-	c.root.Append(c.head, false)
-
-	content := widget.NewBox(widget.Column, th.Spacing, 0)
-	content.SetPadding(render.Insets{Left: 2 * th.Padding, Right: 2 * th.Padding, Bottom: 2 * th.Padding})
-	c.summary = widget.NewLabel(p.font, px, n.Summary, 0)
-	c.summary.AddClass("notification-popup-summary", css.Heading)
-	c.summary.SetWrap(true)
-	c.summary.SetEllipsize(widget.EllipsizeEnd)
-	c.summary.SetVisible(n.Summary != "")
-	content.Append(c.summary, false)
-	c.body = widget.NewRichLabel(p.font, px, notifyui.BodyMarkup(n.Body), 0)
-	c.body.SetVariants(app.FontVariantsOf(p.font))
-	c.body.AddClass("notification-popup-body", css.DimLabel)
-	c.body.SetWrap(true)
-	c.body.SetMaxWidthChars(cardMaxWidthChars)
-	c.body.SetEllipsize(widget.EllipsizeEnd)
-	c.body.SetVisible(n.Body != "")
-	c.body.OnLinkClick = p.openLink
-	content.Append(c.body, false)
-	c.progress = widget.NewProgressBar(0)
-	c.progress.AddClass("notification-popup-progress")
-	setProgress(c.progress, n.Progress)
-	content.Append(c.progress, false)
-	if _, ok := n.InlineReply(); ok {
-		c.reply = p.replyEntry(n, px)
-		content.Append(c.reply, false)
+	h := notifyview.Handlers{
+		Close:  func() { p.closeCard(id) },
+		Action: func(i int) { p.invokeAction(id, notifyui.VisibleActions(c.shown)[i].ID) },
+		Reply:  func(text string) { p.change(func() { p.svc.Reply(id, text) }) },
+		ReplyFocus: func(focused bool) {
+			if focused {
+				p.svc.InhibitPopup(id)
+				return
+			}
+			p.svc.ReleasePopup(id)
+		},
+		Link: p.openLink,
+		Post: p.onLoop,
 	}
-	c.actions = p.actionRows(n, px)
-	content.Append(c.actions, false)
-	c.content = content
-	c.syncContentVisible()
-	c.root.Append(content, false)
-	c.setFull(false)
-
-	// A default action opens the card on a click anywhere its buttons
-	// do not take: the
-	// Item's own activation, and the root's click for the text under it.
 	if _, ok := n.DefaultAction(); ok {
-		c.root.SetCursorName("pointer")
-		c.head.SetOnActivate(func() { p.invokeDefault(id) })
-		c.root.SetOnClickWithin(func() { p.invokeDefault(id) })
+		h.Open = func() { p.invokeDefault(id) }
 	}
-	c.rev = widget.NewRevealer(c.root)
-	c.rev.SetGenieEdge(reveal.GenieEdge(popupAtTop(cfg.PopupPosition)))
+	c.Card = notifyview.NewCard(p.cfg, p.font, p.now(), p.content(n), h)
+	c.rev = widget.NewRevealer(c.Root)
+	c.rev.SetGenieEdge(reveal.GenieEdge(popupAtTop(p.cfg.Notification.PopupPosition)))
 	c.swipe = widget.NewSwipeDismiss(c.rev)
 	c.swipe.OnDismiss = func(int) { p.closeCard(id) }
 	return c
 }
 
-// setFull shows the card whole, as its expanded stack does: the summary
-// and the body unclamped and the action rows; at rest the summary keeps
-// to a line, the body to cardBodyLines, and the actions stay hidden.
-func (c *card) setFull(full bool) {
-	if full {
-		c.summary.SetMaxLines(0)
-		c.body.SetMaxLines(0)
-	} else {
-		c.summary.SetMaxLines(1)
-		c.body.SetMaxLines(cardBodyLines)
+// content is what n's card shows: its icon by icon-source, and its
+// buttons and reply field from its actions.
+func (p *Popups) content(n *notifications.Notification) notifyview.Content {
+	actions := notifyui.VisibleActions(n)
+	buttons := make([]notifyview.Action, len(actions))
+	for i, a := range actions {
+		buttons[i] = notifyview.Action{Label: a.Label, Purpose: a.Purpose}
 	}
-	c.actions.SetVisible(full && len(c.actions.Children()) > 0)
+	var reply *notifyview.Reply
+	if _, ok := n.InlineReply(); ok {
+		reply = &notifyview.Reply{Placeholder: n.ReplyPlaceholder}
+	}
+	return notifyview.Content{
+		App:      n.AppName,
+		Icon:     notifyui.ResolveIcon(p.cfg.Notification.IconSource, n),
+		Urgency:  n.Urgency,
+		Added:    n.Added,
+		Summary:  n.Summary,
+		Body:     n.Body,
+		Progress: n.Progress,
+		Actions:  buttons,
+		Reply:    reply,
+	}
 }
 
 // popupAtTop is whether the popups sit along the top edge, the edge a
@@ -624,35 +545,6 @@ func peekEdge(position config.PopupPosition) widget.Edge {
 		return widget.EdgeBottom
 	}
 	return widget.EdgeTop
-}
-
-// actionRows lays out the non-default actions as
-// lys-ui's small outline buttons, three to a row, each row homogeneous
-// so its buttons split its width evenly.
-func (p *Popups) actionRows(n *notifications.Notification, px float64) *widget.Box {
-	gap := widget.Current().Spacing / 2
-	box := widget.NewBox(widget.Column, gap, 0)
-	box.AddClass("notification-popup-actions")
-	actions := notifyui.VisibleActions(n)
-	for start := 0; start < len(actions); start += notifyui.ActionsPerRow {
-		row := widget.NewBox(widget.Row, gap, 0)
-		row.AddClass("notification-popup-action-row")
-		row.SetHomogeneous(true)
-		for _, a := range actions[start:min(start+notifyui.ActionsPerRow, len(actions))] {
-			label := widget.NewLabel(p.font, px, a.Label, 0)
-			label.SetAlignment(render.AlignCenter)
-			b := widget.NewButton(label, 0, 0)
-			b.AddClass("notification-popup-action-btn", css.Outline, css.Small)
-			if class := notifyui.PurposeClass(a.Purpose); class != "" {
-				b.AddClass(class)
-			}
-			id, key := n.ID, a.ID
-			b.OnClick = func() { p.invokeAction(id, key) }
-			row.Append(b, true)
-		}
-		box.Append(row, false)
-	}
-	return box
 }
 
 // closeCard is the close button under popup-close-behavior: dismiss
@@ -799,29 +691,10 @@ func popupMargins(cfg config.NotificationConfig, scale float64) app.Margins {
 	return m
 }
 
-// popupAnchors maps the position onto layer-shell anchors:
-// corners take both
-// edges, centered positions only the one edge.
+// popupAnchors are the surface's edges: those at the ends
+// notifyview.Placement puts the popups at.
 func popupAnchors(position config.PopupPosition) app.Anchor {
-	switch position {
-	case config.PopupPositionTopLeft:
-		return app.AnchorTop | app.AnchorLeft
-	case config.PopupPositionTopCenter:
-		return app.AnchorTop
-	case config.PopupPositionTopRight:
-		return app.AnchorTop | app.AnchorRight
-	case config.PopupPositionBottomLeft:
-		return app.AnchorBottom | app.AnchorLeft
-	case config.PopupPositionBottomCenter:
-		return app.AnchorBottom
-	case config.PopupPositionBottomRight:
-		return app.AnchorBottom | app.AnchorRight
-	case config.PopupPositionCenterLeft:
-		return app.AnchorLeft
-	case config.PopupPositionCenterRight:
-		return app.AnchorRight
-	}
-	return app.AnchorTop | app.AnchorRight
+	return layering.Anchors(notifyview.Placement(position))
 }
 
 // Visible reports the card count (tests).
@@ -868,77 +741,14 @@ func (p *Popups) change(fn func()) {
 	p.svc.Detach(fn)
 }
 
-func setProgress(bar *widget.ProgressBar, p notifications.Progress) {
-	percent, ok := p.Percent()
-	bar.SetVisible(ok)
-	if ok {
-		bar.SetValue(float64(percent) / 100)
-	}
-}
-
-func (c *card) syncContentVisible() {
-	c.content.SetVisible(c.summary.Visible() || c.body.Visible() || c.progress.Visible() || c.reply != nil || len(c.actions.Children()) > 0)
-}
-
 // updateCard shows a replacement in the card it replaces, touching only
-// what changed: a new progress value repaints the bar and lays nothing
-// out again.
+// what changed.
 func (p *Popups) updateCard(c *card, n *notifications.Notification) {
-	old := c.shown
-	if old == n {
+	if c.shown == n {
 		return
 	}
 	c.shown = n
-	c.summary.SetText(n.Summary)
-	c.summary.SetVisible(n.Summary != "")
-	c.body.SetMarkup(notifyui.BodyMarkup(n.Body))
-	c.body.SetVisible(n.Body != "")
-	setProgress(c.progress, n.Progress)
-	if old.Urgency != n.Urgency {
-		c.root.RemoveClass(notifyui.UrgencyClass(old.Urgency))
-		c.root.AddClass(notifyui.UrgencyClass(n.Urgency))
-	}
-	if !slices.Equal(old.Actions, n.Actions) {
-		px := widgets.TextPx(styling.Body, float64(p.cfg.Styling.Scale))
-		rows := p.actionRows(n, px)
-		c.content.Remove(c.actions)
-		c.content.Append(rows, false)
-		c.actions = rows
-		c.setFull(c.summary.MaxLines() == 0)
-	}
-	c.syncContentVisible()
-}
-
-// replyEntry is the inline-reply field: Enter sends a non-empty reply
-// and the card goes, Escape clears the field and sends nothing. While it
-// has the focus the card's countdown pauses.
-func (p *Popups) replyEntry(n *notifications.Notification, px float64) *widget.Entry {
-	e := widget.NewEntry(p.font, px, 0)
-	e.AddClass("notification-popup-reply")
-	placeholder := n.ReplyPlaceholder
-	if placeholder == "" {
-		placeholder = i18n.T("notification-popup-reply-placeholder")
-	}
-	e.SetPlaceholder(placeholder)
-	id := n.ID
-	e.OnActivate = func(text string) {
-		if text == "" {
-			return
-		}
-		p.change(func() { p.svc.Reply(id, text) })
-	}
-	e.OnEscape = func() bool {
-		e.SetText("")
-		return true
-	}
-	e.SetOnFocusChanged(func(focused bool) {
-		if focused {
-			p.svc.InhibitPopup(id)
-			return
-		}
-		p.svc.ReleasePopup(id)
-	})
-	return e
+	c.Update(p.content(n))
 }
 
 // openLink opens a body link with the system's handler, raised by a token

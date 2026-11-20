@@ -32,8 +32,8 @@ func TestAProgressReplacementUpdatesOneBarWithoutALayout(t *testing.T) {
 	id := s.svc.NotifyHints("files", 0, "", "Copying", "photos", nil, progress(40, "copy"), -1)
 	s.sync()
 	c := s.p.cards[id]
-	if !c.progress.Visible() || c.progress.Value() != 0.4 {
-		t.Fatalf("bar visible %v at %v, want 0.4", c.progress.Visible(), c.progress.Value())
+	if !c.Progress.Visible() || c.Progress.Value() != 0.4 {
+		t.Fatalf("bar visible %v at %v, want 0.4", c.Progress.Visible(), c.Progress.Value())
 	}
 	if n := s.layoutPasses(); n == 4 {
 		t.Fatal("the surface never settled")
@@ -43,16 +43,16 @@ func TestAProgressReplacementUpdatesOneBarWithoutALayout(t *testing.T) {
 	if again != id || len(s.p.cards) != 1 || s.p.cards[id] != c {
 		t.Fatalf("the replacement made another card: ids %d %d, %d cards", id, again, len(s.p.cards))
 	}
-	if c.progress.Value() != 0.8 {
-		t.Errorf("bar at %v, want 0.8", c.progress.Value())
+	if c.Progress.Value() != 0.8 {
+		t.Errorf("bar at %v, want 0.8", c.Progress.Value())
 	}
 	if n := s.layoutPasses(); n != 0 {
 		t.Errorf("a progress-only replacement laid the stack out again: %d passes", n)
 	}
 	s.svc.NotifyHints("files", 0, "", "Copied", "photos", nil, progress(100, "copy"), -1)
 	s.p.sync()
-	if n := s.layoutPasses(); n == 0 || c.summary.Text() != "Copied" {
-		t.Errorf("a new summary: %q after %d layout passes; want the text laid out", c.summary.Text(), n)
+	if n := s.layoutPasses(); n == 0 || c.Summary.Text() != "Copied" {
+		t.Errorf("a new summary: %q after %d layout passes; want the text laid out", c.Summary.Text(), n)
 	}
 }
 
@@ -60,7 +60,7 @@ func TestACardWithoutTheValueHintHasNoBar(t *testing.T) {
 	s := newSurface(t, config.DefaultsNotification())
 	id := s.notify("mail", "New mail")
 	s.sync()
-	if s.p.cards[id].progress.Visible() {
+	if s.p.cards[id].Progress.Visible() {
 		t.Error("a bar without a value hint")
 	}
 }
@@ -74,10 +74,10 @@ func replyCard(t *testing.T) (*surface, *card, *signals) {
 		map[string]dbus.Variant{"x-kde-reply-placeholder-text": dbus.MakeVariant("Reply to Ada")}, -1)
 	s.sync()
 	c := s.p.cards[id]
-	if c.reply == nil {
+	if c.Reply == nil {
 		t.Fatal("no reply field for an inline-reply action")
 	}
-	if len(c.actions.Children()) != 0 {
+	if len(c.Actions.Children()) != 0 {
 		t.Error("the inline-reply action also drew as a button")
 	}
 	return s, c, sig
@@ -85,17 +85,17 @@ func replyCard(t *testing.T) (*surface, *card, *signals) {
 
 func TestEnterSendsTheReplyAndEscapeSendsNothing(t *testing.T) {
 	s, c, sig := replyCard(t)
-	c.reply.Insert("on my way")
-	c.reply.KeyAction(widget.KeyDismiss, 0)
-	if c.reply.Text() != "" || sig.count("NotificationReplied") != 0 {
-		t.Fatalf("Escape: field %q, %d replies", c.reply.Text(), sig.count("NotificationReplied"))
+	c.Reply.Insert("on my way")
+	c.Reply.KeyAction(widget.KeyDismiss, 0)
+	if c.Reply.Text() != "" || sig.count("NotificationReplied") != 0 {
+		t.Fatalf("Escape: field %q, %d replies", c.Reply.Text(), sig.count("NotificationReplied"))
 	}
-	c.reply.KeyAction(widget.KeyEnter, 0)
+	c.Reply.KeyAction(widget.KeyEnter, 0)
 	if sig.count("NotificationReplied") != 0 {
 		t.Fatal("Enter on an empty field replied")
 	}
-	c.reply.Insert("on my way")
-	c.reply.KeyAction(widget.KeyEnter, 0)
+	c.Reply.Insert("on my way")
+	c.Reply.KeyAction(widget.KeyEnter, 0)
 	if sig.count("NotificationReplied") != 1 || sig.count("NotificationClosed") != 1 {
 		t.Fatalf("Enter: signals %v", sig.seen)
 	}
@@ -116,7 +116,7 @@ func TestOnlyWebAndMailLinksOpen(t *testing.T) {
 	s.sync()
 	c := s.p.cards[id]
 	for _, href := range []string{"https://example.com/a", "file:///etc/passwd", "javascript:alert(1)", "mailto:ada@example.com"} {
-		c.body.OnLinkClick(href)
+		c.Body.OnLinkClick(href)
 	}
 	if len(opened) != 2 || opened[0] != "https://example.com/a" || opened[1] != "mailto:ada@example.com" {
 		t.Errorf("opened %v, want the web and mail links only", opened)
@@ -131,7 +131,7 @@ func TestCallButtonsAreStyledByTheirPurpose(t *testing.T) {
 	s.sync()
 	c := s.p.cards[id]
 	var classes [][]string
-	for _, row := range c.actions.Children() {
+	for _, row := range c.Actions.Children() {
 		for _, b := range row.(*widget.Box).Children() {
 			classes = append(classes, b.(*widget.Button).Classes())
 		}

@@ -15,6 +15,7 @@ import (
 	"github.com/stubbedev/lys/desktop/fakeclock"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/apptheme"
+	"github.com/stubbedev/lys/desktop/shell/notifyview"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/render"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
@@ -194,7 +195,7 @@ func within(root, w widget.Widget) bool {
 // out behind it: straight RGBA.
 func (s *surface) fill(c *card) [4]byte {
 	s.t.Helper()
-	b := c.root.Bounds()
+	b := c.Root.Bounds()
 	return s.pixel(b.X+b.W/2, b.Y+4)
 }
 
@@ -239,13 +240,13 @@ func TestBurstCollapsesIntoAStackPerApp(t *testing.T) {
 	}
 	for _, id := range []uint32{mail[2], chat[2]} {
 		st := s.stackOf(id)
-		if st.expanded() || !st.front().count.Visible() || st.front().count.Text() != "+2" || st.clear.Visible() {
-			t.Errorf("stack of %d: expanded %v, count %q shown %v, clear shown %v; want collapsed with +2", id, st.expanded(), st.front().count.Text(), st.front().count.Visible(), st.clear.Visible())
+		if st.expanded() || !st.front().Count.Visible() || st.front().Count.Text() != "+2" || st.clear.Visible() {
+			t.Errorf("stack of %d: expanded %v, count %q shown %v, clear shown %v; want collapsed with +2", id, st.expanded(), st.front().Count.Text(), st.front().Count.Visible(), st.clear.Visible())
 		}
 	}
 	c := s.card(mail[2])
-	if c.actions.Visible() || c.body.MaxLines() != cardBodyLines || c.summary.MaxLines() != 1 {
-		t.Errorf("a resting card: actions shown %v, body lines %d, summary lines %d", c.actions.Visible(), c.body.MaxLines(), c.summary.MaxLines())
+	if c.Actions.Visible() || c.Body.MaxLines() != notifyview.BodyLines || c.Summary.MaxLines() != 1 {
+		t.Errorf("a resting card: actions shown %v, body lines %d, summary lines %d", c.Actions.Visible(), c.Body.MaxLines(), c.Summary.MaxLines())
 	}
 
 	// A new notification brings its app's stack to the top, in front.
@@ -277,7 +278,7 @@ func TestCollapsedStackPeeks(t *testing.T) {
 		}
 		s.sync()
 		front, peek, deeper, buried := s.card(ids[3]), s.card(ids[2]), s.card(ids[1]), s.card(ids[0])
-		f, pk, d := front.root.Bounds(), peek.root.Bounds(), deeper.root.Bounds()
+		f, pk, d := front.Root.Bounds(), peek.Root.Bounds(), deeper.Root.Bounds()
 		if !front.swipe.HasClass("front") || !peek.swipe.HasClass("peek") || !deeper.swipe.HasClass("peek") || !buried.swipe.HasClass("buried") {
 			t.Errorf("%s: classes front %v peek %v %v buried %v", tc.position, front.swipe.Classes(), peek.swipe.Classes(), deeper.swipe.Classes(), buried.swipe.Classes())
 		}
@@ -296,12 +297,12 @@ func TestCollapsedStackPeeks(t *testing.T) {
 		if !tc.down {
 			edge.Y = pk.Y + 2
 		}
-		if hit := s.host.HitTest(edge); hit != nil && within(peek.root, hit) {
+		if hit := s.host.HitTest(edge); hit != nil && within(peek.Root, hit) {
 			t.Errorf("%s: a peeking card's edge takes the pointer", tc.position)
 		}
 
-		s.hover(front.summary)
-		f, pk = front.root.Bounds(), peek.root.Bounds()
+		s.hover(front.Summary)
+		f, pk = front.Root.Bounds(), peek.Root.Bounds()
 		if pk.W != f.W || (pk.Y > f.Y) != tc.down || pk.Y == f.Y {
 			t.Errorf("%s expanded: front %+v peek %+v, want a list of full-width cards from the front's end", tc.position, f, pk)
 		}
@@ -319,8 +320,8 @@ func TestASwipedCardLeavesTheOthersAlone(t *testing.T) {
 	s.sync()
 	ids := s.p.stacks[0].liveIDs()
 	swiped := s.card(ids[0])
-	s.hover(swiped.summary)
-	from := point(swiped.body)
+	s.hover(swiped.Summary)
+	from := point(swiped.Body)
 	s.r.Move(from)
 	s.r.Press(widget.BTNLeft, from, 0)
 	at := from
@@ -342,7 +343,7 @@ func TestASwipedCardLeavesTheOthersAlone(t *testing.T) {
 	rest := s.paint()
 	stride := render.Stride(surfaceW)
 	for _, id := range ids[1:] {
-		b := s.card(id).root.Bounds()
+		b := s.card(id).Root.Bounds()
 		for y := b.Y; y < b.Y+b.H; y++ {
 			row := y*stride + b.X*4
 			if !bytes.Equal(dragged[row:row+b.W*4], rest[row:row+b.W*4]) {
@@ -366,7 +367,7 @@ func TestSwipeDismissesACard(t *testing.T) {
 	c := s.card(id)
 	drag := func(dx, dy int) {
 		s.layout()
-		from := point(c.body)
+		from := point(c.Body)
 		s.r.Move(from)
 		s.r.Press(widget.BTNLeft, from, 0)
 		at := from
@@ -408,8 +409,8 @@ func TestStackModes(t *testing.T) {
 	if got := s.p.stackOrder(); len(got) != 1 || len(got[0]) != 6 || got[0][0] != chat[2] {
 		t.Errorf("popup-stack all: stacks %v, want one of six with the newest in front", got)
 	}
-	if st := s.stackOf(mail[0]); st.front().count.Text() != "+5" {
-		t.Errorf("popup-stack all: count %q, want +5", st.front().count.Text())
+	if st := s.stackOf(mail[0]); st.front().Count.Text() != "+5" {
+		t.Errorf("popup-stack all: count %q, want +5", st.front().Count.Text())
 	}
 
 	cfg.PopupStack = config.PopupStackOff
@@ -419,7 +420,7 @@ func TestStackModes(t *testing.T) {
 	if got := s.p.stackOrder(); !slices.EqualFunc(got, want, slices.Equal) {
 		t.Errorf("popup-stack off: stacks %v, want %v", got, want)
 	}
-	if st := s.stackOf(mail[0]); st.front().count.Visible() {
+	if st := s.stackOf(mail[0]); st.front().Count.Visible() {
 		t.Error("a stack of one shows a count")
 	}
 
@@ -448,20 +449,20 @@ func TestHoverExpandsTheStackAndLeavingRestoresIt(t *testing.T) {
 		t.Fatalf("a resting card's plate %v, want frosted", rest)
 	}
 
-	s.hover(front.summary)
+	s.hover(front.Summary)
 	st, other := s.stackOf(mail[2]), s.stackOf(chat[2])
-	if !st.expanded() || st.front().count.Visible() || !st.clear.Visible() {
-		t.Errorf("hovered stack: expanded %v, count shown %v, clear shown %v", st.expanded(), st.front().count.Visible(), st.clear.Visible())
+	if !st.expanded() || st.front().Count.Visible() || !st.clear.Visible() {
+		t.Errorf("hovered stack: expanded %v, count shown %v, clear shown %v", st.expanded(), st.front().Count.Visible(), st.clear.Visible())
 	}
 	for _, id := range mail {
-		if c := s.card(id); !c.actions.Visible() || c.body.MaxLines() != 0 || c.summary.MaxLines() != 0 {
-			t.Errorf("card %d in a hovered stack: actions shown %v, body lines %d, summary lines %d", id, c.actions.Visible(), c.body.MaxLines(), c.summary.MaxLines())
+		if c := s.card(id); !c.Actions.Visible() || c.Body.MaxLines() != 0 || c.Summary.MaxLines() != 0 {
+			t.Errorf("card %d in a hovered stack: actions shown %v, body lines %d, summary lines %d", id, c.Actions.Visible(), c.Body.MaxLines(), c.Summary.MaxLines())
 		}
 	}
-	if other.expanded() || !other.front().count.Visible() {
+	if other.expanded() || !other.front().Count.Visible() {
 		t.Error("hovering one stack expanded the other")
 	}
-	s.hover(front.summary)
+	s.hover(front.Summary)
 	if got := s.fill(front); got[3] != 0xff {
 		t.Errorf("the hovered card's plate alpha %#02x, want opaque", got[3])
 	}
@@ -470,8 +471,8 @@ func TestHoverExpandsTheStackAndLeavingRestoresIt(t *testing.T) {
 	}
 
 	s.leave()
-	if st.expanded() || !st.front().count.Visible() || st.clear.Visible() || front.actions.Visible() || front.body.MaxLines() != cardBodyLines {
-		t.Errorf("after leaving: expanded %v, count shown %v, clear shown %v, actions shown %v", st.expanded(), st.front().count.Visible(), st.clear.Visible(), front.actions.Visible())
+	if st.expanded() || !st.front().Count.Visible() || st.clear.Visible() || front.Actions.Visible() || front.Body.MaxLines() != notifyview.BodyLines {
+		t.Errorf("after leaving: expanded %v, count shown %v, clear shown %v, actions shown %v", st.expanded(), st.front().Count.Visible(), st.clear.Visible(), front.Actions.Visible())
 	}
 	if got := s.fill(front); got != rest {
 		t.Errorf("after leaving the plate is %v, want the resting %v", got, rest)
@@ -489,7 +490,7 @@ func TestTheClearAllButtonIsFrostedAtRestAndOpaqueUnderThePointer(t *testing.T) 
 	cfg.PopupMaxVisible = 6
 	s := newSurface(t, cfg)
 	mail, _ := s.burst()
-	s.hover(s.card(mail[2]).summary)
+	s.hover(s.card(mail[2]).Summary)
 	st := s.stackOf(mail[2])
 	if !st.clear.Visible() {
 		t.Fatal("the hovered stack shows no clear-all button")
@@ -520,15 +521,15 @@ func TestStacksInsetFromTheSurfaceEdges(t *testing.T) {
 			t.Errorf("gap %v: stacks span %d..%d of a %dpx surface, want %dpx from the top and the bottom", gap, top.Y, bottom.Y+bottom.H, host.H, inset)
 		}
 		for _, id := range []uint32{mail[2], chat[2]} {
-			b := s.card(id).root.Bounds()
+			b := s.card(id).Root.Bounds()
 			if b.X != inset || host.W-(b.X+b.W) != inset {
 				t.Errorf("gap %v: card %d spans x %d..%d of a %dpx surface, want %dpx from either side", gap, id, b.X, b.X+b.W, host.W, inset)
 			}
 		}
-		s.hover(s.card(mail[2]).summary)
+		s.hover(s.card(mail[2]).Summary)
 		host = s.host.Bounds()
 		clear := s.stackOf(mail[2]).clear.Bounds()
-		card := s.card(mail[2]).root.Bounds()
+		card := s.card(mail[2]).Root.Bounds()
 		if right := host.W - (clear.X + clear.W); right != inset || clear.X+clear.W != card.X+card.W {
 			t.Errorf("gap %v: clear all ends %dpx from the edge at %d, the card at %d; want both %dpx in", gap, right, clear.X+clear.W, card.X+card.W, inset)
 		}
@@ -544,8 +545,8 @@ func TestCountSitsInsideTheFrontCard(t *testing.T) {
 	s := newSurface(t, cfg)
 	mail, _ := s.burst()
 	front := s.card(mail[2])
-	b, c, host := front.count.Bounds(), front.root.Bounds(), s.host.Bounds()
-	if !front.count.Visible() || b.W == 0 {
+	b, c, host := front.Count.Bounds(), front.Root.Bounds(), s.host.Bounds()
+	if !front.Count.Visible() || b.W == 0 {
 		t.Fatal("the front card shows no count")
 	}
 	if b.X < c.X || b.Y < c.Y || b.X+b.W > c.X+c.W || b.Y+b.H > c.Y+c.H {
@@ -554,11 +555,11 @@ func TestCountSitsInsideTheFrontCard(t *testing.T) {
 	if b.X < 0 || b.Y < 0 || b.X+b.W > host.W || b.Y+b.H > host.H {
 		t.Errorf("count %+v leaves the %dx%d surface", b, host.W, host.H)
 	}
-	if !within(front.head, front.count) {
+	if !within(front.Head, front.Count) {
 		t.Error("the count is not in the front card's top row")
 	}
 	for _, id := range mail[:2] {
-		if s.card(id).count.Visible() {
+		if s.card(id).Count.Visible() {
 			t.Errorf("card %d behind the front shows a count", id)
 		}
 	}
@@ -573,7 +574,7 @@ func TestUrgencyBarRunsDownTheLeftEdge(t *testing.T) {
 	id := s.notify("mail", "Urgent")
 	s.sync()
 	c := s.card(id)
-	if !c.root.HasClass("urgency-bar") {
+	if !c.Root.HasClass("urgency-bar") {
 		t.Fatal("a normal card under the low threshold has no urgency bar")
 	}
 	accent, _ := apptheme.New(s.p.cfg).RenderPalette().Token(config.TokenAccent)
@@ -586,7 +587,7 @@ func TestUrgencyBarRunsDownTheLeftEdge(t *testing.T) {
 		}
 		return px[3] == 0xff
 	}
-	b := c.root.Bounds()
+	b := c.Root.Bounds()
 	for _, y := range []int{b.Y + b.H/3, b.Y + b.H/2, b.Y + 2*b.H/3} {
 		if px := s.pixel(b.X+1, y); !near(px) {
 			t.Errorf("left edge at y %d paints %v, want the accent %v", y, px, want)
@@ -624,7 +625,7 @@ func TestHoverPausesTheStacksCountdown(t *testing.T) {
 	other := s.notify("chat", "C")
 	s.sync()
 	s.clock.Advance(10 * time.Millisecond)
-	s.hover(s.card(b).summary)
+	s.hover(s.card(b).Summary)
 	late := s.notify("mail", "Late")
 	s.sync()
 	s.clock.Advance(time.Hour)
@@ -658,7 +659,7 @@ func TestSyncKeepsTheHoveredStackOpen(t *testing.T) {
 	a := s.notify("mail", "A")
 	b := s.notify("mail", "B")
 	s.sync()
-	s.hover(s.card(b).summary)
+	s.hover(s.card(b).Summary)
 	s.notify("chat", "C")
 	s.sync()
 	if st := s.stackOf(a); !st.expanded() {
@@ -685,8 +686,8 @@ func TestStackLeavingUnderThePointer(t *testing.T) {
 	go func() {
 		defer close(done)
 		c := s.card(id)
-		s.hover(c.summary)
-		s.click(c.close)
+		s.hover(c.Summary)
+		s.click(c.Close)
 		s.sync()
 	}()
 	waittest.For(t, done, "closing the hovered stack's last card to leave the surface running")
@@ -709,7 +710,7 @@ func TestHoverPauseOffKeepsCounting(t *testing.T) {
 	s := newSurface(t, cfg)
 	id := s.notify("app", "Bare")
 	s.sync()
-	s.hover(s.card(id).summary)
+	s.hover(s.card(id).Summary)
 	if !s.stackOf(id).expanded() {
 		t.Error("a hovered stack did not expand with hover-pause off")
 	}
@@ -727,7 +728,7 @@ func TestReloadReleasesAHoveredStack(t *testing.T) {
 	s := newSurface(t, cfg)
 	id := s.notify("mail", "A")
 	s.sync()
-	s.hover(s.card(id).summary)
+	s.hover(s.card(id).Summary)
 	next := config.Defaults()
 	next.Notification = cfg
 	s.p.SetConfig(next)
@@ -752,7 +753,7 @@ func TestClearAllRemovesTheStacksNotifications(t *testing.T) {
 		mail, chat := s.burst()
 		single := s.notify("calendar", "Meeting")
 		s.sync()
-		s.hover(s.card(single).summary)
+		s.hover(s.card(single).Summary)
 		if s.stackOf(single).clear.Visible() {
 			t.Errorf("%s: a stack of one offers clear all", behavior)
 		}
@@ -760,7 +761,7 @@ func TestClearAllRemovesTheStacksNotifications(t *testing.T) {
 		if stack.clear.Visible() {
 			t.Errorf("%s: a collapsed stack offers clear all", behavior)
 		}
-		s.hover(s.card(mail[2]).summary)
+		s.hover(s.card(mail[2]).Summary)
 		s.click(stack.clear)
 		onDisk := notifytest.IDs(st.Stored(t))
 		s.p.sync()
@@ -792,7 +793,7 @@ func TestClearAllDoesNotWaitForTheBus(t *testing.T) {
 	s := newSurface(t, config.DefaultsNotification())
 	mail, _ := s.burst()
 	stack := s.stackOf(mail[2])
-	s.hover(s.card(mail[2]).summary)
+	s.hover(s.card(mail[2]).Summary)
 	release := make(chan struct{})
 	unblock := sync.OnceFunc(func() { close(release) })
 	t.Cleanup(unblock)
@@ -934,9 +935,9 @@ func cardOf(t *testing.T, p *Popups, id uint32) *card {
 	if !ok {
 		t.Fatalf("no card for %d", id)
 	}
-	c.setFull(true)
-	widget.SizeWithin(c.root, widget.Size{W: testCardWidth, H: 600})
-	c.root.Arrange(render.Rect{W: testCardWidth, H: 600})
+	c.SetFull(true)
+	widget.SizeWithin(c.Root, widget.Size{W: testCardWidth, H: 600})
+	c.Root.Arrange(render.Rect{W: testCardWidth, H: 600})
 	return c
 }
 
@@ -944,7 +945,7 @@ func cardOf(t *testing.T, p *Popups, id uint32) *card {
 // the card.
 func click(c *card, w widget.Boundser) {
 	at := point(w)
-	r := &widget.Router{Root: c.root}
+	r := &widget.Router{Root: c.Root}
 	r.Move(at)
 	r.Press(widget.BTNLeft, at, 0)
 	r.Release(widget.BTNLeft, at)
@@ -988,33 +989,33 @@ func TestCardContent(t *testing.T) {
 	bare := svc.Notify("", 0, "", "No app", "", nil, 0)
 	p.sync()
 	c := cardOf(t, p, full)
-	if c.appLabel().Text() != "firefox" || c.summary.Text() != "Download done" || c.body.Text() != "a & b" || !c.body.Visible() {
-		t.Errorf("card = %q / %q / %q", c.appLabel().Text(), c.summary.Text(), c.body.Text())
+	if c.appLabel().Text() != "firefox" || c.Summary.Text() != "Download done" || c.Body.Text() != "a & b" || !c.Body.Visible() {
+		t.Errorf("card = %q / %q / %q", c.appLabel().Text(), c.Summary.Text(), c.Body.Text())
 	}
-	if !c.summary.HasClass(css.Heading) || !c.body.HasClass(css.DimLabel) {
-		t.Errorf("summary classes %v, body classes %v; want heading and muted", c.summary.Classes(), c.body.Classes())
+	if !c.Summary.HasClass(css.Heading) || !c.Body.HasClass(css.DimLabel) {
+		t.Errorf("summary classes %v, body classes %v; want heading and muted", c.Summary.Classes(), c.Body.Classes())
 	}
-	if c.time.Text() != i18n.T("notification-popup-time-minutes-ago", i18n.Str("minutes", "5")) {
-		t.Errorf("time = %q", c.time.Text())
+	if c.Time.Text() != i18n.T("notification-popup-time-minutes-ago", i18n.Str("minutes", "5")) {
+		t.Errorf("time = %q", c.Time.Text())
 	}
-	if treetest.WithClass(c.head, "notification-popup-icon") == nil || treetest.WithClass(c.head, "notification-popup-time") == nil {
+	if treetest.WithClass(c.Head, "notification-popup-icon") == nil || treetest.WithClass(c.Head, "notification-popup-time") == nil {
 		t.Error("the top row lacks the icon or the age")
 	}
-	if !c.root.HasClass("critical") || !c.root.HasClass("urgency-bar") || !c.root.HasClass("notification-popup-card") || !c.root.HasClass(css.Glass) {
-		t.Errorf("classes = %v", c.root.Classes())
+	if !c.Root.HasClass("critical") || !c.Root.HasClass("urgency-bar") || !c.Root.HasClass("notification-popup-card") || !c.Root.HasClass(css.Glass) {
+		t.Errorf("classes = %v", c.Root.Classes())
 	}
-	if c.root.HasClass("shadow") != cfg.PopupShadow {
+	if c.Root.HasClass("shadow") != cfg.PopupShadow {
 		t.Error("the shadow class does not follow popup-shadow")
 	}
-	if c.actions.Visible() {
+	if c.Actions.Visible() {
 		t.Error("an action row without actions")
 	}
 	b := cardOf(t, p, bare)
-	if b.appLabel().Text() != i18n.T("notification-popup-unknown-app") || b.body.Visible() {
-		t.Errorf("bare card: app %q body visible %v", b.appLabel().Text(), b.body.Visible())
+	if b.appLabel().Text() != i18n.T("notification-popup-unknown-app") || b.Body.Visible() {
+		t.Errorf("bare card: app %q body visible %v", b.appLabel().Text(), b.Body.Visible())
 	}
-	if b.root.HasClass("urgency-bar") || !b.root.HasClass("normal") {
-		t.Errorf("a normal card under the default threshold: %v", b.root.Classes())
+	if b.Root.HasClass("urgency-bar") || !b.Root.HasClass("normal") {
+		t.Errorf("a normal card under the default threshold: %v", b.Root.Classes())
 	}
 
 	cfg.PopupShadow = !cfg.PopupShadow
@@ -1022,8 +1023,8 @@ func TestCardContent(t *testing.T) {
 	next := config.Defaults()
 	next.Notification = cfg
 	p.SetConfig(next)
-	if c := cardOf(t, p, full); c.root.HasClass("shadow") != cfg.PopupShadow || c.root.HasClass("urgency-bar") {
-		t.Errorf("after a reload: %v", c.root.Classes())
+	if c := cardOf(t, p, full); c.Root.HasClass("shadow") != cfg.PopupShadow || c.Root.HasClass("urgency-bar") {
+		t.Errorf("after a reload: %v", c.Root.Classes())
 	}
 }
 
@@ -1043,8 +1044,8 @@ func TestCardCloseBehavior(t *testing.T) {
 		s.svc.SetEmitter(sig.emit)
 		s.sync()
 		c := s.card(id)
-		s.hover(c.summary)
-		s.click(c.close)
+		s.hover(c.Summary)
+		s.click(c.Close)
 		if len(s.svc.Popups()) != 0 {
 			t.Errorf("%s: the popup stayed", tc.behavior)
 		}
@@ -1058,7 +1059,7 @@ func TestCardCloseBehavior(t *testing.T) {
 		// invoked before the close can take the notification away.
 		open := s.svc.Notify("app", 0, "", "Open me", "", []string{"default", "Open"}, 0)
 		s.sync()
-		s.click(s.card(open).summary)
+		s.click(s.card(open).Summary)
 		if sig.count("ActionInvoked"+fmt.Sprint(open, notifications.DefaultActionID)) != 1 {
 			t.Errorf("%s: default action not invoked: %v", tc.behavior, sig.seen)
 		}
@@ -1075,18 +1076,18 @@ func TestCardActionsAndDefault(t *testing.T) {
 	svc.SetEmitter(sig.emit)
 	p.sync()
 	c := cardOf(t, p, id)
-	rows := c.actions.Children()
-	if !c.actions.Visible() || len(rows) != 2 || len(rows[0].(*widget.Box).Children()) != 3 || len(rows[1].(*widget.Box).Children()) != 1 {
+	rows := c.Actions.Children()
+	if !c.Actions.Visible() || len(rows) != 2 || len(rows[0].(*widget.Box).Children()) != 3 || len(rows[1].(*widget.Box).Children()) != 1 {
 		t.Fatalf("action rows = %d, want 3 + 1 without the default", len(rows))
 	}
 	// A click on plain text invokes the default action.
-	click(c, c.summary)
+	click(c, c.Summary)
 	if sig.count("ActionInvoked"+fmt.Sprint(id, notifications.DefaultActionID)) != 1 || len(svc.Popups()) != 1 {
 		t.Errorf("default: %v, popups %d", sig.seen, len(svc.Popups()))
 	}
 	// No default action: a click on the card does nothing.
 	pc := cardOf(t, p, plain)
-	click(pc, pc.summary)
+	click(pc, pc.Summary)
 	if sig.count("ActionInvoked"+strconv.FormatUint(uint64(plain), 10)) != 0 {
 		t.Error("a card without a default action invoked one")
 	}
@@ -1095,7 +1096,7 @@ func TestCardActionsAndDefault(t *testing.T) {
 	other := svc.Notify("chat", 0, "", "Reply", "", []string{"reply", "Reply"}, 0)
 	p.sync()
 	oc := cardOf(t, p, other)
-	btn := oc.actions.Children()[0].(*widget.Box).Children()[0].(*widget.Button)
+	btn := oc.Actions.Children()[0].(*widget.Box).Children()[0].(*widget.Button)
 	click(oc, btn)
 	if sig.count("ActionInvoked"+fmt.Sprint(other, "reply")) != 1 {
 		t.Errorf("action: %v", sig.seen)
@@ -1126,11 +1127,11 @@ func TestActionPressesCarryTheirToken(t *testing.T) {
 	id := svc.Notify("chat", 0, "", "Ping", "", []string{"default", "Open", "reply", "Reply"}, 0)
 	p.sync()
 	c := cardOf(t, p, id)
-	click(c, c.summary)
+	click(c, c.Summary)
 	other := svc.Notify("chat", 0, "", "Again", "", []string{"reply", "Reply"}, 0)
 	p.sync()
 	oc := cardOf(t, p, other)
-	click(oc, oc.actions.Children()[0].(*widget.Box).Children()[0].(*widget.Button))
+	click(oc, oc.Actions.Children()[0].(*widget.Box).Children()[0].(*widget.Button))
 	sig.mu.Lock()
 	seen := slices.DeleteFunc(slices.Clone(sig.seen), func(m string) bool { return strings.HasPrefix(m, "NotificationClosed") })
 	sig.mu.Unlock()
@@ -1146,7 +1147,7 @@ func TestActionPressesCarryTheirToken(t *testing.T) {
 	last := svc.Notify("chat", 0, "", "Last", "", []string{"default", "Open"}, 0)
 	p.sync()
 	lc := cardOf(t, p, last)
-	click(lc, lc.summary)
+	click(lc, lc.Summary)
 	if sig.count("ActivationToken"+strconv.FormatUint(uint64(last), 10)) != 0 || sig.count("ActionInvoked"+fmt.Sprint(last, notifications.DefaultActionID)) != 1 {
 		t.Errorf("without xdg-activation: %v", sig.seen)
 	}
@@ -1239,33 +1240,33 @@ func TestCardIsAnItemInACard(t *testing.T) {
 	acting := svc.Notify("app", 0, "", "Acting", "body", []string{"default", "Open", "a", "A", "b", "B"}, 0)
 	p.sync()
 	c := cardOf(t, p, acting)
-	if !c.root.HasClass(css.Card) {
+	if !c.Root.HasClass(css.Card) {
 		t.Error("the card is not lys-ui's card")
 	}
-	for _, l := range treetest.All[*widget.Label](c.root) {
+	for _, l := range treetest.All[*widget.Label](c.Root) {
 		if l.Color() != 0 {
 			t.Errorf("label %q pins ink %#08x over the stylesheet", l.Text(), uint32(l.Color()))
 		}
 	}
-	rows := treetest.WithClass(c.root, "notification-popup-action-row")
+	rows := treetest.WithClass(c.Root, "notification-popup-action-row")
 	if len(rows) != 1 || !rows[0].(*widget.Box).Homogeneous() {
 		t.Errorf("action rows %v, want one homogeneous row", rows)
 	}
-	buttons := treetest.WithClass(c.root, "notification-popup-action-btn")
+	buttons := treetest.WithClass(c.Root, "notification-popup-action-btn")
 	if len(buttons) != 2 || !widget.HasClass(buttons[0], css.Outline) {
 		t.Errorf("%d action buttons, want the two non-default actions as outline buttons", len(buttons))
 	}
-	if widget.CursorNameOf(c.root) != "pointer" {
+	if widget.CursorNameOf(c.Root) != "pointer" {
 		t.Error("a card with a default action shows the pointer")
 	}
-	if widget.CursorNameOf(cardOf(t, p, plain).root) != "" {
+	if widget.CursorNameOf(cardOf(t, p, plain).Root) != "" {
 		t.Error("a card without a default action shows the pointer")
 	}
 }
 
 // appLabel is the card's app name, its top row Item's title.
 func (c *card) appLabel() *widget.Label {
-	return treetest.WithClass(c.head, "title")[0].(*widget.Label)
+	return treetest.WithClass(c.Head, "title")[0].(*widget.Label)
 }
 
 // A stack is the configured card width whatever room the surface
@@ -1276,7 +1277,7 @@ func TestStackKeepsItsWidth(t *testing.T) {
 	p.sync()
 	st := p.stacks[0]
 	sz := widget.SizeWithinAsChild(st.root, widget.Size{W: 1920, H: 1080})
-	want := int(cardWidthPx * float64(p.cfg.Styling.Scale))
+	want := notifyview.Width(float64(p.cfg.Styling.Scale))
 	if sz.W != want {
 		t.Errorf("the stack of %d measures %dpx wide in a 1920px surface, want %d", id, sz.W, want)
 	}

@@ -10,6 +10,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/shell/notifyview"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/app"
@@ -31,7 +32,9 @@ const (
 	notifPageAhead = 200
 )
 
-func notifTimeLabel(age notifyui.Age) string { return notifyui.TimeLabel(age, "notification-dropdown") }
+func notifTimeLabel(age notifyview.Age) string {
+	return notifyview.TimeLabel(age, "notification-dropdown")
+}
 
 // notificationView is the notification dropdown: the header (bell or
 // muted bell, clear all), the do-not-disturb row, and the app groups or
@@ -372,7 +375,7 @@ func newNotifGroup(v *notificationView, data notifyui.Group) *notifGroup {
 	g.head.SetSmall(true)
 	g.head.SetEllipsize(true)
 	g.head.AddClass("notification-dropdown-group-header")
-	g.icon = widget.NewThemeIcon(notifyui.FallbackIcon, itemIconPx)
+	g.icon = widget.NewThemeIcon(notifyview.FallbackIcon, itemIconPx)
 	g.head.SetMedia(g.icon, false)
 	g.head.SetOnActivate(g.toggle)
 	g.count = widget.NewBadge(v.font, "")
@@ -496,13 +499,13 @@ type notifItem struct {
 // back to the themed bell and reports
 // whether the glyph still draws a picture, so it sits bare, without
 // the media tile, only when the file actually shows.
-func itemIcon(icon notifyui.Icon, size int, post func(func()), fileShows func()) (*widget.Icon, bool) {
-	return notifyui.NewIcon(icon, size, 0, post, fileShows), icon.File == "" && notifyui.IsFileIcon(icon)
+func itemIcon(icon notifyview.Icon, size int, post func(func()), fileShows func()) (*widget.Icon, bool) {
+	return notifyview.NewIcon(icon, size, 0, post, fileShows), icon.File == "" && notifyview.IsFileIcon(icon)
 }
 
 func newNotifItem(v *notificationView, n *notifications.Notification) *notifItem {
 	it := &notifItem{view: v, n: n, Box: widget.NewBox(widget.Column, 0, 0)}
-	it.AddClass("notification-dropdown-item", notifyui.UrgencyClass(n.Urgency))
+	it.AddClass("notification-dropdown-item", notifyview.UrgencyClass(n.Urgency))
 
 	it.main = widget.NewItem(v.font, n.Summary, "")
 	it.main.SetSmall(true)
@@ -510,7 +513,7 @@ func newNotifItem(v *notificationView, n *notifications.Notification) *notifItem
 	it.main.AddClass("notification-dropdown-item-main")
 	icon := notifyui.ResolveIcon(v.ctx.Config.Notification.IconSource, n)
 	size := itemIconPx
-	if notifyui.IsFileIcon(icon) {
+	if notifyview.IsFileIcon(icon) {
 		size = notifIconPx
 	}
 	var glyph *widget.Icon
@@ -543,7 +546,7 @@ func newNotifItem(v *notificationView, n *notifications.Notification) *notifItem
 
 	body := itemBody()
 	if n.Body != "" {
-		text := widget.NewRichLabel(v.font, v.px, notifyui.BodyMarkup(n.Body), 0)
+		text := widget.NewRichLabel(v.font, v.px, notifyview.BodyMarkup(n.Body), 0)
 		text.SetVariants(app.FontVariantsOf(v.font))
 		text.AddClass("notification-dropdown-item-body", css.DimLabel)
 		text.SetWrap(true)
@@ -578,7 +581,7 @@ func (it *notifItem) actionRows() widget.Widget {
 	gap := widget.Current().Spacing / 2
 	box := widget.NewBox(widget.Column, gap, 0)
 	box.AddClass("notification-dropdown-item-actions")
-	for chunk := range slices.Chunk(visible, notifyui.ActionsPerRow) {
+	for chunk := range slices.Chunk(visible, notifyview.ActionsPerRow) {
 		// The homogeneous row: a column-homogeneous grid gives every
 		// button the widest button's width, gtk Box homogeneous's
 		// equal shares.
@@ -617,7 +620,7 @@ func (it *notifItem) invokeDefault() {
 }
 
 func (it *notifItem) refreshTime() {
-	it.time.SetText(notifTimeLabel(notifyui.RelativeTime(it.view.now(), it.n.Added)))
+	it.time.SetText(notifTimeLabel(notifyview.RelativeTime(it.view.now(), it.n.Added)))
 }
 
 // openLink opens a body link with a token from the click; only web and

@@ -20,6 +20,7 @@ go get github.com/stubbedev/lys
 | `shell/...` | Widgets and helpers shared by the shell and the lock screen |
 | `shell/barview` | The bar drawn from a config, without services: its zones, module buttons and separator, which lys-shell fills with live modules and lys-settings previews |
 | `shell/osdview` | The on-screen display drawn from a config and an event, without services: the card lys-shell maps on a layer surface and lys-settings previews |
+| `shell/notifyview` | The notification popup card drawn from a config and what a notification shows, without services, with the helpers the popups and the notification dropdown share; lys-shell stacks it and lys-settings previews it |
 | `settingspage` | The contract between lys-settings and the programs that open it: its command line and page list |
 | `identity` | The desktop's directory name under each XDG base directory |
 | `desktopentry`, `mime`, `opener` | Desktop entries, the shared-mime-info database, and opening a file with the default app |

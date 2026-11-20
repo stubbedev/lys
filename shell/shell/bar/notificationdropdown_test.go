@@ -19,6 +19,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/notifications/notifypolicy"
+	"github.com/stubbedev/lys/desktop/shell/notifyview"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/render"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
@@ -30,20 +31,19 @@ import (
 	"github.com/stubbedev/lys/shell/internal/apptest"
 	"github.com/stubbedev/lys/shell/internal/notifytest"
 	"github.com/stubbedev/lys/shell/service/notifications"
-	"github.com/stubbedev/lys/shell/shell/notifyui"
 )
 
 func TestNotifTimeLabel(t *testing.T) {
-	if got := notifTimeLabel(notifyui.Age{Unit: notifyui.AgeJustNow}); got != i18n.T("notification-dropdown-time-just-now") {
+	if got := notifTimeLabel(notifyview.Age{Unit: notifyview.AgeJustNow}); got != i18n.T("notification-dropdown-time-just-now") {
 		t.Errorf("just now = %q", got)
 	}
-	if got := notifTimeLabel(notifyui.Age{Unit: notifyui.AgeMinutes, Count: 5}); got != i18n.T("notification-dropdown-time-minutes-ago", i18n.Str("minutes", "5")) {
+	if got := notifTimeLabel(notifyview.Age{Unit: notifyview.AgeMinutes, Count: 5}); got != i18n.T("notification-dropdown-time-minutes-ago", i18n.Str("minutes", "5")) {
 		t.Errorf("minutes = %q", got)
 	}
-	if got := notifTimeLabel(notifyui.Age{Unit: notifyui.AgeHours, Count: 3}); got != i18n.T("notification-dropdown-time-hours-ago", i18n.Str("hours", "3")) {
+	if got := notifTimeLabel(notifyview.Age{Unit: notifyview.AgeHours, Count: 3}); got != i18n.T("notification-dropdown-time-hours-ago", i18n.Str("hours", "3")) {
 		t.Errorf("hours = %q", got)
 	}
-	if got := notifTimeLabel(notifyui.Age{Unit: notifyui.AgeDays, Count: 12}); got != i18n.T("notification-dropdown-time-days-ago", i18n.Str("days", "12")) {
+	if got := notifTimeLabel(notifyview.Age{Unit: notifyview.AgeDays, Count: 12}); got != i18n.T("notification-dropdown-time-days-ago", i18n.Str("days", "12")) {
 		t.Errorf("days = %q", got)
 	}
 }
@@ -414,7 +414,7 @@ func TestNotificationItemFileIconFallsBack(t *testing.T) {
 			}
 		}
 		missIcon = findByClass(missing, "notification-dropdown-item-icon").(*widget.Icon)
-		if missIcon.Name() != notifyui.FallbackIcon || missIcon.HasClass("file-icon") {
+		if missIcon.Name() != notifyview.FallbackIcon || missIcon.HasClass("file-icon") {
 			t.Errorf("the unloadable file icon = %q (file-icon %v), want the bell", missIcon.Name(), missIcon.HasClass("file-icon"))
 		}
 		keepIcon = findByClass(loaded, "notification-dropdown-item-icon").(*widget.Icon)
@@ -422,7 +422,7 @@ func TestNotificationItemFileIconFallsBack(t *testing.T) {
 	})
 	defer v.dropdownClosed()
 	waitHeadless(t, "the loadable file shows, as a picture", func() bool {
-		return keepIcon.Name() != notifyui.FallbackIcon && keepIcon.HasClass("file-icon")
+		return keepIcon.Name() != notifyview.FallbackIcon && keepIcon.HasClass("file-icon")
 	})
 }
 

@@ -93,7 +93,7 @@ type Notification struct {
 	// ReplacesID is the replaces_id the sender passed.
 	ReplacesID uint32
 	// Progress is the value hint.
-	Progress Progress
+	Progress notifymodel.Progress
 	// StackTag is the x-dunst-stack-tag or x-canonical-private-synchronous
 	// hint: a new notification with the same tag from the same app
 	// replaces this one.
