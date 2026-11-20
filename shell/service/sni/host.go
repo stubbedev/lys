@@ -28,10 +28,7 @@ const (
 
 // Discovery cadences.
 var (
-	// orphanScanSchedule re-scans the bus for items that registered with
-	// a previous watcher (a shell restart) and never re-register.
-	orphanScanSchedule = []time.Duration{0, time.Second, 3 * time.Second, 8 * time.Second, 20 * time.Second}
-	probeTimeout       = 500 * time.Millisecond
+	probeTimeout = 500 * time.Millisecond
 	// menuDebounce coalesces a burst of DBusMenu change signals into
 	// one refetch.
 	menuDebounce = 100 * time.Millisecond
@@ -64,6 +61,9 @@ type Host struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 	work   sync.WaitGroup
+	// scanned closes once the orphan scan of a host serving the
+	// watcher is over.
+	scanned chan struct{}
 	// timeout is how long a peer has to answer, and failed is told what
 	// could not be read of an item or of an external watcher, on the
 	// goroutine that found out.
@@ -144,6 +144,7 @@ func idleHost(conn *dbus.Conn, store *Store, timeout time.Duration, failed func(
 		menus:       make(map[string][]chan struct{}),
 		pixmapSizes: make(map[int]int),
 		retrack:     make(chan struct{}, 1),
+		scanned:     make(chan struct{}),
 	}
 }
 
@@ -520,29 +521,27 @@ func (h *Host) resync() {
 	}
 }
 
-// orphanScan runs on the schedule:
-// probe every other unique name for a StatusNotifierItem and register
-// the ones that answer - items that registered with a watcher that has
-// since gone away do not re-register on their own.
+// orphanScan probes every other unique name once for a
+// StatusNotifierItem and registers the ones that answer: items that
+// registered with a watcher that has since gone away (a shell restart)
+// do not re-register on their own, while items that start later
+// register with this watcher, or re-register as its name appears.
 func (h *Host) orphanScan() {
-	for _, delay := range orphanScanSchedule {
-		select {
-		case <-h.ctx.Done():
-			return
-		case <-time.After(delay):
+	defer close(h.scanned)
+	var names []string
+	if err := h.conn.BusObject().CallWithContext(h.ctx, "org.freedesktop.DBus.ListNames", 0).Store(&names); err != nil {
+		if h.ctx.Err() == nil {
+			h.failed(fmt.Errorf("listing the bus names to scan for items: %w", err))
 		}
-		var names []string
-		if err := h.conn.BusObject().CallWithContext(h.ctx, "org.freedesktop.DBus.ListNames", 0).Store(&names); err != nil {
-			return
+		return
+	}
+	own := h.conn.Names()[0]
+	for _, name := range names {
+		if !strings.HasPrefix(name, ":") || name == own || h.watcher.registered(name) {
+			continue
 		}
-		own := h.conn.Names()[0]
-		for _, name := range names {
-			if !strings.HasPrefix(name, ":") || name == own || h.watcher.registered(name) {
-				continue
-			}
-			if h.probe(name) {
-				h.watcher.register(name)
-			}
+		if h.probe(name) {
+			h.watcher.register(name)
 		}
 	}
 }

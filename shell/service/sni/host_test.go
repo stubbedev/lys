@@ -2,10 +2,12 @@ package sni
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -302,6 +304,30 @@ func TestHostRecoversOrphanedItems(t *testing.T) {
 	items := waitItems(t, store, func(i []Item) bool { return len(i) == 1 })
 	if items[0].ID != "orphan" || items[0].Bus != item.conn.Names()[0] {
 		t.Errorf("recovered = %+v", items[0])
+	}
+}
+
+type probeCounter struct{ n atomic.Int32 }
+
+func (p *probeCounter) Get(string, string) (dbus.Variant, *dbus.Error) {
+	p.n.Add(1)
+	return dbus.Variant{}, dbus.MakeFailedError(errors.New("not a tray item"))
+}
+
+func TestHostScansForOrphanedItemsOnce(t *testing.T) {
+	bus := dbustest.Start(t)
+	probes := &probeCounter{}
+	if err := bus.Conn(t).Export(probes, "/StatusNotifierItem", PropsIface); err != nil {
+		t.Fatal(err)
+	}
+	host, err := NewHostOn(bus.Conn(t), NewStore())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer host.Close()
+	waittest.For(t, host.scanned, "the end of the orphan scan")
+	if n := probes.n.Load(); n != 1 {
+		t.Errorf("a connection serving no item was probed %d times, want once", n)
 	}
 }
 
