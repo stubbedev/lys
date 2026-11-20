@@ -154,16 +154,7 @@ func audioPage(*config.Config) pageSpec {
 			field("modules.audio.speaker-icons", iconList),
 			field("modules.audio.speaker-icon-muted", iconRow),
 		}},
-		{title: "settings-section-microphone", rows: []rowSpec{
-			field("modules.audio.mic-icon", iconRow),
-			field("modules.audio.mic-icon-muted", iconRow),
-			field("modules.audio.mic-hide-when-idle"),
-		}},
-		{title: "settings-section-capture", rows: []rowSpec{
-			field("modules.audio.capture-camera-icon", iconRow),
-			field("modules.audio.capture-screen-icon", iconRow),
-			field("modules.audio.capture-color"),
-		}},
+		{title: "settings-section-capture", rows: []rowSpec{captureTilesRow("modules.audio")}},
 		{title: "settings-section-dropdown", rows: []rowSpec{
 			field("modules.audio.dropdown-app-icons"),
 		}},
