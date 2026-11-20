@@ -42,6 +42,7 @@ bar:
 | `label-max-length` | u32 | `0` | Max label characters before truncation with ellipsis. Set to 0 to disable. |
 | `notify-low` | bool | `true` | Send a critical notification when the battery, or a peripheral UPower reports such as a wireless mouse, enters UPower's low or critical warning level. |
 | `notify-charged-at` | [`Percentage`](/shell/config/types#percentage) | `0` | Notify once when the charging battery reaches this percentage. Set to 0 to disable. |
+| `app-nap` | map of [`NapLevel`](/shell/config/types#nap-level) | `{}` | How hard each app naps while the user cannot see it, by app ID. |
 
 ::: details More about `level-icons`
 
@@ -69,6 +70,16 @@ Each level notifies once; plugging in and unplugging again re-arms them.
 At 20% on battery it also offers Low Power (the power-saver profile)
 with a button that turns it on, once until the next unplug, and never
 while power-saver is already on.
+
+:::
+
+::: details More about `app-nap`
+
+An app not listed naps at `default`. Freezing and the efficiency
+cores are never the default: a frozen app's downloads and sockets
+stop, and a hidden build is real work.
+
+Example: `{"org.mozilla.firefox": "never", "com.slack.Slack": "frozen"}`
 
 :::
 
@@ -122,6 +133,7 @@ modules:
     scroll-down: ""
     notify-low: true
     notify-charged-at: 0
+    app-nap: {}
 ```
 
 

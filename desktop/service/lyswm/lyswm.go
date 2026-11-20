@@ -182,6 +182,7 @@ type event struct {
 	Rect      *wmipc.Rect        `json:"rect"`
 	Urgent    *bool              `json:"urgent"`
 	Minimized *bool              `json:"minimized"`
+	Asleep    *bool              `json:"asleep"`
 	Stack     json.RawMessage    `json:"stack"`
 }
 

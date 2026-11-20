@@ -1109,6 +1109,17 @@ Per-monitor wallpaper configuration.
 | `fit-mode` | Image scaling mode for this monitor. |
 | `wallpaper` | Wallpaper image path for this monitor. |
 
+## NapLevel {#nap-level}
+
+How hard an app naps while the user cannot see it.
+
+| Value | Meaning |
+|---|---|
+| `"default"` | Lower CPU and I/O weight and coalesced timers while it is unseen and silent. |
+| `"never"` | Never naps. |
+| `"efficiency-cores"` | Naps by default, and runs on the efficiency cores alone while it does. |
+| `"frozen"` | Naps by default, and is frozen while it does on battery power. |
+
 ## NetInterface {#net-interface}
 
 A network interface name (`wlan0`).

@@ -65,6 +65,14 @@ settings-modules-battery-notify-low = Low Battery Notifications
 settings-modules-battery-notify-charged-at = Charged Notification
     .description = Notify once when charging reaches this percentage (0 disables)
 
+settings-modules-battery-app-nap = App Nap
+    .description = How hard each app naps while you cannot see it
+
 ## Format placeholders
 
 settings-modules-battery-format-placeholder-percent = Battery level (0-100)
+
+enum-nap-level-default = Default nap
+enum-nap-level-never = Never nap
+enum-nap-level-efficiency-cores = Efficiency cores
+enum-nap-level-frozen = Frozen on battery

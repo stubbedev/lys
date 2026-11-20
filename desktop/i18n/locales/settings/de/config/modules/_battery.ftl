@@ -65,6 +65,14 @@ settings-modules-battery-notify-low = Benachrichtigungen bei schwachem Akku
 settings-modules-battery-notify-charged-at = Benachrichtigung bei Ladeende
     .description = Einmal benachrichtigen, wenn das Laden diesen Prozentwert erreicht (0 deaktiviert)
 
+settings-modules-battery-app-nap = App Nap
+    .description = Wie tief jede App ruht, solange du sie nicht siehst
+
 ## Format placeholders
 
 settings-modules-battery-format-placeholder-percent = Akkustand (0–100)
+
+enum-nap-level-default = Normal ruhen
+enum-nap-level-never = Nie ruhen
+enum-nap-level-efficiency-cores = Effizienzkerne
+enum-nap-level-frozen = Im Akkubetrieb eingefroren

@@ -61,4 +61,12 @@ settings-modules-battery-notify-low = Notificações de bateria fraca
 settings-modules-battery-notify-charged-at = Notificação de carga completa
     .description = Notificar uma vez quando o carregamento atinge esta percentagem (0 desativa)
 
+settings-modules-battery-app-nap = App Nap
+    .description = Quanto repousa cada aplicação enquanto não a vê
+
 settings-modules-battery-format-placeholder-percent = Nível da bateria (0-100)
+
+enum-nap-level-default = Repouso normal
+enum-nap-level-never = Nunca repousar
+enum-nap-level-efficiency-cores = Núcleos de eficiência
+enum-nap-level-frozen = Congelada na bateria

@@ -61,4 +61,12 @@ settings-modules-battery-notify-low = Meldingen bij lage accu
 settings-modules-battery-notify-charged-at = Melding bij opgeladen
     .description = Eén keer een melding geven als het opladen dit percentage bereikt (0 schakelt uit)
 
+settings-modules-battery-app-nap = App Nap
+    .description = Hoe diep elke app rust zolang je hem niet ziet
+
 settings-modules-battery-format-placeholder-percent = Accuniveau (0-100)
+
+enum-nap-level-default = Normaal rusten
+enum-nap-level-never = Nooit rusten
+enum-nap-level-efficiency-cores = Efficiëntiekernen
+enum-nap-level-frozen = Bevroren op batterij

@@ -65,6 +65,14 @@ settings-modules-battery-notify-low = Notifications de batterie faible
 settings-modules-battery-notify-charged-at = Notification de charge
     .description = Notifier une fois quand la charge atteint ce pourcentage (0 désactive)
 
+settings-modules-battery-app-nap = App Nap
+    .description = À quel point chaque app se met en veille quand vous ne la voyez pas
+
 ## Format placeholders
 
 settings-modules-battery-format-placeholder-percent = Niveau de la batterie (0-100)
+
+enum-nap-level-default = Veille normale
+enum-nap-level-never = Jamais en veille
+enum-nap-level-efficiency-cores = Cœurs basse consommation
+enum-nap-level-frozen = Gelée sur batterie

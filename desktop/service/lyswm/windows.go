@@ -13,7 +13,7 @@ import (
 // reports.
 var windowEvents = []wmipc.EventKind{
 	wmipc.EventOpen, wmipc.EventClose, wmipc.EventMove, wmipc.EventTitle, wmipc.EventAppID, wmipc.EventRect,
-	wmipc.EventUrgent, wmipc.EventMinimized, wmipc.EventStack, wmipc.EventFocus,
+	wmipc.EventUrgent, wmipc.EventMinimized, wmipc.EventAsleep, wmipc.EventStack, wmipc.EventFocus,
 }
 
 // WindowsWatcher follows every window: seeded from the windows request
@@ -125,6 +125,8 @@ func (e event) update(win *wmipc.Window) {
 		setFrom(&win.Urgent, e.Urgent)
 	case wmipc.EventMinimized:
 		setFrom(&win.Minimized, e.Minimized)
+	case wmipc.EventAsleep:
+		setFrom(&win.Asleep, e.Asleep)
 	case wmipc.EventStack:
 		var stack *int
 		if json.Unmarshal(e.Stack, &stack) == nil {

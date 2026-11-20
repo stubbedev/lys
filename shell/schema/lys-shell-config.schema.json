@@ -1274,6 +1274,11 @@
           "default": "ld-battery-warning-symbolic",
           "description": "Icon shown when battery is not present or in an error state."
         },
+        "app-nap": {
+          "$ref": "#/$defs/Map_of_NapLevel",
+          "default": {},
+          "description": "How hard each app naps while the user cannot see it, by app ID.\n\nAn app not listed naps at `default`. Freezing and the efficiency\ncores are never the default: a frozen app's downloads and sockets\nstop, and a hidden build is real work.\n\nExample: `{\"org.mozilla.firefox\": \"never\", \"com.slack.Slack\": \"frozen\"}`"
+        },
         "border-color": {
           "$ref": "#/$defs/ColorValue",
           "default": "yellow",
@@ -5502,6 +5507,12 @@
         }
       ]
     },
+    "Map_of_NapLevel": {
+      "additionalProperties": {
+        "$ref": "#/$defs/NapLevel"
+      },
+      "type": "object"
+    },
     "Map_of_string": {
       "additionalProperties": {
         "type": "string"
@@ -5840,6 +5851,7 @@
           "$ref": "#/$defs/BatteryConfig",
           "default": {
             "alert-icon": "ld-battery-warning-symbolic",
+            "app-nap": {},
             "border-color": "yellow",
             "border-show": false,
             "button-bg-color": "bg-surface-elevated",
@@ -6770,6 +6782,31 @@
         "name"
       ],
       "type": "object"
+    },
+    "NapLevel": {
+      "description": "How hard an app naps while the user cannot see it.",
+      "oneOf": [
+        {
+          "const": "default",
+          "description": "Lower CPU and I/O weight and coalesced timers while it is unseen and silent.",
+          "type": "string"
+        },
+        {
+          "const": "never",
+          "description": "Never naps.",
+          "type": "string"
+        },
+        {
+          "const": "efficiency-cores",
+          "description": "Naps by default, and runs on the efficiency cores alone while it does.",
+          "type": "string"
+        },
+        {
+          "const": "frozen",
+          "description": "Naps by default, and is frozen while it does on battery power.",
+          "type": "string"
+        }
+      ]
     },
     "NetInterface": {
       "description": "A network interface name (`wlan0`).",
@@ -11700,6 +11737,7 @@
         },
         "battery": {
           "alert-icon": "ld-battery-warning-symbolic",
+          "app-nap": {},
           "border-color": "yellow",
           "border-show": false,
           "button-bg-color": "bg-surface-elevated",

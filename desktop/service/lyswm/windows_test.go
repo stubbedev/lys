@@ -42,6 +42,7 @@ func TestWatchWindowsFollowsEveryWindowEvent(t *testing.T) {
 		`{"event":"appid","window":2,"app_id":"io.mpv.Mpv"}`,
 		`{"event":"rect","window":2,"output":"HDMI-A-1","rect":{"x":5,"y":6,"width":7,"height":8}}`,
 		`{"event":"minimized","window":1,"minimized":true}`,
+		`{"event":"asleep","window":1,"asleep":true}`,
 		`{"event":"stack","window":1,"stack":null}`,
 		`{"event":"focus","window":2}`,
 		`{"event":"title","window":9,"title":"no such window"}`,
@@ -50,8 +51,8 @@ func TestWatchWindowsFollowsEveryWindowEvent(t *testing.T) {
 	}
 	got := awaitWindows(t, w, func(ws []wmipc.Window) bool { return len(ws) == 2 && ws[1].Focused })
 	one, two := got[0], got[1]
-	if !one.Minimized || one.Stack != nil || one.Focused {
-		t.Errorf("window 1 = %+v, want minimized, unstacked and unfocused", one)
+	if !one.Minimized || !one.Asleep || one.Stack != nil || one.Focused {
+		t.Errorf("window 1 = %+v, want minimized, asleep, unstacked and unfocused", one)
 	}
 	if two.Title != "film" || two.AppID != "io.mpv.Mpv" || two.Output != "HDMI-A-1" || two.Rect != (wmipc.Rect{X: 5, Y: 6, Width: 7, Height: 8}) {
 		t.Errorf("window 2 = %+v", two)

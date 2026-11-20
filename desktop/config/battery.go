@@ -1,5 +1,24 @@
 package config
 
+// NapLevel is part of the battery module's configuration.
+//
+// How hard an app naps while the user cannot see it.
+type NapLevel string
+
+// NapLevel values.
+const (
+	// Lower CPU and I/O weight and coalesced timers while it is unseen and silent.
+	NapLevelDefault NapLevel = "default"
+	// Never naps.
+	NapLevelNever NapLevel = "never"
+	// Naps by default, and runs on the efficiency cores alone while it does.
+	NapLevelEfficiencyCores NapLevel = "efficiency-cores"
+	// Naps by default, and is frozen while it does on battery power.
+	NapLevelFrozen NapLevel = "frozen"
+)
+
+var _ = registerEnum(NapLevelDefault, NapLevelNever, NapLevelEfficiencyCores, NapLevelFrozen)
+
 // BatteryConfig configures the battery module.
 //
 // Battery level, charging state, and a dropdown with the batteries of
@@ -71,6 +90,14 @@ type BatteryConfig struct {
 	// Notify once when the charging battery reaches this percentage. Set to
 	// 0 to disable.
 	NotifyChargedAt Percentage `cfg:"notify-charged-at"`
+	// How hard each app naps while the user cannot see it, by app ID.
+	//
+	// An app not listed naps at `default`. Freezing and the efficiency
+	// cores are never the default: a frozen app's downloads and sockets
+	// stop, and a hidden build is real work.
+	//
+	// Example: `{"org.mozilla.firefox": "never", "com.slack.Slack": "frozen"}`
+	AppNap map[string]NapLevel `cfg:"app-nap"`
 }
 
 // DefaultsBattery returns the schema defaults.
@@ -101,6 +128,7 @@ func DefaultsBattery() BatteryConfig {
 		ScrollUp:       ClickAction{},
 		ScrollDown:     ClickAction{},
 		NotifyLow:      true,
+		AppNap:         map[string]NapLevel{},
 	}
 }
 
