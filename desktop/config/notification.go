@@ -85,7 +85,7 @@ type NotificationConfig struct {
 	// deleted past it.
 	HistoryStored NotificationHistoryStored `cfg:"history-stored"`
 	// Screen position for popup notifications.
-	PopupPosition PopupPosition `cfg:"popup-position"`
+	PopupPosition ScreenPosition `cfg:"popup-position"`
 	// Maximum number of popups visible at once.
 	PopupMaxVisible uint32 `cfg:"popup-max-visible"`
 	// Order in which popups stack on screen.
@@ -179,7 +179,7 @@ func DefaultsNotification() NotificationConfig {
 		IconSource:         IconSourceAutomatic,
 		HistoryMemory:      NotificationHistoryMemory{limit: notifypolicy.DefaultMemoryLimit()},
 		HistoryStored:      NotificationHistoryStored{limit: notifypolicy.DefaultStoredLimit()},
-		PopupPosition:      PopupPositionTopRight,
+		PopupPosition:      ScreenTopRight,
 		PopupMaxVisible:    5,
 		PopupStackingOrder: StackingOrderNewestFirst,
 		PopupStack:         PopupStackPerApp,
@@ -201,33 +201,6 @@ func DefaultsNotification() NotificationConfig {
 func (c NotificationConfig) Clicks() ClickConfig {
 	return ClickConfig{c.LeftClick, c.RightClick, c.MiddleClick, c.ScrollUp, c.ScrollDown}
 }
-
-// PopupPosition is part of the notification module's configuration.
-//
-// Screen position for notification popups.
-type PopupPosition string
-
-// PopupPosition values.
-const (
-	// Top-left corner.
-	PopupPositionTopLeft PopupPosition = "top-left"
-	// Top-center edge.
-	PopupPositionTopCenter PopupPosition = "top-center"
-	// Top-right corner.
-	PopupPositionTopRight PopupPosition = "top-right"
-	// Bottom-left corner.
-	PopupPositionBottomLeft PopupPosition = "bottom-left"
-	// Bottom-center edge.
-	PopupPositionBottomCenter PopupPosition = "bottom-center"
-	// Bottom-right corner.
-	PopupPositionBottomRight PopupPosition = "bottom-right"
-	// Center-left edge.
-	PopupPositionCenterLeft PopupPosition = "center-left"
-	// Center-right edge.
-	PopupPositionCenterRight PopupPosition = "center-right"
-)
-
-var _ = registerEnum(PopupPositionTopLeft, PopupPositionTopCenter, PopupPositionTopRight, PopupPositionBottomLeft, PopupPositionBottomCenter, PopupPositionBottomRight, PopupPositionCenterLeft, PopupPositionCenterRight)
 
 // StackingOrder is part of the notification module's configuration.
 //

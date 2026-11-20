@@ -263,11 +263,11 @@ func TestBurstCollapsesIntoAStackPerApp(t *testing.T) {
 // Expanded, the cards lay out as a list from the front's end.
 func TestCollapsedStackPeeks(t *testing.T) {
 	for _, tc := range []struct {
-		position config.PopupPosition
+		position config.ScreenPosition
 		down     bool
 	}{
-		{config.PopupPositionTopRight, true},
-		{config.PopupPositionBottomRight, false},
+		{config.ScreenTopRight, true},
+		{config.ScreenBottomRight, false},
 	} {
 		cfg := config.DefaultsNotification()
 		cfg.PopupPosition = tc.position
@@ -906,7 +906,7 @@ func TestCardsPlayTheirExit(t *testing.T) {
 
 func TestCardTransitionFollowsConfig(t *testing.T) {
 	ncfg := config.DefaultsNotification()
-	ncfg.PopupPosition = config.PopupPositionTopCenter
+	ncfg.PopupPosition = config.ScreenTopCenter
 	p, svc := newTestPopups(t, ncfg)
 	enter, exit := config.AnimationGenie, config.AnimationSlideRight
 	p.cfg.Animations.Notifications.Enter = &enter
@@ -922,7 +922,7 @@ func TestCardTransitionFollowsConfig(t *testing.T) {
 	if rev.Transition() != widget.RevealSlideRight {
 		t.Errorf("exit transition = %v, want the per-surface slide-right", rev.Transition())
 	}
-	if !popupAtTop(config.PopupPositionTopCenter) || popupAtTop(config.PopupPositionCenterLeft) {
+	if !popupAtTop(config.ScreenTopCenter) || popupAtTop(config.ScreenCenterLeft) {
 		t.Error("genie edge: top positions collapse up, the rest down")
 	}
 }
@@ -1157,15 +1157,15 @@ func TestPopupMargins(t *testing.T) {
 	cfg := config.DefaultsNotification()
 	cfg.PopupMarginX = config.Scale(1)
 	cfg.PopupMarginY = config.Px(20)
-	cfg.PopupPosition = config.PopupPositionTopRight
+	cfg.PopupPosition = config.ScreenTopRight
 	if got := popupMargins(cfg, 2); got != (app.Margins{Top: 20, Right: 24}) {
 		t.Errorf("top-right = %+v, want y 20px on top, x 1x12x2 on the right", got)
 	}
-	cfg.PopupPosition = config.PopupPositionBottomCenter
+	cfg.PopupPosition = config.ScreenBottomCenter
 	if got := popupMargins(cfg, 1); got != (app.Margins{Bottom: 20}) {
 		t.Errorf("bottom-center = %+v, want only the bottom", got)
 	}
-	cfg.PopupPosition = config.PopupPositionCenterLeft
+	cfg.PopupPosition = config.ScreenCenterLeft
 	if got := popupMargins(cfg, 1); got != (app.Margins{Left: 12}) {
 		t.Errorf("center-left = %+v, want only the left", got)
 	}
@@ -1179,25 +1179,6 @@ func TestZeroPopupDurationSticks(t *testing.T) {
 	p.sync()
 	if got := p.Visible(); got != 1 {
 		t.Fatalf("visible = %d", got)
-	}
-}
-
-func TestPopupAnchors(t *testing.T) {
-	// Corners take both edges, the centered positions one.
-	for pos, want := range map[config.PopupPosition]app.Anchor{
-		config.PopupPositionTopRight:     app.AnchorTop | app.AnchorRight,
-		config.PopupPositionBottomLeft:   app.AnchorBottom | app.AnchorLeft,
-		config.PopupPositionTopCenter:    app.AnchorTop,
-		config.PopupPositionBottomCenter: app.AnchorBottom,
-		config.PopupPositionCenterLeft:   app.AnchorLeft,
-		config.PopupPositionCenterRight:  app.AnchorRight,
-	} {
-		if got := popupAnchors(pos); got != want {
-			t.Errorf("%s anchors = %v, want %v", pos, got, want)
-		}
-	}
-	if got := popupAnchors("sideways"); got != app.AnchorTop|app.AnchorRight {
-		t.Errorf("an unknown position = %v, want the top-right default", got)
 	}
 }
 

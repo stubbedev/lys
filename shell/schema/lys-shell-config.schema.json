@@ -7426,7 +7426,7 @@
           "description": "Opacity of a popup card's frosted surface at rest (0-100). The card\nunder the pointer is opaque, and so is every card where the\ncompositor cannot blur what is behind the popups."
         },
         "popup-position": {
-          "$ref": "#/$defs/PopupPosition",
+          "$ref": "#/$defs/ScreenPosition",
           "default": "top-right",
           "description": "Screen position for popup notifications."
         },
@@ -7657,8 +7657,8 @@
           "description": "Target monitor: \"primary\" (lys-wm's primary_output, else the first output) or a connector name like \"DP-1\"."
         },
         "position": {
-          "$ref": "#/$defs/OsdPosition",
-          "default": "bottom",
+          "$ref": "#/$defs/ScreenPosition",
+          "default": "bottom-center",
           "description": "Screen anchor position."
         },
         "presets": {
@@ -7700,51 +7700,6 @@
       "type": "string",
       "x-variants": [
         "primary"
-      ]
-    },
-    "OsdPosition": {
-      "description": "Screen anchor for the OSD overlay.",
-      "oneOf": [
-        {
-          "const": "top-left",
-          "description": "Top-left corner.",
-          "type": "string"
-        },
-        {
-          "const": "top",
-          "description": "Top-center edge.",
-          "type": "string"
-        },
-        {
-          "const": "top-right",
-          "description": "Top-right corner.",
-          "type": "string"
-        },
-        {
-          "const": "right",
-          "description": "Right-center edge.",
-          "type": "string"
-        },
-        {
-          "const": "bottom-right",
-          "description": "Bottom-right corner.",
-          "type": "string"
-        },
-        {
-          "const": "bottom",
-          "description": "Bottom-center edge.",
-          "type": "string"
-        },
-        {
-          "const": "bottom-left",
-          "description": "Bottom-left corner.",
-          "type": "string"
-        },
-        {
-          "const": "left",
-          "description": "Left-center edge.",
-          "type": "string"
-        }
       ]
     },
     "OsdTextAlign": {
@@ -7945,51 +7900,6 @@
       "type": "string",
       "x-variants": [
         "primary"
-      ]
-    },
-    "PopupPosition": {
-      "description": "Screen position for notification popups.",
-      "oneOf": [
-        {
-          "const": "top-left",
-          "description": "Top-left corner.",
-          "type": "string"
-        },
-        {
-          "const": "top-center",
-          "description": "Top-center edge.",
-          "type": "string"
-        },
-        {
-          "const": "top-right",
-          "description": "Top-right corner.",
-          "type": "string"
-        },
-        {
-          "const": "bottom-left",
-          "description": "Bottom-left corner.",
-          "type": "string"
-        },
-        {
-          "const": "bottom-center",
-          "description": "Bottom-center edge.",
-          "type": "string"
-        },
-        {
-          "const": "bottom-right",
-          "description": "Bottom-right corner.",
-          "type": "string"
-        },
-        {
-          "const": "center-left",
-          "description": "Center-left edge.",
-          "type": "string"
-        },
-        {
-          "const": "center-right",
-          "description": "Center-right edge.",
-          "type": "string"
-        }
       ]
     },
     "PopupStack": {
@@ -8760,6 +8670,51 @@
       "maximum": 3.0,
       "minimum": 0.25,
       "type": "number"
+    },
+    "ScreenPosition": {
+      "description": "Screen position: a corner, or the middle of an edge.",
+      "oneOf": [
+        {
+          "const": "top-left",
+          "description": "Top-left corner.",
+          "type": "string"
+        },
+        {
+          "const": "top-center",
+          "description": "Top-center edge.",
+          "type": "string"
+        },
+        {
+          "const": "top-right",
+          "description": "Top-right corner.",
+          "type": "string"
+        },
+        {
+          "const": "bottom-left",
+          "description": "Bottom-left corner.",
+          "type": "string"
+        },
+        {
+          "const": "bottom-center",
+          "description": "Bottom-center edge.",
+          "type": "string"
+        },
+        {
+          "const": "bottom-right",
+          "description": "Bottom-right corner.",
+          "type": "string"
+        },
+        {
+          "const": "center-left",
+          "description": "Center-left edge.",
+          "type": "string"
+        },
+        {
+          "const": "center-right",
+          "description": "Center-right edge.",
+          "type": "string"
+        }
+      ]
     },
     "ScreenshotConfig": {
       "description": "Screenshot capture button.\n\nClick the bar button to capture a region, output, or window. Controllable\nfrom the CLI / RPC socket: `lys-shell screenshot region|output|window`.\n\nAfter a capture a thumbnail floats in a screen corner: click it to mark\nthe image up (crop, arrow, rectangle, ellipse, freehand, text,\nhighlighter, numbered markers and pixelation, with undo and redo; Enter\nsaves over the file and copies it, Ctrl+S saves a copy elsewhere), drag\nit into an app, or delete the capture with its close button.\n\n`lys-shell screenshot text` copies the text in a dragged region (through\ntesseract, which must be installed) and `lys-shell screenshot qr` decodes\nthe QR code in one; neither saves a file.",
@@ -12389,7 +12344,7 @@
         "margin": 1.0,
         "media": "requested",
         "monitor": "primary",
-        "position": "bottom",
+        "position": "bottom-center",
         "presets": [],
         "text-align": "center"
       },

@@ -29,14 +29,6 @@ settings-osd-media = A reproduzir
     .description = Mudanças de faixa que mostram o OSD de reprodução: pedidas (teclas multimédia e `lys-shell media next`), sempre ou nunca
 
 
-enum-osd-position-top-left = Superior esquerdo
-enum-osd-position-top = Topo
-enum-osd-position-top-right = Superior direito
-enum-osd-position-right = Direita
-enum-osd-position-bottom-right = Inferior direito
-enum-osd-position-bottom = Fundo
-enum-osd-position-bottom-left = Inferior esquerdo
-enum-osd-position-left = Esquerda
 
 
 enum-osd-text-align-start = Início

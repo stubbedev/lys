@@ -32,14 +32,6 @@ settings-osd-media = In riproduzione
 
 
 ## OsdPosition variants
-enum-osd-position-top-left = In alto a sinistra
-enum-osd-position-top = Alto
-enum-osd-position-top-right = In alto a destra
-enum-osd-position-right = Destra
-enum-osd-position-bottom-right = In basso a destra
-enum-osd-position-bottom = Basso
-enum-osd-position-bottom-left = In basso a sinistra
-enum-osd-position-left = Sinistra
 
 
 ## OsdTextAlign variants

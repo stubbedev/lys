@@ -160,7 +160,7 @@ func TestOneSurfaceReanchored(t *testing.T) {
 		t.Fatalf("%d surfaces, want one reused", len(h.opened))
 	}
 	next := quietConfig()
-	next.Osd.Position = config.OsdTopRight
+	next.Osd.Position = config.ScreenTopRight
 	next.Styling.Scale = 2
 	h.osd.SetConfig(next)
 	w := h.opened[0]
@@ -172,23 +172,26 @@ func TestOneSurfaceReanchored(t *testing.T) {
 	}
 }
 
-func TestAnchorsAndMargins(t *testing.T) {
-	for pos, want := range map[config.OsdPosition]app.Anchor{
-		config.OsdTopLeft:     app.AnchorTop | app.AnchorLeft,
-		config.OsdTop:         app.AnchorTop,
-		config.OsdTopRight:    app.AnchorTop | app.AnchorRight,
-		config.OsdRight:       app.AnchorRight,
-		config.OsdBottomRight: app.AnchorBottom | app.AnchorRight,
-		config.OsdBottom:      app.AnchorBottom,
-		config.OsdBottomLeft:  app.AnchorBottom | app.AnchorLeft,
-		config.OsdLeft:        app.AnchorLeft,
+func TestTheGenieCollapsesTowardTheEdgeTheOsdSitsAt(t *testing.T) {
+	for pos, want := range map[config.ScreenPosition]widget.Edge{
+		config.ScreenTopLeft:      widget.EdgeTop,
+		config.ScreenTopCenter:    widget.EdgeTop,
+		config.ScreenTopRight:     widget.EdgeTop,
+		config.ScreenCenterLeft:   widget.EdgeLeft,
+		config.ScreenCenterRight:  widget.EdgeRight,
+		config.ScreenBottomLeft:   widget.EdgeBottom,
+		config.ScreenBottomCenter: widget.EdgeBottom,
+		config.ScreenBottomRight:  widget.EdgeBottom,
 	} {
-		if got := anchors(pos); got != want {
-			t.Errorf("%s anchors %v, want %v", pos, got, want)
+		if got := genieEdge(pos); got != want {
+			t.Errorf("%s collapses toward %v, want %v", pos, got, want)
 		}
 	}
+}
+
+func TestMarginsInsetOnlyTheAnchoredEdges(t *testing.T) {
 	cfg := config.Defaults()
-	cfg.Osd.Position = config.OsdBottomLeft
+	cfg.Osd.Position = config.ScreenBottomLeft
 	cfg.Osd.Margin = config.Size{Value: 10.7, Unit: config.SizePixels}
 	if got := margins(cfg); got != (app.Margins{Bottom: 10, Left: 10}) {
 		t.Errorf("margins %+v, want 10.7px truncated on bottom and left only", got)

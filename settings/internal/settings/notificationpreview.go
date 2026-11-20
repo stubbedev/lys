@@ -6,6 +6,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/service/notifications/notifymodel"
 	"github.com/stubbedev/lys/desktop/shell/notifyview"
+	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
@@ -30,7 +31,7 @@ func drawNotificationOnScreen(k *kit, cfg *config.Config, font render.Font) widg
 	}
 	inset := widget.NewBox(widget.Column, 0, widget.Current().Padding)
 	inset.Append(notifyview.Preview(cfg, font, time.Time{}, testNotificationContent()), false)
-	h, v := notifyview.Placement(cfg.Notification.PopupPosition)
+	h, v := widgets.Placement(cfg.Notification.PopupPosition)
 	shown.AppendAligned(inset, h, v)
 	return overflowing(shown)
 }

@@ -67,14 +67,6 @@ settings-modules-notifications-thresholds = Umbrales
 
 
 ## PopupPosition variants
-enum-popup-position-top-left = Arriba a la izquierda
-enum-popup-position-top-center = Arriba en el centro
-enum-popup-position-top-right = Arriba a la derecha
-enum-popup-position-bottom-left = Abajo a la izquierda
-enum-popup-position-bottom-center = Abajo en el centro
-enum-popup-position-bottom-right = Abajo a la derecha
-enum-popup-position-center-left = En el centro a la izquierda
-enum-popup-position-center-right = En el centro a la derecha
 
 ## StackingOrder variants
 enum-stacking-order-newest-first = Las más recientes primero

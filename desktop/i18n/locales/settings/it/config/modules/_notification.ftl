@@ -67,14 +67,6 @@ settings-modules-notifications-thresholds = Soglie
 
 
 ## PopupPosition variants
-enum-popup-position-top-left = In alto a sinistra
-enum-popup-position-top-center = In alto al centro
-enum-popup-position-top-right = In alto a destra
-enum-popup-position-bottom-left = In basso a sinistra
-enum-popup-position-bottom-center = In basso al centro
-enum-popup-position-bottom-right = In basso a destra
-enum-popup-position-center-left = Al centro a sinistra
-enum-popup-position-center-right = Al centro a destra
 
 ## StackingOrder variants
 enum-stacking-order-newest-first = Prima le più recenti

@@ -164,7 +164,7 @@ func TestEnumSelectLabelsAndWrites(t *testing.T) {
 	k := testKit(t, "")
 	meta, _ := config.Field("osd.position")
 	c := newEnumSelect(k, pathSlot(k.store, "osd.position"), meta)
-	if got, want := c.Selection(), locale.T().Get("enum-osd-position-bottom"); got != want {
+	if got, want := c.Selection(), locale.T().Get("enum-screen-position-bottom-center"); got != want {
 		t.Errorf("selection %q, want the default's label %q", got, want)
 	}
 	c.SetSelected(0)
@@ -180,7 +180,7 @@ func TestEnumSelectLabelsAndWrites(t *testing.T) {
 	// A refresh does not write.
 	k.store.reset("osd.position")
 	c.refresh()
-	if k.store.svc.Source("osd.position") != config.SourceDefault || c.Selected() != 5 {
+	if k.store.svc.Source("osd.position") != config.SourceDefault || c.Selected() != 4 {
 		t.Errorf("refresh: source %v selected %d", k.store.svc.Source("osd.position"), c.Selected())
 	}
 }

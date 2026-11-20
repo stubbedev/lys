@@ -67,14 +67,6 @@ settings-modules-notifications-thresholds = Thresholds
 
 
 ## PopupPosition variants
-enum-popup-position-top-left = Top Left
-enum-popup-position-top-center = Top Center
-enum-popup-position-top-right = Top Right
-enum-popup-position-bottom-left = Bottom Left
-enum-popup-position-bottom-center = Bottom Center
-enum-popup-position-bottom-right = Bottom Right
-enum-popup-position-center-left = Center Left
-enum-popup-position-center-right = Center Right
 
 ## StackingOrder variants
 enum-stacking-order-newest-first = Newest First

@@ -28,14 +28,6 @@ settings-osd-text-align = Tekstuitlijning
 settings-osd-media = Speelt nu af
     .description = Nummerwisselingen die de nu-afspelend-OSD tonen: requested (mediatoetsen en `lys-shell media next`), always of never
 
-enum-osd-position-top-left = Linksboven
-enum-osd-position-top = Boven
-enum-osd-position-top-right = Rechtsboven
-enum-osd-position-right = Rechts
-enum-osd-position-bottom-right = Rechtsonder
-enum-osd-position-bottom = Onder
-enum-osd-position-bottom-left = Linksonder
-enum-osd-position-left = Links
 
 enum-osd-text-align-start = Begin
 enum-osd-text-align-center = Midden

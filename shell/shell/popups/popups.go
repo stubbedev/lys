@@ -530,17 +530,14 @@ func (p *Popups) content(n *notifications.Notification) notifyview.Content {
 
 // popupAtTop is whether the popups sit along the top edge, the edge a
 // genie collapses toward.
-func popupAtTop(position config.PopupPosition) bool {
-	switch position {
-	case config.PopupPositionTopLeft, config.PopupPositionTopCenter, config.PopupPositionTopRight:
-		return true
-	}
-	return false
+func popupAtTop(position config.ScreenPosition) bool {
+	_, v := widgets.Placement(position)
+	return v == widget.AlignStart
 }
 
 // peekEdge is the edge a stack's older cards peek past: away from the
 // screen edge the popups hang from.
-func peekEdge(position config.PopupPosition) widget.Edge {
+func peekEdge(position config.ScreenPosition) widget.Edge {
 	if popupAtTop(position) {
 		return widget.EdgeBottom
 	}
@@ -640,7 +637,7 @@ func (p *Popups) ensureWindow(out *app.Output) (window, *widget.Box, error) {
 	win, err := p.open(app.LayerConfig{
 		Output:         out,
 		Layer:          layering.For(p.cfg.General, cfg.PopupLayer),
-		Anchor:         popupAnchors(cfg.PopupPosition),
+		Anchor:         layering.ScreenAnchors(cfg.PopupPosition),
 		Margin:         popupMargins(cfg, scale),
 		Namespace:      layers.NotificationPopup.Name(),
 		Keyboard:       app.KeyboardOnDemand,
@@ -675,7 +672,7 @@ func popupMargins(cfg config.NotificationConfig, scale float64) app.Margins {
 	mx := int32(cfg.PopupMarginX.ResolvePx(popupMarginBasePx, scale))
 	my := int32(cfg.PopupMarginY.ResolvePx(popupMarginBasePx, scale))
 	var m app.Margins
-	anchors := popupAnchors(cfg.PopupPosition)
+	anchors := layering.ScreenAnchors(cfg.PopupPosition)
 	if anchors&app.AnchorTop != 0 {
 		m.Top = my
 	}
@@ -689,12 +686,6 @@ func popupMargins(cfg config.NotificationConfig, scale float64) app.Margins {
 		m.Right = mx
 	}
 	return m
-}
-
-// popupAnchors are the surface's edges: those at the ends
-// notifyview.Placement puts the popups at.
-func popupAnchors(position config.PopupPosition) app.Anchor {
-	return layering.Anchors(notifyview.Placement(position))
 }
 
 // Visible reports the card count (tests).

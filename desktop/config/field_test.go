@@ -31,8 +31,8 @@ func TestFieldPicksTheEditorFromTheType(t *testing.T) {
 		t.Error("a number has items")
 	}
 	pos, _ := Field("osd.position")
-	if pos.Kind != FieldEnum || pos.Type != "OsdPosition" || !slices.Contains(pos.Variants, "top-left") || len(pos.Variants) != 8 {
-		t.Errorf("osd.position = %+v, want the eight OsdPosition variants", pos)
+	if pos.Kind != FieldEnum || pos.Type != "ScreenPosition" || !slices.Contains(pos.Variants, "top-left") || len(pos.Variants) != 8 {
+		t.Errorf("osd.position = %+v, want the eight ScreenPosition variants", pos)
 	}
 	// Size is a number or a string: it needs its own editor.
 	if m, _ := Field("osd.margin"); m.Kind != FieldOther {
@@ -110,7 +110,7 @@ func TestEveryEnumValueHasItsLabel(t *testing.T) {
 
 func TestEnumLabelKey(t *testing.T) {
 	for _, c := range [][3]string{
-		{"OsdPosition", "top-left", "enum-osd-position-top-left"},
+		{"ScreenPosition", "top-left", "enum-screen-position-top-left"},
 		{"TimeFormat", "12h", "enum-time-format-twelve-hour"},
 		{"SessionAction", "log-out", "enum-session-action-logout"},
 		{"SessionAction", "lock", "enum-session-action-lock"},

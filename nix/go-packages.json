@@ -540,6 +540,7 @@
   },
   "desktop/shell/widgets": {
     "imports": [
+      "desktop/config",
       "desktop/styling",
       "lib/portaldialogs",
       "lib/render",
@@ -547,7 +548,6 @@
       "ui/widget"
     ],
     "testImports": [
-      "desktop/config",
       "desktop/shell/apptheme",
       "desktop/shell/treetest",
       "lib/testhome",
@@ -3555,6 +3555,7 @@
   "shell/shell/layering": {
     "imports": [
       "desktop/config",
+      "desktop/shell/widgets",
       "ui/app",
       "ui/widget"
     ]
@@ -3604,6 +3605,7 @@
       "desktop/shell/layers",
       "desktop/shell/osdview",
       "desktop/shell/reveal",
+      "desktop/shell/widgets",
       "desktop/styling",
       "lib/render",
       "shell/internal/widgetipc",

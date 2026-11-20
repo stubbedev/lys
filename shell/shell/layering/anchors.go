@@ -1,6 +1,8 @@
 package layering
 
 import (
+	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
 )
@@ -24,3 +26,6 @@ func Anchors(h, v widget.Align) app.Anchor {
 	}
 	return a
 }
+
+// ScreenAnchors are the edges a surface at p on its output takes.
+func ScreenAnchors(p config.ScreenPosition) app.Anchor { return Anchors(widgets.Placement(p)) }

@@ -7,7 +7,7 @@ type OsdConfig struct {
 	// Show OSD overlays for volume, brightness, keyboard layout switches, and lock keys (Caps, Num and Scroll Lock need read access to /dev/input, the input group, except on lys-wm, which reports them over its IPC).
 	Enabled bool `cfg:"enabled"`
 	// Screen anchor position.
-	Position OsdPosition `cfg:"position"`
+	Position ScreenPosition `cfg:"position"`
 	// Horizontal alignment of toast and toggle overlay content. Sliders
 	// (volume/brightness) keep their own label+value layout.
 	TextAlign OsdTextAlign `cfg:"text-align"`
@@ -39,7 +39,7 @@ const OsdMarginBaseRem = 9.375
 func DefaultsOsd() OsdConfig {
 	return OsdConfig{
 		Enabled:   true,
-		Position:  OsdBottom,
+		Position:  ScreenBottomCenter,
 		TextAlign: OsdTextAlignCenter,
 		Duration:  2500,
 		Margin:    Scale(1),
@@ -59,33 +59,6 @@ func (o OsdConfig) Preset(id string) (ToastPreset, bool) {
 	}
 	return ToastPreset{}, false
 }
-
-// OsdPosition is the OSD's screen anchor.
-//
-// Screen anchor for the OSD overlay.
-type OsdPosition string
-
-// OSD positions.
-const (
-	// Top-left corner.
-	OsdTopLeft OsdPosition = "top-left"
-	// Top-center edge.
-	OsdTop OsdPosition = "top"
-	// Top-right corner.
-	OsdTopRight OsdPosition = "top-right"
-	// Right-center edge.
-	OsdRight OsdPosition = "right"
-	// Bottom-right corner.
-	OsdBottomRight OsdPosition = "bottom-right"
-	// Bottom-center edge.
-	OsdBottom OsdPosition = "bottom"
-	// Bottom-left corner.
-	OsdBottomLeft OsdPosition = "bottom-left"
-	// Left-center edge.
-	OsdLeft OsdPosition = "left"
-)
-
-var _ = registerEnum(OsdTopLeft, OsdTop, OsdTopRight, OsdRight, OsdBottomRight, OsdBottom, OsdBottomLeft, OsdLeft)
 
 // OsdTextAlign is the toast/toggle content alignment.
 //

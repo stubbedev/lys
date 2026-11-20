@@ -14,7 +14,7 @@ On-screen display overlay for transient events like volume and brightness.
 | Field | Type | Default | Description |
 |---|---|---|---|
 | `enabled` | bool | `true` | Show OSD overlays for volume, brightness, keyboard layout switches, and lock keys (Caps, Num and Scroll Lock need read access to /dev/input, the input group, except on lys-wm, which reports them over its IPC). |
-| `position` | [`OsdPosition`](/shell/config/types#osd-position) | `"bottom"` | Screen anchor position. |
+| `position` | [`ScreenPosition`](/shell/config/types#screen-position) | `"bottom-center"` | Screen anchor position. |
 | `text-align` | [`OsdTextAlign`](/shell/config/types#osd-text-align) | `"center"` | Horizontal alignment of toast and toggle overlay content. Sliders (volume/brightness) keep their own label+value layout. |
 | `duration` | u32 | `2500` | Auto-dismiss delay in milliseconds. |
 | `monitor` | [`OsdMonitor`](/shell/config/types#osd-monitor) | `"primary"` | Target monitor: "primary" (lys-wm's primary_output, else the first output) or a connector name like "DP-1". |
@@ -36,7 +36,7 @@ to allow fullscreen tearing.
 ```yaml
 osd:
   enabled: true
-  position: bottom
+  position: bottom-center
   text-align: center
   duration: 2500
   monitor: primary

@@ -94,20 +94,3 @@ func TestACardShowsAnUpdateInPlace(t *testing.T) {
 		t.Errorf("pressing the second button acted on %v", pressed)
 	}
 }
-
-func TestPlacementPutsThePopupsWherePopupPositionSays(t *testing.T) {
-	for pos, want := range map[config.PopupPosition][2]widget.Align{
-		config.PopupPositionTopLeft:      {widget.AlignStart, widget.AlignStart},
-		config.PopupPositionTopCenter:    {widget.AlignCenter, widget.AlignStart},
-		config.PopupPositionTopRight:     {widget.AlignEnd, widget.AlignStart},
-		config.PopupPositionBottomLeft:   {widget.AlignStart, widget.AlignEnd},
-		config.PopupPositionBottomCenter: {widget.AlignCenter, widget.AlignEnd},
-		config.PopupPositionBottomRight:  {widget.AlignEnd, widget.AlignEnd},
-		config.PopupPositionCenterLeft:   {widget.AlignStart, widget.AlignCenter},
-		config.PopupPositionCenterRight:  {widget.AlignEnd, widget.AlignCenter},
-	} {
-		if h, v := Placement(pos); h != want[0] || v != want[1] {
-			t.Errorf("%s places the popups at %v/%v, want %v/%v", pos, h, v, want[0], want[1])
-		}
-	}
-}

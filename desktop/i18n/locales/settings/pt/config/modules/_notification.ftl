@@ -61,14 +61,6 @@ settings-modules-notifications-popup-shadow = Sombra das notificações
 settings-modules-notifications-thresholds = Limiares
     .description = Limiares de cor que mudam consoante o nível do valor
 
-enum-popup-position-top-left = Superior esquerdo
-enum-popup-position-top-center = Superior central
-enum-popup-position-top-right = Superior direito
-enum-popup-position-bottom-left = Inferior esquerdo
-enum-popup-position-bottom-center = Inferior central
-enum-popup-position-bottom-right = Inferior direito
-enum-popup-position-center-left = Central esquerdo
-enum-popup-position-center-right = Central direito
 
 enum-stacking-order-newest-first = Mais recentes primeiro
 enum-stacking-order-oldest-first = Mais antigas primeiro

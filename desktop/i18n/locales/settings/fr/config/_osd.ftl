@@ -20,14 +20,6 @@ settings-osd-border = Bordure
 
 
 ## Variantes de OsdPosition
-enum-osd-position-top-left = Haut gauche
-enum-osd-position-top = Haut
-enum-osd-position-top-right = Haut droite
-enum-osd-position-right = Droite
-enum-osd-position-bottom-right = Bas droite
-enum-osd-position-bottom = Bas
-enum-osd-position-bottom-left = Bas gauche
-enum-osd-position-left = Gauche
 
 settings-osd-presets = Préréglages de toasts
     .description = Toasts réutilisables à déclencher avec `lys-shell toast --preset <id>`

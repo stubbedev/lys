@@ -14,6 +14,7 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/layers"
 	"github.com/stubbedev/lys/desktop/shell/osdview"
 	"github.com/stubbedev/lys/desktop/shell/reveal"
+	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/app"
@@ -168,7 +169,7 @@ func (o *Osd) place() bool {
 	if output == nil {
 		return false
 	}
-	anchor, margin, layer := anchors(o.cfg.Osd.Position), margins(o.cfg), layering.For(o.cfg.General, o.cfg.Osd.Layer)
+	anchor, margin, layer := layering.ScreenAnchors(o.cfg.Osd.Position), margins(o.cfg), layering.For(o.cfg.General, o.cfg.Osd.Layer)
 	if o.face != nil && o.face.output == output {
 		for _, err := range []error{o.face.win.SetAnchor(anchor), o.face.win.SetMargin(margin), o.face.win.SetLayer(layer)} {
 			if err != nil {
@@ -205,15 +206,11 @@ func (o *Osd) place() bool {
 	return true
 }
 
-// anchors are the surface's edges: those at the ends osdview.Placement
-// puts the card at.
-func anchors(p config.OsdPosition) app.Anchor { return layering.Anchors(osdview.Placement(p)) }
-
 // margins are the surface's insets: osd.margin (rem base 150px at the
 // styling scale, truncated toward zero) on each anchored edge.
 func margins(cfg *config.Config) app.Margins {
 	m := int32(cfg.Osd.Margin.ResolvePx(config.OsdMarginBaseRem*styling.RemBase, float64(cfg.Styling.Scale)))
-	a := anchors(cfg.Osd.Position)
+	a := layering.ScreenAnchors(cfg.Osd.Position)
 	var out app.Margins
 	if a&app.AnchorTop != 0 {
 		out.Top = m
@@ -239,14 +236,15 @@ func (o *Osd) build() *face {
 func (o *Osd) scale() float64 { return float64(o.cfg.Styling.Scale) }
 
 // genieEdge is the edge a genie collapses toward.
-func genieEdge(p config.OsdPosition) widget.Edge {
-	switch p {
-	case config.OsdTop, config.OsdTopLeft, config.OsdTopRight:
+func genieEdge(p config.ScreenPosition) widget.Edge {
+	h, v := widgets.Placement(p)
+	switch {
+	case v == widget.AlignStart:
 		return widget.EdgeTop
-	case config.OsdLeft:
+	case v == widget.AlignEnd:
+		return widget.EdgeBottom
+	case h == widget.AlignStart:
 		return widget.EdgeLeft
-	case config.OsdRight:
-		return widget.EdgeRight
 	}
-	return widget.EdgeBottom
+	return widget.EdgeRight
 }

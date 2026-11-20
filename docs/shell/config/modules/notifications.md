@@ -40,7 +40,7 @@ bar:
 | `icon-source` | [`IconSource`](/shell/config/types#icon-source) | `"automatic"` | How notification icons are resolved. |
 | `history-memory` | [`NotificationHistoryMemory`](/shell/config/types#notification-history-memory) | `200` | How many of the newest notifications the history keeps in memory. Older ones stay on disk and load as the dropdown scrolls to them. |
 | `history-stored` | [`NotificationHistoryStored`](/shell/config/types#notification-history-stored) | `10000` | How many notifications the history keeps on disk. The oldest are deleted past it. |
-| `popup-position` | [`PopupPosition`](/shell/config/types#popup-position) | `"top-right"` | Screen position for popup notifications. |
+| `popup-position` | [`ScreenPosition`](/shell/config/types#screen-position) | `"top-right"` | Screen position for popup notifications. |
 | `popup-max-visible` | u32 | `5` | Maximum number of popups visible at once. |
 | `popup-stacking-order` | [`StackingOrder`](/shell/config/types#stacking-order) | `"newest-first"` | Order in which popups stack on screen. |
 | `popup-stack` | [`PopupStack`](/shell/config/types#popup-stack) | `"per-app"` | Which popups collapse into one stack: the newest card in front, up to two older ones peeking out behind it, and a count of the rest. Hovering a stack fans it out into a list. |

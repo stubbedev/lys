@@ -3,6 +3,7 @@ package settings
 import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/shell/osdview"
+	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
@@ -31,7 +32,7 @@ func drawOsdOnScreen(k *kit, cfg *config.Config, font render.Font) widget.Widget
 	card := osdview.Preview(cfg, font, osdview.Toast(t.label, t.icon).WithPercent(float64(t.percentage)))
 	inset := widget.NewBox(widget.Column, 0, widget.Current().Padding)
 	inset.Append(card.Root(), false)
-	h, v := osdview.Placement(cfg.Osd.Position)
+	h, v := widgets.Placement(cfg.Osd.Position)
 	shown.AppendAligned(inset, h, v)
 	return overflowing(shown)
 }

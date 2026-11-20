@@ -61,14 +61,6 @@ settings-modules-notifications-popup-shadow = Pop-upschaduw
 settings-modules-notifications-thresholds = Drempels
     .description = Kleurdrempels die veranderen op basis van waardeniveaus
 
-enum-popup-position-top-left = Linksboven
-enum-popup-position-top-center = Midden boven
-enum-popup-position-top-right = Rechtsboven
-enum-popup-position-bottom-left = Linksonder
-enum-popup-position-bottom-center = Midden onder
-enum-popup-position-bottom-right = Rechtsonder
-enum-popup-position-center-left = Midden links
-enum-popup-position-center-right = Midden rechts
 
 enum-stacking-order-newest-first = Nieuwste eerst
 enum-stacking-order-oldest-first = Oudste eerst

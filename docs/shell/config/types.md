@@ -1197,21 +1197,6 @@ Track changes of the active media player that show the now-playing OSD.
 
 String.
 
-## OsdPosition {#osd-position}
-
-Screen anchor for the OSD overlay.
-
-| Value | Meaning |
-|---|---|
-| `"top-left"` | Top-left corner. |
-| `"top"` | Top-center edge. |
-| `"top-right"` | Top-right corner. |
-| `"right"` | Right-center edge. |
-| `"bottom-right"` | Bottom-right corner. |
-| `"bottom"` | Bottom-center edge. |
-| `"bottom-left"` | Bottom-left corner. |
-| `"left"` | Left-center edge. |
-
 ## OsdTextAlign {#osd-text-align}
 
 Horizontal alignment of OSD toast/toggle content.
@@ -1319,21 +1304,6 @@ Behavior when the close button is clicked on a popup card.
 
 String.
 
-## PopupPosition {#popup-position}
-
-Screen position for notification popups.
-
-| Value | Meaning |
-|---|---|
-| `"top-left"` | Top-left corner. |
-| `"top-center"` | Top-center edge. |
-| `"top-right"` | Top-right corner. |
-| `"bottom-left"` | Bottom-left corner. |
-| `"bottom-center"` | Bottom-center edge. |
-| `"bottom-right"` | Bottom-right corner. |
-| `"center-left"` | Center-left edge. |
-| `"center-right"` | Center-right edge. |
-
 ## PopupStack {#popup-stack}
 
 | Value | Meaning |
@@ -1440,6 +1410,21 @@ Scale multiplier clamped to 0.25-3.0.
 Number in `[0.25, 3.0]`.
 
 Serialises as `float`.
+
+## ScreenPosition {#screen-position}
+
+Screen position: a corner, or the middle of an edge.
+
+| Value | Meaning |
+|---|---|
+| `"top-left"` | Top-left corner. |
+| `"top-center"` | Top-center edge. |
+| `"top-right"` | Top-right corner. |
+| `"bottom-left"` | Bottom-left corner. |
+| `"bottom-center"` | Bottom-center edge. |
+| `"bottom-right"` | Bottom-right corner. |
+| `"center-left"` | Center-left edge. |
+| `"center-right"` | Center-right edge. |
 
 ## ScreenshotCorner {#screenshot-corner}
 

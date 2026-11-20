@@ -308,26 +308,3 @@ func (k *Card) replyEntry(r Reply) *widget.Entry {
 	e.SetOnFocusChanged(k.handlers.ReplyFocus)
 	return e
 }
-
-// Placement is where popup-position puts the popups on their output
-// along each axis: a corner at both ends, an edge's middle centered
-// along it.
-func Placement(p config.PopupPosition) (h, v widget.Align) {
-	switch p {
-	case config.PopupPositionTopLeft:
-		return widget.AlignStart, widget.AlignStart
-	case config.PopupPositionTopCenter:
-		return widget.AlignCenter, widget.AlignStart
-	case config.PopupPositionBottomLeft:
-		return widget.AlignStart, widget.AlignEnd
-	case config.PopupPositionBottomCenter:
-		return widget.AlignCenter, widget.AlignEnd
-	case config.PopupPositionBottomRight:
-		return widget.AlignEnd, widget.AlignEnd
-	case config.PopupPositionCenterLeft:
-		return widget.AlignStart, widget.AlignCenter
-	case config.PopupPositionCenterRight:
-		return widget.AlignEnd, widget.AlignCenter
-	}
-	return widget.AlignEnd, widget.AlignStart
-}

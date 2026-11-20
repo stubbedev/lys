@@ -67,14 +67,6 @@ settings-modules-notifications-thresholds = Schwellenwerte
 
 
 ## PopupPosition variants
-enum-popup-position-top-left = Oben links
-enum-popup-position-top-center = Oben Mitte
-enum-popup-position-top-right = Oben rechts
-enum-popup-position-bottom-left = Unten links
-enum-popup-position-bottom-center = Unten Mitte
-enum-popup-position-bottom-right = Unten rechts
-enum-popup-position-center-left = Mitte links
-enum-popup-position-center-right = Mitte rechts
 
 ## StackingOrder variants
 enum-stacking-order-newest-first = Neueste zuerst
