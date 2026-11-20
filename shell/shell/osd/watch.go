@@ -8,6 +8,7 @@ import (
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/mpris"
 	"github.com/stubbedev/lys/desktop/service/pulse"
+	"github.com/stubbedev/lys/desktop/shell/osdview"
 
 	"github.com/stubbedev/lys/shell/service/brightness"
 	"github.com/stubbedev/lys/shell/service/keytoggles"
@@ -31,14 +32,14 @@ type audioEvents struct {
 	out, in level
 }
 
-func (a *audioEvents) next(ctx context.Context, src pulse.Source) []Event {
-	var evs []Event
+func (a *audioEvents) next(ctx context.Context, src pulse.Source) []osdview.Event {
+	var evs []osdview.Event
 	if sink, err := src.DefaultSink(ctx); err == nil {
 		d := sink.Device
 		pct := d.Volume.AveragePercentage()
 		if l := levelOf(pct, d.Muted); l != a.out {
 			a.out = l
-			evs = append(evs, Slider(d.Description, VolumeIcon(pct, d.Muted), pct, d.Muted))
+			evs = append(evs, osdview.Slider(d.Description, osdview.VolumeIcon(pct, d.Muted), pct, d.Muted))
 		}
 	}
 	if source, err := src.DefaultSource(ctx); err == nil {
@@ -46,7 +47,7 @@ func (a *audioEvents) next(ctx context.Context, src pulse.Source) []Event {
 		pct := d.Volume.AveragePercentage()
 		if l := levelOf(pct, d.Muted); l != a.in {
 			a.in = l
-			evs = append(evs, Slider(d.Description, MicrophoneIcon(d.Muted), pct, d.Muted))
+			evs = append(evs, osdview.Slider(d.Description, osdview.MicrophoneIcon(d.Muted), pct, d.Muted))
 		}
 	}
 	return evs
@@ -57,10 +58,10 @@ func (a *audioEvents) next(ctx context.Context, src pulse.Source) []Event {
 // shows that output's level. A device appearing is not a change.
 type brightnessEvents struct{ last map[string]level }
 
-func (b *brightnessEvents) next(ctx context.Context, src brightness.Source) (Event, bool) {
+func (b *brightnessEvents) next(ctx context.Context, src brightness.Source) (osdview.Event, bool) {
 	devices, err := src.Devices(ctx)
 	if err != nil {
-		return Event{}, false
+		return osdview.Event{}, false
 	}
 	seen := make(map[string]level, len(devices))
 	var moved []brightness.Device
@@ -74,9 +75,9 @@ func (b *brightnessEvents) next(ctx context.Context, src brightness.Source) (Eve
 	b.last = seen
 	pct, ok := brightness.AveragePercentage(moved)
 	if !ok {
-		return Event{}, false
+		return osdview.Event{}, false
 	}
-	return Slider(i18n.T("osd-brightness"), BrightnessIcon, pct, false), true
+	return osdview.Slider(i18n.T("osd-brightness"), osdview.BrightnessIcon, pct, false), true
 }
 
 // Layouts is the compositor's keyboard layout: Layout reads the active
@@ -91,14 +92,14 @@ type Layouts interface {
 // layout is not a switch.
 type layoutEvents struct{ last string }
 
-func (l *layoutEvents) next(src Layouts) (Event, bool) {
+func (l *layoutEvents) next(src Layouts) (osdview.Event, bool) {
 	name, err := src.Layout()
 	if err != nil {
 		log.Printf("osd: keyboard layout: %v", err)
-		return Event{}, false
+		return osdview.Event{}, false
 	}
 	if name == "" || name == l.last {
-		return Event{}, false
+		return osdview.Event{}, false
 	}
 	l.last = name
 	return layoutEvent(name), true

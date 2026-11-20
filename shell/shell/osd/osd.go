@@ -12,6 +12,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/shell/layers"
+	"github.com/stubbedev/lys/desktop/shell/osdview"
 	"github.com/stubbedev/lys/desktop/shell/reveal"
 	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/lib/render"
@@ -51,27 +52,12 @@ type Deps struct {
 	Font  render.Font
 }
 
-// face is the mapped surface and the widgets an event updates; the
-// widgets outlive the surface.
+// face is the mapped surface and the view an event updates; the view
+// outlives the surface.
 type face struct {
-	win          Window
-	output       *app.Output
-	scale        float64
-	rev          *widget.Revealer
-	container    *widget.Box
-	sliderHeader *widget.Box
-	sliderIcon   *widget.Icon
-	sliderLabel  *widget.Label
-	value        *widget.Label
-	toggleHeader *widget.Box
-	toggleIcon   *widget.Icon
-	toggleLabel  *widget.Label
-	mediaHeader  *widget.Box
-	art          *widget.Box
-	artURL       string
-	mediaTitle   *widget.Label
-	mediaArtist  *widget.Label
-	bar          *widget.ProgressBar
+	win    Window
+	output *app.Output
+	view   *osdview.View
 }
 
 // Osd is the display. Its exported methods may be called from any
@@ -99,7 +85,7 @@ func New(d Deps, cfg *config.Config) *Osd {
 }
 
 // Show flashes ev.
-func (o *Osd) Show(ev Event) { o.d.Invoke(func() { o.show(ev) }) }
+func (o *Osd) Show(ev osdview.Event) { o.d.Invoke(func() { o.show(ev) }) }
 
 // ShowToast flashes a `lys-shell toast` request.
 func (o *Osd) ShowToast(req widgetipc.ToastRequest) {
@@ -132,22 +118,18 @@ func (o *Osd) DetachOutput(name string) {
 	})
 }
 
-func (o *Osd) show(ev Event) {
-	if !o.ready || !o.cfg.Osd.Enabled || !wanted(ev, o.cfg.Osd.Media) {
+func (o *Osd) show(ev osdview.Event) {
+	if !o.ready || !o.cfg.Osd.Enabled || !ev.Wanted(o.cfg.Osd.Media) {
 		return
 	}
 	o.dismissID++
 	if !o.place() {
 		return
 	}
-	o.face.apply(ev, o.cfg.Osd)
-	reveal.Show(o.face.rev, o.cfg.Animations, config.AnimOsd)
-	ms := ev.durationMS
-	if ms == 0 {
-		ms = o.cfg.Osd.Duration
-	}
+	o.face.view.Apply(ev, o.cfg.Osd)
+	reveal.Show(o.face.view.Root(), o.cfg.Animations, config.AnimOsd)
 	id := o.dismissID
-	o.d.After(time.Duration(ms)*time.Millisecond, func() { o.d.Invoke(func() { o.beginDismiss(id) }) })
+	o.d.After(ev.Duration(o.cfg.Osd), func() { o.d.Invoke(func() { o.beginDismiss(id) }) })
 }
 
 // beginDismiss plays the exit for the latest event, then unmaps.
@@ -155,7 +137,7 @@ func (o *Osd) beginDismiss(id uint32) {
 	if id != o.dismissID || o.face == nil {
 		return
 	}
-	reveal.Hide(o.face.rev, o.cfg.Animations, config.AnimOsd, func() {
+	reveal.Hide(o.face.view.Root(), o.cfg.Animations, config.AnimOsd, func() {
 		if id == o.dismissID {
 			o.closeFace()
 		}
@@ -170,9 +152,10 @@ func (o *Osd) closeFace() {
 	o.face = nil
 	f.win.Close()
 	f.win, f.output = nil, nil
-	f.rev.SetOnTransitionDone(nil)
-	f.rev.SetDuration(0)
-	f.rev.SetRevealed(false)
+	rev := f.view.Root()
+	rev.SetOnTransitionDone(nil)
+	rev.SetDuration(0)
+	rev.SetRevealed(false)
 	o.idle = f
 }
 
@@ -192,12 +175,12 @@ func (o *Osd) place() bool {
 				log.Printf("osd: re-anchor: %v", err)
 			}
 		}
-		o.face.rev.SetGenieEdge(genieEdge(o.cfg.Osd.Position))
+		o.face.view.Root().SetGenieEdge(genieEdge(o.cfg.Osd.Position))
 		return true
 	}
 	o.closeFace()
 	f := o.idle
-	if f == nil || f.scale != o.scale() {
+	if f == nil || f.view.Scale() != o.scale() {
 		f = o.build()
 	}
 	o.idle = nil
@@ -208,7 +191,7 @@ func (o *Osd) place() bool {
 		Margin:         margin,
 		Keyboard:       app.KeyboardNone,
 		Namespace:      layers.OSD.Name(),
-		Root:           f.rev,
+		Root:           f.view.Root(),
 		BackgroundBlur: o.cfg.Styling.Translucent(),
 	})
 	if err != nil {
@@ -217,7 +200,7 @@ func (o *Osd) place() bool {
 		return false
 	}
 	f.win, f.output = win, output
-	f.rev.SetGenieEdge(genieEdge(o.cfg.Osd.Position))
+	f.view.Root().SetGenieEdge(genieEdge(o.cfg.Osd.Position))
 	o.face = f
 	return true
 }
@@ -264,6 +247,14 @@ func margins(cfg *config.Config) app.Margins {
 	}
 	return out
 }
+
+func (o *Osd) build() *face {
+	v := osdview.New(o.d.Font, o.scale())
+	v.Host(o.d.Sheet)
+	return &face{view: v}
+}
+
+func (o *Osd) scale() float64 { return float64(o.cfg.Styling.Scale) }
 
 // genieEdge is the edge a genie collapses toward.
 func genieEdge(p config.OsdPosition) widget.Edge {

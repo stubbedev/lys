@@ -19,6 +19,7 @@ go get github.com/stubbedev/lys
 | `service/...` | Clients of the session's services: audio over the PulseAudio protocol, MPRIS, UPower, notifications, idle, night light, clipboard, wallpaper, Bitwarden, the lys-wm IPC |
 | `shell/...` | Widgets and helpers shared by the shell and the lock screen |
 | `shell/barview` | The bar drawn from a config, without services: its zones, module buttons and separator, which lys-shell fills with live modules and lys-settings previews |
+| `shell/osdview` | The on-screen display drawn from a config and an event, without services: the card lys-shell maps on a layer surface and lys-settings previews |
 | `settingspage` | The contract between lys-settings and the programs that open it: its command line and page list |
 | `identity` | The desktop's directory name under each XDG base directory |
 | `desktopentry`, `mime`, `opener` | Desktop entries, the shared-mime-info database, and opening a file with the default app |

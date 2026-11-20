@@ -10,13 +10,13 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/service/pulse"
+	"github.com/stubbedev/lys/desktop/shell/osdview"
 	"github.com/stubbedev/lys/desktop/shell/reveal"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/shell/internal/widgetipc"
 	"github.com/stubbedev/lys/shell/service/brightness"
@@ -86,6 +86,11 @@ func quietConfig() *config.Config {
 	return cfg
 }
 
+// shownLabels are the texts of the mapped OSD's labels.
+func shownLabels(h *harness) []string {
+	return treetest.Labels(h.osd.face.view.Root())
+}
+
 func readyHarness(t *testing.T, cfg *config.Config) *harness {
 	t.Helper()
 	h := newHarness(t, cfg)
@@ -97,12 +102,12 @@ func readyHarness(t *testing.T, cfg *config.Config) *harness {
 // period, and the first event after it does.
 func TestQuietPeriodDropsEvents(t *testing.T) {
 	h := newHarness(t, quietConfig())
-	h.osd.Show(Slider("Speakers", VolumeIcon(40, false), 40, false))
+	h.osd.Show(osdview.Slider("Speakers", osdview.VolumeIcon(40, false), 40, false))
 	if len(h.opened) != 0 {
 		t.Fatal("an event inside the quiet period mapped the OSD")
 	}
 	h.fire(t, readyDelay)
-	h.osd.Show(Slider("Speakers", VolumeIcon(40, false), 40, false))
+	h.osd.Show(osdview.Slider("Speakers", osdview.VolumeIcon(40, false), 40, false))
 	if len(h.opened) != 1 {
 		t.Fatalf("%d surfaces after the quiet period, want 1", len(h.opened))
 	}
@@ -119,7 +124,7 @@ func TestDisabledOsdNeverShows(t *testing.T) {
 	cfg := quietConfig()
 	cfg.Osd.Enabled = false
 	h := readyHarness(t, cfg)
-	h.osd.Show(Slider("Speakers", "", 40, false))
+	h.osd.Show(osdview.Slider("Speakers", "", 40, false))
 	h.osd.ShowToast(widgetipc.ToastRequest{Label: new("hi")})
 	if len(h.opened) != 0 {
 		t.Error("a disabled OSD mapped")
@@ -132,7 +137,7 @@ func TestOsdFollowsTheConfiguredMonitor(t *testing.T) {
 	cfg := quietConfig()
 	cfg.Osd.Monitor = config.OsdOnConnector("HDMI-A-1")
 	h := readyHarness(t, cfg)
-	h.osd.Show(Slider("x", "", 1, false))
+	h.osd.Show(osdview.Slider("x", "", 1, false))
 	if h.opened[0].cfg.Output != h.outputs[1] {
 		t.Fatalf("opened on %s, want HDMI-A-1", h.opened[0].cfg.Output.Name)
 	}
@@ -149,8 +154,8 @@ func TestOsdFollowsTheConfiguredMonitor(t *testing.T) {
 // re-anchors it.
 func TestOneSurfaceReanchored(t *testing.T) {
 	h := readyHarness(t, quietConfig())
-	h.osd.Show(Slider("a", "", 1, false))
-	h.osd.Show(Slider("b", "", 2, false))
+	h.osd.Show(osdview.Slider("a", "", 1, false))
+	h.osd.Show(osdview.Slider("b", "", 2, false))
 	if len(h.opened) != 1 {
 		t.Fatalf("%d surfaces, want one reused", len(h.opened))
 	}
@@ -195,7 +200,7 @@ func TestAnchorsAndMargins(t *testing.T) {
 func TestDismissFollowsTheLatestEvent(t *testing.T) {
 	h := readyHarness(t, quietConfig())
 	h.osd.ShowToast(widgetipc.ToastRequest{Label: new("saved"), DurationMS: new(uint32(900))})
-	h.osd.Show(Slider("a", "", 1, false))
+	h.osd.Show(osdview.Slider("a", "", 1, false))
 	h.fire(t, 900*time.Millisecond)
 	if h.opened[0].closed {
 		t.Fatal("a superseded event's timer dismissed the OSD")
@@ -204,61 +209,9 @@ func TestDismissFollowsTheLatestEvent(t *testing.T) {
 	if !h.opened[0].closed {
 		t.Error("the latest event's timer did not dismiss the OSD")
 	}
-	h.osd.Show(Slider("b", "", 1, false))
+	h.osd.Show(osdview.Slider("b", "", 1, false))
 	if len(h.opened) != 2 {
 		t.Error("an event after the dismissal did not map a fresh surface")
-	}
-}
-
-// The view shows the slider header and the bar for a level, the toggle
-// header placed by text-align for everything else, with the classes
-// the stylesheet keys on.
-func TestViewFollowsTheEvent(t *testing.T) {
-	cfg := quietConfig()
-	cfg.Osd.TextAlign = config.OsdTextAlignEnd
-	h := readyHarness(t, cfg)
-	h.osd.Show(Slider("Speakers", VolumeIcon(0, true), 42.6, true))
-	f := h.osd.face
-	for _, l := range []*widget.Label{f.sliderLabel, f.value, f.toggleLabel} {
-		if l.Color() != 0 {
-			t.Errorf("label %v pins ink %#08x over the stylesheet", l.Classes(), uint32(l.Color()))
-		}
-	}
-	if !slices.Equal(f.container.Classes(), []string{"osd", css.Glass, "muted", "bordered", css.Card}) {
-		t.Errorf("slider classes %v", f.container.Classes())
-	}
-	if !f.sliderHeader.Visible() || !f.bar.Visible() || f.toggleHeader.Visible() {
-		t.Error("a level shows the slider header and the bar only")
-	}
-	if f.sliderLabel.Text() != "Speakers" || f.value.Text() != "43%" || f.bar.Value() != 0.426 {
-		t.Errorf("slider reads %q %q %v", f.sliderLabel.Text(), f.value.Text(), f.bar.Value())
-	}
-
-	h.osd.Show(toggleEvent(keytoggles.Event{Key: keytoggles.CapsLock}))
-	if !slices.Equal(f.container.Classes(), []string{"osd", css.Glass, "toggle-off", "bordered", css.Card}) {
-		t.Errorf("toggle classes %v", f.container.Classes())
-	}
-	if f.sliderHeader.Visible() || f.bar.Visible() || !f.toggleHeader.Visible() {
-		t.Error("a toggle shows the toggle header only")
-	}
-	if f.toggleLabel.Text() != "\u2068Caps Lock\u2069 Off" || f.toggleHeader.HAlign() != widget.AlignEnd {
-		t.Errorf("toggle reads %q aligned %v", f.toggleLabel.Text(), f.toggleHeader.HAlign())
-	}
-
-	h.osd.ShowToast(widgetipc.ToastRequest{Label: new("Done"), Class: new("success")})
-	if !slices.Equal(f.container.Classes(), []string{"osd", css.Glass, "bordered", "success", css.Card}) {
-		t.Errorf("toast classes %v", f.container.Classes())
-	}
-	if f.toggleIcon.Visible() || f.toggleLabel.Text() != "Done" {
-		t.Error("a toast without an icon shows its label only")
-	}
-	h.osd.ShowToast(widgetipc.ToastRequest{Label: new("Named"), Icon: new("no-such-icon-anywhere")})
-	if f.toggleIcon.Visible() {
-		t.Error("an icon nothing resolves keeps its empty space")
-	}
-	h.osd.ShowToast(widgetipc.ToastRequest{Label: new("Named"), Icon: new("list-add")})
-	if !f.toggleIcon.Visible() {
-		t.Error("an icon that resolves stays hidden")
 	}
 }
 
@@ -268,38 +221,16 @@ func TestToastEvent(t *testing.T) {
 	osd := config.DefaultsOsd()
 	osd.Presets = []config.ToastPreset{{ID: "saved", Label: new("Saved"), Icon: new("ld-check-symbolic")}}
 	ev := toastEvent(widgetipc.ToastRequest{Preset: new("saved")}, osd)
-	if ev.label != "Saved" || ev.icon != "ld-check-symbolic" || ev.bar {
+	if ev != osdview.Toast("Saved", "ld-check-symbolic") {
 		t.Errorf("preset toast %+v", ev)
 	}
 	ev = toastEvent(widgetipc.ToastRequest{Preset: new("saved"), Label: new("Stored"), Percentage: new(30.0)}, osd)
-	if ev.label != "Stored" || ev.icon != "ld-check-symbolic" || !ev.bar || ev.percent != 30 {
+	if ev != osdview.Toast("Stored", "ld-check-symbolic").WithPercent(30) {
 		t.Errorf("overridden toast %+v", ev)
 	}
 	ev = toastEvent(widgetipc.ToastRequest{Preset: new("nope"), Label: new("x")}, osd)
-	if ev.label != "x" || ev.icon != "" {
+	if ev != osdview.Toast("x", "") {
 		t.Errorf("unknown preset toast %+v", ev)
-	}
-}
-
-func TestIcons(t *testing.T) {
-	for _, tc := range []struct {
-		pct   float64
-		muted bool
-		want  string
-	}{
-		{50, true, "ld-volume-x-symbolic"},
-		{0, false, "ld-volume-x-symbolic"},
-		{33, false, "ld-volume-symbolic"},
-		{34, false, "ld-volume-1-symbolic"},
-		{66, false, "ld-volume-1-symbolic"},
-		{67, false, "ld-volume-2-symbolic"},
-	} {
-		if got := VolumeIcon(tc.pct, tc.muted); got != tc.want {
-			t.Errorf("VolumeIcon(%v, %v) = %s, want %s", tc.pct, tc.muted, got, tc.want)
-		}
-	}
-	if MicrophoneIcon(true) != "ld-mic-off-symbolic" || MicrophoneIcon(false) != "ld-mic-symbolic" {
-		t.Error("microphone icons")
 	}
 }
 
@@ -334,7 +265,8 @@ func TestAudioEventsDedupe(t *testing.T) {
 	}
 	src.source.Muted = true
 	evs := a.next(context.Background(), src)
-	if len(evs) != 1 || evs[0].label != "Mic" || evs[0].icon != "ld-mic-off-symbolic" || !evs[0].muted {
+	want := osdview.Slider("Mic", "ld-mic-off-symbolic", src.source.Volume.AveragePercentage(), true)
+	if len(evs) != 1 || evs[0] != want {
 		t.Errorf("muting the mic flashed %+v, want one muted Mic slider", evs)
 	}
 }
@@ -359,14 +291,14 @@ func TestBrightnessEventsShowTheDevicesThatMoved(t *testing.T) {
 	}
 	src.devices = []brightness.Device{panel(20), monitor(80)}
 	ev, ok := b.next(context.Background(), src)
-	if !ok || ev.percent != 80 || ev.icon != BrightnessIcon || ev.label != "Brightness" {
+	if !ok || ev != osdview.Slider("Brightness", osdview.BrightnessIcon, 80, false) {
 		t.Fatalf("one monitor moved: %+v %v, want its 80%%, not the 50%% average", ev, ok)
 	}
 	if ev, ok := b.next(context.Background(), src); ok {
 		t.Errorf("unchanged levels flashed %+v", ev)
 	}
 	src.devices = []brightness.Device{panel(30), monitor(90)}
-	if ev, ok := b.next(context.Background(), src); !ok || ev.percent != 60 {
+	if ev, ok := b.next(context.Background(), src); !ok || ev != osdview.Slider("Brightness", osdview.BrightnessIcon, 60, false) {
 		t.Errorf("both moved: %+v %v, want their 60%% average", ev, ok)
 	}
 	src.devices = append(src.devices, brightness.Device{Name: "hotplugged", Brightness: 10, Max: 100})
@@ -376,18 +308,6 @@ func TestBrightnessEventsShowTheDevicesThatMoved(t *testing.T) {
 	src.devices = nil
 	if ev, ok := b.next(context.Background(), src); ok {
 		t.Errorf("no backlights flashed %+v", ev)
-	}
-}
-
-// The OSD card is its width exactly at any surface: its progress bar
-// fills only the card, not the output.
-func TestOsdKeepsItsWidth(t *testing.T) {
-	cfg := quietConfig()
-	h := readyHarness(t, cfg)
-	h.osd.Show(Slider("Speakers", VolumeIcon(40, false), 40, false))
-	sz := widget.SizeWithinAsChild(h.osd.face.container, widget.Size{W: 1920, H: 1080})
-	if want := int(widthPx * float64(cfg.Styling.Scale)); sz.W != want {
-		t.Errorf("the OSD measures %dpx wide in a 1920px surface, want %d", sz.W, want)
 	}
 }
 
@@ -427,7 +347,7 @@ func TestLayoutEventsFlashSwitchesOnly(t *testing.T) {
 	}
 	src.set("German", nil)
 	ev, ok := l.next(src)
-	if !ok || ev.kind != kindToast || ev.label != "German" || ev.icon != LayoutIcon || ev.bar {
+	if !ok || ev != osdview.Toast("German", LayoutIcon) {
 		t.Errorf("switching to German flashed %+v %v, want its name and the keyboard glyph", ev, ok)
 	}
 	src.set("", nil)
@@ -470,8 +390,8 @@ func TestWatchShowsLayoutSwitches(t *testing.T) {
 	src.set("German", nil)
 	tick()
 	waittest.For(t, calls, "switching the layout to show it")()
-	if len(h.opened) != 1 || h.osd.face.toggleLabel.Text() != "German" || h.osd.face.toggleIcon.Name() != LayoutIcon {
-		t.Errorf("the switch showed %q, want German", h.osd.face.toggleLabel.Text())
+	if len(h.opened) != 1 || !slices.Contains(shownLabels(h), "German") {
+		t.Errorf("the switch showed %v, want German", shownLabels(h))
 	}
 	select {
 	case <-calls:
@@ -502,8 +422,8 @@ func TestWatchShowsLockKeysFromItsSource(t *testing.T) {
 	expectNoSignal(t, "starting the lock-key source showed something", calls)
 	report(keytoggles.Event{Key: keytoggles.NumLock, Active: true})
 	waittest.For(t, calls, "a reported lock key to show")()
-	if got := h.osd.face.toggleLabel.Text(); got != "\u2068Num Lock\u2069 On" {
-		t.Errorf("the toggle reads %q, want Num Lock On", got)
+	if got := shownLabels(h); !slices.Contains(got, "\u2068Num Lock\u2069 On") {
+		t.Errorf("the toggle reads %v, want Num Lock On", got)
 	}
 	cancel()
 	<-done
@@ -642,24 +562,24 @@ func TestFailedLockKeySourceRetriesOnTheNextEnable(t *testing.T) {
 func TestAShowAfterADismissalReusesTheTree(t *testing.T) {
 	h := readyHarness(t, quietConfig())
 	dismiss := time.Duration(config.DefaultsOsd().Duration) * time.Millisecond
-	h.osd.Show(Slider("a", "", 1, false))
+	h.osd.Show(osdview.Slider("a", "", 1, false))
 	h.fire(t, dismiss)
-	h.osd.Show(Slider("b", "", 2, false))
+	h.osd.Show(osdview.Slider("b", "", 2, false))
 	if len(h.opened) != 2 {
 		t.Fatalf("%d surfaces, want a new one after the dismissal", len(h.opened))
 	}
 	if h.opened[1].cfg.Root != h.opened[0].cfg.Root {
 		t.Error("the second surface built its tree again")
 	}
-	if got := h.osd.face.sliderLabel.Text(); got != "b" {
-		t.Errorf("the kept tree shows %q, want the new event", got)
+	if got := shownLabels(h); !slices.Contains(got, "b") {
+		t.Errorf("the kept tree shows %v, want the new event", got)
 	}
-	if !h.osd.face.rev.Revealed() {
+	if !h.osd.face.view.Root().Revealed() {
 		t.Error("the kept tree must reveal again")
 	}
 	h.fire(t, dismiss)
 	allocs := testing.AllocsPerRun(20, func() {
-		h.osd.Show(Slider("c", "", 3, false))
+		h.osd.Show(osdview.Slider("c", "", 3, false))
 		h.fire(t, dismiss)
 	})
 	t.Logf("a show after a dismissal: %v allocations", allocs)
@@ -673,12 +593,12 @@ func TestAShowAfterADismissalReusesTheTree(t *testing.T) {
 func TestAScaleChangeBuildsTheTreeAgain(t *testing.T) {
 	h := readyHarness(t, quietConfig())
 	dismiss := time.Duration(config.DefaultsOsd().Duration) * time.Millisecond
-	h.osd.Show(Slider("a", "", 1, false))
+	h.osd.Show(osdview.Slider("a", "", 1, false))
 	h.fire(t, dismiss)
 	next := quietConfig()
 	next.Styling.Scale = 2
 	h.osd.SetConfig(next)
-	h.osd.Show(Slider("b", "", 2, false))
+	h.osd.Show(osdview.Slider("b", "", 2, false))
 	if h.opened[1].cfg.Root == h.opened[0].cfg.Root {
 		t.Error("a tree built at scale 1 showed at scale 2")
 	}
@@ -690,8 +610,8 @@ func TestAScaleChangeBuildsTheTreeAgain(t *testing.T) {
 func TestOsdFadesInFromAReadableOpacity(t *testing.T) {
 	cfg := config.Defaults()
 	h := readyHarness(t, cfg)
-	h.osd.Show(Slider("Speakers", "", 40, false))
-	rev := h.osd.face.rev
+	h.osd.Show(osdview.Slider("Speakers", "", 40, false))
+	rev := h.osd.face.view.Root()
 	if got := rev.Progress(); got != reveal.FadeFrom {
 		t.Errorf("the OSD fade starts at %v, want %v", got, reveal.FadeFrom)
 	}
@@ -706,8 +626,8 @@ func TestOsdFadesInFromAReadableOpacity(t *testing.T) {
 	enter := config.AnimationSlideDown
 	slide.Animations.Osd.Enter = &enter
 	h = readyHarness(t, slide)
-	h.osd.Show(Slider("Speakers", "", 40, false))
-	if got := h.osd.face.rev.Progress(); got != 0 {
+	h.osd.Show(osdview.Slider("Speakers", "", 40, false))
+	if got := h.osd.face.view.Root().Progress(); got != 0 {
 		t.Errorf("a sliding OSD starts at %v, want hidden", got)
 	}
 }
@@ -738,9 +658,13 @@ func fadeHarness(t *testing.T, alpha bool) (h *harness, leaf *paintCounter, fade
 		return true
 	})
 	t.Cleanup(func() { widget.SetSurfaceFade(nil) })
-	h.osd.Show(Slider("Speakers", "", 40, false))
+	h.osd.Show(osdview.Slider("Speakers", "", 40, false))
 	leaf = &paintCounter{}
-	h.osd.face.container.Append(leaf, false)
+	card, ok := treetest.WithClass(h.osd.face.view.Root(), "osd")[0].(*widget.Box)
+	if !ok {
+		t.Fatal("the OSD's card is no box")
+	}
+	card.Append(leaf, false)
 	root := h.opened[0].cfg.Root
 	const w, ht = 400, 200
 	frame = func() {
@@ -763,10 +687,10 @@ func fadeHarness(t *testing.T, alpha bool) (h *harness, leaf *paintCounter, fade
 // none of it.
 func TestOsdFadesAsSurfaceOpacity(t *testing.T) {
 	h, leaf, fades, frame := fadeHarness(t, true)
-	h.osd.face.rev.Finish()
+	h.osd.face.view.Root().Finish()
 	frame()
 	h.fire(t, time.Duration(config.DefaultsOsd().Duration)*time.Millisecond)
-	h.osd.face.rev.Finish()
+	h.osd.face.view.Root().Finish()
 	frame()
 	if leaf.paints != 0 {
 		t.Errorf("the OSD's fade painted the card %d times, want 0", leaf.paints)
@@ -783,7 +707,7 @@ func TestOsdFadesAsSurfaceOpacity(t *testing.T) {
 // painting the card through each frame's alpha.
 func TestOsdFadesByPaintingWithoutSurfaceOpacity(t *testing.T) {
 	h, leaf, fades, frame := fadeHarness(t, false)
-	h.osd.face.rev.Finish()
+	h.osd.face.view.Root().Finish()
 	frame()
 	if leaf.paints == 0 {
 		t.Error("a fade without surface opacity never repainted the card")

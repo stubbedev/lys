@@ -5,6 +5,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/service/mpris"
+	"github.com/stubbedev/lys/desktop/shell/osdview"
 )
 
 func track(title string, requested bool) mpris.TrackChange {
@@ -35,35 +36,18 @@ func TestOsdMediaFiltersTrackChanges(t *testing.T) {
 	cfg := quietConfig()
 	cfg.Osd.Media = config.OsdMediaNever
 	h := readyHarness(t, cfg)
-	h.osd.Show(Slider("Speakers", "", 40, false))
+	h.osd.Show(osdview.Slider("Speakers", "", 40, false))
 	if len(h.opened) != 1 {
 		t.Error("osd.media never also silenced the volume slider")
 	}
 }
 
-func TestNowPlayingShowsTitleArtistAndArt(t *testing.T) {
-	h := readyHarness(t, quietConfig())
-	h.osd.Show(NowPlaying(track("Song", true)))
-	f := h.osd.face
-	if !f.mediaHeader.Visible() || f.sliderHeader.Visible() || f.toggleHeader.Visible() || f.bar.Visible() {
-		t.Fatal("a track change did not show the media header alone")
+func TestNowPlayingCarriesTheTrack(t *testing.T) {
+	c := mpris.TrackChange{Player: mpris.Player{Title: "Song", Artist: "Band", ArtURL: "file:///covers/song.png"}, Requested: true}
+	if got, want := NowPlaying(c), osdview.Media("Song", "Band", "file:///covers/song.png", true); got != want {
+		t.Errorf("a track change flashes %+v, want %+v", got, want)
 	}
-	if f.mediaTitle.Text() != "Song" || f.mediaArtist.Text() != "Band" {
-		t.Errorf("media header reads %q / %q", f.mediaTitle.Text(), f.mediaArtist.Text())
-	}
-	if len(f.art.Children()) != 1 {
-		t.Error("a track without art shows no placeholder")
-	}
-
-	h.osd.Show(NowPlaying(mpris.TrackChange{Player: mpris.Player{Title: "Next", ArtURL: "file:///nonexistent/cover.png"}, Requested: true}))
-	if f.mediaArtist.Visible() {
-		t.Error("an empty artist line stayed visible")
-	}
-	if len(f.art.Children()) != 1 {
-		t.Error("the art box does not hold exactly the cover")
-	}
-	h.osd.Show(Slider("Speakers", "", 40, false))
-	if f.mediaHeader.Visible() || !f.sliderHeader.Visible() {
-		t.Error("a slider after a track change kept the media header")
+	if NowPlaying(track("Song", false)) == NowPlaying(track("Song", true)) {
+		t.Error("an unrequested track change flashes as a requested one")
 	}
 }
