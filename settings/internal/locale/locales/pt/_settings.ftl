@@ -1831,3 +1831,5 @@ settings-launcher-kb-also = Também: { $keys }
 settings-surface-animations = Cada superfície
     .description = Valores próprios de uma superfície; uma célula vazia segue os predefinidos acima
 settings-link-surface-animation = Como aparece e desaparece, com a animação de cada superfície na página Movimento
+settings-dock-pin = Afixar uma aplicação
+settings-dock-pinned-none = Nenhuma aplicação afixada

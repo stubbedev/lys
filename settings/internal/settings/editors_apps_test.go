@@ -6,7 +6,9 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/desktopentry"
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
@@ -30,12 +32,12 @@ func dockAppsFixture(t *testing.T) {
 	t.Setenv("LC_ALL", "fr_FR.UTF-8")
 }
 
-func dockPinnedEditor(t *testing.T, k *kit) *listEditor {
+func dockPinnedStrip(t *testing.T, k *kit) *pinnedStrip {
 	t.Helper()
 	for _, sec := range dockPage(nil).sections {
 		for _, row := range sec.rows {
 			if row.path == "dock.pinned" {
-				return fieldControl(k, k.store, row).(*listEditor)
+				return fieldControl(k, k.store, row).(*pinnedStrip)
 			}
 		}
 	}
@@ -49,18 +51,22 @@ func pinnedValue(t *testing.T, k *kit) []any {
 	return v
 }
 
-func rowIcon(t *testing.T, item listItem) string {
+func pinnedIcons(t *testing.T, c *pinnedStrip) []string {
 	t.Helper()
-	return treetest.First[*widget.Icon](t, item).Name()
+	var out []string
+	for _, chip := range c.chips.Chips() {
+		out = append(out, treetest.First[*widget.Icon](t, chip).Name())
+	}
+	return out
 }
 
-func openPinPicker(t *testing.T, k *kit, c *listEditor) (*fakePickers, *widget.Entry, *widget.FlowBox) {
+func openPinPicker(t *testing.T, k *kit, c *pinnedStrip) (*fakePickers, *widget.Entry, *widget.FlowBox) {
 	t.Helper()
 	f := &fakePickers{}
 	k.pickers = f
 	c.add.ClickAt(widget.Point{})
 	if f.content == nil || f.anchor != widget.Widget(c.add) {
-		t.Fatal("the app picker did not open beside the add button")
+		t.Fatal("the app picker did not open beside the add tile")
 	}
 	search, ok := f.focus.(*widget.Entry)
 	if !ok {
@@ -79,34 +85,91 @@ func shownLabels(flow *widget.FlowBox) []string {
 	return out
 }
 
-func TestDockPinnedShowsInstalledAppsByNameAndUninstalledOnesByID(t *testing.T) {
+func layOutStrip(c *pinnedStrip) {
+	widget.SizeWithin(c, widget.Size{W: 900, H: 200})
+	c.Arrange(render.Rect{W: 900, H: 200})
+}
+
+func TestDockPinnedIsAStripOfAppIconsNamedByAppOrID(t *testing.T) {
 	dockAppsFixture(t)
 	k := testKit(t, "dock:\n  pinned: [firefox, gone-app, hidden]\n")
-	c := dockPinnedEditor(t, k)
-	if len(c.items) != 3 {
-		t.Fatalf("%d rows for three pinned ids", len(c.items))
+	c := dockPinnedStrip(t, k)
+	if got := texts(c.chips); !slices.Equal(got, []string{"Firefox", "gone-app", "Hidden"}) {
+		t.Fatalf("the strip names its apps %q", got)
 	}
-	for i, want := range []struct{ label, icon string }{{"Firefox", "firefox"}, {"gone-app", appFallbackIcon}, {"Hidden", appFallbackIcon}} {
-		if got := treetest.Labels(c.items[i]); !slices.Equal(got, []string{want.label}) {
-			t.Errorf("row %d reads %q, want %q", i, got, want.label)
-		}
-		if got := rowIcon(t, c.items[i]); got != want.icon {
-			t.Errorf("row %d shows icon %q, want %q", i, got, want.icon)
-		}
+	if got := pinnedIcons(t, c); !slices.Equal(got, []string{"firefox", appFallbackIcon, appFallbackIcon}) {
+		t.Fatalf("the strip shows icons %q", got)
+	}
+	if got := c.chips.ChipAt(0).TooltipText(); got != "Firefox" {
+		t.Errorf("an icon's tooltip reads %q, want its app's name", got)
+	}
+	if c.none.Visible() {
+		t.Error("a strip of pinned apps says none are pinned")
 	}
 	if !slices.Equal(pinnedValue(t, k), []any{"firefox", "gone-app", "hidden"}) {
-		t.Fatalf("showing the list rewrote it: %v", pinnedValue(t, k))
+		t.Fatalf("showing the strip rewrote it: %v", pinnedValue(t, k))
 	}
-	c.remove(c.items[1])
+	dismiss := treetest.Button(t, c.chips.ChipAt(1), locale.T().Get("settings-chip-remove", i18n.Str("name", "gone-app")))
+	dismiss.ClickAt(widget.Point{})
 	if got := pinnedValue(t, k); !slices.Equal(got, []any{"firefox", "hidden"}) {
-		t.Fatalf("removing the uninstalled app wrote %v", got)
+		t.Fatalf("unpinning the uninstalled app wrote %v", got)
+	}
+	if got := texts(c.chips); !slices.Equal(got, []string{"Firefox", "Hidden"}) {
+		t.Fatalf("after unpinning the strip shows %q", got)
+	}
+}
+
+func TestAnEmptyDockStripSaysNothingIsPinned(t *testing.T) {
+	dockAppsFixture(t)
+	k := testKit(t, "dock:\n  pinned: []\n")
+	c := dockPinnedStrip(t, k)
+	if c.chips.Len() != 0 || !c.none.Visible() {
+		t.Fatalf("an empty strip shows %d icons, the none note %v", c.chips.Len(), c.none.Visible())
+	}
+	if want := locale.T().Get("settings-dock-pinned-none"); c.none.Text() != want {
+		t.Errorf("the none note reads %q, want %q", c.none.Text(), want)
+	}
+}
+
+func TestDraggingAPinnedIconReordersTheDock(t *testing.T) {
+	dockAppsFixture(t)
+	k := testKit(t, "dock:\n  pinned: [firefox, org.gnome.Nautilus, org.gnome.Calculator]\n")
+	c := dockPinnedStrip(t, k)
+	layOutStrip(c)
+	dragChip(t, c.chips.ChipAt(2), c.chips, leftHalf(c.chips.ChipAt(0)))
+	if got := pinnedValue(t, k); !slices.Equal(got, []any{"org.gnome.Calculator", "firefox", "org.gnome.Nautilus"}) {
+		t.Fatalf("dragging Calculator first wrote %v", got)
+	}
+	layOutStrip(c)
+	before := slices.Clone(pinnedValue(t, k))
+	dragChip(t, c.chips.ChipAt(1), c.chips, leftHalf(c.chips.ChipAt(1)))
+	if got := pinnedValue(t, k); !slices.Equal(got, before) {
+		t.Fatalf("dropping an icon where it was wrote %v", got)
+	}
+}
+
+func TestADockStripFollowsAnOutsideChange(t *testing.T) {
+	dockAppsFixture(t)
+	k := testKit(t, "dock:\n  pinned: [firefox]\n")
+	c := dockPinnedStrip(t, k)
+	if err := k.store.set("dock.pinned", []any{"org.gnome.Calculator", "firefox"}); err != nil {
+		t.Fatal(err)
+	}
+	c.refresh()
+	if got := texts(c.chips); !slices.Equal(got, []string{"Calculator", "Firefox"}) {
+		t.Fatalf("after an outside change the strip shows %q", got)
+	}
+	chip := c.chips.ChipAt(0)
+	c.refresh()
+	if c.chips.ChipAt(0) != chip {
+		t.Fatal("a refresh with nothing changed rebuilt the strip")
 	}
 }
 
 func TestDockPinnedPickerOffersUnpinnedShownAppsFilteredByNameOrID(t *testing.T) {
 	dockAppsFixture(t)
 	k := testKit(t, "dock:\n  pinned: [firefox]\n")
-	c := dockPinnedEditor(t, k)
+	c := dockPinnedStrip(t, k)
 	_, search, flow := openPinPicker(t, k, c)
 	if got := shownLabels(flow); !slices.Equal(got, []string{"Calculator", "Fichiers"}) {
 		t.Fatalf("offered %q, want the unpinned shown apps by localized name", got)
@@ -130,7 +193,7 @@ func TestDockPinnedPickerOffersUnpinnedShownAppsFilteredByNameOrID(t *testing.T)
 func TestDockPinnedPickAppendsTheIDAndKeepsOrder(t *testing.T) {
 	dockAppsFixture(t)
 	k := testKit(t, "dock:\n  pinned: [firefox, gone-app]\n")
-	c := dockPinnedEditor(t, k)
+	c := dockPinnedStrip(t, k)
 	f, _, flow := openPinPicker(t, k, c)
 	flow.OnActivate(slices.Index(shownLabels(flow), "Fichiers"))
 	if got := pinnedValue(t, k); !slices.Equal(got, []any{"firefox", "gone-app", "org.gnome.Nautilus"}) {
@@ -139,23 +202,15 @@ func TestDockPinnedPickAppendsTheIDAndKeepsOrder(t *testing.T) {
 	if f.closed != 1 {
 		t.Fatalf("the picker closed %d times after a pick", f.closed)
 	}
-	if got := treetest.Labels(c.items[2]); !slices.Equal(got, []string{"Fichiers"}) {
-		t.Fatalf("the new row reads %q", got)
-	}
-	c.move(c.items[2], -1)
-	if got := pinnedValue(t, k); !slices.Equal(got, []any{"firefox", "org.gnome.Nautilus", "gone-app"}) {
-		t.Fatalf("moving Files up wrote %v", got)
-	}
-	c.remove(c.items[0])
-	if got := pinnedValue(t, k); !slices.Equal(got, []any{"org.gnome.Nautilus", "gone-app"}) {
-		t.Fatalf("removing Firefox wrote %v", got)
+	if got := texts(c.chips); !slices.Equal(got, []string{"Firefox", "gone-app", "Fichiers"}) {
+		t.Fatalf("after the pick the strip shows %q", got)
 	}
 }
 
 func TestDockPinnedFreeTextIsNeverPinned(t *testing.T) {
 	dockAppsFixture(t)
 	k := testKit(t, "dock:\n  pinned: [firefox]\n")
-	c := dockPinnedEditor(t, k)
+	c := dockPinnedStrip(t, k)
 	f, search, flow := openPinPicker(t, k, c)
 	search.Insert("not-an-app")
 	search.KeyAction(widget.KeyEnter, 0)
@@ -165,9 +220,6 @@ func TestDockPinnedFreeTextIsNeverPinned(t *testing.T) {
 	if f.closed != 0 || len(shownLabels(flow)) != 0 {
 		t.Fatalf("free text closed the picker (%d) or matched %q", f.closed, shownLabels(flow))
 	}
-	if slices.ContainsFunc(c.items, func(it listItem) bool { return it.itemValue() == "not-an-app" }) {
-		t.Fatal("free text became a row")
-	}
 }
 
 func TestDockPinnedScansOffTheLoopAndOffersNoPickUntilItIsDone(t *testing.T) {
@@ -175,22 +227,22 @@ func TestDockPinnedScansOffTheLoopAndOffersNoPickUntilItIsDone(t *testing.T) {
 	k := testKit(t, "dock:\n  pinned: [firefox, gone-app]\n")
 	var scan func()
 	k.background = func(fn func()) { scan = fn }
-	c := dockPinnedEditor(t, k)
+	c := dockPinnedStrip(t, k)
 	if scan == nil {
-		t.Fatal("the editor scanned the applications on the loop")
+		t.Fatal("the strip scanned the applications on the loop")
 	}
 	if c.add.Visible() {
-		t.Fatal("the add button shows before the apps are known")
+		t.Fatal("the add tile shows before the apps are known")
 	}
-	if got := treetest.Labels(c.items[0]); !slices.Equal(got, []string{"firefox"}) {
-		t.Fatalf("before the scan the row reads %q, want the id", got)
+	if got := texts(c.chips); !slices.Equal(got, []string{"firefox", "gone-app"}) {
+		t.Fatalf("before the scan the strip names %q, want the ids", got)
 	}
 	scan()
 	if !c.add.Visible() {
-		t.Fatal("the add button stays hidden after the scan")
+		t.Fatal("the add tile stays hidden after the scan")
 	}
-	if got := treetest.Labels(c.items[0]); !slices.Equal(got, []string{"Firefox"}) {
-		t.Fatalf("after the scan the row reads %q, want the name", got)
+	if got := texts(c.chips); !slices.Equal(got, []string{"Firefox", "gone-app"}) {
+		t.Fatalf("after the scan the strip names %q", got)
 	}
 	if got := pinnedValue(t, k); !slices.Equal(got, []any{"firefox", "gone-app"}) {
 		t.Fatalf("the scan rewrote the list: %v", got)

@@ -1843,3 +1843,5 @@ settings-launcher-kb-also = Aussi : { $keys }
 settings-surface-animations = Chaque surface
     .description = Réglages propres à une surface ; une case vide suit les valeurs ci-dessus
 settings-link-surface-animation = Comment elle apparaît et disparaît, avec l'animation de chaque surface sur la page Mouvement
+settings-dock-pin = Épingler une application
+settings-dock-pinned-none = Aucune application épinglée

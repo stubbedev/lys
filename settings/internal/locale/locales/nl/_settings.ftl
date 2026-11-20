@@ -1830,3 +1830,5 @@ settings-launcher-kb-also = Ook: { $keys }
 settings-surface-animations = Elk oppervlak
     .description = Afwijkingen voor één oppervlak; een leeg vak volgt de standaard hierboven
 settings-link-surface-animation = Hoe het verschijnt en verdwijnt, bij de animatie van elk oppervlak op de pagina Beweging
+settings-dock-pin = App vastzetten
+settings-dock-pinned-none = Geen apps vastgezet

@@ -1840,3 +1840,5 @@ settings-launcher-kb-also = Außerdem: { $keys }
 settings-surface-animations = Jede Oberfläche
     .description = Abweichungen für eine Oberfläche; ein leeres Feld folgt den Vorgaben oben
 settings-link-surface-animation = Wie sie erscheint und verschwindet, bei den Animationen jeder Oberfläche auf der Seite Bewegung
+settings-dock-pin = App anheften
+settings-dock-pinned-none = Keine Apps angeheftet

@@ -1840,3 +1840,5 @@ settings-launcher-kb-also = Also: { $keys }
 settings-surface-animations = Each Surface
     .description = Overrides for one surface; an empty cell follows the defaults above
 settings-link-surface-animation = How it appears and disappears, with every surface's animation on the Motion page
+settings-dock-pin = Pin an app
+settings-dock-pinned-none = No apps are pinned

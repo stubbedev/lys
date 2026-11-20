@@ -302,7 +302,7 @@ func dockPage(*config.Config) pageSpec {
 			field("dock.edge", screenPosition, dockRow),
 			field("dock.auto-hide", dockRow),
 			field("dock.auto-hide-delay-ms", hideDelay, dockRow, shownWhen("dock.auto-hide", switchedOn)),
-			field("dock.pinned", appList, dockRow),
+			field("dock.pinned", pinnedRow, dockRow),
 		}},
 		{title: "settings-section-appearance", rows: []rowSpec{
 			field("dock.icon-size", iconScale(config.TaskIconBaseRem, 1, 4), dockRow),
