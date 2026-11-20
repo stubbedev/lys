@@ -85,6 +85,7 @@ func Run(page, setting string) error {
 		bluetooth:    func() (btControl, error) { return openBluetooth(dialSystemBus) },
 		notify:       sendNotification,
 		shellCommand: runShellCommand,
+		openURI:      openWithDefaultApp,
 		i2c:          systemHost.i2cAccess,
 		barFont:      barview.Font,
 	}

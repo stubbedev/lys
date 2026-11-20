@@ -62,6 +62,8 @@ type kit struct {
 	// with the arguments given; the tests stub both.
 	notify       func(summary, body string) error
 	shellCommand func(args ...string) error
+	// openURI opens a URI with the user's default app for it.
+	openURI func(uri string) error
 	// overlays shows content on the output named on top of everything,
 	// taking the keys when interactive; nil without a session.
 	overlays func(output string, content widget.Widget, interactive bool) (close func(), err error)

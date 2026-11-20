@@ -1,6 +1,13 @@
 package settings
 
-import "testing"
+import (
+	"errors"
+	"testing"
+
+	"github.com/stubbedev/lys/desktop/i18n"
+
+	"github.com/stubbedev/lys/settings/internal/locale"
+)
 
 func TestTheWebEngineIsPickedByName(t *testing.T) {
 	k := testKit(t, "")
@@ -31,5 +38,33 @@ func TestTheWebEngineIsPickedByName(t *testing.T) {
 	e2 := fieldControl(k2, k2.store, field(webEnginePath, webEngineRow)).(*webEngineEditor)
 	if e2.pick.Selected() != len(webEngines) || !e2.custom.Visible() {
 		t.Errorf("an unlisted engine shows as %d, custom %v", e2.pick.Selected(), e2.custom.Visible())
+	}
+}
+
+func TestACustomSearchAddressIsTestedWithASampleQuery(t *testing.T) {
+	k := testKit(t, "launcher:\n  search:\n    web-engine: Mine\n    web-url: \"https://mine.example/?q={query}\"\n")
+	var opened []string
+	k.openURI = func(uri string) error { opened = append(opened, uri); return nil }
+	e := fieldControl(k, k.store, field(webEnginePath, webEngineRow)).(*webEngineEditor)
+	e.test()
+	want := "https://mine.example/?q=lys+desktop"
+	tr := locale.T()
+	if len(opened) != 1 || opened[0] != want {
+		t.Fatalf("opened %q, want %q", opened, want)
+	}
+	if got := e.tried.Text(); got != tr.Get("settings-web-engine-tested", i18n.Str("query", webSearchSample), i18n.Str("url", want)) || !e.tried.Visible() {
+		t.Fatalf("shows %q", got)
+	}
+	k.openURI = func(string) error { return errors.New("no browser") }
+	e.test()
+	if got := e.tried.Text(); got != tr.Get("settings-web-engine-test-failed", i18n.Str("reason", "no browser")) {
+		t.Fatalf("a failed open shows %q", got)
+	}
+	e.inputs[1].SetText("https://mine.example/?q=")
+	opened = nil
+	k.openURI = func(uri string) error { opened = append(opened, uri); return nil }
+	e.test()
+	if len(opened) != 0 || e.tried.Text() != tr.Get("settings-web-engine-no-query", i18n.Str("token", "{query}")) {
+		t.Fatalf("an address without {query} opened %q and shows %q", opened, e.tried.Text())
 	}
 }

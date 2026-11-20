@@ -4,6 +4,9 @@ import (
 	"slices"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/desktopentry"
+	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/opener"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
 
@@ -14,6 +17,12 @@ const (
 	webEnginePath = "launcher.search.web-engine"
 	webURLPath    = "launcher.search.web-url"
 )
+
+const webSearchSample = "lys desktop"
+
+func openWithDefaultApp(uri string) error {
+	return opener.Open(uri, desktopentry.LaunchContext{})
+}
 
 type webEngine struct{ name, url string }
 
@@ -36,6 +45,7 @@ type webEngineEditor struct {
 	pick    *widget.Dropdown
 	custom  *widget.Box
 	inputs  []*liveText
+	tried   *widget.Label
 	chosen  bool
 	syncing bool
 }
@@ -73,6 +83,10 @@ func newWebEngineEditor(k *kit, name, url slot) *webEngineEditor {
 		e.custom.Append(line, false)
 		e.inputs = append(e.inputs, in)
 	}
+	e.tried = wrapped(k.label("", "format-preview", css.Caption, css.DimLabel))
+	e.tried.SetVisible(false)
+	e.custom.AppendAligned(k.button(k.label(t.Get("settings-web-engine-test")), e.test, css.Small), false, widget.AlignStart)
+	e.custom.Append(e.tried, false)
 	e.AppendAligned(e.pick, false, widget.AlignStart)
 	e.Append(e.custom, false)
 	e.refresh()
@@ -114,4 +128,21 @@ func (e *webEngineEditor) refresh() {
 	for _, in := range e.inputs {
 		in.refresh()
 	}
+}
+
+func (e *webEngineEditor) test() {
+	t := locale.T()
+	e.tried.SetVisible(true)
+	target, ok := config.FillQueryURL(e.url.text(), webSearchSample)
+	if !ok {
+		e.tried.SetText(t.Get("settings-web-engine-no-query", i18n.Str("token", config.QueryToken)))
+		return
+	}
+	async(e.k, func() error { return e.k.openURI(target) }, func(err error) {
+		if err != nil {
+			e.tried.SetText(t.Get("settings-web-engine-test-failed", i18n.Str("reason", err.Error())))
+			return
+		}
+		e.tried.SetText(t.Get("settings-web-engine-tested", i18n.Str("query", webSearchSample), i18n.Str("url", target)))
+	})
 }

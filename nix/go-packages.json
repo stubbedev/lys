@@ -2181,6 +2181,7 @@
       "desktop/imagedecode",
       "desktop/logging",
       "desktop/mime",
+      "desktop/opener",
       "desktop/portal/permissions",
       "desktop/service/bluetooth",
       "desktop/service/clipboard",
