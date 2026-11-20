@@ -32,16 +32,13 @@ type Monitor struct {
 
 // Follow starts following the report on the system bus conn; failed
 // is told of each report that could not be read.
-func Follow(conn *dbus.Conn, failed func(error)) (*Monitor, error) {
+func Follow(conn *dbus.Conn, failed func(error)) *Monitor {
 	client := energy.NewClient(conn)
-	f, err := powerprop.Follow(conn, powerprop.Source[energy.Report]{
+	f := powerprop.Follow(conn, powerprop.Source[energy.Report]{
 		Name: energy.ServiceName, Path: energy.ServicePath, Interface: energy.Interface,
 		Read: client.Report, Changed: energy.Changed,
 	}, failed)
-	if err != nil {
-		return nil, err
-	}
-	return &Monitor{Follower: f, client: client}, nil
+	return &Monitor{Follower: f, client: client}
 }
 
 // Report is the last report, and whether lys-power serves one.

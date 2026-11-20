@@ -1,6 +1,8 @@
 // Package powerprop follows one property lys-power publishes on the
-// system bus: read at once and whenever lys-power comes onto the bus,
-// replaced by each PropertiesChanged, and absent while lys-power is.
+// system bus: read once following starts and whenever lys-power comes
+// onto the bus, replaced by each PropertiesChanged, and absent while
+// lys-power is. Following never blocks its caller: the subscription and
+// the first read run on a goroutine of their own.
 package powerprop
 
 import (
@@ -32,6 +34,7 @@ type Source[T any] struct {
 type Follower[T any] struct {
 	src     Source[T]
 	cancel  context.CancelFunc
+	started chan struct{}
 	watch   *dbusx.Watch
 	changes feed.Feed[struct{}]
 
@@ -42,11 +45,21 @@ type Follower[T any] struct {
 	running bool
 }
 
-// Follow starts following src on the system bus conn; failed is told of
-// each value that could not be read.
-func Follow[T any](conn *dbus.Conn, src Source[T], failed func(error)) (*Follower[T], error) {
-	ctx, cancel := context.WithCancel(context.Background())
-	f := &Follower[T]{src: src, cancel: cancel}
+// Follow starts following src on the system bus conn and returns at
+// once, the value not yet known; failed is told when following cannot
+// start and of each value that could not be read.
+func Follow[T any](conn *dbus.Conn, src Source[T], failed func(error)) *Follower[T] {
+	ctx, cancel := context.WithCancel(context.Background()) //nolint:gosec // Close cancels it, from the Follower that keeps it
+	f := &Follower[T]{src: src, cancel: cancel, started: make(chan struct{})}
+	go func() {
+		defer close(f.started)
+		f.start(ctx, conn, failed)
+	}()
+	return f
+}
+
+func (f *Follower[T]) start(ctx context.Context, conn *dbus.Conn, failed func(error)) {
+	src := f.src
 	f.serial.Lock()
 	defer f.serial.Unlock()
 	watch, err := dbusx.WatchSignals(ctx, conn, dbusx.FromOwner(src.Name), failed,
@@ -62,14 +75,15 @@ func Follow[T any](conn *dbus.Conn, src Source[T], failed func(error)) (*Followe
 			return f.read(ctx)
 		}))
 	if err != nil {
-		cancel()
-		return nil, fmt.Errorf("follow %s: %w", src.Name, err)
+		if ctx.Err() == nil {
+			failed(fmt.Errorf("follow %s: %w", src.Name, err))
+		}
+		return
 	}
 	f.watch = watch
-	if err := f.read(ctx); err != nil {
+	if err := f.read(ctx); err != nil && ctx.Err() == nil {
 		failed(err)
 	}
-	return f, nil
 }
 
 func (f *Follower[T]) changed(sig *dbus.Signal) error {
@@ -120,7 +134,11 @@ func (f *Follower[T]) Subscribe() (<-chan struct{}, func()) { return f.changes.S
 // Close stops following.
 func (f *Follower[T]) Close() error {
 	f.cancel()
+	<-f.started
 	defer f.changes.Close()
+	if f.watch == nil {
+		return nil
+	}
 	if err := f.watch.Stop(); err != nil && !errors.Is(err, dbusx.ErrDisconnected) {
 		return fmt.Errorf("stop following %s: %w", f.src.Name, err)
 	}

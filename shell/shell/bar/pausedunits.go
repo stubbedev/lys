@@ -24,11 +24,7 @@ func startPausedUnits(ctx *ModuleContext, system, session *dbus.Conn) func() {
 	if system == nil {
 		return func() {}
 	}
-	monitor, err := pausedunits.Follow(system, intconv.Must[uint32](os.Getuid()), func(err error) { log.Printf("paused units: %v", err) })
-	if err != nil {
-		log.Printf("paused units: %v", err)
-		return func() {}
-	}
+	monitor := pausedunits.Follow(system, intconv.Must[uint32](os.Getuid()), func(err error) { log.Printf("paused units: %v", err) })
 	ctx.PausedUnits = monitor
 	life, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})

@@ -93,10 +93,7 @@ func start(t *testing.T, answer string, initial pause.State) *rig {
 	t.Helper()
 	r := &rig{bus: dbustest.Start(t), h: &handler{calls: make(chan struct{}, 8)}, n: &notifier{answer: answer, asks: make(chan asked, 8)}}
 	r.serve(t, initial)
-	m, err := pausedunits.Follow(r.bus.Conn(t), me(), func(err error) { t.Error(err) })
-	if err != nil {
-		t.Fatal(err)
-	}
+	m := pausedunits.Follow(r.bus.Conn(t), me(), func(err error) { t.Error(err) })
 	r.m = m
 	t.Cleanup(func() {
 		if err := m.Close(); err != nil {

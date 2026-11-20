@@ -43,9 +43,9 @@ type Monitor struct {
 
 // Follow starts following the state on the system bus conn for the user
 // uid; failed is told of each state that could not be read.
-func Follow(conn *dbus.Conn, uid uint32, failed func(error)) (*Monitor, error) {
+func Follow(conn *dbus.Conn, uid uint32, failed func(error)) *Monitor {
 	client := pause.NewClient(conn)
-	f, err := powerprop.Follow(conn, powerprop.Source[pause.State]{
+	f := powerprop.Follow(conn, powerprop.Source[pause.State]{
 		Name: pause.ServiceName, Path: pause.ServicePath, Interface: pause.Interface,
 		Read: func(ctx context.Context) (pause.State, error) {
 			st, err := client.State(ctx)
@@ -56,10 +56,7 @@ func Follow(conn *dbus.Conn, uid uint32, failed func(error)) (*Monitor, error) {
 			return st.VisibleTo(uid), ok, err
 		},
 	}, failed)
-	if err != nil {
-		return nil, err
-	}
-	return &Monitor{Follower: f, client: client}, nil
+	return &Monitor{Follower: f, client: client}
 }
 
 // Resume resumes every paused unit until the next unplug.

@@ -50,11 +50,7 @@ func startAppEnergy(ctx *ModuleContext, system, session *dbus.Conn) func() {
 	if system == nil {
 		return func() {}
 	}
-	monitor, err := appenergy.Follow(system, func(err error) { log.Printf("energy: %v", err) })
-	if err != nil {
-		log.Printf("energy: %v", err)
-		return func() {}
-	}
+	monitor := appenergy.Follow(system, func(err error) { log.Printf("energy: %v", err) })
 	ctx.AppEnergy = appEnergy{Monitor: monitor, session: session, uid: intconv.Must[uint32](os.Getuid())}
 	return func() {
 		if err := monitor.Close(); err != nil {

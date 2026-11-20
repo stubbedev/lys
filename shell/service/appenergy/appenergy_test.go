@@ -22,10 +22,7 @@ func TestTheTestsReachNoHostSession(t *testing.T) { testhome.RequireNoHostSessio
 
 func follow(t *testing.T, conn *dbus.Conn) *appenergy.Monitor {
 	t.Helper()
-	m, err := appenergy.Follow(conn, func(err error) { t.Error(err) })
-	if err != nil {
-		t.Fatal(err)
-	}
+	m := appenergy.Follow(conn, func(err error) { t.Error(err) })
 	t.Cleanup(func() {
 		if err := m.Close(); err != nil {
 			t.Error(err)
