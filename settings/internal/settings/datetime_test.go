@@ -41,6 +41,12 @@ type fakeSys struct {
 	iface  string
 }
 
+func (f *fakeSys) refuseWith(reason string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.refuse = reason
+}
+
 func (f *fakeSys) record(method string, args ...any) *dbus.Error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -213,7 +219,7 @@ func TestEachDateControlIsOneInteractiveCallAndARefusalRevertsIt(t *testing.T) {
 		t.Fatalf("%+v, want one SetTime(%d, absolute, interactive)", calls, want)
 	}
 	td.mu.Lock()
-	td.refuse = "Changing system settings via systemd is not supported on NixOS."
+	td.refuseWith("Changing system settings via systemd is not supported on NixOS.")
 	td.mu.Unlock()
 	zone := treetest.First[*choiceEditor](t, footer)
 	zone.pick("Europe/Copenhagen")

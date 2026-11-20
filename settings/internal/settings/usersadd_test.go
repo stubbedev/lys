@@ -96,7 +96,8 @@ func addUserDialog(t *testing.T, refuseCreate, refusePassword string) (*usersPan
 	manager, created := s.manager, s.created
 	p, l := usersFixture(t, bus)
 	l.until("the admin section", func() bool { return p.admin.Visible() && len(p.others) == 2 })
-	manager.refuse, created.refuse = refuseCreate, refusePassword
+	manager.refuseWith(refuseCreate)
+	created.refuseWith(refusePassword)
 	pickers := &fakePickers{}
 	p.k.pickers = pickers
 	clickText(t, p.admin, locale.T().Get("settings-users-add-open"), 0)

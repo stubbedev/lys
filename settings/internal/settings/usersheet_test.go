@@ -113,7 +113,7 @@ func TestAUserSheetWithDifferingPasswordsSaysSoAndCallsNothing(t *testing.T) {
 
 func TestARefusedUserEditKeepsTheSheetOpenWithTheReason(t *testing.T) {
 	_, l, pickers, f, s := userSheetFixture(t)
-	s.others[0].refuse = "not authorized"
+	s.others[0].refuseWith("not authorized")
 	f.full.SetText("Robert")
 	pickers.respond(responseConfirm)
 	l.until("the refusal", func() bool { return f.messages.Visible() })
