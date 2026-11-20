@@ -52,6 +52,7 @@
       ${fail (!lib.elem pkg nixos.systemd.packages) "lys-power is not in systemd.packages"}
       ${fail (!lib.elem pkg nixos.systemd.tmpfiles.packages) "lys-power is not in systemd.tmpfiles.packages"}
       ${fail (!lib.elem pkg nixos.environment.systemPackages) "lys-power is not in environment.systemPackages"}
+      ${fail (!lib.elem pkg nixos.services.dbus.packages) "lys-power's system bus policy is not in services.dbus.packages"}
       ${fail (!nixos.services.upower.enable) "upower is not enabled"}
       ${fail (!nixos.services.power-profiles-daemon.enable) "power-profiles-daemon is not enabled"}
       user=${pkg}/lib/systemd/user/lys-power-brightness.service

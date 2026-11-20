@@ -42,6 +42,7 @@ brightness is `services.lys-power.autoBrightness.enable = true;` on NixOS and
 lys-power status    # the power source, thresholds, profile and prediction
 lys-power full      # charge to 100% until the next unplug
 lys-power predict   # the predicted unplug time
+lys-power energy    # what each app costs in power, CPU, wakeups and GPU time
 ```
 
 It runs as the `lys-power` system service, as root, since the charge

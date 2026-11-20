@@ -60,6 +60,8 @@ lys-power once      Evaluate once
 lys-power full      Charge to 100% until the next unplug
 lys-power status    Print the power source, thresholds, profile and prediction
 lys-power predict   Print the predicted unplug time
+lys-power energy [-for 10s] [-threads] [-json]
+                    Measure what each app costs in power, CPU, wakeups and GPU time
 lys-power brightness
                     Set the backlight from the room's light (the user service runs this)
 lys-power version   Print the version
@@ -73,7 +75,38 @@ The environment variables `LYS_POWER_SUPPLY_DIR`, `LYS_POWER_STATE_DIR` and
 `LYS_POWER_RUNTIME_DIR` replace `/sys/class/power_supply`,
 `/var/lib/lys-power` and `/run/battery-charge`. `LYS_POWER_IIO_DIR` and
 `LYS_POWER_DEV_DIR` replace `/sys/bus/iio/devices` and `/dev`, where
-`brightness` looks for a light sensor and a camera.
+`brightness` looks for a light sensor and a camera. `LYS_POWER_CGROUP_DIR`,
+`LYS_POWER_PROC_DIR` and `LYS_POWER_POWERCAP_DIR` replace `/sys/fs/cgroup`,
+`/proc` and `/sys/class/powercap`, where energy attribution reads.
+
+## Energy per app
+
+lys-power estimates what each app costs in power, as Activity Monitor's
+Energy Impact does on macOS. An app is a systemd unit: every scope and service
+in the cgroup tree, such as `app-firefox-….scope` or a terminal's
+`tmux-spawn-….scope`, with every process inside it. For each it measures:
+
+- CPU time, the cgroup's `cpu.stat` `usage_usec`;
+- wakeups, the context switches of each of its threads;
+- GPU time, from the DRM clients its processes hold open
+  (`drm-engine-*` or `drm-cycles-*` in `/proc/<pid>/fdinfo`).
+
+Its **impact** folds these into one busy fraction of a CPU, a wakeup costing
+50 µs. The machine's power comes from the RAPL package energy counter
+(`/sys/class/powercap/intel-rapl:*`, the platform's `psys` zone where there is
+one), or else from the battery's discharge power. Each app gets the share of
+that power its impact has, the kernel's own CPU time keeping its part. With no
+power reading over the whole window, apps carry impact but no watts.
+
+The service publishes the report over the last 5 minutes as the `Report`
+property of `dev.stubbe.lys.Energy1` on the system bus, which every user may
+read. It samples only when it must: every 2 seconds for 30 seconds after
+someone calls `Watch` (lys-shell's battery dropdown does while it is open),
+once a minute on battery, and never on AC with nobody watching.
+
+`lys-power energy` makes the same measurement in the terminal, over `-for`,
+with each thread's wakeups under `-threads` and as JSON under `-json`. Run it
+as root to read the RAPL counters and every process's GPU time.
 
 ## Automatic brightness
 
@@ -192,8 +225,8 @@ user unit `lys-power-brightness.service` and has it wanted by
 The `.deb` and `.rpm` on the
 [latest release](https://github.com/stubbedev/lys/releases/latest) install
 `/usr/bin/lys-power`, the unit `lys-power.service`, the user unit
-`lys-power-brightness.service` and the tmpfiles rule `lys-power.conf`. They
-enable nothing:
+`lys-power-brightness.service`, the tmpfiles rule `lys-power.conf` and the
+system bus policy `dev.stubbe.lys.Energy1.conf`. They enable nothing:
 
 ```sh
 sudo systemctl enable --now lys-power
@@ -204,7 +237,8 @@ The tarball `lys-power-<version>-<arch>-linux.tar.gz` holds the same files.
 Install the binary as `/usr/bin/lys-power`, the unit under
 `/usr/lib/systemd/system/`, `lys-power-brightness.service` under
 `/usr/lib/systemd/user/` and `lys-power.tmpfiles` as
-`/usr/lib/tmpfiles.d/lys-power.conf`, then run
+`/usr/lib/tmpfiles.d/lys-power.conf` and `dev.stubbe.lys.Energy1.conf` under
+`/usr/share/dbus-1/system.d/`, then run
 `sudo systemd-tmpfiles --create lys-power.conf` and enable the unit.
 
 lys-power needs a battery that exposes `charge_control_*_threshold` (ThinkPad,

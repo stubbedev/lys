@@ -27,6 +27,7 @@ in {
       environment.systemPackages = [cfg.package];
       systemd.packages = [cfg.package];
       systemd.tmpfiles.packages = [cfg.package];
+      services.dbus.packages = [cfg.package];
       systemd.services.lys-power.wantedBy = ["graphical.target"];
     })
     (lib.mkIf cfg.autoBrightness.enable {

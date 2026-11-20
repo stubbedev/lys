@@ -7,14 +7,20 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/stubbedev/lys/power/internal/meter"
+	"github.com/stubbedev/lys/power/internal/supply"
 )
 
 const (
-	DefaultSupplyDir  = "/sys/class/power_supply"
-	DefaultStateDir   = "/var/lib/lys-power"
-	DefaultRuntimeDir = "/run/battery-charge"
-	DefaultIIODir     = "/sys/bus/iio/devices"
-	DefaultDevDir     = "/dev"
+	DefaultSupplyDir   = "/sys/class/power_supply"
+	DefaultStateDir    = "/var/lib/lys-power"
+	DefaultRuntimeDir  = "/run/battery-charge"
+	DefaultIIODir      = "/sys/bus/iio/devices"
+	DefaultDevDir      = "/dev"
+	DefaultCgroupDir   = "/sys/fs/cgroup"
+	DefaultProcDir     = "/proc"
+	DefaultPowercapDir = "/sys/class/powercap"
 )
 
 // LegacyStateDirs are where lys-power's predecessors kept their state,
@@ -109,18 +115,24 @@ type Config struct {
 	RuntimeDir string
 	// IIODir lists the IIO devices an ambient light sensor is looked for
 	// among, and DevDir holds the camera nodes.
-	IIODir string
-	DevDir string
+	IIODir      string
+	DevDir      string
+	CgroupDir   string
+	ProcDir     string
+	PowercapDir string
 }
 
 // Load reads the configuration, applying LYS_POWER_* environment overrides.
 func Load() Config {
 	return Config{
-		SupplyDir:  env("LYS_POWER_SUPPLY_DIR", DefaultSupplyDir),
-		StateDir:   env("LYS_POWER_STATE_DIR", DefaultStateDir),
-		RuntimeDir: env("LYS_POWER_RUNTIME_DIR", DefaultRuntimeDir),
-		IIODir:     env("LYS_POWER_IIO_DIR", DefaultIIODir),
-		DevDir:     env("LYS_POWER_DEV_DIR", DefaultDevDir),
+		SupplyDir:   env("LYS_POWER_SUPPLY_DIR", DefaultSupplyDir),
+		StateDir:    env("LYS_POWER_STATE_DIR", DefaultStateDir),
+		RuntimeDir:  env("LYS_POWER_RUNTIME_DIR", DefaultRuntimeDir),
+		IIODir:      env("LYS_POWER_IIO_DIR", DefaultIIODir),
+		DevDir:      env("LYS_POWER_DEV_DIR", DefaultDevDir),
+		CgroupDir:   env("LYS_POWER_CGROUP_DIR", DefaultCgroupDir),
+		ProcDir:     env("LYS_POWER_PROC_DIR", DefaultProcDir),
+		PowercapDir: env("LYS_POWER_POWERCAP_DIR", DefaultPowercapDir),
 	}
 }
 
@@ -142,6 +154,10 @@ func (c Config) LastACPath() string {
 // FullNowPath is the charge-to-full request flag.
 func (c Config) FullNowPath() string {
 	return filepath.Join(c.RuntimeDir, "full-now")
+}
+
+func (c Config) Meter() meter.Meter {
+	return meter.Meter{Cgroup: c.CgroupDir, Proc: c.ProcDir, Powercap: c.PowercapDir, Supply: supply.Supply{Dir: c.SupplyDir}}
 }
 
 func env(key, fallback string) string {

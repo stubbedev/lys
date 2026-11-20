@@ -2112,13 +2112,27 @@
     "imports": [
       "lib/buildinfo",
       "lib/dbusx",
+      "power/energy",
       "power/internal/autobright",
       "power/internal/config",
       "power/internal/daemon",
+      "power/internal/energyd",
       "power/internal/history",
+      "power/internal/meter",
       "power/internal/predict",
       "power/internal/profiles",
       "power/internal/supply"
+    ]
+  },
+  "power/energy": {
+    "imports": [
+      "lib/dbusx",
+      "lib/intconv",
+      "lib/third_party/godbus"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/waittest"
     ]
   },
   "power/internal/ambient": {
@@ -2150,12 +2164,18 @@
       "power/internal/ambient"
     ]
   },
-  "power/internal/config": {},
+  "power/internal/config": {
+    "imports": [
+      "power/internal/meter",
+      "power/internal/supply"
+    ]
+  },
   "power/internal/daemon": {
     "imports": [
       "lib/dbusx",
       "lib/third_party/godbus",
       "power/internal/config",
+      "power/internal/energyd",
       "power/internal/history",
       "power/internal/predict",
       "power/internal/profiles",
@@ -2163,6 +2183,18 @@
       "power/internal/supply"
     ],
     "testImports": [
+      "lib/waittest"
+    ]
+  },
+  "power/internal/energyd": {
+    "imports": [
+      "lib/third_party/godbus",
+      "power/energy",
+      "power/internal/meter"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/dbusx",
       "lib/waittest"
     ]
   },
@@ -2176,6 +2208,12 @@
       "power/internal/ambient"
     ]
   },
+  "power/internal/meter": {
+    "imports": [
+      "power/energy",
+      "power/internal/supply"
+    ]
+  },
   "power/internal/predict": {
     "imports": [
       "power/internal/history"
@@ -2187,7 +2225,11 @@
     ]
   },
   "power/internal/statefile": {},
-  "power/internal/supply": {},
+  "power/internal/supply": {
+    "imports": [
+      "lib/intconv"
+    ]
+  },
   "secrets/client": {
     "imports": [
       "lib/dbusx",

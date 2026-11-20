@@ -19,6 +19,7 @@ import (
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
 	"github.com/stubbedev/lys/power/internal/config"
+	"github.com/stubbedev/lys/power/internal/energyd"
 	"github.com/stubbedev/lys/power/internal/history"
 	"github.com/stubbedev/lys/power/internal/predict"
 	"github.com/stubbedev/lys/power/internal/profiles"
@@ -41,6 +42,7 @@ var (
 // Result reports what one evaluation observed and changed.
 type Result struct {
 	OnAC           bool
+	HasBattery     bool
 	ProfileSet     string
 	RecordedUnplug bool
 	ClearedFullNow bool
@@ -53,6 +55,8 @@ type Result struct {
 }
 
 // Changed reports whether the evaluation altered any state.
+func (r Result) Discharging() bool { return r.HasBattery && !r.OnAC }
+
 func (r Result) Changed() bool {
 	return r.ProfileSet != "" || r.RecordedUnplug || r.ClearedFullNow || r.Applied != nil
 }
@@ -130,6 +134,7 @@ func Eval(cfg config.Config, log *slog.Logger, now time.Time, pc ProfileClient) 
 	if battery == nil {
 		return result, nil
 	}
+	result.HasBattery = true
 	writable, err := battery.Writable()
 	if err != nil {
 		return result, fmt.Errorf("checking %s charge thresholds: %w", battery.Name, err)
@@ -232,6 +237,7 @@ func Run(ctx context.Context, cfg config.Config, log *slog.Logger) error {
 	var acEdges <-chan struct{}
 	var upower *dbusx.Watch
 	var upowerDone <-chan struct{}
+	var discharging chan bool
 	conn, err := dbusx.DialSystem(ctx, config.BusTimeout)
 	if err != nil {
 		log.Warn("system bus unavailable: no power profiles, polling the power source", "err", err, "every", config.Tick)
@@ -243,6 +249,19 @@ func Run(ctx context.Context, cfg config.Config, log *slog.Logger) error {
 		}
 		defer stopLogged(log, upower)
 		upowerDone = upower.Done()
+		discharging = make(chan bool, 1)
+		energyDone := make(chan struct{})
+		energyCtx, stopEnergy := context.WithCancel(ctx)
+		go func() {
+			defer close(energyDone)
+			if err := energyd.Run(energyCtx, conn, cfg.Meter(), discharging, log); err != nil {
+				log.Error("energy attribution stopped", "err", err)
+			}
+		}()
+		defer func() {
+			stopEnergy()
+			<-energyDone
+		}()
 	}
 
 	requests, err := watchDir(cfg.RuntimeDir)
@@ -276,6 +295,9 @@ func Run(ctx context.Context, cfg config.Config, log *slog.Logger) error {
 		case result.Changed():
 			log.Info("applied", "result", result)
 		}
+		if err == nil && discharging != nil {
+			latest(discharging, result.Discharging())
+		}
 		if acEdges == nil {
 			next = earliest(next, now.Add(config.Tick))
 		}
@@ -297,6 +319,14 @@ func Run(ctx context.Context, cfg config.Config, log *slog.Logger) error {
 		case <-hup:
 		}
 	}
+}
+
+func latest(ch chan bool, v bool) {
+	select {
+	case <-ch:
+	default:
+	}
+	ch <- v
 }
 
 // earliest returns the earlier of a deadline that may be zero (none) and a

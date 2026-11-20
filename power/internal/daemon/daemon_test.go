@@ -336,3 +336,20 @@ func TestSteadyStateWritesNothing(t *testing.T) {
 		t.Errorf("result = %+v, want nothing changed in steady state", result)
 	}
 }
+
+func TestDischargingNeedsABatteryOffMains(t *testing.T) {
+	f := newFixture(t)
+	if f.eval(t, 1, 16, 0).Discharging() {
+		t.Error("discharging on mains")
+	}
+	f.unplug(t)
+	if !f.eval(t, 1, 16, 1).Discharging() {
+		t.Error("not discharging on battery")
+	}
+	if err := os.RemoveAll(filepath.Join(f.root, "ps", "BAT0")); err != nil {
+		t.Fatal(err)
+	}
+	if f.eval(t, 1, 16, 2).Discharging() {
+		t.Error("discharging off mains without a battery")
+	}
+}

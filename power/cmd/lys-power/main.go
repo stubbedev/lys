@@ -37,13 +37,18 @@ Usage:
   lys-power full      Request a charge to 100% until the next unplug
   lys-power status    Print the current state and prediction
   lys-power predict   Print the predicted unplug time
+  lys-power energy [-for 10s] [-threads] [-json]
+                      Measure what each app costs in power, its CPU,
+                      wakeups and GPU time: as root for watts
   lys-power brightness
                       Set the backlight from the room's light (a user service)
   lys-power version   Print the version
 
 Paths can be overridden with LYS_POWER_SUPPLY_DIR, LYS_POWER_STATE_DIR and
 LYS_POWER_RUNTIME_DIR; where brightness looks for a light sensor and a
-camera with LYS_POWER_IIO_DIR and LYS_POWER_DEV_DIR.
+camera with LYS_POWER_IIO_DIR and LYS_POWER_DEV_DIR; where energy reads
+the cgroups, processes and RAPL counters with LYS_POWER_CGROUP_DIR,
+LYS_POWER_PROC_DIR and LYS_POWER_POWERCAP_DIR.
 `
 
 func main() {
@@ -55,7 +60,7 @@ func main() {
 	log := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	cfg := config.Load()
 
-	err := dispatch(os.Args[1], cfg, log)
+	err := dispatch(os.Args[1:], cfg, log)
 	if err != nil {
 		if errors.Is(err, errUnknownCommand) {
 			fmt.Fprint(os.Stderr, err)
@@ -70,7 +75,8 @@ func main() {
 // exit non-zero after printing the rendered message.
 var errUnknownCommand = errors.New("unknown command")
 
-func dispatch(command string, cfg config.Config, log *slog.Logger) error {
+func dispatch(args []string, cfg config.Config, log *slog.Logger) error {
+	command := args[0]
 	switch command {
 	case "run":
 		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -108,6 +114,16 @@ func dispatch(command string, cfg config.Config, log *slog.Logger) error {
 		}
 		fmt.Print(out)
 		return nil
+	case "energy":
+		o, err := parseEnergy(args[1:])
+		if err != nil {
+			return err
+		}
+		r, gaps, err := measureEnergy(cfg.Meter(), o.over, time.Sleep)
+		if err != nil {
+			return err
+		}
+		return writeEnergy(os.Stdout, r, gaps, o)
 	case "version", "--version":
 		fmt.Println("lys-power", buildinfo.Version())
 		return nil

@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/stubbedev/lys/lib/intconv"
 )
 
 const (
@@ -156,6 +158,48 @@ func Order(curEnd, end int) [2]string {
 		return [2]string{endAttr, startAttr}
 	}
 	return [2]string{startAttr, endAttr}
+}
+
+func (b Battery) DischargeMicrowatts() (uint64, bool, error) {
+	status, err := readTrim(filepath.Join(b.Path, "status"))
+	if err != nil {
+		return 0, false, fmt.Errorf("reading %s status: %w", b.Name, err)
+	}
+	if status != "Discharging" {
+		return 0, false, nil
+	}
+	power, err := b.counter("power_now")
+	if err == nil {
+		return power, true, nil
+	}
+	if !errors.Is(err, fs.ErrNotExist) {
+		return 0, false, err
+	}
+	current, err := b.counter("current_now")
+	if err != nil {
+		return 0, false, err
+	}
+	voltage, err := b.counter("voltage_now")
+	if err != nil {
+		return 0, false, err
+	}
+	return uint64(float64(current) * float64(voltage) / 1e6), true, nil
+}
+
+func (b Battery) counter(attr string) (uint64, error) {
+	path := filepath.Join(b.Path, attr)
+	raw, err := readTrim(path)
+	if err != nil {
+		return 0, fmt.Errorf("reading %s: %w", path, err)
+	}
+	value, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("parsing %s %q: %w", path, raw, err)
+	}
+	if value < 0 {
+		value = -value
+	}
+	return intconv.Exact[uint64](value)
 }
 
 func (b Battery) threshold(attr string) (int, error) {

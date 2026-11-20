@@ -7,7 +7,7 @@ lysGo.build {
 
   subPackages = ["power/cmd/lys-power"];
 
-  resources = ["power/dist/lys-power.service" "power/dist/lys-power-brightness.service" "power/dist/lys-power.tmpfiles"];
+  resources = ["power/dist/lys-power.service" "power/dist/lys-power-brightness.service" "power/dist/lys-power.tmpfiles" "power/dist/dev.stubbe.lys.Energy1.conf"];
 
   ldflags = [
     "-s"
@@ -22,6 +22,7 @@ lysGo.build {
     substitute power/dist/lys-power-brightness.service $out/lib/systemd/user/lys-power-brightness.service \
       --replace-fail /usr/bin/lys-power "$out/bin/lys-power"
     install -m644 power/dist/lys-power.tmpfiles $out/lib/tmpfiles.d/lys-power.conf
+    install -Dm644 power/dist/dev.stubbe.lys.Energy1.conf $out/share/dbus-1/system.d/dev.stubbe.lys.Energy1.conf
   '';
 
   doInstallCheck = true;
@@ -31,6 +32,7 @@ lysGo.build {
     grep -qxF "ExecStart=$out/bin/lys-power run" $out/lib/systemd/system/lys-power.service
     grep -qxF "ExecStart=$out/bin/lys-power brightness" $out/lib/systemd/user/lys-power-brightness.service
     grep -qxF "d /run/battery-charge 0775 root users -" $out/lib/tmpfiles.d/lys-power.conf
+    grep -qF '<allow own="dev.stubbe.lys.Energy1"/>' $out/share/dbus-1/system.d/dev.stubbe.lys.Energy1.conf
     runHook postInstallCheck
   '';
 

@@ -38,6 +38,9 @@ install -d %{buildroot}%{_userunitdir}
 install -m 0644 lys-power-brightness.service %{buildroot}%{_userunitdir}/
 
 install -D -m 0644 lys-power.tmpfiles %{buildroot}%{_tmpfilesdir}/lys-power.conf
+%{_datadir}/dbus-1/system.d/dev.stubbe.lys.Energy1.conf
+
+install -D -m 0644 dev.stubbe.lys.Energy1.conf %{buildroot}%{_datadir}/dbus-1/system.d/dev.stubbe.lys.Energy1.conf
 
 %post
 %systemd_post lys-power.service
