@@ -305,8 +305,6 @@ type mapItem struct {
 
 func (m mapItem) itemValue() any { return [2]string{m.key.Text(), *m.value} }
 
-var stringMap = listRow(func(config.FieldMeta) listSpec { return stringMapSpec() })
-
 var iconMap = listRow(func(config.FieldMeta) listSpec { return iconMapSpec() })
 
 func stringSlot(value *string, changed func()) slot {
@@ -323,16 +321,6 @@ func stringSlot(value *string, changed func()) slot {
 		},
 		unset: func() { *value = ""; changed() },
 	}
-}
-
-func stringMapSpec() listSpec {
-	return pairMapSpec("settings-map-key-placeholder", true, func(k *kit, value *string, changed func()) widget.Widget {
-		e := k.entry()
-		e.SetPlaceholder(locale.T().Get("settings-map-value-placeholder"))
-		e.SetText(*value)
-		e.OnChanged = func(s string) { *value = s; changed() }
-		return e
-	})
 }
 
 func iconMapSpec() listSpec {

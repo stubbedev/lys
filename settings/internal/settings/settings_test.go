@@ -1214,36 +1214,39 @@ func TestThresholdCards(t *testing.T) {
 	}
 }
 
-func TestStringMapEditor(t *testing.T) {
+func TestALauncherStyleIsANameOverItsCSS(t *testing.T) {
 	k := testKit(t, "")
-	path := "modules.window-title.icon-mappings"
-	_ = k.store.set(path, map[string]any{"b": "2", "a": "1"})
-	c := fieldControl(k, k.store, field(path, stringMap)).(*listEditor)
-	if len(c.items) != 2 || c.items[0].itemValue() != [2]string{"a", "1"} {
-		t.Fatalf("rows %v, want the pairs sorted by key", c.values())
+	path := "launcher.styles"
+	_ = k.store.set(path, map[string]any{"wide": ".launcher-surface { min-width: 60em; }", "compact": ".launcher-row { padding: 0; }"})
+	c := fieldControl(k, k.store, field(path, launcherStylesRow)).(*listEditor)
+	if len(c.items) != 2 || c.items[0].itemValue() != [2]string{"compact", ".launcher-row { padding: 0; }"} {
+		t.Fatalf("rows %v, want the styles sorted by name", c.values())
 	}
-	// A new row's typing never reorders or rebuilds the rows.
+	area, ok := c.items[0].(mapItem).editor.(*liveTextArea)
+	if !ok || area.Text() != ".launcher-row { padding: 0; }" || !area.HasClass(css.Monospace) {
+		t.Fatalf("the CSS is edited in %T", c.items[0].(mapItem).editor)
+	}
 	c.appendRow(c.spec.blank(c.values()))
 	row := c.items[2].(mapItem)
-	row.key.Insert("0")
+	row.key.Insert("dense")
 	c.refresh()
 	if len(c.items) != 3 || c.items[2] != row {
-		t.Fatal("typing a new key rebuilt the rows")
+		t.Fatal("typing a new name rebuilt the rows")
 	}
-	row.editor.(*widget.Entry).Insert("zero")
+	look := ".launcher-row {\n  padding: 0 2px;\n}\n"
+	row.editor.(*liveTextArea).SetText(look)
 	got, _ := k.store.value(path).(map[string]any)
-	if got["0"] != "zero" || got["a"] != "1" || len(got) != 3 {
-		t.Errorf("wrote %v", got)
+	if got["dense"] != look || len(got) != 3 {
+		t.Errorf("wrote %v, want the CSS kept line for line", got)
 	}
-	// An empty key is dropped on write.
 	c.appendRow(c.spec.blank(c.values()))
-	c.items[3].(mapItem).editor.(*widget.Entry).Insert("orphan")
+	c.items[3].(mapItem).editor.(*liveTextArea).SetText(".orphan {}")
 	if got, _ := k.store.value(path).(map[string]any); len(got) != 3 {
-		t.Errorf("an empty key was written: %v", got)
+		t.Errorf("a style without a name was written: %v", got)
 	}
-	_ = k.store.set(path, map[string]any{"z": "26"})
+	_ = k.store.set(path, map[string]any{"z": "a {}"})
 	c.refresh()
-	if len(c.items) != 1 || c.items[0].itemValue() != [2]string{"z", "26"} {
+	if len(c.items) != 1 || c.items[0].itemValue() != [2]string{"z", "a {}"} {
 		t.Errorf("outside change gave %v", c.values())
 	}
 }
@@ -1493,13 +1496,13 @@ func addRowButton(c *listEditor) *widget.Button { return c.Children()[1].(*widge
 
 func TestListAddWritesOnlyAChange(t *testing.T) {
 	k := testKit(t, "")
-	m := fieldControl(k, k.store, field("modules.window-title.icon-mappings", stringMap)).(*listEditor)
+	m := fieldControl(k, k.store, field("launcher.styles", launcherStylesRow)).(*listEditor)
 	if m.rows.HasClass("string-list") || !m.rows.HasClass("string-map") {
 		t.Error("the map's rows lack string_map's class")
 	}
 	addRowButton(m).ClickAt(widget.Point{})
-	if len(m.items) != 1 || k.store.svc.Source("modules.window-title.icon-mappings") != config.SourceDefault {
-		t.Errorf("a blank pair wrote the map (%d rows, source %v)", len(m.items), k.store.svc.Source("modules.window-title.icon-mappings"))
+	if len(m.items) != 1 || k.store.svc.Source("launcher.styles") != config.SourceDefault {
+		t.Errorf("a blank pair wrote the map (%d rows, source %v)", len(m.items), k.store.svc.Source("launcher.styles"))
 	}
 	l := fieldControl(k, k.store, field("modules.notifications.blocklist", stringList)).(*listEditor)
 	if !l.rows.HasClass("string-list") {

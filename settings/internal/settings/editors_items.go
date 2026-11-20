@@ -100,7 +100,9 @@ type liveTextArea struct {
 	syncing bool
 }
 
-func newLiveTextArea(k *kit, s slot, _ config.FieldMeta) control {
+func newLiveTextArea(k *kit, s slot, _ config.FieldMeta) control { return liveTextAreaOf(k, s) }
+
+func liveTextAreaOf(k *kit, s slot) *liveTextArea {
 	c := &liveTextArea{TextArea: widget.NewTextArea(k.face, k.textPx(), 0), slot: s}
 	c.SetWrap(true)
 	c.AddClass("live-text-area")
