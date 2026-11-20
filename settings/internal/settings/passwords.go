@@ -30,14 +30,23 @@ const (
 	itemTimeLayout   = "2006-01-02 15:04"
 )
 
-var knownSchemas = map[string]string{ //nolint:gosec // secret-service schema names, not credentials
-	"chrome_libsecret_os_crypt_password_v2":     "Chromium Safe Storage",
-	"chrome_libsecret_os_crypt_password_v1":     "Chromium Safe Storage",
-	"org.freedesktop.NetworkManager.Connection": "NetworkManager",
-	"org.gnome.keyring.NetworkPassword":         "GNOME network passwords",
-	"org.git.Password":                          "git",
-	"org.freedesktop.Secret.Generic":            "",
+type keyringSchema struct{ name, icon string }
+
+const (
+	itemKeyIcon  = "ld-key-round-symbolic"
+	itemLockIcon = "ld-lock-symbolic"
+)
+
+var knownSchemas = map[string]keyringSchema{
+	"chrome_libsecret_os_crypt_password_v2":     {"Chromium Safe Storage", "ld-globe-symbolic"},
+	"chrome_libsecret_os_crypt_password_v1":     {"Chromium Safe Storage", "ld-globe-symbolic"},
+	"org.freedesktop.NetworkManager.Connection": {"NetworkManager", "ld-wifi-symbolic"},
+	"org.gnome.keyring.NetworkPassword":         {"GNOME network passwords", "ld-wifi-symbolic"},
+	"org.git.Password":                          {"git", "ld-code-symbolic"},
+	"org.freedesktop.Secret.Generic":            {"", itemKeyIcon},
 }
+
+var accountAttributes = []string{"username", "user"}
 
 func passwordsPage(*config.Config) pageSpec {
 	return pageSpec{
@@ -52,10 +61,27 @@ func passwordsPage(*config.Config) pageSpec {
 
 func storedBy(attrs map[string]string) string {
 	schema := attrs[schemaAttribute]
-	if name, ok := knownSchemas[schema]; ok {
-		return name
+	if known, ok := knownSchemas[schema]; ok {
+		return known.name
 	}
 	return schema
+}
+
+func itemIcon(it client.Item) string {
+	if it.Locked {
+		return itemLockIcon
+	}
+	if known, ok := knownSchemas[it.Attributes[schemaAttribute]]; ok {
+		return known.icon
+	}
+	return itemKeyIcon
+}
+
+func itemGroup(it client.Item) string {
+	if by := storedBy(it.Attributes); by != "" {
+		return by
+	}
+	return locale.T().Get("settings-passwords-group-other")
 }
 
 func shownAttributes(attrs map[string]string) []string {
@@ -343,10 +369,14 @@ func (p *passwordsPanel) showItems() {
 		p.rows = append(p.rows, w)
 	}
 	filter := newWordFilter(p.filter.Text())
+	shown := slices.DeleteFunc(slices.Clone(p.items), func(it client.Item) bool { return !filter.matches(keyringItemTexts(it)...) })
+	slices.SortStableFunc(shown, func(a, b client.Item) int { return strings.Compare(itemGroup(a), itemGroup(b)) })
 	expandedShown := false
-	for _, it := range p.items {
-		if !filter.matches(keyringItemTexts(it)...) {
-			continue
+	group := ""
+	for i, it := range shown {
+		if g := itemGroup(it); i == 0 || g != group {
+			group = g
+			add(insetRow(p.k.label(group, "password-group", css.CaptionHeading, css.DimLabel)))
 		}
 		add(p.itemRow(it))
 		if it.Path == p.expanded {
@@ -372,11 +402,7 @@ func (p *passwordsPanel) itemRow(it client.Item) *widget.Item {
 	row := widget.NewItem(p.k.face, title, itemSummary(it.Attributes))
 	row.AddClass("password-item")
 	row.SetEllipsize(true)
-	icon := "ld-key-round-symbolic"
-	if it.Locked {
-		icon = "ld-lock-symbolic"
-	}
-	row.SetMedia(p.k.icon(icon), false)
+	row.SetMedia(p.k.icon(itemIcon(it)), false)
 	chevron := "ld-chevron-right-symbolic"
 	if it.Path == p.expanded {
 		chevron = "ld-chevron-down-symbolic"
@@ -444,7 +470,13 @@ func (p *passwordsPanel) showDetail(it client.Item) {
 	}
 	field(t.Get("settings-passwords-label"), label)
 	for _, k := range shownAttributes(it.Attributes) {
-		text(k, it.Attributes[k])
+		value := it.Attributes[k]
+		if !slices.Contains(accountAttributes, k) || value == "" {
+			text(k, value)
+			continue
+		}
+		cp, _ := p.k.contentButton("ld-copy-symbolic", t.Get("settings-passwords-copy-username"), func() { p.fail(p.k.copyText(value)) }, css.Secondary)
+		field(k, p.k.label(value), cp)
 	}
 	text(t.Get("settings-passwords-stored-by"), storedBy(it.Attributes))
 	if it.Created != 0 {

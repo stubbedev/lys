@@ -3,6 +3,7 @@ package settings
 import (
 	"bytes"
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"slices"
@@ -17,6 +18,8 @@ import (
 	"github.com/stubbedev/lys/secrets/client"
 	"github.com/stubbedev/lys/secrets/secretstest"
 	"github.com/stubbedev/lys/ui/widget"
+
+	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
 type callMonitor struct {
@@ -238,5 +241,49 @@ func TestTheSchemaShowsOnceAsStoredByNotAsAnAttribute(t *testing.T) {
 	}
 	if got := shownAttributes(map[string]string{"user": "me"}); !slices.Equal(got, []string{"user"}) {
 		t.Errorf("without a schema the attributes are %q", got)
+	}
+}
+
+func TestAnAccountNameIsCopiedAsPlainText(t *testing.T) {
+	r := startPasswords(t, 1)
+	var copied, secrets []string
+	r.p.k.copyText = func(text string) error { copied = append(copied, text); return nil }
+	r.p.k.copySecret = func(text string) error { secrets = append(secrets, text); return nil }
+	r.srv.Answer("login-pw")
+	treetest.Button(t, r.p, "Unlock…").OnClick()
+	r.itemRows()[0].ClickAt(widget.Point{})
+	asked := r.srv.Asked()
+	treetest.Button(t, r.p.detail, "Copy Username").OnClick()
+	if !slices.Equal(copied, []string{"x"}) || len(secrets) != 0 || r.srv.Asked() != asked || r.p.problem.Visible() {
+		t.Fatalf("copying the username copied %q as text and %q as a secret, asked %d", copied, secrets, r.srv.Asked()-asked)
+	}
+	r.p.k.copyText = func(string) error { return errors.New("no data device") }
+	treetest.Button(t, r.p.detail, "Copy Username").OnClick()
+	if !r.p.problem.Visible() || !strings.Contains(r.p.problem.Text(), "no data device") {
+		t.Errorf("a failed copy reads %q (%v)", r.p.problem.Text(), r.p.problem.Visible())
+	}
+}
+
+func TestTheItemsAreGroupedByWhatStoredThemWithItsIcon(t *testing.T) {
+	git := client.Item{Attributes: map[string]string{schemaAttribute: "org.git.Password"}}
+	wifi := client.Item{Attributes: map[string]string{schemaAttribute: "org.freedesktop.NetworkManager.Connection"}}
+	plain := client.Item{Attributes: map[string]string{"service": "example"}}
+	locked := client.Item{Locked: true, Attributes: git.Attributes}
+	for _, c := range []struct {
+		it   client.Item
+		want string
+	}{{git, "ld-code-symbolic"}, {wifi, "ld-wifi-symbolic"}, {plain, itemKeyIcon}, {locked, itemLockIcon}} {
+		if got := itemIcon(c.it); got != c.want {
+			t.Errorf("%v (locked %v) shows %s, want %s", c.it.Attributes, c.it.Locked, got, c.want)
+		}
+	}
+	if itemGroup(git) != "git" || itemGroup(wifi) != "NetworkManager" || itemGroup(plain) != locale.T().Get("settings-passwords-group-other") {
+		t.Errorf("groups %q, %q, %q", itemGroup(git), itemGroup(wifi), itemGroup(plain))
+	}
+	r := startPasswords(t, 3)
+	r.l.settle()
+	headers := treetest.WithClass(r.p.list, "password-group")
+	if len(headers) != 1 || len(r.itemRows()) != 3 {
+		t.Fatalf("three git items show %d group headings over %d rows", len(headers), len(r.itemRows()))
 	}
 }

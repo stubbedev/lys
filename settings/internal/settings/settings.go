@@ -134,12 +134,25 @@ func Run(page, setting string) error {
 	k.overlays = func(output string, content widget.Widget, interactive bool) (func(), error) {
 		return outputOverlay(application, sess.Outputs(), theme, output, content, interactive)
 	}
-	k.copySecret = func(text string) error {
-		clip := application.Clipboard()
-		if clip == nil {
-			return app.ErrClipboardUnavailable
+	clip := func() (*app.Clipboard, error) {
+		if c := application.Clipboard(); c != nil {
+			return c, nil
 		}
-		return clip.WriteExpiring(clipboard.SecretContent(text), copiedSecretLife)
+		return nil, app.ErrClipboardUnavailable
+	}
+	k.copySecret = func(text string) error {
+		c, err := clip()
+		if err != nil {
+			return err
+		}
+		return c.WriteExpiring(clipboard.SecretContent(text), copiedSecretLife)
+	}
+	k.copyText = func(text string) error {
+		c, err := clip()
+		if err != nil {
+			return err
+		}
+		return c.WriteText(text)
 	}
 	w.onResetAll = func() { confirmResetAll(application, win, k) }
 

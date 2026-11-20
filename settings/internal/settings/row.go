@@ -61,6 +61,7 @@ type kit struct {
 	// i2c says which I2C buses there are and which this user may open.
 	i2c        func() i2cAccess
 	copySecret func(text string) error
+	copyText   func(text string) error
 	// notify sends a desktop notification, shellCommand runs lys-shell
 	// with the arguments given; the tests stub both.
 	notify       func(summary, body string) error
