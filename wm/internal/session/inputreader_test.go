@@ -193,7 +193,13 @@ func TestAKernelOverflowIsReported(t *testing.T) {
 	for _, code := range burstCodes(4 * kernelBufferKeys) {
 		burst = append(append(burst, keyStroke(code, true)...), keyStroke(code, false)...)
 	}
+	if err := in.Park(); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := kbd.f.Write(burst); err != nil {
+		t.Fatal(err)
+	}
+	if err := in.Unpark(); err != nil {
 		t.Fatal(err)
 	}
 	looptest.RunUntil(t, in.loop, "a report of the kernel's SYN_DROPPED", func() bool { return log.saying(synDropped) })
