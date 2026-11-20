@@ -3,7 +3,7 @@ package gpu_test
 import (
 	"errors"
 	"image"
-	"os"
+	"slices"
 	"strings"
 	"testing"
 
@@ -26,21 +26,15 @@ func memfd(t *testing.T, content string) int {
 	return fd
 }
 
-func openFDs(t *testing.T) int {
-	t.Helper()
-	entries, err := os.ReadDir("/proc/self/fd")
-	if err != nil {
-		t.Fatal(err)
-	}
-	return len(entries)
-}
-
 func TestADuplicatedDMABUFOutlivesItsSourceAndClosesOnlyItsOwnDescriptors(t *testing.T) {
 	src := gpu.DMABUF{
 		Size: image.Pt(4, 2), Format: fourcc.NV12, Modifier: fourcc.Linear, YUV: gpu.YUVEncoding{Coefficients: gpu.BT709},
 		Planes: []gpu.Plane{{FD: memfd(t, "luma"), Stride: 4}, {FD: memfd(t, "chroma"), Offset: 8, Stride: 4}},
 	}
-	before := openFDs(t)
+	planes := make([]fdtest.Watch, len(src.Planes))
+	for i, p := range src.Planes {
+		planes[i] = fdtest.WatchFD(t, p.FD)
+	}
 	dup, err := src.Dup()
 	if err != nil {
 		t.Fatal(err)
@@ -75,8 +69,10 @@ func TestADuplicatedDMABUFOutlivesItsSourceAndClosesOnlyItsOwnDescriptors(t *tes
 	if err := dup.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if after := openFDs(t); after != before-len(src.Planes) {
-		t.Fatalf("%d descriptors open after the source and its duplicate closed, want %d", after, before-len(src.Planes))
+	for i, w := range planes {
+		if held := w.Holders(t); len(held) != 0 {
+			t.Errorf("descriptors %v still hold plane %d after the source and its duplicate closed", held, i)
+		}
 	}
 }
 
@@ -85,13 +81,12 @@ func TestADuplicateThatFailsNamesThePlaneAndLeaksNoDescriptor(t *testing.T) {
 	t.Cleanup(func() { _ = unix.Close(open) })
 	kept := fdtest.WatchFD(t, open)
 	src := gpu.DMABUF{Size: image.Pt(4, 2), Format: fourcc.NV12, Planes: []gpu.Plane{{FD: open, Stride: 4}, {FD: -1, Stride: 4}}}
-	before := openFDs(t)
 	dup, err := src.Dup()
 	if dup != nil || !errors.Is(err, unix.EBADF) || !strings.Contains(err.Error(), "plane fd -1") {
 		t.Fatalf("Dup = %v, %v; want EBADF naming plane fd -1", dup, err)
 	}
-	if after := openFDs(t); after != before {
-		t.Fatalf("%d descriptors open after a failed duplicate, %d before it", after, before)
+	if held := kept.Holders(t); !slices.Equal(held, []int{open}) {
+		t.Fatalf("descriptors %v hold the first plane after a failed duplicate, want the source's own %d alone", held, open)
 	}
 	if !kept.Open(t) {
 		t.Fatalf("the failed duplicate closed the source's own descriptor %d", open)

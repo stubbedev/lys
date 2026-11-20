@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -678,16 +679,25 @@ func TestBeforeIdleRunsOnlyAheadOfIdleWork(t *testing.T) {
 	}
 }
 
+func polled(t *testing.T, l *Loop) []string {
+	t.Helper()
+	info, err := os.ReadFile("/proc/self/fdinfo/" + strconv.Itoa(l.epfd))
+	if err != nil {
+		t.Fatalf("read what epoll descriptor %d polls: %v", l.epfd, err)
+	}
+	var fds []string
+	for line := range strings.Lines(string(info)) {
+		if rest, ok := strings.CutPrefix(line, "tfd:"); ok {
+			fds = append(fds, strings.Fields(rest)[0])
+		}
+	}
+	slices.Sort(fds)
+	return fds
+}
+
 func TestTimersTakeNoFileDescriptors(t *testing.T) {
 	l := newLoop(t)
-	fds := func() int {
-		entries, err := os.ReadDir("/proc/self/fd")
-		if err != nil {
-			t.Fatal(err)
-		}
-		return len(entries)
-	}
-	before := fds()
+	before := polled(t, l)
 	timer, err := l.AddTimer(func() error { return nil })
 	if err != nil {
 		t.Fatal(err)
@@ -695,8 +705,15 @@ func TestTimersTakeNoFileDescriptors(t *testing.T) {
 	if err := timer.Arm(time.Hour); err != nil {
 		t.Fatal(err)
 	}
-	if got := fds(); got != before {
-		t.Fatalf("a timer went from %d to %d open files, so arming it would be a syscall", before, got)
+	if got := polled(t, l); !slices.Equal(got, before) {
+		t.Fatalf("a timer took the loop from polling %v to %v, so arming it would be a syscall", before, got)
+	}
+	r, _ := pipe(t)
+	if _, err := l.AddFD(r, Readable, func(Events) error { return nil }); err != nil {
+		t.Fatal(err)
+	}
+	if got := polled(t, l); !slices.Contains(got, strconv.Itoa(r)) {
+		t.Fatalf("the loop polls %v with descriptor %d added", got, r)
 	}
 	if allocs := testing.AllocsPerRun(100, func() {
 		if err := timer.Arm(time.Hour); err != nil {

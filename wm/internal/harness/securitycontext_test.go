@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/stubbedev/lys/lib/fdtest"
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/wm/internal/backend/headless"
@@ -149,7 +150,7 @@ func TestASecurityContextNeedsAListeningSocket(t *testing.T) {
 	c.ExpectProtocolError(uint32(cwsc.WpSecurityContextManagerV1ErrorInvalidListenFD))
 }
 
-func securityContext(t *testing.T, c *testclient.Client) (*cwsc.WpSecurityContextV1, int) {
+func securityContext(t *testing.T, c *testclient.Client) (*cwsc.WpSecurityContextV1, int, [2]fdtest.Watch) {
 	t.Helper()
 	m, err := cwsc.NewWpSecurityContextManagerV1(c.Display, 1)
 	if err != nil {
@@ -161,11 +162,12 @@ func securityContext(t *testing.T, c *testclient.Client) (*cwsc.WpSecurityContex
 	if err := unix.Pipe2(closeFDs[:], unix.O_CLOEXEC); err != nil {
 		t.Fatal(err)
 	}
+	handed := [2]fdtest.Watch{fdtest.WatchFD(t, listenFD), fdtest.WatchFD(t, closeFDs[0])}
 	ctx, err := m.CreateListener(listenFD, closeFDs[0])
 	if err = errors.Join(err, unix.Close(listenFD), unix.Close(closeFDs[0])); err != nil {
 		t.Fatal(err)
 	}
-	return ctx, closeFDs[1]
+	return ctx, closeFDs[1], handed
 }
 
 func TestSecurityContextMetadataRules(t *testing.T) {
@@ -188,7 +190,7 @@ func TestSecurityContextMetadataRules(t *testing.T) {
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
 			c := testclient.Connect(t, h.Socket())
-			ctx, closeFD := securityContext(t, c)
+			ctx, closeFD, _ := securityContext(t, c)
 			defer unix.Close(closeFD)
 			if err := tc.do(ctx); err != nil {
 				t.Fatal(err)
@@ -200,18 +202,15 @@ func TestSecurityContextMetadataRules(t *testing.T) {
 
 func TestAnUncommittedSecurityContextLetsGoOfItsFDs(t *testing.T) {
 	h := Start(t, small)
-	h.Do(func(*headless.Backend, *compositor.Compositor) error { return nil })
 	c := testclient.Connect(t, h.Socket())
-	if err := c.Display.Roundtrip(); err != nil {
-		t.Fatal(err)
-	}
-	baseline := openFDs(t)
-	ctx, closeFD := securityContext(t, c)
+	ctx, closeFD, handed := securityContext(t, c)
 	if err := errors.Join(ctx.Destroy(), c.Display.Roundtrip(), unix.Close(closeFD)); err != nil {
 		t.Fatal(err)
 	}
 	h.Do(func(*headless.Backend, *compositor.Compositor) error { return nil })
-	if n := openFDs(t); n != baseline {
-		t.Fatalf("%d file descriptors open after an uncommitted security context was destroyed, %d before", n, baseline)
+	for _, w := range handed {
+		if held := w.Holders(t); len(held) != 0 {
+			t.Errorf("descriptors %v still hold the file handed on %d after an uncommitted security context was destroyed", held, w.FD())
+		}
 	}
 }

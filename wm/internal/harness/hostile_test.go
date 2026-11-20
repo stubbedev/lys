@@ -2,11 +2,12 @@ package harness
 
 import (
 	"errors"
-	"os"
+	"fmt"
 	"runtime"
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/lib/fdtest"
 	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/wmipc"
 	"golang.org/x/sys/unix"
@@ -73,13 +74,37 @@ func survives(t *testing.T, h *Harness) {
 	c.DispatchUntil("a window mapped beside the hostile client", w.Mapped)
 }
 
-func openFDs(t *testing.T) int {
+func serverEnds(t *testing.T, h *Harness, n int) []fdtest.Watch {
 	t.Helper()
-	entries, err := os.ReadDir("/proc/self/fd")
-	if err != nil {
-		t.Fatal(err)
+	var fds []int
+	h.Eventually(fmt.Sprintf("the compositor serving %d clients", n), func(_ *headless.Backend, c *compositor.Compositor) bool {
+		fds = fds[:0]
+		for _, client := range c.Display().Clients() {
+			fds = append(fds, client.Conn().FD())
+		}
+		return len(fds) == n
+	})
+	ends := make([]fdtest.Watch, len(fds))
+	for i, fd := range fds {
+		ends[i] = fdtest.WatchFD(t, fd)
 	}
-	return len(entries)
+	return ends
+}
+
+func awaitClosed(t *testing.T, end fdtest.Watch, what string) {
+	t.Helper()
+	waittest.Until(t, func() bool { return !end.Open(t) }, what)
+}
+
+func heldPools(t *testing.T, c *testclient.Client) []int {
+	t.Helper()
+	var held []int
+	for i, pool := range c.Pools() {
+		if len(pool.Holders(t)) != 0 {
+			held = append(held, i)
+		}
+	}
+	return held
 }
 
 func TestGarbageDisconnectsOnlyItsSender(t *testing.T) {
@@ -133,8 +158,7 @@ func TestFDFloodsAreDisconnectedAndClosed(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { _ = errors.Join(unix.Close(pipe[0]), unix.Close(pipe[1])) }()
-	h.Do(func(*headless.Backend, *compositor.Compositor) error { return nil })
-	baseline := openFDs(t)
+	end := serverEnds(t, h, 1)[0]
 	fds := make([]int, 250)
 	for i := range fds {
 		fds[i] = pipe[0]
@@ -145,12 +169,10 @@ func TestFDFloodsAreDisconnectedAndClosed(t *testing.T) {
 			break
 		}
 	}
-	if !r.closedByServer() {
-		t.Fatal("a client that queued 2000 file descriptors was not disconnected")
-	}
+	awaitClosed(t, end, "the compositor to close the connection of a client that queued 2000 file descriptors")
 	h.Do(func(*headless.Backend, *compositor.Compositor) error { return nil })
-	if n := openFDs(t); n != baseline-1 {
-		t.Fatalf("%d file descriptors open after the flood and the server closing its end, %d before", n, baseline)
+	if held := fdtest.Holders(t, pipe[0]); len(held) != 0 {
+		t.Fatalf("%d descriptors still hold the pipe the flood sent after the server closed its end", len(held))
 	}
 	survives(t, h)
 }
@@ -209,6 +231,7 @@ func TestStalledWindowsDoNotStallOthers(t *testing.T) {
 func busyClient(t *testing.T, h *Harness, name string) *testclient.Client {
 	t.Helper()
 	c := testclient.Connect(t, h.Socket())
+	c.WatchPools()
 	seat, in := c.Seat()
 	w := c.Window(name, quadrants)
 	c.DispatchUntil(name+" to map", w.Mapped)
@@ -231,11 +254,12 @@ func TestDisconnectedClientsLeaveNothingBehind(t *testing.T) {
 		t.Fatal(err)
 	}
 	settled("the warm-up client gone")
-	fds, goroutines := openFDs(t), runtime.NumGoroutine()
+	goroutines := runtime.NumGoroutine()
 	clients := make([]*testclient.Client, 0, 5)
 	for _, name := range []string{"a", "b", "c", "d", "e"} {
 		clients = append(clients, busyClient(t, h, name))
 	}
+	ends := serverEnds(t, h, len(clients))
 	for _, c := range clients {
 		if err := c.Display.Close(); err != nil {
 			t.Fatal(err)
@@ -243,8 +267,18 @@ func TestDisconnectedClientsLeaveNothingBehind(t *testing.T) {
 	}
 	settled("every client gone")
 	h.Do(func(*headless.Backend, *compositor.Compositor) error { return nil })
-	if n, g := openFDs(t), runtime.NumGoroutine(); n != fds || g != goroutines {
-		t.Fatalf("after five clients came and went: %d file descriptors (%d before), %d goroutines (%d before)", n, fds, g, goroutines)
+	for _, end := range ends {
+		if end.Open(t) {
+			t.Errorf("after five clients came and went the compositor still holds the connection on descriptor %d", end.FD())
+		}
+	}
+	for i, c := range clients {
+		if held := heldPools(t, c); len(held) != 0 {
+			t.Errorf("after five clients came and went the compositor still holds pools %v of client %d's %d", held, i, len(c.Pools()))
+		}
+	}
+	if g := runtime.NumGoroutine(); g != goroutines {
+		t.Errorf("after five clients came and went: %d goroutines, %d before", g, goroutines)
 	}
 }
 
@@ -335,9 +369,8 @@ func TestUnackedConfiguresDoNotStallOthers(t *testing.T) {
 
 func TestAnObjectThatCannotBeCreatedClosesItsFDs(t *testing.T) {
 	h := Start(t, small)
-	h.Do(func(*headless.Backend, *compositor.Compositor) error { return nil })
-	baseline := openFDs(t)
 	r := dialRaw(t, h.Socket())
+	end := serverEnds(t, h, 1)[0]
 	registry := r.newID()
 	if err := r.send(displayID, getRegistry, func(e *wire.Encoder) { e.Uint(uint32(registry)) }); err != nil {
 		t.Fatal(err)
@@ -368,6 +401,7 @@ func TestAnObjectThatCannotBeCreatedClosesItsFDs(t *testing.T) {
 	if err := unix.Ftruncate(pool, 4096); err != nil {
 		t.Fatal(err)
 	}
+	sent := fdtest.WatchFD(t, pool)
 	if err := errors.Join(r.send(shm, 0, func(e *wire.Encoder) {
 		e.Uint(uint32(registry))
 		e.FD(pool)
@@ -375,32 +409,28 @@ func TestAnObjectThatCannotBeCreatedClosesItsFDs(t *testing.T) {
 	}), r.conn.Flush(), unix.Close(pool)); err != nil {
 		t.Fatal(err)
 	}
-	if !r.closedByServer() {
-		t.Fatal("a create_pool reusing a live id was accepted")
-	}
+	awaitClosed(t, end, "the compositor to close the connection of a create_pool reusing a live id")
 	if err := r.conn.Close(); err != nil {
 		t.Fatal(err)
 	}
 	h.Do(func(*headless.Backend, *compositor.Compositor) error { return nil })
-	if n := openFDs(t); n != baseline {
-		t.Fatalf("%d file descriptors open after the refused create_pool, %d before", n, baseline)
+	if held := sent.Holders(t); len(held) != 0 {
+		t.Fatalf("descriptors %v still hold the pool of the refused create_pool", held)
 	}
 }
 
 func TestAWindowLetsGoOfTheBuffersItOutgrew(t *testing.T) {
 	h := Start(t, small)
 	c := testclient.Connect(t, h.Socket())
+	c.WatchPools()
 	other := c.Window("other", testclient.Fill(0, 0, 0xff))
 	c.DispatchUntil("the other window to map", other.Mapped)
 	beside := c.Window("resized", testclient.Fill(0xff, 0, 0))
 	c.DispatchUntil("the resized window to map", beside.Mapped)
 	half := beside.Logical
 	c.Sync()
-	baseline := 0
-	h.Do(func(*headless.Backend, *compositor.Compositor) error {
-		baseline = openFDs(t)
-		return nil
-	})
+	h.Do(func(*headless.Backend, *compositor.Compositor) error { return nil })
+	baseline := len(heldPools(t, c))
 	for range 5 {
 		if err := errors.Join(beside.Toplevel.SetFullscreen(nil), c.Display.Flush()); err != nil {
 			t.Fatal(err)
@@ -412,14 +442,10 @@ func TestAWindowLetsGoOfTheBuffersItOutgrew(t *testing.T) {
 		c.DispatchUntil("the window back beside the other", func() bool { return beside.Logical == half })
 	}
 	c.Sync()
-	h.Eventually("no more file descriptors than before the resizes", func(*headless.Backend, *compositor.Compositor) bool {
-		return openFDs(t) <= baseline
-	})
+	waittest.Until(t, func() bool { return len(heldPools(t, c)) <= baseline }, "no more pools held than before the resizes")
 	if err := beside.Destroy(); err != nil {
 		t.Fatal(err)
 	}
 	c.Sync()
-	h.Eventually("the destroyed window's pool closed", func(*headless.Backend, *compositor.Compositor) bool {
-		return openFDs(t) < baseline
-	})
+	waittest.Until(t, func() bool { return len(heldPools(t, c)) < baseline }, "the destroyed window's pool closed")
 }

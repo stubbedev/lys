@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stubbedev/lys/lib/fdtest"
 	"github.com/stubbedev/lys/lib/testhome"
 	"golang.org/x/sys/unix"
 )
@@ -50,13 +51,13 @@ func pipes(t *testing.T, n int) []int {
 	return fds
 }
 
-func openFDs(t *testing.T) int {
+func requireNoCopies(t *testing.T, sent []int, after string) {
 	t.Helper()
-	entries, err := os.ReadDir("/proc/self/fd")
-	if err != nil {
-		t.Fatalf("list open fds: %v", err)
+	for _, fd := range sent {
+		if copies := fdtest.Holders(t, fd); len(copies) != 0 {
+			t.Errorf("after %s descriptors %v still hold the file sent on %d: they leaked", after, copies, fd)
+		}
 	}
-	return len(entries)
 }
 
 func TestAMessageArrivesWithItsFDs(t *testing.T) {
@@ -85,7 +86,6 @@ func TestAMessageLargerThanTheReceiverFailsAsTruncated(t *testing.T) {
 	if err := Send(a, message{Text: strings.Repeat("x", 128)}, sent...); err != nil {
 		t.Fatal(err)
 	}
-	before := openFDs(t)
 	_, fds, err := Recv[message](NewReceiver(b, 64, 2))
 	if !errors.Is(err, ErrBodyTruncated) {
 		t.Fatalf("received with error %v, want %v", err, ErrBodyTruncated)
@@ -93,9 +93,7 @@ func TestAMessageLargerThanTheReceiverFailsAsTruncated(t *testing.T) {
 	if fds != nil {
 		t.Fatalf("a truncated message returned fds %v", fds)
 	}
-	if after := openFDs(t); after != before {
-		t.Fatalf("%d fds open after a truncated message, %d before: its fds leaked", after, before)
-	}
+	requireNoCopies(t, sent, "a truncated message")
 }
 
 func TestMoreFDsThanTheReceiverHoldsFailAsTruncated(t *testing.T) {
@@ -104,7 +102,6 @@ func TestMoreFDsThanTheReceiverHoldsFailAsTruncated(t *testing.T) {
 	if err := Send(a, message{Text: "hello"}, sent...); err != nil {
 		t.Fatal(err)
 	}
-	before := openFDs(t)
 	_, fds, err := Recv[message](NewReceiver(b, 64, 1))
 	if !errors.Is(err, ErrFDsTruncated) {
 		t.Fatalf("received with error %v, want %v", err, ErrFDsTruncated)
@@ -112,9 +109,7 @@ func TestMoreFDsThanTheReceiverHoldsFailAsTruncated(t *testing.T) {
 	if fds != nil {
 		t.Fatalf("a message with truncated fds returned fds %v", fds)
 	}
-	if after := openFDs(t); after != before {
-		t.Fatalf("%d fds open after truncated fds, %d before: the fds that fit leaked", after, before)
-	}
+	requireNoCopies(t, sent, "truncated fds")
 }
 
 func TestAClosedPeerEndsReceiving(t *testing.T) {

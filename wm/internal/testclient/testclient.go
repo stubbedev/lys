@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/lib/fdtest"
 	"golang.org/x/sys/unix"
 
 	ccs "github.com/stubbedev/lys/wm/internal/protocol/client/cursorshape"
@@ -46,6 +47,8 @@ type Client struct {
 	globals          *registry
 	stack            *gles.Stack
 	sends            int
+	watchPools       bool
+	pools            []fdtest.Watch
 }
 
 type global struct{ name, version uint32 }
@@ -243,6 +246,10 @@ func (r release) Release(*cw.WlBuffer) error {
 	return nil
 }
 
+func (c *Client) WatchPools() { c.watchPools = true }
+
+func (c *Client) Pools() []fdtest.Watch { return c.pools }
+
 func (c *Client) Buffer(size image.Point, frame int, paint Painter) *cw.WlBuffer {
 	c.t.Helper()
 	return c.FormatBuffer(size, cw.WlShmFormatXrgb8888, frame, paint)
@@ -273,6 +280,9 @@ func (c *Client) buffers(size image.Point, format cw.WlShmFormat, n int) *buffer
 	c.must(err)
 	set := &bufferSet{list: make([]*buffer, n), mapped: m}
 	c.t.Cleanup(set.unmap)
+	if c.watchPools {
+		c.pools = append(c.pools, fdtest.WatchFD(c.t, fd))
+	}
 	pool, err := c.Shm.CreatePool(fd, int32(n*frame)) //nolint:gosec // test buffers are small
 	c.must(err)
 	for i := range set.list {
