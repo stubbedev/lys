@@ -52,6 +52,20 @@ defaults to `accent`, which follows the desktop accent set on the **Theme** page
 Without a `config.yaml`, lys-wm's built-in config applies under the overrides, so
 its default binds keep working.
 
+A key that `config.yaml` sets and a control takes away, such as the profile a
+drawn acceleration curve replaces, is overridden with `null`, which lys-wm reads
+as unset; a key only the override file sets is removed from it.
+
+## Acceleration curves
+
+Each pointer class on **Mouse & Touchpad** can replace its acceleration profile
+with a drawn `accel_points` curve: the pointer's speed at
+each multiple of the step, beside the line of a pointer that moves as far as the
+device. **Draw a custom curve** starts from that line; each point is dragged up
+or down, and points are added or removed within the 2 to 64 lys-wm takes. While
+a curve is in use the profile row is hidden, and **Use the acceleration
+profile** clears the curve. A curve the editor cannot read is kept and marked.
+
 ## Displays
 
 The Displays page arranges outputs by dragging them on a canvas, and turns each on
