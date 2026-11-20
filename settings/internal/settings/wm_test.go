@@ -1005,7 +1005,6 @@ var unlistedWMKeys = map[string]string{
 	"input.pointer.scroll_button":          "a button picker that also takes an evdev code, planned in #138",
 	"input.touchpad.scroll_button":         "a button picker that also takes an evdev code, planned in #138",
 	"input.trackpoint.scroll_button":       "a button picker that also takes an evdev code, planned in #138",
-	"layer_rules":                          "the When/Then rule editor, planned in #138",
 	"scratchpads":                          "named scratchpad cards, planned in #138",
 	"scroll.presets":                       "column width presets with the layout picture cards, planned in #138",
 	"virtual_outputs":                      "virtual outputs on the Displays arrangement, planned in #138",

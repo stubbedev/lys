@@ -576,6 +576,7 @@ func wmBindsPage() pageSpec {
 func wmSessionPage() pageSpec {
 	return wmPage("wm-session", "ld-power-symbolic",
 		sectionSpec{title: "wm-section-rules", rows: []rowSpec{wmRules(windowRules)}},
+		sectionSpec{title: "wm-section-layer-rules", rows: []rowSpec{wmRules(layerRules)}},
 		sectionSpec{title: "wm-section-start", rows: []rowSpec{wmField("env", wmEnvRow)}},
 		sectionSpec{title: "wm-section-xwayland", rows: wmFields("xwayland.enabled", "xwayland.zero_scaling")},
 		sectionSpec{title: "wm-section-palette", rows: []rowSpec{wmPaletteRow()}},

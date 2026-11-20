@@ -1,10 +1,13 @@
 package settings
 
 import (
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
 
+	"github.com/stubbedev/lys/desktop/shell/layers"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/ui/widget"
 
@@ -31,7 +34,7 @@ func chipTexts(c cardAside) []string {
 
 func TestEveryKeyOfALysWMRuleHasItsPartInTheRuleEditor(t *testing.T) {
 	k := lysWMKit(t, "")
-	for _, kind := range []ruleKind{windowRules} {
+	for _, kind := range []ruleKind{windowRules, layerRules} {
 		keys, ok := k.wm.schema.Keys([]string{kind.path, wmconfig.Each})
 		if !ok {
 			t.Fatalf("lys-wm's %s holds no rules", kind.path)
@@ -132,5 +135,40 @@ func TestFurtherConditionsShowWhenARuleHasOne(t *testing.T) {
 	plain.toggle.OnClick()
 	if !plain.more.Visible() || plain.label.Text() != locale.T().Get("wm-rules-fewer-conditions") {
 		t.Errorf("the toggle shows the conditions %t and reads %q", plain.more.Visible(), plain.label.Text())
+	}
+}
+
+func TestALayerRuleNamesTheShellSurfaceItAppliesTo(t *testing.T) {
+	k := lysWMKit(t, "layer_rules:\n  - {namespace: '^lys-shell-bar-', blur: true}\n  - {namespace: '^my-panel$'}\n")
+	c := fieldControl(k, k.wm, wmRules(layerRules)).(*cardList)
+	if got, want := c.cards[0].title.Text(), locale.T().Get("wm-layer-lys-shell-bar"); got != want {
+		t.Errorf("a rule over the bar is titled %q, want %q", got, want)
+	}
+	if got := c.cards[1].title.Text(); got != "^my-panel$" {
+		t.Errorf("a rule over a surface lys-shell does not map is titled %q, want its pattern", got)
+	}
+	if got, want := chipTexts(c.cards[0].aside), []string{locale.T().Get("wm-rules-blur")}; !slices.Equal(got, want) {
+		t.Errorf("the bar's rule shows the chips %v, want %v", got, want)
+	}
+	choices := layerChoices()
+	if len(choices) != len(layers.All) || choices[0].value != layers.Bar.Pattern() {
+		t.Fatalf("the surfaces offered are %v", choices)
+	}
+	for _, ch := range choices {
+		if strings.HasPrefix(ch.label, "wm-layer-") {
+			t.Errorf("the surface %s has no name", ch.value)
+		}
+	}
+	_, effects := openRule(t, c, 1)
+	if slices.ContainsFunc(effects.offered(), func(ch choice) bool { return ch.value == namespaceKey }) {
+		t.Error("the add menu offers the namespace a rule applies to")
+	}
+	effects.addEffect("shadow")
+	got, err := os.ReadFile(filepath.Join(os.Getenv("XDG_CONFIG_HOME"), "lys-wm", "runtime.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(got), "shadow: true") || !strings.Contains(string(got), "^my-panel$") || !strings.Contains(string(got), "blur: true") {
+		t.Errorf("adding a shadow to the second rule wrote %q", got)
 	}
 }

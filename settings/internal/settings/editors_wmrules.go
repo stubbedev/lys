@@ -9,6 +9,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/desktopentry"
+	"github.com/stubbedev/lys/desktop/shell/layers"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
 
@@ -58,6 +59,8 @@ type ruleKind struct {
 	title  func(item map[string]any, number int, apps installedApps) string
 	icon   func(item map[string]any, apps installedApps) string
 	pick   bool
+	// apps says the cards name installed apps, read once the list shows.
+	apps bool
 }
 
 var windowRules = ruleKind{
@@ -96,6 +99,55 @@ var windowRules = ruleKind{
 		return appFallbackIcon
 	},
 	pick: true,
+	apps: true,
+}
+
+const (
+	layerRulesKey = "layer_rules"
+	namespaceKey  = "namespace"
+)
+
+var layerRules = ruleKind{
+	path: layerRulesKey,
+	groups: map[string]ruleGroup{
+		namespaceKey: ruleMatch,
+		"animation":  ruleAppearance, "blur": ruleAppearance, "blur_alpha_threshold": ruleAppearance, "opacity": ruleAppearance,
+		"rounding": ruleAppearance, "shadow": ruleAppearance, "dim_around": ruleAppearance,
+		"block_out_from": ruleBehaviour,
+	},
+	match: func(*wmBackend, []string) []cardField {
+		return []cardField{{key: namespaceKey, label: wmKey(rulesLabels + "." + namespaceKey), fill: true, editor: func(k *kit, s slot) control {
+			return newChoiceEditor(k, s, choiceSpec{list: layerChoices, free: true})
+		}}}
+	},
+	title: func(item map[string]any, number int, _ installedApps) string {
+		pattern, _ := item[namespaceKey].(string)
+		if s, ok := layerOfPattern(pattern); ok {
+			return layerLabel(s)
+		}
+		return wmCardTitle(item, number, []string{namespaceKey}, nil)
+	},
+}
+
+// layerLabel names a surface lys-shell maps.
+func layerLabel(s layers.Kind) string { return locale.T().Get("wm-layer-" + s.Name()) }
+
+func layerOfPattern(pattern string) (layers.Kind, bool) {
+	i := slices.IndexFunc(layers.All, func(s layers.Kind) bool { return s.Pattern() == pattern })
+	if i < 0 {
+		return nil, false
+	}
+	return layers.All[i], true
+}
+
+// layerChoices are lys-shell's surfaces, each as the pattern a layer rule
+// matches it by.
+func layerChoices() []choice {
+	out := make([]choice, len(layers.All))
+	for i, s := range layers.All {
+		out[i] = choice{value: s.Pattern(), label: layerLabel(s)}
+	}
+	return out
 }
 
 // ruleAppChoices are the apps a rule can apply to: those installed, then
@@ -198,6 +250,9 @@ func newRuleList(k *kit, s slot, kind ruleKind) *cardList {
 		spec.pick = rulePick(w)
 	}
 	list := newCardList(k, s, spec)
+	if !kind.apps {
+		return list
+	}
 	dirs := desktopentry.ApplicationDirs()
 	async(k, func() installedApps { return scanInstalled(dirs) }, func(ix installedApps) {
 		apps = ix

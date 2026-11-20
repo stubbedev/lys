@@ -2197,6 +2197,7 @@
       "desktop/settingspage",
       "desktop/shell/apptheme",
       "desktop/shell/barview",
+      "desktop/shell/layers",
       "desktop/shell/widgets",
       "desktop/shlex",
       "desktop/spawn",
