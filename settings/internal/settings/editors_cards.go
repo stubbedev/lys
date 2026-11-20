@@ -107,6 +107,7 @@ type cardSpec struct {
 	check func(items []any) func() error
 	// addKey labels the add button's tooltip (settings-list-add).
 	addKey   string
+	pick     *cardPick
 	chrome   *cardChrome
 	classes  []string
 	listCls  string
@@ -136,6 +137,7 @@ type cardList struct {
 	checks   int
 	partners []int
 	groups   map[int]*cardGroup
+	picking  *widget.Label
 }
 
 // cardGroupKey is the group a card is filed under: rank orders the
@@ -191,16 +193,62 @@ func newCardList(k *kit, s slot, spec cardSpec) *cardList {
 	if addKey == "" {
 		addKey = "settings-list-add"
 	}
-	add := addButton(k, addKey, func() {
-		c.local = append(c.local, spec.blank())
-		c.rebuild()
-		c.commit()
-	})
-	c.AppendAligned(add, false, widget.AlignStart)
+	add := addButton(k, addKey, func() { c.appendItem(spec.blank()) })
+	if spec.pick == nil {
+		c.AppendAligned(add, false, widget.AlignStart)
+	} else {
+		actions := gapBox(widget.Row)
+		actions.AppendAligned(add, false, widget.AlignCenter)
+		actions.AppendAligned(c.pickButton(*spec.pick), false, widget.AlignCenter)
+		c.AppendAligned(actions, false, widget.AlignStart)
+		c.picking = wrapped(k.label("", "setting-description", css.Caption))
+		c.picking.SetVisible(false)
+		c.Append(c.picking, false)
+	}
 	c.Append(c.draft, false)
 	c.local = c.stored()
 	c.rebuild()
 	return c
+}
+
+type cardPick struct {
+	key, waiting string
+	item         func() (map[string]any, error)
+	refusal      func(error) string
+}
+
+type picked struct {
+	item map[string]any
+	err  error
+}
+
+func (c *cardList) appendItem(item map[string]any) {
+	c.local = append(c.local, item)
+	c.rebuild()
+	c.commit()
+}
+
+func (c *cardList) pickButton(pick cardPick) *widget.Button {
+	t := locale.T()
+	var b *widget.Button
+	b = c.k.button(c.k.label(t.Get(pick.key)), func() {
+		b.SetEnabled(false)
+		c.picking.SetText(t.Get(pick.waiting))
+		c.picking.SetVisible(true)
+		async(c.k, func() picked {
+			item, err := pick.item()
+			return picked{item, err}
+		}, func(p picked) {
+			b.SetEnabled(true)
+			if p.err != nil {
+				c.picking.SetText(pick.refusal(p.err))
+				return
+			}
+			c.picking.SetVisible(false)
+			c.appendItem(p.item)
+		})
+	}, css.Outline)
+	return b
 }
 
 // stored are the slot's items, plain.

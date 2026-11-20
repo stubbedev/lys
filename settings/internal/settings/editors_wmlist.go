@@ -79,6 +79,9 @@ func newWMObjects(k *kit, s slot, spec wmObjectSpec, check func(items []any) fun
 		}
 		cards.keep = func(m map[string]any) bool { chord, _ := m[chordKey].(string); return chord != "" }
 	}
+	if slices.Equal(spec.schema, []string{rulesKey}) {
+		cards.pick = rulePick(k.wm)
+	}
 	list := newCardList(k, s, cards)
 	if binds == nil && !slices.Contains(spec.title, appIDKey) {
 		return list

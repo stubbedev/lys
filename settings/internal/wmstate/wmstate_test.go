@@ -140,3 +140,30 @@ func TestCapabilitiesFailAsDefined(t *testing.T) {
 		t.Errorf("a failing lys-wmctl: %v, want its own error", err)
 	}
 }
+
+func TestPickWindowAnswersThePickedWindow(t *testing.T) {
+	run := answering(map[string]string{"pickwindow": "7", "windows": `[{"id":3,"app_id":"foot"},{"id":7,"app_id":"org.mozilla.firefox","title":"Mozilla Firefox"}]`})
+	got, err := PickWindow(run)
+	if err != nil || got.ID != 7 || got.AppID != "org.mozilla.firefox" || got.Title != "Mozilla Firefox" {
+		t.Fatalf("picked %+v, %v", got, err)
+	}
+}
+
+func TestPickWindowFailsAsDefined(t *testing.T) {
+	for _, c := range []struct {
+		name string
+		run  wmconfig.Runner
+		want error
+	}{
+		{"no lys-wm", notRunning, ErrNotRunning},
+		{"a click on no window", answering(map[string]string{"pickwindow": "null"}), ErrNoWindow},
+		{"a window that closed before the list", answering(map[string]string{"pickwindow": "7", "windows": `[{"id":3}]`}), ErrWindowGone},
+	} {
+		if _, err := PickWindow(c.run); !errors.Is(err, c.want) {
+			t.Errorf("%s: %v, want %v", c.name, err, c.want)
+		}
+	}
+	if _, err := PickWindow(failing); err == nil || errors.Is(err, ErrNotRunning) || !strings.Contains(err.Error(), "broken") {
+		t.Errorf("a pick lys-wm refused: %v, want its reason", err)
+	}
+}

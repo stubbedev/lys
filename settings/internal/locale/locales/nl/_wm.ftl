@@ -64,6 +64,13 @@ wm-pointers-none = Er is geen muis, touchpad of trackpoint verbonden.
 wm-pointers-not-running = Hier draait geen lys-wm die kan zeggen welke apparaten verbonden zijn, dus alle secties worden getoond.
 wm-pointers-outdated = De draaiende lys-wm is ouder en zegt niet welke apparaten verbonden zijn, dus tot je opnieuw inlogt worden alle secties getoond.
 wm-pointers-unreadable = Welke apparaten verbonden zijn kon niet worden gelezen, dus alle secties worden getoond: { $reason }
+wm-rules-pick = Kies een venster…
+wm-rules-picking = Klik op het venster waarvoor je een regel wilt maken. Escape annuleert.
+wm-rules-pick-none = De klik was niet op een venster.
+wm-rules-pick-gone = Het venster sloot voordat het kon worden gelezen.
+wm-rules-pick-unnamed = Dat venster heeft geen app-ID en geen titel om op te passen.
+wm-rules-pick-not-running = Hier draait geen lys-wm om een venster uit te kiezen.
+wm-rules-pick-failed = Het venster kon niet worden gekozen: { $reason }
 wm-source-file = 
     .description = Ingesteld in het configuratiebestand van lys-wm
 

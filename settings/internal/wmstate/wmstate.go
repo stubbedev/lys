@@ -17,7 +17,16 @@ import (
 	"github.com/stubbedev/lys/settings/internal/wmconfig"
 )
 
-const queryLimit = 10 * time.Second
+const (
+	queryLimit = 10 * time.Second
+	pickLimit  = 3 * time.Minute
+)
+
+// ErrNoWindow is a pick that ended on no window.
+var ErrNoWindow = errors.New("wmstate: the click was on no window")
+
+// ErrWindowGone is a picked window that closed before it could be read.
+var ErrWindowGone = errors.New("wmstate: the picked window closed before it could be read")
 
 // ErrNotRunning is no lys-wm answering.
 var ErrNotRunning = errors.New("wmstate: no lys-wm is running")
@@ -80,4 +89,27 @@ func Pointers(run wmconfig.Runner) ([]wmipc.Device, error) {
 		return nil, fmt.Errorf("%w: device %s carries no class", ErrOutdated, devices[i].Name)
 	}
 	return slices.DeleteFunc(devices, func(d wmipc.Device) bool { return d.Class == wmipc.ClassNone }), nil
+}
+
+// PickWindow waits for the next click in the session and answers the
+// window under it; Escape cancels it with lys-wm's error.
+func PickWindow(run wmconfig.Runner) (wmipc.Window, error) {
+	return bounded(pickLimit, func(ctx context.Context) (wmipc.Window, error) {
+		id, err := query[*uint64](ctx, run, wmipc.KindPickWindow)
+		if err != nil {
+			return wmipc.Window{}, err
+		}
+		if id == nil {
+			return wmipc.Window{}, ErrNoWindow
+		}
+		windows, err := query[[]wmipc.Window](ctx, run, wmipc.KindWindows)
+		if err != nil {
+			return wmipc.Window{}, err
+		}
+		i := slices.IndexFunc(windows, func(w wmipc.Window) bool { return w.ID == *id })
+		if i < 0 {
+			return wmipc.Window{}, fmt.Errorf("%w: window %d", ErrWindowGone, *id)
+		}
+		return windows[i], nil
+	})
 }

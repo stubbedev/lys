@@ -66,6 +66,13 @@ wm-pointers-none = No mouse, touchpad or trackpoint is connected.
 wm-pointers-not-running = No lys-wm is running here to say which devices are connected, so every section shows.
 wm-pointers-outdated = The running lys-wm is older and does not say which devices are connected, so every section shows until you sign in again.
 wm-pointers-unreadable = Which devices are connected could not be read, so every section shows: { $reason }
+wm-rules-pick = Pick a window…
+wm-rules-picking = Click the window to make a rule for. Escape cancels.
+wm-rules-pick-none = The click was not on a window.
+wm-rules-pick-gone = The window closed before it could be read.
+wm-rules-pick-unnamed = That window has neither an app ID nor a title to match.
+wm-rules-pick-not-running = No lys-wm is running here to pick a window from.
+wm-rules-pick-failed = The window could not be picked: { $reason }
 wm-source-file = 
     .description = Set in lys-wm's config file
 

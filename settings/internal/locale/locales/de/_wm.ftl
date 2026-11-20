@@ -66,6 +66,13 @@ wm-pointers-none = Weder Maus noch Touchpad noch Trackpoint ist verbunden.
 wm-pointers-not-running = Hier läuft kein lys-wm, der sagen könnte, welche Geräte verbunden sind, daher werden alle Abschnitte angezeigt.
 wm-pointers-outdated = Der laufende lys-wm ist älter und sagt nicht, welche Geräte verbunden sind, daher werden bis zur nächsten Anmeldung alle Abschnitte angezeigt.
 wm-pointers-unreadable = Welche Geräte verbunden sind, ließ sich nicht lesen, daher werden alle Abschnitte angezeigt: { $reason }
+wm-rules-pick = Fenster auswählen …
+wm-rules-picking = Klicke auf das Fenster, für das eine Regel entstehen soll. Escape bricht ab.
+wm-rules-pick-none = Der Klick traf kein Fenster.
+wm-rules-pick-gone = Das Fenster wurde geschlossen, bevor es gelesen werden konnte.
+wm-rules-pick-unnamed = Dieses Fenster hat weder eine App-ID noch einen Titel, auf den eine Regel passen könnte.
+wm-rules-pick-not-running = Hier läuft kein lys-wm, in dem ein Fenster ausgewählt werden könnte.
+wm-rules-pick-failed = Das Fenster konnte nicht ausgewählt werden: { $reason }
 wm-source-file = 
     .description = In der Konfigurationsdatei von lys-wm gesetzt
 

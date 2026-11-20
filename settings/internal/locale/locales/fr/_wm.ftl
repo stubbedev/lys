@@ -66,6 +66,13 @@ wm-pointers-none = Aucune souris, aucun pavé tactile ni trackpoint n'est connec
 wm-pointers-not-running = Aucun lys-wm ne tourne ici pour dire quels périphériques sont connectés, toutes les sections s'affichent donc.
 wm-pointers-outdated = Le lys-wm en cours est plus ancien et ne dit pas quels périphériques sont connectés, toutes les sections s'affichent donc jusqu'à votre prochaine connexion.
 wm-pointers-unreadable = Impossible de lire quels périphériques sont connectés, toutes les sections s'affichent donc : { $reason }
+wm-rules-pick = Choisir une fenêtre…
+wm-rules-picking = Cliquez sur la fenêtre pour laquelle créer une règle. Échap annule.
+wm-rules-pick-none = Le clic n'a touché aucune fenêtre.
+wm-rules-pick-gone = La fenêtre s'est fermée avant d'avoir pu être lue.
+wm-rules-pick-unnamed = Cette fenêtre n'a ni identifiant d'application ni titre auquel correspondre.
+wm-rules-pick-not-running = Aucun lys-wm ne tourne ici pour y choisir une fenêtre.
+wm-rules-pick-failed = Impossible de choisir la fenêtre : { $reason }
 wm-source-file = 
     .description = Défini dans le fichier de configuration de lys-wm
 
