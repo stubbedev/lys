@@ -57,6 +57,13 @@ type blurLook struct {
 	tint                             render.Color
 	tinted                           bool
 	saturation, brightness, contrast float64
+	sheen                            sheenLook
+}
+
+type sheenLook struct {
+	shown    bool
+	strength float64
+	width    int
 }
 
 // windowLook is lys-wm's window decoration as the preview draws it, in
@@ -284,6 +291,9 @@ func readWindowLook(value func(path string) any, colour func(text string) (rende
 		l.shadow.reach = 0
 	}
 	l.blur.tint, l.blur.tinted = r.optionalColor("decoration.blur.tint")
+	if isObject(r.value("decoration.blur.specular")) {
+		l.blur.sheen = sheenLook{shown: true, strength: r.fraction("decoration.blur.specular.strength"), width: r.pixels("decoration.blur.specular.width")}
+	}
 	for _, b := range l.titlebar.buttons {
 		l.titlebar.lights[b] = r.color("titlebars.lights." + b)
 	}
@@ -378,6 +388,9 @@ func paintWindow(cv *render.Canvas, l windowLook, f windowFocus, frame, screen r
 	}
 	windowLines(cv, content, th.Border)
 	cv.PopAlpha(prev)
+	if sheen := l.blur.sheen; sheen.shown && l.blur.enabled && l.opacity[f] < 1 {
+		cv.RoundedBorder(inner, innerRadii, render.UniformInsets(previewPixels(sheen.width)), render.RGBA(255, 255, 255, uint8(math.Round(sheen.strength*l.opacity[f]*255))))
+	}
 	if f == windowUnfocused && l.dim > 0 {
 		cv.RoundedRectCorners(inner, innerRadii, render.RGBA(0, 0, 0, uint8(math.Round(float64(l.dim*255)))))
 	}

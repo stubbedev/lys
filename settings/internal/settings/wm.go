@@ -285,11 +285,11 @@ func wmChoiceSlot(f wmconfig.Field, raw slot) slot {
 }
 
 // reset puts the key back to its default: its override drops, unless the
-// config file declares another value, which an override holding the default
-// then covers.
+// config file declares another value, or the key is all that keeps its
+// on/off group on, which an override holding the default then covers.
 func (w *wmBackend) reset(path string) {
 	e := wmconfig.Edit{Path: wmPath(path), Unset: true}
-	if d, ok := w.defaultOf(path); ok && !w.baseIsDefault(path) {
+	if d, ok := w.defaultOf(path); ok && (!w.baseIsDefault(path) || w.inGroupAlone(path)) {
 		e = wmconfig.Edit{Path: wmPath(path), Value: d}
 	}
 	if err := w.edit(e); err != nil {
@@ -486,12 +486,66 @@ func wmFields(paths ...string) []rowSpec {
 }
 
 func switchedBy(master string, rows ...rowSpec) []rowSpec {
-	out := []rowSpec{wmField(master)}
+	return governed(wmField(master), switchedOn, rows)
+}
+
+var wmGroups = []string{"decoration.blur.refraction", "decoration.blur.specular"}
+
+func wmGroup(path string, rows ...rowSpec) []rowSpec {
+	if !slices.Contains(wmGroups, path) {
+		log.Panicf("settings: lys-wm's %s is no on/off group", path)
+	}
+	master := wmField(path, withEditor(func(k *kit, s slot, _ config.FieldMeta) control {
+		return newToggle(k, groupSlot(s, func() bool { return isObject(k.wm.baseValue(path)) }))
+	}))
+	return governed(master, isObject, rows)
+}
+
+func governed(master rowSpec, holds func(any) bool, rows []rowSpec) []rowSpec {
+	out := []rowSpec{master}
 	for _, r := range rows {
-		enabledBy(master)(&r)
+		r.enabledWhen = rowCondition{path: master.path, holds: holds}
 		out = append(out, r)
 	}
 	return out
+}
+
+func isObject(v any) bool {
+	_, ok := v.(map[string]any)
+	return ok
+}
+
+func groupSlot(s slot, inConfig func() bool) slot {
+	return slot{
+		get: func() any { return isObject(s.get()) },
+		set: func(v any) error {
+			on, ok := v.(bool)
+			switch {
+			case !ok:
+				return fmt.Errorf("settings: an on/off group is turned on or off, not set to %v", v)
+			case on == inConfig():
+				s.unset()
+				return nil
+			case on:
+				return s.set(map[string]any{})
+			default:
+				return s.set(nil)
+			}
+		},
+		unset: s.unset,
+	}
+}
+
+func (w *wmBackend) inGroupAlone(path string) bool {
+	keys := wmPath(path)
+	group := strings.Join(keys[:len(keys)-1], ".")
+	if !slices.Contains(wmGroups, group) || isObject(w.baseValue(group)) {
+		return false
+	}
+	v, _ := wmconfig.Lookup(w.overrides, wmPath(group))
+	over, ok := v.(map[string]any)
+	_, holds := over[keys[len(keys)-1]]
+	return ok && holds && len(over) == 1
 }
 
 func wmPage(id, icon string, sections ...sectionSpec) pageSpec {
@@ -528,6 +582,10 @@ func wmEffectsPage() pageSpec {
 		sectionSpec{title: "wm-section-blur", rows: switchedBy("decoration.blur.enabled",
 			wmField("decoration.blur.size"), wmField("decoration.blur.passes"), wmField("decoration.blur.xray"), wmField("decoration.blur.tint"), wmField("decoration.blur.saturation"),
 			wmField("decoration.blur.brightness"), wmField("decoration.blur.contrast"), wmField("decoration.blur.grain", fraction), wmField("decoration.blur.live_tiled"))},
+		sectionSpec{title: "wm-section-refraction", rows: wmGroup("decoration.blur.refraction",
+			wmField("decoration.blur.refraction.bezel", softPixels(0, 48)), wmField("decoration.blur.refraction.amount", softPixels(0, 32)))},
+		sectionSpec{title: "wm-section-specular", rows: wmGroup("decoration.blur.specular",
+			wmField("decoration.blur.specular.strength", fraction), wmField("decoration.blur.specular.width", softPixels(1, 8)))},
 		sectionSpec{title: "wm-section-mica", rows: switchedBy("decoration.blur.mica.enabled",
 			wmField("decoration.blur.mica.size"), wmField("decoration.blur.mica.passes"), wmField("decoration.blur.mica.tint"))},
 	))

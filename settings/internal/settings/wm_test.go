@@ -997,10 +997,6 @@ var unlistedWMKeys = map[string]string{
 	"workspaces":                           "per-workspace cards, planned in #138",
 	"swallow.terminals":                    "an app picker writing the match, with the window matching editor planned in #138",
 	"swallow.except_title":                 "a title match with the window matching editor planned in #138",
-	"decoration.blur.refraction.bezel":     "refraction is off until set: an on/off group with the window preview, planned in #138",
-	"decoration.blur.refraction.amount":    "refraction is off until set: an on/off group with the window preview, planned in #138",
-	"decoration.blur.specular.strength":    "the rim sheen is off until set: an on/off group with the window preview, planned in #138",
-	"decoration.blur.specular.width":       "the rim sheen is off until set: an on/off group with the window preview, planned in #138",
 }
 
 func TestEveryWMConfigKeyHasARow(t *testing.T) {

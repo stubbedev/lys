@@ -118,7 +118,8 @@ func missingLabels(k *kit, fields []cardField) []string {
 // systemDefaulted are the lys-wm rows whose value, while unset, lys-wm
 // leaves to the system or the device (libinput, xkb, the font and icon
 // lookups, the GPU it finds), or which start as an empty list: they read
-// "Inherited" or empty, every other row shows the value lys-wm uses.
+// "Inherited" or empty, or which are on/off groups, off while unset: every
+// other row shows the value lys-wm uses.
 var systemDefaulted = []string{
 	"decoration.blur.tint", "decoration.blur.mica.tint", "tabs.font", "tabs.icon_theme", "gpu",
 	"input.keyboard.layout", "input.keyboard.variant", "input.keyboard.options", "input.keyboard.model", "input.keyboard.rules",
@@ -132,6 +133,7 @@ var systemDefaulted = []string{
 	"input.touchpad.tap", "input.touchpad.drag_lock", "input.touchpad.natural_scroll", "input.touchpad.disable_while_typing", "input.touchpad.middle_emulation",
 	"input.touchpad.click_method", "input.touchpad.scroll_method", "input.touchpad.accel_speed", "input.touchpad.scroll_factor",
 	"gestures.hold", "outputs", "rules", "layer_rules", "autostart",
+	"decoration.blur.refraction", "decoration.blur.specular",
 }
 
 func TestEveryWMRowShowsTheValueLysWMUsesUnlessTheSystemDecides(t *testing.T) {
