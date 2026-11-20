@@ -611,6 +611,11 @@ func (s *shellStart) mount() {
 			}
 		})
 	}
+	primary := &primaryOutput{}
+	if detectCompositor() == compositor.LysWM {
+		s.down.addAsync(primary.follow)
+	}
+	primaryFirst := primary.first(sess.Outputs)
 	osdSrv := osd.New(osd.Deps{
 		Open: func(lc app.LayerConfig) (osd.Window, error) {
 			w, err := application.NewLayer(lc)
@@ -619,7 +624,7 @@ func (s *shellStart) mount() {
 			}
 			return w, nil
 		},
-		Outputs: sess.Outputs,
+		Outputs: primaryFirst,
 		Invoke:  application.Invoke,
 		After:   func(d time.Duration, fn func()) { time.AfterFunc(d, fn) },
 		Sheet:   theme.Sheet,
@@ -664,7 +669,7 @@ func (s *shellStart) mount() {
 	// Notification popups render on one monitor, bar or not.
 	var popupHost *popups.Popups
 	if s.notifSvc != nil {
-		popupHost = popups.New(application, s.notifSvc, cfg, font, theme.Sheet, sess.Outputs)
+		popupHost = popups.New(application, s.notifSvc, cfg, font, theme.Sheet, primaryFirst)
 		s.ctx.Go(func() { popupHost.Run(s.ctx.Life()) })
 		s.down.add(followFocusInputs(application, s.ctx.Clock, s.notifSvc, s.ctx.ScreenShares, s.ctx.Recorder))
 	}

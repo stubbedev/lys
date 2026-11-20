@@ -17,7 +17,7 @@ On-screen display overlay for transient events like volume and brightness.
 | `position` | [`OsdPosition`](/shell/config/types#osd-position) | `"bottom"` | Screen anchor position. |
 | `text-align` | [`OsdTextAlign`](/shell/config/types#osd-text-align) | `"center"` | Horizontal alignment of toast and toggle overlay content. Sliders (volume/brightness) keep their own label+value layout. |
 | `duration` | u32 | `2500` | Auto-dismiss delay in milliseconds. |
-| `monitor` | [`OsdMonitor`](/shell/config/types#osd-monitor) | `"primary"` | Target monitor: "primary" or a connector name like "DP-1". |
+| `monitor` | [`OsdMonitor`](/shell/config/types#osd-monitor) | `"primary"` | Target monitor: "primary" (lys-wm's primary_output, else the first output) or a connector name like "DP-1". |
 | `margin` | [`Size`](/shell/config/types#size) | `1` | Margin from screen edges: a multiplier of the default 150px (`1.0` = default) or absolute pixels (e.g. `"150px"`). |
 | `border` | bool | `true` | Show a border around the OSD. |
 | `layer` | [`Layer`](/shell/config/types#layer) | `"overlay"` | Layer-shell layer the OSD is placed on. |

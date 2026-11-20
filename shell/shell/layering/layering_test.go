@@ -1,6 +1,7 @@
 package layering
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/config"
@@ -47,5 +48,27 @@ func TestOutputPicksTheMonitor(t *testing.T) {
 	}
 	if got := Output(nil, config.OsdMonitor{}); got != nil {
 		t.Errorf("no outputs = %v, want nil", got)
+	}
+}
+
+func TestPrimaryFirstMovesOnlyThePrimaryToTheFront(t *testing.T) {
+	dp, hdmi, edp := &app.Output{Name: "DP-1"}, &app.Output{Name: "HDMI-A-1"}, &app.Output{Name: "eDP-1"}
+	outs := []*app.Output{dp, hdmi, edp}
+	for primary, want := range map[string][]*app.Output{
+		"eDP-1":    {edp, dp, hdmi},
+		"HDMI-A-1": {hdmi, dp, edp},
+		"DP-1":     {dp, hdmi, edp},
+		"DP-9":     {dp, hdmi, edp},
+		"":         {dp, hdmi, edp},
+	} {
+		if got := PrimaryFirst(outs, primary); !slices.Equal(got, want) {
+			t.Errorf("PrimaryFirst(%q) = %v, want %v", primary, got, want)
+		}
+	}
+	if !slices.Equal(outs, []*app.Output{dp, hdmi, edp}) {
+		t.Errorf("PrimaryFirst reordered its input to %v", outs)
+	}
+	if got := Output(PrimaryFirst(outs, "HDMI-A-1"), config.OsdMonitor{}); got != hdmi {
+		t.Errorf("\"primary\" with HDMI-A-1 primary = %v, want HDMI-A-1", got)
 	}
 }

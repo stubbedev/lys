@@ -6,6 +6,7 @@ package layering
 
 import (
 	"log"
+	"slices"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/ui/app"
@@ -35,9 +36,21 @@ type Monitor interface {
 	Connector() string
 }
 
-// Output picks a surface's monitor: "primary" is the
-// first output, a connector its output, falling back to the first when
-// that connector is not connected. Nil only when there are no outputs.
+// PrimaryFirst is outputs with the one connected as primary moved to the
+// front and the rest in their order; outputs unchanged when primary names
+// none of them.
+func PrimaryFirst(outputs []*app.Output, primary string) []*app.Output {
+	i := slices.IndexFunc(outputs, func(o *app.Output) bool { return o.Name == primary })
+	if i <= 0 {
+		return outputs
+	}
+	return slices.Concat(outputs[i:i+1], outputs[:i], outputs[i+1:])
+}
+
+// Output picks a surface's monitor from outputs listed the primary first
+// (PrimaryFirst): "primary" is the first output, a connector its output,
+// falling back to the first when that connector is not connected. Nil
+// only when there are no outputs.
 func Output(outputs []*app.Output, monitor Monitor) *app.Output {
 	if len(outputs) == 0 {
 		return nil

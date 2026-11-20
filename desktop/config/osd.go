@@ -13,7 +13,7 @@ type OsdConfig struct {
 	TextAlign OsdTextAlign `cfg:"text-align"`
 	// Auto-dismiss delay in milliseconds.
 	Duration uint32 `cfg:"duration"`
-	// Target monitor: "primary" or a connector name like "DP-1".
+	// Target monitor: "primary" (lys-wm's primary_output, else the first output) or a connector name like "DP-1".
 	Monitor OsdMonitor `cfg:"monitor"`
 	// Margin from screen edges: a multiplier of the default 150px (`1.0` =
 	// default) or absolute pixels (e.g. `"150px"`).

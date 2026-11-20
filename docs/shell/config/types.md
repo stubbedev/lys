@@ -1193,7 +1193,7 @@ Track changes of the active media player that show the now-playing OSD.
 
 ## OsdMonitor {#osd-monitor}
 
-"primary" or a monitor connector name (e.g. "DP-1")
+"primary" (lys-wm's primary_output, else the first output) or a monitor connector name (e.g. "DP-1")
 
 String.
 
@@ -1315,7 +1315,7 @@ Behavior when the close button is clicked on a popup card.
 
 ## PopupMonitor {#popup-monitor}
 
-"primary" or a monitor connector name (e.g. "DP-1")
+"primary" (lys-wm's primary_output, else the first output) or a monitor connector name (e.g. "DP-1")
 
 String.
 

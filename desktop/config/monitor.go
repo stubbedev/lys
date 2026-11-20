@@ -52,7 +52,7 @@ func (m monitorTarget) MarshalConfig() any {
 func (monitorTarget) configSchema(*schemaGen) Schema {
 	return Schema{
 		"type":        "string",
-		"description": `"primary" or a monitor connector name (e.g. "DP-1")`,
+		"description": `"primary" (lys-wm's primary_output, else the first output) or a monitor connector name (e.g. "DP-1")`,
 		"default":     "primary",
 		"x-variants":  []any{"primary"},
 	}

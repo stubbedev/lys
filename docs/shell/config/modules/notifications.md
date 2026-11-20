@@ -49,7 +49,7 @@ bar:
 | `popup-margin-x` | [`Size`](/shell/config/types#size) | `0` | Horizontal margin from screen edges. Accepts a scale multiplier or pixels (e.g. `"12px"`). |
 | `popup-margin-y` | [`Size`](/shell/config/types#size) | `0` | Vertical margin from screen edges. Accepts a scale multiplier or pixels (e.g. `"12px"`). |
 | `popup-gap` | [`Size`](/shell/config/types#size) | `1` | Gap between stacked popups: a multiplier of the default 8px (`1.0` = default) or absolute pixels. |
-| `popup-monitor` | [`PopupMonitor`](/shell/config/types#popup-monitor) | `"primary"` | Target monitor: "primary" or a connector name like "DP-1". |
+| `popup-monitor` | [`PopupMonitor`](/shell/config/types#popup-monitor) | `"primary"` | Target monitor: "primary" (lys-wm's primary_output, else the first output) or a connector name like "DP-1". |
 | `popup-layer` | [`Layer`](/shell/config/types#layer) | `"overlay"` | Layer-shell layer popup notifications are placed on. |
 | `popup-close-behavior` | [`PopupCloseBehavior`](/shell/config/types#popup-close-behavior) | `"dismiss"` | What happens when the close button on a popup is clicked. |
 | `popup-shadow` | bool | `true` | Display drop shadow on popup cards. |

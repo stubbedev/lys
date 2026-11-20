@@ -109,7 +109,7 @@ type NotificationConfig struct {
 	// Gap between stacked popups: a multiplier of the default 8px (`1.0` =
 	// default) or absolute pixels.
 	PopupGap Size `cfg:"popup-gap"`
-	// Target monitor: "primary" or a connector name like "DP-1".
+	// Target monitor: "primary" (lys-wm's primary_output, else the first output) or a connector name like "DP-1".
 	PopupMonitor PopupMonitor `cfg:"popup-monitor"`
 	// Layer-shell layer popup notifications are placed on.
 	//

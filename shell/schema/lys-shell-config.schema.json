@@ -7418,7 +7418,7 @@
         "popup-monitor": {
           "$ref": "#/$defs/PopupMonitor",
           "default": "primary",
-          "description": "Target monitor: \"primary\" or a connector name like \"DP-1\"."
+          "description": "Target monitor: \"primary\" (lys-wm's primary_output, else the first output) or a connector name like \"DP-1\"."
         },
         "popup-opacity": {
           "$ref": "#/$defs/Percentage",
@@ -7654,7 +7654,7 @@
         "monitor": {
           "$ref": "#/$defs/OsdMonitor",
           "default": "primary",
-          "description": "Target monitor: \"primary\" or a connector name like \"DP-1\"."
+          "description": "Target monitor: \"primary\" (lys-wm's primary_output, else the first output) or a connector name like \"DP-1\"."
         },
         "position": {
           "$ref": "#/$defs/OsdPosition",
@@ -7696,7 +7696,7 @@
     },
     "OsdMonitor": {
       "default": "primary",
-      "description": "\"primary\" or a monitor connector name (e.g. \"DP-1\")",
+      "description": "\"primary\" (lys-wm's primary_output, else the first output) or a monitor connector name (e.g. \"DP-1\")",
       "type": "string",
       "x-variants": [
         "primary"
@@ -7941,7 +7941,7 @@
     },
     "PopupMonitor": {
       "default": "primary",
-      "description": "\"primary\" or a monitor connector name (e.g. \"DP-1\")",
+      "description": "\"primary\" (lys-wm's primary_output, else the first output) or a monitor connector name (e.g. \"DP-1\")",
       "type": "string",
       "x-variants": [
         "primary"
