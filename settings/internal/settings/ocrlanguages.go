@@ -8,6 +8,9 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/text/language"
+	"golang.org/x/text/language/display"
+
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
@@ -35,6 +38,26 @@ var tesseractListLangs = func() (string, error) {
 	return string(out), nil
 }
 
+var tesseractScripts = map[string]string{"sim": "Hans", "tra": "Hant", "cyrl": "Cyrl", "latn": "Latn"}
+
+func tesseractLangName(namer display.Namer, code string) string {
+	parts := strings.Split(code, "_")
+	tag := parts[0]
+	if len(parts) > 1 {
+		if script, ok := tesseractScripts[parts[1]]; ok {
+			tag += "-" + script
+		}
+	}
+	t, err := language.Parse(tag)
+	if err != nil {
+		return code
+	}
+	if name := namer.Name(t); name != "" {
+		return name
+	}
+	return code
+}
+
 func parseTesseractLangs(out string) []string {
 	var langs []string
 	for line := range strings.SplitSeq(out, "\n") {
@@ -50,7 +73,8 @@ func parseTesseractLangs(out string) []string {
 var ocrLanguagesRow = checklistRow(checklistSpec{
 	readingKey: "settings-ocr-reading", reloadKey: "settings-ocr-reload",
 	missingKey: "settings-ocr-not-installed", emptyKey: "settings-ocr-none",
-	icon: "ld-type-symbolic",
+	icon:  "ld-type-symbolic",
+	label: func(code string) string { return tesseractLangName(display.Tags(interfaceLanguage()), code) },
 	read: func() checkListing {
 		out, err := tesseractListLangs()
 		if errors.Is(err, errNoTesseract) {

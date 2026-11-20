@@ -3,6 +3,7 @@ package settings
 import (
 	"cmp"
 	"slices"
+	"strings"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/ui/widget"
@@ -23,6 +24,7 @@ type checklistSpec struct {
 	icon                                        string
 	read                                        func() checkListing
 	keepOne                                     bool
+	label                                       func(value string) string
 }
 
 func checklistRow(spec checklistSpec) rowOpt {
@@ -50,8 +52,17 @@ func (c *checklist) load() {
 	async(c.k, c.spec.read, c.show)
 }
 
+func (c *checklist) title(value string) string {
+	if c.spec.label == nil {
+		return value
+	}
+	return c.spec.label(value)
+}
+
 func (c *checklist) show(l checkListing) {
-	slices.SortFunc(l.items, func(a, b checkItem) int { return cmp.Compare(a.value, b.value) })
+	slices.SortFunc(l.items, func(a, b checkItem) int {
+		return cmp.Or(cmp.Compare(strings.ToLower(c.title(a.value)), strings.ToLower(c.title(b.value))), cmp.Compare(a.value, b.value))
+	})
 	c.listing = &l
 	c.doneReading()
 	c.refresh()
@@ -100,12 +111,16 @@ func (c *checklist) refresh() {
 
 func (c *checklist) itemRow(it checkItem, chosen []string) *widget.Item {
 	on := slices.Contains(chosen, it.value)
-	row := widget.NewItem(c.k.face, it.value, it.detail)
+	title, detail := c.title(it.value), it.detail
+	if detail == "" && title != it.value {
+		detail = it.value
+	}
+	row := widget.NewItem(c.k.face, title, detail)
 	row.AddClass(css.Small, "checklist-item")
 	row.SetEllipsize(true)
 	row.SetMedia(c.k.icon(c.spec.icon), false)
 	sw := widget.NewSwitch(on)
-	sw.SetAccessibleName(it.value)
+	sw.SetAccessibleName(title)
 	sw.SetEnabled(!on || !c.spec.keepOne || len(chosen) > 1)
 	sw.OnChanged = func(on bool) { c.choose(it.value, on) }
 	row.AddAction(sw)
