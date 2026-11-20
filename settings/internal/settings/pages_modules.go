@@ -483,8 +483,8 @@ func screenshotPage(*config.Config) pageSpec {
 	const m = "modules.screenshot"
 	return pageSpec{id: "screenshot", navKey: "settings-nav-screenshot", icon: "ld-camera-symbolic", header: "settings-page-screenshot", sections: []sectionSpec{
 		{title: "settings-section-screenshot-save", rows: []rowSpec{
-			field(m + ".output-directory"),
-			field(m + ".filename-format"),
+			field(screenshotDirPath),
+			field(m+".filename-format", screenshotNameRow),
 		}},
 		{title: "settings-section-screenshot-after", rows: []rowSpec{
 			field(m + ".copy-to-clipboard"),
