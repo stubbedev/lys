@@ -355,7 +355,7 @@ func keybindModePage(*config.Config) pageSpec {
 			field("modules.keybind-mode.icon-name", iconRow),
 			field("modules.keybind-mode.auto-hide"),
 		}},
-		barItemSection("modules.keybind-mode", actionChoices("keybind-mode")),
+		steppedBarItemSection("modules.keybind-mode", actionChoices("keybind-mode"), submapStates),
 	}}
 }
 
@@ -367,7 +367,7 @@ func keyboardInputPage(*config.Config) pageSpec {
 			field("modules.keyboard-input.icon-name", iconRow),
 			field("modules.keyboard-input.layout-alias-map", layoutAliasRow),
 		}},
-		barItemSection("modules.keyboard-input", actionChoices("keyboard-input")),
+		steppedBarItemSection("modules.keyboard-input", actionChoices("keyboard-input"), layoutStates),
 	}}
 }
 
