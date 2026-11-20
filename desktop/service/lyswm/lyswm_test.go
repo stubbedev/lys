@@ -73,7 +73,7 @@ func TestQueriesDecodeTheResults(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wantWin := wmipc.Window{ID: 7, AppID: "foot", Title: "~", Workspace: 1, Output: "DP-1", Rect: wmipc.Rect{X: 10, Y: 20, Width: 300, Height: 400}, Floating: true, Minimized: true, Urgent: true, Focused: true}
+	wantWin := wmipc.Window{ID: 7, AppID: "foot", Title: "~", PID: 4242, Workspace: 1, Output: "DP-1", Rect: wmipc.Rect{X: 10, Y: 20, Width: 300, Height: 400}, Floating: true, Minimized: true, Urgent: true, Focused: true}
 	if len(windows) != 1 || windows[0] != wantWin {
 		t.Fatalf("windows = %+v", windows)
 	}
