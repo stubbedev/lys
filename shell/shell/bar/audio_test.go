@@ -37,9 +37,18 @@ import (
 // need them run against a pulsetest server instead.
 type fakePulseSource struct {
 	pulse.Source
-	dev   pulse.Device
-	err   error
-	ticks chan struct{}
+	dev       pulse.Device
+	err       error
+	ticks     chan struct{}
+	outputs   []pulse.OutputDevice
+	defaulted chan pulse.DeviceKey
+}
+
+func (f *fakePulseSource) OutputDevices() []pulse.OutputDevice { return f.outputs }
+
+func (f *fakePulseSource) SetDefault(_ context.Context, key pulse.DeviceKey) error {
+	f.defaulted <- key
+	return nil
 }
 
 // pct is a stereo volume at a percentage.

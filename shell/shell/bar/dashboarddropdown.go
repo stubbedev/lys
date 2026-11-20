@@ -15,6 +15,7 @@ import (
 	"github.com/stubbedev/lys/desktop/service/mpris"
 	"github.com/stubbedev/lys/desktop/service/network"
 	"github.com/stubbedev/lys/desktop/service/powerprofiles"
+	"github.com/stubbedev/lys/desktop/service/pulse"
 	"github.com/stubbedev/lys/desktop/service/rfkill"
 	"github.com/stubbedev/lys/desktop/service/upower"
 	"github.com/stubbedev/lys/desktop/settingspage"
@@ -71,6 +72,9 @@ type dashboardReadings struct {
 	battery   upower.Device
 	batteryOK bool
 	radios    rfkill.Snapshot
+	sink      pulse.Device
+	sinkOK    bool
+	outputs   []pulse.OutputDevice
 }
 
 // radioSource is the kill switches the airplane toggle reads and flips.
@@ -105,6 +109,11 @@ func (v *dashboardView) read() dashboardReadings {
 	}
 	if r.radios, err = v.radios.Read(ctx); err != nil {
 		log.Printf("dashboard: read radios: %v", err)
+	}
+	if v.ctx.Pulse != nil {
+		out, err := v.ctx.Pulse.DefaultSink(ctx)
+		r.sink, r.sinkOK = out.Device, err == nil
+		r.outputs = v.ctx.Pulse.OutputDevices()
 	}
 	return r
 }
@@ -197,18 +206,36 @@ func dashboardCard() *widget.Box {
 	return card
 }
 
-// card is a titled dashboardCard: the icon-led section label, then any
-// extra header actions at the end.
-func (v *dashboardView) card(iconName, heading string, extra ...widget.Widget) *widget.Box {
+// card is a titled dashboardCard: every card's header is the same
+// icon-led section label, and a card's actions sit in its body.
+func (v *dashboardView) card(iconName, heading string) *widget.Box {
 	card := dashboardCard()
-	header := widget.NewBox(widget.Row, 0, 0)
+	header := iconSectionLabel(v.font, iconName, heading)
 	header.AddClass("card-header")
-	header.AppendAligned(iconSectionLabel(v.font, iconName, heading), true, widget.AlignCenter)
-	for _, w := range extra {
-		header.AppendAligned(w, false, widget.AlignCenter)
-	}
 	card.Append(header, false)
 	return card
+}
+
+func (v *dashboardView) cappedLabel(classes ...string) *widget.Label {
+	l := v.label("")
+	l.AddClass(classes...)
+	l.SetEllipsize(widget.EllipsizeEnd)
+	l.SetAlignment(render.AlignStart)
+	l.SetMaxWidthChars(1)
+	return l
+}
+
+func nextAfter[T any](items []T, current func(T) bool) (T, bool) {
+	var zero T
+	if len(items) < 2 {
+		return zero, false
+	}
+	for i, item := range items {
+		if current(item) {
+			return items[(i+1)%len(items)], true
+		}
+	}
+	return items[0], true
 }
 
 // header is the dropdown header with the open-settings action.
@@ -361,8 +388,9 @@ func (v *dashboardView) quickActions() widget.Widget {
 	return card
 }
 
-// controls is the volume card: mute, the debounced slider, and the
-// output device's name, inside the .dashboard-controls box.
+// controls is the volume card: mute with the level's icon, the
+// debounced slider, and the output device's name with the switch to
+// the next output, inside the .dashboard-controls box.
 func (v *dashboardView) controls() widget.Widget {
 	card := v.card("ld-audio-lines-symbolic", i18n.T("dropdown-dashboard-volume"))
 	th := widget.Current()
@@ -370,8 +398,10 @@ func (v *dashboardView) controls() widget.Widget {
 	controls.AddClass("dashboard-controls")
 	row := widget.NewBox(widget.Row, th.Spacing, 0)
 	row.AddClass("dashboard-slider-row")
-	muteIcon := widget.NewThemeIcon("ld-volume-2-symbolic", itemIconPx)
+	muteIcon := widget.NewThemeIcon(audioVolumeIcon(0, true), itemIconPx)
 	var muted bool
+	var sink pulse.Device
+	var outputs []pulse.OutputDevice
 	failed := writeAlert(v.font, "volume-failed")
 	written := func(err error) {
 		reportWrite(failed, "dashboard", i18n.T("dropdown-dashboard-volume-failed"), err)
@@ -398,87 +428,77 @@ func (v *dashboardView) controls() widget.Widget {
 	}
 	row.Append(slider, true)
 	controls.Append(row, false)
-	device := v.label(i18n.T("dropdown-dashboard-no-device"))
-	device.AddClass("controls-device", css.Caption, css.DimLabel)
-	device.SetEllipsize(widget.EllipsizeEnd)
-	device.SetAlignment(render.AlignEnd)
-	controls.Append(device, false)
+	deviceRow := widget.NewBox(widget.Row, th.Spacing/2, 0)
+	deviceRow.AddClass("controls-device-row")
+	device := v.cappedLabel("controls-device", css.Caption, css.DimLabel)
+	device.SetText(i18n.T("dropdown-dashboard-no-device"))
+	deviceRow.AppendAligned(device, true, widget.AlignCenter)
+	switchOutput := iconButton(widget.NewThemeIcon("ld-arrow-left-right-symbolic", itemIconPx), i18n.T("dropdown-dashboard-switch-output"), func() {
+		src := v.ctx.Pulse
+		next, ok := nextAfter(outputs, func(d pulse.OutputDevice) bool { return d.Key == sink.Key })
+		if !ok {
+			return
+		}
+		serviceWrite(v.ctx, func(c context.Context) error { return src.SetDefault(c, next.Key) }, written)
+	}, css.Ghost, css.Icon, css.Small)
+	switchOutput.AddClass("output-switch-btn")
+	switchOutput.SetVisible(false)
+	deviceRow.AppendAligned(switchOutput, false, widget.AlignCenter)
+	controls.Append(deviceRow, false)
 	card.Append(controls, false)
 	card.Append(failed, false)
-	v.refreshers = append(v.refreshers, func(dashboardReadings) {
-		// No service: the no-device state, like ControlsSection without
-		// an AudioService.
-		if v.ctx.Pulse == nil {
+	v.refreshers = append(v.refreshers, func(r dashboardReadings) {
+		outputs = r.outputs
+		switchOutput.SetVisible(len(outputs) > 1)
+		if !r.sinkOK {
 			row.SetEnabled(false)
+			setClass(row, "muted", false)
 			device.SetText(i18n.T("dropdown-dashboard-no-device"))
-			muteIcon.SetThemeName("ld-volume-x-symbolic")
+			muteIcon.SetThemeName(audioVolumeIcon(0, true))
 			return
 		}
-		readCtx, cancel := context.WithTimeout(v.ctx.Life(), dashboardReadTimeout)
-		sink, err := v.ctx.Pulse.DefaultSink(readCtx)
-		cancel()
-		has := err == nil
-		row.SetEnabled(has)
-		if !has {
-			device.SetText(i18n.T("dropdown-dashboard-no-device"))
-			muteIcon.SetThemeName("ld-volume-x-symbolic")
-			return
-		}
-		muted = sink.Muted
+		sink, muted = r.sink, r.sink.Muted
+		level := sink.Volume.AveragePercentage()
+		row.SetEnabled(true)
+		setClass(row, "muted", muted)
 		device.SetText(sink.Description)
-		slider.Set(sink.Volume.AveragePercentage())
-		muteIcon.SetThemeName(dashboardGlyph(muted, "ld-volume-x-symbolic", "ld-volume-2-symbolic"))
+		slider.Set(level)
+		muteIcon.SetThemeName(audioVolumeIcon(level, muted))
 		mute.SetTooltip(audioMuteLabel(muted))
 	})
 	return card
 }
 
-// media is the active player's art, track, transport,
-// and progress, or the empty state when no player is active.
+// media is the active player's art, track, transport, and progress;
+// the card shows only while a player is active, so an idle dashboard
+// spends no room on it.
 func (v *dashboardView) media() widget.Widget {
 	var current mpris.Player
-	var has bool
 	failed := writeAlert(v.font, "media-failed")
 	written := func(err error) {
 		reportWrite(failed, "dashboard", i18n.T("dropdown-dashboard-media-failed"), err)
 	}
 	control := func(write func(context.Context) error) { serviceWrite(v.ctx, write, written) }
 	switchBtn := iconButton(widget.NewThemeIcon("ld-arrow-left-right-symbolic", itemIconPx), i18n.T("dropdown-dashboard-switch-player"), func() {
-		// The next player after the active one.
 		src := v.ctx.Media
 		if src == nil {
 			return
 		}
-		players := src.Players()
-		if len(players) < 2 {
-			return
+		if next, ok := nextAfter(src.Players(), func(p mpris.Player) bool { return p.BusName == current.BusName }); ok {
+			written(src.SetActive(next.BusName))
 		}
-		i := 0
-		for j, p := range players {
-			if p.BusName == current.BusName {
-				i = j
-			}
-		}
-		written(src.SetActive(players[(i+1)%len(players)].BusName))
 	}, css.Ghost, css.Icon, css.Small)
 	switchBtn.AddClass("media-switch-btn")
-	card := v.card("ld-disc-3-symbolic", i18n.T("dropdown-dashboard-now-playing"), switchBtn)
+	card := v.card("ld-disc-3-symbolic", i18n.T("dropdown-dashboard-now-playing"))
+	card.SetVisible(false)
 	artPx := int(math.Round(v.px * 3.5))
 	art := widget.NewBox(widget.Row, 0, 0)
 	widgets.Pin(art, artPx, artPx)
 	art.AddClass("dashboard-media-art")
 	art.AddClass("dashboard-media-art-instance-" + strconv.FormatUint(dashboardArtInstances.Add(1), 10))
 	artURL := "\x00"
-	title := v.label("")
-	title.AddClass("media-track", css.Heading)
-	artist := v.label("")
-	artist.AddClass("media-artist", css.DimLabel)
-	for _, l := range []*widget.Label{title, artist} {
-		l.SetEllipsize(widget.EllipsizeEnd)
-		// xalign 0 under a natural-width cap of one character.
-		l.SetAlignment(render.AlignStart)
-		l.SetMaxWidthChars(1)
-	}
+	title := v.cappedLabel("media-track", css.Heading)
+	artist := v.cappedLabel("media-artist", css.DimLabel)
 	th := widget.Current()
 	info := widget.NewBox(widget.Column, 0, 0)
 	info.AddClass("media-info")
@@ -504,6 +524,7 @@ func (v *dashboardView) media() widget.Widget {
 	controls.AppendAligned(prev, false, widget.AlignCenter)
 	controls.AppendAligned(play, false, widget.AlignCenter)
 	controls.AppendAligned(next, false, widget.AlignCenter)
+	controls.AppendAligned(switchBtn, false, widget.AlignCenter)
 	compact := widget.NewBox(widget.Row, th.Spacing, 0)
 	compact.AddClass("media-compact")
 	compact.AppendAligned(art, false, widget.AlignCenter)
@@ -536,18 +557,8 @@ func (v *dashboardView) media() widget.Widget {
 	progress.AddClass("media-progress")
 	progress.Append(seek, false)
 	progress.Append(times, false)
-	player := widget.NewBox(widget.Column, th.Spacing, 0)
-	player.Append(compact, false)
-	player.Append(progress, false)
-
-	// The empty state is expand with align Center (the EmptyState
-	// template); the page fills the stack and centers it.
-	empty := widgets.EmptyState(v.font, v.px, "ld-music-symbolic", i18n.T("dropdown-dashboard-no-media-title"), i18n.T("dropdown-dashboard-no-media-description"))
-	emptyPage := vcentered(widget.NewBox(widget.Column, 0, 0), empty)
-	body := pageStack()
-	body.Add("player", player)
-	body.Add("empty", emptyPage)
-	card.Append(body, false)
+	card.Append(compact, false)
+	card.Append(progress, false)
 	card.Append(failed, false)
 
 	var polledBus atomic.Value
@@ -557,24 +568,19 @@ func (v *dashboardView) media() widget.Widget {
 	}
 	v.refreshers = append(v.refreshers, func(dashboardReadings) {
 		src := v.ctx.Media
-		if src == nil {
-			current, has = mpris.Player{}, false
-			polledBus.Store("")
-			switchBtn.SetVisible(false)
-			body.Show("empty")
-			seek.Set(0)
-			return
+		has := false
+		if src != nil {
+			current, has = src.Active()
 		}
-		current, has = src.Active()
-		switchBtn.SetVisible(len(src.Players()) > 1)
+		card.SetVisible(has)
 		if !has {
+			current = mpris.Player{}
 			polledBus.Store("")
-			body.Show("empty")
 			seek.Set(0)
 			return
 		}
+		switchBtn.SetVisible(len(src.Players()) > 1)
 		polledBus.Store(current.BusName)
-		body.Show("player")
 		title.SetText(current.Title)
 		artist.SetText(current.Artist)
 		if current.ArtURL != artURL {
@@ -608,11 +614,12 @@ func (v *dashboardView) media() widget.Widget {
 	return card
 }
 
-// infoRow is the battery and network cards side by side; without a
-// battery the network card has the row.
+// infoRow is the battery and network cards side by side at equal
+// widths; without a battery the network card has the row.
 func (v *dashboardView) infoRow() widget.Widget {
 	row := widget.NewBox(widget.Row, widget.Current().Spacing, 0)
 	row.AddClass("dashboard-info-row")
+	row.SetHomogeneous(true)
 	if v.ctx.Battery != nil {
 		row.Append(v.battery(), true)
 	}
@@ -634,40 +641,25 @@ func dashboardBatteryIcon(percent float64, charging bool) string {
 	return "ld-battery-warning-symbolic"
 }
 
-// dashboardBatteryTime is "~1h 5m" or "~5m",
-// empty without an estimate.
-func dashboardBatteryTime(secs int64) string {
-	if secs <= 0 {
+func dashboardChargeLimit(dev upower.Device) string {
+	if !dev.ChargeThresholdSupported || !dev.ChargeThresholdEnabled {
 		return ""
 	}
-	h, m := secs/3600, (secs%3600)/60
-	if h > 0 {
-		return i18n.T("dropdown-dashboard-battery-time-hm", i18n.Str("hours", strconv.FormatInt(h, 10)), i18n.Str("minutes", strconv.FormatInt(m, 10)))
-	}
-	return i18n.T("dropdown-dashboard-battery-time-m", i18n.Str("minutes", strconv.FormatInt(m, 10)))
+	return i18n.T("dropdown-battery-limit-to", i18n.Str("threshold", strconv.FormatUint(uint64(dev.ChargeEndThreshold), 10)))
 }
 
-// dashboardProfile is the active power profile's label and icon.
-func dashboardProfile(active string) (label, icon string) {
-	switch active {
-	case powerprofiles.ProfilePowerSaver:
-		return i18n.T("dropdown-dashboard-battery-profile-saver"), "ld-leaf-symbolic"
-	case powerprofiles.ProfilePerformance:
-		return i18n.T("dropdown-dashboard-battery-profile-performance"), "ld-zap-symbolic"
-	}
-	return i18n.T("dropdown-dashboard-battery-profile-balanced"), "ld-scale-symbolic"
-}
-
-// battery is the battery card: icon, percent, gauge, time left, and the
-// power profile, tinted by the dashboard's battery thresholds. The card
-// shows only while a battery is present: a desktop's UPower display device, or
-// none at all, leaves the network card the row.
+// battery is the battery card: icon and percent, the gauge, then what
+// the power-saver toggle cannot say: whether it charges, the time left
+// or until full, and the charge limit in force, tinted by the
+// dashboard's battery thresholds. The card shows only while a battery
+// is present: a desktop's UPower display device, or none at all, leaves
+// the network card the row.
 func (v *dashboardView) battery() widget.Widget {
 	card := v.card("ld-battery-full-symbolic", i18n.T("dropdown-dashboard-battery"))
 	card.SetVisible(false)
 	cfg := v.ctx.Config.Dashboard
 	th := widget.Current()
-	status := widget.NewBox(widget.Row, th.Spacing, 0)
+	status := widget.NewBox(widget.Row, th.Spacing/2, 0)
 	status.AddClass("battery-status")
 	icon := widget.NewThemeIcon("ld-battery-full-symbolic", itemIconPx)
 	icon.AddClass("battery-icon")
@@ -679,18 +671,12 @@ func (v *dashboardView) battery() widget.Widget {
 	gauge := widget.NewProgressBar(0)
 	gauge.AddClass("progress-bar")
 	card.Append(gauge, false)
-	remaining := v.label("")
-	remaining.AddClass("battery-detail", css.Caption, css.DimLabel)
+	state := v.cappedLabel("battery-state", css.Caption)
+	card.Append(state, false)
+	remaining := v.cappedLabel("battery-detail", css.Caption, css.DimLabel)
 	card.Append(remaining, false)
-	profileRow := widget.NewBox(widget.Row, th.Spacing/2, 0)
-	profileRow.AddClass("battery-profile")
-	profileIcon := widget.NewThemeIcon("ld-scale-symbolic", int(math.Round(sectionLabelPx())))
-	profileIcon.AddClass("battery-profile-icon")
-	profileLabel := v.label("")
-	profileLabel.AddClass("battery-profile-label", css.Caption, css.DimLabel)
-	profileRow.AppendAligned(profileIcon, false, widget.AlignCenter)
-	profileRow.AppendAligned(profileLabel, false, widget.AlignCenter)
-	card.Append(profileRow, false)
+	limit := v.cappedLabel("battery-limit", css.Caption, css.DimLabel)
+	card.Append(limit, false)
 	v.refreshers = append(v.refreshers, func(r dashboardReadings) {
 		dev := r.battery
 		card.SetVisible(r.batteryOK && dev.IsPresent)
@@ -700,38 +686,23 @@ func (v *dashboardView) battery() widget.Widget {
 		pct := dev.Percentage
 		warning := pct <= float64(cfg.BatteryWarning) && pct > float64(cfg.BatteryCritical)
 		critical := pct <= float64(cfg.BatteryCritical)
-		// The thresholds are state classes: .battery-icon, .battery-percent,
-		// and .battery-detail carry warning/critical, the gauge success,
-		// warning, or error.
 		icon.SetThemeName(dashboardBatteryIcon(pct, batteryCharging(dev.State)))
-		setClass(icon, "warning", warning)
-		setClass(icon, "critical", critical)
 		percent.SetText(strconv.FormatFloat(pct, 'f', 0, 64) + "%")
-		setClass(percent, "warning", warning)
-		setClass(percent, "critical", critical)
+		for _, w := range []classer{icon, percent, remaining} {
+			setClass(w, "warning", warning)
+			setClass(w, "critical", critical)
+		}
 		gauge.SetValue(pct / 100)
 		setClass(gauge, "success", !warning && !critical)
 		setClass(gauge, "warning", warning)
 		setClass(gauge, "error", critical)
-		var secs int64
-		switch dev.State {
-		case upower.StateDischarging:
-			secs = int64(dev.TimeToEmpty / time.Second)
-		case upower.StateCharging:
-			secs = int64(dev.TimeToFull / time.Second)
-		}
-		remaining.SetText(dashboardBatteryTime(secs))
-		remaining.SetVisible(secs > 0)
-		// battery-detail carries the thresholds like the icon and the
-		// percent.
-		setClass(remaining, "warning", warning)
-		setClass(remaining, "critical", critical)
-		profileRow.SetVisible(r.profiles.Available)
-		if r.profiles.Available {
-			label, glyph := dashboardProfile(r.profiles.Active)
-			profileLabel.SetText(label)
-			profileIcon.SetThemeName(glyph)
-		}
+		state.SetText(batteryStateLabel(dev))
+		left := batteryTimeDisplay(dev)
+		remaining.SetText(left)
+		remaining.SetVisible(left != "")
+		held := dashboardChargeLimit(dev)
+		limit.SetText(held)
+		limit.SetVisible(held != "")
 	})
 	return card
 }
@@ -746,29 +717,30 @@ func dashboardSpeed(bytesPerSec uint64) (value string, mega bool) {
 	return strconv.FormatFloat(kbps/1024, 'f', 1, 64), true
 }
 
-// network: upload and download across every
-// interface, "--" while disconnected.
+// network: upload and download across every interface, each its arrow,
+// value and unit on one line, "--" while disconnected.
 func (v *dashboardView) network() widget.Widget {
 	card := v.card("ld-wifi-symbolic", i18n.T("dropdown-dashboard-network"))
-	speeds := widget.NewBox(widget.Row, widget.Current().Spacing, 0)
+	th := widget.Current()
+	speeds := widget.NewBox(widget.Column, th.Spacing/2, 0)
 	speeds.AddClass("network-speeds")
 	type stat struct {
 		box          *widget.Box
 		value, units *widget.Label
 	}
 	mk := func(glyph, dir string) stat {
-		s := stat{box: widget.NewBox(widget.Column, 0, 0)}
+		s := stat{box: widget.NewBox(widget.Row, th.Spacing/2, 0)}
 		s.box.AddClass("speed-stat", dir)
 		icon := widget.NewThemeIcon(glyph, itemIconPx)
 		icon.AddClass("speed-arrow")
-		s.box.AppendAligned(icon, false, widget.AlignStart)
+		s.box.AppendAligned(icon, false, widget.AlignCenter)
 		s.value = v.label("--")
 		s.value.AddClass("speed-value", css.LargeText, css.Numeric)
 		s.units = v.label(i18n.T("dropdown-dashboard-network-speed-kbs"))
 		s.units.AddClass("speed-unit", css.Caption, css.DimLabel)
-		s.box.Append(s.value, false)
-		s.box.Append(s.units, false)
-		speeds.Append(s.box, true)
+		s.box.AppendAligned(s.value, false, widget.AlignBaseline)
+		s.box.AppendAligned(s.units, false, widget.AlignBaseline)
+		speeds.Append(s.box, false)
 		return s
 	}
 	up, down := mk("ld-arrow-up-symbolic", "up"), mk("ld-arrow-down-symbolic", "down")
@@ -1105,6 +1077,9 @@ func (v *dashboardView) firstControl() widget.Widget {
 }
 
 func focusablesUnder(w widget.Widget, out []widget.Widget) []widget.Widget {
+	if v, ok := w.(interface{ Visible() bool }); ok && !v.Visible() {
+		return out
+	}
 	if widget.Describe(w).Focusable {
 		out = append(out, w)
 	}

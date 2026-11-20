@@ -83,7 +83,7 @@ func (d *dashboardKeys) openHoldingKeys() {
 	d.awaitReads(reads + 1)
 	apptest.Until(d.t, d.a, "the dashboard holds the keyboard, laid out", func() bool {
 		held := d.a.Session().KeyboardFocus()
-		return held != nil && held != d.window.HostSurface() && d.current != nil && rectOf(d.current).W > 0
+		return held != nil && held != d.window.HostSurface() && d.current != nil && rectOf(d.current).W > 0 && rectOf(d.view.scroll).H > 0
 	})
 }
 
@@ -420,8 +420,16 @@ func TestDashboardFocusShowsOnEveryControl(t *testing.T) {
 	if len(controls) < 10 {
 		t.Fatalf("%d controls take focus, want the header's, the tiles, volume, media and session", len(controls))
 	}
+	tile := v.quick.Children()[3]
+	if err := r.SetFocus(tile); err != nil {
+		t.Fatalf("focus the tile: %v", err)
+	}
+	if regionDiffers(rest, repaint(root), w, boundsOf(tile)) {
+		t.Error("a pointer's focus on a quick action paints a state of its own beside on, off and hover")
+	}
+	r.FocusNext()
 	for _, c := range controls {
-		if err := r.SetFocus(c); err != nil {
+		if err := r.SetFocusLike(c, r.Focused()); err != nil {
 			t.Fatalf("focus %T: %v", c, err)
 		}
 		focused := repaint(root)

@@ -41,20 +41,37 @@ func TestDashboardBatteryHelpers(t *testing.T) {
 			t.Errorf("%v%% charging=%v = %q, want %q", tc.pct, tc.charging, got, tc.want)
 		}
 	}
-	if got := dashboardBatteryTime(3900); got != i18n.T("dropdown-dashboard-battery-time-hm", i18n.Str("hours", "1"), i18n.Str("minutes", "5")) {
-		t.Errorf("1h5m = %q", got)
+	held := upower.Device{ChargeThresholdSupported: true, ChargeThresholdEnabled: true, ChargeEndThreshold: 80}
+	if got, want := dashboardChargeLimit(held), i18n.T("dropdown-battery-limit-to", i18n.Str("threshold", "80")); got != want {
+		t.Errorf("a limit in force reads %q, want %q", got, want)
 	}
-	if got := dashboardBatteryTime(300); got != i18n.T("dropdown-dashboard-battery-time-m", i18n.Str("minutes", "5")) {
-		t.Errorf("5m = %q", got)
+	for _, dev := range []upower.Device{
+		{ChargeThresholdSupported: true, ChargeEndThreshold: 80},
+		{ChargeThresholdEnabled: true, ChargeEndThreshold: 80},
+	} {
+		if got := dashboardChargeLimit(dev); got != "" {
+			t.Errorf("no limit in force (supported %v, enabled %v) reads %q", dev.ChargeThresholdSupported, dev.ChargeThresholdEnabled, got)
+		}
 	}
-	if dashboardBatteryTime(0) != "" {
-		t.Error("no estimate rendered a time")
-	}
-	if label, icon := dashboardProfile(powerprofiles.ProfilePowerSaver); icon != "ld-leaf-symbolic" || label != i18n.T("dropdown-dashboard-battery-profile-saver") {
-		t.Errorf("saver = %q %q", label, icon)
-	}
-	if _, icon := dashboardProfile("weird"); icon != "ld-scale-symbolic" {
-		t.Errorf("unknown profile icon = %q, want balanced's", icon)
+}
+
+func TestNextAfterSwitchesToTheFollowingItem(t *testing.T) {
+	is := func(want string) func(string) bool { return func(s string) bool { return s == want } }
+	for _, c := range []struct {
+		items   []string
+		current string
+		want    string
+		ok      bool
+	}{
+		{[]string{"a", "b", "c"}, "a", "b", true},
+		{[]string{"a", "b", "c"}, "c", "a", true},
+		{[]string{"a", "b"}, "gone", "a", true},
+		{[]string{"a"}, "a", "", false},
+		{nil, "a", "", false},
+	} {
+		if got, ok := nextAfter(c.items, is(c.current)); got != c.want || ok != c.ok {
+			t.Errorf("nextAfter(%v, %q) = %q, %v; want %q, %v", c.items, c.current, got, ok, c.want, c.ok)
+		}
 	}
 }
 
@@ -214,23 +231,68 @@ func TestDashboardMediaAndBatterySections(t *testing.T) {
 		}
 		return true
 	})
-	for _, want := range []string{"Song", "Band", "8%", i18n.T("dropdown-dashboard-battery-time-m", i18n.Str("minutes", "20")), i18n.T("dropdown-dashboard-now-playing")} {
+	dev := upower.Device{Percentage: 8, State: upower.StateDischarging, TimeToEmpty: 20 * time.Minute}
+	for _, want := range []string{"Song", "Band", "8%", batteryTimeDisplay(dev), batteryStateLabel(dev), i18n.T("dropdown-dashboard-now-playing")} {
 		if !texts[want] {
 			t.Errorf("dashboard is missing %q", want)
 		}
 	}
-	// Without a player the media card shows the empty state.
-	ctx.Media = newFakeMedia()
-	v = noRadiosDashboard(ctx).(*dashboardView)
-	found := false
+}
+
+func mediaCard(t *testing.T, v *dashboardView) *widget.Box {
+	t.Helper()
+	return dashboardCardHeaded(t, v, i18n.T("dropdown-dashboard-now-playing"))
+}
+
+func dashboardCardHeaded(t *testing.T, v *dashboardView, heading string) *widget.Box {
+	t.Helper()
+	var found *widget.Box
 	walkTree(v, func(w widget.Widget) bool {
-		if s, ok := w.(*widget.Stack); ok && s.Visible() == "empty" {
-			found = true
+		b, ok := w.(*widget.Box)
+		if !ok || !b.HasClass("dashboard-card") {
+			return true
 		}
-		return true
+		walkTree(b, func(c widget.Widget) bool {
+			if l, ok := c.(*widget.Label); ok && l.Text() == heading {
+				found = b
+			}
+			return true
+		})
+		return found == nil
 	})
-	if !found {
-		t.Error("no player did not show the empty state")
+	if found == nil {
+		t.Fatalf("no dashboard card headed %q", heading)
+	}
+	return found
+}
+
+func TestTheMediaCardShowsOnlyWhileAPlayerIsActive(t *testing.T) {
+	ctx := newTestContext(t, config.Defaults())
+	media := newFakeMedia()
+	ctx.Media = media
+	v := noRadiosDashboard(ctx).(*dashboardView)
+	if mediaCard(t, v).Visible() {
+		t.Error("the media card takes room with nothing playing")
+	}
+	set := func(players ...mpris.Player) {
+		fresh := newFakeMedia(players...)
+		media.mu.Lock()
+		media.players, media.active = fresh.players, fresh.active
+		media.mu.Unlock()
+	}
+	set(mpris.Player{BusName: "org.mpris.MediaPlayer2.x", Title: "Song", State: mpris.StatePlaying})
+	v.refreshAll()
+	if !mediaCard(t, v).Visible() {
+		t.Error("the media card stays hidden while a player is active")
+	}
+	set()
+	v.refreshAll()
+	if mediaCard(t, v).Visible() {
+		t.Error("the media card stays once the player is gone")
+	}
+	ctx.Media = nil
+	if mediaCard(t, noRadiosDashboard(ctx).(*dashboardView)).Visible() {
+		t.Error("the media card shows without a media service")
 	}
 }
 
@@ -273,9 +335,9 @@ func TestDashboardContentPadsOutsideTheScroll(t *testing.T) {
 	}
 }
 
-// The volume and media cards are always in the tree; their no-device
-// and empty states live inside.
-func TestDashboardAlwaysShowsTheVolumeAndMediaCards(t *testing.T) {
+// The volume card is always in the tree with its no-device state
+// inside; the media card is there to show once a player is.
+func TestDashboardAlwaysHoldsTheVolumeAndMediaCards(t *testing.T) {
 	cfg := config.Defaults()
 	ctx := newTestContext(t, cfg) // no Pulse, no Media
 	v := noRadiosDashboard(ctx).(*dashboardView)
@@ -312,7 +374,7 @@ func TestDashboardAlwaysShowsTheVolumeAndMediaCards(t *testing.T) {
 		t.Error("the volume row is live without a device")
 	}
 	if l := classedBox(t, volumeCard, "dashboard-controls").Children(); len(l) != 2 {
-		t.Errorf("dashboard-controls children = %d, want the row and the device label", len(l))
+		t.Errorf("dashboard-controls children = %d, want the row and the device row", len(l))
 	}
 	// Negative: the slider row is wrapped, not a bare card child.
 	for _, c := range volumeCard.Children() {
@@ -320,21 +382,14 @@ func TestDashboardAlwaysShowsTheVolumeAndMediaCards(t *testing.T) {
 			t.Error("the slider row hangs off the bare card")
 		}
 	}
-	// No player: the media card shows the empty state.
-	var stack *widget.Stack
-	walkTree(mediaCard, func(w widget.Widget) bool {
-		if s, ok := w.(*widget.Stack); ok {
-			stack = s
-		}
-		return true
-	})
-	if stack == nil || stack.Visible() != "empty" {
-		t.Errorf("no player: the media stack = %v, want the empty page", stack)
+	if mediaCard.Visible() {
+		t.Error("no player: the media card shows")
 	}
 	// Positive control: with services the cards drive them.
 	ctx.Pulse = &fakePulseSource{dev: pulse.Device{Name: "out", Description: "Speakers", Volume: pct(42)}, ticks: make(chan struct{}, 2)}
 	ctx.Media = newFakeMedia(mpris.Player{BusName: "org.mpris.MediaPlayer2.x", Title: "Song", Artist: "Band", State: mpris.StatePlaying})
 	v = noRadiosDashboard(ctx).(*dashboardView)
+	v.refreshAll()
 	walkTree(v, func(w widget.Widget) bool {
 		if b, ok := w.(*widget.Box); ok && b.HasClass("dashboard-slider-row") && b.Enabled() {
 			volumeCard = b
@@ -380,33 +435,13 @@ func TestDashboardBatteryDetailCarriesTheThresholdClasses(t *testing.T) {
 	}
 }
 
-// The media empty state centers in its card with the sm glyph, the
-// art carries the per-instance class, and the track labels cap their
-// natural width.
-func TestDashboardMediaEmptyStateArtAndLabels(t *testing.T) {
+// The art carries the per-instance class, and the track labels cap
+// their natural width.
+func TestDashboardMediaArtAndLabels(t *testing.T) {
 	cfg := config.Defaults()
 	ctx := newTestContext(t, cfg)
-	v := noRadiosDashboard(ctx).(*dashboardView)
-	empty, ok := findByClass(v, "empty-state").(*widget.StatusPage)
-	if !ok {
-		t.Fatal("no empty-state")
-	}
-	icon := treetest.First[*widget.Icon](t, empty)
-	arrangeDropdown(t, v, 400, 600)
-	card, isBox := empty.Parent().(*widget.Box)
-	if !isBox {
-		t.Fatalf("the empty state's page parent = %T, want a box", empty.Parent())
-	}
-	eb, cb := empty.Bounds(), card.Bounds()
-	if center := eb.X + eb.W/2; abs(center-(cb.X+cb.W/2)) > 3 {
-		t.Errorf("the empty state centers at %d, the card at %d", center, cb.X+cb.W/2)
-	}
-	_ = icon
-
-	// With a player: the art carries the per-instance class and the
-	// track labels cap at one character from the start.
 	ctx.Media = newFakeMedia(mpris.Player{BusName: "org.mpris.MediaPlayer2.x", Title: "A Very Long Song Title That Should Cap", Artist: "Band", State: mpris.StatePlaying})
-	v = noRadiosDashboard(ctx).(*dashboardView)
+	v := noRadiosDashboard(ctx).(*dashboardView)
 	var artClasses []string
 	walkTree(v, func(w widget.Widget) bool {
 		if h, ok := w.(interface {

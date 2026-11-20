@@ -22,8 +22,6 @@ dropdown-dashboard-no-device = No hay dispositivo de salida
 
 ## Media
 dropdown-dashboard-now-playing = Reproduciendo ahora
-dropdown-dashboard-no-media-title = Sin multimedia
-dropdown-dashboard-no-media-description = No se está reproduciendo nada
 
 ## Battery
 dropdown-dashboard-battery = Batería
@@ -34,11 +32,6 @@ dropdown-dashboard-battery-pending-charge = Carga pendiente
 dropdown-dashboard-battery-pending-discharge = Descarga pendiente
 dropdown-dashboard-battery-empty = Vacía
 dropdown-dashboard-battery-unknown = Desconocido
-dropdown-dashboard-battery-time-hm = ~{ $hours } h { $minutes } min
-dropdown-dashboard-battery-time-m = ~{ $minutes } min
-dropdown-dashboard-battery-profile-saver = Ahorro de energía
-dropdown-dashboard-battery-profile-balanced = Equilibrado
-dropdown-dashboard-battery-profile-performance = Rendimiento
 
 ## Network
 dropdown-dashboard-network = Red
@@ -56,3 +49,4 @@ dropdown-dashboard-ram = RAM
 dropdown-dashboard-disk = Disco
 dropdown-dashboard-temp = Temp. CPU
 dropdown-dashboard-switch-player = Cambiar de reproductor
+dropdown-dashboard-switch-output = Cambiar de salida
