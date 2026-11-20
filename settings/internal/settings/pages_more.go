@@ -239,7 +239,7 @@ func launcherModesPage(*config.Config) pageSpec {
 			field("launcher.search.providers", enumList),
 			field(webEnginePath, webEngineRow),
 			field("launcher.search.file-roots", folderList),
-			field("launcher.search.file-exclude", stringList),
+			field("launcher.search.file-exclude", fileExcludeRow),
 			field("launcher.search.commands-dir"),
 			field("launcher.search.currency-rates"),
 			field("launcher.search.previews"),

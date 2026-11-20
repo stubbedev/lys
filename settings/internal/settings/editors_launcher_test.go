@@ -4,6 +4,8 @@ import (
 	"reflect"
 	"slices"
 	"testing"
+
+	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
 const (
@@ -105,6 +107,63 @@ func TestANegationCharacterOutsideTheThreeIsKeptAndShown(t *testing.T) {
 	c.refresh()
 	if len(c.Items()) != 3 || k.store.value("launcher.negate-char") != "!" {
 		t.Fatalf("after picking ! it offers %q, stored %v", c.Items(), k.store.value("launcher.negate-char"))
+	}
+}
+
+func fileExclude(t *testing.T, k *kit) *nameChips {
+	t.Helper()
+	c, ok := fieldControl(k, k.store, pageRow(t, "launcher-modes", "launcher.search.file-exclude")).(*nameChips)
+	if !ok {
+		t.Fatal("the skipped folders are not chips")
+	}
+	return c
+}
+
+func TestSkippedFoldersAreExampleChipsThatToggleTheirName(t *testing.T) {
+	k := testKit(t, "launcher:\n  search:\n    file-exclude: [build-cache]\n")
+	c := fileExclude(t, k)
+	if want := append(slices.Clone(skippedFolderExamples), "build-cache"); !slices.Equal(c.labels, want) {
+		t.Fatalf("chips %q, want %q", c.labels, want)
+	}
+	if !c.toggles[len(c.labels)-1].Active() || c.toggles[0].Active() {
+		t.Fatal("the chips do not show what is skipped")
+	}
+	c.toggles[slices.Index(c.labels, "Downloads")].SetActive(true)
+	if got := k.store.value("launcher.search.file-exclude"); !reflect.DeepEqual(got, []any{"build-cache", "Downloads"}) {
+		t.Fatalf("stored %v", got)
+	}
+	c.toggles[slices.Index(c.labels, "build-cache")].SetActive(false)
+	if got := k.store.value("launcher.search.file-exclude"); !reflect.DeepEqual(got, []any{"Downloads"}) {
+		t.Fatalf("stored %v", got)
+	}
+	if slices.Contains(c.labels, "build-cache") {
+		t.Fatal("a removed name of the user's own is still a chip")
+	}
+}
+
+func TestATypedFolderNameIsAddedOnlyWhenItIsAName(t *testing.T) {
+	k := testKit(t, "")
+	c := fileExclude(t, k)
+	tr := locale.T()
+	for typed, key := range map[string]string{"": "settings-folder-name-empty", "src/gen": "settings-folder-name-slash"} {
+		c.entry.SetText(typed)
+		c.add()
+		if !c.problem.Visible() || c.problem.Text() != tr.Get(key) {
+			t.Errorf("%q shows %q", typed, c.problem.Text())
+		}
+		if got := k.store.value("launcher.search.file-exclude"); !reflect.DeepEqual(got, []any{}) {
+			t.Fatalf("%q stored %v", typed, got)
+		}
+	}
+	c.entry.SetText(" gen ")
+	c.add()
+	if got := k.store.value("launcher.search.file-exclude"); !reflect.DeepEqual(got, []any{"gen"}) || c.problem.Visible() || c.entry.Text() != "" {
+		t.Fatalf("stored %v, problem %v, entry %q", got, c.problem.Visible(), c.entry.Text())
+	}
+	c.entry.SetText("gen")
+	c.add()
+	if c.problem.Text() != tr.Get("settings-folder-name-listed") {
+		t.Fatalf("a repeat shows %q", c.problem.Text())
 	}
 }
 
