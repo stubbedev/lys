@@ -2153,6 +2153,7 @@
       "power/internal/profiles",
       "power/internal/sleepcheck",
       "power/internal/supply",
+      "power/internal/wakesource",
       "power/sleep"
     ]
   },
@@ -2218,7 +2219,8 @@
     "imports": [
       "power/internal/devicepower",
       "power/internal/meter",
-      "power/internal/supply"
+      "power/internal/supply",
+      "power/internal/wakesource"
     ]
   },
   "power/internal/daemon": {
@@ -2241,6 +2243,7 @@
       "power/internal/sleepd",
       "power/internal/statefile",
       "power/internal/supply",
+      "power/internal/wakesource",
       "power/nap"
     ],
     "testImports": [
@@ -2341,6 +2344,11 @@
   },
   "power/internal/statefile": {},
   "power/internal/supply": {
+    "imports": [
+      "lib/intconv"
+    ]
+  },
+  "power/internal/wakesource": {
     "imports": [
       "lib/intconv"
     ]

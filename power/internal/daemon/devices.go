@@ -12,6 +12,7 @@ import (
 	"github.com/stubbedev/lys/power/internal/config"
 	"github.com/stubbedev/lys/power/internal/devicepower"
 	"github.com/stubbedev/lys/power/internal/supply"
+	"github.com/stubbedev/lys/power/internal/wakesource"
 )
 
 var ErrNoBus = errors.New("without the system bus, TLP, auto-cpufreq and tuned cannot be ruled out")
@@ -92,8 +93,47 @@ type deviceFollower struct {
 	cfg     config.Config
 	conn    *dbus.Conn
 	log     *slog.Logger
+	wake    USBWake
 	at      devicepower.Source
 	applied bool
+}
+
+// USBWake keeps removable USB devices from waking the machine on battery,
+// when the user opted in, and gives wakeup back on AC to the devices it
+// took it from.
+type USBWake struct {
+	mode  wakesource.Mode
+	sys   wakesource.Sysfs
+	taken map[string]bool
+}
+
+// NewUSBWake follows cfg's USB wake policy.
+func NewUSBWake(cfg config.Config) USBWake {
+	return USBWake{mode: cfg.USBWake, sys: wakesource.Sysfs{Root: cfg.SysDir, Proc: cfg.ProcDir}, taken: map[string]bool{}}
+}
+
+// Follow applies the policy for source and returns what it changed.
+func (w USBWake) Follow(source devicepower.Source) ([]wakesource.Change, error) {
+	if w.mode == wakesource.ModeKeep {
+		return nil, nil
+	}
+	usb, err := w.sys.USB()
+	if err != nil {
+		return nil, fmt.Errorf("listing the USB wake sources: %w", err)
+	}
+	changes := wakesource.Restore(usb, w.taken)
+	if source == devicepower.OnBattery {
+		changes = wakesource.Plan(usb, w.mode, true)
+	}
+	err = wakesource.Apply(changes)
+	for _, c := range changes {
+		if source == devicepower.OnBattery {
+			w.taken[c.Device.Path] = true
+		} else {
+			delete(w.taken, c.Device.Path)
+		}
+	}
+	return changes, err
 }
 
 func (f *deviceFollower) follow(ctx context.Context) {
@@ -108,6 +148,13 @@ func (f *deviceFollower) follow(ctx context.Context) {
 	f.at, f.applied = source, true
 	if err := ApplyDevices(ctx, f.cfg, f.conn, f.log, source); err != nil {
 		f.log.Error("device power", "err", err)
+	}
+	changes, err := f.wake.Follow(source)
+	for _, c := range changes {
+		f.log.Info("USB wake", "device", c.Device.Name, "product", c.Device.Product, "wakeup", c.Want)
+	}
+	if err != nil {
+		f.log.Error("USB wake", "err", err)
 	}
 }
 

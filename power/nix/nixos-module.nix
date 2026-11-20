@@ -37,6 +37,17 @@ in {
         description = "Devices the device power policy never touches, as pci:vendor:device or usb:vendor:product.";
       };
     };
+
+    usbWake = lib.mkOption {
+      type = lib.types.enum ["keep" "battery"];
+      default = "keep";
+      description = ''
+        Whether removable USB devices may wake the machine: `keep` leaves
+        every device's wakeup alone; `battery` disables it on removable USB
+        devices on battery, so a mouse bumped in a bag does not wake a
+        closed laptop, and enables it again on AC.
+      '';
+    };
   };
 
   config = lib.mkMerge [
@@ -54,6 +65,7 @@ in {
         environment = {
           LYS_POWER_DEVICE_POLICY = cfg.devicePower.policy;
           LYS_POWER_DEVICE_DENY = lib.concatStringsSep " " cfg.devicePower.deny;
+          LYS_POWER_USB_WAKE = cfg.usbWake;
         };
       };
     })

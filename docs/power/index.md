@@ -261,6 +261,18 @@ The last ten sleeps are kept in `/var/lib/lys-power/sleeps`, printed by
 lys-shell notifies once after each shallow sleep on battery with its drain
 and what kept it shallow or woke it; a good sleep raises nothing.
 
+## Wake sources
+
+`lys-power status` lists what may wake the machine: the ACPI devices
+enabled in `/proc/acpi/wakeup` and the USB devices whose `power/wakeup` is
+enabled. With `LYS_POWER_USB_WAKE=battery` lys-power disables wakeup on
+every USB device the firmware places on a removable port while on battery,
+since a mouse bumped in a bag wakes a closed laptop, and enables it again on
+AC for the devices it disabled. Hubs, whose wakeup carries that of the
+built-in keyboard and touchpad behind them, and devices on fixed or
+undescribed ports keep theirs. The default, `keep`, leaves every device
+alone.
+
 ## Automatic brightness
 
 Automatic brightness sets the backlight from the light in the room. It is off
@@ -380,6 +392,7 @@ writing the same thresholds work against each other.
 | `services.lys-power.autoBrightness.enable` | `false` | Start the `lys-power-brightness` user service, [automatic brightness](#automatic-brightness), with every graphical session. |
 | `services.lys-power.devicePower.policy` | `"battery"` | When idle devices power down, `"battery"`, `"always"` or `"off"`: see [device power](#device-power). |
 | `services.lys-power.devicePower.deny` | `[]` | Devices the device power policy never touches, such as `"usb:046d:c52b"`. |
+| `services.lys-power.usbWake` | `"keep"` | `"battery"` keeps removable USB devices from waking the machine on battery: see [wake sources](#wake-sources). |
 
 The module installs `lys-power`, its system unit, wanted by
 `graphical.target`, and the tmpfiles rule that creates `/run/battery-charge`.

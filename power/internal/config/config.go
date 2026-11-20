@@ -13,6 +13,7 @@ import (
 	"github.com/stubbedev/lys/power/internal/devicepower"
 	"github.com/stubbedev/lys/power/internal/meter"
 	"github.com/stubbedev/lys/power/internal/supply"
+	"github.com/stubbedev/lys/power/internal/wakesource"
 )
 
 const (
@@ -129,6 +130,9 @@ type Config struct {
 	UserRunDir string
 	SysDir     string
 	Devices    devicepower.Overrides
+	// USBWake is whether removable USB devices may wake the machine on
+	// battery.
+	USBWake wakesource.Mode
 }
 
 // Load reads the configuration, applying LYS_POWER_* environment overrides.
@@ -136,6 +140,10 @@ func Load() (Config, error) {
 	devices, err := loadDevices()
 	if err != nil {
 		return Config{}, err
+	}
+	usbWake, err := wakesource.ParseMode(env("LYS_POWER_USB_WAKE", wakesource.ModeKeep.String()))
+	if err != nil {
+		return Config{}, fmt.Errorf("reading LYS_POWER_USB_WAKE: %w", err)
 	}
 	return Config{
 		SupplyDir:   env("LYS_POWER_SUPPLY_DIR", DefaultSupplyDir),
@@ -149,6 +157,7 @@ func Load() (Config, error) {
 		UserRunDir:  env("LYS_POWER_USER_RUN_DIR", DefaultUserRunDir),
 		SysDir:      env("LYS_POWER_SYS_DIR", DefaultSysDir),
 		Devices:     devices,
+		USBWake:     usbWake,
 	}, nil
 }
 

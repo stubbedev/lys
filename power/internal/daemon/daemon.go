@@ -310,7 +310,7 @@ func Run(ctx context.Context, cfg config.Config, log *slog.Logger) error {
 	signal.Notify(hup, syscall.SIGHUP)
 	defer signal.Stop(hup)
 
-	devices := deviceFollower{cfg: cfg, conn: conn, log: log}
+	devices := deviceFollower{cfg: cfg, conn: conn, log: log, wake: NewUSBWake(cfg)}
 	for {
 		now := time.Now()
 		result, err := Eval(cfg, log, now, pc)

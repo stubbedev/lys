@@ -30,6 +30,7 @@ import (
 	"github.com/stubbedev/lys/power/internal/profiles"
 	"github.com/stubbedev/lys/power/internal/sleepcheck"
 	"github.com/stubbedev/lys/power/internal/supply"
+	"github.com/stubbedev/lys/power/internal/wakesource"
 )
 
 const usage = `lys-power: power profile swapping and adaptive battery charging
@@ -38,7 +39,8 @@ Usage:
   lys-power run       Evaluate continuously (the daemon mode)
   lys-power once      Evaluate once (for timer/udev-driven setups)
   lys-power full      Request a charge to 100% until the next unplug
-  lys-power status    Print the current state, prediction and last sleeps
+  lys-power status    Print the current state, prediction, last sleeps and
+                      what may wake the machine
   lys-power predict   Print the predicted unplug time
   lys-power energy [-for 10s] [-threads] [-json]
                       Measure what each app costs in power, its CPU,
@@ -57,6 +59,8 @@ device power policy with LYS_POWER_SYS_DIR.
 LYS_POWER_DEVICE_POLICY is battery (idle devices power down on battery),
 always (PCI and USB devices also sleep on AC) or off. LYS_POWER_DEVICE_DENY
 lists devices it never touches, as pci:vendor:device or usb:vendor:product.
+LYS_POWER_USB_WAKE is keep (the default: every device keeps its wakeup) or
+battery (removable USB devices cannot wake the machine on battery).
 `
 
 func main() {
@@ -238,6 +242,10 @@ func status(cfg config.Config, now time.Time, conn *dbus.Conn) (string, error) {
 	out = appendDevices(out, cfg.Devices.Mode, devices, err)
 	sleeps, err := sleepcheck.Load(cfg.SleepsPath())
 	out = appendSleeps(out, sleeps, err, now.Location())
+	wake := wakesource.Sysfs{Root: cfg.SysDir, Proc: cfg.ProcDir}
+	acpi, acpiErr := wake.ACPI()
+	usb, usbErr := wake.USB()
+	out = appendWake(out, cfg.USBWake, acpi, usb, errors.Join(acpiErr, usbErr))
 	return string(out), nil
 }
 

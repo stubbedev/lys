@@ -37,6 +37,7 @@
         policy = "off";
         deny = ["usb:046d:c52b" "pci:8086:a840"];
       };
+      usbWake = "battery";
     };
     environment = config: config.systemd.services.lys-power.environment;
     wants = nixos.systemd.services.lys-power.wantedBy;
@@ -67,6 +68,8 @@
       ${fail ((environment nixos).LYS_POWER_DEVICE_POLICY != "battery" || (environment nixos).LYS_POWER_DEVICE_DENY != "") "the device power policy does not default to battery with nothing denied"}
       ${fail ((environment devices).LYS_POWER_DEVICE_POLICY != "off") "devicePower.policy does not reach LYS_POWER_DEVICE_POLICY"}
       ${fail ((environment devices).LYS_POWER_DEVICE_DENY != "usb:046d:c52b pci:8086:a840") "devicePower.deny does not reach LYS_POWER_DEVICE_DENY"}
+      ${fail ((environment nixos).LYS_POWER_USB_WAKE != "keep") "USB wake does not default to keep"}
+      ${fail ((environment devices).LYS_POWER_USB_WAKE != "battery") "usbWake does not reach LYS_POWER_USB_WAKE"}
       user=${pkg}/lib/systemd/user/lys-power-brightness.service
       grep -qxF "ExecStart=${lib.getExe pkg} brightness" $user
       grep -qxF "PartOf=graphical-session.target" $user
