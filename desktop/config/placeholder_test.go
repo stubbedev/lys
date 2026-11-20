@@ -89,6 +89,22 @@ func TestAFormatsSamplesFillEachOfItsPlaceholders(t *testing.T) {
 	PlaceholderSamples("modules.battery.icon-name")
 }
 
+func TestAListItemsFormatSamplesFillItsPlaceholders(t *testing.T) {
+	if got, want := ItemPlaceholderSamples[CustomModuleDefinition]("format"), map[string]string{"output": "72"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("a custom module's format samples are %v, want %v", got, want)
+	}
+	for _, key := range []string{"icon-name", "no-such-key"} {
+		func() {
+			defer func() {
+				if recover() == nil {
+					t.Errorf("%s gave samples", key)
+				}
+			}()
+			ItemPlaceholderSamples[CustomModuleDefinition](key)
+		}()
+	}
+}
+
 func TestStrftimeFieldsSayTheyTakeAPattern(t *testing.T) {
 	for _, path := range []string{"modules.clock.format", "login.clock-format", "login.date-format"} {
 		if m, ok := Field(path); !ok || m.Kind != FieldText || m.Type != "StrftimeFormat" {

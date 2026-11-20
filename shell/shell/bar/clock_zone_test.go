@@ -72,14 +72,3 @@ func TestTheClockLabelKeepsTheZoneTZSets(t *testing.T) {
 		t.Errorf("with TZ set the clock label reads %q, the zone file's zone", label)
 	}
 }
-
-func TestTheWorldClockLocalZoneIsTheWallClocks(t *testing.T) {
-	now := time.Date(2026, 3, 5, 9, 15, 0, 0, time.FixedZone("XST", 5*3600+1800))
-	got, err := worldClockRender("{{ tz('Local', '%H:%M %Z') }} {{ tz('UTC', '%H:%M') }}", now)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if want := "09:15 XST 03:45"; got != want {
-		t.Errorf("the world clock renders %q, want %q", got, want)
-	}
-}

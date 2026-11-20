@@ -105,13 +105,16 @@ func Sample(cfg *config.Config, font render.Font, item config.BarItem, on compos
 	}
 	name := string(item.Module)
 	icon, hasIcon := cfg.ModuleIcon(item.Module)
-	label := sampleLabel(cfg, item.Module, hasIcon)
+	label, failure := sampleLabel(cfg, item.Module, hasIcon)
 	state, live := stateOf(item.Module, states)
 	if live {
 		label = jinja.RenderOr(moduleFormats[item.Module](cfg), state.vars)
 	}
 	b := NewButton(cfg, font, Icon(icon), label)
 	b.Configure(ModuleTitle(name, cfg), ModuleButton(name, cfg))
+	if failure != "" {
+		b.SetFailure(failure)
+	}
 	if state.pressed != nil {
 		b.OnClick = state.pressed
 	}
@@ -182,23 +185,34 @@ func sampleFormatLabel(m config.BarModule, format string) string {
 	return jinja.RenderOr(format, vars)
 }
 
-func sampleLabel(cfg *config.Config, m config.BarModule, hasIcon bool) string {
+// sampleLabel is the label m shows on its sample state, or why the
+// module would fail to show one.
+func sampleLabel(cfg *config.Config, m config.BarModule, hasIcon bool) (label, failure string) {
 	switch m {
 	case config.ModuleClock:
 		if cfg.Clock.Format.Layout() == nil {
-			return ""
+			return "", ""
 		}
-		return ClockLabel(cfg.Clock, sampleTime, ClockNames(i18n.Shell()), func() string { return "" })
+		return ClockLabel(cfg.Clock, sampleTime, ClockNames(i18n.Shell()), func() string { return "" }), ""
+	case config.ModuleWorldClock:
+		text, err := NewWorldClock(cfg.WorldClock.Format, ClockNames(i18n.Shell()), time.LoadLocation).Render(sampleTime)
+		if err != nil {
+			return "", WorldClockFailure(err)
+		}
+		return text, ""
 	case config.ModuleScreenshot:
-		return cfg.Screenshot.Label
+		return cfg.Screenshot.Label, ""
 	case config.ModuleBackgroundApps:
-		return sampleBackgroundApps
+		return sampleBackgroundApps, ""
 	}
 	if format, ok := moduleFormats[m]; ok {
-		return sampleFormatLabel(m, format(cfg))
+		return sampleFormatLabel(m, format(cfg)), ""
+	}
+	if def, ok := CustomDefinition(string(m), cfg); ok {
+		return jinja.RenderOr(def.Format, config.ItemPlaceholderSamples[config.CustomModuleDefinition]("format")), ""
 	}
 	if hasIcon {
-		return ""
+		return "", ""
 	}
-	return ModuleTitle(string(m), cfg)
+	return ModuleTitle(string(m), cfg), ""
 }

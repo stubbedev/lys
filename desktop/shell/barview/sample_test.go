@@ -2,6 +2,7 @@ package barview
 
 import (
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/stubbedev/lys/ui/widget"
@@ -184,11 +185,37 @@ func TestASampleLabelFollowsItsModulesFormat(t *testing.T) {
 		{config.ModuleMail, &cfg.Mail.Format, "Unread: {{ count }}", "Unread: 3"},
 		{config.ModuleWeather, &cfg.Weather.Format, "{{ condition }}, {{ temp }}{{ temp_unit }}", "Partly cloudy, 22°C"},
 	} {
-		before := sampleLabel(cfg, tc.module, true)
+		before, _ := sampleLabel(cfg, tc.module, true)
 		*tc.format = tc.set
-		if got := sampleLabel(cfg, tc.module, true); got != tc.want || got == before {
+		if got, failure := sampleLabel(cfg, tc.module, true); got != tc.want || got == before || failure != "" {
 			t.Errorf("%s format %q previews %q (was %q), want %q", tc.module, tc.set, got, before, tc.want)
 		}
+	}
+}
+
+func TestTheWorldClockAndCustomModulesPreviewTheirFormats(t *testing.T) {
+	cfg := config.Defaults()
+	cfg.WorldClock.Format = "TYO {{ tz('Asia/Tokyo', '%H:%M') }}"
+	cfg.Custom = []config.CustomModuleDefinition{config.DefaultsCustomModuleDefinition()}
+	cfg.Custom[0].Id, cfg.Custom[0].Format = "temp", "{{ output }}°C"
+	layout := config.BarLayout{Monitor: AllMonitors, Show: true, Center: []config.BarItem{{Module: config.ModuleWorldClock}, {Module: config.CustomModule("temp")}}}
+	bar := SampleBar(cfg, treetest.Font(t), layout, compositor.LysWM)
+	clock := sampleButton(t, bar, "world-clock")
+	if got := clock.Label().Text(); got != "TYO 18:41" || clock.HasClass(FailedClass) {
+		t.Errorf("the world clock previews %q (failed %v), want the sample time in Tokyo", got, clock.HasClass(FailedClass))
+	}
+	if got := sampleButton(t, bar, "custom-temp").Label().Text(); got != "72°C" {
+		t.Errorf("the custom module previews %q, want its format over the sample output", got)
+	}
+}
+
+func TestAWorldClockFormatThatCannotRenderPreviewsAsTheFailedModule(t *testing.T) {
+	cfg := config.Defaults()
+	cfg.WorldClock.Format = "{{ tz('Mars/Olympus', '%H') }}"
+	layout := config.BarLayout{Monitor: AllMonitors, Show: true, Center: []config.BarItem{{Module: config.ModuleWorldClock}}}
+	clock := sampleButton(t, SampleBar(cfg, treetest.Font(t), layout, compositor.LysWM), "world-clock")
+	if !clock.HasClass(FailedClass) || !strings.Contains(clock.TooltipText(), i18n.T("bar-world-clock-invalid-zone", i18n.Str("zone", "Mars/Olympus"))) {
+		t.Errorf("an unknown zone previews failed %v with tooltip %q", clock.HasClass(FailedClass), clock.TooltipText())
 	}
 }
 

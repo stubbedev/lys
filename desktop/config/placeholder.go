@@ -142,9 +142,23 @@ func Placeholders(path string) []Placeholder {
 // panics for a path with no placeholders, a preview of a field that is
 // no format.
 func PlaceholderSamples(path string) map[string]string {
-	ps := Placeholders(path)
+	return samplesOf(Placeholders(path), path)
+}
+
+// ItemPlaceholderSamples is PlaceholderSamples for the format field
+// under key of T, a list's item struct.
+func ItemPlaceholderSamples[T any](key string) map[string]string {
+	t := typeOf[T]()
+	var ps []Placeholder
+	if f, ok := fieldByKey(t, key); ok {
+		ps = placeholdersOf(t, *f)
+	}
+	return samplesOf(ps, t.Name()+"."+key)
+}
+
+func samplesOf(ps []Placeholder, field string) map[string]string {
 	if len(ps) == 0 {
-		panic(fmt.Sprintf("config: %s declares no placeholders", path))
+		panic(fmt.Sprintf("config: %s declares no placeholders", field))
 	}
 	vars := make(map[string]string, len(ps))
 	for _, p := range ps {

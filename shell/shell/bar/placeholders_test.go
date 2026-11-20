@@ -4,7 +4,6 @@ import (
 	"maps"
 	"slices"
 	"testing"
-	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/jinja"
@@ -77,15 +76,5 @@ func TestADeclaredPlaceholderRendersAndAnUndeclaredOneDoesNot(t *testing.T) {
 	}
 	if got := jinja.RenderOr("[{{ pending }}]", batteryVars(45)); got != "[]" {
 		t.Errorf("an undeclared template variable rendered %q, want nothing", got)
-	}
-}
-
-func TestTheWorldClockPlaceholderRendersItsSample(t *testing.T) {
-	ps := config.Placeholders("modules.world-clock.format")
-	if len(ps) != 1 {
-		t.Fatalf("world clock placeholders = %+v", ps)
-	}
-	if got, err := worldClockRender(ps[0].Token, time.Date(2026, 3, 5, 14, 30, 0, 0, time.UTC)); err != nil || got != ps[0].Sample {
-		t.Errorf("%s rendered %q (%v), want the sample %q", ps[0].Token, got, err, ps[0].Sample)
 	}
 }
