@@ -16,9 +16,17 @@ settings-idle-timeouts-ac = Op netstroom
 settings-idle-timeouts-battery = Op accu
     .description = Inactiviteitstijd als duur zoals 90s, 5m of 1h30m, of never
 
+settings-idle-attention = Kijken voor het dimmen
+    .description = Voordat het scherm dimt, de camera minder dan een seconde aanzetten, eerst de infraroodcamera, om te zien of er een gezicht naar het scherm gekeerd is: een gezicht stelt het dimmen uit. Het lampje gaat aan terwijl hij kijkt. Het beeld wordt alleen op een gezicht gecontroleerd en weggegooid, nooit opgeslagen, gelogd of verstuurd, en er wordt niet gekeken zolang de sessie vergrendeld is of een andere app de camera gebruikt
+
 ## SleepAction variants
 enum-sleep-action-auto = Pauzestand, dan slaapstand indien mogelijk
 enum-sleep-action-suspend = Pauzestand
 enum-sleep-action-hibernate = Slaapstand
 enum-sleep-action-hybrid-sleep = Hybride slaap
 enum-sleep-action-suspend-then-hibernate = Pauzestand, dan slaapstand
+
+## IdleAttention variants
+enum-idle-attention-off = Uit
+enum-idle-attention-postpone-dim = Alleen het dimmen uitstellen
+enum-idle-attention-sooner-when-absent = Ook het scherm eerder uitzetten als er niemand is

@@ -33,6 +33,16 @@ type IdleConfig struct {
 	KeyboardBacklight IdleTimeouts `cfg:"keyboard-backlight"`
 	// Idle time before the backlights dim.
 	Dim IdleTimeouts `cfg:"dim"`
+	// Look through the camera for a face turned to the screen before
+	// dimming, through lys-power's attention check. A face postpones the
+	// dim one dim interval, three times at most without input, and the
+	// stages after the dim wait with it; nobody there dims at once. Off,
+	// the camera is never used for it. The check is one capture of under
+	// a second, the infrared camera first; its frames are reduced to
+	// present or absent in memory and never kept, written or sent, and it
+	// never runs while the session is locked or another app uses the
+	// camera, when the dim happens as without it.
+	Attention IdleAttention `cfg:"attention"`
 	// Share of its level, in percent, a dimmed backlight keeps. Input
 	// restores the exact level it had.
 	DimPercent IdleDimPercent `cfg:"dim-percent"`
@@ -72,6 +82,7 @@ func DefaultsIdle() IdleConfig {
 		Lock:              IdleTimeouts{AC: mustIdleTimeout("5m"), Battery: mustIdleTimeout("3m")},
 		ScreenOff:         IdleTimeouts{AC: mustIdleTimeout("10m"), Battery: mustIdleTimeout("5m")},
 		Suspend:           IdleTimeouts{AC: mustIdleTimeout("never"), Battery: mustIdleTimeout("15m")},
+		Attention:         IdleAttentionOff,
 		SuspendAction:     SleepActionAuto,
 		LockBeforeSleep:   true,
 	}
@@ -88,6 +99,7 @@ func (c IdleConfig) Policy() idlepolicy.Policy {
 	p.Sleep = c.SuspendAction.PowerAction()
 	p.DimPercent = c.DimPercent.share
 	p.LockBeforeSleep = c.LockBeforeSleep
+	p.Attention = c.Attention.attention()
 	return p
 }
 
@@ -131,6 +143,35 @@ func (a SleepAction) PowerAction() logind.PowerAction {
 		return logind.SuspendThenHibernate
 	}
 	panic(fmt.Sprintf("config: sleep action %q has no logind sleep", a))
+}
+
+// IdleAttention is whether a camera check runs before the dim.
+//
+// What a look through the camera before the dim may change.
+type IdleAttention string
+
+// IdleAttention values.
+const (
+	// No check: the dim runs at its idle time.
+	IdleAttentionOff IdleAttention = "off"
+	// A face turned to the screen postpones the dim.
+	IdleAttentionPostponeDim IdleAttention = "postpone-dim"
+	// A face postpones the dim; nobody there brings the lock and screen-off within 30s.
+	IdleAttentionSoonerWhenAbsent IdleAttention = "sooner-when-absent"
+)
+
+var _ = registerEnum(IdleAttentionOff, IdleAttentionPostponeDim, IdleAttentionSoonerWhenAbsent)
+
+func (a IdleAttention) attention() idlepolicy.Attention {
+	switch a {
+	case IdleAttentionOff:
+		return idlepolicy.AttentionOff
+	case IdleAttentionPostponeDim:
+		return idlepolicy.AttentionPostpone
+	case IdleAttentionSoonerWhenAbsent:
+		return idlepolicy.AttentionSooner
+	}
+	panic(fmt.Sprintf("config: idle attention %q has no policy", a))
 }
 
 // idleNever is the spelling of a stage that does not run.

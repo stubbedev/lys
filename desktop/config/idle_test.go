@@ -95,6 +95,38 @@ func TestTheSuspendActionNamesTheLogindSleepItRuns(t *testing.T) {
 	}
 }
 
+func TestAttentionIsOffByDefaultAndEachVariantReachesThePolicy(t *testing.T) {
+	if got := DefaultsIdle().Policy().Attention; got != idlepolicy.AttentionOff {
+		t.Errorf("default attention %v, want off: the camera stays unused until chosen", got)
+	}
+	want := map[string]idlepolicy.Attention{
+		"off":                idlepolicy.AttentionOff,
+		"postpone-dim":       idlepolicy.AttentionPostpone,
+		"sooner-when-absent": idlepolicy.AttentionSooner,
+	}
+	variants := enumVariants(typeOf[IdleAttention]())
+	if len(variants) != len(want) {
+		t.Fatalf("attention variants %v, want %d", variants, len(want))
+	}
+	for _, raw := range variants {
+		cfg, err := LoadFile(writeFile(t, t.TempDir(), "config.yaml", "idle:\n  attention: "+raw+"\n"))
+		if err != nil {
+			t.Fatalf("attention %s: %v", raw, err)
+		}
+		if got, ok := want[raw]; !ok || cfg.Idle.Policy().Attention != got {
+			t.Errorf("attention %s runs %v, want %v", raw, cfg.Idle.Policy().Attention, got)
+		}
+	}
+	cfg, err := LoadFile(writeFile(t, t.TempDir(), "config.yaml", "idle:\n  attention: always\n"))
+	var d Diagnostic
+	if !errors.As(err, &d) || d.Field("Field") != "idle.attention" {
+		t.Fatalf("attention always: error %v, want the field's diagnostic", err)
+	}
+	if cfg.Idle.Attention != IdleAttentionOff {
+		t.Errorf("an unknown attention left %q, want off kept", cfg.Idle.Attention)
+	}
+}
+
 func TestAnUnknownSuspendActionIsTheConfigsError(t *testing.T) {
 	cfg, err := LoadFile(writeFile(t, t.TempDir(), "config.yaml", "idle:\n  suspend-action: ignore\n  dim-percent: 40\n"))
 	var d Diagnostic

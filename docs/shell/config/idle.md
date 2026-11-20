@@ -26,6 +26,7 @@ swayidle or hypridle instead.
 | `enable` | bool | `true` | Run the built-in idle policy. Turn it off when swayidle or hypridle handles idle, so the two do not both act. |
 | `keyboard-backlight` | [`IdleTimeouts`](/shell/config/types#idle-timeouts) | `{...}` | Idle time before every keyboard backlight (`*::kbd_backlight`) turns off. The next key press or other input turns it back on at its level. While lys-power's automatic brightness finds the room bright, the keyboard backlight stays off whatever the input. |
 | `dim` | [`IdleTimeouts`](/shell/config/types#idle-timeouts) | `{...}` | Idle time before the backlights dim. |
+| `attention` | [`IdleAttention`](/shell/config/types#idle-attention) | `"off"` | Look through the camera for a face turned to the screen before dimming, through lys-power's attention check. A face postpones the dim one dim interval, three times at most without input, and the stages after the dim wait with it; nobody there dims at once. Off, the camera is never used for it. The check is one capture of under a second, the infrared camera first; its frames are reduced to present or absent in memory and never kept, written or sent, and it never runs while the session is locked or another app uses the camera, when the dim happens as without it. |
 | `dim-percent` | [`IdleDimPercent`](/shell/config/types#idle-dim-percent) | `30` | Share of its level, in percent, a dimmed backlight keeps. Input restores the exact level it had. |
 | `lock` | [`IdleTimeouts`](/shell/config/types#idle-timeouts) | `{...}` | Idle time before the session locks (through logind, which starts the lock screen). |
 | `screen-off` | [`IdleTimeouts`](/shell/config/types#idle-timeouts) | `{...}` | Idle time before the outputs power off. Input powers them back on. |
@@ -44,6 +45,7 @@ idle:
   dim:
     ac: 4m
     battery: 2m
+  attention: off
   dim-percent: 30
   lock:
     ac: 5m

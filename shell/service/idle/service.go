@@ -4,10 +4,13 @@
 // back, with timeouts per power source; and it locks before the system
 // sleeps. Idle is the compositor's ext-idle-notify-v1, so idle inhibitors
 // (a playing video, the caffeine toggle, a portal or ScreenSaver hold)
-// hold every stage, and waiting costs no timer.
+// hold every stage, and waiting costs no timer. With attention on, the
+// dim first asks lys-power whether a face is turned to the screen: a
+// face postpones it, and the stages after it follow it on timers.
 package idle
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -27,15 +30,20 @@ type Watcher interface {
 	Watch(after time.Duration, idle, resume func()) (stop func(), err error)
 }
 
-// Actions carry the stages out. KeyboardOff, Dim and ScreenOff return
-// what undoes them at resume.
+// Actions carry the stages out, and Look checks for a face before the
+// dim. KeyboardOff, Dim and ScreenOff return what undoes them at resume.
 type Actions interface {
 	KeyboardOff() (restore func() error, err error)
 	Dim(idlepolicy.DimPercent) (restore func() error, err error)
 	Lock() error
 	ScreenOff() (restore func() error, err error)
 	Sleep(logind.PowerAction) error
+	Look(ctx context.Context) (idlepolicy.Presence, error)
 }
+
+// lookTimeout bounds one check for a face, a capture of under a second
+// behind a D-Bus activation.
+const lookTimeout = 15 * time.Second
 
 // Status is what the service has armed and which stages have run since the
 // user was last active.
@@ -60,23 +68,33 @@ func (s Status) Next() (idlepolicy.Arm, bool) {
 // Service arms one idle watch per stage of the policy on the current power
 // source, and re-arms them when either changes.
 type Service struct {
-	watcher Watcher
-	actions Actions
+	watcher   Watcher
+	actions   Actions
+	afterFunc func(time.Duration, func()) (stop func())
 
-	mu       sync.Mutex
-	policy   idlepolicy.Policy
-	enabled  bool
-	source   idlepolicy.PowerSource
-	stops    []func()
-	restores [len(idlepolicy.Stages)]func() error
-	reached  []idlepolicy.Stage
-	gen      uint64
-	changes  feed.Tick
+	mu        sync.Mutex
+	policy    idlepolicy.Policy
+	enabled   bool
+	source    idlepolicy.PowerSource
+	stops     []func()
+	restores  [len(idlepolicy.Stages)]func() error
+	reached   []idlepolicy.Stage
+	gen       uint64
+	changes   feed.Tick
+	round     uint64
+	postponed int
+	timers    []func()
+	looking   context.CancelFunc
 }
 
 // New is a service that has armed nothing until Configure.
 func New(w Watcher, a Actions) *Service {
-	return &Service{watcher: w, actions: a}
+	return &Service{watcher: w, actions: a, afterFunc: realAfterFunc}
+}
+
+func realAfterFunc(d time.Duration, f func()) func() {
+	t := time.AfterFunc(d, f)
+	return func() { t.Stop() }
 }
 
 // Configure arms the policy's stages on source; disabled arms none. Every
@@ -139,6 +157,7 @@ func (s *Service) disarmLocked() error {
 		stop()
 	}
 	s.stops = s.stops[:0]
+	s.forgetDimLocked()
 	var err error
 	for _, stage := range idlepolicy.Stages {
 		err = errors.Join(err, s.restoreLocked(stage))
@@ -154,7 +173,7 @@ func (s *Service) rearmLocked() error {
 		return err
 	}
 	gen := s.gen
-	for _, arm := range s.policy.Arms(s.source) {
+	for _, arm := range s.policy.Watched(s.source) {
 		stage := arm.Stage
 		stop, werr := s.watcher.Watch(arm.After, func() { s.idled(gen, stage) }, func() { s.resumed(gen, stage) })
 		if werr != nil {
@@ -171,6 +190,26 @@ func (s *Service) idled(gen uint64, stage idlepolicy.Stage) {
 		s.mu.Unlock()
 		return
 	}
+	if stage == idlepolicy.Dim && s.policy.Attending(s.source) {
+		if s.looking == nil {
+			s.lookLocked(gen)
+		}
+		s.mu.Unlock()
+		return
+	}
+	s.reachLocked(stage)
+}
+
+func (s *Service) followed(gen, round uint64, stage idlepolicy.Stage) {
+	s.mu.Lock()
+	if gen != s.gen || round != s.round || slices.Contains(s.reached, stage) {
+		s.mu.Unlock()
+		return
+	}
+	s.reachLocked(stage)
+}
+
+func (s *Service) reachLocked(stage idlepolicy.Stage) {
 	s.reached = append(s.reached, stage)
 	err := s.runLocked(stage)
 	s.mu.Unlock()
@@ -178,6 +217,65 @@ func (s *Service) idled(gen uint64, stage idlepolicy.Stage) {
 		log.Printf("idle: %s: %v", stage, err)
 	}
 	feed.Notify(&s.changes)
+}
+
+func (s *Service) lookLocked(gen uint64) {
+	ctx, cancel := context.WithTimeout(context.Background(), lookTimeout)
+	s.looking = cancel
+	round := s.round
+	go func() {
+		defer cancel()
+		seen, err := s.actions.Look(ctx)
+		if err != nil {
+			log.Printf("idle: the check for a face before the dim failed, dimming as without it: %v", err)
+			seen = idlepolicy.Unseen
+		}
+		s.looked(gen, round, seen)
+	}()
+}
+
+func (s *Service) looked(gen, round uint64, seen idlepolicy.Presence) {
+	s.mu.Lock()
+	if gen != s.gen || round != s.round {
+		s.mu.Unlock()
+		return
+	}
+	s.looking = nil
+	step := s.policy.AtDim(s.source, seen, s.postponed)
+	if step.Postpone > 0 {
+		s.postponed++
+		s.timers = append(s.timers, s.afterFunc(step.Postpone, func() { s.lookAgain(gen, round) }))
+		s.mu.Unlock()
+		feed.Notify(&s.changes)
+		return
+	}
+	for _, f := range s.policy.Followers(s.source, step.Hurried) {
+		stage := f.Stage
+		s.timers = append(s.timers, s.afterFunc(f.After, func() { s.followed(gen, round, stage) }))
+	}
+	s.reachLocked(idlepolicy.Dim)
+}
+
+func (s *Service) lookAgain(gen, round uint64) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if gen != s.gen || round != s.round || s.looking != nil {
+		return
+	}
+	s.lookLocked(gen)
+}
+
+func (s *Service) forgetDimLocked() {
+	for _, stop := range s.timers {
+		stop()
+	}
+	s.timers = s.timers[:0]
+	if s.looking != nil {
+		s.looking()
+		s.looking = nil
+	}
+	s.round++
+	s.postponed = 0
 }
 
 func (s *Service) runLocked(stage idlepolicy.Stage) error {
@@ -207,8 +305,18 @@ func (s *Service) resumed(gen uint64, stage idlepolicy.Stage) {
 		s.mu.Unlock()
 		return
 	}
-	s.reached = slices.DeleteFunc(s.reached, func(r idlepolicy.Stage) bool { return r == stage })
-	err := s.restoreLocked(stage)
+	undone := []idlepolicy.Stage{stage}
+	if stage == idlepolicy.Dim && s.policy.Attending(s.source) {
+		s.forgetDimLocked()
+		for _, f := range s.policy.Followers(s.source, false) {
+			undone = append(undone, f.Stage)
+		}
+	}
+	s.reached = slices.DeleteFunc(s.reached, func(r idlepolicy.Stage) bool { return slices.Contains(undone, r) })
+	var err error
+	for _, u := range undone {
+		err = errors.Join(err, s.restoreLocked(u))
+	}
 	s.mu.Unlock()
 	if err != nil {
 		log.Printf("idle: undo %s: %v", stage, err)

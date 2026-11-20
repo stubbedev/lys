@@ -642,6 +642,16 @@ An icon theme name.
 
 String.
 
+## IdleAttention {#idle-attention}
+
+What a look through the camera before the dim may change.
+
+| Value | Meaning |
+|---|---|
+| `"off"` | No check: the dim runs at its idle time. |
+| `"postpone-dim"` | A face turned to the screen postpones the dim. |
+| `"sooner-when-absent"` | A face postpones the dim; nobody there brings the lock and screen-off within 30s. |
+
 ## IdleDimPercent {#idle-dim-percent}
 
 Percentage from 1 to 100.

@@ -348,7 +348,7 @@ func (s *shellStart) startServices(system *dbus.Conn) {
 	}
 	s.backlights = backlights
 	s.down.add(func() { _ = backlights.Close() })
-	idlePolicy, stopIdle := startIdlePolicy(s.system, backlights, s.cfg.Idle)
+	idlePolicy, stopIdle := startIdlePolicy(s.system, s.session, backlights, s.cfg.Idle)
 	s.idle = idlePolicy
 	s.down.add(stopIdle)
 	if idlePolicy != nil {

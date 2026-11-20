@@ -1,7 +1,9 @@
 package idle
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"slices"
 	"sync"
@@ -57,6 +59,10 @@ func (a *recordingActions) ScreenOff() (func() error, error) {
 func (a *recordingActions) Sleep(action logind.PowerAction) error {
 	a.record(action.String())
 	return nil
+}
+
+func (a *recordingActions) Look(context.Context) (idlepolicy.Presence, error) {
+	return 0, errors.New("attention is off in the compositor tests")
 }
 
 func connectSway(t *testing.T) *Compositor {

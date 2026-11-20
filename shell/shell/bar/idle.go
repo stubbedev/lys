@@ -12,6 +12,7 @@ import (
 	"github.com/stubbedev/lys/desktop/service/upower"
 	"github.com/stubbedev/lys/lib/logind"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/power/attention"
 
 	"github.com/stubbedev/lys/shell/service/idle"
 	"github.com/stubbedev/lys/shell/service/kbdlight"
@@ -37,7 +38,7 @@ type idlePolicy struct {
 	stopSleep func()
 }
 
-func startIdlePolicy(system *dbus.Conn, backlights idle.Backlights, cfg config.IdleConfig) (*idlePolicy, func()) {
+func startIdlePolicy(system, session *dbus.Conn, backlights idle.Backlights, cfg config.IdleConfig) (*idlePolicy, func()) {
 	comp, err := idle.Connect()
 	if err != nil {
 		log.Printf("idle: the built-in idle policy will not run: %v", err)
@@ -48,6 +49,9 @@ func startIdlePolicy(system *dbus.Conn, backlights idle.Backlights, cfg config.I
 		p.keyboard = kbdlight.New(kbdlight.System{Dir: kbdlight.SysfsDir, Session: p.login.Session})
 	}
 	actions := idle.System{Keyboard: p.keyboard, Backlights: backlights, Login: p.login, Outputs: comp}
+	if session != nil {
+		actions.Attention = attention.NewClient(session)
+	}
 	p.svc = idle.New(comp, actions)
 	life, stopPower := context.WithCancel(context.Background())
 	powerDone := p.followPowerSource(life)

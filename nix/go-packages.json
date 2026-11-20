@@ -3826,6 +3826,7 @@
       "lib/wlr",
       "lib/wmipc",
       "lib/xdg",
+      "power/attention",
       "power/autobrightness",
       "power/charge",
       "power/energy",

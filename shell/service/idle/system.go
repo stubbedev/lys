@@ -34,19 +34,38 @@ type Outputs interface {
 	PowerOff() (restore func() error, err error)
 }
 
+// Attention is lys-power's check for a face turned to the screen.
+type Attention interface {
+	Check(ctx context.Context) (idlepolicy.Presence, error)
+}
+
 // System carries the stages out on the session: the backlights dim,
-// logind locks and suspends, and the compositor powers the outputs off.
-// A nil Backlights has nothing to dim; a nil Login cannot lock or
-// suspend, which the stage reports.
+// logind locks and suspends, the compositor powers the outputs off, and
+// lys-power looks for a face. A nil Backlights has nothing to dim; a nil
+// Login cannot lock or suspend, and a nil Attention cannot look, which
+// the stage reports.
 type System struct {
 	Keyboard   *kbdlight.Light
 	Backlights Backlights
 	Login      *Login
 	Outputs    Outputs
+	Attention  Attention
 }
 
 // ErrNoLogind is a lock or suspend without logind on the system bus.
 var ErrNoLogind = errors.New("idle: logind is not connected")
+
+// ErrNoAttention is a check for a face without the session bus that
+// reaches lys-power.
+var ErrNoAttention = errors.New("idle: the session bus to lys-power's attention check is not connected")
+
+// Look asks lys-power whether a face is turned to the screen.
+func (s System) Look(ctx context.Context) (idlepolicy.Presence, error) {
+	if s.Attention == nil {
+		return 0, ErrNoAttention
+	}
+	return s.Attention.Check(ctx)
+}
 
 // KeyboardOff turns the keyboard backlights off until the restore, which
 // the next input runs. A nil Keyboard has nothing to turn off.

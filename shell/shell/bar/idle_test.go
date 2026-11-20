@@ -1,6 +1,8 @@
 package bar
 
 import (
+	"context"
+	"errors"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -31,6 +33,10 @@ func (c *countingDim) KeyboardOff() (func() error, error) { return nil, nil }
 func (c *countingDim) Lock() error                        { return nil }
 func (c *countingDim) ScreenOff() (func() error, error)   { return nil, nil }
 func (c *countingDim) Sleep(logind.PowerAction) error     { return nil }
+
+func (c *countingDim) Look(context.Context) (idlepolicy.Presence, error) {
+	return 0, errors.New("attention is off in the bar's idle tests")
+}
 
 const dimAfter = time.Second
 

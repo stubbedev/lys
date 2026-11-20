@@ -42,7 +42,22 @@ func (w *fakeWatcher) live() []*fakeWatch {
 	return out
 }
 
-type fakeActions struct{ calls []string }
+type fakeActions struct {
+	calls []string
+	seen  []idlepolicy.Presence
+	fail  error
+	looks int
+}
+
+func (a *fakeActions) Look(context.Context) (idlepolicy.Presence, error) {
+	a.looks++
+	if a.fail != nil {
+		return 0, a.fail
+	}
+	seen := a.seen[0]
+	a.seen = a.seen[1:]
+	return seen, nil
+}
 
 func (a *fakeActions) Dim(share idlepolicy.DimPercent) (func() error, error) {
 	a.calls = append(a.calls, "dim")
