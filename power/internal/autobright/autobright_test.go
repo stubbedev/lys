@@ -7,6 +7,7 @@ import (
 	"io"
 	"log/slog"
 	"math"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -215,11 +216,28 @@ func newProfile() *profile { return &profile{saver: make(chan bool)} }
 
 func (p *profile) Saver(context.Context) (<-chan bool, error) { return p.saver, nil }
 
-type publisher struct{ states chan autobrightness.State }
+type publisher struct {
+	states chan autobrightness.State
+	mu     sync.Mutex
+	rooms  []autobrightness.Room
+}
 
 func (p *publisher) Publish(s autobrightness.State) error {
 	p.states <- s
 	return nil
+}
+
+func (p *publisher) PublishRoom(r autobrightness.Room) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.rooms = append(p.rooms, r)
+	return nil
+}
+
+func (p *publisher) roomsSeen() []autobrightness.Room {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return slices.Clone(p.rooms)
 }
 
 type harness struct {
@@ -266,8 +284,12 @@ func start(t *testing.T, names ...string) *harness {
 	if err != nil {
 		t.Fatal(err)
 	}
+	room, err := ambient.NewRoomBand(250, 500)
+	if err != nil {
+		t.Fatal(err)
+	}
 	h.daemon = New(h.light, h.back, h.sessions, h.profile, h.clock, slog.New(slog.NewTextHandler(io.Discard, nil)), Params{
-		Curve: curve, LowPower: dim, Smoother: smoother, Band: 6, Steps: steps, Step: stepGap, Interval: interval,
+		Curve: curve, LowPower: dim, Room: room, Smoother: smoother, Band: 6, Steps: steps, Step: stepGap, Interval: interval,
 	})
 	ctx, cancel := context.WithCancel(context.Background())
 	h.cancel = cancel
@@ -719,4 +741,23 @@ func TestARestoreWithTheSameProfileStartsNoTransition(t *testing.T) {
 	h.changed()
 	h.published(autobrightness.Following)
 	h.quiet()
+}
+
+func TestTheRoomIsAnnouncedFromTheEstimateAndUnknownWhilePaused(t *testing.T) {
+	h := start(t)
+	next := h.follow(1000)
+	h.clock.now = h.clock.now.Add(time.Hour)
+	next = h.sampleWith(next, 10)
+	h.transition(1)
+	h.back.setAll(900)
+	h.changed()
+	h.published(autobrightness.Paused)
+	want := []autobrightness.Room{autobrightness.RoomBright, autobrightness.RoomDim, autobrightness.RoomUnknown}
+	if got := h.pub.roomsSeen(); !slices.Equal(got, want) {
+		t.Fatalf("rooms %v, want %v", got, want)
+	}
+	h.tick(next)
+	if got := h.pub.roomsSeen(); len(got) != len(want) {
+		t.Errorf("a paused daemon announced the rooms %v", got[len(want):])
+	}
 }

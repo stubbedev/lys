@@ -71,6 +71,7 @@ type Auto struct {
 
 	mu      sync.Mutex
 	control Control
+	room    autobrightness.Room
 }
 
 // FollowAuto starts following automatic brightness on conn. failed is
@@ -78,7 +79,7 @@ type Auto struct {
 // leaves the control as it was.
 func FollowAuto(conn *dbus.Conn, failed func(error)) (*Auto, error) {
 	ctx, cancel := context.WithCancel(context.Background())
-	a := &Auto{conn: conn, client: autobrightness.NewClient(conn), failed: failed, cancel: cancel}
+	a := &Auto{conn: conn, client: autobrightness.NewClient(conn), failed: failed, cancel: cancel, room: autobrightness.RoomUnknown}
 	a.serial.Lock()
 	defer a.serial.Unlock()
 	watch, err := dbusx.WatchSignals(ctx, conn, dbusx.FromOwner(autobrightness.ServiceName), failed,
@@ -87,7 +88,7 @@ func FollowAuto(conn *dbus.Conn, failed func(error)) (*Auto, error) {
 			a.serial.Lock()
 			defer a.serial.Unlock()
 			if owner == "" {
-				a.set(ControlManual)
+				a.set(ControlManual, autobrightness.RoomUnknown)
 				return nil
 			}
 			return a.read(ctx)
@@ -106,27 +107,38 @@ func FollowAuto(conn *dbus.Conn, failed func(error)) (*Auto, error) {
 func (a *Auto) changed(sig *dbus.Signal) error {
 	a.serial.Lock()
 	defer a.serial.Unlock()
-	state, ok, err := autobrightness.Changed(sig)
-	err = errors.Join(err, sig.CloseFDs())
-	if err != nil || !ok {
+	state, stateOK, stateErr := autobrightness.Changed(sig)
+	room, roomOK, roomErr := autobrightness.RoomChanged(sig)
+	if err := errors.Join(stateErr, roomErr, sig.CloseFDs()); err != nil {
 		return err
+	}
+	if roomOK {
+		a.setRoom(room)
+	}
+	if !stateOK {
+		return nil
 	}
 	return a.apply(state)
 }
 
-// read asks automatic brightness for its state: ControlManual when
-// nobody owns its name.
+// read asks automatic brightness for its state and the room:
+// ControlManual in an unknown room when nobody owns its name.
 func (a *Auto) read(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, autoTimeout)
 	defer cancel()
 	state, err := a.client.State(ctx)
 	if dbusx.Unowned(err) {
-		a.set(ControlManual)
+		a.set(ControlManual, autobrightness.RoomUnknown)
 		return nil
 	}
 	if err != nil {
 		return err
 	}
+	room, err := a.client.Room(ctx)
+	if err != nil {
+		return err
+	}
+	a.setRoom(room)
 	return a.apply(state)
 }
 
@@ -135,18 +147,36 @@ func (a *Auto) apply(state autobrightness.State) error {
 	if err != nil {
 		return err
 	}
-	a.set(control)
+	a.mu.Lock()
+	room := a.room
+	a.mu.Unlock()
+	a.set(control, room)
 	return nil
 }
 
-func (a *Auto) set(control Control) {
+func (a *Auto) setRoom(room autobrightness.Room) {
 	a.mu.Lock()
-	same := a.control == control
-	a.control = control
+	control := a.control
+	a.mu.Unlock()
+	a.set(control, room)
+}
+
+func (a *Auto) set(control Control, room autobrightness.Room) {
+	a.mu.Lock()
+	same := a.control == control && a.room == room
+	a.control, a.room = control, room
 	a.mu.Unlock()
 	if !same {
 		a.changes.Publish(struct{}{})
 	}
+}
+
+// Room is how lit automatic brightness last found the room: unknown
+// while it is off, paused or has no estimate yet.
+func (a *Auto) Room() autobrightness.Room {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.room
 }
 
 // Control is who sets the backlight now.
@@ -156,7 +186,7 @@ func (a *Auto) Control() Control {
 	return a.control
 }
 
-// Subscribe ticks whenever the control changed.
+// Subscribe ticks whenever the control or the room changed.
 func (a *Auto) Subscribe() (<-chan struct{}, func()) { return a.changes.Subscribe() }
 
 // Resume hands the backlight back to automatic brightness.

@@ -3570,6 +3570,7 @@
       "lib/wlr",
       "lib/wmipc",
       "lib/xdg",
+      "power/autobrightness",
       "power/energy",
       "secrets/vault",
       "shell/cava",

@@ -4,6 +4,8 @@ import (
 	"math"
 	"testing"
 	"time"
+
+	"github.com/stubbedev/lys/power/autobrightness"
 )
 
 func mustCurve(t *testing.T) Curve {
@@ -166,5 +168,33 @@ func TestStepsAreEvenAndEndAtTheTarget(t *testing.T) {
 	}
 	if one := Steps(10, 90, 0); len(one) != 1 || one[0] != 90 {
 		t.Errorf("Steps with no count = %v, want a jump to 90", one)
+	}
+}
+
+func TestTheRoomTurnsBrightAndDimAcrossAGap(t *testing.T) {
+	band, err := NewRoomBand(250, 500)
+	if err != nil {
+		t.Fatal(err)
+	}
+	room := autobrightness.RoomUnknown
+	for i, step := range []struct {
+		lux  Lux
+		want autobrightness.Room
+	}{
+		{300, autobrightness.RoomDim},
+		{500, autobrightness.RoomBright},
+		{300, autobrightness.RoomBright},
+		{249, autobrightness.RoomDim},
+		{499, autobrightness.RoomDim},
+	} {
+		room = band.After(room, step.lux)
+		if room != step.want {
+			t.Errorf("step %d at %v lux: %v, want %v", i, step.lux, room, step.want)
+		}
+	}
+	for _, b := range [][2]Lux{{0, 500}, {500, 500}, {600, 500}} {
+		if _, err := NewRoomBand(b[0], b[1]); err == nil {
+			t.Errorf("NewRoomBand(%v, %v) accepted", b[0], b[1])
+		}
 	}
 }

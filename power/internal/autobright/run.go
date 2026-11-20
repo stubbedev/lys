@@ -131,9 +131,14 @@ func params(interval time.Duration) (Params, error) {
 	if err != nil {
 		return Params{}, err
 	}
+	room, err := ambient.NewRoomBand(config.RoomDimLux, config.RoomBrightLux)
+	if err != nil {
+		return Params{}, err
+	}
 	return Params{
 		Curve:    curve,
 		LowPower: dim,
+		Room:     room,
 		Smoother: smoother,
 		Band:     config.HysteresisPercent,
 		Steps:    config.TransitionSteps,

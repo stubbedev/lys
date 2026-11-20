@@ -65,6 +65,15 @@ func startIdlePolicy(system *dbus.Conn, backlights idle.Backlights, cfg config.I
 	}
 }
 
+// keyboardLight is the keyboard backlights' owner, nil without the idle
+// policy or logind.
+func (p *idlePolicy) keyboardLight() *kbdlight.Light {
+	if p == nil {
+		return nil
+	}
+	return p.keyboard
+}
+
 func idleLogin(system *dbus.Conn) *idle.Login {
 	if system == nil {
 		return nil

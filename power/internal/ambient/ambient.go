@@ -1,6 +1,6 @@
 // Package ambient is the pure core of automatic brightness: the curve
 // from room illuminance to backlight level, the smoothing of the
-// illuminance, the hysteresis band, the gradual transition, the
+// illuminance, the hysteresis band, the bright room, the gradual transition, the
 // exposure bracketing of a camera estimate, and the rule deciding
 // whether the backlight is still automatic brightness's to set.
 package ambient
@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"math"
 	"time"
+
+	"github.com/stubbedev/lys/power/autobrightness"
 )
 
 // Lux is an illuminance in lux, measured or estimated.
@@ -66,6 +68,30 @@ func NewDim(share float64) (Dim, error) {
 
 // Of is percent dimmed.
 func (d Dim) Of(percent float64) float64 { return percent * d.share }
+
+// RoomBand tells a bright room from a dim one, with a gap between the
+// two so a room near one threshold does not flip back and forth.
+type RoomBand struct{ dimBelow, brightAt Lux }
+
+// NewRoomBand validates the band: 0 < dimBelow < brightAt.
+func NewRoomBand(dimBelow, brightAt Lux) (RoomBand, error) {
+	if !(dimBelow > 0 && dimBelow < brightAt) {
+		return RoomBand{}, fmt.Errorf("room band from %v to %v lux: want 0 < dim < bright", dimBelow, brightAt)
+	}
+	return RoomBand{dimBelow: dimBelow, brightAt: brightAt}, nil
+}
+
+// After is the room at illuminance l after last: bright from brightAt
+// up, dim below dimBelow, and last in between, dim when last was unknown.
+func (b RoomBand) After(last autobrightness.Room, l Lux) autobrightness.Room {
+	switch {
+	case l >= b.brightAt:
+		return autobrightness.RoomBright
+	case l < b.dimBelow, last != autobrightness.RoomBright:
+		return autobrightness.RoomDim
+	}
+	return last
+}
 
 // Smoother is an exponential moving average of log illuminance whose
 // weight follows the time between samples: a sample tau after the last

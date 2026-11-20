@@ -17,6 +17,7 @@ import (
 type fakeAutoDaemon struct {
 	conn    *dbus.Conn
 	state   dbustest.Var[any]
+	room    dbustest.Var[string]
 	resumes dbustest.Var[int]
 	release func()
 }
@@ -30,12 +31,16 @@ func serveAutoDaemon(t *testing.T, bus *dbustest.Bus, state any) *fakeAutoDaemon
 	t.Helper()
 	f := &fakeAutoDaemon{conn: bus.Conn(t)}
 	f.state.Store(state)
+	f.room.Store(autobrightness.RoomUnknown.String())
 	release, err := dbusx.Serve(f.conn, dbusx.Service{
-		Name:       autobrightness.ServiceName,
-		Path:       autobrightness.ServicePath,
-		Interface:  autobrightness.Interface,
-		Methods:    f,
-		Properties: dbusx.Getters{autobrightness.Property: func() any { return f.state.Load() }},
+		Name:      autobrightness.ServiceName,
+		Path:      autobrightness.ServicePath,
+		Interface: autobrightness.Interface,
+		Methods:   f,
+		Properties: dbusx.Getters{
+			autobrightness.Property:     func() any { return f.state.Load() },
+			autobrightness.RoomProperty: func() any { return f.room.Load() },
+		},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -53,6 +58,44 @@ func (f *fakeAutoDaemon) announce(t *testing.T, state any) {
 	if err != nil {
 		t.Fatal(err)
 	}
+}
+
+func (f *fakeAutoDaemon) announceRoom(t *testing.T, room autobrightness.Room) {
+	t.Helper()
+	f.room.Store(room.String())
+	err := f.conn.Emit(autobrightness.ServicePath, dbusx.PropertiesInterface+".PropertiesChanged",
+		autobrightness.Interface, map[string]dbus.Variant{autobrightness.RoomProperty: dbus.MakeVariant(room.String())}, []string{})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func (f autoFollower) awaitRoom(t *testing.T, want autobrightness.Room) {
+	t.Helper()
+	for f.Room() != want {
+		waittest.For(t, f.ticks, fmt.Sprintf("the room to change from %v to %v", f.Room(), want))
+	}
+}
+
+func TestAutoFollowsTheRoomAndForgetsItWhenAutomaticBrightnessLeaves(t *testing.T) {
+	bus := dbustest.Start(t)
+	f := followAuto(t, bus.Conn(t))
+	if got := f.Room(); got != autobrightness.RoomUnknown {
+		t.Fatalf("no automatic brightness: room %v, want unknown", got)
+	}
+	daemon := serveAutoDaemon(t, bus, "following")
+	f.await(t, ControlFollowing)
+	daemon.announceRoom(t, autobrightness.RoomBright)
+	f.awaitRoom(t, autobrightness.RoomBright)
+	if got := f.Control(); got != ControlFollowing {
+		t.Errorf("a room change moved the control to %v", got)
+	}
+	daemon.announceRoom(t, autobrightness.RoomDim)
+	f.awaitRoom(t, autobrightness.RoomDim)
+	daemon.announceRoom(t, autobrightness.RoomBright)
+	f.awaitRoom(t, autobrightness.RoomBright)
+	daemon.release()
+	f.awaitRoom(t, autobrightness.RoomUnknown)
 }
 
 type autoFollower struct {

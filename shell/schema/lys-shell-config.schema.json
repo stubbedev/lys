@@ -3431,7 +3431,7 @@
             "ac": "never",
             "battery": "1m"
           },
-          "description": "Idle time before every keyboard backlight (`*::kbd_backlight`) turns\noff. The next key press or other input turns it back on at its level."
+          "description": "Idle time before every keyboard backlight (`*::kbd_backlight`) turns\noff. The next key press or other input turns it back on at its level.\nWhile lys-power's automatic brightness finds the room bright, the\nkeyboard backlight stays off whatever the input."
         },
         "lock": {
           "$ref": "#/$defs/IdleTimeouts",

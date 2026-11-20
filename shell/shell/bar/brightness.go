@@ -13,6 +13,7 @@ import (
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/shell/service/brightness"
+	"github.com/stubbedev/lys/shell/service/kbdlight"
 )
 
 // brightnessNoDevice is NO_DEVICE_LABEL.
@@ -52,8 +53,9 @@ type autoBrightnessSource interface {
 
 // startAutoBrightness follows automatic brightness on the shell's
 // session bus for every bar, leaving ctx.AutoBrightness nil without a
-// bus; the returned func stops following.
-func startAutoBrightness(ctx *ModuleContext, conn *dbus.Conn) func() {
+// bus, and holds keyboard off in a bright room unless it is nil; the
+// returned func stops following.
+func startAutoBrightness(ctx *ModuleContext, conn *dbus.Conn, keyboard *kbdlight.Light) func() {
 	if conn == nil {
 		return func() {}
 	}
@@ -63,7 +65,12 @@ func startAutoBrightness(ctx *ModuleContext, conn *dbus.Conn) func() {
 		return func() {}
 	}
 	ctx.AutoBrightness = auto
+	stopRoom := func() {}
+	if keyboard != nil {
+		stopRoom = followBrightRoom(auto, keyboard)
+	}
 	return func() {
+		stopRoom()
 		if err := auto.Close(); err != nil {
 			log.Printf("brightness: %v", err)
 		}

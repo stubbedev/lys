@@ -69,6 +69,10 @@ const (
 	// LowPowerShare is the share of the curve's level the backlight keeps
 	// while the power profile is power-saver.
 	LowPowerShare = 0.88
+	// A room is bright, where a keyboard backlight helps nobody, from
+	// RoomBrightLux up, and dim again below RoomDimLux.
+	RoomDimLux    = 250.0
+	RoomBrightLux = 500.0
 	// MinLux is the least illuminance the smoothing works with, so a
 	// sensor reading 0 in the dark keeps the logarithm finite.
 	MinLux = 0.1

@@ -28,6 +28,8 @@ type IdleConfig struct {
 	Enable bool `cfg:"enable"`
 	// Idle time before every keyboard backlight (`*::kbd_backlight`) turns
 	// off. The next key press or other input turns it back on at its level.
+	// While lys-power's automatic brightness finds the room bright, the
+	// keyboard backlight stays off whatever the input.
 	KeyboardBacklight IdleTimeouts `cfg:"keyboard-backlight"`
 	// Idle time before the backlights dim.
 	Dim IdleTimeouts `cfg:"dim"`

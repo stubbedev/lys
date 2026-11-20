@@ -18,19 +18,23 @@ type Server struct {
 
 	mu    sync.Mutex
 	state State
+	room  Room
 }
 
 func Serve(conn *dbus.Conn, initial State, resume func(context.Context) error) (*Server, func(), error) {
 	if _, err := ParseState(initial.String()); err != nil {
 		return nil, nil, fmt.Errorf("serve %s: %w", ServiceName, err)
 	}
-	s := &Server{conn: conn, resume: resume, state: initial}
+	s := &Server{conn: conn, resume: resume, state: initial, room: RoomUnknown}
 	release, err := dbusx.Serve(conn, dbusx.Service{
-		Name:       ServiceName,
-		Path:       ServicePath,
-		Interface:  Interface,
-		Methods:    methods{s},
-		Properties: dbusx.Getters{Property: func() any { return s.snapshot().String() }},
+		Name:      ServiceName,
+		Path:      ServicePath,
+		Interface: Interface,
+		Methods:   methods{s},
+		Properties: dbusx.Getters{
+			Property:     func() any { return s.snapshot().String() },
+			RoomProperty: func() any { return s.roomSnapshot().String() },
+		},
 	})
 	if err != nil {
 		return nil, nil, fmt.Errorf("serve %s: %w", ServiceName, err)

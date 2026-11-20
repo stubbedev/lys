@@ -168,10 +168,17 @@ locked or another session is in the foreground. When your display session ends, 
 becomes it, the service exits with an error naming the session, and systemd
 starts it again for the session now in front.
 
+**The room.** Above 500 lux (bright daylight indoors) the room counts as
+bright, and below 250 lux as dim again, so a room near one threshold does
+not flip back and forth. The shell keeps the keyboard backlight off in a
+bright room. While automatic brightness is paused it samples nothing, so
+the room is unknown.
+
 The state is on the session bus as the `State` property (`following` or
 `paused`) of `dev.stubbe.lys.AutoBrightness1` at
-`/dev/stubbe/lys/AutoBrightness`, with `PropertiesChanged` on every change,
-and `Resume()` hands control back:
+`/dev/stubbe/lys/AutoBrightness`, the room as its `Room` property
+(`unknown`, `dim` or `bright`), with `PropertiesChanged` on every change of
+either, and `Resume()` hands control back:
 
 ```sh
 busctl --user get-property dev.stubbe.lys.AutoBrightness1 /dev/stubbe/lys/AutoBrightness dev.stubbe.lys.AutoBrightness1 State

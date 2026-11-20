@@ -134,3 +134,44 @@ func TestASecondServerFindsTheNameTaken(t *testing.T) {
 		t.Errorf("a second server: %v, want ErrNameTaken", err)
 	}
 }
+
+func nextRoom(t *testing.T, signals <-chan *dbus.Signal) autobrightness.Room {
+	t.Helper()
+	for {
+		room, ok, err := autobrightness.RoomChanged(waittest.For(t, signals, "a Room change"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if ok {
+			return room
+		}
+	}
+}
+
+func TestTheRoomIsUnknownUntilPublishedAndEveryChangeAnnounced(t *testing.T) {
+	bus := dbustest.Start(t)
+	s := serve(t, bus, autobrightness.Following, func(context.Context) error { return nil })
+	conn := bus.Conn(t)
+	client := autobrightness.NewClient(conn)
+	signals := watch(t, conn)
+	if got, err := client.Room(t.Context()); err != nil || got != autobrightness.RoomUnknown {
+		t.Fatalf("Room before an estimate = %v, %v, want unknown", got, err)
+	}
+	for _, room := range []autobrightness.Room{autobrightness.RoomBright, autobrightness.RoomBright, autobrightness.RoomDim} {
+		if err := s.PublishRoom(room); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := nextRoom(t, signals); got != autobrightness.RoomBright {
+		t.Errorf("announced %v, want bright", got)
+	}
+	if got := nextRoom(t, signals); got != autobrightness.RoomDim {
+		t.Errorf("after a repeated bright, announced %v, want dim", got)
+	}
+	if got, err := client.Room(t.Context()); err != nil || got != autobrightness.RoomDim {
+		t.Errorf("Room = %v, %v, want dim", got, err)
+	}
+	if err := s.PublishRoom(autobrightness.Room(0)); err == nil {
+		t.Error("an invalid room published")
+	}
+}

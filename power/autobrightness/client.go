@@ -38,27 +38,35 @@ func (c *Client) Resume(ctx context.Context) error {
 }
 
 func Changed(sig *dbus.Signal) (State, bool, error) {
-	if sig.Path != ServicePath || sig.Name != propertiesChanged || len(sig.Body) != 3 {
-		return 0, false, nil
-	}
-	if iface, _ := sig.Body[0].(string); iface != Interface {
-		return 0, false, nil
-	}
-	changed, ok := sig.Body[1].(map[string]dbus.Variant)
-	if !ok {
-		return 0, false, fmt.Errorf("%s from %s: changed properties of type %T", propertiesChanged, sig.Sender, sig.Body[1])
-	}
-	v, ok := changed[Property]
-	if !ok {
-		return 0, false, nil
-	}
-	wire, ok := v.Value().(string)
-	if !ok {
-		return 0, false, fmt.Errorf("%s from %s: %s of type %T", propertiesChanged, sig.Sender, Property, v.Value())
+	wire, ok, err := changedString(sig, Property)
+	if err != nil || !ok {
+		return 0, false, err
 	}
 	state, err := ParseState(wire)
 	if err != nil {
 		return 0, false, fmt.Errorf("%s from %s: %w", propertiesChanged, sig.Sender, err)
 	}
 	return state, true, nil
+}
+
+func changedString(sig *dbus.Signal, property string) (string, bool, error) {
+	if sig.Path != ServicePath || sig.Name != propertiesChanged || len(sig.Body) != 3 {
+		return "", false, nil
+	}
+	if iface, _ := sig.Body[0].(string); iface != Interface {
+		return "", false, nil
+	}
+	changed, ok := sig.Body[1].(map[string]dbus.Variant)
+	if !ok {
+		return "", false, fmt.Errorf("%s from %s: changed properties of type %T", propertiesChanged, sig.Sender, sig.Body[1])
+	}
+	v, ok := changed[property]
+	if !ok {
+		return "", false, nil
+	}
+	wire, ok := v.Value().(string)
+	if !ok {
+		return "", false, fmt.Errorf("%s from %s: %s of type %T", propertiesChanged, sig.Sender, property, v.Value())
+	}
+	return wire, true, nil
 }

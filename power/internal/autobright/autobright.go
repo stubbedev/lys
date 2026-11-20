@@ -47,9 +47,10 @@ type Sessions interface {
 // the one that is.
 var ErrSessionChanged = errors.New("the display session changed")
 
-// Publisher announces who holds the backlight.
+// Publisher announces who holds the backlight, and how lit the room is.
 type Publisher interface {
 	Publish(state autobrightness.State) error
+	PublishRoom(room autobrightness.Room) error
 }
 
 // Profile follows whether the power profile is power-saver: the current
@@ -69,6 +70,7 @@ type Clock interface {
 type Params struct {
 	Curve    ambient.Curve
 	LowPower ambient.Dim
+	Room     ambient.RoomBand
 	Smoother ambient.Smoother
 	Band     float64
 	Steps    int
@@ -92,6 +94,7 @@ type Daemon struct {
 	steps   []float64
 	saver   bool
 	aimed   bool
+	room    autobrightness.Room
 	resumes chan chan error
 }
 
@@ -108,6 +111,7 @@ func New(light Light, backlight backlight.Source, sessions Sessions, profile Pro
 		log:       log,
 		params:    p,
 		owner:     ambient.NewOwner(p.Steps + 1),
+		room:      autobrightness.RoomUnknown,
 		smooth:    p.Smoother,
 		resumes:   make(chan chan error),
 	}
@@ -210,6 +214,16 @@ func (d *Daemon) ended(ctx context.Context) error {
 	return errors.New("the backlight watch ended")
 }
 
+// estimate announces how lit the room is, unknown while paused, since a
+// paused daemon samples nothing.
+func (d *Daemon) estimate(pub Publisher, room autobrightness.Room) error {
+	if room == d.room {
+		return nil
+	}
+	d.room = room
+	return pub.PublishRoom(room)
+}
+
 func (d *Daemon) profileEnded(ctx context.Context) error {
 	if ctx.Err() != nil {
 		return nil
@@ -308,6 +322,9 @@ func (d *Daemon) observe(ctx context.Context, pub Publisher) ([]backlight.Device
 	if state == autobrightness.Paused {
 		d.steps = nil
 		d.log.Info("the backlight was changed by someone else, pausing automatic brightness", "backlights", raw(devices))
+		if err := d.estimate(pub, autobrightness.RoomUnknown); err != nil {
+			return nil, err
+		}
 	} else {
 		d.log.Info("the backlight is back at its automatic level, following the room again")
 		if d.aimed != d.saver {
@@ -351,6 +368,10 @@ func (d *Daemon) sample(ctx context.Context, pub Publisher) error {
 		return fmt.Errorf("sample the ambient light: %w", err)
 	}
 	d.smooth = d.smooth.Add(lux, d.clock.Now())
+	smoothed, _ := d.smooth.Lux()
+	if err := d.estimate(pub, d.params.Room.After(d.room, smoothed)); err != nil {
+		return err
+	}
 	devices, err := d.levels(ctx)
 	if err != nil {
 		return err

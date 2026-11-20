@@ -583,7 +583,7 @@ var schemaDocs = map[string]string{
 	"IdleConfig.Dim":                                 "Idle time before the backlights dim.",
 	"IdleConfig.DimPercent":                          "Share of its level, in percent, a dimmed backlight keeps. Input\nrestores the exact level it had.",
 	"IdleConfig.Enable":                              "Run the built-in idle policy. Turn it off when swayidle or hypridle\nhandles idle, so the two do not both act.",
-	"IdleConfig.KeyboardBacklight":                   "Idle time before every keyboard backlight (`*::kbd_backlight`) turns\noff. The next key press or other input turns it back on at its level.",
+	"IdleConfig.KeyboardBacklight":                   "Idle time before every keyboard backlight (`*::kbd_backlight`) turns\noff. The next key press or other input turns it back on at its level.\nWhile lys-power's automatic brightness finds the room bright, the\nkeyboard backlight stays off whatever the input.",
 	"IdleConfig.Lock":                                "Idle time before the session locks (through logind, which starts the\nlock screen).",
 	"IdleConfig.LockBeforeSleep":                     "Lock the session before the system sleeps (a lid close, a suspend\nfrom any program), and hold the sleep until the lock screen is up, so\nthe machine always wakes locked.",
 	"IdleConfig.ScreenOff":                           "Idle time before the outputs power off. Input powers them back on.",
