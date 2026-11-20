@@ -12,6 +12,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/compositor"
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/service/hyprland"
 	"github.com/stubbedev/lys/desktop/service/lyswm/lyswmtest"
 	"github.com/stubbedev/lys/desktop/service/network"
 	"github.com/stubbedev/lys/desktop/service/powerprofiles"
@@ -26,7 +27,6 @@ import (
 	"github.com/stubbedev/lys/shell/internal/appicons"
 	"github.com/stubbedev/lys/shell/internal/apptest"
 	"github.com/stubbedev/lys/shell/service/brightness"
-	"github.com/stubbedev/lys/shell/service/hyprland"
 	"github.com/stubbedev/lys/shell/service/sni"
 )
 

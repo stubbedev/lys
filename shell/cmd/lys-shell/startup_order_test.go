@@ -20,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/desktop/service/niri"
 	"github.com/stubbedev/lys/desktop/swaytest"
 	"github.com/stubbedev/lys/lib/capture"
 	"github.com/stubbedev/lys/lib/dbustest"
@@ -30,7 +31,6 @@ import (
 	"github.com/stubbedev/lys/lib/wmipc"
 
 	"github.com/stubbedev/lys/shell/service/mango"
-	"github.com/stubbedev/lys/shell/service/niri"
 	"github.com/stubbedev/lys/shell/service/notifications"
 	"github.com/stubbedev/lys/shell/service/sharepreview"
 	"github.com/stubbedev/lys/shell/service/shellipc"

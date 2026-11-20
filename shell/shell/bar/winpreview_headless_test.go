@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/service/niri"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/desktop/swaytest"
 	"github.com/stubbedev/lys/lib/intconv"
@@ -18,7 +19,6 @@ import (
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/shell/service/mango"
-	"github.com/stubbedev/lys/shell/service/niri"
 )
 
 // On a real compositor, with window previews on, a workspace's hover

@@ -7,11 +7,10 @@ import (
 	"github.com/stubbedev/lys/desktop/compositor"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/jinja"
+	"github.com/stubbedev/lys/desktop/service/hyprland"
 	"github.com/stubbedev/lys/desktop/service/lyswm"
 	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/ui/widget"
-
-	"github.com/stubbedev/lys/shell/service/hyprland"
 )
 
 // keybindModeLabel renders format: an empty submap

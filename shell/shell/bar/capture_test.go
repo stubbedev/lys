@@ -19,6 +19,7 @@ import (
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/clipboard"
 	"github.com/stubbedev/lys/desktop/service/clipboard/historybudget"
+	"github.com/stubbedev/lys/desktop/service/hyprland"
 	"github.com/stubbedev/lys/desktop/swaytest"
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/portaldialogs"
@@ -30,7 +31,6 @@ import (
 	"github.com/stubbedev/lys/ui/widget"
 
 	timeclock "github.com/stubbedev/lys/shell/internal/clock"
-	"github.com/stubbedev/lys/shell/service/hyprland"
 	"github.com/stubbedev/lys/shell/shell/screenshot"
 )
 

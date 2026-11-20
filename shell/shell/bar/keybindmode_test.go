@@ -6,10 +6,9 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/service/hyprland"
 	"github.com/stubbedev/lys/lib/sockdir"
 	"github.com/stubbedev/lys/ui/widget"
-
-	"github.com/stubbedev/lys/shell/service/hyprland"
 )
 
 func TestKeybindModeLabel(t *testing.T) {

@@ -11,9 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys/desktop/ipcsock/ipcsocktest"
 	"github.com/stubbedev/lys/lib/sockdir"
 	"github.com/stubbedev/lys/lib/waittest"
+
+	"github.com/stubbedev/lys/desktop/ipcsock/ipcsocktest"
 )
 
 // fakeSway speaks the i3-ipc protocol: canned GET_WORKSPACES and

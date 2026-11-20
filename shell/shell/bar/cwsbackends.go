@@ -11,14 +11,14 @@ import (
 
 	"github.com/stubbedev/lys/desktop/compositor"
 	"github.com/stubbedev/lys/desktop/service/lyswm"
+	"github.com/stubbedev/lys/desktop/service/niri"
+	"github.com/stubbedev/lys/desktop/service/sway"
 	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/lib/intconv"
 	"github.com/stubbedev/lys/lib/wmipc"
 
 	"github.com/stubbedev/lys/shell/internal/appicons"
 	"github.com/stubbedev/lys/shell/service/mango"
-	"github.com/stubbedev/lys/shell/service/niri"
-	"github.com/stubbedev/lys/shell/service/sway"
 )
 
 // newSwayWorkspaces is the workspaces module on sway.

@@ -302,6 +302,18 @@
     ]
   },
   "desktop/service/clipboard/historybudget": {},
+  "desktop/service/hyprland": {
+    "imports": [
+      "desktop/compositor",
+      "desktop/ipcsock"
+    ],
+    "testImports": [
+      "desktop/ipcsock/ipcsocktest",
+      "lib/sockdir",
+      "lib/testhome",
+      "lib/waittest"
+    ]
+  },
   "desktop/service/idle/idlepolicy": {
     "imports": [
       "lib/logind"
@@ -392,6 +404,18 @@
     ]
   },
   "desktop/service/nightlight/nightschedule": {},
+  "desktop/service/niri": {
+    "imports": [
+      "desktop/compositor",
+      "desktop/ipcsock"
+    ],
+    "testImports": [
+      "desktop/ipcsock/ipcsocktest",
+      "lib/sockdir",
+      "lib/testhome",
+      "lib/waittest"
+    ]
+  },
   "desktop/service/notifications/notifymodel": {},
   "desktop/service/notifications/notifypolicy": {},
   "desktop/service/powerprofiles": {
@@ -433,6 +457,19 @@
   },
   "desktop/service/rfkill": {},
   "desktop/service/sounds/soundpolicy": {},
+  "desktop/service/sway": {
+    "imports": [
+      "desktop/compositor",
+      "desktop/ipcsock",
+      "lib/intconv"
+    ],
+    "testImports": [
+      "desktop/ipcsock/ipcsocktest",
+      "lib/sockdir",
+      "lib/testhome",
+      "lib/waittest"
+    ]
+  },
   "desktop/service/upower": {
     "imports": [
       "lib/dbusx",
@@ -2474,6 +2511,7 @@
       "desktop/portal/permissions/permstoretest",
       "desktop/service/idleinhibit/inhibitduration",
       "desktop/service/lyswm/lyswmtest",
+      "desktop/service/niri",
       "desktop/service/wallpaper/extract",
       "desktop/shell/treetest",
       "desktop/swaytest",
@@ -2490,7 +2528,6 @@
       "power/autobrightness",
       "shell/internal/notifytest",
       "shell/service/mango",
-      "shell/service/niri",
       "shell/service/recorder/recordertest",
       "shell/service/sharepreview",
       "shell/shell/colorpicker",
@@ -2864,18 +2901,6 @@
       "shell/service/dnssd"
     ]
   },
-  "shell/service/hyprland": {
-    "imports": [
-      "desktop/compositor",
-      "desktop/ipcsock"
-    ],
-    "testImports": [
-      "desktop/ipcsock/ipcsocktest",
-      "lib/sockdir",
-      "lib/testhome",
-      "lib/waittest"
-    ]
-  },
   "shell/service/idle": {
     "imports": [
       "desktop/feed",
@@ -2967,17 +2992,17 @@
       "desktop/i18n",
       "desktop/pango",
       "desktop/service/clipboard",
+      "desktop/service/hyprland",
       "desktop/service/lyswm",
+      "desktop/service/niri",
+      "desktop/service/sway",
       "desktop/shlex",
       "lib/third_party/gomath",
       "lib/wmipc",
       "shell/internal/gvariant",
-      "shell/service/hyprland",
       "shell/service/launcher",
       "shell/service/mango",
-      "shell/service/niri",
-      "shell/service/sharepreview",
-      "shell/service/sway"
+      "shell/service/sharepreview"
     ],
     "embeds": [
       "shell/service/launcher/modes/emojidata"
@@ -3088,18 +3113,6 @@
       "lib/testhome",
       "lib/waittest",
       "lib/wltest"
-    ]
-  },
-  "shell/service/niri": {
-    "imports": [
-      "desktop/compositor",
-      "desktop/ipcsock"
-    ],
-    "testImports": [
-      "desktop/ipcsock/ipcsocktest",
-      "lib/sockdir",
-      "lib/testhome",
-      "lib/waittest"
     ]
   },
   "shell/service/notifications": {
@@ -3245,19 +3258,6 @@
       "shell/internal/notifytest"
     ]
   },
-  "shell/service/sway": {
-    "imports": [
-      "desktop/compositor",
-      "desktop/ipcsock",
-      "lib/intconv"
-    ],
-    "testImports": [
-      "desktop/ipcsock/ipcsocktest",
-      "lib/sockdir",
-      "lib/testhome",
-      "lib/waittest"
-    ]
-  },
   "shell/service/sysinfo": {
     "imports": [
       "lib/third_party/gomath"
@@ -3343,6 +3343,7 @@
       "desktop/service/bitwarden/generator",
       "desktop/service/bluetooth",
       "desktop/service/clipboard",
+      "desktop/service/hyprland",
       "desktop/service/idle/idlepolicy",
       "desktop/service/idleinhibit/inhibitduration",
       "desktop/service/lyswm",
@@ -3350,11 +3351,13 @@
       "desktop/service/network",
       "desktop/service/network/secrets",
       "desktop/service/network/vpntext",
+      "desktop/service/niri",
       "desktop/service/powerprofiles",
       "desktop/service/pulse",
       "desktop/service/recorder/devicechoice",
       "desktop/service/recorder/webcamframe",
       "desktop/service/rfkill",
+      "desktop/service/sway",
       "desktop/service/upower",
       "desktop/settingspage",
       "desktop/shell/apptheme",
@@ -3397,7 +3400,6 @@
       "shell/service/calendar",
       "shell/service/clipboardipc",
       "shell/service/dnssd",
-      "shell/service/hyprland",
       "shell/service/idle",
       "shell/service/idleinhibit",
       "shell/service/keytoggles",
@@ -3410,7 +3412,6 @@
       "shell/service/mail",
       "shell/service/mango",
       "shell/service/nightlight",
-      "shell/service/niri",
       "shell/service/notifications",
       "shell/service/privacy",
       "shell/service/recorder",
@@ -3419,7 +3420,6 @@
       "shell/service/shellipc",
       "shell/service/sni",
       "shell/service/sounds",
-      "shell/service/sway",
       "shell/service/sysinfo",
       "shell/service/treeman",
       "shell/service/udisks",
@@ -3848,7 +3848,10 @@
       "desktop/i18n",
       "desktop/identity",
       "desktop/offheap",
+      "desktop/service/hyprland",
       "desktop/service/lyswm",
+      "desktop/service/niri",
+      "desktop/service/sway",
       "lib/atomicfile",
       "lib/capture",
       "lib/portaldialogs",
@@ -3857,11 +3860,8 @@
       "lib/wmipc",
       "lib/xdg",
       "shell/internal/desktopnotify",
-      "shell/service/hyprland",
       "shell/service/mango",
-      "shell/service/niri",
       "shell/service/sharepreview",
-      "shell/service/sway",
       "shell/shell/colorpicker",
       "shell/shell/regionoverlay"
     ],
