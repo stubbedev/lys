@@ -63,7 +63,7 @@ Modules appear inside the `bar.layout` list. Each row links to the full referenc
 | [`minimized-windows`](/shell/config/modules/minimized-windows) | Minimized windows, like a dock. |
 | [`netstat`](/shell/config/modules/netstat) | Network traffic counters (up/down rates). |
 | [`network`](/shell/config/modules/network) | Network connection status with a dropdown for switching connections. |
-| [`nightlight`](/shell/config/modules/nightlight) | Night light: warms the display colors, by hand or on a dawn/dusk schedule. |
+| [`nightlight`](/shell/config/modules/nightlight) | Night light: warms the display colors, by hand or on a schedule. |
 | [`notifications`](/shell/config/modules/notifications) | Notification center: icon in the bar, dropdown with history, DND toggle. |
 | [`power`](/shell/config/modules/power) | Shutdown, reboot, and logout menu. |
 | [`power-profiles`](/shell/config/modules/power-profiles) | Power profile indicator and switcher (power-profiles-daemon). |

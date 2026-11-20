@@ -47,8 +47,45 @@ var dndScheduleList = cardRow(cardSpec{
 
 func scheduleTimeField(key, other, label string) cardField {
 	return cardField{label: label, keys: []string{key}, item: func(k *kit, field func(key string) slot) control {
-		return newClockTimeEditor(k, field(key), locale.T().Get(label), everyFiveMinutes, clockTimeOf(field(other)))
+		return clockTimeApart(k, field, key, other, label)
 	}}
+}
+
+func clockTimeApart(k *kit, field func(key string) slot, key, other, label string) *clockTimeEditor {
+	return newClockTimeEditor(k, field(key), locale.T().Get(label), everyFiveMinutes, clockTimeOf(field(other)))
+}
+
+func clockRangeRow(r *rowSpec) {
+	r.editor = func(k *kit, s slot, _ config.FieldMeta) control { return newClockRange(k, s) }
+}
+
+type clockRange struct {
+	*widget.Box
+	from, to *clockTimeEditor
+}
+
+func newClockRange(k *kit, s slot) *clockRange {
+	field := func(key string) slot { return nestedSlot(s, []string{key}) }
+	c := &clockRange{
+		Box:  gapBox(widget.Row),
+		from: clockTimeApart(k, field, "from", "to", "settings-schedule-from"),
+		to:   clockTimeApart(k, field, "to", "from", "settings-schedule-to"),
+	}
+	c.AddClass("clock-range")
+	t := locale.T()
+	for _, part := range []struct {
+		label  string
+		editor *clockTimeEditor
+	}{{"settings-schedule-from", c.from}, {"settings-schedule-to", c.to}} {
+		c.AppendAligned(k.label(t.Get(part.label), css.DimLabel), false, widget.AlignCenter)
+		c.AppendAligned(part.editor, false, widget.AlignCenter)
+	}
+	return c
+}
+
+func (c *clockRange) refresh() {
+	c.from.refresh()
+	c.to.refresh()
 }
 
 func scheduleTitle(item map[string]any, _ int) string {

@@ -4,7 +4,9 @@ import (
 	"math"
 	"testing"
 	"time"
+	_ "time/tzdata"
 
+	"github.com/stubbedev/lys/desktop/daytime"
 	"github.com/stubbedev/lys/desktop/geo"
 	"github.com/stubbedev/lys/desktop/service/nightlight/nightschedule"
 )
@@ -37,24 +39,24 @@ func TestTargetAtEasesAcrossDusk(t *testing.T) {
 	tr := mustTransition(t, 15)
 	dusk := sunTimesFor(utc(2024, 3, 20, 12, 0), loc.Latitude(), loc.Longitude(), civilTwilightAltitude).set
 
-	before := TargetAt(dusk.Add(-8*time.Minute), loc, tr, night)
+	before := TargetAt(dusk.Add(-8*time.Minute), SunAt(loc), tr, night)
 	if !before.Setting.IsIdentity() || before.Easing || before.Phase != PhaseDay {
 		t.Errorf("before the ease = %+v, want day with no filter", before)
 	}
-	start := TargetAt(dusk.Add(-tr.Duration()/2), loc, tr, night)
+	start := TargetAt(dusk.Add(-tr.Duration()/2), SunAt(loc), tr, night)
 	if !start.Setting.IsIdentity() || !start.Easing || start.Phase != PhaseNight {
 		t.Errorf("first moment = %+v, want the identity, easing into night", start)
 	}
-	mid := TargetAt(dusk, loc, tr, night)
+	mid := TargetAt(dusk, SunAt(loc), tr, night)
 	wantMired := (mired(identity) + mired(night)) / 2
 	if !mid.Easing || math.Abs(mired(mid.Setting)-wantMired) > 1e-6 || math.Abs(mid.Setting.gamma-90) > 1e-6 {
 		t.Errorf("at dusk = %v mired, %v%%; want %v mired, 90%%", mired(mid.Setting), mid.Setting.gamma, wantMired)
 	}
-	end := TargetAt(dusk.Add(tr.Duration()/2), loc, tr, night)
+	end := TargetAt(dusk.Add(tr.Duration()/2), SunAt(loc), tr, night)
 	if end.Setting != night || end.Easing {
 		t.Errorf("end = %+v, want the full strength, settled", end)
 	}
-	after := TargetAt(dusk.Add(time.Hour), loc, tr, night)
+	after := TargetAt(dusk.Add(time.Hour), SunAt(loc), tr, night)
 	if after.Setting != night || after.Easing || after.Phase != PhaseNight {
 		t.Errorf("after = %+v, want full night", after)
 	}
@@ -66,14 +68,14 @@ func TestTargetAtEasesAcrossDawn(t *testing.T) {
 	tr := mustTransition(t, 15)
 	dawn := sunTimesFor(utc(2024, 3, 20, 12, 0), loc.Latitude(), loc.Longitude(), civilTwilightAltitude).rise
 
-	if start := TargetAt(dawn.Add(-tr.Duration()/2), loc, tr, night); start.Setting != night || !start.Easing || start.Phase != PhaseDay {
+	if start := TargetAt(dawn.Add(-tr.Duration()/2), SunAt(loc), tr, night); start.Setting != night || !start.Easing || start.Phase != PhaseDay {
 		t.Errorf("first moment = %+v, want the full strength, easing into day", start)
 	}
-	mid := TargetAt(dawn, loc, tr, night)
+	mid := TargetAt(dawn, SunAt(loc), tr, night)
 	if math.Abs(mid.Setting.gamma-90) > 1e-6 {
 		t.Errorf("at dawn gamma = %v, want 90", mid.Setting.gamma)
 	}
-	if end := TargetAt(dawn.Add(tr.Duration()/2), loc, tr, night); !end.Setting.IsIdentity() || end.Easing {
+	if end := TargetAt(dawn.Add(tr.Duration()/2), SunAt(loc), tr, night); !end.Setting.IsIdentity() || end.Easing {
 		t.Errorf("end = %+v, want the identity, settled", end)
 	}
 }
@@ -90,9 +92,9 @@ func TestStepsNeverMoveBackwardsOrShow(t *testing.T) {
 			event time.Time
 			warms bool
 		}{{st.set, true}, {st.rise, false}} {
-			prev := TargetAt(tc.event.Add(-tr.Duration()/2), loc, tr, night).Setting
+			prev := TargetAt(tc.event.Add(-tr.Duration()/2), SunAt(loc), tr, night).Setting
 			for s := time.Second; s <= tr.Duration(); s += time.Second {
-				now := TargetAt(tc.event.Add(-tr.Duration()/2+s), loc, tr, night).Setting
+				now := TargetAt(tc.event.Add(-tr.Duration()/2+s), SunAt(loc), tr, night).Setting
 				backwards := mired(now) < mired(prev)-1e-9
 				if tc.warms != (mired(night) > mired(identity)) {
 					backwards = mired(now) > mired(prev)+1e-9
@@ -117,10 +119,10 @@ func TestZeroTransitionSwitchesAtTheEvent(t *testing.T) {
 	night := mustSetting(t, 3000, 80)
 	var instant nightschedule.Transition
 	dusk := sunTimesFor(utc(2024, 3, 20, 12, 0), loc.Latitude(), loc.Longitude(), civilTwilightAltitude).set
-	if got := TargetAt(dusk.Add(-time.Second), loc, instant, night); !got.Setting.IsIdentity() || got.Easing || got.Phase != PhaseDay {
+	if got := TargetAt(dusk.Add(-time.Second), SunAt(loc), instant, night); !got.Setting.IsIdentity() || got.Easing || got.Phase != PhaseDay {
 		t.Errorf("a second before dusk = %+v, want day with no easing", got)
 	}
-	if got := TargetAt(dusk, loc, instant, night); got.Setting != night || got.Easing || got.Phase != PhaseNight {
+	if got := TargetAt(dusk, SunAt(loc), instant, night); got.Setting != night || got.Easing || got.Phase != PhaseNight {
 		t.Errorf("at dusk = %+v, want the full strength with no easing", got)
 	}
 }
@@ -141,12 +143,12 @@ func TestPolarDatesHaveNoTransition(t *testing.T) {
 		{"trondheim white night", mustLocation(t, 63.43, 10.39), utc(2024, 6, 21, 0, 0), PhaseDay},
 	} {
 		for m := range 24 * 60 {
-			got := TargetAt(tc.date.Add(time.Duration(m)*time.Minute), tc.loc, tr, night)
+			got := TargetAt(tc.date.Add(time.Duration(m)*time.Minute), SunAt(tc.loc), tr, night)
 			if got.Easing || got.Phase != tc.phase || got.Setting.IsIdentity() != (tc.phase == PhaseDay) {
 				t.Fatalf("%s at minute %d = %+v, want settled %v", tc.name, m, got, tc.phase)
 			}
 		}
-		if next, ok := NextEase(tc.date, tc.loc, tr); ok {
+		if next, ok := NextEase(tc.date, SunAt(tc.loc), tr); ok {
 			t.Errorf("%s: next ease %v, want none", tc.name, next)
 		}
 	}
@@ -158,16 +160,16 @@ func TestNextEaseIsTheNextStart(t *testing.T) {
 	st := sunTimesFor(utc(2024, 3, 20, 12, 0), loc.Latitude(), loc.Longitude(), civilTwilightAltitude)
 	start := st.set.Add(-tr.Duration() / 2)
 
-	if got, ok := NextEase(utc(2024, 3, 20, 12, 0), loc, tr); !ok || !got.Equal(start) {
+	if got, ok := NextEase(utc(2024, 3, 20, 12, 0), SunAt(loc), tr); !ok || !got.Equal(start) {
 		t.Errorf("from noon = %v, %v; want %v", got, ok, start)
 	}
 	// The moment an ease starts it is under way: the next one is another.
-	got, ok := NextEase(start, loc, tr)
+	got, ok := NextEase(start, SunAt(loc), tr)
 	if !ok || !got.After(start.Add(time.Hour)) {
 		t.Errorf("from the start itself = %v, %v; want a later ease", got, ok)
 	}
 	var instant nightschedule.Transition
-	if got, ok := NextEase(utc(2024, 3, 20, 12, 0), loc, instant); !ok || !got.Equal(st.set) {
+	if got, ok := NextEase(utc(2024, 3, 20, 12, 0), SunAt(loc), instant); !ok || !got.Equal(st.set) {
 		t.Errorf("no transition = %v, %v; want dusk %v", got, ok, st.set)
 	}
 }
@@ -183,10 +185,10 @@ func TestScheduleHasNoJumpsAtAnyLongitude(t *testing.T) {
 		for _, lat := range []float64{-33.87, 21.3, 55.6} {
 			loc := mustLocation(t, lat, lng)
 			for _, date := range []time.Time{utc(2024, 3, 20, 0, 0), utc(2024, 6, 21, 0, 0), utc(2024, 12, 21, 0, 0)} {
-				prev := TargetAt(date, loc, tr, night)
+				prev := TargetAt(date, SunAt(loc), tr, night)
 				eases := 0
 				for m := 1; m <= 24*60; m++ {
-					now := TargetAt(date.Add(time.Duration(m)*time.Minute), loc, tr, night)
+					now := TargetAt(date.Add(time.Duration(m)*time.Minute), SunAt(loc), tr, night)
 					if d := math.Abs(mired(now.Setting) - mired(prev.Setting)); d > maxStep {
 						t.Fatalf("(%v, %v) %v +%dm: mired jumped by %v, max %v", lat, lng, date, m, d, maxStep)
 					}
@@ -213,5 +215,98 @@ func TestEasedHoldsTheEndpoints(t *testing.T) {
 	}
 	if got := night.eased(0.01); got.IsIdentity() || got == night {
 		t.Errorf("eased(0.01) = %+v, want neither endpoint", got)
+	}
+}
+
+func mustHours(t *testing.T, from, to string) Daylight {
+	t.Helper()
+	f, err := daytime.Parse(from)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tt, err := daytime.Parse(to)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h, err := nightschedule.NewHours(f, tt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return HoursOf(h)
+}
+
+func TestCustomHoursAreNightFromTheirStartToTheirEnd(t *testing.T) {
+	zone := time.FixedZone("UTC+2", 2*60*60)
+	at := func(day, hour, minute int) time.Time { return time.Date(2024, 6, day, hour, minute, 0, 0, zone) }
+	var instant nightschedule.Transition
+	night := mustSetting(t, 4000, 100)
+	for _, tc := range []struct {
+		name           string
+		days           Daylight
+		nights, daysAt []time.Time
+	}{
+		{
+			"21:00-07:00", mustHours(t, "21:00", "07:00"),
+			[]time.Time{at(21, 21, 0), at(21, 23, 59), at(22, 0, 0), at(22, 6, 59)},
+			[]time.Time{at(21, 7, 0), at(21, 12, 0), at(21, 20, 59), at(22, 7, 0)},
+		},
+		{
+			"01:00-06:00", mustHours(t, "01:00", "06:00"),
+			[]time.Time{at(21, 1, 0), at(21, 5, 59)},
+			[]time.Time{at(21, 0, 59), at(21, 6, 0), at(21, 12, 0), at(21, 23, 0)},
+		},
+	} {
+		for _, now := range tc.nights {
+			if got := TargetAt(now, tc.days, instant, night); got.Phase != PhaseNight || got.Setting != night {
+				t.Errorf("%s at %s: %+v, want night", tc.name, now.Format("15:04"), got)
+			}
+		}
+		for _, now := range tc.daysAt {
+			if got := TargetAt(now, tc.days, instant, night); got.Phase != PhaseDay || !got.Setting.IsIdentity() {
+				t.Errorf("%s at %s: %+v, want day", tc.name, now.Format("15:04"), got)
+			}
+		}
+	}
+}
+
+func TestCustomHoursEaseAroundTheirStartAndEnd(t *testing.T) {
+	zone := time.FixedZone("UTC-5", -5*60*60)
+	days := mustHours(t, "22:00", "06:30")
+	tr := mustTransition(t, 30)
+	night := mustSetting(t, 4000, 100)
+	start := time.Date(2024, 1, 10, 22, 0, 0, 0, zone)
+	if got := TargetAt(start.Add(-16*time.Minute), days, tr, night); !got.Setting.IsIdentity() || got.Easing {
+		t.Errorf("before the ease: %+v", got)
+	}
+	mid := TargetAt(start, days, tr, night)
+	if !mid.Easing || mid.Phase != PhaseNight || mid.Setting.IsIdentity() || mid.Setting == night {
+		t.Errorf("at the start: %+v, want halfway into the night", mid)
+	}
+	if got := TargetAt(start.Add(15*time.Minute), days, tr, night); got.Setting != night || got.Easing {
+		t.Errorf("after the ease: %+v", got)
+	}
+	next, ok := NextEase(time.Date(2024, 1, 10, 12, 0, 0, 0, zone), days, tr)
+	if want := start.Add(-15 * time.Minute); !ok || !next.Equal(want) {
+		t.Errorf("next ease from noon = %v, %v; want %v", next, ok, want)
+	}
+	next, ok = NextEase(start.Add(15*time.Minute), days, tr)
+	if want := time.Date(2024, 1, 11, 6, 15, 0, 0, zone); !ok || !next.Equal(want) {
+		t.Errorf("next ease from the night = %v, %v; want the morning's at %v", next, ok, want)
+	}
+}
+
+func TestCustomHoursFollowTheWallClockAcrossADaylightSavingChange(t *testing.T) {
+	berlin, err := time.LoadLocation("Europe/Berlin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	days := mustHours(t, "21:00", "07:00")
+	var instant nightschedule.Transition
+	next, ok := NextEase(time.Date(2024, 3, 30, 22, 0, 0, 0, berlin), days, instant)
+	if want := time.Date(2024, 3, 31, 7, 0, 0, 0, berlin); !ok || !next.Equal(want) {
+		t.Errorf("the morning after the clocks spring forward = %v, want %v", next, want)
+	}
+	if got := PhaseAt(time.Date(2024, 3, 31, 6, 59, 0, 0, berlin), days); got != PhaseNight {
+		t.Errorf("06:59 on the change's morning is %v, want night", got)
 	}
 }

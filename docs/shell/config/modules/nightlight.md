@@ -7,7 +7,7 @@ outline: [2, 3]
 
 <div v-pre>
 
-Night light: warms the display colors, by hand or on a dawn/dusk schedule.
+Night light: warms the display colors, by hand or on a schedule.
 
 Add it to your layout with `nightlight`:
 
@@ -25,9 +25,11 @@ bar:
 | `format` | string | `"{{ status }}"` | Format string for the label. |
 | `temperature` | u32 | `5000` | Color temperature in Kelvin when filter is enabled. Range: 1000-20000. |
 | `gamma` | u32 | `100` | Display gamma percentage when filter is enabled. Range: 0-200. |
-| `auto-schedule` | bool | `false` | Automatically ease the filter on at dusk and off at dawn, following the sun at the machine's location. |
-| `transition-duration` | [`NightlightTransition`](/shell/config/types#nightlight-transition) | `15` | Length of the transition between day and night, in whole minutes, centered on civil dawn or dusk. 0 switches at once. Range: 0-120. |
-| `location` | [`AutoPlace`](/shell/config/types#auto-place) | `"auto"` | Where the schedule follows the sun: `"auto"` asks GeoClue, a place (`name`, `latitude`, `longitude`) pins it. Only used when `auto-schedule` is on. |
+| `auto-schedule` | bool | `false` | Automatically ease the filter on and off on `schedule`: at dusk and dawn, following the sun at the machine's location, or at the custom hours. |
+| `schedule` | [`NightlightSchedule`](/shell/config/types#nightlight-schedule) | `"sunset-to-sunrise"` | What the schedule follows: the sun, from sunset to sunrise, or the custom hours. Only used when `auto-schedule` is on. |
+| `custom-hours` | [`NightlightHours`](/shell/config/types#nightlight-hours) | `{...}` | When the custom schedule turns the filter on (`from`) and off (`to`), as HH:MM: the next day when `to` is not after `from`. Only used when `schedule` is `custom`. |
+| `transition-duration` | [`NightlightTransition`](/shell/config/types#nightlight-transition) | `15` | Length of the transition between day and night, in whole minutes, centered on civil dawn or dusk, or on the custom hours. 0 switches at once. Range: 0-120. |
+| `location` | [`AutoPlace`](/shell/config/types#auto-place) | `"auto"` | Where the schedule follows the sun: `"auto"` asks GeoClue, a place (`name`, `latitude`, `longitude`) pins it. Only used when `auto-schedule` is on and `schedule` is `sunset-to-sunrise`. |
 | `icon-off` | string | `"ld-sun-symbolic"` | Icon when filter is disabled (showing normal daylight colors). |
 | `icon-on` | string | `"ld-moon-symbolic"` | Icon when filter is enabled (showing warm night colors). |
 | `border-show` | bool | `false` | Display border around button. |
@@ -68,7 +70,8 @@ the module's tooltip.
 ::: details More about `auto-schedule`
 
 Transitions are centered on civil dawn and dusk (sun 6 degrees below the
-horizon). During polar day or night the filter stays off or on.
+horizon), or on the custom hours' start and end. During polar day or
+night the sun's schedule keeps the filter off or on.
 
 The location is `location`: a pinned place, or with `"auto"` GeoClue's
 fix, the last of which is kept in the state directory. Without a usable location the schedule does not run;
@@ -129,6 +132,10 @@ modules:
     temperature: 5000
     gamma: 100
     auto-schedule: false
+    schedule: sunset-to-sunrise
+    custom-hours:
+      from: 21:00
+      to: 07:00
     transition-duration: 15
     location: auto
     icon-off: ld-sun-symbolic

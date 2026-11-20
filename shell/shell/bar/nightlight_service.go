@@ -128,7 +128,7 @@ func newNightlightService(ctx ModuleContext, env sunsetEnv) *nightlightService {
 		log.Print(s.nightErr)
 		s.refused = s.nightErr
 	}
-	if place, pinned := cfg.Location.Pinned(); cfg.AutoSchedule && pinned {
+	if place, pinned := cfg.Location.Pinned(); followsTheSun(cfg) && pinned {
 		at := place.Coordinates()
 		s.pinned, s.location = true, &at
 	}
@@ -144,7 +144,7 @@ func newNightlightService(ctx ModuleContext, env sunsetEnv) *nightlightService {
 		}
 		s.filter = filter
 		var remembered *geo.Coordinates
-		if cfg.AutoSchedule && !s.pinned {
+		if followsTheSun(cfg) && !s.pinned {
 			remembered = s.readRememberedLocation()
 		}
 		restored, hasRestored := nightlight.LoadOverride(env.stateDir, env.now())
@@ -264,9 +264,23 @@ func (s *nightlightService) run() {
 		return
 	}
 	go s.followClock(s.life)
-	if !s.pinned {
+	if followsTheSun(s.cfg) && !s.pinned {
 		go s.followLocation(s.life)
 	}
+}
+
+func followsTheSun(cfg config.NightlightConfig) bool {
+	return cfg.AutoSchedule && cfg.Schedule == config.NightlightScheduleSun
+}
+
+func (s *nightlightService) daylight() (nightlight.Daylight, bool) {
+	if s.cfg.Schedule == config.NightlightScheduleCustom {
+		return nightlight.HoursOf(s.cfg.CustomHours.Hours()), true
+	}
+	if s.location == nil {
+		return nil, false
+	}
+	return nightlight.SunAt(*s.location), true
 }
 
 func (s *nightlightService) followClock(ctx context.Context) {
@@ -308,21 +322,25 @@ func (s *nightlightService) tick() {
 }
 
 func (s *nightlightService) armTick() {
-	if s.life == nil || s.life.Err() != nil || !s.cfg.AutoSchedule || s.location == nil {
+	if s.life == nil || s.life.Err() != nil || !s.cfg.AutoSchedule {
+		return
+	}
+	days, ok := s.daylight()
+	if !ok {
 		return
 	}
 	if s.timer != nil {
 		s.timer.Stop()
 	}
-	s.timer = time.AfterFunc(s.nextTick(), func() { s.ctx.Invoke(s.tick) })
+	s.timer = time.AfterFunc(s.nextTick(days), func() { s.ctx.Invoke(s.tick) })
 }
 
-func (s *nightlightService) nextTick() time.Duration {
+func (s *nightlightService) nextTick(days nightlight.Daylight) time.Duration {
 	if s.stepping && s.filter != nil {
 		return s.filter.EaseStep()
 	}
 	now := s.env.now()
-	next, ok := nightlight.NextEase(now, *s.location, s.cfg.TransitionDuration.Transition())
+	next, ok := nightlight.NextEase(now, days, s.cfg.TransitionDuration.Transition())
 	if !ok {
 		return nightlightScheduleTick
 	}
@@ -392,7 +410,7 @@ func (s *nightlightService) lookupFailed(err error) {
 }
 
 func (s *nightlightService) noLocation() error {
-	if !s.cfg.AutoSchedule || s.location != nil {
+	if !followsTheSun(s.cfg) || s.location != nil {
 		return nil
 	}
 	return s.locationErr
@@ -404,10 +422,11 @@ func (s *nightlightService) evaluate() {
 		return
 	}
 	s.stepping = false
-	if s.location == nil || s.nightErr != nil {
+	days, ok := s.daylight()
+	if !ok || s.nightErr != nil {
 		return
 	}
-	target := nightlight.TargetAt(s.env.now(), *s.location, s.cfg.TransitionDuration.Transition(), s.night)
+	target := nightlight.TargetAt(s.env.now(), days, s.cfg.TransitionDuration.Transition(), s.night)
 	switch {
 	case s.manualOverride && s.autoPhase == 0:
 		s.autoPhase = target.Phase
@@ -455,8 +474,8 @@ func (s *nightlightService) setEnabled(on bool) {
 func (s *nightlightService) switchTo(on bool) {
 	if s.cfg.AutoSchedule {
 		s.manualOverride, s.stepping = true, false
-		if s.autoPhase == 0 && s.location != nil {
-			s.autoPhase = nightlight.TargetAt(s.env.now(), *s.location, s.cfg.TransitionDuration.Transition(), s.night).Phase
+		if days, ok := s.daylight(); s.autoPhase == 0 && ok {
+			s.autoPhase = nightlight.TargetAt(s.env.now(), days, s.cfg.TransitionDuration.Transition(), s.night).Phase
 		}
 	}
 	override, at := nightlight.Override{Phase: s.autoPhase, Enabled: on}, s.env.now()

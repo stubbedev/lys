@@ -26,7 +26,7 @@ func TestPhaseAtMatchesTheKnownCases(t *testing.T) {
 		{"arctic midwinter is night all day", utc(2024, 12, 21, 12, 0), 78.2, 15.6, PhaseNight},
 		{"arctic midsummer is day all night", utc(2024, 6, 21, 0, 0), 78.2, 15.6, PhaseDay},
 	} {
-		if got := PhaseAt(tc.now, mustLocation(t, tc.lat, tc.lng)); got != tc.want {
+		if got := PhaseAt(tc.now, SunAt(mustLocation(t, tc.lat, tc.lng))); got != tc.want {
 			t.Errorf("%s: phase = %v, want %v", tc.name, got, tc.want)
 		}
 	}
@@ -106,17 +106,17 @@ func TestPhaseFlipsAtTheBoundaries(t *testing.T) {
 	day := utc(2024, 3, 20, 12, 0)
 	loc := mustLocation(t, 51.5074, -0.1278)
 	st := sunTimesFor(day, loc.Latitude(), loc.Longitude(), civilTwilightAltitude)
-	if got := PhaseAt(st.rise.Add(-time.Second), loc); got != PhaseNight {
+	if got := PhaseAt(st.rise.Add(-time.Second), SunAt(loc)); got != PhaseNight {
 		t.Errorf("a second before dawn = %v, want night", got)
 	}
-	if got := PhaseAt(st.rise, loc); got != PhaseDay {
+	if got := PhaseAt(st.rise, SunAt(loc)); got != PhaseDay {
 		t.Errorf("at dawn = %v, want day (inclusive)", got)
 	}
-	if got := PhaseAt(st.set, loc); got != PhaseNight {
+	if got := PhaseAt(st.set, SunAt(loc)); got != PhaseNight {
 		t.Errorf("at dusk = %v, want night (exclusive)", got)
 	}
 	sunrise := sunTimesFor(day, loc.Latitude(), loc.Longitude(), sunriseAltitude).rise
-	if got := PhaseAt(sunrise.Add(-time.Minute), loc); got != PhaseDay {
+	if got := PhaseAt(sunrise.Add(-time.Minute), SunAt(loc)); got != PhaseDay {
 		t.Errorf("a minute before sunrise = %v, want day: civil dawn has passed", got)
 	}
 }
@@ -137,7 +137,7 @@ func TestPhaseFollowsTheSolarDayAcrossUTCMidnight(t *testing.T) {
 		{"honolulu afternoon, early on the UTC date", utc(2024, 6, 22, 3, 0), mustLocation(t, 21.3069, -157.8583), PhaseDay},
 		{"honolulu night", utc(2024, 6, 22, 10, 0), mustLocation(t, 21.3069, -157.8583), PhaseNight},
 	} {
-		if got := PhaseAt(tc.now, tc.loc); got != tc.want {
+		if got := PhaseAt(tc.now, SunAt(tc.loc)); got != tc.want {
 			t.Errorf("%s: phase = %v, want %v", tc.name, got, tc.want)
 		}
 	}

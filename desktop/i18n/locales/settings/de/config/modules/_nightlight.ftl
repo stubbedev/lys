@@ -9,7 +9,13 @@ settings-modules-nightlight-gamma = Gamma
     .description = Bildschirm-Gamma in Prozent bei aktivem Filter (0–200)
 
 settings-modules-nightlight-auto-schedule = Automatischer Zeitplan
-    .description = Den Filter in der Abenddämmerung sanft ein- und in der Morgendämmerung ausblenden. Folgt der bürgerlichen Dämmerung am Ort unten
+    .description = Den Filter von selbst ein- und ausschalten, nach dem Zeitplan unten
+
+settings-modules-nightlight-schedule = Zeitplan
+    .description = Der Sonne von Sonnenuntergang bis Sonnenaufgang folgen oder die Zeiten selbst festlegen
+
+settings-modules-nightlight-custom-hours = Zeiten
+    .description = Wann der Filter einschaltet und wann er wieder ausschaltet
 
 settings-modules-nightlight-transition-duration = Übergang
     .description = Dauer des Übergangs zwischen Tag und Nacht in Minuten, 0 für sofortiges Umschalten (0–120)
@@ -82,3 +88,6 @@ settings-modules-nightlight-format-placeholder-gamma = Aktuelles Gamma in Prozen
 settings-modules-nightlight-format-placeholder-config-temp = Eingestellte Temperatur in Kelvin
 
 settings-modules-nightlight-format-placeholder-config-gamma = Eingestelltes Gamma in Prozent
+
+enum-nightlight-schedule-sunset-to-sunrise = Sonnenuntergang bis Sonnenaufgang
+enum-nightlight-schedule-custom = Eigene Zeiten

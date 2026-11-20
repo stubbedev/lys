@@ -9,7 +9,13 @@ settings-modules-nightlight-gamma = Gamma
     .description = Porcentaje de gamma de la pantalla cuando el filtro está activado (0-200)
 
 settings-modules-nightlight-auto-schedule = Programación automática
-    .description = Activa el filtro gradualmente al anochecer y lo desactiva al amanecer. Sigue el amanecer y el anochecer civiles en la ubicación siguiente
+    .description = Activa y desactiva el filtro por sí solo, según el horario siguiente
+
+settings-modules-nightlight-schedule = Horario
+    .description = Seguir al sol desde la puesta hasta la salida, o fijar las horas tú mismo
+
+settings-modules-nightlight-custom-hours = Horas
+    .description = Cuándo se activa el filtro y cuándo se vuelve a desactivar
 
 settings-modules-nightlight-transition-duration = Transición
     .description = Duración de la transición entre el día y la noche en minutos, 0 para un cambio instantáneo (0-120)
@@ -82,3 +88,6 @@ settings-modules-nightlight-format-placeholder-gamma = Porcentaje de gamma actua
 settings-modules-nightlight-format-placeholder-config-temp = Temperatura configurada en kelvin
 
 settings-modules-nightlight-format-placeholder-config-gamma = Porcentaje de gamma configurado
+
+enum-nightlight-schedule-sunset-to-sunrise = Del atardecer al amanecer
+enum-nightlight-schedule-custom = Horas personalizadas

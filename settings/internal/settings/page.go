@@ -229,14 +229,6 @@ type dependentRow struct {
 
 func (d dependentRow) holds() bool { return d.on.holds(d.value.get()) }
 
-func (d dependentRow) apply() {
-	if d.hides {
-		d.row.SetVisible(d.holds())
-		return
-	}
-	d.row.SetEnabled(d.holds())
-}
-
 type sectionCondition struct {
 	box      *widget.Box
 	when     func(s store) bool
@@ -268,8 +260,21 @@ func (p *settingsPage) showSections() {
 		c.box.SetVisible((c.when == nil || c.when(p.k.store)) && (c.revealed || p.pointers.allows(c.hardware)))
 	}
 	for _, d := range p.dependent {
-		d.apply()
+		if d.hides {
+			d.row.SetVisible(p.inEffect(d.row))
+			continue
+		}
+		d.row.SetEnabled(d.holds())
 	}
+}
+
+func (p *settingsPage) inEffect(row *settingRow) bool {
+	for _, d := range p.dependent {
+		if d.row == row && d.hides && (!d.holds() || !p.inEffect(d.governing)) {
+			return false
+		}
+	}
+	return true
 }
 
 func (p *settingsPage) follow(row *settingRow, be backend, c rowCondition, hides bool) {
@@ -525,10 +530,10 @@ func (p *settingsPage) shown(row *settingRow) *settingRow {
 }
 
 // inUse is the row a reveal lands on for row: itself, or, while it is
-// hidden as having no effect, the row whose value hides it.
+// hidden as having no effect, the row in use among those that hide it.
 func (p *settingsPage) inUse(row *settingRow) *settingRow {
 	for _, d := range p.dependent {
-		if d.row == row && d.hides && !d.holds() {
+		if d.row == row && d.hides && !p.inEffect(row) {
 			return p.inUse(d.governing)
 		}
 	}

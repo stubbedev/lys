@@ -5,7 +5,13 @@ settings-modules-nightlight-gamma = Gamma
     .description = Gammapercentage van het beeldscherm als het filter is ingeschakeld (0-200)
 
 settings-modules-nightlight-auto-schedule = Automatisch schema
-    .description = Het filter geleidelijk inschakelen bij schemering en uitschakelen bij dageraad. Volgt de burgerlijke dageraad en schemering op de locatie hieronder
+    .description = Het filter vanzelf in- en uitschakelen, volgens het schema hieronder
+
+settings-modules-nightlight-schedule = Schema
+    .description = De zon volgen van zonsondergang tot zonsopgang, of de tijden zelf instellen
+
+settings-modules-nightlight-custom-hours = Tijden
+    .description = Wanneer het filter inschakelt en wanneer het weer uitschakelt
 
 settings-modules-nightlight-transition-duration = Overgang
     .description = Duur van de overgang tussen dag en nacht in minuten, 0 voor direct wisselen (0-120)
@@ -76,3 +82,6 @@ settings-modules-nightlight-format-placeholder-gamma = Huidig gammapercentage (-
 settings-modules-nightlight-format-placeholder-config-temp = Ingestelde temperatuur in Kelvin
 
 settings-modules-nightlight-format-placeholder-config-gamma = Ingesteld gammapercentage
+
+enum-nightlight-schedule-sunset-to-sunrise = Zonsondergang tot zonsopgang
+enum-nightlight-schedule-custom = Eigen tijden

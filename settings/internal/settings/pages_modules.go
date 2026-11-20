@@ -297,12 +297,15 @@ func dashboardPage(*config.Config) pageSpec {
 func nightlightPage(*config.Config) pageSpec {
 	const m = "modules.nightlight"
 	scheduled := shownWhen(m+".auto-schedule", switchedOn)
+	following := func(s config.NightlightSchedule) rowOpt { return shownWhen(m+".schedule", valueIn(string(s))) }
 	return pageSpec{id: "nightlight", navKey: "settings-nav-nightlight", icon: "ld-sun-symbolic", header: "settings-page-nightlight", sections: []sectionSpec{
 		{title: "settings-section-nightlight-filter", rows: []rowSpec{field(m+".temperature", kelvin)}},
 		{title: "settings-section-nightlight-schedule", rows: []rowSpec{
 			field(m + ".auto-schedule"),
+			field(m+".schedule", scheduled),
+			field(m+".custom-hours", clockRangeRow, following(config.NightlightScheduleCustom)),
 			field(m+".transition-duration", durationChips(inMinutes, zeroAs(instant), after(15*time.Minute), after(30*time.Minute), after(time.Hour)), scheduled),
-			field(m+".location", locationRow(automaticOrPinned), scheduled),
+			field(m+".location", locationRow(automaticOrPinned), following(config.NightlightScheduleSun)),
 		}},
 		{title: "settings-section-nightlight-display", advanced: true, rows: []rowSpec{field(m+".gamma", gammaPercent)}},
 		{title: "settings-section-nightlight-look", rows: []rowSpec{

@@ -1114,6 +1114,24 @@ A network interface name (`wlan0`).
 
 String.
 
+## NightlightHours {#nightlight-hours}
+
+The custom night: `from` and `to` as `HH:MM`.
+
+| Field | Description |
+|---|---|
+| `from` | When the filter turns on, as HH:MM. |
+| `to` | When the filter turns off, as HH:MM: the next day when not after `from`. |
+
+## NightlightSchedule {#nightlight-schedule}
+
+What the night light's schedule follows.
+
+| Value | Meaning |
+|---|---|
+| `"sunset-to-sunrise"` | From sunset to sunrise, following the sun at `location`. |
+| `"custom"` | From `custom-hours.from` to `custom-hours.to`. |
+
 ## NightlightTransition {#nightlight-transition}
 
 Night light transition length in whole minutes, 0 for an instant switch.

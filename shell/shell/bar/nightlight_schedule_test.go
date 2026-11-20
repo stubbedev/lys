@@ -149,7 +149,7 @@ func mustLocation(t *testing.T, latitude, longitude float64) geo.Coordinates {
 func duskEase(t *testing.T, cfg *config.Config) (time.Time, time.Duration) {
 	t.Helper()
 	transition := cfg.Nightlight.TransitionDuration.Transition()
-	start, ok := nightlight.NextEase(sunsetDay, mustLocation(t, 55.6, 12.5), transition)
+	start, ok := nightlight.NextEase(sunsetDay, nightlight.SunAt(mustLocation(t, 55.6, 12.5)), transition)
 	if !ok {
 		t.Fatal("no dusk in reach")
 	}
@@ -160,7 +160,7 @@ func duskEase(t *testing.T, cfg *config.Config) (time.Time, time.Duration) {
 func dawnEase(t *testing.T, cfg *config.Config) time.Time {
 	t.Helper()
 	start, length := duskEase(t, cfg)
-	next, ok := nightlight.NextEase(start.Add(length), mustLocation(t, 55.6, 12.5), cfg.Nightlight.TransitionDuration.Transition())
+	next, ok := nightlight.NextEase(start.Add(length), nightlight.SunAt(mustLocation(t, 55.6, 12.5)), cfg.Nightlight.TransitionDuration.Transition())
 	if !ok {
 		t.Fatal("no dawn in reach")
 	}
@@ -624,7 +624,7 @@ func TestNightlightRestartMidEaseLandsOnTheMoment(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := nightlight.TargetAt(now, mustLocation(t, 55.6, 12.5), cfg.Nightlight.TransitionDuration.Transition(), night)
+	want := nightlight.TargetAt(now, nightlight.SunAt(mustLocation(t, 55.6, 12.5)), cfg.Nightlight.TransitionDuration.Transition(), night)
 	if fake.starts != 1 || fake.applied != want.Setting {
 		t.Errorf("%d applies landing on %+v, want one on %+v", fake.starts, fake.applied, want.Setting)
 	}
@@ -789,28 +789,36 @@ func TestNightlightTicksFastOnlyDuringAnEase(t *testing.T) {
 	start, length := duskEase(t, cfg)
 	fake := &fakeSunset{clock: start.Add(-time.Hour)}
 	m := newTestNightlight(t, cfg, fake.env(t))
+	nextTick := func() time.Duration {
+		t.Helper()
+		days, ok := m.svc.daylight()
+		if !ok {
+			t.Fatal("a pinned schedule has no days")
+		}
+		return m.svc.nextTick(days)
+	}
 	m.svc.evaluate()
-	if got := m.svc.nextTick(); got != nightlightScheduleTick {
+	if got := nextTick(); got != nightlightScheduleTick {
 		t.Errorf("idle tick = %v, want %v", got, nightlightScheduleTick)
 	}
 	fake.clock = start.Add(-10 * time.Second)
 	m.svc.evaluate()
-	if got := m.svc.nextTick(); got != 10*time.Second {
+	if got := nextTick(); got != 10*time.Second {
 		t.Errorf("just before the ease = %v, want to wake at its start", got)
 	}
 	fake.clock = start.Add(length / 2)
 	m.svc.evaluate()
-	if got := m.svc.nextTick(); got != fakeEaseStep {
+	if got := nextTick(); got != fakeEaseStep {
 		t.Errorf("during the ease = %v, want %v", got, fakeEaseStep)
 	}
 	m.svc.toggle()
-	if got := m.svc.nextTick(); got == fakeEaseStep {
+	if got := nextTick(); got == fakeEaseStep {
 		t.Error("an override keeps the fast tick")
 	}
 	m.svc.toggle()
 	fake.clock = start.Add(2 * length)
 	m.svc.evaluate()
-	if got := m.svc.nextTick(); got != nightlightScheduleTick {
+	if got := nextTick(); got != nightlightScheduleTick {
 		t.Errorf("after the ease = %v, want %v", got, nightlightScheduleTick)
 	}
 }
@@ -891,7 +899,7 @@ func TestNightlightWakesIntoAnEase(t *testing.T) {
 	waitHeadless(t, "the schedule's timer", func() bool { return m.svc.timer != nil })
 	headlessLoop.Lock()
 	fake.clock = start.Add(length / 2)
-	want := nightlight.TargetAt(fake.clock, mustLocation(t, 55.6, 12.5), cfg.Nightlight.TransitionDuration.Transition(), m.svc.night).Setting
+	want := nightlight.TargetAt(fake.clock, nightlight.SunAt(mustLocation(t, 55.6, 12.5)), cfg.Nightlight.TransitionDuration.Transition(), m.svc.night).Setting
 	headlessLoop.Unlock()
 	jump()
 	waitHeadless(t, "the filter to run", func() bool { return fake.running })
@@ -1130,5 +1138,94 @@ func TestNightlightToggleReturnsWhileTheFilterHolds(t *testing.T) {
 	apptest.Answer(t, "the Apply reached the filter, off the loop", held.entered)
 	if !apptest.On(a, func() bool { return m.svc.enabled }) {
 		t.Error("the loop did not run while the filter held")
+	}
+}
+
+func customHours(t *testing.T, from, to string) config.NightlightHours {
+	t.Helper()
+	var h config.NightlightHours
+	if err := h.UnmarshalConfig(map[string]any{"from": from, "to": to}); err != nil {
+		t.Fatal(err)
+	}
+	return h
+}
+
+func customConfig(t *testing.T) *config.Config {
+	t.Helper()
+	cfg := unpinnedConfig()
+	cfg.Nightlight.Schedule = config.NightlightScheduleCustom
+	cfg.Nightlight.CustomHours = customHours(t, "21:00", "07:00")
+	return cfg
+}
+
+func TestNightlightCustomHoursDriveTheFilter(t *testing.T) {
+	fake := &fakeSunset{clock: time.Date(2024, 6, 21, 22, 0, 0, 0, time.UTC)}
+	m := newTestNightlight(t, customConfig(t), fake.env(t))
+	m.svc.evaluate()
+	if !fake.running || fake.applied != m.svc.night {
+		t.Fatalf("at 22:00 inside 21:00-07:00: running %v at %+v", fake.running, fake.applied)
+	}
+	fake.clock = time.Date(2024, 6, 22, 12, 0, 0, 0, time.UTC)
+	m.svc.evaluate()
+	if fake.running {
+		t.Error("at noon outside 21:00-07:00 the filter stayed on")
+	}
+	fake.clock = time.Date(2024, 6, 23, 6, 0, 0, 0, time.UTC)
+	m.svc.evaluate()
+	if !fake.running {
+		t.Error("at 06:00 the next morning, still inside the hours, the filter is off")
+	}
+}
+
+func TestNightlightCustomHoursNeedNoLocation(t *testing.T) {
+	fake := &fakeSunset{clock: time.Date(2024, 6, 21, 12, 0, 0, 0, time.UTC)}
+	env := fake.env(t)
+	var asked atomic.Int32
+	env.locate = func(context.Context) (geo.Coordinates, error) {
+		asked.Add(1)
+		return geo.Coordinates{}, errors.New("no GeoClue in this test")
+	}
+	m := newTestNightlight(t, customConfig(t), env)
+	chrome := widget.NewBox(widget.Row, 0, 0)
+	m.setChrome(chrome)
+	m.svc.run()
+	t.Cleanup(m.svc.stop)
+	time.Sleep(quietWindow)
+	headlessLoop.Lock()
+	defer headlessLoop.Unlock()
+	if n := asked.Load(); n != 0 {
+		t.Errorf("the custom hours asked GeoClue %d times", n)
+	}
+	if m.svc.timer == nil {
+		t.Error("the custom hours armed no timer without a location")
+	}
+	m.svc.lookupFailed(errors.New("geoclue: down"))
+	if m.btn.Detail() != "" || widget.HasClass(chrome, "nightlight-no-location") {
+		t.Error("the custom hours show the no-location state")
+	}
+}
+
+func TestNightlightFollowsOnlyTheChosenSchedule(t *testing.T) {
+	sun := sunsetConfig(true)
+	sun.Nightlight.CustomHours = customHours(t, "11:00", "13:00")
+	fake := &fakeSunset{clock: sunsetDay}
+	m := newTestNightlight(t, sun, fake.env(t))
+	m.svc.evaluate()
+	if fake.running {
+		t.Error("the sun's schedule turned the filter on in the custom hours at noon")
+	}
+	custom := sunsetConfig(true)
+	custom.Nightlight.Schedule = config.NightlightScheduleCustom
+	custom.Nightlight.CustomHours = customHours(t, "11:00", "13:00")
+	fake = &fakeSunset{clock: sunsetNight}
+	m = newTestNightlight(t, custom, fake.env(t))
+	m.svc.evaluate()
+	if fake.running {
+		t.Error("the custom hours turned the filter on at Copenhagen's night, outside 11:00-13:00")
+	}
+	fake.clock = sunsetDay
+	m.svc.evaluate()
+	if !fake.running {
+		t.Error("the custom hours left the filter off at noon, inside 11:00-13:00")
 	}
 }

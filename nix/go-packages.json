@@ -406,7 +406,11 @@
       "desktop/service/network"
     ]
   },
-  "desktop/service/nightlight/nightschedule": {},
+  "desktop/service/nightlight/nightschedule": {
+    "imports": [
+      "desktop/daytime"
+    ]
+  },
   "desktop/service/niri": {
     "imports": [
       "desktop/compositor",
@@ -3166,6 +3170,7 @@
       "lib/wlr"
     ],
     "testImports": [
+      "desktop/daytime",
       "lib/dbustest",
       "lib/testhome",
       "lib/waittest",

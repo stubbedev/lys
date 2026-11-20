@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"strconv"
 	"strings"
 	"testing"
@@ -91,5 +92,52 @@ func TestBarLayoutRenamesHyprsunset(t *testing.T) {
 	}
 	if err := m.UnmarshalConfig("sunset"); err == nil || !strings.Contains(err.Error(), "unknown variant `sunset`") {
 		t.Errorf("sunset = %v, want an unknown-variant error", err)
+	}
+}
+
+func TestTheNightlightScheduleDefaultsToTheSunWithHoursAtHand(t *testing.T) {
+	d := DefaultsNightlight()
+	if d.Schedule != NightlightScheduleSun {
+		t.Errorf("schedule = %q, want sunset-to-sunrise", d.Schedule)
+	}
+	if h := d.CustomHours.Hours(); h.From().String() != "21:00" || h.To().String() != "07:00" {
+		t.Errorf("custom hours = %s-%s, want 21:00-07:00", h.From(), h.To())
+	}
+}
+
+func TestTheNightlightReadsCustomHours(t *testing.T) {
+	path := writeFile(t, t.TempDir(), "config.yaml", "modules:\n  nightlight:\n    schedule: custom\n    custom-hours: {from: \"22:30\", to: \"06:15\"}\n")
+	cfg, err := LoadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := cfg.Nightlight.CustomHours.Hours()
+	if cfg.Nightlight.Schedule != NightlightScheduleCustom || h.From().String() != "22:30" || h.To().String() != "06:15" {
+		t.Errorf("schedule %q, hours %s-%s", cfg.Nightlight.Schedule, h.From(), h.To())
+	}
+	if got := cfg.Nightlight.CustomHours.MarshalConfig(); got.(map[string]any)["from"] != "22:30" || got.(map[string]any)["to"] != "06:15" {
+		t.Errorf("custom hours write back as %v", got)
+	}
+}
+
+func TestTheNightlightRefusesBrokenCustomHours(t *testing.T) {
+	for body, want := range map[string]string{
+		"custom-hours: {from: \"07:00\", to: \"07:00\"}": nightschedule.ErrEmptyHours.Error(),
+		"custom-hours: {from: \"7pm\", to: \"07:00\"}":   "from",
+		"custom-hours: {from: \"21:00\", to: \"24:00\"}": "to",
+		"custom-hours: {from: \"21:00\"}":                "to",
+		"schedule: sunset":                               "schedule",
+	} {
+		path := writeFile(t, t.TempDir(), "config.yaml", "modules:\n  nightlight:\n    "+body+"\n")
+		cfg, err := LoadFile(path)
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("%s: err = %v, want one naming %q", body, err, want)
+		}
+		if cfg.Nightlight.CustomHours != DefaultsNightlight().CustomHours || cfg.Nightlight.Schedule != NightlightScheduleSun {
+			t.Errorf("%s: a refused value reached the config: %+v", body, cfg.Nightlight)
+		}
+	}
+	if _, err := parseNightlightHours(nightlightHoursFields{From: "05:00", To: "05:00"}); !errors.Is(err, nightschedule.ErrEmptyHours) {
+		t.Errorf("an empty night = %v, want ErrEmptyHours", err)
 	}
 }

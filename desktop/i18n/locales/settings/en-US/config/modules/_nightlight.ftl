@@ -9,7 +9,13 @@ settings-modules-nightlight-gamma = Gamma
     .description = Display gamma percentage when filter is enabled (0-200)
 
 settings-modules-nightlight-auto-schedule = Auto Schedule
-    .description = Ease the filter on at dusk and off at dawn. Follows civil dawn and dusk at the location below
+    .description = Turn the filter on and off by itself, on the schedule below
+
+settings-modules-nightlight-schedule = Schedule
+    .description = Follow the sun from sunset to sunrise, or set the hours yourself
+
+settings-modules-nightlight-custom-hours = Hours
+    .description = When the filter turns on and when it turns off again
 
 settings-modules-nightlight-transition-duration = Transition
     .description = Length of the transition between day and night in minutes, 0 for an instant switch (0-120)
@@ -82,3 +88,6 @@ settings-modules-nightlight-format-placeholder-gamma = Current gamma percentage 
 settings-modules-nightlight-format-placeholder-config-temp = Configured temperature in Kelvin
 
 settings-modules-nightlight-format-placeholder-config-gamma = Configured gamma percentage
+
+enum-nightlight-schedule-sunset-to-sunrise = Sunset to sunrise
+enum-nightlight-schedule-custom = Custom hours

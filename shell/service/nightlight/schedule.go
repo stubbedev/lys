@@ -3,7 +3,6 @@ package nightlight
 import (
 	"time"
 
-	"github.com/stubbedev/lys/desktop/geo"
 	"github.com/stubbedev/lys/desktop/service/nightlight/nightschedule"
 )
 
@@ -20,13 +19,13 @@ type Target struct {
 	Easing bool
 }
 
-// TargetAt is the schedule at now for a place, a transition length and
-// the full night strength. Each transition is centred on civil dawn or
-// dusk; a polar solar day has neither, so it has no transition.
-func TargetAt(now time.Time, loc geo.Coordinates, transition nightschedule.Transition, night Setting) Target {
+// TargetAt is the schedule at now for its days, a transition length and
+// the full night strength. Each transition is centred on a day's start
+// or end; a polar solar day has neither, so it has no transition.
+func TargetAt(now time.Time, d Daylight, transition nightschedule.Transition, night Setting) Target {
 	length := transition.Duration()
-	target := Target{Phase: PhaseAt(now.Add(length/2), loc)}
-	st := solarDayAt(now, loc)
+	target := Target{Phase: PhaseAt(now.Add(length/2), d)}
+	st := dayAt(now, d)
 	switch {
 	case st.polarDay:
 		target.Setting = identity
@@ -41,9 +40,9 @@ func TargetAt(now time.Time, loc geo.Coordinates, transition nightschedule.Trans
 }
 
 // NextEase is the moment the next transition after now starts, or, with
-// no transition length, the next civil dawn or dusk; false when polar
-// days leave none in reach.
-func NextEase(now time.Time, loc geo.Coordinates, transition nightschedule.Transition) (time.Time, bool) {
+// no transition length, the next start or end of a day; false when
+// polar days leave none in reach.
+func NextEase(now time.Time, d Daylight, transition nightschedule.Transition) (time.Time, bool) {
 	length := transition.Duration()
 	var next time.Time
 	found := false
@@ -54,7 +53,7 @@ func NextEase(now time.Time, loc geo.Coordinates, transition nightschedule.Trans
 		}
 	}
 	for _, days := range []time.Duration{-24, 0, 24, 48} {
-		st := sunTimesFor(now.Add(days*time.Hour), loc.Latitude(), loc.Longitude(), civilTwilightAltitude)
+		st := d.dayOf(now.Add(days * time.Hour))
 		if st.polarDay || st.polarNight {
 			continue
 		}

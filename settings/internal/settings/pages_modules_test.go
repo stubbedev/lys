@@ -244,19 +244,64 @@ func TestBitwardenSeparatesTheAccountItsSecurityAndItsIntegrations(t *testing.T)
 }
 
 func TestTheNightLightScheduleRowsShowOnlyWithTheSchedule(t *testing.T) {
+	const m = "modules.nightlight"
 	k := testKit(t, "modules:\n  nightlight:\n    auto-schedule: false\n")
 	p := layoutPage(t, k, "nightlight")
-	rows := []*settingRow{rowOf(t, p, "modules.nightlight.transition-duration"), rowOf(t, p, "modules.nightlight.location")}
-	for _, r := range rows {
-		if r.Visible() {
-			t.Errorf("%s shows without the schedule", r.path)
+	shown := func(want map[string]bool) {
+		t.Helper()
+		for path, visible := range want {
+			if got := rowOf(t, p, m+"."+path).Visible(); got != visible {
+				t.Errorf("%s shows %v, want %v", path, got, visible)
+			}
 		}
 	}
-	setRow(t, p, "modules.nightlight.auto-schedule", true)
-	for _, r := range rows {
-		if !r.Visible() {
-			t.Errorf("%s stays hidden with the schedule on", r.path)
-		}
+	shown(map[string]bool{"schedule": false, "custom-hours": false, "transition-duration": false, "location": false})
+	setRow(t, p, m+".auto-schedule", true)
+	shown(map[string]bool{"schedule": true, "custom-hours": false, "transition-duration": true, "location": true})
+	setRow(t, p, m+".schedule", string(config.NightlightScheduleCustom))
+	shown(map[string]bool{"schedule": true, "custom-hours": true, "transition-duration": true, "location": false})
+	setRow(t, p, m+".auto-schedule", false)
+	shown(map[string]bool{"schedule": false, "custom-hours": false, "transition-duration": false, "location": false})
+}
+
+func TestRevealingARowHiddenThroughAChainLandsOnTheRowInUse(t *testing.T) {
+	const m = "modules.nightlight"
+	k := testKit(t, "modules:\n  nightlight:\n    auto-schedule: false\n    schedule: custom\n")
+	p := layoutPage(t, k, "nightlight")
+	hours := rowOf(t, p, m+".custom-hours")
+	if got := p.inUse(hours); got.path != m+".auto-schedule" {
+		t.Fatalf("revealing the custom hours with the schedule off lands on %s", got.path)
+	}
+	setRow(t, p, m+".auto-schedule", true)
+	if got := p.inUse(hours); got != hours {
+		t.Errorf("revealing the shown custom hours lands on %s", got.path)
+	}
+}
+
+func TestTheCustomHoursArePickedOnTheClockAndNeverMeet(t *testing.T) {
+	const path = "modules.nightlight.custom-hours"
+	k := testKit(t, "modules:\n  clock:\n    format: \"%H:%M\"\n")
+	c := fieldControl(k, k.store, pageRow(t, "nightlight", path)).(*clockRange)
+	if c.from.hours[c.from.hour.Selected()] != 21 || c.to.hours[c.to.hour.Selected()] != 7 {
+		t.Fatalf("the default hours read from %d to %d", c.from.hour.Selected(), c.to.hour.Selected())
+	}
+	c.from.hour.SetSelected(slices.Index(c.from.hours, 22))
+	c.to.minute.SetSelected(slices.Index(c.to.minutes, 30))
+	got, _ := k.store.value(path).(map[string]any)
+	if got["from"] != "22:00" || got["to"] != "07:30" {
+		t.Fatalf("picking 22:00 to 07:30 stored %v", got)
+	}
+	if k.store.svc.Config().Nightlight.CustomHours.Hours().From().String() != "22:00" {
+		t.Errorf("the shell's config reads %s", k.store.svc.Config().Nightlight.CustomHours.Hours().From())
+	}
+	c.refresh()
+	c.to.hour.SetSelected(slices.Index(c.to.hours, 22))
+	if slices.Contains(c.to.minutes, 0) {
+		t.Errorf("at 22 the end offers minute 0, the start's 22:00: %v", c.to.minutes)
+	}
+	got, _ = k.store.value(path).(map[string]any)
+	if got["from"] == got["to"] {
+		t.Errorf("the hours were stored meeting at %v", got["from"])
 	}
 }
 

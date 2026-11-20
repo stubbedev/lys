@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/geo"
+	"github.com/stubbedev/lys/desktop/service/nightlight/nightschedule"
 	"github.com/stubbedev/lys/lib/third_party/gomath"
 )
 
@@ -37,9 +38,10 @@ func (p Phase) String() string {
 	return "none"
 }
 
-// sunTimes is one solar day's outcome at an altitude: the solar noon
-// and the sun's crossings of the altitude, or the sun never going below
-// it or never above it.
+// sunTimes is one day of a schedule: its middle, when it begins and
+// ends, or, for the sun, it never ending or never beginning. For the sun
+// it is a solar day's outcome at an altitude: the solar noon and the
+// sun's crossings of the altitude.
 type sunTimes struct {
 	noon       time.Time
 	rise, set  time.Time
@@ -47,13 +49,43 @@ type sunTimes struct {
 	polarNight bool
 }
 
-// solarDayAt is the civil solar day now belongs to, the one whose solar
-// noon is nearest: a UTC date's day spills across midnight away from
-// Greenwich, so the date alone can name the wrong one.
-func solarDayAt(now time.Time, loc geo.Coordinates) sunTimes {
-	nearest := sunTimesFor(now, loc.Latitude(), loc.Longitude(), civilTwilightAltitude)
+// Daylight is where a schedule's days begin and end: the sun at a place
+// (SunAt) or the custom hours of the night (HoursOf).
+type Daylight interface {
+	dayOf(at time.Time) sunTimes
+}
+
+type sunAt struct{ loc geo.Coordinates }
+
+// SunAt is the civil day at loc, from civil dawn to civil dusk.
+func SunAt(loc geo.Coordinates) Daylight { return sunAt{loc: loc} }
+
+func (s sunAt) dayOf(at time.Time) sunTimes {
+	return sunTimesFor(at, s.loc.Latitude(), s.loc.Longitude(), civilTwilightAltitude)
+}
+
+type nightHours struct{ hours nightschedule.Hours }
+
+// HoursOf is the day around the custom night: from its end to its next
+// start, on the wall clock of the time it is asked about.
+func HoursOf(hours nightschedule.Hours) Daylight { return nightHours{hours: hours} }
+
+func (n nightHours) dayOf(at time.Time) sunTimes {
+	rise := n.hours.To().On(at)
+	set := n.hours.From().On(at)
+	if !n.hours.From().After(n.hours.To()) {
+		set = n.hours.From().On(at.AddDate(0, 0, 1))
+	}
+	return sunTimes{noon: rise.Add(set.Sub(rise) / 2), rise: rise, set: set}
+}
+
+// dayAt is the day now belongs to, the one whose middle is nearest: a
+// UTC date's solar day spills across midnight away from Greenwich, so
+// the date alone can name the wrong one.
+func dayAt(now time.Time, d Daylight) sunTimes {
+	nearest := d.dayOf(now)
 	for _, days := range []time.Duration{-24, 24} {
-		st := sunTimesFor(now.Add(days*time.Hour), loc.Latitude(), loc.Longitude(), civilTwilightAltitude)
+		st := d.dayOf(now.Add(days * time.Hour))
 		if st.noon.Sub(now).Abs() < nearest.noon.Sub(now).Abs() {
 			nearest = st
 		}
@@ -61,11 +93,10 @@ func solarDayAt(now time.Time, loc geo.Coordinates) sunTimes {
 	return nearest
 }
 
-// PhaseAt is day from civil dawn up to civil dusk of the solar day now
-// belongs to, night otherwise; polar day is day and polar night is
-// night.
-func PhaseAt(now time.Time, loc geo.Coordinates) Phase {
-	st := solarDayAt(now, loc)
+// PhaseAt is day from the start up to the end of the day now belongs
+// to, night otherwise; polar day is day and polar night is night.
+func PhaseAt(now time.Time, d Daylight) Phase {
+	st := dayAt(now, d)
 	switch {
 	case st.polarDay:
 		return PhaseDay

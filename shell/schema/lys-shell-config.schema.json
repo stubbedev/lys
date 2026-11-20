@@ -6287,6 +6287,10 @@
             "border-color": "yellow",
             "border-show": false,
             "button-bg-color": "bg-surface-elevated",
+            "custom-hours": {
+              "from": "21:00",
+              "to": "07:00"
+            },
             "format": "{{ status }}",
             "gamma": 100,
             "icon-bg-color": "yellow",
@@ -6301,6 +6305,7 @@
             "location": "auto",
             "middle-click": "",
             "right-click": "",
+            "schedule": "sunset-to-sunrise",
             "scroll-down": "",
             "scroll-up": "",
             "temperature": 5000,
@@ -7063,12 +7068,12 @@
       "type": "object"
     },
     "NightlightConfig": {
-      "description": "Night light: warms the display colors, by hand or on a dawn/dusk schedule.",
+      "description": "Night light: warms the display colors, by hand or on a schedule.",
       "properties": {
         "auto-schedule": {
           "$ref": "#/$defs/boolean",
           "default": false,
-          "description": "Automatically ease the filter on at dusk and off at dawn, following the\nsun at the machine's location.\n\nTransitions are centered on civil dawn and dusk (sun 6 degrees below the\nhorizon). During polar day or night the filter stays off or on.\n\nThe location is `location`: a pinned place, or with `\"auto\"` GeoClue's\nfix, the last of which is kept in the state directory. Without a usable location the schedule does not run;\nthe tooltip and the log say why.\n\nWhen no GeoClue agent runs, lys-shell registers as one during the\nlookup, which needs it on GeoClue's agent whitelist. The deb and rpm\ninstall `/etc/geoclue/conf.d/50-lys-shell.conf`, and the NixOS module's\n`autoInstallDependencies` sets it up. From the tarball, install its\n`geoclue-lys-shell.conf` at that path and restart geoclue. GeoClue\nbefore 2.7 reads no `conf.d`: add the file's `lys-shell` entry to\n`/etc/geoclue/geoclue.conf` and `lys-shell` to `whitelist` under\n`[agent]`. A drop-in `whitelist` replaces the main file's, so the\nshipped one repeats upstream's list; add any agents you rely on.\n\nWhen GeoClue answers but finds no fix, it has no source that can place\nthe machine: set `url` under `[wifi]`, describe the location in\n`/etc/geolocation`, or pin a place in `location`.\n\nA manual click cancels a running transition, applies at once, and holds\nuntil the next transition begins."
+          "description": "Automatically ease the filter on and off on `schedule`: at dusk and\ndawn, following the sun at the machine's location, or at the custom\nhours.\n\nTransitions are centered on civil dawn and dusk (sun 6 degrees below the\nhorizon), or on the custom hours' start and end. During polar day or\nnight the sun's schedule keeps the filter off or on.\n\nThe location is `location`: a pinned place, or with `\"auto\"` GeoClue's\nfix, the last of which is kept in the state directory. Without a usable location the schedule does not run;\nthe tooltip and the log say why.\n\nWhen no GeoClue agent runs, lys-shell registers as one during the\nlookup, which needs it on GeoClue's agent whitelist. The deb and rpm\ninstall `/etc/geoclue/conf.d/50-lys-shell.conf`, and the NixOS module's\n`autoInstallDependencies` sets it up. From the tarball, install its\n`geoclue-lys-shell.conf` at that path and restart geoclue. GeoClue\nbefore 2.7 reads no `conf.d`: add the file's `lys-shell` entry to\n`/etc/geoclue/geoclue.conf` and `lys-shell` to `whitelist` under\n`[agent]`. A drop-in `whitelist` replaces the main file's, so the\nshipped one repeats upstream's list; add any agents you rely on.\n\nWhen GeoClue answers but finds no fix, it has no source that can place\nthe machine: set `url` under `[wifi]`, describe the location in\n`/etc/geolocation`, or pin a place in `location`.\n\nA manual click cancels a running transition, applies at once, and holds\nuntil the next transition begins."
         },
         "border-color": {
           "$ref": "#/$defs/ColorValue",
@@ -7084,6 +7089,14 @@
           "$ref": "#/$defs/ColorValue",
           "default": "bg-surface-elevated",
           "description": "Button background color token."
+        },
+        "custom-hours": {
+          "$ref": "#/$defs/NightlightHours",
+          "default": {
+            "from": "21:00",
+            "to": "07:00"
+          },
+          "description": "When the custom schedule turns the filter on (`from`) and off (`to`),\nas HH:MM: the next day when `to` is not after `from`. Only used when\n`schedule` is `custom`."
         },
         "format": {
           "$ref": "#/$defs/string",
@@ -7175,7 +7188,7 @@
         "location": {
           "$ref": "#/$defs/AutoPlace",
           "default": "auto",
-          "description": "Where the schedule follows the sun: `\"auto\"` asks GeoClue, a place\n(`name`, `latitude`, `longitude`) pins it. Only used when\n`auto-schedule` is on.\n\nThe former `latitude` and `longitude` keys still read, as a place\nwithout a name; 0, 0 among them is taken as unset."
+          "description": "Where the schedule follows the sun: `\"auto\"` asks GeoClue, a place\n(`name`, `latitude`, `longitude`) pins it. Only used when\n`auto-schedule` is on and `schedule` is `sunset-to-sunrise`.\n\nThe former `latitude` and `longitude` keys still read, as a place\nwithout a name; 0, 0 among them is taken as unset."
         },
         "middle-click": {
           "$ref": "#/$defs/ClickAction",
@@ -7186,6 +7199,11 @@
           "$ref": "#/$defs/ClickAction",
           "default": "",
           "description": "Action on right click."
+        },
+        "schedule": {
+          "$ref": "#/$defs/NightlightSchedule",
+          "default": "sunset-to-sunrise",
+          "description": "What the schedule follows: the sun, from sunset to sunrise, or the\ncustom hours. Only used when `auto-schedule` is on."
         },
         "scroll-down": {
           "$ref": "#/$defs/ClickAction",
@@ -7210,10 +7228,41 @@
         "transition-duration": {
           "$ref": "#/$defs/NightlightTransition",
           "default": 15,
-          "description": "Length of the transition between day and night, in whole minutes, centered\non civil dawn or dusk. 0 switches at once. Range: 0-120."
+          "description": "Length of the transition between day and night, in whole minutes, centered\non civil dawn or dusk, or on the custom hours. 0 switches at once.\nRange: 0-120."
         }
       },
       "type": "object"
+    },
+    "NightlightHours": {
+      "description": "The custom night: `from` and `to` as `HH:MM`.",
+      "properties": {
+        "from": {
+          "default": "",
+          "description": "When the filter turns on, as HH:MM.",
+          "type": "string"
+        },
+        "to": {
+          "default": "",
+          "description": "When the filter turns off, as HH:MM: the next day when not after `from`.",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "NightlightSchedule": {
+      "description": "What the night light's schedule follows.",
+      "oneOf": [
+        {
+          "const": "sunset-to-sunrise",
+          "description": "From sunset to sunrise, following the sun at `location`.",
+          "type": "string"
+        },
+        {
+          "const": "custom",
+          "description": "From `custom-hours.from` to `custom-hours.to`.",
+          "type": "string"
+        }
+      ]
     },
     "NightlightTransition": {
       "description": "Night light transition length in whole minutes, 0 for an instant switch.",
@@ -12025,6 +12074,10 @@
           "border-color": "yellow",
           "border-show": false,
           "button-bg-color": "bg-surface-elevated",
+          "custom-hours": {
+            "from": "21:00",
+            "to": "07:00"
+          },
           "format": "{{ status }}",
           "gamma": 100,
           "icon-bg-color": "yellow",
@@ -12039,6 +12092,7 @@
           "location": "auto",
           "middle-click": "",
           "right-click": "",
+          "schedule": "sunset-to-sunrise",
           "scroll-down": "",
           "scroll-up": "",
           "temperature": 5000,
