@@ -1,0 +1,16 @@
+{
+  "probe_seconds": 5,
+  "quiet_probes": 4,
+  "settle_limit_seconds": 180,
+  "window_seconds": 20,
+  "wakeups": {
+    "lys-wm": 300,
+    "lys-shell": 200,
+    "lys-power": 20
+  },
+  "gpu_seconds": {
+    "lys-wm": 0.1,
+    "lys-shell": 0.1,
+    "lys-power": 0
+  }
+}

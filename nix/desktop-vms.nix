@@ -72,6 +72,7 @@
           cores = 4;
           scenarios = [
             (import ../shell/tests/lys-wm-vm.nix {inherit pkgs self;})
+            (import ./idle-vm.nix {inherit pkgs self;})
             (screencast
               // {
                 machineConfig = {

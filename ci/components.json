@@ -133,7 +133,7 @@
       "free-disk": true
     },
     "desktop-vms": {
-      "depends": ["lib", "polkit", "secrets", "settings", "shell"],
+      "depends": ["lib", "polkit", "power", "secrets", "settings", "shell"],
       "vms": [["desktop-vms-session", "desktop-vms-system"]]
     }
   },
