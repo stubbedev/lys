@@ -135,12 +135,12 @@ func TestAPasswordTypedBeforeThePromptAnswersIt(t *testing.T) {
 
 func TestPickingAUserListensForThem(t *testing.T) {
 	r := newRig(t, nil)
-	r.s.users[1].button.OnClick()
+	r.s.users[1].Button.OnClick()
 	bob := r.conv(t)
 	if bob.username != "bob" {
 		t.Fatalf("conversation for %q, want bob", bob.username)
 	}
-	r.s.users[0].button.OnClick()
+	r.s.users[0].Button.OnClick()
 	if !bob.cancelled || r.conv(t).username != "ada" || len(r.convs) != 2 {
 		t.Errorf("bob cancelled %v, then %q; picking another user listens for them alone", bob.cancelled, r.conv(t).username)
 	}

@@ -473,11 +473,11 @@ func TestGreeterUserRowAndPower(t *testing.T) {
 	if len(r.s.users) != 2 {
 		t.Fatalf("user buttons = %d", len(r.s.users))
 	}
-	r.s.users[1].button.OnClick()
-	if r.s.prompt.Username.Text() != "bob" || r.focused != r.s.prompt.Entry || !slices.Contains(r.s.users[1].button.Classes(), "selected") || slices.Contains(r.s.users[0].button.Classes(), "selected") {
+	r.s.users[1].Button.OnClick()
+	if r.s.prompt.Username.Text() != "bob" || r.focused != r.s.prompt.Entry || !slices.Contains(r.s.users[1].Button.Classes(), "selected") || slices.Contains(r.s.users[0].Button.Classes(), "selected") {
 		t.Error("a user click fills the name, marks it and focuses the password")
 	}
-	many := make([]User, maxListedUsers+1)
+	many := make([]User, lockview.MaxListedUsers+1)
 	for i := range many {
 		many[i] = User{Name: "u", DisplayName: "U"}
 	}
@@ -515,11 +515,11 @@ func TestGreeterUserRowAndPower(t *testing.T) {
 func TestGreeterUserButtonsAreLysUi(t *testing.T) {
 	r := newRig(t, nil)
 	for i, ub := range r.s.users {
-		if !slices.Contains(ub.button.Classes(), css.Ghost) || slices.Contains(ub.button.Classes(), "flat") {
-			t.Errorf("user %d button classes = %v", i, ub.button.Classes())
+		if !slices.Contains(ub.Button.Classes(), css.Ghost) || slices.Contains(ub.Button.Classes(), "flat") {
+			t.Errorf("user %d button classes = %v", i, ub.Button.Classes())
 		}
 		want := ub.user.DisplayName[:1]
-		if got := ub.tile.Initials(); got != want {
+		if got := ub.Tile.Initials(); got != want {
 			t.Errorf("user %d avatar initials = %q, want %q", i, got, want)
 		}
 	}
@@ -690,16 +690,16 @@ func TestGreeterUsernameEntryOnlyWithoutAListedUser(t *testing.T) {
 	if !r.s.prompt.Username.Visible() {
 		t.Fatal("with nobody picked the entry takes the name")
 	}
-	r.s.users[0].button.OnClick()
+	r.s.users[0].Button.OnClick()
 	if r.s.prompt.Username.Visible() || r.s.prompt.Username.Text() != "ada" || r.focused != r.s.prompt.Entry {
 		t.Error("a picked user takes the entry's place and fills it")
 	}
-	r.s.users[1].button.OnClick()
-	if r.s.prompt.Username.Visible() || r.s.prompt.Username.Text() != "bob" || slices.Contains(r.s.users[0].button.Classes(), "selected") {
+	r.s.users[1].Button.OnClick()
+	if r.s.prompt.Username.Visible() || r.s.prompt.Username.Text() != "bob" || slices.Contains(r.s.users[0].Button.Classes(), "selected") {
 		t.Error("picking another user moves the pick")
 	}
-	r.s.users[1].button.OnClick()
-	if !r.s.prompt.Username.Visible() || r.s.prompt.Username.Text() != "" || r.focused != r.s.prompt.Username || slices.Contains(r.s.users[1].button.Classes(), "selected") {
+	r.s.users[1].Button.OnClick()
+	if !r.s.prompt.Username.Visible() || r.s.prompt.Username.Text() != "" || r.focused != r.s.prompt.Username || slices.Contains(r.s.users[1].Button.Classes(), "selected") {
 		t.Error("picking the user again clears the pick and hands the name back to the entry")
 	}
 	picked := len(r.convs)

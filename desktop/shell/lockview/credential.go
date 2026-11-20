@@ -24,6 +24,7 @@ import (
 	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/desktop/styling"
 )
@@ -53,6 +54,12 @@ type Fingerprint struct {
 	OnPassword func()
 }
 
+// NewFingerprint is the fingerprint prompt in the desktop locale, its
+// password choice running onPassword.
+func NewFingerprint(onPassword func()) *Fingerprint {
+	return &Fingerprint{Text: i18n.T("lock-fingerprint-touch"), OnPassword: onPassword}
+}
+
 // FingerprintPrompt is the built fingerprint prompt. It takes keyboard
 // focus while shown, so the first character typed switches to the
 // password entry and lands in it.
@@ -71,9 +78,10 @@ type Options struct {
 	Font render.Font
 	// ShowClock shows the clock and date.
 	ShowClock bool
-	// WithUsername adds a visible username entry above the secret one
-	// (the greeter; the lock screen authenticates the session user).
-	WithUsername bool
+	// Username is the placeholder of a visible username entry above the
+	// secret one (the greeter); empty leaves the entry out (the lock
+	// screen authenticates the session user).
+	Username string
 	// Identity goes above the entries: the lock screen's account, the
 	// greeter's user list. Extra goes between the caps lock warning and
 	// the error line (the greeter's session picker), Footer at the
@@ -99,7 +107,7 @@ type Prompt struct {
 	// the screen shows it (CredentialBox::reveal).
 	Reveal *widget.Revealer
 	// Username is the visible username entry; nil without
-	// WithUsername.
+	// Options.Username.
 	Username *widget.Entry
 	// Entry is the secret entry; Enter submits it.
 	Entry *widget.Entry
@@ -163,8 +171,8 @@ func newPrompt(o Options, onSubmit func(string)) *Prompt {
 	if o.Identity != nil {
 		credentials.AppendAligned(o.Identity, false, widget.AlignCenter)
 	}
-	if o.WithUsername {
-		p.Username = entry(o.Font, textPx, "Username")
+	if o.Username != "" {
+		p.Username = entry(o.Font, textPx, o.Username)
 		p.Username.AddClass("lock-user")
 		p.Username.OnActivate = func(string) {
 			if o.Focus != nil {

@@ -51,7 +51,7 @@ func greeterRows() GreeterRows {
 func TestModesShareTheScreen(t *testing.T) {
 	cfg := config.DefaultsLogin()
 	rows := greeterRows()
-	spec := Spec{Config: cfg, Font: treetest.Font(t), Password: "Enter Password", CapsLock: "Caps Lock is on", Greeter: rows, OnSubmit: func(string) {}}
+	spec := Spec{Config: cfg, Font: treetest.Font(t), Greeter: rows, OnSubmit: func(string) {}}
 	spec.Mode, spec.Identity = Lock, NewAccountTile(spec.Font, "Ada").Root
 	lock := Build(spec)
 	spec.Mode, spec.Identity = Greeter, NewAccountTile(spec.Font, "Ada").Root
@@ -102,7 +102,7 @@ func TestBuildFollowsTheConfig(t *testing.T) {
 }
 
 func TestCapsLockWarning(t *testing.T) {
-	s := Build(Spec{Mode: Lock, Config: config.DefaultsLogin(), Font: treetest.Font(t), CapsLock: "caps", OnSubmit: func(string) {}})
+	s := Build(Spec{Mode: Lock, Config: config.DefaultsLogin(), Font: treetest.Font(t), OnSubmit: func(string) {}})
 	s.Prompt.SetCapsLock(true)
 	if !s.Prompt.Caps.Visible() {
 		t.Error("SetCapsLock(true) left the warning hidden")

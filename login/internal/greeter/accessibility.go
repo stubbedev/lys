@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/stubbedev/lys/desktop/shell/lockview"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/lib/render"
@@ -147,7 +148,7 @@ func (s *screen) a11yButton(font render.Font) *widget.Box {
 		StickyKeys:   s.d.a11y.dispatch != nil,
 		SlowKeys:     s.d.a11y.dispatch != nil,
 	}
-	m.button = widget.NewButton(widget.NewThemeIcon(accessibilityIcon, powerIconPx), 0, 0)
+	m.button = widget.NewButton(widget.NewThemeIcon(accessibilityIcon, lockview.PowerIconPx), 0, 0)
 	m.button.AddClass("lock-a11y-button", css.Ghost, css.Icon, css.Large)
 	m.button.SetAccessibleName(t("greeter-accessibility"))
 	m.button.SetCursorName("pointer")

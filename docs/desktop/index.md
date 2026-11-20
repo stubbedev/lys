@@ -23,7 +23,7 @@ go get github.com/stubbedev/lys
 | `shell/notifyview` | The notification popup card drawn from a config and what a notification shows, without services, with the helpers the popups and the notification dropdown share; lys-shell stacks it and lys-settings previews it |
 | `launchermatch` | The launcher's matcher: rofi's matching methods, case handling and sorting over a port of nucleo's fzf scoring, and the options `launcher` configures, which lys-shell filters its lists with and lys-settings' launcher preview matches its test query by |
 | `shell/launcherview` | The launcher drawn from a config, without the engine, socket or surface: the panel and where it sits, its field, footer, list, rows and mode tabs, and the CSS a font or style preset adds, which lys-shell hosts on a layer surface and lys-settings previews |
-| `shell/lockview` | The login screen drawn from a config, without PAM, input grabbing or a session: the background, clock, account and password prompt the greeter and the lock screen show and lys-settings previews |
+| `shell/lockview` | The login screen drawn from a config, without PAM, input grabbing or a session: the background, clock, account and password prompt, the lock screen's media row, battery chip and switch-user button, and the greeter's user list and power buttons, which the greeter and the lock screen show and lys-settings previews |
 | `settingspage` | The contract between lys-settings and the programs that open it: its command line and page list |
 | `identity` | The desktop's directory name under each XDG base directory |
 | `desktopentry`, `mime`, `opener` | Desktop entries, the shared-mime-info database, and opening a file with the default app |

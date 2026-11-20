@@ -11,6 +11,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/service/mpris"
 	"github.com/stubbedev/lys/desktop/service/upower"
+	"github.com/stubbedev/lys/desktop/shell/lockview"
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
@@ -144,7 +145,7 @@ func (m *sessionMedia) Next(bus string) {
 	m.control(mediaControl{what: "next track", bus: bus, run: (*mpris.Service).Next})
 }
 
-func (b *busWatches) battery(onChange func(batteryLevel, bool)) (stop func()) {
+func (b *busWatches) battery(onChange func(lockview.BatteryLevel, bool)) (stop func()) {
 	return b.run("battery", dialSystemBus, func(ctx context.Context, conn *dbus.Conn) (err error) {
 		src := upower.NewOn(conn)
 		ticks, unsubscribe, err := src.Subscribe(ctx)

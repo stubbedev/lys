@@ -603,11 +603,13 @@
   "desktop/shell/lockview": {
     "imports": [
       "desktop/config",
+      "desktop/i18n",
       "desktop/imagedecode",
       "desktop/offheap",
       "desktop/shell/widgets",
       "desktop/styling",
       "lib/intconv",
+      "lib/logind",
       "lib/render",
       "ui/app",
       "ui/widget",
@@ -1914,8 +1916,6 @@
       "desktop/shell/lockclient",
       "desktop/shell/lockview",
       "desktop/shell/reveal",
-      "desktop/shell/widgets",
-      "desktop/styling",
       "desktop/useraccount",
       "lib/dbusx",
       "lib/logind",
@@ -1932,8 +1932,7 @@
       "login/internal/screen",
       "secrets/vault",
       "ui/app",
-      "ui/widget",
-      "ui/widget/css"
+      "ui/widget"
     ],
     "testImports": [
       "desktop/shell/treetest",

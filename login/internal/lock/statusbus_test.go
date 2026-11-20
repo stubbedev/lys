@@ -12,6 +12,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/service/mpris"
 	"github.com/stubbedev/lys/desktop/service/upower"
+	"github.com/stubbedev/lys/desktop/shell/lockview"
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/sockdir"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
@@ -113,13 +114,13 @@ func TestTheSessionsPlayerReachesTheLockAndItsButtons(t *testing.T) {
 	media := newSessionMedia(watches, config.Defaults().Media)
 	seen := make(chan mediaSeen, 8)
 	stop := media.Watch(func(np nowPlaying, ok bool) { seen <- mediaSeen{np, ok} })
-	want := nowPlaying{bus: name, title: "Blue in Green", artist: "Miles Davis", artPath: "/covers/kind of blue.png", playing: true, canNext: true}
+	want := nowPlaying{bus: name, Title: "Blue in Green", Artist: "Miles Davis", ArtPath: "/covers/kind of blue.png", Playing: true, CanNext: true}
 	awaitMedia(t, loop, seen, "the playing track", func(s mediaSeen) bool { return s.ok && s.np == want })
 	media.PlayPause(name)
 	media.Next(name)
 	awaitCalls(t, player, []string{"PlayPause", "Next"})
 	player.props.SetMust(mpris.PlayerIface, "PlaybackStatus", "Paused")
-	awaitMedia(t, loop, seen, "the paused track", func(s mediaSeen) bool { return s.ok && !s.np.playing })
+	awaitMedia(t, loop, seen, "the paused track", func(s mediaSeen) bool { return s.ok && !s.np.Playing })
 	stop()
 	watches.wait()
 }
@@ -195,7 +196,7 @@ func startUPower(t *testing.T, bus *dbustest.Bus, present bool) *fakeUPower {
 }
 
 type batterySeen struct {
-	level batteryLevel
+	level lockview.BatteryLevel
 	ok    bool
 }
 
@@ -204,7 +205,7 @@ func watchBattery(t *testing.T) (chan batterySeen, loopQueue, func()) {
 	loop := make(loopQueue, 8)
 	watches := &busWatches{invoke: loop.Invoke}
 	seen := make(chan batterySeen, 8)
-	stop := watches.battery(func(l batteryLevel, ok bool) { seen <- batterySeen{l, ok} })
+	stop := watches.battery(func(l lockview.BatteryLevel, ok bool) { seen <- batterySeen{l, ok} })
 	return seen, loop, func() { stop(); watches.wait() }
 }
 
@@ -215,12 +216,12 @@ func TestTheBatteryFollowsUPower(t *testing.T) {
 	seen, loop, stop := watchBattery(t)
 	defer stop()
 	loop.next(t, "the first reading")
-	if got := <-seen; !got.ok || got.level != (batteryLevel{percent: 57}) {
+	if got := <-seen; !got.ok || got.level != (lockview.BatteryLevel{Percent: 57}) {
 		t.Fatalf("first reading %+v %v", got.level, got.ok)
 	}
 	u.set(t, 58, 1)
 	loop.next(t, "the charging reading")
-	if got := <-seen; !got.ok || got.level != (batteryLevel{percent: 58, charging: true}) {
+	if got := <-seen; !got.ok || got.level != (lockview.BatteryLevel{Percent: 58, Charging: true}) {
 		t.Fatalf("charging reading %+v %v", got.level, got.ok)
 	}
 }
@@ -269,7 +270,7 @@ func TestStoppingAWatchEndsItsDialOfASilentBus(t *testing.T) {
 	t.Setenv("DBUS_SYSTEM_BUS_ADDRESS", "unix:path="+sock)
 	t.Setenv("DBUS_SESSION_BUS_ADDRESS", "unix:path="+sock)
 	watches := &busWatches{invoke: func(func()) { t.Error("a silent bus posted to the lock") }}
-	stopBattery := watches.battery(func(batteryLevel, bool) {})
+	stopBattery := watches.battery(func(lockview.BatteryLevel, bool) {})
 	stopFingerprint := watches.fingerprint("ada")(func(fprint.Result) {})
 	stopMedia := newSessionMedia(watches, config.MediaConfig{}).Watch(func(nowPlaying, bool) {})
 	stopBattery()

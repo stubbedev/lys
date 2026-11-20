@@ -5,6 +5,7 @@ import (
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/i18n"
 )
 
 // Mode is the situation the login screen is shown in.
@@ -46,9 +47,6 @@ type Spec struct {
 	Greeter     GreeterRows
 	Lock        LockRows
 	Fingerprint *Fingerprint
-	// Password is the password entry's placeholder and CapsLock the caps
-	// lock warning's text, in the mode's locale.
-	Password, CapsLock string
 	// Focus moves keyboard focus.
 	Focus func(widget.Widget)
 	// OnSubmit receives the secret entry's text on Enter.
@@ -77,14 +75,15 @@ func Cover(s Spec) widget.Widget {
 func Build(s Spec) *Surface {
 	o := Options{
 		Font: s.Font, ShowClock: s.Config.ShowClock, Identity: s.Identity,
-		Password: s.Password, CapsLock: s.CapsLock, Focus: s.Focus, NextLayout: s.NextLayout,
-		Fingerprint: s.Fingerprint,
+		Focus: s.Focus, NextLayout: s.NextLayout, Fingerprint: s.Fingerprint,
 	}
 	switch s.Mode {
 	case Greeter:
-		o.WithUsername = true
+		greeter := i18n.Greeter()
+		o.Username, o.Password, o.CapsLock = greeter.Get("greeter-username"), greeter.Get("greeter-password"), greeter.Get("greeter-caps-lock")
 		o.Extra, o.Footer = s.Greeter.Session, s.Greeter.Power
 	case Lock:
+		o.Password, o.CapsLock = i18n.T("lock-password"), i18n.T("lock-caps-lock")
 		o.Status, o.Corner, o.Footer = s.Lock.Status, s.Lock.Corner, s.Lock.Footer
 	}
 	surface := &Surface{Prompt: newPrompt(o, s.OnSubmit), Scrim: Scrim()}

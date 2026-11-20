@@ -74,7 +74,7 @@ func TestAnIconThatCannotBePreloadedIsNamed(t *testing.T) {
 	if err == nil {
 		t.Fatal("preloading icons no search path holds reported no error")
 	}
-	for _, name := range buttonIcons {
+	for _, name := range buttonIcons() {
 		if !strings.Contains(err.Error(), name) {
 			t.Errorf("the error does not name %s: %v", name, err)
 		}

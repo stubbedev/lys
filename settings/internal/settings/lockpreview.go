@@ -42,7 +42,7 @@ func drawLockOnScreen(k *kit, cfg *config.Config, font render.Font, bg *lockBack
 	account := lockview.NewAccountTile(font, t.Get("settings-lock-preview-account"))
 	surface := lockview.Build(lockview.Spec{
 		Mode: lockview.Lock, Config: cfg.Login, Font: font, Backdrop: shown.backdrop,
-		Identity: account.Root, Password: i18n.T("lock-password"), CapsLock: i18n.T("lock-caps-lock"),
+		Identity: account.Root,
 	})
 	surface.Prompt.SetTime(lockview.TimeTexts(cfg.Login, lockPreviewMoment))
 	surface.Prompt.Reveal.SetDuration(0)

@@ -19,7 +19,6 @@ import (
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 	"github.com/stubbedev/memory-go"
 
 	"github.com/stubbedev/lys/login/internal/auth"
@@ -35,13 +34,6 @@ func t(id string, args ...i18n.Arg) string { return i18n.Greeter().Get(id, args.
 func CustomSessionName() string { return t("greeter-custom-session") }
 
 const handOverWait = 2 * time.Second
-
-// maxListedUsers caps the avatar row; beyond it the username entry
-// carries the load.
-const maxListedUsers = 8
-
-// powerIconPx is the power buttons' glyph size.
-const powerIconPx = 20
 
 // Init is what the greeter starts from (app.rs GreeterInit).
 type Init struct {
@@ -156,9 +148,8 @@ type screen struct {
 
 // userButton is one account in the user list.
 type userButton struct {
-	user   User
-	tile   *lockview.AccountTile
-	button *widget.Button
+	*lockview.UserButton
+	user User
 }
 
 // newScreen builds the greeter view: the login screen in its greeter
@@ -168,7 +159,6 @@ func newScreen(init Init, font render.Font, sheet *widget.Stylesheet, d deps) *s
 	s := &screen{init: init, d: d}
 	s.reader = loginscreen.NewFingerprintReader(s.showReader)
 	g := init.Config.Login
-	th := widget.Current()
 	textPx := widgets.TextPx(styling.Body, 1)
 
 	names := make([]string, len(init.Sessions))
@@ -189,28 +179,19 @@ func newScreen(init Init, font render.Font, sheet *widget.Stylesheet, d deps) *s
 	}
 	s.drop.SetVisible(len(init.Sessions) > 1)
 
-	users := widget.NewBox(widget.Row, th.Spacing, 0)
-	users.AddClass("lock-users")
-	users.SetHAlign(widget.AlignCenter)
-	if g.Greeter.ShowUserList && len(init.Users) > 0 && len(init.Users) <= maxListedUsers {
+	users := lockview.UserRow()
+	if lockview.ListsUsers(g.Greeter, len(init.Users)) {
 		s.populateUsers(users, font)
 	} else {
 		users.SetVisible(false)
 	}
 	rows := lockview.GreeterRows{Session: s.drop}
-	footer := widget.NewBox(widget.Row, 4*th.Spacing, 0)
-	footer.AddClass("lock-footer")
-	footer.Append(s.a11yButton(font), false)
-	if g.Greeter.ShowPowerButtons {
-		s.power = s.powerRow(font)
-		footer.Append(s.power, false)
-	}
-	rows.Power = footer
+	rows.Power, s.power = lockview.GreeterFooter(font, g.Greeter, func(a logind.PowerAction) { go s.d.power(a) }, s.a11yButton(font))
 	s.bg = s.loadBackground()
 	spec := lockview.Spec{
 		Mode: lockview.Greeter, Config: g, Font: font, Sheet: sheet, Backdrop: s.bg,
-		Identity: users, Greeter: rows, Password: t("greeter-password"), CapsLock: t("greeter-caps-lock"),
-		Focus: d.focus, OnSubmit: s.submit, Fingerprint: loginscreen.NewFingerprint(s.reader.ChoosePassword),
+		Identity: users, Greeter: rows,
+		Focus: d.focus, OnSubmit: s.submit, Fingerprint: lockview.NewFingerprint(s.reader.ChoosePassword),
 	}
 	s.layouts = loginscreen.NewKeyboardLayouts(loginscreen.LayoutDeps{
 		Invoke: d.invoke, Label: d.labelLayouts, Next: d.nextLayout, Mode: "greeter",
@@ -225,8 +206,6 @@ func newScreen(init Init, font render.Font, sheet *widget.Stylesheet, d deps) *s
 		s.over = s.splash.over(surface.Root, init.Config.Animations, d.windowOutput)
 		s.root = s.over.root
 	}
-	s.prompt.Username.SetPlaceholder(t("greeter-username"))
-	s.prompt.Username.SetAccessibleName(t("greeter-username"))
 	s.prompt.Username.SetVisible(s.picked == nil)
 	s.prompt.Username.OnActivate = func(string) {
 		s.d.focus(s.prompt.Entry)
@@ -326,25 +305,23 @@ func (s *screen) end() {
 // selected, and focuses the password.
 func (s *screen) populateUsers(row *widget.Box, font render.Font) {
 	for _, u := range s.init.Users {
-		ub := &userButton{user: u, tile: lockview.NewAccountTile(font, u.DisplayName)}
+		ub := &userButton{UserButton: lockview.NewUserButton(font, u.DisplayName), user: u}
 		if img := s.avatarPicture(u); img != nil {
-			ub.tile.SetPicture(img)
+			ub.Tile.SetPicture(img)
 		}
-		ub.button = widget.NewButton(ub.tile.Root, 0, 0)
-		ub.button.AddClass("lock-user-button", css.Ghost)
 		if u.Name == s.init.LastUser {
-			ub.button.AddClass("selected")
+			ub.SetSelected(true)
 			s.picked = ub
 		}
-		ub.button.OnClick = func() { s.pickUser(ub) }
+		ub.Button.OnClick = func() { s.pickUser(ub) }
 		s.users = append(s.users, ub)
-		row.Append(ub.button, false)
+		row.Append(ub.Button, false)
 	}
 }
 
 func (s *screen) pickUser(picked *userButton) {
 	if s.picked != nil {
-		s.picked.button.RemoveClass("selected")
+		s.picked.SetSelected(false)
 	}
 	if picked == s.picked {
 		s.picked = nil
@@ -355,7 +332,7 @@ func (s *screen) pickUser(picked *userButton) {
 		return
 	}
 	s.picked = picked
-	picked.button.AddClass("selected")
+	picked.SetSelected(true)
 	s.prompt.Username.SetText(picked.user.Name)
 	s.prompt.Username.SetVisible(false)
 	s.wantLayoutOf(picked.user.Name)
@@ -367,36 +344,6 @@ func (s *screen) pickUser(picked *userButton) {
 // when they have none that reads.
 func (s *screen) avatarPicture(u User) image.Image {
 	return lockview.AvatarPicture(s.d.loadAvatar, u.Icon, s.d.outputScale())
-}
-
-// powerRow is build_power_box: sleep, restart and shut down in the
-// .lock-power row at the bottom center, each a round button over its name.
-func (s *screen) powerRow(font render.Font) *widget.Box {
-	th := widget.Current()
-	row := widget.NewBox(widget.Row, 4*th.Spacing, 0)
-	row.AddClass("lock-power")
-	for _, b := range []struct {
-		icon   string
-		name   string
-		action logind.PowerAction
-	}{
-		{sleepIcon, t("greeter-sleep"), logind.Suspend},
-		{restartIcon, t("greeter-restart"), logind.Reboot},
-		{shutdownIcon, t("greeter-shutdown"), logind.PowerOff},
-	} {
-		btn := widget.NewButton(widget.NewThemeIcon(b.icon, powerIconPx), 0, 0)
-		btn.AddClass("lock-power-button", css.Ghost, css.Icon, css.Large)
-		btn.SetAccessibleName(b.name)
-		action := b.action
-		btn.OnClick = func() { go s.d.power(action) }
-		name := widget.NewLabel(font, widgets.TextPx(styling.Caption, 1), b.name, 0)
-		name.AddClass("lock-power-name")
-		name.SetAlignment(render.AlignCenter)
-		col := widget.NewBox(widget.Column, th.Spacing/2, 0)
-		col.AppendAligned(btn, false, widget.AlignCenter).Append(name, false)
-		row.Append(col, false)
-	}
-	return row
 }
 
 // selectedSession is the session the picker shows.

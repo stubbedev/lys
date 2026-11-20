@@ -27,7 +27,7 @@ func TestBuildShape(t *testing.T) {
 	var submitted []string
 	var focused []widget.Widget
 	p := newPrompt(Options{
-		Font: treetest.Font(t), ShowClock: true, WithUsername: true,
+		Font: treetest.Font(t), ShowClock: true, Username: "Username",
 		Focus: func(w widget.Widget) { focused = append(focused, w) },
 	}, func(s string) { submitted = append(submitted, s) })
 	if p.Entry.Echo() != widget.EchoPassword {
@@ -39,7 +39,7 @@ func TestBuildShape(t *testing.T) {
 		t.Errorf("submits = %q", submitted)
 	}
 	if p.Username == nil {
-		t.Fatal("WithUsername built no username entry")
+		t.Fatal("Username built no username entry")
 	}
 	p.Username.KeyAction(widget.KeyEnter, 0)
 	if len(focused) != 1 || focused[0] != p.Entry {

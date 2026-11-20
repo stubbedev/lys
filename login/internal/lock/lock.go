@@ -96,7 +96,7 @@ type Deps struct {
 	// ended by the compositor; nil for nothing.
 	OnEnded          func()
 	Media            mediaSource
-	Battery          func(onChange func(batteryLevel, bool)) (stop func())
+	Battery          func(onChange func(lockview.BatteryLevel, bool)) (stop func())
 	Fingerprint      func(onResult func(fprint.Result)) (stop func())
 	OnKeyboardLayout func(fn func(app.KeyboardLayout)) (stop func())
 	NextLayout       func(steps int)
@@ -130,8 +130,8 @@ type face struct {
 	account *lockview.AccountTile
 	prompt  *lockview.Prompt
 	scrim   *widget.Box
-	media   *mediaRow
-	battery *batteryChip
+	media   *lockview.MediaRow
+	battery *lockview.BatteryChip
 }
 
 // Screen is the lock screen component. Every method runs on the event
@@ -182,7 +182,7 @@ type Screen struct {
 	layouts   *loginscreen.KeyboardLayouts
 	media     nowPlaying
 	mediaOK   bool
-	battery   batteryLevel
+	battery   lockview.BatteryLevel
 	batteryOK bool
 	blank     Timer
 	blankDue  time.Time
@@ -406,24 +406,24 @@ func (s *Screen) buildFace(*app.Output) app.LockSurface {
 	f := &face{account: account}
 	spec := lockview.Spec{
 		Mode: lockview.Lock, Config: s.cfg, Font: s.font, Sheet: s.sheet, Backdrop: s.bg,
-		Identity: account.Root, Password: i18n.T("lock-password"), CapsLock: i18n.T("lock-caps-lock"),
+		Identity: account.Root,
 		OnSubmit: s.Submit,
 	}
 	if s.d.Fingerprint != nil && s.cfg.Lock.Fingerprint {
-		spec.Fingerprint = loginscreen.NewFingerprint(s.choosePassword)
+		spec.Fingerprint = lockview.NewFingerprint(s.choosePassword)
 	}
 	if s.showMedia() {
-		f.media = newMediaRow(s.font, s.playPause, s.nextTrack)
-		f.media.set(s.media, s.mediaOK)
-		spec.Lock.Status = f.media.root
+		f.media = lockview.NewMediaRow(s.font, s.playPause, s.nextTrack)
+		f.media.Set(s.media.Track, s.mediaOK)
+		spec.Lock.Status = f.media.Root
 	}
 	if s.showBattery() {
-		f.battery = newBatteryChip(s.font, s.chargingIcon)
-		f.battery.set(s.battery, s.batteryOK)
-		spec.Lock.Corner = f.battery.root
+		f.battery = lockview.NewBatteryChip(s.font, s.chargingIcon)
+		f.battery.Set(s.battery, s.batteryOK)
+		spec.Lock.Corner = f.battery.Root
 	}
 	if s.d.SwitchUser != nil {
-		spec.Lock.Footer = switchUserButton(s.font, s.d.SwitchUser)
+		spec.Lock.Footer = lockview.SwitchUserButton(s.font, s.d.SwitchUser)
 	}
 	if s.layouts.CanSwitch() {
 		spec.NextLayout = s.layouts.Cycle
@@ -784,7 +784,7 @@ func (s *Screen) setMedia(np nowPlaying, ok bool) {
 	}
 	s.media, s.mediaOK = np, ok
 	for _, f := range s.faces {
-		f.media.set(np, ok)
+		f.media.Set(np.Track, ok)
 	}
 }
 
@@ -800,13 +800,13 @@ func (s *Screen) nextTrack() {
 	}
 }
 
-func (s *Screen) setBattery(l batteryLevel, ok bool) {
+func (s *Screen) setBattery(l lockview.BatteryLevel, ok bool) {
 	if l == s.battery && ok == s.batteryOK {
 		return
 	}
 	s.battery, s.batteryOK = l, ok
 	for _, f := range s.faces {
-		f.battery.set(l, ok)
+		f.battery.Set(l, ok)
 	}
 }
 

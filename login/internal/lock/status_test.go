@@ -8,6 +8,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/shell/lockview"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/app"
@@ -35,11 +36,11 @@ func (m *fakeMedia) PlayPause(bus string) { m.calls = append(m.calls, "play-paus
 func (m *fakeMedia) Next(bus string)      { m.calls = append(m.calls, "next "+bus) }
 
 type fakeBattery struct {
-	onChange func(batteryLevel, bool)
+	onChange func(lockview.BatteryLevel, bool)
 	stops    int
 }
 
-func (b *fakeBattery) watch(onChange func(batteryLevel, bool)) func() {
+func (b *fakeBattery) watch(onChange func(lockview.BatteryLevel, bool)) func() {
 	b.onChange = onChange
 	return func() { b.stops++; b.onChange = nil }
 }
@@ -104,41 +105,41 @@ func newStatusRigWith(t *testing.T, edit func(*config.LoginConfig), more func(*D
 	return r
 }
 
-var track = nowPlaying{bus: "org.mpris.MediaPlayer2.fake", title: "Blue in Green", artist: "Miles Davis", playing: true, canNext: true}
+var track = nowPlaying{bus: "org.mpris.MediaPlayer2.fake", Title: "Blue in Green", Artist: "Miles Davis", Playing: true, CanNext: true}
 
 func TestTheLockShowsTheTrackAndDrivesThePlayer(t *testing.T) {
 	r := newStatusRig(t, nil)
 	r.lock(t)
 	r.eachFace(t, func(f *face) {
-		if f.media.root.Visible() {
+		if f.media.Root.Visible() {
 			t.Error("the media row shows before a player")
 		}
 	})
 	r.media.onChange(track, true)
 	r.eachFace(t, func(f *face) {
-		if !f.media.root.Visible() || f.media.title.Text() != track.title || f.media.artist.Text() != track.artist {
-			t.Errorf("media row shown %v reading %q by %q", f.media.root.Visible(), f.media.title.Text(), f.media.artist.Text())
+		if !f.media.Root.Visible() || f.media.Title.Text() != track.Title || f.media.Artist.Text() != track.Artist {
+			t.Errorf("media row shown %v reading %q by %q", f.media.Root.Visible(), f.media.Title.Text(), f.media.Artist.Text())
 		}
-		if f.media.play.AccessibleName() != i18n.T("lock-media-pause") {
-			t.Errorf("a playing track's button is named %q", f.media.play.AccessibleName())
+		if f.media.Play.AccessibleName() != i18n.T("lock-media-pause") {
+			t.Errorf("a playing track's button is named %q", f.media.Play.AccessibleName())
 		}
 	})
-	r.s.faces[1].media.play.OnClick()
-	r.s.faces[0].media.next.OnClick()
+	r.s.faces[1].media.Play.OnClick()
+	r.s.faces[0].media.Next.OnClick()
 	if want := []string{"play-pause " + track.bus, "next " + track.bus}; !slices.Equal(r.media.calls, want) {
 		t.Errorf("player calls %v, want %v", r.media.calls, want)
 	}
 	r.locker.plug()
-	if f := r.s.faces[len(r.s.faces)-1]; f.media.title.Text() != track.title {
+	if f := r.s.faces[len(r.s.faces)-1]; f.media.Title.Text() != track.Title {
 		t.Error("an output plugged in while locked shows no track")
 	}
 	r.media.onChange(nowPlaying{}, false)
 	r.eachFace(t, func(f *face) {
-		if f.media.root.Visible() {
+		if f.media.Root.Visible() {
 			t.Error("the media row stays once the player is gone")
 		}
 	})
-	r.s.faces[0].media.play.OnClick()
+	r.s.faces[0].media.Play.OnClick()
 	if len(r.media.calls) != 2 {
 		t.Errorf("a click with no player reached %v", r.media.calls)
 	}
@@ -160,21 +161,21 @@ func TestShowMediaOffWatchesNoPlayer(t *testing.T) {
 func TestTheBatteryRowTracksChargeAndIsAbsentWithoutABattery(t *testing.T) {
 	r := newStatusRig(t, nil)
 	r.lock(t)
-	r.battery.onChange(batteryLevel{percent: 81}, true)
+	r.battery.onChange(lockview.BatteryLevel{Percent: 81}, true)
 	r.eachFace(t, func(f *face) {
-		if !f.battery.root.Visible() || f.battery.label.Text() != percentText(81) || f.battery.charging.Visible() {
-			t.Errorf("battery shown %v reading %q charging %v", f.battery.root.Visible(), f.battery.label.Text(), f.battery.charging.Visible())
+		if !f.battery.Root.Visible() || f.battery.Label.Text() != percentText(81) || f.battery.Charging.Visible() {
+			t.Errorf("battery shown %v reading %q charging %v", f.battery.Root.Visible(), f.battery.Label.Text(), f.battery.Charging.Visible())
 		}
 	})
-	r.battery.onChange(batteryLevel{percent: 82, charging: true}, true)
+	r.battery.onChange(lockview.BatteryLevel{Percent: 82, Charging: true}, true)
 	r.eachFace(t, func(f *face) {
-		if f.battery.label.Text() != percentText(82) || !f.battery.charging.Visible() {
-			t.Errorf("charging battery reads %q charging %v", f.battery.label.Text(), f.battery.charging.Visible())
+		if f.battery.Label.Text() != percentText(82) || !f.battery.Charging.Visible() {
+			t.Errorf("charging battery reads %q charging %v", f.battery.Label.Text(), f.battery.Charging.Visible())
 		}
 	})
-	r.battery.onChange(batteryLevel{}, false)
+	r.battery.onChange(lockview.BatteryLevel{}, false)
 	r.eachFace(t, func(f *face) {
-		if f.battery.root.Visible() {
+		if f.battery.Root.Visible() {
 			t.Error("a machine without a battery shows the battery row")
 		}
 	})
@@ -308,9 +309,9 @@ func TestAnIdleLockWithAPausedPlayerCommitsNoFrames(t *testing.T) {
 	r := newStatusRig(t, func(l *config.LoginConfig) { l.ShowClock = false })
 	r.lock(t)
 	paused := track
-	paused.playing = false
+	paused.Playing = false
 	r.media.onChange(paused, true)
-	r.battery.onChange(batteryLevel{percent: 64}, true)
+	r.battery.onChange(lockview.BatteryLevel{Percent: 64}, true)
 	root := r.locker.surfaces[0].Root
 	for _, f := range r.s.faces {
 		f.prompt.Reveal.Finish()
@@ -328,7 +329,7 @@ func TestAnIdleLockWithAPausedPlayerCommitsNoFrames(t *testing.T) {
 	frames := 0
 	for range 60 {
 		r.media.onChange(paused, true)
-		r.battery.onChange(batteryLevel{percent: 64}, true)
+		r.battery.onChange(lockview.BatteryLevel{Percent: 64}, true)
 		if _, any := frameOf(root); any {
 			frames++
 		}

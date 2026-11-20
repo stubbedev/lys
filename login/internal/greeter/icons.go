@@ -24,26 +24,21 @@ import (
 //go:embed assets/*.svg
 var embeddedIcons embed.FS
 
-const (
-	sleepIcon         = "ld-moon-symbolic"
-	restartIcon       = "ld-rotate-ccw-symbolic"
-	shutdownIcon      = "ld-power-symbolic"
-	accessibilityIcon = "ld-accessibility-symbolic"
-)
+const accessibilityIcon = "ld-accessibility-symbolic"
 
 // themeIcons are the theme icons the greeter draws, each from the shared
 // bundle or assets/<name>.svg: pre-login there is no icon theme to rely on.
 func themeIcons() []string {
-	return slices.Concat(buttonIcons[:], lockview.Icons())
+	return slices.Concat(buttonIcons(), lockview.Icons())
 }
 
-var buttonIcons = [...]string{sleepIcon, restartIcon, shutdownIcon, accessibilityIcon}
+func buttonIcons() []string { return append(lockview.PowerIcons(), accessibilityIcon) }
 
 func preloadButtonIcons(num, denom int) error {
 	var errs []error
-	for _, name := range buttonIcons {
-		if err := widget.PreloadThemeIcon(name, powerIconPx, num, denom); err != nil {
-			errs = append(errs, fmt.Errorf("greeter: preload the %s icon at %dpx for scale %d/%d: %w", name, powerIconPx, num, denom, err))
+	for _, name := range buttonIcons() {
+		if err := widget.PreloadThemeIcon(name, lockview.PowerIconPx, num, denom); err != nil {
+			errs = append(errs, fmt.Errorf("greeter: preload the %s icon at %dpx for scale %d/%d: %w", name, lockview.PowerIconPx, num, denom, err))
 		}
 	}
 	return errors.Join(errs...)
