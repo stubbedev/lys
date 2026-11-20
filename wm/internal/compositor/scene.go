@@ -466,7 +466,7 @@ func (r origin) texels(o *output.Output, s *surface.Surface) image.Rectangle {
 		w, h = h, w
 	}
 	k := o.Scale().Float() / r.k.Float()
-	if !texelExact(w, float64(size.X)*k) || !texelExact(h, float64(size.Y)*k) {
+	if !texelExact(w, float64(float64(size.X)*k)) || !texelExact(h, float64(float64(size.Y)*k)) {
 		return dst
 	}
 	return image.Rectangle{Min: dst.Min, Max: dst.Min.Add(image.Pt(int(w), int(h)))}
