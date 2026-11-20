@@ -177,11 +177,7 @@ func (c *accelCurveEditor) begin() {
 }
 
 func (c *accelCurveEditor) end() {
-	if c.w.clearing(accelPointsPath(c.class)).Unset {
-		c.slot.unset()
-	} else {
-		_ = c.slot.set(nil)
-	}
+	c.w.clear(c.slot, accelPointsPath(c.class))
 	c.refresh()
 }
 

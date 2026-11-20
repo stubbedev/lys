@@ -316,6 +316,16 @@ func (w *wmBackend) clearing(path string) wmconfig.Edit {
 	return wmconfig.Edit{Path: wmPath(path)}
 }
 
+// clear takes the key at path out of what lys-wm reads through s, the
+// key's slot.
+func (w *wmBackend) clear(s slot, path string) {
+	if w.clearing(path).Unset {
+		s.unset()
+		return
+	}
+	_ = s.set(nil)
+}
+
 // baseIsDefault reports whether the key without its override holds its
 // default.
 func (w *wmBackend) baseIsDefault(path string) bool {
@@ -584,6 +594,7 @@ func wmWindowsPage() pageSpec {
 		}},
 		sectionSpec{title: "wm-section-focus", rows: wmFields("focus.follows_mouse", "focus.raise_on_hover", "focus.warp_pointer", "focus.on_close", "focus.on_activate")},
 		sectionSpec{title: "wm-section-window-behavior", rows: wmFields("fullscreen.new_window", "hold_opening", "floating.step")},
+		sectionSpec{title: "wm-section-swallow", rows: wmSwallowRows()},
 		sectionSpec{title: "wm-section-titlebars", rows: append(append([]rowSpec{wmField("titlebars.floating"), wmField("titlebars.height", softPixels(16, 48)), wmField("titlebars.side", pictureChoice(titlebarSidePictures)), wmField("titlebars.double_click")}, wmListRow("titlebars.buttons")),
 			wmFields("titlebars.active.background", "titlebars.active.text", "titlebars.inactive.background", "titlebars.inactive.text",
 				"titlebars.urgent.background", "titlebars.urgent.text", "titlebars.lights.close", "titlebars.lights.minimize", "titlebars.lights.maximize")...)},

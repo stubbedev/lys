@@ -9,7 +9,7 @@ key does.
 
 | Page | ID | Keys |
 | --- | --- | --- |
-| Windows | `wm-windows` | `gaps`, `borders`, corner radius, opacity and dimming under `decoration`, `focus`, `fullscreen`, `floating`, `titlebars` |
+| Windows | `wm-windows` | `gaps`, `borders`, corner radius, opacity and dimming under `decoration`, `focus`, `fullscreen`, `floating`, `titlebars`, `swallow` |
 | Shadow & Blur | `wm-effects` | `decoration.shadow`, `decoration.blur` |
 | Motion | `motion` | `animations.enabled` and `animations.reduced_motion` (one switch each with lys-shell's), `overview`, `switcher`, `showdesktop`, `drag_preview`, `hot_corners` |
 | Tiling & Tabs | `wm-tiling` | `autotile`, `tabs` |
@@ -65,6 +65,16 @@ device. **Draw a custom curve** starts from that line; each point is dragged up
 or down, and points are added or removed within the 2 to 64 lys-wm takes. While
 a curve is in use the profile row is hidden, and **Use the acceleration
 profile** clears the curve. A curve the editor cannot read is kept and marked.
+
+## Terminal swallowing
+
+The terminals whose windows a window they start replaces are picked from the
+installed terminals on **Windows**, and written as
+[`swallow.terminals`](/wm/config#swallow) matching exactly their app ids:
+`^(foot|org\.wezfurlong\.wezterm)$`. A pattern written by hand that no list
+of apps expresses is shown as written and kept until **Replace with a list**
+clears it. The titles that never swallow are a pattern on the new window's
+title, editable while some terminal swallows.
 
 ## Displays
 

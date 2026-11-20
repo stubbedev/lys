@@ -93,8 +93,11 @@ func (c rowCondition) set() bool { return c.path != "" }
 func stackedRow(r *rowSpec) { r.fullWidth = true }
 
 // enabledBy disables the row while the switch at path is off.
-func enabledBy(path string) rowOpt {
-	return func(r *rowSpec) { r.enabledWhen = rowCondition{path: path, holds: switchedOn} }
+func enabledBy(path string) rowOpt { return enabledWhile(path, switchedOn) }
+
+// enabledWhile disables the row while the field at path does not hold.
+func enabledWhile(path string, holds func(v any) bool) rowOpt {
+	return func(r *rowSpec) { r.enabledWhen = rowCondition{path: path, holds: holds} }
 }
 
 // shownWhen hides the row while the field at path does not hold.

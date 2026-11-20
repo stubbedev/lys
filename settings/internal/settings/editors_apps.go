@@ -36,6 +36,10 @@ func scanInstalled(dirs []string) installedApps {
 	return ix
 }
 
+func isTerminal(a desktopentry.App) bool {
+	return slices.Contains(strings.Split(a.Categories(), ";"), terminalCategory)
+}
+
 func byDisplayName(a, b desktopentry.App) int {
 	return cmp.Or(cmp.Compare(strings.ToLower(a.DisplayName()), strings.ToLower(b.DisplayName())), cmp.Compare(a.ID, b.ID))
 }

@@ -72,6 +72,7 @@ var freeFormRows = []string{
 	"modules.bitwarden.network-folder",
 	"modules.bitwarden.portal-folder",
 	"modules.screenshot.label",
+	swallowExceptPath,
 }
 
 func isFreeForm(path string) bool {

@@ -107,7 +107,7 @@ func (ix appIndex) candidates(types []string) []desktopentry.App {
 func (ix appIndex) terminals() []desktopentry.App {
 	var out []desktopentry.App
 	for _, a := range ix.all {
-		if _, runs := execProgram(a.Exec()); runs && a.ShouldShow() && slices.Contains(strings.Split(a.Categories(), ";"), terminalCategory) {
+		if _, runs := execProgram(a.Exec()); runs && a.ShouldShow() && isTerminal(a) {
 			out = append(out, a)
 		}
 	}
