@@ -113,6 +113,18 @@ const (
 	CameraLuxScale      = 900.0
 )
 
+const (
+	AttentionSettleFrames = 2
+	AttentionFrames       = 3
+	AttentionFrame        = time.Second
+	AttentionFaceQuality  = 5.0
+	AttentionDarkLuma     = 12.0
+	AttentionMinHeight    = 96
+	AttentionFaceShare    = 5
+	AttentionWindowShift  = 0.1
+	AttentionWindowScale  = 1.1
+)
+
 // Config is the resolved configuration.
 type Config struct {
 	SupplyDir  string

@@ -2310,6 +2310,12 @@
       "power/internal/history"
     ]
   },
+  "power/internal/presence": {
+    "imports": [
+      "power/internal/config",
+      "power/third_party/pico"
+    ]
+  },
   "power/internal/profiles": {
     "imports": [
       "lib/third_party/godbus"
@@ -2384,6 +2390,14 @@
     "testImports": [
       "lib/dbustest",
       "lib/waittest"
+    ]
+  },
+  "power/third_party/pico": {
+    "imports": [
+      "lib/intconv"
+    ],
+    "embeds": [
+      "power/third_party/pico/facefinder"
     ]
   },
   "secrets/client": {
