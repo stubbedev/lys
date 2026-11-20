@@ -631,6 +631,18 @@ settings-privacy-resource-apps = { $count ->
     [0] Aucune application
     [one] Une application
    *[other] { $count } applications
+settings-section-privacy-in-use = En cours d'utilisation
+    .description = Les applications qui capturent le micro, une caméra ou l'écran en ce moment
+settings-privacy-in-use-none = Rien n'utilise le micro, une caméra ou l'écran
+settings-privacy-in-use-microphone = Micro · { $source }
+settings-privacy-in-use-camera = Caméra · { $device }
+settings-privacy-in-use-screen = Partage l'écran
+settings-privacy-in-use-stop = Arrêter
+settings-privacy-in-use-stop-app = Arrêter le partage d'écran de { $app }
+settings-privacy-in-use-no-microphone = Impossible de savoir qui utilise le micro
+settings-privacy-in-use-no-camera = Impossible de savoir qui utilise une caméra
+settings-privacy-in-use-no-screen = Impossible de savoir qui partage l'écran
+settings-privacy-in-use-failed = La capture n'a pas été modifiée
 }
 settings-nav-idle = Inactivité et alimentation
 settings-page-idle = Inactivité et alimentation

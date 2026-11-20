@@ -628,6 +628,18 @@ settings-privacy-resource-apps = { $count ->
     [0] Keine App
     [one] Eine App
    *[other] { $count } Apps
+settings-section-privacy-in-use = Gerade in Verwendung
+    .description = Die Apps, die gerade das Mikrofon, eine Kamera oder den Bildschirm aufnehmen
+settings-privacy-in-use-none = Nichts verwendet das Mikrofon, eine Kamera oder den Bildschirm
+settings-privacy-in-use-microphone = Mikrofon · { $source }
+settings-privacy-in-use-camera = Kamera · { $device }
+settings-privacy-in-use-screen = Teilt den Bildschirm
+settings-privacy-in-use-stop = Beenden
+settings-privacy-in-use-stop-app = Bildschirmfreigabe von { $app } beenden
+settings-privacy-in-use-no-microphone = Wer das Mikrofon verwendet, kann nicht gelesen werden
+settings-privacy-in-use-no-camera = Wer eine Kamera verwendet, kann nicht gelesen werden
+settings-privacy-in-use-no-screen = Wer den Bildschirm teilt, kann nicht gelesen werden
+settings-privacy-in-use-failed = Die Aufnahme wurde nicht geändert
 }
 settings-nav-idle = Leerlauf & Energie
 settings-page-idle = Leerlauf & Energie

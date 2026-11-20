@@ -618,6 +618,18 @@ settings-privacy-resource-apps = { $count ->
     [0] Geen app
     [one] Eén app
    *[other] { $count } apps
+settings-section-privacy-in-use = Nu in gebruik
+    .description = De apps die nu de microfoon, een camera of het scherm opnemen
+settings-privacy-in-use-none = Niets gebruikt de microfoon, een camera of het scherm
+settings-privacy-in-use-microphone = Microfoon · { $source }
+settings-privacy-in-use-camera = Camera · { $device }
+settings-privacy-in-use-screen = Deelt het scherm
+settings-privacy-in-use-stop = Stoppen
+settings-privacy-in-use-stop-app = Schermdelen van { $app } stoppen
+settings-privacy-in-use-no-microphone = Wie de microfoon gebruikt, kan niet worden gelezen
+settings-privacy-in-use-no-camera = Wie een camera gebruikt, kan niet worden gelezen
+settings-privacy-in-use-no-screen = Wie het scherm deelt, kan niet worden gelezen
+settings-privacy-in-use-failed = De opname is niet gewijzigd
 }
 settings-nav-idle = Inactiviteit en energie
 settings-page-idle = Inactiviteit en energie

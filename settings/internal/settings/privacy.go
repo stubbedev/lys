@@ -108,6 +108,7 @@ type grantsList struct {
 	apps      []permissions.App
 	installed installedApps
 	opened    map[privacyResource]bool
+	inUse     *inUseStrip
 	failure   string
 	problem   string
 }
@@ -128,6 +129,8 @@ func grantsFooter(k *kit) widget.Widget {
 	l.view = widget.NewDropdown(k.face, k.textPx(), []string{t.Get("settings-privacy-by-permission"), t.Get("settings-privacy-by-app")}, grantsByResource)
 	l.view.SetAccessibleName(t.Get("settings-privacy-view"))
 	l.view.OnSelect = func(int) { l.render() }
+	l.inUse = newInUseStrip(l)
+	l.Append(l.inUse, false)
 	body := widget.NewBox(widget.Column, 0, 0)
 	body.Append(panelRow(k, t.Get("settings-privacy-view"), "", l.view), false)
 	body.Append(widget.NewSeparator(widget.Horizontal), false)
@@ -138,6 +141,7 @@ func grantsFooter(k *kit) widget.Widget {
 	async(k, func() installedApps { return scanInstalled(dirs) }, func(ix installedApps) {
 		l.installed = ix
 		l.render()
+		l.inUse.render()
 	})
 	store, release, err := openGrants()
 	if err != nil {
@@ -158,6 +162,7 @@ func grantsFooter(k *kit) widget.Widget {
 }
 
 func (l *grantsList) close() {
+	l.inUse.close()
 	if l.watch != nil {
 		if err := l.watch.Stop(); err != nil {
 			log.Printf("settings: stop following the permission store: %v", err)

@@ -2326,6 +2326,7 @@
       "shell/service/mail",
       "shell/service/notifications",
       "shell/service/privacy",
+      "shell/service/screenshare",
       "shell/service/shellipc",
       "shell/service/sni",
       "shell/service/sounds",
@@ -2341,6 +2342,7 @@
     ],
     "testImports": [
       "desktop/fakeclock",
+      "desktop/feed",
       "desktop/resources",
       "desktop/service/lyswm/lyswmtest",
       "desktop/service/upower/upowertest",

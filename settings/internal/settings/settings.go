@@ -85,6 +85,8 @@ func Run(page, setting string) error {
 		power:        func() (powerControl, error) { return openPower(dialSystemBus) },
 		bluetooth:    func() (btControl, error) { return openBluetooth(dialSystemBus) },
 		dnd:          func() (dndControl, error) { return openDND(dialSessionBus) },
+		cameras:      watchCameras,
+		screenShares: func() (shareSource, func(), error) { return followShares(dialSessionBus) },
 		notify:       sendNotification,
 		shellCommand: runShellCommand,
 		openURI:      openWithDefaultApp,
