@@ -7,18 +7,21 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"maps"
 	"net"
 	"os"
 	"path/filepath"
 	"reflect"
 	"runtime"
 	"slices"
+	"strconv"
 	"strings"
 	"syscall"
 	"testing"
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/lib/fdtest"
 	"github.com/stubbedev/lys/lib/logtest"
 	"github.com/stubbedev/lys/lib/testhome"
 	"github.com/stubbedev/lys/lib/xkb"
@@ -131,10 +134,21 @@ func testRequests() greeterRequests {
 }
 
 func TestAWorkerThatCannotBeReapedHasItsHandleReleased(t *testing.T) {
-	before := openDescriptors()
+	before := pidfdsOfThisProcess(t)
 	self, err := os.FindProcess(os.Getpid())
 	if err != nil {
 		t.Fatal(err)
+	}
+	var held []fdtest.Watch
+	for _, fd := range slices.Sorted(maps.Keys(pidfdsOfThisProcess(t))) {
+		if before[fd] {
+			continue
+		}
+		n, err := strconv.Atoi(fd)
+		if err != nil {
+			t.Fatalf("pidfd %q: %v", fd, err)
+		}
+		held = append(held, fdtest.WatchFD(t, n))
 	}
 	r, w, err := os.Pipe()
 	if err != nil {
@@ -143,12 +157,15 @@ func TestAWorkerThatCannotBeReapedHasItsHandleReleased(t *testing.T) {
 	if err := w.Close(); err != nil {
 		t.Fatal(err)
 	}
+	held = append(held, fdtest.WatchFD(t, int(r.Fd())))
 	err = (&worker{proc: self, ch: newChannel(r), f: r}).wait()
 	if !errors.Is(err, syscall.ECHILD) {
 		t.Errorf("waiting for a process that is not a child: %v, want ECHILD", err)
 	}
-	if after := openDescriptors(); after != before {
-		t.Errorf("%d descriptors open after the wait, %d before", after, before)
+	for _, h := range held {
+		if h.Open(t) {
+			t.Errorf("descriptor %d of the worker's handle and channel is open after the wait", h.FD())
+		}
 	}
 	runtime.KeepAlive(self)
 }

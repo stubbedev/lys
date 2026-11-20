@@ -42,14 +42,6 @@ const (
 	burstSize          = 3000
 )
 
-func openDescriptors() int {
-	entries, err := os.ReadDir("/proc/self/fd")
-	if err != nil {
-		panic(err)
-	}
-	return len(entries)
-}
-
 func runFakeMode() (int, bool) {
 	if os.Getenv(fakeDirEnv) == "" || len(os.Args) < 2 {
 		return 0, false
@@ -268,7 +260,6 @@ func fakeLongSessionWorker() int {
 	signals := make(chan os.Signal, 2)
 	signal.Notify(signals, syscall.SIGTERM, syscall.SIGUSR1)
 	appendLine("workers", fmt.Sprintf("%d %s", os.Getpid(), os.Getenv(fakeGenerationEnv)))
-	appendLine("worker-descriptors", strconv.Itoa(openDescriptors()))
 	if err := ch.send(event{Kind: evStarted, UID: uint32(os.Getuid())}); err != nil {
 		return 1
 	}
@@ -516,12 +507,95 @@ func (d *fakeDM) cmdline() string {
 	return string(bytes.ReplaceAll(data, []byte{0}, []byte{' '}))
 }
 
-func (d *fakeDM) descriptors() int {
-	entries, err := os.ReadDir(fmt.Sprintf("/proc/%d/fd", d.pid))
+func (d *fakeDM) handoverLeft() error {
+	d.t.Helper()
+	var left []error
+	dir := fmt.Sprintf("/proc/%d/fdinfo", d.pid)
+	entries, err := os.ReadDir(dir)
 	if err != nil {
 		d.t.Fatal(err)
 	}
-	return len(entries)
+	for _, entry := range entries {
+		fd, err := strconv.Atoi(entry.Name())
+		if err != nil {
+			d.t.Fatalf("descriptor %q in %s: %v", entry.Name(), dir, err)
+		}
+		if fd < firstHandoverFD {
+			continue
+		}
+		info, err := os.ReadFile(filepath.Join(dir, entry.Name()))
+		if errors.Is(err, os.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			d.t.Fatal(err)
+		}
+		if !closesOnExec(d.t, string(info)) {
+			left = append(left, fmt.Errorf("descriptor %d stays open across an exec, as only a handed-over one does", fd))
+		}
+	}
+	for _, pair := range fdtest.Shared(d.t, d.pid, d.pid) {
+		if pair[0] >= firstHandoverFD && pair[0] < pair[1] {
+			left = append(left, fmt.Errorf("descriptors %d and %d hold one file", pair[0], pair[1]))
+		}
+	}
+	if n := d.socketsOn(UpgradeSocket.Name); n != 1 {
+		left = append(left, fmt.Errorf("%d sockets are on %s, want its listener alone", n, UpgradeSocket.Name))
+	}
+	return errors.Join(left...)
+}
+
+func closesOnExec(t *testing.T, info string) bool {
+	t.Helper()
+	for line := range strings.Lines(info) {
+		value, ok := strings.CutPrefix(line, "flags:")
+		if !ok {
+			continue
+		}
+		flags, err := strconv.ParseUint(strings.TrimSpace(value), 8, 64)
+		if err != nil {
+			t.Fatalf("the flags of a descriptor, %q: %v", value, err)
+		}
+		return flags&syscall.O_CLOEXEC != 0
+	}
+	t.Fatalf("a descriptor's info names no flags: %q", info)
+	return false
+}
+
+func (d *fakeDM) socketsOn(name string) int {
+	d.t.Helper()
+	path := filepath.Join(d.runtime, name)
+	table, err := os.ReadFile(fmt.Sprintf("/proc/%d/net/unix", d.pid))
+	if err != nil {
+		d.t.Fatal(err)
+	}
+	bound := make(map[string]bool)
+	for line := range strings.Lines(string(table)) {
+		if fields := strings.Fields(line); len(fields) == 8 && fields[7] == path {
+			bound["socket:["+fields[6]+"]"] = true
+		}
+	}
+	dir := fmt.Sprintf("/proc/%d/fd", d.pid)
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		d.t.Fatal(err)
+	}
+	n := 0
+	for _, entry := range entries {
+		if target, err := os.Readlink(filepath.Join(dir, entry.Name())); err == nil && bound[target] {
+			n++
+		}
+	}
+	return n
+}
+
+func (d *fakeDM) requireNothingInherited(worker int) {
+	d.t.Helper()
+	for _, pair := range fdtest.Shared(d.t, worker, d.pid) {
+		if pair[0] >= firstHandoverFD {
+			d.t.Errorf("worker %d holds on descriptor %d the file the daemon holds on %d: the daemon leaked it into the session", worker, pair[0], pair[1])
+		}
+	}
 }
 
 func (d *fakeDM) logged() string {
@@ -567,10 +641,10 @@ func TestAnUpgradeKeepsTheSessionAndTracksIt(t *testing.T) {
 	if generation != "1" {
 		t.Fatalf("the first worker runs generation %q", generation)
 	}
+	d.requireNothingInherited(worker)
 	if err := syscall.Kill(worker, syscall.SIGUSR1); err != nil {
 		t.Fatal(err)
 	}
-	baseline := 0
 	for _, next := range []string{"2", "3", "4"} {
 		path := nextBuild(t, fakeGenerationEnv+"="+next)
 		if _, err := d.upgrade(path); err != nil {
@@ -582,11 +656,7 @@ func TestAnUpgradeKeepsTheSessionAndTracksIt(t *testing.T) {
 		if !d.tracks() {
 			t.Fatal("the upgraded daemon does not track the session")
 		}
-		if baseline == 0 {
-			baseline = d.descriptors()
-			continue
-		}
-		d.await("the descriptors of an upgrade closed", func() bool { return d.descriptors() <= baseline })
+		d.awaitNil("the descriptors of an upgrade closed", d.handoverLeft)
 	}
 	if got := d.lines("card-opens"); len(got) != 1 {
 		t.Errorf("the cards were opened %d times: %v; want held across the upgrades", len(got), got)
@@ -604,9 +674,7 @@ func TestAnUpgradeKeepsTheSessionAndTracksIt(t *testing.T) {
 	if generation != "4" {
 		t.Errorf("the next login's worker is generation %q", generation)
 	}
-	if got := d.lines("worker-descriptors"); len(got) != 2 || got[0] != got[1] {
-		t.Errorf("descriptors of the workers before and after the upgrades: %v; the handover leaked into a child", got)
-	}
+	d.requireNothingInherited(next)
 	d.endSession(next)
 }
 

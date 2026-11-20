@@ -814,6 +814,8 @@
     ],
     "testImports": [
       "lib/dbustest",
+      "lib/fdtest",
+      "lib/intconv",
       "lib/sockdir",
       "lib/testbuild",
       "lib/testhome",
@@ -1622,6 +1624,7 @@
       "lib/wlr"
     ],
     "testImports": [
+      "lib/fdtest",
       "lib/testbuild",
       "lib/testhome",
       "lib/wltest"
@@ -4534,6 +4537,9 @@
       "lib/third_party/wayland/wl",
       "lib/third_party/wayland/wlclient",
       "lib/wlr"
+    ],
+    "testImports": [
+      "lib/fdtest"
     ]
   },
   "ui/internal/clipboard": {
@@ -5342,6 +5348,7 @@
   },
   "wm/internal/fdmsg": {
     "testImports": [
+      "lib/fdtest",
       "lib/testhome"
     ]
   },
@@ -5412,6 +5419,7 @@
     ],
     "testImports": [
       "lib/capture",
+      "lib/fdtest",
       "lib/fourcc",
       "lib/gpu",
       "lib/icontheme",
@@ -6788,6 +6796,7 @@
   },
   "wm/internal/testclient": {
     "imports": [
+      "lib/fdtest",
       "lib/fourcc",
       "wm/internal/gpu",
       "wm/internal/protocol/client/cursorshape",
