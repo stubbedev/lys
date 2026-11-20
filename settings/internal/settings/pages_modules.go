@@ -200,13 +200,13 @@ func batteryPage(*config.Config) pageSpec {
 func bitwardenPage(*config.Config) pageSpec {
 	const m = "modules.bitwarden"
 	return pageSpec{id: "bitwarden", navKey: "settings-nav-bitwarden", icon: "ld-shield-check-symbolic", header: "settings-page-bitwarden", sections: []sectionSpec{
-		{title: "settings-section-bitwarden-account", rows: fields(m+".server", m+".email")},
+		{title: "settings-section-bitwarden-account", preview: newVaultAccount, rows: fields(m+".server", m+".email")},
 		{title: "settings-section-bitwarden-security", rows: []rowSpec{
 			field(m + ".lock-with-session"),
 			field(m + ".unlock-with-session"),
 			field(m+".clipboard-clear", durationChips(inSeconds, after(10*time.Second), after(30*time.Second), after(time.Minute), after(5*time.Minute), zeroAs(never))),
 		}},
-		{title: "settings-section-bitwarden-integrations", rows: fields(m+".network-folder", m+".portal-folder")},
+		{title: "settings-section-bitwarden-integrations", rows: []rowSpec{field(m+".network-folder", vaultFolderRow), field(m+".portal-folder", vaultFolderRow)}},
 		{title: "settings-section-generator", rows: []rowSpec{
 			field(m+".generator-passwords", passwordPresetList),
 			field(m+".generator-passphrases", passphrasePresetList),

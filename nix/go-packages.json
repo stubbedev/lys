@@ -2435,6 +2435,7 @@
       "login/greeterconfig",
       "secrets/client",
       "secrets/control",
+      "secrets/vault",
       "settings/internal/displays",
       "settings/internal/locale",
       "settings/internal/proxyenv",

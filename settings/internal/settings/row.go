@@ -63,6 +63,7 @@ type kit struct {
 	dnd          func() (dndControl, error)
 	nightlight   func() (nightlightControl, error)
 	brightness   func() (brightnessControl, error)
+	vault        func() (vaultControl, error)
 	cameras      func() (cameraSource, func(), error)
 	screenShares func() (shareSource, func(), error)
 	// i2c says which I2C buses there are and which this user may open.
