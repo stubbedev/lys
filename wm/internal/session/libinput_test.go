@@ -107,9 +107,14 @@ func TestLibinputAsksTheOpenerForDevices(t *testing.T) {
 func TestLibinputRejectsNonInputDevices(t *testing.T) {
 	testenv.UdevRecord(t, SystemRoots.UdevData, os.DevNull)
 	in := libinput(t, PlainOpener{})
-	if err := in.reader.call("add /dev/null", func() error { return in.reader.add(os.DevNull) }); !errors.Is(err, ErrDeclined) {
+	err := in.reader.call("add /dev/null", func() error { return in.reader.add(os.DevNull) })
+	if !errors.Is(err, ErrDeclined) || !strings.Contains(err.Error(), os.DevNull) {
 		t.Fatalf("/dev/null as an input device: %v", err)
 	}
+	if reason := strings.TrimPrefix(err.Error(), "session: add input device "+os.DevNull+": "+ErrDeclined.Error()+": "); reason == err.Error() || reason == "" {
+		t.Fatalf("the decline of /dev/null gives no reason: %v", err)
+	}
+	t.Logf("libinput declines /dev/null: %v", err)
 	if _, err := OpenLibinput(nil, "/nonexistent/libinput.so.10", PlainOpener{}, DefaultInputConfig(), nil, keepPriority); err == nil || !strings.Contains(err.Error(), LibinputEnv) {
 		t.Fatalf("a missing library: %v", err)
 	}
@@ -216,7 +221,8 @@ func (o *blockingOpener) ReleaseDevice(d Device) error {
 func TestAnInputDeviceIsTakenOffTheLoop(t *testing.T) {
 	testenv.UdevRecord(t, SystemRoots.UdevData, os.DevNull)
 	opener := &blockingOpener{entered: make(chan struct{}), release: make(chan struct{}), released: make(chan Device, 1)}
-	in := libinput(t, opener)
+	var reports []error
+	in := libinputReporting(t, opener, func(err error) { reports = append(reports, err) })
 	in.AddLater("/dev/null")
 	<-opener.entered
 	ticks := 0
@@ -252,6 +258,10 @@ func TestAnInputDeviceIsTakenOffTheLoop(t *testing.T) {
 		return nil
 	})
 	waittest.For(t, opener.released, "the declined device's release")
+	looptest.RunUntil(t, in.loop, "the decline's report", func() bool { return len(reports) > 0 })
+	if err := reports[0]; len(reports) != 1 || !errors.Is(err, ErrDeclined) || !strings.Contains(err.Error(), "/dev/null") {
+		t.Fatalf("a device libinput declines reported %v", reports)
+	}
 }
 
 func TestAReleaseDoesNotWaitForTheOpener(t *testing.T) {
@@ -303,4 +313,52 @@ func TestTheInputReaderRaisesItsOwnThreadAndReleasesItBeforeTheThreadEnds(t *tes
 		}
 		return err != nil
 	}, fmt.Sprintf("the reader's thread %d to end after Close", tid))
+}
+
+type staleFirstOpener struct {
+	entered, release chan struct{}
+	released         chan Device
+	takes            int
+}
+
+func (o *staleFirstOpener) TakeDevice(path string) (int, Device, error) {
+	o.takes++
+	if o.takes > 1 {
+		return PlainOpener{}.TakeDevice(path)
+	}
+	close(o.entered)
+	<-o.release
+	return PlainOpener{}.TakeDevice(os.DevNull)
+}
+
+func (o *staleFirstOpener) ReleaseDevice(d Device) error {
+	o.released <- d
+	return nil
+}
+
+func TestADeviceAddedAgainWhileItsFirstOpenIsInFlightIsAddedWithTheSecond(t *testing.T) {
+	kbd := newVirtualKeyboard(t)
+	opener := &staleFirstOpener{entered: make(chan struct{}), release: make(chan struct{}), released: make(chan Device, 2)}
+	in := libinput(t, opener)
+	rec := &inputRecorder{}
+	in.Start(rec)
+	in.AddLater(kbd.node)
+	waittest.For(t, opener.entered, "the first open")
+	in.onReader(t, "remove the keyboard and add it again", func(r *inputReader) error {
+		r.remove(kbd.node)
+		r.addLater(kbd.node)
+		return nil
+	})
+	close(opener.release)
+	looptest.RunUntil(t, in.loop, "the keyboard's DeviceAdded", func() bool { return len(rec.devices) > 0 })
+	if len(rec.devices) != 1 || rec.devices[0].Name() != virtualKeyboard {
+		t.Fatalf("added %v", rec.devices)
+	}
+	var null unix.Stat_t
+	if err := unix.Stat(os.DevNull, &null); err != nil {
+		t.Fatal(err)
+	}
+	if d := waittest.For(t, opener.released, "the stale open's release"); d.Major != unix.Major(null.Rdev) || d.Minor != unix.Minor(null.Rdev) {
+		t.Fatalf("released %+v, not the stale open of %s", d, os.DevNull)
+	}
 }

@@ -206,7 +206,8 @@ type inputReader struct {
 	opener    Opener
 	config    InputConfig
 	ready     map[string]takenDevice
-	adding    map[string]struct{}
+	adding    map[string]uint64
+	requests  uint64
 	resumes   uint64
 	lib       uintptr
 	li        uintptr
@@ -216,6 +217,7 @@ type inputReader struct {
 	fds       map[int32]Device
 	tools     map[uintptr]*tabletinput.Tool
 	openErr   error
+	adds      *addLog
 	out       []backend.Event
 	logLine   [1024]byte
 	done      chan struct{}
@@ -297,7 +299,7 @@ func OpenLibinput(l *loop.Loop, path string, opener Opener, config InputConfig, 
 		return nil, fmt.Errorf("session: load libinput from %s (set %s to its path): %w", path, LibinputEnv, err)
 	}
 	in := &Libinput{loop: l, queue: &inputQueue{}, report: report}
-	r := &inputReader{in: in, deliver: in.deliver, queue: in.queue, filling: &inputBatch{}, ready: map[string]takenDevice{}, adding: map[string]struct{}{}, lib: lib, opener: opener, config: config, devices: map[uintptr]*InputDevice{}, paths: map[string]uintptr{}, fds: map[int32]Device{}, done: make(chan struct{})}
+	r := &inputReader{in: in, deliver: in.deliver, queue: in.queue, filling: &inputBatch{}, ready: map[string]takenDevice{}, adding: map[string]uint64{}, lib: lib, opener: opener, config: config, devices: map[uintptr]*InputDevice{}, paths: map[string]uintptr{}, fds: map[int32]Device{}, done: make(chan struct{})}
 	in.reader = r
 	if err := r.bind(path); err != nil {
 		return nil, errors.Join(err, purego.Dlclose(lib))
@@ -356,8 +358,29 @@ func (r *inputReader) open() error {
 	return nil
 }
 
+type logLine struct {
+	text     string
+	reported bool
+}
+
+type addLog struct {
+	lines []logLine
+}
+
+func (l *addLog) reason() string {
+	if len(l.lines) == 0 {
+		return "libinput logged no reason"
+	}
+	texts := make([]string, len(l.lines))
+	for i, line := range l.lines {
+		texts[i] = line.text
+	}
+	return strings.Join(texts, "; ")
+}
+
 func (r *inputReader) logged(priority int32, format *byte, args uintptr) {
-	if priority < logPriorityError && !strings.Contains(clib.GoString(format), synDropped) {
+	reported := priority >= logPriorityError || strings.Contains(clib.GoString(format), synDropped)
+	if !reported && r.adds == nil {
 		return
 	}
 	n := int(r.fn.vsnprintf(&r.logLine[0], uintptr(len(r.logLine)), format, args))
@@ -365,7 +388,16 @@ func (r *inputReader) logged(priority int32, format *byte, args uintptr) {
 		r.filling.report(fmt.Errorf("session: libinput logged %q, which vsnprintf could not format", clib.GoString(format)))
 		return
 	}
-	r.filling.report(fmt.Errorf("session: libinput: %s", strings.TrimSpace(string(r.logLine[:min(n, len(r.logLine)-1)]))))
+	line := logLine{text: strings.TrimSpace(string(r.logLine[:min(n, len(r.logLine)-1)])), reported: reported}
+	if r.adds != nil {
+		r.adds.lines = append(r.adds.lines, line)
+		return
+	}
+	r.reportLog(line)
+}
+
+func (r *inputReader) reportLog(line logLine) {
+	r.filling.report(fmt.Errorf("session: libinput: %s", line.text))
 }
 
 func hotCall[R uintptr | int32 | uint64](f *libinputFuncs, sym uintptr) func(uintptr) R {
@@ -668,12 +700,20 @@ func (r *inputReader) add(path string) error {
 		return nil
 	}
 	r.openErr = nil
+	log := &addLog{}
+	r.adds = log
 	dev := r.fn.addDevice(r.li, path)
+	r.adds = nil
 	if dev == 0 {
 		if r.openErr != nil {
 			return fmt.Errorf("session: add input device %s: %w", path, r.openErr)
 		}
-		return fmt.Errorf("session: add input device %s: %w", path, ErrDeclined)
+		return fmt.Errorf("session: add input device %s: %w: %s", path, ErrDeclined, log.reason())
+	}
+	for _, line := range log.lines {
+		if line.reported {
+			r.reportLog(line)
+		}
 	}
 	r.paths[path] = r.fn.deviceRef(dev)
 	r.drain()
@@ -768,11 +808,13 @@ func (r *inputReader) addLater(path string) {
 	if _, ok := r.adding[path]; ok {
 		return
 	}
-	r.adding[path] = struct{}{}
+	r.requests++
+	request := r.requests
+	r.adding[path] = request
 	r.work.Run(func() {
 		var t takenDevice
 		t.fd, t.dev, t.err = r.opener.TakeDevice(path)
-		r.handBack("the taken input device "+path, func() { r.added(path, t) }, t)
+		r.handBack("the taken input device "+path, func() { r.added(path, request, t) }, t)
 	})
 }
 
@@ -798,9 +840,8 @@ func (r *inputReader) handBack(what string, then func(), taken ...takenDevice) {
 	}
 }
 
-func (r *inputReader) added(path string, t takenDevice) {
-	if _, wanted := r.adding[path]; !wanted || r.closing {
-		delete(r.adding, path)
+func (r *inputReader) added(path string, request uint64, t takenDevice) {
+	if r.adding[path] != request || r.closing {
 		r.letGo(t)
 		return
 	}
@@ -811,7 +852,7 @@ func (r *inputReader) added(path string, t takenDevice) {
 		delete(r.ready, path)
 		r.letGo(t)
 	}
-	if err != nil && !errors.Is(err, ErrDeclined) {
+	if err != nil {
 		r.filling.report(err)
 	}
 }
