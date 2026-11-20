@@ -1857,3 +1857,4 @@ settings-matugen-source-none = Définissez un fond d’écran pour voir les coul
 settings-matugen-source-cycling = Le diaporama change le fond d’écran : la couleur est donc choisie selon son rang dans chaque image.
 settings-matugen-source-failed = Impossible de lire les couleurs de { $file } : { $error }
 settings-share-picker-preview = Prévisualiser le sélecteur de partage
+settings-pam-check-failed = Non enregistré : le verrouillage ne pourrait pas vous déverrouiller via { $service }. { $reason }

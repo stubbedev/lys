@@ -74,6 +74,7 @@ type kit struct {
 	// with the arguments given; the tests stub both.
 	notify       func(summary, body string) error
 	shellCommand func(args ...string) error
+	checkPAM     func(service string) error
 	// openURI opens a URI with the user's default app for it.
 	openURI func(uri string) error
 	// overlays shows content on the output named on top of everything,
@@ -270,8 +271,31 @@ func newFieldRow(k *kit, be backend, spec rowSpec) *settingRow {
 			r.showProblem(err)
 		}
 	}
-	r = newSettingRow(k, be, spec, fieldControl(k, reportingBackend{be, report}, spec))
+	writes := be
+	if spec.vet != nil {
+		writes = vettingBackend{be, func(v any) error { return spec.vet(k, v) }}
+	}
+	r = newSettingRow(k, be, spec, fieldControl(k, reportingBackend{writes, report}, spec))
 	return r
+}
+
+type vettingBackend struct {
+	backend
+	vet func(v any) error
+}
+
+func (b vettingBackend) slot(path string) slot {
+	s := b.backend.slot(path)
+	return slot{
+		get: s.get,
+		set: func(v any) error {
+			if err := b.vet(v); err != nil {
+				return err
+			}
+			return s.set(v)
+		},
+		unset: s.unset,
+	}
 }
 
 // reportingBackend hands report the outcome of every write through its

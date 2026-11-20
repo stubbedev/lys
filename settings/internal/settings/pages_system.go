@@ -74,7 +74,7 @@ func lockPage(*config.Config) pageSpec {
 				field("login.max-attempts"), field("login.show-failed-attempts"),
 				field("login.lock.blank-timeout-ms", durationChips(inMilliseconds, zeroAs(never), after(30*time.Second), after(time.Minute), after(5*time.Minute), after(10*time.Minute))),
 			}},
-			{title: "settings-section-lock-advanced", advanced: true, rows: fields("login.lock.pam-service", "login.lock.lock-on-start")},
+			{title: "settings-section-lock-advanced", advanced: true, rows: []rowSpec{field("login.lock.pam-service", pamServiceRow), field("login.lock.lock-on-start")}},
 			{title: "settings-section-login-screen", rows: []rowSpec{field("login.greeter.show-user-list"), field("login.greeter.show-power-buttons"), field("login.greeter.fingerprint", fingerprintRow), field("login.greeter.screen-reader")}},
 			{title: "settings-section-cursor", rows: []rowSpec{field("login.greeter.cursor-theme"), field("login.greeter.cursor-size", countChips(inPixels, 24, 32, 48, 64, 96))}},
 		},
@@ -83,6 +83,30 @@ func lockPage(*config.Config) pageSpec {
 }
 
 const lockBlurSoftMax = 100
+
+var pamServiceRow rowOpt = func(r *rowSpec) {
+	r.vet = func(k *kit, v any) error {
+		service, ok := v.(string)
+		if !ok {
+			return fmt.Errorf("settings: %v is no PAM service name", v)
+		}
+		if err := k.checkPAM(service); err != nil {
+			return pamRefusal{service: service, err: err}
+		}
+		return nil
+	}
+}
+
+type pamRefusal struct {
+	service string
+	err     error
+}
+
+func (r pamRefusal) Error() string {
+	return locale.T().Get("settings-pam-check-failed", i18n.Str("service", r.service), i18n.Str("reason", r.err.Error()))
+}
+
+func (r pamRefusal) Unwrap() error { return r.err }
 
 var lockBackgroundPictures = map[string]picture{
 	string(config.BackgroundColor): drawn(func(cv *render.Canvas, r render.Rect) {

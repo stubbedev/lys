@@ -1855,3 +1855,4 @@ settings-matugen-source-none = Imposta uno sfondo per vedere i colori che offre.
 settings-matugen-source-cycling = La presentazione cambia lo sfondo, quindi il colore viene scelto in base alla sua posizione in ogni immagine.
 settings-matugen-source-failed = Impossibile leggere i colori di { $file }: { $error }
 settings-share-picker-preview = Anteprima del selettore di condivisione
+settings-pam-check-failed = Non salvato: il blocco non potrebbe sbloccarti tramite { $service }. { $reason }

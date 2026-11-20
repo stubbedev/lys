@@ -19,12 +19,18 @@ import (
 
 const shellCommandTimeout = 5 * time.Second
 
-func runShellCommand(args ...string) error {
+func runShellCommand(args ...string) error { return runCommand(identity.Name, args...) }
+
+const loginProgram = "lys-login"
+
+func checkPAMService(service string) error { return runCommand(loginProgram, "check-pam", service) }
+
+func runCommand(program string, args ...string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), shellCommandTimeout)
 	defer cancel()
-	out, err := exec.CommandContext(ctx, identity.Name, args...).CombinedOutput() //nolint:gosec // lys-shell with argv the pages build
+	out, err := exec.CommandContext(ctx, program, args...).CombinedOutput() //nolint:gosec // a lys program with argv the pages build
 	if err != nil {
-		return fmt.Errorf("%s %s: %w: %s", identity.Name, strings.Join(args, " "), err, strings.TrimSpace(string(out)))
+		return fmt.Errorf("%s %s: %w: %s", program, strings.Join(args, " "), err, strings.TrimSpace(string(out)))
 	}
 	return nil
 }

@@ -1854,3 +1854,4 @@ settings-matugen-source-none = Set a wallpaper to see the colors it offers.
 settings-matugen-source-cycling = The slideshow changes the wallpaper, so the color is picked by its rank in each picture.
 settings-matugen-source-failed = The colors of { $file } cannot be read: { $error }
 settings-share-picker-preview = Preview the share picker
+settings-pam-check-failed = Not saved: the lock could not unlock you through { $service }. { $reason }

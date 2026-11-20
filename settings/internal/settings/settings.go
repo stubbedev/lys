@@ -92,6 +92,7 @@ func Run(page, setting string) error {
 		screenShares: func() (shareSource, func(), error) { return followShares(dialSessionBus) },
 		notify:       sendNotification,
 		shellCommand: runShellCommand,
+		checkPAM:     checkPAMService,
 		openURI:      openWithDefaultApp,
 		i2c:          systemHost.i2cAccess,
 		mailCount:    countMail,
