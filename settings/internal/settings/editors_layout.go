@@ -16,12 +16,6 @@ import (
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
-// The bar layout editor (editors/bar_layout): a card per monitor
-// layout, its three zones holding module and group chips that drag
-// between zones and cards, add from a searchable module picker, and
-// write the whole layout list on every change.
-
-// Layout zones, in the card's order.
 const (
 	zoneLeft = iota
 	zoneCenter
@@ -29,52 +23,72 @@ const (
 	zoneCount
 )
 
-// zoneKeys are the zones' labels.
 var zoneKeys = [zoneCount]string{"settings-layout-zone-left", "settings-layout-zone-center", "settings-layout-zone-right"}
 
-// Group name entry width (chip/helpers: GROUP_NAME_WIDTH_CHARS,
-// GROUP_NAME_MAX_WIDTH_CHARS).
 const (
 	groupNameChars    = 6
 	groupNameMaxChars = 10
 )
 
-// modulePickerListPx caps the module picker's list.
 const modulePickerListPx = 300
 
-// layoutEditor is BarLayoutControl over bar.layout.
+var layoutRow = func(r *rowSpec) {
+	r.fullWidth = true
+	r.editor = func(k *kit, s slot, _ config.FieldMeta) control { return newLayoutEditor(k, s) }
+}
+
 type layoutEditor struct {
 	*widget.Box
 	k       *kit
 	slot    slot
-	list    *widget.Box
+	tabs    *widget.ToggleGroup
+	at      int
+	header  *widget.Box
+	preview *livePreview
+	body    *widget.Box
 	layouts []config.BarLayout
-	// zones are the cards' chip boxes and the zone each one shows,
-	// rebuilt with the cards.
-	zones map[*widget.ChipBox]zoneRef
+	zones   map[*widget.ChipBox]zoneRef
 }
 
-// zoneRef names layout card's zone.
 type zoneRef struct{ card, zone int }
 
 func newLayoutEditor(k *kit, s slot) *layoutEditor {
 	c := &layoutEditor{Box: gapBox(widget.Column), k: k, slot: s}
 	c.AddClass("bar-layout-control")
-	c.list = gapBox(widget.Column)
-	c.list.AddClass("bar-layout-list")
-	c.Append(c.list, false)
+	c.tabs = widget.NewToggleGroup()
+	c.tabs.AddClass("bar-layout-tabs")
 	add := addButton(k, "settings-layout-add", func() {
 		c.layouts = append(c.layouts, config.BarLayout{Monitor: c.unusedMonitor(), Show: true})
+		c.at = len(c.layouts) - 1
 		c.commit()
 		c.rebuild()
 	})
-	c.AppendAligned(add, false, widget.AlignStart)
+	tabRow := gapBox(widget.Row)
+	tabRow.AppendAligned(c.tabs, false, widget.AlignCenter)
+	tabRow.AppendAligned(add, false, widget.AlignCenter)
+	c.header = gapBox(widget.Row)
+	c.header.AddClass("layout-card-header")
+	c.preview = newLivePreview(k, "settings-bar-preview", func(k *kit, cfg *config.Config, font render.Font) widget.Widget {
+		return drawBarOnScreen(k, cfg, font, c.shownMonitor())
+	})
+	c.body = gapBox(widget.Row)
+	c.body.AddClass("layout-card-body")
+	c.Append(tabRow, false)
+	c.Append(c.header, false)
+	c.Append(c.preview, false)
+	c.Append(c.body, false)
 	c.layouts = c.stored()
 	c.rebuild()
 	return c
 }
 
-// stored is the configured layout list, copied for editing.
+func (c *layoutEditor) shownMonitor() string {
+	if c.at < len(c.layouts) {
+		return c.layouts[c.at].Monitor
+	}
+	return everyMonitor
+}
+
 func (c *layoutEditor) stored() []config.BarLayout {
 	out := slices.Clone(c.k.store.svc.Config().Bar.Layout)
 	for i := range out {
@@ -95,20 +109,16 @@ func cloneItems(items []config.BarItem) []config.BarItem {
 	return out
 }
 
-// commit writes the layouts.
 func (c *layoutEditor) commit() { _ = c.slot.set(config.Encode(c.layouts)) }
 
-// refresh (on_refresh) rebuilds when the stored layouts moved away
-// from the cards.
 func (c *layoutEditor) refresh() {
-	if reflect.DeepEqual(config.Encode(c.layouts), config.Plain(c.slot.get())) {
-		return
+	if !reflect.DeepEqual(config.Encode(c.layouts), config.Plain(c.slot.get())) {
+		c.layouts = c.stored()
+		c.rebuild()
 	}
-	c.layouts = c.stored()
-	c.rebuild()
+	c.preview.configChanged()
 }
 
-// zone is layout i's zone z.
 func (c *layoutEditor) zone(i, z int) *[]config.BarItem {
 	l := &c.layouts[i]
 	switch z {
@@ -121,34 +131,49 @@ func (c *layoutEditor) zone(i, z int) *[]config.BarItem {
 }
 
 func (c *layoutEditor) rebuild() {
-	c.list.Clear()
-	c.zones = map[*widget.ChipBox]zoneRef{}
-	for i := range c.layouts {
-		c.list.Append(c.card(i), false)
+	c.at = min(c.at, max(len(c.layouts)-1, 0))
+	c.tabs.OnChanged = nil
+	c.tabs.Clear()
+	for _, l := range c.layouts {
+		c.tabs.Append(c.k.label(monitorLabel(l.Monitor)))
 	}
+	c.tabs.SetActive(c.at)
+	c.tabs.OnChanged = c.show
+	c.showCard()
 }
 
-// card is LayoutCard: the monitor and extends entries, the show switch
-// and the delete button over the zones (or the hidden note).
-func (c *layoutEditor) card(i int) widget.Widget {
+func (c *layoutEditor) show(i int) {
+	c.at = i
+	c.showCard()
+	c.preview.configChanged()
+}
+
+func (c *layoutEditor) showCard() {
+	c.header.Clear()
+	c.body.Clear()
+	c.zones = map[*widget.ChipBox]zoneRef{}
+	if len(c.layouts) == 0 {
+		return
+	}
+	c.fillHeader(c.at)
+	c.fillBody(c.at)
+}
+
+func (c *layoutEditor) fillHeader(i int) {
 	t := locale.T()
 	l := &c.layouts[i]
-	header := gapBox(widget.Row)
-	header.AddClass("layout-card-header")
-	monitors := layoutMonitorChoices(l.Monitor)
-	monitor := c.choiceDropdown(monitors, l.Monitor, func(v string) {
+	monitor := c.choiceDropdown(layoutMonitorChoices(l.Monitor), l.Monitor, func(v string) {
 		c.layouts[i].Monitor = v
 		c.commit()
 		c.rebuild()
 	})
 	monitor.AddClass("layout-monitor-input")
 	monitor.SetAccessibleName(t.Get("settings-layout-monitor-label"))
-	parents := c.extendsChoices(i)
 	extendsValue := ""
 	if name, ok := l.ExtendsName(); ok {
 		extendsValue = name
 	}
-	extends := c.choiceDropdown(parents, extendsValue, func(v string) {
+	extends := c.choiceDropdown(c.extendsChoices(i), extendsValue, func(v string) {
 		c.layouts[i].Extends = nil
 		if v != "" {
 			c.layouts[i].Extends = &v
@@ -163,7 +188,7 @@ func (c *layoutEditor) card(i int) widget.Widget {
 		if c.layouts[i].Show != on {
 			c.layouts[i].Show = on
 			c.commit()
-			c.rebuild()
+			c.showCard()
 		}
 	}
 	remove := c.k.iconButton("ld-trash-2-symbolic", "settings-list-remove", func() {
@@ -171,30 +196,27 @@ func (c *layoutEditor) card(i int) widget.Widget {
 		c.commit()
 		c.rebuild()
 	}, css.Ghost)
-	header.AppendAligned(c.k.label(t.Get("settings-layout-monitor-label"), "layout-extends-label", css.DimLabel), false, widget.AlignCenter)
-	header.AppendAligned(monitor, false, widget.AlignCenter)
-	header.AppendAligned(c.k.label(t.Get("settings-layout-extends-label"), "layout-extends-label", css.DimLabel), false, widget.AlignCenter)
-	header.AppendAligned(extends, false, widget.AlignCenter)
-	header.Append(widget.NewSpacer(0, 0), true)
-	header.AppendAligned(show, false, widget.AlignCenter)
-	header.AppendAligned(remove, false, widget.AlignCenter)
-	body := gapBox(widget.Column)
-	body.AddClass("layout-card-body")
-	if !l.Show {
-		hidden := c.k.label(t.Get("settings-layout-hidden"), "layout-hidden-label", css.DimLabel)
-		hidden.SetAlignment(render.AlignCenter)
-		body.Append(hidden, false)
-	} else {
-		labels := widget.NewSizeGroup(widget.SizeGroupHorizontal)
-		for z := range zoneCount {
-			body.Append(c.zoneRow(zoneRef{i, z}, labels), false)
-		}
-	}
-	return sectionCard(header, body, "layout-card")
+	c.header.AppendAligned(c.k.label(t.Get("settings-layout-monitor-label"), "layout-extends-label", css.DimLabel), false, widget.AlignCenter)
+	c.header.AppendAligned(monitor, false, widget.AlignCenter)
+	c.header.AppendAligned(c.k.label(t.Get("settings-layout-extends-label"), "layout-extends-label", css.DimLabel), false, widget.AlignCenter)
+	c.header.AppendAligned(extends, false, widget.AlignCenter)
+	c.header.Append(widget.NewSpacer(0, 0), true)
+	c.header.AppendAligned(show, false, widget.AlignCenter)
+	c.header.AppendAligned(remove, false, widget.AlignCenter)
 }
 
-// monitorLabel names a layout's display: All displays for "*", else its
-// connector.
+func (c *layoutEditor) fillBody(i int) {
+	if !c.layouts[i].Show {
+		hidden := c.k.label(locale.T().Get("settings-layout-hidden"), "layout-hidden-label", css.DimLabel)
+		hidden.SetAlignment(render.AlignCenter)
+		c.body.Append(hidden, true)
+		return
+	}
+	for z := range zoneCount {
+		c.body.Append(c.zoneColumn(zoneRef{i, z}), true)
+	}
+}
+
 func monitorLabel(name string) string {
 	if name == everyMonitor {
 		return locale.T().Get("settings-monitors-all")
@@ -202,9 +224,6 @@ func monitorLabel(name string) string {
 	return name
 }
 
-// layoutMonitorChoices are the displays a layout can be for: every one,
-// each connected output, and own when it is neither, marked as not
-// connected.
 func layoutMonitorChoices(own string) []choice {
 	out := []choice{{value: everyMonitor, label: monitorLabel(everyMonitor)}}
 	for _, ch := range systemLists["Monitor"]() {
@@ -218,8 +237,6 @@ func layoutMonitorChoices(own string) []choice {
 	return out
 }
 
-// extendsChoices are what layout i can start from: nothing, or another
-// layout by its display, and the one it names when no layout is for it.
 func (c *layoutEditor) extendsChoices(i int) []choice {
 	t := locale.T()
 	out := []choice{{value: "", label: t.Get("settings-layout-extends-none")}}
@@ -235,8 +252,6 @@ func (c *layoutEditor) extendsChoices(i int) []choice {
 	return out
 }
 
-// unusedMonitor is the display a new layout starts on: the first
-// connected one no layout is for yet, else every display.
 func (c *layoutEditor) unusedMonitor() string {
 	for _, ch := range layoutMonitorChoices(everyMonitor)[1:] {
 		if !slices.ContainsFunc(c.layouts, func(l config.BarLayout) bool { return l.Monitor == ch.value }) {
@@ -246,8 +261,6 @@ func (c *layoutEditor) unusedMonitor() string {
 	return everyMonitor
 }
 
-// choiceDropdown is a dropdown over choices showing current, handing set
-// the value picked.
 func (c *layoutEditor) choiceDropdown(choices []choice, current string, set func(value string)) *widget.Dropdown {
 	labels := make([]string, len(choices))
 	for i, ch := range choices {
@@ -267,13 +280,10 @@ func (c *layoutEditor) choiceDropdown(choices []choice, current string, set func
 	return d
 }
 
-// zoneRow is build_zone_row: the label, sized with the card's other
-// zone labels, the zone's chips (the drop target), the add-module
-// picker and the add-group button.
-func (c *layoutEditor) zoneRow(at zoneRef, labels *widget.SizeGroup) widget.Widget {
+func (c *layoutEditor) zoneColumn(at zoneRef) widget.Widget {
 	t := locale.T()
-	row := gapBox(widget.Row)
-	row.AddClass("layout-zone")
+	column := gapBox(widget.Column)
+	column.AddClass("layout-zone")
 	chips := widget.NewChipBox()
 	c.zones[chips] = at
 	for _, item := range *c.zone(at.card, at.zone) {
@@ -287,25 +297,24 @@ func (c *layoutEditor) zoneRow(at zoneRef, labels *widget.SizeGroup) widget.Widg
 			items := c.zone(at.card, at.zone)
 			*items = append(*items, config.BarItem{Module: m})
 			c.commit()
-			c.rebuild()
+			c.showCard()
 		})
 	}, "zone-add-btn", css.Outline)
 	addGroup := c.k.iconButton("ld-layers-symbolic", "settings-layout-add-group", func() {
 		items := c.zone(at.card, at.zone)
 		*items = append(*items, config.BarItem{Group: &config.BarGroup{Name: t.Get("settings-layout-default-group")}})
 		c.commit()
-		c.rebuild()
+		c.showCard()
 	}, "zone-add-btn", css.Outline)
-	zoneLabel := c.k.label(t.Get(zoneKeys[at.zone]), "layout-zone-label", css.CaptionHeading, css.DimLabel)
-	row.AppendAligned(labels.Add(zoneLabel), false, widget.AlignCenter)
-	row.Append(chips, true)
-	row.AppendAligned(addModule, false, widget.AlignCenter)
-	row.AppendAligned(addGroup, false, widget.AlignCenter)
-	return row
+	head := gapBox(widget.Row)
+	head.AppendAligned(c.k.label(t.Get(zoneKeys[at.zone]), "layout-zone-label", css.CaptionHeading, css.DimLabel), true, widget.AlignCenter)
+	head.AppendAligned(addModule, false, widget.AlignCenter)
+	head.AppendAligned(addGroup, false, widget.AlignCenter)
+	column.Append(head, false)
+	column.Append(chips, true)
+	return column
 }
 
-// chip is Chip: a module's name, or a group's name entry with its
-// modules' chips, either dismissible and dragged by its body.
 func (c *layoutEditor) chip(item config.BarItem) *widget.Chip {
 	if item.Group == nil {
 		chip := c.moduleChip(item.Module)
@@ -332,7 +341,7 @@ func (c *layoutEditor) chip(item config.BarItem) *widget.Chip {
 			g := c.group(chip)
 			g.Modules = slices.Delete(g.Modules, m, m+1)
 			c.commit()
-			c.rebuild()
+			c.showCard()
 		})
 		content.AppendAligned(sub, false, widget.AlignCenter)
 	}
@@ -342,7 +351,7 @@ func (c *layoutEditor) chip(item config.BarItem) *widget.Chip {
 			g := c.group(chip)
 			g.Modules = append(g.Modules, config.BarItem{Module: mod})
 			c.commit()
-			c.rebuild()
+			c.showCard()
 		})
 	}, "chip-add", css.Ghost)
 	content.AppendAligned(add, false, widget.AlignCenter)
@@ -351,8 +360,6 @@ func (c *layoutEditor) chip(item config.BarItem) *widget.Chip {
 	return chip
 }
 
-// locate is where chip sits now: its zone and index there. A chip of
-// no card's zone is a caller bug.
 func (c *layoutEditor) locate(chip *widget.Chip) (zoneRef, int) {
 	for box, at := range c.zones {
 		if i := box.IndexOf(chip); i >= 0 {
@@ -362,28 +369,23 @@ func (c *layoutEditor) locate(chip *widget.Chip) (zoneRef, int) {
 	panic(fmt.Sprintf("settings: layout chip %q is in no zone", chip.Text()))
 }
 
-// group is the group a group chip shows.
 func (c *layoutEditor) group(chip *widget.Chip) *config.BarGroup {
 	at, i := c.locate(chip)
 	return (*c.zone(at.card, at.zone))[i].Group
 }
 
-// removeItem takes chip's item out of its zone.
 func (c *layoutEditor) removeItem(chip *widget.Chip) {
 	at, i := c.locate(chip)
 	items := c.zone(at.card, at.zone)
 	*items = slices.Delete(*items, i, i+1)
 	c.commit()
-	c.rebuild()
+	c.showCard()
 }
 
-// moved is handle_drop after the chip boxes moved the chip: the item
-// leaves src's zone at from and enters dst's at to, where the chip now
-// is. A box of no card is a caller bug.
 func (c *layoutEditor) moved(src *widget.ChipBox, from int, dst *widget.ChipBox, to int) {
 	srcAt, ok := c.zones[src]
 	if !ok {
-		panic("settings: a chip moved in from a box no layout card holds")
+		panic("settings: a chip moved in from a box no layout zone holds")
 	}
 	dstAt := c.zones[dst]
 	items := c.zone(srcAt.card, srcAt.zone)
@@ -394,8 +396,6 @@ func (c *layoutEditor) moved(src *widget.ChipBox, from int, dst *widget.ChipBox,
 	c.commit()
 }
 
-// moduleNames are the picker's modules: the built-ins, then a
-// custom-<id> per custom module (all_module_names).
 func (c *layoutEditor) moduleNames() []string {
 	names := make([]string, 0, len(config.BuiltinModules))
 	for _, m := range config.BuiltinModules {
@@ -407,17 +407,23 @@ func (c *layoutEditor) moduleNames() []string {
 	return names
 }
 
-// moduleTitle is how the layout names a module: its own message, or a
-// custom module by its id.
+func moduleKey(m config.BarModule) string {
+	if _, ok := m.CustomID(); ok {
+		return "settings-module-custom"
+	}
+	return "settings-module-" + string(m)
+}
+
 func moduleTitle(m config.BarModule) string {
 	t := locale.T()
 	if id, ok := m.CustomID(); ok {
-		return t.Get("settings-module-custom", i18n.Str("id", id))
+		return t.Get(moduleKey(m), i18n.Str("id", id))
 	}
-	return t.Get("settings-module-" + string(m))
+	return t.Get(moduleKey(m))
 }
 
-// pickModule opens the module picker (module_picker) beside anchor.
+func moduleDescription(m config.BarModule) string { return description(moduleKey(m)) }
+
 func (c *layoutEditor) pickModule(anchor widget.Widget, pick func(config.BarModule)) *searchPicker {
 	if c.k.pickers == nil {
 		return nil
@@ -427,7 +433,10 @@ func (c *layoutEditor) pickModule(anchor widget.Widget, pick func(config.BarModu
 		row: func(k *kit, name string) widget.Widget {
 			return moduleFace(k, config.BarModule(name))
 		},
-		text: func(name string) string { return moduleTitle(config.BarModule(name)) + " " + name },
+		text: func(name string) string {
+			m := config.BarModule(name)
+			return moduleTitle(m) + " " + name + " " + moduleDescription(m)
+		},
 	}, func(name string) {
 		var m config.BarModule
 		if m.UnmarshalConfig(name) == nil {
@@ -436,11 +445,8 @@ func (c *layoutEditor) pickModule(anchor widget.Widget, pick func(config.BarModu
 	})
 }
 
-// customModulesID is the page of the custom modules.
 const customModulesID = "custom"
 
-// moduleIcons are the icons of the modules that have a page of their
-// own: the page's icon.
 var moduleIcons = sync.OnceValue(func() map[string]string {
 	pages := append(modulePages(nil), notificationsPage(nil))
 	out := make(map[string]string, len(pages))
@@ -450,9 +456,6 @@ var moduleIcons = sync.OnceValue(func() map[string]string {
 	return out
 })
 
-// moduleIcon is the icon a layout shows for m, the custom modules'
-// page's for a custom one, false for a module with no page to take one
-// from.
 func moduleIcon(m config.BarModule) (string, bool) {
 	id := string(m)
 	if _, ok := m.CustomID(); ok {
@@ -462,28 +465,23 @@ func moduleIcon(m config.BarModule) (string, bool) {
 	return icon, ok
 }
 
-// moduleFace is a module's icon, when it has one, beside its title.
 func moduleFace(k *kit, m config.BarModule) widget.Widget {
 	row := gapBox(widget.Row)
 	if icon, ok := moduleIcon(m); ok {
 		row.AppendAligned(k.icon(icon), false, widget.AlignCenter)
 	}
-	row.AppendAligned(k.label(moduleTitle(m)), false, widget.AlignCenter)
+	text := widget.NewBox(widget.Column, 0, 0)
+	text.Append(k.label(moduleTitle(m)), false)
+	text.Append(k.label(moduleDescription(m), "module-description", css.Caption, css.DimLabel), false)
+	row.AppendAligned(text, true, widget.AlignCenter)
 	return row
 }
 
-// moduleChip is a module's chip: its icon, when it has one, before its
-// title.
 func (c *layoutEditor) moduleChip(m config.BarModule) *widget.Chip {
 	chip := widget.NewChip(c.k.face, moduleTitle(m))
+	chip.SetTooltip(moduleDescription(m))
 	if icon, ok := moduleIcon(m); ok {
 		chip.SetLeading(c.k.icon(icon))
 	}
 	return chip
-}
-
-// layoutRow is bar_layout for a row.
-var layoutRow = func(r *rowSpec) {
-	r.fullWidth = true
-	r.editor = func(k *kit, s slot, _ config.FieldMeta) control { return newLayoutEditor(k, s) }
 }

@@ -10,13 +10,13 @@ const barPageID = "bar"
 
 // barGeneralPage is pages/bar/general.
 func barPage(*config.Config) pageSpec {
-	return pageSpec{id: barPageID, navKey: "settings-nav-bar", icon: "ld-layout-dashboard-symbolic", header: "settings-page-bar", lead: barPreview, extrasOnRows: true, sections: []sectionSpec{
+	return pageSpec{id: barPageID, navKey: "settings-nav-bar", icon: "ld-layout-dashboard-symbolic", header: "settings-page-bar", extrasOnRows: true, sections: []sectionSpec{
 		{title: "settings-section-layout", rows: []rowSpec{
+			field("bar.layout", layoutRow),
 			field("bar.location", screenPosition),
 			field("bar.exclusive"),
 			field("bar.auto-hide"),
 			field("bar.auto-hide-delay-ms", hideDelay),
-			field("bar.layout", layoutRow),
 		}},
 		{title: "settings-section-appearance", rows: []rowSpec{
 			field("bar.bg"),

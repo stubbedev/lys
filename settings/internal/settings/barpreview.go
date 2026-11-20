@@ -53,20 +53,13 @@ func (p *livePreview) state(key string, args ...i18n.Arg) *widget.Label {
 	return l
 }
 
-// barPreview is the whole bar on a small wallpaper, at the edge the
-// config puts it: lys-shell's own bar with every module holding sample
-// state.
-func barPreview(k *kit) widget.Widget {
-	return newLivePreview(k, "settings-bar-preview", drawBarOnScreen)
-}
-
-func drawBarOnScreen(k *kit, cfg *config.Config, font render.Font) widget.Widget {
+func drawBarOnScreen(k *kit, cfg *config.Config, font render.Font, monitor string) widget.Widget {
 	screenH := barPreviewScreenH
 	if cfg.Bar.Location.IsVertical() {
 		screenH = barPreviewVerticalScreenH
 	}
 	shown := wallpaperScreen(screenH)
-	bar, ok := barview.Preview(cfg, font, barview.AllMonitors, sessionCompositor())
+	bar, ok := barview.Preview(cfg, font, monitor, sessionCompositor())
 	if !ok {
 		shown.AppendAligned(k.label(locale.T().Get("settings-bar-preview-none"), "settings-preview-state", css.Caption), widget.AlignCenter, widget.AlignCenter)
 		return shown

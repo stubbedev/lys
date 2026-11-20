@@ -1868,8 +1868,7 @@ func storedLayouts(k *kit) []config.BarLayout { return k.store.svc.Config().Bar.
 func TestALayoutForADisplayNotConnectedSaysSoAndKeepsIt(t *testing.T) {
 	k := testKit(t, "bar:\n  layout:\n    - {monitor: DP-9, extends: HDMI-7, show: true}\n")
 	c := fieldControl(k, k.store, field("bar.layout", layoutRow)).(*layoutEditor)
-	header := c.list.Children()[0].(*widget.Box).Children()[0].(*widget.Box)
-	monitor, extends := header.Children()[1].(*widget.Dropdown), header.Children()[3].(*widget.Dropdown)
+	monitor, extends := c.header.Children()[1].(*widget.Dropdown), c.header.Children()[3].(*widget.Dropdown)
 	tr := locale.T()
 	if got, want := monitor.Items()[monitor.Selected()], tr.Get("settings-layout-monitor-away", i18n.Str("name", "DP-9")); got != want {
 		t.Errorf("the display reads %q, want %q", got, want)
@@ -1882,13 +1881,15 @@ func TestALayoutForADisplayNotConnectedSaysSoAndKeepsIt(t *testing.T) {
 	}
 }
 
-func TestLayoutEditorCards(t *testing.T) {
+func TestLayoutEditorTabs(t *testing.T) {
 	k, c := newTestLayout(t)
-	if len(c.layouts) != 1 || len(c.list.Children()) != 1 {
-		t.Fatalf("%d layouts, %d cards", len(c.layouts), len(c.list.Children()))
+	if len(c.layouts) != 1 || c.tabs.Len() != 1 {
+		t.Fatalf("%d layouts, %d tabs", len(c.layouts), c.tabs.Len())
 	}
-	// The display is chosen among every display and the connected ones.
-	header := func(i int) *widget.Box { return c.list.Children()[i].(*widget.Box).Children()[0].(*widget.Box) }
+	header := func(i int) *widget.Box {
+		c.tabs.SetActive(i)
+		return c.header
+	}
 	monitor := header(0).Children()[1].(*widget.Dropdown)
 	if got := monitor.Items(); !slices.Equal(got, []string{locale.T().Get("settings-monitors-all"), "DP-1", "HDMI-A-1"}) {
 		t.Fatalf("the display choices are %v", got)
@@ -1897,22 +1898,32 @@ func TestLayoutEditorCards(t *testing.T) {
 	if l := storedLayouts(k)[0]; l.Monitor != "DP-1" {
 		t.Errorf("choosing DP-1 stored %+v", l)
 	}
-	// Hiding the bar swaps the zones for the note.
+	if got := treetest.Labels(c.tabs); !slices.Equal(got, []string{"DP-1"}) {
+		t.Errorf("the tabs read %q after choosing DP-1", got)
+	}
 	header(0).Children()[5].(*widget.Switch).SetOn(false)
 	if storedLayouts(k)[0].Show {
 		t.Error("the show switch did not write")
 	}
-	body := c.list.Children()[0].(*widget.Box).Children()[2].(*widget.Box)
-	if l, ok := body.Children()[0].(*widget.Label); !ok || !l.HasClass("layout-hidden-label") || len(body.Children()) != 1 {
+	if l, ok := c.body.Children()[0].(*widget.Label); !ok || !l.HasClass("layout-hidden-label") || len(c.body.Children()) != 1 {
 		t.Error("a hidden layout shows its zones")
 	}
-	// Add and remove cards.
-	addButton := c.Children()[1].(*widget.Button)
+	c.refresh()
+	if want := locale.T().Get("settings-bar-preview-none"); !slices.Contains(treetest.Labels(c.preview), want) {
+		t.Errorf("a hidden layout's preview reads %q, want %q", treetest.Labels(c.preview), want)
+	}
+	addButton := c.Children()[0].(*widget.Box).Children()[1].(*widget.Button)
 	addButton.ClickAt(widget.Point{})
 	if got := storedLayouts(k); len(got) != 2 || !got[1].Show || got[1].Monitor != "HDMI-A-1" {
 		t.Fatalf("after add: %+v, want HDMI-A-1, the display no layout is for", got)
 	}
-	// A layout starts from nothing or from another layout's display.
+	if c.tabs.Len() != 2 || c.tabs.Active() != 1 || c.shownMonitor() != "HDMI-A-1" {
+		t.Fatalf("after add: %d tabs, tab %d active, showing %q", c.tabs.Len(), c.tabs.Active(), c.shownMonitor())
+	}
+	c.refresh()
+	if len(treetest.All[*widget.Bar](c.preview)) != 1 {
+		t.Error("the new display's shown layout previews no bar")
+	}
 	extends := header(1).Children()[3].(*widget.Dropdown)
 	if got := extends.Items(); !slices.Equal(got, []string{locale.T().Get("settings-layout-extends-none"), "DP-1"}) {
 		t.Fatalf("the second layout can start from %v", got)
@@ -1925,10 +1936,30 @@ func TestLayoutEditorCards(t *testing.T) {
 	if storedLayouts(k)[1].Extends != nil {
 		t.Error("starting from nothing left extends set")
 	}
-	remove := c.list.Children()[1].(*widget.Box).Children()[0].(*widget.Box).Children()[6].(*widget.Button)
-	remove.ClickAt(widget.Point{})
-	if len(storedLayouts(k)) != 1 || len(c.list.Children()) != 1 {
-		t.Error("remove left the card")
+	header(0)
+	if c.shownMonitor() != "DP-1" {
+		t.Errorf("the first tab shows %q", c.shownMonitor())
+	}
+	header(1).Children()[6].(*widget.Button).ClickAt(widget.Point{})
+	if len(storedLayouts(k)) != 1 || c.tabs.Len() != 1 || c.shownMonitor() != "DP-1" {
+		t.Errorf("remove left %d layouts, %d tabs, showing %q", len(storedLayouts(k)), c.tabs.Len(), c.shownMonitor())
+	}
+}
+
+func TestTheModulePickerDescribesEveryModule(t *testing.T) {
+	k, _ := newTestLayout(t)
+	for _, m := range append(slices.Clone(config.BuiltinModules), config.BarModule("custom-gpu")) {
+		d := moduleDescription(m)
+		if d == "" {
+			t.Errorf("%s has no description", m)
+			continue
+		}
+		if labels := treetest.Labels(moduleFace(k, m)); !slices.Contains(labels, d) {
+			t.Errorf("the picker row of %s reads %q, without %q", m, labels, d)
+		}
+	}
+	if d := description("settings-layout-zone-left"); d != "" {
+		t.Errorf("a message without a description reads %q", d)
 	}
 }
 
@@ -1938,7 +1969,10 @@ func zoneChips(t *testing.T, root widget.Widget, c *layoutEditor, i, z int) *wid
 	t.Helper()
 	widget.SizeWithin(root, widget.Size{W: 1200, H: 800})
 	root.Arrange(render.Rect{W: 1200, H: 800})
-	boxes := treetest.All[*widget.ChipBox](c.list.Children()[i])
+	if c.at != i {
+		c.tabs.SetActive(i)
+	}
+	boxes := treetest.All[*widget.ChipBox](c.body)
 	if len(boxes) != zoneCount {
 		t.Fatalf("card %d holds %d chip boxes, want one per zone", i, len(boxes))
 	}
@@ -2024,8 +2058,8 @@ func TestLayoutEditorModulesAndGroups(t *testing.T) {
 	if got := texts(zoneChips(t, root, c, 0, zoneLeft)); len(got) != 1 {
 		t.Errorf("the left zone shows %v after the remove", got)
 	}
-	row := c.list.Children()[0].(*widget.Box).Children()[2].(*widget.Box).Children()[zoneRight].(*widget.Box)
-	click(root, row.Children()[3].(*widget.Button))
+	head := c.body.Children()[zoneRight].(*widget.Box).Children()[0].(*widget.Box)
+	click(root, head.Children()[2].(*widget.Button))
 	if got := storedLayouts(k)[0].Right; len(got) != 3 || got[2].Group == nil || got[2].Group.Name != locale.T().Get("settings-layout-default-group") {
 		t.Errorf("right after add group: %+v", got)
 	}
@@ -2038,7 +2072,7 @@ func TestLayoutEditorModulesAndGroups(t *testing.T) {
 func TestLayoutEditorChipsMoveByDrag(t *testing.T) {
 	k, c := newTestLayout(t)
 	root, _ := hosted(c)
-	card := c.list.Children()[0]
+	card := c.body.Children()[0]
 	right := zoneChips(t, root, c, 0, zoneRight)
 	dragChip(t, right.ChipAt(1), right, leftHalf(right.ChipAt(0)))
 	if got := modules(storedLayouts(k)[0].Right); !slices.Equal(got, []string{"audio", "battery"}) {
@@ -2054,7 +2088,7 @@ func TestLayoutEditorChipsMoveByDrag(t *testing.T) {
 	if l := storedLayouts(k)[0]; !slices.Equal(modules(l.Left), []string{"clock"}) || !slices.Equal(modules(l.Center), []string{"group"}) {
 		t.Errorf("after moving the group to the center: left %v, center %v", modules(l.Left), modules(l.Center))
 	}
-	if c.list.Children()[0] != card || center.ChipAt(0) != group {
+	if c.body.Children()[0] != card || center.ChipAt(0) != group {
 		t.Error("a move rebuilt the cards instead of keeping the moved chip")
 	}
 	treetest.First[*widget.Entry](t, group).Insert("!")
@@ -2108,17 +2142,17 @@ func modules(items []config.BarItem) []string {
 
 func TestLayoutEditorRefresh(t *testing.T) {
 	k, c := newTestLayout(t)
-	keep := c.list.Children()[0]
+	keep := c.body.Children()[0]
 	c.refresh()
-	if c.list.Children()[0] != keep {
+	if c.body.Children()[0] != keep {
 		t.Error("an unchanged refresh rebuilt the cards")
 	}
 	layouts := storedLayouts(k)
 	layouts = append(layouts, config.BarLayout{Monitor: "HDMI-1", Show: true})
 	_ = k.store.set("bar.layout", config.Encode(layouts))
 	c.refresh()
-	if len(c.list.Children()) != 2 || c.layouts[1].Monitor != "HDMI-1" {
-		t.Errorf("an outside change: %d cards", len(c.list.Children()))
+	if c.tabs.Len() != 2 || c.layouts[1].Monitor != "HDMI-1" {
+		t.Errorf("an outside change: %d tabs", c.tabs.Len())
 	}
 }
 
@@ -2264,10 +2298,8 @@ func TestCardAndListEditorsTakeLysUiParts(t *testing.T) {
 	cfg := k.store.svc.Config()
 	w := newWindow(k, cfg, func(_ time.Duration, fn func()) { fn() })
 	w.show("bar")
-	for _, card := range treetest.WithClass(w.root, "layout-card") {
-		if !widget.HasClass(card, css.Card) || len(treetest.All[*widget.Separator](card)) == 0 {
-			t.Error("a layout card is not lys-ui's card cut by a separator")
-		}
+	if len(treetest.WithClass(w.root, "zone-add-btn")) == 0 {
+		t.Fatal("the bar page shows no zone to add to")
 	}
 	for _, b := range treetest.WithClass(w.root, "zone-add-btn") {
 		if !widget.HasClass(b, css.Outline) || !widget.HasClass(b, css.Icon) {

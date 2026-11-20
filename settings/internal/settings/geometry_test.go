@@ -189,18 +189,18 @@ func pagesCarryNoMargins() pageCheck {
 
 // A card's fields line up: the controls that take a field's spare width
 // start at one x, its identity's too, and its fields sit the theme's
-// spacing apart. The layout card's zones start their chips at one x.
+// spacing apart. The layout's zones sit side by side in the bar's order.
 func cardFieldsLineUp() pageCheck {
 	gap := widget.Current().Spacing
-	sameX := func(t *testing.T, id, what string, ws []widget.Widget) {
+	sideBySide := func(t *testing.T, id, what string, ws []widget.Widget) {
 		t.Helper()
-		if len(ws) < 2 {
-			t.Fatalf("%s: %d %s, want several to compare", id, len(ws), what)
+		if len(ws) != zoneCount {
+			t.Fatalf("%s: %d %s, want one per zone", id, len(ws), what)
 		}
-		x0 := ws[0].(widget.Boundser).Bounds().X
-		for _, w := range ws[1:] {
-			if x := w.(widget.Boundser).Bounds().X; x != x0 {
-				t.Errorf("%s: one of the %s starts at x=%d, another at %d", id, what, x, x0)
+		for i := 1; i < len(ws); i++ {
+			a, b := ws[i-1].(widget.Boundser).Bounds(), ws[i].(widget.Boundser).Bounds()
+			if b.Y != a.Y || b.X < a.X+a.W {
+				t.Errorf("%s: %s %d at %+v does not follow %d at %+v on its line", id, what, i, b, i-1, a)
 			}
 		}
 	}
@@ -229,7 +229,7 @@ func cardFieldsLineUp() pageCheck {
 			}
 			checked[id] = true
 		case "bar":
-			sameX(t, id, "layout zones", treetest.WithClass(page, "layout-zone-items"))
+			sideBySide(t, id, "layout zones", treetest.WithClass(page, "layout-zone-items"))
 			checked[id] = true
 		}
 	}
