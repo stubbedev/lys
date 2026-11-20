@@ -318,6 +318,7 @@ func idlePage(*config.Config) pageSpec {
 				idleTimesRow(),
 				field("idle.dim-percent", idleEnabled), field("idle.suspend-action", idleEnabled, sleepActionRow),
 			}},
+			{title: "settings-section-idle-attention", rows: []rowSpec{field("idle.attention", idleEnabled)}},
 			{title: "settings-section-idle-lid", rows: []rowSpec{wmField("lid_action")}},
 		},
 	}
