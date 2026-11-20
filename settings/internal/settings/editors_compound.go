@@ -127,7 +127,15 @@ type sizeEditor struct {
 	basePx  float64
 	mode    *widget.Dropdown
 	spin    *widget.SpinButton
+	slides  *sizeSlides
 	syncing bool
+}
+
+// sizeSlides are a size's sliders over the range nearly every setup sits
+// in, one per mode, the mode's shown beside the spin, which takes a
+// value past it.
+type sizeSlides struct {
+	scale, px *slider
 }
 
 func newSizeEditor(k *kit, s slot, baseRem float64) *sizeEditor {
@@ -141,6 +149,7 @@ func newSizeEditor(k *kit, s slot, baseRem float64) *sizeEditor {
 		if c.syncing {
 			return
 		}
+		c.showSlide(i == sizePx)
 		if c.spin.Empty() {
 			c.step(i == sizePx)
 			return
@@ -157,6 +166,36 @@ func newSizeEditor(k *kit, s slot, baseRem float64) *sizeEditor {
 	c.spin.OnValueChanged = func(float64) { c.commit() }
 	c.refresh()
 	return c
+}
+
+// newSizeSliderEditor is newSizeEditor with a slider over loPx to hiPx
+// pixels, or the scales that make them, before the spin.
+func newSizeSliderEditor(k *kit, s slot, baseRem, loPx, hiPx float64) *sizeEditor {
+	c := newSizeEditor(k, s, baseRem)
+	c.slides = &sizeSlides{
+		scale: newSlider(k, sizeScaleOf(s), loPx/c.basePx, hiPx/c.basePx, false, decimals(2)),
+		px:    newSlider(k, pixelLength(s), loPx, hiPx, true, pixelLabel),
+	}
+	c.InsertAt(1, c.slides.scale, true)
+	c.InsertAt(2, c.slides.px, true)
+	c.refresh()
+	return c
+}
+
+// sizeScaleOf is a size as the scale a slider moves, nil while it is in
+// pixels.
+func sizeScaleOf(s slot) slot {
+	return slot{
+		get: func() any {
+			switch v := s.get().(type) {
+			case float64, int64:
+				return v
+			}
+			return nil
+		},
+		set:   s.set,
+		unset: s.unset,
+	}
 }
 
 // configure sets the spin for a mode (configure_spin_for_mode): whole
@@ -191,7 +230,10 @@ func (c *sizeEditor) commit() {
 // pixels.
 func (c *sizeEditor) refresh() {
 	c.syncing = true
-	defer func() { c.syncing = false }()
+	defer func() {
+		c.syncing = false
+		c.showSlide(c.mode.Selected() == sizePx)
+	}()
 	switch v := c.slot.get().(type) {
 	case nil:
 		c.mode.SetSelected(sizeScale)
@@ -211,6 +253,17 @@ func (c *sizeEditor) refresh() {
 		c.mode.SetSelected(sizePx)
 		c.configure(true, math.Round(px))
 	}
+}
+
+// showSlide shows the slider of the mode, in pixels or as a scale.
+func (c *sizeEditor) showSlide(px bool) {
+	if c.slides == nil {
+		return
+	}
+	c.slides.scale.SetVisible(!px)
+	c.slides.px.SetVisible(px)
+	c.slides.scale.refresh()
+	c.slides.px.refresh()
 }
 
 // pixelLength is a pixel length ("400px") as the whole pixels a spin edits.
@@ -243,6 +296,13 @@ func pixelLength(s slot) slot {
 func sizeBase(rem float64) rowOpt {
 	return withEditor(func(k *kit, s slot, _ config.FieldMeta) control {
 		return newSizeEditor(k, s, rem)
+	})
+}
+
+// sizeSlider is sizeBase with a slider over loPx to hiPx pixels.
+func sizeSlider(rem, loPx, hiPx float64) rowOpt {
+	return withEditor(func(k *kit, s slot, _ config.FieldMeta) control {
+		return newSizeSliderEditor(k, s, rem, loPx, hiPx)
 	})
 }
 

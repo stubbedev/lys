@@ -324,7 +324,17 @@ var fraction = withEditor(func(k *kit, s slot, _ config.FieldMeta) control {
 // in, beside a number that takes a value past it.
 func softPixels(lo, hi float64) rowOpt {
 	return withEditor(func(k *kit, s slot, meta config.FieldMeta) control {
-		return newSoftRange(k, s, meta, lo, hi, 1, func(v float64) string { return strconv.FormatFloat(v, 'f', 0, 64) + " px" })
+		return newSoftRange(k, s, meta, lo, hi, 1, pixelLabel)
+	})
+}
+
+// pixelLabel reads a whole number of pixels.
+func pixelLabel(v float64) string { return strconv.FormatFloat(v, 'f', 0, 64) + " px" }
+
+// softCount is softPixels over a count.
+func softCount(lo, hi float64) rowOpt {
+	return withEditor(func(k *kit, s slot, meta config.FieldMeta) control {
+		return newSoftRange(k, s, meta, lo, hi, 1, decimals(0))
 	})
 }
 

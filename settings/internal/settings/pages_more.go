@@ -152,19 +152,19 @@ func launcherPage(*config.Config) pageSpec {
 	return pageSpec{id: "launcher", navKey: "settings-nav-launcher-page", icon: "ld-rocket-symbolic", header: "settings-page-launcher", sections: []sectionSpec{
 		{title: "settings-section-general", rows: []rowSpec{
 			launcherShortcutRow(),
-			field("launcher.location", screenPosition),
-			field("launcher.width", sizeBase(config.LauncherWidthBaseRem)),
-			field("launcher.lines"),
 			field("launcher.monitor", monitorChoiceRow(focusedMonitor)),
 			field("launcher.modes", launcherModesRow),
 			field("launcher.display-names", displayNamesRow),
-			field("launcher.sidebar-mode"),
 		}},
 		{title: "settings-section-launcher-search-behaviour", rows: []rowSpec{
 			field("launcher.matching"),
 			field("launcher.case"),
 		}},
-		{title: "settings-section-launcher-appearance", rows: []rowSpec{
+		{title: "settings-section-launcher-appearance", preview: launcherPreview, rows: []rowSpec{
+			field("launcher.location", screenPosition),
+			field("launcher.width", sizeSlider(config.LauncherWidthBaseRem, launcherWidthSoftMinPx, launcherWidthSoftMaxPx)),
+			field("launcher.lines", softCount(1, launcherLinesSoftMax)),
+			field("launcher.sidebar-mode"),
 			field("launcher.show-icons"),
 			field("launcher.icon-theme"),
 			field("launcher.font", fontRow),
@@ -196,6 +196,14 @@ func launcherPage(*config.Config) pageSpec {
 		{title: "settings-section-animation", advanced: true, rows: surfaceAnimationRows("animations.launcher")},
 	}}
 }
+
+// The launcher's sliders: the widths and line counts nearly every setup
+// sits in, a number beside each taking one past them.
+const (
+	launcherWidthSoftMinPx = 360
+	launcherWidthSoftMaxPx = 1440
+	launcherLinesSoftMax   = 20
+)
 
 // launcherModesPage is pages/launcher modes_entry.
 func launcherModesPage(*config.Config) pageSpec {

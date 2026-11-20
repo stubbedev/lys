@@ -2290,6 +2290,7 @@
       "desktop/settingspage",
       "desktop/shell/apptheme",
       "desktop/shell/barview",
+      "desktop/shell/launcherview",
       "desktop/shell/layers",
       "desktop/shell/lockview",
       "desktop/shell/notifyview",

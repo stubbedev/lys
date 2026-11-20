@@ -6,6 +6,8 @@ ld-battery-symbolic
 ld-bell-off-symbolic
 ld-bell-symbolic
 ld-bluetooth-symbolic
+ld-calculator-symbolic
+ld-calendar-symbolic
 ld-camera-symbolic
 ld-chevron-down-symbolic
 ld-chevron-right-symbolic
@@ -21,8 +23,10 @@ ld-droplets-symbolic
 ld-droplet-symbolic
 ld-eye-off-symbolic
 ld-eye-symbolic
+ld-file-text-symbolic
 ld-film-symbolic
 ld-folder-open-symbolic
+ld-folder-symbolic
 ld-gamepad-2-symbolic
 ld-globe-symbolic
 ld-graph-star-symbolic
@@ -42,6 +46,7 @@ ld-lock-open-symbolic
 ld-lock-symbolic
 ld-mail-symbolic
 ld-memory-stick-symbolic
+ld-message-circle-symbolic
 ld-mic-off-symbolic
 ld-mic-symbolic
 ld-minus-symbolic
@@ -63,6 +68,7 @@ ld-refresh-cw-symbolic
 ld-rocket-symbolic
 ld-rotate-ccw-symbolic
 ld-scale-symbolic
+ld-search-symbolic
 ld-settings-symbolic
 ld-shield-check-symbolic
 ld-smartphone-symbolic
