@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"maps"
 	"slices"
 	"sync"
 
@@ -28,6 +29,9 @@ type Profile struct {
 	Type string
 	// SSID is 802-11-wireless.ssid for a wifi profile, nil otherwise.
 	SSID []byte
+	// Autoconnect is connection.autoconnect: whether NetworkManager
+	// brings the profile up by itself when it can.
+	Autoconnect bool
 }
 
 // Settings is the live list of saved profiles (core/settings), kept
@@ -112,7 +116,49 @@ func (s *Settings) read(ctx context.Context, path dbus.ObjectPath) (Profile, err
 	if ssid, ok := dict["802-11-wireless"]["ssid"].Value().([]byte); ok {
 		p.SSID = ssid
 	}
+	auto, err := autoconnectOf(dict)
+	if err != nil {
+		return Profile{}, fmt.Errorf("read the profile %s: %w", path, err)
+	}
+	p.Autoconnect = auto
 	return p, nil
+}
+
+// autoconnectOf is connection.autoconnect, NetworkManager's true when
+// the profile leaves it out.
+func autoconnectOf(dict ConnectionDict) (bool, error) {
+	v, ok := dict["connection"][autoconnectKey]
+	if !ok {
+		return true, nil
+	}
+	on, ok := v.Value().(bool)
+	if !ok {
+		return false, fmt.Errorf("connection.%s is %v, not a boolean", autoconnectKey, v)
+	}
+	return on, nil
+}
+
+const autoconnectKey = "autoconnect"
+
+// SetAutoconnect says whether NetworkManager brings the saved profile at
+// path up by itself, leaving the rest of it as it was; it is rewritten
+// as SetProxy rewrites one.
+func (s *Settings) SetAutoconnect(ctx context.Context, path dbus.ObjectPath, on bool) error {
+	dict, err := s.Get(ctx, path)
+	if err != nil {
+		return fmt.Errorf("set whether %s joins by itself: %w", path, err)
+	}
+	out := withoutLegacyIP(dict)
+	section := maps.Clone(dict["connection"])
+	if section == nil {
+		section = map[string]dbus.Variant{}
+	}
+	section[autoconnectKey] = dbus.MakeVariant(on)
+	out["connection"] = section
+	if err := s.Update(ctx, path, out); err != nil {
+		return fmt.Errorf("set whether %s joins by itself: %w", path, err)
+	}
+	return nil
 }
 
 // routes follow NM's profiles once loaded is closed: one added, one

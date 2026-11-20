@@ -192,3 +192,45 @@ func TestAVPNProfileIsWrittenWithoutTheVPNServiceAsItsUsersOwn(t *testing.T) {
 		t.Errorf("a refused add: %v", err)
 	}
 }
+
+func TestAProfileSaysAndSetsWhetherItJoinsByItself(t *testing.T) {
+	f := startFakeNM(t)
+	home := wifiConnection("u-home", "Home", []byte("home"))
+	cafe := wifiConnection("u-cafe", "Cafe", []byte("cafe"))
+	cafe["connection"]["autoconnect"] = dbus.MakeVariant(false)
+	homePath := f.addProfile(home)
+	f.addProfile(cafe)
+	svc, err := StartConnections(t.Context(), f.client())
+	must(t, err)
+	auto := func(uuid string) (bool, bool) {
+		for _, p := range svc.Settings.Profiles() {
+			if p.UUID == uuid {
+				return p.Autoconnect, true
+			}
+		}
+		return false, false
+	}
+	if on, ok := auto("u-home"); !ok || !on {
+		t.Errorf("a profile leaving autoconnect out joins by itself %v (listed %v)", on, ok)
+	}
+	if on, ok := auto("u-cafe"); !ok || on {
+		t.Errorf("a profile with autoconnect off joins by itself %v (listed %v)", on, ok)
+	}
+	must(t, svc.Settings.SetAutoconnect(t.Context(), homePath, false))
+	waittest.Until(t, func() bool { on, _ := auto("u-home"); return !on }, "the profile to stop joining by itself")
+	saved, _ := f.profile(homePath)
+	if string(saved["802-11-wireless"]["ssid"].Value().([]byte)) != "home" || dictReader(saved).str("connection", "id") != "Home" {
+		t.Errorf("setting autoconnect lost the rest of the profile: %v", saved)
+	}
+	if err := svc.Settings.SetAutoconnect(t.Context(), settingPath(99), true); err == nil || !strings.Contains(err.Error(), string(settingPath(99))) {
+		t.Errorf("setting autoconnect on an unknown profile: %v", err)
+	}
+}
+
+func TestAProfileWhoseAutoconnectIsNotABooleanIsRefused(t *testing.T) {
+	dict := wifiConnection("u-odd", "Odd", []byte("odd"))
+	dict["connection"]["autoconnect"] = dbus.MakeVariant("yes")
+	if _, err := autoconnectOf(dict); err == nil || !strings.Contains(err.Error(), "not a boolean") {
+		t.Errorf("a string autoconnect read as %v", err)
+	}
+}
