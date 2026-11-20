@@ -616,7 +616,9 @@ func TestSchemaReadsKindsBoundsAndDefaults(t *testing.T) {
 	"i":{"default":"accent","oneOf":[{"type":"string","format":"lys-wm-color"},{"type":"object","properties":{"angle":{"type":"number"},"colors":{"type":"array","minItems":1,"maxItems":10,"items":{"type":"string"}}}}]},
 	"p":{"type":"object","additionalProperties":{"type":"string"},"default":{"red":"#f38ba8"}},
 	"f":{"type":"object","properties":{"g":{"type":"string"},"c":{"type":"string","format":"lys-wm-color"}}},
-	"h":{"type":"array"}}}`))
+	"h":{"type":"array"},
+	"n":{"oneOf":[{"type":"string","enum":["left","middle"]},{"type":"integer","minimum":1}]},
+	"m":{"oneOf":[{"type":"string"},{"type":"integer","minimum":1}]}}}`))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -672,6 +674,12 @@ func TestSchemaReadsKindsBoundsAndDefaults(t *testing.T) {
 	}
 	if f := field("h"); f.Kind != Composite {
 		t.Errorf("h: %+v", f)
+	}
+	if f := field("n"); f.Kind != NamedOrWhole || !slices.Equal(f.Variants, []any{"left", "middle"}) || f.Min != 1 || f.Max != unboundedInt || f.Normal(272) != int64(272) || f.Normal("left") != "left" {
+		t.Errorf("n, a name or a whole number: %+v", f)
+	}
+	if f := field("m"); f.Kind != Composite {
+		t.Errorf("m, any text or a whole number: %+v", f)
 	}
 	if _, ok := s.Field([]string{"nope"}); ok {
 		t.Error("a key the schema lacks")

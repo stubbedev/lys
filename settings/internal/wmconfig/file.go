@@ -447,6 +447,8 @@ const (
 	Enum
 	// Switch is false, the key off, or an object of the keys Keys lists.
 	Switch
+	// NamedOrWhole is one of Variants, or a whole number from Min to Max.
+	NamedOrWhole
 )
 
 // Field is one key of the schema.
@@ -611,9 +613,15 @@ func (s *Schema) node(path []string) (*schemaNode, bool) {
 
 func (n *schemaNode) readField() (Field, bool, error) {
 	f := Field{Min: -unboundedInt, Max: unboundedInt, MaxItems: unboundedInt, Format: n.Format, Actions: n.Actions}
+	named, bounds := n.namedOrWhole()
+	if bounds == nil {
+		bounds = n
+	}
 	switch {
 	case n.switched() != nil:
 		f.Kind = Switch
+	case named != nil:
+		f.Kind, f.Variants = NamedOrWhole, named.Enum
 	case len(n.OneOf) > 0 || n.Type == "object" || n.Type == "array":
 		f.Kind = Composite
 	case len(n.Enum) > 0:
@@ -629,14 +637,14 @@ func (n *schemaNode) readField() (Field, bool, error) {
 	default:
 		return Field{}, false, nil
 	}
-	if n.Minimum != nil {
-		f.Min = *n.Minimum
+	if bounds.Minimum != nil {
+		f.Min = *bounds.Minimum
 	}
-	if n.ExclusiveMinimum != nil {
-		f.Min = *n.ExclusiveMinimum + exclusiveStep
+	if bounds.ExclusiveMinimum != nil {
+		f.Min = *bounds.ExclusiveMinimum + exclusiveStep
 	}
-	if n.Maximum != nil {
-		f.Max = *n.Maximum
+	if bounds.Maximum != nil {
+		f.Max = *bounds.Maximum
 	}
 	if n.MinItems != nil {
 		f.MinItems = *n.MinItems
@@ -659,7 +667,7 @@ func (n *schemaNode) readField() (Field, bool, error) {
 // list or mapping as the file's decoder reads it.
 func (f Field) Normal(v any) any {
 	switch f.Kind {
-	case Int:
+	case Int, NamedOrWhole:
 		switch n := v.(type) {
 		case int:
 			return int64(n)
@@ -700,6 +708,19 @@ func (n *schemaNode) switched() *schemaNode {
 		return nil
 	}
 	return on
+}
+
+func (n *schemaNode) namedOrWhole() (named, whole *schemaNode) {
+	if len(n.OneOf) != 2 {
+		return nil, nil
+	}
+	for i, form := range n.OneOf {
+		other := n.OneOf[1-i]
+		if form.Type == "string" && len(form.Enum) > 0 && other.Type == "integer" {
+			return form, other
+		}
+	}
+	return nil, nil
 }
 
 // property is the key of an object, or of the object form of a key that

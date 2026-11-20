@@ -125,7 +125,7 @@ var systemDefaulted = []string{
 	"input.keyboard.layout", "input.keyboard.variant", "input.keyboard.options", "input.keyboard.model", "input.keyboard.rules",
 	"input.pointer.natural_scroll", "input.pointer.middle_emulation", "input.pointer.accel_speed", "input.pointer.scroll_factor",
 	"input.pointer.tap", "input.pointer.drag_lock", "input.pointer.disable_while_typing", "input.pointer.left_handed", "input.pointer.click_method",
-	"input.pointer.scroll_method", "input.pointer.scroll_button_lock", "input.pointer.tap_button_map", "input.pointer.disabled_on_external_mouse",
+	"input.pointer.scroll_method", "input.pointer.scroll_button", "input.touchpad.scroll_button", "input.trackpoint.scroll_button", "input.pointer.scroll_button_lock", "input.pointer.tap_button_map", "input.pointer.disabled_on_external_mouse",
 	"input.trackpoint.tap", "input.trackpoint.drag_lock", "input.trackpoint.disable_while_typing", "input.trackpoint.left_handed", "input.trackpoint.click_method",
 	"input.trackpoint.scroll_button_lock", "input.trackpoint.tap_button_map", "input.trackpoint.disabled_on_external_mouse",
 	"input.touchpad.left_handed", "input.touchpad.scroll_button_lock", "input.touchpad.tap_button_map", "input.touchpad.disabled_on_external_mouse",
