@@ -62,10 +62,12 @@ boot) and
 freezing a user's unit on battery, lys-polkit,
 then the clock steps and suspend of `shell/internal/clockwatch`), a CI job each.
 
-The idle wakeup gate (`nix/idle-vm.nix`) lets a still session of lys-wm,
-lys-shell and lys-power settle, measures it with `lys-power energy`, and fails
-when one of them wakes more often, or keeps the GPU busier, over its window
-than `nix/idle-budgets.json` allows, naming the process and its busiest
+The idle wakeup gate (`nix/idle-vm.nix`) measures a still session of lys-wm,
+lys-shell and lys-power with `lys-power energy` from the moment the shell's
+bars are on screen: the first 5 s against a startup budget, then the minute
+after in three windows against the idle one, with nothing waited out between.
+It fails when one of them wakes more often, or keeps the GPU busier, over a
+window than `nix/idle-budgets.json` allows, naming the process and its busiest
 threads. It then opens a client that redraws every frame in its own scope,
 hides it on another workspace, and fails unless lys-wm puts it to sleep, the
 shell naps its scope (CPU and I/O weight 20, 50 ms timer slack), the client

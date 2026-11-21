@@ -1,11 +1,9 @@
 import json
-import time
 
 BUDGETS = params["budgets"]
 WINDOW = BUDGETS["window_seconds"]
 PROBE = BUDGETS["probe_seconds"]
-SETTLE_LIMIT = BUDGETS["settle_limit_seconds"]
-QUIET_PROBES = BUDGETS["quiet_probes"]
+FIRST_WINDOWS = BUDGETS["first_minute_windows"]
 CONFIG = f"/home/{USER}/.config/lys-shell/config.yaml"
 
 
@@ -45,12 +43,15 @@ def measure(window, unit=None):
     return seconds, found
 
 
-def over_budget(found, window):
+def idle_wakeups(window):
+    return {name: whole * window / WINDOW for name, whole in BUDGETS["wakeups"].items()}
+
+
+def over_budget(found, window, wakeups):
     share = window / WINDOW
     problems = []
-    for name, whole in sorted(BUDGETS["wakeups"].items()):
+    for name, budget in sorted(wakeups.items()):
         got = found[name]
-        budget = whole * share
         if got["wakeups"] > budget:
             top = ", ".join(f"thread {tid} {thread} {count}" for count, thread, tid in got["threads"][:3])
             problems.append(f"{name} woke {got['wakeups']} times in {window}s, over its budget of {budget:g}: {top}")
@@ -60,30 +61,22 @@ def over_budget(found, window):
     return problems
 
 
-def settle():
-    quiet = 0
-    deadline = time.monotonic() + SETTLE_LIMIT
-    while quiet < QUIET_PROBES and time.monotonic() < deadline:
-        _, found = measure(PROBE)
-        busy = over_budget(found, PROBE)
-        quiet = 0 if busy else quiet + 1
-        if busy:
-            print(f"not settled yet: {'; '.join(busy)}")
-
-
-def gate(label):
-    seconds, found = measure(WINDOW)
-    print(f"idle baseline ({label}) over {seconds:.1f}s:")
+def gate(label, window=WINDOW, wakeups=idle_wakeups(WINDOW)):
+    seconds, found = measure(window)
+    print(f"{label} over {seconds:.1f}s:")
     for name, got in sorted(found.items()):
         print(f"  {name}: {got['wakeups']} wakeups, {got['gpu_seconds']:.3f}s GPU; threads {got['threads'][:5]}")
-    problems = over_budget(found, WINDOW)
+    problems = over_budget(found, window, wakeups)
     if problems:
         raise OverBudget("; ".join(problems))
 
 
+BARS = sorted(f"lys-shell-bar-{output}" for output in scenario["outputs"])
+machine.wait_until_succeeds(f"{as_alice('lys-wmctl layers')} | jq -e --argjson want '{json.dumps(BARS)}' '[.[].namespace | select(startswith(\"lys-shell-bar-\"))] | sort == $want'", timeout=60)
 machine.wait_until_succeeds("busctl --system status dev.stubbe.lys.Energy1", timeout=60)
-settle()
-gate("still session")
+gate(f"startup, the first {PROBE}s with the bars on screen", PROBE, BUDGETS["startup_wakeups"])
+for window in range(FIRST_WINDOWS):
+    gate(f"idle baseline, the first minute after startup, window {window + 1} of {FIRST_WINDOWS}")
 
 BUSY = "app-busy-1.scope"
 WINDOWS = as_alice("lys-wmctl windows")
@@ -121,7 +114,7 @@ seconds, found = measure(WINDOW, BUSY)
 hidden = found.pop(BUSY)["wakeups"]
 print(f"a hidden busy client: {hidden} wakeups and lys-wm {found['lys-wm']['wakeups']} over {WINDOW}s; shown it woke {shown} times in {PROBE}s")
 assert hidden <= BUDGETS["hidden_client_wakeups"], f"a hidden busy client woke {hidden} times in {WINDOW}s, over {BUDGETS['hidden_client_wakeups']}"
-problems = over_budget(found, WINDOW)
+problems = over_budget(found, WINDOW, idle_wakeups(WINDOW))
 assert not problems, f"with a busy client hidden: {'; '.join(problems)}"
 
 machine.succeed(as_alice("lys-wmctl dispatch workspace 1"))
@@ -133,7 +126,7 @@ machine.wait_until_succeeds(f"[ \"$({WINDOWS} | jq length)\" = 0 ]", timeout=30)
 
 machine.succeed(f"install -m 644 -o {USER} -g users {params['ticking']} {CONFIG}")
 try:
-    gate("a clock that shows seconds")
+    gate("idle baseline, a clock that shows seconds")
 except OverBudget as caught:
     if "lys-shell" not in str(caught):
         raise AssertionError(f"a shell ticking every second failed the gate without naming lys-shell: {caught}")

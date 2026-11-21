@@ -1,10 +1,14 @@
 {
   "probe_seconds": 5,
-  "quiet_probes": 4,
-  "settle_limit_seconds": 180,
+  "first_minute_windows": 3,
   "window_seconds": 20,
   "hidden_client_wakeups": 20,
   "shown_client_wakeups": 200,
+  "startup_wakeups": {
+    "lys-wm": 600,
+    "lys-shell": 300,
+    "lys-power": 20
+  },
   "wakeups": {
     "lys-wm": 300,
     "lys-shell": 200,
