@@ -1075,6 +1075,7 @@ settings-sound-test-channel = { $channel } testen
 settings-sound-listener = Ihr Platz
 settings-sound-alert-play = Hinweiston abspielen
 settings-sound-alert-play-failed = Der Hinweiston wurde nicht abgespielt
+settings-sound-alert-none = Kein Klangthema enthält einen Hinweiston
 settings-sound-level = Eingangspegel
 settings-device-level = Aktueller Pegel dieses Geräts
 settings-sound-unplugged = { $name } (nicht angeschlossen)

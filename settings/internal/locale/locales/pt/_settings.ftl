@@ -1065,6 +1065,7 @@ settings-sound-test-channel = Testar { $channel }
 settings-sound-listener = Onde está sentado
 settings-sound-alert-play = Tocar o som de alerta
 settings-sound-alert-play-failed = O som de alerta não tocou
+settings-sound-alert-none = Nenhum tema de som contém um som de alerta
 settings-sound-level = Nível de entrada
 settings-device-level = Nível em direto deste dispositivo
 settings-sound-unplugged = { $name } (desligado)

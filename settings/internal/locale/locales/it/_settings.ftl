@@ -1075,6 +1075,7 @@ settings-sound-test-channel = Prova { $channel }
 settings-sound-listener = Dove sei seduto
 settings-sound-alert-play = Riproduci il suono di avviso
 settings-sound-alert-play-failed = Il suono di avviso non è stato riprodotto
+settings-sound-alert-none = Nessun tema sonoro contiene un suono di avviso
 settings-sound-level = Livello di ingresso
 settings-device-level = Livello in tempo reale di questo dispositivo
 settings-sound-unplugged = { $name } (scollegato)

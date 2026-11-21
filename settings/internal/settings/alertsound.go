@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"slices"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/mime"
@@ -17,9 +18,12 @@ import (
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
-var soundNameRow = withEditor(func(k *kit, s slot, meta config.FieldMeta) control {
-	return newAlertSoundEditor(k, s, newChoiceEditor(k, s, choiceSpec{list: systemLists[listSoundNames], special: meta.Variants, free: true}))
-})
+func soundNameRow(r *rowSpec) {
+	r.fullWidth = true
+	r.editor = func(k *kit, s slot, _ config.FieldMeta) control {
+		return newAlertSoundList(k, s, systemLists[listSoundNames])
+	}
+}
 
 var lookupAlertSound = func(name string) (string, error) {
 	gtk, err := gtksettings.Load(xdg.OS)
@@ -29,33 +33,103 @@ var lookupAlertSound = func(name string) (string, error) {
 	return sounds.NewTheme(gtk.SoundThemeName, mime.DataDirs()).Lookup(name)
 }
 
-type alertSoundEditor struct {
+type alertSound struct {
+	name  string
+	radio *widget.CheckButton
+	play  *widget.Button
+}
+
+type alertSoundList struct {
 	*widget.Box
 	k       *kit
 	slot    slot
-	name    *choiceEditor
-	play    *widget.Button
+	list    lister
+	rows    *widget.ItemGroup
+	sounds  []alertSound
 	problem *widget.Label
+	syncing bool
 }
 
-func newAlertSoundEditor(k *kit, s slot, name *choiceEditor) *alertSoundEditor {
-	e := &alertSoundEditor{Box: widget.NewBox(widget.Column, widget.Current().Spacing/2, 0), k: k, slot: s, name: name}
-	e.play = k.iconButton("ld-play-symbolic", "settings-sound-alert-play", e.preview, css.Flat)
-	e.play.SetAccessibleName(locale.T().Get("settings-sound-alert-play"))
+func newAlertSoundList(k *kit, s slot, list lister) *alertSoundList {
+	e := &alertSoundList{Box: widget.NewBox(widget.Column, widget.Current().Spacing/2, 0), k: k, slot: s, list: list}
+	e.AddClass("alert-sound-list")
+	e.rows = widget.NewItemGroup()
+	scroll := widget.NewScroll(e.rows)
+	scroll.VerticalOnly = true
+	scroll.SetMaxContentHeight(choiceListPx)
 	e.problem = wrapped(k.label("", css.Error, css.Caption))
 	e.problem.SetVisible(false)
-	line := gapBox(widget.Row)
-	line.AppendAligned(name, true, widget.AlignCenter)
-	line.AppendAligned(e.play, false, widget.AlignCenter)
-	e.Append(line, false)
+	e.Append(scroll, false)
 	e.Append(e.problem, false)
+	e.build(alertSoundNames(list(), s.text()))
+	e.refresh()
 	return e
 }
 
-func (e *alertSoundEditor) refresh() { e.name.refresh() }
+func alertSoundNames(listed []choice, current string) []string {
+	names := make([]string, 0, len(listed)+1)
+	for _, c := range listed {
+		names = append(names, c.value)
+	}
+	if current != "" && !slices.Contains(names, current) {
+		names = append([]string{current}, names...)
+	}
+	return names
+}
 
-func (e *alertSoundEditor) preview() {
-	name, _ := e.slot.get().(string)
+func (e *alertSoundList) refresh() {
+	current := e.slot.text()
+	names := alertSoundNames(e.list(), current)
+	if !slices.EqualFunc(names, e.sounds, func(n string, s alertSound) bool { return n == s.name }) {
+		e.build(names)
+	}
+	e.syncing = true
+	defer func() { e.syncing = false }()
+	for _, s := range e.sounds {
+		s.radio.SetChecked(s.name == current)
+	}
+}
+
+func (e *alertSoundList) build(names []string) {
+	e.rows.Clear()
+	e.sounds = e.sounds[:0]
+	for _, name := range names {
+		radio := widget.NewCheckButton(false)
+		radio.SetChild(e.k.label(name))
+		radio.SetAccessibleName(name)
+		if len(e.sounds) > 0 {
+			radio.SetGroup(e.sounds[0].radio)
+		}
+		radio.OnChanged = func(on bool) {
+			if on && !e.syncing {
+				e.choose(name)
+			}
+		}
+		play := e.k.iconButton("ld-play-symbolic", "settings-sound-alert-play", func() { e.preview(name) }, css.Flat)
+		play.SetAccessibleName(locale.T().Get("settings-sound-alert-play") + ": " + name)
+		row := gapBox(widget.Row)
+		row.SetElement("item")
+		row.AddClass(css.Small, "setting-row")
+		row.AppendAligned(radio, true, widget.AlignCenter)
+		row.AppendAligned(play, false, widget.AlignCenter)
+		e.rows.Append(row)
+		e.sounds = append(e.sounds, alertSound{name: name, radio: radio, play: play})
+	}
+	if len(e.sounds) == 0 {
+		e.rows.Append(e.k.emptyRow("ld-audio-lines-symbolic", locale.T().Get("settings-sound-alert-none")))
+	}
+}
+
+func (e *alertSoundList) choose(name string) {
+	err := e.slot.set(name)
+	e.problem.SetVisible(err != nil)
+	if err != nil {
+		e.problem.SetText(err.Error())
+		e.refresh()
+	}
+}
+
+func (e *alertSoundList) preview(name string) {
 	volume := e.k.store.svc.Config().Notification.SoundPolicy().Volume
 	async(e.k, func() error { return playAlertSound(name, volume) }, func(err error) {
 		e.problem.SetVisible(err != nil)

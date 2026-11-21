@@ -4,11 +4,14 @@ import (
 	"encoding/binary"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
+	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/pulse/native"
 	"github.com/stubbedev/lys/shell/service/sounds"
+	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -43,6 +46,71 @@ func useAlertSounds(t *testing.T, lookup func(string) (string, error)) {
 	t.Cleanup(func() { lookupAlertSound = before })
 }
 
+const soundDefaultPath = "modules.notifications.sound-default"
+
+func alertList(t *testing.T, k *kit, names ...string) *alertSoundList {
+	t.Helper()
+	listed := make([]choice, len(names))
+	for i, n := range names {
+		listed[i] = choice{value: n, label: n}
+	}
+	return newAlertSoundList(k, k.store.slot(soundDefaultPath), fixedChoices(listed))
+}
+
+func (e *alertSoundList) sound(t *testing.T, name string) alertSound {
+	t.Helper()
+	i := slices.IndexFunc(e.sounds, func(s alertSound) bool { return s.name == name })
+	if i < 0 {
+		t.Fatalf("no row for %q", name)
+	}
+	return e.sounds[i]
+}
+
+func (e *alertSoundList) checked() []string {
+	var out []string
+	for _, s := range e.sounds {
+		if s.radio.Checked() {
+			out = append(out, s.name)
+		}
+	}
+	return out
+}
+
+func TestTheAlertSoundIsARadioListOfEverySound(t *testing.T) {
+	k := testKit(t, "modules:\n  notifications:\n    sound-default: bell\n")
+	if _, ok := shellControl(t, k, soundDefaultPath, soundNameRow).(*alertSoundList); !ok {
+		t.Fatal("the alert sound row is not the sound list")
+	}
+	e := alertList(t, k, "bell", "complete", "message-new-instant")
+	if got := e.checked(); !slices.Equal(got, []string{"bell"}) || len(e.sounds) != 3 {
+		t.Fatalf("%d rows, checked %q", len(e.sounds), got)
+	}
+	e.sound(t, "complete").radio.Toggle()
+	if got := k.store.value(soundDefaultPath); got != "complete" {
+		t.Errorf("stored %v, want complete", got)
+	}
+	if got := e.checked(); !slices.Equal(got, []string{"complete"}) {
+		t.Errorf("checked %q after picking complete", got)
+	}
+	e.sound(t, "complete").radio.Toggle()
+	if got := e.checked(); !slices.Equal(got, []string{"complete"}) {
+		t.Errorf("a second click on the checked sound left %q", got)
+	}
+}
+
+func TestASoundNoThemeHoldsKeepsItsOwnCheckedRow(t *testing.T) {
+	k := testKit(t, "modules:\n  notifications:\n    sound-default: gone\n")
+	e := alertList(t, k, "bell")
+	if len(e.sounds) != 2 || e.sounds[0].name != "gone" || !slices.Equal(e.checked(), []string{"gone"}) {
+		t.Fatalf("rows %+v, checked %q", e.sounds, e.checked())
+	}
+	k = testKit(t, "modules:\n  notifications:\n    sound-default: ''\n")
+	e = alertList(t, k)
+	if len(e.sounds) != 0 || len(treetest.All[*widget.Item](e.rows)) != 1 {
+		t.Fatalf("without sounds %d rows, %d empty rows", len(e.sounds), len(treetest.All[*widget.Item](e.rows)))
+	}
+}
+
 func TestPlayPreviewsTheChosenAlertSoundAtTheAlertVolume(t *testing.T) {
 	srv := soundServer(t)
 	useSoundServer(t, srv)
@@ -53,17 +121,20 @@ func TestPlayPreviewsTheChosenAlertSoundAtTheAlertVolume(t *testing.T) {
 		return wav, nil
 	})
 	k := testKit(t, "modules:\n  notifications:\n    sound-default: bell\n    sound-volume: 50\n")
-	e := shellControl(t, k, "modules.notifications.sound-default", soundNameRow).(*alertSoundEditor)
-	e.play.OnClick()
+	e := alertList(t, k, "bell", "complete")
+	e.sound(t, "complete").play.OnClick()
 	plays := srv.Plays()
-	if len(asked) != 1 || asked[0] != "bell" || len(plays) != 1 {
+	if len(asked) != 1 || asked[0] != "complete" || len(plays) != 1 {
 		t.Fatalf("looked up %q, played %+v", asked, plays)
 	}
-	if plays[0].Volume != native.LinearVolume(0.5) || plays[0].Props["event.id"] != "bell" || e.problem.Visible() {
+	if plays[0].Volume != native.LinearVolume(0.5) || plays[0].Props["event.id"] != "complete" || e.problem.Visible() {
 		t.Fatalf("played at %#x as %q, problem shown %v", plays[0].Volume, plays[0].Props["event.id"], e.problem.Visible())
 	}
 	if got := len(srv.Samples()[plays[0].Name].Data); got != 2*800 {
 		t.Fatalf("the uploaded sample holds %d bytes, want the file's %d", got, 2*800)
+	}
+	if got := k.store.value(soundDefaultPath); got != "bell" {
+		t.Errorf("playing a sound chose it: %v", got)
 	}
 }
 
@@ -72,8 +143,8 @@ func TestASoundTheThemeLacksSaysWhyAndPlaysNothing(t *testing.T) {
 	useSoundServer(t, srv)
 	useAlertSounds(t, func(string) (string, error) { return "", sounds.ErrNoSound })
 	k := testKit(t, "modules:\n  notifications:\n    sound-default: missing\n")
-	e := shellControl(t, k, "modules.notifications.sound-default", soundNameRow).(*alertSoundEditor)
-	e.play.OnClick()
+	e := alertList(t, k, "bell")
+	e.sound(t, "missing").play.OnClick()
 	if !e.problem.Visible() || !strings.HasPrefix(e.problem.Text(), locale.T().Get("settings-sound-alert-play-failed")) || !strings.Contains(e.problem.Text(), sounds.ErrNoSound.Error()) {
 		t.Fatalf("the problem reads %q, shown %v", e.problem.Text(), e.problem.Visible())
 	}

@@ -1075,6 +1075,7 @@ settings-sound-test-channel = Probar { $channel }
 settings-sound-listener = Donde se sienta
 settings-sound-alert-play = Reproducir el sonido de aviso
 settings-sound-alert-play-failed = El sonido de aviso no se reprodujo
+settings-sound-alert-none = Ningún tema de sonido contiene un sonido de alerta
 settings-sound-level = Nivel de entrada
 settings-device-level = Nivel en directo de este dispositivo
 settings-sound-unplugged = { $name } (desenchufado)

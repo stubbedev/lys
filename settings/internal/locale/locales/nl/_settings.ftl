@@ -1065,6 +1065,7 @@ settings-sound-test-channel = { $channel } testen
 settings-sound-listener = Waar u zit
 settings-sound-alert-play = Meldingsgeluid afspelen
 settings-sound-alert-play-failed = Het meldingsgeluid is niet afgespeeld
+settings-sound-alert-none = Geen geluidsthema bevat een meldingsgeluid
 settings-sound-level = Invoerniveau
 settings-device-level = Actueel niveau van dit apparaat
 settings-sound-unplugged = { $name } (losgekoppeld)

@@ -1075,6 +1075,7 @@ settings-sound-test-channel = Test { $channel }
 settings-sound-listener = Where you sit
 settings-sound-alert-play = Play the alert sound
 settings-sound-alert-play-failed = The alert sound did not play
+settings-sound-alert-none = No sound theme holds an alert sound
 settings-sound-level = Input Level
 settings-device-level = Live level of this device
 settings-sound-unplugged = { $name } (unplugged)

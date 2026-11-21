@@ -1078,6 +1078,7 @@ settings-sound-test-channel = Tester { $channel }
 settings-sound-listener = Votre place
 settings-sound-alert-play = Jouer le son d'alerte
 settings-sound-alert-play-failed = Le son d'alerte n'a pas été joué
+settings-sound-alert-none = Aucun thème sonore ne contient de son d’alerte
 settings-sound-level = Niveau d'entrée
 settings-device-level = Niveau en direct de cet appareil
 settings-sound-unplugged = { $name } (débranché)
