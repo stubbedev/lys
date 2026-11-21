@@ -224,8 +224,12 @@ first runners. The jobs on the builds:
      the dev shells. Its `dist` recipe compiles the release binaries again
      rather than taking them from the Nix packages: those are linked for the
      Nix store, the archives for the distributions' loader, and the measured
-     `dist` and `archive` step takes 25 to 85 seconds of a two to three
-     minute job, most of the rest being apt.
+     `dist` and `archive` step takes 15 to 75 seconds of a two to four
+     minute job. `packaging::build` runs `debian/rules binary` under
+     `dpkg-architecture` rather than `dpkg-buildpackage`, which builds the
+     same `.deb` and then spent 35 to 88 seconds of each job in
+     `dpkg-genbuildinfo` over the runner's thousands of installed packages,
+     for a `.buildinfo` and `.changes` nothing uploads.
 
 To regroup, edit `go-jobs` or a component's `vms` from the job times of a recent
 full run (`gh run view <run> --json jobs`); `go run ./ci/affected` prints the

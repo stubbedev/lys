@@ -22,7 +22,7 @@ build component archive version format="":
             "$1" >"$2"
     }
     deb() {
-        local dir arch deb_arch topdir source_dir package_dir out_dir file
+        local dir arch deb_arch topdir source_dir package_dir out_dir file requires_root
         dir="$(basename "${archive}" .tar.gz)"
         arch="${dir%-linux}"
         arch="${arch##*-}"
@@ -44,7 +44,12 @@ build component archive version format="":
         done
         render packaging/debian/control.in "${package_dir}/debian/control" ""
         render packaging/debian/changelog.in "${package_dir}/debian/changelog" "$(LC_ALL=C date -uR)"
-        (cd "${package_dir}" && dpkg-buildpackage -us -uc -b -a"${deb_arch}")
+        requires_root="$(sed -n 's/^Rules-Requires-Root: //p' "${package_dir}/debian/control")"
+        if [[ -z "${requires_root}" ]]; then
+            echo "packaging/debian/control.in of ${name} sets no Rules-Requires-Root" >&2
+            exit 1
+        fi
+        (cd "${package_dir}" && DEB_RULES_REQUIRES_ROOT="${requires_root}" dpkg-architecture -a"${deb_arch}" -c debian/rules binary)
         find "${source_dir}" -maxdepth 1 -type f -name '*.deb' -exec mv -t "${out_dir}" {} +
     }
     rpm() {
