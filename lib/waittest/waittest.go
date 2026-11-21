@@ -4,6 +4,7 @@
 package waittest
 
 import (
+	"runtime"
 	"testing"
 	"time"
 )
@@ -69,10 +70,26 @@ func UntilSlow(t testing.TB, cond func() bool, what string) {
 	until(t, cond, slowLimit, what)
 }
 
+// UntilShowing is Until for a wait whose failure needs explaining: past
+// the limit it fails with state's account of what it saw instead, and
+// the stack of every goroutine.
+func UntilShowing(t testing.TB, cond func() bool, what string, state func() string) {
+	t.Helper()
+	if !held(cond, limit) {
+		t.Fatalf("waited %v for %s; saw:\n%s\ngoroutines:\n%s", limit, what, state(), stacks())
+	}
+}
+
 func until(t testing.TB, cond func() bool, d time.Duration, what string) {
 	t.Helper()
+	if !held(cond, d) {
+		t.Fatalf("waited %v for %s", d, what)
+	}
+}
+
+func held(cond func() bool, d time.Duration) bool {
 	if cond() {
-		return
+		return true
 	}
 	poll := time.NewTicker(pollInterval)
 	defer poll.Stop()
@@ -82,8 +99,19 @@ func until(t testing.TB, cond func() bool, d time.Duration, what string) {
 		select {
 		case <-poll.C:
 		case <-timeout.C:
-			t.Fatalf("waited %v for %s", d, what)
-			return
+			return false
 		}
+	}
+	return true
+}
+
+func stacks() []byte {
+	buf := make([]byte, 1<<20)
+	for {
+		n := runtime.Stack(buf, true)
+		if n < len(buf) {
+			return buf[:n]
+		}
+		buf = make([]byte, 2*len(buf))
 	}
 }

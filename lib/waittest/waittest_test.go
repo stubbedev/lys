@@ -3,6 +3,7 @@ package waittest
 import (
 	"fmt"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 )
@@ -69,6 +70,35 @@ func TestUntilFailsNamingWhatNeverHeld(t *testing.T) {
 		t.Errorf("failure %q, want %q", got, want)
 	}
 }
+
+func TestUntilShowingReturnsOnceTheConditionHoldsWithoutAskingTheState(t *testing.T) {
+	polls := 0
+	UntilShowing(t, func() bool { polls++; return polls == 3 }, "the third poll", func() string {
+		t.Error("the state was asked for a wait that ended")
+		return ""
+	})
+	if polls != 3 {
+		t.Errorf("UntilShowing polled %d times, want to stop at the third", polls)
+	}
+}
+
+func TestUntilShowingFailsWithTheStateAndEveryGoroutine(t *testing.T) {
+	parked := make(chan struct{})
+	t.Cleanup(func() { close(parked) })
+	go parkedWitness(parked)
+	got := failureOf(t, func(tb testing.TB) {
+		UntilShowing(tb, func() bool { return false }, "the row", func() string { return "rows [a b], selected 1" })
+	})
+	want := "waited 10ms for the row; saw:\nrows [a b], selected 1\ngoroutines:\ngoroutine "
+	if !strings.HasPrefix(got, want) {
+		t.Errorf("failure %q, want it to start %q", got, want)
+	}
+	if !strings.Contains(got, "waittest.parkedWitness") {
+		t.Errorf("failure %q lacks the stack of a goroutine other than the waiting one", got)
+	}
+}
+
+func parkedWitness(parked <-chan struct{}) { <-parked }
 
 func TestForSlowWaitsForTheSlowLimit(t *testing.T) {
 	got := failureOf(t, func(tb testing.TB) { ForSlow(tb, make(chan int), "the GPU worker") })

@@ -3,6 +3,7 @@ package launcher
 import (
 	"context"
 	"errors"
+	"fmt"
 	"runtime"
 	"slices"
 	"strings"
@@ -210,10 +211,34 @@ func (h *harness) open(opts launcheripc.SessionOptions, replace bool, rows ...st
 // until pumps the loop until cond holds.
 func (h *harness) until(what string, cond func() bool) {
 	h.t.Helper()
-	waittest.Until(h.t, func() bool {
+	waittest.UntilShowing(h.t, func() bool {
 		h.loop.pump()
 		return cond()
-	}, what)
+	}, what, h.state)
+}
+
+func (h *harness) state() string {
+	var b strings.Builder
+	h.loop.mu.Lock()
+	fmt.Fprintf(&b, "loop: %d queued\n", len(h.loop.queue))
+	h.loop.mu.Unlock()
+	p := h.s.panel
+	if p == nil {
+		b.WriteString("panel: none\n")
+		return b.String()
+	}
+	fmt.Fprintf(&b, "panel: field %q, sent edit %d, depth %d, selected %d, moved %v, accept armed %v, closing %v, notice %q\n",
+		p.v.Entry.Text(), p.querySeq, p.depth, p.sel, p.moved, p.acceptArmed, p.closing, p.notice)
+	f := p.frame
+	fmt.Fprintf(&b, "frame: query %q, edit %d, depth %d, late %v, %d rows\n", f.Query, f.QuerySeq, f.Depth, f.Late, len(f.Rows))
+	for i, r := range f.Rows {
+		if r.Header != "" {
+			fmt.Fprintf(&b, "  %d header %q\n", i, r.Header)
+			continue
+		}
+		fmt.Fprintf(&b, "  %d %q %q\n", i, r.Entry.ID, r.Entry.Title)
+	}
+	return b.String()
 }
 
 func (h *harness) key(spec string) bool {
