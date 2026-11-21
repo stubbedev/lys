@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -12,12 +13,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/dbustest"
+	"github.com/stubbedev/lys/lib/render"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/secrets/client"
 	"github.com/stubbedev/lys/secrets/secretstest"
 	"github.com/stubbedev/lys/ui/widget"
+	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -61,11 +65,12 @@ func (m *callMonitor) count(member string) int {
 }
 
 type passwordsRig struct {
-	srv *secretstest.Server
-	bus *dbustest.Bus
-	p   *passwordsPanel
-	l   *loop
-	mon *callMonitor
+	pickers *fakePickers
+	srv     *secretstest.Server
+	bus     *dbustest.Bus
+	p       *passwordsPanel
+	l       *loop
+	mon     *callMonitor
 }
 
 func startPasswords(t *testing.T, items int) *passwordsRig { return startPasswordsWith(t, items, "") }
@@ -102,11 +107,13 @@ func startPasswordsWith(t *testing.T, items int, yaml string) *passwordsRig {
 	t.Cleanup(func() { openKeyring = before })
 	mon := monitorCalls(t, bus)
 	k := testKit(t, yaml)
+	pickers := &fakePickers{}
+	k.pickers = pickers
 	l := &loop{t: t, queue: make(chan func(), 64)}
 	k.invoke = func(fn func()) { l.queue <- fn }
 	p := passwordsKeyring(k).(*passwordsPanel)
 	t.Cleanup(p.close)
-	return &passwordsRig{srv: srv, bus: bus, p: p, l: l, mon: mon}
+	return &passwordsRig{pickers: pickers, srv: srv, bus: bus, p: p, l: l, mon: mon}
 }
 
 func (r *passwordsRig) itemRows() []*widget.Item {
@@ -141,9 +148,17 @@ func TestDeletingAnItemFollowsItemDeleted(t *testing.T) {
 	r.srv.Answer("login-pw")
 	treetest.Button(t, r.p, "Unlock…").OnClick()
 	r.itemRows()[0].ClickAt(widget.Point{})
-	del := treetest.Button(t, r.p.detail, "Delete…")
-	del.OnClick()
-	treetest.Button(t, r.p.detail, "Delete This Item").OnClick()
+	treetest.Button(t, r.p.detail, "Delete…").OnClick()
+	if len(r.pickers.dialogs) != 1 || r.pickers.dialogs[0].Title != locale.T().Get("settings-passwords-delete-item-title", i18n.Str("label", "token x")) {
+		t.Fatalf("the delete asked %+v", r.pickers.dialogs)
+	}
+	r.pickers.respond(responseCancel)
+	r.l.drain()
+	if len(r.itemRows()) != 2 {
+		t.Fatalf("a cancelled delete left %d items", len(r.itemRows()))
+	}
+	treetest.Button(t, r.p.detail, "Delete…").OnClick()
+	r.pickers.respond(responseConfirm)
 	r.l.until("the list following the deletion", func() bool { return len(r.itemRows()) == 1 })
 }
 
@@ -285,5 +300,145 @@ func TestTheItemsAreGroupedByWhatStoredThemWithItsIcon(t *testing.T) {
 	headers := treetest.WithClass(r.p.list, "password-group")
 	if len(headers) != 1 || len(r.itemRows()) != 3 {
 		t.Fatalf("three git items show %d group headings over %d rows", len(headers), len(r.itemRows()))
+	}
+}
+
+func (r *passwordsRig) collectionRows() []*widget.Item {
+	var out []*widget.Item
+	for _, w := range treetest.WithClass(r.p.sidebar, "password-collection") {
+		row, _ := w.(*widget.Item)
+		out = append(out, row)
+	}
+	return out
+}
+
+func countText(n int64) string {
+	return locale.T().Get("settings-passwords-count", i18n.Int("count", n))
+}
+
+func TestTheCollectionsAreASidebarCountingTheirItems(t *testing.T) {
+	r := startPasswords(t, 3)
+	r.l.settle()
+	rows := r.collectionRows()
+	if len(rows) != 1 || !rows[0].HasState(widget.StateSelected) {
+		t.Fatalf("%d collection rows, the login one selected: %v", len(rows), len(rows) == 1 && rows[0].HasState(widget.StateSelected))
+	}
+	labels := treetest.Labels(r.p.sidebar)
+	if !slices.Equal(labels, []string{locale.T().Get("settings-passwords-locked-collection"), countText(3)}) {
+		t.Fatalf("the sidebar reads %q", labels)
+	}
+	r.srv.Answer("login-pw")
+	treetest.Button(t, r.p, "Unlock…").OnClick()
+	if labels := treetest.Labels(r.p.sidebar); !slices.Equal(labels, []string{"Login", countText(3)}) {
+		t.Fatalf("unlocked, the sidebar reads %q", labels)
+	}
+	if got := countText(1); got != "One item" {
+		t.Errorf("one item reads %q", got)
+	}
+	if got := countText(0); got != "No items" {
+		t.Errorf("an empty collection reads %q", got)
+	}
+}
+
+func TestAnItemsMenuCopiesItsPasswordAndUsernameAndDeletesItAfterAsking(t *testing.T) {
+	r := startPasswords(t, 2)
+	root, host := hosted(r.p)
+	var copied, secrets []string
+	r.p.k.copyText = func(text string) error { copied = append(copied, text); return nil }
+	r.p.k.copySecret = func(text string) error { secrets = append(secrets, text); return nil }
+	r.srv.Answer("login-pw")
+	treetest.Button(t, r.p, "Unlock…").OnClick()
+	root.Arrange(render.Rect{W: 800, H: 3000})
+	more := treetest.WithClass(r.itemRows()[0], css.Icon)
+	if len(more) != 1 {
+		t.Fatalf("the item row holds %d icon buttons, want its … menu", len(more))
+	}
+	more[0].(*widget.Button).OnClick()
+	if len(host.menus) != 1 {
+		t.Fatal("the … button opened no menu")
+	}
+	run := func(label string) {
+		t.Helper()
+		for _, it := range host.menus[len(host.menus)-1] {
+			if it.Label == label {
+				it.OnClick()
+				return
+			}
+		}
+		t.Fatalf("no %q in the menu", label)
+	}
+	run("Copy Password")
+	run("Copy Username")
+	if !slices.Equal(secrets, []string{"secret-x"}) || !slices.Equal(copied, []string{"x"}) {
+		t.Fatalf("copied the secrets %q and the texts %q", secrets, copied)
+	}
+	run("Show Details")
+	if r.p.expanded != r.p.items[0].Path {
+		t.Fatal("Show Details did not open the item")
+	}
+	run("Delete…")
+	if len(r.pickers.dialogs) != 1 {
+		t.Fatalf("Delete… asked %d questions", len(r.pickers.dialogs))
+	}
+	r.pickers.respond(responseConfirm)
+	r.l.until("the deleted item gone", func() bool { return len(r.itemRows()) == 1 })
+}
+
+func TestAnItemWithoutAnAccountHasNoCopyUsername(t *testing.T) {
+	p := &passwordsPanel{}
+	for _, it := range p.itemMenu(client.Item{Attributes: map[string]string{"service": "mail"}}) {
+		if it.Label == "Copy Username" {
+			t.Fatal("an item without an account offers Copy Username")
+		}
+	}
+}
+
+func TestANewItemNeedsANameAndAPasswordAndKeepsWhatWasGiven(t *testing.T) {
+	item, err := parseNewItem("  Mail ", " me@example.org ", "", []byte("pw"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{schemaAttribute: genericSchema, usernameAttr: "me@example.org"}
+	if item.label != "Mail" || !maps.Equal(item.attrs, want) || string(item.secret) != "pw" {
+		t.Fatalf("parsed %+v", item)
+	}
+	if _, err := parseNewItem(" ", "me", "mail", []byte("pw")); !errors.Is(err, itemNoName) {
+		t.Errorf("a blank name: %v", err)
+	}
+	if _, err := parseNewItem("Mail", "me", "mail", nil); !errors.Is(err, itemNoSecret) {
+		t.Errorf("no password: %v", err)
+	}
+}
+
+func TestAddItemStoresANewItemInTheShownCollectionAndStaysOpenOverAMissingName(t *testing.T) {
+	r := startPasswords(t, 1)
+	r.srv.Answer("login-pw")
+	treetest.Button(t, r.p, "Unlock…").OnClick()
+	treetest.Button(t, r.p, "Add Item…").OnClick()
+	if len(r.pickers.dialogs) != 1 || r.pickers.dialogs[0].Title != locale.T().Get("settings-passwords-add-title", i18n.Str("collection", "Login")) {
+		t.Fatalf("Add Item opened %+v", r.pickers.dialogs)
+	}
+	f := r.pickers.dialogs[0].Content.(*keyringItemForm)
+	f.secret.SetText("hunter2")
+	if r.pickers.respond(responseConfirm) || r.pickers.dialogsClosed != 0 || !f.messages.Visible() || f.messages.Text() != "Give the item a name" {
+		t.Fatalf("an unnamed item closed the dialog or reads %q", f.messages.Text())
+	}
+	f.label.SetText("Mail")
+	f.username.SetText("me@example.org")
+	f.service.SetText("imap.example.org")
+	r.pickers.respond(responseConfirm)
+	if r.pickers.dialogsClosed != 1 {
+		t.Fatalf("the dialog stayed open: %q", f.messages.Text())
+	}
+	r.l.until("the new item listed", func() bool { return len(r.itemRows()) == 2 })
+	i := slices.IndexFunc(r.p.items, func(it client.Item) bool { return it.Label == "Mail" })
+	if i < 0 || r.p.items[i].Attributes["service"] != "imap.example.org" || r.p.items[i].Attributes[schemaAttribute] != genericSchema {
+		t.Fatalf("items %+v", r.p.items)
+	}
+	if f.secret.Text() != "" {
+		t.Error("the password stayed in the closed form")
+	}
+	if !slices.Contains(treetest.Labels(r.p.sidebar), countText(2)) {
+		t.Errorf("the count did not follow: %q", treetest.Labels(r.p.sidebar))
 	}
 }

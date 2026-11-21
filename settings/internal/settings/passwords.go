@@ -43,10 +43,10 @@ var knownSchemas = map[string]keyringSchema{
 	"org.freedesktop.NetworkManager.Connection": {"NetworkManager", "ld-wifi-symbolic"},
 	"org.gnome.keyring.NetworkPassword":         {"GNOME network passwords", "ld-wifi-symbolic"},
 	"org.git.Password":                          {"git", "ld-code-symbolic"},
-	"org.freedesktop.Secret.Generic":            {"", itemKeyIcon},
+	genericSchema:                               {"", itemKeyIcon},
 }
 
-var accountAttributes = []string{"username", "user"}
+var accountAttributes = []string{usernameAttr, "user"}
 
 func passwordsPage(*config.Config) pageSpec {
 	return pageSpec{
@@ -130,7 +130,10 @@ type passwordsPanel struct {
 	seen       map[dbus.ObjectPath]time.Time
 	now        func() time.Time
 	problem    *widget.Label
-	picker     *widget.Dropdown
+	sidebar    *widget.ItemGroup
+	collRows   map[dbus.ObjectPath]*widget.Item
+	collTitle  *widget.Label
+	add        *widget.Button
 	lock       *widget.Button
 	lockFace   *widget.ButtonContent
 	filter     *widget.SearchEntry
@@ -150,20 +153,22 @@ func passwordsKeyring(k *kit) widget.Widget {
 	p.problem = wrapped(k.label("", "setting-problem", css.Caption, css.Error))
 	p.problem.SetVisible(false)
 	p.Append(p.problem, false)
-	p.picker = widget.NewDropdown(k.face, k.textPx(), []string{t.Get("settings-passwords-loading")}, 0)
-	p.picker.SetAccessibleName(t.Get("settings-passwords-collection"))
-	p.picker.OnSelect = func(i int) {
-		if i >= 0 && i < len(p.colls) && p.colls[i].Path != p.coll {
-			p.pick(p.colls[i].Path)
-		}
-	}
+	p.sidebar = widget.NewItemGroup()
+	p.sidebar.AddClass("password-collections")
+	p.sidebar.SetAccessibleName(t.Get("settings-passwords-collections"))
+	p.collTitle = k.label("", "password-collection-title", css.H4)
+	p.collTitle.SetEllipsize(widget.EllipsizeEnd)
 	p.lock, p.lockFace = k.contentButton("ld-lock-symbolic", t.Get("settings-passwords-lock"), p.toggleLock, css.Secondary)
 	change, _ := k.contentButton("ld-key-round-symbolic", t.Get("settings-passwords-change"), func() {
 		coll := p.coll
 		p.act(func(ctx context.Context) error { return p.c.ChangeLock(ctx, coll) })
 	}, css.Secondary)
-	keyring := widget.NewItemGroup(panelRow(k, t.Get("settings-passwords-collection"), "", p.picker, p.lock, change))
-	p.Append(newSection(k, "settings-section-passwords-keyring", keyring), false)
+	p.add, _ = k.contentButton("ld-plus-symbolic", t.Get("settings-passwords-add"), p.openAddItem, css.Secondary)
+	head := gapBox(widget.Row)
+	head.AppendAligned(p.collTitle, true, widget.AlignCenter)
+	for _, b := range []*widget.Button{p.add, p.lock, change} {
+		head.AppendAligned(b, false, widget.AlignCenter)
+	}
 	p.filter = widget.NewSearchEntry(k.face, k.textPx(), t.Get("settings-passwords-filter"))
 	p.filter.SetDelay(0)
 	p.filter.OnSearchChanged = func(string) { p.showItems() }
@@ -171,9 +176,14 @@ func passwordsKeyring(k *kit) widget.Widget {
 	p.more, _ = k.contentButton("ld-chevron-down-symbolic", t.Get("settings-passwords-more"), p.loadMore, css.Secondary)
 	p.more.SetHAlign(widget.AlignCenter)
 	p.more.SetVisible(false)
-	items := newSection(k, "settings-section-passwords-items", p.list)
+	items := gapBox(widget.Column)
+	items.Append(head, false)
+	items.Append(p.list, false)
 	items.Append(p.more, false)
-	p.Append(items, false)
+	body := gapBox(widget.Row)
+	body.AppendAligned(p.sidebar, false, widget.AlignStart)
+	body.Append(items, true)
+	p.Append(newSection(k, "settings-section-passwords-keyring", body), false)
 	p.detail = widget.NewBox(widget.Column, widget.Current().Spacing, 0)
 	p.detail.SetElement("item")
 	p.detail.AddClass("password-detail")
@@ -215,22 +225,44 @@ func (p *passwordsPanel) open() {
 	})
 }
 
+func collectionTitle(c client.Collection) string {
+	switch {
+	case c.Locked && c.Label == "":
+		return locale.T().Get("settings-passwords-locked-collection")
+	case c.Locked:
+		return locale.T().Get("settings-passwords-locked", i18n.Str("label", c.Label))
+	}
+	return c.Label
+}
+
+func collectionIcon(c client.Collection) string {
+	if c.Locked {
+		return itemLockIcon
+	}
+	return itemKeyIcon
+}
+
 func (p *passwordsPanel) setCollections(colls []client.Collection) {
+	t := locale.T()
 	p.colls = colls
-	labels := make([]string, len(colls))
-	selected := 0
-	for i, c := range colls {
-		labels[i] = c.Label
-		if c.Locked {
-			labels[i] = locale.T().Get("settings-passwords-locked", i18n.Str("label", c.Label))
-		} else if _, ok := p.seen[c.Path]; !ok {
+	p.sidebar.Clear()
+	p.collRows = make(map[dbus.ObjectPath]*widget.Item, len(colls))
+	for _, c := range colls {
+		if _, ok := p.seen[c.Path]; !ok && !c.Locked {
 			p.seen[c.Path] = p.now()
 		}
-		if c.Path == p.coll {
-			selected = i
-		}
+		row := widget.NewItem(p.k.face, collectionTitle(c), t.Get("settings-passwords-count", i18n.Int("count", int64(c.Items))))
+		row.AddClass("password-collection")
+		row.SetMedia(p.k.icon(collectionIcon(c)), false)
+		path := c.Path
+		row.SetOnActivate(func() {
+			if path != p.coll {
+				p.pick(path)
+			}
+		})
+		p.sidebar.Append(row)
+		p.collRows[c.Path] = row
 	}
-	p.picker.SetItems(labels, selected)
 	p.refreshLock()
 }
 
@@ -244,8 +276,13 @@ func (p *passwordsPanel) current() (client.Collection, bool) {
 
 func (p *passwordsPanel) refreshLock() {
 	t := locale.T()
+	for path, row := range p.collRows {
+		row.SetState(widget.StateSelected, path == p.coll)
+	}
 	c, ok := p.current()
 	p.lock.SetVisible(ok)
+	p.add.SetVisible(ok)
+	p.collTitle.SetText(collectionTitle(c))
 	if c.Locked {
 		p.lockFace.SetIconName("ld-lock-open-symbolic")
 		p.lockFace.SetLabel(t.Get("settings-passwords-unlock"))
@@ -407,13 +444,60 @@ func (p *passwordsPanel) itemRow(it client.Item) *widget.Item {
 	if it.Path == p.expanded {
 		chevron = "ld-chevron-down-symbolic"
 	}
+	var more *widget.Button
+	more = p.k.iconButton("ld-ellipsis-symbolic", "settings-passwords-item-options", func() {
+		widget.OpenMenu(more, more, p.k.face, p.k.textPx(), p.itemMenu(it), widget.MenuOptions{Gap: widget.PopoverGap})
+	}, css.Flat)
+	more.SetAccessibleName(locale.T().Get("settings-passwords-item-options"))
+	row.AddAction(more)
 	row.AddAction(p.k.icon(chevron, css.DimLabel))
 	row.SetOnActivate(func() { p.toggleDetail(it) })
 	return row
 }
 
+func itemAccount(attrs map[string]string) (string, bool) {
+	for _, k := range accountAttributes {
+		if v := attrs[k]; v != "" {
+			return v, true
+		}
+	}
+	return "", false
+}
+
+func (p *passwordsPanel) itemMenu(it client.Item) []widget.MenuItem {
+	t := locale.T()
+	details := "settings-passwords-details-show"
+	if it.Path == p.expanded {
+		details = "settings-passwords-details-hide"
+	}
+	items := []widget.MenuItem{{Label: t.Get("settings-passwords-copy-secret"), OnClick: func() { p.reveal(it.Path, true) }}}
+	if account, ok := itemAccount(it.Attributes); ok {
+		items = append(items, widget.MenuItem{Label: t.Get("settings-passwords-copy-username"), OnClick: func() { p.fail(p.k.copyText(account)) }})
+	}
+	return append(items,
+		widget.MenuItem{Label: t.Get(details), OnClick: func() { p.toggleDetail(it) }},
+		widget.MenuSeparator(),
+		widget.MenuItem{Label: t.Get("settings-passwords-delete"), OnClick: func() { p.confirmDelete(it) }},
+	)
+}
+
+func (p *passwordsPanel) confirmDelete(it client.Item) {
+	if p.k.pickers == nil {
+		p.fail(fmt.Errorf("settings: delete the keyring item %q: no window to ask in", it.Label))
+		return
+	}
+	path := it.Path
+	p.k.pickers.dialog(confirmDialog(p.k, "settings-passwords-delete-item", func() {
+		p.act(func(ctx context.Context) error { return p.c.DeleteItem(ctx, path) })
+		if p.expanded == path {
+			p.expanded = ""
+			p.showItems()
+		}
+	}, i18n.Str("label", it.Label)))
+}
+
 // summaryAttributes are the attributes an item's row names it by, in order.
-var summaryAttributes = []string{"username", "user", "service", "server", "application"}
+var summaryAttributes = []string{usernameAttr, "user", serviceAttr, "server", "application"}
 
 // itemSummary is the line under an item's name: the account and place its
 // attributes name, else the program that stored it.
@@ -496,19 +580,7 @@ func (p *passwordsPanel) showDetail(it client.Item) {
 	}, css.Secondary)
 	cp, _ := p.k.contentButton("ld-copy-symbolic", t.Get("settings-passwords-copy"), func() { p.reveal(it.Path, true) }, css.Secondary)
 	field(t.Get("settings-passwords-secret"), p.secretLbl, reveal, cp)
-	var del *widget.Button
-	var delFace *widget.ButtonContent
-	del, delFace = p.k.contentButton("ld-trash-2-symbolic", t.Get("settings-passwords-delete"), func() {
-		if !del.HasClass(css.DestructiveAction) {
-			del.AddClass(css.DestructiveAction)
-			delFace.SetLabel(t.Get("settings-passwords-delete-confirm"))
-			return
-		}
-		path := it.Path
-		p.act(func(ctx context.Context) error { return p.c.DeleteItem(ctx, path) })
-		p.expanded = ""
-		p.showItems()
-	}, css.Secondary)
+	del, _ := p.k.contentButton("ld-trash-2-symbolic", t.Get("settings-passwords-delete"), func() { p.confirmDelete(it) }, css.Secondary)
 	del.SetHAlign(widget.AlignEnd)
 	p.detail.Append(del, false)
 }

@@ -702,11 +702,11 @@ func strengthWord(pw string) string {
 }
 
 // revealButton shows what entries hold, and hides it again.
-func (p *usersPanel) revealButton(entries ...*widget.Entry) *widget.Button {
+func (k *kit) revealButton(entries ...*widget.Entry) *widget.Button {
 	var b *widget.Button
 	shown := false
-	icon := p.k.icon("ld-eye-symbolic")
-	b = p.k.button(icon, func() {
+	icon := k.icon("ld-eye-symbolic")
+	b = k.button(icon, func() {
 		shown = !shown
 		echo, name, tip := widget.EchoPassword, "ld-eye-symbolic", "settings-users-password-show"
 		if shown {
@@ -739,18 +739,18 @@ func (p *usersPanel) newPasswordForm() *passwordForm {
 	t := locale.T()
 	f := &passwordForm{Box: gapBox(widget.Column)}
 	f.AddClass("password-change")
-	f.current, f.next, f.confirm = p.passwordEntry("settings-users-password-current"), p.passwordEntry("settings-users-password-new"), p.passwordEntry("settings-users-password-confirm")
-	f.Append(panelRow(p.k, t.Get("settings-users-password-current"), "", f.current, p.revealButton(f.current)), false)
-	f.Append(panelRow(p.k, t.Get("settings-users-password-new"), "", f.next, p.revealButton(f.next, f.confirm)), false)
+	f.current, f.next, f.confirm = p.k.passwordEntry("settings-users-password-current"), p.k.passwordEntry("settings-users-password-new"), p.k.passwordEntry("settings-users-password-confirm")
+	f.Append(panelRow(p.k, t.Get("settings-users-password-current"), "", f.current, p.k.revealButton(f.current)), false)
+	f.Append(panelRow(p.k, t.Get("settings-users-password-new"), "", f.next, p.k.revealButton(f.next, f.confirm)), false)
 	f.Append(panelRow(p.k, t.Get("settings-users-password-confirm"), "", f.confirm), false)
 	f.Append(p.strengthRow(f.next), false)
-	f.messages = p.dialogMessages()
+	f.messages = p.k.dialogMessages()
 	f.Append(f.messages, false)
 	return f
 }
 
-func (p *usersPanel) passwordEntry(key string) *widget.Entry {
-	e := p.k.entry()
+func (k *kit) passwordEntry(key string) *widget.Entry {
+	e := k.entry()
 	e.SetEcho(widget.EchoPassword)
 	e.SetAccessibleName(locale.T().Get(key))
 	return e
@@ -770,8 +770,8 @@ func (p *usersPanel) strengthRow(next *widget.Entry) widget.Widget {
 	return panelRow(p.k, t.Get("settings-users-password-strength"), "", meter, word)
 }
 
-func (p *usersPanel) dialogMessages() formNote {
-	l := wrapped(p.k.label("", "setting-problem", css.Caption, css.Error))
+func (k *kit) dialogMessages() formNote {
+	l := wrapped(k.label("", "setting-problem", css.Caption, css.Error))
 	l.SetVisible(false)
 	return formNote{l}
 }

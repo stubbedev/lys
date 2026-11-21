@@ -138,8 +138,8 @@ type passwordPair struct {
 // into, labelled by passwordKey and confirmKey.
 func (p *usersPanel) newPasswordPair(into *widget.Box, passwordKey, confirmKey string) passwordPair {
 	t := locale.T()
-	pp := passwordPair{password: p.passwordEntry(passwordKey), repeat: p.passwordEntry(confirmKey)}
-	into.Append(panelRow(p.k, t.Get(passwordKey), "", pp.password, p.revealButton(pp.password, pp.repeat)), false)
+	pp := passwordPair{password: p.k.passwordEntry(passwordKey), repeat: p.k.passwordEntry(confirmKey)}
+	into.Append(panelRow(p.k, t.Get(passwordKey), "", pp.password, p.k.revealButton(pp.password, pp.repeat)), false)
 	into.Append(panelRow(p.k, t.Get(confirmKey), "", pp.repeat), false)
 	into.Append(p.strengthRow(pp.password), false)
 	return pp
@@ -207,7 +207,7 @@ func (p *usersPanel) newAddUserForm() *addUserForm {
 	f.Append(panelRow(p.k, t.Get("settings-users-add-full"), "", f.full), false)
 	f.Append(panelRow(p.k, t.Get("settings-users-add-name"), t.Attr("settings-users-add-name", "description"), f.login), false)
 	f.passwordPair = p.newPasswordPair(f.Box, "settings-users-add-password", "settings-users-add-confirm")
-	f.messages = p.dialogMessages()
+	f.messages = p.k.dialogMessages()
 	f.Append(f.messages, false)
 	return f
 }

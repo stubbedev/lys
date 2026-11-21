@@ -82,7 +82,7 @@ func (p *usersPanel) newUserSheet(u otherUser) *userSheet {
 	f.Append(panelRow(p.k, t.Get("settings-users-add-type"), "", f.kinds), false)
 	f.passwordPair = p.newPasswordPair(f.Box, "settings-users-password-new", "settings-users-password-confirm")
 	f.Append(wrapped(p.k.label(t.Get("settings-users-edit-password-keep"), "setting-description")), false)
-	f.messages = p.dialogMessages()
+	f.messages = p.k.dialogMessages()
 	f.Append(f.messages, false)
 	return f
 }
