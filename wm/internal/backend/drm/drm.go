@@ -807,9 +807,8 @@ func (b *Backend) light(c kdrm.Connector, t *tiling) error {
 		if info, err := edid.Parse(data, b.vendors); err != nil {
 			b.report(fmt.Errorf("drm: %s has an EDID lys-wm cannot read, so only its connector names it: %w", c.Name(), err))
 		} else {
-			o.identity, o.vrrHold = info, b.vrrHold(c, data)
+			o.identity, o.vrrHold, o.oled = info, b.vrrHold(c, data), b.oled(c, data)
 		}
-		o.oled = b.oled(c, data)
 		o.colorEDID, o.colorErr = edid.ParseHDR(data)
 	}
 	o.bpcFound = props[propMaxBPC].Value
