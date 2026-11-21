@@ -49,11 +49,12 @@ vm-checks +names:
     NIX_CONFIG="max-jobs = 1" just checks {{ names }}
 
 # A CI build job for this machine's system, in one nix build that keeps going
-# past a failure: every package, non-VM check and dev shell of the named
-# components, and the closures of the named VM checks of theirs, which their CI
-# jobs run. A flake output belongs to the component its name starts with, the
-# longest such name winning: `just build-stage lib ui`, `just build-stage wm
-# wm-vms-desktop wm-vms-gpus`.
+# past a failure: every package and non-VM check of the named components, and
+# the closures of the named VM checks of theirs, which their CI jobs run. Their
+# dev shells are `just build-shells`' work, which no job on a build uses. A
+# flake output belongs to the component its name starts with, the longest such
+# name winning: `just build-stage lib ui`, `just build-stage wm wm-vms-desktop
+# wm-vms-gpus`.
 [script("bash")]
 build-stage +names:
     set -euo pipefail
@@ -89,7 +90,6 @@ build-stage +names:
       in {
         packages = lib.filterAttrs (name: _: lib.hasPrefix \"lys-\" name && owned (lib.removePrefix \"lys-\" name)) flake.outputs.packages.\${system};
         checks = lib.filterAttrs (name: check: owned name && !(check ? driver)) flake.outputs.checks.\${system};
-        devShells = lib.filterAttrs (name: _: lib.elem name selected) flake.outputs.devShells.\${system};
         vms = lib.genAttrs [ $(list "${vms[@]}") ] (name: flake.outputs.checks.\${system}.\${name}.driver);
       }"
 

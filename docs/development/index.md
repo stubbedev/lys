@@ -27,7 +27,7 @@ Inside a shell, `just <component>::<recipe>` runs the same recipe:
 | `just gates [target]...` | Every Go gate and race suite of the targets (default every component) in parallel, each recipe in its own process in its component's dev shell, as many at once as cores and memory allow, over one Go build cache; prints each result, the failures' logs and the wall clock. A target is a component or one part of a component with `shards` (`wm/2`), with `:gates` for its Go gates alone or `:race` for its race suite alone, as CI's Go jobs name them: `just gates wm/3:race lib`. |
 | `just checks <name>...` | Build Nix checks for this machine, named `<component>-<check>`: `just checks login-vms-greeter wm-module`. |
 | `just vm-checks <name>...` | Run NixOS VM checks one after another on closures built first: the drivers, then each test alone. |
-| `just build-stage <component>... [vm]...` | A CI build job for this machine: every package, non-VM check and dev shell of the components, and the named VM checks' closures, in one `nix build` that keeps going past a failure. |
+| `just build-stage <component>... [vm]...` | A CI build job for this machine: every package and non-VM check of the components, and the named VM checks' closures, in one `nix build` that keeps going past a failure. Their dev shells are `just build-shells`' work. |
 | `just build-shells <component>...` | The CI job the Go, further and package jobs wait for: the components' dev shells on this machine. |
 | `just packages <name>...` | Build flake packages: `just packages lys-wm`. |
 | `just affected [base]` | The components and CI jobs a change since `base` (default `origin/main`) touches. |
@@ -123,20 +123,23 @@ another lane's build:
 1. **Component lanes**, one per component with VM checks (on x86_64), the
    `lanes` of the plan, run by `.github/workflows/lane.yml`: the component's
    build job, `just build-stage wm wm-vms-desktop ...`, builds its packages,
-   non-VM checks, dev shell and VM closures, first removing the runner's
+   non-VM checks and VM closures, first removing the runner's
    preinstalled toolchains only when the component sets `free-disk`, and its
    VM jobs and the further jobs it marks `after-build` start as soon as that
    build is done, not after the other components' builds: wm's VM jobs no
    longer wait for splash's disk images.
 2. **Shared build**, per architecture: every other component with Go suites
-   builds in one job, `just build-stage lib ui ...`, its packages, non-VM
-   checks and dev shell. A component with neither (`repository`, `packaging`)
+   builds in one job, `just build-stage lib ui ...`, its packages and non-VM
+   checks. A component with neither (`repository`, `packaging`)
    builds nothing. No job waits for it; the `ci` job does.
 3. **Dev shells**, per architecture: one job, `just build-shells lib ui ...`,
    builds the dev shells of the components with Go suites or packages there,
    which is all the Go jobs, the other further jobs and the package jobs use,
    so they start a minute or so after the plan instead of after the slowest
-   component build.
+   component build. It is the only job that builds them: no VM or
+   `after-build` job uses a dev shell, so a build job fetching the gigabyte
+   or more of a dev shell's inputs again would only take time from its own
+   six-minute build.
 
 A build job builds only the jobs nix-eval-jobs does not find in a binary cache (`--check-cache-status`), so outputs an earlier run already pushed, VM disk images included, are neither built nor downloaded again. Every build job pushes each store path to the binary cache (`xilos.dev`,
 through `XILO_TOKEN`; without the token the job fails, since nothing could be
