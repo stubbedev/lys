@@ -1946,7 +1946,7 @@ func TestAFullscreenWindowCoversTheBarInItsThumbnail(t *testing.T) {
 
 func TestABarCommittingNoDamageRedrawsNoThumbnail(t *testing.T) {
 	t.Parallel()
-	h := Start(t, overviewMode)
+	h := StartWith(t, func(cfg *compositor.Config) { cfg.SleepGrace = time.Hour }, overviewMode)
 	c := testclient.Connect(t, h.Socket())
 	bar := c.Layer(tallBar(), testclient.Fill(barColor[2], barColor[1], barColor[0]))
 	c.DispatchUntil("the bar to map", bar.Mapped)
@@ -1955,42 +1955,37 @@ func TestABarCommittingNoDamageRedrawsNoThumbnail(t *testing.T) {
 	h.Rendered(0)
 	h.dispatch("overview show")
 	h.Rendered(0)
+	c.Sync()
 	h.Eventually("both thumbnails drawn and filtered", func(_ *headless.Backend, comp *compositor.Compositor) bool {
 		return comp.OverviewThumbRedraws() >= 2 && !comp.OverviewThumbsStale()
 	})
-	redraws := func() uint64 {
-		var n uint64
-		h.Do(func(_ *headless.Backend, comp *compositor.Compositor) error {
-			n = comp.OverviewThumbRedraws()
-			return nil
-		})
-		return n
-	}
-	first := redraws()
-	idle := func() {
+	thumbs := func(frames int) (uint64, bool) {
 		h.t.Helper()
+		var redraws uint64
+		var stale bool
 		h.Do(func(b *headless.Backend, comp *compositor.Compositor) error {
-			for range 5 {
+			for range frames {
 				if err := comp.Frame(b.Outputs()[0]); err != nil {
 					return err
 				}
 			}
+			redraws, stale = comp.OverviewThumbRedraws(), comp.OverviewThumbsStale()
 			return nil
 		})
+		return redraws, stale
 	}
-	idle()
-	if got := redraws(); got != first {
-		t.Fatalf("idle frames under an idle bar redrew %d thumbnails", got-first)
+	first, _ := thumbs(0)
+	if got, stale := thumbs(5); got != first || stale {
+		t.Fatalf("idle frames under an idle bar redrew %d thumbnails and left one stale: %v", got-first, stale)
 	}
 	for range 3 {
 		if err := errors.Join(bar.Surface.Commit(), c.Display.Flush()); err != nil {
 			t.Fatal(err)
 		}
 		c.Sync()
-		idle()
-	}
-	if got := redraws(); got != first {
-		t.Fatalf("commits without damage redrew %d thumbnails", got-first)
+		if got, stale := thumbs(5); got != first || stale {
+			t.Fatalf("commits without damage redrew %d thumbnails and left one stale: %v", got-first, stale)
+		}
 	}
 }
 
