@@ -134,7 +134,7 @@
     },
     "desktop-vms": {
       "depends": ["lib", "polkit", "power", "secrets", "settings", "shell"],
-      "vms": [["desktop-vms-session", "desktop-vms-system"]]
+      "vms": [["desktop-vms-session"], ["desktop-vms-screencast", "desktop-vms-system"]]
     }
   },
   "gate-runners": {

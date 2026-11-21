@@ -62,12 +62,14 @@ against 63 s without, with the same binaries. The flake exposes
 component, and every check as `checks.<system>.<component>-<check>`.
 Components' VM scenarios that run on the same machine are subtests of one
 NixOS test, one boot for all of them: `nix/desktop-vms.nix` gathers them into
-`desktop-vms-session` (lys-shell on lys-wm, the idle wakeup gate, then a
-screen shared through lys-shell's portal, each in a fresh session of the same
-boot) and
+`desktop-vms-session` (lys-shell on lys-wm, then the idle wakeup gate, each
+in a fresh session of the same boot), `desktop-vms-screencast` (a screen
+shared through lys-shell's portal) and
 `desktop-vms-system` (KMS, accounts-daemon, lys-secrets activation, lys-power
 freezing a user's unit on battery, lys-polkit,
-then the clock steps and suspend of `shell/internal/clockwatch`), a CI job each.
+then the clock steps and suspend of `shell/internal/clockwatch`). The session
+VM is one CI job, the screencast and system VMs another: the three in one job
+took about twelve minutes.
 
 The idle wakeup gate (`nix/idle-vm.nix`) measures a still session of lys-wm,
 lys-shell and lys-power with `lys-power energy` from the moment the shell's

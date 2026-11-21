@@ -39,6 +39,14 @@
       portal = "lys-shell";
       seconds = 10;
     };
+    session = name: scenarios:
+      import ../wm/nix/session-vm.nix {
+        inherit pkgs name scenarios;
+        module = self.nixosModules.lys-wm;
+        devices = ["virtio-gpu-pci" "virtio-gpu-pci"];
+        memorySize = 4096;
+        cores = 4;
+      };
   in {
     checks =
       {
@@ -64,33 +72,27 @@
         );
       }
       // lib.optionalAttrs pkgs.stdenv.hostPlatform.isx86_64 {
-        lys-desktop-vms-session = import ../wm/nix/session-vm.nix {
-          inherit pkgs;
-          module = self.nixosModules.lys-wm;
-          name = "lys-desktop-vms-session";
-          devices = ["virtio-gpu-pci" "virtio-gpu-pci"];
-          memorySize = 4096;
-          cores = 4;
-          scenarios = [
-            (import ../shell/tests/lys-wm-vm.nix {inherit pkgs self;})
-            (import ./idle-vm.nix {inherit pkgs self;})
-            (screencast
-              // {
-                machineConfig = {
-                  imports = [screencast.machineConfig];
-                  systemd.services.second-output-off = {
-                    requiredBy = ["greetd.service"];
-                    before = ["greetd.service"];
-                    serviceConfig.Type = "oneshot";
-                    script = ''
-                      udevadm wait --settle --timeout=60 ${secondOutput}
-                      echo off > ${secondOutput}/status
-                    '';
-                  };
+        lys-desktop-vms-session = session "lys-desktop-vms-session" [
+          (import ../shell/tests/lys-wm-vm.nix {inherit pkgs self;})
+          (import ./idle-vm.nix {inherit pkgs self;})
+        ];
+        lys-desktop-vms-screencast = session "lys-desktop-vms-screencast" [
+          (screencast
+            // {
+              machineConfig = {
+                imports = [screencast.machineConfig];
+                systemd.services.second-output-off = {
+                  requiredBy = ["greetd.service"];
+                  before = ["greetd.service"];
+                  serviceConfig.Type = "oneshot";
+                  script = ''
+                    udevadm wait --settle --timeout=60 ${secondOutput}
+                    echo off > ${secondOutput}/status
+                  '';
                 };
-              })
-          ];
-        };
+              };
+            })
+        ];
       };
   };
 }
