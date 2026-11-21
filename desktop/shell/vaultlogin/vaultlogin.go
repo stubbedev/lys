@@ -7,8 +7,9 @@ package vaultlogin
 import (
 	"errors"
 
-	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/secrets/vault"
+
+	"github.com/stubbedev/lys/desktop/i18n"
 )
 
 // ErrorText is an operation's failure as what the user can do about it;

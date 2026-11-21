@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/secrets/vault"
+
+	"github.com/stubbedev/lys/desktop/i18n"
 )
 
 // Each failure reads as what the user can do about it; an unknown one
