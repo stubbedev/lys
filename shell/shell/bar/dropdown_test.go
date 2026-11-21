@@ -99,7 +99,7 @@ func TestDropdownBuildersGetTheFullStyle(t *testing.T) {
 	if r.ctx.Style.fg == 0 || r.ctx.Style != &full {
 		t.Fatalf("builders see fg %08x, want the full style's %08x", uint32(r.ctx.Style.fg), uint32(full.fg))
 	}
-	v := calendarDropdown(r.ctx).(*calendarView)
+	v := opened(calendarDropdown(r.ctx)).(*calendarView)
 	if v.hours == nil {
 		t.Fatal("no hours label")
 	}
@@ -355,7 +355,7 @@ func TestDropdownTreeStylesThePanelText(t *testing.T) {
 	bar.Append(anchor, false)
 	widget.SizeWithin(bar, widget.Size{W: 600, H: 40})
 	bar.Arrange(render.Rect{W: 600, H: 40})
-	root, _ := dropdownTree(calendarDropdown(ctx), cfg)
+	root, _ := dropdownTree(opened(calendarDropdown(ctx)), cfg)
 	arrange := func() []*widget.Label {
 		widget.SizeWithin(root, widget.Size{W: 600, H: 900})
 		root.Arrange(render.Rect{W: 600, H: 900})

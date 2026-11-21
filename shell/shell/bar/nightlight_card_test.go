@@ -38,7 +38,7 @@ func newNightlightDropdown(t *testing.T, cfg *config.Config, env sunsetEnv) nigh
 		go done(*saveFail)
 	}
 	ctx.Nightlight = newNightlightService(ctx, env)
-	v := onHeadlessLoop(func() *brightnessView { return brightnessDropdown(ctx).(*brightnessView) })
+	v := onHeadlessLoop(func() *brightnessView { return opened(brightnessDropdown(ctx)).(*brightnessView) })
 	t.Cleanup(func() { onHeadlessLoop(func() bool { v.dropdownClosed(); return true }) })
 	if v.night == nil {
 		t.Fatal("the brightness dropdown has no night light card with a night light running")
@@ -278,7 +278,7 @@ func withTemperature(cfg *config.Config, kelvin uint32) *config.Config {
 func TestBrightnessDropdownWithoutANightLight(t *testing.T) {
 	ctx := newTestContext(t, config.Defaults())
 	ctx.Brightness = &fakeBrightnessSource{}
-	v := onHeadlessLoop(func() *brightnessView { return brightnessDropdown(ctx).(*brightnessView) })
+	v := onHeadlessLoop(func() *brightnessView { return opened(brightnessDropdown(ctx)).(*brightnessView) })
 	defer onHeadlessLoop(func() bool { v.dropdownClosed(); return true })
 	if v.night != nil || len(treetest.WithClass(v, "brightness-nightlight")) != 0 {
 		t.Error("a night light card without a night light")

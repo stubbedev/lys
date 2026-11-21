@@ -84,28 +84,28 @@ func dropdownFixtures() []dropdownFixture {
 	return []dropdownFixture{
 		{"audio", "audio", func(t *testing.T, ctx *ModuleContext) widget.Widget {
 			_, ctx.Pulse = audioFixture(t)
-			return audioDropdown(*ctx)
+			return opened(audioDropdown(*ctx))
 		}},
 		{"audio-picker", "audio", func(t *testing.T, ctx *ModuleContext) widget.Widget {
 			_, ctx.Pulse = audioFixture(t)
-			v := audioDropdown(*ctx).(*audioView)
+			v := opened(audioDropdown(*ctx)).(*audioView)
 			v.showPage("output")
 			return v
 		}},
 		{"battery", "battery", func(_ *testing.T, ctx *ModuleContext) widget.Widget {
 			ctx.Battery = newFakeBattery(presentBattery())
-			return batteryDropdown(*ctx)
+			return opened(batteryDropdown(*ctx))
 		}},
 		{"bitwarden-vault", "bitwarden", func(t *testing.T, ctx *ModuleContext) widget.Widget {
 			v := &fakeVault{status: vault.Status{State: vault.StateUnlocked, Items: 2}, entries: bitwardenPreviewItems()}
 			ctx.Bitwarden = testBitwardenHost(v, ctx.Config, &[]copied{})
-			view := bitwardenDropdown(*ctx).(*bitwardenView)
+			view := opened(bitwardenDropdown(*ctx)).(*bitwardenView)
 			widget.SetSurfaceHost(view.Box, focusHost{})
 			return view
 		}},
 		{"bitwarden-login", "bitwarden", func(_ *testing.T, ctx *ModuleContext) widget.Widget {
 			ctx.Bitwarden = testBitwardenHost(&fakeVault{}, ctx.Config, &[]copied{})
-			view := bitwardenDropdown(*ctx).(*bitwardenView)
+			view := opened(bitwardenDropdown(*ctx)).(*bitwardenView)
 			widget.SetSurfaceHost(view.Box, focusHost{})
 			return view
 		}},
@@ -135,34 +135,34 @@ func dropdownFixtures() []dropdownFixture {
 				{Name: "intel_backlight", Type: brightness.TypeFirmware, Brightness: 50, Max: 100},
 				{Name: "ddcci5", Type: brightness.TypeDDC, Brightness: 10, Max: 100},
 			}}
-			return brightnessDropdown(*ctx)
+			return opened(brightnessDropdown(*ctx))
 		}},
-		{"calendar", "calendar", func(_ *testing.T, ctx *ModuleContext) widget.Widget { return calendarDropdown(*ctx) }},
+		{"calendar", "calendar", func(_ *testing.T, ctx *ModuleContext) widget.Widget { return opened(calendarDropdown(*ctx)) }},
 		{"dashboard", "dashboard", func(t *testing.T, ctx *ModuleContext) widget.Widget {
 			ctx.Notifications = notifytest.NewService(t)
 			ctx.IdleInhibit = idleinhibit.NewState(inhibitduration.Duration{})
 			ctx.Media = newFakeMedia(mpris.Player{BusName: "org.mpris.MediaPlayer2.x", Title: "Song", Artist: "Band", State: mpris.StatePlaying, CanGoNext: true})
-			return dashboardDropdown(*ctx)
+			return opened(dashboardDropdown(*ctx))
 		}},
 		{"mail", "mail", func(t *testing.T, ctx *ModuleContext) widget.Widget {
 			mc := ctx.Config.Mail
 			mc.Accounts = []config.MailAccount{{Name: "Work", Query: "tag:work"}, {Name: "Personal", Query: "tag:me"}}
 			ctx.Mail = seededMail(t, mc, 3)
-			return mailDropdown(*ctx)
+			return opened(mailDropdown(*ctx))
 		}},
 		{"media", "media", func(_ *testing.T, ctx *ModuleContext) widget.Widget {
 			ctx.Media = newFakeMedia(mpris.Player{
 				BusName: "org.mpris.MediaPlayer2.vlc", Identity: "VLC", Title: "Song", Artist: "Band", State: mpris.StatePlaying,
 				Length: time.Minute, CanGoNext: true, CanSeek: true,
 			})
-			return mediaDropdown(*ctx)
+			return opened(mediaDropdown(*ctx))
 		}},
 		{"media-picker", "media", func(_ *testing.T, ctx *ModuleContext) widget.Widget {
 			ctx.Media = newFakeMedia(
 				mpris.Player{BusName: "org.mpris.MediaPlayer2.vlc", Identity: "VLC", State: mpris.StatePlaying},
 				mpris.Player{BusName: "org.mpris.MediaPlayer2.mpv", Identity: "mpv"},
 			)
-			v := mediaDropdown(*ctx).(*mediaView)
+			v := opened(mediaDropdown(*ctx)).(*mediaView)
 			v.showPicker()
 			return v
 		}},
@@ -173,12 +173,12 @@ func dropdownFixtures() []dropdownFixture {
 			ctx.Network = &fakeNetworkSource{snap: network.Snapshot{
 				WifiEnabled: true, HasWifi: true, Wifi: network.StatusConnected, WifiSSID: "mine", WifiStrength: 90, WifiFrequency: 5180, WifiIP4: "192.168.1.9",
 			}, ticks: make(chan struct{}, 2)}
-			return newNetworkView(*ctx, netDeps{wifiCtl: wifi})
+			return opened(newNetworkView(*ctx, netDeps{wifiCtl: wifi}))
 		}},
 		{"network-password", "network", func(_ *testing.T, ctx *ModuleContext) widget.Widget {
 			wifi := &fakeWifiCtl{aps: []network.AccessPoint{netAP("home", 80, network.SecurityWPA2, "/ap/1")}}
 			ctx.Network = &fakeNetworkSource{snap: network.Snapshot{WifiEnabled: true, HasWifi: true}, ticks: make(chan struct{}, 2)}
-			v := newNetworkView(*ctx, netDeps{wifiCtl: wifi})
+			v := opened(newNetworkView(*ctx, netDeps{wifiCtl: wifi}))
 			v.attachPopover(&fakePopover{})
 			v.selectNetwork("home")
 			return v
@@ -189,7 +189,7 @@ func dropdownFixtures() []dropdownFixture {
 				Fields: []secrets.Field{{Key: "password", Label: "Pass", Secret: true}, {Key: "otp", Label: "Code"}},
 			}}
 			ctx.Network = &fakeNetworkSource{snap: network.Snapshot{}, ticks: make(chan struct{}, 2)}
-			v := newNetworkView(*ctx, netDeps{agent: agent})
+			v := opened(newNetworkView(*ctx, netDeps{agent: agent}))
 			v.attachPopover(&fakePopover{})
 			return v
 		}},
@@ -199,13 +199,13 @@ func dropdownFixtures() []dropdownFixture {
 				{UUID: "u2", Name: "Home", State: network.VPNFailed, Detail: "wrong username or password"},
 			}}
 			ctx.Network = &fakeNetworkSource{snap: network.Snapshot{HasWired: true, Wired: network.StatusConnected, WiredSpeed: 1000, WiredIP4: "10.0.0.5"}, ticks: make(chan struct{}, 2)}
-			v := newNetworkView(*ctx, netDeps{vpn: vpn, vpnKinds: testKinds})
+			v := opened(newNetworkView(*ctx, netDeps{vpn: vpn, vpnKinds: testKinds}))
 			v.apply(v.read(context.Background()))
 			return v
 		}},
 		{"network-vpn-edit", "network", func(_ *testing.T, ctx *ModuleContext) widget.Widget {
 			ctx.Network = &fakeNetworkSource{snap: network.Snapshot{}, ticks: make(chan struct{}, 2)}
-			v := newNetworkView(*ctx, netDeps{vpn: &fakeVPN{}, vpnKinds: testKinds})
+			v := opened(newNetworkView(*ctx, netDeps{vpn: &fakeVPN{}, vpnKinds: testKinds}))
 			v.attachPopover(&fakePopover{})
 			v.vpnAdd()
 			return v
@@ -215,12 +215,12 @@ func dropdownFixtures() []dropdownFixture {
 			svc.Notify("mail", 0, "", "Mail", "<b>body</b> text", nil, 0)
 			svc.Notify("chat", 0, "", "Ping", "are you there?", []string{"reply", "Reply", "default", "Open"}, 0)
 			ctx.Notifications = svc
-			return notificationDropdown(*ctx)
+			return opened(notificationDropdown(*ctx))
 		}},
 		{"recorder", "recorder", func(t *testing.T, ctx *ModuleContext) widget.Widget {
 			rc, _, _ := recorderTestCtx(t, []devicechoice.DeviceChoice{{ID: "", Label: "Automatic"}})
 			ctx.Config, ctx.SetConfig, ctx.Recorder = rc.Config, rc.SetConfig, rc.Recorder
-			return recorderDropdown(*ctx)
+			return opened(recorderDropdown(*ctx))
 		}},
 		{"weather", "weather", func(t *testing.T, ctx *ModuleContext) widget.Widget {
 			now := time.Now()
@@ -241,15 +241,15 @@ func dropdownFixtures() []dropdownFixture {
 			t.Cleanup(svc.Close)
 			ctx.Weather = svc
 			waitHeadless(t, "the loaded weather", func() bool { return svc.Status().Kind == weather.Loaded })
-			return weatherDropdown(*ctx)
+			return opened(weatherDropdown(*ctx))
 		}},
 		{"treeman", "treeman", func(_ *testing.T, ctx *ModuleContext) widget.Widget {
 			ctx.Treeman = &fakeTreeman{status: treemanFixture()}
-			return treemanDropdown(*ctx)
+			return opened(treemanDropdown(*ctx))
 		}},
 		{"treeman-detail", "treeman", func(_ *testing.T, ctx *ModuleContext) widget.Widget {
 			ctx.Treeman = &fakeTreeman{status: treemanFixture()}
-			v := treemanDropdown(*ctx).(*treemanView)
+			v := opened(treemanDropdown(*ctx)).(*treemanView)
 			v.openDetail("/w/feat")
 			return v
 		}},

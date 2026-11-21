@@ -19,7 +19,7 @@ import (
 func TestCalendarNamesAreTheShells(t *testing.T) {
 	cfg := config.Defaults()
 	cfg.Clock.CalendarWeekdayStart = config.WeekStartMonday
-	v := calendarDropdown(newTestContext(t, cfg)).(*calendarView)
+	v := opened(calendarDropdown(newTestContext(t, cfg))).(*calendarView)
 	names := v.names
 	if got := names.MonthName(time.October); got != i18n.T("cal-month-october") {
 		t.Errorf("October = %q, want the catalog's", got)
@@ -32,14 +32,14 @@ func TestCalendarNamesAreTheShells(t *testing.T) {
 	}
 	saturday := newTestContext(t, config.Defaults())
 	saturday.Region.WeekStart = time.Saturday
-	def := calendarDropdown(saturday).(*calendarView)
+	def := opened(calendarDropdown(saturday)).(*calendarView)
 	if n := def.names; n.FirstWeekday() != time.Saturday {
 		t.Errorf("the default week starts %v, want the locale's Saturday", n.FirstWeekday())
 	}
 	cfg.Clock.CalendarWeekdayStart = config.WeekStartSunday
 	sunday := newTestContext(t, cfg)
 	sunday.Region.WeekStart = time.Saturday
-	if n := calendarDropdown(sunday).(*calendarView).names; n.FirstWeekday() != time.Sunday {
+	if n := opened(calendarDropdown(sunday)).(*calendarView).names; n.FirstWeekday() != time.Sunday {
 		t.Errorf("a week set to start on Sunday starts %v under a Saturday locale", n.FirstWeekday())
 	}
 }
@@ -50,7 +50,7 @@ func TestCalendarViewNavigatesAndSelects(t *testing.T) {
 	cfg := config.Defaults()
 	cfg.Clock.Format = mustStrftimeFormat(t, "%I:%M %p")
 	cfg.Clock.DropdownShowSeconds = false
-	v := calendarDropdown(newTestContext(t, cfg)).(*calendarView)
+	v := opened(calendarDropdown(newTestContext(t, cfg))).(*calendarView)
 	today := widget.DateOf(time.Now())
 	if v.cal.Selection() != today || v.cal.Shown() != today.FirstOfMonth() {
 		t.Errorf("opens on %v picking %v, want today %v", v.cal.Shown(), v.cal.Selection(), today)
@@ -71,7 +71,7 @@ func TestCalendarViewNavigatesAndSelects(t *testing.T) {
 
 // Across midnight the tick moves today; within a day it leaves it.
 func TestCalendarTodayFollowsTheClock(t *testing.T) {
-	v := calendarDropdown(newTestContext(t, config.Defaults())).(*calendarView)
+	v := opened(calendarDropdown(newTestContext(t, config.Defaults()))).(*calendarView)
 	start := v.today
 	v.tick()
 	if v.today != start {
@@ -88,7 +88,7 @@ func TestCalendarTodayFollowsTheClock(t *testing.T) {
 // The section is the Today button over lys-ui's Calendar, which owns
 // the month title, the navigation and the grid: no hand-built grid.
 func TestCalendarSectionIsTheLysUICalendar(t *testing.T) {
-	v := calendarDropdown(newTestContext(t, config.Defaults())).(*calendarView)
+	v := opened(calendarDropdown(newTestContext(t, config.Defaults()))).(*calendarView)
 	section := classedBox(t, v, "cal-section")
 	var cals int
 	walkTree(section, func(w widget.Widget) bool {
@@ -118,7 +118,7 @@ func TestCalendarClockRowCarriesTheStateClasses(t *testing.T) {
 	cfg.Clock.Format = mustStrftimeFormat(t, "%I:%M %p")
 	cfg.Clock.DropdownShowSeconds = true
 	ctx := newTestContext(t, cfg)
-	v := calendarDropdown(ctx).(*calendarView)
+	v := opened(calendarDropdown(ctx)).(*calendarView)
 	if !v.timeRow.HasClass("show-seconds") || !v.ampm.Visible() {
 		t.Errorf("12h with seconds: classes = %v, ampm %v; want show-seconds and the ampm", v.timeRow.Classes(), v.ampm.Visible())
 	}
@@ -134,7 +134,7 @@ func TestCalendarClockRowCarriesTheStateClasses(t *testing.T) {
 // grid's natural size, and never more than the section has.
 func TestCalendarFillsItsSection(t *testing.T) {
 	ctx := styledContext(t, config.Defaults())
-	v := calendarDropdown(ctx).(*calendarView)
+	v := opened(calendarDropdown(ctx)).(*calendarView)
 	w, _, _ := dropdownDims("calendar", ctx.Config)
 	card, _ := dropdownTree(dropdownPanel("calendar", ctx.Config, v), ctx.Config)
 	ctx.Theme.Attach(card)
@@ -172,7 +172,7 @@ func TestCalendarHeroAndAgendaShowTheSameHour(t *testing.T) {
 	} {
 		cfg := config.Defaults()
 		cfg.Clock.Format = mustStrftimeFormat(t, c.format)
-		v := calendarDropdown(newTestContext(t, cfg)).(*calendarView)
+		v := opened(calendarDropdown(newTestContext(t, cfg))).(*calendarView)
 		v.now = func() time.Time { return at }
 		v.tick()
 		if got := v.hours.Text(); got != c.hero {

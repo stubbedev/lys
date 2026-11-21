@@ -380,9 +380,7 @@ func (r *dropdownRegistry) prebuild() {
 		}
 		name := names[0]
 		names = names[1:]
-		if h, ok := r.instance(name, r.builders[name]).(dropdownHider); ok {
-			h.dropdownHidden()
-		}
+		r.instance(name, r.builders[name])
 		if len(names) > 0 {
 			r.invoke(step)
 		}

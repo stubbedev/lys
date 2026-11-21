@@ -91,7 +91,6 @@ func backgroundAppsDropdown(ctx ModuleContext) widget.Widget {
 	content := dropdownContent()
 	content.Append(v.pages, true)
 	v.Append(content, true)
-	v.startFollowing()
 	return v
 }
 

@@ -257,7 +257,7 @@ func bitwardenTestView(t *testing.T, v *fakeVault, cfg *config.Config) (*bitward
 	copies := &[]copied{}
 	style := computeStyle(cfg, styling.Default())
 	ctx := ModuleContext{Config: cfg, Font: testFont(t), Style: &style, Bitwarden: testBitwardenHost(v, cfg, copies), gen: testGen(t)}
-	view := bitwardenDropdown(ctx).(*bitwardenView)
+	view := opened(bitwardenDropdown(ctx)).(*bitwardenView)
 	widget.SetSurfaceHost(view.Box, focusHost{})
 	view.Arrange(render.Rect{W: 382, H: 600})
 	t.Cleanup(view.dropdownClosed)
@@ -646,7 +646,7 @@ func TestBitwardenInitialFocus(t *testing.T) {
 		t.Errorf("open focuses %T", got)
 	}
 	style := computeStyle(cfg, styling.Default())
-	broken := bitwardenDropdown(ModuleContext{Config: cfg, Font: testFont(t), Style: &style, gen: testGen(t)}).(*bitwardenView)
+	broken := opened(bitwardenDropdown(ModuleContext{Config: cfg, Font: testFont(t), Style: &style, gen: testGen(t)})).(*bitwardenView)
 	if got := broken.dropdownFocus(); got != nil {
 		t.Errorf("no vault focuses %T", got)
 	}

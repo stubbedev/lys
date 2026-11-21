@@ -243,7 +243,6 @@ func newNetworkView(ctx ModuleContext, deps netDeps) *networkView {
 	v.Append(content, true)
 
 	v.apply(netState{})
-	v.startFollowing()
 	return v
 }
 

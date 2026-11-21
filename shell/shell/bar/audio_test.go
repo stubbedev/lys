@@ -452,7 +452,7 @@ func TestAudioBuiltinsParse(t *testing.T) {
 
 func TestTheAudioDropdownListsWhatCapturesAndStopsAShare(t *testing.T) {
 	ctx, srv, cams, shares := captureFixture(t)
-	v := onHeadlessLoop(func() *audioView { return audioDropdown(ctx).(*audioView) })
+	v := onHeadlessLoop(func() *audioView { return opened(audioDropdown(ctx)).(*audioView) })
 	defer onHeadlessLoop(func() bool { v.dropdownClosed(); return true })
 	if onHeadlessLoop(v.capture.Visible) {
 		t.Fatal("the capture section shows with nothing capturing")
@@ -518,7 +518,7 @@ func TestTheAudioDropdownListsWhatCapturesAndStopsAShare(t *testing.T) {
 func cameraDropdown(t *testing.T, fail error) (*audioView, *fakeCameras, *[]syscall.Signal) {
 	t.Helper()
 	ctx, _, cams, _ := captureFixture(t)
-	v := onHeadlessLoop(func() *audioView { return audioDropdown(ctx).(*audioView) })
+	v := onHeadlessLoop(func() *audioView { return opened(audioDropdown(ctx)).(*audioView) })
 	t.Cleanup(func() { onHeadlessLoop(func() bool { v.dropdownClosed(); return true }) })
 	var signals []syscall.Signal
 	onHeadlessLoop(func() bool {
@@ -627,7 +627,7 @@ func TestAFailedEndShowsInTheDropdown(t *testing.T) {
 
 func TestOnlyEndAndStopAreDestructive(t *testing.T) {
 	ctx, srv, cams, shares := captureFixture(t)
-	v := onHeadlessLoop(func() *audioView { return audioDropdown(ctx).(*audioView) })
+	v := onHeadlessLoop(func() *audioView { return opened(audioDropdown(ctx)).(*audioView) })
 	defer onHeadlessLoop(func() bool { v.dropdownClosed(); return true })
 	muted := recording(42, 3, "Firefox", 4343)
 	muted.Mute = true
@@ -752,7 +752,7 @@ func TestAScreenShareStopIsPendingToastsAndRetries(t *testing.T) {
 	shown := &toasts{}
 	ctx.ScreenShares = gatedShares{shareSource: ctx.ScreenShares, gate: gate}
 	ctx.Toast = shown.record
-	v := onHeadlessLoop(func() *audioView { return audioDropdown(ctx).(*audioView) })
+	v := onHeadlessLoop(func() *audioView { return opened(audioDropdown(ctx)).(*audioView) })
 	defer onHeadlessLoop(func() bool { v.dropdownClosed(); return true })
 	shares.set(chromeShare)
 	waitHeadless(t, "the share listed", func() bool { return slices.Contains(treetest.Labels(v.capture), "org.chromium.Chromium") })

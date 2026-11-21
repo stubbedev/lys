@@ -140,7 +140,7 @@ func recorderTestCtx(t *testing.T, cams []devicechoice.DeviceChoice) (ModuleCont
 
 func TestRecorderDropdownStateAndControls(t *testing.T) {
 	ctx, _, engine := recorderTestCtx(t, []devicechoice.DeviceChoice{{ID: "", Label: "Automatic"}})
-	v := recorderDropdown(ctx).(*recorderView)
+	v := opened(recorderDropdown(ctx)).(*recorderView)
 	defer v.dropdownClosed()
 	if v.status.Visible() || v.pause.Enabled() || !v.record.HasClass(css.SuggestedAction) || recordText(v) != i18n.T("dropdown-recorder-record") {
 		t.Error("idle: want the record button, no status, pause disabled")
@@ -176,7 +176,7 @@ func TestRecorderDropdownWritesConfig(t *testing.T) {
 	}
 	defer func() { _ = svc.Close() }()
 	ctx.Pulse = svc
-	v := recorderDropdown(ctx).(*recorderView)
+	v := opened(recorderDropdown(ctx)).(*recorderView)
 	defer v.dropdownClosed()
 	if !v.webcam.Visible() {
 		t.Fatal("a camera is present: the webcam card is hidden")
@@ -221,7 +221,7 @@ func TestRecorderDropdownWritesConfig(t *testing.T) {
 // icon-and-label content.
 func TestRecorderSettingsAreItemCards(t *testing.T) {
 	ctx, _, _ := recorderTestCtx(t, []devicechoice.DeviceChoice{{ID: "", Label: "Automatic"}})
-	v := recorderDropdown(ctx).(*recorderView)
+	v := opened(recorderDropdown(ctx)).(*recorderView)
 	defer v.dropdownClosed()
 	cards := treetest.WithClass(v, "recorder-card")
 	if len(cards) != 3 {
@@ -252,7 +252,7 @@ func styledWebcamDropdown(t *testing.T, w int, camera string) *recorderView {
 	cfg := config.Defaults()
 	cfg.Recorder.WebcamDevice = "/dev/video0"
 	ctx := styledContext(t, cfg)
-	v := recorderDropdown(ctx).(*recorderView)
+	v := opened(recorderDropdown(ctx)).(*recorderView)
 	t.Cleanup(v.dropdownClosed)
 	ctx.Theme.Attach(v)
 	arrangeDropdown(t, v, w, 1000)
@@ -363,7 +363,7 @@ func recordText(v *recorderView) string {
 func TestRecorderDevicePickersAreEnabledOnlyWhileTheirCaptureIsOn(t *testing.T) {
 	ctx, log, _ := recorderTestCtx(t, []devicechoice.DeviceChoice{{ID: "", Label: "Automatic"}, {ID: "cam", Label: "Cam"}})
 	ctx.Config.Recorder.Microphone, ctx.Config.Recorder.WebcamEnabled = false, true
-	v := recorderDropdown(ctx).(*recorderView)
+	v := opened(recorderDropdown(ctx)).(*recorderView)
 	defer v.dropdownClosed()
 	rows := treetest.WithClass(v, "recorder-row")
 	micSwitch := treetest.First[*widget.Switch](t, rows[0])
@@ -399,7 +399,7 @@ func TestRecorderDropdownShowsAFailedSaveWhoseWriteRemountedTheBars(t *testing.T
 		ctx.gen.retire()
 		done(errors.New("config: save: no space left on device"))
 	}
-	v := recorderDropdown(ctx).(*recorderView)
+	v := opened(recorderDropdown(ctx)).(*recorderView)
 	defer v.dropdownClosed()
 	sw := treetest.First[*widget.Switch](t, treetest.WithClass(v, "recorder-row")[0])
 	was := sw.On()
@@ -414,7 +414,7 @@ func TestRecorderDropdownShowsAFailedSaveWhoseWriteRemountedTheBars(t *testing.T
 
 func TestRecorderDropdownShowsAFailedSaveAndRestoresTheControl(t *testing.T) {
 	ctx, log, _ := recorderTestCtx(t, []devicechoice.DeviceChoice{{ID: "", Label: "Automatic"}})
-	v := recorderDropdown(ctx).(*recorderView)
+	v := opened(recorderDropdown(ctx)).(*recorderView)
 	defer v.dropdownClosed()
 	sw := treetest.First[*widget.Switch](t, treetest.WithClass(v, "recorder-row")[0])
 	was := sw.On()
@@ -440,7 +440,7 @@ func TestRecorderDropdownShowsAFailedSaveAndRestoresTheControl(t *testing.T) {
 // memory follows the ring at each keyframe and Save writes a file.
 func TestRecorderDropdownInstantReplay(t *testing.T) {
 	ctx, log, engine := recorderTestCtx(t, []devicechoice.DeviceChoice{{ID: "", Label: "Automatic"}})
-	v := recorderDropdown(ctx).(*recorderView)
+	v := opened(recorderDropdown(ctx)).(*recorderView)
 	defer v.dropdownClosed()
 	if v.replaySave.Enabled() || v.replayMemory.Text() != "-" {
 		t.Errorf("off: save enabled %v, memory %q", v.replaySave.Enabled(), v.replayMemory.Text())

@@ -88,7 +88,6 @@ func treemanDropdown(ctx ModuleContext) widget.Widget {
 	v.Append(content, true)
 
 	v.apply(nil)
-	v.startFollowing()
 	return v
 }
 

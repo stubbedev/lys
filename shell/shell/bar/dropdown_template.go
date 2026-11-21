@@ -352,15 +352,6 @@ func newOpenFollow(ctx ModuleContext, follow func(context.Context)) *openFollow 
 	return &openFollow{follow: follow, life: life, end: end}
 }
 
-func (f *openFollow) startFollowing() {
-	if f.hide != nil || f.life.Err() != nil {
-		return
-	}
-	showing, hide := context.WithCancel(f.life)
-	f.hide = hide
-	f.follow(showing)
-}
-
 func (f *openFollow) stopFollowing() {
 	if f.hide != nil {
 		f.hide()
@@ -373,7 +364,12 @@ func (f *openFollow) stopFollowing() {
 
 func (f *openFollow) dropdownOpened() {
 	f.shown++
-	f.startFollowing()
+	if f.hide != nil || f.life.Err() != nil {
+		return
+	}
+	showing, hide := context.WithCancel(f.life)
+	f.hide = hide
+	f.follow(showing)
 }
 
 func (f *openFollow) dropdownHidden() {

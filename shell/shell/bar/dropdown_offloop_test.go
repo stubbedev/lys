@@ -133,7 +133,7 @@ func TestDropdownBuildersReturnWhileEveryServiceHolds(t *testing.T) {
 		"dashboard":  dashboardDropdown,
 	} {
 		built := make(chan widget.Widget, 1)
-		a.Invoke(func() { built <- build(ctx) })
+		a.Invoke(func() { built <- opened(build(ctx)) })
 		w := waittest.For(t, built, "the "+name+" builder past a held service")
 		c, ok := w.(dropdownCloser)
 		if !ok {
@@ -159,13 +159,20 @@ func TestRecorderCameraProbeFillsThePickerWhenItEnds(t *testing.T) {
 		return []devicechoice.DeviceChoice{{ID: "", Label: "Automatic"}, {ID: "/dev/video0", Label: "Cam"}}
 	}
 	t.Cleanup(func() { recorderCameras = prev })
-	v := apptest.On(a, func() *recorderView { return recorderDropdown(ctx).(*recorderView) })
+	v := apptest.On(a, func() *recorderView { return opened(recorderDropdown(ctx)).(*recorderView) })
 	t.Cleanup(func() { apptest.On(a, func() bool { v.dropdownClosed(); return true }) })
 	if apptest.On(a, func() bool { return v.webcam.Visible() }) {
 		t.Fatal("the webcam section shows before the probe answered")
 	}
 	close(release)
 	apptest.Until(t, a, "the probe's cameras in the picker", func() bool { return v.webcam.Visible() && len(v.cams) == 2 })
+}
+
+func opened[W widget.Widget](w W) W {
+	if o, ok := any(w).(dropdownOpener); ok {
+		o.dropdownOpened()
+	}
+	return w
 }
 
 func TestFollowingEndsWithThePopover(t *testing.T) {
@@ -178,10 +185,12 @@ func TestFollowingEndsWithThePopover(t *testing.T) {
 			stops.Add(1)
 		})
 	})
-	f.startFollowing()
+	if got := starts.Load(); got != 0 {
+		t.Fatalf("a build started %d follows before any open", got)
+	}
 	f.dropdownOpened()
 	if got := starts.Load(); got != 1 {
-		t.Fatalf("a build then its open started %d follows, want one", got)
+		t.Fatalf("an open started %d follows, want one", got)
 	}
 	f.dropdownOpened()
 	f.dropdownHidden()
@@ -220,7 +229,7 @@ func TestClosedDropdownsAskNothingOfTheirServices(t *testing.T) {
 	ctx.Media, ctx.Network, ctx.Battery = media, net, bat
 	var hide []func()
 	for _, build := range []func(ModuleContext) widget.Widget{mediaDropdown, networkDropdown, batteryDropdown, calendarDropdown} {
-		w := apptest.On(a, func() widget.Widget { return build(ctx) })
+		w := apptest.On(a, func() widget.Widget { return opened(build(ctx)) })
 		t.Cleanup(func() { apptest.On(a, func() bool { w.(dropdownCloser).dropdownClosed(); return true }) })
 		hide = append(hide, func() { w.(dropdownHider).dropdownHidden() })
 	}
@@ -250,7 +259,7 @@ func TestClosedDropdownsAskNothingOfTheirServices(t *testing.T) {
 func TestDashboardPollSamplesOffTheLoopAndPostsOnlyChanges(t *testing.T) {
 	fixedProc(t)
 	ctx := styledContext(t, config.Defaults())
-	v := dashboardDropdown(ctx).(*dashboardView)
+	v := opened(dashboardDropdown(ctx)).(*dashboardView)
 	a := apptest.Run(t)
 	t.Cleanup(v.dropdownClosed)
 	v.sample()

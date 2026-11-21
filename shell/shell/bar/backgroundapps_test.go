@@ -137,7 +137,7 @@ func TestBackgroundAppsAreListedAndStopKillsTheInstance(t *testing.T) {
 	waitHeadless(t, "two background apps", func() bool { return chrome.Visible() && ind.btn.Label().Text() == "2" })
 
 	v := onHeadlessLoop(func() *backgroundAppsView {
-		return backgroundAppsDropdown(ctx).(*backgroundAppsView)
+		return opened(backgroundAppsDropdown(ctx)).(*backgroundAppsView)
 	})
 	defer onHeadlessLoop(func() bool { v.dropdownClosed(); return true })
 	labels := onHeadlessLoop(func() []string { return treetest.Labels(v) })
@@ -198,7 +198,7 @@ func TestABackgroundAppStopIsPendingToastsAndRetries(t *testing.T) {
 	ctx.Toast = shown.record
 	f.set(t, backgroundApp("org.gnome.Fractal", "1234", "Syncing messages"))
 	v := onHeadlessLoop(func() *backgroundAppsView {
-		return backgroundAppsDropdown(ctx).(*backgroundAppsView)
+		return opened(backgroundAppsDropdown(ctx)).(*backgroundAppsView)
 	})
 	defer onHeadlessLoop(func() bool { v.dropdownClosed(); return true })
 	waitHeadless(t, "the app listed", func() bool { return slices.Contains(treetest.Labels(v), "Fractal") })
@@ -216,7 +216,7 @@ func TestNoBackgroundMonitorShowsNoIndicator(t *testing.T) {
 		t.Error("the indicator shows with no background monitor on the bus")
 	}
 	v := onHeadlessLoop(func() *backgroundAppsView {
-		return backgroundAppsDropdown(ctx).(*backgroundAppsView)
+		return opened(backgroundAppsDropdown(ctx)).(*backgroundAppsView)
 	})
 	defer onHeadlessLoop(func() bool { v.dropdownClosed(); return true })
 	if rows := onHeadlessLoop(func() []widget.Widget { return treetest.WithClass(v, "background-apps-dropdown-row") }); len(rows) != 0 {

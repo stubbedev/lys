@@ -192,7 +192,6 @@ func mediaDropdown(ctx ModuleContext) widget.Widget {
 	v.buildPlayer(font, px)
 	v.main.Add("player", v.player)
 	v.main.Add("empty", v.empty)
-	v.startFollowing()
 	return v
 }
 

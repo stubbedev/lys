@@ -295,8 +295,7 @@ func recorderDropdown(ctx ModuleContext) widget.Widget {
 	v.failure.SetWrap(true)
 	v.failure.SetVisible(false)
 	content.Append(v.failure, false)
-
-	v.startFollowing()
+	v.applyState(v.snapshot())
 	return v
 }
 

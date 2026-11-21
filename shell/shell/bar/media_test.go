@@ -301,7 +301,7 @@ func TestMediaDropdownTransport(t *testing.T) {
 	source := newFakeMedia(player, mpris.Player{BusName: "org.mpris.MediaPlayer2.mpv", Identity: "mpv"})
 	ctx := newTestContext(t, cfg)
 	ctx.Media = source
-	v := mediaDropdown(ctx).(*mediaView)
+	v := opened(mediaDropdown(ctx)).(*mediaView)
 	defer v.dropdownClosed()
 
 	if v.mode != "player" || v.title.Text() != "Song" || v.artist.Text() != i18n.T("dropdown-media-unknown-artist") {
@@ -393,7 +393,7 @@ func TestMediaDropdownPaintsFromTheStylesheet(t *testing.T) {
 	cfg := config.Defaults()
 	ctx := styledContext(t, cfg)
 	ctx.Media = newFakeMedia(mpris.Player{BusName: "org.mpris.MediaPlayer2.vlc", Identity: "VLC", Title: "Song", State: mpris.StatePlaying})
-	v := mediaDropdown(ctx).(*mediaView)
+	v := opened(mediaDropdown(ctx)).(*mediaView)
 	defer v.dropdownClosed()
 
 	for _, b := range []*widget.Button{v.shuffle, v.previous, v.playPause, v.next, v.loop} {
@@ -437,7 +437,7 @@ func TestMediaPickerChrome(t *testing.T) {
 	)
 	ctx := newTestContext(t, config.Defaults())
 	ctx.Media = source
-	v := mediaDropdown(ctx).(*mediaView)
+	v := opened(mediaDropdown(ctx)).(*mediaView)
 	defer v.dropdownClosed()
 	v.showPicker()
 
@@ -499,7 +499,7 @@ func TestMediaPickerChrome(t *testing.T) {
 func TestMediaTransportButtonsAreUnpaddedPointers(t *testing.T) {
 	ctx := newTestContext(t, config.Defaults())
 	ctx.Media = newFakeMedia(mpris.Player{BusName: "org.mpris.MediaPlayer2.vlc", Identity: "VLC", State: mpris.StatePlaying})
-	v := mediaDropdown(ctx).(*mediaView)
+	v := opened(mediaDropdown(ctx)).(*mediaView)
 	defer v.dropdownClosed()
 	_, px := dropdownFont(ctx)
 	for _, tc := range []struct {
@@ -540,7 +540,7 @@ func TestMediaSeekResetsOnPlayerSwitch(t *testing.T) {
 	)
 	ctx := newTestContext(t, config.Defaults())
 	ctx.Media = source
-	v := mediaDropdown(ctx).(*mediaView)
+	v := opened(mediaDropdown(ctx)).(*mediaView)
 	defer v.dropdownClosed()
 	v.setPosition(45 * time.Second)
 	if v.seek.Value() != 75 {
@@ -573,7 +573,7 @@ func TestMediaEmptyStateKeepsThePlayersHeight(t *testing.T) {
 	source := newFakeMedia()
 	ctx := newTestContext(t, config.Defaults())
 	ctx.Media = source
-	v := mediaDropdown(ctx).(*mediaView)
+	v := opened(mediaDropdown(ctx)).(*mediaView)
 	defer v.dropdownClosed()
 	if v.mode != "empty" || v.main.Visible() != "empty" {
 		t.Fatalf("mode %q page %q, want the empty state", v.mode, v.main.Visible())
@@ -624,7 +624,7 @@ func TestMediaRefusedControlShowsWhy(t *testing.T) {
 	source.err = errors.New("not supported")
 	ctx := newTestContext(t, config.Defaults())
 	ctx.Media = source
-	v := mediaDropdown(ctx).(*mediaView)
+	v := opened(mediaDropdown(ctx)).(*mediaView)
 	defer v.dropdownClosed()
 	v.refresh()
 	onHeadlessLoop(func() bool { v.fire("next track", v.src.Next); return true })

@@ -257,7 +257,6 @@ func bitwardenDropdown(ctx ModuleContext) widget.Widget {
 		return v
 	}
 	v.pages.SetVisible(false)
-	v.startFollowing()
 	return v
 }
 

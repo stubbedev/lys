@@ -310,7 +310,7 @@ func TestDashboardPollCounts(t *testing.T) {
 	}
 	fixedProc(t)
 	ctx := styledContext(t, config.Defaults())
-	v := noRadiosDashboard(ctx).(*dashboardView)
+	v := opened(noRadiosDashboard(ctx)).(*dashboardView)
 	v.poll()
 	v.diskIn = 0
 	allocs := testing.AllocsPerRun(dashboardDiskPolls, v.poll)
@@ -377,10 +377,10 @@ func procReads(t *testing.T, fn func()) int64 {
 func TestTheDashboardHasSessionButtonsOnlyWithAPowerMenu(t *testing.T) {
 	ctx := styledContext(t, config.Defaults())
 	ctx.PowerMenu = nil
-	if n := countClass(noRadiosDashboard(ctx), "dashboard-user-session"); n != 0 {
+	if n := countClass(opened(noRadiosDashboard(ctx)), "dashboard-user-session"); n != 0 {
 		t.Errorf("without a power menu the dashboard has %d session rows, whose buttons would request nothing; want none", n)
 	}
-	if n := countClass(noRadiosDashboard(withPowerMenu(ctx)), "dashboard-user-session"); n != 1 {
+	if n := countClass(opened(noRadiosDashboard(withPowerMenu(ctx))), "dashboard-user-session"); n != 1 {
 		t.Errorf("with a power menu the dashboard has %d session rows, want 1", n)
 	}
 }

@@ -304,7 +304,6 @@ func audioDropdown(ctx ModuleContext) widget.Widget {
 
 	v.apply(audioState{})
 	v.reads = newRefresher(ctx, v.life, v.read, v.apply)
-	v.startFollowing()
 	return v
 }
 

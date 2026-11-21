@@ -24,7 +24,7 @@ func volumeDashboard(t *testing.T, src *fakePulseSource) *dashboardView {
 	t.Helper()
 	ctx := newTestContext(t, config.Defaults())
 	ctx.Pulse = src
-	v := noRadiosDashboard(ctx).(*dashboardView)
+	v := opened(noRadiosDashboard(ctx)).(*dashboardView)
 	v.refreshAll()
 	return v
 }
@@ -87,7 +87,7 @@ func TestALongOutputNameNeverWidensTheDashboard(t *testing.T) {
 	long := strings.Repeat("Core Ultra 200V Series Processors HD Audio Speaker ", 4)
 	ctx := styledContext(t, config.Defaults())
 	ctx.Pulse = &fakePulseSource{dev: pulse.Device{Description: long, Volume: pct(40)}, ticks: make(chan struct{}, 1)}
-	v := noRadiosDashboard(ctx).(*dashboardView)
+	v := opened(noRadiosDashboard(ctx)).(*dashboardView)
 	v.refreshAll()
 	device := classedWidget(t, v, "controls-device").(*widget.Label)
 	if device.Text() != long {
@@ -113,7 +113,7 @@ func layoutContext(t *testing.T) ModuleContext {
 
 func scrollRange(t *testing.T, ctx ModuleContext, monH int) int {
 	t.Helper()
-	v := noRadiosDashboard(ctx).(*dashboardView)
+	v := opened(noRadiosDashboard(ctx)).(*dashboardView)
 	v.refreshAll()
 	panel := dropdownPanel("dashboard", ctx.Config, v).(*panelBox)
 	panel.clamp(monH)
@@ -145,7 +145,7 @@ func TestTheCommonCardsFitWithoutScrollingOnA1200PixelOutput(t *testing.T) {
 
 func TestTheBatteryAndNetworkCardsShareTheirRowEqually(t *testing.T) {
 	ctx := layoutContext(t)
-	v := noRadiosDashboard(ctx).(*dashboardView)
+	v := opened(noRadiosDashboard(ctx)).(*dashboardView)
 	v.refreshAll()
 	ctx.Theme.Attach(v)
 	arrangeDropdown(t, v, 380, 900)
@@ -167,7 +167,7 @@ func TestTheBatteryAndNetworkCardsShareTheirRowEqually(t *testing.T) {
 	}
 
 	ctx.Battery = nil
-	alone := noRadiosDashboard(ctx).(*dashboardView)
+	alone := opened(noRadiosDashboard(ctx)).(*dashboardView)
 	if got := len(classedBox(t, alone, "dashboard-info-row").Children()); got != 1 {
 		t.Errorf("without a battery the info row holds %d cards, want the network card alone", got)
 	}
@@ -177,7 +177,7 @@ func TestTheBatteryCardSaysWhatThePowerSaverToggleCannot(t *testing.T) {
 	ctx := layoutContext(t)
 	dev := upower.Device{Percentage: 79, IsPresent: true, State: upower.StatePendingCharge, ChargeThresholdSupported: true, ChargeThresholdEnabled: true, ChargeEndThreshold: 80}
 	ctx.Battery = newFakeBattery(dev)
-	v := noRadiosDashboard(ctx).(*dashboardView)
+	v := opened(noRadiosDashboard(ctx)).(*dashboardView)
 	v.refreshAll()
 	state := classedWidget(t, v, "battery-state").(*widget.Label)
 	if state.Text() != batteryStateLabel(dev) {
@@ -200,7 +200,7 @@ func TestTheBatteryCardSaysWhatThePowerSaverToggleCannot(t *testing.T) {
 	})
 
 	ctx.Battery = newFakeBattery(upower.Device{Percentage: 79, IsPresent: true, State: upower.StateDischarging})
-	v = noRadiosDashboard(ctx).(*dashboardView)
+	v = opened(noRadiosDashboard(ctx)).(*dashboardView)
 	v.refreshAll()
 	if classedWidget(t, v, "battery-limit").(*widget.Label).Visible() {
 		t.Error("the charge limit shows with none in force")
@@ -209,7 +209,7 @@ func TestTheBatteryCardSaysWhatThePowerSaverToggleCannot(t *testing.T) {
 
 func TestQuickActionStatesAreEachTheirOwn(t *testing.T) {
 	ctx := lookContext(t)
-	v := noRadiosDashboard(ctx).(*dashboardView)
+	v := opened(noRadiosDashboard(ctx)).(*dashboardView)
 	v.refreshAll()
 	ctx.Theme.Attach(v)
 	arrangeDropdown(t, v, 380, 900)
@@ -243,7 +243,7 @@ func TestControlsOfAHiddenCardTakeNoArrowKeyFocus(t *testing.T) {
 	ctx := newTestContext(t, config.Defaults())
 	media := newFakeMedia()
 	ctx.Media = media
-	v := noRadiosDashboard(ctx).(*dashboardView)
+	v := opened(noRadiosDashboard(ctx)).(*dashboardView)
 	v.refreshAll()
 	play := widget.Widget(classedButton(t, v, "play"))
 	if slices.Contains(focusablesUnder(v.root, nil), play) {

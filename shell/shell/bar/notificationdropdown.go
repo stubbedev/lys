@@ -127,7 +127,6 @@ func notificationDropdown(ctx ModuleContext) widget.Widget {
 	v.body.Append(scroll, true)
 	v.Append(v.body, true)
 
-	v.startFollowing()
 	return v
 }
 

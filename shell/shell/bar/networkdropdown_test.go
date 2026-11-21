@@ -263,7 +263,7 @@ func newNetTestView(t *testing.T, snap network.Snapshot, deps netDeps) (*network
 	ctx := newTestContext(t, config.Defaults())
 	src := &fakeNetworkSource{snap: snap, ticks: make(chan struct{}, 2)}
 	ctx.Network = src
-	v := newNetworkView(ctx, deps)
+	v := opened(newNetworkView(ctx, deps))
 	pop := &fakePopover{}
 	v.attachPopover(pop)
 	t.Cleanup(v.dropdownClosed)

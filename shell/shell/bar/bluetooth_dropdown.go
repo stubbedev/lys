@@ -137,7 +137,6 @@ func bluetoothDropdown(ctx ModuleContext) widget.Widget {
 	d := newBtDropdown(ctx, ctx.Bluetooth)
 	d.openFollow = newOpenFollow(ctx, d.follow)
 	d.stopped = func() { btDropdownClosed(d.src) }
-	d.startFollowing()
 	return d.root
 }
 

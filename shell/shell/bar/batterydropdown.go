@@ -237,7 +237,6 @@ func batteryDropdown(ctx ModuleContext) widget.Widget {
 	if ctx.PowerProfiles != nil {
 		v.profiles = newRefresher(ctx, v.life, v.readProfiles, v.applyProfiles)
 	}
-	v.startFollowing()
 	return v
 }
 

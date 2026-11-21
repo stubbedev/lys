@@ -58,14 +58,14 @@ func newNotifTestService(t *testing.T) *notifications.Service {
 
 func TestNotificationDropdownEmptyAndDND(t *testing.T) {
 	ctx := newTestContext(t, config.Defaults())
-	v := notificationDropdown(ctx).(*notificationView)
+	v := opened(notificationDropdown(ctx)).(*notificationView)
 	if !v.empty.Visible() || v.scroll.Visible() || v.clearAll.Visible() {
 		t.Errorf("no service: empty shown %v, list shown %v, clear all shown %v", v.empty.Visible(), v.scroll.Visible(), v.clearAll.Visible())
 	}
 
 	svc := newNotifTestService(t)
 	ctx.Notifications = svc
-	v = notificationDropdown(ctx).(*notificationView)
+	v = opened(notificationDropdown(ctx)).(*notificationView)
 	defer v.dropdownClosed()
 	if !v.empty.Visible() || v.scroll.Visible() || v.headerIcon.Name() != "ld-bell-symbolic" {
 		t.Errorf("empty service: empty shown %v, list shown %v, icon %q", v.empty.Visible(), v.scroll.Visible(), v.headerIcon.Name())
@@ -95,7 +95,7 @@ func TestNotificationDropdownGroups(t *testing.T) {
 	chat := svc.Notify("chat", 0, "", "Ping", "", []string{"reply", "Reply", "default", "Open"}, 0)
 	ctx := newTestContext(t, config.Defaults())
 	ctx.Notifications = svc
-	v := notificationDropdown(ctx).(*notificationView)
+	v := opened(notificationDropdown(ctx)).(*notificationView)
 	defer v.dropdownClosed()
 
 	if !v.scroll.Visible() || v.empty.Visible() || !v.clearAll.Visible() || len(v.groups) != 2 {
@@ -176,7 +176,7 @@ func TestNotificationItemBodyIconAndUrgency(t *testing.T) {
 	cfg.Notification.IconSource = config.IconSourceMapped
 	ctx := newTestContext(t, cfg)
 	ctx.Notifications = svc
-	v := notificationDropdown(ctx).(*notificationView)
+	v := opened(notificationDropdown(ctx)).(*notificationView)
 	defer v.dropdownClosed()
 
 	var ff, plain *notifItem
@@ -222,7 +222,7 @@ func TestNotificationGroupHeaderClickTargets(t *testing.T) {
 	}
 	ctx := newTestContext(t, config.Defaults())
 	ctx.Notifications = svc
-	v := notificationDropdown(ctx).(*notificationView)
+	v := opened(notificationDropdown(ctx)).(*notificationView)
 	defer v.dropdownClosed()
 	g := v.groups[0]
 	widget.SizeWithin(v, widget.Size{W: 425, H: 725})
@@ -261,7 +261,7 @@ func clearableDropdown(t *testing.T) (*notificationView, *notifications.Service,
 	}
 	ctx := newTestContext(t, config.Defaults())
 	ctx.Notifications = svc
-	v := notificationDropdown(ctx).(*notificationView)
+	v := opened(notificationDropdown(ctx)).(*notificationView)
 	t.Cleanup(v.dropdownClosed)
 	widget.SizeWithin(v, widget.Size{W: 425, H: 725})
 	v.Arrange(render.Rect{W: 425, H: 725})
@@ -330,7 +330,7 @@ func TestNotificationMoreRowShowsAll(t *testing.T) {
 	}
 	ctx := newTestContext(t, config.Defaults())
 	ctx.Notifications = svc
-	v := notificationDropdown(ctx).(*notificationView)
+	v := opened(notificationDropdown(ctx)).(*notificationView)
 	defer v.dropdownClosed()
 	g := v.groups[0]
 	widget.SizeWithin(v, widget.Size{W: 425, H: 725})
@@ -355,7 +355,7 @@ func TestNotificationItemCursor(t *testing.T) {
 	svc.Notify("plain", 0, "", "Quiet", "", nil, 0)
 	ctx := newTestContext(t, config.Defaults())
 	ctx.Notifications = svc
-	v := notificationDropdown(ctx).(*notificationView)
+	v := opened(notificationDropdown(ctx)).(*notificationView)
 	defer v.dropdownClosed()
 
 	var chat, plain *notifItem
@@ -403,7 +403,7 @@ func TestNotificationItemFileIconFallsBack(t *testing.T) {
 	var missIcon, keepIcon *widget.Icon
 	var v *notificationView
 	onHeadlessLoop(func() bool {
-		v = notificationDropdown(ctx).(*notificationView)
+		v = opened(notificationDropdown(ctx)).(*notificationView)
 		var missing, loaded *notifItem
 		for _, g := range v.groups {
 			switch g.app {
@@ -466,7 +466,7 @@ func TestNotificationItemDismissInsideADefaultActionRow(t *testing.T) {
 	})
 	ctx := newTestContext(t, config.Defaults())
 	ctx.Notifications = svc
-	v := notificationDropdown(ctx).(*notificationView)
+	v := opened(notificationDropdown(ctx)).(*notificationView)
 	defer v.dropdownClosed()
 	pop := &fakePopover{}
 	v.attachPopover(pop)
@@ -502,7 +502,7 @@ func TestNotificationItemActionCarriesItsToken(t *testing.T) {
 	first := svc.Notify("chat", 0, "", "Ping", "", []string{"reply", "Reply"}, 0)
 	ctx := newTestContext(t, config.Defaults())
 	ctx.Notifications = svc
-	v := notificationDropdown(ctx).(*notificationView)
+	v := opened(notificationDropdown(ctx)).(*notificationView)
 	defer v.dropdownClosed()
 	v.minter = barMinter{token: "tok-3"}
 	v.groups[0].items[0].invoke("reply")
@@ -532,7 +532,7 @@ func TestNotificationLongBodyStaysInItsItem(t *testing.T) {
 	svc := newNotifTestService(t)
 	ctx.Notifications = svc
 	svc.Notify("shot", 0, "", "Screenshot saved", "/home/stubbe/Pictures/Screenshot_2026-10-25_16-04-33_with_a_long_unbroken_name.png", nil, 0)
-	v := notificationDropdown(ctx).(*notificationView)
+	v := opened(notificationDropdown(ctx)).(*notificationView)
 	defer v.dropdownClosed()
 	waitHeadless(t, "the item", func() bool { return v.scroll.Visible() })
 	card, rev := dropdownTree(v, ctx.Config)
@@ -588,7 +588,7 @@ func TestNotificationDropdownPagesTheHistory(t *testing.T) {
 	}
 	ctx := newTestContext(t, config.Defaults())
 	ctx.Notifications = svc
-	v := notificationDropdown(ctx).(*notificationView)
+	v := opened(notificationDropdown(ctx)).(*notificationView)
 	defer v.dropdownClosed()
 
 	read := func() int {
@@ -722,7 +722,7 @@ func TestNotificationDropdownReadsTheHistoryOffTheLoop(t *testing.T) {
 	var reads atomic.Int32
 	loopGoroutine := make(chan struct{}, 1)
 	v := apptest.On(a, func() *notificationView {
-		v := notificationDropdown(ctx).(*notificationView)
+		v := opened(notificationDropdown(ctx)).(*notificationView)
 		return v
 	})
 	t.Cleanup(func() { apptest.On(a, func() bool { v.dropdownClosed(); return true }) })
@@ -783,7 +783,7 @@ func TestNotificationDropdownShowsAFailedRead(t *testing.T) {
 	svc.Notify("mail", 0, "", "Mail", "", nil, 0)
 	ctx := newTestContext(t, config.Defaults())
 	ctx.Notifications = svc
-	v := notificationDropdown(ctx).(*notificationView)
+	v := opened(notificationDropdown(ctx)).(*notificationView)
 	defer v.dropdownClosed()
 	if v.failed.Visible() || v.readAlert.Visible() {
 		t.Fatal("a healthy read shows a failure")
@@ -816,7 +816,7 @@ func TestNotificationDropdownKeepsWhatItReadOverAFailedPage(t *testing.T) {
 	svc.Notify("mail", 0, "", "Mail", "", nil, 0)
 	ctx := newTestContext(t, config.Defaults())
 	ctx.Notifications = svc
-	v := notificationDropdown(ctx).(*notificationView)
+	v := opened(notificationDropdown(ctx)).(*notificationView)
 	defer v.dropdownClosed()
 	broken := errors.New("store unreadable")
 	onHeadlessLoop(func() bool {
@@ -844,7 +844,7 @@ func TestNotificationDropdownKeepsWhatItReadOverAFailedPage(t *testing.T) {
 func TestNotificationDropdownEmptyHistoryIsNotAFailure(t *testing.T) {
 	ctx := newTestContext(t, config.Defaults())
 	ctx.Notifications = newNotifTestService(t)
-	v := notificationDropdown(ctx).(*notificationView)
+	v := opened(notificationDropdown(ctx)).(*notificationView)
 	defer v.dropdownClosed()
 	if !v.empty.Visible() || v.failed.Visible() || v.readAlert.Visible() {
 		t.Errorf("empty history: empty %v, error page %v, alert %v", v.empty.Visible(), v.failed.Visible(), v.readAlert.Visible())

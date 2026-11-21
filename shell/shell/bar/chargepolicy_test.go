@@ -80,7 +80,7 @@ func TestTheExplanationSaysWhyTheBatteryHoldsOrFills(t *testing.T) {
 
 func TestHealthHidesWithoutADesignAndNamesItsCycles(t *testing.T) {
 	ctx := newTestContext(t, config.Defaults())
-	v := batteryDropdown(ctx).(*batteryView)
+	v := opened(batteryDropdown(ctx)).(*batteryView)
 	dev := presentBattery()
 	dev.ChargeCycles = 104
 	v.applyDevice(dev, true)
@@ -102,7 +102,7 @@ func TestLysPowersPolicyReplacesTheUPowerSwitch(t *testing.T) {
 	src := &fakeCharge{}
 	ctx.Charge = src
 	ctx.Battery = newFakeBattery(chargeLimitBattery())
-	v := batteryDropdown(ctx).(*batteryView)
+	v := opened(batteryDropdown(ctx)).(*batteryView)
 	defer v.dropdownClosed()
 	waitHeadless(t, "the battery page", func() bool { return v.body.Visible() == "battery" })
 	onHeadlessLoop(func() bool {
@@ -139,7 +139,7 @@ func TestAFailedFullChargeSaysWhy(t *testing.T) {
 	src.set(charge.State{Limit: charge.Limit80, Reason: charge.ReasonHolding, Dock: charge.DockUnknown}, true)
 	ctx.Charge = src
 	ctx.Battery = newFakeBattery(chargeLimitBattery())
-	v := batteryDropdown(ctx).(*batteryView)
+	v := opened(batteryDropdown(ctx)).(*batteryView)
 	defer v.dropdownClosed()
 	waitHeadless(t, "the button", func() bool { return widget.IsVisible(v.chargeFull) })
 	onHeadlessLoop(func() bool { v.chargeFull.OnClick(); return true })

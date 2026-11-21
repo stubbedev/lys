@@ -152,7 +152,6 @@ func newDashboardDropdown(ctx ModuleContext, radios radioSource) widget.Widget {
 	content.Append(v.scroll, true)
 	v.root.Append(content, true)
 	v.apply(dashboardReadings{})
-	v.startFollowing()
 	return v
 }
 

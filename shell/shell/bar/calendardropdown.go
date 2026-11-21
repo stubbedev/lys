@@ -113,7 +113,6 @@ func calendarDropdown(ctx ModuleContext) widget.Widget {
 	content.Append(v.agendaRule, false)
 	content.Append(v.agenda, false)
 	v.Append(content, false)
-	v.startFollowing()
 	return v
 }
 

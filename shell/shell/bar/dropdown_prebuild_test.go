@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/service/upower"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/shell/internal/apptest"
@@ -25,8 +26,11 @@ func (q *loopQueue) drain() {
 
 func prebuildingRegistry(t *testing.T, cfg *config.Config) (*dropdownRegistry, *loopQueue) {
 	t.Helper()
-	ctx := newTestContext(t, cfg)
-	r := newDropdownRegistry(nil, cfg, ctx.Font, ctx.Style, ctx)
+	return prebuildingRegistryOf(newTestContext(t, cfg))
+}
+
+func prebuildingRegistryOf(ctx ModuleContext) (*dropdownRegistry, *loopQueue) {
+	r := newDropdownRegistry(nil, ctx.Config, ctx.Font, ctx.Style, ctx)
 	q := &loopQueue{}
 	r.idle, r.invoke = q.add, q.add
 	return r, q
@@ -96,22 +100,26 @@ func TestAReleaseEndsAPrebuildAndAReloadStartsAnother(t *testing.T) {
 	}
 }
 
-// aheadContent counts the hides its registry tells it of.
-type aheadContent struct {
-	*widget.Box
-	hidden int
-}
-
-func (h *aheadContent) dropdownHidden() { h.hidden++ }
-
-func TestAPrebuiltDropdownRestsAsAClosedOneDoes(t *testing.T) {
-	r, q := prebuildingRegistry(t, clockOnly())
-	content := &aheadContent{Box: widget.NewBox(widget.Column, 0, 0)}
-	r.builders["calendar"] = func(ModuleContext) widget.Widget { return content }
+func TestABuiltAheadDropdownReadsNothingUntilItOpens(t *testing.T) {
+	cfg := config.Defaults()
+	cfg.Bar.Layout = []config.BarLayout{{Monitor: "*", Show: true, Right: []config.BarItem{{Module: "battery"}}}}
+	ctx := newTestContext(t, cfg)
+	battery := &countedBattery{fakeBattery: newFakeBattery(upower.Device{IsPresent: true})}
+	ctx.Battery = battery
+	r, q := prebuildingRegistryOf(ctx)
 	r.attachHost("DP-1", fakeHost{}, widget.Size{W: 1600, H: 1000})
 	q.drain()
-	if content.hidden != 1 {
-		t.Errorf("hidden %d times, want once: what it follows while open must not run while built ahead", content.hidden)
+	content := r.instances["battery"]
+	if content == nil {
+		t.Fatal("the battery dropdown was not built ahead")
+	}
+	t.Cleanup(content.(dropdownCloser).dropdownClosed)
+	if got := battery.reads.Load(); got != 0 {
+		t.Errorf("a dropdown built ahead read the battery %d times while nothing shows it", got)
+	}
+	content.(dropdownOpener).dropdownOpened()
+	if battery.reads.Load() == 0 {
+		t.Error("opening a dropdown built ahead read nothing")
 	}
 }
 

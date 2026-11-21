@@ -540,7 +540,7 @@ func TestBtDropdownClosedStopsFollowing(t *testing.T) {
 	src := newFakeBluetooth(btWorld())
 	ctx := newTestContext(t, config.Defaults())
 	ctx.Bluetooth = src
-	content := bluetoothDropdown(ctx)
+	content := opened(bluetoothDropdown(ctx))
 	closer, ok := content.(dropdownCloser)
 	if !ok {
 		t.Fatal("the bluetooth dropdown does not release its subscription")
@@ -563,7 +563,7 @@ func TestBtDropdownClosedStopsFollowing(t *testing.T) {
 
 func TestBtDropdownWithoutServiceShowsNoAdapter(t *testing.T) {
 	ctx := newTestContext(t, config.Defaults())
-	content := bluetoothDropdown(ctx)
+	content := opened(bluetoothDropdown(ctx))
 	// The full shell builds without a service; closing it is a no-op,
 	// not a panic, and nothing subscribed.
 	if c, ok := content.(dropdownCloser); ok {
@@ -703,7 +703,7 @@ func findButton(w widget.Widget, class string) *widget.Button {
 // bare empty state is the regression.
 func TestBtNoAdapterDropdownKeepsTheHeader(t *testing.T) {
 	ctx := newTestContext(t, config.Defaults())
-	content := bluetoothDropdown(ctx)
+	content := opened(bluetoothDropdown(ctx))
 	if c, ok := content.(dropdownCloser); ok {
 		c.dropdownClosed()
 	}
