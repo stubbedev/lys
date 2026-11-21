@@ -442,6 +442,111 @@ func TestOvertakenQueriesAreSkippedButAcceptsSeeTheirText(t *testing.T) {
 	}
 }
 
+func TestOnlyAPublishOfTheSameOrALaterLoadOvertakesOne(t *testing.T) {
+	c := &corpus{}
+	publish := func(load uint64) engineCmd { return engineCmd{kind: cmdPublish, corpus: c, load: load} }
+	older := publish(1)
+	if !overtaken(&older, []engineCmd{publish(2)}) {
+		t.Error("a publish of the reload must overtake one of the load before")
+	}
+	same := publish(2)
+	if !overtaken(&same, []engineCmd{publish(2)}) {
+		t.Error("a later publish of the same load must overtake")
+	}
+	newer := publish(2)
+	if overtaken(&newer, []engineCmd{publish(1)}) {
+		t.Error("a stale publish behind the reload's must not overtake it")
+	}
+	other := publish(1)
+	if overtaken(&other, []engineCmd{{kind: cmdPublish, corpus: &corpus{}, load: 1}}) {
+		t.Error("another corpus's publish must not overtake")
+	}
+}
+
+type scriptedLoad struct {
+	entries []Entry
+	gate    chan struct{}
+}
+
+type scriptedProvider struct {
+	spec      Spec
+	mu        sync.Mutex
+	loads     []scriptedLoad
+	published chan int
+}
+
+func (p *scriptedProvider) Spec() Spec           { return p.spec }
+func (*scriptedProvider) Actions(Entry) []Action { return nil }
+func (p *scriptedProvider) Load(_ context.Context, publish func([]Entry)) {
+	p.mu.Lock()
+	if len(p.loads) == 0 {
+		p.mu.Unlock()
+		panic("scriptedProvider: a load nothing scripted")
+	}
+	l := p.loads[0]
+	p.loads = p.loads[1:]
+	p.mu.Unlock()
+	if l.gate != nil {
+		<-l.gate
+	}
+	publish(l.entries)
+	p.published <- len(l.entries)
+}
+
+func reloading(title string) *fakeProvider {
+	p := &fakeProvider{spec: Spec{Section: SectionClipboard}, entries: []Entry{entry(title)}}
+	p.actions = []Action{{Title: "forget", Run: func(context.Context) Outcome { return Reload{} }}}
+	return p
+}
+
+func untilQuery(t *testing.T, s *sink, query string) Frame {
+	t.Helper()
+	waittest.Until(t, func() bool { return s.last().Query == query }, "the frame for "+query)
+	return s.last()
+}
+
+func TestAReloadKeepsTheRowsOfProvidersStillLoading(t *testing.T) {
+	s := &sink{}
+	held := make(chan struct{})
+	links := &scriptedProvider{
+		spec:      Spec{Section: SectionLinks},
+		loads:     []scriptedLoad{{entries: []Entry{entry("alpha docs")}}, {entries: []Entry{entry("alpha docs")}, gate: held}},
+		published: make(chan int, 2),
+	}
+	e := start(t, s, nil, links, reloading("zulu"))
+	waittest.For(t, links.published, "the first load of the links")
+	e.SetQuery("zulu", 1)
+	until(t, s, "#"+SectionClipboard.Title(), "zulu")
+	e.Activate("zulu", 0)
+	e.SetQuery("alpha", 2)
+	if got, want := titles(untilQuery(t, s, "alpha")), []string{"#" + SectionLinks.Title(), "alpha docs"}; !slices.Equal(got, want) {
+		t.Errorf("rows while the links load again = %q, want the links they had, %q", got, want)
+	}
+	close(held)
+	waittest.For(t, links.published, "the reload of the links")
+}
+
+func TestALoadAReloadOvertookPublishesNothing(t *testing.T) {
+	s := &sink{}
+	stale := make(chan struct{})
+	links := &scriptedProvider{
+		spec:      Spec{Section: SectionLinks},
+		loads:     []scriptedLoad{{entries: []Entry{entry("alpha old")}, gate: stale}, {entries: []Entry{entry("alpha new")}}},
+		published: make(chan int, 2),
+	}
+	e := start(t, s, nil, links, reloading("zulu"))
+	e.SetQuery("zulu", 1)
+	until(t, s, "#"+SectionClipboard.Title(), "zulu")
+	e.Activate("zulu", 0)
+	waittest.For(t, links.published, "the reload of the links")
+	close(stale)
+	waittest.For(t, links.published, "the load the reload overtook")
+	e.SetQuery("alpha", 2)
+	if got, want := titles(untilQuery(t, s, "alpha")), []string{"#" + SectionLinks.Title(), "alpha new"}; !slices.Equal(got, want) {
+		t.Errorf("rows after a stale load published = %q, want the reload's, %q", got, want)
+	}
+}
+
 func TestStopCancelsProvidersAndLeavesNothingRunning(t *testing.T) {
 	s := &sink{}
 	gate := make(chan struct{})

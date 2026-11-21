@@ -109,6 +109,7 @@ type engineCmd struct {
 	seq      uint64
 	action   int
 	state    *levelState
+	load     uint64
 	corpus   *corpus
 	entries  []Entry
 }
@@ -120,6 +121,7 @@ type levelState struct {
 	query    string
 	sections []Section
 	cancel   context.CancelFunc
+	load     uint64
 }
 
 // frameBox is a pooled frame with its delivery bound once, so delivering
@@ -265,7 +267,7 @@ func overtaken(c *engineCmd, rest []engineCmd) bool {
 		return len(rest) > 0 && rest[0].kind == cmdQuery
 	case cmdPublish:
 		for i := range rest {
-			if rest[i].kind == cmdPublish && rest[i].corpus == c.corpus {
+			if rest[i].kind == cmdPublish && rest[i].corpus == c.corpus && rest[i].load >= c.load {
 				return true
 			}
 		}
@@ -298,6 +300,9 @@ func (e *Engine) run(ctx context.Context, root *Level, openFrecency func() (*Fre
 			e.top().query = c.text
 			e.frame(frameOpts{})
 		case cmdPublish:
+			if c.load != c.state.load {
+				continue
+			}
 			c.corpus.set(c.entries, e.boost)
 			if c.state == e.top() {
 				e.frame(frameOpts{late: true})
@@ -332,16 +337,19 @@ func (e *Engine) push(ctx context.Context, l *Level, loads *sync.WaitGroup) {
 
 func (e *Engine) enter(ctx context.Context, l *Level, loads *sync.WaitGroup) *levelState {
 	levelCtx, cancel := context.WithCancel(ctx)
-	st := &levelState{level: l, query: l.Query, cancel: cancel}
+	st := &levelState{level: l, query: l.Query, cancel: cancel, corpora: make([]*corpus, len(l.Providers))}
+	for i, p := range l.Providers {
+		st.corpora[i] = newCorpus(p)
+	}
 	st.start(levelCtx, e, loads)
 	return st
 }
 
 func (st *levelState) start(ctx context.Context, e *Engine, loads *sync.WaitGroup) {
-	st.corpora = st.corpora[:0]
-	for _, p := range st.level.Providers {
-		c := newCorpus(p)
-		st.corpora = append(st.corpora, c)
+	st.load++
+	load := st.load
+	for i, p := range st.level.Providers {
+		c := st.corpora[i]
 		if _, now := p.(Immediate); now {
 			p.Load(ctx, func(entries []Entry) { c.set(entries, e.boost) })
 			continue
@@ -357,7 +365,7 @@ func (st *levelState) start(ctx context.Context, e *Engine, loads *sync.WaitGrou
 		}
 		loads.Go(func() {
 			p.Load(ctx, func(entries []Entry) {
-				e.send(engineCmd{kind: cmdPublish, state: st, corpus: c, entries: entries})
+				e.send(engineCmd{kind: cmdPublish, state: st, load: load, corpus: c, entries: entries})
 			})
 		})
 	}
