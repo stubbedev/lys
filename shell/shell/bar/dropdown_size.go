@@ -1,8 +1,12 @@
 package bar
 
 import (
+	"log"
+
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
 )
 
@@ -75,6 +79,63 @@ type panelBox struct {
 
 func newPanelBox(child widget.Widget, width, height int) *panelBox {
 	return &panelBox{child: child, width: width, height: height}
+}
+
+// setSize gives the panel a new width and configured height, as
+// newPanelBox takes them, and lays it out again.
+func (p *panelBox) setSize(width, height int) {
+	if p.width == width && p.height == height {
+		return
+	}
+	p.width, p.height = width, height
+	p.InvalidateLayout()
+}
+
+// dropdownMinSize is the smallest a dropdown is dragged to.
+var dropdownMinSize = widget.Size{W: 200, H: 120}
+
+// dropdownResize lets the user resize name's panel, inside card, by
+// dragging its popover's free edge, on a monitor mon large, when the
+// dropdown has a size in the config: the panel takes each card size as
+// its width and, less the card's border, the height its lists scroll
+// at, and the size a drag ends at is saved as both, so the dropdown
+// opens again as large as it was left. nil for a dropdown without one.
+func dropdownResize(name string, panel *panelBox, card widget.Boundser, mon widget.Size, ctx ModuleContext) *app.PopoverResize {
+	if g, ok := dropdownGeometries[name]; !ok || g.size == nil {
+		return nil
+	}
+	inPanel := func(s widget.Size) widget.Size {
+		return widget.Size{W: s.W, H: s.H - (card.Bounds().H - panel.Bounds().H)}
+	}
+	return &app.PopoverResize{
+		Min: dropdownMinSize,
+		Max: widget.Size{W: max(mon.W, dropdownMinSize.W), H: max(mon.H-panelMonitorMargin, dropdownMinSize.H)},
+		Resizing: func(s widget.Size) {
+			p := inPanel(s)
+			panel.setSize(p.W, p.H)
+		},
+		Resized: func(s widget.Size) { saveDropdownSize(ctx, name, inPanel(s)) },
+	}
+}
+
+// saveDropdownSize writes size as name's dropdown width and height, in
+// pixels, as one value: a dropdown's size is set whole. A failed save
+// shows in a toast, and the dropdown keeps the size until the shell
+// reloads its config.
+func saveDropdownSize(ctx ModuleContext, name string, size widget.Size) {
+	value := map[string]any{
+		"width":  config.Px(float32(size.W)).String(),
+		"height": config.PixelLength(size.H).MarshalConfig(),
+	}
+	ctx.setConfig("dropdowns."+name, value, func(err error) {
+		if err == nil {
+			return
+		}
+		log.Printf("bar: dropdown %s: %v", name, err)
+		if ctx.Toast != nil {
+			ctx.Toast(i18n.T("bar-dropdown-size-not-saved", i18n.Str("error", err.Error())), "ld-alert-triangle-symbolic")
+		}
+	})
 }
 
 // The margins below the monitor height: the

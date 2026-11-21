@@ -128,3 +128,6 @@ bar-custom-command-failed = Impossibile eseguire il comando: { $error }
 bar-world-clock-invalid-zone = Fuso orario sconosciuto «{ $zone }»
 bar-world-clock-invalid-layout = Formato dell’ora non supportato «{ $layout }»
 bar-world-clock-invalid-format = Impossibile mostrare il formato: { $error }
+
+## Menu a discesa
+bar-dropdown-size-not-saved = Il menu mantiene la nuova dimensione, ma non è stata salvata: { $error }

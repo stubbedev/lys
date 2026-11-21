@@ -127,3 +127,6 @@ bar-custom-command-failed = The command could not run: { $error }
 bar-world-clock-invalid-zone = Unknown time zone “{ $zone }”
 bar-world-clock-invalid-layout = Unsupported time layout “{ $layout }”
 bar-world-clock-invalid-format = The format cannot be shown: { $error }
+
+## Dropdowns
+bar-dropdown-size-not-saved = The dropdown keeps its new size, but it was not saved: { $error }

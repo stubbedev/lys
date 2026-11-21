@@ -51,8 +51,8 @@ func TestTheBarsDropdownsAreTheOnesTheirModulesOpen(t *testing.T) {
 
 func TestADropdownsFirstOpenAfterIdleBuildingBuildsNothing(t *testing.T) {
 	r, q := prebuildingRegistry(t, clockOnly())
-	r.attachHost("DP-1", fakeHost{}, 1000)
-	r.attachHost("HDMI-A-1", fakeHost{}, 1000)
+	r.attachHost("DP-1", fakeHost{}, widget.Size{W: 1600, H: 1000})
+	r.attachHost("HDMI-A-1", fakeHost{}, widget.Size{W: 1600, H: 1000})
 	if len(r.instances) != 0 {
 		t.Fatal("dropdowns built before the loop was idle")
 	}
@@ -81,7 +81,7 @@ func TestADropdownsFirstOpenAfterIdleBuildingBuildsNothing(t *testing.T) {
 
 func TestAReleaseEndsAPrebuildAndAReloadStartsAnother(t *testing.T) {
 	r, q := prebuildingRegistry(t, clockOnly())
-	r.attachHost("DP-1", fakeHost{}, 1000)
+	r.attachHost("DP-1", fakeHost{}, widget.Size{W: 1600, H: 1000})
 	r.release()
 	q.drain()
 	if len(r.instances) != 0 {
@@ -108,7 +108,7 @@ func TestAPrebuiltDropdownRestsAsAClosedOneDoes(t *testing.T) {
 	r, q := prebuildingRegistry(t, clockOnly())
 	content := &aheadContent{Box: widget.NewBox(widget.Column, 0, 0)}
 	r.builders["calendar"] = func(ModuleContext) widget.Widget { return content }
-	r.attachHost("DP-1", fakeHost{}, 1000)
+	r.attachHost("DP-1", fakeHost{}, widget.Size{W: 1600, H: 1000})
 	q.drain()
 	if content.hidden != 1 {
 		t.Errorf("hidden %d times, want once: what it follows while open must not run while built ahead", content.hidden)
@@ -120,7 +120,7 @@ func TestWithoutBuildAheadNothingBuildsBeforeAnOpen(t *testing.T) {
 	ctx := newTestContext(t, cfg)
 	r := newDropdownRegistry(nil, cfg, ctx.Font, ctx.Style, ctx)
 	r.buildAhead()
-	r.attachHost("DP-1", fakeHost{}, 1000)
+	r.attachHost("DP-1", fakeHost{}, widget.Size{W: 1600, H: 1000})
 	if r.idle != nil || len(r.instances) != 0 {
 		t.Error("a registry without an application built ahead")
 	}
@@ -160,7 +160,7 @@ func TestAMountedBarBuildsItsDropdownsAhead(t *testing.T) {
 
 	unmounted := &barRuntime{ctx: ctx, font: ctx.Font, style: *ctx.Style, moduleStyle: *ctx.Style}
 	unmounted.mount(nil, cfg)
-	unmounted.ctx.Dropdowns.attachHost("DP-1", fakeHost{}, 1000)
+	unmounted.ctx.Dropdowns.attachHost("DP-1", fakeHost{}, widget.Size{W: 1600, H: 1000})
 	if r := unmounted.ctx.Dropdowns; r.idle != nil || len(r.instances) != 0 {
 		t.Error("a bar mounted without an application built its dropdowns ahead")
 	}

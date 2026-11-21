@@ -128,3 +128,6 @@ bar-custom-command-failed = No se pudo ejecutar la orden: { $error }
 bar-world-clock-invalid-zone = Zona horaria desconocida «{ $zone }»
 bar-world-clock-invalid-layout = Formato de hora no admitido «{ $layout }»
 bar-world-clock-invalid-format = No se puede mostrar el formato: { $error }
+
+## Desplegables
+bar-dropdown-size-not-saved = El desplegable conserva su nuevo tamaño, pero no se ha guardado: { $error }

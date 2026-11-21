@@ -118,7 +118,9 @@ func savedOnLoop(set func(path string, value any, done func(error)), invoke func
 // render. The recorder's capture settings, which its dropdown writes,
 // only shape the next recording: rebuilding the bars for them would
 // close the dropdown being edited, and no bar renders the emoji skin tone
-// the launcher keeps from a pick. The night light follows the strength
+// the launcher keeps from a pick. The dropdown sizes, which a drag of a
+// dropdown's edge writes, resize the built dropdowns in place
+// (dropdownRegistry.reconfigure). The night light follows the strength
 // the brightness dropdown writes in place. High contrast and reduce
 // transparency restyle the open bars instead (accessibilityChanged).
 func barsAffected(old, next *config.Config) bool {
@@ -133,6 +135,7 @@ func barsAffected(old, next *config.Config) bool {
 		r.WebcamEnabled, r.WebcamDevice = false, ""
 		r.WebcamX, r.WebcamY = 0, 0
 		c.Launcher.Emoji.SkinTone = ""
+		c.Dropdowns = config.DropdownsConfig{}
 		c.Nightlight.Temperature = 0
 	}
 	return !reflect.DeepEqual(a, b)

@@ -39,6 +39,12 @@ func TestBarsAffected(t *testing.T) {
 	if barsAffected(base, strength) {
 		t.Error("the night light strength the brightness dropdown writes rebuilds the bars")
 	}
+	sized := config.Defaults()
+	width := config.Px(480)
+	sized.Dropdowns.Audio.Width = &width
+	if barsAffected(base, sized) {
+		t.Error("a dropdown size, which a drag of the dropdown writes, rebuilds the bars")
+	}
 	gamma := config.Defaults()
 	gamma.Nightlight.Gamma = 80
 	if !barsAffected(base, gamma) {

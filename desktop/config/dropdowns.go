@@ -7,7 +7,10 @@ import "math"
 // Per-dropdown foldout panel sizing.
 //
 // Each field overrides the size of one bar widget dropdown. Unset fields keep
-// the built-in default (scaled by the global scale).
+// the built-in default (scaled by the global scale). Dragging an open
+// dropdown's edge away from the bar, or either corner of it, resizes the
+// dropdown and saves its width and height here in pixels, as a runtime
+// override.
 type DropdownsConfig struct {
 	// Audio dropdown panel size.
 	Audio DropdownSize `cfg:"audio"`

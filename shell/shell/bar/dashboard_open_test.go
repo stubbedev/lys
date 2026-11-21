@@ -146,7 +146,7 @@ func newDashboardRig(t *testing.T) *dashboardRig {
 		}
 		rig.reg = newDropdownRegistry(a, cfg, ctx.Font, &full, ctx)
 		rig.reg.builders["dashboard"] = noRadiosDashboard
-		rig.reg.attachHost(dashboardRigOutput, layer, 900)
+		rig.reg.attachHost(dashboardRigOutput, layer, widget.Size{W: 1600, H: 900})
 		rig.layer = layer
 		return nil
 	})

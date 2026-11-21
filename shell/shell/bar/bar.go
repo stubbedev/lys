@@ -1099,7 +1099,7 @@ func (w *barWindow) attach(ctx ModuleContext) {
 	for _, a := range *ctx.Attachers {
 		a.Attach(w.layer)
 	}
-	w.host.rt.ctx.Dropdowns.attachHost(w.output.Name, w.layer, logicalSize(w.output).H)
+	w.host.rt.ctx.Dropdowns.attachHost(w.output.Name, w.layer, logicalSize(w.output))
 	w.host.rt.ctx.Dropdowns.setRevealHold(w.output.Name, w.hide.hold)
 }
 

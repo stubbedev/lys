@@ -34,9 +34,9 @@ type dropdownRegistry struct {
 	// openName is the dropdown each open popover shows, so a second
 	// module's click re-anchors instead of toggling off.
 	openName map[string]string
-	// monH is each connector's monitor height in logical pixels, the
+	// mon is each connector's monitor size in logical pixels, the
 	// popover ceiling's input (GTK keeps a popover on its output).
-	monH map[string]int
+	mon map[string]widget.Size
 	// instances is each dropdown's built content: built on the first open and reused by
 	// every later one on any output, so its state (the visible page,
 	// the scroll, a half-filled form) and its service subscriptions
@@ -165,7 +165,7 @@ func newDropdownRegistry(application *app.Application, cfg *config.Config, font 
 		builders:    dropdownBuilders(),
 		openPop:     make(map[string]*app.Popover),
 		openName:    make(map[string]string),
-		monH:        make(map[string]int),
+		mon:         make(map[string]widget.Size),
 
 		instances:        make(map[string]widget.Widget),
 		dashboardAnchors: make(map[string]widget.Widget),
@@ -289,7 +289,7 @@ func (r *dropdownRegistry) remount(ctx ModuleContext) {
 	r.closeAll()
 	r.mu.Lock()
 	clear(r.hosts)
-	clear(r.monH)
+	clear(r.mon)
 	clear(r.dashboardAnchors)
 	r.mu.Unlock()
 	r.reconfigure(ctx)
@@ -303,8 +303,18 @@ func (r *dropdownRegistry) reconfigure(ctx ModuleContext) {
 	ctx.Style, ctx.Dropdowns, ctx.gen = r.style, r, r.ctx.gen
 	r.ctx = ctx
 	hosted := len(r.hosts) > 0
+	panels := make(map[string]*panelBox, len(r.instances))
+	for name, content := range r.instances {
+		if panel, ok := content.(*panelBox); ok {
+			panels[name] = panel
+		}
+	}
 	r.mu.Unlock()
 	if !stale {
+		for name, panel := range panels {
+			w, h, _ := dropdownDims(name, ctx.Config)
+			panel.setSize(w, h)
+		}
 		return
 	}
 	r.release()
@@ -313,8 +323,6 @@ func (r *dropdownRegistry) reconfigure(ctx ModuleContext) {
 	}
 }
 
-// attachHost registers the layer window a connector's dropdowns open
-// on, with the monitor's logical height for the popover ceiling.
 // holdReveal keeps connector's bar revealed until the returned release;
 // a bar that does not auto-hide has nothing to hold.
 func (r *dropdownRegistry) holdReveal(connector string) (release func()) {
@@ -339,10 +347,12 @@ func (r *dropdownRegistry) setRevealHold(connector string, hold func() (release 
 	r.revealHolds[connector] = hold
 }
 
-func (r *dropdownRegistry) attachHost(connector string, host app.Host, monH int) {
+// attachHost registers the layer window a connector's dropdowns open
+// on, with the monitor's logical size for the popover ceiling.
+func (r *dropdownRegistry) attachHost(connector string, host app.Host, mon widget.Size) {
 	r.mu.Lock()
 	r.hosts[connector] = host
-	r.monH[connector] = monH
+	r.mon[connector] = mon
 	r.mu.Unlock()
 	r.prebuild()
 }
@@ -419,7 +429,7 @@ func (r *dropdownRegistry) detachHost(connector string) {
 	delete(r.hosts, connector)
 	delete(r.openPop, connector)
 	delete(r.openName, connector)
-	delete(r.monH, connector)
+	delete(r.mon, connector)
 	delete(r.dashboardAnchors, connector)
 	r.mu.Unlock()
 }
@@ -458,7 +468,7 @@ func (by openedBy) fromKeyboard(anchor widget.Widget) bool {
 func (r *dropdownRegistry) open(connector, name string, anchor widget.Widget, by openedBy) error {
 	r.mu.Lock()
 	host := r.hosts[connector]
-	monH := r.monH[connector]
+	mon := r.mon[connector]
 	// A popover that already went away (click-away, Esc) no longer
 	// counts as open: the next click opens instead of toggling off.
 	if prev := r.openPop[connector]; prev != nil && !prev.Closed() {
@@ -502,11 +512,12 @@ func (r *dropdownRegistry) open(connector, name string, anchor widget.Widget, by
 		return fmt.Errorf("dropdown %q has no content", name)
 	}
 	// The panel is clamped to the monitor at every popup.
-	if panel, ok := content.(*panelBox); ok && monH > 0 {
-		panel.clamp(monH)
+	panel, sized := content.(*panelBox)
+	if sized && mon.H > 0 {
+		panel.clamp(mon.H)
 	}
 	w, _, _ := dropdownDims(name, r.cfg)
-	cfg := dropdownPopover(r.cfg, bound, content, monH, w)
+	cfg := dropdownPopover(r.cfg, bound, content, mon.H, w)
 	cfg.OnClosed = holdDropdown(anchor, r.cfg.Bar.DropdownFreezeLabel, content)
 	release, closed := r.holdReveal(connector), cfg.OnClosed
 	cfg.OnClosed = func() {
@@ -516,8 +527,11 @@ func (r *dropdownRegistry) open(connector, name string, anchor widget.Widget, by
 		}
 	}
 	cfg.Focus = dropdownFocus(content, by.fromKeyboard(anchor))
-	var rev *widget.Revealer
-	cfg.Content, rev = dropdownTree(content, r.cfg)
+	card, rev := dropdownTree(content, r.cfg)
+	cfg.Content = card
+	if sized {
+		cfg.Resize = dropdownResize(name, panel, card, mon, r.ctx)
+	}
 	cfg.Exit = dropdownExit(rev, r.cfg.Animations)
 	reveal.Show(rev, r.cfg.Animations, config.AnimDropdown)
 	pop, err := r.app.OpenPopover(host, cfg)

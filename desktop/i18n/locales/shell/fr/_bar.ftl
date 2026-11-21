@@ -124,3 +124,6 @@ bar-custom-command-failed = Impossible d’exécuter la commande : { $error }
 bar-world-clock-invalid-zone = Fuseau horaire inconnu « { $zone } »
 bar-world-clock-invalid-layout = Format d’heure non pris en charge « { $layout } »
 bar-world-clock-invalid-format = Impossible d’afficher le format : { $error }
+
+## Menus déroulants
+bar-dropdown-size-not-saved = Le menu garde sa nouvelle taille, mais elle n’a pas été enregistrée : { $error }

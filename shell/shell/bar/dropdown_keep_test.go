@@ -45,7 +45,7 @@ func TestAReloadOfTheRecorderCaptureSettingsKeepsTheOpenDropdowns(t *testing.T) 
 
 func TestARemountKeepsTheDropdownsWhoseInputsStayed(t *testing.T) {
 	r, q := prebuildingRegistry(t, clockOnly())
-	r.attachHost("DP-1", fakeHost{}, 1000)
+	r.attachHost("DP-1", fakeHost{}, widget.Size{W: 1600, H: 1000})
 	r.setDashboardAnchor("DP-1", widget.NewBox(widget.Column, 0, 0))
 	q.drain()
 	calendar := r.instances["calendar"]
@@ -67,7 +67,7 @@ func TestARemountKeepsTheDropdownsWhoseInputsStayed(t *testing.T) {
 	if instances.retiredNow() {
 		t.Error("retiring the bars ended the dropdowns")
 	}
-	r.attachHost("DP-1", fakeHost{}, 1000)
+	r.attachHost("DP-1", fakeHost{}, widget.Size{W: 1600, H: 1000})
 	q.drain()
 	if r.instances["calendar"] != calendar {
 		t.Fatal("a remount with the same config and style built the calendar again")
@@ -80,7 +80,7 @@ func TestARemountKeepsTheDropdownsWhoseInputsStayed(t *testing.T) {
 
 func TestARemountWithANewStyleBuildsTheDropdownsAgainAhead(t *testing.T) {
 	r, q := prebuildingRegistry(t, clockOnly())
-	r.attachHost("DP-1", fakeHost{}, 1000)
+	r.attachHost("DP-1", fakeHost{}, widget.Size{W: 1600, H: 1000})
 	q.drain()
 	calendar := r.instances["calendar"]
 	instances := r.ctx.gen
@@ -90,7 +90,7 @@ func TestARemountWithANewStyleBuildsTheDropdownsAgainAhead(t *testing.T) {
 	if !instances.retiredNow() || len(r.instances) != 0 {
 		t.Fatalf("a new style kept %d instances, generation retired %v", len(r.instances), instances.retiredNow())
 	}
-	r.attachHost("DP-1", fakeHost{}, 1000)
+	r.attachHost("DP-1", fakeHost{}, widget.Size{W: 1600, H: 1000})
 	q.drain()
 	rebuilt := r.instances["calendar"]
 	if rebuilt == nil || rebuilt == calendar {

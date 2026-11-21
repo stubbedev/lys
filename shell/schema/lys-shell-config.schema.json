@@ -3118,7 +3118,7 @@
       "type": "object"
     },
     "DropdownsConfig": {
-      "description": "Per-dropdown foldout panel sizing.\n\nEach field overrides the size of one bar widget dropdown. Unset fields keep\nthe built-in default (scaled by the global scale).",
+      "description": "Per-dropdown foldout panel sizing.\n\nEach field overrides the size of one bar widget dropdown. Unset fields keep\nthe built-in default (scaled by the global scale). Dragging an open\ndropdown's edge away from the bar, or either corner of it, resizes the\ndropdown and saves its width and height here in pixels, as a runtime\noverride.",
       "properties": {
         "audio": {
           "$ref": "#/$defs/DropdownSize",

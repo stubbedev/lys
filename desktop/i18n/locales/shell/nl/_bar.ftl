@@ -110,3 +110,6 @@ bar-custom-command-failed = De opdracht kon niet worden uitgevoerd: { $error }
 bar-world-clock-invalid-zone = Onbekende tijdzone ‘{ $zone }’
 bar-world-clock-invalid-layout = Niet-ondersteunde tijdnotatie ‘{ $layout }’
 bar-world-clock-invalid-format = De notatie kan niet worden getoond: { $error }
+
+## Uitklappanelen
+bar-dropdown-size-not-saved = Het uitklappaneel houdt zijn nieuwe grootte, maar die is niet opgeslagen: { $error }

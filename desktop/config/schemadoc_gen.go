@@ -531,7 +531,7 @@ var schemaDocs = map[string]string{
 	"DropdownSize":                                   "Size override for a dropdown foldout panel.\n\nEach field is optional: when unset the dropdown keeps its built-in default\nwidth (scaled by the global scale) and the height of its content. The\nwidth is a [`Size`]: a scale multiplier of the built-in base (e.g. `1.5`)\nor an absolute pixel length (e.g. `\"480px\"`). The height is a pixel\nlength only.",
 	"DropdownSize.Height":                            "Panel height cap in pixels (e.g. `\"400px\"`): the height a panel grows\nto before its lists scroll. Shorter content keeps the panel at its own\nheight. Unset grows the panel to its content, up to the monitor. A\nmultiplier is an error: the height has no built-in base to scale.",
 	"DropdownSize.Width":                             "Panel width override. Unset uses the built-in default width.",
-	"DropdownsConfig":                                "Per-dropdown foldout panel sizing.\n\nEach field overrides the size of one bar widget dropdown. Unset fields keep\nthe built-in default (scaled by the global scale).",
+	"DropdownsConfig":                                "Per-dropdown foldout panel sizing.\n\nEach field overrides the size of one bar widget dropdown. Unset fields keep\nthe built-in default (scaled by the global scale). Dragging an open\ndropdown's edge away from the bar, or either corner of it, resizes the\ndropdown and saves its width and height here in pixels, as a runtime\noverride.",
 	"DropdownsConfig.Audio":                          "Audio dropdown panel size.",
 	"DropdownsConfig.Battery":                        "Battery dropdown panel size.",
 	"DropdownsConfig.Bitwarden":                      "Bitwarden dropdown panel size.",
