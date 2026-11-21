@@ -218,9 +218,7 @@ func TestEachDateControlIsOneInteractiveCallAndARefusalRevertsIt(t *testing.T) {
 	if calls, _ := td.snapshot(); calls[1].method != "SetTime" || fmt.Sprint(calls[1].args) != fmt.Sprint([]any{want, false, true}) {
 		t.Fatalf("%+v, want one SetTime(%d, absolute, interactive)", calls, want)
 	}
-	td.mu.Lock()
 	td.refuseWith("Changing system settings via systemd is not supported on NixOS.")
-	td.mu.Unlock()
 	zone := treetest.First[*choiceEditor](t, footer)
 	zone.pick("Europe/Copenhagen")
 	l.until("the refusal shown", func() bool {
