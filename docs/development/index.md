@@ -68,8 +68,10 @@ shared through lys-shell's portal) and
 `desktop-vms-system` (KMS, accounts-daemon, lys-secrets activation, lys-power
 freezing a user's unit on battery, lys-polkit,
 then the clock steps and suspend of `shell/internal/clockwatch`). The session
-VM is one CI job, the screencast and system VMs another: the three in one job
-took about twelve minutes.
+VM, the screencast VM and the system VM are a CI job each, since the lane's
+longest job is its critical path: the screencast and system VMs in one job
+took 6.6 minutes after the 2.9-minute build (193 s and 105 s of test script
+after a minute of closure download), and apart about 4.5 and 3 minutes.
 
 The idle wakeup gate (`nix/idle-vm.nix`) measures a still session of lys-wm,
 lys-shell and lys-power with `lys-power energy` from the moment both say they
@@ -129,6 +131,12 @@ its runner-minutes divided by twenty, plus the longest lane's build, and
 each job pays about a minute of fixed cost (runner, checkout, Nix install, the
 dev shell). Jobs are therefore as few as fit: work is grouped until a job holds
 six to eight minutes of it, and split only where one suite alone comes near ten.
+A runner has four cores, and `just gates` runs four recipes at once, so a job
+whose recipes are each a few minutes long ends with its longest one: lib's
+race suite (510 s) and its gates (test 377 s, lint 204 s) in one job took 9.7
+minutes, the last job of run 44897398937, and run apart, the race suite with
+power's short gates beside it; wm's light race parts (91 to 117 s each) share
+a job with shell's third race part and first test part instead.
 
 The jobs run in lanes, each a build and the jobs on it, none waiting for
 another lane's build:

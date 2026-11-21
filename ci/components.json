@@ -61,12 +61,12 @@
         }
       ],
       "vms": [
-        ["wm-vms-desktop"],
-        ["wm-vms-apps"],
-        ["wm-vms-go-tests"],
         ["wm-vms-share"],
         ["wm-vms-gpus"],
-        ["wm-vms-vkms"]
+        ["wm-vms-desktop"],
+        ["wm-vms-vkms"],
+        ["wm-vms-apps"],
+        ["wm-vms-go-tests"]
       ]
     },
     "shell": {
@@ -87,9 +87,9 @@
       "gates": ["vet", "lint", "no-fused", "test", "build"],
       "race": true,
       "vms": [
-        ["login-vms-autologin"],
+        ["login-vms-sessions", "login-vms-greetd"],
         ["login-vms-greeter"],
-        ["login-vms-sessions", "login-vms-greetd"]
+        ["login-vms-autologin"]
       ]
     },
     "settings": {
@@ -125,16 +125,16 @@
         }
       ],
       "vms": [
-        ["splash-vms-luks"],
-        ["splash-vms-firmware"],
         ["splash-vms-greeter"],
-        ["splash-vms-luks-headless"]
+        ["splash-vms-luks"],
+        ["splash-vms-luks-headless"],
+        ["splash-vms-firmware"]
       ],
       "free-disk": true
     },
     "desktop-vms": {
       "depends": ["lib", "polkit", "power", "secrets", "settings", "shell"],
-      "vms": [["desktop-vms-session"], ["desktop-vms-screencast", "desktop-vms-system"]]
+      "vms": [["desktop-vms-session"], ["desktop-vms-screencast"], ["desktop-vms-system"]]
     }
   },
   "gate-runners": {
@@ -142,17 +142,17 @@
   },
   "go-jobs": {
     "x86_64": [
+      ["lib:race", "power"],
       ["wm/3:race"],
-      ["wm/1:race", "wm/2:race", "wm/4:race"],
-      ["settings:race", "secrets:race"],
-      ["shell/1:race", "shell/2:race", "shell/2:gates"],
-      ["shell/3:race", "shell/1:gates"],
-      ["shell/3:gates", "login:gates"],
-      ["lib"],
+      ["lib:gates"],
+      ["ui:gates"],
+      ["ui:race", "login:race"],
       ["settings:gates", "desktop"],
       ["wm:gates", "splash", "polkit"],
-      ["ui:race", "login:race"],
-      ["ui:gates", "power", "secrets:gates"]
+      ["shell/3:gates", "login:gates"],
+      ["settings:race", "secrets"],
+      ["shell/1:race", "shell/2:race", "shell/2:gates"],
+      ["wm/1:race", "wm/2:race", "wm/4:race", "shell/3:race", "shell/1:gates"]
     ],
     "aarch64": [
       ["shell", "ui"],
