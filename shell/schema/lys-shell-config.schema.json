@@ -10263,6 +10263,11 @@
           "default": [],
           "description": "Per-monitor wallpaper and fit mode settings. Each entry targets a\nmonitor by connector name.\n\n## Example\n\n```yaml\nwallpaper:\n  monitors:\n    - name: DP-1\n      wallpaper: /home/me/pictures/wall-primary.png\n      fit-mode: fill\n    - name: HDMI-1\n      wallpaper: /home/me/pictures/wall-secondary.png\n      fit-mode: fit\n```"
         },
+        "oled-dim": {
+          "$ref": "#/$defs/boolean",
+          "default": false,
+          "description": "Darken the wallpaper on OLED screens while the machine runs on its\nbattery, where dark pixels draw less power. A screen counts as OLED\nwhen lys-wm reads so from its EDID; elsewhere the wallpaper is left\nas it is."
+        },
         "picker-directories": {
           "$ref": "#/$defs/Array_of_string",
           "default": [],
@@ -12741,6 +12746,7 @@
         "cycling-same-image": false,
         "fit-mode": "fill",
         "monitors": [],
+        "oled-dim": false,
         "picker-directories": [],
         "wallpaper": ""
       },

@@ -84,6 +84,7 @@ type view struct {
 	kind      TransitionKind
 	// progress runs 0 -> 1 over a transition; at 1 prev is dropped.
 	progress float64
+	dim      bool
 }
 
 func newView() *view { return &view{progress: 1} }
@@ -103,6 +104,14 @@ func (v *view) show(img *shown, kind TransitionKind) bool {
 	v.InvalidateLayout()
 	v.Invalidate()
 	return v.progress < 1
+}
+
+func (v *view) setDim(on bool) {
+	if v.dim == on {
+		return
+	}
+	v.dim = on
+	v.Invalidate()
 }
 
 // step advances a running transition to linear time fraction t (0-1)
@@ -198,6 +207,13 @@ func (v *view) arrangeChildren() {
 func (v *view) Paint(cv *render.Canvas) {
 	prevClip := cv.PushClip(v.Bounds())
 	defer cv.PopClip(prevClip)
+	v.paintImages(cv)
+	if v.dim {
+		cv.FillRect(v.Bounds(), dimLayer)
+	}
+}
+
+func (v *view) paintImages(cv *render.Canvas) {
 	if v.prev != nil {
 		widget.PaintChild(cv, v.prev.pic)
 	}
@@ -225,6 +241,8 @@ func (v *view) Paint(cv *render.Canvas) {
 
 // backdrop is the surface's letterbox color.
 var backdrop = render.RGB(0, 0, 0)
+
+var dimLayer = render.RGBA(0, 0, 0, 0x99)
 
 // fillOutside fills the device-pixel ring of outer around inner.
 func fillOutside(cv *render.Canvas, outer, inner render.Rect, c render.Color) {

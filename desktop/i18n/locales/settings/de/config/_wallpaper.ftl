@@ -28,6 +28,9 @@ settings-wallpaper-cycling-same-image = Gleiches Bild auf allen Monitoren
 settings-wallpaper-picker-directories = Ordner der Auswahl
     .description = Ordner, aus denen die Hintergrundbildauswahl Bilder auflistet (leer: der Wechselordner und Pictures/Wallpapers)
 
+settings-wallpaper-oled-dim = Auf OLED im Akkubetrieb abdunkeln
+    .description = Dunkelt das Hintergrundbild auf OLED-Bildschirmen im Akkubetrieb ab, wo dunkle Pixel weniger Strom brauchen
+
 settings-wallpaper-monitors = Hintergrundbilder pro Monitor
     .description = Zuweisung von Hintergrundbildern pro Monitor
 

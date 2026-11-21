@@ -13,7 +13,7 @@ import (
 )
 
 // SetConfig applies a reloaded config: the extraction settings and the
-// [wallpaper] changes. Monitors that appear later take their state from
+// [wallpaper] changes, wallpaper.oled-dim included. Monitors that appear later take their state from
 // the new snapshot, and the next swap plays the new [animations]
 // transition. Call it on the loop goroutine.
 func (s *Shell) SetConfig(cfg *config.Config) {
@@ -21,6 +21,8 @@ func (s *Shell) SetConfig(cfg *config.Config) {
 	s.cfg, s.anims = cfg.Wallpaper, cfg.Animations
 	applyStyling(s.svc, cfg.Styling.ColorExtractor)
 	applyWallpaperChange(s.svc, old, cfg.Wallpaper)
+	s.dim.option = cfg.Wallpaper.OLEDDim
+	s.applyDim()
 }
 
 // applyStyling hands the service the extraction tool and theming

@@ -38,6 +38,7 @@ type Shell struct {
 	surfaces map[string]*surface
 	rasters  *rasters
 	waits    map[*app.Output][]*frameWaiter
+	dim      oledDim
 }
 
 type frameWaiter struct{ done func() }
@@ -70,6 +71,7 @@ func newShell(ui loop, svc *wallpaper.Service, cfg *config.Config, d rasterDeps)
 		ui: ui, svc: svc, cfg: cfg.Wallpaper, anims: cfg.Animations,
 		outputs: map[string]*app.Output{}, surfaces: map[string]*surface{},
 		rasters: newRasters(d), waits: map[*app.Output][]*frameWaiter{},
+		dim: oledDim{option: cfg.Wallpaper.OLEDDim},
 	}
 }
 
@@ -366,6 +368,7 @@ type surface struct {
 
 func (s *Shell) newSurface(name string, out *app.Output) *surface {
 	surf := &surface{shell: s, name: name, out: out, view: newView()}
+	surf.view.setDim(s.dim.dims(name))
 	surf.view.painted = func() { s.ui.invoke(func() { s.painted(surf) }) }
 	return surf
 }

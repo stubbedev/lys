@@ -342,7 +342,9 @@ func (s *shellStart) startServices(system *dbus.Conn) {
 
 	s.ctx.Hyprland = hypr
 	if s.system != nil {
-		s.ctx.Battery = upower.NewOn(s.system)
+		battery := upower.NewOn(s.system)
+		s.ctx.Battery = battery
+		s.down.add(s.followPowerSourceForWallpaper(battery))
 		s.ctx.Network = network.NewOn(s.system)
 		s.ctx.PowerProfiles = powerprofiles.NewOn(s.system)
 	}
@@ -634,11 +636,11 @@ func (s *shellStart) mount() {
 			}
 		})
 	}
-	primary := &primaryOutput{}
+	outputs := &wmOutputs{}
 	if detectCompositor() == compositor.LysWM {
-		s.down.addAsync(primary.follow)
+		s.down.addAsync(func() func() { return outputs.follow(s.tellWallpaperOLED) })
 	}
-	primaryFirst := primary.first(sess.Outputs)
+	primaryFirst := outputs.first(sess.Outputs)
 	osdSrv := osd.New(osd.Deps{
 		Open: func(lc app.LayerConfig) (osd.Window, error) {
 			w, err := application.NewLayer(lc)

@@ -21,6 +21,9 @@ settings-wallpaper-cycling-same-image = Même image sur tous les moniteurs
 settings-wallpaper-picker-directories = Dossiers du sélecteur
     .description = Dossiers dont le sélecteur de fond d'écran liste les images (vide : le dossier de rotation et Images/Wallpapers)
 
+settings-wallpaper-oled-dim = Assombrir sur OLED sur batterie
+    .description = Assombrit le fond d'écran des écrans OLED sur batterie, où les pixels sombres consomment moins
+
 settings-wallpaper-monitors = Fonds d'écran par moniteur
     .description = Assignation de fond d'écran par moniteur
 

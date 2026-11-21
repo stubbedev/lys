@@ -22,6 +22,9 @@ settings-wallpaper-cycling-same-image = Zelfde afbeelding op alle monitoren
 settings-wallpaper-picker-directories = Kiezermappen
     .description = Mappen waaruit de achtergrondkiezer afbeeldingen toont (leeg: de wisselmap en Pictures/Wallpapers)
 
+settings-wallpaper-oled-dim = Dimmen op OLED op batterij
+    .description = Maakt de achtergrond donkerder op OLED-schermen op batterij, waar donkere pixels minder stroom gebruiken
+
 settings-wallpaper-monitors = Achtergronden per monitor
     .description = Toewijzing van achtergronden per monitor
 

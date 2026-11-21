@@ -1,6 +1,8 @@
 package lyswm_test
 
 import (
+	"slices"
+	"strconv"
 	"testing"
 	"time"
 
@@ -16,7 +18,52 @@ func outputEvent(change, name string, primary bool) string {
 	return `{"event":"output","change":"` + change + `","output":{"name":"` + name + `","description":"","rect":{"x":0,"y":0,"width":1,"height":1},"scale":1,"mode":{"width":1,"height":1,"refresh_mhz":60000},"workspace":1,"focused":false,"powered":true` + p + `}}`
 }
 
-func expectPrimary(t *testing.T, w *lyswm.PrimaryWatcher, want string) {
+func oledEvent(change, name string, oled bool) string {
+	return `{"event":"output","change":"` + change + `","output":{"name":"` + name + `","capabilities":{"hdr":false,"vrr":false,"max_bitdepth":8,"oled":` + strconv.FormatBool(oled) + `}}}`
+}
+
+func expectOLED(t *testing.T, w *lyswm.OutputsWatcher, want ...string) {
+	t.Helper()
+	if got := w.OLED(); !slices.Equal(got, want) {
+		t.Fatalf("OLED outputs %q, want %q", got, want)
+	}
+}
+
+func TestOLEDOutputsAreSeededFromTheOutputs(t *testing.T) {
+	f := lyswmtest.Start(t)
+	f.Result("outputs", `[{"name":"eDP-1","capabilities":{"oled":true}},{"name":"DP-1","capabilities":{"oled":false}},{"name":"HDMI-A-1"}]`)
+	w, err := lyswm.WatchOutputs()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer w.Close()
+	expectOLED(t, w, "eDP-1")
+}
+
+func TestOLEDOutputsFollowTheOutputEvents(t *testing.T) {
+	f := lyswmtest.Start(t)
+	f.Result("outputs", `[{"name":"eDP-1","capabilities":{"oled":true}}]`)
+	w, err := lyswm.WatchOutputs()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer w.Close()
+	steps := []struct {
+		event string
+		want  []string
+	}{
+		{oledEvent("added", "DP-1", true), []string{"DP-1", "eDP-1"}},
+		{oledEvent("changed", "DP-1", false), []string{"eDP-1"}},
+		{oledEvent("removed", "eDP-1", true), nil},
+	}
+	for _, s := range steps {
+		f.Events <- s.event
+		awaitTick(t, w.Watcher)
+		expectOLED(t, w, s.want...)
+	}
+}
+
+func expectPrimary(t *testing.T, w *lyswm.OutputsWatcher, want string) {
 	t.Helper()
 	if got := w.Primary(); got != want {
 		t.Fatalf("primary = %q, want %q", got, want)
@@ -26,7 +73,7 @@ func expectPrimary(t *testing.T, w *lyswm.PrimaryWatcher, want string) {
 func TestPrimaryIsSeededFromTheOutputs(t *testing.T) {
 	f := lyswmtest.Start(t)
 	f.Result("outputs", `[{"name":"DP-1"},{"name":"HDMI-A-1","primary":true}]`)
-	w, err := lyswm.WatchPrimary()
+	w, err := lyswm.WatchOutputs()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -37,7 +84,7 @@ func TestPrimaryIsSeededFromTheOutputs(t *testing.T) {
 func TestNoOutputMarkedPrimaryIsNoPrimary(t *testing.T) {
 	f := lyswmtest.Start(t)
 	f.Result("outputs", `[{"name":"DP-1"},{"name":"HDMI-A-1"}]`)
-	w, err := lyswm.WatchPrimary()
+	w, err := lyswm.WatchOutputs()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -48,16 +95,16 @@ func TestNoOutputMarkedPrimaryIsNoPrimary(t *testing.T) {
 func TestPrimaryFailsWhenTheSeedFails(t *testing.T) {
 	f := lyswmtest.Start(t)
 	f.Answer("outputs", `{"version":1,"error":"unknown request"}`)
-	if w, err := lyswm.WatchPrimary(); err == nil {
+	if w, err := lyswm.WatchOutputs(); err == nil {
 		w.Close()
-		t.Fatal("WatchPrimary succeeded without a seed")
+		t.Fatal("WatchOutputs succeeded without a seed")
 	}
 }
 
 func TestPrimaryFollowsTheOutputEvents(t *testing.T) {
 	f := lyswmtest.Start(t)
 	f.Result("outputs", `[{"name":"DP-1","primary":true},{"name":"HDMI-A-1"}]`)
-	w, err := lyswm.WatchPrimary()
+	w, err := lyswm.WatchOutputs()
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -22,6 +22,9 @@ settings-wallpaper-cycling-same-image = Mesma imagem em todos os monitores
 settings-wallpaper-picker-directories = Pastas do seletor
     .description = Pastas de onde o seletor de imagens de fundo lista imagens (vazio: a pasta de rotação e Pictures/Wallpapers)
 
+settings-wallpaper-oled-dim = Escurecer em OLED na bateria
+    .description = Escurece a imagem de fundo em ecrãs OLED na bateria, onde os píxeis escuros gastam menos energia
+
 settings-wallpaper-monitors = Imagens de fundo por monitor
     .description = Atribuições de imagem de fundo por monitor
 

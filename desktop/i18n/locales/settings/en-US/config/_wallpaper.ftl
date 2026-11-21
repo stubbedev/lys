@@ -28,6 +28,9 @@ settings-wallpaper-cycling-same-image = Same Image On All Monitors
 settings-wallpaper-picker-directories = Picker Directories
     .description = Folders the wallpaper picker lists images from (empty: the cycling directory and Pictures/Wallpapers)
 
+settings-wallpaper-oled-dim = Dim OLED Screens On Battery
+    .description = Darken the wallpaper on OLED screens while on battery, where dark pixels draw less power
+
 settings-wallpaper-monitors = Monitor Wallpapers
     .description = Per-monitor wallpaper assignments
 

@@ -28,6 +28,9 @@ settings-wallpaper-cycling-same-image = Stessa immagine su tutti i monitor
 settings-wallpaper-picker-directories = Cartelle del selettore
     .description = Cartelle da cui il selettore di sfondi elenca le immagini (vuoto: la cartella di rotazione e Pictures/Wallpapers)
 
+settings-wallpaper-oled-dim = Scurisci su OLED a batteria
+    .description = Scurisce lo sfondo sugli schermi OLED a batteria, dove i pixel scuri consumano meno energia
+
 settings-wallpaper-monitors = Sfondi per monitor
     .description = Assegnazione degli sfondi per monitor
 

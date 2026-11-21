@@ -16,6 +16,7 @@ Wallpaper rendering, cycling, and per-monitor overrides.
 | `wallpaper` | string | `""` | A single image file to use as the wallpaper on all monitors. Leave empty to use cycling and/or per-monitor overrides instead; a monitor none of them gives an image shows the built-in wallpaper. |
 | `fit-mode` | [`FitMode`](/shell/config/types#fit-mode) | `"fill"` | How the wallpaper is scaled to the screen. Per-monitor entries in `wallpaper.monitors` override this. |
 | `picker-directories` | array of string | `[]` | Directories the wallpaper picker (`lys-shell launcher -show wallpaper`) lists images from. Empty lists the cycling directory and the `Wallpapers` folder of `XDG_PICTURES_DIR`. |
+| `oled-dim` | bool | `false` | Darken the wallpaper on OLED screens while the machine runs on its battery, where dark pixels draw less power. A screen counts as OLED when lys-wm reads so from its EDID; elsewhere the wallpaper is left as it is. |
 
 ## Cycling
 
@@ -60,6 +61,7 @@ wallpaper:
   cycling-interval-mins: 15
   cycling-same-image: false
   picker-directories: []
+  oled-dim: false
   monitors: []
 ```
 

@@ -28,6 +28,9 @@ settings-wallpaper-cycling-same-image = La misma imagen en todos los monitores
 settings-wallpaper-picker-directories = Carpetas del selector
     .description = Carpetas de las que el selector de fondos de escritorio muestra imágenes (vacío: la carpeta de rotación y Pictures/Wallpapers)
 
+settings-wallpaper-oled-dim = Oscurecer en OLED con batería
+    .description = Oscurece el fondo de escritorio en pantallas OLED con batería, donde los píxeles oscuros gastan menos energía
+
 settings-wallpaper-monitors = Fondos de escritorio por monitor
     .description = Asignaciones de fondos de escritorio por monitor
 

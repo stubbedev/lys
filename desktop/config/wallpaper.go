@@ -35,6 +35,11 @@ type WallpaperConfig struct {
 	// lists images from. Empty lists the cycling directory and the
 	// `Wallpapers` folder of `XDG_PICTURES_DIR`.
 	PickerDirectories []string `cfg:"picker-directories"`
+	// Darken the wallpaper on OLED screens while the machine runs on its
+	// battery, where dark pixels draw less power. A screen counts as OLED
+	// when lys-wm reads so from its EDID; elsewhere the wallpaper is left
+	// as it is.
+	OLEDDim bool `cfg:"oled-dim"`
 	// Per-monitor wallpaper and fit mode settings. Each entry targets a
 	// monitor by connector name.
 	//
