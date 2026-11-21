@@ -442,7 +442,7 @@ writing the same thresholds work against each other.
 | --- | --- | --- |
 | `services.lys-power.enable` | `false` | Run the `lys-power` system service. |
 | `services.lys-power.package` | the flake's `lys-power` | The package whose units and tmpfiles rule are installed. |
-| `services.lys-power.autoBrightness.enable` | `false` | Start the `lys-power-brightness` user service, [automatic brightness](#automatic-brightness), with every graphical session. |
+| `services.lys-power.autoBrightness.enable` | `false` | Start the `lys-power-brightness` user service, [automatic brightness](#automatic-brightness), with every graphical session, and install the [attention check](#attention-aware-dimming). |
 | `services.lys-power.devicePower.policy` | `"battery"` | When idle devices power down, `"battery"`, `"always"` or `"off"`: see [device power](#device-power). |
 | `services.lys-power.devicePower.deny` | `[]` | Devices the device power policy never touches, such as `"usb:046d:c52b"`. |
 | `services.lys-power.usbWake` | `"keep"` | `"battery"` keeps removable USB devices from waking the machine on battery: see [wake sources](#wake-sources). |
@@ -453,9 +453,9 @@ It also enables `services.upower`, `services.power-profiles-daemon` and
 `security.polkit` with `mkDefault`. Set any of them to `false` to run without
 it, for example when TLP manages the power profiles. `autoBrightness.enable` installs the package's
 user unit `lys-power-brightness.service` and has it wanted by
-`graphical-session.target`; it works with or without `enable`. `enable` also
-puts the attention check's user unit and its session bus activation file in
-place; the check starts it only once lys-shell's `attention` is on.
+`graphical-session.target`; it works with or without `enable`. Either option
+also puts the attention check's user unit and its session bus activation
+file in place; the check starts it only once lys-shell's `attention` is on.
 
 ## Other distributions
 

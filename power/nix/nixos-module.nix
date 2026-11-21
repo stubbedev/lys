@@ -16,7 +16,7 @@ in {
       description = "The lys-power package, whose system unit, user unit and tmpfiles rule are installed.";
     };
 
-    autoBrightness.enable = lib.mkEnableOption "automatic screen brightness, the lys-power-brightness user service, in every graphical session";
+    autoBrightness.enable = lib.mkEnableOption "automatic screen brightness, the lys-power-brightness user service, in every graphical session, and the D-Bus activated camera check for a face before the idle dim";
 
     devicePower = {
       policy = lib.mkOption {
@@ -72,6 +72,7 @@ in {
     (lib.mkIf cfg.autoBrightness.enable {
       environment.systemPackages = [cfg.package];
       systemd.packages = [cfg.package];
+      services.dbus.packages = [cfg.package];
       systemd.user.services.lys-power-brightness.wantedBy = ["graphical-session.target"];
     })
   ];

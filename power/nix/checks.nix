@@ -87,6 +87,8 @@
       ${fail (userWants brightOnly != ["graphical-session.target"]) "autoBrightness.enable alone does not start lys-power-brightness with the graphical session"}
       ${fail (!lib.elem pkg brightOnly.systemd.packages) "autoBrightness.enable alone does not put lys-power in systemd.packages"}
       ${fail (brightOnly.systemd.services.lys-power.wantedBy or [] != []) "autoBrightness.enable alone starts the lys-power system service"}
+      ${fail (!lib.elem pkg brightOnly.services.dbus.packages) "autoBrightness.enable alone does not install the attention check's D-Bus activation"}
+      ${fail (lib.elem pkg (eval {}).services.dbus.packages) "lys-power's D-Bus files are installed with nothing enabled"}
       touch $out
     '';
   };
