@@ -26,6 +26,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/splashframe"
 	"github.com/stubbedev/lys/lib/atomicfile"
+	"github.com/stubbedev/lys/lib/sdnotify"
 	"github.com/stubbedev/lys/lib/vtconsole"
 	"golang.org/x/sys/unix"
 
@@ -256,7 +257,7 @@ func startDetached(argv []string, addr string, ready *net.UnixConn, log *slog.Lo
 	cmd := exec.Command(selfExe, argv[1:]...) //nolint:gosec // the daemon re-runs itself with its own arguments
 	cmd.Args[0] = argv[0]
 	cmd.Stderr = stderr
-	cmd.Env = append(os.Environ(), daemonizedEnv+"="+target, daemon.NotifyEnv+"="+addr)
+	cmd.Env = append(os.Environ(), daemonizedEnv+"="+target, sdnotify.Env+"="+addr)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("start the daemon: %w", err)
@@ -308,7 +309,7 @@ func listen(socket, notify string, log *slog.Logger) (*server.Server, error) {
 	srv, err := server.Listen(socket, 0, log)
 	if errors.Is(err, server.ErrRunning) {
 		log.Info("a splash is already running", "socket", socket)
-		return nil, daemon.Notify(notify, "READY=1")
+		return nil, sdnotify.Notify(notify, "READY=1")
 	}
 	return srv, err
 }
@@ -324,7 +325,7 @@ func serve(o options, base *slog.Logger) (err error) {
 	logs := asynclog.New(base.Handler())
 	defer logs.Flush(time.After(logFlushWait))
 	log := slog.New(logs)
-	notify := os.Getenv(daemon.NotifyEnv)
+	notify := os.Getenv(sdnotify.Env)
 	srv, err := listen(protocol.SocketName, notify, log)
 	if srv == nil {
 		return err

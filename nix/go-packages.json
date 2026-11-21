@@ -3646,6 +3646,14 @@
       "testing"
     ]
   },
+  "lib/sdnotify": {
+    "external": [
+      "errors",
+      "fmt",
+      "net",
+      "time"
+    ]
+  },
   "lib/shacrypt": {
     "external": [
       "crypto/rand",
@@ -10396,6 +10404,7 @@
     "imports": [
       "desktop/splashframe",
       "lib/atomicfile",
+      "lib/sdnotify",
       "lib/vtconsole",
       "splash/internal/asynclog",
       "splash/internal/client",
@@ -10527,6 +10536,7 @@
       "lib/atomicfile",
       "lib/drm",
       "lib/render",
+      "lib/sdnotify",
       "splash/internal/ask",
       "splash/internal/console",
       "splash/internal/key",
@@ -10544,7 +10554,6 @@
       "io/fs",
       "log/slog",
       "math",
-      "net",
       "os",
       "path/filepath",
       "slices",
@@ -10560,6 +10569,7 @@
     "testExternal": [
       "bytes",
       "crypto/rand",
+      "net",
       "reflect",
       "sync/atomic",
       "testing"

@@ -1,4 +1,6 @@
-package daemon
+// Package sdnotify reports a service's state to the supervisor that
+// started it, as sd_notify does for systemd's Type=notify services.
+package sdnotify
 
 import (
 	"errors"
@@ -7,8 +9,8 @@ import (
 	"time"
 )
 
-// NotifyEnv names the socket systemd's Type=notify services report on.
-const NotifyEnv = "NOTIFY_SOCKET"
+// Env names the socket systemd's Type=notify services report on.
+const Env = "NOTIFY_SOCKET"
 
 const notifyTimeout = 5 * time.Second
 
@@ -21,14 +23,14 @@ func Notify(addr, state string) error {
 	}
 	c, err := net.DialUnix("unixgram", nil, &net.UnixAddr{Name: addr, Net: "unixgram"})
 	if err != nil {
-		return fmt.Errorf("daemon: reach the notify socket %s: %w", addr, err)
+		return fmt.Errorf("sdnotify: reach the notify socket %s: %w", addr, err)
 	}
 	err = send(c, state)
 	if cerr := c.Close(); cerr != nil {
-		err = errors.Join(err, fmt.Errorf("daemon: close the notify socket %s: %w", addr, cerr))
+		err = errors.Join(err, fmt.Errorf("sdnotify: close the notify socket %s: %w", addr, cerr))
 	}
 	if err != nil {
-		return fmt.Errorf("daemon: notify %s of %q: %w", addr, state, err)
+		return fmt.Errorf("sdnotify: notify %s of %q: %w", addr, state, err)
 	}
 	return nil
 }

@@ -17,6 +17,7 @@ import (
 	"github.com/stubbedev/lys/desktop/splashframe"
 	"github.com/stubbedev/lys/lib/drm"
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/sdnotify"
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/splash/internal/ask"
@@ -337,7 +338,7 @@ func Run(ctx context.Context, cfg Config, t theme.Theme, bgrt *splashframe.BGRT,
 	if err := d.redraw(); err != nil {
 		cfg.Log.Warn("drawing the first frame", "err", err)
 	}
-	if err := Notify(cfg.Notify, "READY=1"); err != nil {
+	if err := sdnotify.Notify(cfg.Notify, "READY=1"); err != nil {
 		return err
 	}
 	cfg.Log.Info("showing the splash", "mode", cfg.Mode, "pid", os.Getpid())
