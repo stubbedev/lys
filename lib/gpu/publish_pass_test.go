@@ -1,8 +1,10 @@
 package gpu
 
 import (
+	"fmt"
 	"image"
 	"image/color"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -49,7 +51,7 @@ func stillFencing(t *testing.T, d *Device) {
 // that covers the pass, and Publish waits for nothing: a compositor
 // sampling the buffer waits on that fence instead. The fence signals
 // after the pass was submitted, or the pass had finished when the fence
-// was exported, and once it has signalled everything submitted has.
+// was exported, and not before the pass finished on the GPU.
 func TestPublishAttachesThePassesFence(t *testing.T) {
 	d := fencingDevice(t)
 	tg := passTarget(t, d, busySize)
@@ -70,9 +72,6 @@ func TestPublishAttachesThePassesFence(t *testing.T) {
 			t.Fatalf("frame %d: Publish left the pass unsubmitted", frame)
 		}
 		handedOut(d, dmabufFence(t, plane), since).signalled(t)
-		if done := d.finished(); done != len(d.inflight) {
-			t.Errorf("frame %d: the dmabuf's fence signalled with %d of %d submissions finished", frame, done, len(d.inflight))
-		}
 		if got := readTarget(t, tg).RGBAAt(1, 1); got != colors[frame%2] {
 			t.Errorf("frame %d: the published target holds %v, want %v", frame, got, colors[frame%2])
 		}
@@ -100,11 +99,76 @@ func TestPublishCoversPassesAlreadySubmitted(t *testing.T) {
 		t.Errorf("Publish after Flush made %d submissions, want the one that signals", got-submitted)
 	}
 	handedOut(d, dmabufFence(t, tg.Dmabuf().Planes[0].FD), since).signalled(t)
-	if done := d.finished(); done != len(d.inflight) {
-		t.Errorf("the dmabuf's fence signalled with %d of %d submissions finished", done, len(d.inflight))
-	}
 	if got := readTarget(t, tg).RGBAAt(1, 1); got != (color.RGBA{0, 0, 255, 255}) {
 		t.Errorf("the published target holds %v, want what the flushed pass drew", got)
+	}
+}
+
+type judgement struct {
+	testing.TB
+	errors []string
+	ended  string
+}
+
+func (j *judgement) Helper() {}
+
+func (j *judgement) Errorf(format string, args ...any) {
+	j.errors = append(j.errors, fmt.Sprintf(format, args...))
+}
+
+func (j *judgement) Fatalf(format string, args ...any) {
+	j.ended = fmt.Sprintf(format, args...)
+	runtime.Goexit()
+}
+
+func (j *judgement) Skipf(format string, args ...any) { j.Fatalf(format, args...) }
+
+func judge(t *testing.T, h handout) *judgement {
+	j := &judgement{TB: t}
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		h.signalled(j)
+	}()
+	<-done
+	return j
+}
+
+// A dmabuf's fence exported after it signalled is the kernel's stub, and
+// the stub covers the pass when the pass had finished on the GPU by the
+// export, whatever the device's fence status still says: NVIDIA's lags
+// the sync_file it signals. A stub handed out before the pass finished
+// does not cover it.
+func TestAStubHandoutIsJudgedByWhenThePassFinishedOnTheGPU(t *testing.T) {
+	d := fencingDevice(t)
+	if !d.calibrated {
+		t.Skipf("%s has no calibrated timestamps", d.Name())
+	}
+	tg := passTarget(t, d, busySize)
+	plane := tg.Dmabuf().Planes[0].FD
+	since := monotonic()
+	heavyPass(t, d, tg, busyDraws, color.RGBA{0, 255, 0, 255})
+	if err := d.Publish(tg); err != nil {
+		t.Fatal(err)
+	}
+	stillFencing(t, d)
+	waitReadable(t, dmabufFence(t, plane))
+	d.pollFault = true
+	t.Cleanup(func() { d.pollFault = false })
+	if d.finished() == len(d.inflight) {
+		t.Fatal("the device's fence status reports the pass finished while it is made to lag")
+	}
+	stub := handedOut(d, dmabufFence(t, plane), since)
+	if at := signalTime(t, stub.fd); at > since {
+		t.Fatalf("the fence exported after the pass's signalled at %v, after the pass began at %v: not the stub", at, since)
+	}
+	if j := judge(t, stub); len(j.errors) != 0 || j.ended != "" {
+		t.Errorf("a stub of a finished pass, its fence status lagging: errors %q, ended %q; want it to cover the pass", j.errors, j.ended)
+	}
+	early := stub
+	early.by = since
+	if j := judge(t, early); len(j.errors) != 1 || j.ended != "" || !strings.Contains(j.errors[0], "does not cover it") {
+		t.Errorf("a stub handed out before the pass finished: errors %q, ended %q; want one saying it does not cover the pass", j.errors, j.ended)
 	}
 }
 

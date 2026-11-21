@@ -7,12 +7,14 @@ import (
 	"slices"
 	"testing"
 	"time"
+	"unsafe"
 
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/lib/drm"
 	"github.com/stubbedev/lys/lib/fdtest"
 	"github.com/stubbedev/lys/lib/fourcc"
+	"github.com/stubbedev/lys/lib/intconv"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/third_party/vk"
 	"github.com/stubbedev/lys/lib/waittest"
@@ -56,38 +58,72 @@ const (
 	busySize  = 1024
 )
 
-// handout is a sync_file d handed out for the work it submitted after
-// since, and whether all d had submitted had finished right after: a
-// fence that had signalled is handed out as a stub (the kernel exports
-// one once a dmabuf's fences have, a driver may for a finished
-// submission), which stands for that work only if it had all finished.
 type handout struct {
-	fd      int
-	since   time.Duration
-	allDone bool
+	d     *Device
+	fd    int
+	since time.Duration
+	by    time.Duration
+	query int
 }
 
 func handedOut(d *Device, fd int, since time.Duration) handout {
-	return handout{fd: fd, since: since, allDone: d.finished() == len(d.inflight)}
+	return handout{d: d, fd: fd, since: since, by: monotonic(), query: newestPassQuery(d)}
 }
 
-// signalled waits for the fence and fails the test unless it covers the
-// work: it signals after since, the fence of that work, or it is a stub
-// handed out with that work finished. It reports when it signalled and
-// whether that is the work's own time rather than a stub's.
-func (h handout) signalled(t *testing.T) (time.Duration, bool) {
+func newestPassQuery(d *Device) int {
+	for _, f := range slices.Backward(d.inflight) {
+		if f.pass == d.passes {
+			return f.query
+		}
+	}
+	if d.passes > 0 && d.done == d.passes {
+		return d.doneQuery
+	}
+	return -1
+}
+
+func (h handout) signalled(t testing.TB) (time.Duration, bool) {
 	t.Helper()
 	at := signalTime(t, h.fd)
-	if at > h.since {
-		return at, true
+	own := at > h.since
+	bound := at
+	if !own {
+		bound = h.by
 	}
-	if !h.allDone {
-		t.Errorf("sync_file %d had signalled at %v, before the work since %v was submitted, and was handed out with that work unfinished: it does not cover it", h.fd, at, h.since)
+	end, slack, timed := h.passEnd(t)
+	switch {
+	case !timed && own:
+	case !timed:
+		t.Skipf("sync_file %d had signalled when it was handed out, and %s has no GPU timestamps to tell whether its pass had finished by then", h.fd, h.d.Name())
+	case own && end > bound+slack:
+		t.Errorf("sync_file %d signalled at %v, before its pass finished on the GPU at %v", h.fd, at, end)
+	case end > bound+slack:
+		t.Errorf("sync_file %d had signalled before it was handed out at %v, but the pass since %v finished on the GPU at %v: it does not cover it", h.fd, h.by, h.since, end)
 	}
-	return at, false
+	return at, own
 }
 
-func signalTime(t *testing.T, fd int) time.Duration {
+func (h handout) passEnd(t testing.TB) (end, slack time.Duration, timed bool) {
+	t.Helper()
+	d := h.d
+	if h.query < 0 || !d.calibrated {
+		return 0, 0, false
+	}
+	var stamp uint64
+	if r := d.cmds.GetQueryPoolResults(d.device, d.queries, intconv.Must[uint32](h.query), 1, 8, unsafe.Pointer(&stamp), 8, vk.QueryResultFlags(vk.QueryResult64Bit|vk.QueryResultWaitBit)); r != vk.Success {
+		t.Fatalf("waiting for the timestamp of the pass handed out with sync_file %d: %v", h.fd, resultError(r))
+	}
+	if err := d.calibrate(true); err != nil {
+		t.Fatal(err)
+	}
+	end, err := d.frameTime(h.query)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return end, time.Duration(intconv.Must[int64](d.args.deviation)), true
+}
+
+func signalTime(t testing.TB, fd int) time.Duration {
 	t.Helper()
 	waitReadable(t, fd)
 	at, ok, err := drm.SyncFileSignalTime(fd)
@@ -106,7 +142,7 @@ func dupFD(t *testing.T, fd int) int {
 	return dup
 }
 
-func waitReadable(t *testing.T, fd int) {
+func waitReadable(t testing.TB, fd int) {
 	t.Helper()
 	if fd < 0 {
 		return
