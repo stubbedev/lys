@@ -1,0 +1,38 @@
+name: Save the Go build cache
+description: >-
+  Saves the Go build cache ./.github/actions/setup restored, with only the
+  build and lint cache entries this job used: setup dated every restored entry
+  two hours back, Go and golangci-lint date an entry they use to now when it is
+  over an hour old, so an entry still older than 90 minutes went unused and is
+  dropped before the save. The module cache is saved whole.
+
+inputs:
+  path:
+    description: The setup action's go-cache-path output.
+    required: true
+  marked:
+    description: The setup action's go-cache-marked output.
+    required: true
+  key:
+    description: The setup action's go-cache-key output.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        MARKED: ${{ inputs.marked }}
+      run: |
+        while IFS= read -r dir; do
+          if [ -d "$dir" ]; then
+            before=$(du -sm "$dir" | cut -f1)
+            find "$dir" -mindepth 2 -type f -mmin +90 -delete
+            echo "${dir}: ${before} MB restored and built, $(du -sm "$dir" | cut -f1) MB used and saved"
+          fi
+        done <<< "$MARKED"
+
+    - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ inputs.path }}
+        key: ${{ inputs.key }}

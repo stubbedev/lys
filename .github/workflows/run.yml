@@ -43,7 +43,8 @@ jobs:
       - run: ${{ matrix.run }}
       - name: Save the Go build cache, also after a failure or the timeout
         if: always() && steps.setup.outputs.go-cache-save == 'true'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: ./.github/actions/go-cache-save
         with:
           path: ${{ steps.setup.outputs.go-cache-path }}
+          marked: ${{ steps.setup.outputs.go-cache-marked }}
           key: ${{ steps.setup.outputs.go-cache-key }}

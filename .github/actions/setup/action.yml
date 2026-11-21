@@ -3,14 +3,19 @@ description: >-
   Installs Nix with the xilo substituters, just and jq. A job after the build
   stage sets substitute-only: its Nix then only substitutes (max-jobs = 0), so
   anything the build jobs did not build and push fails the job instead of
-  building again. Restores the job's Go build cache under its own key, and gives
-  the runner KVM, unprivileged user namespaces or its second disk for the
-  Nix store when the job asks.
-  The job saves the Go build cache itself, with actions/cache/save on the
-  go-cache-path and go-cache-key outputs under if: always() && go-cache-save,
-  so a job that failed or timed out still leaves its compiled packages to the
-  next run. Go reuses a test result only while nothing it depends on changed;
-  the weekly scheduled run reruns everything.
+  building again. Restores the newest Go build cache the job saved in an
+  earlier run, and gives the runner KVM, unprivileged user namespaces or free
+  disk when the job asks.
+  The job saves the Go build cache itself, with ./.github/actions/go-cache-save
+  on the go-cache-path, go-cache-marked and go-cache-key outputs under
+  if: always() && go-cache-save, so a job that failed or timed out still leaves
+  its compiled packages to the next run. Every run saves under a key of its
+  own, so the next run starts from this one's cache rather than from the first
+  of the day, and saves only the entries this job used: the restore dates every
+  build and lint cache entry two hours back, Go and golangci-lint date an entry
+  they use to now when it is over an hour old, and the save drops what is still
+  older than 90 minutes. Go reuses a test result only while nothing it depends
+  on changed; the weekly scheduled run reruns everything.
 
 inputs:
   github-token:
@@ -86,17 +91,16 @@ runs:
         nix build --inputs-from . --no-link --print-out-paths nixpkgs#just nixpkgs#jq^bin | sed 's|$|/bin|' >> "$GITHUB_PATH"
 
     - if: inputs.go-cache != ''
-      id: cache-day
-      shell: bash
-      run: echo "day=$(date -u +%Y%m%d)" >> "$GITHUB_OUTPUT"
-
-    - if: inputs.go-cache != ''
       id: go-cache-path
       shell: bash
       run: |
+        marked=(~/.cache/go-build ~/.cache/golangci-lint)
         {
           echo 'path<<EOF'
-          printf '%s\n' ~/.cache/go-build ~/.cache/golangci-lint ~/go/pkg/mod
+          printf '%s\n' "${marked[@]}" ~/go/pkg/mod
+          echo EOF
+          echo 'marked<<EOF'
+          printf '%s\n' "${marked[@]}"
           echo EOF
         } >> "$GITHUB_OUTPUT"
 
@@ -105,9 +109,20 @@ runs:
       uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ${{ steps.go-cache-path.outputs.path }}
-        key: go-${{ runner.os }}-${{ runner.arch }}-${{ inputs.go-cache }}-${{ steps.cache-day.outputs.day }}-${{ hashFiles('flake.lock', 'go.sum') }}
+        key: go-${{ runner.os }}-${{ runner.arch }}-${{ inputs.go-cache }}-${{ github.run_id }}-${{ github.run_attempt }}
         restore-keys: |
           go-${{ runner.os }}-${{ runner.arch }}-${{ inputs.go-cache }}-
+
+    - if: steps.go-cache.outputs.cache-matched-key != ''
+      shell: bash
+      env:
+        MARKED: ${{ steps.go-cache-path.outputs.marked }}
+      run: |
+        while IFS= read -r dir; do
+          if [ -d "$dir" ]; then
+            find "$dir" -mindepth 2 -type f -exec touch -m -d '2 hours ago' {} +
+          fi
+        done <<< "$MARKED"
 
     - name: Reuse unchanged test results, apart from the weekly full run
       shell: bash

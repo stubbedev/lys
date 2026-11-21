@@ -217,9 +217,16 @@ first runners. The jobs on the builds:
      (`wm/3:race`, the harness, takes about eight minutes alone) and shell both
      suites; `ci/affected`'s tests fail when a shard names a directory without
      tests or a sharded recipe ignores `$LYS_TEST_PACKAGES`.
-   - Each Go job restores its own Go build cache, keyed by its job id, and saves
-     it at the end whether it passed, failed or timed out, so the next run
-     starts warm.
+   - Each Go job restores the newest Go build cache it saved, by its job id,
+     and saves it at the end whether it passed, failed or timed out, under a
+     key of this run, so the next run starts from this run's compiled packages,
+     lint results and test results, not from the first run of the day's. It
+     saves only the build and lint cache entries it used
+     (`.github/actions/go-cache-save`), so a cache holds one job's working set
+     rather than every entry of the last five days: the repository's caches
+     had grown past the 10 GB GitHub keeps, one job's to 1.9 GB that took 90 s
+     to restore, and the eviction left Go lib to start cold in run
+     44897398937, without one cached test result.
    - **package**: each packaged component's archive, `.deb` and `.rpm`, on
      the dev shells. Its `dist` recipe compiles the release binaries again
      rather than taking them from the Nix packages: those are linked for the
