@@ -3,7 +3,6 @@ package session
 import (
 	"bufio"
 	"bytes"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -13,18 +12,14 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/stubbedev/lys/lib/udevmonitor"
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/wm/internal/loop"
 )
 
 const (
-	DefaultSeat      = "seat0"
-	udevGroup        = 2
-	udevMagic        = 0xfeedcafe
-	udevPrefix       = "libudev\x00"
-	udevHeaderLength = 40
-	maxMessage       = 8192
+	DefaultSeat = "seat0"
 )
 
 type Subsystem string
@@ -175,18 +170,18 @@ func Enumerate(roots Roots, seat string, subsystems ...Subsystem) ([]UdevDevice,
 	return out, nil
 }
 
-var errNotUdev = errors.New("session: not a udev message")
+var errNotUdev = errors.New("session: not a udev device event")
 
 func parseUdevMessage(msg []byte, sysRoot string) (UdevEvent, error) {
-	if len(msg) < udevHeaderLength || string(msg[:len(udevPrefix)]) != udevPrefix || binary.BigEndian.Uint32(msg[8:]) != udevMagic {
+	block, err := udevmonitor.Properties(msg)
+	if errors.Is(err, udevmonitor.ErrNotUdev) {
 		return UdevEvent{}, errNotUdev
 	}
-	off, n := binary.NativeEndian.Uint32(msg[16:]), binary.NativeEndian.Uint32(msg[20:])
-	if uint64(off)+uint64(n) > uint64(len(msg)) {
-		return UdevEvent{}, fmt.Errorf("session: udev properties at %d+%d past a %d byte message", off, n, len(msg))
+	if err != nil {
+		return UdevEvent{}, fmt.Errorf("session: %w", err)
 	}
 	props := map[string]string{}
-	parseProperties(bytes.Split(msg[off:off+n], []byte{0}), '=', props)
+	parseProperties(bytes.Split(block, []byte{0}), '=', props)
 	d, ok, err := device(Subsystem(props["SUBSYSTEM"]), filepath.Join(sysRoot, props["DEVPATH"]), props)
 	if err != nil {
 		return UdevEvent{}, err
@@ -210,16 +205,17 @@ type Monitor struct {
 
 func fromUdevd(from unix.Sockaddr, creds *unix.Ucred) bool {
 	nl, ok := from.(*unix.SockaddrNetlink)
-	return ok && nl.Groups == udevGroup && nl.Pid != 0 && creds != nil && creds.Uid == 0
+	return ok && nl.Groups == udevmonitor.Group && nl.Pid != 0 && creds != nil && creds.Uid == 0
 }
 
 func Watch(l *loop.Loop, seat string, subsystems []Subsystem, handle func(UdevEvent) error) (*Monitor, error) {
-	fd, err := unix.Socket(unix.AF_NETLINK, unix.SOCK_RAW|unix.SOCK_CLOEXEC|unix.SOCK_NONBLOCK, unix.NETLINK_KOBJECT_UEVENT)
-	if err != nil {
-		return nil, fmt.Errorf("session: udev netlink socket: %w", err)
+	names := make([]string, len(subsystems))
+	for i, s := range subsystems {
+		names[i] = string(s)
 	}
-	if err := unix.Bind(fd, &unix.SockaddrNetlink{Family: unix.AF_NETLINK, Groups: udevGroup}); err != nil {
-		return nil, errors.Join(fmt.Errorf("session: bind the udev netlink group: %w", err), unix.Close(fd))
+	fd, err := udevmonitor.Open(names)
+	if err != nil {
+		return nil, fmt.Errorf("session: %w", err)
 	}
 	return watch(l, fd, seat, SystemRoots.Sys, subsystems, fromUdevd, handle)
 }
@@ -228,7 +224,7 @@ func watch(l *loop.Loop, fd int, seat, sysRoot string, subs []Subsystem, trusted
 	if err := unix.SetsockoptInt(fd, unix.SOL_SOCKET, unix.SO_PASSCRED, 1); err != nil {
 		return nil, errors.Join(fmt.Errorf("session: SO_PASSCRED: %w", err), unix.Close(fd))
 	}
-	m := &Monitor{fd: fd, seat: seat, sysRoot: sysRoot, subs: subs, trusted: trusted, handle: handle, buf: make([]byte, maxMessage), oob: make([]byte, unix.CmsgSpace(unix.SizeofUcred))}
+	m := &Monitor{fd: fd, seat: seat, sysRoot: sysRoot, subs: subs, trusted: trusted, handle: handle, buf: make([]byte, udevmonitor.MaxMessage), oob: make([]byte, unix.CmsgSpace(unix.SizeofUcred))}
 	var err error
 	if m.src, err = l.AddFD(fd, loop.Readable, m.read); err != nil {
 		return nil, errors.Join(err, unix.Close(fd))

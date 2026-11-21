@@ -72,18 +72,3 @@ func TestAnUnreadableConnectorIsAnError(t *testing.T) {
 		t.Error("a connector without a status is no error")
 	}
 }
-
-func TestIsDRM(t *testing.T) {
-	t.Parallel()
-	hotplug := "change@/devices/pci0000:00/0000:00:02.0/drm/card0\x00ACTION=change\x00SUBSYSTEM=drm\x00HOTPLUG=1\x00"
-	battery := "change@/devices/LNXSYSTM:00/PNP0C0A:00/power_supply/BAT0\x00ACTION=change\x00SUBSYSTEM=power_supply\x00"
-	if !IsDRM([]byte(hotplug)) {
-		t.Error("a DRM hotplug is not DRM")
-	}
-	if IsDRM([]byte(battery)) {
-		t.Error("a battery change is DRM")
-	}
-	if IsDRM([]byte("SUBSYSTEM=drmx\x00")) {
-		t.Error("a prefix match is DRM")
-	}
-}

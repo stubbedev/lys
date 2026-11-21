@@ -12,7 +12,8 @@ import (
 // fdWake turns a nonblocking file descriptor becoming readable into
 // coalesced wakeups. The descriptor goes through the runtime poller, so
 // Close unblocks the reader and ends it. ECANCELED is the wall timer
-// reporting a clock change, as much a reason to re-evaluate as an expiry.
+// reporting a clock change, as much a reason to re-evaluate as an expiry,
+// and ENOBUFS a netlink socket that lost events to a burst.
 type fdWake struct {
 	file *os.File
 	c    chan struct{}
@@ -23,7 +24,7 @@ func newFDWake(fd int, name string, bufSize int) *fdWake {
 	go func() {
 		buf := make([]byte, bufSize)
 		for {
-			if _, err := w.file.Read(buf); err != nil && !errors.Is(err, unix.ECANCELED) {
+			if _, err := w.file.Read(buf); err != nil && !errors.Is(err, unix.ECANCELED) && !errors.Is(err, unix.ENOBUFS) {
 				return
 			}
 			notify(w.c)

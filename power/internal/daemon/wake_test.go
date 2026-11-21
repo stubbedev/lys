@@ -10,7 +10,9 @@ import (
 
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/udevmonitor"
 	"github.com/stubbedev/lys/lib/waittest"
+	"golang.org/x/sys/unix"
 )
 
 func TestTouchesOnBattery(t *testing.T) {
@@ -107,4 +109,32 @@ func TestNilWatchNeverWakes(t *testing.T) {
 	if watch.wakes() != nil {
 		t.Error("nil watch returned a channel, want nil so select never fires")
 	}
+}
+
+func TestDisplayWatchWakesOnlyForDisplays(t *testing.T) {
+	t.Parallel()
+	fds, err := unix.Socketpair(unix.AF_UNIX, unix.SOCK_DGRAM|unix.SOCK_CLOEXEC|unix.SOCK_NONBLOCK, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer unix.Close(fds[1])
+	if err := udevmonitor.Filter(fds[0], displaySubsystems); err != nil {
+		t.Fatal(err)
+	}
+	send := func(props ...string) {
+		t.Helper()
+		if _, err := unix.Write(fds[1], udevmonitor.Frame(props...)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	send("ACTION=change", "SUBSYSTEM=mem", "DEVPATH=/devices/virtual/mem/null")
+	send("ACTION=change", "SUBSYSTEM=power_supply", "DEVPATH=/devices/LNXSYSTM:00/PNP0C0A:00/power_supply/BAT0")
+	pending := []unix.PollFd{{Fd: int32(fds[0]), Events: unix.POLLIN}}
+	if n, err := unix.Poll(pending, 0); err != nil || n != 0 {
+		t.Fatalf("an unrelated uevent reached the display watch: %d ready, %v", n, err)
+	}
+	watch := newFDWake(fds[0], "udev:drm", udevmonitor.MaxMessage)
+	defer watch.Close()
+	send("ACTION=change", "SUBSYSTEM=drm", "DEVPATH=/devices/pci0000:00/0000:00:02.0/drm/card0", "HOTPLUG=1")
+	waittest.For(t, watch.wakes(), "a display hotplug to wake the watch")
 }

@@ -8,6 +8,7 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/stubbedev/lys/lib/udevmonitor"
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/wm/internal/loop"
@@ -80,20 +81,6 @@ func TestEnumerateFiltersBySeatAndSkipsNodelessEntries(t *testing.T) {
 	}
 }
 
-func udevMessage(props ...string) []byte {
-	var body []byte
-	for _, p := range props {
-		body = append(append(body, p...), 0)
-	}
-	msg := make([]byte, udevHeaderLength, udevHeaderLength+len(body))
-	copy(msg, udevPrefix)
-	binary.BigEndian.PutUint32(msg[8:], udevMagic)
-	binary.NativeEndian.PutUint32(msg[12:], udevHeaderLength)
-	binary.NativeEndian.PutUint32(msg[16:], udevHeaderLength)
-	binary.NativeEndian.PutUint32(msg[20:], uint32(len(body)))
-	return append(msg, body...)
-}
-
 func trustSelf(_ unix.Sockaddr, c *unix.Ucred) bool {
 	return c != nil && c.Uid == uint32(os.Getuid())
 }
@@ -109,7 +96,7 @@ func sendUevents(t *testing.T, fd int, msgs ...[]byte) {
 }
 
 func TestParseUdevMessages(t *testing.T) {
-	msg := udevMessage("ACTION=change", "DEVPATH=/devices/pci/drm/card0", "SUBSYSTEM=drm", "DEVNAME=/dev/dri/card0", "MAJOR=226", "MINOR=0", "HOTPLUG=1")
+	msg := udevmonitor.Frame("ACTION=change", "DEVPATH=/devices/pci/drm/card0", "SUBSYSTEM=drm", "DEVNAME=/dev/dri/card0", "MAJOR=226", "MINOR=0", "HOTPLUG=1")
 	ev, err := parseUdevMessage(msg, "/sys")
 	if err != nil {
 		t.Fatal(err)
@@ -127,7 +114,7 @@ func TestParseUdevMessages(t *testing.T) {
 	if _, err := parseUdevMessage(short, "/sys"); err == nil || errors.Is(err, errNotUdev) {
 		t.Fatalf("properties past the end: %v", err)
 	}
-	if _, err := parseUdevMessage(udevMessage("ACTION=add", "SUBSYSTEM=input", "DEVPATH=/x"), "/sys"); !errors.Is(err, errNotUdev) {
+	if _, err := parseUdevMessage(udevmonitor.Frame("ACTION=add", "SUBSYSTEM=input", "DEVPATH=/x"), "/sys"); !errors.Is(err, errNotUdev) {
 		t.Fatalf("a nodeless device: %v", err)
 	}
 }
@@ -156,11 +143,11 @@ func TestMonitorDeliversTrustedSeatEvents(t *testing.T) {
 	}
 	defer m.Close()
 	sendUevents(t, fds[1],
-		udevMessage("ACTION=add", "SUBSYSTEM=sound", "DEVPATH=/s", "DEVNAME=snd/c", "MAJOR=116", "MINOR=1"),
-		udevMessage("ACTION=add", "SUBSYSTEM=input", "DEVPATH=/i", "DEVNAME=input/event9", "MAJOR=13", "MINOR=73", "ID_SEAT=seat1"),
+		udevmonitor.Frame("ACTION=add", "SUBSYSTEM=sound", "DEVPATH=/s", "DEVNAME=snd/c", "MAJOR=116", "MINOR=1"),
+		udevmonitor.Frame("ACTION=add", "SUBSYSTEM=input", "DEVPATH=/i", "DEVNAME=input/event9", "MAJOR=13", "MINOR=73", "ID_SEAT=seat1"),
 		[]byte("not udev"),
-		udevMessage("ACTION=add", "SUBSYSTEM=input", "DEVPATH=/i", "DEVNAME=input/event8", "MAJOR=13", "MINOR=72"),
-		udevMessage("ACTION=remove", "SUBSYSTEM=drm", "DEVPATH=/d", "DEVNAME=dri/card1", "MAJOR=226", "MINOR=1"),
+		udevmonitor.Frame("ACTION=add", "SUBSYSTEM=input", "DEVPATH=/i", "DEVNAME=input/event8", "MAJOR=13", "MINOR=72"),
+		udevmonitor.Frame("ACTION=remove", "SUBSYSTEM=drm", "DEVPATH=/d", "DEVNAME=dri/card1", "MAJOR=226", "MINOR=1"),
 	)
 	if err := l.Run(); err != nil {
 		t.Fatal(err)
@@ -171,7 +158,7 @@ func TestMonitorDeliversTrustedSeatEvents(t *testing.T) {
 }
 
 func TestPowerSupplyEventsNeedNoDeviceNode(t *testing.T) {
-	ev, err := parseUdevMessage(udevMessage("ACTION=change", "SUBSYSTEM=power_supply", "DEVPATH=/devices/ac/power_supply/AC", "POWER_SUPPLY_ONLINE=0"), "/sys")
+	ev, err := parseUdevMessage(udevmonitor.Frame("ACTION=change", "SUBSYSTEM=power_supply", "DEVPATH=/devices/ac/power_supply/AC", "POWER_SUPPLY_ONLINE=0"), "/sys")
 	if err != nil || ev.Subsystem != PowerSupply || ev.Action != Change || ev.Syspath != "/sys/devices/ac/power_supply/AC" {
 		t.Fatalf("a power_supply change parsed to %+v, %v", ev, err)
 	}

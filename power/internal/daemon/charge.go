@@ -14,7 +14,7 @@ import (
 
 	"github.com/stubbedev/lys/lib/polkit"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
-	"golang.org/x/sys/unix"
+	"github.com/stubbedev/lys/lib/udevmonitor"
 
 	"github.com/stubbedev/lys/power/charge"
 	"github.com/stubbedev/lys/power/internal/busauth"
@@ -216,32 +216,16 @@ func (c *charges) SetDeparture(ctx context.Context, caller charge.Caller, at tim
 	return nil
 }
 
-// watchDisplays wakes on every kernel uevent from the DRM subsystem,
-// where a display being connected or disconnected is announced.
+// displaySubsystems are the subsystems whose udev events can announce a
+// display being connected or disconnected.
+var displaySubsystems = []string{"drm"}
+
+// watchDisplays wakes on udev's events from displaySubsystems; the
+// kernel drops every other event before it reaches the socket.
 func watchDisplays() (*fdWake, error) {
-	fd, err := unix.Socket(unix.AF_NETLINK, unix.SOCK_DGRAM|unix.SOCK_NONBLOCK|unix.SOCK_CLOEXEC, unix.NETLINK_KOBJECT_UEVENT)
+	fd, err := udevmonitor.Open(displaySubsystems)
 	if err != nil {
-		return nil, fmt.Errorf("opening a uevent socket: %w", err)
+		return nil, fmt.Errorf("listening for display hotplug: %w", err)
 	}
-	if err := unix.Bind(fd, &unix.SockaddrNetlink{Family: unix.AF_NETLINK, Groups: 1}); err != nil {
-		return nil, errors.Join(fmt.Errorf("listening for kernel uevents: %w", err), unix.Close(fd))
-	}
-	w := &fdWake{file: os.NewFile(uintptr(fd), "uevent"), c: make(chan struct{}, 1)}
-	go func() {
-		buf := make([]byte, 64<<10)
-		for {
-			n, err := w.file.Read(buf)
-			if errors.Is(err, unix.ENOBUFS) {
-				notify(w.c)
-				continue
-			}
-			if err != nil {
-				return
-			}
-			if dock.IsDRM(buf[:n]) {
-				notify(w.c)
-			}
-		}
-	}()
-	return w, nil
+	return newFDWake(fd, "udev:drm", udevmonitor.MaxMessage), nil
 }

@@ -4,7 +4,6 @@
 package dock
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -64,16 +63,4 @@ func external(connector string) bool {
 		}
 	}
 	return true
-}
-
-// IsDRM reports whether a kernel uevent, NUL-separated "action@devpath"
-// and KEY=value fields, comes from the DRM subsystem, where a connected
-// or disconnected display is announced.
-func IsDRM(uevent []byte) bool {
-	for field := range bytes.SplitSeq(uevent, []byte{0}) {
-		if string(field) == "SUBSYSTEM=drm" {
-			return true
-		}
-	}
-	return false
 }

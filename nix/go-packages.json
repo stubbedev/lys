@@ -1650,6 +1650,14 @@
       "lib/testbuild"
     ]
   },
+  "lib/udevmonitor": {
+    "imports": [
+      "lib/intconv"
+    ],
+    "testImports": [
+      "lib/testbuild"
+    ]
+  },
   "lib/udmabuf": {
     "imports": [
       "lib/intconv"
@@ -2251,6 +2259,7 @@
       "lib/dbusx",
       "lib/polkit",
       "lib/third_party/godbus",
+      "lib/udevmonitor",
       "power/charge",
       "power/internal/busauth",
       "power/internal/chargepolicy",
@@ -7040,6 +7049,7 @@
       "lib/intconv",
       "lib/logind",
       "lib/third_party/godbus",
+      "lib/udevmonitor",
       "wm/internal/backend",
       "wm/internal/fdmsg",
       "wm/internal/loop",

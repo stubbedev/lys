@@ -13,6 +13,7 @@ import (
 	"github.com/stubbedev/lys/lib/logind"
 	"github.com/stubbedev/lys/lib/logind/logindtest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/udevmonitor"
 	"github.com/stubbedev/lys/lib/waittest"
 	"golang.org/x/sys/unix"
 
@@ -179,8 +180,8 @@ func TestWithoutXDGSessionIDTheSessionIsThisProcesss(t *testing.T) {
 }
 
 var acUnplug = [][]byte{
-	udevMessage("ACTION=change", "SUBSYSTEM=power_supply", "DEVPATH=/devices/LNXSYSTM:00/ACPI0003:00/power_supply/AC", "POWER_SUPPLY_ONLINE=0"),
-	udevMessage("ACTION=change", "SUBSYSTEM=power_supply", "DEVPATH=/devices/LNXSYSTM:00/PNP0C0A:00/power_supply/BAT0", "POWER_SUPPLY_STATUS=Discharging"),
+	udevmonitor.Frame("ACTION=change", "SUBSYSTEM=power_supply", "DEVPATH=/devices/LNXSYSTM:00/ACPI0003:00/power_supply/AC", "POWER_SUPPLY_ONLINE=0"),
+	udevmonitor.Frame("ACTION=change", "SUBSYSTEM=power_supply", "DEVPATH=/devices/LNXSYSTM:00/PNP0C0A:00/power_supply/BAT0", "POWER_SUPPLY_STATUS=Discharging"),
 }
 
 func suspendOnPowerChanges(t *testing.T) (*logindtest.Logind, *events, func(msgs ...[]byte)) {
