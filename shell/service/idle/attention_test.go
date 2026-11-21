@@ -2,12 +2,14 @@ package idle
 
 import (
 	"errors"
+	"fmt"
 	"slices"
 	"testing"
 	"time"
 
 	"github.com/stubbedev/lys/desktop/service/idle/idlepolicy"
 	"github.com/stubbedev/lys/lib/waittest"
+	"github.com/stubbedev/lys/power/attention"
 )
 
 type fakeTimer struct {
@@ -242,6 +244,55 @@ func TestWithoutAttentionNothingLooks(t *testing.T) {
 	r.dimWatch(t).idle()
 	if r.a.looks != 0 || !slices.Equal(r.a.calls, []string{"dim"}) {
 		t.Errorf("attention off: %d checks, ran %v, want the dim alone", r.a.looks, r.a.calls)
+	}
+}
+
+func TestNoCameraDimsAndStopsAskingOnceTheUserIsBack(t *testing.T) {
+	r := newAttentionRig(t, idlepolicy.AttentionPostpone)
+	r.a.fail = fmt.Errorf("check for a face: %w", attention.ErrNoCamera)
+	r.idleToTheDim(t)
+	if want := []string{"dim"}; !slices.Equal(r.a.calls, want) {
+		t.Fatalf("no camera ran %v, want %v", r.a.calls, want)
+	}
+	if got, want := afterOf(r.clock.pending()), []time.Duration{time.Minute, 6 * time.Minute}; !slices.Equal(got, want) {
+		t.Errorf("no camera: followers after %v, want %v", got, want)
+	}
+	r.dimWatch(t).resume()
+	waittest.For(t, r.changes, "the input")
+	all := []time.Duration{4 * time.Minute, 5 * time.Minute, 10 * time.Minute}
+	if got := afters(r.w.live()); !slices.Equal(got, all) {
+		t.Fatalf("after no camera, watches %v, want every stage's %v", got, all)
+	}
+	r.dimWatch(t).idle()
+	p := testPolicy(t)
+	p.Attention = idlepolicy.AttentionSooner
+	if err := r.s.Configure(p, true, idlepolicy.AC); err != nil {
+		t.Fatal(err)
+	}
+	if got := afters(r.w.live()); !slices.Equal(got, all) {
+		t.Errorf("attention configured again, watches %v, want every stage's %v", got, all)
+	}
+	r.dimWatch(t).idle()
+	if r.a.looks != 1 {
+		t.Errorf("%d checks, want only the one that found no camera", r.a.looks)
+	}
+	if want := []string{"dim", "undim", "dim", "undim", "dim"}; !slices.Equal(r.a.calls, want) {
+		t.Errorf("ran %v, want %v", r.a.calls, want)
+	}
+}
+
+func TestAFailedCheckIsAskedAgain(t *testing.T) {
+	r := newAttentionRig(t, idlepolicy.AttentionPostpone)
+	r.a.fail = errors.New("the camera vanished")
+	r.idleToTheDim(t)
+	r.dimWatch(t).resume()
+	waittest.For(t, r.changes, "the input")
+	if got, want := afters(r.w.live()), []time.Duration{4 * time.Minute}; !slices.Equal(got, want) {
+		t.Fatalf("after a failed check, watches %v, want the dim's alone", got)
+	}
+	r.idleToTheDim(t)
+	if r.a.looks != 2 {
+		t.Errorf("%d checks, want a failed check asked again", r.a.looks)
 	}
 }
 

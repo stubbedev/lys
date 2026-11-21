@@ -3,6 +3,7 @@ package attention_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"testing"
 
@@ -72,7 +73,7 @@ func TestAFailedOrInvalidCheckIsAnErrorNotAPresence(t *testing.T) {
 		mu.Unlock()
 		_, err := client.Check(t.Context())
 		var derr dbus.Error
-		if !errors.As(err, &derr) || derr.Name != dbusx.ErrFailed {
+		if !errors.As(err, &derr) || derr.Name != dbusx.ErrFailed || errors.Is(err, attention.ErrNoCamera) {
 			t.Errorf("answer %v: %v, want %s", a, err, dbusx.ErrFailed)
 		}
 	}
@@ -91,5 +92,17 @@ func TestASecondServerFindsTheNameTaken(t *testing.T) {
 	serve(t, bus, check)
 	if _, err := attention.Serve(bus.Conn(t), check); !errors.Is(err, dbusx.ErrNameTaken) {
 		t.Errorf("a second server: %v, want ErrNameTaken", err)
+	}
+}
+
+func TestNoCameraCrossesTheBusAsItsOwnError(t *testing.T) {
+	bus := dbustest.Start(t)
+	serve(t, bus, func(context.Context) (idlepolicy.Presence, error) {
+		return 0, fmt.Errorf("find a camera in /dev: %w", attention.ErrNoCamera)
+	})
+	_, err := attention.NewClient(bus.Conn(t)).Check(t.Context())
+	var derr dbus.Error
+	if !errors.Is(err, attention.ErrNoCamera) || !errors.As(err, &derr) || derr.Name != attention.NoCameraName {
+		t.Errorf("Check = %v, want ErrNoCamera as %s", err, attention.NoCameraName)
 	}
 }

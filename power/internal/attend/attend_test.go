@@ -16,6 +16,7 @@ import (
 	"github.com/stubbedev/lys/desktop/service/idle/idlepolicy"
 	"golang.org/x/sys/unix"
 
+	"github.com/stubbedev/lys/power/attention"
 	"github.com/stubbedev/lys/power/internal/facecam"
 )
 
@@ -199,6 +200,15 @@ func TestAFailureIsAnErrorNotAPresence(t *testing.T) {
 	r = newRig(t, &fakeDevice{infrared: true, frame: frame(t, "ir-face-00.png"), startErr: errors.New("VIDIOC_REQBUFS: no buffers")}, &fakeDevice{frame: frame(t, "rgb-face-00.png")})
 	if _, err := r.check(t); err == nil {
 		t.Error("a broken camera answered")
+	}
+}
+
+func TestWithoutACameraEveryCheckAnswersNoCamera(t *testing.T) {
+	check := noCamera("/dev")
+	for range 2 {
+		if seen, err := check(t.Context()); !errors.Is(err, attention.ErrNoCamera) || seen != 0 {
+			t.Errorf("no camera answered %v, %v, want attention.ErrNoCamera", seen, err)
+		}
 	}
 }
 

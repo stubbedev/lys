@@ -412,8 +412,10 @@ downloaded and nothing leaves the process. It finds faces turned to the
 camera, not profiles. Its accuracy is held by tests on synthetic infrared and
 colour frames, not pictures of anyone.
 
-Without a camera the service exits with an error, the check fails, and the
-shell dims as it would without it.
+Without a camera the service answers every check with
+`dev.stubbe.lys.Attention1.Error.NoCamera`. The shell dims as it would
+without the check, and from the next input on it stops asking until it
+restarts.
 
 ## Upgrading from adaptive-power-manager
 

@@ -2,11 +2,13 @@
 // check before the idle dim: dev.stubbe.lys.Attention1's Check, which
 // answers whether a face is turned to the screen, as an
 // idlepolicy.Presence. The service is D-Bus activated by the first Check,
-// so the camera is only ever touched once the idle policy asks.
+// so the camera is only ever touched once the idle policy asks. On a
+// machine without a camera, every Check fails with ErrNoCamera.
 package attention
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -21,7 +23,12 @@ const (
 	Interface    = "dev.stubbe.lys.Attention1"
 	CheckMethod  = Interface + ".Check"
 	CheckTimeout = 10 * time.Second
+	NoCameraName = Interface + ".Error.NoCamera"
 )
+
+// ErrNoCamera is a check on a machine with no camera to look through,
+// which no later check answers differently.
+var ErrNoCamera = errors.New("no camera to check for a face")
 
 type Check func(ctx context.Context) (idlepolicy.Presence, error)
 
@@ -44,7 +51,10 @@ func (m methods) Check() (string, *dbus.Error) {
 	ctx, cancel := context.WithTimeout(context.Background(), CheckTimeout)
 	defer cancel()
 	seen, err := m.check(ctx)
-	if err != nil {
+	switch {
+	case errors.Is(err, ErrNoCamera):
+		return "", dbus.NewError(NoCameraName, []any{err.Error()})
+	case err != nil:
 		return "", dbusx.Failed(err.Error())
 	}
 	if _, err := idlepolicy.ParsePresence(seen.String()); err != nil {
@@ -62,6 +72,9 @@ func NewClient(conn *dbus.Conn) *Client {
 func (c *Client) Check(ctx context.Context) (idlepolicy.Presence, error) {
 	var wire string
 	if err := c.obj.CallWithContext(ctx, CheckMethod, 0).Store(&wire); err != nil {
+		if derr := (dbus.Error{}); errors.As(err, &derr) && derr.Name == NoCameraName {
+			return 0, fmt.Errorf("check for a face with %s: %w: %w", ServiceName, ErrNoCamera, err)
+		}
 		return 0, fmt.Errorf("check for a face with %s: %w", ServiceName, err)
 	}
 	seen, err := idlepolicy.ParsePresence(wire)

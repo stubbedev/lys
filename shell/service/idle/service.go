@@ -21,6 +21,7 @@ import (
 	"github.com/stubbedev/lys/desktop/feed"
 	"github.com/stubbedev/lys/desktop/service/idle/idlepolicy"
 	"github.com/stubbedev/lys/lib/logind"
+	"github.com/stubbedev/lys/power/attention"
 )
 
 // Watcher tells when the session has been idle for a while: idle runs once
@@ -85,6 +86,7 @@ type Service struct {
 	postponed int
 	timers    []func()
 	looking   context.CancelFunc
+	noCamera  bool
 }
 
 // New is a service that has armed nothing until Configure.
@@ -99,9 +101,13 @@ func realAfterFunc(d time.Duration, f func()) func() {
 
 // Configure arms the policy's stages on source; disabled arms none. Every
 // stage that has run is undone first, so a new policy starts from an
-// active session.
+// active session. Once lys-power has answered that there is no camera,
+// the policy runs without attention.
 func (s *Service) Configure(p idlepolicy.Policy, enabled bool, source idlepolicy.PowerSource) error {
 	s.mu.Lock()
+	if s.noCamera {
+		p.Attention = idlepolicy.AttentionOff
+	}
 	s.policy, s.enabled, s.source = p, enabled, source
 	err := s.rearmLocked()
 	s.mu.Unlock()
@@ -191,7 +197,11 @@ func (s *Service) idled(gen uint64, stage idlepolicy.Stage) {
 		return
 	}
 	if stage == idlepolicy.Dim && s.policy.Attending(s.source) {
-		if s.looking == nil {
+		switch {
+		case s.noCamera:
+			s.lookedLocked(gen, s.round, idlepolicy.Unseen)
+			return
+		case s.looking == nil:
 			s.lookLocked(gen)
 		}
 		s.mu.Unlock()
@@ -226,16 +236,22 @@ func (s *Service) lookLocked(gen uint64) {
 	go func() {
 		defer cancel()
 		seen, err := s.actions.Look(ctx)
-		if err != nil {
+		noCamera := errors.Is(err, attention.ErrNoCamera)
+		switch {
+		case noCamera:
+			log.Printf("idle: %v; the dim stops checking for a face", err)
+			seen = idlepolicy.Unseen
+		case err != nil:
 			log.Printf("idle: the check for a face before the dim failed, dimming as without it: %v", err)
 			seen = idlepolicy.Unseen
 		}
-		s.looked(gen, round, seen)
+		s.mu.Lock()
+		s.noCamera = s.noCamera || noCamera
+		s.lookedLocked(gen, round, seen)
 	}()
 }
 
-func (s *Service) looked(gen, round uint64, seen idlepolicy.Presence) {
-	s.mu.Lock()
+func (s *Service) lookedLocked(gen, round uint64, seen idlepolicy.Presence) {
 	if gen != s.gen || round != s.round {
 		s.mu.Unlock()
 		return
@@ -316,6 +332,10 @@ func (s *Service) resumed(gen uint64, stage idlepolicy.Stage) {
 	var err error
 	for _, u := range undone {
 		err = errors.Join(err, s.restoreLocked(u))
+	}
+	if s.noCamera && s.policy.Attention != idlepolicy.AttentionOff {
+		s.policy.Attention = idlepolicy.AttentionOff
+		err = errors.Join(err, s.rearmLocked())
 	}
 	s.mu.Unlock()
 	if err != nil {
