@@ -35,6 +35,14 @@ def minute(back=0):
     return (int(machine.succeed("date +%s")) - back) // 60
 
 
+def clear_of_the_clock(seconds):
+    left = 60 - int(machine.succeed("date +%s")) % 60
+    if left > seconds + CLOCK_REDRAW:
+        return
+    before = json.dumps(flips())
+    machine.wait_until_succeeds(f"{as_alice('lys-wmctl flips')} | jq -e --argjson before '{before}' 'all(.[]; .flips > $before[.output])'", timeout=90)
+
+
 def measure(window, unit=None):
     wm = int(machine.succeed("pgrep -x lys-wm").strip())
     began = minute(CLOCK_REDRAW)
@@ -124,6 +132,7 @@ for window in range(FIRST_WINDOWS):
     gate(f"idle baseline, the first minute after startup, window {window + 1} of {FIRST_WINDOWS}")
 
 UNRELATED = BUDGETS["unrelated_uevents"]
+clear_of_the_clock(PROBE)
 machine.succeed(
     f"sh -c 'for i in $(seq {UNRELATED['count']}); do udevadm trigger --settle --action=change /sys/devices/virtual/mem/null && echo >> /tmp/unrelated-uevents; done'"
     " >/dev/null 2>&1 & echo $! > /tmp/unrelated-uevents.pid"
