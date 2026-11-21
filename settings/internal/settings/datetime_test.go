@@ -185,6 +185,9 @@ func switchNamed(t *testing.T, root widget.Widget, name string) *widget.Switch {
 }
 
 func TestEachDateControlIsOneInteractiveCallAndARefusalRevertsIt(t *testing.T) {
+	h := useHostRoot(t)
+	put(t, h.path("usr/share/zoneinfo", zoneTableName), "DK\t+5540+01235\tEurope/Copenhagen\n")
+	put(t, h.path("usr/share/zoneinfo", countryTableName), "DK\tDenmark\n")
 	bus := dbustest.Start(t)
 	td := &fakeSys{props: map[string]any{"Timezone": "UTC", "NTP": true, "CanNTP": true, "LocalRTC": false}}
 	serveFake(t, bus, timedateName, timedatePath, td, fakeTimedate{td})
@@ -219,7 +222,7 @@ func TestEachDateControlIsOneInteractiveCallAndARefusalRevertsIt(t *testing.T) {
 		t.Fatalf("%+v, want one SetTime(%d, absolute, interactive)", calls, want)
 	}
 	td.refuseWith("Changing system settings via systemd is not supported on NixOS.")
-	zone := treetest.First[*choiceEditor](t, footer)
+	zone := treetest.First[*zoneMap](t, footer)
 	zone.pick("Europe/Copenhagen")
 	l.until("the refusal shown", func() bool {
 		return treetest.First[*sysPanel](t, footer).problem.Visible()
@@ -228,8 +231,8 @@ func TestEachDateControlIsOneInteractiveCallAndARefusalRevertsIt(t *testing.T) {
 	if len(calls) != 3 || calls[2].method != "SetTimezone" || fmt.Sprint(calls[2].args) != "[Europe/Copenhagen true]" {
 		t.Fatalf("%+v", calls)
 	}
-	if p := treetest.First[*sysPanel](t, footer); !strings.Contains(p.problem.Text(), "NixOS") || zone.entry.Text() != "UTC" {
-		t.Fatalf("problem %q, zone %q: want the service's message and the old zone", p.problem.Text(), zone.entry.Text())
+	if p := treetest.First[*sysPanel](t, footer); !strings.Contains(p.problem.Text(), "NixOS") || zone.current != "UTC" {
+		t.Fatalf("problem %q, zone %q: want the service's message and the old zone", p.problem.Text(), zone.current)
 	}
 }
 

@@ -330,7 +330,7 @@ func timezoneChoices(zones []string) []choice {
 	for _, z := range zones {
 		label := z
 		if loc, err := time.LoadLocation(z); err == nil {
-			label = z + " (UTC" + now.In(loc).Format("-07:00") + ")"
+			label = z + " (" + utcOffset(now.In(loc)) + ")"
 		}
 		out = append(out, choice{value: z, label: label})
 	}
@@ -345,14 +345,15 @@ func dateTimeLead(k *kit) widget.Widget {
 	clockRows := widget.NewItemGroup()
 	clockRows.Append(hourCycleRow(k, p.fail, card.retick))
 	clock.Append(clockRows, false)
+	now := k.clock.Now()
 	p.open(func(ctx context.Context, svc sysService) (any, error) {
 		var zones []string
 		if err := svc.store(ctx, "ListTimezones", &zones); err != nil {
 			return nil, err
 		}
-		return timezoneChoices(zones), nil
+		return systemHost.zoneCatalog(zones, now)
 	}, func(extra any) {
-		zones, _ := extra.([]choice)
+		catalog, _ := extra.(zoneCatalog)
 		ntp := widget.NewSwitch(p.props.flag("NTP"))
 		ntp.SetAccessibleName(t.Get("settings-date-ntp"))
 		syncing := false
@@ -370,16 +371,14 @@ func dateTimeLead(k *kit) widget.Widget {
 			}
 			p.do("SetTime", at.UnixMicro(), false, interactive)
 		}
-		zone := newChoiceEditor(k, slot{
-			get:   func() any { return p.props.str("Timezone") },
-			set:   func(v any) error { s, _ := v.(string); p.do("SetTimezone", s, interactive); return nil },
-			unset: func() {},
-		}, choiceSpec{list: fixedChoices(zones), known: func(current string, items []choice) bool { return hasValue(items, current) }})
+		zone := newZoneChooser(k, catalog, func(name string) { p.do("SetTimezone", name, interactive) })
 		rows := widget.NewItemGroup()
 		rows.Append(panelRow(k, t.Get("settings-date-ntp"), t.Attr("settings-date-ntp", "description"), ntp))
 		rows.Append(panelRow(k, t.Get("settings-date-manual"), t.Attr("settings-date-manual", "description"), manual.clock, manual.set))
 		rows.Append(insetRow(manual.calendar))
-		rows.Append(panelRow(k, t.Get("settings-date-zone"), t.Attr("settings-date-zone", "description"), zone))
+		rows.Append(panelRow(k, t.Get("settings-date-zone"), t.Attr("settings-date-zone", "description"), zone.button))
+		rows.Append(zone.mapRow)
+		rows.Append(zone.noteRow)
 		refresh := func() {
 			syncing = true
 			defer func() { syncing = false }()
@@ -388,7 +387,7 @@ func dateTimeLead(k *kit) widget.Widget {
 				ntp.SetOn(p.props.flag("NTP"))
 			}
 			manual.setEnabled(!p.props.flag("NTP"))
-			zone.refresh()
+			zone.show(p.props.str("Timezone"))
 			card.showSystem(p.props.str("Timezone"), p.props.flag("NTP"), p.props.flag("NTPSynchronized"))
 		}
 		p.refresh = refresh
@@ -513,7 +512,7 @@ func zoneLine(zone string, now time.Time) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("read the time zone %q: %w", zone, err)
 	}
-	return zone + " · UTC" + now.In(loc).Format("-07:00"), nil
+	return zone + zoneDetailSep + utcOffset(now.In(loc)), nil
 }
 
 func syncKey(ntp, synchronized bool) string {

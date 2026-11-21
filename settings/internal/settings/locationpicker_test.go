@@ -55,7 +55,7 @@ func TestTheCitiesFailWithoutAUsableZoneTable(t *testing.T) {
 	}
 	h = fakeHost(t, nil)
 	put(t, h.path("etc/zoneinfo/zone1970.tab"), "XX\t+0000+00000\n")
-	if _, err := h.zonePlaces(); err == nil || !strings.Contains(err.Error(), "no zone column") {
+	if _, err := h.zonePlaces(); err == nil || !strings.Contains(err.Error(), "fewer than 3 columns") {
 		t.Errorf("a line without a zone: %v", err)
 	}
 }
