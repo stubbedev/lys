@@ -9,7 +9,50 @@ import (
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 )
+
+func TestShell1AnnouncesOnceThatTheShellHasStarted(t *testing.T) {
+	dbustest.Session(t)
+	s := NewState(nil)
+	release, err := Serve(dbustest.SessionConn(t), s, Hooks{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer release()
+	listener := dbustest.SessionConn(t)
+	if err := listener.AddMatchSignal(dbus.WithMatchObjectPath(ServicePath), dbus.WithMatchMember("PropertiesChanged")); err != nil {
+		t.Fatal(err)
+	}
+	signals := make(chan *dbus.Signal, 8)
+	listener.Signal(signals)
+	obj := listener.Object(ServiceName, ServicePath)
+	started := func() bool {
+		t.Helper()
+		v, err := obj.GetProperty(ServiceName + ".Started")
+		if err != nil {
+			t.Fatal(err)
+		}
+		return v.Value().(bool)
+	}
+	if started() {
+		t.Fatal("Started before the shell said so")
+	}
+	s.SetStarted()
+	changed := waittest.For(t, signals, "the announcement of the start").Body[1].(map[string]dbus.Variant)
+	if v, ok := changed["Started"]; !ok || !v.Value().(bool) {
+		t.Errorf("the start announced %v", changed)
+	}
+	if !started() {
+		t.Error("Started is false after the shell started")
+	}
+	s.SetStarted()
+	s.SetConnectors([]string{"DP-1"})
+	changed = waittest.For(t, signals, "the next announcement").Body[1].(map[string]dbus.Variant)
+	if _, again := changed["Started"]; again {
+		t.Errorf("a second start was announced again: %v", changed)
+	}
+}
 
 func TestBarVisibilityMatchesBarRS(t *testing.T) {
 	var seen []map[string]bool

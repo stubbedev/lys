@@ -46,6 +46,7 @@ func TestAReloadOfTheRecorderCaptureSettingsKeepsTheOpenDropdowns(t *testing.T) 
 func TestARemountKeepsTheDropdownsWhoseInputsStayed(t *testing.T) {
 	r, q := prebuildingRegistry(t, clockOnly())
 	r.attachHost("DP-1", fakeHost{}, widget.Size{W: 1600, H: 1000})
+	r.barPresented()
 	r.setDashboardAnchor("DP-1", widget.NewBox(widget.Column, 0, 0))
 	q.drain()
 	calendar := r.instances["calendar"]
@@ -81,6 +82,7 @@ func TestARemountKeepsTheDropdownsWhoseInputsStayed(t *testing.T) {
 func TestARemountWithANewStyleBuildsTheDropdownsAgainAhead(t *testing.T) {
 	r, q := prebuildingRegistry(t, clockOnly())
 	r.attachHost("DP-1", fakeHost{}, widget.Size{W: 1600, H: 1000})
+	r.barPresented()
 	q.drain()
 	calendar := r.instances["calendar"]
 	instances := r.ctx.gen

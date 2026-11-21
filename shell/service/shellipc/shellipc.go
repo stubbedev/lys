@@ -22,13 +22,15 @@ const (
 	propertiesChanged = "org.freedesktop.DBus.Properties.PropertiesChanged"
 )
 
-// State is ShellIpcState: the connectors that have a bar and the
-// hidden subset. Changes reach OnHidden with the new hidden set, and
-// the served Shell1 object announces them as PropertiesChanged.
+// State is ShellIpcState: the connectors that have a bar, the hidden
+// subset, and whether the shell has started. Changes reach OnHidden
+// with the new hidden set, and the served Shell1 object announces them
+// as PropertiesChanged.
 type State struct {
 	mu         sync.Mutex
 	connectors []string
 	hidden     map[string]bool
+	started    bool
 	onHidden   func(hidden map[string]bool)
 
 	// announceMu orders the announcements, so the last one sent carries
@@ -58,7 +60,22 @@ func (s *State) SetConnectors(connectors []string) {
 		}
 	}
 	s.mu.Unlock()
-	s.changed(connectorsChanged, hiddenChanged)
+	s.changed(change{connectors: connectorsChanged, hidden: hiddenChanged})
+}
+
+// SetStarted records that the shell has finished starting.
+func (s *State) SetStarted() {
+	s.mu.Lock()
+	changed := !s.started
+	s.started = true
+	s.mu.Unlock()
+	s.changed(change{started: changed})
+}
+
+func (s *State) isStarted() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.started
 }
 
 // Hidden reports whether connector's bar is hidden.
@@ -68,10 +85,12 @@ func (s *State) Hidden(connector string) bool {
 	return s.hidden[connector]
 }
 
+type change struct{ connectors, hidden, started bool }
+
 // changed tells onHidden of a new hidden set and announces the changed
 // properties.
-func (s *State) changed(connectors, hidden bool) {
-	if hidden && s.onHidden != nil {
+func (s *State) changed(c change) {
+	if c.hidden && s.onHidden != nil {
 		s.mu.Lock()
 		snapshot := make(map[string]bool, len(s.hidden))
 		for k := range s.hidden {
@@ -80,7 +99,7 @@ func (s *State) changed(connectors, hidden bool) {
 		s.mu.Unlock()
 		s.onHidden(snapshot)
 	}
-	if !connectors && !hidden {
+	if c == (change{}) {
 		return
 	}
 	s.announceMu.Lock()
@@ -88,12 +107,15 @@ func (s *State) changed(connectors, hidden bool) {
 	if s.announce == nil {
 		return
 	}
-	props := make(map[string]dbus.Variant, 2)
-	if connectors {
+	props := make(map[string]dbus.Variant, 3)
+	if c.connectors {
 		props["Connectors"] = dbus.MakeVariant(s.connectorList())
 	}
-	if hidden {
+	if c.hidden {
 		props["BarHidden"] = dbus.MakeVariant(s.hiddenSorted())
+	}
+	if c.started {
+		props["Started"] = dbus.MakeVariant(s.isStarted())
 	}
 	s.announce(props)
 }
@@ -112,7 +134,7 @@ func (s *State) update(fn func() bool) {
 	s.mu.Lock()
 	changed := fn()
 	s.mu.Unlock()
-	s.changed(false, changed)
+	s.changed(change{hidden: changed})
 }
 
 // Hide hides a bar: "" hides every bar; an unknown connector is
@@ -279,8 +301,8 @@ func (d *daemon) VpnSsoCallback(uri string) *dbus.Error {
 }
 
 // Serve exports dev.stubbe.lys.Shell1 over state; from then until the
-// release, each change of its Connectors or BarHidden is announced with
-// PropertiesChanged.
+// release, each change of its Connectors, BarHidden or Started is
+// announced with PropertiesChanged.
 func Serve(conn *dbus.Conn, state *State, hooks Hooks) (func(), error) {
 	d := &daemon{state: state, hooks: hooks}
 	release, err := dbusx.Serve(conn, dbusx.Service{
@@ -291,6 +313,7 @@ func Serve(conn *dbus.Conn, state *State, hooks Hooks) (func(), error) {
 		Properties: dbusx.Getters{
 			"BarHidden":  func() any { return state.hiddenSorted() },
 			"Connectors": func() any { return state.connectorList() },
+			"Started":    func() any { return state.isStarted() },
 		},
 	})
 	if err != nil {

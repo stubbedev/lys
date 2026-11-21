@@ -191,7 +191,7 @@ The CLI talks to the running shell over these interfaces, which scripts can use 
 | Name | Object | Interface |
 | --- | --- | --- |
 | `dev.stubbe.lys.shell` | `/dev/stubbe/lys/shell` | `org.gtk.Actions` with the actions `quit` and `inspector` |
-| `dev.stubbe.lys.Shell1` | `/dev/stubbe/lys/Shell` | `dev.stubbe.lys.Shell1`: `BarHide`, `BarShow`, `BarToggle`, `BarReveal`, `BarFocus`, `DashboardToggle` (each takes a monitor name, `""` for all or focused), `Lock`, `VpnSsoCallback` |
+| `dev.stubbe.lys.Shell1` | `/dev/stubbe/lys/Shell` | `dev.stubbe.lys.Shell1`: `BarHide`, `BarShow`, `BarToggle`, `BarReveal`, `BarFocus`, `DashboardToggle` (each takes a monitor name, `""` for all or focused), `Lock`, `VpnSsoCallback`; properties `Connectors`, `BarHidden`, and `Started`, true once every bar has shown its first frame, the dropdowns they open are built and the tray has read the items already on the bus |
 
 **Widget socket**: `$XDG_RUNTIME_DIR/lys-shell/widget.sock`, newline-delimited JSON-RPC 2.0. Methods:
 

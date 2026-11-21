@@ -6,7 +6,6 @@ import (
 	"log"
 	"slices"
 	"sync"
-	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/shell/barview"
@@ -47,13 +46,15 @@ type dropdownRegistry struct {
 	// revealHolds keep each connector's auto-hiding bar revealed while one
 	// of its dropdowns is open.
 	revealHolds map[string]func() (release func())
-	// idle runs fn on the loop once the bars have had their first frames,
-	// and invoke on the loop's next turn; nil idle builds nothing ahead
-	// of an open (buildAhead sets them). prebuilt is the build of the
-	// bars' dropdowns having been asked for.
-	idle     func(fn func())
-	invoke   func(fn func())
-	prebuilt bool
+	// invoke runs fn on the loop's next turn; nil builds nothing ahead
+	// of an open (buildAhead sets it). presented is a bar having shown
+	// its first frame, which the build ahead waits for; prebuilt is the
+	// build of the bars' dropdowns having been asked for, and built runs
+	// once, when a build ahead has finished.
+	invoke    func(fn func())
+	presented bool
+	prebuilt  bool
+	built     func()
 	// released counts the releases, which end a prebuild under way.
 	released uint64
 	look     dropdownLook
@@ -71,11 +72,6 @@ func lookOf(style *barStyle) dropdownLook {
 	}
 	return look
 }
-
-// dropdownPrebuildDelay is how long after the first bar attaches its
-// dropdowns start building, one per loop turn: the bars' first frames
-// come first.
-const dropdownPrebuildDelay = 500 * time.Millisecond
 
 // dropdownOpener is content that acts each time its popover opens
 // (the network list scanning when empty), not only when it is built.
@@ -175,23 +171,30 @@ func newDropdownRegistry(application *app.Application, cfg *config.Config, font 
 	return r
 }
 
-// buildAhead has the bars' dropdowns built while the loop is idle, from
-// once a bar has attached, so a dropdown's first open builds nothing.
+// buildAhead has the bars' dropdowns built, one per loop turn, once a
+// bar has shown its first frame, so a dropdown's first open builds
+// nothing.
 func (r *dropdownRegistry) buildAhead() {
 	if r.app == nil {
 		return
 	}
-	application := r.app
 	r.mu.Lock()
-	r.invoke = application.Invoke
-	r.idle = func(fn func()) {
-		time.AfterFunc(dropdownPrebuildDelay, func() { application.Invoke(fn) })
-	}
-	hosted := len(r.hosts) > 0
+	r.invoke = r.app.Invoke
 	r.mu.Unlock()
-	if hosted {
-		r.prebuild()
-	}
+	r.prebuild()
+}
+
+func (r *dropdownRegistry) whenBuilt(built func()) {
+	r.mu.Lock()
+	r.built = built
+	r.mu.Unlock()
+}
+
+func (r *dropdownRegistry) barPresented() {
+	r.mu.Lock()
+	r.presented = true
+	r.mu.Unlock()
+	r.prebuild()
 }
 
 func (r *dropdownRegistry) setDashboardAnchor(connector string, anchor widget.Widget) {
@@ -358,11 +361,11 @@ func (r *dropdownRegistry) attachHost(connector string, host app.Host, mon widge
 }
 
 // prebuild builds the content of every dropdown the bars' modules open,
-// one per loop turn once the bars are up, so a first open builds
-// nothing. It runs once per config.
+// one per loop turn once a bar is up, so a first open builds nothing.
+// It runs once per config.
 func (r *dropdownRegistry) prebuild() {
 	r.mu.Lock()
-	if r.prebuilt || r.idle == nil {
+	if r.prebuilt || r.invoke == nil || !r.presented {
 		r.mu.Unlock()
 		return
 	}
@@ -375,17 +378,29 @@ func (r *dropdownRegistry) prebuild() {
 		r.mu.Lock()
 		stale := r.released != released
 		r.mu.Unlock()
-		if stale || len(names) == 0 {
+		if stale {
+			return
+		}
+		if len(names) == 0 {
+			r.finishBuild()
 			return
 		}
 		name := names[0]
 		names = names[1:]
 		r.instance(name, r.builders[name])
-		if len(names) > 0 {
-			r.invoke(step)
-		}
+		r.invoke(step)
 	}
-	r.idle(step)
+	r.invoke(step)
+}
+
+func (r *dropdownRegistry) finishBuild() {
+	r.mu.Lock()
+	built := r.built
+	r.built = nil
+	r.mu.Unlock()
+	if built != nil {
+		built()
+	}
 }
 
 // barDropdowns are the registered dropdowns a click on one of cfg's bar

@@ -61,9 +61,10 @@ type Host struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 	work   sync.WaitGroup
-	// scanned closes once the orphan scan of a host serving the
-	// watcher is over.
-	scanned chan struct{}
+	// synced closes once the host's first look at the bus is over: the
+	// orphan scan of a host serving the watcher, or the read of another
+	// watcher's registrations.
+	synced chan struct{}
 	// timeout is how long a peer has to answer, and failed is told what
 	// could not be read of an item or of an external watcher, on the
 	// goroutine that found out.
@@ -101,6 +102,10 @@ type Host struct {
 	exported    bool
 }
 
+// Synced closes once the host has first looked over the bus for the
+// items already on it, or has stopped.
+func (h *Host) Synced() <-chan struct{} { return h.synced }
+
 // NewHostOn runs the host on conn, which stays the caller's, and claims
 // the roles: when no watcher is running, this process becomes the
 // watcher and hosts against itself.
@@ -115,11 +120,14 @@ func newHost(conn *dbus.Conn, store *Store, timeout time.Duration, failed func(e
 		return nil, errors.Join(err, h.release())
 	}
 	h.work.Go(h.run)
+	sync := h.orphanScan
 	if h.watcher == nil {
-		h.work.Go(h.resync)
-	} else {
-		h.work.Go(h.orphanScan)
+		sync = h.resync
 	}
+	h.work.Go(func() {
+		defer close(h.synced)
+		sync()
+	})
 	return h, nil
 }
 
@@ -144,7 +152,7 @@ func idleHost(conn *dbus.Conn, store *Store, timeout time.Duration, failed func(
 		menus:       make(map[string][]chan struct{}),
 		pixmapSizes: make(map[int]int),
 		retrack:     make(chan struct{}, 1),
-		scanned:     make(chan struct{}),
+		synced:      make(chan struct{}),
 	}
 }
 
@@ -527,7 +535,6 @@ func (h *Host) resync() {
 // do not re-register on their own, while items that start later
 // register with this watcher, or re-register as its name appears.
 func (h *Host) orphanScan() {
-	defer close(h.scanned)
 	var names []string
 	if err := h.conn.BusObject().CallWithContext(h.ctx, "org.freedesktop.DBus.ListNames", 0).Store(&names); err != nil {
 		if h.ctx.Err() == nil {

@@ -32,7 +32,7 @@ func prebuildingRegistry(t *testing.T, cfg *config.Config) (*dropdownRegistry, *
 func prebuildingRegistryOf(ctx ModuleContext) (*dropdownRegistry, *loopQueue) {
 	r := newDropdownRegistry(nil, ctx.Config, ctx.Font, ctx.Style, ctx)
 	q := &loopQueue{}
-	r.idle, r.invoke = q.add, q.add
+	r.invoke = q.add
 	return r, q
 }
 
@@ -53,25 +53,43 @@ func TestTheBarsDropdownsAreTheOnesTheirModulesOpen(t *testing.T) {
 	}
 }
 
-func TestADropdownsFirstOpenAfterIdleBuildingBuildsNothing(t *testing.T) {
+func TestDropdownsBuildAheadOnceABarHasShownItsFirstFrame(t *testing.T) {
 	r, q := prebuildingRegistry(t, clockOnly())
+	built := 0
+	r.whenBuilt(func() { built++ })
 	r.attachHost("DP-1", fakeHost{}, widget.Size{W: 1600, H: 1000})
 	r.attachHost("HDMI-A-1", fakeHost{}, widget.Size{W: 1600, H: 1000})
+	q.drain()
+	if len(r.instances) != 0 || built != 0 {
+		t.Fatalf("built %d dropdowns before a bar showed its first frame", len(r.instances))
+	}
+	r.barPresented()
 	if len(r.instances) != 0 {
-		t.Fatal("dropdowns built before the loop was idle")
+		t.Fatal("dropdowns built on the bar's own frame, not on the loop's next turns")
 	}
 	q.drain()
 	if len(r.instances) != 2 || r.instances["calendar"] == nil || r.instances["weather"] == nil {
 		t.Fatalf("built %d dropdowns, want the calendar and the weather", len(r.instances))
 	}
-	built := r.instances["calendar"]
+	if built != 1 {
+		t.Errorf("the finished build was told %d times, want once", built)
+	}
+	r.barPresented()
+	moved := clockOnly()
+	moved.Bar.Location = config.LocationBottom
+	r.setConfig(moved)
+	q.drain()
+	if built != 1 {
+		t.Errorf("a later build told the one waiting for the first again: %d", built)
+	}
+	built0 := r.instances["calendar"]
 	allocs := testing.AllocsPerRun(20, func() {
-		if r.instance("calendar", r.builders["calendar"]) != built {
+		if r.instance("calendar", r.builders["calendar"]) != built0 {
 			t.Fatal("the open built the calendar again")
 		}
 	})
 	if allocs > 1 {
-		t.Errorf("a first open after the idle build allocates %v", allocs)
+		t.Errorf("a first open after the build ahead allocates %v", allocs)
 	}
 
 	cold, _ := prebuildingRegistry(t, clockOnly())
@@ -86,6 +104,7 @@ func TestADropdownsFirstOpenAfterIdleBuildingBuildsNothing(t *testing.T) {
 func TestAReleaseEndsAPrebuildAndAReloadStartsAnother(t *testing.T) {
 	r, q := prebuildingRegistry(t, clockOnly())
 	r.attachHost("DP-1", fakeHost{}, widget.Size{W: 1600, H: 1000})
+	r.barPresented()
 	r.release()
 	q.drain()
 	if len(r.instances) != 0 {
@@ -108,6 +127,7 @@ func TestABuiltAheadDropdownReadsNothingUntilItOpens(t *testing.T) {
 	ctx.Battery = battery
 	r, q := prebuildingRegistryOf(ctx)
 	r.attachHost("DP-1", fakeHost{}, widget.Size{W: 1600, H: 1000})
+	r.barPresented()
 	q.drain()
 	content := r.instances["battery"]
 	if content == nil {
@@ -129,7 +149,8 @@ func TestWithoutBuildAheadNothingBuildsBeforeAnOpen(t *testing.T) {
 	r := newDropdownRegistry(nil, cfg, ctx.Font, ctx.Style, ctx)
 	r.buildAhead()
 	r.attachHost("DP-1", fakeHost{}, widget.Size{W: 1600, H: 1000})
-	if r.idle != nil || len(r.instances) != 0 {
+	r.barPresented()
+	if r.invoke != nil || len(r.instances) != 0 {
 		t.Error("a registry without an application built ahead")
 	}
 }
@@ -140,7 +161,7 @@ func TestAMountedBarBuildsItsDropdownsAhead(t *testing.T) {
 	a := apptest.Run(t)
 	ctx.App = a
 	rt := &barRuntime{ctx: ctx, font: ctx.Font, style: *ctx.Style, moduleStyle: *ctx.Style}
-	host := &barHost{app: a, rt: rt}
+	host := &barHost{app: a, rt: rt, presented: func(string) { rt.ctx.Dropdowns.barPresented() }}
 	outputs := a.Session().Outputs()
 	if len(outputs) == 0 {
 		t.Fatal("the headless sway shows no outputs")
@@ -169,7 +190,8 @@ func TestAMountedBarBuildsItsDropdownsAhead(t *testing.T) {
 	unmounted := &barRuntime{ctx: ctx, font: ctx.Font, style: *ctx.Style, moduleStyle: *ctx.Style}
 	unmounted.mount(nil, cfg)
 	unmounted.ctx.Dropdowns.attachHost("DP-1", fakeHost{}, widget.Size{W: 1600, H: 1000})
-	if r := unmounted.ctx.Dropdowns; r.idle != nil || len(r.instances) != 0 {
+	unmounted.ctx.Dropdowns.barPresented()
+	if r := unmounted.ctx.Dropdowns; r.invoke != nil || len(r.instances) != 0 {
 		t.Error("a bar mounted without an application built its dropdowns ahead")
 	}
 }

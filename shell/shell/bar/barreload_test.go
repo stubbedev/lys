@@ -100,7 +100,7 @@ func TestBarReloadKeepsTheSurface(t *testing.T) {
 	ctx.Polls = testPollHub(t)
 	rt := &barRuntime{ctx: ctx, font: ctx.Font, style: *ctx.Style, moduleStyle: *ctx.Style}
 	rt.ctx.Dropdowns = newDropdownRegistry(application, cfg, rt.font, &rt.style, rt.ctx)
-	host := &barHost{app: application, rt: rt}
+	host := &barHost{app: application, rt: rt, presented: func(string) {}}
 
 	var opened []*barWindow
 	closes := 0

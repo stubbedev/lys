@@ -265,6 +265,7 @@ type shellStart struct {
 	customUpd    *customUpdates
 	wall         *wallpapershell.Shell
 	polls        *pollHub
+	starting     startup
 	down         teardown
 	err          error
 }
@@ -501,6 +502,10 @@ func (s *shellStart) startServices(system *dbus.Conn) {
 	if err == nil {
 		s.down.add(func() { _ = sniHost.Close() })
 		s.ctx.Tray = NewTrayService(sniHost)
+		go func() {
+			<-sniHost.Synced()
+			s.application.Invoke(func() { s.starting.done(startupTray) })
+		}()
 	} else {
 		log.Printf("systray: host: %v", err)
 	}
@@ -704,6 +709,7 @@ func (s *shellStart) mount() {
 	}
 	rt.ctx = baseCtx
 	rt.mount(application, cfg)
+	rt.ctx.Dropdowns.whenBuilt(func() { s.starting.done(startupDropdowns) })
 	// Notification popups render on one monitor, bar or not.
 	var popupHost *popups.Popups
 	if s.notifSvc != nil {
@@ -711,12 +717,19 @@ func (s *shellStart) mount() {
 		s.ctx.Go(func() { popupHost.Run(s.ctx.Life()) })
 		s.down.add(followFocusInputs(application, s.ctx.Clock, s.notifSvc, s.ctx.ScreenShares, s.ctx.Recorder))
 	}
-	host := &barHost{app: application, rt: rt, holder: holder}
+	host := &barHost{app: application, rt: rt, holder: holder, presented: func(connector string) {
+		rt.ctx.Dropdowns.barPresented()
+		s.starting.done(startupBar(connector))
+	}}
 	awaitWallpaper := awaitFirstFrame(noWallpaper)
 	if s.wall != nil {
 		awaitWallpaper = s.wall.AwaitFirstFrame
 	}
 	bars := newSurfaceSet(host.open, awaitWallpaper)
+	visibility := shellipc.NewState(func(hidden map[string]bool) {
+		application.Invoke(func() { bars.apply(hidden) })
+	})
+	bars.publishTo(visibility.SetConnectors)
 	docks := newSurfaceSet((&dockHost{app: application, rt: rt}).open, awaitWallpaper)
 	s.down.add(func() {
 		bars.close()
@@ -734,6 +747,7 @@ func (s *shellStart) mount() {
 		}
 		rt.ctx.Dropdowns.detachHost(output.Name)
 	}))
+	s.starting.await(startupParts(bars.connectors(), s.ctx.Tray != nil), visibility.SetStarted)
 	s.down.add(docks.followOutputs(sess, func(connector string) (config.DockConfig, bool) {
 		return dockFor(current.Load(), connector)
 	}, func(*app.Output) {}))
@@ -867,10 +881,6 @@ func (s *shellStart) mount() {
 		}
 	}, func() { polls.setLocked(false) })
 	s.down.add(stopLock)
-	visibility := shellipc.NewState(func(hidden map[string]bool) {
-		application.Invoke(func() { bars.apply(hidden) })
-	})
-	bars.publishTo(visibility.SetConnectors)
 	s.down.addAsync(func() func() {
 		return serveShellIPC(s.session, application, visibility, shellipc.Hooks{
 			Lock: func() bool {
@@ -1039,9 +1049,10 @@ func (r *barRuntime) mount(application *app.Application, cfg *config.Config) {
 // barHost opens the bars of the shell's mount generation; `lys-shell
 // panel show` and a reload open bars through it.
 type barHost struct {
-	app    *app.Application
-	rt     *barRuntime
-	holder *idleHolder
+	app       *app.Application
+	rt        *barRuntime
+	holder    *idleHolder
+	presented func(connector string)
 }
 
 // context is the module context of output's bar: each bar is its own
@@ -1059,6 +1070,7 @@ func (h *barHost) context(output *app.Output) ModuleContext {
 func (h *barHost) open(output *app.Output, layout config.BarLayout) (surfaceLayer[config.BarLayout], error) {
 	ctx := h.context(output)
 	bc := barConfigFor(ctx, layout, output)
+	bc.OnPresented = func() { h.presented(output.Name) }
 	window, err := h.app.NewBar(bc)
 	if err != nil {
 		ctx.gen.retire()

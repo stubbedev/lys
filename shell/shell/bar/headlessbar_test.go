@@ -40,7 +40,7 @@ func openHeadlessBar(t *testing.T, cfg *config.Config, layout config.BarLayout) 
 	ctx.Polls = testPollHub(t)
 	rt := &barRuntime{ctx: ctx, font: ctx.Font, style: *ctx.Style, moduleStyle: *ctx.Style}
 	rt.ctx.Dropdowns = newDropdownRegistry(application, cfg, rt.font, &rt.style, rt.ctx)
-	host := &barHost{app: application, rt: rt}
+	host := &barHost{app: application, rt: rt, presented: func(string) {}}
 	h := &headlessBar{t: t, app: application, rt: rt}
 	h.holdsKeyboard = func() bool { return sess.KeyboardFocus() == h.bar.layer.HostSurface() }
 	h.set = newSurfaceSet(func(o *app.Output, l config.BarLayout) (surfaceLayer[config.BarLayout], error) {

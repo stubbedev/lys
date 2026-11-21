@@ -9043,7 +9043,8 @@
     ],
     "testImports": [
       "lib/dbustest",
-      "lib/testhome"
+      "lib/testhome",
+      "lib/waittest"
     ],
     "testExternal": [
       "strings",

@@ -325,10 +325,28 @@ func TestHostScansForOrphanedItemsOnce(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer host.Close()
-	waittest.For(t, host.scanned, "the end of the orphan scan")
+	waittest.For(t, host.Synced(), "the end of the orphan scan")
 	if n := probes.n.Load(); n != 1 {
 		t.Errorf("a connection serving no item was probed %d times, want once", n)
 	}
+}
+
+func TestAHostAgainstAnExternalWatcherIsSyncedOnceItAnswered(t *testing.T) {
+	bus := dbustest.Start(t)
+	w := serveWatcher(t, &fakeWatcher{conn: bus.Conn(t), hosts: make(chan string, 4), answer: make(chan struct{})})
+	host, err := NewHostOn(bus.Conn(t), NewStore())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer host.Close()
+	waittest.For(t, w.hosts, "the host to register with the watcher")
+	select {
+	case <-host.Synced():
+		t.Fatal("synced before the watcher listed its items")
+	default:
+	}
+	close(w.answer)
+	waittest.For(t, host.Synced(), "the host to sync with the watcher")
 }
 
 func TestHostAgainstAnExternalWatcher(t *testing.T) {
@@ -645,9 +663,10 @@ func TestHostFollowsTheSignalsOfTheItemsItTracksAlone(t *testing.T) {
 // fakeWatcher is a watcher another process serves: it lists items and
 // tells hosts registering of each.
 type fakeWatcher struct {
-	conn  *dbus.Conn
-	items []string
-	hosts chan string
+	conn   *dbus.Conn
+	items  []string
+	hosts  chan string
+	answer chan struct{}
 }
 
 func (w *fakeWatcher) RegisterStatusNotifierHost(service string) *dbus.Error {
@@ -656,12 +675,19 @@ func (w *fakeWatcher) RegisterStatusNotifierHost(service string) *dbus.Error {
 }
 
 func (w *fakeWatcher) Get(_, _ string) (dbus.Variant, *dbus.Error) {
+	if w.answer != nil {
+		<-w.answer
+	}
 	return dbus.MakeVariant(w.items), nil
 }
 
 func startExternalWatcher(t *testing.T, bus *dbustest.Bus, items ...string) *fakeWatcher {
 	t.Helper()
-	w := &fakeWatcher{conn: bus.Conn(t), items: append([]string{}, items...), hosts: make(chan string, 4)}
+	return serveWatcher(t, &fakeWatcher{conn: bus.Conn(t), items: append([]string{}, items...), hosts: make(chan string, 4)})
+}
+
+func serveWatcher(t *testing.T, w *fakeWatcher) *fakeWatcher {
+	t.Helper()
 	for _, iface := range []string{WatcherIface, PropsIface} {
 		if err := w.conn.Export(w, WatcherPath, iface); err != nil {
 			t.Fatal(err)
