@@ -219,7 +219,7 @@ func (c *Compositor) outputCapabilities(b backend.Output) wmipc.OutputCapabiliti
 	if err != nil && !errors.Is(err, backend.ErrHDRUnsupported) {
 		c.report(fmt.Errorf("compositor: output %s reports no HDR, as whether it carries an HDR signal could not be read: %w", b.Name(), err))
 	}
-	return wmipc.OutputCapabilities{HDR: err == nil, VRR: backend.AdaptiveSyncCapable(b), MaxBitDepth: ipcBitDepths[b.MaxBitDepth()]}
+	return wmipc.OutputCapabilities{HDR: err == nil, VRR: backend.AdaptiveSyncCapable(b), MaxBitDepth: ipcBitDepths[b.MaxBitDepth()], OLED: backend.OLED(b)}
 }
 
 var ipcBitDepths = [...]wmipc.BitDepth{backend.Depth8: wmipc.Depth8, backend.Depth10: wmipc.Depth10}

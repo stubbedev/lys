@@ -173,10 +173,13 @@ const (
 
 // OutputCapabilities is what an output can do, whatever its config asks:
 // carry an HDR signal, vary its refresh rate, and show frames this deep.
+// OLED is a panel whose EDID says it is organic LED, where dark pixels
+// draw less power.
 type OutputCapabilities struct {
 	HDR         bool     `json:"hdr"`
 	VRR         bool     `json:"vrr"`
 	MaxBitDepth BitDepth `json:"max_bitdepth"`
+	OLED        bool     `json:"oled"`
 }
 
 // Output is a client's view of one entry of the outputs result.

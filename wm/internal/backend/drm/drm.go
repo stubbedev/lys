@@ -809,6 +809,7 @@ func (b *Backend) light(c kdrm.Connector, t *tiling) error {
 		} else {
 			o.identity, o.vrrHold = info, b.vrrHold(c, data)
 		}
+		o.oled = b.oled(c, data)
 		o.colorEDID, o.colorErr = edid.ParseHDR(data)
 	}
 	o.bpcFound = props[propMaxBPC].Value
@@ -1062,6 +1063,7 @@ type Output struct {
 	vrr           bool
 	vrrSent       bool
 	vrrHold       time.Duration
+	oled          bool
 	filled        bool
 	frameCap      int
 	tearFrame     bool

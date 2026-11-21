@@ -58,7 +58,7 @@ does not know.
 ```json
 {"name":"DP-1","description":"LG Electronics 27GL850","rect":{"x":0,"y":0,"width":2048,"height":1152},
  "scale":1.25,"mode":{"width":2560,"height":1440,"refresh_mhz":143912},"workspace":1,"focused":true,"powered":true,
- "capabilities":{"hdr":true,"vrr":true,"max_bitdepth":10}}
+ "capabilities":{"hdr":true,"vrr":true,"max_bitdepth":10,"oled":false}}
 ```
 
 | Field | Meaning |
@@ -72,7 +72,7 @@ does not know.
 | `transform` | `90`, `flipped-270`, ...; absent when normal |
 | `mirror_of` | The output this one [mirrors](./config#outputs) |
 | `primary` | Present and true on the one output [`primary_output`](./config#primary_output) names: the first placed output it matches. No output has it while the key is unset or matches no placed output, and a mirror never does |
-| `capabilities` | What the output can do, whatever its rule asks: `hdr`, an HDR signal (the panel's EDID and the connector allow one and the renderer has the float targets HDR composites in); `vrr`, adaptive sync; `max_bitdepth`, `8` or `10`, the deepest frames its primary plane scans out. Every output takes every `transform`, as lys-wm rotates in its renderer |
+| `capabilities` | What the output can do, whatever its rule asks: `hdr`, an HDR signal (the panel's EDID and the connector allow one and the renderer has the float targets HDR composites in); `vrr`, adaptive sync; `max_bitdepth`, `8` or `10`, the deepest frames its primary plane scans out; `oled`, an organic LED panel, as its EDID's DisplayID data says, and false where the EDID does not say. Every output takes every `transform`, as lys-wm rotates in its renderer |
 
 **`workspaces`**: open workspaces in ID order;
 `name` only when a rule names it.

@@ -111,6 +111,9 @@ func FuzzParse(f *testing.F) {
 			t.Fatalf("ParseVRR returned %+v without an error", r)
 		}
 		_, _ = ParseHDR(b)
+		if oled, err := ParseOLED(b); err != nil && oled {
+			t.Fatalf("ParseOLED reported OLED with %v", err)
+		}
 		_, _ = Parse(b, nil)
 	})
 }

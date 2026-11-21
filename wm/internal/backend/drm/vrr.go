@@ -12,7 +12,10 @@ import (
 	"github.com/stubbedev/lys/wm/internal/backend"
 )
 
-var _ backend.AdaptiveSync = (*Output)(nil)
+var (
+	_ backend.AdaptiveSync = (*Output)(nil)
+	_ backend.Emissive     = (*Output)(nil)
+)
 
 const (
 	propVRRCapable = "vrr_capable"
@@ -30,6 +33,18 @@ func (b *Backend) vrrHold(c kdrm.Connector, data []byte) time.Duration {
 		return defaultVRRHold
 	}
 	return r.MaxFrameDuration()
+}
+
+func (b *Backend) oled(c kdrm.Connector, data []byte) bool {
+	oled, err := edid.ParseOLED(data)
+	if err != nil {
+		b.report(fmt.Errorf("drm: %s is not reported as OLED, its EDID's display technology is unreadable: %w", c.Name(), err))
+	}
+	return oled
+}
+
+func (o *Output) OLED() bool {
+	return o.oled
 }
 
 func (o *Output) AdaptiveSyncCapable() bool {

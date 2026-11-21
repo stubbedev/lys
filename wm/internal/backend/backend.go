@@ -321,6 +321,15 @@ type AdaptiveSync interface {
 	SetAdaptiveSync(on bool) error
 }
 
+type Emissive interface {
+	OLED() bool
+}
+
+func OLED(o Output) bool {
+	e, ok := o.(Emissive)
+	return ok && e.OLED()
+}
+
 func AdaptiveSyncCapable(o Output) bool {
 	a, ok := o.(AdaptiveSync)
 	return ok && a.AdaptiveSyncCapable()

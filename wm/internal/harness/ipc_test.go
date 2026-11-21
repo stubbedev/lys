@@ -442,6 +442,7 @@ func TestOutputsReportWhatEachCanDoWhateverTheConfigAsks(t *testing.T) {
 		b.RefuseHDR()
 		b.RefuseDepth10()
 		b.EnableAdaptiveSync()
+		b.EnableOLED()
 		_, err := b.AddNamedOutput("PLAIN-1", small)
 		return err
 	})
@@ -453,10 +454,10 @@ func TestOutputsReportWhatEachCanDoWhateverTheConfigAsks(t *testing.T) {
 		caps[o.Name] = *o.Capabilities
 	}
 	if got, want := caps["HEADLESS-1"], (wmipc.OutputCapabilities{HDR: true, MaxBitDepth: wmipc.Depth10}); got != want {
-		t.Errorf("the output with HDR and 10-bit frames but no adaptive sync reports %+v, want %+v", got, want)
+		t.Errorf("the output with HDR and 10-bit frames but no adaptive sync, not OLED, reports %+v, want %+v", got, want)
 	}
-	if got, want := caps["PLAIN-1"], (wmipc.OutputCapabilities{VRR: true, MaxBitDepth: wmipc.Depth8}); got != want {
-		t.Errorf("the output with adaptive sync but neither HDR nor 10-bit frames reports %+v, want %+v", got, want)
+	if got, want := caps["PLAIN-1"], (wmipc.OutputCapabilities{VRR: true, MaxBitDepth: wmipc.Depth8, OLED: true}); got != want {
+		t.Errorf("the OLED output with adaptive sync but neither HDR nor 10-bit frames reports %+v, want %+v", got, want)
 	}
 	if len(caps) != 2 {
 		t.Errorf("outputs %v, want HEADLESS-1 and PLAIN-1", caps)

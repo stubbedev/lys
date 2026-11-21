@@ -951,6 +951,7 @@
       "errors",
       "fmt",
       "log",
+      "maps",
       "net",
       "os",
       "slices",
@@ -5591,6 +5592,7 @@
       "bufio",
       "bytes",
       "path",
+      "reflect",
       "testing"
     ]
   },

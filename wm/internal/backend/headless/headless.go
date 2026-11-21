@@ -32,6 +32,7 @@ type Backend struct {
 	shallow       bool
 	sdrOnly       bool
 	vrr           bool
+	oled          bool
 	loop          *loop.Loop
 	renderer      render.Renderer
 	closeGPU      func() error
@@ -421,6 +422,14 @@ func (o *Output) Degamma() []uint16 {
 
 func (b *Backend) EnableAdaptiveSync() {
 	b.vrr = true
+}
+
+func (b *Backend) EnableOLED() {
+	b.oled = true
+}
+
+func (o *Output) OLED() bool {
+	return o.backend.oled
 }
 
 func (o *Output) AdaptiveSyncCapable() bool {
