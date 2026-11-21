@@ -72,12 +72,15 @@ VM is one CI job, the screencast and system VMs another: the three in one job
 took about twelve minutes.
 
 The idle wakeup gate (`nix/idle-vm.nix`) measures a still session of lys-wm,
-lys-shell and lys-power with `lys-power energy` from the moment the shell's
-bars are on screen: the first 5 s against a startup budget, then the minute
-after in three windows against the idle one, with nothing waited out between.
-It fails when one of them wakes more often, or keeps the GPU busier, over a
-window than `nix/idle-budgets.json` allows, naming the process and its busiest
-threads. It then opens a client that redraws every frame in its own scope,
+lys-shell and lys-power with `lys-power energy` from the moment both say they
+have started (lys-power's unit is active once it reports ready, and the
+shell's Shell1 `Started` turns true once its bars show, their dropdowns are
+built and its tray has synced): the first 5 s against a startup budget, then
+the minute after in three windows against the idle one, with nothing waited
+out between. It fails when one of them wakes more often, or keeps the GPU
+busier, over a window than `nix/idle-budgets.json` allows, naming the process
+and its busiest threads, and when lys-power or lys-shell restarted while it
+measured. It then opens a client that redraws every frame in its own scope,
 hides it on another workspace, and fails unless lys-wm puts it to sleep, the
 shell naps its scope (CPU and I/O weight 20, 50 ms timer slack), the client
 wakes at most `hidden_client_wakeups` times over the window while lys-wm

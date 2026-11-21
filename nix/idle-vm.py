@@ -95,10 +95,29 @@ def gate(label, window=WINDOW, wakeups=idle_wakeups(WINDOW), still=True):
         raise OverBudget("; ".join(problems))
 
 
-BARS = sorted(f"lys-shell-bar-{output}" for output in scenario["outputs"])
-machine.wait_until_succeeds(f"{as_alice('lys-wmctl layers')} | jq -e --argjson want '{json.dumps(BARS)}' '[.[].namespace | select(startswith(\"lys-shell-bar-\"))] | sort == $want'", timeout=60)
-machine.wait_until_succeeds("busctl --system status dev.stubbe.lys.Energy1", timeout=60)
-gate(f"startup, the first {PROBE}s with the bars on screen", PROBE, BUDGETS["startup_wakeups"], still=False)
+SHELL_STARTED = as_alice("busctl --user get-property dev.stubbe.lys.Shell1 /dev/stubbe/lys/Shell dev.stubbe.lys.Shell1 Started")
+
+
+def invocations():
+    return {
+        "lys-power": machine.succeed("systemctl show -P InvocationID lys-power.service").strip(),
+        "lys-shell": machine.succeed(as_alice("systemctl --user show -P InvocationID lys-shell.service")).strip(),
+    }
+
+
+def started():
+    machine.wait_until_succeeds("systemctl is-active --quiet lys-power.service", timeout=60)
+    machine.wait_until_succeeds(f"{SHELL_STARTED} | grep -qx 'b true'", timeout=60)
+    return invocations()
+
+
+def still_running(since):
+    restarted = sorted(name for name, invocation in invocations().items() if invocation != since[name])
+    assert not restarted, f"{', '.join(restarted)} restarted while the gate measured it"
+
+
+STARTED = started()
+gate(f"startup, the first {PROBE}s once lys-power and lys-shell said they started", PROBE, BUDGETS["startup_wakeups"], still=False)
 for window in range(FIRST_WINDOWS):
     gate(f"idle baseline, the first minute after startup, window {window + 1} of {FIRST_WINDOWS}")
 
@@ -180,3 +199,4 @@ machine.wait_until_succeeds(
     " | jq -e '.data[0] > 0 and any(.data[3][]; .[0] | endswith(\"/lys-shell.service\"))'",
     timeout=30,
 )
+still_running(STARTED)
