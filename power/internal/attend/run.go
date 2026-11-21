@@ -2,7 +2,6 @@ package attend
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 
@@ -10,6 +9,7 @@ import (
 	"github.com/stubbedev/lys/lib/logind"
 
 	"github.com/stubbedev/lys/power/attention"
+	"github.com/stubbedev/lys/power/internal/closing"
 	"github.com/stubbedev/lys/power/internal/config"
 	"github.com/stubbedev/lys/power/internal/facecam"
 	"github.com/stubbedev/lys/power/internal/presence"
@@ -24,12 +24,12 @@ func Run(ctx context.Context, cfg config.Config, log *slog.Logger) (err error) {
 	if err != nil {
 		return err
 	}
-	defer func() { err = errors.Join(err, closing("system bus", system.Close())) }()
+	defer closing.Join(&err, "system bus", system)
 	sessionBus, err := dbusx.DialSession(ctx, config.BusTimeout)
 	if err != nil {
 		return err
 	}
-	defer func() { err = errors.Join(err, closing("session bus", sessionBus.Close())) }()
+	defer closing.Join(&err, "session bus", sessionBus)
 	manager := logind.NewManager(system)
 	display := func(ctx context.Context) (Session, error) {
 		session, err := manager.GetSession(ctx, logind.AutoSession)
@@ -66,11 +66,4 @@ func FindCameras(dir string, devices facecam.Devices) ([]Camera, error) {
 		cameras[i] = c
 	}
 	return cameras, nil
-}
-
-func closing(what string, err error) error {
-	if err != nil {
-		return fmt.Errorf("close the %s: %w", what, err)
-	}
-	return nil
 }

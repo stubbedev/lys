@@ -2199,6 +2199,7 @@
       "lib/dbusx",
       "lib/logind",
       "power/attention",
+      "power/internal/closing",
       "power/internal/config",
       "power/internal/facecam",
       "power/internal/presence"
@@ -2214,6 +2215,7 @@
       "power/autobrightness",
       "power/internal/ambient",
       "power/internal/camlight",
+      "power/internal/closing",
       "power/internal/config",
       "power/internal/lightsensor"
     ],
@@ -2246,6 +2248,7 @@
       "power/internal/supply"
     ]
   },
+  "power/internal/closing": {},
   "power/internal/config": {
     "imports": [
       "power/internal/devicepower",

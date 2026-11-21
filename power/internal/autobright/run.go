@@ -15,6 +15,7 @@ import (
 	"github.com/stubbedev/lys/power/autobrightness"
 	"github.com/stubbedev/lys/power/internal/ambient"
 	"github.com/stubbedev/lys/power/internal/camlight"
+	"github.com/stubbedev/lys/power/internal/closing"
 	"github.com/stubbedev/lys/power/internal/config"
 	"github.com/stubbedev/lys/power/internal/lightsensor"
 )
@@ -41,15 +42,15 @@ func Run(ctx context.Context, cfg config.Config, log *slog.Logger) (err error) {
 	if err != nil {
 		return err
 	}
-	defer func() { err = errors.Join(err, closing("system bus", system.Close())) }()
+	defer closing.Join(&err, "system bus", system)
 	backlight := backlight.NewSysfs(system)
-	defer func() { err = errors.Join(err, closing("backlight watch", backlight.Close())) }()
+	defer closing.Join(&err, "backlight watch", backlight)
 
 	sessionBus, err := dbusx.DialSession(ctx, config.BusTimeout)
 	if err != nil {
 		return err
 	}
-	defer func() { err = errors.Join(err, closing("session bus", sessionBus.Close())) }()
+	defer closing.Join(&err, "session bus", sessionBus)
 
 	d := New(light, backlight, displaySessions{logind.NewManager(system)}, ppdProfile{source: powerprofiles.NewOn(system), log: log}, realClock{}, log, p)
 	server, release, err := autobrightness.Serve(sessionBus, autobrightness.Following, d.Resume)
@@ -80,13 +81,6 @@ func (p ppdProfile) Saver(ctx context.Context) (<-chan bool, error) {
 	return powerprofiles.FollowSaver(ctx, p.source, config.BusTimeout, func(err error) {
 		p.log.Error("following the power profile", "err", err)
 	})
-}
-
-func closing(what string, err error) error {
-	if err != nil {
-		return fmt.Errorf("close the %s: %w", what, err)
-	}
-	return nil
 }
 
 // findLight prefers an ambient light sensor to the camera, and says how
