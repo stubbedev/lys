@@ -8,7 +8,7 @@
   "startup_wakeups": {
     "lys-wm": 600,
     "lys-shell": 300,
-    "lys-power": 20
+    "lys-power": 60
   },
   "wakeups": {
     "lys-wm": 300,
