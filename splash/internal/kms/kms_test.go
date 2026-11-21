@@ -16,6 +16,8 @@ import (
 
 	"github.com/stubbedev/lys/lib/drm"
 	"github.com/stubbedev/lys/lib/testbuild"
+	"github.com/stubbedev/lys/lib/udevmonitor"
+	"github.com/stubbedev/lys/lib/udevmonitor/udevmonitortest"
 	"github.com/stubbedev/lys/lib/waittest"
 	"golang.org/x/sys/unix"
 )
@@ -127,77 +129,56 @@ func TestFirmwareGuessKeepsTheValueAcrossAModeChange(t *testing.T) {
 	}
 }
 
-func TestParseUevent(t *testing.T) {
-	t.Parallel()
-	add := "add@/devices/pci0000:00/0000:00:02.0/drm/card1\x00ACTION=add\x00DEVPATH=/devices/pci0000:00/0000:00:02.0/drm/card1\x00SUBSYSTEM=drm\x00MAJOR=226\x00MINOR=1\x00DEVNAME=dri/card1\x00DEVTYPE=drm_minor\x00SEQNUM=2345\x00"
-	u, err := ParseUevent([]byte(add))
+func udevEvent(t *testing.T, props ...string) Event {
+	t.Helper()
+	ev, err := udevmonitor.Parse(udevmonitor.Frame(props...))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if name, ok := u.Card(); u.Action != Add || !ok || name != "card1" || u.Hotplug {
-		t.Errorf("ParseUevent(add) = %+v, card %q %v", u, name, ok)
-	}
-	hotplug := "change@/devices/pci0000:00/0000:00:02.0/drm/card1\x00ACTION=change\x00DEVPATH=/devices/pci0000:00/0000:00:02.0/drm/card1\x00SUBSYSTEM=drm\x00HOTPLUG=1\x00DEVNAME=dri/card1\x00"
-	if u, err := ParseUevent([]byte(hotplug)); err != nil || u.Action != Change || !u.Hotplug {
-		t.Errorf("ParseUevent(hotplug) = %+v, %v", u, err)
-	}
-	render := "add@/devices/x/drm/renderD128\x00ACTION=add\x00SUBSYSTEM=drm\x00DEVNAME=dri/renderD128\x00"
-	if u, err := ParseUevent([]byte(render)); err != nil {
-		t.Error(err)
-	} else if _, ok := u.Card(); ok {
-		t.Error("a render node counts as a card")
-	}
-	input := "add@/devices/x/input/input3\x00ACTION=add\x00SUBSYSTEM=input\x00DEVNAME=dri/card9\x00"
-	if u, err := ParseUevent([]byte(input)); err != nil {
-		t.Error(err)
-	} else if _, ok := u.Card(); ok {
-		t.Error("a non-drm device counts as a card")
-	}
-	bad := map[string]string{
-		"no header":       "ACTION=add\x00SUBSYSTEM=drm\x00",
-		"empty action":    "@/devices/x\x00",
-		"action mismatch": "add@/devices/x\x00ACTION=remove\x00",
-		"path mismatch":   "add@/devices/x\x00DEVPATH=/devices/y\x00",
-		"bare field":      "add@/devices/x\x00SUBSYSTEM\x00",
-	}
-	for name, msg := range bad {
-		if u, err := ParseUevent([]byte(msg)); err == nil {
-			t.Errorf("%s: ParseUevent = %+v, want an error", name, u)
+	return Event{uevent: &ev}
+}
+
+func TestCardOfAnEvent(t *testing.T) {
+	t.Parallel()
+	for name, tc := range map[string]struct {
+		props []string
+		card  string
+	}{
+		"a card":             {[]string{"ACTION=add", "SUBSYSTEM=drm", "DEVNAME=/dev/dri/card1", "DEVTYPE=drm_minor"}, "card1"},
+		"a render node":      {[]string{"ACTION=add", "SUBSYSTEM=drm", "DEVNAME=/dev/dri/renderD128"}, ""},
+		"a connector":        {[]string{"ACTION=change", "SUBSYSTEM=drm", "DEVPATH=/devices/x/drm/card0/card0-DP-1"}, ""},
+		"another subsystem":  {[]string{"ACTION=add", "SUBSYSTEM=input", "DEVNAME=/dev/dri/card9"}, ""},
+		"a kernel's DEVNAME": {[]string{"ACTION=add", "SUBSYSTEM=drm", "DEVNAME=dri/card1"}, ""},
+	} {
+		got, ok := card(*udevEvent(t, tc.props...).uevent)
+		if got != tc.card || ok != (tc.card != "") {
+			t.Errorf("%s: card %q %v, want %q", name, got, ok, tc.card)
 		}
-	}
-	if _, err := ParseUevent([]byte("libudev\x00\xfe\xed\xca\xfe")); !errors.Is(err, errUdevMessage) {
-		t.Errorf("a udev message parsed as %v", err)
 	}
 }
 
-func TestUeventReaderPostsOnlyDRMMessages(t *testing.T) {
+func TestUeventReaderPostsOnlyDRMEvents(t *testing.T) {
 	t.Parallel()
-	fds, err := unix.Socketpair(unix.AF_UNIX, unix.SOCK_DGRAM|unix.SOCK_CLOEXEC|unix.SOCK_NONBLOCK, 0)
+	udev := udevmonitortest.New(t)
+	disp, _ := fakeDisplay(t, map[string]*fakeDevice{}, nil)
+	listener, err := udev.Listen(subsystems)
 	if err != nil {
 		t.Fatal(err)
 	}
-	disp, _ := fakeDisplay(t, map[string]*fakeDevice{}, nil)
-	disp.uevents = &ueventSocket{f: os.NewFile(uintptr(fds[0]), "uevent"), buf: make([]byte, 1<<16)}
+	disp.uevents = listener
 	disp.wg.Go(disp.readUevents)
-	sender := os.NewFile(uintptr(fds[1]), "sender")
-	defer sender.Close()
-	foreign := []string{
-		"change@/devices/usb1\x00ACTION=change\x00SUBSYSTEM=usb\x00",
-		"add@/devices/block/sda\x00SUBSYSTEM=block\x00DEVNAME=sda\x00",
-		"add@/devices/fake\x00SUBSYSTEM=drm_dp_aux_dev\x00",
-		"not a uevent at all",
+	foreign := [][]string{
+		{"ACTION=change", "SUBSYSTEM=usb", "DEVPATH=/devices/usb1"},
+		{"ACTION=add", "SUBSYSTEM=block", "DEVNAME=/dev/sda"},
+		{"ACTION=add", "SUBSYSTEM=drm_dp_aux_dev", "DEVPATH=/devices/fake"},
 	}
 	const noise = 100
 	for i := range noise {
-		if _, err := sender.WriteString(foreign[i%len(foreign)]); err != nil {
-			t.Fatal(err)
-		}
+		udev.Send(foreign[i%len(foreign)]...)
 	}
-	want := "change@/x/card0\x00SUBSYSTEM=drm\x00HOTPLUG=1\x00DEVNAME=dri/card0\x00"
-	if _, err := sender.WriteString(want); err != nil {
-		t.Fatal(err)
-	}
-	if e := waittest.For(t, disp.Events(), "an event"); string(e.uevent) != want {
+	udev.Send("ACTION=change", "DEVPATH=/x/card0", "SUBSYSTEM=drm", "HOTPLUG=1", "DEVNAME=/dev/dri/card0")
+	e := waittest.For(t, disp.Events(), "an event")
+	if e.uevent == nil || e.uevent.Action != udevmonitor.Change || e.uevent.Props["DEVNAME"] != "/dev/dri/card0" {
 		t.Errorf("the first event posted after %d foreign messages is %+v", noise, e)
 	}
 	if n := len(disp.Events()); n != 0 {
@@ -205,17 +186,6 @@ func TestUeventReaderPostsOnlyDRMMessages(t *testing.T) {
 	}
 	if err := disp.Close(false); err != nil {
 		t.Fatal(err)
-	}
-}
-
-func TestAboutDRMDoesNotAllocate(t *testing.T) {
-	msg := []byte("change@/devices/usb1\x00ACTION=change\x00SUBSYSTEM=usb\x00DEVTYPE=usb_device\x00")
-	if n := testing.AllocsPerRun(100, func() {
-		if aboutDRM(msg) {
-			t.Fatal("a usb uevent is about drm")
-		}
-	}); n != 0 {
-		t.Errorf("%v allocations filtering a foreign uevent", n)
 	}
 }
 
@@ -751,8 +721,8 @@ func switchDrivers(t *testing.T, simple, native *fakeDevice, firmwareScale int) 
 	if len(outs) != 1 || outs[0].Scale() != firmwareScale || !outs[0].card.firmware {
 		t.Fatalf("outputs on simpledrm: %v, want one at scale %d", outs, firmwareScale)
 	}
-	remove := "remove@/devices/platform/simple-framebuffer.0/drm/card0\x00ACTION=remove\x00SUBSYSTEM=drm\x00DEVNAME=dri/card0\x00"
-	if _, err := disp.Handle(Event{uevent: []byte(remove)}); err != nil {
+	remove := []string{"ACTION=remove", "DEVPATH=/devices/platform/simple-framebuffer.0/drm/card0", "SUBSYSTEM=drm", "DEVNAME=/dev/dri/card0"}
+	if _, err := disp.Handle(udevEvent(t, remove...)); err != nil {
 		t.Fatal(err)
 	}
 	if len(disp.Outputs()) != 0 {
@@ -763,8 +733,8 @@ func switchDrivers(t *testing.T, simple, native *fakeDevice, firmwareScale int) 
 	if err := os.WriteFile(filepath.Join(paths.Dev, "card1"), nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	add := "add@/devices/pci0000:00/0000:00:02.0/drm/card1\x00ACTION=add\x00SUBSYSTEM=drm\x00DEVNAME=dri/card1\x00"
-	if _, err := disp.Handle(Event{uevent: []byte(add)}); err != nil {
+	add := []string{"ACTION=add", "DEVPATH=/devices/pci0000:00/0000:00:02.0/drm/card1", "SUBSYSTEM=drm", "DEVNAME=/dev/dri/card1"}
+	if _, err := disp.Handle(udevEvent(t, add...)); err != nil {
 		t.Fatal(err)
 	}
 	pump(t, disp, outputsAre(disp, 1))
@@ -841,7 +811,7 @@ func TestDisplayDeactivatesNewCards(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(paths.Dev, "card1"), nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := disp.Handle(Event{uevent: []byte("add@/x/card1\x00SUBSYSTEM=drm\x00DEVNAME=dri/card1\x00")}); err != nil {
+	if _, err := disp.Handle(udevEvent(t, "ACTION=add", "DEVPATH=/x/card1", "SUBSYSTEM=drm", "DEVNAME=/dev/dri/card1")); err != nil {
 		t.Fatal(err)
 	}
 	pump(t, disp, func() bool { return disp.cards["card1"] != nil })
@@ -942,7 +912,7 @@ func TestDisplayBacksOffACardThatStaysBusyAndGivesUp(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := disp.Handle(Event{uevent: []byte("add@/x/card0\x00SUBSYSTEM=drm\x00DEVNAME=dri/card0\x00")}); err != nil {
+	if _, err := disp.Handle(udevEvent(t, "ACTION=add", "DEVPATH=/x/card0", "SUBSYSTEM=drm", "DEVNAME=/dev/dri/card0")); err != nil {
 		t.Fatal(err)
 	}
 	var waits []time.Duration
@@ -1074,11 +1044,11 @@ func TestProbingAndLightingNeverHoldTheFlips(t *testing.T) {
 		t.Fatal(err)
 	}
 	first.connect(41, [2]uint32{531, 299}, mode(32, 16, true))
-	for _, msg := range []string{
-		"change@/x/card0\x00SUBSYSTEM=drm\x00DEVNAME=dri/card0\x00HOTPLUG=1\x00",
-		"add@/x/card1\x00SUBSYSTEM=drm\x00DEVNAME=dri/card1\x00",
+	for _, props := range [][]string{
+		{"ACTION=change", "DEVPATH=/x/card0", "SUBSYSTEM=drm", "DEVNAME=/dev/dri/card0", "HOTPLUG=1"},
+		{"ACTION=add", "DEVPATH=/x/card1", "SUBSYSTEM=drm", "DEVNAME=/dev/dri/card1"},
 	} {
-		if _, err := disp.Handle(Event{uevent: []byte(msg)}); err != nil {
+		if _, err := disp.Handle(udevEvent(t, props...)); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -1130,11 +1100,11 @@ func TestACardRemovedWhileBeingLitIsClosedAndNeverShown(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(paths.Dev, "card1"), nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := disp.Handle(Event{uevent: []byte("add@/x/card1\x00SUBSYSTEM=drm\x00DEVNAME=dri/card1\x00")}); err != nil {
+	if _, err := disp.Handle(udevEvent(t, "ACTION=add", "DEVPATH=/x/card1", "SUBSYSTEM=drm", "DEVNAME=/dev/dri/card1")); err != nil {
 		t.Fatal(err)
 	}
 	<-entered
-	if _, err := disp.Handle(Event{uevent: []byte("remove@/x/card1\x00SUBSYSTEM=drm\x00DEVNAME=dri/card1\x00")}); err != nil {
+	if _, err := disp.Handle(udevEvent(t, "ACTION=remove", "DEVPATH=/x/card1", "SUBSYSTEM=drm", "DEVNAME=/dev/dri/card1")); err != nil {
 		t.Fatal(err)
 	}
 	close(release)
@@ -1155,7 +1125,7 @@ func TestAnUnpluggedOutputIsFreedOnlyAfterTheLoopDropsIt(t *testing.T) {
 	d.mu.Lock()
 	d.connectors[40].conn.Connection = drm.Disconnected
 	d.mu.Unlock()
-	if _, err := disp.Handle(Event{uevent: []byte("change@/x/card0\x00SUBSYSTEM=drm\x00DEVNAME=dri/card0\x00HOTPLUG=1\x00")}); err != nil {
+	if _, err := disp.Handle(udevEvent(t, "ACTION=change", "DEVPATH=/x/card0", "SUBSYSTEM=drm", "DEVNAME=/dev/dri/card0", "HOTPLUG=1")); err != nil {
 		t.Fatal(err)
 	}
 	e := waittest.For(t, disp.Events(), "an event")

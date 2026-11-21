@@ -67,7 +67,14 @@ flipped with atomic commits at most once per vblank.
 - **Mode.** An output keeps its current mode, so the first frame needs no
   modeset; otherwise it takes the preferred mode, else the first.
 - **Firmware framebuffers.** Draws on simpledrm, efidrm, vesadrm and ofdrm and
-  follows uevents as the native driver takes over. A firmware framebuffer at
+  follows the DRM events udevd broadcasts as the native driver takes over;
+  the kernel drops every other subsystem's before they wake the splash. Every
+  way the splash starts runs it after udevd (`After=systemd-udevd.service`,
+  initramfs-tools' `PREREQ="udev"`), and a native driver is a module udevd
+  loads, so its card arrives while udevd runs. Cards already there are read
+  from `/dev/dri` at start; across switch-root, where one udevd has stopped
+  and the next has not started, the new udevd's coldplug broadcasts an add for
+  every card again. A firmware framebuffer at
   640x480, 800x600 or 1024x768 is skipped in favour of the native driver.
 - **Scale.** 1 or 2 per output, from the physical size in EDID. A firmware
   framebuffer without a known size guesses from the resolution, and later

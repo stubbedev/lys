@@ -13,6 +13,7 @@ import (
 	"sync"
 
 	"github.com/stubbedev/lys/lib/drm"
+	"github.com/stubbedev/lys/lib/udevmonitor"
 	"golang.org/x/sys/unix"
 )
 
@@ -41,7 +42,7 @@ var SystemPaths = Paths{Dev: "/dev/dri", Sysfs: "/sys/class/drm"}
 type Event struct {
 	card   *Card
 	flip   drm.FlipEvent
-	uevent []byte
+	uevent *udevmonitor.Event
 	err    error
 	lit    *litCard
 	scan   *scanResult
@@ -63,7 +64,7 @@ type Display struct {
 	done        chan struct{}
 	wg          sync.WaitGroup
 	workersDone sync.WaitGroup
-	uevents     *ueventSocket
+	uevents     *udevmonitor.Listener
 	paused      bool
 	outs        []*Output
 }
@@ -89,9 +90,9 @@ func open(paths Paths, opener func(string) (device, error), uevents bool, clk cl
 		done:    make(chan struct{}),
 	}
 	if uevents {
-		s, err := openUevents()
+		s, err := udevmonitor.Listen(subsystems)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("kms: follow the cards: %w", err)
 		}
 		d.uevents = s
 		d.wg.Go(d.readUevents)
@@ -223,11 +224,11 @@ func (d *Display) readFlips(c *Card, r *os.File) {
 
 func (d *Display) readUevents() {
 	for {
-		msg, err := d.uevents.read()
+		ev, err := d.uevents.Next()
 		if errors.Is(err, os.ErrClosed) {
 			return
 		}
-		if errors.Is(err, unix.ENOBUFS) {
+		if errors.Is(err, udevmonitor.ErrLost) {
 			if !d.send(Event{lost: true}) {
 				return
 			}
@@ -237,10 +238,7 @@ func (d *Display) readUevents() {
 			d.send(Event{err: err})
 			return
 		}
-		if !aboutDRM(msg) {
-			continue
-		}
-		if !d.send(Event{uevent: slices.Clone(msg)}) {
+		if !d.send(Event{uevent: &ev}) {
 			return
 		}
 	}
@@ -260,7 +258,7 @@ func (d *Display) Handle(e Event) (bool, error) {
 	case e.err != nil:
 		return false, e.err
 	case e.uevent != nil:
-		return d.uevent(e.uevent)
+		return d.uevent(*e.uevent), nil
 	case e.lost:
 		return d.resync()
 	case e.lit != nil:
@@ -292,30 +290,23 @@ func (d *Display) scanned(r *scanResult) (bool, error) {
 	return len(r.added)+len(r.dropped) > 0, r.err
 }
 
-func (d *Display) uevent(msg []byte) (bool, error) {
-	u, err := ParseUevent(msg)
-	if errors.Is(err, errUdevMessage) {
-		return false, nil
-	}
-	if err != nil {
-		return false, err
-	}
-	name, ok := u.Card()
+func (d *Display) uevent(ev udevmonitor.Event) bool {
+	name, ok := card(ev)
 	if !ok {
-		return false, nil
+		return false
 	}
-	switch u.Action {
-	case Add:
+	switch ev.Action {
+	case udevmonitor.Add:
 		until := d.clock.now().Add(busyRetryFor)
 		d.worker(name).ask(func(j *cardJobs) { j.open, j.until = true, until })
-	case Remove:
-		return d.remove(name), nil
-	case Change:
-		if _, ok := d.cards[name]; ok && u.Hotplug && !d.paused {
+	case udevmonitor.Remove:
+		return d.remove(name)
+	case udevmonitor.Change:
+		if _, ok := d.cards[name]; ok && ev.Props["HOTPLUG"] == "1" && !d.paused {
 			d.worker(name).ask(func(j *cardJobs) { j.rescan = true })
 		}
 	}
-	return false, nil
+	return false
 }
 
 // resync stands in for uevents the socket dropped when its buffer overflowed:
@@ -422,7 +413,7 @@ func (d *Display) Close(retain bool) error {
 	d.workersDone.Wait()
 	var errs []error
 	if d.uevents != nil {
-		errs = append(errs, d.uevents.close())
+		errs = append(errs, d.uevents.Close())
 	}
 	names := slices.Sorted(maps.Keys(d.workers))
 	for _, name := range names {

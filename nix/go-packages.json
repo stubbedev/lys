@@ -4516,10 +4516,12 @@
       "lib/drm",
       "lib/fourcc",
       "lib/intconv",
-      "lib/third_party/gomath"
+      "lib/third_party/gomath",
+      "lib/udevmonitor"
     ],
     "testImports": [
       "lib/testbuild",
+      "lib/udevmonitor/udevmonitortest",
       "lib/waittest"
     ]
   },
