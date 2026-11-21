@@ -43,6 +43,7 @@ const usage = `usage: lys-wmctl [--socket <path>] <command>
   devices                      print the input devices as JSON
   binds                        print the binds with their chords, actions, flags and
                                descriptions as JSON
+  flips                        print how many frames each output has flipped as JSON
   pickwindow                   wait for a click on a window and print its ID, or null;
                                Escape cancels
   watch [--snapshot]           print events as JSON lines until lys-wm exits; with
@@ -81,7 +82,7 @@ func main() {
 
 var errUsage = errors.New("bad usage")
 
-var queries = []wmipc.Kind{wmipc.KindOutputs, wmipc.KindWorkspaces, wmipc.KindWindows, wmipc.KindActiveWindow, wmipc.KindSubmap, wmipc.KindLayout, wmipc.KindLocks, wmipc.KindReducedMotion, wmipc.KindOverview, wmipc.KindScratchpads, wmipc.KindConfigProblems, wmipc.KindVersion, wmipc.KindLayers, wmipc.KindDevices, wmipc.KindPickWindow, wmipc.KindBinds, wmipc.KindCastTarget}
+var queries = []wmipc.Kind{wmipc.KindOutputs, wmipc.KindWorkspaces, wmipc.KindWindows, wmipc.KindActiveWindow, wmipc.KindSubmap, wmipc.KindLayout, wmipc.KindLocks, wmipc.KindReducedMotion, wmipc.KindOverview, wmipc.KindScratchpads, wmipc.KindConfigProblems, wmipc.KindVersion, wmipc.KindLayers, wmipc.KindDevices, wmipc.KindPickWindow, wmipc.KindBinds, wmipc.KindCastTarget, wmipc.KindFlips}
 
 func parseArgs(args []string) (ipc.Request, error) {
 	if len(args) == 0 {

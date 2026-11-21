@@ -19,7 +19,7 @@ import (
 	"github.com/stubbedev/lys/wm/internal/wm"
 )
 
-var kinds = []wmipc.Kind{wmipc.KindVersion, wmipc.KindOutputs, wmipc.KindWorkspaces, wmipc.KindWindows, wmipc.KindActiveWindow, wmipc.KindSubmap, wmipc.KindLayout, wmipc.KindLocks, wmipc.KindReducedMotion, wmipc.KindDispatch, wmipc.KindWatch, wmipc.KindIcon, wmipc.KindOverview, wmipc.KindScratchpads, wmipc.KindConfigProblems, wmipc.KindUpgrade, wmipc.KindCreateOutput, wmipc.KindRemoveOutput, wmipc.KindCapture, wmipc.KindLayers, wmipc.KindDevices, wmipc.KindPickWindow, wmipc.KindBinds, wmipc.KindCastTarget}
+var kinds = []wmipc.Kind{wmipc.KindVersion, wmipc.KindOutputs, wmipc.KindWorkspaces, wmipc.KindWindows, wmipc.KindActiveWindow, wmipc.KindSubmap, wmipc.KindLayout, wmipc.KindLocks, wmipc.KindReducedMotion, wmipc.KindDispatch, wmipc.KindWatch, wmipc.KindIcon, wmipc.KindOverview, wmipc.KindScratchpads, wmipc.KindConfigProblems, wmipc.KindUpgrade, wmipc.KindCreateOutput, wmipc.KindRemoveOutput, wmipc.KindCapture, wmipc.KindLayers, wmipc.KindDevices, wmipc.KindPickWindow, wmipc.KindBinds, wmipc.KindCastTarget, wmipc.KindFlips}
 
 type Request struct {
 	Request  wmipc.Kind  `json:"request"`
@@ -320,6 +320,7 @@ type Snapshot struct {
 	CastTarget     CastTarget
 	Devices        []Device
 	Binds          []Bind
+	Flips          []OutputFlips
 	MRU            []wm.WindowID
 	Switcher       *Switcher
 	Submap         string
@@ -328,6 +329,11 @@ type Snapshot struct {
 	ReducedMotion  bool
 	Overview       bool
 	ConfigProblems ConfigProblems
+}
+
+type OutputFlips struct {
+	Output string `json:"output"`
+	Flips  uint64 `json:"flips"`
 }
 
 type ConfigProblems struct {
@@ -377,6 +383,8 @@ func (s Snapshot) answer(k wmipc.Kind) any {
 		return s.CastTarget
 	case wmipc.KindBinds:
 		return nonNil(s.Binds)
+	case wmipc.KindFlips:
+		return nonNil(s.Flips)
 	case wmipc.KindConfigProblems:
 		return ConfigProblems{Rejected: s.ConfigProblems.Rejected, Messages: nonNil(s.ConfigProblems.Messages)}
 	}

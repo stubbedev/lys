@@ -517,6 +517,7 @@ type scene struct {
 	targetStale bool
 	animated    bool
 	last        backend.Presentation
+	flips       uint64
 	blurs       blurCaches
 	shader      *screenShader
 	image       render.TextureTarget

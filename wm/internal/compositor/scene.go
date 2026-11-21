@@ -603,6 +603,7 @@ func (c *Compositor) Presented(b backend.Output, p backend.Presentation) error {
 	}
 	if !p.Idle {
 		sc.last = p
+		sc.flips++
 	}
 	refresh := outputRefresh(b, p)
 	var errs error

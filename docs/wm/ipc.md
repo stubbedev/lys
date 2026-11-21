@@ -14,7 +14,7 @@ then the only socket in `$XDG_RUNTIME_DIR/lys-wm`.
 | `batch <action>...` | Run each argument as an action, in order, as one [batch](#batches) |
 | `reload` | Same as `dispatch reload`; prints what the config did not apply as warnings |
 | `upgrade [--drop-x11] <path>` | Move the session to another lys-wm binary; see [Upgrading in place](./guide/upgrade) |
-| `outputs`, `workspaces`, `windows`, `activewindow`, `submap`, `layout`, `locks`, `reducedmotion`, `overview`, `scratchpads`, `configproblems`, `layers`, `devices`, `binds`, `casttarget`, `version` | Print that [query](#results) as JSON |
+| `outputs`, `workspaces`, `windows`, `activewindow`, `submap`, `layout`, `locks`, `reducedmotion`, `overview`, `scratchpads`, `configproblems`, `layers`, `devices`, `binds`, `casttarget`, `flips`, `version` | Print that [query](#results) as JSON |
 | `pickwindow` | Wait for a click and print the window's ID, or `null`; Escape cancels |
 | `watch [--snapshot]` | Print [events](#events) as JSON lines until lys-wm exits |
 | `icon <window> <size>` | Print the window's icon buffer closest to `size` pixels |
@@ -158,6 +158,12 @@ written; `flags` lists any of `locked`, `repeating`, `release`, `pass`,
 | `overview` | Whether the [overview](./config#overview) has input |
 | `reducedmotion` | Whether `animations.reduced_motion` is in force |
 | `configproblems` | `{"rejected":false,"messages":[]}`: `rejected` when the whole file was refused and the previous config runs; `messages` lists what was not applied |
+
+**`flips`**: how many frames each output has flipped onto the screen since it
+came up, `[{"output":"eDP-1","flips":48210}]`; mirrors are left out. Every
+flip takes a laptop panel out of self refresh, so on a still desktop the
+counts stand still. No event announces a flip: sample the query twice and
+take the difference.
 
 **`casttarget`**: what the dynamic screencast source shows:
 `{"kind":"window","window":7}`, `{"kind":"output","output":"DP-1"}` or

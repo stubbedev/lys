@@ -31,6 +31,13 @@ func (c *Compositor) OnIPCEvents(e IPCEvents) {
 	c.ipcEvents = e
 }
 
+func (c *Compositor) flips(o *output.Output) uint64 {
+	if sc, ok := c.scenes[o]; ok {
+		return sc.flips
+	}
+	return 0
+}
+
 func (c *Compositor) Snapshot() ipc.Snapshot {
 	s := c.wm
 	focusedOutput := s.FocusedOutput()
@@ -66,6 +73,7 @@ func (c *Compositor) Snapshot() ipc.Snapshot {
 			Capabilities: c.capabilities[b],
 			Primary:      o == primary,
 		})
+		snap.Flips = append(snap.Flips, ipc.OutputFlips{Output: b.Name(), Flips: c.flips(o)})
 	}
 	for _, m := range c.mirrors {
 		mode := m.out.State().Mode

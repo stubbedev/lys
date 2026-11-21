@@ -42,6 +42,7 @@ const (
 	KindPickWindow     Kind = "pickwindow"
 	KindCastTarget     Kind = "casttarget"
 	KindBinds          Kind = "binds"
+	KindFlips          Kind = "flips"
 )
 
 // OutputChange is what an output event says happened to its output.
