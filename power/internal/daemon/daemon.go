@@ -211,8 +211,9 @@ func applyProfile(log *slog.Logger, pc ProfileClient, onAC bool) string {
 // On battery it pauses the units chosen for it and on AC resumes them,
 // retrying every Tick while any of that fails. Without a system bus it falls back to
 // checking the power source every Tick; losing the bus ends it with an
-// error.
-func Run(ctx context.Context, cfg config.Config, log *slog.Logger) error {
+// error. ready runs once, after the first evaluation applied and every
+// service is on the bus; its error ends Run.
+func Run(ctx context.Context, cfg config.Config, log *slog.Logger, ready func() error) error {
 	if cfg.StateDir == config.DefaultStateDir {
 		adoptLegacyHistory(cfg.HistoryPath(), config.LegacyStateDirs[:], log)
 	}
@@ -311,6 +312,7 @@ func Run(ctx context.Context, cfg config.Config, log *slog.Logger) error {
 	defer signal.Stop(hup)
 
 	devices := deviceFollower{cfg: cfg, conn: conn, log: log, wake: NewUSBWake(cfg)}
+	announced := false
 	for {
 		now := time.Now()
 		result, err := Eval(cfg, log, now, pc)
@@ -337,6 +339,12 @@ func Run(ctx context.Context, cfg config.Config, log *slog.Logger) error {
 		}
 		if err := timer.Arm(next); err != nil {
 			return err
+		}
+		if !announced {
+			if err := ready(); err != nil {
+				return fmt.Errorf("report ready: %w", err)
+			}
+			announced = true
 		}
 
 		select {

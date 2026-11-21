@@ -3652,6 +3652,13 @@
       "fmt",
       "net",
       "time"
+    ],
+    "testImports": [
+      "lib/testbuild"
+    ],
+    "testExternal": [
+      "crypto/rand",
+      "testing"
     ]
   },
   "lib/shacrypt": {
@@ -5560,6 +5567,7 @@
     "imports": [
       "lib/buildinfo",
       "lib/dbusx",
+      "lib/sdnotify",
       "lib/third_party/godbus",
       "power/charge",
       "power/energy",
@@ -5836,6 +5844,7 @@
       "time"
     ],
     "testImports": [
+      "lib/dbustest",
       "lib/waittest"
     ],
     "testExternal": [

@@ -15,6 +15,12 @@ type sandboxMount struct {
 	hidden   bool
 }
 
+func TestTheServiceIsStartedOnceItReportsReady(t *testing.T) {
+	if got := readServiceSection(t, "../../dist/lys-power.service")["Type"]; got != "notify" {
+		t.Errorf("lys-power.service is Type=%s: systemd takes it as started before it reports ready", got)
+	}
+}
+
 var unitKeysWithoutMounts = []string{
 	"Type", "ExecStart", "Restart", "RestartSec",
 	"NoNewPrivileges", "RestrictSUIDSGID", "LockPersonality",

@@ -18,6 +18,7 @@ import (
 
 	"github.com/stubbedev/lys/lib/buildinfo"
 	"github.com/stubbedev/lys/lib/dbusx"
+	"github.com/stubbedev/lys/lib/sdnotify"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
 	"github.com/stubbedev/lys/power/charge"
@@ -104,7 +105,7 @@ func dispatch(args []string, cfg config.Config, log *slog.Logger) error {
 	case "run":
 		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 		defer stop()
-		return daemon.Run(ctx, cfg, log)
+		return daemon.Run(ctx, cfg, log, func() error { return sdnotify.Notify(os.Getenv(sdnotify.Env), "READY=1") })
 	case "brightness":
 		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 		defer stop()

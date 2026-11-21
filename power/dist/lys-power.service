@@ -5,7 +5,7 @@ After=power-profiles-daemon.service upower.service
 Wants=upower.service
 
 [Service]
-Type=simple
+Type=notify
 ExecStart=/usr/bin/lys-power run
 StateDirectory=lys-power
 Restart=on-failure
