@@ -49,7 +49,14 @@ its install steps read, all repository paths. `lysGo.build` in `nix/go.nix`
 assembles it from `nix/go-packages.json`, which `ci/gopackages` writes from
 the tracked Go files, so a commit rebuilds only the packages, and the VM images
 on them, whose sources it touched. A package's version is the hash of that
-source. The flake exposes
+source. A package's build starts from a Go build cache that holds the
+standard library and third-party packages its Go packages import, compiled
+once: `lys-go-build-cache`, a derivation of `go.mod`, `go.sum` and that list
+of imports, which `nix/go-packages.json` records per package (`external`,
+`testExternal`). It changes only with the modules or the package's set of
+outside imports, so the binary cache serves it, and a cold build compiles
+only lys's own packages: lys-shell's build phase takes 30 s on top of it
+against 63 s without, with the same binaries. The flake exposes
 `packages.lys-<component>`, `nixosModules.lys-<component>`,
 `homeModules.lys-<component>`, `overlays.default`, one dev shell per
 component, and every check as `checks.<system>.<component>-<check>`.

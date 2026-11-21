@@ -40,9 +40,9 @@ func TestAPackageListsItsModuleImportsAndWhatItsTestsAdd(t *testing.T) {
 		"README.md":        "not Go\n",
 	})
 	want := map[string]Package{
-		"lib/a": {Imports: []string{"lib/b", "lib/c"}, TestImports: []string{"lib/d"}},
+		"lib/a": {Imports: []string{"lib/b", "lib/c"}, External: []string{"fmt"}, TestImports: []string{"lib/d"}, TestExternal: []string{"testing"}},
 		"lib/b": {},
-		"lib/c": {},
+		"lib/c": {External: []string{"other.org/x"}},
 		"lib/d": {},
 	}
 	if !reflect.DeepEqual(got, want) {
@@ -64,6 +64,7 @@ func TestEmbedsNameTheLiteralPathTheirPatternsStartFrom(t *testing.T) {
 		"p/testdata/inner/ignored.go": "package ignored\nimport \"example.com/m/nowhere\"\n",
 	})
 	want := map[string]Package{"p": {
+		External:   []string{"embed"},
 		Embeds:     []string{"p", "p/default.yaml", "p/icons/scalable", "p/quoted dir/x.txt"},
 		TestEmbeds: []string{"p/testdata/golden.png"},
 	}}
@@ -85,6 +86,21 @@ func TestDirectoriesAndFilesGoIgnoresAreSkipped(t *testing.T) {
 	})
 	if want := []string{"p"}; !slices.Equal(slices.Sorted(maps.Keys(got)), want) {
 		t.Fatalf("packages = %v, want %v", slices.Sorted(maps.Keys(got)), want)
+	}
+}
+
+func TestExternalImportsLeaveOutTheModuleAndCgo(t *testing.T) {
+	got := mustScan(t, map[string]string{
+		"a/a.go":      "package a\nimport (\n\t\"C\"\n\t\"example.com/m\"\n\t\"example.com/m/b\"\n\t\"example.com/mod/x\"\n\t\"os\"\n)\n",
+		"a/a_test.go": "package a\nimport (\n\t\"os\"\n\t\"testing\"\n)\n",
+		"b/b.go":      "package b\nimport \"os\"\n",
+	})
+	want := map[string]Package{
+		"a": {Imports: []string{"b"}, External: []string{"example.com/mod/x", "os"}, TestExternal: []string{"testing"}},
+		"b": {External: []string{"os"}},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("scan = %+v, want %+v", got, want)
 	}
 }
 

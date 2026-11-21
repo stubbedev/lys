@@ -471,8 +471,9 @@ source-check:
     done
     (( failed == 0 ))
 
-# Write nix/go-packages.json: each Go package's imports and embedded files within
-# the module, which the packages' filtered sources in nix/go.nix follow.
+# Write nix/go-packages.json: each Go package's imports within the module and
+# from outside it, and its embedded files, which the packages' filtered sources
+# and Go build caches in nix/go.nix follow.
 go-packages:
     go run ./ci/gopackages nix/go-packages.json
 

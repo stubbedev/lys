@@ -14,10 +14,12 @@ import (
 )
 
 type Package struct {
-	Imports     []string `json:"imports,omitempty"`
-	Embeds      []string `json:"embeds,omitempty"`
-	TestImports []string `json:"testImports,omitempty"`
-	TestEmbeds  []string `json:"testEmbeds,omitempty"`
+	Imports      []string `json:"imports,omitempty"`
+	External     []string `json:"external,omitempty"`
+	Embeds       []string `json:"embeds,omitempty"`
+	TestImports  []string `json:"testImports,omitempty"`
+	TestExternal []string `json:"testExternal,omitempty"`
+	TestEmbeds   []string `json:"testEmbeds,omitempty"`
 }
 
 type fileFacts struct {
@@ -48,12 +50,14 @@ func scan(fsys fs.FS, module string, tracked []string) (map[string]Package, erro
 			p = &Package{}
 			packages[dir] = p
 		}
-		imports := moduleImports(module, dir, facts.imports)
+		imports, external := splitImports(module, dir, facts.imports)
 		if strings.HasSuffix(name, "_test.go") {
 			p.TestImports = append(p.TestImports, imports...)
+			p.TestExternal = append(p.TestExternal, external...)
 			p.TestEmbeds = append(p.TestEmbeds, embeds...)
 		} else {
 			p.Imports = append(p.Imports, imports...)
+			p.External = append(p.External, external...)
 			p.Embeds = append(p.Embeds, embeds...)
 		}
 	}
@@ -64,12 +68,14 @@ func scan(fsys fs.FS, module string, tracked []string) (map[string]Package, erro
 				errs = append(errs, fmt.Errorf("%s imports %s/%s, which holds no Go files", dir, module, imported))
 			}
 		}
-		imports, embeds := sortedSet(p.Imports), sortedSet(p.Embeds)
+		imports, external, embeds := sortedSet(p.Imports), sortedSet(p.External), sortedSet(p.Embeds)
 		result[dir] = Package{
-			Imports:     imports,
-			Embeds:      embeds,
-			TestImports: without(sortedSet(p.TestImports), imports),
-			TestEmbeds:  without(sortedSet(p.TestEmbeds), embeds),
+			Imports:      imports,
+			External:     external,
+			Embeds:       embeds,
+			TestImports:  without(sortedSet(p.TestImports), imports),
+			TestExternal: without(sortedSet(p.TestExternal), external),
+			TestEmbeds:   without(sortedSet(p.TestEmbeds), embeds),
 		}
 	}
 	if err := errors.Join(errs...); err != nil {
@@ -193,15 +199,17 @@ func literalPrefix(pattern string) string {
 	return pattern
 }
 
-func moduleImports(module, dir string, imports []string) []string {
-	var internal []string
+func splitImports(module, dir string, imports []string) (internal, external []string) {
 	for _, imported := range imports {
-		rel, ok := strings.CutPrefix(imported, module+"/")
-		if ok && rel != dir {
+		rel, inModule := strings.CutPrefix(imported, module+"/")
+		switch {
+		case inModule && rel != dir:
 			internal = append(internal, rel)
+		case !inModule && imported != module && imported != "C":
+			external = append(external, imported)
 		}
 	}
-	return internal
+	return internal, external
 }
 
 func sortedSet(items []string) []string {
@@ -210,8 +218,12 @@ func sortedSet(items []string) []string {
 }
 
 func without(items, excluded []string) []string {
-	return slices.DeleteFunc(items, func(item string) bool {
+	kept := slices.DeleteFunc(items, func(item string) bool {
 		_, found := slices.BinarySearch(excluded, item)
 		return found
 	})
+	if len(kept) == 0 {
+		return nil
+	}
+	return kept
 }

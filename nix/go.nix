@@ -62,29 +62,44 @@
     then inRoot rel
     else throw "lysGo: ${consumer} names the source ${rel}, which does not exist";
 
-  source = {
+  closure = {
     name,
     packages,
     tests,
-    resources,
   }: let
     roots = lib.concatMap (expandPattern name) packages;
-    built = importClosure name (roots ++ tests ++ lib.concatMap (dir: (goPackage name dir).testImports or []) tests);
   in
     if roots == [] && tests == []
     then throw "lysGo: ${name} builds no Go package; set subPackages, goPackages or goTests"
-    else
-      lib.fileset.toSource {
-        inherit root;
-        fileset = lib.fileset.intersection tracked (lib.fileset.unions (
-          [../go.mod ../go.sum]
-          ++ lib.concatMap (goFiles false) built
-          ++ lib.concatMap (goFiles true) tests
-          ++ map inRoot (lib.concatMap (dir: (goPackage name dir).embeds or []) built)
-          ++ map inRoot (lib.concatMap (dir: (goPackage name dir).testEmbeds or []) tests)
-          ++ map (existing name) resources
-        ));
-      };
+    else importClosure name (roots ++ tests ++ lib.concatMap (dir: (goPackage name dir).testImports or []) tests);
+
+  source = {
+    name,
+    built,
+    tests,
+    resources,
+  }:
+    lib.fileset.toSource {
+      inherit root;
+      fileset = lib.fileset.intersection tracked (lib.fileset.unions (
+        [../go.mod ../go.sum]
+        ++ lib.concatMap (goFiles false) built
+        ++ lib.concatMap (goFiles true) tests
+        ++ map inRoot (lib.concatMap (dir: (goPackage name dir).embeds or []) built)
+        ++ map inRoot (lib.concatMap (dir: (goPackage name dir).testEmbeds or []) tests)
+        ++ map (existing name) resources
+      ));
+    };
+
+  externalImports = {
+    name,
+    built,
+    tests,
+  }:
+    lib.sort lib.lessThan (lib.unique (
+      lib.concatMap (dir: (goPackage name dir).external or []) built
+      ++ lib.concatMap (dir: (goPackage name dir).testExternal or []) tests
+    ));
 in {
   perSystem = {
     inputs',
@@ -93,6 +108,40 @@ in {
   }: let
     go = inputs'.devtools.packages.go;
     buildGoModule = pkgs.buildGoModule.override {inherit go;};
+    modules = {
+      vendorHash = "sha256-uo4p97UD2RgrzAYnAW4OunOamjWkCxmwIU50nIZ3neg=";
+      proxyVendor = true;
+      overrideModAttrs = _: {
+        name = "lys-go-modules";
+        src = modulesSource;
+      };
+      env.CGO_ENABLED = "0";
+    };
+    buildCache = imports:
+      (buildGoModule (modules
+        // {
+          pname = "lys-go-build-cache";
+          version = lib.substring 0 8 (builtins.hashString "sha256" (lib.concatLines imports));
+          src = modulesSource;
+          importPaths = lib.concatLines imports;
+          passAsFile = ["importPaths"];
+          buildPhase = ''
+            runHook preBuild
+            mapfile -t buildable < <(xargs go list -e -f '{{if and (not .Error) (not .DepsErrors) .GoFiles}}{{.ImportPath}}{{end}}' < "$importPathsPath")
+            go build -p "$NIX_BUILD_CORES" "''${buildable[@]}"
+            runHook postBuild
+          '';
+          installPhase = ''
+            runHook preInstall
+            find "$GOCACHE" -type f -name '*-a' -exec sed -i -E 's/.{20}$/                   0/' {} +
+            rm -f "$GOCACHE/trim.txt"
+            cp -r "$GOCACHE" "$out"
+            runHook postInstall
+          '';
+          doCheck = false;
+          dontFixup = true;
+        }))
+      .overrideAttrs {disallowedReferences = [];};
   in {
     _module.args = {
       inherit go buildGoModule;
@@ -102,30 +151,40 @@ in {
       lysGo = {
         inherit src;
         build = args:
-          buildGoModule (finalAttrs:
-            {
-              vendorHash = "sha256-uo4p97UD2RgrzAYnAW4OunOamjWkCxmwIU50nIZ3neg=";
-              proxyVendor = true;
-              overrideModAttrs = _: {
-                name = "lys-go-modules";
-                src = modulesSource;
-              };
-              env.CGO_ENABLED = "0";
-              goPackages = [];
-              goTests = [];
-              resources = [];
-            }
-            // args
-            // {
-              src = source {
+          if args ? postConfigure
+          then throw "lysGo: ${args.pname} sets postConfigure, which lysGo.build uses to seed the Go build cache"
+          else
+            buildGoModule (finalAttrs: let
+              targets = {
                 name = finalAttrs.pname;
                 packages = (finalAttrs.subPackages or []) ++ finalAttrs.goPackages;
                 tests = finalAttrs.goTests;
-                inherit (finalAttrs) resources;
               };
-              version = "0-unstable-${lib.substring 0 8 (builtins.unsafeDiscardStringContext (baseNameOf finalAttrs.src))}";
-              ldflags = (args.ldflags or []) ++ ["-X github.com/stubbedev/lys/lib/buildinfo.version=${finalAttrs.version}"];
-            });
+              built = closure targets;
+            in
+              modules
+              // {
+                goPackages = [];
+                goTests = [];
+                resources = [];
+              }
+              // args
+              // {
+                src = source {
+                  inherit built;
+                  inherit (targets) name tests;
+                  inherit (finalAttrs) resources;
+                };
+                goBuildCache = buildCache (externalImports {
+                  inherit built;
+                  inherit (targets) name tests;
+                });
+                postConfigure = ''
+                  cp -r --no-preserve=mode "$goBuildCache" "$GOCACHE"
+                '';
+                version = "0-unstable-${lib.substring 0 8 (builtins.unsafeDiscardStringContext (baseNameOf finalAttrs.src))}";
+                ldflags = (args.ldflags or []) ++ ["-X github.com/stubbedev/lys/lib/buildinfo.version=${finalAttrs.version}"];
+              });
         test = args: ''
           runHook preCheck
           go test ${lib.escapeShellArgs args}
