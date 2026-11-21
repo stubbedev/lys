@@ -110,6 +110,7 @@ type harness struct {
 	openErr error
 	// focusErr fails every opened window's SetFocus.
 	focusErr error
+	owned    []func()
 }
 
 func newHarness(t *testing.T) *harness {
@@ -192,7 +193,12 @@ func (h *harness) stop() {
 		}
 	}()
 	waittest.For(h.t, done, "the surface's work to end with its sessions")
+	for _, release := range h.owned {
+		release()
+	}
 }
+
+func (h *harness) own(release func()) { h.owned = append(h.owned, release) }
 
 // open starts a session and returns its reply channel.
 func (h *harness) open(opts launcheripc.SessionOptions, replace bool, rows ...string) (*launcheripc.Session, <-chan launcheripc.ServerFrame) {

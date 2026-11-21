@@ -242,7 +242,7 @@ func TestBackspaceOnAnEmptyFieldLeavesTheLevel(t *testing.T) {
 
 func TestCtrlBackspaceForgetsTheSelectedClipboardRow(t *testing.T) {
 	h := newPanelHarness(t)
-	clip := newLauncherClipboard(t, [2]string{"text/plain", "zulu kept"}, [2]string{"text/plain", "zulu gone"})
+	clip := newLauncherClipboard(t, h.own, [2]string{"text/plain", "zulu kept"}, [2]string{"text/plain", "zulu gone"})
 	h.cfg.Launcher.Search.Providers = append(h.cfg.Launcher.Search.Providers, config.SearchClipboard)
 	deps := h.s.d.Search
 	h.s.d.Search = func() search.Deps {

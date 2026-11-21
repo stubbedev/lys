@@ -198,13 +198,13 @@ func TestNoPreviewsLeaveTheRofiPaneShut(t *testing.T) {
 // entry back, which needs a seat, does nothing.
 type launcherClipboard struct{ history *clipboard.History }
 
-func newLauncherClipboard(t *testing.T, selections ...[2]string) *launcherClipboard {
+func newLauncherClipboard(t *testing.T, own func(release func()), selections ...[2]string) *launcherClipboard {
 	t.Helper()
 	h, err := clipboard.NewHistory(clipboard.DefaultCapacity, historybudget.MaxEntryBytes, historybudget.MaxEntryBytes*4, historybudget.MaxEntryBytes*4)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(h.Close)
+	own(h.Close)
 	for _, s := range selections {
 		if _, _, err := h.Push(s[0], []byte(s[1])); err != nil {
 			t.Fatal(err)
@@ -228,7 +228,7 @@ func (*launcherClipboard) Copy(uint64) bool { return true }
 // entry that is neither text nor picture by its type and size.
 func TestTheClipboardModePreviewsItsEntries(t *testing.T) {
 	h := newHarness(t)
-	h.s.d.Clipboard = newLauncherClipboard(t,
+	h.s.d.Clipboard = newLauncherClipboard(t, h.own,
 		[2]string{"application/x-thing", "12345"},
 		[2]string{"text/plain", "first line\nsecond line"},
 	)
