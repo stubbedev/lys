@@ -4,6 +4,7 @@ BUDGETS = params["budgets"]
 WINDOW = BUDGETS["window_seconds"]
 PROBE = BUDGETS["probe_seconds"]
 FIRST_WINDOWS = BUDGETS["first_minute_windows"]
+CLOCK_REDRAW = BUDGETS["clock_redraw_seconds"]
 CONFIG = f"/home/{USER}/.config/lys-shell/config.yaml"
 
 
@@ -30,16 +31,17 @@ def flips():
     return {o["output"]: o["flips"] for o in json.loads(machine.succeed(as_alice("lys-wmctl flips")))}
 
 
-def minute():
-    return int(machine.succeed("date +%s")) // 60
+def minute(back=0):
+    return (int(machine.succeed("date +%s")) - back) // 60
 
 
 def measure(window, unit=None):
     wm = int(machine.succeed("pgrep -x lys-wm").strip())
-    flipped, began = flips(), minute()
+    began = minute(CLOCK_REDRAW)
+    flipped = flips()
     report = json.loads(machine.succeed(f"lys-power energy -for {window}s -threads -json"))
-    ticks = minute() - began
     flipped = {output: count - flipped.get(output, 0) for output, count in flips().items()}
+    ticks = minute() - began
     seconds = report["Covered"] / 1e9
     found = {}
     if unit is not None:

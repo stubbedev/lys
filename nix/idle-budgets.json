@@ -5,6 +5,7 @@
   "hidden_client_wakeups": 20,
   "shown_client_wakeups": 200,
   "flips_per_clock_tick": 1,
+  "clock_redraw_seconds": 1,
   "startup_wakeups": {
     "lys-wm": 600,
     "lys-shell": 300,
