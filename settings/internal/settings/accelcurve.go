@@ -286,7 +286,7 @@ func (c *accelCanvas) span() float64 { return float64(len(c.curve.points)-1) * c
 
 func (c *accelCanvas) toScreen(x, y float64) (float64, float64) {
 	p := c.plot()
-	return float64(p.X) + x/c.span()*float64(p.W), float64(p.Y+p.H) - y/c.top*float64(p.H)
+	return float64(p.X) + float64(x/c.span()*float64(p.W)), float64(p.Y+p.H) - float64(y/c.top*float64(p.H))
 }
 
 func (c *accelCanvas) speedAt(py float64) float64 {
