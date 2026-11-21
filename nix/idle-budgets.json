@@ -14,6 +14,11 @@
     "lys-shell": 200,
     "lys-power": 20
   },
+  "unrelated_uevents": {
+    "per_second": 10,
+    "at_least": 25,
+    "processes": ["lys-wm", "lys-power"]
+  },
   "gpu_seconds": {
     "lys-wm": 0.1,
     "lys-shell": 0.1,

@@ -78,6 +78,22 @@ gate(f"startup, the first {PROBE}s with the bars on screen", PROBE, BUDGETS["sta
 for window in range(FIRST_WINDOWS):
     gate(f"idle baseline, the first minute after startup, window {window + 1} of {FIRST_WINDOWS}")
 
+UNRELATED = BUDGETS["unrelated_uevents"]
+machine.succeed(
+    "sh -c 'while :; do udevadm trigger --settle --action=change /sys/devices/virtual/mem/null && echo >> /tmp/unrelated-uevents;"
+    f" sleep {1 / UNRELATED['per_second']}; done' >/dev/null 2>&1 & echo $! > /tmp/unrelated-uevents.pid"
+)
+try:
+    seconds, found = measure(PROBE)
+finally:
+    machine.succeed("kill $(cat /tmp/unrelated-uevents.pid)")
+fired = int(machine.succeed("wc -l < /tmp/unrelated-uevents").strip())
+assert fired >= UNRELATED["at_least"], f"only {fired} unrelated uevents fired, too few for their wakeups to show"
+unrelated = {name: idle_wakeups(PROBE)[name] for name in UNRELATED["processes"]}
+print(f"{fired} unrelated uevents over {seconds:.1f}s: " + ", ".join(f"{name} {found[name]['wakeups']} wakeups" for name in sorted(found)))
+problems = over_budget({name: found[name] for name in unrelated}, PROBE, unrelated)
+assert not problems, f"uevents of a subsystem nothing acts on woke lys: {'; '.join(problems)}"
+
 BUSY = "app-busy-1.scope"
 WINDOWS = as_alice("lys-wmctl windows")
 
