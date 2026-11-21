@@ -82,12 +82,16 @@ func boxReduce(src image.Image, r image.Rectangle, k int) rowSource {
 		y0, y1 := y*k, min((y+1)*k, r.Dy())
 		for sy := y0; sy < y1; sy++ {
 			line := read(sy)
-			for x := range r.Dx() {
-				o := (x / k) * 4
-				sums[o] += uint64(line[x*4])
-				sums[o+1] += uint64(line[x*4+1])
-				sums[o+2] += uint64(line[x*4+2])
-				sums[o+3] += uint64(line[x*4+3])
+			for x := range w {
+				block := line[x*k*4 : min((x+1)*k, r.Dx())*4]
+				var s0, s1, s2, s3 uint64
+				for len(block) >= 4 {
+					p := block[:4:4]
+					s0, s1, s2, s3 = s0+uint64(p[0]), s1+uint64(p[1]), s2+uint64(p[2]), s3+uint64(p[3])
+					block = block[4:]
+				}
+				acc := sums[x*4 : x*4+4 : x*4+4]
+				acc[0], acc[1], acc[2], acc[3] = acc[0]+s0, acc[1]+s1, acc[2]+s2, acc[3]+s3
 			}
 		}
 		for x := range w {
