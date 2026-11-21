@@ -26,9 +26,20 @@ def lys_threads(report, wm):
     }
 
 
+def flips():
+    return {o["output"]: o["flips"] for o in json.loads(machine.succeed(as_alice("lys-wmctl flips")))}
+
+
+def minute():
+    return int(machine.succeed("date +%s")) // 60
+
+
 def measure(window, unit=None):
     wm = int(machine.succeed("pgrep -x lys-wm").strip())
+    flipped, began = flips(), minute()
     report = json.loads(machine.succeed(f"lys-power energy -for {window}s -threads -json"))
+    ticks = minute() - began
+    flipped = {output: count - flipped.get(output, 0) for output, count in flips().items()}
     seconds = report["Covered"] / 1e9
     found = {}
     if unit is not None:
@@ -40,11 +51,23 @@ def measure(window, unit=None):
             "threads": sorted(((round(t["Wakeups"] * seconds), t["Name"], t["TID"]) for t in threads), reverse=True),
             "gpu_seconds": sum(app["GPU"] for app in apps) * seconds,
         }
+    found["lys-wm"]["flips"] = flipped
+    found["lys-wm"]["clock_ticks"] = ticks
     return seconds, found
 
 
 def idle_wakeups(window):
     return {name: whole * window / WINDOW for name, whole in BUDGETS["wakeups"].items()}
+
+
+def over_flips(found):
+    got = found["lys-wm"]
+    allowed = got["clock_ticks"] * BUDGETS["flips_per_clock_tick"]
+    return [
+        f"lys-wm flipped {output} {count} times while still, over the {allowed} its {got['clock_ticks']} clock minute ticks allow"
+        for output, count in sorted(got["flips"].items())
+        if count > allowed
+    ]
 
 
 def over_budget(found, window, wakeups):
@@ -61,12 +84,13 @@ def over_budget(found, window, wakeups):
     return problems
 
 
-def gate(label, window=WINDOW, wakeups=idle_wakeups(WINDOW)):
+def gate(label, window=WINDOW, wakeups=idle_wakeups(WINDOW), still=True):
     seconds, found = measure(window)
     print(f"{label} over {seconds:.1f}s:")
     for name, got in sorted(found.items()):
         print(f"  {name}: {got['wakeups']} wakeups, {got['gpu_seconds']:.3f}s GPU; threads {got['threads'][:5]}")
-    problems = over_budget(found, window, wakeups)
+    print(f"  lys-wm flips {found['lys-wm']['flips']} across {found['lys-wm']['clock_ticks']} clock minute ticks")
+    problems = over_budget(found, window, wakeups) + (over_flips(found) if still else [])
     if problems:
         raise OverBudget("; ".join(problems))
 
@@ -74,7 +98,7 @@ def gate(label, window=WINDOW, wakeups=idle_wakeups(WINDOW)):
 BARS = sorted(f"lys-shell-bar-{output}" for output in scenario["outputs"])
 machine.wait_until_succeeds(f"{as_alice('lys-wmctl layers')} | jq -e --argjson want '{json.dumps(BARS)}' '[.[].namespace | select(startswith(\"lys-shell-bar-\"))] | sort == $want'", timeout=60)
 machine.wait_until_succeeds("busctl --system status dev.stubbe.lys.Energy1", timeout=60)
-gate(f"startup, the first {PROBE}s with the bars on screen", PROBE, BUDGETS["startup_wakeups"])
+gate(f"startup, the first {PROBE}s with the bars on screen", PROBE, BUDGETS["startup_wakeups"], still=False)
 for window in range(FIRST_WINDOWS):
     gate(f"idle baseline, the first minute after startup, window {window + 1} of {FIRST_WINDOWS}")
 
@@ -128,7 +152,7 @@ seconds, found = measure(WINDOW, BUSY)
 hidden = found.pop(BUSY)["wakeups"]
 print(f"a hidden busy client: {hidden} wakeups and lys-wm {found['lys-wm']['wakeups']} over {WINDOW}s; shown it woke {shown} times in {PROBE}s")
 assert hidden <= BUDGETS["hidden_client_wakeups"], f"a hidden busy client woke {hidden} times in {WINDOW}s, over {BUDGETS['hidden_client_wakeups']}"
-problems = over_budget(found, WINDOW, idle_wakeups(WINDOW))
+problems = over_budget(found, WINDOW, idle_wakeups(WINDOW)) + over_flips(found)
 assert not problems, f"with a busy client hidden: {'; '.join(problems)}"
 
 machine.succeed(as_alice("lys-wmctl dispatch workspace 1"))
@@ -144,6 +168,8 @@ try:
 except OverBudget as caught:
     if "lys-shell" not in str(caught):
         raise AssertionError(f"a shell ticking every second failed the gate without naming lys-shell: {caught}")
+    if "lys-wm flipped" not in str(caught):
+        raise AssertionError(f"a clock redrawing every second failed the gate without naming lys-wm's flips: {caught}")
     print(f"the gate caught the ticking shell: {caught}")
 else:
     raise AssertionError("a shell ticking every second passed the idle gate")
