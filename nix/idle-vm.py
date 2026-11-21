@@ -80,15 +80,13 @@ for window in range(FIRST_WINDOWS):
 
 UNRELATED = BUDGETS["unrelated_uevents"]
 machine.succeed(
-    "sh -c 'while :; do udevadm trigger --settle --action=change /sys/devices/virtual/mem/null && echo >> /tmp/unrelated-uevents;"
-    f" sleep {1 / UNRELATED['per_second']}; done' >/dev/null 2>&1 & echo $! > /tmp/unrelated-uevents.pid"
+    f"sh -c 'for i in $(seq {UNRELATED['count']}); do udevadm trigger --settle --action=change /sys/devices/virtual/mem/null && echo >> /tmp/unrelated-uevents; done'"
+    " >/dev/null 2>&1 & echo $! > /tmp/unrelated-uevents.pid"
 )
-try:
-    seconds, found = measure(PROBE)
-finally:
-    machine.succeed("kill $(cat /tmp/unrelated-uevents.pid)")
+seconds, found = measure(PROBE)
+machine.succeed("while kill -0 $(cat /tmp/unrelated-uevents.pid) 2>/dev/null; do sleep 0.1; done")
 fired = int(machine.succeed("wc -l < /tmp/unrelated-uevents").strip())
-assert fired >= UNRELATED["at_least"], f"only {fired} unrelated uevents fired, too few for their wakeups to show"
+assert fired == UNRELATED["count"], f"{fired} of {UNRELATED['count']} unrelated uevents fired"
 unrelated = {name: idle_wakeups(PROBE)[name] for name in UNRELATED["processes"]}
 print(f"{fired} unrelated uevents over {seconds:.1f}s: " + ", ".join(f"{name} {found[name]['wakeups']} wakeups" for name in sorted(found)))
 problems = over_budget({name: found[name] for name in unrelated}, PROBE, unrelated)
