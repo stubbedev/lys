@@ -1299,7 +1299,7 @@
         "filter_passes_per_frame": 2,
         "gpu_waits_per_frame": 0,
         "render_passes_per_frame": 3,
-        "submits_per_frame": 1,
+        "submits_per_frame": 2,
         "thumb_draws_per_settle": 2,
         "uploads_per_frame": 2
       },
@@ -1771,7 +1771,7 @@
         "filter_passes_per_frame": 2,
         "gpu_waits_per_frame": 0,
         "render_passes_per_frame": 3,
-        "submits_per_frame": 1,
+        "submits_per_frame": 2,
         "thumb_draws_per_settle": 2,
         "uploads_per_frame": 2
       },
