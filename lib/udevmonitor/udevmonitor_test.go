@@ -3,6 +3,7 @@ package udevmonitor
 import (
 	"bytes"
 	"errors"
+	"os"
 	"slices"
 	"testing"
 
@@ -139,5 +140,71 @@ func TestOpenJoinsTheUdevGroup(t *testing.T) {
 	}
 	if err := unix.Close(fd); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestParseReadsAnEvent(t *testing.T) {
+	t.Parallel()
+	ev, err := Parse(Frame("ACTION=change", "DEVPATH=/devices/pci0000:00/0000:00:02.0/drm/card1", "SUBSYSTEM=drm", "HOTPLUG=1"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ev.Action != Change || ev.Subsystem != "drm" || ev.Props["HOTPLUG"] != "1" {
+		t.Errorf("event = %+v", ev)
+	}
+	for raw, want := range map[string]Action{"add": Add, "remove": Remove, "change": Change, "bind": Other, "move": Other} {
+		ev, err := Parse(Frame("ACTION="+raw, "SUBSYSTEM=backlight"))
+		if err != nil || ev.Action != want {
+			t.Errorf("ACTION=%s parsed to %v, %v; want %v", raw, ev.Action, err, want)
+		}
+	}
+}
+
+func TestParseRejectsWhatIsNoEvent(t *testing.T) {
+	t.Parallel()
+	for name, bad := range map[string][]byte{
+		"a kernel uevent":      []byte("add@/x\x00ACTION=add\x00SUBSYSTEM=drm\x00"),
+		"no action":            Frame("SUBSYSTEM=drm"),
+		"no subsystem":         Frame("ACTION=add"),
+		"a property without =": Frame("ACTION=add", "SUBSYSTEM=drm", "HOTPLUG"),
+		"empty":                nil,
+	} {
+		if ev, err := Parse(bad); err == nil {
+			t.Errorf("%s: parsed to %+v, want an error", name, ev)
+		}
+	}
+}
+
+func TestListenerReadsOnlyTheSubsystemsAskedUntilClosed(t *testing.T) {
+	t.Parallel()
+	listen, send := filtered(t, []string{"backlight"})
+	dup, err := unix.Dup(listen)
+	if err != nil {
+		t.Fatal(err)
+	}
+	l := NewListener(dup)
+	for _, msg := range [][]byte{
+		Frame("ACTION=change", "SUBSYSTEM=mem"),
+		Frame("ACTION=change", "SUBSYSTEM=drm", "HOTPLUG=1"),
+		Frame("ACTION=add", "SUBSYSTEM=backlight", "DEVPATH=/devices/virtual/backlight/acpi_video0"),
+	} {
+		if _, err := unix.Write(send, msg); err != nil {
+			t.Fatal(err)
+		}
+	}
+	ev, err := l.Next()
+	if err != nil || ev.Action != Add || ev.Subsystem != "backlight" {
+		t.Fatalf("the first event read is %+v, %v; want the backlight's add", ev, err)
+	}
+	done := make(chan error, 1)
+	go func() {
+		_, err := l.Next()
+		done <- err
+	}()
+	if err := l.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := <-done; !errors.Is(err, os.ErrClosed) {
+		t.Errorf("Next after Close: %v, want %v", err, os.ErrClosed)
 	}
 }

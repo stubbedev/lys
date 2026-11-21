@@ -8,11 +8,10 @@ import (
 
 	"github.com/stubbedev/lys/lib/logind"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
-
-	"github.com/stubbedev/lys/desktop/uevent"
+	"github.com/stubbedev/lys/lib/udevmonitor"
 )
 
-func Inject(t testing.TB, listen func() (uevent.Reader, error), drift time.Duration) {
+func Inject(t testing.TB, listen func([]string) (*udevmonitor.Listener, error), drift time.Duration) {
 	t.Helper()
 	origListen, origDrift := listenUevents, driftInterval
 	listenUevents, driftInterval = listen, drift

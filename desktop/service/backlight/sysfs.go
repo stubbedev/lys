@@ -11,10 +11,10 @@ import (
 
 	"github.com/stubbedev/lys/lib/logind"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/udevmonitor"
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/desktop/fswatch"
-	"github.com/stubbedev/lys/desktop/uevent"
 )
 
 // driftInterval is how often the levels are compared, the correction for
@@ -22,20 +22,23 @@ import (
 // the attribute through a write); a var so tests can quiet it.
 var driftInterval = time.Second
 
-// listenUevents opens the uevent socket; a var so tests can inject
-// events.
-var listenUevents = uevent.Listen
+// subsystems are the devices whose events the watch reads.
+var subsystems = []string{"backlight"}
+
+// listenUevents opens the socket udevd broadcasts backlight events on;
+// a var so tests can inject events.
+var listenUevents = udevmonitor.Listen
 
 // Sysfs is the backlights under Dir as a Source: read from sysfs,
 // written through logind with a sysfs fallback, and watched through
-// inotify, the kernel's backlight uevents and a drift probe.
+// inotify, udevd's backlight events and a drift probe.
 type Sysfs struct {
 	logind *logindBacklight
 
 	writing sync.Mutex
 	ticks   *Broadcast
 	watch   *fswatch.Watcher
-	events  uevent.Reader
+	events  *udevmonitor.Listener
 	stop    chan struct{}
 	done    sync.WaitGroup
 }
@@ -54,7 +57,7 @@ func NewSysfs(system *dbus.Conn) *Sysfs {
 	} else {
 		log.Printf("backlight: %v", err)
 	}
-	if reader, err := listenUevents(); err == nil {
+	if reader, err := listenUevents(subsystems); err == nil {
 		s.events = reader
 	} else {
 		log.Printf("backlight: no hotplug: %v", err)
@@ -101,25 +104,41 @@ func (s *Sysfs) rescan(probe *levelProbe) {
 	probe.open(entries)
 }
 
-func isHotplug(ev uevent.Event) bool {
-	return ev.Subsystem == "backlight" && (ev.Action == uevent.Add || ev.Action == uevent.Remove)
+// rescanOn says whether ev reports a backlight that came or went, which
+// rescans, or one whose level changed, which reads the levels; ok is
+// false for neither.
+func rescanOn(ev udevmonitor.Event) (rescan, ok bool) {
+	if ev.Subsystem != "backlight" {
+		return false, false
+	}
+	switch ev.Action {
+	case udevmonitor.Add, udevmonitor.Remove:
+		return true, true
+	case udevmonitor.Change:
+		return false, true
+	}
+	return false, false
 }
 
-func isLevelChange(ev uevent.Event) bool {
-	return ev.Subsystem == "backlight" && ev.Action == uevent.Change
-}
-
-func (s *Sysfs) forwardUevents(out chan<- uevent.Event) {
+func (s *Sysfs) forwardUevents(out chan<- bool) {
 	for {
 		ev, err := s.events.Next()
-		if err != nil {
+		rescan, ok := rescanOn(ev)
+		switch {
+		case errors.Is(err, udevmonitor.ErrLost):
+			log.Printf("backlight: %v", err)
+			rescan, ok = true, true
+		case errors.Is(err, os.ErrClosed):
+			return
+		case err != nil:
+			log.Printf("backlight: no hotplug: %v", err)
 			return
 		}
-		if !isHotplug(ev) && !isLevelChange(ev) {
+		if !ok {
 			continue
 		}
 		select {
-		case out <- ev:
+		case out <- rescan:
 		case <-s.stop:
 			return
 		}
@@ -131,7 +150,7 @@ func (s *Sysfs) loop(probe *levelProbe) {
 	if s.watch != nil {
 		changed = s.watch.Changed()
 	}
-	events := make(chan uevent.Event)
+	events := make(chan bool)
 	if s.events != nil {
 		s.done.Go(func() { s.forwardUevents(events) })
 	}
@@ -167,8 +186,8 @@ func (s *Sysfs) loop(probe *levelProbe) {
 			if moved {
 				s.ticks.Tick()
 			}
-		case ev := <-events:
-			if isHotplug(ev) {
+		case rescan := <-events:
+			if rescan {
 				s.rescan(probe)
 				armDrift()
 			} else if _, err := probe.moved(); err != nil {

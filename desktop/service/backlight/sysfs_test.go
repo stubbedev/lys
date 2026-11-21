@@ -11,42 +11,23 @@ import (
 	"github.com/stubbedev/lys/lib/logind"
 	"github.com/stubbedev/lys/lib/logind/logindtest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/udevmonitor/udevmonitortest"
 	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/desktop/service/backlight"
 	"github.com/stubbedev/lys/desktop/service/backlight/backlighttest"
-	"github.com/stubbedev/lys/desktop/uevent"
 )
 
-type fakeUevents struct {
-	events chan uevent.Event
-	closed chan struct{}
-}
-
-func (f *fakeUevents) Next() (uevent.Event, error) {
-	select {
-	case ev := <-f.events:
-		return ev, nil
-	case <-f.closed:
-		return uevent.Event{}, errors.New("closed")
-	}
-}
-
-func (f *fakeUevents) Close() error {
-	close(f.closed)
-	return nil
-}
-
-func newSysfs(t *testing.T, system *dbus.Conn, drift time.Duration) (*backlight.Sysfs, chan<- uevent.Event) {
+func newSysfs(t *testing.T, system *dbus.Conn, drift time.Duration) (*backlight.Sysfs, *udevmonitortest.Group) {
 	t.Helper()
-	events := &fakeUevents{events: make(chan uevent.Event), closed: make(chan struct{})}
-	backlight.Inject(t, func() (uevent.Reader, error) { return events, nil }, drift)
+	udev := udevmonitortest.New(t)
+	backlight.Inject(t, udev.Listen, drift)
 	s := backlight.NewSysfs(system)
 	t.Cleanup(func() { _ = s.Close() })
-	return s, events.events
+	return s, udev
 }
 
-func quietSysfs(t *testing.T) (*backlight.Sysfs, chan<- uevent.Event) {
+func quietSysfs(t *testing.T) (*backlight.Sysfs, *udevmonitortest.Group) {
 	t.Helper()
 	return newSysfs(t, nil, time.Hour)
 }
@@ -142,7 +123,7 @@ func TestBacklightHotplugWatchesTheNewDevice(t *testing.T) {
 	s, events := quietSysfs(t)
 	ticks := subscribe(t, s)
 	backlighttest.Add(t, "acpi_video0", backlighttest.Device{Type: "firmware", Brightness: 5, Max: 10})
-	events <- uevent.Event{Action: uevent.Add, Subsystem: "backlight", Sysname: "acpi_video0"}
+	events.Send("ACTION=add", "SUBSYSTEM=backlight", "DEVPATH=/devices/virtual/backlight/acpi_video0")
 	waittest.For(t, ticks, "a tick for the hotplugged device")
 	time.Sleep(10 * time.Millisecond)
 	backlighttest.SetLevel(t, "acpi_video0", 7)
@@ -192,7 +173,7 @@ func TestDriftWithoutADeviceWakesNobodyUntilOneAppears(t *testing.T) {
 		t.Fatal("a machine without a backlight ticked")
 	}
 	backlighttest.Add(t, "acpi_video0", backlighttest.Device{Type: "firmware", Brightness: 5, Max: 10})
-	events <- uevent.Event{Action: uevent.Add, Subsystem: "backlight", Sysname: "acpi_video0"}
+	events.Send("ACTION=add", "SUBSYSTEM=backlight", "DEVPATH=/devices/virtual/backlight/acpi_video0")
 	waittest.For(t, ticks, "a tick from the hotplugged device")
 	if ticksSoon(ticks) {
 		t.Fatal("an unmoved level ticked")
@@ -212,11 +193,11 @@ func TestBacklightChangeUeventTicksAndOthersDoNot(t *testing.T) {
 	backlighttest.Fake(t, nil)
 	s, events := quietSysfs(t)
 	ticks := subscribe(t, s)
-	events <- uevent.Event{Action: uevent.Change, Subsystem: "drm", Props: map[string]string{"HOTPLUG": "1"}}
+	events.Send("ACTION=change", "SUBSYSTEM=drm", "HOTPLUG=1")
 	if ticksSoon(ticks) {
 		t.Fatal("a drm change ticked the backlight subscribers")
 	}
-	events <- uevent.Event{Action: uevent.Change, Subsystem: "backlight", Sysname: "x"}
+	events.Send("ACTION=change", "SUBSYSTEM=backlight", "DEVPATH=/devices/virtual/backlight/x")
 	waittest.For(t, ticks, "a tick for the level the kernel announced")
 }
 

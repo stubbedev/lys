@@ -2,27 +2,32 @@ package brightness
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
+	"os"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/stubbedev/lys/desktop/service/backlight"
-	"github.com/stubbedev/lys/desktop/uevent"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/udevmonitor"
 )
 
 // hotplugSettle is the pause before a hotplug-triggered DDC scan, so
 // DRM has settled and the monitor's I²C bus answers the probe.
 const hotplugSettle = 500 * time.Millisecond
 
-// listenUevents opens the uevent socket DRM hotplug arrives on; a var
-// so tests can inject events.
-var listenUevents = uevent.Listen
+// subsystems are the devices whose events re-scan DDC.
+var subsystems = []string{"drm"}
 
-func isDRMHotplug(ev uevent.Event) bool {
-	return ev.Subsystem == "drm" && ev.Action == uevent.Change && ev.Props["HOTPLUG"] == "1"
+// listenUevents opens the socket udevd broadcasts DRM hotplug on; a var
+// so tests can inject events.
+var listenUevents = udevmonitor.Listen
+
+func isDRMHotplug(ev udevmonitor.Event) bool {
+	return ev.Subsystem == "drm" && ev.Action == udevmonitor.Change && ev.Props["HOTPLUG"] == "1"
 }
 
 // System is the real source: the kernel's backlights, plus, when
@@ -37,7 +42,7 @@ type System struct {
 	pending   map[string]uint32
 	requested map[string]uint32
 
-	events uevent.Reader
+	events *udevmonitor.Listener
 	stop   chan struct{}
 	done   sync.WaitGroup
 	settle time.Duration
@@ -47,7 +52,7 @@ type System struct {
 // (the enable-external key); the first scan runs detached so internal
 // panels are usable at once. system is the system bus logind's writes
 // go over, and stays the caller's; nil writes through sysfs. A missing
-// uevent socket degrades to no DDC hotplug instead of failing.
+// udev socket degrades to no DDC hotplug instead of failing.
 func NewSystem(system *dbus.Conn, external bool) *System {
 	s := &System{
 		sysfs:     backlight.NewSysfs(system),
@@ -83,7 +88,7 @@ func (s *System) start() {
 	if err != nil {
 		panic(fmt.Errorf("brightness: watch the backlights just started: %w", err))
 	}
-	if reader, err := listenUevents(); err == nil {
+	if reader, err := listenUevents(subsystems); err == nil {
 		s.events = reader
 	} else {
 		log.Printf("brightness: no DDC hotplug: %v", err)
@@ -115,10 +120,15 @@ func (s *System) Close() error {
 func (s *System) forwardHotplugs(out chan<- struct{}) {
 	for {
 		ev, err := s.events.Next()
-		if err != nil {
+		switch {
+		case errors.Is(err, udevmonitor.ErrLost):
+			log.Printf("brightness: %v", err)
+		case errors.Is(err, os.ErrClosed):
 			return
-		}
-		if !isDRMHotplug(ev) {
+		case err != nil:
+			log.Printf("brightness: no DDC hotplug: %v", err)
+			return
+		case !isDRMHotplug(ev):
 			continue
 		}
 		select {

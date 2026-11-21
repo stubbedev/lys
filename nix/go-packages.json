@@ -254,14 +254,15 @@
     "imports": [
       "desktop/drmconn",
       "desktop/fswatch",
-      "desktop/uevent",
       "lib/logind",
-      "lib/third_party/godbus"
+      "lib/third_party/godbus",
+      "lib/udevmonitor"
     ],
     "testImports": [
       "desktop/service/backlight/backlighttest",
       "lib/logind/logindtest",
       "lib/testhome",
+      "lib/udevmonitor/udevmonitortest",
       "lib/waittest"
     ]
   },
@@ -786,11 +787,6 @@
   },
   "desktop/third_party/jpeg": {},
   "desktop/tokens": {},
-  "desktop/uevent": {
-    "testImports": [
-      "lib/waittest"
-    ]
-  },
   "desktop/useraccount": {},
   "lib/appearance": {
     "imports": [
@@ -1653,6 +1649,14 @@
   "lib/udevmonitor": {
     "imports": [
       "lib/intconv"
+    ],
+    "testImports": [
+      "lib/testbuild"
+    ]
+  },
+  "lib/udevmonitor/udevmonitortest": {
+    "imports": [
+      "lib/udevmonitor"
     ],
     "testImports": [
       "lib/testbuild"
@@ -3234,16 +3238,17 @@
       "desktop/drmconn",
       "desktop/feed",
       "desktop/service/backlight",
-      "desktop/uevent",
       "lib/dbusx",
       "lib/intconv",
       "lib/third_party/godbus",
+      "lib/udevmonitor",
       "power/autobrightness"
     ],
     "testImports": [
       "desktop/service/backlight/backlighttest",
       "lib/dbustest",
       "lib/testhome",
+      "lib/udevmonitor/udevmonitortest",
       "lib/waittest"
     ]
   },

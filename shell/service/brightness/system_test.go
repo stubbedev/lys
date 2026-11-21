@@ -2,34 +2,15 @@ package brightness
 
 import (
 	"context"
-	"errors"
 	"testing"
 	"time"
 
 	"github.com/stubbedev/lys/desktop/service/backlight"
 	"github.com/stubbedev/lys/desktop/service/backlight/backlighttest"
-	"github.com/stubbedev/lys/desktop/uevent"
+	"github.com/stubbedev/lys/lib/udevmonitor"
+	"github.com/stubbedev/lys/lib/udevmonitor/udevmonitortest"
 	"github.com/stubbedev/lys/lib/waittest"
 )
-
-type fakeUevents struct {
-	events chan uevent.Event
-	closed chan struct{}
-}
-
-func (f *fakeUevents) Next() (uevent.Event, error) {
-	select {
-	case ev := <-f.events:
-		return ev, nil
-	case <-f.closed:
-		return uevent.Event{}, errors.New("closed")
-	}
-}
-
-func (f *fakeUevents) Close() error {
-	close(f.closed)
-	return nil
-}
 
 // newTestSystem builds a System on the fake trees with injected
 // uevents; the caller has already faked BacklightDir (and DevDir for
@@ -40,16 +21,16 @@ func newTestSystem(t *testing.T, external bool) *System {
 	return sys
 }
 
-func newTestSystemWithEvents(t *testing.T, external bool) (*System, chan<- uevent.Event) {
+func newTestSystemWithEvents(t *testing.T, external bool) (*System, *udevmonitortest.Group) {
 	t.Helper()
-	events := &fakeUevents{events: make(chan uevent.Event), closed: make(chan struct{})}
+	udev := udevmonitortest.New(t)
 	orig := listenUevents
-	listenUevents = func() (uevent.Reader, error) { return events, nil }
+	listenUevents = udev.Listen
 	t.Cleanup(func() { listenUevents = orig })
 	sys := NewSystem(nil, external)
 	sys.settle = 0
 	t.Cleanup(func() { _ = sys.Close() })
-	return sys, events.events
+	return sys, udev
 }
 
 const quietWindow = 100 * time.Millisecond
@@ -70,13 +51,13 @@ func ddcNames(t *testing.T, sys *System) []string {
 }
 
 func TestOnlyADRMChangeWithHotplugIsAHotplug(t *testing.T) {
-	if !isDRMHotplug(uevent.Event{Action: uevent.Change, Subsystem: "drm", Props: map[string]string{"HOTPLUG": "1"}}) {
+	if !isDRMHotplug(udevmonitor.Event{Action: udevmonitor.Change, Subsystem: "drm", Props: map[string]string{"HOTPLUG": "1"}}) {
 		t.Error("a DRM change with HOTPLUG=1 is no hotplug")
 	}
-	for name, ev := range map[string]uevent.Event{
-		"mode set":         {Action: uevent.Change, Subsystem: "drm", Props: map[string]string{}},
-		"connector add":    {Action: uevent.Add, Subsystem: "drm", Props: map[string]string{"HOTPLUG": "1"}},
-		"backlight change": {Action: uevent.Change, Subsystem: "backlight", Props: map[string]string{"HOTPLUG": "1"}},
+	for name, ev := range map[string]udevmonitor.Event{
+		"mode set":         {Action: udevmonitor.Change, Subsystem: "drm", Props: map[string]string{}},
+		"connector add":    {Action: udevmonitor.Add, Subsystem: "drm", Props: map[string]string{"HOTPLUG": "1"}},
+		"backlight change": {Action: udevmonitor.Change, Subsystem: "backlight", Props: map[string]string{"HOTPLUG": "1"}},
 	} {
 		if isDRMHotplug(ev) {
 			t.Errorf("a %s counted as a DRM hotplug", name)
@@ -97,7 +78,7 @@ func TestExternalDisabledNeverScans(t *testing.T) {
 	fake := newFakeI2C(t)
 	fake.plug(t, 6, &fakeMonitor{current: 40, max: 100})
 	sys, events := newTestSystemWithEvents(t, false)
-	events <- uevent.Event{Action: uevent.Change, Subsystem: "drm", Props: map[string]string{"HOTPLUG": "1"}}
+	events.Send("ACTION=change", "SUBSYSTEM=drm", "HOTPLUG=1")
 	time.Sleep(quietWindow)
 	if names := ddcNames(t, sys); len(names) != 0 {
 		t.Errorf("enable-external=false still found %v", names)
@@ -125,18 +106,19 @@ func TestDRMHotplugRescansAndTicks(t *testing.T) {
 
 	fake.plug(t, 8, &fakeMonitor{current: 70, max: 100})
 	// A non-hotplug DRM change must not rescan.
-	events <- uevent.Event{Action: uevent.Change, Subsystem: "drm", Props: map[string]string{}}
+	events.Send("ACTION=change", "SUBSYSTEM=drm")
+	events.Send("ACTION=change", "SUBSYSTEM=backlight", "HOTPLUG=1")
 	time.Sleep(quietWindow)
 	if names := ddcNames(t, sys); len(names) != 1 {
 		t.Fatalf("a mode-set change rescanned: %v", names)
 	}
 
-	events <- uevent.Event{Action: uevent.Change, Subsystem: "drm", Props: map[string]string{"HOTPLUG": "1"}}
+	events.Send("ACTION=change", "SUBSYSTEM=drm", "HOTPLUG=1")
 	waittest.Until(t, func() bool { return len(ddcNames(t, sys)) == 2 }, "the hotplug rescan")
 	waittest.For(t, ticks, "a tick after a monitor appeared")
 
 	fake.unplug(t, 8)
-	events <- uevent.Event{Action: uevent.Change, Subsystem: "drm", Props: map[string]string{"HOTPLUG": "1"}}
+	events.Send("ACTION=change", "SUBSYSTEM=drm", "HOTPLUG=1")
 	waittest.Until(t, func() bool { return len(ddcNames(t, sys)) == 1 }, "the unplug rescan")
 }
 
@@ -213,7 +195,7 @@ func TestSetExternalOffClosesTheBusesAndStopsScanning(t *testing.T) {
 	waittest.For(t, ticks, "a tick after the monitors went away")
 
 	fake.plug(t, 8, &fakeMonitor{current: 70, max: 100})
-	events <- uevent.Event{Action: uevent.Change, Subsystem: "drm", Props: map[string]string{"HOTPLUG": "1"}}
+	events.Send("ACTION=change", "SUBSYSTEM=drm", "HOTPLUG=1")
 	time.Sleep(quietWindow)
 	if names := ddcNames(t, sys); len(names) != 0 {
 		t.Errorf("a hotplug with enable-external off scanned: %v", names)
