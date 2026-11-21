@@ -173,3 +173,23 @@ func TestResampleToMatchesResample(t *testing.T) {
 		t.Error("resampled into an image its pixels cannot hold")
 	}
 }
+
+// A still or versioned image, which every image widget draws, resamples
+// from its pixels in place as a plain RGBA does: the same bytes, and no
+// allocation per source pixel.
+func TestResampleReadsStillAndVersionedPixelsInPlace(t *testing.T) {
+	rgba := image.NewRGBA(image.Rect(0, 0, 500, 4000))
+	for i := range rgba.Pix {
+		rgba.Pix[i] = uint8(i * 13)
+	}
+	want := Resample(rgba, rgba.Rect, 40, 320)
+	plain := testing.AllocsPerRun(1, func() { Resample(rgba, rgba.Rect, 40, 320) })
+	for _, src := range []image.Image{NewStillImage(rgba), VersionedImage{RGBA: rgba, ID: NewImageID(), Version: 1}} {
+		if got := Resample(src, rgba.Rect, 40, 320); string(got.Pix) != string(want.Pix) {
+			t.Errorf("%T resampled to other pixels than its RGBA's", src)
+		}
+		if allocs := testing.AllocsPerRun(1, func() { Resample(src, rgba.Rect, 40, 320) }); allocs > plain {
+			t.Errorf("%T: %v allocations a call, its RGBA's %v", src, allocs, plain)
+		}
+	}
+}

@@ -68,8 +68,7 @@ type rowSource struct {
 }
 
 // boxReduce reads r of src as premultiplied RGBA rows, each k x k
-// block averaged into one pixel (k of 1 converts only). An RGBA source
-// at k 1 is read in place.
+// block averaged into one pixel (k of 1 converts only).
 func boxReduce(src image.Image, r image.Rectangle, k int) rowSource {
 	read := rowReader(src, r)
 	if k == 1 {
@@ -102,16 +101,18 @@ func boxReduce(src image.Image, r image.Rectangle, k int) rowSource {
 }
 
 // rowReader returns row y (0 at r's top) of src over r as premultiplied
-// RGBA, in a buffer reused between calls.
+// RGBA, in a buffer reused between calls: an RGBA source's, still or
+// versioned too, read in place.
 func rowReader(src image.Image, r image.Rectangle) func(y int) []uint8 {
 	w := r.Dx()
-	buf := make([]uint8, w*4)
-	switch s := src.(type) {
-	case *image.RGBA:
+	if s := rgbaOf(src); s != nil {
 		return func(y int) []uint8 {
 			o := s.PixOffset(r.Min.X, r.Min.Y+y)
 			return s.Pix[o : o+w*4]
 		}
+	}
+	buf := make([]uint8, w*4)
+	switch s := src.(type) {
 	case *image.NRGBA:
 		return func(y int) []uint8 {
 			o := s.PixOffset(r.Min.X, r.Min.Y+y)
