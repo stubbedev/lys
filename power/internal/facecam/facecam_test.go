@@ -11,29 +11,39 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/lib/v4l2"
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/power/internal/presence"
 )
 
 type fakeDevice struct {
-	infrared bool
-	frame    *image.Gray
-	startErr error
-	opens    int
-	starts   int
-	frames   int
-	open     bool
-	planes   [][]byte
+	infrared   bool
+	usb        *USB
+	frame      *image.Gray
+	startErr   error
+	controlErr error
+	opens      int
+	starts     int
+	frames     int
+	open       bool
+	planes     [][]byte
+	steps      []string
 }
 
 func (d *fakeDevice) Infrared() (bool, error) { return d.infrared, nil }
+
+func (d *fakeDevice) SetExtensionControl(c v4l2.ExtensionControl) error {
+	d.steps = append(d.steps, fmt.Sprintf("%s = % x", c, c.Value))
+	return d.controlErr
+}
 
 func (d *fakeDevice) Start() error {
 	if d.startErr != nil {
 		return d.startErr
 	}
 	d.starts++
+	d.steps = append(d.steps, "start")
 	return nil
 }
 
@@ -58,6 +68,14 @@ type fakeDevices map[string]*fakeDevice
 func (f fakeDevices) Capture(path string) bool {
 	_, ok := f[path]
 	return ok
+}
+
+func (f fakeDevices) USB(path string) (USB, bool, error) {
+	d := f[path]
+	if d.usb == nil {
+		return USB{}, false, nil
+	}
+	return *d.usb, true, nil
 }
 
 func (f fakeDevices) Open(path string) (Device, error) {
@@ -190,5 +208,97 @@ func TestLookStopsWhenItsTimeIsUp(t *testing.T) {
 	}
 	if d.frames != 0 || d.open {
 		t.Errorf("a cancelled look read %d frames, left open %v", d.frames, d.open)
+	}
+}
+
+var chicony = USB{Vendor: 0x04f2, Product: 0xb67c}
+
+func TestAKnownInfraredEmitterIsTurnedOnBeforeEachLook(t *testing.T) {
+	dir := devDir(t, "video0", "video2", "video4")
+	unknown := USB{Vendor: 0x04f2, Product: 0xb7c0}
+	ir := &fakeDevice{infrared: true, usb: &chicony, frame: flat(128)}
+	other := &fakeDevice{infrared: true, usb: &unknown, frame: flat(128)}
+	colour := &fakeDevice{usb: &chicony, frame: flat(128)}
+	devices := fakeDevices{filepath.Join(dir, "video0"): colour, filepath.Join(dir, "video2"): ir, filepath.Join(dir, "video4"): other}
+	cameras, err := Find(dir, devices, judge(t), params)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := filepath.Join(dir, "video2") + " (infrared, emitter on UVC extension unit 14 selector 14)"; cameras[0].String() != want {
+		t.Errorf("the camera is %q, want %q", cameras[0], want)
+	}
+	for range 2 {
+		for _, c := range cameras {
+			if _, err := c.Look(t.Context()); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	on := "UVC extension unit 14 selector 14 = 02 19"
+	if want := []string{on, "start", on, "start"}; !slices.Equal(ir.steps, want) {
+		t.Errorf("the known infrared camera: %v, want %v", ir.steps, want)
+	}
+	if want := []string{"start", "start"}; !slices.Equal(other.steps, want) {
+		t.Errorf("an infrared camera whose control is unknown: %v, want no control guessed", other.steps)
+	}
+	if want := []string{"start", "start"}; !slices.Equal(colour.steps, want) {
+		t.Errorf("a colour camera: %v, want no control set", colour.steps)
+	}
+}
+
+func TestAnEmitterThatWillNotTurnOnFailsTheLook(t *testing.T) {
+	refused := fmt.Errorf("UVC extension unit 14 selector 14 holds 9 bytes: %w", v4l2.ErrNoControl)
+	d := &fakeDevice{infrared: true, frame: flat(128), controlErr: refused}
+	c := camera(t, d)
+	c.infrared, c.emitter = true, new(emitters[chicony])
+	if _, err := c.Look(t.Context()); !errors.Is(err, v4l2.ErrNoControl) {
+		t.Errorf("a refused emitter: %v, want its error", err)
+	}
+	if d.starts != 0 || d.open {
+		t.Errorf("a refused emitter still streamed %d times, left open %v", d.starts, d.open)
+	}
+}
+
+func usbTree(t *testing.T, vendor, product string) string {
+	t.Helper()
+	sys := t.TempDir()
+	iface := filepath.Join(sys, "devices", "pci0000:00", "0000:00:14.0", "usb1", "1-6", "1-6:1.2")
+	if err := os.MkdirAll(iface, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	for name, value := range map[string]string{"idVendor": vendor, "idProduct": product} {
+		if value == "" {
+			continue
+		}
+		if err := os.WriteFile(filepath.Join(iface, "..", name), []byte(value+"\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	class := filepath.Join(sys, "class", "video4linux", "video2")
+	if err := os.MkdirAll(class, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join("..", "..", "..", "devices", "pci0000:00", "0000:00:14.0", "usb1", "1-6", "1-6:1.2"), filepath.Join(class, "device")); err != nil {
+		t.Fatal(err)
+	}
+	return sys
+}
+
+func TestUSBReadsTheCamerasVendorAndProduct(t *testing.T) {
+	got, ok, err := V4L2{SysDir: usbTree(t, "04f2", "b67c")}.USB("/dev/video2")
+	if err != nil || !ok || got != chicony {
+		t.Errorf("a USB camera: %v, %v, %v, want %v", got, ok, err, chicony)
+	}
+	if got, ok, err := (V4L2{SysDir: usbTree(t, "", "")}).USB("/dev/video2"); err != nil || ok {
+		t.Errorf("a camera on another bus: %v, %v, %v, want none", got, ok, err)
+	}
+	if _, _, err := (V4L2{SysDir: usbTree(t, "04f2", "")}).USB("/dev/video2"); err == nil {
+		t.Error("a USB device without a product read")
+	}
+	if _, _, err := (V4L2{SysDir: usbTree(t, "chicony", "b67c")}).USB("/dev/video2"); err == nil {
+		t.Error("a vendor that is no hex number read")
+	}
+	if _, _, err := (V4L2{SysDir: t.TempDir()}).USB("/dev/video2"); err == nil {
+		t.Error("a node sysfs does not know read")
 	}
 }

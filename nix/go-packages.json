@@ -2204,6 +2204,9 @@
       "power/internal/config",
       "power/internal/facecam",
       "power/internal/presence"
+    ],
+    "testImports": [
+      "lib/v4l2"
     ]
   },
   "power/internal/autobright": {

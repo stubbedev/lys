@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/service/idle/idlepolicy"
+	"github.com/stubbedev/lys/lib/v4l2"
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/power/attention"
@@ -29,6 +30,10 @@ type fakeDevice struct {
 }
 
 func (d *fakeDevice) Infrared() (bool, error) { return d.infrared, nil }
+
+func (d *fakeDevice) SetExtensionControl(v4l2.ExtensionControl) error {
+	return errors.New("no extension unit on a fake camera")
+}
 
 func (d *fakeDevice) Start() error {
 	if d.startErr != nil {
@@ -51,6 +56,8 @@ func (f fakeDevices) Capture(path string) bool {
 	_, ok := f[path]
 	return ok
 }
+
+func (fakeDevices) USB(string) (facecam.USB, bool, error) { return facecam.USB{}, false, nil }
 
 func (f fakeDevices) Open(path string) (facecam.Device, error) {
 	d, ok := f[path]

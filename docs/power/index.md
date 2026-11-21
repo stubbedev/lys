@@ -388,7 +388,12 @@ lys-power switches one camera on at the smallest frame size it offers, the
 infrared camera first (a capture node that streams only greyscale frames,
 lit by its own illuminator, so it sees a face in the dark), drops two frames
 while the exposure settles and judges up to three, for well under a second.
-A frame too dark to tell, an infrared camera whose illuminator is off for
+Many infrared cameras keep their illuminator off until a vendor's own UVC
+control turns it on; where lys-power knows that control for the camera's USB
+vendor and product (the Chicony `04f2:b67c` of
+[chicony-ir-toggle](https://github.com/PetePriority/chicony-ir-toggle) so
+far), it sets it before each check, and it never tries a control it does not
+know. A frame too dark to tell, an infrared camera whose illuminator is off for
 example, hands over to the next camera. The answer is `present`, `absent` or
 `unseen`:
 

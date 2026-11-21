@@ -19,7 +19,7 @@ import (
 )
 
 func Run(ctx context.Context, cfg config.Config, log *slog.Logger) (err error) {
-	cameras, err := FindCameras(cfg.DevDir, facecam.V4L2{})
+	cameras, err := FindCameras(cfg.DevDir, facecam.V4L2{SysDir: cfg.SysDir})
 	if err != nil && !errors.Is(err, facecam.ErrNone) {
 		return err
 	}
