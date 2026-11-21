@@ -48,11 +48,13 @@ func OpenEncrypted(ctx context.Context, conn *dbus.Conn) (*Client, error) {
 	return c, nil
 }
 
-// Collection is one collection and whether it is locked.
+// Collection is one collection, whether it is locked and how many items
+// it holds.
 type Collection struct {
 	Path   dbus.ObjectPath
 	Label  string
 	Locked bool
+	Items  int
 }
 
 // Item is one item as the provider describes it, its secret aside.
@@ -79,9 +81,16 @@ func (c *Client) Collections(ctx context.Context) ([]Collection, error) {
 	for i, p := range paths {
 		label, _ := props[i]["Label"].Value().(string)
 		locked, _ := props[i]["Locked"].Value().(bool)
-		out[i] = Collection{Path: p, Label: label, Locked: locked}
+		items, _ := props[i]["Items"].Value().([]dbus.ObjectPath)
+		out[i] = Collection{Path: p, Label: label, Locked: locked, Items: len(items)}
 	}
 	return out, nil
+}
+
+// AddItem stores a new item in coll beside any with the same attributes,
+// unlocking coll through a prompt when it is locked.
+func (c *Client) AddItem(ctx context.Context, coll dbus.ObjectPath, label string, attrs map[string]string, value []byte) error {
+	return c.storeIn(ctx, coll, label, attrs, value, false)
 }
 
 // Search is every item of coll, locked or not.

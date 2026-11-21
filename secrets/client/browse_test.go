@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/stubbedev/lys/lib/dbustest"
@@ -152,5 +153,44 @@ func TestAnUnlockedItemIsDescribed(t *testing.T) {
 	got, err := c.Secret(ctx, items[0])
 	if again, _ := c.Describe(ctx, items); err != nil || string(got) != "ghp_new" || again[0].Label != "GitHub" {
 		t.Fatalf("%q %v %+v", got, err, again)
+	}
+}
+
+func TestACollectionCountsItsItemsAndAnAddedItemKeepsItsTwin(t *testing.T) {
+	c, srv := browseRig(t)
+	ctx := context.Background()
+	attrs := map[string]string{"xdg:schema": "org.example.Token", "service": "github"}
+	if err := c.AddItem(ctx, client.LoginCollection, "GitHub token again", attrs, []byte("ghp_other")); err != nil {
+		t.Fatal(err)
+	}
+	srv.Lock()
+	colls, err := c.Collections(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	i := slices.IndexFunc(colls, func(x client.Collection) bool { return x.Path == client.LoginCollection })
+	if i < 0 || colls[i].Items != 2 {
+		t.Fatalf("collections %+v, want the login one holding both twins", colls)
+	}
+	srv.Answer("login-pw")
+	if err := c.AddItem(ctx, client.LoginCollection, "Mail", map[string]string{"service": "mail"}, []byte("pw")); err != nil {
+		t.Fatalf("adding to the locked collection: %v", err)
+	}
+	if srv.Asked() != 1 {
+		t.Fatalf("adding to a locked collection prompted %d times, want once", srv.Asked())
+	}
+	if err := c.StoreLogin(ctx, "GitHub token", attrs, []byte("ghp_new")); err != nil {
+		t.Fatal(err)
+	}
+	if items, err := c.Search(ctx, client.LoginCollection); err != nil || len(items) != 3 {
+		t.Fatalf("StoreLogin left %d items (%v), want it to replace one twin rather than add a fourth", len(items), err)
+	}
+}
+
+func TestAddingToACollectionThatIsNotThereFailsNamingIt(t *testing.T) {
+	c, _ := browseRig(t)
+	const missing = "/org/freedesktop/secrets/collection/nowhere"
+	if err := c.AddItem(context.Background(), missing, "x", nil, []byte("x")); err == nil || !strings.Contains(err.Error(), missing) {
+		t.Fatalf("adding to a missing collection: %v", err)
 	}
 }

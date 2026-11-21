@@ -133,7 +133,7 @@ func (c *Client) Store(ctx context.Context, label string, attrs map[string]strin
 			}
 		}
 	}
-	return c.storeIn(ctx, coll, label, attrs, value)
+	return c.storeIn(ctx, coll, label, attrs, value, true)
 }
 
 // LoginCollection is the collection the login password opens, under
@@ -144,10 +144,10 @@ const LoginCollection = dbus.ObjectPath("/org/freedesktop/secrets/collection/log
 // item with the same attributes, unlocking it through a prompt when it is
 // locked.
 func (c *Client) StoreLogin(ctx context.Context, label string, attrs map[string]string, value []byte) error {
-	return c.storeIn(ctx, LoginCollection, label, attrs, value)
+	return c.storeIn(ctx, LoginCollection, label, attrs, value, true)
 }
 
-func (c *Client) storeIn(ctx context.Context, coll dbus.ObjectPath, label string, attrs map[string]string, value []byte) error {
+func (c *Client) storeIn(ctx context.Context, coll dbus.ObjectPath, label string, attrs map[string]string, value []byte, replace bool) error {
 	props := map[string]dbus.Variant{
 		"org.freedesktop.Secret.Item.Label":      dbus.MakeVariant(label),
 		"org.freedesktop.Secret.Item.Attributes": dbus.MakeVariant(attrs),
@@ -158,7 +158,7 @@ func (c *Client) storeIn(ctx context.Context, coll dbus.ObjectPath, label string
 		return fmt.Errorf("secrets: encrypt for %s: %w", coll, err)
 	}
 	s := secret{Session: c.session, Parameters: params, Value: enc, ContentType: "application/octet-stream"}
-	if err := c.conn.Object(busName, coll).CallWithContext(ctx, secretbus.CollectionInterface+".CreateItem", 0, props, s, true).Store(&item, &prompt); err != nil {
+	if err := c.conn.Object(busName, coll).CallWithContext(ctx, secretbus.CollectionInterface+".CreateItem", 0, props, s, replace).Store(&item, &prompt); err != nil {
 		return fmt.Errorf("secrets: store in %s: %w", coll, err)
 	}
 	if prompt != noPath {
