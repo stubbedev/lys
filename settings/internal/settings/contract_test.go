@@ -134,7 +134,7 @@ var systemDefaulted = []string{
 	"input.touchpad.click_method", "input.touchpad.scroll_method", "input.touchpad.accel_speed", "input.touchpad.scroll_factor",
 	"input.pointer.accel_points", "input.touchpad.accel_points", "input.trackpoint.accel_points", swallowTerminalsPath, swallowExceptPath,
 	"gestures.hold", "gestures.touch", "outputs", "rules", "layer_rules", "autostart", "workspaces", "scratchpads", "animations.curves", "animations.events",
-	"decoration.blur.refraction", "decoration.blur.specular",
+	"decoration.blur.refraction", "decoration.blur.specular", "input.devices",
 }
 
 func TestEveryWMRowShowsTheValueLysWMUsesUnlessTheSystemDecides(t *testing.T) {
