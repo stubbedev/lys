@@ -69,6 +69,7 @@ in
         };
 
         hardware.graphics.enable = true;
+        hardware.wirelessRegulatoryDatabase = true;
         programs.lys-wm.enable = true;
         users.users.${user} = {
           isNormalUser = true;
