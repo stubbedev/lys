@@ -215,9 +215,13 @@ in
             wait(f"the bar on {o['name']}", lambda o=o: colors(*bar_strip(o)) > 2, tries=120)
         shot("01-bars")
 
-        def shell_execs():
+        def shell_execs(since):
             records = machine.execute("ausearch --raw -k user-exec")[1]
-            return [line for line in records.splitlines() if line.startswith("type=SYSCALL") and "lys-shell" in line]
+            return [
+                line for line in records.splitlines()
+                if line.startswith("type=SYSCALL") and "lys-shell" in line
+                and float(line.split("msg=audit(", 1)[1].split(":", 1)[0]) > since
+            ]
 
         def middle_of(o):
             r = o["rect"]
@@ -227,7 +231,7 @@ in
             return [region(*middle_of(o)) for o in (first, second)]
 
         calm = middles()
-        execs = shell_execs()
+        since = float(machine.succeed("date +%s.%N"))
         dispatch("global dev.stubbe.lys.shell:launcher")
         wait("the launcher through its global shortcut", lambda: middles() != calm, tries=30)
         shot("02-launcher-from-its-shortcut")
@@ -239,13 +243,13 @@ in
             dispatch(f"global dev.stubbe.lys.shell:{action}")
             for o in (first, second):
                 wait(f"{action} on {o['name']}", lambda o=o: (colors(*bar_strip(o)) <= 2) == hidden, tries=30)
-        started = shell_execs()[len(execs):]
+        started = shell_execs(since)
         if started:
             print("\n".join(started))
             print(machine.execute("ausearch -i -k user-exec | tail -n 60")[1])
             raise Exception(f"the shortcuts started lys-shell {len(started)} times, want none")
         run("lys-shell --version")
-        wait("the exec count to see a CLI run", lambda: len(shell_execs()) > len(execs), tries=10)
+        wait("the exec count to see a CLI run", lambda: len(shell_execs(since)) > 0, tries=10)
 
         dispatch("exec foot")
         wait("a foot window", lambda: len(windows()) == 1, tries=60)
