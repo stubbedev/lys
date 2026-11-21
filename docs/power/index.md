@@ -89,7 +89,8 @@ lys-power status    Print the power source, thresholds, battery health and cycle
                     last sleeps
 lys-power predict   Print the predicted unplug time
 lys-power energy [-for 10s] [-threads] [-json]
-                    Measure what each app costs in power, CPU, wakeups and GPU time
+                    Measure what each app costs in power, CPU, wakeups and GPU time,
+                    and how much of the time each panel self-refreshes
 lys-power brightness
                     Set the backlight from the room's light (the user service runs this)
 lys-power attention Answer the idle dim's camera check (the user service the check starts runs this)
@@ -106,8 +107,9 @@ The environment variables `LYS_POWER_SUPPLY_DIR`, `LYS_POWER_STATE_DIR` and
 `LYS_POWER_DEV_DIR` replace `/sys/bus/iio/devices` and `/dev`, where
 `brightness` looks for a light sensor and a camera, and `attention` for its
 cameras. `LYS_POWER_CGROUP_DIR`,
-`LYS_POWER_PROC_DIR` and `LYS_POWER_POWERCAP_DIR` replace `/sys/fs/cgroup`,
-`/proc` and `/sys/class/powercap`, where energy attribution reads.
+`LYS_POWER_PROC_DIR`, `LYS_POWER_POWERCAP_DIR` and `LYS_POWER_DRI_DEBUG_DIR`
+replace `/sys/fs/cgroup`, `/proc`, `/sys/class/powercap` and
+`/sys/kernel/debug/dri`, where energy attribution reads.
 `LYS_POWER_SYS_DIR` replaces `/sys`, where the [device power](#device-power)
 policy reads and writes.
 
@@ -187,9 +189,21 @@ read. It samples only when it must: every 2 seconds for 30 seconds after
 someone calls `Watch` (lys-shell's battery dropdown does while it is open),
 once a minute on battery, and never on AC with nobody watching.
 
+Next to the apps, the report carries each laptop panel's **self refresh**.
+On static content an eDP panel can refresh itself from its own memory while
+the display engine and the link sleep (PSR, PSR2 or Panel Replay); every frame
+lys-wm flips wakes them. Each sample reads `*_edp_psr_status` of every DRM
+device in `/sys/kernel/debug/dri` (i915 and xe), and the report gives the
+mode the driver chose and the share of samples in which the source was in a
+self-refresh state: `SRDENT` for PSR1, `SLEEP`, `SU_STANDBY`, `FAST_SLEEP` or
+`DEEP_SLEEP` for PSR2 and Panel Replay. A still desktop should self-refresh
+in almost every sample. The debugfs is root's, so only the service and
+`lys-power energy` as root read it.
+
 `lys-power energy` makes the same measurement in the terminal, over `-for`,
-with each thread's wakeups under `-threads` and as JSON under `-json`. Run it
-as root to read the RAPL counters and every process's GPU time.
+with each thread's wakeups under `-threads` and as JSON under `-json`. It
+reads the panels every 250 ms of the window. Run it as root to read the RAPL
+counters, every process's GPU time and the panels.
 
 ## Pausing services on battery
 

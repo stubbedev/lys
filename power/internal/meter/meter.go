@@ -1,7 +1,8 @@
 // Package meter samples the counters energy attribution works from: each
 // app cgroup's CPU time and processes, each thread's context switches,
-// each DRM client's engine time, the RAPL energy counters and the
-// battery's discharge power.
+// each DRM client's engine time, the RAPL energy counters, the battery's
+// discharge power and each eDP panel's self-refresh state in the DRM
+// debugfs.
 package meter
 
 import (
@@ -26,12 +27,14 @@ type Meter struct {
 	Cgroup   string
 	Proc     string
 	Powercap string
+	DRIDebug string
 	Supply   supply.Supply
 }
 
 type Gaps struct {
 	EnergyUnreadable bool
 	GPUUnreadable    int
+	PanelsUnreadable bool
 }
 
 func (m Meter) Sample(now func() time.Time) (energy.Sample, Gaps, error) {
@@ -65,6 +68,9 @@ func (m Meter) Sample(now func() time.Time) (energy.Sample, Gaps, error) {
 		s.Energy = counters
 	}
 	if s.Battery, err = m.battery(); err != nil {
+		return energy.Sample{}, gaps, err
+	}
+	if s.Panels, gaps.PanelsUnreadable, err = m.Panels(); err != nil {
 		return energy.Sample{}, gaps, err
 	}
 	s.At = now()

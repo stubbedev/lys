@@ -39,13 +39,31 @@ func parseEnergy(args []string) (energyOptions, error) {
 	return o, nil
 }
 
-func measureEnergy(sampler energyd.Sampler, over time.Duration, sleep func(time.Duration)) (energy.Report, meter.Gaps, error) {
-	first, _, err := sampler.Sample(time.Now)
+type energyMeter interface {
+	energyd.Sampler
+	Panels() ([]energy.PanelState, bool, error)
+}
+
+func measureEnergy(m energyMeter, over time.Duration, sleep func(time.Duration)) (energy.Report, meter.Gaps, error) {
+	first, _, err := m.Sample(time.Now)
 	if err != nil {
 		return energy.Report{}, meter.Gaps{}, err
 	}
-	sleep(over)
-	second, gaps, err := sampler.Sample(time.Now)
+	readings := first.Panels
+	for left := over; left > 0; {
+		step := min(energy.PanelPoll, left)
+		sleep(step)
+		left -= step
+		if left == 0 {
+			break
+		}
+		panels, _, err := m.Panels()
+		if err != nil {
+			return energy.Report{}, meter.Gaps{}, err
+		}
+		readings = append(readings, panels...)
+	}
+	second, gaps, err := m.Sample(time.Now)
 	if err != nil {
 		return energy.Report{}, gaps, err
 	}
@@ -53,6 +71,7 @@ func measureEnergy(sampler energyd.Sampler, over time.Duration, sleep func(time.
 	if err != nil {
 		return energy.Report{}, gaps, err
 	}
+	iv.Panels = append(readings, iv.Panels...)
 	return energy.Attribute([]energy.Interval{iv}), gaps, nil
 }
 
@@ -70,6 +89,12 @@ func writeEnergy(w io.Writer, r energy.Report, gaps meter.Gaps, o energyOptions)
 	}
 	if gaps.GPUUnreadable > 0 {
 		fmt.Fprintf(w, "        GPU time of %d processes is unreadable without root\n", gaps.GPUUnreadable)
+	}
+	for _, p := range r.Panels {
+		fmt.Fprintf(w, "panel:  %s %s, self-refreshing in %s of %d readings\n", p.Device, p.Mode, percent(p.Residency), p.Readings)
+	}
+	if gaps.PanelsUnreadable {
+		fmt.Fprintln(w, "        panel self refresh in the DRM debugfs is root's to read")
 	}
 	if len(r.Apps) == 0 {
 		fmt.Fprintln(w, "\nno app was busy")

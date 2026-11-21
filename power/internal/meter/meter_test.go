@@ -52,7 +52,7 @@ func (tr tree) link(rel, target string) {
 type machine struct {
 	m                      meter.Meter
 	cgroup, proc, powercap tree
-	supply                 tree
+	supply, dri            tree
 }
 
 func newMachine(t *testing.T) machine {
@@ -62,8 +62,9 @@ func newMachine(t *testing.T) machine {
 		proc:     tree{t, filepath.Join(dir, "proc")},
 		powercap: tree{t, filepath.Join(dir, "powercap")},
 		supply:   tree{t, filepath.Join(dir, "supply")},
+		dri:      tree{t, filepath.Join(dir, "dri")},
 	}
-	mc.m = meter.Meter{Cgroup: mc.cgroup.root, Proc: mc.proc.root, Powercap: mc.powercap.root, Supply: supply.Supply{Dir: mc.supply.root}}
+	mc.m = meter.Meter{Cgroup: mc.cgroup.root, Proc: mc.proc.root, Powercap: mc.powercap.root, DRIDebug: mc.dri.root, Supply: supply.Supply{Dir: mc.supply.root}}
 	mc.cgroup.write("cpu.stat", "usage_usec 9000000\nuser_usec 1\n")
 	mc.cgroup.write("cgroup.procs", "")
 	if err := os.MkdirAll(mc.supply.root, 0o755); err != nil {

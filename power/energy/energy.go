@@ -1,7 +1,8 @@
 // Package energy is lys-power's per-app energy attribution: the pure
 // arithmetic that turns two samples of per-app counters (cgroup CPU time,
 // per-thread context switches, DRM client GPU time) and the machine's
-// measured power into a per-app energy estimate, and the system-bus
+// measured power into a per-app energy estimate, the share of readings in
+// which each panel was self-refreshing, and the system-bus
 // contract that publishes it as the Report property of
 // dev.stubbe.lys.Energy1, with its PropertiesChanged and the Watch method
 // that asks for fast sampling while someone looks.
@@ -121,6 +122,7 @@ type Report struct {
 	Source  Source
 	Watts   float64
 	Apps    []App
+	Panels  []Panel
 }
 
 func (r Report) Measured() bool { return r.Covered > 0 }
@@ -147,11 +149,19 @@ type wireApp struct {
 	Watts   float64
 }
 
+type wirePanel struct {
+	Device    string
+	Mode      string
+	Readings  uint32
+	Residency float64
+}
+
 type wireReport struct {
 	Covered uint64
 	Source  string
 	Watts   float64
 	Apps    []wireApp
+	Panels  []wirePanel
 }
 
 func toWire(r Report) wireReport {
@@ -159,7 +169,11 @@ func toWire(r Report) wireReport {
 	for i, a := range r.Apps {
 		apps[i] = wireApp{a.Cgroup, a.Command, a.PIDs, a.CPU, a.Wakeups, a.GPU, a.Impact, a.Watts}
 	}
-	return wireReport{Covered: intconv.Must[uint64](r.Covered.Microseconds()), Source: r.Source.String(), Watts: r.Watts, Apps: apps}
+	panels := make([]wirePanel, len(r.Panels))
+	for i, p := range r.Panels {
+		panels[i] = wirePanel{p.Device, p.Mode.String(), p.Readings, p.Residency}
+	}
+	return wireReport{Covered: intconv.Must[uint64](r.Covered.Microseconds()), Source: r.Source.String(), Watts: r.Watts, Apps: apps, Panels: panels}
 }
 
 func fromWire(w wireReport) (Report, error) {
@@ -175,5 +189,13 @@ func fromWire(w wireReport) (Report, error) {
 	for i, a := range w.Apps {
 		apps[i] = App{Cgroup: a.Cgroup, Command: a.Command, PIDs: a.PIDs, CPU: a.CPU, Wakeups: a.Wakeups, GPU: a.GPU, Impact: a.Impact, Watts: a.Watts}
 	}
-	return Report{Covered: time.Duration(micros) * time.Microsecond, Source: source, Watts: w.Watts, Apps: apps}, nil
+	var panels []Panel
+	for _, p := range w.Panels {
+		mode, err := ParseSelfRefresh(p.Mode)
+		if err != nil {
+			return Report{}, fmt.Errorf("panel %s: %w", p.Device, err)
+		}
+		panels = append(panels, Panel{Device: p.Device, Mode: mode, Readings: p.Readings, Residency: p.Residency})
+	}
+	return Report{Covered: time.Duration(micros) * time.Microsecond, Source: source, Watts: w.Watts, Apps: apps, Panels: panels}, nil
 }

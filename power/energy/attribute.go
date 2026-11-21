@@ -53,6 +53,7 @@ type Sample struct {
 	Groups   []Group
 	Energy   []Counter
 	Battery  *uint64
+	Panels   []PanelState
 }
 
 type Interval struct {
@@ -62,6 +63,7 @@ type Interval struct {
 	Joules   float64
 	OtherCPU time.Duration
 	Apps     []AppInterval
+	Panels   []PanelState
 }
 
 type AppInterval struct {
@@ -105,6 +107,7 @@ func Measure(prev, cur Sample) (Interval, error) {
 		Joules:   joules,
 		OtherCPU: max(counterDelta(prev.TotalCPU, cur.TotalCPU)-appCPU, 0),
 		Apps:     apps,
+		Panels:   cur.Panels,
 	}, nil
 }
 
@@ -206,6 +209,7 @@ func Attribute(intervals []Interval) Report {
 	if len(intervals) == 0 {
 		return r
 	}
+	r.Panels = panels(intervals)
 	type total struct {
 		app     AppInterval
 		threads map[uint32]Thread

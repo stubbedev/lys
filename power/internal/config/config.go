@@ -25,6 +25,7 @@ const (
 	DefaultCgroupDir   = "/sys/fs/cgroup"
 	DefaultProcDir     = "/proc"
 	DefaultPowercapDir = "/sys/class/powercap"
+	DefaultDRIDebugDir = "/sys/kernel/debug/dri"
 	DefaultUserRunDir  = "/run/user"
 	DefaultSysDir      = "/sys"
 )
@@ -137,6 +138,7 @@ type Config struct {
 	CgroupDir   string
 	ProcDir     string
 	PowercapDir string
+	DRIDebugDir string
 	// UserRunDir holds each user's runtime directory, where the user's
 	// systemd manager listens.
 	UserRunDir string
@@ -166,6 +168,7 @@ func Load() (Config, error) {
 		CgroupDir:   env("LYS_POWER_CGROUP_DIR", DefaultCgroupDir),
 		ProcDir:     env("LYS_POWER_PROC_DIR", DefaultProcDir),
 		PowercapDir: env("LYS_POWER_POWERCAP_DIR", DefaultPowercapDir),
+		DRIDebugDir: env("LYS_POWER_DRI_DEBUG_DIR", DefaultDRIDebugDir),
 		UserRunDir:  env("LYS_POWER_USER_RUN_DIR", DefaultUserRunDir),
 		SysDir:      env("LYS_POWER_SYS_DIR", DefaultSysDir),
 		Devices:     devices,
@@ -239,7 +242,7 @@ func (c Config) FullNowPath() string {
 }
 
 func (c Config) Meter() meter.Meter {
-	return meter.Meter{Cgroup: c.CgroupDir, Proc: c.ProcDir, Powercap: c.PowercapDir, Supply: supply.Supply{Dir: c.SupplyDir}}
+	return meter.Meter{Cgroup: c.CgroupDir, Proc: c.ProcDir, Powercap: c.PowercapDir, DRIDebug: c.DRIDebugDir, Supply: supply.Supply{Dir: c.SupplyDir}}
 }
 
 func env(key, fallback string) string {

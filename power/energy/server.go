@@ -42,6 +42,11 @@ func (s *Server) Publish(r Report) error {
 	if _, err := ParseSource(r.Source.String()); err != nil {
 		return fmt.Errorf("publish %s: %w", Property, err)
 	}
+	for _, p := range r.Panels {
+		if _, err := ParseSelfRefresh(p.Mode.String()); err != nil {
+			return fmt.Errorf("publish %s: panel %s: %w", Property, p.Device, err)
+		}
+	}
 	wire := toWire(r)
 	s.mu.Lock()
 	s.report = wire

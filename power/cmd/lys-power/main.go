@@ -46,7 +46,8 @@ Usage:
   lys-power predict   Print the predicted unplug time
   lys-power energy [-for 10s] [-threads] [-json]
                       Measure what each app costs in power, its CPU,
-                      wakeups and GPU time: as root for watts
+                      wakeups and GPU time, and how much of the time each
+                      panel self-refreshes: as root for watts and panels
   lys-power brightness
                       Set the backlight from the room's light (a user service)
   lys-power attention Answer the idle dim's camera check for a face turned to
@@ -57,8 +58,9 @@ Paths can be overridden with LYS_POWER_SUPPLY_DIR, LYS_POWER_STATE_DIR and
 LYS_POWER_RUNTIME_DIR; where brightness looks for a light sensor and a
 camera with LYS_POWER_IIO_DIR and LYS_POWER_DEV_DIR, which attention
 reads for its cameras too; where energy reads
-the cgroups, processes and RAPL counters with LYS_POWER_CGROUP_DIR,
-LYS_POWER_PROC_DIR and LYS_POWER_POWERCAP_DIR; the sysfs root of the
+the cgroups, processes, RAPL counters and panel self refresh with
+LYS_POWER_CGROUP_DIR, LYS_POWER_PROC_DIR, LYS_POWER_POWERCAP_DIR and
+LYS_POWER_DRI_DEBUG_DIR; the sysfs root of the
 device power policy with LYS_POWER_SYS_DIR.
 
 LYS_POWER_DEVICE_POLICY is battery (idle devices power down on battery),
