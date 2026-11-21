@@ -44,10 +44,11 @@ power-profiles-daemon, only the charge policy applies.
     lys-shell passes over the bus: a timed event with a location. lys-power
     keeps only its start time, in `/run/battery-charge/departure`, and an
     event already started opens nothing;
-  - on a bare charger, undocked, which counts as travelling;
-  - docked, when the unplugs recorded from the dock predict an unplug less
-    than 120 minutes away; with the dock state unknown, when any recorded
-    unplugs do. Otherwise it holds at the limit.
+  - when the recorded unplugs predict an unplug less than 120 minutes away:
+    docked, only the unplugs recorded from the dock count; undocked or with
+    the dock state unknown, every recorded unplug does. Otherwise it holds at
+    the limit, on a bare charger too, so a laptop charged overnight away from
+    its desk does not sit at 100%.
 - The prediction is the lower quartile of the recorded unplug minutes that are
   still ahead today. Unplugs on the same weekday are used first, and every
   weekday's when the same weekday has fewer than 3. With fewer than 3 records

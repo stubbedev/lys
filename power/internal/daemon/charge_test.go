@@ -68,11 +68,11 @@ func TestADepartureOpensTheWindowAndAPastOneDoesNot(t *testing.T) {
 	}
 }
 
-func TestABareChargerChargesToFullAndADockHolds(t *testing.T) {
+func TestABareChargerAndADockBothHold(t *testing.T) {
 	f := newFixture(t)
 	f.display(t, "card0-eDP-1", "connected")
 	f.display(t, "card0-DP-1", "disconnected")
-	if result := f.eval(t, 1, 12, 0); f.thresholds(t) != "95/100" || result.Charge.Reason != charge.ReasonTravel {
+	if result := f.eval(t, 1, 12, 0); f.thresholds(t) != "75/80" || result.Charge.Reason != charge.ReasonHolding || result.Charge.Dock != charge.DockUndocked {
 		t.Errorf("bare charger: %s, %+v", f.thresholds(t), result.Charge)
 	}
 	f.display(t, "card0-DP-1", "connected")

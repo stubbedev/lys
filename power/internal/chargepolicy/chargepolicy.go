@@ -1,6 +1,6 @@
 // Package chargepolicy decides what the battery charges to: the user's
-// limit, or full for a request, a calendar event away from the desk, a
-// bare charger, or the usual unplug. It is pure; the daemon gathers its
+// limit, or full for a request, a calendar event away from the desk, or
+// the usual unplug. It is pure; the daemon gathers its
 // input and writes its decision.
 package chargepolicy
 
@@ -45,10 +45,9 @@ func Thresholds(limit charge.Limit) supply.Thresholds {
 
 // Decide is the charge policy. With the hold off, on battery or with a
 // full charge asked for, nothing else matters. On AC an event away from
-// the desk opens a top-up window before it; a bare charger counts as
-// travelling and charges to full; at a dock or an unknown charger the
-// battery holds unless the unplugs recorded there predict a departure
-// within the window. Docked, only unplugs from the dock count.
+// the desk opens a top-up window before it; otherwise the battery holds
+// unless the unplugs recorded predict a departure within the window,
+// whatever the charger. Docked, only unplugs from the dock count.
 func Decide(in Input) Decision {
 	state := charge.State{Limit: in.Limit, Dock: in.Dock}
 	decide := func(reason charge.Reason, fullBy, recheck time.Time) Decision {
@@ -82,10 +81,6 @@ func Decide(in Input) Decision {
 		}
 		recheck = earliest(recheck, opens)
 	}
-	if in.Dock == charge.DockUndocked {
-		return decide(charge.ReasonTravel, time.Time{}, recheck)
-	}
-
 	pool := in.History
 	if in.Dock == charge.DockDocked {
 		pool = docked(in.History)

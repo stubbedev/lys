@@ -128,12 +128,16 @@ func TestAnEventInThePastOpensNothing(t *testing.T) {
 	}
 }
 
-func TestABareChargerIsTravelAndChargesToFull(t *testing.T) {
+func TestABareChargerHoldsAtTheLimitOvernight(t *testing.T) {
 	in := onAC(at(22, 0))
 	in.Dock = charge.DockUndocked
 	got := Decide(in)
-	if got.Thresholds != full || got.State.Reason != charge.ReasonTravel || got.State.Dock != charge.DockUndocked {
-		t.Errorf("%+v", got)
+	if got.Thresholds != Thresholds(charge.DefaultLimit) || got.State.Reason != charge.ReasonHolding || got.State.Dock != charge.DockUndocked {
+		t.Errorf("a bare charger with nothing ahead: %+v", got)
+	}
+	in.Departure = at(23, 0)
+	if got := Decide(in); got.Thresholds != full || got.State.Reason != charge.ReasonEvent {
+		t.Errorf("a bare charger with an event away ahead: %+v", got)
 	}
 }
 
@@ -152,14 +156,16 @@ func TestDockedThePredictionAloneNeedsDockedUnplugs(t *testing.T) {
 	}
 }
 
-func TestDockedVersusUndockedChangesThePolicy(t *testing.T) {
-	in := onAC(at(12, 0))
+func TestDockedOnlyTheDocksUnplugsCountAndUndockedAllDo(t *testing.T) {
+	in := onAC(at(16, 0))
+	in.History = unplugs(17*60, false)
 	in.Dock = charge.DockDocked
-	docked := Decide(in)
+	if got := Decide(in); got.Thresholds != Thresholds(charge.DefaultLimit) || got.State.Reason != charge.ReasonHolding {
+		t.Errorf("docked, with only unplugs from a bare charger: %+v", got)
+	}
 	in.Dock = charge.DockUndocked
-	undocked := Decide(in)
-	if docked.Thresholds == undocked.Thresholds {
-		t.Errorf("docked and undocked both write %+v", docked.Thresholds)
+	if got := Decide(in); got.Thresholds != full || got.State.Reason != charge.ReasonUnplug {
+		t.Errorf("undocked, with those unplugs near: %+v", got)
 	}
 }
 

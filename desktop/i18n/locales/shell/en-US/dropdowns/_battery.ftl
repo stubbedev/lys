@@ -39,7 +39,6 @@ dropdown-battery-hold-off = Charging to 100%: no charge limit is set
 dropdown-battery-full-requested = Charging to 100% until you unplug
 dropdown-battery-full-unplug = Charging to 100% for when you usually unplug, full by { $time }
 dropdown-battery-full-event = Charging to 100% for your event at { $time }
-dropdown-battery-full-travel = Charging to 100% away from your desk
 dropdown-battery-charge-full = Charge to Full Now
 dropdown-battery-charge-full-failed = Couldn't start charging to full
 

@@ -82,8 +82,6 @@ const (
 	ReasonUnplug
 	// ReasonEvent: an event away from the desk is near.
 	ReasonEvent
-	// ReasonTravel: a bare charger, away from the desk.
-	ReasonTravel
 )
 
 var reasonNames = map[Reason]string{
@@ -93,7 +91,6 @@ var reasonNames = map[Reason]string{
 	ReasonRequested: "requested",
 	ReasonUnplug:    "unplug",
 	ReasonEvent:     "event",
-	ReasonTravel:    "travel",
 }
 
 func (r Reason) String() string {

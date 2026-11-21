@@ -93,8 +93,6 @@ func chargeExplanation(st charge.State, at func(time.Time) string) string {
 		return i18n.T("dropdown-battery-full-unplug", i18n.Str("time", at(st.FullBy)))
 	case charge.ReasonEvent:
 		return i18n.T("dropdown-battery-full-event", i18n.Str("time", at(st.FullBy)))
-	case charge.ReasonTravel:
-		return i18n.T("dropdown-battery-full-travel")
 	case charge.ReasonUnmanaged:
 	}
 	return ""

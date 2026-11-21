@@ -33,7 +33,6 @@ dropdown-battery-hold-off = Laadt tot 100%: geen laadlimiet ingesteld
 dropdown-battery-full-requested = Laadt tot 100% tot je de stekker eruit haalt
 dropdown-battery-full-unplug = Laadt tot 100% voor wanneer je meestal loskoppelt, vol om { $time }
 dropdown-battery-full-event = Laadt tot 100% voor je afspraak om { $time }
-dropdown-battery-full-travel = Laadt tot 100% weg van je bureau
 dropdown-battery-charge-full = Nu volledig opladen
 dropdown-battery-charge-full-failed = Kan volledig opladen niet starten
 

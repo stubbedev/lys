@@ -66,7 +66,6 @@ func TestTheExplanationSaysWhyTheBatteryHoldsOrFills(t *testing.T) {
 		{Limit: charge.Limit80, Reason: charge.ReasonRequested}:           i18n.T("dropdown-battery-full-requested"),
 		{Limit: charge.Limit80, Reason: charge.ReasonUnplug, FullBy: at}:  i18n.T("dropdown-battery-full-unplug", i18n.Str("time", "08:30")),
 		{Limit: charge.Limit80, Reason: charge.ReasonEvent, FullBy: at}:   i18n.T("dropdown-battery-full-event", i18n.Str("time", "08:30")),
-		{Limit: charge.Limit80, Reason: charge.ReasonTravel}:              i18n.T("dropdown-battery-full-travel"),
 		{Limit: charge.Limit80, Reason: charge.ReasonUnmanaged}:           "",
 	}
 	for st, want := range cases {

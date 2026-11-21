@@ -33,7 +33,6 @@ dropdown-battery-hold-off = A carregar até 100%: sem limite de carga
 dropdown-battery-full-requested = A carregar até 100% até desligar o carregador
 dropdown-battery-full-unplug = A carregar até 100% para quando costuma desligar, cheia às { $time }
 dropdown-battery-full-event = A carregar até 100% para o seu evento às { $time }
-dropdown-battery-full-travel = A carregar até 100% longe da secretária
 dropdown-battery-charge-full = Carregar totalmente agora
 dropdown-battery-charge-full-failed = Não foi possível começar a carregar totalmente
 

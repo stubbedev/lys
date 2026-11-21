@@ -39,7 +39,6 @@ dropdown-battery-hold-off = Lädt auf 100 %: keine Ladegrenze gesetzt
 dropdown-battery-full-requested = Lädt auf 100 %, bis du den Stecker ziehst
 dropdown-battery-full-unplug = Lädt auf 100 % für dein übliches Abstecken, voll um { $time }
 dropdown-battery-full-event = Lädt auf 100 % für deinen Termin um { $time }
-dropdown-battery-full-travel = Lädt auf 100 % fern vom Schreibtisch
 dropdown-battery-charge-full = Jetzt voll laden
 dropdown-battery-charge-full-failed = Volles Laden konnte nicht gestartet werden
 

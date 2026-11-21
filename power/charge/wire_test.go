@@ -182,7 +182,7 @@ func TestTheStateCrossesTheBusAndChangesAreAnnounced(t *testing.T) {
 	if err := server.Publish(next); err != nil {
 		t.Fatal(err)
 	}
-	third := charge.State{Limit: charge.Limit85, Reason: charge.ReasonTravel, Dock: charge.DockUndocked}
+	third := charge.State{Limit: charge.Limit85, Reason: charge.ReasonRequested, Dock: charge.DockUndocked}
 	if err := server.Publish(third); err != nil {
 		t.Fatal(err)
 	}
