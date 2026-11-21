@@ -53,7 +53,7 @@ Screenshots: [Widgets](widgets.md).
 | PopoverMenu, PopoverMenuBar | `Menu` (check/radio, submenus, mnemonics, accels), `MenuBar` |
 | adw WindowTitle, adaptive AdwDialog | `WindowTitle` (title and subtitle pair); `Application.AdaptiveDialog`: a parented dialog over a wide parent, a bottom sheet inside a narrow one (or forced either way), with the dialog card, responses and cancel-on-dismiss |
 | HeaderBar, WindowControls, ActionBar | the same names; `Application.AttachHeader` |
-| Popover | `app.Popover`, anchored to any widget, on toplevels and layer surfaces |
+| Popover | `app.Popover`, anchored to any widget, on toplevels and layer surfaces; resizable by its free edge (`PopoverConfig.Resize`) |
 | Dialog, MessageDialog, AlertDialog | `app.Dialog`, `MessageBox`, `PromptDialog`, `ProgressDialog`; modality through xdg-dialog-v1 |
 | FileDialog | `Application.OpenFileDialog`, `OpenFilesDialog`, `OpenFolderDialog`, `SaveFileDialog` (pure-Go picker, XDG recents); relm4-components' `OpenButton` is `Application.NewOpenButton` (label, filters, folder mode, recent-files dropdown over the shared store) |
 | ColorDialogButton, FontDialogButton, Inscription | `ColorButton` (opens a `SwatchPicker` popover of `ColorSwatch` presets, a custom row and the full `ColorChooser` in place) and `FontButton` (`Application.AttachFontButton` opens the chooser); `BindColor`/`BindFont`; `Inscription` (sized by character and line counts) |

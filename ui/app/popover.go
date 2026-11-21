@@ -87,6 +87,9 @@ type PopoverConfig struct {
 	// its style can turn opaque; the region and class are out by the
 	// popover's first paint.
 	BackgroundBlur bool
+	// Resize, when set, lets the user resize the popover by its free
+	// edge; nil keeps it at its content's size.
+	Resize *PopoverResize
 }
 
 // PopoverDismissal is how a popover treats a click elsewhere, and with
@@ -191,6 +194,9 @@ type Popover struct {
 	exiting  bool
 	away     *clickAway
 	takeKeys func(focused widget.Widget)
+	// resizing is a resize drag under way in the chain, which holds its
+	// auto-hide off (root only, loop only).
+	resizing bool
 }
 
 // Parent is the popover this one is nested under, nil for a root.
@@ -294,6 +300,15 @@ func (p *Popover) holdsFocus(s *wl.Surface) bool {
 	return false
 }
 
+// dismissAway closes the popover for a press elsewhere, unless a
+// resize drag holds it.
+func (p *Popover) dismissAway() {
+	if p.Root().resizing {
+		return
+	}
+	p.Dismiss()
+}
+
 // dropCatchers ends the click-away catchers, if any.
 func (p *Popover) dropCatchers() {
 	if p.away != nil {
@@ -354,7 +369,7 @@ func (r *popoverRegistry) get(h Host) *Popover { return r.open[h.HostSurface()] 
 // press is the click away, and it goes nowhere else.
 func (a *Application) dismissAutohide(h Host) bool {
 	p := a.popovers.get(h)
-	if p == nil || !p.autohide || !p.taking() {
+	if p == nil || !p.autohide || !p.taking() || p.Root().resizing {
 		return false
 	}
 	p.Dismiss()
@@ -377,13 +392,18 @@ func (r *popoverRegistry) take(h Host) *Popover {
 type popoverKeyRoot struct {
 	onDismiss func()
 	content   widget.Widget
-	// maxW and maxH cap the content at (re)fit, the open's ceilings
-	// (popoverCeiling; zero is the default).
+	// maxW and maxH cap the content at (re)fit: the open's ceilings
+	// (popoverCeiling; zero is the default), then the size a resize
+	// drag asked for.
 	maxW, maxH int
 	// fireAccel fires the application's accelerators for one raw key,
 	// reporting whether one fired.
 	fireAccel func(sym xkb.Keysym, mods wlsession.Mods) bool
 	bounds    render.Rect
+	// contentRect is where the content was last arranged.
+	contentRect render.Rect
+	// grip is a resizable popover's edge handle; nil for one that is not.
+	grip *popoverGrip
 }
 
 // Measure measures the content as its container would, so the
@@ -396,12 +416,12 @@ func (r *popoverKeyRoot) Measure(axis widget.Axis, forSize int) widget.Sizes {
 // Arrange lays the content out at its measured size inside the
 // surface: the same rect while they agree, and while a shrinking
 // popover holds its larger surface (fitContent), the smaller one the
-// content springs down to.
+// content springs down to, against the edges a resize holds.
 func (r *popoverKeyRoot) Arrange(rect render.Rect) {
 	r.bounds = rect
 	nat := widget.SizeWithinAsChild(r.content, widget.Size{W: rect.W, H: rect.H})
-	rect.W, rect.H = min(rect.W, nat.W), min(rect.H, nat.H)
-	widget.ArrangeAsChild(r.content, rect)
+	r.contentRect = r.grip.align(rect, widget.Size{W: min(rect.W, nat.W), H: min(rect.H, nat.H)})
+	widget.ArrangeAsChild(r.content, r.contentRect)
 }
 
 func (r *popoverKeyRoot) Paint(cv *render.Canvas) { widget.PaintChild(cv, r.content) }
@@ -420,6 +440,9 @@ func (r *popoverKeyRoot) Children() []widget.Widget { return []widget.Widget{r.c
 // (a button, an entry) takes the press, and the root itself off the
 // content.
 func (r *popoverKeyRoot) HitTest(p widget.Point) widget.Widget {
+	if r.grip != nil && r.grip.hit(p) {
+		return r.grip
+	}
 	if hit := r.content.HitTest(p); hit != nil {
 		return hit
 	}
@@ -477,10 +500,12 @@ func (a *Application) OpenPopover(host Host, cfg PopoverConfig) (*Popover, error
 	if cfg.Dismissal == PopoverPassive && cfg.Focus != nil {
 		return nil, errors.New("app: a passive popover never takes the keyboard, so it takes no Focus")
 	}
-	if m, ok := cfg.Content.(interface {
-		SetLayoutMotion(widget.LayoutMotion)
-		LayoutMotion() widget.LayoutMotion
-	}); ok && m.LayoutMotion() == widget.LayoutMotionNone {
+	if cfg.Resize != nil {
+		if err := cfg.Resize.validate(); err != nil {
+			return nil, err
+		}
+	}
+	if m, ok := cfg.Content.(layoutMover); ok && m.LayoutMotion() == widget.LayoutMotionNone {
 		m.SetLayoutMotion(widget.LayoutMotionSmooth)
 	}
 	parent := cfg.Parent
@@ -623,7 +648,7 @@ func (a *Application) OpenPopover(host Host, cfg PopoverConfig) (*Popover, error
 		}
 	}
 	if parent == nil && cfg.Dismissal == PopoverClickAway {
-		p.away, err = newClickAway(wireClickAway(a.sess), a.outputs(), p.Dismiss)
+		p.away, err = newClickAway(wireClickAway(a.sess), a.outputs(), p.dismissAway)
 		if err == nil {
 			err = p.away.ignore(pop.HostSurface(), host.HostSurface())
 		}
@@ -702,6 +727,9 @@ func (a *Application) OpenPopover(host Host, cfg PopoverConfig) (*Popover, error
 		fireClosed: fireClosed,
 		unanchor:   unanchor,
 	}
+	if cfg.Resize != nil {
+		keyRoot.grip = newPopoverGrip(op, *cfg.Resize, a.outputs)
+	}
 	p.focus = func(w widget.Widget) error {
 		if err := router.SetFocus(w); err != nil {
 			return err
@@ -764,6 +792,12 @@ type popSurface interface {
 	Position() (x, y int, ok bool)
 	Gutter() int
 	Resize(w, h int) bool
+	// Hold keeps an edge across the opening axis through resizes, and
+	// Side is the side of its anchor the surface was placed on.
+	Hold(popup.Hold)
+	Side() Gravity
+	// CatchAll takes input on the whole surface while a drag runs.
+	CatchAll(on bool)
 }
 
 // popPainter is the frame pipeline half (a *popup.Painter).
@@ -906,7 +940,8 @@ func (a *Application) drivePopovers() error {
 
 // fitContent grows (or shrinks) an open popover to its content's
 // natural size when that changed - a tray menu re-publishing more rows
-// - measured as at open, against the same ceiling (popoverCeiling).
+// - measured as at open, against the same ceiling (popoverCeiling),
+// with room beyond it while a resize drag runs (dragSlack).
 // Growing, the surface grows at once and the content springs into it;
 // shrinking, the surface keeps its size while the content's layout
 // motion carries it down, and takes the final size, one reposition,
@@ -915,9 +950,10 @@ func (op *openPopover) fitContent(outputs []*wlsession.Output) {
 	if op.pop.Dismissed() {
 		return
 	}
-	size := widget.SizeWithin(op.keyRoot, popoverCeiling(outputs, op.keyRoot.maxW, op.keyRoot.maxH))
+	size := op.contentSize(outputs)
 	g := op.pop.Gutter()
-	w, h := size.W+2*g, size.H+2*g
+	sw, sh := dragSlack(op.keyRoot.grip.dragging())
+	w, h := size.W+2*g+sw, size.H+2*g+sh
 	rw, rh := op.pop.RequestedSize()
 	if shown, ok := widget.LayoutShownSize(op.keyRoot.content); ok && shown != size {
 		w, h = max(w, rw), max(h, rh)
@@ -925,6 +961,12 @@ func (op *openPopover) fitContent(outputs []*wlsession.Output) {
 	if rw != w || rh != h {
 		op.pop.Resize(w, h)
 	}
+}
+
+// contentSize is the size the popover's content takes within its
+// ceiling (popoverCeiling).
+func (op *openPopover) contentSize(outputs []*wlsession.Output) widget.Size {
+	return widget.SizeWithin(op.keyRoot, popoverCeiling(outputs, op.keyRoot.maxW, op.keyRoot.maxH))
 }
 
 // keyPopover is the popover holding the keyboard: the newest one still

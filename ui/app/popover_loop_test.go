@@ -12,6 +12,7 @@ import (
 
 	"github.com/stubbedev/lys/ui/anim"
 	"github.com/stubbedev/lys/ui/internal/animclock"
+	"github.com/stubbedev/lys/ui/internal/popup"
 	"github.com/stubbedev/lys/ui/internal/wlsession"
 	"github.com/stubbedev/lys/ui/widget"
 )
@@ -23,14 +24,24 @@ type fakePopSurface struct {
 	// w, h is the requested size; resizes records each Resize.
 	w, h    int
 	resizes [][2]int
+	// x, y is the placed position, side the side placed on, and holds
+	// each Hold.
+	x, y     int
+	side     Gravity
+	holds    []popup.Hold
+	catchAll bool
 }
+
+func (f *fakePopSurface) Hold(h popup.Hold) { f.holds = append(f.holds, h) }
+func (f *fakePopSurface) Side() Gravity     { return f.side }
+func (f *fakePopSurface) CatchAll(on bool)  { f.catchAll = on }
 
 func (f *fakePopSurface) Destroyed() bool            { return f.destroyed }
 func (f *fakePopSurface) Dismissed() bool            { return f.dismissed }
 func (f *fakePopSurface) MarkFrame()                 { f.frames++ }
 func (f *fakePopSurface) RequestedSize() (int, int)  { return f.w, f.h }
 func (f *fakePopSurface) Gutter() int                { return 2 }
-func (f *fakePopSurface) Position() (int, int, bool) { return 0, 0, true }
+func (f *fakePopSurface) Position() (int, int, bool) { return f.x, f.y, true }
 func (f *fakePopSurface) Resize(w, h int) bool {
 	f.resizes = append(f.resizes, [2]int{w, h})
 	f.w, f.h = w, h

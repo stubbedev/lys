@@ -97,6 +97,8 @@ type Popup struct {
 	// gave it more height; sideH is the first side's.
 	side  sideCheck
 	sideH int32
+	// catchAll takes input on the whole surface, its gutter included.
+	catchAll bool
 }
 
 // sideCheck is where a shrunk popup's side check stands.
@@ -165,6 +167,10 @@ type Config struct {
 	BackgroundBlur bool
 	// BlurRoot is the widget carrying the style a missing blur changes.
 	BlurRoot widget.Widget
+	// Hold keeps one cross-axis edge of a rect-anchored popup at HoldAt,
+	// in the coordinates the compositor places it in, through resizes.
+	Hold   Hold
+	HoldAt int
 }
 
 // New positions a popup that animates on clock, its application's,
@@ -252,13 +258,18 @@ func New(sess *wlsession.Session, clock *anim.Clock, cfg Config) (*Popup, error)
 	return p, nil
 }
 
-// sealGutter limits input to the content inside the shadow gutter.
+// sealGutter limits input to the content inside the shadow gutter, or
+// opens the whole surface to it while it catches all.
 func (p *Popup) sealGutter(w, h int) {
-	if p.gutter <= 0 {
+	gutter := p.gutter
+	switch {
+	case p.catchAll:
+		gutter = 0
+	case gutter <= 0:
 		return
 	}
 	if region, err := p.sess.Compositor().CreateRegion(); err == nil {
-		g := intconv.Clamp[int32](p.gutter)
+		g := intconv.Clamp[int32](gutter)
 		_ = region.Add(g, g, max(0, intconv.Clamp[int32](w)-2*g), max(0, intconv.Clamp[int32](h)-2*g))
 		_ = p.WLSurface.SetInputRegion(region)
 		_ = region.Destroy()
@@ -299,6 +310,34 @@ func (p *Popup) reposition(cfg Config) bool {
 	p.cfg = cfg
 	p.sealGutter(cfg.Width, cfg.Height)
 	return true
+}
+
+// Hold keeps the popup's edge across its opening axis where it is now
+// through every later resize; HoldNone centres it on its anchor again.
+func (p *Popup) Hold(h Hold) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.cfg.Hold = h
+	p.cfg.HoldAt = holdAt(h, p.cfg.Gravity, int(p.x), int(p.y), int(p.w), int(p.h))
+}
+
+// CatchAll takes input on the whole surface while on, the shadow gutter
+// and any room the surface holds beyond its content included, so a drag
+// that outruns the content's edge stays on the surface; off, input is
+// the content's again.
+func (p *Popup) CatchAll(on bool) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.catchAll = on
+	p.sealGutter(p.cfg.Width, p.cfg.Height)
+}
+
+// Side is the side of its anchor the compositor placed the popup on:
+// its gravity's, or the opposite one where it flipped.
+func (p *Popup) Side() Gravity {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return sideOf(p.cfg, int(p.x), int(p.y), int(p.w), int(p.h))
 }
 
 // opposite is the vertical gravity across the anchor from g, and

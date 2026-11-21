@@ -64,7 +64,76 @@ func placementFor(cfg Config) placement {
 		p.anchor, p.gravity, p.adjust = xdg.PositionerAnchorBottom, xdg.PositionerGravityBottom, slideX|flipY|resizeY
 		p.offsetY = -g
 	}
+	if cfg.Hold == HoldNone {
+		return p
+	}
+	if _, vertical := opposite(cfg.Gravity); vertical {
+		p.offsetX = intconv.Clamp[int32](heldStart(cfg.Hold, cfg.HoldAt, cfg.Width) - (p.rect.X + p.rect.W/2 - cfg.Width/2))
+		p.adjust &^= slideX
+	} else {
+		p.offsetY = intconv.Clamp[int32](heldStart(cfg.Hold, cfg.HoldAt, cfg.Height) - (p.rect.Y + p.rect.H/2 - cfg.Height/2))
+		p.adjust &^= slideY
+	}
 	return p
+}
+
+// Hold is the edge across a rect-anchored popup's opening axis that a
+// resize keeps in place. Such a popup sits centred on its anchor, so
+// without a hold it grows and shrinks on both sides at once. A held
+// popup never slides along that axis: the compositor would move the
+// held edge.
+type Hold uint8
+
+const (
+	// HoldNone centres the popup on its anchor.
+	HoldNone Hold = iota
+	// HoldStart keeps the left edge of a popup opening up or down, the
+	// top edge of one opening sideways.
+	HoldStart
+	// HoldEnd keeps the right edge, or the bottom one.
+	HoldEnd
+)
+
+// heldStart is where a popup extent long starts along the cross axis
+// when hold keeps its edge at at.
+func heldStart(hold Hold, at, extent int) int {
+	if hold == HoldEnd {
+		return at - extent
+	}
+	return at
+}
+
+// holdAt is the cross-axis coordinate of the edge hold keeps, for a
+// popup placed at x, y and w by h that opens along gravity.
+func holdAt(hold Hold, gravity Gravity, x, y, w, h int) int {
+	start, extent := y, h
+	if _, vertical := opposite(gravity); vertical {
+		start, extent = x, w
+	}
+	if hold == HoldEnd {
+		return start + extent
+	}
+	return start
+}
+
+// sideOf is the side of its anchor a popup placed at x, y and w by h
+// sits on: the gravity's, or the opposite one after a flip. A point
+// anchored popup keeps its gravity.
+func sideOf(cfg Config, x, y, w, h int) Gravity {
+	if cfg.AnchorRect.Empty() {
+		return cfg.Gravity
+	}
+	r := cfg.AnchorRect
+	if _, vertical := opposite(cfg.Gravity); vertical {
+		if 2*(y+cfg.ParentMargin)+h < 2*r.Y+r.H {
+			return GravityTop
+		}
+		return GravityBottom
+	}
+	if 2*(x+cfg.ParentMargin)+w < 2*r.X+r.W {
+		return GravityLeft
+	}
+	return GravityRight
 }
 
 // place applies the placement to a positioner.

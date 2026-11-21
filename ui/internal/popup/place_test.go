@@ -104,3 +104,83 @@ func TestPlacementIsFromTheParentsWindowInsideItsMargin(t *testing.T) {
 		t.Errorf("a margin changed more than the anchor: %+v, want %+v", inside, bare)
 	}
 }
+
+// A held edge stays where it was placed whatever size the popup grows
+// to; without a hold the popup grows on both sides of its anchor.
+func TestAHeldEdgeStaysThroughAResize(t *testing.T) {
+	rect := render.Rect{X: 400, Y: 6, W: 180, H: 42}
+	below := Config{AnchorRect: rect, Gravity: GravityBottom, Width: 300, Height: 200}
+	if centred := placementFor(below); centred.offsetX != 0 {
+		t.Fatalf("an unheld popup is offset %d across its anchor", centred.offsetX)
+	}
+	left := below
+	left.Hold, left.HoldAt = HoldStart, 250
+	for _, width := range []int{300, 360, 120} {
+		left.Width = width
+		p := placementFor(left)
+		if x := rect.X + rect.W/2 - width/2 + int(p.offsetX); x != 250 {
+			t.Errorf("held left edge at %d wide placed at %d, want 250", width, x)
+		}
+	}
+	right := below
+	right.Hold, right.HoldAt, right.Width = HoldEnd, 700, 360
+	if p := placementFor(right); rect.X+rect.W/2-180+int(p.offsetX)+360 != 700 {
+		t.Errorf("held right edge moved: offset %d", p.offsetX)
+	}
+	side := Config{AnchorRect: rect, Gravity: GravityRight, Gutter: 10, Width: 300, Height: 260, Hold: HoldEnd, HoldAt: 500}
+	p := placementFor(side)
+	if y := rect.Y + rect.H/2 - 130 + int(p.offsetY); y+260 != 500 {
+		t.Errorf("a sideways popup's held bottom edge sits at %d, want 500", y+260)
+	}
+	if p.offsetX != -10 {
+		t.Errorf("a hold moved the opening axis: offsetX %d", p.offsetX)
+	}
+	if p.adjust&xdg.PositionerConstraintAdjustmentSlideY != 0 {
+		t.Error("a sideways popup slides along its held edge")
+	}
+	if p := placementFor(left); p.adjust&xdg.PositionerConstraintAdjustmentSlideX != 0 || p.adjust&xdg.PositionerConstraintAdjustmentFlipY == 0 {
+		t.Errorf("a held popup below its anchor adjusts %b, want it to flip but not slide", p.adjust)
+	}
+}
+
+func TestHoldAtIsTheHeldEdge(t *testing.T) {
+	for _, tc := range []struct {
+		hold    Hold
+		gravity Gravity
+		want    int
+	}{
+		{HoldStart, GravityBottom, 10},
+		{HoldEnd, GravityBottom, 310},
+		{HoldStart, GravityTop, 10},
+		{HoldStart, GravityLeft, 20},
+		{HoldEnd, GravityRight, 220},
+	} {
+		if got := holdAt(tc.hold, tc.gravity, 10, 20, 300, 200); got != tc.want {
+			t.Errorf("hold %d gravity %d at %d, want %d", tc.hold, tc.gravity, got, tc.want)
+		}
+	}
+}
+
+// The side is where the compositor put the popup, so a flipped one
+// reports the anchor's other side.
+func TestSideOfIsWhereThePopupWasPlaced(t *testing.T) {
+	rect := render.Rect{X: 400, Y: 800, W: 100, H: 30}
+	for _, tc := range []struct {
+		name       string
+		cfg        Config
+		x, y, w, h int
+		want       Gravity
+	}{
+		{"below", Config{AnchorRect: rect, Gravity: GravityBottom}, 350, 830, 200, 100, GravityBottom},
+		{"flipped above", Config{AnchorRect: rect, Gravity: GravityBottom}, 350, 700, 200, 100, GravityTop},
+		{"above", Config{AnchorRect: rect, Gravity: GravityTop}, 350, 700, 200, 100, GravityTop},
+		{"right", Config{AnchorRect: rect, Gravity: GravityRight}, 500, 760, 100, 100, GravityRight},
+		{"flipped left", Config{AnchorRect: rect, Gravity: GravityRight}, 300, 760, 100, 100, GravityLeft},
+		{"inside a margin", Config{AnchorRect: rect, Gravity: GravityBottom, ParentMargin: 16}, 334, 814, 200, 100, GravityBottom},
+		{"a point keeps its gravity", Config{X: 5, Y: 5, Gravity: GravityBottom}, 0, -300, 10, 10, GravityBottom},
+	} {
+		if got := sideOf(tc.cfg, tc.x, tc.y, tc.w, tc.h); got != tc.want {
+			t.Errorf("%s: side %d, want %d", tc.name, got, tc.want)
+		}
+	}
+}
