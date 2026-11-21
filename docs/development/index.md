@@ -100,7 +100,8 @@ suite (`race`), how its test and race suites split into parts (`shards`), its
 further jobs (each a `run` command on named runners, with `after-build` when it
 uses its component's build rather than only a dev shell), its NixOS VM checks
 (`vms`, a list of jobs, each a list of checks run in one job, with `free-disk`
-when their disk images need the runner's preinstalled toolchains gone), and
+when building their disk images needs the runner's preinstalled toolchains
+gone), and
 what besides its Go imports it depends on (a VM test that boots another
 component's package). `gate-runners` names the runners that run only some of
 the Go gates, and which: aarch64 runs only the gates whose result depends on
@@ -139,7 +140,12 @@ another lane's build:
    preinstalled toolchains only when the component sets `free-disk`, and its
    VM jobs and the further jobs it marks `after-build` start as soon as that
    build is done, not after the other components' builds: wm's VM jobs no
-   longer wait for splash's disk images.
+   longer wait for splash's disk images. Only the build removes them: it
+   fetches the closures and writes two disk images at once, while a VM job
+   only substitutes its closure, at most 5 GiB for splash's against the
+   6.3 GiB wm-vms-share fits on a runner as it comes, and boots on a
+   copy-on-write overlay of the image, so the 113 s the removal takes would
+   buy a VM job nothing.
 2. **Shared build**, per architecture: every other component with Go suites
    builds in one job, `just build-stage lib ui ...`, its packages and non-VM
    checks. A component with neither (`repository`, `packaging`)

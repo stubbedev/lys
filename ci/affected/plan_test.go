@@ -206,8 +206,8 @@ func TestEachComponentWithVMChecksRunsThemAndItsJobsAfterTheBuildInALaneOfItsOwn
 			Name:  "wm",
 			Build: Matrix{ID: "build-wm-x86-64", Name: "wm (x86_64)", Runner: "ubuntu-latest", Run: "just build-stage wm wm-vm wm-vm-apps wm-vm-share", FreeDisk: true},
 			Jobs: []Matrix{
-				{ID: "wm-vm-x86-64", Name: "wm-vm (x86_64)", Runner: "ubuntu-latest", Run: "just vm-checks wm-vm", KVM: true, FreeDisk: true},
-				{ID: "wm-vm-apps-wm-vm-share-x86-64", Name: "wm-vm-apps + wm-vm-share (x86_64)", Runner: "ubuntu-latest", Run: "just vm-checks wm-vm-apps wm-vm-share", KVM: true, FreeDisk: true},
+				{ID: "wm-vm-x86-64", Name: "wm-vm (x86_64)", Runner: "ubuntu-latest", Run: "just vm-checks wm-vm", KVM: true},
+				{ID: "wm-vm-apps-wm-vm-share-x86-64", Name: "wm-vm-apps + wm-vm-share (x86_64)", Runner: "ubuntu-latest", Run: "just vm-checks wm-vm-apps wm-vm-share", KVM: true},
 				{ID: "wm-image-x86-64", Name: "wm / image (x86_64)", Runner: "ubuntu-latest", Run: "just wm::image"},
 			},
 		},
@@ -220,6 +220,23 @@ func TestEachComponentWithVMChecksRunsThemAndItsJobsAfterTheBuildInALaneOfItsOwn
 	}
 	if slices.ContainsFunc(p.Builds, func(m Matrix) bool { return strings.Contains(m.Run, "wm") || strings.Contains(m.Run, "login") }) {
 		t.Fatalf("builds %+v, want login's and wm's builds only in their lanes", p.Builds)
+	}
+}
+
+func TestOnlyTheBuildOfAComponentThatFreesDiskFreesIt(t *testing.T) {
+	p := plan(testConfig, []string{"login", "wm"})
+	if len(p.Lanes) != 2 {
+		t.Fatalf("lanes %+v, want login's and wm's", p.Lanes)
+	}
+	for _, l := range p.Lanes {
+		if l.Build.FreeDisk != (l.Name == "wm") {
+			t.Errorf("%s's build frees disk: %v, want %v", l.Name, l.Build.FreeDisk, l.Name == "wm")
+		}
+		for _, m := range l.Jobs {
+			if m.FreeDisk {
+				t.Errorf("%s's job %s frees disk, but only a build builds the disk images free-disk is for", l.Name, m.Name)
+			}
+		}
 	}
 }
 

@@ -40,7 +40,6 @@ jobs:
           substitute-only: true
           kvm: ${{ matrix.kvm }}
           userns: ${{ matrix.userns }}
-          free-disk: ${{ matrix.free-disk }}
       - run: ${{ matrix.run }}
       - name: Save the Go build cache, also after a failure or the timeout
         if: always() && steps.setup.outputs.go-cache-save == 'true'

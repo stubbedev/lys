@@ -499,7 +499,7 @@ func lane(name string, c Component) (Lane, bool) {
 	l := Lane{Name: name, Build: b, Jobs: []Matrix{}}
 	for _, group := range c.VMs {
 		m := matrix(strings.Join(group, " "), strings.Join(group, " + "), vmRunner, "just vm-checks "+strings.Join(group, " "))
-		m.KVM, m.FreeDisk = true, c.FreeDisk
+		m.KVM = true
 		l.Jobs = append(l.Jobs, m)
 	}
 	for _, j := range c.Jobs {
