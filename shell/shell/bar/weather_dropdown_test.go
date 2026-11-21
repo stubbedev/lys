@@ -178,10 +178,18 @@ func TestDropdownDimsResolveTheOverrides(t *testing.T) {
 	}
 }
 
-func fixedWeather(w *weather.Weather, err error) *weather.Service {
-	return weather.NewWith(weather.Settings{Interval: time.Hour}, func(context.Context, weather.Settings, time.Time) (*weather.Weather, error) {
+func fixedWeather(t *testing.T, w *weather.Weather, err error) *weather.Service {
+	t.Helper()
+	return followedWeather(t, weather.NewWith(weather.Settings{Interval: time.Hour}, func(context.Context, weather.Settings, time.Time) (*weather.Weather, error) {
 		return w, err
-	})
+	}))
+}
+
+func followedWeather(t *testing.T, svc *weather.Service) *weather.Service {
+	t.Helper()
+	_, stop := svc.Subscribe()
+	t.Cleanup(stop)
+	return svc
 }
 
 func TestWeatherModuleFollowsTheService(t *testing.T) {
@@ -190,7 +198,7 @@ func TestWeatherModuleFollowsTheService(t *testing.T) {
 	if _, err := newWeather(ctx); err == nil {
 		t.Fatal("a weather module without the service was built")
 	}
-	svc := fixedWeather(&weather.Weather{Zone: time.Local, Current: weather.Current{Temperature: 20, Condition: weather.CondClear, IsDay: false}}, nil)
+	svc := fixedWeather(t, &weather.Weather{Zone: time.Local, Current: weather.Current{Temperature: 20, Condition: weather.CondClear, IsDay: false}}, nil)
 	defer svc.Close()
 	ctx.Weather = svc
 	ctx.gen = newMountGen()
@@ -210,7 +218,7 @@ func weatherLabelIn(t *testing.T, units config.TemperatureUnit, imperialRegion b
 	cfg.Weather.Units = units
 	ctx := newTestContext(t, cfg)
 	ctx.Region.Imperial = imperialRegion
-	svc := fixedWeather(&weather.Weather{Zone: time.Local, Current: weather.Current{Temperature: 20, Condition: weather.CondClear, IsDay: true}}, nil)
+	svc := fixedWeather(t, &weather.Weather{Zone: time.Local, Current: weather.Current{Temperature: 20, Condition: weather.CondClear, IsDay: true}}, nil)
 	t.Cleanup(svc.Close)
 	ctx.Weather = svc
 	ctx.gen = newMountGen()
@@ -244,7 +252,7 @@ func TestWeatherUnitsFollowTheRegionOnlyWhenSetTo(t *testing.T) {
 func TestWeatherDropdownShowsTheStatusPage(t *testing.T) {
 	cfg := config.Defaults()
 	ctx := newTestContext(t, cfg)
-	svc := fixedWeather(nil, &weather.Error{Kind: weather.ErrAPIKeyMissing, Provider: "weatherapi"})
+	svc := fixedWeather(t, nil, &weather.Error{Kind: weather.ErrAPIKeyMissing, Provider: "weatherapi"})
 	defer svc.Close()
 	ctx.Weather = svc
 	var v *weatherView
@@ -257,7 +265,7 @@ func TestWeatherDropdownShowsTheStatusPage(t *testing.T) {
 		t.Errorf("error text = %q", got)
 	}
 
-	ok := fixedWeather(&weather.Weather{
+	ok := fixedWeather(t, &weather.Weather{
 		Zone:    time.Local,
 		Current: weather.Current{Temperature: 11, Condition: weather.CondRain},
 		Hourly:  make([]weather.Hourly, 8),
@@ -346,7 +354,7 @@ func TestWeatherPagesCenterTheirContent(t *testing.T) {
 	}
 	centered("loading-weather")
 
-	fail := fixedWeather(nil, &weather.Error{Kind: weather.ErrAPIKeyMissing, Provider: "weatherapi"})
+	fail := fixedWeather(t, nil, &weather.Error{Kind: weather.ErrAPIKeyMissing, Provider: "weatherapi"})
 	defer fail.Close()
 	waitHeadless(t, "the failed status", func() bool { return fail.Status().Kind == weather.Failed })
 	ctx.Weather = fail
@@ -430,7 +438,7 @@ func TestWeatherRefetchShowsTheLoadingPage(t *testing.T) {
 func TestWeatherHeaderAndDailyRows(t *testing.T) {
 	cfg := config.Defaults()
 	ctx := newTestContext(t, cfg)
-	svc := fixedWeather(&weather.Weather{
+	svc := fixedWeather(t, &weather.Weather{
 		Zone:      time.Local,
 		Current:   weather.Current{Temperature: 11, Condition: weather.CondRain},
 		Hourly:    make([]weather.Hourly, 8),
@@ -480,7 +488,7 @@ func TestWeatherHeaderAndDailyRows(t *testing.T) {
 // hidden, and the forecast temperatures carry no degree sign.
 func TestWeatherDropdownTrees(t *testing.T) {
 	ctx := newTestContext(t, config.Defaults())
-	ok := fixedWeather(&weather.Weather{
+	ok := fixedWeather(t, &weather.Weather{
 		Zone:    time.Local,
 		Current: weather.Current{Temperature: 11, Condition: weather.CondRain},
 		Hourly:  []weather.Hourly{{Temperature: 13}, {Temperature: 12}},
@@ -555,7 +563,7 @@ func TestWeatherDropdownWithoutTheServiceFollowsNothing(t *testing.T) {
 		t.Errorf("page = %q, want loading with no service to read", got)
 	}
 
-	svc := fixedWeather(&weather.Weather{Zone: time.Local, Current: weather.Current{Temperature: 7, Condition: weather.CondClear}}, nil)
+	svc := fixedWeather(t, &weather.Weather{Zone: time.Local, Current: weather.Current{Temperature: 7, Condition: weather.CondClear}}, nil)
 	defer svc.Close()
 	ctx.Weather = svc
 	followed := apptest.On(a, func() *weatherView { return opened(weatherDropdown(ctx)).(*weatherView) })
@@ -613,6 +621,7 @@ func TestWeatherFailedRefreshShowsTheDataUnderAnAlert(t *testing.T) {
 	ctx := newTestContext(t, config.Defaults())
 	script := &scriptedWeather{w: rainyWeather()}
 	svc := weather.NewWith(weather.Settings{Interval: time.Hour}, script.fetch)
+	followedWeather(t, svc)
 	defer svc.Close()
 	ctx.Weather = svc
 	waitHeadless(t, "the loaded status", func() bool { return svc.Status().Kind == weather.Loaded })
@@ -653,7 +662,7 @@ func TestWeatherFailedRefreshShowsTheDataUnderAnAlert(t *testing.T) {
 
 func TestWeatherFailureWithoutDataShowsNoStaleAlert(t *testing.T) {
 	ctx := newTestContext(t, config.Defaults())
-	svc := fixedWeather(nil, &weather.Error{Kind: weather.ErrAPIKeyMissing, Provider: "weatherapi"})
+	svc := fixedWeather(t, nil, &weather.Error{Kind: weather.ErrAPIKeyMissing, Provider: "weatherapi"})
 	defer svc.Close()
 	ctx.Weather = svc
 	waitHeadless(t, "the failed status", func() bool { return svc.Status().Kind == weather.Failed })
@@ -671,6 +680,7 @@ func TestWeatherModuleIsStaleOnlyWhileTheRefreshFails(t *testing.T) {
 	ctx := newTestContext(t, cfg)
 	script := &scriptedWeather{w: rainyWeather()}
 	svc := weather.NewWith(weather.Settings{Interval: time.Hour}, script.fetch)
+	followedWeather(t, svc)
 	defer svc.Close()
 	ctx.Weather = svc
 	ctx.gen = newMountGen()
@@ -704,7 +714,7 @@ func TestWeatherModuleIsStaleOnlyWhileTheRefreshFails(t *testing.T) {
 
 func TestWeatherModuleWithoutDataIsNotStale(t *testing.T) {
 	ctx := newTestContext(t, config.Defaults())
-	svc := fixedWeather(nil, &weather.Error{Kind: weather.ErrAPIKeyMissing, Provider: "weatherapi"})
+	svc := fixedWeather(t, nil, &weather.Error{Kind: weather.ErrAPIKeyMissing, Provider: "weatherapi"})
 	defer svc.Close()
 	ctx.Weather = svc
 	ctx.gen = newMountGen()

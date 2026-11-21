@@ -305,6 +305,7 @@ func TestServiceRetriesOnlyRetryableFailures(t *testing.T) {
 	}
 	svc := newService(Settings{Interval: time.Hour}, flaky, func(error, int) time.Duration { return time.Millisecond })
 	defer svc.Close()
+	subscribe(t, svc)
 	waittest.Until(t, func() bool { return svc.Status().Kind == Loaded }, "the third attempt to land")
 	if calls.Load() != 3 || svc.Weather().Location.Name() != "ok" {
 		t.Errorf("calls %d weather %+v", calls.Load(), svc.Weather())
@@ -317,13 +318,20 @@ func TestServiceRetriesOnlyRetryableFailures(t *testing.T) {
 	}
 	svc2 := newService(Settings{Interval: time.Hour}, fatal, func(error, int) time.Duration { return time.Millisecond })
 	defer svc2.Close()
+	subscribe(t, svc2)
 	waittest.Until(t, func() bool { return svc2.Status().Kind == Failed }, "the failure")
 	if calls.Load() != 1 || svc2.Status().Error != ErrAPIKeyMissing || svc2.Weather() != nil {
 		t.Errorf("a missing key was retried (%d calls) or mis-reported %+v", calls.Load(), svc2.Status())
 	}
 }
 
-func TestServicePollsWithSubscribersOnlyAfterTheFirstFetch(t *testing.T) {
+func subscribe(t *testing.T, svc *Service) {
+	t.Helper()
+	_, stop := svc.Subscribe()
+	t.Cleanup(stop)
+}
+
+func TestServiceFetchesOnlyWhileSubscribed(t *testing.T) {
 	var calls atomic.Int32
 	count := func(context.Context, Settings, time.Time) (*Weather, error) {
 		calls.Add(1)
@@ -331,14 +339,37 @@ func TestServicePollsWithSubscribersOnlyAfterTheFirstFetch(t *testing.T) {
 	}
 	svc := newService(Settings{Interval: 5 * time.Millisecond}, count, retryDelay)
 	defer svc.Close()
-	waittest.Until(t, func() bool { return calls.Load() >= 1 }, "the startup fetch")
 	time.Sleep(quietWindow)
-	if n := calls.Load(); n != 1 {
-		t.Fatalf("fetched %d times with nobody subscribed, want only the first", n)
+	if n := calls.Load(); n != 0 {
+		t.Fatalf("fetched %d times with nobody subscribed", n)
 	}
 	_, stop := svc.Subscribe()
-	defer stop()
+	waittest.Until(t, func() bool { return calls.Load() >= 1 }, "the first subscriber's fetch")
 	waittest.Until(t, func() bool { return calls.Load() >= 2 }, "a subscribed poll")
+	stop()
+	settled := calls.Load()
+	time.Sleep(quietWindow)
+	if n := calls.Load(); n > settled+1 {
+		t.Errorf("fetched %d times after the last subscriber left", n-settled)
+	}
+}
+
+func TestASubscriberWithinTheIntervalFetchesNothingNew(t *testing.T) {
+	var calls atomic.Int32
+	count := func(context.Context, Settings, time.Time) (*Weather, error) {
+		calls.Add(1)
+		return &Weather{}, nil
+	}
+	svc := newService(Settings{Interval: time.Hour}, count, retryDelay)
+	defer svc.Close()
+	_, stop := svc.Subscribe()
+	waittest.Until(t, func() bool { return calls.Load() == 1 }, "the first subscriber's fetch")
+	stop()
+	subscribe(t, svc)
+	time.Sleep(quietWindow)
+	if n := calls.Load(); n != 1 {
+		t.Errorf("a second subscriber within the interval fetched again: %d fetches", n)
+	}
 }
 
 func TestConfigureRestartsOnlyOnChange(t *testing.T) {
@@ -350,6 +381,7 @@ func TestConfigureRestartsOnlyOnChange(t *testing.T) {
 	s := Settings{Interval: time.Hour, Location: testPlace(t, "A")}
 	svc := newService(s, count, retryDelay)
 	defer svc.Close()
+	subscribe(t, svc)
 	waittest.Until(t, func() bool { return calls.Load() == 1 }, "the first fetch")
 	svc.Configure(s)
 	time.Sleep(quietWindow)
@@ -389,6 +421,7 @@ func TestRefreshRefetchesWithTheSameSettings(t *testing.T) {
 	}
 	svc := newService(Settings{Interval: time.Hour}, count, retryDelay)
 	defer svc.Close()
+	subscribe(t, svc)
 	waittest.Until(t, func() bool { return calls.Load() == 1 }, "the first fetch")
 	svc.Refresh()
 	waittest.Until(t, func() bool { return calls.Load() == 2 }, "the refetch")
@@ -470,6 +503,7 @@ func TestCloseReturnsOnceEveryPollHasEnded(t *testing.T) {
 		return nil, ctx.Err()
 	}
 	svc := newService(Settings{Interval: time.Hour}, hang, retryDelay)
+	subscribe(t, svc)
 	waittest.Until(t, func() bool { return fetching.Load() == 1 }, "the first fetch")
 	svc.Refresh()
 	waittest.Until(t, func() bool { return fetching.Load() == 2 }, "the restarted fetch")
@@ -489,6 +523,7 @@ func TestANewPlaceDropsTheOldForecastButANewIntervalKeepsIt(t *testing.T) {
 	s := Settings{Interval: time.Hour, Location: testPlace(t, "A")}
 	svc := newService(s, byCity, func(error, int) time.Duration { return time.Millisecond })
 	defer svc.Close()
+	subscribe(t, svc)
 	waittest.Until(t, func() bool { return svc.Status().Kind == Loaded }, "the forecast for A")
 
 	s.Interval = 2 * time.Hour

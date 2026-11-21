@@ -453,12 +453,16 @@ func (v *weatherView) sunTimes(w *weather.Weather, twelveHour bool) widget.Widge
 // follow keeps the view current while open: service changes rebuild
 // it, and the data age re-renders every minute.
 func (v *weatherView) follow(life context.Context) {
-	if v.ctx.App == nil || v.svc == nil {
+	if v.svc == nil {
 		v.refresh()
 		return
 	}
 	changes, unsubscribe := v.svc.Subscribe()
 	v.refresh()
+	if v.ctx.App == nil {
+		context.AfterFunc(life, unsubscribe)
+		return
+	}
 	v.ctx.Go(func() {
 		defer unsubscribe()
 		ticker := time.NewTicker(weatherUpdatedEvery)

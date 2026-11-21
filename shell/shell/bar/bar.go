@@ -412,9 +412,6 @@ func (s *shellStart) startServices(system *dbus.Conn) {
 	s.inhibitState = idleinhibit.NewState(s.cfg.IdleInhibit.StartupDuration.Duration())
 	s.ctx.IdleInhibit = s.inhibitState
 	s.ctx.Treeman = treeman.New("treeman")
-	// The weather service polls for the whole session (bootstrap/weather.rs);
-	// after its first fetch it only polls while a module or dropdown
-	// follows it.
 	s.weatherSvc = weather.New(weatherSettings(s.cfg.Weather))
 	s.down.add(s.weatherSvc.Close)
 	s.ctx.Weather = s.weatherSvc

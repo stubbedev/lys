@@ -53,8 +53,9 @@ const (
 type FetchFunc func(ctx context.Context, s Settings, now time.Time) (*Weather, error)
 
 // Service polls the configured provider and caches the last successful
-// fetch. After the first poll it only fetches while something is
-// subscribed, and under Low Power it waits LowPowerStretch intervals.
+// fetch. It fetches only while something is subscribed: a first
+// subscriber fetches at once when no fetch is current, and under Low
+// Power a poll waits LowPowerStretch intervals.
 type Service struct {
 	lowPower atomic.Bool
 
@@ -67,6 +68,7 @@ type Service struct {
 	stop     context.CancelFunc
 	polls    sync.WaitGroup
 	changes  *feed.Tick
+	wanted   chan struct{}
 	fetch    FetchFunc
 	// retryDelay is the backoff; tests shorten it.
 	retryDelay func(err error, attempt int) time.Duration
@@ -85,7 +87,7 @@ func NewWith(s Settings, fetch FetchFunc) *Service {
 
 func newService(s Settings, fetch FetchFunc, delay func(error, int) time.Duration) *Service {
 	life, stop := context.WithCancel(context.Background())
-	svc := &Service{life: life, stop: stop, changes: feed.NewTick(), fetch: fetch, retryDelay: delay}
+	svc := &Service{life: life, stop: stop, changes: feed.NewTick(), wanted: make(chan struct{}, 1), fetch: fetch, retryDelay: delay}
 	svc.mu.Lock()
 	svc.restartLocked(s)
 	svc.mu.Unlock()
@@ -147,8 +149,16 @@ func (s *Service) Status() Status {
 	return s.status
 }
 
-// Subscribe ticks whenever Weather or Status changed.
-func (s *Service) Subscribe() (<-chan struct{}, func()) { return s.changes.Subscribe() }
+// Subscribe ticks whenever Weather or Status changed, and has a fetch
+// that is due run now.
+func (s *Service) Subscribe() (<-chan struct{}, func()) {
+	ch, stop := s.changes.Subscribe()
+	select {
+	case s.wanted <- struct{}{}:
+	default:
+	}
+	return ch, stop
+}
 
 // Close stops polling and returns once the polls have, their idle
 // connections closed.
@@ -174,24 +184,27 @@ func (s *Service) wait(settings Settings) time.Duration {
 }
 
 func (s *Service) poll(ctx context.Context, settings Settings) {
-	timer := time.NewTimer(s.wait(settings))
+	timer := time.NewTimer(0)
+	timer.Stop()
 	defer timer.Stop()
-	first := true
+	due := true
 	for {
-		if first || s.changes.Len() > 0 {
-			first = false
+		if due && s.changes.Len() > 0 {
+			due = false
 			weather, err := s.fetchWithRetry(ctx, settings)
 			if ctx.Err() != nil {
 				return
 			}
 			s.publish(ctx, weather, err)
+			timer.Reset(s.wait(settings))
 		}
 		select {
 		case <-ctx.Done():
 			return
 		case <-timer.C:
+			due = true
+		case <-s.wanted:
 		}
-		timer.Reset(s.wait(settings))
 	}
 }
 
