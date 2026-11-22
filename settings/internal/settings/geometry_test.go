@@ -259,7 +259,7 @@ func cardFieldsLineUp() pageCheck {
 // apart: the button is lys-ui's outline icon button, not a bare swatch.
 func TestCustomColorButtonMatchesItsDropdown(t *testing.T) {
 	k := testKit(t, "modules:\n  clock:\n    icon-color: \"#123456\"\n")
-	c := fieldControl(k, k.store, field("modules.clock.icon-color")).(*colorValueEditor)
+	c := fieldControl(k, k.store, field("modules.clock.icon-color")).(*swatchPicker)
 	apptheme.New(k.store.svc.Config()).Attach(c.Box)
 	widget.SizeWithinAsChild(c.Box, widget.Size{W: 600, H: 200})
 	widget.ArrangeAsChild(c.Box, render.Rect{W: 600, H: 200})

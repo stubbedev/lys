@@ -19,7 +19,6 @@ var sheetOrder = []string{
 	"base/index.css",
 	"base/typography.css",
 	"primitives/badge/index.css",
-	"primitives/buttons/index.css",
 	"primitives/dropdown/index.css",
 	"primitives/progress_ring/index.css",
 	"primitives/status-dot/index.css",

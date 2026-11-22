@@ -192,7 +192,7 @@ func newBorderEditor(k *kit, s slot, colors wmconfig.Field) *borderEditor {
 		item: func(k *kit, v any, changed func()) listItem {
 			value, _ := v.(string)
 			item := &colorItem{value: value}
-			item.wmColorEditor = newWMColorEditor(k, slot{
+			item.swatchPicker = newWMColorEditor(k, slot{
 				get: func() any { return item.value },
 				set: func(nv any) error { item.value, _ = nv.(string); changed(); return nil },
 			})
@@ -243,7 +243,7 @@ func (c *borderEditor) pickColour(k *kit, anchor widget.Widget, choose func(any)
 
 // colorItem is a gradient's colour.
 type colorItem struct {
-	*wmColorEditor
+	*swatchPicker
 	value string
 }
 

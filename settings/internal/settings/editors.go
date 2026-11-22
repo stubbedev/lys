@@ -130,7 +130,7 @@ func invertedSwitch(key string) rowOpt {
 	}
 }
 
-// number is NumberControl: a spin button without its +/- buttons.
+// number is NumberControl: lys-ui's spin button over a numeric field.
 type number struct {
 	*widget.SpinButton
 	k    *kit

@@ -109,7 +109,8 @@ func (p *paletteGrid) refresh() {
 		if _, overridden := own[name]; overridden {
 			head.AppendAligned(p.k.resetButton("wm-palette-reset", func() { p.reset(name) }).Button, false, widget.AlignCenter)
 		}
-		ed := newWMColorEditor(p.k, p.colorSlot(name))
+		ed := colorButton(p.k, p.colorSlot(name))
+		ed.refresh()
 		tile := captionTile(head, ed)
 		tile.AddClass("wm-palette-tile")
 		p.grid.Append(tile)

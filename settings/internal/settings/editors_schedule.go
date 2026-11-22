@@ -24,7 +24,6 @@ const (
 )
 
 var dndScheduleList = cardRow(cardSpec{
-	listCls: "card-form-list", rowClass: "card-form-row", labelCls: "card-form-label",
 	title: scheduleTitle,
 	fields: []cardField{
 		{key: "days", label: "settings-schedule-days", editor: func(k *kit, s slot) control { return newWeekdaysEditor(k, s) }},

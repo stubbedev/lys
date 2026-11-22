@@ -1033,7 +1033,6 @@ wm-mode-rename-confirm = Rinomina
 wm-mode-delete-button = Elimina la modalità
 wm-mode-delete-title = Eliminare la modalità { $mode }?
 wm-mode-delete-description = Vengono rimosse anche le sue scorciatoie e quelle che vi entrano.
-wm-mode-delete-cancel = Annulla
 wm-mode-delete-confirm = Elimina
 wm-mode-add = Aggiungi una modalità
 wm-mode-add-confirm = Aggiungi

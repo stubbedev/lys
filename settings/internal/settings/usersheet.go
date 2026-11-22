@@ -3,11 +3,9 @@ package settings
 import (
 	"cmp"
 	"context"
-	"fmt"
 	"strings"
 
 	"github.com/stubbedev/lys/desktop/i18n"
-	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
@@ -99,41 +97,27 @@ func (u otherUser) identity() string {
 // over a refusal and closes once AccountsService took every change, or
 // hands over to the question whether to remove u.
 func (p *usersPanel) openUserSheet(u otherUser) {
-	if p.k.pickers == nil {
-		p.fail(fmt.Errorf("settings: edit the user %s: no window to ask in", u.name))
-		return
-	}
 	t := locale.T()
 	f := p.newUserSheet(u)
-	var closeDialog func()
-	closeDialog = p.k.pickers.dialog(app.DialogConfig{
-		Title:       cmp.Or(u.real, u.name),
-		Description: u.identity(),
-		Width:       passwordDialogWidth,
-		Content:     f,
-		Focus:       f.full,
-		Buttons: []app.DialogButton{
-			{Label: t.Get("settings-users-edit-remove"), Response: responseRemove, Appearance: app.AppearanceDestructive},
-			{Label: t.Get("settings-users-edit-cancel"), Response: responseCancel, Role: app.ButtonRoleCancel, Appearance: app.AppearancePlain},
-			{Label: t.Get("settings-users-edit-apply"), Response: responseConfirm, Role: app.ButtonRoleDefault, Appearance: app.AppearanceSuggested},
-		},
-		Modal:           true,
-		CancelResponse:  responseCancel,
-		DefaultResponse: responseConfirm,
-		ValidateResponse: func(r string) bool {
-			if r != responseConfirm {
-				return true
-			}
-			p.editUser(f, func() { closeDialog() })
-			return false
-		},
-		OnResponse: func(r string) {
+	_, err := p.k.openDialog("edit the user "+u.name, dialogSpec{
+		title:       cmp.Or(u.real, u.name),
+		description: u.identity(),
+		width:       passwordDialogWidth,
+		content:     f,
+		focus:       f.full,
+		actions:     []dialogAction{{label: t.Get("settings-users-edit-remove"), response: responseRemove, kind: actionDestructive}},
+		apply:       t.Get("settings-users-edit-apply"),
+		submit:      func(closeDialog func()) { p.editUser(f, closeDialog) },
+		onResponse: func(r string) {
 			if r == responseRemove {
 				p.confirmRemove(u)
 			}
 		},
-		OnClosed: f.clear,
+		onClosed: f.clear,
 	})
+	if err != nil {
+		p.fail(err)
+	}
 }
 
 func (p *usersPanel) editUser(f *userSheet, done func()) {

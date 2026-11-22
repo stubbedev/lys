@@ -1,6 +1,7 @@
 package settings
 
 import (
+	"maps"
 	"slices"
 	"strings"
 
@@ -12,33 +13,49 @@ import (
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
-// colorValueEditor is ColorValueControl: the color button (custom
-// colors only) and the dropdown of auto, transparent, custom and the
-// palette tokens grouped under headers, each token led by a swatch of
-// its color in the palette the rows were built for.
-type colorValueEditor struct {
+// swatchName is a colour a config names: the value it stores, the label
+// and group it is listed under, and, with swatch, the colour leading it.
+type swatchName struct {
+	value, label, group string
+	color               render.Color
+	swatch              bool
+}
+
+// colorNames are the colours a config names: its keywords, listed ahead
+// of the custom colour, then its named colours, grouped.
+type colorNames func() (keywords, named []swatchName)
+
+// swatchPicker is a colour of a config that names its own colours: a
+// dropdown of the config's keywords, the custom colour and its named
+// colours under their groups' headers, each led by a swatch of its colour,
+// beside the colour button that edits a custom colour, shown while one
+// is stored. A stored name the config does not list is listed with the
+// keywords as it is.
+type swatchPicker struct {
 	*widget.Box
-	k       *kit
-	slot    slot
-	drop    *widget.Dropdown
-	swatch  *colorEditor
-	palette styling.Palette
-	ids     []string // each row's config value; "" for a header
+	k      *kit
+	slot   slot
+	names  colorNames
+	drop   *widget.Dropdown
+	swatch *colorEditor
+	// shown are the rows the dropdown was built with, ids each row's
+	// value, "" for a header.
+	shown   []swatchName
+	ids     []string
 	syncing bool
 }
 
-// Row ids that are not tokens.
+// Values that are not names: the custom colour's row, and lys-shell's
+// keywords.
 const (
 	colorAuto        = "auto"
 	colorTransparent = "transparent"
 	colorCustom      = "#custom"
 )
 
-func newColorValueEditor(k *kit, s slot) *colorValueEditor {
-	c := &colorValueEditor{Box: gapBox(widget.Row), k: k, slot: s, palette: k.palette()}
-	rows, ids := colorValueRows(c.palette)
-	c.ids = ids
-	c.drop = widget.NewDropdownRows(k.face, k.textPx(), rows, 0)
+func newSwatchPicker(k *kit, s slot, names colorNames) *swatchPicker {
+	c := &swatchPicker{Box: gapBox(widget.Row), k: k, slot: s, names: names}
+	c.drop = widget.NewDropdownRows(k.face, k.textPx(), nil, -1)
 	c.drop.OnSelect = c.picked
 	c.swatch = colorButton(k, s)
 	c.AppendAligned(c.swatch, false, widget.AlignCenter)
@@ -47,45 +64,88 @@ func newColorValueEditor(k *kit, s slot) *colorValueEditor {
 	return c
 }
 
+// newColorValueEditor is ColorValueControl: the swatch picker over
+// lys-shell's keywords and palette tokens.
+func newColorValueEditor(k *kit, s slot) *swatchPicker {
+	return newSwatchPicker(k, s, func() ([]swatchName, []swatchName) { return shellColorNames(k.palette()) })
+}
+
+// newWMColorEditor is a lys-wm colour: the swatch picker over lys-wm's
+// palette names.
+func newWMColorEditor(k *kit, s slot) *swatchPicker {
+	return newSwatchPicker(k, s, func() ([]swatchName, []swatchName) { return nil, wmColorNames(k) })
+}
+
 // columnField makes the editor a field of the control column: its
 // dropdown takes the column's width beside the swatch.
-func (c *colorValueEditor) columnField() {}
+func (c *swatchPicker) columnField() {}
 
-// colorValueRows are build_items: auto, transparent, custom, then each
-// token group under its header, a swatch of the token's color in p
-// leading it.
-func colorValueRows(p styling.Palette) ([]widget.DropdownRow, []string) {
+// shellColorNames are lys-shell's colour keywords, auto and transparent,
+// and its palette tokens under their groups, each in p's colour.
+func shellColorNames(p styling.Palette) (keywords, named []swatchName) {
 	t := locale.T()
-	swatch := func(c render.Color) func() widget.Widget {
-		return func() widget.Widget { return widget.NewColorSwatch(c) }
+	keywords = []swatchName{
+		{value: colorAuto, label: t.Get("settings-color-auto")},
+		{value: colorTransparent, label: t.Get("settings-color-transparent"), swatch: true},
 	}
-	rows := []widget.DropdownRow{
-		{Label: t.Get("settings-color-auto")},
-		{Label: t.Get("settings-color-transparent"), Leading: swatch(0)},
-		{Label: t.Get("settings-color-custom")},
-	}
-	ids := []string{colorAuto, colorTransparent, colorCustom}
-	group := ""
 	for _, tok := range config.CssTokens() {
 		meta := cssTokenMeta[tok]
-		if meta.group != group {
-			group = meta.group
-			rows = append(rows, widget.DropdownRow{Label: group, Header: true})
-			ids = append(ids, "")
-		}
 		col, ok := p.Token(tok)
 		if !ok {
 			panic("settings: config token " + string(tok) + " has no color")
 		}
-		rows = append(rows, widget.DropdownRow{Label: meta.label, Leading: swatch(col)})
-		ids = append(ids, string(tok))
+		named = append(named, swatchName{value: string(tok), label: meta.label, group: meta.group, color: col, swatch: true})
 	}
-	return rows, ids
+	return keywords, named
 }
 
-// picked writes the chosen row: a token or keyword as it is, custom
-// as white, with the color button shown for it.
-func (c *colorValueEditor) picked(i int) {
+// wmColorNames are lys-wm's palette names in name order, each in its
+// colour.
+func wmColorNames(k *kit) []swatchName {
+	palette := wmPalette(k)
+	out := make([]swatchName, 0, len(palette))
+	for _, name := range slices.Sorted(maps.Keys(palette)) {
+		out = append(out, swatchName{value: name, label: name, color: palette[name], swatch: true})
+	}
+	return out
+}
+
+// rows are the dropdown's rows for the names and the stored value: the
+// keywords, the stored value when nothing lists it, custom, then the
+// named colours, a header ahead of each group.
+func (c *swatchPicker) rows(stored string) []swatchName {
+	keywords, named := c.names()
+	out := slices.Clone(keywords)
+	if stored != "" && !strings.HasPrefix(stored, "#") && !slices.ContainsFunc(slices.Concat(keywords, named), func(n swatchName) bool { return n.value == stored }) {
+		out = append(out, swatchName{value: stored, label: stored})
+	}
+	out = append(out, swatchName{value: colorCustom, label: locale.T().Get("settings-color-custom")})
+	group := ""
+	for _, n := range named {
+		if n.group != group {
+			group = n.group
+			out = append(out, swatchName{label: group})
+		}
+		out = append(out, n)
+	}
+	return out
+}
+
+func dropdownRows(names []swatchName) []widget.DropdownRow {
+	rows := make([]widget.DropdownRow, len(names))
+	for i, n := range names {
+		rows[i] = widget.DropdownRow{Label: n.label, Header: n.value == ""}
+		if n.swatch {
+			col := n.color
+			rows[i].Leading = func() widget.Widget { return widget.NewColorSwatch(col) }
+		}
+	}
+	return rows
+}
+
+// picked writes the chosen row: a name or keyword as it is, custom as
+// white, with the color button shown for it.
+func (c *swatchPicker) picked(i int) {
 	if c.syncing || i < 0 || i >= len(c.ids) || c.ids[i] == "" {
 		return
 	}
@@ -99,24 +159,26 @@ func (c *colorValueEditor) picked(i int) {
 	_ = c.slot.set(v)
 }
 
-// refresh selects the stored value's row, the token swatches rebuilt
-// when the palette changed.
-func (c *colorValueEditor) refresh() {
+// refresh selects the stored value's row, the rows rebuilt when the
+// names or their colours changed.
+func (c *swatchPicker) refresh() {
 	v, _ := c.slot.get().(string)
 	id := v
 	if strings.HasPrefix(v, "#") {
 		id = colorCustom
 	}
-	selected := max(slices.Index(c.ids, id), 0)
 	c.syncing = true
-	if p := c.k.palette(); p != c.palette {
-		c.palette = p
-		rows, _ := colorValueRows(p)
-		c.drop.SetRows(rows, selected)
+	defer func() { c.syncing = false }()
+	if rows := c.rows(v); !slices.Equal(rows, c.shown) {
+		c.shown = rows
+		c.ids = make([]string, len(rows))
+		for i, r := range rows {
+			c.ids[i] = r.value
+		}
+		c.drop.SetRows(dropdownRows(rows), max(slices.Index(c.ids, id), 0))
 	} else {
-		c.drop.SetSelected(selected)
+		c.drop.SetSelected(max(slices.Index(c.ids, id), 0))
 	}
-	c.syncing = false
 	c.swatch.SetVisible(id == colorCustom)
 	if id == colorCustom {
 		c.swatch.refresh()

@@ -152,7 +152,7 @@ func newFilenameEditor(k *kit, s, dir slot, custom *labelBuilder) *filenameEdito
 		w   widget.Widget
 	}{{"settings-filename-prefix", e.prefix}, {"settings-filename-date", e.date}, {"settings-filename-time", e.clock}, {"settings-filename-counter", e.counter}} {
 		line := gapBox(widget.Row)
-		line.AppendAligned(k.label(t.Get(part.key), "card-form-label", css.Caption), false, widget.AlignCenter)
+		line.AppendAligned(k.label(t.Get(part.key), cardFormClasses.label, css.Caption), false, widget.AlignCenter)
 		line.Append(part.w, true)
 		e.simple.Append(line, false)
 	}

@@ -1033,7 +1033,6 @@ wm-mode-rename-confirm = Renommer
 wm-mode-delete-button = Supprimer le mode
 wm-mode-delete-title = Supprimer le mode { $mode } ?
 wm-mode-delete-description = Ses raccourcis, et les raccourcis qui y entrent, sont supprimés aussi.
-wm-mode-delete-cancel = Annuler
 wm-mode-delete-confirm = Supprimer
 wm-mode-add = Ajouter un mode
 wm-mode-add-confirm = Ajouter

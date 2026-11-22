@@ -487,18 +487,17 @@ func (p *passwordsPanel) itemMenu(it client.Item) []widget.MenuItem {
 }
 
 func (p *passwordsPanel) confirmDelete(it client.Item) {
-	if p.k.pickers == nil {
-		p.fail(fmt.Errorf("settings: delete the keyring item %q: no window to ask in", it.Label))
-		return
-	}
 	path := it.Path
-	p.k.pickers.dialog(confirmDialog(p.k, "settings-passwords-delete-item", func() {
+	err := p.k.confirm(fmt.Sprintf("delete the keyring item %q", it.Label), "settings-passwords-delete-item", func() {
 		p.act(func(ctx context.Context) error { return p.c.DeleteItem(ctx, path) })
 		if p.expanded == path {
 			p.expanded = ""
 			p.showItems()
 		}
-	}, i18n.Str("label", it.Label)))
+	}, i18n.Str("label", it.Label))
+	if err != nil {
+		p.fail(err)
+	}
 }
 
 // summaryAttributes are the attributes an item's row names it by, in order.

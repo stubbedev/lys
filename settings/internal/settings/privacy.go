@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
-	"github.com/stubbedev/lys/desktop/desktopentry"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/portal/permissions"
 	"github.com/stubbedev/lys/desktop/settingspage"
@@ -148,8 +147,7 @@ func grantsFooter(k *kit) widget.Widget {
 	l.Append(l.inUse, false)
 	body := widget.NewItemGroup(k.row(t.Get("settings-privacy-view"), "").withControl(l.view), l.rows)
 	l.Append(newSection(k, "settings-section-app-permissions", body), false)
-	dirs := desktopentry.ApplicationDirs()
-	async(k, func() installedApps { return scanInstalled(dirs) }, func(ix installedApps) {
+	k.withInstalledApps(func(ix installedApps) {
 		l.installed = ix
 		l.render()
 		l.inUse.render()
@@ -320,16 +318,27 @@ func (l *grantsList) grantRow(app string, g permissions.Grant, title string) *se
 		row.withControl(sw)
 	default:
 		var revoke *widget.Button
-		revoke = l.k.removeButton("settings-privacy-revoke", func() {
-			revoke.SetEnabled(false)
-			l.act(func(ctx context.Context, s grantStore) error {
-				_, err := s.Revoke(ctx, app, g.Table, g.ID)
-				return err
-			}, "settings-privacy-revoke-failed")
-		})
+		revoke = l.k.removeButton("settings-privacy-revoke", func() { l.confirmRevoke(revoke, app, g) })
 		row.withControl(revoke)
 	}
 	return row
+}
+
+// confirmRevoke asks before revoking app's grant g, revoke going inert
+// while the revocation is on its way.
+func (l *grantsList) confirmRevoke(revoke *widget.Button, app string, g permissions.Grant) {
+	what := fmt.Sprintf("revoke the %s grant %s of %q", g.Table, g.ID, app)
+	err := l.k.confirm(what, "settings-privacy-revoke-grant", func() {
+		revoke.SetEnabled(false)
+		l.act(func(ctx context.Context, s grantStore) error {
+			_, err := s.Revoke(ctx, app, g.Table, g.ID)
+			return err
+		}, "settings-privacy-revoke-failed")
+	}, i18n.Str("app", l.appTitle(app)), i18n.Str("permission", locale.T().Get("settings-privacy-table-"+string(g.Table))))
+	if err != nil {
+		l.failedKey, l.failure = "settings-privacy-revoke-failed", err
+		l.render()
+	}
 }
 
 func grantWords(g permissions.Grant) string {

@@ -268,8 +268,7 @@ func newRuleList(k *kit, s slot, kind ruleKind) *cardList {
 	if !kind.apps {
 		return list
 	}
-	dirs := desktopentry.ApplicationDirs()
-	async(k, func() installedApps { return scanInstalled(dirs) }, func(ix installedApps) {
+	k.withInstalledApps(func(ix installedApps) {
 		apps = ix
 		list.rebuild()
 	})
@@ -297,7 +296,7 @@ func fieldRows(k *kit, box *widget.Box, fields []cardField, grid formGrid, field
 	for _, f := range fields {
 		ctl := f.build(k, field)
 		row := grid.row(grid.label(locale.T().Get(f.label)), ctl, f.fill)
-		row.AddClass("card-form-row")
+		row.AddClass(cardFormClasses.row)
 		box.Append(row, false)
 		controls = append(controls, ctl)
 		rows = append(rows, row)

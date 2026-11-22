@@ -38,11 +38,12 @@ func TestABorderAtItsDefaultShowsTheAccentItInherits(t *testing.T) {
 		t.Fatalf("shows %v, not the accent lys-wm uses", colors)
 	}
 	item := c.colors.items[0].(*colorItem)
-	if got := item.names.entry.Text(); got != "accent" {
-		t.Errorf("the colour reads %q", got)
+	shown := item.shown[item.drop.Selected()]
+	if shown.value != "accent" {
+		t.Errorf("the colour reads %q", shown.value)
 	}
-	if got, want := item.swatch.Color(), desktopAccent(t, k); got != want {
-		t.Errorf("the swatch shows %v, not the desktop accent %v", got, want)
+	if got, want := shown.color, desktopAccent(t, k); !shown.swatch || got != want {
+		t.Errorf("its swatch shows %v, not the desktop accent %v", got, want)
 	}
 	if src := w.source("borders.active"); src.badge || src.reset {
 		t.Errorf("the default reads as changed: %+v", src)

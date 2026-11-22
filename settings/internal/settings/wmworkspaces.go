@@ -112,11 +112,10 @@ func wmNamedCards(path, nameKey string, body func(k *kit) namedCardBody) rowSpec
 				identity: &cardField{key: itemNameKey, label: nameKey, editor: func(k *kit, s slot) control {
 					return newLiveText(k, s, locale.T().Get(nameKey))
 				}},
-				fields:  b.fields,
-				blank:   b.blank,
-				keep:    presetNamed,
-				unique:  itemNameKey,
-				listCls: "card-form-list", rowClass: "card-form-row", labelCls: "card-form-label",
+				fields: b.fields,
+				blank:  b.blank,
+				keep:   presetNamed,
+				unique: itemNameKey,
 			})
 		}
 	})

@@ -247,7 +247,7 @@ func (s *fingerprintSection) enrolledRow(finger string) *settingRow {
 	row := s.k.row(name, "")
 	row.AddClass("fingerprint-enrolled")
 	label := deleteLabel(finger)
-	del := s.k.removeButton("settings-fingerprint-delete", func() { s.deleteFinger(finger) })
+	del := s.k.removeButton("settings-fingerprint-delete", func() { s.confirmDeleteFinger(finger) })
 	del.SetTooltip(label)
 	del.SetAccessibleName(label)
 	del.SetEnabled(!s.busy)
@@ -399,11 +399,17 @@ func (s *fingerprintSection) close() {
 }
 
 func (s *fingerprintSection) confirmDeleteAll() {
-	if s.k.pickers == nil {
-		s.fail(errors.New("settings: delete every fingerprint: no window to ask in"))
-		return
+	if err := s.k.confirm("delete every fingerprint", "settings-fingerprint-delete-all", s.deleteAllFingers); err != nil {
+		s.fail(err)
 	}
-	s.k.pickers.dialog(confirmDialog(s.k, "settings-fingerprint-delete-all", s.deleteAllFingers))
+}
+
+// confirmDeleteFinger asks before deleting finger from the reader.
+func (s *fingerprintSection) confirmDeleteFinger(finger string) {
+	err := s.k.confirm("delete the fingerprint "+finger, "settings-fingerprint-delete-finger", func() { s.deleteFinger(finger) }, i18n.Str("finger", fingerName(finger)))
+	if err != nil {
+		s.fail(err)
+	}
 }
 
 func (s *fingerprintSection) deleteAllFingers() {

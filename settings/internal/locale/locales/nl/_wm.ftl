@@ -1028,7 +1028,6 @@ wm-mode-rename-confirm = Hernoemen
 wm-mode-delete-button = De modus verwijderen
 wm-mode-delete-title = Modus { $mode } verwijderen?
 wm-mode-delete-description = Ook de sneltoetsen ervan en de sneltoetsen die hem openen worden verwijderd.
-wm-mode-delete-cancel = Annuleren
 wm-mode-delete-confirm = Verwijderen
 wm-mode-add = Een modus toevoegen
 wm-mode-add-confirm = Toevoegen

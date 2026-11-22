@@ -174,7 +174,7 @@ func TestEveryRowOnEveryPageHasItsLabel(t *testing.T) {
 			for _, sec := range p.sections {
 				for _, r := range sec.flatRows() {
 					rows += 1 + len(r.also)
-					if key := r.labelKey(); !tr.Has(key) {
+					if key := r.labelKey(); key == unlabeledKey || !tr.Has(key) {
 						t.Errorf("%s on %s: no label (%s)", r.path, p.id, key)
 					}
 				}

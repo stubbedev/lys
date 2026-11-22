@@ -2,12 +2,10 @@ package settings
 
 import (
 	"context"
-	"errors"
 	"strings"
 
 	"github.com/stubbedev/lys/desktop/i18n"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
-	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
@@ -85,34 +83,20 @@ func (p *passwordsPanel) openAddItem() {
 	if !ok {
 		return
 	}
-	if p.k.pickers == nil {
-		p.fail(errors.New("settings: add a keyring item: no window to ask in"))
-		return
-	}
 	t := locale.T()
 	f := p.newItemForm()
-	var closeDialog func()
-	closeDialog = p.k.pickers.dialog(app.DialogConfig{
-		Title:   t.Get("settings-passwords-add-title", i18n.Str("collection", collectionTitle(c))),
-		Width:   passwordDialogWidth,
-		Content: f,
-		Focus:   f.label,
-		Buttons: []app.DialogButton{
-			{Label: t.Get("settings-passwords-add-cancel"), Response: responseCancel, Role: app.ButtonRoleCancel, Appearance: app.AppearancePlain},
-			{Label: t.Get("settings-passwords-add-confirm"), Response: responseConfirm, Role: app.ButtonRoleDefault, Appearance: app.AppearanceSuggested},
-		},
-		Modal:           true,
-		CancelResponse:  responseCancel,
-		DefaultResponse: responseConfirm,
-		ValidateResponse: func(r string) bool {
-			if r != responseConfirm {
-				return true
-			}
-			p.addItem(f, c.Path, func() { closeDialog() })
-			return false
-		},
-		OnClosed: f.clear,
+	_, err := p.k.openDialog("add a keyring item", dialogSpec{
+		title:    t.Get("settings-passwords-add-title", i18n.Str("collection", collectionTitle(c))),
+		width:    passwordDialogWidth,
+		content:  f,
+		focus:    f.label,
+		apply:    t.Get("settings-passwords-add-confirm"),
+		submit:   func(closeDialog func()) { p.addItem(f, c.Path, closeDialog) },
+		onClosed: f.clear,
 	})
+	if err != nil {
+		p.fail(err)
+	}
 }
 
 func (p *passwordsPanel) addItem(f *keyringItemForm, coll dbus.ObjectPath, done func()) {

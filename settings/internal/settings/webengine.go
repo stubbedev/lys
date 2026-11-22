@@ -78,7 +78,7 @@ func newWebEngineEditor(k *kit, name, url slot) *webEngineEditor {
 		in := newLiveText(k, f.s, f.hint)
 		in.SetAccessibleName(t.Get(f.label))
 		line := gapBox(widget.Row)
-		line.AppendAligned(k.label(t.Get(f.label), "card-form-label", css.Caption), false, widget.AlignCenter)
+		line.AppendAligned(k.label(t.Get(f.label), cardFormClasses.label, css.Caption), false, widget.AlignCenter)
 		line.Append(in, true)
 		e.custom.Append(line, false)
 		e.inputs = append(e.inputs, in)

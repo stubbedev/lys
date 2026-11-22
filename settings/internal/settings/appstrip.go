@@ -49,8 +49,7 @@ func newAppStrip(k *kit, spec appStripSpec, ids []string, write func([]string)) 
 	c.AppendAligned(c.none, true, widget.AlignCenter)
 	c.AppendAligned(c.add, false, widget.AlignCenter)
 	c.rebuild()
-	dirs := desktopentry.ApplicationDirs()
-	async(k, func() installedApps { return scanInstalled(dirs) }, func(ix installedApps) {
+	k.withInstalledApps(func(ix installedApps) {
 		c.apps = ix
 		c.add.SetVisible(true)
 		c.rebuild()

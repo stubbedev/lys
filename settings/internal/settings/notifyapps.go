@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/stubbedev/lys/desktop/config"
-	"github.com/stubbedev/lys/desktop/desktopentry"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
@@ -46,49 +45,56 @@ func notifyAppsRow() rowSpec {
 }
 
 // notifyApps holds the rules' lists, one per appRules entry, and the
-// apps added that no rule names yet.
+// apps added that no rule names yet; an app pattern can be typed too.
 type notifyApps struct {
-	*widget.Box
-	k       *kit
+	*appList
 	slots   []slot
-	apps    installedApps
-	pending []string
-	rows    []string
-	list    *widget.Box
-	state   *cardState
 	pattern *widget.Entry
-	add     *widget.Button
 	checks  map[string][]*widget.CheckButton
-	syncing bool
 }
 
 func newNotifyApps(k *kit, slots []slot) *notifyApps {
 	t := locale.T()
-	c := &notifyApps{Box: gapBox(widget.Column), k: k, slots: slots}
-	c.list = gapBox(widget.Column)
-	c.state = k.cardState()
-	c.add = k.addButton("settings-notify-apps-add", c.pickApp)
+	c := &notifyApps{slots: slots, checks: map[string][]*widget.CheckButton{}}
 	c.pattern = k.entry()
 	c.pattern.SetPlaceholder(t.Get("settings-notify-apps-pattern"))
 	c.pattern.SetAccessibleName(t.Get("settings-notify-apps-pattern"))
 	c.pattern.OnActivate = func(text string) {
 		if p := strings.TrimSpace(text); p != "" {
 			c.pattern.SetText("")
-			c.addPending(p)
+			c.addApp(p)
 		}
 	}
-	controls := gapBox(widget.Row)
-	controls.AppendAligned(c.add, false, widget.AlignCenter)
-	controls.AppendAligned(c.pattern, true, widget.AlignCenter)
-	c.Append(c.state.lone(), false)
-	c.Append(c.list, false)
-	c.Append(controls, false)
-	dirs := desktopentry.ApplicationDirs()
-	async(k, func() installedApps { return scanInstalled(dirs) }, func(ix installedApps) {
-		c.apps = ix
-		c.rebuild()
+	c.appList = newAppList(k, appListSpec{
+		addKey:    "settings-notify-apps-add",
+		emptyIcon: "ld-bell-symbolic",
+		emptyKey:  "settings-notify-apps-none",
+		rowClass:  "notify-app",
+		extra:     c.pattern,
+		stored: func() []string {
+			var all []string
+			for i := range c.slots {
+				all = append(all, c.listed(i)...)
+			}
+			return all
+		},
+		controls: c.ruleChecks,
+		show: func(rows []string) {
+			for i := range appRules {
+				listed := c.listed(i)
+				for _, pattern := range rows {
+					c.checks[pattern][i].SetChecked(slices.Contains(listed, pattern))
+				}
+			}
+		},
+		drop: func(pattern string) {
+			for i := range c.slots {
+				if listed := c.listed(i); slices.Contains(listed, pattern) {
+					c.write(i, slices.DeleteFunc(listed, func(p string) bool { return p == pattern }))
+				}
+			}
+		},
 	})
-	c.rebuild()
 	return c
 }
 
@@ -107,49 +113,36 @@ func (c *notifyApps) listed(i int) []string {
 	return out
 }
 
-// named is every pattern a rule lists or that was added here, those with
-// a row first in their rows' order, then the rest as the rules list them.
-func (c *notifyApps) named() []string {
-	all := slices.Clone(c.pending)
-	for i := range c.slots {
-		all = append(all, c.listed(i)...)
-	}
-	out := slices.DeleteFunc(slices.Clone(c.rows), func(p string) bool { return !slices.Contains(all, p) })
-	for _, p := range all {
-		if !slices.Contains(out, p) {
-			out = append(out, p)
+// ruleChecks are pattern's checks, one per rule.
+func (c *notifyApps) ruleChecks(list *appList, pattern string) []widget.Widget {
+	t := locale.T()
+	checks := make([]*widget.CheckButton, len(appRules))
+	out := make([]widget.Widget, len(appRules))
+	for i, rule := range appRules {
+		check := widget.NewCheckButton(false)
+		check.SetChild(list.k.label(t.Get(rule.key)))
+		check.SetTooltip(t.Attr(rule.key, "description"))
+		check.OnChanged = func(on bool) {
+			if !list.syncing {
+				c.set(list, i, pattern, on)
+			}
 		}
+		checks[i], out[i] = check, check
 	}
+	c.checks[pattern] = checks
 	return out
-}
-
-// pickApp offers the installed apps no rule names yet.
-func (c *notifyApps) pickApp() {
-	named := c.named()
-	apps := slices.DeleteFunc(slices.Clone(c.apps.shown), func(a desktopentry.App) bool { return slices.Contains(named, a.AppID()) })
-	openAppPicker(c.k, c.add, apps, func(a desktopentry.App) { c.addPending(a.AppID()) })
-}
-
-func (c *notifyApps) addPending(pattern string) {
-	if slices.Contains(c.named(), pattern) {
-		return
-	}
-	c.pending = append(c.pending, pattern)
-	c.rebuild()
 }
 
 // set puts pattern on rule i's list or takes it off, its row staying
 // until it is removed.
-func (c *notifyApps) set(i int, pattern string, on bool) {
-	if !slices.Contains(c.pending, pattern) {
-		c.pending = append(c.pending, pattern)
-	}
+func (c *notifyApps) set(list *appList, i int, pattern string, on bool) {
+	list.keep(pattern)
 	listed := slices.DeleteFunc(c.listed(i), func(p string) bool { return p == pattern })
 	if on {
 		listed = append(listed, pattern)
 	}
 	c.write(i, listed)
-	c.refresh()
+	list.refresh()
 }
 
 func (c *notifyApps) write(i int, patterns []string) {
@@ -158,71 +151,4 @@ func (c *notifyApps) write(i int, patterns []string) {
 		out[j] = p
 	}
 	_ = c.slots[i].set(out)
-}
-
-// remove takes pattern off every rule's list.
-func (c *notifyApps) remove(pattern string) {
-	c.pending = slices.DeleteFunc(c.pending, func(p string) bool { return p == pattern })
-	for i := range c.slots {
-		if listed := c.listed(i); slices.Contains(listed, pattern) {
-			c.write(i, slices.DeleteFunc(listed, func(p string) bool { return p == pattern }))
-		}
-	}
-	c.rebuild()
-}
-
-func (c *notifyApps) face(pattern string) *widget.Box {
-	if a, ok := c.apps.byID[pattern]; ok {
-		return installedFace(c.k, a)
-	}
-	return appFace(c.k, "", pattern, pattern)
-}
-
-func (c *notifyApps) rebuild() {
-	t := locale.T()
-	c.list.Clear()
-	c.checks = map[string][]*widget.CheckButton{}
-	c.rows = c.named()
-	if len(c.rows) == 0 {
-		c.state.Empty("ld-bell-symbolic", t.Get("settings-notify-apps-none"))
-	} else {
-		c.state.Clear()
-	}
-	for _, pattern := range c.rows {
-		row := gapBox(widget.Row)
-		row.AddClass("notify-app")
-		row.AppendAligned(c.face(pattern), true, widget.AlignCenter)
-		checks := make([]*widget.CheckButton, len(appRules))
-		for i, rule := range appRules {
-			check := widget.NewCheckButton(false)
-			check.SetChild(c.k.label(t.Get(rule.key)))
-			check.SetTooltip(t.Attr(rule.key, "description"))
-			check.OnChanged = func(on bool) {
-				if !c.syncing {
-					c.set(i, pattern, on)
-				}
-			}
-			checks[i] = check
-			row.AppendAligned(check, false, widget.AlignCenter)
-		}
-		c.checks[pattern] = checks
-		row.AppendAligned(c.k.removeButton("settings-list-remove", func() { c.remove(pattern) }), false, widget.AlignCenter)
-		c.list.Append(row, false)
-	}
-	c.refresh()
-}
-
-func (c *notifyApps) refresh() {
-	if !slices.Equal(c.named(), c.rows) {
-		c.rebuild()
-		return
-	}
-	c.syncing = true
-	defer func() { c.syncing = false }()
-	for i := range appRules {
-		listed := c.listed(i)
-		for _, pattern := range c.rows {
-			c.checks[pattern][i].SetChecked(slices.Contains(listed, pattern))
-		}
-	}
 }

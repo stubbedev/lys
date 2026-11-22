@@ -26,7 +26,6 @@ import (
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/xdg"
 	secrets "github.com/stubbedev/lys/secrets/control"
-	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
 
@@ -34,21 +33,20 @@ import (
 )
 
 const (
-	usersID           = "users"
-	accountsName      = "org.freedesktop.Accounts"
-	accountsPath      = dbus.ObjectPath("/org/freedesktop/Accounts")
-	accountsUser      = accountsName + ".User"
-	avatarSide        = 512
-	avatarThumb       = 64
-	identityAvatar    = 96
-	avatarDialogWidth = 440
-	accountAdmin      = int32(1)
-	accountStandard   = int32(0)
-	passwdService     = "passwd"
-	faceFile          = ".face"
-	avatarCacheName   = "avatar.png"
-	strengthClasses   = 4
-	strengthMinScore  = 8
+	usersID          = "users"
+	accountsName     = "org.freedesktop.Accounts"
+	accountsPath     = dbus.ObjectPath("/org/freedesktop/Accounts")
+	accountsUser     = accountsName + ".User"
+	avatarSide       = 512
+	avatarThumb      = 64
+	identityAvatar   = 96
+	accountAdmin     = int32(1)
+	accountStandard  = int32(0)
+	passwdService    = "passwd"
+	faceFile         = ".face"
+	avatarCacheName  = "avatar.png"
+	strengthClasses  = 4
+	strengthMinScore = 8
 )
 
 //go:embed avatars/*.png
@@ -487,10 +485,6 @@ func stockAvatarImages() ([]stockAvatar, error) {
 // openAvatarDialog offers the stock pictures and a file of the user's
 // own: a stock one is set at once, a file is cropped first.
 func (p *usersPanel) openAvatarDialog() {
-	if p.k.pickers == nil {
-		p.fail(errors.New("settings: change the picture: no window to ask in"))
-		return
-	}
 	stock, err := stockAvatarImages()
 	if err != nil {
 		p.fail(err)
@@ -520,17 +514,14 @@ func (p *usersPanel) openAvatarDialog() {
 	content.AddClass("avatar-sheet")
 	content.Append(grid, false)
 	content.Append(choose, false)
-	closeDialog = p.k.pickers.dialog(app.DialogConfig{
-		Title:       t.Get("settings-users-avatar-change"),
-		Description: t.Attr("settings-section-users-avatar", "description"),
-		Width:       avatarDialogWidth,
-		Content:     content,
-		Buttons: []app.DialogButton{
-			{Label: t.Get("settings-users-avatar-cancel"), Response: responseCancel, Role: app.ButtonRoleCancel, Appearance: app.AppearancePlain},
-		},
-		Modal:          true,
-		CancelResponse: responseCancel,
+	closeDialog, err = p.k.openDialog("change the picture", dialogSpec{
+		title:       t.Get("settings-users-avatar-change"),
+		description: t.Attr("settings-section-users-avatar", "description"),
+		content:     content,
 	})
+	if err != nil {
+		p.fail(err)
+	}
 }
 
 type avatarSet struct {
@@ -579,24 +570,20 @@ func (p *usersPanel) cropFile(path string) {
 	content.AppendAligned(cropper, false, widget.AlignCenter)
 	content.Append(p.k.note(t.Get("settings-users-avatar-crop-hint")), false)
 	content.Append(p.k.row(t.Get("settings-users-avatar-zoom"), "").withControl(zoom), false)
-	p.k.pickers.dialog(app.DialogConfig{
-		Title:   t.Get("settings-users-avatar-crop"),
-		Width:   avatarDialogWidth,
-		Content: content,
-		Focus:   cropper,
-		Buttons: []app.DialogButton{
-			{Label: t.Get("settings-users-avatar-cancel"), Response: responseCancel, Role: app.ButtonRoleCancel, Appearance: app.AppearancePlain},
-			{Label: t.Get("settings-users-avatar-apply"), Response: responseConfirm, Role: app.ButtonRoleDefault, Appearance: app.AppearanceSuggested},
-		},
-		Modal:           true,
-		CancelResponse:  responseCancel,
-		DefaultResponse: responseConfirm,
-		OnResponse: func(r string) {
+	_, err = p.k.openDialog("crop the picture", dialogSpec{
+		title:   t.Get("settings-users-avatar-crop"),
+		content: content,
+		focus:   cropper,
+		apply:   t.Get("settings-users-avatar-apply"),
+		onResponse: func(r string) {
 			if r == responseConfirm {
 				p.useAvatar(img, cropper.crop)
 			}
 		},
 	})
+	if err != nil {
+		p.fail(err)
+	}
 }
 
 func (p *usersPanel) loadAdmin() {
@@ -644,28 +631,18 @@ const (
 // confirmRemove asks before removing u, and whether their home folder
 // goes with them.
 func (p *usersPanel) confirmRemove(u otherUser) {
-	if p.k.pickers == nil {
-		p.fail(fmt.Errorf("settings: remove the user %s: no window to ask in", u.name))
-		return
-	}
 	t := locale.T()
 	name := i18n.Str("name", cmp.Or(u.real, u.name))
-	body := p.k.label(t.Get("settings-users-remove-description", name), css.DimLabel)
-	body.SetWrap(true)
 	manager := p.acc.manager()
 	uid := intconv.Must[int64](u.uid)
-	p.k.pickers.dialog(app.DialogConfig{
-		Title:   t.Get("settings-users-remove-title", name),
-		Width:   confirmDialogWidth,
-		Content: body,
-		Buttons: []app.DialogButton{
-			{Label: t.Get("settings-users-remove-cancel"), Response: responseCancel, Role: app.ButtonRoleCancel, Appearance: app.AppearancePlain},
-			{Label: t.Get("settings-users-remove-keep"), Response: responseKeepHome, Appearance: app.AppearancePlain},
-			{Label: t.Get("settings-users-remove-delete"), Response: responseDeleteFiles, Appearance: app.AppearanceDestructive},
+	_, err := p.k.openDialog("remove the user "+u.name, dialogSpec{
+		title:       t.Get("settings-users-remove-title", name),
+		description: t.Get("settings-users-remove-description", name),
+		actions: []dialogAction{
+			{label: t.Get("settings-users-remove-keep"), response: responseKeepHome, kind: actionPlain},
+			{label: t.Get("settings-users-remove-delete"), response: responseDeleteFiles, kind: actionDestructive},
 		},
-		Modal:          true,
-		CancelResponse: responseCancel,
-		OnResponse: func(r string) {
+		onResponse: func(r string) {
 			if r != responseKeepHome && r != responseDeleteFiles {
 				return
 			}
@@ -675,6 +652,9 @@ func (p *usersPanel) confirmRemove(u otherUser) {
 			})
 		},
 	})
+	if err != nil {
+		p.fail(err)
+	}
 }
 
 func (p *usersPanel) adminCall(fn func(context.Context) error) {
@@ -795,34 +775,20 @@ func (f *passwordForm) clear() {
 // modal dialog, which stays open over pam's refusal and closes once the
 // password changed.
 func (p *usersPanel) openPasswordDialog() {
-	if p.k.pickers == nil {
-		p.fail(errors.New("settings: change the password: no window to ask in"))
-		return
-	}
 	t := locale.T()
 	f := p.newPasswordForm()
-	var closeDialog func()
-	closeDialog = p.k.pickers.dialog(app.DialogConfig{
-		Title:   t.Get("settings-users-password-change"),
-		Width:   passwordDialogWidth,
-		Content: f,
-		Focus:   f.current,
-		Buttons: []app.DialogButton{
-			{Label: t.Get("settings-users-password-cancel"), Response: responseCancel, Role: app.ButtonRoleCancel, Appearance: app.AppearancePlain},
-			{Label: t.Get("settings-users-password-apply"), Response: responseConfirm, Role: app.ButtonRoleDefault, Appearance: app.AppearanceSuggested},
-		},
-		Modal:           true,
-		CancelResponse:  responseCancel,
-		DefaultResponse: responseConfirm,
-		ValidateResponse: func(r string) bool {
-			if r != responseConfirm {
-				return true
-			}
-			p.changePassword(f, func() { closeDialog() })
-			return false
-		},
-		OnClosed: f.clear,
+	_, err := p.k.openDialog("change the password", dialogSpec{
+		title:    t.Get("settings-users-password-change"),
+		width:    passwordDialogWidth,
+		content:  f,
+		focus:    f.current,
+		apply:    t.Get("settings-users-password-apply"),
+		submit:   func(closeDialog func()) { p.changePassword(f, closeDialog) },
+		onClosed: f.clear,
 	})
+	if err != nil {
+		p.fail(err)
+	}
 }
 
 // changePassword hands pam the form's passwords, saying its messages in

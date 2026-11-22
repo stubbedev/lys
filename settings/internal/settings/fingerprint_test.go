@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/dbusx"
@@ -295,10 +296,23 @@ func TestAFingerprintServiceThatCannotBeReachedSaysWhy(t *testing.T) {
 	}
 }
 
-func TestAnEnrolledFingerIsDeletedAlone(t *testing.T) {
+// Deleting one finger asks first: cancelling leaves it enrolled and
+// reaches nothing, confirming deletes that finger alone.
+func TestAnEnrolledFingerIsDeletedAloneOnceConfirmed(t *testing.T) {
 	r := startFprint(t, true)
 	s := r.section(t)
+	pickers := &fakePickers{}
+	s.k.pickers = pickers
 	treetest.Button(t, s, deleteLabel("right-index-finger")).OnClick()
+	if len(pickers.dialogs) != 1 || pickers.dialogs[0].Title != locale.T().Get("settings-fingerprint-delete-finger-title", i18n.Str("finger", fingerName("right-index-finger"))) {
+		t.Fatalf("Delete asked %+v", pickers.dialogs)
+	}
+	pickers.respond(responseCancel)
+	r.l.drain()
+	if len(r.methods()) != 0 || len(enrolledFingers(s)) != 1 {
+		t.Fatalf("cancelling reached the reader %v, %d enrolled", r.methods(), len(enrolledFingers(s)))
+	}
+	pickers.respond(responseConfirm)
 	r.l.until("the finger gone", func() bool {
 		return len(enrolledFingers(s)) == 0 && slices.Contains(r.methods(), "Release")
 	})
@@ -311,7 +325,10 @@ func TestAReaderThatCannotDeleteOneFingerKeepsEveryOther(t *testing.T) {
 	r := startFprint(t, true)
 	r.unknownDeleteOne.Store(true)
 	s := r.section(t)
+	pickers := &fakePickers{}
+	s.k.pickers = pickers
 	treetest.Button(t, s, deleteLabel("right-index-finger")).OnClick()
+	pickers.respond(responseConfirm)
 	r.l.until("the refusal reported", func() bool { return r.p.problem.Visible() && slices.Contains(r.methods(), "Release") })
 	if got := r.methods(); !slices.Equal(got, []string{"Claim", "DeleteEnrolledFinger", "Release"}) {
 		t.Fatalf("calls %v, want no DeleteEnrolledFingers2", got)
@@ -466,5 +483,16 @@ func TestAFingerprintSwitchIsHeldBackUntilAFingerCanUnlock(t *testing.T) {
 	k := testKit(t, "")
 	if _, ok := fieldControl(k, k.store, pageRow(t, "lock", "login.greeter.fingerprint")).(*fingerprintSwitch); !ok {
 		t.Error("the login screen's fingerprint row is a plain switch")
+	}
+}
+
+func TestWithoutAWindowDeletingAFingerIsRefused(t *testing.T) {
+	r := startFprint(t, true)
+	s := r.section(t)
+	s.k.pickers = nil
+	treetest.Button(t, s, deleteLabel("right-index-finger")).OnClick()
+	r.l.drain()
+	if !r.p.problem.Visible() || len(r.methods()) != 0 || len(enrolledFingers(s)) != 1 {
+		t.Fatalf("problem shown %v, calls %v, %d enrolled", r.p.problem.Visible(), r.methods(), len(enrolledFingers(s)))
 	}
 }

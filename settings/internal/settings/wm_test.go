@@ -146,7 +146,7 @@ func TestWMRowsFollowTheSchemasTypes(t *testing.T) {
 		"tabs.label":                  &text{},
 		"gpu":                         &choiceEditor{},
 		"input.keyboard.layout":       &choiceEditor{},
-		"decoration.shadow.color":     &wmColorEditor{},
+		"decoration.shadow.color":     &swatchPicker{},
 	} {
 		c := fieldControl(k, w, wmField(path))
 		if fmt.Sprintf("%T", c) != fmt.Sprintf("%T", want) {
@@ -913,24 +913,37 @@ func TestTheKeyboardLayoutsAreToggledInOrderAndTheVariantsFollowThem(t *testing.
 	}
 }
 
+// A lys-wm colour is the swatch picker over lys-wm's palette names, the
+// built-in ones and the desktop accent among them, each led by its
+// colour; the colour button sets a hex, shown as custom; a name the
+// palette lacks is listed as it is.
 func TestAWMColorTakesAHexOrAPaletteName(t *testing.T) {
 	k, w, _, _ := wmKit(t, "palette:\n  accent: '#ff0000'\n")
-	c := fieldControl(k, w, wmField("decoration.shadow.color")).(*wmColorEditor)
+	c := fieldControl(k, w, wmField("decoration.shadow.color")).(*swatchPicker)
 	c.swatch.OnColorSet(render.RGBA(0, 255, 0, 255))
 	if got := w.value("decoration.shadow.color"); got != "#00ff00" {
 		t.Fatalf("%v", got)
 	}
-	p := openChoices(t, k, c.names)
-	if !slices.Equal(p.all, []string{"blue", "red", "accent"}) {
-		t.Fatalf("offered %q", p.all)
+	c.refresh()
+	if c.ids[c.drop.Selected()] != colorCustom || !c.swatch.Visible() {
+		t.Fatalf("a hex shows row %q, the colour button %v", c.ids[c.drop.Selected()], c.swatch.Visible())
 	}
-	p.pick(t, "accent")
-	if got := w.value("decoration.shadow.color"); got != "accent" {
-		t.Fatalf("%v", got)
+	if want := []string{colorCustom, "accent", "blue", "red"}; !slices.Equal(c.ids, want) {
+		t.Fatalf("offered %q, want custom and the palette's names", c.ids)
+	}
+	if got := listedSwatches(t, c); len(got) != 3 || got[0] != render.RGBA(255, 0, 0, 255) {
+		t.Fatalf("the names lead with swatches %x, want the accent's red first", got)
+	}
+	c.drop.SetSelected(slices.Index(c.ids, "accent"))
+	if got := w.value("decoration.shadow.color"); got != "accent" || c.swatch.Visible() {
+		t.Fatalf("picking accent wrote %v, the colour button %v", got, c.swatch.Visible())
+	}
+	if err := w.slot("decoration.shadow.color").set("teal"); err != nil {
+		t.Fatal(err)
 	}
 	c.refresh()
-	if c.names.unknown.Visible() {
-		t.Fatal("a palette name lys-wm builds in would be marked unknown")
+	if c.ids[c.drop.Selected()] != "teal" {
+		t.Fatalf("a name the palette lacks shows row %q", c.ids[c.drop.Selected()])
 	}
 }
 
@@ -1199,6 +1212,11 @@ func TestThePaletteIsAGridOfSwatchesThatPinsOnlyWhatChanges(t *testing.T) {
 	p := fieldControl(k, w, wmPaletteRow()).(*paletteGrid)
 	if !slices.Equal(p.shown, []string{"blue", "red"}) {
 		t.Fatalf("the grid shows %q, want the built-in colours", p.shown)
+	}
+	for i, tile := range p.tiles {
+		if _, ok := tile.(*colorEditor); !ok {
+			t.Fatalf("%s is a %T, not the colour button alone: lys-wm's palette takes no names", p.shown[i], tile)
+		}
 	}
 	if err := p.colorSlot("red").set("#ff0000"); err != nil {
 		t.Fatal(err)

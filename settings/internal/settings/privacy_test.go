@@ -134,8 +134,8 @@ func revokeButtons(root widget.Widget) []*widget.Button {
 
 // The Privacy page is listed under its settingspage id and holds the
 // screen-share reminder; its footer lists every app's grants with a
-// revoke button each, and a revoke takes exactly that grant and lists
-// again without it.
+// revoke button each, which asks first: cancelling keeps the grant, and
+// confirming takes exactly that grant and lists again without it.
 func TestPrivacyPageListsAndRevokesGrants(t *testing.T) {
 	k := testKit(t, "")
 	if !slices.ContainsFunc(pages(k.store.svc.Config(), bothParts), func(p settingspage.Page) bool { return p.ID == settingspage.PrivacyID && p.Title != "" }) {
@@ -147,6 +147,8 @@ func TestPrivacyPageListsAndRevokesGrants(t *testing.T) {
 	}
 	f := &fakeGrants{apps: twoApps()}
 	serveGrants(t, f)
+	pickers := &fakePickers{}
+	k.pickers = pickers
 	footer := grantsByAppFooter(k)
 	labels := strings.Join(treetest.Labels(footer), "\n")
 	for _, want := range []string{"com.obsproject.Studio", "org.app", locale.T().Get("settings-privacy-table-devices") + " · camera", "Toggle recording"} {
@@ -159,6 +161,17 @@ func TestPrivacyPageListsAndRevokesGrants(t *testing.T) {
 		t.Fatalf("%d revoke buttons, want one per grant", len(buttons))
 	}
 	buttons[1].ClickAt(widget.Point{})
+	if len(pickers.dialogs) != 1 || len(f.revokes) != 0 {
+		t.Fatalf("Revoke opened %d dialogs and revoked %+v before an answer", len(pickers.dialogs), f.revokes)
+	}
+	if ask := pickers.dialogs[0]; ask.Title != locale.T().Get("settings-privacy-revoke-grant-title", i18n.Str("app", "org.app")) {
+		t.Errorf("the question reads %q", ask.Title)
+	}
+	pickers.respond(responseCancel)
+	if len(f.revokes) != 0 || len(revokeButtons(footer)) != 3 {
+		t.Fatalf("cancelling revoked %+v", f.revokes)
+	}
+	pickers.respond(responseConfirm)
 	if want := []revoked{{"org.app", permissions.Devices, "camera"}}; !slices.Equal(f.revokes, want) {
 		t.Errorf("revoked %+v, want %+v", f.revokes, want)
 	}
@@ -180,8 +193,11 @@ func TestPrivacyPageFailuresAreShown(t *testing.T) {
 	k := testKit(t, "")
 	f := &fakeGrants{apps: twoApps(), failRevoke: errors.New("the store went away")}
 	serveGrants(t, f)
+	pickers := &fakePickers{}
+	k.pickers = pickers
 	footer := grantsByAppFooter(k)
 	revokeButtons(footer)[0].ClickAt(widget.Point{})
+	pickers.respond(responseConfirm)
 	labels := strings.Join(treetest.Labels(footer), "\n")
 	if st := footer.state; st.kind != stateError || st.Title() != locale.T().Get("settings-privacy-revoke-failed") || st.detail.Text() != "the store went away" || !strings.Contains(labels, "com.obsproject.Studio") {
 		t.Errorf("a failed revoke shows %v %q over %q, the list:\n%s", st.kind, st.Title(), st.detail.Text(), labels)
@@ -475,5 +491,17 @@ func TestPrivacyLinksToWhatTheLockScreenShowsAndWhatFileSearchReads(t *testing.T
 	k.nav = nil
 	if _, ok := relatedSection(k, related); ok {
 		t.Error("without the pages the page still has related links")
+	}
+}
+
+// Without a window to ask in, Revoke revokes nothing and says why.
+func TestWithoutAWindowARevokeIsRefused(t *testing.T) {
+	k := testKit(t, "")
+	f := &fakeGrants{apps: twoApps()}
+	serveGrants(t, f)
+	footer := grantsByAppFooter(k)
+	revokeButtons(footer)[0].ClickAt(widget.Point{})
+	if st := footer.state; len(f.revokes) != 0 || st.kind != stateError || !strings.Contains(st.detail.Text(), errNoWindow.Error()) {
+		t.Fatalf("revoked %+v, the state %v %q", f.revokes, st.kind, st.detail.Text())
 	}
 }

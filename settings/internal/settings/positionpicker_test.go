@@ -42,9 +42,9 @@ func TestThePositionPickerWritesTheChosenPlace(t *testing.T) {
 	k := testKit(t, "")
 	c := fieldControl(k, k.store, field("osd.position", screenPosition)).(*positionPicker)
 	c.Arrange(render.Rect{W: positionW, H: positionH})
-	var topLeft *positionHandle
+	var topLeft *spot[string]
 	for _, h := range c.handles {
-		if h.value == "top-left" {
+		if h.key == "top-left" {
 			topLeft = h
 		}
 	}
@@ -54,11 +54,16 @@ func TestThePositionPickerWritesTheChosenPlace(t *testing.T) {
 		t.Fatalf("a press on the top-left cell stored %v", v)
 	}
 	c.handles[len(c.handles)-1].KeyAction(widget.KeyEnter, 0)
-	if v := k.store.value("osd.position"); v != c.handles[len(c.handles)-1].value {
+	if v := k.store.value("osd.position"); v != c.handles[len(c.handles)-1].key {
 		t.Errorf("Enter on the last cell stored %v", v)
 	}
+	c.handles[0].KeyAction(widget.KeySpace, 0)
+	if v := k.store.value("osd.position"); v != c.handles[0].key {
+		t.Errorf("Space on the first cell stored %v", v)
+	}
+	c.handles[len(c.handles)-1].KeyAction(widget.KeyEnter, 0)
 	c.PressAt(widget.Point{X: c.screenRect().X + c.screenRect().W/2, Y: c.screenRect().Y + c.screenRect().H/2})
-	if v := k.store.value("osd.position"); v != c.handles[len(c.handles)-1].value {
+	if v := k.store.value("osd.position"); v != c.handles[len(c.handles)-1].key {
 		t.Errorf("a press on the empty centre changed the position to %v", v)
 	}
 }

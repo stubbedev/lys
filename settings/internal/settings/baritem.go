@@ -138,7 +138,7 @@ func newColorStrip(k *kit, slots []slot, labels []string) *colorStrip {
 
 type colorStrip struct {
 	*widget.FlowBox
-	editors []*colorValueEditor
+	editors []*swatchPicker
 }
 
 func (c *colorStrip) refresh() {
@@ -186,19 +186,13 @@ func (m *mouseActions) refresh() { m.choose(m.selected) }
 type mouseDrawing struct {
 	widget.Base
 	m       *mouseActions
-	handles []*mouseHandle
-}
-
-type mouseHandle struct {
-	widget.Base
-	d  *mouseDrawing
-	at int
+	handles []*spot[int]
 }
 
 func newMouseDrawing(m *mouseActions) *mouseDrawing {
 	d := &mouseDrawing{Base: widget.NewBase(), m: m}
 	for i, b := range mouseButtons {
-		h := &mouseHandle{Base: widget.NewBase(), d: d, at: i}
+		h := newSpot(i, m.choose)
 		h.SetAccessibleName(locale.T().Get("settings-mouse-" + b))
 		d.handles = append(d.handles, h)
 	}
@@ -284,17 +278,3 @@ func (d *mouseDrawing) PressAt(p widget.Point) {
 }
 
 func (d *mouseDrawing) FocusMoved(_, _ widget.Widget) { d.Invalidate() }
-
-func (h *mouseHandle) Measure(widget.Axis, int) widget.Sizes { return widget.FixedSizes(0) }
-
-func (h *mouseHandle) Paint(*render.Canvas) {}
-
-func (h *mouseHandle) HitTest(widget.Point) widget.Widget { return nil }
-
-func (h *mouseHandle) Role() widget.Role { return widget.RoleButton }
-
-func (h *mouseHandle) KeyAction(a widget.KeyAction, _ widget.Mods) {
-	if a == widget.KeyEnter || a == widget.KeySpace {
-		h.d.m.choose(h.at)
-	}
-}

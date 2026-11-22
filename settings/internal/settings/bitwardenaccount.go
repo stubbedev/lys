@@ -279,12 +279,12 @@ func (a *vaultAccount) lockNow() {
 }
 
 func (a *vaultAccount) askLogout() {
-	if a.k.pickers == nil {
-		return
-	}
-	a.k.pickers.dialog(confirmDialog(a.k, "settings-vault-logout", func() {
+	err := a.k.confirm("sign out of the vault", "settings-vault-logout", func() {
 		a.act(func(ctx context.Context) error { return a.ctl.logout(ctx) }, nil)
-	}))
+	})
+	if err != nil {
+		a.fail(err)
+	}
 }
 
 // act runs do against the vault; then, when set, sees its outcome first

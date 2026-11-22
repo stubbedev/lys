@@ -1031,7 +1031,6 @@ wm-mode-rename-confirm = Umbenennen
 wm-mode-delete-button = Modus löschen
 wm-mode-delete-title = Modus { $mode } löschen?
 wm-mode-delete-description = Seine Tastenkürzel und die Tastenkürzel, die ihn betreten, werden ebenfalls entfernt.
-wm-mode-delete-cancel = Abbrechen
 wm-mode-delete-confirm = Löschen
 wm-mode-add = Modus hinzufügen
 wm-mode-add-confirm = Hinzufügen

@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
@@ -157,7 +159,12 @@ func TestSmallEnumsAreSegmentedControls(t *testing.T) {
 	if seg.Active() != 1 || writes != 0 {
 		t.Fatalf("shows segment %d after %d writes, want the stored b silently", seg.Active(), writes)
 	}
-	seg.KeyAction(widget.KeyRight, 0)
+	r := &widget.Router{Root: cc}
+	cc.Arrange(render.Rect{W: 400, H: 40})
+	if err := r.SetFocus(treetest.All[*widget.ToggleButton](seg)[1]); err != nil {
+		t.Fatal(err)
+	}
+	r.KeyAction(widget.KeyRight, 0)
 	if stored != "c" || writes != 1 {
 		t.Errorf("Right wrote %v (%d writes)", stored, writes)
 	}

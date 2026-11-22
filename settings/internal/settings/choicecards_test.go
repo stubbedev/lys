@@ -54,6 +54,11 @@ func TestAPictureChoiceWritesTheCardChosen(t *testing.T) {
 	if v := k.store.value("styling.appearance"); v != c.cards[0].value {
 		t.Errorf("Enter on the first card stored %v", v)
 	}
+	last := c.cards[len(c.cards)-1]
+	last.KeyAction(widget.KeySpace, 0)
+	if v := k.store.value("styling.appearance"); v != last.value {
+		t.Errorf("Space on the last card stored %v", v)
+	}
 }
 
 func paintPicture(p picture) []byte {

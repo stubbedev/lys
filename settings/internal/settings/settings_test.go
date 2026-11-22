@@ -483,7 +483,7 @@ func TestResetAllConfirmation(t *testing.T) {
 		t.Errorf("title %q", cfg.Title)
 	}
 	want := []app.DialogButton{
-		{Label: locale.T().Get("settings-reset-all-cancel"), Response: responseCancel, Role: app.ButtonRoleCancel, Appearance: app.AppearancePlain},
+		{Label: locale.T().Get("settings-cancel"), Response: responseCancel, Role: app.ButtonRoleCancel, Appearance: app.AppearancePlain},
 		{Label: locale.T().Get("settings-reset-all-confirm"), Response: responseConfirm, Appearance: app.AppearanceDestructive},
 	}
 	if !slices.Equal(cfg.Buttons, want) {
@@ -900,7 +900,7 @@ func TestColorValueEditor(t *testing.T) {
 	if m, ok := config.Field(path); !ok || m.Type != "ColorValue" {
 		t.Fatalf("test premise: %s is %+v", path, m)
 	}
-	c := fieldControl(k, k.store, field(path)).(*colorValueEditor)
+	c := fieldControl(k, k.store, field(path)).(*swatchPicker)
 	idx := func(id string) int { return slices.Index(c.ids, id) }
 	cur, _ := k.store.value(path).(string)
 	if c.drop.Selected() != idx(cur) || c.swatch.Visible() {
@@ -933,7 +933,7 @@ func TestColorValueEditor(t *testing.T) {
 
 // listedSwatches opens the color-value dropdown and returns the colors
 // of the swatches leading its rows.
-func listedSwatches(t *testing.T, c *colorValueEditor) []render.Color {
+func listedSwatches(t *testing.T, c *swatchPicker) []render.Color {
 	t.Helper()
 	root, host := hosted(c)
 	click(root, c.drop)
@@ -954,7 +954,7 @@ func listedSwatches(t *testing.T, c *colorValueEditor) []render.Color {
 func TestColorValueRowsLeadWithTheirTokensSwatch(t *testing.T) {
 	k := testKit(t, "")
 	path := "modules.clock.icon-color"
-	c := fieldControl(k, k.store, field(path)).(*colorValueEditor)
+	c := fieldControl(k, k.store, field(path)).(*swatchPicker)
 	p := k.palette()
 	want := []render.Color{0}
 	for _, tok := range config.CssTokens() {
@@ -1200,7 +1200,7 @@ func TestThresholdCards(t *testing.T) {
 	if got := c.cards[0].title.Text(); got != "≤ 21" {
 		t.Errorf("title %q, want ≤ 21", got)
 	}
-	icon := c.cards[0].controls[2].(*colorValueEditor)
+	icon := c.cards[0].controls[2].(*swatchPicker)
 	if icon.drop.Selected() != slices.Index(icon.ids, colorAuto) {
 		t.Error("an unset color does not show as auto")
 	}
@@ -1573,7 +1573,7 @@ func TestWorkspaceStyleMapNumericKeys(t *testing.T) {
 	if _, has := got["10"].(map[string]any)["label"]; has {
 		t.Errorf("an empty label was stored: %v", got["10"])
 	}
-	ten.color.(*colorValueEditor).slot.set("#112233")
+	ten.color.(*swatchPicker).slot.set("#112233")
 	got, _ = k.store.value(path).(map[string]any)
 	if got["10"].(map[string]any)["color"] != "#112233" {
 		t.Errorf("color stored %v", got["10"])

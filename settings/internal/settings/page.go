@@ -171,6 +171,10 @@ func (s sectionSpec) flatRows() []rowSpec {
 	return out
 }
 
+// unlabeledKey is the label of a row whose field config.I18nKey names
+// no label for, reading "(unlabeled)".
+const unlabeledKey = "missing-i18n-key"
+
 // labelKey is the row's label key.
 func (r rowSpec) labelKey() string {
 	if r.key != "" {
@@ -179,7 +183,7 @@ func (r rowSpec) labelKey() string {
 	if key, ok := config.I18nKey(r.path); ok {
 		return key
 	}
-	return "missing-i18n-key"
+	return unlabeledKey
 }
 
 // rowOpt adjusts a row.

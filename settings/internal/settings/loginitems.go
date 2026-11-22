@@ -452,15 +452,23 @@ func (l *loginItems) appRow(e autostartEntry) widget.Widget {
 	}
 	row := l.itemRow(e.icon, e.name, detail)
 	if e.removable() {
-		row.AddAction(l.k.removeButton("settings-login-apps-remove", func() {
-			l.act(func() error { return removeAutostart(e) })
-		}))
+		row.AddAction(l.k.removeButton("settings-login-apps-remove", func() { l.confirmRemove(e) }))
 	}
 	sw := widget.NewSwitch(e.enabled)
 	sw.SetAccessibleName(e.name)
 	sw.OnChanged = func(on bool) { l.act(func() error { return setAutostart(l.dirs, e, on) }) }
 	row.withControl(sw)
 	return row
+}
+
+// confirmRemove asks before removing e, which deletes its file.
+func (l *loginItems) confirmRemove(e autostartEntry) {
+	err := l.k.confirm("remove the login item "+e.name, "settings-login-apps-delete", func() {
+		l.act(func() error { return removeAutostart(e) })
+	}, i18n.Str("name", e.name))
+	if err != nil {
+		l.fail(err)
+	}
 }
 
 func (l *loginItems) act(change func() error) {
@@ -471,8 +479,10 @@ func (l *loginItems) act(change func() error) {
 }
 
 func (l *loginItems) pickApp(anchor widget.Widget) {
-	openAppPicker(l.k, anchor, scanInstalled(desktopentry.ApplicationDirs()).shown, func(app desktopentry.App) {
-		l.act(func() error { return addAutostart(l.dirs, app) })
+	l.k.withInstalledApps(func(ix installedApps) {
+		openAppPicker(l.k, anchor, ix.shown, func(app desktopentry.App) {
+			l.act(func() error { return addAutostart(l.dirs, app) })
+		})
 	})
 }
 

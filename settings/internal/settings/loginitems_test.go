@@ -655,3 +655,47 @@ func TestWithoutServicesThereIsNothingToFilter(t *testing.T) {
 		t.Errorf("no service reads %q", treetest.Labels(page))
 	}
 }
+
+// Removing a login item deletes its file, so it asks first: cancelling
+// keeps the file, confirming deletes it; without a window it deletes
+// nothing and says why.
+func TestRemovingALoginItemAsksBeforeDeletingItsFile(t *testing.T) {
+	d, root := autostartFixture(t)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Dir(d.user))
+	t.Setenv("XDG_CONFIG_DIRS", filepath.Join(root, "etc")+":"+filepath.Join(root, "vendor"))
+	t.Setenv("XDG_DATA_HOME", root)
+	t.Setenv("XDG_DATA_DIRS", filepath.Join(root, "none"))
+	before := openUserManager
+	openUserManager = func() (userManager, func(), error) { return &staticManager{}, func() {}, nil }
+	t.Cleanup(func() { openUserManager = before })
+	file := filepath.Join(d.user, "syncthing.desktop")
+	k := testKit(t, "")
+	footer := loginItemsLead(k)
+	remove := func() *widget.Button {
+		for _, b := range treetest.All[*widget.Button](footer) {
+			if b.TooltipText() == locale.T().Get("settings-login-apps-remove") {
+				return b
+			}
+		}
+		t.Fatal("no removable login item")
+		return nil
+	}
+
+	remove().OnClick()
+	if _, err := os.Stat(file); err != nil || !slices.ContainsFunc(treetest.Labels(footer), func(l string) bool { return strings.Contains(l, errNoWindow.Error()) }) {
+		t.Fatalf("without a window: %v, the page reads %q", err, treetest.Labels(footer))
+	}
+
+	pickers := &fakePickers{}
+	k.pickers = pickers
+	remove().OnClick()
+	if len(pickers.dialogs) != 1 || pickers.dialogs[0].Title != locale.T().Get("settings-login-apps-delete-title", i18n.Str("name", "syncthing")) {
+		t.Fatalf("Remove asked %+v", pickers.dialogs)
+	}
+	pickers.respond(responseCancel)
+	if _, err := os.Stat(file); err != nil {
+		t.Fatalf("cancelling deleted the file: %v", err)
+	}
+	pickers.respond(responseConfirm)
+	noFile(t, file)
+}

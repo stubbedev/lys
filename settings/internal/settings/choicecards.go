@@ -34,7 +34,7 @@ type choiceCards struct {
 }
 
 type choiceCard struct {
-	widget.Base
+	tile
 	k     *kit
 	owner *choiceCards
 	value string
@@ -51,7 +51,8 @@ func newCards(k *kit, s slot, values, labels []string, pictures map[string]pictu
 	c := &choiceCards{FlowBox: widget.NewWrapBox(choiceCardGap, choiceCardGap, widget.JustifyStart), slot: s, cardW: choiceCardW}
 	c.AddClass("choice-cards")
 	for i, v := range values {
-		card := &choiceCard{Base: widget.NewBase(), k: k, owner: c, value: v, label: labels[i], pic: pictures[v]}
+		card := &choiceCard{k: k, owner: c, value: v, label: labels[i], pic: pictures[v]}
+		card.tile = newTile(card, func() { c.choose(v) })
 		card.SetAccessibleName(labels[i])
 		if name := pictures[v].icon; name != "" {
 			card.icon = widget.NewThemeIcon(name, choicePicH/2)
@@ -170,25 +171,6 @@ func (c *choiceCard) Paint(cv *render.Canvas) {
 	text := render.Rect{X: b.X + choiceCardGap, Y: b.Y + choicePicH, W: b.W - 2*choiceCardGap, H: b.H - choicePicH}
 	c.k.face.DrawAligned(cv, fitLabel(c.k.face, c.label, text.W, c.k.textPx()), text, c.k.textPx(), th.Text, render.AlignCenter)
 }
-
-func (c *choiceCard) HitTest(p widget.Point) widget.Widget {
-	if c.Bounds().Contains(p.X, p.Y) {
-		return c
-	}
-	return nil
-}
-
-func (c *choiceCard) PressAt(widget.Point) { c.owner.choose(c.value) }
-
-func (c *choiceCard) Role() widget.Role { return widget.RoleButton }
-
-func (c *choiceCard) KeyAction(a widget.KeyAction, _ widget.Mods) {
-	if a == widget.KeyEnter || a == widget.KeySpace {
-		c.owner.choose(c.value)
-	}
-}
-
-func (c *choiceCard) FocusMoved(_, _ widget.Widget) { c.Invalidate() }
 
 func pictureChoice(pictures map[string]picture) rowOpt {
 	return func(r *rowSpec) {

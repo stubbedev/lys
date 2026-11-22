@@ -38,21 +38,15 @@ type positionPicker struct {
 	k       *kit
 	slot    slot
 	values  []string
-	handles []*positionHandle
+	handles []*spot[string]
 	current string
-}
-
-type positionHandle struct {
-	widget.Base
-	p     *positionPicker
-	value string
 }
 
 func newPositionPicker(k *kit, s slot, meta config.FieldMeta) *positionPicker {
 	p := &positionPicker{Base: widget.NewBase(), k: k, slot: s, values: meta.Variants}
 	labels := enumLabels(meta)
 	for i, v := range p.values {
-		h := &positionHandle{Base: widget.NewBase(), p: p, value: v}
+		h := newSpot(v, p.choose)
 		h.SetAccessibleName(labels[i])
 		h.SetTooltip(labels[i])
 		p.handles = append(p.handles, h)
@@ -110,7 +104,7 @@ func (p *positionPicker) Measure(axis widget.Axis, _ int) widget.Sizes {
 func (p *positionPicker) Arrange(r render.Rect) {
 	p.ArrangeSelf(r)
 	for _, h := range p.handles {
-		h.Arrange(p.cellRect(cellOf(h.value)))
+		h.Arrange(p.cellRect(cellOf(h.key)))
 	}
 }
 
@@ -120,9 +114,9 @@ func (p *positionPicker) Paint(cv *render.Canvas) {
 	cv.RoundedRect(screen, tileRadius, th.MutedColor())
 	cv.RoundedBorder(screen, render.UniformCorners(tileRadius), render.UniformInsets(1), th.Border)
 	for _, h := range p.handles {
-		r := p.cellRect(cellOf(h.value))
+		r := p.cellRect(cellOf(h.key))
 		fill := th.CardColor()
-		if h.value == p.current {
+		if h.key == p.current {
 			fill = th.Accent
 		}
 		cv.RoundedRect(r, tileRadius/2, fill)
@@ -137,27 +131,13 @@ func (p *positionPicker) HitTest(pt widget.Point) widget.Widget { return p.HitLe
 func (p *positionPicker) PressAt(pt widget.Point) {
 	for _, h := range p.handles {
 		if h.Bounds().Contains(pt.X, pt.Y) {
-			p.choose(h.value)
+			p.choose(h.key)
 			return
 		}
 	}
 }
 
 func (p *positionPicker) FocusMoved(_, _ widget.Widget) { p.Invalidate() }
-
-func (h *positionHandle) Measure(widget.Axis, int) widget.Sizes { return widget.FixedSizes(0) }
-
-func (h *positionHandle) Paint(*render.Canvas) {}
-
-func (h *positionHandle) HitTest(widget.Point) widget.Widget { return nil }
-
-func (h *positionHandle) Role() widget.Role { return widget.RoleButton }
-
-func (h *positionHandle) KeyAction(a widget.KeyAction, _ widget.Mods) {
-	if a == widget.KeyEnter || a == widget.KeySpace {
-		h.p.choose(h.value)
-	}
-}
 
 var screenPosition = withEditor(func(k *kit, s slot, meta config.FieldMeta) control {
 	return newPositionPicker(k, s, meta)

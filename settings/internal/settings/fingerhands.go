@@ -41,22 +41,16 @@ type fingerHands struct {
 	enrolling string
 	progress  float64
 	busy      bool
-	handles   []*fingerHandle
+	handles   []*spot[string]
 	scale     float64
 	ox, oy    float64
 	onPick    func(finger string)
 }
 
-type fingerHandle struct {
-	widget.Base
-	h      *fingerHands
-	finger string
-}
-
 func newFingerHands(k *kit, onPick func(finger string)) *fingerHands {
 	h := &fingerHands{Base: widget.NewBase(), k: k, onPick: onPick}
 	for _, f := range fingers {
-		fh := &fingerHandle{Base: widget.NewBase(), h: h, finger: f}
+		fh := newSpot(f, h.pick)
 		fh.SetAccessibleName(fingerName(f))
 		h.handles = append(h.handles, fh)
 	}
@@ -178,17 +172,3 @@ func (h *fingerHands) PressAt(p widget.Point) {
 }
 
 func (h *fingerHands) FocusMoved(_, _ widget.Widget) { h.Invalidate() }
-
-func (fh *fingerHandle) Measure(widget.Axis, int) widget.Sizes { return widget.FixedSizes(0) }
-
-func (fh *fingerHandle) Paint(*render.Canvas) {}
-
-func (fh *fingerHandle) HitTest(widget.Point) widget.Widget { return nil }
-
-func (fh *fingerHandle) Role() widget.Role { return widget.RoleButton }
-
-func (fh *fingerHandle) KeyAction(a widget.KeyAction, _ widget.Mods) {
-	if a == widget.KeyEnter || a == widget.KeySpace {
-		fh.h.pick(fh.finger)
-	}
-}

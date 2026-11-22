@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/stubbedev/lys/desktop/config"
-	"github.com/stubbedev/lys/desktop/desktopentry"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
@@ -207,8 +206,7 @@ func newShortcutTable(k *kit, binds slot) *shortcutTable {
 	tb.Append(tb.problem, false)
 	tb.showAdding(false)
 	tb.buildModes()
-	dirs := desktopentry.ApplicationDirs()
-	async(k, func() installedApps { return scanInstalled(dirs) }, func(ix installedApps) {
+	k.withInstalledApps(func(ix installedApps) {
 		launches := launchNames(ix)
 		tb.names.launches, tb.inMode.launches = launches, launches
 		tb.main.rebuild()
@@ -315,14 +313,13 @@ func (tb *shortcutTable) renameMode(g *modeGroup, text string) {
 }
 
 func (tb *shortcutTable) deleteMode(name string) {
-	if tb.k.pickers == nil {
-		tb.problem.SetText("settings: delete mode " + name + ": no window to ask in")
-		tb.problem.SetVisible(true)
-		return
-	}
-	tb.k.pickers.dialog(confirmDialog(tb.k, "wm-mode-delete", func() {
+	err := tb.k.confirm("delete mode "+name, "wm-mode-delete", func() {
 		tb.apply(tb.current().without(name), tb.problem, func() {})
-	}, i18n.Str("mode", name)))
+	}, i18n.Str("mode", name))
+	if err != nil {
+		tb.problem.SetText(err.Error())
+		tb.problem.SetVisible(true)
+	}
 }
 
 // buildModes makes a group per mode stored, in name order.

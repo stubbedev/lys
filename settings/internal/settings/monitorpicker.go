@@ -57,19 +57,13 @@ type monitorPicker struct {
 	arrangement
 	k        *kit
 	tiles    []monitorTile
-	handles  []*monitorHandle
+	handles  []*spot[string]
 	thumbs   map[string]wallpaperThumb
 	selected []string
 	// multi toggles each display a press chooses, instead of choosing it
 	// alone.
 	multi  bool
 	onPick func(name string)
-}
-
-type monitorHandle struct {
-	widget.Base
-	p    *monitorPicker
-	name string
 }
 
 func newMonitorPicker(k *kit, onPick func(name string)) *monitorPicker {
@@ -80,7 +74,7 @@ func (p *monitorPicker) setTiles(tiles []monitorTile) {
 	p.tiles = tiles
 	p.handles = p.handles[:0]
 	for _, t := range tiles {
-		p.handles = append(p.handles, &monitorHandle{Base: widget.NewBase(), p: p, name: t.name})
+		p.handles = append(p.handles, newSpot(t.name, p.choose))
 	}
 	p.nameHandles()
 	for _, h := range p.handles {
@@ -260,17 +254,3 @@ func (p *monitorPicker) PressAt(pt widget.Point) {
 }
 
 func (p *monitorPicker) FocusMoved(_, _ widget.Widget) { p.Invalidate() }
-
-func (h *monitorHandle) Measure(widget.Axis, int) widget.Sizes { return widget.FixedSizes(0) }
-
-func (h *monitorHandle) Paint(*render.Canvas) {}
-
-func (h *monitorHandle) HitTest(widget.Point) widget.Widget { return nil }
-
-func (h *monitorHandle) Role() widget.Role { return widget.RoleButton }
-
-func (h *monitorHandle) KeyAction(a widget.KeyAction, _ widget.Mods) {
-	if a == widget.KeyEnter || a == widget.KeySpace {
-		h.p.choose(h.name)
-	}
-}

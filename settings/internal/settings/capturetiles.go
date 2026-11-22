@@ -46,7 +46,7 @@ type captureTiles struct {
 	icons  []*iconEditor
 	hide   *choicePick
 	hideAt slot
-	color  *colorValueEditor
+	color  *swatchPicker
 }
 
 func newCaptureTiles(k *kit, module string) *captureTiles {

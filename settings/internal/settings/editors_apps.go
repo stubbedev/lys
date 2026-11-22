@@ -35,6 +35,13 @@ func scanInstalled(dirs []string) installedApps {
 	return ix
 }
 
+// withInstalledApps scans the installed apps off the loop, then hands
+// them to use on it.
+func (k *kit) withInstalledApps(use func(installedApps)) {
+	dirs := desktopentry.ApplicationDirs()
+	async(k, func() installedApps { return scanInstalled(dirs) }, use)
+}
+
 func isTerminal(a desktopentry.App) bool {
 	return slices.Contains(strings.Split(a.Categories(), ";"), terminalCategory)
 }
@@ -107,8 +114,7 @@ func (k *kit) appCommandButton(pick func(string)) *widget.Button {
 		if k.pickers == nil {
 			return
 		}
-		dirs := desktopentry.ApplicationDirs()
-		async(k, func() installedApps { return scanInstalled(dirs) }, func(ix installedApps) {
+		k.withInstalledApps(func(ix installedApps) {
 			openAppPicker(k, b, ix.shown, func(a desktopentry.App) {
 				cmd, err := appCommand(a)
 				if err != nil {

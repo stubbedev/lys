@@ -9,7 +9,10 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/geo"
+	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/ui/widget"
+
+	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
 const testZoneTable = "# comment\nJP\t+353916+1394441\tAsia/Tokyo\nUS\t+404251-0740023\tAmerica/New_York\tEastern\nAR\t-3436-05827\tAmerica/Argentina/Buenos_Aires\n"
@@ -132,6 +135,10 @@ func TestTheNightLightLocationIsAutomaticOrAPickedCity(t *testing.T) {
 	p := newLocationPicker(k, k.store.slot(path), automaticOrPinned, listedPlaces(testZonePlaces(t), nil))
 	if p.automatic == nil || !p.automatic.On() || p.manual.Visible() {
 		t.Fatal("the default location is not shown as automatic")
+	}
+	rows := treetest.All[*settingRow](p)
+	if len(rows) != 1 || rows[0].Title() != locale.T().Get("settings-location-automatic") || !slices.Contains(treetest.All[*widget.Switch](rows[0]), p.automatic) {
+		t.Fatalf("the automatic switch is not a setting row's control: %d rows", len(rows))
 	}
 	p.automatic.SetOn(false)
 	if !p.manual.Visible() || p.picker == nil {

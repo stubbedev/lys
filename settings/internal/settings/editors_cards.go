@@ -59,17 +59,25 @@ func (s cardSpec) editedKeys() []string {
 	return out
 }
 
-// cardChrome is a card list's own card markup: the card, header and
-// body classes and the remove button's (card_form's by default).
-type cardChrome struct {
-	card, header, body string
-	// removeKey is the remove button's tooltip.
-	removeKey string
+// cardClasses are a card list's classes: the editor's, the list's, and
+// each card's, its header's, its title's, its body's, its field rows'
+// and their labels'.
+type cardClasses struct {
+	editor, list, card, header, title, body, row, label string
 }
 
-var cardFormChrome = cardChrome{
-	card: "card-form-card", header: "card-form-header", body: "card-form-body",
-	removeKey: "settings-list-remove",
+// cardFormClasses are a card list's classes unless its spec names others.
+var cardFormClasses = cardClasses{
+	editor: "card-form-editor", list: "card-form-list", card: "card-form-card", header: "card-form-header",
+	title: "card-form-title", body: "card-form-body", row: "card-form-row", label: "card-form-label",
+}
+
+// classes are the card list's classes.
+func (s cardSpec) look() cardClasses {
+	if s.classed != nil {
+		return *s.classed
+	}
+	return cardFormClasses
 }
 
 // cardSpec shapes a card list: the card's header (a title for the
@@ -122,13 +130,12 @@ type cardSpec struct {
 	// reason and written once the cards make one the target takes.
 	check func(items []any) func() error
 	// addKey labels the add button's tooltip (settings-list-add).
-	addKey   string
-	pick     *cardPick
-	chrome   *cardChrome
-	classes  []string
-	listCls  string
-	rowClass string
-	labelCls string
+	addKey  string
+	pick    *cardPick
+	classes []string
+	// classed, when set, are the list's classes in place of
+	// cardFormClasses.
+	classed *cardClasses
 }
 
 // cardList holds its cards as the source of truth (local), writing the
@@ -208,7 +215,7 @@ type clashOwner struct{ value, owner string }
 
 func newCardList(k *kit, s slot, spec cardSpec) *cardList {
 	c := &cardList{Box: gapBox(widget.Column), k: k, slot: s, spec: spec}
-	c.AddClass(append([]string{"card-form-editor"}, spec.classes...)...)
+	c.AddClass(append([]string{spec.look().editor}, spec.classes...)...)
 	switch {
 	case spec.filter != nil:
 		c.filter = spec.filter
@@ -220,7 +227,7 @@ func newCardList(k *kit, s slot, spec cardSpec) *cardList {
 		c.Append(c.filter, false)
 	}
 	c.list = gapBox(widget.Column)
-	c.list.AddClass(spec.listCls)
+	c.list.AddClass(spec.look().list)
 	c.Append(c.list, false)
 	c.draft = k.label("", css.Caption, css.Error)
 	c.draft.SetWrap(true)
@@ -522,14 +529,11 @@ func itemText(v any) string {
 // controls line up.
 func (c *cardList) appendCard(i int) {
 	t := locale.T()
-	chrome := cardFormChrome
-	if c.spec.chrome != nil {
-		chrome = *c.spec.chrome
-	}
+	look := c.spec.look()
 	grid := c.k.formGrid()
-	formLabel := func(key string) widget.Widget { return grid.label(t.Get(key), c.spec.labelCls) }
+	formLabel := func(key string) widget.Widget { return grid.label(t.Get(key), look.label) }
 	header := gapBox(widget.Row)
-	header.AddClass(chrome.header)
+	header.AddClass(look.header)
 	cd := &card{}
 	if id := c.spec.identity; id != nil {
 		header.AppendAligned(formLabel(id.label), false, widget.AlignCenter)
@@ -540,7 +544,7 @@ func (c *cardList) appendCard(i int) {
 			cd.icon = widget.NewThemeIcon(c.spec.icon(c.local[i]), appIconPx)
 			header.AppendAligned(cd.icon, false, widget.AlignCenter)
 		}
-		cd.title = c.k.label("", "card-form-title", css.Heading)
+		cd.title = c.k.label("", look.title, css.Heading)
 		cd.title.SetEllipsize(widget.EllipsizeEnd)
 		header.AppendAligned(cd.title, true, widget.AlignCenter)
 	}
@@ -569,7 +573,7 @@ func (c *cardList) appendCard(i int) {
 		cd.reset = c.k.resetButton(c.spec.resetKey, func() { c.resetItem(i) })
 		header.AppendAligned(cd.reset.Button, false, widget.AlignCenter)
 	}
-	remove := c.k.removeButton(chrome.removeKey, func() {
+	remove := c.k.removeButton("settings-list-remove", func() {
 		if i < len(c.local) {
 			c.local = append(c.local[:i:i], c.local[i+1:]...)
 			c.rebuild()
@@ -577,12 +581,12 @@ func (c *cardList) appendCard(i int) {
 		}
 	})
 	body := gapBox(widget.Column)
-	body.AddClass(chrome.body)
+	body.AddClass(look.body)
 	fill := func() {
 		for _, f := range c.spec.fields {
 			ctl := f.build(c.k, func(key string) slot { return c.fieldSlot(i, key) })
 			row := grid.row(formLabel(f.label), ctl, f.fill)
-			row.AddClass(c.spec.rowClass)
+			row.AddClass(look.row)
 			body.Append(row, false)
 			cd.controls = append(cd.controls, ctl)
 		}
@@ -590,14 +594,14 @@ func (c *cardList) appendCard(i int) {
 	if !c.spec.collapsed {
 		header.AppendAligned(remove, false, widget.AlignCenter)
 		fill()
-		cd.root, _ = sectionCard(header, body, chrome.card)
+		cd.root, _ = sectionCard(header, body, look.card)
 		c.addClash(cd, i)
 		c.cards = append(c.cards, cd)
 		c.place(i)
 		c.retitle(i)
 		return
 	}
-	cd.root, cd.disclose = c.k.foldedCard(header, body, chrome.card, fill)
+	cd.root, cd.disclose = c.k.foldedCard(header, body, look.card, fill)
 	c.addClash(cd, i)
 	header.AppendAligned(remove, false, widget.AlignCenter)
 	c.cards = append(c.cards, cd)
@@ -807,8 +811,16 @@ func (e *thresholdEditor) refresh() {
 	e.cards.refresh()
 }
 
+// thresholdClasses are the threshold cards' classes: their own list,
+// rows and labels.
+var thresholdClasses = func() cardClasses {
+	c := cardFormClasses
+	c.list, c.row, c.label = "threshold-list", "threshold-row", "threshold-label"
+	return c
+}()
+
 var thresholdCards = cardSpec{
-	classes: []string{"threshold-editor"}, listCls: "threshold-list", rowClass: "threshold-row", labelCls: "threshold-label",
+	classes: []string{"threshold-editor"}, classed: &thresholdClasses,
 	blank: func() map[string]any { return map[string]any{} },
 	title: thresholdTitle,
 	fields: []cardField{
@@ -890,7 +902,7 @@ func (c *liveText) refresh() {
 // in the header (a duplicate one flagged), the label and the icon; a
 // preset without an id is not stored, an empty label or icon is none.
 var toastPresetList = cardRow(cardSpec{
-	listCls: "card-form-list", rowClass: "card-form-row", labelCls: "card-form-label", unique: "id",
+	unique:   "id",
 	identity: &cardField{key: "id", label: "settings-toast-preset-id", editor: func(k *kit, s slot) control { return newLiveText(k, s, "id") }},
 	fields: []cardField{
 		{key: "label", label: "settings-toast-preset-label", editor: func(k *kit, s slot) control { return newLiveText(k, s, "label") }},

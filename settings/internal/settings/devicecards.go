@@ -97,7 +97,7 @@ type devicesRead struct {
 
 func newDeviceCards(k *kit, kind deviceKind) *deviceCards {
 	c := &deviceCards{Box: gapBox(widget.Column), k: k, kind: kind}
-	c.AddClass("card-form-editor")
+	c.AddClass(cardFormClasses.editor)
 	c.state = k.cardState()
 	c.list = gapBox(widget.Column)
 	c.Append(c.state.lone(), false)
@@ -190,8 +190,8 @@ func (c *deviceCards) showState() {
 func (c *deviceCards) cardWidget(cd *deviceCard) *widget.Box {
 	t := locale.T()
 	header := gapBox(widget.Row)
-	header.AddClass("card-form-header")
-	title := c.k.label(cd.name, "card-form-title", css.Heading)
+	header.AddClass(cardFormClasses.header)
+	title := c.k.label(cd.name, cardFormClasses.title, css.Heading)
 	title.SetEllipsize(widget.EllipsizeEnd)
 	header.AppendAligned(title, true, widget.AlignCenter)
 	if !cd.connected {
@@ -202,8 +202,8 @@ func (c *deviceCards) cardWidget(cd *deviceCard) *widget.Box {
 		header.AppendAligned(c.k.label(t.Get("wm-pointers-class-"+string(cd.class)), css.Caption, css.DimLabel), false, widget.AlignCenter)
 	}
 	cd.body = gapBox(widget.Column)
-	cd.body.AddClass("card-form-body")
-	cd.root, cd.disclose = c.k.foldedCard(header, cd.body, "card-form-card", func() { c.fill(cd) })
+	cd.body.AddClass(cardFormClasses.body)
+	cd.root, cd.disclose = c.k.foldedCard(header, cd.body, cardFormClasses.card, func() { c.fill(cd) })
 	if !cd.connected {
 		header.AppendAligned(c.k.removeButton("wm-device-forget", func() { c.forget(cd) }), false, widget.AlignCenter)
 	}

@@ -1033,7 +1033,6 @@ wm-mode-rename-confirm = Cambiar nombre
 wm-mode-delete-button = Eliminar el modo
 wm-mode-delete-title = ¿Eliminar el modo { $mode }?
 wm-mode-delete-description = También se quitan sus atajos y los atajos que entran en él.
-wm-mode-delete-cancel = Cancelar
 wm-mode-delete-confirm = Eliminar
 wm-mode-add = Añadir un modo
 wm-mode-add-confirm = Añadir

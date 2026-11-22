@@ -116,7 +116,8 @@ func (g *wallpaperGrid) show(l pictureListing) {
 	g.grid.Clear()
 	g.tiles = g.tiles[:0]
 	for _, path := range l.images {
-		tile := &wallpaperTile{Base: widget.NewBase(), g: g, path: path}
+		tile := &wallpaperTile{g: g, path: path}
+		tile.tile = newTile(tile, func() { g.choose(path) })
 		g.tiles = append(g.tiles, tile)
 		g.grid.Append(tile)
 	}
@@ -152,7 +153,7 @@ func (g *wallpaperGrid) choose(path string) {
 }
 
 type wallpaperTile struct {
-	widget.Base
+	tile
 	g     *wallpaperGrid
 	path  string
 	thumb wallpaperThumb
@@ -177,22 +178,3 @@ func (w *wallpaperTile) Paint(cv *render.Canvas) {
 		cv.RoundedBorder(b, corners, render.UniformInsets(focusRing), th.Text)
 	}
 }
-
-func (w *wallpaperTile) HitTest(p widget.Point) widget.Widget {
-	if w.Bounds().Contains(p.X, p.Y) {
-		return w
-	}
-	return nil
-}
-
-func (w *wallpaperTile) PressAt(widget.Point) { w.g.choose(w.path) }
-
-func (w *wallpaperTile) Role() widget.Role { return widget.RoleButton }
-
-func (w *wallpaperTile) KeyAction(a widget.KeyAction, _ widget.Mods) {
-	if a == widget.KeyEnter || a == widget.KeySpace {
-		w.g.choose(w.path)
-	}
-}
-
-func (w *wallpaperTile) FocusMoved(_, _ widget.Widget) { w.Invalidate() }

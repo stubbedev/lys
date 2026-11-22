@@ -62,10 +62,7 @@ func newLocationPicker(k *kit, s slot, choice locationChoice, places func() ([]z
 		p.automatic = widget.NewSwitch(false)
 		p.automatic.SetAccessibleName(t.Get("settings-location-automatic"))
 		p.automatic.OnChanged = p.switched
-		row := gapBox(widget.Row)
-		row.AppendAligned(k.label(t.Get("settings-location-automatic")), true, widget.AlignCenter)
-		row.AppendAligned(p.automatic, false, widget.AlignCenter)
-		p.Append(row, false)
+		p.Append(widget.NewItemGroup(k.keyRow("settings-location-automatic").withControl(p.automatic)), false)
 	}
 	p.city, p.cityText = k.contentButton(rolePicker, "ld-globe-symbolic", "", p.openCities)
 	p.city.SetAccessibleName(t.Get("settings-location-city"))

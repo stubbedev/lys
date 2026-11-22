@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/stubbedev/lys/desktop/config"
-	"github.com/stubbedev/lys/desktop/desktopentry"
 	"github.com/stubbedev/lys/desktop/i18n"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
@@ -58,8 +57,7 @@ func newWMObjects(k *kit, s slot, spec wmObjectSpec, check func(items []any) fun
 	if !slices.Contains(spec.title, appIDKey) {
 		return list
 	}
-	dirs := desktopentry.ApplicationDirs()
-	async(k, func() installedApps { return scanInstalled(dirs) }, func(ix installedApps) {
+	k.withInstalledApps(func(ix installedApps) {
 		apps = appNames(ix)
 		list.rebuild()
 	})

@@ -27,8 +27,7 @@ type dockPreview struct {
 func dockPreviewLead(k *kit) widget.Widget {
 	p := &dockPreview{}
 	p.livePreview = newLivePreview(k, "settings-dock-preview", p.draw)
-	dirs := desktopentry.ApplicationDirs()
-	async(k, func() installedApps { return scanInstalled(dirs) }, func(ix installedApps) {
+	k.withInstalledApps(func(ix installedApps) {
 		p.apps = ix
 		p.configChanged()
 	})

@@ -662,49 +662,6 @@ func wmColorRGB(k *kit, value string) (render.Color, bool) {
 	return c, ok
 }
 
-// wmColorEditor is a lys-wm colour: the swatch, showing the colour a
-// palette name stands for too, and the palette's names to pick from.
-type wmColorEditor struct {
-	*widget.Box
-	slot   slot
-	swatch *colorEditor
-	names  *choiceEditor
-}
-
-func newWMColorEditor(k *kit, s slot) *wmColorEditor {
-	shown := slot{
-		get: func() any {
-			if c, ok := wmColorRGB(k, s.text()); ok {
-				return styling.HexRGBA(c)
-			}
-			return s.get()
-		},
-		set: s.set, unset: s.unset,
-	}
-	c := &wmColorEditor{Box: gapBox(widget.Row), slot: s, swatch: colorButton(k, shown)}
-	c.names = newChoiceEditor(k, s, choiceSpec{list: func() []choice { return wmPaletteNames(k) }, free: true})
-	c.AppendAligned(c.swatch, false, widget.AlignCenter)
-	c.AppendAligned(c.names, false, widget.AlignCenter)
-	c.refresh()
-	return c
-}
-
-func (c *wmColorEditor) dirtyBadge() *widget.Badge { return c.names.dirtyBadge() }
-
-func (c *wmColorEditor) refresh() {
-	c.names.refresh()
-	c.swatch.refresh()
-}
-
-func wmPaletteNames(k *kit) []choice {
-	palette := wmPalette(k)
-	out := make([]choice, 0, len(palette))
-	for name, c := range palette {
-		out = append(out, choice{value: name, label: name, group: styling.HexRGBA(c)})
-	}
-	return sortedChoices(out)
-}
-
 func audioSources() []choice {
 	sources, ok := audioDaemonSources()
 	if !ok {

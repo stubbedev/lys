@@ -28,7 +28,6 @@ var trayOverrideList = cardRow(cardSpec{
 		}
 		return item
 	},
-	listCls: "card-form-list", rowClass: "card-form-row", labelCls: "card-form-label",
 })
 
 var calendarList = cardRow(cardSpec{
@@ -36,7 +35,6 @@ var calendarList = cardRow(cardSpec{
 	fields:   []cardField{{key: "color", label: "settings-calendar-color", editor: optionalColor}},
 	blank:    func() map[string]any { return map[string]any{"path": ""} },
 	keep:     func(item map[string]any) bool { path, _ := item["path"].(string); return path != "" },
-	listCls:  "card-form-list", rowClass: "card-form-row", labelCls: "card-form-label",
 })
 
 // mailAccountList edits the mail accounts: a card per account, its name in the header; a nameless account is not written,
@@ -64,7 +62,6 @@ var mailAccountList = cardRow(cardSpec{
 		}
 		return item
 	},
-	listCls: "card-form-list", rowClass: "card-form-row", labelCls: "card-form-label",
 })
 
 func presetBlank(preset any) func() map[string]any {
@@ -98,9 +95,8 @@ var passwordPresetList = cardRow(cardSpec{
 		{key: "avoid-ambiguous", label: "settings-generator-preset-avoid-ambiguous", editor: presetToggle},
 		generatorSampleField(passwordRules),
 	},
-	blank:   presetBlank(config.DefaultsBitwardenPasswordPreset()),
-	keep:    presetNamed,
-	listCls: "card-form-list", rowClass: "card-form-row", labelCls: "card-form-label",
+	blank: presetBlank(config.DefaultsBitwardenPasswordPreset()),
+	keep:  presetNamed,
 })
 
 var passphrasePresetList = cardRow(cardSpec{
@@ -114,7 +110,6 @@ var passphrasePresetList = cardRow(cardSpec{
 		{key: "number", label: "settings-generator-preset-number", editor: presetToggle},
 		generatorSampleField(passphraseRules),
 	},
-	blank:   presetBlank(config.DefaultsBitwardenPassphrasePreset()),
-	keep:    presetNamed,
-	listCls: "card-form-list", rowClass: "card-form-row", labelCls: "card-form-label",
+	blank: presetBlank(config.DefaultsBitwardenPassphrasePreset()),
+	keep:  presetNamed,
 })

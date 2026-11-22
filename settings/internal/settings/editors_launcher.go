@@ -52,7 +52,6 @@ var quicklinkCards = cardSpec{
 	keep:       keyed("name"),
 	addKey:     "settings-quicklink-add",
 	searchable: true,
-	listCls:    "card-form-list", rowClass: "card-form-row", labelCls: "card-form-label",
 }
 
 var snippetCards = cardSpec{
@@ -65,5 +64,4 @@ var snippetCards = cardSpec{
 	keep:       keyed("name"),
 	addKey:     "settings-snippet-add",
 	searchable: true,
-	listCls:    "card-form-list", rowClass: "card-form-row", labelCls: "card-form-label",
 }

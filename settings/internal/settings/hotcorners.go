@@ -85,19 +85,13 @@ func (h *hotCorners) refresh() {
 type cornerScreen struct {
 	widget.Base
 	h       *hotCorners
-	handles []*cornerHandle
-}
-
-type cornerHandle struct {
-	widget.Base
-	s  *cornerScreen
-	at int
+	handles []*spot[int]
 }
 
 func newCornerScreen(h *hotCorners) *cornerScreen {
 	s := &cornerScreen{Base: widget.NewBase(), h: h}
 	for i, p := range h.paths {
-		c := &cornerHandle{Base: widget.NewBase(), s: s, at: i}
+		c := newSpot(i, h.choose)
 		c.SetAccessibleName(locale.T().Get(wmKey(p)))
 		s.handles = append(s.handles, c)
 		widget.SetParents(s, c)
@@ -170,17 +164,3 @@ func (s *cornerScreen) PressAt(p widget.Point) {
 }
 
 func (s *cornerScreen) FocusMoved(_, _ widget.Widget) { s.Invalidate() }
-
-func (c *cornerHandle) Measure(widget.Axis, int) widget.Sizes { return widget.FixedSizes(0) }
-
-func (c *cornerHandle) Paint(*render.Canvas) {}
-
-func (c *cornerHandle) HitTest(widget.Point) widget.Widget { return nil }
-
-func (c *cornerHandle) Role() widget.Role { return widget.RoleButton }
-
-func (c *cornerHandle) KeyAction(a widget.KeyAction, _ widget.Mods) {
-	if a == widget.KeyEnter || a == widget.KeySpace {
-		c.s.h.choose(c.at)
-	}
-}

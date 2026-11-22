@@ -1,8 +1,6 @@
 package settings
 
 import (
-	"errors"
-
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/ui/widget"
@@ -44,11 +42,9 @@ func newClearHistory(k *kit) *clearHistory {
 func (c *clearHistory) refresh() {}
 
 func (c *clearHistory) ask() {
-	if c.k.pickers == nil {
-		c.show(errors.New("settings: clear the launcher history: no window to ask in"))
-		return
+	if err := c.k.confirm("clear the launcher history", clearHistoryKey, c.clear); err != nil {
+		c.show(err)
 	}
-	c.k.pickers.dialog(confirmDialog(c.k, clearHistoryKey, c.clear))
 }
 
 func (c *clearHistory) clear() {

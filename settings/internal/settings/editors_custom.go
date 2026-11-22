@@ -77,7 +77,6 @@ func customCardSpec() cardSpec {
 		addKey:     "settings-custom-add",
 		searchable: true,
 		collapsed:  true,
-		listCls:    "card-form-list", rowClass: "card-form-row", labelCls: "card-form-label",
 	}
 }
 

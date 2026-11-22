@@ -10,7 +10,6 @@ import (
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/lib/shacrypt"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
-	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
 	"golang.org/x/text/unicode/norm"
 
@@ -233,34 +232,20 @@ func (p *usersPanel) takenLogins() []string {
 // modal dialog, which stays open over a refusal and closes once the user
 // exists with that password.
 func (p *usersPanel) openAddUserDialog() {
-	if p.k.pickers == nil {
-		p.fail(errors.New("settings: add a user: no window to ask in"))
-		return
-	}
 	t := locale.T()
 	f := p.newAddUserForm()
-	var closeDialog func()
-	closeDialog = p.k.pickers.dialog(app.DialogConfig{
-		Title:   t.Get("settings-users-add"),
-		Width:   passwordDialogWidth,
-		Content: f,
-		Focus:   f.full,
-		Buttons: []app.DialogButton{
-			{Label: t.Get("settings-users-add-cancel"), Response: responseCancel, Role: app.ButtonRoleCancel, Appearance: app.AppearancePlain},
-			{Label: t.Get("settings-users-add"), Response: responseConfirm, Role: app.ButtonRoleDefault, Appearance: app.AppearanceSuggested},
-		},
-		Modal:           true,
-		CancelResponse:  responseCancel,
-		DefaultResponse: responseConfirm,
-		ValidateResponse: func(r string) bool {
-			if r != responseConfirm {
-				return true
-			}
-			p.addUser(f, func() { closeDialog() })
-			return false
-		},
-		OnClosed: f.clear,
+	_, err := p.k.openDialog("add a user", dialogSpec{
+		title:    t.Get("settings-users-add"),
+		width:    passwordDialogWidth,
+		content:  f,
+		focus:    f.full,
+		apply:    t.Get("settings-users-add"),
+		submit:   func(closeDialog func()) { p.addUser(f, closeDialog) },
+		onClosed: f.clear,
 	})
+	if err != nil {
+		p.fail(err)
+	}
 }
 
 func (p *usersPanel) addUser(f *addUserForm, done func()) {
