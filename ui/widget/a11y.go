@@ -367,12 +367,15 @@ func takesFocus(w Widget) bool {
 }
 
 // FirstFocusable is the first widget of w's tree, w included, in
-// focus order that focus can land on, nil when none can: what a form
-// focuses to bring a row's control under the keys.
+// focus order that focus can land on and that stands for itself, nil
+// when none can: what a form focuses to bring a row's control under
+// the keys. A widget standing in for another stop (a radio chip or a
+// segment that is not its group's stop) is passed by, so a group is
+// entered at its stop, its chosen member.
 func FirstFocusable(w Widget) Widget {
 	var first Widget
 	focusWalker(w, func(x Widget) {
-		if first == nil && isFocusable(x) {
+		if first == nil && isFocusable(x) && !skipsTab(x) {
 			first = x
 		}
 	})

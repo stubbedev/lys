@@ -31,3 +31,15 @@ func TestFirstFocusableOfATreeWithoutControlsIsNil(t *testing.T) {
 		t.Fatalf("FirstFocusable = %T, want nil", got)
 	}
 }
+
+func TestFirstFocusableEntersAGroupAtItsStop(t *testing.T) {
+	g := NewToggleGroup(NewBox(Row, 0, 0), NewBox(Row, 0, 0), NewBox(Row, 0, 0))
+	g.SetActive(2)
+	if got, want := FirstFocusable(g), Widget(g.tabSegment()); got != want {
+		t.Fatalf("FirstFocusable = %T %p, want the active segment %p", got, got, want)
+	}
+	g.SetActive(0)
+	if got, want := FirstFocusable(g), Widget(g.tabSegment()); got != want {
+		t.Fatalf("FirstFocusable after choosing the first = %T %p, want it %p", got, got, want)
+	}
+}
