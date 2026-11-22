@@ -37,7 +37,7 @@ func fontsPage(*config.Config) pageSpec {
 
 var scaleSteps = []float64{0.75, 1, 1.25, 1.5, 1.75, 2}
 
-var scaleUnit = customUnit{per: 1, digits: 2, name: "settings-unit-scale"}
+var scaleUnit = customUnit{per: 1, digits: 2, unit: unitScale}
 
 func scaleChips() rowOpt { return presetChips(scaleUnit, scalePicks(scaleSteps)) }
 

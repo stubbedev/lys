@@ -377,9 +377,6 @@ settings-nightlight-previewing = Aperçu en cours…
 settings-nightlight-preview-failed = Impossible d’afficher l’aperçu de la température : { $reason }
 settings-module-link-nightlight-detail = Activer l’éclairage nocturne et régler sa chaleur et sa planification
 settings-module-link-brightness-detail = La luminosité de chaque écran, jusqu’où il peut s’assombrir, et les moniteurs externes
-settings-kelvin = { $n ->
-   *[other] { $n } K
-}
 settings-ddc-no-buses = Aucun bus I2C : chargez le module noyau i2c-dev pour atteindre les écrans externes
 settings-ddc-no-access = Pas d’accès à /dev/i2c-* : ajoutez votre utilisateur au groupe i2c, puis reconnectez-vous
 settings-ddc-access = { $n ->
@@ -1365,7 +1362,22 @@ settings-duration-custom = Personnalisé…
 settings-duration-unit-seconds = secondes
 settings-duration-unit-minutes = minutes
 settings-duration-unit-days = jours
-settings-unit-pixels = pixels
+settings-unit-pixels = px
+    .value = { $n } px
+settings-unit-milliseconds = ms
+    .value = { $n } ms
+settings-unit-per-second = /s
+    .value = { $n }/s
+settings-unit-percent = %
+    .value = { $n } %
+settings-unit-degrees = °
+    .value = { $n }°
+settings-unit-kelvin = K
+    .value = { $n } K
+settings-unit-zoom = ×
+    .value = { $n }×
+settings-sound-balance-left = G { $n }
+settings-sound-balance-right = D { $n }
 settings-scale-percent = { $n } %
 settings-unit-entries = entrées
 settings-duration-until-off = Jusqu’à désactivation
@@ -1415,10 +1427,6 @@ settings-level-band = { $to ->
 settings-level-muted = Affichée tant que le son est coupé
 settings-level-unit-celsius = { $n ->
    *[other] { $n } °C
-}
-settings-duration-milliseconds = { $n ->
-    [one] 1 ms
-   *[other] { $n } ms
 }
 settings-duration-off = Désactivé
 settings-framerate = { $n ->

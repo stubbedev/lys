@@ -112,8 +112,8 @@ func TestTheSeparatorsThicknessSlidesOverOneToFourPixels(t *testing.T) {
 		t.Errorf("a 6 px line reads %v in the number", c.number.Value())
 	}
 	for v, want := range map[float64]float64{0: 1, 3: 3, 9: 4} {
-		c.slider.Knob.SetValue(v)
-		if got := c.slider.Knob.Value(); got != want {
+		c.Knob.SetValue(v)
+		if got := c.Knob.Value(); got != want {
 			t.Errorf("sliding to %v rests at %v, want %v", v, got, want)
 		}
 	}
@@ -341,8 +341,8 @@ func TestASlidersTrailingCommitWaitsForTheKitsClock(t *testing.T) {
 	if !ok {
 		t.Fatal("the separator's thickness is not a pixel slider")
 	}
-	c.slider.Knob.SetValue(3)
-	c.slider.Knob.SetValue(4)
+	c.Knob.SetValue(3)
+	c.Knob.SetValue(4)
 	if got := fmt.Sprint(k.store.value("modules.separator.size")); got != "3" {
 		t.Fatalf("before the throttle passed the size is %v, want the first move alone", got)
 	}

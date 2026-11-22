@@ -10,6 +10,7 @@ import (
 
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/waittest"
+	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/desktop/fakeclock"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
@@ -174,14 +175,14 @@ func TestDebouncedSliderResetDropsTheTrailingCommit(t *testing.T) {
 func TestRangedSliderBoundsAndFormat(t *testing.T) {
 	d := NewRangedSlider(500, 5000, 900, testFont(t), 12, 0, (&testLoop{}).invoke, fakeclock.New())
 	d.SetFormat(func(v float64) string { return strconv.FormatFloat(v/1000, 'f', 1, 64) + "s" })
-	if got := d.Label().Text(); got != "0.9s" {
+	if got := d.ValueLabel().Text(); got != "0.9s" {
 		t.Errorf("label = %q, want the new format", got)
 	}
 	d.Set(9000)
 	if d.Value() != 5000 {
 		t.Errorf("value = %v, want clamped to the max", d.Value())
 	}
-	if NewDebouncedSlider(0, nil, 0, 0, nil, fakeclock.New()).Label() != nil {
+	if NewDebouncedSlider(0, nil, 0, 0, nil, fakeclock.New()).ValueLabel() != nil {
 		t.Error("a fontless slider has a label")
 	}
 }
@@ -266,4 +267,79 @@ func TestDebouncedSliderWritesInOrderLatestWins(t *testing.T) {
 		t.Error("an outside value after the grace did not land")
 	}
 	loop.mu.Unlock()
+}
+
+// reading lays d out and returns its reading's bounds and where its
+// knob ends.
+func reading(d *DebouncedSlider) (render.Rect, int) {
+	big := widget.Size{W: 1000, H: 100}
+	sz := widget.SizeWithin(d, big)
+	d.Arrange(render.Rect{W: sz.W, H: sz.H})
+	kids := d.Children()
+	knob := d.Knob.Bounds()
+	return kids[len(kids)-1].(widget.Boundser).Bounds(), knob.X + knob.W
+}
+
+// measured is text's width in font at 12px.
+func measured(font render.Font, text string) int {
+	return widget.SizeWithin(widget.NewLabel(font, 12, text, 0), widget.Size{W: 1000, H: 100}).W
+}
+
+// The value label reserves the width of the widest of its range's ends
+// as they render, measured in its face, not counted in bytes or
+// approximate characters: a degree sign or a kelvin unit reserves what
+// it draws.
+func TestTheValueLabelReservesTheWidestEndsMeasuredWidth(t *testing.T) {
+	font := testFont(t)
+	for _, c := range []struct {
+		min, max float64
+		unit     string
+		widest   string
+	}{{0, 360, "°", "360°"}, {1000, 6500, " K", "6500 K"}, {0, 100, " K", "100 K"}} {
+		d := NewRangedSlider(c.min, c.max, c.min, font, 12, 0, func(fn func()) { fn() }, fakeclock.New())
+		d.SetFormat(func(v float64) string { return strconv.FormatFloat(v, 'f', 0, 64) + c.unit })
+		if got, _ := reading(d); got.W != measured(font, c.widest) {
+			t.Errorf("%q to %q reserves %dpx, want %q's measured %dpx", d.format(c.min), d.format(c.max), got.W, c.widest, measured(font, c.widest))
+		}
+	}
+}
+
+// A format whose ends differ in width still holds one column as the
+// value moves: the reading keeps the widest end's width and the knob
+// its end, and a class reaches the ends with the label.
+func TestTheValueColumnHoldsStillAsTheValueChanges(t *testing.T) {
+	font := testFont(t)
+	d := NewRangedSlider(0, 1000, 0, font, 12, 0, func(fn func()) { fn() }, fakeclock.New())
+	d.SetFormat(func(v float64) string { return strconv.FormatFloat(v, 'f', 0, 64) + " ms" })
+	want, knobEnd := reading(d)
+	if want.W != measured(font, "1000 ms") || want.W == measured(font, "0 ms") {
+		t.Fatalf("at 0 the reading is %dpx, want 1000 ms's %dpx", want.W, measured(font, "1000 ms"))
+	}
+	for _, v := range []float64{1000, 7, 450} {
+		d.Set(v)
+		if got, end := reading(d); got != want || end != knobEnd {
+			t.Errorf("at %v the reading is %v and the knob ends at %d, want %v and %d", v, got, end, want, knobEnd)
+		}
+	}
+	d.ValueLabel().AddClass("brightness-slider-value")
+	for _, l := range d.label.ends {
+		if !l.HasClass("brightness-slider-value") {
+			t.Errorf("the end %q missed the class the label took", l.Text())
+		}
+	}
+	d.SetRange(0, 50)
+	if got, _ := reading(d); d.Value() != 50 || got.W != measured(font, "50 ms") {
+		t.Errorf("a range narrowed to 50: value %v, reading %dpx; want 50 in 50 ms's %dpx", d.Value(), got.W, measured(font, "50 ms"))
+	}
+}
+
+// A field slider reads by the caller's field, the theme's spacing after
+// the knob, where a value label would sit.
+func TestAFieldSliderReadsByItsField(t *testing.T) {
+	field := widget.NewSpinButton(testFont(t), 12, 0, 0, 5000, 1, 0)
+	d := NewFieldSlider(0, 1000, 300, field, func(fn func()) { fn() }, fakeclock.New())
+	got, knobEnd := reading(d)
+	if d.ValueLabel() != nil || got.W != field.Bounds().W || got.X-knobEnd != widget.Current().Spacing {
+		t.Errorf("the field spans %v after a knob ending at %d, want the spin %dpx wide %dpx after it", got, knobEnd, field.Bounds().W, widget.Current().Spacing)
+	}
 }

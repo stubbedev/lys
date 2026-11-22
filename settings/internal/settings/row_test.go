@@ -81,13 +81,13 @@ func TestNarrowRangesGetSlidersThatWriteWhatTheyShow(t *testing.T) {
 	var ints, floats any
 	whole := autoSlider(t, k, config.FieldMeta{Kind: config.FieldInt, Min: 1, Max: 4}, &ints)
 	whole.Knob.SetValue(2.6)
-	if ints != int64(3) || whole.Label().Text() != "3" {
-		t.Errorf("an int slider wrote %#v showing %q", ints, whole.Label().Text())
+	if ints != int64(3) || whole.ValueLabel().Text() != "3" {
+		t.Errorf("an int slider wrote %#v showing %q", ints, whole.ValueLabel().Text())
 	}
 	frac := autoSlider(t, k, config.FieldMeta{Kind: config.FieldFloat, Min: 0, Max: 1}, &floats)
 	frac.Knob.SetValue(0.123456)
-	if floats != 0.12 || frac.Label().Text() != "0.12" {
-		t.Errorf("a float slider wrote %#v showing %q", floats, frac.Label().Text())
+	if floats != 0.12 || frac.ValueLabel().Text() != "0.12" {
+		t.Errorf("a float slider wrote %#v showing %q", floats, frac.ValueLabel().Text())
 	}
 	wide, err := autoEditor(k, slot{get: func() any { return int64(0) }}, "x", config.FieldMeta{Kind: config.FieldInt, Min: 0, Max: sliderSpan + 1})
 	if _, ok := wide.(*number); err != nil || !ok {

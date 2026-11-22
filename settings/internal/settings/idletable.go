@@ -146,7 +146,7 @@ func newIdleChips(k *kit, s slot) *presetPicker[float64] {
 	}
 	least := idlepolicy.MinTimeout.Minutes()
 	bounds := config.FieldMeta{Min: least, Max: idlepolicy.MaxTimeout.Minutes()}
-	unit := customUnit{per: 1, digits: 1, name: "settings-duration-unit-minutes", least: least}
+	unit := customUnit{per: 1, digits: 1, unit: unitMinutes, least: least}
 	return newPresetPicker(k, idleMinutes(s), bounds, unit, presets)
 }
 

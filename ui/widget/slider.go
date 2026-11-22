@@ -204,6 +204,17 @@ func (s *Slider) SetValue(v float64) {
 	}
 }
 
+// Range returns the bounds.
+func (s *Slider) Range() (min, max float64) { return s.min, s.max }
+
+// SetRange changes the bounds to [min, max] and clamps the value into
+// them, firing OnChanged when it moved.
+func (s *Slider) SetRange(min, max float64) {
+	s.min, s.max = min, max
+	s.Invalidate()
+	s.SetValue(s.value)
+}
+
 func (s *Slider) clamp(v float64) float64 {
 	if s.step > 0 {
 		v = math.Round(v/s.step) * s.step

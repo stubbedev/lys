@@ -52,7 +52,7 @@ func TestTheColumnWidthPresetsAreCardsOfLysWMsWidths(t *testing.T) {
 	if got := c.widths[len(c.widths)-1]; got != shareWidth(0.75) {
 		t.Errorf("adding 75%% added %v", got)
 	}
-	if labels := treetest.Labels(c.cards); len(labels) == 0 || labels[0] != "50%" {
+	if labels := treetest.Labels(c.cards); len(labels) == 0 || labels[0] != unitPercent.format(0)(50) {
 		t.Errorf("the cards read %q, the first want 50%%", labels)
 	}
 }

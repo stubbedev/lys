@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"slices"
 	"sync/atomic"
@@ -306,6 +307,19 @@ type deviceControls struct {
 	current    pulse.Device
 }
 
+// balanceLabel reads a balance as the side it leans to and how far,
+// or 0 at the centre.
+func balanceLabel(b float64) string {
+	n := int64(math.Round(math.Abs(b)))
+	switch {
+	case n == 0:
+		return "0"
+	case b < 0:
+		return locale.T().Get("settings-sound-balance-left", i18n.Int("n", n))
+	}
+	return locale.T().Get("settings-sound-balance-right", i18n.Int("n", n))
+}
+
 func newDeviceControls(p *soundPanel, kind pulse.DeviceType) *deviceControls {
 	t := locale.T()
 	k := p.k
@@ -329,7 +343,7 @@ func newDeviceControls(p *soundPanel, kind pulse.DeviceType) *deviceControls {
 	c.more = k.iconButton("ld-ellipsis-symbolic", "settings-sound-device-options", c.openMenu)
 	c.more.SetAccessibleName(t.Get("settings-sound-device-options"))
 	c.rows.Append(k.row(t.Get("settings-sound-device"), "").withControl(c.devices).withTrailing(c.more))
-	c.volume = widgets.NewDebouncedSlider(0, k.face, k.textPx(), 0, k.invoke, k.clock)
+	c.volume = k.valueSlider(0, 100, unitPercent.format(0))
 	c.volume.Knob.SetAccessibleName(t.Get("settings-sound-volume"))
 	c.volume.Write = func(v float64) func() {
 		key, levels := c.current.Key, scaledTo(c.current.Volume.Levels(), v/100)
@@ -346,7 +360,7 @@ func newDeviceControls(p *soundPanel, kind pulse.DeviceType) *deviceControls {
 	})
 	c.mute.name(t.Get(muteKey))
 	c.rows.Append(k.row(t.Get("settings-sound-volume"), "").withActions(c.mute).withControl(c.volume))
-	c.balance = widgets.NewRangedSlider(-balanceRange, balanceRange, 0, nil, 0, 0, k.invoke, k.clock)
+	c.balance = k.valueSlider(-balanceRange, balanceRange, balanceLabel)
 	c.balance.Knob.SetAccessibleName(t.Get("settings-sound-balance"))
 	c.balance.Write = func(b float64) func() {
 		key, levels := c.current.Key, withBalance(c.current.Volume.Levels(), c.current.ChannelMap, b/balanceRange)
@@ -492,7 +506,7 @@ func newAppRow(p *soundPanel, kind streamKind, key pulse.StreamKey) *appRow {
 		device := r.routes[i]
 		p.act(func(ctx context.Context, svc *pulse.Service) error { return svc.MoveStream(ctx, key, device) })
 	}
-	r.volume = widgets.NewDebouncedSlider(0, k.face, k.textPx(), 0, k.invoke, k.clock)
+	r.volume = k.valueSlider(0, 100, unitPercent.format(0))
 	r.volume.Write = func(v float64) func() {
 		levels := scaledTo(r.levels, v/100)
 		return p.write(func(ctx context.Context, svc *pulse.Service) error {

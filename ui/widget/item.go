@@ -30,7 +30,9 @@ var itemClasses = [...]string{ItemDefault: "", ItemOutline: css.Outline, ItemMut
 // place, so a live list reconciles rows instead of rebuilding them, and
 // SetOnActivate makes the whole row a control (click, Enter, Space).
 // The controls of the items in one ItemGroup share a column
-// (ItemControlColumn), so a card's fields start and end at one x. It
+// (ItemControlColumn), so a card's fields start and end at one x, and
+// their readings (ItemValue) share a width, so the tracks before them
+// end at one x. It
 // styles as the `item` element with the variant's class (.outline,
 // .muted), .small for the small size, .activatable while it activates,
 // its .media tile, .title and .description.
@@ -52,7 +54,9 @@ type Item struct {
 	// itself, or the column slot holding it.
 	control Widget
 	fit     ItemControlFit
-	column  *controlColumn
+	column  *itemSlot
+	// values are the readings inside the control.
+	values []*ItemValue
 	// titleLines and descLines cap the labels' rows, 0 for no cap.
 	titleLines, descLines int
 	group                 *ItemGroup
@@ -198,33 +202,54 @@ func (it *Item) AddDetail(w Widget) { it.text.Append(w, false) }
 
 // SetControl places the row's control by fit, after the actions and
 // before the trailing actions; nil removes it. A column control joins
-// the column of the ItemGroup the item is in.
+// the column of the ItemGroup the item is in, and the readings inside
+// any control join the group's reading width.
 func (it *Item) SetControl(w Widget, fit ItemControlFit) {
 	if it.control != nil {
 		if !it.actions.Remove(it.control) {
 			it.stack.Remove(it.control)
 		}
-		it.control, it.column = nil, nil
-		it.group.relayColumn()
+		for _, v := range it.values {
+			v.item = nil
+		}
+		it.control, it.column, it.values = nil, nil, nil
+		it.group.relaySlots()
 	}
 	if w == nil {
 		return
 	}
 	it.fit = fit
+	it.values = valuesIn(w)
+	for _, v := range it.values {
+		v.item = it
+	}
+	defer it.group.relaySlots()
 	switch fit {
 	case ItemControlWide:
 		it.control = w
 		it.stack.Append(w, false)
 		return
 	case ItemControlColumn:
-		it.column = &controlColumn{item: it}
+		it.column = &itemSlot{item: it, kind: slotColumn}
 		it.column.initComposite(it.column, w)
 		it.control = it.column
-		it.group.relayColumn()
 	default:
 		it.control = w
 	}
 	it.actions.InsertAligned(it.leading, it.control, false, AlignCenter)
+}
+
+// valuesIn are the readings under w, not looking inside one.
+func valuesIn(w Widget) []*ItemValue {
+	var out []*ItemValue
+	walkWidgets(w, func(x Widget) bool {
+		if v, ok := x.(*ItemValue); ok {
+			out = append(out, v)
+			return false
+		}
+		return true
+	})
+	return out
 }
 
 // ControlFit is how the control was placed.
@@ -246,52 +271,104 @@ func itemOf(w Widget) *Item {
 	return nil
 }
 
-// columnWidth is the width of the item's control column: the widest
-// column control of its group, or its own outside one, at least
-// ItemColumnWidth.
-func (it *Item) columnWidth() Sizes {
-	req := Sizes{Nat: ItemColumnWidth}
-	if it.group == nil {
-		return req.widest(it.column.natural())
+// slotKind is what an item's slots size alike across its ItemGroup.
+type slotKind uint8
+
+const (
+	// slotColumn is the control column.
+	slotColumn slotKind = iota
+	// slotValue is a control's reading.
+	slotValue
+)
+
+// itemSlot holds a widget as wide as the widest slot of its kind in its
+// item's group, or in its item outside one: the control column (at
+// least ItemColumnWidth), a reading.
+type itemSlot struct {
+	composite
+	item *Item
+	kind slotKind
+}
+
+// ItemValue is a control's reading - a slider's value, the field
+// typing it - that the controls of one ItemGroup show in one width: as
+// wide as the widest reading of the group, so the tracks before them
+// end at one x whatever each reads. Outside a group it is as wide as
+// the widest reading of its item, and outside an item its own width.
+type ItemValue struct{ itemSlot }
+
+// NewItemValue holds w, a reading, in the width its item's group
+// shares.
+func NewItemValue(w Widget) *ItemValue {
+	v := &ItemValue{itemSlot{kind: slotValue}}
+	v.initComposite(v, w)
+	return v
+}
+
+// width is the slot's width across: the widest slot of its kind in its
+// group, or its item's outside one, a column at least ItemColumnWidth.
+func (s *itemSlot) width() Sizes {
+	var req Sizes
+	if s.kind == slotColumn {
+		req.Nat = ItemColumnWidth
 	}
-	it.group.eachColumn(func(c *controlColumn) { req = req.widest(c.natural()) })
+	widest := func(o *itemSlot) { req = req.widest(o.natural()) }
+	if s.item.group == nil {
+		s.item.eachSlot(s.kind, widest)
+		return req
+	}
+	s.item.group.eachSlot(s.kind, widest)
 	return req
 }
 
-// natural is the control's own request across.
-func (c *controlColumn) natural() Sizes { return measureChild(c, c.root, Row, Unknown) }
+// natural is the held widget's own request across.
+func (s *itemSlot) natural() Sizes { return measureChild(s, s.root, Row, Unknown) }
 
-// controlColumn is the slot a column control fills: as wide as the
-// column of its item's group.
-type controlColumn struct {
-	composite
-	item *Item
-}
-
-// Measure is the column's width across, and the control's height for
-// the width it gets.
-func (c *controlColumn) Measure(axis Axis, forSize int) Sizes {
-	if sz, ok := c.measureHit(axis, forSize); ok {
+// Measure is the slot's shared width across, and the held widget's
+// height for the width it gets; outside an item, the widget's own
+// request.
+func (s *itemSlot) Measure(axis Axis, forSize int) Sizes {
+	if sz, ok := s.measureHit(axis, forSize); ok {
 		return sz
 	}
-	if axis == Column {
-		return c.measureStore(axis, forSize, measureChild(c, c.root, axis, forSize))
+	if axis == Column || s.item == nil {
+		return s.measureStore(axis, forSize, measureChild(s, s.root, axis, forSize))
 	}
-	return c.measureStore(axis, forSize, c.item.columnWidth())
+	return s.measureStore(axis, forSize, s.width())
 }
 
-// markMeasureDirty relayouts the group's other columns with this one:
-// their width depends on its control's.
-func (c *controlColumn) markMeasureDirty() bool {
-	was := c.node.markMeasureDirty()
-	if g := c.item.group; g != nil {
-		g.eachColumn(func(o *controlColumn) {
-			if o != c && !o.measureDirty {
-				o.InvalidateLayout()
-			}
-		})
+// markMeasureDirty relayouts the other slots of its kind with this one:
+// their width depends on its widget's.
+func (s *itemSlot) markMeasureDirty() bool {
+	was := s.node.markMeasureDirty()
+	if s.item == nil {
+		return was
 	}
+	peers := func(o *itemSlot) {
+		if o != s && !o.measureDirty {
+			o.InvalidateLayout()
+		}
+	}
+	if g := s.item.group; g != nil {
+		g.eachSlot(s.kind, peers)
+		return was
+	}
+	s.item.eachSlot(s.kind, peers)
 	return was
+}
+
+// eachSlot visits the item's slots of kind.
+func (it *Item) eachSlot(kind slotKind, visit func(*itemSlot)) {
+	switch kind {
+	case slotColumn:
+		if it.column != nil {
+			visit(it.column)
+		}
+	case slotValue:
+		for _, v := range it.values {
+			visit(&v.itemSlot)
+		}
+	}
 }
 
 // SetEllipsize keeps the title and the description on one line each,
@@ -453,7 +530,7 @@ func (g *ItemGroup) Append(w Widget) {
 	g.items++
 	if it := itemOf(w); it != nil {
 		it.group = g
-		g.relayColumn()
+		g.relaySlots()
 	}
 }
 
@@ -476,7 +553,7 @@ func (g *ItemGroup) Remove(w Widget) bool {
 	g.items--
 	if it := itemOf(w); it != nil {
 		it.group = nil
-		g.relayColumn()
+		g.relaySlots()
 	}
 	return true
 }
@@ -517,23 +594,24 @@ func (g *ItemGroup) Clear() {
 	g.items = 0
 }
 
-// eachColumn visits the control column of every item in the group
-// that has one.
-func (g *ItemGroup) eachColumn(visit func(*controlColumn)) {
+// eachSlot visits the slots of kind of every item in the group.
+func (g *ItemGroup) eachSlot(kind slotKind, visit func(*itemSlot)) {
 	for _, w := range g.box.Children() {
-		if it := itemOf(w); it != nil && it.column != nil {
-			visit(it.column)
+		if it := itemOf(w); it != nil {
+			it.eachSlot(kind, visit)
 		}
 	}
 }
 
-// relayColumn remeasures every control column of the group after its
-// columns changed; nil has none.
-func (g *ItemGroup) relayColumn() {
+// relaySlots remeasures every slot of the group after its slots
+// changed; nil has none.
+func (g *ItemGroup) relaySlots() {
 	if g == nil {
 		return
 	}
-	g.eachColumn(func(c *controlColumn) { c.InvalidateLayout() })
+	for _, kind := range [...]slotKind{slotColumn, slotValue} {
+		g.eachSlot(kind, func(s *itemSlot) { s.InvalidateLayout() })
+	}
 }
 
 // CursorName asks for no shape of its own: only part of it is clickable.

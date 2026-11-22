@@ -122,3 +122,19 @@ func TestSliderTrackPaintsAGradient(t *testing.T) {
 		t.Errorf("cleared track %#x .. %#x, want the plain %#x .. %#x", uint32(lo), uint32(hi), uint32(plainLo), uint32(plainHi))
 	}
 }
+
+// A new range clamps the value into it, saying so only when it moved,
+// and the ends it reports are the new ones.
+func TestSliderSetRangeClampsTheValue(t *testing.T) {
+	s := NewSlider(0, 100, 0, 80)
+	var heard []float64
+	s.OnChanged = func(v float64) { heard = append(heard, v) }
+	s.SetRange(0, 200)
+	if lo, hi := s.Range(); lo != 0 || hi != 200 || s.Value() != 80 || len(heard) != 0 {
+		t.Errorf("widened to [%v, %v]: value %v, heard %v; want 80 kept unannounced", lo, hi, s.Value(), heard)
+	}
+	s.SetRange(0, 50)
+	if s.Value() != 50 || len(heard) != 1 || heard[0] != 50 {
+		t.Errorf("narrowed below the value: value %v, heard %v; want 50 announced once", s.Value(), heard)
+	}
+}

@@ -129,7 +129,7 @@ func TestTheShadowOffsetIsAnXYPairTheEffectsPagePreviews(t *testing.T) {
 	if got := ed.axes[1].number.Value(); got != 8 {
 		t.Errorf("the vertical axis reads %v, want lys-wm's default 8", got)
 	}
-	ed.axes[0].slider.OnCommit(-12)
+	ed.axes[0].OnCommit(-12)
 	if got, err := offsetPair("decoration.shadow.offset", k.wm.value("decoration.shadow.offset")); err != nil || got != [2]int64{-12, 8} {
 		t.Errorf("moving the shadow left wrote %v, want [-12 8]", got)
 	}

@@ -5233,6 +5233,18 @@ func (b *ItemGroupBuilder) Append(child Node) *ItemGroupBuilder {
 	return b
 }
 
+// ItemValueBuilder builds a widget.ItemValue.
+type ItemValueBuilder struct {
+	base[*widget.ItemValue, *ItemValueBuilder]
+}
+
+// ItemValue builds a widget.ItemValue with widget.NewItemValue.
+func ItemValue(child Node) *ItemValueBuilder {
+	b := &ItemValueBuilder{}
+	b.init(b, func(s *Scope) *widget.ItemValue { return widget.NewItemValue(build(s, child)) })
+	return b
+}
+
 // LabelBuilder builds a widget.Label.
 type LabelBuilder struct {
 	base[*widget.Label, *LabelBuilder]
@@ -7479,6 +7491,12 @@ func (b *SliderBuilder) WatchInverted(get func() bool) *SliderBuilder {
 	return b
 }
 
+// Range calls (*widget.Slider).SetRange.
+func (b *SliderBuilder) Range(min float64, max float64) *SliderBuilder {
+	b.do(func(s *Scope, w *widget.Slider) { w.SetRange(min, max) })
+	return b
+}
+
 // Value calls (*widget.Slider).SetValue.
 func (b *SliderBuilder) Value(v float64) *SliderBuilder {
 	b.do(func(s *Scope, w *widget.Slider) { w.SetValue(v) })
@@ -7559,6 +7577,12 @@ func (b *SpinButtonBuilder) Digits(digits int) *SpinButtonBuilder {
 // WatchDigits re-applies SetDigits with get's value after every update.
 func (b *SpinButtonBuilder) WatchDigits(get func() int) *SpinButtonBuilder {
 	b.watch(func(w *widget.SpinButton) { w.SetDigits(get()) })
+	return b
+}
+
+// FitRange calls (*widget.SpinButton).SetFitRange.
+func (b *SpinButtonBuilder) FitRange(lo float64, hi float64) *SpinButtonBuilder {
+	b.do(func(s *Scope, w *widget.SpinButton) { w.SetFitRange(lo, hi) })
 	return b
 }
 

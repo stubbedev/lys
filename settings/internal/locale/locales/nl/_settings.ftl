@@ -508,9 +508,6 @@ settings-nightlight-previewing = Voorbeeld loopt…
 settings-nightlight-preview-failed = Kan de kleurtemperatuur niet tonen: { $reason }
 settings-module-link-nightlight-detail = Het nachtlicht aanzetten en de warmte en het schema instellen
 settings-module-link-brightness-detail = De helderheid van elk scherm, hoe donker het mag worden, en externe monitoren
-settings-kelvin = { $n ->
-   *[other] { $n } K
-}
 settings-ddc-no-buses = Geen I2C-bus: laad de kernelmodule i2c-dev om externe monitoren te bereiken
 settings-ddc-no-access = Geen toegang tot /dev/i2c-*: voeg je gebruiker toe aan de groep i2c en meld je opnieuw aan
 settings-ddc-access = { $n ->
@@ -1352,7 +1349,22 @@ settings-duration-custom = Aangepast…
 settings-duration-unit-seconds = seconden
 settings-duration-unit-minutes = minuten
 settings-duration-unit-days = dagen
-settings-unit-pixels = pixels
+settings-unit-pixels = px
+    .value = { $n } px
+settings-unit-milliseconds = ms
+    .value = { $n } ms
+settings-unit-per-second = /s
+    .value = { $n }/s
+settings-unit-percent = %
+    .value = { $n }%
+settings-unit-degrees = °
+    .value = { $n }°
+settings-unit-kelvin = K
+    .value = { $n } K
+settings-unit-zoom = ×
+    .value = { $n }×
+settings-sound-balance-left = L { $n }
+settings-sound-balance-right = R { $n }
 settings-scale-percent = { $n } %
 settings-unit-entries = items
 settings-duration-until-off = Tot uitgeschakeld
@@ -1402,10 +1414,6 @@ settings-level-band = { $to ->
 settings-level-muted = Getoond zolang het gedempt is
 settings-level-unit-celsius = { $n ->
    *[other] { $n } °C
-}
-settings-duration-milliseconds = { $n ->
-    [one] 1 ms
-   *[other] { $n } ms
 }
 settings-duration-off = Uit
 settings-framerate = { $n ->

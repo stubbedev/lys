@@ -11,7 +11,6 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 	"github.com/stubbedev/lys/settings/internal/wmconfig"
@@ -180,7 +179,8 @@ func namedItems(items []any) (map[string]any, error) {
 }
 
 // percentSizeEditor is a size written as <width>%x<height>%: a number
-// for each, from 1 to 100; a value of another form is kept and marked
+// for each, from 1 to 100, named by its leading addon and in percent by
+// its trailing one; a value of another form is kept and marked
 // until one of them is changed.
 type percentSizeEditor struct {
 	*widget.Box
@@ -207,8 +207,9 @@ func newPercentSizeEditor(k *kit, s slot, _ []string) control {
 		sb.OnCleared = s.unset
 		sb.OnValueChanged = func(float64) { c.write() }
 		c.sides[i] = sb
-		c.AppendAligned(k.label(name, css.Caption, css.DimLabel), false, widget.AlignCenter)
-		c.AppendAligned(sb, false, widget.AlignCenter)
+		field := k.inUnit(sb, unitPercent)
+		field.Prepend(k.label(name))
+		c.AppendAligned(field, false, widget.AlignCenter)
 	}
 	c.refresh()
 	return c

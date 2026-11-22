@@ -190,7 +190,7 @@ func (p *displaysPanel) buildControls() {
 	scale := k.keyRow("settings-displays-scale")
 	scale.SetControl(p.scale, widget.ItemControlWide)
 	rows.Append(scale)
-	p.lightSlider = widgets.NewDebouncedSlider(0, k.face, k.textPx(), 0, k.invoke, k.clock)
+	p.lightSlider = k.valueSlider(0, 100, unitPercent.format(0))
 	p.lightSlider.SetAccessibleName(t.Get("settings-displays-brightness"))
 	p.lightSlider.OnCommit = p.setBrightness
 	p.lightRow = k.row(t.Get("settings-displays-brightness"), "").withControl(p.lightSlider)

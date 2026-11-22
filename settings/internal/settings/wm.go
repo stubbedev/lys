@@ -497,6 +497,12 @@ var wmPresentation = map[string]rowOpt{
 	"input.trackpoint.scroll_button": namedOrWholeRow,
 	"layout":                         pictureChoice(layoutPictures),
 	columnPresetsPath:                columnPresetsRow,
+	"switcher.open_delay":            measuredIn(unitMilliseconds),
+	"showdesktop.peek":               measuredIn(unitPercent),
+	"input.keyboard.slow_keys":       measuredIn(unitMilliseconds),
+	"cursor.hide_after":              measuredIn(unitMilliseconds),
+	"floating.step":                  measuredIn(unitPixels),
+	"drag_preview.drag_switch.width": measuredIn(unitPixels),
 }
 
 func wmField(path string, opts ...rowOpt) rowSpec {

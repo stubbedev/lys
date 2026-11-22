@@ -25,16 +25,21 @@ type Clock interface {
 	AfterFunc(d time.Duration, fn func()) (stop func() bool)
 }
 
-// DebouncedSlider is a slider with an optional value label that commits (backend writes) at most every 100ms while
-// dragged, with a trailing commit of the last value and one on release,
-// and ignores external values while held and for 150ms after.
+// DebouncedSlider is a slider read by an optional value label, or by a
+// field of the caller's, that commits (backend writes) at most every
+// 100ms while dragged, with a trailing commit of the last value and one
+// on release, and ignores external values while held and for 150ms
+// after. The reading sits the theme's spacing after the knob, in the
+// width the readings of its widget.ItemGroup share (widget.ItemValue),
+// so the knobs of one group end at one x.
 type DebouncedSlider struct {
 	*widget.Box
 	// Knob is the slider itself (class it, read it).
-	Knob  *pressSlider
-	label *widget.Label
-	// Format renders the value label (default: whole percent, "42%").
-	Format func(float64) string
+	Knob *pressSlider
+	// label is the value label, nil for a slider without one.
+	label *ValueText
+	// format renders the value label (default: whole percent, "42%").
+	format func(float64) string
 	invoke func(func())
 
 	// OnCommit hears the throttled user commits on the loop.
@@ -96,49 +101,113 @@ func (s *pressSlider) SetPressed(on bool) {
 }
 
 // NewDebouncedSlider builds a 0-100 slider (every lys-shell slider is a
-// percentage); with a font the
-// value label shows (Format, default whole percent). clock times the
-// throttle and invoke runs the trailing commit on the loop.
+// percentage); with a font the value label shows (SetFormat, default
+// whole percent). clock times the throttle and invoke runs the trailing
+// commit on the loop.
 func NewDebouncedSlider(value float64, font render.Font, px float64, color render.Color, invoke func(func()), clock Clock) *DebouncedSlider {
 	return NewRangedSlider(0, 100, value, font, px, color, invoke, clock)
 }
 
 // NewRangedSlider is NewDebouncedSlider over [min, max].
 func NewRangedSlider(min, max, value float64, font render.Font, px float64, color render.Color, invoke func(func()), clock Clock) *DebouncedSlider {
-	if clock == nil {
-		panic("widgets: a slider needs a clock")
-	}
-	d := &DebouncedSlider{Box: widget.NewBox(widget.Row, 8, 0), invoke: invoke, clock: clock}
-	d.Format = func(v float64) string { return strconv.FormatFloat(v, 'f', 0, 64) + "%" }
-	d.Knob = &pressSlider{Slider: widget.NewSlider(min, max, 0, value), owner: d}
-	d.Knob.OnChanged = d.changed
-	d.Append(d.Knob, true)
+	d := newDebouncedSlider(min, max, value, invoke, clock)
+	d.format = func(v float64) string { return strconv.FormatFloat(v, 'f', 0, 64) + "%" }
 	if font != nil {
-		d.label = widget.NewLabel(font, px, d.Format(value), color)
-		d.label.SetAlignment(render.AlignEnd)
-		// The label floors at its widest rendering over the range, so
-		// the sliders of a section end at the same x whatever their
-		// values (GTK width-chars).
-		widest := len(d.Format(min))
-		if n := len(d.Format(max)); n > widest {
-			widest = n
-		}
-		d.label.SetWidthChars(widest)
-		d.Append(d.label, false)
+		d.label = newValueText(font, px, color)
+		d.label.show(d.format(value), d.ends())
+		d.read(d.label.stack)
 	}
 	return d
 }
 
-// ValueLabel hands back the formatted value label, for the caller to
-// class the way its stylesheet names it (audio-slider-value,
-// brightness-slider-value, ...).
-func (d *DebouncedSlider) ValueLabel() *widget.Label { return d.label }
+// NewFieldSlider is a slider over [min, max] read by field, a control
+// the caller keeps showing the value (a spin button that also types
+// values past the range), in the place and the shared width a value
+// label takes.
+func NewFieldSlider(min, max, value float64, field widget.Widget, invoke func(func()), clock Clock) *DebouncedSlider {
+	d := newDebouncedSlider(min, max, value, invoke, clock)
+	d.read(field)
+	return d
+}
+
+func newDebouncedSlider(min, max, value float64, invoke func(func()), clock Clock) *DebouncedSlider {
+	if clock == nil {
+		panic("widgets: a slider needs a clock")
+	}
+	d := &DebouncedSlider{Box: widget.NewBox(widget.Row, widget.Current().Spacing, 0), invoke: invoke, clock: clock}
+	d.Knob = &pressSlider{Slider: widget.NewSlider(min, max, 0, value), owner: d}
+	d.Knob.OnChanged = d.changed
+	d.Append(d.Knob, true)
+	return d
+}
+
+// read places w, the slider's reading, after the knob.
+func (d *DebouncedSlider) read(w widget.Widget) {
+	d.AppendAligned(widget.NewItemValue(w), false, widget.AlignCenter)
+}
+
+// ends are the range's ends as the value label renders them.
+func (d *DebouncedSlider) ends() [2]string {
+	lo, hi := d.Knob.Range()
+	return [2]string{d.format(lo), d.format(hi)}
+}
+
+// ValueText is a slider's value label over the range's two ends,
+// rendered alike and never shown: it is as wide as the widest of them
+// in the face and size the label shows in, so its column holds still
+// as the value changes. A class goes on all three.
+type ValueText struct {
+	stack *widget.Stack
+	shown *widget.Label
+	ends  [2]*widget.Label
+}
+
+// The pages of a value label's stack.
+const (
+	valueShown = "value"
+	valueMin   = "min"
+	valueMax   = "max"
+)
+
+func newValueText(font render.Font, px float64, color render.Color) *ValueText {
+	v := &ValueText{stack: widget.NewStack(), shown: widget.NewLabel(font, px, "", color)}
+	v.shown.SetAlignment(render.AlignEnd)
+	v.stack.Add(valueShown, v.shown)
+	for i, name := range [...]string{valueMin, valueMax} {
+		v.ends[i] = widget.NewLabel(font, px, "", color)
+		v.stack.Add(name, v.ends[i])
+	}
+	return v
+}
+
+// show renders text with the range's ends rendered as ends.
+func (v *ValueText) show(text string, ends [2]string) {
+	v.shown.SetText(text)
+	for i, l := range v.ends {
+		l.SetText(ends[i])
+	}
+}
+
+// AddClass classes the label, for the caller's stylesheet to name it
+// (audio-slider-value, brightness-slider-value, ...).
+func (v *ValueText) AddClass(names ...string) {
+	v.shown.AddClass(names...)
+	for _, l := range v.ends {
+		l.AddClass(names...)
+	}
+}
+
+// Text is the value shown.
+func (v *ValueText) Text() string { return v.shown.Text() }
+
+// ValueLabel hands back the value label, nil for a slider without one.
+func (d *DebouncedSlider) ValueLabel() *ValueText { return d.label }
 
 // changed is the value_changed handler: user moves update the label
 // and commit through the throttle; programmatic ones do not commit.
 func (d *DebouncedSlider) changed(v float64) {
 	if d.label != nil {
-		d.label.SetText(d.Format(v))
+		d.label.shown.SetText(d.format(v))
 	}
 	if d.OnValue != nil {
 		d.OnValue(v)
@@ -257,14 +326,22 @@ func (d *DebouncedSlider) Value() float64 { return d.Knob.Value() }
 
 // SetFormat replaces the value label's format and re-renders it.
 func (d *DebouncedSlider) SetFormat(format func(float64) string) {
-	d.Format = format
+	d.format = format
 	if d.label != nil {
-		d.label.SetText(format(d.Value()))
+		d.label.show(format(d.Value()), d.ends())
 	}
 }
 
-// Label is the value label, nil without a font.
-func (d *DebouncedSlider) Label() *widget.Label { return d.label }
+// SetRange moves the slider's ends to [min, max], clamping the value
+// into them without committing it.
+func (d *DebouncedSlider) SetRange(min, max float64) {
+	d.programmatic = true
+	d.Knob.SetRange(min, max)
+	d.programmatic = false
+	if d.label != nil {
+		d.label.show(d.format(d.Value()), d.ends())
+	}
+}
 
 // SetClock replaces the clock the throttle, the trailing commit and the
 // release grace run on.

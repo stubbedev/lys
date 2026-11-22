@@ -2,7 +2,6 @@ package settings
 
 import (
 	"log"
-	"math"
 	"strconv"
 	"strings"
 
@@ -32,9 +31,8 @@ func iconScale(baseRem, lo, hi float64) rowOpt {
 
 func newIconScale(k *kit, s slot, basePx, lo, hi float64) *iconScaleControl {
 	c := &iconScaleControl{Box: gapBox(widget.Row)}
-	c.slider = newSlider(k, scaleOfSize(s, basePx), lo, hi, false, func(v float64) string {
-		return strconv.FormatFloat(math.Round(v*basePx), 'f', 0, 64) + " px"
-	})
+	px := unitPixels.format(0)
+	c.slider = newSlider(k, scaleOfSize(s, basePx), lo, hi, false, func(v float64) string { return px(v * basePx) })
 	c.AppendAligned(widget.NewThemeIcon(iconCapName, iconCapSmall), false, widget.AlignCenter)
 	c.Append(c.slider, true)
 	c.AppendAligned(widget.NewThemeIcon(iconCapName, iconCapLarge), false, widget.AlignCenter)

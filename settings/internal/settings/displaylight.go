@@ -266,9 +266,7 @@ type kelvinEditor struct {
 func newKelvinEditor(k *kit, s slot) *kelvinEditor {
 	t := locale.T()
 	e := &kelvinEditor{Box: gapBox(widget.Column), k: k}
-	e.slider = newSlider(k, s, warmestKelvin, coolestKelvin, true, func(v float64) string {
-		return t.Get("settings-kelvin", i18n.Int("n", int64(math.Round(v))))
-	})
+	e.slider = newSlider(k, s, warmestKelvin, coolestKelvin, true, unitKelvin.format(0))
 	e.slider.Knob.SetTrack(kelvinTrack()...)
 	e.label = k.label(t.Get("settings-nightlight-preview"))
 	e.button = k.roleButton(roleSecondary, e.label, e.preview)

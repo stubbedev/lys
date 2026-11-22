@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
@@ -122,34 +123,60 @@ const (
 // scale of base rem), so the size stays put.
 type sizeEditor struct {
 	*widget.Box
-	k       *kit
-	slot    slot
-	basePx  float64
-	mode    *widget.Dropdown
-	spin    *widget.SpinButton
-	slides  *sizeSlides
-	syncing bool
-}
-
-// sizeSlides are a size's sliders over the range nearly every setup sits
-// in, one per mode, the mode's shown beside the spin, which takes a
-// value past it.
-type sizeSlides struct {
-	scale, px *slider
+	k      *kit
+	slot   slot
+	basePx float64
+	mode   *widget.Dropdown
+	spin   *widget.SpinButton
+	// slide, nil for a size without one, is a slider over loPx to hiPx
+	// pixels, or the scales that make them, read by the spin, which
+	// takes a value past them.
+	slide      *widgets.DebouncedSlider
+	loPx, hiPx float64
+	syncing    bool
 }
 
 func newSizeEditor(k *kit, s slot, baseRem float64) *sizeEditor {
+	c := newSizeParts(k, s, baseRem)
+	c.AppendAligned(c.mode, false, widget.AlignCenter)
+	c.AppendAligned(c.spin, false, widget.AlignCenter)
+	c.refresh()
+	return c
+}
+
+// newSizeSliderEditor is newSizeEditor with a slider over loPx to hiPx
+// pixels, or the scales that make them, read by the spin.
+func newSizeSliderEditor(k *kit, s slot, baseRem, loPx, hiPx float64) *sizeEditor {
+	c := newSizeParts(k, s, baseRem)
+	c.loPx, c.hiPx = loPx, hiPx
+	c.slide = k.fieldSlider(loPx/c.basePx, hiPx/c.basePx, c.spin)
+	c.slide.OnValue = func(v float64) {
+		if !c.syncing {
+			c.spin.SetValue(v)
+		}
+	}
+	c.slide.OnCommit = func(v float64) {
+		c.spin.SetValue(v)
+		c.commit()
+	}
+	c.AppendAligned(c.mode, false, widget.AlignCenter)
+	c.Append(c.slide, true)
+	c.refresh()
+	return c
+}
+
+// newSizeParts is a size editor's mode dropdown and spin, not yet
+// placed.
+func newSizeParts(k *kit, s slot, baseRem float64) *sizeEditor {
 	t := locale.T()
 	c := &sizeEditor{Box: gapBox(widget.Row), k: k, slot: s, basePx: baseRem * remBasePx}
 	c.mode = widget.NewDropdown(k.face, k.textPx(), []string{t.Get("settings-size-scale"), t.Get("settings-size-px")}, sizeScale)
 	c.spin = widget.NewSpinButton(k.face, k.textPx(), 0, 0, maxPixels, 0.05, 2)
-	c.AppendAligned(c.mode, false, widget.AlignCenter)
-	c.AppendAligned(c.spin, false, widget.AlignCenter)
 	c.mode.OnSelect = func(i int) {
 		if c.syncing {
 			return
 		}
-		c.showSlide(i == sizePx)
+		defer c.syncSlide()
 		if c.spin.Empty() {
 			c.step(i == sizePx)
 			return
@@ -163,39 +190,11 @@ func newSizeEditor(k *kit, s slot, baseRem float64) *sizeEditor {
 		c.configure(i == sizePx, v)
 		c.commit()
 	}
-	c.spin.OnValueChanged = func(float64) { c.commit() }
-	c.refresh()
-	return c
-}
-
-// newSizeSliderEditor is newSizeEditor with a slider over loPx to hiPx
-// pixels, or the scales that make them, before the spin.
-func newSizeSliderEditor(k *kit, s slot, baseRem, loPx, hiPx float64) *sizeEditor {
-	c := newSizeEditor(k, s, baseRem)
-	c.slides = &sizeSlides{
-		scale: newSlider(k, sizeScaleOf(s), loPx/c.basePx, hiPx/c.basePx, false, decimals(2)),
-		px:    newSlider(k, pixelLength(s), loPx, hiPx, true, pixelLabel),
+	c.spin.OnValueChanged = func(float64) {
+		c.commit()
+		c.syncSlide()
 	}
-	c.InsertAt(1, c.slides.scale, true)
-	c.InsertAt(2, c.slides.px, true)
-	c.refresh()
 	return c
-}
-
-// sizeScaleOf is a size as the scale a slider moves, nil while it is in
-// pixels.
-func sizeScaleOf(s slot) slot {
-	return slot{
-		get: func() any {
-			switch v := s.get().(type) {
-			case float64, int64:
-				return v
-			}
-			return nil
-		},
-		set:   s.set,
-		unset: s.unset,
-	}
 }
 
 // configure sets the spin for a mode (configure_spin_for_mode): whole
@@ -232,7 +231,7 @@ func (c *sizeEditor) refresh() {
 	c.syncing = true
 	defer func() {
 		c.syncing = false
-		c.showSlide(c.mode.Selected() == sizePx)
+		c.syncSlide()
 	}()
 	switch v := c.slot.get().(type) {
 	case nil:
@@ -255,15 +254,21 @@ func (c *sizeEditor) refresh() {
 	}
 }
 
-// showSlide shows the slider of the mode, in pixels or as a scale.
-func (c *sizeEditor) showSlide(px bool) {
-	if c.slides == nil {
+// syncSlide spans the slider over the mode's range, in pixels or as a
+// scale, its knob at the spin's value, which it leaves as it is.
+func (c *sizeEditor) syncSlide() {
+	if c.slide == nil {
 		return
 	}
-	c.slides.scale.SetVisible(!px)
-	c.slides.px.SetVisible(px)
-	c.slides.scale.refresh()
-	c.slides.px.refresh()
+	lo, hi := c.loPx, c.hiPx
+	if c.mode.Selected() != sizePx {
+		lo, hi = lo/c.basePx, hi/c.basePx
+	}
+	was := c.syncing
+	c.syncing = true
+	defer func() { c.syncing = was }()
+	c.slide.SetRange(lo, hi)
+	c.slide.Set(c.spin.Value())
 }
 
 // pixelLength is a pixel length ("400px") as the whole pixels a spin edits.
@@ -351,7 +356,7 @@ var animationDuration = withEditor(func(k *kit, s slot, meta config.FieldMeta) c
 	if meta.Optional {
 		return newOptionalNumber(k, s, meta.Min, meta.Max, durationStepMS, durationFallbackMS, 0)
 	}
-	return newSoftRange(k, s, meta, 0, animationSliderMS, durationStepMS, msLabel)
+	return newSoftRange(k, s, meta, 0, animationSliderMS, durationStepMS, unitMilliseconds)
 })
 
 // animationSliderMS is the end of an animation duration's slider, past

@@ -192,7 +192,7 @@ func TestTheLauncherSlidersMoveThePreview(t *testing.T) {
 	if !ok {
 		t.Fatalf("launcher.lines is a %T, want a slider", rowOf(t, p, "launcher.lines").ctl)
 	}
-	lines.slider.OnCommit(2)
+	lines.OnCommit(2)
 	p.refresh()
 	panel, _ := previewedLauncher(t, p)
 	if got := launcherRowTexts(t, panel); len(got) != 2 || k.store.value("launcher.lines") != int64(2) {
@@ -200,24 +200,24 @@ func TestTheLauncherSlidersMoveThePreview(t *testing.T) {
 	}
 
 	width, ok := rowOf(t, p, "launcher.width").ctl.(*sizeEditor)
-	if !ok || width.slides == nil {
+	if !ok || width.slide == nil {
 		t.Fatalf("launcher.width is a %T without a slider", rowOf(t, p, "launcher.width").ctl)
 	}
-	if !widget.IsVisible(width.slides.scale) || widget.IsVisible(width.slides.px) {
-		t.Error("a width given as a scale shows the pixel slider")
+	if lo, hi := width.slide.Knob.Range(); lo*width.basePx != width.loPx || hi*width.basePx != width.hiPx {
+		t.Errorf("a width given as a scale slides over [%v, %v], want the scales of %v to %vpx", lo, hi, width.loPx, width.hiPx)
 	}
-	width.slides.scale.OnCommit(0.75)
+	width.slide.OnCommit(0.75)
 	p.refresh()
-	if _, at := previewedLauncher(t, p); at.W != 540 || k.store.value("launcher.width") != 0.75 {
-		t.Errorf("the width slider at 0.75 stored %v and previews %dpx, want 540", k.store.value("launcher.width"), at.W)
+	if _, at := previewedLauncher(t, p); at.W != 540 || k.store.value("launcher.width") != 0.75 || width.spin.Value() != 0.75 {
+		t.Errorf("the width slider at 0.75 stored %v, reads %v and previews %dpx, want 540", k.store.value("launcher.width"), width.spin.Value(), at.W)
 	}
 	width.mode.SetSelected(sizePx)
 	width.mode.OnSelect(sizePx)
 	p.refresh()
-	if widget.IsVisible(width.slides.scale) || !widget.IsVisible(width.slides.px) {
-		t.Error("a width in pixels shows the scale slider")
+	if lo, hi := width.slide.Knob.Range(); lo != width.loPx || hi != width.hiPx {
+		t.Errorf("a width in pixels slides over [%v, %v], want [%v, %v]", lo, hi, width.loPx, width.hiPx)
 	}
-	width.slides.px.OnCommit(600)
+	width.slide.OnCommit(600)
 	p.refresh()
 	if _, at := previewedLauncher(t, p); at.W != 600 || k.store.value("launcher.width") != "600px" {
 		t.Errorf("the width slider at 600px stored %v and previews %dpx", k.store.value("launcher.width"), at.W)

@@ -272,8 +272,8 @@ func TestTextCommitsOnEnterWithTheDirtyBadge(t *testing.T) {
 func TestSliderCommitsPercentages(t *testing.T) {
 	k := testKit(t, "")
 	c := fieldControl(k, k.store, field("bar.dropdown-opacity", percentage)).(*slider)
-	if c.Value() != 75 || c.Label().Text() != "75%" {
-		t.Fatalf("slider %v %q, want the default 75%%", c.Value(), c.Label().Text())
+	if c.Value() != 75 || c.ValueLabel().Text() != unitPercent.format(0)(75) {
+		t.Fatalf("slider %v %q, want the default 75%%", c.Value(), c.ValueLabel().Text())
 	}
 	c.Knob.SetValue(42.4)
 	if v := k.store.value("bar.dropdown-opacity"); v != int64(42) {

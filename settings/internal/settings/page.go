@@ -72,7 +72,6 @@ type rowSpec struct {
 	scoped    scopedEditor
 	fullWidth bool
 	wm        bool
-	unit      string
 	// action marks a row that acts rather than holds a value
 	// (RowBehavior::Action): no source badge, no reset.
 	action bool

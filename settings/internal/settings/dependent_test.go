@@ -61,7 +61,7 @@ func TestSoftPixelsKeepAValuePastTheSlider(t *testing.T) {
 	if got := c.number.Value(); got != 400 {
 		t.Fatalf("400 px reads %v in the number", got)
 	}
-	c.slider.OnCommit(12)
+	c.OnCommit(12)
 	if stored != int64(12) {
 		t.Errorf("the slider stored %v", stored)
 	}
@@ -163,7 +163,7 @@ func TestTheDockRowsFollowTheDockSwitch(t *testing.T) {
 
 func TestADurationReadsInWholeMilliseconds(t *testing.T) {
 	for ms, want := range map[float64]string{0: "0 ms", 1: "1 ms", 150: "150 ms", 1499.6: "1500 ms"} {
-		if got := strings.NewReplacer("\u2068", "", "\u2069", "").Replace(msLabel(ms)); got != want {
+		if got := strings.NewReplacer("\u2068", "", "\u2069", "").Replace(unitMilliseconds.format(0)(ms)); got != want {
 			t.Errorf("%v ms reads %q, want %q", ms, got, want)
 		}
 	}
@@ -176,11 +176,11 @@ func TestDurationsAreSlidersThatKeepALongerValue(t *testing.T) {
 	if !ok {
 		t.Fatalf("the animation duration is a %T", rowOf(t, motion, "animations.duration").ctl)
 	}
-	if got, end := long.number.Value(), long.slider.Knob.Value(); got != 5000 || end != animationSliderMS {
+	if got, end := long.number.Value(), long.Knob.Value(); got != 5000 || end != animationSliderMS {
 		t.Errorf("5 s reads %v in the number and %v on the slider", got, end)
 	}
 	short := rowOf(t, motion, "animations.ui-duration").ctl.(*softRange)
-	short.slider.OnCommit(300)
+	short.OnCommit(300)
 	if got := k.store.value("animations.ui-duration"); got != int64(300) {
 		t.Errorf("sliding the UI duration to 300 ms stored %v", got)
 	}

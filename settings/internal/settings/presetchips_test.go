@@ -303,20 +303,19 @@ func TestSecondChipsStoreSecondsAndCustomTakesSeconds(t *testing.T) {
 }
 
 func TestTheCustomNumberNamesItsUnit(t *testing.T) {
-	tr := locale.T()
 	for _, c := range []struct {
 		spec rowSpec
-		unit string
+		unit unit
 	}{
-		{lockGraceRow(), "settings-duration-unit-seconds"},
-		{cyclingRow(), "settings-duration-unit-minutes"},
-		{reminderRow(), "settings-duration-unit-days"},
-		{field("launcher.history.max-size", countChips(inEntries, 25)), "settings-unit-entries"},
+		{lockGraceRow(), unitSeconds},
+		{cyclingRow(), unitMinutes},
+		{reminderRow(), unitDays},
+		{field("launcher.history.max-size", countChips(inEntries, 25)), unitEntries},
 	} {
 		k := testKit(t, "")
 		p := pickerOf(t, k, c.spec)
-		if labels := treetest.Labels(p.typed); !slices.Contains(labels, tr.Get(c.unit)) {
-			t.Errorf("%s's custom number reads %q, want %q beside it", c.spec.path, labels, tr.Get(c.unit))
+		if labels := treetest.Labels(p.typed); !slices.Contains(labels, c.unit.addon()) {
+			t.Errorf("%s's custom number reads %q, want %q beside it", c.spec.path, labels, c.unit.addon())
 		}
 	}
 }

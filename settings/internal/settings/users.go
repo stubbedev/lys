@@ -563,11 +563,11 @@ func (p *usersPanel) cropFile(path string) {
 		return
 	}
 	t := locale.T()
-	zoom := widget.NewSlider(avatarZoomMin, avatarZoomMax, 0, avatarZoomMin)
-	zoom.SetAccessibleName(t.Get("settings-users-avatar-zoom"))
-	cropper := newAvatarCropper(img, func(c avatarCrop) { zoom.SetValue(c.zoom) })
+	zoom := p.k.valueSlider(avatarZoomMin, avatarZoomMax, unitZoom.format(1))
+	zoom.Knob.SetAccessibleName(t.Get("settings-users-avatar-zoom"))
+	cropper := newAvatarCropper(img, func(c avatarCrop) { zoom.Set(c.zoom) })
 	cropper.SetAccessibleName(t.Get("settings-users-avatar-crop"))
-	zoom.OnChanged = func(v float64) {
+	zoom.OnValue = func(v float64) {
 		c := cropper.crop
 		c.zoom = v
 		cropper.set(c)

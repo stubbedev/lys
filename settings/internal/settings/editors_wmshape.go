@@ -5,7 +5,6 @@ import (
 	"log"
 	"math"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/stubbedev/lys/desktop/config"
@@ -203,7 +202,7 @@ func newBorderEditor(k *kit, s slot, colors wmconfig.Field) *borderEditor {
 	c.angle = newSlider(k, slot{
 		get: func() any { _, angle := c.parts(); return angle },
 		set: func(v any) error { colors, _ := c.parts(); return c.write(colors, toFloat(v)) },
-	}, 0, maxBorderAngle, true, func(v float64) string { return decimals(0)(v) + "°" })
+	}, 0, maxBorderAngle, true, unitDegrees.format(0))
 	c.angled = gapBox(widget.Row)
 	c.angled.AppendAligned(k.label(locale.T().Get("wm-border-angle"), css.DimLabel), false, widget.AlignCenter)
 	c.angled.Append(c.angle, true)
@@ -307,10 +306,8 @@ func newOffsetEditor(k *kit, s slot, path string, lo, hi float64) *offsetEditor 
 	grid := k.formGrid()
 	whole := config.FieldMeta{Min: math.MinInt32, Max: math.MaxInt32}
 	for i, key := range offsetAxes {
-		axis := newSoftRange(k, offsetAxisSlot(s, path, i), whole, lo, hi, 1, func(v float64) string {
-			return strconv.FormatFloat(v, 'f', 0, 64) + " px"
-		})
-		axis.slider.SetAccessibleName(t.Get(key))
+		axis := newSoftRange(k, offsetAxisSlot(s, path, i), whole, lo, hi, 1, unitPixels)
+		axis.SetAccessibleName(t.Get(key))
 		axis.number.SetAccessibleName(t.Get(key))
 		c.Append(grid.row(grid.label(t.Get(key)), axis, true), false)
 		c.axes[i] = axis

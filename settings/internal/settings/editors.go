@@ -5,13 +5,12 @@ import (
 	"log"
 	"math"
 	"slices"
-	"strconv"
 	"unicode/utf8"
 
 	"github.com/stubbedev/lys/desktop/config"
-	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/ui/widget"
+	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -51,16 +50,8 @@ func autoEditor(k *kit, s slot, path string, meta config.FieldMeta) (control, er
 			return newSegmentedEnum(k, s, meta), nil
 		}
 		return newEnumSelect(k, s, meta), nil
-	case config.FieldInt:
-		if fitsSlider(meta) {
-			return newSlider(k, s, meta.Min, meta.Max, true, decimals(0)), nil
-		}
-		return newNumber(k, s, meta.Min, meta.Max, 1, 0), nil
-	case config.FieldFloat:
-		if fitsSlider(meta) {
-			return newSlider(k, s, meta.Min, meta.Max, false, decimals(2)), nil
-		}
-		return newNumber(k, s, meta.Min, meta.Max, 0.05, 2), nil
+	case config.FieldInt, config.FieldFloat:
+		return numberEditor(k, s, meta, bareCount), nil
 	case config.FieldText:
 		return newText(k, s, meta.Optional), nil
 	}
@@ -79,9 +70,27 @@ const sliderSpan = 100
 // slider with its value beside it.
 func fitsSlider(meta config.FieldMeta) bool { return meta.Max-meta.Min <= sliderSpan }
 
-// decimals formats a value with digits decimals.
-func decimals(digits int) func(float64) string {
-	return func(v float64) string { return strconv.FormatFloat(v, 'f', digits, 64) }
+// numberEditor is a required number in u: a slider reading the value in
+// u when its bounds fit one, else a field typing it with u as its addon;
+// whole for an integer, in hundredths for a float.
+func numberEditor(k *kit, s slot, meta config.FieldMeta, u unit) control {
+	if meta.Optional || (meta.Kind != config.FieldInt && meta.Kind != config.FieldFloat) {
+		log.Panicf("settings: a %s is no required number to edit in %q", meta.Type, u)
+	}
+	whole := meta.Kind == config.FieldInt
+	digits, step := 2, 0.05
+	if whole {
+		digits, step = 0, 1
+	}
+	if fitsSlider(meta) {
+		return newSlider(k, s, meta.Min, meta.Max, whole, u.format(digits))
+	}
+	return k.numberField(newNumber(k, s, meta.Min, meta.Max, step, digits), u)
+}
+
+// measuredIn edits a number field in u.
+func measuredIn(u unit) rowOpt {
+	return withEditor(func(k *kit, s slot, meta config.FieldMeta) control { return numberEditor(k, s, meta, u) })
 }
 
 // toggle is ToggleControl: a switch writing the bool.
@@ -268,11 +277,24 @@ func fieldControl(k *kit, be backend, spec rowSpec) control {
 	return c
 }
 
-// slider is SliderControl: a debounced slider with its value label,
-// writing whole numbers when the format shows no decimals.
+// valueSlider is the window's slider over [lo, hi], read by its value
+// label in format.
+func (k *kit) valueSlider(lo, hi float64, format func(float64) string) *widgets.DebouncedSlider {
+	d := widgets.NewRangedSlider(lo, hi, lo, k.face, k.textPx(), 0, k.invoke, k.clock)
+	d.ValueLabel().AddClass(css.Numeric)
+	d.SetFormat(format)
+	return d
+}
+
+// fieldSlider is the window's slider over [lo, hi], read by field.
+func (k *kit) fieldSlider(lo, hi float64, field widget.Widget) *widgets.DebouncedSlider {
+	return widgets.NewFieldSlider(lo, hi, lo, field, k.invoke, k.clock)
+}
+
+// slider is SliderControl: a debounced slider writing what it commits
+// to its slot, whole numbers or hundredths.
 type slider struct {
 	*widgets.DebouncedSlider
-	k    *kit
 	slot slot
 }
 
@@ -280,9 +302,14 @@ type slider struct {
 // shows, so a drag does not store float noise.
 const sliderPrecision = 100
 
+// newSlider is a slider over [lo, hi] read in format.
 func newSlider(k *kit, s slot, lo, hi float64, whole bool, format func(float64) string) *slider {
-	c := &slider{DebouncedSlider: widgets.NewRangedSlider(lo, hi, lo, k.face, k.textPx(), 0, k.invoke, k.clock), k: k, slot: s}
-	c.SetFormat(format)
+	return bindSlider(k.valueSlider(lo, hi, format), s, whole)
+}
+
+// bindSlider has d show s and write what it commits to it.
+func bindSlider(d *widgets.DebouncedSlider, s slot, whole bool) *slider {
+	c := &slider{DebouncedSlider: d, slot: s}
 	c.OnCommit = func(v float64) {
 		if whole {
 			_ = c.slot.set(int64(math.Round(v)))
@@ -305,21 +332,18 @@ func (c *slider) refresh() {
 
 // normalized is a 0-1 slider labeled with two decimals.
 var normalized = withEditor(func(k *kit, s slot, _ config.FieldMeta) control {
-	return newSlider(k, s, 0, 1, false, decimals(2))
+	return newSlider(k, s, 0, 1, false, bareCount.format(2))
 })
 
 // signedNormalized is a -1-1 slider labeled with two decimals.
 var signedNormalized = withEditor(func(k *kit, s slot, _ config.FieldMeta) control {
-	return newSlider(k, s, -1, 1, false, decimals(2))
+	return newSlider(k, s, -1, 1, false, bareCount.format(2))
 })
 
 // percentage is a 0-100 slider labeled in whole percent.
 var percentage = withEditor(func(k *kit, s slot, _ config.FieldMeta) control {
-	return newSlider(k, s, 0, 100, true, percentLabel)
+	return newSlider(k, s, 0, 100, true, unitPercent.format(0))
 })
-
-// percentLabel reads a whole percent.
-func percentLabel(v float64) string { return strconv.FormatFloat(v, 'f', 0, 64) + "%" }
 
 // fraction is a 0-1 value shown and set as a whole percent.
 var fraction = withEditor(func(k *kit, s slot, _ config.FieldMeta) control {
@@ -338,71 +362,59 @@ var fraction = withEditor(func(k *kit, s slot, _ config.FieldMeta) control {
 			return s.set(float64(pct) / 100)
 		},
 		unset: s.unset,
-	}, 0, 100, true, percentLabel)
+	}, 0, 100, true, unitPercent.format(0))
 })
 
 // softPixels is a slider over the pixel range nearly every setup sits
-// in, beside a number that takes a value past it.
-func softPixels(lo, hi float64) rowOpt {
-	return withEditor(func(k *kit, s slot, meta config.FieldMeta) control {
-		return newSoftRange(k, s, meta, lo, hi, 1, pixelLabel)
-	})
-}
-
-// pixelLabel reads a whole number of pixels.
-func pixelLabel(v float64) string { return strconv.FormatFloat(v, 'f', 0, 64) + " px" }
+// in, read by a field that takes a value past it.
+func softPixels(lo, hi float64) rowOpt { return softIn(lo, hi, 1, unitPixels) }
 
 // softCount is softPixels over a count.
-func softCount(lo, hi float64) rowOpt {
-	return withEditor(func(k *kit, s slot, meta config.FieldMeta) control {
-		return newSoftRange(k, s, meta, lo, hi, 1, decimals(0))
-	})
-}
+func softCount(lo, hi float64) rowOpt { return softIn(lo, hi, 1, bareCount) }
 
 // softPerSecond is softPixels over a rate a second.
-func softPerSecond(lo, hi float64) rowOpt {
-	return withEditor(func(k *kit, s slot, meta config.FieldMeta) control {
-		return newSoftRange(k, s, meta, lo, hi, 1, func(v float64) string { return strconv.FormatFloat(v, 'f', 0, 64) + "/s" })
-	})
-}
+func softPerSecond(lo, hi float64) rowOpt { return softIn(lo, hi, 1, unitPerSecond) }
 
 // softMilliseconds is softPixels over a duration in milliseconds.
 func softMilliseconds(lo, hi float64) rowOpt {
+	return softIn(lo, hi, durationStepMS, unitMilliseconds)
+}
+
+// softIn is a softRange over [lo, hi] in u, its field stepping by step.
+func softIn(lo, hi, step float64, u unit) rowOpt {
 	return withEditor(func(k *kit, s slot, meta config.FieldMeta) control {
-		return newSoftRange(k, s, meta, lo, hi, durationStepMS, msLabel)
+		return newSoftRange(k, s, meta, lo, hi, step, u)
 	})
 }
 
-// softRange is a whole number on a slider over [lo, hi], beside a number
-// stepping by step over the field's whole range.
+// softRange is a whole number on a slider over [lo, hi], read by a field
+// as wide as the slider's values and typing any value of the field's
+// range in steps of step, its unit the field's trailing addon: the value
+// shows once, in the field.
 type softRange struct {
-	*widget.Box
-	slider *slider
+	*slider
 	number *number
 }
 
-func newSoftRange(k *kit, s slot, meta config.FieldMeta, lo, hi, step float64, format func(float64) string) *softRange {
-	c := &softRange{Box: gapBox(widget.Row)}
-	c.slider = newSlider(k, s, lo, hi, true, format)
-	c.number = newNumber(k, s, meta.Min, meta.Max, step, 0)
-	c.Append(c.slider, true)
-	c.AppendAligned(c.number, false, widget.AlignCenter)
+func newSoftRange(k *kit, s slot, meta config.FieldMeta, lo, hi, step float64, u unit) *softRange {
+	n := newNumber(k, s, meta.Min, meta.Max, step, 0)
+	n.SetFitRange(lo, hi)
+	c := &softRange{slider: bindSlider(k.fieldSlider(lo, hi, k.numberField(n, u)), s, true), number: n}
+	c.OnValue = n.SetValue
+	n.refresh()
 	return c
 }
 
+// refresh moves the knob, clamped to the slider's range, then shows the
+// value itself in the field.
 func (c *softRange) refresh() {
 	c.slider.refresh()
 	c.number.refresh()
 }
 
-// msLabel reads a whole number of milliseconds.
-func msLabel(ms float64) string {
-	return locale.T().Get("settings-duration-milliseconds", i18n.Int("n", int64(math.Round(ms))))
-}
-
 func countSlider(lo, hi float64) rowOpt {
 	return withEditor(func(k *kit, s slot, _ config.FieldMeta) control {
-		return newSlider(k, s, lo, hi, true, decimals(0))
+		return newSlider(k, s, lo, hi, true, bareCount.format(0))
 	})
 }
 

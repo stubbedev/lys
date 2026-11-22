@@ -154,3 +154,23 @@ func TestSpinButtonFitsItsRange(t *testing.T) {
 		t.Errorf("-1000 at two decimals sizes for %d chars, want %d", min, len("-1000.00"))
 	}
 }
+
+// A spin button given a fit range is as wide as those values whatever
+// its bounds, and keeps that width through a change of bounds, while it
+// still takes a value past them.
+func TestSpinButtonSizesToItsFitRange(t *testing.T) {
+	face := goldenFace(t)
+	s := NewSpinButton(face, 14, 0, 0, 4294967295, 1, 0)
+	s.SetFitRange(0, 2000)
+	if min, max := s.WidthChars(); min != 4 || max != 4 {
+		t.Errorf("fit to 0-2000 sizes for %d-%d chars, want 4", min, max)
+	}
+	s.SetRange(-5, 1<<40)
+	if min, _ := s.WidthChars(); min != 4 {
+		t.Errorf("new bounds resized the fitted field to %d chars", min)
+	}
+	s.SetValue(123456)
+	if s.Value() != 123456 {
+		t.Errorf("a fitted field holds %v, want the value past its fit", s.Value())
+	}
+}

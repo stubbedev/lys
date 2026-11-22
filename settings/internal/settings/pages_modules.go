@@ -369,7 +369,7 @@ const (
 )
 
 var gammaPercent = withEditor(func(k *kit, s slot, _ config.FieldMeta) control {
-	return newSlider(k, s, 0, gammaMost, true, percentLabel)
+	return newSlider(k, s, 0, gammaMost, true, unitPercent.format(0))
 })
 
 // idleInhibitPage is pages/modules/idle_inhibit.

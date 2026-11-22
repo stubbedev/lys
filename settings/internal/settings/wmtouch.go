@@ -281,7 +281,7 @@ func newTouchStart(k *kit, field func(key string) slot, spec touchStartSpec) *to
 	t := locale.T()
 	c := &touchStart{Box: gapBox(widget.Column), edge: field("edge"), fingers: wholeSlot(field("fingers")), direction: field("direction"), fewest: int64(spec.fewest)}
 	c.starts = newCards(k, slot{get: c.start, set: c.setStart, unset: c.edge.unset}, spec.starts, spec.startNames, spec.startPics)
-	c.count = newSlider(k, c.fingers, spec.fewest, spec.most, true, decimals(0))
+	c.count = newSlider(k, c.fingers, spec.fewest, spec.most, true, bareCount.format(0))
 	c.directions = newCards(k, c.direction, spec.directions, spec.directionNames, spec.directionPics)
 	grid := k.formGrid()
 	c.swipe = gapBox(widget.Column)

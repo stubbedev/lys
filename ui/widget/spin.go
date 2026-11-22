@@ -26,6 +26,10 @@ type SpinButton struct {
 	// optional lets the field hold no value; empty is that state, the
 	// text cleared and the placeholder showing.
 	optional, empty bool
+	// fit, while fitted, are the values the field is sized for in place
+	// of its bounds.
+	fit    [2]float64
+	fitted bool
 
 	// OnCleared fires when the user empties an optional field.
 	OnCleared func()
@@ -61,13 +65,26 @@ func max0(n int) int { return max(n, 0) }
 
 // fitRange sizes the field to its widest value, the formatted minimum
 // or maximum, as GtkSpinButton does: the value always shows beside the
-// steppers.
+// steppers. A field given SetFitRange sizes to those values instead.
 func (s *SpinButton) fitRange() {
-	n := max(len([]rune(s.format(s.min))), len([]rune(s.format(s.max))))
+	lo, hi := s.min, s.max
+	if s.fitted {
+		lo, hi = s.fit[0], s.fit[1]
+	}
+	n := max(len([]rune(s.format(lo))), len([]rune(s.format(hi))))
 	if s.optional {
 		n = max(n, len([]rune(s.Placeholder())))
 	}
 	s.SetWidthChars(n, n)
+}
+
+// SetFitRange sizes the field to the widest of lo and hi as it shows
+// them, in place of its bounds: a field whose bounds reach far past the
+// values it nearly always holds stays as narrow as those, and pans a
+// longer value it is given.
+func (s *SpinButton) SetFitRange(lo, hi float64) {
+	s.fit, s.fitted = [2]float64{lo, hi}, true
+	s.fitRange()
 }
 
 // Value reports the committed value.

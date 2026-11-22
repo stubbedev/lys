@@ -366,3 +366,62 @@ func TestItemLinesCapTheDescription(t *testing.T) {
 		t.Errorf("the uncapped description has the tooltip %q", free.desc.TooltipText())
 	}
 }
+
+// The readings of one ItemGroup's controls share the widest one's
+// width, so the tracks before them end at one x, the readings of one
+// control among them; a reading outside an item keeps its own width,
+// and an item leaving the group leaves its width too.
+func TestItemValuesShareOneWidthAcrossTheirGroup(t *testing.T) {
+	face := chromeFace(t)
+	reading := func(text string) (*ItemValue, *Slider, *Box) {
+		v := NewItemValue(NewLabel(face, 14, text, 0))
+		s := NewSlider(0, 1, 0, 0)
+		b := NewBox(Row, 8, 0)
+		b.Append(s, false)
+		b.Append(v, false)
+		return v, s, b
+	}
+	short, shortTrack, shortCtl := reading("2")
+	long, longTrack, longCtl := reading("1000 ms")
+	pairA, pairATrack, pairACtl := reading("5")
+	pairB, _, pairBCtl := reading("50")
+	pair := NewBox(Column, 8, 0)
+	pair.Append(pairACtl, false)
+	pair.Append(pairBCtl, false)
+	g := NewItemGroup()
+	var items []*Item
+	for _, ctl := range []Widget{shortCtl, longCtl, pair} {
+		it := NewItem(face, "Setting", "")
+		it.SetControl(ctl, ItemControlNatural)
+		g.Append(it)
+		items = append(items, it)
+	}
+	layOutItems(g, 700)
+	want := SizeWithin(NewLabel(face, 14, "1000 ms", 0), Size{W: 700, H: 100}).W
+	for name, v := range map[string]*ItemValue{"2": short, "1000 ms": long, "5": pairA, "50": pairB} {
+		if w := v.Bounds().W; w != want {
+			t.Errorf("the reading %s is %dpx wide, want the widest reading's %d", name, w, want)
+		}
+	}
+	end := func(s *Slider) int { return s.Bounds().X + s.Bounds().W }
+	if end(shortTrack) != end(longTrack) || end(pairATrack) != end(longTrack) {
+		t.Errorf("tracks end at x %d, %d and %d, want one x", end(shortTrack), end(longTrack), end(pairATrack))
+	}
+
+	loose, _, looseCtl := reading("2")
+	layOutItems(looseCtl, 400)
+	if w, own := loose.Bounds().W, SizeWithin(NewLabel(face, 14, "2", 0), Size{W: 400, H: 100}).W; w != own {
+		t.Errorf("a reading outside an item is %dpx wide, want its own %d", w, own)
+	}
+
+	g.Remove(items[1])
+	layOutItems(g, 700)
+	if w, two := short.Bounds().W, SizeWithin(NewLabel(face, 14, "50", 0), Size{W: 700, H: 100}).W; w != two {
+		t.Errorf("after the widest reading's row left, a reading is %dpx wide, want the widest left's %d", w, two)
+	}
+	items[0].SetControl(nil, ItemControlNatural)
+	layOutItems(g, 700)
+	if w, own := pairA.Bounds().W, SizeWithin(NewLabel(face, 14, "50", 0), Size{W: 700, H: 100}).W; w != own {
+		t.Errorf("after a control left, the pair's reading is %dpx wide, want %d", w, own)
+	}
+}

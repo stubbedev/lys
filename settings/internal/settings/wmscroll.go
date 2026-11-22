@@ -66,9 +66,9 @@ func (w columnWidth) value() any {
 
 func (w columnWidth) label() string {
 	if w.inPixels() {
-		return pixelLabel(float64(w.pixels))
+		return unitPixels.format(0)(float64(w.pixels))
 	}
-	return percentLabel(w.share * percentPerShare)
+	return unitPercent.format(0)(w.share * percentPerShare)
 }
 
 func (w columnWidth) onScreen() float64 {

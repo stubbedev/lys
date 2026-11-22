@@ -473,9 +473,6 @@ func (b reportingBackend) slot(path string) slot {
 // of the control so showing it never moves the control.
 func newSettingRow(k *kit, be backend, spec rowSpec, ctl control) *fieldRow {
 	r := &fieldRow{settingRow: k.keyRow(spec.labelKey()), k: k, be: be, path: spec.path, ctl: ctl, action: spec.action}
-	if spec.unit != "" {
-		r.AddTitleSuffix(k.label("("+spec.unit+")", css.Caption, css.DimLabel, css.Monospace))
-	}
 	r.badge = k.badge("")
 	r.AddTitleSuffix(r.badge)
 	if d, ok := ctl.(interface{ dirtyBadge() *widget.Badge }); ok {

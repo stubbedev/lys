@@ -83,7 +83,7 @@ func TestTheBarBorderWidthIsASliderOverABarBordersWidths(t *testing.T) {
 	if !ok {
 		t.Fatalf("the border width is a %T", rowOf(t, p, "bar.border-width").ctl)
 	}
-	if got := c.slider.Knob.Value(); got != 8 {
+	if got := c.Knob.Value(); got != 8 {
 		t.Errorf("a 20 px border puts the slider at %v px, want its 8 px end", got)
 	}
 	if got := c.number.Value(); got != 20 {
