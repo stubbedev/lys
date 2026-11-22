@@ -37,12 +37,17 @@ func fontsPage(*config.Config) pageSpec {
 
 var scaleSteps = []float64{0.75, 1, 1.25, 1.5, 1.75, 2}
 
-func scaleChips() rowOpt {
-	presets := make([]preset[float64], len(scaleSteps))
-	for i, v := range scaleSteps {
-		presets[i] = preset[float64]{value: v, label: func() string { return scalePercent(v) }}
+var scaleUnit = customUnit{per: 1, digits: 2, name: "settings-unit-scale"}
+
+func scaleChips() rowOpt { return presetChips(scaleUnit, scalePicks(scaleSteps)) }
+
+// scalePicks are scale presets reading as percentages.
+func scalePicks(values []float64) []preset[float64] {
+	out := make([]preset[float64], len(values))
+	for i, v := range values {
+		out[i] = preset[float64]{value: v, label: func() string { return scalePercent(v) }}
 	}
-	return presetChips(customUnit{per: 1, digits: 2, name: "settings-unit-scale"}, presets)
+	return out
 }
 
 func scalePercent(v float64) string {

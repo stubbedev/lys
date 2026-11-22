@@ -53,19 +53,18 @@ type nameChips struct {
 	slot    slot
 	spec    nameChipsSpec
 	offered []string
-	chips   *widget.FlowBox
+	chips   *widget.ChoiceChips
 	labels  []string
-	toggles []*widget.ToggleButton
 	entry   *widget.Entry
 	problem *widget.Label
 	unread  *widget.Label
-	syncing bool
 }
 
 func newNameChips(k *kit, s slot, spec nameChipsSpec) *nameChips {
 	t := locale.T()
 	c := &nameChips{Box: gapBox(widget.Column), k: k, slot: s, spec: spec}
-	c.chips = widget.NewWrapBox(choiceCardGap, choiceCardGap, widget.JustifyStart)
+	c.chips = newChipGroup(k, widget.ChooseMany, nil)
+	c.chips.OnChanged = func(i int, on bool) { c.toggle(c.labels[i], on) }
 	c.entry = k.entry()
 	c.entry.SetPlaceholder(t.Get(spec.placeholder))
 	c.entry.SetAccessibleName(t.Get(spec.addKey))
@@ -113,9 +112,6 @@ func (c *nameChips) write(names []string) {
 }
 
 func (c *nameChips) toggle(name string, on bool) {
-	if c.syncing {
-		return
-	}
 	names := c.names()
 	switch has := slices.Contains(names, name); {
 	case on && !has:
@@ -167,21 +163,9 @@ func (c *nameChips) shown() []string {
 
 func (c *nameChips) refresh() {
 	names := c.names()
-	shown := c.shown()
-	c.syncing = true
-	defer func() { c.syncing = false }()
-	if !slices.Equal(c.labels, shown) {
-		c.chips.Clear()
-		c.labels, c.toggles = shown, make([]*widget.ToggleButton, len(shown))
-		for i, name := range shown {
-			chip := widget.NewToggleButton(c.k.label(name), widget.Current().Padding, chipRadius)
-			chip.AddClass(css.Small)
-			chip.OnToggled = func(on bool) { c.toggle(name, on) }
-			c.toggles[i] = chip
-			c.chips.Append(chip)
-		}
+	if shown := c.shown(); !slices.Equal(c.labels, shown) {
+		c.labels = shown
+		setChips(c.k, c.chips, shown)
 	}
-	for i, name := range c.labels {
-		c.toggles[i].SetActive(slices.Contains(names, name))
-	}
+	markChips(c.chips, func(i int) bool { return slices.Contains(names, c.labels[i]) })
 }

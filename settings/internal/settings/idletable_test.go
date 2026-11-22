@@ -55,15 +55,15 @@ func TestAnIdleChipWritesItsDuration(t *testing.T) {
 	k := testKit(t, "")
 	g := idleTableOf(t, k)
 	lock := g.cell(t, idleLock, idleOnBattery).chips
-	lock.chips[len(idleChoices)-1].SetActive(true)
+	pressChip(lock.ChoiceChips, len(idleChoices)-1)
 	if v := k.store.value("idle.lock.battery"); v != "never" {
 		t.Errorf("choosing Never on battery stored %v", v)
 	}
-	lock.chips[0].SetActive(true)
+	pressChip(lock.ChoiceChips, 0)
 	if v := k.store.value("idle.lock.battery"); v != "1m" {
 		t.Errorf("choosing 1 minute on battery stored %v", v)
 	}
-	g.cell(t, idleSuspend, idleOnAC).chips.chips[6].SetActive(true)
+	pressChip(g.cell(t, idleSuspend, idleOnAC).chips.ChoiceChips, 6)
 	if v := k.store.value("idle.suspend.ac"); v != "1h" {
 		t.Errorf("choosing 1 hour plugged in stored %v", v)
 	}

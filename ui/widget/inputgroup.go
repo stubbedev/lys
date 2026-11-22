@@ -2,30 +2,27 @@ package widget
 
 import "github.com/stubbedev/lys/lib/render"
 
-// InputGroup is an entry with addons before and after it - icons, text,
-// buttons - inside one shared border and one focus ring: the group
-// draws the input's border, ring-colored while its entry has the focus,
-// and the keyboard focus ring goes around the whole group. It styles as
-// the `inputgroup` element; addon text and icons take the muted color.
+// InputGroup is an input - an Entry, a SpinButton - with addons before
+// and after it - icons, text, buttons - inside one shared border and
+// one focus ring: the group draws the input's border, ring-colored
+// while its input has the focus, and the keyboard focus ring goes
+// around the whole group. It styles as the `inputgroup` element; addon
+// text and icons take the muted color.
 type InputGroup struct {
 	composite
-	row   *Box
-	entry *Entry
+	row *Box
 }
 
-// NewInputGroup returns a group around entry with no addons yet.
-func NewInputGroup(entry *Entry) *InputGroup {
-	g := &InputGroup{row: NewBox(Row, 8, 0), entry: entry}
+// NewInputGroup returns a group around input with no addons yet.
+func NewInputGroup(input Widget) *InputGroup {
+	g := &InputGroup{row: NewBox(Row, 8, 0)}
 	g.SetElement("inputgroup")
 	g.row.SetPadding(render.Insets{Left: 12, Right: 12})
-	g.row.Append(entry, true)
+	g.row.Append(input, true)
 	g.initComposite(g, g.row)
 	g.boxed = true
 	return g
 }
-
-// Entry returns the group's entry.
-func (g *InputGroup) Entry() *Entry { return g.entry }
 
 // Prepend adds w as the first addon, before the entry.
 func (g *InputGroup) Prepend(w Widget) {
@@ -37,5 +34,5 @@ func (g *InputGroup) Append(w Widget) {
 	g.row.AppendAligned(w, false, AlignCenter)
 }
 
-// focusRingTarget draws the entry's focus ring around the group.
+// focusRingTarget draws the input's focus ring around the group.
 func (g *InputGroup) focusRingTarget() Widget { return g }

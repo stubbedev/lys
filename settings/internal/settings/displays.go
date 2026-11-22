@@ -8,9 +8,9 @@ import (
 	"maps"
 	"slices"
 	"strconv"
-	"strings"
 	"time"
 
+	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/lib/wmipc"
@@ -77,9 +77,7 @@ type displaysPanel struct {
 	sizes       [][2]int
 	refresh     *widget.Dropdown
 	rates       []displays.Mode
-	scale       *widget.Dropdown
-	scales      []float64
-	custom      *widget.Entry
+	scale       *presetPicker[float64]
 	extra       *widget.ItemGroup
 	capsNote    *widget.Label
 	caps        outputCapabilities
@@ -186,25 +184,9 @@ func (p *displaysPanel) buildControls() {
 		}
 	}
 	rows.Append(panelRow(k, t.Get("settings-displays-refresh"), "", p.refresh))
-	p.scale = widget.NewDropdown(k.face, k.textPx(), nil, 0)
+	p.scale = displayScalePicker(k, p.scaleSlot())
 	p.scale.SetAccessibleName(t.Get("settings-displays-scale"))
-	p.scale.OnSelect = func(i int) {
-		if !p.syncing && i < len(p.scales) {
-			p.setScale(p.scales[i])
-		}
-	}
-	p.custom = k.entry()
-	p.custom.SetPlaceholder(t.Get("settings-displays-scale-custom"))
-	p.custom.SetAccessibleName(t.Get("settings-displays-scale-custom"))
-	p.custom.OnActivate = func(text string) {
-		v, err := strconv.ParseFloat(strings.TrimSpace(text), 64)
-		if err != nil || v < minCustomScale || v > maxCustomScale {
-			p.say(t.Get("settings-displays-scale-invalid", i18n.Str("value", text)))
-			return
-		}
-		p.setScale(displays.ScaleValue(v))
-	}
-	rows.Append(panelRow(k, t.Get("settings-displays-scale"), t.Attr("settings-displays-scale", "description"), p.scale, p.custom))
+	rows.Append(stackedPanelRow(k, t.Get("settings-displays-scale"), t.Attr("settings-displays-scale", "description"), p.scale))
 	p.lightSlider = widgets.NewDebouncedSlider(0, k.face, k.textPx(), 0, k.invoke, k.clock)
 	p.lightSlider.SetAccessibleName(t.Get("settings-displays-brightness"))
 	p.lightSlider.OnCommit = p.setBrightness
@@ -373,20 +355,10 @@ func (p *displaysPanel) render() {
 		rateNames[i] = locale.T().Get(key, i18n.Str("rate", rate))
 	}
 	setChoices(p.refresh, rateNames, slices.Index(p.rates, s.Mode))
-	p.scales = slices.Clone(scalePresets)
-	if scale := displays.ScaleValue(s.Scale); !slices.Contains(p.scales, scale) {
-		p.scales = append(p.scales, scale)
-		slices.Sort(p.scales)
-	}
-	scaleNames := make([]string, len(p.scales))
-	for i, v := range p.scales {
-		scaleNames[i] = strconv.FormatFloat(v*100, 'f', -1, 64) + " %"
-	}
-	setChoices(p.scale, scaleNames, slices.Index(p.scales, displays.ScaleValue(s.Scale)))
+	p.scale.refresh()
 	p.resolution.SetEnabled(s.Enabled)
 	p.refresh.SetEnabled(s.Enabled)
 	p.scale.SetEnabled(s.Enabled)
-	p.custom.SetEnabled(s.Enabled)
 	p.showBrightness()
 }
 
@@ -451,6 +423,34 @@ func (p *displaysPanel) setSize(size [2]int) {
 		return
 	}
 	p.edit(func(s *displays.Setting) { s.Mode = h.Modes[best] }, true)
+}
+
+// displayScalePicker picks a display's scale from s: the preset
+// percentages, or a custom multiple of the normal size from
+// minCustomScale to maxCustomScale.
+func displayScalePicker(k *kit, s slot) *presetPicker[float64] {
+	return newPresetPicker(k, s, config.FieldMeta{Min: minCustomScale, Max: maxCustomScale}, scaleUnit, scalePicks(scalePresets))
+}
+
+// scaleSlot is the selected display's scale, held to the steps lys-wm
+// takes; it has none while no display is selected.
+func (p *displaysPanel) scaleSlot() slot {
+	return slot{
+		get: func() any {
+			if p.selected < 0 || p.selected >= len(p.draft) {
+				return nil
+			}
+			return displays.ScaleValue(p.draft[p.selected].Scale)
+		},
+		set: func(v any) error {
+			f, ok := v.(float64)
+			if !ok {
+				return fmt.Errorf("a display scale of %T, not a number", v)
+			}
+			p.setScale(displays.ScaleValue(f))
+			return nil
+		},
+	}
 }
 
 func (p *displaysPanel) setScale(v float64) {

@@ -68,7 +68,7 @@ func TestThePreviewResolutionIsPickedFromVideoHeights(t *testing.T) {
 	if p.active() != len(p.presets) || !p.typed.Visible() {
 		t.Errorf("the default 640 shows chip %d, custom shown %v", p.active(), p.typed.Visible())
 	}
-	p.chips[2].SetActive(true)
+	pressChip(p.ChoiceChips, 2)
 	if v := k.store.value("share-picker.resize-size"); v != int64(720) {
 		t.Errorf("choosing 720p stored %v", v)
 	}

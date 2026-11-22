@@ -127,14 +127,14 @@ func TestSkippedFoldersAreExampleChipsThatToggleTheirName(t *testing.T) {
 	if want := append(slices.Clone(skippedFolderExamples), "build-cache"); !slices.Equal(c.labels, want) {
 		t.Fatalf("chips %q, want %q", c.labels, want)
 	}
-	if !c.toggles[len(c.labels)-1].Active() || c.toggles[0].Active() {
+	if !slices.Equal(c.chips.Checked(), []int{len(c.labels) - 1}) {
 		t.Fatal("the chips do not show what is skipped")
 	}
-	c.toggles[slices.Index(c.labels, "Downloads")].SetActive(true)
+	pressChip(c.chips, slices.Index(c.labels, "Downloads"))
 	if got := k.store.value("launcher.search.file-exclude"); !reflect.DeepEqual(got, []any{"build-cache", "Downloads"}) {
 		t.Fatalf("stored %v", got)
 	}
-	c.toggles[slices.Index(c.labels, "build-cache")].SetActive(false)
+	pressChip(c.chips, slices.Index(c.labels, "build-cache"))
 	if got := k.store.value("launcher.search.file-exclude"); !reflect.DeepEqual(got, []any{"Downloads"}) {
 		t.Fatalf("stored %v", got)
 	}

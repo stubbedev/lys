@@ -23,41 +23,28 @@ var enumList = func(r *rowSpec) {
 }
 
 // enumChips edits a list of an enum's variants whose order means
-// nothing: a toggle chip per variant, the list holding the chosen ones in
-// the enum's order. The last least chosen chips cannot be let go.
+// nothing: a chip per variant, the list holding the chosen ones in the
+// enum's order. The last least chosen chips cannot be let go.
 type enumChips struct {
-	*widget.FlowBox
+	*widget.ChoiceChips
 	slot     slot
 	variants []string
-	chips    []*widget.ToggleButton
 	least    int
-	syncing  bool
 }
 
 func newEnumChips(k *kit, s slot, elem config.FieldMeta, least int) *enumChips {
-	c := &enumChips{FlowBox: widget.NewWrapBox(choiceCardGap, choiceCardGap, widget.JustifyStart), slot: s, variants: elem.Variants, least: least}
+	c := &enumChips{ChoiceChips: newChipGroup(k, widget.ChooseMany, enumLabels(elem)), slot: s, variants: elem.Variants, least: least}
 	c.AddClass("enum-chips")
-	th := widget.Current()
-	for _, label := range enumLabels(elem) {
-		chip := widget.NewToggleButton(k.label(label), th.Padding, th.Radius)
-		chip.SetAccessibleName(label)
-		chip.OnToggled = func(bool) { c.commit() }
-		c.chips = append(c.chips, chip)
-		c.Append(chip)
-	}
+	c.OnChanged = func(int, bool) { c.commit() }
 	c.refresh()
 	return c
 }
 
 func (c *enumChips) commit() {
-	if c.syncing {
-		return
-	}
-	out := make([]any, 0, len(c.variants))
-	for i, chip := range c.chips {
-		if chip.Active() {
-			out = append(out, c.variants[i])
-		}
+	checked := c.Checked()
+	out := make([]any, len(checked))
+	for i, at := range checked {
+		out[i] = c.variants[at]
 	}
 	if err := c.slot.set(out); err != nil {
 		c.refresh()
@@ -68,22 +55,14 @@ func (c *enumChips) commit() {
 
 func (c *enumChips) refresh() {
 	listed := listedVariants(c.slot.get())
-	c.syncing = true
-	chosen := 0
-	for i, chip := range c.chips {
-		on := slices.Contains(listed, c.variants[i])
-		chip.SetActive(on)
-		if on {
-			chosen++
-		}
-	}
-	c.syncing = false
-	c.fit(chosen)
+	markChips(c.ChoiceChips, func(i int) bool { return slices.Contains(listed, c.variants[i]) })
+	c.fit(len(c.Checked()))
 }
 
 func (c *enumChips) fit(chosen int) {
-	for _, chip := range c.chips {
-		chip.SetEnabled(!chip.Active() || chosen > c.least)
+	for i := range c.Len() {
+		chip := c.Chip(i)
+		chip.SetEnabled(!chip.Checked() || chosen > c.least)
 	}
 }
 

@@ -32,7 +32,7 @@ func cyclingRow() rowSpec {
 	return field("wallpaper.cycling-interval-mins", durationChips(inMinutes, after(5*time.Minute), after(15*time.Minute), after(time.Hour)))
 }
 
-func chipLabels(p *presetPicker[int64]) []string {
+func chipLabels[T presetValue](p *presetPicker[T]) []string {
 	labels := make([]string, len(p.presets))
 	for i, pr := range p.presets {
 		labels[i] = pr.label()
@@ -46,11 +46,11 @@ func TestADurationChipWritesItsMilliseconds(t *testing.T) {
 	if p.active() != 0 || p.typed.Visible() {
 		t.Fatalf("the default 0 shows chip %d, custom shown %v", p.active(), p.typed.Visible())
 	}
-	p.chips[2].SetActive(true)
+	pressChip(p.ChoiceChips, 2)
 	if v := k.store.value("login.lock.grace-period-ms"); v != int64(60000) {
 		t.Errorf("choosing 1 minute stored %v", v)
 	}
-	p.chips[0].SetActive(true)
+	pressChip(p.ChoiceChips, 0)
 	if v := k.store.value("login.lock.grace-period-ms"); v != int64(0) {
 		t.Errorf("choosing Immediately stored %v", v)
 	}
@@ -77,7 +77,7 @@ func TestPickingCustomKeepsTheValueUntilOneIsTyped(t *testing.T) {
 	if p.typed.Visible() {
 		t.Fatal("a preset value shows the custom field")
 	}
-	p.chips[3].SetActive(true)
+	pressChip(p.ChoiceChips, 3)
 	if !p.typed.Visible() {
 		t.Error("choosing Custom hides the field to type in")
 	}
@@ -88,7 +88,7 @@ func TestPickingCustomKeepsTheValueUntilOneIsTyped(t *testing.T) {
 	if p.active() != 3 || !p.typed.Visible() {
 		t.Errorf("a refresh while choosing Custom shows chip %d, custom shown %v", p.active(), p.typed.Visible())
 	}
-	p.chips[1].SetActive(true)
+	pressChip(p.ChoiceChips, 1)
 	p.refresh()
 	if p.active() != 1 || p.typed.Visible() {
 		t.Errorf("picking a preset after Custom shows chip %d, custom shown %v", p.active(), p.typed.Visible())
@@ -104,8 +104,8 @@ func TestDayChipsReadAsWordsAndStoreDays(t *testing.T) {
 		tr.Get("settings-duration-days", i18n.Int("n", 90)), tr.Get("settings-duration-never"),
 	}
 	got := chipLabels(p)
-	if len(got) != len(want) || len(p.chips) != len(want)+1 {
-		t.Fatalf("chips %q and %d buttons, want %q and Custom", got, len(p.chips), want)
+	if len(got) != len(want) || p.Len() != len(want)+1 {
+		t.Fatalf("chips %q and %d buttons, want %q and Custom", got, p.Len(), want)
 	}
 	for i := range want {
 		if got[i] != want[i] {
@@ -115,11 +115,11 @@ func TestDayChipsReadAsWordsAndStoreDays(t *testing.T) {
 	if p.active() != 1 || p.typed.Visible() {
 		t.Fatalf("the default 30 days shows chip %d, custom shown %v", p.active(), p.typed.Visible())
 	}
-	p.chips[3].SetActive(true)
+	pressChip(p.ChoiceChips, 3)
 	if v := k.store.value("portal.screen-cast.reminder-days"); v != int64(0) {
 		t.Errorf("Never stored %v", v)
 	}
-	p.chips[0].SetActive(true)
+	pressChip(p.ChoiceChips, 0)
 	if v := k.store.value("portal.screen-cast.reminder-days"); v != int64(7) {
 		t.Errorf("7 days stored %v", v)
 	}
@@ -131,7 +131,7 @@ func TestADayCountOffTheChipsShowsAsCustomDays(t *testing.T) {
 	if p.active() != 4 || !p.typed.Visible() || p.custom.Value() != 12 {
 		t.Fatalf("12 days shows chip %d, number shown %v at %v", p.active(), p.typed.Visible(), p.custom.Value())
 	}
-	p.chips[2].SetActive(true)
+	pressChip(p.ChoiceChips, 2)
 	if p.typed.Visible() || k.store.value("portal.screen-cast.reminder-days") != int64(90) {
 		t.Fatalf("90 days: number shown %v, stored %v", p.typed.Visible(), k.store.value("portal.screen-cast.reminder-days"))
 	}
@@ -148,11 +148,11 @@ func TestMinuteChipsStoreMinutesAndCustomTakesAnyOther(t *testing.T) {
 	if p.active() != 1 || p.typed.Visible() {
 		t.Fatalf("15 minutes shows chip %d, custom shown %v", p.active(), p.typed.Visible())
 	}
-	p.chips[2].SetActive(true)
+	pressChip(p.ChoiceChips, 2)
 	if got := k.store.value("wallpaper.cycling-interval-mins"); got != int64(60) {
 		t.Errorf("choosing an hour stored %v", got)
 	}
-	p.chips[3].SetActive(true)
+	pressChip(p.ChoiceChips, 3)
 	p.custom.OnValueChanged(42)
 	if got := k.store.value("wallpaper.cycling-interval-mins"); got != int64(42) {
 		t.Errorf("typing 42 stored %v", got)
@@ -239,13 +239,13 @@ func TestAPollIntervalReadsInSecondsAndOffersNoOff(t *testing.T) {
 		tr.Get("settings-duration-seconds", i18n.Int("n", 1)), tr.Get("settings-duration-seconds", i18n.Int("n", 2)),
 		tr.Get("settings-duration-seconds", i18n.Int("n", 5)), tr.Get("settings-duration-seconds", i18n.Int("n", 10)),
 	}
-	if got := chipLabels(p); !slices.Equal(got, want) || len(p.chips) != len(want)+1 {
-		t.Fatalf("chips %q and %d buttons, want %q and Custom", got, len(p.chips), want)
+	if got := chipLabels(p); !slices.Equal(got, want) || p.Len() != len(want)+1 {
+		t.Fatalf("chips %q and %d buttons, want %q and Custom", got, p.Len(), want)
 	}
 	if p.active() != 1 {
 		t.Fatalf("the default 2 s shows chip %d", p.active())
 	}
-	p.chips[2].SetActive(true)
+	pressChip(p.ChoiceChips, 2)
 	if v := k.store.value("modules.netstat.poll-interval-ms"); v != int64(5000) {
 		t.Errorf("5 seconds stored %v", v)
 	}
@@ -273,7 +273,7 @@ func TestAnOffChipStoresZeroAndLetsCustomReachIt(t *testing.T) {
 	if got := chipLabels(p); got[3] != locale.T().Get("settings-duration-off") {
 		t.Fatalf("chips %q, want Off after the presets", got)
 	}
-	p.chips[3].SetActive(true)
+	pressChip(p.ChoiceChips, 3)
 	if v := k.store.value("modules.screenshot.thumbnail-ms"); v != int64(0) {
 		t.Errorf("Off stored %v", v)
 	}
@@ -288,11 +288,11 @@ func TestSecondChipsStoreSecondsAndCustomTakesSeconds(t *testing.T) {
 	if got := chipLabels(p); got[1] != locale.T().Get("settings-duration-hours", i18n.Int("n", 1)) {
 		t.Errorf("3600 s reads %q", got[1])
 	}
-	p.chips[1].SetActive(true)
+	pressChip(p.ChoiceChips, 1)
 	if v := k.store.value("modules.weather.refresh-interval-seconds"); v != int64(3600) {
 		t.Errorf("an hour stored %v", v)
 	}
-	p.chips[2].SetActive(true)
+	pressChip(p.ChoiceChips, 2)
 	p.custom.OnValueChanged(90)
 	if v := k.store.value("modules.weather.refresh-interval-seconds"); v != int64(90) {
 		t.Errorf("typing 90 seconds stored %v", v)
@@ -330,11 +330,11 @@ func TestACountChipWritesItsNumberAndCustomTakesAnyOther(t *testing.T) {
 	if p.active() != 0 || p.typed.Visible() {
 		t.Fatalf("the default 25 shows chip %d, custom shown %v", p.active(), p.typed.Visible())
 	}
-	p.chips[2].SetActive(true)
+	pressChip(p.ChoiceChips, 2)
 	if v := k.store.value("launcher.history.max-size"); v != int64(100) {
 		t.Errorf("choosing 100 stored %v", v)
 	}
-	p.chips[4].SetActive(true)
+	pressChip(p.ChoiceChips, 4)
 	p.custom.OnValueChanged(30)
 	if v := k.store.value("launcher.history.max-size"); v != int64(30) {
 		t.Errorf("typing 30 stored %v", v)
@@ -355,7 +355,7 @@ func TestTheFramerateIsPickedFromChipsInFramesPerSecond(t *testing.T) {
 	if p.active() != 1 {
 		t.Errorf("the default 60 fps shows chip %d", p.active())
 	}
-	p.chips[2].SetActive(true)
+	pressChip(p.ChoiceChips, 2)
 	if v := k.store.value("modules.recorder.framerate"); v != int64(120) {
 		t.Errorf("120 fps stored %v", v)
 	}
@@ -388,7 +388,7 @@ func TestModuleDurationsAreChipsInTheirFieldsUnit(t *testing.T) {
 		if got := chipLabels(p)[0]; got != tc.first {
 			t.Errorf("%s: the first chip reads %q, want %q", tc.path, got, tc.first)
 		}
-		p.chips[tc.pick].SetActive(true)
+		pressChip(p.ChoiceChips, tc.pick)
 		if v := k.store.value(tc.path); v != tc.stored {
 			t.Errorf("%s: chip %d stored %v, want %d", tc.path, tc.pick, v, tc.stored)
 		}
@@ -444,7 +444,7 @@ func TestTheScaleSnapsToStepsInPercent(t *testing.T) {
 	if p.active() != 1 || p.typed.Visible() {
 		t.Fatalf("the default 1.0 shows chip %d, custom shown %v", p.active(), p.typed.Visible())
 	}
-	p.chips[3].SetActive(true)
+	pressChip(p.ChoiceChips, 3)
 	if v := k.store.value("styling.scale"); v != 1.5 {
 		t.Fatalf("150 %% stored %v", v)
 	}
@@ -464,5 +464,20 @@ func TestAScaleBetweenTheStepsIsCustomWithinTheShellsRange(t *testing.T) {
 	p.custom.OnValueChanged(2.5)
 	if v := k.store.value("styling.scale"); v != 2.5 {
 		t.Fatalf("a custom 2.5 stored %v", v)
+	}
+}
+
+// Custom… chosen over a preset value lets go once the value changes to
+// another preset from elsewhere: another display selected, a reset.
+func TestCustomLetsGoWhenTheValueChangesUnderIt(t *testing.T) {
+	k := testKit(t, "login:\n  lock:\n    grace-period-ms: 5000\n")
+	p := pickerOf(t, k, lockGraceRow())
+	pressChip(p.ChoiceChips, 3)
+	if err := k.store.set("login.lock.grace-period-ms", int64(60000)); err != nil {
+		t.Fatal(err)
+	}
+	p.refresh()
+	if p.active() != 2 || p.typed.Visible() {
+		t.Errorf("a minute stored under Custom… shows chip %d, the input shown %v", p.active(), p.typed.Visible())
 	}
 }

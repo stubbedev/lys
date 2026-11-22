@@ -310,7 +310,7 @@ func controlRules() [][2]string {
 		{"inputgroup", "box-shadow: inset 0px 0px 0px 1px @input_border_color; border-radius: {r}; color: @muted_fg_color; min-height: 36px;"},
 		{"inputgroup:focus-within", "box-shadow: inset 0px 0px 0px 1px @ring_color;"},
 		{"inputgroup." + css.Error, "color: @muted_fg_color; box-shadow: inset 0px 0px 0px 1px @destructive_color;"},
-		{"inputgroup entry, inputgroup entry:focus", "box-shadow: none; padding-left: 0px; padding-right: 0px; color: @window_fg_color;"},
+		{"inputgroup entry, inputgroup entry:focus, inputgroup spinbutton, inputgroup spinbutton:focus", "box-shadow: none; padding-left: 0px; padding-right: 0px; color: @window_fg_color;"},
 		{"inputotp .slot", "border-top: 1px solid @input_border_color; border-bottom: 1px solid @input_border_color; border-right: 1px solid @input_border_color;"},
 		{"inputotp .slot:first-child", "border-left: 1px solid @input_border_color; border-radius: {r} 0px 0px {r};"},
 		{"inputotp .slot:last-child", "border-radius: 0px {r} {r} 0px;"},
@@ -408,7 +408,7 @@ func controlRules() [][2]string {
 // destructive fills soften to 60%.
 var darkRules = [][2]string{
 	{"entry, spinbutton, textview, inputgroup, inputotp .slot, dropdown > button, combobox > button, datepicker > button, checkbutton check, checkbutton radio", "background-color: alpha(@input_border_color, 0.3);"},
-	{"inputgroup entry", "background-color: transparent;"},
+	{"inputgroup entry, inputgroup spinbutton", "background-color: transparent;"},
 	{"button." + css.Outline, "background-color: alpha(@input_border_color, 0.3); border-color: @input_border_color;"},
 	{"button." + css.Outline + ":hover, dropdown > button:hover", "background-color: alpha(@input_border_color, 0.5);"},
 	{"button." + css.DestructiveAction + ", badge." + css.Destructive, "background-color: alpha(@destructive_bg_color, 0.6);"},
@@ -446,6 +446,9 @@ var partRules = [][2]string{
 	{"chip chip", "background-color: @window_bg_color;"},
 	{"chip button.dismiss", "min-width: 16px; min-height: 16px; padding: 0px; border-radius: 9999px; background-color: transparent; color: @muted_fg_color;"},
 	{"chip button.dismiss:hover", "background-color: @muted_bg_color; color: @window_fg_color;"},
+	{"choicechip", "min-height: 32px; padding: 0px 12px; border: 1px solid @borders; border-radius: 9999px; box-sizing: border-box; font-weight: 500; background-color: transparent; color: @window_fg_color;"},
+	{"choicechip:hover", "background-color: @muted_bg_color;"},
+	{"choicechip:checked", "border-color: @accent_bg_color; background-color: alpha(@accent_bg_color, 0.15); color: @accent_color;"},
 	{"colorswatch", "border: 1px solid alpha(@window_fg_color, 0.1); border-radius: {r-4};"},
 	{"colorswatch:selected", "box-shadow: 0px 0px 0px 2px @window_bg_color, 0px 0px 0px 4px @ring_color;"},
 	{"button.swatch", "background-color: transparent; padding: 4px; min-height: 0px; border-radius: {r-2};"},

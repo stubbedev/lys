@@ -422,3 +422,45 @@ func TestADisplayTurnedOffCannotBeMadePrimary(t *testing.T) {
 		t.Fatal("turning a display off wrote the config")
 	}
 }
+
+// A display's scale is a preset chip or a custom multiple typed into a
+// number input: the stored scale checks its chip, a scale off the
+// presets checks Custom… and shows it, and the input holds anything
+// typed to the range lys-wm takes or refuses it. No free-text entry
+// reads a scale.
+func TestTheDisplayScaleIsAPresetOrAClampedNumber(t *testing.T) {
+	k := testKit(t, "")
+	var stored any = 1.25
+	p := displayScalePicker(k, memorySlot(&stored, nil))
+	if got := chipLabels(p); len(got) != len(scalePresets) || got[0] != scalePercent(1) || got[len(got)-1] != scalePercent(3) {
+		t.Fatalf("the scale chips read %q", got)
+	}
+	if !slices.Equal(p.Checked(), []int{slices.Index(scalePresets, 1.25)}) || p.typed.Visible() {
+		t.Fatalf("1.25 checks %v with the input shown %v", p.Checked(), p.typed.Visible())
+	}
+	if entries := treetest.All[*widget.Entry](p); len(entries) != 0 {
+		t.Fatalf("the scale has %d free-text entries", len(entries))
+	}
+	stored = 1.33
+	p.refresh()
+	if !slices.Equal(p.Checked(), []int{len(scalePresets)}) || !p.typed.Visible() || p.custom.Value() != 1.33 {
+		t.Fatalf("1.33 checks %v, the input shown %v at %v", p.Checked(), p.typed.Visible(), p.custom.Value())
+	}
+	for _, tc := range []struct {
+		typed string
+		want  float64
+	}{{"50", maxCustomScale}, {"0.01", minCustomScale}, {"-3", minCustomScale}, {"1.5", 1.5}, {"abc", 1.5}, {"", 1.5}} {
+		p.custom.SetText(tc.typed)
+		p.custom.KeyAction(widget.KeyEnter, 0)
+		if stored != tc.want {
+			t.Errorf("typing %q stored %v, want %v", tc.typed, stored, tc.want)
+		}
+		if p.custom.Text() == tc.typed && tc.want != 1.5 {
+			t.Errorf("typing %q left it in the input", tc.typed)
+		}
+	}
+	pressChip(p.ChoiceChips, 0)
+	if stored != scalePresets[0] || p.typed.Visible() || !slices.Equal(p.Checked(), []int{0}) {
+		t.Errorf("the first chip stored %v, the input shown %v, %v checked", stored, p.typed.Visible(), p.Checked())
+	}
+}

@@ -10,7 +10,6 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -18,7 +17,6 @@ import (
 const (
 	day            = 24 * time.Hour
 	shortestPeriod = 250 * time.Millisecond
-	chipRadius     = 999
 )
 
 func durationWords(d time.Duration) string {
@@ -220,81 +218,72 @@ func presetChips[T presetValue](unit customUnit, presets []preset[T]) rowOpt {
 	}
 }
 
+// presetPicker is a field's preset chips and a Custom… chip, whose
+// number input, with the unit as its trailing addon, follows the chips
+// while the value is no preset, or Custom… was chosen and the value is
+// still the one it was chosen over.
 type presetPicker[T presetValue] struct {
-	*widget.Box
+	*widget.ChoiceChips
 	slot     slot
 	presets  []preset[T]
-	chips    []*widget.ToggleButton
 	custom   *number
-	typed    *widget.Box
+	typed    *widget.InputGroup
 	choosing bool
-	syncing  bool
+	chosenAt any
 }
 
 func newPresetPicker[T presetValue](k *kit, s slot, meta config.FieldMeta, unit customUnit, presets []preset[T]) *presetPicker[T] {
 	t := locale.T()
-	p := &presetPicker[T]{Box: gapBox(widget.Column), slot: s, presets: presets}
-	row := widget.NewWrapBox(choiceCardGap, choiceCardGap, widget.JustifyStart)
-	for i := range len(presets) + 1 {
-		label := t.Get("settings-duration-custom")
-		if i < len(presets) {
-			label = presets[i].label()
-		}
-		chip := widget.NewToggleButton(k.label(label), widget.Current().Padding, chipRadius)
-		chip.AddClass(css.Small)
-		if i > 0 {
-			chip.SetGroup(p.chips[0])
-		}
-		chip.OnToggled = func(on bool) {
-			if on {
-				p.pick(i)
-			}
-		}
-		p.chips = append(p.chips, chip)
-		row.Append(chip)
+	labels := make([]string, len(presets)+1)
+	for i, pr := range presets {
+		labels[i] = pr.label()
 	}
+	labels[len(presets)] = t.Get("settings-duration-custom")
+	p := &presetPicker[T]{ChoiceChips: newChipGroup(k, widget.ChooseOne, labels), slot: s, presets: presets}
+	p.OnChanged = func(i int, _ bool) { p.pick(i) }
 	lo := meta.Min / unit.per
 	if !slices.ContainsFunc(presets, func(pr preset[T]) bool { return pr.value == 0 }) {
 		lo = max(lo, unit.least)
 	}
 	p.custom = newNumber(k, scaledSlot[T](unit, s), lo, meta.Max/unit.per, 1, unit.digits)
 	p.custom.SetAccessibleName(t.Get("settings-duration-custom"))
-	p.typed = gapBox(widget.Row)
-	p.typed.AppendAligned(p.custom, false, widget.AlignCenter)
-	p.typed.AppendAligned(k.label(t.Get(unit.name), css.DimLabel), false, widget.AlignCenter)
-	p.Append(row, false)
-	p.AppendAligned(p.typed, false, widget.AlignStart)
+	p.typed = widget.NewInputGroup(p.custom)
+	p.typed.Append(k.label(t.Get(unit.name)))
+	p.SetTrailing(p.typed)
 	p.refresh()
 	return p
 }
 
 func (p *presetPicker[T]) pick(i int) {
-	if p.syncing {
-		return
-	}
 	p.choosing = i == len(p.presets)
-	if !p.choosing {
+	if p.choosing {
+		p.chosenAt = p.slot.get()
+	} else {
 		_ = p.slot.set(p.presets[i].value)
 	}
 	p.refresh()
 }
 
 func (p *presetPicker[T]) refresh() {
+	stored := p.slot.get()
+	p.choosing = p.choosing && stored == p.chosenAt
 	at := -1
-	if v, ok := p.slot.get().(T); ok {
+	if v, ok := stored.(T); ok {
 		at = slices.IndexFunc(p.presets, func(pr preset[T]) bool { return pr.value == v })
 	}
 	custom := p.choosing || at < 0
 	if custom {
 		at = len(p.presets)
 	}
-	p.syncing = true
-	p.chips[at].SetActive(true)
-	p.syncing = false
+	p.SetChecked(at, true)
 	p.typed.SetVisible(custom)
 	p.custom.refresh()
 }
 
 func (p *presetPicker[T]) active() int {
-	return slices.IndexFunc(p.chips, (*widget.ToggleButton).Active)
+	checked := p.Checked()
+	if len(checked) != 1 {
+		return -1
+	}
+	return checked[0]
 }

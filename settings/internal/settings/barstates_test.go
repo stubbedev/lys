@@ -54,11 +54,11 @@ func TestTheKeybindModePreviewNamesLysWMsSubmaps(t *testing.T) {
 	if got, want := chipNames(p), []string{"Default", "move", "resize"}; !slices.Equal(got, want) {
 		t.Fatalf("chips %v, want %v", got, want)
 	}
-	p.toggles[2].OnToggled(true)
+	pressChip(p.chips, 2)
 	if got := previewLabel(t, p); got != "[resize]" {
 		t.Errorf("the resize chip previews %q, want [resize]", got)
 	}
-	if p.toggles[1].Active() || !p.toggles[2].Active() {
+	if !slices.Equal(p.chips.Checked(), []int{2}) || !p.chips.Chip(2).HasState(widget.StateChecked) {
 		t.Error("the picked chip is not the one marked")
 	}
 	if p.problem.Visible() {

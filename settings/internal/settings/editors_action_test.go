@@ -47,7 +47,7 @@ func TestKeybindModeOffersToLeaveTheMode(t *testing.T) {
 func TestTheActionMenuReadsItsPresetsInTheLanguage(t *testing.T) {
 	k := testKit(t, "")
 	c := newActionEditor(k, k.store.slot("modules.media.left-click"), actionChoices("media"))
-	items := c.drop.Items()
+	items := c.pick.drop.Items()
 	tr := locale.T()
 	want := []string{tr.Get("settings-action-media-play-pause"), tr.Get("settings-action-none"), tr.Get("settings-action-custom")}
 	for _, w := range want {
@@ -65,8 +65,8 @@ func TestTheActionMenuReadsItsPresetsInTheLanguage(t *testing.T) {
 func TestACustomClickCommandCanBeRunOnce(t *testing.T) {
 	k := testKit(t, "")
 	c := newActionEditor(k, k.store.slot("modules.media.left-click"), actionChoices("media"))
-	c.selected(c.customIndex())
-	if !c.reveal.Revealed() {
+	c.pick.drop.SetSelected(c.customIndex())
+	if !c.entry.Visible() {
 		t.Fatal("the custom command is not shown")
 	}
 	tr := locale.T()
@@ -101,37 +101,37 @@ func TestAPowerButtonsCommandIsPickedFromTheSessionActions(t *testing.T) {
 	c := powerCommand(t, k, path)
 	tr := locale.T()
 	want := []string{tr.Get("settings-command-default"), tr.Get("settings-command-end-session"), tr.Get("settings-command-end-user"), tr.Get("settings-action-custom")}
-	if items := c.drop.Items(); !slices.Equal(items, want) {
+	if items := c.pick.drop.Items(); !slices.Equal(items, want) {
 		t.Fatalf("offers %q, want %q", items, want)
 	}
-	if c.drop.Selected() != 0 || c.reveal.Revealed() {
-		t.Fatalf("the default shows as %d, custom %v", c.drop.Selected(), c.reveal.Revealed())
+	if c.pick.drop.Selected() != 0 || c.entry.Visible() {
+		t.Fatalf("the default shows as %d, custom %v", c.pick.drop.Selected(), c.entry.Visible())
 	}
-	c.drop.OnSelect(1)
+	c.pick.drop.OnSelect(1)
 	if v := k.store.value(path); v != "loginctl terminate-session self" {
 		t.Fatalf("stored %v", v)
 	}
-	c.drop.OnSelect(c.customIndex())
+	c.pick.drop.OnSelect(c.customIndex())
 	c.entry.SetText("my-logout")
-	if v := k.store.value(path); v != "my-logout" || !c.reveal.Revealed() {
-		t.Fatalf("custom stored %v, shown %v", v, c.reveal.Revealed())
+	if v := k.store.value(path); v != "my-logout" || !c.entry.Visible() {
+		t.Fatalf("custom stored %v, shown %v", v, c.entry.Visible())
 	}
 }
 
 func TestAPowerButtonsCommandOffersNoNoneAndNoTryingIt(t *testing.T) {
 	k := testKit(t, "modules:\n  power:\n    shutdown-command: my-poweroff\n")
 	c := powerCommand(t, k, "modules.power.shutdown-command")
-	if slices.Contains(c.drop.Items(), locale.T().Get("settings-action-none")) {
-		t.Fatalf("a session command offers None: %q", c.drop.Items())
+	if slices.Contains(c.pick.drop.Items(), locale.T().Get("settings-action-none")) {
+		t.Fatalf("a session command offers None: %q", c.pick.drop.Items())
 	}
 	if c.run != nil {
 		t.Fatal("a session command offers to run it")
 	}
-	if c.drop.Selected() != c.customIndex() || c.entry.Text() != "my-poweroff" {
-		t.Fatalf("a custom command shows as %d with %q", c.drop.Selected(), c.entry.Text())
+	if c.pick.drop.Selected() != c.customIndex() || c.entry.Text() != "my-poweroff" {
+		t.Fatalf("a custom command shows as %d with %q", c.pick.drop.Selected(), c.entry.Text())
 	}
-	if slices.Contains(c.drop.Items(), locale.T().Get("settings-command-reboot")) {
-		t.Fatalf("shut down offers a reboot: %q", c.drop.Items())
+	if slices.Contains(c.pick.drop.Items(), locale.T().Get("settings-command-reboot")) {
+		t.Fatalf("shut down offers a reboot: %q", c.pick.drop.Items())
 	}
 }
 

@@ -21,6 +21,26 @@ func TestInputGroupOwnsTheFocusRing(t *testing.T) {
 	}
 }
 
+// A spin button grouped with its unit keeps its own keys, and its
+// focus ring goes around the group.
+func TestInputGroupHoldsASpinButton(t *testing.T) {
+	spin := NewSpinButton(goldenFace(t), 14, 0, 1, 10, 1, 0)
+	g := NewInputGroup(spin)
+	g.Append(NewLabel(goldenFace(t), 14, "days", 0))
+	arrangeTree(t, g, 300, 36)
+	if FocusRingOwner(spin) != Widget(g) {
+		t.Fatal("the spin button owns its ring inside a group")
+	}
+	r := &Router{Root: g}
+	if err := r.SetFocus(spin); err != nil {
+		t.Fatal(err)
+	}
+	r.KeyAction(KeyUp, 0)
+	if spin.Value() != 2 {
+		t.Errorf("Up in a grouped spin button reads %v, want 2", spin.Value())
+	}
+}
+
 // TestGoldenInputGroup pins groups with a leading icon, trailing
 // text, a trailing button, a focused entry and an invalid group, in
 // both palettes.

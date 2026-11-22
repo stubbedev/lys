@@ -1032,32 +1032,32 @@ func TestActionEditor(t *testing.T) {
 	choices := actionChoices("audio")
 	_ = k.store.set(path, "")
 	c := newActionEditor(k, pathSlot(k.store, path), choices)
-	if c.drop.Selected() != c.noneIndex() || c.reveal.Revealed() {
-		t.Fatalf("an empty action shows %d (entry %v), want None", c.drop.Selected(), c.reveal.Revealed())
+	if c.pick.drop.Selected() != c.noneIndex() || c.entry.Visible() {
+		t.Fatalf("an empty action shows %d (entry %v), want None", c.pick.drop.Selected(), c.entry.Visible())
 	}
-	c.drop.SetSelected(1)
+	c.pick.drop.SetSelected(1)
 	if v := k.store.value(path); v != choices[1].command {
 		t.Errorf("preset wrote %v", v)
 	}
 	// Custom: the entry shows, nothing is written until typed, then
 	// every edit writes.
-	c.drop.SetSelected(c.customIndex())
-	if !c.reveal.Revealed() || k.store.value(path) != choices[1].command {
-		t.Fatalf("custom: entry %v, value %v", c.reveal.Revealed(), k.store.value(path))
+	c.pick.drop.SetSelected(c.customIndex())
+	if !c.entry.Visible() || k.store.value(path) != choices[1].command {
+		t.Fatalf("custom: entry %v, value %v", c.entry.Visible(), k.store.value(path))
 	}
 	c.entry.Insert("notify-send hi")
 	if v := k.store.value(path); v != "notify-send hi" {
 		t.Errorf("typed custom wrote %v", v)
 	}
 	c.refresh()
-	if c.drop.Selected() != c.customIndex() || c.entry.Text() != "notify-send hi" {
+	if c.pick.drop.Selected() != c.customIndex() || c.entry.Text() != "notify-send hi" {
 		t.Error("a custom command does not refresh as custom")
 	}
 	// A refresh to a preset leaves custom mode; typing then writes nothing.
 	_ = k.store.set(path, choices[0].command)
 	c.refresh()
-	if c.drop.Selected() != 0 || c.reveal.Revealed() || c.custom {
-		t.Errorf("refresh to a preset shows %d (entry %v)", c.drop.Selected(), c.reveal.Revealed())
+	if c.pick.drop.Selected() != 0 || c.entry.Visible() || c.custom {
+		t.Errorf("refresh to a preset shows %d (entry %v)", c.pick.drop.Selected(), c.entry.Visible())
 	}
 	c.entry.Insert("x")
 	if v := k.store.value(path); v != choices[0].command {
@@ -1065,10 +1065,10 @@ func TestActionEditor(t *testing.T) {
 	}
 	// An unknown command opens as custom.
 	_ = k.store.set(path, "my-script")
-	if d := newActionEditor(k, pathSlot(k.store, path), choices); d.drop.Selected() != d.customIndex() || d.entry.Text() != "my-script" {
-		t.Errorf("an unknown command opens at %d with %q", d.drop.Selected(), d.entry.Text())
+	if d := newActionEditor(k, pathSlot(k.store, path), choices); d.pick.drop.Selected() != d.customIndex() || d.entry.Text() != "my-script" {
+		t.Errorf("an unknown command opens at %d with %q", d.pick.drop.Selected(), d.entry.Text())
 	}
-	c.drop.SetSelected(c.noneIndex())
+	c.pick.drop.SetSelected(c.noneIndex())
 	if v := k.store.value(path); v != "" {
 		t.Errorf("None wrote %v", v)
 	}
@@ -1630,13 +1630,11 @@ func TestActionCustomEntryCollapsesWhileHidden(t *testing.T) {
 	k := testKit(t, "")
 	c := newActionEditor(k, pathSlot(k.store, "modules.battery.left-click"), actionChoices("battery"))
 	con := widget.Size{W: 400, H: 400}
-	c.reveal.Finish()
 	hidden := widget.SizeWithin(c, con).H
-	c.drop.SetSelected(c.customIndex())
-	c.reveal.Finish()
+	c.pick.drop.SetSelected(c.customIndex())
 	c.InvalidateLayout()
 	shown := widget.SizeWithin(c, con).H
-	if shown <= hidden || hidden > widget.SizeWithin(c.drop, con).H+8 {
+	if shown <= hidden || hidden > widget.SizeWithin(c.pick.drop, con).H+8 {
 		t.Errorf("heights hidden %d shown %d: the hidden entry should take no space", hidden, shown)
 	}
 }

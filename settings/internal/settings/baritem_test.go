@@ -42,8 +42,8 @@ func TestTheMouseHotspotsChooseWhichActionIsEdited(t *testing.T) {
 	}
 	left := k.store.value("modules.battery.left-click")
 	ed := treetest.First[*actionEditor](t, m.editor)
-	ed.drop.SetSelected(ed.noneIndex())
-	ed.drop.SetSelected(0)
+	ed.pick.drop.SetSelected(ed.noneIndex())
+	ed.pick.drop.SetSelected(0)
 	if v := k.store.value("modules.battery.right-click"); v != actionChoices("battery")[0].command {
 		t.Errorf("choosing the first action for the right button stored %v", v)
 	}

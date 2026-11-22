@@ -1921,6 +1921,95 @@ func (b *ChipBoxBuilder) OnMoved(fn func(src *widget.ChipBox, from int, to int))
 	return b
 }
 
+// ChoiceChipBuilder builds a widget.ChoiceChip.
+type ChoiceChipBuilder struct {
+	base[*widget.ChoiceChip, *ChoiceChipBuilder]
+}
+
+// BindAction calls (*widget.ChoiceChip).BindAction.
+func (b *ChoiceChipBuilder) BindAction(a widget.Activatable) *ChoiceChipBuilder {
+	b.do(func(s *Scope, w *widget.ChoiceChip) { s.onShutdown(w.BindAction(a)) })
+	return b
+}
+
+// Bg sets the widget's Bg field.
+func (b *ChoiceChipBuilder) Bg(value render.Color) *ChoiceChipBuilder {
+	b.do(func(_ *Scope, w *widget.ChoiceChip) { w.Bg = value })
+	return b
+}
+
+// BgHover sets the widget's BgHover field.
+func (b *ChoiceChipBuilder) BgHover(value render.Color) *ChoiceChipBuilder {
+	b.do(func(_ *Scope, w *widget.ChoiceChip) { w.BgHover = value })
+	return b
+}
+
+// BgPressed sets the widget's BgPressed field.
+func (b *ChoiceChipBuilder) BgPressed(value render.Color) *ChoiceChipBuilder {
+	b.do(func(_ *Scope, w *widget.ChoiceChip) { w.BgPressed = value })
+	return b
+}
+
+// BgExplicit sets the widget's BgExplicit field.
+func (b *ChoiceChipBuilder) BgExplicit(value bool) *ChoiceChipBuilder {
+	b.do(func(_ *Scope, w *widget.ChoiceChip) { w.BgExplicit = value })
+	return b
+}
+
+// Hovered sets the widget's Hovered field.
+func (b *ChoiceChipBuilder) Hovered(value bool) *ChoiceChipBuilder {
+	b.do(func(_ *Scope, w *widget.ChoiceChip) { w.Hovered = value })
+	return b
+}
+
+// Pressed sets the widget's Pressed field.
+func (b *ChoiceChipBuilder) Pressed(value bool) *ChoiceChipBuilder {
+	b.do(func(_ *Scope, w *widget.ChoiceChip) { w.Pressed = value })
+	return b
+}
+
+// OnClick sets the widget's OnClick field.
+func (b *ChoiceChipBuilder) OnClick(fn func()) *ChoiceChipBuilder {
+	b.do(func(_ *Scope, w *widget.ChoiceChip) { w.OnClick = fn })
+	return b
+}
+
+// ChoiceChipsBuilder builds a widget.ChoiceChips.
+type ChoiceChipsBuilder struct {
+	base[*widget.ChoiceChips, *ChoiceChipsBuilder]
+}
+
+// ChoiceChips builds a widget.ChoiceChips with widget.NewChoiceChips.
+func ChoiceChips(mode widget.ChoiceMode) *ChoiceChipsBuilder {
+	b := &ChoiceChipsBuilder{}
+	b.init(b, func(s *Scope) *widget.ChoiceChips { return widget.NewChoiceChips(mode) })
+	return b
+}
+
+// Append calls (*widget.ChoiceChips).Append.
+func (b *ChoiceChipsBuilder) Append(content Node) *ChoiceChipsBuilder {
+	b.do(func(s *Scope, w *widget.ChoiceChips) { w.Append(build(s, content)) })
+	return b
+}
+
+// Checked calls (*widget.ChoiceChips).SetChecked.
+func (b *ChoiceChipsBuilder) Checked(i int, on bool) *ChoiceChipsBuilder {
+	b.do(func(s *Scope, w *widget.ChoiceChips) { w.SetChecked(i, on) })
+	return b
+}
+
+// Trailing calls (*widget.ChoiceChips).SetTrailing.
+func (b *ChoiceChipsBuilder) Trailing(child Node) *ChoiceChipsBuilder {
+	b.do(func(s *Scope, w *widget.ChoiceChips) { w.SetTrailing(build(s, child)) })
+	return b
+}
+
+// OnChanged sets the widget's OnChanged field.
+func (b *ChoiceChipsBuilder) OnChanged(fn func(i int, checked bool)) *ChoiceChipsBuilder {
+	b.do(func(_ *Scope, w *widget.ChoiceChips) { w.OnChanged = fn })
+	return b
+}
+
 // ClampBuilder builds a widget.Clamp.
 type ClampBuilder struct {
 	base[*widget.Clamp, *ClampBuilder]
@@ -4811,9 +4900,9 @@ type InputGroupBuilder struct {
 }
 
 // InputGroup builds a widget.InputGroup with widget.NewInputGroup.
-func InputGroup(entry Of[*widget.Entry]) *InputGroupBuilder {
+func InputGroup(input Node) *InputGroupBuilder {
 	b := &InputGroupBuilder{}
-	b.init(b, func(s *Scope) *widget.InputGroup { return widget.NewInputGroup(buildOf(s, entry)) })
+	b.init(b, func(s *Scope) *widget.InputGroup { return widget.NewInputGroup(build(s, input)) })
 	return b
 }
 

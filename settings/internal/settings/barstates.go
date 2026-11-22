@@ -45,15 +45,14 @@ type steppedPreview struct {
 	states  []barState
 	at      int
 	shown   *livePreview
-	chips   *widget.FlowBox
-	toggles []*widget.ToggleButton
+	chips   *widget.ChoiceChips
 	problem *widget.Label
-	marking bool
 }
 
 func newSteppedPreview(k *kit, module config.BarModule, read barStates) *steppedPreview {
 	p := &steppedPreview{Box: gapBox(widget.Column), k: k, module: module, read: read}
-	p.chips = widget.NewWrapBox(choiceCardGap, choiceCardGap, widget.JustifyStart)
+	p.chips = newChipGroup(k, widget.ChooseOne, nil)
+	p.chips.OnChanged = func(i int, _ bool) { p.show(i) }
 	p.problem = wrapped(k.label("", "setting-description", css.Caption, css.Error))
 	p.problem.SetVisible(false)
 	p.readStates()
@@ -83,29 +82,17 @@ func (p *steppedPreview) readStates() {
 		p.problem.SetText(locale.T().Get("settings-bar-states-unread", i18n.Str("reason", err.Error())))
 	}
 	p.states, p.at = states, max(0, slices.IndexFunc(states, func(s barState) bool { return s.name == held }))
-	p.chips.Clear()
-	p.toggles = make([]*widget.ToggleButton, len(states))
+	names := make([]string, len(states))
 	for i, s := range states {
-		chip := widget.NewToggleButton(p.k.label(s.name), widget.Current().Padding, chipRadius)
-		chip.AddClass(css.Small)
-		chip.OnToggled = func(bool) {
-			if !p.marking {
-				p.show(i)
-			}
-		}
-		p.toggles[i] = chip
-		p.chips.Append(chip)
+		names[i] = s.name
 	}
+	setChips(p.k, p.chips, names)
 	p.chips.SetVisible(len(states) > 1)
 	p.mark()
 }
 
 func (p *steppedPreview) mark() {
-	p.marking = true
-	defer func() { p.marking = false }()
-	for i, chip := range p.toggles {
-		chip.SetActive(i == p.at)
-	}
+	markChips(p.chips, func(i int) bool { return i == p.at })
 }
 
 func (p *steppedPreview) show(i int) {

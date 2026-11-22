@@ -103,46 +103,32 @@ func scheduleTitle(item map[string]any, _ int) string {
 }
 
 type weekdaysEditor struct {
-	*widget.Box
-	slot    slot
-	days    []*widget.ToggleButton
-	syncing bool
+	*widget.ChoiceChips
+	slot slot
 }
 
 func newWeekdaysEditor(k *kit, s slot) *weekdaysEditor {
 	t := locale.T()
-	e := &weekdaysEditor{Box: widget.NewBox(widget.Row, widget.Current().Spacing/2, 0), slot: s}
-	e.AddClass("weekdays-editor")
-	for _, d := range weekdays {
-		b := widget.NewToggleButton(k.label(t.Get("settings-weekday-"+string(d))), widget.Current().Padding, 0)
-		b.AddClass(css.Small)
-		b.OnToggled = func(bool) {
-			if !e.syncing {
-				_ = e.slot.set(e.selected())
-			}
-		}
-		e.days = append(e.days, b)
-		e.Append(b, false)
+	labels := make([]string, len(weekdays))
+	for i, d := range weekdays {
+		labels[i] = t.Get("settings-weekday-" + string(d))
 	}
+	e := &weekdaysEditor{ChoiceChips: newChipGroup(k, widget.ChooseMany, labels), slot: s}
+	e.AddClass("weekdays-editor")
+	e.OnChanged = func(int, bool) { _ = e.slot.set(e.selected()) }
 	e.refresh()
 	return e
 }
 
 func (e *weekdaysEditor) selected() []any {
 	out := []any{}
-	for i, b := range e.days {
-		if b.Active() {
-			out = append(out, string(weekdays[i]))
-		}
+	for _, i := range e.Checked() {
+		out = append(out, string(weekdays[i]))
 	}
 	return out
 }
 
 func (e *weekdaysEditor) refresh() {
 	stored, _ := e.slot.get().([]any)
-	e.syncing = true
-	for i, b := range e.days {
-		b.SetActive(slices.Contains(stored, any(string(weekdays[i]))))
-	}
-	e.syncing = false
+	markChips(e.ChoiceChips, func(i int) bool { return slices.Contains(stored, any(string(weekdays[i]))) })
 }

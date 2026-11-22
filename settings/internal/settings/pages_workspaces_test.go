@@ -141,10 +141,10 @@ func TestUnderLysWMEachWorkspaceItKeepsIsAChipThatHidesIt(t *testing.T) {
 	if want := []string{"1", "2", "5", "scratch*"}; !slices.Equal(c.labels, want) || c.unread.Visible() {
 		t.Fatalf("chips %q (unread %v), want %q", c.labels, c.unread.Visible(), want)
 	}
-	if !c.toggles[3].Active() || c.toggles[0].Active() {
+	if !slices.Equal(c.chips.Checked(), []int{3}) {
 		t.Fatal("the chips do not show what is hidden")
 	}
-	c.toggles[1].SetActive(true)
+	pressChip(c.chips, 1)
 	if got := k.store.value(workspaceIgnorePath); !reflect.DeepEqual(got, []any{"scratch*", "2"}) {
 		t.Fatalf("hiding workspace 2 stored %v", got)
 	}
@@ -181,10 +181,10 @@ func TestUnderHyprlandNiriAndSwayEachWorkspaceIsAChipThatHidesIt(t *testing.T) {
 				t.Fatalf("chips %q (unread %v %q), want %q", c.labels, c.unread.Visible(), c.unread.Text(), tc.labels)
 			}
 			at := slices.Index(c.labels, tc.hidden)
-			if c.toggles[at].Active() || !c.toggles[len(c.labels)-1].Active() {
+			if !slices.Equal(c.chips.Checked(), []int{len(c.labels) - 1}) {
 				t.Fatal("the chips do not show what is hidden")
 			}
-			c.toggles[at].SetActive(true)
+			pressChip(c.chips, at)
 			if got := k.store.value(workspaceIgnorePath); !reflect.DeepEqual(got, []any{"scratch*", tc.hidden}) {
 				t.Fatalf("hiding %s stored %v", tc.hidden, got)
 			}

@@ -101,6 +101,9 @@ func sweepActions(root widget.Widget, driven map[string]bool) []sweepAction {
 			edit("check", x.Toggle)
 		case *widget.ToggleButton:
 			edit("toggle the button", func() { x.SetActive(!x.Active()) })
+		case *widget.ChoiceChip:
+			edit("press the chip", func() { x.ClickAt(widget.Point{}) })
+			return
 		case *widget.ToggleGroup:
 			for i := range x.Len() {
 				edit(fmt.Sprintf("segment %d", i), func() { x.SetActive(i) })
@@ -352,6 +355,8 @@ func controlState(root widget.Widget) []string {
 			out = append(out, fmt.Sprintf("check %v", x.Checked()))
 		case *widget.ToggleGroup:
 			out = append(out, fmt.Sprintf("segment %d", x.Active()))
+		case *widget.ChoiceChips:
+			out = append(out, fmt.Sprintf("chips %v", x.Checked()))
 		case *widget.Dropdown:
 			out = append(out, fmt.Sprintf("dropdown %d", x.Selected()))
 			return

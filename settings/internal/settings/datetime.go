@@ -265,13 +265,32 @@ func detailLabel(k *kit, text string) *widget.Label {
 }
 
 func panelRowWith(k *kit, title string, detail *widget.Label, controls ...widget.Widget) *widget.Box {
-	row := gapBox(widget.Row)
+	return panelRowAlong(k, widget.Row, title, detail, controls)
+}
+
+// stackedPanelRow is panelRow with its control under the text at the
+// full width, as a full-width setting row stacks its control.
+func stackedPanelRow(k *kit, title, detail string, control widget.Widget) *widget.Box {
+	row := panelRowAlong(k, widget.Column, title, detailLabel(k, detail), []widget.Widget{control})
+	row.AddClass("vertical")
+	return row
+}
+
+func panelRowAlong(k *kit, axis widget.Axis, title string, detail *widget.Label, controls []widget.Widget) *widget.Box {
+	row := gapBox(axis)
 	row.SetElement("item")
 	row.AddClass(css.Small, "setting-row")
 	text := widget.NewBox(widget.Column, widget.Current().Spacing/4, 0)
 	text.Append(k.label(title, "setting-label"), false)
 	if detail != nil {
 		text.Append(detail, false)
+	}
+	if axis == widget.Column {
+		row.Append(text, false)
+		for _, c := range controls {
+			row.Append(c, false)
+		}
+		return row
 	}
 	row.AppendAligned(text, true, widget.AlignCenter)
 	for _, c := range controls {

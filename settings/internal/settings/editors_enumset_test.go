@@ -84,13 +84,13 @@ func TestEnumChipsKeepTheEnumsOrder(t *testing.T) {
 	k := testKit(t, "")
 	var stored any = []any{"maximize"}
 	c := newEnumChips(k, memorySlot(&stored, nil), windowButtons, 1)
-	c.chips[0].SetActive(true)
+	pressChip(c.ChoiceChips, 0)
 	if got := stored.([]any); !slices.Equal(got, []any{"close", "maximize"}) {
 		t.Errorf("choosing close stored %v, want the enum's order", got)
 	}
 	stored = []any{"minimize"}
 	c.refresh()
-	if c.chips[0].Active() || !c.chips[1].Active() || c.chips[2].Active() {
+	if !slices.Equal(c.Checked(), []int{1}) {
 		t.Error("the chips do not follow an outside change")
 	}
 }
@@ -99,15 +99,15 @@ func TestEnumChipsHoldTheLastChoiceTheListNeeds(t *testing.T) {
 	k := testKit(t, "")
 	var stored any = []any{"close", "minimize"}
 	c := newEnumChips(k, memorySlot(&stored, nil), windowButtons, 1)
-	if !widget.IsEnabled(c.chips[0]) || !widget.IsEnabled(c.chips[2]) {
+	if !widget.IsEnabled(c.Chip(0)) || !widget.IsEnabled(c.Chip(2)) {
 		t.Fatal("a chip is held with two chosen")
 	}
-	c.chips[0].SetActive(false)
-	if widget.IsEnabled(c.chips[1]) || !widget.IsEnabled(c.chips[0]) || !widget.IsEnabled(c.chips[2]) {
-		t.Errorf("with one left the last is enabled %v, the others %v %v", widget.IsEnabled(c.chips[1]), widget.IsEnabled(c.chips[0]), widget.IsEnabled(c.chips[2]))
+	pressChip(c.ChoiceChips, 0)
+	if widget.IsEnabled(c.Chip(1)) || !widget.IsEnabled(c.Chip(0)) || !widget.IsEnabled(c.Chip(2)) {
+		t.Errorf("with one left the last is enabled %v, the others %v %v", widget.IsEnabled(c.Chip(1)), widget.IsEnabled(c.Chip(0)), widget.IsEnabled(c.Chip(2)))
 	}
-	c.chips[2].SetActive(true)
-	if !widget.IsEnabled(c.chips[1]) {
+	pressChip(c.ChoiceChips, 2)
+	if !widget.IsEnabled(c.Chip(1)) {
 		t.Error("the chip stays held with two chosen again")
 	}
 }

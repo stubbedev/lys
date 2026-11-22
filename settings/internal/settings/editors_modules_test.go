@@ -38,7 +38,7 @@ func TestPasswordPresetCards(t *testing.T) {
 		t.Errorf("a new preset is %v, want the defaults under its name", added)
 	}
 	typeNumber(c.cards[1].controls[0].(*number), "12")
-	c.cards[1].controls[1].(*enumChips).chips[0].SetActive(false)
+	pressChip(c.cards[1].controls[1].(*enumChips).ChoiceChips, 0)
 	c.cards[1].controls[2].(*toggle).SetOn(true)
 	cfg := k.store.svc.Config()
 	if len(cfg.Bitwarden.GeneratorPasswords) != 2 {
@@ -55,9 +55,9 @@ func TestPasswordPresetCardsKeepTheLastCharset(t *testing.T) {
 	path := "modules.bitwarden.generator-passwords"
 	c := fieldControl(k, k.store, field(path, passwordPresetList)).(*cardList)
 	charsets := c.cards[0].controls[1].(*enumChips)
-	for _, chip := range charsets.chips {
-		if widget.IsEnabled(chip) {
-			chip.SetActive(false)
+	for i := range charsets.Len() {
+		if widget.IsEnabled(charsets.Chip(i)) {
+			pressChip(charsets.ChoiceChips, i)
 		}
 	}
 	got := k.store.svc.Config().Bitwarden.GeneratorPasswords

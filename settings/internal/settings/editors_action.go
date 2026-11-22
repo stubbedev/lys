@@ -33,17 +33,17 @@ const (
 // actionEditor is ActionControl over a command string (a click action,
 // which ClickAction and WorkspaceClickAction both encode as one, or a
 // session command): the presets, None where the menu has it, and a
-// custom command whose entry slides in and writes as it is typed.
+// custom command whose entry follows the menu and writes as it is
+// typed.
 type actionEditor struct {
 	*widget.Box
 	k       *kit
 	slot    slot
 	menu    commandMenu
 	choices []actionChoice
-	drop    *widget.Dropdown
+	pick    *customDropdown
 	entry   *widget.Entry
 	run     *commandRun
-	reveal  *widget.Revealer
 	custom  bool
 	syncing bool
 }
@@ -55,16 +55,13 @@ func newActionEditor(k *kit, s slot, choices []actionChoice) *actionEditor {
 func newCommandMenu(k *kit, s slot, choices []actionChoice, menu commandMenu) *actionEditor {
 	c := &actionEditor{Box: gapBox(widget.Column), k: k, slot: s, menu: menu, choices: choices}
 	t := locale.T()
-	labels := make([]string, 0, len(choices)+2)
+	labels := make([]string, 0, len(choices)+1)
 	for _, ch := range choices {
 		labels = append(labels, ch.label())
 	}
 	if menu == clickMenu {
 		labels = append(labels, t.Get("settings-action-none"))
 	}
-	labels = append(labels, t.Get("settings-action-custom"))
-	c.drop = widget.NewDropdown(k.face, k.textPx(), labels, 0)
-	c.drop.OnSelect = c.selected
 	c.entry = k.entry()
 	c.entry.SetPlaceholder(t.Get("settings-action-placeholder"))
 	c.entry.OnChanged = func(text string) {
@@ -72,17 +69,13 @@ func newCommandMenu(k *kit, s slot, choices []actionChoice, menu commandMenu) *a
 			_ = c.slot.set(text)
 		}
 	}
-	custom := gapBox(widget.Column)
-	custom.Append(c.entry, false)
+	c.pick = newCustomDropdown(k, labels, t.Get("settings-action-custom"), c.entry)
+	c.pick.OnSelect = c.selected
+	c.Append(c.pick, false)
 	if menu == clickMenu {
 		c.run = newCommandRun(k, s, "settings-command-run-empty")
-		custom.Append(c.run, false)
+		c.Append(c.run, false)
 	}
-	c.reveal = widget.NewRevealer(custom)
-	c.reveal.SetTransition(widget.RevealSlideDown)
-	c.reveal.SetCollapse(true)
-	c.Append(c.drop, false)
-	c.Append(c.reveal, false)
 	command := c.command()
 	c.custom = command != "" && c.choiceIndex(command) < 0
 	c.refresh()
@@ -101,39 +94,27 @@ func (c *actionEditor) noneIndex() int {
 	return len(c.choices)
 }
 
-func (c *actionEditor) customIndex() int {
-	if c.menu != clickMenu {
-		return len(c.choices)
-	}
-	return len(c.choices) + 1
-}
+func (c *actionEditor) customIndex() int { return c.pick.customIndex() }
 
 func (c *actionEditor) choiceIndex(command string) int {
 	return slices.IndexFunc(c.choices, func(ch actionChoice) bool { return ch.command == command })
 }
 
-// selected is ActionMsg::Selected: a preset or None writes it and hides
-// the entry; Custom shows the entry and writes what it holds.
+// selected is ActionMsg::Selected: a preset or None writes it; Custom
+// writes what the entry holds.
 func (c *actionEditor) selected(i int) {
-	if c.syncing {
-		return
-	}
+	c.custom = i == c.customIndex()
 	switch {
 	case i < len(c.choices):
-		c.custom = false
-		c.reveal.SetRevealed(false)
 		_ = c.slot.set(c.choices[i].command)
 	case i == c.noneIndex():
-		c.custom = false
-		c.reveal.SetRevealed(false)
 		_ = c.slot.set("")
 	default:
-		c.custom = true
-		c.reveal.SetRevealed(true)
 		if text := c.entry.Text(); text != "" {
 			_ = c.slot.set(text)
 		}
 	}
+	c.showRun()
 }
 
 // refresh is ActionMsg::Refresh: a preset or empty command leaves
@@ -151,14 +132,21 @@ func (c *actionEditor) refresh() {
 	default:
 		i = c.customIndex()
 	}
-	c.syncing = true
-	c.drop.SetSelected(i)
-	reveal := i == c.customIndex()
-	c.reveal.SetRevealed(reveal)
-	if reveal && c.entry.Text() != command {
+	c.custom = i == c.customIndex()
+	c.pick.show(i)
+	if c.custom && c.entry.Text() != command {
+		c.syncing = true
 		c.entry.SetText(command)
+		c.syncing = false
 	}
-	c.syncing = false
+	c.showRun()
+}
+
+// showRun shows the custom command's run while custom is chosen.
+func (c *actionEditor) showRun() {
+	if c.run != nil {
+		c.run.SetVisible(c.custom)
+	}
 }
 
 // workspaceChoices is workspace_choices: the focus actions the

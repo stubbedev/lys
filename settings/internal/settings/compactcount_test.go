@@ -59,7 +59,7 @@ func TestTheStoredNotificationHistoryIsPickedFromRoundCounts(t *testing.T) {
 	if p.active() != 1 {
 		t.Errorf("the default 10000 shows chip %d", p.active())
 	}
-	p.chips[2].SetActive(true)
+	pressChip(p.ChoiceChips, 2)
 	if v := k.store.value("modules.notifications.history-stored"); v != int64(100_000) {
 		t.Errorf("choosing 100K stored %v", v)
 	}
