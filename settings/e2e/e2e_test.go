@@ -410,7 +410,7 @@ func TestASettingLinkOpensItsPageWithTheControlFocused(t *testing.T) {
 
 	s.launch(t, bin, settingspage.SettingFlag, "input.touchpad.natural_scroll")
 	waittest.UntilSlow(t, func() bool { return s.settingsWindows() == 1 }, "settings window")
-	s.chooseOn(t, "natural_scroll: true")
+	s.chooseOn(t, bin, "input.touchpad.natural_scroll", "natural_scroll: true")
 }
 
 func TestASettingLinkMovesTheRunningWindowWithoutASecond(t *testing.T) {
@@ -423,15 +423,11 @@ func TestASettingLinkMovesTheRunningWindowWithoutASecond(t *testing.T) {
 
 	s.launch(t, bin, settingspage.PageFlag, "wm-windows")
 	waittest.UntilSlow(t, func() bool { return s.settingsWindows() == 1 }, "settings window")
-	ctx, cancel := context.WithTimeout(context.Background(), bound)
-	defer cancel()
-	if out, err := exec.CommandContext(ctx, bin, settingspage.SettingFlag, "wm:input.touchpad.tap").CombinedOutput(); err != nil {
-		t.Fatalf("the forwarded launch: %v\n%s", err, out)
-	}
+	forward(t, bin, "wm:input.touchpad.tap")
 	if n := s.settingsWindows(); n != 1 {
 		t.Fatalf("%d settings windows after a forwarded launch", n)
 	}
-	s.chooseOn(t, "tap: true")
+	s.chooseOn(t, bin, "wm:input.touchpad.tap", "tap: true")
 	if n := s.settingsWindows(); n != 1 {
 		t.Fatalf("%d settings windows", n)
 	}
@@ -439,18 +435,34 @@ func TestASettingLinkMovesTheRunningWindowWithoutASecond(t *testing.T) {
 
 const settle = 3 * time.Second
 
-func (s *session) chooseOn(t *testing.T, want string) {
+// forward launches bin on setting while the window runs, which hands the
+// link to that window and exits.
+func forward(t *testing.T, bin, setting string) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), bound)
+	defer cancel()
+	if out, err := exec.CommandContext(ctx, bin, settingspage.SettingFlag, setting).CombinedOutput(); err != nil {
+		t.Fatalf("the forwarded launch of %s: %v\n%s", setting, err, out)
+	}
+}
+
+// chooseOn picks On in the segments of an on/off setting with no
+// default, which read Inherit, On, Off with Inherit picked: the setting's
+// link focuses the segments and Right picks On. The link is followed
+// again before each try, so a try lost before the window took the keys
+// starts over from the same focus.
+func (s *session) chooseOn(t *testing.T, bin, setting, want string) {
 	t.Helper()
 	written := func() bool {
 		data, err := os.ReadFile(s.file.Runtime())
 		return err == nil && strings.Contains(string(data), want)
 	}
 	waittest.UntilSlow(t, func() bool {
-		for _, key := range []string{"Escape", "space", "Home", "Down", "Return"} {
-			press(t, key)
-		}
+		press(t, "Escape")
+		forward(t, bin, setting)
+		press(t, "Right")
 		return within(written)
-	}, "the focused control's dropdown choosing On, writing "+want)
+	}, "the focused control's segments choosing On, writing "+want)
 }
 
 func (s *session) inhibiting() bool {
