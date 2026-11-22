@@ -244,3 +244,38 @@ func TestCompositeContentTakesFocus(t *testing.T) {
 		t.Error("the accessibility tree misses the row's switch")
 	}
 }
+
+func TestExpanderRowChevronAndExpansionFollowTheDisclosure(t *testing.T) {
+	exp := NewExpanderRow(rowFace(t), 14, "Advanced", "")
+	check := func(when string, kind SymbolKind, x Expansion) {
+		t.Helper()
+		if got := exp.chevron.Kind(); got != kind {
+			t.Errorf("%s: chevron = %v, want %v", when, got, kind)
+		}
+		if got := Describe(exp).Expansion; got != x {
+			t.Errorf("%s: expansion = %v, want %v", when, got, x)
+		}
+	}
+	check("collapsed", SymbolChevronRight, ExpansionCollapsed)
+	exp.SetRevealed(true)
+	check("revealed directly", SymbolChevronDown, ExpansionExpanded)
+	exp.Expand()
+	check("collapsed by Expand", SymbolChevronRight, ExpansionCollapsed)
+	exp.OnActivate()
+	check("expanded by activation", SymbolChevronDown, ExpansionExpanded)
+	exp.SetRevealed(false)
+	check("collapsed directly", SymbolChevronRight, ExpansionCollapsed)
+}
+
+func TestActionRowWithoutDisclosureReportsNoExpansion(t *testing.T) {
+	r := NewActionRow(rowFace(t), 14, "Notifications", "")
+	r.SetActivatable(true)
+	r.ShowChevron(true)
+	r.SetRevealed(true)
+	if got := Describe(r).Expansion; got != ExpansionNone {
+		t.Errorf("a row disclosing nothing reports %v, want ExpansionNone", got)
+	}
+	if got := r.chevron.Kind(); got != SymbolChevronRight {
+		t.Errorf("a navigation row's chevron = %v, want SymbolChevronRight", got)
+	}
+}

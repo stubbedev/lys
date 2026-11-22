@@ -69,6 +69,7 @@ func NewExpander(face render.Font, title string, child Widget) *Expander {
 	e.arrow.SetElement("arrow")
 	setParents(e, &e.titleNode)
 	setParents(&e.titleNode, &e.arrow)
+	e.SetAccessibleExpansion(ExpansionCollapsed)
 	return e
 }
 
@@ -106,6 +107,7 @@ func (e *Expander) SetOpen(open bool) {
 		return
 	}
 	e.open = open
+	e.SetAccessibleExpansion(ExpansionOf(open))
 	if e.OnToggled != nil {
 		e.OnToggled(open)
 	}

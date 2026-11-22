@@ -14,7 +14,8 @@
 // emitter goroutine takes the finished tree, publishes it, and diffs it
 // against the previous one: every difference becomes the AT-SPI events
 // it sends: focus (and state-changed focused), state-changed
-// (checked, enabled, sensitive, editable), text-changed,
+// (checked, expandable, expanded, enabled, sensitive, editable),
+// text-changed,
 // text-selection-changed, text-caret-moved, property-change (name,
 // value), bounds-changed, children-changed for tree updates, and the
 // Cache's add/remove. Handlers answer D-Bus method calls from the published
@@ -75,6 +76,8 @@ const (
 	stateChecked    uint32 = 4
 	stateEditable   uint32 = 7
 	stateEnabled    uint32 = 8
+	stateExpandable uint32 = 9
+	stateExpanded   uint32 = 10
 	stateFocusable  uint32 = 11
 	stateFocused    uint32 = 12
 	stateMultiLine  uint32 = 17
@@ -706,6 +709,12 @@ func diff(old, cur *tree, busName string) []event {
 		}
 		if now.st.Pressed != before.st.Pressed {
 			out = append(out, stateEvent(now, "pressed", now.st.Pressed))
+		}
+		if expandable(now.st) != expandable(before.st) {
+			out = append(out, stateEvent(now, "expandable", expandable(now.st)))
+		}
+		if expanded(now.st) != expanded(before.st) {
+			out = append(out, stateEvent(now, "expanded", expanded(now.st)))
 		}
 		if now.st.Enabled != before.st.Enabled {
 			// AT-SPI carries both: enabled is the application state,

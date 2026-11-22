@@ -286,3 +286,21 @@ func TestGoldenExpander(t *testing.T) {
 		NewGolden(t, col, shot.name, goldenTheme(shot.th), goldenFrame(320, 90))
 	}
 }
+
+func TestExpanderReportsExpansion(t *testing.T) {
+	e := NewExpander(entryFace(t), "Advanced", &fixedWidget{sz: Size{W: 120, H: 60}})
+	if got := Describe(e).Expansion; got != ExpansionCollapsed {
+		t.Errorf("closed expander reports %v, want ExpansionCollapsed", got)
+	}
+	e.SetOpen(true)
+	if got := Describe(e).Expansion; got != ExpansionExpanded {
+		t.Errorf("open expander reports %v, want ExpansionExpanded", got)
+	}
+	e.SetOpen(false)
+	if got := Describe(e).Expansion; got != ExpansionCollapsed {
+		t.Errorf("reclosed expander reports %v, want ExpansionCollapsed", got)
+	}
+	if got := Describe(&fixedWidget{}).Expansion; got != ExpansionNone {
+		t.Errorf("a widget disclosing nothing reports %v, want ExpansionNone", got)
+	}
+}

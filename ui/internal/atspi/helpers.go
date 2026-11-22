@@ -148,6 +148,12 @@ func (b *Bridge) statesOf(tr *tree, id int32) []uint32 {
 	if n.st.Pressed {
 		states = append(states, statePressed)
 	}
+	if expandable(n.st) {
+		states = append(states, stateExpandable)
+	}
+	if expanded(n.st) {
+		states = append(states, stateExpanded)
+	}
 	if n.st.Editable {
 		states = append(states, stateEditable)
 	}
@@ -158,6 +164,12 @@ func (b *Bridge) statesOf(tr *tree, id int32) []uint32 {
 	}
 	return states
 }
+
+// expandable reports whether st is a disclosure trigger.
+func expandable(st widget.A11yState) bool { return st.Expansion != widget.ExpansionNone }
+
+// expanded reports whether st is a disclosure trigger whose content shows.
+func expanded(st widget.A11yState) bool { return st.Expansion == widget.ExpansionExpanded }
 
 // interfacesOf lists the D-Bus interfaces the node serves (the AT-SPI
 // ones; the standard Properties/Introspectable ride along implicitly).

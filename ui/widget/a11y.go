@@ -1,7 +1,7 @@
 // Accessibility semantics for the widget tree: semantic roles plus a
 // state snapshot that assistive technology can consume. This is the
 // plain-Go layer only - how it reaches a screen reader is recorded in
-// docs/a11y.md.
+// docs/ui/a11y.md.
 package widget
 
 import (
@@ -125,6 +125,17 @@ func A11yGeneration() uint64 { return DamageGeneration() + a11yGen.Load() }
 // accessible name, or a window coming or going.
 func MarkA11yChanged() { a11yGen.Add(1) }
 
+// SetAccessibleExpansion makes the widget a disclosure trigger for
+// assistive technology, reporting whether the content it shows and
+// hides shows; ExpansionNone makes it an ordinary widget again.
+func (n *node) SetAccessibleExpansion(x Expansion) {
+	if n.expansion == x {
+		return
+	}
+	n.expansion = x
+	MarkA11yChanged()
+}
+
 // AccessibleName returns the name SetAccessibleName set.
 func (n *node) AccessibleName() string { return n.accName }
 
@@ -141,6 +152,26 @@ func RoleOf(w Widget) Role {
 		return r.Role()
 	}
 	return RoleNone
+}
+
+// Expansion is what a disclosure trigger reports of the content it
+// shows and hides: ExpansionNone for a widget that discloses nothing.
+type Expansion uint8
+
+// The expansions.
+const (
+	ExpansionNone Expansion = iota
+	ExpansionCollapsed
+	ExpansionExpanded
+)
+
+// ExpansionOf is a disclosure trigger's expansion while its content
+// shows (open) or not.
+func ExpansionOf(open bool) Expansion {
+	if open {
+		return ExpansionExpanded
+	}
+	return ExpansionCollapsed
 }
 
 // A11yState is a point-in-time snapshot of what assistive technology
@@ -167,6 +198,8 @@ type A11yState struct {
 	Checked bool
 	// Pressed is a ToggleButton's active state.
 	Pressed bool
+	// Expansion is a disclosure trigger's state.
+	Expansion Expansion
 	// Min, Max, and Value carry the ranged roles (slider, progress
 	// bar); Step is the keyboard increment (slider only, 0 when the
 	// slider divides the range itself).
@@ -200,7 +233,11 @@ func Describe(w Widget) A11yState {
 		return A11yState{}
 	}
 	st := A11yState{Role: RoleOf(w), Enabled: IsEnabled(w), Focusable: isFocusable(w), TabStop: tabStop(w)}
-	if n := nodeOf(w); n != nil && n.accName != "" {
+	n := nodeOf(w)
+	if n != nil {
+		st.Expansion = n.expansion
+	}
+	if n != nil && n.accName != "" {
 		st.Name = n.accName
 	} else if t, ok := w.(TooltipTexter); ok {
 		st.Name = t.TooltipText()

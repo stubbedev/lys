@@ -15,6 +15,7 @@ type nodeProps interface {
 	widget.Widget
 	AddClass(names ...string)
 	AttachStylesheet(s *widget.Stylesheet)
+	SetAccessibleExpansion(x widget.Expansion)
 	SetAccessibleName(name string)
 	SetAttr(name string, value string)
 	SetClass(name string, on bool)
@@ -56,6 +57,18 @@ func (b *base[W, B]) AddClass(names ...string) B {
 // AttachStylesheet calls AttachStylesheet on the widget.
 func (b *base[W, B]) AttachStylesheet(stylesheet *widget.Stylesheet) B {
 	b.do(func(s *Scope, w W) { w.AttachStylesheet(stylesheet) })
+	return b.self
+}
+
+// AccessibleExpansion calls SetAccessibleExpansion on the widget.
+func (b *base[W, B]) AccessibleExpansion(x widget.Expansion) B {
+	b.do(func(s *Scope, w W) { w.SetAccessibleExpansion(x) })
+	return b.self
+}
+
+// WatchAccessibleExpansion re-applies SetAccessibleExpansion with get's value after every update.
+func (b *base[W, B]) WatchAccessibleExpansion(get func() widget.Expansion) B {
+	b.watch(func(w W) { w.SetAccessibleExpansion(get()) })
 	return b.self
 }
 

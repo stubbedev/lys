@@ -44,6 +44,9 @@ func TestACollapsibleSectionOpensFromAnywhereOnItsHeaderAndByKeys(t *testing.T) 
 		if fold.isOpen() != open || group.Visible() != open || fold.chevron.HasState(widget.StateChecked) != open {
 			t.Fatalf("%s: open %v, card shown %v, chevron turned %v; want all %v", when, fold.isOpen(), group.Visible(), fold.chevron.HasState(widget.StateChecked), open)
 		}
+		if got, want := widget.Describe(fold.button).Expansion, widget.ExpansionOf(open); got != want {
+			t.Fatalf("%s: the header reports %v, want %v", when, got, want)
+		}
 	}
 	check("built", false)
 	if a := widget.Describe(fold.button); a.Role != widget.RoleButton || a.Name != locale.T().Get("settings-section-durations") || !a.TabStop {
@@ -218,5 +221,61 @@ func TestAModeToggleFlipsBetweenItsTwoTexts(t *testing.T) {
 	m.OnClick()
 	if m.isOn() || m.label.Text() != "Parts" || len(flips) != 2 || flips[0] != true || flips[1] != false {
 		t.Errorf("clicked again, on %v reading %q, flips %v", m.isOn(), m.label.Text(), flips)
+	}
+}
+
+// Every disclosure trigger, a section's header, a chevron button and a
+// row, reports itself expandable to assistive technology, and expanded
+// only while its content shows, from the starting state on; the content
+// and the widgets beside the trigger report no expansion.
+func TestDisclosureTriggersReportTheirExpansion(t *testing.T) {
+	k := testKit(t, "")
+	var head *widget.Label
+	row := k.row("Item", "")
+	action := k.iconButton("ld-ellipsis-symbolic", "settings-passwords-item-options", func() {})
+	row.AddAction(action)
+	kinds := []struct {
+		name    string
+		build   func(open bool) *disclosure
+		trigger func(d *disclosure) widget.Widget
+	}{
+		{"header", func(open bool) *disclosure {
+			head = k.label("Advanced")
+			return k.headerDisclosure(head, open, func(bool) {})
+		}, func(d *disclosure) widget.Widget { return d.button }},
+		{"chevron", func(open bool) *disclosure { return k.chevronDisclosure(open, func(bool) {}) }, func(d *disclosure) widget.Widget { return d.button }},
+		{"row", func(open bool) *disclosure { return k.rowDisclosure(k.row("Row", "").Item, open, func(bool) {}) }, func(d *disclosure) widget.Widget { return d.trigger.(widget.Widget) }},
+	}
+	for _, kind := range kinds {
+		t.Run(kind.name, func(t *testing.T) {
+			for _, start := range []bool{false, true} {
+				d := kind.build(start)
+				trigger := kind.trigger(d)
+				check := func(when string, open bool) {
+					t.Helper()
+					if got, want := widget.Describe(trigger).Expansion, widget.ExpansionOf(open); got != want {
+						t.Errorf("%s (built open %v): the trigger reports %v, want %v", when, start, got, want)
+					}
+				}
+				check("built", start)
+				d.toggle()
+				check("toggled", !start)
+				d.setOpen(start)
+				check("set back", start)
+				if got := widget.Describe(d.chevron).Expansion; got != widget.ExpansionNone {
+					t.Errorf("the chevron inside the trigger reports %v, want ExpansionNone", got)
+				}
+			}
+		})
+	}
+	if got := widget.Describe(head).Expansion; got != widget.ExpansionNone {
+		t.Errorf("the header's title reports %v, want ExpansionNone", got)
+	}
+	k.rowDisclosure(row.Item, false, func(bool) {})
+	if got := widget.Describe(action).Expansion; got != widget.ExpansionNone {
+		t.Errorf("an action beside a row trigger reports %v, want ExpansionNone", got)
+	}
+	if got := widget.Describe(k.row("Plain", "").Item).Expansion; got != widget.ExpansionNone {
+		t.Errorf("a row disclosing nothing reports %v, want ExpansionNone", got)
 	}
 }

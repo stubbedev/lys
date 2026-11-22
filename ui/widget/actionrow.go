@@ -116,7 +116,7 @@ func (r *ActionRow) ShowChevron(on bool) {
 		return
 	}
 	if on {
-		r.chevron = NewSymbol(SymbolChevronRight, int(r.sizePx))
+		r.chevron = NewSymbol(r.chevronKind(), int(r.sizePx))
 		r.PackEnd(r.chevron)
 	} else if i := r.endChildIndex(r.chevron); i >= 0 {
 		r.end.RemoveAt(i)
@@ -179,22 +179,41 @@ func (r *ActionRow) SetDirection(d Direction) { r.line.SetDirection(d) }
 // Direction reports the row's flow direction.
 func (r *ActionRow) Direction() Direction { return r.line.Direction() }
 
+// chevronKind points the chevron down over an open disclosure and
+// toward the end otherwise.
+func (r *ActionRow) chevronKind() SymbolKind {
+	if r.Revealed() {
+		return SymbolChevronDown
+	}
+	return SymbolChevronRight
+}
+
 // SetDisclosure wires sub-content revealed under the row - the
 // ExpanderRow mechanism, a capability of the row itself: w sits in a
-// slide-down revealer under the line, initially collapsed.
+// slide-down revealer under the line, initially collapsed, and the row
+// reports itself a disclosure trigger to assistive technology.
 func (r *ActionRow) SetDisclosure(w Widget) {
 	r.reveal = NewRevealer(w)
 	r.reveal.SetTransition(RevealSlideDown)
 	r.reveal.SetDuration(180 * time.Millisecond)
-	r.reveal.SetRevealed(false)
 	r.column.Append(r.reveal, false)
+	r.showRevealed(false)
 	r.InvalidateLayout()
 }
 
-// SetRevealed opens or closes the disclosure.
+// SetRevealed opens or closes the disclosure, turning the chevron and
+// the accessible expansion with it.
 func (r *ActionRow) SetRevealed(on bool) {
 	if r.reveal != nil {
-		r.reveal.SetRevealed(on)
+		r.showRevealed(on)
+	}
+}
+
+func (r *ActionRow) showRevealed(on bool) {
+	r.reveal.SetRevealed(on)
+	r.SetAccessibleExpansion(ExpansionOf(on))
+	if r.chevron != nil {
+		r.chevron.SetKind(r.chevronKind())
 	}
 }
 

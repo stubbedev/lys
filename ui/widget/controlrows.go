@@ -137,7 +137,6 @@ func NewButtonRow(face render.Font, sizePx float64, title string, onClick func()
 type ExpanderRow struct {
 	*ActionRow
 	content *Box
-	arrow   *Symbol
 }
 
 // NewExpanderRow returns a collapsed expander; Add appends into its
@@ -146,8 +145,7 @@ func NewExpanderRow(face render.Font, sizePx float64, title, subtitle string) *E
 	r := &ExpanderRow{ActionRow: NewActionRow(face, sizePx, title, subtitle)}
 	r.content = NewBox(Column, 0, 0)
 	r.SetDisclosure(r.content)
-	r.arrow = NewSymbol(SymbolChevronRight, int(sizePx))
-	r.PackEnd(r.arrow)
+	r.ShowChevron(true)
 	r.SetActivatable(true)
 	r.OnActivate = r.Expand
 	return r
@@ -160,15 +158,7 @@ func (r *ExpanderRow) Add(w Widget) {
 }
 
 // Expand toggles the disclosure.
-func (r *ExpanderRow) Expand() {
-	on := !r.Revealed()
-	r.SetRevealed(on)
-	if on {
-		r.arrow.SetKind(SymbolChevronDown)
-	} else {
-		r.arrow.SetKind(SymbolChevronRight)
-	}
-}
+func (r *ExpanderRow) Expand() { r.SetRevealed(!r.Revealed()) }
 
 // Expanded reports the disclosure state.
 func (r *ExpanderRow) Expanded() bool { return r.Revealed() }

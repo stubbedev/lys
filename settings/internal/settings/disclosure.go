@@ -17,10 +17,12 @@ const disclosureChevron = "disclosure-chevron"
 // content, the whole header where nothing else on it takes a click, or
 // a chevron button at its end where something does; either way it
 // carries the chevron, pointing down while closed and turned over while
-// open. shows makes the content match the state, and is called with
-// the starting state too.
+// open, and reports itself to assistive technology as expandable, and
+// expanded while open. shows makes the content match the state, and is
+// called with the starting state too.
 type disclosure struct {
 	chevron *widget.Icon
+	trigger expansionReporter
 	// button is the trigger when it is a button: a section's header, or
 	// a chevron button among other controls. nil for a row trigger.
 	button *widget.Button
@@ -29,6 +31,12 @@ type disclosure struct {
 	tooltips bool
 	shows    func(open bool)
 	open     bool
+}
+
+// expansionReporter is a disclosure's trigger, which reports whether
+// the content shows.
+type expansionReporter interface {
+	SetAccessibleExpansion(widget.Expansion)
 }
 
 // newDisclosure is a disclosure with its chevron, whose trigger the
@@ -46,6 +54,7 @@ func (k *kit) headerDisclosure(head widget.Widget, open bool, shows func(open bo
 	line.Append(head, true)
 	line.AppendAligned(d.chevron, false, widget.AlignCenter)
 	d.button = k.roleButton(roleHeader, line, d.toggle)
+	d.trigger = d.button
 	d.apply(open)
 	return d
 }
@@ -56,6 +65,7 @@ func (k *kit) chevronDisclosure(open bool, shows func(open bool)) *disclosure {
 	d := k.newDisclosure(shows)
 	d.tooltips = true
 	d.button = k.roleButton(roleIcon, d.chevron, d.toggle)
+	d.trigger = d.button
 	d.apply(open)
 	return d
 }
@@ -66,6 +76,7 @@ func (k *kit) rowDisclosure(row *widget.Item, open bool, shows func(open bool)) 
 	d := k.newDisclosure(shows)
 	row.AddTrailing(d.chevron)
 	row.SetOnActivate(d.toggle)
+	d.trigger = row
 	d.apply(open)
 	return d
 }
@@ -87,6 +98,7 @@ func (d *disclosure) setOpen(open bool) {
 func (d *disclosure) apply(open bool) {
 	d.open = open
 	d.chevron.SetState(widget.StateChecked, open)
+	d.trigger.SetAccessibleExpansion(widget.ExpansionOf(open))
 	if d.tooltips {
 		key := "settings-card-expand"
 		if open {

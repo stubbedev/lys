@@ -131,6 +131,7 @@ func NewAccordionItem(face render.Font, title string, content Widget) *Accordion
 	row.AppendAligned(chevron, false, AlignCenter)
 	it.trigger = NewButton(row, 0, 0)
 	it.trigger.AddClass("trigger")
+	it.trigger.SetAccessibleExpansion(ExpansionCollapsed)
 	it.trigger.OnClick = func() { it.SetOpen(!it.Open()) }
 	body := NewBox(Column, 0, 0)
 	body.AddClass("content")
@@ -177,6 +178,7 @@ func (it *AccordionItem) setOpen(open bool) {
 	}
 	it.reveal.SetRevealed(open)
 	it.SetState(StateChecked, open)
+	it.trigger.SetAccessibleExpansion(ExpansionOf(open))
 	if it.OnToggled != nil {
 		it.OnToggled(open)
 	}

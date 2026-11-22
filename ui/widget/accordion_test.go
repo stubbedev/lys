@@ -150,3 +150,37 @@ func TestAccordionAppendOpen(t *testing.T) {
 		t.Errorf("open = %v, want only the last appended", got)
 	}
 }
+
+func triggerExpansions(a *Accordion) []Expansion {
+	out := make([]Expansion, len(a.Items()))
+	for i, it := range a.Items() {
+		out[i] = Describe(it.trigger).Expansion
+	}
+	return out
+}
+
+func TestAccordionTriggersReportExpansion(t *testing.T) {
+	a, inner := newTestAccordion(t, AccordionSingle)
+	c, x := ExpansionCollapsed, ExpansionExpanded
+	check := func(when string, want ...Expansion) {
+		t.Helper()
+		got := triggerExpansions(a)
+		for i := range want {
+			if got[i] != want[i] {
+				t.Errorf("%s: trigger expansions = %v, want %v", when, got, want)
+				return
+			}
+		}
+	}
+	check("closed", c, c, c)
+	a.Items()[0].trigger.OnClick()
+	check("first opened", x, c, c)
+	a.Items()[1].SetOpen(true)
+	check("second opened, closing the first", c, x, c)
+	if got := Describe(inner[1]).Expansion; got != ExpansionNone {
+		t.Errorf("content inside an open item reports %v, want ExpansionNone", got)
+	}
+	if got := Describe(a.Items()[1]).Expansion; got != ExpansionNone {
+		t.Errorf("the item itself reports %v, want ExpansionNone: its trigger is the disclosure", got)
+	}
+}
