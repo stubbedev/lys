@@ -1,6 +1,7 @@
 package bar
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/config"
@@ -32,13 +33,16 @@ func glyphName(g trayGlyph) string {
 // entryOf reads the item's entry on the loop.
 func entryOf(t *testing.T, m *systrayModule, key string) trayEntry {
 	t.Helper()
-	return onHeadlessLoop(func() trayEntry {
-		e, ok := m.entries[key]
+	var e trayEntry
+	checkOnLoopOf(t, m.ctx, func() error {
+		got, ok := m.entries[key]
 		if !ok {
-			t.Fatalf("no entry %s", key)
+			return fmt.Errorf("no entry %s", key)
 		}
-		return *e
+		e = *got
+		return nil
 	})
+	return e
 }
 
 // rasterID is a pixmap glyph's raster.

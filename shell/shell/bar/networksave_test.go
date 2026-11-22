@@ -44,7 +44,7 @@ func TestNetworkSaveOfferKeepsTheSignIn(t *testing.T) {
 	if !f.Visible() || itemText(f.head, "title") != "Office" {
 		t.Fatalf("card visible %v title %q", f.Visible(), itemText(f.head, "title"))
 	}
-	onLoop(f.save)
+	doOnLoopOf(v.ctx, f.save)
 	waitHeadless(t, "the save", func() bool { return !f.saving && !f.Visible() })
 	if got := logins.list(); len(got) != 1 || got[0] != "Office ann pw" {
 		t.Errorf("saved %q", got)
@@ -61,7 +61,7 @@ func TestNetworkSaveOfferRefusals(t *testing.T) {
 	logins := &savedLogins{err: vault.ErrItemExists}
 	v, _, _ := newNetTestView(t, network.Snapshot{}, netDeps{agent: agent, saveLogin: logins.save})
 	f := v.saveOffer
-	onLoop(f.save)
+	doOnLoopOf(v.ctx, f.save)
 	waitHeadless(t, "the refused save", func() bool { return !f.saving })
 	if !f.Visible() || !f.errText.Visible() || !errors.Is(logins.err, vault.ErrItemExists) {
 		t.Errorf("a refused save: card %v, error shown %v", f.Visible(), f.errText.Visible())
@@ -69,7 +69,7 @@ func TestNetworkSaveOfferRefusals(t *testing.T) {
 	if _, ok := agent.SaveOffer(); !ok {
 		t.Error("a refused save dropped the offer")
 	}
-	onLoop(f.dismiss)
+	doOnLoopOf(v.ctx, f.dismiss)
 	if f.Visible() || len(logins.list()) != 0 {
 		t.Errorf("not now: card %v, saved %q", f.Visible(), logins.list())
 	}
@@ -77,7 +77,7 @@ func TestNetworkSaveOfferRefusals(t *testing.T) {
 		t.Error("not now kept the offer")
 	}
 
-	agent.offer = &network.SaveOffer{UUID: "u2", Name: "Lab"}
+	agent.setOffer(&network.SaveOffer{UUID: "u2", Name: "Lab"})
 	bare, _, _ := newNetTestView(t, network.Snapshot{}, netDeps{agent: agent})
 	if bare.saveOffer.Visible() {
 		t.Error("an offer shows without a vault to keep it")

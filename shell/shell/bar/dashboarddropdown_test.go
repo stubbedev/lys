@@ -766,22 +766,48 @@ func (f failingMedia) SetPosition(c context.Context, _ string, _ time.Duration) 
 	return f.write(c)
 }
 
-func classedButton(t *testing.T, root widget.Widget, class string) *widget.Button {
-	t.Helper()
+func soleClassed[W widget.Widget](root widget.Widget, class string) (W, error) {
 	found := treetest.WithClass(root, class)
 	if len(found) != 1 {
-		t.Fatalf("%s = %d widgets, want 1", class, len(found))
+		var zero W
+		return zero, fmt.Errorf("%s = %d widgets, want 1", class, len(found))
 	}
-	return found[0].(*widget.Button)
+	w, ok := found[0].(W)
+	if !ok {
+		return w, fmt.Errorf("%s is a %T, want a %T", class, found[0], w)
+	}
+	return w, nil
+}
+
+func mustClassed[W widget.Widget](t *testing.T, root widget.Widget, class string) W {
+	t.Helper()
+	w, err := soleClassed[W](root, class)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return w
+}
+
+func classedButton(t *testing.T, root widget.Widget, class string) *widget.Button {
+	t.Helper()
+	return mustClassed[*widget.Button](t, root, class)
 }
 
 func classedAlert(t *testing.T, root widget.Widget, class string) *widget.Alert {
 	t.Helper()
-	found := treetest.WithClass(root, class)
-	if len(found) != 1 {
-		t.Fatalf("%s = %d widgets, want 1", class, len(found))
-	}
-	return found[0].(*widget.Alert)
+	return mustClassed[*widget.Alert](t, root, class)
+}
+
+func clickClassed(t *testing.T, ctx ModuleContext, root widget.Widget, class string) {
+	t.Helper()
+	checkOnLoopOf(t, ctx, func() error {
+		b, err := soleClassed[*widget.Button](root, class)
+		if err != nil {
+			return err
+		}
+		b.OnClick()
+		return nil
+	})
 }
 
 func TestTheVolumeAndMediaCardsSayWhyAWriteFailed(t *testing.T) {
@@ -800,7 +826,7 @@ func TestTheVolumeAndMediaCardsSayWhyAWriteFailed(t *testing.T) {
 		if onHeadlessLoop(alert.Visible) {
 			t.Fatalf("%s shows before any write", c.alert)
 		}
-		onHeadlessLoop(func() bool { classedButton(t, v, c.button).OnClick(); return true })
+		clickClassed(t, ctx, v, c.button)
 		if !<-src.deadline {
 			t.Errorf("%s: the write ran without a deadline", c.button)
 		}
@@ -812,7 +838,7 @@ func TestTheVolumeAndMediaCardsSayWhyAWriteFailed(t *testing.T) {
 			return true
 		})
 		src.err = nil
-		onHeadlessLoop(func() bool { classedButton(t, v, c.button).OnClick(); return true })
+		clickClassed(t, ctx, v, c.button)
 		<-src.deadline
 		waitHeadless(t, c.alert+" cleared", func() bool { return !alert.Visible() })
 		closeView(ctx, v)
@@ -842,7 +868,7 @@ func TestSwitchingThePlayerSaysWhyItFailed(t *testing.T) {
 		ctx.Media = c.src
 		v := openDashboard(t, ctx, noRadiosDashboard)
 		alert := classedAlert(t, v, "media-failed")
-		onHeadlessLoop(func() bool { classedButton(t, v, "media-switch-btn").OnClick(); return true })
+		clickClassed(t, ctx, v, "media-switch-btn")
 		onHeadlessLoop(func() bool {
 			if alert.Visible() != c.failed {
 				t.Errorf("%s: alert visible %v, want %v", c.name, alert.Visible(), c.failed)

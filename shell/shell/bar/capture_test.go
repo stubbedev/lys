@@ -34,7 +34,7 @@ import (
 	"github.com/stubbedev/lys/shell/shell/screenshot"
 )
 
-func runLoop(t *testing.T, application *app.Application) func(func()) {
+func runLoop(t *testing.T, application *app.Application) {
 	t.Helper()
 	application.Hold()
 	done := make(chan error, 1)
@@ -45,14 +45,6 @@ func runLoop(t *testing.T, application *app.Application) func(func()) {
 			t.Errorf("the loop ended with %v", err)
 		}
 	})
-	return func(fn func()) {
-		ran := make(chan struct{})
-		application.Invoke(func() {
-			fn()
-			close(ran)
-		})
-		<-ran
-	}
 }
 
 // pastePNG reads the regular selection as image/png through wl-paste, a
@@ -112,11 +104,11 @@ func TestHeadlessScreenshotOverDBusLandsOnTheClipboardWithoutInput(t *testing.T)
 	if len(outputs) == 0 || outputs[0].Name == "" {
 		t.Fatalf("the headless sway shows outputs %v", outputs)
 	}
-	onLoop := runLoop(t, application)
-	defer onLoop(clip.Close)
+	runLoop(t, application)
+	defer doOn(application, clip.Close)
 
 	var fallbackErr error
-	onLoop(func() {
+	doOn(application, func() {
 		_, fallbackErr = putOnClipboard(application, nil, transfer.Bytes(transfer.MimePNG, []byte("\x89PNG")))
 	})
 	if fallbackErr == nil {

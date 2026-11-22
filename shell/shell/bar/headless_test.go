@@ -2,12 +2,14 @@ package bar
 
 import (
 	"context"
+	"fmt"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/shell/barview"
+	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/widget"
@@ -19,6 +21,15 @@ func onHeadlessLoop[T any](read func() T) T {
 	headlessLoop.Lock()
 	defer headlessLoop.Unlock()
 	return read()
+}
+
+func firstIn[T widget.Widget](root widget.Widget) (T, error) {
+	all := treetest.All[T](root)
+	if len(all) == 0 {
+		var zero T
+		return zero, fmt.Errorf("no %T in the tree", zero)
+	}
+	return all[0], nil
 }
 
 func createOnHeadlessLoop(name string, ctx ModuleContext) (Module, error) {

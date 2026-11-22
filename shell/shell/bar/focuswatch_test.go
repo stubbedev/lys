@@ -22,13 +22,17 @@ func TestAFullscreenWindowTurnsDoNotDisturbOnWhileItIs(t *testing.T) {
 		stop   func()
 		window *app.Window
 	)
-	apptest.On(a, func() error {
-		stop = followFocusInputs(a, testWall(t), svc, nil, nil)
+	wall := testWall(t)
+	err := apptest.On(a, func() error {
+		stop = followFocusInputs(a, wall, svc, nil, nil)
 		var err error
 		window, err = a.NewWindow(app.WindowConfig{Title: "video", AppID: "org.example.Player", Root: widget.NewDrawingArea(64, 64)})
 		return err
 	})
-	t.Cleanup(func() { apptest.On(a, func() bool { stop(); return true }) })
+	t.Cleanup(func() { doOn(a, stop) })
+	if err != nil {
+		t.Fatalf("the fullscreen window: %v", err)
+	}
 	apptest.Until(t, a, "the window listed", func() bool { return len(a.Toplevels()) == 1 })
 	if svc.DND() {
 		t.Fatal("do-not-disturb on before anything went fullscreen")
@@ -49,8 +53,9 @@ func TestAPortalShareTurnsDoNotDisturbOnAndItsEndRestoresIt(t *testing.T) {
 	svc := notifytest.NewService(t)
 	svc.SetFocusRules(notifypolicy.FocusRules{WhileSharing: true})
 	var stop func()
-	apptest.On(a, func() bool { stop = followFocusInputs(a, testWall(t), svc, shares, nil); return true })
-	t.Cleanup(func() { apptest.On(a, func() bool { stop(); return true }) })
+	wall := testWall(t)
+	doOn(a, func() { stop = followFocusInputs(a, wall, svc, shares, nil) })
+	t.Cleanup(func() { doOn(a, stop) })
 	if svc.DND() {
 		t.Fatal("do-not-disturb on with nothing shared")
 	}

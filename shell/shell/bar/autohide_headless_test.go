@@ -24,7 +24,7 @@ func TestHeadlessAutoHidingBarRevealsAtTheEdge(t *testing.T) {
 	h := openHeadlessBar(t, cfg, clockLayout)
 	thickness := func() int {
 		var thick int
-		h.onLoop(func() { _, thick = h.bar.layer.Size() })
+		doOn(h.app, func() { _, thick = h.bar.layer.Size() })
 		return thick
 	}
 	wait := func(what string, cond func() bool) {
@@ -61,7 +61,7 @@ func TestHeadlessAutoHidingBarRevealsAtTheEdge(t *testing.T) {
 	wait("the pointer at the edge to reveal it", func() bool { return thickness() > revealPx })
 	shown := thickness()
 
-	h.onLoop(func() {
+	doOn(h.app, func() {
 		anchor := h.bar.bar.Start().Children()[0]
 		if err := h.rt.ctx.Dropdowns.open(h.output.Name, "calendar", anchor, openedByAnchor); err != nil {
 			t.Errorf("open the calendar: %v", err)
@@ -72,10 +72,10 @@ func TestHeadlessAutoHidingBarRevealsAtTheEdge(t *testing.T) {
 	if got := thickness(); got != shown {
 		t.Fatalf("the bar is %d thick under an open dropdown, want %d", got, shown)
 	}
-	h.onLoop(h.rt.ctx.Dropdowns.closeAll)
+	doOn(h.app, h.rt.ctx.Dropdowns.closeAll)
 	wait("the bar to hide once the dropdown closed", func() bool { return thickness() == revealPx })
 
-	h.onLoop(func() { h.set.peek("", 200*time.Millisecond) })
+	doOn(h.app, func() { h.set.peek("", 200*time.Millisecond) })
 	wait("panel reveal to show it", func() bool { return thickness() > revealPx })
 	wait("the peek to end", func() bool { return thickness() == revealPx })
 }

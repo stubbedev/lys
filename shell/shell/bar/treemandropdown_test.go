@@ -260,7 +260,7 @@ func TestTreemanRowKeyboardReachesItsActions(t *testing.T) {
 		t.Fatalf("at rest the slot shows %q, want the state", slot.Visible())
 	}
 	router := &widget.Router{Root: v}
-	doOnLoopOf(ctx, func() { tabUntil(t, router, v, row) })
+	checkOnLoopOf(t, ctx, func() error { return tabUntil(router, v, row) })
 	if slot.Visible() != "actions" {
 		t.Fatalf("Tab onto the row shows %q, want the actions", slot.Visible())
 	}
@@ -268,9 +268,12 @@ func TestTreemanRowKeyboardReachesItsActions(t *testing.T) {
 	if got := widget.Describe(teardown).Name; got != i18n.T("dropdown-treeman-action-teardown") {
 		t.Errorf("the teardown button reads %q to assistive technology", got)
 	}
-	doOnLoopOf(ctx, func() {
-		tabUntil(t, router, v, teardown)
+	checkOnLoopOf(t, ctx, func() error {
+		if err := tabUntil(router, v, teardown); err != nil {
+			return err
+		}
 		router.KeyAction(widget.KeyEnter, 0)
+		return nil
 	})
 	waitHeadless(t, "Enter on teardown to run it", func() bool {
 		return slices.Equal(src.ran(), []string{"worktree delete " + row.TooltipText() + " --yes"})

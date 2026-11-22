@@ -3,6 +3,7 @@ package bar
 import (
 	"context"
 	"errors"
+	"fmt"
 	"maps"
 	"os"
 	"path/filepath"
@@ -250,17 +251,18 @@ func newPixmapTray(t *testing.T, it *sni.Item) (*systrayModule, *fakeTray, *sni.
 
 func pixmapGlyph(t *testing.T, m *systrayModule, key string) *trayPixmap {
 	t.Helper()
-	return onHeadlessLoop(func() *trayPixmap {
+	var g *trayPixmap
+	checkOnLoopOf(t, m.ctx, func() error {
 		e, ok := m.entries[key]
 		if !ok {
-			t.Fatalf("no entry %s", key)
+			return fmt.Errorf("no entry %s", key)
 		}
-		g, ok := e.icon.(*trayPixmap)
-		if !ok {
-			t.Fatalf("%s: icon %T, want a pixmap", key, e.icon)
+		if g, ok = e.icon.(*trayPixmap); !ok {
+			return fmt.Errorf("%s: icon %T, want a pixmap", key, e.icon)
 		}
-		return g
+		return nil
 	})
+	return g
 }
 
 const (

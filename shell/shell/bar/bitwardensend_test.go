@@ -17,8 +17,8 @@ func sendsView(t *testing.T, v *fakeVault) (*bitwardenView, *[]copied, time.Time
 	t.Helper()
 	view, copies := bitwardenTestView(t, v, config.Defaults())
 	at := time.Now()
-	onLoop(func() { view.now = func() time.Time { return at } })
-	onLoop(view.toggleSends)
+	doOnLoopOf(view.ctx, func() { view.now = func() time.Time { return at } })
+	doOnLoopOf(view.ctx, view.toggleSends)
 	waitIdle(t, view)
 	return view, copies, at
 }
@@ -37,7 +37,7 @@ func TestBitwardenSendCreatesAndCopiesTheLink(t *testing.T) {
 	if !onHeadlessLoop(view.sendBtn.Visible) || view.dropdownFocus() != view.sendName {
 		t.Errorf("the Sends button shows %v, focus on %T", view.sendBtn.Visible(), view.dropdownFocus())
 	}
-	onLoop(func() {
+	doOnLoopOf(view.ctx, func() {
 		view.sendName.SetText("Door code")
 		view.sendText.SetText("4711")
 		view.sendLife.SetSelected(0)
@@ -74,11 +74,11 @@ func TestBitwardenSendCreatesAndCopiesTheLink(t *testing.T) {
 func TestBitwardenSendRefusals(t *testing.T) {
 	v := unlockedVault()
 	view, copies, _ := sendsView(t, v)
-	onLoop(func() {
+	doOnLoopOf(view.ctx, func() {
 		view.sendText.SetText("only text")
 		view.sendForm.Submit()
 	})
-	onLoop(func() {
+	doOnLoopOf(view.ctx, func() {
 		view.sendName.SetText("only name")
 		view.sendText.SetText("")
 		view.sendForm.Submit()
@@ -87,7 +87,7 @@ func TestBitwardenSendRefusals(t *testing.T) {
 		t.Fatalf("an incomplete form created %+v", v.created)
 	}
 	v.set(func(f *fakeVault) { f.sendErr = &vault.ServerError{Status: 400, Message: "Send is too large"} })
-	onLoop(func() {
+	doOnLoopOf(view.ctx, func() {
 		view.sendText.SetText("text")
 		view.sendForm.Submit()
 	})
@@ -105,12 +105,12 @@ func TestBitwardenSendDelete(t *testing.T) {
 	v := unlockedVault()
 	v.sends = []vault.Send{{ID: "a", Name: "A"}, {ID: "b", Name: "B"}}
 	view, _, _ := sendsView(t, v)
-	onLoop(func() { view.deleteSend("a") })
+	doOnLoopOf(view.ctx, func() { view.deleteSend("a") })
 	waitHeadless(t, "the Send gone from the list", func() bool { return !view.busy && rowCount(view.sendList) == 1 })
 	if len(v.deleted) != 1 || v.deleted[0] != "a" {
 		t.Errorf("deleted %v", v.deleted)
 	}
-	onLoop(func() { view.deleteSend("a") })
+	doOnLoopOf(view.ctx, func() { view.deleteSend("a") })
 	waitIdle(t, view)
 	if got := onHeadlessLoop(view.errLabel.Text); got == "" {
 		t.Errorf("deleting a missing Send showed %q", got)
@@ -123,12 +123,12 @@ func TestBitwardenSendDelete(t *testing.T) {
 func TestBitwardenSendFollowsTheLock(t *testing.T) {
 	v := unlockedVault()
 	view, _, _ := sendsView(t, v)
-	onLoop(func() {
+	doOnLoopOf(view.ctx, func() {
 		view.sendName.SetText("x")
 		view.sendPw.entry.SetText("secret")
 	})
 	v.set(func(f *fakeVault) { f.status.State = vault.StateLocked })
-	onLoop(view.apply)
+	doOnLoopOf(view.ctx, view.apply)
 	if page(view) != bwPageUnlock || view.sending || onHeadlessLoop(view.sendBtn.Visible) {
 		t.Errorf("locked: page %s, sending %v, button %v", page(view), view.sending, view.sendBtn.Visible())
 	}
@@ -136,10 +136,10 @@ func TestBitwardenSendFollowsTheLock(t *testing.T) {
 		t.Error("locking left the Send form filled")
 	}
 	v.set(func(f *fakeVault) { f.status.State = vault.StateUnlocked })
-	onLoop(view.toggleSends)
+	doOnLoopOf(view.ctx, view.toggleSends)
 	waitIdle(t, view)
-	onLoop(func() { view.sendPw.entry.SetText("secret") })
-	onLoop(view.dropdownHidden)
+	doOnLoopOf(view.ctx, func() { view.sendPw.entry.SetText("secret") })
+	doOnLoopOf(view.ctx, view.dropdownHidden)
 	if view.sending || view.sendPw.entry.Text() != "" || page(view) != bwPageVault {
 		t.Errorf("hidden: sending %v, password %q, page %s", view.sending, view.sendPw.entry.Text(), page(view))
 	}

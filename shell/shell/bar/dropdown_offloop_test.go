@@ -14,6 +14,7 @@ import (
 	"github.com/stubbedev/lys/desktop/service/recorder/devicechoice"
 	"github.com/stubbedev/lys/desktop/service/upower"
 	"github.com/stubbedev/lys/lib/waittest"
+	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/shell/internal/apptest"
@@ -178,8 +179,17 @@ func onLoopOf[T any](ctx ModuleContext, fn func() T) T {
 	return apptest.On(ctx.App, fn)
 }
 
-func doOnLoopOf(ctx ModuleContext, fn func()) {
-	onLoopOf(ctx, func() struct{} { fn(); return struct{}{} })
+func doOnLoopOf(ctx ModuleContext, fn func()) { onLoopOf(ctx, asBlock(fn)) }
+
+func doOn(a *app.Application, fn func()) { apptest.On(a, asBlock(fn)) }
+
+func asBlock(fn func()) func() struct{} { return func() struct{} { fn(); return struct{}{} } }
+
+func checkOnLoopOf(t testing.TB, ctx ModuleContext, block func() error) {
+	t.Helper()
+	if err := onLoopOf(ctx, block); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func openView[W widget.Widget](t testing.TB, ctx ModuleContext, build func(ModuleContext) W) W {

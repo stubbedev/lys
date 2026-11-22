@@ -48,7 +48,7 @@ func TestHeadlessPanelFocusWalksTheModules(t *testing.T) {
 	ringed := func(want int) func() error {
 		return func() error {
 			var at []int
-			h.onLoop(func() {
+			doOn(h.app, func() {
 				for i, b := range buttons {
 					if widget.FocusVisible(b) {
 						at = append(at, i)
@@ -81,7 +81,7 @@ func TestHeadlessPanelFocusWalksTheModules(t *testing.T) {
 	untilNil(h.t, "the first module ringed", ringed(0))
 	untilNil(h.t, "the bar holding the keyboard", func() error {
 		var held bool
-		h.onLoop(func() { held = h.holdsKeyboard() })
+		doOn(h.app, func() { held = h.holdsKeyboard() })
 		if !held {
 			return errors.New("the compositor focuses another surface")
 		}
@@ -98,7 +98,7 @@ func TestHeadlessPanelFocusWalksTheModules(t *testing.T) {
 
 	var inside widget.Widget
 	focusedInside := make(chan bool, 4)
-	h.onLoop(func() {
+	doOn(h.app, func() {
 		h.rt.ctx.Dropdowns.mu.Lock()
 		build := h.rt.ctx.Dropdowns.builders["calendar"]
 		h.rt.ctx.Dropdowns.mu.Unlock()
@@ -115,7 +115,7 @@ func TestHeadlessPanelFocusWalksTheModules(t *testing.T) {
 	untilNil(h.t, "Enter opening the third module's calendar", func() error {
 		var name string
 		var checked []bool
-		h.onLoop(func() {
+		doOn(h.app, func() {
 			h.rt.ctx.Dropdowns.mu.Lock()
 			name = h.rt.ctx.Dropdowns.openName[h.output.Name]
 			h.rt.ctx.Dropdowns.mu.Unlock()
@@ -133,7 +133,7 @@ func TestHeadlessPanelFocusWalksTheModules(t *testing.T) {
 	}
 	untilNil(h.t, "the ring on the calendar's first control before any Tab", func() error {
 		var ringed bool
-		h.onLoop(func() { ringed = widget.FocusVisible(inside) })
+		doOn(h.app, func() { ringed = widget.FocusVisible(inside) })
 		if !ringed {
 			return errors.New("the focused control shows no ring")
 		}
@@ -143,7 +143,7 @@ func TestHeadlessPanelFocusWalksTheModules(t *testing.T) {
 	tap(walkEsc)
 	untilNil(h.t, "the first Esc closing the calendar", func() error {
 		var open bool
-		h.onLoop(func() {
+		doOn(h.app, func() {
 			h.rt.ctx.Dropdowns.mu.Lock()
 			pop := h.rt.ctx.Dropdowns.openPop[h.output.Name]
 			h.rt.ctx.Dropdowns.mu.Unlock()
@@ -161,7 +161,7 @@ func TestHeadlessPanelFocusWalksTheModules(t *testing.T) {
 	untilNil(h.t, "the second Esc giving the keyboard back", func() error {
 		var walking bool
 		var mode app.KeyboardMode
-		h.onLoop(func() { walking, mode = h.bar.layer.Walking(), h.bar.layer.KeyboardMode() })
+		doOn(h.app, func() { walking, mode = h.bar.layer.Walking(), h.bar.layer.KeyboardMode() })
 		if walking || mode != app.KeyboardNone {
 			return fmt.Errorf("walking %v in keyboard mode %v", walking, mode)
 		}

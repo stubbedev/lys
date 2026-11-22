@@ -59,7 +59,7 @@ func openHeadlessBar(t *testing.T, cfg *config.Config, layout config.BarLayout) 
 	done := make(chan error, 1)
 	go func() { done <- application.Run() }()
 	t.Cleanup(func() {
-		h.onLoop(func() {
+		doOn(h.app, func() {
 			h.set.unplug(h.output)
 			rt.ctx.Dropdowns.release()
 		})
@@ -70,16 +70,6 @@ func openHeadlessBar(t *testing.T, cfg *config.Config, layout config.BarLayout) 
 		widget.WaitAssetLoads()
 	})
 	return h
-}
-
-// onLoop runs fn on the bar's loop and waits for it.
-func (h *headlessBar) onLoop(fn func()) {
-	ran := make(chan struct{})
-	h.app.Invoke(func() {
-		fn()
-		close(ran)
-	})
-	<-ran
 }
 
 // buttons waits for the open bar to show n module buttons and returns
@@ -101,7 +91,7 @@ func (h *headlessBar) buttonsWhere(what string, pass func([]*barButton) error) [
 	var out []*barButton
 	untilNil(h.t, what, func() error {
 		out = nil
-		h.onLoop(func() {
+		doOn(h.app, func() {
 			if h.bar == nil {
 				return
 			}

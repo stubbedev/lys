@@ -143,12 +143,16 @@ func TestBackgroundAppsAreListedAndStopKillsTheInstance(t *testing.T) {
 			t.Errorf("dropdown labels %q lack %q", labels, want)
 		}
 	}
-	icons := onHeadlessLoop(func() []string {
-		var names []string
+	var icons []string
+	checkOnLoopOf(t, ctx, func() error {
 		for _, row := range treetest.WithClass(v, "background-apps-dropdown-row") {
-			names = append(names, treetest.First[*widget.Icon](t, row).Name())
+			icon, err := firstIn[*widget.Icon](row)
+			if err != nil {
+				return err
+			}
+			icons = append(icons, icon.Name())
 		}
-		return names
+		return nil
 	})
 	if !slices.Equal(icons, []string{"org.gnome.Fractal", genericAppIcon}) {
 		t.Errorf("row icons %q, want the entry's icon and the generic one for the app without an entry", icons)

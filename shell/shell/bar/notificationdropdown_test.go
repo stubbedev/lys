@@ -472,7 +472,7 @@ func TestNotificationItemDismissInsideADefaultActionRow(t *testing.T) {
 		item.Arrange(render.Rect{W: 360, H: 400})
 		routeClick(item, findByClass(item, "notification-dropdown-item-dismiss"))
 	})
-	waitHeadless(t, "the dismissal", func() bool { return len(notifytest.History(t, svc)) == 0 })
+	waittest.Until(t, func() bool { return len(notifytest.History(t, svc)) == 0 }, "the dismissal")
 	if pop.dismissed != 0 || len(invoked) != 0 {
 		t.Errorf("dismiss closed the dropdown (%d) or invoked %v", pop.dismissed, invoked)
 	}
@@ -505,7 +505,7 @@ func TestNotificationItemActionCarriesItsToken(t *testing.T) {
 		v.minter = barMinter{token: "tok-3"}
 		v.groups[0].items[0].invoke("reply")
 	})
-	waitHeadless(t, "the action", func() bool { return len(notifytest.History(t, svc)) == 0 })
+	waittest.Until(t, func() bool { return len(notifytest.History(t, svc)) == 0 }, "the action")
 	if want := []string{"ActivationToken" + fmt.Sprint(first, "tok-3"), "ActionInvoked" + fmt.Sprint(first, "reply")}; !slices.Equal(seen, want) {
 		t.Errorf("signals = %q, want %q", seen, want)
 	}
@@ -535,7 +535,7 @@ func TestNotificationLongBodyStaysInItsItem(t *testing.T) {
 	svc.Notify("shot", 0, "", "Screenshot saved", "/home/stubbe/Pictures/Screenshot_2026-10-25_16-04-33_with_a_long_unbroken_name.png", nil, 0)
 	v := openView(t, ctx, notificationDropdown).(*notificationView)
 	waitHeadless(t, "the item", func() bool { return v.scroll.Visible() })
-	onHeadlessLoop(func() bool {
+	checkOnLoopOf(t, ctx, func() error {
 		card, rev := dropdownTree(v, ctx.Config)
 		rev.SetRevealed(true)
 		ctx.Theme.Attach(card)
@@ -563,12 +563,12 @@ func TestNotificationLongBodyStaysInItsItem(t *testing.T) {
 			}
 		}
 		if inked == 0 {
-			t.Fatal("the body painted nothing")
+			return errors.New("the body painted nothing")
 		}
 		if outside != 0 {
 			t.Errorf("the body inked %d pixels past its right edge x=%d", outside, body.X+body.W)
 		}
-		return true
+		return nil
 	})
 }
 

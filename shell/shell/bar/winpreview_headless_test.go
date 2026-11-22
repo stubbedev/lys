@@ -42,7 +42,7 @@ func TestHeadlessAClickBesideTheWorkspacePreviewReachesTheBar(t *testing.T) {
 	var segs widget.Boundser
 	untilNil(h.t, "the workspace with the probe on it", func() error {
 		var err error
-		h.onLoop(func() {
+		doOn(h.app, func() {
 			found := treetest.WithClass(h.bar.bar, "workspaces")
 			if len(found) != 1 {
 				err = fmt.Errorf("%d workspace indicators", len(found))
@@ -64,7 +64,7 @@ func TestHeadlessAClickBesideTheWorkspacePreviewReachesTheBar(t *testing.T) {
 	at := func(w widget.Boundser) {
 		t.Helper()
 		var b render.Rect
-		h.onLoop(func() { b = w.Bounds() })
+		doOn(h.app, func() { b = w.Bounds() })
 		ow, oh := pointer.OutputSize()
 		x, y := b.X+b.W/2, b.Y+b.H/2
 		if err := pointer.MotionAbsolute(intconv.Clamp[uint32](x), intconv.Clamp[uint32](y), intconv.Clamp[uint32](ow), intconv.Clamp[uint32](oh)); err != nil {
@@ -78,7 +78,7 @@ func TestHeadlessAClickBesideTheWorkspacePreviewReachesTheBar(t *testing.T) {
 		return func() error {
 			var got int
 			var name string
-			h.onLoop(func() { got, name = h.bar.hide.holds, h.rt.ctx.Dropdowns.openName[h.output.Name] })
+			doOn(h.app, func() { got, name = h.bar.hide.holds, h.rt.ctx.Dropdowns.openName[h.output.Name] })
 			if got != want || name != open {
 				return fmt.Errorf("%d reveal holds and dropdown %q open, want %d and %q", got, name, want, open)
 			}

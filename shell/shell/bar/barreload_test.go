@@ -120,16 +120,8 @@ func TestBarReloadKeepsTheSurface(t *testing.T) {
 	set.plug(outputs[0], clockLayout, true)
 	done := make(chan error, 1)
 	go func() { done <- application.Run() }()
-	onLoop := func(fn func()) {
-		ran := make(chan struct{})
-		application.Invoke(func() {
-			fn()
-			close(ran)
-		})
-		<-ran
-	}
 	defer func() {
-		onLoop(func() {
+		doOn(application, func() {
 			set.unplug(outputs[0])
 			rt.ctx.Dropdowns.release()
 		})
@@ -142,7 +134,7 @@ func TestBarReloadKeepsTheSurface(t *testing.T) {
 	bar := opened[0]
 	thickness := func() int {
 		var h int
-		onLoop(func() { _, h = bar.layer.Size() })
+		doOn(application, func() { _, h = bar.layer.Size() })
 		return h
 	}
 	wait := func(what string, cond func() bool) {
@@ -155,7 +147,7 @@ func TestBarReloadKeepsTheSurface(t *testing.T) {
 		})
 	}
 	reload := func(next *config.Config, layout config.BarLayout) {
-		onLoop(func() {
+		doOn(application, func() {
 			rt.mount(application, next)
 			set.reload(func(string) (config.BarLayout, bool) { return layout, true })
 		})
@@ -168,7 +160,7 @@ func TestBarReloadKeepsTheSurface(t *testing.T) {
 	twoClocks := config.BarLayout{Monitor: "*", Left: []config.BarItem{{Module: "clock"}, {Module: "clock"}}}
 	reload(taller, twoClocks)
 	wait("the taller bar's zone", func() bool { h := thickness(); return h > before && reservedTop(t) == h })
-	onLoop(func() {
+	doOn(application, func() {
 		if n := len(bar.bar.Start().Children()); n != 2 {
 			t.Errorf("the rebuilt bar holds %d items, want 2", n)
 		}
@@ -183,7 +175,7 @@ func TestBarReloadKeepsTheSurface(t *testing.T) {
 	reload(taller, twoClocks)
 	wait("the zone to return", func() bool { h := thickness(); return h > before && reservedTop(t) == h })
 
-	onLoop(func() {
+	doOn(application, func() {
 		if len(opened) != 1 || closes != 0 || bar.layer.Closed() {
 			t.Errorf("the reloads opened %d surfaces and closed %d, want 1 and none", len(opened), closes)
 		}

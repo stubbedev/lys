@@ -32,10 +32,10 @@ func openEnterpriseForm(t *testing.T, deps netDeps, ssid string) (*networkView, 
 func TestNetworkUnsavedEnterpriseJoinsThroughItsSignIn(t *testing.T) {
 	wifi := enterpriseWifi()
 	v, pop := openEnterpriseForm(t, netDeps{wifiCtl: wifi}, "corp")
-	onHeadlessLoop(func() bool {
+	checkOnLoopOf(t, v.ctx, func() error {
 		f := v.enterprise
 		if !f.Visible() || v.password.Visible() || v.state != netEnterpriseEntry {
-			t.Fatalf("after corp: enterprise form %v, password form %v, state %d; want the enterprise form", f.Visible(), v.password.Visible(), v.state)
+			return fmt.Errorf("after corp: enterprise form %v, password form %v, state %d; want the enterprise form", f.Visible(), v.password.Visible(), v.state)
 		}
 		if pop.focused != widget.Widget(f.identity) {
 			t.Errorf("focus = %T, want the identity box", pop.focused)
@@ -57,7 +57,7 @@ func TestNetworkUnsavedEnterpriseJoinsThroughItsSignIn(t *testing.T) {
 			t.Errorf("input = %+v, want %+v", got, want)
 		}
 		findButton(f, "network-enterprise-connect").OnClick()
-		return true
+		return nil
 	})
 	waitHeadless(t, "the join", func() bool { return len(wifi.enterpriseJoins()) == 1 })
 	if j := wifi.enterpriseJoins()[0]; j.path != "/ap/8" || j.eap.Method() != network.EAPPEAP {
@@ -260,17 +260,17 @@ func TestNetworkHiddenEnterpriseJoinsThroughItsSignIn(t *testing.T) {
 	wifi := &fakeWifiCtl{}
 	v, pop := openHiddenForm(t, wifi)
 	chooseHiddenEnterprise(t, v, "corp")
-	onHeadlessLoop(func() bool {
+	checkOnLoopOf(t, v.ctx, func() error {
 		f := v.enterprise
 		if !f.Visible() || v.hidden.Visible() || v.state != netEnterpriseEntry {
-			t.Fatalf("after Connect: enterprise form %v, hidden form %v, state %d; want the enterprise sign-in", f.Visible(), v.hidden.Visible(), v.state)
+			return fmt.Errorf("after Connect: enterprise form %v, hidden form %v, state %d; want the enterprise sign-in", f.Visible(), v.hidden.Visible(), v.state)
 		}
 		if f.target.ssid() != "corp" || pop.focused != widget.Widget(f.identity) {
 			t.Errorf("sign-in for %q focusing %T, want corp's sign-in on its identity box", f.target.ssid(), pop.focused)
 		}
 		fillPEAP(f, "correct horse")
 		findButton(f, "network-enterprise-connect").OnClick()
-		return true
+		return nil
 	})
 	waitHeadless(t, "the join", func() bool { return len(wifi.hiddenEnterpriseJoins()) == 1 })
 	j := wifi.hiddenEnterpriseJoins()[0]
@@ -341,9 +341,7 @@ func TestNetworkRefusedHiddenEnterpriseSignInAsksAgain(t *testing.T) {
 		fillPEAP(f, "correct horse")
 		return true
 	})
-	wifi.mu.Lock()
-	wifi.connectFn = nil
-	wifi.mu.Unlock()
+	wifi.setConnect(nil)
 	onHeadlessLoop(func() bool { findButton(v.enterprise, "network-enterprise-connect").OnClick(); return true })
 	waitHeadless(t, "the second join", func() bool { return len(wifi.hiddenEnterpriseJoins()) == 2 })
 	if j := wifi.hiddenEnterpriseJoins()[1]; j.net.Name() != "corp" {

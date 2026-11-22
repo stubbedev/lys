@@ -27,11 +27,11 @@ func TestEveryBitwardenButtonHasATooltip(t *testing.T) {
 	v := unlockedVault()
 	v.sends = []vault.Send{{ID: "s", Type: vault.SendText, Name: "Wi-Fi", Deletion: time.Now().Add(time.Hour)}}
 	view, _ := bitwardenTestView(t, v, config.Defaults())
-	onLoop(view.toggleSends)
+	doOnLoopOf(view.ctx, view.toggleSends)
 	waitHeadless(t, "the Sends", func() bool { return rowCount(view.sendList) == 1 })
-	onLoop(func() { view.setSending(false) })
-	onLoop(view.toggleGenerator)
-	onLoop(func() { view.setGenerating(false) })
+	doOnLoopOf(view.ctx, func() { view.setSending(false) })
+	doOnLoopOf(view.ctx, view.toggleGenerator)
+	doOnLoopOf(view.ctx, func() { view.setGenerating(false) })
 
 	seen := map[*widget.Button]string{}
 	for _, name := range []string{bwPageLogin, bwPageChallenge, bwPageUnlock, bwPageVault, bwPageReprompt, bwPageGenerator, bwPageSends} {
@@ -45,11 +45,11 @@ func TestEveryBitwardenButtonHasATooltip(t *testing.T) {
 			seen[b] = name
 		}
 	}
-	onLoop(view.toggleAPIKey)
+	doOnLoopOf(view.ctx, view.toggleAPIKey)
 	if tip := onHeadlessLoop(view.apiBtn.TooltipText); tip != i18n.T("dropdown-bitwarden-use-password-tooltip") {
 		t.Errorf("the login switch in API key mode says %q", tip)
 	}
-	onLoop(view.toggleAPIKey)
+	doOnLoopOf(view.ctx, view.toggleAPIKey)
 	if tip := onHeadlessLoop(view.apiBtn.TooltipText); tip != i18n.T("dropdown-bitwarden-use-api-key-tooltip") {
 		t.Errorf("the login switch in password mode says %q", tip)
 	}

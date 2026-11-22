@@ -20,11 +20,9 @@ import (
 func generatorTestView(t *testing.T, v *fakeVault, cfg *config.Config) (*bitwardenView, *[]copied) {
 	t.Helper()
 	view, copies := bitwardenTestView(t, v, cfg)
-	onLoop(func() { view.random = rand.NewChaCha8([32]byte{9}) })
+	doOnLoopOf(view.ctx, func() { view.random = rand.NewChaCha8([32]byte{9}) })
 	return view, copies
 }
-
-func onLoop(fn func()) { onHeadlessLoop(func() struct{} { fn(); return struct{}{} }) }
 
 func copiedText(t *testing.T, c copied) string {
 	t.Helper()
@@ -39,7 +37,7 @@ func TestBitwardenGeneratorCopiesASecret(t *testing.T) {
 	cfg := config.Defaults()
 	v := unlockedVault()
 	view, copies := generatorTestView(t, v, cfg)
-	onLoop(view.toggleGenerator)
+	doOnLoopOf(view.ctx, view.toggleGenerator)
 	if page(view) != bwPageGenerator || rowCount(view.genList) != 2 {
 		t.Fatalf("page %s, %d preset rows", page(view), rowCount(view.genList))
 	}
@@ -47,8 +45,8 @@ func TestBitwardenGeneratorCopiesASecret(t *testing.T) {
 		t.Errorf("the generator focuses %T, want the first preset", got)
 	}
 	presets := bwPresets(cfg.Bitwarden)
-	onLoop(func() { view.generate(presets[0]) })
-	onLoop(func() { view.generate(presets[1]) })
+	doOnLoopOf(view.ctx, func() { view.generate(presets[0]) })
+	doOnLoopOf(view.ctx, func() { view.generate(presets[1]) })
 	if len(*copies) != 2 {
 		t.Fatalf("%d copies", len(*copies))
 	}
@@ -72,7 +70,7 @@ func TestBitwardenGeneratorCopiesASecret(t *testing.T) {
 		t.Errorf("generating read the vault: %q", v.reads)
 	}
 	cfg.Bitwarden.ClipboardClear = 0
-	onLoop(func() { view.generate(presets[0]) })
+	doOnLoopOf(view.ctx, func() { view.generate(presets[0]) })
 	if got := (*copies)[2]; got.ttl != 0 || !clipboard.IsSensitive(got.content.Mimes) || copiedText(t, got) == copiedText(t, pw) {
 		t.Errorf("clipboard-clear 0: ttl %v, mimes %v, same password %v", got.ttl, got.content.Mimes, copiedText(t, got) == copiedText(t, pw))
 	}
@@ -83,16 +81,16 @@ func TestBitwardenGeneratorWorksWhileLocked(t *testing.T) {
 	v := &fakeVault{status: vault.Status{State: vault.StateLocked}}
 	view, copies := generatorTestView(t, v, cfg)
 	typeText(view.ctx, view.unlockPw.entry, "hunter")
-	onLoop(view.toggleGenerator)
-	onLoop(view.apply)
+	doOnLoopOf(view.ctx, view.toggleGenerator)
+	doOnLoopOf(view.ctx, view.apply)
 	if page(view) != bwPageGenerator {
 		t.Fatalf("a locked vault's update left the generator for %s", page(view))
 	}
-	onLoop(func() { view.generate(bwPresets(cfg.Bitwarden)[0]) })
+	doOnLoopOf(view.ctx, func() { view.generate(bwPresets(cfg.Bitwarden)[0]) })
 	if len(*copies) != 1 {
 		t.Fatalf("%d copies while locked", len(*copies))
 	}
-	onLoop(view.toggleGenerator)
+	doOnLoopOf(view.ctx, view.toggleGenerator)
 	if page(view) != bwPageUnlock || view.unlockPw.entry.Text() != "" || view.genStatus.Visible() {
 		t.Errorf("leaving: page %s, unlock box %q, status shown %v", page(view), view.unlockPw.entry.Text(), view.genStatus.Visible())
 	}
@@ -102,13 +100,13 @@ func TestBitwardenGeneratorDropsAPendingReprompt(t *testing.T) {
 	cfg := config.Defaults()
 	v := unlockedVault()
 	view, copies := generatorTestView(t, v, cfg)
-	onLoop(func() { view.copyField(v.entries[1].item, vault.FieldPassword) })
+	doOnLoopOf(view.ctx, func() { view.copyField(v.entries[1].item, vault.FieldPassword) })
 	typeText(view.ctx, view.repromptPw.entry, "hunt")
-	onLoop(view.toggleGenerator)
+	doOnLoopOf(view.ctx, view.toggleGenerator)
 	if view.copying != nil || view.repromptPw.entry.Text() != "" || page(view) != bwPageGenerator {
 		t.Fatalf("opening the generator kept the reprompt: %+v, box %q, page %s", view.copying, view.repromptPw.entry.Text(), page(view))
 	}
-	onLoop(view.toggleGenerator)
+	doOnLoopOf(view.ctx, view.toggleGenerator)
 	if page(view) != bwPageVault || len(*copies) != 0 {
 		t.Errorf("leaving: page %s, %d copies", page(view), len(*copies))
 	}
@@ -117,9 +115,9 @@ func TestBitwardenGeneratorDropsAPendingReprompt(t *testing.T) {
 func TestBitwardenGeneratorClosesWithThePopover(t *testing.T) {
 	cfg := config.Defaults()
 	view, _ := generatorTestView(t, unlockedVault(), cfg)
-	onLoop(view.toggleGenerator)
-	onLoop(func() { view.generate(bwPresets(cfg.Bitwarden)[0]) })
-	onLoop(view.dropdownHidden)
+	doOnLoopOf(view.ctx, view.toggleGenerator)
+	doOnLoopOf(view.ctx, func() { view.generate(bwPresets(cfg.Bitwarden)[0]) })
+	doOnLoopOf(view.ctx, view.dropdownHidden)
 	if view.generating || page(view) != bwPageVault || view.genStatus.Visible() {
 		t.Errorf("after hiding: generating %v, page %s, status %q", view.generating, page(view), view.genStatus.Text())
 	}
@@ -130,12 +128,12 @@ func TestBitwardenGeneratorWithoutPresets(t *testing.T) {
 	cfg.Bitwarden.GeneratorPasswords = nil
 	cfg.Bitwarden.GeneratorPassphrases = nil
 	view, copies := generatorTestView(t, unlockedVault(), cfg)
-	onLoop(view.toggleGenerator)
+	doOnLoopOf(view.ctx, view.toggleGenerator)
 	if rowCount(view.genList) != 0 || onHeadlessLoop(view.genSt.Visible) != "empty" || view.dropdownFocus() != nil || len(*copies) != 0 {
 		t.Errorf("no presets: %d rows, shows %s, focus %T, %d copies", rowCount(view.genList), onHeadlessLoop(view.genSt.Visible), view.dropdownFocus(), len(*copies))
 	}
 	cfg.Bitwarden.GeneratorPassphrases = config.DefaultsBitwarden().GeneratorPassphrases
-	onLoop(func() { view.toggleGenerator(); view.toggleGenerator() })
+	doOnLoopOf(view.ctx, func() { view.toggleGenerator(); view.toggleGenerator() })
 	if rowCount(view.genList) != 1 || onHeadlessLoop(view.genSt.Visible) != "presets" {
 		t.Errorf("a preset added while closed: %d rows, shows %s", rowCount(view.genList), onHeadlessLoop(view.genSt.Visible))
 	}
@@ -150,18 +148,18 @@ func (brokenRandom) Read([]byte) (int, error) { return 0, errNoRandom }
 func TestBitwardenGeneratorFailuresCopyNothing(t *testing.T) {
 	cfg := config.Defaults()
 	view, copies := generatorTestView(t, unlockedVault(), cfg)
-	onLoop(func() { view.random = brokenRandom{} })
-	onLoop(view.toggleGenerator)
-	onLoop(func() { view.generate(bwPresets(cfg.Bitwarden)[0]) })
+	doOnLoopOf(view.ctx, func() { view.random = brokenRandom{} })
+	doOnLoopOf(view.ctx, view.toggleGenerator)
+	doOnLoopOf(view.ctx, func() { view.generate(bwPresets(cfg.Bitwarden)[0]) })
 	if len(*copies) != 0 || !view.genStatus.HasClass("error") || !strings.Contains(view.genStatus.Text(), errNoRandom.Error()) {
 		t.Errorf("randomness failure: %d copies, status %q", len(*copies), view.genStatus.Text())
 	}
 	clipErr := errors.New("no clipboard")
-	onLoop(func() {
+	doOnLoopOf(view.ctx, func() {
 		view.random = rand.NewChaCha8([32]byte{1})
 		view.host.copy = func(transfer.Content, time.Duration) error { return clipErr }
 	})
-	onLoop(func() { view.generate(bwPresets(cfg.Bitwarden)[1]) })
+	doOnLoopOf(view.ctx, func() { view.generate(bwPresets(cfg.Bitwarden)[1]) })
 	if !view.genStatus.HasClass("error") || view.genStatus.Text() != clipErr.Error() {
 		t.Errorf("clipboard failure: status %q", view.genStatus.Text())
 	}

@@ -223,7 +223,8 @@ func TestTheNightlightBusSaysWhetherTheFilterIsOn(t *testing.T) {
 	ctx := newTestContext(t, sunsetConfig(false))
 	ctx.NightlightBus = daemon
 	fake := &fakeSunset{clock: sunsetDay}
-	m := onHeadlessLoop(func() *nightlightModule { return newNightlightWith(ctx, fake.env(t)) })
+	env := fake.env(t)
+	m := onHeadlessLoop(func() *nightlightModule { return newNightlightWith(ctx, env) })
 	if got := enabled(); got != false {
 		t.Fatalf("resting, the bus says Enabled %v", got)
 	}

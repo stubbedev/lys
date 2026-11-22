@@ -3,6 +3,7 @@ package bar
 import (
 	"context"
 	"errors"
+	"fmt"
 	"maps"
 	"slices"
 	"strings"
@@ -197,6 +198,18 @@ func (f *fakeWifiCtl) setAPs(aps ...network.AccessPoint) {
 	f.mu.Unlock()
 }
 
+func (f *fakeWifiCtl) setConnect(fn func(progress func(network.DeviceState)) error) {
+	f.mu.Lock()
+	f.connectFn = fn
+	f.mu.Unlock()
+}
+
+func (f *fakeWifiCtl) setScanGate(gate chan struct{}) {
+	f.mu.Lock()
+	f.scanGate = gate
+	f.mu.Unlock()
+}
+
 func (f *fakeWifiCtl) calls() ([]fakeConnect, []string, []bool, int, int) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -229,6 +242,18 @@ func (a *fakeAgent) DismissSave(uuid string) {
 	if a.offer != nil && a.offer.UUID == uuid {
 		a.offer = nil
 	}
+}
+
+func (a *fakeAgent) setRequest(req *secrets.Request) {
+	a.mu.Lock()
+	a.req = req
+	a.mu.Unlock()
+}
+
+func (a *fakeAgent) setOffer(offer *network.SaveOffer) {
+	a.mu.Lock()
+	a.offer = offer
+	a.mu.Unlock()
 }
 
 func (a *fakeAgent) Request() (secrets.Request, bool) {
@@ -327,14 +352,14 @@ func TestNetworkDropdownListsAndConnects(t *testing.T) {
 	}
 	// Step reported, then a refused password asks again, saying so.
 	stepped, refuse := make(chan struct{}), make(chan struct{})
-	wifi.connectFn = func(progress func(network.DeviceState)) error {
+	wifi.setConnect(func(progress func(network.DeviceState)) error {
 		progress(network.DeviceConfig)
 		close(stepped)
 		// Hold the refusal until the connecting state was checked: the
 		// attempt runs off the loop and would race the assertion.
 		<-refuse
 		return &network.ConnectError{Failure: network.FailureAuth}
-	}
+	})
 	onHeadlessLoop(func() bool {
 		v.password.secret.entry.SetText("hunter2")
 		v.password.connect()
@@ -359,9 +384,9 @@ func TestNetworkDropdownListsAndConnects(t *testing.T) {
 
 	// An open network connects straight away; a timeout shows the error
 	// on the wifi card, which the dismiss clears.
-	wifi.connectFn = func(func(network.DeviceState)) error {
+	wifi.setConnect(func(func(network.DeviceState)) error {
 		return &network.ConnectError{Failure: network.FailureTimeout}
-	}
+	})
 	onHeadlessLoop(func() bool { v.password.cancel(); return true })
 	src.setSnap(network.Snapshot{WifiEnabled: true})
 	settleNetReads(t, v)
@@ -404,12 +429,13 @@ func TestNetworkDropdownStaleSearchAndForget(t *testing.T) {
 		t.Fatalf("cache = %+v, want cafe kept stale", v.cache)
 	}
 	// Selecting it scans; still gone, it reports not found.
-	wifi.scanGate = make(chan struct{})
+	scanGate := make(chan struct{})
+	wifi.setScanGate(scanGate)
 	doOnLoopOf(v.ctx, func() { v.selectNetwork("cafe") })
 	if v.state != netScanning || v.progress.step != i18n.T("dropdown-network-step-searching") || !v.scanBtn.HasClass("scanning") {
 		t.Errorf("searching: state %d step %q", v.state, v.progress.step)
 	}
-	close(wifi.scanGate)
+	close(scanGate)
 	waitHeadless(t, "the not-found", func() bool { return v.progress.err == i18n.T("dropdown-network-error-not-found") })
 	if c, _, _, _, _ := wifi.calls(); len(c) != 0 {
 		t.Error("a stale row connected to its dead path")
@@ -470,9 +496,7 @@ func TestNetworkSecretForm(t *testing.T) {
 		t.Error("the form stayed up after submit")
 	}
 	// A new prompt, cancelled.
-	agent.mu.Lock()
-	agent.req = &secrets.Request{UUID: "u2", Name: "Other", Fields: []secrets.Field{{Key: "psk", Secret: true}}}
-	agent.mu.Unlock()
+	agent.setRequest(&secrets.Request{UUID: "u2", Name: "Other", Fields: []secrets.Field{{Key: "psk", Secret: true}}})
 	doOnLoopOf(v.ctx, func() {
 		v.apply(v.read(context.Background()))
 		f.cancel()
@@ -718,17 +742,17 @@ func TestNetworkRowsShowTheirStrengthAsARing(t *testing.T) {
 	v, _, _ := newNetTestView(t, network.Snapshot{WifiEnabled: true, Wifi: network.StatusConnected, WifiSSID: "mine", WifiStrength: 65}, netDeps{wifiCtl: wifi})
 	settleNetReads(t, v)
 	want := map[string]float64{"strong": 0.8, "weak": 0.2}
-	onHeadlessLoop(func() bool {
+	checkOnLoopOf(t, v.ctx, func() error {
 		rows := treetest.WithClass(v.listCard, "network-ap")
 		if len(rows) != len(want) {
-			t.Fatalf("%d available rows, want %d", len(rows), len(want))
+			return fmt.Errorf("%d available rows, want %d", len(rows), len(want))
 		}
 		for _, w := range rows {
 			row := w
 			title := itemText(row, "title")
 			rings := treetest.All[*glyphRing](row)
 			if len(rings) != 1 {
-				t.Fatalf("row %q has %d signal rings, want one", title, len(rings))
+				return fmt.Errorf("row %q has %d signal rings, want one", title, len(rings))
 			}
 			if got := rings[0].Value(); got != want[title] || rings[0].glyph.Name() != "ld-wifi-symbolic" {
 				t.Errorf("row %q ring at %v around %q, want %v around the wifi glyph", title, got, rings[0].glyph.Name(), want[title])
@@ -737,7 +761,7 @@ func TestNetworkRowsShowTheirStrengthAsARing(t *testing.T) {
 		if got := v.active.wifiSignal.Value(); got != 0.65 {
 			t.Errorf("the connected network's ring is at %v, want 0.65", got)
 		}
-		return true
+		return nil
 	})
 }
 
@@ -765,27 +789,25 @@ func TestNetworkActiveStatusesEndTogether(t *testing.T) {
 	})
 }
 
-func tabUntil(t *testing.T, r *widget.Router, root, want widget.Widget) {
-	t.Helper()
+func tabUntil(r *widget.Router, root, want widget.Widget) error {
 	for range 64 {
 		r.FocusNext()
 		layoutForKeys(root)
 		if r.Focused() == want {
-			return
+			return nil
 		}
 	}
-	t.Fatalf("Tab never reached the %T", want)
+	return fmt.Errorf("Tab never reached the %T", want)
 }
 
-func savedRow(t *testing.T, v *networkView, ssid string) *revealItem {
-	t.Helper()
+func savedRow(v *networkView, ssid string) (*revealItem, *widget.Stack, error) {
 	for _, w := range treetest.WithClass(v.list, "network-ap") {
 		if r, ok := w.(*revealItem); ok && itemText(r, "title") == ssid {
-			return r
+			trailing, err := firstIn[*widget.Stack](r)
+			return r, trailing, err
 		}
 	}
-	t.Fatalf("no saved row %q", ssid)
-	return nil
+	return nil, nil, fmt.Errorf("no saved row %q", ssid)
 }
 
 func TestNetworkSavedRowForgetIsReachedByTab(t *testing.T) {
@@ -796,23 +818,28 @@ func TestNetworkSavedRowForgetIsReachedByTab(t *testing.T) {
 	v, _, _ := newNetTestView(t, network.Snapshot{WifiEnabled: true}, netDeps{wifiCtl: wifi})
 	settleNetReads(t, v)
 	alerts := &fakeAlert{}
-	onHeadlessLoop(func() bool {
+	checkOnLoopOf(t, v.ctx, func() error {
 		v.ctx.Alert = alerts.ask
-		row := savedRow(t, v, "saved")
-		trailing := treetest.First[*widget.Stack](t, row)
+		row, trailing, err := savedRow(v, "saved")
+		if err != nil {
+			return err
+		}
 		layoutForKeys(v)
 		if trailing.Visible() != "idle" {
 			t.Errorf("at rest the saved row shows %q, want nothing", trailing.Visible())
 		}
 		router := &widget.Router{Root: v}
-		tabUntil(t, router, v, row)
-		if trailing.Visible() != "actions" {
-			t.Fatalf("Tab onto the saved row shows %q, want its forget button", trailing.Visible())
+		if err := tabUntil(router, v, row); err != nil {
+			return err
 		}
-		forget := findButton(trailing, "network-item-forget")
-		tabUntil(t, router, v, forget)
+		if trailing.Visible() != "actions" {
+			return fmt.Errorf("Tab onto the saved row shows %q, want its forget button", trailing.Visible())
+		}
+		if err := tabUntil(router, v, findButton(trailing, "network-item-forget")); err != nil {
+			return err
+		}
 		router.KeyAction(widget.KeyEnter, 0)
-		return true
+		return nil
 	})
 	if len(alerts.specs) != 1 || !strings.Contains(alerts.specs[0].message, "saved") {
 		t.Fatalf("alerts = %+v, want Enter on Forget to ask about the network", alerts.specs)
@@ -823,25 +850,29 @@ func TestNetworkActiveRowActionsAreReachedByTab(t *testing.T) {
 	wifi := &fakeWifiCtl{}
 	v, _, pop := newNetTestView(t, network.Snapshot{WifiEnabled: true, Wifi: network.StatusConnected, WifiSSID: "home"}, netDeps{wifiCtl: wifi})
 	settleNetReads(t, v)
-	onHeadlessLoop(func() bool {
+	checkOnLoopOf(t, v.ctx, func() error {
 		a := v.active
 		layoutForKeys(v)
 		if a.trailing.Visible() != "status" {
 			t.Errorf("at rest the connection shows %q, want its status", a.trailing.Visible())
 		}
 		router := &widget.Router{Root: v}
-		tabUntil(t, router, v, a.wifi)
+		if err := tabUntil(router, v, a.wifi); err != nil {
+			return err
+		}
 		if a.trailing.Visible() != "actions" {
-			t.Fatalf("Tab onto the connection shows %q, want its actions", a.trailing.Visible())
+			return fmt.Errorf("Tab onto the connection shows %q, want its actions", a.trailing.Visible())
 		}
 		disconnect := findButton(a.trailing, "network-action-disconnect")
 		router.KeyAction(widget.KeyEnter, 0)
 		if pop.focused != widget.Widget(disconnect) {
 			t.Errorf("Enter on the connection focused %T, want its Disconnect", pop.focused)
 		}
-		tabUntil(t, router, v, disconnect)
+		if err := tabUntil(router, v, disconnect); err != nil {
+			return err
+		}
 		router.KeyAction(widget.KeyEnter, 0)
-		return true
+		return nil
 	})
 	waitHeadless(t, "the disconnect", func() bool { _, _, _, _, d := wifi.calls(); return d == 1 })
 }
@@ -849,20 +880,16 @@ func TestNetworkActiveRowActionsAreReachedByTab(t *testing.T) {
 func TestNetworkConnectingRowHasNoActionsForTheKeyboard(t *testing.T) {
 	v, _, _ := newNetTestView(t, network.Snapshot{WifiEnabled: true, Wifi: network.StatusConnecting, WifiSSID: "home"}, netDeps{wifiCtl: &fakeWifiCtl{}})
 	settleNetReads(t, v)
-	onHeadlessLoop(func() bool {
+	checkOnLoopOf(t, v.ctx, func() error {
 		layoutForKeys(v)
 		router := &widget.Router{Root: v}
-		for range 64 {
-			router.FocusNext()
-			layoutForKeys(v)
-			if router.Focused() == widget.Widget(v.active.wifi) {
-				t.Fatal("Tab landed on a connection with no actions")
-			}
+		if tabUntil(router, v, v.active.wifi) == nil {
+			return errors.New("Tab landed on a connection with no actions")
 		}
 		if v.active.trailing.Visible() != "status" {
 			t.Errorf("a connecting row shows %q, want its status", v.active.trailing.Visible())
 		}
-		return true
+		return nil
 	})
 }
 
@@ -874,10 +901,14 @@ func TestNetworkForgetRunsOnlyWhenAccepted(t *testing.T) {
 	v, _, _ := newNetTestView(t, network.Snapshot{WifiEnabled: true}, netDeps{wifiCtl: wifi})
 	settleNetReads(t, v)
 	alerts := &fakeAlert{}
-	onHeadlessLoop(func() bool {
+	checkOnLoopOf(t, v.ctx, func() error {
 		v.ctx.Alert = alerts.ask
-		findButton(treetest.First[*widget.Stack](t, savedRow(t, v, "saved")).Page("actions"), "network-item-forget").OnClick()
-		return true
+		_, trailing, err := savedRow(v, "saved")
+		if err != nil {
+			return err
+		}
+		findButton(trailing.Page("actions"), "network-item-forget").OnClick()
+		return nil
 	})
 	if len(alerts.specs) != 1 || plain(alerts.specs[0].message) != "Forget saved?" || alerts.specs[0].accept != i18n.T("dropdown-network-forget") || alerts.specs[0].cancel != i18n.T("dropdown-network-cancel") {
 		t.Fatalf("alerts = %+v, want the forget question", alerts.specs)
@@ -1013,9 +1044,9 @@ func openHiddenForm(t *testing.T, wifi *fakeWifiCtl) (*networkView, *fakePopover
 func TestNetworkHiddenFormJoinsByNameAndPassword(t *testing.T) {
 	wifi := &fakeWifiCtl{}
 	v, pop := openHiddenForm(t, wifi)
-	onHeadlessLoop(func() bool {
+	checkOnLoopOf(t, v.ctx, func() error {
 		if !v.hidden.Visible() || v.hiddenCard.Visible() || v.state != netHiddenEntry {
-			t.Fatalf("after the row: form %v, row %v, state %d; want the form", v.hidden.Visible(), v.hiddenCard.Visible(), v.state)
+			return fmt.Errorf("after the row: form %v, row %v, state %d; want the form", v.hidden.Visible(), v.hiddenCard.Visible(), v.state)
 		}
 		if pop.focused != widget.Widget(v.hidden.name) {
 			t.Errorf("focus = %T, want the name box", pop.focused)
@@ -1026,7 +1057,7 @@ func TestNetworkHiddenFormJoinsByNameAndPassword(t *testing.T) {
 		v.hidden.name.SetText("lab")
 		v.hidden.password.entry.SetText("correct horse")
 		findButton(v.hidden, "network-hidden-connect").OnClick()
-		return true
+		return nil
 	})
 	waitHeadless(t, "the join", func() bool { return len(wifi.hiddenJoins()) == 1 })
 	j := wifi.hiddenJoins()[0]
