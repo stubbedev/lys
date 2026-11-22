@@ -25,8 +25,8 @@ type Clock interface {
 	AfterFunc(d time.Duration, fn func()) (stop func() bool)
 }
 
-// DebouncedSlider is a slider read by an optional value label, or by a
-// field of the caller's, that commits (backend writes) at most every
+// DebouncedSlider is a slider read by a value label, by a field of the
+// caller's, or by nothing, that commits (backend writes) at most every
 // 100ms while dragged, with a trailing commit of the last value and one
 // on release, and ignores external values while held and for 150ms
 // after. The reading sits the theme's spacing after the knob, in the
@@ -101,8 +101,8 @@ func (s *pressSlider) SetPressed(on bool) {
 }
 
 // NewDebouncedSlider builds a 0-100 slider (every lys-shell slider is a
-// percentage); with a font the value label shows (SetFormat, default
-// whole percent). clock times the throttle and invoke runs the trailing
+// percentage) read by a value label in font (SetFormat, default whole
+// percent). clock times the throttle and invoke runs the trailing
 // commit on the loop.
 func NewDebouncedSlider(value float64, font render.Font, px float64, color render.Color, invoke func(func()), clock Clock) *DebouncedSlider {
 	return NewRangedSlider(0, 100, value, font, px, color, invoke, clock)
@@ -110,14 +110,21 @@ func NewDebouncedSlider(value float64, font render.Font, px float64, color rende
 
 // NewRangedSlider is NewDebouncedSlider over [min, max].
 func NewRangedSlider(min, max, value float64, font render.Font, px float64, color render.Color, invoke func(func()), clock Clock) *DebouncedSlider {
+	if font == nil {
+		panic("widgets: a slider's value label needs a font; NewUnlabeledSlider builds one without a label")
+	}
 	d := newDebouncedSlider(min, max, value, invoke, clock)
 	d.format = func(v float64) string { return strconv.FormatFloat(v, 'f', 0, 64) + "%" }
-	if font != nil {
-		d.label = newValueText(font, px, color)
-		d.label.show(d.format(value), d.ends())
-		d.read(d.label.stack)
-	}
+	d.label = newValueText(font, px, color)
+	d.label.show(d.format(value), d.ends())
+	d.read(d.label.stack)
 	return d
+}
+
+// NewUnlabeledSlider is a 0-100 slider read by nothing beside it: the
+// knob spans the whole row (a seek bar, a per-app volume).
+func NewUnlabeledSlider(value float64, invoke func(func()), clock Clock) *DebouncedSlider {
+	return newDebouncedSlider(0, 100, value, invoke, clock)
 }
 
 // NewFieldSlider is a slider over [min, max] read by field, a control

@@ -284,8 +284,7 @@ func (v *mediaView) buildPlayer(font render.Font, px float64) {
 	}
 	body.Append(info, false)
 
-	// The seek bar is a DebouncedSlider without its value label.
-	v.seek = widgets.NewDebouncedSlider(0, nil, 0, 0, v.ctx.Invoke, v.ctx.Clock)
+	v.seek = widgets.NewUnlabeledSlider(0, v.ctx.Invoke, v.ctx.Clock)
 	v.seek.Knob.AddClass("media-seek-slider")
 	v.seek.OnCommit = v.seekTo
 	times := widget.NewBox(widget.Row, 0, 0)

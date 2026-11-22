@@ -182,9 +182,72 @@ func TestRangedSliderBoundsAndFormat(t *testing.T) {
 	if d.Value() != 5000 {
 		t.Errorf("value = %v, want clamped to the max", d.Value())
 	}
-	if NewDebouncedSlider(0, nil, 0, 0, nil, fakeclock.New()).ValueLabel() != nil {
-		t.Error("a fontless slider has a label")
+}
+
+// A percentage slider shows its value in its label, whole percent by
+// default, the label tracking the knob.
+func TestDebouncedSliderShowsItsValueInItsLabel(t *testing.T) {
+	d := NewDebouncedSlider(42, testFont(t), 12, 0, func(fn func()) { fn() }, fakeclock.New())
+	if lo, hi := d.Knob.Range(); lo != 0 || hi != 100 || d.ValueLabel() == nil || d.ValueLabel().Text() != "42%" {
+		t.Fatalf("range [%v, %v], label %v, want [0, 100] showing 42%%", lo, hi, d.ValueLabel())
 	}
+	d.Knob.SetValue(7)
+	if got := d.ValueLabel().Text(); got != "7%" {
+		t.Errorf("label = %q after a move to 7, want 7%%", got)
+	}
+}
+
+// A labelled slider without a font is refused at construction, naming
+// the constructor for a slider without a label.
+func TestALabelledSliderRefusesANilFont(t *testing.T) {
+	for name, build := range map[string]func(){
+		"NewDebouncedSlider": func() { NewDebouncedSlider(0, nil, 12, 0, func(fn func()) { fn() }, fakeclock.New()) },
+		"NewRangedSlider":    func() { NewRangedSlider(0, 10, 0, nil, 12, 0, func(fn func()) { fn() }, fakeclock.New()) },
+	} {
+		t.Run(name, func(t *testing.T) {
+			defer func() {
+				const want = "widgets: a slider's value label needs a font; NewUnlabeledSlider builds one without a label"
+				if got := recover(); got != want {
+					t.Errorf("panic = %v, want %q", got, want)
+				}
+			}()
+			build()
+		})
+	}
+}
+
+// An unlabelled slider is a 0-100 knob alone in its row, with no
+// reading beside it, that still commits, takes outside values and
+// takes a format or a range without a label to render them in.
+func TestAnUnlabeledSliderIsTheKnobAlone(t *testing.T) {
+	var commits []float64
+	d := NewUnlabeledSlider(30, func(fn func()) { fn() }, fakeclock.New())
+	d.OnCommit = func(v float64) { commits = append(commits, v) }
+	sz := widget.SizeWithin(d, widget.Size{W: 1000, H: 100})
+	d.Arrange(render.Rect{W: sz.W, H: sz.H})
+	if lo, hi := d.Knob.Range(); lo != 0 || hi != 100 || d.Value() != 30 {
+		t.Fatalf("range [%v, %v] at %v, want [0, 100] at 30", lo, hi, d.Value())
+	}
+	if kids := d.Children(); d.ValueLabel() != nil || len(kids) != 1 || d.Knob.Bounds().W != sz.W {
+		t.Errorf("label %v, %d children, knob %dpx of %dpx; want the knob alone across the row", d.ValueLabel(), len(kids), d.Knob.Bounds().W, sz.W)
+	}
+	d.Knob.SetValue(60)
+	d.SetFormat(func(v float64) string { return strconv.FormatFloat(v, 'f', 0, 64) + " s" })
+	d.SetRange(0, 50)
+	d.Set(20)
+	if !slices.Equal(commits, []float64{60}) || d.Value() != 20 {
+		t.Errorf("commits %v at %v, want the one move committed and the outside 20 shown", commits, d.Value())
+	}
+}
+
+// An unlabelled slider needs a clock like every other.
+func TestAnUnlabeledSliderRefusesANilClock(t *testing.T) {
+	defer func() {
+		if got := recover(); got != "widgets: a slider needs a clock" {
+			t.Errorf("panic = %v, want the missing clock named", got)
+		}
+	}()
+	NewUnlabeledSlider(0, func(fn func()) { fn() }, nil)
 }
 
 // Write runs one write at a time off the loop, the latest commit

@@ -532,7 +532,7 @@ func (v *dashboardView) media() widget.Widget {
 	compact.AppendAligned(info, true, widget.AlignCenter)
 	compact.AppendAligned(controls, false, widget.AlignCenter)
 
-	seek := widgets.NewDebouncedSlider(0, nil, 0, 0, v.ctx.Invoke, v.ctx.Clock)
+	seek := widgets.NewUnlabeledSlider(0, v.ctx.Invoke, v.ctx.Clock)
 	seek.Knob.AddClass("media-seek-slider", "dashboard-slider")
 	elapsed := v.label("0:00")
 	elapsed.AddClass("media-time", css.Caption, css.DimLabel, css.Numeric)

@@ -622,7 +622,7 @@ func newAppVolumeItem(v *audioView, r appVolume) *appVolumeItem {
 	it.item.AddAction(it.mute)
 	it.Append(it.item, false)
 
-	it.slider = widgets.NewDebouncedSlider(r.vol.AveragePercentage(), nil, 0, 0, v.ctx.Invoke, v.ctx.Clock)
+	it.slider = widgets.NewUnlabeledSlider(r.vol.AveragePercentage(), v.ctx.Invoke, v.ctx.Clock)
 	it.slider.AddClass("audio-app-slider")
 	it.slider.Write = it.volumeWrite
 	it.slider.OnValue = func(float64) { it.sync() }
