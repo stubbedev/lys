@@ -1946,7 +1946,7 @@ func TestAFullscreenWindowCoversTheBarInItsThumbnail(t *testing.T) {
 
 func TestABarCommittingNoDamageRedrawsNoThumbnail(t *testing.T) {
 	t.Parallel()
-	h := StartWith(t, func(cfg *compositor.Config) { cfg.SleepGrace = time.Hour }, overviewMode)
+	h := Start(t, overviewMode)
 	c := testclient.Connect(t, h.Socket())
 	bar := c.Layer(tallBar(), testclient.Fill(barColor[2], barColor[1], barColor[0]))
 	c.DispatchUntil("the bar to map", bar.Mapped)

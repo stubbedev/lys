@@ -212,6 +212,8 @@ func StartVulkanWithCursorPlanes(t *testing.T, size image.Point, configure func(
 
 const XTransferTimeout = 2 * time.Second
 
+const defaultSleepGrace = 7 * 24 * time.Hour
+
 const (
 	firstHarnessDisplay = 16
 	harnessDisplays     = 16
@@ -273,6 +275,7 @@ func start(t testing.TB, s setup, modes ...backend.Mode) *Harness {
 	cfg.Report = func(err error) { t.Errorf("compositor reported: %v", err) }
 	cfg.Hooks.Spawner = h.spawner
 	cfg.Decor.BorderWidth = 0
+	cfg.SleepGrace = defaultSleepGrace
 	s.configure(&cfg)
 	if h.compositor, err = compositor.New(h.loop, h.display, h.backend, cfg); err != nil {
 		t.Fatalf("harness: %v", err)

@@ -171,3 +171,24 @@ func TestAHiddenWindowStartsBeingCapturedWakes(t *testing.T) {
 		t.Fatal("a captured window is still asleep")
 	}
 }
+
+func TestAHiddenWindowNeverSleepsUnderTheHarnessDefault(t *testing.T) {
+	t.Parallel()
+	h := Start(t, small)
+	c := testclient.Connect(t, h.Socket())
+	w := c.Window("away", fineChecker)
+	c.DispatchUntil("the window to map", w.Mapped)
+	h.Freeze()
+	h.dispatch("workspace 2")
+	h.Eventually("the second workspace shown", showingWorkspace(2))
+	c.Sync()
+	configures := w.Configures
+	h.Advance(1000 * compositor.DefaultSleepGrace)
+	c.Sync()
+	if suspended(w) || asleep(h, 1) {
+		t.Fatalf("a hidden window was suspended %v after it was hidden under the harness's default grace", 1000*compositor.DefaultSleepGrace)
+	}
+	if got := w.Configures - configures; got != 0 {
+		t.Fatalf("a hidden window got %d configures while it stayed hidden under the harness's default grace, want none", got)
+	}
+}
