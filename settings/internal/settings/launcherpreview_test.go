@@ -211,7 +211,7 @@ func TestTheLauncherSlidersMoveThePreview(t *testing.T) {
 	if _, at := previewedLauncher(t, p); at.W != 540 || k.store.value("launcher.width") != 0.75 || width.spin.Value() != 0.75 {
 		t.Errorf("the width slider at 0.75 stored %v, reads %v and previews %dpx, want 540", k.store.value("launcher.width"), width.spin.Value(), at.W)
 	}
-	width.mode.SetSelected(sizePx)
+	pickChoice(width.mode, sizePx)
 	width.mode.OnSelect(sizePx)
 	p.refresh()
 	if lo, hi := width.slide.Knob.Range(); lo != width.loPx || hi != width.hiPx {

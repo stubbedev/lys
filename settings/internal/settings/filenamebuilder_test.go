@@ -60,7 +60,7 @@ func TestTheFilenameFormWritesItsPartsAndPreviewsTheFullPath(t *testing.T) {
 	if !e.simple.Visible() || e.notice.Visible() || e.custom.Visible() {
 		t.Fatal("the default name is not shown as parts")
 	}
-	e.date.SetSelected(slices.Index(filenameDates, "%Y%m%d"))
+	pickChoice(e.date, slices.Index(filenameDates, "%Y%m%d"))
 	e.write()
 	if v := k.store.value(screenshotNamePath); v != "Screenshot_%Y%m%d_%H-%M-%S.png" {
 		t.Fatalf("stored %v", v)
@@ -68,8 +68,8 @@ func TestTheFilenameFormWritesItsPartsAndPreviewsTheFullPath(t *testing.T) {
 	if want := tr.Get("settings-filename-path", i18n.Str("path", filepath.Join("/shots", "Screenshot_20260314_15-09-26.png"))); e.path.Text() != want {
 		t.Fatalf("previews %q, want %q", e.path.Text(), want)
 	}
-	e.date.SetSelected(0)
-	e.clock.SetSelected(0)
+	pickChoice(e.date, 0)
+	pickChoice(e.clock, 0)
 	e.write()
 	if v := k.store.value(screenshotNamePath); v != "Screenshot_.png" {
 		t.Fatalf("stored %v", v)
@@ -94,8 +94,8 @@ func TestTheFilenameFormRefusesANameNoFileCanHave(t *testing.T) {
 		}
 	}
 	e.syncing = true
-	e.date.SetSelected(0)
-	e.clock.SetSelected(0)
+	pickChoice(e.date, 0)
+	pickChoice(e.clock, 0)
 	e.syncing = false
 	e.prefix.SetText("")
 	if e.problem.Text() != tr.Get("settings-filename-empty") || k.store.value(screenshotNamePath) != before {
@@ -118,7 +118,7 @@ func TestTheFilenameFormCountsTheFilesWhenTheCounterIsPicked(t *testing.T) {
 	k := testKit(t, "modules:\n  screenshot:\n    output-directory: /shots\n")
 	e := filenameControl(t, k)
 	tr := locale.T()
-	e.counter.SetSelected(slices.Index(filenameCounters, config.ScreenshotCounter))
+	pickChoice(e.counter, slices.Index(filenameCounters, config.ScreenshotCounter))
 	e.write()
 	if v := k.store.value(screenshotNamePath); v != "Screenshot_%Y-%m-%d_%H-%M-%S_{counter}.png" {
 		t.Fatalf("stored %v", v)
@@ -126,8 +126,8 @@ func TestTheFilenameFormCountsTheFilesWhenTheCounterIsPicked(t *testing.T) {
 	if want := tr.Get("settings-filename-path-counted", i18n.Str("path", filepath.Join("/shots", "Screenshot_2026-03-14_15-09-26_1.png"))); e.path.Text() != want {
 		t.Fatalf("previews %q, want %q", e.path.Text(), want)
 	}
-	e.date.SetSelected(0)
-	e.clock.SetSelected(0)
+	pickChoice(e.date, 0)
+	pickChoice(e.clock, 0)
 	e.prefix.SetText("")
 	if e.problem.Visible() {
 		t.Fatalf("a counter alone is refused: %q", e.problem.Text())
@@ -135,7 +135,7 @@ func TestTheFilenameFormCountsTheFilesWhenTheCounterIsPicked(t *testing.T) {
 	if v := k.store.value(screenshotNamePath); v != "{counter}.png" {
 		t.Fatalf("stored %v", v)
 	}
-	e.counter.SetSelected(0)
+	pickChoice(e.counter, 0)
 	e.write()
 	if !e.problem.Visible() || k.store.value(screenshotNamePath) != "{counter}.png" {
 		t.Fatalf("a name of nothing was stored as %v", k.store.value(screenshotNamePath))

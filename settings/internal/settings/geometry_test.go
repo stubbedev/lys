@@ -2,6 +2,7 @@ package settings
 
 import (
 	"fmt"
+	"slices"
 	"testing"
 	"time"
 
@@ -57,7 +58,7 @@ func TestEveryLaidOutPageHoldsThePageChecks(t *testing.T) {
 	w := newWindow(k, cfg, func(_ time.Duration, fn func()) { fn() })
 	w.stack.SetTransition(widget.StackNone, 0)
 	apptheme.New(cfg).Attach(w.root)
-	checks := []pageCheck{controlRowsShareHeightCentreAndGap(), pagesCarryNoMargins(), cardFieldsLineUp(), tabReachesEveryControl(w), trashIconsShareTheErrorColor(), rowsAreTheRowType(), resetNeverMovesTheControl(), sliderSectionsShareOneValueColumn(), sliderRowsReadTheirValueOnce()}
+	checks := []pageCheck{controlRowsShareHeightCentreAndGap(), pagesCarryNoMargins(), cardFieldsLineUp(), tabReachesEveryControl(w), trashIconsShareTheErrorColor(), rowsAreTheRowType(), resetNeverMovesTheControl(), sliderSectionsShareOneValueColumn(), sliderRowsReadTheirValueOnce(), choicesFollowTheSegmentRule()}
 	for _, sec := range w.sections {
 		for _, p := range sec.pages {
 			w.show(p.id)
@@ -92,7 +93,7 @@ func walkOwn(w widget.Widget, visit func(widget.Widget)) {
 // othersInside reports a widget whose inside is not the window's own.
 func othersInside(w widget.Widget) bool {
 	switch w.(type) {
-	case *widget.Chip, *widget.ToggleGroup, *widget.ShortcutRecorder, *segmentedEnum, keycaps, *livePreview:
+	case *widget.Chip, *widget.ToggleGroup, *widget.ShortcutRecorder, keycaps, *livePreview:
 		return true
 	}
 	return false
@@ -522,11 +523,14 @@ func TestSegmentLabelsAreCentredInTheirSegments(t *testing.T) {
 			d.open(true)
 		}
 		layOut(win, 1400)
-		segmented := treetest.All[*segmentedEnum](win.page)
+		segmented := treetest.All[*widget.ToggleGroup](win.page)
 		if len(segmented) == 0 {
 			t.Fatal("the Bar page shows no segmented control")
 		}
 		for _, c := range segmented {
+			if c.Bounds().Empty() {
+				continue
+			}
 			for _, b := range treetest.All[*widget.ToggleButton](c) {
 				l := treetest.First[*widget.Label](t, b)
 				bb, lb := b.Bounds(), l.Bounds()
@@ -537,6 +541,102 @@ func TestSegmentLabelsAreCentredInTheirSegments(t *testing.T) {
 					t.Errorf("scale %s: %q at %v is off the centre of its segment %v", scale, l.Text(), lb, bb)
 				}
 			}
+		}
+	}
+}
+
+// choicesFollowTheSegmentRule checks that every closed choice on a page,
+// a field's or one a panel builds, is segments when its options fit them
+// (fitsSegments) and a dropdown when they do not; a live list of devices
+// stays a dropdown whatever its length, and the bar layouts' tabs switch
+// views rather than choose a value.
+func choicesFollowTheSegmentRule() pageCheck {
+	return pageCheck{visit: func(t *testing.T, w *window) {
+		live := map[*widget.Dropdown]bool{}
+		for _, p := range treetest.All[*choicePick](w.page) {
+			if p.live {
+				live[p.drop] = true
+			}
+		}
+		for _, d := range treetest.All[*widget.Dropdown](w.page) {
+			if !live[d] && fitsSegments(d.Items()) {
+				t.Errorf("%s: the dropdown of %q fits segments", w.pageID, d.Items())
+			}
+		}
+		for _, g := range treetest.All[*widget.ToggleGroup](w.page) {
+			if g.HasClass(barLayoutTabs) {
+				continue
+			}
+			if labels := treetest.Labels(g); !fitsSegments(labels) {
+				t.Errorf("%s: the segments %q do not fit segments", w.pageID, labels)
+			}
+		}
+	}}
+}
+
+// cardLines are how many cards each line of c holds, top to bottom.
+func cardLines(c *choiceCards) []int {
+	var ys []int
+	count := map[int]int{}
+	for _, card := range c.cards {
+		y := card.Bounds().Y
+		if count[y] == 0 {
+			ys = append(ys, y)
+		}
+		count[y]++
+	}
+	slices.Sort(ys)
+	out := make([]int, len(ys))
+	for i, y := range ys {
+		out[i] = count[y]
+	}
+	return out
+}
+
+// The Rounding cards on Fonts & Scale and Bar never leave one card alone
+// on a line while another line holds several, at any window width.
+func TestRoundingCardsLeaveNoCardAloneOnALine(t *testing.T) {
+	for _, page := range []string{"fonts", "bar"} {
+		for _, w := range []int{1400, 900, 760, 640} {
+			win := laidOutPage(t, "", page, w)
+			for _, d := range win.page.advanced {
+				d.open(true)
+			}
+			layOut(win, w)
+			seen := 0
+			for _, c := range treetest.All[*choiceCards](win.page) {
+				if len(c.cards) != len(roundingPictures) || c.Bounds().Empty() {
+					continue
+				}
+				seen++
+				lines := cardLines(c)
+				if len(lines) > 1 && slices.Contains(lines, 1) && slices.Max(lines) > 1 {
+					t.Errorf("%s at %dpx: the rounding cards lie %v to a line", page, w, lines)
+				}
+			}
+			if seen == 0 {
+				t.Errorf("%s at %dpx shows no rounding cards", page, w)
+			}
+		}
+	}
+}
+
+func TestBalancedColumns(t *testing.T) {
+	for _, tc := range []struct{ n, fit, want int }{
+		{6, 7, 6},
+		{6, 6, 6},
+		{6, 5, 3},
+		{6, 4, 3},
+		{6, 2, 2},
+		{6, 1, 1},
+		{7, 6, 5},
+		{5, 4, 3},
+		{3, 2, 1},
+		{4, 3, 2},
+		{1, 0, 1},
+	} {
+		if got := balancedColumns(tc.n, tc.fit); got != tc.want {
+			t.Errorf("%d cards, %d fitting: %d a line, want %d", tc.n, tc.fit, got, tc.want)
 		}
 	}
 }

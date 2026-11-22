@@ -22,10 +22,10 @@ func TestTheAudioCaptureIndicatorsAreOneRowOfTiles(t *testing.T) {
 	if c.icons[0].slot.text() != "ld-mic-symbolic" || c.icons[2].slot.text() != "ld-webcam-symbolic" {
 		t.Errorf("the tiles show %q and %q", c.icons[0].slot.text(), c.icons[2].slot.text())
 	}
-	if c.hide.Active() != 1 {
-		t.Errorf("a microphone hidden while idle shows choice %d", c.hide.Active())
+	if c.hide.Selected() != 1 {
+		t.Errorf("a microphone hidden while idle shows choice %d", c.hide.Selected())
 	}
-	c.hide.SetActive(0)
+	pickChoice(c.hide, 0)
 	if v := k.store.value("modules.audio.mic-hide-when-idle"); v != false {
 		t.Fatalf("always showing the microphone stored %v", v)
 	}
@@ -33,8 +33,8 @@ func TestTheAudioCaptureIndicatorsAreOneRowOfTiles(t *testing.T) {
 		t.Fatal(err)
 	}
 	c.refresh()
-	if c.hide.Active() != 1 {
-		t.Errorf("after the config hid the microphone the tile shows choice %d", c.hide.Active())
+	if c.hide.Selected() != 1 {
+		t.Errorf("after the config hid the microphone the tile shows choice %d", c.hide.Selected())
 	}
 	if v := k.store.value("modules.audio.mic-hide-when-idle"); v != true {
 		t.Errorf("refreshing the tiles wrote the choice back: %v", v)

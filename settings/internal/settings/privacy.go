@@ -113,7 +113,7 @@ type grantsList struct {
 	release   func()
 	watch     *dbusx.Watch
 	rows      *widget.Box
-	view      *widget.Dropdown
+	view      *choicePick
 	apps      []permissions.App
 	installed installedApps
 	opened    map[privacyResource]bool
@@ -135,7 +135,7 @@ var privacyLinks = []pageLink{
 func grantsFooter(k *kit) widget.Widget {
 	t := locale.T()
 	l := &grantsList{Box: sectionStack(), k: k, rows: widget.NewBox(widget.Column, 0, 0), opened: map[privacyResource]bool{}}
-	l.view = widget.NewDropdown(k.face, k.textPx(), []string{t.Get("settings-privacy-by-permission"), t.Get("settings-privacy-by-app")}, grantsByResource)
+	l.view = newChoicePick(k, []string{t.Get("settings-privacy-by-permission"), t.Get("settings-privacy-by-app")}, grantsByResource)
 	l.view.SetAccessibleName(t.Get("settings-privacy-view"))
 	l.view.OnSelect = func(int) { l.render() }
 	l.inUse = newInUseStrip(l)

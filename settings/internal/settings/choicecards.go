@@ -64,6 +64,47 @@ func newCards(k *kit, s slot, values, labels []string, pictures map[string]pictu
 	return c
 }
 
+// Measure balances the lines for the width given before the cards wrap
+// in it (balance).
+func (c *choiceCards) Measure(axis widget.Axis, forSize int) widget.Sizes {
+	if axis == widget.Column && forSize != widget.Unknown {
+		c.balance(forSize)
+	}
+	return c.FlowBox.Measure(axis, forSize)
+}
+
+// Arrange balances the lines for the width given, then wraps the cards.
+func (c *choiceCards) Arrange(r render.Rect) {
+	c.balance(r.W)
+	c.FlowBox.Arrange(r)
+}
+
+// balance caps the cards a line of width holds so that no line holds a
+// single card while another holds several (balancedColumns).
+func (c *choiceCards) balance(width int) {
+	c.SetMaxChildrenPerLine(balancedColumns(len(c.cards), (width+choiceCardGap)/(c.cardW+choiceCardGap)))
+}
+
+// balancedColumns is how many of n cards a line holds when fit fit on
+// one: all of them where they fit, else the most that divide n, else the
+// most that leave a last line of two or more, else one a line.
+func balancedColumns(n, fit int) int {
+	if fit >= n {
+		return max(n, 1)
+	}
+	for cols := fit; cols >= 2; cols-- {
+		if n%cols == 0 {
+			return cols
+		}
+	}
+	for cols := fit; cols >= 2; cols-- {
+		if n%cols != 1 {
+			return cols
+		}
+	}
+	return 1
+}
+
 func (c *choiceCards) refresh() {
 	v, _ := c.slot.get().(string)
 	c.current = v

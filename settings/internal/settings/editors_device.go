@@ -10,41 +10,21 @@ import (
 	"github.com/stubbedev/lys/desktop/service/pulse"
 	"github.com/stubbedev/lys/desktop/service/recorder/devicechoice"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
-	"github.com/stubbedev/lys/ui/widget"
 )
 
-// deviceSelect is DeviceSelectControl: a dropdown of devices writing
-// the picked id, a saved device the list lacks kept selectable.
-type deviceSelect struct {
-	*widget.Dropdown
-	slot    slot
-	choices []devicechoice.DeviceChoice
-	syncing bool
-}
-
-func newDeviceSelect(k *kit, s slot, choices []devicechoice.DeviceChoice) *deviceSelect {
-	c := &deviceSelect{Dropdown: widget.NewDropdown(k.face, k.textPx(), nil, 0), slot: s}
-	c.OnSelect = func(i int) {
-		if !c.syncing && i >= 0 && i < len(c.choices) {
-			_ = c.slot.set(c.choices[i].ID)
-		}
+// deviceOptions are devices as the options of a live closed choice,
+// writing the picked one's id.
+func deviceOptions(devices []devicechoice.DeviceChoice) []choice {
+	out := make([]choice, len(devices))
+	for i, d := range devices {
+		out[i] = choice{value: d.ID, label: d.Label}
 	}
-	c.setChoices(choices)
-	return c
+	return out
 }
 
-// setChoices replaces the list (SetChoices), selecting the saved id.
-func (c *deviceSelect) setChoices(choices []devicechoice.DeviceChoice) {
-	saved := c.slot.text()
-	c.choices = devicechoice.WithSaved(choices, saved)
-	c.SetItems(devicechoice.ChoiceLabels(c.choices), devicechoice.ChoiceIndex(c.choices, saved))
-}
-
-// refresh selects the saved id without writing.
-func (c *deviceSelect) refresh() {
-	c.syncing = true
-	c.SetSelected(devicechoice.ChoiceIndex(c.choices, c.slot.text()))
-	c.syncing = false
+// newDeviceChoice is a live closed choice of devices.
+func newDeviceChoice(k *kit, s slot, devices []devicechoice.DeviceChoice) *choiceControl {
+	return newChoiceControl(k, s, closedChoice{options: deviceOptions(devices), live: true})
 }
 
 // cameraChoices lists the cameras (a seam for tests).
@@ -83,7 +63,7 @@ func audioDaemonSources() ([]devicechoice.Source, bool) {
 
 // webcamDevice is webcam_device_select.
 var webcamDevice = withEditor(func(k *kit, s slot, _ config.FieldMeta) control {
-	return newDeviceSelect(k, s, cameraChoices())
+	return newDeviceChoice(k, s, cameraChoices())
 })
 
 // microphoneDevice is microphone_device_select: the default alone at
@@ -91,8 +71,8 @@ var webcamDevice = withEditor(func(k *kit, s slot, _ config.FieldMeta) control {
 // beside it.
 var microphoneDevice = withEditor(func(k *kit, s slot, _ config.FieldMeta) control {
 	return newLevelledDevice(k, s, microphoneTarget, func(s slot) control {
-		c := newDeviceSelect(k, s, devicechoice.MicrophoneChoices(nil))
-		async(k, microphoneChoices, c.setChoices)
+		c := newDeviceChoice(k, s, devicechoice.MicrophoneChoices(nil))
+		async(k, microphoneChoices, func(devices []devicechoice.DeviceChoice) { c.setOptions(deviceOptions(devices)) })
 		return c
 	})
 })

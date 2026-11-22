@@ -133,6 +133,10 @@ type Entry struct {
 	trailingClick func(Point)
 	leading       Widget
 	leadingClick  func(Point)
+
+	// keys, when set, sees every key action first and consumes it by
+	// returning true: a ComboboxEntry opening its list on Down.
+	keys func(KeyAction, Mods) bool
 }
 
 // NewEntry returns an empty entry painted with face at sizePx. Face
@@ -1505,6 +1509,9 @@ func (e *Entry) InsertRune(r rune) {
 // selection keys and drops only the mutating ones.
 func (e *Entry) KeyAction(a KeyAction, mods Mods) {
 	if !e.Enabled() {
+		return
+	}
+	if e.keys != nil && e.keys(a, mods) {
 		return
 	}
 	// The completion list owns the navigation keys while open, and a

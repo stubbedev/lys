@@ -12,29 +12,29 @@ type customInput interface {
 	SetVisible(on bool)
 }
 
-// customDropdown is a dropdown of named choices that ends in a custom
-// one, whose input follows the dropdown inline while it is chosen: the
-// one shape of a long list of presets with a value of the user's own.
+// customDropdown is a closed choice of named presets that ends in a
+// custom one, whose input follows the choice inline while it is chosen:
+// the one shape of presets with a value of the user's own. The choice
+// takes the form the segment rule gives its labels (choicePick).
 type customDropdown struct {
 	*widget.Box
-	drop    *widget.Dropdown
-	input   customInput
-	custom  int
-	showing bool
+	pick   *choicePick
+	input  customInput
+	custom int
 	// OnSelect hears the choice the user picked, never one shown.
 	OnSelect func(i int)
 }
 
 func newCustomDropdown(k *kit, choices []string, custom string, input customInput) *customDropdown {
 	d := &customDropdown{Box: gapBox(widget.Row), input: input, custom: len(choices)}
-	d.drop = widget.NewDropdown(k.face, k.textPx(), append(slices.Clone(choices), custom), 0)
-	d.drop.OnSelect = func(i int) {
+	d.pick = newChoicePick(k, append(slices.Clone(choices), custom), 0)
+	d.pick.OnSelect = func(i int) {
 		d.input.SetVisible(i == d.custom)
-		if !d.showing && d.OnSelect != nil {
+		if d.OnSelect != nil {
 			d.OnSelect(i)
 		}
 	}
-	d.AppendAligned(d.drop, false, widget.AlignCenter)
+	d.AppendAligned(d.pick, false, widget.AlignCenter)
 	d.AppendAligned(input, false, widget.AlignCenter)
 	input.SetVisible(false)
 	return d
@@ -46,8 +46,6 @@ func (d *customDropdown) customIndex() int { return d.custom }
 // show selects choice i, with the input while it is the custom one,
 // without OnSelect hearing it.
 func (d *customDropdown) show(i int) {
-	d.showing = true
-	defer func() { d.showing = false }()
-	d.drop.SetSelected(i)
+	d.pick.show(i)
 	d.input.SetVisible(i == d.custom)
 }

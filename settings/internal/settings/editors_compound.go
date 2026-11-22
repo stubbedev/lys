@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"math"
-	"slices"
 	"strconv"
 	"strings"
 
@@ -30,39 +29,6 @@ func enumLabels(meta config.FieldMeta) []string {
 		}
 	}
 	return labels
-}
-
-// optionalEnum is optional_enum_widget: "Inherit" (unset) first, then
-// the variants.
-type optionalEnum struct {
-	*widget.Dropdown
-	k        *kit
-	slot     slot
-	variants []string
-	syncing  bool
-}
-
-func newOptionalEnum(k *kit, s slot, meta config.FieldMeta) *optionalEnum {
-	labels := append([]string{locale.T().Get("settings-inherit")}, enumLabels(meta)...)
-	c := &optionalEnum{Dropdown: widget.NewDropdown(k.face, k.textPx(), labels, 0), k: k, slot: s, variants: meta.Variants}
-	c.OnSelect = func(i int) {
-		switch {
-		case c.syncing:
-		case i == 0:
-			c.slot.unset()
-		case i <= len(c.variants):
-			_ = c.slot.set(c.variants[i-1])
-		}
-	}
-	c.refresh()
-	return c
-}
-
-func (c *optionalEnum) refresh() {
-	v, _ := c.slot.get().(string)
-	c.syncing = true
-	c.SetSelected(slices.Index(c.variants, v) + 1)
-	c.syncing = false
 }
 
 // optionalNumber is an optional number as one spin button: empty and
@@ -126,7 +92,7 @@ type sizeEditor struct {
 	k      *kit
 	slot   slot
 	basePx float64
-	mode   *widget.Dropdown
+	mode   *choicePick
 	spin   *widget.SpinButton
 	// slide, nil for a size without one, is a slider over loPx to hiPx
 	// pixels, or the scales that make them, read by the spin, which
@@ -170,7 +136,7 @@ func newSizeSliderEditor(k *kit, s slot, baseRem, loPx, hiPx float64) *sizeEdito
 func newSizeParts(k *kit, s slot, baseRem float64) *sizeEditor {
 	t := locale.T()
 	c := &sizeEditor{Box: gapBox(widget.Row), k: k, slot: s, basePx: baseRem * remBasePx}
-	c.mode = widget.NewDropdown(k.face, k.textPx(), []string{t.Get("settings-size-scale"), t.Get("settings-size-px")}, sizeScale)
+	c.mode = newChoicePick(k, []string{t.Get("settings-size-scale"), t.Get("settings-size-px")}, sizeScale)
 	c.spin = widget.NewSpinButton(k.face, k.textPx(), 0, 0, maxPixels, 0.05, 2)
 	c.mode.OnSelect = func(i int) {
 		if c.syncing {
@@ -235,21 +201,21 @@ func (c *sizeEditor) refresh() {
 	}()
 	switch v := c.slot.get().(type) {
 	case nil:
-		c.mode.SetSelected(sizeScale)
+		c.mode.show(sizeScale)
 		c.configure(false, 1)
 		c.spin.Clear()
 	case float64:
-		c.mode.SetSelected(sizeScale)
+		c.mode.show(sizeScale)
 		c.configure(false, v)
 	case int64:
-		c.mode.SetSelected(sizeScale)
+		c.mode.show(sizeScale)
 		c.configure(false, float64(v))
 	case string:
 		px, err := strconv.ParseFloat(strings.TrimSuffix(v, "px"), 64)
 		if err != nil {
 			return
 		}
-		c.mode.SetSelected(sizePx)
+		c.mode.show(sizePx)
 		c.configure(true, math.Round(px))
 	}
 }

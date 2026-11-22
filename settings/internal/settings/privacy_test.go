@@ -118,7 +118,7 @@ func twoApps() []permissions.App {
 
 func grantsByAppFooter(k *kit) *grantsList {
 	l := grantsFooter(k).(*grantsList)
-	l.view.SetSelected(grantsByApp)
+	pickChoice(l.view, grantsByApp)
 	return l
 }
 
@@ -336,7 +336,7 @@ func TestTabReachesEveryGrantSwitch(t *testing.T) {
 	w.stack.SetTransition(widget.StackNone, 0)
 	apptheme.New(cfg).Attach(w.root)
 	w.show(settingspage.PrivacyID)
-	treetest.First[*grantsList](t, w.page).view.SetSelected(grantsByApp)
+	pickChoice(treetest.First[*grantsList](t, w.page).view, grantsByApp)
 	w.root.Arrange(render.Rect{W: 1400, H: 6000})
 	router := &widget.Router{Root: w.root}
 	if err := router.SetFocus(w.search); err != nil {

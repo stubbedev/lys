@@ -105,9 +105,9 @@ type filenameEditor struct {
 	dir      slot
 	simple   *widget.Box
 	prefix   *widget.Entry
-	date     *widget.Dropdown
-	clock    *widget.Dropdown
-	counter  *widget.Dropdown
+	date     *choicePick
+	clock    *choicePick
+	counter  *choicePick
 	problem  *widget.Label
 	path     *widget.Label
 	notice   *widget.Label
@@ -139,13 +139,13 @@ func newFilenameEditor(k *kit, s, dir slot, custom *labelBuilder) *filenameEdito
 	e.prefix.SetAccessibleName(t.Get("settings-filename-prefix"))
 	e.prefix.SetPlaceholder(t.Get("settings-filename-prefix-placeholder"))
 	e.prefix.OnChanged = func(string) { e.write() }
-	e.date = widget.NewDropdown(k.face, k.textPx(), choiceLabels(filenameDates), 0)
+	e.date = newChoicePick(k, choiceLabels(filenameDates), 0)
 	e.date.SetAccessibleName(t.Get("settings-filename-date"))
 	e.date.OnSelect = func(int) { e.write() }
-	e.clock = widget.NewDropdown(k.face, k.textPx(), choiceLabels(filenameTimes), 0)
+	e.clock = newChoicePick(k, choiceLabels(filenameTimes), 0)
 	e.clock.SetAccessibleName(t.Get("settings-filename-time"))
 	e.clock.OnSelect = func(int) { e.write() }
-	e.counter = widget.NewDropdown(k.face, k.textPx(), counterLabels(), 0)
+	e.counter = newChoicePick(k, counterLabels(), 0)
 	e.counter.SetAccessibleName(t.Get("settings-filename-counter"))
 	e.counter.OnSelect = func(int) { e.write() }
 	e.simple = gapBox(widget.Column)
@@ -215,9 +215,9 @@ func (e *filenameEditor) refresh() {
 		if e.prefix.Text() != p.prefix {
 			e.prefix.SetText(p.prefix)
 		}
-		e.date.SetSelected(slices.Index(filenameDates, p.date))
-		e.clock.SetSelected(slices.Index(filenameTimes, p.clock))
-		e.counter.SetSelected(slices.Index(filenameCounters, p.counter))
+		e.date.show(slices.Index(filenameDates, p.date))
+		e.clock.show(slices.Index(filenameTimes, p.clock))
+		e.counter.show(slices.Index(filenameCounters, p.counter))
 		e.syncing = false
 	}
 	e.simple.SetVisible(simple)

@@ -147,7 +147,7 @@ func TestEveryButtonRolePaintsFromTheTheme(t *testing.T) {
 		roleClear:       k.clearButton("settings-icon-clear", nil),
 		roleReload:      k.reloadButton("settings-wifi-scan", nil),
 		roleIcon:        k.iconButton("ld-copy-symbolic", "settings-generator-sample-copy", nil),
-		rolePickerIcon:  k.pickerIconButton("ld-chevron-down-symbolic", "settings-choice-open", nil),
+		rolePickerIcon:  k.pickerIconButton("ld-chevron-down-symbolic", "settings-format-presets", nil),
 	}
 	col := gapBox(widget.Column)
 	for r := range buttonRole(len(buttonRoles)) {

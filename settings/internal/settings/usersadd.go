@@ -157,20 +157,20 @@ func (pp passwordPair) clear() {
 
 // accountTypeChoice is the account types as a segmented control, current
 // active.
-func (p *usersPanel) accountTypeChoice(current int32) *widget.ToggleGroup {
+func (p *usersPanel) accountTypeChoice(current int32) *choicePick {
 	t := locale.T()
-	kinds := widget.NewToggleGroup()
-	kinds.SetAccessibleName(t.Get("settings-users-add-type"))
-	for _, kind := range accountTypes {
-		kinds.Append(p.k.label(t.Get(accountTypeLabels[kind])))
+	labels := make([]string, len(accountTypes))
+	for i, kind := range accountTypes {
+		labels[i] = t.Get(accountTypeLabels[kind])
 	}
-	kinds.SetActive(max(slices.Index(accountTypes, current), 0))
+	kinds := newChoicePick(p.k, labels, max(slices.Index(accountTypes, current), 0))
+	kinds.SetAccessibleName(t.Get("settings-users-add-type"))
 	return kinds
 }
 
 // chosenAccountType is the type kinds has active, -1 for none.
-func chosenAccountType(kinds *widget.ToggleGroup) int32 {
-	if i := kinds.Active(); i >= 0 && i < len(accountTypes) {
+func chosenAccountType(kinds *choicePick) int32 {
+	if i := kinds.Selected(); i >= 0 && i < len(accountTypes) {
 		return accountTypes[i]
 	}
 	return -1
@@ -179,7 +179,7 @@ func chosenAccountType(kinds *widget.ToggleGroup) int32 {
 type addUserForm struct {
 	*widget.Box
 	passwordPair
-	kinds       *widget.ToggleGroup
+	kinds       *choicePick
 	full, login *widget.Entry
 	messages    formNote
 	derived     bool

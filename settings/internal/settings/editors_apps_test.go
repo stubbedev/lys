@@ -275,7 +275,7 @@ func TestACommandRunsAPickedApp(t *testing.T) {
 	c := shellControl(t, k, path).(*choiceEditor)
 	f := &fakePickers{}
 	k.pickers = f
-	c.browse.ClickAt(widget.Point{})
+	c.combo.Action().(*widget.Button).ClickAt(widget.Point{})
 	if f.content == nil {
 		t.Fatal("Run an app opened no app list")
 	}

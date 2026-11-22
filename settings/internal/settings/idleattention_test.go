@@ -16,22 +16,22 @@ func TestTheIdlePageExplainsTheCameraCheckAndOffersItsChoices(t *testing.T) {
 		t.Error("the attention row has no explanation to read before turning it on")
 	}
 	k := testKit(t, "")
-	c, ok := fieldControl(k, k.store, row).(*enumSelect)
+	c, ok := fieldControl(k, k.store, row).(*choiceControl)
 	if !ok {
 		t.Fatal("the attention row is not a choice")
 	}
 	tr := locale.T()
 	want := []string{tr.Get("enum-idle-attention-off"), tr.Get("enum-idle-attention-postpone-dim"), tr.Get("enum-idle-attention-sooner-when-absent")}
-	if got := c.Items(); !slices.Equal(got, want) {
+	if got := c.pick.Items(); !slices.Equal(got, want) {
 		t.Fatalf("choices %q, want %q", got, want)
 	}
-	if got := c.Selection(); got != want[0] {
+	if got := c.pick.Items()[c.pick.Selected()]; got != want[0] {
 		t.Errorf("selected %q, want %q: the camera stays unused until chosen", got, want[0])
 	}
 	if v := k.store.value("idle.attention"); v != "off" {
 		t.Errorf("stored %v before any choice, want off", v)
 	}
-	c.SetSelected(2)
+	pickChoice(c.pick, 2)
 	if v := k.store.value("idle.attention"); v != "sooner-when-absent" {
 		t.Errorf("choosing the third option stored %v, want sooner-when-absent", v)
 	}

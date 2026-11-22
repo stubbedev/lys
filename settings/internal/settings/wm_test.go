@@ -139,8 +139,8 @@ func TestWMRowsFollowTheSchemasTypes(t *testing.T) {
 		"gaps.inner":                  &number{},
 		"tearing":                     &toggle{},
 		"decoration.active_opacity":   &slider{},
-		"input.touchpad.tap":          &optionalEnum{},
-		"input.touchpad.click_method": &optionalEnum{},
+		"input.touchpad.tap":          &choiceControl{},
+		"input.touchpad.click_method": &choiceControl{},
 		"tabs.font":                   &wmFontEditor{},
 		"tabs.icon_theme":             &choiceEditor{},
 		"tabs.label":                  &text{},
@@ -170,7 +170,7 @@ func TestWMRowsFollowTheSchemasTypes(t *testing.T) {
 func TestEachDeviceClassShowsItsOwnAccelerationDefault(t *testing.T) {
 	k, w, _, _ := wmKit(t, "")
 	for path, want := range map[string]string{"input.pointer.accel_profile": "flat", "input.touchpad.accel_profile": "adaptive"} {
-		if c := fieldControl(k, w, wmField(path)); fmt.Sprintf("%T", c) != fmt.Sprintf("%T", &segmentedEnum{}) {
+		if c, ok := fieldControl(k, w, wmField(path)).(*choiceControl); !ok || c.choice.unset != "" {
 			t.Errorf("%s: %T, want a choice of profiles with no unset entry", path, c)
 		}
 		if got := w.value(path); got != want {
@@ -450,11 +450,11 @@ func TestAKeyAFileLeavesOutIsNotTheBuiltInConfigs(t *testing.T) {
 
 func TestAnOptionalToggleWritesABoolAndUnsets(t *testing.T) {
 	k, w, _, files := wmKit(t, "binds: []\n")
-	c := fieldControl(k, w, wmField("input.touchpad.tap")).(*optionalEnum)
-	if c.Selected() != 0 {
-		t.Fatalf("unset shows %d", c.Selected())
+	c := fieldControl(k, w, wmField("input.touchpad.tap")).(*choiceControl)
+	if c.pick.Selected() != 0 {
+		t.Fatalf("unset shows %d", c.pick.Selected())
 	}
-	c.OnSelect(1)
+	pickChoice(c.pick, 1)
 	if got := fileText(t, files.runtime); !strings.Contains(got, "tap: true") {
 		t.Fatalf("%q", got)
 	}
@@ -462,14 +462,14 @@ func TestAnOptionalToggleWritesABoolAndUnsets(t *testing.T) {
 		t.Fatalf("%v", got)
 	}
 	c.refresh()
-	if c.Selected() != 1 {
-		t.Fatalf("on shows %d", c.Selected())
+	if c.pick.Selected() != 1 {
+		t.Fatalf("on shows %d", c.pick.Selected())
 	}
-	c.OnSelect(2)
+	pickChoice(c.pick, 2)
 	if got := fileText(t, files.runtime); !strings.Contains(got, "tap: false") {
 		t.Fatalf("%q", got)
 	}
-	c.OnSelect(0)
+	pickChoice(c.pick, 0)
 	if got := fileText(t, files.runtime); strings.Contains(got, "tap") || strings.Contains(got, "touchpad") {
 		t.Fatalf("%q", got)
 	}
@@ -477,18 +477,18 @@ func TestAnOptionalToggleWritesABoolAndUnsets(t *testing.T) {
 
 func TestAnEnumOfBooleansAndWordsWritesEachAsItsOwnType(t *testing.T) {
 	k, w, _, files := wmKit(t, "binds: []\n")
-	c := fieldControl(k, w, wmField("hdr")).(*optionalEnum)
-	if got, want := c.Items(), []string{locale.T().Get("settings-inherit"), "Off", "fullscreen", "On"}; !slices.Equal(got, want) {
+	c := fieldControl(k, w, wmField("hdr")).(*choiceControl)
+	if got, want := c.pick.Items(), []string{locale.T().Get("settings-inherit"), "Off", "fullscreen", "On"}; !slices.Equal(got, want) {
 		t.Fatalf("choices %q, want %q", got, want)
 	}
 	for i, want := range []string{"hdr: false\n", "hdr: fullscreen\n", "hdr: true\n"} {
-		c.OnSelect(i + 1)
+		pickChoice(c.pick, i+1)
 		if got := fileText(t, files.runtime); !strings.Contains(got, want) {
 			t.Fatalf("choice %d wrote %q, want %q", i+1, got, want)
 		}
 		c.refresh()
-		if c.Selected() != i+1 {
-			t.Fatalf("choice %d reads back as %d", i+1, c.Selected())
+		if c.pick.Selected() != i+1 {
+			t.Fatalf("choice %d reads back as %d", i+1, c.pick.Selected())
 		}
 	}
 }
@@ -560,7 +560,7 @@ func TestARulesNestedObjectAndToggleWriteInsideTheItem(t *testing.T) {
 	if len(c.cards[0].controls) != 6 || !c.cards[0].root.Children()[2].(*widget.Box).Visible() {
 		t.Fatalf("opening the card built %d controls", len(c.cards[0].controls))
 	}
-	if _, ok := c.cards[0].controls[4].(*optionalEnum); !ok {
+	if ctl, ok := c.cards[0].controls[4].(*choiceControl); !ok || ctl.choice.unset == "" {
 		t.Fatalf("a rule's float takes %T, want the inherit-or-pick select", c.cards[0].controls[4])
 	}
 	grain := nestedSlot(c.fieldSlot(0, "blur_look"), []string{"grain"})
@@ -882,7 +882,7 @@ func TestTheKeyboardLayoutsAreToggledInOrderAndTheVariantsFollowThem(t *testing.
 	k, w, _, files := wmKit(t, "input:\n  keyboard:\n    layout: us\n")
 	layout := fieldControl(k, w, wmField("input.keyboard.layout")).(*choiceEditor)
 	p := openChoices(t, k, layout)
-	pickName(t, p, "us,dk")
+	p.pick(t, "us,dk")
 	if got := fileText(t, files.runtime); got != "input:\n  keyboard:\n    layout: us,dk\n" {
 		t.Fatalf("%q", got)
 	}
@@ -891,7 +891,7 @@ func TestTheKeyboardLayoutsAreToggledInOrderAndTheVariantsFollowThem(t *testing.
 	if !slices.Equal(p.all, []string{"intl", ",nodeadkeys"}) {
 		t.Fatalf("offered %q", p.all)
 	}
-	pickName(t, p, ",nodeadkeys")
+	p.pick(t, ",nodeadkeys")
 	if got := w.value("input.keyboard.variant"); got != ",nodeadkeys" {
 		t.Fatalf("%v", got)
 	}
@@ -907,7 +907,7 @@ func TestTheKeyboardLayoutsAreToggledInOrderAndTheVariantsFollowThem(t *testing.
 	}
 	options := fieldControl(k, w, wmField("input.keyboard.options")).(*choiceEditor)
 	p = openChoices(t, k, options)
-	pickName(t, p, "caps:escape")
+	p.pick(t, "caps:escape")
 	if got := w.value("input.keyboard.options"); got != "caps:escape" {
 		t.Fatalf("%v", got)
 	}
@@ -924,7 +924,7 @@ func TestAWMColorTakesAHexOrAPaletteName(t *testing.T) {
 	if !slices.Equal(p.all, []string{"blue", "red", "accent"}) {
 		t.Fatalf("offered %q", p.all)
 	}
-	pickName(t, p, "accent")
+	p.pick(t, "accent")
 	if got := w.value("decoration.shadow.color"); got != "accent" {
 		t.Fatalf("%v", got)
 	}
@@ -941,7 +941,7 @@ func TestAnUnlistedDRMDeviceIsKeptAndMarked(t *testing.T) {
 		t.Fatalf("%q %v", c.entry.Text(), c.unknown.Visible())
 	}
 	p := openChoices(t, k, c)
-	pickName(t, p, "card0")
+	p.pick(t, "card0")
 	if got := w.value("gpu"); got != "card0" || c.unknown.Visible() {
 		t.Fatalf("%v %v", got, c.unknown.Visible())
 	}

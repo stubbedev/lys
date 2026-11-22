@@ -109,7 +109,7 @@ type curveEditor struct {
 	*widget.Box
 	bezier, spring slot
 	builtIns       []wmconfig.Curve
-	kind           *widget.ToggleGroup
+	kind           *choicePick
 	unknown        *widget.Badge
 	canvas         *bezierCanvas
 	points         [4]*widget.SpinButton
@@ -124,12 +124,9 @@ func newCurveEditor(k *kit, bezier, spring slot, builtIns []wmconfig.Curve) *cur
 	c := &curveEditor{Box: gapBox(widget.Column), bezier: bezier, spring: spring, builtIns: builtIns}
 	c.AddClass("curve-editor")
 	head := gapBox(widget.Row)
-	c.kind = widget.NewToggleGroup()
-	c.kind.Append(k.label(t.Get("wm-curve-kind-bezier")))
-	c.kind.Append(k.label(t.Get("wm-curve-kind-spring")))
-	c.kind.OnChanged = c.chooseKind
-	c.unknown = k.badge(t.Get("settings-choice-unknown"), "warning")
-	c.unknown.SetTooltip(t.Attr("settings-choice-unknown", "description"))
+	c.kind = newChoicePick(k, []string{t.Get("wm-curve-kind-bezier"), t.Get("wm-curve-kind-spring")}, curveKindBezier)
+	c.kind.OnSelect = c.chooseKind
+	c.unknown = k.unknownBadge()
 	head.AppendAligned(c.kind, false, widget.AlignCenter)
 	head.AppendAligned(c.unknown, false, widget.AlignCenter)
 	c.Append(head, false)
@@ -210,9 +207,6 @@ func (c *curveEditor) spunPoints() [4]float64 {
 }
 
 func (c *curveEditor) chooseKind(i int) {
-	if c.syncing {
-		return
-	}
 	switch i {
 	case curveKindBezier:
 		c.writeBezier(*firstBuiltIn(c.builtIns, bezierKey).Bezier)
@@ -257,13 +251,13 @@ func (c *curveEditor) refresh() {
 	points, isBezier := bezierPoints(raw)
 	switch {
 	case spring != nil && raw == nil:
-		c.kind.SetActive(curveKindSpring)
+		c.kind.show(curveKindSpring)
 		for i, sb := range c.springs {
 			sb.SetValue(toFloat(spring[springParts[i]]))
 		}
 		c.unknown.SetVisible(false)
 	default:
-		c.kind.SetActive(curveKindBezier)
+		c.kind.show(curveKindBezier)
 		c.unknown.SetVisible(!isBezier)
 		if !isBezier {
 			points = *firstBuiltIn(c.builtIns, bezierKey).Bezier
@@ -273,8 +267,8 @@ func (c *curveEditor) refresh() {
 			sb.SetValue(points[i])
 		}
 	}
-	c.bezierPart.SetVisible(c.kind.Active() == curveKindBezier)
-	c.springPart.SetVisible(c.kind.Active() == curveKindSpring)
+	c.bezierPart.SetVisible(c.kind.Selected() == curveKindBezier)
+	c.springPart.SetVisible(c.kind.Selected() == curveKindSpring)
 }
 
 const (

@@ -2,6 +2,7 @@ package settings
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -15,7 +16,7 @@ import (
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
-var sleepActionRow = withEditor(func(k *kit, s slot, meta config.FieldMeta) control { return newSleepActionSelect(k, s, meta) })
+var sleepActionRow = withEditor(func(k *kit, s slot, meta config.FieldMeta) control { return newSleepAction(k, s, meta) })
 
 var sleepRefusals = map[logind.Availability]string{
 	logind.NeedsAuthentication: "settings-sleep-reason-challenge",
@@ -61,29 +62,34 @@ func queryLogind(k *kit, variants []string) sleepAvailability {
 	return sleepAvailability{can: can}
 }
 
-type sleepActionSelect struct {
+// sleepAction is the sleep action's closed choice, an action logind
+// says the system cannot take marked in its label and refused when
+// picked, over the line describing what the stored action does and the
+// line saying why an action cannot be taken.
+type sleepAction struct {
 	*widget.Box
 	slot     slot
 	variants []string
 	labels   []string
-	dropdown *widget.Dropdown
+	pick     *choiceControl
 	detail   *widget.Label
 	problem  *widget.Label
 	can      map[string]logind.Availability
 	unknown  error
 	blockers hibernationBlockers
 	refused  string
-	syncing  bool
 }
 
-func newSleepActionSelect(k *kit, s slot, meta config.FieldMeta) *sleepActionSelect {
-	c := &sleepActionSelect{Box: widget.NewBox(widget.Column, widget.Current().Spacing/2, 0), slot: s, variants: meta.Variants, labels: enumLabels(meta)}
-	c.dropdown = widget.NewDropdown(k.face, k.textPx(), c.labels, 0)
-	c.dropdown.SetAccessibleName(locale.T().Get("settings-sleep-action"))
-	c.dropdown.OnSelect = c.pick
+// errSleepRefused is the write of an action the system cannot take.
+var errSleepRefused = errors.New("settings: the system cannot take this sleep action")
+
+func newSleepAction(k *kit, s slot, meta config.FieldMeta) *sleepAction {
+	c := &sleepAction{Box: widget.NewBox(widget.Column, widget.Current().Spacing/2, 0), slot: s, variants: meta.Variants, labels: enumLabels(meta)}
+	c.pick = newChoiceControl(k, slot{get: s.get, set: c.write, unset: s.unset}, closedChoice{options: c.options()})
+	c.pick.SetAccessibleName(locale.T().Get("settings-sleep-action"))
 	c.detail = k.note("")
 	c.problem = k.errorText("")
-	c.Append(c.dropdown, false)
+	c.Append(c.pick, false)
 	c.Append(c.detail, false)
 	c.Append(c.problem, false)
 	c.refresh()
@@ -91,65 +97,70 @@ func newSleepActionSelect(k *kit, s slot, meta config.FieldMeta) *sleepActionSel
 	return c
 }
 
-func (c *sleepActionSelect) know(a sleepAvailability) {
+func (c *sleepAction) know(a sleepAvailability) {
 	c.can, c.unknown, c.blockers = a.can, a.err, a.blockers
+	c.pick.setOptions(c.options())
 	c.refresh()
 }
 
-func (c *sleepActionSelect) usable(v string) bool {
+func (c *sleepAction) usable(v string) bool {
 	a, known := c.can[v]
 	return !known || a == logind.Available
 }
 
-func (c *sleepActionSelect) pick(i int) {
-	if c.syncing || i < 0 || i >= len(c.variants) {
-		return
+// options are the actions, each one the system cannot take saying so.
+func (c *sleepAction) options() []choice {
+	t := locale.T()
+	out := make([]choice, len(c.variants))
+	for i, v := range c.variants {
+		out[i] = choice{value: v, label: c.labels[i]}
+		if !c.usable(v) {
+			out[i].label = t.Get("settings-sleep-unavailable", i18n.Str("action", c.labels[i]))
+		}
 	}
-	v := c.variants[i]
-	c.refused = ""
-	if !c.usable(v) {
-		c.refused = v
-		c.refresh()
-		return
-	}
-	_ = c.slot.set(v)
-	c.refresh()
+	return out
 }
 
-func (c *sleepActionSelect) label(v string) string { return c.labels[slices.Index(c.variants, v)] }
+// write stores the action picked, or refuses one the system cannot take
+// and says why.
+func (c *sleepAction) write(v any) error {
+	action, _ := v.(string)
+	c.refused = ""
+	if !c.usable(action) {
+		c.refused = action
+		c.refresh()
+		return errSleepRefused
+	}
+	err := c.slot.set(v)
+	c.refresh()
+	return err
+}
 
-func (c *sleepActionSelect) refresh() {
+func (c *sleepAction) label(v string) string { return c.labels[slices.Index(c.variants, v)] }
+
+func (c *sleepAction) refresh() {
 	t := locale.T()
 	current, _ := c.slot.get().(string)
-	shown := make([]string, len(c.variants))
-	at := -1
-	for i, v := range c.variants {
-		shown[i] = c.labels[i]
-		if !c.usable(v) {
-			shown[i] = t.Get("settings-sleep-unavailable", i18n.Str("action", c.labels[i]))
-		}
-		if v == current {
-			at = i
-		}
+	c.pick.refresh()
+	known := slices.Contains(c.variants, current)
+	c.detail.SetVisible(known)
+	if known {
+		c.detail.SetText(c.describe(current))
 	}
-	c.syncing = true
-	c.dropdown.SetItems(shown, at)
-	c.syncing = false
-	c.detail.SetText(c.describe(current))
 	problem := ""
 	switch {
 	case c.unknown != nil:
 		problem = t.Get("settings-sleep-unknown", i18n.Str("reason", c.unknown.Error()))
 	case c.refused != "":
 		problem = t.Get(sleepRefusals[c.can[c.refused]], i18n.Str("action", c.label(c.refused)))
-	case !c.usable(current):
+	case known && !c.usable(current):
 		problem = t.Get(sleepRefusals[c.can[current]], i18n.Str("action", c.label(current)))
 	}
 	c.problem.SetText(problem)
 	c.problem.SetVisible(problem != "")
 }
 
-func (c *sleepActionSelect) describe(v string) string {
+func (c *sleepAction) describe(v string) string {
 	t := locale.T()
 	if v != string(config.SleepActionAuto) {
 		return t.Get("settings-sleep-detail-" + v)

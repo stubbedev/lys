@@ -137,7 +137,7 @@ type columnPresets struct {
 	cards   *widget.FlowBox
 	problem *widget.Label
 	adder   *widget.Box
-	unit    *widget.ToggleGroup
+	unit    *choicePick
 	amount  *widget.SpinButton
 	add     *widget.Button
 	widths  []columnWidth
@@ -155,11 +155,9 @@ func newColumnPresets(k *kit, s slot) *columnPresets {
 	c.AddClass("column-presets")
 	c.cards = widget.NewWrapBox(choiceCardGap, choiceCardGap, widget.JustifyStart)
 	c.problem = wrapped(k.label("", "error", css.Caption))
-	c.unit = widget.NewToggleGroup()
-	c.unit.Append(k.label(t.Get("wm-scroll-presets-share")))
-	c.unit.Append(k.label(t.Get("wm-scroll-presets-pixels")))
+	c.unit = newChoicePick(k, []string{t.Get("wm-scroll-presets-share"), t.Get("wm-scroll-presets-pixels")}, presetUnitShare)
 	c.amount = widget.NewSpinButton(k.face, k.textPx(), 0, 1, percentPerShare, 1, 0)
-	c.unit.OnChanged = func(int) { c.unitChanged() }
+	c.unit.OnSelect = func(int) { c.unitChanged() }
 	c.amount.OnValueChanged = func(float64) { c.showAddable() }
 	c.add = k.addButton("wm-scroll-presets-add", c.addWidth)
 	c.adder = gapBox(widget.Row)
@@ -221,7 +219,7 @@ func (c *columnPresets) write(widths []columnWidth) {
 }
 
 func (c *columnPresets) clearAdder() {
-	c.unit.SetActive(presetUnitShare)
+	c.unit.show(presetUnitShare)
 	c.unitChanged()
 }
 
@@ -234,14 +232,14 @@ func (c *columnPresets) remove(i int) {
 
 func (c *columnPresets) typed() columnWidth {
 	n := int64(math.Round(c.amount.Value()))
-	if c.unit.Active() == presetUnitPixels {
+	if c.unit.Selected() == presetUnitPixels {
 		return pixelWidth(n)
 	}
 	return shareWidth(float64(n) / percentPerShare)
 }
 
 func (c *columnPresets) unitChanged() {
-	if c.unit.Active() == presetUnitPixels {
+	if c.unit.Selected() == presetUnitPixels {
 		c.amount.SetRange(1, maxPixels)
 		c.amount.SetValue(presetScreenPx / 2)
 	} else {

@@ -175,25 +175,26 @@ func TestToggleWritesAndPersistsAndRefreshesSilently(t *testing.T) {
 func TestEnumSelectLabelsAndWrites(t *testing.T) {
 	k := testKit(t, "")
 	meta, _ := config.Field("osd.position")
-	c := newEnumSelect(k, pathSlot(k.store, "osd.position"), meta)
-	if got, want := c.Selection(), locale.T().Get("enum-screen-position-bottom-center"); got != want {
+	c := newChoiceControl(k, pathSlot(k.store, "osd.position"), enumChoice(meta))
+	selection := func(c *choiceControl) string { return c.pick.Items()[c.pick.Selected()] }
+	if got, want := selection(c), locale.T().Get("enum-screen-position-bottom-center"); got != want {
 		t.Errorf("selection %q, want the default's label %q", got, want)
 	}
-	c.SetSelected(0)
+	pickChoice(c.pick, 0)
 	if v := k.store.value("osd.position"); v != "top-left" {
 		t.Errorf("value = %v, want top-left", v)
 	}
 	// An enum without labels shows its raw values.
 	vpn, _ := config.Field("modules.network.vpn-show")
-	raw := newEnumSelect(k, pathSlot(k.store, "modules.network.vpn-show"), vpn)
-	if raw.Selection() != "auto" {
-		t.Errorf("unlabeled selection %q, want the raw value", raw.Selection())
+	raw := newChoiceControl(k, pathSlot(k.store, "modules.network.vpn-show"), enumChoice(vpn))
+	if selection(raw) != "auto" {
+		t.Errorf("unlabeled selection %q, want the raw value", selection(raw))
 	}
 	// A refresh does not write.
 	k.store.reset("osd.position")
 	c.refresh()
-	if k.store.svc.Source("osd.position") != config.SourceDefault || c.Selected() != 4 {
-		t.Errorf("refresh: source %v selected %d", k.store.svc.Source("osd.position"), c.Selected())
+	if k.store.svc.Source("osd.position") != config.SourceDefault || c.pick.Selected() != 4 {
+		t.Errorf("refresh: source %v selected %d", k.store.svc.Source("osd.position"), c.pick.Selected())
 	}
 }
 
@@ -547,22 +548,22 @@ func TestValueStructFields(t *testing.T) {
 func TestOptionalEnumInheritsOrPicks(t *testing.T) {
 	k := testKit(t, "")
 	meta, _ := config.Field("animations.enter")
-	c := newOptionalEnum(k, pathSlot(k.store, "animations.enter"), meta)
-	if c.Selected() != 0 || c.Selection() != locale.T().Get("settings-inherit") {
-		t.Fatalf("unset shows %q", c.Selection())
+	c := newChoiceControl(k, pathSlot(k.store, "animations.enter"), enumChoice(meta))
+	if c.pick.Selected() != 0 || c.pick.Items()[0] != locale.T().Get("settings-inherit") {
+		t.Fatalf("unset shows %q", c.pick.Items()[c.pick.Selected()])
 	}
-	c.SetSelected(2)
+	pickChoice(c.pick, 2)
 	if v := k.store.value("animations.enter"); v != meta.Variants[1] {
 		t.Errorf("picked %v, want %s", v, meta.Variants[1])
 	}
-	c.SetSelected(0)
+	pickChoice(c.pick, 0)
 	if k.store.svc.Source("animations.enter") != config.SourceDefault {
 		t.Error("inherit kept the override")
 	}
 	_ = k.store.set("animations.enter", meta.Variants[3])
 	c.refresh()
-	if c.Selected() != 4 {
-		t.Errorf("refresh selected %d, want the set variant (4)", c.Selected())
+	if c.pick.Selected() != 4 {
+		t.Errorf("refresh selected %d, want the set variant (4)", c.pick.Selected())
 	}
 }
 
@@ -632,11 +633,11 @@ func TestSizeEditorModes(t *testing.T) {
 	if c.mode.Selected() != sizeScale || c.spin.Value() != 1 {
 		t.Fatalf("default margin shows mode %d value %v, want scale 1", c.mode.Selected(), c.spin.Value())
 	}
-	c.mode.SetSelected(sizePx)
+	pickChoice(c.mode, sizePx)
 	if v := k.store.value("osd.margin"); v != "150px" || c.spin.Value() != 150 {
 		t.Errorf("to px wrote %v (spin %v), want the base's 150px", v, c.spin.Value())
 	}
-	c.mode.SetSelected(sizeScale)
+	pickChoice(c.mode, sizeScale)
 	if v := k.store.value("osd.margin"); v != float64(1) {
 		t.Errorf("back to scale wrote %#v, want 1", v)
 	}
@@ -1032,16 +1033,16 @@ func TestActionEditor(t *testing.T) {
 	choices := actionChoices("audio")
 	_ = k.store.set(path, "")
 	c := newActionEditor(k, pathSlot(k.store, path), choices)
-	if c.pick.drop.Selected() != c.noneIndex() || c.entry.Visible() {
-		t.Fatalf("an empty action shows %d (entry %v), want None", c.pick.drop.Selected(), c.entry.Visible())
+	if c.pick.pick.Selected() != c.noneIndex() || c.entry.Visible() {
+		t.Fatalf("an empty action shows %d (entry %v), want None", c.pick.pick.Selected(), c.entry.Visible())
 	}
-	c.pick.drop.SetSelected(1)
+	pickChoice(c.pick.pick, 1)
 	if v := k.store.value(path); v != choices[1].command {
 		t.Errorf("preset wrote %v", v)
 	}
 	// Custom: the entry shows, nothing is written until typed, then
 	// every edit writes.
-	c.pick.drop.SetSelected(c.customIndex())
+	pickChoice(c.pick.pick, c.customIndex())
 	if !c.entry.Visible() || k.store.value(path) != choices[1].command {
 		t.Fatalf("custom: entry %v, value %v", c.entry.Visible(), k.store.value(path))
 	}
@@ -1050,14 +1051,14 @@ func TestActionEditor(t *testing.T) {
 		t.Errorf("typed custom wrote %v", v)
 	}
 	c.refresh()
-	if c.pick.drop.Selected() != c.customIndex() || c.entry.Text() != "notify-send hi" {
+	if c.pick.pick.Selected() != c.customIndex() || c.entry.Text() != "notify-send hi" {
 		t.Error("a custom command does not refresh as custom")
 	}
 	// A refresh to a preset leaves custom mode; typing then writes nothing.
 	_ = k.store.set(path, choices[0].command)
 	c.refresh()
-	if c.pick.drop.Selected() != 0 || c.entry.Visible() || c.custom {
-		t.Errorf("refresh to a preset shows %d (entry %v)", c.pick.drop.Selected(), c.entry.Visible())
+	if c.pick.pick.Selected() != 0 || c.entry.Visible() || c.custom {
+		t.Errorf("refresh to a preset shows %d (entry %v)", c.pick.pick.Selected(), c.entry.Visible())
 	}
 	c.entry.Insert("x")
 	if v := k.store.value(path); v != choices[0].command {
@@ -1065,10 +1066,10 @@ func TestActionEditor(t *testing.T) {
 	}
 	// An unknown command opens as custom.
 	_ = k.store.set(path, "my-script")
-	if d := newActionEditor(k, pathSlot(k.store, path), choices); d.pick.drop.Selected() != d.customIndex() || d.entry.Text() != "my-script" {
-		t.Errorf("an unknown command opens at %d with %q", d.pick.drop.Selected(), d.entry.Text())
+	if d := newActionEditor(k, pathSlot(k.store, path), choices); d.pick.pick.Selected() != d.customIndex() || d.entry.Text() != "my-script" {
+		t.Errorf("an unknown command opens at %d with %q", d.pick.pick.Selected(), d.entry.Text())
 	}
-	c.pick.drop.SetSelected(c.noneIndex())
+	pickChoice(c.pick.pick, c.noneIndex())
 	if v := k.store.value(path); v != "" {
 		t.Errorf("None wrote %v", v)
 	}
@@ -1271,16 +1272,16 @@ func TestOptionalSize(t *testing.T) {
 	if !c.spin.Empty() || k.store.value(path) != nil {
 		t.Fatal("an unset width does not read as inherited")
 	}
-	c.mode.SetSelected(sizePx)
+	pickChoice(c.mode, sizePx)
 	if k.store.value(path) != nil || !c.spin.Empty() {
 		t.Fatal("switching the mode of an inherited width wrote one")
 	}
-	c.mode.SetSelected(sizeScale)
+	pickChoice(c.mode, sizeScale)
 	c.spin.KeyAction(widget.KeyUp, 0)
 	if v, ok := k.store.value(path).(float64); !ok || math.Abs(v-1.05) > 1e-6 {
 		t.Errorf("a step from inherited wrote %#v, want one step past a scale of 1", v)
 	}
-	c.mode.SetSelected(sizePx)
+	pickChoice(c.mode, sizePx)
 	if v := k.store.value(path); v != "17px" {
 		t.Errorf("px mode wrote %#v, want 17px (1.05 at the 1rem base)", v)
 	}
@@ -1631,10 +1632,10 @@ func TestActionCustomEntryCollapsesWhileHidden(t *testing.T) {
 	c := newActionEditor(k, pathSlot(k.store, "modules.battery.left-click"), actionChoices("battery"))
 	con := widget.Size{W: 400, H: 400}
 	hidden := widget.SizeWithin(c, con).H
-	c.pick.drop.SetSelected(c.customIndex())
+	pickChoice(c.pick.pick, c.customIndex())
 	c.InvalidateLayout()
 	shown := widget.SizeWithin(c, con).H
-	if shown <= hidden || hidden > widget.SizeWithin(c.pick.drop, con).H+8 {
+	if shown <= hidden || hidden > widget.SizeWithin(c.pick.pick, con).H+8 {
 		t.Errorf("heights hidden %d shown %d: the hidden entry should take no space", hidden, shown)
 	}
 }
@@ -1660,19 +1661,21 @@ func TestDeviceSelect(t *testing.T) {
 	cameraChoices = func() []devicechoice.DeviceChoice {
 		return []devicechoice.DeviceChoice{{ID: "", Label: "Automatic"}, {ID: "/dev/video0", Label: "Integrated"}}
 	}
-	cam := fieldControl(k, k.store, field("modules.recorder.webcam-device", webcamDevice)).(*deviceSelect)
-	// The saved camera is gone: it stays listed, under its path, selected.
-	if cam.Selection() != "/dev/video9" || len(cam.choices) != 3 {
-		t.Errorf("selection %q of %v, want the saved node kept", cam.Selection(), cam.choices)
+	selection := func(c *choiceControl) string { return c.pick.Items()[c.pick.Selected()] }
+	kept := func(v string) string { return locale.T().Get("settings-choice-kept", i18n.Str("value", v)) }
+	cam := fieldControl(k, k.store, field("modules.recorder.webcam-device", webcamDevice)).(*choiceControl)
+	// The saved camera is gone: it stays listed, kept, selected and marked.
+	if selection(cam) != kept("/dev/video9") || len(cam.pick.Items()) != 3 || !cam.unknown.Visible() || cam.pick.drop == nil {
+		t.Errorf("selection %q of %q, want the saved node kept in a dropdown", selection(cam), cam.pick.Items())
 	}
-	cam.SetSelected(1)
+	pickChoice(cam.pick, 2)
 	if v := k.store.value("modules.recorder.webcam-device"); v != "/dev/video0" {
 		t.Errorf("picking stored %v", v)
 	}
 	k.store.dropOverride("modules.recorder.webcam-device") // back to the config's /dev/video9
 	cam.refresh()
-	if cam.Selected() != 2 || k.store.svc.Source("modules.recorder.webcam-device") == config.SourceRuntime {
-		t.Errorf("refresh selected %d, source %v: it must not write", cam.Selected(), k.store.svc.Source("modules.recorder.webcam-device"))
+	if cam.pick.Selected() != 0 || k.store.svc.Source("modules.recorder.webcam-device") == config.SourceRuntime {
+		t.Errorf("refresh selected %d, source %v: it must not write", cam.pick.Selected(), k.store.svc.Source("modules.recorder.webcam-device"))
 	}
 
 	// The microphones arrive after the editor is built; the saved one
@@ -1684,17 +1687,17 @@ func TestDeviceSelect(t *testing.T) {
 	microphoneChoices = func() []devicechoice.DeviceChoice {
 		return devicechoice.MicrophoneChoices([]devicechoice.Source{{Name: "mic", Description: "Microphone"}, {Name: "usb", Description: "USB"}})
 	}
-	mic := fieldControl(k, k.store, field("modules.recorder.microphone-device", microphoneDevice)).(*levelledDevice).pick.(*deviceSelect)
-	if mic.Selection() != "usb" || deliver == nil {
-		t.Fatalf("before the query: %q (query pending %v), want the saved id kept", mic.Selection(), deliver != nil)
+	mic := fieldControl(k, k.store, field("modules.recorder.microphone-device", microphoneDevice)).(*levelledDevice).pick.(*choiceControl)
+	if selection(mic) != kept("usb") || deliver == nil {
+		t.Fatalf("before the query: %q (query pending %v), want the saved id kept", selection(mic), deliver != nil)
 	}
 	deliver()
-	if mic.Selection() != "usb" || onLoop == nil {
+	if selection(mic) != kept("usb") || onLoop == nil {
 		t.Fatal("the result was applied off the loop")
 	}
 	onLoop()
-	if mic.Selection() != "USB" || len(mic.choices) != 3 {
-		t.Errorf("after the query: %q of %v", mic.Selection(), mic.choices)
+	if selection(mic) != "USB" || len(mic.pick.Items()) != 3 || mic.unknown.Visible() {
+		t.Errorf("after the query: %q of %q", selection(mic), mic.pick.Items())
 	}
 	if k.store.value("modules.recorder.microphone-device") != "usb" {
 		t.Error("the arrival rewrote the device")
@@ -1757,8 +1760,8 @@ func TestMailAccountCards(t *testing.T) {
 	if _, has := m["icon"]; has {
 		t.Errorf("an empty icon was stored: %v", m)
 	}
-	provider := c.cards[0].controls[1].(*enumSelect)
-	provider.SetSelected(slices.Index(provider.variants, "fastmail"))
+	provider := c.cards[0].controls[1].(*choiceControl)
+	pickChoice(provider.pick, slices.Index(shownValues(provider), "fastmail"))
 	q := c.cards[0].controls[0].(*mailQueryEditor)
 	q.terms = append(q.terms, queryTerm{field: "tag", value: "inbox"})
 	q.write()
@@ -1871,7 +1874,7 @@ func storedLayouts(k *kit) []config.BarLayout { return k.store.svc.Config().Bar.
 func TestALayoutForADisplayNotConnectedSaysSoAndKeepsIt(t *testing.T) {
 	k := testKit(t, "bar:\n  layout:\n    - {monitor: DP-9, extends: HDMI-7, show: true}\n")
 	c := fieldControl(k, k.store, field("bar.layout", layoutRow)).(*layoutEditor)
-	monitor, extends := c.header.Children()[1].(*widget.Dropdown), c.header.Children()[3].(*widget.Dropdown)
+	monitor, extends := c.header.Children()[1].(*choicePick), c.header.Children()[3].(*choicePick)
 	tr := locale.T()
 	if got, want := monitor.Items()[monitor.Selected()], tr.Get("settings-layout-monitor-away", i18n.Str("name", "DP-9")); got != want {
 		t.Errorf("the display reads %q, want %q", got, want)
@@ -1893,7 +1896,7 @@ func TestLayoutEditorTabs(t *testing.T) {
 		c.tabs.SetActive(i)
 		return c.header
 	}
-	monitor := header(0).Children()[1].(*widget.Dropdown)
+	monitor := header(0).Children()[1].(*choicePick)
 	if got := monitor.Items(); !slices.Equal(got, []string{locale.T().Get("settings-monitors-all"), "DP-1", "HDMI-A-1"}) {
 		t.Fatalf("the display choices are %v", got)
 	}
@@ -1927,7 +1930,7 @@ func TestLayoutEditorTabs(t *testing.T) {
 	if len(treetest.All[*widget.Bar](c.preview)) != 1 {
 		t.Error("the new display's shown layout previews no bar")
 	}
-	extends := header(1).Children()[3].(*widget.Dropdown)
+	extends := header(1).Children()[3].(*choicePick)
 	if got := extends.Items(); !slices.Equal(got, []string{locale.T().Get("settings-layout-extends-none"), "DP-1"}) {
 		t.Fatalf("the second layout can start from %v", got)
 	}
@@ -1935,7 +1938,7 @@ func TestLayoutEditorTabs(t *testing.T) {
 	if l := storedLayouts(k)[1]; l.Extends == nil || *l.Extends != "DP-1" {
 		t.Errorf("starting from DP-1 stored %+v", l)
 	}
-	header(1).Children()[3].(*widget.Dropdown).OnSelect(0)
+	header(1).Children()[3].(*choicePick).OnSelect(0)
 	if storedLayouts(k)[1].Extends != nil {
 		t.Error("starting from nothing left extends set")
 	}

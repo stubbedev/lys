@@ -233,14 +233,6 @@ func argLabel(key string) string {
 	return enumLabels(argMeta([]string{key}))[0]
 }
 
-func (e *wmActionEditor) choiceControl(variants []string, s slot) control {
-	meta := argMeta(variants)
-	if fitsSegments(enumLabels(meta)) {
-		return newSegmentedEnum(e.k, s, meta)
-	}
-	return newEnumSelect(e.k, s, meta)
-}
-
 func (e *wmActionEditor) buildSlot(i int, s argSlot) {
 	if lits, ok := s.literals(); ok && s.optional && len(lits) == 1 {
 		on := slot{
@@ -279,7 +271,7 @@ func (e *wmActionEditor) buildSlot(i int, s argSlot) {
 	}
 	var controls []control
 	if len(keys) > 1 {
-		controls = append(controls, e.choiceControl(keys, pick))
+		controls = append(controls, enumEditor(e.k, pick, argMeta(keys)))
 	}
 	if alt := e.values[i].alt; alt >= 0 {
 		for j, w := range s.alts[alt] {

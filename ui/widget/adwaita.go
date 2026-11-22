@@ -326,6 +326,7 @@ func controlRules() [][2]string {
 		{"command .item:selected", "background-color: @muted_bg_color;"},
 		{"command .item:disabled", "color: @muted_fg_color;"},
 		{"command .shortcut", "color: @muted_fg_color; letter-spacing: 1px;"},
+		{"command .detail", "color: @muted_fg_color;"},
 		{"command .separator", "margin: 4px 0px;"},
 		{"command .empty", "padding: 24px 0px; color: @muted_fg_color;"},
 		{"combobox > button." + css.Outline + ", datepicker > button." + css.Outline, "padding: 0px 12px;"},

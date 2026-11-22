@@ -195,8 +195,7 @@ var percentSizeLabels = [2]string{"wm-size-width", "wm-size-height"}
 func newPercentSizeEditor(k *kit, s slot, _ []string) control {
 	t := locale.T()
 	c := &percentSizeEditor{Box: gapBox(widget.Row), slot: s}
-	c.unknown = k.badge(t.Get("settings-choice-unknown"), "warning")
-	c.unknown.SetTooltip(t.Attr("settings-choice-unknown", "description"))
+	c.unknown = k.unknownBadge()
 	c.AppendAligned(c.unknown, false, widget.AlignCenter)
 	for i := range c.sides {
 		sb := widget.NewSpinButton(k.face, k.textPx(), 0, 1, 100, 1, 0)

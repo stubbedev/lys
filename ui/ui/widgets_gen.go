@@ -2680,6 +2680,18 @@ func (b *ComboboxBuilder[T]) WatchMultiple(get func() bool) *ComboboxBuilder[T] 
 	return b
 }
 
+// SearchPlaceholder calls (*widget.Combobox).SetSearchPlaceholder.
+func (b *ComboboxBuilder[T]) SearchPlaceholder(text string) *ComboboxBuilder[T] {
+	b.do(func(s *Scope, w *widget.Combobox[T]) { w.SetSearchPlaceholder(text) })
+	return b
+}
+
+// WatchSearchPlaceholder re-applies SetSearchPlaceholder with get's value after every update.
+func (b *ComboboxBuilder[T]) WatchSearchPlaceholder(get func() string) *ComboboxBuilder[T] {
+	b.watch(func(w *widget.Combobox[T]) { w.SetSearchPlaceholder(get()) })
+	return b
+}
+
 // Selected calls (*widget.Combobox).SetSelected.
 func (b *ComboboxBuilder[T]) Selected(values ...T) *ComboboxBuilder[T] {
 	b.do(func(s *Scope, w *widget.Combobox[T]) { w.SetSelected(values...) })
@@ -2689,6 +2701,70 @@ func (b *ComboboxBuilder[T]) Selected(values ...T) *ComboboxBuilder[T] {
 // OnChanged sets the widget's OnChanged field.
 func (b *ComboboxBuilder[T]) OnChanged(fn func(selected []T)) *ComboboxBuilder[T] {
 	b.do(func(_ *Scope, w *widget.Combobox[T]) { w.OnChanged = fn })
+	return b
+}
+
+// ComboboxEntryBuilder builds a widget.ComboboxEntry.
+type ComboboxEntryBuilder struct {
+	base[*widget.ComboboxEntry, *ComboboxEntryBuilder]
+	face render.Font
+	size float64
+}
+
+// ComboboxEntry builds a widget.ComboboxEntry with widget.NewComboboxEntry.
+func ComboboxEntry(options ...widget.ComboboxOption[string]) *ComboboxEntryBuilder {
+	b := &ComboboxEntryBuilder{}
+	b.init(b, func(s *Scope) *widget.ComboboxEntry {
+		return widget.NewComboboxEntry(s.face(b.face), s.size(b.size), options...)
+	})
+	return b
+}
+
+// Font overrides the environment's typeface and size for this widget; zero values keep the environment's.
+func (b *ComboboxEntryBuilder) Font(face render.Font, sizePx float64) *ComboboxEntryBuilder {
+	b.face, b.size = face, sizePx
+	return b
+}
+
+// Action calls (*widget.ComboboxEntry).SetAction.
+func (b *ComboboxEntryBuilder) Action(child Node) *ComboboxEntryBuilder {
+	b.do(func(s *Scope, w *widget.ComboboxEntry) { w.SetAction(build(s, child)) })
+	return b
+}
+
+// Empty calls (*widget.ComboboxEntry).SetEmpty.
+func (b *ComboboxEntryBuilder) Empty(label string) *ComboboxEntryBuilder {
+	b.do(func(s *Scope, w *widget.ComboboxEntry) { w.SetEmpty(label) })
+	return b
+}
+
+// WatchEmpty re-applies SetEmpty with get's value after every update.
+func (b *ComboboxEntryBuilder) WatchEmpty(get func() string) *ComboboxEntryBuilder {
+	b.watch(func(w *widget.ComboboxEntry) { w.SetEmpty(get()) })
+	return b
+}
+
+// Options calls (*widget.ComboboxEntry).SetOptions.
+func (b *ComboboxEntryBuilder) Options(options ...widget.ComboboxOption[string]) *ComboboxEntryBuilder {
+	b.do(func(s *Scope, w *widget.ComboboxEntry) { w.SetOptions(options...) })
+	return b
+}
+
+// SearchPlaceholder calls (*widget.ComboboxEntry).SetSearchPlaceholder.
+func (b *ComboboxEntryBuilder) SearchPlaceholder(text string) *ComboboxEntryBuilder {
+	b.do(func(s *Scope, w *widget.ComboboxEntry) { w.SetSearchPlaceholder(text) })
+	return b
+}
+
+// WatchSearchPlaceholder re-applies SetSearchPlaceholder with get's value after every update.
+func (b *ComboboxEntryBuilder) WatchSearchPlaceholder(get func() string) *ComboboxEntryBuilder {
+	b.watch(func(w *widget.ComboboxEntry) { w.SetSearchPlaceholder(get()) })
+	return b
+}
+
+// OnPick sets the widget's OnPick field.
+func (b *ComboboxEntryBuilder) OnPick(fn func(value string)) *ComboboxEntryBuilder {
+	b.do(func(_ *Scope, w *widget.ComboboxEntry) { w.OnPick = fn })
 	return b
 }
 

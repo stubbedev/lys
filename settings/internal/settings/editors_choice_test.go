@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
@@ -134,15 +135,47 @@ func shellControl(t *testing.T, k *kit, path string, opts ...rowOpt) control {
 	return fieldControl(k, k.store, field(path, opts...))
 }
 
-func openChoices(t *testing.T, k *kit, c *choiceEditor) *searchPicker {
+// openedChoices is a choice editor's opened list: the values it offers, in
+// order, and its Command.
+type openedChoices struct {
+	all []string
+	cmd *widget.Command
+	c   *choiceEditor
+}
+
+func openChoices(t *testing.T, k *kit, c *choiceEditor) *openedChoices {
 	t.Helper()
-	f := &fakePickers{}
-	k.pickers = f
-	c.open.ClickAt(widget.Point{})
-	if c.picker == nil || f.content != widget.Widget(c.picker.root) || f.anchor != widget.Widget(c.open) {
-		t.Fatal("the list did not open beside its button")
+	root := widget.Widget(c.combo)
+	for root.(interface{ Parent() widget.Widget }).Parent() != nil {
+		root = root.(interface{ Parent() widget.Widget }).Parent()
 	}
-	return c.picker
+	h := &popoverHost{}
+	widget.SetSurfaceHost(root, h)
+	c.combo.Open()
+	if len(h.opened) != 1 || !c.combo.Opened() {
+		t.Fatal("the list did not open")
+	}
+	l := &openedChoices{cmd: treetest.First[*widget.Command](t, h.opened[0]), c: c}
+	for _, o := range c.combo.Options() {
+		l.all = append(l.all, o.Value)
+	}
+	return l
+}
+
+// pick searches the list for the option holding value and picks it.
+func (l *openedChoices) pick(t *testing.T, value string) {
+	t.Helper()
+	at := slices.Index(l.all, value)
+	if at < 0 {
+		t.Fatalf("%q is not offered: %q", value, l.all)
+	}
+	label := l.c.combo.Options()[at].Label
+	l.cmd.SetQuery(label)
+	it, ok := l.cmd.Highlighted()
+	if !ok || it.Label != label {
+		t.Fatalf("searching %q highlights %q", label, it.Label)
+	}
+	it.OnSelect()
 }
 
 func pickName(t *testing.T, p *searchPicker, name string) {
@@ -161,7 +194,7 @@ func TestAListedValueIsOfferedAndPickingItWritesExactlyIt(t *testing.T) {
 	if !slices.Equal(p.all, []string{"", "Adwaita", "Papirus"}) {
 		t.Fatalf("offered %q", p.all)
 	}
-	pickName(t, p, "Papirus")
+	p.pick(t, "Papirus")
 	if v := k.store.value("launcher.icon-theme"); v != "Papirus" {
 		t.Fatalf("%v", v)
 	}
@@ -169,7 +202,7 @@ func TestAListedValueIsOfferedAndPickingItWritesExactlyIt(t *testing.T) {
 		t.Fatalf("shows %q, unknown %v", c.entry.Text(), c.unknown.Visible())
 	}
 	p = openChoices(t, k, c)
-	pickName(t, p, "")
+	p.pick(t, "")
 	if v := k.store.value("launcher.icon-theme"); v != "" {
 		t.Fatalf("the default entry wrote %v", v)
 	}
@@ -221,7 +254,7 @@ func TestAnEmptyListStillKeepsTypesAndClears(t *testing.T) {
 		t.Fatal("a value no list holds is not marked")
 	}
 	p = openChoices(t, k, c)
-	pickName(t, p, "")
+	p.pick(t, "")
 	if v := k.store.value("launcher.icon-theme"); v != "" || c.unknown.Visible() {
 		t.Fatalf("clearing wrote %v, unknown %v", v, c.unknown.Visible())
 	}
@@ -291,10 +324,10 @@ func TestTheLauncherCommandsOfferWhatIsInstalledForThem(t *testing.T) {
 		if slices.Contains(p.all, "xdg-open") || slices.Contains(p.all, "foot") {
 			t.Errorf("%s offers programs that are not for it: %q", path, p.all)
 		}
-		if c.browse == nil {
+		if c.combo.Action() == nil {
 			t.Errorf("%s does not offer to run an installed app", path)
 		}
-		pickName(t, p, want[0])
+		p.pick(t, want[0])
 		if v := k.store.value(path); v != want[0] {
 			t.Errorf("%s stored %v", path, v)
 		}
@@ -312,7 +345,7 @@ func TestACommandOffersPresetsAndAcceptsAnyCommand(t *testing.T) {
 	if slices.Contains(p.all, "systemctl reboot") {
 		t.Fatalf("a suspend command offers a reboot: %q", p.all)
 	}
-	pickName(t, p, "systemctl suspend")
+	p.pick(t, "systemctl suspend")
 	if v := k.store.value(path); v != "systemctl suspend" {
 		t.Fatalf("%v", v)
 	}
@@ -340,7 +373,7 @@ func TestTheBitwardenServerOffersTheHostedRegions(t *testing.T) {
 	if !slices.Equal(p.all, bitwardenServers) {
 		t.Fatalf("offered %q", p.all)
 	}
-	pickName(t, p, "bitwarden.eu")
+	p.pick(t, "bitwarden.eu")
 	if v := k.store.value("modules.bitwarden.server"); v != "bitwarden.eu" {
 		t.Fatalf("%v", v)
 	}
@@ -559,5 +592,35 @@ func TestVariantsFollowTheChosenLayouts(t *testing.T) {
 	known := variantsListed(layouts)
 	if !known(",nodeadkeys", items) || known("nodeadkeys", items) || known(",,intl", items) {
 		t.Fatal("known")
+	}
+}
+
+// Keyboard options, GPU and Replay Output are each one combobox: one
+// focus stop, its chevron inside the field, no button beside it.
+func TestAChoiceOfTextIsOneCombobox(t *testing.T) {
+	k, w, _, _ := wmKit(t, "")
+	for path, ctl := range map[string]control{
+		"input.keyboard.options":         fieldControl(k, w, wmField("input.keyboard.options")),
+		"gpu":                            fieldControl(k, w, wmField("gpu")),
+		"modules.recorder.replay.output": fieldControl(k, k.store, pageRow(t, "recorder", "modules.recorder.replay.output")),
+	} {
+		c, ok := ctl.(*choiceEditor)
+		if !ok {
+			t.Errorf("%s takes %T, want a choice of text", path, ctl)
+			continue
+		}
+		focusable, buttons := 0, 0
+		treetest.Walk(c, func(x widget.Widget) {
+			if widget.Describe(x).Focusable {
+				focusable++
+			}
+			if _, ok := x.(*widget.Button); ok {
+				buttons++
+			}
+		})
+		combos := treetest.All[*widget.ComboboxEntry](c)
+		if focusable != 1 || buttons != 0 || len(combos) != 1 || widget.RoleOf(combos[0]) != widget.RoleComboBox {
+			t.Errorf("%s: %d focus stops, %d buttons, %d comboboxes; want one combobox and nothing beside it", path, focusable, buttons, len(combos))
+		}
 	}
 }

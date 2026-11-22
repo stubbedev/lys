@@ -65,7 +65,7 @@ type userSheet struct {
 	passwordPair
 	user     otherUser
 	full     *widget.Entry
-	kinds    *widget.ToggleGroup
+	kinds    *choicePick
 	messages formNote
 	busy     bool
 }

@@ -125,7 +125,7 @@ func fill(f *addUserForm, full, login, pw, confirm string) {
 
 func TestAddingAUserCreatesItAndSetsAHashOfItsPassword(t *testing.T) {
 	p, l, pickers, f, manager, created := addUserDialog(t, "", "")
-	f.kinds.SetActive(1)
+	pickChoice(f.kinds, 1)
 	fill(f, "Zoë Smith", "", "correct-Horse-9", "correct-Horse-9")
 	if f.login.Text() != "zoesmith" {
 		t.Fatalf("the login name reads %q", f.login.Text())

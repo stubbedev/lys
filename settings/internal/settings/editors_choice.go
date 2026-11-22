@@ -217,18 +217,21 @@ type choiceSpec struct {
 	optional bool
 }
 
+// choiceEditor is a text field offering choices: lys-ui's combobox
+// entry, whose text is the value, typed, or picked from the searchable
+// list its chevron opens, the special values first. A value no list
+// holds is offered under its own heading and marked by the unknown badge
+// beside the field, unless the field is free text.
 type choiceEditor struct {
 	*widget.Box
 	k       *kit
 	slot    slot
 	spec    choiceSpec
+	combo   *widget.ComboboxEntry
 	entry   *text
-	open    *widget.Button
-	browse  *widget.Button
 	unknown *widget.Badge
 	items   []choice
 	listed  bool
-	picker  *searchPicker
 }
 
 func specialLabel(v string) string {
@@ -245,27 +248,27 @@ func specialLabel(v string) string {
 }
 
 func newChoiceEditor(k *kit, s slot, spec choiceSpec) *choiceEditor {
-	t := locale.T()
-	c := &choiceEditor{Box: gapBox(widget.Row), k: k, slot: s, spec: spec, entry: newText(k, s, spec.optional)}
-	if slices.Contains(spec.special, "") || spec.optional {
+	c := &choiceEditor{Box: gapBox(widget.Row), k: k, slot: s, spec: spec, combo: widget.NewComboboxEntry(k.face, k.textPx()), unknown: k.unknownBadge()}
+	c.combo.Entry().SetTextWidth(widget.GTKTextWidth)
+	c.combo.SetSearchPlaceholder(locale.T().Get("settings-choice-search"))
+	c.combo.OnPick = c.pick
+	c.entry = bindText(k, c.combo.Entry(), s, spec.optional)
+	switch {
+	case slices.Contains(spec.special, ""):
+		c.combo.SetEmpty(specialLabel(""))
+	case spec.optional:
 		c.entry.SetPlaceholder(specialLabel(""))
 	}
-	c.unknown = k.badge(t.Get("settings-choice-unknown"), "warning")
-	c.unknown.SetTooltip(t.Attr("settings-choice-unknown", "description"))
-	c.unknown.SetVisible(false)
-	c.open = k.pickerIconButton("ld-chevron-down-symbolic", "settings-choice-open", c.show)
 	committed := c.entry.OnActivate
 	c.entry.OnActivate = func(text string) {
 		committed(text)
 		c.refreshUnknown()
 	}
-	c.AppendAligned(c.unknown, false, widget.AlignCenter)
-	c.AppendAligned(c.entry, false, widget.AlignCenter)
-	c.AppendAligned(c.open, false, widget.AlignCenter)
 	if spec.browse != nil {
-		c.browse = spec.browse(k, c.pick)
-		c.AppendAligned(c.browse, false, widget.AlignCenter)
+		c.combo.SetAction(spec.browse(k, c.pick))
 	}
+	c.AppendAligned(c.unknown, false, widget.AlignCenter)
+	c.AppendAligned(c.combo, false, widget.AlignCenter)
 	c.refresh()
 	async(k, spec.list, c.setItems)
 	return c
@@ -297,23 +300,39 @@ func hasValue(items []choice, v string) bool {
 	return slices.ContainsFunc(items, func(it choice) bool { return it.value == v })
 }
 
+// refreshUnknown marks a value no list holds and offers the choices
+// the value calls for.
 func (c *choiceEditor) refreshUnknown() {
-	c.unknown.SetVisible(c.listed && !c.isKnown(c.slot.text()))
+	current := c.slot.text()
+	unknown := c.listed && !c.isKnown(current)
+	c.unknown.SetVisible(unknown)
+	c.combo.SetOptions(c.options(current, unknown)...)
 }
 
-func (c *choiceEditor) options() []choice {
-	current := c.slot.text()
-	var out []choice
+// options are the specials but the empty one, which the combobox lists
+// itself, then the choices the current value calls for: the expanded
+// ones, or the unknown value under its heading and the listed ones.
+func (c *choiceEditor) options(current string, unknown bool) []widget.ComboboxOption[string] {
+	var out []widget.ComboboxOption[string]
+	add := func(group string, cs ...choice) {
+		for _, o := range cs {
+			out = append(out, widget.ComboboxOption[string]{Value: o.value, Label: o.label, Detail: choiceHint(o), Group: group})
+		}
+	}
 	for _, v := range c.spec.special {
-		out = append(out, choice{value: v, label: specialLabel(v)})
+		if v != "" {
+			add("", choice{value: v, label: specialLabel(v)})
+		}
 	}
 	if c.spec.expand != nil {
-		return append(out, c.spec.expand(current, c.items)...)
+		add("", c.spec.expand(current, c.items)...)
+		return out
 	}
-	if !c.isKnown(current) {
-		out = append(out, choice{value: current, label: current, group: locale.T().Get("settings-choice-unknown")})
+	if unknown {
+		add(locale.T().Get("settings-choice-unknown"), choice{value: current, label: current})
 	}
-	return append(out, c.items...)
+	add("", c.items...)
+	return out
 }
 
 func choiceHint(o choice) string {
@@ -324,12 +343,6 @@ func choiceHint(o choice) string {
 		return o.value
 	}
 	return ""
-}
-
-func (c *choiceEditor) show() {
-	if c.k.pickers != nil {
-		c.picker = openChoicePicker(c.k, c.open, c.options(), c.pick)
-	}
 }
 
 func openChoicePicker(k *kit, anchor widget.Widget, opts []choice, pick func(string)) *searchPicker {
@@ -358,6 +371,8 @@ func choiceRow(k *kit, o choice) *widget.Box {
 	return row
 }
 
+// pick writes the value picked from the list or browsed for; a refused
+// one stays in the field, marked unsaved.
 func (c *choiceEditor) pick(v string) {
 	if c.spec.optional && v == "" {
 		c.slot.unset()

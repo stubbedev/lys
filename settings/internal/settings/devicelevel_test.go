@@ -35,7 +35,7 @@ func TestTheRecorderMicrophoneShowsTheLevelOfTheDeviceItRecords(t *testing.T) {
 	rec.Push(pcm(20000, 400))
 	l.until("the microphone's level shown", func() bool { return c.level.meter.Value() > 0.9 })
 
-	if err := c.pick.(*deviceSelect).slot.set("speakers.monitor"); err != nil {
+	if err := c.pick.(*choiceControl).slot.set("speakers.monitor"); err != nil {
 		t.Fatal(err)
 	}
 	if v := k.store.value(path); v != "speakers.monitor" {

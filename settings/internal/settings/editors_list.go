@@ -243,13 +243,13 @@ func iconListSpec() listSpec {
 	}
 }
 
-// enumItem is an enum_list row: the variants' dropdown.
+// enumItem is an enum_list row: the variants' closed choice.
 type enumItem struct {
-	*widget.Dropdown
-	variants []string
+	*choiceControl
+	value *string
 }
 
-func (e *enumItem) itemValue() any { return e.variants[max(e.Selected(), 0)] }
+func (e enumItem) itemValue() any { return *e.value }
 
 func enumListSpec(elem config.FieldMeta) listSpec {
 	return listSpec{
@@ -265,9 +265,8 @@ func enumListSpec(elem config.FieldMeta) listSpec {
 		full: func(n int) bool { return n >= len(elem.Variants) },
 		item: func(k *kit, v any, changed func()) listItem {
 			s, _ := v.(string)
-			d := widget.NewDropdown(k.face, k.textPx(), enumLabels(elem), max(slices.Index(elem.Variants, s), 0))
-			d.OnSelect = func(int) { changed() }
-			return &enumItem{d, elem.Variants}
+			value := &s
+			return enumItem{newChoiceControl(k, stringSlot(value, changed), enumChoice(elem)), value}
 		},
 	}
 }

@@ -18,13 +18,12 @@ const (
 // the object once one of them is set.
 type wmSwitch struct {
 	*widget.Box
-	slot    slot
-	choice  *widget.Dropdown
-	body    *widget.Box
-	fields  []control
-	labels  []string
-	on      bool
-	syncing bool
+	slot   slot
+	choice *choicePick
+	body   *widget.Box
+	fields []control
+	labels []string
+	on     bool
 }
 
 func newWMSwitch(k *kit, s slot, fields []cardField) *wmSwitch {
@@ -34,7 +33,7 @@ func newWMSwitch(k *kit, s slot, fields []cardField) *wmSwitch {
 		t.Get(config.EnumLabelKey(wmToggleType, wmToggleOff)),
 		t.Get(config.EnumLabelKey(wmToggleType, wmToggleOn)),
 	}
-	c := &wmSwitch{Box: gapBox(widget.Column), slot: s, choice: widget.NewDropdown(k.face, k.textPx(), choices, switchInherit), body: gapBox(widget.Column)}
+	c := &wmSwitch{Box: gapBox(widget.Column), slot: s, choice: newChoicePick(k, choices, switchInherit), body: gapBox(widget.Column)}
 	c.choice.OnSelect = c.choose
 	grid := k.formGrid()
 	for _, f := range fields {
@@ -50,9 +49,6 @@ func newWMSwitch(k *kit, s slot, fields []cardField) *wmSwitch {
 }
 
 func (c *wmSwitch) choose(i int) {
-	if c.syncing {
-		return
-	}
 	c.on = i == switchOn
 	switch i {
 	case switchInherit:
@@ -73,9 +69,7 @@ func (c *wmSwitch) refresh() {
 	case v == false:
 		selected = switchOff
 	}
-	c.syncing = true
-	c.choice.SetSelected(selected)
-	c.syncing = false
+	c.choice.show(selected)
 	c.body.SetVisible(selected == switchOn)
 	for _, f := range c.fields {
 		f.refresh()

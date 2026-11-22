@@ -186,7 +186,7 @@ func lockPreviewMode(t *testing.T, p *settingsPage, mode lockview.Mode) {
 	}
 	for i, m := range lockPreviewModes {
 		if m.mode == mode {
-			found[0].(*widget.ToggleGroup).SetActive(i)
+			pickChoice(found[0].(*choicePick), i)
 			return
 		}
 	}

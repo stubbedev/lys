@@ -45,12 +45,13 @@ func lockPreview(k *kit) widget.Widget {
 		return drawLockOnScreen(k, cfg, font, bg, mode)
 	})
 	bg.redraw = p.configChanged
-	modes := widget.NewToggleGroup()
-	modes.AddClass("settings-lock-preview-mode")
-	for _, m := range lockPreviewModes {
-		modes.Append(k.label(locale.T().Get(m.label)))
+	labels := make([]string, len(lockPreviewModes))
+	for i, m := range lockPreviewModes {
+		labels[i] = locale.T().Get(m.label)
 	}
-	modes.OnChanged = func(i int) {
+	modes := newChoicePick(k, labels, 0)
+	modes.AddClass("settings-lock-preview-mode")
+	modes.OnSelect = func(i int) {
 		mode = lockPreviewModes[i].mode
 		p.configChanged()
 	}

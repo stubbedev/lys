@@ -35,7 +35,7 @@ var (
 	snippetForm   = formOf(config.LauncherSnippet{})
 )
 
-var negateCharRow = valueSelectRow(
+var negateCharRow = namedChoiceRow(
 	namedValue{"-", "settings-negate-minus"},
 	namedValue{"!", "settings-negate-bang"},
 	namedValue{"~", "settings-negate-tilde"},

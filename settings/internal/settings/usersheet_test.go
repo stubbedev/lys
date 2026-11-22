@@ -60,7 +60,7 @@ func userSheetFixture(t *testing.T) (*usersPanel, *loop, *fakePickers, *userShee
 func TestTheUserSheetSetsTheNameTypeAndAHashOfTheNewPassword(t *testing.T) {
 	p, l, pickers, f, s := userSheetFixture(t)
 	f.full.SetText("Robert")
-	f.kinds.SetActive(1)
+	pickChoice(f.kinds, 1)
 	f.password.SetText("correct-Horse-9")
 	f.repeat.SetText("correct-Horse-9")
 	if pickers.respond(responseConfirm) {

@@ -42,10 +42,10 @@ func TestTheProxyOfTheNetworkInUseIsPickedAndReachesNetworkManager(t *testing.T)
 	if labels := strings.Join(treetest.Labels(p.proxySec), "|"); !strings.Contains(labels, title) {
 		t.Fatalf("the proxy section reads %q, want %q", labels, title)
 	}
-	if p.proxy.methods.Active() != 0 || p.proxy.auto.Visible() {
-		t.Fatalf("no proxy shows method %d, the URL field %v", p.proxy.methods.Active(), p.proxy.auto.Visible())
+	if p.proxy.methods.Selected() != 0 || p.proxy.auto.Visible() {
+		t.Fatalf("no proxy shows method %d, the URL field %v", p.proxy.methods.Selected(), p.proxy.auto.Visible())
 	}
-	p.proxy.methods.SetActive(1)
+	pickChoice(p.proxy.methods, 1)
 	discover, _ := network.AutoProxy("")
 	if !slices.Equal(f.proxies, []proxyWrite{{"/p/home", discover}}) {
 		t.Fatalf("choosing Automatic wrote %v", f.proxies)
@@ -58,10 +58,10 @@ func TestTheProxyOfTheNetworkInUseIsPickedAndReachesNetworkManager(t *testing.T)
 	}
 	f.state.proxy.proxy = pac
 	_, p = netPanel(t, f)
-	if p.proxy.methods.Active() != 1 || !p.proxy.auto.Visible() || p.proxy.pac.Text() != "https://wpad.home/proxy.pac" {
-		t.Fatalf("a saved PAC URL shows method %d, field %v reading %q", p.proxy.methods.Active(), p.proxy.auto.Visible(), p.proxy.pac.Text())
+	if p.proxy.methods.Selected() != 1 || !p.proxy.auto.Visible() || p.proxy.pac.Text() != "https://wpad.home/proxy.pac" {
+		t.Fatalf("a saved PAC URL shows method %d, field %v reading %q", p.proxy.methods.Selected(), p.proxy.auto.Visible(), p.proxy.pac.Text())
 	}
-	p.proxy.methods.SetActive(0)
+	pickChoice(p.proxy.methods, 0)
 	if got := f.proxies[len(f.proxies)-1]; got != (proxyWrite{"/p/home", network.NoProxy()}) {
 		t.Errorf("choosing None wrote %v", got)
 	}
@@ -99,7 +99,7 @@ func wmNetPanel(t *testing.T, f *fakeNet, config, runtime string) (*networkPanel
 func manualIndex(t *testing.T, p *networkPanel) int {
 	t.Helper()
 	i := slices.Index(p.proxy.choices, proxyChoiceManual)
-	if i < 0 || p.proxy.methods.Len() != len(p.proxy.choices) {
+	if i < 0 || len(p.proxy.methods.Items()) != len(p.proxy.choices) {
 		t.Fatalf("Manual is not offered among %v", p.proxy.choices)
 	}
 	return i
@@ -117,7 +117,7 @@ func TestAManualProxyIsWrittenToLysWMsEnvironment(t *testing.T) {
 	discover, _ := network.AutoProxy("")
 	f := proxiedNets(discover)
 	p, w, files := wmNetPanel(t, f, "env:\n  EDITOR: nvim\n", "")
-	p.proxy.methods.SetActive(manualIndex(t, p))
+	pickChoice(p.proxy.methods, manualIndex(t, p))
 	if !p.proxy.manual.Visible() || p.proxy.auto.Visible() || len(f.proxies) != 0 {
 		t.Fatalf("picking Manual shows the servers %v, the URL %v, and wrote %v", p.proxy.manual.Visible(), p.proxy.auto.Visible(), f.proxies)
 	}
@@ -149,8 +149,8 @@ func TestAManualProxyIsWrittenToLysWMsEnvironment(t *testing.T) {
 
 func TestASavedManualProxyIsShownAsManual(t *testing.T) {
 	p, _, _ := wmNetPanel(t, proxiedNets(network.NoProxy()), "", proxiedEnv)
-	if p.proxy.methods.Active() != manualIndex(t, p) || !p.proxy.manual.Visible() {
-		t.Fatalf("a saved manual proxy shows method %d, the servers %v", p.proxy.methods.Active(), p.proxy.manual.Visible())
+	if p.proxy.methods.Selected() != manualIndex(t, p) || !p.proxy.manual.Visible() {
+		t.Fatalf("a saved manual proxy shows method %d, the servers %v", p.proxy.methods.Selected(), p.proxy.manual.Visible())
 	}
 	if in := p.proxy.servers[proxyenv.HTTP]; in.host.Text() != "proxy.corp.example" || in.port.Value() != 3128 {
 		t.Errorf("HTTP reads %q:%v", in.host.Text(), in.port.Value())
@@ -177,7 +177,7 @@ func TestNoneAndAutomaticTakeTheManualProxyOutOfLysWMsEnvironment(t *testing.T) 
 	} {
 		f := proxiedNets(network.NoProxy())
 		p, w, _ := wmNetPanel(t, f, "", proxiedEnv)
-		p.proxy.methods.SetActive(slices.Index(p.proxy.choices, c.choice))
+		pickChoice(p.proxy.methods, slices.Index(p.proxy.choices, c.choice))
 		if got := w.value(wmEnvPath); !reflect.DeepEqual(got, map[string]any{"EDITOR": "nvim"}) {
 			t.Errorf("choice %d left lys-wm's env %v", c.choice, got)
 		}
@@ -193,13 +193,13 @@ func TestNoneAndAutomaticTakeTheManualProxyOutOfLysWMsEnvironment(t *testing.T) 
 func TestAProxyInLysWMsConfigFileIsNotTakenOutBehindIt(t *testing.T) {
 	f := proxiedNets(network.NoProxy())
 	p, w, files := wmNetPanel(t, f, "env:\n  EDITOR: nvim\n  http_proxy: http://proxy:3128\n  no_proxy: localhost\n", "")
-	p.proxy.methods.SetActive(0)
+	pickChoice(p.proxy.methods, 0)
 	want := locale.T().Get("settings-proxy-env-config", i18n.Str("names", "http_proxy, no_proxy"))
 	if !p.proxy.problem.Visible() || p.proxy.problem.Text() != want {
 		t.Fatalf("None says %v %q, want %q", p.proxy.problem.Visible(), p.proxy.problem.Text(), want)
 	}
-	if len(f.proxies) != 0 || p.proxy.methods.Active() != manualIndex(t, p) {
-		t.Fatalf("None wrote %v and shows method %d", f.proxies, p.proxy.methods.Active())
+	if len(f.proxies) != 0 || p.proxy.methods.Selected() != manualIndex(t, p) {
+		t.Fatalf("None wrote %v and shows method %d", f.proxies, p.proxy.methods.Selected())
 	}
 	noFile(t, files.runtime)
 	typeServer(p, proxyenv.HTTP, "other", 8080)
@@ -220,7 +220,7 @@ func TestNoneWithoutAManualProxyLeavesLysWMsConfigAlone(t *testing.T) {
 	discover, _ := network.AutoProxy("")
 	f := proxiedNets(discover)
 	p, _, files := wmNetPanel(t, f, "", "")
-	p.proxy.methods.SetActive(0)
+	pickChoice(p.proxy.methods, 0)
 	noFile(t, files.runtime)
 	if !slices.Equal(f.proxies, []proxyWrite{{"/p/home", network.NoProxy()}}) {
 		t.Fatalf("None wrote %v", f.proxies)
@@ -231,7 +231,7 @@ func TestAManualProxyThatCannotBeOneIsSaidAndNotWritten(t *testing.T) {
 	t.Run("server", func(t *testing.T) {
 		f := proxiedNets(network.NoProxy())
 		p, w, files := wmNetPanel(t, f, "", "")
-		p.proxy.methods.SetActive(manualIndex(t, p))
+		pickChoice(p.proxy.methods, manualIndex(t, p))
 		typeServer(p, proxyenv.HTTPS, "http://proxy", 8080)
 		p.proxy.apply()
 		if got := p.proxy.servers[proxyenv.HTTPS].field.Error(); got != locale.T().Get("settings-proxy-host-invalid") {
@@ -249,7 +249,7 @@ func TestAManualProxyThatCannotBeOneIsSaidAndNotWritten(t *testing.T) {
 	t.Run("no server", func(t *testing.T) {
 		f := proxiedNets(network.NoProxy())
 		p, w, _ := wmNetPanel(t, f, "", "")
-		p.proxy.methods.SetActive(manualIndex(t, p))
+		pickChoice(p.proxy.methods, manualIndex(t, p))
 		p.proxy.chips.toggle("localhost", true)
 		p.proxy.apply()
 		if !p.proxy.problem.Visible() || p.proxy.problem.Text() != locale.T().Get("settings-proxy-no-server") {
@@ -258,13 +258,13 @@ func TestAManualProxyThatCannotBeOneIsSaidAndNotWritten(t *testing.T) {
 		if w.value(wmEnvPath) != nil || len(f.proxies) != 0 {
 			t.Errorf("no server wrote %v and %v", w.value(wmEnvPath), f.proxies)
 		}
-		if p.proxy.methods.Active() != manualIndex(t, p) {
-			t.Errorf("the picker fell back to %d", p.proxy.methods.Active())
+		if p.proxy.methods.Selected() != manualIndex(t, p) {
+			t.Errorf("the picker fell back to %d", p.proxy.methods.Selected())
 		}
 	})
 	t.Run("exclusion", func(t *testing.T) {
 		p, _, _ := wmNetPanel(t, proxiedNets(network.NoProxy()), "", "")
-		p.proxy.methods.SetActive(manualIndex(t, p))
+		pickChoice(p.proxy.methods, manualIndex(t, p))
 		p.proxy.chips.toggle("localhost", true)
 		for in, key := range map[string]string{"corp.example:443": "settings-proxy-exclude-invalid", "localhost": "settings-proxy-exclude-listed"} {
 			p.proxy.chips.entry.SetText(in)
@@ -278,8 +278,8 @@ func TestAManualProxyThatCannotBeOneIsSaidAndNotWritten(t *testing.T) {
 
 func TestAProxyInLysWMsEnvironmentThisPageDoesNotWriteIsSaid(t *testing.T) {
 	p, _, _ := wmNetPanel(t, proxiedNets(network.NoProxy()), "env:\n  https_proxy: https://proxy:443\n", "")
-	if p.proxy.methods.Active() != manualIndex(t, p) || !p.proxy.problem.Visible() {
-		t.Fatalf("an unwritten proxy shows method %d, problem %v", p.proxy.methods.Active(), p.proxy.problem.Visible())
+	if p.proxy.methods.Selected() != manualIndex(t, p) || !p.proxy.problem.Visible() {
+		t.Fatalf("an unwritten proxy shows method %d, problem %v", p.proxy.methods.Selected(), p.proxy.problem.Visible())
 	}
 	want := locale.T().Get("settings-proxy-env-unread", i18n.Str("reason", locale.T().Get("settings-proxy-env-scheme")))
 	if p.proxy.problem.Text() != want {
@@ -293,7 +293,7 @@ func TestWithoutLysWMManualIsNotOfferedAndTheReasonIsSaid(t *testing.T) {
 		k.parts.wm = false
 		k.network = func() (netControl, error) { return proxiedNets(network.NoProxy()), nil }
 		p := newNetworkPanel(k)
-		if slices.Contains(p.proxy.choices, proxyChoiceManual) || p.proxy.methods.Len() != 2 || p.proxy.manual != nil {
+		if slices.Contains(p.proxy.choices, proxyChoiceManual) || len(p.proxy.methods.Items()) != 2 || p.proxy.manual != nil {
 			t.Fatalf("without lys-wm the choices are %v", p.proxy.choices)
 		}
 		if !p.proxy.noManual.Visible() || p.proxy.noManual.Text() != locale.T().Get("settings-proxy-manual-missing") {

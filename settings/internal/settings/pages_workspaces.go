@@ -17,7 +17,7 @@ import (
 
 const workspacesModule = "modules.workspaces"
 
-var workspaceDividerRow = valueSelectRow(
+var workspaceDividerRow = namedChoiceRow(
 	namedValue{" ", "settings-divider-space"},
 	namedValue{" · ", "settings-divider-dot"},
 	namedValue{" | ", "settings-divider-bar"},

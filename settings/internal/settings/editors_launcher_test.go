@@ -75,9 +75,9 @@ func TestASnippetKeepsItsLinesAndIsEditedInAnArea(t *testing.T) {
 	}
 }
 
-func negateChar(t *testing.T, k *kit) *valueSelect {
+func negateChar(t *testing.T, k *kit) *choiceControl {
 	t.Helper()
-	c, ok := fieldControl(k, k.store, pageRow(t, "launcher", "launcher.negate-char")).(*valueSelect)
+	c, ok := fieldControl(k, k.store, pageRow(t, "launcher", "launcher.negate-char")).(*choiceControl)
 	if !ok {
 		t.Fatal("the negation character is not picked from a list")
 	}
@@ -87,10 +87,10 @@ func negateChar(t *testing.T, k *kit) *valueSelect {
 func TestTheNegationCharacterIsOneOfThreeAndWritesThePickedOne(t *testing.T) {
 	k := testKit(t, "")
 	c := negateChar(t, k)
-	if len(c.Items()) != 3 || c.shown[c.Selected()] != "-" {
-		t.Fatalf("offers %q with %q selected", c.Items(), c.shown[c.Selected()])
+	if len(c.pick.Items()) != 3 || shownValues(c)[c.pick.Selected()] != "-" {
+		t.Fatalf("offers %q with %q selected", c.pick.Items(), shownValues(c)[c.pick.Selected()])
 	}
-	c.OnSelect(slices.Index(c.shown, "~"))
+	pickChoice(c.pick, slices.Index(shownValues(c), "~"))
 	if v := k.store.value("launcher.negate-char"); v != "~" {
 		t.Fatalf("stored %v", v)
 	}
@@ -99,16 +99,16 @@ func TestTheNegationCharacterIsOneOfThreeAndWritesThePickedOne(t *testing.T) {
 func TestANegationCharacterOutsideTheThreeIsKeptAndShown(t *testing.T) {
 	k := testKit(t, "launcher:\n  negate-char: \"^\"\n")
 	c := negateChar(t, k)
-	if len(c.Items()) != 4 || c.shown[c.Selected()] != "^" {
-		t.Fatalf("offers %q with %q selected", c.Items(), c.shown[c.Selected()])
+	if len(c.pick.Items()) != 4 || shownValues(c)[c.pick.Selected()] != "^" {
+		t.Fatalf("offers %q with %q selected", c.pick.Items(), shownValues(c)[c.pick.Selected()])
 	}
 	if v := k.store.value("launcher.negate-char"); v != "^" {
 		t.Fatalf("an unlisted character was rewritten to %v", v)
 	}
-	c.OnSelect(slices.Index(c.shown, "!"))
+	pickChoice(c.pick, slices.Index(shownValues(c), "!"))
 	c.refresh()
-	if len(c.Items()) != 3 || k.store.value("launcher.negate-char") != "!" {
-		t.Fatalf("after picking ! it offers %q, stored %v", c.Items(), k.store.value("launcher.negate-char"))
+	if len(c.pick.Items()) != 3 || k.store.value("launcher.negate-char") != "!" {
+		t.Fatalf("after picking ! it offers %q, stored %v", c.pick.Items(), k.store.value("launcher.negate-char"))
 	}
 }
 

@@ -50,7 +50,7 @@ var mailAccountList = cardRow(cardSpec{
 			return newMailQueryEditor(k, s, false)
 		}},
 		{key: "provider", label: "settings-mail-account-provider", editor: func(k *kit, s slot) control {
-			return newEnumSelect(k, s, config.MetaOf[config.MailProvider]())
+			return enumEditor(k, s, config.MetaOf[config.MailProvider]())
 		}},
 		{key: "icon", label: "settings-mail-account-icon", editor: func(k *kit, s slot) control { return newIconEditor(k, s) }},
 	},

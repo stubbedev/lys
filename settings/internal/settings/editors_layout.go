@@ -52,11 +52,14 @@ type layoutEditor struct {
 
 type zoneRef struct{ card, zone int }
 
+// barLayoutTabs styles the tabs switching between the bar's layouts.
+const barLayoutTabs = "bar-layout-tabs"
+
 func newLayoutEditor(k *kit, s slot) *layoutEditor {
 	c := &layoutEditor{Box: gapBox(widget.Column), k: k, slot: s}
 	c.AddClass("bar-layout-control")
 	c.tabs = widget.NewToggleGroup()
-	c.tabs.AddClass("bar-layout-tabs")
+	c.tabs.AddClass(barLayoutTabs)
 	add := k.addButton("settings-layout-add", func() {
 		c.layouts = append(c.layouts, config.BarLayout{Monitor: c.unusedMonitor(), Show: true})
 		c.at = len(c.layouts) - 1
@@ -261,7 +264,9 @@ func (c *layoutEditor) unusedMonitor() string {
 	return everyMonitor
 }
 
-func (c *layoutEditor) choiceDropdown(choices []choice, current string, set func(value string)) *widget.Dropdown {
+// choiceDropdown is a dropdown of choices, which follow the displays and
+// the layouts, current selected, set hearing a pick of another.
+func (c *layoutEditor) choiceDropdown(choices []choice, current string, set func(value string)) *choicePick {
 	labels := make([]string, len(choices))
 	for i, ch := range choices {
 		labels[i] = ch.label
@@ -270,9 +275,9 @@ func (c *layoutEditor) choiceDropdown(choices []choice, current string, set func
 	if at < 0 {
 		log.Panicf("settings: the layout choice %q is not among %v", current, labels)
 	}
-	d := widget.NewDropdown(c.k.face, c.k.textPx(), labels, at)
+	d := newDropdownPick(c.k, labels, at)
 	d.OnSelect = func(i int) {
-		if i >= 0 && i < len(choices) && choices[i].value != current {
+		if choices[i].value != current {
 			current = choices[i].value
 			set(current)
 		}

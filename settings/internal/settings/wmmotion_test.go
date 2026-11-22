@@ -76,7 +76,7 @@ func TestAPresetAndASpringReplaceTheShape(t *testing.T) {
 	if text := fileText(t, files.runtime); !strings.Contains(text, "0.25") || !strings.Contains(text, "0.1") {
 		t.Fatalf("the ease preset wrote %q", text)
 	}
-	e.kind.OnChanged(curveKindSpring)
+	pickChoice(e.kind, curveKindSpring)
 	text := fileText(t, files.runtime)
 	if !strings.Contains(text, "stiffness: 170") || strings.Contains(text, "bezier") {
 		t.Fatalf("turning to a spring wrote %q", text)
@@ -213,8 +213,8 @@ func TestTheMotionEditorsWriteWhatLysWMAccepts(t *testing.T) {
 	}
 	e := curves.cards[0].controls[0].(*curveEditor)
 	e.writeBezier([4]float64{0.34, 1.56, 0.64, 1})
-	e.kind.OnChanged(curveKindSpring)
-	e.kind.OnChanged(curveKindBezier)
+	pickChoice(e.kind, curveKindSpring)
+	pickChoice(e.kind, curveKindBezier)
 	if curves.draft.Visible() {
 		t.Fatalf("lys-wm refuses the curve the editor wrote: %s", curves.draft.Text())
 	}

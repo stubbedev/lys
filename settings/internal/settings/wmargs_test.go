@@ -145,11 +145,11 @@ func TestAnActionsArgumentsArePickedFromItsForm(t *testing.T) {
 	if e.picked.Text() != "Move window left" || e.outside.Visible() {
 		t.Fatalf("the action reads %q, outside %v", e.picked.Text(), e.outside.Visible())
 	}
-	seg := treetest.First[*segmentedEnum](t, e.args)
-	if got := treetest.Labels(seg); !slices.Equal(got, []string{"Left", "Right", "Up", "Down"}) {
+	seg := treetest.First[*choiceControl](t, e.args)
+	if got := seg.pick.Items(); !slices.Equal(got, []string{"Left", "Right", "Up", "Down"}) || seg.pick.segments == nil {
 		t.Fatalf("the directions read %q", got)
 	}
-	seg.OnChanged(3)
+	pickChoice(seg.pick, 3)
 	if *stored != "move down" {
 		t.Fatalf("picking Down stored %q", *stored)
 	}
@@ -163,7 +163,8 @@ func TestAnActionsArgumentsArePickedFromItsForm(t *testing.T) {
 	if *stored != "workspace 5" {
 		t.Fatalf("a new number stored %q", *stored)
 	}
-	treetest.First[*enumSelect](t, e.args).OnSelect(slices.Index(e.grammars["workspace"][0].altKeys(), "previous"))
+	alts := treetest.First[*choiceControl](t, e.args)
+	pickChoice(alts.pick, slices.Index(shownValues(alts), "previous"))
 	if *stored != "workspace previous" {
 		t.Fatalf("picking previous stored %q", *stored)
 	}
@@ -183,8 +184,8 @@ func TestAnActionsArgumentsArePickedFromItsForm(t *testing.T) {
 
 	e, stored = wmActionEditorOver(t, "exec foot")
 	ce := treetest.First[*choiceEditor](t, e.args)
-	if ce.browse == nil || ce.entry.Text() != "foot" {
-		t.Fatalf("the command is %q, app button %v", ce.entry.Text(), ce.browse != nil)
+	if ce.combo.Action() == nil || ce.entry.Text() != "foot" {
+		t.Fatalf("the command is %q, app button %v", ce.entry.Text(), ce.combo.Action() != nil)
 	}
 	ce.pick("firefox --new-window")
 	if *stored != "exec firefox --new-window" {
@@ -202,7 +203,7 @@ func TestArgumentsOutsideTheirFormStayTextAndMarked(t *testing.T) {
 		t.Fatalf("the arguments read %q", entry.Text())
 	}
 	entry.OnActivate("left")
-	if *stored != "focus left" || e.outside.Visible() || len(treetest.All[*segmentedEnum](e.args)) != 1 {
+	if *stored != "focus left" || e.outside.Visible() || len(treetest.All[*choiceControl](e.args)) != 1 {
 		t.Fatalf("typing a form's arguments stored %q, outside %v", *stored, e.outside.Visible())
 	}
 
@@ -226,7 +227,7 @@ func TestPickingAnActionStartsItsForm(t *testing.T) {
 		t.Fatalf("kill is offered as %+v", choices[i])
 	}
 	e.choose("focus")
-	if *stored != "focus left" || len(treetest.All[*segmentedEnum](e.args)) != 1 {
+	if *stored != "focus left" || len(treetest.All[*choiceControl](e.args)) != 1 {
 		t.Fatalf("picking focus stored %q", *stored)
 	}
 	e.choose("workspace")

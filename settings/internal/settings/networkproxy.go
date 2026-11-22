@@ -91,7 +91,7 @@ type proxyForm struct {
 	none     *widget.Label
 	row      *settingRow
 	choices  []proxyChoice
-	methods  *widget.ToggleGroup
+	methods  *choicePick
 	auto     *widget.Box
 	pac      *widget.Entry
 	field    *widget.Field
@@ -108,7 +108,6 @@ type proxyForm struct {
 	shown    string
 	applied  proxyenv.Manual
 	picked   bool
-	syncing  bool
 }
 
 func newProxyForm(p *networkPanel) *proxyForm {
@@ -126,17 +125,13 @@ func newProxyForm(p *networkPanel) *proxyForm {
 		f.wm = w
 		f.choices = append(f.choices, proxyChoiceManual)
 	}
-	f.methods = widget.NewToggleGroup()
+	labels := make([]string, len(f.choices))
+	for i, c := range f.choices {
+		labels[i] = t.Get(proxyChoiceLabels[c])
+	}
+	f.methods = newChoicePick(k, labels, 0)
 	f.methods.SetAccessibleName(t.Get("settings-proxy-section"))
-	for _, c := range f.choices {
-		f.methods.Append(k.label(t.Get(proxyChoiceLabels[c])))
-	}
-	f.methods.OnChanged = func(i int) {
-		if f.syncing || i < 0 || i >= len(f.choices) {
-			return
-		}
-		f.choose(f.choices[i])
-	}
+	f.methods.OnSelect = func(i int) { f.choose(f.choices[i]) }
 	f.row = k.row("", "").withControl(f.methods)
 	group := widget.NewItemGroup()
 	group.Append(f.row)
@@ -254,9 +249,7 @@ func (f *proxyForm) show(st *proxyState) {
 			choice = proxyChoiceManual
 		}
 	}
-	f.syncing = true
-	f.methods.SetActive(slices.Index(f.choices, choice))
-	f.syncing = false
+	f.methods.show(slices.Index(f.choices, choice))
 	f.auto.SetVisible(choice == proxyChoiceAuto)
 	if f.manual != nil {
 		f.manual.SetVisible(choice == proxyChoiceManual)

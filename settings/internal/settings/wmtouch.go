@@ -348,19 +348,17 @@ func (c *touchStart) refresh() {
 type touchTarget struct {
 	*widget.Box
 	action, drive slot
-	mode          *widget.ToggleGroup
+	mode          *choicePick
 	follow        bool
-	syncing       bool
 	run           *wmActionEditor
 	drives        *choiceCards
 }
 
 func newTouchTarget(k *kit, action, drive slot, actions []wmconfig.Action, drives, names []string, pics map[string]picture) *touchTarget {
 	t := locale.T()
-	c := &touchTarget{Box: gapBox(widget.Column), action: action, drive: drive, mode: widget.NewToggleGroup()}
-	c.mode.Append(k.label(t.Get("wm-gestures-touch-run")))
-	c.mode.Append(k.label(t.Get("wm-gestures-touch-follow")))
-	c.mode.OnChanged = c.choose
+	c := &touchTarget{Box: gapBox(widget.Column), action: action, drive: drive}
+	c.mode = newChoicePick(k, []string{t.Get("wm-gestures-touch-run"), t.Get("wm-gestures-touch-follow")}, touchRun)
+	c.mode.OnSelect = c.choose
 	c.run = newWMActionEditor(k, action, actions)
 	c.drives = newCards(k, drive, drives, names, pics)
 	c.AppendAligned(c.mode, false, widget.AlignStart)
@@ -373,9 +371,6 @@ func newTouchTarget(k *kit, action, drive slot, actions []wmconfig.Action, drive
 func (c *touchTarget) stacked() {}
 
 func (c *touchTarget) choose(i int) {
-	if c.syncing {
-		return
-	}
 	c.follow = i == touchFollow
 	if c.follow {
 		c.action.unset()
@@ -392,12 +387,10 @@ func (c *touchTarget) refresh() {
 	case strings.TrimSpace(c.action.text()) != "":
 		c.follow = false
 	}
-	c.syncing = true
-	c.mode.SetActive(touchRun)
+	c.mode.show(touchRun)
 	if c.follow {
-		c.mode.SetActive(touchFollow)
+		c.mode.show(touchFollow)
 	}
-	c.syncing = false
 	c.run.refresh()
 	c.drives.refresh()
 	c.run.SetVisible(!c.follow)

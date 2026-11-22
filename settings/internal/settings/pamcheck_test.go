@@ -32,7 +32,7 @@ func TestAPAMServiceIsSavedOnceTheLockCanUseIt(t *testing.T) {
 		return nil
 	}
 	row, c := pamServiceRowOf(t, k)
-	pickName(t, openChoices(t, k, c), "lys-lock")
+	openChoices(t, k, c).pick(t, "lys-lock")
 	if !slices.Equal(checked, []string{"lys-lock"}) {
 		t.Fatalf("picking lys-lock checked %q", checked)
 	}
@@ -51,7 +51,7 @@ func TestAPAMServiceTheLockCannotUseIsNotSaved(t *testing.T) {
 		return errors.New("lys-login check-pam: PAM service login: account of alice: User account has expired")
 	}
 	row, c := pamServiceRowOf(t, k)
-	pickName(t, openChoices(t, k, c), "login")
+	openChoices(t, k, c).pick(t, "login")
 	if v := k.store.value(pamServicePath); v != before {
 		t.Errorf("a refused service was stored: %v, want %v kept", v, before)
 	}
@@ -115,7 +115,7 @@ func TestASlowPAMCheckLeavesTheWindowResponsive(t *testing.T) {
 	before := k.store.value(pamServicePath)
 	row, c := pamServiceRowOf(t, k)
 	h := holdPAMChecks(t, k, "lys-lock")
-	pickName(t, openChoices(t, k, c), "lys-lock")
+	openChoices(t, k, c).pick(t, "lys-lock")
 	h.waitStarted(t, "lys-lock")
 	if !pending(row, "lys-lock") {
 		t.Fatalf("while the check runs the row shows %q (visible %v, error %v)", row.problem.Text(), row.problem.Visible(), row.problem.HasClass(css.Error))
@@ -149,7 +149,7 @@ func TestAPAMCheckThatNeverAnswersIsRefusedAtTheTimeout(t *testing.T) {
 	before := k.store.value(pamServicePath)
 	row, c := pamServiceRowOf(t, k)
 	h := holdPAMChecks(t, k, "lys-lock")
-	pickName(t, openChoices(t, k, c), "lys-lock")
+	openChoices(t, k, c).pick(t, "lys-lock")
 	h.waitStarted(t, "lys-lock")
 	k.clock.(*fakeclock.Clock).Advance(commandTimeout)
 	h.runLoop(t)
@@ -169,9 +169,9 @@ func TestANewerPAMServiceDropsTheOlderCheck(t *testing.T) {
 	k := testKit(t, "")
 	_, c := pamServiceRowOf(t, k)
 	h := holdPAMChecks(t, k, "login", "lys-lock")
-	pickName(t, openChoices(t, k, c), "login")
+	openChoices(t, k, c).pick(t, "login")
 	h.waitStarted(t, "login")
-	pickName(t, openChoices(t, k, c), "lys-lock")
+	openChoices(t, k, c).pick(t, "lys-lock")
 	h.waitStarted(t, "lys-lock")
 	h.runLoop(t)
 	h.release["lys-lock"] <- nil

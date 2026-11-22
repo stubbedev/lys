@@ -83,9 +83,9 @@ func TestTheWorkspacesPageNamesTheCompositorItFollows(t *testing.T) {
 	}
 }
 
-func workspaceDivider(t *testing.T, k *kit) *valueSelect {
+func workspaceDivider(t *testing.T, k *kit) *choiceControl {
 	t.Helper()
-	c, ok := fieldControl(k, k.store, pageRow(t, "workspaces", workspacesModule+".divider")).(*valueSelect)
+	c, ok := fieldControl(k, k.store, pageRow(t, "workspaces", workspacesModule+".divider")).(*choiceControl)
 	if !ok {
 		t.Fatal("the workspace divider is not picked from a list")
 	}
@@ -95,14 +95,14 @@ func workspaceDivider(t *testing.T, k *kit) *valueSelect {
 func TestTheWorkspaceDividerIsPickedFromCommonSeparators(t *testing.T) {
 	k := testKit(t, "")
 	c := workspaceDivider(t, k)
-	if len(c.Items()) != 6 || c.shown[c.Selected()] != " " {
-		t.Fatalf("offers %q with %q selected", c.Items(), c.shown[c.Selected()])
+	if len(c.pick.Items()) != 6 || shownValues(c)[c.pick.Selected()] != " " {
+		t.Fatalf("offers %q with %q selected", c.pick.Items(), shownValues(c)[c.pick.Selected()])
 	}
-	c.OnSelect(slices.Index(c.shown, " · "))
+	pickChoice(c.pick, slices.Index(shownValues(c), " · "))
 	if v := k.store.value(workspacesModule + ".divider"); v != " · " {
 		t.Fatalf("stored %q", v)
 	}
-	c.OnSelect(slices.Index(c.shown, ""))
+	pickChoice(c.pick, slices.Index(shownValues(c), ""))
 	if v := k.store.value(workspacesModule + ".divider"); v != "" {
 		t.Fatalf("none stored %q", v)
 	}
@@ -111,16 +111,16 @@ func TestTheWorkspaceDividerIsPickedFromCommonSeparators(t *testing.T) {
 func TestAHandEditedWorkspaceDividerIsKeptUntilAnotherIsPicked(t *testing.T) {
 	k := testKit(t, "modules:\n  workspaces:\n    divider: \" » \"\n")
 	c := workspaceDivider(t, k)
-	if len(c.Items()) != 7 || c.shown[c.Selected()] != " » " {
-		t.Fatalf("offers %q with %q selected", c.Items(), c.shown[c.Selected()])
+	if len(c.pick.Items()) != 7 || shownValues(c)[c.pick.Selected()] != " » " {
+		t.Fatalf("offers %q with %q selected", c.pick.Items(), shownValues(c)[c.pick.Selected()])
 	}
 	if v := k.store.value(workspacesModule + ".divider"); v != " » " {
 		t.Fatalf("a hand-edited divider was rewritten to %q", v)
 	}
-	c.OnSelect(slices.Index(c.shown, " | "))
+	pickChoice(c.pick, slices.Index(shownValues(c), " | "))
 	c.refresh()
-	if len(c.Items()) != 6 || k.store.value(workspacesModule+".divider") != " | " {
-		t.Fatalf("after picking | it offers %q, stored %q", c.Items(), k.store.value(workspacesModule+".divider"))
+	if len(c.pick.Items()) != 6 || k.store.value(workspacesModule+".divider") != " | " {
+		t.Fatalf("after picking | it offers %q, stored %q", c.pick.Items(), k.store.value(workspacesModule+".divider"))
 	}
 }
 

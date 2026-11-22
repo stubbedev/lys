@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"log"
 	"math"
-	"slices"
-	"unicode/utf8"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
@@ -18,8 +16,8 @@ import (
 // editorFunc builds the control for the field at path.
 type editorFunc func(k *kit, s slot, meta config.FieldMeta) control
 
-// autoEditor is the control a field's type calls for: toggle, enum_select, number_*, text, size,
-// color, and the optional (inherit) forms.
+// autoEditor is the control a field's type calls for: toggle, a closed
+// choice, number_*, text, size, color, and the optional (inherit) forms.
 func autoEditor(k *kit, s slot, path string, meta config.FieldMeta) (control, error) {
 	switch {
 	case meta.Type == "Size":
@@ -32,8 +30,6 @@ func autoEditor(k *kit, s slot, path string, meta config.FieldMeta) (control, er
 		return newColorEditor(k, s), nil
 	case meta.Type == "ColorValue":
 		return newColorValueEditor(k, s), nil
-	case meta.Optional && meta.Kind == config.FieldEnum:
-		return newOptionalEnum(k, s, meta), nil
 	case meta.Optional && meta.Kind == config.FieldInt:
 		return newOptionalNumber(k, s, meta.Min, meta.Max, 1, 0, 0), nil
 	case meta.Optional && meta.Kind == config.FieldFloat:
@@ -46,10 +42,7 @@ func autoEditor(k *kit, s slot, path string, meta config.FieldMeta) (control, er
 	case config.FieldBool:
 		return newToggle(k, s), nil
 	case config.FieldEnum:
-		if fitsSegments(enumLabels(meta)) {
-			return newSegmentedEnum(k, s, meta), nil
-		}
-		return newEnumSelect(k, s, meta), nil
+		return enumEditor(k, s, meta), nil
 	case config.FieldInt, config.FieldFloat:
 		return numberEditor(k, s, meta, bareCount), nil
 	case config.FieldText:
@@ -137,36 +130,6 @@ func invertedSwitch(key string) rowOpt {
 	}
 }
 
-// enumSelect is EnumSelectControl: a dropdown of the variants'
-// labels, falling back to the raw value where a label is missing.
-type enumSelect struct {
-	*widget.Dropdown
-	k        *kit
-	slot     slot
-	variants []string
-	syncing  bool
-}
-
-func newEnumSelect(k *kit, s slot, meta config.FieldMeta) *enumSelect {
-	c := &enumSelect{Dropdown: widget.NewDropdown(k.face, k.textPx(), enumLabels(meta), 0), k: k, slot: s, variants: meta.Variants}
-	c.OnSelect = func(i int) {
-		if !c.syncing && i >= 0 && i < len(c.variants) {
-			_ = c.slot.set(c.variants[i])
-		}
-	}
-	c.refresh()
-	return c
-}
-
-// refresh selects the current value; an unknown one shows the first
-// variant (variant_index_of).
-func (c *enumSelect) refresh() {
-	v, _ := c.slot.get().(string)
-	c.syncing = true
-	c.SetSelected(max(slices.Index(c.variants, v), 0))
-	c.syncing = false
-}
-
 // number is NumberControl: a spin button without its +/- buttons.
 type number struct {
 	*widget.SpinButton
@@ -213,9 +176,12 @@ type text struct {
 	syncing  bool
 }
 
-func newText(k *kit, s slot, optional bool) *text {
+func newText(k *kit, s slot, optional bool) *text { return bindText(k, k.entry(), s, optional) }
+
+// bindText has e edit s as a text control.
+func bindText(k *kit, e *widget.Entry, s slot, optional bool) *text {
 	t := locale.T()
-	c := &text{Entry: k.entry(), k: k, slot: s, optional: optional}
+	c := &text{Entry: e, k: k, slot: s, optional: optional}
 	c.AddClass("setting-text-entry")
 	c.badge = k.badge(t.Get("settings-source-unsaved"), "warning")
 	c.badge.SetVisible(false)
@@ -416,56 +382,4 @@ func countSlider(lo, hi float64) rowOpt {
 	return withEditor(func(k *kit, s slot, _ config.FieldMeta) control {
 		return newSlider(k, s, lo, hi, true, bareCount.format(0))
 	})
-}
-
-// Segmented control limits: an enum of this many variants, their labels
-// this many characters together, reads at a glance as segments; a longer
-// one stays a dropdown.
-const (
-	minSegments     = 2
-	maxSegments     = 4
-	maxSegmentChars = 28
-)
-
-// fitsSegments reports whether labels fit a segmented control.
-func fitsSegments(labels []string) bool {
-	if len(labels) < minSegments || len(labels) > maxSegments {
-		return false
-	}
-	chars := 0
-	for _, l := range labels {
-		chars += utf8.RuneCountInString(l)
-	}
-	return chars <= maxSegmentChars
-}
-
-// segmentedEnum is a small enum as lys-ui's segmented control: one
-// segment per variant, the stored one active.
-type segmentedEnum struct {
-	*widget.ToggleGroup
-	slot     slot
-	variants []string
-	syncing  bool
-}
-
-func newSegmentedEnum(k *kit, s slot, meta config.FieldMeta) *segmentedEnum {
-	c := &segmentedEnum{ToggleGroup: widget.NewToggleGroup(), slot: s, variants: meta.Variants}
-	for _, l := range enumLabels(meta) {
-		c.Append(k.label(l))
-	}
-	c.OnChanged = func(i int) {
-		if !c.syncing && i >= 0 && i < len(c.variants) {
-			_ = c.slot.set(c.variants[i])
-		}
-	}
-	c.refresh()
-	return c
-}
-
-// refresh activates the stored variant; an unknown one shows the first.
-func (c *segmentedEnum) refresh() {
-	v, _ := c.slot.get().(string)
-	c.syncing = true
-	c.SetActive(max(slices.Index(c.variants, v), 0))
-	c.syncing = false
 }

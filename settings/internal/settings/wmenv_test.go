@@ -32,7 +32,7 @@ func TestAKnownVariableIsPickedByWhatItDoesAndFillsItsValue(t *testing.T) {
 	if !slices.Contains(p.all, "MOZ_ENABLE_WAYLAND") {
 		t.Fatalf("offered %q", p.all)
 	}
-	pickName(t, p, "MOZ_ENABLE_WAYLAND")
+	p.pick(t, "MOZ_ENABLE_WAYLAND")
 	if got := w.value("env"); !reflect.DeepEqual(got, map[string]any{"EDITOR": "nvim", "MOZ_ENABLE_WAYLAND": "1"}) {
 		t.Fatalf("stored %v", got)
 	}

@@ -43,11 +43,10 @@ func captureTilesRow(module string) rowSpec {
 
 type captureTiles struct {
 	*widget.Box
-	icons   []*iconEditor
-	hide    *widget.ToggleGroup
-	hideAt  slot
-	color   *colorValueEditor
-	syncing bool
+	icons  []*iconEditor
+	hide   *choicePick
+	hideAt slot
+	color  *colorValueEditor
 }
 
 func newCaptureTiles(k *kit, module string) *captureTiles {
@@ -70,12 +69,8 @@ func newCaptureTiles(k *kit, module string) *captureTiles {
 		}
 		card.Append(icons, false)
 		if i == 0 {
-			c.hide = widget.NewToggleGroup(k.label(t.Get("settings-capture-mic-always")), k.label(t.Get("settings-capture-mic-recording")))
-			c.hide.OnChanged = func(at int) {
-				if !c.syncing {
-					_ = c.hideAt.set(at == 1)
-				}
-			}
+			c.hide = newChoicePick(k, []string{t.Get("settings-capture-mic-always"), t.Get("settings-capture-mic-recording")}, 0)
+			c.hide.OnSelect = func(at int) { _ = c.hideAt.set(at == 1) }
 			card.Append(c.hide, false)
 		}
 		row.Append(card)
@@ -97,12 +92,10 @@ func (c *captureTiles) refresh() {
 		ed.refresh()
 	}
 	hidden, _ := c.hideAt.get().(bool)
-	c.syncing = true
 	if hidden {
-		c.hide.SetActive(1)
+		c.hide.show(1)
 	} else {
-		c.hide.SetActive(0)
+		c.hide.show(0)
 	}
-	c.syncing = false
 	c.color.refresh()
 }

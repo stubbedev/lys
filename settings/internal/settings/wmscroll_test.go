@@ -26,17 +26,17 @@ func TestTheColumnWidthPresetsAreCardsOfLysWMsWidths(t *testing.T) {
 	if c.cards.Len() != 3 {
 		t.Fatalf("%d cards for three widths", c.cards.Len())
 	}
-	c.unit.SetActive(presetUnitPixels)
+	pickChoice(c.unit, presetUnitPixels)
 	c.amount.SetValue(1280)
 	c.addWidth()
 	want := []any{1.0 / 3, 0.5, 2.0 / 3, "1280px"}
 	if got := k.wm.value(columnPresetsPath); !reflect.DeepEqual(got, want) {
 		t.Fatalf("adding 1280 px wrote %v, want %v", got, want)
 	}
-	if c.unit.Active() != presetUnitShare || c.amount.Value() != 50 {
-		t.Errorf("after adding, the new width reads unit %d amount %v, want half the screen", c.unit.Active(), c.amount.Value())
+	if c.unit.Selected() != presetUnitShare || c.amount.Value() != 50 {
+		t.Errorf("after adding, the new width reads unit %d amount %v, want half the screen", c.unit.Selected(), c.amount.Value())
 	}
-	c.unit.SetActive(presetUnitPixels)
+	pickChoice(c.unit, presetUnitPixels)
 	c.amount.SetValue(1280)
 	c.showAddable()
 	if c.add.Enabled() {
@@ -46,7 +46,7 @@ func TestTheColumnWidthPresetsAreCardsOfLysWMsWidths(t *testing.T) {
 	if got := k.wm.value(columnPresetsPath); !reflect.DeepEqual(got, want[1:]) {
 		t.Fatalf("removing the first width wrote %v, want %v", got, want[1:])
 	}
-	c.unit.SetActive(presetUnitShare)
+	pickChoice(c.unit, presetUnitShare)
 	c.amount.SetValue(75)
 	c.addWidth()
 	if got := c.widths[len(c.widths)-1]; got != shareWidth(0.75) {

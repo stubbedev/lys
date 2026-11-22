@@ -40,7 +40,7 @@ func TestATouchSwipeIsBuiltFromPicturesAndAnAction(t *testing.T) {
 		t.Error("a gesture that starts nowhere yet shows the finger count")
 	}
 	start.starts.choose("bottom")
-	target.mode.SetActive(touchFollow)
+	pickChoice(target.mode, touchFollow)
 	target.drives.choose("overview")
 	want := []any{map[string]any{"edge": "bottom", "drive": "overview"}}
 	if got := k.wm.value(touchGesturesPath); !reflect.DeepEqual(got, want) {
@@ -59,7 +59,7 @@ func TestATouchSwipeIsBuiltFromPicturesAndAnAction(t *testing.T) {
 	if got := k.wm.value(touchGesturesPath); !reflect.DeepEqual(got, want) {
 		t.Fatalf("a three-finger vertical swipe wrote %v, want %v", got, want)
 	}
-	target.mode.SetActive(touchRun)
+	pickChoice(target.mode, touchRun)
 	if target.drives.Visible() || !target.run.Visible() {
 		t.Error("running an action still shows the drives")
 	}

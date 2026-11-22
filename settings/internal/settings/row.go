@@ -281,12 +281,14 @@ func (r *settingRow) withTrailing(ws ...widget.Widget) *settingRow {
 	return r
 }
 
-// controlFit is where a row holds ctl: under its text when it stacks,
-// in the card's control column when it is a field (a dropdown, a spin,
-// an entry, or an editor that reads as one), and at its own width at
-// the row's end otherwise.
+// controlFit is where a row holds ctl: where a control that decides its
+// own fit says, under its text when it stacks, in the card's control
+// column when it is a field (a dropdown, a spin, an entry, or an editor
+// that reads as one), and at its own width at the row's end otherwise.
 func controlFit(ctl widget.Widget) widget.ItemControlFit {
 	switch c := ctl.(type) {
+	case interface{ fit() widget.ItemControlFit }:
+		return c.fit()
 	case interface{ stacked() }:
 		return widget.ItemControlWide
 	case interface{ columnField() }:

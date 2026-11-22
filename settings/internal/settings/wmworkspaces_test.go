@@ -64,12 +64,12 @@ func TestAWorkspaceRuleTakesItsEditorsFromTheSchema(t *testing.T) {
 	if _, ok := byLabel["wm-workspaces-on-created-empty"].(*choiceEditor); !ok {
 		t.Errorf("on_created_empty takes %T, want a choice of apps", byLabel["wm-workspaces-on-created-empty"])
 	}
-	layout, ok := byLabel["wm-workspaces-layout"].(*optionalEnum)
-	if !ok {
+	layout, ok := byLabel["wm-workspaces-layout"].(*choiceControl)
+	if !ok || layout.choice.unset == "" {
 		t.Fatalf("the layout takes %T, want the inherit-or-pick choice", byLabel["wm-workspaces-layout"])
 	}
-	if !slices.Equal(layout.variants, []string{"scroll", "tree"}) {
-		t.Errorf("the layout offers %q", layout.variants)
+	if got := shownValues(layout)[1:]; !slices.Equal(got, []string{"scroll", "tree"}) {
+		t.Errorf("the layout offers %q", got)
 	}
 	sides := byLabel["wm-workspaces-gaps-outer"].(*sidesEditor)
 	sides.spins[0].OnValueChanged(12)

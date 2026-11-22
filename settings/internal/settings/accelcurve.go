@@ -161,8 +161,7 @@ func newAccelCurveEditor(k *kit, sc wmScope, s slot, class string) *accelCurveEd
 	c.Append(c.drawn, false)
 
 	tail := gapBox(widget.Row)
-	c.unknown = k.badge(t.Get("settings-choice-unknown"), "warning")
-	c.unknown.SetTooltip(t.Attr("settings-choice-unknown", "description"))
+	c.unknown = k.unknownBadge()
 	c.stop = k.secondaryButton(t.Get("wm-accel-curve-stop"), c.end)
 	tail.AppendAligned(c.unknown, false, widget.AlignCenter)
 	tail.AppendAligned(c.stop, false, widget.AlignCenter)
