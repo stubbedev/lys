@@ -53,6 +53,8 @@ func fakeKeyringMain(kind, answer string) error {
 	defer func() { _ = conn.Close() }()
 	got := filepath.Join(marks, kind+"-got")
 	switch kind {
+	case "failing":
+		return errors.New("the fake keyring fails to start")
 	case "gnome":
 		if err := serveGnomeControl(answer, got); err != nil {
 			return err
@@ -177,9 +179,6 @@ func (b *activatableBus) startDaemon(t *testing.T, sock string, services ...fake
 	}
 	for _, s := range services {
 		exec := fmt.Sprintf("%s %s %s %s", self, fakeKeyringArg, s.kind, s.answer)
-		if s.kind == "" {
-			exec = "/bin/false"
-		}
 		unit := fmt.Sprintf("[D-BUS Service]\nName=%s\nExec=%s\n", s.name, exec)
 		if err := os.WriteFile(filepath.Join(serviceDir, s.name+".service"), []byte(unit), 0o600); err != nil {
 			t.Fatal(err)
@@ -254,6 +253,36 @@ func testDeadline(t *testing.T, d time.Duration) context.Context {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(t.Context(), d)
 	t.Cleanup(cancel)
+	return ctx
+}
+
+var errActivationsAsked = errors.New("the bus was asked to activate the last keyring provider")
+
+func untilLastActivationAsked(t *testing.T, b *activatableBus) context.Context {
+	t.Helper()
+	conn := b.conn(t)
+	last := keyringProviders[len(keyringProviders)-1]
+	rule := fmt.Sprintf("type='method_call',interface='%s',member='StartServiceByName',arg0='%s'", busInterface, last)
+	if err := conn.BusObject().Call("org.freedesktop.DBus.Monitoring.BecomeMonitor", 0, []string{rule}, uint32(0)).Err; err != nil {
+		t.Fatal(err)
+	}
+	seen := make(chan *dbus.Message, 16)
+	conn.Eavesdrop(seen)
+	ctx, cancel := context.WithCancelCause(testDeadline(t, 15*time.Second))
+	t.Cleanup(func() { cancel(nil) })
+	go func() {
+		for {
+			select {
+			case msg := <-seen:
+				if msg.Type == dbus.TypeMethodCall {
+					cancel(errActivationsAsked)
+					return
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
 	return ctx
 }
 
@@ -337,13 +366,13 @@ func TestAwaitReportsADeniedPasswordAtOnce(t *testing.T) {
 
 func TestAwaitWithoutAnyKeyringSaysSo(t *testing.T) {
 	b := startActivatableBus(t)
-	err := AwaitLoginKeyring(testDeadline(t, 2*keyringPoll), b.env, []byte("pw"), nil)
-	for _, want := range []error{errNoKeyring, context.DeadlineExceeded} {
+	err := AwaitLoginKeyring(untilLastActivationAsked(t, b), b.env, []byte("pw"), nil)
+	for _, want := range []error{errNoKeyring, errActivationsAsked} {
 		if !errors.Is(err, want) {
 			t.Errorf("no keyring = %v, want %v", err, want)
 		}
 	}
-	if err == nil || !strings.Contains(err.Error(), "no provider on the session bus") || !strings.Contains(err.Error(), secretServiceName) {
+	if err == nil || !strings.Contains(err.Error(), "no provider on the session bus") || !strings.Contains(err.Error(), secretServiceName+": ") {
 		t.Errorf("no keyring = %v, want what activation said about %s", err, secretServiceName)
 	}
 }
@@ -357,9 +386,9 @@ func TestAwaitWithoutASessionBusNamesIt(t *testing.T) {
 }
 
 func TestAwaitFailingActivationIsReported(t *testing.T) {
-	b := startActivatableBus(t, fakeService{name: secretServiceName})
-	err := AwaitLoginKeyring(testDeadline(t, 2*keyringPoll), b.env, []byte("pw"), nil)
-	if !errors.Is(err, errNoKeyring) || !strings.Contains(err.Error(), secretServiceName+": ") {
+	b := startActivatableBus(t, fakeService{secretServiceName, "failing", "exit"})
+	err := AwaitLoginKeyring(untilLastActivationAsked(t, b), b.env, []byte("pw"), nil)
+	if !errors.Is(err, errNoKeyring) || !errors.Is(err, errActivationsAsked) || !strings.Contains(err.Error(), secretServiceName+": ") || !strings.Contains(err.Error(), "exited with status 1") {
 		t.Errorf("a failing activation = %v, want its reason", err)
 	}
 }
@@ -499,24 +528,16 @@ func TestAwaitNamesAnInstalledKWalletWithoutStartingIt(t *testing.T) {
 func TestLockScreenWaitOnlyForWhatActivationStarted(t *testing.T) {
 	t.Run("nothing activatable ends at once", func(t *testing.T) {
 		b := startActivatableBus(t)
-		began := time.Now()
 		err := awaitKeyring(testDeadline(t, unlockKeyringWait), b.env, []byte("pw"), nil, waitForActivation)
 		if !errors.Is(err, errNoKeyring) || errors.Is(err, context.DeadlineExceeded) {
 			t.Errorf("no keyring = %v, want it said before the deadline", err)
 		}
-		if elapsed := time.Since(began); elapsed >= unlockKeyringWait {
-			t.Errorf("the unlock waited %v for nothing", elapsed)
-		}
 	})
 	t.Run("no bus ends at once", func(t *testing.T) {
 		env := sessionEnv(map[string]string{"XDG_RUNTIME_DIR": sockdir.Dir(t)})
-		began := time.Now()
 		err := awaitKeyring(testDeadline(t, unlockKeyringWait), env, []byte("pw"), nil, waitForActivation)
-		if !errors.Is(err, errNoKeyring) || !strings.Contains(err.Error(), "no session bus") {
-			t.Errorf("no bus = %v", err)
-		}
-		if elapsed := time.Since(began); elapsed >= unlockKeyringWait {
-			t.Errorf("the unlock waited %v for nothing", elapsed)
+		if !errors.Is(err, errNoKeyring) || !strings.Contains(err.Error(), "no session bus") || errors.Is(err, context.DeadlineExceeded) {
+			t.Errorf("no bus = %v, want it said before the deadline", err)
 		}
 	})
 	t.Run("an activated keyring gets the password", func(t *testing.T) {

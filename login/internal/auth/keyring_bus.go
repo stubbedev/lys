@@ -36,6 +36,8 @@ const (
 	onlyProvidersKnown     = "lys-login hands the password only to lys-secrets and gnome-keyring"
 )
 
+var keyringProviders = []string{vault.ServiceName, secretServiceName, gnomeKeyringName}
+
 var kwalletServices = []struct {
 	name string
 	path dbus.ObjectPath
@@ -102,7 +104,7 @@ func (b *keyringBus) activate(ctx context.Context) bool {
 }
 
 func (b *keyringBus) startProvider(ctx context.Context) bool {
-	for _, name := range []string{vault.ServiceName, secretServiceName, gnomeKeyringName} {
+	for _, name := range keyringProviders {
 		started, running, err := b.startService(ctx, name)
 		if started {
 			return true
