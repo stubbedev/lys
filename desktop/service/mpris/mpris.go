@@ -138,12 +138,12 @@ type Player struct {
 	Loop    LoopMode
 	Shuffle bool
 
-	// CanControl is false only for a player that reports it false; the
-	// transport refuses such a player without calling it.
-	CanControl    bool
-	CanGoNext     bool
-	CanGoPrevious bool
-	CanSeek       bool
+	// RefusesControl is true only for a player that reports CanControl
+	// false; the transport refuses such a player without calling it.
+	RefusesControl bool
+	CanGoNext      bool
+	CanGoPrevious  bool
+	CanSeek        bool
 	// CanLoop and CanShuffle report whether the player publishes the
 	// LoopStatus and Shuffle properties at all.
 	CanLoop    bool
@@ -504,7 +504,7 @@ func parsePlayer(name string, root, player map[string]dbus.Variant) Player {
 		Loop:          LoopUnsupported,
 	}
 	canControl, published := player["CanControl"]
-	p.CanControl = !published || variantBool(canControl)
+	p.RefusesControl = published && !variantBool(canControl)
 	p.Volume, _ = player["Volume"].Value().(float64)
 	if loop, ok := player["LoopStatus"]; ok {
 		p.CanLoop = true
@@ -600,7 +600,7 @@ func (s *Service) call(ctx context.Context, busName, method string, args ...any)
 	if err != nil {
 		return err
 	}
-	if !p.CanControl {
+	if p.RefusesControl {
 		return fmt.Errorf("%w: %s", ErrNotControllable, busName)
 	}
 	return s.conn.Object(busName, ObjectPath).CallWithContext(ctx, PlayerIface+"."+method, 0, args...).Err

@@ -189,7 +189,7 @@ func TestMediaStop(t *testing.T) {
 	waittest.Until(t, func() bool {
 		for _, p := range c.Players() {
 			if p.BusName == "org.mpris.MediaPlayer2.spotify" {
-				return !p.CanControl
+				return p.RefusesControl
 			}
 		}
 		return false

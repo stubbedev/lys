@@ -118,14 +118,14 @@ func TestParsePlayer(t *testing.T) {
 	if p.Length != 90*time.Second || p.TrackID != "/track/1" || p.ArtURL != "file:///tmp/art.png" {
 		t.Errorf("length/track/art = %v %q %q", p.Length, p.TrackID, p.ArtURL)
 	}
-	if p.State != StatePaused || !p.CanControl || !p.CanGoNext || p.CanGoPrevious {
+	if p.State != StatePaused || p.RefusesControl || !p.CanGoNext || p.CanGoPrevious {
 		t.Errorf("state/caps = %+v", p)
 	}
 	if !p.CanLoop || p.Loop != LoopTrack {
 		t.Errorf("loop = %v (can %v), want Track", p.Loop, p.CanLoop)
 	}
 	player["CanControl"] = dbus.MakeVariant(false)
-	if q := parsePlayer("x", root, player); q.CanControl {
+	if q := parsePlayer("x", root, player); !q.RefusesControl {
 		t.Error("a player reporting CanControl false parsed as controllable")
 	}
 	// No Shuffle property: unsupported.
@@ -336,7 +336,7 @@ func TestServiceStop(t *testing.T) {
 	vlc.props.SetMust(PlayerIface, "CanControl", false)
 	waittest.Until(t, func() bool {
 		p, _ := svc.Active()
-		return !p.CanControl
+		return p.RefusesControl
 	}, "CanControl false in the snapshot")
 	for _, control := range []struct {
 		name string
