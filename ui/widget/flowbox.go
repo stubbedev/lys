@@ -120,6 +120,10 @@ func (f *FlowBox) KeyAction(a KeyAction, mods Mods) {
 	}
 }
 
+// focusable implements focusOptOut: a box nothing can be selected in
+// takes no focus, its children's content does.
+func (f *FlowBox) focusable() bool { return f.mode != SelectionNone }
+
 // navigate maps a motion key to its target child through the last
 // arranged lines.
 func (f *FlowBox) navigate(from int, a KeyAction) (int, bool) {
@@ -507,6 +511,9 @@ func (c *FlowBoxChild) PressEnd() { c.box.release() }
 
 // KeyAction is the box's: a focused child steers the selection.
 func (c *FlowBoxChild) KeyAction(a KeyAction, mods Mods) { c.box.KeyAction(a, mods) }
+
+// focusable implements focusOptOut: the box's.
+func (c *FlowBoxChild) focusable() bool { return c.box.focusable() }
 
 // SelectAll is the box's (ctrl+a on a focused child).
 func (c *FlowBoxChild) SelectAll() { c.box.SelectAll() }

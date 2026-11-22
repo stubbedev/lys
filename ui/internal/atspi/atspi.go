@@ -58,6 +58,7 @@ const (
 	roleChart        uint32 = 80
 	roleProgressBar  uint32 = 42
 	rolePushButton   uint32 = 43
+	roleRadioButton  uint32 = 44
 	roleScrollBar    uint32 = 48
 	roleScrollPane   uint32 = 49
 	roleSlider       uint32 = 51
@@ -115,6 +116,7 @@ var atspiRoles = [...]atspiRoleInfo{
 	widget.RoleToggleButton: {roleToggleButton, "toggle button"},
 	widget.RoleAlert:        {roleNotification, "notification"},
 	widget.RoleChart:        {roleChart, "chart"},
+	widget.RoleRadio:        {roleRadioButton, "radio button"},
 }
 
 // atspiRoleOf is r's AT-SPI role: its table entry, FILLER for RoleNone.
@@ -613,7 +615,7 @@ func (b *Bridge) buildFrom(w widget.Widget, parent *anode, index int, tr *tree) 
 	n := tr.newNode()
 	n.id, n.parent, n.index, n.st, n.w = id, parent, index, st, w
 	n.text = st.Role == widget.RoleLabel || st.Role == widget.RoleEntry || st.Role == widget.RoleTextArea
-	n.action = st.Role == widget.RoleButton || st.Role == widget.RoleToggleButton || st.Role == widget.RoleSwitch || st.Role == widget.RoleCheckBox
+	n.action = st.Role == widget.RoleButton || st.Role == widget.RoleToggleButton || st.Role == widget.RoleSwitch || st.Role == widget.RoleCheckBox || st.Role == widget.RoleRadio
 	n.value = st.Role == widget.RoleSlider || st.Role == widget.RoleProgressBar
 	tr.nodes[id] = n
 	if c, ok := w.(childser); ok {

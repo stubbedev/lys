@@ -46,6 +46,9 @@ const (
 	RoleAlert
 	// RoleChart is a chart, named by a summary of its data.
 	RoleChart
+	// RoleRadio is one choice of a group that checks at most one (a
+	// radio button); A11yState.Checked carries its state.
+	RoleRadio
 )
 
 // String returns the lowercase role name.
@@ -93,6 +96,8 @@ func (r Role) String() string {
 		return "alert"
 	case RoleChart:
 		return "chart"
+	case RoleRadio:
+		return "radio-button"
 	default:
 		return "none"
 	}
@@ -158,7 +163,7 @@ type A11yState struct {
 	// reports whether one is active.
 	SelStart, SelEnd int
 	HasSelection     bool
-	// Checked is the Switch and CheckButton state.
+	// Checked is the Switch, CheckButton and radio state.
 	Checked bool
 	// Pressed is a ToggleButton's active state.
 	Pressed bool
@@ -240,6 +245,8 @@ func Describe(w Widget) A11yState {
 		st.Checked = v.On()
 	case *CheckButton:
 		st.Checked = v.Checked()
+	case *ChoiceChip:
+		st.Checked = v.a11yChecked()
 	case *ProgressBar:
 		st.Min, st.Max, st.Value = 0, 1, v.Value()
 	case *LevelBar:
@@ -286,6 +293,17 @@ func (d *Dropdown) a11yName() string { return d.Selection() }
 // focusOptOut is a key handler that takes the focus only some of the
 // time: an Item while it activates.
 type focusOptOut interface{ focusable() bool }
+
+// tabSkipper is a widget focus can land on that Tab passes by at
+// times: a radio chip other than its row's one stop, which the arrows
+// reach instead.
+type tabSkipper interface{ skipsTab() bool }
+
+// skipsTab reports whether Tab passes w by although focus can land on it.
+func skipsTab(w Widget) bool {
+	s, ok := w.(tabSkipper)
+	return ok && s.skipsTab()
+}
 
 // isFocusable reports whether focus can land on w, by Tab traversal or
 // SetFocus: it handles key actions (and has not opted out), is

@@ -48,11 +48,11 @@ func TestChooseOneChecksOneChipAtATime(t *testing.T) {
 	if !g.Chip(1).HasState(StateChecked) || g.Chip(2).HasState(StateChecked) {
 		t.Error(":checked does not follow the checked chip")
 	}
-	if st := Describe(g.Chip(1)); st.Role != RoleToggleButton || !st.Pressed {
-		t.Errorf("the checked chip reads %v pressed %v", st.Role, st.Pressed)
+	if st := Describe(g.Chip(1)); st.Role != RoleRadio || !st.Checked {
+		t.Errorf("the checked chip reads %v checked %v", st.Role, st.Checked)
 	}
-	if Describe(g.Chip(0)).Pressed {
-		t.Error("an unchecked chip reads pressed")
+	if Describe(g.Chip(0)).Checked {
+		t.Error("an unchecked chip reads checked")
 	}
 }
 
@@ -189,5 +189,74 @@ func TestGoldenChoiceChips(t *testing.T) {
 			frame.Append(many, false)
 			NewGolden(t, frame, "choicechips-"+tc.name, goldenTheme(tc.th), goldenFrame(360, 110))
 		})
+	}
+}
+
+// A radio row reads as radio buttons, checked while checked; a
+// multi-select row as toggle buttons, pressed while checked. Neither
+// reads the other's state.
+func TestChoiceChipsReadAsRadiosOrToggles(t *testing.T) {
+	one, _ := newChoiceChips(t, ChooseOne, "a", "b")
+	one.SetChecked(1, true)
+	for i, want := range []bool{false, true} {
+		st := Describe(one.Chip(i))
+		if st.Role != RoleRadio || st.Checked != want || st.Pressed {
+			t.Errorf("radio chip %d reads %v checked %v pressed %v, want radio-button checked %v", i, st.Role, st.Checked, st.Pressed, want)
+		}
+	}
+	many, _ := newChoiceChips(t, ChooseMany, "a", "b")
+	many.SetChecked(0, true)
+	for i, want := range []bool{true, false} {
+		st := Describe(many.Chip(i))
+		if st.Role != RoleToggleButton || st.Pressed != want || st.Checked {
+			t.Errorf("multi-select chip %d reads %v pressed %v checked %v, want toggle-button pressed %v", i, st.Role, st.Pressed, st.Checked, want)
+		}
+	}
+}
+
+// Tab lands on each chip of a multi-select row, and on no wrapper
+// around them.
+func TestTabStopsOnEveryChipOfAMultiSelectRow(t *testing.T) {
+	g, _ := newChoiceChips(t, ChooseMany, "a", "b")
+	arrangeTree(t, g, 400, 60)
+	if got := tabStops(g); !slices.Equal(got, []Widget{g.Chip(0), g.Chip(1)}) {
+		t.Errorf("Tab stops %v, want the two chips", got)
+	}
+}
+
+// A radio row is one Tab stop: the checked chip, else the first chip
+// focus can land on. The arrows still reach every chip, and Tab leaves
+// the row from the one they reach.
+func TestARadioRowIsOneTabStop(t *testing.T) {
+	g, _ := newChoiceChips(t, ChooseOne, "a", "b", "c")
+	before, after := newFocusTarget(), newFocusTarget()
+	root := NewBox(Column, 0, 0)
+	root.Append(before, false).Append(g, false).Append(after, false)
+	arrangeTree(t, root, 400, 200)
+	stops := func() []Widget { return tabStops(root) }
+	if got, want := stops(), []Widget{before, g.Chip(0), after}; !slices.Equal(got, want) {
+		t.Errorf("with none checked Tab stops %v, want the first chip only", got)
+	}
+	g.SetChecked(2, true)
+	if got, want := stops(), []Widget{before, g.Chip(2), after}; !slices.Equal(got, want) {
+		t.Errorf("with chip 2 checked Tab stops %v, want chip 2 only", got)
+	}
+	g.Chip(2).SetEnabled(false)
+	g.Chip(0).SetEnabled(false)
+	if got, want := stops(), []Widget{before, g.Chip(1), after}; !slices.Equal(got, want) {
+		t.Errorf("with the checked chip disabled Tab stops %v, want the first enabled chip", got)
+	}
+	g.Chip(0).SetEnabled(true)
+	r := &Router{Root: root}
+	if err := r.SetFocus(g.Chip(0)); err != nil {
+		t.Fatal(err)
+	}
+	r.KeyAction(KeyRight, 0)
+	if r.Focused() != Widget(g.Chip(1)) || !g.Chip(1).Checked() {
+		t.Fatalf("Right reached %T, want chip 1 checked", r.Focused())
+	}
+	r.FocusNext()
+	if r.Focused() != Widget(after) {
+		t.Errorf("Tab from the row went to %T, want past it", r.Focused())
 	}
 }

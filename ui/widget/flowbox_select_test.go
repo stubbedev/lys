@@ -108,3 +108,50 @@ func TestGoldenFlowBoxSelection(t *testing.T) {
 	root.Append(f, false)
 	NewGolden(t, root, "flowbox-selection", goldenTheme(th), goldenFrame(200, 70))
 }
+
+// tabStops is the Tab order over root, from no focus round to the
+// first stop again.
+func tabStops(root Widget) []Widget {
+	r := &Router{Root: root}
+	var out []Widget
+	for {
+		r.FocusNext()
+		if r.Focused() == nil || (len(out) > 0 && r.Focused() == out[0]) {
+			return out
+		}
+		out = append(out, r.Focused())
+	}
+}
+
+// A wrap box selects nothing, so neither it nor its child wrappers
+// take focus: Tab over two buttons in one lands on the two buttons.
+func TestAWrapBoxTakesNoFocusItsContentDoes(t *testing.T) {
+	f := NewWrapBox(5, 5, JustifyStart)
+	a, b := NewButton(NewSpacer(20, 20), 0, 0), NewButton(NewSpacer(20, 20), 0, 0)
+	f.Append(a)
+	f.Append(b)
+	arrangeTree(t, f, 200, 40)
+	if got := tabStops(f); !slices.Equal(got, []Widget{a, b}) {
+		t.Errorf("Tab stops %v, want the two buttons only", got)
+	}
+	if err := (&Router{Root: f}).SetFocus(f.ChildAt(0)); err == nil {
+		t.Error("a wrapper of a box that selects nothing took the focus")
+	}
+	if Describe(f).Focusable || Describe(f.ChildAt(1)).TabStop {
+		t.Error("the box or a wrapper reads focusable to assistive technology")
+	}
+}
+
+// A flow box that selects still takes the focus, the box and each of
+// its children a stop as before.
+func TestASelectableFlowBoxStillTakesFocus(t *testing.T) {
+	f := flowGrid(2)
+	want := []Widget{f, f.ChildAt(0), f.ChildAt(1)}
+	if got := tabStops(f); !slices.Equal(got, want) {
+		t.Errorf("Tab stops %v, want the box and its two children", got)
+	}
+	f.SetSelectionMode(SelectionNone)
+	if got := tabStops(f); len(got) != 0 {
+		t.Errorf("after SetSelectionMode(SelectionNone) Tab stops %v, want none", got)
+	}
+}

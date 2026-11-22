@@ -21,10 +21,14 @@ const (
 
 // ChoiceChip is one pill of a ChoiceChips: a button that stays checked,
 // the choicechip element, :checked while checked. Assistive technology
-// reads it as a toggle button, pressed while checked. A ChoiceChips
-// makes it (Append); it has no life outside one.
+// reads it as a radio button, checked while checked, in a ChooseOne
+// row, and as a toggle button, pressed while checked, in a ChooseMany
+// one. In a ChooseOne row Tab lands only on the checked chip, or the
+// first one focus can land on while none is checked; the arrows reach
+// the rest. A ChoiceChips makes it (Append); it has no life outside one.
 type ChoiceChip struct {
 	Button
+	group   *ChoiceChips
 	checked bool
 }
 
@@ -42,10 +46,23 @@ func (c *ChoiceChip) setChecked(on bool) {
 }
 
 // Role implements Roleer.
-func (c *ChoiceChip) Role() Role { return RoleToggleButton }
+func (c *ChoiceChip) Role() Role {
+	if c.group.mode == ChooseOne {
+		return RoleRadio
+	}
+	return RoleToggleButton
+}
 
 // a11yPressed implements a11yPresser.
-func (c *ChoiceChip) a11yPressed() bool { return c.checked }
+func (c *ChoiceChip) a11yPressed() bool { return c.checked && c.group.mode == ChooseMany }
+
+// a11yChecked is the radio state Describe reports.
+func (c *ChoiceChip) a11yChecked() bool { return c.checked && c.group.mode == ChooseOne }
+
+// skipsTab implements tabSkipper.
+func (c *ChoiceChip) skipsTab() bool {
+	return c.group.mode == ChooseOne && c.group.tabChip() != c
+}
 
 // ChoiceChips is a wrapping row of choice chips, the choicechips
 // element, of which its mode decides how many can be checked. A click,
@@ -83,7 +100,7 @@ func NewChoiceChips(mode ChoiceMode) *ChoiceChips {
 
 // Append adds an unchecked chip around content after the chips there.
 func (g *ChoiceChips) Append(content Widget) *ChoiceChip {
-	c := &ChoiceChip{Button: *NewButton(content, 0, 0)}
+	c := &ChoiceChip{Button: *NewButton(content, 0, 0), group: g}
 	c.SetElement("choicechip")
 	c.OnClick = func() { g.choose(c) }
 	g.flow.Insert(len(g.chips), c)
@@ -139,6 +156,23 @@ func (g *ChoiceChips) SetTrailing(w Widget) {
 	if w != nil {
 		g.flow.Append(w)
 	}
+}
+
+// tabChip is the one chip of a ChooseOne row Tab lands on: the checked
+// chip while focus can land on it, else the first chip focus can land
+// on, nil when there is none.
+func (g *ChoiceChips) tabChip() *ChoiceChip {
+	for _, c := range g.chips {
+		if c.checked && isFocusable(c) {
+			return c
+		}
+	}
+	for _, c := range g.chips {
+		if isFocusable(c) {
+			return c
+		}
+	}
+	return nil
 }
 
 // choose is the user's press on c.

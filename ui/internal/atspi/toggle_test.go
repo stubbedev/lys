@@ -39,3 +39,25 @@ func TestEverySemanticRoleMapsToAtspi(t *testing.T) {
 		t.Errorf("toggle button role name = %q", got)
 	}
 }
+
+// A radio button serves AT-SPI's radio-button role, the checked state
+// while checked and never pressed.
+func TestRadioButtonRoleAndCheckedState(t *testing.T) {
+	if got := atspiRole(widget.RoleRadio); got != roleRadioButton || roleRadioButton != 44 {
+		t.Errorf("role = %d, want ATSPI_ROLE_RADIO_BUTTON (44)", got)
+	}
+	if got := atspiRoleName(widget.RoleRadio); got != "radio button" {
+		t.Errorf("radio role name = %q", got)
+	}
+	b := &Bridge{}
+	tr := &tree{nodes: map[int32]*anode{
+		1: {id: 1, st: widget.A11yState{Role: widget.RoleRadio, Enabled: true, Checked: true}},
+		2: {id: 2, st: widget.A11yState{Role: widget.RoleRadio, Enabled: true}},
+	}}
+	if s := b.statesOf(tr, 1); !slices.Contains(s, stateChecked) || slices.Contains(s, statePressed) {
+		t.Errorf("a checked radio serves %v, want ATSPI_STATE_CHECKED and not pressed", s)
+	}
+	if slices.Contains(b.statesOf(tr, 2), stateChecked) {
+		t.Error("an unchecked radio serves checked")
+	}
+}

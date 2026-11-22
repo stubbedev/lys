@@ -1308,9 +1308,9 @@ func groupOf(w Widget) Widget {
 	return g
 }
 
-// tabStop reports whether Tab lands on w: focusable, and not inside a
-// focus group, which is its rows' one stop.
-func tabStop(w Widget) bool { return isFocusable(w) && groupOf(w) == nil }
+// tabStop reports whether Tab lands on w: focusable, not passed by
+// (skipsTab), and not inside a focus group, which is its rows' one stop.
+func tabStop(w Widget) bool { return isFocusable(w) && !skipsTab(w) && groupOf(w) == nil }
 
 // appendTabStops appends the widgets of scope's tree that are tab stops
 // (tabStop), in paint order. A hidden or disabled container hides or
@@ -1333,7 +1333,7 @@ func appendTabStopsUnder(s *kidStack, order []Widget, w Widget, inGroup bool) []
 		}
 		return open
 	}
-	if !inGroup && takesFocus(w) && passes() && shown(w) {
+	if !inGroup && takesFocus(w) && !skipsTab(w) && passes() && shown(w) {
 		order = append(order, w)
 	}
 	_, group := w.(focusGroup)
