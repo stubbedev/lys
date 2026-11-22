@@ -197,13 +197,13 @@ type powerPanel struct {
 	stop    context.CancelFunc
 	state   powerState
 	problem *widget.Label
-	battery *widget.Box
-	modes   *widget.Box
+	battery *stateBox
+	modes   *stateBox
 	closed  bool
 }
 
 func newPowerPanel(k *kit) *powerPanel {
-	p := &powerPanel{Box: sectionStack(), k: k, battery: gapBox(widget.Column), modes: gapBox(widget.Column)}
+	p := &powerPanel{Box: sectionStack(), k: k, battery: k.stateBox(), modes: k.stateBox()}
 	p.AddClass("power-panel")
 	p.problem = k.errorText("")
 	p.problem.SetVisible(false)
@@ -211,7 +211,7 @@ func newPowerPanel(k *kit) *powerPanel {
 	p.Append(newSection(k, "settings-power-section-battery", p.battery), false)
 	p.Append(newSection(k, "settings-power-section-mode", p.modes), false)
 	p.Append(newPausing(k), false)
-	p.battery.Append(k.label(locale.T().Get("settings-power-loading"), css.Caption, css.DimLabel), false)
+	p.battery.state.Loading(locale.T().Get("settings-power-loading"))
 	type opened struct {
 		ctl   powerControl
 		state powerState
@@ -245,10 +245,10 @@ func newPowerPanel(k *kit) *powerPanel {
 
 func (p *powerPanel) unavailable(err error) {
 	t := locale.T()
-	p.battery.Clear()
-	p.modes.Clear()
-	p.battery.Append(widget.NewItemGroup(p.k.row(t.Get("settings-power-unavailable"), err.Error())), false)
-	p.modes.Append(widget.NewItemGroup(p.k.row(t.Get("settings-power-unavailable"), err.Error())), false)
+	for _, b := range []*stateBox{p.battery, p.modes} {
+		b.content.Clear()
+		b.state.Unavailable("ld-battery-symbolic", t.Get("settings-power-unavailable"), err)
+	}
 }
 
 func (p *powerPanel) follow() {
@@ -325,10 +325,12 @@ func (p *powerPanel) close() {
 }
 
 func (p *powerPanel) show() {
-	p.battery.Clear()
-	p.modes.Clear()
-	p.battery.Append(p.batteryRows(), false)
-	p.modes.Append(p.modeRows(), false)
+	p.battery.state.Clear()
+	p.modes.state.Clear()
+	p.battery.content.Clear()
+	p.modes.content.Clear()
+	p.battery.content.Append(p.batteryRows(), false)
+	p.modes.content.Append(p.modeRows(), false)
 }
 
 func (p *powerPanel) batteryRows() widget.Widget {

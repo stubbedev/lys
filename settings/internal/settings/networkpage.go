@@ -352,7 +352,7 @@ type networkPanel struct {
 	stop     context.CancelFunc
 	state    netState
 	problem  *widget.Label
-	status   *widget.Box
+	status   *stateBox
 	nets     *widget.Box
 	netsSec  *widget.Box
 	vpn      *widget.Box
@@ -372,7 +372,7 @@ type networkPanel struct {
 }
 
 func newNetworkPanel(k *kit) *networkPanel {
-	p := &networkPanel{Box: sectionStack(), k: k, status: gapBox(widget.Column), nets: gapBox(widget.Column)}
+	p := &networkPanel{Box: sectionStack(), k: k, status: k.stateBox(), nets: gapBox(widget.Column)}
 	p.AddClass("network-panel")
 	p.problem = k.errorText("")
 	p.problem.SetVisible(false)
@@ -403,7 +403,7 @@ func newNetworkPanel(k *kit) *networkPanel {
 	p.detSec = newSection(k, "settings-wifi-section-details", p.details)
 	p.detSec.SetVisible(false)
 	p.Append(p.detSec, false)
-	p.status.Append(k.label(locale.T().Get("settings-wifi-loading"), css.Caption, css.DimLabel), false)
+	p.status.state.Loading(locale.T().Get("settings-wifi-loading"))
 	type opened struct {
 		ctl   netControl
 		state netState
@@ -439,12 +439,12 @@ func newNetworkPanel(k *kit) *networkPanel {
 func (p *networkPanel) configChanged() { p.proxy.configChanged() }
 
 func (p *networkPanel) unavailable(err error) {
-	p.status.Clear()
+	p.status.content.Clear()
 	p.netsSec.SetVisible(false)
 	p.savedSec.SetVisible(false)
 	p.vpnSec.SetVisible(false)
 	p.proxySec.SetVisible(false)
-	p.status.Append(widget.NewItemGroup(p.k.row(locale.T().Get("settings-wifi-unavailable"), err.Error())), false)
+	p.status.state.Unavailable("ld-wifi-zero-symbolic", locale.T().Get("settings-wifi-unavailable"), err)
 }
 
 func (p *networkPanel) follow() {
@@ -547,12 +547,13 @@ func (p *networkPanel) close() {
 }
 
 func (p *networkPanel) show() {
-	p.status.Clear()
+	p.status.content.Clear()
 	p.nets.Clear()
+	p.status.state.Clear()
 	t := locale.T()
 	st := p.state
 	status := widget.NewItemGroup()
-	p.status.Append(status, false)
+	p.status.content.Append(status, false)
 	p.netsSec.SetVisible(st.wifi && st.wifiOn)
 	p.showVPNs()
 	p.showSaved()

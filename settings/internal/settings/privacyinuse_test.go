@@ -87,7 +87,7 @@ func TestInUseNowListsWhatCapturesTheMicrophoneCameraAndScreen(t *testing.T) {
 			t.Errorf("the strip lacks %q:\n%s", want, strings.Join(labels, "\n"))
 		}
 	}
-	if slices.Contains(labels, tr.Get("settings-privacy-in-use-none")) || footer.inUse.problem.Visible() {
+	if footer.inUse.state.Visible() {
 		t.Fatalf("a busy strip reads empty or a problem:\n%s", strings.Join(labels, "\n"))
 	}
 	treetest.Button(t, footer.inUse, tr.Get("settings-privacy-in-use-stop-app", i18n.Str("app", "com.obsproject.Studio"))).OnClick()
@@ -114,9 +114,10 @@ func TestInUseNowFollowsACameraOpeningAndSaysWhenNothingCaptures(t *testing.T) {
 	footer := grantsFooter(r.k).(*grantsList)
 	tr := locale.T()
 	r.l.until("the recorder listed", func() bool { return slices.Contains(treetest.Labels(footer.inUse), "Recorder") })
-	want := tr.Get("settings-privacy-in-use-no-screen") + ": no portal"
-	if !footer.inUse.problem.Visible() || footer.inUse.problem.Text() != want {
-		t.Fatalf("the problem reads %q, shown %v, want %q", footer.inUse.problem.Text(), footer.inUse.problem.Visible(), want)
+	st := footer.inUse.state
+	want := tr.Get("settings-privacy-in-use-no-screen")
+	if st.kind != stateUnavailable || st.Title() != want || st.detail.Text() != want+": no portal" {
+		t.Fatalf("the strip shows %v %q over %q, want %q", st.kind, st.Title(), st.detail.Text(), want)
 	}
 	r.cameras.users = []privacy.CameraUser{{PID: 7, Name: "zoom", Device: "/dev/video2"}}
 	feed.Notify(r.cameras.changes)
@@ -128,16 +129,35 @@ func TestInUseNowFollowsACameraOpeningAndSaysWhenNothingCaptures(t *testing.T) {
 }
 
 func TestInUseNowWithNothingCapturingSaysSo(t *testing.T) {
+	r := startInUse(t, nil, nil)
+	r.srv.RemoveSourceOutput(60)
+	footer := grantsFooter(r.k).(*grantsList)
+	st := footer.inUse.state
+	r.l.until("the strip read", func() bool { return st.kind != stateLoading })
+	if st.kind != stateEmpty || st.Title() != locale.T().Get("settings-privacy-in-use-none") {
+		t.Fatalf("an idle strip shows %v %q", st.kind, st.Title())
+	}
+	footer.close()
+}
+
+// With no source to ask, the strip says it cannot read who captures in
+// its one state, the summary localized and every source's error behind
+// it, never that nothing captures.
+func TestInUseNowWithNoSourceSaysItCannotRead(t *testing.T) {
 	k := testKit(t, "")
 	serveGrants(t, &fakeGrants{})
 	footer := grantsFooter(k).(*grantsList)
-	labels := treetest.Labels(footer.inUse)
-	if !slices.Contains(labels, locale.T().Get("settings-privacy-in-use-none")) {
-		t.Fatalf("an idle strip reads:\n%s", strings.Join(labels, "\n"))
+	st := footer.inUse.state
+	tr := locale.T()
+	if st.kind != stateUnavailable || st.Title() != tr.Get("settings-privacy-in-use-unreadable") {
+		t.Fatalf("an unreachable strip shows %v %q", st.kind, st.Title())
+	}
+	if slices.Contains(treetest.Labels(footer.inUse), tr.Get("settings-privacy-in-use-none")) {
+		t.Error("an unreachable strip says nothing captures")
 	}
 	for _, key := range []string{"settings-privacy-in-use-no-microphone", "settings-privacy-in-use-no-camera", "settings-privacy-in-use-no-screen"} {
-		if !strings.Contains(footer.inUse.problem.Text(), locale.T().Get(key)) {
-			t.Errorf("the unreachable sources do not say %s: %q", key, footer.inUse.problem.Text())
+		if !strings.Contains(st.detail.Text(), tr.Get(key)) {
+			t.Errorf("the detail does not say %s: %q", key, st.detail.Text())
 		}
 	}
 	footer.close()

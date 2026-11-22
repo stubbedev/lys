@@ -150,13 +150,14 @@ func (c *sleepAction) refresh() {
 	problem := ""
 	switch {
 	case c.unknown != nil:
-		problem = t.Get("settings-sleep-unknown", i18n.Str("reason", c.unknown.Error()))
+		problem = t.Get("settings-sleep-unknown")
 	case c.refused != "":
 		problem = t.Get(sleepRefusals[c.can[c.refused]], i18n.Str("action", c.label(c.refused)))
 	case known && !c.usable(current):
 		problem = t.Get(sleepRefusals[c.can[current]], i18n.Str("action", c.label(current)))
 	}
 	c.problem.SetText(problem)
+	c.problem.SetTooltip(errText(c.unknown))
 	c.problem.SetVisible(problem != "")
 }
 

@@ -498,15 +498,15 @@ func TestTheAppsRecordingTheMicrophoneAreListedAndMuted(t *testing.T) {
 		t.Fatalf("recording streams %v, want the microphone's running one alone", got)
 	}
 	row := r.p.recording.rows[key]
-	if title := rowText(row, "title"); title != "Recorder" || row.icon.Name() != "audio-recorder" || row.mute.glyph.Name() != micGlyphs.sounding || r.p.recording.empty.Visible() {
-		t.Fatalf("row %q with icon %q and glyph %q, empty shown %v", title, row.icon.Name(), row.mute.glyph.Name(), r.p.recording.empty.Visible())
+	if title := rowText(row, "title"); title != "Recorder" || row.icon.Name() != "audio-recorder" || row.mute.glyph.Name() != micGlyphs.sounding || (r.p.recording.state.kind == stateEmpty) {
+		t.Fatalf("row %q with icon %q and glyph %q, empty shown %v", title, row.icon.Name(), row.mute.glyph.Name(), (r.p.recording.state.kind == stateEmpty))
 	}
 	row.mute.OnClick()
 	if st, _ := srv.SourceOutput(60); !st.Mute {
 		t.Fatal("the recorder was not muted")
 	}
 	srv.RemoveSourceOutput(60)
-	r.l.until("the recorder gone", func() bool { return r.p.recording.empty.Visible() && len(r.p.recording.keys) == 0 })
+	r.l.until("the recorder gone", func() bool { return (r.p.recording.state.kind == stateEmpty) && len(r.p.recording.keys) == 0 })
 }
 
 func TestTheSettingsOwnLevelMeterIsNotAnAppRecording(t *testing.T) {

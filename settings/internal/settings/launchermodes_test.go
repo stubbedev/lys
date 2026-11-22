@@ -167,11 +167,11 @@ func TestThePaneShowsOnlyTheSelectedModesOptions(t *testing.T) {
 	if got := visibleOptions(c); !slices.Contains(got, "launcher.window.format") || slices.Contains(got, "launcher.drun.categories") {
 		t.Errorf("windows on this workspace shows %v, want the window options", got)
 	}
-	if c.none.Visible() {
+	if c.state.Visible() {
 		t.Error("a mode with options says it has none")
 	}
 	modeItem(t, c, "calc").ClickAt(widget.Point{})
-	if got := visibleOptions(c); len(got) != 0 || !c.none.Visible() {
+	if got := visibleOptions(c); len(got) != 0 || !c.state.Visible() {
 		t.Errorf("the calculator shows %v and does not say it has no options", got)
 	}
 }

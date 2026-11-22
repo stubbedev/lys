@@ -5,6 +5,7 @@ import (
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/highlight"
 	"github.com/stubbedev/lys/ui/widget"
+	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -74,10 +75,10 @@ func (c *yamlEditor) apply() {
 	doc, err := config.ParseYAML(c.area.Text())
 	v, ok := doc[c.key]
 	if err != nil || !ok || c.slot.set(v) != nil {
-		c.scroll.AddClass("error")
+		c.scroll.AddClass(css.Error)
 		return
 	}
-	c.scroll.RemoveClass("error")
+	c.scroll.RemoveClass(css.Error)
 	c.badge.SetVisible(false)
 }
 

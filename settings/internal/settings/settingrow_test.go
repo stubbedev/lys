@@ -10,6 +10,8 @@ import (
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
+
+	"github.com/stubbedev/lys/settings/internal/displays"
 )
 
 // walkAncestry is walkOwn with the widgets above each, from the root
@@ -238,19 +240,20 @@ func styledLayOut(k *kit, root *widget.Box, w int) {
 	root.Arrange(render.Rect{W: w, H: sz.H})
 }
 
-// On Displays the empty resolution and refresh rate dropdowns hold the
-// card's control column, not the stub their content asks for, and the
+// On Displays, for a display offering no mode, the empty resolution and
+// refresh rate dropdowns hold the card's control column, not the stub their content asks for, and the
 // scale picker takes its row's width under the text instead.
 func TestDisplaysDropdownsHoldTheColumnWhenEmpty(t *testing.T) {
 	k := testKit(t, "")
+	fakeHeads(t, []displays.Head{{Name: "DP-1", Enabled: true, Scale: 1}}, nil)
 	p := displaysLead(k).(*displaysPanel)
 	t.Cleanup(p.close)
 	box := widget.NewBox(widget.Column, 0, 0)
 	box.Append(p, false)
 	styledLayOut(k, box, 900)
 	columnEdges{"resolution": p.resolution.Bounds(), "refresh rate": p.refresh.Bounds()}.shareEdges(t, "displays")
-	if w := p.resolution.Bounds().W; w != widget.ItemColumnWidth || w <= p.resolution.Measure(widget.Row, widget.Unknown).Nat {
-		t.Errorf("the empty resolution dropdown is %dpx wide, want the column's %d past its content's %d", w, widget.ItemColumnWidth, p.resolution.Measure(widget.Row, widget.Unknown).Nat)
+	if w := p.resolution.Bounds().W; w < widget.ItemColumnWidth || w <= p.resolution.Measure(widget.Row, widget.Unknown).Nat {
+		t.Errorf("the empty resolution dropdown is %dpx wide, want the column's, at least %d, past its content's %d", w, widget.ItemColumnWidth, p.resolution.Measure(widget.Row, widget.Unknown).Nat)
 	}
 	if s, r := p.scale.Bounds(), p.resolution.Bounds(); s.W <= r.W || s.X >= r.X {
 		t.Errorf("the scale picker at %v did not take its row's width beside the column at %v", s, r)

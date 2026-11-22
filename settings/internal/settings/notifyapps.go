@@ -55,7 +55,7 @@ type notifyApps struct {
 	pending []string
 	rows    []string
 	list    *widget.Box
-	empty   *widget.Label
+	state   *cardState
 	pattern *widget.Entry
 	add     *widget.Button
 	checks  map[string][]*widget.CheckButton
@@ -66,7 +66,7 @@ func newNotifyApps(k *kit, slots []slot) *notifyApps {
 	t := locale.T()
 	c := &notifyApps{Box: gapBox(widget.Column), k: k, slots: slots}
 	c.list = gapBox(widget.Column)
-	c.empty = k.note(t.Get("settings-notify-apps-none"))
+	c.state = k.cardState()
 	c.add = k.addButton("settings-notify-apps-add", c.pickApp)
 	c.pattern = k.entry()
 	c.pattern.SetPlaceholder(t.Get("settings-notify-apps-pattern"))
@@ -80,7 +80,7 @@ func newNotifyApps(k *kit, slots []slot) *notifyApps {
 	controls := gapBox(widget.Row)
 	controls.AppendAligned(c.add, false, widget.AlignCenter)
 	controls.AppendAligned(c.pattern, true, widget.AlignCenter)
-	c.Append(c.empty, false)
+	c.Append(widget.NewItemGroup(c.state), false)
 	c.Append(c.list, false)
 	c.Append(controls, false)
 	dirs := desktopentry.ApplicationDirs()
@@ -183,7 +183,11 @@ func (c *notifyApps) rebuild() {
 	c.list.Clear()
 	c.checks = map[string][]*widget.CheckButton{}
 	c.rows = c.named()
-	c.empty.SetVisible(len(c.rows) == 0)
+	if len(c.rows) == 0 {
+		c.state.Empty("ld-bell-symbolic", t.Get("settings-notify-apps-none"))
+	} else {
+		c.state.Clear()
+	}
 	for _, pattern := range c.rows {
 		row := gapBox(widget.Row)
 		row.AddClass("notify-app")

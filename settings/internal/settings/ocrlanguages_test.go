@@ -98,14 +98,17 @@ func TestAChosenOCRLanguageThatIsNotInstalledSaysSo(t *testing.T) {
 }
 
 func TestWithoutTesseractThePageSaysTextCannotBeRead(t *testing.T) {
+	tr := locale.T()
 	_, c := ocrChecklist(t, "", "", errNoTesseract)
-	labels := treetest.Labels(c)
-	if !slices.Contains(labels, locale.T().Get("settings-ocr-no-tesseract")) || !slices.Contains(labels, locale.T().Get("settings-ocr-none")) {
-		t.Errorf("without tesseract the list reads %q", labels)
+	if st := c.state; st.kind != stateUnavailable || st.Title() != tr.Get("settings-ocr-no-tesseract") || st.reveal.Visible() {
+		t.Errorf("without tesseract the list shows %v %q, a detail offered %v", st.kind, st.Title(), st.reveal.Visible())
+	}
+	if slices.Contains(treetest.Labels(c), tr.Get("settings-ocr-none")) {
+		t.Error("without tesseract the list says no language is installed")
 	}
 	_, c = ocrChecklist(t, "", "", errors.New("tesseract --list-langs: exit status 1"))
-	if !slices.Contains(treetest.Labels(c), "tesseract --list-langs: exit status 1") {
-		t.Errorf("a failing tesseract reads %q", treetest.Labels(c))
+	if st := c.state; st.kind != stateUnavailable || st.Title() != tr.Get("settings-ocr-unreadable") || st.detail.Text() != "tesseract --list-langs: exit status 1" {
+		t.Errorf("a failing tesseract shows %v %q over %q", st.kind, st.Title(), st.detail.Text())
 	}
 }
 

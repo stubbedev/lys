@@ -112,14 +112,19 @@ type grantsList struct {
 	store     grantStore
 	release   func()
 	watch     *dbusx.Watch
-	rows      *widget.Box
+	rows      *widget.ItemGroup
+	state     *cardState
 	view      *choicePick
 	apps      []permissions.App
 	installed installedApps
 	opened    map[privacyResource]bool
 	inUse     *inUseStrip
-	failure   string
-	problem   string
+	// failedKey and failure are the change to a grant that failed last,
+	// shown with the next render.
+	failedKey string
+	failure   error
+	// unreadable is why the grants cannot be listed, nil while they can.
+	unreadable error
 }
 
 // unidentifiedApp is the app ID xdg-desktop-portal records for a caller
@@ -134,7 +139,7 @@ var privacyLinks = []pageLink{
 
 func grantsFooter(k *kit) widget.Widget {
 	t := locale.T()
-	l := &grantsList{Box: sectionStack(), k: k, rows: widget.NewBox(widget.Column, 0, 0), opened: map[privacyResource]bool{}}
+	l := &grantsList{Box: sectionStack(), k: k, rows: widget.NewItemGroup(), state: k.cardState(), opened: map[privacyResource]bool{}}
 	l.view = newChoicePick(k, []string{t.Get("settings-privacy-by-permission"), t.Get("settings-privacy-by-app")}, grantsByResource)
 	l.view.SetAccessibleName(t.Get("settings-privacy-view"))
 	l.view.OnSelect = func(int) { l.render() }
@@ -151,7 +156,7 @@ func grantsFooter(k *kit) widget.Widget {
 	})
 	store, release, err := openGrants()
 	if err != nil {
-		l.problem = err.Error()
+		l.unreadable = err
 		l.render()
 		return l
 	}
@@ -191,10 +196,9 @@ func (l *grantsList) reload() {
 		apps, err := withStore(store, func(ctx context.Context, s grantStore) ([]permissions.App, error) { return s.List(ctx) })
 		return grantsListing{apps, err}
 	}, func(r grantsListing) {
-		l.apps, l.problem = r.apps, ""
+		l.apps, l.unreadable = r.apps, r.err
 		if r.err != nil {
 			log.Printf("settings: list the apps' grants: %v", r.err)
-			l.problem = locale.T().Get("settings-privacy-unavailable") + ": " + r.err.Error()
 		}
 		l.render()
 	})
@@ -203,19 +207,20 @@ func (l *grantsList) reload() {
 func (l *grantsList) render() {
 	t := locale.T()
 	l.rows.Clear()
-	group := widget.NewItemGroup()
-	l.rows.Append(group, false)
-	if l.failure != "" {
-		group.Append(newInsetRow(l.k.errorText(l.failure)))
-		l.failure = ""
-	}
+	l.rows.Append(l.state)
+	group := l.rows
 	switch {
-	case l.problem != "":
-		group.Append(newInsetRow(l.k.errorText(l.problem)))
+	case l.unreadable != nil:
+		l.state.Unavailable("ld-shield-check-symbolic", t.Get("settings-privacy-unavailable"), l.unreadable)
 		return
+	case l.failure != nil:
+		l.state.Error(t.Get(l.failedKey), l.failure, nil)
+		l.failure = nil
 	case len(l.apps) == 0:
-		group.Append(l.k.emptyRow("ld-shield-check-symbolic", t.Get("settings-privacy-none")))
+		l.state.Empty("ld-shield-check-symbolic", t.Get("settings-privacy-none"))
 		return
+	default:
+		l.state.Clear()
 	}
 	if l.view.Selected() == grantsByResource {
 		l.renderByResource(group)
@@ -356,7 +361,7 @@ func (l *grantsList) act(change func(context.Context, grantStore) error, failedK
 	}, func(err error) {
 		if err != nil {
 			log.Printf("settings: change a grant: %v", err)
-			l.failure = locale.T().Get(failedKey) + ": " + err.Error()
+			l.failedKey, l.failure = failedKey, err
 		}
 		l.reload()
 	})

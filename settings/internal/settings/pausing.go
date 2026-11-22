@@ -132,13 +132,14 @@ type pausing struct {
 	uid     uint32
 	listing pauseListing
 	problem *widget.Label
-	rows    *widget.Box
+	rows    *widget.ItemGroup
+	state   *cardState
 	add     *widget.Button
 }
 
 func newPausing(k *kit) *pausing {
 	t := locale.T()
-	s := &pausing{k: k, uid: intconv.Must[uint32](os.Getuid()), rows: gapBox(widget.Column)}
+	s := &pausing{k: k, uid: intconv.Must[uint32](os.Getuid()), rows: widget.NewItemGroup(), state: k.cardState()}
 	body := gapBox(widget.Column)
 	body.Append(k.note(t.Get("settings-power-pause-detail")), false)
 	s.problem = k.errorText("")
@@ -180,9 +181,10 @@ func (s *pausing) show(l pauseListing) {
 	t := locale.T()
 	s.listing = l
 	s.rows.Clear()
+	s.rows.Append(s.state)
 	s.add.SetVisible(l.err == nil)
 	if l.err != nil {
-		s.rows.Append(widget.NewItemGroup(s.k.row(t.Get("settings-power-pause-unavailable"), l.err.Error())), false)
+		s.state.Unavailable("ld-battery-full-symbolic", t.Get("settings-power-pause-unavailable"), l.err)
 		return
 	}
 	st := l.state.VisibleTo(s.uid)
@@ -191,14 +193,14 @@ func (s *pausing) show(l pauseListing) {
 		units = append(units, e.Unit)
 	}
 	units = pause.Sorted(units)
-	rows := widget.NewItemGroup()
 	if len(units) == 0 {
-		rows.Append(s.k.emptyRow("ld-battery-full-symbolic", t.Get("settings-power-pause-none")))
+		s.state.Empty("ld-battery-full-symbolic", t.Get("settings-power-pause-none"))
+		return
 	}
+	s.state.Clear()
 	for _, u := range units {
-		rows.Append(s.row(st, u))
+		s.rows.Append(s.row(st, u))
 	}
-	s.rows.Append(rows, false)
 }
 
 func scopeText(u pause.Unit) string {

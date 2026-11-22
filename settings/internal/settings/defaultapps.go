@@ -350,7 +350,8 @@ func (d *defaultApps) chooser(title string, types []string) widget.Widget {
 		row.withActions(d.resetFor(title, reset))
 	}
 	if len(apps) == 0 {
-		return row.withControl(d.k.label(locale.T().Get("settings-default-none"), css.DimLabel))
+		row.SetDescription(locale.T().Get("settings-default-none"))
+		return row
 	}
 	current, mixed := d.ix.currentOf(types)
 	items := make([]widget.DropdownRow, 0, len(apps)+1)

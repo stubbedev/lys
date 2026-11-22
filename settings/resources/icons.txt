@@ -1,4 +1,5 @@
 ld-activity-symbolic
+ld-alert-triangle-symbolic
 ld-app-window-symbolic
 ld-audio-lines-symbolic
 ld-battery-full-symbolic

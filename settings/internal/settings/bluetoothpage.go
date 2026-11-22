@@ -15,7 +15,6 @@ import (
 	"github.com/stubbedev/lys/desktop/service/bluetooth"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -258,12 +257,16 @@ type bluetoothPanel struct {
 	busy        map[dbus.ObjectPath]btBusy
 	renaming    dbus.ObjectPath
 	problem     *widget.Label
-	status      *widget.Box
+	status      *stateBox
 	request     *widget.Box
 	requestSec  *widget.Box
-	devices     *widget.Box
+	devices     *widget.ItemGroup
+	pairedState *cardState
 	devicesSec  *widget.Box
 	nearby      *widget.Box
+	search      *widget.Box
+	found       *widget.ItemGroup
+	foundState  *cardState
 	nearbySec   *widget.Box
 	nameEntry   *widget.Entry
 	nameFrom    string
@@ -275,8 +278,12 @@ type bluetoothPanel struct {
 func newBluetoothPanel(k *kit) *bluetoothPanel {
 	p := &bluetoothPanel{
 		Box: sectionStack(), k: k, busy: map[dbus.ObjectPath]btBusy{},
-		status: gapBox(widget.Column), request: gapBox(widget.Column), devices: gapBox(widget.Column), nearby: gapBox(widget.Column),
+		status: k.stateBox(), request: gapBox(widget.Column),
+		devices: widget.NewItemGroup(), pairedState: k.cardState(), nearby: gapBox(widget.Column), search: gapBox(widget.Column),
+		found: widget.NewItemGroup(), foundState: k.cardState(),
 	}
+	p.nearby.Append(p.search, false)
+	p.nearby.Append(p.found, false)
 	p.AddClass("bluetooth-panel")
 	p.problem = k.errorText("")
 	p.problem.SetVisible(false)
@@ -289,7 +296,7 @@ func newBluetoothPanel(k *kit) *bluetoothPanel {
 	p.nearbySec = newSection(k, "settings-bluetooth-section-nearby", p.nearby)
 	p.Append(p.nearbySec, false)
 	p.showSections(false, false)
-	p.status.Append(k.label(locale.T().Get("settings-bluetooth-loading"), css.Caption, css.DimLabel), false)
+	p.status.state.Loading(locale.T().Get("settings-bluetooth-loading"))
 	type opened struct {
 		ctl btControl
 		err error
@@ -320,9 +327,9 @@ func (p *bluetoothPanel) showSections(request, devices bool) {
 }
 
 func (p *bluetoothPanel) unavailable(err error) {
-	p.status.Clear()
+	p.status.content.Clear()
 	p.showSections(false, false)
-	p.status.Append(widget.NewItemGroup(p.k.row(locale.T().Get("settings-bluetooth-unavailable"), err.Error())), false)
+	p.status.state.Unavailable("ld-bluetooth-symbolic", locale.T().Get("settings-bluetooth-unavailable"), err)
 }
 
 func (p *bluetoothPanel) follow() {
@@ -414,17 +421,17 @@ func (p *bluetoothPanel) close() {
 func (p *bluetoothPanel) show() {
 	t := locale.T()
 	v := p.view
-	p.status.Clear()
+	p.status.content.Clear()
 	p.request.Clear()
-	p.devices.Clear()
-	p.nearby.Clear()
+	p.search.Clear()
 	p.showSections(v.pairing != nil, v.available && v.powered)
 	if !v.available {
-		p.status.Append(widget.NewItemGroup(p.k.row(t.Get("settings-bluetooth-no-adapter"), t.Get("settings-bluetooth-no-adapter-detail"))), false)
+		p.status.state.Empty("ld-bluetooth-symbolic", t.Get("settings-bluetooth-no-adapter"))
 		return
 	}
+	p.status.state.Clear()
 	status := widget.NewItemGroup()
-	p.status.Append(status, false)
+	p.status.content.Append(status, false)
 	power := widget.NewSwitch(v.powered)
 	power.SetAccessibleName(t.Get("settings-bluetooth-power"))
 	power.OnChanged = func(on bool) {
@@ -442,9 +449,9 @@ func (p *bluetoothPanel) show() {
 	if !v.powered {
 		return
 	}
-	p.devices.Append(p.deviceList(v.paired, "settings-bluetooth-no-devices"), false)
-	p.nearby.Append(p.searchRow(v.discovering), false)
-	p.nearby.Append(p.deviceList(v.nearby, "settings-bluetooth-no-nearby"), false)
+	p.deviceList(p.devices, p.pairedState, v.paired, "settings-bluetooth-no-devices")
+	p.search.Append(p.searchRow(v.discovering), false)
+	p.deviceList(p.found, p.foundState, v.nearby, "settings-bluetooth-no-nearby")
 }
 
 func (p *bluetoothPanel) adapterNameRow(alias string) widget.Widget {
@@ -487,16 +494,19 @@ func (p *bluetoothPanel) searchRow(discovering bool) widget.Widget {
 	return row
 }
 
-func (p *bluetoothPanel) deviceList(rows []btRow, emptyKey string) widget.Widget {
-	list := widget.NewItemGroup()
+// deviceList shows rows in list, or state saying the emptyKey message
+// when there are none.
+func (p *bluetoothPanel) deviceList(list *widget.ItemGroup, state *cardState, rows []btRow, emptyKey string) {
+	list.Clear()
+	list.Append(state)
 	if len(rows) == 0 {
-		list.Append(p.k.emptyRow("ld-bluetooth-symbolic", locale.T().Get(emptyKey)))
-		return list
+		state.Empty("ld-bluetooth-symbolic", locale.T().Get(emptyKey))
+		return
 	}
+	state.Clear()
 	for _, r := range rows {
 		list.Append(p.deviceRow(r))
 	}
-	return list
 }
 
 func btDetail(r btRow) string {

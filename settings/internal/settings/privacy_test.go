@@ -183,14 +183,14 @@ func TestPrivacyPageFailuresAreShown(t *testing.T) {
 	footer := grantsByAppFooter(k)
 	revokeButtons(footer)[0].ClickAt(widget.Point{})
 	labels := strings.Join(treetest.Labels(footer), "\n")
-	if !strings.Contains(labels, locale.T().Get("settings-privacy-revoke-failed")+": the store went away") || !strings.Contains(labels, "com.obsproject.Studio") {
-		t.Errorf("a failed revoke shows:\n%s", labels)
+	if st := footer.state; st.kind != stateError || st.Title() != locale.T().Get("settings-privacy-revoke-failed") || st.detail.Text() != "the store went away" || !strings.Contains(labels, "com.obsproject.Studio") {
+		t.Errorf("a failed revoke shows %v %q over %q, the list:\n%s", st.kind, st.Title(), st.detail.Text(), labels)
 	}
 
 	serveGrants(t, &fakeGrants{listErr: errors.New("no permission store")})
-	labels = strings.Join(treetest.Labels(grantsFooter(k)), "\n")
-	if !strings.Contains(labels, locale.T().Get("settings-privacy-unavailable")+": no permission store") {
-		t.Errorf("an unreadable store shows:\n%s", labels)
+	unreadable := grantsFooter(k).(*grantsList)
+	if st := unreadable.state; st.kind != stateUnavailable || st.Title() != locale.T().Get("settings-privacy-unavailable") || st.detail.Text() != "no permission store" {
+		t.Errorf("an unreadable store shows %v %q over %q", st.kind, st.Title(), st.detail.Text())
 	}
 
 	serveGrants(t, &fakeGrants{})

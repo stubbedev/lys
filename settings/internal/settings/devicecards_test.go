@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"slices"
-	"strings"
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/shell/treetest"
@@ -211,8 +210,8 @@ func TestLookingAgainListsADeviceConnectedSince(t *testing.T) {
 		t.Errorf("a config change listed a device before looking again: %v", cardNames(c))
 	}
 	c.reload.OnClick()
-	if got := cardNames(c); !slices.Equal(got, []string{"G305"}) || c.note.Visible() || !widget.IsEnabled(c.reload) {
-		t.Errorf("looking again lists %v with the note shown %v", got, c.note.Visible())
+	if got := cardNames(c); !slices.Equal(got, []string{"G305"}) || c.state.Visible() || !widget.IsEnabled(c.reload) {
+		t.Errorf("looking again lists %v with the state shown %v", got, c.state.Visible())
 	}
 }
 
@@ -227,15 +226,15 @@ func TestTheDeviceListSaysWhyItListsOnlyConfiguredDevices(t *testing.T) {
 	} {
 		k := deviceKit(t, deviceConfig, c.devices)
 		d := devicesOf(t, k, wmPointerPage())
-		if got := d.note.Text(); got != c.want || d.note.Visible() != (c.want != "") {
-			t.Errorf("%s: the note says %q (shown %v), want %q", c.name, got, d.note.Visible(), c.want)
+		if got := d.state.Title(); d.state.Visible() != (c.want != "") || c.want != "" && got != c.want {
+			t.Errorf("%s: the state says %q (shown %v), want %q", c.name, got, d.state.Visible(), c.want)
 		}
 		if got := cardNames(d); !slices.Equal(got, []string{"Logitech M720 2.4GHz (absent)"}) {
 			t.Errorf("%s: lists %v, want the configured mouse", c.name, got)
 		}
 	}
 	d := devicesOf(t, deviceKit(t, "", `[]`), wmPointerPage())
-	if got := d.note.Text(); !strings.Contains(got, tr.Get("wm-devices-none")) || len(d.cards) != 0 {
-		t.Errorf("with nothing to list the note says %q over %d cards", got, len(d.cards))
+	if got := d.state.Title(); d.state.kind != stateEmpty || got != tr.Get("wm-devices-none") || len(d.cards) != 0 {
+		t.Errorf("with nothing to list the state says %q over %d cards", got, len(d.cards))
 	}
 }

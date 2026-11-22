@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strings"
 	"sync/atomic"
 
 	"github.com/stubbedev/lys/desktop/desktopentry"
@@ -65,28 +64,37 @@ type captureSources struct {
 	cameras  cameraSource
 	shares   shareSource
 	releases []func()
-	problems []string
+	// unread are the summaries of the sources that could not be read,
+	// and failures the errors why, each wrapped in its summary.
+	unread   []string
+	failures []error
+}
+
+// miss records that the source summaryKey names could not be read.
+func (s *captureSources) miss(summaryKey string, err error) {
+	summary := locale.T().Get(summaryKey)
+	s.unread = append(s.unread, summary)
+	s.failures = append(s.failures, fmt.Errorf("%s: %w", summary, err))
 }
 
 func openCaptureSources(k *kit) captureSources {
-	t := locale.T()
 	var s captureSources
 	ctx, cancel := context.WithTimeout(context.Background(), soundTimeout)
 	defer cancel()
 	if svc, err := openPulse(ctx); err != nil {
-		s.problems = append(s.problems, t.Get("settings-privacy-in-use-no-microphone")+": "+err.Error())
+		s.miss("settings-privacy-in-use-no-microphone", err)
 	} else {
 		s.svc = svc
 		s.releases = append(s.releases, func() { _ = svc.Close() })
 	}
 	if cameras, release, err := k.cameras(); err != nil {
-		s.problems = append(s.problems, t.Get("settings-privacy-in-use-no-camera")+": "+err.Error())
+		s.miss("settings-privacy-in-use-no-camera", err)
 	} else {
 		s.cameras = cameras
 		s.releases = append(s.releases, release)
 	}
 	if shares, release, err := k.screenShares(); err != nil {
-		s.problems = append(s.problems, t.Get("settings-privacy-in-use-no-screen")+": "+err.Error())
+		s.miss("settings-privacy-in-use-no-screen", err)
 	} else {
 		s.shares = shares
 		s.releases = append(s.releases, release)
@@ -96,10 +104,14 @@ func openCaptureSources(k *kit) captureSources {
 
 type inUseStrip struct {
 	*widget.Box
-	l       *grantsList
-	group   *widget.ItemGroup
-	problem *widget.Label
-	src     captureSources
+	l     *grantsList
+	group *widget.ItemGroup
+	state *cardState
+	src   captureSources
+	read  bool
+	// failure is why the last change to a capture failed, nil once one
+	// did not.
+	failure error
 	stops   []func()
 	ticked  atomic.Bool
 	closed  bool
@@ -107,13 +119,8 @@ type inUseStrip struct {
 
 func newInUseStrip(l *grantsList) *inUseStrip {
 	k := l.k
-	s := &inUseStrip{l: l, group: widget.NewItemGroup()}
-	s.problem = k.note("")
-	s.problem.SetVisible(false)
-	body := gapBox(widget.Column)
-	body.Append(s.group, false)
-	body.Append(s.problem, false)
-	s.Box = newSection(k, "settings-section-privacy-in-use", body)
+	s := &inUseStrip{l: l, group: widget.NewItemGroup(), state: k.cardState()}
+	s.Box = newSection(k, "settings-section-privacy-in-use", s.group)
 	s.render()
 	async(k, func() captureSources { return openCaptureSources(k) }, s.opened)
 	return s
@@ -126,12 +133,10 @@ func (s *inUseStrip) opened(src captureSources) {
 		}
 		return
 	}
-	s.src = src
-	for _, p := range src.problems {
-		log.Printf("settings: %s", p)
+	s.src, s.read = src, true
+	for _, err := range src.failures {
+		log.Printf("settings: %v", err)
 	}
-	s.problem.SetText(strings.Join(src.problems, "\n"))
-	s.problem.SetVisible(len(src.problems) > 0)
 	if src.svc != nil {
 		ticks, stop, err := src.svc.Subscribe(context.Background())
 		if err != nil {
@@ -183,6 +188,7 @@ func (s *inUseStrip) render() {
 	t := locale.T()
 	k := s.l.k
 	s.group.Clear()
+	s.group.Append(s.state)
 	n := 0
 	if svc := s.src.svc; svc != nil {
 		for _, u := range privacy.MicUsers(svc.RecordingStreams(), svc.InputDevices(), intconv.Clamp[uint32](os.Getpid())) {
@@ -222,8 +228,26 @@ func (s *inUseStrip) render() {
 			n++
 		}
 	}
-	if n == 0 {
-		s.group.Append(k.emptyRow("ld-shield-check-symbolic", t.Get("settings-privacy-in-use-none")))
+	s.showState(n)
+}
+
+// showState shows, in the strip's one state, a change that failed, the
+// sources that could not be read, or that n, the uses listed, is none.
+func (s *inUseStrip) showState(n int) {
+	t := locale.T()
+	switch {
+	case !s.read:
+		s.state.Loading(t.Get("settings-privacy-in-use-reading"))
+	case s.failure != nil:
+		s.state.Error(t.Get("settings-privacy-in-use-failed"), s.failure, nil)
+	case len(s.src.unread) == 1:
+		s.state.Unavailable("ld-shield-check-symbolic", s.src.unread[0], s.src.failures[0])
+	case len(s.src.unread) > 1:
+		s.state.Unavailable("ld-shield-check-symbolic", t.Get("settings-privacy-in-use-unreadable"), errors.Join(s.src.failures...))
+	case n == 0:
+		s.state.Empty("ld-shield-check-symbolic", t.Get("settings-privacy-in-use-none"))
+	default:
+		s.state.Clear()
 	}
 }
 
@@ -243,13 +267,16 @@ func (s *inUseStrip) stopShare(shares shareSource, session dbus.ObjectPath) {
 	}, s.failed)
 }
 
+// failed shows why a change to a capture failed, or clears what failed
+// before for nil.
 func (s *inUseStrip) failed(err error) {
-	if err == nil {
+	if err != nil {
+		log.Printf("settings: in use now: %v", err)
+	}
+	if err == nil && s.failure == nil {
 		return
 	}
-	log.Printf("settings: in use now: %v", err)
-	s.problem.SetText(locale.T().Get("settings-privacy-in-use-failed") + ": " + err.Error())
-	s.problem.SetVisible(true)
+	s.failure = err
 	if !s.closed {
 		s.render()
 	}

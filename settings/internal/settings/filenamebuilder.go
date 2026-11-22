@@ -158,7 +158,7 @@ func newFilenameEditor(k *kit, s, dir slot, custom *labelBuilder) *filenameEdito
 		line.Append(part.w, true)
 		e.simple.Append(line, false)
 	}
-	e.problem = k.errorText("", "format-preview")
+	e.problem = k.errorText("")
 	e.problem.SetVisible(false)
 	e.path = k.note("", "format-preview")
 	e.notice = k.note(t.Get("settings-filename-custom-notice"), "format-preview")

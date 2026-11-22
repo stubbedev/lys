@@ -7,7 +7,6 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -69,7 +68,7 @@ func newNameChips(k *kit, s slot, spec nameChipsSpec) *nameChips {
 	c.entry.SetPlaceholder(t.Get(spec.placeholder))
 	c.entry.SetAccessibleName(t.Get(spec.addKey))
 	c.entry.OnActivate = func(string) { c.add() }
-	c.problem = k.label("", "format-preview", css.Caption, css.Error)
+	c.problem = k.errorText("")
 	c.problem.SetVisible(false)
 	c.unread = k.note("")
 	c.unread.SetVisible(false)

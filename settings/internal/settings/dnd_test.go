@@ -90,9 +90,9 @@ func TestARefusedDoNotDisturbSwitchSaysSoAndKeepsTheState(t *testing.T) {
 func TestWithoutLysShellTheDoNotDisturbSwitchStaysOff(t *testing.T) {
 	k := testKit(t, "")
 	p := newDNDPanel(k)
-	want := locale.T().Get("settings-dnd-unavailable", i18n.Str("reason", "no lys-shell in the tests"))
-	if p.toggle.Enabled() || p.Description() != want {
-		t.Fatalf("without lys-shell the switch is enabled %v, reads %q", p.toggle.Enabled(), p.Description())
+	want := locale.T().Get("settings-dnd-unavailable")
+	if p.toggle.Enabled() || p.Description() != want || p.TooltipText() != "no lys-shell in the tests" {
+		t.Fatalf("without lys-shell the switch is enabled %v, reads %q, explains %q", p.toggle.Enabled(), p.Description(), p.TooltipText())
 	}
 	p.toggle.SetOn(true)
 }

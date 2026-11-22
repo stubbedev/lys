@@ -18,7 +18,7 @@ import (
 type deviceLevel struct {
 	*widget.Box
 	meter   *levelMeter
-	problem *widget.Label
+	state   *cardState
 	svc     *pulse.Service
 	capture *pulse.Capture
 	// want is the device to record, nil while there is none; held is the
@@ -30,13 +30,11 @@ type deviceLevel struct {
 
 func newDeviceLevel(k *kit) *deviceLevel {
 	t := locale.T()
-	d := &deviceLevel{Box: gapBox(widget.Column), meter: newLevelMeter(k)}
+	d := &deviceLevel{Box: gapBox(widget.Column), meter: newLevelMeter(k), state: k.cardState()}
 	d.meter.SetAccessibleName(t.Get("settings-device-level"))
 	d.meter.SetTooltip(t.Get("settings-device-level"))
-	d.problem = k.errorText("")
-	d.problem.SetVisible(false)
 	d.Append(d.meter, false)
-	d.Append(d.problem, false)
+	d.Append(widget.NewItemGroup(d.state), false)
 	async(k, func() soundConnection {
 		ctx, cancel := context.WithTimeout(context.Background(), soundTimeout)
 		defer cancel()
@@ -44,7 +42,9 @@ func newDeviceLevel(k *kit) *deviceLevel {
 		return soundConnection{svc, err}
 	}, func(c soundConnection) {
 		if c.err != nil {
-			d.fail(fmt.Errorf("%s: %w", t.Get("settings-sound-unreachable"), c.err))
+			log.Printf("settings: device level: %v", c.err)
+			d.meter.SetVisible(false)
+			d.state.Unavailable("ld-mic-off-symbolic", t.Get("settings-sound-unreachable"), c.err)
 			return
 		}
 		if d.closed {
@@ -80,7 +80,7 @@ func (d *deviceLevel) record() {
 		return
 	}
 	d.capture, d.held = capture, *d.want
-	d.problem.SetVisible(false)
+	d.state.Clear()
 }
 
 func (d *deviceLevel) stop() {
@@ -93,8 +93,7 @@ func (d *deviceLevel) stop() {
 
 func (d *deviceLevel) fail(err error) {
 	log.Printf("settings: device level: %v", err)
-	d.problem.SetText(err.Error())
-	d.problem.SetVisible(true)
+	d.state.Error(locale.T().Get("settings-device-level-failed"), err, nil)
 }
 
 func (d *deviceLevel) close() {

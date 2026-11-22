@@ -3,7 +3,6 @@ package settings
 import (
 	"cmp"
 	"context"
-	"fmt"
 	"log"
 	"math"
 	"os"
@@ -19,7 +18,6 @@ import (
 	"github.com/stubbedev/lys/lib/pulse/native"
 	"github.com/stubbedev/lys/shell/service/privacy"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -62,11 +60,15 @@ type soundConnection struct {
 
 type soundPanel struct {
 	*widget.Box
-	k         *kit
-	svc       *pulse.Service
-	stop      func()
-	capture   *pulse.Capture
-	problem   *widget.Label
+	k       *kit
+	svc     *pulse.Service
+	stop    func()
+	capture *pulse.Capture
+	// failure is why the last change failed, nil once one did not.
+	failure error
+	// connected are the sections that show only once the sound server
+	// answered.
+	connected []*widget.Box
 	output    *deviceControls
 	input     *deviceControls
 	meter     *levelMeter
@@ -80,9 +82,6 @@ type soundPanel struct {
 func soundLead(k *kit) widget.Widget {
 	t := locale.T()
 	p := &soundPanel{Box: sectionStack(), k: k}
-	p.problem = k.errorText("")
-	p.problem.SetVisible(false)
-	p.Append(p.problem, false)
 	p.output = newDeviceControls(p, pulse.DeviceOutput)
 	p.input = newDeviceControls(p, pulse.DeviceInput)
 	p.meter = newLevelMeter(k)
@@ -91,9 +90,16 @@ func soundLead(k *kit) widget.Widget {
 	p.playing = newStreamList(p, playbackStreams)
 	p.recording = newStreamList(p, recordingStreams)
 	p.Append(newSection(k, "settings-section-sound-output", p.output.body), false)
-	p.Append(newSection(k, "settings-section-sound-input", p.input.body), false)
-	p.Append(newSection(k, "settings-section-sound-apps", p.playing.body), false)
-	p.Append(newSection(k, "settings-section-sound-recording", p.recording.body), false)
+	p.connected = []*widget.Box{
+		newSection(k, "settings-section-sound-input", p.input.body),
+		newSection(k, "settings-section-sound-apps", p.playing.body),
+		newSection(k, "settings-section-sound-recording", p.recording.body),
+	}
+	for _, s := range p.connected {
+		s.SetVisible(false)
+		p.Append(s, false)
+	}
+	p.output.state.Loading(t.Get("settings-sound-connecting"))
 	p.connect()
 	return p
 }
@@ -106,7 +112,8 @@ func (p *soundPanel) connect() {
 		return soundConnection{svc, err}
 	}, func(c soundConnection) {
 		if c.err != nil {
-			p.fail(fmt.Errorf("%s: %w", locale.T().Get("settings-sound-unreachable"), c.err))
+			log.Printf("settings: sound: %v", c.err)
+			p.output.state.Unavailable("ld-volume-x-symbolic", locale.T().Get("settings-sound-unreachable"), c.err)
 			return
 		}
 		if p.closed {
@@ -158,10 +165,17 @@ func (p *soundPanel) close() {
 	}
 }
 
+// fail shows why a change or the following of the sound server failed,
+// or clears what failed before for nil.
 func (p *soundPanel) fail(err error) {
-	log.Printf("settings: sound: %v", err)
-	p.problem.SetText(err.Error())
-	p.problem.SetVisible(true)
+	if err != nil {
+		log.Printf("settings: sound: %v", err)
+	}
+	if err == nil && p.failure == nil {
+		return
+	}
+	p.failure = err
+	p.render()
 }
 
 func (p *soundPanel) act(change func(context.Context, *pulse.Service) error) {
@@ -173,11 +187,7 @@ func (p *soundPanel) act(change func(context.Context, *pulse.Service) error) {
 		ctx, cancel := context.WithTimeout(context.Background(), soundTimeout)
 		defer cancel()
 		return change(ctx, svc)
-	}, func(err error) {
-		if err != nil {
-			p.fail(err)
-		}
-	})
+	}, p.fail)
 }
 
 func (p *soundPanel) write(change func(context.Context, *pulse.Service) error) func() {
@@ -200,6 +210,9 @@ func (p *soundPanel) render() {
 	}
 	p.syncing = true
 	defer func() { p.syncing = false }()
+	for _, s := range p.connected {
+		s.SetVisible(true)
+	}
 	cards := p.svc.Cards()
 	outputs := p.svc.OutputDevices()
 	outDevices := make([]pulse.Device, len(outputs))
@@ -222,6 +235,9 @@ func (p *soundPanel) render() {
 	p.input.show(inDevices, in.Device, hasIn, cards)
 	p.playing.show(p.svc.PlaybackStreams(), outDevices)
 	p.recording.show(microphoneStreams(p.svc.RecordingStreams(), inputs), microphones)
+	if p.failure != nil {
+		p.output.state.Error(locale.T().Get("settings-sound-failed"), p.failure, nil)
+	}
 }
 
 func microphoneStreams(streams []pulse.AudioStream, inputs []pulse.InputDevice) []pulse.AudioStream {
@@ -248,15 +264,15 @@ type streamList struct {
 	kind  streamKind
 	body  *widget.Box
 	group *widget.ItemGroup
-	empty *settingRow
+	state *cardState
 	rows  map[pulse.StreamKey]*appRow
 	keys  []pulse.StreamKey
 }
 
 func newStreamList(p *soundPanel, kind streamKind) *streamList {
 	l := &streamList{p: p, kind: kind, body: gapBox(widget.Column), group: widget.NewItemGroup(), rows: map[pulse.StreamKey]*appRow{}}
-	l.empty = p.k.emptyRow(kind.emptyIcon, locale.T().Get(kind.emptyKey))
-	l.body.Append(widget.NewItemGroup(l.empty), false)
+	l.state = p.k.cardState()
+	l.body.Append(widget.NewItemGroup(l.state), false)
 	l.body.Append(l.group, false)
 	return l
 }
@@ -276,7 +292,11 @@ func (l *streamList) show(streams []pulse.AudioStream, devices []pulse.Device) {
 		}
 		l.keys = keys
 	}
-	l.empty.SetVisible(len(streams) == 0)
+	if len(streams) == 0 {
+		l.state.Empty(l.kind.emptyIcon, locale.T().Get(l.kind.emptyKey))
+	} else {
+		l.state.Clear()
+	}
 	l.group.SetVisible(len(streams) > 0)
 	for _, s := range streams {
 		l.rows[s.Key].show(s, devices)
@@ -287,7 +307,9 @@ type deviceControls struct {
 	p          *soundPanel
 	kind       pulse.DeviceType
 	body       *widget.Box
-	none       *widget.Label
+	state      *cardState
+	noneIcon   string
+	noneKey    string
 	rows       *widget.ItemGroup
 	devices    *widget.Dropdown
 	keys       []pulse.DeviceKey
@@ -323,13 +345,15 @@ func balanceLabel(b float64) string {
 func newDeviceControls(p *soundPanel, kind pulse.DeviceType) *deviceControls {
 	t := locale.T()
 	k := p.k
-	c := &deviceControls{p: p, kind: kind, body: gapBox(widget.Column), rows: widget.NewItemGroup()}
-	noneKey, deviceKey, muteKey, glyphs := "settings-sound-no-input", "settings-sound-input-device", "settings-sound-mute-input", micGlyphs
+	c := &deviceControls{p: p, kind: kind, body: gapBox(widget.Column), state: k.cardState(), rows: widget.NewItemGroup()}
+	deviceKey, muteKey, glyphs := "settings-sound-input-device", "settings-sound-mute-input", micGlyphs
+	c.noneIcon, c.noneKey = recordingStreams.emptyIcon, "settings-sound-no-input"
 	if kind == pulse.DeviceOutput {
-		noneKey, deviceKey, muteKey, glyphs = "settings-sound-no-output", "settings-sound-output-device", "settings-sound-mute-output", speakerGlyphs
+		deviceKey, muteKey, glyphs = "settings-sound-output-device", "settings-sound-mute-output", speakerGlyphs
+		c.noneIcon, c.noneKey = playbackStreams.emptyIcon, "settings-sound-no-output"
 	}
-	c.none = k.label(t.Get(noneKey), css.DimLabel)
-	c.body.Append(c.none, false)
+	c.rows.SetVisible(false)
+	c.body.Append(widget.NewItemGroup(c.state), false)
 	c.body.Append(c.rows, false)
 	c.devices = widget.NewDropdown(k.face, k.textPx(), nil, 0)
 	c.devices.SetAccessibleName(t.Get(deviceKey))
@@ -381,12 +405,13 @@ func newDeviceControls(p *soundPanel, kind pulse.DeviceType) *deviceControls {
 
 func (c *deviceControls) show(devices []pulse.Device, current pulse.Device, has bool, cards []pulse.Card) {
 	t := locale.T()
-	c.none.SetVisible(!has)
 	c.rows.SetVisible(has)
 	if !has {
+		c.state.Empty(c.noneIcon, t.Get(c.noneKey))
 		c.keys = nil
 		return
 	}
+	c.state.Clear()
 	c.current = current
 	c.keys = showSoundDevices(c.devices, devices, c.kind, current.Key)
 	c.port = current.ActivePort

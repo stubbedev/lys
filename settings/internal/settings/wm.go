@@ -83,17 +83,17 @@ func wmPath(path string) []string { return strings.Split(path, ".") }
 func (w *wmBackend) reread() {
 	tree, exists, err := w.file.Read()
 	if err != nil {
-		w.show(err.Error(), "error")
+		w.show(err.Error(), css.Error)
 		return
 	}
 	overrides, err := w.file.Overrides()
 	if err != nil {
-		w.show(err.Error(), "error")
+		w.show(err.Error(), css.Error)
 		return
 	}
 	w.tree, w.exists, w.overrides = tree, exists, overrides
 	if err := w.file.Writable(); err != nil {
-		w.show(err.Error(), "warning")
+		w.show(err.Error(), css.Warning)
 	}
 }
 
@@ -450,7 +450,7 @@ func (w *wmBackend) settled(reload wmconfig.Reload, err error) {
 	t := locale.T()
 	switch {
 	case err != nil:
-		w.show(err.Error(), "error")
+		w.show(err.Error(), css.Error)
 	case reload == wmconfig.NotRunning:
 		w.show(t.Get("wm-status-not-running"), "info")
 	}

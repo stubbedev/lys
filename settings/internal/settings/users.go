@@ -10,6 +10,7 @@ import (
 	"image"
 	_ "image/jpeg"
 	"image/png"
+	"log"
 	"os"
 	"path/filepath"
 	"slices"
@@ -262,6 +263,7 @@ type usersPanel struct {
 	name        string
 	realName    *text
 	identity    *widget.Label
+	accounts    *cardState
 	admin       *widget.Box
 	changer     passwordChanger
 	fingerprint *fingerprintSection
@@ -308,9 +310,10 @@ func (p *usersPanel) identityHeader() widget.Widget {
 	change.SetTooltip(t.Get("settings-users-avatar-change"))
 	head.AppendAligned(change, false, widget.AlignCenter)
 	head.AppendAligned(text, true, widget.AlignCenter)
+	p.accounts = p.k.cardState()
 	card := widget.NewBox(widget.Column, 0, 0)
 	card.AddClass(css.Card, "users-identity-header")
-	card.Append(newInsetRow(head), false)
+	card.Append(widget.NewItemGroup(newInsetRow(head), p.accounts), false)
 	return card
 }
 
@@ -391,9 +394,8 @@ func (p *usersPanel) load() {
 	}, func(o accountsOpened) {
 		p.conn = o.conn
 		if o.err != nil {
-			t := locale.T()
-			p.realName.SetPlaceholder(t.Get("settings-users-name-unavailable"))
-			p.realName.SetTooltip(t.Attr("settings-users-name-unavailable", "description"))
+			log.Printf("settings: users: %v", o.err)
+			p.accounts.Unavailable("ld-user-symbolic", locale.T().Get("settings-users-unavailable"), o.err)
 			if o.conn == nil {
 				p.noFingerprint(o.err)
 				return
@@ -614,10 +616,11 @@ func (p *usersPanel) showAdmin(l otherUsersListing) {
 	p.admin.Clear()
 	p.admin.SetVisible(true)
 	body := gapBox(widget.Column)
+	state := p.k.cardState()
+	rows := widget.NewItemGroup(state)
 	if l.err != nil {
-		body.Append(p.k.errorText(l.err.Error()), false)
+		state.Error(locale.T().Get("settings-users-others-unreadable"), l.err, p.loadAdmin)
 	}
-	rows := widget.NewItemGroup()
 	for _, u := range l.users {
 		row := p.k.row(cmp.Or(u.real, u.name), u.identity())
 		if !u.self {

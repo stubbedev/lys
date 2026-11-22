@@ -97,8 +97,8 @@ func TestAnAppAddedIsPickedFromTheInstalledOnesOrTypedAsAPattern(t *testing.T) {
 func TestNoAppRuleSaysEveryAppIsLetThrough(t *testing.T) {
 	k := testKit(t, "")
 	c := notifyAppsOf(t, k)
-	if !c.empty.Visible() || len(c.rows) != 0 {
-		t.Errorf("with no rule the note shows %v over rows %q", c.empty.Visible(), c.rows)
+	if !c.state.Visible() || len(c.rows) != 0 {
+		t.Errorf("with no rule the note shows %v over rows %q", c.state.Visible(), c.rows)
 	}
 	if row := notifyAppsRow(); !slices.Equal(row.also, []string{notifyMutePath, notifyFocusPath}) {
 		t.Errorf("the row is found by %s and %q, want the silent and Focus lists too", row.path, row.also)

@@ -90,11 +90,11 @@ func TestATrayItemsIconIsAnOverrideForItsExactID(t *testing.T) {
 
 func TestATrayThatCannotBeReadSaysWhy(t *testing.T) {
 	_, c := trayItemsWith(t, "", trayListing{err: errors.New("read the items registered with org.kde.StatusNotifierWatcher: no owner")})
-	labels := treetest.Labels(c)
-	if !slices.Contains(labels, locale.T().Get("settings-tray-items-none")) {
-		t.Errorf("no items: rows read %q", labels)
+	tr := locale.T()
+	if st := c.state; st.kind != stateUnavailable || st.Title() != tr.Get("settings-tray-items-unreadable") || !strings.Contains(st.detail.Text(), "no owner") || st.detail.Visible() {
+		t.Errorf("an unreadable tray shows %v %q over %q (open %v)", st.kind, st.Title(), st.detail.Text(), st.detail.Visible())
 	}
-	if !slices.ContainsFunc(labels, func(l string) bool { return strings.Contains(l, "no owner") }) {
-		t.Errorf("the failure is not shown: %q", labels)
+	if slices.Contains(treetest.Labels(c), tr.Get("settings-tray-items-none")) {
+		t.Error("an unreadable tray says it holds nothing")
 	}
 }

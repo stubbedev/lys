@@ -154,7 +154,7 @@ func newColumnPresets(k *kit, s slot) *columnPresets {
 	c := &columnPresets{Box: gapBox(widget.Column), k: k, slot: s}
 	c.AddClass("column-presets")
 	c.cards = widget.NewWrapBox(choiceCardGap, choiceCardGap, widget.JustifyStart)
-	c.problem = wrapped(k.label("", "error", css.Caption))
+	c.problem = k.errorText("")
 	c.unit = newChoicePick(k, []string{t.Get("wm-scroll-presets-share"), t.Get("wm-scroll-presets-pixels")}, presetUnitShare)
 	c.amount = widget.NewSpinButton(k.face, k.textPx(), 0, 1, percentPerShare, 1, 0)
 	c.unit.OnSelect = func(int) { c.unitChanged() }

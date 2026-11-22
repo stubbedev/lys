@@ -78,7 +78,6 @@ func (c *trayItemsList) load() {
 func (c *trayItemsList) show(l trayListing) {
 	slices.SortFunc(l.items, func(a, b trayItem) int { return cmp.Or(cmp.Compare(a.name(), b.name()), cmp.Compare(a.id, b.id)) })
 	c.listing = &l
-	c.doneReading()
 	c.refresh()
 }
 
@@ -87,17 +86,17 @@ func (c *trayItemsList) refresh() {
 		return
 	}
 	t := locale.T()
-	c.list.Clear()
-	rows := widget.NewItemGroup()
+	c.clearRows()
 	for _, it := range c.listing.items {
-		rows.Append(c.itemRow(it))
+		c.rows.Append(c.itemRow(it))
 	}
-	if len(c.listing.items) == 0 {
-		rows.Append(c.k.emptyRow("ld-panel-top-symbolic", t.Get("settings-tray-items-none")))
-	}
-	c.list.Append(rows, false)
-	if c.listing.err != nil {
-		c.list.Append(c.k.errorText(c.listing.err.Error()), false)
+	switch {
+	case c.listing.err != nil:
+		c.state.Unavailable("ld-panel-top-symbolic", t.Get("settings-tray-items-unreadable"), c.listing.err)
+	case len(c.listing.items) == 0:
+		c.state.Empty("ld-panel-top-symbolic", t.Get("settings-tray-items-none"))
+	default:
+		c.state.Clear()
 	}
 }
 

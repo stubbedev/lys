@@ -78,10 +78,10 @@ var ocrLanguagesRow = checklistRow(checklistSpec{
 	read: func() checkListing {
 		out, err := tesseractListLangs()
 		if errors.Is(err, errNoTesseract) {
-			return checkListing{err: errors.New(locale.T().Get("settings-ocr-no-tesseract"))}
+			return checkListing{failure: locale.T().Get("settings-ocr-no-tesseract")}
 		}
 		if err != nil {
-			return checkListing{err: err}
+			return checkListing{failure: locale.T().Get("settings-ocr-unreadable"), err: err}
 		}
 		langs := parseTesseractLangs(out)
 		items := make([]checkItem, len(langs))

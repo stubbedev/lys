@@ -243,38 +243,55 @@ func TestADuplicateOrAFullReaderSaysSoAndReleases(t *testing.T) {
 	}
 }
 
-func unavailableFingerprint(t *testing.T, p widget.Widget) (*fingerHands, string) {
-	t.Helper()
-	notes := treetest.WithClass(p, "fingerprint-unavailable")
-	hands := treetest.All[*fingerHands](p)
-	if len(notes) != 1 || len(hands) != 1 {
-		t.Fatalf("%d notes and %d hands, want one of each", len(notes), len(hands))
+// unavailableStates are the shown states under p saying a service
+// cannot be reached.
+func unavailableStates(p widget.Widget) []*cardState {
+	var out []*cardState
+	for _, s := range treetest.All[*cardState](p) {
+		if s.kind == stateUnavailable {
+			out = append(out, s)
+		}
 	}
-	return hands[0], notes[0].(*widget.Label).Text()
+	return out
+}
+
+func unavailableFingerprint(t *testing.T, p widget.Widget) (*fingerHands, *cardState) {
+	t.Helper()
+	var states []*cardState
+	for _, s := range unavailableStates(p) {
+		if s.glyph.Name() == "ld-fingerprint-symbolic" {
+			states = append(states, s)
+		}
+	}
+	hands := treetest.All[*fingerHands](p)
+	if len(states) != 1 || len(hands) != 1 {
+		t.Fatalf("%d states and %d hands, want one of each", len(states), len(hands))
+	}
+	return hands[0], states[0]
 }
 
 func TestWithoutAReaderTheHandsAreGreyedOutOverWhyAndNothingIsClaimed(t *testing.T) {
 	r := startFprint(t, false)
 	r.l.until("the reader asked for", func() bool { c, _ := r.manager.snapshot(); return len(c) == 1 })
-	r.l.until("the fingerprint section", func() bool { return len(treetest.WithClass(r.p, "fingerprint-unavailable")) == 1 })
+	r.l.until("the fingerprint section", func() bool { return len(treetest.All[*fingerHands](r.p)) == 1 })
 	if r.p.fingerprint != nil || len(r.methods()) != 0 {
 		t.Fatalf("section %v, device calls %v", r.p.fingerprint != nil, r.methods())
 	}
-	hands, note := unavailableFingerprint(t, r.p)
+	hands, state := unavailableFingerprint(t, r.p)
 	if widget.IsEnabled(hands) || slices.ContainsFunc(fingers, hands.offers) {
 		t.Error("the hands of a machine without a reader take a finger")
 	}
-	if want := locale.T().Get("settings-fingerprint-no-reader"); note != want {
-		t.Errorf("the section says %q, want %q", note, want)
+	if want := locale.T().Get("settings-fingerprint-no-reader"); state.Title() != want || state.reveal.Visible() {
+		t.Errorf("the section says %q, a detail offered %v; want %q and none", state.Title(), state.reveal.Visible(), want)
 	}
 }
 
 func TestAFingerprintServiceThatCannotBeReachedSaysWhy(t *testing.T) {
 	p := usersFooter(testKit(t, "")).(*usersPanel)
 	t.Cleanup(p.close)
-	_, note := unavailableFingerprint(t, p)
-	if !strings.Contains(note, "no system bus") || note == locale.T().Get("settings-fingerprint-no-reader") {
-		t.Errorf("without a system bus the section says %q, want the bus error", note)
+	_, state := unavailableFingerprint(t, p)
+	if state.Title() != locale.T().Get("settings-fingerprint-unavailable") || !strings.Contains(state.detail.Text(), "no system bus") {
+		t.Errorf("without a system bus the section says %q over %q, want the bus error behind its summary", state.Title(), state.detail.Text())
 	}
 }
 
@@ -404,7 +421,7 @@ func TestAFingerprintSwitchIsHeldBackUntilAFingerCanUnlock(t *testing.T) {
 		{"none enrolled", fingerprintReading{}, false, tr.Get("settings-fingerprint-none"), true, false},
 		{"no reader", fingerprintReading{err: errNoReader}, false, tr.Get("settings-fingerprint-no-reader"), false, false},
 		{"no reader, but on", fingerprintReading{err: errNoReader}, true, tr.Get("settings-fingerprint-no-reader"), false, true},
-		{"fprintd unreachable", fingerprintReading{err: errors.New("the system bus is gone")}, false, "the system bus is gone", false, true},
+		{"fprintd unreachable", fingerprintReading{err: errors.New("the system bus is gone")}, false, tr.Get("settings-fingerprint-unavailable"), false, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			yaml := "login:\n  lock:\n    fingerprint: false\n"
@@ -428,6 +445,9 @@ func TestAFingerprintSwitchIsHeldBackUntilAFingerCanUnlock(t *testing.T) {
 			}
 			if status != tc.status {
 				t.Errorf("the status reads %q, want %q", status, tc.status)
+			}
+			if want := errText(tc.reading.err); errors.Is(tc.reading.err, errNoReader) == false && c.status.TooltipText() != want {
+				t.Errorf("the status explains %q, want %q", c.status.TooltipText(), want)
 			}
 			if widget.IsEnabled(c.toggle) != tc.enabled {
 				t.Errorf("the switch is enabled %v, want %v", widget.IsEnabled(c.toggle), tc.enabled)

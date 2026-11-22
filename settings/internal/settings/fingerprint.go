@@ -134,6 +134,7 @@ type fingerprintSection struct {
 	cancel    *widget.Button
 	deleteAll *insetRow
 	note      *insetRow
+	state     *cardState
 	watch     *dbusx.Watch
 	busy      bool
 }
@@ -176,14 +177,13 @@ func (p *usersPanel) noFingerprint(err error) {
 	hands := newFingerHands(p.k, nil)
 	hands.set(nil, "", 0, true)
 	hands.SetEnabled(false)
-	why := p.k.errorText(err.Error(), "fingerprint-unavailable")
+	why := p.k.cardState()
 	if errors.Is(err, errNoReader) {
-		why = wrapped(p.k.label(locale.T().Get("settings-fingerprint-no-reader"), "fingerprint-unavailable", css.DimLabel))
+		why.Unavailable("ld-fingerprint-symbolic", locale.T().Get("settings-fingerprint-no-reader"), nil)
+	} else {
+		why.Unavailable("ld-fingerprint-symbolic", locale.T().Get("settings-fingerprint-unavailable"), err)
 	}
-	col := gapBox(widget.Column)
-	col.Append(hands, false)
-	col.Append(why, false)
-	p.Append(newSection(p.k, "settings-section-users-fingerprint", widget.NewItemGroup(newInsetRow(col))), false)
+	p.Append(newSection(p.k, "settings-section-users-fingerprint", widget.NewItemGroup(newInsetRow(hands), why)), false)
 }
 
 func withTimeoutValue[T any](fn func(context.Context) T) T {
@@ -205,6 +205,7 @@ func newFingerprintSection(k *kit, fp *fprint, stages int, enrolled []string, fa
 	deleteAll.Append(k.destructiveButton(t.Get("settings-fingerprint-delete-all"), s.confirmDeleteAll), false)
 	s.deleteAll = newInsetRow(deleteAll)
 	s.note = newInsetRow(k.note(t.Get("settings-fingerprint-lock")))
+	s.state = k.cardState()
 	s.show()
 	return s
 }
@@ -225,8 +226,11 @@ func (s *fingerprintSection) show() {
 			s.Append(s.enrolledRow(f))
 		}
 	}
+	s.Append(s.state)
 	if len(s.enrolled) == 0 {
-		s.Append(s.k.emptyRow("ld-lock-open-symbolic", locale.T().Get("settings-fingerprint-none")))
+		s.state.Empty("ld-lock-open-symbolic", locale.T().Get("settings-fingerprint-none"))
+	} else {
+		s.state.Clear()
 	}
 	s.enrol.SetVisible(s.busy || len(s.enrolled) < len(fingers))
 	s.cancel.SetVisible(s.busy)
@@ -506,10 +510,11 @@ func (c *fingerprintSwitch) fit() {
 	case errors.Is(r.err, errNoReader):
 		c.status.SetText(t.Get("settings-fingerprint-no-reader"))
 	case r.err != nil:
-		c.status.SetText(r.err.Error())
+		c.status.SetText(t.Get("settings-fingerprint-unavailable"))
 	case r.fingers == 0:
 		c.status.SetText(t.Get("settings-fingerprint-none"))
 	}
+	c.status.SetTooltip(errText(r.err))
 	c.toggle.SetEnabled(c.ready() || c.toggle.On() || (r.err != nil && !errors.Is(r.err, errNoReader)))
 }
 

@@ -693,10 +693,10 @@ func (c *cardList) validate() {
 		}
 		s, _ := c.local[i][c.spec.unique].(string)
 		if s != "" && counts[s] > 1 {
-			w.AddClass("error")
+			w.AddClass(css.Error)
 			w.SetTooltip(locale.T().Get("settings-toast-preset-id-duplicate"))
 		} else {
-			w.RemoveClass("error")
+			w.RemoveClass(css.Error)
 			w.SetTooltip("")
 		}
 	}

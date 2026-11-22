@@ -141,18 +141,24 @@ type sysPanel struct {
 	conn    *dbus.Conn
 	props   sysProps
 	problem *widget.Label
+	icon    string
+	state   *cardState
 	body    *widget.Box
 	watch   *dbusx.Watch
 	refresh func()
 	closed  bool
 }
 
-func newSysPanel(k *kit, name string, path dbus.ObjectPath) *sysPanel {
-	p := &sysPanel{Box: gapBox(widget.Column), k: k, svc: sysService{name: name, iface: name, path: path}}
+// newSysPanel is the panel of the system service name at path, icon
+// the glyph of its state while the service is asked or unreachable.
+func newSysPanel(k *kit, name string, path dbus.ObjectPath, icon string) *sysPanel {
+	p := &sysPanel{Box: gapBox(widget.Column), k: k, svc: sysService{name: name, iface: name, path: path}, icon: icon, state: k.cardState()}
 	p.problem = k.errorText("")
 	p.problem.SetVisible(false)
 	p.body = gapBox(widget.Column)
+	p.state.Loading(locale.T().Get("settings-sys-reading", i18n.Str("service", name)))
 	p.Append(p.problem, false)
+	p.Append(widget.NewItemGroup(p.state), false)
 	p.Append(p.body, false)
 	return p
 }
@@ -187,10 +193,12 @@ func (p *sysPanel) open(extra func(context.Context, sysService) (any, error), sh
 		return sysOpened{conn: conn, props: props, extra: more}
 	}, func(o sysOpened) {
 		if o.err != nil {
+			log.Printf("settings: %s: %v", p.svc.name, o.err)
 			p.body.Clear()
-			p.body.Append(wrapped(p.k.label(locale.T().Get("settings-sys-unavailable", i18n.Str("service", p.svc.name))+": "+o.err.Error(), css.Error, css.Caption)), false)
+			p.state.Unavailable(p.icon, locale.T().Get("settings-sys-unavailable", i18n.Str("service", p.svc.name)), o.err)
 			return
 		}
+		p.state.Clear()
 		if p.closed {
 			_ = o.conn.Close()
 			return
@@ -312,7 +320,7 @@ func timezoneChoices(zones []string) []choice {
 
 func dateTimeLead(k *kit) widget.Widget {
 	t := locale.T()
-	p := newSysPanel(k, timedateName, timedatePath)
+	p := newSysPanel(k, timedateName, timedatePath, "ld-clock-symbolic")
 	card := newClockCard(k)
 	clock := gapBox(widget.Column)
 	clockRows := widget.NewItemGroup()
@@ -683,9 +691,11 @@ func writeLocaleConf(path, key, value string) error {
 
 func regionFormats(k *kit, lang func() string) (widget.Widget, func()) {
 	t := locale.T()
+	state := k.cardState()
 	conf, err := localeConfPath(systemHost)
 	if err != nil {
-		return k.errorText(err.Error()), func() {}
+		state.Unavailable("ld-globe-symbolic", t.Get("settings-region-formats-unreadable"), err)
+		return widget.NewItemGroup(state), func() {}
 	}
 	preview := k.note("")
 	units := k.note("")
@@ -695,21 +705,22 @@ func regionFormats(k *kit, lang func() string) (widget.Widget, func()) {
 	head.Append(preview, false)
 	head.Append(units, false)
 	head.Append(formatsProblem, false)
-	formats := widget.NewItemGroup(newInsetRow(head))
+	formats := widget.NewItemGroup(newInsetRow(head), state)
 	showPreview := func() {
 		values, _, err := readLocaleConf(conf)
 		if err != nil {
-			formatsProblem.SetText(err.Error())
-			formatsProblem.SetVisible(true)
+			head.SetVisible(false)
+			state.Unavailable("ld-globe-symbolic", t.Get("settings-region-formats-unreadable"), err)
 			return
 		}
 		pick := func(key string) string { return cmp.Or(values[key], lang(), "C") }
 		pv, err := previewFormats(formatLocales{pick("LC_TIME"), pick("LC_NUMERIC"), pick("LC_MONETARY"), pick("LC_MEASUREMENT"), pick("LC_PAPER")}, time.Now())
-		units.SetVisible(err == nil)
+		head.SetVisible(err == nil)
 		if err != nil {
-			preview.SetText(err.Error())
+			state.Error(t.Get("settings-region-preview-failed"), err, nil)
 			return
 		}
+		state.Clear()
 		preview.SetText(t.Get("settings-region-preview", i18n.Str("date", pv.date), i18n.Str("number", pv.number), i18n.Str("price", pv.price)))
 		units.SetText(pv.units)
 	}
@@ -718,13 +729,12 @@ func regionFormats(k *kit, lang func() string) (widget.Widget, func()) {
 		return localesListing{names, err}
 	}, func(l localesListing) {
 		if l.err != nil {
-			head.Append(k.errorText(l.err.Error()), false)
+			state.Unavailable("ld-globe-symbolic", t.Get("settings-region-locales-unreadable"), l.err)
 			return
 		}
 		values, _, err := readLocaleConf(conf)
 		if err != nil {
-			formatsProblem.SetText(err.Error())
-			formatsProblem.SetVisible(true)
+			state.Unavailable("ld-globe-symbolic", t.Get("settings-region-formats-unreadable"), err)
 		}
 		names, shown := localeLabels(l.names)
 		l.names = names
@@ -753,7 +763,7 @@ func regionFormats(k *kit, lang func() string) (widget.Widget, func()) {
 
 func regionFooter(k *kit) widget.Widget {
 	t := locale.T()
-	p := newSysPanel(k, localeName, localePath)
+	p := newSysPanel(k, localeName, localePath, "ld-globe-symbolic")
 	lang := func() string {
 		for _, kv := range p.props.strs("Locale") {
 			if v, ok := strings.CutPrefix(kv, "LANG="); ok {

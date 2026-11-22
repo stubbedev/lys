@@ -386,23 +386,22 @@ type ruleEffects struct {
 	added    []string
 	shown    []string
 	body     *widget.Box
-	none     *widget.Label
+	state    *cardState
 	add      *widget.Button
 	controls []control
 }
 
 func newRuleEffects(k *kit, parts ruleParts, fields map[string][]cardField, bools map[string]bool, field func(key string) slot) *ruleEffects {
-	t := locale.T()
 	r := &ruleEffects{Box: gapBox(widget.Column), k: k, parts: parts, fields: fields, bools: bools, field: field}
 	r.AddClass("rule-effects")
 	r.body = gapBox(widget.Column)
-	r.none = k.note(t.Get("wm-rules-no-effects"))
+	r.state = k.cardState()
 	r.add = k.addButton("wm-rules-add-effect", func() {
 		if k.pickers != nil {
 			openChoicePicker(k, r.add, r.offered(), r.addEffect)
 		}
 	})
-	r.Append(r.none, false)
+	r.Append(widget.NewItemGroup(r.state), false)
 	r.Append(r.body, false)
 	r.AppendAligned(r.add, false, widget.AlignStart)
 	r.rebuild()
@@ -448,7 +447,11 @@ func (r *ruleEffects) rebuild() {
 		}
 		r.body.Append(group, false)
 	}
-	r.none.SetVisible(len(r.shown) == 0)
+	if len(r.shown) == 0 {
+		r.state.Empty("ld-app-window-symbolic", t.Get("wm-rules-no-effects"))
+	} else {
+		r.state.Clear()
+	}
 	r.add.SetVisible(len(r.shown) < len(r.parts.effects))
 }
 

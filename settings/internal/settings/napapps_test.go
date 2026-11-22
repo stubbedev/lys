@@ -83,7 +83,7 @@ func TestAnAppIsAddedOnlyFromThePickerAndNapsAtTheDefaultUntilALevelIsPicked(t *
 func TestNoNapLevelSaysEveryHiddenAppNapsGently(t *testing.T) {
 	k := testKit(t, "")
 	c := napAppsOf(t, k)
-	if !c.empty.Visible() || len(c.rows) != 0 {
-		t.Errorf("with no level the note shows %v over rows %q", c.empty.Visible(), c.rows)
+	if !c.state.Visible() || len(c.rows) != 0 {
+		t.Errorf("with no level the note shows %v over rows %q", c.state.Visible(), c.rows)
 	}
 }

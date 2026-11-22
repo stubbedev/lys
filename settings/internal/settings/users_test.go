@@ -231,8 +231,8 @@ func TestWithoutAccountsServiceTheAvatarIsWrittenToFace(t *testing.T) {
 	if p.realName.Enabled() || p.admin.Visible() {
 		t.Fatal("the name or the admin section without AccountsService")
 	}
-	if got, want := p.realName.Placeholder(), locale.T().Get("settings-users-name-unavailable"); got != want {
-		t.Fatalf("the name without AccountsService reads %q, want %q", got, want)
+	if st, want := p.accounts, locale.T().Get("settings-users-unavailable"); st.kind != stateUnavailable || st.Title() != want || st.detail.Text() == "" || p.realName.Placeholder() != "" {
+		t.Fatalf("without AccountsService the card shows %v %q over %q, the name reads %q; want %q", st.kind, st.Title(), st.detail.Text(), p.realName.Placeholder(), want)
 	}
 	stockAvatarChoice(t, p, 1).OnClick()
 	l.until("~/.face", func() bool { _, err := os.Stat(filepath.Join(home, ".face")); return err == nil })

@@ -21,7 +21,7 @@ type monitorSet struct {
 	slot    slot
 	all     *widget.Switch
 	picker  *monitorPicker
-	note    *widget.Label
+	state   *cardState
 	away    *widget.ItemGroup
 	tiles   []monitorTile
 	feed    *tileFeed
@@ -47,11 +47,11 @@ func newMonitorSet(k *kit, s slot) *monitorSet {
 	c.picker = newMonitorPicker(k, func(string) { c.write(append(slices.Clone(c.picker.selected), c.notConnected()...)) })
 	c.picker.multi = true
 	c.picker.SetAccessibleName(t.Get("settings-monitors"))
-	c.note = k.note(t.Get("settings-monitors-none"))
+	c.state = k.cardState()
 	c.away = widget.NewItemGroup()
 	c.Append(widget.NewItemGroup(k.keyRow("settings-monitors-all").withControl(c.all)), false)
 	c.Append(c.picker, false)
-	c.Append(c.note, false)
+	c.Append(widget.NewItemGroup(c.state), false)
 	c.Append(c.away, false)
 	c.feed = watchTiles(k, c.showTiles)
 	c.refresh()
@@ -120,7 +120,11 @@ func (c *monitorSet) refresh() {
 	away := c.notConnected()
 	c.picker.setSelected(slices.DeleteFunc(slices.Clone(listed), func(n string) bool { return n == everyMonitor || slices.Contains(away, n) }))
 	c.picker.SetVisible(!all && len(c.tiles) > 0)
-	c.note.SetVisible(!all && len(c.tiles) == 0)
+	if !all && len(c.tiles) == 0 {
+		c.state.Empty("ld-monitor-symbolic", locale.T().Get("settings-monitors-none"))
+	} else {
+		c.state.Clear()
+	}
 	c.away.Clear()
 	if all {
 		return

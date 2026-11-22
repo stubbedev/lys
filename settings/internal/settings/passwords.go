@@ -3,6 +3,7 @@ package settings
 import (
 	"context"
 	"fmt"
+	"log"
 	"maps"
 	"slices"
 	"strings"
@@ -138,6 +139,7 @@ type passwordsPanel struct {
 	lockFace   *widget.ButtonContent
 	filter     *widget.SearchEntry
 	list       *widget.ItemGroup
+	state      *cardState
 	rows       []widget.Widget
 	more       *widget.Button
 	expanded   dbus.ObjectPath
@@ -173,7 +175,8 @@ func passwordsKeyring(k *kit) widget.Widget {
 	p.filter = widget.NewSearchEntry(k.face, k.textPx(), t.Get("settings-passwords-filter"))
 	p.filter.SetDelay(0)
 	p.filter.OnSearchChanged = func(string) { p.showItems() }
-	p.list = widget.NewItemGroup(newInsetRow(p.filter))
+	p.state = k.cardState()
+	p.list = widget.NewItemGroup(newInsetRow(p.filter), p.state)
 	p.more, _ = k.contentButton(roleSecondary, "ld-chevron-down-symbolic", t.Get("settings-passwords-more"), p.loadMore)
 	p.more.SetHAlign(widget.AlignCenter)
 	p.more.SetVisible(false)
@@ -215,7 +218,8 @@ func (p *passwordsPanel) open() {
 		return keyringOpened{c: c, release: release, colls: colls}
 	}, func(o keyringOpened) {
 		if o.err != nil {
-			p.fail(fmt.Errorf("%s: %w", locale.T().Get("settings-passwords-unavailable"), o.err))
+			log.Printf("settings: passwords: %v", o.err)
+			p.state.Unavailable("ld-key-round-symbolic", locale.T().Get("settings-passwords-unavailable"), o.err)
 			return
 		}
 		p.c, p.release = o.c, o.release
@@ -427,7 +431,9 @@ func (p *passwordsPanel) showItems() {
 		p.hideSecret()
 	}
 	if len(p.rows) == 0 {
-		add(p.k.emptyRow("ld-key-round-symbolic", t.Get("settings-passwords-none")))
+		p.state.Empty("ld-key-round-symbolic", t.Get("settings-passwords-none"))
+	} else {
+		p.state.Clear()
 	}
 	p.more.SetVisible(p.shownTo < len(p.paths))
 }

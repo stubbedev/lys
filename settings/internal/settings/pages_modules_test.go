@@ -201,7 +201,9 @@ func TestThePrivacyPageLeadsToTheOnlineLyrics(t *testing.T) {
 	footer := grantsFooter(k)
 	t.Cleanup(footer.(*grantsList).close)
 	for _, b := range treetest.All[*widget.Button](footer) {
-		b.OnClick()
+		if b.OnClick != nil {
+			b.OnClick()
+		}
 	}
 	if !slices.Contains(opened, "media") {
 		t.Errorf("the Privacy page's links opened %q, not the Media page", opened)

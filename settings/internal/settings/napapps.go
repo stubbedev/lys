@@ -32,19 +32,18 @@ type napApps struct {
 	pending []string
 	rows    []string
 	list    *widget.Box
-	empty   *widget.Label
+	state   *cardState
 	add     *widget.Button
 	levels  map[string]*widget.Dropdown
 	syncing bool
 }
 
 func newNapApps(k *kit, s slot) *napApps {
-	t := locale.T()
 	c := &napApps{Box: gapBox(widget.Column), k: k, slot: s}
 	c.list = gapBox(widget.Column)
-	c.empty = k.note(t.Get("settings-app-nap-none"))
+	c.state = k.cardState()
 	c.add = k.addButton("settings-app-nap-add", c.pickApp)
-	c.Append(c.empty, false)
+	c.Append(widget.NewItemGroup(c.state), false)
 	c.Append(c.list, false)
 	c.Append(c.add, false)
 	dirs := desktopentry.ApplicationDirs()
@@ -135,7 +134,11 @@ func (c *napApps) rebuild() {
 	c.list.Clear()
 	c.levels = map[string]*widget.Dropdown{}
 	c.rows = c.named()
-	c.empty.SetVisible(len(c.rows) == 0)
+	if len(c.rows) == 0 {
+		c.state.Empty("ld-moon-symbolic", t.Get("settings-app-nap-none"))
+	} else {
+		c.state.Clear()
+	}
 	levels := config.NapLevels()
 	for _, app := range c.rows {
 		row := gapBox(widget.Row)

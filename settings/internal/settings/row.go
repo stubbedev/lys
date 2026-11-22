@@ -188,15 +188,6 @@ func newInsetRow(w widget.Widget) *insetRow {
 	return row
 }
 
-// emptyRow is the row of a list holding nothing: icon on lys-ui's muted
-// tile beside text, which wraps to every line it needs.
-func (k *kit) emptyRow(icon, text string) *settingRow {
-	r := k.row(text, "")
-	r.SetLines(0, rowDescriptionLines)
-	r.SetMedia(k.icon(icon), false)
-	return r
-}
-
 // badge is lys-ui's quiet badge reading text; a status class
 // (success, warning, error, info) tints it.
 func (k *kit) badge(text string, classes ...string) *widget.Badge {
@@ -207,7 +198,7 @@ func (k *kit) badge(text string, classes ...string) *widget.Badge {
 }
 
 // badgeStatuses are the status classes a badge's tint comes from.
-var badgeStatuses = []string{"success", "warning", "error", "info"}
+var badgeStatuses = []string{css.Success, css.Warning, css.Error, "info"}
 
 // control is a row's editor: its widget, and refresh re-reading the
 // value after the config changed.
@@ -317,10 +308,10 @@ func (r *settingRow) showPending(value any) {
 	r.problem.SetVisible(true)
 }
 
-// errorText is a caption in the error color, wrapping, with classes:
-// why something failed.
-func (k *kit) errorText(text string, classes ...string) *widget.Label {
-	return wrapped(k.label(text, append(classes, css.Caption, css.Error)...))
+// errorText is a caption in the error color, wrapping: why something
+// failed.
+func (k *kit) errorText(text string) *widget.Label {
+	return wrapped(k.label(text, css.Caption, css.Error))
 }
 
 // note is a dim caption, wrapping, with classes: a status, a hint.

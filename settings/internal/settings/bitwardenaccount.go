@@ -13,6 +13,7 @@ import (
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/secrets/vault"
 	"github.com/stubbedev/lys/ui/widget"
+	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -126,12 +127,15 @@ func (v *secretsVault) changes(ctx context.Context) (<-chan struct{}, error) {
 
 func (v *secretsVault) close() error { return v.conn.Close() }
 
-// vaultAccount is the account the Bitwarden module signs in to: who is
-// signed in and whether the vault is open, with Sign in, Unlock, Lock
-// now and Sign out.
+// vaultAccount is the card of the account the Bitwarden module signs in
+// to: who is signed in and whether the vault is open, with Sign in,
+// Unlock, Lock now and Sign out, under the state saying lys-secrets is
+// being asked or cannot be reached, or the vault's last failure.
 type vaultAccount struct {
 	*widget.Box
 	k       *kit
+	notice  *cardState
+	body    *widget.Box
 	ctl     vaultControl
 	stop    context.CancelFunc
 	state   *widget.Label
@@ -140,22 +144,20 @@ type vaultAccount struct {
 	form    *vaultForm
 	lock    *widget.Button
 	logout  *widget.Button
-	failed  *widget.Label
 	problem *widget.Label
 	closed  bool
 }
 
 func newVaultAccount(k *kit) widget.Widget {
 	t := locale.T()
-	a := &vaultAccount{Box: gapBox(widget.Column), k: k}
-	a.state = wrapped(k.label(t.Get("settings-vault-asking")))
+	a := &vaultAccount{Box: widget.NewBox(widget.Column, 0, 0), k: k, notice: k.cardState(), body: gapBox(widget.Column)}
+	a.AddClass(css.Card)
+	a.state = wrapped(k.label(""))
 	a.lock = k.secondaryButton(t.Get("settings-vault-lock"), a.lockNow)
 	a.form = newVaultForm(a)
 	a.login = k.primaryButton(t.Get("settings-vault-login"), a.form.openLogin)
 	a.unlock = k.primaryButton(t.Get("settings-vault-unlock"), a.form.openUnlock)
 	a.logout = k.destructiveButton(t.Get("settings-vault-logout"), a.askLogout)
-	a.failed = k.errorText("")
-	a.failed.SetVisible(false)
 	a.problem = k.errorText("")
 	a.problem.SetVisible(false)
 	actions := gapBox(widget.Row)
@@ -163,11 +165,11 @@ func newVaultAccount(k *kit) widget.Widget {
 	actions.Append(a.unlock, false)
 	actions.Append(a.lock, false)
 	actions.Append(a.logout, false)
-	a.Append(a.state, false)
-	a.Append(a.failed, false)
-	a.Append(actions, false)
-	a.Append(a.form, false)
-	a.Append(a.problem, false)
+	a.body.Append(a.state, false)
+	a.body.Append(actions, false)
+	a.body.Append(a.form, false)
+	a.body.Append(a.problem, false)
+	a.Append(widget.NewItemGroup(a.notice, newInsetRow(a.body)), false)
 	a.show(vault.Status{}, false)
 	type opened struct {
 		ctl vaultControl
@@ -186,7 +188,7 @@ func newVaultAccount(k *kit) widget.Widget {
 		return opened{ctl: ctl, st: st}
 	}, func(o opened) {
 		if o.err != nil {
-			a.state.SetText(t.Get("settings-vault-unavailable", i18n.Str("reason", o.err.Error())))
+			a.notice.Unavailable("ld-key-round-symbolic", t.Get("settings-vault-unavailable"), o.err)
 			return
 		}
 		if a.closed {
@@ -240,6 +242,7 @@ func (a *vaultAccount) reload() {
 // known is false until lys-secrets answered.
 func (a *vaultAccount) show(st vault.Status, known bool) {
 	t := locale.T()
+	a.body.SetVisible(known)
 	if known {
 		a.state.SetText(vaultWords(st))
 	}
@@ -250,9 +253,13 @@ func (a *vaultAccount) show(st vault.Status, known bool) {
 	if known {
 		a.form.follow(st.State)
 	}
-	a.failed.SetVisible(st.Err != nil)
-	if st.Err != nil {
-		a.failed.SetText(t.Get("settings-vault-failed", i18n.Str("reason", st.Err.Error())))
+	switch {
+	case !known:
+		a.notice.Loading(t.Get("settings-vault-asking"))
+	case st.Err != nil:
+		a.notice.Error(t.Get("settings-vault-failed"), st.Err, nil)
+	default:
+		a.notice.Clear()
 	}
 }
 

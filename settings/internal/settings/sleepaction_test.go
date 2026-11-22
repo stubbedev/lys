@@ -77,8 +77,8 @@ func TestAStoredSleepModeTheSystemRefusesSaysWhy(t *testing.T) {
 
 func TestWithoutLogindEverySleepModeStaysSelectableAndTheReasonShows(t *testing.T) {
 	_, c, _ := sleepSelect(t, "", map[string]string{"CanSuspend": "perhaps"})
-	if c.unknown == nil || !strings.Contains(c.problem.Text(), `answered "perhaps"`) {
-		t.Fatalf("an answer logind does not give shows %q", c.problem.Text())
+	if c.unknown == nil || c.problem.Text() != locale.T().Get("settings-sleep-unknown") || !strings.Contains(c.problem.TooltipText(), `answered "perhaps"`) {
+		t.Fatalf("an answer logind does not give shows %q, explained %q", c.problem.Text(), c.problem.TooltipText())
 	}
 	for i, item := range c.pick.pick.Items() {
 		if item != c.labels[i] {

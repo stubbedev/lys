@@ -89,7 +89,7 @@ func newLocationPicker(k *kit, s slot, choice locationChoice, places func() ([]z
 	p.notice = k.label("", css.Caption, css.DimLabel)
 	p.notice.SetVisible(false)
 	p.Append(p.notice, false)
-	p.problem = k.label("", css.Caption, "error")
+	p.problem = k.errorText("")
 	p.problem.SetVisible(false)
 	p.Append(p.problem, false)
 	async(k, func() placesResult { list, err := places(); return placesResult{list, err} }, p.listed)

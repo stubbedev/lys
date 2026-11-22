@@ -13,9 +13,13 @@ import (
 
 type checkItem struct{ value, detail string }
 
+// checkListing is what a checklist read: its items, or why it could
+// not, a summary saying so (never "" when it could not) and the error
+// behind it, if any.
 type checkListing struct {
-	items []checkItem
-	err   error
+	items   []checkItem
+	failure string
+	err     error
 }
 
 type checklistSpec struct {
@@ -63,7 +67,6 @@ func (c *checklist) show(l checkListing) {
 		return cmp.Or(cmp.Compare(strings.ToLower(c.title(a.value)), strings.ToLower(c.title(b.value))), cmp.Compare(a.value, b.value))
 	})
 	c.listing = &l
-	c.doneReading()
 	c.refresh()
 }
 
@@ -89,22 +92,22 @@ func (c *checklist) refresh() {
 	}
 	t := locale.T()
 	chosen := stringsOf(c.slot.get())
-	c.list.Clear()
-	rows := widget.NewItemGroup()
+	c.clearRows()
 	for _, v := range chosen {
 		if !slices.ContainsFunc(c.listing.items, func(it checkItem) bool { return it.value == v }) {
-			rows.Append(c.itemRow(checkItem{value: v, detail: t.Get(c.spec.missingKey)}, chosen))
+			c.rows.Append(c.itemRow(checkItem{value: v, detail: t.Get(c.spec.missingKey)}, chosen))
 		}
 	}
 	for _, it := range c.listing.items {
-		rows.Append(c.itemRow(it, chosen))
+		c.rows.Append(c.itemRow(it, chosen))
 	}
-	if len(chosen) == 0 && len(c.listing.items) == 0 {
-		rows.Append(c.k.emptyRow(c.spec.icon, t.Get(c.spec.emptyKey)))
-	}
-	c.list.Append(rows, false)
-	if c.listing.err != nil {
-		c.list.Append(c.k.errorText(c.listing.err.Error()), false)
+	switch {
+	case c.listing.failure != "":
+		c.state.Unavailable(c.spec.icon, c.listing.failure, c.listing.err)
+	case len(chosen) == 0 && len(c.listing.items) == 0:
+		c.state.Empty(c.spec.icon, t.Get(c.spec.emptyKey))
+	default:
+		c.state.Clear()
 	}
 }
 

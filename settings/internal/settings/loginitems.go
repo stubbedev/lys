@@ -349,14 +349,16 @@ func withUserManager[T any](fn func(context.Context, userManager) (T, error)) (T
 }
 
 type loginItems struct {
-	k        *kit
-	dirs     autostartDirs
-	desktops []string
-	apps     *widget.Box
-	services *widget.Box
-	filter   *widget.SearchEntry
-	listing  unitsListing
-	problem  *widget.Label
+	k             *kit
+	dirs          autostartDirs
+	desktops      []string
+	apps          *widget.ItemGroup
+	appsState     *cardState
+	services      *widget.ItemGroup
+	servicesState *cardState
+	filter        *widget.SearchEntry
+	listing       unitsListing
+	problem       *widget.Label
 }
 
 func loginItemsLead(k *kit) widget.Widget {
@@ -365,14 +367,14 @@ func loginItemsLead(k *kit) widget.Widget {
 	l.problem = k.errorText("")
 	l.problem.SetVisible(false)
 	content.Append(l.problem, false)
-	l.apps = widget.NewBox(widget.Column, 0, 0)
+	l.apps, l.appsState = widget.NewItemGroup(), k.cardState()
 	apps := newSection(k, "settings-section-login-apps", l.apps)
 	content.Append(apps, false)
 	l.filter = widget.NewSearchEntry(k.face, k.textPx(), locale.T().Get("settings-login-services-filter"))
 	l.filter.SetDelay(0)
 	l.filter.OnSearchChanged = func(string) { l.showServices(l.listing) }
 	l.filter.SetVisible(false)
-	l.services = gapBox(widget.Column)
+	l.services, l.servicesState = widget.NewItemGroup(), k.cardState()
 	services := gapBox(widget.Column)
 	services.Append(l.filter, false)
 	services.Append(l.services, false)
@@ -418,18 +420,19 @@ func (l *loginItems) loadApps() {
 func (l *loginItems) showApps(r autostartListing) {
 	t := locale.T()
 	l.apps.Clear()
-	if r.err != nil {
-		l.apps.Append(l.k.errorText(r.err.Error()), false)
+	l.apps.Append(l.appsState)
+	switch {
+	case r.err != nil:
+		l.appsState.Unavailable("ld-power-symbolic", t.Get("settings-login-apps-unreadable"), r.err)
+		return
+	case len(r.entries) == 0:
+		l.appsState.Empty("ld-power-symbolic", t.Get("settings-login-apps-none"))
 		return
 	}
-	rows := widget.NewItemGroup()
+	l.appsState.Clear()
 	for _, e := range r.entries {
-		rows.Append(l.appRow(e))
+		l.apps.Append(l.appRow(e))
 	}
-	if len(r.entries) == 0 {
-		rows.Append(l.k.emptyRow("ld-power-symbolic", t.Get("settings-login-apps-none")))
-	}
-	l.apps.Append(rows, false)
 }
 
 func (l *loginItems) itemRow(icon, name, detail string) *settingRow {
@@ -489,27 +492,28 @@ func (l *loginItems) showServices(r unitsListing) {
 	t := locale.T()
 	l.listing = r
 	l.services.Clear()
+	l.services.Append(l.servicesState)
 	l.filter.SetVisible(r.err == nil && len(r.units) > 0)
 	if r.err != nil {
-		l.services.Append(l.k.errorText(t.Get("settings-login-services-unavailable")+": "+r.err.Error()), false)
+		l.servicesState.Unavailable("ld-settings-symbolic", t.Get("settings-login-services-unavailable"), r.err)
 		return
 	}
-	rows := widget.NewItemGroup()
 	filter := newWordFilter(l.filter.Text())
 	shown := 0
 	for _, u := range r.units {
 		if filter.matches(u.name, u.description) {
-			rows.Append(l.serviceRow(u))
+			l.services.Append(l.serviceRow(u))
 			shown++
 		}
 	}
 	switch {
 	case len(r.units) == 0:
-		rows.Append(l.k.label(t.Get("settings-login-services-none"), css.DimLabel))
+		l.servicesState.Empty("ld-settings-symbolic", t.Get("settings-login-services-none"))
 	case shown == 0:
-		rows.Append(l.k.label(t.Get("settings-login-services-no-match"), css.DimLabel))
+		l.servicesState.Empty("ld-search-symbolic", t.Get("settings-login-services-no-match"))
+	default:
+		l.servicesState.Clear()
 	}
-	l.services.Append(rows, false)
 }
 
 func (l *loginItems) serviceRow(u userUnit) widget.Widget {
@@ -520,7 +524,7 @@ func (l *loginItems) serviceRow(u userUnit) widget.Widget {
 	row := l.itemRow("", cmp.Or(u.description, u.name), u.name+" · "+detail)
 	row.SetMedia(statusDot(u.status(), status), false)
 	if u.active == "failed" {
-		failed := l.k.badge(t.Get("settings-login-services-failed"), "error")
+		failed := l.k.badge(t.Get("settings-login-services-failed"), css.Error)
 		failed.SetVariant(widget.BadgeDestructive)
 		failed.SetTooltip(t.Attr("settings-login-services-failed", "description"))
 		row.AddAction(failed)

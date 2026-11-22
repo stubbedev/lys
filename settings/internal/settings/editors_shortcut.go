@@ -218,7 +218,8 @@ type appShortcutsEditor struct {
 	k         *kit
 	binds     slot
 	list      *widget.Box
-	empty     *widget.Label
+	state     *cardState
+	reload    *widget.Button
 	entries   []*actionChord
 	shortcuts []appShortcut
 	names     *bindNames
@@ -239,12 +240,12 @@ func bindActionNames(k *kit) *bindNames {
 func newAppShortcutsEditor(k *kit, binds slot) *appShortcutsEditor {
 	e := &appShortcutsEditor{Box: gapBox(widget.Column), k: k, binds: binds, names: bindActionNames(k)}
 	e.list = gapBox(widget.Column)
-	e.empty = k.label(locale.T().Get("wm-app-shortcuts-none"), css.Caption, css.DimLabel)
-	e.Append(e.empty, false)
+	e.state = k.cardState()
+	e.Append(widget.NewItemGroup(e.state), false)
 	e.Append(e.list, false)
-	reload := k.reloadButton("wm-app-shortcuts-reload", e.load)
-	reload.SetHAlign(widget.AlignStart)
-	e.Append(reload, false)
+	e.reload = k.reloadButton("wm-app-shortcuts-reload", e.load)
+	e.reload.SetHAlign(widget.AlignStart)
+	e.Append(e.reload, false)
 	e.load()
 	return e
 }
@@ -260,13 +261,15 @@ func (e *appShortcutsEditor) show(l appShortcutsListing) {
 	t := locale.T()
 	e.list.Clear()
 	e.entries, e.shortcuts = e.entries[:0], l.shortcuts
+	e.reload.SetVisible(l.err == nil)
 	switch {
 	case l.err != nil:
-		e.empty.SetText(l.err.Error())
+		e.state.Error(t.Get("wm-app-shortcuts-unreadable"), l.err, e.load)
 	case len(l.shortcuts) == 0:
-		e.empty.SetText(t.Get("wm-app-shortcuts-none"))
+		e.state.Empty("ld-keyboard-symbolic", t.Get("wm-app-shortcuts-none"))
+	default:
+		e.state.Clear()
 	}
-	e.empty.SetVisible(l.err != nil || len(l.shortcuts) == 0)
 	for _, sc := range l.shortcuts {
 		row := gapBox(widget.Row)
 		row.AddClass("app-shortcut")

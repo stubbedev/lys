@@ -142,12 +142,12 @@ func TestARefusedLockIsSaid(t *testing.T) {
 func TestTheVaultsLastFailureIsSaidUntilAnOperationSucceeds(t *testing.T) {
 	f := &fakeVault{st: vault.Status{State: vault.StateLocked, Email: "me@example.org", Err: errors.New("sync: server unreachable")}}
 	a, _ := accountOf(t, f)
-	if want := locale.T().Get("settings-vault-failed", i18n.Str("reason", "sync: server unreachable")); !a.failed.Visible() || a.failed.Text() != want {
-		t.Fatalf("the vault's failure shows %q (%v), want %q", a.failed.Text(), a.failed.Visible(), want)
+	if want := locale.T().Get("settings-vault-failed"); a.notice.kind != stateError || a.notice.Title() != want || a.notice.detail.Text() != "sync: server unreachable" {
+		t.Fatalf("the vault's failure shows %v %q over %q, want %q", a.notice.kind, a.notice.Title(), a.notice.detail.Text(), want)
 	}
 	f.st.Err = nil
 	a.reload()
-	if a.failed.Visible() {
+	if a.notice.Visible() {
 		t.Error("a vault with no failure still shows one")
 	}
 }
@@ -156,9 +156,9 @@ func TestWithoutLysSecretsTheAccountCardSaysSoAndOffersNothing(t *testing.T) {
 	k := testKit(t, "")
 	a := newVaultAccount(k).(*vaultAccount)
 	t.Cleanup(a.close)
-	want := locale.T().Get("settings-vault-unavailable", i18n.Str("reason", "no lys-secrets in the tests"))
-	if a.state.Text() != want || a.lock.Enabled() || a.logout.Enabled() {
-		t.Errorf("without lys-secrets: %q, lock %v, sign out %v", a.state.Text(), a.lock.Enabled(), a.logout.Enabled())
+	want := locale.T().Get("settings-vault-unavailable")
+	if a.notice.kind != stateUnavailable || a.notice.Title() != want || a.notice.detail.Text() != "no lys-secrets in the tests" || a.body.Visible() {
+		t.Errorf("without lys-secrets: %v %q over %q, the account shown %v", a.notice.kind, a.notice.Title(), a.notice.detail.Text(), a.body.Visible())
 	}
 }
 

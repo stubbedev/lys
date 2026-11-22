@@ -2,7 +2,6 @@ package settings
 
 import (
 	"encoding/binary"
-	"github.com/stubbedev/lys/ui/widget"
 	"os"
 	"path/filepath"
 	"slices"
@@ -12,6 +11,7 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/pulse/native"
 	"github.com/stubbedev/lys/shell/service/sounds"
+	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -124,8 +124,8 @@ func TestASoundNoThemeHoldsKeepsItsOwnCheckedRow(t *testing.T) {
 	}
 	k = testKit(t, "modules:\n  notifications:\n    sound-default: ''\n")
 	e = alertList(t, k)
-	if len(e.sounds) != 0 || len(treetest.All[*settingRow](e.rows)) != 1 {
-		t.Fatalf("without sounds %d rows, %d empty rows", len(e.sounds), len(treetest.All[*settingRow](e.rows)))
+	if len(e.sounds) != 0 || len(treetest.All[*settingRow](e.rows)) != 0 || e.state.kind != stateEmpty {
+		t.Fatalf("without sounds %d rows, %d other rows, the state %v", len(e.sounds), len(treetest.All[*settingRow](e.rows)), e.state.kind)
 	}
 }
 

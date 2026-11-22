@@ -45,6 +45,7 @@ type alertSoundList struct {
 	list    lister
 	rows    *widget.ItemGroup
 	sounds  []alertSound
+	state   *cardState
 	problem *widget.Label
 	syncing bool
 }
@@ -53,6 +54,7 @@ func newAlertSoundList(k *kit, s slot, list lister) *alertSoundList {
 	e := &alertSoundList{Box: widget.NewBox(widget.Column, widget.Current().Spacing/2, 0), k: k, slot: s, list: list}
 	e.AddClass("alert-sound-list")
 	e.rows = widget.NewItemGroup()
+	e.state = k.cardState()
 	scroll := widget.NewScroll(e.rows)
 	scroll.VerticalOnly = true
 	scroll.SetMaxContentHeight(choiceListPx)
@@ -91,6 +93,7 @@ func (e *alertSoundList) refresh() {
 
 func (e *alertSoundList) build(names []string) {
 	e.rows.Clear()
+	e.rows.Append(e.state)
 	e.sounds = e.sounds[:0]
 	for _, name := range names {
 		radio := widget.NewCheckButton(false)
@@ -112,8 +115,10 @@ func (e *alertSoundList) build(names []string) {
 		e.sounds = append(e.sounds, alertSound{name: name, radio: radio, play: play})
 	}
 	if len(e.sounds) == 0 {
-		e.rows.Append(e.k.emptyRow("ld-audio-lines-symbolic", locale.T().Get("settings-sound-alert-none")))
+		e.state.Empty("ld-audio-lines-symbolic", locale.T().Get("settings-sound-alert-none"))
+		return
 	}
+	e.state.Clear()
 }
 
 func (e *alertSoundList) choose(name string) {

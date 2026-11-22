@@ -7,7 +7,6 @@ import (
 	"slices"
 
 	"github.com/stubbedev/lys/desktop/config"
-	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/lib/wmipc"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
@@ -24,7 +23,9 @@ const devicesPath = "input.devices"
 // device of a class with the section and the key of the device they
 // override.
 type deviceKind struct {
-	key    string
+	key string
+	// icon is the glyph of the list's state.
+	icon   string
 	lists  func(d wmipc.Device) bool
 	absent wmipc.DeviceClass
 	rows   func(class wmipc.DeviceClass) (section string, within []string, rows []rowSpec)
@@ -34,6 +35,7 @@ type deviceKind struct {
 
 var pointerDevices = deviceKind{
 	key:    "wm-input-devices",
+	icon:   "ld-mouse-symbolic",
 	lists:  func(d wmipc.Device) bool { return d.Class != wmipc.ClassNone },
 	absent: wmipc.ClassPointer,
 	rows: func(class wmipc.DeviceClass) (string, []string, []rowSpec) {
@@ -44,6 +46,7 @@ var pointerDevices = deviceKind{
 
 var keyboardDevices = deviceKind{
 	key:    "wm-input-devices-keyboard",
+	icon:   "ld-keyboard-symbolic",
 	lists:  func(d wmipc.Device) bool { return slices.Contains(d.Capabilities, wmipc.CapKeyboard) },
 	absent: wmipc.ClassNone,
 	rows: func(wmipc.DeviceClass) (string, []string, []rowSpec) {
@@ -66,7 +69,7 @@ type deviceCards struct {
 	*widget.Box
 	k         *kit
 	kind      deviceKind
-	note      *widget.Label
+	state     *cardState
 	list      *widget.Box
 	reload    *widget.Button
 	read      bool
@@ -94,9 +97,9 @@ type devicesRead struct {
 func newDeviceCards(k *kit, kind deviceKind) *deviceCards {
 	c := &deviceCards{Box: gapBox(widget.Column), k: k, kind: kind}
 	c.AddClass("card-form-editor")
-	c.note = k.note("")
+	c.state = k.cardState()
 	c.list = gapBox(widget.Column)
-	c.Append(c.note, false)
+	c.Append(widget.NewItemGroup(c.state), false)
 	c.Append(c.list, false)
 	c.reload = k.reloadButton("wm-devices-reload", c.load)
 	c.AppendAligned(c.reload, false, widget.AlignStart)
@@ -157,25 +160,30 @@ func (c *deviceCards) rebuild() {
 	for _, cd := range c.cards {
 		c.list.Append(c.cardWidget(cd), false)
 	}
-	c.note.SetText(c.noteText())
-	c.note.SetVisible(c.note.Text() != "")
+	c.showState()
 }
 
-func (c *deviceCards) noteText() string {
+// showState says why the list holds only the configured devices, or
+// that it holds none; a failure to read them carries the reload as its
+// retry, in place of the reload button.
+func (c *deviceCards) showState() {
 	t := locale.T()
+	c.reload.SetVisible(true)
 	switch {
 	case !c.read:
-		return ""
+		c.state.Loading(t.Get("wm-devices-reading"))
 	case errors.Is(c.err, wmstate.ErrNotRunning):
-		return t.Get("wm-devices-not-running")
+		c.state.Unavailable(c.kind.icon, t.Get("wm-devices-not-running"), nil)
 	case errors.Is(c.err, wmstate.ErrOutdated):
-		return t.Get("wm-devices-outdated")
+		c.state.Unavailable(c.kind.icon, t.Get("wm-devices-outdated"), nil)
 	case c.err != nil:
-		return t.Get("wm-devices-unreadable", i18n.Str("reason", c.err.Error()))
+		c.reload.SetVisible(false)
+		c.state.Error(t.Get("wm-devices-unreadable"), c.err, c.load)
 	case len(c.cards) == 0:
-		return t.Get("wm-devices-none")
+		c.state.Empty(c.kind.icon, t.Get("wm-devices-none"))
+	default:
+		c.state.Clear()
 	}
-	return ""
 }
 
 func (c *deviceCards) cardWidget(cd *deviceCard) *widget.Box {

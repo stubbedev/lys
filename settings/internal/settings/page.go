@@ -334,6 +334,10 @@ func (b notifyingBackend) slot(path string) slot {
 	}
 }
 
+// wmUnreachableIcon is the glyph of a card saying lys-wm's settings
+// cannot be read.
+const wmUnreachableIcon = "ld-app-window-symbolic"
+
 // buildPage lays out a page.
 func buildPage(k *kit, spec pageSpec) *settingsPage {
 	t := locale.T()
@@ -351,7 +355,12 @@ func buildPage(k *kit, spec pageSpec) *settingsPage {
 	if spec.wm || spec.wmLead {
 		w, err := k.wmBackend()
 		if err != nil {
-			content.Append(k.label(err.Error(), "error", css.Caption), false)
+			missing := k.cardState()
+			missing.Unavailable(wmUnreachableIcon, t.Get("settings-wm-unreadable"), err)
+			card := widget.NewBox(widget.Column, 0, 0)
+			card.AddClass(css.Card)
+			card.Append(widget.NewItemGroup(missing), false)
+			content.Append(card, false)
 			p.Scroll = widget.NewScroll(k.pageColumn(content))
 			p.VerticalOnly, p.ShowBars, p.FillY = true, true, true
 			return p
@@ -381,12 +390,17 @@ func buildPage(k *kit, spec pageSpec) *settingsPage {
 			rows.Append(p.own(p.extra(s.lead(k))))
 		}
 		first := len(p.targets)
+		var wmMissing *cardState
 		for _, rs := range s.rows {
 			var rowBackend backend = notifyingBackend{be, conditional}
 			if rs.wm && !spec.wm {
 				w, err := k.wmBackend()
 				if err != nil {
-					section.Append(wrapped(k.label(err.Error(), "error", css.Caption)), false)
+					if wmMissing == nil {
+						wmMissing = k.cardState()
+						wmMissing.Unavailable(wmUnreachableIcon, t.Get("settings-wm-unreadable"), err)
+						rows.Append(wmMissing)
+					}
 					p.targets = append(p.targets, make([]*fieldRow, len(rs.flat()))...)
 					continue
 				}

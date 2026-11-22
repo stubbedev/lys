@@ -86,7 +86,7 @@ type launcherModeList struct {
 	list     *widget.ItemGroup
 	title    *widget.Label
 	name     *widget.Entry
-	none     *widget.Label
+	state    *cardState
 	groups   [][]*fieldRow
 	rows     []*fieldRow
 	syncing  bool
@@ -113,10 +113,10 @@ func newLauncherModeList(k *kit, modes, names slot) *launcherModeList {
 	nameRow := gapBox(widget.Row)
 	nameRow.AppendAligned(k.label(t.Get("settings-launcher-mode-display-name")), false, widget.AlignCenter)
 	nameRow.AppendAligned(c.name, true, widget.AlignCenter)
-	c.none = k.note(t.Get("settings-launcher-mode-no-options"))
+	c.state = k.cardState()
 	pane.Append(c.title, false)
 	pane.Append(nameRow, false)
-	pane.Append(c.none, false)
+	pane.Append(widget.NewItemGroup(c.state), false)
 	for _, o := range launcherModeOptions {
 		group := make([]*fieldRow, len(o.rows))
 		for i, rs := range o.rows {
@@ -201,7 +201,11 @@ func (c *launcherModeList) refresh() {
 			row.refresh()
 		}
 	}
-	c.none.SetVisible(!shown)
+	if shown {
+		c.state.Clear()
+	} else {
+		c.state.Empty("ld-settings-symbolic", locale.T().Get("settings-launcher-mode-no-options"))
+	}
 }
 
 func (c *launcherModeList) modeRow(e launcherModeEntry, names map[string]any, on []string) *settingRow {

@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"time"
 
-	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
@@ -76,7 +76,9 @@ func newShellSwitch[S any](k *kit, spec switchSpec[S]) *shellSwitch[S] {
 		return opened{ctl: ctl, state: st}
 	}, func(o opened) {
 		if o.err != nil {
-			p.SetDescription(t.Get(spec.unavailable, i18n.Str("reason", o.err.Error())))
+			log.Printf("settings: %s: %v", spec.label, o.err)
+			p.SetDescription(t.Get(spec.unavailable))
+			p.SetTooltip(o.err.Error())
 			return
 		}
 		if p.closed {

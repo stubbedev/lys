@@ -84,7 +84,7 @@ func newEnvItem(k *kit, pair [2]string, changed func()) *envItem {
 	}
 	e.names = newChoiceEditor(k, name, choiceSpec{list: knownVariableChoices, free: true})
 	e.names.entry.SetPlaceholder(t.Get("wm-env-name-placeholder"))
-	e.problem = k.errorText(t.Get("wm-env-name-invalid"), "format-preview")
+	e.problem = k.errorText(t.Get("wm-env-name-invalid"))
 	line := gapBox(widget.Row)
 	line.Append(e.names, true)
 	line.Append(e.entry, true)

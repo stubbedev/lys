@@ -68,7 +68,8 @@ type displaysPanel struct {
 	offTray     *widget.Box
 	canvas      *displaysCanvas
 	controls    *widget.Box
-	none        *widget.Label
+	output      *widget.Box
+	state       *cardState
 	enabled     *widget.Switch
 	primary     *widget.Switch
 	primaryRow  *settingRow
@@ -118,7 +119,9 @@ func displaysLead(k *kit) widget.Widget {
 	p.status.SetVisible(false)
 	p.canvas = newDisplaysCanvas(p)
 	p.canvas.SetAccessibleName(t.Get("settings-displays-arrangement"))
-	p.none = k.label(t.Get("settings-displays-none"), css.DimLabel)
+	p.state = k.cardState()
+	p.state.Loading(t.Get("settings-displays-reading"))
+	p.canvas.SetVisible(false)
 	p.identify = k.secondaryButton(t.Get("settings-displays-identify"), func() { p.identifyOutputs(p.enabledNames()) })
 	p.apply = k.primaryButton(t.Get("settings-displays-apply"), p.applyLayout)
 	p.apply.SetEnabled(false)
@@ -132,7 +135,7 @@ func displaysLead(k *kit) widget.Widget {
 	actions.Append(widget.NewBox(widget.Row, 0, 0), true)
 	actions.Append(p.apply, false)
 	arrangement := gapBox(widget.Column)
-	arrangement.Append(p.none, false)
+	arrangement.Append(widget.NewItemGroup(p.state), false)
 	arrangement.Append(p.canvas, false)
 	p.offTray = gapBox(widget.Row)
 	p.offTray.AddClass("displays-off-tray")
@@ -142,7 +145,9 @@ func displaysLead(k *kit) widget.Widget {
 	p.Append(newSection(k, "settings-section-displays-arrangement", arrangement), false)
 	p.controls = gapBox(widget.Column)
 	p.buildControls()
-	p.Append(newSection(k, "settings-section-displays-output", p.controls), false)
+	p.output = newSection(k, "settings-section-displays-output", p.controls)
+	p.output.SetVisible(false)
+	p.Append(p.output, false)
 	p.connect()
 	return p
 }
@@ -215,7 +220,8 @@ func (p *displaysPanel) connect() {
 		return displaysConnection{mgr, err}
 	}, func(c displaysConnection) {
 		if c.err != nil {
-			p.say(fmt.Sprintf("%s: %v", locale.T().Get("settings-displays-unavailable"), c.err))
+			log.Printf("settings: displays: %v", c.err)
+			p.state.Unavailable("ld-monitor-symbolic", locale.T().Get("settings-displays-unavailable"), c.err)
 			return
 		}
 		if p.closed {
@@ -304,9 +310,13 @@ func (p *displaysPanel) render() {
 	p.syncing = true
 	defer func() { p.syncing = false }()
 	has := len(p.draft) > 0
-	p.none.SetVisible(!has)
+	if has {
+		p.state.Clear()
+	} else {
+		p.state.Empty("ld-monitor-symbolic", locale.T().Get("settings-displays-none"))
+	}
 	p.canvas.SetVisible(has)
-	p.controls.SetVisible(has)
+	p.output.SetVisible(has)
 	p.apply.SetEnabled(has && p.dirty() && p.confirm == nil && p.mgr != nil)
 	w, wmErr := p.k.wmBackend()
 	p.primaryAt = -1

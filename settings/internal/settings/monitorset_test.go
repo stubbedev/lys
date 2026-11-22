@@ -86,7 +86,7 @@ func TestWithoutDisplaysToReadTheDockSaysSo(t *testing.T) {
 	systemLists = map[string]lister{"Monitor": func() []choice { return nil }}
 	t.Cleanup(func() { systemLists = before })
 	c := fieldControl(k, k.store, field("dock.monitors", monitorSetRow)).(*monitorSet)
-	if c.picker.Visible() || !c.note.Visible() {
-		t.Errorf("with no display to read the tiles show %v and the note %v", c.picker.Visible(), c.note.Visible())
+	if c.picker.Visible() || !c.state.Visible() {
+		t.Errorf("with no display to read the tiles show %v and the state %v", c.picker.Visible(), c.state.Visible())
 	}
 }
