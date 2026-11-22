@@ -20,8 +20,8 @@ import (
 
 // ToggleGroup is the segmented control (adw 1.7): a pill of
 // ToggleButtons in one radio group, exactly one active. Clicks and
-// Left/Right activate; SetActive drives it from code. ViewSwitcher is
-// a ToggleGroup bound to a Stack.
+// Left/Right/Home/End activate (NavigateFocus); SetActive drives it
+// from code. ViewSwitcher is a ToggleGroup bound to a Stack.
 type ToggleGroup struct {
 	composite
 	row     *Box
@@ -103,14 +103,52 @@ func (g *ToggleGroup) SetActive(i int) {
 	g.buttons[min(max(i, 0), len(g.buttons)-1)].SetActive(true)
 }
 
-// KeyAction moves the active toggle with Left/Right.
-func (g *ToggleGroup) KeyAction(a KeyAction, _ Mods) {
+// KeyAction implements KeyActionHandler, which lets the group itself
+// take focus; its keys are NavigateFocus's.
+func (g *ToggleGroup) KeyAction(KeyAction, Mods) {}
+
+// NavigateFocus implements FocusNavigator: from the group or any of its
+// segments, Left and Right activate the previous and next segment,
+// wrapping, Home and End the first and last, passing over the segments
+// focus cannot land on, and the focus follows. From the group the move
+// starts at its stand-in segment. Up and Down pass through.
+func (g *ToggleGroup) NavigateFocus(target Widget, a KeyAction) Widget {
+	var move FocusMove
 	switch a {
 	case KeyLeft:
-		g.SetActive(g.active - 1)
+		move = FocusMovePrev
 	case KeyRight:
-		g.SetActive(g.active + 1)
+		move = FocusMoveNext
+	case KeyHome:
+		move = FocusMoveFirst
+	case KeyEnd:
+		move = FocusMoveLast
+	default:
+		return nil
 	}
+	if target == g.self {
+		target = g.standIn()
+	}
+	next := MoveFocusAmong(g.buttons, target, move)
+	if t, ok := next.(*ToggleButton); ok {
+		t.SetActive(true)
+	}
+	return next
+}
+
+// standIn is the segment a move from the group starts at: the active
+// one while focus can land on it, else the first one focus can land
+// on, nil when there is none.
+func (g *ToggleGroup) standIn() Widget {
+	if len(g.buttons) > 0 && isFocusable(g.buttons[g.active]) {
+		return g.buttons[g.active]
+	}
+	for _, b := range g.buttons {
+		if isFocusable(b) {
+			return b
+		}
+	}
+	return nil
 }
 
 // ButtonContent is the icon-and-label pair buttons wear (adw

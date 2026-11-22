@@ -25,8 +25,8 @@ var (
 )
 
 // TestToggleGroup pins the segmented control: one active toggle, the
-// mark following it, clicks and Left/Right moving it (clamped), and
-// OnChanged firing only when it moved.
+// mark following it, clicks and SetActive moving it, and OnChanged
+// firing only when it moved.
 func TestToggleGroup(t *testing.T) {
 	face := adaptiveFace(t)
 	th := DarkTheme()
@@ -37,9 +37,8 @@ func TestToggleGroup(t *testing.T) {
 		t.Fatal("the first toggle is not active")
 	}
 	g.buttons[2].OnClick()
-	g.KeyAction(KeyRight, 0) // clamped at the end: no change
-	g.KeyAction(KeyLeft, 0)
-	g.SetActive(1) // already active: no change
+	g.SetActive(1)
+	g.SetActive(1)
 	if len(changes) != 2 || changes[0] != 2 || changes[1] != 1 {
 		t.Errorf("changes = %v, want [2 1]", changes)
 	}
@@ -51,6 +50,132 @@ func TestToggleGroup(t *testing.T) {
 	g.Clear()
 	if g.Active() != -1 || g.Len() != 0 {
 		t.Errorf("cleared group: active=%d len=%d", g.Active(), g.Len())
+	}
+}
+
+func newKeyedToggleGroup(t *testing.T, n int) (*ToggleGroup, *Router, *[]int) {
+	t.Helper()
+	face := adaptiveFace(t)
+	g := NewToggleGroup()
+	for i := range n {
+		g.Append(NewLabel(face, 14, string(rune('a'+i)), 0))
+	}
+	var changes []int
+	g.OnChanged = func(i int) { changes = append(changes, i) }
+	arrangeTree(t, g, 400, 40)
+	return g, &Router{Root: g}, &changes
+}
+
+func focusOrFail(t *testing.T, r *Router, w Widget) {
+	t.Helper()
+	if err := r.SetFocus(w); err != nil {
+		t.Fatal(err)
+	}
+}
+
+type toggleStep struct {
+	key  KeyAction
+	want int
+}
+
+func driveToggleGroup(t *testing.T, g *ToggleGroup, r *Router, steps []toggleStep) {
+	t.Helper()
+	for _, step := range steps {
+		r.KeyAction(step.key, 0)
+		if g.Active() != step.want {
+			t.Fatalf("after %v the active segment is %d, want %d", step.key, g.Active(), step.want)
+		}
+		if r.Focused() != Widget(g.buttons[step.want]) {
+			t.Fatalf("after %v the focus is on %T, want segment %d", step.key, r.Focused(), step.want)
+		}
+	}
+}
+
+// From a focused segment Left and Right move the selection, wrapping
+// at the ends and passing over a disabled segment, Home and End reach
+// the ends, and the focus follows: they did nothing once a segment had
+// the focus.
+func TestToggleGroupArrowsMoveTheSelectionFromAFocusedSegment(t *testing.T) {
+	g, r, changes := newKeyedToggleGroup(t, 4)
+	g.buttons[2].SetEnabled(false)
+	focusOrFail(t, r, g.buttons[0])
+	driveToggleGroup(t, g, r, []toggleStep{
+		{KeyRight, 1},
+		{KeyRight, 3},
+		{KeyRight, 0},
+		{KeyLeft, 3},
+		{KeyLeft, 1},
+		{KeyEnd, 3},
+		{KeyHome, 0},
+		{KeyLeft, 3},
+	})
+	if want := []int{1, 3, 0, 3, 1, 3, 0, 3}; !slices.Equal(*changes, want) {
+		t.Errorf("OnChanged heard %v, want %v", *changes, want)
+	}
+}
+
+// From the group itself the keys move from the active segment and hand
+// the focus to the one they activate.
+func TestToggleGroupArrowsFromTheGroupMoveFromTheActiveSegment(t *testing.T) {
+	for _, tc := range []struct {
+		key  KeyAction
+		want int
+	}{{KeyRight, 2}, {KeyLeft, 0}, {KeyHome, 0}, {KeyEnd, 2}} {
+		g, r, _ := newKeyedToggleGroup(t, 3)
+		g.SetActive(1)
+		focusOrFail(t, r, g)
+		driveToggleGroup(t, g, r, []toggleStep{{tc.key, tc.want}})
+	}
+}
+
+// From the group while its active segment is disabled the move starts
+// at the first segment focus can land on.
+func TestToggleGroupArrowsFromTheGroupPassOverADisabledActiveSegment(t *testing.T) {
+	g, r, _ := newKeyedToggleGroup(t, 3)
+	g.buttons[0].SetEnabled(false)
+	focusOrFail(t, r, g)
+	driveToggleGroup(t, g, r, []toggleStep{{KeyRight, 2}})
+}
+
+// A ViewSwitcher is a ToggleGroup under another name: its keys work
+// from the switcher too, and show the page they activate.
+func TestViewSwitcherArrowsFromTheSwitcherShowThePage(t *testing.T) {
+	face := adaptiveFace(t)
+	stack := NewStack()
+	for _, name := range []string{"a", "b", "c"} {
+		stack.Add(name, NewLabel(face, 14, name, 0))
+	}
+	v := NewViewSwitcher(face, 14, stack, nil, nil)
+	arrangeTree(t, v, 400, 40)
+	r := &Router{Root: v}
+	focusOrFail(t, r, v)
+	r.KeyAction(KeyEnd, 0)
+	if v.Active() != 2 || r.Focused() != Widget(v.buttons[2]) || stack.Visible() != "c" {
+		t.Errorf("End left segment %d active, focus on %T, page %q visible", v.Active(), r.Focused(), stack.Visible())
+	}
+}
+
+// Up and Down are not the group's: from a segment or the group they
+// leave the selection and the focus where they were, for an ancestor
+// to take.
+func TestToggleGroupLeavesUpAndDownAlone(t *testing.T) {
+	g, r, changes := newKeyedToggleGroup(t, 3)
+	g.SetActive(1)
+	*changes = nil
+	for _, from := range []Widget{g.buttons[1], g} {
+		focusOrFail(t, r, from)
+		for _, key := range []KeyAction{KeyUp, KeyDown} {
+			if next := g.NavigateFocus(from, key); next != nil {
+				t.Fatalf("%v from %T was taken, to %T", key, from, next)
+			}
+			r.KeyAction(key, 0)
+			if g.Active() != 1 || r.Focused() != from {
+				t.Fatalf("%v from %T moved the selection to %d, the focus to %T", key, from, g.Active(), r.Focused())
+			}
+		}
+	}
+	if len(*changes) != 0 {
+		t.Errorf("Up and Down were heard as changes %v", *changes)
 	}
 }
 
