@@ -1,6 +1,7 @@
 package settings
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/shell/treetest"
@@ -114,8 +115,8 @@ func sectionHeadersCarryNoTextButton() pageCheck {
 // type, and each builds its body once, on the first open, however often
 // it is opened and closed after.
 func TestDeviceAndFormCardsShareOneDisclosureAndFillOnce(t *testing.T) {
-	var _ *disclosure = (&deviceCard{}).disclose
-	var _ *disclosure = (&card{}).disclose
+	_ = (&deviceCard{}).disclose
+	_ = (&card{}).disclose
 
 	dk := deviceKit(t, deviceConfig, someDevices)
 	device := cardNamed(t, devicesOf(t, dk, wmPointerPage()), "Synaptics TM3276")
@@ -161,8 +162,8 @@ func TestDeviceAndFormCardsShareOneDisclosureAndFillOnce(t *testing.T) {
 func modeTogglesAreInsetLinks(accent render.Color) pageCheck {
 	seen := map[string]bool{}
 	kind := func(above []widget.Widget) string {
-		for i := len(above) - 1; i >= 0; i-- {
-			switch above[i].(type) {
+		for _, a := range slices.Backward(above) {
+			switch a.(type) {
 			case *customModulesEditor:
 				return "custom"
 			case *mailQueryEditor:

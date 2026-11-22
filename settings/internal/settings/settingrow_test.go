@@ -2,6 +2,7 @@ package settings
 
 import (
 	"fmt"
+	"slices"
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/service/pulse"
@@ -24,7 +25,7 @@ func walkAncestry(w widget.Widget, above []widget.Widget, visit func(w widget.Wi
 	}
 	above = append(above, w)
 	for _, k := range c.Children() {
-		walkAncestry(k, above[:len(above):len(above)], visit)
+		walkAncestry(k, slices.Clip(above), visit)
 	}
 }
 
@@ -76,8 +77,8 @@ func rowsAreTheRowType() pageCheck {
 // onCard reports the widgets above a row holding it in an item group
 // that is on a card.
 func onCard(above []widget.Widget) bool {
-	for i := len(above) - 1; i >= 0; i-- {
-		if _, ok := above[i].(*widget.ItemGroup); !ok {
+	for i, a := range slices.Backward(above) {
+		if _, ok := a.(*widget.ItemGroup); !ok {
 			continue
 		}
 		for _, a := range above[:i] {

@@ -590,7 +590,7 @@ func (c *cardList) appendCard(i int) {
 	if !c.spec.collapsed {
 		header.AppendAligned(remove, false, widget.AlignCenter)
 		fill()
-		cd.root = sectionCard(header, body, chrome.card)
+		cd.root, _ = sectionCard(header, body, chrome.card)
 		c.addClash(cd, i)
 		c.cards = append(c.cards, cd)
 		c.place(i)
@@ -606,18 +606,19 @@ func (c *cardList) appendCard(i int) {
 }
 
 // sectionCard is a list's card: lys-ui's card, header over body split
-// by a separator, each inset a padding from the card's edges and two
-// from its sides.
-func sectionCard(header, body *widget.Box, class string) *widget.Box {
+// by sep, each inset a padding from the card's edges and two from its
+// sides.
+func sectionCard(header, body *widget.Box, class string) (root *widget.Box, sep *widget.Separator) {
 	band := cardInsets()
 	header.SetPadding(band)
 	body.SetPadding(band)
-	root := widget.NewBox(widget.Column, 0, 0)
+	root = widget.NewBox(widget.Column, 0, 0)
 	root.AddClass(css.Card, class)
+	sep = widget.NewSeparator(widget.Horizontal)
 	root.Append(header, false)
-	root.Append(widget.NewSeparator(widget.Horizontal), false)
+	root.Append(sep, false)
 	root.Append(body, false)
-	return root
+	return root, sep
 }
 
 // foldedCard is a sectionCard showing header alone until its disclosure,
@@ -625,8 +626,7 @@ func sectionCard(header, body *widget.Box, class string) *widget.Box {
 // body show only while open, fill building body before it first shows,
 // so a long list builds only the cards opened.
 func (k *kit) foldedCard(header, body *widget.Box, class string, fill func()) (*widget.Box, *disclosure) {
-	root := sectionCard(header, body, class)
-	sep := root.Children()[1].(*widget.Separator)
+	root, sep := sectionCard(header, body, class)
 	filled := false
 	d := k.chevronDisclosure(false, func(open bool) {
 		if open && !filled {
