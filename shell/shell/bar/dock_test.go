@@ -31,9 +31,16 @@ type dockRig struct {
 	launchErr error
 }
 
+// newDockRig is a dock on DP-1 with animations instant, each change
+// landing at once.
 func newDockRig(t *testing.T, cfg config.DockConfig, windows ...*fakeWindow) *dockRig {
 	t.Helper()
-	ctx := newTestContext(t, config.Defaults())
+	t.Cleanup(widget.SetAnimationsInstant(true))
+	return newDockRigIn(t, newTestContext(t, config.Defaults()), cfg, windows...)
+}
+
+func newDockRigIn(t *testing.T, ctx ModuleContext, cfg config.DockConfig, windows ...*fakeWindow) *dockRig {
+	t.Helper()
 	r := &dockRig{src: &fakeToplevels{list: windows}, geom: &fakeGeometry{}}
 	ctx.Tasks = newTaskHub(r.src, func(fn func()) { fn() })
 	ctx.Tasks.apps.goOff = func(func()) {}
@@ -164,7 +171,7 @@ func TestAnAutoHidingDockHidesUnderAWindowAndRevealsAtTheEdge(t *testing.T) {
 		t.Fatal("the dock hid as soon as a window covered it, before its delay")
 	}
 	r.fire()
-	if !r.d.hide.hidden || r.d.slot.Visible() || !r.d.reveal.Visible() || r.d.hide.hides != 1 {
+	if !r.d.hide.hidden || r.d.fold.Visible() || !r.d.reveal.Visible() || r.d.hide.hides != 1 {
 		t.Fatalf("covered: hidden %v, hides %d", r.d.hide.hidden, r.d.hide.hides)
 	}
 	r.d.surface.Measure(widget.Column, widget.Unknown)

@@ -11,6 +11,7 @@ import (
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/dockview"
 	"github.com/stubbedev/lys/desktop/shell/layers"
+	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/lib/intconv"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/wmipc"
@@ -152,10 +153,14 @@ func overlap(a, b wmipc.Rect) bool {
 // dock is one output's dock:
 //
 //	box.dock-surface
-//	├ box.dock.<edge>        (the entries; hidden while the dock hides)
-//	│ └ button.task-item.dock-item[.running][.minimized]...
-//	│   (the app icon and its running indicator, the app name as tooltip)
+//	├ revealer               (slides the entries to their edge and back)
+//	│ └ box.dock.<edge>      (the entries; folded away while the dock hides)
+//	│   └ button.task-item.dock-item[.running][.minimized]...
+//	│     (the app icon and its running indicator, the app name as tooltip)
 //	└ drawingarea.dock-reveal (the strip a hidden dock keeps)
+//
+// Hiding slides the entries out to the edge, then folds the surface to
+// the strip; revealing unfolds it and slides them back in.
 //
 // A pinned app launches on click; an open app's click brings up its next
 // window, restoring a minimized one, a middle click closes its windows,
@@ -171,7 +176,10 @@ type dock struct {
 	panel   *arrangedBox
 	// slot holds the panel and nothing else: its bounds are the panel's
 	// margin box, the room the resting dock takes from its edge.
-	slot   *widget.Box
+	slot *widget.Box
+	// fold slides slot to the edge and back; it is shown unless the
+	// dock rests hidden, folded to its reveal strip.
+	fold   *widget.Revealer
 	reveal *widget.DrawingArea
 	axis   widget.Axis
 	zoom   dockview.Zoom
@@ -215,6 +223,9 @@ func newDock(ctx ModuleContext, cfg config.DockConfig, output *app.Output, after
 		launch:  launchApp,
 	}
 	d.panel = &arrangedBox{Box: dockview.NewPanel(cfg, ctx.Config), arranged: d.claim}
+	if ctx.Style != nil {
+		d.panel.SetInlineStyle(dockItemShades(*ctx.Style))
+	}
 	d.reveal = widget.NewDrawingArea(revealPx, revealPx)
 	d.reveal.AddClass("dock-reveal")
 	d.reveal.SetVisible(false)
@@ -225,9 +236,19 @@ func newDock(ctx ModuleContext, cfg config.DockConfig, output *app.Output, after
 	d.surface = &dockSurface{Box: widget.NewBox(across, 0, 0), d: d}
 	d.slot = widget.NewBox(d.axis, 0, 0)
 	d.slot.Append(d.panel, true)
-	dockview.Seat(d.slot, cfg.Edge)
+	d.fold = widget.NewRevealer(d.slot)
+	dockview.Seat(d.fold, cfg.Edge)
+	d.fold.SetTransition(dockSlide(cfg.Edge))
+	d.fold.SetDuration(0)
+	d.fold.SetRevealed(true)
+	d.fold.SetDuration(dockview.Motion(ctx.Config))
+	d.fold.SetOnTransitionDone(func(revealed bool) {
+		if !revealed {
+			d.setFolded(true)
+		}
+	})
 	d.surface.AddClass("dock-surface")
-	d.surface.Append(d.slot, true)
+	d.surface.Append(d.fold, true)
 	d.surface.Append(d.reveal, false)
 	d.hide = &autoHide{
 		mode:       dockMode(cfg),
@@ -301,8 +322,7 @@ func (d *dock) render() {
 
 func (d *dock) newEntry() *dockEntry {
 	e := &dockEntry{}
-	e.TaskButton, e.indicator = dockview.NewEntry(d.zoom.Base, d.ctx.Invoke, func() bool { return e.app.minimized() })
-	styledTask(d.ctx, e.TaskButton)
+	e.TaskButton, e.indicator = dockview.NewEntry(d.zoom, d.ctx.Invoke, func() bool { return e.app.minimized() })
 	e.OnClick = func() { d.activate(e.app) }
 	e.SetOnPointer(func(ev widget.PointerEvent) bool {
 		switch {
@@ -405,7 +425,7 @@ func (d *dock) claim() {
 	if d.hide.hidden {
 		return
 	}
-	if d.hovered == "" {
+	if d.resting() {
 		d.measured(widget.Size{W: d.slot.Bounds().W, H: d.slot.Bounds().H})
 	}
 	if d.host == nil {
@@ -441,19 +461,51 @@ func (d *dock) windows() (covering, fullscreen, known bool) {
 // syncHidden lets the reveal controller decide again.
 func (d *dock) syncHidden() { d.hide.sync() }
 
-// applyHidden swaps the entries for the reveal strip, or back.
+// applyHidden slides the entries out to the edge, folding the surface
+// to its reveal strip once they are gone, or unfolds it and slides them
+// back in.
 func (d *dock) applyHidden(hide bool) {
 	if hide {
 		d.rects.release()
+		d.fold.SetRevealed(false)
+		return
 	}
+	d.setFolded(false)
+	d.fold.SetRevealed(true)
+}
+
+// setFolded swaps the entries for the reveal strip, or back.
+func (d *dock) setFolded(folded bool) {
 	if d.axis == widget.Row {
 		d.reveal.SetContentSize(d.size.W, revealPx)
 	} else {
 		d.reveal.SetContentSize(revealPx, d.size.H)
 	}
-	d.slot.SetVisible(!hide)
-	d.reveal.SetVisible(hide)
+	d.fold.SetVisible(!folded)
+	d.reveal.SetVisible(folded)
 	d.fitHeadroom()
+}
+
+// folded reports whether the dock rests at its reveal strip.
+func (d *dock) folded() bool { return !d.fold.Visible() }
+
+// dockSlide is the slide that brings a dock on edge in from it.
+func dockSlide(edge config.DockEdge) widget.RevealTransition {
+	switch edge {
+	case config.DockEdgeBottom:
+		return widget.RevealSlideUp
+	case config.DockEdgeLeft:
+		return widget.RevealSlideRight
+	case config.DockEdgeRight:
+		return widget.RevealSlideLeft
+	}
+	panic(fmt.Sprintf("dock: edge %q has no slide", edge))
+}
+
+// dockItemShades is the panel's inline style naming the hover and
+// pressed backgrounds its entries fade to, the bar buttons' shades.
+func dockItemShades(s barStyle) string {
+	return "--dock-item-bg-hover: " + styling.HexRGBA(s.buttonBgHover) + "; --dock-item-bg-active: " + styling.HexRGBA(s.buttonBgActive) + ";"
 }
 
 // hoverEntry zooms around the app whose entry the pointer entered, and
@@ -470,13 +522,19 @@ func (d *dock) hoverEntry(appID string, on bool) {
 	d.applyZoom()
 }
 
-// applyZoom sizes every entry's icon for its distance from the hovered
-// one.
+// applyZoom eases every entry's icon to the size for its distance from
+// the hovered one.
 func (d *dock) applyZoom() {
 	at := slices.IndexFunc(d.shown, func(a dockApp) bool { return a.appID == d.hovered })
 	for i, a := range d.shown {
-		d.entries[a.appID].Resize(d.zoom.PxAt(i, at))
+		d.entries[a.appID].ZoomTo(d.zoom.PxAt(i, at))
 	}
+}
+
+// resting reports whether the panel lays out at its resting size: no
+// entry hovered, and every one settled at its base size.
+func (d *dock) resting() bool {
+	return d.hovered == "" && !slices.ContainsFunc(d.shown, func(a dockApp) bool { return d.entries[a.appID].Shown() != float64(d.zoom.Base) })
 }
 
 // measure sizes the resting panel as its styles lay it out, before the
@@ -505,7 +563,7 @@ func (d *dock) measured(size widget.Size) {
 // entries, so hovering never resizes it; a hidden dock is its strip.
 func (d *dock) fitHeadroom() {
 	along, across := d.zoom.Growth()
-	if d.hide.hidden || along == 0 {
+	if d.folded() || along == 0 {
 		d.surface.SetSizeRequest(0, 0)
 		return
 	}
@@ -532,10 +590,10 @@ type dockSurface struct {
 }
 
 // InputRegion is the shown panel with its margins, which reach the
-// screen edge so a pointer pushed against it is on the dock, or all of
-// a hidden dock's strip.
+// screen edge so a pointer pushed against it is on the dock, sliding
+// included, or all of a folded dock's strip.
 func (s *dockSurface) InputRegion() []render.Rect {
-	if s.d.hide.hidden {
+	if s.d.folded() {
 		return nil
 	}
 	return []render.Rect{s.d.slot.Bounds()}

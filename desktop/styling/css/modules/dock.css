@@ -10,8 +10,23 @@
   border-radius: var(--radius-xl);
   padding: var(--space-xs);
   margin: var(--space-sm);
+  --dock-item-bg-hover: color-mix(in srgb, var(--fg-default) 10%, transparent);
+  --dock-item-bg-active: color-mix(in srgb, var(--fg-default) 16%, transparent);
 }
 
 .dock-item.minimized image {
   opacity: 0.6;
+}
+
+.dock-item {
+  background-color: transparent;
+  transition: background-color var(--duration-fast);
+}
+
+.dock-item:hover {
+  background-color: var(--dock-item-bg-hover);
+}
+
+.dock-item:active {
+  background-color: var(--dock-item-bg-active);
 }

@@ -1,10 +1,13 @@
 package dockview
 
 import (
+	"math"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/ui/anim"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/desktop/config"
@@ -100,6 +103,58 @@ func TestHoveringAPreviewEntryZoomsItAndItsNeighbors(t *testing.T) {
 	r.Leave()
 	if got := entrySizes(entries); !slices.Equal(got, []int{40, 40, 40, 40}) {
 		t.Fatalf("leaving the dock left the icons at %v", got)
+	}
+}
+
+// A hovered preview entry eases to its zoom over the motion: halfway it
+// lays out strictly between its resting and zoomed width, painting from
+// the icons it had at rest, and settles at the zoomed width.
+func TestAPreviewEntryEasesIntoItsZoom(t *testing.T) {
+	t.Cleanup(widget.SetAnimationsInstant(false))
+	cfg := previewConfig(config.DockEdgeBottom, true)
+	cfg.Animations.InteractionDuration = 1000
+	r, entries := hoverRig(t, cfg)
+	treetest.IconTheme(t, previewApps[1].Icon)
+	seat := r.Root.(*widget.Box)
+	clock := new(anim.Clock)
+	t.Cleanup(widget.Host(seat, clock))
+	area := render.Rect{W: 1200, H: 200}
+	layout := func(at time.Time) {
+		clock.Tick(at)
+		widget.SizeWithin(seat, widget.Size{W: area.W, H: area.H})
+		seat.Arrange(area)
+	}
+	e := entries[1]
+	rest, icons := e.Bounds().W, treetest.All[*widget.Icon](e)
+	start := time.Now()
+	r.Move(center(e))
+	layout(start.Add(500 * time.Millisecond))
+	mid := e.Bounds().W
+	if e.Shown() <= 40 || e.Shown() >= 80 || mid <= rest || mid >= rest+40 {
+		t.Fatalf("halfway the entry shows %vpx at %d wide, want strictly between 40 and 80, %d and %d", e.Shown(), mid, rest, rest+40)
+	}
+	data := make([]byte, render.Stride(area.W)*area.H)
+	e.stage.Paint(render.New(data, render.Stride(area.W), area.W, area.H))
+	top, bottom := -1, -1
+	c := center(e.stage)
+	for y := range area.H {
+		o := y*render.Stride(area.W) + c.X*4
+		if render.ColorFromBytes(data[o:o+4]).A() != 0 {
+			bottom = y
+			if top < 0 {
+				top = y
+			}
+		}
+	}
+	if want := float64(c.Y) - e.Shown()/2; top < 0 || math.Abs(float64(top)-want) > 1 || math.Abs(float64(bottom+1)-(want+e.Shown())) > 1 {
+		t.Fatalf("halfway the icon paints rows %d to %d, want the %vpx square from row %v", top, bottom, e.Shown(), want)
+	}
+	layout(start.Add(2 * time.Second))
+	if e.Shown() != 80 || e.Bounds().W != rest+40 {
+		t.Fatalf("settled the entry shows %vpx at %d wide, want 80 at %d", e.Shown(), e.Bounds().W, rest+40)
+	}
+	if got := treetest.All[*widget.Icon](e); !slices.Equal(got, icons) {
+		t.Fatal("the zoom built the entry's icons again")
 	}
 }
 
