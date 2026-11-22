@@ -143,8 +143,6 @@ settings-filename-path = Enregistré sous { $path }
 settings-filename-path-numbered = Enregistré sous { $path } ; les suivantes sont numérotées -2, -3, etc.
 settings-filename-path-counted = Enregistré sous { $path } ; les suivantes comptent 2, 3 et ainsi de suite
 settings-filename-custom-notice = Ce nom utilise des éléments que le formulaire simple ne peut pas afficher : il est donc modifié comme un format
-settings-filename-show-custom = Format personnalisé…
-settings-filename-hide-custom = Masquer le format personnalisé
 settings-interface-up = connectée
 settings-interface-down = déconnectée
 settings-interface-unknown = état inconnu
@@ -1431,8 +1429,6 @@ settings-framerate = { $n ->
    *[other] { $n } i/s
 }
 settings-framerate-unit = i/s
-settings-advanced-show = Afficher
-settings-advanced-hide = Masquer
 settings-section-bar-item = Élément de la barre
     .description = L'apparence et le comportement de cet élément dans la barre
 settings-bar-item-colors = Couleurs
@@ -1951,8 +1947,6 @@ settings-pam-check-failed = Non enregistré : le verrouillage ne pourrait pas vo
 settings-checking = Vérification de { $value } avant l’enregistrement…
 settings-check-timed-out = Non enregistré : la vérification ne s’est pas terminée en { $seconds } secondes.
 settings-card-retry = Réessayer
-settings-card-show-detail = Afficher les détails
-settings-card-hide-detail = Masquer les détails
 settings-ocr-unreadable = Impossible de lire les langues installées
 settings-tray-items-unreadable = Impossible de lire la zone de notification
 settings-login-apps-unreadable = Impossible de lire les applications lancées à l’ouverture de session

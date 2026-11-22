@@ -12,8 +12,6 @@ import (
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
-
-	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
 const listedPagesBudget = 256 << 10
@@ -275,8 +273,10 @@ func TestASettingInAnAdvancedSectionOpensItAndIsScrolledIntoView(t *testing.T) {
 			t.Error("the row's advanced section stayed collapsed")
 		}
 	}
-	w.page.advanced[0].toggle.OnClick()
-	if w.page.advanced[0].group.Visible() == (w.page.advanced[0].label.Text() == locale.T().Get("settings-advanced-show")) {
-		t.Error("the toggle's label does not follow the section")
+	d := w.page.advanced[0]
+	was := d.group.Visible()
+	d.button.OnClick()
+	if d.group.Visible() == was || d.isOpen() != d.group.Visible() || d.chevron.HasState(widget.StateChecked) != d.group.Visible() {
+		t.Error("the header's chevron does not follow the section")
 	}
 }

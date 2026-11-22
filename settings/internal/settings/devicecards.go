@@ -87,6 +87,7 @@ type deviceCard struct {
 	root      *widget.Box
 	body      *widget.Box
 	rows      []*fieldRow
+	disclose  *disclosure
 }
 
 type devicesRead struct {
@@ -202,31 +203,10 @@ func (c *deviceCards) cardWidget(cd *deviceCard) *widget.Box {
 	}
 	cd.body = gapBox(widget.Column)
 	cd.body.AddClass("card-form-body")
-	cd.root = sectionCard(header, cd.body, "card-form-card")
-	sep, _ := cd.root.Children()[1].(*widget.Separator)
-	show := func(open bool) {
-		sep.SetVisible(open)
-		cd.body.SetVisible(open)
-	}
-	var disclose *widget.Button
-	disclose = c.k.iconButton("ld-chevron-down-symbolic", "settings-card-expand", func() {
-		open := !cd.body.Visible()
-		if open && cd.rows == nil {
-			c.fill(cd)
-		}
-		show(open)
-		tip := "settings-card-expand"
-		if open {
-			tip = "settings-card-collapse"
-		}
-		disclose.SetTooltip(t.Get(tip))
-	})
-	disclose.AddClass("card-disclose")
-	header.AppendAligned(disclose, false, widget.AlignCenter)
+	cd.root, cd.disclose = c.k.foldedCard(header, cd.body, "card-form-card", func() { c.fill(cd) })
 	if !cd.connected {
 		header.AppendAligned(c.k.removeButton("wm-device-forget", func() { c.forget(cd) }), false, widget.AlignCenter)
 	}
-	show(false)
 	return cd.root
 }
 

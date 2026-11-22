@@ -94,14 +94,12 @@ func beyondCards(v any, edited []string) []string {
 
 type customModulesEditor struct {
 	*widget.Box
-	slot    slot
-	edited  []string
-	cards   *cardList
-	notice  *widget.Label
-	raw     *yamlEditor
-	toggle  *widget.Button
-	toggled *widget.Label
-	editing bool
+	slot   slot
+	edited []string
+	cards  *cardList
+	notice *widget.Label
+	raw    *yamlEditor
+	toggle *modeToggle
 }
 
 var customModulesRow rowOpt = func(r *rowSpec) {
@@ -114,11 +112,7 @@ func newCustomModulesEditor(k *kit, s slot) *customModulesEditor {
 	e.cards = newCardList(k, s, customCards)
 	e.notice = k.note("")
 	e.raw = newYAMLEditor(k, s, "custom")
-	e.toggled = k.label("")
-	e.toggle = k.roleButton(roleQuiet, e.toggled, func() {
-		e.editing = !e.editing
-		e.refresh()
-	})
+	e.toggle = k.textModeToggle(func(bool) { e.refresh() })
 	e.Append(e.notice, false)
 	e.Append(e.cards, false)
 	e.AppendAligned(e.toggle, false, widget.AlignStart)
@@ -135,12 +129,7 @@ func (e *customModulesEditor) refresh() {
 	e.notice.SetVisible(len(beyond) > 0)
 	e.notice.SetText(t.Get("settings-custom-handwritten", i18n.Str("keys", strings.Join(beyond, ", "))))
 	e.toggle.SetVisible(len(beyond) == 0)
-	e.raw.SetVisible(len(beyond) > 0 || e.editing)
-	key := "settings-format-edit-text"
-	if e.editing {
-		key = "settings-format-edit-parts"
-	}
-	e.toggled.SetText(t.Get(key))
+	e.raw.SetVisible(len(beyond) > 0 || e.toggle.isOn())
 	e.cards.refresh()
 	e.raw.refresh()
 }

@@ -127,6 +127,7 @@ func TestEveryButtonRolePaintsFromTheTheme(t *testing.T) {
 		roleReload:      {none, css.WindowFgColor},
 		roleIcon:        {none, css.WindowFgColor},
 		rolePickerIcon:  {css.InputBorderColor, css.WindowFgColor},
+		roleHeader:      {none, css.WindowFgColor},
 	}
 	if len(looks) != len(buttonRoles) {
 		t.Fatalf("%d roles checked of %d", len(looks), len(buttonRoles))
@@ -148,6 +149,7 @@ func TestEveryButtonRolePaintsFromTheTheme(t *testing.T) {
 		roleReload:      k.reloadButton("settings-wifi-scan", nil),
 		roleIcon:        k.iconButton("ld-copy-symbolic", "settings-generator-sample-copy", nil),
 		rolePickerIcon:  k.pickerIconButton("ld-chevron-down-symbolic", "settings-format-presets", nil),
+		roleHeader:      k.headerDisclosure(k.label("Advanced"), false, func(bool) {}).button,
 	}
 	col := gapBox(widget.Column)
 	for r := range buttonRole(len(buttonRoles)) {

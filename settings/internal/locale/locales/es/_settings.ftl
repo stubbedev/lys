@@ -253,8 +253,6 @@ settings-filename-path = Se guarda como { $path }
 settings-filename-path-numbered = Se guarda como { $path }; las siguientes se numeran -2, -3, etc.
 settings-filename-path-counted = Se guarda como { $path }; las siguientes cuentan 2, 3 y así sucesivamente
 settings-filename-custom-notice = Este nombre usa partes que el formulario simple no puede mostrar, así que se edita como formato
-settings-filename-show-custom = Formato personalizado…
-settings-filename-hide-custom = Ocultar el formato personalizado
 settings-interface-up = conectada
 settings-interface-down = desconectada
 settings-interface-unknown = estado desconocido
@@ -1429,8 +1427,6 @@ settings-framerate = { $n ->
    *[other] { $n } fps
 }
 settings-framerate-unit = fps
-settings-advanced-show = Mostrar
-settings-advanced-hide = Ocultar
 settings-section-bar-item = Elemento de la barra
     .description = Cómo se ve y actúa este elemento en la barra
 settings-bar-item-colors = Colores
@@ -1949,8 +1945,6 @@ settings-pam-check-failed = No guardado: el bloqueo no podría desbloquearte med
 settings-checking = Comprobando { $value } antes de guardar…
 settings-check-timed-out = No guardado: la comprobación no terminó en { $seconds } segundos.
 settings-card-retry = Reintentar
-settings-card-show-detail = Mostrar los detalles
-settings-card-hide-detail = Ocultar los detalles
 settings-ocr-unreadable = No se pueden leer los idiomas instalados
 settings-tray-items-unreadable = No se puede leer la bandeja
 settings-login-apps-unreadable = No se pueden leer las aplicaciones que se inician al iniciar sesión

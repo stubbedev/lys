@@ -446,18 +446,17 @@ func (p *passwordsPanel) itemRow(it client.Item) *settingRow {
 	row := p.k.row(title, itemSummary(it.Attributes))
 	row.AddClass("password-item")
 	row.SetMedia(p.k.icon(itemIcon(it)), false)
-	chevron := "ld-chevron-right-symbolic"
-	if it.Path == p.expanded {
-		chevron = "ld-chevron-down-symbolic"
-	}
 	var more *widget.Button
 	more = p.k.iconButton("ld-ellipsis-symbolic", "settings-passwords-item-options", func() {
 		widget.OpenMenu(more, more, p.k.face, p.k.textPx(), p.itemMenu(it), widget.MenuOptions{Gap: widget.PopoverGap})
 	})
 	more.SetAccessibleName(locale.T().Get("settings-passwords-item-options"))
 	row.AddAction(more)
-	row.AddAction(p.k.icon(chevron, css.DimLabel))
-	row.SetOnActivate(func() { p.toggleDetail(it) })
+	p.k.rowDisclosure(row.Item, it.Path == p.expanded, func(open bool) {
+		if open != (it.Path == p.expanded) {
+			p.toggleDetail(it)
+		}
+	})
 	return row
 }
 

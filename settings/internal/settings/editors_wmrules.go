@@ -333,8 +333,7 @@ type ruleMatchEditor struct {
 	*widget.Box
 	controls []control
 	more     *widget.Box
-	toggle   *widget.Button
-	label    *widget.Label
+	toggle   *modeToggle
 }
 
 func newRuleMatch(k *kit, primary []cardField, moreKeys []string, more map[string][]cardField, field func(key string) slot) *ruleMatchEditor {
@@ -349,22 +348,13 @@ func newRuleMatch(k *kit, primary []cardField, moreKeys []string, more map[strin
 		m.controls = append(m.controls, ctls...)
 		open = open || field(key).get() != nil
 	}
-	m.label = k.label("")
-	m.toggle = k.roleButton(roleQuiet, m.label, func() { m.open(!m.more.Visible()) })
+	t := locale.T()
+	m.toggle = k.modeToggle(t.Get(ruleMoreMatch.labelKey()), t.Get("wm-rules-fewer-conditions"), m.more.SetVisible)
 	m.toggle.AddClass("rule-more-toggle")
 	m.AppendAligned(m.toggle, false, widget.AlignStart)
 	m.Append(m.more, false)
-	m.open(open)
+	m.toggle.set(open)
 	return m
-}
-
-func (m *ruleMatchEditor) open(on bool) {
-	m.more.SetVisible(on)
-	key := ruleMoreMatch.labelKey()
-	if on {
-		key = "wm-rules-fewer-conditions"
-	}
-	m.label.SetText(locale.T().Get(key))
 }
 
 func (m *ruleMatchEditor) refresh() {

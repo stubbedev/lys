@@ -11,6 +11,7 @@ import (
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
+	"github.com/stubbedev/lys/ui/widget/css"
 )
 
 // geometryYAML gives every list and card editor items to lay out, and
@@ -58,7 +59,8 @@ func TestEveryLaidOutPageHoldsThePageChecks(t *testing.T) {
 	w := newWindow(k, cfg, func(_ time.Duration, fn func()) { fn() })
 	w.stack.SetTransition(widget.StackNone, 0)
 	apptheme.New(cfg).Attach(w.root)
-	checks := []pageCheck{controlRowsShareHeightCentreAndGap(), pagesCarryNoMargins(), cardFieldsLineUp(), tabReachesEveryControl(w), trashIconsShareTheErrorColor(), rowsAreTheRowType(), resetNeverMovesTheControl(), sliderSectionsShareOneValueColumn(), sliderRowsReadTheirValueOnce(), choicesFollowTheSegmentRule()}
+	accent := namedColor(themed(k, gapBox(widget.Column)), css.AccentColor)
+	checks := []pageCheck{sectionHeadersCarryNoTextButton(), modeTogglesAreInsetLinks(accent), controlRowsShareHeightCentreAndGap(), pagesCarryNoMargins(), cardFieldsLineUp(), tabReachesEveryControl(w), trashIconsShareTheErrorColor(), rowsAreTheRowType(), resetNeverMovesTheControl(), sliderSectionsShareOneValueColumn(), sliderRowsReadTheirValueOnce(), choicesFollowTheSegmentRule()}
 	for _, sec := range w.sections {
 		for _, p := range sec.pages {
 			w.show(p.id)
@@ -489,7 +491,7 @@ func TestSourceBadgesAreOneHeightWhateverShareTheirLine(t *testing.T) {
 		apptheme.New(cfg).Attach(win.root)
 		win.show("bar")
 		for _, d := range win.page.advanced {
-			d.open(true)
+			d.setOpen(true)
 		}
 		layOut(win, 1400)
 		heights := map[string]int{}
@@ -520,7 +522,7 @@ func TestSegmentLabelsAreCentredInTheirSegments(t *testing.T) {
 	for _, scale := range []string{"1", "1.25", "2"} {
 		win := laidOutPage(t, "styling:\n  scale: "+scale+"\n", "bar", 1400)
 		for _, d := range win.page.advanced {
-			d.open(true)
+			d.setOpen(true)
 		}
 		layOut(win, 1400)
 		segmented := treetest.All[*widget.ToggleGroup](win.page)
@@ -600,7 +602,7 @@ func TestRoundingCardsLeaveNoCardAloneOnALine(t *testing.T) {
 		for _, w := range []int{1400, 900, 760, 640} {
 			win := laidOutPage(t, "", page, w)
 			for _, d := range win.page.advanced {
-				d.open(true)
+				d.setOpen(true)
 			}
 			layOut(win, w)
 			seen := 0

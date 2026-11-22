@@ -45,9 +45,9 @@ type cardState struct {
 	glyph   *widget.Icon
 	spinner *widget.Spinner
 	detail  *widget.Label
-	reveal  *widget.Button
-	chevron *widget.Icon
-	retry   *widget.Button
+	// reveal opens the detail, offered only while there is one.
+	reveal *disclosure
+	retry  *widget.Button
 	// onRetry is the shown failure's retry, nil while the retry button
 	// is hidden.
 	onRetry func()
@@ -60,9 +60,8 @@ func (k *kit) cardState() *cardState {
 	s.SetLines(0, rowDescriptionLines)
 	s.detail = wrapped(k.label("", "card-state-detail", css.Caption, css.DimLabel, css.Monospace))
 	s.AddDetail(s.detail)
-	s.chevron = k.icon("ld-chevron-down-symbolic")
-	s.reveal = k.roleButton(roleIcon, s.chevron, func() { s.showDetail(!s.detail.Visible()) })
-	s.AddTrailing(s.reveal)
+	s.reveal = k.chevronDisclosure(false, s.detail.SetVisible)
+	s.AddTrailing(s.reveal.button)
 	s.retry = k.secondaryButton(locale.T().Get("settings-card-retry"), s.runRetry)
 	s.withControl(s.retry)
 	s.Clear()
@@ -115,8 +114,8 @@ func (s *cardState) show(kind cardStateKind, icon, summary, detail string, retry
 		s.SetMedia(nil, false)
 	}
 	s.detail.SetText(detail)
-	s.reveal.SetVisible(detail != "")
-	s.showDetail(false)
+	s.reveal.button.SetVisible(detail != "")
+	s.reveal.setOpen(false)
 	s.onRetry = retry
 	s.retry.SetVisible(retry != nil)
 }
@@ -126,18 +125,6 @@ func (s *cardState) runRetry() {
 	if s.onRetry != nil {
 		s.onRetry()
 	}
-}
-
-// showDetail opens or closes the detail.
-func (s *cardState) showDetail(open bool) {
-	open = open && s.detail.Text() != ""
-	s.detail.SetVisible(open)
-	key, icon := "settings-card-show-detail", "ld-chevron-down-symbolic"
-	if open {
-		key, icon = "settings-card-hide-detail", "ld-chevron-up-symbolic"
-	}
-	s.chevron.SetThemeName(icon)
-	s.reveal.SetTooltip(locale.T().Get(key))
 }
 
 // stateBox is the body of a card whose content a service gives: the

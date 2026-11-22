@@ -50,6 +50,9 @@ const (
 	roleIcon
 	// rolePickerIcon opens a picker, an icon alone naming it.
 	rolePickerIcon
+	// roleHeader is a header that folds and unfolds what it heads, a
+	// click anywhere on it, reading as the header it is.
+	roleHeader
 )
 
 // buttonLook is a role's classes and, for an icon role with one glyph,
@@ -78,6 +81,7 @@ var buttonRoles = [...]buttonLook{
 	roleReload:      {classes: []string{css.Ghost, css.Icon}, icon: "ld-refresh-cw-symbolic"},
 	roleIcon:        {classes: []string{css.Ghost, css.Icon}},
 	rolePickerIcon:  {classes: []string{css.Outline, css.Icon}},
+	roleHeader:      {classes: []string{css.Flat}},
 }
 
 // classes are the classes the role's button wears.

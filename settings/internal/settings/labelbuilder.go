@@ -78,14 +78,11 @@ type labelBuilder struct {
 	add     *widget.Button
 	preview *widget.Label
 	raw     *formatEditor
-	toggle  *widget.Button
-	toggled *widget.Label
+	toggle  *modeToggle
 	picker  *searchPicker
-	editing bool
 }
 
 func newLabelBuilder(k *kit, s slot, optional bool, kind formatKind) *labelBuilder {
-	t := locale.T()
 	b := &labelBuilder{Box: widget.NewBox(widget.Column, widget.Current().Spacing/2, 0), k: k, slot: s, kind: kind, names: map[string]string{}}
 	b.AddClass("label-builder")
 	for _, c := range kind.insert {
@@ -106,12 +103,7 @@ func newLabelBuilder(k *kit, s slot, optional bool, kind formatKind) *labelBuild
 	b.preview.SetEllipsize(widget.EllipsizeEnd)
 	b.raw = newFormatEditor(k, s, optional, kind)
 	b.raw.SetVisible(false)
-	b.toggled = k.label(t.Get("settings-format-edit-text"))
-	b.toggle = k.roleButton(roleQuiet, b.toggled, func() {
-		b.editing = !b.editing
-		b.raw.SetVisible(b.editing)
-		b.refresh()
-	})
+	b.toggle = k.textModeToggle(b.raw.SetVisible)
 	b.Append(line, false)
 	b.Append(b.preview, false)
 	b.AppendAligned(b.toggle, false, widget.AlignStart)
@@ -154,11 +146,6 @@ func (b *labelBuilder) refresh() {
 		b.chips.Append(chip)
 	}
 	b.preview.SetText(locale.T().Get("settings-format-preview", i18n.Str("text", b.kind.render(b.slot.text()))))
-	key := "settings-format-edit-text"
-	if b.editing {
-		key = "settings-format-edit-parts"
-	}
-	b.toggled.SetText(locale.T().Get(key))
 	b.raw.refresh()
 }
 

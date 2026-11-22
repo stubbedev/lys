@@ -46,11 +46,9 @@ type vpnForm struct {
 	fields     *widget.Box
 	entries    []vpnEntry
 	pickers    []vpnPicker
-	rawToggle  *widget.Button
-	rawLabel   *widget.Label
+	rawToggle  *modeToggle
 	rawHint    *widget.Label
 	raw        *widget.TextArea
-	rawOpen    bool
 	problem    *widget.Label
 	saveButton *widget.Button
 }
@@ -73,8 +71,7 @@ func newVPNForm(p *networkPanel) *vpnForm {
 	f.AppendAligned(f.importBtn, false, widget.AlignStart)
 	f.fields = gapBox(widget.Column)
 	f.Append(f.fields, false)
-	f.rawLabel = k.label("")
-	f.rawToggle = k.roleButton(roleQuiet, f.rawLabel, f.toggleRaw)
+	f.rawToggle = k.modeToggle(i18n.T("dropdown-network-vpn-advanced-show"), i18n.T("dropdown-network-vpn-advanced-hide"), func(bool) { f.syncRaw() })
 	f.AppendAligned(f.rawToggle, false, widget.AlignStart)
 	f.rawHint = k.note("")
 	f.Append(f.rawHint, false)
@@ -139,13 +136,12 @@ func (f *vpnForm) rebuild(values map[string]string) {
 	f.importBtn.SetVisible(kind.ID == network.WireGuard)
 	if !kind.IsTyped() {
 		f.raw.SetText(network.RenderRawValues(values))
-		f.rawOpen = true
-		f.syncRaw()
+		f.rawToggle.set(true)
 		return
 	}
 	extra := kind.Leftovers(values)
 	f.raw.SetText(network.RenderRawValues(extra))
-	f.rawOpen = len(extra) > 0
+	f.rawToggle.set(len(extra) > 0)
 	section := ""
 	for _, field := range kind.Fields {
 		if field.Section != "" && field.Section != section {
@@ -159,7 +155,6 @@ func (f *vpnForm) rebuild(values map[string]string) {
 		}
 		f.fields.Append(f.entry(kind, field, current), false)
 	}
-	f.syncRaw()
 }
 
 func (f *vpnForm) picker(field network.VPNField, current string, has bool) *widget.Dropdown {
@@ -213,19 +208,9 @@ func (f *vpnForm) entry(kind network.VPNKind, field network.VPNField, current st
 
 func (f *vpnForm) syncRaw() {
 	f.rawToggle.SetVisible(f.kind().IsTyped())
-	if f.rawOpen {
-		f.rawLabel.SetText(i18n.T("dropdown-network-vpn-advanced-hide"))
-	} else {
-		f.rawLabel.SetText(i18n.T("dropdown-network-vpn-advanced-show"))
-	}
 	f.rawHint.SetText(vpntext.RawHint(f.kind()))
-	f.rawHint.SetVisible(f.rawOpen)
-	f.raw.SetVisible(f.rawOpen)
-}
-
-func (f *vpnForm) toggleRaw() {
-	f.rawOpen = !f.rawOpen
-	f.syncRaw()
+	f.rawHint.SetVisible(f.rawToggle.isOn())
+	f.raw.SetVisible(f.rawToggle.isOn())
 }
 
 func (f *vpnForm) values() map[string]string {

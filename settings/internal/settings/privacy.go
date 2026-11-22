@@ -283,17 +283,13 @@ func (l *grantsList) renderByResource(group *widget.ItemGroup) {
 		if len(held) == 0 {
 			continue
 		}
-		open := l.opened[r]
-		chevron := "ld-chevron-right-symbolic"
-		if open {
-			chevron = "ld-chevron-down-symbolic"
-		}
-		header.AddAction(l.k.icon(chevron))
-		header.SetOnActivate(func() {
-			l.opened[r] = !open
-			l.render()
+		l.k.rowDisclosure(header.Item, l.opened[r], func(open bool) {
+			if open != l.opened[r] {
+				l.opened[r] = open
+				l.render()
+			}
 		})
-		if !open {
+		if !l.opened[r] {
 			continue
 		}
 		for _, h := range held {

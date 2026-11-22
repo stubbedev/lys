@@ -100,22 +100,20 @@ var screenshotNameRow rowOpt = func(r *rowSpec) {
 
 type filenameEditor struct {
 	*widget.Box
-	k        *kit
-	slot     slot
-	dir      slot
-	simple   *widget.Box
-	prefix   *widget.Entry
-	date     *choicePick
-	clock    *choicePick
-	counter  *choicePick
-	problem  *widget.Label
-	path     *widget.Label
-	notice   *widget.Label
-	toggle   *widget.Button
-	toggled  *widget.Label
-	custom   *labelBuilder
-	advanced bool
-	syncing  bool
+	k       *kit
+	slot    slot
+	dir     slot
+	simple  *widget.Box
+	prefix  *widget.Entry
+	date    *choicePick
+	clock   *choicePick
+	counter *choicePick
+	problem *widget.Label
+	path    *widget.Label
+	notice  *widget.Label
+	toggle  *modeToggle
+	custom  *labelBuilder
+	syncing bool
 }
 
 func choiceLabels(formats []string) []string {
@@ -162,11 +160,7 @@ func newFilenameEditor(k *kit, s, dir slot, custom *labelBuilder) *filenameEdito
 	e.problem.SetVisible(false)
 	e.path = k.note("", "format-preview")
 	e.notice = k.note(t.Get("settings-filename-custom-notice"), "format-preview")
-	e.toggled = k.label(t.Get("settings-filename-show-custom"))
-	e.toggle = k.roleButton(roleQuiet, e.toggled, func() {
-		e.advanced = !e.advanced
-		e.refresh()
-	})
+	e.toggle = k.textModeToggle(func(bool) { e.refresh() })
 	e.Append(e.simple, false)
 	e.Append(e.problem, false)
 	e.Append(e.path, false)
@@ -223,12 +217,7 @@ func (e *filenameEditor) refresh() {
 	e.simple.SetVisible(simple)
 	e.notice.SetVisible(!simple)
 	e.toggle.SetVisible(simple)
-	e.custom.SetVisible(!simple || e.advanced)
-	toggleKey := "settings-filename-show-custom"
-	if e.advanced {
-		toggleKey = "settings-filename-hide-custom"
-	}
-	e.toggled.SetText(t.Get(toggleKey))
+	e.custom.SetVisible(!simple || e.toggle.isOn())
 	full := filepath.Join(config.ScreenshotDirectory(e.dir.text(), systemHost.env), renderScreenshotName(format))
 	key := "settings-filename-path"
 	switch {

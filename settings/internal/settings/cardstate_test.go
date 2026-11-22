@@ -171,23 +171,23 @@ func TestAnUnavailableStateKeepsItsErrorOutOfSightUntilOpened(t *testing.T) {
 	if texts := shownTexts(root); slices.ContainsFunc(texts, func(x string) bool { return strings.Contains(x, "dial unix") }) || !slices.Contains(texts, "Cannot reach it") {
 		t.Fatalf("closed, the card reads %q", texts)
 	}
-	if !shown(s.reveal) || s.reveal.TooltipText() != tr.Get("settings-card-show-detail") {
-		t.Fatalf("the disclosure shows %v, reads %q", shown(s.reveal), s.reveal.TooltipText())
+	if !shown(s.reveal.button) || s.reveal.button.TooltipText() != tr.Get("settings-card-expand") {
+		t.Fatalf("the disclosure shows %v, reads %q", shown(s.reveal.button), s.reveal.button.TooltipText())
 	}
-	s.reveal.OnClick()
+	s.reveal.button.OnClick()
 	styledLayOut(k, root, 900)
 	if !shown(s.detail) || s.detail.Text() != err.Error() || !widget.HasClass(s.detail, css.Monospace) || !widget.HasClass(s.detail, css.DimLabel) {
 		t.Fatalf("open, the detail shows %v reading %q, classes %v", shown(s.detail), s.detail.Text(), s.detail.Classes())
 	}
-	if s.reveal.TooltipText() != tr.Get("settings-card-hide-detail") {
-		t.Errorf("open, the disclosure reads %q", s.reveal.TooltipText())
+	if s.reveal.button.TooltipText() != tr.Get("settings-card-collapse") || !s.reveal.chevron.HasState(widget.StateChecked) {
+		t.Errorf("open, the disclosure reads %q, its chevron turned %v", s.reveal.button.TooltipText(), s.reveal.chevron.HasState(widget.StateChecked))
 	}
-	s.reveal.OnClick()
+	s.reveal.button.OnClick()
 	styledLayOut(k, root, 900)
 	if shown(s.detail) {
 		t.Error("closed again, the detail still shows")
 	}
-	s.reveal.OnClick()
+	s.reveal.button.OnClick()
 	s.Unavailable("ld-wifi-zero-symbolic", "Cannot reach it again", err)
 	if s.detail.Visible() {
 		t.Error("switched to a new state, the detail stays open")
@@ -199,8 +199,8 @@ func TestAnUnavailableStateKeepsItsErrorOutOfSightUntilOpened(t *testing.T) {
 	} {
 		set()
 		styledLayOut(k, root, 900)
-		if shown(s.reveal) || shown(s.detail) {
-			t.Errorf("%s: a disclosure shows %v over a detail %v", name, shown(s.reveal), shown(s.detail))
+		if shown(s.reveal.button) || shown(s.detail) {
+			t.Errorf("%s: a disclosure shows %v over a detail %v", name, shown(s.reveal.button), shown(s.detail))
 		}
 	}
 }

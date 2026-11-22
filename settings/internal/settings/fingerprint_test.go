@@ -281,8 +281,8 @@ func TestWithoutAReaderTheHandsAreGreyedOutOverWhyAndNothingIsClaimed(t *testing
 	if widget.IsEnabled(hands) || slices.ContainsFunc(fingers, hands.offers) {
 		t.Error("the hands of a machine without a reader take a finger")
 	}
-	if want := locale.T().Get("settings-fingerprint-no-reader"); state.Title() != want || state.reveal.Visible() {
-		t.Errorf("the section says %q, a detail offered %v; want %q and none", state.Title(), state.reveal.Visible(), want)
+	if want := locale.T().Get("settings-fingerprint-no-reader"); state.Title() != want || state.reveal.button.Visible() {
+		t.Errorf("the section says %q, a detail offered %v; want %q and none", state.Title(), state.reveal.button.Visible(), want)
 	}
 }
 

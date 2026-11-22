@@ -8,3 +8,16 @@ window.settings-window paned > separator {
   margin-left: calc(-1 * var(--space-sm));
   background-color: transparent;
 }
+
+.disclosure-chevron {
+  transition: transform var(--duration-fast);
+}
+
+.disclosure-chevron:checked {
+  transform: rotate(180deg);
+}
+
+button.link.mode-toggle {
+  padding-left: 0px;
+  padding-right: 0px;
+}

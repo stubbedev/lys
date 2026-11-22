@@ -253,8 +253,6 @@ settings-filename-path = Salvato come { $path }
 settings-filename-path-numbered = Salvato come { $path }; i successivi sono numerati -2, -3 e così via
 settings-filename-path-counted = Salvato come { $path }; i successivi contano 2, 3 e così via
 settings-filename-custom-notice = Questo nome usa parti che il modulo semplice non può mostrare, quindi si modifica come formato
-settings-filename-show-custom = Formato personalizzato…
-settings-filename-hide-custom = Nascondi il formato personalizzato
 settings-interface-up = connessa
 settings-interface-down = non connessa
 settings-interface-unknown = stato sconosciuto
@@ -1429,8 +1427,6 @@ settings-framerate = { $n ->
    *[other] { $n } fps
 }
 settings-framerate-unit = fps
-settings-advanced-show = Mostra
-settings-advanced-hide = Nascondi
 settings-section-bar-item = Elemento della barra
     .description = Come appare e agisce questo elemento nella barra
 settings-bar-item-colors = Colori
@@ -1949,8 +1945,6 @@ settings-pam-check-failed = Non salvato: il blocco non potrebbe sbloccarti trami
 settings-checking = Verifica di { $value } prima del salvataggio…
 settings-check-timed-out = Non salvato: la verifica non è terminata entro { $seconds } secondi.
 settings-card-retry = Riprova
-settings-card-show-detail = Mostra i dettagli
-settings-card-hide-detail = Nascondi i dettagli
 settings-ocr-unreadable = Impossibile leggere le lingue installate
 settings-tray-items-unreadable = Impossibile leggere l’area di notifica
 settings-login-apps-unreadable = Impossibile leggere le app avviate all’accesso

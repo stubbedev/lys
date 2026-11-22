@@ -250,8 +250,6 @@ settings-filename-path = Opgeslagen als { $path }
 settings-filename-path-numbered = Opgeslagen als { $path }; volgende krijgen -2, -3 enzovoort
 settings-filename-path-counted = Opgeslagen als { $path }; volgende tellen op: 2, 3 enzovoort
 settings-filename-custom-notice = Deze naam gebruikt delen die het eenvoudige formulier niet kan tonen, dus wordt hij als opmaak bewerkt
-settings-filename-show-custom = Eigen opmaak…
-settings-filename-hide-custom = Eigen opmaak verbergen
 settings-interface-up = verbonden
 settings-interface-down = niet verbonden
 settings-interface-unknown = status onbekend
@@ -1418,8 +1416,6 @@ settings-framerate = { $n ->
    *[other] { $n } fps
 }
 settings-framerate-unit = fps
-settings-advanced-show = Tonen
-settings-advanced-hide = Verbergen
 settings-section-bar-item = Balkonderdeel
     .description = Hoe dit onderdeel er in de balk uitziet en werkt
 settings-bar-item-colors = Kleuren
@@ -1938,8 +1934,6 @@ settings-pam-check-failed = Niet opgeslagen: de vergrendeling kan je niet ontgre
 settings-checking = { $value } wordt gecontroleerd voor het opslaan…
 settings-check-timed-out = Niet opgeslagen: de controle was niet binnen { $seconds } seconden klaar.
 settings-card-retry = Opnieuw proberen
-settings-card-show-detail = Details tonen
-settings-card-hide-detail = Details verbergen
 settings-ocr-unreadable = De geïnstalleerde talen kunnen niet worden gelezen
 settings-tray-items-unreadable = Het systeemvak kan niet worden gelezen
 settings-login-apps-unreadable = De apps die bij het aanmelden starten kunnen niet worden gelezen

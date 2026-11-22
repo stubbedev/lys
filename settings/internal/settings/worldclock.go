@@ -154,9 +154,7 @@ type worldClockEditor struct {
 	notice  *widget.Label
 	preview *widget.Label
 	raw     *formatEditor
-	toggle  *widget.Button
-	toggled *widget.Label
-	editing bool
+	toggle  *modeToggle
 }
 
 var worldClockRow rowOpt = func(r *rowSpec) {
@@ -211,11 +209,7 @@ func newWorldClockEditor(k *kit, s slot, meta config.FieldMeta) *worldClockEdito
 	e.preview = k.label("", "format-preview", css.Caption, css.DimLabel)
 	e.preview.SetEllipsize(widget.EllipsizeEnd)
 	e.raw = newFormatEditor(k, s, meta.Optional, placeholderFormat(meta.Placeholders))
-	e.toggled = k.label(t.Get("settings-format-edit-text"))
-	e.toggle = k.roleButton(roleQuiet, e.toggled, func() {
-		e.editing = !e.editing
-		e.refresh()
-	})
+	e.toggle = k.textModeToggle(func(bool) { e.refresh() })
 	e.Append(e.notice, false)
 	e.Append(e.cards, false)
 	e.Append(e.preview, false)
@@ -237,12 +231,7 @@ func (e *worldClockEditor) refresh() {
 	e.notice.SetVisible(!ok)
 	e.cards.SetVisible(ok)
 	e.toggle.SetVisible(ok)
-	e.raw.SetVisible(!ok || e.editing)
-	key := "settings-format-edit-text"
-	if e.editing {
-		key = "settings-format-edit-parts"
-	}
-	e.toggled.SetText(locale.T().Get(key))
+	e.raw.SetVisible(!ok || e.toggle.isOn())
 	if ok {
 		e.cards.refresh()
 	}

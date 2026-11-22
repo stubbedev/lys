@@ -253,8 +253,6 @@ settings-filename-path = Gespeichert als { $path }
 settings-filename-path-numbered = Gespeichert als { $path }; weitere werden mit -2, -3 usw. nummeriert
 settings-filename-path-counted = Gespeichert als { $path }; weitere zählen hoch: 2, 3 usw.
 settings-filename-custom-notice = Dieser Name nutzt Teile, die die einfache Form nicht zeigen kann, daher wird er als Format bearbeitet
-settings-filename-show-custom = Eigenes Format…
-settings-filename-hide-custom = Eigenes Format ausblenden
 settings-interface-up = verbunden
 settings-interface-down = nicht verbunden
 settings-interface-unknown = Zustand unbekannt
@@ -1428,8 +1426,6 @@ settings-framerate = { $n ->
    *[other] { $n } fps
 }
 settings-framerate-unit = fps
-settings-advanced-show = Anzeigen
-settings-advanced-hide = Ausblenden
 settings-section-bar-item = Leistenelement
     .description = Wie dieses Element in der Leiste aussieht und reagiert
 settings-bar-item-colors = Farben
@@ -1948,8 +1944,6 @@ settings-pam-check-failed = Nicht gespeichert: Die Sperre könnte Sie über { $s
 settings-checking = { $value } wird vor dem Speichern geprüft…
 settings-check-timed-out = Nicht gespeichert: Die Prüfung wurde nicht innerhalb von { $seconds } Sekunden fertig.
 settings-card-retry = Erneut versuchen
-settings-card-show-detail = Details anzeigen
-settings-card-hide-detail = Details ausblenden
 settings-ocr-unreadable = Die installierten Sprachen lassen sich nicht lesen
 settings-tray-items-unreadable = Die Leiste lässt sich nicht lesen
 settings-login-apps-unreadable = Die Apps, die bei der Anmeldung starten, lassen sich nicht lesen

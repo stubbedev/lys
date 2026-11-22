@@ -253,8 +253,6 @@ settings-filename-path = Saved as { $path }
 settings-filename-path-numbered = Saved as { $path }; later ones are numbered -2, -3 and on
 settings-filename-path-counted = Saved as { $path }; later ones count up 2, 3 and on
 settings-filename-custom-notice = This name uses parts the simple form cannot show, so it is edited as a format
-settings-filename-show-custom = Custom format…
-settings-filename-hide-custom = Hide custom format
 settings-interface-up = connected
 settings-interface-down = not connected
 settings-interface-unknown = state unknown
@@ -1428,8 +1426,6 @@ settings-framerate = { $n ->
    *[other] { $n } fps
 }
 settings-framerate-unit = fps
-settings-advanced-show = Show
-settings-advanced-hide = Hide
 settings-section-bar-item = Bar Item
     .description = How this item looks and acts in the bar
 settings-bar-item-colors = Colors
@@ -1948,8 +1944,6 @@ settings-pam-check-failed = Not saved: the lock could not unlock you through { $
 settings-checking = Checking { $value } before saving…
 settings-check-timed-out = Not saved: the check did not finish within { $seconds } seconds.
 settings-card-retry = Try again
-settings-card-show-detail = Show the details
-settings-card-hide-detail = Hide the details
 settings-ocr-unreadable = The installed languages cannot be read
 settings-tray-items-unreadable = The tray cannot be read
 settings-login-apps-unreadable = The apps that start at login cannot be read

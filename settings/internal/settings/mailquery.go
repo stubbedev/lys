@@ -145,12 +145,10 @@ type mailQueryEditor struct {
 	add     *widget.Button
 	notice  *widget.Label
 	raw     *text
-	toggle  *widget.Button
-	toggled *widget.Label
+	toggle  *modeToggle
 	picker  *searchPicker
 	count   *widget.Label
 	counted string
-	editing bool
 }
 
 func newMailQueryEditor(k *kit, s slot, optional bool) *mailQueryEditor {
@@ -164,11 +162,7 @@ func newMailQueryEditor(k *kit, s slot, optional bool) *mailQueryEditor {
 	line.AppendAligned(e.add, false, widget.AlignStart)
 	e.notice = k.note(t.Get("settings-mail-query-handwritten"))
 	e.raw = newText(k, s, optional)
-	e.toggled = k.label(t.Get("settings-format-edit-text"))
-	e.toggle = k.roleButton(roleQuiet, e.toggled, func() {
-		e.editing = !e.editing
-		e.refresh()
-	})
+	e.toggle = k.textModeToggle(func(bool) { e.refresh() })
 	e.count = k.note("", "mail-query-count")
 	e.Append(line, false)
 	e.Append(e.count, false)
@@ -201,12 +195,7 @@ func (e *mailQueryEditor) refresh() {
 	e.add.SetVisible(ok)
 	e.notice.SetVisible(!ok)
 	e.toggle.SetVisible(ok)
-	e.raw.SetVisible(!ok || e.editing)
-	key := "settings-format-edit-text"
-	if e.editing {
-		key = "settings-format-edit-parts"
-	}
-	e.toggled.SetText(locale.T().Get(key))
+	e.raw.SetVisible(!ok || e.toggle.isOn())
 	e.raw.refresh()
 	e.recount()
 }

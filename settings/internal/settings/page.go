@@ -211,7 +211,7 @@ type settingsPage struct {
 	releases  []func()
 	k         *kit
 	sections  []sectionCondition
-	advanced  []disclosure
+	advanced  []foldedSection
 	dependent []dependentRow
 	extras    []configWatcher
 	pointers  *pointerStrip
@@ -254,21 +254,13 @@ type sectionCondition struct {
 	n        int
 }
 
-type disclosure struct {
-	group  *widget.Box
-	toggle *widget.Button
-	label  *widget.Label
-	first  int
-	n      int
-}
-
-func (d disclosure) open(on bool) {
-	d.group.SetVisible(on)
-	key := "settings-advanced-show"
-	if on {
-		key = "settings-advanced-hide"
-	}
-	d.label.SetText(locale.T().Get(key))
+// foldedSection is a collapsible section of the page: its disclosure,
+// its card, and the targets its rows are, a reveal of which opens it.
+type foldedSection struct {
+	*disclosure
+	group *widget.Box
+	first int
+	n     int
 }
 
 func (p *settingsPage) showSections() {
@@ -382,7 +374,13 @@ func buildPage(k *kit, spec pageSpec) *settingsPage {
 	conditional := p.edited
 	for _, s := range spec.sections {
 		rows := widget.NewItemGroup()
-		section, group := newSectionParts(k, s.title, rows)
+		var section, group *widget.Box
+		var fold *disclosure
+		if s.advanced {
+			section, group, fold = collapsibleSection(k, s.title, rows)
+		} else {
+			section, group = newSectionParts(k, s.title, rows)
+		}
 		if s.preview != nil {
 			section.InsertAt(len(section.Children())-1, p.own(p.extra(s.preview(k))), false)
 		}
@@ -420,8 +418,8 @@ func buildPage(k *kit, spec pageSpec) *settingsPage {
 		if s.when != nil || s.hardware != "" {
 			p.sections = append(p.sections, sectionCondition{box: section, when: s.when, hardware: s.hardware, first: first, n: len(p.targets) - first})
 		}
-		if s.advanced {
-			p.advanced = append(p.advanced, advancedSection(k, section, group, first, len(p.targets)-first))
+		if fold != nil {
+			p.advanced = append(p.advanced, foldedSection{disclosure: fold, group: group, first: first, n: len(p.targets) - first})
 		}
 		content.Append(section, false)
 	}
@@ -458,30 +456,44 @@ func newSection(k *kit, title string, body widget.Widget) *widget.Box {
 func newSectionParts(k *kit, title string, body widget.Widget) (section, group *widget.Box) {
 	section = gapBox(widget.Column)
 	section.AddClass("settings-section")
-	section.Append(k.label(locale.T().Get(title), "settings-section-title", css.CaptionHeading, css.DimLabel), false)
-	if desc := description(title); desc != "" {
-		section.Append(k.note(desc, "settings-section-description"), false)
-	}
-	group = widget.NewBox(widget.Column, 0, 0)
-	group.AddClass(css.Card)
-	group.Append(body, false)
+	section.Append(sectionHead(k, title), false)
+	group = sectionGroup(body)
 	section.Append(group, false)
 	return section, group
 }
 
-func advancedSection(k *kit, section, group *widget.Box, first, n int) disclosure {
-	kids := section.Children()
-	d := disclosure{group: group, label: k.label(""), first: first, n: n}
-	d.toggle = k.roleButton(roleQuiet, d.label, func() { d.open(!d.group.Visible()) })
-	d.toggle.AddClass("settings-advanced-toggle")
-	head := gapBox(widget.Row)
-	title := kids[0]
-	section.Remove(title)
-	head.AppendAligned(title, true, widget.AlignCenter)
-	head.AppendAligned(d.toggle, false, widget.AlignCenter)
-	section.InsertAt(0, head, false)
-	d.open(false)
-	return d
+// collapsibleSection is a section folded away under its header: the
+// title and description a section reads, the whole of them the
+// disclosure's trigger, the card under them shown only while open. It
+// starts closed.
+func collapsibleSection(k *kit, title string, body widget.Widget) (section, group *widget.Box, fold *disclosure) {
+	section = gapBox(widget.Column)
+	section.AddClass("settings-section")
+	group = sectionGroup(body)
+	fold = k.headerDisclosure(sectionHead(k, title), false, group.SetVisible)
+	fold.button.AddClass("settings-section-header")
+	section.Append(fold.button, false)
+	section.Append(group, false)
+	return section, group, fold
+}
+
+// sectionHead is a section's title over its description, when it has
+// one.
+func sectionHead(k *kit, title string) *widget.Box {
+	head := gapBox(widget.Column)
+	head.Append(k.label(locale.T().Get(title), "settings-section-title", css.CaptionHeading, css.DimLabel), false)
+	if desc := description(title); desc != "" {
+		head.Append(k.note(desc, "settings-section-description"), false)
+	}
+	return head
+}
+
+// sectionGroup is a section's card around body.
+func sectionGroup(body widget.Widget) *widget.Box {
+	group := widget.NewBox(widget.Column, 0, 0)
+	group.AddClass(css.Card)
+	group.Append(body, false)
+	return group
 }
 
 func (p *settingsPage) extra(w widget.Widget) widget.Widget {
@@ -595,7 +607,7 @@ func (p *settingsPage) reveal(i int, focus func(widget.Widget)) *fieldRow {
 	}
 	for _, d := range p.advanced {
 		if i >= d.first && i < d.first+d.n {
-			d.open(true)
+			d.setOpen(true)
 		}
 	}
 	child := p.targets[i]

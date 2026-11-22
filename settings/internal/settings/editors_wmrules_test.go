@@ -134,8 +134,8 @@ func TestFurtherConditionsShowWhenARuleHasOne(t *testing.T) {
 		t.Error("a rule matching floating windows hides that condition")
 	}
 	plain.toggle.OnClick()
-	if !plain.more.Visible() || plain.label.Text() != locale.T().Get("wm-rules-fewer-conditions") {
-		t.Errorf("the toggle shows the conditions %t and reads %q", plain.more.Visible(), plain.label.Text())
+	if !plain.more.Visible() || plain.toggle.label.Text() != locale.T().Get("wm-rules-fewer-conditions") {
+		t.Errorf("the toggle shows the conditions %t and reads %q", plain.more.Visible(), plain.toggle.label.Text())
 	}
 }
 

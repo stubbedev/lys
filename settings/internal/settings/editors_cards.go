@@ -199,6 +199,8 @@ type card struct {
 	clashMsg *widget.Label
 	clashFix *widget.Button
 	reset    resetButton
+	// disclose opens a collapsed list's card, nil on a card always open.
+	disclose *disclosure
 }
 
 // clashOwner is a value held outside a card list, and what holds it.
@@ -595,30 +597,9 @@ func (c *cardList) appendCard(i int) {
 		c.retitle(i)
 		return
 	}
-	cd.root = sectionCard(header, body, chrome.card)
-	sep, _ := cd.root.Children()[1].(*widget.Separator)
+	cd.root, cd.disclose = c.k.foldedCard(header, body, chrome.card, fill)
 	c.addClash(cd, i)
-	show := func(open bool) {
-		sep.SetVisible(open)
-		body.SetVisible(open)
-	}
-	var disclose *widget.Button
-	disclose = c.k.iconButton("ld-chevron-down-symbolic", "settings-card-expand", func() {
-		open := !body.Visible()
-		if open && len(cd.controls) == 0 {
-			fill()
-		}
-		show(open)
-		tip := "settings-card-expand"
-		if open {
-			tip = "settings-card-collapse"
-		}
-		disclose.SetTooltip(t.Get(tip))
-	})
-	disclose.AddClass("card-disclose")
-	header.AppendAligned(disclose, false, widget.AlignCenter)
 	header.AppendAligned(remove, false, widget.AlignCenter)
-	show(false)
 	c.cards = append(c.cards, cd)
 	c.place(i)
 	c.retitle(i)
@@ -637,6 +618,27 @@ func sectionCard(header, body *widget.Box, class string) *widget.Box {
 	root.Append(widget.NewSeparator(widget.Horizontal), false)
 	root.Append(body, false)
 	return root
+}
+
+// foldedCard is a sectionCard showing header alone until its disclosure,
+// the chevron button it appends to header, opens it: the separator and
+// body show only while open, fill building body before it first shows,
+// so a long list builds only the cards opened.
+func (k *kit) foldedCard(header, body *widget.Box, class string, fill func()) (*widget.Box, *disclosure) {
+	root := sectionCard(header, body, class)
+	sep := root.Children()[1].(*widget.Separator)
+	filled := false
+	d := k.chevronDisclosure(false, func(open bool) {
+		if open && !filled {
+			filled = true
+			fill()
+		}
+		sep.SetVisible(open)
+		body.SetVisible(open)
+	})
+	d.button.AddClass("card-disclose")
+	header.AppendAligned(d.button, false, widget.AlignCenter)
+	return root, d
 }
 
 func (c *cardList) retitle(i int) {

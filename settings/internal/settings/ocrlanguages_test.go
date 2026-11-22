@@ -100,8 +100,8 @@ func TestAChosenOCRLanguageThatIsNotInstalledSaysSo(t *testing.T) {
 func TestWithoutTesseractThePageSaysTextCannotBeRead(t *testing.T) {
 	tr := locale.T()
 	_, c := ocrChecklist(t, "", "", errNoTesseract)
-	if st := c.state; st.kind != stateUnavailable || st.Title() != tr.Get("settings-ocr-no-tesseract") || st.reveal.Visible() {
-		t.Errorf("without tesseract the list shows %v %q, a detail offered %v", st.kind, st.Title(), st.reveal.Visible())
+	if st := c.state; st.kind != stateUnavailable || st.Title() != tr.Get("settings-ocr-no-tesseract") || st.reveal.button.Visible() {
+		t.Errorf("without tesseract the list shows %v %q, a detail offered %v", st.kind, st.Title(), st.reveal.button.Visible())
 	}
 	if slices.Contains(treetest.Labels(c), tr.Get("settings-ocr-none")) {
 		t.Error("without tesseract the list says no language is installed")
