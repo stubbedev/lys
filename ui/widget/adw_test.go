@@ -1,6 +1,7 @@
 package widget
 
 import (
+	"errors"
 	"image"
 	"image/color"
 	"slices"
@@ -114,64 +115,126 @@ func TestToggleGroupArrowsMoveTheSelectionFromAFocusedSegment(t *testing.T) {
 	}
 }
 
-// From the group itself the keys move from the active segment and hand
-// the focus to the one they activate.
-func TestToggleGroupArrowsFromTheGroupMoveFromTheActiveSegment(t *testing.T) {
-	for _, tc := range []struct {
-		key  KeyAction
-		want int
-	}{{KeyRight, 2}, {KeyLeft, 0}, {KeyHome, 0}, {KeyEnd, 2}} {
-		g, r, _ := newKeyedToggleGroup(t, 3)
-		g.SetActive(1)
-		focusOrFail(t, r, g)
-		driveToggleGroup(t, g, r, []toggleStep{{tc.key, tc.want}})
+// The group takes no focus itself: its keys are its segments', so the
+// focus a program or Tab moves lands on a segment.
+func TestAToggleGroupTakesNoFocusItself(t *testing.T) {
+	g, r, _ := newKeyedToggleGroup(t, 3)
+	if err := r.SetFocus(g); !errors.Is(err, ErrNotFocusable) {
+		t.Errorf("focusing the group gave %v, want ErrNotFocusable", err)
+	}
+	if Describe(g).Focusable {
+		t.Error("the group describes itself as focusable")
 	}
 }
 
-// From the group while its active segment is disabled the move starts
-// at the first segment focus can land on.
-func TestToggleGroupArrowsFromTheGroupPassOverADisabledActiveSegment(t *testing.T) {
-	g, r, _ := newKeyedToggleGroup(t, 3)
-	g.buttons[0].SetEnabled(false)
-	focusOrFail(t, r, g)
-	driveToggleGroup(t, g, r, []toggleStep{{KeyRight, 2}})
+func newToggleGroupBetweenStops(t *testing.T, n int) (root *Box, before, after *focusTarget, g *ToggleGroup) {
+	t.Helper()
+	face := adaptiveFace(t)
+	g = NewToggleGroup()
+	for i := range n {
+		g.Append(NewLabel(face, 14, string(rune('a'+i)), 0))
+	}
+	before, after = newFocusTarget(), newFocusTarget()
+	root = NewBox(Column, 0, 0)
+	root.Append(before, false).Append(g, false).Append(after, false)
+	arrangeTree(t, root, 400, 200)
+	return root, before, after, g
 }
 
-// A ViewSwitcher is a ToggleGroup under another name: its keys work
-// from the switcher too, and show the page they activate.
-func TestViewSwitcherArrowsFromTheSwitcherShowThePage(t *testing.T) {
+// A ToggleGroup is one Tab stop: its active segment, else the first
+// segment focus can land on, and none while no segment can take focus.
+// Tab stopped on the group and then on every segment.
+func TestAToggleGroupIsOneTabStop(t *testing.T) {
+	root, before, after, g := newToggleGroupBetweenStops(t, 3)
+	stops := func(state string, want ...Widget) {
+		t.Helper()
+		if got := tabStops(root); !slices.Equal(got, want) {
+			t.Errorf("%s Tab stops %v, want %v", state, got, want)
+		}
+	}
+	stops("with the first segment active", before, g.buttons[0], after)
+	g.SetActive(2)
+	stops("with segment 2 active", before, g.buttons[2], after)
+	g.buttons[2].SetEnabled(false)
+	g.buttons[0].SetEnabled(false)
+	stops("with the active segment disabled", before, g.buttons[1], after)
+	g.buttons[1].SetEnabled(false)
+	stops("with every segment disabled", before, after)
+}
+
+// Tab and Shift+Tab from a segment other than the group's stop leave
+// the group as from its stop, to the stops after and before it.
+func TestTabFromASegmentOtherThanTheStopLeavesTheGroup(t *testing.T) {
+	root, before, after, g := newToggleGroupBetweenStops(t, 3)
+	g.SetActive(1)
+	for _, i := range []int{0, 1, 2} {
+		if skipsTab(g.buttons[i]) != (i != 1) {
+			t.Errorf("segment %d passed by Tab = %v", i, skipsTab(g.buttons[i]))
+		}
+		if got := focusedAfter(t, root, g.buttons[i], (*Router).FocusNext); got != Widget(after) {
+			t.Errorf("Tab from segment %d went to %p, want the stop after the group %p", i, got, after)
+		}
+		if got := focusedAfter(t, root, g.buttons[i], (*Router).FocusPrev); got != Widget(before) {
+			t.Errorf("Shift+Tab from segment %d went to %p, want the stop before the group %p", i, got, before)
+		}
+	}
+}
+
+// Toggle buttons outside a ToggleGroup stay a Tab stop each, alone or
+// as radio peers.
+func TestToggleButtonsOutsideAToggleGroupAreEachATabStop(t *testing.T) {
+	face := adaptiveFace(t)
+	a := NewToggleButton(NewLabel(face, 14, "a", 0), 6, 6)
+	b := NewToggleButton(NewLabel(face, 14, "b", 0), 6, 6)
+	c := NewToggleButton(NewLabel(face, 14, "c", 0), 6, 6)
+	c.SetGroup(b)
+	b.SetActive(true)
+	root := NewBox(Row, 0, 0)
+	root.Append(a, false).Append(b, false).Append(c, false)
+	arrangeTree(t, root, 400, 40)
+	if got, want := tabStops(root), []Widget{a, b, c}; !slices.Equal(got, want) {
+		t.Errorf("Tab stops %v, want every toggle %v", got, want)
+	}
+}
+
+// A ViewSwitcher is a ToggleGroup under another name: one Tab stop on
+// its visible page's segment, whose keys show the page they activate.
+func TestViewSwitcherIsOneTabStopWhoseKeysShowThePage(t *testing.T) {
 	face := adaptiveFace(t)
 	stack := NewStack()
 	for _, name := range []string{"a", "b", "c"} {
 		stack.Add(name, NewLabel(face, 14, name, 0))
 	}
 	v := NewViewSwitcher(face, 14, stack, nil, nil)
+	stack.Show("b")
+	v.ReflectVisible()
 	arrangeTree(t, v, 400, 40)
+	if got, want := tabStops(v), []Widget{v.buttons[1]}; !slices.Equal(got, want) {
+		t.Fatalf("Tab stops %v, want the visible page's segment %v", got, want)
+	}
 	r := &Router{Root: v}
-	focusOrFail(t, r, v)
+	r.FocusNext()
 	r.KeyAction(KeyEnd, 0)
 	if v.Active() != 2 || r.Focused() != Widget(v.buttons[2]) || stack.Visible() != "c" {
 		t.Errorf("End left segment %d active, focus on %T, page %q visible", v.Active(), r.Focused(), stack.Visible())
 	}
 }
 
-// Up and Down are not the group's: from a segment or the group they
-// leave the selection and the focus where they were, for an ancestor
-// to take.
+// Up and Down are not the group's: from a segment they leave the
+// selection and the focus where they were, for an ancestor to take.
 func TestToggleGroupLeavesUpAndDownAlone(t *testing.T) {
 	g, r, changes := newKeyedToggleGroup(t, 3)
 	g.SetActive(1)
 	*changes = nil
-	for _, from := range []Widget{g.buttons[1], g} {
-		focusOrFail(t, r, from)
-		for _, key := range []KeyAction{KeyUp, KeyDown} {
-			if next := g.NavigateFocus(from, key); next != nil {
-				t.Fatalf("%v from %T was taken, to %T", key, from, next)
-			}
-			r.KeyAction(key, 0)
-			if g.Active() != 1 || r.Focused() != from {
-				t.Fatalf("%v from %T moved the selection to %d, the focus to %T", key, from, g.Active(), r.Focused())
-			}
+	from := g.buttons[1]
+	focusOrFail(t, r, from)
+	for _, key := range []KeyAction{KeyUp, KeyDown} {
+		if next := g.NavigateFocus(from, key); next != nil {
+			t.Fatalf("%v from the segment was taken, to %T", key, next)
+		}
+		r.KeyAction(key, 0)
+		if g.Active() != 1 || r.Focused() != Widget(from) {
+			t.Fatalf("%v from the segment moved the selection to %d, the focus to %T", key, g.Active(), r.Focused())
 		}
 	}
 	if len(*changes) != 0 {

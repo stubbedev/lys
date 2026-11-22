@@ -37,8 +37,9 @@ func (g *radioGroup) activated(m radioMember) {
 // active.
 type ToggleButton struct {
 	Button
-	active bool
-	group  *radioGroup
+	active    bool
+	group     *radioGroup
+	segmentOf *ToggleGroup
 
 	// OnToggled fires after every change of the active state, from a
 	// click, a key, SetActive, or a group peer taking over.
@@ -56,6 +57,23 @@ func NewToggleButton(child Widget, padding, radius int) *ToggleButton {
 
 // Active reports the state.
 func (t *ToggleButton) Active() bool { return t.active }
+
+// tabStandIn implements tabSkipper: a ToggleGroup's segment stands for
+// the group's one stop, and for the group itself while no segment can
+// be that stop; a toggle outside a ToggleGroup is a stop of its own.
+func (t *ToggleButton) tabStandIn() Widget {
+	if t.segmentOf == nil {
+		return nil
+	}
+	switch s := t.segmentOf.tabSegment(); s {
+	case t:
+		return nil
+	case nil:
+		return t.segmentOf.self
+	default:
+		return s
+	}
+}
 
 // SetActive changes the state, firing OnToggled when it flipped.
 func (t *ToggleButton) SetActive(on bool) { t.setActive(on, true) }
