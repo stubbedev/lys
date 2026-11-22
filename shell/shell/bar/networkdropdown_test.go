@@ -263,10 +263,13 @@ func newNetTestView(t *testing.T, snap network.Snapshot, deps netDeps) (*network
 	ctx := newTestContext(t, config.Defaults())
 	src := &fakeNetworkSource{snap: snap, ticks: make(chan struct{}, 2)}
 	ctx.Network = src
-	v := opened(newNetworkView(ctx, deps))
 	pop := &fakePopover{}
-	v.attachPopover(pop)
-	t.Cleanup(v.dropdownClosed)
+	v := onHeadlessLoop(func() *networkView {
+		v := opened(newNetworkView(ctx, deps))
+		v.attachPopover(pop)
+		return v
+	})
+	t.Cleanup(func() { onHeadlessLoop(func() bool { v.dropdownClosed(); return true }) })
 	return v, src, pop
 }
 
@@ -309,7 +312,7 @@ func TestNetworkDropdownListsAndConnects(t *testing.T) {
 	}
 	// Reopening the cached instance still scans nothing while the list
 	// has networks.
-	v.dropdownOpened()
+	onHeadlessLoop(func() bool { v.dropdownOpened(); return true })
 	if _, _, _, scans, _ := wifi.calls(); scans != 0 {
 		t.Error("a populated list scanned on reopen")
 	}
