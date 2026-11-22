@@ -127,11 +127,8 @@ func (r *rig) announce(t *testing.T) {
 
 func (r *rig) serve(t *testing.T, st pause.State) {
 	t.Helper()
-	s, release, err := pause.Serve(r.bus.Conn(t), r.h)
+	s, release, err := pause.Serve(r.bus.Conn(t), r.h, st)
 	if err != nil {
-		t.Fatal(err)
-	}
-	if err := s.Publish(st); err != nil {
 		t.Fatal(err)
 	}
 	r.server, r.release = s, release

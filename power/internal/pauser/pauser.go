@@ -67,14 +67,13 @@ func Load(path string, managers Managers, authorize Authorizer, log *slog.Logger
 }
 
 func (p *Pauser) Serve(conn *dbus.Conn) (func(), error) {
-	server, release, err := pause.Serve(conn, p)
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	server, release, err := pause.Serve(conn, p, p.state())
 	if err != nil {
 		return nil, err
 	}
-	p.mu.Lock()
-	defer p.mu.Unlock()
 	p.server = server
-	p.publish()
 	return release, nil
 }
 
@@ -171,12 +170,15 @@ func (p *Pauser) save() error {
 	return nil
 }
 
+func (p *Pauser) state() pause.State {
+	return pause.State{Picks: p.stored.Picks, Entries: p.entries, Resumed: p.stored.Resumed}
+}
+
 func (p *Pauser) publish() {
 	if p.server == nil {
 		return
 	}
-	st := pause.State{Picks: p.stored.Picks, Entries: p.entries, Resumed: p.stored.Resumed}
-	if err := p.server.Publish(st); err != nil {
+	if err := p.server.Publish(p.state()); err != nil {
 		p.log.Error("publishing the paused units", "err", err)
 	}
 }

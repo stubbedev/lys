@@ -76,7 +76,7 @@ func dbusErrorName(err error) string {
 func TestPicksArriveAsUnitsOfTheirCallerAndBadOnesAreRefusedBeforeTheHandler(t *testing.T) {
 	bus := dbustest.Start(t)
 	h := &handler{}
-	_, release, err := pause.Serve(bus.Conn(t), h)
+	_, release, err := pause.Serve(bus.Conn(t), h, pause.State{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -135,7 +135,7 @@ func TestPicksArriveAsUnitsOfTheirCallerAndBadOnesAreRefusedBeforeTheHandler(t *
 
 func TestTheStateIsReadAndEveryNewOneAnnounced(t *testing.T) {
 	bus := dbustest.Start(t)
-	s, release, err := pause.Serve(bus.Conn(t), &handler{})
+	s, release, err := pause.Serve(bus.Conn(t), &handler{}, pause.State{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -143,14 +143,6 @@ func TestTheStateIsReadAndEveryNewOneAnnounced(t *testing.T) {
 	conn := bus.Conn(t)
 	client := pause.NewClient(conn)
 	ctx := context.Background()
-
-	got, err := client.State(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(got.Picks) != 0 || len(got.Entries) != 0 || got.Resumed {
-		t.Errorf("before anything is published: %+v", got)
-	}
 
 	if err := conn.AddMatchSignal(dbus.WithMatchObjectPath(pause.ServicePath), dbus.WithMatchInterface(dbusx.PropertiesInterface)); err != nil {
 		t.Fatal(err)
@@ -179,5 +171,45 @@ func TestTheStateIsReadAndEveryNewOneAnnounced(t *testing.T) {
 		}
 	case <-time.After(10 * time.Second):
 		t.Fatal("no PropertiesChanged")
+	}
+}
+
+func TestAClientReadingAsSoonAsTheNameAppearsReadsTheInitialState(t *testing.T) {
+	bus := dbustest.Start(t)
+	conn := bus.Conn(t)
+	if err := conn.AddMatchSignal(dbus.WithMatchSender("org.freedesktop.DBus"), dbus.WithMatchMember("NameOwnerChanged"), dbus.WithMatchArg(0, pause.ServiceName)); err != nil {
+		t.Fatal(err)
+	}
+	signals := make(chan *dbus.Signal, 4)
+	conn.Signal(signals)
+	client := pause.NewClient(conn)
+	docker, _ := pause.System("docker.service")
+	initial := pause.State{Picks: []pause.Unit{docker}, Entries: []pause.Entry{{Unit: docker, Status: pause.StatusPaused}}}
+	read := make(chan pause.State, 1)
+	go func() {
+		for sig := range signals {
+			if len(sig.Body) == 3 && sig.Body[2] != "" {
+				st, err := client.State(context.Background())
+				if err != nil {
+					t.Error(err)
+				}
+				read <- st
+				return
+			}
+		}
+	}()
+
+	_, release, err := pause.Serve(bus.Conn(t), &handler{}, initial)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(release)
+	select {
+	case got := <-read:
+		if !reflect.DeepEqual(got, initial) {
+			t.Errorf("read %+v as the name appeared, want the initial %+v", got, initial)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("the name never appeared")
 	}
 }

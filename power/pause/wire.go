@@ -95,8 +95,8 @@ type Server struct {
 	state wireState
 }
 
-func Serve(conn *dbus.Conn, h Handler) (*Server, func(), error) {
-	s := &Server{conn: conn, state: toWire(State{})}
+func Serve(conn *dbus.Conn, h Handler, initial State) (*Server, func(), error) {
+	s := &Server{conn: conn, state: toWire(initial)}
 	release, err := dbusx.Serve(conn, dbusx.Service{
 		Name:       ServiceName,
 		Path:       ServicePath,
