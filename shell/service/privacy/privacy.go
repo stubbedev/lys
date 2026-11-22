@@ -18,6 +18,7 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/stubbedev/lys/desktop/desktopentry"
 	"github.com/stubbedev/lys/desktop/feed"
 	"github.com/stubbedev/lys/desktop/fswatch"
 	"github.com/stubbedev/lys/desktop/service/pulse"
@@ -70,9 +71,10 @@ type CameraUser struct {
 }
 
 // ScanCameras lists the processes of uid under procRoot (/proc) with
-// one of devices open, by reading their file descriptor links; the
-// processes it may not read are someone else's and are skipped.
-func ScanCameras(procRoot string, uid int, devices []string) ([]CameraUser, error) {
+// one of devices open, by reading their file descriptor links, each
+// named by its desktop entry in appDirs; the processes it may not read
+// are someone else's and are skipped.
+func ScanCameras(procRoot string, uid int, devices, appDirs []string) ([]CameraUser, error) {
 	if len(devices) == 0 {
 		return nil, nil
 	}
@@ -98,14 +100,34 @@ func ScanCameras(procRoot string, uid int, devices []string) ([]CameraUser, erro
 		if !ok {
 			continue
 		}
-		comm, err := os.ReadFile(filepath.Join(dir, "comm")) //nolint:gosec // a /proc entry of the user's own process
-		if err != nil {
+		binary, ok := startedAs(dir)
+		if !ok {
 			continue
 		}
-		out = append(out, CameraUser{PID: pid, Name: strings.TrimSpace(string(comm)), Device: device})
+		name, _ := desktopentry.Describe(appDirs, binary)
+		out = append(out, CameraUser{PID: pid, Name: name, Device: device})
 	}
 	slices.SortFunc(out, func(a, b CameraUser) int { return cmp.Compare(a.PID, b.PID) })
 	return out, nil
+}
+
+// startedAs is the name a process was started under: the base of its
+// argv[0], which wrappers keep and the kernel does not truncate, else,
+// without a command line, its comm.
+func startedAs(dir string) (string, bool) {
+	cmdline, err := os.ReadFile(filepath.Join(dir, "cmdline")) //nolint:gosec // a /proc entry of the user's own process
+	if err != nil {
+		return "", false
+	}
+	if argv0, _, _ := strings.Cut(string(cmdline), "\x00"); argv0 != "" {
+		return filepath.Base(argv0), true
+	}
+	comm, err := os.ReadFile(filepath.Join(dir, "comm")) //nolint:gosec // a /proc entry of the user's own process
+	if err != nil {
+		return "", false
+	}
+	name := strings.TrimSpace(string(comm))
+	return name, name != ""
 }
 
 // holding reports the first of devices a process's fd directory links
@@ -148,6 +170,7 @@ func videoDevices(devDir string) ([]string, error) {
 // /proc once.
 type Cameras struct {
 	devDir, procRoot string
+	appDirs          []string
 	uid              int
 	dir, nodes       *fswatch.Watcher
 	changes          feed.Tick
@@ -167,8 +190,9 @@ const nodeEvents = unix.IN_OPEN | unix.IN_CLOSE_WRITE | unix.IN_CLOSE_NOWRITE
 const dirEvents = unix.IN_CREATE | unix.IN_DELETE
 
 // WatchCameras starts following the cameras of devDir (/dev) held by
-// uid's processes under procRoot (/proc).
-func WatchCameras(devDir, procRoot string, uid int) (*Cameras, error) {
+// uid's processes under procRoot (/proc), named by their desktop entries
+// in appDirs.
+func WatchCameras(devDir, procRoot string, uid int, appDirs []string) (*Cameras, error) {
 	dir, err := fswatch.New(dirEvents, false)
 	if err != nil {
 		return nil, fmt.Errorf("privacy: watching %s: %w", devDir, err)
@@ -177,7 +201,7 @@ func WatchCameras(devDir, procRoot string, uid int) (*Cameras, error) {
 	if err != nil {
 		return nil, errors.Join(fmt.Errorf("privacy: watching the camera nodes: %w", err), dir.Close())
 	}
-	c := &Cameras{devDir: devDir, procRoot: procRoot, uid: uid, dir: dir, nodes: nodes, done: make(chan struct{})}
+	c := &Cameras{devDir: devDir, procRoot: procRoot, appDirs: appDirs, uid: uid, dir: dir, nodes: nodes, done: make(chan struct{})}
 	if err := dir.Add(devDir); err != nil {
 		return nil, errors.Join(fmt.Errorf("privacy: watching %s: %w", devDir, err), c.Close())
 	}
@@ -224,7 +248,7 @@ func (c *Cameras) rescan() error {
 		c.watched = append(c.watched, d)
 		c.mu.Unlock()
 	}
-	users, err := ScanCameras(c.procRoot, c.uid, devices)
+	users, err := ScanCameras(c.procRoot, c.uid, devices, c.appDirs)
 	if err != nil {
 		return err
 	}

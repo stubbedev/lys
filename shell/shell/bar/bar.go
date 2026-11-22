@@ -14,6 +14,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/compositor"
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/desktopentry"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/identity"
 	"github.com/stubbedev/lys/desktop/logging"
@@ -430,7 +431,7 @@ func (s *shellStart) startServices(system *dbus.Conn) {
 		s.sounds = announcer
 		s.down.add(stopSounds)
 	}
-	if cams, err := privacy.WatchCameras("/dev", "/proc", os.Getuid()); err == nil {
+	if cams, err := privacy.WatchCameras("/dev", "/proc", os.Getuid(), desktopentry.ApplicationDirs()); err == nil {
 		s.ctx.Cameras = cams
 		s.down.add(func() { _ = cams.Close() })
 	} else {

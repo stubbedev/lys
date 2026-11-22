@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"github.com/stubbedev/lys/desktop/desktopentry"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/pulse"
 	"github.com/stubbedev/lys/lib/intconv"
@@ -34,7 +35,7 @@ type shareSource interface {
 }
 
 func watchCameras() (cameraSource, func(), error) {
-	c, err := privacy.WatchCameras("/dev", "/proc", os.Getuid())
+	c, err := privacy.WatchCameras("/dev", "/proc", os.Getuid(), desktopentry.ApplicationDirs())
 	if err != nil {
 		return nil, nil, err
 	}

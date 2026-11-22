@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"testing"
 	"time"
 
@@ -68,7 +69,7 @@ func TestCamerasFollowOpensAndClosesOfTheVideoNodes(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dev, "null"), nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	c, err := WatchCameras(dev, "/proc", os.Getuid())
+	c, err := WatchCameras(dev, "/proc", os.Getuid(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -130,7 +131,7 @@ func TestCamerasFollowOpensAndClosesOfTheVideoNodes(t *testing.T) {
 }
 
 func TestScanCamerasSkipsOtherUsersAndNoDevices(t *testing.T) {
-	if users, err := ScanCameras("/proc", os.Getuid(), nil); err != nil || users != nil {
+	if users, err := ScanCameras("/proc", os.Getuid(), nil, nil); err != nil || users != nil {
 		t.Errorf("no devices: %v, %v", users, err)
 	}
 	dev := filepath.Join(t.TempDir(), "video0")
@@ -142,10 +143,49 @@ func TestScanCamerasSkipsOtherUsersAndNoDevices(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer f.Close()
-	if users, err := ScanCameras("/proc", os.Getuid()+1, []string{dev}); err != nil || len(users) != 0 {
+	if users, err := ScanCameras("/proc", os.Getuid()+1, []string{dev}, nil); err != nil || len(users) != 0 {
 		t.Errorf("another uid's view: %v, %v", users, err)
 	}
-	if _, err := ScanCameras(filepath.Join(t.TempDir(), "missing"), 0, []string{dev}); err == nil {
+	if _, err := ScanCameras(filepath.Join(t.TempDir(), "missing"), 0, []string{dev}, nil); err == nil {
 		t.Error("a missing /proc is no error")
+	}
+}
+
+func fakeProcess(t *testing.T, procRoot string, pid int, device, cmdline, comm string) {
+	t.Helper()
+	dir := filepath.Join(procRoot, strconv.Itoa(pid))
+	if err := os.MkdirAll(filepath.Join(dir, "fd"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(device, filepath.Join(dir, "fd", "3")); err != nil {
+		t.Fatal(err)
+	}
+	for name, content := range map[string]string{"cmdline": cmdline, "comm": comm + "\n"} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestACameraUserIsNamedAsItWasStartedNotByItsTruncatedComm(t *testing.T) {
+	proc, apps := t.TempDir(), t.TempDir()
+	device := filepath.Join(t.TempDir(), "video0")
+	entry := "[Desktop Entry]\nType=Application\nName=Firefox\nExec=firefox %u\n"
+	if err := os.WriteFile(filepath.Join(apps, "firefox.desktop"), []byte(entry), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	fakeProcess(t, proc, 10, device, "/nix/store/x-firefox/bin/firefox\x00--name\x00firefox\x00", ".firefox-wrappe")
+	fakeProcess(t, proc, 11, device, "/nix/store/y-zoom/bin/zoom-video-conferencing\x00", "zoom-video-conf")
+	fakeProcess(t, proc, 12, device, "", "exiting")
+	users, err := ScanCameras(proc, os.Getuid(), []string{device}, []string{apps})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var names []string
+	for _, u := range users {
+		names = append(names, u.Name)
+	}
+	if want := []string{"Firefox", "zoom-video-conferencing", "exiting"}; !slices.Equal(names, want) {
+		t.Errorf("camera users named %q, want %q: the desktop entry's name, else argv[0], and comm only without a command line", names, want)
 	}
 }
