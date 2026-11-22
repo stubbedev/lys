@@ -267,7 +267,7 @@ func (b *TaskButton) ZoomTo(px int) {
 	}
 	from := b.stage.shown
 	b.easing = anim.Play(b.Button, anim.Animate(b.zoom.Ease, func(t float64) {
-		b.stage.show(from + (to-from)*t)
+		b.stage.show(from + float64((to-from)*t))
 		if t >= 1 {
 			b.easing = nil
 		}
@@ -361,7 +361,7 @@ func (s *iconStage) Paint(cv *render.Canvas) {
 	}
 	b := s.Bounds()
 	k := s.shown / float64(s.zoom.Peak)
-	m := render.Scale(k, k).About(float64(b.X)+float64(b.W)/2, float64(b.Y)+float64(b.H)/2)
+	m := render.Scale(k, k).About(float64(b.X)+float64(float64(b.W)/2), float64(b.Y)+float64(float64(b.H)/2))
 	num, denom := cv.DeviceScale()
 	f := float64(num) / float64(denom)
 	l := cv.ScratchLayer(cv.MapRect(b))

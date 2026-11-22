@@ -345,7 +345,10 @@ func TestServiceStop(t *testing.T) {
 		name string
 		run  func(context.Context, string) error
 	}{
-		{"Stop", svc.Stop}, {"PlayPause", svc.PlayPause}, {"Next", svc.Next}, {"Previous", svc.Previous},
+		{"Stop", svc.Stop},
+		{"PlayPause", svc.PlayPause},
+		{"Next", svc.Next},
+		{"Previous", svc.Previous},
 		{"SetPosition", func(ctx context.Context, name string) error { return svc.SetPosition(ctx, name, time.Second) }},
 	} {
 		if err := control.run(ctx, name); !errors.Is(err, ErrNotControllable) {

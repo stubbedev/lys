@@ -122,7 +122,7 @@ func (g *ChoiceChips) Append(content Widget) *ChoiceChip {
 
 // Clear removes every chip; the trailing widget stays.
 func (g *ChoiceChips) Clear() {
-	for i := len(g.chips) - 1; i >= 0; i-- {
+	for i := range slices.Backward(g.chips) {
 		g.flow.RemoveAt(i)
 	}
 	g.chips = nil
