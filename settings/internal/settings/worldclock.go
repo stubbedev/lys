@@ -207,7 +207,7 @@ func newWorldClockEditor(k *kit, s slot, meta config.FieldMeta) *worldClockEdito
 		keep:    func(item map[string]any) bool { zone, _ := item["zone"].(string); return zone != "" },
 		listCls: "card-form-list", rowClass: "card-form-row", labelCls: "card-form-label",
 	})
-	e.notice = wrapped(k.label(t.Get("settings-world-clock-handwritten"), css.Caption, css.DimLabel))
+	e.notice = k.note(t.Get("settings-world-clock-handwritten"))
 	e.preview = k.label("", "format-preview", css.Caption, css.DimLabel)
 	e.preview.SetEllipsize(widget.EllipsizeEnd)
 	e.raw = newFormatEditor(k, s, meta.Optional, placeholderFormat(meta.Placeholders))

@@ -239,7 +239,7 @@ func bindActionNames(k *kit) *bindNames {
 func newAppShortcutsEditor(k *kit, binds slot) *appShortcutsEditor {
 	e := &appShortcutsEditor{Box: gapBox(widget.Column), k: k, binds: binds, names: bindActionNames(k)}
 	e.list = gapBox(widget.Column)
-	e.empty = k.label(locale.T().Get("wm-app-shortcuts-none"), "setting-description", css.Caption, css.DimLabel)
+	e.empty = k.label(locale.T().Get("wm-app-shortcuts-none"), css.Caption, css.DimLabel)
 	e.Append(e.empty, false)
 	e.Append(e.list, false)
 	reload := k.reloadButton("wm-app-shortcuts-reload", e.load)
@@ -271,8 +271,8 @@ func (e *appShortcutsEditor) show(l appShortcutsListing) {
 		row := gapBox(widget.Row)
 		row.AddClass("app-shortcut")
 		text := widget.NewBox(widget.Column, widget.Current().Spacing/4, 0)
-		text.Append(e.k.label(cmp.Or(sc.Description, sc.ID), "setting-label"), false)
-		text.Append(e.k.label(sc.app, "setting-description", css.Caption, css.DimLabel), false)
+		text.Append(e.k.label(cmp.Or(sc.Description, sc.ID)), false)
+		text.Append(e.k.label(sc.app, css.Caption, css.DimLabel), false)
 		row.AppendAligned(text, true, widget.AlignCenter)
 		var entry *actionChord
 		if sc.Trigger != "" {
@@ -327,7 +327,7 @@ func newActionChord(k *kit, binds slot, names *bindNames, action, name string) *
 // newHeldChord is the key an app holds itself for action, which a bind
 // for the action replaces.
 func newHeldChord(k *kit, names *bindNames, action, held string) *actionChord {
-	c := &actionChord{k: k, names: names, action: action, held: held, clash: k.label("", "setting-problem", css.Caption, css.Warning)}
+	c := &actionChord{k: k, names: names, action: action, held: held, clash: k.label("", css.Caption, css.Warning)}
 	c.clash.SetWrap(true)
 	c.clash.SetVisible(false)
 	return c

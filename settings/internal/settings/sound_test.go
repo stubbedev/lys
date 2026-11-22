@@ -332,8 +332,8 @@ func TestPortsVolumeMuteAndAppsReachTheServer(t *testing.T) {
 		return d.Volume[0] == 0x8000 && d.Volume[1] == 0x4000
 	})
 	row := r.p.playing.rows[pulse.StreamKey{Index: 40, Type: pulse.StreamPlayback}]
-	if row.title.Text() != "Firefox" || row.detail.Text() != "Song" || row.icon.Name() != "firefox" {
-		t.Fatalf("app row %q, %q with icon %q", row.title.Text(), row.detail.Text(), row.icon.Name())
+	if title, detail := rowText(row, "title"), rowText(row, "description"); title != "Firefox" || detail != "Song" || row.icon.Name() != "firefox" {
+		t.Fatalf("app row %q, %q with icon %q", title, detail, row.icon.Name())
 	}
 	row.mute.OnClick()
 	if st, _ := r.srv.SinkInput(40); !st.Mute {
@@ -498,8 +498,8 @@ func TestTheAppsRecordingTheMicrophoneAreListedAndMuted(t *testing.T) {
 		t.Fatalf("recording streams %v, want the microphone's running one alone", got)
 	}
 	row := r.p.recording.rows[key]
-	if row.title.Text() != "Recorder" || row.icon.Name() != "audio-recorder" || row.mute.glyph.Name() != micGlyphs.sounding || r.p.recording.empty.Visible() {
-		t.Fatalf("row %q with icon %q and glyph %q, empty shown %v", row.title.Text(), row.icon.Name(), row.mute.glyph.Name(), r.p.recording.empty.Visible())
+	if title := rowText(row, "title"); title != "Recorder" || row.icon.Name() != "audio-recorder" || row.mute.glyph.Name() != micGlyphs.sounding || r.p.recording.empty.Visible() {
+		t.Fatalf("row %q with icon %q and glyph %q, empty shown %v", title, row.icon.Name(), row.mute.glyph.Name(), r.p.recording.empty.Visible())
 	}
 	row.mute.OnClick()
 	if st, _ := srv.SourceOutput(60); !st.Mute {
@@ -518,4 +518,10 @@ func TestTheSettingsOwnLevelMeterIsNotAnAppRecording(t *testing.T) {
 	r := startSoundOn(t, srv)
 	want := []pulse.StreamKey{{Index: 64, Type: pulse.StreamRecord}}
 	r.l.until("the recorder listed", func() bool { return slices.Equal(r.p.recording.keys, want) })
+}
+
+// rowText is the text of a row's label of class: its title or its
+// description.
+func rowText(row widget.Widget, class string) string {
+	return treetest.WithClass(row, class)[0].(*widget.Label).Text()
 }

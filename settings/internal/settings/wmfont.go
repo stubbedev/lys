@@ -7,7 +7,6 @@ import (
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -41,8 +40,8 @@ func newWMFontEditor(k *kit, s slot) *wmFontEditor {
 	head.AppendAligned(c.picker, true, widget.AlignStart)
 	c.browse = k.browseButton(func(path string) { _ = c.slot.set(path) })
 	head.AppendAligned(c.browse, false, widget.AlignStart)
-	c.file = wrapped(k.label("", "font-file", css.Caption, css.DimLabel))
-	c.problem = wrapped(k.label("", "setting-problem", css.Caption, css.Error))
+	c.file = k.note("", "font-file")
+	c.problem = k.errorText("")
 	c.Append(head, false)
 	c.Append(c.file, false)
 	c.Append(c.problem, false)

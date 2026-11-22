@@ -72,8 +72,8 @@ func TestAVirtualDisplayIsAddedToTheArrangementSizedAndRemoved(t *testing.T) {
 	}
 	r.p.selectOutput(at)
 	tr := locale.T()
-	labels := treetest.Labels(r.p.extra)
-	if !slices.Contains(labels, tr.Get("settings-displays-virtual-mode")) || len(buttonsTitled(r.p.extra, tr.Get("settings-displays-virtual-remove"))) != 1 {
+	labels := extraLabels(r.p)
+	if !slices.Contains(labels, tr.Get("settings-displays-virtual-mode")) || len(extraButtons(r.p, tr.Get("settings-displays-virtual-remove"))) != 1 {
 		t.Fatalf("the virtual display's rows: %v", labels)
 	}
 	if err := nestedSlot(virtualSlot(r.k.wm, "VIRT-1"), []string{"mode"}).set(virtualModes[0]); err != nil {
@@ -85,11 +85,14 @@ func TestAVirtualDisplayIsAddedToTheArrangementSizedAndRemoved(t *testing.T) {
 	})
 	others := slices.IndexFunc(r.p.draft, func(s displays.Setting) bool { return s.Name == secondOutput })
 	r.p.selectOutput(others)
-	if len(buttonsTitled(r.p.extra, tr.Get("settings-displays-virtual-remove"))) != 0 {
+	if len(extraButtons(r.p, tr.Get("settings-displays-virtual-remove"))) != 0 {
 		t.Error("a real display offers to be removed as a virtual one")
 	}
 	r.p.selectOutput(slices.IndexFunc(r.p.draft, func(s displays.Setting) bool { return s.Name == "VIRT-1" }))
-	removes := treetest.WithClass(r.p.extra, css.DestructiveAction)
+	var removes []widget.Widget
+	for _, row := range r.p.extra {
+		removes = append(removes, treetest.WithClass(row, css.DestructiveAction)...)
+	}
 	if len(removes) != 1 {
 		t.Fatalf("%d remove buttons", len(removes))
 	}

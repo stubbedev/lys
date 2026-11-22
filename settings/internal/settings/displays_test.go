@@ -356,7 +356,7 @@ func TestTheSelectedDisplayOffersOnlyWhatItCanDo(t *testing.T) {
 	vrr, depth, shader := tr.Get(wmKey(outputsPath+".vrr")), tr.Get(wmKey(outputsPath+".bitdepth")), tr.Get(wmKey(outputsPath+".shader"))
 	for name, deep := range map[string]bool{"HEADLESS-1": true, secondOutput: false} {
 		r.p.selectOutput(slices.IndexFunc(r.p.draft, func(s displays.Setting) bool { return s.Name == name }))
-		labels := treetest.Labels(r.p.extra)
+		labels := extraLabels(r.p)
 		if slices.Contains(labels, vrr) {
 			t.Errorf("%s, which has no adaptive sync, offers it: %v", name, labels)
 		}
@@ -463,4 +463,23 @@ func TestTheDisplayScaleIsAPresetOrAClampedNumber(t *testing.T) {
 	if stored != scalePresets[0] || p.typed.Visible() || !slices.Equal(p.Checked(), []int{0}) {
 		t.Errorf("the first chip stored %v, the input shown %v, %v checked", stored, p.typed.Visible(), p.Checked())
 	}
+}
+
+// extraLabels is every label text of the selected display's own rows.
+func extraLabels(p *displaysPanel) []string {
+	var out []string
+	for _, row := range p.extra {
+		out = append(out, treetest.Labels(row)...)
+	}
+	return out
+}
+
+// extraButtons is every button among the selected display's own rows
+// whose tooltip is tooltip.
+func extraButtons(p *displaysPanel, tooltip string) []*widget.Button {
+	var out []*widget.Button
+	for _, row := range p.extra {
+		out = append(out, buttonsTitled(row, tooltip)...)
+	}
+	return out
 }

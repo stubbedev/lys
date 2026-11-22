@@ -14,7 +14,6 @@ import (
 	"github.com/stubbedev/lys/lib/xdg"
 	"github.com/stubbedev/lys/shell/service/nightlight"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -77,7 +76,7 @@ type nightlightDay struct {
 func nightlightDayPreview(k *kit) widget.Widget {
 	d := &nightlightDay{Box: widget.NewBox(widget.Column, widget.Current().Spacing/2, widget.Current().Padding), k: k, strip: &dayStrip{Base: widget.NewBase()}}
 	d.SetAccessibleName(locale.T().Get("settings-nightlight-day"))
-	d.text = wrapped(k.label("", "setting-description", css.Caption, css.DimLabel))
+	d.text = k.note("")
 	d.Append(d.strip, false)
 	d.Append(d.text, false)
 	d.configChanged()

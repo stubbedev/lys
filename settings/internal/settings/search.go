@@ -176,7 +176,7 @@ func newSearchResults(k *kit, open func(settingEntry)) *searchResults {
 	th := widget.Current()
 	r := &searchResults{k: k, open: open}
 	r.list = widget.NewBox(widget.Column, 0, 0)
-	r.list.AddClass(css.Card, "settings-group", "search-results")
+	r.list.AddClass(css.Card, "search-results")
 	r.empty = k.label(locale.T().Get("settings-search-empty"), "search-empty", css.DimLabel)
 	content := widget.NewBox(widget.Column, 3*th.Spacing, 3*th.Padding)
 	content.AddClass("settings-page")
@@ -202,10 +202,10 @@ func (r *searchResults) show(hits []settingEntry) {
 		}
 		text := widget.NewBox(widget.Column, th.Spacing/4, 0)
 		text.SetPadding(cardInsets())
-		text.Append(r.k.label(h.label, "setting-label"), false)
+		text.Append(r.k.label(h.label), false)
 		text.Append(r.k.label(h.place, "search-result-place", css.Caption, css.DimLabel), false)
 		if h.description != "" {
-			d := r.k.label(h.description, "setting-description", css.Caption, css.DimLabel)
+			d := r.k.label(h.description, css.Caption, css.DimLabel)
 			d.SetEllipsize(widget.EllipsizeEnd)
 			text.Append(d, false)
 		}

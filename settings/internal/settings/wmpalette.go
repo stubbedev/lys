@@ -46,7 +46,7 @@ func newPaletteGrid(k *kit, s slot) *paletteGrid {
 	line := gapBox(widget.Row)
 	line.Append(p.name, true)
 	line.AppendAligned(add, false, widget.AlignCenter)
-	p.problem = wrapped(k.label("", "setting-problem", css.Caption, css.Error))
+	p.problem = k.errorText("")
 	p.problem.SetVisible(false)
 	p.Append(p.grid, false)
 	p.Append(line, false)

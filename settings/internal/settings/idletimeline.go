@@ -9,7 +9,6 @@ import (
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -101,11 +100,11 @@ func idleTimelinePreview(k *kit) widget.Widget {
 	t := locale.T()
 	tl := &idleTimeline{Box: widget.NewBox(widget.Column, widget.Current().Spacing/2, widget.Current().Padding), k: k, battery: true}
 	tl.SetAccessibleName(t.Get("settings-idle-timeline"))
-	tl.off = wrapped(k.label(t.Get("settings-idle-timeline-off"), "settings-preview-state", css.Caption, css.DimLabel))
+	tl.off = k.note(t.Get("settings-idle-timeline-off"), "settings-preview-state")
 	tl.Append(tl.off, false)
 	for _, source := range idleSources {
 		line := &idleTimelineLine{Box: widget.NewBox(widget.Column, 0, 0), source: source, bar: &timelineBar{Base: widget.NewBase()}}
-		line.text = wrapped(k.label("", "setting-description", css.Caption, css.DimLabel))
+		line.text = k.note("")
 		head := gapBox(widget.Row)
 		ic := k.icon(source.icon())
 		ic.SetAccessibleName(source.name())

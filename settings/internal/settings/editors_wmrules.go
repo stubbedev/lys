@@ -291,12 +291,13 @@ func effectLabel(key string) string { return locale.T().Get(wmKey(rulesLabels + 
 
 // fieldRows lays out fields over the item whose key slots field gives,
 // their labels sized alike, and answers the controls they hold.
-func fieldRows(k *kit, box *widget.Box, fields []cardField, labels *widget.SizeGroup, field func(key string) slot) ([]control, []*widget.Box) {
+func fieldRows(k *kit, box *widget.Box, fields []cardField, grid formGrid, field func(key string) slot) ([]control, []*widget.Box) {
 	controls := make([]control, 0, len(fields))
 	rows := make([]*widget.Box, 0, len(fields))
 	for _, f := range fields {
 		ctl := f.build(k, field)
-		row := fieldRow(labels.Add(k.label(locale.T().Get(f.label), css.CaptionHeading, css.DimLabel)), ctl, f.fill, "card-form-row")
+		row := grid.row(grid.label(locale.T().Get(f.label)), ctl, f.fill)
+		row.AddClass("card-form-row")
 		box.Append(row, false)
 		controls = append(controls, ctl)
 		rows = append(rows, row)
@@ -339,12 +340,12 @@ type ruleMatchEditor struct {
 func newRuleMatch(k *kit, primary []cardField, moreKeys []string, more map[string][]cardField, field func(key string) slot) *ruleMatchEditor {
 	m := &ruleMatchEditor{Box: gapBox(widget.Column)}
 	m.AddClass("rule-match")
-	labels := widget.NewSizeGroup(widget.SizeGroupHorizontal)
-	m.controls, _ = fieldRows(k, m.Box, primary, labels, field)
+	grid := k.formGrid()
+	m.controls, _ = fieldRows(k, m.Box, primary, grid, field)
 	m.more = gapBox(widget.Column)
 	open := false
 	for _, key := range moreKeys {
-		ctls, _ := fieldRows(k, m.more, more[key], labels, field)
+		ctls, _ := fieldRows(k, m.more, more[key], grid, field)
 		m.controls = append(m.controls, ctls...)
 		open = open || field(key).get() != nil
 	}
@@ -395,7 +396,7 @@ func newRuleEffects(k *kit, parts ruleParts, fields map[string][]cardField, bool
 	r := &ruleEffects{Box: gapBox(widget.Column), k: k, parts: parts, fields: fields, bools: bools, field: field}
 	r.AddClass("rule-effects")
 	r.body = gapBox(widget.Column)
-	r.none = wrapped(k.label(t.Get("wm-rules-no-effects"), "setting-description", css.Caption, css.DimLabel))
+	r.none = k.note(t.Get("wm-rules-no-effects"))
 	r.add = k.addButton("wm-rules-add-effect", func() {
 		if k.pickers != nil {
 			openChoicePicker(k, r.add, r.offered(), r.addEffect)
@@ -424,7 +425,7 @@ func (r *ruleEffects) rebuild() {
 	r.body.Clear()
 	r.controls = nil
 	r.shown = r.current()
-	labels := widget.NewSizeGroup(widget.SizeGroupHorizontal)
+	grid := r.k.formGrid()
 	for _, g := range ruleEffectGroups {
 		var keys []string
 		for _, key := range r.shown {
@@ -439,7 +440,7 @@ func (r *ruleEffects) rebuild() {
 		group.AddClass("rule-effect-group")
 		group.Append(r.k.label(t.Get(g.labelKey()), "rule-effect-group-title", css.Heading), false)
 		for _, key := range keys {
-			ctls, rows := fieldRows(r.k, group, r.fields[key], labels, r.field)
+			ctls, rows := fieldRows(r.k, group, r.fields[key], grid, r.field)
 			r.controls = append(r.controls, ctls...)
 			remove := r.k.removeButton("wm-rules-remove-effect", func() { r.removeEffect(key) })
 			remove.SetAccessibleName(t.Get("wm-rules-remove-effect") + ": " + effectLabel(key))

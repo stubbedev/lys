@@ -7,7 +7,6 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/vaultlogin"
 	"github.com/stubbedev/lys/secrets/vault"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 )
 
 // vaultForm is the account card's sign-in and unlock: the email and
@@ -45,8 +44,8 @@ func newVaultForm(a *vaultAccount) *vaultForm {
 		k.primaryButton(i18n.T("dropdown-bitwarden-login"), f.signIn),
 	), false)
 
-	f.codeTitle = wrapped(k.label("", "setting-label"))
-	f.codeDesc = wrapped(k.label("", "setting-description", css.Caption, css.DimLabel))
+	f.codeTitle = wrapped(k.label(""))
+	f.codeDesc = k.note("")
 	f.codeIn = k.entry()
 	f.codeIn.SetPlaceholder(i18n.T("dropdown-bitwarden-code-placeholder"))
 	f.codeIn.SetAccessibleName(i18n.T("dropdown-bitwarden-code-placeholder"))

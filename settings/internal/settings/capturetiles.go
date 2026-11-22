@@ -58,7 +58,7 @@ func newCaptureTiles(k *kit, module string) *captureTiles {
 	for i, tile := range audioCaptureTiles {
 		card := gapBox(widget.Column)
 		card.AddClass(css.Card, "capture-tile")
-		card.Append(k.label(t.Get(tile.title), "setting-label"), false)
+		card.Append(k.label(t.Get(tile.title)), false)
 		icons := gapBox(widget.Row)
 		for _, icon := range tile.icons {
 			ed := newIconEditor(k, k.store.slot(module+"."+icon.key))

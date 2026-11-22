@@ -10,7 +10,6 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -53,7 +52,7 @@ func newSteppedPreview(k *kit, module config.BarModule, read barStates) *stepped
 	p := &steppedPreview{Box: gapBox(widget.Column), k: k, module: module, read: read}
 	p.chips = newChipGroup(k, widget.ChooseOne, nil)
 	p.chips.OnChanged = func(i int, _ bool) { p.show(i) }
-	p.problem = wrapped(k.label("", "setting-description", css.Caption, css.Error))
+	p.problem = k.errorText("")
 	p.problem.SetVisible(false)
 	p.readStates()
 	p.shown = newLivePreview(k, "settings-bar-item-preview", p.draw)

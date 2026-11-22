@@ -13,7 +13,6 @@ import (
 	"github.com/stubbedev/lys/desktop/styling/material"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -91,8 +90,8 @@ func newSourceSwatches(k *kit, s slot) *sourceSwatches {
 	c := &sourceSwatches{Box: gapBox(widget.Column), k: k, slot: s}
 	c.AddClass("source-swatches")
 	c.cards = gapBox(widget.Column)
-	c.note = wrapped(k.label("", "setting-description", css.Caption, css.DimLabel))
-	c.problem = wrapped(k.label("", "setting-problem", css.Caption, css.Error))
+	c.note = k.note("")
+	c.problem = k.errorText("")
 	c.Append(c.cards, false)
 	c.Append(c.note, false)
 	c.Append(c.problem, false)

@@ -64,14 +64,14 @@ func TestTheThemePageShowsOnlyTheActiveProvidersSettings(t *testing.T) {
 	if got := visible(); len(got) != 1 || got[0] != tr.Get("settings-section-palette") {
 		t.Fatalf("with lys-shell's theme the provider sections shown are %v", got)
 	}
-	provider := slices.IndexFunc(p.rows, func(r *settingRow) bool { return r.path == "styling.theme-provider" })
+	provider := slices.IndexFunc(p.rows, func(r *fieldRow) bool { return r.path == "styling.theme-provider" })
 	if err := p.rows[provider].be.slot("styling.theme-provider").set("matugen"); err != nil {
 		t.Fatal(err)
 	}
 	if got := visible(); len(got) != 1 || got[0] != tr.Get("settings-section-matugen") {
 		t.Errorf("after choosing matugen the provider sections shown are %v", got)
 	}
-	i := slices.IndexFunc(p.targets, func(r *settingRow) bool { return r != nil && r.path == "styling.wallust-palette" })
+	i := slices.IndexFunc(p.targets, func(r *fieldRow) bool { return r != nil && r.path == "styling.wallust-palette" })
 	p.reveal(i, nil)
 	if got := visible(); !slices.Contains(got, tr.Get("settings-section-wallust")) {
 		t.Errorf("revealing a wallust setting left its section hidden: %v", got)
@@ -82,8 +82,8 @@ func TestTheLockPageShowsOnlyTheChosenBackgroundsSettings(t *testing.T) {
 	k := testKit(t, "")
 	spec, _ := pageByID(layout(k.store.svc.Config(), bothParts), "lock")
 	p := buildPage(k, spec)
-	row := func(path string) *settingRow {
-		i := slices.IndexFunc(p.rows, func(r *settingRow) bool { return r.path == path })
+	row := func(path string) *fieldRow {
+		i := slices.IndexFunc(p.rows, func(r *fieldRow) bool { return r.path == path })
 		if i < 0 {
 			t.Fatalf("no row %s", path)
 		}
@@ -113,7 +113,7 @@ func TestTheLockPageShowsOnlyTheChosenBackgroundsSettings(t *testing.T) {
 	if shown("login.clock-format") || shown("login.date-format") {
 		t.Error("the clock formats show without the clock")
 	}
-	i := slices.IndexFunc(p.targets, func(r *settingRow) bool { return r != nil && r.path == "login.date-format" })
+	i := slices.IndexFunc(p.targets, func(r *fieldRow) bool { return r != nil && r.path == "login.date-format" })
 	if got := p.reveal(i, nil); got != row("login.show-clock") || shown("login.date-format") {
 		t.Errorf("revealing the hidden date format opened %v and showed it %v, want the clock switch", got.path, shown("login.date-format"))
 	}

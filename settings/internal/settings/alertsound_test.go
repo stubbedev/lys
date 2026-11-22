@@ -2,6 +2,7 @@ package settings
 
 import (
 	"encoding/binary"
+	"github.com/stubbedev/lys/ui/widget"
 	"os"
 	"path/filepath"
 	"slices"
@@ -11,7 +12,6 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/pulse/native"
 	"github.com/stubbedev/lys/shell/service/sounds"
-	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -98,6 +98,24 @@ func TestTheAlertSoundIsARadioListOfEverySound(t *testing.T) {
 	}
 }
 
+// A click on a sound's row, its name included, picks the sound as its
+// radio does; the play button previews without picking.
+func TestClickingASoundsRowPicksIt(t *testing.T) {
+	k := testKit(t, "modules:\n  notifications:\n    sound-default: bell\n")
+	e := alertList(t, k, "bell", "complete")
+	rows := treetest.All[*settingRow](e.rows)
+	if len(rows) != 2 {
+		t.Fatalf("%d rows, want one per sound", len(rows))
+	}
+	rows[1].ClickAt(widget.Point{})
+	if got := k.store.value(soundDefaultPath); got != "complete" {
+		t.Errorf("clicking the complete row stored %v", got)
+	}
+	if got := e.checked(); !slices.Equal(got, []string{"complete"}) {
+		t.Errorf("checked %q after clicking the complete row", got)
+	}
+}
+
 func TestASoundNoThemeHoldsKeepsItsOwnCheckedRow(t *testing.T) {
 	k := testKit(t, "modules:\n  notifications:\n    sound-default: gone\n")
 	e := alertList(t, k, "bell")
@@ -106,8 +124,8 @@ func TestASoundNoThemeHoldsKeepsItsOwnCheckedRow(t *testing.T) {
 	}
 	k = testKit(t, "modules:\n  notifications:\n    sound-default: ''\n")
 	e = alertList(t, k)
-	if len(e.sounds) != 0 || len(treetest.All[*widget.Item](e.rows)) != 1 {
-		t.Fatalf("without sounds %d rows, %d empty rows", len(e.sounds), len(treetest.All[*widget.Item](e.rows)))
+	if len(e.sounds) != 0 || len(treetest.All[*settingRow](e.rows)) != 1 {
+		t.Fatalf("without sounds %d rows, %d empty rows", len(e.sounds), len(treetest.All[*settingRow](e.rows)))
 	}
 }
 

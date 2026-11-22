@@ -8,7 +8,6 @@ import (
 	"github.com/stubbedev/lys/desktop/service/pulse"
 	"github.com/stubbedev/lys/shell/cava"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -34,7 +33,7 @@ func newDeviceLevel(k *kit) *deviceLevel {
 	d := &deviceLevel{Box: gapBox(widget.Column), meter: newLevelMeter(k)}
 	d.meter.SetAccessibleName(t.Get("settings-device-level"))
 	d.meter.SetTooltip(t.Get("settings-device-level"))
-	d.problem = wrapped(k.label("", "setting-problem", css.Caption, css.Error))
+	d.problem = k.errorText("")
 	d.problem.SetVisible(false)
 	d.Append(d.meter, false)
 	d.Append(d.problem, false)

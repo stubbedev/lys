@@ -71,7 +71,7 @@ func newNameChips(k *kit, s slot, spec nameChipsSpec) *nameChips {
 	c.entry.OnActivate = func(string) { c.add() }
 	c.problem = k.label("", "format-preview", css.Caption, css.Error)
 	c.problem.SetVisible(false)
-	c.unread = wrapped(k.label("", "setting-description", css.Caption, css.DimLabel))
+	c.unread = k.note("")
 	c.unread.SetVisible(false)
 	add := gapBox(widget.Row)
 	add.AppendAligned(c.entry, true, widget.AlignCenter)

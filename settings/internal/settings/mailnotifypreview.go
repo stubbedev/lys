@@ -10,7 +10,6 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/notifyview"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -29,7 +28,7 @@ func mailNotificationPreview(k *kit) widget.Widget {
 
 func drawMailNotification(k *kit, cfg *config.Config, font render.Font) widget.Widget {
 	if !cfg.Mail.Notify {
-		off := wrapped(k.label(locale.T().Get("settings-mail-notification-preview-off"), "settings-preview-state", css.Caption, css.DimLabel))
+		off := k.note(locale.T().Get("settings-mail-notification-preview-off"), "settings-preview-state")
 		off.SetAlignment(render.AlignCenter)
 		return off
 	}

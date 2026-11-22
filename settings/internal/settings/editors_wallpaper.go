@@ -28,7 +28,7 @@ func cyclingReveal(path string, rows ...rowSpec) rowSpec {
 type revealGroup struct {
 	*widget.Revealer
 	slot slot
-	rows []*settingRow
+	rows []*fieldRow
 }
 
 func newRevealGroup(k *kit, s slot, specs []rowSpec) *revealGroup {
@@ -48,7 +48,7 @@ func newRevealGroup(k *kit, s slot, specs []rowSpec) *revealGroup {
 	return g
 }
 
-func (g *revealGroup) nestedRows() []*settingRow { return g.rows }
+func (g *revealGroup) nestedRows() []*fieldRow { return g.rows }
 
 func (g *revealGroup) showsNested() bool { return g.Revealed() }
 

@@ -271,13 +271,13 @@ type usersPanel struct {
 func usersFooter(k *kit) widget.Widget {
 	t := locale.T()
 	p := &usersPanel{Box: sectionStack(), k: k, changer: defaultPasswordChanger}
-	p.problem = wrapped(k.label("", "setting-problem", css.Caption, css.Error))
+	p.problem = k.errorText("")
 	p.problem.SetVisible(false)
 	p.Append(p.problem, false)
 	p.Append(p.identityHeader(), false)
 	change := k.secondaryButton(t.Get("settings-users-password-change"), p.openPasswordDialog)
 	account := widget.NewItemGroup()
-	account.Append(panelRow(k, t.Get("settings-users-password"), t.Attr("settings-users-password", "description"), change))
+	account.Append(k.keyRow("settings-users-password").withControl(change))
 	p.Append(newSection(k, "settings-section-users-account", account), false)
 	p.admin = gapBox(widget.Column)
 	p.admin.SetVisible(false)
@@ -302,16 +302,15 @@ func (p *usersPanel) identityHeader() widget.Widget {
 	text := widget.NewBox(widget.Column, widget.Current().Spacing/2, 0)
 	text.Append(name, false)
 	text.Append(p.identity, false)
-	row := gapBox(widget.Row)
-	row.SetElement("item")
+	head := gapBox(widget.Row)
 	change := p.k.roleButton(rolePlain, p.face, p.openAvatarDialog)
 	change.SetAccessibleName(t.Get("settings-users-avatar-change"))
 	change.SetTooltip(t.Get("settings-users-avatar-change"))
-	row.AppendAligned(change, false, widget.AlignCenter)
-	row.AppendAligned(text, true, widget.AlignCenter)
+	head.AppendAligned(change, false, widget.AlignCenter)
+	head.AppendAligned(text, true, widget.AlignCenter)
 	card := widget.NewBox(widget.Column, 0, 0)
-	card.AddClass(css.Card, "settings-group", "users-identity-header")
-	card.Append(row, false)
+	card.AddClass(css.Card, "users-identity-header")
+	card.Append(newInsetRow(head), false)
 	return card
 }
 
@@ -576,8 +575,8 @@ func (p *usersPanel) cropFile(path string) {
 	content := gapBox(widget.Column)
 	content.AddClass("avatar-crop")
 	content.AppendAligned(cropper, false, widget.AlignCenter)
-	content.Append(wrapped(p.k.label(t.Get("settings-users-avatar-crop-hint"), "setting-description", css.Caption, css.DimLabel)), false)
-	content.Append(panelRow(p.k, t.Get("settings-users-avatar-zoom"), "", zoom), false)
+	content.Append(p.k.note(t.Get("settings-users-avatar-crop-hint")), false)
+	content.Append(p.k.row(t.Get("settings-users-avatar-zoom"), "").withControl(zoom), false)
 	p.k.pickers.dialog(app.DialogConfig{
 		Title:   t.Get("settings-users-avatar-crop"),
 		Width:   avatarDialogWidth,
@@ -616,16 +615,15 @@ func (p *usersPanel) showAdmin(l otherUsersListing) {
 	p.admin.SetVisible(true)
 	body := gapBox(widget.Column)
 	if l.err != nil {
-		body.Append(wrapped(p.k.label(l.err.Error(), css.Error, css.Caption)), false)
+		body.Append(p.k.errorText(l.err.Error()), false)
 	}
 	rows := widget.NewItemGroup()
 	for _, u := range l.users {
-		var controls []widget.Widget
+		row := p.k.row(cmp.Or(u.real, u.name), u.identity())
 		if !u.self {
-			open := p.k.iconButton("ld-chevron-right-symbolic", "settings-users-edit", func() { p.openUserSheet(u) })
-			controls = append(controls, open)
+			row.withControl(p.k.iconButton("ld-chevron-right-symbolic", "settings-users-edit", func() { p.openUserSheet(u) }))
 		}
-		rows.Append(panelRow(p.k, cmp.Or(u.real, u.name), u.identity(), controls...))
+		rows.Append(row)
 	}
 	body.Append(rows, false)
 	p.others = l.users
@@ -739,9 +737,9 @@ func (p *usersPanel) newPasswordForm() *passwordForm {
 	f := &passwordForm{Box: gapBox(widget.Column)}
 	f.AddClass("password-change")
 	f.current, f.next, f.confirm = p.k.passwordEntry("settings-users-password-current"), p.k.passwordEntry("settings-users-password-new"), p.k.passwordEntry("settings-users-password-confirm")
-	f.Append(panelRow(p.k, t.Get("settings-users-password-current"), "", f.current, p.k.revealButton(f.current)), false)
-	f.Append(panelRow(p.k, t.Get("settings-users-password-new"), "", f.next, p.k.revealButton(f.next, f.confirm)), false)
-	f.Append(panelRow(p.k, t.Get("settings-users-password-confirm"), "", f.confirm), false)
+	f.Append(p.k.row(t.Get("settings-users-password-current"), "").withControl(f.current).withTrailing(p.k.revealButton(f.current)), false)
+	f.Append(p.k.row(t.Get("settings-users-password-new"), "").withControl(f.next).withTrailing(p.k.revealButton(f.next, f.confirm)), false)
+	f.Append(p.k.row(t.Get("settings-users-password-confirm"), "").withControl(f.confirm), false)
 	f.Append(p.strengthRow(f.next), false)
 	f.messages = p.k.dialogMessages()
 	f.Append(f.messages, false)
@@ -766,11 +764,11 @@ func (p *usersPanel) strengthRow(next *widget.Entry) widget.Widget {
 		meter.SetValue(float64(passwordStrength(text)) / strengthClasses)
 		word.SetText(strengthWord(text))
 	}
-	return panelRow(p.k, t.Get("settings-users-password-strength"), "", meter, word)
+	return p.k.row(t.Get("settings-users-password-strength"), "").withControl(meter).withTrailing(word)
 }
 
 func (k *kit) dialogMessages() formNote {
-	l := wrapped(k.label("", "setting-problem", css.Caption, css.Error))
+	l := k.errorText("")
 	l.SetVisible(false)
 	return formNote{l}
 }

@@ -115,7 +115,6 @@ var dndSwitch = switchSpec[dndState]{
 	open:        func(k *kit) (switchControl[dndState], error) { return k.dnd() },
 	on:          func(s dndState) bool { return s.on },
 	words:       func(k *kit, s dndState) string { return dndStatusText(k, s, k.clock.Now()) },
-	section:     "settings-section-dnd",
 	label:       "settings-dnd-now",
 	loading:     "settings-shell-asking",
 	unavailable: "settings-dnd-unavailable",
@@ -129,7 +128,7 @@ func newDNDPanel(k *kit) *dndPanel { return newShellSwitch(k, dndSwitch) }
 func notificationsLead(k *kit) widget.Widget {
 	content := sectionStack()
 	dnd := newDNDPanel(k)
-	content.Append(dnd, false)
+	content.Append(newSection(k, "settings-section-dnd", widget.NewItemGroup(dnd)), false)
 	content.Append(tryLead("settings-test-notification", testNotification)(k), false)
 	return &closingBox{content, dnd.close}
 }

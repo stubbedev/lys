@@ -7,7 +7,6 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/desktopentry"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -67,7 +66,7 @@ func newNotifyApps(k *kit, slots []slot) *notifyApps {
 	t := locale.T()
 	c := &notifyApps{Box: gapBox(widget.Column), k: k, slots: slots}
 	c.list = gapBox(widget.Column)
-	c.empty = wrapped(k.label(t.Get("settings-notify-apps-none"), "setting-description", css.Caption, css.DimLabel))
+	c.empty = k.note(t.Get("settings-notify-apps-none"))
 	c.add = k.addButton("settings-notify-apps-add", c.pickApp)
 	c.pattern = k.entry()
 	c.pattern.SetPlaceholder(t.Get("settings-notify-apps-pattern"))

@@ -16,7 +16,6 @@ import (
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/shell/service/mail"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -163,14 +162,14 @@ func newMailQueryEditor(k *kit, s slot, optional bool) *mailQueryEditor {
 	line := gapBox(widget.Row)
 	line.Append(e.chips, true)
 	line.AppendAligned(e.add, false, widget.AlignStart)
-	e.notice = wrapped(k.label(t.Get("settings-mail-query-handwritten"), css.Caption, css.DimLabel))
+	e.notice = k.note(t.Get("settings-mail-query-handwritten"))
 	e.raw = newText(k, s, optional)
 	e.toggled = k.label(t.Get("settings-format-edit-text"))
 	e.toggle = k.roleButton(roleQuiet, e.toggled, func() {
 		e.editing = !e.editing
 		e.refresh()
 	})
-	e.count = wrapped(k.label("", "mail-query-count", css.Caption, css.DimLabel))
+	e.count = k.note("", "mail-query-count")
 	e.Append(line, false)
 	e.Append(e.count, false)
 	e.Append(e.notice, false)

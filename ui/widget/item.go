@@ -25,30 +25,72 @@ const (
 var itemClasses = [...]string{ItemDefault: "", ItemOutline: css.Outline, ItemMuted: css.Muted}
 
 // Item is a content row: media - an icon on a muted
-// tile, an avatar - then a title over a description, then actions, for
-// lists and cards. Its text and media update in place, so a live list
-// reconciles rows instead of rebuilding them, and SetOnActivate makes
-// the whole row a control (click, Enter, Space). It styles as the
-// `item` element with the variant's class (.outline, .muted), .small
-// for the small size, .activatable while it activates, its .media
-// tile, .title and .description.
+// tile, an avatar - then a title over a description, then actions and
+// the row's control, for lists and cards. Its text and media update in
+// place, so a live list reconciles rows instead of rebuilding them, and
+// SetOnActivate makes the whole row a control (click, Enter, Space).
+// The controls of the items in one ItemGroup share a column
+// (ItemControlColumn), so a card's fields start and end at one x. It
+// styles as the `item` element with the variant's class (.outline,
+// .muted), .small for the small size, .activatable while it activates,
+// its .media tile, .title and .description.
 type Item struct {
 	composite
-	row      *Box
-	text     *Box
-	media    *Box
-	title    *Label
-	desc     *Label
-	actions  *Box
-	variant  ItemVariant
-	activate func()
+	stack   *Box
+	row     *Box
+	text    *Box
+	media   *Box
+	title   *Label
+	desc    *Label
+	actions *Box
+	// titleLine holds the title with its suffixes, once one is added.
+	titleLine *Box
+	// leading counts the actions ahead of the control; the trailing
+	// ones follow it.
+	leading int
+	// control is the placed control as the tree holds it: the control
+	// itself, or the column slot holding it.
+	control Widget
+	fit     ItemControlFit
+	column  *controlColumn
+	// titleLines and descLines cap the labels' rows, 0 for no cap.
+	titleLines, descLines int
+	group                 *ItemGroup
+	variant               ItemVariant
+	activate              func()
 }
+
+// ItemControlFit is how an Item's control takes its place in the row.
+type ItemControlFit uint8
+
+// The control fits.
+const (
+	// ItemControlNatural keeps the control its natural width at the
+	// row's end: a switch, a button.
+	ItemControlNatural ItemControlFit = iota
+	// ItemControlColumn stretches the control over the column every
+	// item of its ItemGroup shares, at least ItemColumnWidth wide: the
+	// group's dropdowns, spins and entries start and end at one x
+	// whatever they hold.
+	ItemControlColumn
+	// ItemControlWide gives the control a line of its own under the
+	// text, the row's full width: a list, a picker too wide for the
+	// column.
+	ItemControlWide
+)
+
+// ItemColumnWidth is the narrowest control column, an entry's text
+// width: a lone or empty dropdown keeps it.
+const ItemColumnWidth = GTKTextWidth
+
+// itemGap is the gap between an item's line and its wide control.
+const itemGap = 8
 
 // NewItem returns a default item; an empty description shows the
 // title alone.
 func NewItem(face render.Font, title, description string) *Item {
 	face = requireFace("widget.NewItem", face)
-	it := &Item{row: NewBox(Row, 16, 0), text: NewBox(Column, 4, 0), actions: NewBox(Row, 8, 0)}
+	it := &Item{stack: NewBox(Column, itemGap, 0), row: NewBox(Row, 16, 0), text: NewBox(Column, 4, 0), actions: NewBox(Row, 8, 0)}
 	it.SetElement("item")
 	it.title = NewLabel(face, 14, title, 0)
 	it.title.AddClass("title")
@@ -61,7 +103,8 @@ func NewItem(face render.Font, title, description string) *Item {
 	it.text.Append(it.desc, false)
 	it.row.AppendAligned(it.text, true, AlignCenter)
 	it.row.AppendAligned(it.actions, false, AlignCenter)
-	it.initComposite(it, it.row)
+	it.stack.Append(it.row, false)
+	it.initComposite(it, it.stack)
 	it.SetHExpand(true)
 	it.boxed = true
 	return it
@@ -87,12 +130,168 @@ func (it *Item) SetMedia(w Widget, bare bool) {
 }
 
 // SetTitle replaces the title.
-func (it *Item) SetTitle(title string) { it.title.SetText(title) }
+func (it *Item) SetTitle(title string) {
+	it.title.SetText(title)
+	tipCapped(it.title, it.titleLines)
+}
+
+// Title returns the title's text.
+func (it *Item) Title() string { return it.title.Text() }
+
+// Description returns the description's text.
+func (it *Item) Description() string { return it.desc.Text() }
 
 // SetDescription replaces the description; empty hides its line.
 func (it *Item) SetDescription(description string) {
 	it.desc.SetText(description)
 	it.desc.SetVisible(description != "")
+	tipCapped(it.desc, it.descLines)
+}
+
+// SetLines caps the title at title rows and the description at
+// description rows: a capped label wraps up to its cap, ends its last
+// row in an ellipsis and carries its whole text as its tooltip. 0
+// lets the label wrap freely again.
+func (it *Item) SetLines(title, description int) {
+	it.titleLines, it.descLines = max(title, 0), max(description, 0)
+	capLines(it.title, it.titleLines)
+	capLines(it.desc, it.descLines)
+}
+
+func capLines(l *Label, n int) {
+	l.SetWrap(true)
+	l.SetMaxLines(n)
+	l.SetEllipsize(EllipsizeNone)
+	if n > 0 {
+		l.SetEllipsize(EllipsizeEnd)
+	}
+	tipCapped(l, n)
+}
+
+// tipCapped sets a label's tooltip to its text while it is capped at n
+// rows, and clears it otherwise.
+func tipCapped(l *Label, n int) {
+	if n == 0 {
+		l.SetTooltip("")
+		return
+	}
+	l.SetTooltip(l.Text())
+}
+
+// SetTitleClass adds or drops a class on the title alone (a highlight).
+func (it *Item) SetTitleClass(name string, on bool) { it.title.SetClass(name, on) }
+
+// AddTitleSuffix sets w (a badge, a unit) on the title's line, after
+// the title and what was added before it.
+func (it *Item) AddTitleSuffix(w Widget) {
+	if it.titleLine == nil {
+		it.titleLine = NewBox(Row, 8, 0)
+		it.text.Remove(it.title)
+		it.titleLine.AppendAligned(it.title, false, AlignCenter)
+		it.text.InsertAligned(0, it.titleLine, false, AlignFill)
+	}
+	it.titleLine.AppendAligned(w, false, AlignCenter)
+}
+
+// AddDetail adds w (a problem line, a note) under the description.
+func (it *Item) AddDetail(w Widget) { it.text.Append(w, false) }
+
+// SetControl places the row's control by fit, after the actions and
+// before the trailing actions; nil removes it. A column control joins
+// the column of the ItemGroup the item is in.
+func (it *Item) SetControl(w Widget, fit ItemControlFit) {
+	if it.control != nil {
+		if !it.actions.Remove(it.control) {
+			it.stack.Remove(it.control)
+		}
+		it.control, it.column = nil, nil
+		it.group.relayColumn()
+	}
+	if w == nil {
+		return
+	}
+	it.fit = fit
+	switch fit {
+	case ItemControlWide:
+		it.control = w
+		it.stack.Append(w, false)
+		return
+	case ItemControlColumn:
+		it.column = &controlColumn{item: it}
+		it.column.initComposite(it.column, w)
+		it.control = it.column
+		it.group.relayColumn()
+	default:
+		it.control = w
+	}
+	it.actions.InsertAligned(it.leading, it.control, false, AlignCenter)
+}
+
+// ControlFit is how the control was placed.
+func (it *Item) ControlFit() ItemControlFit { return it.fit }
+
+// AddTrailing appends w (a reveal, an overflow button) after the
+// control, at the row's end.
+func (it *Item) AddTrailing(w Widget) { it.actions.AppendAligned(w, false, AlignCenter) }
+
+// item is the Item an embedding row is built on, so an ItemGroup finds
+// the column its controls share.
+func (it *Item) item() *Item { return it }
+
+// itemOf is the Item w is or is built on, nil for another widget.
+func itemOf(w Widget) *Item {
+	if r, ok := w.(interface{ item() *Item }); ok {
+		return r.item()
+	}
+	return nil
+}
+
+// columnWidth is the width of the item's control column: the widest
+// column control of its group, or its own outside one, at least
+// ItemColumnWidth.
+func (it *Item) columnWidth() Sizes {
+	req := Sizes{Nat: ItemColumnWidth}
+	if it.group == nil {
+		return req.widest(it.column.natural())
+	}
+	it.group.eachColumn(func(c *controlColumn) { req = req.widest(c.natural()) })
+	return req
+}
+
+// natural is the control's own request across.
+func (c *controlColumn) natural() Sizes { return measureChild(c, c.root, Row, Unknown) }
+
+// controlColumn is the slot a column control fills: as wide as the
+// column of its item's group.
+type controlColumn struct {
+	composite
+	item *Item
+}
+
+// Measure is the column's width across, and the control's height for
+// the width it gets.
+func (c *controlColumn) Measure(axis Axis, forSize int) Sizes {
+	if sz, ok := c.measureHit(axis, forSize); ok {
+		return sz
+	}
+	if axis == Column {
+		return c.measureStore(axis, forSize, measureChild(c, c.root, axis, forSize))
+	}
+	return c.measureStore(axis, forSize, c.item.columnWidth())
+}
+
+// markMeasureDirty relayouts the group's other columns with this one:
+// their width depends on its control's.
+func (c *controlColumn) markMeasureDirty() bool {
+	was := c.node.markMeasureDirty()
+	if g := c.item.group; g != nil {
+		g.eachColumn(func(o *controlColumn) {
+			if o != c && !o.measureDirty {
+				o.InvalidateLayout()
+			}
+		})
+	}
+	return was
 }
 
 // SetEllipsize keeps the title and the description on one line each,
@@ -137,6 +336,11 @@ func (it *Item) HitTest(p Point) Widget {
 	if hit := HitChild(it.actions, p); hit != nil && hit != Widget(it.actions) {
 		return hit
 	}
+	if it.control != nil && it.column == nil {
+		if hit := HitChild(it.control, p); hit != nil {
+			return hit
+		}
+	}
 	return it.HitLeaf(it, p)
 }
 
@@ -154,8 +358,12 @@ func (it *Item) KeyAction(a KeyAction, _ Mods) {
 	}
 }
 
-// AddAction appends w (a button) to the row's end.
-func (it *Item) AddAction(w Widget) { it.actions.AppendAligned(w, false, AlignCenter) }
+// AddAction appends w (a button) to the actions, which sit after the
+// text and before the control.
+func (it *Item) AddAction(w Widget) {
+	it.actions.InsertAligned(it.leading, w, false, AlignCenter)
+	it.leading++
+}
 
 // SetVariant switches the item's look.
 func (it *Item) SetVariant(v ItemVariant) {
@@ -243,6 +451,10 @@ func (g *ItemGroup) Append(w Widget) {
 	}
 	g.box.Append(w, false)
 	g.items++
+	if it := itemOf(w); it != nil {
+		it.group = g
+		g.relayColumn()
+	}
 }
 
 // Remove drops item w with the separator that set it apart (the one
@@ -262,6 +474,10 @@ func (g *ItemGroup) Remove(w Widget) bool {
 		g.box.Remove(kids[1])
 	}
 	g.items--
+	if it := itemOf(w); it != nil {
+		it.group = nil
+		g.relayColumn()
+	}
 	return true
 }
 
@@ -292,8 +508,32 @@ func (g *ItemGroup) syncSeparators() {
 
 // Clear drops every item.
 func (g *ItemGroup) Clear() {
+	for _, w := range g.box.Children() {
+		if it := itemOf(w); it != nil {
+			it.group = nil
+		}
+	}
 	g.box.Clear()
 	g.items = 0
+}
+
+// eachColumn visits the control column of every item in the group
+// that has one.
+func (g *ItemGroup) eachColumn(visit func(*controlColumn)) {
+	for _, w := range g.box.Children() {
+		if it := itemOf(w); it != nil && it.column != nil {
+			visit(it.column)
+		}
+	}
+}
+
+// relayColumn remeasures every control column of the group after its
+// columns changed; nil has none.
+func (g *ItemGroup) relayColumn() {
+	if g == nil {
+		return
+	}
+	g.eachColumn(func(c *controlColumn) { c.InvalidateLayout() })
 }
 
 // CursorName asks for no shape of its own: only part of it is clickable.

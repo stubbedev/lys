@@ -23,16 +23,16 @@ func modeList(t *testing.T, k *kit) *launcherModeList {
 
 func modeTitles(c *launcherModeList) []string {
 	var out []string
-	for _, it := range treetest.All[*widget.Item](c.list) {
+	for _, it := range treetest.All[*settingRow](c.list) {
 		out = append(out, treetest.Labels(it)[0])
 	}
 	return out
 }
 
-func modeItem(t *testing.T, c *launcherModeList, mode string) *widget.Item {
+func modeItem(t *testing.T, c *launcherModeList, mode string) *settingRow {
 	t.Helper()
 	label := locale.T().Get("settings-launcher-mode-" + mode)
-	for _, it := range treetest.All[*widget.Item](c.list) {
+	for _, it := range treetest.All[*settingRow](c.list) {
 		if treetest.Labels(it)[0] == label {
 			return it
 		}
@@ -179,7 +179,7 @@ func TestThePaneShowsOnlyTheSelectedModesOptions(t *testing.T) {
 func TestFindingAModesOptionSelectsThatMode(t *testing.T) {
 	k := testKit(t, "")
 	p := buildPage(k, launcherModesPage(nil))
-	at := slices.IndexFunc(p.targets, func(r *settingRow) bool { return r != nil && r.path == "launcher.ssh.client" })
+	at := slices.IndexFunc(p.targets, func(r *fieldRow) bool { return r != nil && r.path == "launcher.ssh.client" })
 	if at < 0 {
 		t.Fatal("the page holds no launcher.ssh.client row")
 	}

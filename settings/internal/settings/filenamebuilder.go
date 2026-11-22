@@ -158,10 +158,10 @@ func newFilenameEditor(k *kit, s, dir slot, custom *labelBuilder) *filenameEdito
 		line.Append(part.w, true)
 		e.simple.Append(line, false)
 	}
-	e.problem = wrapped(k.label("", "format-preview", css.Caption, css.Error))
+	e.problem = k.errorText("", "format-preview")
 	e.problem.SetVisible(false)
-	e.path = wrapped(k.label("", "format-preview", css.Caption, css.DimLabel))
-	e.notice = wrapped(k.label(t.Get("settings-filename-custom-notice"), "format-preview", css.Caption, css.DimLabel))
+	e.path = k.note("", "format-preview")
+	e.notice = k.note(t.Get("settings-filename-custom-notice"), "format-preview")
 	e.toggled = k.label(t.Get("settings-filename-show-custom"))
 	e.toggle = k.roleButton(roleQuiet, e.toggled, func() {
 		e.advanced = !e.advanced

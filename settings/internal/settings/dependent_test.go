@@ -67,9 +67,9 @@ func TestSoftPixelsKeepAValuePastTheSlider(t *testing.T) {
 	}
 }
 
-func rowOf(t *testing.T, p *settingsPage, path string) *settingRow {
+func rowOf(t *testing.T, p *settingsPage, path string) *fieldRow {
 	t.Helper()
-	i := slices.IndexFunc(p.rows, func(r *settingRow) bool { return r.path == path && !r.action })
+	i := slices.IndexFunc(p.rows, func(r *fieldRow) bool { return r.path == path && !r.action })
 	if i < 0 {
 		t.Fatalf("no %s row", path)
 	}
@@ -117,7 +117,7 @@ func TestARowWithNoEffectHidesUntilItHasOne(t *testing.T) {
 func TestRevealingAHiddenRowLandsOnTheRowThatHidesIt(t *testing.T) {
 	k := testKit(t, "bar:\n  border-location: none\n")
 	p := layoutPage(t, k, "bar")
-	i := slices.IndexFunc(p.targets, func(r *settingRow) bool { return r != nil && r.path == "bar.border-width" })
+	i := slices.IndexFunc(p.targets, func(r *fieldRow) bool { return r != nil && r.path == "bar.border-width" })
 	if got := p.reveal(i, nil); got == nil || got.path != "bar.border-location" {
 		t.Fatalf("revealing the hidden border width landed on %v", got)
 	}
@@ -230,7 +230,7 @@ func TestDurationsNoSpeedGivesShowNoSpeedChosen(t *testing.T) {
 func TestTheMotionRowsRestWhileAnimationsAreOff(t *testing.T) {
 	k := testKit(t, "animations:\n  enabled: false\n")
 	p := layoutPage(t, k, "motion")
-	speed := p.rows[slices.IndexFunc(p.rows, func(r *settingRow) bool { return r.action && r.path == "animations.duration" })]
+	speed := p.rows[slices.IndexFunc(p.rows, func(r *fieldRow) bool { return r.action && r.path == "animations.duration" })]
 	transition, exact := rowOf(t, p, "animations.transition"), rowOf(t, p, "animations.duration")
 	if widget.IsEnabled(speed) || widget.IsEnabled(transition) || widget.IsEnabled(exact) {
 		t.Fatalf("with animations off the speed is enabled %v, the transition %v, the duration %v", widget.IsEnabled(speed), widget.IsEnabled(transition), widget.IsEnabled(exact))

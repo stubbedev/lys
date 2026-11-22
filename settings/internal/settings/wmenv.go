@@ -5,7 +5,6 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -85,7 +84,7 @@ func newEnvItem(k *kit, pair [2]string, changed func()) *envItem {
 	}
 	e.names = newChoiceEditor(k, name, choiceSpec{list: knownVariableChoices, free: true})
 	e.names.entry.SetPlaceholder(t.Get("wm-env-name-placeholder"))
-	e.problem = wrapped(k.label(t.Get("wm-env-name-invalid"), "format-preview", css.Caption, css.Error))
+	e.problem = k.errorText(t.Get("wm-env-name-invalid"), "format-preview")
 	line := gapBox(widget.Row)
 	line.Append(e.names, true)
 	line.Append(e.entry, true)

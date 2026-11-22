@@ -66,14 +66,14 @@ func TestTheNightLightSwitchRewordsWhenTheScheduleChanges(t *testing.T) {
 	k.nightlight = func() (nightlightControl, error) { return &fakeNightlight{on: true}, nil }
 	s := nightlightNow(k).(*shellSwitch[bool])
 	t.Cleanup(s.close)
-	if got := s.status.Text(); got != locale.T().Get("settings-nightlight-on-until-sunrise") {
+	if got := s.Description(); got != locale.T().Get("settings-nightlight-on-until-sunrise") {
 		t.Fatalf("on under the default schedule reads %q", got)
 	}
 	if err := s.k.store.set("modules.nightlight.auto-schedule", false); err != nil {
 		t.Fatal(err)
 	}
 	s.configChanged()
-	if got := s.status.Text(); got != locale.T().Get("settings-nightlight-is-on") {
+	if got := s.Description(); got != locale.T().Get("settings-nightlight-is-on") {
 		t.Errorf("with the schedule off it reads %q", got)
 	}
 }

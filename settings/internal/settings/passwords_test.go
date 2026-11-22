@@ -116,10 +116,10 @@ func startPasswordsWith(t *testing.T, items int, yaml string) *passwordsRig {
 	return &passwordsRig{pickers: pickers, srv: srv, bus: bus, p: p, l: l, mon: mon}
 }
 
-func (r *passwordsRig) itemRows() []*widget.Item {
-	var out []*widget.Item
+func (r *passwordsRig) itemRows() []*settingRow {
+	var out []*settingRow
 	for _, w := range treetest.WithClass(r.p.list, "password-item") {
-		row, _ := w.(*widget.Item)
+		row, _ := w.(*settingRow)
 		out = append(out, row)
 	}
 	return out
@@ -303,11 +303,21 @@ func TestTheItemsAreGroupedByWhatStoredThemWithItsIcon(t *testing.T) {
 	}
 }
 
-func (r *passwordsRig) collectionRows() []*widget.Item {
-	var out []*widget.Item
+func (r *passwordsRig) collectionRows() []*settingRow {
+	var out []*settingRow
 	for _, w := range treetest.WithClass(r.p.sidebar, "password-collection") {
-		row, _ := w.(*widget.Item)
+		row, _ := w.(*settingRow)
 		out = append(out, row)
+	}
+	return out
+}
+
+// sidebarText is what the collection rows read: each title, then its
+// count.
+func (r *passwordsRig) sidebarText() []string {
+	var out []string
+	for _, row := range r.collectionRows() {
+		out = append(out, row.Title(), row.Description())
 	}
 	return out
 }
@@ -323,13 +333,13 @@ func TestTheCollectionsAreASidebarCountingTheirItems(t *testing.T) {
 	if len(rows) != 1 || !rows[0].HasState(widget.StateSelected) {
 		t.Fatalf("%d collection rows, the login one selected: %v", len(rows), len(rows) == 1 && rows[0].HasState(widget.StateSelected))
 	}
-	labels := treetest.Labels(r.p.sidebar)
+	labels := r.sidebarText()
 	if !slices.Equal(labels, []string{locale.T().Get("settings-passwords-locked-collection"), countText(3)}) {
 		t.Fatalf("the sidebar reads %q", labels)
 	}
 	r.srv.Answer("login-pw")
 	treetest.Button(t, r.p, "Unlock…").OnClick()
-	if labels := treetest.Labels(r.p.sidebar); !slices.Equal(labels, []string{"Login", countText(3)}) {
+	if labels := r.sidebarText(); !slices.Equal(labels, []string{"Login", countText(3)}) {
 		t.Fatalf("unlocked, the sidebar reads %q", labels)
 	}
 	if got := countText(1); got != "One item" {
@@ -438,7 +448,7 @@ func TestAddItemStoresANewItemInTheShownCollectionAndStaysOpenOverAMissingName(t
 	if f.secret.Text() != "" {
 		t.Error("the password stayed in the closed form")
 	}
-	if !slices.Contains(treetest.Labels(r.p.sidebar), countText(2)) {
-		t.Errorf("the count did not follow: %q", treetest.Labels(r.p.sidebar))
+	if !slices.Contains(r.sidebarText(), countText(2)) {
+		t.Errorf("the count did not follow: %q", r.sidebarText())
 	}
 }

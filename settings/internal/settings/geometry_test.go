@@ -44,6 +44,10 @@ type pageCheck struct {
 	done  func(t *testing.T)
 }
 
+// sweepW and sweepH are the window size the page sweep lays every page
+// out at, tall enough to hold all of it.
+const sweepW, sweepH = 1400, 6000
+
 // Every page of a styled window, shown in turn and laid out tall enough
 // to hold all of it, holds every pageCheck. The pages are built and
 // laid out once for all of them.
@@ -53,12 +57,11 @@ func TestEveryLaidOutPageHoldsThePageChecks(t *testing.T) {
 	w := newWindow(k, cfg, func(_ time.Duration, fn func()) { fn() })
 	w.stack.SetTransition(widget.StackNone, 0)
 	apptheme.New(cfg).Attach(w.root)
-	checks := []pageCheck{controlRowsShareHeightCentreAndGap(), pagesCarryNoMargins(), cardFieldsLineUp(), tabReachesEveryControl(w), trashIconsShareTheErrorColor()}
-	const W, H = 1400, 6000
+	checks := []pageCheck{controlRowsShareHeightCentreAndGap(), pagesCarryNoMargins(), cardFieldsLineUp(), tabReachesEveryControl(w), trashIconsShareTheErrorColor(), rowsAreTheRowType(), resetNeverMovesTheControl()}
 	for _, sec := range w.sections {
 		for _, p := range sec.pages {
 			w.show(p.id)
-			w.root.Arrange(render.Rect{W: W, H: H})
+			w.root.Arrange(render.Rect{W: sweepW, H: sweepH})
 			for _, c := range checks {
 				c.visit(t, w)
 			}
@@ -76,8 +79,7 @@ func TestEveryLaidOutPageHoldsThePageChecks(t *testing.T) {
 // preview's surface is lys-shell's.
 func walkOwn(w widget.Widget, visit func(widget.Widget)) {
 	visit(w)
-	switch w.(type) {
-	case *widget.Chip, *widget.ToggleGroup, *widget.ShortcutRecorder, *segmentedEnum, keycaps, *livePreview:
+	if othersInside(w) {
 		return
 	}
 	if c, ok := w.(interface{ Children() []widget.Widget }); ok {
@@ -85,6 +87,15 @@ func walkOwn(w widget.Widget, visit func(widget.Widget)) {
 			walkOwn(k, visit)
 		}
 	}
+}
+
+// othersInside reports a widget whose inside is not the window's own.
+func othersInside(w widget.Widget) bool {
+	switch w.(type) {
+	case *widget.Chip, *widget.ToggleGroup, *widget.ShortcutRecorder, *segmentedEnum, keycaps, *livePreview:
+		return true
+	}
+	return false
 }
 
 // role is a widget's accessible role, false for one without.
@@ -420,8 +431,8 @@ func overflow(t *testing.T, win *window) []string {
 func cutTitles(page widget.Widget) []*widget.Label {
 	unbounded := widget.Size{W: 1 << 20, H: 1 << 20}
 	var cut []*widget.Label
-	for _, x := range treetest.WithClass(page, "setting-label") {
-		if l := x.(*widget.Label); shown(l) && l.Bounds().W < widget.SizeWithin(l, unbounded).W {
+	for _, row := range treetest.All[*fieldRow](page) {
+		if l := treetest.WithClass(row, "title")[0].(*widget.Label); shown(l) && l.Bounds().W < widget.SizeWithin(l, unbounded).W {
 			cut = append(cut, l)
 		}
 	}
@@ -453,7 +464,7 @@ func TestRowTitlesGiveWayLast(t *testing.T) {
 		t.Fatalf("no row title gave way at %dpx", tooNarrow)
 	}
 	walkOwn(win.page, func(x widget.Widget) {
-		if _, ok := x.(*settingRow); ok && shown(x) {
+		if _, ok := x.(*fieldRow); ok && shown(x) {
 			if b := x.(widget.Boundser).Bounds(); b.X+b.W > tooNarrow {
 				t.Errorf("a row reaches past the %dpx window: %v", tooNarrow, b)
 			}

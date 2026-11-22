@@ -11,7 +11,6 @@ import (
 	"github.com/stubbedev/lys/lib/hibernate"
 	"github.com/stubbedev/lys/lib/logind"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -82,8 +81,8 @@ func newSleepActionSelect(k *kit, s slot, meta config.FieldMeta) *sleepActionSel
 	c.dropdown = widget.NewDropdown(k.face, k.textPx(), c.labels, 0)
 	c.dropdown.SetAccessibleName(locale.T().Get("settings-sleep-action"))
 	c.dropdown.OnSelect = c.pick
-	c.detail = wrapped(k.label("", "setting-description", css.Caption, css.DimLabel))
-	c.problem = wrapped(k.label("", "setting-problem", css.Caption, css.Error))
+	c.detail = k.note("")
+	c.problem = k.errorText("")
 	c.Append(c.dropdown, false)
 	c.Append(c.detail, false)
 	c.Append(c.problem, false)

@@ -13,7 +13,6 @@ import (
 	"github.com/stubbedev/lys/shell/service/launcher"
 	"github.com/stubbedev/lys/shell/service/wallpaper"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -71,8 +70,8 @@ func newWallpaperGrid(k *kit, s slot) *wallpaperGrid {
 	g.path = newFileEditor(k, s)
 	g.grid = widget.NewWrapBox(choiceCardGap, choiceCardGap, widget.JustifyStart)
 	g.grid.SetAccessibleName(locale.T().Get("settings-wallpaper-grid"))
-	g.note = wrapped(k.label("", "setting-description", css.Caption, css.DimLabel))
-	g.problem = wrapped(k.label("", "setting-problem", css.Caption, css.Error))
+	g.note = k.note("")
+	g.problem = k.errorText("")
 	g.AppendAligned(g.path, false, widget.AlignStart)
 	g.Append(g.grid, false)
 	g.Append(g.note, false)

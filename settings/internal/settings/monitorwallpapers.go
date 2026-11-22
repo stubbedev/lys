@@ -7,7 +7,6 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -64,8 +63,8 @@ type monitorWallpapers struct {
 	k      *kit
 	slot   slot
 	picker *monitorPicker
-	detail *widget.Box
-	away   *widget.Box
+	detail *widget.ItemGroup
+	away   *widget.ItemGroup
 	note   *widget.Label
 	feed   *tileFeed
 	tiles  []monitorTile
@@ -78,9 +77,9 @@ func newMonitorWallpapers(k *kit, s slot) *monitorWallpapers {
 	c.AddClass("monitor-wallpapers")
 	c.picker = newMonitorPicker(k, func(string) { c.showDetail() })
 	c.picker.SetAccessibleName(locale.T().Get("settings-monitors"))
-	c.note = wrapped(k.label("", "setting-description", css.Caption, css.DimLabel))
-	c.detail = gapBox(widget.Column)
-	c.away = gapBox(widget.Column)
+	c.note = k.note("")
+	c.detail = widget.NewItemGroup()
+	c.away = widget.NewItemGroup()
 	c.Append(c.picker, false)
 	c.Append(c.note, false)
 	c.Append(c.detail, false)
@@ -147,7 +146,7 @@ func (c *monitorWallpapers) showDetail() {
 		}
 		c.refresh()
 	}
-	c.detail.Append(panelRow(c.k, t.Get("settings-wallpaper-monitor-own", i18n.Str("monitor", name)), t.Attr("settings-wallpaper-monitor-own", "description"), sw), false)
+	c.detail.Append(c.k.row(t.Get("settings-wallpaper-monitor-own", i18n.Str("monitor", name)), description("settings-wallpaper-monitor-own")).withControl(sw))
 	if !own {
 		return
 	}
@@ -167,8 +166,8 @@ func (c *monitorWallpapers) showDetail() {
 	}
 	path := newFileEditor(c.k, field("wallpaper"))
 	fit := newChoiceCards(c.k, field("fit-mode"), config.MetaOf[config.FitMode](), fitPictures)
-	c.detail.Append(panelRow(c.k, t.Get("settings-wallpaper-path-label"), "", path), false)
-	c.detail.Append(panelRow(c.k, t.Get("settings-wallpaper-monitor-fit"), "", fit), false)
+	c.detail.Append(c.k.row(t.Get("settings-wallpaper-path-label"), "").withControl(path))
+	c.detail.Append(c.k.row(t.Get("settings-wallpaper-monitor-fit"), "").withControl(fit))
 }
 
 func (c *monitorWallpapers) showAway() {
@@ -183,6 +182,6 @@ func (c *monitorWallpapers) showAway() {
 			_ = c.slot.set(withoutMonitor(c.slot.get(), name))
 			c.refresh()
 		})
-		c.away.Append(panelRow(c.k, name, t.Get("settings-wallpaper-monitor-away"), remove), false)
+		c.away.Append(c.k.row(name, t.Get("settings-wallpaper-monitor-away")).withControl(remove))
 	}
 }

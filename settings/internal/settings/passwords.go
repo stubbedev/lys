@@ -131,7 +131,7 @@ type passwordsPanel struct {
 	now        func() time.Time
 	problem    *widget.Label
 	sidebar    *widget.ItemGroup
-	collRows   map[dbus.ObjectPath]*widget.Item
+	collRows   map[dbus.ObjectPath]*settingRow
 	collTitle  *widget.Label
 	add        *widget.Button
 	lock       *widget.Button
@@ -142,6 +142,7 @@ type passwordsPanel struct {
 	more       *widget.Button
 	expanded   dbus.ObjectPath
 	detail     *widget.Box
+	detailRow  *insetRow
 	revealed   []byte
 	secretLbl  *widget.Label
 	revealFace *widget.ButtonContent
@@ -150,7 +151,7 @@ type passwordsPanel struct {
 func passwordsKeyring(k *kit) widget.Widget {
 	t := locale.T()
 	p := &passwordsPanel{Box: sectionStack(), k: k, seen: map[dbus.ObjectPath]time.Time{}, now: time.Now}
-	p.problem = wrapped(k.label("", "setting-problem", css.Caption, css.Error))
+	p.problem = k.errorText("")
 	p.problem.SetVisible(false)
 	p.Append(p.problem, false)
 	p.sidebar = widget.NewItemGroup()
@@ -172,7 +173,7 @@ func passwordsKeyring(k *kit) widget.Widget {
 	p.filter = widget.NewSearchEntry(k.face, k.textPx(), t.Get("settings-passwords-filter"))
 	p.filter.SetDelay(0)
 	p.filter.OnSearchChanged = func(string) { p.showItems() }
-	p.list = widget.NewItemGroup(insetRow(p.filter))
+	p.list = widget.NewItemGroup(newInsetRow(p.filter))
 	p.more, _ = k.contentButton(roleSecondary, "ld-chevron-down-symbolic", t.Get("settings-passwords-more"), p.loadMore)
 	p.more.SetHAlign(widget.AlignCenter)
 	p.more.SetVisible(false)
@@ -185,8 +186,8 @@ func passwordsKeyring(k *kit) widget.Widget {
 	body.Append(items, true)
 	p.Append(newSection(k, "settings-section-passwords-keyring", body), false)
 	p.detail = widget.NewBox(widget.Column, widget.Current().Spacing, 0)
-	p.detail.SetElement("item")
 	p.detail.AddClass("password-detail")
+	p.detailRow = newInsetRow(p.detail)
 	p.open()
 	return p
 }
@@ -246,12 +247,12 @@ func (p *passwordsPanel) setCollections(colls []client.Collection) {
 	t := locale.T()
 	p.colls = colls
 	p.sidebar.Clear()
-	p.collRows = make(map[dbus.ObjectPath]*widget.Item, len(colls))
+	p.collRows = make(map[dbus.ObjectPath]*settingRow, len(colls))
 	for _, c := range colls {
 		if _, ok := p.seen[c.Path]; !ok && !c.Locked {
 			p.seen[c.Path] = p.now()
 		}
-		row := widget.NewItem(p.k.face, collectionTitle(c), t.Get("settings-passwords-count", i18n.Int("count", int64(c.Items))))
+		row := p.k.row(collectionTitle(c), t.Get("settings-passwords-count", i18n.Int("count", int64(c.Items))))
 		row.AddClass("password-collection")
 		row.SetMedia(p.k.icon(collectionIcon(c)), false)
 		path := c.Path
@@ -413,11 +414,11 @@ func (p *passwordsPanel) showItems() {
 	for i, it := range shown {
 		if g := itemGroup(it); i == 0 || g != group {
 			group = g
-			add(insetRow(p.k.label(group, "password-group", css.CaptionHeading, css.DimLabel)))
+			add(newInsetRow(p.k.label(group, "password-group", css.CaptionHeading, css.DimLabel)))
 		}
 		add(p.itemRow(it))
 		if it.Path == p.expanded {
-			add(p.detail)
+			add(p.detailRow)
 			expandedShown = true
 		}
 	}
@@ -431,14 +432,13 @@ func (p *passwordsPanel) showItems() {
 	p.more.SetVisible(p.shownTo < len(p.paths))
 }
 
-func (p *passwordsPanel) itemRow(it client.Item) *widget.Item {
+func (p *passwordsPanel) itemRow(it client.Item) *settingRow {
 	title := it.Label
 	if title == "" {
 		title = locale.T().Get("settings-passwords-locked-item")
 	}
-	row := widget.NewItem(p.k.face, title, itemSummary(it.Attributes))
+	row := p.k.row(title, itemSummary(it.Attributes))
 	row.AddClass("password-item")
-	row.SetEllipsize(true)
 	row.SetMedia(p.k.icon(itemIcon(it)), false)
 	chevron := "ld-chevron-right-symbolic"
 	if it.Path == p.expanded {
@@ -529,15 +529,9 @@ func (p *passwordsPanel) showDetail(it client.Item) {
 	p.hideSecret()
 	p.expanded = it.Path
 	p.detail.Clear()
-	labels := widget.NewSizeGroup(widget.SizeGroupHorizontal)
+	grid := p.k.formGrid()
 	field := func(name string, value widget.Widget, more ...widget.Widget) {
-		row := gapBox(widget.Row)
-		row.AppendAligned(labels.Add(p.k.label(name, css.CaptionHeading, css.DimLabel)), false, widget.AlignCenter)
-		row.AppendAligned(value, true, widget.AlignCenter)
-		for _, w := range more {
-			row.AppendAligned(w, false, widget.AlignCenter)
-		}
-		p.detail.Append(row, false)
+		p.detail.Append(grid.row(grid.label(name), value, true, more...), false)
 	}
 	text := func(name, value string) {
 		if value != "" {

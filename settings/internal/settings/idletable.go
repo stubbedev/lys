@@ -163,7 +163,7 @@ func newIdleCell(k *kit, stage idleStage, source idleSource) *idleCell {
 	c := &idleCell{Box: gapBox(widget.Column), k: k, stage: stage, source: source}
 	c.chips = newIdleChips(k, k.store.slot(stage.path(source)))
 	c.chips.SetAccessibleName(locale.T().Get("settings-idle-cell", i18n.Str("stage", stage.name()), i18n.Str("source", source.name())))
-	c.warning = wrapped(k.label("", "setting-problem", css.Caption, css.Warning))
+	c.warning = wrapped(k.label("", css.Caption, css.Warning))
 	c.Append(c.chips, false)
 	c.Append(c.warning, false)
 	c.refresh()

@@ -15,7 +15,6 @@ import (
 	"github.com/stubbedev/lys/shell/service/brightness"
 	"github.com/stubbedev/lys/shell/service/nightlight"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -137,14 +136,13 @@ func (p *displaysPanel) showBrightness() {
 	p.lightSlider.SetVisible(ok)
 	switch {
 	case p.light.err != nil:
-		p.lightNote.SetText(t.Get("settings-displays-brightness-unavailable", i18n.Str("reason", p.light.err.Error())))
+		p.lightRow.SetDescription(t.Get("settings-displays-brightness-unavailable", i18n.Str("reason", p.light.err.Error())))
 	case !ok:
-		p.lightNote.SetText(t.Get("settings-displays-brightness-none"))
+		p.lightRow.SetDescription(t.Get("settings-displays-brightness-none"))
 	default:
-		p.lightNote.SetText("")
+		p.lightRow.SetDescription("")
 		p.lightSlider.Set(level)
 	}
-	p.lightNote.SetVisible(p.lightNote.Text() != "")
 }
 
 func (p *displaysPanel) closeBrightness() {
@@ -216,7 +214,7 @@ var nightlightSwitch = switchSpec[bool]{
 	refused:     "settings-nightlight-refused",
 }
 
-func nightlightNow(k *kit) widget.Widget { return newShellSwitch(k, nightlightSwitch) }
+func nightlightNow(k *kit) rowWidget { return newShellSwitch(k, nightlightSwitch) }
 
 // nightlightWords say whether the night light is on and, under a
 // schedule, until when a switch holds: a switch made now lasts until
@@ -275,7 +273,7 @@ func newKelvinEditor(k *kit, s slot) *kelvinEditor {
 	e.label = k.label(t.Get("settings-nightlight-preview"))
 	e.button = k.roleButton(roleSecondary, e.label, e.preview)
 	e.button.SetTooltip(t.Get("settings-nightlight-preview-tooltip", i18n.Int("seconds", int64(nightlight.PreviewLength/time.Second))))
-	e.problem = wrapped(k.label("", "setting-problem", css.Caption, css.Error))
+	e.problem = k.errorText("")
 	e.problem.SetVisible(false)
 	line := gapBox(widget.Row)
 	line.Append(e.slider, true)

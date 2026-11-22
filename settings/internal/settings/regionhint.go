@@ -9,7 +9,6 @@ import (
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/region"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -53,7 +52,7 @@ type regionHint struct {
 
 func newRegionHint(k *kit, s slot, inner control, regional string, words func(region.Prefs) (string, error)) *regionHint {
 	h := &regionHint{Box: widget.NewBox(widget.Column, widget.Current().Spacing/2, 0), k: k, slot: s, inner: inner, regional: regional, words: words}
-	h.hint = wrapped(k.label("", "setting-description", css.Caption, css.DimLabel))
+	h.hint = k.note("")
 	h.Append(inner, false)
 	h.Append(h.hint, false)
 	h.show()

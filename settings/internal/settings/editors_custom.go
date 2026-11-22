@@ -12,7 +12,6 @@ import (
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/spawn"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -113,7 +112,7 @@ var customModulesRow rowOpt = func(r *rowSpec) {
 func newCustomModulesEditor(k *kit, s slot) *customModulesEditor {
 	e := &customModulesEditor{Box: gapBox(widget.Column), slot: s, edited: customCards.editedKeys()}
 	e.cards = newCardList(k, s, customCards)
-	e.notice = wrapped(k.label("", css.Caption, css.DimLabel))
+	e.notice = k.note("")
 	e.raw = newYAMLEditor(k, s, "custom")
 	e.toggled = k.label("")
 	e.toggle = k.roleButton(roleQuiet, e.toggled, func() {
@@ -174,7 +173,7 @@ type commandRun struct {
 
 func newCommandRun(k *kit, command slot, emptyKey string) *commandRun {
 	c := &commandRun{Box: gapBox(widget.Column), k: k, command: command, emptyKey: emptyKey}
-	c.output = wrapped(k.label("", "format-preview", css.Caption, css.DimLabel))
+	c.output = k.note("", "format-preview")
 	c.output.SetVisible(false)
 	c.AppendAligned(k.secondaryButton(locale.T().Get("settings-custom-run-once"), c.run), false, widget.AlignStart)
 	c.Append(c.output, false)

@@ -78,10 +78,10 @@ func (p *usersPanel) newUserSheet(u otherUser) *userSheet {
 	f.full.SetAccessibleName(t.Get("settings-users-add-full"))
 	f.full.SetText(u.real)
 	f.kinds = p.accountTypeChoice(u.accountType)
-	f.Append(panelRow(p.k, t.Get("settings-users-add-full"), "", f.full), false)
-	f.Append(panelRow(p.k, t.Get("settings-users-add-type"), "", f.kinds), false)
+	f.Append(p.k.row(t.Get("settings-users-add-full"), "").withControl(f.full), false)
+	f.Append(p.k.row(t.Get("settings-users-add-type"), "").withControl(f.kinds), false)
 	f.passwordPair = p.newPasswordPair(f.Box, "settings-users-password-new", "settings-users-password-confirm")
-	f.Append(wrapped(p.k.label(t.Get("settings-users-edit-password-keep"), "setting-description")), false)
+	f.Append(wrapped(p.k.label(t.Get("settings-users-edit-password-keep"))), false)
 	f.messages = p.k.dialogMessages()
 	f.Append(f.messages, false)
 	return f

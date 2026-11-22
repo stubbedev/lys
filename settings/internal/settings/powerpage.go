@@ -205,7 +205,7 @@ type powerPanel struct {
 func newPowerPanel(k *kit) *powerPanel {
 	p := &powerPanel{Box: sectionStack(), k: k, battery: gapBox(widget.Column), modes: gapBox(widget.Column)}
 	p.AddClass("power-panel")
-	p.problem = wrapped(k.label("", "setting-problem", css.Caption, css.Error))
+	p.problem = k.errorText("")
 	p.problem.SetVisible(false)
 	p.Append(p.problem, false)
 	p.Append(newSection(k, "settings-power-section-battery", p.battery), false)
@@ -247,8 +247,8 @@ func (p *powerPanel) unavailable(err error) {
 	t := locale.T()
 	p.battery.Clear()
 	p.modes.Clear()
-	p.battery.Append(panelRow(p.k, t.Get("settings-power-unavailable"), err.Error()), false)
-	p.modes.Append(panelRow(p.k, t.Get("settings-power-unavailable"), err.Error()), false)
+	p.battery.Append(widget.NewItemGroup(p.k.row(t.Get("settings-power-unavailable"), err.Error())), false)
+	p.modes.Append(widget.NewItemGroup(p.k.row(t.Get("settings-power-unavailable"), err.Error())), false)
 }
 
 func (p *powerPanel) follow() {
@@ -337,17 +337,17 @@ func (p *powerPanel) batteryRows() widget.Widget {
 	rows := widget.NewItemGroup()
 	switch {
 	case !st.upower:
-		rows.Append(panelRow(p.k, t.Get("settings-power-battery"), t.Get("settings-power-no-upower")))
+		rows.Append(p.k.row(t.Get("settings-power-battery"), t.Get("settings-power-no-upower")))
 		return rows
 	case !st.hasBattery():
-		rows.Append(panelRow(p.k, t.Get("settings-power-battery"), t.Get("settings-power-no-battery")))
+		rows.Append(p.k.row(t.Get("settings-power-battery"), t.Get("settings-power-no-battery")))
 		return rows
 	}
 	dev := st.battery
 	level := p.k.label(percentText(dev.Percentage), css.Title3)
-	rows.Append(panelRow(p.k, t.Get("settings-power-battery"), batteryDetail(dev), level))
+	rows.Append(p.k.row(t.Get("settings-power-battery"), batteryDetail(dev)).withControl(level))
 	if dev.Capacity > 0 {
-		rows.Append(panelRow(p.k, t.Get("settings-power-health"), t.Get("settings-power-health-detail", i18n.Int("percent", roundPercent(dev.Capacity)))))
+		rows.Append(p.k.row(t.Get("settings-power-health"), t.Get("settings-power-health-detail", i18n.Int("percent", roundPercent(dev.Capacity)))))
 	}
 	if st.chargeManaged() {
 		rows.Append(p.limitRow())
@@ -360,7 +360,7 @@ func (p *powerPanel) batteryRows() widget.Widget {
 			p.run(powerActionChargeLimit, func(ctx context.Context, ctl powerControl) error { return ctl.setChargeLimit(ctx, on) })
 		}
 		detail := t.Get("settings-power-charge-limit-detail", i18n.Int("percent", int64(dev.ChargeEndThreshold)))
-		rows.Append(panelRow(p.k, t.Get("settings-power-charge-limit"), detail, limit))
+		rows.Append(p.k.row(t.Get("settings-power-charge-limit"), detail).withControl(limit))
 	}
 	return rows
 }
@@ -379,7 +379,7 @@ func (p *powerPanel) limitRow() widget.Widget {
 		limit := limits[i]
 		p.run(powerActionChargeLimit, func(ctx context.Context, ctl powerControl) error { return ctl.setLimit(ctx, limit) })
 	}
-	return panelRow(p.k, t.Get("settings-power-charge-limit"), t.Get("settings-power-charge-limit-choice-detail"), pick)
+	return p.k.row(t.Get("settings-power-charge-limit"), t.Get("settings-power-charge-limit-choice-detail")).withControl(pick)
 }
 
 func roundPercent(v float64) int64 { return int64(math.Round(v)) }
@@ -424,7 +424,7 @@ func (p *powerPanel) modeRows() widget.Widget {
 	snap := p.state.profiles
 	if !snap.Available {
 		rows := widget.NewItemGroup()
-		rows.Append(panelRow(p.k, t.Get("settings-power-mode"), t.Get("settings-power-no-daemon")))
+		rows.Append(p.k.row(t.Get("settings-power-mode"), t.Get("settings-power-no-daemon")))
 		return rows
 	}
 	var values, labels []string
@@ -435,7 +435,7 @@ func (p *powerPanel) modeRows() widget.Widget {
 		}
 	}
 	box := gapBox(widget.Column)
-	box.Append(wrapped(p.k.label(t.Get("settings-power-mode-detail"), "setting-description", css.Caption, css.DimLabel)), false)
+	box.Append(p.k.note(t.Get("settings-power-mode-detail")), false)
 	box.Append(newCards(p.k, slot{
 		get: func() any { return p.state.profiles.Active },
 		set: func(v any) error {
@@ -452,7 +452,7 @@ func (p *powerPanel) modeRows() widget.Widget {
 		if !ok {
 			key = "settings-power-mode-degraded"
 		}
-		box.Append(wrapped(p.k.label(t.Get(key), "setting-description", css.Caption, css.DimLabel)), false)
+		box.Append(p.k.note(t.Get(key)), false)
 	}
 	return box
 }
@@ -474,7 +474,7 @@ func linksSection(k *kit, title string, links []pageLink) widget.Widget {
 			continue
 		}
 		open := k.iconButton("ld-chevron-right-symbolic", target.navKey, func() { k.openPage(target.id) })
-		rows.Append(panelRow(k, t.Get(target.navKey), t.Get(l.detail), open))
+		rows.Append(k.row(t.Get(target.navKey), t.Get(l.detail)).withControl(open))
 		linked = true
 	}
 	if linked {

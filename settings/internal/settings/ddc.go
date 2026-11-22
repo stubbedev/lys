@@ -61,7 +61,7 @@ type ddcSwitch struct {
 }
 
 func newDDCSwitch(k *kit, s slot, scan func() i2cAccess) *ddcSwitch {
-	c := &ddcSwitch{Box: gapBox(widget.Column), toggle: newToggle(k, s), status: k.label("", "setting-description", css.Caption, css.DimLabel)}
+	c := &ddcSwitch{Box: gapBox(widget.Column), toggle: newToggle(k, s), status: k.label("", css.Caption, css.DimLabel)}
 	c.AppendAligned(c.toggle, false, widget.AlignEnd)
 	c.AppendAligned(wrapped(c.status), false, widget.AlignEnd)
 	async(k, scan, func(a i2cAccess) {

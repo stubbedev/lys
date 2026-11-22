@@ -5,7 +5,6 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -23,7 +22,7 @@ type monitorSet struct {
 	all     *widget.Switch
 	picker  *monitorPicker
 	note    *widget.Label
-	away    *widget.Box
+	away    *widget.ItemGroup
 	tiles   []monitorTile
 	feed    *tileFeed
 	syncing bool
@@ -48,9 +47,9 @@ func newMonitorSet(k *kit, s slot) *monitorSet {
 	c.picker = newMonitorPicker(k, func(string) { c.write(append(slices.Clone(c.picker.selected), c.notConnected()...)) })
 	c.picker.multi = true
 	c.picker.SetAccessibleName(t.Get("settings-monitors"))
-	c.note = wrapped(k.label(t.Get("settings-monitors-none"), "setting-description", css.Caption, css.DimLabel))
-	c.away = gapBox(widget.Column)
-	c.Append(panelRow(k, t.Get("settings-monitors-all"), t.Attr("settings-monitors-all", "description"), c.all), false)
+	c.note = k.note(t.Get("settings-monitors-none"))
+	c.away = widget.NewItemGroup()
+	c.Append(widget.NewItemGroup(k.keyRow("settings-monitors-all").withControl(c.all)), false)
 	c.Append(c.picker, false)
 	c.Append(c.note, false)
 	c.Append(c.away, false)
@@ -131,6 +130,6 @@ func (c *monitorSet) refresh() {
 		remove := c.k.removeButton("settings-list-remove", func() {
 			c.write(slices.DeleteFunc(c.listed(), func(n string) bool { return n == name }))
 		})
-		c.away.Append(panelRow(c.k, name, t.Get("settings-monitors-away"), remove), false)
+		c.away.Append(c.k.row(name, t.Get("settings-monitors-away")).withControl(remove))
 	}
 }

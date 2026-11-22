@@ -13,7 +13,6 @@ import (
 	"github.com/stubbedev/lys/shell/service/sounds"
 	"github.com/stubbedev/lys/ui/gtksettings"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -57,7 +56,7 @@ func newAlertSoundList(k *kit, s slot, list lister) *alertSoundList {
 	scroll := widget.NewScroll(e.rows)
 	scroll.VerticalOnly = true
 	scroll.SetMaxContentHeight(choiceListPx)
-	e.problem = wrapped(k.label("", css.Error, css.Caption))
+	e.problem = k.errorText("")
 	e.problem.SetVisible(false)
 	e.Append(scroll, false)
 	e.Append(e.problem, false)
@@ -95,7 +94,6 @@ func (e *alertSoundList) build(names []string) {
 	e.sounds = e.sounds[:0]
 	for _, name := range names {
 		radio := widget.NewCheckButton(false)
-		radio.SetChild(e.k.label(name))
 		radio.SetAccessibleName(name)
 		if len(e.sounds) > 0 {
 			radio.SetGroup(e.sounds[0].radio)
@@ -107,11 +105,9 @@ func (e *alertSoundList) build(names []string) {
 		}
 		play := e.k.iconButton("ld-play-symbolic", "settings-sound-alert-play", func() { e.preview(name) })
 		play.SetAccessibleName(locale.T().Get("settings-sound-alert-play") + ": " + name)
-		row := gapBox(widget.Row)
-		row.SetElement("item")
-		row.AddClass(css.Small, "setting-row")
-		row.AppendAligned(radio, true, widget.AlignCenter)
-		row.AppendAligned(play, false, widget.AlignCenter)
+		row := e.k.row(name, "").withControl(play)
+		row.SetMedia(radio, true)
+		row.SetOnActivate(func() { radio.SetChecked(true) })
 		e.rows.Append(row)
 		e.sounds = append(e.sounds, alertSound{name: name, radio: radio, play: play})
 	}

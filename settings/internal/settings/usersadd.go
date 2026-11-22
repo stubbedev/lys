@@ -139,8 +139,8 @@ type passwordPair struct {
 func (p *usersPanel) newPasswordPair(into *widget.Box, passwordKey, confirmKey string) passwordPair {
 	t := locale.T()
 	pp := passwordPair{password: p.k.passwordEntry(passwordKey), repeat: p.k.passwordEntry(confirmKey)}
-	into.Append(panelRow(p.k, t.Get(passwordKey), "", pp.password, p.k.revealButton(pp.password, pp.repeat)), false)
-	into.Append(panelRow(p.k, t.Get(confirmKey), "", pp.repeat), false)
+	into.Append(p.k.row(t.Get(passwordKey), "").withControl(pp.password).withTrailing(p.k.revealButton(pp.password, pp.repeat)), false)
+	into.Append(p.k.row(t.Get(confirmKey), "").withControl(pp.repeat), false)
 	into.Append(p.strengthRow(pp.password), false)
 	return pp
 }
@@ -203,9 +203,9 @@ func (p *usersPanel) newAddUserForm() *addUserForm {
 		f.derived = text == "" || text == deriveLogin(f.full.Text())
 		f.checkLogin(p.takenLogins())
 	}
-	f.Append(panelRow(p.k, t.Get("settings-users-add-type"), "", f.kinds), false)
-	f.Append(panelRow(p.k, t.Get("settings-users-add-full"), "", f.full), false)
-	f.Append(panelRow(p.k, t.Get("settings-users-add-name"), t.Attr("settings-users-add-name", "description"), f.login), false)
+	f.Append(p.k.row(t.Get("settings-users-add-type"), "").withControl(f.kinds), false)
+	f.Append(p.k.row(t.Get("settings-users-add-full"), "").withControl(f.full), false)
+	f.Append(p.k.keyRow("settings-users-add-name").withControl(f.login), false)
 	f.passwordPair = p.newPasswordPair(f.Box, "settings-users-add-password", "settings-users-add-confirm")
 	f.messages = p.k.dialogMessages()
 	f.Append(f.messages, false)

@@ -7,7 +7,6 @@ import (
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -459,7 +458,7 @@ func newWindowPreview(k *kit) widget.Widget {
 	p.area.OnDraw = func(cv *render.Canvas, r render.Rect) {
 		screenFrame(cv, r, func(s render.Rect) { paintWindows(cv, p.look, s) })
 	}
-	p.state = wrapped(k.label("", "settings-preview-state", css.Caption, css.DimLabel))
+	p.state = k.note("", "settings-preview-state")
 	p.state.SetAlignment(render.AlignCenter)
 	p.Append(p.area, false)
 	p.Append(p.state, false)

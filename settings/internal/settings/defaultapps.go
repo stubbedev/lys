@@ -161,7 +161,7 @@ func withUserAssociations(ix appIndex) indexedApps {
 func defaultAppsFooter(k *kit) widget.Widget {
 	d := &defaultApps{k: k}
 	content := sectionStack()
-	d.problem = wrapped(k.label("", "setting-problem", css.Caption, css.Error))
+	d.problem = k.errorText("")
 	d.problem.SetVisible(false)
 	content.Append(d.problem, false)
 	d.cats = gapBox(widget.Column)
@@ -171,7 +171,7 @@ func defaultAppsFooter(k *kit) widget.Widget {
 	d.filter.SetDelay(0)
 	d.filter.OnSearchChanged = func(string) { d.showTypes() }
 	d.types = gapBox(widget.Column)
-	typesBody.Append(insetRow(d.filter), false)
+	typesBody.Append(newInsetRow(d.filter), false)
 	typesBody.Append(widget.NewSeparator(widget.Horizontal), false)
 	typesBody.Append(d.types, false)
 	content.Append(newSection(k, "settings-section-default-types", typesBody), false)
@@ -334,7 +334,7 @@ func (d *defaultApps) showTypes() {
 			continue
 		}
 		if shown == fileTypesShown {
-			rows.Append(widget.NewItem(d.k.face, "", locale.T().Get("settings-default-types-more")))
+			rows.Append(newInsetRow(d.k.note(locale.T().Get("settings-default-types-more"))))
 			break
 		}
 		rows.Append(d.chooser(name, []string{mimeType}))
@@ -344,16 +344,13 @@ func (d *defaultApps) showTypes() {
 
 func (d *defaultApps) chooser(title string, types []string) widget.Widget {
 	apps := d.ix.candidates(types)
-	row := gapBox(widget.Row)
-	row.SetElement("item")
-	row.AddClass(css.Small, "setting-row", "default-app")
-	row.AppendAligned(d.k.label(title, "setting-label"), true, widget.AlignCenter)
+	row := d.k.row(title, "")
+	row.AddClass("default-app")
 	if reset := d.typesReset(types); reset != nil {
-		row.AppendAligned(d.resetFor(title, reset), false, widget.AlignCenter)
+		row.withActions(d.resetFor(title, reset))
 	}
 	if len(apps) == 0 {
-		row.AppendAligned(d.k.label(locale.T().Get("settings-default-none"), css.DimLabel), false, widget.AlignCenter)
-		return row
+		return row.withControl(d.k.label(locale.T().Get("settings-default-none"), css.DimLabel))
 	}
 	current, mixed := d.ix.currentOf(types)
 	items := make([]widget.DropdownRow, 0, len(apps)+1)
@@ -381,6 +378,5 @@ func (d *defaultApps) chooser(title string, types []string) widget.Widget {
 		id := apps[i-offset].ID
 		d.write(func() error { return setDefaults(id, types) })
 	}
-	row.AppendAligned(dd, false, widget.AlignCenter)
-	return row
+	return row.withControl(dd)
 }

@@ -6,7 +6,6 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -104,7 +103,7 @@ type misalignedSources struct {
 
 func newMisalignedSources(k *kit, sc wmScope, layout slot, layoutMeta config.FieldMeta) *misalignedSources {
 	m := &misalignedSources{Box: gapBox(widget.Column)}
-	m.Append(wrapped(k.label(locale.T().Get("wm-input-sources-misaligned"), "format-preview", css.Caption, css.DimLabel)), false)
+	m.Append(k.note(locale.T().Get("wm-input-sources-misaligned"), "format-preview"), false)
 	variantMeta, _ := sc.field(wmVariantPath)
 	for _, f := range []struct {
 		path string

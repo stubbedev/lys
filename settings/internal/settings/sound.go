@@ -79,14 +79,14 @@ type soundPanel struct {
 func soundLead(k *kit) widget.Widget {
 	t := locale.T()
 	p := &soundPanel{Box: sectionStack(), k: k}
-	p.problem = wrapped(k.label("", css.Error, css.Caption))
+	p.problem = k.errorText("")
 	p.problem.SetVisible(false)
 	p.Append(p.problem, false)
 	p.output = newDeviceControls(p, pulse.DeviceOutput)
 	p.input = newDeviceControls(p, pulse.DeviceInput)
 	p.meter = newLevelMeter(k)
 	p.meter.SetAccessibleName(t.Get("settings-sound-level"))
-	p.input.rows.Append(panelRow(k, t.Get("settings-sound-level"), "", p.meter))
+	p.input.rows.Append(k.row(t.Get("settings-sound-level"), "").withControl(p.meter))
 	p.playing = newStreamList(p, playbackStreams)
 	p.recording = newStreamList(p, recordingStreams)
 	p.Append(newSection(k, "settings-section-sound-output", p.output.body), false)
@@ -247,7 +247,7 @@ type streamList struct {
 	kind  streamKind
 	body  *widget.Box
 	group *widget.ItemGroup
-	empty *widget.Item
+	empty *settingRow
 	rows  map[pulse.StreamKey]*appRow
 	keys  []pulse.StreamKey
 }
@@ -255,7 +255,7 @@ type streamList struct {
 func newStreamList(p *soundPanel, kind streamKind) *streamList {
 	l := &streamList{p: p, kind: kind, body: gapBox(widget.Column), group: widget.NewItemGroup(), rows: map[pulse.StreamKey]*appRow{}}
 	l.empty = p.k.emptyRow(kind.emptyIcon, locale.T().Get(kind.emptyKey))
-	l.body.Append(l.empty, false)
+	l.body.Append(widget.NewItemGroup(l.empty), false)
 	l.body.Append(l.group, false)
 	return l
 }
@@ -271,7 +271,7 @@ func (l *streamList) show(streams []pulse.AudioStream, devices []pulse.Device) {
 		for _, s := range streams {
 			row := newAppRow(l.p, l.kind, s.Key)
 			l.rows[s.Key] = row
-			l.group.Append(row.Box)
+			l.group.Append(row)
 		}
 		l.keys = keys
 	}
@@ -299,9 +299,9 @@ type deviceControls struct {
 	volume     *widgets.DebouncedSlider
 	mute       *muteToggle
 	balance    *widgets.DebouncedSlider
-	balanceRow *widget.Box
+	balanceRow *settingRow
 	tests      *widget.Grid
-	testsRow   *widget.Box
+	testsRow   *settingRow
 	testMap    native.ChannelMap
 	current    pulse.Device
 }
@@ -328,7 +328,7 @@ func newDeviceControls(p *soundPanel, kind pulse.DeviceType) *deviceControls {
 	}
 	c.more = k.iconButton("ld-ellipsis-symbolic", "settings-sound-device-options", c.openMenu)
 	c.more.SetAccessibleName(t.Get("settings-sound-device-options"))
-	c.rows.Append(panelRow(k, t.Get("settings-sound-device"), "", c.devices, c.more))
+	c.rows.Append(k.row(t.Get("settings-sound-device"), "").withControl(c.devices).withTrailing(c.more))
 	c.volume = widgets.NewDebouncedSlider(0, k.face, k.textPx(), 0, k.invoke, k.clock)
 	c.volume.Knob.SetAccessibleName(t.Get("settings-sound-volume"))
 	c.volume.Write = func(v float64) func() {
@@ -345,7 +345,7 @@ func newDeviceControls(p *soundPanel, kind pulse.DeviceType) *deviceControls {
 		p.act(func(ctx context.Context, svc *pulse.Service) error { return svc.SetDeviceMute(ctx, key, on) })
 	})
 	c.mute.name(t.Get(muteKey))
-	c.rows.Append(panelRow(k, t.Get("settings-sound-volume"), "", c.mute, c.volume))
+	c.rows.Append(k.row(t.Get("settings-sound-volume"), "").withActions(c.mute).withControl(c.volume))
 	c.balance = widgets.NewRangedSlider(-balanceRange, balanceRange, 0, nil, 0, 0, k.invoke, k.clock)
 	c.balance.Knob.SetAccessibleName(t.Get("settings-sound-balance"))
 	c.balance.Write = func(b float64) func() {
@@ -354,12 +354,12 @@ func newDeviceControls(p *soundPanel, kind pulse.DeviceType) *deviceControls {
 			return svc.SetDeviceVolume(ctx, key, pulse.NewVolume(levels))
 		})
 	}
-	c.balanceRow = panelRow(k, t.Get("settings-sound-balance"), "", c.balance)
+	c.balanceRow = k.row(t.Get("settings-sound-balance"), "").withControl(c.balance)
 	c.rows.Append(c.balanceRow)
 	if kind == pulse.DeviceOutput {
 		c.tests = widget.NewGrid(widget.Current().Spacing, widget.Current().Spacing).SetColumnHomogeneous(true)
 		c.tests.AddClass("sound-speakers")
-		c.testsRow = panelRow(k, t.Get("settings-sound-test"), t.Attr("settings-sound-test", "description"), c.tests)
+		c.testsRow = k.keyRow("settings-sound-test").withControl(c.tests)
 		c.rows.Append(c.testsRow)
 	}
 	return c
@@ -470,11 +470,9 @@ func setChoices(d *widget.Dropdown, items []string, selected int) {
 }
 
 type appRow struct {
-	*widget.Box
+	*settingRow
 	kind   streamKind
 	icon   *widget.Icon
-	title  *widget.Label
-	detail *widget.Label
 	route  *widget.Dropdown
 	routes []pulse.DeviceKey
 	volume *widgets.DebouncedSlider
@@ -486,8 +484,6 @@ func newAppRow(p *soundPanel, kind streamKind, key pulse.StreamKey) *appRow {
 	k := p.k
 	r := &appRow{kind: kind, icon: widget.NewThemeIconFallback(appFallbackIcon, appIconPx)}
 	r.icon.AddClass("sound-app-icon")
-	r.title = k.label("", "setting-label")
-	r.detail = k.label("", "setting-description", css.Caption, css.DimLabel)
 	r.route = widget.NewDropdown(k.face, k.textPx(), nil, 0)
 	r.route.OnSelect = func(i int) {
 		if p.syncing || i >= len(r.routes) {
@@ -509,26 +505,18 @@ func newAppRow(p *soundPanel, kind streamKind, key pulse.StreamKey) *appRow {
 		}
 		p.act(func(ctx context.Context, svc *pulse.Service) error { return svc.SetStreamMute(ctx, key, on) })
 	})
-	text := widget.NewBox(widget.Column, widget.Current().Spacing/4, 0)
-	text.Append(r.title, false)
-	text.Append(r.detail, false)
-	r.Box = gapBox(widget.Row)
-	r.SetElement("item")
-	r.AddClass(css.Small, "setting-row", "sound-app")
-	r.AppendAligned(r.icon, false, widget.AlignCenter)
-	r.AppendAligned(text, true, widget.AlignCenter)
-	r.AppendAligned(r.route, false, widget.AlignCenter)
-	r.AppendAligned(r.mute, false, widget.AlignCenter)
-	r.AppendAligned(r.volume, false, widget.AlignCenter)
+	r.settingRow = k.row("", "").withActions(r.route, r.mute).withControl(r.volume)
+	r.AddClass("sound-app")
+	r.SetMedia(r.icon, true)
 	return r
 }
 
 func (r *appRow) show(s pulse.AudioStream, devices []pulse.Device) {
 	t := locale.T()
 	name := cmp.Or(s.ApplicationName, s.Binary, s.Name)
-	r.title.SetText(name)
+	r.SetTitle(name)
 	r.icon.SetThemeName(streamIcon(s))
-	r.detail.SetText(cmp.Or(s.Media.Title, s.Name))
+	r.SetDescription(cmp.Or(s.Media.Title, s.Name))
 	r.showRoutes(s, devices, name)
 	r.volume.Knob.SetAccessibleName(t.Get("settings-sound-app-volume", i18n.Str("app", name)))
 	r.mute.name(t.Get("settings-sound-app-mute", i18n.Str("app", name)))

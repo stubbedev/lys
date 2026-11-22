@@ -12,7 +12,7 @@ func TestTheWeatherPageAsksOnlyForTheChosenProvidersKey(t *testing.T) {
 	spec, _ := pageByID(layout(k.store.svc.Config(), bothParts), "weather")
 	p := buildPage(k, spec)
 	keyShown := func(path string) bool {
-		i := slices.IndexFunc(p.rows, func(r *settingRow) bool { return r.path == path })
+		i := slices.IndexFunc(p.rows, func(r *fieldRow) bool { return r.path == path })
 		if i < 0 {
 			t.Fatalf("no row %s", path)
 		}
@@ -27,7 +27,7 @@ func TestTheWeatherPageAsksOnlyForTheChosenProvidersKey(t *testing.T) {
 	if keyShown(visual) || keyShown(weatherAPI) {
 		t.Fatal("Open-Meteo, which needs no key, shows a key row")
 	}
-	provider := slices.IndexFunc(p.rows, func(r *settingRow) bool { return r.path == "modules.weather.provider" })
+	provider := slices.IndexFunc(p.rows, func(r *fieldRow) bool { return r.path == "modules.weather.provider" })
 	for _, c := range []struct {
 		provider     config.WeatherProvider
 		shown, other string

@@ -12,7 +12,6 @@ import (
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -290,8 +289,8 @@ type zoneChooser struct {
 	face     *widget.ButtonContent
 	worldMap *zoneMap
 	notice   *widget.Label
-	mapRow   *widget.Box
-	noteRow  *widget.Box
+	mapRow   *insetRow
+	noteRow  *insetRow
 	picker   *searchPicker
 }
 
@@ -304,8 +303,8 @@ func newZoneChooser(k *kit, cat zoneCatalog, choose func(string)) *zoneChooser {
 	c.button, c.face = k.contentButton(rolePicker, "ld-globe-symbolic", "", c.open)
 	c.button.SetAccessibleName(locale.T().Get("settings-date-zone"))
 	c.worldMap = newZoneMap(cat, c.choose)
-	c.notice = wrapped(k.label("", "setting-description", css.Caption, css.DimLabel))
-	c.mapRow, c.noteRow = insetRow(c.worldMap), insetRow(c.notice)
+	c.notice = k.note("")
+	c.mapRow, c.noteRow = newInsetRow(c.worldMap), newInsetRow(c.notice)
 	c.mapRow.SetVisible(len(cat.pins) > 0)
 	c.noteRow.SetVisible(cat.noMap != nil)
 	if cat.noMap != nil {

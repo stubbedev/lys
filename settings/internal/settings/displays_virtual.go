@@ -134,13 +134,12 @@ func (p *displaysPanel) showVirtualRows(w *wmBackend, name string) {
 	if !slices.Contains(virtualNames(w), name) {
 		return
 	}
-	t := locale.T()
 	s := virtualSlot(w, name)
 	mode := newChoiceEditor(p.k, nestedSlot(s, []string{"mode"}), choiceSpec{list: fixedChoices(virtualModeChoices()), free: true})
-	p.extra.Append(panelRow(p.k, t.Get("settings-displays-virtual-mode"), t.Attr("settings-displays-virtual-mode", "description"), mode))
+	p.addExtra(p.k.keyRow("settings-displays-virtual-mode").withControl(mode))
 	remove := p.k.removeButton("settings-displays-virtual-remove", func() {
 		s.unset()
 		p.render()
 	})
-	p.extra.Append(panelRow(p.k, t.Get("settings-displays-virtual"), t.Attr("settings-displays-virtual", "description"), remove))
+	p.addExtra(p.k.keyRow("settings-displays-virtual").withControl(remove))
 }

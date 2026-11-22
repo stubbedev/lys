@@ -304,7 +304,7 @@ func newOffsetEditor(k *kit, s slot, path string, lo, hi float64) *offsetEditor 
 	t := locale.T()
 	c := &offsetEditor{Box: gapBox(widget.Column)}
 	c.AddClass("offset-editor")
-	labels := widget.NewSizeGroup(widget.SizeGroupHorizontal)
+	grid := k.formGrid()
 	whole := config.FieldMeta{Min: math.MinInt32, Max: math.MaxInt32}
 	for i, key := range offsetAxes {
 		axis := newSoftRange(k, offsetAxisSlot(s, path, i), whole, lo, hi, 1, func(v float64) string {
@@ -312,10 +312,7 @@ func newOffsetEditor(k *kit, s slot, path string, lo, hi float64) *offsetEditor 
 		})
 		axis.slider.SetAccessibleName(t.Get(key))
 		axis.number.SetAccessibleName(t.Get(key))
-		row := gapBox(widget.Row)
-		row.AppendAligned(labels.Add(k.label(t.Get(key), css.Caption, css.DimLabel)), false, widget.AlignCenter)
-		row.Append(axis, true)
-		c.Append(row, false)
+		c.Append(grid.row(grid.label(t.Get(key)), axis, true), false)
 		c.axes[i] = axis
 	}
 	return c

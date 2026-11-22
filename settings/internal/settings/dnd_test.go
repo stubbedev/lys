@@ -62,15 +62,15 @@ func dndStatusOf(status dndStatus, at string) string {
 func TestTheDoNotDisturbSwitchShowsAndSetsTheShellsState(t *testing.T) {
 	f := &fakeDND{state: dndState{reason: notifications.FocusOff}}
 	p := dndPanelOf(t, f)
-	if p.toggle.On() || !p.toggle.Enabled() || p.status.Text() != dndStatusOf(dndOff, "") {
-		t.Fatalf("off reads on %v enabled %v %q", p.toggle.On(), p.toggle.Enabled(), p.status.Text())
+	if p.toggle.On() || !p.toggle.Enabled() || p.Description() != dndStatusOf(dndOff, "") {
+		t.Fatalf("off reads on %v enabled %v %q", p.toggle.On(), p.toggle.Enabled(), p.Description())
 	}
 	p.toggle.SetOn(true)
 	if len(f.sets) != 1 || !f.sets[0] {
 		t.Fatalf("switching on asked lys-shell for %v", f.sets)
 	}
-	if !p.toggle.On() || p.status.Text() != dndStatusOf(dndManual, "") || p.problem.Visible() {
-		t.Fatalf("after switching on: on %v %q, problem %q", p.toggle.On(), p.status.Text(), p.problem.Text())
+	if !p.toggle.On() || p.Description() != dndStatusOf(dndManual, "") || p.problem.Visible() {
+		t.Fatalf("after switching on: on %v %q, problem %q", p.toggle.On(), p.Description(), p.problem.Text())
 	}
 	p.close()
 	if !f.closed {
@@ -91,8 +91,8 @@ func TestWithoutLysShellTheDoNotDisturbSwitchStaysOff(t *testing.T) {
 	k := testKit(t, "")
 	p := newDNDPanel(k)
 	want := locale.T().Get("settings-dnd-unavailable", i18n.Str("reason", "no lys-shell in the tests"))
-	if p.toggle.Enabled() || p.status.Text() != want {
-		t.Fatalf("without lys-shell the switch is enabled %v, reads %q", p.toggle.Enabled(), p.status.Text())
+	if p.toggle.Enabled() || p.Description() != want {
+		t.Fatalf("without lys-shell the switch is enabled %v, reads %q", p.toggle.Enabled(), p.Description())
 	}
 	p.toggle.SetOn(true)
 }

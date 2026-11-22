@@ -74,16 +74,16 @@ func lightPanel(t *testing.T, f brightnessControl, err error) *displaysPanel {
 func TestEachDisplayShowsAndSetsItsOwnBrightness(t *testing.T) {
 	f := &fakeBrightness{at: map[string]float64{"eDP-1": 60}}
 	p := lightPanel(t, f, nil)
-	if !p.lightRow.Visible() || !p.lightSlider.Visible() || p.lightSlider.Value() != 60 || p.lightNote.Visible() {
-		t.Fatalf("the built-in display shows row %v slider %v at %v, note %q", p.lightRow.Visible(), p.lightSlider.Visible(), p.lightSlider.Value(), p.lightNote.Text())
+	if note := rowText(p.lightRow, "description"); !p.lightRow.Visible() || !p.lightSlider.Visible() || p.lightSlider.Value() != 60 || note != "" {
+		t.Fatalf("the built-in display shows row %v slider %v at %v, note %q", p.lightRow.Visible(), p.lightSlider.Visible(), p.lightSlider.Value(), note)
 	}
 	p.lightSlider.OnCommit(30)
 	if !slices.Equal(f.sets, []string{"eDP-1"}) || f.at["eDP-1"] != 30 || p.lightSlider.Value() != 30 {
 		t.Errorf("sliding to 30 set %v to %v, the slider shows %v", f.sets, f.at, p.lightSlider.Value())
 	}
 	p.selectOutput(1)
-	if p.lightSlider.Visible() || p.lightNote.Text() != locale.T().Get("settings-displays-brightness-none") {
-		t.Errorf("a display nothing drives shows slider %v, note %q", p.lightSlider.Visible(), p.lightNote.Text())
+	if note := rowText(p.lightRow, "description"); p.lightSlider.Visible() || note != locale.T().Get("settings-displays-brightness-none") {
+		t.Errorf("a display nothing drives shows slider %v, note %q", p.lightSlider.Visible(), note)
 	}
 	p.close()
 	if !f.closed {
@@ -103,8 +103,8 @@ func TestABrightnessLysShellRefusesIsSaid(t *testing.T) {
 func TestWithoutLysShellTheDisplaysSayTheirBrightnessCannotBeRead(t *testing.T) {
 	p := lightPanel(t, nil, errors.New("no lys-shell"))
 	want := locale.T().Get("settings-displays-brightness-unavailable", i18n.Str("reason", "no lys-shell"))
-	if !p.lightRow.Visible() || p.lightSlider.Visible() || p.lightNote.Text() != want {
-		t.Errorf("without lys-shell: row %v, slider %v, note %q", p.lightRow.Visible(), p.lightSlider.Visible(), p.lightNote.Text())
+	if note := rowText(p.lightRow, "description"); !p.lightRow.Visible() || p.lightSlider.Visible() || note != want {
+		t.Errorf("without lys-shell: row %v, slider %v, note %q", p.lightRow.Visible(), p.lightSlider.Visible(), note)
 	}
 }
 
@@ -151,12 +151,12 @@ func nightSwitch(t *testing.T, f *fakeNightlight) *shellSwitch[bool] {
 func TestTheDisplaysPageSwitchesTheNightLight(t *testing.T) {
 	f := &fakeNightlight{}
 	s := nightSwitch(t, f)
-	if s.toggle.On() || s.status.Text() != locale.T().Get("settings-nightlight-is-off") {
-		t.Fatalf("off reads on %v, %q", s.toggle.On(), s.status.Text())
+	if s.toggle.On() || s.Description() != locale.T().Get("settings-nightlight-is-off") {
+		t.Fatalf("off reads on %v, %q", s.toggle.On(), s.Description())
 	}
 	s.toggle.SetOn(true)
-	if !f.on || s.status.Text() != locale.T().Get("settings-nightlight-is-on") || s.problem.Visible() {
-		t.Errorf("switching on left the shell's night light on %v, status %q, problem %q", f.on, s.status.Text(), s.problem.Text())
+	if !f.on || s.Description() != locale.T().Get("settings-nightlight-is-on") || s.problem.Visible() {
+		t.Errorf("switching on left the shell's night light on %v, status %q, problem %q", f.on, s.Description(), s.problem.Text())
 	}
 }
 

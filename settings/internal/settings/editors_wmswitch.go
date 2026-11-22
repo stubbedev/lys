@@ -3,7 +3,6 @@ package settings
 import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -37,13 +36,10 @@ func newWMSwitch(k *kit, s slot, fields []cardField) *wmSwitch {
 	}
 	c := &wmSwitch{Box: gapBox(widget.Column), slot: s, choice: widget.NewDropdown(k.face, k.textPx(), choices, switchInherit), body: gapBox(widget.Column)}
 	c.choice.OnSelect = c.choose
-	labels := widget.NewSizeGroup(widget.SizeGroupHorizontal)
+	grid := k.formGrid()
 	for _, f := range fields {
 		ctl := f.item(k, func(key string) slot { return nestedSlot(s, []string{key}) })
-		row := gapBox(widget.Row)
-		row.AppendAligned(labels.Add(k.label(t.Get(f.label), css.CaptionHeading, css.DimLabel)), !f.fill, widget.AlignCenter)
-		row.AppendAligned(ctl, f.fill, widget.AlignCenter)
-		c.body.Append(row, false)
+		c.body.Append(grid.row(grid.label(t.Get(f.label)), ctl, f.fill), false)
 		c.fields = append(c.fields, ctl)
 		c.labels = append(c.labels, f.label)
 	}

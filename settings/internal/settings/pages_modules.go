@@ -348,7 +348,7 @@ func displayLightSections() []sectionSpec {
 			field(brightnessPath+".min-brightness", percentage),
 			field(brightnessPath+".enable-external", ddcRow),
 		}},
-		{title: "settings-section-nightlight-filter", preview: nightlightNow, rows: []rowSpec{field(m+".temperature", kelvin)}},
+		{title: "settings-section-nightlight-filter", lead: nightlightNow, rows: []rowSpec{field(m+".temperature", kelvin)}},
 		{title: "settings-section-nightlight-schedule", preview: nightlightDayPreview, rows: []rowSpec{
 			field(m + ".auto-schedule"),
 			field(m+".schedule", scheduled),

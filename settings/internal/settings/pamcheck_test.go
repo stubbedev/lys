@@ -14,7 +14,7 @@ import (
 
 const pamServicePath = "login.lock.pam-service"
 
-func pamServiceRowOf(t *testing.T, k *kit) (*settingRow, *choiceEditor) {
+func pamServiceRowOf(t *testing.T, k *kit) (*fieldRow, *choiceEditor) {
 	t.Helper()
 	row := newFieldRow(k, k.store, pageRow(t, "lock", pamServicePath))
 	c, ok := row.ctl.(*choiceEditor)
@@ -106,7 +106,7 @@ func (h *heldChecks) runLoop(t *testing.T) {
 	}
 }
 
-func pending(row *settingRow, service string) bool {
+func pending(row *fieldRow, service string) bool {
 	return row.problem.Visible() && !row.problem.HasClass(css.Error) && strings.Contains(row.problem.Text(), service)
 }
 

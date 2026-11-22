@@ -14,7 +14,6 @@ import (
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/power/pause"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -141,8 +140,8 @@ func newPausing(k *kit) *pausing {
 	t := locale.T()
 	s := &pausing{k: k, uid: intconv.Must[uint32](os.Getuid()), rows: gapBox(widget.Column)}
 	body := gapBox(widget.Column)
-	body.Append(wrapped(k.label(t.Get("settings-power-pause-detail"), "setting-description", css.Caption, css.DimLabel)), false)
-	s.problem = wrapped(k.label("", "setting-problem", css.Caption, css.Error))
+	body.Append(k.note(t.Get("settings-power-pause-detail")), false)
+	s.problem = k.errorText("")
 	s.problem.SetVisible(false)
 	body.Append(s.problem, false)
 	body.Append(s.rows, false)
@@ -183,7 +182,7 @@ func (s *pausing) show(l pauseListing) {
 	s.rows.Clear()
 	s.add.SetVisible(l.err == nil)
 	if l.err != nil {
-		s.rows.Append(panelRow(s.k, t.Get("settings-power-pause-unavailable"), l.err.Error()), false)
+		s.rows.Append(widget.NewItemGroup(s.k.row(t.Get("settings-power-pause-unavailable"), l.err.Error())), false)
 		return
 	}
 	st := l.state.VisibleTo(s.uid)
@@ -233,9 +232,8 @@ func (s *pausing) row(st pause.State, u pause.Unit) widget.Widget {
 	if i := slices.IndexFunc(s.listing.candidates, func(c pauseCandidate) bool { return c.unit == u }); i >= 0 {
 		name = cmp.Or(s.listing.candidates[i].description, name)
 	}
-	row := widget.NewItem(s.k.face, name, u.Name()+" · "+entryText(st, u))
-	row.AddClass(css.Small, "pause-unit")
-	row.SetEllipsize(true)
+	row := s.k.row(name, u.Name()+" · "+entryText(st, u))
+	row.AddClass("pause-unit")
 	if slices.Contains(st.Picks, u) {
 		row.AddAction(s.k.removeButton("settings-power-pause-remove", func() { s.set(u, false) }))
 	}

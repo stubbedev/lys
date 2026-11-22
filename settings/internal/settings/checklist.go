@@ -7,7 +7,6 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -105,25 +104,24 @@ func (c *checklist) refresh() {
 	}
 	c.list.Append(rows, false)
 	if c.listing.err != nil {
-		c.list.Append(wrapped(c.k.label(c.listing.err.Error(), css.Error, css.Caption)), false)
+		c.list.Append(c.k.errorText(c.listing.err.Error()), false)
 	}
 }
 
-func (c *checklist) itemRow(it checkItem, chosen []string) *widget.Item {
+func (c *checklist) itemRow(it checkItem, chosen []string) *settingRow {
 	on := slices.Contains(chosen, it.value)
 	title, detail := c.title(it.value), it.detail
 	if detail == "" && title != it.value {
 		detail = it.value
 	}
-	row := widget.NewItem(c.k.face, title, detail)
-	row.AddClass(css.Small, "checklist-item")
-	row.SetEllipsize(true)
+	row := c.k.row(title, detail)
+	row.AddClass("checklist-item")
 	row.SetMedia(c.k.icon(c.spec.icon), false)
 	sw := widget.NewSwitch(on)
 	sw.SetAccessibleName(title)
 	sw.SetEnabled(!on || !c.spec.keepOne || len(chosen) > 1)
 	sw.OnChanged = func(on bool) { c.choose(it.value, on) }
-	row.AddAction(sw)
+	row.withControl(sw)
 	return row
 }
 

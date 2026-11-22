@@ -13,7 +13,6 @@ import (
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/shell/service/sni"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -98,7 +97,7 @@ func (c *trayItemsList) refresh() {
 	}
 	c.list.Append(rows, false)
 	if c.listing.err != nil {
-		c.list.Append(wrapped(c.k.label(c.listing.err.Error(), css.Error, css.Caption)), false)
+		c.list.Append(c.k.errorText(c.listing.err.Error()), false)
 	}
 }
 
@@ -122,7 +121,7 @@ func hidingPattern(patterns []string, it trayItem) (string, bool) {
 	return "", false
 }
 
-func (c *trayItemsList) itemRow(it trayItem) *widget.Item {
+func (c *trayItemsList) itemRow(it trayItem) *settingRow {
 	t := locale.T()
 	patterns := c.patterns()
 	pattern, hidden := hidingPattern(patterns, it)
@@ -131,16 +130,15 @@ func (c *trayItemsList) itemRow(it trayItem) *widget.Item {
 	if byRule {
 		detail = t.Get("settings-tray-item-hidden-by", i18n.Str("pattern", pattern))
 	}
-	row := widget.NewItem(c.k.face, it.name(), detail)
-	row.AddClass(css.Small, "tray-item")
-	row.SetEllipsize(true)
+	row := c.k.row(it.name(), detail)
+	row.AddClass("tray-item")
 	row.SetMedia(c.k.icon(cmp.Or(it.icon, trayFallbackIcon)), false)
 	row.AddAction(newIconEditor(c.k, c.overrideIcon(it.id)))
 	sw := widget.NewSwitch(!hidden)
 	sw.SetAccessibleName(it.name())
 	sw.SetEnabled(!byRule)
 	sw.OnChanged = func(on bool) { c.setShown(it, on) }
-	row.AddAction(sw)
+	row.withControl(sw)
 	return row
 }
 

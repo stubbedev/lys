@@ -11,7 +11,6 @@ import (
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -92,7 +91,7 @@ func drawLauncherOnScreen(k *kit, cfg *config.Config, font render.Font, state *l
 	st := launcherview.RowStyle{Font: font, Variants: variants, IconPx: px(launcherview.SearchIconSize), ShowIcons: look.ShowIcons, Post: k.invoke}
 	rows := launcherSampleRows(state.query, cfg.Launcher)
 	column := widget.NewBox(widget.Column, widget.Current().Spacing, 0)
-	noMatch := wrapped(k.label("", "settings-preview-state", css.Caption, css.DimLabel))
+	noMatch := k.note("", "settings-preview-state")
 	var session *launcherview.Session
 	session = launcherview.NewSession(launcherview.Spec{
 		Font: font, Variants: variants, Config: cfg, Look: look,

@@ -7,7 +7,6 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -65,8 +64,8 @@ func newMonitorChoice(k *kit, s slot, special monitorSpecial) *monitorChoice {
 	}
 	c.picker = newMonitorPicker(k, func(name string) { c.write(name) })
 	c.picker.SetAccessibleName(t.Get("settings-monitors"))
-	c.note = wrapped(k.label("", "setting-description", css.Caption, css.DimLabel))
-	c.Append(panelRow(k, t.Get(special.key), t.Attr(special.key, "description"), c.follow), false)
+	c.note = k.note("")
+	c.Append(widget.NewItemGroup(k.keyRow(special.key).withControl(c.follow)), false)
 	c.Append(c.picker, false)
 	c.Append(c.note, false)
 	c.feed = watchTiles(k, c.showTiles)

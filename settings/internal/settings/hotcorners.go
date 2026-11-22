@@ -51,7 +51,7 @@ func newHotCorners(k *kit, paths []string, slots []slot) *hotCorners {
 	h := &hotCorners{Box: gapBox(widget.Row), k: k, paths: paths, slots: slots}
 	h.AddClass("hot-corners")
 	h.screen = newCornerScreen(h)
-	h.title = k.label("", "setting-label")
+	h.title = k.label("")
 	h.editor = gapBox(widget.Column)
 	side := gapBox(widget.Column)
 	side.Append(h.title, false)

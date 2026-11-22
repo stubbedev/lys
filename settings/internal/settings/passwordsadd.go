@@ -61,14 +61,14 @@ func (p *passwordsPanel) newItemForm() *keyringItemForm {
 	text := func(key string) *widget.Entry {
 		e := p.k.entry()
 		e.SetAccessibleName(t.Get(key))
-		f.Append(panelRow(p.k, t.Get(key), "", e), false)
+		f.Append(p.k.row(t.Get(key), "").withControl(e), false)
 		return e
 	}
 	f.label = text("settings-passwords-label")
 	f.username = text("settings-passwords-add-username")
 	f.service = text("settings-passwords-add-service")
 	f.secret = p.k.passwordEntry("settings-passwords-secret")
-	f.Append(panelRow(p.k, t.Get("settings-passwords-secret"), "", f.secret, p.k.revealButton(f.secret)), false)
+	f.Append(p.k.row(t.Get("settings-passwords-secret"), "").withControl(f.secret).withTrailing(p.k.revealButton(f.secret)), false)
 	f.messages = p.k.dialogMessages()
 	f.Append(f.messages, false)
 	return f

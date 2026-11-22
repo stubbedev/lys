@@ -362,7 +362,7 @@ type loginItems struct {
 func loginItemsLead(k *kit) widget.Widget {
 	l := &loginItems{k: k, desktops: desktopentry.CurrentDesktops()}
 	content := sectionStack()
-	l.problem = wrapped(k.label("", "setting-problem", css.Caption, css.Error))
+	l.problem = k.errorText("")
 	l.problem.SetVisible(false)
 	content.Append(l.problem, false)
 	l.apps = widget.NewBox(widget.Column, 0, 0)
@@ -419,7 +419,7 @@ func (l *loginItems) showApps(r autostartListing) {
 	t := locale.T()
 	l.apps.Clear()
 	if r.err != nil {
-		l.apps.Append(wrapped(l.k.label(r.err.Error(), css.Error, css.Caption)), false)
+		l.apps.Append(l.k.errorText(r.err.Error()), false)
 		return
 	}
 	rows := widget.NewItemGroup()
@@ -432,10 +432,9 @@ func (l *loginItems) showApps(r autostartListing) {
 	l.apps.Append(rows, false)
 }
 
-func (l *loginItems) itemRow(icon, name, detail string) *widget.Item {
-	row := widget.NewItem(l.k.face, name, detail)
-	row.AddClass(css.Small, "login-item")
-	row.SetEllipsize(true)
+func (l *loginItems) itemRow(icon, name, detail string) *settingRow {
+	row := l.k.row(name, detail)
+	row.AddClass("login-item")
 	if icon != "" {
 		row.SetMedia(l.k.icon(icon, "login-item-icon"), false)
 	}
@@ -457,7 +456,7 @@ func (l *loginItems) appRow(e autostartEntry) widget.Widget {
 	sw := widget.NewSwitch(e.enabled)
 	sw.SetAccessibleName(e.name)
 	sw.OnChanged = func(on bool) { l.act(func() error { return setAutostart(l.dirs, e, on) }) }
-	row.AddAction(sw)
+	row.withControl(sw)
 	return row
 }
 
@@ -492,7 +491,7 @@ func (l *loginItems) showServices(r unitsListing) {
 	l.services.Clear()
 	l.filter.SetVisible(r.err == nil && len(r.units) > 0)
 	if r.err != nil {
-		l.services.Append(wrapped(l.k.label(t.Get("settings-login-services-unavailable")+": "+r.err.Error(), css.Error, css.Caption)), false)
+		l.services.Append(l.k.errorText(t.Get("settings-login-services-unavailable")+": "+r.err.Error()), false)
 		return
 	}
 	rows := widget.NewItemGroup()
@@ -548,7 +547,7 @@ func (l *loginItems) serviceRow(u userUnit) widget.Widget {
 			l.loadServices()
 		})
 	}
-	row.AddAction(sw)
+	row.withControl(sw)
 	return row
 }
 

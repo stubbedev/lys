@@ -2,7 +2,10 @@ package widget
 
 import (
 	"slices"
+	"strings"
 	"testing"
+
+	"github.com/stubbedev/lys/lib/render"
 
 	"github.com/stubbedev/lys/ui/widget/css"
 )
@@ -246,5 +249,120 @@ func TestItemGroupSeparatorsFollowShownItems(t *testing.T) {
 		if got := shown(); !slices.Equal(got, tc.want) {
 			t.Errorf("hiding %d items: separators shown %v, want %v", len(tc.hide), got, tc.want)
 		}
+	}
+}
+
+// layOutItems lays group out w wide.
+func layOutItems(g Widget, w int) {
+	con := Size{W: w, H: 2000}
+	SizeWithin(g, con)
+	g.Arrange(render.Rect{W: w, H: SizeWithin(g, con).H})
+}
+
+// The column controls of one ItemGroup start and end at one x, an
+// empty dropdown as wide as the rest; a natural control keeps its width
+// at the column's end, and a wide control takes the row's full width
+// under the text instead of the column.
+func TestItemGroupControlsShareOneColumn(t *testing.T) {
+	face := chromeFace(t)
+	short := NewDropdown(face, 14, []string{"On"}, 0)
+	long := NewDropdown(face, 14, []string{"Inherit (default)", "A much longer choice than the rest"}, 0)
+	empty := NewDropdown(face, 14, nil, 0)
+	spin := NewSpinButton(face, 14, 0, 0, 10, 1, 0)
+	sw := NewSwitch(false)
+	wide := NewEntry(face, 14, 0)
+	g := NewItemGroup()
+	var items []*Item
+	for i, c := range []struct {
+		w   Widget
+		fit ItemControlFit
+	}{{short, ItemControlColumn}, {long, ItemControlColumn}, {empty, ItemControlColumn}, {spin, ItemControlColumn}, {sw, ItemControlNatural}, {wide, ItemControlWide}} {
+		it := NewItem(face, "Setting", "")
+		if i == 1 {
+			it.AddAction(NewButton(NewLabel(face, 14, "Reset", 0), 0, 0))
+		}
+		it.SetControl(c.w, c.fit)
+		g.Append(it)
+		items = append(items, it)
+	}
+	layOutItems(g, 700)
+	ref := long.Bounds()
+	for _, c := range []Boundser{short, empty, spin} {
+		if b := c.Bounds(); b.X != ref.X || b.W != ref.W {
+			t.Errorf("%T spans x %d..%d, want the column's %d..%d", c, b.X, b.X+b.W, ref.X, ref.X+ref.W)
+		}
+	}
+	if s := sw.Bounds(); s.X+s.W != ref.X+ref.W || s.W >= ref.W {
+		t.Errorf("the switch spans x %d..%d, want its own width ending at the column's %d", s.X, s.X+s.W, ref.X+ref.W)
+	}
+	line, w := items[5].row.Bounds(), wide.Bounds()
+	if w.X != line.X || w.W != line.W || w.Y < line.Y+line.H {
+		t.Errorf("the wide entry is at %v, want the full width %d..%d under the line ending at y=%d", w, line.X, line.X+line.W, line.Y+line.H)
+	}
+	if ref.W == SizeWithin(wide, Size{W: 700, H: 100}).W {
+		t.Error("the wide entry set the column's width")
+	}
+}
+
+// Outside a group a column control is at least ItemColumnWidth wide,
+// and an item leaving its group leaves the group's column too.
+func TestItemColumnFloorsAndFollowsItsGroup(t *testing.T) {
+	face := chromeFace(t)
+	empty := NewDropdown(face, 14, nil, 0)
+	alone := NewItem(face, "Device", "")
+	alone.SetControl(empty, ItemControlColumn)
+	layOutItems(alone, 600)
+	if w := empty.Bounds().W; w != ItemColumnWidth {
+		t.Errorf("a lone empty dropdown is %dpx wide, want the column's %d", w, ItemColumnWidth)
+	}
+	small := NewDropdown(face, 14, nil, 0)
+	big := NewDropdown(face, 14, []string{"A choice far wider than the narrowest column is"}, 0)
+	g := NewItemGroup()
+	a, b := NewItem(face, "A", ""), NewItem(face, "B", "")
+	a.SetControl(small, ItemControlColumn)
+	b.SetControl(big, ItemControlColumn)
+	g.Append(a)
+	g.Append(b)
+	layOutItems(g, 900)
+	if small.Bounds().W != big.Bounds().W || small.Bounds().W <= ItemColumnWidth {
+		t.Fatalf("widths %d and %d, want both the wide dropdown's", small.Bounds().W, big.Bounds().W)
+	}
+	g.Remove(b)
+	layOutItems(g, 900)
+	if w := small.Bounds().W; w != ItemColumnWidth {
+		t.Errorf("after the wide row left, the column is %dpx, want %d", w, ItemColumnWidth)
+	}
+}
+
+// A description capped at two lines wraps to two rows at most, ends in
+// an ellipsis and carries its whole text as a tooltip; uncapped it wraps
+// to every row it needs, with no tooltip.
+func TestItemLinesCapTheDescription(t *testing.T) {
+	face := chromeFace(t)
+	text := strings.Repeat("A description long enough to wrap across many rows. ", 8)
+	rows := func(it *Item) int {
+		layOutItems(it, 360)
+		row := it.desc.Measure(Column, it.desc.Bounds().W).Nat
+		one := NewLabel(face, 14, "x", 0).Measure(Column, Unknown).Nat
+		return (row + one/2) / one
+	}
+	capped := NewItem(face, "Title", text)
+	capped.SetLines(1, 2)
+	if n := rows(capped); n != 2 {
+		t.Errorf("the capped description takes %d rows, want 2", n)
+	}
+	if capped.desc.TooltipText() != text {
+		t.Errorf("the capped description's tooltip is %q", capped.desc.TooltipText())
+	}
+	capped.SetDescription("short")
+	if capped.desc.TooltipText() != "short" {
+		t.Errorf("the tooltip did not follow the new description: %q", capped.desc.TooltipText())
+	}
+	free := NewItem(face, "Title", text)
+	if n := rows(free); n <= 2 {
+		t.Errorf("the uncapped description takes %d rows, want more than 2", n)
+	}
+	if free.desc.TooltipText() != "" {
+		t.Errorf("the uncapped description has the tooltip %q", free.desc.TooltipText())
 	}
 }

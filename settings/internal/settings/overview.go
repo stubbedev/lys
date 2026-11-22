@@ -60,7 +60,7 @@ func overviewTiles(k *kit) widget.Widget {
 		face := widget.NewBox(widget.Column, th.Spacing/2, th.Padding)
 		face.AppendAligned(k.icon(s.pages[0].icon, "settings-overview-icon"), false, widget.AlignStart)
 		face.Append(k.label(t.Get(s.key), "settings-overview-title", css.Heading), false)
-		desc := wrapped(k.label(t.Attr(s.key, "description"), "settings-overview-description", css.Caption, css.DimLabel))
+		desc := k.note(t.Attr(s.key, "description"), "settings-overview-description")
 		face.Append(desc, false)
 		if status, ok := k.statuses[s.key]; ok {
 			showStatus(k, status, desc)

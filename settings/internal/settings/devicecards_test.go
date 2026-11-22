@@ -172,7 +172,7 @@ func TestADeviceCardsOwnCurveLeavesTheClassProfile(t *testing.T) {
 	c := devicesOf(t, k, wmPointerPage())
 	cd := cardNamed(t, c, "G305")
 	c.fill(cd)
-	i := slices.IndexFunc(cd.rows, func(r *settingRow) bool { return r.path == accelPointsPath("input.pointer") })
+	i := slices.IndexFunc(cd.rows, func(r *fieldRow) bool { return r.path == accelPointsPath("input.pointer") })
 	curve, ok := cd.rows[i].ctl.(*accelCurveEditor)
 	if !ok {
 		t.Fatalf("the device's curve row holds %T", cd.rows[i].ctl)
@@ -186,7 +186,7 @@ func TestADeviceCardsOwnCurveLeavesTheClassProfile(t *testing.T) {
 		t.Errorf("the device holds no curve: %v", k.wm.value(devicesPath))
 	}
 	c.refresh()
-	profile := slices.IndexFunc(cd.rows, func(r *settingRow) bool { return r.path == "input.pointer.accel_profile" })
+	profile := slices.IndexFunc(cd.rows, func(r *fieldRow) bool { return r.path == "input.pointer.accel_profile" })
 	if cd.rows[profile].Visible() {
 		t.Error("the device's drawn curve still shows its profile")
 	}

@@ -12,7 +12,6 @@ import (
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -81,7 +80,7 @@ func newFontEditor(k *kit, s slot, monospace bool) *fontEditor {
 	}
 	c.sample = wrapped(k.label(locale.T().Get(sampleKey), "font-sample"))
 	c.sample.SetSizePx(fontSamplePx)
-	c.problem = wrapped(k.label("", "setting-problem", css.Caption, css.Error))
+	c.problem = k.errorText("")
 	c.problem.SetVisible(false)
 	c.AppendAligned(menu, false, widget.AlignStart)
 	c.Append(c.sample, false)

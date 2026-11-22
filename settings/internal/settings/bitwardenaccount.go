@@ -13,7 +13,6 @@ import (
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/secrets/vault"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -149,15 +148,15 @@ type vaultAccount struct {
 func newVaultAccount(k *kit) widget.Widget {
 	t := locale.T()
 	a := &vaultAccount{Box: gapBox(widget.Column), k: k}
-	a.state = wrapped(k.label(t.Get("settings-vault-asking"), "setting-label"))
+	a.state = wrapped(k.label(t.Get("settings-vault-asking")))
 	a.lock = k.secondaryButton(t.Get("settings-vault-lock"), a.lockNow)
 	a.form = newVaultForm(a)
 	a.login = k.primaryButton(t.Get("settings-vault-login"), a.form.openLogin)
 	a.unlock = k.primaryButton(t.Get("settings-vault-unlock"), a.form.openUnlock)
 	a.logout = k.destructiveButton(t.Get("settings-vault-logout"), a.askLogout)
-	a.failed = wrapped(k.label("", "setting-problem", css.Caption, css.Error))
+	a.failed = k.errorText("")
 	a.failed.SetVisible(false)
-	a.problem = wrapped(k.label("", "setting-problem", css.Caption, css.Error))
+	a.problem = k.errorText("")
 	a.problem.SetVisible(false)
 	actions := gapBox(widget.Row)
 	actions.Append(a.login, false)

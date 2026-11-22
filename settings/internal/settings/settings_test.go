@@ -2209,7 +2209,6 @@ func TestColorEditorShowsItsColor(t *testing.T) {
 	k := testKit(t, "lock:\n  background-color: \"#336699\"\n")
 	c := newColorEditor(k, pathSlot(k.store, "login.background-color"))
 	slot := widget.NewBox(widget.Row, 0, 0)
-	slot.AddClass("setting-control")
 	slot.Append(c, false)
 	cfg := config.Defaults()
 	slot.AttachStylesheet(widget.NewStylesheet(styling.BundleCSS(cfg, cfg.Styling.ActivePalette(), styling.Default()), 200))
@@ -2243,8 +2242,8 @@ func TestPickerPopoverGap(t *testing.T) {
 // The window stands on lys-ui's parts: a page's header is a dim
 // caption breadcrumb over an h4 title, each section a dim caption
 // heading over lys-ui's card holding an item group of the rows, each
-// row's description a dim caption beside the reset role's button, and
-// the close button an icon button.
+// row lys-ui's item with the reset role's button, and the close button
+// an icon button.
 func TestWindowTakesLysUiParts(t *testing.T) {
 	k := testKit(t, "")
 	cfg := k.store.svc.Config()
@@ -2267,22 +2266,21 @@ func TestWindowTakesLysUiParts(t *testing.T) {
 	has("settings-breadcrumb", css.Caption, css.DimLabel)
 	has("settings-page-title", css.H4)
 	has("settings-section-title", css.CaptionHeading, css.DimLabel)
-	has("settings-group", css.Card)
-	has("setting-description", css.Caption, css.DimLabel)
 	if len(buttonsOfRole(w.root, roleReset)) == 0 {
 		t.Error("no row shows a reset button")
 	}
 	if close := buttonsTitled(w.root, locale.T().Get("settings-close")); len(close) != 1 || !slices.Contains(buttonsOfRole(w.root, roleIcon), close[0]) {
 		t.Error("the close button is not an icon button")
 	}
-	for _, g := range treetest.WithClass(w.root, "settings-group") {
-		if len(treetest.All[*widget.ItemGroup](g)) != 1 {
-			t.Error("a section's card holds no item group of its rows")
+	for _, s := range treetest.WithClass(w.page, "settings-section") {
+		cards := treetest.WithClass(s, css.Card)
+		if len(cards) != 1 || len(treetest.All[*widget.ItemGroup](cards[0])) != 1 {
+			t.Error("a section is not one card holding an item group of its rows")
 		}
 	}
-	for _, l := range treetest.WithClass(w.root, "setting-label") {
-		if widget.HasClass(l, css.DimLabel) {
-			t.Error("a setting's label is dim")
+	for _, r := range w.page.rows {
+		if r.Element() != "item" || !r.HasClass(css.Small) {
+			t.Errorf("the %s row is no small lys-ui item", r.path)
 		}
 	}
 }

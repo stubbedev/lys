@@ -7,7 +7,6 @@ import (
 	"github.com/stubbedev/lys/desktop/service/network"
 	"github.com/stubbedev/lys/desktop/service/network/eaptext"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -71,7 +70,7 @@ func newEAPForm(p *networkPanel) *eapForm {
 	k := p.k
 	f := &eapForm{Box: gapBox(widget.Column), p: p}
 	f.AddClass("network-enterprise")
-	f.head = wrapped(k.label("", "setting-label"))
+	f.head = wrapped(k.label(""))
 	f.Append(f.head, false)
 	methods := make([]widget.DropdownItem[network.EAPMethod], len(network.EAPMethods))
 	for i, m := range network.EAPMethods {
@@ -117,7 +116,7 @@ func newEAPForm(p *networkPanel) *eapForm {
 	f.Append(caField, false)
 	f.domain, domainField = f.text("dropdown-network-enterprise-domain", false)
 	f.Append(domainField, false)
-	f.problem = wrapped(k.label("", "setting-problem", css.Caption, css.Error))
+	f.problem = k.errorText("")
 	f.problem.SetVisible(false)
 	f.Append(f.problem, false)
 	f.Append(formButtons(

@@ -202,7 +202,7 @@ func newShortcutTable(k *kit, binds slot) *shortcutTable {
 	tb.Append(tb.adding, false)
 	tb.add = k.addButton("wm-mode-add", func() { tb.showAdding(true) })
 	tb.AppendAligned(tb.add, false, widget.AlignStart)
-	tb.problem = wrapped(k.label("", "setting-problem", css.Caption, css.Error))
+	tb.problem = k.errorText("")
 	tb.problem.SetVisible(false)
 	tb.Append(tb.problem, false)
 	tb.showAdding(false)
@@ -395,7 +395,7 @@ func newModeGroup(tb *shortcutTable, name string) *modeGroup {
 	g.form = newModeForm(k, "wm-mode-rename-confirm", false, func(text, _ string) { tb.renameMode(g, text) }, func() { g.showRenaming(false) })
 	g.form.SetVisible(false)
 	g.root.Append(g.form, false)
-	g.none = wrapped(k.label(t.Get("wm-mode-unreachable"), "setting-problem", css.Caption, css.Warning))
+	g.none = wrapped(k.label(t.Get("wm-mode-unreachable"), css.Caption, css.Warning))
 	g.root.Append(g.none, false)
 	g.root.Append(g.enter.clash, false)
 	spec := tb.bindCards(tb.inMode, []string{submapsKey, wmconfig.Each, wmconfig.Each}, func(items []any) func() error {
@@ -460,7 +460,7 @@ func newModeForm(k *kit, confirmKey string, withChord bool, onConfirm func(name,
 	row.AppendAligned(k.primaryButton(t.Get(confirmKey), confirm), false, widget.AlignCenter)
 	row.AppendAligned(k.cancelButton(onCancel), false, widget.AlignCenter)
 	f.Append(row, false)
-	f.problem = wrapped(k.label("", "setting-problem", css.Caption, css.Error))
+	f.problem = k.errorText("")
 	f.problem.SetVisible(false)
 	f.Append(f.problem, false)
 	return f

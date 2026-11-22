@@ -167,12 +167,11 @@ func (b *launcherBindings) row(d config.LauncherBinding) widget.Widget {
 			syncing = false
 		}
 	}
-	also := detailLabel(b.k, "")
-	row := panelRowWith(b.k, launcherActionLabel(d.Action), also, editor, reset.Button)
+	row := b.k.row(launcherActionLabel(d.Action), "").withActions(reset.Button).withControl(editor)
 	refresh := func() {
 		keys, overridden := b.keys(d)
 		_, rest, more := strings.Cut(keys, ",")
-		also.SetVisible(more)
+		also := ""
 		if more {
 			others := strings.Split(rest, ",")
 			for i, key := range others {
@@ -182,8 +181,9 @@ func (b *launcherBindings) row(d config.LauncherBinding) widget.Widget {
 					others[i] = rofiToAccel(key)
 				}
 			}
-			also.SetText(t.Get("settings-launcher-kb-also", i18n.Str("keys", strings.Join(others, ", "))))
+			also = t.Get("settings-launcher-kb-also", i18n.Str("keys", strings.Join(others, ", ")))
 		}
+		row.SetDescription(also)
 		reset.show(overridden)
 		sync(keys)
 	}

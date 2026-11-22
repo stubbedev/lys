@@ -42,10 +42,14 @@ func newColorValueEditor(k *kit, s slot) *colorValueEditor {
 	c.drop.OnSelect = c.picked
 	c.swatch = colorButton(k, s)
 	c.AppendAligned(c.swatch, false, widget.AlignCenter)
-	c.AppendAligned(c.drop, false, widget.AlignCenter)
+	c.AppendAligned(c.drop, true, widget.AlignCenter)
 	c.refresh()
 	return c
 }
+
+// columnField makes the editor a field of the control column: its
+// dropdown takes the column's width beside the swatch.
+func (c *colorValueEditor) columnField() {}
 
 // colorValueRows are build_items: auto, transparent, custom, then each
 // token group under its header, a swatch of the token's color in p

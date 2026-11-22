@@ -71,14 +71,15 @@ type displaysPanel struct {
 	none        *widget.Label
 	enabled     *widget.Switch
 	primary     *widget.Switch
-	primaryRow  *widget.Box
+	primaryRow  *settingRow
 	primaryAt   int
 	resolution  *widget.Dropdown
 	sizes       [][2]int
 	refresh     *widget.Dropdown
 	rates       []displays.Mode
 	scale       *presetPicker[float64]
-	extra       *widget.ItemGroup
+	rows        *widget.ItemGroup
+	extra       []*settingRow
 	capsNote    *widget.Label
 	caps        outputCapabilities
 	identify    *widget.Button
@@ -89,9 +90,8 @@ type displaysPanel struct {
 	confirm     *confirmation
 	identified  []func()
 	light       displayLight
-	lightRow    *widget.Box
+	lightRow    *settingRow
 	lightSlider *widgets.DebouncedSlider
-	lightNote   *widget.Label
 	closed      bool
 	syncing     bool
 }
@@ -114,7 +114,7 @@ type confirmBox struct {
 func displaysLead(k *kit) widget.Widget {
 	t := locale.T()
 	p := &displaysPanel{Box: sectionStack(), k: k, primaryAt: -1}
-	p.status = wrapped(k.label("", "setting-description", css.Caption))
+	p.status = wrapped(k.label("", css.Caption))
 	p.status.SetVisible(false)
 	p.canvas = newDisplaysCanvas(p)
 	p.canvas.SetAccessibleName(t.Get("settings-displays-arrangement"))
@@ -151,6 +151,7 @@ func (p *displaysPanel) buildControls() {
 	t := locale.T()
 	k := p.k
 	rows := widget.NewItemGroup()
+	p.rows = rows
 	p.enabled = widget.NewSwitch(true)
 	p.enabled.SetAccessibleName(t.Get("settings-displays-enabled"))
 	p.enabled.OnChanged = func(on bool) {
@@ -158,7 +159,7 @@ func (p *displaysPanel) buildControls() {
 			p.setEnabled(on)
 		}
 	}
-	rows.Append(panelRow(k, t.Get("settings-displays-enabled"), "", p.enabled))
+	rows.Append(k.row(t.Get("settings-displays-enabled"), "").withControl(p.enabled))
 	p.primary = widget.NewSwitch(false)
 	p.primary.SetAccessibleName(t.Get("settings-displays-primary"))
 	p.primary.OnChanged = func(on bool) {
@@ -166,7 +167,7 @@ func (p *displaysPanel) buildControls() {
 			p.makePrimary()
 		}
 	}
-	p.primaryRow = panelRow(k, t.Get("settings-displays-primary"), t.Attr("settings-displays-primary", "description"), p.primary)
+	p.primaryRow = k.keyRow("settings-displays-primary").withControl(p.primary)
 	rows.Append(p.primaryRow)
 	p.resolution = widget.NewDropdown(k.face, k.textPx(), nil, 0)
 	p.resolution.SetAccessibleName(t.Get("settings-displays-resolution"))
@@ -175,7 +176,7 @@ func (p *displaysPanel) buildControls() {
 			p.setSize(p.sizes[i])
 		}
 	}
-	rows.Append(panelRow(k, t.Get("settings-displays-resolution"), "", p.resolution))
+	rows.Append(k.row(t.Get("settings-displays-resolution"), "").withControl(p.resolution))
 	p.refresh = widget.NewDropdown(k.face, k.textPx(), nil, 0)
 	p.refresh.SetAccessibleName(t.Get("settings-displays-refresh"))
 	p.refresh.OnSelect = func(i int) {
@@ -183,23 +184,29 @@ func (p *displaysPanel) buildControls() {
 			p.edit(func(s *displays.Setting) { s.Mode = p.rates[i] }, false)
 		}
 	}
-	rows.Append(panelRow(k, t.Get("settings-displays-refresh"), "", p.refresh))
+	rows.Append(k.row(t.Get("settings-displays-refresh"), "").withControl(p.refresh))
 	p.scale = displayScalePicker(k, p.scaleSlot())
 	p.scale.SetAccessibleName(t.Get("settings-displays-scale"))
-	rows.Append(stackedPanelRow(k, t.Get("settings-displays-scale"), t.Attr("settings-displays-scale", "description"), p.scale))
+	scale := k.keyRow("settings-displays-scale")
+	scale.SetControl(p.scale, widget.ItemControlWide)
+	rows.Append(scale)
 	p.lightSlider = widgets.NewDebouncedSlider(0, k.face, k.textPx(), 0, k.invoke, k.clock)
 	p.lightSlider.SetAccessibleName(t.Get("settings-displays-brightness"))
 	p.lightSlider.OnCommit = p.setBrightness
-	p.lightNote = detailLabel(k, "")
-	p.lightRow = panelRowWith(k, t.Get("settings-displays-brightness"), p.lightNote, p.lightSlider)
+	p.lightRow = k.row(t.Get("settings-displays-brightness"), "").withControl(p.lightSlider)
 	p.lightRow.SetVisible(false)
 	rows.Append(p.lightRow)
 	p.controls.Append(rows, false)
-	p.capsNote = wrapped(k.label("", "setting-description", css.Caption))
+	p.capsNote = wrapped(k.label("", css.Caption))
 	p.capsNote.SetVisible(false)
 	p.controls.Append(p.capsNote, false)
-	p.extra = widget.NewItemGroup()
-	p.controls.Append(p.extra, false)
+}
+
+// addExtra adds row to the selected display's own rows, after the rows
+// every display has, in their card.
+func (p *displaysPanel) addExtra(row *settingRow) {
+	p.rows.Append(row)
+	p.extra = append(p.extra, row)
 }
 
 func (p *displaysPanel) connect() {
@@ -663,7 +670,10 @@ func (p *displaysPanel) readCapabilities() {
 }
 
 func (p *displaysPanel) showExtraRows() {
-	p.extra.Clear()
+	for _, row := range p.extra {
+		p.rows.Remove(row)
+	}
+	p.extra = nil
 	p.capsNote.SetVisible(false)
 	if len(p.heads) == 0 {
 		return
@@ -673,7 +683,6 @@ func (p *displaysPanel) showExtraRows() {
 		p.say(err.Error())
 		return
 	}
-	t := locale.T()
 	h := p.heads[p.selected]
 	rule := func() slot { return outputRuleSlot(w, h) }
 	set, _ := rule().get().(map[string]any)
@@ -689,7 +698,7 @@ func (p *displaysPanel) showExtraRows() {
 			continue
 		}
 		ctl := f.item(p.k, func(key string) slot { return nestedSlot(rule(), []string{key}) })
-		p.extra.Append(panelRow(p.k, t.Get(f.label), t.Attr(f.label, "description"), ctl))
+		p.addExtra(p.k.keyRow(f.label).withControl(ctl))
 	}
 	if note := p.caps.note(h.Name, hidden); note != "" {
 		p.capsNote.SetText(note)

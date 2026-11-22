@@ -83,7 +83,7 @@ type deviceCard struct {
 	specs     []rowSpec
 	root      *widget.Box
 	body      *widget.Box
-	rows      []*settingRow
+	rows      []*fieldRow
 }
 
 type devicesRead struct {
@@ -94,7 +94,7 @@ type devicesRead struct {
 func newDeviceCards(k *kit, kind deviceKind) *deviceCards {
 	c := &deviceCards{Box: gapBox(widget.Column), k: k, kind: kind}
 	c.AddClass("card-form-editor")
-	c.note = wrapped(k.label("", "setting-description", css.Caption, css.DimLabel))
+	c.note = k.note("")
 	c.list = gapBox(widget.Column)
 	c.Append(c.note, false)
 	c.Append(c.list, false)
@@ -225,7 +225,7 @@ func (c *deviceCards) cardWidget(cd *deviceCard) *widget.Box {
 // fill builds the card's rows, each a row of its class's section over
 // the device's key.
 func (c *deviceCards) fill(cd *deviceCard) {
-	cd.rows = make([]*settingRow, 0, len(cd.specs))
+	cd.rows = make([]*fieldRow, 0, len(cd.specs))
 	for _, spec := range cd.specs {
 		row := newSettingRow(c.k, cd.scope, spec, c.control(cd.scope, spec))
 		cd.rows = append(cd.rows, row)

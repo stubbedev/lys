@@ -140,7 +140,7 @@ func newAccelCurveEditor(k *kit, sc wmScope, s slot, class string) *accelCurveEd
 	c.AddClass("accel-curve-editor")
 
 	c.start = gapBox(widget.Row)
-	c.start.AppendAligned(wrapped(k.label(t.Get("wm-accel-curve-none"), css.Caption, css.DimLabel)), true, widget.AlignCenter)
+	c.start.AppendAligned(k.note(t.Get("wm-accel-curve-none")), true, widget.AlignCenter)
 	c.start.AppendAligned(k.secondaryButton(t.Get("wm-accel-curve-start"), c.begin), false, widget.AlignCenter)
 	c.Append(c.start, false)
 

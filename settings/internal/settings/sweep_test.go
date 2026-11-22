@@ -167,14 +167,14 @@ func sweepActions(root widget.Widget, driven map[string]bool) []sweepAction {
 // a step may rebuild the controls. The dropdown rows it drives all of join
 // driven once the row is done; without driven, every dropdown is driven
 // through every row.
-func sweepRow(t *testing.T, row *settingRow, driven map[string]bool, after func(action string)) {
+func sweepRow(t *testing.T, row *fieldRow, driven map[string]bool, after func(action string)) {
 	t.Helper()
 	met := map[string]bool{}
 	if driven != nil {
 		defer maps.Copy(driven, met)
 	}
 	popovers := &fakePickers{}
-	row.kit.pickers = popovers
+	row.k.pickers = popovers
 	step := func(a sweepAction) {
 		popovers.content = nil
 		a.do()

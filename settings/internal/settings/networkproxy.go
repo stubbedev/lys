@@ -13,7 +13,6 @@ import (
 	"github.com/stubbedev/lys/desktop/service/network"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 	"github.com/stubbedev/lys/settings/internal/proxyenv"
@@ -90,8 +89,7 @@ type proxyForm struct {
 	*widget.Box
 	p        *networkPanel
 	none     *widget.Label
-	row      *widget.Box
-	title    *widget.Label
+	row      *settingRow
 	choices  []proxyChoice
 	methods  *widget.ToggleGroup
 	auto     *widget.Box
@@ -118,9 +116,9 @@ func newProxyForm(p *networkPanel) *proxyForm {
 	t := locale.T()
 	f := &proxyForm{Box: gapBox(widget.Column), p: p, choices: []proxyChoice{proxyChoiceNone, proxyChoiceAuto}}
 	f.AddClass("proxy-form")
-	f.none = wrapped(k.label(t.Get("settings-proxy-no-connection"), css.Caption, css.DimLabel))
+	f.none = k.note(t.Get("settings-proxy-no-connection"))
 	f.Append(f.none, false)
-	f.noManual = wrapped(k.label("", css.Caption, css.DimLabel))
+	f.noManual = k.note("")
 	switch w, err := proxyWM(k); {
 	case err != nil:
 		f.noManual.SetText(err.Error())
@@ -139,12 +137,7 @@ func newProxyForm(p *networkPanel) *proxyForm {
 		}
 		f.choose(f.choices[i])
 	}
-	f.title = k.label("", "setting-label")
-	f.row = gapBox(widget.Row)
-	f.row.SetElement("item")
-	f.row.AddClass(css.Small, "setting-row")
-	f.row.AppendAligned(f.title, true, widget.AlignCenter)
-	f.row.AppendAligned(f.methods, false, widget.AlignCenter)
+	f.row = k.row("", "").withControl(f.methods)
 	group := widget.NewItemGroup()
 	group.Append(f.row)
 	f.Append(group, false)
@@ -184,7 +177,7 @@ func (f *proxyForm) manualForm() *widget.Box {
 	t := locale.T()
 	box := gapBox(widget.Column)
 	box.AddClass("proxy-manual")
-	box.Append(wrapped(k.label(t.Get("settings-proxy-manual-note"), css.Caption, css.DimLabel)), false)
+	box.Append(k.note(t.Get("settings-proxy-manual-note")), false)
 	for _, kind := range proxyenv.Kinds {
 		in := &f.servers[kind]
 		in.host = k.entry()
@@ -214,7 +207,7 @@ func (f *proxyForm) manualForm() *widget.Box {
 		problem:     proxyExclusionProblem,
 	})
 	box.Append(widget.NewField(k.face, t.Get("settings-proxy-exclude"), f.chips), false)
-	f.problem = wrapped(k.label("", "setting-problem", css.Caption, css.Error))
+	f.problem = k.errorText("")
 	f.problem.SetVisible(false)
 	box.Append(f.problem, false)
 	box.AppendAligned(k.primaryButton(t.Get("settings-proxy-apply"), f.apply), false, widget.AlignStart)
@@ -253,7 +246,7 @@ func (f *proxyForm) show(st *proxyState) {
 		f.path = ""
 		return
 	}
-	f.title.SetText(locale.T().Get("settings-proxy-for", i18n.Str("name", st.profile.ID)))
+	f.row.SetTitle(locale.T().Get("settings-proxy-for", i18n.Str("name", st.profile.ID)))
 	choice := proxyChoiceOf(st.proxy.Method())
 	if f.wm != nil {
 		set := f.showManual()

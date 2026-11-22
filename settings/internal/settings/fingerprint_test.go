@@ -194,8 +194,8 @@ func TestAFiveStageEnrolmentFillsTheRingFiveTimesAndListsTheFinger(t *testing.T)
 	if s.hands.enrolling != "" || s.cancel.Visible() || offered(s, "left-thumb") {
 		t.Fatal("the ring or cancel outlived the enrolment, or the finger is still offered")
 	}
-	if s.hint.Text() != "The finger is enrolled" {
-		t.Fatalf("the hint reads %q after the enrolment", s.hint.Text())
+	if s.hint != "The finger is enrolled" {
+		t.Fatalf("the hint reads %q after the enrolment", s.hint)
 	}
 	if got := r.methods(); !slices.Equal(got, []string{"Claim", "EnrollStart", "EnrollStop", "Release"}) {
 		t.Fatalf("calls %v", got)
@@ -233,8 +233,8 @@ func TestADuplicateOrAFullReaderSaysSoAndReleases(t *testing.T) {
 			r.l.until("EnrollStart", func() bool { return slices.Contains(r.methods(), "EnrollStart") })
 			r.emit(t, result, true)
 			r.l.until("released", func() bool { return slices.Contains(r.methods(), "Release") })
-			if !strings.Contains(s.hint.Text(), want) || !s.progress.Visible() {
-				t.Fatalf("the hint reads %q (shown %v), want %q in it", s.hint.Text(), s.progress.Visible(), want)
+			if !strings.Contains(s.hint, want) || !s.progress.Visible() {
+				t.Fatalf("the hint reads %q (shown %v), want %q in it", s.hint, s.progress.Visible(), want)
 			}
 			if got := r.methods(); !slices.Equal(got, []string{"Claim", "EnrollStart", "EnrollStop", "Release"}) {
 				t.Fatalf("calls %v", got)

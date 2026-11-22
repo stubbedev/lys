@@ -54,7 +54,10 @@ type sectionSpec struct {
 	when     func(s store) bool
 	advanced bool
 	// preview, when set, builds what shows the rows' effect above them.
-	preview  func(k *kit) widget.Widget
+	preview func(k *kit) widget.Widget
+	// lead, when set, builds the row the section's card opens with,
+	// ahead of its setting rows.
+	lead     func(k *kit) rowWidget
 	hardware wmipc.DeviceClass
 }
 
@@ -199,12 +202,12 @@ func withEditor(e editorFunc) rowOpt { return func(r *rowSpec) { r.editor = e } 
 // scroll, refreshing its rows when the config changes.
 type settingsPage struct {
 	*widget.Scroll
-	rows    []*settingRow
-	targets []*settingRow
-	hosts   map[*settingRow]nestHost
+	rows    []*fieldRow
+	targets []*fieldRow
+	hosts   map[*fieldRow]nestHost
 	status  *wmStatus
 	// revealing is the row the next layout scrolls into view.
-	revealing *settingRow
+	revealing *fieldRow
 	focusing  func()
 	releases  []func()
 	k         *kit
@@ -234,11 +237,11 @@ func (p *settingsPage) edited() {
 // when it hides, while its condition holds; governing is the row editing
 // that field.
 type dependentRow struct {
-	row       *settingRow
+	row       *fieldRow
 	on        rowCondition
 	value     slot
 	hides     bool
-	governing *settingRow
+	governing *fieldRow
 }
 
 func (d dependentRow) holds() bool { return d.on.holds(d.value.get()) }
@@ -282,7 +285,7 @@ func (p *settingsPage) showSections() {
 	}
 }
 
-func (p *settingsPage) inEffect(row *settingRow) bool {
+func (p *settingsPage) inEffect(row *fieldRow) bool {
 	for _, d := range p.dependent {
 		if d.row == row && d.hides && (!d.holds() || !p.inEffect(d.governing)) {
 			return false
@@ -291,7 +294,7 @@ func (p *settingsPage) inEffect(row *settingRow) bool {
 	return true
 }
 
-func (p *settingsPage) follow(row *settingRow, be backend, c rowCondition, hides bool) {
+func (p *settingsPage) follow(row *fieldRow, be backend, c rowCondition, hides bool) {
 	if !c.set() {
 		return
 	}
@@ -303,7 +306,7 @@ func (p *settingsPage) follow(row *settingRow, be backend, c rowCondition, hides
 // page bug.
 func (p *settingsPage) governDependents() {
 	for i, d := range p.dependent {
-		at := slices.IndexFunc(p.rows, func(r *settingRow) bool { return r.path == d.on.path && !r.action })
+		at := slices.IndexFunc(p.rows, func(r *fieldRow) bool { return r.path == d.on.path && !r.action })
 		if at < 0 {
 			log.Panicf("settings: the row %q follows %q, which has no row on its page", d.row.path, d.on.path)
 		}
@@ -375,6 +378,9 @@ func buildPage(k *kit, spec pageSpec) *settingsPage {
 		if s.preview != nil {
 			section.InsertAt(len(section.Children())-1, p.own(p.extra(s.preview(k))), false)
 		}
+		if s.lead != nil {
+			rows.Append(p.own(p.extra(s.lead(k))))
+		}
 		first := len(p.targets)
 		for _, rs := range s.rows {
 			var rowBackend backend = notifyingBackend{be, conditional}
@@ -382,7 +388,7 @@ func buildPage(k *kit, spec pageSpec) *settingsPage {
 				w, err := k.wmBackend()
 				if err != nil {
 					section.Append(wrapped(k.label(err.Error(), "error", css.Caption)), false)
-					p.targets = append(p.targets, make([]*settingRow, len(rs.flat()))...)
+					p.targets = append(p.targets, make([]*fieldRow, len(rs.flat()))...)
 					continue
 				}
 				rowBackend = notifyingBackend{w, conditional}
@@ -441,10 +447,10 @@ func newSectionParts(k *kit, title string, body widget.Widget) (section, group *
 	section.AddClass("settings-section")
 	section.Append(k.label(locale.T().Get(title), "settings-section-title", css.CaptionHeading, css.DimLabel), false)
 	if desc := description(title); desc != "" {
-		section.Append(wrapped(k.label(desc, "settings-section-description", css.Caption, css.DimLabel)), false)
+		section.Append(k.note(desc, "settings-section-description"), false)
 	}
 	group = widget.NewBox(widget.Column, 0, 0)
-	group.AddClass(css.Card, "settings-group")
+	group.AddClass(css.Card)
 	group.Append(body, false)
 	section.Append(group, false)
 	return section, group
@@ -508,27 +514,27 @@ func (k *kit) pageColumn(content widget.Widget) widget.Widget {
 // reveal scrolls row i into view at the next layout and hands its
 // control the keys through focus.
 type nester interface {
-	nestedRows() []*settingRow
+	nestedRows() []*fieldRow
 	showsNested() bool
 }
 
 // nestSelector is a nester showing one group of its rows at a time,
 // which brings forward the group row is in.
-type nestSelector interface{ showNested(row *settingRow) }
+type nestSelector interface{ showNested(row *fieldRow) }
 
 type nestHost struct {
-	row   *settingRow
+	row   *fieldRow
 	group nester
 }
 
-func (p *settingsPage) addTarget(row *settingRow) {
+func (p *settingsPage) addTarget(row *fieldRow) {
 	p.targets = append(p.targets, row)
 	n, ok := row.ctl.(nester)
 	if !ok {
 		return
 	}
 	if p.hosts == nil {
-		p.hosts = map[*settingRow]nestHost{}
+		p.hosts = map[*fieldRow]nestHost{}
 	}
 	for _, c := range n.nestedRows() {
 		p.hosts[c] = nestHost{row, n}
@@ -536,7 +542,7 @@ func (p *settingsPage) addTarget(row *settingRow) {
 	}
 }
 
-func (p *settingsPage) shown(row *settingRow) *settingRow {
+func (p *settingsPage) shown(row *fieldRow) *fieldRow {
 	out := row
 	for h, ok := p.hosts[row]; ok; h, ok = p.hosts[h.row] {
 		if !h.group.showsNested() {
@@ -548,7 +554,7 @@ func (p *settingsPage) shown(row *settingRow) *settingRow {
 
 // inUse is the row a reveal lands on for row: itself, or, while it is
 // hidden as having no effect, the row in use among those that hide it.
-func (p *settingsPage) inUse(row *settingRow) *settingRow {
+func (p *settingsPage) inUse(row *fieldRow) *fieldRow {
 	for _, d := range p.dependent {
 		if d.row == row && d.hides && !p.inEffect(row) {
 			return p.inUse(d.governing)
@@ -557,14 +563,14 @@ func (p *settingsPage) inUse(row *settingRow) *settingRow {
 	return row
 }
 
-func (p *settingsPage) governing(group *settingRow) *settingRow {
-	if i := slices.IndexFunc(p.targets, func(r *settingRow) bool { return r != nil && r != group && !r.action && r.path == group.path }); i >= 0 {
+func (p *settingsPage) governing(group *fieldRow) *fieldRow {
+	if i := slices.IndexFunc(p.targets, func(r *fieldRow) bool { return r != nil && r != group && !r.action && r.path == group.path }); i >= 0 {
 		return p.targets[i]
 	}
 	return group
 }
 
-func (p *settingsPage) reveal(i int, focus func(widget.Widget)) *settingRow {
+func (p *settingsPage) reveal(i int, focus func(widget.Widget)) *fieldRow {
 	if i < 0 || i >= len(p.targets) || p.targets[i] == nil {
 		return nil
 	}

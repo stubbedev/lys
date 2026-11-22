@@ -54,7 +54,7 @@ func TestASectionShowsOnlyWhileItsDeviceIsConnected(t *testing.T) {
 	if text := p.pointers.Text(); !strings.Contains(text, "Synaptics TM3276") || strings.Contains(text, "AT keyboard") || !p.pointers.Visible() {
 		t.Errorf("the strip says %q, want the touchpad and not the keyboard", text)
 	}
-	if !slices.ContainsFunc(p.rows, func(r *settingRow) bool { return r.path == "gaps.inner" }) {
+	if !slices.ContainsFunc(p.rows, func(r *fieldRow) bool { return r.path == "gaps.inner" }) {
 		t.Error("the ungated section lost its row")
 	}
 }
@@ -78,7 +78,7 @@ func TestASettingLinkKeepsItsSectionShownWhenTheDevicesArriveAfterIt(t *testing.
 	k.background = func(f func()) { later = append(later, f) }
 	k.invoke = func(f func()) { f() }
 	p := buildPage(k, pointerTestPage())
-	touchpad := slices.IndexFunc(p.targets, func(r *settingRow) bool { return r != nil && r.path == "input.touchpad.tap" })
+	touchpad := slices.IndexFunc(p.targets, func(r *fieldRow) bool { return r != nil && r.path == "input.touchpad.tap" })
 	if p.reveal(touchpad, nil) == nil {
 		t.Fatal("the touchpad row cannot be revealed")
 	}

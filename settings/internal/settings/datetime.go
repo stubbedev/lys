@@ -149,7 +149,7 @@ type sysPanel struct {
 
 func newSysPanel(k *kit, name string, path dbus.ObjectPath) *sysPanel {
 	p := &sysPanel{Box: gapBox(widget.Column), k: k, svc: sysService{name: name, iface: name, path: path}}
-	p.problem = wrapped(k.label("", "setting-problem", css.Caption, css.Error))
+	p.problem = k.errorText("")
 	p.problem.SetVisible(false)
 	p.body = gapBox(widget.Column)
 	p.Append(p.problem, false)
@@ -253,55 +253,9 @@ func (p *sysPanel) close() {
 	}
 }
 
-func panelRow(k *kit, title, detail string, controls ...widget.Widget) *widget.Box {
-	if detail == "" {
-		return panelRowWith(k, title, nil, controls...)
-	}
-	return panelRowWith(k, title, detailLabel(k, detail), controls...)
-}
-
-func detailLabel(k *kit, text string) *widget.Label {
-	return wrapped(k.label(text, "setting-description", css.Caption, css.DimLabel))
-}
-
-func panelRowWith(k *kit, title string, detail *widget.Label, controls ...widget.Widget) *widget.Box {
-	return panelRowAlong(k, widget.Row, title, detail, controls)
-}
-
-// stackedPanelRow is panelRow with its control under the text at the
-// full width, as a full-width setting row stacks its control.
-func stackedPanelRow(k *kit, title, detail string, control widget.Widget) *widget.Box {
-	row := panelRowAlong(k, widget.Column, title, detailLabel(k, detail), []widget.Widget{control})
-	row.AddClass("vertical")
-	return row
-}
-
-func panelRowAlong(k *kit, axis widget.Axis, title string, detail *widget.Label, controls []widget.Widget) *widget.Box {
-	row := gapBox(axis)
-	row.SetElement("item")
-	row.AddClass(css.Small, "setting-row")
-	text := widget.NewBox(widget.Column, widget.Current().Spacing/4, 0)
-	text.Append(k.label(title, "setting-label"), false)
-	if detail != nil {
-		text.Append(detail, false)
-	}
-	if axis == widget.Column {
-		row.Append(text, false)
-		for _, c := range controls {
-			row.Append(c, false)
-		}
-		return row
-	}
-	row.AppendAligned(text, true, widget.AlignCenter)
-	for _, c := range controls {
-		row.AppendAligned(c, false, widget.AlignCenter)
-	}
-	return row
-}
-
-func hourCycleRow(k *kit, fail func(error), changed func()) widget.Widget {
+func hourCycleRow(k *kit, fail func(error), changed func()) *settingRow {
 	t := locale.T()
-	preview := k.label("", "setting-description", css.Caption, css.DimLabel)
+	preview := k.label("", css.Caption, css.DimLabel)
 	h24 := widget.NewSwitch(false)
 	h24.SetAccessibleName(t.Get("settings-date-24h"))
 	showing := false
@@ -340,7 +294,7 @@ func hourCycleRow(k *kit, fail func(error), changed func()) widget.Widget {
 		changed()
 	}
 	show()
-	return panelRow(k, t.Get("settings-date-24h"), t.Attr("settings-date-24h", "description"), preview, h24)
+	return k.keyRow("settings-date-24h").withActions(preview).withControl(h24)
 }
 
 func timezoneChoices(zones []string) []choice {
@@ -392,10 +346,10 @@ func dateTimeLead(k *kit) widget.Widget {
 		}
 		zone := newZoneChooser(k, catalog, func(name string) { p.do("SetTimezone", name, interactive) })
 		rows := widget.NewItemGroup()
-		rows.Append(panelRow(k, t.Get("settings-date-ntp"), t.Attr("settings-date-ntp", "description"), ntp))
-		rows.Append(panelRow(k, t.Get("settings-date-manual"), t.Attr("settings-date-manual", "description"), manual.clock, manual.set))
-		rows.Append(insetRow(manual.calendar))
-		rows.Append(panelRow(k, t.Get("settings-date-zone"), t.Attr("settings-date-zone", "description"), zone.button))
+		rows.Append(k.keyRow("settings-date-ntp").withControl(ntp))
+		rows.Append(k.keyRow("settings-date-manual").withControl(manual.clock).withTrailing(manual.set))
+		rows.Append(newInsetRow(manual.calendar))
+		rows.Append(k.keyRow("settings-date-zone").withControl(zone.button))
 		rows.Append(zone.mapRow)
 		rows.Append(zone.noteRow)
 		refresh := func() {
@@ -731,20 +685,17 @@ func regionFormats(k *kit, lang func() string) (widget.Widget, func()) {
 	t := locale.T()
 	conf, err := localeConfPath(systemHost)
 	if err != nil {
-		return wrapped(k.label(err.Error(), "setting-problem", css.Caption, css.Error)), func() {}
+		return k.errorText(err.Error()), func() {}
 	}
-	preview := wrapped(k.label("", "setting-description", css.Caption, css.DimLabel))
-	units := wrapped(k.label("", "setting-description", css.Caption, css.DimLabel))
-	formatsProblem := wrapped(k.label("", "setting-problem", css.Caption, css.Error))
+	preview := k.note("")
+	units := k.note("")
+	formatsProblem := k.errorText("")
 	formatsProblem.SetVisible(false)
 	head := widget.NewBox(widget.Column, widget.Current().Spacing/2, 0)
-	head.SetElement("item")
 	head.Append(preview, false)
 	head.Append(units, false)
 	head.Append(formatsProblem, false)
-	formats := widget.NewBox(widget.Column, 0, 0)
-	formats.Append(head, false)
-	formats.Append(widget.NewSeparator(widget.Horizontal), false)
+	formats := widget.NewItemGroup(newInsetRow(head))
 	showPreview := func() {
 		values, _, err := readLocaleConf(conf)
 		if err != nil {
@@ -767,7 +718,7 @@ func regionFormats(k *kit, lang func() string) (widget.Widget, func()) {
 		return localesListing{names, err}
 	}, func(l localesListing) {
 		if l.err != nil {
-			head.Append(wrapped(k.label(l.err.Error(), css.Error, css.Caption)), false)
+			head.Append(k.errorText(l.err.Error()), false)
 			return
 		}
 		values, _, err := readLocaleConf(conf)
@@ -775,7 +726,6 @@ func regionFormats(k *kit, lang func() string) (widget.Widget, func()) {
 			formatsProblem.SetText(err.Error())
 			formatsProblem.SetVisible(true)
 		}
-		rows := widget.NewItemGroup()
 		names, shown := localeLabels(l.names)
 		l.names = names
 		labels := append([]string{t.Get("settings-region-same")}, shown...)
@@ -794,9 +744,8 @@ func regionFormats(k *kit, lang func() string) (widget.Widget, func()) {
 				}
 				showPreview()
 			}
-			rows.Append(panelRow(k, t.Get("settings-region-"+strings.ToLower(strings.ReplaceAll(key, "_", "-"))), "", dd))
+			formats.Append(k.row(t.Get("settings-region-"+strings.ToLower(strings.ReplaceAll(key, "_", "-"))), "").withControl(dd))
 		}
-		formats.Append(rows, false)
 		showPreview()
 	})
 	return formats, showPreview
@@ -838,16 +787,16 @@ func regionFooter(k *kit) widget.Widget {
 			},
 			unset: func() {},
 		}, choiceSpec{list: fixedChoices(keymaps), known: func(current string, items []choice) bool { return hasValue(items, current) }})
-		layout := k.label("", "setting-description", css.Caption, css.DimLabel)
+		layout := k.label("", css.Caption, css.DimLabel)
 		copyLayout := k.secondaryButton(t.Get("settings-region-copy-layout"), func() {
 			kb := wmKeyboard(k)
 			p.do("SetX11Keyboard", kb.layout, kb.model, kb.variant, kb.options, false, interactive)
 		})
 		copyLayout.SetEnabled(k.parts.wm)
 		rows := widget.NewItemGroup()
-		rows.Append(panelRow(k, t.Get("settings-region-language"), t.Attr("settings-region-language", "description"), language))
-		rows.Append(panelRow(k, t.Get("settings-region-keymap"), t.Attr("settings-region-keymap", "description"), keymap))
-		rows.Append(panelRow(k, t.Get("settings-region-layout"), t.Attr("settings-region-layout", "description"), layout, copyLayout))
+		rows.Append(k.keyRow("settings-region-language").withControl(language))
+		rows.Append(k.keyRow("settings-region-keymap").withControl(keymap))
+		rows.Append(k.keyRow("settings-region-layout").withActions(layout).withControl(copyLayout))
 		refresh := func() {
 			syncing = true
 			defer func() { syncing = false }()

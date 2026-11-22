@@ -254,9 +254,9 @@ func TestBackgroundAndNotificationsAreSwitchesAndTheStoreIsFollowed(t *testing.T
 	}
 }
 
-func resourceHeader(t *testing.T, root widget.Widget, key string) *widget.Item {
+func resourceHeader(t *testing.T, root widget.Widget, key string) *settingRow {
 	t.Helper()
-	for _, it := range treetest.All[*widget.Item](root) {
+	for _, it := range treetest.All[*settingRow](root) {
 		if slices.Contains(treetest.Labels(it), locale.T().Get(key)) {
 			return it
 		}

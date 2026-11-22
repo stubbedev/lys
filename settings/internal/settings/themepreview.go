@@ -27,7 +27,7 @@ type themeDesktop struct {
 func drawThemeDesktop(k *kit, cfg *config.Config, _ render.Font) widget.Widget {
 	t := locale.T()
 	if cfg.Styling.ColorExtractor.ThemeProvider != config.ThemeProviderLysShell {
-		return wrapped(k.label(t.Get("settings-theme-preview-generated"), "settings-preview-state", css.Caption, css.DimLabel))
+		return k.note(t.Get("settings-theme-preview-generated"), "settings-preview-state")
 	}
 	colors, err := paletteColors(cfg.Styling.ActivePalette())
 	if err != nil {

@@ -8,7 +8,6 @@ import (
 
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -28,24 +27,24 @@ type switchControl[S any] interface {
 // whether it is on and the line saying it, and the message keys of its
 // row, its waiting, its absence and a refused switch.
 type switchSpec[S any] struct {
-	open                                 func(k *kit) (switchControl[S], error)
-	on                                   func(S) bool
-	words                                func(k *kit, s S) string
-	section, label, loading, unavailable string
-	refused                              string
+	open                        func(k *kit) (switchControl[S], error)
+	on                          func(S) bool
+	words                       func(k *kit, s S) string
+	label, loading, unavailable string
+	refused                     string
 }
 
 // shellSwitch is a row switching a lys-shell state as it stands, its
-// status line following every change lys-shell announces.
+// description following every change lys-shell announces and its
+// problem line saying why a switch or a read failed. It is a row of the
+// card it is appended to.
 type shellSwitch[S any] struct {
-	*widget.Box
+	*settingRow
 	k       *kit
 	spec    switchSpec[S]
 	ctl     switchControl[S]
 	stop    context.CancelFunc
 	toggle  *widget.Switch
-	status  *widget.Label
-	problem *widget.Label
 	state   S
 	known   bool
 	syncing bool
@@ -55,21 +54,11 @@ type shellSwitch[S any] struct {
 
 func newShellSwitch[S any](k *kit, spec switchSpec[S]) *shellSwitch[S] {
 	t := locale.T()
-	p := &shellSwitch[S]{Box: gapBox(widget.Column), k: k, spec: spec, toggle: widget.NewSwitch(false)}
+	p := &shellSwitch[S]{settingRow: k.row(t.Get(spec.label), t.Get(spec.loading)), k: k, spec: spec, toggle: widget.NewSwitch(false)}
 	p.toggle.SetAccessibleName(t.Get(spec.label))
 	p.toggle.SetEnabled(false)
 	p.toggle.OnChanged = p.switched
-	p.status = detailLabel(k, t.Get(spec.loading))
-	p.problem = wrapped(k.label("", "setting-problem", css.Caption, css.Error))
-	p.problem.SetVisible(false)
-	rows := widget.NewItemGroup()
-	rows.Append(panelRowWith(k, t.Get(spec.label), p.status, p.toggle))
-	if spec.section != "" {
-		p.Append(newSection(k, spec.section, rows), false)
-	} else {
-		p.Append(rows, false)
-	}
-	p.Append(p.problem, false)
+	p.withControl(p.toggle)
 	type opened struct {
 		ctl   switchControl[S]
 		state S
@@ -87,7 +76,7 @@ func newShellSwitch[S any](k *kit, spec switchSpec[S]) *shellSwitch[S] {
 		return opened{ctl: ctl, state: st}
 	}, func(o opened) {
 		if o.err != nil {
-			p.status.SetText(t.Get(spec.unavailable, i18n.Str("reason", o.err.Error())))
+			p.SetDescription(t.Get(spec.unavailable, i18n.Str("reason", o.err.Error())))
 			return
 		}
 		if p.closed {
@@ -143,7 +132,7 @@ func (p *shellSwitch[S]) switched(on bool) {
 		return
 	}
 	ctl := p.ctl
-	p.problem.SetVisible(false)
+	p.showProblem(nil)
 	async(p.k, func() error {
 		return doWithin(shellCallWait, func(ctx context.Context) error { return ctl.set(ctx, on) })
 	}, func(err error) {
@@ -154,29 +143,26 @@ func (p *shellSwitch[S]) switched(on bool) {
 	})
 }
 
-func (p *shellSwitch[S]) fail(err error) {
-	p.problem.SetText(err.Error())
-	p.problem.SetVisible(true)
-}
+func (p *shellSwitch[S]) fail(err error) { p.showProblem(err) }
 
 func (p *shellSwitch[S]) show(st S) {
 	if p.unread {
 		p.unread = false
-		p.problem.SetVisible(false)
+		p.showProblem(nil)
 	}
 	p.syncing = true
 	p.toggle.SetEnabled(true)
 	p.toggle.SetOn(p.spec.on(st))
 	p.syncing = false
 	p.state, p.known = st, true
-	p.status.SetText(p.spec.words(p.k, st))
+	p.SetDescription(p.spec.words(p.k, st))
 }
 
 // configChanged says the state again, in words that may follow the
 // config.
 func (p *shellSwitch[S]) configChanged() {
 	if p.known {
-		p.status.SetText(p.spec.words(p.k, p.state))
+		p.SetDescription(p.spec.words(p.k, p.state))
 	}
 }
 

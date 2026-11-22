@@ -21,10 +21,10 @@ var treemanInstalled = func() bool {
 func treemanNote(k *kit) widget.Widget {
 	t := locale.T()
 	box := gapBox(widget.Column)
-	box.Append(wrapped(k.label(t.Get("settings-treeman-about"), "settings-section-description", css.Caption, css.DimLabel)), false)
+	box.Append(k.note(t.Get("settings-treeman-about"), "settings-section-description"), false)
 	if treemanInstalled() {
 		return box
 	}
-	box.Append(wrapped(k.label(t.Get("settings-treeman-missing"), "setting-problem", css.Caption, css.Warning)), false)
+	box.Append(wrapped(k.label(t.Get("settings-treeman-missing"), css.Caption, css.Warning)), false)
 	return box
 }

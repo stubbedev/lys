@@ -44,16 +44,6 @@ func (f cardField) build(k *kit, field func(key string) slot) control {
 	return f.editor(k, field(f.key))
 }
 
-// fieldRow is a card field's row: its label beside its control, the
-// spare width the label's unless fill gives it to the control.
-func fieldRow(label widget.Widget, ctl control, fill bool, class string) *widget.Box {
-	row := gapBox(widget.Row)
-	row.AddClass(class)
-	row.AppendAligned(label, !fill, widget.AlignCenter)
-	row.AppendAligned(ctl, fill, widget.AlignCenter)
-	return row
-}
-
 func (s cardSpec) editedKeys() []string {
 	var out []string
 	if s.identity != nil {
@@ -230,7 +220,7 @@ func newCardList(k *kit, s slot, spec cardSpec) *cardList {
 	c.list = gapBox(widget.Column)
 	c.list.AddClass(spec.listCls)
 	c.Append(c.list, false)
-	c.draft = k.label("", "setting-problem", css.Caption, css.Error)
+	c.draft = k.label("", css.Caption, css.Error)
 	c.draft.SetWrap(true)
 	c.draft.SetVisible(false)
 	addKey := spec.addKey
@@ -245,7 +235,7 @@ func newCardList(k *kit, s slot, spec cardSpec) *cardList {
 		actions.AppendAligned(add, false, widget.AlignCenter)
 		actions.AppendAligned(c.pickButton(*spec.pick), false, widget.AlignCenter)
 		c.AppendAligned(actions, false, widget.AlignStart)
-		c.picking = wrapped(k.label("", "setting-description", css.Caption))
+		c.picking = wrapped(k.label("", css.Caption))
 		c.picking.SetVisible(false)
 		c.Append(c.picking, false)
 	}
@@ -534,10 +524,8 @@ func (c *cardList) appendCard(i int) {
 	if c.spec.chrome != nil {
 		chrome = *c.spec.chrome
 	}
-	labels := widget.NewSizeGroup(widget.SizeGroupHorizontal)
-	formLabel := func(key string) widget.Widget {
-		return labels.Add(c.k.label(t.Get(key), c.spec.labelCls, css.CaptionHeading, css.DimLabel))
-	}
+	grid := c.k.formGrid()
+	formLabel := func(key string) widget.Widget { return grid.label(t.Get(key), c.spec.labelCls) }
 	header := gapBox(widget.Row)
 	header.AddClass(chrome.header)
 	cd := &card{}
@@ -591,7 +579,9 @@ func (c *cardList) appendCard(i int) {
 	fill := func() {
 		for _, f := range c.spec.fields {
 			ctl := f.build(c.k, func(key string) slot { return c.fieldSlot(i, key) })
-			body.Append(fieldRow(formLabel(f.label), ctl, f.fill, c.spec.rowClass), false)
+			row := grid.row(formLabel(f.label), ctl, f.fill)
+			row.AddClass(c.spec.rowClass)
+			body.Append(row, false)
 			cd.controls = append(cd.controls, ctl)
 		}
 	}
@@ -924,7 +914,7 @@ func (c *cardList) addClash(cd *card, i int) {
 	cd.clash = gapBox(widget.Row)
 	cd.clash.AddClass("card-clash")
 	cd.clash.SetPadding(cardInsets())
-	cd.clashMsg = c.k.label("", "setting-problem", css.Caption, css.Warning)
+	cd.clashMsg = c.k.label("", css.Caption, css.Warning)
 	cd.clashMsg.SetWrap(true)
 	cd.clash.AppendAligned(cd.clashMsg, true, widget.AlignCenter)
 	cd.clashFix = c.k.secondaryButton(locale.T().Get("settings-clash-replace"), func() { c.replace(i) })

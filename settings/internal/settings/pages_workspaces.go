@@ -10,7 +10,6 @@ import (
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/workspaces"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 	"github.com/stubbedev/lys/settings/internal/wmstate"
@@ -89,7 +88,7 @@ func workspacesCompositorNote(k *kit, on compositor.Kind) widget.Widget {
 	if on != compositor.Unknown {
 		text = t.Get("settings-workspaces-compositor", i18n.Str("compositor", on.String()))
 	}
-	return wrapped(k.label(text, "settings-section-description", css.Caption, css.DimLabel))
+	return k.note(text, "settings-section-description")
 }
 
 // workspaceIgnoreRow is the workspaces hidden from the bar as chips: a chip

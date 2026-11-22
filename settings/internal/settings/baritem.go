@@ -126,7 +126,7 @@ func newMouseActions(k *kit, slots []slot, choices []actionChoice) *mouseActions
 	m := &mouseActions{Box: gapBox(widget.Row), k: k, slots: slots, choices: choices}
 	m.AddClass("mouse-actions")
 	m.mouse = newMouseDrawing(m)
-	m.title = k.label("", "setting-label")
+	m.title = k.label("")
 	m.editor = gapBox(widget.Column)
 	side := gapBox(widget.Column)
 	side.Append(m.title, false)

@@ -278,7 +278,7 @@ func newBluetoothPanel(k *kit) *bluetoothPanel {
 		status: gapBox(widget.Column), request: gapBox(widget.Column), devices: gapBox(widget.Column), nearby: gapBox(widget.Column),
 	}
 	p.AddClass("bluetooth-panel")
-	p.problem = wrapped(k.label("", "setting-problem", css.Caption, css.Error))
+	p.problem = k.errorText("")
 	p.problem.SetVisible(false)
 	p.Append(p.problem, false)
 	p.requestSec = newSection(k, "settings-bluetooth-section-request", p.request)
@@ -322,7 +322,7 @@ func (p *bluetoothPanel) showSections(request, devices bool) {
 func (p *bluetoothPanel) unavailable(err error) {
 	p.status.Clear()
 	p.showSections(false, false)
-	p.status.Append(panelRow(p.k, locale.T().Get("settings-bluetooth-unavailable"), err.Error()), false)
+	p.status.Append(widget.NewItemGroup(p.k.row(locale.T().Get("settings-bluetooth-unavailable"), err.Error())), false)
 }
 
 func (p *bluetoothPanel) follow() {
@@ -420,7 +420,7 @@ func (p *bluetoothPanel) show() {
 	p.nearby.Clear()
 	p.showSections(v.pairing != nil, v.available && v.powered)
 	if !v.available {
-		p.status.Append(panelRow(p.k, t.Get("settings-bluetooth-no-adapter"), t.Get("settings-bluetooth-no-adapter-detail")), false)
+		p.status.Append(widget.NewItemGroup(p.k.row(t.Get("settings-bluetooth-no-adapter"), t.Get("settings-bluetooth-no-adapter-detail"))), false)
 		return
 	}
 	status := widget.NewItemGroup()
@@ -434,7 +434,7 @@ func (p *bluetoothPanel) show() {
 	if v.powered {
 		detail = t.Get("settings-bluetooth-on", i18n.Str("name", v.alias))
 	}
-	status.Append(panelRow(p.k, t.Get("settings-bluetooth-power"), detail, power))
+	status.Append(p.k.row(t.Get("settings-bluetooth-power"), detail).withControl(power))
 	status.Append(p.adapterNameRow(v.alias))
 	if v.pairing != nil {
 		p.request.Append(p.requestCard(v.pairing, v.pairingName), false)
@@ -468,8 +468,8 @@ func (p *bluetoothPanel) adapterNameRow(alias string) widget.Widget {
 		p.run("", btIdle, btCallWait, func(ctx context.Context) error { return p.ctl.renameAdapter(ctx, name) })
 	}
 	entry.OnActivate = func(string) { save() }
-	return panelRow(p.k, t.Get("settings-bluetooth-name"), t.Get("settings-bluetooth-name-detail"),
-		entry, p.k.primaryButton(t.Get("settings-bluetooth-save"), save))
+	return p.k.row(t.Get("settings-bluetooth-name"), t.Get("settings-bluetooth-name-detail")).
+		withControl(entry).withTrailing(p.k.primaryButton(t.Get("settings-bluetooth-save"), save))
 }
 
 func (p *bluetoothPanel) searchRow(discovering bool) widget.Widget {
@@ -483,7 +483,7 @@ func (p *bluetoothPanel) searchRow(discovering bool) widget.Widget {
 	})
 	search.SetEnabled(!discovering)
 	row := widget.NewItemGroup()
-	row.Append(panelRow(p.k, t.Get("settings-bluetooth-search-title"), detail, search))
+	row.Append(p.k.row(t.Get("settings-bluetooth-search-title"), detail).withControl(search))
 	return row
 }
 
@@ -525,11 +525,12 @@ func (p *bluetoothPanel) deviceRow(r btRow) widget.Widget {
 			b.SetEnabled(r.busy == btIdle)
 		}
 	}
-	row := panelRow(p.k, r.name, btDetail(r), controls...)
-	row.InsertAligned(0, widget.NewThemeIcon(r.icon, appIconPx), false, widget.AlignCenter)
+	row := p.k.row(r.name, btDetail(r))
+	row.SetMedia(widget.NewThemeIcon(r.icon, appIconPx), true)
 	if !r.renaming {
-		return row
+		return row.withControls(controls...)
 	}
+	row.withActions(controls...)
 	text := r.name
 	if p.renameEntry != nil {
 		text = p.renameEntry.Text()
@@ -553,10 +554,8 @@ func (p *bluetoothPanel) deviceRow(r btRow) widget.Widget {
 	line.Append(entry, true)
 	line.AppendAligned(p.k.cancelButton(p.endRename), false, widget.AlignCenter)
 	line.AppendAligned(p.k.primaryButton(t.Get("settings-bluetooth-save"), save), false, widget.AlignCenter)
-	box := gapBox(widget.Column)
-	box.Append(row, false)
-	box.Append(line, false)
-	return box
+	row.SetControl(line, widget.ItemControlWide)
+	return row
 }
 
 func (p *bluetoothPanel) deviceControls(r btRow) []widget.Widget {
@@ -647,7 +646,8 @@ func (p *bluetoothPanel) requestCard(req bluetooth.PairingRequest, device string
 		panic(fmt.Sprintf("settings: unhandled Bluetooth pairing request %T", req))
 	}
 	card := widget.NewItemGroup()
-	card.Append(panelRow(p.k, prompt, detail, controls...))
+	row := p.k.row(prompt, detail)
+	card.Append(row.withControls(controls...))
 	if submit == nil {
 		return card
 	}
@@ -661,6 +661,6 @@ func (p *bluetoothPanel) requestCard(req bluetooth.PairingRequest, device string
 	line.Append(entry, true)
 	line.AppendAligned(dismiss, false, widget.AlignCenter)
 	line.AppendAligned(p.k.primaryButton(t.Get("settings-bluetooth-pair"), send), false, widget.AlignCenter)
-	card.Append(insetRow(line))
+	card.Append(newInsetRow(line))
 	return card
 }

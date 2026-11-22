@@ -48,7 +48,7 @@ func (p *livePreview) configChanged() {
 }
 
 func (p *livePreview) state(key string, args ...i18n.Arg) *widget.Label {
-	l := wrapped(p.k.label(locale.T().Get(key, args...), "settings-preview-state", css.Caption, css.DimLabel))
+	l := p.k.note(locale.T().Get(key, args...), "settings-preview-state")
 	l.SetAlignment(render.AlignCenter)
 	return l
 }

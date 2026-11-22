@@ -21,11 +21,9 @@ import (
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
-// Row text limits.
-const (
-	descriptionMaxChars        = 120
-	descriptionTooltipMinChars = 80
-)
+// rowDescriptionLines is how many rows a row's description wraps to
+// before it ends in an ellipsis, its whole text in its tooltip.
+const rowDescriptionLines = 2
 
 // kit builds the window's widgets: the text face every label starts
 // from (the stylesheet then sizes and weighs it) and the store the
@@ -178,21 +176,25 @@ func cardInsets() render.Insets {
 	return render.Insets{Top: th.Padding, Right: 2 * th.Padding, Bottom: th.Padding, Left: 2 * th.Padding}
 }
 
-// insetRow holds w as a row of its card, inset like the rows around it:
-// a list's search field, a note.
-func insetRow(w widget.Widget) *widget.Box {
-	row := widget.NewBox(widget.Row, 0, 0)
+// insetRow is a row of its card that holds content rather than a
+// setting, inset like the rows around it: a list's search field, a
+// note, a preview.
+type insetRow struct{ *widget.Box }
+
+func newInsetRow(w widget.Widget) *insetRow {
+	row := &insetRow{widget.NewBox(widget.Row, 0, 0)}
 	row.SetElement("item")
 	row.Append(w, true)
 	return row
 }
 
 // emptyRow is the row of a list holding nothing: icon on lys-ui's muted
-// tile beside text.
-func (k *kit) emptyRow(icon, text string) *widget.Item {
-	it := widget.NewItem(k.face, text, "")
-	it.SetMedia(k.icon(icon), false)
-	return it
+// tile beside text, which wraps to every line it needs.
+func (k *kit) emptyRow(icon, text string) *settingRow {
+	r := k.row(text, "")
+	r.SetLines(0, rowDescriptionLines)
+	r.SetMedia(k.icon(icon), false)
+	return r
 }
 
 // badge is lys-ui's quiet badge reading text; a status class
@@ -214,19 +216,127 @@ type control interface {
 	refresh()
 }
 
-// settingRow is SettingRow: the label with its unit and source badge,
-// the description, the reset button and the control.
+// settingRow is the window's one row: a title, a description wrapping
+// to rowDescriptionLines rows, what sits on the title's line (a unit, a
+// badge), a problem line, the actions and the control. It is lys-ui's
+// Item, so its media and trailing actions are the Item's, and the
+// controls of the rows of one card share the card's control column.
 type settingRow struct {
-	*widget.Box
-	kit   *kit
+	*widget.Item
+	// problem says why the row's last change was refused, hidden while
+	// nothing was.
+	problem *widget.Label
+}
+
+// row is a row titled title, described by description ("" for none).
+func (k *kit) row(title, description string) *settingRow {
+	r := &settingRow{Item: widget.NewItem(k.face, title, description), problem: k.errorText("")}
+	r.SetSmall(true)
+	r.SetLines(1, rowDescriptionLines)
+	r.problem.SetVisible(false)
+	r.AddDetail(r.problem)
+	return r
+}
+
+// rowWidget is a widget that is a row: a settingRow or one built on it.
+type rowWidget interface {
+	widget.Widget
+	asRow() *settingRow
+}
+
+func (r *settingRow) asRow() *settingRow { return r }
+
+// keyRow is the row the message key titles, described by its
+// description attribute.
+func (k *kit) keyRow(key string) *settingRow { return k.row(locale.T().Get(key), description(key)) }
+
+// withControl places ctl as the row's control where controlFit holds it.
+func (r *settingRow) withControl(ctl widget.Widget) *settingRow {
+	r.SetControl(ctl, controlFit(ctl))
+	return r
+}
+
+// withActions adds ws ahead of the control.
+func (r *settingRow) withActions(ws ...widget.Widget) *settingRow {
+	for _, w := range ws {
+		r.AddAction(w)
+	}
+	return r
+}
+
+// withControls places the last of ws as the control and the rest
+// ahead of it; no ws leaves the row without either.
+func (r *settingRow) withControls(ws ...widget.Widget) *settingRow {
+	if len(ws) == 0 {
+		return r
+	}
+	return r.withActions(ws[:len(ws)-1]...).withControl(ws[len(ws)-1])
+}
+
+// withTrailing adds ws after the control, at the row's end.
+func (r *settingRow) withTrailing(ws ...widget.Widget) *settingRow {
+	for _, w := range ws {
+		r.AddTrailing(w)
+	}
+	return r
+}
+
+// controlFit is where a row holds ctl: under its text when it stacks,
+// in the card's control column when it is a field (a dropdown, a spin,
+// an entry, or an editor that reads as one), and at its own width at
+// the row's end otherwise.
+func controlFit(ctl widget.Widget) widget.ItemControlFit {
+	switch c := ctl.(type) {
+	case interface{ stacked() }:
+		return widget.ItemControlWide
+	case interface{ columnField() }:
+		return widget.ItemControlColumn
+	case interface{ Role() widget.Role }:
+		if r := c.Role(); r == widget.RoleComboBox || r == widget.RoleEntry {
+			return widget.ItemControlColumn
+		}
+	}
+	return widget.ItemControlNatural
+}
+
+// showProblem shows why a change was refused, or hides the line for nil.
+func (r *settingRow) showProblem(err error) {
+	r.problem.SetClass(css.Error, true)
+	r.problem.SetVisible(err != nil)
+	if err != nil {
+		r.problem.SetText(err.Error())
+	}
+}
+
+// showPending says the value is being checked before it is written.
+func (r *settingRow) showPending(value any) {
+	r.problem.SetClass(css.Error, false)
+	r.problem.SetText(locale.T().Get("settings-checking", i18n.Str("value", fmt.Sprint(value))))
+	r.problem.SetVisible(true)
+}
+
+// errorText is a caption in the error color, wrapping, with classes:
+// why something failed.
+func (k *kit) errorText(text string, classes ...string) *widget.Label {
+	return wrapped(k.label(text, append(classes, css.Caption, css.Error)...))
+}
+
+// note is a dim caption, wrapping, with classes: a status, a hint.
+func (k *kit) note(text string, classes ...string) *widget.Label {
+	return wrapped(k.label(text, append(classes, css.Caption, css.DimLabel)...))
+}
+
+// fieldRow is SettingRow, the row of a config field: its unit and
+// source badge on the title's line, the reset button and the field's
+// control.
+type fieldRow struct {
+	*settingRow
+	k     *kit
 	be    backend
 	path  string
 	ctl   control
-	title *widget.Label
 	badge *widget.Badge
 	reset resetButton
-	// problem says why the last value the control wrote was refused.
-	problem *widget.Label
 	// action is the row's RowBehavior::Action.
 	action bool
 }
@@ -234,8 +344,8 @@ type settingRow struct {
 // newFieldRow is the row for spec with its field's control, whose refused
 // writes the row reports under its label. A row with a vet writes a value,
 // its reset's included, only once the vet passed it.
-func newFieldRow(k *kit, be backend, spec rowSpec) *settingRow {
-	var r *settingRow
+func newFieldRow(k *kit, be backend, spec rowSpec) *fieldRow {
+	var r *fieldRow
 	report := func(err error) {
 		if r != nil {
 			r.showProblem(err)
@@ -290,7 +400,7 @@ func (b vettingBackend) reset(path string) {
 type vetter struct {
 	k       *kit
 	check   func(ctx context.Context, value any) error
-	row     *settingRow
+	row     *fieldRow
 	current uint64
 	cancel  context.CancelFunc
 }
@@ -359,68 +469,18 @@ func (b reportingBackend) slot(path string) slot {
 	}
 }
 
-// showProblem shows why a value was refused, or hides the line for nil.
-func (r *settingRow) showProblem(err error) {
-	r.problem.SetClass(css.Error, true)
-	r.problem.SetVisible(err != nil)
-	if err != nil {
-		r.problem.SetText(err.Error())
-	}
-}
-
-// showPending says the value is being checked before it is written.
-func (r *settingRow) showPending(value any) {
-	r.problem.SetClass(css.Error, false)
-	r.problem.SetText(locale.T().Get("settings-checking", i18n.Str("value", fmt.Sprint(value))))
-	r.problem.SetVisible(true)
-}
-
-// newSettingRow lays a row out: a full-width control
-// stacks under the text, with the reset button beside the label.
-func newSettingRow(k *kit, be backend, spec rowSpec, ctl control) *settingRow {
-	t := locale.T()
-	if _, ok := ctl.(interface{ stacked() }); ok {
-		spec.fullWidth = true
-	}
-	axis := widget.Row
-	if spec.fullWidth {
-		axis = widget.Column
-	}
-	th := widget.Current()
-	r := &settingRow{kit: k, be: be, path: spec.path, ctl: ctl, action: spec.action, Box: gapBox(axis)}
-	r.SetElement("item")
-	r.AddClass(css.Small, "setting-row")
-
-	info := widget.NewBox(widget.Column, th.Spacing/4, 0)
-	labelRow := widget.NewBox(widget.Row, th.Spacing/2, 0)
-	title := k.label(t.Get(spec.labelKey()), "setting-label")
-	r.title = title
-	title.SetEllipsize(widget.EllipsizeEnd)
-	title.SetTooltip(t.Get(spec.labelKey()))
-	labelRow.AppendAligned(title, false, widget.AlignCenter)
+// newSettingRow is the row for spec around ctl, its reset button ahead
+// of the control so showing it never moves the control.
+func newSettingRow(k *kit, be backend, spec rowSpec, ctl control) *fieldRow {
+	r := &fieldRow{settingRow: k.keyRow(spec.labelKey()), k: k, be: be, path: spec.path, ctl: ctl, action: spec.action}
 	if spec.unit != "" {
-		labelRow.AppendAligned(k.label("("+spec.unit+")", "setting-unit", css.Caption, css.DimLabel, css.Monospace), false, widget.AlignCenter)
+		r.AddTitleSuffix(k.label("("+spec.unit+")", css.Caption, css.DimLabel, css.Monospace))
 	}
 	r.badge = k.badge("")
-	labelRow.AppendAligned(r.badge, false, widget.AlignCenter)
+	r.AddTitleSuffix(r.badge)
 	if d, ok := ctl.(interface{ dirtyBadge() *widget.Badge }); ok {
-		labelRow.AppendAligned(d.dirtyBadge(), false, widget.AlignCenter)
+		r.AddTitleSuffix(d.dirtyBadge())
 	}
-	info.Append(labelRow, false)
-	if desc := description(spec.labelKey()); desc != "" {
-		dl := k.label(desc, "setting-description", css.Caption, css.DimLabel)
-		dl.SetEllipsize(widget.EllipsizeEnd)
-		dl.SetMaxWidthChars(descriptionMaxChars)
-		if len(desc) > descriptionTooltipMinChars {
-			dl.SetTooltip(desc)
-		}
-		info.Append(dl, false)
-	}
-	r.problem = k.label("", "setting-problem", css.Caption, css.Error)
-	r.problem.SetWrap(true)
-	r.problem.SetVisible(false)
-	info.Append(r.problem, false)
-
 	r.reset = k.resetButton("settings-reset-setting", func() {
 		if d, ok := ctl.(interface{ discardDraft() }); ok {
 			d.discardDraft()
@@ -428,27 +488,18 @@ func newSettingRow(k *kit, be backend, spec rowSpec, ctl control) *settingRow {
 		r.showProblem(nil)
 		be.reset(spec.path)
 	})
-	slot := widget.NewBox(widget.Row, 0, 0)
-	slot.AddClass("setting-control")
-	slot.AppendAligned(ctl, spec.fullWidth, widget.AlignCenter)
-
+	r.AddAction(r.reset.Button)
+	fit := controlFit(ctl)
 	if spec.fullWidth {
-		r.AddClass("vertical")
-		labelRow.Append(widget.NewSpacer(0, 0), true)
-		labelRow.Append(r.reset.Button, false)
-		r.Append(info, false)
-		r.Append(slot, false)
-	} else {
-		r.AppendAligned(info, true, widget.AlignCenter)
-		r.AppendAligned(r.reset.Button, false, widget.AlignCenter)
-		r.AppendAligned(slot, false, widget.AlignCenter)
+		fit = widget.ItemControlWide
 	}
+	r.SetControl(ctl, fit)
 	r.refreshSource()
 	return r
 }
 
 // refresh re-reads the source and the control's value.
-func (r *settingRow) refresh() {
+func (r *fieldRow) refresh() {
 	r.refreshSource()
 	r.ctl.refresh()
 }
@@ -456,7 +507,7 @@ func (r *settingRow) refresh() {
 // refreshSource shows the badge and arms the reset button
 // (update_source_info): the button keeps its place, invisible and
 // inert, while there is no runtime override.
-func (r *settingRow) refreshSource() {
+func (r *fieldRow) refreshSource() {
 	src := sourceInfo{}
 	if !r.action {
 		src = r.be.source(r.path)
@@ -479,4 +530,38 @@ func description(key string) string {
 		return ""
 	}
 	return t.Attr(key, "description")
+}
+
+// formGrid lines a form's fields up: their labels share one column,
+// and the fields (dropdowns, spins, entries) at the end of their row
+// share another, so the controls of one form start and end at one x.
+type formGrid struct {
+	k        *kit
+	labels   *widget.SizeGroup
+	controls *widget.SizeGroup
+}
+
+func (k *kit) formGrid() formGrid {
+	return formGrid{k: k, labels: widget.NewSizeGroup(widget.SizeGroupHorizontal), controls: widget.NewSizeGroup(widget.SizeGroupHorizontal)}
+}
+
+// label is text in the grid's label column, with classes.
+func (g formGrid) label(text string, classes ...string) widget.Widget {
+	return g.labels.Add(g.k.label(text, append([]string{css.CaptionHeading, css.DimLabel}, classes...)...))
+}
+
+// row is a field: label (from label) then ctl, which takes the spare
+// width with fill and otherwise sits at the row's end, in the field
+// column when controlFit holds it there; more follow ctl.
+func (g formGrid) row(label widget.Widget, ctl widget.Widget, fill bool, more ...widget.Widget) *widget.Box {
+	row := gapBox(widget.Row)
+	row.AppendAligned(label, !fill, widget.AlignCenter)
+	if !fill && controlFit(ctl) == widget.ItemControlColumn {
+		ctl = g.controls.Add(ctl)
+	}
+	row.AppendAligned(ctl, fill, widget.AlignCenter)
+	for _, w := range more {
+		row.AppendAligned(w, false, widget.AlignCenter)
+	}
+	return row
 }

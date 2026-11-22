@@ -87,8 +87,8 @@ type launcherModeList struct {
 	title    *widget.Label
 	name     *widget.Entry
 	none     *widget.Label
-	groups   [][]*settingRow
-	rows     []*settingRow
+	groups   [][]*fieldRow
+	rows     []*fieldRow
 	syncing  bool
 }
 
@@ -102,7 +102,7 @@ func newLauncherModeList(k *kit, modes, names slot) *launcherModeList {
 
 	pane := gapBox(widget.Column)
 	pane.AddClass("launcher-mode-pane")
-	c.title = k.label("", "setting-label", css.H4)
+	c.title = k.label("", css.H4)
 	c.name = k.entry()
 	c.name.SetAccessibleName(t.Get("settings-launcher-mode-display-name"))
 	c.name.OnChanged = func(text string) {
@@ -111,14 +111,14 @@ func newLauncherModeList(k *kit, modes, names slot) *launcherModeList {
 		}
 	}
 	nameRow := gapBox(widget.Row)
-	nameRow.AppendAligned(k.label(t.Get("settings-launcher-mode-display-name"), "setting-label"), false, widget.AlignCenter)
+	nameRow.AppendAligned(k.label(t.Get("settings-launcher-mode-display-name")), false, widget.AlignCenter)
 	nameRow.AppendAligned(c.name, true, widget.AlignCenter)
-	c.none = wrapped(k.label(t.Get("settings-launcher-mode-no-options"), "setting-description", css.Caption, css.DimLabel))
+	c.none = k.note(t.Get("settings-launcher-mode-no-options"))
 	pane.Append(c.title, false)
 	pane.Append(nameRow, false)
 	pane.Append(c.none, false)
 	for _, o := range launcherModeOptions {
-		group := make([]*settingRow, len(o.rows))
+		group := make([]*fieldRow, len(o.rows))
 		for i, rs := range o.rows {
 			row := newFieldRow(k, k.store, rs)
 			group[i] = row
@@ -133,12 +133,12 @@ func newLauncherModeList(k *kit, modes, names slot) *launcherModeList {
 	return c
 }
 
-func (c *launcherModeList) nestedRows() []*settingRow { return c.rows }
+func (c *launcherModeList) nestedRows() []*fieldRow { return c.rows }
 
 func (c *launcherModeList) showsNested() bool { return true }
 
 // showNested selects the mode whose options row is.
-func (c *launcherModeList) showNested(row *settingRow) {
+func (c *launcherModeList) showNested(row *fieldRow) {
 	for i, group := range c.groups {
 		if slices.Contains(group, row) {
 			c.selected = launcherModeOptions[i].modes[0]
@@ -204,7 +204,7 @@ func (c *launcherModeList) refresh() {
 	c.none.SetVisible(!shown)
 }
 
-func (c *launcherModeList) modeRow(e launcherModeEntry, names map[string]any, on []string) *widget.Item {
+func (c *launcherModeList) modeRow(e launcherModeEntry, names map[string]any, on []string) *settingRow {
 	t := locale.T()
 	detail := e.group
 	if e.group == e.value {
@@ -213,9 +213,8 @@ func (c *launcherModeList) modeRow(e launcherModeEntry, names map[string]any, on
 	if name, _ := names[e.value].(string); name != "" {
 		detail = t.Get("settings-launcher-mode-shown-as", i18n.Str("name", name))
 	}
-	row := widget.NewItem(c.k.face, e.label, detail)
-	row.AddClass(css.Small, "launcher-mode")
-	row.SetEllipsize(true)
+	row := c.k.row(e.label, detail)
+	row.AddClass("launcher-mode")
 	if e.value == c.selected {
 		row.SetVariant(widget.ItemMuted)
 	}
@@ -235,7 +234,7 @@ func (c *launcherModeList) modeRow(e launcherModeEntry, names map[string]any, on
 	sw.SetAccessibleName(e.label)
 	sw.SetEnabled(!e.on || len(on) > 1)
 	sw.OnChanged = func(turnOn bool) { c.turn(e.value, turnOn) }
-	row.AddAction(sw)
+	row.withControl(sw)
 	return row
 }
 

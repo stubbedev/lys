@@ -41,15 +41,18 @@ func newScreenshotShortcuts(k *kit, binds slot) *screenshotShortcuts {
 	t := locale.T()
 	names := bindActionNames(k)
 	s := &screenshotShortcuts{Box: gapBox(widget.Column), binds: binds}
+	rows := widget.NewItemGroup()
 	for _, c := range screenshotCaptures {
 		chord := newActionChord(k, binds, names, c.bind(), t.Get(c.key))
 		s.chords = append(s.chords, chord)
-		s.Append(panelRow(k, t.Get(c.key), "", chord.recorder), false)
-		s.Append(chord.clash, false)
+		row := k.row(t.Get(c.key), "").withControl(chord.recorder)
+		row.AddDetail(chord.clash)
+		rows.Append(row)
 	}
 	if link, ok := allShortcutsLink(k); ok {
-		s.Append(panelRow(k, t.Get("settings-shortcuts-all"), "", link), false)
+		rows.Append(k.row(t.Get("settings-shortcuts-all"), "").withControl(link))
 	}
+	s.Append(rows, false)
 	s.refresh()
 	return s
 }

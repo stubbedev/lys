@@ -8,6 +8,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/settingspage"
+	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
@@ -28,7 +29,7 @@ func TestASettingLaunchOpensItsPageFocusedAndHighlighted(t *testing.T) {
 	if w.pageID != "bar" {
 		t.Fatalf("page %q, want bar", w.pageID)
 	}
-	i := slices.IndexFunc(w.page.rows, func(r *settingRow) bool { return r.path == "bar.location" })
+	i := slices.IndexFunc(w.page.rows, func(r *fieldRow) bool { return r.path == "bar.location" })
 	if i < 0 {
 		t.Fatal("no bar.location row")
 	}
@@ -36,11 +37,11 @@ func TestASettingLaunchOpensItsPageFocusedAndHighlighted(t *testing.T) {
 	if want := widget.FirstFocusable(row.ctl); focused == nil || focused != want {
 		t.Fatalf("focused %T, want the row's control %T", focused, want)
 	}
-	if !row.title.HasClass(css.Accent) {
+	if !widget.HasClass(treetest.WithClass(row, "title")[0], css.Accent) {
 		t.Fatal("the revealed row is not highlighted")
 	}
 	f.run()
-	if row.title.HasClass(css.Accent) {
+	if widget.HasClass(treetest.WithClass(row, "title")[0], css.Accent) {
 		t.Fatal("the highlight stayed")
 	}
 	w.open(launch{setting: "no.such.setting"})
@@ -148,7 +149,7 @@ func TestASettingBelowTheFoldIsScrolledIntoView(t *testing.T) {
 	w.openPage("bar")
 	const width, height = 900, 600
 	w.root.Arrange(render.Rect{W: width, H: height})
-	var last *settingRow
+	var last *fieldRow
 	for i := len(w.page.rows) - 1; i >= 0 && last == nil; i-- {
 		if b := w.page.rows[i].Bounds(); !b.Empty() && b.H <= height {
 			last = w.page.rows[i]
@@ -199,7 +200,7 @@ func TestASettingOnAnotherPageBelowTheFoldIsScrolledIntoView(t *testing.T) {
 	for range 3 {
 		w.root.Arrange(render.Rect{W: width, H: height})
 	}
-	last := w.page.rows[slices.IndexFunc(w.page.rows, func(r *settingRow) bool { return r.path == below })]
+	last := w.page.rows[slices.IndexFunc(w.page.rows, func(r *fieldRow) bool { return r.path == below })]
 	if b, view := last.Bounds(), w.page.Bounds(); b.Y < view.Y || b.Y+b.H > view.Y+view.H {
 		t.Fatalf("the revealed row at %+v is outside the page's view %+v", b, view)
 	}
@@ -238,7 +239,7 @@ func TestANestedSettingLaunchFocusesItOnceItsGroupShows(t *testing.T) {
 		if w.pageID != "wallpaper" {
 			t.Fatalf("page %q, want wallpaper", w.pageID)
 		}
-		i := slices.IndexFunc(w.page.targets, func(r *settingRow) bool { return r != nil && r.path == "wallpaper.cycling-mode" })
+		i := slices.IndexFunc(w.page.targets, func(r *fieldRow) bool { return r != nil && r.path == "wallpaper.cycling-mode" })
 		if i < 0 {
 			t.Fatal("no nested cycling-mode row among the page's targets")
 		}
@@ -264,7 +265,7 @@ func TestASettingInAnAdvancedSectionOpensItAndIsScrolledIntoView(t *testing.T) {
 	}
 	w.open(launch{setting: "bar.button-group-opacity"})
 	w.root.Arrange(render.Rect{W: width, H: height})
-	i := slices.IndexFunc(w.page.rows, func(r *settingRow) bool { return r.path == "bar.button-group-opacity" })
+	i := slices.IndexFunc(w.page.rows, func(r *fieldRow) bool { return r.path == "bar.button-group-opacity" })
 	row := w.page.rows[i]
 	if b, view := row.Bounds(), w.page.Bounds(); b.Empty() || b.Y < view.Y || b.Y+b.H > view.Y+view.H {
 		t.Fatalf("the revealed row at %+v is not shown in the page's view %+v", b, view)

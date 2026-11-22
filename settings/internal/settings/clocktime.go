@@ -84,7 +84,7 @@ func newClockTimeEditor(k *kit, s slot, name string, step int, avoid func() (day
 	e.minute.SetAccessibleName(t.Get("settings-clock-time-minute", i18n.Str("name", name)))
 	e.hour.OnSelect = func(int) { e.write() }
 	e.minute.OnSelect = func(int) { e.write() }
-	e.problem = wrapped(k.label("", "setting-problem", css.Caption, css.Error))
+	e.problem = k.errorText("")
 	row := gapBox(widget.Row)
 	row.AppendAligned(e.hour, false, widget.AlignCenter)
 	row.AppendAligned(k.label(":", css.DimLabel), false, widget.AlignCenter)

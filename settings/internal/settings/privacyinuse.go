@@ -18,7 +18,6 @@ import (
 	"github.com/stubbedev/lys/shell/service/privacy"
 	"github.com/stubbedev/lys/shell/service/screenshare"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -109,7 +108,7 @@ type inUseStrip struct {
 func newInUseStrip(l *grantsList) *inUseStrip {
 	k := l.k
 	s := &inUseStrip{l: l, group: widget.NewItemGroup()}
-	s.problem = wrapped(k.label("", css.Caption, css.DimLabel))
+	s.problem = k.note("")
 	s.problem.SetVisible(false)
 	body := gapBox(widget.Column)
 	body.Append(s.group, false)
@@ -187,20 +186,20 @@ func (s *inUseStrip) render() {
 	n := 0
 	if svc := s.src.svc; svc != nil {
 		for _, u := range privacy.MicUsers(svc.RecordingStreams(), svc.InputDevices(), intconv.Clamp[uint32](os.Getpid())) {
-			row := widget.NewItem(k.face, u.Name, t.Get("settings-privacy-in-use-microphone", i18n.Str("source", u.Source)))
+			row := k.row(u.Name, t.Get("settings-privacy-in-use-microphone", i18n.Str("source", u.Source)))
 			row.SetMedia(widget.NewThemeIconFallback(cmp.Or(u.Icon, appFallbackIcon), appIconPx), true)
 			key := u.Stream
 			mute := newMuteToggle(k, micGlyphs, func(on bool) { s.mute(svc, key, on) })
 			mute.name(t.Get("settings-sound-app-mute", i18n.Str("app", u.Name)))
 			mute.show(u.Muted)
-			row.AddAction(mute)
+			row.withControl(mute)
 			s.group.Append(row)
 			n++
 		}
 	}
 	if s.src.cameras != nil {
 		for _, u := range s.src.cameras.Users() {
-			row := widget.NewItem(k.face, u.Name, t.Get("settings-privacy-in-use-camera", i18n.Str("device", u.Device)))
+			row := k.row(u.Name, t.Get("settings-privacy-in-use-camera", i18n.Str("device", u.Device)))
 			row.SetMedia(k.icon(cameraResource.icon), false)
 			s.group.Append(row)
 			n++
@@ -209,7 +208,7 @@ func (s *inUseStrip) render() {
 	if shares := s.src.shares; shares != nil {
 		for _, sh := range shares.List() {
 			title := s.l.appTitle(sh.App)
-			row := widget.NewItem(k.face, title, t.Get("settings-privacy-in-use-screen"))
+			row := k.row(title, t.Get("settings-privacy-in-use-screen"))
 			row.SetMedia(widget.NewThemeIcon(s.l.appIcon(sh.App), appIconPx), true)
 			session := sh.Session
 			var stop *widget.Button
@@ -218,7 +217,7 @@ func (s *inUseStrip) render() {
 				s.stopShare(shares, session)
 			})
 			stop.SetAccessibleName(t.Get("settings-privacy-in-use-stop-app", i18n.Str("app", title)))
-			row.AddAction(stop)
+			row.withControl(stop)
 			s.group.Append(row)
 			n++
 		}

@@ -85,7 +85,7 @@ type tryButton struct {
 
 func newTryButton(k *kit, labelKey string, try func() error) *tryButton {
 	t := locale.T()
-	b := &tryButton{Box: gapBox(widget.Row), outcome: wrapped(k.label("", "setting-problem", css.Caption, css.Error))}
+	b := &tryButton{Box: gapBox(widget.Row), outcome: k.errorText("")}
 	b.outcome.SetVisible(false)
 	run := func() {
 		async(k, try, func(err error) {
@@ -103,7 +103,7 @@ func newTryButton(k *kit, labelKey string, try func() error) *tryButton {
 
 func tryLead(labelKey string, try func(k *kit) error) func(k *kit) widget.Widget {
 	return func(k *kit) widget.Widget {
-		return newSection(k, "settings-section-try", insetRow(newTryButton(k, labelKey, func() error { return try(k) })))
+		return newSection(k, "settings-section-try", newInsetRow(newTryButton(k, labelKey, func() error { return try(k) })))
 	}
 }
 

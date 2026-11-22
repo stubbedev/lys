@@ -374,7 +374,7 @@ type networkPanel struct {
 func newNetworkPanel(k *kit) *networkPanel {
 	p := &networkPanel{Box: sectionStack(), k: k, status: gapBox(widget.Column), nets: gapBox(widget.Column)}
 	p.AddClass("network-panel")
-	p.problem = wrapped(k.label("", "setting-problem", css.Caption, css.Error))
+	p.problem = k.errorText("")
 	p.problem.SetVisible(false)
 	p.Append(p.problem, false)
 	p.Append(newSection(k, "settings-wifi-section-status", p.status), false)
@@ -444,7 +444,7 @@ func (p *networkPanel) unavailable(err error) {
 	p.savedSec.SetVisible(false)
 	p.vpnSec.SetVisible(false)
 	p.proxySec.SetVisible(false)
-	p.status.Append(panelRow(p.k, locale.T().Get("settings-wifi-unavailable"), err.Error()), false)
+	p.status.Append(widget.NewItemGroup(p.k.row(locale.T().Get("settings-wifi-unavailable"), err.Error())), false)
 }
 
 func (p *networkPanel) follow() {
@@ -560,16 +560,16 @@ func (p *networkPanel) show() {
 	p.proxy.show(st.proxy)
 	p.showDetails()
 	if st.snap.HasWired {
-		status.Append(panelRow(p.k, t.Get("settings-wifi-wired"), wiredDetail(st.snap)))
+		status.Append(p.k.row(t.Get("settings-wifi-wired"), wiredDetail(st.snap)))
 	}
 	if st.radios {
 		plane := widget.NewSwitch(st.airplane)
 		plane.SetAccessibleName(t.Get("settings-wifi-airplane"))
 		plane.OnChanged = func(on bool) { p.run(func(ctx context.Context) error { return p.ctl.setAirplane(ctx, on) }) }
-		status.Append(panelRow(p.k, t.Get("settings-wifi-airplane"), t.Get("settings-wifi-airplane-detail"), plane))
+		status.Append(p.k.row(t.Get("settings-wifi-airplane"), t.Get("settings-wifi-airplane-detail")).withControl(plane))
 	}
 	if !st.wifi {
-		status.Append(panelRow(p.k, t.Get("settings-wifi-title"), t.Get("settings-wifi-no-device")))
+		status.Append(p.k.row(t.Get("settings-wifi-title"), t.Get("settings-wifi-no-device")))
 		return
 	}
 	wifiOn := widget.NewSwitch(st.wifiOn)
@@ -579,9 +579,9 @@ func (p *networkPanel) show() {
 		p.run(func(ctx context.Context) error { return p.ctl.scan(ctx) })
 	})
 	rescan.SetEnabled(st.wifiOn)
-	wifiRow := panelRow(p.k, t.Get("settings-wifi-title"), wifiDetail(st), rescan, wifiOn)
+	wifiRow := p.k.row(t.Get("settings-wifi-title"), wifiDetail(st)).withActions(rescan).withControl(wifiOn)
 	if ap, ok := activeAccessPoint(st); ok {
-		wifiRow.InsertAligned(0, signalIcon(ap.Strength), false, widget.AlignCenter)
+		wifiRow.SetMedia(signalIcon(ap.Strength), true)
 	}
 	status.Append(wifiRow)
 	if !st.wifiOn {
@@ -669,9 +669,9 @@ func (p *networkPanel) showSaved() {
 		forget := p.k.destructiveButton(t.Get("settings-wifi-forget"), func() {
 			p.run(func(ctx context.Context) error { return p.ctl.remove(ctx, prof.Path) })
 		})
-		list.Append(panelRow(p.k, prof.ID, detail, forget, auto))
+		list.Append(p.k.row(prof.ID, detail).withActions(forget).withControl(auto))
 	}
-	p.saved.Append(wrapped(p.k.label(t.Get("settings-wifi-autojoin-hint"), css.Caption, css.DimLabel)), false)
+	p.saved.Append(p.k.note(t.Get("settings-wifi-autojoin-hint")), false)
 	p.saved.Append(list, false)
 }
 
@@ -727,15 +727,14 @@ func (p *networkPanel) networkRow(ap network.AccessPoint) widget.Widget {
 	} else {
 		controls = append(controls, p.k.primaryButton(t.Get("settings-wifi-connect"), func() { p.join(ap, known) }))
 	}
-	row := panelRow(p.k, name, detail, controls...)
-	row.InsertAligned(0, signal, false, widget.AlignCenter)
+	row := p.k.row(name, detail)
+	row.SetMedia(signal, true)
 	if p.asking != name {
-		return row
+		return row.withControls(controls...)
 	}
-	box := gapBox(widget.Column)
-	box.Append(row, false)
-	box.Append(p.passwordRow(func(password string) { p.connect(ap, password) }), false)
-	return box
+	row.withActions(controls...)
+	row.SetControl(p.passwordRow(func(password string) { p.connect(ap, password) }), widget.ItemControlWide)
+	return row
 }
 
 func (p *networkPanel) join(ap network.AccessPoint, known bool) {
@@ -875,10 +874,10 @@ func (p *networkPanel) showVPNs() {
 		remove := p.k.removeButton("settings-vpn-remove", func() {
 			p.run(func(ctx context.Context) error { return p.ctl.remove(ctx, v.profile.Path) })
 		})
-		list.Append(panelRow(p.k, v.profile.ID, vpnDetail(v), edit, remove, on))
+		list.Append(p.k.row(v.profile.ID, vpnDetail(v)).withActions(edit, remove).withControl(on))
 	}
 	p.vpn.Append(list, false)
-	p.vpn.Append(wrapped(p.k.label(t.Get("settings-vpn-secrets"), css.Caption, css.DimLabel)), false)
+	p.vpn.Append(p.k.note(t.Get("settings-vpn-secrets")), false)
 }
 
 func (p *networkPanel) editVPN(prof network.Profile) {
@@ -929,7 +928,7 @@ func (p *networkPanel) showDetails() {
 	p.detSec.SetVisible(len(p.state.details) > 0)
 	for _, d := range p.state.details {
 		rows := widget.NewItemGroup()
-		rows.Append(panelRow(p.k, t.Get(linkTitles[d.link]), ""))
+		rows.Append(p.k.row(t.Get(linkTitles[d.link]), ""))
 		for _, f := range []struct{ key, value string }{
 			{"settings-wifi-detail-hardware", d.details.HardwareAddress},
 			{"settings-wifi-detail-gateway", d.details.Gateway},
@@ -937,7 +936,7 @@ func (p *networkPanel) showDetails() {
 			{"settings-wifi-detail-ip6", d.details.IP6},
 		} {
 			if f.value != "" {
-				rows.Append(panelRow(p.k, t.Get(f.key), "", p.k.label(f.value, css.Monospace)))
+				rows.Append(p.k.row(t.Get(f.key), "").withControl(p.k.label(f.value, css.Monospace)))
 			}
 		}
 		p.details.Append(rows, false)

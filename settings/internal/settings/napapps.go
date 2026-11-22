@@ -7,7 +7,6 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/desktopentry"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -43,7 +42,7 @@ func newNapApps(k *kit, s slot) *napApps {
 	t := locale.T()
 	c := &napApps{Box: gapBox(widget.Column), k: k, slot: s}
 	c.list = gapBox(widget.Column)
-	c.empty = wrapped(k.label(t.Get("settings-app-nap-none"), "setting-description", css.Caption, css.DimLabel))
+	c.empty = k.note(t.Get("settings-app-nap-none"))
 	c.add = k.addButton("settings-app-nap-add", c.pickApp)
 	c.Append(c.empty, false)
 	c.Append(c.list, false)

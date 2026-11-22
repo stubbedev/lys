@@ -13,7 +13,6 @@ import (
 	"github.com/stubbedev/lys/lib/logind"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 	"github.com/stubbedev/memory-go"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
@@ -90,7 +89,7 @@ func drawLockOnScreen(k *kit, cfg *config.Config, font render.Font, bg *lockBack
 	column := widget.NewBox(widget.Column, widget.Current().Spacing, 0)
 	column.Append(overflowing(screen), false)
 	if note := shown.note(cfg.Login.Background); note != "" {
-		column.Append(wrapped(k.label(note, "settings-preview-state", css.Caption, css.DimLabel)), false)
+		column.Append(k.note(note, "settings-preview-state"), false)
 	}
 	return column
 }

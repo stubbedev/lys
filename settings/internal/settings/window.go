@@ -176,8 +176,8 @@ func (w *window) jump(hit settingEntry) {
 		return
 	}
 	if row := w.page.reveal(hit.row, w.focus); row != nil {
-		row.title.AddClass(css.Accent)
-		w.after(revealHighlight, func() { row.title.RemoveClass(css.Accent) })
+		row.SetTitleClass(css.Accent, true)
+		w.after(revealHighlight, func() { row.SetTitleClass(css.Accent, false) })
 	}
 }
 

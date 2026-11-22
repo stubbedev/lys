@@ -126,14 +126,14 @@ type fingerprintSection struct {
 	fp        *fprint
 	fail      func(error)
 	enrolled  []string
-	enrol     *widget.Box
+	enrol     *settingRow
 	hands     *fingerHands
-	progress  *widget.Box
+	progress  *settingRow
 	ring      *enrollRing
-	hint      *widget.Label
+	hint      string
 	cancel    *widget.Button
-	deleteAll *widget.Box
-	note      *widget.Box
+	deleteAll *insetRow
+	note      *insetRow
 	watch     *dbusx.Watch
 	busy      bool
 }
@@ -176,11 +176,14 @@ func (p *usersPanel) noFingerprint(err error) {
 	hands := newFingerHands(p.k, nil)
 	hands.set(nil, "", 0, true)
 	hands.SetEnabled(false)
-	why := wrapped(p.k.label(err.Error(), "fingerprint-unavailable", css.Caption, css.Error))
+	why := p.k.errorText(err.Error(), "fingerprint-unavailable")
 	if errors.Is(err, errNoReader) {
 		why = wrapped(p.k.label(locale.T().Get("settings-fingerprint-no-reader"), "fingerprint-unavailable", css.DimLabel))
 	}
-	p.Append(newSection(p.k, "settings-section-users-fingerprint", itemColumn(hands, why)), false)
+	col := gapBox(widget.Column)
+	col.Append(hands, false)
+	col.Append(why, false)
+	p.Append(newSection(p.k, "settings-section-users-fingerprint", widget.NewItemGroup(newInsetRow(col))), false)
 }
 
 func withTimeoutValue[T any](fn func(context.Context) T) T {
@@ -193,38 +196,17 @@ func newFingerprintSection(k *kit, fp *fprint, stages int, enrolled []string, fa
 	s := &fingerprintSection{ItemGroup: widget.NewItemGroup(), k: k, fp: fp, fail: fail, enrolled: enrolled}
 	s.hands = newFingerHands(k, s.enroll)
 	s.hands.SetAccessibleName(t.Get("settings-fingerprint-progress"))
-	s.enrol = itemColumn(
-		k.label(t.Get("settings-fingerprint-enrol"), "setting-label"),
-		wrapped(k.label(t.Attr("settings-fingerprint-enrol", "description"), "setting-description", css.Caption, css.DimLabel)),
-		s.hands,
-	)
+	s.enrol = k.keyRow("settings-fingerprint-enrol")
+	s.enrol.SetControl(s.hands, widget.ItemControlWide)
 	s.ring = &enrollRing{stages: stages}
-	s.hint = wrapped(k.label("", "setting-description"))
 	s.cancel = k.cancelButton(s.finish)
-	s.progress = gapBox(widget.Row)
-	s.progress.SetElement("item")
-	s.progress.AppendAligned(s.hint, true, widget.AlignCenter)
-	s.progress.AppendAligned(s.cancel, false, widget.AlignCenter)
-	s.deleteAll = itemRow(k.destructiveButton(t.Get("settings-fingerprint-delete-all"), s.confirmDeleteAll))
-	s.note = insetRow(wrapped(k.label(t.Get("settings-fingerprint-lock"), "setting-description", css.Caption, css.DimLabel)))
+	s.progress = k.keyRow("settings-fingerprint-progress").withControl(s.cancel)
+	deleteAll := gapBox(widget.Row)
+	deleteAll.Append(k.destructiveButton(t.Get("settings-fingerprint-delete-all"), s.confirmDeleteAll), false)
+	s.deleteAll = newInsetRow(deleteAll)
+	s.note = newInsetRow(k.note(t.Get("settings-fingerprint-lock")))
 	s.show()
 	return s
-}
-
-func itemColumn(children ...widget.Widget) *widget.Box {
-	col := widget.NewBox(widget.Column, widget.Current().Spacing/2, 0)
-	col.SetElement("item")
-	for _, c := range children {
-		col.Append(c, false)
-	}
-	return col
-}
-
-func itemRow(w widget.Widget) *widget.Box {
-	row := gapBox(widget.Row)
-	row.SetElement("item")
-	row.Append(w, false)
-	return row
 }
 
 func fingerName(finger string) string {
@@ -248,17 +230,18 @@ func (s *fingerprintSection) show() {
 	}
 	s.enrol.SetVisible(s.busy || len(s.enrolled) < len(fingers))
 	s.cancel.SetVisible(s.busy)
-	s.progress.SetVisible(s.hint.Text() != "")
+	s.progress.SetDescription(s.hint)
+	s.progress.SetVisible(s.hint != "")
 	s.deleteAll.SetVisible(!s.busy && len(s.enrolled) > 0)
 	for _, w := range []widget.Widget{s.enrol, s.progress, s.deleteAll, s.note} {
 		s.Append(w)
 	}
 }
 
-func (s *fingerprintSection) enrolledRow(finger string) *widget.Item {
+func (s *fingerprintSection) enrolledRow(finger string) *settingRow {
 	name := fingerName(finger)
-	row := widget.NewItem(s.k.face, name, "")
-	row.AddClass(css.Small, "fingerprint-enrolled")
+	row := s.k.row(name, "")
+	row.AddClass("fingerprint-enrolled")
 	label := deleteLabel(finger)
 	del := s.k.removeButton("settings-fingerprint-delete", func() { s.deleteFinger(finger) })
 	del.SetTooltip(label)
@@ -273,7 +256,7 @@ func deleteLabel(finger string) string {
 }
 
 func (s *fingerprintSection) say(text string) {
-	s.hint.SetText(text)
+	s.hint = text
 	s.show()
 }
 
@@ -367,7 +350,7 @@ func (s *fingerprintSection) status(result string, done bool) {
 	if key := "settings-fingerprint-" + strings.TrimPrefix(result, "enroll-"); t.Has(key) {
 		hint = t.Get(key)
 	}
-	s.hint.SetText(hint)
+	s.hint = hint
 	if done || endsEnrolment(result) {
 		s.finish()
 	}
@@ -489,7 +472,7 @@ type fingerprintSwitch struct {
 }
 
 func newFingerprintSwitch(k *kit, s slot) *fingerprintSwitch {
-	c := &fingerprintSwitch{Box: gapBox(widget.Column), toggle: newToggle(k, s), status: k.label("", "setting-description", css.Caption, css.DimLabel)}
+	c := &fingerprintSwitch{Box: gapBox(widget.Column), toggle: newToggle(k, s), status: k.label("", css.Caption, css.DimLabel)}
 	c.AppendAligned(c.toggle, false, widget.AlignEnd)
 	c.AppendAligned(wrapped(c.status), false, widget.AlignEnd)
 	if users, ok := pageByID(k.nav, usersID); ok {

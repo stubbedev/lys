@@ -5107,6 +5107,30 @@ func (b *ItemBuilder) AddAction(child Node) *ItemBuilder {
 	return b
 }
 
+// AddDetail calls (*widget.Item).AddDetail.
+func (b *ItemBuilder) AddDetail(child Node) *ItemBuilder {
+	b.do(func(s *Scope, w *widget.Item) { w.AddDetail(build(s, child)) })
+	return b
+}
+
+// AddTitleSuffix calls (*widget.Item).AddTitleSuffix.
+func (b *ItemBuilder) AddTitleSuffix(child Node) *ItemBuilder {
+	b.do(func(s *Scope, w *widget.Item) { w.AddTitleSuffix(build(s, child)) })
+	return b
+}
+
+// AddTrailing calls (*widget.Item).AddTrailing.
+func (b *ItemBuilder) AddTrailing(child Node) *ItemBuilder {
+	b.do(func(s *Scope, w *widget.Item) { w.AddTrailing(build(s, child)) })
+	return b
+}
+
+// Control calls (*widget.Item).SetControl.
+func (b *ItemBuilder) Control(child Node, fit widget.ItemControlFit) *ItemBuilder {
+	b.do(func(s *Scope, w *widget.Item) { w.SetControl(build(s, child), fit) })
+	return b
+}
+
 // Description calls (*widget.Item).SetDescription.
 func (b *ItemBuilder) Description(description string) *ItemBuilder {
 	b.do(func(s *Scope, w *widget.Item) { w.SetDescription(description) })
@@ -5128,6 +5152,12 @@ func (b *ItemBuilder) Ellipsize(on bool) *ItemBuilder {
 // WatchEllipsize re-applies SetEllipsize with get's value after every update.
 func (b *ItemBuilder) WatchEllipsize(get func() bool) *ItemBuilder {
 	b.watch(func(w *widget.Item) { w.SetEllipsize(get()) })
+	return b
+}
+
+// Lines calls (*widget.Item).SetLines.
+func (b *ItemBuilder) Lines(title int, description int) *ItemBuilder {
+	b.do(func(s *Scope, w *widget.Item) { w.SetLines(title, description) })
 	return b
 }
 
@@ -5164,6 +5194,12 @@ func (b *ItemBuilder) Title(title string) *ItemBuilder {
 // WatchTitle re-applies SetTitle with get's value after every update.
 func (b *ItemBuilder) WatchTitle(get func() string) *ItemBuilder {
 	b.watch(func(w *widget.Item) { w.SetTitle(get()) })
+	return b
+}
+
+// TitleClass calls (*widget.Item).SetTitleClass.
+func (b *ItemBuilder) TitleClass(name string, on bool) *ItemBuilder {
+	b.do(func(s *Scope, w *widget.Item) { w.SetTitleClass(name, on) })
 	return b
 }
 
