@@ -91,6 +91,13 @@ func me() uint32 { return intconv.Must[uint32](os.Getuid()) }
 
 func start(t *testing.T, answer string, initial pause.State) *rig {
 	t.Helper()
+	r := follow(t, answer, initial)
+	r.announce(t)
+	return r
+}
+
+func follow(t *testing.T, answer string, initial pause.State) *rig {
+	t.Helper()
 	r := &rig{bus: dbustest.Start(t), h: &handler{calls: make(chan struct{}, 8)}, n: &notifier{answer: answer, asks: make(chan asked, 8)}}
 	r.serve(t, initial)
 	m := pausedunits.Follow(r.bus.Conn(t), me(), func(err error) { t.Error(err) })
@@ -101,17 +108,21 @@ func start(t *testing.T, answer string, initial pause.State) *rig {
 		}
 	})
 	r.until(t, "the first state", func(_ pause.State, running bool) bool { return running })
+	return r
+}
+
+func (r *rig) announce(t *testing.T) {
+	t.Helper()
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		pausedunits.Announce(ctx, m, r.n)
+		pausedunits.Announce(ctx, r.m, r.n)
 	}()
 	t.Cleanup(func() {
 		cancel()
 		<-done
 	})
-	return r
 }
 
 func (r *rig) serve(t *testing.T, st pause.State) {
@@ -195,6 +206,41 @@ func TestANewlyPausedUnitIsToldOfAndResumedForTheSessionOnRequest(t *testing.T) 
 	if r.h.resumed != 1 || len(r.h.system)+len(r.h.user) != 0 {
 		t.Errorf("resumed %d, picks %q %q", r.h.resumed, r.h.system, r.h.user)
 	}
+}
+
+func TestWhatWasPausedAfterFollowingStartedIsToldOfEvenBeforeAnnouncing(t *testing.T) {
+	docker, timer, mine, _ := units(t)
+	picks := []pause.Unit{docker, timer, mine}
+	r := follow(t, "", pause.State{Picks: picks, Entries: paused(timer)})
+
+	r.publish(t, pause.State{Picks: picks, Entries: paused(docker, timer, mine)})
+	r.announce(t)
+	a := waittest.For(t, r.n.asks, "the notification")
+	if want := i18n.T("battery-paused-body", i18n.Str("units", "docker.service, syncthing.service")); a.body != want {
+		t.Errorf("the body %q names more or less than what was paused since following started", a.body)
+	}
+	noAsk(t, r.n)
+}
+
+func TestWhatWasPausedAndResumedAgainBeforeAnnouncingIsNotToldOf(t *testing.T) {
+	docker, timer, mine, _ := units(t)
+	picks := []pause.Unit{docker, timer, mine}
+	r := follow(t, "", pause.State{Picks: picks, Entries: paused(timer)})
+
+	r.publish(t, pause.State{Picks: picks, Entries: paused(docker, timer, mine)})
+	r.publish(t, pause.State{Picks: picks, Entries: paused(timer, mine)})
+	r.announce(t)
+	a := waittest.For(t, r.n.asks, "the notification")
+	if want := i18n.T("battery-paused-body", i18n.Str("units", "syncthing.service")); a.body != want {
+		t.Errorf("the first notification reads %q, want only the unit still paused when announcing started", a.body)
+	}
+	r.publish(t, pause.State{Picks: picks, Entries: paused(timer)})
+	r.publish(t, pause.State{Picks: picks, Entries: paused(timer, docker)})
+	a = waittest.For(t, r.n.asks, "the second notification")
+	if want := i18n.T("battery-paused-body", i18n.Str("units", "docker.service")); a.body != want {
+		t.Errorf("the second notification reads %q, want only the unit paused again", a.body)
+	}
+	noAsk(t, r.n)
 }
 
 func TestKeepRunningUnpicksJustTheNewlyPausedUnitsOfEachScope(t *testing.T) {
