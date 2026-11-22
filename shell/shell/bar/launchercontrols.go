@@ -156,14 +156,18 @@ func (s controlSources) audioOutputs(ctx context.Context) []search.Control {
 	return out
 }
 
-// mediaControls drive the active player; with none there is nothing to
-// drive and no rows.
+// mediaControls drive the active player; with none, or one that
+// refuses control, there is nothing to drive and no rows.
 func (s controlSources) mediaControls(context.Context) []search.Control {
 	if s.media == nil {
 		return nil
 	}
 	player, ok := s.media.Active()
 	if !ok {
+		return nil
+	}
+	controls := mediaControlsOf(player)
+	if !controls.playPause {
 		return nil
 	}
 	subtitle := player.Identity
@@ -185,10 +189,10 @@ func (s controlSources) mediaControls(context.Context) []search.Control {
 		titleKey, icon = "launcher-control-pause", "ld-pause-symbolic"
 	}
 	out := []search.Control{row("play-pause", titleKey, "play pause resume", icon, s.media.PlayPause)}
-	if player.CanGoNext {
+	if controls.next {
 		out = append(out, row("next", "launcher-control-next", "skip forward", "ld-skip-forward-symbolic", s.media.Next))
 	}
-	if player.CanGoPrevious {
+	if controls.previous {
 		out = append(out, row("previous", "launcher-control-previous", "back", "ld-skip-back-symbolic", s.media.Previous))
 	}
 	return out

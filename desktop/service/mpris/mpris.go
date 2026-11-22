@@ -40,8 +40,8 @@ const (
 // not track.
 var ErrNoPlayer = errors.New("mpris: no such player")
 
-// ErrNotControllable reports a transport call on a player whose
-// CanControl is false.
+// ErrNotControllable reports a method call or a property write on a
+// player whose CanControl is false.
 var ErrNotControllable = errors.New("mpris: player cannot be controlled")
 
 // PlaybackState is the player's transport state.
@@ -593,48 +593,69 @@ func (s *Service) lookup(busName string) (Player, error) {
 	return Player{}, fmt.Errorf("%w: %s", ErrNoPlayer, busName)
 }
 
-// call runs one Player-interface method on a tracked player that
-// accepts control.
-func (s *Service) call(ctx context.Context, busName, method string, args ...any) error {
+// controlled is a tracked player that accepts control, the only
+// player a method call or a property write reaches.
+type controlled Player
+
+// control returns the tracked snapshot of a player that accepts
+// control, ErrNotControllable for one that reports CanControl false.
+func (s *Service) control(busName string) (controlled, error) {
 	p, err := s.lookup(busName)
+	if err != nil {
+		return controlled{}, err
+	}
+	if p.RefusesControl {
+		return controlled{}, fmt.Errorf("%w: %s", ErrNotControllable, busName)
+	}
+	return controlled(p), nil
+}
+
+// call runs one Player-interface method on a player that accepts
+// control.
+func (s *Service) call(ctx context.Context, p controlled, method string, args ...any) error {
+	return s.conn.Object(p.BusName, ObjectPath).CallWithContext(ctx, PlayerIface+"."+method, 0, args...).Err
+}
+
+// setProp writes one Player-interface property on a player that
+// accepts control.
+func (s *Service) setProp(ctx context.Context, p controlled, prop string, value any) error {
+	return s.conn.Object(p.BusName, ObjectPath).CallWithContext(ctx, dbusx.PropertiesInterface+".Set", 0, PlayerIface, prop, dbus.MakeVariant(value)).Err
+}
+
+// transport runs one argument-less Player-interface method on a
+// tracked player that accepts control.
+func (s *Service) transport(ctx context.Context, busName, method string) error {
+	p, err := s.control(busName)
 	if err != nil {
 		return err
 	}
-	if p.RefusesControl {
-		return fmt.Errorf("%w: %s", ErrNotControllable, busName)
-	}
-	return s.conn.Object(busName, ObjectPath).CallWithContext(ctx, PlayerIface+"."+method, 0, args...).Err
-}
-
-// setProp writes one Player-interface property on a tracked player.
-func (s *Service) setProp(ctx context.Context, busName, prop string, value any) error {
-	return s.conn.Object(busName, ObjectPath).CallWithContext(ctx, dbusx.PropertiesInterface+".Set", 0, PlayerIface, prop, dbus.MakeVariant(value)).Err
+	return s.call(ctx, p, method)
 }
 
 // PlayPause implements Source.
 func (s *Service) PlayPause(ctx context.Context, busName string) error {
-	return s.call(ctx, busName, "PlayPause")
+	return s.transport(ctx, busName, "PlayPause")
 }
 
 // Stop implements Source.
 func (s *Service) Stop(ctx context.Context, busName string) error {
-	return s.call(ctx, busName, "Stop")
+	return s.transport(ctx, busName, "Stop")
 }
 
 // Next implements Source.
 func (s *Service) Next(ctx context.Context, busName string) error {
-	return s.call(ctx, busName, "Next")
+	return s.transport(ctx, busName, "Next")
 }
 
 // Previous implements Source.
 func (s *Service) Previous(ctx context.Context, busName string) error {
-	return s.call(ctx, busName, "Previous")
+	return s.transport(ctx, busName, "Previous")
 }
 
 // SetPosition implements Source: SetPosition on the current track id,
 // the NoTrack path when the player publishes none.
 func (s *Service) SetPosition(ctx context.Context, busName string, pos time.Duration) error {
-	p, err := s.lookup(busName)
+	p, err := s.control(busName)
 	if err != nil {
 		return err
 	}
@@ -642,12 +663,12 @@ func (s *Service) SetPosition(ctx context.Context, busName string, pos time.Dura
 	if p.TrackID != "" && dbus.ObjectPath(p.TrackID).IsValid() {
 		track = dbus.ObjectPath(p.TrackID)
 	}
-	return s.call(ctx, busName, "SetPosition", track, pos.Microseconds())
+	return s.call(ctx, p, "SetPosition", track, pos.Microseconds())
 }
 
 // ToggleLoop implements Source: the None, Track, Playlist cycle.
 func (s *Service) ToggleLoop(ctx context.Context, busName string) error {
-	p, err := s.lookup(busName)
+	p, err := s.control(busName)
 	if err != nil {
 		return err
 	}
@@ -656,27 +677,28 @@ func (s *Service) ToggleLoop(ctx context.Context, busName string) error {
 		return fmt.Errorf("mpris: %s: loop unsupported", busName)
 	}
 	wire, _ := next.wire()
-	return s.setProp(ctx, busName, "LoopStatus", wire)
+	return s.setProp(ctx, p, "LoopStatus", wire)
 }
 
 // ToggleShuffle implements Source.
 func (s *Service) ToggleShuffle(ctx context.Context, busName string) error {
-	p, err := s.lookup(busName)
+	p, err := s.control(busName)
 	if err != nil {
 		return err
 	}
 	if !p.CanShuffle {
 		return fmt.Errorf("mpris: %s: shuffle unsupported", busName)
 	}
-	return s.setProp(ctx, busName, "Shuffle", !p.Shuffle)
+	return s.setProp(ctx, p, "Shuffle", !p.Shuffle)
 }
 
 // SetShuffle sets the Shuffle property (player set_shuffle_mode).
 func (s *Service) SetShuffle(ctx context.Context, busName string, on bool) error {
-	if _, err := s.lookup(busName); err != nil {
+	p, err := s.control(busName)
+	if err != nil {
 		return err
 	}
-	return s.setProp(ctx, busName, "Shuffle", on)
+	return s.setProp(ctx, p, "Shuffle", on)
 }
 
 // SetLoop sets the LoopStatus property (player set_loop_mode);
@@ -686,10 +708,11 @@ func (s *Service) SetLoop(ctx context.Context, busName string, mode LoopMode) er
 	if !ok {
 		return fmt.Errorf("mpris: %s: loop mode %d has no LoopStatus", busName, mode)
 	}
-	if _, err := s.lookup(busName); err != nil {
+	p, err := s.control(busName)
+	if err != nil {
 		return err
 	}
-	return s.setProp(ctx, busName, "LoopStatus", wire)
+	return s.setProp(ctx, p, "LoopStatus", wire)
 }
 
 // Position implements Source.

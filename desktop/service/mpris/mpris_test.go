@@ -3,6 +3,8 @@ package mpris
 import (
 	"context"
 	"errors"
+	"fmt"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -177,6 +179,7 @@ func startFakePlayer(t *testing.T, bus *dbustest.Bus, name, title string, status
 	t.Helper()
 	conn := bus.Conn(t)
 	f := &fakePlayer{conn: conn}
+	recordSet := func(c *prop.Change) *dbus.Error { return f.record(fmt.Sprintf("Set %s %v", c.Name, c.Value)) }
 	if err := conn.Export(f, ObjectPath, PlayerIface); err != nil {
 		t.Fatal(err)
 	}
@@ -187,8 +190,8 @@ func startFakePlayer(t *testing.T, bus *dbustest.Bus, name, title string, status
 		},
 		PlayerIface: {
 			"PlaybackStatus": {Value: status, Emit: prop.EmitTrue},
-			"LoopStatus":     {Value: "None", Writable: true, Emit: prop.EmitTrue},
-			"Shuffle":        {Value: false, Writable: true, Emit: prop.EmitTrue},
+			"LoopStatus":     {Value: "None", Writable: true, Emit: prop.EmitTrue, Callback: recordSet},
+			"Shuffle":        {Value: false, Writable: true, Emit: prop.EmitTrue, Callback: recordSet},
 			"Position":       {Value: int64(42_000_000), Emit: prop.EmitFalse},
 			"CanControl":     {Value: true, Emit: prop.EmitTrue},
 			"CanGoNext":      {Value: true, Emit: prop.EmitTrue},
@@ -341,13 +344,59 @@ func TestServiceStop(t *testing.T) {
 	for _, control := range []struct {
 		name string
 		run  func(context.Context, string) error
-	}{{"Stop", svc.Stop}, {"PlayPause", svc.PlayPause}, {"Next", svc.Next}, {"Previous", svc.Previous}} {
+	}{
+		{"Stop", svc.Stop}, {"PlayPause", svc.PlayPause}, {"Next", svc.Next}, {"Previous", svc.Previous},
+		{"SetPosition", func(ctx context.Context, name string) error { return svc.SetPosition(ctx, name, time.Second) }},
+	} {
 		if err := control.run(ctx, name); !errors.Is(err, ErrNotControllable) {
 			t.Errorf("%s on a player with CanControl false = %v, want ErrNotControllable", control.name, err)
 		}
 	}
 	if got := vlc.Calls(); len(got) != 1 {
 		t.Errorf("calls after the refused controls = %v, want only the first Stop", got)
+	}
+}
+
+func TestPropertyWritesRefuseAPlayerThatRefusesControl(t *testing.T) {
+	bus := dbustest.Start(t)
+	lockedName, vlcName := BusNamePrefix+"locked", BusNamePrefix+"vlc"
+	locked := startFakePlayer(t, bus, lockedName, "Locked", "Playing")
+	locked.props.SetMust(PlayerIface, "CanControl", false)
+	vlc := startFakePlayer(t, bus, vlcName, "First", "Playing")
+	svc, err := New(bus.Conn(t), nil, nil)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	waittest.Until(t, func() bool {
+		players := svc.Players()
+		i := slices.IndexFunc(players, func(p Player) bool { return p.BusName == lockedName })
+		return len(players) == 2 && i >= 0 && players[i].RefusesControl
+	}, "both players, the locked one refusing control")
+	ctx := context.Background()
+
+	writes := []struct {
+		name string
+		run  func(context.Context, string) error
+	}{
+		{"ToggleLoop", svc.ToggleLoop},
+		{"ToggleShuffle", svc.ToggleShuffle},
+		{"SetShuffle", func(ctx context.Context, name string) error { return svc.SetShuffle(ctx, name, true) }},
+		{"SetLoop", func(ctx context.Context, name string) error { return svc.SetLoop(ctx, name, LoopPlaylist) }},
+	}
+	for _, write := range writes {
+		if err := write.run(ctx, lockedName); !errors.Is(err, ErrNotControllable) {
+			t.Errorf("%s on a player with CanControl false = %v, want ErrNotControllable", write.name, err)
+		}
+		if err := write.run(ctx, vlcName); err != nil {
+			t.Errorf("%s on a controllable player: %v", write.name, err)
+		}
+	}
+	if got := locked.Calls(); len(got) != 0 {
+		t.Errorf("writes reached the player refusing control: %v", got)
+	}
+	want := []string{"Set LoopStatus Track", "Set Shuffle true", "Set Shuffle true", "Set LoopStatus Playlist"}
+	if got := vlc.Calls(); !slices.Equal(got, want) {
+		t.Errorf("writes on the controllable player = %v, want %v", got, want)
 	}
 }
 

@@ -192,6 +192,26 @@ func TestMediaControlsFollowTheActivePlayer(t *testing.T) {
 	}
 }
 
+func TestMediaControlsOfferNothingForAPlayerThatRefusesControl(t *testing.T) {
+	refusing, controllable := refusingAndControllablePlayers()
+	if rows := (controlSources{media: newFakeMedia(refusing)}).mediaControls(context.Background()); len(rows) != 0 {
+		t.Errorf("a player refusing control offered rows %q", titlesOf(rows))
+	}
+	media := newFakeMedia(controllable)
+	rows := controlSources{media: media}.mediaControls(context.Background())
+	if got, want := titlesOf(rows), []string{"Pause Media", "Next Track", "Previous Track"}; !slices.Equal(got, want) {
+		t.Fatalf("a controllable player offered rows %q, want %q", got, want)
+	}
+	for _, row := range rows {
+		if err := runNow(t, row); err != nil {
+			t.Errorf("%s: %v", row.Title, err)
+		}
+	}
+	if got, want := media.Calls(), []string{"play-pause " + controllable.BusName, "next " + controllable.BusName, "previous " + controllable.BusName}; !slices.Equal(got, want) {
+		t.Errorf("calls %q, want %q", got, want)
+	}
+}
+
 func TestCaptureWaitsForThePanelToClose(t *testing.T) {
 	var shots []string
 	picks := 0
