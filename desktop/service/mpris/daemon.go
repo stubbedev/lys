@@ -69,6 +69,11 @@ func (d *Daemon) PlayPause(player string) *dbus.Error {
 	return d.control(player, "play/pause", d.s.PlayPause)
 }
 
+// Stop stops playback.
+func (d *Daemon) Stop(player string) *dbus.Error {
+	return d.control(player, "stop", d.s.Stop)
+}
+
 // Next skips forward.
 func (d *Daemon) Next(player string) *dbus.Error {
 	return d.control(player, "next", d.s.requested(d.s.Next))

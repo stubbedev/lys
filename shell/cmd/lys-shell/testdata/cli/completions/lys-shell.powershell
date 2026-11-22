@@ -331,6 +331,7 @@ Register-ArgumentCompleter -Native -CommandName 'lys-shell' -ScriptBlock {
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('list', 'list', [CompletionResultType]::ParameterValue, 'List all available media players')
             [CompletionResult]::new('play-pause', 'play-pause', [CompletionResultType]::ParameterValue, 'Toggle play/pause for a media player')
+            [CompletionResult]::new('stop', 'stop', [CompletionResultType]::ParameterValue, 'Stop playback for a media player')
             [CompletionResult]::new('next', 'next', [CompletionResultType]::ParameterValue, 'Skip to next track')
             [CompletionResult]::new('previous', 'previous', [CompletionResultType]::ParameterValue, 'Go to previous track')
             [CompletionResult]::new('shuffle', 'shuffle', [CompletionResultType]::ParameterValue, 'Toggle or set shuffle mode')
@@ -346,6 +347,11 @@ Register-ArgumentCompleter -Native -CommandName 'lys-shell' -ScriptBlock {
             break
         }
         'lys-shell;media;play-pause' {
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            break
+        }
+        'lys-shell;media;stop' {
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
             break
@@ -383,6 +389,7 @@ Register-ArgumentCompleter -Native -CommandName 'lys-shell' -ScriptBlock {
         'lys-shell;media;help' {
             [CompletionResult]::new('list', 'list', [CompletionResultType]::ParameterValue, 'List all available media players')
             [CompletionResult]::new('play-pause', 'play-pause', [CompletionResultType]::ParameterValue, 'Toggle play/pause for a media player')
+            [CompletionResult]::new('stop', 'stop', [CompletionResultType]::ParameterValue, 'Stop playback for a media player')
             [CompletionResult]::new('next', 'next', [CompletionResultType]::ParameterValue, 'Skip to next track')
             [CompletionResult]::new('previous', 'previous', [CompletionResultType]::ParameterValue, 'Go to previous track')
             [CompletionResult]::new('shuffle', 'shuffle', [CompletionResultType]::ParameterValue, 'Toggle or set shuffle mode')
@@ -396,6 +403,9 @@ Register-ArgumentCompleter -Native -CommandName 'lys-shell' -ScriptBlock {
             break
         }
         'lys-shell;media;help;play-pause' {
+            break
+        }
+        'lys-shell;media;help;stop' {
             break
         }
         'lys-shell;media;help;next' {
@@ -1569,6 +1579,7 @@ Register-ArgumentCompleter -Native -CommandName 'lys-shell' -ScriptBlock {
         'lys-shell;help;media' {
             [CompletionResult]::new('list', 'list', [CompletionResultType]::ParameterValue, 'List all available media players')
             [CompletionResult]::new('play-pause', 'play-pause', [CompletionResultType]::ParameterValue, 'Toggle play/pause for a media player')
+            [CompletionResult]::new('stop', 'stop', [CompletionResultType]::ParameterValue, 'Stop playback for a media player')
             [CompletionResult]::new('next', 'next', [CompletionResultType]::ParameterValue, 'Skip to next track')
             [CompletionResult]::new('previous', 'previous', [CompletionResultType]::ParameterValue, 'Go to previous track')
             [CompletionResult]::new('shuffle', 'shuffle', [CompletionResultType]::ParameterValue, 'Toggle or set shuffle mode')
@@ -1581,6 +1592,9 @@ Register-ArgumentCompleter -Native -CommandName 'lys-shell' -ScriptBlock {
             break
         }
         'lys-shell;help;media;play-pause' {
+            break
+        }
+        'lys-shell;help;media;stop' {
             break
         }
         'lys-shell;help;media;next' {

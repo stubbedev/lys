@@ -30,6 +30,11 @@ func (f *fakePlayer) PlayPause() *dbus.Error { return f.record("PlayPause") }
 func (f *fakePlayer) Next() *dbus.Error      { return f.record("Next") }
 func (f *fakePlayer) Previous() *dbus.Error  { return f.record("Previous") }
 
+func (f *fakePlayer) Stop() *dbus.Error {
+	f.props.SetMust("org.mpris.MediaPlayer2.Player", "PlaybackStatus", "Stopped")
+	return f.record("Stop")
+}
+
 func (f *fakePlayer) Calls() []string {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -47,7 +52,8 @@ func startPlayer(t *testing.T, suffix, identity, status string, withShuffle bool
 		t.Fatal(err)
 	}
 	player := map[string]*prop.Prop{
-		"PlaybackStatus": {Value: status, Emit: prop.EmitFalse},
+		"PlaybackStatus": {Value: status, Emit: prop.EmitTrue},
+		"CanControl":     {Value: true, Emit: prop.EmitTrue},
 		"LoopStatus":     {Value: "None", Writable: true, Emit: prop.EmitTrue},
 		"Volume":         {Value: 0.5, Emit: prop.EmitFalse},
 		"CanGoNext":      {Value: true, Emit: prop.EmitFalse},
@@ -153,6 +159,54 @@ func TestMediaPriorityAndHotplug(t *testing.T) {
 	waittest.Until(t, func() bool { return activeName(c) == "org.mpris.MediaPlayer2.firefox.instance_1_2" }, "the priority player to take over")
 }
 
+func TestMediaStop(t *testing.T) {
+	dbustest.Session(t)
+	vlc := startPlayer(t, "vlc", "VLC", "Playing", false)
+	c := serveMedia(t, nil)
+	spotify := startPlayer(t, "spotify", "Spotify", "Paused", false)
+	waittest.Until(t, func() bool { return len(c.Players()) == 2 && activeName(c) == "org.mpris.MediaPlayer2.vlc" }, "both players listed with vlc active")
+
+	if stdout, stderr, code := runCaptured(t, false, "media", "stop"); code != 0 || stdout != "" || stderr != "" {
+		t.Errorf("media stop: code %d stdout %q stderr %q", code, stdout, stderr)
+	}
+	want := "Available media players:\n  1. VLC (org.mpris.MediaPlayer2.vlc) [Stopped]\n  2. Spotify (org.mpris.MediaPlayer2.spotify) [Paused]\n"
+	if stdout, stderr, code := runUntil(t, want, "media", "list"); code != 0 || stdout != want {
+		t.Errorf("after media stop: code %d stdout %q stderr %q, want %q", code, stdout, stderr, want)
+	}
+	if stdout, stderr, code := runCaptured(t, false, "media", "stop", "spot"); code != 0 || stdout != "" || stderr != "" {
+		t.Errorf("media stop spot: code %d stdout %q stderr %q", code, stdout, stderr)
+	}
+	want = "Available media players:\n  1. VLC (org.mpris.MediaPlayer2.vlc) [Stopped]\n  2. Spotify (org.mpris.MediaPlayer2.spotify) [Stopped]\n"
+	if stdout, stderr, code := runUntil(t, want, "media", "list"); code != 0 || stdout != want {
+		t.Errorf("after media stop spot: code %d stdout %q stderr %q, want %q", code, stdout, stderr, want)
+	}
+
+	if _, stderr, code := runCaptured(t, false, "media", "stop", "mpv"); code != 1 || stderr != "Error: No player matching 'mpv'\nAvailable players:\n  1. VLC\n  2. Spotify\n" {
+		t.Errorf("media stop mpv: code %d stderr %q, want the unknown player named", code, stderr)
+	}
+
+	spotify.props.SetMust("org.mpris.MediaPlayer2.Player", "CanControl", false)
+	waittest.Until(t, func() bool {
+		for _, p := range c.Players() {
+			if p.BusName == "org.mpris.MediaPlayer2.spotify" {
+				return !p.CanControl
+			}
+		}
+		return false
+	}, "spotify's CanControl false in the snapshot")
+	wantErr := "Error: Failed to stop playback: cannot control player: stop: mpris: player cannot be controlled: org.mpris.MediaPlayer2.spotify\n"
+	if stdout, stderr, code := runCaptured(t, false, "media", "stop", "spotify"); code != 1 || stdout != "" || stderr != wantErr {
+		t.Errorf("media stop on a player with CanControl false: code %d stdout %q stderr %q, want %q", code, stdout, stderr, wantErr)
+	}
+
+	if got := strings.Join(vlc.Calls(), ","); got != "Stop" {
+		t.Errorf("vlc calls = %s, want Stop", got)
+	}
+	if got := strings.Join(spotify.Calls(), ","); got != "Stop" {
+		t.Errorf("spotify calls = %s, want one Stop, none after CanControl went false", got)
+	}
+}
+
 func TestMediaErrors(t *testing.T) {
 	dbustest.Session(t)
 	if _, stderr, code := runCaptured(t, false, "media", "list"); code != 1 || stderr != "Error: Media service not running. Start lys-shell shell first.\n" {
@@ -164,10 +218,12 @@ func TestMediaErrors(t *testing.T) {
 		want string
 	}{
 		{[]string{"media", "next"}, "Error: Failed to skip to next track: No active player\n"},
+		{[]string{"media", "play-pause"}, "Error: Failed to toggle play/pause: No active player\n"},
+		{[]string{"media", "stop"}, "Error: Failed to stop playback: No active player\n"},
 		{[]string{"media", "next", "1"}, "Error: No media players available\n"},
-		{[]string{"media", "list"}, ""},
+		{[]string{"media", "stop", "1"}, "Error: No media players available\n"},
 	}
-	for _, c := range cases[:2] {
+	for _, c := range cases {
 		if _, stderr, code := runCaptured(t, false, c.args...); code != 1 || stderr != c.want {
 			t.Errorf("%v: code %d %q, want %q", c.args, code, stderr, c.want)
 		}

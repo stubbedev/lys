@@ -358,6 +358,9 @@ _lys-shell() {
             lys__shell__help__media,shuffle)
                 cmd="lys__shell__help__media__shuffle"
                 ;;
+            lys__shell__help__media,stop)
+                cmd="lys__shell__help__media__stop"
+                ;;
             lys__shell__help__notify,dismiss)
                 cmd="lys__shell__help__notify__dismiss"
                 ;;
@@ -685,6 +688,9 @@ _lys-shell() {
             lys__shell__media,shuffle)
                 cmd="lys__shell__media__shuffle"
                 ;;
+            lys__shell__media,stop)
+                cmd="lys__shell__media__stop"
+                ;;
             lys__shell__media__help,active)
                 cmd="lys__shell__media__help__active"
                 ;;
@@ -711,6 +717,9 @@ _lys-shell() {
                 ;;
             lys__shell__media__help,shuffle)
                 cmd="lys__shell__media__help__shuffle"
+                ;;
+            lys__shell__media__help,stop)
+                cmd="lys__shell__media__help__stop"
                 ;;
             lys__shell__notify,dismiss)
                 cmd="lys__shell__notify__dismiss"
@@ -2332,7 +2341,7 @@ _lys-shell() {
             return 0
             ;;
         lys__shell__help__media)
-            opts="list play-pause next previous shuffle loop active info"
+            opts="list play-pause stop next previous shuffle loop active info"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -2444,6 +2453,20 @@ _lys-shell() {
             return 0
             ;;
         lys__shell__help__media__shuffle)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        lys__shell__help__media__stop)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -4104,7 +4127,7 @@ _lys-shell() {
             return 0
             ;;
         lys__shell__media)
-            opts="-h --help list play-pause next previous shuffle loop active info help"
+            opts="-h --help list play-pause stop next previous shuffle loop active info help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -4132,7 +4155,7 @@ _lys-shell() {
             return 0
             ;;
         lys__shell__media__help)
-            opts="list play-pause next previous shuffle loop active info help"
+            opts="list play-pause stop next previous shuffle loop active info help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -4271,6 +4294,20 @@ _lys-shell() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
+        lys__shell__media__help__stop)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
         lys__shell__media__info)
             opts="-h --help [PLAYER_ID]"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
@@ -4357,6 +4394,20 @@ _lys-shell() {
             ;;
         lys__shell__media__shuffle)
             opts="-h --help on off toggle [PLAYER_ID]"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        lys__shell__media__stop)
+            opts="-h --help [PLAYER_ID]"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0

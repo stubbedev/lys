@@ -749,7 +749,8 @@ binds:
   - {chord: SUPER + R, action: submap resize}
   - {chord: SUPER, action: global shell:launcher, description: Open the launcher}
   - {chord: SUPER + L, action: exec lock, long_press: 600}
-  - {chord: XF86AudioPlay, action: exec playerctl play-pause, flags: [pass]}
+  - {chord: XF86AudioPlay, action: exec lys-shell media play-pause, flags: [pass]}
+  - {chord: XF86AudioStop, action: exec lys-shell media stop, flags: [pass]}
   - {chord: SUPER + mouse_down, action: workspace e+1, cooldown: 150}
 submaps:
   resize:

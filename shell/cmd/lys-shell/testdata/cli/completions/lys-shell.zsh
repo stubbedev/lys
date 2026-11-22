@@ -419,6 +419,13 @@ _arguments "${_arguments_options[@]}" : \
 '::player -- Player identifier (number or partial name match):_default' \
 && ret=0
 ;;
+(stop)
+_arguments "${_arguments_options[@]}" : \
+'-h[Print help]' \
+'--help[Print help]' \
+'::player -- Player identifier (number or partial name match):_default' \
+&& ret=0
+;;
 (next)
 _arguments "${_arguments_options[@]}" : \
 '-h[Print help]' \
@@ -484,6 +491,10 @@ _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
 (play-pause)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(stop)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
@@ -2140,6 +2151,10 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
+(stop)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
 (next)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
@@ -3210,6 +3225,7 @@ _lys-shell__help__media_commands() {
     local commands; commands=(
 'list:List all available media players' \
 'play-pause:Toggle play/pause for a media player' \
+'stop:Stop playback for a media player' \
 'next:Skip to next track' \
 'previous:Go to previous track' \
 'shuffle:Toggle or set shuffle mode' \
@@ -3258,6 +3274,11 @@ _lys-shell__help__media__previous_commands() {
 _lys-shell__help__media__shuffle_commands() {
     local commands; commands=()
     _describe -t commands 'lys-shell help media shuffle commands' commands "$@"
+}
+(( $+functions[_lys-shell__help__media__stop_commands] )) ||
+_lys-shell__help__media__stop_commands() {
+    local commands; commands=()
+    _describe -t commands 'lys-shell help media stop commands' commands "$@"
 }
 (( $+functions[_lys-shell__help__notify_commands] )) ||
 _lys-shell__help__notify_commands() {
@@ -3966,6 +3987,7 @@ _lys-shell__media_commands() {
     local commands; commands=(
 'list:List all available media players' \
 'play-pause:Toggle play/pause for a media player' \
+'stop:Stop playback for a media player' \
 'next:Skip to next track' \
 'previous:Go to previous track' \
 'shuffle:Toggle or set shuffle mode' \
@@ -3986,6 +4008,7 @@ _lys-shell__media__help_commands() {
     local commands; commands=(
 'list:List all available media players' \
 'play-pause:Toggle play/pause for a media player' \
+'stop:Stop playback for a media player' \
 'next:Skip to next track' \
 'previous:Go to previous track' \
 'shuffle:Toggle or set shuffle mode' \
@@ -4041,6 +4064,11 @@ _lys-shell__media__help__shuffle_commands() {
     local commands; commands=()
     _describe -t commands 'lys-shell media help shuffle commands' commands "$@"
 }
+(( $+functions[_lys-shell__media__help__stop_commands] )) ||
+_lys-shell__media__help__stop_commands() {
+    local commands; commands=()
+    _describe -t commands 'lys-shell media help stop commands' commands "$@"
+}
 (( $+functions[_lys-shell__media__info_commands] )) ||
 _lys-shell__media__info_commands() {
     local commands; commands=()
@@ -4075,6 +4103,11 @@ _lys-shell__media__previous_commands() {
 _lys-shell__media__shuffle_commands() {
     local commands; commands=()
     _describe -t commands 'lys-shell media shuffle commands' commands "$@"
+}
+(( $+functions[_lys-shell__media__stop_commands] )) ||
+_lys-shell__media__stop_commands() {
+    local commands; commands=()
+    _describe -t commands 'lys-shell media stop commands' commands "$@"
 }
 (( $+functions[_lys-shell__notify_commands] )) ||
 _lys-shell__notify_commands() {

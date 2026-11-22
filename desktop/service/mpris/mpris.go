@@ -1,7 +1,7 @@
 // Package mpris is the media player service over MPRIS2 (D-Bus): it
 // discovers players by bus name, keeps each one's snapshot current from
 // PropertiesChanged, picks the active player (SelectBest), and drives the
-// transport (play/pause, next, previous, seek, loop, shuffle).
+// transport (play/pause, stop, next, previous, seek, loop, shuffle).
 package mpris
 
 import (
@@ -39,6 +39,10 @@ const (
 // ErrNoPlayer reports a control aimed at a bus name the service does
 // not track.
 var ErrNoPlayer = errors.New("mpris: no such player")
+
+// ErrNotControllable reports a transport call on a player whose
+// CanControl is false.
+var ErrNotControllable = errors.New("mpris: player cannot be controlled")
 
 // PlaybackState is the player's transport state.
 type PlaybackState uint8
@@ -134,6 +138,9 @@ type Player struct {
 	Loop    LoopMode
 	Shuffle bool
 
+	// CanControl is false only for a player that reports it false; the
+	// transport refuses such a player without calling it.
+	CanControl    bool
 	CanGoNext     bool
 	CanGoPrevious bool
 	CanSeek       bool
@@ -185,8 +192,9 @@ type Source interface {
 	// Subscribe returns a feed that ticks on every player-set, active,
 	// or snapshot change; stop ends it.
 	Subscribe() (<-chan struct{}, func())
-	// PlayPause, Next, and Previous drive the transport.
+	// PlayPause, Stop, Next, and Previous drive the transport.
 	PlayPause(ctx context.Context, busName string) error
+	Stop(ctx context.Context, busName string) error
 	Next(ctx context.Context, busName string) error
 	Previous(ctx context.Context, busName string) error
 	// SetPosition seeks the current track to pos.
@@ -495,6 +503,8 @@ func parsePlayer(name string, root, player map[string]dbus.Variant) Player {
 		CanSeek:       variantBool(player["CanSeek"]),
 		Loop:          LoopUnsupported,
 	}
+	canControl, published := player["CanControl"]
+	p.CanControl = !published || variantBool(canControl)
 	p.Volume, _ = player["Volume"].Value().(float64)
 	if loop, ok := player["LoopStatus"]; ok {
 		p.CanLoop = true
@@ -583,10 +593,15 @@ func (s *Service) lookup(busName string) (Player, error) {
 	return Player{}, fmt.Errorf("%w: %s", ErrNoPlayer, busName)
 }
 
-// call runs one Player-interface method on a tracked player.
+// call runs one Player-interface method on a tracked player that
+// accepts control.
 func (s *Service) call(ctx context.Context, busName, method string, args ...any) error {
-	if _, err := s.lookup(busName); err != nil {
+	p, err := s.lookup(busName)
+	if err != nil {
 		return err
+	}
+	if !p.CanControl {
+		return fmt.Errorf("%w: %s", ErrNotControllable, busName)
 	}
 	return s.conn.Object(busName, ObjectPath).CallWithContext(ctx, PlayerIface+"."+method, 0, args...).Err
 }
@@ -599,6 +614,11 @@ func (s *Service) setProp(ctx context.Context, busName, prop string, value any) 
 // PlayPause implements Source.
 func (s *Service) PlayPause(ctx context.Context, busName string) error {
 	return s.call(ctx, busName, "PlayPause")
+}
+
+// Stop implements Source.
+func (s *Service) Stop(ctx context.Context, busName string) error {
+	return s.call(ctx, busName, "Stop")
 }
 
 // Next implements Source.

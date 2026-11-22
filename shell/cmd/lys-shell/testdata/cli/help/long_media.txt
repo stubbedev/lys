@@ -5,6 +5,7 @@ Usage: lys-shell media <COMMAND>
 Commands:
   list        List all available media players
   play-pause  Toggle play/pause for a media player
+  stop        Stop playback for a media player
   next        Skip to next track
   previous    Go to previous track
   shuffle     Toggle or set shuffle mode

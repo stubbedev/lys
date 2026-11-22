@@ -52,13 +52,13 @@ lys-shell brightness auto
 | Command | Does |
 | --- | --- |
 | `media list` | List players |
-| `media play-pause` / `next` / `previous [PLAYER]` | Control a player |
+| `media play-pause` / `stop` / `next` / `previous [PLAYER]` | Control a player |
 | `media shuffle [on\|off\|toggle] [PLAYER]` | Shuffle; toggles when omitted |
 | `media loop none\|track\|playlist [PLAYER]` | Loop mode |
 | `media active [PLAYER]` | Print or set the active player |
 | `media info [PLAYER]` | Show player details |
 
-`PLAYER` is a number or part of a name; the active player when omitted. `next` and `previous` show the now-playing OSD (see [`osd.media`](/shell/config/osd)).
+`PLAYER` is a number or part of a name; the active player when omitted. A player that reports `CanControl` false refuses every control. `next` and `previous` show the now-playing OSD (see [`osd.media`](/shell/config/osd)).
 
 ## idle
 

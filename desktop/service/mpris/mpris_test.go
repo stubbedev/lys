@@ -2,6 +2,7 @@ package mpris
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -117,11 +118,15 @@ func TestParsePlayer(t *testing.T) {
 	if p.Length != 90*time.Second || p.TrackID != "/track/1" || p.ArtURL != "file:///tmp/art.png" {
 		t.Errorf("length/track/art = %v %q %q", p.Length, p.TrackID, p.ArtURL)
 	}
-	if p.State != StatePaused || !p.CanGoNext || p.CanGoPrevious {
+	if p.State != StatePaused || !p.CanControl || !p.CanGoNext || p.CanGoPrevious {
 		t.Errorf("state/caps = %+v", p)
 	}
 	if !p.CanLoop || p.Loop != LoopTrack {
 		t.Errorf("loop = %v (can %v), want Track", p.Loop, p.CanLoop)
+	}
+	player["CanControl"] = dbus.MakeVariant(false)
+	if q := parsePlayer("x", root, player); q.CanControl {
+		t.Error("a player reporting CanControl false parsed as controllable")
 	}
 	// No Shuffle property: unsupported.
 	if p.CanShuffle {
@@ -153,6 +158,11 @@ func (f *fakePlayer) PlayPause() *dbus.Error { return f.record("PlayPause") }
 func (f *fakePlayer) Next() *dbus.Error      { return f.record("Next") }
 func (f *fakePlayer) Previous() *dbus.Error  { return f.record("Previous") }
 
+func (f *fakePlayer) Stop() *dbus.Error {
+	f.props.SetMust(PlayerIface, "PlaybackStatus", "Stopped")
+	return f.record("Stop")
+}
+
 func (f *fakePlayer) SetPosition(track dbus.ObjectPath, pos int64) *dbus.Error {
 	return f.record("SetPosition " + string(track) + " " + time.Duration(pos*1000).String())
 }
@@ -180,6 +190,7 @@ func startFakePlayer(t *testing.T, bus *dbustest.Bus, name, title string, status
 			"LoopStatus":     {Value: "None", Writable: true, Emit: prop.EmitTrue},
 			"Shuffle":        {Value: false, Writable: true, Emit: prop.EmitTrue},
 			"Position":       {Value: int64(42_000_000), Emit: prop.EmitFalse},
+			"CanControl":     {Value: true, Emit: prop.EmitTrue},
 			"CanGoNext":      {Value: true, Emit: prop.EmitTrue},
 			"CanGoPrevious":  {Value: true, Emit: prop.EmitTrue},
 			"CanSeek":        {Value: true, Emit: prop.EmitTrue},
@@ -249,7 +260,7 @@ func TestServiceFollowsPlayersOnABus(t *testing.T) {
 
 	// Controls reach the player.
 	ctx := context.Background()
-	for _, fn := range []func(context.Context, string) error{svc.PlayPause, svc.Next, svc.Previous} {
+	for _, fn := range []func(context.Context, string) error{svc.PlayPause, svc.Next, svc.Previous, svc.Stop} {
 		if err := fn(ctx, mpvName); err != nil {
 			t.Fatal(err)
 		}
@@ -257,7 +268,7 @@ func TestServiceFollowsPlayersOnABus(t *testing.T) {
 	if err := svc.SetPosition(ctx, mpvName, 30*time.Second); err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"PlayPause", "Next", "Previous", "SetPosition /t/1 30s"}
+	want := []string{"PlayPause", "Next", "Previous", "Stop", "SetPosition /t/1 30s"}
 	if got := mpv.Calls(); len(got) != len(want) {
 		t.Fatalf("calls = %v, want %v", got, want)
 	}
@@ -294,6 +305,49 @@ func TestServiceFollowsPlayersOnABus(t *testing.T) {
 	waittest.Until(t, func() bool { return len(svc.Players()) == 1 }, "mpv to leave")
 	if p, _ := svc.Active(); p.BusName != vlcName {
 		t.Errorf("active after mpv left = %q, want vlc", p.BusName)
+	}
+}
+
+func TestServiceStop(t *testing.T) {
+	bus := dbustest.Start(t)
+	name := BusNamePrefix + "vlc"
+	vlc := startFakePlayer(t, bus, name, "First", "Playing")
+	svc, err := New(bus.Conn(t), nil, nil)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	ctx := context.Background()
+
+	if err := svc.Stop(ctx, name); err != nil {
+		t.Fatalf("Stop: %v", err)
+	}
+	waittest.Until(t, func() bool {
+		p, _ := svc.Active()
+		return p.State == StateStopped
+	}, "the stopped state")
+	if got := vlc.Calls(); len(got) != 1 || got[0] != "Stop" {
+		t.Errorf("calls = %v, want [Stop]", got)
+	}
+
+	if err := svc.Stop(ctx, BusNamePrefix+"ghost"); !errors.Is(err, ErrNoPlayer) {
+		t.Errorf("Stop on an unknown player = %v, want ErrNoPlayer", err)
+	}
+
+	vlc.props.SetMust(PlayerIface, "CanControl", false)
+	waittest.Until(t, func() bool {
+		p, _ := svc.Active()
+		return !p.CanControl
+	}, "CanControl false in the snapshot")
+	for _, control := range []struct {
+		name string
+		run  func(context.Context, string) error
+	}{{"Stop", svc.Stop}, {"PlayPause", svc.PlayPause}, {"Next", svc.Next}, {"Previous", svc.Previous}} {
+		if err := control.run(ctx, name); !errors.Is(err, ErrNotControllable) {
+			t.Errorf("%s on a player with CanControl false = %v, want ErrNotControllable", control.name, err)
+		}
+	}
+	if got := vlc.Calls(); len(got) != 1 {
+		t.Errorf("calls after the refused controls = %v, want only the first Stop", got)
 	}
 }
 

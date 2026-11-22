@@ -273,6 +273,7 @@ set edit:completion:arg-completer[lys-shell] = {|@words|
             cand --help 'Print help'
             cand list 'List all available media players'
             cand play-pause 'Toggle play/pause for a media player'
+            cand stop 'Stop playback for a media player'
             cand next 'Skip to next track'
             cand previous 'Go to previous track'
             cand shuffle 'Toggle or set shuffle mode'
@@ -286,6 +287,10 @@ set edit:completion:arg-completer[lys-shell] = {|@words|
             cand --help 'Print help'
         }
         &'lys-shell;media;play-pause'= {
+            cand -h 'Print help'
+            cand --help 'Print help'
+        }
+        &'lys-shell;media;stop'= {
             cand -h 'Print help'
             cand --help 'Print help'
         }
@@ -316,6 +321,7 @@ set edit:completion:arg-completer[lys-shell] = {|@words|
         &'lys-shell;media;help'= {
             cand list 'List all available media players'
             cand play-pause 'Toggle play/pause for a media player'
+            cand stop 'Stop playback for a media player'
             cand next 'Skip to next track'
             cand previous 'Go to previous track'
             cand shuffle 'Toggle or set shuffle mode'
@@ -327,6 +333,8 @@ set edit:completion:arg-completer[lys-shell] = {|@words|
         &'lys-shell;media;help;list'= {
         }
         &'lys-shell;media;help;play-pause'= {
+        }
+        &'lys-shell;media;help;stop'= {
         }
         &'lys-shell;media;help;next'= {
         }
@@ -1258,6 +1266,7 @@ set edit:completion:arg-completer[lys-shell] = {|@words|
         &'lys-shell;help;media'= {
             cand list 'List all available media players'
             cand play-pause 'Toggle play/pause for a media player'
+            cand stop 'Stop playback for a media player'
             cand next 'Skip to next track'
             cand previous 'Go to previous track'
             cand shuffle 'Toggle or set shuffle mode'
@@ -1268,6 +1277,8 @@ set edit:completion:arg-completer[lys-shell] = {|@words|
         &'lys-shell;help;media;list'= {
         }
         &'lys-shell;help;media;play-pause'= {
+        }
+        &'lys-shell;help;media;stop'= {
         }
         &'lys-shell;help;media;next'= {
         }

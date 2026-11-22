@@ -83,6 +83,8 @@ func (f *fakeMediaSource) PlayPause(_ context.Context, bus string) error {
 	return f.record("play-pause " + bus)
 }
 
+func (f *fakeMediaSource) Stop(_ context.Context, bus string) error { return f.record("stop " + bus) }
+
 func (f *fakeMediaSource) Next(_ context.Context, bus string) error { return f.record("next " + bus) }
 
 func (f *fakeMediaSource) Previous(_ context.Context, bus string) error {

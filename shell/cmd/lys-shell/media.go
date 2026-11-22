@@ -21,6 +21,7 @@ func mediaCommand() *cli.Command {
 		Subcommands: []*cli.Command{
 			{Name: "list", About: "List all available media players", Run: withMedia(mediaList)},
 			{Name: "play-pause", About: "Toggle play/pause for a media player", Args: []*cli.Arg{player(playerHelp)}, Run: withMedia(mediaTransport("toggle play/pause", "PlayPause"))},
+			{Name: "stop", About: "Stop playback for a media player", Args: []*cli.Arg{player(playerHelp)}, Run: withMedia(mediaTransport("stop playback", "Stop"))},
 			{Name: "next", About: "Skip to next track", Args: []*cli.Arg{player(playerHelp)}, Run: withMedia(mediaTransport("skip to next track", "Next"))},
 			{Name: "previous", About: "Go to previous track", Args: []*cli.Arg{player(playerHelp)}, Run: withMedia(mediaTransport("go to previous track", "Previous"))},
 			{
