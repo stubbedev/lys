@@ -30,6 +30,7 @@ import (
 	"github.com/stubbedev/lys/desktop/service/upower"
 	"github.com/stubbedev/lys/desktop/shell/apptheme"
 	"github.com/stubbedev/lys/desktop/shell/barview"
+	"github.com/stubbedev/lys/desktop/shell/dockview"
 	"github.com/stubbedev/lys/desktop/shell/layers"
 	"github.com/stubbedev/lys/desktop/shell/lockclient"
 	"github.com/stubbedev/lys/desktop/spawn"
@@ -1096,9 +1097,10 @@ type barWindow struct {
 	bar       *widget.Bar
 	gen       *mountGen
 	layerKind app.Layer
-	// hide is the bar's reveal controller, the dock's too; stopGeom ends
-	// its following of the windows.
+	// hide is the bar's reveal controller, the dock's too, and slide
+	// how it moves; stopGeom ends its following of the windows.
 	hide     *autoHide
+	slide    *edgeSlide
 	stopGeom func()
 	// thickness is the bar's size across its edge while it last showed,
 	// which a hidden bar keeps for what would cover it.
@@ -1138,6 +1140,7 @@ func (w *barWindow) Rebuild(layout config.BarLayout) error {
 	if err := w.layer.SetExclusive(exclusive); err != nil {
 		return fmt.Errorf("set exclusive %v: %w", exclusive, err)
 	}
+	w.slide.setDuration(dockview.Motion(cfg))
 	w.hide.setMode(cfg.Bar.AutoHideOn(layout), autoHideDelay(cfg.Bar.AutoHideDelayMs))
 	ctx := w.host.context(w.output)
 	w.gen.retire()

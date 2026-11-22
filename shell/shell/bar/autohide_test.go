@@ -208,8 +208,10 @@ func TestAHiddenBarOwesNoFrameForItsModules(t *testing.T) {
 	b.Start().Append(clock, false)
 	b.Arrange(render.Rect{W: 800, H: 30})
 	widget.CollectDamage(b)
+	t.Cleanup(widget.SetAnimationsInstant(true))
 	w := &barWindow{bar: b, hide: &autoHide{hidden: true}, thickness: 30}
-	w.applyHidden(true)
+	w.startSlide(time.Second)
+	w.slide.apply(true)
 	if thick := barThickness(b, widget.Size{W: 800, H: 400}); thick != revealPx {
 		t.Errorf("the hidden bar is %d thick, want the %dpx strip", thick, revealPx)
 	}

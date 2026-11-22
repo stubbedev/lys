@@ -180,6 +180,7 @@ type dock struct {
 	// fold slides slot to the edge and back; it is shown unless the
 	// dock rests hidden, folded to its reveal strip.
 	fold   *widget.Revealer
+	slide  *edgeSlide
 	reveal *widget.DrawingArea
 	axis   widget.Axis
 	zoom   dockview.Zoom
@@ -239,14 +240,7 @@ func newDock(ctx ModuleContext, cfg config.DockConfig, output *app.Output, after
 	d.fold = widget.NewRevealer(d.slot)
 	dockview.Seat(d.fold, cfg.Edge)
 	d.fold.SetTransition(dockSlide(cfg.Edge))
-	d.fold.SetDuration(0)
-	d.fold.SetRevealed(true)
-	d.fold.SetDuration(dockview.Motion(ctx.Config))
-	d.fold.SetOnTransitionDone(func(revealed bool) {
-		if !revealed {
-			d.setFolded(true)
-		}
-	})
+	d.slide = newEdgeSlide(d.fold, dockview.Motion(ctx.Config), d.setFolded)
 	d.surface.AddClass("dock-surface")
 	d.surface.Append(d.fold, true)
 	d.surface.Append(d.reveal, false)
@@ -467,11 +461,8 @@ func (d *dock) syncHidden() { d.hide.sync() }
 func (d *dock) applyHidden(hide bool) {
 	if hide {
 		d.rects.release()
-		d.fold.SetRevealed(false)
-		return
 	}
-	d.setFolded(false)
-	d.fold.SetRevealed(true)
+	d.slide.apply(hide)
 }
 
 // setFolded swaps the entries for the reveal strip, or back.
@@ -487,7 +478,7 @@ func (d *dock) setFolded(folded bool) {
 }
 
 // folded reports whether the dock rests at its reveal strip.
-func (d *dock) folded() bool { return !d.fold.Visible() }
+func (d *dock) folded() bool { return d.slide.folded }
 
 // dockSlide is the slide that brings a dock on edge in from it.
 func dockSlide(edge config.DockEdge) widget.RevealTransition {

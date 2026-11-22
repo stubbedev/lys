@@ -26,6 +26,11 @@ func (e BarEdge) class() string {
 	return [...]string{"top", "bottom", "left", "right"}[e]
 }
 
+// slideIn is the slide that brings a bar on the edge in from it.
+func (e BarEdge) slideIn() RevealTransition {
+	return [...]RevealTransition{RevealSlideDown, RevealSlideUp, RevealSlideRight, RevealSlideLeft}[e]
+}
+
 // PopoverSide is the side a popover opens on from a bar on this edge:
 // away from the edge, into the screen.
 func (e BarEdge) PopoverSide() PopoverSide {
@@ -41,8 +46,14 @@ var barEdges = []string{"top", "bottom", "left", "right"}
 // BarButtons drop their labels for their icons, its BarSeparators turn
 // across it and its SegmentIndicators stack. It styles as the bar
 // element with its edge's class (top, bottom, left, right).
+//
+// Its box and zones show through a Revealer (Revealer) that slides
+// them to the bar's edge and back, shown and snapping until its owner
+// sets a duration. The bar keeps its size while they slide.
 type Bar struct {
 	composite
+	slide              *Revealer
+	face               *barFace
 	box                *CenterBox
 	start, center, end *Box
 	edge               BarEdge
@@ -58,12 +69,21 @@ func NewBar(edge BarEdge) *Bar {
 	b.center.AddClass("center")
 	b.end.AddClass("end")
 	b.box = NewCenterBox(b.start, b.center, b.end)
+	b.face = &barFace{bar: b}
+	b.face.initComposite(b.face, b.box)
+	b.slide = NewRevealer(b.face)
+	b.slide.SetDuration(0)
+	b.slide.SetRevealed(true)
 	b.SetElement("bar")
-	b.initComposite(b, b.box)
-	b.boxed = true
+	b.initComposite(b, b.slide)
 	b.SetEdge(edge)
 	return b
 }
+
+// Revealer is what the bar's box and zones show through: revealed, it
+// shows them; hidden, they slide out to the bar's edge, the bar
+// keeping its size. Its transition follows the edge.
+func (b *Bar) Revealer() *Revealer { return b.slide }
 
 // Start is the zone at the bar's start, left or top.
 func (b *Bar) Start() *Box { return b.start }
@@ -94,6 +114,7 @@ func (b *Bar) SetEdge(edge BarEdge) {
 	for _, z := range []*Box{b.start, b.center, b.end} {
 		z.SetAxis(axis)
 	}
+	b.slide.SetTransition(edge.slideIn())
 	b.RemoveClass(barEdges...)
 	b.AddClass(edge.class())
 	b.SetClass("vertical", edge.Vertical())
@@ -550,4 +571,73 @@ func (b *Bar) Measure(axis Axis, forSize int) Sizes {
 		return s.atLeast(b.minThickness)
 	}
 	return s
+}
+
+// InvalidateLayout drops the face's measure with the bar's: the face
+// lays the zones out inside the bar's own box.
+func (b *Bar) InvalidateLayout() {
+	b.composite.InvalidateLayout()
+	b.face.InvalidateLayout()
+}
+
+// HitTest is the bar for bare background, as for any boxed composite,
+// rather than the revealer or face it shows through.
+func (b *Bar) HitTest(p Point) Widget {
+	hit := b.composite.HitTest(p)
+	if hit == b.slide || hit == b.face {
+		return b
+	}
+	return hit
+}
+
+// BackdropRegion is the bar's rounded box where it shows now: moved
+// with the slide, clipped to the bar, nothing once it slid out.
+func (b *Bar) BackdropRegion() []render.Rect {
+	r := b.slide
+	if !r.shows() {
+		return nil
+	}
+	m, _, _ := r.transform(r.bounds, r.progress)
+	shown := m.MapBounds(ShownRect(b)).Intersect(r.bounds)
+	if shown.Empty() {
+		return nil
+	}
+	return render.RoundedRectRegion(shown, CornerRadii(b))
+}
+
+// barFace is what a Bar's revealer shows: the bar's CSS box, painted
+// and laid out from the bar's own style, around its zones.
+type barFace struct {
+	composite
+	bar *Bar
+}
+
+// insets is the bar's margin, border and padding.
+func (f *barFace) insets() cssInsets { return boxOf(f.bar.style(f.bar), render.Insets{}) }
+
+// Measure is the zones' request inside the bar's insets.
+func (f *barFace) Measure(axis Axis, forSize int) Sizes {
+	if sz, ok := f.measureHit(axis, forSize); ok {
+		return sz
+	}
+	o := f.insets().outer()
+	inner := forSize
+	if inner != Unknown {
+		inner = max(0, inner-insetsAlong(o, otherAxis(axis)))
+	}
+	return f.measureStore(axis, forSize, measureChild(f, f.root, axis, inner).grow(insetsAlong(o, axis)))
+}
+
+// Arrange lays the zones out inside the bar's insets.
+func (f *barFace) Arrange(r render.Rect) {
+	f.node.Arrange(r)
+	setParents(f, f.root)
+	arrangeChild(f.root, f.insets().outer().Shrink(r))
+}
+
+// Paint draws the bar's box, then the zones.
+func (f *barFace) Paint(cv *render.Canvas) {
+	v := f.bar.style(f.bar)
+	paintBoxBehind(cv, v, marginOf(v).Shrink(f.bounds), radiusOr(v, 0), ringOr(v, 0), pickc(0, v, style.PropBackgroundColor, 0))
+	PaintChild(cv, f.root)
 }

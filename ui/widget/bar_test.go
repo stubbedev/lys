@@ -2,6 +2,7 @@ package widget
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stubbedev/lys/lib/render"
 )
@@ -263,5 +264,115 @@ func TestBarButtonPartAlignSelf(t *testing.T) {
 	row := b.row.Bounds()
 	if ib := icon.Bounds(); ib.Y != row.Y || ib.H != row.H {
 		t.Errorf("stretched icon %v does not fill the button's row %v", ib, row)
+	}
+}
+
+// slideBar is a 400 px wide top bar painting red over its whole box,
+// padded at its ends,
+// hosted on c and sliding over 100ms.
+func slideBar(t *testing.T, c *animClock) (*Bar, *solidLeaf) {
+	t.Helper()
+	loadCSS(t, `bar { background-color: #ff0000; border-radius: 6px; padding: 0 4px; }`)
+	b := NewBar(BarTop)
+	leaf := &solidLeaf{sz: Size{W: 40, H: 30}, col: render.RGB(0, 0, 255)}
+	b.Start().Append(leaf, false)
+	c.arrangeTree(t, b, 400, 30)
+	c.arrangeTree(t, b, 400, 30)
+	b.Revealer().SetDuration(100 * time.Millisecond)
+	return b, leaf
+}
+
+// redRows counts the rows of the bar's middle column its red box paints.
+func redRows(b *Bar) int {
+	const w, h = 400, 30
+	data := make([]byte, render.Stride(w)*h)
+	b.Paint(render.New(data, render.Stride(w), w, h))
+	n := 0
+	for y := range h {
+		if render.ColorFromBytes(data[y*render.Stride(w)+(w/2)*4:]).R() == 0xff {
+			n++
+		}
+	}
+	return n
+}
+
+// Hiding the bar's revealer slides its box and zones up to the edge:
+// halfway the box shows strictly between all and none of its rows, the
+// bar keeps its size and its input, and its blur region rides along;
+// landed hidden it paints nothing and blurs nothing. A bar whose
+// revealer no one touches snaps and stays shown.
+func TestABarSlidesItsBoxToItsEdge(t *testing.T) {
+	c := pinAnimClock(t)
+	b, leaf := slideBar(t, c)
+	full := redRows(b)
+	rest := b.BackdropRegion()
+	if full != 30 || len(rest) == 0 {
+		t.Fatalf("the shown bar paints %d red rows, blurs %v; want all 30 and its box", full, rest)
+	}
+	thick := SizeWithin(b, Size{W: 400, H: 400}).H
+
+	start := c.now()
+	b.Revealer().SetRevealed(false)
+	c.tick(start.Add(50 * time.Millisecond))
+	b.Arrange(render.Rect{W: 400, H: 30})
+	if mid := redRows(b); mid <= 0 || mid >= full {
+		t.Fatalf("halfway the bar paints %d red rows, want strictly between 0 and %d", mid, full)
+	}
+	if got := SizeWithin(b, Size{W: 400, H: 400}).H; got != thick {
+		t.Fatalf("the sliding bar measures %d thick, want %d", got, thick)
+	}
+	if hit := b.HitTest(Point{X: 200, Y: 15}); hit == nil || hit == Widget(b.slide) || hit == Widget(b.face) {
+		t.Fatalf("bare background mid-slide hits %T, want the bar's content", hit)
+	}
+	if hit := b.HitTest(Point{X: 1, Y: 15}); hit != b {
+		t.Fatalf("the bar's padding mid-slide hits %T, want the bar", hit)
+	}
+	if hit := b.HitTest(Point{X: leaf.Bounds().X + 1, Y: leaf.Bounds().Y + 1}); hit != leaf {
+		t.Fatalf("a zone's widget mid-slide hits %T, want it", hit)
+	}
+	region := b.BackdropRegion()
+	if len(region) == 0 || regionBounds(region).H >= regionBounds(rest).H || regionBounds(region).Y != 0 {
+		t.Fatalf("halfway the bar blurs %v, want a strip at the edge shorter than %v", regionBounds(region), regionBounds(rest))
+	}
+
+	c.tick(start.Add(200 * time.Millisecond))
+	if got := redRows(b); got != 0 {
+		t.Fatalf("the hidden bar paints %d red rows", got)
+	}
+	if got := b.BackdropRegion(); got != nil {
+		t.Fatalf("the hidden bar blurs %v", got)
+	}
+	if got := SizeWithin(b, Size{W: 400, H: 400}).H; got != thick {
+		t.Fatalf("the hidden bar measures %d thick, want %d until its owner folds it", got, thick)
+	}
+}
+
+// regionBounds is the rect around rects.
+func regionBounds(rects []render.Rect) render.Rect {
+	var u render.Rect
+	for i, r := range rects {
+		if i == 0 {
+			u = r
+			continue
+		}
+		u = u.Union(r)
+	}
+	return u
+}
+
+// The bar's slide follows its edge, in from that edge.
+func TestABarSlidesInFromItsEdge(t *testing.T) {
+	b := NewBar(BarTop)
+	for _, tc := range []struct {
+		edge BarEdge
+		want RevealTransition
+	}{{BarTop, RevealSlideDown}, {BarBottom, RevealSlideUp}, {BarLeft, RevealSlideRight}, {BarRight, RevealSlideLeft}} {
+		b.SetEdge(tc.edge)
+		if got := b.Revealer().Transition(); got != tc.want {
+			t.Errorf("edge %d slides %d, want %d", tc.edge, got, tc.want)
+		}
+	}
+	if !b.Revealer().Revealed() || b.Revealer().Progress() != 1 {
+		t.Error("a new bar's revealer is not shown")
 	}
 }

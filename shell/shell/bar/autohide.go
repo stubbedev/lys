@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/shell/dockview"
 	"github.com/stubbedev/lys/lib/wmipc"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
@@ -191,17 +192,18 @@ func autoHideDelay(ms uint32) time.Duration {
 	return time.Duration(ms) * time.Millisecond
 }
 
-// startAutoHide gives the bar its reveal controller: hovering the bar
-// reveals it, and with lys-wm the window-dependent modes follow the
-// windows on its output.
+// startAutoHide gives the bar its reveal controller, sliding it as the
+// dock slides: hovering the bar reveals it, and with lys-wm the
+// window-dependent modes follow the windows on its output.
 func (w *barWindow) startAutoHide(ctx ModuleContext, layout config.BarLayout, after func(time.Duration, func()) func()) {
+	w.startSlide(dockview.Motion(ctx.Config))
 	w.hide = &autoHide{
 		mode:       ctx.Config.Bar.AutoHideOn(layout),
 		delay:      autoHideDelay(ctx.Config.Bar.AutoHideDelayMs),
 		after:      after,
 		covered:    func() (bool, bool) { on, _, known := w.windows(); return on, known },
 		fullscreen: func() (bool, bool) { _, on, known := w.windows(); return on, known },
-		apply:      w.applyHidden,
+		apply:      w.slide.apply,
 	}
 	w.bar.SetOnHoverWithin(w.hide.setHovered)
 	if ctx.Tasks != nil {
@@ -245,16 +247,21 @@ func barArea(edge widget.BarEdge, out *app.Output, thickness int) wmipc.Rect {
 	return r
 }
 
-// applyHidden collapses the bar to its reveal strip, its zones out of
-// the frame so their updates owe no repaint, or restores it.
-func (w *barWindow) applyHidden(hidden bool) {
-	w.shownThickness()
+// startSlide slides the bar's content to its edge and back over d
+// as it hides and reveals.
+func (w *barWindow) startSlide(d time.Duration) {
+	w.slide = newEdgeSlide(w.bar.Revealer(), d, w.fold)
+}
+
+// fold collapses the bar to its reveal strip, its zones out of the
+// frame so their updates owe no repaint, or restores it.
+func (w *barWindow) fold(folded bool) {
 	for _, zone := range []*widget.Box{w.bar.Start(), w.bar.Center(), w.bar.End()} {
-		zone.SetVisible(!hidden)
+		zone.SetVisible(!folded)
 	}
-	w.bar.SetClass("auto-hidden", hidden)
+	w.bar.SetClass("auto-hidden", folded)
 	thickness := 0
-	if hidden {
+	if folded {
 		thickness = revealPx
 	}
 	w.bar.SetMinThickness(thickness)
