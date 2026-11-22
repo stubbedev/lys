@@ -346,6 +346,15 @@ func tabStandIn(w Widget) Widget {
 	return nil
 }
 
+// TabStopOf is the Tab stop w is reached through: the stop it stands
+// for (a radio chip's or a segment's group stop), else w itself.
+func TabStopOf(w Widget) Widget {
+	if stop := tabStandIn(w); stop != nil {
+		return stop
+	}
+	return w
+}
+
 // skipsTab reports whether Tab passes w by although focus can land on it.
 func skipsTab(w Widget) bool { return tabStandIn(w) != nil }
 

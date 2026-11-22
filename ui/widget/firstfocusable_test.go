@@ -43,3 +43,18 @@ func TestFirstFocusableEntersAGroupAtItsStop(t *testing.T) {
 		t.Fatalf("FirstFocusable after choosing the first = %T %p, want it %p", got, got, want)
 	}
 }
+
+func TestTabStopOfNamesTheStopAMemberStandsFor(t *testing.T) {
+	g := NewToggleGroup(NewBox(Row, 0, 0), NewBox(Row, 0, 0))
+	g.SetActive(1)
+	stop := g.tabSegment()
+	for _, seg := range g.buttons {
+		if got := TabStopOf(seg); got != Widget(stop) {
+			t.Errorf("TabStopOf(%p) = %p, want the active segment %p", seg, got, stop)
+		}
+	}
+	lone := NewBox(Row, 0, 0)
+	if TabStopOf(lone) != Widget(lone) {
+		t.Error("a widget standing for itself names another stop")
+	}
+}

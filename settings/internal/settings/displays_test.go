@@ -268,7 +268,7 @@ func TestTheKeyboardAloneArrangesTheOutputs(t *testing.T) {
 	}
 	for _, c := range append(shownControls(p), p.canvas.Children()...) {
 		reached := false
-		treetest.Walk(c, func(x widget.Widget) { reached = reached || visited[x] })
+		treetest.Walk(c, func(x widget.Widget) { reached = reached || visited[widget.TabStopOf(x)] })
 		if !reached {
 			name, _ := c.(interface{ AccessibleName() string })
 			t.Errorf("%T %q is out of Tab's reach", c, name.AccessibleName())
