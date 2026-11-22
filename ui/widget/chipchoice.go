@@ -59,9 +59,21 @@ func (c *ChoiceChip) a11yPressed() bool { return c.checked && c.group.mode == Ch
 // a11yChecked is the radio state Describe reports.
 func (c *ChoiceChip) a11yChecked() bool { return c.checked && c.group.mode == ChooseOne }
 
-// skipsTab implements tabSkipper.
-func (c *ChoiceChip) skipsTab() bool {
-	return c.group.mode == ChooseOne && c.group.tabChip() != c
+// tabStandIn implements tabSkipper: in a ChooseOne row every chip
+// stands for the row's one stop, and for the row itself while no chip
+// can be that stop.
+func (c *ChoiceChip) tabStandIn() Widget {
+	if c.group.mode != ChooseOne {
+		return nil
+	}
+	switch t := c.group.tabChip(); t {
+	case c:
+		return nil
+	case nil:
+		return c.group
+	default:
+		return t
+	}
 }
 
 // ChoiceChips is a wrapping row of choice chips, the choicechips

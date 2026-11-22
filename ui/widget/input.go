@@ -1252,33 +1252,19 @@ func (r *Router) FocusNext() { r.focusStep(1) }
 // FocusPrev moves focus to the previous focusable widget.
 func (r *Router) FocusPrev() { r.focusStep(-1) }
 
-// focusStep walks the tree collecting focusable widgets and lands on
-// the neighbor of the current focus. Disabled and hidden widgets never
-// join the order, so Tab cannot land on one; a focus that went
+// focusStep lands on the Tab stop after the focus in paint order, or
+// before it for a negative dir, wrapping around, counting from the
+// widget the focus stands for (tabAnchor). Disabled and hidden widgets
+// never join the order, so Tab cannot land on one; a focus that went
 // unfocusable since it was set moves to the next focusable first.
 func (r *Router) focusStep(dir int) {
 	r.dropUnfocusable()
-	order := appendTabStops(nil, r.focusScope())
-	if len(order) == 0 {
+	next := tabStopsAround(r.focusScope(), tabAnchor(r.focus)).step(dir)
+	if next == nil {
 		return
 	}
-	idx := 0
-	if r.focus != nil {
-		at := r.focus
-		if g := groupOf(at); g != nil {
-			at = g
-		}
-		for i, w := range order {
-			if w == at {
-				idx = (i + dir + len(order)) % len(order)
-				break
-			}
-		}
-	} else if dir < 0 {
-		idx = len(order) - 1
-	}
-	setFocusStyle(r.focus, order[idx], true)
-	r.focus = order[idx]
+	setFocusStyle(r.focus, next, true)
+	r.focus = next
 	// Keyboard focus scrolls into view (GtkViewport scroll-to-focus).
 	RevealRect(r.focus, boundsOf(r.focus))
 }
@@ -1308,24 +1294,55 @@ func groupOf(w Widget) Widget {
 	return g
 }
 
+// tabAnchor is the widget Tab counts from while w holds the focus: the
+// outermost focus group above w, else the widget w stands for
+// (tabStandIn), else w. One that is no stop steps from where it sits
+// in paint order.
+func tabAnchor(w Widget) Widget {
+	if g := groupOf(w); g != nil {
+		return g
+	}
+	if s := tabStandIn(w); s != nil {
+		return s
+	}
+	return w
+}
+
 // tabStop reports whether Tab lands on w: focusable, not passed by
 // (skipsTab), and not inside a focus group, which is its rows' one stop.
 func tabStop(w Widget) bool { return isFocusable(w) && !skipsTab(w) && groupOf(w) == nil }
 
-// appendTabStops appends the widgets of scope's tree that are tab stops
-// (tabStop), in paint order. A hidden or disabled container hides or
-// disables its whole subtree, so the walk skips one without visiting
-// it, and each widget is tested once rather than with all its
-// ancestors, and only when it could be a stop or holds children.
-func appendTabStops(order []Widget, scope Widget) []Widget {
-	if p := parentOf(scope); p != nil && (!IsEnabled(p) || !IsVisible(p)) {
-		return order
-	}
-	withKidStack(func(s *kidStack) { order = appendTabStopsUnder(s, order, scope, groupOf(scope) != nil) })
-	return order
+// tabWalk is the Tab stops of a tree in paint order (tabStop) and
+// where anchor sits among them: before is how many stops precede it,
+// isStop whether it is one itself.
+type tabWalk struct {
+	s      *kidStack
+	anchor Widget
+	stops  []Widget
+	before int
+	found  bool
+	isStop bool
 }
 
-func appendTabStopsUnder(s *kidStack, order []Widget, w Widget, inGroup bool) []Widget {
+// tabStopsAround walks scope's tree for its Tab stops and anchor's
+// place among them. A hidden or disabled container hides or disables
+// its whole subtree, so the walk skips one without visiting it, and
+// each widget is tested once rather than with all its ancestors, and
+// only when it could be a stop or holds children.
+func tabStopsAround(scope, anchor Widget) tabWalk {
+	t := tabWalk{anchor: anchor}
+	if p := parentOf(scope); p != nil && (!IsEnabled(p) || !IsVisible(p)) {
+		return t
+	}
+	withKidStack(func(s *kidStack) {
+		t.s = s
+		t.visit(scope, groupOf(scope) != nil)
+		t.s = nil
+	})
+	return t
+}
+
+func (t *tabWalk) visit(w Widget, inGroup bool) {
 	checked, open := false, false
 	passes := func() bool {
 		if !checked {
@@ -1333,16 +1350,43 @@ func appendTabStopsUnder(s *kidStack, order []Widget, w Widget, inGroup bool) []
 		}
 		return open
 	}
-	if !inGroup && takesFocus(w) && !skipsTab(w) && passes() && shown(w) {
-		order = append(order, w)
+	stop := !inGroup && takesFocus(w) && !skipsTab(w) && passes() && shown(w)
+	if w == t.anchor {
+		t.before, t.found, t.isStop = len(t.stops), true, stop
+	}
+	if stop {
+		t.stops = append(t.stops, w)
 	}
 	_, group := w.(focusGroup)
-	s.each(func(kids []Widget) []Widget { return appendKids(w, kids) }, func(k Widget) {
+	t.s.each(func(kids []Widget) []Widget { return appendKids(w, kids) }, func(k Widget) {
 		if passes() {
-			order = appendTabStopsUnder(s, order, k, inGroup || group)
+			t.visit(k, inGroup || group)
 		}
 	})
-	return order
+}
+
+// step is the stop Tab reaches from the anchor, Shift+Tab for a
+// negative dir, wrapping around: from no anchor in the tree, the first
+// stop or the last. Nil when the tree has no stop.
+func (t tabWalk) step(dir int) Widget {
+	n := len(t.stops)
+	if n == 0 {
+		return nil
+	}
+	var idx int
+	switch {
+	case !t.found && dir < 0:
+		idx = n - 1
+	case !t.found:
+		idx = 0
+	case dir < 0:
+		idx = t.before - 1
+	case t.isStop:
+		idx = t.before + 1
+	default:
+		idx = t.before
+	}
+	return t.stops[(idx+n)%n]
 }
 
 // FocusTrapper is a widget that can hold Tab traversal inside a part

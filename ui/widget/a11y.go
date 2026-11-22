@@ -296,14 +296,21 @@ type focusOptOut interface{ focusable() bool }
 
 // tabSkipper is a widget focus can land on that Tab passes by at
 // times: a radio chip other than its row's one stop, which the arrows
-// reach instead.
-type tabSkipper interface{ skipsTab() bool }
+// reach instead. tabStandIn is the widget it stands for in the Tab
+// order, nil while it is a stop itself.
+type tabSkipper interface{ tabStandIn() Widget }
+
+// tabStandIn is the widget w stands for in the Tab order although
+// focus can land on w, nil when w stands for itself.
+func tabStandIn(w Widget) Widget {
+	if s, ok := w.(tabSkipper); ok {
+		return s.tabStandIn()
+	}
+	return nil
+}
 
 // skipsTab reports whether Tab passes w by although focus can land on it.
-func skipsTab(w Widget) bool {
-	s, ok := w.(tabSkipper)
-	return ok && s.skipsTab()
-}
+func skipsTab(w Widget) bool { return tabStandIn(w) != nil }
 
 // isFocusable reports whether focus can land on w, by Tab traversal or
 // SetFocus: it handles key actions (and has not opted out), is
