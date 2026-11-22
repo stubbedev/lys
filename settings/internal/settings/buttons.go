@@ -208,6 +208,9 @@ func (r resetButton) show(on bool) {
 	r.SetInlineStylePriority("opacity: 0;", hiddenPriority)
 }
 
+// shown reports whether the button is on show, not hidden in place.
+func (r resetButton) shown() bool { return r.Enabled() }
+
 // browseButton is the picker asking the file chooser, pick getting the
 // chosen path.
 func (k *kit) browseButton(pick func(path string)) *widget.Button {

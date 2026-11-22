@@ -49,10 +49,10 @@ func TestAChangedBindGoesBackToTheBuiltInOne(t *testing.T) {
 
 func TestAChangedBindIsResetFromItsRow(t *testing.T) {
 	c, files := bindCards(t, "binds:\n  - {chord: SUPER + SHIFT + K, action: kill}\n  - {chord: SUPER + E, action: exec thunar}\n")
-	if !c.cards[0].reset.Visible() {
+	if !c.cards[0].reset.shown() {
 		t.Fatal("a moved built-in bind offers no reset")
 	}
-	if c.cards[1].reset.Visible() {
+	if c.cards[1].reset.shown() {
 		t.Fatal("a bind of the user's own offers a reset")
 	}
 	c.cards[0].reset.OnClick()
@@ -60,7 +60,7 @@ func TestAChangedBindIsResetFromItsRow(t *testing.T) {
 	if !strings.Contains(got, "chord: SUPER + Q") || strings.Contains(got, "SUPER + SHIFT + K") || !strings.Contains(got, "exec thunar") {
 		t.Fatalf("after the reset the overrides are %q", got)
 	}
-	if c.cards[0].reset.Visible() {
+	if c.cards[0].reset.shown() {
 		t.Fatal("the reset stays on a bind back at its built-in chord")
 	}
 	if keys := c.cards[0].aside.(*bindAside).shown; keys != "Super+Q" {
