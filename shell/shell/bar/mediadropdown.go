@@ -101,6 +101,24 @@ func mediaShuffleLabel(on bool) string {
 	return i18n.T("dropdown-media-shuffle-off")
 }
 
+// mediaControls is what a player accepts from the transport: nothing
+// from one that refuses control, else what it reports it can do.
+type mediaControls struct {
+	playPause, previous, next, seek, loop, shuffle bool
+}
+
+func mediaControlsOf(p mpris.Player) mediaControls {
+	c := !p.RefusesControl
+	return mediaControls{
+		playPause: c,
+		previous:  c && p.CanGoPrevious,
+		next:      c && p.CanGoNext,
+		seek:      c && p.CanSeek,
+		loop:      c && p.CanLoop,
+		shuffle:   c && p.CanShuffle,
+	}
+}
+
 // orUnknown substitutes the placeholder for an empty field.
 func orUnknown(value, placeholder string) string {
 	if value == "" {
@@ -307,9 +325,9 @@ func (v *mediaView) buildPlayer(font render.Font, px float64) {
 
 // fire runs one transport command off the loop under the module's
 // write bound; a failure shows under the controls until a command goes
-// through.
+// through. A player that refuses control is never called.
 func (v *mediaView) fire(what string, cmd func(context.Context, string) error) {
-	if !v.has {
+	if !v.has || v.current.RefusesControl {
 		return
 	}
 	bus := v.current.BusName
@@ -382,13 +400,15 @@ func (v *mediaView) refresh() {
 	setClass(v.album, "placeholder", p.Album == "")
 	v.setArt(p.ArtURL)
 	v.length.SetText(lengthText(p.Length))
-	v.seek.SetEnabled(p.CanSeek)
-	v.shuffle.SetEnabled(p.CanShuffle)
+	controls := mediaControlsOf(p)
+	v.seek.SetEnabled(controls.seek)
+	v.shuffle.SetEnabled(controls.shuffle)
 	setClass(v.shuffle, "active", p.Shuffle)
 	v.shuffle.SetTooltip(mediaShuffleLabel(p.Shuffle))
-	v.previous.SetEnabled(p.CanGoPrevious)
-	v.next.SetEnabled(p.CanGoNext)
-	v.loop.SetEnabled(p.CanLoop)
+	v.previous.SetEnabled(controls.previous)
+	v.playPause.SetEnabled(controls.playPause)
+	v.next.SetEnabled(controls.next)
+	v.loop.SetEnabled(controls.loop)
 	setClass(v.loop, "active", p.Loop != mpris.LoopNone && p.Loop != mpris.LoopUnsupported)
 	v.loopIcon.SetThemeName(mediaLoopIcon(p.Loop))
 	v.loop.SetTooltip(mediaLoopLabel(p.Loop))

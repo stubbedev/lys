@@ -507,7 +507,7 @@ func (v *dashboardView) media() widget.Widget {
 	info.Append(artist, false)
 	fire := func(cmd func(mpris.Source, context.Context, string) error) {
 		src := v.ctx.Media
-		if src == nil {
+		if src == nil || current.RefusesControl {
 			return
 		}
 		bus := current.BusName
@@ -543,12 +543,7 @@ func (v *dashboardView) media() widget.Widget {
 			return
 		}
 		target := time.Duration(pct / 100 * float64(current.Length))
-		bus := current.BusName
-		src := v.ctx.Media
-		if src == nil {
-			return
-		}
-		control(func(c context.Context) error { return src.SetPosition(c, bus, target) })
+		fire(func(src mpris.Source, c context.Context, bus string) error { return src.SetPosition(c, bus, target) })
 	}
 	times := widget.NewBox(widget.Row, 0, 0)
 	times.AddClass("media-progress-times")
@@ -591,9 +586,11 @@ func (v *dashboardView) media() widget.Widget {
 		}
 		playIcon.SetThemeName(mediaPlayPauseIcon(current.State))
 		play.SetTooltip(mediaPlayPauseLabel(current.State))
-		prev.SetEnabled(current.CanGoPrevious)
-		next.SetEnabled(current.CanGoNext)
-		seek.SetEnabled(current.CanSeek)
+		controls := mediaControlsOf(current)
+		prev.SetEnabled(controls.previous)
+		play.SetEnabled(controls.playPause)
+		next.SetEnabled(controls.next)
+		seek.SetEnabled(controls.seek)
 		length.SetText(lengthText(current.Length))
 	})
 	var shownPos time.Duration

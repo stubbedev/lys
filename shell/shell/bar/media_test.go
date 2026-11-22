@@ -658,3 +658,80 @@ type aheadClock struct {
 }
 
 func (c aheadClock) Now() time.Time { return c.Clock.Now().Add(c.by) }
+
+// refusingAndControllablePlayers: refusing reports every capability but refuses control, as a
+// player whose transport the service turns away does; controllable is
+// the same report from a player that accepts it.
+func refusingAndControllablePlayers() (refusing, controllable mpris.Player) {
+	refusing = mpris.Player{
+		BusName: "org.mpris.MediaPlayer2.locked", Identity: "Locked", Title: "Song", State: mpris.StatePlaying, Length: time.Minute,
+		CanGoNext: true, CanGoPrevious: true, CanSeek: true, CanLoop: true, CanShuffle: true, RefusesControl: true,
+	}
+	controllable = refusing
+	controllable.BusName, controllable.Identity, controllable.RefusesControl = "org.mpris.MediaPlayer2.vlc", "VLC", false
+	return refusing, controllable
+}
+
+// assertCallsOnlyTo waits for want's calls and fails on any other,
+// the refusing player's above all.
+func assertCallsOnlyTo(t *testing.T, source *fakeMediaSource, want []string) {
+	t.Helper()
+	calls := waitCalls(t, source.Calls, len(want))
+	for _, c := range calls {
+		if !slices.Contains(want, c) {
+			t.Errorf("unexpected call %q (want only %v)", c, want)
+		}
+	}
+	for _, w := range want {
+		if !slices.Contains(calls, w) {
+			t.Errorf("missing call %q (got %v)", w, calls)
+		}
+	}
+}
+
+// A player that refuses control shows the dropdown's transport and
+// seek bar disabled and is never called, whatever else it reports; a
+// controllable one with the same report keeps them live.
+func TestMediaDropdownGatesTheTransportOnControl(t *testing.T) {
+	refusing, controllable := refusingAndControllablePlayers()
+	source := newFakeMedia(refusing, controllable)
+	ctx := newTestContext(t, config.Defaults())
+	ctx.Media = source
+	v := opened(mediaDropdown(ctx)).(*mediaView)
+	defer v.dropdownClosed()
+
+	transport := map[string]widget.Widget{
+		"shuffle": v.shuffle, "previous": v.previous, "play/pause": v.playPause,
+		"next": v.next, "loop": v.loop, "seek": v.seek,
+	}
+	press := func() {
+		for _, b := range []*widget.Button{v.shuffle, v.previous, v.playPause, v.next, v.loop} {
+			b.OnClick()
+		}
+		v.seek.Knob.SetPressed(true)
+		v.seek.Knob.SetValue(50)
+		v.seek.Knob.SetPressed(false)
+	}
+
+	for name, w := range transport {
+		if widget.IsEnabled(w) {
+			t.Errorf("a player refusing control: %s is enabled", name)
+		}
+	}
+	press()
+
+	if err := source.SetActive(controllable.BusName); err != nil {
+		t.Fatal(err)
+	}
+	v.refresh()
+	for name, w := range transport {
+		if !widget.IsEnabled(w) {
+			t.Errorf("a controllable player: %s is disabled", name)
+		}
+	}
+	press()
+	bus := controllable.BusName
+	assertCallsOnlyTo(t, source, []string{
+		"shuffle " + bus, "previous " + bus, "play-pause " + bus, "next " + bus, "loop " + bus, "seek " + bus + " 30s",
+	})
+}

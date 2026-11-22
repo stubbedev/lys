@@ -18,6 +18,7 @@ import (
 	"github.com/stubbedev/lys/desktop/service/upower"
 	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
 
@@ -859,4 +860,64 @@ func TestSwitchingThePlayerSaysWhyItFailed(t *testing.T) {
 		})
 		v.dropdownClosed()
 	}
+}
+
+// A player that refuses control shows the Now Playing card's transport
+// and seek bar disabled and is never called, whatever else it reports;
+// a controllable one with the same report keeps them live.
+func TestDashboardMediaGatesTheTransportOnControl(t *testing.T) {
+	refusing, controllable := refusingAndControllablePlayers()
+	source := newFakeMedia(refusing, controllable)
+	ctx := newTestContext(t, config.Defaults())
+	ctx.Media = source
+	v := opened(noRadiosDashboard(ctx)).(*dashboardView)
+
+	card := mediaCard(t, v)
+	var buttons []*widget.Button
+	var seek *widgets.DebouncedSlider
+	walkTree(card, func(w widget.Widget) bool {
+		switch w := w.(type) {
+		case *widget.Button:
+			if w.HasClass("media-btn") {
+				buttons = append(buttons, w)
+			}
+		case *widgets.DebouncedSlider:
+			if w.Knob.HasClass("media-seek-slider") {
+				seek = w
+			}
+		}
+		return true
+	})
+	if len(buttons) != 3 || seek == nil {
+		t.Fatalf("the card holds %d transport buttons and seek %v, want previous, play/pause, next and a seek bar", len(buttons), seek)
+	}
+	transport := map[string]widget.Widget{"previous": buttons[0], "play/pause": buttons[1], "next": buttons[2], "seek": seek}
+	press := func() {
+		for _, b := range buttons {
+			b.OnClick()
+		}
+		seek.Knob.SetPressed(true)
+		seek.Knob.SetValue(50)
+		seek.Knob.SetPressed(false)
+	}
+
+	for name, w := range transport {
+		if widget.IsEnabled(w) {
+			t.Errorf("a player refusing control: %s is enabled", name)
+		}
+	}
+	press()
+
+	if err := source.SetActive(controllable.BusName); err != nil {
+		t.Fatal(err)
+	}
+	v.refreshAll()
+	for name, w := range transport {
+		if !widget.IsEnabled(w) {
+			t.Errorf("a controllable player: %s is disabled", name)
+		}
+	}
+	press()
+	bus := controllable.BusName
+	assertCallsOnlyTo(t, source, []string{"previous " + bus, "play-pause " + bus, "next " + bus, "seek " + bus + " 30s"})
 }
