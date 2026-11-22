@@ -20,13 +20,13 @@ type ShortcutItem struct {
 }
 
 // NewShortcutLabel draws keys as keycaps (adw ShortcutLabel): each key
-// of an accelerator its own .keycap label, the steps of a chord set
-// apart.
+// of an accelerator its own .keycap label read by KeyLabel
+// ("Ctrl+bracketleft" draws Ctrl and [), the steps of a chord set apart.
 func NewShortcutLabel(face render.Font, keys string) *Box {
 	face = requireFace("widget.NewShortcutLabel", face)
 	row := NewBox(Row, 10, 0)
 	for step := range strings.FieldsSeq(keys) {
-		row.AppendAligned(NewKbdGroup(face, strings.Split(step, "+")...), false, AlignCenter)
+		row.AppendAligned(NewKbdGroup(face, accelKeyLabels(step)...), false, AlignCenter)
 	}
 	return row
 }

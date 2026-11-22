@@ -1,11 +1,6 @@
 package settings
 
-import (
-	"github.com/stubbedev/lys/desktop/config"
-	"github.com/stubbedev/lys/ui/widget"
-
-	"github.com/stubbedev/lys/settings/internal/locale"
-)
+import "github.com/stubbedev/lys/desktop/config"
 
 const screenshotShortcutsKey = "settings-screenshot-shortcuts"
 
@@ -27,38 +22,12 @@ func screenshotShortcutsRow() rowSpec {
 	return wmField(bindsKey, withKey(screenshotShortcutsKey), func(r *rowSpec) {
 		r.action = true
 		r.fullWidth = true
-		r.editor = func(k *kit, s slot, _ config.FieldMeta) control { return newScreenshotShortcuts(k, s) }
+		r.editor = func(k *kit, s slot, _ config.FieldMeta) control {
+			recorders := make([]bindRecorder, len(screenshotCaptures))
+			for i, c := range screenshotCaptures {
+				recorders[i] = bindRecorder{action: c.bind(), key: c.key}
+			}
+			return newBindRecorders(k, s, recorders)
+		}
 	})
-}
-
-type screenshotShortcuts struct {
-	*widget.Box
-	binds  slot
-	chords []*actionChord
-}
-
-func newScreenshotShortcuts(k *kit, binds slot) *screenshotShortcuts {
-	t := locale.T()
-	names := bindActionNames(k)
-	s := &screenshotShortcuts{Box: gapBox(widget.Column), binds: binds}
-	rows := widget.NewItemGroup()
-	for _, c := range screenshotCaptures {
-		chord := newActionChord(k, binds, names, c.bind(), t.Get(c.key))
-		s.chords = append(s.chords, chord)
-		row := k.row(t.Get(c.key), "").withControl(chord.recorder)
-		row.AddDetail(chord.clash)
-		rows.Append(row)
-	}
-	if link, ok := allShortcutsLink(k); ok {
-		rows.Append(k.row(t.Get("settings-shortcuts-all"), "").withControl(link))
-	}
-	s.Append(rows, false)
-	s.refresh()
-	return s
-}
-
-func (s *screenshotShortcuts) refresh() {
-	for _, c := range s.chords {
-		c.refresh(s.binds)
-	}
 }

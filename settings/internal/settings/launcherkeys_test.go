@@ -9,17 +9,6 @@ import (
 	"github.com/stubbedev/lys/ui/widget"
 )
 
-func TestALauncherKeyConvertsBetweenRofiAndTheRecorder(t *testing.T) {
-	for rofi, accel := range map[string]string{"Control+p": "Ctrl+P", "Shift+Return": "Shift+Return", "Control+Alt+h": "Ctrl+Alt+H", "Escape": "Escape"} {
-		if got := rofiToAccel(rofi); got != accel {
-			t.Errorf("rofiToAccel(%q) = %q, want %q", rofi, got, accel)
-		}
-		if got := accelToRofi(accel); got != rofi {
-			t.Errorf("accelToRofi(%q) = %q, want %q", accel, got, rofi)
-		}
-	}
-}
-
 func TestEveryLauncherActionHasALabel(t *testing.T) {
 	for _, b := range append(append([]config.LauncherBinding{}, config.LauncherDefaultKeybindings...), config.LauncherDefaultMouseBindings...) {
 		if got := launcherActionLabel(b.Action); got == "" || strings.HasPrefix(got, "settings-") || got == b.Action {
@@ -75,15 +64,18 @@ func TestALauncherMouseActionIsPickedFromTheButtons(t *testing.T) {
 }
 
 func TestALauncherActionsFurtherKeysReadUnderItsName(t *testing.T) {
-	k := testKit(t, "launcher:\n  keybindings:\n    cancel: \"Escape,Control+q\"\n")
+	k := testKit(t, "launcher:\n  keybindings:\n    cancel: \"Escape,Control+q,Control+bracketleft\"\n")
 	c := fieldControl(k, k.store, field("launcher.keybindings", launcherKeysRow)).(*launcherBindings)
 	labels := strings.Join(treetest.Labels(c), "|")
-	if !strings.Contains(labels, "Ctrl+Q") {
-		t.Errorf("cancel's second key is not shown: %q", labels)
+	if !strings.Contains(labels, "Close the launcher|||Also|Ctrl|Q|Ctrl|[|Esc") {
+		t.Errorf("cancel's further keys are not shown as keycaps under it: %q", labels)
+	}
+	if strings.Contains(labels, "bracketleft") || strings.Contains(labels, "Control") {
+		t.Errorf("a further key shows its stored name: %q", labels)
 	}
 	k2 := testKit(t, "")
 	c2 := fieldControl(k2, k2.store, field("launcher.keybindings", launcherKeysRow)).(*launcherBindings)
-	if strings.Contains(strings.Join(treetest.Labels(c2), "|"), "Ctrl+Q") {
+	if strings.Contains(strings.Join(treetest.Labels(c2), "|"), "Close the launcher|||Also|Ctrl|Q") {
 		t.Error("an action without the override shows the override's key")
 	}
 }

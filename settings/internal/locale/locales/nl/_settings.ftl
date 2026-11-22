@@ -467,6 +467,7 @@ settings-section-launcher-keybindings = Sneltoetsen
 settings-launcher-shortcut = Starter openen met
     .description = De toetsen waarmee lys-wm de starter opent: neem een combinatie op, Backspace verwijdert hem
 settings-shortcuts-all = Alle sneltoetsen
+settings-action-launcher = Starter
 settings-section-launcher-search = Zoekpaneel
     .description = Het zoekpaneel en zijn bronnen
 settings-section-launcher-scripts = Scriptmodi
@@ -1912,7 +1913,8 @@ settings-launcher-kb-custom = { $n ->
    *[other] Eigen actie { $n }
 }
 settings-launcher-kb-reset = Terug naar de toets van de starter
-settings-launcher-kb-also = Ook: { $keys }
+settings-launcher-kb-also = Ook
+settings-launcher-kb-unreadable = lys-shell leest { $keys } niet als een toets
 settings-surface-animations = Elk oppervlak
     .description = Afwijkingen voor één oppervlak; een leeg vak volgt de standaard hierboven
 settings-link-surface-animation = Hoe het verschijnt en verdwijnt, bij de animatie van elk oppervlak op de pagina Beweging

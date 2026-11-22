@@ -477,6 +477,7 @@ settings-section-launcher-keybindings = Tastenkürzel
 settings-launcher-shortcut = Starter öffnen mit
     .description = Die Tasten, mit denen lys-wm den Starter öffnet: ein Kürzel aufnehmen, die Rücktaste entfernt es
 settings-shortcuts-all = Alle Tastenkürzel
+settings-action-launcher = Starter
 settings-section-launcher-search = Suchfeld
     .description = Das Suchfeld und seine Quellen
 settings-section-launcher-scripts = Skriptmodi
@@ -1922,7 +1923,8 @@ settings-launcher-kb-custom = { $n ->
    *[other] Eigene Aktion { $n }
 }
 settings-launcher-kb-reset = Zurück zur Taste des Starters
-settings-launcher-kb-also = Außerdem: { $keys }
+settings-launcher-kb-also = Außerdem
+settings-launcher-kb-unreadable = lys-shell liest { $keys } nicht als Taste
 settings-surface-animations = Jede Oberfläche
     .description = Abweichungen für eine Oberfläche; ein leeres Feld folgt den Vorgaben oben
 settings-link-surface-animation = Wie sie erscheint und verschwindet, bei den Animationen jeder Oberfläche auf der Seite Bewegung

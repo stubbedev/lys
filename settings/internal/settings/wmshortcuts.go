@@ -294,7 +294,7 @@ func (tb *shortcutTable) addMode(text, chord string) {
 		return
 	}
 	if owner, clashes := clashWith(chord, tb.owners()); clashes {
-		tb.adding.fail(errors.New(locale.T().Get("settings-clash", i18n.Str("value", chord), i18n.Str("other", owner.owner))))
+		tb.adding.fail(errors.New(clashText(chord, owner.owner)))
 		return
 	}
 	tb.apply(now.withMode(name, chord), tb.adding.problem, func() { tb.showAdding(false) })
@@ -387,7 +387,6 @@ func newModeGroup(tb *shortcutTable, name string) *modeGroup {
 	heading.SetHAlign(widget.AlignStart)
 	g.header.AppendAligned(heading, true, widget.AlignCenter)
 	g.enter = newActionChord(k, tb.binds, tb.names, enterModeAction(name), t.Get("wm-mode-enter", i18n.Str("mode", name)))
-	g.enter.recorder.SetTooltip(t.Get("wm-mode-enter", i18n.Str("mode", name)))
 	g.header.AppendAligned(g.enter.recorder, false, widget.AlignCenter)
 	g.header.AppendAligned(k.iconButton("ld-pencil-symbolic", "wm-mode-rename", func() { g.showRenaming(true) }), false, widget.AlignCenter)
 	g.header.AppendAligned(k.removeButton("wm-mode-delete-button", func() { tb.deleteMode(name) }), false, widget.AlignCenter)
@@ -446,15 +445,13 @@ func newModeForm(k *kit, confirmKey string, withChord bool, onConfirm func(name,
 	confirm := func() {
 		chord := ""
 		if f.chord != nil {
-			chord = chordFromAccel(f.chord.Accel())
+			chord = recordedChord(f.chord.Accel())
 		}
 		onConfirm(f.name.Text(), chord)
 	}
 	f.name.OnActivate = func(string) { confirm() }
 	if withChord {
-		f.chord = widget.NewShortcutRecorder(k.face, "")
-		f.chord.SetAccessibleName(t.Get("wm-mode-chord"))
-		f.chord.SetTooltip(t.Get("wm-mode-chord"))
+		f.chord = k.shortcutRecorder(t.Get("wm-mode-chord"), unsetClears)
 		row.AppendAligned(f.chord, false, widget.AlignCenter)
 	}
 	row.AppendAligned(k.primaryButton(t.Get(confirmKey), confirm), false, widget.AlignCenter)

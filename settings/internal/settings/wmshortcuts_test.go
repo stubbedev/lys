@@ -85,7 +85,7 @@ func TestAddingAModeWritesItAndTheBindEnteringIt(t *testing.T) {
 	}
 	tb.adding.name.SetText(" move ")
 	tb.adding.chord.SetAccel("Super+M")
-	tb.addMode(tb.adding.name.Text(), chordFromAccel(tb.adding.chord.Accel()))
+	tb.addMode(tb.adding.name.Text(), recordedChord(tb.adding.chord.Accel()))
 	if tb.adding.Visible() || tb.adding.problem.Visible() {
 		t.Fatalf("the form stays open, saying %q", tb.adding.problem.Text())
 	}

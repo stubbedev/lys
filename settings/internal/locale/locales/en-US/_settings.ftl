@@ -477,6 +477,7 @@ settings-section-launcher-keybindings = Keybindings
 settings-launcher-shortcut = Open the launcher with
     .description = The keys lys-wm opens the launcher on: record a chord, Backspace to unbind it
 settings-shortcuts-all = All keyboard shortcuts
+settings-action-launcher = Launcher
 settings-section-launcher-search = Search Panel
     .description = The search panel and its providers
 settings-section-launcher-scripts = Script Modes
@@ -1922,7 +1923,8 @@ settings-launcher-kb-custom = { $n ->
    *[other] Custom action { $n }
 }
 settings-launcher-kb-reset = Back to the launcher’s key
-settings-launcher-kb-also = Also: { $keys }
+settings-launcher-kb-also = Also
+settings-launcher-kb-unreadable = lys-shell does not read { $keys } as a key
 settings-surface-animations = Each Surface
     .description = Overrides for one surface; an empty cell follows the defaults above
 settings-link-surface-animation = How it appears and disappears, with every surface's animation on the Motion page

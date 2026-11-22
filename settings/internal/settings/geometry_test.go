@@ -145,7 +145,7 @@ func controlRowsShareHeightCentreAndGap() pageCheck {
 		id := w.pageID
 		walkOwn(w.page, func(x widget.Widget) {
 			row, ok := x.(rowBox)
-			if !ok || row.Axis() != widget.Row || !shown(x) {
+			if !ok || row.Axis() != widget.Row || !shown(x) || othersInside(x) {
 				return
 			}
 			var prev widget.Boundser

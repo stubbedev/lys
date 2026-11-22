@@ -465,6 +465,7 @@ settings-section-launcher-keybindings = Raccourcis clavier
 settings-launcher-shortcut = Ouvrir le lanceur avec
     .description = Les touches avec lesquelles lys-wm ouvre le lanceur : enregistrez une combinaison, Retour arrière la retire
 settings-shortcuts-all = Tous les raccourcis clavier
+settings-action-launcher = Lanceur
 settings-section-launcher-search = Panneau de recherche
     .description = Le panneau de recherche et ses fournisseurs
 settings-section-launcher-scripts = Modes de script
@@ -1925,7 +1926,8 @@ settings-launcher-kb-custom = { $n ->
    *[other] Action personnalisée { $n }
 }
 settings-launcher-kb-reset = Revenir à la touche du lanceur
-settings-launcher-kb-also = Aussi : { $keys }
+settings-launcher-kb-also = Aussi
+settings-launcher-kb-unreadable = lys-shell ne lit pas { $keys } comme une touche
 settings-surface-animations = Chaque surface
     .description = Réglages propres à une surface ; une case vide suit les valeurs ci-dessus
 settings-link-surface-animation = Comment elle apparaît et disparaît, avec l'animation de chaque surface sur la page Mouvement

@@ -1,50 +1,27 @@
 package settings
 
 import (
+	"log"
 	"maps"
+	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/ui/widget"
+	"github.com/stubbedev/lys/ui/widget/css"
 
+	"github.com/stubbedev/lys/settings/internal/keys"
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
-const (
-	rofiControl  = "Control"
-	accelControl = "Ctrl"
-	customPrefix = "custom-"
-)
+const customPrefix = "custom-"
 
 var launcherMouseTokens = []string{"MousePrimary", "MouseDPrimary", "MouseSecondary", "MouseDSecondary", "MouseMiddle", "ScrollUp", "ScrollDown", "ScrollLeft", "ScrollRight"}
 
-func rofiToAccel(key string) string {
-	parts := strings.Split(strings.TrimSpace(key), "+")
-	for i, p := range parts {
-		switch {
-		case p == rofiControl:
-			parts[i] = accelControl
-		case i == len(parts)-1 && len(p) == 1:
-			parts[i] = strings.ToUpper(p)
-		}
-	}
-	return strings.Join(parts, "+")
-}
-
-func accelToRofi(accel string) string {
-	parts := strings.Split(accel, "+")
-	for i, p := range parts {
-		switch {
-		case p == accelControl:
-			parts[i] = rofiControl
-		case i == len(parts)-1 && len(p) == 1:
-			parts[i] = strings.ToLower(p)
-		}
-	}
-	return strings.Join(parts, "+")
-}
+// launcherKeySeparator parts the keys of one launcher action.
+const launcherKeySeparator = ","
 
 func launcherActionLabel(action string) string {
 	t := locale.T()
@@ -118,78 +95,113 @@ func (b *launcherBindings) write(action string, keys *string) {
 }
 
 func (b *launcherBindings) row(d config.LauncherBinding) widget.Widget {
-	t := locale.T()
 	reset := b.k.resetButton("settings-launcher-kb-reset", func() { b.write(d.Action, nil) })
 	b.resets = append(b.resets, reset)
 	var editor widget.Widget
-	var sync func(keys string)
+	var sync func(first string)
 	if b.mouse {
-		labels := make([]string, len(launcherMouseTokens))
-		for i, tok := range launcherMouseTokens {
-			labels[i] = t.Get("settings-launcher-mouse-" + strings.ToLower(tok))
-		}
-		pick := widget.NewDropdown(b.k.face, b.k.textPx(), labels, 0)
-		pick.SetAccessibleName(launcherActionLabel(d.Action))
-		syncing := false
-		pick.OnSelect = func(i int) {
-			if !syncing && i >= 0 && i < len(launcherMouseTokens) {
-				tok := launcherMouseTokens[i]
-				b.write(d.Action, &tok)
-			}
-		}
-		editor = pick
-		sync = func(keys string) {
-			first, _, _ := strings.Cut(keys, ",")
-			syncing = true
-			for i, tok := range launcherMouseTokens {
-				if tok == strings.TrimSpace(first) {
-					pick.SetSelected(i)
-				}
-			}
-			syncing = false
-		}
+		editor, sync = b.mousePick(d)
 	} else {
-		rec := widget.NewShortcutRecorder(b.k.face, "")
-		rec.SetAccessibleName(launcherActionLabel(d.Action))
-		syncing := false
-		rec.OnChanged = func(accel string) {
-			if syncing || accel == "" {
-				return
-			}
-			keys := accelToRofi(accel)
-			b.write(d.Action, &keys)
-		}
-		editor = rec
-		sync = func(keys string) {
-			first, _, _ := strings.Cut(keys, ",")
-			syncing = true
-			rec.SetAccel(rofiToAccel(first))
-			syncing = false
-		}
+		editor, sync = b.keyRecorder(d)
 	}
 	row := b.k.row(launcherActionLabel(d.Action), "").withActions(reset.Button).withControl(editor)
+	also := gapBox(widget.Row)
+	row.AddDetail(also)
 	refresh := func() {
-		keys, overridden := b.keys(d)
-		_, rest, more := strings.Cut(keys, ",")
-		also := ""
+		stored, overridden := b.keys(d)
+		first, rest, more := strings.Cut(stored, launcherKeySeparator)
+		also.Clear()
+		also.SetVisible(more)
 		if more {
-			others := strings.Split(rest, ",")
-			for i, key := range others {
-				if b.mouse {
-					others[i] = strings.TrimSpace(key)
-				} else {
-					others[i] = rofiToAccel(key)
-				}
-			}
-			also = t.Get("settings-launcher-kb-also", i18n.Str("keys", strings.Join(others, ", ")))
+			b.showAlso(also, strings.Split(rest, launcherKeySeparator))
 		}
-		row.SetDescription(also)
 		reset.show(overridden)
-		sync(keys)
+		sync(strings.TrimSpace(first))
 	}
 	b.rows = append(b.rows, refresh)
 	refresh()
 	return row
+}
+
+// keyRecorder records an action's first key; emptying it puts the
+// action back to its default keys.
+func (b *launcherBindings) keyRecorder(d config.LauncherBinding) (widget.Widget, func(first string)) {
+	rec := b.k.shortcutRecorder(launcherActionLabel(d.Action), unsetResets)
+	syncing := false
+	rec.OnChanged = func(accel string) {
+		if syncing {
+			return
+		}
+		if accel == "" {
+			b.write(d.Action, nil)
+			return
+		}
+		c, err := keys.Accel.Parse(accel)
+		if err != nil {
+			log.Panicf("settings: the recorder recorded %v", err)
+		}
+		rofi, _ := c.Rofi()
+		b.write(d.Action, &rofi)
+	}
+	return rec, func(first string) {
+		syncing = true
+		defer func() { syncing = false }()
+		c, err := keys.Rofi.Parse(first)
+		if err != nil {
+			rec.SetAccel("")
+			rec.SetError(locale.T().Get("settings-launcher-kb-unreadable", i18n.Str("keys", keys.Rofi.Text(first))))
+			return
+		}
+		accel, _ := c.Accel()
+		rec.SetAccel(accel)
+	}
+}
+
+// mousePick picks an action's first pointer binding from the buttons.
+func (b *launcherBindings) mousePick(d config.LauncherBinding) (widget.Widget, func(first string)) {
+	pick := widget.NewDropdown(b.k.face, b.k.textPx(), launcherMouseLabels(launcherMouseTokens), 0)
+	pick.SetAccessibleName(launcherActionLabel(d.Action))
+	syncing := false
+	pick.OnSelect = func(i int) {
+		if !syncing && i >= 0 && i < len(launcherMouseTokens) {
+			tok := launcherMouseTokens[i]
+			b.write(d.Action, &tok)
+		}
+	}
+	return pick, func(first string) {
+		syncing = true
+		defer func() { syncing = false }()
+		if i := slices.Index(launcherMouseTokens, first); i >= 0 {
+			pick.SetSelected(i)
+		}
+	}
+}
+
+// showAlso draws an action's further keys after the first in also, as
+// keycaps after the word saying they work too.
+func (b *launcherBindings) showAlso(also *widget.Box, more []string) {
+	also.AppendAligned(b.k.label(locale.T().Get("settings-launcher-kb-also"), css.Caption, css.DimLabel), false, widget.AlignCenter)
+	for _, key := range more {
+		labels := keys.Rofi.Labels(strings.TrimSpace(key))
+		if b.mouse {
+			labels = launcherMouseLabels(labels)
+		}
+		also.AppendAligned(b.k.keycaps(labels), false, widget.AlignCenter)
+	}
+}
+
+// launcherMouseLabels are parts of a pointer binding as they read: a
+// rofi mouse name by its message, any other part as it is.
+func launcherMouseLabels(parts []string) []string {
+	t := locale.T()
+	out := make([]string, len(parts))
+	for i, p := range parts {
+		out[i] = p
+		if slices.Contains(launcherMouseTokens, p) {
+			out[i] = t.Get("settings-launcher-mouse-" + strings.ToLower(p))
+		}
+	}
+	return out
 }
 
 func (b *launcherBindings) refresh() {

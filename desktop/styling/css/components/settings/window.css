@@ -21,3 +21,8 @@ button.link.mode-toggle {
   padding-left: 0px;
   padding-right: 0px;
 }
+
+.settings-page .keycap {
+  color: var(--fg-default);
+  box-shadow: inset 0 0 0 1px var(--border-default);
+}

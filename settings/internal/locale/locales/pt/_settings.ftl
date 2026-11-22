@@ -467,6 +467,7 @@ settings-section-launcher-keybindings = Atalhos de teclado
 settings-launcher-shortcut = Abrir o lançador com
     .description = As teclas com que o lys-wm abre o lançador: grave uma combinação, a tecla Retrocesso remove-a
 settings-shortcuts-all = Todos os atalhos de teclado
+settings-action-launcher = Lançador
 settings-section-launcher-search = Painel de pesquisa
     .description = O painel de pesquisa e as suas fontes
 settings-section-launcher-scripts = Modos de script
@@ -1913,7 +1914,8 @@ settings-launcher-kb-custom = { $n ->
    *[other] Ação personalizada { $n }
 }
 settings-launcher-kb-reset = Voltar à tecla do lançador
-settings-launcher-kb-also = Também: { $keys }
+settings-launcher-kb-also = Também
+settings-launcher-kb-unreadable = o lys-shell não lê { $keys } como uma tecla
 settings-surface-animations = Cada superfície
     .description = Valores próprios de uma superfície; uma célula vazia segue os predefinidos acima
 settings-link-surface-animation = Como aparece e desaparece, com a animação de cada superfície na página Movimento

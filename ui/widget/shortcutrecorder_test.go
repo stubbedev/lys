@@ -194,6 +194,10 @@ func TestShortcutRecorderAccessibility(t *testing.T) {
 	if st.Role != RoleButton || st.Name != "Screenshot" || st.Description != "Ctrl+Alt+P" || !st.Focusable {
 		t.Errorf("at rest: %+v", st)
 	}
+	r.SetAccel("Ctrl+bracketleft")
+	if st := Describe(r.button); st.Description != "Ctrl+[" {
+		t.Errorf("the description reads the stored key name: %q", st.Description)
+	}
 	gen := A11yGeneration()
 	r.StartRecording()
 	if A11yGeneration() == gen {
@@ -205,6 +209,21 @@ func TestShortcutRecorderAccessibility(t *testing.T) {
 	r.RecordPress(xkb.KeyBackSpace, 0)
 	if st := Describe(r.button); st.Description != "Unassigned" {
 		t.Errorf("cleared description %q", st.Description)
+	}
+}
+
+func TestAnUnclearableRecorderHasNoClearButton(t *testing.T) {
+	r := NewShortcutRecorder(chromeFace(t), "Ctrl+Q")
+	r.SetClearable(false)
+	if slices.Contains(r.row.Children(), Widget(r.clear)) {
+		t.Fatal("an unclearable recorder shows its clear button")
+	}
+	if got := recorderKeycaps(r); !slices.Equal(got, []string{"Ctrl", "Q"}) {
+		t.Errorf("keycaps %v, want [Ctrl Q]", got)
+	}
+	r.SetClearable(true)
+	if !slices.Contains(r.row.Children(), Widget(r.clear)) {
+		t.Error("a clearable recorder with a value hides its clear button")
 	}
 }
 

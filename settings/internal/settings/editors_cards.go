@@ -941,8 +941,7 @@ func (c *cardList) markClashes() {
 	for _, o := range others {
 		all = append(all, o.value)
 	}
-	c.partners = chordClashes(all, normalChord)
-	t := locale.T()
+	c.partners = chordClashes(all, identifyChord)
 	for i, cd := range c.cards {
 		if cd.clash == nil || i >= len(values) {
 			continue
@@ -960,7 +959,7 @@ func (c *cardList) markClashes() {
 		} else {
 			other = others[p-len(values)].owner
 		}
-		cd.clashMsg.SetText(t.Get("settings-clash", i18n.Str("value", values[i]), i18n.Str("other", other)))
+		cd.clashMsg.SetText(clashText(values[i], other))
 	}
 }
 

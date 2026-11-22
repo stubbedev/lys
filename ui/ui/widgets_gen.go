@@ -7348,6 +7348,18 @@ func (b *ShortcutRecorderBuilder) WatchAccel(get func() string) *ShortcutRecorde
 	return b
 }
 
+// Clearable calls (*widget.ShortcutRecorder).SetClearable.
+func (b *ShortcutRecorderBuilder) Clearable(on bool) *ShortcutRecorderBuilder {
+	b.do(func(s *Scope, w *widget.ShortcutRecorder) { w.SetClearable(on) })
+	return b
+}
+
+// WatchClearable re-applies SetClearable with get's value after every update.
+func (b *ShortcutRecorderBuilder) WatchClearable(get func() bool) *ShortcutRecorderBuilder {
+	b.watch(func(w *widget.ShortcutRecorder) { w.SetClearable(get()) })
+	return b
+}
+
 // Error calls (*widget.ShortcutRecorder).SetError.
 func (b *ShortcutRecorderBuilder) Error(msg string) *ShortcutRecorderBuilder {
 	b.do(func(s *Scope, w *widget.ShortcutRecorder) { w.SetError(msg) })

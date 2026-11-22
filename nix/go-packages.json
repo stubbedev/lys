@@ -1583,12 +1583,14 @@
       "desktop/shell/widgets",
       "desktop/styling",
       "lib/render",
+      "ui/anim",
       "ui/widget"
     ],
     "external": [
       "fmt",
       "math",
-      "path/filepath"
+      "path/filepath",
+      "time"
     ],
     "testImports": [
       "desktop/shell/treetest"
@@ -6833,6 +6835,22 @@
       "testing"
     ]
   },
+  "settings/internal/keys": {
+    "imports": [
+      "lib/xkb",
+      "ui/app",
+      "ui/widget"
+    ],
+    "external": [
+      "fmt",
+      "slices",
+      "strconv",
+      "strings"
+    ],
+    "testExternal": [
+      "testing"
+    ]
+  },
   "settings/internal/locale": {
     "imports": [
       "desktop/i18n"
@@ -6940,6 +6958,7 @@
       "secrets/control",
       "secrets/vault",
       "settings/internal/displays",
+      "settings/internal/keys",
       "settings/internal/locale",
       "settings/internal/proxyenv",
       "settings/internal/wmconfig",
@@ -7033,6 +7052,8 @@
       "image/color",
       "net",
       "path",
+      "runtime",
+      "syscall",
       "testing"
     ]
   },
@@ -8834,6 +8855,7 @@
   },
   "shell/service/pausedunits": {
     "imports": [
+      "desktop/feed",
       "desktop/i18n",
       "lib/third_party/godbus",
       "power/pause",
@@ -8876,6 +8898,7 @@
   },
   "shell/service/privacy": {
     "imports": [
+      "desktop/desktopentry",
       "desktop/feed",
       "desktop/fswatch",
       "desktop/service/pulse"
@@ -12325,6 +12348,7 @@
       "image",
       "image/color",
       "io",
+      "iter",
       "maps",
       "math",
       "net/http",

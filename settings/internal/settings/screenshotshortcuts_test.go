@@ -11,7 +11,7 @@ import (
 	"github.com/stubbedev/lys/ui/widget"
 )
 
-func screenshotChord(t *testing.T, s *screenshotShortcuts, sub string) *actionChord {
+func screenshotChord(t *testing.T, s *bindRecorders, sub string) *actionChord {
 	t.Helper()
 	i := slices.IndexFunc(screenshotCaptures, func(c screenshotCapture) bool { return c.sub == sub })
 	if i < 0 {
@@ -22,7 +22,7 @@ func screenshotChord(t *testing.T, s *screenshotShortcuts, sub string) *actionCh
 
 func TestTheScreenshotPageRecordsTheChordOfEachCapture(t *testing.T) {
 	k, w, _, files := wmKit(t, "binds:\n  - {chord: SUPER + Print, action: exec lys-shell screenshot region}\n  - {chord: SUPER + Q, action: kill}\n")
-	s := fieldControl(k, w, screenshotShortcutsRow()).(*screenshotShortcuts)
+	s := fieldControl(k, w, screenshotShortcutsRow()).(*bindRecorders)
 	if len(s.chords) != len(screenshotCaptures) {
 		t.Fatalf("%d recorders for %d captures", len(s.chords), len(screenshotCaptures))
 	}

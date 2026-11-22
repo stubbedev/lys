@@ -2,6 +2,7 @@ package settings
 
 import (
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -63,7 +64,7 @@ func TestAChangedBindIsResetFromItsRow(t *testing.T) {
 	if c.cards[0].reset.shown() {
 		t.Fatal("the reset stays on a bind back at its built-in chord")
 	}
-	if keys := c.cards[0].aside.(*bindAside).shown; keys != "Super+Q" {
+	if keys := c.cards[0].aside.(*bindAside).shown; !slices.Equal(keys, []string{"Super", "Q"}) {
 		t.Fatalf("the reset bind's keycaps read %q", keys)
 	}
 }

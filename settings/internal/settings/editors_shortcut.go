@@ -2,6 +2,7 @@ package settings
 
 import (
 	"cmp"
+	"log"
 	"maps"
 	"slices"
 	"strings"
@@ -13,6 +14,7 @@ import (
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
 
+	"github.com/stubbedev/lys/settings/internal/keys"
 	"github.com/stubbedev/lys/settings/internal/locale"
 	"github.com/stubbedev/lys/settings/internal/wmconfig"
 )
@@ -20,105 +22,83 @@ import (
 const (
 	wmChordFormat  = "lys-wm-chord"
 	wmActionFormat = "lys-wm-action"
-	chordJoin      = " + "
 	chordKey       = "chord"
 )
 
-type chordModifier struct {
-	accel, chord string
-	aliases      []string
+// chordIdentity is what two lys-wm chords pressing the same keys share: the
+// chord they parse to, else their text trimmed and in lower case.
+type chordIdentity struct {
+	chord keys.Chord
+	text  string
 }
 
-var chordModifiers = []chordModifier{
-	{accel: "Ctrl", chord: "CTRL", aliases: []string{"CTRL", "CONTROL"}},
-	{accel: "Shift", chord: "SHIFT", aliases: []string{"SHIFT"}},
-	{accel: "Alt", chord: "ALT", aliases: []string{"ALT", "MOD1"}},
-	{accel: "Super", chord: "SUPER", aliases: []string{"SUPER", "MOD4", "WIN", "LOGO"}},
-}
-
-func modifierByAccel(name string) (chordModifier, bool) {
-	i := slices.IndexFunc(chordModifiers, func(m chordModifier) bool { return m.accel == name })
-	if i < 0 {
-		return chordModifier{}, false
+func identifyChord(text string) chordIdentity {
+	if c, err := keys.WM.Parse(text); err == nil {
+		return chordIdentity{chord: c}
 	}
-	return chordModifiers[i], true
+	return chordIdentity{text: strings.ToLower(strings.TrimSpace(text))}
 }
 
-func modifierByChord(name string) (int, bool) {
-	upper := strings.ToUpper(name)
-	i := slices.IndexFunc(chordModifiers, func(m chordModifier) bool { return slices.Contains(m.aliases, upper) })
-	return i, i >= 0
+// recorderAccel is what a recorder shows for a lys-wm chord: its
+// accelerator, empty for none and for a chord no key records.
+func recorderAccel(chord string) string {
+	c, err := keys.WM.Parse(chord)
+	if err != nil {
+		return ""
+	}
+	accel, _ := c.Accel()
+	return accel
 }
 
-var chordOrder = []string{"Super", "Ctrl", "Alt", "Shift"}
-
-func chordFromAccel(accel string) string {
+// recordedChord is the accelerator a recorder recorded in lys-wm's
+// form, empty for none.
+func recordedChord(accel string) string {
 	if accel == "" {
 		return ""
 	}
-	parts := strings.Split(accel, "+")
-	held := parts[:len(parts)-1]
-	out := make([]string, 0, len(parts))
-	for _, name := range chordOrder {
-		if m, ok := modifierByAccel(name); ok && slices.Contains(held, name) {
-			out = append(out, m.chord)
-		}
+	c, err := keys.Accel.Parse(accel)
+	if err != nil {
+		log.Panicf("settings: the recorder recorded %v", err)
 	}
-	return strings.Join(append(out, parts[len(parts)-1]), chordJoin)
+	return c.WM()
 }
 
-type parsedChord struct {
-	mods uint8
-	key  string
+// recorderUnset is what emptying a recorder does.
+type recorderUnset uint8
+
+const (
+	// unsetClears empties the value: a clear button beside a value, and
+	// Backspace while it records.
+	unsetClears recorderUnset = iota
+	// unsetResets puts the row back to its default through the row's own
+	// reset, so the recorder has no clear button of its own.
+	unsetResets
+)
+
+// shortcutRecorder is the window's key recorder, named and explained by
+// name.
+func (k *kit) shortcutRecorder(name string, unset recorderUnset) *widget.ShortcutRecorder {
+	r := widget.NewShortcutRecorder(k.face, "")
+	r.SetAccessibleName(name)
+	r.SetTooltip(name)
+	r.SetClearable(unset == unsetClears)
+	return r
 }
 
-func parseChord(chord string) (parsedChord, bool) {
-	parts := strings.Split(chord, "+")
-	var c parsedChord
-	for _, p := range parts[:len(parts)-1] {
-		i, ok := modifierByChord(strings.TrimSpace(p))
-		if !ok {
-			return parsedChord{}, false
-		}
-		c.mods |= 1 << i
-	}
-	c.key = strings.TrimSpace(parts[len(parts)-1])
-	return c, c.key != ""
+// keycaps is a chord drawn as lys-ui's keycaps: one picture, its keys
+// set apart by the keycaps' own spacing.
+type keycaps struct{ *widget.Box }
+
+// keycaps draws labels, a chord's keys as they read, as keycaps.
+func (k *kit) keycaps(labels []string) keycaps {
+	return keycaps{widget.NewKbdGroup(k.face, labels...)}
 }
 
-func (c parsedChord) mouse() bool {
-	lower := strings.ToLower(c.key)
-	return strings.HasPrefix(lower, "mouse:") || lower == "mouse_up" || lower == "mouse_down"
-}
-
-func (c parsedChord) accel() string {
-	parts := make([]string, 0, len(chordModifiers)+1)
-	for i, m := range chordModifiers {
-		if c.mods&(1<<i) != 0 {
-			parts = append(parts, m.accel)
-		}
-	}
-	key := c.key
-	if len([]rune(key)) == 1 {
-		key = strings.ToUpper(key)
-	}
-	return strings.Join(append(parts, key), "+")
-}
-
-func normalChord(chord string) string {
-	c, ok := parseChord(chord)
-	if !ok {
-		return strings.ToLower(strings.TrimSpace(chord))
-	}
-	if len([]rune(c.key)) == 1 {
-		c.key = strings.ToLower(c.key)
-	}
-	return string(rune('0'+c.mods)) + c.key
-}
-
-func chordClashes(chords []string, normal func(string) string) []int {
+// chordClashes pairs each chord with another that normal says is the
+// same, -1 for none and for an empty one, normalising each chord once.
+func chordClashes[K comparable](chords []string, normal func(string) K) []int {
 	partner := make([]int, len(chords))
-	first := make(map[string]int, len(chords))
+	first := make(map[K]int, len(chords))
 	for i, chord := range chords {
 		partner[i] = -1
 		if chord == "" {
@@ -148,14 +128,13 @@ type chordEditor struct {
 
 func newChordEditor(k *kit, s slot) *chordEditor {
 	e := &chordEditor{Box: gapBox(widget.Row), k: k, slot: s}
-	e.recorder = widget.NewShortcutRecorder(k.face, "")
-	e.recorder.SetAccessibleName(locale.T().Get("wm-binds-chord"))
+	e.recorder = k.shortcutRecorder(locale.T().Get("wm-binds-chord"), unsetClears)
 	e.recorder.OnChanged = func(accel string) {
 		if accel == "" {
 			e.slot.unset()
 			return
 		}
-		_ = e.slot.set(chordFromAccel(accel))
+		_ = e.slot.set(recordedChord(accel))
 	}
 	e.text = newText(k, s, false)
 	e.AppendAligned(e.recorder, true, widget.AlignCenter)
@@ -166,18 +145,16 @@ func newChordEditor(k *kit, s slot) *chordEditor {
 
 func (e *chordEditor) refresh() {
 	stored := e.slot.text()
-	c, ok := parseChord(stored)
-	byText := stored != "" && (!ok || c.mouse())
+	accel := recorderAccel(stored)
+	byText := stored != "" && accel == ""
 	e.recorder.SetVisible(!byText)
 	e.text.SetVisible(byText)
 	if byText {
 		e.text.refresh()
 		return
 	}
-	if accel := c.accel(); ok && accel != e.recorder.Accel() {
+	if accel != e.recorder.Accel() {
 		e.recorder.SetAccel(accel)
-	} else if !ok && e.recorder.Accel() != "" {
-		e.recorder.SetAccel("")
 	}
 }
 
@@ -279,8 +256,8 @@ func (e *appShortcutsEditor) show(l appShortcutsListing) {
 		row.AppendAligned(text, true, widget.AlignCenter)
 		var entry *actionChord
 		if sc.Trigger != "" {
-			entry = newHeldChord(e.k, e.names, sc.action(), chordFromAccel(sc.Trigger))
-			row.AppendAligned(widget.NewShortcutLabel(e.k.face, sc.Trigger), false, widget.AlignCenter)
+			entry = newHeldChord(e.k, e.names, sc.action(), heldChord(sc))
+			row.AppendAligned(e.k.keycaps(keys.Accel.Labels(sc.Trigger)), false, widget.AlignCenter)
 			row.SetTooltip(t.Get("wm-app-shortcuts-hotkey"))
 		} else {
 			entry = newActionChord(e.k, e.binds, e.names, sc.action(), cmp.Or(sc.Description, sc.ID))
@@ -299,6 +276,17 @@ func (e *appShortcutsEditor) refresh() {
 	for _, entry := range e.entries {
 		entry.refresh(e.binds)
 	}
+}
+
+// heldChord is the key an app holds itself in lys-wm's form, for the
+// clash check; empty, and logged, for a trigger that is no accelerator.
+func heldChord(sc appShortcut) string {
+	c, err := keys.Accel.Parse(sc.Trigger)
+	if err != nil {
+		log.Printf("settings: %s's shortcut %s: %v", sc.app, sc.ID, err)
+		return ""
+	}
+	return c.WM()
 }
 
 func bindAction(item any) string {
@@ -321,9 +309,8 @@ type actionChord struct {
 
 func newActionChord(k *kit, binds slot, names *bindNames, action, name string) *actionChord {
 	c := newHeldChord(k, names, action, "")
-	c.recorder = widget.NewShortcutRecorder(k.face, "")
-	c.recorder.SetAccessibleName(name)
-	c.recorder.OnChanged = func(accel string) { _ = binds.set(rebound(bindItems(binds), action, chordFromAccel(accel))) }
+	c.recorder = k.shortcutRecorder(name, unsetClears)
+	c.recorder.OnChanged = func(accel string) { _ = binds.set(rebound(bindItems(binds), action, recordedChord(accel))) }
 	return c
 }
 
@@ -363,6 +350,12 @@ func (c *actionChord) chord(items []any) string {
 	return chord
 }
 
+// clashText says the lys-wm chord is also bound by other, the chord as
+// it reads.
+func clashText(chord, other string) string {
+	return locale.T().Get("settings-clash", i18n.Str("value", keys.WM.Text(chord)), i18n.Str("other", other))
+}
+
 func (c *actionChord) refresh(binds slot) {
 	items := bindItems(binds)
 	chord := c.chord(items)
@@ -370,16 +363,12 @@ func (c *actionChord) refresh(binds slot) {
 	owner, clashes := clashWith(chord, append(bindOwners(rest, c.names, ""), submapOwners(c.k.wm, c.names)...))
 	c.clash.SetVisible(clashes)
 	if clashes {
-		c.clash.SetText(locale.T().Get("settings-clash", i18n.Str("value", chord), i18n.Str("other", owner.owner)))
+		c.clash.SetText(clashText(chord, owner.owner))
 	}
 	if c.recorder == nil || c.recorder.Recording() {
 		return
 	}
-	accel := ""
-	if parsed, ok := parseChord(chord); ok {
-		accel = parsed.accel()
-	}
-	if c.recorder.Accel() != accel {
+	if accel := recorderAccel(chord); c.recorder.Accel() != accel {
 		c.recorder.SetAccel(accel)
 	}
 }
@@ -390,40 +379,51 @@ var launcherAction = appShortcut{app: shellipc.AppID, ID: shellipc.ShortcutLaunc
 const launcherShortcutKey = "settings-launcher-shortcut"
 
 // launcherShortcutRow is the chord lys-wm opens the launcher on, recorded
-// in place, beside a way to every other shortcut.
+// in place, above the way to every other shortcut.
 func launcherShortcutRow() rowSpec {
 	return wmField(bindsKey, withKey(launcherShortcutKey), func(r *rowSpec) {
-		r.action = true
-		r.editor = func(k *kit, s slot, _ config.FieldMeta) control { return newLauncherShortcut(k, s) }
+		r.action, r.fullWidth = true, true
+		r.editor = func(k *kit, s slot, _ config.FieldMeta) control {
+			return newBindRecorders(k, s, []bindRecorder{{action: launcherAction, key: "settings-action-launcher"}})
+		}
 	})
 }
 
-type launcherShortcut struct {
+// bindRecorder is one bind action a recorder rebinds, the message key
+// titling its row.
+type bindRecorder struct{ action, key string }
+
+// bindRecorders is a row with a recorder for each bind action, then the
+// row leading to every other shortcut.
+type bindRecorders struct {
 	*widget.Box
-	binds slot
-	chord *actionChord
+	binds  slot
+	chords []*actionChord
 }
 
-func newLauncherShortcut(k *kit, binds slot) *launcherShortcut {
-	l := &launcherShortcut{Box: gapBox(widget.Column), binds: binds}
-	l.chord = newActionChord(k, binds, bindActionNames(k), launcherAction, locale.T().Get(launcherShortcutKey))
-	row := gapBox(widget.Row)
-	row.AppendAligned(l.chord.recorder, true, widget.AlignCenter)
-	if link, ok := allShortcutsLink(k); ok {
-		row.AppendAligned(link, false, widget.AlignCenter)
+func newBindRecorders(k *kit, binds slot, recorders []bindRecorder) *bindRecorders {
+	t := locale.T()
+	names := bindActionNames(k)
+	b := &bindRecorders{Box: gapBox(widget.Column), binds: binds}
+	rows := widget.NewItemGroup()
+	for _, r := range recorders {
+		chord := newActionChord(k, binds, names, r.action, t.Get(r.key))
+		b.chords = append(b.chords, chord)
+		row := k.row(t.Get(r.key), "").withControl(chord.recorder)
+		row.AddDetail(chord.clash)
+		rows.Append(row)
 	}
-	l.Append(row, false)
-	l.Append(l.chord.clash, false)
-	l.refresh()
-	return l
+	if target, ok := pageByID(k.nav, wmBindsID); ok {
+		link := k.iconButton("ld-chevron-right-symbolic", "settings-shortcuts-all", func() { k.openPage(target.id) })
+		rows.Append(k.row(t.Get("settings-shortcuts-all"), "").withControl(link))
+	}
+	b.Append(rows, false)
+	b.refresh()
+	return b
 }
 
-func (l *launcherShortcut) refresh() { l.chord.refresh(l.binds) }
-
-func allShortcutsLink(k *kit) (*widget.Button, bool) {
-	target, ok := pageByID(k.nav, wmBindsID)
-	if !ok {
-		return nil, false
+func (b *bindRecorders) refresh() {
+	for _, c := range b.chords {
+		c.refresh(b.binds)
 	}
-	return k.iconButton("ld-chevron-right-symbolic", "settings-shortcuts-all", func() { k.openPage(target.id) }), true
 }

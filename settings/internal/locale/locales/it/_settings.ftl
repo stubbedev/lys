@@ -477,6 +477,7 @@ settings-section-launcher-keybindings = Scorciatoie da tastiera
 settings-launcher-shortcut = Apri l'avviatore con
     .description = I tasti con cui lys-wm apre l'avviatore: registra una combinazione, Backspace la rimuove
 settings-shortcuts-all = Tutte le scorciatoie da tastiera
+settings-action-launcher = Avviatore
 settings-section-launcher-search = Pannello di ricerca
     .description = Il pannello di ricerca e le sue sorgenti
 settings-section-launcher-scripts = Modalità script
@@ -1923,7 +1924,8 @@ settings-launcher-kb-custom = { $n ->
    *[other] Azione personalizzata { $n }
 }
 settings-launcher-kb-reset = Torna al tasto del launcher
-settings-launcher-kb-also = Anche: { $keys }
+settings-launcher-kb-also = Anche
+settings-launcher-kb-unreadable = lys-shell non legge { $keys } come un tasto
 settings-surface-animations = Ogni superficie
     .description = Impostazioni proprie di una superficie; una cella vuota segue i valori sopra
 settings-link-surface-animation = Come appare e scompare, con l'animazione di ogni superficie nella pagina Movimento

@@ -5,6 +5,9 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/stubbedev/lys/lib/xkb"
+
+	"github.com/stubbedev/lys/settings/internal/keys"
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
@@ -82,8 +85,10 @@ func (n bindNames) category(item map[string]any) bindCategory {
 	}
 	chord, _ := item[chordKey].(string)
 	key := ""
-	if parsed, ok := parseChord(chord); ok {
-		key = strings.ToLower(parsed.key)
+	if c, err := keys.WM.Parse(chord); err == nil {
+		if k, ok := c.Trigger.(keys.Key); ok {
+			key = strings.ToLower(xkb.KeysymGetName(k.Sym))
+		}
 	}
 	program := ""
 	if a.name == execAction && len(a.args) > 0 {
@@ -105,8 +110,8 @@ func (n bindNames) group(item map[string]any) cardGroupKey {
 }
 
 // searchText is what a bind is found by: what it does, its category, its
-// action as written and its chord, as typed and as keycaps.
+// action as written and its chord, as typed and as it reads.
 func (n bindNames) searchText(item map[string]any) string {
 	chord, _ := item[chordKey].(string)
-	return strings.Join([]string{n.bindLabel(item, 0), n.category(item).label(), itemText(item), chordKeys(chord)}, " ")
+	return strings.Join([]string{n.bindLabel(item, 0), n.category(item).label(), itemText(item), keys.WM.Text(chord)}, " ")
 }

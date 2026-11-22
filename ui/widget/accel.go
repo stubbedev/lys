@@ -1,7 +1,7 @@
 package widget
 
 import (
-	"strconv"
+	"iter"
 	"strings"
 
 	"github.com/stubbedev/lys/lib/xkb"
@@ -11,30 +11,45 @@ import (
 // accelerator label form ("Ctrl+Shift+P", "Ctrl+Return", "F5"): the
 // form app.ParseAccel reads back and NewShortcutLabel draws.
 func AccelLabel(sym xkb.Keysym, mods Mods) string {
+	return strings.Join(append(modifierNames(mods), AccelKeyName(sym)), "+")
+}
+
+// AccelKeyName is a keysym's name in the accelerator label form: its
+// xkb name, a single letter uppercased ("P", "Return", "bracketleft").
+func AccelKeyName(sym xkb.Keysym) string {
 	name := xkb.KeysymGetName(sym)
-	if name == "" {
-		name = "0x" + strconv.FormatUint(uint64(sym), 16)
-	}
 	if len(name) == 1 {
-		name = strings.ToUpper(name)
+		return strings.ToUpper(name)
 	}
-	return strings.Join(append(modifierNames(mods), name), "+")
+	return name
+}
+
+// accelModifiers are the modifiers an accelerator holds, in label
+// order, by their label names.
+var accelModifiers = [...]struct {
+	mod  Mods
+	name string
+}{{ModCtrl, "Ctrl"}, {ModShift, "Shift"}, {ModAlt, "Alt"}, {ModSuper, "Super"}}
+
+// AccelModifiers yields the modifiers an accelerator holds with their
+// label names, in label order: Ctrl, Shift, Alt, Super.
+func AccelModifiers() iter.Seq2[Mods, string] {
+	return func(yield func(Mods, string) bool) {
+		for _, m := range accelModifiers {
+			if !yield(m.mod, m.name) {
+				return
+			}
+		}
+	}
 }
 
 // modifierNames lists the held modifiers in label order.
 func modifierNames(mods Mods) []string {
-	parts := make([]string, 0, 5)
-	if mods&ModCtrl != 0 {
-		parts = append(parts, "Ctrl")
-	}
-	if mods&ModShift != 0 {
-		parts = append(parts, "Shift")
-	}
-	if mods&ModAlt != 0 {
-		parts = append(parts, "Alt")
-	}
-	if mods&ModSuper != 0 {
-		parts = append(parts, "Super")
+	parts := make([]string, 0, len(accelModifiers)+1)
+	for mod, name := range AccelModifiers() {
+		if mods&mod != 0 {
+			parts = append(parts, name)
+		}
 	}
 	return parts
 }

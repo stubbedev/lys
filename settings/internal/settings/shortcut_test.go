@@ -12,38 +12,37 @@ import (
 	"github.com/stubbedev/lys/ui/widget"
 )
 
-func TestAChordAndAnAcceleratorConvertBothWays(t *testing.T) {
+func TestTheRecorderAndLysWMsFormConvertBothWays(t *testing.T) {
 	for accel, chord := range map[string]string{
 		"Shift+Super+K":       "SUPER + SHIFT + K",
 		"Ctrl+Alt+Delete":     "CTRL + ALT + Delete",
 		"Return":              "Return",
 		"Super+XF86AudioMute": "SUPER + XF86AudioMute",
 	} {
-		if got := chordFromAccel(accel); got != chord {
+		if got := recordedChord(accel); got != chord {
 			t.Errorf("%s: chord %q, want %q", accel, got, chord)
 		}
-		c, ok := parseChord(chord)
-		if !ok || c.accel() != accel {
-			t.Errorf("%s: accelerator %q %v, want %q", chord, c.accel(), ok, accel)
+		if got := recorderAccel(chord); got != accel {
+			t.Errorf("%s: accelerator %q, want %q", chord, got, accel)
 		}
 	}
-	if c, ok := parseChord("win+shift+q"); !ok || c.accel() != "Shift+Super+Q" {
-		t.Errorf("aliases and case: %q %v", c.accel(), ok)
+	if got := recorderAccel("win+shift+q"); got != "Shift+Super+Q" {
+		t.Errorf("aliases and case: %q", got)
 	}
-	for _, bad := range []string{"", "SUPER + ", "HYPER + K"} {
-		if c, ok := parseChord(bad); ok {
-			t.Errorf("%q parsed as %+v", bad, c)
+	for _, none := range []string{"", "SUPER + ", "HYPER + K", "SUPER + mouse:272", "SUPER + mouse_down"} {
+		if got := recorderAccel(none); got != "" {
+			t.Errorf("%q records as %q, want nothing", none, got)
 		}
 	}
-	if c, _ := parseChord("SUPER + mouse:272"); !c.mouse() {
-		t.Error("a mouse chord is not one")
+	if recordedChord("") != "" {
+		t.Error("an empty recorder records a chord")
 	}
 }
 
 func TestChordsThatMeanTheSameKeyClashInOnePass(t *testing.T) {
 	chords := []string{"SUPER + SHIFT + K", "SUPER + Q", "shift+super+k", "", "SUPER + Return", "WIN + q"}
 	calls := 0
-	partner := chordClashes(chords, func(s string) string { calls++; return normalChord(s) })
+	partner := chordClashes(chords, func(s string) chordIdentity { calls++; return identifyChord(s) })
 	if want := []int{2, 5, 0, -1, -1, 1}; !slices.Equal(partner, want) {
 		t.Fatalf("partners %v, want %v", partner, want)
 	}
@@ -161,10 +160,11 @@ func TestAnAppShortcutRecordedBecomesAGlobalBind(t *testing.T) {
 
 func TestTheLauncherPageRecordsTheChordThatOpensIt(t *testing.T) {
 	k, w, _, files := wmKit(t, "binds:\n  - {chord: SUPER + Space, action: global dev.stubbe.lys.shell:launcher}\n  - {chord: SUPER + Q, action: kill}\n")
-	e := fieldControl(k, w, launcherShortcutRow()).(*launcherShortcut)
-	rec := e.chord.recorder
-	if rec.Accel() != "Super+Space" || e.chord.clash.Visible() {
-		t.Fatalf("the launcher's chord reads %q, clash shown %v", rec.Accel(), e.chord.clash.Visible())
+	e := fieldControl(k, w, launcherShortcutRow()).(*bindRecorders)
+	chord := e.chords[0]
+	rec := chord.recorder
+	if rec.Accel() != "Super+space" || chord.clash.Visible() {
+		t.Fatalf("the launcher's chord reads %q, clash shown %v", rec.Accel(), chord.clash.Visible())
 	}
 	rec.StartRecording()
 	rec.RecordPress(xkb.Keysym('L'), widget.ModSuper)
@@ -175,8 +175,8 @@ func TestTheLauncherPageRecordsTheChordThatOpensIt(t *testing.T) {
 	rec.StartRecording()
 	rec.RecordPress(xkb.Keysym('Q'), widget.ModSuper)
 	e.refresh()
-	if !e.chord.clash.Visible() || !strings.Contains(unisolated(e.chord.clash.Text()), "Close window") {
-		t.Fatalf("a chord another bind holds reads %v %q", e.chord.clash.Visible(), e.chord.clash.Text())
+	if !chord.clash.Visible() || !strings.Contains(unisolated(chord.clash.Text()), "Close window") {
+		t.Fatalf("a chord another bind holds reads %v %q", chord.clash.Visible(), chord.clash.Text())
 	}
 	rec.StartRecording()
 	rec.RecordPress(xkb.KeyBackSpace, 0)

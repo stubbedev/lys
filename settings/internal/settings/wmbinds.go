@@ -9,8 +9,8 @@ import (
 
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
+	"github.com/stubbedev/lys/settings/internal/keys"
 	"github.com/stubbedev/lys/settings/internal/locale"
 	"github.com/stubbedev/lys/settings/internal/wmconfig"
 )
@@ -140,9 +140,9 @@ func normalBind(m map[string]any) map[string]any {
 	return out
 }
 
-func bindChord(m map[string]any) string {
+func bindChord(m map[string]any) chordIdentity {
 	chord, _ := m[chordKey].(string)
-	return normalChord(chord)
+	return identifyChord(chord)
 }
 
 // bindDefault is the built-in bind that bind i of items goes back to: the
@@ -160,7 +160,7 @@ func bindDefault(items []map[string]any, i int, defaults []any) (map[string]any,
 	if slices.ContainsFunc(builtIn, func(d map[string]any) bool { return reflect.DeepEqual(normalBind(d), own) }) {
 		return nil, false
 	}
-	held := make(map[string]bool, len(items))
+	held := make(map[chordIdentity]bool, len(items))
 	for _, m := range items {
 		held[bindChord(m)] = true
 	}
@@ -189,7 +189,7 @@ func clashWith(chord string, others []clashOwner) (clashOwner, bool) {
 	for _, o := range others {
 		values = append(values, o.value)
 	}
-	p := chordClashes(values, normalChord)[0]
+	p := chordClashes(values, identifyChord)[0]
 	if p < 1 {
 		return clashOwner{}, false
 	}
@@ -212,14 +212,6 @@ func launchNames(ix installedApps) map[string]string {
 	return out
 }
 
-// chordKeys is a chord as the keycaps show it.
-func chordKeys(chord string) string {
-	if c, ok := parseChord(chord); ok {
-		return c.accel()
-	}
-	return strings.Join(strings.Fields(chord), "")
-}
-
 // bindAside is a bind card's header beside its title: the unknown-action
 // mark and the chord's keycaps.
 type bindAside struct {
@@ -228,7 +220,7 @@ type bindAside struct {
 	names   *bindNames
 	unknown *widget.Badge
 	keys    *widget.Box
-	shown   string
+	shown   []string
 }
 
 func newBindAside(k *kit, names *bindNames) cardAside {
@@ -244,26 +236,16 @@ func newBindAside(k *kit, names *bindNames) cardAside {
 func (a *bindAside) show(item map[string]any) {
 	a.unknown.SetVisible(a.names.unknown(item))
 	chord, _ := item[chordKey].(string)
-	keys := ""
+	var labels []string
 	if strings.TrimSpace(chord) != "" {
-		keys = chordKeys(chord)
+		labels = keys.WM.Labels(chord)
 	}
-	if keys == a.shown {
+	if slices.Equal(labels, a.shown) {
 		return
 	}
-	a.shown = keys
+	a.shown = labels
 	a.keys.Clear()
-	if keys != "" {
-		a.keys.AppendAligned(newKeycaps(a.k, keys), false, widget.AlignCenter)
+	if len(labels) > 0 {
+		a.keys.AppendAligned(a.k.keycaps(labels), false, widget.AlignCenter)
 	}
-}
-
-// keycaps is a chord drawn as lys-ui's keycaps: one picture, its keys set
-// apart by the keycaps' own spacing.
-type keycaps struct{ *widget.Box }
-
-func newKeycaps(k *kit, keys string) keycaps {
-	label := widget.NewShortcutLabel(k.face, keys)
-	label.AddClass("bind-keys", css.DimLabel)
-	return keycaps{label}
 }

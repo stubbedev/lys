@@ -10,6 +10,7 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/ui/widget"
 
+	"github.com/stubbedev/lys/settings/internal/keys"
 	"github.com/stubbedev/lys/settings/internal/locale"
 	"github.com/stubbedev/lys/settings/internal/wmconfig"
 	"github.com/stubbedev/lys/settings/internal/wmtest"
@@ -172,6 +173,51 @@ func TestARefusedListItemNamesItsRuntimeLine(t *testing.T) {
 		var rejected *wmconfig.RejectedError
 		if err := f.Check([]wmconfig.Edit{c.edit}); !errors.As(err, &rejected) || !strings.Contains(rejected.Reason, f.Runtime()+c.want) {
 			t.Errorf("%s: %v; want a refusal naming %s%s", name, err, f.Runtime(), c.want)
+		}
+	}
+}
+
+func TestEveryChordOfTheInstalledLysWMsDefaultsIsReadAndHasKeycaps(t *testing.T) {
+	wmtest.Need(t)
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	f, err := wmconfig.Open(os.Getenv, wmconfig.Exec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := f.BuiltIn()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tree, err := wmconfig.Tree(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	binds, _ := tree[bindsKey].([]any)
+	submaps, _ := tree[submapsKey].(map[string]any)
+	for _, mode := range submaps {
+		more, _ := mode.([]any)
+		binds = append(binds, more...)
+	}
+	if len(binds) == 0 {
+		t.Fatal("lys-wm's defaults bind nothing")
+	}
+	for _, b := range binds {
+		item, _ := b.(map[string]any)
+		chord, _ := item[chordKey].(string)
+		c, err := keys.WM.Parse(chord)
+		if err != nil {
+			t.Errorf("a default bind: %v", err)
+			continue
+		}
+		if back, err := keys.WM.Parse(c.WM()); err != nil || back != c {
+			t.Errorf("%q prints back as %q, which reads %+v, %v", chord, c.WM(), back, err)
+		}
+		k, ok := c.Trigger.(keys.Key)
+		if !ok {
+			continue
+		}
+		if label, ok := widget.KeyLabel(k.Sym); !ok {
+			t.Errorf("%q: its key has no keycap, it reads %q", chord, label)
 		}
 	}
 }

@@ -33,6 +33,7 @@ type ShortcutRecorder struct {
 	clear     *Button
 	err       *Label
 	value     string
+	clearable bool
 	recording bool
 	held      Mods
 	// shown is the message under the control when recording started,
@@ -60,7 +61,7 @@ type recorderButton struct {
 // the label form ("Ctrl+Alt+P"); empty shows it unassigned.
 func NewShortcutRecorder(face render.Font, accel string) *ShortcutRecorder {
 	face = requireFace("widget.NewShortcutRecorder", face)
-	r := &ShortcutRecorder{face: face, box: NewBox(Column, 4, 0), row: NewBox(Row, 6, 0), display: NewBox(Row, 0, 0), value: accel}
+	r := &ShortcutRecorder{face: face, box: NewBox(Column, 4, 0), row: NewBox(Row, 6, 0), display: NewBox(Row, 0, 0), value: accel, clearable: true}
 	r.SetElement("shortcutrecorder")
 	r.button = &recorderButton{Button: NewButton(r.display, 6, 4), r: r}
 	r.button.OnClick = r.StartRecording
@@ -95,6 +96,14 @@ func (r *ShortcutRecorder) Accel() string { return r.value }
 func (r *ShortcutRecorder) SetAccel(accel string) {
 	r.value = accel
 	r.stop("")
+}
+
+// SetClearable sets whether the clear button shows beside a value; a
+// recorder whose row goes back to a default through a reset of its own
+// has none. Backspace still clears it while it records.
+func (r *ShortcutRecorder) SetClearable(on bool) {
+	r.clearable = on
+	r.refresh()
 }
 
 // SetAccessibleName names the control for assistive technology; the
@@ -213,7 +222,7 @@ func (r *ShortcutRecorder) refresh() {
 	}
 	r.button.SetClass("recording", r.recording)
 	r.row.Remove(r.clear)
-	if r.value != "" && !r.recording {
+	if r.clearable && r.value != "" && !r.recording {
 		r.row.AppendAligned(r.clear, false, AlignCenter)
 	}
 	MarkA11yChanged()
@@ -236,7 +245,7 @@ func (r *ShortcutRecorder) description() string {
 	case r.value == "":
 		return Tr("Unassigned")
 	}
-	return r.value
+	return accelText(r.value)
 }
 
 // Recording implements KeyRecorder for the focused button.
