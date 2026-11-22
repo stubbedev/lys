@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/settings/internal/locale"
 	"github.com/stubbedev/lys/ui/widget"
@@ -156,7 +157,7 @@ func TestAPictureFromAFileIsCroppedInADialogAndSetOnApply(t *testing.T) {
 	if !ok || !crop.Modal || crop.CancelResponse != responseCancel || crop.DefaultResponse != responseConfirm {
 		t.Fatalf("the crop dialog focuses %T, modal %v, cancel %q, default %q", crop.Focus, crop.Modal, crop.CancelResponse, crop.DefaultResponse)
 	}
-	zoom := treetest.First[*widget.Slider](t, crop.Content)
+	zoom := treetest.First[*widgets.DebouncedSlider](t, crop.Content).Knob
 	zoom.OnChanged(2)
 	if cropper.crop.zoom != 2 {
 		t.Fatalf("the zoom slider left the crop at %+v", cropper.crop)

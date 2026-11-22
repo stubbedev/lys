@@ -97,7 +97,10 @@ func TestATypedKindKeepsItsRawEditorBehindTheToggle(t *testing.T) {
 	if form.raw.Visible() || form.importBtn.Visible() {
 		t.Fatal("a typed kind opens its raw editor or offers a wg-quick import")
 	}
-	clickText(t, form, i18n.T("dropdown-network-vpn-advanced-show"), 0)
+	if got := form.rawToggle.label.Text(); got != i18n.T("dropdown-network-vpn-advanced-show") {
+		t.Fatalf("the raw toggle reads %q", got)
+	}
+	form.rawToggle.OnClick()
 	if !form.raw.Visible() || !strings.Contains(form.rawHint.Text(), "gateway, protocol, password") {
 		t.Fatalf("the toggle shows the raw editor %v with %q", form.raw.Visible(), form.rawHint.Text())
 	}
