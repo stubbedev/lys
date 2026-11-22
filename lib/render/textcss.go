@@ -371,7 +371,7 @@ func (s *ShapedText) DrawJustified(cv *Canvas, x, baselineY int, col Color, gap 
 	}
 	dev := float64(cv.num) / float64(cv.denom)
 	dotX := float64(float64(x) * dev)
-	base := float64(float64(baselineY) * dev)
+	base := cv.deviceBaseline(baselineY)
 	gap = float64(gap * dev)
 	rs := []rune(s.text)
 	for i := range s.runs {

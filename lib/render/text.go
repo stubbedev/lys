@@ -666,8 +666,9 @@ func (s *ShapedText) Draw(cv *Canvas, x, baselineY int, col Color) {
 		return
 	}
 	dev := float64(cv.num) / float64(cv.denom)
+	dotX, base := float64(float64(x)*dev), cv.deviceBaseline(baselineY)
 	if cv.rec != nil {
-		for _, p := range s.pens(float64(float64(x)*dev), float64(float64(baselineY)*dev), dev) {
+		for _, p := range s.pens(dotX, base, dev) {
 			drawGlyph(cv, clip, p.face, p.gid, p.scale, p.x, p.y, col)
 		}
 		return
@@ -675,7 +676,7 @@ func (s *ShapedText) Draw(cv *Canvas, x, baselineY int, col Color) {
 	s.planMu.Lock()
 	defer s.planMu.Unlock()
 	plan := s.planAt(cv.num, cv.denom)
-	for k, p := range s.pens(float64(float64(x)*dev), float64(float64(baselineY)*dev), dev) {
+	for k, p := range s.pens(dotX, base, dev) {
 		fx, fy := penBucket(p.x), penBucket(p.y)
 		rg := &plan[k]
 		if !rg.at(fx, fy) {
@@ -683,6 +684,10 @@ func (s *ShapedText) Draw(cv *Canvas, x, baselineY int, col Color) {
 		}
 		rg.draw(cv, clip, p, col)
 	}
+}
+
+func (c *Canvas) deviceBaseline(baselineY int) float64 {
+	return float64(divFloor(2*baselineY*c.num+c.denom, 2*c.denom))
 }
 
 type glyphPen struct {

@@ -425,11 +425,39 @@ func TestShapedTextDrawMatchesPerGlyphDrawAcrossPhases(t *testing.T) {
 			s.Draw(NewScaled(got, Stride(w), w, h, sc[0], sc[1]), at[0], at[1], col)
 			ref := NewScaled(want, Stride(w), w, h, sc[0], sc[1])
 			dev := float64(sc[0]) / float64(sc[1])
-			for _, p := range s.pens(float64(at[0])*dev, float64(at[1])*dev, dev) {
+			for _, p := range s.pens(float64(at[0])*dev, ref.deviceBaseline(at[1]), dev) {
 				ref.DrawGlyph(p.face, p.gid, p.scale, p.x, p.y, col)
 			}
 			if !bytes.Equal(got, want) {
 				t.Fatalf("scale %d/%d, draw %d at %v: Draw differs from per-glyph drawing", sc[0], sc[1], step, at)
+			}
+		}
+	}
+}
+
+func TestTextSitsOnAWholeDevicePixelBaselineAtEveryScale(t *testing.T) {
+	tf := testTypeface(t)
+	s := tf.shapeUncached("H", 14, text.DirectionAuto)
+	col := RGBA(0, 0, 0, 255)
+	for _, sc := range [][2]int{{1, 1}, {5, 4}, {3, 2}, {7, 4}, {2, 1}} {
+		for _, baseline := range []int{16, 17, 18, 19} {
+			const w, h = 60, 60
+			data := make([]byte, Stride(w)*h)
+			cv := NewScaled(data, Stride(w), w, h, sc[0], sc[1])
+			s.Draw(cv, 2, baseline, col)
+			base := int(cv.deviceBaseline(baseline))
+			stem := func(y int) uint8 {
+				var most uint8
+				for x := range w {
+					most = max(most, pxAt(data, Stride(w), x, y).A())
+				}
+				return most
+			}
+			if got, want := stem(base-1), stem(base-4); got != want {
+				t.Errorf("scale %d/%d, baseline %d: the stems' last row %d above the device baseline %d has coverage %d, want the full stem's %d", sc[0], sc[1], baseline, base-1, base, got, want)
+			}
+			if got := stem(base); got != 0 {
+				t.Errorf("scale %d/%d, baseline %d: device row %d below the baseline holds coverage %d, want none", sc[0], sc[1], baseline, base, got)
 			}
 		}
 	}
