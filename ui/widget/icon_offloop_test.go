@@ -78,6 +78,23 @@ func holdRead(t *testing.T, path string) (feed func(data string)) {
 	}
 }
 
+type occupiedWorker int
+
+func occupyAssetWorkers(t *testing.T) (release func()) {
+	t.Helper()
+	held := make(chan struct{})
+	for n := range maxAssetWorkers {
+		loadAsset(occupiedWorker(n), currentLoop(), func() { <-held }, func() {})
+	}
+	var once sync.Once
+	release = func() { once.Do(func() { close(held) }) }
+	t.Cleanup(func() {
+		release()
+		onTime(t, "the occupied workers' release", WaitAssetLoads)
+	})
+	return release
+}
+
 func TestThemeIconPaintNeverWaitsForTheIndex(t *testing.T) {
 	f := newFakeInvoker(t)
 	root := t.TempDir()
@@ -182,11 +199,13 @@ func TestIconKeepsItsRasterUntilTheNextIsDecoded(t *testing.T) {
 	paintIcon(w, 16, 1, 1)
 	settleAssets(t, f)
 	paintIcon(w, 16, 1, 1)
+	release := occupyAssetWorkers(t)
 	icons.Default().SetTheme("wblue")
 	data, _ := paintIcon(w, 16, 1, 1)
 	if got := centerPx(data, 16); got != render.RGB(0, 0xff, 0) {
 		t.Errorf("mid-switch center = %v, want the old green, not a blank frame", got)
 	}
+	release()
 	settleAssets(t, f)
 	data, _ = paintIcon(w, 16, 1, 1)
 	if got := centerPx(data, 16); got != render.RGB(0, 0, 0xff) {
