@@ -131,7 +131,7 @@ func TestStatRingPaintsTheThresholdColor(t *testing.T) {
 	ctx := styledContext(t, config.Defaults())
 	var r *statRing
 	fresh := func() {
-		r = newStatRing(widget.NewLabel(ctx.Font, 12, "", 0))
+		r = newStatRing(fixtureLabel(ctx), "%")
 		ctx.Theme.Attach(r.ring)
 	}
 	fresh()
@@ -147,12 +147,12 @@ func TestStatRingPaintsTheThresholdColor(t *testing.T) {
 	green := func(c render.Color) bool { return c.A() > 200 && c.G() > 150 && c.R() < 150 }
 	red := func(c render.Color) bool { return c.A() > 200 && c.R() > 150 && c.G() < 150 }
 	statusError := config.ColorValue{Kind: config.ColorToken, Token: config.TokenStatusError}
-	r.set(0.75, "75%", nil)
+	r.set(0.75, "75", nil)
 	if n := countColor(paintRing(), green); n == 0 {
 		t.Error("a ring under every threshold painted no green")
 	}
 	fresh()
-	r.set(0.75, "75%", &statusError)
+	r.set(0.75, "75", &statusError)
 	data := paintRing()
 	if n := countColor(data, red); n == 0 {
 		t.Error("a ring past the error threshold painted no red")
@@ -160,7 +160,7 @@ func TestStatRingPaintsTheThresholdColor(t *testing.T) {
 	if n := countColor(data, green); n != 0 {
 		t.Errorf("a ring past the error threshold still painted %d green pixels", n)
 	}
-	r.set(0.75, "75%", nil)
+	r.set(0.75, "75", nil)
 	if n := countColor(paintRing(), red); n != 0 {
 		t.Errorf("a ring back under the thresholds still painted %d red pixels", n)
 	}
@@ -180,25 +180,46 @@ func spanOf(data []byte, h int, want func(render.Color) bool) (minX, maxX int) {
 	return minX, maxX
 }
 
+// fixtureLabel builds labels as the dashboard's label does.
+func fixtureLabel(ctx ModuleContext) func(string) *widget.Label {
+	return func(text string) *widget.Label { return widget.NewLabel(ctx.Font, 12, text, 0) }
+}
+
 // The stylesheet sizes the dashboard ring to 4rem, past lys-ui's
-// default diameter, and its value sits on the ring's centre.
+// default diameter. The number sits on the ring's centre, whatever its
+// width, and the unit trails it on the right, never pushing the number
+// off centre.
 func TestStatRingTakesTheStylesheetDiameter(t *testing.T) {
 	ctx := styledContext(t, config.Defaults())
-	bare := newStatRing(widget.NewLabel(ctx.Font, 12, "", 0))
+	bare := newStatRing(fixtureLabel(ctx), "%")
 	if s := widget.SizeWithinAsChild(bare.ring, widget.Size{W: 400, H: 400}); s.H >= 48 {
 		t.Fatalf("a ring outside the stylesheet measures %v: its size is not the stylesheet's", s)
 	}
-	r := newStatRing(widget.NewLabel(ctx.Font, 12, "", 0))
+	r := newStatRing(fixtureLabel(ctx), "%")
 	ctx.Theme.Attach(r.ring)
-	r.set(0.5, "50%", nil)
-	sz := widget.SizeWithinAsChild(r.ring, widget.Size{W: 400, H: 400})
-	if sz.W < 60 || sz.W != sz.H {
-		t.Fatalf("the ring measures %v, want the square 4rem .stat-ring", sz)
-	}
-	widget.ArrangeAsChild(r.ring, render.Rect{W: sz.W, H: sz.H})
-	lb, rb := r.label.Bounds(), r.ring.Bounds()
-	if dx, dy := (lb.X+lb.W/2)-(rb.X+rb.W/2), (lb.Y+lb.H/2)-(rb.Y+rb.H/2); dx < -1 || dx > 1 || dy < -1 || dy > 1 {
-		t.Errorf("the label %+v sits off the ring's center %+v", lb, rb)
+	for _, value := range []string{"5", "50", "100"} {
+		r.set(0.5, value, nil)
+		sz := widget.SizeWithinAsChild(r.ring, widget.Size{W: 400, H: 400})
+		if sz.W < 60 || sz.W != sz.H {
+			t.Fatalf("the ring measures %v, want the square 4rem .stat-ring", sz)
+		}
+		widget.ArrangeAsChild(r.ring, render.Rect{W: sz.W, H: sz.H})
+		lb, rb := r.value.Bounds(), r.ring.Bounds()
+		if dx, dy := (lb.X+lb.W/2)-(rb.X+rb.W/2), (lb.Y+lb.H/2)-(rb.Y+rb.H/2); dx < -1 || dx > 1 || dy < -2 || dy > 2 {
+			t.Errorf("the number %q at %+v sits off the ring's center %+v", value, lb, rb)
+		}
+		reading, ok := findByClass(r.ring, "stat-reading").(*widget.Box)
+		if !ok {
+			t.Fatal("the ring holds no .stat-reading row")
+		}
+		kids := reading.Children()
+		shown := kids[len(kids)-1]
+		if c := shown.(interface{ HasClass(string) bool }); !c.HasClass("stat-unit") || c.HasClass("stat-unit-balance") {
+			t.Fatalf("the reading ends in %v, want the shown unit", shown)
+		}
+		if ub := shown.(widget.Boundser).Bounds(); ub.X < lb.X+lb.W {
+			t.Errorf("the unit %+v does not trail the number %+v", ub, lb)
+		}
 	}
 }
 

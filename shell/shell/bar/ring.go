@@ -2,30 +2,41 @@ package bar
 
 import (
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
 )
 
 // statRing is a dashboard gauge: lys-ui's ProgressRing with its value
-// written in the middle, in a threshold's color.
+// written in the middle, in a threshold's color, and the unit trailing
+// it smaller. An invisible copy of the unit leads the value, so the
+// number itself sits on the ring's centre and the unit hangs off it.
 type statRing struct {
 	ring  *widget.ProgressRing
-	label *widget.Label
+	value *widget.Label
 }
 
-func newStatRing(label *widget.Label) *statRing {
-	r := &statRing{ring: widget.NewProgressRing(0), label: label}
+func newStatRing(label func(string) *widget.Label, unit string) *statRing {
+	r := &statRing{ring: widget.NewProgressRing(0), value: label("")}
 	r.ring.AddClass("stat-ring")
-	label.AddClass(css.Heading)
-	r.ring.SetChild(label)
+	r.value.AddClass("stat-value", css.Heading, css.Numeric)
+	balance, trailing := label(unit), label(unit)
+	balance.AddClass("stat-unit", "stat-unit-balance", css.Caption)
+	trailing.AddClass("stat-unit", css.Caption, css.DimLabel)
+	row := widget.NewBox(widget.Row, 0, 0)
+	row.AddClass("stat-reading")
+	row.AppendAligned(balance, false, widget.AlignBaseline)
+	row.AppendAligned(r.value, false, widget.AlignBaseline)
+	row.AppendAligned(trailing, false, widget.AlignBaseline)
+	r.ring.SetChild(widgets.Center(row))
 	return r
 }
 
-// set shows fraction (clamped by the ring) and its text, in color, or
+// set shows fraction (clamped by the ring) and its value, in color, or
 // as a success while no threshold gives one.
-func (r *statRing) set(fraction float64, text string, color *config.ColorValue) {
+func (r *statRing) set(fraction float64, value string, color *config.ColorValue) {
 	tintGauge(r.ring, color)
-	r.label.SetText(text)
+	r.value.SetText(value)
 	r.ring.SetValue(fraction)
 }
 

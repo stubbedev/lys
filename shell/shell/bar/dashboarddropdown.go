@@ -834,8 +834,8 @@ func (v *dashboardView) systemStats() widget.Widget {
 	cfg := v.ctx.Config.Dashboard
 	row := widget.NewBox(widget.Row, widget.Current().Spacing, 0)
 	row.AddClass("system-stats-inline")
-	ring := func(labelID string) *statRing {
-		r := newStatRing(v.label(""))
+	ring := func(labelID, unit string) *statRing {
+		r := newStatRing(v.label, unit)
 		col := widget.NewBox(widget.Column, widget.Current().Spacing/2, 0)
 		col.AddClass("stat-inline")
 		col.AppendAligned(r.ring, false, widget.AlignCenter)
@@ -846,11 +846,11 @@ func (v *dashboardView) systemStats() widget.Widget {
 		row.Append(col, true)
 		return r
 	}
-	cpuRing, memRing, diskRing, tempRing := ring("dropdown-dashboard-cpu"), ring("dropdown-dashboard-ram"), ring("dropdown-dashboard-disk"), ring("dropdown-dashboard-temp")
+	cpuRing, memRing, diskRing, tempRing := ring("dropdown-dashboard-cpu", "%"), ring("dropdown-dashboard-ram", "%"), ring("dropdown-dashboard-disk", "%"), ring("dropdown-dashboard-temp", "°")
 	card.Append(row, false)
 	thresholds := v.ctx.Config.Thresholds
 	usage := func(r *statRing, pct float32, entries []config.ThresholdEntry) {
-		r.set(float64(pct/100), strconv.FormatFloat(float64(pct), 'f', 0, 32)+"%", config.EvaluateThresholds(float64(pct), entries).Color())
+		r.set(float64(pct/100), strconv.FormatFloat(float64(pct), 'f', 0, 32), config.EvaluateThresholds(float64(pct), entries).Color())
 	}
 	cpuReader := &sysinfo.CPUReader{Sensor: v.ctx.Config.CPU.TempSensor, OmitFrequency: true}
 	memReader := &sysinfo.MemoryReader{}
@@ -898,7 +898,7 @@ func (v *dashboardView) systemStats() widget.Widget {
 			}
 			if now.temp != was.temp {
 				c := now.temp.value
-				tempRing.set(float64(min(max(c/100, 0), 1)), strconv.FormatFloat(float64(c), 'f', 0, 32)+"°", dashboardTempColor(c, cfg))
+				tempRing.set(float64(min(max(c/100, 0), 1)), strconv.FormatFloat(float64(c), 'f', 0, 32), dashboardTempColor(c, cfg))
 			}
 		}
 	})

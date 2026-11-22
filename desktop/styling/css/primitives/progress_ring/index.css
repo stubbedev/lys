@@ -11,3 +11,7 @@
 .glyph-ring image {
   -gtk-icon-size: var(--icon-xs);
 }
+
+.stat-ring .stat-unit-balance {
+  opacity: 0;
+}
