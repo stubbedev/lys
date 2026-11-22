@@ -41,28 +41,46 @@ func TestSliderKeyboard(t *testing.T) {
 	})
 }
 
-// The slider takes the reference's proportions: a 6px track under a
-// 16px thumb, white with a primary ring in both palettes. The track
-// was 4px, the thumb 14px and filled with the window background, a
-// dark ring on the dark palette (#281).
+// The theme's slider is a 6px track under an 18px white thumb in both
+// palettes. The thumb carries no border: a hairline ring of shadow and
+// a drop shadow set it apart, so even on a pale accent fill a darker
+// ring runs between the fill and the thumb, where an accent ring
+// blended into the fill.
 func TestSliderTrackAndThumb(t *testing.T) {
 	prev := Current()
 	t.Cleanup(func() { SetTheme(prev) })
 	for _, th := range []*Theme{DarkTheme(), LightTheme()} {
+		th.Accent = render.RGB(0xbd, 0xc2, 0xff)
 		SetTheme(th)
 		s := NewSlider(0, 100, 1, 50)
-		arrangeTree(t, s, 200, 40)
-		if tr := s.troughRect(); tr.H != 6 {
+		const w, h = 200, 40
+		data := paintPixels(t, s, w, h)
+		tr := s.troughRect()
+		if tr.H != 6 {
 			t.Errorf("track %v, want 6px thick", tr)
 		}
-		if w, h := s.knobSize(); w != 16 || h != 16 {
-			t.Errorf("thumb %dx%d, want 16x16", w, h)
+		kw, kh := s.knobSize()
+		if kw != 18 || kh != 18 {
+			t.Errorf("thumb %dx%d, want 18x18", kw, kh)
 		}
 		if bg := s.trough.knob.style(&s.trough.knob).Background; bg != render.RGB(255, 255, 255) {
 			t.Errorf("dark=%v: thumb fill %#x, want white", th.IsDark(), uint32(bg))
 		}
+		origin, span := s.along(tr)
+		at := origin + span/2
+		y := tr.Y + tr.H/2
+		fill := luma(pxAt(data, w, origin+4, y))
+		ring := 255
+		for x := at - kw/2 - 2; x <= at-kw/2; x++ {
+			ring = min(ring, luma(pxAt(data, w, x, y)))
+		}
+		if ring+48 > fill {
+			t.Errorf("dark=%v: between the fill (luma %d) and the thumb the darkest pixel has luma %d, want a ring well darker than the fill", th.IsDark(), fill, ring)
+		}
 	}
 }
+
+func luma(c render.Color) int { return (int(c.R())*299 + int(c.G())*587 + int(c.B())*114) / 1000 }
 
 // A track paints the trough's colours from the minimum's end to the
 // maximum's, with no highlight up to the knob; cleared, inverted or
