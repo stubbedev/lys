@@ -80,11 +80,12 @@ func (f *countedBattery) Read(ctx context.Context) (upower.Device, error) {
 type countedMedia struct {
 	*fakeMediaSource
 	positions atomic.Int64
+	at        atomic.Int64
 }
 
-func (f *countedMedia) Position(ctx context.Context, bus string) (time.Duration, error) {
+func (f *countedMedia) Position(context.Context, string) (time.Duration, error) {
 	f.positions.Add(1)
-	return f.fakeMediaSource.Position(ctx, bus)
+	return time.Duration(f.at.Load()), nil
 }
 
 type dashboardRig struct {
@@ -302,6 +303,29 @@ func TestDashboardFollowsOnlyWhileOpen(t *testing.T) {
 	rig.awaitReads(3)
 	percent := findByClass(rig.content(), "battery-percent").(*widget.Label)
 	apptest.Until(t, rig.a, "the reopened dashboard shows the change it missed", func() bool { return percent.Text() == "11%" })
+}
+
+func TestDashboardMediaProgressFollowsPlayback(t *testing.T) {
+	rig := newDashboardRig(t)
+	rig.media.players[0].Length = 100 * time.Second
+	rig.media.at.Store(int64(10 * time.Second))
+	rig.open()
+	rig.awaitReads(1)
+	content := rig.content()
+	seek := findByClass(content, "media-seek-slider").(interface{ Value() float64 })
+	elapsed := findByClass(content, "media-time").(*widget.Label)
+	progress := func() (float64, string) { return seek.Value(), elapsed.Text() }
+	apptest.Until(t, rig.a, "the first position shows", func() bool { v, text := progress(); return v == 10 && text == "0:10" })
+	rig.media.at.Store(int64(11 * time.Second))
+	apptest.Until(t, rig.a, "the next position shows", func() bool { v, text := progress(); return v == 11 && text == "0:11" })
+	rig.media.at.Store(int64(12 * time.Second))
+	apptest.Until(t, rig.a, "playback keeps moving the progress", func() bool { v, text := progress(); return v == 12 && text == "0:12" })
+	rig.close()
+	rig.media.at.Store(int64(20 * time.Second))
+	rig.open()
+	apptest.Until(t, rig.a, "a reopened dashboard shows where playback is", func() bool { v, text := progress(); return v == 20 && text == "0:20" })
+	rig.media.at.Store(int64(21 * time.Second))
+	apptest.Until(t, rig.a, "a reopened dashboard follows playback", func() bool { v, text := progress(); return v == 21 && text == "0:21" })
 }
 
 func TestDashboardPollCounts(t *testing.T) {

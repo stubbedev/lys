@@ -24,6 +24,7 @@ import (
 	"github.com/stubbedev/lys/shell/service/brightness"
 	"github.com/stubbedev/lys/shell/service/idleinhibit"
 	"github.com/stubbedev/lys/shell/service/weather"
+	"github.com/stubbedev/lys/shell/shell/powermenu"
 )
 
 // previewDirEnv names the directory TestDropdownPreviews writes each
@@ -141,7 +142,8 @@ func dropdownFixtures() []dropdownFixture {
 		{"dashboard", "dashboard", func(t *testing.T, ctx *ModuleContext) widget.Widget {
 			ctx.Notifications = notifytest.NewService(t)
 			ctx.IdleInhibit = idleinhibit.NewState(inhibitduration.Duration{})
-			ctx.Media = newFakeMedia(mpris.Player{BusName: "org.mpris.MediaPlayer2.x", Title: "Song", Artist: "Band", State: mpris.StatePlaying, CanGoNext: true})
+			ctx.Media = newFakeMedia(mpris.Player{BusName: "org.mpris.MediaPlayer2.x", Title: "Song", Artist: "Band", State: mpris.StatePlaying, Length: time.Minute, CanGoNext: true, CanSeek: true})
+			ctx.PowerMenu = powermenu.New(powermenu.Deps{Config: func() *config.Config { return ctx.Config }, Font: ctx.Font})
 			return opened(dashboardDropdown(*ctx))
 		}},
 		{"mail", "mail", func(t *testing.T, ctx *ModuleContext) widget.Widget {
