@@ -5,7 +5,6 @@ import (
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/highlight"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -39,7 +38,7 @@ func newYAMLEditor(k *kit, s slot, key string) *yamlEditor {
 	c.scroll = widget.NewScroll(c.area)
 	c.scroll.VerticalOnly, c.scroll.FillX, c.scroll.ShowBars = true, true, true
 	c.scroll.AddClass("yaml-editor")
-	apply := k.button(k.label(locale.T().Get("settings-apply")), c.apply, css.SuggestedAction)
+	apply := k.primaryButton(locale.T().Get("settings-apply"), c.apply)
 	c.Append(c.scroll, true)
 	c.AppendAligned(apply, false, widget.AlignEnd)
 	c.refresh()

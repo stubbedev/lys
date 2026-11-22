@@ -157,7 +157,7 @@ func newProxyForm(p *networkPanel) *proxyForm {
 	f.field = widget.NewField(k.face, t.Get("settings-proxy-pac"), f.pac)
 	f.auto = gapBox(widget.Column)
 	f.auto.Append(f.field, false)
-	f.auto.AppendAligned(k.button(k.label(t.Get("settings-proxy-apply")), func() { f.choose(proxyChoiceAuto) }, css.Small, css.SuggestedAction), false, widget.AlignStart)
+	f.auto.AppendAligned(k.primaryButton(t.Get("settings-proxy-apply"), func() { f.choose(proxyChoiceAuto) }), false, widget.AlignStart)
 	f.Append(f.auto, false)
 	if f.wm != nil {
 		f.manual = f.manualForm()
@@ -217,7 +217,7 @@ func (f *proxyForm) manualForm() *widget.Box {
 	f.problem = wrapped(k.label("", "setting-problem", css.Caption, css.Error))
 	f.problem.SetVisible(false)
 	box.Append(f.problem, false)
-	box.AppendAligned(k.button(k.label(t.Get("settings-proxy-apply")), f.apply, css.Small, css.SuggestedAction), false, widget.AlignStart)
+	box.AppendAligned(k.primaryButton(t.Get("settings-proxy-apply"), f.apply), false, widget.AlignStart)
 	f.status = newWMStatus(k, f.wm)
 	box.Append(f.status, false)
 	return box

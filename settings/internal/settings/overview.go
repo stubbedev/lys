@@ -65,7 +65,7 @@ func overviewTiles(k *kit) widget.Widget {
 		if status, ok := k.statuses[s.key]; ok {
 			showStatus(k, status, desc)
 		}
-		tile := k.button(face, func() { k.openPage(first) }, css.Card, "settings-overview-tile")
+		tile := k.roleButton(roleTile, face, func() { k.openPage(first) })
 		tile.SetAccessibleName(t.Get(s.key))
 		grid.Append(tile)
 	}

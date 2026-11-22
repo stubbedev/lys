@@ -209,7 +209,7 @@ func (r *searchResults) show(hits []settingEntry) {
 			d.SetEllipsize(widget.EllipsizeEnd)
 			text.Append(d, false)
 		}
-		b := r.k.button(text, func() { r.open(h) }, css.Flat, "search-result")
+		b := r.k.roleButton(rolePlain, text, func() { r.open(h) })
 		b.SetHAlign(widget.AlignFill)
 		r.list.Append(b, false)
 		r.button = append(r.button, b)

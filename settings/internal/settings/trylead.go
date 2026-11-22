@@ -95,7 +95,7 @@ func newTryButton(k *kit, labelKey string, try func() error) *tryButton {
 			}
 		})
 	}
-	b.button, _ = k.contentButton("ld-play-symbolic", t.Get(labelKey), run, css.Pill)
+	b.button, _ = k.contentButton(roleSecondary, "ld-play-symbolic", t.Get(labelKey), run)
 	b.AppendAligned(b.button, false, widget.AlignCenter)
 	b.Append(b.outcome, true)
 	return b

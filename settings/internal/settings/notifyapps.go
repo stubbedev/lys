@@ -68,7 +68,7 @@ func newNotifyApps(k *kit, slots []slot) *notifyApps {
 	c := &notifyApps{Box: gapBox(widget.Column), k: k, slots: slots}
 	c.list = gapBox(widget.Column)
 	c.empty = wrapped(k.label(t.Get("settings-notify-apps-none"), "setting-description", css.Caption, css.DimLabel))
-	c.add = addButton(k, "settings-notify-apps-add", c.pickApp)
+	c.add = k.addButton("settings-notify-apps-add", c.pickApp)
 	c.pattern = k.entry()
 	c.pattern.SetPlaceholder(t.Get("settings-notify-apps-pattern"))
 	c.pattern.SetAccessibleName(t.Get("settings-notify-apps-pattern"))
@@ -203,7 +203,7 @@ func (c *notifyApps) rebuild() {
 			row.AppendAligned(check, false, widget.AlignCenter)
 		}
 		c.checks[pattern] = checks
-		row.AppendAligned(c.k.iconButton("ld-trash-2-symbolic", "settings-list-remove", func() { c.remove(pattern) }, css.Flat), false, widget.AlignCenter)
+		row.AppendAligned(c.k.removeButton("settings-list-remove", func() { c.remove(pattern) }), false, widget.AlignCenter)
 		c.list.Append(row, false)
 	}
 	c.refresh()

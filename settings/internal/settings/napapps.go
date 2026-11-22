@@ -44,7 +44,7 @@ func newNapApps(k *kit, s slot) *napApps {
 	c := &napApps{Box: gapBox(widget.Column), k: k, slot: s}
 	c.list = gapBox(widget.Column)
 	c.empty = wrapped(k.label(t.Get("settings-app-nap-none"), "setting-description", css.Caption, css.DimLabel))
-	c.add = addButton(k, "settings-app-nap-add", c.pickApp)
+	c.add = k.addButton("settings-app-nap-add", c.pickApp)
 	c.Append(c.empty, false)
 	c.Append(c.list, false)
 	c.Append(c.add, false)
@@ -151,7 +151,7 @@ func (c *napApps) rebuild() {
 		}
 		c.levels[app] = level
 		row.AppendAligned(level, false, widget.AlignCenter)
-		row.AppendAligned(c.k.iconButton("ld-trash-2-symbolic", "settings-list-remove", func() { c.remove(app) }, css.Flat), false, widget.AlignCenter)
+		row.AppendAligned(c.k.removeButton("settings-list-remove", func() { c.remove(app) }), false, widget.AlignCenter)
 		c.list.Append(row, false)
 	}
 	c.refresh()

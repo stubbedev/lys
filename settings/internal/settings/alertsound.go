@@ -105,7 +105,7 @@ func (e *alertSoundList) build(names []string) {
 				e.choose(name)
 			}
 		}
-		play := e.k.iconButton("ld-play-symbolic", "settings-sound-alert-play", func() { e.preview(name) }, css.Flat)
+		play := e.k.iconButton("ld-play-symbolic", "settings-sound-alert-play", func() { e.preview(name) })
 		play.SetAccessibleName(locale.T().Get("settings-sound-alert-play") + ": " + name)
 		row := gapBox(widget.Row)
 		row.SetElement("item")

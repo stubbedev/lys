@@ -43,7 +43,7 @@ func openVPNAdd(t *testing.T, f *fakeNet) (*kit, *networkPanel) {
 	if p.vpnForm.Visible() {
 		t.Fatal("the VPN form shows before Add VPN")
 	}
-	clickText(t, p.vpnSec, i18n.T("dropdown-network-vpn-add"), 0)
+	buttonsTitled(p.vpnSec, locale.T().Get("settings-vpn-add"))[0].OnClick()
 	if !p.vpnForm.Visible() {
 		t.Fatal("Add VPN opened no form")
 	}
@@ -95,7 +95,7 @@ func TestAddVPNOffersEveryKindAndWireGuardFirst(t *testing.T) {
 			t.Errorf("the form lacks %q: %q", want, labels)
 		}
 	}
-	clickText(t, form, locale.T().Get("settings-wifi-cancel"), 0)
+	clickText(t, form, locale.T().Get("settings-cancel"), 0)
 	if form.Visible() || len(f.added) != 0 {
 		t.Errorf("Cancel left the form %v, wrote %v", form.Visible(), f.added)
 	}

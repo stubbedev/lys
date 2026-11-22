@@ -62,3 +62,38 @@ func TestSecondaryButtonFill(t *testing.T) {
 		t.Errorf("secondary fill %#x under a set Secondary, want %#x, apart from Surface", uint32(got), uint32(distinct))
 	}
 }
+
+// A ghost destructive button draws its content in the destructive
+// color on no fill and tints only under the pointer, where the plain
+// destructive variant fills with the destructive color.
+func TestGhostDestructiveButtonTintsItsContent(t *testing.T) {
+	prev := Current()
+	t.Cleanup(func() { SetTheme(prev) })
+	for _, th := range []*Theme{DarkTheme(), LightTheme()} {
+		SetTheme(th)
+		destructive := Current().DestructiveColor()
+		build := func(classes ...string) (*Button, Widget) {
+			glyph := NewSymbol(SymbolClose, 16)
+			b := NewButton(glyph, 0, 0)
+			b.AddClass(classes...)
+			arrangeTree(t, b, 100, 50)
+			return b, glyph
+		}
+		ghost, glyph := build(css.Ghost, css.DestructiveAction, css.Icon)
+		if got := StyleBackground(ghost); got.A() != 0 {
+			t.Errorf("dark %v: ghost destructive rests on fill %#x, want none", th.IsDark(), uint32(got))
+		}
+		if got := CascadeColor(glyph); got != destructive {
+			t.Errorf("dark %v: ghost destructive content %#x, want the destructive color %#x", th.IsDark(), uint32(got), uint32(destructive))
+		}
+		ghost.SetHovered(true)
+		arrangeTree(t, ghost, 100, 50)
+		if got := StyleBackground(ghost); got.A() == 0 || got.A() == 0xff {
+			t.Errorf("dark %v: hovered ghost destructive fill %#x, want a translucent tint", th.IsDark(), uint32(got))
+		}
+		filled, _ := build(css.DestructiveAction)
+		if got := StyleBackground(filled); got.A() == 0 {
+			t.Errorf("dark %v: the destructive variant has no fill", th.IsDark())
+		}
+	}
+}

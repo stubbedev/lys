@@ -1032,7 +1032,6 @@ wm-mode-delete-cancel = Annuleren
 wm-mode-delete-confirm = Verwijderen
 wm-mode-add = Een modus toevoegen
 wm-mode-add-confirm = Toevoegen
-wm-mode-cancel = Annuleren
 wm-mode-name = Naam
 wm-mode-name-placeholder = Naam, zoals resize
 wm-mode-chord = Sneltoets die de modus opent

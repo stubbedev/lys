@@ -275,7 +275,7 @@ func usersFooter(k *kit) widget.Widget {
 	p.problem.SetVisible(false)
 	p.Append(p.problem, false)
 	p.Append(p.identityHeader(), false)
-	change := k.button(k.label(t.Get("settings-users-password-change")), p.openPasswordDialog, css.Secondary)
+	change := k.secondaryButton(t.Get("settings-users-password-change"), p.openPasswordDialog)
 	account := widget.NewItemGroup()
 	account.Append(panelRow(k, t.Get("settings-users-password"), t.Attr("settings-users-password", "description"), change))
 	p.Append(newSection(k, "settings-section-users-account", account), false)
@@ -304,7 +304,7 @@ func (p *usersPanel) identityHeader() widget.Widget {
 	text.Append(p.identity, false)
 	row := gapBox(widget.Row)
 	row.SetElement("item")
-	change := p.k.button(p.face, p.openAvatarDialog, css.Flat, "users-avatar-button")
+	change := p.k.roleButton(rolePlain, p.face, p.openAvatarDialog)
 	change.SetAccessibleName(t.Get("settings-users-avatar-change"))
 	change.SetTooltip(t.Get("settings-users-avatar-change"))
 	row.AppendAligned(change, false, widget.AlignCenter)
@@ -503,17 +503,17 @@ func (p *usersPanel) openAvatarDialog() {
 	for _, a := range stock {
 		thumb := widget.NewAvatar(p.k.face, avatarThumb, a.name)
 		thumb.SetImage(a.img)
-		b := p.k.button(thumb, func() {
+		b := p.k.roleButton(rolePlain, thumb, func() {
 			closeDialog()
 			p.useAvatar(a.img, avatarCrop{zoom: avatarZoomMin})
-		}, css.Flat, "avatar-choice")
+		})
 		b.SetAccessibleName(t.Get("settings-users-avatar-stock", i18n.Str("name", a.name)))
 		grid.Append(b)
 	}
-	choose, _ := p.k.contentButton("ld-image-symbolic", t.Get("settings-users-avatar-file"), func() {
+	choose, _ := p.k.contentButton(roleSecondary, "ld-image-symbolic", t.Get("settings-users-avatar-file"), func() {
 		closeDialog()
 		p.k.pickers.openFile(p.cropFile)
-	}, css.Secondary)
+	})
 	choose.SetHAlign(widget.AlignStart)
 	content := gapBox(widget.Column)
 	content.AddClass("avatar-sheet")
@@ -612,7 +612,6 @@ type otherUsersListing struct {
 }
 
 func (p *usersPanel) showAdmin(l otherUsersListing) {
-	t := locale.T()
 	p.admin.Clear()
 	p.admin.SetVisible(true)
 	body := gapBox(widget.Column)
@@ -623,14 +622,14 @@ func (p *usersPanel) showAdmin(l otherUsersListing) {
 	for _, u := range l.users {
 		var controls []widget.Widget
 		if !u.self {
-			open := p.k.iconButton("ld-chevron-right-symbolic", "settings-users-edit", func() { p.openUserSheet(u) }, css.Flat, "user-details")
+			open := p.k.iconButton("ld-chevron-right-symbolic", "settings-users-edit", func() { p.openUserSheet(u) })
 			controls = append(controls, open)
 		}
 		rows.Append(panelRow(p.k, cmp.Or(u.real, u.name), u.identity(), controls...))
 	}
 	body.Append(rows, false)
 	p.others = l.users
-	add := p.k.button(p.k.label(t.Get("settings-users-add-open")), p.openAddUserDialog, css.Secondary)
+	add := p.k.addButton("settings-users-add-open", p.openAddUserDialog)
 	body.AppendAligned(add, false, widget.AlignStart)
 	p.admin.Append(newSection(p.k, "settings-section-users-others", body), false)
 }
@@ -706,7 +705,7 @@ func (k *kit) revealButton(entries ...*widget.Entry) *widget.Button {
 	var b *widget.Button
 	shown := false
 	icon := k.icon("ld-eye-symbolic")
-	b = k.button(icon, func() {
+	b = k.roleButton(roleIcon, icon, func() {
 		shown = !shown
 		echo, name, tip := widget.EchoPassword, "ld-eye-symbolic", "settings-users-password-show"
 		if shown {
@@ -717,7 +716,7 @@ func (k *kit) revealButton(entries ...*widget.Entry) *widget.Button {
 		}
 		icon.SetThemeName(name)
 		b.SetTooltip(locale.T().Get(tip))
-	}, css.Ghost, css.Icon)
+	})
 	b.SetTooltip(locale.T().Get("settings-users-password-show"))
 	return b
 }

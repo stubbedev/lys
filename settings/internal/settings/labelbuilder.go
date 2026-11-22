@@ -98,7 +98,7 @@ func newLabelBuilder(k *kit, s slot, optional bool, kind formatKind) *labelBuild
 		b.segs = slices.Insert(slices.Delete(b.segs, from, from+1), to, seg)
 		b.write()
 	}
-	b.add = k.iconButton("ld-plus-symbolic", "settings-format-insert", b.pickPart, "label-builder-add", css.Outline)
+	b.add = k.addButton("settings-format-insert", b.pickPart)
 	line := gapBox(widget.Row)
 	line.Append(b.chips, true)
 	line.AppendAligned(b.add, false, widget.AlignStart)
@@ -107,11 +107,11 @@ func newLabelBuilder(k *kit, s slot, optional bool, kind formatKind) *labelBuild
 	b.raw = newFormatEditor(k, s, optional, kind)
 	b.raw.SetVisible(false)
 	b.toggled = k.label(t.Get("settings-format-edit-text"))
-	b.toggle = k.button(b.toggled, func() {
+	b.toggle = k.roleButton(roleQuiet, b.toggled, func() {
 		b.editing = !b.editing
 		b.raw.SetVisible(b.editing)
 		b.refresh()
-	}, css.Small, css.Flat)
+	})
 	b.Append(line, false)
 	b.Append(b.preview, false)
 	b.AppendAligned(b.toggle, false, widget.AlignStart)

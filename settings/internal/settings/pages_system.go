@@ -196,7 +196,7 @@ func newGreeterFooter(k *kit) *greeterFooter {
 		})
 	}
 	f.Append(f.status, false)
-	f.AppendAligned(k.button(k.label(t.Get(greeterApplyLabel)), apply, css.SuggestedAction), false, widget.AlignStart)
+	f.AppendAligned(k.primaryButton(t.Get(greeterApplyLabel), apply), false, widget.AlignStart)
 	f.Append(f.hint, false)
 	f.refresh()
 	return f

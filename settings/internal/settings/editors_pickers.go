@@ -73,7 +73,7 @@ func newFontEditor(k *kit, s slot, monospace bool) *fontEditor {
 	c.label = k.label("", "font-picker-label")
 	c.label.SetEllipsize(widget.EllipsizeEnd)
 	c.label.SetMaxWidthChars(fontPickerLabelChars)
-	c.btn = k.button(c.label, c.open, css.Outline)
+	c.btn = k.roleButton(rolePicker, c.label, c.open)
 	menu.Append(c.btn, false)
 	sampleKey := "settings-font-sample"
 	if monospace {
@@ -452,7 +452,7 @@ func newIconEditor(k *kit, s slot) *iconEditor {
 	c.SetElement("menubutton")
 	c.AddClass("icon-picker-trigger")
 	c.icon = k.icon("ld-image-symbolic")
-	c.btn = k.button(c.icon, c.open, css.Outline, css.Icon)
+	c.btn = k.roleButton(rolePickerIcon, c.icon, c.open)
 	c.Append(c.btn, false)
 	c.refresh()
 	return c
@@ -514,7 +514,7 @@ func newIconPicker(k *kit, names []string, current string, width int, pick func(
 			p.pick(text)
 		}
 	}
-	p.clear = k.iconButton("ld-x-circle-symbolic", "settings-icon-clear", func() { p.pick("") }, "icon-picker-clear", css.Ghost)
+	p.clear = k.clearButton("settings-icon-clear", func() { p.pick("") })
 	bar := gapBox(widget.Row)
 	bar.AppendAligned(p.search, true, widget.AlignCenter)
 	bar.AppendAligned(p.clear, false, widget.AlignCenter)

@@ -34,7 +34,7 @@ type clearHistory struct {
 
 func newClearHistory(k *kit) *clearHistory {
 	c := &clearHistory{Box: gapBox(widget.Row), k: k, outcome: wrapped(k.label("", "setting-description", css.Caption))}
-	c.button = k.button(k.label(locale.T().Get(clearHistoryKey+"-button")), c.ask, css.Small, css.Destructive)
+	c.button = k.destructiveButton(locale.T().Get(clearHistoryKey+"-button"), c.ask)
 	c.outcome.SetVisible(false)
 	c.AppendAligned(c.button, false, widget.AlignCenter)
 	c.Append(c.outcome, true)

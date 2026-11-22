@@ -839,10 +839,10 @@ func regionFooter(k *kit) widget.Widget {
 			unset: func() {},
 		}, choiceSpec{list: fixedChoices(keymaps), known: func(current string, items []choice) bool { return hasValue(items, current) }})
 		layout := k.label("", "setting-description", css.Caption, css.DimLabel)
-		copyLayout := k.button(k.label(t.Get("settings-region-copy-layout")), func() {
+		copyLayout := k.secondaryButton(t.Get("settings-region-copy-layout"), func() {
 			kb := wmKeyboard(k)
 			p.do("SetX11Keyboard", kb.layout, kb.model, kb.variant, kb.options, false, interactive)
-		}, css.Secondary)
+		})
 		copyLayout.SetEnabled(k.parts.wm)
 		rows := widget.NewItemGroup()
 		rows.Append(panelRow(k, t.Get("settings-region-language"), t.Attr("settings-region-language", "description"), language))

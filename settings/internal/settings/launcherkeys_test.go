@@ -46,7 +46,7 @@ func TestALauncherKeyIsRecordedAndResetToTheDefault(t *testing.T) {
 	}
 	resets := 0
 	for _, b := range c.resets {
-		if b.Visible() {
+		if widget.IsEnabled(b.Button) {
 			resets++
 			b.OnClick()
 		}

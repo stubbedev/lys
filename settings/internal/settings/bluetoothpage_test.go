@@ -223,7 +223,7 @@ func TestADisplayedPasskeyIsDismissed(t *testing.T) {
 		!strings.Contains(labels, locale.T().Get("settings-bluetooth-request-typed", i18n.Int("count", 1))) {
 		t.Fatalf("the request reads %q", labels)
 	}
-	clickText(t, p.request, locale.T().Get("settings-bluetooth-cancel"), 0)
+	clickText(t, p.request, locale.T().Get("settings-cancel"), 0)
 	if f.dismissed != 1 || p.requestSec.Visible() {
 		t.Errorf("dismissed %d times, request shown %v", f.dismissed, p.requestSec.Visible())
 	}

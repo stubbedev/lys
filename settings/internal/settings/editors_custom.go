@@ -116,10 +116,10 @@ func newCustomModulesEditor(k *kit, s slot) *customModulesEditor {
 	e.notice = wrapped(k.label("", css.Caption, css.DimLabel))
 	e.raw = newYAMLEditor(k, s, "custom")
 	e.toggled = k.label("")
-	e.toggle = k.button(e.toggled, func() {
+	e.toggle = k.roleButton(roleQuiet, e.toggled, func() {
 		e.editing = !e.editing
 		e.refresh()
-	}, css.Small, css.Flat)
+	})
 	e.Append(e.notice, false)
 	e.Append(e.cards, false)
 	e.AppendAligned(e.toggle, false, widget.AlignStart)
@@ -176,7 +176,7 @@ func newCommandRun(k *kit, command slot, emptyKey string) *commandRun {
 	c := &commandRun{Box: gapBox(widget.Column), k: k, command: command, emptyKey: emptyKey}
 	c.output = wrapped(k.label("", "format-preview", css.Caption, css.DimLabel))
 	c.output.SetVisible(false)
-	c.AppendAligned(k.button(k.label(locale.T().Get("settings-custom-run-once")), c.run, css.Small), false, widget.AlignStart)
+	c.AppendAligned(k.secondaryButton(locale.T().Get("settings-custom-run-once"), c.run), false, widget.AlignStart)
 	c.Append(c.output, false)
 	return c
 }

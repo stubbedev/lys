@@ -301,7 +301,7 @@ func newZoneChooser(k *kit, cat zoneCatalog, choose func(string)) *zoneChooser {
 		c.show(zone)
 		choose(zone)
 	}
-	c.button, c.face = k.contentButton("ld-globe-symbolic", "", c.open, css.Outline)
+	c.button, c.face = k.contentButton(rolePicker, "ld-globe-symbolic", "", c.open)
 	c.button.SetAccessibleName(locale.T().Get("settings-date-zone"))
 	c.worldMap = newZoneMap(cat, c.choose)
 	c.notice = wrapped(k.label("", "setting-description", css.Caption, css.DimLabel))

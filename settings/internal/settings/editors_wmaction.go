@@ -9,7 +9,6 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 	"github.com/stubbedev/lys/settings/internal/wmconfig"
@@ -66,7 +65,7 @@ func newWMActionEditor(k *kit, s slot, actions []wmconfig.Action) *wmActionEdito
 	content := gapBox(widget.Row)
 	content.AppendAligned(e.picked, true, widget.AlignCenter)
 	content.AppendAligned(k.icon("ld-chevron-down-symbolic", "action-pick-icon"), false, widget.AlignCenter)
-	e.pick = k.button(content, e.open, css.Outline)
+	e.pick = k.roleButton(rolePicker, content, e.open)
 	e.pick.SetAccessibleName(t.Get("wm-action-pick"))
 	e.pick.SetTooltip(t.Get("wm-action-pick"))
 	e.outside = k.badge(t.Get("wm-action-args-outside"), "warning")

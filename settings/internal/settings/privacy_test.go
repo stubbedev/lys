@@ -125,7 +125,7 @@ func grantsByAppFooter(k *kit) *grantsList {
 func revokeButtons(root widget.Widget) []*widget.Button {
 	var out []*widget.Button
 	for _, b := range treetest.All[*widget.Button](root) {
-		if slices.Contains(treetest.Labels(b), locale.T().Get("settings-privacy-revoke")) {
+		if b.TooltipText() == locale.T().Get("settings-privacy-revoke") {
 			out = append(out, b)
 		}
 	}

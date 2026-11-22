@@ -73,14 +73,13 @@ func (s cardSpec) editedKeys() []string {
 // body classes and the remove button's (card_form's by default).
 type cardChrome struct {
 	card, header, body string
-	remove             []string
 	// removeKey is the remove button's tooltip.
 	removeKey string
 }
 
 var cardFormChrome = cardChrome{
 	card: "card-form-card", header: "card-form-header", body: "card-form-body",
-	remove: []string{"list-control-button", "list-control-remove", css.Ghost}, removeKey: "settings-list-remove",
+	removeKey: "settings-list-remove",
 }
 
 // cardSpec shapes a card list: the card's header (a title for the
@@ -209,7 +208,7 @@ type card struct {
 	clash    *widget.Box
 	clashMsg *widget.Label
 	clashFix *widget.Button
-	reset    *widget.Button
+	reset    resetButton
 }
 
 // clashOwner is a value held outside a card list, and what holds it.
@@ -238,7 +237,7 @@ func newCardList(k *kit, s slot, spec cardSpec) *cardList {
 	if addKey == "" {
 		addKey = "settings-list-add"
 	}
-	add := addButton(k, addKey, func() { c.appendItem(spec.blank()) })
+	add := k.addButton(addKey, func() { c.appendItem(spec.blank()) })
 	if spec.pick == nil {
 		c.AppendAligned(add, false, widget.AlignStart)
 	} else {
@@ -276,7 +275,7 @@ func (c *cardList) appendItem(item map[string]any) {
 func (c *cardList) pickButton(pick cardPick) *widget.Button {
 	t := locale.T()
 	var b *widget.Button
-	b = c.k.button(c.k.label(t.Get(pick.key)), func() {
+	b = c.k.secondaryButton(t.Get(pick.key), func() {
 		b.SetEnabled(false)
 		c.picking.SetText(t.Get(pick.waiting))
 		c.picking.SetVisible(true)
@@ -292,7 +291,7 @@ func (c *cardList) pickButton(pick cardPick) *widget.Button {
 			c.picking.SetVisible(false)
 			c.appendItem(p.item)
 		})
-	}, css.Outline)
+	})
 	return b
 }
 
@@ -577,16 +576,16 @@ func (c *cardList) appendCard(i int) {
 		header.AppendAligned(cd.toggle, false, widget.AlignCenter)
 	}
 	if c.spec.reset != nil {
-		cd.reset = c.k.iconButton("ld-rotate-ccw-symbolic", c.spec.resetKey, func() { c.resetItem(i) }, css.Ghost)
-		header.AppendAligned(cd.reset, false, widget.AlignCenter)
+		cd.reset = c.k.resetButton(c.spec.resetKey, func() { c.resetItem(i) })
+		header.AppendAligned(cd.reset.Button, false, widget.AlignCenter)
 	}
-	remove := c.k.iconButton("ld-trash-2-symbolic", chrome.removeKey, func() {
+	remove := c.k.removeButton(chrome.removeKey, func() {
 		if i < len(c.local) {
 			c.local = append(c.local[:i:i], c.local[i+1:]...)
 			c.rebuild()
 			c.commit()
 		}
-	}, chrome.remove...)
+	})
 	body := gapBox(widget.Column)
 	body.AddClass(chrome.body)
 	fill := func() {
@@ -625,7 +624,8 @@ func (c *cardList) appendCard(i int) {
 			tip = "settings-card-collapse"
 		}
 		disclose.SetTooltip(t.Get(tip))
-	}, "card-disclose", css.Ghost)
+	})
+	disclose.AddClass("card-disclose")
 	header.AppendAligned(disclose, false, widget.AlignCenter)
 	header.AppendAligned(remove, false, widget.AlignCenter)
 	show(false)
@@ -927,7 +927,7 @@ func (c *cardList) addClash(cd *card, i int) {
 	cd.clashMsg = c.k.label("", "setting-problem", css.Caption, css.Warning)
 	cd.clashMsg.SetWrap(true)
 	cd.clash.AppendAligned(cd.clashMsg, true, widget.AlignCenter)
-	cd.clashFix = c.k.button(c.k.label(locale.T().Get("settings-clash-replace")), func() { c.replace(i) }, css.Secondary)
+	cd.clashFix = c.k.secondaryButton(locale.T().Get("settings-clash-replace"), func() { c.replace(i) })
 	cd.clash.AppendAligned(cd.clashFix, false, widget.AlignCenter)
 	cd.clash.SetVisible(false)
 	cd.root.Append(cd.clash, false)
@@ -980,7 +980,7 @@ func (c *cardList) markResets() {
 	for i, cd := range c.cards {
 		if i < len(c.local) {
 			_, ok := c.spec.reset(c.local, i)
-			cd.reset.SetVisible(ok)
+			cd.reset.show(ok)
 		}
 	}
 }

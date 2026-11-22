@@ -83,12 +83,12 @@ func (c *deviceControls) showSpeakers(m native.ChannelMap) {
 		body.AppendAligned(k.icon(speakerIcon(m[spot.channel])), false, widget.AlignCenter)
 		body.AppendAligned(k.label(name, css.Caption), false, widget.AlignCenter)
 		channel := spot.channel
-		b := k.button(body, func() {
+		b := k.roleButton(rolePlain, body, func() {
 			sink := c.current.Name
 			c.p.act(func(ctx context.Context, svc *pulse.Service) error {
 				return playTestTone(ctx, svc, sink, m, channel)
 			})
-		}, css.Flat, "sound-speaker")
+		})
 		b.SetAccessibleName(t.Get("settings-sound-test-channel", i18n.Str("channel", name)))
 		c.tests.Attach(b, spot.cell.col, spot.cell.row, 1, 1)
 	}

@@ -469,7 +469,7 @@ func (p *bluetoothPanel) adapterNameRow(alias string) widget.Widget {
 	}
 	entry.OnActivate = func(string) { save() }
 	return panelRow(p.k, t.Get("settings-bluetooth-name"), t.Get("settings-bluetooth-name-detail"),
-		entry, p.k.button(p.k.label(t.Get("settings-bluetooth-save")), save, css.Small))
+		entry, p.k.primaryButton(t.Get("settings-bluetooth-save"), save))
 }
 
 func (p *bluetoothPanel) searchRow(discovering bool) widget.Widget {
@@ -478,9 +478,9 @@ func (p *bluetoothPanel) searchRow(discovering bool) widget.Widget {
 	if discovering {
 		detail = t.Get("settings-bluetooth-searching")
 	}
-	search := p.k.button(p.k.label(t.Get("settings-bluetooth-search")), func() {
+	search := p.k.secondaryButton(t.Get("settings-bluetooth-search"), func() {
 		p.run("", btIdle, btCallWait, func(ctx context.Context) error { return p.ctl.search(ctx) })
-	}, css.Small)
+	})
 	search.SetEnabled(!discovering)
 	row := widget.NewItemGroup()
 	row.Append(panelRow(p.k, t.Get("settings-bluetooth-search-title"), detail, search))
@@ -551,8 +551,8 @@ func (p *bluetoothPanel) deviceRow(r btRow) widget.Widget {
 	entry.OnActivate = func(string) { save() }
 	line := gapBox(widget.Row)
 	line.Append(entry, true)
-	line.AppendAligned(p.k.button(p.k.label(t.Get("settings-bluetooth-cancel")), p.endRename, css.Small, css.Flat), false, widget.AlignCenter)
-	line.AppendAligned(p.k.button(p.k.label(t.Get("settings-bluetooth-save")), save, css.Small, css.SuggestedAction), false, widget.AlignCenter)
+	line.AppendAligned(p.k.cancelButton(p.endRename), false, widget.AlignCenter)
+	line.AppendAligned(p.k.primaryButton(t.Get("settings-bluetooth-save"), save), false, widget.AlignCenter)
 	box := gapBox(widget.Column)
 	box.Append(row, false)
 	box.Append(line, false)
@@ -561,29 +561,29 @@ func (p *bluetoothPanel) deviceRow(r btRow) widget.Widget {
 
 func (p *bluetoothPanel) deviceControls(r btRow) []widget.Widget {
 	t := locale.T()
-	act := func(key string, busy btBusy, wait time.Duration, work func(context.Context, dbus.ObjectPath) error, classes ...string) widget.Widget {
-		return p.k.button(p.k.label(t.Get(key)), func() {
+	act := func(role buttonRole, key string, busy btBusy, wait time.Duration, work func(context.Context, dbus.ObjectPath) error) widget.Widget {
+		return p.k.textButton(role, t.Get(key), func() {
 			p.run(r.path, busy, wait, func(ctx context.Context) error { return work(ctx, r.path) })
-		}, append([]string{css.Small}, classes...)...)
+		})
 	}
 	if !r.paired {
-		return []widget.Widget{act("settings-bluetooth-pair", btPairing, btPairWait, p.ctl.pair)}
+		return []widget.Widget{act(rolePrimary, "settings-bluetooth-pair", btPairing, btPairWait, p.ctl.pair)}
 	}
-	rename := p.k.button(p.k.label(t.Get("settings-bluetooth-rename")), func() {
+	rename := p.k.secondaryButton(t.Get("settings-bluetooth-rename"), func() {
 		p.renaming, p.renameEntry = r.path, nil
 		p.refresh()
-	}, css.Small, css.Flat)
-	forget := act("settings-bluetooth-forget", btForgetting, btCallWait, p.ctl.forget, css.Flat)
+	})
+	forget := act(roleDestructive, "settings-bluetooth-forget", btForgetting, btCallWait, p.ctl.forget)
 	if r.connected {
-		controls := []widget.Widget{rename, forget, act("settings-bluetooth-disconnect", btDisconnecting, btCallWait, p.ctl.disconnect)}
+		controls := []widget.Widget{rename, forget, act(roleSecondary, "settings-bluetooth-disconnect", btDisconnecting, btCallWait, p.ctl.disconnect)}
 		if r.audio {
-			sound := p.k.button(p.k.label(t.Get("settings-bluetooth-sound")), func() { p.k.openPage(soundID) }, css.Small, css.Flat)
+			sound := p.k.linkButton(t.Get("settings-bluetooth-sound"), func() { p.k.openPage(soundID) })
 			sound.SetTooltip(t.Get("settings-bluetooth-sound-tooltip"))
 			controls = append([]widget.Widget{sound}, controls...)
 		}
 		return controls
 	}
-	return []widget.Widget{rename, forget, act("settings-bluetooth-connect", btConnecting, btCallWait, p.ctl.connect)}
+	return []widget.Widget{rename, forget, act(rolePrimary, "settings-bluetooth-connect", btConnecting, btCallWait, p.ctl.connect)}
 }
 
 func (p *bluetoothPanel) endRename() {
@@ -600,19 +600,16 @@ func (p *bluetoothPanel) answer(err error) {
 func (p *bluetoothPanel) requestCard(req bluetooth.PairingRequest, device string) widget.Widget {
 	t := locale.T()
 	name := i18n.Str("device", device)
-	button := func(key string, onClick func(), classes ...string) widget.Widget {
-		return p.k.button(p.k.label(t.Get(key)), onClick, append([]string{css.Small}, classes...)...)
-	}
 	yesNo := func(acceptKey string, provide func(bool) error) []widget.Widget {
 		return []widget.Widget{
-			button("settings-bluetooth-reject", func() { p.answer(provide(false)) }, css.Flat),
-			button(acceptKey, func() { p.answer(provide(true)) }, css.SuggestedAction),
+			p.k.secondaryButton(t.Get("settings-bluetooth-reject"), func() { p.answer(provide(false)) }),
+			p.k.primaryButton(t.Get(acceptKey), func() { p.answer(provide(true)) }),
 		}
 	}
-	dismiss := button("settings-bluetooth-cancel", func() {
+	dismiss := p.k.cancelButton(func() {
 		p.ctl.dismiss()
 		p.answer(nil)
-	}, css.Flat)
+	})
 	var prompt, detail string
 	var controls []widget.Widget
 	var entryKey string
@@ -663,7 +660,7 @@ func (p *bluetoothPanel) requestCard(req bluetooth.PairingRequest, device string
 	line := gapBox(widget.Row)
 	line.Append(entry, true)
 	line.AppendAligned(dismiss, false, widget.AlignCenter)
-	line.AppendAligned(button("settings-bluetooth-pair", send, css.SuggestedAction), false, widget.AlignCenter)
+	line.AppendAligned(p.k.primaryButton(t.Get("settings-bluetooth-pair"), send), false, widget.AlignCenter)
 	card.Append(insetRow(line))
 	return card
 }

@@ -53,7 +53,7 @@ func TestEveryLaidOutPageHoldsThePageChecks(t *testing.T) {
 	w := newWindow(k, cfg, func(_ time.Duration, fn func()) { fn() })
 	w.stack.SetTransition(widget.StackNone, 0)
 	apptheme.New(cfg).Attach(w.root)
-	checks := []pageCheck{controlRowsShareHeightCentreAndGap(), pagesCarryNoMargins(), cardFieldsLineUp(), tabReachesEveryControl(w)}
+	checks := []pageCheck{controlRowsShareHeightCentreAndGap(), pagesCarryNoMargins(), cardFieldsLineUp(), tabReachesEveryControl(w), trashIconsShareTheErrorColor()}
 	const W, H = 1400, 6000
 	for _, sec := range w.sections {
 		for _, p := range sec.pages {

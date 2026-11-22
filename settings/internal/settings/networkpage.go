@@ -390,7 +390,7 @@ func newNetworkPanel(k *kit) *networkPanel {
 	p.vpnForm = newVPNForm(p)
 	vpnBody := gapBox(widget.Column)
 	vpnBody.Append(p.vpn, false)
-	vpnBody.AppendAligned(k.button(k.label(i18n.T("dropdown-network-vpn-add")), func() { p.vpnForm.open("", "", vpnProfile{}) }, css.Small), false, widget.AlignStart)
+	vpnBody.AppendAligned(k.addButton("settings-vpn-add", func() { p.vpnForm.open("", "", vpnProfile{}) }), false, widget.AlignStart)
 	vpnBody.Append(p.vpnForm, false)
 	p.vpnSec = newSection(k, "settings-vpn-section", vpnBody)
 	p.vpnSec.SetVisible(false)
@@ -575,9 +575,9 @@ func (p *networkPanel) show() {
 	wifiOn := widget.NewSwitch(st.wifiOn)
 	wifiOn.SetAccessibleName(t.Get("settings-wifi-title"))
 	wifiOn.OnChanged = func(on bool) { p.run(func(ctx context.Context) error { return p.ctl.setWifi(ctx, on) }) }
-	rescan := p.k.iconButton("ld-refresh-cw-symbolic", "settings-wifi-scan", func() {
+	rescan := p.k.reloadButton("settings-wifi-scan", func() {
 		p.run(func(ctx context.Context) error { return p.ctl.scan(ctx) })
-	}, css.Flat)
+	})
 	rescan.SetEnabled(st.wifiOn)
 	wifiRow := panelRow(p.k, t.Get("settings-wifi-title"), wifiDetail(st), rescan, wifiOn)
 	if ap, ok := activeAccessPoint(st); ok {
@@ -666,9 +666,9 @@ func (p *networkPanel) showSaved() {
 		auto.OnChanged = func(on bool) {
 			p.run(func(ctx context.Context) error { return p.ctl.setAutoconnect(ctx, prof.Path, on) })
 		}
-		forget := p.k.button(p.k.label(t.Get("settings-wifi-forget")), func() {
+		forget := p.k.destructiveButton(t.Get("settings-wifi-forget"), func() {
 			p.run(func(ctx context.Context) error { return p.ctl.remove(ctx, prof.Path) })
-		}, css.Small, css.Flat, css.DestructiveAction)
+		})
 		list.Append(panelRow(p.k, prof.ID, detail, forget, auto))
 	}
 	p.saved.Append(wrapped(p.k.label(t.Get("settings-wifi-autojoin-hint"), css.Caption, css.DimLabel)), false)
@@ -716,16 +716,16 @@ func (p *networkPanel) networkRow(ap network.AccessPoint) widget.Widget {
 		controls = append(controls, widget.NewThemeIcon("ld-lock-symbolic", appIconPx))
 	}
 	if known {
-		controls = append(controls, p.k.button(p.k.label(t.Get("settings-wifi-forget")), func() {
+		controls = append(controls, p.k.destructiveButton(t.Get("settings-wifi-forget"), func() {
 			p.run(func(ctx context.Context) error { return p.ctl.forget(ctx, name) })
-		}, css.Small, css.Flat))
+		}))
 	}
 	if connected {
-		controls = append(controls, p.k.button(p.k.label(t.Get("settings-wifi-disconnect")), func() {
+		controls = append(controls, p.k.secondaryButton(t.Get("settings-wifi-disconnect"), func() {
 			p.run(func(ctx context.Context) error { return p.ctl.disconnect(ctx) })
-		}, css.Small))
+		}))
 	} else {
-		controls = append(controls, p.k.button(p.k.label(t.Get("settings-wifi-connect")), func() { p.join(ap, known) }, css.Small))
+		controls = append(controls, p.k.primaryButton(t.Get("settings-wifi-connect"), func() { p.join(ap, known) }))
 	}
 	row := panelRow(p.k, name, detail, controls...)
 	row.InsertAligned(0, signal, false, widget.AlignCenter)
@@ -790,11 +790,11 @@ func (p *networkPanel) passwordRow(submit func(string)) widget.Widget {
 	p.password.SetAccessibleName(t.Get("settings-wifi-password"))
 	entry := p.password
 	p.password.OnActivate = func(text string) { submit(text) }
-	connectButton := p.k.button(p.k.label(t.Get("settings-wifi-connect")), func() { submit(entry.Text()) }, css.Small, css.SuggestedAction)
-	cancel := p.k.button(p.k.label(t.Get("settings-wifi-cancel")), func() {
+	connectButton := p.k.primaryButton(t.Get("settings-wifi-connect"), func() { submit(entry.Text()) })
+	cancel := p.k.cancelButton(func() {
 		p.asking = ""
 		p.show()
-	}, css.Small, css.Flat)
+	})
 	line := gapBox(widget.Row)
 	line.Append(p.password, true)
 	line.AppendAligned(cancel, false, widget.AlignCenter)
@@ -807,7 +807,7 @@ func (p *networkPanel) hiddenForm() widget.Widget {
 	box := gapBox(widget.Column)
 	form := gapBox(widget.Column)
 	form.SetVisible(false)
-	open := p.k.button(p.k.label(t.Get("settings-wifi-hidden")), func() { form.SetVisible(!form.Visible()) }, css.Small, css.Flat)
+	open := p.k.linkButton(t.Get("settings-wifi-hidden"), func() { form.SetVisible(!form.Visible()) })
 	name := p.k.entry()
 	name.SetPlaceholder(t.Get("settings-wifi-hidden-name"))
 	name.SetAccessibleName(t.Get("settings-wifi-hidden-name"))
@@ -824,7 +824,7 @@ func (p *networkPanel) hiddenForm() widget.Widget {
 	password.SetEcho(widget.EchoPassword)
 	password.SetPlaceholder(t.Get("settings-wifi-password"))
 	password.SetAccessibleName(t.Get("settings-wifi-password"))
-	join := p.k.button(p.k.label(t.Get("settings-wifi-join")), func() {
+	join := p.k.primaryButton(t.Get("settings-wifi-join"), func() {
 		net, err := network.NewHiddenNetwork(name.Text(), hiddenSecurities[security.Selected()])
 		if err != nil {
 			p.fail(err)
@@ -842,7 +842,7 @@ func (p *networkPanel) hiddenForm() widget.Widget {
 		}
 		p.pending = net.Name()
 		p.run(func(ctx context.Context) error { return p.ctl.joinHidden(ctx, net, pass) })
-	}, css.Small, css.SuggestedAction)
+	})
 	form.Append(name, false)
 	form.AppendAligned(security, false, widget.AlignStart)
 	form.Append(password, false)
@@ -871,10 +871,10 @@ func (p *networkPanel) showVPNs() {
 				return p.ctl.deactivate(ctx, v.profile.UUID)
 			})
 		}
-		edit := p.k.button(p.k.label(i18n.T("dropdown-network-vpn-edit")), func() { p.editVPN(v.profile) }, css.Small, css.Flat)
-		remove := p.k.button(p.k.label(t.Get("settings-vpn-remove")), func() {
+		edit := p.k.linkButton(i18n.T("dropdown-network-vpn-edit"), func() { p.editVPN(v.profile) })
+		remove := p.k.removeButton("settings-vpn-remove", func() {
 			p.run(func(ctx context.Context) error { return p.ctl.remove(ctx, v.profile.Path) })
-		}, css.Small, css.Flat, css.DestructiveAction)
+		})
 		list.Append(panelRow(p.k, v.profile.ID, vpnDetail(v), edit, remove, on))
 	}
 	p.vpn.Append(list, false)

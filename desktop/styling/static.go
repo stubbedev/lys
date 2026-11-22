@@ -35,7 +35,6 @@ var sheetOrder = []string{
 	"components/settings/controls/bar_layout.css",
 	"components/settings/controls/icon_picker.css",
 	"components/settings/controls/search_picker.css",
-	"components/settings/controls/list_controls.css",
 	"components/settings/controls/card_form_list.css",
 	"modules/cava.css",
 	"modules/code_view.css",

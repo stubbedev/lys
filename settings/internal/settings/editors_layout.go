@@ -57,7 +57,7 @@ func newLayoutEditor(k *kit, s slot) *layoutEditor {
 	c.AddClass("bar-layout-control")
 	c.tabs = widget.NewToggleGroup()
 	c.tabs.AddClass("bar-layout-tabs")
-	add := addButton(k, "settings-layout-add", func() {
+	add := k.addButton("settings-layout-add", func() {
 		c.layouts = append(c.layouts, config.BarLayout{Monitor: c.unusedMonitor(), Show: true})
 		c.at = len(c.layouts) - 1
 		c.commit()
@@ -191,11 +191,11 @@ func (c *layoutEditor) fillHeader(i int) {
 			c.showCard()
 		}
 	}
-	remove := c.k.iconButton("ld-trash-2-symbolic", "settings-list-remove", func() {
+	remove := c.k.removeButton("settings-list-remove", func() {
 		c.layouts = slices.Delete(c.layouts, i, i+1)
 		c.commit()
 		c.rebuild()
-	}, css.Ghost)
+	})
 	c.header.AppendAligned(c.k.label(t.Get("settings-layout-monitor-label"), "layout-extends-label", css.DimLabel), false, widget.AlignCenter)
 	c.header.AppendAligned(monitor, false, widget.AlignCenter)
 	c.header.AppendAligned(c.k.label(t.Get("settings-layout-extends-label"), "layout-extends-label", css.DimLabel), false, widget.AlignCenter)
@@ -292,20 +292,20 @@ func (c *layoutEditor) zoneColumn(at zoneRef) widget.Widget {
 	chips.OnMoved = func(src *widget.ChipBox, from, to int) { c.moved(src, from, chips, to) }
 	chips.AddClass("layout-zone-items")
 	var addModule *widget.Button
-	addModule = c.k.iconButton("ld-plus-symbolic", "settings-layout-add-module", func() {
+	addModule = c.k.addButton("settings-layout-add-module", func() {
 		c.pickModule(addModule, func(m config.BarModule) {
 			items := c.zone(at.card, at.zone)
 			*items = append(*items, config.BarItem{Module: m})
 			c.commit()
 			c.showCard()
 		})
-	}, "zone-add-btn", css.Outline)
+	})
 	addGroup := c.k.iconButton("ld-layers-symbolic", "settings-layout-add-group", func() {
 		items := c.zone(at.card, at.zone)
 		*items = append(*items, config.BarItem{Group: &config.BarGroup{Name: t.Get("settings-layout-default-group")}})
 		c.commit()
 		c.showCard()
-	}, "zone-add-btn", css.Outline)
+	})
 	head := gapBox(widget.Row)
 	head.AppendAligned(c.k.label(t.Get(zoneKeys[at.zone]), "layout-zone-label", css.CaptionHeading, css.DimLabel), true, widget.AlignCenter)
 	head.AppendAligned(addModule, false, widget.AlignCenter)
@@ -346,14 +346,14 @@ func (c *layoutEditor) chip(item config.BarItem) *widget.Chip {
 		content.AppendAligned(sub, false, widget.AlignCenter)
 	}
 	var add *widget.Button
-	add = c.k.iconButton("ld-plus-symbolic", "settings-layout-add-module", func() {
+	add = c.k.addButton("settings-layout-add-module", func() {
 		c.pickModule(add, func(mod config.BarModule) {
 			g := c.group(chip)
 			g.Modules = append(g.Modules, config.BarItem{Module: mod})
 			c.commit()
 			c.showCard()
 		})
-	}, "chip-add", css.Ghost)
+	})
 	content.AppendAligned(add, false, widget.AlignCenter)
 	chip.SetContent(content)
 	chip.SetDismiss(chipRemoveName(locale.T()), func() { c.removeItem(chip) })

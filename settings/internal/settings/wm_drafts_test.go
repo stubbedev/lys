@@ -3,9 +3,6 @@ package settings
 import (
 	"strings"
 	"testing"
-
-	"github.com/stubbedev/lys/desktop/shell/treetest"
-	"github.com/stubbedev/lys/ui/widget"
 )
 
 func TestANewCardIsADraftUntilLysWMTakesIt(t *testing.T) {
@@ -14,7 +11,7 @@ func TestANewCardIsADraftUntilLysWMTakesIt(t *testing.T) {
 	k.onWMChange = row.refresh
 	c := row.ctl.(*shortcutTable).main
 	fake.reject = "binds[1].chord: is empty"
-	treetest.WithClass(c, "list-control-add")[0].(*widget.Button).OnClick()
+	buttonsOfRole(c, roleAdd)[0].OnClick()
 	if len(c.local) != 2 || !c.draft.Visible() || !strings.Contains(c.draft.Text(), "binds[1].chord: is empty") {
 		t.Fatalf("%d cards, draft %v %q", len(c.local), c.draft.Visible(), c.draft.Text())
 	}
@@ -41,7 +38,7 @@ func TestResettingARowDropsItsDraft(t *testing.T) {
 	k.onWMChange = row.refresh
 	c := row.ctl.(*shortcutTable).main
 	fake.reject = "binds[1].chord: is empty"
-	treetest.WithClass(c, "list-control-add")[0].(*widget.Button).OnClick()
+	buttonsOfRole(c, roleAdd)[0].OnClick()
 	if !c.draft.Visible() {
 		t.Fatal("no draft")
 	}

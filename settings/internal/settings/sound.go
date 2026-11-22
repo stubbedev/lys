@@ -326,7 +326,7 @@ func newDeviceControls(p *soundPanel, kind pulse.DeviceType) *deviceControls {
 		key := c.keys[i]
 		p.act(func(ctx context.Context, svc *pulse.Service) error { return svc.SetDefault(ctx, key) })
 	}
-	c.more = k.iconButton("ld-ellipsis-symbolic", "settings-sound-device-options", c.openMenu, css.Flat)
+	c.more = k.iconButton("ld-ellipsis-symbolic", "settings-sound-device-options", c.openMenu)
 	c.more.SetAccessibleName(t.Get("settings-sound-device-options"))
 	c.rows.Append(panelRow(k, t.Get("settings-sound-device"), "", c.devices, c.more))
 	c.volume = widgets.NewDebouncedSlider(0, k.face, k.textPx(), 0, k.invoke, k.clock)
@@ -564,7 +564,8 @@ type muteToggle struct {
 func newMuteToggle(k *kit, glyphs muteGlyphs, onMuted func(bool)) *muteToggle {
 	m := &muteToggle{glyph: k.icon(glyphs.sounding), glyphs: glyphs}
 	m.ToggleButton = widget.NewToggleButton(m.glyph, 0, 0)
-	m.AddClass(css.Icon, css.Flat, "sound-mute")
+	m.AddClass(roleIcon.classes()...)
+	m.AddClass("sound-mute")
 	m.OnToggled = func(muted bool) {
 		m.glyph.SetThemeName(m.glyphFor(muted))
 		onMuted(muted)

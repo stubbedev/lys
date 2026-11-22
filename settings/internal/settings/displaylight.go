@@ -273,7 +273,7 @@ func newKelvinEditor(k *kit, s slot) *kelvinEditor {
 	})
 	e.slider.Knob.SetTrack(kelvinTrack()...)
 	e.label = k.label(t.Get("settings-nightlight-preview"))
-	e.button = k.button(e.label, e.preview, css.Small)
+	e.button = k.roleButton(roleSecondary, e.label, e.preview)
 	e.button.SetTooltip(t.Get("settings-nightlight-preview-tooltip", i18n.Int("seconds", int64(nightlight.PreviewLength/time.Second))))
 	e.problem = wrapped(k.label("", "setting-problem", css.Caption, css.Error))
 	e.problem.SetVisible(false)

@@ -179,10 +179,10 @@ func (c *monitorWallpapers) showAway() {
 		if slices.ContainsFunc(c.tiles, func(tile monitorTile) bool { return tile.name == name }) {
 			continue
 		}
-		remove := c.k.button(c.k.label(t.Get("settings-list-remove")), func() {
+		remove := c.k.removeButton("settings-list-remove", func() {
 			_ = c.slot.set(withoutMonitor(c.slot.get(), name))
 			c.refresh()
-		}, css.Small, css.Secondary)
+		})
 		c.away.Append(panelRow(c.k, name, t.Get("settings-wallpaper-monitor-away"), remove), false)
 	}
 }

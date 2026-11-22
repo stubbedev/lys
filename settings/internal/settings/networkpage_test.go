@@ -347,7 +347,7 @@ func TestTheVPNsSwitchOnAndOffAndAreRemoved(t *testing.T) {
 	if !slices.Equal(f.deactived, []string{"u1"}) || !slices.Equal(f.activated, []dbus.ObjectPath{"/p/2"}) {
 		t.Errorf("deactivated %q, activated %q", f.deactived, f.activated)
 	}
-	clickText(t, p.vpn, t0.Get("settings-vpn-remove"), 1)
+	buttonsTitled(p.vpn, t0.Get("settings-vpn-remove"))[1].OnClick()
 	if !slices.Equal(f.removed, []dbus.ObjectPath{"/p/2"}) {
 		t.Errorf("removed %q", f.removed)
 	}

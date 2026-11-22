@@ -390,7 +390,7 @@ func (l *loginItems) openApps(section *widget.Box) {
 	}
 	l.dirs = dirs
 	var add *widget.Button
-	add = addButton(l.k, "settings-login-apps-add", func() { l.pickApp(add) })
+	add = l.k.addButton("settings-login-apps-add", func() { l.pickApp(add) })
 	add.SetAccessibleName(locale.T().Get("settings-login-apps-add"))
 	section.AppendAligned(add, false, widget.AlignStart)
 	l.loadApps()
@@ -450,9 +450,9 @@ func (l *loginItems) appRow(e autostartEntry) widget.Widget {
 	}
 	row := l.itemRow(e.icon, e.name, detail)
 	if e.removable() {
-		row.AddAction(l.k.iconButton("ld-trash-2-symbolic", "settings-login-apps-remove", func() {
+		row.AddAction(l.k.removeButton("settings-login-apps-remove", func() {
 			l.act(func() error { return removeAutostart(e) })
-		}, css.Ghost))
+		}))
 	}
 	sw := widget.NewSwitch(e.enabled)
 	sw.SetAccessibleName(e.name)

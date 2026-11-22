@@ -67,7 +67,7 @@ func newLocationPicker(k *kit, s slot, choice locationChoice, places func() ([]z
 		row.AppendAligned(p.automatic, false, widget.AlignCenter)
 		p.Append(row, false)
 	}
-	p.city, p.cityText = k.contentButton("ld-globe-symbolic", "", p.openCities, css.Outline)
+	p.city, p.cityText = k.contentButton(rolePicker, "ld-globe-symbolic", "", p.openCities)
 	p.city.SetAccessibleName(t.Get("settings-location-city"))
 	p.city.SetEnabled(false)
 	p.latitude = newNumber(k, p.coordinate(true), -90, 90, locationStep, locationDigits)

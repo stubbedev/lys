@@ -158,12 +158,12 @@ func passwordsKeyring(k *kit) widget.Widget {
 	p.sidebar.SetAccessibleName(t.Get("settings-passwords-collections"))
 	p.collTitle = k.label("", "password-collection-title", css.H4)
 	p.collTitle.SetEllipsize(widget.EllipsizeEnd)
-	p.lock, p.lockFace = k.contentButton("ld-lock-symbolic", t.Get("settings-passwords-lock"), p.toggleLock, css.Secondary)
-	change, _ := k.contentButton("ld-key-round-symbolic", t.Get("settings-passwords-change"), func() {
+	p.lock, p.lockFace = k.contentButton(roleSecondary, "ld-lock-symbolic", t.Get("settings-passwords-lock"), p.toggleLock)
+	change, _ := k.contentButton(roleSecondary, "ld-key-round-symbolic", t.Get("settings-passwords-change"), func() {
 		coll := p.coll
 		p.act(func(ctx context.Context) error { return p.c.ChangeLock(ctx, coll) })
-	}, css.Secondary)
-	p.add, _ = k.contentButton("ld-plus-symbolic", t.Get("settings-passwords-add"), p.openAddItem, css.Secondary)
+	})
+	p.add, _ = k.contentButton(roleSecondary, "ld-plus-symbolic", t.Get("settings-passwords-add"), p.openAddItem)
 	head := gapBox(widget.Row)
 	head.AppendAligned(p.collTitle, true, widget.AlignCenter)
 	for _, b := range []*widget.Button{p.add, p.lock, change} {
@@ -173,7 +173,7 @@ func passwordsKeyring(k *kit) widget.Widget {
 	p.filter.SetDelay(0)
 	p.filter.OnSearchChanged = func(string) { p.showItems() }
 	p.list = widget.NewItemGroup(insetRow(p.filter))
-	p.more, _ = k.contentButton("ld-chevron-down-symbolic", t.Get("settings-passwords-more"), p.loadMore, css.Secondary)
+	p.more, _ = k.contentButton(roleSecondary, "ld-chevron-down-symbolic", t.Get("settings-passwords-more"), p.loadMore)
 	p.more.SetHAlign(widget.AlignCenter)
 	p.more.SetVisible(false)
 	items := gapBox(widget.Column)
@@ -447,7 +447,7 @@ func (p *passwordsPanel) itemRow(it client.Item) *widget.Item {
 	var more *widget.Button
 	more = p.k.iconButton("ld-ellipsis-symbolic", "settings-passwords-item-options", func() {
 		widget.OpenMenu(more, more, p.k.face, p.k.textPx(), p.itemMenu(it), widget.MenuOptions{Gap: widget.PopoverGap})
-	}, css.Flat)
+	})
 	more.SetAccessibleName(locale.T().Get("settings-passwords-item-options"))
 	row.AddAction(more)
 	row.AddAction(p.k.icon(chevron, css.DimLabel))
@@ -559,7 +559,7 @@ func (p *passwordsPanel) showDetail(it client.Item) {
 			text(k, value)
 			continue
 		}
-		cp, _ := p.k.contentButton("ld-copy-symbolic", t.Get("settings-passwords-copy-username"), func() { p.fail(p.k.copyText(value)) }, css.Secondary)
+		cp, _ := p.k.contentButton(roleSecondary, "ld-copy-symbolic", t.Get("settings-passwords-copy-username"), func() { p.fail(p.k.copyText(value)) })
 		field(k, p.k.label(value), cp)
 	}
 	text(t.Get("settings-passwords-stored-by"), storedBy(it.Attributes))
@@ -571,16 +571,16 @@ func (p *passwordsPanel) showDetail(it client.Item) {
 	}
 	p.secretLbl = p.k.label(hiddenText, css.Monospace)
 	var reveal *widget.Button
-	reveal, p.revealFace = p.k.contentButton("ld-eye-symbolic", t.Get("settings-passwords-reveal"), func() {
+	reveal, p.revealFace = p.k.contentButton(roleSecondary, "ld-eye-symbolic", t.Get("settings-passwords-reveal"), func() {
 		if p.revealed != nil {
 			p.hideSecret()
 			return
 		}
 		p.reveal(it.Path, false)
-	}, css.Secondary)
-	cp, _ := p.k.contentButton("ld-copy-symbolic", t.Get("settings-passwords-copy"), func() { p.reveal(it.Path, true) }, css.Secondary)
+	})
+	cp, _ := p.k.contentButton(roleSecondary, "ld-copy-symbolic", t.Get("settings-passwords-copy"), func() { p.reveal(it.Path, true) })
 	field(t.Get("settings-passwords-secret"), p.secretLbl, reveal, cp)
-	del, _ := p.k.contentButton("ld-trash-2-symbolic", t.Get("settings-passwords-delete"), func() { p.confirmDelete(it) }, css.Secondary)
+	del := p.k.removeButton("settings-passwords-delete", func() { p.confirmDelete(it) })
 	del.SetHAlign(widget.AlignEnd)
 	p.detail.Append(del, false)
 }

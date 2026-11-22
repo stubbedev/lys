@@ -75,7 +75,7 @@ func newNameChips(k *kit, s slot, spec nameChipsSpec) *nameChips {
 	c.unread.SetVisible(false)
 	add := gapBox(widget.Row)
 	add.AppendAligned(c.entry, true, widget.AlignCenter)
-	add.AppendAligned(k.iconButton("ld-plus-symbolic", spec.addKey, c.add, css.Outline), false, widget.AlignCenter)
+	add.AppendAligned(k.addButton(spec.addKey, c.add), false, widget.AlignCenter)
 	c.Append(c.chips, false)
 	c.Append(c.unread, false)
 	c.Append(add, false)

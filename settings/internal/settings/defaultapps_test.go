@@ -156,7 +156,7 @@ func TestTheTerminalIsATileWritingTheLaunchersTerminal(t *testing.T) {
 	if got := tileNamed(t, w.page, terminal).app.Text(); got != tr.Get("settings-default-terminal-auto") {
 		t.Fatalf("an unset terminal reads %q", got)
 	}
-	if resetButton(w.page, terminal) != nil {
+	if defaultResetButton(w.page, terminal) != nil {
 		t.Fatal("the automatic terminal offers a reset")
 	}
 	if offered := pickFromTile(t, w, f, terminal, "Foot"); !slices.Equal(offered, []string{"Foot"}) {
@@ -168,7 +168,7 @@ func TestTheTerminalIsATileWritingTheLaunchersTerminal(t *testing.T) {
 	if got := tileNamed(t, w.page, terminal).app.Text(); got != "Foot" {
 		t.Fatalf("after the pick the terminal reads %q", got)
 	}
-	resetButton(w.page, terminal).OnClick()
+	defaultResetButton(w.page, terminal).OnClick()
 	if v := w.k.store.value(terminalPath); v != "" {
 		t.Fatalf("resetting the terminal left %v", v)
 	}
@@ -185,7 +185,7 @@ func TestTheTerminalIsATileWritingTheLaunchersTerminal(t *testing.T) {
 	}
 }
 
-func resetButton(root widget.Widget, title string) *widget.Button {
+func defaultResetButton(root widget.Widget, title string) *widget.Button {
 	name := locale.T().Get("settings-default-reset-named", i18n.Str("name", title))
 	for _, b := range treetest.All[*widget.Button](root) {
 		if b.AccessibleName() == name {
@@ -210,10 +210,10 @@ func defaultAppsWindow(t *testing.T, config string) (*window, *fakePickers) {
 func TestResetGivesACategoryBackToTheSystemDefault(t *testing.T) {
 	config := defaultAppsFixture(t)
 	w, _ := defaultAppsWindow(t, "")
-	if resetButton(w.page, "PDF documents") != nil {
+	if defaultResetButton(w.page, "PDF documents") != nil {
 		t.Fatal("a category the user never chose for offers a reset")
 	}
-	web := resetButton(w.page, "Web browser")
+	web := defaultResetButton(w.page, "Web browser")
 	if web == nil {
 		t.Fatal("the web browser the user chose offers no reset")
 	}
@@ -222,7 +222,7 @@ func TestResetGivesACategoryBackToTheSystemDefault(t *testing.T) {
 	if strings.Contains(got, "x-scheme-handler/https") || !strings.Contains(got, "image/png=chromium.desktop;") {
 		t.Fatalf("after the reset the user's list reads %q", got)
 	}
-	if resetButton(w.page, "Web browser") != nil {
+	if defaultResetButton(w.page, "Web browser") != nil {
 		t.Error("the reset category still offers a reset")
 	}
 	if got := tileNamed(t, w.page, "Web browser").app.Text(); got != "Chromium" {
@@ -236,11 +236,11 @@ func TestAResetThatFailsIsSaid(t *testing.T) {
 	resetAssociations = func([]string) error { return errors.New("the list is read-only") }
 	t.Cleanup(func() { resetAssociations = before })
 	w, _ := defaultAppsWindow(t, "")
-	resetButton(w.page, "Web browser").OnClick()
+	defaultResetButton(w.page, "Web browser").OnClick()
 	if labels := strings.Join(treetest.Labels(w.page), "|"); !strings.Contains(labels, "the list is read-only") {
 		t.Fatalf("a failed reset left the page reading %q", labels)
 	}
-	if resetButton(w.page, "Web browser") == nil {
+	if defaultResetButton(w.page, "Web browser") == nil {
 		t.Error("a failed reset took the reset away")
 	}
 }
@@ -252,7 +252,7 @@ func TestAMalformedUserListIsSaidAndOffersNoReset(t *testing.T) {
 	if labels := strings.Join(treetest.Labels(w.page), "|"); !strings.Contains(labels, "mimeapps.list") {
 		t.Fatalf("a malformed list left the page reading %q", labels)
 	}
-	if resetButton(w.page, "Web browser") != nil {
+	if defaultResetButton(w.page, "Web browser") != nil {
 		t.Error("a malformed list offers a reset")
 	}
 }

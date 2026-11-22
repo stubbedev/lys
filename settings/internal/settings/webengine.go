@@ -85,7 +85,7 @@ func newWebEngineEditor(k *kit, name, url slot) *webEngineEditor {
 	}
 	e.tried = wrapped(k.label("", "format-preview", css.Caption, css.DimLabel))
 	e.tried.SetVisible(false)
-	e.custom.AppendAligned(k.button(k.label(t.Get("settings-web-engine-test")), e.test, css.Small), false, widget.AlignStart)
+	e.custom.AppendAligned(k.secondaryButton(t.Get("settings-web-engine-test"), e.test), false, widget.AlignStart)
 	e.custom.Append(e.tried, false)
 	e.AppendAligned(e.pick, false, widget.AlignStart)
 	e.Append(e.custom, false)

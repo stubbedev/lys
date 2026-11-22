@@ -84,7 +84,7 @@ func newWindow(k *kit, cfg *config.Config, after func(time.Duration, func())) *w
 		if w.onClose != nil {
 			w.onClose()
 		}
-	}, "settings-close", css.Ghost)
+	})
 	th := widget.Current()
 	closeBtn.SetMargin(render.Insets{Top: 2 * th.Padding, Right: 2 * th.Padding})
 	content := widget.NewOverlay().Append(w.stack).AppendAligned(closeBtn, widget.AlignEnd, widget.AlignStart)

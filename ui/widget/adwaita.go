@@ -261,6 +261,8 @@ func controlRules() [][2]string {
 		{"button." + css.Ghost + ":disabled, button." + css.Link + ":disabled, button." + css.Outline + ":disabled", "background-color: transparent;"},
 		{"button." + css.Link, "color: @accent_color;"},
 		{"button." + css.Link + ":hover label", "text-decoration-line: underline;"},
+		{"button." + css.Ghost + "." + css.DestructiveAction, "background-color: transparent; color: @destructive_color;"},
+		{"button." + css.Ghost + "." + css.DestructiveAction + ":hover, button." + css.Ghost + "." + css.DestructiveAction + ":active", "background-color: alpha(@destructive_color, 0.1);"},
 		{"dropdown > button", "background-color: transparent; box-shadow: inset 0px 0px 0px 1px @input_border_color; border-radius: {r}; padding: 0px 12px;"},
 		{"dropdown > button:hover", "background-color: @muted_bg_color;"},
 		{"checkbutton check, checkbutton radio", "border: 1px solid @input_border_color; background-color: transparent;"},

@@ -213,10 +213,10 @@ func (s *inUseStrip) render() {
 			row.SetMedia(widget.NewThemeIcon(s.l.appIcon(sh.App), appIconPx), true)
 			session := sh.Session
 			var stop *widget.Button
-			stop, _ = k.contentButton("ld-x-symbolic", t.Get("settings-privacy-in-use-stop"), func() {
+			stop, _ = k.contentButton(roleSecondary, "ld-x-symbolic", t.Get("settings-privacy-in-use-stop"), func() {
 				stop.SetEnabled(false)
 				s.stopShare(shares, session)
-			}, css.Secondary)
+			})
 			stop.SetAccessibleName(t.Get("settings-privacy-in-use-stop-app", i18n.Str("app", title)))
 			row.AddAction(stop)
 			s.group.Append(row)

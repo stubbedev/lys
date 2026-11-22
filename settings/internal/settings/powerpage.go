@@ -473,7 +473,7 @@ func linksSection(k *kit, title string, links []pageLink) widget.Widget {
 		if !ok {
 			continue
 		}
-		open := k.iconButton("ld-chevron-right-symbolic", target.navKey, func() { k.openPage(target.id) }, css.Flat)
+		open := k.iconButton("ld-chevron-right-symbolic", target.navKey, func() { k.openPage(target.id) })
 		rows.Append(panelRow(k, t.Get(target.navKey), t.Get(l.detail), open))
 		linked = true
 	}

@@ -232,7 +232,7 @@ func (d *defaultApps) tile(title, icon, app string, pick func(anchor widget.Widg
 	tile := &appTile{Box: widget.NewBox(widget.Column, widget.Current().Spacing/2, 0), app: d.k.label(app)}
 	tile.app.SetEllipsize(widget.EllipsizeEnd)
 	face.AppendAligned(tile.app, false, widget.AlignCenter)
-	tile.button = d.k.button(face, nil, css.Card, "default-app-tile")
+	tile.button = d.k.roleButton(roleTile, face, nil)
 	tile.button.SetSizeRequest(appTileW, -1)
 	tile.button.SetAccessibleName(title)
 	tile.button.SetTooltip(app)
@@ -247,16 +247,14 @@ func (d *defaultApps) tile(title, icon, app string, pick func(anchor widget.Widg
 	}
 	tile.Append(tile.button, false)
 	if reset != nil {
-		tile.AppendAligned(d.resetButton(title, reset), false, widget.AlignCenter)
+		tile.AppendAligned(d.resetFor(title, reset), false, widget.AlignCenter)
 	}
 	return tile
 }
 
-func (d *defaultApps) resetButton(title string, reset func()) *widget.Button {
-	t := locale.T()
-	b := d.k.button(d.k.label(t.Get("settings-default-reset")), reset, css.Small, css.Flat)
-	b.SetAccessibleName(t.Get("settings-default-reset-named", i18n.Str("name", title)))
-	b.SetTooltip(t.Get("settings-default-reset-tooltip"))
+func (d *defaultApps) resetFor(title string, reset func()) *widget.Button {
+	b := d.k.resetButton("settings-default-reset-tooltip", reset).Button
+	b.SetAccessibleName(locale.T().Get("settings-default-reset-named", i18n.Str("name", title)))
 	return b
 }
 
@@ -351,7 +349,7 @@ func (d *defaultApps) chooser(title string, types []string) widget.Widget {
 	row.AddClass(css.Small, "setting-row", "default-app")
 	row.AppendAligned(d.k.label(title, "setting-label"), true, widget.AlignCenter)
 	if reset := d.typesReset(types); reset != nil {
-		row.AppendAligned(d.resetButton(title, reset), false, widget.AlignCenter)
+		row.AppendAligned(d.resetFor(title, reset), false, widget.AlignCenter)
 	}
 	if len(apps) == 0 {
 		row.AppendAligned(d.k.label(locale.T().Get("settings-default-none"), css.DimLabel), false, widget.AlignCenter)

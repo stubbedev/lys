@@ -8,7 +8,6 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -64,7 +63,7 @@ type launcherBindings struct {
 	defaults []config.LauncherBinding
 	mouse    bool
 	rows     []func()
-	resets   []*widget.Button
+	resets   []resetButton
 }
 
 var (
@@ -120,7 +119,7 @@ func (b *launcherBindings) write(action string, keys *string) {
 
 func (b *launcherBindings) row(d config.LauncherBinding) widget.Widget {
 	t := locale.T()
-	reset := b.k.iconButton("ld-rotate-ccw-symbolic", "settings-launcher-kb-reset", func() { b.write(d.Action, nil) }, css.Ghost)
+	reset := b.k.resetButton("settings-launcher-kb-reset", func() { b.write(d.Action, nil) })
 	b.resets = append(b.resets, reset)
 	var editor widget.Widget
 	var sync func(keys string)
@@ -169,7 +168,7 @@ func (b *launcherBindings) row(d config.LauncherBinding) widget.Widget {
 		}
 	}
 	also := detailLabel(b.k, "")
-	row := panelRowWith(b.k, launcherActionLabel(d.Action), also, editor, reset)
+	row := panelRowWith(b.k, launcherActionLabel(d.Action), also, editor, reset.Button)
 	refresh := func() {
 		keys, overridden := b.keys(d)
 		_, rest, more := strings.Cut(keys, ",")
@@ -185,7 +184,7 @@ func (b *launcherBindings) row(d config.LauncherBinding) widget.Widget {
 			}
 			also.SetText(t.Get("settings-launcher-kb-also", i18n.Str("keys", strings.Join(others, ", "))))
 		}
-		reset.SetVisible(overridden)
+		reset.show(overridden)
 		sync(keys)
 	}
 	b.rows = append(b.rows, refresh)

@@ -161,7 +161,7 @@ func newColumnPresets(k *kit, s slot) *columnPresets {
 	c.amount = widget.NewSpinButton(k.face, k.textPx(), 0, 1, percentPerShare, 1, 0)
 	c.unit.OnChanged = func(int) { c.unitChanged() }
 	c.amount.OnValueChanged = func(float64) { c.showAddable() }
-	c.add, _ = k.contentButton("ld-plus-symbolic", t.Get("wm-scroll-presets-add"), c.addWidth)
+	c.add = k.addButton("wm-scroll-presets-add", c.addWidth)
 	c.adder = gapBox(widget.Row)
 	c.adder.Append(c.unit, false)
 	c.adder.Append(c.amount, false)
@@ -203,7 +203,7 @@ func (c *columnPresets) card(i int, w columnWidth) widget.Widget {
 	card.SetAccessibleName(w.label())
 	row := gapBox(widget.Row)
 	row.AppendAligned(c.k.label(w.label(), "column-preset-label"), true, widget.AlignCenter)
-	remove := c.k.iconButton("ld-trash-2-symbolic", "wm-scroll-presets-remove", func() { c.remove(i) }, css.Ghost, css.Small)
+	remove := c.k.removeButton("wm-scroll-presets-remove", func() { c.remove(i) })
 	remove.SetEnabled(len(c.widths) > 1)
 	c.removes = append(c.removes, remove)
 	row.AppendAligned(remove, false, widget.AlignCenter)

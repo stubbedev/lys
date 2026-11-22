@@ -18,7 +18,7 @@ func newLiveList(k *kit, readingKey, reloadKey string, reload func()) *liveList 
 	l := &liveList{Box: gapBox(widget.Column), status: k.label("", css.Caption, css.DimLabel), list: gapBox(widget.Column), reading: locale.T().Get(readingKey)}
 	head := gapBox(widget.Row)
 	head.AppendAligned(l.status, true, widget.AlignCenter)
-	head.AppendAligned(k.iconButton("ld-refresh-cw-symbolic", reloadKey, reload, css.Ghost), false, widget.AlignCenter)
+	head.AppendAligned(k.reloadButton(reloadKey, reload), false, widget.AlignCenter)
 	l.Append(head, false)
 	l.Append(l.list, false)
 	return l

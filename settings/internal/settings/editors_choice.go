@@ -253,7 +253,7 @@ func newChoiceEditor(k *kit, s slot, spec choiceSpec) *choiceEditor {
 	c.unknown = k.badge(t.Get("settings-choice-unknown"), "warning")
 	c.unknown.SetTooltip(t.Attr("settings-choice-unknown", "description"))
 	c.unknown.SetVisible(false)
-	c.open = k.iconButton("ld-chevron-down-symbolic", "settings-choice-open", c.show, "choice-open", css.Outline)
+	c.open = k.pickerIconButton("ld-chevron-down-symbolic", "settings-choice-open", c.show)
 	committed := c.entry.OnActivate
 	c.entry.OnActivate = func(text string) {
 		committed(text)
@@ -535,7 +535,7 @@ func newFormatEditor(k *kit, s slot, optional bool, kind formatKind) *formatEdit
 	if len(kind.insert) == 0 {
 		icon, tip = "ld-chevron-down-symbolic", "settings-format-presets"
 	}
-	c.open = k.iconButton(icon, tip, c.show, "format-open", css.Outline)
+	c.open = k.pickerIconButton(icon, tip, c.show)
 	c.preview = k.label("", "format-preview", css.Caption, css.DimLabel)
 	c.preview.SetEllipsize(widget.EllipsizeEnd)
 	typed := c.entry.OnChanged

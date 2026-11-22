@@ -322,13 +322,13 @@ func (l *grantsList) grantRow(app string, g permissions.Grant, title string) *wi
 		row.AddAction(sw)
 	default:
 		var revoke *widget.Button
-		revoke, _ = l.k.contentButton("ld-trash-2-symbolic", t.Get("settings-privacy-revoke"), func() {
+		revoke = l.k.removeButton("settings-privacy-revoke", func() {
 			revoke.SetEnabled(false)
 			l.act(func(ctx context.Context, s grantStore) error {
 				_, err := s.Revoke(ctx, app, g.Table, g.ID)
 				return err
 			}, "settings-privacy-revoke-failed")
-		}, css.Secondary)
+		})
 		row.AddAction(revoke)
 	}
 	return row

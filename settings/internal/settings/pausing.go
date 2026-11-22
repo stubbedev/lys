@@ -146,7 +146,7 @@ func newPausing(k *kit) *pausing {
 	s.problem.SetVisible(false)
 	body.Append(s.problem, false)
 	body.Append(s.rows, false)
-	s.add = addButton(k, "settings-power-pause-add", s.openPicker)
+	s.add = k.addButton("settings-power-pause-add", s.openPicker)
 	s.add.SetAccessibleName(t.Get("settings-power-pause-add"))
 	body.AppendAligned(s.add, false, widget.AlignStart)
 	s.Box = newSection(k, "settings-power-section-pause", body)
@@ -237,7 +237,7 @@ func (s *pausing) row(st pause.State, u pause.Unit) widget.Widget {
 	row.AddClass(css.Small, "pause-unit")
 	row.SetEllipsize(true)
 	if slices.Contains(st.Picks, u) {
-		row.AddAction(s.k.iconButton("ld-trash-2-symbolic", "settings-power-pause-remove", func() { s.set(u, false) }, css.Ghost))
+		row.AddAction(s.k.removeButton("settings-power-pause-remove", func() { s.set(u, false) }))
 	}
 	return row
 }

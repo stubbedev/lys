@@ -100,7 +100,7 @@ func addUserDialog(t *testing.T, refuseCreate, refusePassword string) (*usersPan
 	created.refuseWith(refusePassword)
 	pickers := &fakePickers{}
 	p.k.pickers = pickers
-	clickText(t, p.admin, locale.T().Get("settings-users-add-open"), 0)
+	buttonsTitled(p.admin, locale.T().Get("settings-users-add-open"))[0].OnClick()
 	if len(pickers.dialogs) != 1 {
 		t.Fatalf("Add User opened %d dialogs", len(pickers.dialogs))
 	}

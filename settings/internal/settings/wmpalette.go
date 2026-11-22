@@ -42,7 +42,7 @@ func newPaletteGrid(k *kit, s slot) *paletteGrid {
 	p.name.SetPlaceholder(t.Get("wm-palette-new-name"))
 	p.name.SetAccessibleName(t.Get("wm-palette-new-name"))
 	p.name.OnActivate = func(string) { p.add() }
-	add := k.button(k.label(t.Get("wm-palette-add")), p.add, css.Secondary)
+	add := k.addButton("wm-palette-add", p.add)
 	line := gapBox(widget.Row)
 	line.Append(p.name, true)
 	line.AppendAligned(add, false, widget.AlignCenter)
@@ -102,7 +102,6 @@ func (p *paletteGrid) refresh() {
 	p.shown = names
 	p.grid.Clear()
 	p.tiles = p.tiles[:0]
-	t := locale.T()
 	own := asMap(p.own.get())
 	for _, name := range names {
 		tile := widget.NewBox(widget.Column, choiceCardGap/2, 0)
@@ -110,9 +109,7 @@ func (p *paletteGrid) refresh() {
 		head := gapBox(widget.Row)
 		head.Append(p.k.label(name, css.Caption), true)
 		if _, overridden := own[name]; overridden {
-			reset := p.k.iconButton("ld-rotate-ccw-symbolic", "wm-palette-reset", func() { p.reset(name) }, css.Ghost)
-			reset.SetTooltip(t.Get("wm-palette-reset"))
-			head.AppendAligned(reset, false, widget.AlignCenter)
+			head.AppendAligned(p.k.resetButton("wm-palette-reset", func() { p.reset(name) }).Button, false, widget.AlignCenter)
 		}
 		ed := newWMColorEditor(p.k, p.colorSlot(name))
 		tile.Append(head, false)

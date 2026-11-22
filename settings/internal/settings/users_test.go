@@ -252,7 +252,7 @@ func TestAnAdministratorSeesTheOtherUsers(t *testing.T) {
 	manager, _ := serveAccounts(t, bus, admin, bob)
 	p, l := usersFixture(t, bus)
 	l.until("the admin section", func() bool { return p.admin.Visible() && len(p.others) == 2 })
-	if got := len(treetest.WithClass(p.admin, "user-details")); got != 1 {
+	if got := len(buttonsTitled(p.admin, locale.T().Get("settings-users-edit"))); got != 1 {
 		t.Fatalf("the list offers %d users' details, want only the other user's", got)
 	}
 	for _, want := range []string{"Alice", "Bob", locale.T().Get("settings-users-identity", i18n.Str("login", "bob"), i18n.Str("type", locale.T().Get("settings-users-type-standard")))} {
@@ -263,7 +263,7 @@ func TestAnAdministratorSeesTheOtherUsers(t *testing.T) {
 	pickers := &fakePickers{}
 	p.k.pickers = pickers
 	remove := func() app.DialogConfig {
-		treetest.WithClass(p.admin, "user-details")[0].(*widget.Button).OnClick()
+		buttonsTitled(p.admin, locale.T().Get("settings-users-edit"))[0].OnClick()
 		if !pickers.respond(responseRemove) {
 			t.Fatal("Remove User kept the details open")
 		}
@@ -283,7 +283,7 @@ func TestAnAdministratorSeesTheOtherUsers(t *testing.T) {
 	if calls, _ := manager.snapshot(); calls[1].method != "DeleteUser" || fmt.Sprint(calls[1].args) != "[2000 false]" {
 		t.Fatalf("keeping the home folder: %+v", calls)
 	}
-	l.until("the list again", func() bool { return len(treetest.WithClass(p.admin, "user-details")) == 1 })
+	l.until("the list again", func() bool { return len(buttonsTitled(p.admin, locale.T().Get("settings-users-edit"))) == 1 })
 	remove().OnResponse(responseDeleteFiles)
 	l.until("DeleteUser", func() bool { c, _ := manager.snapshot(); return len(c) == 3 })
 	if calls, _ := manager.snapshot(); fmt.Sprint(calls[2].args) != "[2000 true]" {
@@ -297,7 +297,7 @@ func TestWithoutAWindowRemovingAUserIsRefused(t *testing.T) {
 	bus := dbustest.Start(t)
 	manager, _ := serveAccounts(t, bus, admin, bob)
 	p, l := usersFixture(t, bus)
-	l.until("the admin section", func() bool { return len(treetest.WithClass(p.admin, "user-details")) == 1 })
+	l.until("the admin section", func() bool { return len(buttonsTitled(p.admin, locale.T().Get("settings-users-edit"))) == 1 })
 	p.k.pickers = nil
 	p.confirmRemove(p.others[1])
 	l.drain()
@@ -323,7 +323,7 @@ func TestTheUsersPageOfARealAccountFitsTheWindow(t *testing.T) {
 	k, _ := systemKit(t, bus)
 	w := newWindow(k, k.store.svc.Config(), func(_ time.Duration, fn func()) { fn() })
 	w.show(usersID)
-	if got := len(treetest.WithClass(w.page, "user-details")); got != len(others) {
+	if got := len(buttonsTitled(w.page, locale.T().Get("settings-users-edit"))); got != len(others) {
 		t.Fatalf("the users page offers %d other accounts, want %d", got, len(others))
 	}
 	hands := treetest.All[*fingerHands](w.page)

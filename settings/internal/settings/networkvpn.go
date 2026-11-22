@@ -11,8 +11,6 @@ import (
 	"github.com/stubbedev/lys/desktop/service/network/vpntext"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
-
-	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
 const wireGuardPrivateKey = "private-key"
@@ -71,12 +69,12 @@ func newVPNForm(p *networkPanel) *vpnForm {
 	f.kindSlot = widget.NewBox(widget.Column, 0, 0)
 	f.kindField = widget.NewField(k.face, i18n.T("dropdown-network-vpn-type"), f.kindSlot)
 	f.Append(f.kindField, false)
-	f.importBtn = k.button(k.label(i18n.T("dropdown-network-vpn-import")), f.importFile, css.Small, css.Flat)
+	f.importBtn = k.secondaryButton(i18n.T("dropdown-network-vpn-import"), f.importFile)
 	f.AppendAligned(f.importBtn, false, widget.AlignStart)
 	f.fields = gapBox(widget.Column)
 	f.Append(f.fields, false)
 	f.rawLabel = k.label("")
-	f.rawToggle = k.button(f.rawLabel, f.toggleRaw, css.Small, css.Flat)
+	f.rawToggle = k.roleButton(roleQuiet, f.rawLabel, f.toggleRaw)
 	f.AppendAligned(f.rawToggle, false, widget.AlignStart)
 	f.rawHint = wrapped(k.label("", css.Caption, css.DimLabel))
 	f.Append(f.rawHint, false)
@@ -88,8 +86,8 @@ func newVPNForm(p *networkPanel) *vpnForm {
 	f.problem = wrapped(k.label("", "setting-problem", css.Caption, css.Error))
 	f.problem.SetVisible(false)
 	f.Append(f.problem, false)
-	cancel := k.button(k.label(locale.T().Get("settings-wifi-cancel")), f.close, css.Small, css.Flat)
-	f.saveButton = k.button(k.label(i18n.T("dropdown-network-vpn-save")), f.save, css.Small, css.SuggestedAction)
+	cancel := k.cancelButton(f.close)
+	f.saveButton = k.primaryButton(i18n.T("dropdown-network-vpn-save"), f.save)
 	actions := gapBox(widget.Row)
 	actions.Append(cancel, false)
 	actions.Append(f.saveButton, false)

@@ -242,7 +242,7 @@ func newAppShortcutsEditor(k *kit, binds slot) *appShortcutsEditor {
 	e.empty = k.label(locale.T().Get("wm-app-shortcuts-none"), "setting-description", css.Caption, css.DimLabel)
 	e.Append(e.empty, false)
 	e.Append(e.list, false)
-	reload := k.button(k.label(locale.T().Get("wm-app-shortcuts-reload")), e.load, css.Secondary)
+	reload := k.reloadButton("wm-app-shortcuts-reload", e.load)
 	reload.SetHAlign(widget.AlignStart)
 	e.Append(reload, false)
 	e.load()
@@ -422,5 +422,5 @@ func allShortcutsLink(k *kit) (*widget.Button, bool) {
 	if !ok {
 		return nil, false
 	}
-	return k.iconButton("ld-chevron-right-symbolic", "settings-shortcuts-all", func() { k.openPage(target.id) }, css.Flat), true
+	return k.iconButton("ld-chevron-right-symbolic", "settings-shortcuts-all", func() { k.openPage(target.id) }), true
 }

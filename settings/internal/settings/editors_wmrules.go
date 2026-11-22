@@ -349,7 +349,7 @@ func newRuleMatch(k *kit, primary []cardField, moreKeys []string, more map[strin
 		open = open || field(key).get() != nil
 	}
 	m.label = k.label("")
-	m.toggle = k.button(m.label, func() { m.open(!m.more.Visible()) }, css.Small, css.Flat)
+	m.toggle = k.roleButton(roleQuiet, m.label, func() { m.open(!m.more.Visible()) })
 	m.toggle.AddClass("rule-more-toggle")
 	m.AppendAligned(m.toggle, false, widget.AlignStart)
 	m.Append(m.more, false)
@@ -396,11 +396,11 @@ func newRuleEffects(k *kit, parts ruleParts, fields map[string][]cardField, bool
 	r.AddClass("rule-effects")
 	r.body = gapBox(widget.Column)
 	r.none = wrapped(k.label(t.Get("wm-rules-no-effects"), "setting-description", css.Caption, css.DimLabel))
-	r.add = k.button(k.label(t.Get("wm-rules-add-effect")), func() {
+	r.add = k.addButton("wm-rules-add-effect", func() {
 		if k.pickers != nil {
 			openChoicePicker(k, r.add, r.offered(), r.addEffect)
 		}
-	}, css.Outline)
+	})
 	r.Append(r.none, false)
 	r.Append(r.body, false)
 	r.AppendAligned(r.add, false, widget.AlignStart)
@@ -441,7 +441,7 @@ func (r *ruleEffects) rebuild() {
 		for _, key := range keys {
 			ctls, rows := fieldRows(r.k, group, r.fields[key], labels, r.field)
 			r.controls = append(r.controls, ctls...)
-			remove := r.k.iconButton("ld-trash-2-symbolic", "wm-rules-remove-effect", func() { r.removeEffect(key) }, "list-control-button", css.Ghost)
+			remove := r.k.removeButton("wm-rules-remove-effect", func() { r.removeEffect(key) })
 			remove.SetAccessibleName(t.Get("wm-rules-remove-effect") + ": " + effectLabel(key))
 			rows[0].AppendAligned(remove, false, widget.AlignCenter)
 		}

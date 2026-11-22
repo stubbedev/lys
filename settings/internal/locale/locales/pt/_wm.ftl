@@ -1033,7 +1033,6 @@ wm-mode-delete-cancel = Cancelar
 wm-mode-delete-confirm = Eliminar
 wm-mode-add = Adicionar um modo
 wm-mode-add-confirm = Adicionar
-wm-mode-cancel = Cancelar
 wm-mode-name = Nome
 wm-mode-name-placeholder = Nome, como resize
 wm-mode-chord = Atalho que entra no modo

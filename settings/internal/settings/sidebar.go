@@ -48,9 +48,8 @@ func newSidebar(k *kit, sections []navSection, active string, content, search wi
 		s.AddCollapsibleGroup(t.Get(sec.key), true, items...)
 	}
 
-	reset := widget.NewBox(widget.Row, th.Spacing, 0)
-	reset.AppendAligned(k.icon("ld-rotate-ccw-symbolic", "sidebar-reset-icon"), false, widget.AlignCenter)
-	reset.AppendAligned(k.label(t.Get("settings-reset-all"), "sidebar-reset-label"), true, widget.AlignCenter)
-	s.SetFooter(k.button(reset, onResetAll, css.Ghost, "sidebar-reset-all"))
+	reset, _ := k.contentButton(roleQuiet, buttonRoles[roleReset].icon, t.Get("settings-reset-all"), onResetAll)
+	reset.AddClass("sidebar-reset-all")
+	s.SetFooter(reset)
 	return s
 }

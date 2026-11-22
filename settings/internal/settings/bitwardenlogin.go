@@ -41,8 +41,8 @@ func newVaultForm(a *vaultAccount) *vaultForm {
 	f.login.Append(f.email, false)
 	f.login.Append(f.password, false)
 	f.login.Append(formButtons(
-		k.button(k.label(i18n.T("dropdown-bitwarden-cancel")), f.close, css.Small, css.Flat),
-		k.button(k.label(i18n.T("dropdown-bitwarden-login")), f.signIn, css.Small, css.SuggestedAction),
+		k.cancelButton(f.close),
+		k.primaryButton(i18n.T("dropdown-bitwarden-login"), f.signIn),
 	), false)
 
 	f.codeTitle = wrapped(k.label("", "setting-label"))
@@ -51,7 +51,7 @@ func newVaultForm(a *vaultAccount) *vaultForm {
 	f.codeIn.SetPlaceholder(i18n.T("dropdown-bitwarden-code-placeholder"))
 	f.codeIn.SetAccessibleName(i18n.T("dropdown-bitwarden-code-placeholder"))
 	f.codeIn.OnActivate = func(string) { f.verify() }
-	f.sendEmail = k.button(k.label(i18n.T("dropdown-bitwarden-send-code")), f.resend, css.Small, css.Flat)
+	f.sendEmail = k.secondaryButton(i18n.T("dropdown-bitwarden-send-code"), f.resend)
 	f.sendEmail.SetTooltip(i18n.T("dropdown-bitwarden-send-code-tooltip"))
 	f.code = gapBox(widget.Column)
 	f.code.Append(f.codeTitle, false)
@@ -59,8 +59,8 @@ func newVaultForm(a *vaultAccount) *vaultForm {
 	f.code.Append(f.codeIn, false)
 	f.code.Append(formButtons(
 		f.sendEmail,
-		k.button(k.label(i18n.T("dropdown-bitwarden-back")), f.openLogin, css.Small, css.Flat),
-		k.button(k.label(i18n.T("dropdown-bitwarden-verify")), f.verify, css.Small, css.SuggestedAction),
+		k.secondaryButton(i18n.T("dropdown-bitwarden-back"), f.openLogin),
+		k.primaryButton(i18n.T("dropdown-bitwarden-verify"), f.verify),
 	), false)
 
 	f.unlockPw = secretEntry(k, i18n.T("dropdown-bitwarden-master-password"))
@@ -68,8 +68,8 @@ func newVaultForm(a *vaultAccount) *vaultForm {
 	f.unlock = gapBox(widget.Column)
 	f.unlock.Append(f.unlockPw, false)
 	f.unlock.Append(formButtons(
-		k.button(k.label(i18n.T("dropdown-bitwarden-cancel")), f.close, css.Small, css.Flat),
-		k.button(k.label(i18n.T("dropdown-bitwarden-unlock")), f.open, css.Small, css.SuggestedAction),
+		k.cancelButton(f.close),
+		k.primaryButton(i18n.T("dropdown-bitwarden-unlock"), f.open),
 	), false)
 
 	f.Append(f.login, false)

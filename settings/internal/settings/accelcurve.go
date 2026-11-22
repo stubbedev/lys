@@ -141,7 +141,7 @@ func newAccelCurveEditor(k *kit, sc wmScope, s slot, class string) *accelCurveEd
 
 	c.start = gapBox(widget.Row)
 	c.start.AppendAligned(wrapped(k.label(t.Get("wm-accel-curve-none"), css.Caption, css.DimLabel)), true, widget.AlignCenter)
-	c.start.AppendAligned(k.button(k.label(t.Get("wm-accel-curve-start")), c.begin, css.Outline), false, widget.AlignCenter)
+	c.start.AppendAligned(k.secondaryButton(t.Get("wm-accel-curve-start"), c.begin), false, widget.AlignCenter)
 	c.Append(c.start, false)
 
 	c.canvas = newAccelCanvas(c.bounds, c.reshape)
@@ -151,8 +151,8 @@ func newAccelCurveEditor(k *kit, sc wmScope, s slot, class string) *accelCurveEd
 	c.step = curveSpin(k, stepName, c.bounds.stepLo, c.bounds.stepHi, accelSpinStep, 2, c.restep)
 	controls.AppendAligned(k.label(stepName, css.Caption, css.DimLabel), false, widget.AlignCenter)
 	controls.AppendAligned(c.step, false, widget.AlignCenter)
-	c.remove = k.iconButton("ld-minus-symbolic", "wm-accel-curve-remove", c.dropPoint, css.Outline)
-	c.add = k.iconButton("ld-plus-symbolic", "wm-accel-curve-add", c.addPoint, css.Outline)
+	c.remove = k.removeButton("wm-accel-curve-remove", c.dropPoint)
+	c.add = k.addButton("wm-accel-curve-add", c.addPoint)
 	controls.AppendAligned(c.remove, false, widget.AlignCenter)
 	controls.AppendAligned(c.add, false, widget.AlignCenter)
 	c.drawn = gapBox(widget.Column)
@@ -163,7 +163,7 @@ func newAccelCurveEditor(k *kit, sc wmScope, s slot, class string) *accelCurveEd
 	tail := gapBox(widget.Row)
 	c.unknown = k.badge(t.Get("settings-choice-unknown"), "warning")
 	c.unknown.SetTooltip(t.Attr("settings-choice-unknown", "description"))
-	c.stop = k.button(k.label(t.Get("wm-accel-curve-stop")), c.end, css.Outline)
+	c.stop = k.secondaryButton(t.Get("wm-accel-curve-stop"), c.end)
 	tail.AppendAligned(c.unknown, false, widget.AlignCenter)
 	tail.AppendAligned(c.stop, false, widget.AlignCenter)
 	c.Append(tail, false)

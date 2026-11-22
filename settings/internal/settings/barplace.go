@@ -49,7 +49,7 @@ func newPlacementRow(k *kit, module func() (config.BarModule, bool)) *placementR
 	p := &placementRow{Box: gapBox(widget.Row), k: k, module: module}
 	p.AddClass("settings-bar-placement")
 	p.status = k.label("", "settings-bar-placement-status", css.Caption)
-	p.add = k.button(k.label(locale.T().Get("settings-bar-placement-add")), p.place, css.Small, css.SuggestedAction)
+	p.add = k.addButton("settings-bar-placement-add", p.place)
 	p.AppendAligned(p.status, true, widget.AlignCenter)
 	p.AppendAligned(p.add, false, widget.AlignCenter)
 	p.refresh()

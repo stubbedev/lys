@@ -453,7 +453,7 @@ func newSectionParts(k *kit, title string, body widget.Widget) (section, group *
 func advancedSection(k *kit, section, group *widget.Box, first, n int) disclosure {
 	kids := section.Children()
 	d := disclosure{group: group, label: k.label(""), first: first, n: n}
-	d.toggle = k.button(d.label, func() { d.open(!d.group.Visible()) }, css.Small, css.Flat)
+	d.toggle = k.roleButton(roleQuiet, d.label, func() { d.open(!d.group.Visible()) })
 	d.toggle.AddClass("settings-advanced-toggle")
 	head := gapBox(widget.Row)
 	title := kids[0]

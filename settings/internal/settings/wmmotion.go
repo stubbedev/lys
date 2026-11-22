@@ -153,7 +153,7 @@ func newCurveEditor(k *kit, bezier, spring slot, builtIns []wmconfig.Curve) *cur
 			continue
 		}
 		points := *b.Bezier
-		presets.AppendAligned(k.button(k.label(curveLabel(b.Name)), func() { c.writeBezier(points) }, css.Small, css.Outline), false, widget.AlignCenter)
+		presets.AppendAligned(k.secondaryButton(curveLabel(b.Name), func() { c.writeBezier(points) }), false, widget.AlignCenter)
 	}
 	c.bezierPart = gapBox(widget.Column)
 	c.bezierPart.AppendAligned(c.canvas, false, widget.AlignStart)

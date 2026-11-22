@@ -2243,8 +2243,8 @@ func TestPickerPopoverGap(t *testing.T) {
 // The window stands on lys-ui's parts: a page's header is a dim
 // caption breadcrumb over an h4 title, each section a dim caption
 // heading over lys-ui's card holding an item group of the rows, each
-// row's description a dim caption and its reset a ghost icon button,
-// and the close button a ghost icon button.
+// row's description a dim caption beside the reset role's button, and
+// the close button an icon button.
 func TestWindowTakesLysUiParts(t *testing.T) {
 	k := testKit(t, "")
 	cfg := k.store.svc.Config()
@@ -2269,8 +2269,12 @@ func TestWindowTakesLysUiParts(t *testing.T) {
 	has("settings-section-title", css.CaptionHeading, css.DimLabel)
 	has("settings-group", css.Card)
 	has("setting-description", css.Caption, css.DimLabel)
-	has("setting-reset", css.Ghost, css.Icon)
-	has("settings-close", css.Ghost, css.Icon)
+	if len(buttonsOfRole(w.root, roleReset)) == 0 {
+		t.Error("no row shows a reset button")
+	}
+	if close := buttonsTitled(w.root, locale.T().Get("settings-close")); len(close) != 1 || !slices.Contains(buttonsOfRole(w.root, roleIcon), close[0]) {
+		t.Error("the close button is not an icon button")
+	}
 	for _, g := range treetest.WithClass(w.root, "settings-group") {
 		if len(treetest.All[*widget.ItemGroup](g)) != 1 {
 			t.Error("a section's card holds no item group of its rows")
@@ -2293,30 +2297,26 @@ func assertPageFits(t *testing.T, w *window) {
 }
 
 // A card list's card is lys-ui's card, its header split from its body
-// by a separator, its labels dim caption headings; the list's add is an
-// outline icon button, and the layout's items are lys-ui's dismissible
+// by a separator, its labels dim caption headings; a zone's add is the
+// add role's button, and the layout's items are lys-ui's dismissible
 // chips.
 func TestCardAndListEditorsTakeLysUiParts(t *testing.T) {
 	k := testKit(t, "")
 	cfg := k.store.svc.Config()
 	w := newWindow(k, cfg, func(_ time.Duration, fn func()) { fn() })
 	w.show("bar")
-	if len(treetest.WithClass(w.root, "zone-add-btn")) == 0 {
+	if len(buttonsTitled(w.root, locale.T().Get("settings-layout-add-module"))) == 0 {
 		t.Fatal("the bar page shows no zone to add to")
 	}
-	for _, b := range treetest.WithClass(w.root, "zone-add-btn") {
-		if !widget.HasClass(b, css.Outline) || !widget.HasClass(b, css.Icon) {
-			t.Error("a zone's add button is not an outline icon button")
+	adds := buttonsOfRole(w.root, roleAdd)
+	for _, b := range buttonsTitled(w.root, locale.T().Get("settings-layout-add-module")) {
+		if !slices.Contains(adds, b) {
+			t.Error("a zone's add button is not the add role's")
 		}
 	}
 	for _, l := range treetest.WithClass(w.root, "layout-zone-label") {
 		if !widget.HasClass(l, css.CaptionHeading) || !widget.HasClass(l, css.DimLabel) {
 			t.Error("a zone label is not a dim caption heading")
-		}
-	}
-	for _, b := range treetest.WithClass(w.root, "list-control-add") {
-		if !widget.HasClass(b, css.Outline) {
-			t.Error("a list's add is not an outline button")
 		}
 	}
 	chips := treetest.All[*widget.Chip](w.root)

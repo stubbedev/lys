@@ -128,9 +128,9 @@ func (c *monitorSet) refresh() {
 	}
 	t := locale.T()
 	for _, name := range away {
-		remove := c.k.button(c.k.label(t.Get("settings-list-remove")), func() {
+		remove := c.k.removeButton("settings-list-remove", func() {
 			c.write(slices.DeleteFunc(c.listed(), func(n string) bool { return n == name }))
-		}, css.Small, css.Secondary)
+		})
 		c.away.Append(panelRow(c.k, name, t.Get("settings-monitors-away"), remove), false)
 	}
 }

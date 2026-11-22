@@ -10,7 +10,6 @@ import (
 	"github.com/stubbedev/lys/desktop/desktopentry"
 	"github.com/stubbedev/lys/desktop/shlex"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 )
 
 const (
@@ -104,7 +103,7 @@ func appCommands() []choice {
 
 func (k *kit) appCommandButton(pick func(string)) *widget.Button {
 	var b *widget.Button
-	b = k.iconButton("ld-app-window-symbolic", "settings-command-app", func() {
+	b = k.pickerIconButton("ld-app-window-symbolic", "settings-command-app", func() {
 		if k.pickers == nil {
 			return
 		}
@@ -119,6 +118,6 @@ func (k *kit) appCommandButton(pick func(string)) *widget.Button {
 				pick(cmd)
 			})
 		})
-	}, "app-command", css.Outline)
+	})
 	return b
 }

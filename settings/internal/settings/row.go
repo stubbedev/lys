@@ -10,7 +10,6 @@ import (
 	"github.com/stubbedev/lys/desktop/geo"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/region"
-	"github.com/stubbedev/lys/desktop/shell/apptheme"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/lib/hibernate"
@@ -21,10 +20,6 @@ import (
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
-
-// hiddenPriority puts the reset button's hidden opacity above every
-// stylesheet, so no CSS overrides it.
-const hiddenPriority = apptheme.Priority + 1
 
 // Row text limits.
 const (
@@ -183,39 +178,6 @@ func cardInsets() render.Insets {
 	return render.Insets{Top: th.Padding, Right: 2 * th.Padding, Bottom: th.Padding, Left: 2 * th.Padding}
 }
 
-// browseButton is the outline folder button asking the file chooser,
-// pick getting the chosen path.
-func (k *kit) browseButton(pick func(path string)) *widget.Button {
-	return k.chooserButton("settings-browse-file", func(p pickers) { p.openFile(pick) })
-}
-
-func (k *kit) folderButton(pick func(path string)) *widget.Button {
-	return k.chooserButton("settings-browse-folder", func(p pickers) { p.openFolder(pick) })
-}
-
-func (k *kit) chooserButton(tooltipKey string, open func(pickers)) *widget.Button {
-	return k.iconButton("ld-folder-open-symbolic", tooltipKey, func() {
-		if k.pickers != nil {
-			open(k.pickers)
-		}
-	}, "browse", css.Outline)
-}
-
-// iconButton is an icon-only button: its tooltip, the tooltipKey message,
-// is the only text naming what it does, so it cannot be left out.
-func (k *kit) iconButton(icon, tooltipKey string, onClick func(), classes ...string) *widget.Button {
-	b := k.button(k.icon(icon), onClick, append(classes, css.Icon)...)
-	b.SetTooltip(locale.T().Get(tooltipKey))
-	return b
-}
-
-// contentButton is a button wearing lys-ui's icon-and-label content,
-// which it returns too so both can change in place.
-func (k *kit) contentButton(icon, text string, onClick func(), classes ...string) (*widget.Button, *widget.ButtonContent) {
-	content := widget.NewButtonContent(k.face, k.textPx(), icon, text)
-	return k.button(content, onClick, classes...), content
-}
-
 // insetRow holds w as a row of its card, inset like the rows around it:
 // a list's search field, a note.
 func insetRow(w widget.Widget) *widget.Box {
@@ -231,14 +193,6 @@ func (k *kit) emptyRow(icon, text string) *widget.Item {
 	it := widget.NewItem(k.face, text, "")
 	it.SetMedia(k.icon(icon), false)
 	return it
-}
-
-// button wraps child in a plain button carrying classes.
-func (k *kit) button(child widget.Widget, onClick func(), classes ...string) *widget.Button {
-	b := widget.NewButton(child, 0, 0)
-	b.AddClass(classes...)
-	b.OnClick = onClick
-	return b
 }
 
 // badge is lys-ui's quiet badge reading text; a status class
@@ -270,7 +224,7 @@ type settingRow struct {
 	ctl   control
 	title *widget.Label
 	badge *widget.Badge
-	reset *widget.Button
+	reset resetButton
 	// problem says why the last value the control wrote was refused.
 	problem *widget.Label
 	// action is the row's RowBehavior::Action.
@@ -467,13 +421,13 @@ func newSettingRow(k *kit, be backend, spec rowSpec, ctl control) *settingRow {
 	r.problem.SetVisible(false)
 	info.Append(r.problem, false)
 
-	r.reset = k.iconButton("ld-rotate-ccw-symbolic", "settings-reset-setting", func() {
+	r.reset = k.resetButton("settings-reset-setting", func() {
 		if d, ok := ctl.(interface{ discardDraft() }); ok {
 			d.discardDraft()
 		}
 		r.showProblem(nil)
 		be.reset(spec.path)
-	}, "setting-reset", css.Ghost)
+	})
 	slot := widget.NewBox(widget.Row, 0, 0)
 	slot.AddClass("setting-control")
 	slot.AppendAligned(ctl, spec.fullWidth, widget.AlignCenter)
@@ -481,12 +435,12 @@ func newSettingRow(k *kit, be backend, spec rowSpec, ctl control) *settingRow {
 	if spec.fullWidth {
 		r.AddClass("vertical")
 		labelRow.Append(widget.NewSpacer(0, 0), true)
-		labelRow.Append(r.reset, false)
+		labelRow.Append(r.reset.Button, false)
 		r.Append(info, false)
 		r.Append(slot, false)
 	} else {
 		r.AppendAligned(info, true, widget.AlignCenter)
-		r.AppendAligned(r.reset, false, widget.AlignCenter)
+		r.AppendAligned(r.reset.Button, false, widget.AlignCenter)
 		r.AppendAligned(slot, false, widget.AlignCenter)
 	}
 	r.refreshSource()
@@ -514,12 +468,7 @@ func (r *settingRow) refreshSource() {
 	if src.class != "" {
 		r.badge.AddClass(src.class)
 	}
-	r.reset.SetEnabled(src.reset)
-	if src.reset {
-		r.reset.SetInlineStyle("")
-	} else {
-		r.reset.SetInlineStylePriority("opacity: 0;", hiddenPriority)
-	}
+	r.reset.show(src.reset)
 }
 
 // description is the help a message's description attribute gives, ""

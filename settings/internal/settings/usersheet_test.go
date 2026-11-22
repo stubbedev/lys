@@ -6,10 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/shacrypt"
-	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -41,10 +39,10 @@ func userSheetFixture(t *testing.T) (*usersPanel, *loop, *fakePickers, *userShee
 	bus := dbustest.Start(t)
 	s := serveAllAccounts(t, bus, admin, bob)
 	p, l := usersFixture(t, bus)
-	l.until("the admin section", func() bool { return len(treetest.WithClass(p.admin, "user-details")) == 1 })
+	l.until("the admin section", func() bool { return len(buttonsTitled(p.admin, locale.T().Get("settings-users-edit"))) == 1 })
 	pickers := &fakePickers{}
 	p.k.pickers = pickers
-	treetest.WithClass(p.admin, "user-details")[0].(*widget.Button).OnClick()
+	buttonsTitled(p.admin, locale.T().Get("settings-users-edit"))[0].OnClick()
 	if len(pickers.dialogs) != 1 {
 		t.Fatalf("the details button opened %d dialogs", len(pickers.dialogs))
 	}

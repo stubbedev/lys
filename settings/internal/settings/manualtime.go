@@ -8,7 +8,6 @@ import (
 	"github.com/stubbedev/lys/desktop/daytime"
 	"github.com/stubbedev/lys/lib/glibclocale"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -67,7 +66,7 @@ func newManualTime(k *kit, now time.Time) *manualTime {
 		unset: func() {},
 	}
 	m.clock = newClockTimeEditor(k, held, t.Get("settings-date-manual"), everyMinute, anyClockTime)
-	m.set = k.button(k.label(t.Get("settings-date-set")), nil, css.Secondary)
+	m.set = k.primaryButton(t.Get("settings-date-set"), nil)
 	return m
 }
 

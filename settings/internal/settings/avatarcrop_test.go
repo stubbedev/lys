@@ -12,6 +12,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/settings/internal/locale"
 	"github.com/stubbedev/lys/ui/widget"
 )
 
@@ -21,15 +22,20 @@ func stockAvatarChoice(t *testing.T, p *usersPanel, i int) *widget.Button {
 	t.Helper()
 	pickers := &fakePickers{}
 	p.k.pickers = pickers
-	treetest.WithClass(p, "users-avatar-button")[0].(*widget.Button).OnClick()
+	treetest.Button(t, p, locale.T().Get("settings-users-avatar-change")).OnClick()
 	if len(pickers.dialogs) != 1 {
 		t.Fatalf("the avatar opened %d dialogs, want the picture dialog", len(pickers.dialogs))
 	}
-	choices := treetest.WithClass(pickers.dialogs[0].Content, "avatar-choice")
+	var choices []*widget.Button
+	for _, b := range treetest.All[*widget.Button](pickers.dialogs[0].Content) {
+		if len(treetest.All[*widget.Avatar](b)) == 1 {
+			choices = append(choices, b)
+		}
+	}
 	if len(choices) <= i {
 		t.Fatalf("the picture dialog offers %d stock pictures", len(choices))
 	}
-	b := choices[i].(*widget.Button)
+	b := choices[i]
 	click := b.OnClick
 	b.OnClick = func() {
 		click()

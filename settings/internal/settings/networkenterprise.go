@@ -121,8 +121,8 @@ func newEAPForm(p *networkPanel) *eapForm {
 	f.problem.SetVisible(false)
 	f.Append(f.problem, false)
 	f.Append(formButtons(
-		k.button(k.label(i18n.T("dropdown-network-cancel")), f.cancel, css.Small, css.Flat),
-		k.button(k.label(i18n.T("dropdown-network-connect")), f.connect, css.Small, css.SuggestedAction),
+		k.cancelButton(f.cancel),
+		k.primaryButton(i18n.T("dropdown-network-connect"), f.connect),
 	), false)
 	f.syncMethod()
 	return f

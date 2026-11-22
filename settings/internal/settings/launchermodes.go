@@ -225,9 +225,8 @@ func (c *launcherModeList) modeRow(e launcherModeEntry, names map[string]any, on
 	})
 	if e.on {
 		at := slices.Index(on, e.value)
-		up := c.k.iconButton("ld-chevron-up-symbolic", "settings-list-move-up", func() { c.move(e.value, -1) }, "string-list-button", css.Ghost)
+		up, down := c.k.moveButtons(func(by int) { c.move(e.value, by) })
 		up.SetEnabled(at > 0)
-		down := c.k.iconButton("ld-chevron-down-symbolic", "settings-list-move-down", func() { c.move(e.value, 1) }, "string-list-button", css.Ghost)
 		down.SetEnabled(at < len(on)-1)
 		row.AddAction(up)
 		row.AddAction(down)

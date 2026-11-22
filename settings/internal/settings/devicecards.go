@@ -98,7 +98,7 @@ func newDeviceCards(k *kit, kind deviceKind) *deviceCards {
 	c.list = gapBox(widget.Column)
 	c.Append(c.note, false)
 	c.Append(c.list, false)
-	c.reload = k.button(k.label(locale.T().Get("wm-devices-reload")), c.load, css.Outline)
+	c.reload = k.reloadButton("wm-devices-reload", c.load)
 	c.AppendAligned(c.reload, false, widget.AlignStart)
 	c.rebuild()
 	c.load()
@@ -212,10 +212,11 @@ func (c *deviceCards) cardWidget(cd *deviceCard) *widget.Box {
 			tip = "settings-card-collapse"
 		}
 		disclose.SetTooltip(t.Get(tip))
-	}, "card-disclose", css.Ghost)
+	})
+	disclose.AddClass("card-disclose")
 	header.AppendAligned(disclose, false, widget.AlignCenter)
 	if !cd.connected {
-		header.AppendAligned(c.k.iconButton("ld-trash-2-symbolic", "wm-device-forget", func() { c.forget(cd) }, "list-control-button", "list-control-remove", css.Ghost), false, widget.AlignCenter)
+		header.AppendAligned(c.k.removeButton("wm-device-forget", func() { c.forget(cd) }), false, widget.AlignCenter)
 	}
 	show(false)
 	return cd.root

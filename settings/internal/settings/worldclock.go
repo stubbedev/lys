@@ -212,10 +212,10 @@ func newWorldClockEditor(k *kit, s slot, meta config.FieldMeta) *worldClockEdito
 	e.preview.SetEllipsize(widget.EllipsizeEnd)
 	e.raw = newFormatEditor(k, s, meta.Optional, placeholderFormat(meta.Placeholders))
 	e.toggled = k.label(t.Get("settings-format-edit-text"))
-	e.toggle = k.button(e.toggled, func() {
+	e.toggle = k.roleButton(roleQuiet, e.toggled, func() {
 		e.editing = !e.editing
 		e.refresh()
-	}, css.Small, css.Flat)
+	})
 	e.Append(e.notice, false)
 	e.Append(e.cards, false)
 	e.Append(e.preview, false)

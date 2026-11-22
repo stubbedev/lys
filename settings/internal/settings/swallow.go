@@ -116,7 +116,7 @@ func newSwallowTerminals(k *kit, s slot) *swallowTerminals {
 	c.pattern = wrapped(k.label("", "swallow-terminals-written", css.Monospace))
 	c.pattern.SetTooltip(t.Get("wm-swallow-terminals-written"))
 	c.written.AppendAligned(c.pattern, true, widget.AlignCenter)
-	c.written.AppendAligned(k.button(k.label(t.Get("wm-swallow-terminals-replace")), c.replace, css.Outline), false, widget.AlignCenter)
+	c.written.AppendAligned(k.secondaryButton(t.Get("wm-swallow-terminals-replace"), c.replace), false, widget.AlignCenter)
 	c.Append(c.strip, false)
 	c.Append(c.written, false)
 	c.refresh()

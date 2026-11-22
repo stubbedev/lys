@@ -8,7 +8,6 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -70,7 +69,7 @@ func newListEditor(k *kit, s slot, spec listSpec) *listEditor {
 	c.Append(c.rows, false)
 	// A new row writes only when it changes the stored value: a blank
 	// list item does, a map's keyless pair encodes away and does not.
-	c.add = addButton(k, spec.addKey, func() {
+	c.add = k.addButton(spec.addKey, func() {
 		if spec.pick != nil {
 			c.pickNew()
 			return
@@ -84,11 +83,6 @@ func newListEditor(k *kit, s slot, spec listSpec) *listEditor {
 	c.AppendAligned(c.add, false, widget.AlignStart)
 	c.rebuild(c.stored())
 	return c
-}
-
-// addButton is a list's outlined + button, tooltipKey naming what it adds.
-func addButton(k *kit, tooltipKey string, onClick func()) *widget.Button {
-	return k.iconButton("ld-plus-symbolic", tooltipKey, onClick, "list-control-button", "list-control-add", css.Outline)
 }
 
 func (c *listEditor) stored() []any {
@@ -154,16 +148,13 @@ func (c *listEditor) appendRow(v any) {
 	row.AddClass(c.spec.rowClass)
 	row.Append(item, true)
 	if c.spec.reorder {
-		row.AppendAligned(c.rowButton("ld-chevron-up-symbolic", "settings-list-move-up", func() { c.move(item, -1) }), false, widget.AlignCenter)
-		row.AppendAligned(c.rowButton("ld-chevron-down-symbolic", "settings-list-move-down", func() { c.move(item, 1) }), false, widget.AlignCenter)
+		up, down := c.k.moveButtons(func(by int) { c.move(item, by) })
+		row.AppendAligned(up, false, widget.AlignCenter)
+		row.AppendAligned(down, false, widget.AlignCenter)
 	}
-	row.AppendAligned(c.rowButton("ld-trash-2-symbolic", "settings-list-remove", func() { c.remove(item) }), false, widget.AlignCenter)
+	row.AppendAligned(c.k.removeButton("settings-list-remove", func() { c.remove(item) }), false, widget.AlignCenter)
 	c.rows.Append(row, false)
 	c.items = append(c.items, item)
-}
-
-func (c *listEditor) rowButton(icon, tooltipKey string, onClick func()) *widget.Button {
-	return c.k.iconButton(icon, tooltipKey, onClick, "string-list-button", css.Ghost)
 }
 
 func (c *listEditor) remove(item listItem) {

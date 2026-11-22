@@ -119,15 +119,15 @@ func displaysLead(k *kit) widget.Widget {
 	p.canvas = newDisplaysCanvas(p)
 	p.canvas.SetAccessibleName(t.Get("settings-displays-arrangement"))
 	p.none = k.label(t.Get("settings-displays-none"), css.DimLabel)
-	p.identify = k.button(k.label(t.Get("settings-displays-identify")), func() { p.identifyOutputs(p.enabledNames()) }, css.Secondary)
-	p.apply = k.button(k.label(t.Get("settings-displays-apply")), p.applyLayout, css.Small, css.SuggestedAction)
+	p.identify = k.secondaryButton(t.Get("settings-displays-identify"), func() { p.identifyOutputs(p.enabledNames()) })
+	p.apply = k.primaryButton(t.Get("settings-displays-apply"), p.applyLayout)
 	p.apply.SetEnabled(false)
 	actions := gapBox(widget.Row)
 	inset := cardInsets()
 	inset.Top = 0
 	actions.SetPadding(inset)
 	actions.Append(p.identify, false)
-	p.addVirtual = k.button(k.label(t.Get("settings-displays-virtual-add")), p.addVirtualOutput, css.Secondary)
+	p.addVirtual = k.addButton("settings-displays-virtual-add", p.addVirtualOutput)
 	actions.Append(p.addVirtual, false)
 	actions.Append(widget.NewBox(widget.Row, 0, 0), true)
 	actions.Append(p.apply, false)
@@ -265,11 +265,11 @@ func (p *displaysPanel) showOffTray() {
 		if s.Enabled {
 			continue
 		}
-		classes := []string{css.Small, css.Outline}
+		role := roleSecondary
 		if i == p.selected {
-			classes = []string{css.Small, css.SuggestedAction}
+			role = rolePrimary
 		}
-		b := p.k.button(p.k.label(cmp.Or(labels[s.Name], s.Name)), func() { p.selectOutput(i) }, classes...)
+		b := p.k.textButton(role, cmp.Or(labels[s.Name], s.Name), func() { p.selectOutput(i) })
 		b.SetTooltip(locale.T().Get("settings-displays-off-tooltip", i18n.Str("name", s.Name)))
 		p.offTray.Append(b, false)
 	}
@@ -570,8 +570,8 @@ func (p *displaysPanel) newConfirmBox() *confirmBox {
 	b.countdown = k.label("", css.DimLabel)
 	b.Append(b.countdown, false)
 	buttons := gapBox(widget.Row)
-	buttons.Append(k.button(k.label(t.Get("settings-displays-revert")), p.revertLayout), false)
-	buttons.Append(k.button(k.label(t.Get("settings-displays-keep")), p.keepLayout, css.SuggestedAction), false)
+	buttons.Append(k.secondaryButton(t.Get("settings-displays-revert"), p.revertLayout), false)
+	buttons.Append(k.primaryButton(t.Get("settings-displays-keep"), p.keepLayout), false)
 	b.Append(buttons, false)
 	return b
 }

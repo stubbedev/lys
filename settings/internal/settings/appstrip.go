@@ -43,7 +43,7 @@ func newAppStrip(k *kit, spec appStripSpec, ids []string, write func([]string)) 
 	c.chips = widget.NewChipBox()
 	c.chips.OnMoved = func(_ *widget.ChipBox, from, to int) { c.move(from, to) }
 	c.none = k.label(locale.T().Get(spec.none), spec.class+"-none", css.DimLabel)
-	c.add = addButton(k, spec.add, c.pick)
+	c.add = k.addButton(spec.add, c.pick)
 	c.add.SetVisible(false)
 	c.Append(c.chips, true)
 	c.AppendAligned(c.none, true, widget.AlignCenter)

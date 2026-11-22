@@ -6,7 +6,6 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 )
 
 // enumList edits a list of an enum's variants as an ordered set: a row
@@ -133,8 +132,7 @@ func (c *enumSet) rebuild() {
 		row.AddClass("enum-set-row")
 		row.AppendAligned(sw, false, widget.AlignCenter)
 		row.AppendAligned(c.k.label(c.labels[v]), true, widget.AlignCenter)
-		up := c.k.iconButton("ld-chevron-up-symbolic", "settings-list-move-up", func() { c.move(v, -1) }, "string-list-button", css.Ghost)
-		down := c.k.iconButton("ld-chevron-down-symbolic", "settings-list-move-down", func() { c.move(v, 1) }, "string-list-button", css.Ghost)
+		up, down := c.k.moveButtons(func(by int) { c.move(v, by) })
 		up.SetEnabled(i > 0)
 		down.SetEnabled(i < len(c.order)-1)
 		row.AppendAligned(up, false, widget.AlignCenter)

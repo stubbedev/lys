@@ -200,12 +200,12 @@ func newFingerprintSection(k *kit, fp *fprint, stages int, enrolled []string, fa
 	)
 	s.ring = &enrollRing{stages: stages}
 	s.hint = wrapped(k.label("", "setting-description"))
-	s.cancel = k.button(k.label(t.Get("settings-fingerprint-cancel")), s.finish, css.Small, css.Secondary)
+	s.cancel = k.cancelButton(s.finish)
 	s.progress = gapBox(widget.Row)
 	s.progress.SetElement("item")
 	s.progress.AppendAligned(s.hint, true, widget.AlignCenter)
 	s.progress.AppendAligned(s.cancel, false, widget.AlignCenter)
-	s.deleteAll = itemRow(k.button(k.label(t.Get("settings-fingerprint-delete-all")), s.confirmDeleteAll, css.Small, css.Destructive))
+	s.deleteAll = itemRow(k.destructiveButton(t.Get("settings-fingerprint-delete-all"), s.confirmDeleteAll))
 	s.note = insetRow(wrapped(k.label(t.Get("settings-fingerprint-lock"), "setting-description", css.Caption, css.DimLabel)))
 	s.show()
 	return s
@@ -260,7 +260,7 @@ func (s *fingerprintSection) enrolledRow(finger string) *widget.Item {
 	row := widget.NewItem(s.k.face, name, "")
 	row.AddClass(css.Small, "fingerprint-enrolled")
 	label := deleteLabel(finger)
-	del := s.k.button(s.k.icon("ld-trash-2-symbolic"), func() { s.deleteFinger(finger) }, css.Icon, css.Ghost)
+	del := s.k.removeButton("settings-fingerprint-delete", func() { s.deleteFinger(finger) })
 	del.SetTooltip(label)
 	del.SetAccessibleName(label)
 	del.SetEnabled(!s.busy)
@@ -493,7 +493,7 @@ func newFingerprintSwitch(k *kit, s slot) *fingerprintSwitch {
 	c.AppendAligned(c.toggle, false, widget.AlignEnd)
 	c.AppendAligned(wrapped(c.status), false, widget.AlignEnd)
 	if users, ok := pageByID(k.nav, usersID); ok {
-		c.enrol = k.button(k.label(locale.T().Get("settings-fingerprint-enrol")), func() { k.openPage(users.id) }, css.Secondary, css.Small)
+		c.enrol = k.linkButton(locale.T().Get("settings-fingerprint-enrol"), func() { k.openPage(users.id) })
 		c.AppendAligned(c.enrol, false, widget.AlignEnd)
 	}
 	async(k, func() fingerprintReading {

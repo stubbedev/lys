@@ -17,7 +17,6 @@ import (
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
 
-	"github.com/stubbedev/lys/settings/internal/locale"
 	"github.com/stubbedev/lys/settings/internal/wmconfig"
 )
 
@@ -48,13 +47,15 @@ func shownAndEnabled(w widget.Widget) bool {
 }
 
 func buttonPhase(b *widget.Button) sweepPhase {
-	classes := b.Classes()
+	role, ok := roleOf(b)
 	switch {
-	case slices.Contains(classes, "list-control-add"):
+	case !ok:
+		return phaseEdit
+	case role == roleAdd:
 		return phaseAdd
-	case slices.Contains(classes, "setting-reset"):
+	case role == roleReset:
 		return phaseReset
-	case b.TooltipText() == locale.T().Get("settings-list-remove"):
+	case role == roleRemove:
 		return phaseRemove
 	}
 	return phaseEdit

@@ -31,7 +31,9 @@ const (
 	Card = "card"
 	// Circular makes a button round.
 	Circular = "circular"
-	// DestructiveAction marks a button whose action loses data.
+	// DestructiveAction marks a button whose action loses data: a
+	// destructive fill, or on a Ghost button the destructive color on
+	// no fill.
 	DestructiveAction = "destructive-action"
 	// Destructive is the destructive variant of a non-button widget
 	// (a badge, an alert); buttons take DestructiveAction.
