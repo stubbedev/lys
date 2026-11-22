@@ -53,7 +53,7 @@ func barPage(*config.Config) pageSpec {
 			field("bar.dropdown-opacity", percentage),
 			dropdownSizeTable(),
 		}},
-	}, links: []pageLink{surfaceAnimationLink}}
+	}, animates: "animations.dropdown"}
 }
 
 // bordered is a border's location row and the rows styling it, shown
@@ -110,7 +110,7 @@ func notificationsPage(*config.Config) pageSpec {
 			field("modules.notifications.popup-margin-y", sizeBase(config.PopupMarginBaseRem)),
 			field("modules.notifications.popup-gap", sizeBase(config.PopupGapBaseRem)),
 		}},
-	}, links: []pageLink{{notificationBellID, "settings-module-link-bell-detail"}, surfaceAnimationLink}}
+	}, related: linksTo(pageLink{notificationBellID, "settings-module-link-bell-detail"}), animates: "animations.notifications"}
 }
 
 const notificationBellID = "notification-bell"
@@ -147,7 +147,7 @@ func osdPage(*config.Config) pageSpec {
 			field("osd.layer"),
 			field("osd.margin", sizeBase(config.OsdMarginBaseRem)),
 		}},
-	}, links: []pageLink{surfaceAnimationLink}}
+	}, animates: "animations.osd"}
 }
 
 // launcherPage is pages/launcher entry.
@@ -195,7 +195,7 @@ func launcherPage(*config.Config) pageSpec {
 			field("launcher.keybindings", launcherKeysRow),
 			field("launcher.mouse-bindings", launcherMouseRow),
 		}},
-	}, links: []pageLink{{"launcher-modes", "settings-launcher-link-modes"}, surfaceAnimationLink}}
+	}, related: linksTo(pageLink{"launcher-modes", "settings-launcher-link-modes"}), animates: "animations.launcher"}
 }
 
 // The launcher's sliders: the widths and line counts nearly every setup
@@ -292,7 +292,7 @@ func wallpaperPage(*config.Config) pageSpec {
 			),
 		}},
 		{title: "settings-section-display", rows: []rowSpec{field("wallpaper.monitors", monitorWallpaperRow, func(r *rowSpec) { r.fullWidth = true })}},
-	}, links: []pageLink{surfaceAnimationLink}}
+	}, animates: "animations.wallpaper"}
 }
 
 // dockRow is a dock row, in use only while the dock is shown.

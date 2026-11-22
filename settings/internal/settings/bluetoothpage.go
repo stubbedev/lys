@@ -585,8 +585,10 @@ func (p *bluetoothPanel) deviceControls(r btRow) []widget.Widget {
 	forget := act(roleDestructive, "settings-bluetooth-forget", btForgetting, btCallWait, p.ctl.forget)
 	if r.connected {
 		controls := []widget.Widget{rename, forget, act(roleSecondary, "settings-bluetooth-disconnect", btDisconnecting, btCallWait, p.ctl.disconnect)}
-		if r.audio {
-			sound := p.k.linkButton(t.Get("settings-bluetooth-sound"), func() { p.k.openPage(soundID) })
+		if !r.audio {
+			return controls
+		}
+		if sound, ok := p.k.pageButton(t.Get("settings-bluetooth-sound"), soundID); ok {
 			sound.SetTooltip(t.Get("settings-bluetooth-sound-tooltip"))
 			controls = append([]widget.Widget{sound}, controls...)
 		}

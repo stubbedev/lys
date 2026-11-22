@@ -131,12 +131,7 @@ func TestDeviceLikeModulePagesLinkToTheirDevicePages(t *testing.T) {
 		if !ok {
 			t.Fatalf("no %s page", module)
 		}
-		var opened []string
-		k.openPage = func(id string) { opened = append(opened, id) }
-		for _, b := range treetest.All[*widget.Button](linksSection(k, "settings-section-related", p.links)) {
-			b.OnClick()
-		}
-		if !slices.Equal(opened, want) {
+		if opened := relatedOpens(k, p.relatedGroups()); !slices.Equal(opened, want) {
 			t.Errorf("the %s page's links opened %q, want %q", module, opened, want)
 		}
 	}
@@ -149,8 +144,8 @@ func TestAModuleLinkToAPageNotInstalledIsLeftOut(t *testing.T) {
 	if !ok {
 		t.Fatal("no keyboard-input page")
 	}
-	if labels := treetest.Labels(linksSection(k, "settings-section-related", p.links)); len(labels) != 0 {
-		t.Errorf("without lys-wm the Keyboard Input page links to %q", labels)
+	if _, ok := relatedSection(k, p.relatedGroups()); ok {
+		t.Error("without lys-wm the Keyboard Input page still has related links")
 	}
 }
 
@@ -193,12 +188,11 @@ func TestThePrivacyPageLeadsToTheOnlineLyrics(t *testing.T) {
 	k.nav = layout(k.store.svc.Config(), bothParts)
 	var opened []string
 	k.openPage = func(id string) { opened = append(opened, id) }
-	footer := grantsFooter(k)
-	t.Cleanup(footer.(*grantsList).close)
-	for _, b := range treetest.All[*widget.Button](footer) {
-		if b.OnClick != nil {
-			b.OnClick()
-		}
+	spec, _ := pageByID(k.nav, "privacy")
+	page := buildPage(k, spec)
+	t.Cleanup(page.close)
+	for _, row := range treetest.All[*pageLinkRow](page) {
+		treetest.All[*widget.Button](row)[0].OnClick()
 	}
 	if !slices.Contains(opened, "media") {
 		t.Errorf("the Privacy page's links opened %q, not the Media page", opened)
@@ -324,7 +318,7 @@ func TestModulePagesWithNothingElsewhereHaveNoLinks(t *testing.T) {
 		if !ok {
 			t.Fatalf("no %s page", id)
 		}
-		if len(p.links) > 0 {
+		if len(relatedLinks(p)) > 0 {
 			t.Errorf("the %s page has related links", id)
 		}
 	}
@@ -359,8 +353,10 @@ func TestTheResourcePagesAndTheDashboardLinkToTheirOneThresholdSet(t *testing.T)
 		}
 		var opened []string
 		k.openPage = func(id string) { opened = append(opened, id) }
-		for _, b := range treetest.All[*widget.Button](linksSection(k, "settings-section-related", pageLinks(p))) {
-			b.OnClick()
+		for _, l := range pageLinks(p) {
+			if row, ok := k.pageLinkRow(l); ok {
+				treetest.All[*widget.Button](row)[0].OnClick()
+			}
 		}
 		if !slices.Contains(opened, thresholdsPageID) {
 			t.Errorf("the %s page's links opened %q, not the thresholds page", module, opened)
@@ -390,7 +386,7 @@ func TestTheResourcePagesAndTheDashboardLinkToTheirOneThresholdSet(t *testing.T)
 
 // pageLinks are every link a page shows, in its sections and after them.
 func pageLinks(p pageSpec) []pageLink {
-	links := slices.Clone(p.links)
+	links := relatedLinks(p)
 	for _, s := range p.sections {
 		links = append(links, s.links...)
 	}
@@ -410,7 +406,7 @@ func TestOnlyTheResourcePagesLinkToTheThresholds(t *testing.T) {
 	}
 	for _, id := range []string{"cpu", "ram", "storage", "battery"} {
 		p, _ := pageByID(pages, id)
-		if slices.Contains(p.links, thresholdsLink) {
+		if slices.Contains(relatedLinks(p), thresholdsLink) {
 			t.Errorf("the %s page links to the thresholds among its related pages, not in its Thresholds section", id)
 		}
 		i := slices.IndexFunc(p.sections, func(s sectionSpec) bool { return s.title == "settings-section-thresholds" })

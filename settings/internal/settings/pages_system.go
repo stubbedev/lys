@@ -88,7 +88,9 @@ func lockPage(*config.Config) pageSpec {
 				field("login.greeter.cursor-size", countChips(inPixels, 24, 32, 48, 64, 96), ownCursor),
 			}},
 		},
-		footer: lockFooter, links: []pageLink{surfaceAnimationLink}, extrasOnRows: true,
+		footer: func(k *kit) widget.Widget { return newGreeterFooter(k) }, extrasOnRows: true,
+		related:  []linkGroup{{title: "settings-lock-section-related", links: lockLinks}},
+		animates: "animations.lock",
 	}
 }
 
@@ -155,24 +157,6 @@ var lockLinks = []pageLink{
 	{usersID, "settings-lock-link-users-detail"},
 }
 
-func lockLinksSection(k *kit) widget.Widget {
-	return linksSection(k, "settings-lock-section-related", lockLinks)
-}
-
-type lockFooterBox struct {
-	*widget.Box
-	apply *greeterFooter
-}
-
-func (f *lockFooterBox) configChanged() { f.apply.refresh() }
-
-func lockFooter(k *kit) widget.Widget {
-	f := &lockFooterBox{Box: sectionStack(), apply: newGreeterFooter(k)}
-	f.Append(f.apply, false)
-	f.Append(lockLinksSection(k), false)
-	return f
-}
-
 type greeterFooter struct {
 	*widget.Box
 	k      *kit
@@ -192,17 +176,18 @@ func newGreeterFooter(k *kit) *greeterFooter {
 				log.Printf("settings: greeter apply: %v", err)
 			}
 			f.hint.SetText(greeterApplyOutcome(t, err))
-			f.refresh()
+			f.configChanged()
 		})
 	}
 	f.Append(f.status, false)
 	f.AppendAligned(k.primaryButton(t.Get(greeterApplyLabel), apply), false, widget.AlignStart)
 	f.Append(f.hint, false)
-	f.refresh()
+	f.configChanged()
 	return f
 }
 
-func (f *greeterFooter) refresh() {
+// configChanged says whether the login screen shows the config as it is.
+func (f *greeterFooter) configChanged() {
 	pending, err := greeterPendingChanges(f.k.store)
 	if err != nil {
 		log.Printf("settings: greeter status: %v", err)

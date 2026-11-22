@@ -64,13 +64,13 @@ func TestASurfacePageLinksToItsAnimationInsteadOfOwningIt(t *testing.T) {
 				}
 			}
 		}
-		if !slices.Contains(p.links, surfaceAnimationLink) {
+		if !slices.Contains(relatedLinks(p), surfaceAnimationLink) {
 			t.Errorf("the %s page does not link to its animation", id)
 		}
 	}
 	k := testKit(t, "")
 	k.nav = layout(config.Defaults(), parts{})
-	if labels := treetest.Labels(linksSection(k, "settings-section-related", []pageLink{surfaceAnimationLink})); len(labels) != 0 {
-		t.Errorf("without the Motion page the link still shows %q", labels)
+	if _, ok := relatedSection(k, linksTo(surfaceAnimationLink)); ok {
+		t.Error("without the Motion page the link still shows")
 	}
 }

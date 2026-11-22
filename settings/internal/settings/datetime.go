@@ -54,7 +54,7 @@ func dateTimePage(*config.Config) pageSpec {
 		sections: []sectionSpec{
 			{title: "settings-section-date-calendar", rows: []rowSpec{field("modules.clock.calendar-weekday-start", weekStartRow, weekFollowsRegion)}},
 		},
-		links: dateTimeLinks,
+		related: linksTo(dateTimeLinks...),
 		panel: []panelSetting{
 			{"date-time.automatic", "settings-date-ntp", "settings-section-date-system"},
 			{"date-time.manual", "settings-date-manual", "settings-section-date-system"},
@@ -119,8 +119,9 @@ var (
 func regionPage(*config.Config) pageSpec {
 	return pageSpec{
 		id: regionID, navKey: "settings-nav-region", icon: "ld-globe-symbolic",
-		header: "settings-page-region",
-		footer: regionFooter,
+		header:  "settings-page-region",
+		footer:  regionFooter,
+		related: linksTo(regionLinks...),
 		panel: []panelSetting{
 			{"region.lc-time", "settings-region-lc-time", "settings-section-region-formats"},
 			{"region.lc-numeric", "settings-region-lc-numeric", "settings-section-region-formats"},
@@ -824,7 +825,6 @@ func regionFooter(k *kit) widget.Widget {
 	content := sectionStack()
 	content.Append(newSection(k, "settings-section-region-formats", formats), false)
 	content.Append(newSection(k, "settings-section-region-system", p), false)
-	content.Append(linksSection(k, "settings-section-related", regionLinks), false)
 	return &closingBox{content, p.close}
 }
 

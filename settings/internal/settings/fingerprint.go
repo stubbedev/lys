@@ -479,8 +479,8 @@ func newFingerprintSwitch(k *kit, s slot) *fingerprintSwitch {
 	c := &fingerprintSwitch{Box: gapBox(widget.Column), toggle: newToggle(k, s), status: k.label("", css.Caption, css.DimLabel)}
 	c.AppendAligned(c.toggle, false, widget.AlignEnd)
 	c.AppendAligned(wrapped(c.status), false, widget.AlignEnd)
-	if users, ok := pageByID(k.nav, usersID); ok {
-		c.enrol = k.linkButton(locale.T().Get("settings-fingerprint-enrol"), func() { k.openPage(users.id) })
+	if enrol, ok := k.pageButton(locale.T().Get("settings-fingerprint-enrol"), usersID); ok {
+		c.enrol = enrol
 		c.AppendAligned(c.enrol, false, widget.AlignEnd)
 	}
 	async(k, func() fingerprintReading {

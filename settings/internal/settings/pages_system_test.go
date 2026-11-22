@@ -212,21 +212,17 @@ func TestGreeterApplyFooterStartsWithWhatApplyingChanges(t *testing.T) {
 func TestTheLockPageLinksToWhenItLocksAndTheFingerprints(t *testing.T) {
 	k := testKit(t, "")
 	k.nav = layout(k.store.svc.Config(), bothParts)
-	var opened []string
-	k.openPage = func(id string) { opened = append(opened, id) }
-	buttons := treetest.All[*widget.Button](lockLinksSection(k))
-	if len(buttons) != 2 {
-		t.Fatalf("%d links, want idle and users", len(buttons))
-	}
-	for _, b := range buttons {
-		b.OnClick()
-	}
-	if !slices.Equal(opened, []string{"idle", "users"}) {
+	related := lockPage(nil).relatedGroups()
+	if opened := relatedOpens(k, related); !slices.Equal(opened, []string{motionPageID, "idle", "users"}) {
 		t.Errorf("opened %q", opened)
 	}
+	section, _ := relatedSection(k, related)
+	if heads := treetest.Labels(treetest.WithClass(section, "settings-link-group")[0]); !slices.Equal(heads, []string{locale.T().Get("settings-lock-section-related")}) {
+		t.Errorf("idle and users are grouped under %q, want Locking and Unlocking", heads)
+	}
 	k.nav = nil
-	if labels := treetest.Labels(lockLinksSection(k)); len(labels) != 0 {
-		t.Errorf("without those pages the links read %q", labels)
+	if _, ok := relatedSection(k, related); ok {
+		t.Error("without those pages the page still has related links")
 	}
 }
 

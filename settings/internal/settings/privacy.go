@@ -58,8 +58,9 @@ func privacyPage(*config.Config) pageSpec {
 			{title: "settings-section-app-launchers", rows: []rowSpec{field("portal.dynamic-launcher.install-token-apps", stringList)}},
 			{title: "settings-section-clipboard", rows: fields("clipboard.persist", "clipboard.history-mib", "clipboard.pinned-mib")},
 		},
-		footer: grantsFooter,
-		links:  []pageLink{surfaceAnimationLink},
+		footer:   grantsFooter,
+		related:  linksTo(privacyLinks...),
+		animates: "animations.share-picker",
 	}
 }
 
@@ -147,7 +148,6 @@ func grantsFooter(k *kit) widget.Widget {
 	l.Append(l.inUse, false)
 	body := widget.NewItemGroup(k.row(t.Get("settings-privacy-view"), "").withControl(l.view), l.rows)
 	l.Append(newSection(k, "settings-section-app-permissions", body), false)
-	l.Append(relatedLinks(privacyLinks)(k), false)
 	dirs := desktopentry.ApplicationDirs()
 	async(k, func() installedApps { return scanInstalled(dirs) }, func(ix installedApps) {
 		l.installed = ix

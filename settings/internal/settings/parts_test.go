@@ -135,8 +135,8 @@ func TestNotificationsHoldDoNotDisturbAndTheBellItsOwnPage(t *testing.T) {
 		}
 	}
 	p, _ := pageByID(layout(config.Defaults(), bothParts), "notifications")
-	if !slices.ContainsFunc(p.links, func(l pageLink) bool { return l.page == notificationBellID }) {
-		t.Errorf("the notifications page links %v, not the bell's page", p.links)
+	if !slices.ContainsFunc(relatedLinks(p), func(l pageLink) bool { return l.page == notificationBellID }) {
+		t.Errorf("the notifications page links %v, not the bell's page", relatedLinks(p))
 	}
 	for _, gone := range []string{"focus", "notification"} {
 		if slices.Contains(pageIDs(bothParts), gone) {

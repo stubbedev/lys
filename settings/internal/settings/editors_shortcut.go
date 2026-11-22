@@ -401,6 +401,9 @@ type bindRecorders struct {
 	chords []*actionChord
 }
 
+// allShortcutsLink ends every list of shortcut recorders.
+var allShortcutsLink = pageLink{wmBindsID, "settings-shortcuts-all-detail"}
+
 func newBindRecorders(k *kit, binds slot, recorders []bindRecorder) *bindRecorders {
 	t := locale.T()
 	names := bindActionNames(k)
@@ -413,9 +416,8 @@ func newBindRecorders(k *kit, binds slot, recorders []bindRecorder) *bindRecorde
 		row.AddDetail(chord.clash)
 		rows.Append(row)
 	}
-	if target, ok := pageByID(k.nav, wmBindsID); ok {
-		link := k.iconButton("ld-chevron-right-symbolic", "settings-shortcuts-all", func() { k.openPage(target.id) })
-		rows.Append(k.row(t.Get("settings-shortcuts-all"), "").withControl(link))
+	if all, ok := k.pageLinkRow(allShortcutsLink); ok {
+		rows.Append(all)
 	}
 	b.Append(rows, false)
 	b.refresh()

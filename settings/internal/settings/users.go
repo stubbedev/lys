@@ -622,11 +622,11 @@ func (p *usersPanel) showAdmin(l otherUsersListing) {
 		state.Error(locale.T().Get("settings-users-others-unreadable"), l.err, p.loadAdmin)
 	}
 	for _, u := range l.users {
-		row := p.k.row(cmp.Or(u.real, u.name), u.identity())
-		if !u.self {
-			row.withControl(p.k.iconButton("ld-chevron-right-symbolic", "settings-users-edit", func() { p.openUserSheet(u) }))
+		if u.self {
+			rows.Append(p.k.row(cmp.Or(u.real, u.name), u.identity()))
+			continue
 		}
-		rows.Append(row)
+		rows.Append(p.k.chevronRow(cmp.Or(u.real, u.name), u.identity(), "settings-users-edit", func() { p.openUserSheet(u) }))
 	}
 	body.Append(rows, false)
 	p.others = l.users

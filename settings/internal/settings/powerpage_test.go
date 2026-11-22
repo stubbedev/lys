@@ -285,22 +285,17 @@ func TestBatteryTimesReadInHoursAndMinutes(t *testing.T) {
 func TestTheSleepAndLockLinksOpenTheirPagesWhenListed(t *testing.T) {
 	k := testKit(t, "")
 	k.nav = layout(k.store.svc.Config(), bothParts)
-	var opened []string
-	k.openPage = func(id string) { opened = append(opened, id) }
-	links := linksSection(k, "settings-power-section-sleep", powerLinks)
-	buttons := treetest.All[*widget.Button](links)
-	if len(buttons) != 2 {
-		t.Fatalf("%d links, want idle and lock", len(buttons))
-	}
-	for _, b := range buttons {
-		b.OnClick()
-	}
-	if !slices.Equal(opened, []string{"idle", "lock"}) {
+	related := powerBatteryPage(nil).relatedGroups()
+	if opened := relatedOpens(k, related); !slices.Equal(opened, []string{"idle", "lock"}) {
 		t.Errorf("opened %q", opened)
 	}
+	section, _ := relatedSection(k, related)
+	if heads := treetest.Labels(treetest.WithClass(section, "settings-link-group")[0]); !slices.Equal(heads, []string{locale.T().Get("settings-power-section-sleep")}) {
+		t.Errorf("the links are grouped under %q, want Sleep & Lock", heads)
+	}
 	k.nav = nil
-	if labels := treetest.Labels(linksSection(k, "settings-power-section-sleep", powerLinks)); len(labels) != 0 {
-		t.Errorf("without those pages the links read %q", labels)
+	if _, ok := relatedSection(k, related); ok {
+		t.Error("without those pages the page still has related links")
 	}
 }
 

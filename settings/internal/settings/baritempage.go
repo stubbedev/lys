@@ -63,7 +63,7 @@ func barItemPage(module config.BarModule, page pageSpec, parts barItemParts) pag
 	if s := barItemSection(module); len(s.rows) > 0 {
 		page.sections = append(page.sections, s)
 	}
-	page.links = relatedTo(module)
+	page.related = linksTo(relatedTo(module)...)
 	return asBarItemPage(page, func(m config.BarModule) bool { return m == module })
 }
 

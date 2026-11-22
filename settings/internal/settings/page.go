@@ -29,7 +29,13 @@ type pageSpec struct {
 	// footer, when set, builds what follows the sections (the greeter's
 	// apply button).
 	footer func(k *kit) widget.Widget
-	links  []pageLink
+	// related are the groups of pages the page's Related section, its
+	// last, links to; relatedGroups adds what the page derives.
+	related []linkGroup
+	// animates, when set, is the animated surface the page shows, as its
+	// animations path (animations.osd): the Motion page edits how it
+	// animates, which the page links to.
+	animates string
 	// panel names what the lead and footer build, for search and links.
 	panel []panelSetting
 	// wm says the rows are lys-wm's, not lys-shell's.
@@ -420,7 +426,7 @@ func buildPage(k *kit, spec pageSpec) *settingsPage {
 		}
 		linked := 0
 		for _, l := range s.links {
-			if row, ok := k.linkRow(l); ok {
+			if row, ok := k.pageLinkRow(l); ok {
 				rows.Append(row)
 				linked++
 			}
@@ -447,8 +453,8 @@ func buildPage(k *kit, spec pageSpec) *settingsPage {
 	if spec.footer != nil {
 		content.Append(p.own(p.extra(spec.footer(k))), false)
 	}
-	if len(spec.links) > 0 {
-		content.Append(linksSection(k, "settings-section-related", spec.links), false)
+	if related, ok := relatedSection(k, spec.relatedGroups()); ok {
+		content.Append(related, false)
 	}
 	p.Scroll = widget.NewScroll(k.pageColumn(content))
 	p.VerticalOnly, p.ShowBars, p.FillY = true, true, true

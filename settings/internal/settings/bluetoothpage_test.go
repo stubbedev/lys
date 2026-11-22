@@ -340,21 +340,31 @@ func TestAConnectedHeadsetOpensItsSoundSettings(t *testing.T) {
 	f.st.Devices[2].Icon, f.st.Devices[2].Connected = &mouseHint, true
 	k := testKit(t, "")
 	k.bluetooth = func() (btControl, error) { return f, nil }
+	k.nav = layout(k.store.svc.Config(), bothParts)
 	var opened []string
 	k.openPage = func(id string) { opened = append(opened, id) }
-	p := newBluetoothPanel(k)
 	label := locale.T().Get("settings-bluetooth-sound")
-	var buttons []*widget.Button
-	for _, b := range treetest.All[*widget.Button](p) {
-		if slices.Contains(treetest.Labels(b), label) {
-			buttons = append(buttons, b)
+	soundButtons := func() []*widget.Button {
+		var buttons []*widget.Button
+		for _, b := range treetest.All[*widget.Button](newBluetoothPanel(k)) {
+			if slices.Contains(treetest.Labels(b), label) {
+				buttons = append(buttons, b)
+			}
 		}
+		return buttons
 	}
+	buttons := soundButtons()
 	if len(buttons) != 1 {
 		t.Fatalf("%d Sound buttons, want one for the connected headset and none for the connected mouse or the speaker", len(buttons))
 	}
 	buttons[0].OnClick()
 	if !slices.Equal(opened, []string{soundID}) {
 		t.Errorf("the Sound button opened %q", opened)
+	}
+	k.nav = slices.DeleteFunc(k.nav, func(s navSection) bool {
+		return slices.ContainsFunc(s.pages, func(p pageSpec) bool { return p.id == soundID })
+	})
+	if buttons := soundButtons(); len(buttons) != 0 {
+		t.Errorf("without the Sound page the headset still offers %d Sound buttons", len(buttons))
 	}
 }

@@ -549,17 +549,13 @@ func TestTheWeekStartLivesOnDateAndTimeBesideAWorldClockLink(t *testing.T) {
 	}
 	k := testKit(t, "")
 	k.nav = layout(k.store.svc.Config(), bothParts)
-	var opened []string
-	k.openPage = func(id string) { opened = append(opened, id) }
-	for _, b := range treetest.All[*widget.Button](linksSection(k, "settings-section-related", dateTimeLinks)) {
-		b.OnClick()
-	}
-	if !slices.Equal(opened, []string{"world-clock"}) {
+	related := dateTimePage(nil).relatedGroups()
+	if opened := relatedOpens(k, related); !slices.Equal(opened, []string{"world-clock"}) {
 		t.Errorf("the related links opened %q", opened)
 	}
 	k.nav = nil
-	if labels := treetest.Labels(linksSection(k, "settings-section-related", dateTimeLinks)); len(labels) != 0 {
-		t.Errorf("without a World Clock page the links read %q", labels)
+	if _, ok := relatedSection(k, related); ok {
+		t.Error("without a World Clock page the page still has related links")
 	}
 }
 
@@ -612,17 +608,13 @@ func TestAHandEditedWeekStartGetsItsOwnCard(t *testing.T) {
 func TestTheRegionPageLinksToKeyboardLayoutsWhenLysWMIsThere(t *testing.T) {
 	k := testKit(t, "")
 	k.nav = layout(k.store.svc.Config(), bothParts)
-	var opened []string
-	k.openPage = func(id string) { opened = append(opened, id) }
-	for _, b := range treetest.All[*widget.Button](linksSection(k, "settings-section-related", regionLinks)) {
-		b.OnClick()
-	}
-	if !slices.Equal(opened, []string{"wm-keyboard"}) {
+	related := regionPage(nil).relatedGroups()
+	if opened := relatedOpens(k, related); !slices.Equal(opened, []string{"wm-keyboard"}) {
 		t.Errorf("the related links opened %q", opened)
 	}
 	k.nav = layout(k.store.svc.Config(), parts{shell: true})
-	if labels := treetest.Labels(linksSection(k, "settings-section-related", regionLinks)); len(labels) != 0 {
-		t.Errorf("without lys-wm the links read %q", labels)
+	if _, ok := relatedSection(k, related); ok {
+		t.Error("without lys-wm the page still has related links")
 	}
 }
 

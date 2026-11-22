@@ -173,7 +173,7 @@ func powerBatteryPage(*config.Config) pageSpec {
 				"modules.battery.notify-low", "modules.battery.notify-charged-at", "modules.power-profiles.auto-saver-at")},
 			{title: "settings-section-power-app-nap", rows: []rowSpec{appNapRow()}},
 		},
-		footer: func(k *kit) widget.Widget { return linksSection(k, "settings-power-section-sleep", powerLinks) },
+		related: []linkGroup{{title: "settings-power-section-sleep", links: powerLinks}},
 	}
 }
 
@@ -457,39 +457,6 @@ func (p *powerPanel) modeRows() widget.Widget {
 		box.Append(p.k.note(t.Get(key)), false)
 	}
 	return box
-}
-
-type pageLink struct{ page, detail string }
-
-func relatedLinks(links []pageLink) func(k *kit) widget.Widget {
-	return func(k *kit) widget.Widget { return linksSection(k, "settings-section-related", links) }
-}
-
-func linksSection(k *kit, title string, links []pageLink) widget.Widget {
-	box := gapBox(widget.Column)
-	rows := widget.NewItemGroup()
-	linked := false
-	for _, l := range links {
-		if row, ok := k.linkRow(l); ok {
-			rows.Append(row)
-			linked = true
-		}
-	}
-	if linked {
-		box.Append(newSection(k, title, rows), false)
-	}
-	return box
-}
-
-// linkRow is a row opening l's page, while the sidebar holds it.
-func (k *kit) linkRow(l pageLink) (widget.Widget, bool) {
-	target, ok := pageByID(k.nav, l.page)
-	if !ok {
-		return nil, false
-	}
-	t := locale.T()
-	open := k.iconButton("ld-chevron-right-symbolic", target.navKey, func() { k.openPage(target.id) })
-	return k.row(t.Get(target.navKey), t.Get(l.detail)).withControl(open), true
 }
 
 type batteryPresence struct {

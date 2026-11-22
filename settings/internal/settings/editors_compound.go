@@ -279,8 +279,6 @@ func sizeSlider(rem, loPx, hiPx float64) rowOpt {
 
 const motionPageID = "motion"
 
-var surfaceAnimationLink = pageLink{motionPageID, "settings-link-surface-animation"}
-
 func animationSurfaces() []string {
 	var surfaces []string
 	for _, p := range config.LeafPaths() {

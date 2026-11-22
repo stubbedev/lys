@@ -14,7 +14,6 @@ import (
 	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/keys"
-	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
 // shortcutPageBinds are lys-wm binds on the keys lys-wm's defaults use
@@ -275,12 +274,16 @@ func TestEveryLauncherDefaultKeyIsReadAndHasAKeycap(t *testing.T) {
 func TestTheWayToEveryShortcutEndsBothShortcutLists(t *testing.T) {
 	k, w, _, _ := wmKit(t, "")
 	k.nav = layout(k.store.svc.Config(), bothParts)
-	all := locale.T().Get("settings-shortcuts-all")
 	for _, row := range []rowSpec{launcherShortcutRow(), screenshotShortcutsRow()} {
 		b := fieldControl(k, w, row).(*bindRecorders)
 		rows := treetest.All[*settingRow](b)
-		if len(rows) != len(b.chords)+1 || rows[len(rows)-1].Title() != all {
-			t.Errorf("%s ends with %q among %d rows for %d recorders", row.key, rows[len(rows)-1].Title(), len(rows), len(b.chords))
+		links := treetest.All[*pageLinkRow](b)
+		if len(rows) != len(b.chords) || len(links) != 1 || links[0].page != wmBindsID {
+			t.Errorf("%s holds %d rows for %d recorders and the links %v, want one to every shortcut", row.key, len(rows), len(b.chords), links)
 		}
+	}
+	k.nav = layout(k.store.svc.Config(), parts{shell: true})
+	if links := treetest.All[*pageLinkRow](fieldControl(k, w, launcherShortcutRow())); len(links) != 0 {
+		t.Errorf("without the Keyboard Shortcuts page the recorders still link to it: %v", links)
 	}
 }
