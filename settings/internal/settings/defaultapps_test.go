@@ -2,8 +2,10 @@ package settings
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -37,26 +39,53 @@ func defaultAppsFixture(t *testing.T) (config string) {
 	return config
 }
 
-func dropdownNamed(t *testing.T, root widget.Widget, name string) *widget.Dropdown {
-	t.Helper()
-	for _, d := range treetest.All[*widget.Dropdown](root) {
-		if d.AccessibleName() == name {
-			return d
+func named[W widget.Widget](root widget.Widget, want string, name func(W) string) (W, bool) {
+	for _, w := range treetest.All[W](root) {
+		if name(w) == want {
+			return w, true
 		}
 	}
-	t.Fatalf("no dropdown %q", name)
-	return nil
+	var zero W
+	return zero, false
 }
 
-func tileNamed(t *testing.T, root widget.Widget, name string) *appTile {
+func mustNamed[W widget.Widget](t testing.TB, root widget.Widget, kind, want string, name func(W) string) W {
 	t.Helper()
-	for _, tile := range treetest.All[*appTile](root) {
-		if tile.button.AccessibleName() == name {
-			return tile
-		}
+	w, ok := named(root, want, name)
+	if !ok {
+		t.Fatalf("no %s %q", kind, want)
 	}
-	t.Fatalf("no app tile %q", name)
-	return nil
+	return w
+}
+
+func dropdownName(d *widget.Dropdown) string { return d.AccessibleName() }
+
+func tileName(tile *appTile) string { return tile.button.AccessibleName() }
+
+func buttonName(b *widget.Button) string { return b.AccessibleName() }
+
+func dropdownNamed(t testing.TB, root widget.Widget, name string) *widget.Dropdown {
+	t.Helper()
+	return mustNamed(t, root, "dropdown", name, dropdownName)
+}
+
+func tileNamed(t testing.TB, root widget.Widget, name string) *appTile {
+	t.Helper()
+	return mustNamed(t, root, "app tile", name, tileName)
+}
+
+func defaultResetName(title string) string {
+	return locale.T().Get("settings-default-reset-named", i18n.Str("name", title))
+}
+
+func hasDefaultResetButton(root widget.Widget, title string) bool {
+	_, ok := named(root, defaultResetName(title), buttonName)
+	return ok
+}
+
+func defaultResetButton(t testing.TB, root widget.Widget, title string) *widget.Button {
+	t.Helper()
+	return mustNamed(t, root, "reset button", defaultResetName(title), buttonName)
 }
 
 func pickFromTile(t *testing.T, w *window, f *fakePickers, title, app string) []string {
@@ -156,7 +185,7 @@ func TestTheTerminalIsATileWritingTheLaunchersTerminal(t *testing.T) {
 	if got := tileNamed(t, w.page, terminal).app.Text(); got != tr.Get("settings-default-terminal-auto") {
 		t.Fatalf("an unset terminal reads %q", got)
 	}
-	if defaultResetButton(w.page, terminal) != nil {
+	if hasDefaultResetButton(w.page, terminal) {
 		t.Fatal("the automatic terminal offers a reset")
 	}
 	if offered := pickFromTile(t, w, f, terminal, "Foot"); !slices.Equal(offered, []string{"Foot"}) {
@@ -168,7 +197,7 @@ func TestTheTerminalIsATileWritingTheLaunchersTerminal(t *testing.T) {
 	if got := tileNamed(t, w.page, terminal).app.Text(); got != "Foot" {
 		t.Fatalf("after the pick the terminal reads %q", got)
 	}
-	defaultResetButton(w.page, terminal).OnClick()
+	defaultResetButton(t, w.page, terminal).OnClick()
 	if v := w.k.store.value(terminalPath); v != "" {
 		t.Fatalf("resetting the terminal left %v", v)
 	}
@@ -183,16 +212,6 @@ func TestTheTerminalIsATileWritingTheLaunchersTerminal(t *testing.T) {
 	if got := tileNamed(t, other.page, terminal).app.Text(); got != "wezterm" {
 		t.Errorf("a terminal no app declares reads %q, want its command", got)
 	}
-}
-
-func defaultResetButton(root widget.Widget, title string) *widget.Button {
-	name := locale.T().Get("settings-default-reset-named", i18n.Str("name", title))
-	for _, b := range treetest.All[*widget.Button](root) {
-		if b.AccessibleName() == name {
-			return b
-		}
-	}
-	return nil
 }
 
 func defaultAppsWindow(t *testing.T, config string) (*window, *fakePickers) {
@@ -210,19 +229,15 @@ func defaultAppsWindow(t *testing.T, config string) (*window, *fakePickers) {
 func TestResetGivesACategoryBackToTheSystemDefault(t *testing.T) {
 	config := defaultAppsFixture(t)
 	w, _ := defaultAppsWindow(t, "")
-	if defaultResetButton(w.page, "PDF documents") != nil {
+	if hasDefaultResetButton(w.page, "PDF documents") {
 		t.Fatal("a category the user never chose for offers a reset")
 	}
-	web := defaultResetButton(w.page, "Web browser")
-	if web == nil {
-		t.Fatal("the web browser the user chose offers no reset")
-	}
-	web.OnClick()
+	defaultResetButton(t, w.page, "Web browser").OnClick()
 	got := fileText(t, filepath.Join(config, "mimeapps.list"))
 	if strings.Contains(got, "x-scheme-handler/https") || !strings.Contains(got, "image/png=chromium.desktop;") {
 		t.Fatalf("after the reset the user's list reads %q", got)
 	}
-	if defaultResetButton(w.page, "Web browser") != nil {
+	if hasDefaultResetButton(w.page, "Web browser") {
 		t.Error("the reset category still offers a reset")
 	}
 	if got := tileNamed(t, w.page, "Web browser").app.Text(); got != "Chromium" {
@@ -236,11 +251,11 @@ func TestAResetThatFailsIsSaid(t *testing.T) {
 	resetAssociations = func([]string) error { return errors.New("the list is read-only") }
 	t.Cleanup(func() { resetAssociations = before })
 	w, _ := defaultAppsWindow(t, "")
-	defaultResetButton(w.page, "Web browser").OnClick()
+	defaultResetButton(t, w.page, "Web browser").OnClick()
 	if labels := strings.Join(treetest.Labels(w.page), "|"); !strings.Contains(labels, "the list is read-only") {
 		t.Fatalf("a failed reset left the page reading %q", labels)
 	}
-	if defaultResetButton(w.page, "Web browser") == nil {
+	if !hasDefaultResetButton(w.page, "Web browser") {
 		t.Error("a failed reset took the reset away")
 	}
 }
@@ -252,7 +267,7 @@ func TestAMalformedUserListIsSaidAndOffersNoReset(t *testing.T) {
 	if labels := strings.Join(treetest.Labels(w.page), "|"); !strings.Contains(labels, "mimeapps.list") {
 		t.Fatalf("a malformed list left the page reading %q", labels)
 	}
-	if defaultResetButton(w.page, "Web browser") != nil {
+	if hasDefaultResetButton(w.page, "Web browser") {
 		t.Error("a malformed list offers a reset")
 	}
 }
@@ -267,5 +282,53 @@ func TestAFileTypeReadsAsItsDescription(t *testing.T) {
 	}
 	if got := ix.names["image/png"]; got != "image/png" {
 		t.Errorf("an undescribed type reads %q, want its own name", got)
+	}
+}
+
+type fatalRecorder struct {
+	testing.TB
+	fatal string
+}
+
+func (r *fatalRecorder) Helper() {}
+
+func (r *fatalRecorder) Fatalf(format string, args ...any) {
+	r.fatal = fmt.Sprintf(format, args...)
+	runtime.Goexit()
+}
+
+func fatalOf(t *testing.T, look func(testing.TB)) (fatal string, panicked any) {
+	t.Helper()
+	r := &fatalRecorder{TB: t}
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		defer func() { panicked = recover() }()
+		look(r)
+	}()
+	<-done
+	return r.fatal, panicked
+}
+
+func TestALookupThatMissesFailsNamingWhatIsMissing(t *testing.T) {
+	defaultAppsFixture(t)
+	w, _ := defaultAppsWindow(t, "")
+	for _, c := range []struct {
+		want string
+		look func(testing.TB)
+	}{
+		{`no app tile "Fax"`, func(tb testing.TB) { tileNamed(tb, w.page, "Fax").button.OnClick() }},
+		{`no dropdown "Fax"`, func(tb testing.TB) { dropdownNamed(tb, w.page, "Fax").SetSelected(0) }},
+		{fmt.Sprintf("no reset button %q", defaultResetName("PDF documents")), func(tb testing.TB) { defaultResetButton(tb, w.page, "PDF documents").OnClick() }},
+		{"", func(tb testing.TB) { tileNamed(tb, w.page, "Web browser") }},
+		{"", func(tb testing.TB) { defaultResetButton(tb, w.page, "Web browser") }},
+	} {
+		fatal, panicked := fatalOf(t, c.look)
+		if panicked != nil {
+			t.Errorf("a lookup panicked with %v, want the failure %q", panicked, c.want)
+		}
+		if fatal != c.want {
+			t.Errorf("a lookup failed with %q, want %q", fatal, c.want)
+		}
 	}
 }
