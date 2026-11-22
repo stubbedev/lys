@@ -387,3 +387,59 @@ func TestShiftTabAcceleratorsMatchISOLeftTab(t *testing.T) {
 		t.Errorf("ctrl+shift+Tab delivered as ISO_Left_Tab fired %d times", fired)
 	}
 }
+
+func TestISOLeftTabIsShiftTab(t *testing.T) {
+	parse := func(s string) Accel {
+		t.Helper()
+		a, err := ParseAccel(s)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return a
+	}
+	shiftTab := Accel{Sym: xkb.KeyTab, Mods: wlsession.ModShift}
+	ctrlShiftTab := Accel{Sym: xkb.KeyTab, Mods: wlsession.ModCtrl | wlsession.ModShift}
+	for in, want := range map[string]Accel{
+		"ISO_Left_Tab":         shiftTab,
+		"Shift+ISO_Left_Tab":   shiftTab,
+		"Shift+Tab":            shiftTab,
+		"Control+ISO_Left_Tab": ctrlShiftTab,
+		"Ctrl+Shift+Tab":       ctrlShiftTab,
+	} {
+		if got := parse(in); got != want {
+			t.Errorf("ParseAccel(%q) = %v, want %v", in, got, want)
+		}
+	}
+	if got := parse("ISO_Left_Tab").String(); got != "Shift+Tab" {
+		t.Errorf("ISO_Left_Tab label = %q, want Shift+Tab", got)
+	}
+	if parse("Tab") == shiftTab || parse("Control+Tab") == ctrlShiftTab {
+		t.Error("Tab without Shift parsed as Shift+Tab")
+	}
+
+	tr := &fakeTranslator{syms: map[uint32]xkb.Keysym{15: xkb.KeyISOLeftTab}}
+	for _, mods := range []wlsession.Mods{wlsession.ModShift, wlsession.ModCtrl | wlsession.ModShift} {
+		var seen Accel
+		captureKey(tr, func(a Accel) bool { seen = a; return true }, 15, mods)
+		if want := (Accel{Sym: xkb.KeyTab, Mods: mods}); seen != want {
+			t.Errorf("xkb ISO_Left_Tab with %v captured as %v, want %v", mods, seen, want)
+		}
+	}
+}
+
+func TestISOLeftTabAcceleratorFiresOnShiftTabOnly(t *testing.T) {
+	a := accelApp()
+	back, forward := 0, 0
+	if err := a.AddAccel("ISO_Left_Tab", widget.NewAction("back", func() { back++ })); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.AddAccel("Tab", widget.NewAction("forward", func() { forward++ })); err != nil {
+		t.Fatalf("Tab conflicts with ISO_Left_Tab: %v", err)
+	}
+	if !a.accels.fire(nil, xkb.KeyISOLeftTab, wlsession.ModShift) || back != 1 || forward != 0 {
+		t.Errorf("Shift+Tab fired back %d, forward %d; want 1, 0", back, forward)
+	}
+	if !a.accels.fire(nil, xkb.KeyTab, 0) || back != 1 || forward != 1 {
+		t.Errorf("Tab fired back %d, forward %d; want 1, 1", back, forward)
+	}
+}

@@ -30,7 +30,7 @@ type Accel struct {
 // Modifiers (case-insensitive) are ctrl/control, shift, alt/mod1, and
 // super/mod4/logo; any other modifier name is an error. Key names are XKB keysym names ("p", "Return", "Escape",
 // "F5", "space") plus the aliases esc, enter, del, bksp, ins, pgup,
-// and pgdn. widget.Menu paints Accel labels from the same strings, so
+// and pgdn; ISO_Left_Tab names Shift+Tab. widget.Menu paints Accel labels from the same strings, so
 // Accel.String output feeds a menu item unchanged.
 func ParseAccel(s string) (Accel, error) {
 	mods, key, err := parseAccelMods(s)
@@ -41,7 +41,17 @@ func ParseAccel(s string) (Accel, error) {
 	if err != nil {
 		return Accel{}, err
 	}
-	return Accel{Sym: sym, Mods: mods}, nil
+	return newAccel(sym, mods), nil
+}
+
+// newAccel is the accelerator a keysym with mods held names, parsed or
+// pressed alike: letters fold to lowercase, and ISO_Left_Tab, the
+// keysym xkb gives Tab while Shift is held, is Shift+Tab.
+func newAccel(sym xkb.Keysym, mods wlsession.Mods) Accel {
+	if sym == xkb.KeyISOLeftTab {
+		mods |= wlsession.ModShift
+	}
+	return Accel{Sym: normalizeSym(sym), Mods: mods}
 }
 
 // String renders the canonical menu-label form: "Ctrl+Shift+P",
@@ -110,7 +120,7 @@ var accelKeyAliases = map[string]string{
 	"pgdn":  "Next",
 }
 
-// accelSym resolves a key name to its normalized keysym.
+// accelSym resolves a key name to its keysym.
 func accelSym(name string) (xkb.Keysym, error) {
 	n := strings.ToLower(strings.TrimSpace(name))
 	if alias, ok := accelKeyAliases[n]; ok {
@@ -120,12 +130,13 @@ func accelSym(name string) (xkb.Keysym, error) {
 	if sym == xkb.KeyNoSymbol {
 		return 0, fmt.Errorf("app: accel: unknown key %q", name)
 	}
-	return normalizeSym(sym), nil
+	return sym, nil
 }
 
 // normalizeSym folds uppercase ASCII letter keysyms onto their
 // lowercase letter, so a binding names the same key whether the user
-// wrote "p", "P", or pressed it with shift held.
+// wrote "p", "P", or pressed it with shift held, and ISO_Left_Tab onto
+// the Tab key it is shifted from.
 func normalizeSym(sym xkb.Keysym) xkb.Keysym {
 	if sym >= 0x41 && sym <= 0x5a {
 		return sym + 0x20
@@ -303,7 +314,7 @@ func (t *accelTable) fire(router *widget.Router, sym xkb.Keysym, mods wlsession.
 	if router != nil {
 		focus = router.Focused()
 	}
-	key := Accel{Sym: normalizeSym(sym), Mods: mods}
+	key := newAccel(sym, mods)
 	chord := append(slices.Clone(t.pending), key)
 	t.pending = nil
 	if t.step(chord, focus) {

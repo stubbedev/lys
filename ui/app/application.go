@@ -1406,7 +1406,7 @@ func captureKey(sess keyTranslator, capture func(Accel) bool, keycode uint32, mo
 	if capture == nil {
 		return false
 	}
-	return capture(Accel{Sym: normalizeSym(sess.KeySym(keycode)), Mods: mods &^ wlsession.ModCapsLock})
+	return capture(newAccel(sess.KeySym(keycode), mods&^wlsession.ModCapsLock))
 }
 
 // imeEvent applies one input-method batch into the focused widget of

@@ -741,6 +741,69 @@ func TestSuperKeyBindingsParse(t *testing.T) {
 	}
 }
 
+func TestShiftTabStepsBackwardsAndTabForwards(t *testing.T) {
+	h := newHarness(t)
+	h.open(dmenu(), false, "a", "b", "c")
+	h.until("the rows", func() bool { return h.s.model.len() == 3 })
+	for _, step := range []struct {
+		key  string
+		want int
+	}{{"Tab", 1}, {"Tab", 2}, {"Shift+Tab", 1}, {"ISO_Left_Tab", 0}, {"Tab", 1}} {
+		if !h.key(step.key) {
+			t.Fatalf("%s is unbound", step.key)
+		}
+		if h.s.sel != step.want {
+			t.Fatalf("after %s selected %d, want %d", step.key, h.s.sel, step.want)
+		}
+	}
+}
+
+func TestControlShiftTabSwitchesModeBackwardsAndControlTabForwards(t *testing.T) {
+	h := newHarness(t)
+	h.open(launcheripc.SessionOptions{Modes: []string{"one:true", "two:true", "three:true"}}, false)
+	h.until("the first mode", func() bool { return h.s.cur != nil && h.s.cur.modeName == "one" })
+	for _, step := range []struct{ key, want string }{
+		{"Control+Shift+Tab", "three"},
+		{"Control+Shift+Tab", "two"},
+		{"Control+Tab", "three"},
+		{"Control+Tab", "one"},
+	} {
+		if !h.key(step.key) {
+			t.Fatalf("%s is unbound", step.key)
+		}
+		h.until(step.key+" to reach mode "+step.want, func() bool { return h.s.cur.modeName == step.want })
+	}
+}
+
+func TestDefaultKeybindingsBindEveryChordOnce(t *testing.T) {
+	seen := map[app.Accel]string{}
+	for _, b := range config.LauncherDefaultKeybindings {
+		for spec := range strings.SplitSeq(b.Keys, ",") {
+			accel, err := app.ParseAccel(spec)
+			if err != nil {
+				t.Fatalf("%s default %q: %v", b.Action, spec, err)
+			}
+			if other, dup := seen[accel]; dup {
+				t.Errorf("%s default %q is %s, already bound to %s", b.Action, spec, accel, other)
+			}
+			seen[accel] = b.Action
+		}
+	}
+	table := compileKeys(config.LauncherDefaultKeybindings)
+	for spec, want := range map[string]keyAction{
+		"Tab": keyRowDown, "Shift+Tab": keyRowUp,
+		"Control+Tab": keyModeNext, "Control+Shift+Tab": keyModePrevious,
+	} {
+		press, err := app.ParseAccel(spec)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if b, ok := lookupKey(table, press); !ok || b.action != want {
+			t.Errorf("%s finds %v (bound %v), want %v", spec, b.action, ok, want)
+		}
+	}
+}
+
 // Markup that does not parse shows literally, not as an empty line.
 // The message line and markup rows shape their styled runs with the
 // font's variants; a plain row asks for none.
