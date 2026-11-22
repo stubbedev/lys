@@ -391,7 +391,7 @@ func newRuleEffects(k *kit, parts ruleParts, fields map[string][]cardField, bool
 			openChoicePicker(k, r.add, r.offered(), r.addEffect)
 		}
 	})
-	r.Append(widget.NewItemGroup(r.state), false)
+	r.Append(r.state.lone(), false)
 	r.Append(r.body, false)
 	r.AppendAligned(r.add, false, widget.AlignStart)
 	r.rebuild()

@@ -51,7 +51,7 @@ func newMonitorSet(k *kit, s slot) *monitorSet {
 	c.away = widget.NewItemGroup()
 	c.Append(widget.NewItemGroup(k.keyRow("settings-monitors-all").withControl(c.all)), false)
 	c.Append(c.picker, false)
-	c.Append(widget.NewItemGroup(c.state), false)
+	c.Append(c.state.lone(), false)
 	c.Append(c.away, false)
 	c.feed = watchTiles(k, c.showTiles)
 	c.refresh()

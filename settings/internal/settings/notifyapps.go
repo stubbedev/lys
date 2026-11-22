@@ -80,7 +80,7 @@ func newNotifyApps(k *kit, slots []slot) *notifyApps {
 	controls := gapBox(widget.Row)
 	controls.AppendAligned(c.add, false, widget.AlignCenter)
 	controls.AppendAligned(c.pattern, true, widget.AlignCenter)
-	c.Append(widget.NewItemGroup(c.state), false)
+	c.Append(c.state.lone(), false)
 	c.Append(c.list, false)
 	c.Append(controls, false)
 	dirs := desktopentry.ApplicationDirs()

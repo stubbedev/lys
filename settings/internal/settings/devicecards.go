@@ -100,7 +100,7 @@ func newDeviceCards(k *kit, kind deviceKind) *deviceCards {
 	c.AddClass("card-form-editor")
 	c.state = k.cardState()
 	c.list = gapBox(widget.Column)
-	c.Append(widget.NewItemGroup(c.state), false)
+	c.Append(c.state.lone(), false)
 	c.Append(c.list, false)
 	c.reload = k.reloadButton("wm-devices-reload", c.load)
 	c.AppendAligned(c.reload, false, widget.AlignStart)

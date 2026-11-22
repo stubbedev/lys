@@ -408,3 +408,28 @@ func TestARawErrorIsToldFromTheAppsSentences(t *testing.T) {
 		}
 	}
 }
+
+// A state alone in its item group takes the group with it: a cleared
+// state leaves no empty group, and its gap, above the card's content.
+func TestALoneStateShowsItsGroupOnlyWhileItShows(t *testing.T) {
+	k := testKit(t, "")
+	s := k.cardState()
+	content := k.label("content")
+	body := gapBox(widget.Column)
+	body.Append(s.lone(), false)
+	body.Append(content, false)
+	body.Arrange(render.Rect{W: 600, H: 400})
+	if content.Bounds().Y != 0 {
+		t.Fatalf("a cleared state leaves the content at y %d, want 0", content.Bounds().Y)
+	}
+	s.Empty("ld-monitor-symbolic", "nothing")
+	body.Arrange(render.Rect{W: 600, H: 400})
+	if content.Bounds().Y == 0 {
+		t.Fatal("an empty state took no room above the content")
+	}
+	s.Clear()
+	body.Arrange(render.Rect{W: 600, H: 400})
+	if content.Bounds().Y != 0 {
+		t.Fatalf("the cleared state left the content at y %d, want 0", content.Bounds().Y)
+	}
+}

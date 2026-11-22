@@ -272,7 +272,7 @@ type streamList struct {
 func newStreamList(p *soundPanel, kind streamKind) *streamList {
 	l := &streamList{p: p, kind: kind, body: gapBox(widget.Column), group: widget.NewItemGroup(), rows: map[pulse.StreamKey]*appRow{}}
 	l.state = p.k.cardState()
-	l.body.Append(widget.NewItemGroup(l.state), false)
+	l.body.Append(l.state.lone(), false)
 	l.body.Append(l.group, false)
 	return l
 }
@@ -353,7 +353,7 @@ func newDeviceControls(p *soundPanel, kind pulse.DeviceType) *deviceControls {
 		c.noneIcon, c.noneKey = playbackStreams.emptyIcon, "settings-sound-no-output"
 	}
 	c.rows.SetVisible(false)
-	c.body.Append(widget.NewItemGroup(c.state), false)
+	c.body.Append(c.state.lone(), false)
 	c.body.Append(c.rows, false)
 	c.devices = widget.NewDropdown(k.face, k.textPx(), nil, 0)
 	c.devices.SetAccessibleName(t.Get(deviceKey))

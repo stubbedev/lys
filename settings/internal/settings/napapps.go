@@ -43,7 +43,7 @@ func newNapApps(k *kit, s slot) *napApps {
 	c.list = gapBox(widget.Column)
 	c.state = k.cardState()
 	c.add = k.addButton("settings-app-nap-add", c.pickApp)
-	c.Append(widget.NewItemGroup(c.state), false)
+	c.Append(c.state.lone(), false)
 	c.Append(c.list, false)
 	c.Append(c.add, false)
 	dirs := desktopentry.ApplicationDirs()

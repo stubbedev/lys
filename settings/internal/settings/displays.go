@@ -135,7 +135,7 @@ func displaysLead(k *kit) widget.Widget {
 	actions.Append(widget.NewBox(widget.Row, 0, 0), true)
 	actions.Append(p.apply, false)
 	arrangement := gapBox(widget.Column)
-	arrangement.Append(widget.NewItemGroup(p.state), false)
+	arrangement.Append(p.state.lone(), false)
 	arrangement.Append(p.canvas, false)
 	p.offTray = gapBox(widget.Row)
 	p.offTray.AddClass("displays-off-tray")

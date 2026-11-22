@@ -51,6 +51,8 @@ type cardState struct {
 	// onRetry is the shown failure's retry, nil while the retry button
 	// is hidden.
 	onRetry func()
+	// group is the item group lone made, shown only while the state is.
+	group *widget.ItemGroup
 }
 
 // cardState is a state row showing nothing until it is switched.
@@ -102,6 +104,9 @@ func errText(err error) string {
 func (s *cardState) show(kind cardStateKind, icon, summary, detail string, retry func()) {
 	s.kind = kind
 	s.SetVisible(kind != stateNone)
+	if s.group != nil {
+		s.group.SetVisible(kind != stateNone)
+	}
 	s.SetTitle(summary)
 	s.spinner.SetSpinning(kind == stateLoading)
 	switch {
@@ -118,6 +123,15 @@ func (s *cardState) show(kind cardStateKind, icon, summary, detail string, retry
 	s.reveal.setOpen(false)
 	s.onRetry = retry
 	s.retry.SetVisible(retry != nil)
+}
+
+// lone is the state in an item group of its own, for a card whose other
+// content is in no group with it: the group shows only while the state
+// does, so a cleared state leaves no gap above the content.
+func (s *cardState) lone() *widget.ItemGroup {
+	s.group = widget.NewItemGroup(s)
+	s.group.SetVisible(s.kind != stateNone)
+	return s.group
 }
 
 // runRetry runs the shown failure's retry; the hidden button runs none.
@@ -137,7 +151,7 @@ type stateBox struct {
 
 func (k *kit) stateBox() *stateBox {
 	b := &stateBox{Box: gapBox(widget.Column), state: k.cardState(), content: gapBox(widget.Column)}
-	b.Append(widget.NewItemGroup(b.state), false)
+	b.Append(b.state.lone(), false)
 	b.Append(b.content, false)
 	return b
 }

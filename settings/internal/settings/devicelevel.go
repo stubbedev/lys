@@ -34,7 +34,7 @@ func newDeviceLevel(k *kit) *deviceLevel {
 	d.meter.SetAccessibleName(t.Get("settings-device-level"))
 	d.meter.SetTooltip(t.Get("settings-device-level"))
 	d.Append(d.meter, false)
-	d.Append(widget.NewItemGroup(d.state), false)
+	d.Append(d.state.lone(), false)
 	async(k, func() soundConnection {
 		ctx, cancel := context.WithTimeout(context.Background(), soundTimeout)
 		defer cancel()

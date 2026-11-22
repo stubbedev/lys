@@ -218,7 +218,7 @@ func newAppShortcutsEditor(k *kit, binds slot) *appShortcutsEditor {
 	e := &appShortcutsEditor{Box: gapBox(widget.Column), k: k, binds: binds, names: bindActionNames(k)}
 	e.list = gapBox(widget.Column)
 	e.state = k.cardState()
-	e.Append(widget.NewItemGroup(e.state), false)
+	e.Append(e.state.lone(), false)
 	e.Append(e.list, false)
 	e.reload = k.reloadButton("wm-app-shortcuts-reload", e.load)
 	e.reload.SetHAlign(widget.AlignStart)

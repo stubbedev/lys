@@ -159,7 +159,7 @@ func newSysPanel(k *kit, name string, path dbus.ObjectPath, icon string) *sysPan
 	p.body = gapBox(widget.Column)
 	p.state.Loading(locale.T().Get("settings-sys-reading", i18n.Str("service", name)))
 	p.Append(p.problem, false)
-	p.Append(widget.NewItemGroup(p.state), false)
+	p.Append(p.state.lone(), false)
 	p.Append(p.body, false)
 	return p
 }
@@ -696,7 +696,7 @@ func regionFormats(k *kit, lang func() string) (widget.Widget, func()) {
 	conf, err := localeConfPath(systemHost)
 	if err != nil {
 		state.Unavailable("ld-globe-symbolic", t.Get("settings-region-formats-unreadable"), err)
-		return widget.NewItemGroup(state), func() {}
+		return state.lone(), func() {}
 	}
 	preview := k.note("")
 	units := k.note("")

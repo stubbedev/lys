@@ -116,7 +116,7 @@ func newLauncherModeList(k *kit, modes, names slot) *launcherModeList {
 	c.state = k.cardState()
 	pane.Append(c.title, false)
 	pane.Append(nameRow, false)
-	pane.Append(widget.NewItemGroup(c.state), false)
+	pane.Append(c.state.lone(), false)
 	for _, o := range launcherModeOptions {
 		group := make([]*fieldRow, len(o.rows))
 		for i, rs := range o.rows {
