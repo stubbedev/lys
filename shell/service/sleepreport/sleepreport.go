@@ -91,24 +91,41 @@ const callTimeout = 5 * time.Second
 // Announce tells of each new sleep that drained the battery until ctx
 // ends.
 func Announce(ctx context.Context, m *Monitor, n Notifier) {
-	ticks, stop := m.Subscribe()
-	defer stop()
-	var seen Seen
+	announcing(m).run(ctx, n)
+}
+
+// announcer is Announce once it subscribed and marked the reports it
+// started on as seen.
+type announcer struct {
+	m     *Monitor
+	ticks <-chan struct{}
+	stop  func()
+	seen  Seen
+}
+
+func announcing(m *Monitor) *announcer {
+	a := &announcer{m: m}
+	a.ticks, a.stop = m.Subscribe()
 	if reports, running := m.Value(); running {
-		seen, _, _ = seen.Step(reports)
+		a.seen, _, _ = a.seen.Step(reports)
 	}
+	return a
+}
+
+func (a *announcer) run(ctx context.Context, n Notifier) {
+	defer a.stop()
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-ticks:
+		case <-a.ticks:
 		}
-		reports, running := m.Value()
+		reports, running := a.m.Value()
 		if !running {
 			continue
 		}
-		next, r, tell := seen.Step(reports)
-		seen = next
+		next, r, tell := a.seen.Step(reports)
+		a.seen = next
 		if !tell {
 			continue
 		}

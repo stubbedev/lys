@@ -69,11 +69,12 @@ func start(t *testing.T, initial []sleep.Report) (*rig, *sleepreport.Monitor) {
 		}
 	})
 	waittest.Until(t, func() bool { _, running := m.Value(); return running }, "the first reports")
+	announce := sleepreport.Announcing(m)
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		sleepreport.Announce(ctx, m, r.n)
+		announce(ctx, r.n)
 	}()
 	t.Cleanup(func() {
 		cancel()
