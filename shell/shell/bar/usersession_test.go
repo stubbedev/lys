@@ -140,6 +140,9 @@ func TestUserSessionAvatarTakesTheFaceAsItsBackground(t *testing.T) {
 	if !strings.Contains(avatar.InlineStyle(), `url('`+face+`')`) {
 		t.Errorf("the tile carries %q, want the face's url", avatar.InlineStyle())
 	}
+	if kids := avatar.Children(); len(kids) != 0 {
+		t.Errorf("the face tile holds %v, want nothing drawn over the face", kids)
+	}
 
 	// No face file, no background image: the glyph shows.
 	os.Remove(face)
@@ -147,6 +150,9 @@ func TestUserSessionAvatarTakesTheFaceAsItsBackground(t *testing.T) {
 	_, avatar, _ = sessionCardTree(t, userSessionSection(ctx))
 	if avatar.InlineStyle() != "" {
 		t.Errorf("without a face the tile carries %q", avatar.InlineStyle())
+	}
+	if kids := avatar.Children(); len(kids) != 1 {
+		t.Errorf("without a face the tile holds %d children, want the glyph", len(kids))
 	}
 }
 

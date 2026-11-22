@@ -6,6 +6,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/shell/apptheme"
+	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/desktop/useraccount"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
@@ -39,14 +40,14 @@ var currentAccount = useraccount.Current
 
 // setAvatar paints the account's face (the AccountsService icon, else
 // ~/.face), looked up afresh, onto the tile as its background image,
-// cover-fit inside the rounded box. The tile shows the user glyph
-// when the file is absent.
-func setAvatar(tile *widget.Box, acct useraccount.Account) {
+// cover-fit inside the rounded box, reporting whether it found one.
+func setAvatar(tile *widget.Box, acct useraccount.Account) bool {
 	path := useraccount.FindAvatar(acct.Name, acct.Home)
 	if path == "" {
-		return
+		return false
 	}
 	tile.SetInlineStylePriority("background-image: url('"+path+"');", apptheme.ComponentPriority)
+	return true
 }
 
 // userSessionSection is the dashboard's user-session card: the card over the session row — the avatar
@@ -54,7 +55,8 @@ func setAvatar(tile *widget.Box, acct useraccount.Account) {
 // icon button per configured action in .session-actions pinned to the
 // row's end, each the power menu's action: its glyph and label, and
 // a click requests it of the power menu, which asks before ending the
-// session. The face is read when the dropdown opens. The stylesheet inks
+// session. The face is read when the dropdown opens; the glyph shows
+// only without one, never over it. The stylesheet inks
 // everything through the classes (user-avatar image, user-name,
 // button.icon.session-btn image), so nothing carries a tint here.
 func userSessionSection(ctx ModuleContext) widget.Widget {
@@ -72,10 +74,10 @@ func userSessionSection(ctx ModuleContext) widget.Widget {
 	row.AddClass("dashboard-user-session")
 	tile := widget.NewBox(widget.Row, 0, 0)
 	tile.AddClass("user-avatar")
-	if err == nil {
-		setAvatar(tile, acct)
+	widgets.Pin(tile, avatarPx, avatarPx)
+	if err != nil || !setAvatar(tile, acct) {
+		tile.Append(widget.NewThemeIcon("ld-user-symbolic", avatarPx), false)
 	}
-	tile.Append(widget.NewThemeIcon("ld-user-symbolic", avatarPx), false)
 	row.SetMedia(tile, true)
 	for _, action := range cfg.UserSession.Actions {
 		power := sessionPowerAction(action)
