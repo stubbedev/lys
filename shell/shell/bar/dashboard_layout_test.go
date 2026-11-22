@@ -166,11 +166,40 @@ func TestTheBatteryAndNetworkCardsShareTheirRowEqually(t *testing.T) {
 		}
 	}
 
+	if up, down := speedBounds(t, v); down.Y < up.Y+up.H {
+		t.Errorf("beside the battery card the download %+v is not stacked under the upload %+v", down, up)
+	}
+
+	ctx.Battery = newFakeBattery(upower.Device{})
+	absent := opened(noRadiosDashboard(ctx)).(*dashboardView)
+	absent.refreshAll()
+	ctx.Theme.Attach(absent)
+	arrangeDropdown(t, absent, 380, 900)
+	if up, down := speedBounds(t, absent); up.Y != down.Y || down.X < up.X+up.W {
+		t.Errorf("with no battery present the upload %+v and download %+v are not on one line", up, down)
+	}
+
 	ctx.Battery = nil
 	alone := opened(noRadiosDashboard(ctx)).(*dashboardView)
 	if got := len(classedBox(t, alone, "dashboard-info-row").Children()); got != 1 {
 		t.Errorf("without a battery the info row holds %d cards, want the network card alone", got)
 	}
+	alone.refreshAll()
+	ctx.Theme.Attach(alone)
+	arrangeDropdown(t, alone, 380, 900)
+	if up, down := speedBounds(t, alone); up.Y != down.Y || down.X < up.X+up.W {
+		t.Errorf("without a battery the upload %+v and download %+v are not on one line", up, down)
+	}
+}
+
+// speedBounds is where the upload and download speeds sit.
+func speedBounds(t *testing.T, v widget.Widget) (up, down render.Rect) {
+	t.Helper()
+	stats := treetest.WithClass(v, "speed-stat")
+	if len(stats) != 2 {
+		t.Fatalf("the network card shows %d speeds, want upload and download", len(stats))
+	}
+	return boundsOf(stats[0]), boundsOf(stats[1])
 }
 
 func TestTheBatteryCardSaysWhatThePowerSaverToggleCannot(t *testing.T) {

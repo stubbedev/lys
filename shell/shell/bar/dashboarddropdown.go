@@ -616,16 +616,34 @@ func (v *dashboardView) media() widget.Widget {
 }
 
 // infoRow is the battery and network cards side by side at equal
-// widths; without a battery the network card has the row.
+// widths; without a battery the network card has the row. The network
+// card puts upload and download on one line while it has the row, and
+// stacks them while it shares it with the battery card.
 func (v *dashboardView) infoRow() widget.Widget {
 	row := widget.NewBox(widget.Row, widget.Current().Spacing, 0)
 	row.AddClass("dashboard-info-row")
 	row.SetHomogeneous(true)
-	if v.ctx.Battery != nil {
-		row.Append(v.battery(), true)
+	network, speeds := v.network()
+	if v.ctx.Battery == nil {
+		row.Append(network, true)
+		return row
 	}
-	row.Append(v.network(), true)
+	battery := v.battery()
+	row.Append(battery, true)
+	row.Append(network, true)
+	v.refreshers = append(v.refreshers, func(dashboardReadings) {
+		speeds.SetAxis(networkSpeedsAxis(battery.Visible()))
+	})
 	return row
+}
+
+// networkSpeedsAxis lays the speeds out in a column beside the battery
+// card, else in a row.
+func networkSpeedsAxis(sharesRow bool) widget.Axis {
+	if sharesRow {
+		return widget.Column
+	}
+	return widget.Row
 }
 
 func dashboardBatteryIcon(percent float64, charging bool) string {
@@ -655,7 +673,7 @@ func dashboardChargeLimit(dev upower.Device) string {
 // thresholds. The card shows only while a battery is present: a
 // desktop's UPower display device, or none at all, leaves the network
 // card the row.
-func (v *dashboardView) battery() widget.Widget {
+func (v *dashboardView) battery() *widget.Box {
 	card := v.card("ld-battery-full-symbolic", i18n.T("dropdown-dashboard-battery"))
 	card.SetVisible(false)
 	thresholds := v.ctx.Config.Thresholds.Battery
@@ -715,11 +733,13 @@ func dashboardSpeed(bytesPerSec uint64) (value string, mega bool) {
 }
 
 // network: upload and download across every interface, each its arrow,
-// value and unit on one line, "--" while disconnected.
-func (v *dashboardView) network() widget.Widget {
+// value and unit on one line, "--" while disconnected, and the box
+// holding the two, a row until infoRow says otherwise.
+func (v *dashboardView) network() (widget.Widget, *widget.Box) {
 	card := v.card("ld-wifi-symbolic", i18n.T("dropdown-dashboard-network"))
 	th := widget.Current()
-	speeds := widget.NewBox(widget.Column, th.Spacing/2, 0)
+	speeds := widget.NewBox(networkSpeedsAxis(false), th.Spacing/2, 0)
+	speeds.SetHomogeneous(true)
 	speeds.AddClass("network-speeds")
 	type stat struct {
 		box          *widget.Box
@@ -737,7 +757,7 @@ func (v *dashboardView) network() widget.Widget {
 		s.units.AddClass("speed-unit", css.Caption, css.DimLabel)
 		s.box.AppendAligned(s.value, false, widget.AlignBaseline)
 		s.box.AppendAligned(s.units, false, widget.AlignBaseline)
-		speeds.Append(s.box, false)
+		speeds.Append(s.box, true)
 		return s
 	}
 	up, down := mk("ld-arrow-up-symbolic", "up"), mk("ld-arrow-down-symbolic", "down")
@@ -804,7 +824,7 @@ func (v *dashboardView) network() widget.Widget {
 			show(rx, tx)
 		}
 	})
-	return card
+	return card, speeds
 }
 
 func dashboardTempColor(celsius float32, cfg config.DashboardConfig) *config.ColorValue {
