@@ -87,8 +87,7 @@ func openBatteryEnergy(t *testing.T, src *fakeEnergy, windows ...wmipc.Window) *
 		ctx.Tasks = newTaskHub(&fakeToplevels{}, func(fn func()) { fn() })
 		ctx.Tasks.geom = staticGeometry(windows)
 	}
-	v := onHeadlessLoop(func() *batteryView { return opened(batteryDropdown(ctx)).(*batteryView) })
-	t.Cleanup(func() { onHeadlessLoop(func() bool { v.dropdownClosed(); return true }) })
+	v := openView(t, ctx, batteryDropdown).(*batteryView)
 	return v
 }
 

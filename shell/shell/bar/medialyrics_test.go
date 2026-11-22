@@ -52,13 +52,7 @@ func lyricsDropdown(t *testing.T, enabled bool, server *httptest.Server, dir str
 	ctx.Media = newFakeMedia(lyricsPlayer)
 	ctx.Lyrics = lyrics.New(server.URL, dir)
 	t.Cleanup(ctx.Lyrics.Close)
-	v := opened(mediaDropdown(ctx)).(*mediaView)
-	t.Cleanup(func() {
-		headlessLoop.Lock()
-		defer headlessLoop.Unlock()
-		v.dropdownClosed()
-	})
-	return v
+	return openView(t, ctx, mediaDropdown).(*mediaView)
 }
 
 func waitLyricsPage(t *testing.T, v *mediaView, page string) {

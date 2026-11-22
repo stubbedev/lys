@@ -257,7 +257,7 @@ func TestWeatherDropdownShowsTheStatusPage(t *testing.T) {
 	ctx.Weather = svc
 	var v *weatherView
 	waitHeadless(t, "the failed status", func() bool { return svc.Status().Kind == weather.Failed })
-	v = opened(weatherDropdown(ctx)).(*weatherView)
+	v = openView(t, ctx, weatherDropdown).(*weatherView)
 	if got := v.pages.Visible(); got != "error" {
 		t.Errorf("page = %q, want error", got)
 	}
@@ -274,7 +274,7 @@ func TestWeatherDropdownShowsTheStatusPage(t *testing.T) {
 	defer ok.Close()
 	ctx.Weather = ok
 	waitHeadless(t, "the loaded status", func() bool { return ok.Status().Kind == weather.Loaded })
-	v = opened(weatherDropdown(ctx)).(*weatherView)
+	v = openView(t, ctx, weatherDropdown).(*weatherView)
 	if got := v.pages.Visible(); got != "loaded" {
 		t.Errorf("page = %q, want loaded", got)
 	}
@@ -340,7 +340,7 @@ func TestWeatherPagesCenterTheirContent(t *testing.T) {
 	})
 	defer svc.Close()
 	ctx.Weather = svc
-	v := opened(weatherDropdown(ctx)).(*weatherView)
+	v := openView(t, ctx, weatherDropdown).(*weatherView)
 	if got := v.pages.Visible(); got != "loading" {
 		t.Fatalf("page = %q, want loading", got)
 	}
@@ -358,7 +358,7 @@ func TestWeatherPagesCenterTheirContent(t *testing.T) {
 	defer fail.Close()
 	waitHeadless(t, "the failed status", func() bool { return fail.Status().Kind == weather.Failed })
 	ctx.Weather = fail
-	v = opened(weatherDropdown(ctx)).(*weatherView)
+	v = openView(t, ctx, weatherDropdown).(*weatherView)
 	arrangeDropdown(t, v, 400, 600)
 	centered("error-weather")
 	page := classedWidget(t, v, "error-weather")
@@ -399,7 +399,7 @@ func TestWeatherRefetchShowsTheLoadingPage(t *testing.T) {
 	})
 	defer svc.Close()
 	ctx.Weather = svc
-	v := opened(weatherDropdown(ctx)).(*weatherView)
+	v := openView(t, ctx, weatherDropdown).(*weatherView)
 	if got := v.pages.Visible(); got != "loading" {
 		t.Fatalf("page = %q, want loading before the first fetch lands", got)
 	}
@@ -448,7 +448,7 @@ func TestWeatherHeaderAndDailyRows(t *testing.T) {
 	defer svc.Close()
 	waitHeadless(t, "the loaded status", func() bool { return svc.Status().Kind == weather.Loaded })
 	ctx.Weather = svc
-	v := opened(weatherDropdown(ctx)).(*weatherView)
+	v := openView(t, ctx, weatherDropdown).(*weatherView)
 
 	var refresh *widget.Button
 	walkTree(v, func(w widget.Widget) bool {
@@ -497,8 +497,7 @@ func TestWeatherDropdownTrees(t *testing.T) {
 	defer ok.Close()
 	ctx.Weather = ok
 	waitHeadless(t, "the loaded status", func() bool { return ok.Status().Kind == weather.Loaded })
-	v := opened(weatherDropdown(ctx)).(*weatherView)
-	defer v.dropdownClosed()
+	v := openView(t, ctx, weatherDropdown).(*weatherView)
 
 	for _, class := range []string{"weather-stats", "hourly-forecast"} {
 		row := classedBox(t, v.loaded, class)
@@ -542,7 +541,7 @@ func TestWeatherTodayIsTheLocations(t *testing.T) {
 	if other.Equal(locToday) {
 		w.Daily = w.Daily[1:]
 	}
-	v := opened(weatherDropdown(newTestContext(t, config.Defaults()))).(*weatherView)
+	v := openView(t, newTestContext(t, config.Defaults()), weatherDropdown).(*weatherView)
 	days := treetest.WithClass(v.daily(w, false), "daily-item")
 	for i, d := range w.Daily {
 		got := itemText(days[i], "title")
@@ -557,8 +556,7 @@ func TestWeatherDropdownWithoutTheServiceFollowsNothing(t *testing.T) {
 	ctx := newTestContext(t, config.Defaults())
 	a := apptest.Run(t)
 	ctx.App = a
-	v := apptest.On(a, func() *weatherView { return opened(weatherDropdown(ctx)).(*weatherView) })
-	t.Cleanup(func() { apptest.On(a, func() bool { v.dropdownClosed(); return true }) })
+	v := openView(t, ctx, weatherDropdown).(*weatherView)
 	if got := apptest.On(a, func() string { v.dropdownHidden(); v.dropdownOpened(); return v.pages.Visible() }); got != "loading" {
 		t.Errorf("page = %q, want loading with no service to read", got)
 	}
@@ -566,8 +564,7 @@ func TestWeatherDropdownWithoutTheServiceFollowsNothing(t *testing.T) {
 	svc := fixedWeather(t, &weather.Weather{Zone: time.Local, Current: weather.Current{Temperature: 7, Condition: weather.CondClear}}, nil)
 	defer svc.Close()
 	ctx.Weather = svc
-	followed := apptest.On(a, func() *weatherView { return opened(weatherDropdown(ctx)).(*weatherView) })
-	t.Cleanup(func() { apptest.On(a, func() bool { followed.dropdownClosed(); return true }) })
+	followed := openView(t, ctx, weatherDropdown).(*weatherView)
 	apptest.Until(t, a, "the service's data on the followed dropdown", func() bool { return followed.pages.Visible() == "loaded" })
 }
 
@@ -625,7 +622,7 @@ func TestWeatherFailedRefreshShowsTheDataUnderAnAlert(t *testing.T) {
 	defer svc.Close()
 	ctx.Weather = svc
 	waitHeadless(t, "the loaded status", func() bool { return svc.Status().Kind == weather.Loaded })
-	v := opened(weatherDropdown(ctx)).(*weatherView)
+	v := openView(t, ctx, weatherDropdown).(*weatherView)
 	if findByClass(v, "weather-stale-alert") != nil {
 		t.Error("a successful fetch shows the stale alert")
 	}
@@ -666,7 +663,7 @@ func TestWeatherFailureWithoutDataShowsNoStaleAlert(t *testing.T) {
 	defer svc.Close()
 	ctx.Weather = svc
 	waitHeadless(t, "the failed status", func() bool { return svc.Status().Kind == weather.Failed })
-	v := opened(weatherDropdown(ctx)).(*weatherView)
+	v := openView(t, ctx, weatherDropdown).(*weatherView)
 	if got := v.pages.Visible(); got != "error" {
 		t.Errorf("page = %q, want error", got)
 	}

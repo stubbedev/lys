@@ -257,10 +257,9 @@ func bitwardenTestView(t *testing.T, v *fakeVault, cfg *config.Config) (*bitward
 	copies := &[]copied{}
 	style := computeStyle(cfg, styling.Default())
 	ctx := ModuleContext{Config: cfg, Font: testFont(t), Style: &style, Bitwarden: testBitwardenHost(v, cfg, copies), gen: testGen(t)}
-	view := opened(bitwardenDropdown(ctx)).(*bitwardenView)
+	view := openView(t, ctx, bitwardenDropdown).(*bitwardenView)
 	widget.SetSurfaceHost(view.Box, focusHost{})
 	view.Arrange(render.Rect{W: 382, H: 600})
-	t.Cleanup(view.dropdownClosed)
 	return view, copies
 }
 
@@ -551,7 +550,7 @@ func TestBitwardenHideClearsSecrets(t *testing.T) {
 	onHeadlessLoop(func() struct{} { view.loginForm.Submit(); return struct{}{} })
 	waitIdle(t, view)
 	view.code.SetText("12")
-	onHeadlessLoop(func() struct{} { view.dropdownHidden(); return struct{}{} })
+	hideView(view.ctx, view)
 	if view.password.entry.Text() != "" || view.code.Text() != "" || view.pending != nil || page(view) != bwPageLogin || view.email.Text() != "ada@example.com" {
 		t.Errorf("after hiding: password %q, code %q, pending %+v, page %s, email %q", view.password.entry.Text(), view.code.Text(), view.pending, page(view), view.email.Text())
 	}
@@ -559,7 +558,7 @@ func TestBitwardenHideClearsSecrets(t *testing.T) {
 	uv, _ := bitwardenTestView(t, u, cfg)
 	onHeadlessLoop(func() struct{} { uv.copyField(u.entries[1].item, vault.FieldPassword); return struct{}{} })
 	uv.repromptPw.entry.SetText("hunt")
-	onHeadlessLoop(func() struct{} { uv.dropdownHidden(); return struct{}{} })
+	hideView(uv.ctx, uv)
 	if uv.copying != nil || uv.repromptPw.entry.Text() != "" || page(uv) != bwPageVault {
 		t.Errorf("after hiding the reprompt: pending %+v, box %q, page %s", uv.copying, uv.repromptPw.entry.Text(), page(uv))
 	}
@@ -646,7 +645,7 @@ func TestBitwardenInitialFocus(t *testing.T) {
 		t.Errorf("open focuses %T", got)
 	}
 	style := computeStyle(cfg, styling.Default())
-	broken := opened(bitwardenDropdown(ModuleContext{Config: cfg, Font: testFont(t), Style: &style, gen: testGen(t)})).(*bitwardenView)
+	broken := openView(t, ModuleContext{Config: cfg, Font: testFont(t), Style: &style, gen: testGen(t)}, bitwardenDropdown).(*bitwardenView)
 	if got := broken.dropdownFocus(); got != nil {
 		t.Errorf("no vault focuses %T", got)
 	}

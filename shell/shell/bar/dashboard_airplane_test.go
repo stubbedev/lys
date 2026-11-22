@@ -82,8 +82,7 @@ func laptopRadios() *fakeRadios {
 func airplaneDashboard(t *testing.T, radios *fakeRadios) (*dashboardView, *widget.Button) {
 	t.Helper()
 	ctx := newTestContext(t, config.Defaults())
-	v := opened(newDashboardDropdown(ctx, radios)).(*dashboardView)
-	t.Cleanup(v.dropdownClosed)
+	v := openView(t, ctx, func(ctx ModuleContext) widget.Widget { return newDashboardDropdown(ctx, radios) }).(*dashboardView)
 	v.refreshAll()
 	return v, quickActionButtons(t, v)[2]
 }

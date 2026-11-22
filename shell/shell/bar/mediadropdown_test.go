@@ -17,8 +17,7 @@ func TestMediaPickerKeepsItsRowsWhenNothingChanged(t *testing.T) {
 	)
 	ctx := newTestContext(t, config.Defaults())
 	ctx.Media = source
-	v := opened(mediaDropdown(ctx)).(*mediaView)
-	defer v.dropdownClosed()
+	v := openView(t, ctx, mediaDropdown).(*mediaView)
 	v.showPicker()
 	before := treetest.WithClass(v.sources, "media-source-option")
 	v.refresh()

@@ -87,13 +87,12 @@ func presentBattery() upower.Device {
 
 func TestBatteryDropdownEmptyWithoutBattery(t *testing.T) {
 	ctx := newTestContext(t, config.Defaults())
-	v := opened(batteryDropdown(ctx)).(*batteryView)
+	v := openView(t, ctx, batteryDropdown).(*batteryView)
 	if v.body.Visible() != "empty" {
 		t.Errorf("no service: page %q", v.body.Visible())
 	}
 	ctx.Battery = newFakeBattery(upower.Device{Percentage: 50, State: upower.StateDischarging})
-	v = opened(batteryDropdown(ctx)).(*batteryView)
-	defer v.dropdownClosed()
+	v = openView(t, ctx, batteryDropdown).(*batteryView)
 	if v.body.Visible() != "empty" {
 		t.Errorf("IsPresent false: page %q, want empty", v.body.Visible())
 	}
@@ -157,8 +156,7 @@ func TestBatteryDetailsCenterTheCapacityColumn(t *testing.T) {
 	ctx := styledContext(t, config.Defaults())
 	src := newFakeBattery(presentBattery())
 	ctx.Battery = src
-	v := opened(batteryDropdown(ctx)).(*batteryView)
-	defer v.dropdownClosed()
+	v := openView(t, ctx, batteryDropdown).(*batteryView)
 	batteryArrangeStyled(t, ctx, v, 320)
 
 	boxed := treetest.WithClass(v, "battery-details")
@@ -202,8 +200,7 @@ func TestBatteryHealthDotIsAClassedBoxTheCSSPaints(t *testing.T) {
 	ctx := styledContext(t, config.Defaults())
 	src := newFakeBattery(presentBattery()) // capacity 91 → good
 	ctx.Battery = src
-	v := opened(batteryDropdown(ctx)).(*batteryView)
-	defer v.dropdownClosed()
+	v := openView(t, ctx, batteryDropdown).(*batteryView)
 
 	dot, ok := any(v.healthDot).(*widget.Box)
 	if !ok {
@@ -267,8 +264,7 @@ func TestBatteryHeroAndGaugeKeepTheirGaps(t *testing.T) {
 	ctx := styledContext(t, config.Defaults())
 	src := newFakeBattery(presentBattery())
 	ctx.Battery = src
-	v := opened(batteryDropdown(ctx)).(*batteryView)
-	defer v.dropdownClosed()
+	v := openView(t, ctx, batteryDropdown).(*batteryView)
 	batteryArrangeStyled(t, ctx, v, 320)
 
 	pct, metaBox := v.heroPct.Bounds(), treetest.WithClass(v, "battery-hero-meta")[0]
@@ -290,8 +286,7 @@ func TestBatteryHeroAndGaugeKeepTheirGaps(t *testing.T) {
 // labels differ, the seg equalizing them — no hand-set min-widths.
 func TestBatteryProfileSegmentsEqualWidth(t *testing.T) {
 	ctx := newTestContext(t, config.Defaults())
-	v := opened(batteryDropdown(ctx)).(*batteryView)
-	defer v.dropdownClosed()
+	v := openView(t, ctx, batteryDropdown).(*batteryView)
 	big := widget.Size{W: 1 << 14, H: 1 << 14}
 
 	// The segments' own naturals differ (the precondition: there is
@@ -341,8 +336,7 @@ func TestBatteryProfileSegmentsEqualWidth(t *testing.T) {
 // wraps.
 func TestBatteryEmptyStateMatchesTheTemplate(t *testing.T) {
 	ctx := newTestContext(t, config.Defaults())
-	v := opened(batteryDropdown(ctx)).(*batteryView)
-	defer v.dropdownClosed()
+	v := openView(t, ctx, batteryDropdown).(*batteryView)
 	if v.body.Visible() != "empty" {
 		t.Fatalf("page %q, want empty", v.body.Visible())
 	}
@@ -355,8 +349,7 @@ func TestBatteryDropdownSection(t *testing.T) {
 	ctx := newTestContext(t, config.Defaults())
 	src := newFakeBattery(presentBattery())
 	ctx.Battery = src
-	v := opened(batteryDropdown(ctx)).(*batteryView)
-	defer v.dropdownClosed()
+	v := openView(t, ctx, batteryDropdown).(*batteryView)
 	if v.body.Visible() != "battery" {
 		t.Fatalf("page %q, want battery", v.body.Visible())
 	}
@@ -414,7 +407,7 @@ func TestBatteryDropdownSection(t *testing.T) {
 
 func TestBatteryDropdownProfiles(t *testing.T) {
 	ctx := newTestContext(t, config.Defaults())
-	v := opened(batteryDropdown(ctx)).(*batteryView)
+	v := openView(t, ctx, batteryDropdown).(*batteryView)
 	if !v.profilesUnavailable.Visible() {
 		t.Error("no daemon: want the note")
 	}
@@ -429,8 +422,7 @@ func TestBatteryDropdownProfiles(t *testing.T) {
 		Profiles: []string{powerprofiles.ProfilePowerSaver, powerprofiles.ProfileBalanced},
 	}, ticks: make(chan struct{}, 1)}
 	ctx.PowerProfiles = pp
-	v = opened(batteryDropdown(ctx)).(*batteryView)
-	defer v.dropdownClosed()
+	v = openView(t, ctx, batteryDropdown).(*batteryView)
 	if v.profilesUnavailable.Visible() {
 		t.Error("daemon up: the note shows")
 	}
@@ -493,8 +485,7 @@ func TestBatteryDropdownProfiles(t *testing.T) {
 func TestBatteryDetailsShowTheirText(t *testing.T) {
 	ctx := styledContext(t, config.Defaults())
 	ctx.Battery = newFakeBattery(upower.Device{Percentage: 64, State: upower.StateDischarging, IsPresent: true, EnergyRate: 9.4, Capacity: 92})
-	v := opened(batteryDropdown(ctx)).(*batteryView)
-	defer v.dropdownClosed()
+	v := openView(t, ctx, batteryDropdown).(*batteryView)
 	waitHeadless(t, "the battery page", func() bool { return v.body.Visible() == "battery" })
 	ctx.Theme.Attach(v)
 	sz := widget.SizeWithin(v, widget.Size{W: 400, H: 2000})
@@ -510,8 +501,7 @@ func TestBatteryDetailsShowTheirText(t *testing.T) {
 // the card's edge.
 func TestBatteryProfileSegmentsFitTheDropdown(t *testing.T) {
 	ctx := styledContext(t, config.Defaults())
-	v := opened(batteryDropdown(ctx)).(*batteryView)
-	defer v.dropdownClosed()
+	v := openView(t, ctx, batteryDropdown).(*batteryView)
 	w, _, _ := dropdownDims("battery", ctx.Config)
 	batteryArrangeStyled(t, ctx, v, w)
 	seg := treetest.WithClass(v, "profile-seg")[0]
@@ -528,8 +518,7 @@ func TestBatteryDropdownListsPeripherals(t *testing.T) {
 	ctx := newTestContext(t, config.Defaults())
 	src := newFakeBattery(presentBattery())
 	ctx.Battery = src
-	v := opened(batteryDropdown(ctx)).(*batteryView)
-	defer v.dropdownClosed()
+	v := openView(t, ctx, batteryDropdown).(*batteryView)
 	if v.devicesSection.Visible() || len(v.devices.Children()) != 0 {
 		t.Fatal("no peripherals: want the devices section hidden and empty")
 	}
@@ -563,7 +552,7 @@ func TestBatteryDropdownListsPeripherals(t *testing.T) {
 
 func TestABatteryHeldAtItsChargeLimitIsNotCharging(t *testing.T) {
 	ctx := newTestContext(t, config.Defaults())
-	v := opened(batteryDropdown(ctx)).(*batteryView)
+	v := openView(t, ctx, batteryDropdown).(*batteryView)
 	held := presentBattery()
 	held.State, held.Percentage, held.EnergyRate, held.ChargeThresholdEnabled = upower.StatePendingCharge, 80, 3, true
 	v.applyDevice(held, true)
@@ -602,8 +591,7 @@ func TestAFailedChargeLimitWritePutsTheSwitchBackAndSaysWhy(t *testing.T) {
 	src := newFakeBattery(chargeLimitBattery())
 	src.thresholdErr = errors.New("org.freedesktop.UPower.Error: not authorized")
 	ctx.Battery = src
-	v := opened(batteryDropdown(ctx)).(*batteryView)
-	defer v.dropdownClosed()
+	v := openView(t, ctx, batteryDropdown).(*batteryView)
 	waitHeadless(t, "the battery page", func() bool { return v.body.Visible() == "battery" })
 	defer src.reads.hold()()
 	onHeadlessLoop(func() bool { v.chargeSwitch.Toggle(); return true })
@@ -626,8 +614,7 @@ func TestAChargeLimitWriteThatGoesThroughShowsNoAlert(t *testing.T) {
 	ctx := newTestContext(t, config.Defaults())
 	src := newFakeBattery(chargeLimitBattery())
 	ctx.Battery = src
-	v := opened(batteryDropdown(ctx)).(*batteryView)
-	defer v.dropdownClosed()
+	v := openView(t, ctx, batteryDropdown).(*batteryView)
 	waitHeadless(t, "the battery page", func() bool { return v.body.Visible() == "battery" })
 	onHeadlessLoop(func() bool { v.chargeSwitch.Toggle(); return true })
 	waitHeadless(t, "the write", func() bool { return len(src.thresholdCalls()) == 1 && v.chargeSwitch.Enabled() })
@@ -652,8 +639,7 @@ func TestAProfileWriteHoldsTheSegmentsThenAFailureBringsTheOldOneBack(t *testing
 	pp.setGate = make(chan struct{})
 	pp.setErr = errors.New("net.hadess.PowerProfiles: denied")
 	ctx.PowerProfiles = pp
-	v := opened(batteryDropdown(ctx)).(*batteryView)
-	defer v.dropdownClosed()
+	v := openView(t, ctx, batteryDropdown).(*batteryView)
 	waitHeadless(t, "the profiles read", func() bool { return v.profileSnap != nil })
 	defer pp.reads.hold()()
 	onHeadlessLoop(func() bool { v.selectProfile(powerprofiles.ProfilePowerSaver); return true })
@@ -689,8 +675,7 @@ func TestAProfileWriteThatGoesThroughShowsNoAlert(t *testing.T) {
 	ctx := newTestContext(t, config.Defaults())
 	pp := profilesSource()
 	ctx.PowerProfiles = pp
-	v := opened(batteryDropdown(ctx)).(*batteryView)
-	defer v.dropdownClosed()
+	v := openView(t, ctx, batteryDropdown).(*batteryView)
 	onHeadlessLoop(func() bool { v.selectProfile(powerprofiles.ProfilePowerSaver); return true })
 	waitHeadless(t, "the write settled", func() bool { return len(pp.sets()) == 1 && !v.profileBusy })
 	onHeadlessLoop(func() bool {

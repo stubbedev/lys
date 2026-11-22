@@ -18,7 +18,7 @@ import (
 func TestDropdownPanelsPaintFromTheStylesheet(t *testing.T) {
 	cfg := config.Defaults()
 	ctx := styledContext(t, cfg)
-	v := opened(audioDropdown(ctx)).(*audioView)
+	v := openView(t, ctx, audioDropdown).(*audioView)
 	ctx.Theme.Attach(v)
 	sz := widget.SizeWithin(v, widget.Size{W: 400, H: 600})
 	v.Arrange(render.Rect{W: sz.W, H: 600})
@@ -73,8 +73,7 @@ func countColor(data []byte, col func(render.Color) bool) int {
 // recolors the block, and no Go color survives.
 func TestBatteryGaugePaintsFromTheLevelbarRules(t *testing.T) {
 	ctx := styledContext(t, config.Defaults())
-	v := opened(batteryDropdown(ctx)).(*batteryView)
-	defer v.dropdownClosed()
+	v := openView(t, ctx, batteryDropdown).(*batteryView)
 	// The tree pass first: the gauge's element resolves on parenting.
 	sz0 := widget.SizeWithin(v, widget.Size{W: 400, H: 600})
 	v.Arrange(render.Rect{W: sz0.W, H: 600})

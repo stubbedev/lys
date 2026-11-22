@@ -133,13 +133,17 @@ func TestDropdownBuildersReturnWhileEveryServiceHolds(t *testing.T) {
 		"dashboard":  dashboardDropdown,
 	} {
 		built := make(chan widget.Widget, 1)
-		a.Invoke(func() { built <- opened(build(ctx)) })
+		a.Invoke(func() {
+			w := build(ctx)
+			w.(dropdownOpener).dropdownOpened()
+			built <- w
+		})
 		w := waittest.For(t, built, "the "+name+" builder past a held service")
 		c, ok := w.(dropdownCloser)
 		if !ok {
 			t.Fatalf("%s: %T does not release", name, w)
 		}
-		t.Cleanup(c.dropdownClosed)
+		t.Cleanup(func() { closeView(ctx, c) })
 		if name == "recorder" {
 			apptest.Answer(t, "the camera probe, off the loop", probing)
 		}
@@ -159,8 +163,7 @@ func TestRecorderCameraProbeFillsThePickerWhenItEnds(t *testing.T) {
 		return []devicechoice.DeviceChoice{{ID: "", Label: "Automatic"}, {ID: "/dev/video0", Label: "Cam"}}
 	}
 	t.Cleanup(func() { recorderCameras = prev })
-	v := apptest.On(a, func() *recorderView { return opened(recorderDropdown(ctx)).(*recorderView) })
-	t.Cleanup(func() { apptest.On(a, func() bool { v.dropdownClosed(); return true }) })
+	v := openView(t, ctx, recorderDropdown).(*recorderView)
 	if apptest.On(a, func() bool { return v.webcam.Visible() }) {
 		t.Fatal("the webcam section shows before the probe answered")
 	}
@@ -168,12 +171,37 @@ func TestRecorderCameraProbeFillsThePickerWhenItEnds(t *testing.T) {
 	apptest.Until(t, a, "the probe's cameras in the picker", func() bool { return v.webcam.Visible() && len(v.cams) == 2 })
 }
 
-func opened[W widget.Widget](w W) W {
-	if o, ok := any(w).(dropdownOpener); ok {
-		o.dropdownOpened()
+func onLoopOf[T any](ctx ModuleContext, fn func() T) T {
+	if ctx.App == nil {
+		return onHeadlessLoop(fn)
+	}
+	return apptest.On(ctx.App, fn)
+}
+
+func doOnLoopOf(ctx ModuleContext, fn func()) {
+	onLoopOf(ctx, func() struct{} { fn(); return struct{}{} })
+}
+
+func openView[W widget.Widget](t testing.TB, ctx ModuleContext, build func(ModuleContext) W) W {
+	t.Helper()
+	w := onLoopOf(ctx, func() W {
+		w := build(ctx)
+		if o, ok := any(w).(dropdownOpener); ok {
+			o.dropdownOpened()
+		}
+		return w
+	})
+	if c, ok := any(w).(dropdownCloser); ok {
+		t.Cleanup(func() { closeView(ctx, c) })
 	}
 	return w
 }
+
+func closeView(ctx ModuleContext, c dropdownCloser) { doOnLoopOf(ctx, c.dropdownClosed) }
+
+func reopenView(ctx ModuleContext, o dropdownOpener) { doOnLoopOf(ctx, o.dropdownOpened) }
+
+func hideView(ctx ModuleContext, h dropdownHider) { doOnLoopOf(ctx, h.dropdownHidden) }
 
 func TestFollowingEndsWithThePopover(t *testing.T) {
 	var starts, stops atomic.Int64
@@ -229,9 +257,8 @@ func TestClosedDropdownsAskNothingOfTheirServices(t *testing.T) {
 	ctx.Media, ctx.Network, ctx.Battery = media, net, bat
 	var hide []func()
 	for _, build := range []func(ModuleContext) widget.Widget{mediaDropdown, networkDropdown, batteryDropdown, calendarDropdown} {
-		w := apptest.On(a, func() widget.Widget { return opened(build(ctx)) })
-		t.Cleanup(func() { apptest.On(a, func() bool { w.(dropdownCloser).dropdownClosed(); return true }) })
-		hide = append(hide, func() { w.(dropdownHider).dropdownHidden() })
+		w := openView(t, ctx, build)
+		hide = append(hide, w.(dropdownHider).dropdownHidden)
 	}
 	apptest.Until(t, a, "the open views' first reads", func() bool {
 		return net.reads.Load() > 0 && bat.reads.Load() > 0 && media.positions.Load() > 0
@@ -259,9 +286,8 @@ func TestClosedDropdownsAskNothingOfTheirServices(t *testing.T) {
 func TestDashboardPollSamplesOffTheLoopAndPostsOnlyChanges(t *testing.T) {
 	fixedProc(t)
 	ctx := styledContext(t, config.Defaults())
-	v := opened(dashboardDropdown(ctx)).(*dashboardView)
 	a := apptest.Run(t)
-	t.Cleanup(v.dropdownClosed)
+	v := openView(t, ctx, dashboardDropdown).(*dashboardView)
 	v.sample()
 	if got := len(v.sample()); got != 0 {
 		t.Errorf("unchanged stats posted %d updates", got)

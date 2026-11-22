@@ -258,18 +258,18 @@ func netAP(ssid string, strength uint8, sec network.SecurityType, path string) n
 	return network.AccessPoint{SSID: []byte(ssid), Strength: strength, Security: sec, Path: dbus.ObjectPath(path)}
 }
 
+func netView(deps netDeps) func(ModuleContext) *networkView {
+	return func(ctx ModuleContext) *networkView { return newNetworkView(ctx, deps) }
+}
+
 func newNetTestView(t *testing.T, snap network.Snapshot, deps netDeps) (*networkView, *fakeNetworkSource, *fakePopover) {
 	t.Helper()
 	ctx := newTestContext(t, config.Defaults())
 	src := &fakeNetworkSource{snap: snap, ticks: make(chan struct{}, 2)}
 	ctx.Network = src
 	pop := &fakePopover{}
-	v := onHeadlessLoop(func() *networkView {
-		v := opened(newNetworkView(ctx, deps))
-		v.attachPopover(pop)
-		return v
-	})
-	t.Cleanup(func() { onHeadlessLoop(func() bool { v.dropdownClosed(); return true }) })
+	v := openView(t, ctx, netView(deps))
+	doOnLoopOf(ctx, func() { v.attachPopover(pop) })
 	return v, src, pop
 }
 
@@ -312,7 +312,7 @@ func TestNetworkDropdownListsAndConnects(t *testing.T) {
 	}
 	// Reopening the cached instance still scans nothing while the list
 	// has networks.
-	onHeadlessLoop(func() bool { v.dropdownOpened(); return true })
+	reopenView(v.ctx, v)
 	if _, _, _, scans, _ := wifi.calls(); scans != 0 {
 		t.Error("a populated list scanned on reopen")
 	}

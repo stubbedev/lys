@@ -36,8 +36,7 @@ func TestBrightnessListIsNotInAScroll(t *testing.T) {
 		{Name: "intel_backlight", Type: brightness.TypeFirmware, Brightness: 50, Max: 100},
 	}}
 	ctx.Brightness = source
-	v := opened(brightnessDropdown(ctx)).(*brightnessView)
-	defer v.dropdownClosed()
+	v := openView(t, ctx, brightnessDropdown).(*brightnessView)
 	if v.body.Visible() != "devices" {
 		t.Fatalf("page %q, want devices", v.body.Visible())
 	}
@@ -55,8 +54,7 @@ func TestABrightnessSliderWriteIsBoundedByTheOffLoopTimeout(t *testing.T) {
 		{Name: "intel_backlight", Type: brightness.TypeFirmware, Brightness: 50, Max: 100},
 	}}
 	ctx.Brightness = source
-	v := opened(brightnessDropdown(ctx)).(*brightnessView)
-	defer v.dropdownClosed()
+	v := openView(t, ctx, brightnessDropdown).(*brightnessView)
 	v.write("intel_backlight", 30)()
 	deadlines := source.recordedDeadlines()
 	if len(deadlines) != 1 || deadlines[0] <= 0 || deadlines[0] > offLoopTimeout {
@@ -70,8 +68,7 @@ func TestABrightnessSliderWriteIsBoundedByTheOffLoopTimeout(t *testing.T) {
 func TestBrightnessEmptyStateIconAndDescription(t *testing.T) {
 	ctx := newTestContext(t, config.Defaults())
 	ctx.Brightness = &fakeBrightnessSource{}
-	v := opened(brightnessDropdown(ctx)).(*brightnessView)
-	defer v.dropdownClosed()
+	v := openView(t, ctx, brightnessDropdown).(*brightnessView)
 	if v.body.Visible() != "empty" {
 		t.Fatalf("page %q, want empty", v.body.Visible())
 	}
@@ -149,13 +146,12 @@ func brightnessItemMeta(card widget.Widget) bool {
 
 func TestBrightnessDropdownEmptyWithoutDevices(t *testing.T) {
 	ctx := newTestContext(t, config.Defaults())
-	v := opened(brightnessDropdown(ctx)).(*brightnessView)
+	v := openView(t, ctx, brightnessDropdown).(*brightnessView)
 	if v.body.Visible() != "empty" {
 		t.Errorf("no service: page %q, want empty", v.body.Visible())
 	}
 	ctx.Brightness = &fakeBrightnessSource{}
-	v = opened(brightnessDropdown(ctx)).(*brightnessView)
-	defer v.dropdownClosed()
+	v = openView(t, ctx, brightnessDropdown).(*brightnessView)
 	if v.body.Visible() != "empty" || len(brightnessCards(v)) != 0 {
 		t.Errorf("no devices: page %q, %d items", v.body.Visible(), len(brightnessCards(v)))
 	}
@@ -167,8 +163,7 @@ func TestBrightnessDropdownItemsSubtitlesAndCommit(t *testing.T) {
 		{Name: "intel_backlight", Type: brightness.TypeFirmware, Brightness: 50, Max: 100},
 	}}
 	ctx.Brightness = source
-	v := opened(brightnessDropdown(ctx)).(*brightnessView)
-	defer v.dropdownClosed()
+	v := openView(t, ctx, brightnessDropdown).(*brightnessView)
 	if v.body.Visible() != "devices" || len(brightnessCards(v)) != 1 {
 		t.Fatalf("page %q with %d items, want one device", v.body.Visible(), len(brightnessCards(v)))
 	}
@@ -204,7 +199,7 @@ func TestBrightnessDropdownFollowsLevels(t *testing.T) {
 		ticks:   make(chan struct{}, 1),
 	}
 	ctx.Brightness = source
-	v := opened(brightnessDropdown(ctx)).(*brightnessView)
+	v := openView(t, ctx, brightnessDropdown).(*brightnessView)
 	slider := onHeadlessLoop(func() *widgets.DebouncedSlider { return v.sliders["intel_backlight"] })
 
 	source.setDevices([]brightness.Device{{Name: "intel_backlight", Brightness: 80, Max: 100}})
@@ -221,7 +216,7 @@ func TestBrightnessDropdownFollowsLevels(t *testing.T) {
 	source.ticks <- struct{}{}
 	waitHeadless(t, "the empty page", func() bool { return v.body.Visible() == "empty" })
 
-	onHeadlessLoop(func() bool { v.dropdownClosed(); return true })
+	closeView(ctx, v)
 	source.setDevices([]brightness.Device{{Name: "intel_backlight", Brightness: 5, Max: 100}})
 	select {
 	case source.ticks <- struct{}{}:
@@ -241,8 +236,7 @@ func TestBrightnessCardHugsItsRows(t *testing.T) {
 	ctx.Brightness = &fakeBrightnessSource{devices: []brightness.Device{
 		{Name: "ddcci5", Type: brightness.TypeDDC, Brightness: 10, Max: 100},
 	}}
-	v := opened(brightnessDropdown(ctx)).(*brightnessView)
-	defer v.dropdownClosed()
+	v := openView(t, ctx, brightnessDropdown).(*brightnessView)
 	ctx.Theme.Attach(v)
 	arrangeDropdown(t, v, 320, 600)
 	card := treetest.WithClass(v, "brightness-devices")[0]
@@ -260,8 +254,7 @@ func TestBrightnessSliderHoldsWhileItsWriteRuns(t *testing.T) {
 	gate := make(chan struct{})
 	source := &fakeBrightnessSource{devices: []brightness.Device{{Name: "ddcci5", Type: brightness.TypeDDC, Brightness: 50, Max: 100}}, gate: gate}
 	ctx.Brightness = source
-	v := opened(brightnessDropdown(ctx)).(*brightnessView)
-	defer v.dropdownClosed()
+	v := openView(t, ctx, brightnessDropdown).(*brightnessView)
 	slider := v.sliders["ddcci5"]
 	onHeadlessLoop(func() bool { slider.Knob.SetValue(70); return true })
 	waitHeadless(t, "the write to start", func() bool { return len(source.recorded()) == 1 })
@@ -276,8 +269,7 @@ func TestBrightnessSliderHoldsWhileItsWriteRuns(t *testing.T) {
 func TestBrightnessDropdownWithoutAutomaticBrightness(t *testing.T) {
 	ctx := newTestContext(t, config.Defaults())
 	ctx.Brightness = &fakeBrightnessSource{}
-	v := opened(brightnessDropdown(ctx)).(*brightnessView)
-	defer v.dropdownClosed()
+	v := openView(t, ctx, brightnessDropdown).(*brightnessView)
 	if n := len(treetest.WithClass(v, "brightness-auto")); n != 0 || v.auto != nil {
 		t.Errorf("%d automatic brightness cards without automatic brightness", n)
 	}
@@ -291,8 +283,7 @@ func TestBrightnessDropdownShowsAndResumesAutomaticBrightness(t *testing.T) {
 	ctx.Brightness = &fakeBrightnessSource{}
 	auto := &fakeAutoBrightness{}
 	ctx.AutoBrightness = auto
-	v := opened(brightnessDropdown(ctx)).(*brightnessView)
-	defer onHeadlessLoop(func() bool { v.dropdownClosed(); return true })
+	v := openView(t, ctx, brightnessDropdown).(*brightnessView)
 	card := v.auto
 	if onHeadlessLoop(card.card.Visible) {
 		t.Fatal("the card shows while the user alone sets the backlight")
@@ -324,16 +315,15 @@ func TestBrightnessDropdownStopsFollowingControlWhileHidden(t *testing.T) {
 	ctx.Brightness = &fakeBrightnessSource{}
 	auto := &fakeAutoBrightness{}
 	ctx.AutoBrightness = auto
-	v := opened(brightnessDropdown(ctx)).(*brightnessView)
-	onHeadlessLoop(func() bool { v.dropdownHidden(); return true })
+	v := openView(t, ctx, brightnessDropdown).(*brightnessView)
+	hideView(ctx, v)
 	auto.set(brightness.ControlFollowing)
 	time.Sleep(quietWindow)
 	if onHeadlessLoop(v.auto.card.Visible) {
 		t.Error("a change while hidden showed the card")
 	}
-	onHeadlessLoop(func() bool { v.dropdownOpened(); return true })
+	reopenView(ctx, v)
 	if !onHeadlessLoop(v.auto.card.Visible) {
 		t.Error("showing the dropdown again did not show the control it missed")
 	}
-	onHeadlessLoop(func() bool { v.dropdownClosed(); return true })
 }

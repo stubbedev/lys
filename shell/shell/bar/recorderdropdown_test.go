@@ -140,8 +140,7 @@ func recorderTestCtx(t *testing.T, cams []devicechoice.DeviceChoice) (ModuleCont
 
 func TestRecorderDropdownStateAndControls(t *testing.T) {
 	ctx, _, engine := recorderTestCtx(t, []devicechoice.DeviceChoice{{ID: "", Label: "Automatic"}})
-	v := opened(recorderDropdown(ctx)).(*recorderView)
-	defer v.dropdownClosed()
+	v := openView(t, ctx, recorderDropdown).(*recorderView)
 	if v.status.Visible() || v.pause.Enabled() || !v.record.HasClass(css.SuggestedAction) || recordText(v) != i18n.T("dropdown-recorder-record") {
 		t.Error("idle: want the record button, no status, pause disabled")
 	}
@@ -176,8 +175,7 @@ func TestRecorderDropdownWritesConfig(t *testing.T) {
 	}
 	defer func() { _ = svc.Close() }()
 	ctx.Pulse = svc
-	v := opened(recorderDropdown(ctx)).(*recorderView)
-	defer v.dropdownClosed()
+	v := openView(t, ctx, recorderDropdown).(*recorderView)
 	if !v.webcam.Visible() {
 		t.Fatal("a camera is present: the webcam card is hidden")
 	}
@@ -221,8 +219,7 @@ func TestRecorderDropdownWritesConfig(t *testing.T) {
 // icon-and-label content.
 func TestRecorderSettingsAreItemCards(t *testing.T) {
 	ctx, _, _ := recorderTestCtx(t, []devicechoice.DeviceChoice{{ID: "", Label: "Automatic"}})
-	v := opened(recorderDropdown(ctx)).(*recorderView)
-	defer v.dropdownClosed()
+	v := openView(t, ctx, recorderDropdown).(*recorderView)
 	cards := treetest.WithClass(v, "recorder-card")
 	if len(cards) != 3 {
 		t.Fatalf("recorder cards = %d, want audio, webcam and instant replay", len(cards))
@@ -252,8 +249,7 @@ func styledWebcamDropdown(t *testing.T, w int, camera string) *recorderView {
 	cfg := config.Defaults()
 	cfg.Recorder.WebcamDevice = "/dev/video0"
 	ctx := styledContext(t, cfg)
-	v := opened(recorderDropdown(ctx)).(*recorderView)
-	t.Cleanup(v.dropdownClosed)
+	v := openView(t, ctx, recorderDropdown).(*recorderView)
 	ctx.Theme.Attach(v)
 	arrangeDropdown(t, v, w, 1000)
 	return v
@@ -363,8 +359,7 @@ func recordText(v *recorderView) string {
 func TestRecorderDevicePickersAreEnabledOnlyWhileTheirCaptureIsOn(t *testing.T) {
 	ctx, log, _ := recorderTestCtx(t, []devicechoice.DeviceChoice{{ID: "", Label: "Automatic"}, {ID: "cam", Label: "Cam"}})
 	ctx.Config.Recorder.Microphone, ctx.Config.Recorder.WebcamEnabled = false, true
-	v := opened(recorderDropdown(ctx)).(*recorderView)
-	defer v.dropdownClosed()
+	v := openView(t, ctx, recorderDropdown).(*recorderView)
 	rows := treetest.WithClass(v, "recorder-row")
 	micSwitch := treetest.First[*widget.Switch](t, rows[0])
 	if v.mic.dropdown.Enabled() || !v.cam.dropdown.Enabled() {
@@ -399,8 +394,7 @@ func TestRecorderDropdownShowsAFailedSaveWhoseWriteRemountedTheBars(t *testing.T
 		ctx.gen.retire()
 		done(errors.New("config: save: no space left on device"))
 	}
-	v := opened(recorderDropdown(ctx)).(*recorderView)
-	defer v.dropdownClosed()
+	v := openView(t, ctx, recorderDropdown).(*recorderView)
 	sw := treetest.First[*widget.Switch](t, treetest.WithClass(v, "recorder-row")[0])
 	was := sw.On()
 	sw.SetOn(!was)
@@ -414,8 +408,7 @@ func TestRecorderDropdownShowsAFailedSaveWhoseWriteRemountedTheBars(t *testing.T
 
 func TestRecorderDropdownShowsAFailedSaveAndRestoresTheControl(t *testing.T) {
 	ctx, log, _ := recorderTestCtx(t, []devicechoice.DeviceChoice{{ID: "", Label: "Automatic"}})
-	v := opened(recorderDropdown(ctx)).(*recorderView)
-	defer v.dropdownClosed()
+	v := openView(t, ctx, recorderDropdown).(*recorderView)
 	sw := treetest.First[*widget.Switch](t, treetest.WithClass(v, "recorder-row")[0])
 	was := sw.On()
 	sw.SetOn(!was)
@@ -440,8 +433,7 @@ func TestRecorderDropdownShowsAFailedSaveAndRestoresTheControl(t *testing.T) {
 // memory follows the ring at each keyframe and Save writes a file.
 func TestRecorderDropdownInstantReplay(t *testing.T) {
 	ctx, log, engine := recorderTestCtx(t, []devicechoice.DeviceChoice{{ID: "", Label: "Automatic"}})
-	v := opened(recorderDropdown(ctx)).(*recorderView)
-	defer v.dropdownClosed()
+	v := openView(t, ctx, recorderDropdown).(*recorderView)
 	if v.replaySave.Enabled() || v.replayMemory.Text() != "-" {
 		t.Errorf("off: save enabled %v, memory %q", v.replaySave.Enabled(), v.replayMemory.Text())
 	}

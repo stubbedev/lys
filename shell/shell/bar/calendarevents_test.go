@@ -50,8 +50,7 @@ func calendarViewWith(t *testing.T, store *calendar.Store) *calendarView {
 	cfg.Clock.Format = mustStrftimeFormat(t, "%H:%M")
 	ctx := newTestContext(t, cfg)
 	ctx.Calendar = store
-	v := opened(calendarDropdown(ctx)).(*calendarView)
-	t.Cleanup(v.dropdownClosed)
+	v := openView(t, ctx, calendarDropdown).(*calendarView)
 	return v
 }
 

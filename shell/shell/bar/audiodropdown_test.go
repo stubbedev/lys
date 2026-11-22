@@ -167,8 +167,7 @@ func TestAnAppRowWritesEveryStreamOfItsProcess(t *testing.T) {
 	srv.PutSinkInput(playback(50, "mpv", 5151))
 	ctx := newTestContext(t, config.Defaults())
 	ctx.Pulse = svc
-	v := opened(audioDropdown(ctx)).(*audioView)
-	defer v.dropdownClosed()
+	v := openView(t, ctx, audioDropdown).(*audioView)
 
 	waitHeadless(t, "a row per process", func() bool { return len(v.apps.items) == 2 })
 	firefox := onHeadlessLoop(func() *appVolumeItem { return v.apps.items[pulse.StreamKey{Index: 40, Type: pulse.StreamPlayback}] })
@@ -230,7 +229,7 @@ func audioFixture(t *testing.T) (*pulsetest.Server, *pulse.Service) {
 
 func TestAudioDropdownEmptyWithoutDevices(t *testing.T) {
 	ctx := newTestContext(t, config.Defaults())
-	v := opened(audioDropdown(ctx)).(*audioView)
+	v := openView(t, ctx, audioDropdown).(*audioView)
 	if v.main.Visible() != "empty" || v.apps.Visible() != "empty" {
 		t.Errorf("no service: main %q apps %q", v.main.Visible(), v.apps.Visible())
 	}
@@ -243,8 +242,7 @@ func TestAudioDropdownSectionsAndApps(t *testing.T) {
 	srv, svc := audioFixture(t)
 	ctx := newTestContext(t, config.Defaults())
 	ctx.Pulse = svc
-	v := opened(audioDropdown(ctx)).(*audioView)
-	defer v.dropdownClosed()
+	v := openView(t, ctx, audioDropdown).(*audioView)
 
 	if v.main.Visible() != "devices" {
 		t.Fatalf("main = %q", v.main.Visible())
@@ -367,7 +365,7 @@ func sameWidgets(a, b []widget.Widget) bool {
 func TestAudioEmptyStatesCenterVertically(t *testing.T) {
 	restore := widget.SetAnimationsInstant(true)
 	t.Cleanup(restore)
-	v := opened(audioDropdown(newTestContext(t, config.Defaults()))).(*audioView)
+	v := openView(t, newTestContext(t, config.Defaults()), audioDropdown).(*audioView)
 	sz := widget.SizeWithin(v, availSize(420, 700))
 	v.Arrange(render.Rect{W: sz.W, H: 700})
 
@@ -397,7 +395,7 @@ func TestAudioEmptyStatesCenterVertically(t *testing.T) {
 // its media: the check rides only the active one, and activating it
 // goes back to the main page.
 func TestAudioPickerBackAndOptionItems(t *testing.T) {
-	v := opened(audioDropdown(newTestContext(t, config.Defaults()))).(*audioView)
+	v := openView(t, newTestContext(t, config.Defaults()), audioDropdown).(*audioView)
 	found := findByClass(v.pickers[audioOutput], "picker-back")
 	back, ok := found.(*widget.Button)
 	if !ok {
@@ -425,7 +423,7 @@ func TestAudioPickerBackAndOptionItems(t *testing.T) {
 // The picker title keeps its natural width: the free width after it
 // stays empty.
 func TestAudioPickerTitleKeepsNaturalWidth(t *testing.T) {
-	v := opened(audioDropdown(newTestContext(t, config.Defaults()))).(*audioView)
+	v := openView(t, newTestContext(t, config.Defaults()), audioDropdown).(*audioView)
 	p := v.pickers[audioOutput]
 	title := findByClass(p, "picker-title").(*widget.Label)
 	header := findByClass(p, "picker-header").(*widget.Box)
@@ -445,8 +443,7 @@ func TestAudioPickerRowsRebuildOnlyOnChange(t *testing.T) {
 	srv, svc := audioFixture(t)
 	ctx := newTestContext(t, config.Defaults())
 	ctx.Pulse = svc
-	v := opened(audioDropdown(ctx)).(*audioView)
-	defer v.dropdownClosed()
+	v := openView(t, ctx, audioDropdown).(*audioView)
 	p := v.pickers[audioOutput]
 	rows := pickerRows(p)
 
@@ -506,7 +503,7 @@ func TestAudioPickerRowsRebuildOnlyOnChange(t *testing.T) {
 // the option's text ellipsizes, so the check stays inside the row.
 func TestAudioOptionFitsANarrowPicker(t *testing.T) {
 	ctx := styledContext(t, config.Defaults())
-	v := opened(audioDropdown(ctx)).(*audioView)
+	v := openView(t, ctx, audioDropdown).(*audioView)
 	row := v.pickers[audioOutput].row(audioDevice{description: "alsa_output.pci-0000_00_1f.3.analog-stereo", icon: "ld-speaker-symbolic"}, true)
 	ctx.Theme.Attach(row)
 	const w = 240
@@ -534,8 +531,7 @@ func TestAudioSectionIsAnItem(t *testing.T) {
 	srv, svc := audioFixture(t)
 	ctx := newTestContext(t, config.Defaults())
 	ctx.Pulse = svc
-	v := opened(audioDropdown(ctx)).(*audioView)
-	defer v.dropdownClosed()
+	v := openView(t, ctx, audioDropdown).(*audioView)
 	if kind := itemText(v.input.item, "description"); kind != i18n.T("dropdown-audio-input") {
 		t.Errorf("the input row's kind = %q", kind)
 	}

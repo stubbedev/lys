@@ -1012,7 +1012,9 @@ func (v *dashboardView) startPolling(life context.Context) {
 func (v *dashboardView) follow(life context.Context) {
 	v.refreshAll()
 	if v.ctx.App == nil {
-		v.poll()
+		for _, apply := range v.sample() {
+			apply()
+		}
 		return
 	}
 	v.startPolling(life)

@@ -38,8 +38,7 @@ func newNightlightDropdown(t *testing.T, cfg *config.Config, env sunsetEnv) nigh
 		go done(*saveFail)
 	}
 	ctx.Nightlight = newNightlightService(ctx, env)
-	v := onHeadlessLoop(func() *brightnessView { return opened(brightnessDropdown(ctx)).(*brightnessView) })
-	t.Cleanup(func() { onHeadlessLoop(func() bool { v.dropdownClosed(); return true }) })
+	v := openView(t, ctx, brightnessDropdown).(*brightnessView)
 	if v.night == nil {
 		t.Fatal("the brightness dropdown has no night light card with a night light running")
 	}
@@ -250,12 +249,12 @@ func TestBrightnessDropdownFollowsTheNightLightModule(t *testing.T) {
 		t.Errorf("starts = %d: the dropdown's own sync turned the filter on again", fake.starts)
 	}
 
-	onHeadlessLoop(func() bool { d.view.dropdownHidden(); return true })
+	hideView(d.view.ctx, d.view)
 	onHeadlessLoop(func() bool { m.RunAction(config.ParseClickAction(":toggle")); return true })
 	if d.card.toggle.On() {
 		t.Error("a hidden dropdown followed the night light")
 	}
-	onHeadlessLoop(func() bool { d.view.dropdownOpened(); return true })
+	reopenView(d.view.ctx, d.view)
 	if !d.card.toggle.On() {
 		t.Error("showing the dropdown again did not show the change it missed")
 	}
@@ -278,8 +277,7 @@ func withTemperature(cfg *config.Config, kelvin uint32) *config.Config {
 func TestBrightnessDropdownWithoutANightLight(t *testing.T) {
 	ctx := newTestContext(t, config.Defaults())
 	ctx.Brightness = &fakeBrightnessSource{}
-	v := onHeadlessLoop(func() *brightnessView { return opened(brightnessDropdown(ctx)).(*brightnessView) })
-	defer onHeadlessLoop(func() bool { v.dropdownClosed(); return true })
+	v := openView(t, ctx, brightnessDropdown).(*brightnessView)
 	if v.night != nil || len(treetest.WithClass(v, "brightness-nightlight")) != 0 {
 		t.Error("a night light card without a night light")
 	}

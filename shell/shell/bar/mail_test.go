@@ -156,13 +156,13 @@ func TestLoadFileAppliesMailAccounts(t *testing.T) {
 func TestMailDropdownRows(t *testing.T) {
 	cfg := config.Defaults()
 	ctx := newTestContext(t, cfg)
-	if v := opened(mailDropdown(ctx)).(*mailView); len(mailRows(v)) != 0 || v.pages.Visible() == "error" {
+	if v := openView(t, ctx, mailDropdown).(*mailView); len(mailRows(v)) != 0 || v.pages.Visible() == "error" {
 		t.Fatalf("no service: page %q, %d rows; want nothing read and no error", v.pages.Visible(), len(mailRows(v)))
 	}
 	mc := cfg.Mail
 	mc.Accounts = []config.MailAccount{{Name: "Work", Query: "tag:work"}, {Name: "Home", Query: "tag:home"}}
 	ctx.Mail = seededMail(t, mc, 0)
-	v := opened(mailDropdown(ctx)).(*mailView)
+	v := openView(t, ctx, mailDropdown).(*mailView)
 	rows := mailRows(v)
 	if v.pages.Visible() != "accounts" || len(rows) != 2 {
 		t.Fatalf("page %q, rows = %d, want one per account", v.pages.Visible(), len(rows))
@@ -172,7 +172,7 @@ func TestMailDropdownRows(t *testing.T) {
 		t.Errorf("zero count = %q variant %v, want the secondary badge", count.Text(), count.Variant())
 	}
 	ctx.Mail = seededMail(t, mc, 3)
-	v = opened(mailDropdown(ctx)).(*mailView)
+	v = openView(t, ctx, mailDropdown).(*mailView)
 	if count := treetest.First[*widget.Badge](t, mailRows(v)[0]); count.Text() != "3" || count.Variant() == widget.BadgeSecondary {
 		t.Errorf("unread count = %q variant %v, want the default badge", count.Text(), count.Variant())
 	}
@@ -183,7 +183,7 @@ func TestMailDropdownShowsAQueryOnlyTotalAsOneRow(t *testing.T) {
 	ctx := newTestContext(t, cfg)
 	for _, n := range []uint32{0, 4} {
 		ctx.Mail = seededMail(t, cfg.Mail, n)
-		v := opened(mailDropdown(ctx)).(*mailView)
+		v := openView(t, ctx, mailDropdown).(*mailView)
 		rows := mailRows(v)
 		if v.pages.Visible() != "accounts" || len(rows) != 1 {
 			t.Fatalf("%d unread: page %q, %d rows, want the query's one row", n, v.pages.Visible(), len(rows))
@@ -202,7 +202,7 @@ func TestMailDropdownShowsTheErrorPage(t *testing.T) {
 	ctx := newTestContext(t, cfg)
 	broken := errors.New("notmuch count tag:unread: exit status 1: Error: no database")
 	ctx.Mail = seededMailWith(t, cfg.Mail, staticNotmuch{fails: map[string]error{cfg.Mail.Query: broken}})
-	v := opened(mailDropdown(ctx)).(*mailView)
+	v := openView(t, ctx, mailDropdown).(*mailView)
 	if got := v.pages.Visible(); got != "error" {
 		t.Fatalf("a failed query shows page %q, want error", got)
 	}
@@ -221,7 +221,7 @@ func TestMailDropdownMarksOnlyTheFailedAccount(t *testing.T) {
 	mc.Accounts = []config.MailAccount{{Name: "Work", Query: "tag:work"}, {Name: "Home", Query: "tag:home"}}
 	broken := errors.New("exit status 1")
 	ctx.Mail = seededMailWith(t, mc, staticNotmuch{count: 2, fails: map[string]error{"tag:work": broken}})
-	v := opened(mailDropdown(ctx)).(*mailView)
+	v := openView(t, ctx, mailDropdown).(*mailView)
 	rows := mailRows(v)
 	if v.pages.Visible() != "accounts" || len(rows) != 2 {
 		t.Fatalf("one failed account: page %q, %d rows, want both accounts", v.pages.Visible(), len(rows))
@@ -234,7 +234,7 @@ func TestMailDropdownMarksOnlyTheFailedAccount(t *testing.T) {
 	}
 
 	ctx.Mail = seededMailWith(t, mc, staticNotmuch{fails: map[string]error{"tag:work": broken, "tag:home": broken}})
-	if got := opened(mailDropdown(ctx)).(*mailView).pages.Visible(); got != "error" {
+	if got := openView(t, ctx, mailDropdown).(*mailView).pages.Visible(); got != "error" {
 		t.Errorf("every account failed: page %q, want error", got)
 	}
 }

@@ -39,8 +39,7 @@ func TestThePausedSectionListsWhatIsPausedAndWhatFailedAndHidesWhenNothingIs(t *
 	src := &fakePaused{}
 	ctx := newTestContext(t, config.Defaults())
 	ctx.PausedUnits = src
-	v := onHeadlessLoop(func() *batteryView { return opened(batteryDropdown(ctx)).(*batteryView) })
-	t.Cleanup(func() { onHeadlessLoop(func() bool { v.dropdownClosed(); return true }) })
+	v := openView(t, ctx, batteryDropdown).(*batteryView)
 	shown := func() bool { return v.paused.box.Visible() }
 	if onHeadlessLoop(shown) {
 		t.Error("the section shows while lys-power does not serve it")

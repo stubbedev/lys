@@ -136,10 +136,7 @@ func TestBackgroundAppsAreListedAndStopKillsTheInstance(t *testing.T) {
 	f.set(t, backgroundApp("org.gnome.Fractal", "1234", "Syncing messages"), backgroundApp("com.example.Unlisted", "77", "Playing"))
 	waitHeadless(t, "two background apps", func() bool { return chrome.Visible() && ind.btn.Label().Text() == "2" })
 
-	v := onHeadlessLoop(func() *backgroundAppsView {
-		return opened(backgroundAppsDropdown(ctx)).(*backgroundAppsView)
-	})
-	defer onHeadlessLoop(func() bool { v.dropdownClosed(); return true })
+	v := openView(t, ctx, backgroundAppsDropdown).(*backgroundAppsView)
 	labels := onHeadlessLoop(func() []string { return treetest.Labels(v) })
 	for _, want := range []string{"Fractal", "Syncing messages", "com.example.Unlisted", "Playing"} {
 		if !slices.Contains(labels, want) {
@@ -197,10 +194,7 @@ func TestABackgroundAppStopIsPendingToastsAndRetries(t *testing.T) {
 	ctx.BackgroundApps = gatedApps{stopRecorder: rec, gate: gate, stopped: func() error { return f.publish() }}
 	ctx.Toast = shown.record
 	f.set(t, backgroundApp("org.gnome.Fractal", "1234", "Syncing messages"))
-	v := onHeadlessLoop(func() *backgroundAppsView {
-		return opened(backgroundAppsDropdown(ctx)).(*backgroundAppsView)
-	})
-	defer onHeadlessLoop(func() bool { v.dropdownClosed(); return true })
+	v := openView(t, ctx, backgroundAppsDropdown).(*backgroundAppsView)
 	waitHeadless(t, "the app listed", func() bool { return slices.Contains(treetest.Labels(v), "Fractal") })
 	failed := i18n.T("dropdown-background-apps-stop-failed", i18n.Str("app", "Fractal"), i18n.Str("error", "no reply"))
 	checkStopButton(t, v, v.rebuild, "background-apps-stop", gate, shown, failed, "Fractal")
@@ -215,10 +209,7 @@ func TestNoBackgroundMonitorShowsNoIndicator(t *testing.T) {
 	if onHeadlessLoop(chrome.Visible) {
 		t.Error("the indicator shows with no background monitor on the bus")
 	}
-	v := onHeadlessLoop(func() *backgroundAppsView {
-		return opened(backgroundAppsDropdown(ctx)).(*backgroundAppsView)
-	})
-	defer onHeadlessLoop(func() bool { v.dropdownClosed(); return true })
+	v := openView(t, ctx, backgroundAppsDropdown).(*backgroundAppsView)
 	if rows := onHeadlessLoop(func() []widget.Widget { return treetest.WithClass(v, "background-apps-dropdown-row") }); len(rows) != 0 {
 		t.Errorf("%d rows with no background monitor", len(rows))
 	}

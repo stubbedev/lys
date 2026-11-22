@@ -540,7 +540,7 @@ func TestBtDropdownClosedStopsFollowing(t *testing.T) {
 	src := newFakeBluetooth(btWorld())
 	ctx := newTestContext(t, config.Defaults())
 	ctx.Bluetooth = src
-	content := opened(bluetoothDropdown(ctx))
+	content := openView(t, ctx, bluetoothDropdown)
 	closer, ok := content.(dropdownCloser)
 	if !ok {
 		t.Fatal("the bluetooth dropdown does not release its subscription")
@@ -548,12 +548,12 @@ func TestBtDropdownClosedStopsFollowing(t *testing.T) {
 	if !btDropdownVisible(src) {
 		t.Error("an open dropdown reads as closed")
 	}
-	closer.dropdownClosed()
+	closeView(ctx, closer)
 	if btDropdownVisible(src) {
 		t.Error("a closed dropdown reads as open")
 	}
 	// Closing twice does not underflow.
-	closer.dropdownClosed()
+	closeView(ctx, closer)
 	btDropdownOpened(src)
 	if !btDropdownVisible(src) {
 		t.Error("the open count underflowed")
@@ -563,11 +563,11 @@ func TestBtDropdownClosedStopsFollowing(t *testing.T) {
 
 func TestBtDropdownWithoutServiceShowsNoAdapter(t *testing.T) {
 	ctx := newTestContext(t, config.Defaults())
-	content := opened(bluetoothDropdown(ctx))
+	content := openView(t, ctx, bluetoothDropdown)
 	// The full shell builds without a service; closing it is a no-op,
 	// not a panic, and nothing subscribed.
 	if c, ok := content.(dropdownCloser); ok {
-		c.dropdownClosed()
+		closeView(ctx, c)
 	}
 	if findBox(content, "dropdown-header") == nil {
 		t.Error("the no-adapter dropdown dropped the header")
@@ -703,9 +703,9 @@ func findButton(w widget.Widget, class string) *widget.Button {
 // bare empty state is the regression.
 func TestBtNoAdapterDropdownKeepsTheHeader(t *testing.T) {
 	ctx := newTestContext(t, config.Defaults())
-	content := opened(bluetoothDropdown(ctx))
+	content := openView(t, ctx, bluetoothDropdown)
 	if c, ok := content.(dropdownCloser); ok {
-		c.dropdownClosed()
+		closeView(ctx, c)
 	}
 	if findBox(content, "dropdown-header") == nil {
 		t.Error("the no-adapter dropdown dropped the header")

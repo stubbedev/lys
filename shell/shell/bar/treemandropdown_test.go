@@ -43,13 +43,12 @@ func TestTreemanBucketHelpers(t *testing.T) {
 
 func TestTreemanDropdownEmpty(t *testing.T) {
 	ctx := newTestContext(t, config.Defaults())
-	v := opened(treemanDropdown(ctx)).(*treemanView)
+	v := openView(t, ctx, treemanDropdown).(*treemanView)
 	if len(v.list.Children()) != 1 || v.back.Visible() {
 		t.Errorf("no service: %d children, back shown %v", len(v.list.Children()), v.back.Visible())
 	}
 	ctx.Treeman = &fakeTreeman{status: &treeman.Status{}}
-	v = opened(treemanDropdown(ctx)).(*treemanView)
-	defer v.dropdownClosed()
+	v = openView(t, ctx, treemanDropdown).(*treemanView)
 	if _, ok := v.list.Children()[0].(*widget.StatusPage); !ok || len(v.list.Children()) != 1 {
 		t.Error("no repos: want only the empty state")
 	}
@@ -68,8 +67,7 @@ func TestTreemanDropdownListAndCollapse(t *testing.T) {
 	src := &fakeTreeman{status: treemanFixture(), ticks: make(chan struct{}, 1)}
 	ctx := newTestContext(t, config.Defaults())
 	ctx.Treeman = src
-	v := opened(treemanDropdown(ctx)).(*treemanView)
-	defer v.dropdownClosed()
+	v := openView(t, ctx, treemanDropdown).(*treemanView)
 
 	if chips := treetest.WithClass(v.list, "treeman-stat"); len(chips) != 2 {
 		t.Errorf("summary chips = %d, want ready and failed only", len(chips))
@@ -127,8 +125,7 @@ func TestTreemanRowHoverSwapsTheActions(t *testing.T) {
 	t.Cleanup(restore)
 	ctx := styledContext(t, config.Defaults())
 	ctx.Treeman = &fakeTreeman{status: treemanFixture()}
-	v := opened(treemanDropdown(ctx)).(*treemanView)
-	defer v.dropdownClosed()
+	v := openView(t, ctx, treemanDropdown).(*treemanView)
 	ctx.Theme.Attach(v)
 	widget.SizeWithin(v, widget.Size{W: 440, H: 460})
 	v.Arrange(render.Rect{W: 440, H: 460})
@@ -160,8 +157,7 @@ func TestTreemanDropdownDetailAndActions(t *testing.T) {
 		toasts = append(toasts, label)
 		toastMu.Unlock()
 	}
-	v := opened(treemanDropdown(ctx)).(*treemanView)
-	defer v.dropdownClosed()
+	v := openView(t, ctx, treemanDropdown).(*treemanView)
 
 	v.openDetail("/w/feat")
 	if v.pages.Visible() != "detail" || itemText(v.title, "title") != "feat" || !v.back.Visible() {
@@ -224,8 +220,7 @@ func TestTreemanTeardownRunsWithoutAsking(t *testing.T) {
 	ctx.Treeman = src
 	alerts := &fakeAlert{}
 	ctx.Alert = alerts.ask
-	v := opened(treemanDropdown(ctx)).(*treemanView)
-	defer v.dropdownClosed()
+	v := openView(t, ctx, treemanDropdown).(*treemanView)
 	row := treetest.WithClass(v.list, "treeman-wt")[0].(*revealItem)
 	slot := treetest.First[*widget.Stack](t, row)
 	path := row.TooltipText()
@@ -249,8 +244,7 @@ func TestTreemanRowKeyboardReachesItsActions(t *testing.T) {
 	ctx.Treeman = src
 	alerts := &fakeAlert{}
 	ctx.Alert = alerts.ask
-	v := opened(treemanDropdown(ctx)).(*treemanView)
-	defer v.dropdownClosed()
+	v := openView(t, ctx, treemanDropdown).(*treemanView)
 	ctx.Theme.Attach(v)
 	layoutForKeys(v)
 	row := treetest.WithClass(v.list, "treeman-wt")[0].(*revealItem)

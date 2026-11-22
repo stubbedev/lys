@@ -133,11 +133,11 @@ func TestABuiltAheadDropdownReadsNothingUntilItOpens(t *testing.T) {
 	if content == nil {
 		t.Fatal("the battery dropdown was not built ahead")
 	}
-	t.Cleanup(content.(dropdownCloser).dropdownClosed)
+	t.Cleanup(func() { closeView(ctx, content.(dropdownCloser)) })
 	if got := battery.reads.Load(); got != 0 {
 		t.Errorf("a dropdown built ahead read the battery %d times while nothing shows it", got)
 	}
-	content.(dropdownOpener).dropdownOpened()
+	reopenView(ctx, content.(dropdownOpener))
 	if battery.reads.Load() == 0 {
 		t.Error("opening a dropdown built ahead read nothing")
 	}

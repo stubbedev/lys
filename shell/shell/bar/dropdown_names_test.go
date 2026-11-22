@@ -99,8 +99,7 @@ func TestMediaTransportButtonsAreNamedByTheirState(t *testing.T) {
 	source := newFakeMedia(mpris.Player{BusName: "org.mpris.MediaPlayer2.vlc", Identity: "VLC", CanShuffle: true, CanLoop: true, CanGoNext: true, CanGoPrevious: true})
 	ctx := newTestContext(t, config.Defaults())
 	ctx.Media = source
-	v := opened(mediaDropdown(ctx)).(*mediaView)
-	defer v.dropdownClosed()
+	v := openView(t, ctx, mediaDropdown).(*mediaView)
 	name := func(b *widget.Button) string { return onHeadlessLoop(func() string { return widget.Describe(b).Name }) }
 	refresh := v.refresh
 	refresh()
@@ -153,8 +152,7 @@ func TestAudioMuteLabelSaysWhatAClickDoes(t *testing.T) {
 // The network and bluetooth headers name their scan buttons and power
 // switches.
 func TestRadioHeadersNameTheirScanAndSwitch(t *testing.T) {
-	n := opened(newNetworkView(newTestContext(t, config.Defaults()), netDeps{}))
-	defer n.dropdownClosed()
+	n := openView(t, newTestContext(t, config.Defaults()), netView(netDeps{}))
 	if got := onHeadlessLoop(func() string { return widget.Describe(n.scanBtn).Name }); got != i18n.T("dropdown-network-scan") {
 		t.Errorf("network scan button named %q", got)
 	}
