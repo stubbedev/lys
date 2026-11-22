@@ -28,7 +28,6 @@ func dockAppsFixture(t *testing.T) {
 	t.Setenv("XDG_DATA_HOME", data)
 	t.Setenv("XDG_DATA_DIRS", filepath.Join(root, "none"))
 	t.Setenv("XDG_CURRENT_DESKTOP", "lys-wm")
-	locale.T()
 	t.Setenv("LC_ALL", "fr_FR.UTF-8")
 }
 
