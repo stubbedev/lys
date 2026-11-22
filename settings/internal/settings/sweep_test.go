@@ -414,7 +414,7 @@ func TestARefusedChangeLeavesEveryWMControlAtTheLastAcceptedState(t *testing.T) 
 			w.show("", "")
 			fresh := newFieldRow(k, w, spec)
 			if got, want := controlState(row), controlState(fresh); !slices.Equal(got, want) {
-				t.Errorf("%s: after a refused %s (%s) the row shows %q, the stored config %q", spec.path, action, notice, got, want)
+				t.Errorf("%s (%s): after a refused %s (%s) the row shows %q, the stored config %q", spec.path, spec.labelKey(), action, notice, got, want)
 			}
 		})
 		noFile(t, w.file.Runtime())

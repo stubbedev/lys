@@ -1,6 +1,7 @@
 package settings
 
 import (
+	"slices"
 	"strings"
 	"testing"
 )
@@ -45,5 +46,24 @@ func TestResettingARowDropsItsDraft(t *testing.T) {
 	row.reset.OnClick()
 	if c.draft.Visible() || len(c.local) != 1 {
 		t.Fatalf("after the reset: draft %v, %d cards, the stored list has 1", c.draft.Visible(), len(c.local))
+	}
+}
+
+// The row's reset drops a draft in a mode's binds as well as in the
+// main binds: a refused reset then leaves no blank card behind.
+func TestResettingTheShortcutsDropsAModesDraft(t *testing.T) {
+	k, w, fake, _ := wmKit(t, modesConfig)
+	row := newFieldRow(k, w, wmShortcutsRow())
+	k.onWMChange = row.refresh
+	tb := row.ctl.(*shortcutTable)
+	mode := tb.group[slices.IndexFunc(tb.group, func(g *modeGroup) bool { return g.name == "apps" })].list
+	fake.reject = "submaps.apps[1].chord: is empty"
+	buttonsOfRole(mode, roleAdd)[0].OnClick()
+	if !mode.draft.Visible() || len(mode.local) != 2 {
+		t.Fatalf("draft %v, %d cards", mode.draft.Visible(), len(mode.local))
+	}
+	row.reset.OnClick()
+	if mode.draft.Visible() || len(mode.local) != 1 {
+		t.Fatalf("after the reset: the mode's draft %v, %d cards, the stored list has 1", mode.draft.Visible(), len(mode.local))
 	}
 }

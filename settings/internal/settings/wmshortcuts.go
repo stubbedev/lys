@@ -350,8 +350,14 @@ func (tb *shortcutTable) refresh() {
 	tb.applyFilter()
 }
 
-// discardDraft drops the binds' draft, as the row's reset puts the binds back.
-func (tb *shortcutTable) discardDraft() { tb.main.discardDraft() }
+// discardDraft drops the draft of the binds and of every mode's binds, as
+// the row's reset puts them all back.
+func (tb *shortcutTable) discardDraft() {
+	tb.main.discardDraft()
+	for _, g := range tb.group {
+		g.list.discardDraft()
+	}
+}
 
 // applyFilter narrows every list to the binds the search finds, and shows a
 // mode while the search is empty or finds one of its binds.
