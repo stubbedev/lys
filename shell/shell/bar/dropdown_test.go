@@ -355,18 +355,19 @@ func TestDropdownTreeStylesThePanelText(t *testing.T) {
 	bar.Append(anchor, false)
 	widget.SizeWithin(bar, widget.Size{W: 600, H: 40})
 	bar.Arrange(render.Rect{W: 600, H: 40})
-	root, _ := dropdownTree(openView(t, ctx, calendarDropdown), cfg)
-	arrange := func() []*widget.Label {
+	content := openView(t, ctx, calendarDropdown)
+	root := onLoopOf(ctx, func() *widget.Box {
+		root, _ := dropdownTree(content, cfg)
+		widget.SetStyleAnchor(root, anchor)
 		widget.SizeWithin(root, widget.Size{W: 600, H: 900})
 		root.Arrange(render.Rect{W: 600, H: 900})
-		labels := treetest.All[*widget.Label](root)
-		if len(labels) == 0 {
-			t.Fatal("no labels in the panel")
-		}
-		return labels
+		return root
+	})
+	labels := treetest.All[*widget.Label](root)
+	if len(labels) == 0 {
+		t.Fatal("no labels in the panel")
 	}
-	widget.SetStyleAnchor(root, anchor)
-	for _, l := range arrange() {
+	for _, l := range labels {
 		c := widget.CascadeColor(l)
 		if c.A() == 0 {
 			t.Errorf("label %q has no ink from the bar's theme", l.Text())

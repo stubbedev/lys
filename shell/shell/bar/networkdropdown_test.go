@@ -321,7 +321,7 @@ func TestNetworkDropdownListsAndConnects(t *testing.T) {
 	}
 
 	// A secured unknown network asks for its password, focused.
-	v.selectNetwork("home")
+	doOnLoopOf(v.ctx, func() { v.selectNetwork("home") })
 	if v.state != netPasswordEntry || !v.password.Visible() || pop.focused != v.password.secret.entry {
 		t.Fatalf("state %d form %v focus %v", v.state, v.password.Visible(), pop.focused)
 	}
@@ -399,13 +399,13 @@ func TestNetworkDropdownStaleSearchAndForget(t *testing.T) {
 	v, _, _ := newNetTestView(t, network.Snapshot{WifiEnabled: true}, netDeps{wifiCtl: wifi})
 	// NM prunes the network: it stays listed, stale.
 	wifi.setAPs()
-	v.apply(v.read(context.Background()))
+	doOnLoopOf(v.ctx, func() { v.apply(v.read(context.Background())) })
 	if len(v.cache) != 1 || !v.cache[0].stale {
 		t.Fatalf("cache = %+v, want cafe kept stale", v.cache)
 	}
 	// Selecting it scans; still gone, it reports not found.
 	wifi.scanGate = make(chan struct{})
-	v.selectNetwork("cafe")
+	doOnLoopOf(v.ctx, func() { v.selectNetwork("cafe") })
 	if v.state != netScanning || v.progress.step != i18n.T("dropdown-network-step-searching") || !v.scanBtn.HasClass("scanning") {
 		t.Errorf("searching: state %d step %q", v.state, v.progress.step)
 	}
@@ -415,7 +415,7 @@ func TestNetworkDropdownStaleSearchAndForget(t *testing.T) {
 		t.Error("a stale row connected to its dead path")
 	}
 	// A known network can be forgotten from its row.
-	v.forget("cafe")
+	doOnLoopOf(v.ctx, func() { v.forget("cafe") })
 	waitHeadless(t, "the forget", func() bool { _, f, _, _, _ := wifi.calls(); return len(f) == 1 })
 }
 
@@ -457,10 +457,12 @@ func TestNetworkSecretForm(t *testing.T) {
 	if pop.focused != f.entries[0].entry {
 		t.Error("the first field did not take focus")
 	}
-	f.entries[0].entry.SetText("me")
-	f.entries[1].entry.SetText("pw")
-	f.entries[2].entry.SetText("123")
-	f.submit()
+	doOnLoopOf(v.ctx, func() {
+		f.entries[0].entry.SetText("me")
+		f.entries[1].entry.SetText("pw")
+		f.entries[2].entry.SetText("123")
+		f.submit()
+	})
 	if len(agent.submitted) != 1 || agent.submitted[0]["username"] != "me" || agent.submitted[0]["password"] != "pw" || agent.submitted[0]["otp"] != "123" {
 		t.Errorf("submitted = %v", agent.submitted)
 	}
@@ -471,8 +473,10 @@ func TestNetworkSecretForm(t *testing.T) {
 	agent.mu.Lock()
 	agent.req = &secrets.Request{UUID: "u2", Name: "Other", Fields: []secrets.Field{{Key: "psk", Secret: true}}}
 	agent.mu.Unlock()
-	v.apply(v.read(context.Background()))
-	f.cancel()
+	doOnLoopOf(v.ctx, func() {
+		v.apply(v.read(context.Background()))
+		f.cancel()
+	})
 	if agent.cancels != 1 || f.Visible() {
 		t.Error("cancel did not reach the agent")
 	}
@@ -533,7 +537,7 @@ func TestNetworkRowsActivateAndForget(t *testing.T) {
 	if trailing == nil {
 		t.Fatal("no trailing stack on the saved row")
 	}
-	trailing.Show("actions")
+	doOnLoopOf(v.ctx, func() { trailing.Show("actions") })
 	forget := findButton(trailing, "network-item-forget")
 	if forget == nil {
 		t.Fatal("no forget button in the row")
@@ -542,12 +546,12 @@ func TestNetworkRowsActivateAndForget(t *testing.T) {
 		t.Error("the forget button is not GhostButton + network-item-forget")
 	}
 	alerts := &fakeAlert{}
-	v.ctx.Alert = alerts.ask
+	doOnLoopOf(v.ctx, func() { v.ctx.Alert = alerts.ask })
 	clickAt(t, saved, forget)
 	if len(alerts.specs) != 1 {
 		t.Fatalf("alerts = %+v, want the forget asked first", alerts.specs)
 	}
-	alerts.answers[0](true)
+	doOnLoopOf(v.ctx, func() { alerts.answers[0](true) })
 	waitHeadless(t, "the forget", func() bool { _, f, _, _, _ := wifi.calls(); return len(f) == 1 && f[0] == "saved" })
 	if v.selection != nil && v.selection.ssid == "saved" {
 		t.Error("the forget button also selected the row")
@@ -683,7 +687,7 @@ func TestNetworkActiveRowsCarryTheirClasses(t *testing.T) {
 func TestNetworkActiveCardSeparatesOnlyShownRows(t *testing.T) {
 	v, _, _ := newNetTestView(t, network.Snapshot{HasWired: true, Wired: network.StatusConnected, WiredSpeed: 1000}, netDeps{})
 	shown := func() int {
-		arrangeDropdown(t, v, 380, 600)
+		arrangeDropdown(v.ctx, v, 380, 600)
 		n := 0
 		for _, sep := range treetest.All[*widget.Separator](v.active) {
 			if sep.Visible() {
@@ -746,8 +750,8 @@ func TestNetworkActiveStatusesEndTogether(t *testing.T) {
 		WifiEnabled: true, Wifi: network.StatusConnected, WifiSSID: "NetJuice", WifiIP4: "192.168.1.66", WifiFrequency: 5180,
 	}, netDeps{wifiCtl: &fakeWifiCtl{}})
 	settleNetReads(t, v)
+	arrangeDropdown(v.ctx, v, 340, 900)
 	onHeadlessLoop(func() bool {
-		arrangeDropdown(t, v, 340, 900)
 		wired := treetest.WithClass(v.active.wired, "network-connection-status")[0].(*widget.Label).Bounds()
 		wifi := v.active.wifiStatus.Bounds()
 		if wired.X+wired.W != wifi.X+wifi.W {

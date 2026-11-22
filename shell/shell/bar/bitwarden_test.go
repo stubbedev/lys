@@ -258,8 +258,10 @@ func bitwardenTestView(t *testing.T, v *fakeVault, cfg *config.Config) (*bitward
 	style := computeStyle(cfg, styling.Default())
 	ctx := ModuleContext{Config: cfg, Font: testFont(t), Style: &style, Bitwarden: testBitwardenHost(v, cfg, copies), gen: testGen(t)}
 	view := openView(t, ctx, bitwardenDropdown).(*bitwardenView)
-	widget.SetSurfaceHost(view.Box, focusHost{})
-	view.Arrange(render.Rect{W: 382, H: 600})
+	doOnLoopOf(ctx, func() {
+		widget.SetSurfaceHost(view.Box, focusHost{})
+		view.Arrange(render.Rect{W: 382, H: 600})
+	})
 	return view, copies
 }
 
@@ -345,7 +347,7 @@ func TestBitwardenLoginWithSecondFactor(t *testing.T) {
 	if page(view) != bwPageLogin || view.email.Text() != "ada@example.com" {
 		t.Fatalf("page %s, email %q", page(view), view.email.Text())
 	}
-	view.password.entry.SetText("hunter2")
+	typeText(view.ctx, view.password.entry, "hunter2")
 	onHeadlessLoop(func() struct{} { view.loginForm.Submit(); return struct{}{} })
 	waitIdle(t, view)
 	if len(v.logins) != 1 || v.logins[0].Server.String() != "https://vault.example.com" || v.logins[0].Password != "hunter2" || v.logins[0].TwoFactor != nil {
@@ -355,7 +357,7 @@ func TestBitwardenLoginWithSecondFactor(t *testing.T) {
 		t.Fatalf("after the challenge: page %s, error %q shown %v, send email %v", page(view), view.errLabel.Text(), view.errLabel.Visible(), view.sendEmail.Visible())
 	}
 	v.set(func(f *fakeVault) { f.loginErr = nil })
-	view.code.SetText("123456")
+	typeText(view.ctx, view.code, "123456")
 	onHeadlessLoop(func() struct{} { view.submitCode(); return struct{}{} })
 	waitIdle(t, view)
 	if len(v.logins) != 2 || v.logins[1].TwoFactor == nil || *v.logins[1].TwoFactor != (vault.TwoFactor{Provider: vault.TwoFactorAuthenticator, Code: "123456"}) {
@@ -372,14 +374,14 @@ func TestBitwardenNewDeviceAndEmailCode(t *testing.T) {
 	cfg := config.Defaults()
 	v := &fakeVault{loginErr: vault.ErrNewDeviceVerification}
 	view, _ := bitwardenTestView(t, v, cfg)
-	view.email.SetText("ada@example.com")
-	view.password.entry.SetText("hunter2")
+	typeText(view.ctx, view.email, "ada@example.com")
+	typeText(view.ctx, view.password.entry, "hunter2")
 	onHeadlessLoop(func() struct{} { view.loginForm.Submit(); return struct{}{} })
 	waitIdle(t, view)
 	if page(view) != bwPageChallenge || !view.pending.NewDevice {
 		t.Fatalf("page %s, pending %+v", page(view), view.pending)
 	}
-	view.code.SetText("998877")
+	typeText(view.ctx, view.code, "998877")
 	onHeadlessLoop(func() struct{} { view.submitCode(); return struct{}{} })
 	waitIdle(t, view)
 	if last := v.logins[len(v.logins)-1]; last.NewDeviceOTP != "998877" || last.TwoFactor != nil {
@@ -406,12 +408,12 @@ func TestBitwardenLoginRefused(t *testing.T) {
 	cfg := config.Defaults()
 	v := &fakeVault{loginErr: vault.ErrInvalidCredentials}
 	view, _ := bitwardenTestView(t, v, cfg)
-	view.email.SetText("ada@example.com")
+	typeText(view.ctx, view.email, "ada@example.com")
 	onHeadlessLoop(func() struct{} { view.loginForm.Submit(); return struct{}{} })
 	if len(v.logins) != 0 {
 		t.Fatalf("an empty password reached the server: %+v", v.logins)
 	}
-	view.password.entry.SetText("nope")
+	typeText(view.ctx, view.password.entry, "nope")
 	onHeadlessLoop(func() struct{} { view.loginForm.Submit(); return struct{}{} })
 	waitIdle(t, view)
 	if page(view) != bwPageLogin || view.errLabel.Text() != i18n.T("dropdown-bitwarden-error-credentials") || !view.errLabel.Visible() {
@@ -425,14 +427,14 @@ func TestBitwardenAPIKeyLogin(t *testing.T) {
 	v := &fakeVault{}
 	view, _ := bitwardenTestView(t, v, cfg)
 	onHeadlessLoop(func() struct{} { view.toggleAPIKey(); return struct{}{} })
-	view.email.SetText("ada@example.com")
-	view.password.entry.SetText("hunter2")
+	typeText(view.ctx, view.email, "ada@example.com")
+	typeText(view.ctx, view.password.entry, "hunter2")
 	onHeadlessLoop(func() struct{} { view.loginForm.Submit(); return struct{}{} })
 	if len(v.apiKeys) != 0 {
 		t.Fatal("an API key login without the key reached the server")
 	}
-	view.clientIDIn.SetText("user.abc")
-	view.secretIn.entry.SetText("s3cret")
+	typeText(view.ctx, view.clientIDIn, "user.abc")
+	typeText(view.ctx, view.secretIn.entry, "s3cret")
 	onHeadlessLoop(func() struct{} { view.loginForm.Submit(); return struct{}{} })
 	waitIdle(t, view)
 	if len(v.apiKeys) != 1 || v.apiKeys[0].ClientID != "user.abc" || v.apiKeys[0].Secret != "s3cret" || v.apiKeys[0].Password != "hunter2" || len(v.logins) != 0 {
@@ -453,7 +455,7 @@ func TestBitwardenUnlock(t *testing.T) {
 	if len(v.unlocks) != 0 {
 		t.Fatal("an empty password unlocked")
 	}
-	view.unlockPw.entry.SetText("hunter2")
+	typeText(view.ctx, view.unlockPw.entry, "hunter2")
 	onHeadlessLoop(func() struct{} { view.unlock(); return struct{}{} })
 	waitIdle(t, view)
 	if !slices.Equal(v.unlocks, []string{"hunter2"}) || view.unlockPw.entry.Text() != "" {
@@ -522,13 +524,13 @@ func TestBitwardenReprompt(t *testing.T) {
 	if len(*copies) != 1 || page(view) != bwPageReprompt || v.readCount() != 1 {
 		t.Fatalf("password read without the reprompt: %d copies, page %s, reads %q", len(*copies), page(view), v.reads)
 	}
-	view.repromptPw.entry.SetText("wrong")
+	typeText(view.ctx, view.repromptPw.entry, "wrong")
 	onHeadlessLoop(func() struct{} { view.confirmReprompt(); return struct{}{} })
 	waitIdle(t, view)
 	if len(*copies) != 1 || page(view) != bwPageReprompt || view.errLabel.Text() != i18n.T("dropdown-bitwarden-error-wrong-password") {
 		t.Fatalf("wrong password: %d copies, page %s, error %q", len(*copies), page(view), view.errLabel.Text())
 	}
-	view.repromptPw.entry.SetText("hunter2")
+	typeText(view.ctx, view.repromptPw.entry, "hunter2")
 	onHeadlessLoop(func() struct{} { view.confirmReprompt(); return struct{}{} })
 	waitIdle(t, view)
 	if len(*copies) != 2 || page(view) != bwPageVault {
@@ -545,11 +547,11 @@ func TestBitwardenHideClearsSecrets(t *testing.T) {
 	cfg := config.Defaults()
 	v := &fakeVault{loginErr: vault.ErrNewDeviceVerification}
 	view, _ := bitwardenTestView(t, v, cfg)
-	view.email.SetText("ada@example.com")
-	view.password.entry.SetText("hunter2")
+	typeText(view.ctx, view.email, "ada@example.com")
+	typeText(view.ctx, view.password.entry, "hunter2")
 	onHeadlessLoop(func() struct{} { view.loginForm.Submit(); return struct{}{} })
 	waitIdle(t, view)
-	view.code.SetText("12")
+	typeText(view.ctx, view.code, "12")
 	hideView(view.ctx, view)
 	if view.password.entry.Text() != "" || view.code.Text() != "" || view.pending != nil || page(view) != bwPageLogin || view.email.Text() != "ada@example.com" {
 		t.Errorf("after hiding: password %q, code %q, pending %+v, page %s, email %q", view.password.entry.Text(), view.code.Text(), view.pending, page(view), view.email.Text())
@@ -557,7 +559,7 @@ func TestBitwardenHideClearsSecrets(t *testing.T) {
 	u := unlockedVault()
 	uv, _ := bitwardenTestView(t, u, cfg)
 	onHeadlessLoop(func() struct{} { uv.copyField(u.entries[1].item, vault.FieldPassword); return struct{}{} })
-	uv.repromptPw.entry.SetText("hunt")
+	typeText(uv.ctx, uv.repromptPw.entry, "hunt")
 	hideView(uv.ctx, uv)
 	if uv.copying != nil || uv.repromptPw.entry.Text() != "" || page(uv) != bwPageVault {
 		t.Errorf("after hiding the reprompt: pending %+v, box %q, page %s", uv.copying, uv.repromptPw.entry.Text(), page(uv))
@@ -632,7 +634,7 @@ func TestBitwardenInitialFocus(t *testing.T) {
 	if got := view.dropdownFocus(); got != widget.Widget(view.email) {
 		t.Errorf("empty login focuses %T", got)
 	}
-	view.email.SetText("ada@example.com")
+	typeText(view.ctx, view.email, "ada@example.com")
 	if got := view.dropdownFocus(); got != widget.Widget(view.password.entry) {
 		t.Errorf("filled email focuses %T", got)
 	}

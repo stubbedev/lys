@@ -24,9 +24,7 @@ func volumeDashboard(t *testing.T, src *fakePulseSource) *dashboardView {
 	t.Helper()
 	ctx := newTestContext(t, config.Defaults())
 	ctx.Pulse = src
-	v := openView(t, ctx, noRadiosDashboard).(*dashboardView)
-	v.refreshAll()
-	return v
+	return openDashboard(t, ctx, noRadiosDashboard)
 }
 
 func TestTheVolumeIconSaysMutedOrShowsTheLevel(t *testing.T) {
@@ -87,18 +85,20 @@ func TestALongOutputNameNeverWidensTheDashboard(t *testing.T) {
 	long := strings.Repeat("Core Ultra 200V Series Processors HD Audio Speaker ", 4)
 	ctx := styledContext(t, config.Defaults())
 	ctx.Pulse = &fakePulseSource{dev: pulse.Device{Description: long, Volume: pct(40)}, ticks: make(chan struct{}, 1)}
-	v := openView(t, ctx, noRadiosDashboard).(*dashboardView)
-	v.refreshAll()
+	v := openDashboard(t, ctx, noRadiosDashboard)
 	device := classedWidget(t, v, "controls-device").(*widget.Label)
 	if device.Text() != long {
 		t.Fatalf("the device label reads %q", device.Text())
 	}
 	width, _, _ := dropdownDims("dashboard", ctx.Config)
-	panel := dropdownPanel("dashboard", ctx.Config, v)
-	tree, _ := dropdownTree(panel, ctx.Config)
-	ctx.Theme.Attach(tree)
-	widget.SizeWithinAsChild(tree, widget.Size{W: 2000, H: 4000})
-	if got := panel.Measure(widget.Row, widget.Unknown).Nat; got != width {
+	got := onLoopOf(ctx, func() int {
+		panel := dropdownPanel("dashboard", ctx.Config, v)
+		tree, _ := dropdownTree(panel, ctx.Config)
+		ctx.Theme.Attach(tree)
+		widget.SizeWithinAsChild(tree, widget.Size{W: 2000, H: 4000})
+		return panel.Measure(widget.Row, widget.Unknown).Nat
+	})
+	if got != width {
 		t.Errorf("the dashboard asks for %dpx across with a long output name, want its %dpx", got, width)
 	}
 }
@@ -113,20 +113,21 @@ func layoutContext(t *testing.T) ModuleContext {
 
 func scrollRange(t *testing.T, ctx ModuleContext, monH int) int {
 	t.Helper()
-	v := openView(t, ctx, noRadiosDashboard).(*dashboardView)
-	v.refreshAll()
-	panel := dropdownPanel("dashboard", ctx.Config, v).(*panelBox)
-	panel.clamp(monH)
-	tree, rev := dropdownTree(panel, ctx.Config)
-	rev.SetRevealed(true)
-	rev.Finish()
-	ctx.Theme.Attach(tree)
-	for range 2 {
-		sz := widget.SizeWithinAsChild(tree, widget.Size{W: 2000, H: 4000})
-		tree.Arrange(render.Rect{W: sz.W, H: sz.H})
-	}
-	content := v.scroll.Children()[0]
-	return widget.SizeWithinAsChild(content, widget.Size{W: v.scroll.Bounds().W, H: 1 << 14}).H - v.scroll.Bounds().H
+	v := openDashboard(t, ctx, noRadiosDashboard)
+	return onLoopOf(ctx, func() int {
+		panel := dropdownPanel("dashboard", ctx.Config, v).(*panelBox)
+		panel.clamp(monH)
+		tree, rev := dropdownTree(panel, ctx.Config)
+		rev.SetRevealed(true)
+		rev.Finish()
+		ctx.Theme.Attach(tree)
+		for range 2 {
+			sz := widget.SizeWithinAsChild(tree, widget.Size{W: 2000, H: 4000})
+			tree.Arrange(render.Rect{W: sz.W, H: sz.H})
+		}
+		content := v.scroll.Children()[0]
+		return widget.SizeWithinAsChild(content, widget.Size{W: v.scroll.Bounds().W, H: 1 << 14}).H - v.scroll.Bounds().H
+	})
 }
 
 func TestTheCommonCardsFitWithoutScrollingOnA1200PixelOutput(t *testing.T) {
@@ -145,10 +146,9 @@ func TestTheCommonCardsFitWithoutScrollingOnA1200PixelOutput(t *testing.T) {
 
 func TestTheBatteryAndNetworkCardsShareTheirRowEqually(t *testing.T) {
 	ctx := layoutContext(t)
-	v := openView(t, ctx, noRadiosDashboard).(*dashboardView)
-	v.refreshAll()
-	ctx.Theme.Attach(v)
-	arrangeDropdown(t, v, 380, 900)
+	v := openDashboard(t, ctx, noRadiosDashboard)
+	attachTheme(ctx, v)
+	arrangeDropdown(ctx, v, 380, 900)
 	row := classedBox(t, v, "dashboard-info-row")
 	kids := row.Children()
 	if len(kids) != 2 {
@@ -171,10 +171,9 @@ func TestTheBatteryAndNetworkCardsShareTheirRowEqually(t *testing.T) {
 	}
 
 	ctx.Battery = newFakeBattery(upower.Device{})
-	absent := openView(t, ctx, noRadiosDashboard).(*dashboardView)
-	absent.refreshAll()
-	ctx.Theme.Attach(absent)
-	arrangeDropdown(t, absent, 380, 900)
+	absent := openDashboard(t, ctx, noRadiosDashboard)
+	attachTheme(ctx, absent)
+	arrangeDropdown(ctx, absent, 380, 900)
 	if up, down := speedBounds(t, absent); up.Y != down.Y || down.X < up.X+up.W {
 		t.Errorf("with no battery present the upload %+v and download %+v are not on one line", up, down)
 	}
@@ -184,9 +183,9 @@ func TestTheBatteryAndNetworkCardsShareTheirRowEqually(t *testing.T) {
 	if got := len(classedBox(t, alone, "dashboard-info-row").Children()); got != 1 {
 		t.Errorf("without a battery the info row holds %d cards, want the network card alone", got)
 	}
-	alone.refreshAll()
-	ctx.Theme.Attach(alone)
-	arrangeDropdown(t, alone, 380, 900)
+	refreshDashboard(alone)
+	attachTheme(ctx, alone)
+	arrangeDropdown(ctx, alone, 380, 900)
 	if up, down := speedBounds(t, alone); up.Y != down.Y || down.X < up.X+up.W {
 		t.Errorf("without a battery the upload %+v and download %+v are not on one line", up, down)
 	}
@@ -206,8 +205,7 @@ func TestTheBatteryCardSaysWhatThePowerSaverToggleCannot(t *testing.T) {
 	ctx := layoutContext(t)
 	dev := upower.Device{Percentage: 79, IsPresent: true, State: upower.StatePendingCharge, ChargeThresholdSupported: true, ChargeThresholdEnabled: true, ChargeEndThreshold: 80}
 	ctx.Battery = newFakeBattery(dev)
-	v := openView(t, ctx, noRadiosDashboard).(*dashboardView)
-	v.refreshAll()
+	v := openDashboard(t, ctx, noRadiosDashboard)
 	state := classedWidget(t, v, "battery-state").(*widget.Label)
 	if state.Text() != batteryStateLabel(dev) {
 		t.Errorf("the battery state reads %q, want %q", state.Text(), batteryStateLabel(dev))
@@ -229,8 +227,7 @@ func TestTheBatteryCardSaysWhatThePowerSaverToggleCannot(t *testing.T) {
 	})
 
 	ctx.Battery = newFakeBattery(upower.Device{Percentage: 79, IsPresent: true, State: upower.StateDischarging})
-	v = openView(t, ctx, noRadiosDashboard).(*dashboardView)
-	v.refreshAll()
+	v = openDashboard(t, ctx, noRadiosDashboard)
 	if classedWidget(t, v, "battery-limit").(*widget.Label).Visible() {
 		t.Error("the charge limit shows with none in force")
 	}
@@ -238,10 +235,9 @@ func TestTheBatteryCardSaysWhatThePowerSaverToggleCannot(t *testing.T) {
 
 func TestQuickActionStatesAreEachTheirOwn(t *testing.T) {
 	ctx := lookContext(t)
-	v := openView(t, ctx, noRadiosDashboard).(*dashboardView)
-	v.refreshAll()
-	ctx.Theme.Attach(v)
-	arrangeDropdown(t, v, 380, 900)
+	v := openDashboard(t, ctx, noRadiosDashboard)
+	attachTheme(ctx, v)
+	arrangeDropdown(ctx, v, 380, 900)
 	actions := quickActionButtons(t, v)
 	on, off := actions[3], actions[4]
 	if !on.HasClass("active") || off.HasClass("active") {
@@ -259,8 +255,7 @@ func TestQuickActionStatesAreEachTheirOwn(t *testing.T) {
 		t.Errorf("an off toggle's button paints %#08x behind its tile, a state beside on and off", uint32(bg))
 	}
 
-	r := &widget.Router{Root: v}
-	if err := r.SetFocus(off); err != nil {
+	if err := onLoopOf(ctx, func() error { return (&widget.Router{Root: v}).SetFocus(off) }); err != nil {
 		t.Fatal(err)
 	}
 	if bg := widget.StyleBackground(off); bg.A() != 0 {
@@ -272,8 +267,7 @@ func TestControlsOfAHiddenCardTakeNoArrowKeyFocus(t *testing.T) {
 	ctx := newTestContext(t, config.Defaults())
 	media := newFakeMedia()
 	ctx.Media = media
-	v := openView(t, ctx, noRadiosDashboard).(*dashboardView)
-	v.refreshAll()
+	v := openDashboard(t, ctx, noRadiosDashboard)
 	play := widget.Widget(classedButton(t, v, "play"))
 	if slices.Contains(focusablesUnder(v.root, nil), play) {
 		t.Error("the play button of the hidden media card is in the arrow keys' focus order")
@@ -281,7 +275,7 @@ func TestControlsOfAHiddenCardTakeNoArrowKeyFocus(t *testing.T) {
 	media.mu.Lock()
 	media.players, media.active = []mpris.Player{{BusName: "org.mpris.MediaPlayer2.x", Title: "Song", State: mpris.StatePlaying}}, 0
 	media.mu.Unlock()
-	v.refreshAll()
+	refreshDashboard(v)
 	if !slices.Contains(focusablesUnder(v.root, nil), play) {
 		t.Error("the play button of the shown media card left the arrow keys' focus order")
 	}

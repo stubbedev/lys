@@ -280,7 +280,7 @@ func TestAudioDropdownSectionsAndApps(t *testing.T) {
 	}
 
 	// Mute writes to the server and the follow loop reflects it.
-	v.output.toggleMute()
+	doOnLoopOf(ctx, v.output.toggleMute)
 	waitHeadless(t, "the mute", func() bool { return v.output.mute.HasClass("muted") })
 	if s, _ := srv.Sink(1); !s.Mute {
 		t.Error("the server sink is not muted")
@@ -365,9 +365,12 @@ func sameWidgets(a, b []widget.Widget) bool {
 func TestAudioEmptyStatesCenterVertically(t *testing.T) {
 	restore := widget.SetAnimationsInstant(true)
 	t.Cleanup(restore)
-	v := openView(t, newTestContext(t, config.Defaults()), audioDropdown).(*audioView)
-	sz := widget.SizeWithin(v, availSize(420, 700))
-	v.Arrange(render.Rect{W: sz.W, H: 700})
+	ctx := newTestContext(t, config.Defaults())
+	v := openView(t, ctx, audioDropdown).(*audioView)
+	doOnLoopOf(ctx, func() {
+		sz := widget.SizeWithin(v, availSize(420, 700))
+		v.Arrange(render.Rect{W: sz.W, H: 700})
+	})
 
 	for _, tc := range []struct {
 		what string
@@ -395,7 +398,8 @@ func TestAudioEmptyStatesCenterVertically(t *testing.T) {
 // its media: the check rides only the active one, and activating it
 // goes back to the main page.
 func TestAudioPickerBackAndOptionItems(t *testing.T) {
-	v := openView(t, newTestContext(t, config.Defaults()), audioDropdown).(*audioView)
+	ctx := newTestContext(t, config.Defaults())
+	v := openView(t, ctx, audioDropdown).(*audioView)
 	found := findByClass(v.pickers[audioOutput], "picker-back")
 	back, ok := found.(*widget.Button)
 	if !ok {
@@ -413,23 +417,30 @@ func TestAudioPickerBackAndOptionItems(t *testing.T) {
 	if !active.HasClass("selected") || len(treetest.WithClass(active, "audio-device-option-check")) != 1 {
 		t.Error("the active option lacks the selected class or the check")
 	}
-	v.showPage("output")
-	active.ClickAt(widget.Point{})
-	if v.pages.Visible() != "main" {
-		t.Errorf("activating an option left page %q, want main", v.pages.Visible())
+	page := onLoopOf(ctx, func() string {
+		v.showPage("output")
+		active.ClickAt(widget.Point{})
+		return v.pages.Visible()
+	})
+	if page != "main" {
+		t.Errorf("activating an option left page %q, want main", page)
 	}
 }
 
 // The picker title keeps its natural width: the free width after it
 // stays empty.
 func TestAudioPickerTitleKeepsNaturalWidth(t *testing.T) {
-	v := openView(t, newTestContext(t, config.Defaults()), audioDropdown).(*audioView)
+	ctx := newTestContext(t, config.Defaults())
+	v := openView(t, ctx, audioDropdown).(*audioView)
 	p := v.pickers[audioOutput]
 	title := findByClass(p, "picker-title").(*widget.Label)
 	header := findByClass(p, "picker-header").(*widget.Box)
-	hh := widget.SizeWithin(header, availSize(420, 60))
-	nat := widget.SizeWithin(title, availSize(hh.W+200, 60))
-	header.Arrange(render.Rect{W: hh.W + 200, H: hh.H})
+	nat := onLoopOf(ctx, func() widget.Size {
+		hh := widget.SizeWithin(header, availSize(420, 60))
+		nat := widget.SizeWithin(title, availSize(hh.W+200, 60))
+		header.Arrange(render.Rect{W: hh.W + 200, H: hh.H})
+		return nat
+	})
 	if got := boundsOf(title).W; got != nat.W {
 		t.Errorf("title width = %d, want its natural %d (it took the free width)", got, nat.W)
 	}
@@ -504,11 +515,14 @@ func TestAudioPickerRowsRebuildOnlyOnChange(t *testing.T) {
 func TestAudioOptionFitsANarrowPicker(t *testing.T) {
 	ctx := styledContext(t, config.Defaults())
 	v := openView(t, ctx, audioDropdown).(*audioView)
-	row := v.pickers[audioOutput].row(audioDevice{description: "alsa_output.pci-0000_00_1f.3.analog-stereo", icon: "ld-speaker-symbolic"}, true)
-	ctx.Theme.Attach(row)
 	const w = 240
-	sz := widget.SizeWithin(row, widget.Size{W: w, H: 400})
-	row.Arrange(render.Rect{W: w, H: sz.H})
+	row := onLoopOf(ctx, func() *widget.Item {
+		row := v.pickers[audioOutput].row(audioDevice{description: "alsa_output.pci-0000_00_1f.3.analog-stereo", icon: "ld-speaker-symbolic"}, true)
+		ctx.Theme.Attach(row)
+		sz := widget.SizeWithin(row, widget.Size{W: w, H: 400})
+		row.Arrange(render.Rect{W: w, H: sz.H})
+		return row
+	})
 	check := treetest.WithClass(row, "audio-device-option-check")[0].(*widget.Icon)
 	if end := check.Bounds().X + check.Bounds().W; end > w {
 		t.Errorf("the check ends at %d, past the %d row", end, w)
@@ -535,14 +549,12 @@ func TestAudioSectionIsAnItem(t *testing.T) {
 	if kind := itemText(v.input.item, "description"); kind != i18n.T("dropdown-audio-input") {
 		t.Errorf("the input row's kind = %q", kind)
 	}
-	v.output.mute.OnClick()
-	if v.pages.Visible() != "main" {
-		t.Errorf("the mute button opened page %q, want main", v.pages.Visible())
+	if page := onLoopOf(ctx, func() string { v.output.mute.OnClick(); return v.pages.Visible() }); page != "main" {
+		t.Errorf("the mute button opened page %q, want main", page)
 	}
 	waitHeadless(t, "the mute", func() bool { s, _ := srv.Sink(1); return s.Mute })
-	v.input.item.ClickAt(widget.Point{})
-	if v.pages.Visible() != "input" {
-		t.Errorf("activating the input row opened page %q, want input", v.pages.Visible())
+	if page := onLoopOf(ctx, func() string { v.input.item.ClickAt(widget.Point{}); return v.pages.Visible() }); page != "input" {
+		t.Errorf("activating the input row opened page %q, want input", page)
 	}
 }
 

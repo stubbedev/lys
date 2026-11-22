@@ -87,16 +87,15 @@ func TestTreemanDropdownListAndCollapse(t *testing.T) {
 	if p := fold.Progress(); p != 1 {
 		t.Errorf("a fresh card's fold is at %v, want fully open", p)
 	}
-	open := fold.Measure(widget.Column, 300).Nat
+	open := onLoopOf(ctx, func() int { return fold.Measure(widget.Column, 300).Nat })
 	if open == 0 {
 		t.Fatal("an open fold takes no height")
 	}
-	header.ClickAt(widget.Point{})
+	doOnLoopOf(ctx, func() { header.ClickAt(widget.Point{}) })
 	if fold.Revealed() || !v.collapsed["lys-shell"] {
 		t.Error("the header did not fold the card")
 	}
-	fold.Finish()
-	if h := fold.Measure(widget.Column, 300).Nat; h != 0 {
+	if h := onLoopOf(ctx, func() int { fold.Finish(); return fold.Measure(widget.Column, 300).Nat }); h != 0 {
 		t.Errorf("a folded card keeps %d of its rows' %d px of height", h, open)
 	}
 	// The fold survives a status refresh.
@@ -126,22 +125,26 @@ func TestTreemanRowHoverSwapsTheActions(t *testing.T) {
 	ctx := styledContext(t, config.Defaults())
 	ctx.Treeman = &fakeTreeman{status: treemanFixture()}
 	v := openView(t, ctx, treemanDropdown).(*treemanView)
-	ctx.Theme.Attach(v)
-	widget.SizeWithin(v, widget.Size{W: 440, H: 460})
-	v.Arrange(render.Rect{W: 440, H: 460})
+	attachTheme(ctx, v)
+	doOnLoopOf(ctx, func() {
+		widget.SizeWithin(v, widget.Size{W: 440, H: 460})
+		v.Arrange(render.Rect{W: 440, H: 460})
+	})
 
 	row := treetest.WithClass(v.list, "treeman-wt")[0].(*revealItem)
 	slot := treetest.First[*widget.Stack](t, row)
 	r := &widget.Router{Root: v}
-	b := row.Bounds()
-	r.Move(widget.Point{X: b.X + b.W/2, Y: b.Y + b.H/2})
-	if slot.Visible() != "actions" {
-		t.Errorf("hovered, the slot shows %q, want the actions", slot.Visible())
-	}
-	r.Leave()
-	if slot.Visible() != "state" {
-		t.Errorf("after leaving, the slot shows %q, want the state", slot.Visible())
-	}
+	doOnLoopOf(ctx, func() {
+		b := row.Bounds()
+		r.Move(widget.Point{X: b.X + b.W/2, Y: b.Y + b.H/2})
+		if slot.Visible() != "actions" {
+			t.Errorf("hovered, the slot shows %q, want the actions", slot.Visible())
+		}
+		r.Leave()
+		if slot.Visible() != "state" {
+			t.Errorf("after leaving, the slot shows %q, want the state", slot.Visible())
+		}
+	})
 }
 
 func TestTreemanDropdownDetailAndActions(t *testing.T) {
@@ -159,7 +162,7 @@ func TestTreemanDropdownDetailAndActions(t *testing.T) {
 	}
 	v := openView(t, ctx, treemanDropdown).(*treemanView)
 
-	v.openDetail("/w/feat")
+	doOnLoopOf(ctx, func() { v.openDetail("/w/feat") })
 	if v.pages.Visible() != "detail" || itemText(v.title, "title") != "feat" || !v.back.Visible() {
 		t.Fatalf("detail: page %q title %q back %v", v.pages.Visible(), itemText(v.title, "title"), v.back.Visible())
 	}
@@ -170,19 +173,23 @@ func TestTreemanDropdownDetailAndActions(t *testing.T) {
 
 	// Prepare runs at once; reset asks first, in a modal alert naming
 	// the worktree.
-	v.run(treeman.ActionPrepare, "/w/feat")
-	v.confirmReset("/w/feat")
+	doOnLoopOf(ctx, func() {
+		v.run(treeman.ActionPrepare, "/w/feat")
+		v.confirmReset("/w/feat")
+	})
 	if len(alerts.specs) != 1 || alerts.specs[0].detail != "/w/feat" ||
 		alerts.specs[0].accept != i18n.T("dropdown-treeman-confirm-reset-accept") ||
 		alerts.specs[0].cancel != i18n.T("dropdown-treeman-confirm-cancel") {
 		t.Fatalf("alerts = %+v, want the reset question", alerts.specs)
 	}
-	alerts.answers[0](false) // cancel
+	doOnLoopOf(ctx, func() { alerts.answers[0](false) })
 	if v.pages.Visible() != "detail" {
 		t.Errorf("cancel left the page at %q", v.pages.Visible())
 	}
-	v.confirmReset("/w/feat")
-	alerts.answers[1](true) // accept
+	doOnLoopOf(ctx, func() {
+		v.confirmReset("/w/feat")
+		alerts.answers[1](true)
+	})
 	waitHeadless(t, "the actions", func() bool { return len(src.ran()) == 2 })
 	// Each action runs on its own goroutine: the order is not theirs.
 	if got := slices.Sorted(slices.Values(src.ran())); !slices.Equal(got, []string{"db reset /w/feat", "prepare --worktree /w/feat"}) {
@@ -193,7 +200,7 @@ func TestTreemanDropdownDetailAndActions(t *testing.T) {
 	src.mu.Lock()
 	src.actionErr = errors.New("busy")
 	src.mu.Unlock()
-	v.run(treeman.ActionTeardown, "/w/feat")
+	doOnLoopOf(ctx, func() { v.run(treeman.ActionTeardown, "/w/feat") })
 	waitHeadless(t, "the failure toast", func() bool {
 		toastMu.Lock()
 		defer toastMu.Unlock()
@@ -224,12 +231,12 @@ func TestTreemanTeardownRunsWithoutAsking(t *testing.T) {
 	row := treetest.WithClass(v.list, "treeman-wt")[0].(*revealItem)
 	slot := treetest.First[*widget.Stack](t, row)
 	path := row.TooltipText()
-	treetest.Button(t, slot.Page("actions"), i18n.T("dropdown-treeman-action-teardown")).OnClick()
+	doOnLoopOf(ctx, treetest.Button(t, slot.Page("actions"), i18n.T("dropdown-treeman-action-teardown")).OnClick)
 	waitHeadless(t, "the teardown", func() bool { return slices.Equal(src.ran(), []string{"worktree delete " + path + " --yes"}) })
 	if len(alerts.specs) != 0 {
 		t.Fatalf("the teardown asked %+v, want it to run without a question", alerts.specs)
 	}
-	treetest.Button(t, slot.Page("actions"), i18n.T("dropdown-treeman-action-reset")).OnClick()
+	doOnLoopOf(ctx, treetest.Button(t, slot.Page("actions"), i18n.T("dropdown-treeman-action-reset")).OnClick)
 	if len(alerts.specs) != 1 || alerts.specs[0].detail != path {
 		t.Fatalf("alerts = %+v, want the reset still to ask about %s", alerts.specs, path)
 	}
@@ -245,15 +252,15 @@ func TestTreemanRowKeyboardReachesItsActions(t *testing.T) {
 	alerts := &fakeAlert{}
 	ctx.Alert = alerts.ask
 	v := openView(t, ctx, treemanDropdown).(*treemanView)
-	ctx.Theme.Attach(v)
-	layoutForKeys(v)
+	attachTheme(ctx, v)
+	doOnLoopOf(ctx, func() { layoutForKeys(v) })
 	row := treetest.WithClass(v.list, "treeman-wt")[0].(*revealItem)
 	slot := treetest.First[*widget.Stack](t, row)
 	if slot.Visible() != "state" {
 		t.Fatalf("at rest the slot shows %q, want the state", slot.Visible())
 	}
 	router := &widget.Router{Root: v}
-	tabUntil(t, router, v, row)
+	doOnLoopOf(ctx, func() { tabUntil(t, router, v, row) })
 	if slot.Visible() != "actions" {
 		t.Fatalf("Tab onto the row shows %q, want the actions", slot.Visible())
 	}
@@ -261,26 +268,30 @@ func TestTreemanRowKeyboardReachesItsActions(t *testing.T) {
 	if got := widget.Describe(teardown).Name; got != i18n.T("dropdown-treeman-action-teardown") {
 		t.Errorf("the teardown button reads %q to assistive technology", got)
 	}
-	tabUntil(t, router, v, teardown)
-	router.KeyAction(widget.KeyEnter, 0)
+	doOnLoopOf(ctx, func() {
+		tabUntil(t, router, v, teardown)
+		router.KeyAction(widget.KeyEnter, 0)
+	})
 	waitHeadless(t, "Enter on teardown to run it", func() bool {
 		return slices.Equal(src.ran(), []string{"worktree delete " + row.TooltipText() + " --yes"})
 	})
 	if len(alerts.specs) != 0 {
 		t.Fatalf("alerts = %+v, want Enter on teardown to ask nothing", alerts.specs)
 	}
-	router.FocusNext()
-	layoutForKeys(v)
+	doOnLoopOf(ctx, func() {
+		router.FocusNext()
+		layoutForKeys(v)
+	})
 	if treetest.Contains(row, router.Focused()) {
 		t.Fatalf("Tab past the last action stayed in the row on %T", router.Focused())
 	}
 	if slot.Visible() != "state" {
 		t.Errorf("focus leaving the row shows %q, want the state", slot.Visible())
 	}
-	if err := router.SetFocus(row); err != nil {
+	if err := onLoopOf(ctx, func() error { return router.SetFocus(row) }); err != nil {
 		t.Fatal(err)
 	}
-	router.KeyAction(widget.KeyEnter, 0)
+	doOnLoopOf(ctx, func() { router.KeyAction(widget.KeyEnter, 0) })
 	if v.pages.Visible() != "detail" || v.detail != row.TooltipText() {
 		t.Errorf("Enter on the row opened %q for %q, want its details", v.pages.Visible(), v.detail)
 	}

@@ -85,17 +85,29 @@ func TestWebcamPreviewDrag(t *testing.T) {
 	}
 }
 
-// configLog records ModuleContext.SetConfig writes, and refuses them all
-// with fail once failWith set it. It answers at once: the tests drive
-// the dropdown off the headless loop.
+// configLog records ModuleContext.SetConfig writes at once, and refuses
+// them all with fail once failWith set it. It answers off the loop and
+// in write order, as the config service does.
 type configLog struct {
-	mu     sync.Mutex
-	writes map[string]any
-	fail   error
+	mu       sync.Mutex
+	writes   map[string]any
+	fail     error
+	answered chan struct{}
 }
 
 func (c *configLog) set(path string, value any, done func(error)) {
-	done(c.record(path, value))
+	err := c.record(path, value)
+	c.mu.Lock()
+	prev, next := c.answered, make(chan struct{})
+	c.answered = next
+	c.mu.Unlock()
+	go func() {
+		defer close(next)
+		if prev != nil {
+			<-prev
+		}
+		done(err)
+	}()
 }
 
 func (c *configLog) record(path string, value any) error {
@@ -148,12 +160,12 @@ func TestRecorderDropdownStateAndControls(t *testing.T) {
 		t.Error("no camera: the webcam card shows")
 	}
 
-	v.record.OnClick()
+	doOnLoopOf(ctx, v.record.OnClick)
 	waitHeadless(t, "recording", func() bool { return v.status.Visible() })
 	if !v.record.HasClass(css.DestructiveAction) || v.record.HasClass(css.SuggestedAction) || recordText(v) != i18n.T("dropdown-recorder-stop") || !v.pause.Enabled() {
 		t.Error("recording: want stop, danger, pause enabled")
 	}
-	v.pause.OnClick()
+	doOnLoopOf(ctx, v.pause.OnClick)
 	waitHeadless(t, "paused", func() bool { return v.statusDot.HasClass("paused") })
 	if v.pauseIcon.Name() != "ld-play-symbolic" || v.pause.TooltipText() != i18n.T("dropdown-recorder-resume") {
 		t.Error("paused: want the resume button")
@@ -161,7 +173,7 @@ func TestRecorderDropdownStateAndControls(t *testing.T) {
 	if got := engine.Recordings()[0].Paused(); len(got) != 1 || !got[0] {
 		t.Errorf("pause calls = %v", got)
 	}
-	v.record.OnClick()
+	doOnLoopOf(ctx, v.record.OnClick)
 	waitHeadless(t, "stopped", func() bool { return !v.status.Visible() })
 }
 
@@ -183,18 +195,18 @@ func TestRecorderDropdownWritesConfig(t *testing.T) {
 	// Switches and pickers write their keys.
 	micRow := treetest.WithClass(v, "recorder-row")[0]
 	micSwitch := treetest.First[*widget.Switch](t, micRow)
-	micSwitch.SetOn(!micSwitch.On())
+	doOnLoopOf(ctx, func() { micSwitch.SetOn(!micSwitch.On()) })
 	if log.get(recorderPathMic) != micSwitch.On() {
 		t.Errorf("microphone write = %v", log.get(recorderPathMic))
 	}
 	if len(v.mics) != 2 {
 		t.Fatalf("mics = %v", v.mics)
 	}
-	v.mic.dropdown.SetSelected(1)
+	doOnLoopOf(ctx, func() { v.mic.dropdown.SetSelected(1) })
 	if log.get(recorderPathMicDevice) != "mic" {
 		t.Errorf("mic device write = %v", log.get(recorderPathMicDevice))
 	}
-	v.preview.onMove(30, 70)
+	doOnLoopOf(ctx, func() { v.preview.onMove(30, 70) })
 	if log.get(recorderPathWebcamX) != int64(30) || log.get(recorderPathWebcamY) != int64(70) {
 		t.Errorf("position writes = %v %v", log.get(recorderPathWebcamX), log.get(recorderPathWebcamY))
 	}
@@ -208,7 +220,7 @@ func TestRecorderDropdownWritesConfig(t *testing.T) {
 	}
 	// An unchanged list keeps the picker.
 	same := v.mic.dropdown
-	v.syncMics(append([]devicechoice.DeviceChoice(nil), v.mics...))
+	doOnLoopOf(ctx, func() { v.syncMics(append([]devicechoice.DeviceChoice(nil), v.mics...)) })
 	if v.mic.dropdown != same {
 		t.Error("an unchanged list rebuilt the picker")
 	}
@@ -250,8 +262,8 @@ func styledWebcamDropdown(t *testing.T, w int, camera string) *recorderView {
 	cfg.Recorder.WebcamDevice = "/dev/video0"
 	ctx := styledContext(t, cfg)
 	v := openView(t, ctx, recorderDropdown).(*recorderView)
-	ctx.Theme.Attach(v)
-	arrangeDropdown(t, v, w, 1000)
+	attachTheme(ctx, v)
+	arrangeDropdown(ctx, v, w, 1000)
 	return v
 }
 
@@ -297,8 +309,10 @@ func TestRecorderPositionPickerStaysInsideANarrowCard(t *testing.T) {
 		t.Errorf("frame %v overflows the card %v", fb, cb)
 	}
 	for _, at := range [][2]uint8{{0, 0}, {100, 100}} {
-		v.preview.place(at[0], at[1])
-		v.preview.Arrange(v.preview.Bounds())
+		doOnLoopOf(v.ctx, func() {
+			v.preview.place(at[0], at[1])
+			v.preview.Arrange(v.preview.Bounds())
+		})
 		if cam := v.preview.cam.Bounds(); cam.X < fb.X || cam.Y < fb.Y || cam.X+cam.W > fb.X+fb.W || cam.Y+cam.H > fb.Y+fb.H {
 			t.Errorf("at %v the webcam frame %v leaves the screen frame %v", at, cam, fb)
 		}
@@ -328,8 +342,10 @@ func TestRecorderLongCameraSelectNarrowsToItsRow(t *testing.T) {
 		t.Errorf("the select is %dpx, its label wants %dpx: it did not narrow", b.W, natural)
 	}
 
-	v.syncMics([]devicechoice.DeviceChoice{{ID: "", Label: "Default"}, {ID: "usb", Label: "Creative Live! Cam Sync 4K Analog Stereo"}})
-	arrangeDropdown(t, v, 360, 1000)
+	doOnLoopOf(v.ctx, func() {
+		v.syncMics([]devicechoice.DeviceChoice{{ID: "", Label: "Default"}, {ID: "usb", Label: "Creative Live! Cam Sync 4K Analog Stereo"}})
+	})
+	arrangeDropdown(v.ctx, v, 360, 1000)
 	audio := treetest.WithClass(v, "recorder-card")[0]
 	sw := boundsOf(treetest.First[*widget.Switch](t, audio))
 	if mb := v.mic.dropdown.Bounds(); mb.X+mb.W != sw.X+sw.W {
@@ -366,23 +382,25 @@ func TestRecorderDevicePickersAreEnabledOnlyWhileTheirCaptureIsOn(t *testing.T) 
 		t.Fatalf("with the microphone off and the webcam on: mic picker enabled %v, camera picker enabled %v", v.mic.dropdown.Enabled(), v.cam.dropdown.Enabled())
 	}
 
-	micSwitch.SetOn(true)
+	doOnLoopOf(ctx, func() { micSwitch.SetOn(true) })
 	if !v.mic.dropdown.Enabled() {
 		t.Error("the microphone picker stays disabled once the microphone is on")
 	}
-	v.syncMics([]devicechoice.DeviceChoice{{ID: "", Label: "Automatic"}, {ID: "usb", Label: "USB Mic"}})
+	doOnLoopOf(ctx, func() {
+		v.syncMics([]devicechoice.DeviceChoice{{ID: "", Label: "Automatic"}, {ID: "usb", Label: "USB Mic"}})
+	})
 	if !v.mic.dropdown.Enabled() {
 		t.Error("a rebuilt microphone picker is disabled while the microphone is on")
 	}
 
 	log.failWith(errors.New("config: save: no space left on device"))
-	micSwitch.SetOn(false)
-	if !micSwitch.On() || !v.mic.dropdown.Enabled() {
-		t.Errorf("a refused switch-off: switch on %v, picker enabled %v; want both back on", micSwitch.On(), v.mic.dropdown.Enabled())
-	}
+	doOnLoopOf(ctx, func() { micSwitch.SetOn(false) })
+	waitHeadless(t, "a refused switch-off puts the switch and the picker back on", func() bool {
+		return micSwitch.On() && v.mic.dropdown.Enabled()
+	})
 	log.failWith(nil)
-	micSwitch.SetOn(false)
-	v.syncMics([]devicechoice.DeviceChoice{{ID: "", Label: "Automatic"}})
+	doOnLoopOf(ctx, func() { micSwitch.SetOn(false) })
+	doOnLoopOf(ctx, func() { v.syncMics([]devicechoice.DeviceChoice{{ID: "", Label: "Automatic"}}) })
 	if v.mic.dropdown.Enabled() {
 		t.Error("a rebuilt microphone picker is enabled while the microphone is off")
 	}
@@ -392,16 +410,17 @@ func TestRecorderDropdownShowsAFailedSaveWhoseWriteRemountedTheBars(t *testing.T
 	ctx, _, _ := recorderTestCtx(t, []devicechoice.DeviceChoice{{ID: "", Label: "Automatic"}})
 	ctx.SetConfig = func(_ string, _ any, done func(error)) {
 		ctx.gen.retire()
-		done(errors.New("config: save: no space left on device"))
+		go done(errors.New("config: save: no space left on device"))
 	}
 	v := openView(t, ctx, recorderDropdown).(*recorderView)
 	sw := treetest.First[*widget.Switch](t, treetest.WithClass(v, "recorder-row")[0])
 	was := sw.On()
-	sw.SetOn(!was)
-	if !v.failure.Visible() || v.failure.Text() != "config: save: no space left on device" {
-		t.Errorf("error shown %v %q, want the failed save", v.failure.Visible(), v.failure.Text())
+	doOnLoopOf(ctx, func() { sw.SetOn(!was) })
+	waitHeadless(t, "the failed save shown", v.failure.Visible)
+	if got := onHeadlessLoop(v.failure.Text); got != "config: save: no space left on device" {
+		t.Errorf("error %q, want the failed save", got)
 	}
-	if sw.On() != was {
+	if onHeadlessLoop(sw.On) != was {
 		t.Error("the switch stays on the value that was not saved")
 	}
 }
@@ -411,16 +430,17 @@ func TestRecorderDropdownShowsAFailedSaveAndRestoresTheControl(t *testing.T) {
 	v := openView(t, ctx, recorderDropdown).(*recorderView)
 	sw := treetest.First[*widget.Switch](t, treetest.WithClass(v, "recorder-row")[0])
 	was := sw.On()
-	sw.SetOn(!was)
+	doOnLoopOf(ctx, func() { sw.SetOn(!was) })
 	if v.failure.Visible() || sw.On() == was {
 		t.Fatalf("a saved write shows error %v, switch %v", v.failure.Visible(), sw.On())
 	}
 	log.failWith(errors.New("config: save: no space left on device"))
-	sw.SetOn(was)
-	if !v.failure.Visible() || v.failure.Text() != "config: save: no space left on device" {
-		t.Errorf("error shown %v %q, want the failed save", v.failure.Visible(), v.failure.Text())
+	doOnLoopOf(ctx, func() { sw.SetOn(was) })
+	waitHeadless(t, "the failed save shown", v.failure.Visible)
+	if got := onHeadlessLoop(v.failure.Text); got != "config: save: no space left on device" {
+		t.Errorf("error %q, want the failed save", got)
 	}
-	if sw.On() == was {
+	if onHeadlessLoop(sw.On) == was {
 		t.Error("the switch stays on the value that was not saved")
 	}
 	if got := log.get(recorderPathMic); got != !was {
@@ -439,7 +459,7 @@ func TestRecorderDropdownInstantReplay(t *testing.T) {
 	}
 	card := treetest.WithClass(v, "recorder-card")[2]
 	sw := treetest.First[*widget.Switch](t, card)
-	sw.SetOn(true)
+	doOnLoopOf(ctx, func() { sw.SetOn(true) })
 	if log.get(recorderPathReplay) != true {
 		t.Errorf("replay switch wrote %v", log.get(recorderPathReplay))
 	}
@@ -449,7 +469,7 @@ func TestRecorderDropdownInstantReplay(t *testing.T) {
 	rp.Keyframe(3 << 20)
 	waitHeadless(t, "the ring's memory", func() bool { return v.replayMemory.Text() == "3.0 MiB" })
 	release := rp.HoldSave()
-	v.replaySave.OnClick()
+	doOnLoopOf(ctx, v.replaySave.OnClick)
 	if v.replaySave.Enabled() {
 		t.Error("Save stays enabled after a click")
 	}
@@ -459,13 +479,13 @@ func TestRecorderDropdownInstantReplay(t *testing.T) {
 	if v.replaySave.Enabled() {
 		t.Error("a state change re-enabled Save while the save writes")
 	}
-	v.replaySave.ClickAt(widget.Point{})
+	doOnLoopOf(ctx, func() { v.replaySave.ClickAt(widget.Point{}) })
 	release()
 	waitHeadless(t, "the save returned", func() bool { return v.replaySave.Enabled() })
 	if got := len(rp.Saves()); got != 1 {
 		t.Errorf("a second click while the save wrote: %d files, want 1", got)
 	}
-	v.replaySave.OnClick()
+	doOnLoopOf(ctx, v.replaySave.OnClick)
 	waitHeadless(t, "a save after it", func() bool { return len(rp.Saves()) == 2 })
 	ctx.Recorder.StopReplay()
 	waitHeadless(t, "off", func() bool { return !v.replaySave.Enabled() && v.replayMemory.Text() == "-" })

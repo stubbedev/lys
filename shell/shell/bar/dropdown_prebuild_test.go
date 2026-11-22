@@ -12,16 +12,23 @@ import (
 )
 
 // loopQueue is the loop: what is handed to it runs when drained.
-type loopQueue struct{ fns []func() }
+type loopQueue struct {
+	ctx ModuleContext
+	fns []func()
+}
 
 func (q *loopQueue) add(fn func()) { q.fns = append(q.fns, fn) }
 
+func (q *loopQueue) run(fn func()) { doOnLoopOf(q.ctx, fn) }
+
 func (q *loopQueue) drain() {
-	for len(q.fns) > 0 {
-		fn := q.fns[0]
-		q.fns = q.fns[1:]
-		fn()
-	}
+	q.run(func() {
+		for len(q.fns) > 0 {
+			fn := q.fns[0]
+			q.fns = q.fns[1:]
+			fn()
+		}
+	})
 }
 
 func prebuildingRegistry(t *testing.T, cfg *config.Config) (*dropdownRegistry, *loopQueue) {
@@ -31,7 +38,7 @@ func prebuildingRegistry(t *testing.T, cfg *config.Config) (*dropdownRegistry, *
 
 func prebuildingRegistryOf(ctx ModuleContext) (*dropdownRegistry, *loopQueue) {
 	r := newDropdownRegistry(nil, ctx.Config, ctx.Font, ctx.Style, ctx)
-	q := &loopQueue{}
+	q := &loopQueue{ctx: ctx}
 	r.invoke = q.add
 	return r, q
 }
@@ -57,13 +64,13 @@ func TestDropdownsBuildAheadOnceABarHasShownItsFirstFrame(t *testing.T) {
 	r, q := prebuildingRegistry(t, clockOnly())
 	built := 0
 	r.whenBuilt(func() { built++ })
-	r.attachHost("DP-1", fakeHost{}, widget.Size{W: 1600, H: 1000})
-	r.attachHost("HDMI-A-1", fakeHost{}, widget.Size{W: 1600, H: 1000})
+	q.run(func() { r.attachHost("DP-1", fakeHost{}, widget.Size{W: 1600, H: 1000}) })
+	q.run(func() { r.attachHost("HDMI-A-1", fakeHost{}, widget.Size{W: 1600, H: 1000}) })
 	q.drain()
 	if len(r.instances) != 0 || built != 0 {
 		t.Fatalf("built %d dropdowns before a bar showed its first frame", len(r.instances))
 	}
-	r.barPresented()
+	q.run(r.barPresented)
 	if len(r.instances) != 0 {
 		t.Fatal("dropdowns built on the bar's own frame, not on the loop's next turns")
 	}
@@ -74,10 +81,10 @@ func TestDropdownsBuildAheadOnceABarHasShownItsFirstFrame(t *testing.T) {
 	if built != 1 {
 		t.Errorf("the finished build was told %d times, want once", built)
 	}
-	r.barPresented()
+	q.run(r.barPresented)
 	moved := clockOnly()
 	moved.Bar.Location = config.LocationBottom
-	r.setConfig(moved)
+	q.run(func() { r.setConfig(moved) })
 	q.drain()
 	if built != 1 {
 		t.Errorf("a later build told the one waiting for the first again: %d", built)
@@ -103,16 +110,16 @@ func TestDropdownsBuildAheadOnceABarHasShownItsFirstFrame(t *testing.T) {
 
 func TestAReleaseEndsAPrebuildAndAReloadStartsAnother(t *testing.T) {
 	r, q := prebuildingRegistry(t, clockOnly())
-	r.attachHost("DP-1", fakeHost{}, widget.Size{W: 1600, H: 1000})
-	r.barPresented()
-	r.release()
+	q.run(func() { r.attachHost("DP-1", fakeHost{}, widget.Size{W: 1600, H: 1000}) })
+	q.run(r.barPresented)
+	q.run(r.release)
 	q.drain()
 	if len(r.instances) != 0 {
 		t.Errorf("a released registry built %d dropdowns", len(r.instances))
 	}
 	moved := clockOnly()
 	moved.Bar.Location = config.LocationBottom
-	r.setConfig(moved)
+	q.run(func() { r.setConfig(moved) })
 	q.drain()
 	if len(r.instances) != 2 {
 		t.Errorf("after a reload %d dropdowns built, want 2", len(r.instances))
@@ -126,8 +133,8 @@ func TestABuiltAheadDropdownReadsNothingUntilItOpens(t *testing.T) {
 	battery := &countedBattery{fakeBattery: newFakeBattery(upower.Device{IsPresent: true})}
 	ctx.Battery = battery
 	r, q := prebuildingRegistryOf(ctx)
-	r.attachHost("DP-1", fakeHost{}, widget.Size{W: 1600, H: 1000})
-	r.barPresented()
+	q.run(func() { r.attachHost("DP-1", fakeHost{}, widget.Size{W: 1600, H: 1000}) })
+	q.run(r.barPresented)
 	q.drain()
 	content := r.instances["battery"]
 	if content == nil {
@@ -148,8 +155,8 @@ func TestWithoutBuildAheadNothingBuildsBeforeAnOpen(t *testing.T) {
 	ctx := newTestContext(t, cfg)
 	r := newDropdownRegistry(nil, cfg, ctx.Font, ctx.Style, ctx)
 	r.buildAhead()
-	r.attachHost("DP-1", fakeHost{}, widget.Size{W: 1600, H: 1000})
-	r.barPresented()
+	doOnLoopOf(ctx, func() { r.attachHost("DP-1", fakeHost{}, widget.Size{W: 1600, H: 1000}) })
+	doOnLoopOf(ctx, r.barPresented)
 	if r.invoke != nil || len(r.instances) != 0 {
 		t.Error("a registry without an application built ahead")
 	}

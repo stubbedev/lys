@@ -234,23 +234,23 @@ func TestDashboardQuickActionsDriveTheServices(t *testing.T) {
 		t.Fatalf("quick actions = %d, want 6", len(actions))
 	}
 	wifi, dnd, idle := actions[0], actions[3], actions[4]
-	dnd.OnClick()
+	doOnLoopOf(ctx, dnd.OnClick)
 	if !ctx.Notifications.DND() {
 		t.Error("the DND toggle did not reach the service")
 	}
-	dnd.OnClick()
+	doOnLoopOf(ctx, dnd.OnClick)
 	if ctx.Notifications.DND() {
 		t.Error("a second press before the dashboard refreshed left DND on")
 	}
-	dnd.OnClick()
+	doOnLoopOf(ctx, dnd.OnClick)
 	if !ctx.Notifications.DND() {
 		t.Error("a third press before the dashboard refreshed left DND off")
 	}
-	v.refreshAll()
+	refreshDashboard(v)
 	if !dnd.HasClass("active") {
 		t.Error("DND on did not mark its button active")
 	}
-	idle.OnClick()
+	doOnLoopOf(ctx, idle.OnClick)
 	if !ctx.IdleInhibit.Active() {
 		t.Error("the idle toggle did not enable inhibition")
 	}
@@ -336,12 +336,12 @@ func TestTheMediaCardShowsOnlyWhileAPlayerIsActive(t *testing.T) {
 		media.mu.Unlock()
 	}
 	set(mpris.Player{BusName: "org.mpris.MediaPlayer2.x", Title: "Song", State: mpris.StatePlaying})
-	v.refreshAll()
+	refreshDashboard(v)
 	if !mediaCard(t, v).Visible() {
 		t.Error("the media card stays hidden while a player is active")
 	}
 	set()
-	v.refreshAll()
+	refreshDashboard(v)
 	if mediaCard(t, v).Visible() {
 		t.Error("the media card stays once the player is gone")
 	}
@@ -443,8 +443,7 @@ func TestDashboardAlwaysHoldsTheVolumeAndMediaCards(t *testing.T) {
 	// Positive control: with services the cards drive them.
 	ctx.Pulse = &fakePulseSource{dev: pulse.Device{Name: "out", Description: "Speakers", Volume: pct(42)}, ticks: make(chan struct{}, 2)}
 	ctx.Media = newFakeMedia(mpris.Player{BusName: "org.mpris.MediaPlayer2.x", Title: "Song", Artist: "Band", State: mpris.StatePlaying})
-	v = openView(t, ctx, noRadiosDashboard).(*dashboardView)
-	v.refreshAll()
+	v = openDashboard(t, ctx, noRadiosDashboard)
 	walkTree(v, func(w widget.Widget) bool {
 		if b, ok := w.(*widget.Box); ok && b.HasClass("dashboard-slider-row") && b.Enabled() {
 			volumeCard = b
@@ -595,7 +594,7 @@ func TestDashboardBatteryCardFollowsPresence(t *testing.T) {
 		t.Error("the battery card shows with no battery present")
 	}
 	bat.update(func(d *upower.Device) { d.IsPresent = true })
-	v.refreshAll()
+	refreshDashboard(v)
 	if !card().Visible() {
 		t.Error("the battery card stays hidden once a battery is present")
 	}
@@ -633,10 +632,13 @@ func TestDashboardGrowsToItsSections(t *testing.T) {
 	ctx := styledContext(t, config.Defaults())
 	v := openView(t, ctx, noRadiosDashboard).(*dashboardView)
 	w, h, _ := dropdownDims("dashboard", ctx.Config)
-	card, _ := dropdownTree(dropdownPanel("dashboard", ctx.Config, v), ctx.Config)
-	ctx.Theme.Attach(card)
-	sz := widget.SizeWithinAsChild(card, widget.Size{W: 2000, H: 4000})
-	sections := widget.SizeWithinAsChild(treetest.WithClass(v, "dashboard-scroll")[0].(*widget.Scroll).Children()[0], widget.Size{W: w, H: 4000})
+	var sz, sections widget.Size
+	doOnLoopOf(ctx, func() {
+		card, _ := dropdownTree(dropdownPanel("dashboard", ctx.Config, v), ctx.Config)
+		ctx.Theme.Attach(card)
+		sz = widget.SizeWithinAsChild(card, widget.Size{W: 2000, H: 4000})
+		sections = widget.SizeWithinAsChild(treetest.WithClass(v, "dashboard-scroll")[0].(*widget.Scroll).Children()[0], widget.Size{W: w, H: 4000})
+	})
 	if h > 0 || sz.H < sections.H {
 		t.Errorf("the dashboard (height %d) measures %dpx over %dpx of sections, want it grown to fit them", h, sz.H, sections.H)
 	}
@@ -716,8 +718,7 @@ func TestAQuickActionWriteThatGoesThroughClearsTheAlert(t *testing.T) {
 	bt := newFakeBluetooth(bluetooth.State{Available: true})
 	bt.fail["enable"] = errors.New("org.bluez.Error.Blocked")
 	ctx.Bluetooth = bt
-	v := openView(t, ctx, noRadiosDashboard).(*dashboardView)
-	v.refreshAll()
+	v := openDashboard(t, ctx, noRadiosDashboard)
 	btn := quickActionButtons(t, v)[1]
 	alert := quickActionAlert(t, v)
 	onHeadlessLoop(func() bool { btn.OnClick(); return true })
@@ -794,8 +795,7 @@ func TestTheVolumeAndMediaCardsSayWhyAWriteFailed(t *testing.T) {
 		src := &writeOutcome{errors.New("org.freedesktop.DBus.Error.NoReply"), make(chan bool, 4)}
 		ctx.Pulse = failingPulse{&fakePulseSource{dev: pulse.Device{Name: "out", Description: "Speakers", Volume: pct(42)}, ticks: make(chan struct{}, 2)}, src}
 		ctx.Media = failingMedia{newFakeMedia(mpris.Player{BusName: "org.mpris.MediaPlayer2.x", Title: "Song", State: mpris.StatePlaying}), src}
-		v := openView(t, ctx, noRadiosDashboard).(*dashboardView)
-		v.refreshAll()
+		v := openDashboard(t, ctx, noRadiosDashboard)
 		alert := classedAlert(t, v, c.alert)
 		if onHeadlessLoop(alert.Visible) {
 			t.Fatalf("%s shows before any write", c.alert)
@@ -840,8 +840,7 @@ func TestSwitchingThePlayerSaysWhyItFailed(t *testing.T) {
 	} {
 		ctx := newTestContext(t, config.Defaults())
 		ctx.Media = c.src
-		v := openView(t, ctx, noRadiosDashboard).(*dashboardView)
-		v.refreshAll()
+		v := openDashboard(t, ctx, noRadiosDashboard)
 		alert := classedAlert(t, v, "media-failed")
 		onHeadlessLoop(func() bool { classedButton(t, v, "media-switch-btn").OnClick(); return true })
 		onHeadlessLoop(func() bool {
@@ -891,12 +890,14 @@ func TestDashboardMediaGatesTheTransportOnControl(t *testing.T) {
 	}
 	transport := map[string]widget.Widget{"previous": buttons[0], "play/pause": buttons[1], "next": buttons[2], "seek": seek}
 	press := func() {
-		for _, b := range buttons {
-			b.OnClick()
-		}
-		seek.Knob.SetPressed(true)
-		seek.Knob.SetValue(50)
-		seek.Knob.SetPressed(false)
+		doOnLoopOf(ctx, func() {
+			for _, b := range buttons {
+				b.OnClick()
+			}
+			seek.Knob.SetPressed(true)
+			seek.Knob.SetValue(50)
+			seek.Knob.SetPressed(false)
+		})
 	}
 
 	for name, w := range transport {
@@ -909,7 +910,7 @@ func TestDashboardMediaGatesTheTransportOnControl(t *testing.T) {
 	if err := source.SetActive(controllable.BusName); err != nil {
 		t.Fatal(err)
 	}
-	v.refreshAll()
+	refreshDashboard(v)
 	for name, w := range transport {
 		if !widget.IsEnabled(w) {
 			t.Errorf("a controllable player: %s is disabled", name)

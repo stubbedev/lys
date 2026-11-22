@@ -272,35 +272,44 @@ const previewMonitorH = 1080
 // dropdown's configured size, measured as the popover host measures
 // its content, and anchored to a styled bar. It paints the tree over
 // the backdrop and returns the pixels, their size and the tree.
+type previewPaint struct {
+	data []byte
+	w, h int
+	root *widget.Box
+}
+
 func paintPreview(ctx ModuleContext, content widget.Widget, name string) ([]byte, int, int, *widget.Box) {
-	bar := widget.NewBox(widget.Row, 0, 0)
-	ctx.Theme.Attach(bar)
-	anchor := widget.NewBox(widget.Row, 0, 0)
-	bar.Append(anchor, false)
-	widget.SizeWithin(bar, widget.Size{W: 600, H: 40})
-	bar.Arrange(render.Rect{W: 600, H: 40})
-	content = dropdownPanel(name, ctx.Config, content)
-	if panel, ok := content.(*panelBox); ok {
-		panel.clamp(previewMonitorH)
-	}
-	w, _, _ := dropdownDims(name, ctx.Config)
-	root, rev := dropdownTree(content, ctx.Config)
-	rev.SetRevealed(true)
-	rev.Finish()
-	widget.SetStyleAnchor(root, anchor)
-	pc := dropdownPopover(ctx.Config, anchor, root, previewMonitorH, w)
-	limit := widget.Size{W: pc.MaxWidth, H: pc.MaxHeight}
-	sz := widget.SizeWithinAsChild(root, limit)
-	widget.ArrangeAsChild(root, render.Rect{W: sz.W, H: sz.H})
-	widget.CollectDamage(root)
-	sz = widget.SizeWithinAsChild(root, limit)
-	widget.ArrangeAsChild(root, render.Rect{W: sz.W, H: sz.H})
-	data := make([]byte, render.Stride(sz.W)*sz.H)
-	for i := 3; i < len(data); i += 4 {
-		data[i] = previewBackdrop
-	}
-	root.Paint(render.New(data, render.Stride(sz.W), sz.W, sz.H))
-	return data, sz.W, sz.H, root
+	p := onLoopOf(ctx, func() previewPaint {
+		bar := widget.NewBox(widget.Row, 0, 0)
+		ctx.Theme.Attach(bar)
+		anchor := widget.NewBox(widget.Row, 0, 0)
+		bar.Append(anchor, false)
+		widget.SizeWithin(bar, widget.Size{W: 600, H: 40})
+		bar.Arrange(render.Rect{W: 600, H: 40})
+		content = dropdownPanel(name, ctx.Config, content)
+		if panel, ok := content.(*panelBox); ok {
+			panel.clamp(previewMonitorH)
+		}
+		w, _, _ := dropdownDims(name, ctx.Config)
+		root, rev := dropdownTree(content, ctx.Config)
+		rev.SetRevealed(true)
+		rev.Finish()
+		widget.SetStyleAnchor(root, anchor)
+		pc := dropdownPopover(ctx.Config, anchor, root, previewMonitorH, w)
+		limit := widget.Size{W: pc.MaxWidth, H: pc.MaxHeight}
+		sz := widget.SizeWithinAsChild(root, limit)
+		widget.ArrangeAsChild(root, render.Rect{W: sz.W, H: sz.H})
+		widget.CollectDamage(root)
+		sz = widget.SizeWithinAsChild(root, limit)
+		widget.ArrangeAsChild(root, render.Rect{W: sz.W, H: sz.H})
+		data := make([]byte, render.Stride(sz.W)*sz.H)
+		for i := 3; i < len(data); i += 4 {
+			data[i] = previewBackdrop
+		}
+		root.Paint(render.New(data, render.Stride(sz.W), sz.W, sz.H))
+		return previewPaint{data, sz.W, sz.H, root}
+	})
+	return p.data, p.w, p.h, p.root
 }
 
 // paintsBeyondBackdrop reports whether any pixel differs from the

@@ -130,9 +130,11 @@ func TestDropdownContentInsetsSeeATrailingMargin(t *testing.T) {
 	t.Cleanup(restore)
 	ctx := fixtureContext(t)
 	v := openView(t, ctx, brightnessDropdown).(*brightnessView)
-	content := treetest.WithClass(v, "dropdown-content")[0].(*widget.Box)
-	last := content.Children()[len(content.Children())-1]
-	last.(interface{ SetMargin(render.Insets) }).SetMargin(render.Insets{Bottom: 12})
+	doOnLoopOf(ctx, func() {
+		content := treetest.WithClass(v, "dropdown-content")[0].(*widget.Box)
+		last := content.Children()[len(content.Children())-1]
+		last.(interface{ SetMargin(render.Insets) }).SetMargin(render.Insets{Bottom: 12})
+	})
 	_, _, _, root := paintPreview(ctx, v, "brightness")
 	in := contentInsets(t, root)
 	if _, ok := uniformInset(in); ok || in.Bottom != in.Top+12 {

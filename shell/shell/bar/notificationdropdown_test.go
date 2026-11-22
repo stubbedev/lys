@@ -71,7 +71,7 @@ func TestNotificationDropdownEmptyAndDND(t *testing.T) {
 	}
 	// The switch writes DND; the service's change comes back as the
 	// muted bells without writing again.
-	v.dnd.SetOn(true)
+	doOnLoopOf(ctx, func() { v.dnd.SetOn(true) })
 	if !svc.DND() {
 		t.Fatal("the switch did not enable DND")
 	}
@@ -114,15 +114,15 @@ func TestNotificationDropdownGroups(t *testing.T) {
 	}
 
 	// Show all, then collapse back to the cap.
-	mail.showAll()
+	doOnLoopOf(ctx, mail.showAll)
 	if len(mail.items) != 5 || mail.moreRow.Visible() {
 		t.Errorf("show all: %d items, more shown %v", len(mail.items), mail.moreRow.Visible())
 	}
-	mail.toggle()
+	doOnLoopOf(ctx, mail.toggle)
 	if mail.expanded || mail.itemsBox.Visible() || itemText(mail.head, "description") != "Mail" || len(mail.items) != notifMaxVisibleItems || mail.overflow != 2 {
 		t.Errorf("collapse: expanded %v, %d items, overflow %d", mail.expanded, len(mail.items), mail.overflow)
 	}
-	mail.toggle()
+	doOnLoopOf(ctx, mail.toggle)
 
 	// A new mail updates the group in place, keeping its widget, and
 	// moves it to the top.
@@ -143,10 +143,12 @@ func TestNotificationDropdownGroups(t *testing.T) {
 		t.Errorf("action rows = %v, want one row with Reply", rows)
 	}
 	pop := &fakePopover{}
-	v.attachPopover(pop)
-	widget.SizeWithin(item, widget.Size{W: 360, H: 400})
-	item.Arrange(render.Rect{W: 360, H: 400})
-	routeClick(item, treetest.WithClass(main, "title")[0])
+	doOnLoopOf(ctx, func() {
+		v.attachPopover(pop)
+		widget.SizeWithin(item, widget.Size{W: 360, H: 400})
+		item.Arrange(render.Rect{W: 360, H: 400})
+		routeClick(item, treetest.WithClass(main, "title")[0])
+	})
 	if pop.dismissed != 1 {
 		t.Error("the default action did not close the dropdown")
 	}
@@ -158,7 +160,7 @@ func TestNotificationDropdownGroups(t *testing.T) {
 	}
 
 	// Clearing the group empties the dropdown.
-	mail.clear()
+	doOnLoopOf(ctx, mail.clear)
 	waitHeadless(t, "the empty state", func() bool { return v.empty.Visible() && !v.scroll.Visible() })
 	if v.clearAll.Visible() {
 		t.Error("clear all stays without notifications")
@@ -202,8 +204,10 @@ func TestNotificationItemBodyIconAndUrgency(t *testing.T) {
 	if ff.time.Text() != i18n.T("notification-dropdown-time-just-now") {
 		t.Errorf("time = %q", ff.time.Text())
 	}
-	v.now = func() time.Time { return time.Now().Add(2 * time.Hour) }
-	v.refreshTimes()
+	doOnLoopOf(ctx, func() {
+		v.now = func() time.Time { return time.Now().Add(2 * time.Hour) }
+		v.refreshTimes()
+	})
 	if ff.time.Text() != i18n.T("notification-dropdown-time-hours-ago", i18n.Str("hours", "2")) {
 		t.Errorf("refreshed time = %q", ff.time.Text())
 	}
@@ -221,22 +225,20 @@ func TestNotificationGroupHeaderClickTargets(t *testing.T) {
 	ctx.Notifications = svc
 	v := openView(t, ctx, notificationDropdown).(*notificationView)
 	g := v.groups[0]
-	widget.SizeWithin(v, widget.Size{W: 425, H: 725})
-	v.Arrange(render.Rect{W: 425, H: 725})
-
 	header := g.head
-	routeClick(v, header)
-	if g.expanded {
-		t.Error("a header click did not collapse the group")
-	}
-	routeClick(v, header)
-	if !g.expanded {
-		t.Error("a second header click did not re-expand the group")
-	}
-
-	// The clear button's own click dismisses the group and never
-	// bubbles to the header's toggle.
-	routeClick(v, findByClass(g, "notification-dropdown-group-clear"))
+	doOnLoopOf(ctx, func() {
+		widget.SizeWithin(v, widget.Size{W: 425, H: 725})
+		v.Arrange(render.Rect{W: 425, H: 725})
+		routeClick(v, header)
+		if g.expanded {
+			t.Error("a header click did not collapse the group")
+		}
+		routeClick(v, header)
+		if !g.expanded {
+			t.Error("a second header click did not re-expand the group")
+		}
+		routeClick(v, findByClass(g, "notification-dropdown-group-clear"))
+	})
 	waitHeadless(t, "the cleared group", func() bool { return len(v.groups) == 0 })
 	if !g.expanded {
 		t.Error("the clear button's click toggled the group")
@@ -258,8 +260,10 @@ func clearableDropdown(t *testing.T) (*notificationView, *notifications.Service,
 	ctx := newTestContext(t, config.Defaults())
 	ctx.Notifications = svc
 	v := openView(t, ctx, notificationDropdown).(*notificationView)
-	widget.SizeWithin(v, widget.Size{W: 425, H: 725})
-	v.Arrange(render.Rect{W: 425, H: 725})
+	doOnLoopOf(ctx, func() {
+		widget.SizeWithin(v, widget.Size{W: 425, H: 725})
+		v.Arrange(render.Rect{W: 425, H: 725})
+	})
 	return v, svc, st
 }
 
@@ -269,12 +273,12 @@ func clearableDropdown(t *testing.T) (*notificationView, *notifications.Service,
 func TestNotificationDropdownClearAllClick(t *testing.T) {
 	v, svc, st := clearableDropdown(t)
 	title := treetest.WithClass(v.Children()[0], "title")[0]
-	routeClick(v, title)
+	doOnLoopOf(v.ctx, func() { routeClick(v, title) })
 	if svc.Count() != 5 || len(st.Stored(t)) != 5 || len(svc.Popups()) != 5 || len(v.groups) != 2 || !v.clearAll.Visible() {
 		t.Fatalf("a click beside clear all: count %d, stored %d, popups %d, groups %d", svc.Count(), len(st.Stored(t)), len(svc.Popups()), len(v.groups))
 	}
 
-	routeClick(v, v.clearAll)
+	doOnLoopOf(v.ctx, func() { routeClick(v, v.clearAll) })
 	waitHeadless(t, "the empty state", func() bool { return v.empty.Visible() && !v.scroll.Visible() && len(v.groups) == 0 })
 	if v.clearAll.Visible() {
 		t.Error("clear all stays without notifications")
@@ -300,7 +304,7 @@ func TestNotificationGroupClearRemovesOnlyItsApp(t *testing.T) {
 			mail = g
 		}
 	}
-	routeClick(v, findByClass(mail, "notification-dropdown-group-clear"))
+	doOnLoopOf(v.ctx, func() { routeClick(v, findByClass(mail, "notification-dropdown-group-clear")) })
 	waitHeadless(t, "the mail group gone", func() bool { return len(v.groups) == 1 })
 	if v.groups[0].app != "chat" || len(v.groups[0].items) != 2 {
 		t.Fatalf("left group %q with %d items, want chat with 2", v.groups[0].app, len(v.groups[0].items))
@@ -327,14 +331,16 @@ func TestNotificationMoreRowShowsAll(t *testing.T) {
 	ctx.Notifications = svc
 	v := openView(t, ctx, notificationDropdown).(*notificationView)
 	g := v.groups[0]
-	widget.SizeWithin(v, widget.Size{W: 425, H: 725})
-	v.Arrange(render.Rect{W: 425, H: 725})
+	doOnLoopOf(ctx, func() {
+		widget.SizeWithin(v, widget.Size{W: 425, H: 725})
+		v.Arrange(render.Rect{W: 425, H: 725})
+	})
 
 	more, ok := findByClass(g, "notification-dropdown-group-more").(*widget.Button)
 	if !ok || !more.HasClass(css.Link) || !g.moreRow.Visible() {
 		t.Fatal("the overflow row is not a shown link button")
 	}
-	routeClick(v, more)
+	doOnLoopOf(ctx, func() { routeClick(v, more) })
 	if len(g.items) != 5 || g.overflow != 0 || g.moreRow.Visible() {
 		t.Errorf("the more click did not show all: %d items, overflow %d", len(g.items), g.overflow)
 	}
@@ -459,11 +465,13 @@ func TestNotificationItemDismissInsideADefaultActionRow(t *testing.T) {
 	ctx.Notifications = svc
 	v := openView(t, ctx, notificationDropdown).(*notificationView)
 	pop := &fakePopover{}
-	v.attachPopover(pop)
 	item := v.groups[0].items[0]
-	widget.SizeWithin(item, widget.Size{W: 360, H: 400})
-	item.Arrange(render.Rect{W: 360, H: 400})
-	routeClick(item, findByClass(item, "notification-dropdown-item-dismiss"))
+	doOnLoopOf(ctx, func() {
+		v.attachPopover(pop)
+		widget.SizeWithin(item, widget.Size{W: 360, H: 400})
+		item.Arrange(render.Rect{W: 360, H: 400})
+		routeClick(item, findByClass(item, "notification-dropdown-item-dismiss"))
+	})
 	waitHeadless(t, "the dismissal", func() bool { return len(notifytest.History(t, svc)) == 0 })
 	if pop.dismissed != 0 || len(invoked) != 0 {
 		t.Errorf("dismiss closed the dropdown (%d) or invoked %v", pop.dismissed, invoked)
@@ -493,8 +501,10 @@ func TestNotificationItemActionCarriesItsToken(t *testing.T) {
 	ctx := newTestContext(t, config.Defaults())
 	ctx.Notifications = svc
 	v := openView(t, ctx, notificationDropdown).(*notificationView)
-	v.minter = barMinter{token: "tok-3"}
-	v.groups[0].items[0].invoke("reply")
+	doOnLoopOf(ctx, func() {
+		v.minter = barMinter{token: "tok-3"}
+		v.groups[0].items[0].invoke("reply")
+	})
 	waitHeadless(t, "the action", func() bool { return len(notifytest.History(t, svc)) == 0 })
 	if want := []string{"ActivationToken" + fmt.Sprint(first, "tok-3"), "ActionInvoked" + fmt.Sprint(first, "reply")}; !slices.Equal(seen, want) {
 		t.Errorf("signals = %q, want %q", seen, want)
@@ -505,8 +515,10 @@ func TestNotificationItemActionCarriesItsToken(t *testing.T) {
 	waitHeadless(t, "the new item", func() bool {
 		return len(v.groups) == 1 && len(v.groups[0].items) == 1 && v.groups[0].items[0].n.ID == second
 	})
-	v.minter = barMinter{err: app.ErrActivationUnavailable}
-	v.groups[0].items[0].invoke("reply")
+	doOnLoopOf(ctx, func() {
+		v.minter = barMinter{err: app.ErrActivationUnavailable}
+		v.groups[0].items[0].invoke("reply")
+	})
 	if want := []string{"ActionInvoked" + fmt.Sprint(second, "reply")}; !slices.Equal(seen, want) {
 		t.Errorf("without xdg-activation: %q, want %q", seen, want)
 	}
@@ -523,10 +535,10 @@ func TestNotificationLongBodyStaysInItsItem(t *testing.T) {
 	svc.Notify("shot", 0, "", "Screenshot saved", "/home/stubbe/Pictures/Screenshot_2026-10-25_16-04-33_with_a_long_unbroken_name.png", nil, 0)
 	v := openView(t, ctx, notificationDropdown).(*notificationView)
 	waitHeadless(t, "the item", func() bool { return v.scroll.Visible() })
-	card, rev := dropdownTree(v, ctx.Config)
-	rev.SetRevealed(true)
-	ctx.Theme.Attach(card)
 	onHeadlessLoop(func() bool {
+		card, rev := dropdownTree(v, ctx.Config)
+		rev.SetRevealed(true)
+		ctx.Theme.Attach(card)
 		widget.SizeWithinAsChild(card, widget.Size{W: 425, H: 400})
 		widget.ArrangeAsChild(card, render.Rect{W: 425, H: 400})
 		item := treetest.WithClass(card, "notification-dropdown-item")[0].(widget.Boundser).Bounds()
@@ -593,12 +605,12 @@ func TestNotificationDropdownPagesTheHistory(t *testing.T) {
 	}
 	// The groups collapse to a few items each: nothing overflows, so
 	// nothing scrolls, and no page follows.
-	v.scrolled()
+	doOnLoopOf(ctx, v.scrolled)
 	if len(v.notifs) != notifPageSize {
 		t.Errorf("a list that does not scroll read %d", len(v.notifs))
 	}
-	v.loadMore()
-	v.loadMore()
+	doOnLoopOf(ctx, v.loadMore)
+	doOnLoopOf(ctx, v.loadMore)
 	if len(v.notifs) != sent || v.more || read() != sent {
 		t.Fatalf("after two more pages read %d (grouped %d, more %v), want all %d", len(v.notifs), read(), v.more, sent)
 	}
@@ -607,7 +619,7 @@ func TestNotificationDropdownPagesTheHistory(t *testing.T) {
 			t.Fatalf("read[%d] = %d, want %d", i, n.ID, sent-i)
 		}
 	}
-	v.loadMore()
+	doOnLoopOf(ctx, v.loadMore)
 	if len(v.notifs) != sent {
 		t.Errorf("past the end read %d", len(v.notifs))
 	}

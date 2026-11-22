@@ -110,14 +110,14 @@ type styledRoot interface {
 // paint tests need.
 func batteryArrangeStyled(t *testing.T, ctx ModuleContext, v styledRoot, w int) {
 	t.Helper()
-	// The tree pass first: elements resolve on parenting.
-	sz := widget.SizeWithin(v, widget.Size{W: w, H: 1 << 14})
-	v.Arrange(render.Rect{W: w, H: max(sz.H, 1)})
-	ctx.Theme.Attach(v)
-	restore := widget.SetAnimationsInstant(true)
-	t.Cleanup(restore)
-	sz = widget.SizeWithin(v, widget.Size{W: w, H: 1 << 14})
-	v.Arrange(render.Rect{W: max(sz.W, 1), H: max(sz.H, 1)})
+	t.Cleanup(widget.SetAnimationsInstant(true))
+	doOnLoopOf(ctx, func() {
+		sz := widget.SizeWithin(v, widget.Size{W: w, H: 1 << 14})
+		v.Arrange(render.Rect{W: w, H: max(sz.H, 1)})
+		ctx.Theme.Attach(v)
+		sz = widget.SizeWithin(v, widget.Size{W: w, H: 1 << 14})
+		v.Arrange(render.Rect{W: max(sz.W, 1), H: max(sz.H, 1)})
+	})
 }
 
 // alignedBounds reads a walked widget's arranged rect.
@@ -221,7 +221,7 @@ func TestBatteryHealthDotIsAClassedBoxTheCSSPaints(t *testing.T) {
 	// The size request gives the empty box extent, and the stylesheet's
 	// variant fills it with the status color, clipped round.
 	batteryArrangeStyled(t, ctx, v, 320)
-	if sz := widget.SizeWithinAsChild(dot, widget.Size{W: 64, H: 64}); sz != (widget.Size{W: statusDotPx, H: statusDotPx}) {
+	if sz := onLoopOf(ctx, func() widget.Size { return widget.SizeWithinAsChild(dot, widget.Size{W: 64, H: 64}) }); sz != (widget.Size{W: statusDotPx, H: statusDotPx}) {
 		t.Errorf("dot measure = %+v, want the %dpx request", sz, statusDotPx)
 	}
 	palette := ctx.Theme.RenderPalette()
@@ -229,13 +229,15 @@ func TestBatteryHealthDotIsAClassedBoxTheCSSPaints(t *testing.T) {
 	greenish := func(c render.Color) bool { return fillOf(c) && c.G() > 150 && c.R() < 150 }
 	reddish := func(c render.Color) bool { return fillOf(c) && c.R() > 150 && c.G() < 150 }
 	paint := func() []byte {
-		b := dot.Bounds()
-		w, h := b.X+b.W+2, b.Y+b.H+2
-		data := make([]byte, render.Stride(w)*h)
-		cv := render.NewScaled(data, render.Stride(w), w, h, 1, 1)
-		cv.Clear(cv.Rect(), 0)
-		dot.Paint(cv)
-		return data
+		return onLoopOf(ctx, func() []byte {
+			b := dot.Bounds()
+			w, h := b.X+b.W+2, b.Y+b.H+2
+			data := make([]byte, render.Stride(w)*h)
+			cv := render.NewScaled(data, render.Stride(w), w, h, 1, 1)
+			cv.Clear(cv.Rect(), 0)
+			dot.Paint(cv)
+			return data
+		})
 	}
 	width := func() int { b := dot.Bounds(); return b.X + b.W + 2 }
 	b := dot.Bounds()
@@ -247,7 +249,7 @@ func TestBatteryHealthDotIsAClassedBoxTheCSSPaints(t *testing.T) {
 	}
 
 	// The variant class drives the fill: poor loses the success color.
-	v.setVariant(dot, "poor")
+	doOnLoopOf(ctx, func() { v.setVariant(dot, "poor") })
 	data := paint()
 	if n := countColor(data, greenish); n != 0 {
 		t.Error("the poor dot kept the success fill")
@@ -291,10 +293,13 @@ func TestBatteryProfileSegmentsEqualWidth(t *testing.T) {
 
 	// The segments' own naturals differ (the precondition: there is
 	// something to equalize).
-	naturals := map[string]int{}
-	for _, p := range batteryProfiles {
-		naturals[p.name] = widget.SizeWithin(v.profileButtons[p.name], big).W
-	}
+	naturals := onLoopOf(ctx, func() map[string]int {
+		naturals := map[string]int{}
+		for _, p := range batteryProfiles {
+			naturals[p.name] = widget.SizeWithin(v.profileButtons[p.name], big).W
+		}
+		return naturals
+	})
 	lo, hi := 1<<30, 0
 	for _, w := range naturals {
 		lo, hi = min(lo, w), max(hi, w)
@@ -318,7 +323,7 @@ func TestBatteryProfileSegmentsEqualWidth(t *testing.T) {
 	// The seg lays the segments out equal: one shared width, the
 	// widest child's, give or take the remainder pixel GTK hands to
 	// the first children so the row ends flush.
-	arrangeDropdown(t, seg, hi*3+8, 60)
+	arrangeDropdown(ctx, seg, hi*3+8, 60)
 	narrow, wide := 1<<30, 0
 	for _, p := range batteryProfiles {
 		w := v.profileButtons[p.name].Bounds().W
@@ -377,7 +382,8 @@ func TestBatteryDropdownSection(t *testing.T) {
 		d.State, d.WarningLevel, d.Percentage = upower.StateCharging, upower.WarningCritical, 9
 		d.TimeToFull, d.ChargeThresholdSupported, d.ChargeThresholdEnabled = time.Hour, true, true
 	})
-	v.applyDevice(v.readDevice(t.Context()))
+	dev, fresh := v.readDevice(t.Context())
+	doOnLoopOf(ctx, func() { v.applyDevice(dev, fresh) })
 	if v.heroState.Text() != i18n.T("dropdown-battery-critical") || !v.heroState.HasClass("crit") || !v.heroPct.HasClass("crit") {
 		t.Errorf("critical hero = %q", v.heroState.Text())
 	}
@@ -398,7 +404,7 @@ func TestBatteryDropdownSection(t *testing.T) {
 	}
 
 	// The user toggling writes it.
-	v.chargeSwitch.Toggle()
+	doOnLoopOf(ctx, v.chargeSwitch.Toggle)
 	waitHeadless(t, "the threshold write", func() bool { return len(src.thresholdCalls()) == 1 })
 	if calls := src.thresholdCalls(); calls[0] {
 		t.Errorf("toggle off wrote %v", calls)
@@ -487,9 +493,11 @@ func TestBatteryDetailsShowTheirText(t *testing.T) {
 	ctx.Battery = newFakeBattery(upower.Device{Percentage: 64, State: upower.StateDischarging, IsPresent: true, EnergyRate: 9.4, Capacity: 92})
 	v := openView(t, ctx, batteryDropdown).(*batteryView)
 	waitHeadless(t, "the battery page", func() bool { return v.body.Visible() == "battery" })
-	ctx.Theme.Attach(v)
-	sz := widget.SizeWithin(v, widget.Size{W: 400, H: 2000})
-	v.Arrange(render.Rect{W: 400, H: sz.H})
+	doOnLoopOf(ctx, func() {
+		ctx.Theme.Attach(v)
+		sz := widget.SizeWithin(v, widget.Size{W: 400, H: 2000})
+		v.Arrange(render.Rect{W: 400, H: sz.H})
+	})
 	for _, l := range treetest.All[*widget.Label](findByClass(v, "battery-details")) {
 		if natural := widget.SizeWithinAsChild(l, widget.Size{W: 400, H: 400}).H; l.Bounds().H < natural {
 			t.Errorf("detail %q is %dpx tall, want its %dpx", l.Text(), l.Bounds().H, natural)
@@ -555,7 +563,7 @@ func TestABatteryHeldAtItsChargeLimitIsNotCharging(t *testing.T) {
 	v := openView(t, ctx, batteryDropdown).(*batteryView)
 	held := presentBattery()
 	held.State, held.Percentage, held.EnergyRate, held.ChargeThresholdEnabled = upower.StatePendingCharge, 80, 3, true
-	v.applyDevice(held, true)
+	doOnLoopOf(ctx, func() { v.applyDevice(held, true) })
 	if got := v.heroState.Text(); got != i18n.T("dropdown-battery-not-charging") || got == i18n.T("dropdown-battery-charging") {
 		t.Errorf("held at the limit the hero reads %q, want %q", got, i18n.T("dropdown-battery-not-charging"))
 	}
@@ -571,7 +579,7 @@ func TestABatteryHeldAtItsChargeLimitIsNotCharging(t *testing.T) {
 
 	charging := presentBattery()
 	charging.State, charging.EnergyRate = upower.StateCharging, 30
-	v.applyDevice(charging, true)
+	doOnLoopOf(ctx, func() { v.applyDevice(charging, true) })
 	if got := v.heroState.Text(); got != i18n.T("dropdown-battery-charging") {
 		t.Errorf("charging the hero reads %q", got)
 	}

@@ -203,6 +203,23 @@ func reopenView(ctx ModuleContext, o dropdownOpener) { doOnLoopOf(ctx, o.dropdow
 
 func hideView(ctx ModuleContext, h dropdownHider) { doOnLoopOf(ctx, h.dropdownHidden) }
 
+func typeText(ctx ModuleContext, e *widget.Entry, text string) {
+	doOnLoopOf(ctx, func() { e.SetText(text) })
+}
+
+func attachTheme(ctx ModuleContext, w interface{ AttachStylesheet(*widget.Stylesheet) }) {
+	doOnLoopOf(ctx, func() { ctx.Theme.Attach(w) })
+}
+
+func refreshDashboard(v *dashboardView) { doOnLoopOf(v.ctx, v.refreshAll) }
+
+func openDashboard(t testing.TB, ctx ModuleContext, build func(ModuleContext) widget.Widget) *dashboardView {
+	t.Helper()
+	v := openView(t, ctx, build).(*dashboardView)
+	refreshDashboard(v)
+	return v
+}
+
 func TestFollowingEndsWithThePopover(t *testing.T) {
 	var starts, stops atomic.Int64
 	ctx := newTestContext(t, config.Defaults())

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 
@@ -245,85 +246,86 @@ func TestDashboardKeysDriveIt(t *testing.T) {
 	d.expectFocus("reopening", dnd)
 }
 
-func keysView(t *testing.T, h int) (*dashboardView, *widget.Router) {
+func keysView(t *testing.T, h int) (ModuleContext, *dashboardView, *widget.Router) {
 	t.Helper()
 	ctx := withPowerMenu(styledContext(t, config.Defaults()))
 	ctx.Pulse = &fakePulseSource{ticks: make(chan struct{}, 1)}
 	v := openView(t, ctx, noRadiosDashboard).(*dashboardView)
-	root := widget.NewBox(widget.Column, 0, 0)
-	ctx.Theme.Attach(root)
-	root.Append(v, true)
-	widget.SizeWithin(root, widget.Size{W: 380, H: h})
-	root.Arrange(render.Rect{W: 380, H: h})
-	widget.CollectDamage(root)
-	widget.SizeWithin(root, widget.Size{W: 380, H: h})
-	root.Arrange(render.Rect{W: 380, H: h})
-	return v, &widget.Router{Root: root}
+	r := &widget.Router{}
+	if err := onLoopOf(ctx, func() error {
+		root := widget.NewBox(widget.Column, 0, 0)
+		ctx.Theme.Attach(root)
+		root.Append(v, true)
+		widget.SizeWithin(root, widget.Size{W: 380, H: h})
+		root.Arrange(render.Rect{W: 380, H: h})
+		widget.CollectDamage(root)
+		widget.SizeWithin(root, widget.Size{W: 380, H: h})
+		root.Arrange(render.Rect{W: 380, H: h})
+		r.Root = root
+		return r.SetFocus(v.firstControl())
+	}); err != nil {
+		t.Fatalf("focus the first control: %v", err)
+	}
+	return ctx, v, r
 }
 
 func TestDashboardHomeAndEnd(t *testing.T) {
-	v, r := keysView(t, 2000)
-	order := focusablesUnder(v.root, nil)
-	first, last := order[0], order[len(order)-1]
-	if err := r.SetFocus(v.firstControl()); err != nil {
-		t.Fatal(err)
-	}
-	r.KeyAction(widget.KeyEnd, 0)
-	if r.Focused() != last {
-		t.Errorf("End landed on %T, want the last control", r.Focused())
-	}
-	r.KeyAction(widget.KeyHome, 0)
-	if r.Focused() != first {
-		t.Errorf("Home landed on %T, want the first control", r.Focused())
-	}
-	r.KeyAction(widget.KeyNextPage, 0)
-	if r.Focused() != first {
-		t.Errorf("Page Down moved the focus to %T", r.Focused())
-	}
-	if got := v.NavigateFocus(widget.NewBox(widget.Row, 0, 0), widget.KeyNextPage); got != nil {
-		t.Errorf("a key with no meaning navigated to %T", got)
-	}
-	var knob widget.Widget
-	for _, w := range order {
-		if widget.RoleOf(w) == widget.RoleSlider {
-			knob = w
-			break
+	ctx, v, r := keysView(t, 2000)
+	doOnLoopOf(ctx, func() {
+		order := focusablesUnder(v.root, nil)
+		first, last := order[0], order[len(order)-1]
+		r.KeyAction(widget.KeyEnd, 0)
+		if r.Focused() != last {
+			t.Errorf("End landed on %T, want the last control", r.Focused())
 		}
-	}
-	if knob == nil {
-		t.Fatal("no slider takes focus")
-	}
-	for _, k := range []widget.KeyAction{widget.KeyHome, widget.KeyEnd, widget.KeyLeft, widget.KeyRight} {
-		if got := v.NavigateFocus(knob, k); got != nil {
-			t.Errorf("key %v left the slider for %T", k, got)
+		r.KeyAction(widget.KeyHome, 0)
+		if r.Focused() != first {
+			t.Errorf("Home landed on %T, want the first control", r.Focused())
 		}
-	}
+		r.KeyAction(widget.KeyNextPage, 0)
+		if r.Focused() != first {
+			t.Errorf("Page Down moved the focus to %T", r.Focused())
+		}
+		if got := v.NavigateFocus(widget.NewBox(widget.Row, 0, 0), widget.KeyNextPage); got != nil {
+			t.Errorf("a key with no meaning navigated to %T", got)
+		}
+		knob := slices.IndexFunc(order, func(w widget.Widget) bool { return widget.RoleOf(w) == widget.RoleSlider })
+		if knob < 0 {
+			t.Error("no slider takes focus")
+			return
+		}
+		for _, k := range []widget.KeyAction{widget.KeyHome, widget.KeyEnd, widget.KeyLeft, widget.KeyRight} {
+			if got := v.NavigateFocus(order[knob], k); got != nil {
+				t.Errorf("key %v left the slider for %T", k, got)
+			}
+		}
+	})
 }
 
 func TestDashboardKeysScrollTheirTargetIntoView(t *testing.T) {
-	v, r := keysView(t, 300)
-	if err := r.SetFocus(v.firstControl()); err != nil {
-		t.Fatal(err)
-	}
-	inView := func() bool {
-		view := v.scroll.Bounds()
-		b := r.Focused().(widget.Boundser).Bounds()
-		return b.Y >= view.Y && b.Y+b.H <= view.Y+view.H
-	}
-	r.KeyAction(widget.KeyEnd, 0)
-	widget.CollectDamage(r.Root)
-	r.Root.Arrange(render.Rect{W: 380, H: 300})
-	if _, y := v.scroll.Offset(); y == 0 {
-		t.Fatal("End did not scroll")
-	}
-	if !inView() {
-		t.Errorf("End left %+v outside the view %+v", r.Focused().(widget.Boundser).Bounds(), v.scroll.Bounds())
-	}
-	r.KeyAction(widget.KeyHome, 0)
-	r.Root.Arrange(render.Rect{W: 380, H: 300})
-	if _, y := v.scroll.Offset(); y != 0 {
-		t.Errorf("Home left the scroll at %d", y)
-	}
+	ctx, v, r := keysView(t, 300)
+	doOnLoopOf(ctx, func() {
+		inView := func() bool {
+			view := v.scroll.Bounds()
+			b := r.Focused().(widget.Boundser).Bounds()
+			return b.Y >= view.Y && b.Y+b.H <= view.Y+view.H
+		}
+		r.KeyAction(widget.KeyEnd, 0)
+		widget.CollectDamage(r.Root)
+		r.Root.Arrange(render.Rect{W: 380, H: 300})
+		if _, y := v.scroll.Offset(); y == 0 {
+			t.Error("End did not scroll")
+			return
+		}
+		if !inView() {
+			t.Errorf("End left %+v outside the view %+v", r.Focused().(widget.Boundser).Bounds(), v.scroll.Bounds())
+		}
+		r.KeyAction(widget.KeyHome, 0)
+		r.Root.Arrange(render.Rect{W: 380, H: 300})
+		if _, y := v.scroll.Offset(); y != 0 {
+			t.Errorf("Home left the scroll at %d", y)
+		}
+	})
 }
 
 func TestNearestToward(t *testing.T) {
@@ -381,15 +383,17 @@ func lookContext(t *testing.T) ModuleContext {
 	return ctx
 }
 
-func repaint(root *widget.Box) []byte {
-	widget.CollectDamage(root)
-	b := root.Bounds()
-	data := make([]byte, render.Stride(b.W)*b.H)
-	for i := 3; i < len(data); i += 4 {
-		data[i] = previewBackdrop
-	}
-	root.Paint(render.New(data, render.Stride(b.W), b.W, b.H))
-	return data
+func repaint(ctx ModuleContext, root *widget.Box) []byte {
+	return onLoopOf(ctx, func() []byte {
+		widget.CollectDamage(root)
+		b := root.Bounds()
+		data := make([]byte, render.Stride(b.W)*b.H)
+		for i := 3; i < len(data); i += 4 {
+			data[i] = previewBackdrop
+		}
+		root.Paint(render.New(data, render.Stride(b.W), b.W, b.H))
+		return data
+	})
 }
 
 func regionDiffers(a, b []byte, w int, r render.Rect) bool {
@@ -410,29 +414,29 @@ func TestDashboardFocusShowsOnEveryControl(t *testing.T) {
 	v := openView(t, ctx, noRadiosDashboard).(*dashboardView)
 	data, w, h, root := paintPreview(ctx, v, "dashboard")
 	r := &widget.Router{Root: root}
-	rest := repaint(root)
+	rest := repaint(ctx, root)
 	dir := os.Getenv(previewDirEnv)
 	if dir != "" {
 		writePreview(t, filepath.Join(dir, "dashboard-look.png"), data, w, h)
 	}
 	first := v.firstControl()
-	controls := focusablesUnder(v.root, nil)
+	controls := onLoopOf(ctx, func() []widget.Widget { return focusablesUnder(v.root, nil) })
 	if len(controls) < 10 {
 		t.Fatalf("%d controls take focus, want the header's, the tiles, volume, media and session", len(controls))
 	}
 	tile := v.quick.Children()[3]
-	if err := r.SetFocus(tile); err != nil {
+	if err := onLoopOf(ctx, func() error { return r.SetFocus(tile) }); err != nil {
 		t.Fatalf("focus the tile: %v", err)
 	}
-	if regionDiffers(rest, repaint(root), w, boundsOf(tile)) {
+	if regionDiffers(rest, repaint(ctx, root), w, boundsOf(tile)) {
 		t.Error("a pointer's focus on a quick action paints a state of its own beside on, off and hover")
 	}
-	r.FocusNext()
+	doOnLoopOf(ctx, r.FocusNext)
 	for _, c := range controls {
-		if err := r.SetFocusLike(c, r.Focused()); err != nil {
+		if err := onLoopOf(ctx, func() error { return r.SetFocusLike(c, r.Focused()) }); err != nil {
 			t.Fatalf("focus %T: %v", c, err)
 		}
-		focused := repaint(root)
+		focused := repaint(ctx, root)
 		if !regionDiffers(rest, focused, w, boundsOf(c)) {
 			t.Errorf("focus on %T at %+v paints nothing", c, boundsOf(c))
 		}

@@ -174,7 +174,7 @@ func TestBrightnessDropdownItemsSubtitlesAndCommit(t *testing.T) {
 	if slider.Value() != 50 {
 		t.Errorf("slider = %v, want 50", slider.Value())
 	}
-	slider.Knob.SetValue(70)
+	doOnLoopOf(ctx, func() { slider.Knob.SetValue(70) })
 	waitHeadless(t, "the commit write", func() bool { return len(source.recorded()) == 1 })
 	if got := source.recorded()[0]; got != (brightnessSet{"intel_backlight", 70}) {
 		t.Errorf("set = %+v", got)
@@ -184,7 +184,8 @@ func TestBrightnessDropdownItemsSubtitlesAndCommit(t *testing.T) {
 		{Name: "intel_backlight", Type: brightness.TypeFirmware, Brightness: 50, Max: 100},
 		{Name: "ddcci5", Type: brightness.TypeDDC, Brightness: 10, Max: 100},
 	})
-	v.apply(v.read(t.Context()))
+	devices := v.read(t.Context())
+	doOnLoopOf(ctx, func() { v.apply(devices) })
 	if cards := brightnessCards(v); len(cards) != 2 || !brightnessItemMeta(cards[0]) {
 		t.Error("two devices: want two items with subtitles")
 	}
@@ -237,8 +238,8 @@ func TestBrightnessCardHugsItsRows(t *testing.T) {
 		{Name: "ddcci5", Type: brightness.TypeDDC, Brightness: 10, Max: 100},
 	}}
 	v := openView(t, ctx, brightnessDropdown).(*brightnessView)
-	ctx.Theme.Attach(v)
-	arrangeDropdown(t, v, 320, 600)
+	attachTheme(ctx, v)
+	arrangeDropdown(ctx, v, 320, 600)
 	card := treetest.WithClass(v, "brightness-devices")[0]
 	rows := treetest.WithClass(v.list, "brightness-device")[0]
 	if extra := boundsOf(card).H - boundsOf(rows).H; extra > 2 {

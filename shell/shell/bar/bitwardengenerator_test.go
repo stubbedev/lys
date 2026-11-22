@@ -20,7 +20,7 @@ import (
 func generatorTestView(t *testing.T, v *fakeVault, cfg *config.Config) (*bitwardenView, *[]copied) {
 	t.Helper()
 	view, copies := bitwardenTestView(t, v, cfg)
-	view.random = rand.NewChaCha8([32]byte{9})
+	onLoop(func() { view.random = rand.NewChaCha8([32]byte{9}) })
 	return view, copies
 }
 
@@ -82,7 +82,7 @@ func TestBitwardenGeneratorWorksWhileLocked(t *testing.T) {
 	cfg := config.Defaults()
 	v := &fakeVault{status: vault.Status{State: vault.StateLocked}}
 	view, copies := generatorTestView(t, v, cfg)
-	view.unlockPw.entry.SetText("hunter")
+	typeText(view.ctx, view.unlockPw.entry, "hunter")
 	onLoop(view.toggleGenerator)
 	onLoop(view.apply)
 	if page(view) != bwPageGenerator {
@@ -103,7 +103,7 @@ func TestBitwardenGeneratorDropsAPendingReprompt(t *testing.T) {
 	v := unlockedVault()
 	view, copies := generatorTestView(t, v, cfg)
 	onLoop(func() { view.copyField(v.entries[1].item, vault.FieldPassword) })
-	view.repromptPw.entry.SetText("hunt")
+	typeText(view.ctx, view.repromptPw.entry, "hunt")
 	onLoop(view.toggleGenerator)
 	if view.copying != nil || view.repromptPw.entry.Text() != "" || page(view) != bwPageGenerator {
 		t.Fatalf("opening the generator kept the reprompt: %+v, box %q, page %s", view.copying, view.repromptPw.entry.Text(), page(view))
@@ -150,15 +150,17 @@ func (brokenRandom) Read([]byte) (int, error) { return 0, errNoRandom }
 func TestBitwardenGeneratorFailuresCopyNothing(t *testing.T) {
 	cfg := config.Defaults()
 	view, copies := generatorTestView(t, unlockedVault(), cfg)
-	view.random = brokenRandom{}
+	onLoop(func() { view.random = brokenRandom{} })
 	onLoop(view.toggleGenerator)
 	onLoop(func() { view.generate(bwPresets(cfg.Bitwarden)[0]) })
 	if len(*copies) != 0 || !view.genStatus.HasClass("error") || !strings.Contains(view.genStatus.Text(), errNoRandom.Error()) {
 		t.Errorf("randomness failure: %d copies, status %q", len(*copies), view.genStatus.Text())
 	}
-	view.random = rand.NewChaCha8([32]byte{1})
 	clipErr := errors.New("no clipboard")
-	view.host.copy = func(transfer.Content, time.Duration) error { return clipErr }
+	onLoop(func() {
+		view.random = rand.NewChaCha8([32]byte{1})
+		view.host.copy = func(transfer.Content, time.Duration) error { return clipErr }
+	})
 	onLoop(func() { view.generate(bwPresets(cfg.Bitwarden)[1]) })
 	if !view.genStatus.HasClass("error") || view.genStatus.Text() != clipErr.Error() {
 		t.Errorf("clipboard failure: status %q", view.genStatus.Text())

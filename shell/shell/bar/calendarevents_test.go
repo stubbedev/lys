@@ -60,7 +60,7 @@ func TestCalendarDropdownMarksDaysAndListsTheAgenda(t *testing.T) {
 	if !widget.IsVisible(v.agenda) {
 		t.Fatal("the agenda is hidden with a calendar configured")
 	}
-	v.cal.ShowMonth(widget.Date{Year: 2027, Month: time.March, Day: 1})
+	doOnLoopOf(v.ctx, func() { v.cal.ShowMonth(widget.Date{Year: 2027, Month: time.March, Day: 1}) })
 	var marked []int
 	for d := 1; d <= 31; d++ {
 		if v.cal.DayMarked(widget.Date{Year: 2027, Month: time.March, Day: d}) {
@@ -71,7 +71,7 @@ func TestCalendarDropdownMarksDaysAndListsTheAgenda(t *testing.T) {
 		t.Errorf("marked days %v, want 10, 22 and 23", marked)
 	}
 
-	v.cal.Select(widget.Date{Year: 2027, Month: time.March, Day: 10})
+	doOnLoopOf(v.ctx, func() { v.cal.Select(widget.Date{Year: 2027, Month: time.March, Day: 10}) })
 	labels := treetest.Labels(v.agenda)
 	want := []string{"09:00 – 09:15", "Standup", "Room 2", "14:00 – 15:00", "Review", "Room 2"}
 	if !slices.Equal(labels, want) {
@@ -81,16 +81,16 @@ func TestCalendarDropdownMarksDaysAndListsTheAgenda(t *testing.T) {
 		t.Errorf("the day's tooltip = %q", got)
 	}
 
-	v.cal.Select(widget.Date{Year: 2027, Month: time.March, Day: 23})
+	doOnLoopOf(v.ctx, func() { v.cal.Select(widget.Date{Year: 2027, Month: time.March, Day: 23}) })
 	if labels := treetest.Labels(v.agenda); len(labels) != 3 || labels[0] != i18n.T("dropdown-calendar-all-day") || labels[1] != "Offsite" {
 		t.Errorf("agenda for March 23 = %q, want the all-day offsite", labels)
 	}
-	v.cal.Select(widget.Date{Year: 2027, Month: time.March, Day: 11})
+	doOnLoopOf(v.ctx, func() { v.cal.Select(widget.Date{Year: 2027, Month: time.March, Day: 11}) })
 	if labels := treetest.Labels(v.agenda); !slices.Equal(labels, []string{i18n.T("dropdown-calendar-no-events")}) {
 		t.Errorf("agenda for an empty day = %q", labels)
 	}
 
-	v.cal.ShowMonth(widget.Date{Year: 2027, Month: time.April, Day: 1})
+	doOnLoopOf(v.ctx, func() { v.cal.ShowMonth(widget.Date{Year: 2027, Month: time.April, Day: 1}) })
 	if v.cal.DayMarked(widget.Date{Year: 2027, Month: time.March, Day: 10}) {
 		t.Error("a month change kept the previous month's marks")
 	}
@@ -101,13 +101,13 @@ func TestCalendarDropdownFollowsAnEditedFile(t *testing.T) {
 	changes, stop := store.Changes()
 	defer stop()
 	v := calendarViewWith(t, store)
-	v.cal.Select(widget.Date{Year: 2027, Month: time.March, Day: 10})
+	doOnLoopOf(v.ctx, func() { v.cal.Select(widget.Date{Year: 2027, Month: time.March, Day: 10}) })
 	if err := os.WriteFile(filepath.Join(dir, "review.ics"), []byte(icsEvent("review", "Retro", "20270310T140000", "20270310T150000")), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	for !slices.Contains(treetest.Labels(v.agenda), "Retro") {
 		waittest.For(t, changes, "a change to the edited calendar")
-		v.refreshEvents()
+		doOnLoopOf(v.ctx, v.refreshEvents)
 	}
 }
 
@@ -118,7 +118,7 @@ func TestCalendarDropdownWithoutCalendarsShowsNoAgenda(t *testing.T) {
 	if widget.IsVisible(v.agenda) || widget.IsVisible(v.agendaRule) {
 		t.Error("an agenda shows without any calendar configured")
 	}
-	v.cal.Select(widget.Date{Year: 2027, Month: time.March, Day: 10})
+	doOnLoopOf(v.ctx, func() { v.cal.Select(widget.Date{Year: 2027, Month: time.March, Day: 10}) })
 	if v.cal.Detail(widget.Date{Year: 2027, Month: time.March, Day: 10}) != "" {
 		t.Error("a day has a detail without calendars")
 	}

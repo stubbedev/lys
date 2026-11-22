@@ -186,14 +186,16 @@ func TestMediaModuleRenders(t *testing.T) {
 	m := module.(*mediaModule)
 	// appendModule hands the module its wrapper; the disc classes are
 	// ancestor selectors on it.
-	m.setChrome(widget.NewBox(widget.Row, 0, 0))
+	doOnLoopOf(ctx, func() { m.setChrome(widget.NewBox(widget.Row, 0, 0)) })
 	// The text is whole; label-max-length caps the button's label width
 	// (max-width-chars) once appendModule configures it.
 	if got := m.btn.Label().Text(); got != strings.Repeat("t", 50)+" - Band" {
 		t.Errorf("label = %q, want the whole default format", got)
 	}
 	root := m.btn
-	root.configure(barview.ModuleTitle("media", cfg), barview.ModuleButton("media", cfg), config.ClickConfig{}, nil)
+	doOnLoopOf(ctx, func() {
+		root.configure(barview.ModuleTitle("media", cfg), barview.ModuleButton("media", cfg), config.ClickConfig{}, nil)
+	})
 	if root.Label().MaxWidthChars() != int(cfg.Media.LabelMaxLength) || root.Label().Ellipsize() != widget.EllipsizeEnd {
 		t.Errorf("label cap = %d chars, ellipsize %v; want %d, end", root.Label().MaxWidthChars(), root.Label().Ellipsize(), cfg.Media.LabelMaxLength)
 	}
@@ -203,7 +205,7 @@ func TestMediaModuleRenders(t *testing.T) {
 
 	// No player: the "--" label, icon-name, and no disc classes.
 	source.active = -1
-	m.refresh()
+	doOnLoopOf(ctx, m.refresh)
 	if m.btn.Label().Text() != mediaNoPlayerLabel {
 		t.Errorf("no-player label = %q, want --", m.btn.Label().Text())
 	}
@@ -217,7 +219,7 @@ func TestMediaModuleRenders(t *testing.T) {
 		t.Error("the module shows with no player")
 	}
 	source.active = 0
-	m.refresh()
+	doOnLoopOf(ctx, m.refresh)
 	if !widget.IsVisible(m.chrome.(widget.Widget)) {
 		t.Error("the module stays hidden with a player")
 	}
@@ -322,14 +324,14 @@ func TestMediaDropdownTransport(t *testing.T) {
 	}
 
 	// The buttons drive the active player.
-	v.playPause.OnClick()
-	v.next.OnClick()
-	v.loop.OnClick()
-	// A drag seeks at the percent of the length: the first move commits,
-	// and the release commits again (DebouncedSlider).
-	v.seek.Knob.SetPressed(true)
-	v.seek.Knob.SetValue(25)
-	v.seek.Knob.SetPressed(false)
+	doOnLoopOf(ctx, func() {
+		v.playPause.OnClick()
+		v.next.OnClick()
+		v.loop.OnClick()
+		v.seek.Knob.SetPressed(true)
+		v.seek.Knob.SetValue(25)
+		v.seek.Knob.SetPressed(false)
+	})
 	calls := waitCalls(t, source.Calls, 5)
 	want := map[string]bool{"play-pause " + bus: true, "next " + bus: true, "loop " + bus: true, "seek " + bus + " 15s": true}
 	seeks := 0
@@ -350,26 +352,30 @@ func TestMediaDropdownTransport(t *testing.T) {
 	}
 
 	// A position read moves the knob unless it is held (or just let go).
-	v.seek.SetClock(aheadClock{Clock: ctx.Clock, by: time.Second})
-	v.setPosition(45 * time.Second)
-	if v.seek.Value() != 75 || v.position.Text() != "0:45" {
-		t.Errorf("position = %v / %q, want 75 / 0:45", v.seek.Value(), v.position.Text())
-	}
-	v.seek.Knob.SetPressed(true)
-	v.setPosition(0)
-	if v.seek.Value() != 75 {
-		t.Error("a position read moved the held knob")
-	}
-	v.seek.Knob.SetPressed(false)
+	doOnLoopOf(ctx, func() {
+		v.seek.SetClock(aheadClock{Clock: ctx.Clock, by: time.Second})
+		v.setPosition(45 * time.Second)
+		if v.seek.Value() != 75 || v.position.Text() != "0:45" {
+			t.Errorf("position = %v / %q, want 75 / 0:45", v.seek.Value(), v.position.Text())
+		}
+		v.seek.Knob.SetPressed(true)
+		v.setPosition(0)
+		if v.seek.Value() != 75 {
+			t.Error("a position read moved the held knob")
+		}
+		v.seek.Knob.SetPressed(false)
+	})
 
 	// The picker switches the active player and returns to the view.
-	v.showPicker()
+	doOnLoopOf(ctx, v.showPicker)
 	if v.mode != "picker" || v.pages.Visible() != "sources" || !v.pages.Switching() {
 		t.Fatalf("the picker: mode %q, page %q, sliding %v; want the sources page sliding in", v.mode, v.pages.Visible(), v.pages.Switching())
 	}
 	source.SetActive("org.mpris.MediaPlayer2.mpv")
-	v.mode = ""
-	v.refresh()
+	doOnLoopOf(ctx, func() {
+		v.mode = ""
+		v.refresh()
+	})
 	if v.title.Text() != i18n.T("dropdown-media-unknown-title") {
 		t.Errorf("after switching = %q, want mpv's placeholder title", v.title.Text())
 	}
@@ -379,7 +385,7 @@ func TestMediaDropdownTransport(t *testing.T) {
 
 	// No player: the empty state.
 	source.active = -1
-	v.refresh()
+	doOnLoopOf(ctx, v.refresh)
 	if v.mode != "empty" {
 		t.Errorf("mode without a player = %q, want empty", v.mode)
 	}
@@ -417,7 +423,7 @@ func TestMediaDropdownPaintsFromTheStylesheet(t *testing.T) {
 
 	// The picker is an item card of options; the active player's
 	// option is the selected state.
-	v.showPicker()
+	doOnLoopOf(ctx, v.showPicker)
 	options := treetest.WithClass(v.sources, "media-source-option")
 	if len(options) != 1 || len(treetest.WithClass(v.sources, "media-source-list")) != 1 {
 		t.Fatalf("the picker = %d options; want the one player in a media-source-list", len(options))
@@ -438,7 +444,7 @@ func TestMediaPickerChrome(t *testing.T) {
 	ctx := newTestContext(t, config.Defaults())
 	ctx.Media = source
 	v := openView(t, ctx, mediaDropdown).(*mediaView)
-	v.showPicker()
+	doOnLoopOf(ctx, v.showPicker)
 
 	var back *widget.Button
 	var body *widget.Scroll
@@ -485,7 +491,7 @@ func TestMediaPickerChrome(t *testing.T) {
 	}
 
 	// Back returns to the player (or empty) page.
-	back.OnClick()
+	doOnLoopOf(ctx, back.OnClick)
 	if v.mode == "picker" || v.pages.Visible() != "main" {
 		t.Errorf("after back = mode %q page %q, want the main page", v.mode, v.pages.Visible())
 	}
@@ -514,7 +520,7 @@ func TestMediaTransportButtonsAreUnpaddedPointers(t *testing.T) {
 		bare := widget.NewButton(widget.NewThemeIcon(tc.glyph, int(tc.px)), 0, 0)
 		bare.AddClass(tc.b.Classes()...)
 		want := widget.SizeWithin(bare, availSize(200, 200))
-		if got := widget.SizeWithin(tc.b, availSize(200, 200)); got != want {
+		if got := onLoopOf(ctx, func() widget.Size { return widget.SizeWithin(tc.b, availSize(200, 200)) }); got != want {
 			t.Errorf("%s measures %v, want an unpadded button's %v (programmatic padding)", tc.glyph, got, want)
 		}
 		if got := widget.HoverCursor(tc.b); got != "pointer" {
@@ -539,25 +545,25 @@ func TestMediaSeekResetsOnPlayerSwitch(t *testing.T) {
 	ctx := newTestContext(t, config.Defaults())
 	ctx.Media = source
 	v := openView(t, ctx, mediaDropdown).(*mediaView)
-	v.setPosition(45 * time.Second)
+	doOnLoopOf(ctx, func() { v.setPosition(45 * time.Second) })
 	if v.seek.Value() != 75 {
 		t.Fatalf("knob = %v, want 75 before the switch", v.seek.Value())
 	}
-	v.refresh()
+	doOnLoopOf(ctx, v.refresh)
 	if v.seek.Value() != 75 {
 		t.Errorf("a same-player refresh reset the knob to %v", v.seek.Value())
 	}
 	source.SetActive("org.mpris.MediaPlayer2.mpv")
-	v.refresh()
+	doOnLoopOf(ctx, v.refresh)
 	if v.seek.Value() != 0 {
 		t.Errorf("after the switch the knob = %v, want the new player's 0", v.seek.Value())
 	}
-	v.setPosition(45 * time.Second)
+	doOnLoopOf(ctx, func() { v.setPosition(45 * time.Second) })
 	if v.seek.Value() != 75 {
 		t.Fatalf("the new player's knob = %v, want 75", v.seek.Value())
 	}
 	source.active = -1
-	v.refresh()
+	doOnLoopOf(ctx, v.refresh)
 	if v.seek.Value() != 0 {
 		t.Errorf("without a player the knob = %v, want 0", v.seek.Value())
 	}
@@ -575,9 +581,12 @@ func TestMediaEmptyStateKeepsThePlayersHeight(t *testing.T) {
 		t.Fatalf("mode %q page %q, want the empty state", v.mode, v.main.Visible())
 	}
 	con := availSize(380, 900)
-	page := widget.SizeWithin(v.main, con).H
-	player := widget.SizeWithin(v.player, con).H
-	bare := widget.SizeWithin(v.empty, con).H
+	var page, player, bare int
+	doOnLoopOf(ctx, func() {
+		page = widget.SizeWithin(v.main, con).H
+		player = widget.SizeWithin(v.player, con).H
+		bare = widget.SizeWithin(v.empty, con).H
+	})
 	if bare == player {
 		t.Fatalf("the empty state and the player are both %dpx: the test proves nothing", bare)
 	}
@@ -621,7 +630,7 @@ func TestMediaRefusedControlShowsWhy(t *testing.T) {
 	ctx := newTestContext(t, config.Defaults())
 	ctx.Media = source
 	v := openView(t, ctx, mediaDropdown).(*mediaView)
-	v.refresh()
+	doOnLoopOf(ctx, v.refresh)
 	onHeadlessLoop(func() bool { v.fire("next track", v.src.Next); return true })
 	waitHeadless(t, "the refusal", v.failed.Visible)
 	if got := onHeadlessLoop(v.failed.Title); got != i18n.T("dropdown-media-control-failed") {
@@ -635,11 +644,11 @@ func TestMediaRefusedControlShowsWhy(t *testing.T) {
 	source.mu.Unlock()
 	onHeadlessLoop(func() bool { v.fire("next track", v.src.Next); return true })
 	waitHeadless(t, "the command that goes through", func() bool { return !v.failed.Visible() })
-	v.showPicker()
+	doOnLoopOf(ctx, v.showPicker)
 	rows := treetest.WithClass(v.sources, "media-source-option")
 	source.players = nil
 	source.active = -1
-	rows[0].(*widget.Item).ClickAt(widget.Point{})
+	doOnLoopOf(ctx, func() { rows[0].(*widget.Item).ClickAt(widget.Point{}) })
 	if !v.failed.Visible() || !strings.Contains(v.failed.Description(), "select org.mpris.MediaPlayer2.vlc") {
 		t.Errorf("a refused pick: alert %v %q", v.failed.Visible(), v.failed.Description())
 	}
@@ -697,12 +706,14 @@ func TestMediaDropdownGatesTheTransportOnControl(t *testing.T) {
 		"next": v.next, "loop": v.loop, "seek": v.seek,
 	}
 	press := func() {
-		for _, b := range []*widget.Button{v.shuffle, v.previous, v.playPause, v.next, v.loop} {
-			b.OnClick()
-		}
-		v.seek.Knob.SetPressed(true)
-		v.seek.Knob.SetValue(50)
-		v.seek.Knob.SetPressed(false)
+		doOnLoopOf(ctx, func() {
+			for _, b := range []*widget.Button{v.shuffle, v.previous, v.playPause, v.next, v.loop} {
+				b.OnClick()
+			}
+			v.seek.Knob.SetPressed(true)
+			v.seek.Knob.SetValue(50)
+			v.seek.Knob.SetPressed(false)
+		})
 	}
 
 	for name, w := range transport {
@@ -715,7 +726,7 @@ func TestMediaDropdownGatesTheTransportOnControl(t *testing.T) {
 	if err := source.SetActive(controllable.BusName); err != nil {
 		t.Fatal(err)
 	}
-	v.refresh()
+	doOnLoopOf(ctx, v.refresh)
 	for name, w := range transport {
 		if !widget.IsEnabled(w) {
 			t.Errorf("a controllable player: %s is disabled", name)

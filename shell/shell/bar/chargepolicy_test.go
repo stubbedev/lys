@@ -83,12 +83,12 @@ func TestHealthHidesWithoutADesignAndNamesItsCycles(t *testing.T) {
 	v := openView(t, ctx, batteryDropdown).(*batteryView)
 	dev := presentBattery()
 	dev.ChargeCycles = 104
-	v.applyDevice(dev, true)
+	doOnLoopOf(ctx, func() { v.applyDevice(dev, true) })
 	if !widget.IsVisible(v.health) || v.healthLabel.Text() != i18n.T("dropdown-battery-health-cycles", i18n.Int("cycles", 104)) {
 		t.Errorf("health visible %v, caption %q", widget.IsVisible(v.health), v.healthLabel.Text())
 	}
 	dev.ChargeCycles, dev.Capacity = 0, 0
-	v.applyDevice(dev, true)
+	doOnLoopOf(ctx, func() { v.applyDevice(dev, true) })
 	if widget.IsVisible(v.health) {
 		t.Error("health shows without a design capacity")
 	}

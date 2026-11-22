@@ -175,15 +175,17 @@ func TestVPNSection(t *testing.T) {
 	if rows := vpnRows(v); !v.vpns.Visible() || len(rows) != 1 || rows[0] != v.vpns.add {
 		t.Error("no profiles: want the section with only the add row")
 	}
+	vpn.mu.Lock()
 	vpn.entries = []network.VPN{
 		{UUID: "u1", Name: "Work", State: network.VPNConnected},
 		{UUID: "u2", Name: "Home", State: network.VPNFailed, Detail: "wrong username or password"},
 	}
-	v.apply(v.read(context.Background()))
+	vpn.mu.Unlock()
+	doOnLoopOf(v.ctx, func() { v.apply(v.read(context.Background())) })
 	if rows := vpnRows(v); len(rows) != 3 || rows[2] != v.vpns.add {
 		t.Fatalf("rows = %d, want the two profiles over the add row", len(rows))
 	}
-	v.vpnToggle("u2")
+	doOnLoopOf(v.ctx, func() { v.vpnToggle("u2") })
 	waitHeadless(t, "the toggle", func() bool { _, _, _, tg := vpn.writes(); return slices.Equal(tg, []string{"u2"}) })
 }
 
@@ -199,7 +201,7 @@ func TestVPNRowsActivate(t *testing.T) {
 		settings: map[string]network.ConnectionDict{"u1": network.BuildProfile(testPlugin, "Work", "u1", map[string]string{"gateway": "vpn.example.com"})},
 	}
 	v, _ := newVPNTestView(t, vpn, nil)
-	v.apply(v.read(context.Background()))
+	doOnLoopOf(v.ctx, func() { v.apply(v.read(context.Background())) })
 	row := vpnRows(v)[0]
 	if !row.HasClass("vpn-item") || row.HasClass("failed") || row.TooltipText() != "" {
 		t.Error("an idle profile is not a plain vpn-item")
@@ -226,7 +228,7 @@ func TestVPNRowsActivate(t *testing.T) {
 	if _, _, _, tg := vpn.writes(); len(tg) != 1 {
 		t.Errorf("the edit button also toggled: %v", tg)
 	}
-	v.body.Show(netPageBrowse)
+	doOnLoopOf(v.ctx, func() { v.body.Show(netPageBrowse) })
 	clickAt(t, v.vpns.add, v.vpns.add)
 	if v.body.Visible() != netPageEdit {
 		t.Error("clicking the add row did not open the editor")
@@ -237,7 +239,7 @@ func TestVPNFormCreates(t *testing.T) {
 	vpn := &fakeVPN{}
 	v, pop := newVPNTestView(t, vpn, nil)
 	f := v.vpnForm
-	v.vpnAdd()
+	doOnLoopOf(v.ctx, v.vpnAdd)
 	if v.body.Visible() != netPageEdit || pop.focused != f.name {
 		t.Fatalf("page %q focus %v", v.body.Visible(), pop.focused)
 	}
@@ -245,20 +247,22 @@ func TestVPNFormCreates(t *testing.T) {
 		t.Error("creating: want the type picker and import, no delete")
 	}
 	// No name: refused, nothing written.
-	f.save()
+	doOnLoopOf(v.ctx, f.save)
 	if !f.errLabel.Visible() || f.errLabel.Text() != i18n.T("dropdown-network-vpn-name-required") || v.body.Visible() != netPageEdit {
 		t.Errorf("nameless save: %q", f.errLabel.Text())
 	}
 	// The typed plugin: a missing gateway is named and marked.
-	f.kindPicker.SetSelected(1)
+	doOnLoopOf(v.ctx, func() { f.kindPicker.SetSelected(1) })
 	if len(f.entries) != 2 || len(f.pickers) != 1 || f.advanced.Visible() != true || f.raw.Visible() {
 		t.Fatalf("typed kind: entries %d pickers %d", len(f.entries), len(f.pickers))
 	}
 	if f.importBtn.Visible() {
 		t.Error("import offered for a kind that is not WireGuard")
 	}
-	f.name.SetText("Corp")
-	f.save()
+	doOnLoopOf(v.ctx, func() {
+		f.name.SetText("Corp")
+		f.save()
+	})
 	gateway := typedEntry(t, f, "gateway")
 	if f.errLabel.Text() != i18n.T("dropdown-network-vpn-field-required", i18n.Str("field", "Gateway")) || !gateway.HasClass("error") {
 		t.Errorf("missing gateway: %q marked %v", f.errLabel.Text(), gateway.HasClass("error"))
@@ -267,11 +271,11 @@ func TestVPNFormCreates(t *testing.T) {
 		t.Error("an optional box was marked")
 	}
 	// A URL is not a host: refused with the format's message.
-	gateway.SetText("https://vpn.example.com/")
+	typeText(v.ctx, gateway, "https://vpn.example.com/")
 	if gateway.HasClass("error") {
 		t.Error("editing a box kept its error mark")
 	}
-	f.save()
+	doOnLoopOf(v.ctx, f.save)
 	if !strings.Contains(f.errLabel.Text(), "https://") || !gateway.HasClass("error") {
 		t.Errorf("malformed: %q", f.errLabel.Text())
 	}
@@ -279,14 +283,18 @@ func TestVPNFormCreates(t *testing.T) {
 		t.Fatal("a refused form was written")
 	}
 	// Valid, with an advanced key and the plugin choice: written.
-	gateway.SetText("vpn.example.com")
-	f.pickers[0].picker.SetSelected(1)
-	f.toggleAdvanced()
+	doOnLoopOf(v.ctx, func() {
+		gateway.SetText("vpn.example.com")
+		f.pickers[0].picker.SetSelected(1)
+		f.toggleAdvanced()
+	})
 	if !f.raw.Visible() || f.advLabel.Text() != i18n.T("dropdown-network-vpn-advanced-hide") {
 		t.Error("the advanced toggle did not open the raw editor")
 	}
-	f.raw.SetText("mtu = 1400\ngateway = ignored.example.com")
-	f.save()
+	doOnLoopOf(v.ctx, func() {
+		f.raw.SetText("mtu = 1400\ngateway = ignored.example.com")
+		f.save()
+	})
 	if v.body.Visible() != netPageBrowse || f.errLabel.Visible() {
 		t.Error("a valid save did not go back")
 	}
@@ -302,14 +310,18 @@ func TestVPNFormUntypedKind(t *testing.T) {
 	vpn := &fakeVPN{}
 	v, _ := newVPNTestView(t, vpn, nil)
 	f := v.vpnForm
-	v.vpnAdd()
-	f.kindPicker.SetSelected(2)
+	doOnLoopOf(v.ctx, func() {
+		v.vpnAdd()
+		f.kindPicker.SetSelected(2)
+	})
 	if len(f.entries) != 0 || f.advanced.Visible() || !f.raw.Visible() || !f.rawHint.Visible() {
 		t.Error("untyped kind: want the raw editor open, no toggle")
 	}
-	f.name.SetText("Odd")
-	f.raw.SetText("remote = 1.2.3.4")
-	f.save()
+	doOnLoopOf(v.ctx, func() {
+		f.name.SetText("Odd")
+		f.raw.SetText("remote = 1.2.3.4")
+		f.save()
+	})
 	waitHeadless(t, "the add", func() bool { a, _, _, _ := vpn.writes(); return len(a) == 1 })
 	if a, _, _, _ := vpn.writes(); a[0].kind != "org.example.raw" || a[0].values["remote"] != "1.2.3.4" {
 		t.Errorf("added %+v", a[0])
@@ -325,7 +337,7 @@ func TestVPNFormEditsAndDeletes(t *testing.T) {
 	}
 	v, _ := newVPNTestView(t, vpn, nil)
 	f := v.vpnForm
-	v.vpnEdit("u1")
+	doOnLoopOf(v.ctx, func() { v.vpnEdit("u1") })
 	waitHeadless(t, "the edit page", func() bool { return v.body.Visible() == netPageEdit })
 	if f.kindField.Visible() || !f.deleteBtn.Visible() || f.name.Text() != "Corp" || itemText(f.head, "title") != i18n.T("dropdown-network-vpn-new") {
 		t.Error("editing: want no type picker, delete, the name, the shared New VPN title")
@@ -337,8 +349,10 @@ func TestVPNFormEditsAndDeletes(t *testing.T) {
 		t.Errorf("raw = %q: the key the form has no box for must show", f.raw.Text())
 	}
 	// NM refuses: the form comes back, values intact.
+	vpn.mu.Lock()
 	vpn.writeErr = errors.New("permission denied")
-	f.save()
+	vpn.mu.Unlock()
+	doOnLoopOf(v.ctx, f.save)
 	waitHeadless(t, "the refusal", func() bool { return v.body.Visible() == netPageEdit && f.errLabel.Visible() })
 	if f.errLabel.Text() != "permission denied" || typedEntry(t, f, "gateway").Text() != "vpn.example.com" {
 		t.Errorf("refused: %q", f.errLabel.Text())
@@ -354,31 +368,35 @@ func TestVPNFormEditsAndDeletes(t *testing.T) {
 	// Delete asks first, in a modal alert; declining removes nothing,
 	// and a second click while it is up asks nothing more.
 	alerts := &fakeAlert{}
-	v.ctx.Alert = alerts.ask
-	f.askDelete()
-	f.askDelete()
+	doOnLoopOf(v.ctx, func() {
+		v.ctx.Alert = alerts.ask
+		f.askDelete()
+		f.askDelete()
+	})
 	if len(alerts.specs) != 1 || !strings.Contains(alerts.specs[0].message, "Corp") ||
 		alerts.specs[0].accept != i18n.T("dropdown-network-vpn-delete") {
 		t.Fatalf("alerts = %+v, want one delete question", alerts.specs)
 	}
-	alerts.answers[0](false)
+	doOnLoopOf(v.ctx, func() { alerts.answers[0](false) })
 	if _, _, r, _ := vpn.writes(); len(r) != 0 || v.body.Visible() != netPageEdit {
 		t.Fatal("a declined delete removed the profile")
 	}
-	f.askDelete()
-	alerts.answers[1](true)
+	doOnLoopOf(v.ctx, func() {
+		f.askDelete()
+		alerts.answers[1](true)
+	})
 	waitHeadless(t, "the remove", func() bool { _, _, r, _ := vpn.writes(); return slices.Equal(r, []string{"u1"}) })
 	if v.body.Visible() != netPageBrowse {
 		t.Error("delete did not go back")
 	}
 
 	// A profile whose plugin is gone opens raw and keeps its type.
-	v.vpnEdit("u2")
+	doOnLoopOf(v.ctx, func() { v.vpnEdit("u2") })
 	waitHeadless(t, "the second edit", func() bool { return v.body.Visible() == netPageEdit && f.editing == "u2" })
 	if k, _ := f.kind(); k.ID != "org.gone.vpn" || f.raw.Text() != "remote = x" {
 		t.Errorf("kind %q raw %q", k.ID, f.raw.Text())
 	}
-	f.save()
+	doOnLoopOf(v.ctx, f.save)
 	waitHeadless(t, "the update", func() bool { _, u, _, _ := vpn.writes(); return len(u) == 2 })
 	if _, u, _, _ := vpn.writes(); u[1].kind != "org.gone.vpn" {
 		t.Errorf("saved as %q, not its own kind", u[1].kind)
@@ -386,8 +404,10 @@ func TestVPNFormEditsAndDeletes(t *testing.T) {
 
 	// An unreadable profile never opens the editor, and says why over
 	// the list.
-	v.vpnCloseForm()
-	v.vpnEdit("missing")
+	doOnLoopOf(v.ctx, func() {
+		v.vpnCloseForm()
+		v.vpnEdit("missing")
+	})
 	waitHeadless(t, "the unreadable profile's reason", v.actionErr.Visible)
 	if v.body.Visible() != netPageBrowse {
 		t.Error("an unreadable profile opened the editor")
@@ -418,7 +438,7 @@ func TestVPNFormWireGuard(t *testing.T) {
 	}
 	v, _ := newVPNTestView(t, &fakeVPN{}, open)
 	f := v.vpnForm
-	v.vpnAdd()
+	doOnLoopOf(v.ctx, v.vpnAdd)
 	// The private key's generate button and live public key.
 	priv := typedEntry(t, f, wireGuardPrivateKey)
 	var pub *widget.RichLabel
@@ -431,39 +451,41 @@ func TestVPNFormWireGuard(t *testing.T) {
 	if !pub.Selectable() {
 		t.Error("the public-key readout is not selectable")
 	}
-	priv.SetText(pair.Private)
+	typeText(v.ctx, priv, pair.Private)
 	if pub.Text() != vpntext.PublicKey(pair.Private) {
 		t.Error("the readout does not follow the private key")
 	}
-	priv.SetText("not a key")
+	typeText(v.ctx, priv, "not a key")
 	if pub.Text() != i18n.T("dropdown-network-vpn-public-key-empty") {
 		t.Error("a broken key kept the old public key")
 	}
 
 	// Import fills the form and names it after the interface.
-	f.importFile()
+	doOnLoopOf(v.ctx, f.importFile)
 	waitHeadless(t, "the import", func() bool { return f.name.Text() == "office" })
 	if typedEntry(t, f, "peer-endpoint").Text() != "vpn.example.com:51820" || typedEntry(t, f, wireGuardPrivateKey).Text() != pair.Private {
 		t.Error("import did not fill the fields")
 	}
 	// A typed name is kept; a file that is no config says so.
-	f.name.SetText("Mine")
+	typeText(v.ctx, f.name, "Mine")
 	mu.Lock()
 	next = bad
 	mu.Unlock()
-	f.importFile()
+	doOnLoopOf(v.ctx, f.importFile)
 	waitHeadless(t, "the import failure", func() bool { return f.errLabel.Visible() })
 	if f.errLabel.Text() != i18n.T("dropdown-network-vpn-import-failed") || f.name.Text() != "Mine" {
 		t.Errorf("bad file: %q name %q", f.errLabel.Text(), f.name.Text())
 	}
 	// Dismissing the chooser is no failure; a chooser that cannot open
 	// says why instead of leaving the click without an answer.
-	f.setError("")
-	f.importDone("", fmt.Errorf("open: %w", portal.ErrCancelled))
+	doOnLoopOf(v.ctx, func() {
+		f.setError("")
+		f.importDone("", fmt.Errorf("open: %w", portal.ErrCancelled))
+	})
 	if f.errLabel.Visible() || f.name.Text() != "Mine" {
 		t.Error("a dismissed chooser reported a failure")
 	}
-	f.importDone("", errors.New("no portal"))
+	doOnLoopOf(v.ctx, func() { f.importDone("", errors.New("no portal")) })
 	if !f.errLabel.Visible() || plain(f.errLabel.Text()) != "Could not open a file: no portal" || f.name.Text() != "Mine" {
 		t.Errorf("a chooser that cannot open: error %v %q, name %q", f.errLabel.Visible(), f.errLabel.Text(), f.name.Text())
 	}
@@ -504,7 +526,7 @@ func TestVPNListKeepsItsRowsWhenNothingChanged(t *testing.T) {
 func TestVPNRefusedToggleShowsWhy(t *testing.T) {
 	vpn := &fakeVPN{entries: []network.VPN{{UUID: "u1", Name: "Work", State: network.VPNDisconnected}}, toggErr: errors.New("no secrets")}
 	v, _ := newVPNTestView(t, vpn, nil)
-	v.apply(v.read(context.Background()))
+	doOnLoopOf(v.ctx, func() { v.apply(v.read(context.Background())) })
 	onHeadlessLoop(func() bool { v.vpnToggle("u1"); return true })
 	waitHeadless(t, "the refusal", v.actionErr.Visible)
 	if got := onHeadlessLoop(v.actionErr.Text); plain(got) != "Could not switch Work: no secrets" {

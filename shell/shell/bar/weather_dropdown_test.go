@@ -290,12 +290,13 @@ func TestWeatherDropdownShowsTheStatusPage(t *testing.T) {
 // arrangeDropdown measures and lays a dropdown out at a fixed panel
 // size over two passes — the first settles parenting, the second the
 // rebuilt subtrees' bounds.
-func arrangeDropdown(t *testing.T, v widget.Widget, w, h int) {
-	t.Helper()
-	for range 2 {
-		sz := widget.SizeWithin(v, widget.Size{W: w, H: h})
-		v.Arrange(render.Rect{W: max(sz.W, w), H: h})
-	}
+func arrangeDropdown(ctx ModuleContext, v widget.Widget, w, h int) {
+	doOnLoopOf(ctx, func() {
+		for range 2 {
+			sz := widget.SizeWithin(v, widget.Size{W: w, H: h})
+			v.Arrange(render.Rect{W: max(sz.W, w), H: h})
+		}
+	})
 }
 
 // classedWidget finds the first widget carrying class, failing the
@@ -344,7 +345,7 @@ func TestWeatherPagesCenterTheirContent(t *testing.T) {
 	if got := v.pages.Visible(); got != "loading" {
 		t.Fatalf("page = %q, want loading", got)
 	}
-	arrangeDropdown(t, v, 400, 600)
+	arrangeDropdown(ctx, v, 400, 600)
 	centered := func(class string) {
 		t.Helper()
 		pb, sb := boundsOf(classedWidget(t, v, class)), boundsOf(v.pages)
@@ -359,7 +360,7 @@ func TestWeatherPagesCenterTheirContent(t *testing.T) {
 	waitHeadless(t, "the failed status", func() bool { return fail.Status().Kind == weather.Failed })
 	ctx.Weather = fail
 	v = openView(t, ctx, weatherDropdown).(*weatherView)
-	arrangeDropdown(t, v, 400, 600)
+	arrangeDropdown(ctx, v, 400, 600)
 	centered("error-weather")
 	page := classedWidget(t, v, "error-weather")
 	retry, isBtn := classedWidget(t, v, "weather-retry-btn").(*widget.Button)
@@ -405,13 +406,13 @@ func TestWeatherRefetchShowsTheLoadingPage(t *testing.T) {
 	}
 	close(gates[0])
 	waitHeadless(t, "the loaded status", func() bool { return svc.Status().Kind == weather.Loaded })
-	v.refresh()
+	doOnLoopOf(ctx, v.refresh)
 	if got := v.pages.Visible(); got != "loaded" {
 		t.Fatalf("page = %q, want loaded", got)
 	}
 	// Negative: the loaded sections stay top-anchored — centering is
 	// the loading and error pages' job.
-	arrangeDropdown(t, v, 400, 600)
+	arrangeDropdown(ctx, v, 400, 600)
 	scrollTop := classedWidget(t, v, "weather-scroll").(*widget.Scroll).Bounds().Y
 	headerTop := classedBox(t, v, "weather-header").Bounds().Y
 	if abs(headerTop-scrollTop) > 3 {
@@ -420,13 +421,13 @@ func TestWeatherRefetchShowsTheLoadingPage(t *testing.T) {
 	// A refetch after a success shows the loading page again.
 	svc.Refresh()
 	waitHeadless(t, "the refetching status", func() bool { return svc.Status().Kind == weather.Loading })
-	v.refresh()
+	doOnLoopOf(ctx, v.refresh)
 	if got := v.pages.Visible(); got != "loading" {
 		t.Errorf("a refetch after a success kept page %q, want loading", got)
 	}
 	close(gates[1])
 	waitHeadless(t, "the reloaded status", func() bool { return svc.Status().Kind == weather.Loaded })
-	v.refresh()
+	doOnLoopOf(ctx, v.refresh)
 	if got := v.pages.Visible(); got != "loaded" {
 		t.Errorf("page = %q after the refetch landed, want loaded", got)
 	}
@@ -541,8 +542,9 @@ func TestWeatherTodayIsTheLocations(t *testing.T) {
 	if other.Equal(locToday) {
 		w.Daily = w.Daily[1:]
 	}
-	v := openView(t, newTestContext(t, config.Defaults()), weatherDropdown).(*weatherView)
-	days := treetest.WithClass(v.daily(w, false), "daily-item")
+	ctx := newTestContext(t, config.Defaults())
+	v := openView(t, ctx, weatherDropdown).(*weatherView)
+	days := treetest.WithClass(onLoopOf(ctx, func() widget.Widget { return v.daily(w, false) }), "daily-item")
 	for i, d := range w.Daily {
 		got := itemText(days[i], "title")
 		isToday := d.Date.Equal(locToday)
@@ -630,7 +632,7 @@ func TestWeatherFailedRefreshShowsTheDataUnderAnAlert(t *testing.T) {
 	script.set(nil, &weather.Error{Kind: weather.ErrAPIKeyMissing, Provider: "weatherapi"})
 	svc.Refresh()
 	waitHeadless(t, "the failed status", func() bool { return svc.Status().Kind == weather.Failed })
-	v.refresh()
+	doOnLoopOf(ctx, v.refresh)
 	if got := v.pages.Visible(); got != "loaded" {
 		t.Fatalf("a failure over held data shows page %q, want loaded", got)
 	}
@@ -651,7 +653,7 @@ func TestWeatherFailedRefreshShowsTheDataUnderAnAlert(t *testing.T) {
 	script.set(rainyWeather(), nil)
 	svc.Refresh()
 	waitHeadless(t, "the reloaded status", func() bool { return svc.Status().Kind == weather.Loaded })
-	v.refresh()
+	doOnLoopOf(ctx, v.refresh)
 	if findByClass(v.loaded, "weather-stale-alert") != nil {
 		t.Error("the stale alert outlives a successful refresh")
 	}

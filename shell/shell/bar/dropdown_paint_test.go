@@ -19,9 +19,11 @@ func TestDropdownPanelsPaintFromTheStylesheet(t *testing.T) {
 	cfg := config.Defaults()
 	ctx := styledContext(t, cfg)
 	v := openView(t, ctx, audioDropdown).(*audioView)
-	ctx.Theme.Attach(v)
-	sz := widget.SizeWithin(v, widget.Size{W: 400, H: 600})
-	v.Arrange(render.Rect{W: sz.W, H: 600})
+	attachTheme(ctx, v)
+	doOnLoopOf(ctx, func() {
+		sz := widget.SizeWithin(v, widget.Size{W: 400, H: 600})
+		v.Arrange(render.Rect{W: sz.W, H: 600})
+	})
 
 	name := treetest.WithClass(v.output.item, "title")[0].(*widget.Label)
 	if got := name.Color(); got != 0 {
@@ -37,8 +39,10 @@ func TestDropdownPanelsPaintFromTheStylesheet(t *testing.T) {
 	// The sheet demonstrably drives the ink: the same uncolored label
 	// paints differently under the panel's sheet (the cascade's
 	// fg-default) than alone (the widget theme's fallback).
-	name.SetText("Speakers")
-	withSheet := paintLabel(name)
+	withSheet := onLoopOf(ctx, func() []byte {
+		name.SetText("Speakers")
+		return paintLabel(name)
+	})
 	bare := widget.NewLabel(ctx.Font, ctx.Style.labelPx, "Speakers", 0)
 	withoutSheet := paintLabel(bare)
 	if string(withSheet) == string(withoutSheet) {
@@ -74,17 +78,19 @@ func countColor(data []byte, col func(render.Color) bool) int {
 func TestBatteryGaugePaintsFromTheLevelbarRules(t *testing.T) {
 	ctx := styledContext(t, config.Defaults())
 	v := openView(t, ctx, batteryDropdown).(*batteryView)
-	// The tree pass first: the gauge's element resolves on parenting.
-	sz0 := widget.SizeWithin(v, widget.Size{W: 400, H: 600})
-	v.Arrange(render.Rect{W: sz0.W, H: 600})
-	ctx.Theme.Attach(v)
 	restore := widget.SetAnimationsInstant(true)
 	t.Cleanup(restore)
-	v.gauge.SetValue(0.5)
-	v.gauge.RemoveClass(batteryVariants...)
-	v.gauge.AddClass("good")
-	sz := widget.SizeWithin(v.gauge, widget.Size{W: 200, H: 40})
-	v.gauge.Arrange(render.Rect{X: 0, Y: 0, W: 200, H: sz.H})
+	sz := onLoopOf(ctx, func() widget.Size {
+		sz0 := widget.SizeWithin(v, widget.Size{W: 400, H: 600})
+		v.Arrange(render.Rect{W: sz0.W, H: 600})
+		ctx.Theme.Attach(v)
+		v.gauge.SetValue(0.5)
+		v.gauge.RemoveClass(batteryVariants...)
+		v.gauge.AddClass("good")
+		sz := widget.SizeWithin(v.gauge, widget.Size{W: 200, H: 40})
+		v.gauge.Arrange(render.Rect{X: 0, Y: 0, W: 200, H: sz.H})
+		return sz
+	})
 
 	palette := ctx.Theme.RenderPalette()
 	match := func(want render.Color) func(render.Color) bool {
@@ -94,11 +100,13 @@ func TestBatteryGaugePaintsFromTheLevelbarRules(t *testing.T) {
 		}
 	}
 	paint := func() []byte {
-		data := make([]byte, render.Stride(200)*40)
-		cv := render.NewScaled(data, render.Stride(200), 200, 40, 1, 1)
-		cv.Clear(cv.Rect(), 0)
-		v.gauge.Paint(cv)
-		return data
+		return onLoopOf(ctx, func() []byte {
+			data := make([]byte, render.Stride(200)*40)
+			cv := render.NewScaled(data, render.Stride(200), 200, 40, 1, 1)
+			cv.Clear(cv.Rect(), 0)
+			v.gauge.Paint(cv)
+			return data
+		})
 	}
 	// The good block: the success color, half the bar.
 	data := paint()
@@ -110,8 +118,10 @@ func TestBatteryGaugePaintsFromTheLevelbarRules(t *testing.T) {
 		t.Error("the good gauge shows the error color")
 	}
 	// The crit class recolors it without a Go color.
-	v.gauge.RemoveClass("good")
-	v.gauge.AddClass("crit")
+	doOnLoopOf(ctx, func() {
+		v.gauge.RemoveClass("good")
+		v.gauge.AddClass("crit")
+	})
 	a, b = spanOf(paint(), sz.H, match(palette.Red))
 	if a < 0 || (b-a) < 90 {
 		t.Errorf("the crit block spans %d..%d, want the left half", a, b)

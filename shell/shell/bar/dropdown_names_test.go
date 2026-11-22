@@ -101,7 +101,7 @@ func TestMediaTransportButtonsAreNamedByTheirState(t *testing.T) {
 	ctx.Media = source
 	v := openView(t, ctx, mediaDropdown).(*mediaView)
 	name := func(b *widget.Button) string { return onHeadlessLoop(func() string { return widget.Describe(b).Name }) }
-	refresh := v.refresh
+	refresh := func() { doOnLoopOf(ctx, v.refresh) }
 	refresh()
 	if got := onHeadlessLoop(func() []string { return unnamedControls(v) }); len(got) != 0 {
 		t.Errorf("unnamed controls with a player: %v", got)

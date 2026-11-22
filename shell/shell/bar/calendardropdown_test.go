@@ -50,7 +50,8 @@ func TestCalendarViewNavigatesAndSelects(t *testing.T) {
 	cfg := config.Defaults()
 	cfg.Clock.Format = mustStrftimeFormat(t, "%I:%M %p")
 	cfg.Clock.DropdownShowSeconds = false
-	v := openView(t, newTestContext(t, cfg), calendarDropdown).(*calendarView)
+	ctx := newTestContext(t, cfg)
+	v := openView(t, ctx, calendarDropdown).(*calendarView)
 	today := widget.DateOf(time.Now())
 	if v.cal.Selection() != today || v.cal.Shown() != today.FirstOfMonth() {
 		t.Errorf("opens on %v picking %v, want today %v", v.cal.Shown(), v.cal.Selection(), today)
@@ -58,9 +59,11 @@ func TestCalendarViewNavigatesAndSelects(t *testing.T) {
 	if !v.ampm.Visible() || v.seconds.Visible() {
 		t.Error("12h without seconds: the AM/PM shows and the seconds hide")
 	}
-	v.cal.ShowMonth(today.AddMonths(2))
-	v.cal.Select(today.AddMonths(2))
-	v.goToToday()
+	doOnLoopOf(ctx, func() {
+		v.cal.ShowMonth(today.AddMonths(2))
+		v.cal.Select(today.AddMonths(2))
+		v.goToToday()
+	})
 	if v.cal.Shown() != today.FirstOfMonth() || v.cal.Selection() != today {
 		t.Errorf("Today left %v picking %v, want today's month and today", v.cal.Shown(), v.cal.Selection())
 	}
@@ -71,15 +74,18 @@ func TestCalendarViewNavigatesAndSelects(t *testing.T) {
 
 // Across midnight the tick moves today; within a day it leaves it.
 func TestCalendarTodayFollowsTheClock(t *testing.T) {
-	v := openView(t, newTestContext(t, config.Defaults()), calendarDropdown).(*calendarView)
+	ctx := newTestContext(t, config.Defaults())
+	v := openView(t, ctx, calendarDropdown).(*calendarView)
 	start := v.today
-	v.tick()
+	doOnLoopOf(ctx, v.tick)
 	if v.today != start {
 		t.Errorf("a same-day tick moved today to %v", v.today)
 	}
 	tomorrow := time.Now().AddDate(0, 0, 1)
-	v.now = func() time.Time { return tomorrow }
-	v.tick()
+	doOnLoopOf(ctx, func() {
+		v.now = func() time.Time { return tomorrow }
+		v.tick()
+	})
 	if v.today != widget.DateOf(tomorrow) {
 		t.Errorf("after midnight today = %v, want %v", v.today, widget.DateOf(tomorrow))
 	}
@@ -122,9 +128,12 @@ func TestCalendarClockRowCarriesTheStateClasses(t *testing.T) {
 	if !v.timeRow.HasClass("show-seconds") || !v.ampm.Visible() {
 		t.Errorf("12h with seconds: classes = %v, ampm %v; want show-seconds and the ampm", v.timeRow.Classes(), v.ampm.Visible())
 	}
-	cfg.Clock.Format = mustStrftimeFormat(t, "%H:%M")
-	cfg.Clock.DropdownShowSeconds = false
-	v.tick()
+	format := mustStrftimeFormat(t, "%H:%M")
+	doOnLoopOf(ctx, func() {
+		cfg.Clock.Format = format
+		cfg.Clock.DropdownShowSeconds = false
+		v.tick()
+	})
 	if v.timeRow.HasClass("show-seconds") || v.ampm.Visible() {
 		t.Errorf("24h without seconds: classes = %v, ampm %v; want neither", v.timeRow.Classes(), v.ampm.Visible())
 	}
@@ -136,13 +145,17 @@ func TestCalendarFillsItsSection(t *testing.T) {
 	ctx := styledContext(t, config.Defaults())
 	v := openView(t, ctx, calendarDropdown).(*calendarView)
 	w, _, _ := dropdownDims("calendar", ctx.Config)
-	card, _ := dropdownTree(dropdownPanel("calendar", ctx.Config, v), ctx.Config)
-	ctx.Theme.Attach(card)
-	sz := widget.SizeWithinAsChild(card, widget.Size{W: w, H: 4000})
-	card.Arrange(render.Rect{W: sz.W, H: sz.H})
-	section := treetest.WithClass(v, "cal-section")[0].(*widget.Box).Bounds()
-	cal := v.cal.Bounds()
-	natural := widget.SizeWithinAsChild(v.cal, widget.Size{W: 4000, H: 4000})
+	var section, cal render.Rect
+	var natural widget.Size
+	doOnLoopOf(ctx, func() {
+		card, _ := dropdownTree(dropdownPanel("calendar", ctx.Config, v), ctx.Config)
+		ctx.Theme.Attach(card)
+		sz := widget.SizeWithinAsChild(card, widget.Size{W: w, H: 4000})
+		card.Arrange(render.Rect{W: sz.W, H: sz.H})
+		section = treetest.WithClass(v, "cal-section")[0].(*widget.Box).Bounds()
+		cal = v.cal.Bounds()
+		natural = widget.SizeWithinAsChild(v.cal, widget.Size{W: 4000, H: 4000})
+	})
 	if natural.W >= section.W {
 		t.Fatalf("the section (%dpx) leaves the grid (%dpx) no room to fill", section.W, natural.W)
 	}
@@ -172,9 +185,12 @@ func TestCalendarHeroAndAgendaShowTheSameHour(t *testing.T) {
 	} {
 		cfg := config.Defaults()
 		cfg.Clock.Format = mustStrftimeFormat(t, c.format)
-		v := openView(t, newTestContext(t, cfg), calendarDropdown).(*calendarView)
-		v.now = func() time.Time { return at }
-		v.tick()
+		ctx := newTestContext(t, cfg)
+		v := openView(t, ctx, calendarDropdown).(*calendarView)
+		doOnLoopOf(ctx, func() {
+			v.now = func() time.Time { return at }
+			v.tick()
+		})
 		if got := v.hours.Text(); got != c.hero {
 			t.Errorf("%s: the hero shows the hour %q, want %q", c.format, got, c.hero)
 		}
