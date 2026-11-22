@@ -39,7 +39,7 @@ func TestAddingAModuleAppendsItToTheEveryMonitorLayout(t *testing.T) {
 
 func TestABarItemPageSaysWhetherItIsInTheBarAndAddsIt(t *testing.T) {
 	k := testKit(t, "bar:\n  layout:\n    - monitor: \"*\"\n      right: [clock]\n")
-	lead := barPlacement(config.ModuleWeather)(k)
+	lead := newPlacementRow(k, only(config.ModuleWeather))
 	add := treetest.Button(t, lead, locale.T().Get("settings-bar-placement-add"))
 	if !add.Visible() {
 		t.Fatal("a module outside the bar offers no add")
@@ -51,7 +51,7 @@ func TestABarItemPageSaysWhetherItIsInTheBarAndAddsIt(t *testing.T) {
 	if add.Visible() || !containsLabel(lead, locale.T().Get("settings-bar-placement-present")) {
 		t.Error("after adding, the page still offers to add it")
 	}
-	in := barPlacement(config.ModuleClock)(k)
+	in := newPlacementRow(k, only(config.ModuleClock))
 	if treetest.Button(t, in, locale.T().Get("settings-bar-placement-add")).Visible() {
 		t.Error("a module in the bar offers to add it again")
 	}

@@ -100,12 +100,6 @@ func notificationsPage(*config.Config) pageSpec {
 		}},
 		{title: "settings-section-focus-automatic", rows: append(fields("modules.notifications.dnd.while-sharing", "modules.notifications.dnd.while-fullscreen"), field("modules.notifications.dnd.schedule", dndScheduleList))},
 		{title: "settings-section-focus-allowed", rows: []rowSpec{field("modules.notifications.dnd.allow-critical")}},
-		{title: "settings-section-bell", rows: append([]rowSpec{
-			field("modules.notifications.icon-name", iconRow),
-			field("modules.notifications.icon-unread", iconRow),
-			field("modules.notifications.icon-dnd", iconRow),
-			field("modules.notifications.thresholds", thresholdList),
-		}, barItemSection("modules.notifications", actionChoices("notification")).rows...)},
 		{title: "settings-section-notifications-advanced", advanced: true, rows: []rowSpec{
 			field("modules.notifications.popup-close-behavior"),
 			field("modules.notifications.icon-source"),
@@ -116,7 +110,18 @@ func notificationsPage(*config.Config) pageSpec {
 			field("modules.notifications.popup-margin-y", sizeBase(config.PopupMarginBaseRem)),
 			field("modules.notifications.popup-gap", sizeBase(config.PopupGapBaseRem)),
 		}},
-	}, links: []pageLink{dropdownSizesLink, surfaceAnimationLink}}
+	}, links: []pageLink{{notificationBellID, "settings-module-link-bell-detail"}, surfaceAnimationLink}}
+}
+
+const notificationBellID = "notification-bell"
+
+// notificationBellPage is the notifications' bar item: the bell.
+func notificationBellPage(*config.Config) pageSpec {
+	const m = "modules.notifications"
+	return barItemPage(config.ModuleNotifications, pageSpec{id: notificationBellID, navKey: "settings-nav-notification-bell", icon: "ld-bell-symbolic", header: "settings-page-notification-bell"}, barItemParts{
+		icons:      iconPerState(m+".icon-name", m+".icon-unread", m+".icon-dnd"),
+		thresholds: []rowSpec{field(m+".thresholds", thresholdList)},
+	})
 }
 
 const popupMaxVisibleSoftMax = 10

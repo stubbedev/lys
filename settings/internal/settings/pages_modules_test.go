@@ -123,17 +123,13 @@ func TestDeviceLikeModulePagesLinkToTheirDevicePages(t *testing.T) {
 	k := testKit(t, "")
 	k.nav = layout(k.store.svc.Config(), bothParts)
 	for module, want := range map[string][]string{
-		"audio": {soundID, barPageID}, "battery": {powerPageID, thresholdsPageID, barPageID}, "bluetooth": {bluetoothPageID, barPageID}, "clock": {dateTimeID, barPageID},
+		"audio": {soundID, barPageID}, "battery": {powerPageID, barPageID}, "bluetooth": {bluetoothPageID, barPageID}, "clock": {dateTimeID, barPageID},
 		"idle-inhibit": {"idle"}, "keybind-mode": {"wm-binds"}, "keyboard-input": {"wm-keyboard"},
 		"brightness": {displaysID, barPageID}, "nightlight": {displaysID}, "media": {barPageID},
 	} {
 		p, ok := pageByID(k.nav, module)
 		if !ok {
 			t.Fatalf("no %s page", module)
-		}
-		if len(p.links) == 0 {
-			t.Errorf("the %s page links nowhere", module)
-			continue
 		}
 		var opened []string
 		k.openPage = func(id string) { opened = append(opened, id) }
@@ -169,23 +165,22 @@ func TestSearchFindsKeepAwakeByWhatItDoes(t *testing.T) {
 	}
 }
 
-func TestMediaShowsOnlyTheIconRowsOfTheChosenIconType(t *testing.T) {
+func TestMediaShowsThePlayerIconsOnlyForTheMappedIconType(t *testing.T) {
 	k := testKit(t, "modules:\n  media:\n    icon-type: default\n")
 	p := layoutPage(t, k, "media")
 	if _, ok := rowOf(t, p, "modules.media.icon-type").ctl.(*choiceCards); !ok {
 		t.Fatal("the media icon type is not chosen by picture")
 	}
-	disc, mapped, fallback := rowOf(t, p, "modules.media.spinning-disc-icon"), rowOf(t, p, "modules.media.player-icons"), rowOf(t, p, "modules.media.icon-name")
-	if disc.Visible() || mapped.Visible() || !fallback.Visible() {
-		t.Fatalf("a generic icon shows the disc %v, the player map %v, the icon %v", disc.Visible(), mapped.Visible(), fallback.Visible())
+	if _, ok := rowOf(t, p, "modules.media.icon-name").ctl.(*cellGrid); !ok {
+		t.Fatal("the media icon and the spinning disc are not one grid of state icons")
 	}
-	setRow(t, p, "modules.media.icon-type", string(config.MediaIconTypeSpinningDisc))
-	if !disc.Visible() || mapped.Visible() || !fallback.Visible() {
-		t.Errorf("a spinning disc shows the disc %v, the player map %v, the icon %v", disc.Visible(), mapped.Visible(), fallback.Visible())
+	mapped := rowOf(t, p, "modules.media.player-icons")
+	if mapped.Visible() {
+		t.Fatal("a generic icon shows the player map")
 	}
 	setRow(t, p, "modules.media.icon-type", string(config.MediaIconTypeApplicationMapped))
-	if disc.Visible() || !mapped.Visible() {
-		t.Errorf("a mapped icon shows the disc %v, the player map %v", disc.Visible(), mapped.Visible())
+	if !mapped.Visible() {
+		t.Error("a mapped icon hides the player map")
 	}
 }
 
@@ -235,7 +230,7 @@ func TestBitwardenSeparatesTheAccountItsSecurityAndItsIntegrations(t *testing.T)
 		"modules.bitwarden.clipboard-clear":   "settings-section-bitwarden-security",
 		"modules.bitwarden.network-folder":    "settings-section-bitwarden-integrations",
 		"modules.bitwarden.portal-folder":     "settings-section-bitwarden-integrations",
-		"modules.bitwarden.icon-locked":       "settings-section-bitwarden-look",
+		"modules.bitwarden.icon-locked":       "settings-section-icons",
 	} {
 		if got := sectionOf(t, "bitwarden", path); got != want {
 			t.Errorf("%s is under %s, want %s", path, got, want)
@@ -362,13 +357,9 @@ func TestTheResourcePagesAndTheDashboardLinkToTheirOneThresholdSet(t *testing.T)
 		if !ok {
 			t.Fatalf("no %s page", module)
 		}
-		if len(p.links) == 0 {
-			t.Errorf("the %s page links nowhere", module)
-			continue
-		}
 		var opened []string
 		k.openPage = func(id string) { opened = append(opened, id) }
-		for _, b := range treetest.All[*widget.Button](linksSection(k, "settings-section-related", p.links)) {
+		for _, b := range treetest.All[*widget.Button](linksSection(k, "settings-section-related", pageLinks(p))) {
 			b.OnClick()
 		}
 		if !slices.Contains(opened, thresholdsPageID) {
@@ -397,12 +388,34 @@ func TestTheResourcePagesAndTheDashboardLinkToTheirOneThresholdSet(t *testing.T)
 	}
 }
 
+// pageLinks are every link a page shows, in its sections and after them.
+func pageLinks(p pageSpec) []pageLink {
+	links := slices.Clone(p.links)
+	for _, s := range p.sections {
+		links = append(links, s.links...)
+	}
+	return links
+}
+
 func TestOnlyTheResourcePagesLinkToTheThresholds(t *testing.T) {
-	for _, id := range []string{"audio", "brightness", "notifications", "clock"} {
-		for _, l := range moduleLinks[id] {
-			if l.page == thresholdsPageID {
-				t.Errorf("the %s page links to the thresholds, which it does not read", id)
-			}
+	pages := layout(config.Defaults(), bothParts)
+	for _, id := range []string{"audio", "brightness", notificationBellID, "clock"} {
+		p, ok := pageByID(pages, id)
+		if !ok {
+			t.Fatalf("no %s page", id)
+		}
+		if slices.Contains(pageLinks(p), thresholdsLink) {
+			t.Errorf("the %s page links to the thresholds, which it does not read", id)
+		}
+	}
+	for _, id := range []string{"cpu", "ram", "storage", "battery"} {
+		p, _ := pageByID(pages, id)
+		if slices.Contains(p.links, thresholdsLink) {
+			t.Errorf("the %s page links to the thresholds among its related pages, not in its Thresholds section", id)
+		}
+		i := slices.IndexFunc(p.sections, func(s sectionSpec) bool { return s.title == "settings-section-thresholds" })
+		if i < 0 || !slices.Equal(p.sections[i].links, []pageLink{thresholdsLink}) {
+			t.Errorf("the %s page's Thresholds section does not link to the warning levels", id)
 		}
 	}
 }

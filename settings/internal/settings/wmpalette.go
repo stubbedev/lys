@@ -104,16 +104,14 @@ func (p *paletteGrid) refresh() {
 	p.tiles = p.tiles[:0]
 	own := asMap(p.own.get())
 	for _, name := range names {
-		tile := widget.NewBox(widget.Column, choiceCardGap/2, 0)
-		tile.AddClass("wm-palette-tile")
 		head := gapBox(widget.Row)
 		head.Append(p.k.label(name, css.Caption), true)
 		if _, overridden := own[name]; overridden {
 			head.AppendAligned(p.k.resetButton("wm-palette-reset", func() { p.reset(name) }).Button, false, widget.AlignCenter)
 		}
 		ed := newWMColorEditor(p.k, p.colorSlot(name))
-		tile.Append(head, false)
-		tile.Append(ed, false)
+		tile := captionTile(head, ed)
+		tile.AddClass("wm-palette-tile")
 		p.grid.Append(tile)
 		p.tiles = append(p.tiles, ed)
 	}

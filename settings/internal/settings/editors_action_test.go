@@ -13,9 +13,9 @@ import (
 )
 
 func everyActionChoice() []actionChoice {
-	out := workspaceChoices()
-	for _, p := range modulePages(config.Defaults()) {
-		out = append(out, actionChoices(p.id)...)
+	var out []actionChoice
+	for _, m := range config.BuiltinModules {
+		out = append(out, actionChoices(m)...)
 	}
 	return out
 }
@@ -158,7 +158,7 @@ func TestTheSystemMonitorsAreTheWindowedMonitorApps(t *testing.T) {
 
 func TestTheMemoryModuleOffersToOpenEachSystemMonitor(t *testing.T) {
 	h := monitorHost(t)
-	presets := hostActionChoices(h, ramPath)
+	presets := hostActionChoices(h, config.ModuleRAM)
 	labels := make([]string, len(presets))
 	for i, p := range presets {
 		labels[i] = p.label()
@@ -167,7 +167,7 @@ func TestTheMemoryModuleOffersToOpenEachSystemMonitor(t *testing.T) {
 	if len(presets) != 2 || !slices.Contains(labels, want) {
 		t.Fatalf("the memory module's host presets are %q, want one per monitor with %q", labels, want)
 	}
-	if got := hostActionChoices(h, "modules.cpu"); got != nil {
+	if got := hostActionChoices(h, config.ModuleCPU); got != nil {
 		t.Errorf("the CPU module got host presets %+v", got)
 	}
 	before := systemHost

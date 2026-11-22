@@ -136,6 +136,19 @@ func (k *kit) label(text string, classes ...string) *widget.Label {
 	return l
 }
 
+// captionTile is body under its caption, as close as a tile sets them.
+func captionTile(caption, body widget.Widget) *widget.Box {
+	tile := widget.NewBox(widget.Column, choiceCardGap/2, 0)
+	tile.Append(caption, false)
+	tile.Append(body, false)
+	return tile
+}
+
+// captioned is body under text, a dim caption.
+func (k *kit) captioned(text string, body widget.Widget) *widget.Box {
+	return captionTile(k.label(text, css.Caption, css.DimLabel), body)
+}
+
 // entry is a text field sized the way a GtkEntry is: a fixed width
 // the text pans inside, whatever it holds.
 func (k *kit) entry() *widget.Entry {

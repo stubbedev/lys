@@ -24,15 +24,6 @@ type barState struct {
 // barStates reads the states a module's preview steps through under cfg.
 type barStates func(k *kit, cfg *config.Config) ([]barState, error)
 
-// steppedBarItemSection is barItemSection with a preview stepping
-// through the states read gives.
-func steppedBarItemSection(module string, choices []actionChoice, read barStates) sectionSpec {
-	s := barItemSection(module, choices)
-	m := moduleOfSection(module)
-	s.preview = func(k *kit) widget.Widget { return newSteppedPreview(k, m, read) }
-	return s
-}
-
 // steppedPreview is a module's bar item preview in one of its real
 // states: a chip per state picks the one shown, and a press on the
 // module's own chip shows the next, as the bar steps through them.
@@ -46,6 +37,12 @@ type steppedPreview struct {
 	shown   *livePreview
 	chips   *widget.ChoiceChips
 	problem *widget.Label
+}
+
+// steppingThrough is a module's preview stepping through the states
+// read gives.
+func steppingThrough(module config.BarModule, read barStates) func(k *kit) previewWidget {
+	return func(k *kit) previewWidget { return newSteppedPreview(k, module, read) }
 }
 
 func newSteppedPreview(k *kit, module config.BarModule, read barStates) *steppedPreview {
@@ -67,7 +64,7 @@ func (p *steppedPreview) draw(_ *kit, cfg *config.Config, font render.Font) widg
 	if p.at < len(p.states) {
 		states = append(states, p.states[p.at].state.OnPress(p.next))
 	}
-	return barview.SampleBar(cfg, font, config.BarLayout{Monitor: barview.AllMonitors, Show: true, Center: []config.BarItem{{Module: p.module}}}, sessionCompositor(), states...)
+	return moduleSample(cfg, font, p.module, states...)
 }
 
 func (p *steppedPreview) readStates() {

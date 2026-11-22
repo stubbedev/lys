@@ -61,10 +61,7 @@ func newCaptureTiles(k *kit, module string) *captureTiles {
 		icons := gapBox(widget.Row)
 		for _, icon := range tile.icons {
 			ed := newIconEditor(k, k.store.slot(module+"."+icon.key))
-			col := widget.NewBox(widget.Column, choiceCardGap/2, 0)
-			col.Append(k.label(t.Get(icon.label), css.Caption, css.DimLabel), false)
-			col.Append(ed, false)
-			icons.Append(col, false)
+			icons.Append(k.captioned(t.Get(icon.label), ed), false)
 			c.icons = append(c.icons, ed)
 		}
 		card.Append(icons, false)
@@ -79,10 +76,7 @@ func newCaptureTiles(k *kit, module string) *captureTiles {
 	colorPath := module + "." + captureColor
 	label, _ := config.I18nKey(colorPath)
 	c.color = newColorValueEditor(k, k.store.slot(colorPath))
-	swatch := widget.NewBox(widget.Column, choiceCardGap/2, 0)
-	swatch.Append(k.label(t.Get(label), css.Caption, css.DimLabel), false)
-	swatch.Append(c.color, false)
-	c.Append(swatch, false)
+	c.Append(k.captioned(t.Get(label), c.color), false)
 	c.refresh()
 	return c
 }

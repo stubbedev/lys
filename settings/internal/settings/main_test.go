@@ -8,8 +8,9 @@ import (
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/lyswm/lyswmtest"
 	"github.com/stubbedev/lys/lib/testhome"
-	"github.com/stubbedev/lys/settings/internal/locale"
 	"golang.org/x/sys/unix"
+
+	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
 const noHostDir = "/nonexistent/lys-settings-test"

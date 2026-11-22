@@ -19,55 +19,58 @@ import (
 const customModulesPath = "modules.custom"
 
 var (
-	customForm      = formOf(config.DefaultsCustomModuleDefinition())
-	customColorKeys = []string{"icon-color", "label-color", "icon-bg-color", "button-bg-color", "border-color"}
-	customCards     = customCardSpec()
+	customForm  = formOf(config.DefaultsCustomModuleDefinition())
+	customCards = customCardSpec()
 )
 
 func listOf(spec func() listSpec) func(k *kit, s slot, _ config.FieldMeta) control {
 	return func(k *kit, s slot, _ config.FieldMeta) control { return newListEditor(k, s, spec()) }
 }
 
+// customItemKeys are a custom module definition's keys, as its Bar Item
+// parts name them.
+func customItemKeys(f itemForm[config.CustomModuleDefinition]) barItemKeys {
+	return barItemKeys{
+		has: func(key string) bool {
+			_, ok := config.ItemField[config.CustomModuleDefinition](key)
+			return ok
+		},
+		label: f.label,
+	}
+}
+
 func customCardSpec() cardSpec {
 	f := customForm
-	colorLabels := make([]string, len(customColorKeys))
-	for i, key := range customColorKeys {
-		colorLabels[i] = f.label(key)
+	fields := []cardField{
+		filled(f.group("settings-custom-bar", []string{"id"}, func(k *kit, slots []slot) control {
+			module := func() (config.BarModule, bool) {
+				id := slots[0].text()
+				return config.CustomModule(id), id != ""
+			}
+			return newBarItemHead(k, module, barItemPreview(k, module))
+		})),
+		filled(f.field("command")),
+		f.group("settings-custom-run", []string{"command"}, func(k *kit, slots []slot) control { return newCommandRun(k, slots[0], "settings-custom-run-empty") }),
+		f.field("mode"),
+		f.field("interval-ms"),
+		f.field("restart-policy"),
+		f.field("restart-interval-ms"),
+		filled(f.field("format")),
+		filled(f.field("tooltip-format")),
+		f.field("hide-if-empty"),
+		f.with("icon-name", iconEditorOf),
+		filled(f.with("icon-names", listOf(iconListSpec))),
+		filled(f.with("icon-map", listOf(iconMapSpec))),
+	}
+	for _, p := range barItemSectionParts(customItemKeys(f), func() []actionChoice { return nil }) {
+		fields = append(fields, p.cardField(f))
 	}
 	return cardSpec{
 		identity: f.identity("id"),
-		fields: []cardField{
-			filled(f.field("command")),
-			f.group("settings-custom-run", []string{"command"}, func(k *kit, slots []slot) control { return newCommandRun(k, slots[0], "settings-custom-run-empty") }),
-			f.field("mode"),
-			f.field("interval-ms"),
-			f.field("restart-policy"),
-			f.field("restart-interval-ms"),
-			filled(f.field("format")),
-			filled(f.field("tooltip-format")),
-			f.field("hide-if-empty"),
-			f.with("icon-name", iconEditorOf),
-			filled(f.with("icon-names", listOf(iconListSpec))),
-			filled(f.with("icon-map", listOf(iconMapSpec))),
-			f.field("icon-show"),
-			f.field("label-show"),
-			f.field("label-max-length"),
-			f.field("border-show"),
-			filled(f.group("settings-bar-item-colors", customColorKeys, func(k *kit, slots []slot) control {
-				return newColorStrip(k, slots, colorLabels)
-			})),
-			filled(f.group("settings-bar-item-mouse", mouseButtons, func(k *kit, slots []slot) control {
-				return newMouseActions(k, slots, nil)
-			})),
+		fields: append(fields,
 			filled(f.field("on-action")),
 			filled(f.field("class-format")),
-			f.group("settings-custom-bar", []string{"id"}, func(k *kit, slots []slot) control {
-				return newPlacementRow(k, func() (config.BarModule, bool) {
-					id := slots[0].text()
-					return config.CustomModule(id), id != ""
-				})
-			}),
-		},
+		),
 		blank:      func() map[string]any { return map[string]any{"id": ""} },
 		keep:       keyed("id"),
 		unique:     "id",

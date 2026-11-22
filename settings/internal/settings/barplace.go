@@ -40,12 +40,12 @@ func withModuleAdded(layouts []config.BarLayout, m config.BarModule) []config.Ba
 type placementRow struct {
 	*widget.Box
 	k      *kit
-	module func() (config.BarModule, bool)
+	module barModuleOf
 	status *widget.Label
 	add    *widget.Button
 }
 
-func newPlacementRow(k *kit, module func() (config.BarModule, bool)) *placementRow {
+func newPlacementRow(k *kit, module barModuleOf) *placementRow {
 	p := &placementRow{Box: gapBox(widget.Row), k: k, module: module}
 	p.AddClass("settings-bar-placement")
 	p.status = k.label("", "settings-bar-placement-status", css.Caption)
@@ -83,8 +83,26 @@ func (p *placementRow) refresh() {
 	p.add.SetVisible(!in)
 }
 
-func barPlacement(module config.BarModule) func(k *kit) widget.Widget {
-	return func(k *kit) widget.Widget {
-		return newPlacementRow(k, func() (config.BarModule, bool) { return module, true })
-	}
+// barItemHead is what a bar item opens with: whether its module is in
+// the bar, with Add to Bar, over its preview. A page's head follows the
+// config, and a custom module card's follows its card.
+type barItemHead struct {
+	*widget.Box
+	placement *placementRow
+	preview   previewWidget
 }
+
+func newBarItemHead(k *kit, module barModuleOf, preview previewWidget) *barItemHead {
+	h := &barItemHead{Box: gapBox(widget.Column), placement: newPlacementRow(k, module), preview: preview}
+	h.AddClass("settings-bar-item-head")
+	h.Append(h.placement, false)
+	h.Append(preview, false)
+	return h
+}
+
+func (h *barItemHead) configChanged() {
+	h.placement.refresh()
+	h.preview.configChanged()
+}
+
+func (h *barItemHead) refresh() { h.configChanged() }

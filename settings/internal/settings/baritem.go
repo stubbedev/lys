@@ -1,12 +1,9 @@
 package settings
 
 import (
-	"slices"
-
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -27,55 +24,113 @@ func hasKey(path string) bool {
 	return ok
 }
 
-func barItemSection(module string, choices []actionChoice) sectionSpec {
-	var rows []rowSpec
+// barItemKeys is how a bar item names the keys its Bar Item section
+// edits: which of them it has, and each one's label key.
+type barItemKeys struct {
+	has   func(key string) bool
+	label func(key string) string
+}
+
+// moduleKeys are the keys of a built-in module, under its config section.
+func moduleKeys(section string) barItemKeys {
+	return barItemKeys{
+		has: func(key string) bool { return hasKey(section + "." + key) },
+		label: func(key string) string {
+			l, _ := config.I18nKey(section + "." + key)
+			return l
+		},
+	}
+}
+
+// barItemPart is one control of a Bar Item section over the keys it
+// edits, named relative to the item: a toggle edits one key under its
+// own label and editor, the colour strip and the mouse actions several.
+type barItemPart struct {
+	label string
+	keys  []string
+	build func(k *kit, slots []slot) control
+}
+
+// barItemSectionParts are a Bar Item section's controls over the keys the item
+// has: its toggles, its colours, and its mouse actions offering choices.
+func barItemSectionParts(keys barItemKeys, choices func() []actionChoice) []barItemPart {
+	var parts []barItemPart
 	for _, key := range barItemToggles {
-		if hasKey(module + "." + key) {
-			rows = append(rows, field(module+"."+key))
+		if keys.has(key) {
+			parts = append(parts, barItemPart{keys: []string{key}})
 		}
 	}
-	var colors []string
+	var colors, labels []string
 	for _, key := range barItemColors {
-		if hasKey(module + "." + key) {
-			colors = append(colors, module+"."+key)
+		if keys.has(key) {
+			colors = append(colors, key)
+			labels = append(labels, keys.label(key))
 		}
 	}
 	if len(colors) > 0 {
-		rows = append(rows, colorRow(colors))
+		parts = append(parts, barItemPart{label: "settings-bar-item-colors", keys: colors, build: func(k *kit, slots []slot) control {
+			return newColorStrip(k, slots, labels)
+		}})
 	}
-	if hasKey(module + ".left-click") {
-		rows = append(rows, mouseRow(module, choices))
+	if keys.has(mouseButtons[0]) {
+		parts = append(parts, barItemPart{label: "settings-bar-item-mouse", keys: mouseButtons, build: func(k *kit, slots []slot) control {
+			return newMouseActions(k, slots, choices())
+		}})
 	}
-	return sectionSpec{title: "settings-section-bar-item", rows: rows, preview: barItemPreview(moduleOfSection(module))}
+	return parts
 }
 
-func colorRow(paths []string) rowSpec {
-	return field(paths[0], withKey("settings-bar-item-colors"), func(r *rowSpec) {
+// row is the part as a row of the page of the module whose config
+// section is section.
+func (p barItemPart) row(section string) rowSpec {
+	paths := make([]string, len(p.keys))
+	for i, key := range p.keys {
+		paths[i] = section + "." + key
+	}
+	if p.build == nil {
+		return field(paths[0])
+	}
+	return field(paths[0], withKey(p.label), func(r *rowSpec) {
 		r.fullWidth = true
 		r.also = paths[1:]
 		r.editor = func(k *kit, s slot, _ config.FieldMeta) control {
 			slots := make([]slot, len(paths))
-			labels := make([]string, len(paths))
-			for i, path := range paths {
-				slots[i] = s
-				if i > 0 {
-					slots[i] = k.store.slot(path)
-				}
-				labels[i], _ = config.I18nKey(path)
+			slots[0] = s
+			for i := 1; i < len(paths); i++ {
+				slots[i] = k.store.slot(paths[i])
 			}
-			return newColorStrip(k, slots, labels)
+			return p.build(k, slots)
 		}
 	})
+}
+
+// cardField is the part as a field of a custom module's card.
+func (p barItemPart) cardField(f itemForm[config.CustomModuleDefinition]) cardField {
+	if p.build == nil {
+		return f.field(p.keys[0])
+	}
+	return filled(f.group(p.label, p.keys, p.build))
+}
+
+// barItemSection is a built-in module's Bar Item section: its toggles,
+// colours and mouse actions, for the keys it has.
+func barItemSection(module config.BarModule) sectionSpec {
+	section := moduleSection(module)
+	parts := barItemSectionParts(moduleKeys(section), func() []actionChoice {
+		return append(actionChoices(module), hostActionChoices(systemHost, module)...)
+	})
+	rows := make([]rowSpec, len(parts))
+	for i, p := range parts {
+		rows[i] = p.row(section)
+	}
+	return sectionSpec{title: "settings-section-bar-item", rows: rows}
 }
 
 func newColorStrip(k *kit, slots []slot, labels []string) *colorStrip {
 	c := &colorStrip{FlowBox: widget.NewWrapBox(choiceCardGap, choiceCardGap, widget.JustifyStart)}
 	for i, s := range slots {
 		ed := newColorValueEditor(k, s)
-		col := widget.NewBox(widget.Column, choiceCardGap/2, 0)
-		col.Append(k.label(locale.T().Get(labels[i]), css.Caption, css.DimLabel), false)
-		col.Append(ed, false)
-		c.Append(col)
+		c.Append(k.captioned(locale.T().Get(labels[i]), ed))
 		c.editors = append(c.editors, ed)
 	}
 	return c
@@ -90,25 +145,6 @@ func (c *colorStrip) refresh() {
 	for _, e := range c.editors {
 		e.refresh()
 	}
-}
-
-func mouseRow(module string, choices []actionChoice) rowSpec {
-	paths := make([]string, len(mouseButtons))
-	for i, b := range mouseButtons {
-		paths[i] = module + "." + b
-	}
-	return field(paths[0], withKey("settings-bar-item-mouse"), func(r *rowSpec) {
-		r.fullWidth = true
-		r.also = paths[1:]
-		r.editor = func(k *kit, s slot, _ config.FieldMeta) control {
-			slots := make([]slot, len(paths))
-			slots[0] = s
-			for i := 1; i < len(paths); i++ {
-				slots[i] = k.store.slot(paths[i])
-			}
-			return newMouseActions(k, slots, append(slices.Clone(choices), hostActionChoices(systemHost, module)...))
-		}
-	})
 }
 
 type mouseActions struct {

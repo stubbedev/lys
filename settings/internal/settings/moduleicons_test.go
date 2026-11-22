@@ -18,10 +18,9 @@ func iconsShown(w widget.Widget) []string {
 }
 
 func TestEveryModuleWithAPageShowsItsIconInTheLayout(t *testing.T) {
-	pageless := []config.BarModule{config.ModuleUpdates}
 	for _, m := range config.BuiltinModules {
 		icon, ok := moduleIcon(m)
-		if slices.Contains(pageless, m) {
+		if slices.Contains(pagelessModules, m) {
 			if ok {
 				t.Errorf("%s has no page but shows the icon %s", m, icon)
 			}

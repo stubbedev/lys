@@ -1648,7 +1648,7 @@ func TestModulePagesFollowTheModuleOrder(t *testing.T) {
 	want := []string{
 		"audio", "background-apps", "battery", "bitwarden", "bluetooth", "brightness", "cava", "clock", "cpu", "custom", "dashboard",
 		"nightlight", "idle-inhibit", "keybind-mode", "keyboard-input", "mail", "media", "minimized-windows",
-		"netstat", "network", "power", "power-profiles", "ram", "recorder", "screenshot",
+		"netstat", "network", notificationBellID, "power", "power-profiles", "ram", "recorder", "screenshot",
 		"separator", "storage", "systray", "treeman", "weather", "window-title", "workspaces", "world-clock",
 	}
 	if !slices.Equal(ids, want) {

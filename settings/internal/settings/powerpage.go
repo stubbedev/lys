@@ -466,23 +466,30 @@ func relatedLinks(links []pageLink) func(k *kit) widget.Widget {
 }
 
 func linksSection(k *kit, title string, links []pageLink) widget.Widget {
-	t := locale.T()
 	box := gapBox(widget.Column)
 	rows := widget.NewItemGroup()
 	linked := false
 	for _, l := range links {
-		target, ok := pageByID(k.nav, l.page)
-		if !ok {
-			continue
+		if row, ok := k.linkRow(l); ok {
+			rows.Append(row)
+			linked = true
 		}
-		open := k.iconButton("ld-chevron-right-symbolic", target.navKey, func() { k.openPage(target.id) })
-		rows.Append(k.row(t.Get(target.navKey), t.Get(l.detail)).withControl(open))
-		linked = true
 	}
 	if linked {
 		box.Append(newSection(k, title, rows), false)
 	}
 	return box
+}
+
+// linkRow is a row opening l's page, while the sidebar holds it.
+func (k *kit) linkRow(l pageLink) (widget.Widget, bool) {
+	target, ok := pageByID(k.nav, l.page)
+	if !ok {
+		return nil, false
+	}
+	t := locale.T()
+	open := k.iconButton("ld-chevron-right-symbolic", target.navKey, func() { k.openPage(target.id) })
+	return k.row(t.Get(target.navKey), t.Get(l.detail)).withControl(open), true
 }
 
 type batteryPresence struct {

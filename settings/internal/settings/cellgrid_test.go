@@ -64,6 +64,6 @@ func TestAGridRowWithTheWrongNumberOfCellsRefusesToBuild(t *testing.T) {
 			t.Error("a grid row with too few cells built")
 		}
 	}()
-	cellGridRow("settings-network-icons", []string{"settings-wifi-title", "settings-wifi-wired"},
+	cellGridRow("settings-state-icons", []string{"settings-wifi-title", "settings-wifi-wired"},
 		gridRow{cells: gridCells([]string{"modules.network.wifi-disabled-icon"}, iconRow)})
 }

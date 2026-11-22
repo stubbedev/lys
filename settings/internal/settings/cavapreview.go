@@ -21,7 +21,7 @@ const (
 
 // cavaPreview is lys-shell's visualizer on a small wallpaper, drawn from
 // the draft at a sample frame.
-func cavaPreview(k *kit) widget.Widget {
+func cavaPreview(k *kit) previewWidget {
 	return newLivePreview(k, "settings-cava-preview", drawCavaOnScreen)
 }
 

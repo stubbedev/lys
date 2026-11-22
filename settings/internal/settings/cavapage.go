@@ -18,7 +18,7 @@ var cavaSampleLevels = []float64{0.35, 0.6, 0.95, 0.7, 0.85, 0.5, 0.3, 0.55}
 // cavaPage is pages/modules/cava.
 func cavaPage(*config.Config) pageSpec {
 	const m = cavaPath
-	return pageSpec{id: "cava", navKey: "settings-nav-cava", icon: "ld-audio-lines-symbolic", header: "settings-page-cava", lead: cavaPreview, extrasOnRows: true, sections: []sectionSpec{
+	return barItemPage(config.ModuleCava, pageSpec{id: "cava", navKey: "settings-nav-cava", icon: "ld-audio-lines-symbolic", header: "settings-page-cava"}, barItemParts{preview: cavaPreview, sections: []sectionSpec{
 		{title: "settings-section-cava-look", rows: []rowSpec{
 			field(m+".style", pictureChoice(cavaStylePictures)),
 			field(m+".direction", pictureChoice(cavaDirectionPictures)),
@@ -39,8 +39,7 @@ func cavaPage(*config.Config) pageSpec {
 			field(m + ".waves"),
 			field(m+".framerate", countChips(inFrames, 30, 60, 120, 144)),
 		}},
-		barItemSection(m, actionChoices("cava")),
-	}}
+	}})
 }
 
 func cavaSample(style config.CavaStyle, dir config.CavaDirection) picture {

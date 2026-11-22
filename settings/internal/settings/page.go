@@ -41,6 +41,9 @@ type pageSpec struct {
 	// unlisted keeps the page out of the sidebar while links and search
 	// still reach it.
 	unlisted bool
+	// barItem, set on the bar item pages, holds for the bar modules the
+	// page sets.
+	barItem func(config.BarModule) bool
 }
 
 // panelSetting is a control a page builds itself rather than from a
@@ -59,6 +62,9 @@ type sectionSpec struct {
 	// ahead of its setting rows.
 	lead     func(k *kit) rowWidget
 	hardware wmipc.DeviceClass
+	// links are rows after the setting rows opening other pages, each
+	// while the sidebar holds it.
+	links []pageLink
 }
 
 // rowSpec is SettingRowInit, by path: the label key defaults to the
@@ -411,6 +417,16 @@ func buildPage(k *kit, spec pageSpec) *settingsPage {
 			rows.Append(row)
 			p.rows = append(p.rows, row)
 			p.addTarget(row)
+		}
+		linked := 0
+		for _, l := range s.links {
+			if row, ok := k.linkRow(l); ok {
+				rows.Append(row)
+				linked++
+			}
+		}
+		if len(s.rows) == 0 && linked == 0 {
+			continue
 		}
 		if s.hardware != "" && p.pointers == nil {
 			log.Panicf("settings: section %q of %q follows lys-wm's devices, but the page is not lys-wm's", s.title, spec.id)

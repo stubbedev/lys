@@ -60,7 +60,7 @@ func TestTheBarPageSizesEveryDropdownInOneTable(t *testing.T) {
 
 func TestAModulePageLinksToTheDropdownSizesInsteadOfOwningThem(t *testing.T) {
 	pages := layout(config.Defaults(), bothParts)
-	for _, id := range []string{"audio", "clock", "notifications"} {
+	for _, id := range []string{"audio", "clock", notificationBellID} {
 		p, ok := pageByID(pages, id)
 		if !ok {
 			t.Fatalf("no page %q", id)

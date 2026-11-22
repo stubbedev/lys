@@ -4,6 +4,7 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
@@ -18,22 +19,32 @@ func barItemPaths(s sectionSpec) []string {
 }
 
 func TestTheBarItemSectionHoldsOnlyTheKeysAModuleHas(t *testing.T) {
-	battery := barItemPaths(barItemSection("modules.battery", actionChoices("battery")))
+	battery := barItemPaths(barItemSection(config.ModuleBattery))
 	for _, want := range []string{"modules.battery.icon-show", "modules.battery.tooltip", "modules.battery.icon-color", "modules.battery.border-color", "modules.battery.left-click", "modules.battery.scroll-down"} {
 		if !slices.Contains(battery, want) {
 			t.Errorf("battery's bar item lacks %s", want)
 		}
 	}
-	separator := barItemPaths(barItemSection("modules.separator", nil))
+	separator := barItemPaths(barItemSection(config.ModuleSeparator))
 	if !slices.Equal(separator, []string{"modules.separator.color"}) {
 		t.Errorf("the separator's bar item holds %v, want its colour alone", separator)
 	}
 }
 
+// barItemRow is the row of a module's Bar Item section labelled key.
+func barItemRow(t *testing.T, module config.BarModule, key string) rowSpec {
+	t.Helper()
+	rows := barItemSection(module).rows
+	i := slices.IndexFunc(rows, func(r rowSpec) bool { return r.key == key })
+	if i < 0 {
+		t.Fatalf("the %s bar item has no %s row", module, key)
+	}
+	return rows[i]
+}
+
 func TestTheMouseHotspotsChooseWhichActionIsEdited(t *testing.T) {
 	k := testKit(t, "")
-	row := mouseRow("modules.battery", actionChoices("battery"))
-	m := fieldControl(k, k.store, row).(*mouseActions)
+	m := fieldControl(k, k.store, barItemRow(t, config.ModuleBattery, "settings-bar-item-mouse")).(*mouseActions)
 	m.mouse.Arrange(render.Rect{W: mouseW, H: mouseH})
 	right := m.mouse.parts()[2]
 	m.mouse.PressAt(widget.Point{X: right.X + right.W - 4, Y: right.Y + right.H/2})
@@ -58,12 +69,12 @@ func TestTheMouseHotspotsChooseWhichActionIsEdited(t *testing.T) {
 
 func TestTheColourStripWritesEachColourToItsOwnKey(t *testing.T) {
 	k := testKit(t, "")
-	paths := []string{"modules.battery.icon-color", "modules.battery.label-color"}
-	c := fieldControl(k, k.store, colorRow(paths)).(*colorStrip)
-	if len(c.editors) != 2 {
-		t.Fatalf("%d editors for two colours", len(c.editors))
+	c := fieldControl(k, k.store, barItemRow(t, config.ModuleBattery, "settings-bar-item-colors")).(*colorStrip)
+	colors := slices.DeleteFunc(slices.Clone(barItemColors), func(key string) bool { return !hasKey("modules.battery." + key) })
+	if len(c.editors) != len(colors) {
+		t.Fatalf("%d editors for the battery's %d colours", len(c.editors), len(colors))
 	}
-	if err := c.editors[1].slot.set("#123456"); err != nil {
+	if err := c.editors[slices.Index(colors, "label-color")].slot.set("#123456"); err != nil {
 		t.Fatal(err)
 	}
 	if v := k.store.value("modules.battery.label-color"); v != "#123456" {
@@ -75,7 +86,7 @@ func TestTheColourStripWritesEachColourToItsOwnKey(t *testing.T) {
 }
 
 func TestTheSystemMonitorsOpenTheDashboard(t *testing.T) {
-	for _, module := range []string{"cpu", "ram", "storage", "netstat"} {
+	for _, module := range []config.BarModule{config.ModuleCPU, config.ModuleRAM, config.ModuleStorage, config.ModuleNetstat} {
 		if !slices.ContainsFunc(actionChoices(module), func(c actionChoice) bool { return c.command == "dropdown:dashboard" }) {
 			t.Errorf("%s offers no action to open the dashboard", module)
 		}

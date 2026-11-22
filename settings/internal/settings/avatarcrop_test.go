@@ -13,8 +13,9 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/lib/render"
-	"github.com/stubbedev/lys/settings/internal/locale"
 	"github.com/stubbedev/lys/ui/widget"
+
+	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
 // stockAvatarChoice opens the picture dialog from the header's avatar

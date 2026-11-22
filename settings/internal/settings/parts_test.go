@@ -112,12 +112,31 @@ func TestTheInstalledPartsAreWhatThePathHolds(t *testing.T) {
 	}
 }
 
-func TestNotificationsHoldDoNotDisturbAndTheBell(t *testing.T) {
+func TestNotificationsHoldDoNotDisturbAndTheBellItsOwnPage(t *testing.T) {
 	rows := rowPaths(bothParts, "notifications")
-	for _, want := range []string{"modules.notifications.popup-position", "modules.notifications.dnd.schedule", notifyBlockPath, "modules.notifications.icon-dnd", "modules.notifications.left-click"} {
+	for _, want := range []string{"modules.notifications.popup-position", "modules.notifications.dnd.schedule", notifyBlockPath} {
 		if !slices.Contains(rows, want) {
 			t.Errorf("the notifications page lacks %s", want)
 		}
+	}
+	var bell []string
+	spec, _ := pageByID(layout(config.Defaults(), bothParts), notificationBellID)
+	for _, s := range spec.sections {
+		for _, r := range s.flatRows() {
+			bell = append(append(bell, r.path), r.also...)
+		}
+	}
+	for _, path := range []string{"modules.notifications.icon-dnd", "modules.notifications.thresholds", "modules.notifications.left-click"} {
+		if !slices.Contains(bell, path) {
+			t.Errorf("the bell's page lacks %s", path)
+		}
+		if slices.Contains(rows, path) {
+			t.Errorf("the notifications page still edits the bell's %s", path)
+		}
+	}
+	p, _ := pageByID(layout(config.Defaults(), bothParts), "notifications")
+	if !slices.ContainsFunc(p.links, func(l pageLink) bool { return l.page == notificationBellID }) {
+		t.Errorf("the notifications page links %v, not the bell's page", p.links)
 	}
 	for _, gone := range []string{"focus", "notification"} {
 		if slices.Contains(pageIDs(bothParts), gone) {

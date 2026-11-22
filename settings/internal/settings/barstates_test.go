@@ -16,16 +16,11 @@ func steppedOf(t *testing.T, k *kit, page string) *steppedPreview {
 	if !ok {
 		t.Fatalf("no page %q", page)
 	}
-	for _, s := range spec.sections {
-		if s.preview == nil {
-			continue
-		}
-		if p, ok := s.preview(k).(*steppedPreview); ok {
-			return p
-		}
+	previews := treetest.All[*steppedPreview](spec.lead(k))
+	if len(previews) != 1 {
+		t.Fatalf("the %s page opens with %d previews stepping through states, want one", page, len(previews))
 	}
-	t.Fatalf("the %s page has no preview stepping through states", page)
-	return nil
+	return previews[0]
 }
 
 func chipNames(p *steppedPreview) []string {

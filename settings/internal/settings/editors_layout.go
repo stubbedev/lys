@@ -452,22 +452,16 @@ func (c *layoutEditor) pickModule(anchor widget.Widget, pick func(config.BarModu
 
 const customModulesID = "custom"
 
-var moduleIcons = sync.OnceValue(func() map[string]string {
-	pages := append(modulePages(nil), notificationsPage(nil))
-	out := make(map[string]string, len(pages))
-	for _, p := range pages {
-		out[p.id] = p.icon
-	}
-	return out
-})
+var barItemPages = sync.OnceValue(func() []pageSpec { return modulePages(nil) })
 
+// moduleIcon is the icon of the bar item page setting m.
 func moduleIcon(m config.BarModule) (string, bool) {
-	id := string(m)
-	if _, ok := m.CustomID(); ok {
-		id = customModulesID
+	for _, p := range barItemPages() {
+		if p.barItem(m) {
+			return p.icon, true
+		}
 	}
-	icon, ok := moduleIcons()[id]
-	return icon, ok
+	return "", false
 }
 
 func moduleFace(k *kit, m config.BarModule) widget.Widget {

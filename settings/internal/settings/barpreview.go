@@ -1,10 +1,6 @@
 package settings
 
 import (
-	"log"
-	"slices"
-	"strings"
-
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/barview"
@@ -97,21 +93,23 @@ func overflowing(w widget.Widget) *widget.Scroll {
 	return s
 }
 
-// barItemPreview is one module's button on a strip of the bar, as the
-// module's page sets it.
-func barItemPreview(module config.BarModule) func(k *kit) widget.Widget {
-	return func(k *kit) widget.Widget {
-		return newLivePreview(k, "settings-bar-item-preview", func(_ *kit, cfg *config.Config, font render.Font) widget.Widget {
-			return barview.SampleBar(cfg, font, config.BarLayout{Monitor: barview.AllMonitors, Show: true, Center: []config.BarItem{{Module: module}}}, sessionCompositor())
-		})
-	}
+// moduleSample is module's button alone on a strip of the bar under
+// cfg, in the first of states it is for.
+func moduleSample(cfg *config.Config, font render.Font, module config.BarModule, states ...barview.State) widget.Widget {
+	return barview.SampleBar(cfg, font, config.BarLayout{Monitor: barview.AllMonitors, Show: true, Center: []config.BarItem{{Module: module}}}, sessionCompositor(), states...)
 }
 
-// moduleOfSection is the bar module whose config section path names.
-func moduleOfSection(path string) config.BarModule {
-	name, ok := strings.CutPrefix(path, "modules.")
-	if !ok || !slices.Contains(config.BuiltinModules, config.BarModule(name)) {
-		log.Panicf("settings: %s is no bar module's section", path)
-	}
-	return config.BarModule(name)
+// barItemPreview is the button of the module that module names, on a
+// strip of the bar as the config sets it; empty while it names none.
+func barItemPreview(k *kit, module barModuleOf) *livePreview {
+	return newLivePreview(k, "settings-bar-item-preview", func(_ *kit, cfg *config.Config, font render.Font) widget.Widget {
+		m, ok := module()
+		if !ok {
+			return widget.NewBox(widget.Column, 0, 0)
+		}
+		return moduleSample(cfg, font, m)
+	})
 }
+
+// moduleSection is the config section of a built-in bar module.
+func moduleSection(m config.BarModule) string { return "modules." + string(m) }

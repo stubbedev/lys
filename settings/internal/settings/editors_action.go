@@ -161,7 +161,7 @@ func workspaceChoices() []actionChoice {
 }
 
 // actionChoices is choices_for: each module's preset click actions.
-func actionChoices(module string) []actionChoice {
+func actionChoices(module config.BarModule) []actionChoice {
 	shell := func(key, command string) actionChoice { return actionChoice{key: key, command: command} }
 	dropdown := func(key, id string) actionChoice { return actionChoice{key: key, command: "dropdown:" + id} }
 	switch module {
@@ -197,7 +197,7 @@ func actionChoices(module string) []actionChoice {
 			shell("settings-action-media-play-pause", "lys-shell media play-pause"), shell("settings-action-media-next", "lys-shell media next"),
 			shell("settings-action-media-previous", "lys-shell media previous"), dropdown("settings-action-open-media", "media"),
 		}
-	case "notifications", "notification":
+	case "notifications":
 		return []actionChoice{shell("settings-action-dnd-toggle", "lys-shell notify dnd"), dropdown("settings-action-open-notifications", "notification")}
 	case "mail":
 		return []actionChoice{dropdown("settings-action-open-mail", "mail")}
@@ -238,6 +238,8 @@ func actionChoices(module string) []actionChoice {
 		}
 	case "cava":
 		return []actionChoice{dropdown("settings-action-open-audio", "audio")}
+	case "workspaces":
+		return workspaceChoices()
 	}
 	return nil
 }
@@ -245,8 +247,8 @@ func actionChoices(module string) []actionChoice {
 // hostActionChoices are the presets a module's clicks get from what is
 // installed, listed as its row opens: an installed system monitor for
 // the memory module.
-func hostActionChoices(h host, module string) []actionChoice {
-	if module != ramPath {
+func hostActionChoices(h host, module config.BarModule) []actionChoice {
+	if module != config.ModuleRAM {
 		return nil
 	}
 	monitors := h.systemMonitors()

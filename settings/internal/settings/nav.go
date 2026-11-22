@@ -54,10 +54,13 @@ func (p pageSpec) on(installed parts) (pageSpec, bool) {
 				rows = append(rows, r.asWMTwin())
 			}
 		}
-		if len(rows) > 0 {
+		if len(rows) > 0 || len(s.rows) == 0 && len(s.links) > 0 {
 			s.rows = rows
 			sections = append(sections, s)
 		}
+	}
+	if !slices.ContainsFunc(sections, func(s sectionSpec) bool { return len(s.rows) > 0 }) {
+		sections = nil
 	}
 	p.sections = sections
 	p.panel = slices.DeleteFunc(slices.Clone(p.panel), func(s panelSetting) bool {

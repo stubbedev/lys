@@ -40,9 +40,7 @@ func workspacesPage(*config.Config) pageSpec {
 		{title: "settings-section-display", rows: []rowSpec{
 			key("display-mode"), key("label-strategy"), key("label-use-name"), key("numbering"), keyWith("divider", workspaceDividerRow),
 		}},
-		{title: "settings-section-app-icons", rows: []rowSpec{
-			key("app-icons-show"), key("app-icons-dedupe"), keyWith("app-icons-fallback", iconRow), keyWith("app-icons-empty", iconRow),
-		}},
+		{title: "settings-section-app-icons", rows: []rowSpec{key("app-icons-show"), key("app-icons-dedupe")}},
 		{title: "settings-section-sizing", rows: []rowSpec{
 			key("icon-gap"), key("workspace-padding"),
 			keyWith("icon-size", sizeBase(config.WorkspaceIconBaseRem)), keyWith("label-size", sizeBase(config.WorkspaceLabelBaseRem)),
@@ -53,13 +51,12 @@ func workspacesPage(*config.Config) pageSpec {
 			key("active-indicator"), key("active-color"), key("highlight-active-on-other-monitor"), key("active-on-other-monitor-color"),
 			key("occupied-color"), key("empty-color"), key("container-bg-color"),
 		}},
-		barItemSection(workspacesModule, workspaceChoices()),
 	}
-	return pageSpec{
-		id: "workspaces", navKey: "settings-nav-workspaces", icon: "ld-grid-2x2-symbolic",
-		header: "settings-page-workspaces", sections: honouredOn(on, sections),
-		lead: func(k *kit) widget.Widget { return workspacesCompositorNote(k, on) },
-	}
+	return barItemPage(config.ModuleWorkspaces, pageSpec{id: "workspaces", navKey: "settings-nav-workspaces", icon: "ld-grid-2x2-symbolic", header: "settings-page-workspaces"}, barItemParts{
+		note:     func(k *kit) widget.Widget { return workspacesCompositorNote(k, on) },
+		sections: honouredOn(on, sections),
+		icons:    iconPerState(workspacesModule+".app-icons-fallback", workspacesModule+".app-icons-empty"),
+	})
 }
 
 func honouredOn(on compositor.Kind, sections []sectionSpec) []sectionSpec {
