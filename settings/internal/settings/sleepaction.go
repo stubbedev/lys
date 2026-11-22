@@ -72,8 +72,8 @@ type sleepAction struct {
 	variants []string
 	labels   []string
 	pick     *choiceControl
-	detail   *widget.Label
-	problem  *widget.Label
+	detail   *inlineState
+	problem  *inlineState
 	can      map[string]logind.Availability
 	unknown  error
 	blockers hibernationBlockers
@@ -87,8 +87,8 @@ func newSleepAction(k *kit, s slot, meta config.FieldMeta) *sleepAction {
 	c := &sleepAction{Box: widget.NewBox(widget.Column, widget.Current().Spacing/2, 0), slot: s, variants: meta.Variants, labels: enumLabels(meta)}
 	c.pick = newChoiceControl(k, slot{get: s.get, set: c.write, unset: s.unset}, closedChoice{options: c.options()})
 	c.pick.SetAccessibleName(locale.T().Get("settings-sleep-action"))
-	c.detail = k.note("")
-	c.problem = k.errorText("")
+	c.detail = k.inlineState()
+	c.problem = k.inlineState()
 	c.Append(c.pick, false)
 	c.Append(c.detail, false)
 	c.Append(c.problem, false)
@@ -143,44 +143,49 @@ func (c *sleepAction) refresh() {
 	current, _ := c.slot.get().(string)
 	c.pick.refresh()
 	known := slices.Contains(c.variants, current)
-	c.detail.SetVisible(known)
-	if known {
-		c.detail.SetText(c.describe(current))
+	switch text, err := c.describe(current); {
+	case !known:
+		c.detail.Clear()
+	case err != nil:
+		c.detail.Unavailable("", text, err)
+	default:
+		c.detail.Empty("", text)
 	}
-	problem := ""
 	switch {
 	case c.unknown != nil:
-		problem = t.Get("settings-sleep-unknown")
+		c.problem.Error(t.Get("settings-sleep-unknown"), c.unknown, nil)
 	case c.refused != "":
-		problem = t.Get(sleepRefusals[c.can[c.refused]], i18n.Str("action", c.label(c.refused)))
+		c.problem.Error(t.Get(sleepRefusals[c.can[c.refused]], i18n.Str("action", c.label(c.refused))), nil, nil)
 	case known && !c.usable(current):
-		problem = t.Get(sleepRefusals[c.can[current]], i18n.Str("action", c.label(current)))
+		c.problem.Error(t.Get(sleepRefusals[c.can[current]], i18n.Str("action", c.label(current))), nil, nil)
+	default:
+		c.problem.Clear()
 	}
-	c.problem.SetText(problem)
-	c.problem.SetTooltip(errText(c.unknown))
-	c.problem.SetVisible(problem != "")
 }
 
-func (c *sleepAction) describe(v string) string {
+// describe is what the action v does, and the error of the probe the
+// description could not run, nil when there is none.
+func (c *sleepAction) describe(v string) (string, error) {
 	t := locale.T()
 	if v != string(config.SleepActionAuto) {
-		return t.Get("settings-sleep-detail-" + v)
+		return t.Get("settings-sleep-detail-" + v), nil
 	}
 	deep := string(config.SleepActionSuspendThenHibernate)
 	can, known := c.can[deep]
 	switch {
 	case !known:
-		return t.Get("settings-sleep-detail-auto")
+		return t.Get("settings-sleep-detail-auto"), nil
 	case can == logind.Available:
-		return t.Get("settings-sleep-detail-auto-hibernates")
+		return t.Get("settings-sleep-detail-auto-hibernates"), nil
 	}
-	return t.Get("settings-sleep-detail-auto-suspends", i18n.Str("reason", c.blockers.reason(t.Get(sleepRefusals[can], i18n.Str("action", c.label(deep))))))
+	reason := c.blockers.reason(t.Get(sleepRefusals[can], i18n.Str("action", c.label(deep))))
+	return t.Get("settings-sleep-detail-auto-suspends", i18n.Str("reason", reason)), c.blockers.err
 }
 
 func (b hibernationBlockers) reason(refusal string) string {
 	t := locale.T()
 	if b.err != nil {
-		return t.Get("settings-hibernate-blockers-unknown", i18n.Str("reason", b.err.Error()))
+		return t.Get("settings-hibernate-blockers-unknown")
 	}
 	if len(b.found) == 0 {
 		return refusal

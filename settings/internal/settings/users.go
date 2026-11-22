@@ -256,7 +256,7 @@ type usersPanel struct {
 	acc         *accounts
 	props       sysProps
 	user        string
-	problem     *widget.Label
+	problem     *inlineState
 	face        *widget.Avatar
 	name        string
 	realName    *text
@@ -271,8 +271,7 @@ type usersPanel struct {
 func usersFooter(k *kit) widget.Widget {
 	t := locale.T()
 	p := &usersPanel{Box: sectionStack(), k: k, changer: defaultPasswordChanger}
-	p.problem = k.errorText("")
-	p.problem.SetVisible(false)
+	p.problem = k.inlineState()
 	p.Append(p.problem, false)
 	p.Append(p.identityHeader(), false)
 	change := k.secondaryButton(t.Get("settings-users-password-change"), p.openPasswordDialog)
@@ -439,10 +438,25 @@ func (p *usersPanel) close() {
 }
 
 func (p *usersPanel) fail(err error) {
-	p.problem.SetVisible(err != nil)
-	if err != nil {
-		p.problem.SetText(err.Error())
+	if err == nil {
+		p.problem.Clear()
+		return
 	}
+	if e, ok := errors.AsType[*passwordNotSetError](err); ok {
+		p.problem.Error(locale.T().Get("settings-users-add-no-password", i18n.Str("name", string(e.login))), e.err, nil)
+		return
+	}
+	p.say(locale.T().Get("settings-users-failed"), err)
+}
+
+// say says summary over err, the failure of the page's last action, or
+// clears the line for nil.
+func (p *usersPanel) say(summary string, err error) {
+	if err == nil {
+		p.problem.Clear()
+		return
+	}
+	p.problem.Error(summary, err, nil)
 }
 
 func (p *usersPanel) callUser(method string, args ...any) {
@@ -552,7 +566,7 @@ func (p *usersPanel) useAvatar(img image.Image, c avatarCrop) {
 func (p *usersPanel) cropFile(path string) {
 	img, err := imagedecode.Open(path)
 	if err != nil {
-		p.fail(fmt.Errorf("open the picture %s: %w", path, err))
+		p.say(locale.T().Get("settings-users-picture-unreadable", i18n.Str("path", path)), err)
 		return
 	}
 	t := locale.T()
@@ -711,7 +725,7 @@ const passwordDialogWidth = 480
 type passwordForm struct {
 	*widget.Box
 	current, next, confirm *widget.Entry
-	messages               formNote
+	messages               *inlineState
 	busy                   bool
 }
 
@@ -724,7 +738,7 @@ func (p *usersPanel) newPasswordForm() *passwordForm {
 	f.Append(p.k.row(t.Get("settings-users-password-new"), "").withControl(f.next).withTrailing(p.k.revealButton(f.next, f.confirm)), false)
 	f.Append(p.k.row(t.Get("settings-users-password-confirm"), "").withControl(f.confirm), false)
 	f.Append(p.strengthRow(f.next), false)
-	f.messages = p.k.dialogMessages()
+	f.messages = p.k.inlineState()
 	f.Append(f.messages, false)
 	return f
 }
@@ -748,21 +762,6 @@ func (p *usersPanel) strengthRow(next *widget.Entry) widget.Widget {
 		word.SetText(strengthWord(text))
 	}
 	return p.k.row(t.Get("settings-users-password-strength"), "").withControl(meter).withTrailing(word)
-}
-
-func (k *kit) dialogMessages() formNote {
-	l := k.errorText("")
-	l.SetVisible(false)
-	return formNote{l}
-}
-
-// formNote is a dialog's line for what refused its answer, hidden while
-// there is nothing to say.
-type formNote struct{ *widget.Label }
-
-func (n formNote) say(text string) {
-	n.SetText(text)
-	n.SetVisible(text != "")
 }
 
 func (f *passwordForm) clear() {
@@ -798,7 +797,7 @@ func (p *usersPanel) changePassword(f *passwordForm, done func()) {
 		return
 	}
 	if f.next.Text() != f.confirm.Text() {
-		f.messages.say(locale.T().Get("settings-users-password-mismatch"))
+		f.messages.Error(locale.T().Get("settings-users-password-mismatch"), nil, nil)
 		return
 	}
 	old, pw := []byte(f.current.Text()), []byte(f.next.Text())
@@ -811,15 +810,14 @@ func (p *usersPanel) changePassword(f *passwordForm, done func()) {
 		return res
 	}, func(r passwordChange) {
 		f.busy = false
-		text := strings.Join(r.messages, "\n")
 		if r.err != nil {
-			text = strings.TrimSpace(text + "\n" + r.err.Error())
+			said := cmp.Or(strings.Join(r.messages, "\n"), locale.T().Get("settings-users-password-failed"))
+			f.messages.Error(said, r.err, nil)
+			return
 		}
-		f.messages.say(text)
-		if r.err == nil {
-			f.clear()
-			done()
-		}
+		f.messages.Clear()
+		f.clear()
+		done()
 	})
 }
 

@@ -142,19 +142,20 @@ func TestALockBackgroundThatCannotBeShownPreviewsTheColourAndWhy(t *testing.T) {
 	missing := filepath.Join(t.TempDir(), "gone.png")
 	set(t, k, p, "login.background-image", missing)
 	set(t, k, p, "login.background-mode", string(config.BackgroundImage))
-	preview, labels := previewedLock(t, p)
+	preview, _ := previewedLock(t, p)
 	if len(backdropImages(preview)) != 0 || len(treetest.WithClass(preview, "lock-bg")) != 1 {
 		t.Error("an unreadable image does not preview the colour fill")
 	}
 	_, err := os.Open(missing)
-	want := locale.T().Get("settings-lock-preview-unreadable", i18n.Str("path", missing), i18n.Str("reason", "background "+missing+" unreadable: "+err.Error()))
-	if !slices.Contains(labels, want) {
-		t.Errorf("an unreadable image previews %v, want %q", labels, want)
+	want := locale.T().Get("settings-lock-preview-unreadable", i18n.Str("path", missing))
+	note := treetest.First[*inlineState](t, preview)
+	if note.kind != stateUnavailable || note.Text() != want || note.detail.Text() != "background "+missing+" unreadable: "+err.Error() || shown(note.detail) {
+		t.Errorf("an unreadable image previews %v %q over %q, want %q over the open's error", note.kind, note.Text(), note.detail.Text(), want)
 	}
 
 	set(t, k, p, "login.background-mode", string(config.BackgroundWallpaper))
 	set(t, k, p, "wallpaper.wallpaper", "")
-	_, labels = previewedLock(t, p)
+	_, labels := previewedLock(t, p)
 	if want := locale.T().Get("settings-lock-preview-no-image"); !slices.Contains(labels, want) {
 		t.Errorf("the wallpaper mode without a wallpaper previews %v, want %q", labels, want)
 	}

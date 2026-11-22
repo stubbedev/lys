@@ -77,8 +77,8 @@ func TestAStoredSleepModeTheSystemRefusesSaysWhy(t *testing.T) {
 
 func TestWithoutLogindEverySleepModeStaysSelectableAndTheReasonShows(t *testing.T) {
 	_, c, _ := sleepSelect(t, "", map[string]string{"CanSuspend": "perhaps"})
-	if c.unknown == nil || c.problem.Text() != locale.T().Get("settings-sleep-unknown") || !strings.Contains(c.problem.TooltipText(), `answered "perhaps"`) {
-		t.Fatalf("an answer logind does not give shows %q, explained %q", c.problem.Text(), c.problem.TooltipText())
+	if c.unknown == nil || c.problem.Text() != locale.T().Get("settings-sleep-unknown") || !strings.Contains(c.problem.detail.Text(), `answered "perhaps"`) || c.problem.TooltipText() != "" {
+		t.Fatalf("an answer logind does not give shows %q, explained %q, tooltip %q", c.problem.Text(), c.problem.detail.Text(), c.problem.TooltipText())
 	}
 	for i, item := range c.pick.pick.Items() {
 		if item != c.labels[i] {
@@ -121,11 +121,13 @@ func TestAutoReportsAProbeItCouldNotRun(t *testing.T) {
 		return nil, errors.New("hibernate: read /proc/swaps: permission denied")
 	}
 	_, c, _ := sleepSelectBlocked(t, "", map[string]string{"CanSuspendThenHibernate": "na"}, failing)
-	if !strings.Contains(c.detail.Text(), "permission denied") {
-		t.Fatalf("a failed probe reads %q", c.detail.Text())
+	tr := locale.T()
+	want := tr.Get("settings-sleep-detail-auto-suspends", i18n.Str("reason", tr.Get("settings-hibernate-blockers-unknown")))
+	if c.detail.Text() != want || strings.Contains(c.detail.Text(), "permission denied") || !strings.Contains(c.detail.detail.Text(), "permission denied") {
+		t.Fatalf("a failed probe reads %q over %q, want %q over the probe's error", c.detail.Text(), c.detail.detail.Text(), want)
 	}
 	_, c, _ = sleepSelectBlocked(t, "", nil, failing)
-	if want := locale.T().Get("settings-sleep-detail-auto-hibernates"); c.detail.Text() != want {
+	if want := tr.Get("settings-sleep-detail-auto-hibernates"); c.detail.Text() != want || c.detail.detail.Text() != "" {
 		t.Fatalf("auto where hibernation works says %q, want %q: the probe matters only when it is blocked", c.detail.Text(), want)
 	}
 }

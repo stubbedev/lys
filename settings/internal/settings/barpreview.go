@@ -2,11 +2,9 @@ package settings
 
 import (
 	"github.com/stubbedev/lys/desktop/config"
-	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -37,16 +35,25 @@ func (p *livePreview) configChanged() {
 	cfg := p.k.store.svc.Config()
 	font, err := p.k.barFont(cfg)
 	if err != nil {
-		p.Append(p.state("settings-preview-failed", i18n.Str("reason", err.Error())), false)
+		p.Append(previewFailed(p.k, err), false)
 		return
 	}
 	p.Append(p.draw(p.k, cfg, font), false)
 }
 
-func (p *livePreview) state(key string, args ...i18n.Arg) *widget.Label {
-	l := p.k.note(locale.T().Get(key, args...), "settings-preview-state")
-	l.SetAlignment(render.AlignCenter)
-	return l
+// previewState is the inline state a preview shows in place of, or
+// beside, what it draws.
+func previewState(k *kit) *inlineState {
+	s := k.inlineState()
+	s.AddClass("settings-preview-state")
+	return s
+}
+
+// previewFailed says a preview cannot be drawn, err why.
+func previewFailed(k *kit, err error) *inlineState {
+	s := previewState(k)
+	s.Error(locale.T().Get("settings-preview-failed"), err, nil)
+	return s
 }
 
 func drawBarOnScreen(k *kit, cfg *config.Config, font render.Font, monitor string) widget.Widget {
@@ -57,7 +64,9 @@ func drawBarOnScreen(k *kit, cfg *config.Config, font render.Font, monitor strin
 	shown := wallpaperScreen(screenH)
 	bar, ok := barview.Preview(cfg, font, monitor, sessionCompositor())
 	if !ok {
-		shown.AppendAligned(k.label(locale.T().Get("settings-bar-preview-none"), "settings-preview-state", css.Caption), widget.AlignCenter, widget.AlignCenter)
+		none := previewState(k)
+		none.Empty("", locale.T().Get("settings-bar-preview-none"))
+		shown.AppendAligned(none, widget.AlignCenter, widget.AlignCenter)
 		return shown
 	}
 	h, v := edgeAlign(bar.Edge())

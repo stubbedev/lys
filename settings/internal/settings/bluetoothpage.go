@@ -256,7 +256,7 @@ type bluetoothPanel struct {
 	shown       bool
 	busy        map[dbus.ObjectPath]btBusy
 	renaming    dbus.ObjectPath
-	problem     *widget.Label
+	problem     *inlineState
 	status      *stateBox
 	request     *widget.Box
 	requestSec  *widget.Box
@@ -285,8 +285,7 @@ func newBluetoothPanel(k *kit) *bluetoothPanel {
 	p.nearby.Append(p.search, false)
 	p.nearby.Append(p.found, false)
 	p.AddClass("bluetooth-panel")
-	p.problem = k.errorText("")
-	p.problem.SetVisible(false)
+	p.problem = k.inlineState()
 	p.Append(p.problem, false)
 	p.requestSec = newSection(k, "settings-bluetooth-section-request", p.request)
 	p.Append(p.requestSec, false)
@@ -378,20 +377,23 @@ func (p *bluetoothPanel) run(device dbus.ObjectPath, busy btBusy, wait time.Dura
 }
 
 func (p *bluetoothPanel) fail(err error) {
-	p.problem.SetVisible(err != nil)
 	if err == nil {
+		p.problem.Clear()
 		return
 	}
-	p.problem.SetText(btProblem(err))
-}
-
-func btProblem(err error) string {
-	t := locale.T()
 	for sentinel, key := range btAnswerProblems {
 		if errors.Is(err, sentinel) {
-			return t.Get(key)
+			p.problem.Error(locale.T().Get(key), nil, nil)
+			return
 		}
 	}
+	p.problem.Error(btProblem(err), err, nil)
+}
+
+// btProblem is the sentence saying why BlueZ failed, err itself being
+// the detail under it.
+func btProblem(err error) string {
+	t := locale.T()
 	if _, ok := errors.AsType[*bluetooth.NoPrimaryAdapterError](err); ok {
 		return t.Get("settings-bluetooth-no-adapter")
 	}
@@ -403,7 +405,7 @@ func btProblem(err error) string {
 			return t.Get(key)
 		}
 	}
-	return err.Error()
+	return t.Get("settings-bluetooth-failed")
 }
 
 func (p *bluetoothPanel) close() {
@@ -468,8 +470,7 @@ func (p *bluetoothPanel) adapterNameRow(alias string) widget.Widget {
 	save := func() {
 		name := strings.TrimSpace(entry.Text())
 		if name == "" {
-			p.problem.SetVisible(true)
-			p.problem.SetText(t.Get("settings-bluetooth-name-empty"))
+			p.problem.Error(t.Get("settings-bluetooth-name-empty"), nil, nil)
 			return
 		}
 		p.run("", btIdle, btCallWait, func(ctx context.Context) error { return p.ctl.renameAdapter(ctx, name) })
@@ -552,8 +553,7 @@ func (p *bluetoothPanel) deviceRow(r btRow) widget.Widget {
 	save := func() {
 		name := strings.TrimSpace(entry.Text())
 		if name == "" {
-			p.problem.SetVisible(true)
-			p.problem.SetText(t.Get("settings-bluetooth-name-empty"))
+			p.problem.Error(t.Get("settings-bluetooth-name-empty"), nil, nil)
 			return
 		}
 		p.endRename()

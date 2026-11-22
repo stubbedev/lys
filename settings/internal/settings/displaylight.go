@@ -116,7 +116,7 @@ func (p *displaysPanel) setBrightness(v float64) {
 			return
 		}
 		if r.err != nil {
-			p.say(r.err.Error())
+			p.fail("settings-displays-brightness-failed", r.err)
 			return
 		}
 		p.light.levels[name] = r.level

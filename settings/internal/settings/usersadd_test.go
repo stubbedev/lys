@@ -193,8 +193,8 @@ func TestARefusedCreateUserKeepsTheDialogOpen(t *testing.T) {
 	fill(f, "Zoë", "zoe", "pw", "pw")
 	pickers.respond(responseConfirm)
 	l.until("the refusal", func() bool { return f.messages.Visible() })
-	if !strings.Contains(f.messages.Text(), "not authorized") || pickers.dialogsClosed != 0 {
-		t.Fatalf("the dialog reads %q, closed %d", f.messages.Text(), pickers.dialogsClosed)
+	if f.messages.Text() != locale.T().Get("settings-users-add-failed") || !strings.Contains(f.messages.detail.Text(), "not authorized") || pickers.dialogsClosed != 0 {
+		t.Fatalf("the dialog reads %q over %q, closed %d", f.messages.Text(), f.messages.detail.Text(), pickers.dialogsClosed)
 	}
 	if calls, _ := created.snapshot(); len(calls) != 0 {
 		t.Fatalf("a password was set without a user: %+v", calls)
@@ -206,9 +206,9 @@ func TestAUserAddedWithoutItsPasswordIsSaidOnThePage(t *testing.T) {
 	fill(f, "Zoë", "zoe", "pw", "pw")
 	pickers.respond(responseConfirm)
 	l.until("the dialog closed", func() bool { return pickers.dialogsClosed == 1 })
-	prefix, _, _ := strings.Cut(locale.T().Get("settings-users-add-no-password", i18n.Str("name", "zoe"), i18n.Str("reason", "\x00")), "\x00")
-	if !p.problem.Visible() || !strings.HasPrefix(p.problem.Text(), prefix) || !strings.Contains(p.problem.Text(), "not authorized") {
-		t.Fatalf("the page reads %q", p.problem.Text())
+	want := locale.T().Get("settings-users-add-no-password", i18n.Str("name", "zoe"))
+	if !p.problem.Visible() || p.problem.Text() != want || !strings.Contains(p.problem.detail.Text(), "not authorized") {
+		t.Fatalf("the page reads %q over %q, want %q over the refusal", p.problem.Text(), p.problem.detail.Text(), want)
 	}
 }
 

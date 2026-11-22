@@ -196,7 +196,7 @@ type powerPanel struct {
 	ctl     powerControl
 	stop    context.CancelFunc
 	state   powerState
-	problem *widget.Label
+	problem *inlineState
 	battery *stateBox
 	modes   *stateBox
 	closed  bool
@@ -205,8 +205,7 @@ type powerPanel struct {
 func newPowerPanel(k *kit) *powerPanel {
 	p := &powerPanel{Box: sectionStack(), k: k, battery: k.stateBox(), modes: k.stateBox()}
 	p.AddClass("power-panel")
-	p.problem = k.errorText("")
-	p.problem.SetVisible(false)
+	p.problem = k.inlineState()
 	p.Append(p.problem, false)
 	p.Append(newSection(k, "settings-power-section-battery", p.battery), false)
 	p.Append(newSection(k, "settings-power-section-mode", p.modes), false)
@@ -301,16 +300,15 @@ func (p *powerPanel) run(action powerAction, work func(ctx context.Context, ctl 
 }
 
 func (p *powerPanel) fail(action powerAction, err error) {
-	p.problem.SetVisible(err != nil)
 	if err == nil {
+		p.problem.Clear()
 		return
 	}
 	key, ok := powerRefusalKeys[action]
 	if !ok {
-		p.problem.SetText(err.Error())
-		return
+		key = "settings-power-failed"
 	}
-	p.problem.SetText(locale.T().Get(key, i18n.Str("reason", err.Error())))
+	p.problem.Error(locale.T().Get(key), err, nil)
 }
 
 func (p *powerPanel) close() {

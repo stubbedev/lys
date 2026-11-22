@@ -333,8 +333,8 @@ func TestAReaderThatCannotDeleteOneFingerKeepsEveryOther(t *testing.T) {
 	if got := r.methods(); !slices.Equal(got, []string{"Claim", "DeleteEnrolledFinger", "Release"}) {
 		t.Fatalf("calls %v, want no DeleteEnrolledFingers2", got)
 	}
-	if !strings.Contains(r.p.problem.Text(), "Device.DeleteEnrolledFinger: No such method") {
-		t.Fatalf("the problem reads %q", r.p.problem.Text())
+	if r.p.problem.Text() != locale.T().Get("settings-fingerprint-reader-failed") || !strings.Contains(r.p.problem.detail.Text(), "Device.DeleteEnrolledFinger: No such method") {
+		t.Fatalf("the problem reads %q over %q", r.p.problem.Text(), r.p.problem.detail.Text())
 	}
 }
 

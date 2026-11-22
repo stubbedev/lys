@@ -2,10 +2,8 @@ package settings
 
 import (
 	"github.com/stubbedev/lys/desktop/config"
-	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -31,7 +29,7 @@ func drawThemeDesktop(k *kit, cfg *config.Config, _ render.Font) widget.Widget {
 	}
 	colors, err := paletteColors(cfg.Styling.ActivePalette())
 	if err != nil {
-		return wrapped(k.label(t.Get("settings-preview-failed", i18n.Str("reason", err.Error())), "settings-preview-state", css.Caption, css.DimLabel))
+		return previewFailed(k, err)
 	}
 	d := &themeDesktop{DrawingArea: widget.NewDrawingArea(0, themePreviewH), colors: colors}
 	d.AddClass("settings-theme-preview")

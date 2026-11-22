@@ -274,8 +274,8 @@ func TestAnAccountNameIsCopiedAsPlainText(t *testing.T) {
 	}
 	r.p.k.copyText = func(string) error { return errors.New("no data device") }
 	treetest.Button(t, r.p.detail, "Copy Username").OnClick()
-	if !r.p.problem.Visible() || !strings.Contains(r.p.problem.Text(), "no data device") {
-		t.Errorf("a failed copy reads %q (%v)", r.p.problem.Text(), r.p.problem.Visible())
+	if !r.p.problem.Visible() || r.p.problem.Text() != locale.T().Get("settings-passwords-failed") || !strings.Contains(r.p.problem.detail.Text(), "no data device") {
+		t.Errorf("a failed copy reads %q over %q (%v)", r.p.problem.Text(), r.p.problem.detail.Text(), r.p.problem.Visible())
 	}
 }
 

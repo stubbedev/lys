@@ -158,7 +158,7 @@ func TestARefusedPickIsSaidAndAnUnreachableLysPowerOffersNothing(t *testing.T) {
 	f := &fakePausing{pickErr: errors.New("polkit does not authorize uid 1000")}
 	s := pausingOf(t, f)
 	s.set(sysUnit(t, "docker.service"), true)
-	if !s.problem.Visible() || s.problem.Text() != tr.Get("settings-power-pause-refused", i18n.Str("reason", "polkit does not authorize uid 1000")) {
+	if !s.problem.Visible() || s.problem.Text() != tr.Get("settings-power-pause-refused") || !strings.Contains(s.problem.detail.Text(), "polkit does not authorize uid 1000") {
 		t.Errorf("the problem reads %q", s.problem.Text())
 	}
 

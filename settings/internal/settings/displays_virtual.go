@@ -46,7 +46,7 @@ func nextVirtualName(taken []string) string {
 func (p *displaysPanel) addVirtualOutput() {
 	w, err := p.k.wmBackend()
 	if err != nil {
-		p.say(err.Error())
+		p.fail("settings-wm-unreadable", err)
 		return
 	}
 	taken := virtualNames(w)
@@ -56,7 +56,7 @@ func (p *displaysPanel) addVirtualOutput() {
 	items, _ := w.value(virtualOutputsPath).([]any)
 	items = append(slices.Clone(items), map[string]any{"name": nextVirtualName(taken), "mode": virtualModes[1]})
 	if err := w.edit(wmconfig.Edit{Path: []string{virtualOutputsPath}, Value: items}); err != nil {
-		p.say(err.Error())
+		p.fail("settings-displays-save-failed", err)
 	}
 	p.render()
 }

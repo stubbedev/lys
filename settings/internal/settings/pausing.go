@@ -131,7 +131,7 @@ type pausing struct {
 	k       *kit
 	uid     uint32
 	listing pauseListing
-	problem *widget.Label
+	problem *inlineState
 	rows    *widget.ItemGroup
 	state   *cardState
 	add     *widget.Button
@@ -142,8 +142,7 @@ func newPausing(k *kit) *pausing {
 	s := &pausing{k: k, uid: intconv.Must[uint32](os.Getuid()), rows: widget.NewItemGroup(), state: k.cardState()}
 	body := gapBox(widget.Column)
 	body.Append(k.note(t.Get("settings-power-pause-detail")), false)
-	s.problem = k.errorText("")
-	s.problem.SetVisible(false)
+	s.problem = k.inlineState()
 	body.Append(s.problem, false)
 	body.Append(s.rows, false)
 	s.add = k.addButton("settings-power-pause-add", s.openPicker)
@@ -171,10 +170,11 @@ func (s *pausing) load() {
 }
 
 func (s *pausing) fail(err error) {
-	s.problem.SetVisible(err != nil)
-	if err != nil {
-		s.problem.SetText(locale.T().Get("settings-power-pause-refused", i18n.Str("reason", err.Error())))
+	if err == nil {
+		s.problem.Clear()
+		return
 	}
+	s.problem.Error(locale.T().Get("settings-power-pause-refused"), err, nil)
 }
 
 func (s *pausing) show(l pauseListing) {

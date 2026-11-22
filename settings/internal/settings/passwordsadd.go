@@ -49,7 +49,7 @@ func parseNewItem(label, username, service string, secret []byte) (newKeyringIte
 type keyringItemForm struct {
 	*widget.Box
 	label, username, service, secret *widget.Entry
-	messages                         formNote
+	messages                         *inlineState
 	busy                             bool
 }
 
@@ -67,7 +67,7 @@ func (p *passwordsPanel) newItemForm() *keyringItemForm {
 	f.service = text("settings-passwords-add-service")
 	f.secret = p.k.passwordEntry("settings-passwords-secret")
 	f.Append(p.k.row(t.Get("settings-passwords-secret"), "").withControl(f.secret).withTrailing(p.k.revealButton(f.secret)), false)
-	f.messages = p.k.dialogMessages()
+	f.messages = p.k.inlineState()
 	f.Append(f.messages, false)
 	return f
 }
@@ -105,7 +105,7 @@ func (p *passwordsPanel) addItem(f *keyringItemForm, coll dbus.ObjectPath, done 
 	}
 	item, err := parseNewItem(f.label.Text(), f.username.Text(), f.service.Text(), []byte(f.secret.Text()))
 	if err != nil {
-		f.messages.say(err.Error())
+		f.messages.Error(err.Error(), nil, nil)
 		return
 	}
 	f.busy = true
@@ -118,10 +118,10 @@ func (p *passwordsPanel) addItem(f *keyringItemForm, coll dbus.ObjectPath, done 
 	}, func(err error) {
 		f.busy = false
 		if err != nil {
-			f.messages.say(err.Error())
+			f.messages.Error(locale.T().Get("settings-passwords-add-failed"), err, nil)
 			return
 		}
-		f.messages.say("")
+		f.messages.Clear()
 		f.clear()
 		p.reload()
 		done()

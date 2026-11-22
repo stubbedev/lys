@@ -3,7 +3,6 @@ package settings
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log"
 	"time"
 
@@ -36,8 +35,8 @@ type switchSpec[S any] struct {
 
 // shellSwitch is a row switching a lys-shell state as it stands, its
 // description following every change lys-shell announces and its
-// problem line saying why a switch or a read failed. It is a row of the
-// card it is appended to.
+// status saying, under it, that lys-shell is being asked, or why a
+// switch or a read failed. It is a row of the card it is appended to.
 type shellSwitch[S any] struct {
 	*settingRow
 	k       *kit
@@ -45,6 +44,7 @@ type shellSwitch[S any] struct {
 	ctl     switchControl[S]
 	stop    context.CancelFunc
 	toggle  *widget.Switch
+	status  *inlineState
 	state   S
 	known   bool
 	syncing bool
@@ -54,7 +54,9 @@ type shellSwitch[S any] struct {
 
 func newShellSwitch[S any](k *kit, spec switchSpec[S]) *shellSwitch[S] {
 	t := locale.T()
-	p := &shellSwitch[S]{settingRow: k.row(t.Get(spec.label), t.Get(spec.loading)), k: k, spec: spec, toggle: widget.NewSwitch(false)}
+	p := &shellSwitch[S]{settingRow: k.row(t.Get(spec.label), ""), k: k, spec: spec, toggle: widget.NewSwitch(false), status: k.inlineState()}
+	p.status.Loading(t.Get(spec.loading))
+	p.AddDetail(p.status)
 	p.toggle.SetAccessibleName(t.Get(spec.label))
 	p.toggle.SetEnabled(false)
 	p.toggle.OnChanged = p.switched
@@ -77,8 +79,7 @@ func newShellSwitch[S any](k *kit, spec switchSpec[S]) *shellSwitch[S] {
 	}, func(o opened) {
 		if o.err != nil {
 			log.Printf("settings: %s: %v", spec.label, o.err)
-			p.SetDescription(t.Get(spec.unavailable))
-			p.SetTooltip(o.err.Error())
+			p.status.Unavailable("", t.Get(spec.unavailable), o.err)
 			return
 		}
 		if p.closed {
@@ -97,7 +98,7 @@ func (p *shellSwitch[S]) follow() {
 	ticks, err := p.ctl.changes(ctx)
 	if err != nil {
 		cancel()
-		p.fail(err)
+		p.fail(p.spec.unavailable, err)
 		return
 	}
 	p.stop = cancel
@@ -122,7 +123,7 @@ func (p *shellSwitch[S]) reload() {
 		}
 		if r.err != nil {
 			p.unread = true
-			p.fail(r.err)
+			p.fail(p.spec.unavailable, r.err)
 			return
 		}
 		p.show(r.state)
@@ -134,23 +135,26 @@ func (p *shellSwitch[S]) switched(on bool) {
 		return
 	}
 	ctl := p.ctl
-	p.showProblem(nil)
+	p.status.Clear()
 	async(p.k, func() error {
 		return doWithin(shellCallWait, func(ctx context.Context) error { return ctl.set(ctx, on) })
 	}, func(err error) {
 		if err != nil {
-			p.fail(fmt.Errorf("%s: %w", locale.T().Get(p.spec.refused), err))
+			p.fail(p.spec.refused, err)
 		}
 		p.reload()
 	})
 }
 
-func (p *shellSwitch[S]) fail(err error) { p.showProblem(err) }
+// fail says the message key's sentence over err.
+func (p *shellSwitch[S]) fail(key string, err error) {
+	p.status.Error(locale.T().Get(key), err, nil)
+}
 
 func (p *shellSwitch[S]) show(st S) {
-	if p.unread {
+	if p.unread || p.status.kind == stateLoading {
 		p.unread = false
-		p.showProblem(nil)
+		p.status.Clear()
 	}
 	p.syncing = true
 	p.toggle.SetEnabled(true)

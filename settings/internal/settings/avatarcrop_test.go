@@ -142,7 +142,7 @@ func TestAPictureFromAFileIsCroppedInADialogAndSetOnApply(t *testing.T) {
 	pickers := &fakePickers{}
 	k.pickers = pickers
 	p := &usersPanel{Box: gapBox(widget.Column), k: k}
-	p.problem = k.label("")
+	p.problem = k.inlineState()
 	p.face = widget.NewAvatar(k.face, identityAvatar, "")
 	p.openAvatarDialog()
 	treetest.Button(t, pickers.dialogs[0].Content, "Choose a File…").OnClick()
@@ -187,7 +187,7 @@ func TestAFileThatIsNoPictureSaysSoAndOpensNoCrop(t *testing.T) {
 	pickers := &fakePickers{}
 	k.pickers = pickers
 	p := &usersPanel{Box: gapBox(widget.Column), k: k}
-	p.problem = k.label("")
+	p.problem = k.inlineState()
 	broken := filepath.Join(t.TempDir(), "notes.png")
 	put(t, broken, "not a picture")
 	p.cropFile(broken)
@@ -199,9 +199,9 @@ func TestAFileThatIsNoPictureSaysSoAndOpensNoCrop(t *testing.T) {
 func TestWithoutAWindowThePictureCannotBeChanged(t *testing.T) {
 	k := testKit(t, "")
 	p := &usersPanel{Box: gapBox(widget.Column), k: k}
-	p.problem = k.label("")
+	p.problem = k.inlineState()
 	p.openAvatarDialog()
-	if !p.problem.Visible() || !strings.Contains(p.problem.Text(), "no window") {
-		t.Fatalf("without a window the page says %q", p.problem.Text())
+	if !p.problem.Visible() || !strings.Contains(p.problem.detail.Text(), "no window") {
+		t.Fatalf("without a window the page says %q over %q", p.problem.Text(), p.problem.detail.Text())
 	}
 }

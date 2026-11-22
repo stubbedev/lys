@@ -8,6 +8,8 @@ import (
 
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
+
+	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
 func accelEditorOf(t *testing.T, p *settingsPage, class string) *accelCurveEditor {
@@ -34,13 +36,13 @@ func TestADrawnCurveReplacesTheProfileAndLysWMTakesIt(t *testing.T) {
 	p := layoutPage(t, k, "wm-pointer")
 	c := accelEditorOf(t, p, "input.pointer")
 	profile := rowOf(t, p, "input.pointer.accel_profile")
-	if !c.start.Visible() || c.drawn.Visible() || c.stop.Visible() || c.unknown.Visible() {
+	if !c.start.Visible() || c.start.Text() != locale.T().Get("wm-accel-curve-none") || !c.start.action.Visible() || c.drawn.Visible() || c.stop.Visible() || c.unknown.Visible() {
 		t.Fatal("without a curve the editor does not offer to draw one")
 	}
 	if !profile.Visible() {
 		t.Fatal("without a curve the profile is hidden")
 	}
-	c.begin()
+	c.start.action.OnClick()
 	acceptedByLysWM(t, k)
 	if got := k.wm.value("input.pointer.accel_profile"); got != nil {
 		t.Errorf("drawing a curve left the profile %v, want it cleared", got)

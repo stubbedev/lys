@@ -47,7 +47,7 @@ func TestADisplayChosenButNotConnectedIsSaid(t *testing.T) {
 	fakeHeads(t, []displays.Head{head("DP-1", 0)}, nil)
 	c := fieldControl(k, k.store, pageRow(t, "notifications", "modules.notifications.popup-monitor")).(*monitorChoice)
 	want := locale.T().Get("settings-monitor-away", i18n.Str("name", "DP-9"))
-	if c.follow.On() || !c.note.Visible() || c.note.Text() != want || c.picker.isSelected("DP-1") {
+	if c.follow.On() || !c.note.Visible() || c.note.kind != stateUnavailable || c.note.Text() != want || c.picker.isSelected("DP-1") {
 		t.Fatalf("following %v, note %v %q, DP-1 chosen %v", c.follow.On(), c.note.Visible(), c.note.Text(), c.picker.isSelected("DP-1"))
 	}
 	c.picker.handles[0].KeyAction(widget.KeyEnter, 0)
@@ -78,7 +78,7 @@ func TestWithoutADisplayToNameTheSwitchStaysOnAndSaysWhy(t *testing.T) {
 	fakeHeads(t, nil, errors.New("no output manager"))
 	systemLists["Monitor"] = fixed()
 	c := fieldControl(k, k.store, pageRow(t, "osd", "osd.monitor")).(*monitorChoice)
-	if !c.follow.On() || widget.IsEnabled(c.follow) || !c.note.Visible() || c.note.Text() != locale.T().Get("settings-monitors-none") {
+	if !c.follow.On() || widget.IsEnabled(c.follow) || !c.note.Visible() || c.note.kind != stateEmpty || c.note.Text() != locale.T().Get("settings-monitors-none") {
 		t.Errorf("with no display the switch is on %v, enabled %v, the note %v %q", c.follow.On(), widget.IsEnabled(c.follow), c.note.Visible(), c.note.Text())
 	}
 }

@@ -45,13 +45,18 @@ var newAccountProblems = map[error]string{
 	errPasswordDiffs: "settings-users-password-mismatch",
 }
 
-func newAccountProblem(err error, login string) string {
+// sayAccountProblem says in messages why the account form refused err:
+// the form's own sentence for a field it checked, else failed, the
+// message key of the action, over err.
+func sayAccountProblem(messages *inlineState, err error, login, failed string) {
+	t := locale.T()
 	for sentinel, key := range newAccountProblems {
 		if errors.Is(err, sentinel) {
-			return locale.T().Get(key, i18n.Str("name", login), i18n.Int("max", maxLoginName))
+			messages.Error(t.Get(key, i18n.Str("name", login), i18n.Int("max", maxLoginName)), nil, nil)
+			return
 		}
 	}
-	return err.Error()
+	messages.Error(t.Get(failed), err, nil)
 }
 
 type loginName string
@@ -180,7 +185,7 @@ type addUserForm struct {
 	passwordPair
 	kinds       *choicePick
 	full, login *widget.Entry
-	messages    formNote
+	messages    *inlineState
 	derived     bool
 	busy        bool
 }
@@ -206,7 +211,7 @@ func (p *usersPanel) newAddUserForm() *addUserForm {
 	f.Append(p.k.row(t.Get("settings-users-add-full"), "").withControl(f.full), false)
 	f.Append(p.k.keyRow("settings-users-add-name").withControl(f.login), false)
 	f.passwordPair = p.newPasswordPair(f.Box, "settings-users-add-password", "settings-users-add-confirm")
-	f.messages = p.k.dialogMessages()
+	f.messages = p.k.inlineState()
 	f.Append(f.messages, false)
 	return f
 }
@@ -214,10 +219,10 @@ func (p *usersPanel) newAddUserForm() *addUserForm {
 func (f *addUserForm) checkLogin(taken []string) {
 	login := f.login.Text()
 	if _, err := parseLoginName(login, taken); err != nil && login != "" {
-		f.messages.say(newAccountProblem(err, login))
+		sayAccountProblem(f.messages, err, login, "settings-users-add-failed")
 		return
 	}
-	f.messages.say("")
+	f.messages.Clear()
 }
 
 func (p *usersPanel) takenLogins() []string {
@@ -257,7 +262,7 @@ func (p *usersPanel) addUser(f *addUserForm, done func()) {
 	clear0(password)
 	clear0(repeat)
 	if err != nil {
-		f.messages.say(newAccountProblem(err, f.login.Text()))
+		sayAccountProblem(f.messages, err, f.login.Text(), "settings-users-add-failed")
 		return
 	}
 	acc := *p.acc
@@ -269,7 +274,7 @@ func (p *usersPanel) addUser(f *addUserForm, done func()) {
 		f.busy = false
 		p.loadAdmin()
 		if _, created := errors.AsType[*passwordNotSetError](err); err != nil && !created {
-			f.messages.say(err.Error())
+			f.messages.Error(locale.T().Get("settings-users-add-failed"), err, nil)
 			return
 		}
 		f.clear()
@@ -284,7 +289,7 @@ type passwordNotSetError struct {
 }
 
 func (e *passwordNotSetError) Error() string {
-	return locale.T().Get("settings-users-add-no-password", i18n.Str("name", string(e.login)), i18n.Str("reason", e.err.Error()))
+	return fmt.Sprintf("set the password of %s: %v", e.login, e.err)
 }
 
 func (e *passwordNotSetError) Unwrap() error { return e.err }

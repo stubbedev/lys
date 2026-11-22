@@ -115,8 +115,8 @@ func TestARefusedUserEditKeepsTheSheetOpenWithTheReason(t *testing.T) {
 	f.full.SetText("Robert")
 	pickers.respond(responseConfirm)
 	l.until("the refusal", func() bool { return f.messages.Visible() })
-	if !strings.Contains(f.messages.Text(), "not authorized") || pickers.dialogsClosed != 0 {
-		t.Fatalf("the sheet reads %q, closed %d", f.messages.Text(), pickers.dialogsClosed)
+	if f.messages.Text() != locale.T().Get("settings-users-edit-failed") || !strings.Contains(f.messages.detail.Text(), "not authorized") || pickers.dialogsClosed != 0 {
+		t.Fatalf("the sheet reads %q over %q, closed %d", f.messages.Text(), f.messages.detail.Text(), pickers.dialogsClosed)
 	}
 }
 

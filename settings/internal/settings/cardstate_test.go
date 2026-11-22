@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/apptheme"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/pulse/pulsetest"
@@ -212,22 +213,22 @@ func TestAFailuresRetryRunsOncePerClick(t *testing.T) {
 	s := k.cardState()
 	runs := 0
 	s.Error("It failed", errors.New("boom"), func() { runs++ })
-	if !s.retry.Visible() || s.retry.Classes() == nil {
+	if !s.action.Visible() || s.action.Classes() == nil {
 		t.Fatal("a failure with a retry offers none")
 	}
 	for want := 1; want <= 3; want++ {
-		s.retry.OnClick()
+		s.action.OnClick()
 		if runs != want {
 			t.Fatalf("after %d clicks the retry ran %d times", want, runs)
 		}
 	}
 	s.Error("It failed", errors.New("boom"), nil)
-	if s.retry.Visible() {
+	if s.action.Visible() {
 		t.Error("a failure without a retry offers one")
 	}
 	s.Error("It failed", errors.New("boom"), func() { runs++ })
 	s.Empty("ld-shield-check-symbolic", "Nothing")
-	if s.retry.Visible() {
+	if s.action.Visible() {
 		t.Error("an empty list offers the retry of the failure before it")
 	}
 }
@@ -431,5 +432,180 @@ func TestALoneStateShowsItsGroupOnlyWhileItShows(t *testing.T) {
 	body.Arrange(render.Rect{W: 600, H: 400})
 	if content.Bounds().Y != 0 {
 		t.Fatalf("the cleared state left the content at y %d, want 0", content.Bounds().Y)
+	}
+}
+
+// actionFailure is a Go error chain as an action gets it from a service
+// that refused it.
+func actionFailure(action string) error {
+	return fmt.Errorf("settings: %s: %w", action, dialFailure("the system bus", "/run/dbus/system_bus_socket"))
+}
+
+// Every page's action failure, with no service to ask, is said the
+// app's own way: a summary over the failure's error, which waits in
+// the state's closed detail, and no shown label reads as an error's own
+// words.
+func TestEveryPagesActionFailureIsSaidInTheAppsWords(t *testing.T) {
+	k := servicelessKit(t)
+	cfg := k.store.svc.Config()
+	w := newWindow(k, cfg, func(_ time.Duration, fn func()) { fn() })
+	w.stack.SetTransition(widget.StackNone, 0)
+	apptheme.New(cfg).Attach(w.root)
+	tr := locale.T()
+	for _, c := range []struct {
+		page, summary string
+		fail          func(page widget.Widget, err error) *inlineState
+	}{
+		{bluetoothPageID, tr.Get("settings-bluetooth-failed"), func(page widget.Widget, err error) *inlineState {
+			p := treetest.First[*bluetoothPanel](t, page)
+			p.fail(err)
+			return p.problem
+		}},
+		{networkPageID, tr.Get("settings-network-failed"), func(page widget.Widget, err error) *inlineState {
+			p := treetest.First[*networkPanel](t, page)
+			p.fail(err)
+			return p.problem
+		}},
+		{powerPageID, tr.Get("settings-power-mode-refused"), func(page widget.Widget, err error) *inlineState {
+			p := treetest.First[*powerPanel](t, page)
+			p.fail(powerActionProfile, err)
+			return p.problem
+		}},
+		{powerPageID, tr.Get("settings-power-failed"), func(page widget.Widget, err error) *inlineState {
+			p := treetest.First[*powerPanel](t, page)
+			p.fail(powerActionNone, err)
+			return p.problem
+		}},
+		{usersID, tr.Get("settings-users-failed"), func(page widget.Widget, err error) *inlineState {
+			p := treetest.First[*usersPanel](t, page)
+			p.fail(err)
+			return p.problem
+		}},
+		{usersID, tr.Get("settings-users-add-no-password", i18n.Str("name", "zoe")), func(page widget.Widget, err error) *inlineState {
+			p := treetest.First[*usersPanel](t, page)
+			if err == nil {
+				p.fail(nil)
+				return p.problem
+			}
+			p.fail(&passwordNotSetError{login: "zoe", err: err})
+			return p.problem
+		}},
+		{loginItemsID, tr.Get("settings-login-apps-failed"), func(page widget.Widget, err error) *inlineState {
+			l := treetest.First[*loginItems](t, page)
+			l.fail(err)
+			return l.problem
+		}},
+		{passwordsID, tr.Get("settings-passwords-failed"), func(page widget.Widget, err error) *inlineState {
+			p := treetest.First[*passwordsPanel](t, page)
+			p.fail(err)
+			return p.problem
+		}},
+		{defaultAppsID, tr.Get("settings-default-apps-failed"), func(page widget.Widget, err error) *inlineState {
+			d := treetest.First[*defaultApps](t, page)
+			d.fail(err)
+			return d.problem
+		}},
+		{displaysID, tr.Get("settings-displays-apply-failed"), func(page widget.Widget, err error) *inlineState {
+			p := treetest.First[*displaysPanel](t, page)
+			if err == nil {
+				p.moved(nil, nil)
+				return p.status
+			}
+			p.fail("settings-displays-apply-failed", err)
+			return p.status
+		}},
+	} {
+		t.Run(c.page+"/"+c.summary, func(t *testing.T) {
+			w.show(c.page)
+			err := actionFailure("act on " + c.page)
+			st := c.fail(w.page, err)
+			w.root.Arrange(render.Rect{W: sweepW, H: sweepH})
+			if !shown(st) || st.kind != stateError || st.Text() != c.summary {
+				t.Fatalf("the failure shows %v as %v %q, want %q", shown(st), st.kind, st.Text(), c.summary)
+			}
+			if !strings.Contains(st.detail.Text(), "dial unix") || shown(st.detail) || !shown(st.reveal.button) {
+				t.Errorf("the error waits as %q, shown %v, its disclosure shown %v", st.detail.Text(), shown(st.detail), shown(st.reveal.button))
+			}
+			checkServicelessPage(t, c.page, w.page)
+			c.fail(w.page, nil)
+			if st.Visible() {
+				t.Errorf("an action that went through leaves %q shown", st.Text())
+			}
+		})
+	}
+}
+
+// An inline state is a card state's same parts on a line: a failure's
+// summary over its error behind the disclosure, a spinner while
+// loading, and a plain note; with no error there is no disclosure.
+func TestAnInlineStateSaysEachKindOnALine(t *testing.T) {
+	k := testKit(t, "")
+	s := k.inlineState()
+	root := widget.NewBox(widget.Column, 0, 0)
+	root.Append(s, false)
+	lay := func() { styledLayOut(k, root, 600) }
+	lay()
+	if shown(s) {
+		t.Fatal("a new inline state shows")
+	}
+	err := actionFailure("save")
+	s.Error("It failed", err, nil)
+	lay()
+	if !shown(s) || s.Text() != "It failed" || !widget.HasClass(s.summary, css.Error) || !shown(s.glyph) || shown(s.spinner) || shown(s.action) {
+		t.Fatalf("a failure shows %v %q, red %v, glyph %v, spinner %v, action %v", shown(s), s.Text(), widget.HasClass(s.summary, css.Error), shown(s.glyph), shown(s.spinner), shown(s.action))
+	}
+	if texts := shownTexts(root); slices.ContainsFunc(texts, rawError) {
+		t.Fatalf("closed, the line reads %q", texts)
+	}
+	s.reveal.button.OnClick()
+	lay()
+	if !shown(s.detail) || s.detail.Text() != err.Error() {
+		t.Fatalf("open, the detail shows %v reading %q", shown(s.detail), s.detail.Text())
+	}
+	s.Error("Refused", nil, nil)
+	lay()
+	if shown(s.reveal.button) || shown(s.detail) {
+		t.Errorf("a refusal without an error offers a disclosure %v over a detail %v", shown(s.reveal.button), shown(s.detail))
+	}
+	s.Loading("Asking")
+	lay()
+	if !shown(s.spinner) || !s.spinner.Spinning() || shown(s.glyph) || widget.HasClass(s.summary, css.Error) || !widget.HasClass(s.summary, css.DimLabel) {
+		t.Errorf("loading shows spinner %v spinning %v, glyph %v, red %v", shown(s.spinner), s.spinner.Spinning(), shown(s.glyph), widget.HasClass(s.summary, css.Error))
+	}
+	s.Empty("", "Nothing")
+	lay()
+	if shown(s.glyph) || shown(s.spinner) || s.spinner.Spinning() || s.Text() != "Nothing" {
+		t.Errorf("a plain note shows glyph %v, spinner %v, reads %q", shown(s.glyph), shown(s.spinner), s.Text())
+	}
+	s.Clear()
+	lay()
+	if shown(s) {
+		t.Error("cleared, the line still shows")
+	}
+}
+
+// An offer's action is labelled as asked and runs once per click; the
+// state after it offers none.
+func TestAnOfferRunsItsActionOncePerClick(t *testing.T) {
+	k := testKit(t, "")
+	card, inline := k.cardState(), k.inlineState()
+	for _, c := range []struct {
+		name string
+		s    *stateParts
+	}{{"card", card.stateParts}, {"inline", inline.stateParts}} {
+		runs := 0
+		c.s.Offer("ld-mouse-symbolic", "No curve", "Draw", func() { runs++ })
+		if !c.s.action.Visible() || c.s.actionText.Text() != "Draw" {
+			t.Fatalf("%s: the offer shows its action %v reading %q", c.name, c.s.action.Visible(), c.s.actionText.Text())
+		}
+		c.s.action.OnClick()
+		c.s.action.OnClick()
+		if runs != 2 {
+			t.Errorf("%s: two clicks ran the offer %d times", c.name, runs)
+		}
+		c.s.Empty("ld-mouse-symbolic", "No curve")
+		if c.s.action.Visible() {
+			t.Errorf("%s: an empty state keeps the offer's action", c.name)
+		}
 	}
 }

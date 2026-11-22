@@ -51,8 +51,8 @@ func TestAVPNThatCannotBeReadOpensNoForm(t *testing.T) {
 	f.profiles = nil
 	_, p := netPanel(t, f)
 	clickText(t, p.vpn, i18n.T("dropdown-network-vpn-edit"), 0)
-	if p.vpnForm.Visible() || !p.problem.Visible() || !strings.Contains(p.problem.Text(), "/p/1") {
-		t.Errorf("an unreadable profile opened the form %v, said %q", p.vpnForm.Visible(), p.problem.Text())
+	if p.vpnForm.Visible() || !p.problem.Visible() || p.problem.kind != stateError || rawError(p.problem.Text()) || !strings.Contains(p.problem.detail.Text(), "/p/1") {
+		t.Errorf("an unreadable profile opened the form %v, said %q over %q", p.vpnForm.Visible(), p.problem.Text(), p.problem.detail.Text())
 	}
 }
 

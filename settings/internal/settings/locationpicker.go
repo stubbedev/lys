@@ -48,8 +48,8 @@ type locationPicker struct {
 	cityLabel string
 	latitude  *number
 	longitude *number
-	notice    *widget.Label
-	problem   *widget.Label
+	notice    *inlineState
+	problem   *inlineState
 	places    []zonePlace
 	picker    *searchPicker
 }
@@ -83,11 +83,9 @@ func newLocationPicker(k *kit, s slot, choice locationChoice, places func() ([]z
 	p.manual.Append(p.city, false)
 	p.manual.Append(coords, false)
 	p.Append(p.manual, false)
-	p.notice = k.label("", css.Caption, css.DimLabel)
-	p.notice.SetVisible(false)
+	p.notice = k.inlineState()
 	p.Append(p.notice, false)
-	p.problem = k.errorText("")
-	p.problem.SetVisible(false)
+	p.problem = k.inlineState()
 	p.Append(p.problem, false)
 	async(k, func() placesResult { list, err := places(); return placesResult{list, err} }, p.listed)
 	p.refresh()
@@ -103,9 +101,10 @@ func (p *locationPicker) listed(r placesResult) {
 	p.places = r.list
 	p.city.SetEnabled(len(r.list) > 0)
 	if r.err != nil {
-		p.notice.SetText(locale.T().Get("settings-location-no-cities", i18n.Str("error", r.err.Error())))
+		p.notice.Unavailable("ld-globe-symbolic", locale.T().Get("settings-location-no-cities"), r.err)
+		return
 	}
-	p.notice.SetVisible(r.err != nil)
+	p.notice.Clear()
 }
 
 func (p *locationPicker) current() (geo.Place, bool, error) {
@@ -123,7 +122,7 @@ func (p *locationPicker) refresh() {
 		p.fail(err)
 		return
 	}
-	p.problem.SetVisible(false)
+	p.problem.Clear()
 	if pinned {
 		p.choosing = false
 	}
@@ -213,8 +212,7 @@ func roundDegrees(v float64) float64 {
 }
 
 func (p *locationPicker) fail(err error) {
-	p.problem.SetText(err.Error())
-	p.problem.SetVisible(true)
+	p.problem.Error(locale.T().Get("settings-location-not-saved"), err, nil)
 }
 
 func (p *locationPicker) coordinate(latitude bool) slot {
@@ -253,7 +251,7 @@ func (p *locationPicker) coordinate(latitude bool) slot {
 				p.fail(err)
 				return err
 			}
-			p.problem.SetVisible(false)
+			p.problem.Clear()
 			p.showCity(placeLabel(geo.NewPlace("", at), true))
 			return nil
 		},

@@ -4,14 +4,10 @@ import (
 	"fmt"
 
 	"github.com/stubbedev/lys/desktop/config"
-	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/cavaview"
 	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
-
-	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
 const (
@@ -29,7 +25,7 @@ func drawCavaOnScreen(k *kit, cfg *config.Config, _ render.Font) widget.Widget {
 	shown := wallpaperScreen(cavaPreviewScreenH)
 	spectrum, err := cavaSampleSpectrum(cfg, k.palette())
 	if err != nil {
-		shown.AppendAligned(k.label(locale.T().Get("settings-preview-failed", i18n.Str("reason", err.Error())), "settings-preview-state", css.Caption), widget.AlignCenter, widget.AlignCenter)
+		shown.AppendAligned(previewFailed(k, err), widget.AlignCenter, widget.AlignCenter)
 		return shown
 	}
 	shown.AppendAligned(spectrum, widget.AlignCenter, widget.AlignCenter)

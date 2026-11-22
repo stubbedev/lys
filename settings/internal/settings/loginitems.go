@@ -349,6 +349,7 @@ func withUserManager[T any](fn func(context.Context, userManager) (T, error)) (T
 }
 
 type loginItems struct {
+	*widget.Box
 	k             *kit
 	dirs          autostartDirs
 	desktops      []string
@@ -358,18 +359,16 @@ type loginItems struct {
 	servicesState *cardState
 	filter        *widget.SearchEntry
 	listing       unitsListing
-	problem       *widget.Label
+	problem       *inlineState
 }
 
 func loginItemsLead(k *kit) widget.Widget {
-	l := &loginItems{k: k, desktops: desktopentry.CurrentDesktops()}
-	content := sectionStack()
-	l.problem = k.errorText("")
-	l.problem.SetVisible(false)
-	content.Append(l.problem, false)
+	l := &loginItems{Box: sectionStack(), k: k, desktops: desktopentry.CurrentDesktops()}
+	l.problem = k.inlineState()
+	l.Append(l.problem, false)
 	l.apps, l.appsState = widget.NewItemGroup(), k.cardState()
 	apps := newSection(k, "settings-section-login-apps", l.apps)
-	content.Append(apps, false)
+	l.Append(apps, false)
 	l.filter = widget.NewSearchEntry(k.face, k.textPx(), locale.T().Get("settings-login-services-filter"))
 	l.filter.SetDelay(0)
 	l.filter.OnSearchChanged = func(string) { l.showServices(l.listing) }
@@ -378,10 +377,10 @@ func loginItemsLead(k *kit) widget.Widget {
 	services := gapBox(widget.Column)
 	services.Append(l.filter, false)
 	services.Append(l.services, false)
-	content.Append(newSection(k, "settings-section-login-services", services), false)
+	l.Append(newSection(k, "settings-section-login-services", services), false)
 	l.openApps(apps)
 	l.loadServices()
-	return content
+	return l
 }
 
 func (l *loginItems) openApps(section *widget.Box) {
@@ -399,10 +398,11 @@ func (l *loginItems) openApps(section *widget.Box) {
 }
 
 func (l *loginItems) fail(err error) {
-	l.problem.SetVisible(err != nil)
-	if err != nil {
-		l.problem.SetText(err.Error())
+	if err == nil {
+		l.problem.Clear()
+		return
 	}
+	l.problem.Error(locale.T().Get("settings-login-apps-failed"), err, nil)
 }
 
 type autostartListing struct {

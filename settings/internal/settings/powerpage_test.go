@@ -209,9 +209,9 @@ func TestARefusedSwitchIsSaidInTheLanguageAndKeepsTheMode(t *testing.T) {
 	f.profileErr = errors.New("not authorized")
 	p := powerPanelOf(t, f)
 	treetest.All[*choiceCard](p.modes)[0].PressAt(widget.Point{})
-	want := locale.T().Get("settings-power-mode-refused", i18n.Str("reason", "not authorized"))
-	if !p.problem.Visible() || p.problem.Text() != want {
-		t.Fatalf("a refused switch reads %q (shown %v), want %q", p.problem.Text(), p.problem.Visible(), want)
+	want := locale.T().Get("settings-power-mode-refused")
+	if !p.problem.Visible() || p.problem.Text() != want || p.problem.detail.Text() != "not authorized" {
+		t.Fatalf("a refused switch reads %q over %q (shown %v), want %q over the refusal", p.problem.Text(), p.problem.detail.Text(), p.problem.Visible(), want)
 	}
 	if now := treetest.All[*choiceCard](p.modes)[0].owner.current; now != powerprofiles.ProfileBalanced {
 		t.Errorf("after a refusal the cards show %q chosen", now)

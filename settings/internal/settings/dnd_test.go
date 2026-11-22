@@ -69,8 +69,8 @@ func TestTheDoNotDisturbSwitchShowsAndSetsTheShellsState(t *testing.T) {
 	if len(f.sets) != 1 || !f.sets[0] {
 		t.Fatalf("switching on asked lys-shell for %v", f.sets)
 	}
-	if !p.toggle.On() || p.Description() != dndStatusOf(dndManual, "") || p.problem.Visible() {
-		t.Fatalf("after switching on: on %v %q, problem %q", p.toggle.On(), p.Description(), p.problem.Text())
+	if !p.toggle.On() || p.Description() != dndStatusOf(dndManual, "") || p.status.Visible() {
+		t.Fatalf("after switching on: on %v %q, problem %q", p.toggle.On(), p.Description(), p.status.Text())
 	}
 	p.close()
 	if !f.closed {
@@ -82,8 +82,8 @@ func TestARefusedDoNotDisturbSwitchSaysSoAndKeepsTheState(t *testing.T) {
 	f := &fakeDND{state: dndState{reason: notifications.FocusOff}, setErr: errors.New("access denied")}
 	p := dndPanelOf(t, f)
 	p.toggle.SetOn(true)
-	if !p.problem.Visible() || p.toggle.On() {
-		t.Fatalf("a refusal shows %q (%v), switch on %v", p.problem.Text(), p.problem.Visible(), p.toggle.On())
+	if p.status.kind != stateError || p.status.Text() != locale.T().Get("settings-dnd-refused") || p.toggle.On() {
+		t.Fatalf("a refusal shows %q (%v), switch on %v", p.status.Text(), p.status.Visible(), p.toggle.On())
 	}
 }
 
@@ -91,8 +91,8 @@ func TestWithoutLysShellTheDoNotDisturbSwitchStaysOff(t *testing.T) {
 	k := testKit(t, "")
 	p := newDNDPanel(k)
 	want := locale.T().Get("settings-dnd-unavailable")
-	if p.toggle.Enabled() || p.Description() != want || p.TooltipText() != "no lys-shell in the tests" {
-		t.Fatalf("without lys-shell the switch is enabled %v, reads %q, explains %q", p.toggle.Enabled(), p.Description(), p.TooltipText())
+	if p.toggle.Enabled() || p.status.kind != stateUnavailable || p.status.Text() != want || p.status.detail.Text() != "no lys-shell in the tests" || p.TooltipText() != "" {
+		t.Fatalf("without lys-shell the switch is enabled %v, says %v %q over %q, tooltip %q", p.toggle.Enabled(), p.status.kind, p.status.Text(), p.status.detail.Text(), p.TooltipText())
 	}
 	p.toggle.SetOn(true)
 }

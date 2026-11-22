@@ -121,7 +121,7 @@ type accelCurveEditor struct {
 	class   string
 	bounds  accelBounds
 	curve   accelCurve
-	start   *widget.Box
+	start   *inlineState
 	drawn   *widget.Box
 	unknown *widget.Badge
 	stop    *widget.Button
@@ -139,9 +139,7 @@ func newAccelCurveEditor(k *kit, sc wmScope, s slot, class string) *accelCurveEd
 	c := &accelCurveEditor{Box: gapBox(widget.Column), scope: sc, slot: s, class: class, bounds: wmAccelBounds(k.wm, class)}
 	c.AddClass("accel-curve-editor")
 
-	c.start = gapBox(widget.Row)
-	c.start.AppendAligned(k.note(t.Get("wm-accel-curve-none")), true, widget.AlignCenter)
-	c.start.AppendAligned(k.secondaryButton(t.Get("wm-accel-curve-start"), c.begin), false, widget.AlignCenter)
+	c.start = k.inlineState()
 	c.Append(c.start, false)
 
 	c.canvas = newAccelCanvas(c.bounds, c.reshape)
@@ -221,7 +219,12 @@ func (c *accelCurveEditor) refresh() {
 	raw := c.slot.get()
 	curve, ok := parseAccelCurve(raw)
 	none := raw == nil
-	c.start.SetVisible(none)
+	if none {
+		t := locale.T()
+		c.start.Offer("ld-mouse-symbolic", t.Get("wm-accel-curve-none"), t.Get("wm-accel-curve-start"), c.begin)
+	} else {
+		c.start.Clear()
+	}
 	c.drawn.SetVisible(ok)
 	c.unknown.SetVisible(!none && !ok)
 	c.stop.SetVisible(!none)

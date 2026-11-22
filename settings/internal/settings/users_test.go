@@ -460,7 +460,7 @@ func TestThePasswordDialogSaysHowStrongInWordsAndRefusesAMismatch(t *testing.T) 
 			t.Errorf("%q reads %q, want %q", pw, word.Text(), want)
 		}
 	}
-	reveal := treetest.WithClass(f, css.Icon)
+	reveal := slices.DeleteFunc(treetest.WithClass(f, css.Icon), func(w widget.Widget) bool { return treetest.Contains(f.messages, w) })
 	if len(reveal) != 2 {
 		t.Fatalf("%d reveal buttons, want one for the current and one for the new password", len(reveal))
 	}
@@ -493,8 +493,8 @@ func TestWithoutAWindowChangingThePasswordIsRefused(t *testing.T) {
 	t.Cleanup(p.close)
 	p.k.pickers = nil
 	p.openPasswordDialog()
-	if !p.problem.Visible() || !strings.Contains(p.problem.Text(), "no window") {
-		t.Fatalf("without a window the page says %q", p.problem.Text())
+	if !p.problem.Visible() || p.problem.Text() != locale.T().Get("settings-users-failed") || !strings.Contains(p.problem.detail.Text(), "no window") {
+		t.Fatalf("without a window the page says %q over %q", p.problem.Text(), p.problem.detail.Text())
 	}
 }
 

@@ -351,7 +351,7 @@ type networkPanel struct {
 	ctl      netControl
 	stop     context.CancelFunc
 	state    netState
-	problem  *widget.Label
+	problem  *inlineState
 	status   *stateBox
 	nets     *widget.Box
 	netsSec  *widget.Box
@@ -374,8 +374,7 @@ type networkPanel struct {
 func newNetworkPanel(k *kit) *networkPanel {
 	p := &networkPanel{Box: sectionStack(), k: k, status: k.stateBox(), nets: gapBox(widget.Column)}
 	p.AddClass("network-panel")
-	p.problem = k.errorText("")
-	p.problem.SetVisible(false)
+	p.problem = k.inlineState()
 	p.Append(p.problem, false)
 	p.Append(newSection(k, "settings-wifi-section-status", p.status), false)
 	p.eap = newEAPForm(p)
@@ -499,25 +498,26 @@ func (p *networkPanel) run(work func(ctx context.Context) error) {
 }
 
 func (p *networkPanel) fail(err error) {
-	p.problem.SetVisible(err != nil)
 	if err == nil {
+		p.problem.Clear()
 		return
 	}
+	t := locale.T()
 	for sentinel, key := range hiddenProblems {
 		if errors.Is(err, sentinel) {
-			p.problem.SetText(locale.T().Get(key, i18n.Int("max", network.MaxSSIDBytes)))
+			p.problem.Error(t.Get(key, i18n.Int("max", network.MaxSSIDBytes)), nil, nil)
 			return
 		}
 	}
 	if ce, ok := errors.AsType[*network.ConnectError](err); ok {
 		if ce.Failure == network.FailureSuperseded {
-			p.problem.SetVisible(false)
+			p.problem.Clear()
 			return
 		}
-		p.problem.SetText(locale.T().Get("settings-wifi-failed-" + connectFailureKey(ce.Failure)))
+		p.problem.Error(t.Get("settings-wifi-failed-"+connectFailureKey(ce.Failure)), err, nil)
 		return
 	}
-	p.problem.SetText(err.Error())
+	p.problem.Error(t.Get("settings-network-failed"), err, nil)
 }
 
 func connectFailureKey(f network.ConnectFailure) string {
@@ -895,7 +895,7 @@ func (p *networkPanel) editVPN(prof network.Profile) {
 			return
 		}
 		if r.err != nil {
-			p.fail(r.err)
+			p.problem.Error(locale.T().Get("settings-network-vpn-unreadable", i18n.Str("name", prof.ID)), r.err, nil)
 			return
 		}
 		p.fail(nil)

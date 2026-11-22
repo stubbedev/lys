@@ -95,8 +95,8 @@ func TestABrightnessLysShellRefusesIsSaid(t *testing.T) {
 	f := &fakeBrightness{at: map[string]float64{"eDP-1": 60}, setErr: errors.New("logind: access denied")}
 	p := lightPanel(t, f, nil)
 	p.lightSlider.OnCommit(30)
-	if !p.status.Visible() || f.at["eDP-1"] != 60 {
-		t.Errorf("a refused level shows status %v %q, level %v", p.status.Visible(), p.status.Text(), f.at["eDP-1"])
+	if !p.status.Visible() || p.status.Text() != locale.T().Get("settings-displays-brightness-failed") || p.status.detail.Text() != "logind: access denied" || f.at["eDP-1"] != 60 {
+		t.Errorf("a refused level shows status %v %q over %q, level %v", p.status.Visible(), p.status.Text(), p.status.detail.Text(), f.at["eDP-1"])
 	}
 }
 
@@ -155,8 +155,8 @@ func TestTheDisplaysPageSwitchesTheNightLight(t *testing.T) {
 		t.Fatalf("off reads on %v, %q", s.toggle.On(), s.Description())
 	}
 	s.toggle.SetOn(true)
-	if !f.on || s.Description() != locale.T().Get("settings-nightlight-is-on") || s.problem.Visible() {
-		t.Errorf("switching on left the shell's night light on %v, status %q, problem %q", f.on, s.Description(), s.problem.Text())
+	if !f.on || s.Description() != locale.T().Get("settings-nightlight-is-on") || s.status.Visible() {
+		t.Errorf("switching on left the shell's night light on %v, status %q, problem %q", f.on, s.Description(), s.status.Text())
 	}
 }
 
@@ -164,8 +164,8 @@ func TestARefusedNightLightSwitchIsSaid(t *testing.T) {
 	f := &fakeNightlight{setErr: errors.New("access denied")}
 	s := nightSwitch(t, f)
 	s.toggle.SetOn(true)
-	if !s.problem.Visible() || s.toggle.On() {
-		t.Errorf("a refusal shows %q (%v), switch on %v", s.problem.Text(), s.problem.Visible(), s.toggle.On())
+	if s.status.kind != stateError || s.status.Text() != locale.T().Get("settings-nightlight-refused") || s.toggle.On() {
+		t.Errorf("a refusal shows %q (%v), switch on %v", s.status.Text(), s.status.Visible(), s.toggle.On())
 	}
 }
 

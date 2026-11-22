@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/config"
-	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/render"
@@ -112,8 +111,8 @@ func TestALayoutWithoutABarEverywherePreviewsNoBar(t *testing.T) {
 	if bars := treetest.All[*widget.Bar](previews[0]); len(bars) != 0 {
 		t.Error("a layout for DP-1 alone previews a bar on every monitor")
 	}
-	if want := locale.T().Get("settings-bar-preview-none"); !slices.Contains(treetest.Labels(previews[0]), want) {
-		t.Errorf("the preview says %v, want %q", treetest.Labels(previews[0]), want)
+	if st, want := treetest.First[*inlineState](t, previews[0]), locale.T().Get("settings-bar-preview-none"); st.kind != stateEmpty || st.Text() != want {
+		t.Errorf("the preview says %v %q, want %q", st.kind, st.Text(), want)
 	}
 	set(t, k, p, "bar.layout", []any{map[string]any{"monitor": "*", "show": true, "center": []any{"clock"}}})
 	previewedButton(t, previewedBar(t, p), "clock")
@@ -128,8 +127,9 @@ func TestAPreviewWhoseFontDoesNotLoadSaysWhy(t *testing.T) {
 	if len(previews) != 1 || len(treetest.All[*widget.Bar](previews[0])) != 0 {
 		t.Fatal("a bar font that does not load still previews a bar")
 	}
-	if want := locale.T().Get("settings-preview-failed", i18n.Str("reason", err.Error())); !slices.Contains(treetest.Labels(previews[0]), want) {
-		t.Errorf("the preview says %v, want %q", treetest.Labels(previews[0]), want)
+	st := treetest.First[*inlineState](t, previews[0])
+	if want := locale.T().Get("settings-preview-failed"); st.kind != stateError || st.Text() != want || st.detail.Text() != err.Error() || shown(st.detail) {
+		t.Errorf("the preview says %v %q over %q (shown %v), want %q over the font's error", st.kind, st.Text(), st.detail.Text(), shown(st.detail), want)
 	}
 }
 

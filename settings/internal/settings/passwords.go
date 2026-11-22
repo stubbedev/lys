@@ -130,7 +130,7 @@ type passwordsPanel struct {
 	shownTo    int
 	seen       map[dbus.ObjectPath]time.Time
 	now        func() time.Time
-	problem    *widget.Label
+	problem    *inlineState
 	sidebar    *widget.ItemGroup
 	collRows   map[dbus.ObjectPath]*settingRow
 	collTitle  *widget.Label
@@ -153,8 +153,7 @@ type passwordsPanel struct {
 func passwordsKeyring(k *kit) widget.Widget {
 	t := locale.T()
 	p := &passwordsPanel{Box: sectionStack(), k: k, seen: map[dbus.ObjectPath]time.Time{}, now: time.Now}
-	p.problem = k.errorText("")
-	p.problem.SetVisible(false)
+	p.problem = k.inlineState()
 	p.Append(p.problem, false)
 	p.sidebar = widget.NewItemGroup()
 	p.sidebar.AddClass("password-collections")
@@ -319,10 +318,11 @@ func (p *passwordsPanel) unwatch() {
 }
 
 func (p *passwordsPanel) fail(err error) {
-	p.problem.SetVisible(err != nil)
-	if err != nil {
-		p.problem.SetText(err.Error())
+	if err == nil {
+		p.problem.Clear()
+		return
 	}
+	p.problem.Error(locale.T().Get("settings-passwords-failed"), err, nil)
 }
 
 func (p *passwordsPanel) pick(coll dbus.ObjectPath) {

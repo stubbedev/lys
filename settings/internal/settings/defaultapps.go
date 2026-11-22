@@ -133,12 +133,13 @@ func (ix appIndex) currentOf(types []string) (id string, mixed bool) {
 }
 
 type defaultApps struct {
+	*widget.Box
 	k       *kit
 	ix      appIndex
 	cats    *widget.Box
 	types   *widget.Box
 	filter  *widget.SearchEntry
-	problem *widget.Label
+	problem *inlineState
 }
 
 var (
@@ -159,13 +160,11 @@ func withUserAssociations(ix appIndex) indexedApps {
 }
 
 func defaultAppsFooter(k *kit) widget.Widget {
-	d := &defaultApps{k: k}
-	content := sectionStack()
-	d.problem = k.errorText("")
-	d.problem.SetVisible(false)
-	content.Append(d.problem, false)
+	d := &defaultApps{Box: sectionStack(), k: k}
+	d.problem = k.inlineState()
+	d.Append(d.problem, false)
 	d.cats = gapBox(widget.Column)
-	content.Append(newSection(k, "settings-section-default-categories", d.cats), false)
+	d.Append(newSection(k, "settings-section-default-categories", d.cats), false)
 	typesBody := widget.NewBox(widget.Column, 0, 0)
 	d.filter = widget.NewSearchEntry(k.face, k.textPx(), locale.T().Get("settings-default-types-filter"))
 	d.filter.SetDelay(0)
@@ -174,17 +173,18 @@ func defaultAppsFooter(k *kit) widget.Widget {
 	typesBody.Append(newInsetRow(d.filter), false)
 	typesBody.Append(widget.NewSeparator(widget.Horizontal), false)
 	typesBody.Append(d.types, false)
-	content.Append(newSection(k, "settings-section-default-types", typesBody), false)
+	d.Append(newSection(k, "settings-section-default-types", typesBody), false)
 	dirs, lists := desktopentry.ApplicationDirs(), desktopentry.MimeAppsLists()
 	async(k, func() indexedApps { return withUserAssociations(indexApps(dirs, lists, mimeDescriber())) }, d.reread)
-	return content
+	return d
 }
 
 func (d *defaultApps) fail(err error) {
-	d.problem.SetVisible(err != nil)
-	if err != nil {
-		d.problem.SetText(err.Error())
+	if err == nil {
+		d.problem.Clear()
+		return
 	}
+	d.problem.Error(locale.T().Get("settings-default-apps-failed"), err, nil)
 }
 
 func (d *defaultApps) reread(r indexedApps) {

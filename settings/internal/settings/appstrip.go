@@ -6,7 +6,6 @@ import (
 
 	"github.com/stubbedev/lys/desktop/desktopentry"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -33,7 +32,7 @@ type appStrip struct {
 	apps  installedApps
 	ids   []string
 	chips *widget.ChipBox
-	none  *widget.Label
+	none  *inlineState
 	add   *widget.Button
 }
 
@@ -42,7 +41,8 @@ func newAppStrip(k *kit, spec appStripSpec, ids []string, write func([]string)) 
 	c.AddClass(spec.class + "-strip")
 	c.chips = widget.NewChipBox()
 	c.chips.OnMoved = func(_ *widget.ChipBox, from, to int) { c.move(from, to) }
-	c.none = k.label(locale.T().Get(spec.none), spec.class+"-none", css.DimLabel)
+	c.none = k.inlineState()
+	c.none.AddClass(spec.class + "-none")
 	c.add = k.addButton(spec.add, c.pick)
 	c.add.SetVisible(false)
 	c.Append(c.chips, true)
@@ -71,7 +71,11 @@ func (c *appStrip) rebuild() {
 	for _, id := range c.ids {
 		c.chips.Append(c.chip(id))
 	}
-	c.none.SetVisible(len(c.ids) == 0)
+	if len(c.ids) > 0 {
+		c.none.Clear()
+		return
+	}
+	c.none.Empty("", locale.T().Get(c.spec.none))
 }
 
 func (c *appStrip) chip(id string) *widget.Chip {

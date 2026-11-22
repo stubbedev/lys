@@ -122,8 +122,8 @@ func TestAPositionOffTheGlobeIsRefusedAndShown(t *testing.T) {
 	if got := k.store.value("modules.weather.location"); !reflect.DeepEqual(got, before) {
 		t.Errorf("a refused position stored %v", got)
 	}
-	if !p.problem.Visible() || !strings.Contains(p.problem.Text(), "181") {
-		t.Errorf("the refusal shows %v %q", p.problem.Visible(), p.problem.Text())
+	if !p.problem.Visible() || p.problem.Text() != locale.T().Get("settings-location-not-saved") || !strings.Contains(p.problem.detail.Text(), "181") {
+		t.Errorf("the refusal shows %v %q over %q", p.problem.Visible(), p.problem.Text(), p.problem.detail.Text())
 	}
 }
 
@@ -167,8 +167,8 @@ func TestTheNightLightLocationIsAutomaticOrAPickedCity(t *testing.T) {
 func TestWithoutACityListTheCoordinatesStillPinTheLocation(t *testing.T) {
 	k := testKit(t, "")
 	p := newLocationPicker(k, k.store.slot("modules.nightlight.location"), automaticOrPinned, listedPlaces(nil, errNoZoneTable))
-	if !p.notice.Visible() || !strings.Contains(p.notice.Text(), "zone1970.tab") {
-		t.Errorf("the missing list reads %v %q", p.notice.Visible(), p.notice.Text())
+	if !p.notice.Visible() || p.notice.Text() != locale.T().Get("settings-location-no-cities") || !strings.Contains(p.notice.detail.Text(), "zone1970.tab") {
+		t.Errorf("the missing list reads %v %q over %q", p.notice.Visible(), p.notice.Text(), p.notice.detail.Text())
 	}
 	if p.city.Enabled() {
 		t.Error("an empty city list can be opened")

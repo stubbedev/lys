@@ -45,7 +45,7 @@ type monitorChoice struct {
 	special monitorSpecial
 	follow  *widget.Switch
 	picker  *monitorPicker
-	note    *widget.Label
+	note    *inlineState
 	tiles   []monitorTile
 	feed    *tileFeed
 	syncing bool
@@ -64,7 +64,7 @@ func newMonitorChoice(k *kit, s slot, special monitorSpecial) *monitorChoice {
 	}
 	c.picker = newMonitorPicker(k, func(name string) { c.write(name) })
 	c.picker.SetAccessibleName(t.Get("settings-monitors"))
-	c.note = k.note("")
+	c.note = k.inlineState()
 	c.Append(widget.NewItemGroup(k.keyRow(special.key).withControl(c.follow)), false)
 	c.Append(c.picker, false)
 	c.Append(c.note, false)
@@ -112,14 +112,12 @@ func (c *monitorChoice) refresh() {
 	t := locale.T()
 	switch {
 	case following && len(c.tiles) > 0:
-		c.note.SetVisible(false)
+		c.note.Clear()
 	case len(c.tiles) == 0:
-		c.note.SetText(t.Get("settings-monitors-none"))
-		c.note.SetVisible(true)
+		c.note.Empty("ld-monitor-symbolic", t.Get("settings-monitors-none"))
 	case !c.connected(current):
-		c.note.SetText(t.Get("settings-monitor-away", i18n.Str("name", current)))
-		c.note.SetVisible(true)
+		c.note.Unavailable("ld-monitor-symbolic", t.Get("settings-monitor-away", i18n.Str("name", current)), nil)
 	default:
-		c.note.SetVisible(false)
+		c.note.Clear()
 	}
 }

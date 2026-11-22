@@ -165,7 +165,7 @@ func (p *usersPanel) loadFingerprint() {
 			p.noFingerprint(o.err)
 			return
 		}
-		s := newFingerprintSection(p.k, o.fp, o.stages, o.enrolled, p.fail)
+		s := newFingerprintSection(p.k, o.fp, o.stages, o.enrolled, func(err error) { p.say(fingerprintProblem(err), err) })
 		p.fingerprint = s
 		p.Append(newSection(p.k, "settings-section-users-fingerprint", s), false)
 	})
@@ -269,17 +269,18 @@ func (s *fingerprintSection) call(fn func(context.Context) error) {
 		_, err := withTimeout(func(ctx context.Context) (struct{}, error) { return struct{}{}, fn(ctx) })
 		return err
 	}, func(err error) {
-		s.fail(permissionMessage(err))
+		s.fail(err)
 		s.reload()
 	})
 }
 
-func permissionMessage(err error) error {
-	var derr dbus.Error
-	if errors.As(err, &derr) && derr.Name == errPermission {
-		return errors.New(locale.T().Get("settings-fingerprint-denied"))
+// fingerprintProblem is the sentence saying why the reader failed, err
+// itself being the detail under it.
+func fingerprintProblem(err error) string {
+	if derr, ok := errors.AsType[dbus.Error](err); ok && derr.Name == errPermission {
+		return locale.T().Get("settings-fingerprint-denied")
 	}
-	return err
+	return locale.T().Get("settings-fingerprint-reader-failed")
 }
 
 func (s *fingerprintSection) reload() {
@@ -332,7 +333,7 @@ func (s *fingerprintSection) enroll(finger string) {
 		return err
 	}, func(err error) {
 		if err != nil {
-			s.fail(errors.Join(permissionMessage(err), s.unwatch()))
+			s.fail(errors.Join(err, s.unwatch()))
 			s.say("")
 		}
 	})

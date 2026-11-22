@@ -64,7 +64,7 @@ type userSheet struct {
 	user     otherUser
 	full     *widget.Entry
 	kinds    *choicePick
-	messages formNote
+	messages *inlineState
 	busy     bool
 }
 
@@ -80,7 +80,7 @@ func (p *usersPanel) newUserSheet(u otherUser) *userSheet {
 	f.Append(p.k.row(t.Get("settings-users-add-type"), "").withControl(f.kinds), false)
 	f.passwordPair = p.newPasswordPair(f.Box, "settings-users-password-new", "settings-users-password-confirm")
 	f.Append(wrapped(p.k.label(t.Get("settings-users-edit-password-keep"))), false)
-	f.messages = p.k.dialogMessages()
+	f.messages = p.k.inlineState()
 	f.Append(f.messages, false)
 	return f
 }
@@ -129,7 +129,7 @@ func (p *usersPanel) editUser(f *userSheet, done func()) {
 	clear0(password)
 	clear0(repeat)
 	if err != nil {
-		f.messages.say(newAccountProblem(err, f.user.name))
+		sayAccountProblem(f.messages, err, f.user.name, "settings-users-edit-failed")
 		return
 	}
 	user, u := sysService{conn: p.conn, name: accountsName, iface: accountsUser, path: f.user.path}, f.user
@@ -141,7 +141,7 @@ func (p *usersPanel) editUser(f *userSheet, done func()) {
 		f.busy = false
 		p.loadAdmin()
 		if err != nil {
-			f.messages.say(err.Error())
+			f.messages.Error(locale.T().Get("settings-users-edit-failed"), err, nil)
 			return
 		}
 		f.clear()

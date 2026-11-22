@@ -89,8 +89,9 @@ func drawLockOnScreen(k *kit, cfg *config.Config, font render.Font, bg *lockBack
 	widgets.Pin(screen, 0, lockPreviewScreenH)
 	column := widget.NewBox(widget.Column, widget.Current().Spacing, 0)
 	column.Append(overflowing(screen), false)
-	if note := shown.note(cfg.Login.Background); note != "" {
-		column.Append(k.note(note, "settings-preview-state"), false)
+	note := previewState(k)
+	if shown.say(note, cfg.Login.Background) {
+		column.Append(note, false)
 	}
 	return column
 }
@@ -170,20 +171,24 @@ type lockBackdropShowing struct {
 	err      error
 }
 
-func (s lockBackdropShowing) note(bg config.Background) string {
+// say says in note what the preview's background is short of under bg,
+// and reports whether there is anything to say.
+func (s lockBackdropShowing) say(note *inlineState, bg config.Background) bool {
 	t := locale.T()
 	switch s.state {
 	case lockBackdropLoading:
-		return t.Get("settings-lock-preview-loading")
+		note.Loading(t.Get("settings-lock-preview-loading"))
 	case lockBackdropFailed:
-		return t.Get("settings-lock-preview-unreadable", i18n.Str("path", s.path), i18n.Str("reason", s.err.Error()))
+		note.Unavailable("ld-image-symbolic", t.Get("settings-lock-preview-unreadable", i18n.Str("path", s.path)), s.err)
 	case lockBackdropNone:
-		if bg.Mode != config.BackgroundColor {
-			return t.Get("settings-lock-preview-no-image")
+		if bg.Mode == config.BackgroundColor {
+			return false
 		}
+		note.Empty("ld-image-symbolic", t.Get("settings-lock-preview-no-image"))
 	case lockBackdropShown:
+		return false
 	}
-	return ""
+	return true
 }
 
 // lockBackdrop is the one lock screen background the window's previews

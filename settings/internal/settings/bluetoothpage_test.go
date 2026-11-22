@@ -177,8 +177,8 @@ func TestARefusedPairingSaysSo(t *testing.T) {
 	}
 	f.pairErr = errors.New("bluetooth: cannot pair: something new")
 	clickText(t, p.nearby, locale.T().Get("settings-bluetooth-pair"), 0)
-	if p.problem.Text() != f.pairErr.Error() {
-		t.Errorf("an unknown failure reads %q, want BlueZ's own words", p.problem.Text())
+	if p.problem.Text() != locale.T().Get("settings-bluetooth-failed") || p.problem.detail.Text() != f.pairErr.Error() {
+		t.Errorf("an unknown failure reads %q over %q, want the app's sentence over BlueZ's own words", p.problem.Text(), p.problem.detail.Text())
 	}
 }
 

@@ -87,7 +87,7 @@ type displaysPanel struct {
 	addVirtual  *widget.Button
 	virtual     []string
 	apply       *widget.Button
-	status      *widget.Label
+	status      *inlineState
 	confirm     *confirmation
 	identified  []func()
 	light       displayLight
@@ -115,8 +115,7 @@ type confirmBox struct {
 func displaysLead(k *kit) widget.Widget {
 	t := locale.T()
 	p := &displaysPanel{Box: sectionStack(), k: k, primaryAt: -1}
-	p.status = wrapped(k.label("", css.Caption))
-	p.status.SetVisible(false)
+	p.status = k.inlineState()
 	p.canvas = newDisplaysCanvas(p)
 	p.canvas.SetAccessibleName(t.Get("settings-displays-arrangement"))
 	p.state = k.cardState()
@@ -247,12 +246,11 @@ func (p *displaysPanel) close() {
 	}
 }
 
-func (p *displaysPanel) say(text string) {
-	if text != "" {
-		log.Printf("settings: displays: %s", text)
-	}
-	p.status.SetText(text)
-	p.status.SetVisible(text != "")
+// fail says why the arrangement's last action failed: the message key's
+// sentence, over err.
+func (p *displaysPanel) fail(key string, err error) {
+	log.Printf("settings: displays: %v", err)
+	p.status.Error(locale.T().Get(key), err, nil)
 }
 
 func (p *displaysPanel) showHeads(heads []displays.Head) {
@@ -396,7 +394,7 @@ func (p *displaysPanel) edit(change func(*displays.Setting), relayout bool) {
 	if relayout {
 		p.settle(p.selected)
 	}
-	p.say("")
+	p.status.Clear()
 	p.render()
 }
 
@@ -415,11 +413,11 @@ func (p *displaysPanel) setEnabled(on bool) {
 func (p *displaysPanel) makePrimary() {
 	w, err := p.k.wmBackend()
 	if err != nil {
-		p.say(err.Error())
+		p.fail("settings-wm-unreadable", err)
 		return
 	}
 	if err := w.edit(wmconfig.Edit{Path: []string{primaryPath}, Value: displays.Match(p.heads[p.selected])}); err != nil {
-		p.say(err.Error())
+		p.fail("settings-displays-save-failed", err)
 	}
 	p.render()
 }
@@ -503,7 +501,7 @@ func (p *displaysPanel) place(index []int, rects []displays.Rect) {
 
 func (p *displaysPanel) moved(index []int, rects []displays.Rect) {
 	p.place(index, rects)
-	p.say("")
+	p.status.Clear()
 	p.render()
 }
 
@@ -531,7 +529,7 @@ func (p *displaysPanel) applyLayout() {
 	mgr, settings := p.mgr, slices.Clone(p.draft)
 	previous, heads := displays.Settings(p.heads), slices.Clone(p.heads)
 	p.apply.SetEnabled(false)
-	p.say(t.Get("settings-displays-testing"))
+	p.status.Loading(t.Get("settings-displays-testing"))
 	async(p.k, func() error {
 		if err := mgr.Test(settings); err != nil {
 			return err
@@ -541,13 +539,13 @@ func (p *displaysPanel) applyLayout() {
 		switch {
 		case p.closed:
 		case errors.Is(err, displays.ErrRefused):
-			p.say(t.Get("settings-displays-refused"))
+			p.fail("settings-displays-refused", err)
 			p.render()
 		case err != nil:
-			p.say(err.Error())
+			p.fail("settings-displays-apply-failed", err)
 			p.render()
 		default:
-			p.say("")
+			p.status.Clear()
 			p.startConfirm(previous, settings, heads)
 		}
 	})
@@ -634,12 +632,12 @@ func (p *displaysPanel) keepLayout() {
 	}
 	w, err := p.k.wmBackend()
 	if err != nil {
-		p.say(err.Error())
+		p.fail("settings-wm-unreadable", err)
 		return
 	}
 	existing, _ := w.value(outputsPath).([]any)
 	if err := w.edit(wmconfig.Edit{Path: []string{outputsPath}, Value: displays.Rules(existing, c.heads, c.applied)}); err != nil {
-		p.say(err.Error())
+		p.fail("settings-displays-save-failed", err)
 	}
 	p.showHeads(p.heads)
 }
@@ -655,7 +653,7 @@ func (p *displaysPanel) revertLayout() {
 	}
 	async(p.k, func() error { return mgr.Apply(c.previous) }, func(err error) {
 		if err != nil && !p.closed {
-			p.say(err.Error())
+			p.fail("settings-displays-revert-failed", err)
 		}
 		p.showHeads(p.heads)
 	})
@@ -690,7 +688,7 @@ func (p *displaysPanel) showExtraRows() {
 	}
 	w, err := p.k.wmBackend()
 	if err != nil {
-		p.say(err.Error())
+		p.fail("settings-wm-unreadable", err)
 		return
 	}
 	h := p.heads[p.selected]
