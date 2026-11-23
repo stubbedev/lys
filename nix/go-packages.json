@@ -186,8 +186,6 @@
       "lib/xdg"
     ],
     "external": [
-      "bufio",
-      "bytes",
       "context",
       "errors",
       "fmt",
@@ -6050,10 +6048,10 @@
       "power/internal/supply"
     ],
     "external": [
-      "bufio",
       "bytes",
       "errors",
       "fmt",
+      "golang.org/x/sys/unix",
       "io",
       "io/fs",
       "os",
@@ -9258,6 +9256,7 @@
       "shell/internal/notifytest"
     ],
     "testExternal": [
+      "net",
       "os/exec",
       "testing"
     ]
@@ -9278,8 +9277,7 @@
       "slices",
       "sort",
       "strconv",
-      "strings",
-      "sync"
+      "strings"
     ],
     "testImports": [
       "lib/waittest"
@@ -14614,6 +14612,7 @@
       "wm/internal/render/soft"
     ],
     "testExternal": [
+      "bytes",
       "testing"
     ]
   },
