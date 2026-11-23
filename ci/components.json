@@ -29,6 +29,7 @@
       "paths": ["docs/ui/css.md"],
       "gates": ["fmt-check", "vet", "lint", "no-fused", "test", "build", "test-lysdebug", "atspi", "atspi-verify"],
       "race": true,
+      "shards": [["./clienttest", "./app"]],
       "jobs": [
         {
           "name": "GPU and headless",
@@ -145,7 +146,8 @@
       ["lib:race", "power"],
       ["wm/3:race"],
       ["lib:gates"],
-      ["ui:gates"],
+      ["ui/1:gates"],
+      ["ui/2:gates"],
       ["ui:race", "login:race"],
       ["settings:gates", "desktop"],
       ["wm:gates", "splash", "polkit"],

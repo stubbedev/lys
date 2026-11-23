@@ -222,8 +222,10 @@ first runners. The jobs on the builds:
      when a package is added. The parts reach the recipe as
      `$LYS_TEST_PACKAGES`, which the `test` and `race` recipes of a sharded
      component test instead of `./...`. wm splits only its race suite
-     (`wm/3:race`, the harness, takes about eight minutes alone) and shell both
-     suites; `ci/affected`'s tests fail when a shard names a directory without
+     (`wm/3:race`, the harness, takes about eight minutes alone), ui only its
+     test gate (`ui/1`, the client and app tests, so the part with lint, vet,
+     no-fused and the lysdebug suite keeps a margin under ten minutes), and shell
+     both suites; `ci/affected`'s tests fail when a shard names a directory without
      tests or a sharded recipe ignores `$LYS_TEST_PACKAGES`.
    - Each Go job restores the newest Go build cache it saved, by its job id,
      and saves it at the end whether it passed, failed or timed out, under a
