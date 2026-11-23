@@ -64,7 +64,8 @@ const (
 // Store is the notification history on disk, a sqlite file, so the
 // history survives a restart.
 type Store struct {
-	db *sql.DB
+	db            *sql.DB
+	insert, prune *sql.Stmt
 }
 
 // StorePath is notifications.db in lys-shell's data directory,
@@ -93,11 +94,22 @@ func OpenStore(path string) (*Store, error) {
 		_ = db.Close()
 		return nil, fmt.Errorf("notification store %s: %w", path, err)
 	}
-	return &Store{db: db}, nil
+	st := &Store{db: db}
+	if st.insert, err = db.Prepare(insertSQL); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("notification store %s: %w", path, err)
+	}
+	if st.prune, err = db.Prepare(pruneSQL); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("notification store %s: %w", path, err)
+	}
+	return st, nil
 }
 
-// Close releases the database.
-func (st *Store) Close() error { return st.db.Close() }
+// Close releases the statements and the database.
+func (st *Store) Close() error {
+	return errors.Join(st.insert.Close(), st.prune.Close(), st.db.Close())
+}
 
 // Add stores or replaces one notification (INSERT OR REPLACE by id)
 // and, in the same transaction, drops the prune oldest rows the
@@ -120,14 +132,14 @@ func (st *Store) Add(n *Notification, prune int) error {
 		return fmt.Errorf("storing notification %d: %w", n.ID, err)
 	}
 	defer func() { _ = tx.Rollback() }()
-	if _, err := tx.Exec(insertSQL,
+	if _, err := tx.Stmt(st.insert).Exec(
 		n.ID, nullString(n.AppName), nullID(n.ReplacesID), nullString(n.AppIcon), n.Summary,
 		nullString(n.Body), string(actionsJSON), hintsJSON, nullTimeout(n.ExpireMS),
 		n.Added.UnixMilli(), nullString(n.ImagePath)); err != nil {
 		return fmt.Errorf("storing notification %d: %w", n.ID, err)
 	}
 	if prune > 0 {
-		if _, err := tx.Exec(pruneSQL, prune); err != nil {
+		if _, err := tx.Stmt(st.prune).Exec(prune); err != nil {
 			return fmt.Errorf("pruning %d past notification %d: %w", prune, n.ID, err)
 		}
 	}
@@ -176,7 +188,7 @@ func (st *Store) RemoveAll() error {
 // each its own transaction, reporting how many it deleted.
 func (st *Store) Prune(n int) (int, error) {
 	return st.deleteBatched(fmt.Sprintf("pruning the %d oldest notifications", n), n, func(limit int) (sql.Result, error) {
-		return st.db.Exec(pruneSQL, limit)
+		return st.prune.Exec(limit)
 	})
 }
 
