@@ -643,3 +643,59 @@ func TestBalancedColumns(t *testing.T) {
 		}
 	}
 }
+
+// Every picture card on the Theme page, the theme presets with the
+// Appearance and Theme Provider cards, is one size at every window width.
+func TestThemeCardsShareOneSizeWithThePictureCards(t *testing.T) {
+	for _, w := range []int{1400, 760} {
+		win := laidOutPage(t, "", "theme", w)
+		sizes := map[widget.Size][]string{}
+		presets := 0
+		for _, c := range treetest.All[*choiceCards](win.page) {
+			if c.Bounds().Empty() {
+				continue
+			}
+			if c.HasClass("theme-cards") {
+				presets++
+			}
+			for _, card := range c.cards {
+				b := card.Bounds()
+				sz := widget.Size{W: b.W, H: b.H}
+				sizes[sz] = append(sizes[sz], card.label)
+			}
+		}
+		if presets != 1 {
+			t.Fatalf("at %dpx the Theme page shows %d theme preset rows", w, presets)
+		}
+		if len(sizes) != 1 {
+			t.Errorf("at %dpx the Theme page's picture cards differ in size: %v", w, sizes)
+		}
+		if _, ok := sizes[widget.Size{W: choiceCardW, H: choiceCardH}]; !ok {
+			t.Errorf("at %dpx no picture card is %dx%d: %v", w, choiceCardW, choiceCardH, sizes)
+		}
+	}
+}
+
+// Picture cards choose their per-line count as part of the layout: a
+// layout at any width, back and forth, leaves no layout pending above
+// them.
+func TestPictureCardsChooseTheirLinesWithoutAnotherLayout(t *testing.T) {
+	k := testKit(t, "")
+	c := fieldControl(k, k.store, field("styling.theme-provider", pictureChoice(themeProviderPictures))).(*choiceCards)
+	root := widget.NewBox(widget.Column, 0, 0)
+	root.Append(c, false)
+	wide, narrow := 5*choiceCardW+4*choiceCardGap, 3*choiceCardW+2*choiceCardGap
+	for _, step := range []struct {
+		w     int
+		lines []int
+	}{{wide, []int{5}}, {narrow, []int{3, 2}}, {wide, []int{5}}, {narrow, []int{3, 2}}} {
+		widget.SizeWithin(root, widget.Size{W: step.w, H: 400})
+		root.Arrange(render.Rect{W: step.w, H: 400})
+		if widget.LayoutPending(root) {
+			t.Errorf("at %dpx the cards left a layout pending", step.w)
+		}
+		if got := cardLines(c); !slices.Equal(got, step.lines) {
+			t.Errorf("at %dpx the cards lie %v to a line, want %v", step.w, got, step.lines)
+		}
+	}
+}

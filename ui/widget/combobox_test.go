@@ -246,6 +246,35 @@ func TestComboboxGroupsAndDetails(t *testing.T) {
 	}
 }
 
+// An unheaded run stays where it stands: options without a group after a
+// headed one list after it, not gathered into the unheaded run before it.
+func TestComboboxUnheadedRunsStayInPlace(t *testing.T) {
+	c, host := newTestComboboxEntry(t,
+		ComboboxOption[string]{Value: "auto", Label: "Automatic"},
+		ComboboxOption[string]{Value: "gone", Label: "gone", Group: "Not found"},
+		ComboboxOption[string]{Value: "a", Label: "Alpha"},
+		ComboboxOption[string]{Value: "b", Label: "Beta"},
+		ComboboxOption[string]{Value: "lost", Label: "lost", Group: "Not found"},
+	)
+	c.Open()
+	cmd := openedCommand(host)
+	var headings []string
+	for _, h := range cmd.headings {
+		headings = append(headings, h.Text())
+	}
+	if !slices.Equal(headings, []string{"", "Not found", ""}) {
+		t.Fatalf("headings %q", headings)
+	}
+	var rows []string
+	var groups []int
+	for _, r := range cmd.rows {
+		rows, groups = append(rows, r.item.Label), append(groups, r.group)
+	}
+	if !slices.Equal(rows, []string{"Automatic", "gone", "lost", "Alpha", "Beta"}) || !slices.Equal(groups, []int{0, 1, 1, 2, 2}) {
+		t.Errorf("the rows list %q in groups %v", rows, groups)
+	}
+}
+
 // treeLabels are the texts of the labels under w.
 func treeLabels(w Widget) []string {
 	var out []string

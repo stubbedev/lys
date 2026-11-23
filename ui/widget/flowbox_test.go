@@ -378,3 +378,67 @@ func TestListBoxRevealsASelectionMadeBeforeLayout(t *testing.T) {
 		t.Errorf("row 25 at %v outside the viewport after the first layout", l.RowAt(25).Bounds())
 	}
 }
+
+// A per-line cap that follows the width is part of the layout: each
+// width wraps at its own cap, a layout measures the box no more often
+// than one under a fixed cap, and laying out again at a width already
+// measured measures nothing and leaves no layout pending.
+func TestFlowBoxCapForTheWidthMeasuresOnce(t *testing.T) {
+	const wide, narrow = 400, 200
+	flow := func() (*Box, *FlowBox) {
+		f := NewFlowBox(4, 6)
+		for _, l := range flowLeaves(6) {
+			f.Append(l)
+		}
+		root := NewBox(Column, 0, 0)
+		root.Append(f, false)
+		return root, f
+	}
+	layOut := func(root *Box, w int) {
+		SizeWithin(root, Size{W: w, H: 400})
+		root.Arrange(render.Rect{W: w, H: 400})
+	}
+	fixedRoot, fixed := flow()
+	fixed.SetMaxChildrenPerLine(3)
+	layOut(fixedRoot, wide)
+	root, f := flow()
+	var asked []int
+	f.SetMaxChildrenPerLineFor(func(width int) int {
+		asked = append(asked, width)
+		if width >= wide {
+			return 3
+		}
+		return 2
+	})
+	layOut(root, wide)
+	if got, want := f.measureMissCount(), fixed.measureMissCount(); got != want {
+		t.Errorf("the first layout measured the box %d times, a fixed cap %d", got, want)
+	}
+	if !slices.Contains(asked, wide) {
+		t.Errorf("the cap was asked for %v, never the arranged %d", asked, wide)
+	}
+	leafY := func(i int) int { return f.ChildAt(i).Child().(*solidLeaf).bounds.Y }
+	if leafY(2) != 0 || leafY(3) == 0 {
+		t.Error("400px wide did not wrap at three a line")
+	}
+	layOut(root, narrow)
+	if leafY(1) != 0 || leafY(2) == 0 {
+		t.Error("200px wide did not wrap at two a line")
+	}
+	for _, w := range []int{wide, narrow} {
+		misses := f.measureMissCount()
+		layOut(root, w)
+		if n := f.measureMissCount() - misses; n != 0 {
+			t.Errorf("laying out again at %dpx measured the box %d times", w, n)
+		}
+		if LayoutPending(root) {
+			t.Errorf("laying out at %dpx left a layout pending", w)
+		}
+	}
+	f.SetMaxChildrenPerLine(7)
+	asked = nil
+	SizeWithin(f, Size{W: wide, H: 400})
+	if asked != nil {
+		t.Errorf("a fixed cap still asks the width cap: %v", asked)
+	}
+}

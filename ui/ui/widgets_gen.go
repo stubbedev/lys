@@ -4306,6 +4306,12 @@ func (b *FlowBoxBuilder) WatchMaxChildrenPerLine(get func() int) *FlowBoxBuilder
 	return b
 }
 
+// MaxChildrenPerLineFor calls (*widget.FlowBox).SetMaxChildrenPerLineFor.
+func (b *FlowBoxBuilder) MaxChildrenPerLineFor(perLine func(width int) int) *FlowBoxBuilder {
+	b.do(func(s *Scope, w *widget.FlowBox) { w.SetMaxChildrenPerLineFor(perLine) })
+	return b
+}
+
 // SingleClickActivate calls (*widget.FlowBox).SetSingleClickActivate.
 func (b *FlowBoxBuilder) SingleClickActivate(on bool) *FlowBoxBuilder {
 	b.do(func(s *Scope, w *widget.FlowBox) { w.SetSingleClickActivate(on) })

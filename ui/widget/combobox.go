@@ -13,8 +13,8 @@ import (
 // ComboboxOption is one choice of a Combobox or a ComboboxEntry: the
 // typed value it picks, the label it shows and is searched by, the
 // detail shown dim at its row's end and searched too ("" for none), and
-// the group it lists under, headed by the group's name ("" for the
-// unheaded run).
+// the group it lists under, headed by the group's name ("" for an
+// unheaded run, which stays where it stands among the options).
 type ComboboxOption[T comparable] struct {
 	Value  T
 	Label  string
@@ -29,9 +29,9 @@ const comboboxWidth = 200
 const comboboxSearch = "Search..."
 
 // comboboxList is the popover list a combobox opens: a Command of its
-// options under a search entry, the options grouped by their Group in
-// the order each group first appears, a check trailing each option the
-// combobox holds.
+// options under a search entry, the options of a headed Group gathered
+// under it where the group first appears and each run of unheaded ones
+// left in place, a check trailing each option the combobox holds.
 type comboboxList struct {
 	face   render.Font
 	search string
@@ -56,7 +56,7 @@ func openComboboxList[T comparable](l *comboboxList, from Widget, anchor Boundse
 			trailing.AppendAligned(check, false, AlignCenter)
 			item.Trailing, item.Keywords = trailing, []string{o.Detail}
 		}
-		at := slices.IndexFunc(groups, func(g CommandGroup) bool { return g.Heading == o.Group })
+		at := comboboxGroup(groups, o.Group)
 		if at < 0 {
 			at = len(groups)
 			groups = append(groups, CommandGroup{Heading: o.Group})
@@ -66,6 +66,19 @@ func openComboboxList[T comparable](l *comboboxList, from Widget, anchor Boundse
 	list := NewCommand(l.face, l.search, groups...)
 	list.SetSizeRequest(max(comboboxWidth, width), 0)
 	l.close = OpenPopover(from, anchor, list, PopoverOptions{Focus: list.FocusTarget(), Gap: PopoverGap, OnClosed: func() { l.close = nil }})
+}
+
+// comboboxGroup is the index of the group an option of heading joins:
+// the headed group of that name, or the unheaded run the list ends in;
+// -1 when it starts a group of its own.
+func comboboxGroup(groups []CommandGroup, heading string) int {
+	if heading != "" {
+		return slices.IndexFunc(groups, func(g CommandGroup) bool { return g.Heading == heading })
+	}
+	if last := len(groups) - 1; last >= 0 && groups[last].Heading == "" {
+		return last
+	}
+	return -1
 }
 
 // check shows on the check of each option checked holds, by index.

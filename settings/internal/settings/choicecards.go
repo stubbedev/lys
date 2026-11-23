@@ -30,7 +30,6 @@ type choiceCards struct {
 	slot    slot
 	cards   []*choiceCard
 	current string
-	cardW   int
 }
 
 type choiceCard struct {
@@ -48,7 +47,8 @@ func newChoiceCards(k *kit, s slot, meta config.FieldMeta, pictures map[string]p
 }
 
 func newCards(k *kit, s slot, values, labels []string, pictures map[string]picture) *choiceCards {
-	c := &choiceCards{FlowBox: widget.NewWrapBox(choiceCardGap, choiceCardGap, widget.JustifyStart), slot: s, cardW: choiceCardW}
+	c := &choiceCards{FlowBox: widget.NewWrapBox(choiceCardGap, choiceCardGap, widget.JustifyStart), slot: s}
+	c.SetMaxChildrenPerLineFor(c.perLine)
 	c.AddClass("choice-cards")
 	for i, v := range values {
 		card := &choiceCard{k: k, owner: c, value: v, label: labels[i], pic: pictures[v]}
@@ -65,25 +65,14 @@ func newCards(k *kit, s slot, values, labels []string, pictures map[string]pictu
 	return c
 }
 
-// Measure balances the lines for the width given before the cards wrap
-// in it (balance).
-func (c *choiceCards) Measure(axis widget.Axis, forSize int) widget.Sizes {
-	if axis == widget.Column && forSize != widget.Unknown {
-		c.balance(forSize)
+// perLine is the cards a line of width holds, balanced so that no line
+// holds a single card while another holds several (balancedColumns).
+func (c *choiceCards) perLine(width int) int {
+	fit := 0
+	if width >= choiceCardW {
+		fit = 1 + (width-choiceCardW)/(choiceCardW+choiceCardGap)
 	}
-	return c.FlowBox.Measure(axis, forSize)
-}
-
-// Arrange balances the lines for the width given, then wraps the cards.
-func (c *choiceCards) Arrange(r render.Rect) {
-	c.balance(r.W)
-	c.FlowBox.Arrange(r)
-}
-
-// balance caps the cards a line of width holds so that no line holds a
-// single card while another holds several (balancedColumns).
-func (c *choiceCards) balance(width int) {
-	c.SetMaxChildrenPerLine(balancedColumns(len(c.cards), (width+choiceCardGap)/(c.cardW+choiceCardGap)))
+	return balancedColumns(len(c.cards), fit)
 }
 
 // balancedColumns is how many of n cards a line holds when fit fit on
@@ -123,7 +112,7 @@ func (c *choiceCards) choose(value string) {
 
 func (c *choiceCard) Measure(axis widget.Axis, _ int) widget.Sizes {
 	if axis == widget.Row {
-		return widget.FixedSizes(c.owner.cardW)
+		return widget.FixedSizes(choiceCardW)
 	}
 	return widget.FixedSizes(choiceCardH)
 }

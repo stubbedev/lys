@@ -236,6 +236,35 @@ func TestAValueOutsideTheListIsKeptAndMarkedUnknown(t *testing.T) {
 	}
 }
 
+// A kept value lists under its heading directly after the special values,
+// ahead of the listed ones.
+func TestAKeptValueListsDirectlyAfterTheSpecialValues(t *testing.T) {
+	k := testKit(t, "")
+	const path = "modules.netstat.interface"
+	if err := k.store.set(path, "ppp9"); err != nil {
+		t.Fatal(err)
+	}
+	c := shellControl(t, k, path).(*choiceEditor)
+	p := openChoices(t, k, c)
+	labels := treetest.Labels(p.cmd)
+	order := []string{specialLabel("auto"), locale.T().Get("settings-choice-unknown"), "ppp9", "eth0", "wlan0"}
+	at := make([]int, len(order))
+	for i, l := range order {
+		at[i] = slices.Index(labels, l)
+	}
+	if slices.Contains(at, -1) || !slices.IsSorted(at) {
+		t.Errorf("the list reads %q, want %q in that order", labels, order)
+	}
+	if err := k.store.set(path, "eth0"); err != nil {
+		t.Fatal(err)
+	}
+	c.refresh()
+	p = openChoices(t, k, c)
+	if labels := treetest.Labels(p.cmd); slices.Contains(labels, "ppp9") || slices.Contains(labels, locale.T().Get("settings-choice-unknown")) {
+		t.Errorf("a listed value still shows a kept one: %q", labels)
+	}
+}
+
 func TestAnEmptyListStillKeepsTypesAndClears(t *testing.T) {
 	k := testKit(t, "")
 	systemLists["IconTheme"] = func() []choice { return nil }

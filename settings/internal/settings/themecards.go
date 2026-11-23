@@ -13,8 +13,6 @@ import (
 	"github.com/stubbedev/lys/lib/render"
 )
 
-const themeCardW = 152
-
 // paletteKeys are the [styling.palette] keys a theme sets, in the
 // palette's order.
 var paletteKeys = []string{"bg", "surface", "elevated", "fg", "fg-muted", "primary", "red", "yellow", "green", "blue"}
@@ -115,7 +113,6 @@ func themeCards(k *kit) *choiceCards {
 		},
 		unset: func() {},
 	}, names, titles, pictures)
-	c.cardW = themeCardW
 	c.AddClass("theme-cards")
 	return c
 }

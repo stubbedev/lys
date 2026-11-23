@@ -30,6 +30,9 @@ type FlowBox struct {
 	kids                   []*FlowBoxChild
 	colSpacing, rowSpacing int
 	maxPerLine             int
+	// perLine, when set, is the cap of a line within a width, in place
+	// of maxPerLine.
+	perLine func(width int) int
 	// justify distributes each line's leftover width (WrapBox).
 	justify Justify
 	// arranged is the last Arrange's lines, the keyboard's geometry.
@@ -187,10 +190,27 @@ func (f *FlowBox) childClick(i int) {
 // SetMaxChildrenPerLine caps a line's children (GTK's
 // max-children-per-line, 7 by default); below 1 it acts as 1.
 func (f *FlowBox) SetMaxChildrenPerLine(n int) {
-	if f.maxPerLine != n {
-		f.maxPerLine = n
+	if f.maxPerLine != n || f.perLine != nil {
+		f.maxPerLine, f.perLine = n, nil
 		f.InvalidateLayout()
 	}
+}
+
+// SetMaxChildrenPerLineFor caps a line's children by the width the box
+// lays out in: perLine(width) for every measure and arrange at width,
+// below 1 acting as 1, so a cap that follows the width is part of the
+// layout rather than a change to it.
+func (f *FlowBox) SetMaxChildrenPerLineFor(perLine func(width int) int) {
+	f.perLine = perLine
+	f.InvalidateLayout()
+}
+
+// lineCap is the most children a line within width holds.
+func (f *FlowBox) lineCap(width int) int {
+	if f.perLine != nil {
+		return f.perLine(width)
+	}
+	return f.maxPerLine
 }
 
 // Append adds w at the end, returning its FlowBoxChild.
@@ -286,13 +306,13 @@ func (f *FlowBox) Children() []Widget {
 func (f *FlowBox) lines(width int) [][]int {
 	var out [][]int
 	var line []int
-	used := 0
+	used, perLine := 0, f.lineCap(width)
 	for i, c := range f.kids {
 		if !IsVisible(c) {
 			continue
 		}
 		w := c.nat.W
-		if len(line) > 0 && (len(line) >= f.maxPerLine || used+f.colSpacing+w > width) {
+		if len(line) > 0 && (len(line) >= perLine || used+f.colSpacing+w > width) {
 			out = append(out, line)
 			line, used = nil, 0
 		}
