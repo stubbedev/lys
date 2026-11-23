@@ -123,5 +123,5 @@ func WorldClockFailure(err error) string {
 	if layout, ok := errors.AsType[badLayoutError](err); ok {
 		return i18n.T("bar-world-clock-invalid-layout", i18n.Str("layout", layout.layout))
 	}
-	return i18n.T("bar-world-clock-invalid-format", i18n.Str("error", err.Error()))
+	return i18n.T("bar-world-clock-invalid-format")
 }

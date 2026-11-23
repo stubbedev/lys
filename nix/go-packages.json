@@ -311,6 +311,7 @@
       "sync"
     ],
     "testExternal": [
+      "regexp",
       "testing",
       "testing/fstest"
     ]
@@ -2278,6 +2279,7 @@
       "net",
       "path/filepath",
       "runtime",
+      "sync/atomic",
       "syscall",
       "testing"
     ]
@@ -3593,6 +3595,7 @@
     ],
     "external": [
       "bytes",
+      "cmp",
       "embed",
       "encoding/binary",
       "encoding/xml",
@@ -6864,6 +6867,8 @@
       "settings/internal/locale/locales"
     ],
     "testExternal": [
+      "regexp",
+      "slices",
       "strings",
       "testing"
     ]
@@ -7047,6 +7052,9 @@
     ],
     "testExternal": [
       "encoding/json",
+      "go/ast",
+      "go/parser",
+      "go/token",
       "golang.org/x/image/font/gofont/goregular",
       "golang.org/x/sys/unix",
       "image/color",
@@ -7458,7 +7466,6 @@
     "testImports": [
       "lib/dbustest",
       "lib/testhome",
-      "lib/waittest",
       "shell/internal/notifytest"
     ],
     "testExternal": [
@@ -7691,6 +7698,20 @@
     "testExternal": [
       "testing",
       "time"
+    ]
+  },
+  "shell/internal/rawerrors": {
+    "testExternal": [
+      "go/ast",
+      "go/parser",
+      "go/token",
+      "io/fs",
+      "os",
+      "path/filepath",
+      "regexp",
+      "slices",
+      "strings",
+      "testing"
     ]
   },
   "shell/internal/runtimesock": {
@@ -8174,6 +8195,7 @@
     ],
     "external": [
       "context",
+      "sync/atomic",
       "time"
     ],
     "testImports": [
@@ -8539,6 +8561,7 @@
       "desktop/opener/openertest",
       "desktop/service/clipboard/historybudget",
       "lib/fdtest",
+      "lib/logtest",
       "lib/sockdir",
       "shell/service/launcher/launchertest"
     ],
@@ -9833,6 +9856,7 @@
       "desktop/shell/apptheme",
       "desktop/shell/treetest",
       "lib/capture",
+      "lib/logtest",
       "lib/motion",
       "lib/testhome",
       "lib/waittest",
@@ -9886,7 +9910,6 @@
       "ui/widget"
     ],
     "external": [
-      "fmt",
       "image",
       "log",
       "math",
