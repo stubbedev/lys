@@ -10,7 +10,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 
 	"golang.org/x/sys/unix"
 )
@@ -208,8 +207,8 @@ type CPUReader struct {
 	prev CPUStat
 	// spare is the older counters' storage, for the next read.
 	spare []CPUTimes
-	// frequencyPaths are the cores' cpufreq attributes, built once.
-	frequencyPaths []string
+	// frequencies are the cores' cpufreq attributes, held open.
+	frequencies []keptAttr
 	// sensorPath is the input the last lookup settled on: scanning hwmon
 	// costs hundreds of syscalls, so only a failed read scans again.
 	sensorPath string
@@ -223,7 +222,12 @@ type CPUReader struct {
 }
 
 // Close releases what the reader keeps open; a later Read opens it again.
-func (r *CPUReader) Close() { r.stat.Close() }
+func (r *CPUReader) Close() {
+	r.stat.Close()
+	for i := range r.frequencies {
+		r.frequencies[i].Close()
+	}
+}
 
 // Read samples the counters, frequencies, and temperature.
 func (r *CPUReader) Read() (CPU, error) {
@@ -235,7 +239,7 @@ func (r *CPUReader) Read() (CPU, error) {
 		return CPU{}, err
 	}
 	out := CPU{UsagePercent: Usage(r.prev.Global, stat.Global), Cores: make([]Core, 0, len(stat.Cores))}
-	cpuinfo := sync.OnceValue(cpuinfoMHz)
+	var cpuinfo lazyMHz
 	var sum uint64
 	busiest := -1
 	for i, cur := range stat.Cores {
@@ -245,7 +249,7 @@ func (r *CPUReader) Read() (CPU, error) {
 		}
 		core := Core{UsagePercent: Usage(prev, cur)}
 		if !r.OmitFrequency {
-			core.FrequencyMHz = frequencyMHz(r.frequencyPath(i), cpuinfo)
+			core.FrequencyMHz = r.frequencyMHz(i, &cpuinfo)
 		}
 		out.Cores = append(out.Cores, core)
 		sum += core.FrequencyMHz
@@ -266,11 +270,27 @@ func (r *CPUReader) Read() (CPU, error) {
 	return out, nil
 }
 
-func (r *CPUReader) frequencyPath(core int) string {
-	for len(r.frequencyPaths) <= core {
-		r.frequencyPaths = append(r.frequencyPaths, coreFrequencyPath(len(r.frequencyPaths)))
+func (r *CPUReader) frequencyMHz(core int, cpuinfo *lazyMHz) uint64 {
+	for len(r.frequencies) <= core {
+		r.frequencies = append(r.frequencies, keptAttr{path: coreFrequencyPath(len(r.frequencies))})
 	}
-	return r.frequencyPaths[core]
+	if khz, err := r.frequencies[core].readUint(); err == nil {
+		return khz / 1000
+	}
+	return cpuinfo.get()
+}
+
+// lazyMHz is cpuinfoMHz read at most once, when a core first needs it.
+type lazyMHz struct {
+	read bool
+	mhz  uint64
+}
+
+func (l *lazyMHz) get() uint64 {
+	if !l.read {
+		l.read, l.mhz = true, cpuinfoMHz()
+	}
+	return l.mhz
 }
 
 // temperature reads the input the last lookup settled on, and looks

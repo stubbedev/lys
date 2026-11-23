@@ -76,3 +76,49 @@ func holdsLine(data, prefix []byte) bool {
 	i := bytes.Index(data, prefix)
 	return i >= 0 && bytes.IndexByte(data[i+len(prefix):], '\n') >= 0
 }
+
+// keptAttr is a small sysfs attribute held open and read again from its
+// start, which regenerates its value, so a poll costs one pread rather
+// than an open, a read and a close.
+type keptAttr struct {
+	path string
+	file *os.File
+}
+
+// readUint reads the attribute as a decimal. A failed read closes the
+// descriptor, so the next one opens the file afresh.
+func (k *keptAttr) readUint() (uint64, error) {
+	if k.file == nil {
+		file, err := os.Open(k.path)
+		if err != nil {
+			return 0, fmt.Errorf("sysinfo: %w", err)
+		}
+		k.file = file
+	}
+	var buf [32]byte
+	fd := int(k.file.Fd())
+	defer runtime.KeepAlive(k.file)
+	for {
+		n, err := unix.Pread(fd, buf[:], 0)
+		if errors.Is(err, unix.EINTR) {
+			continue
+		}
+		if err != nil {
+			k.Close()
+			return 0, fmt.Errorf("sysinfo: read %s: %w", k.path, err)
+		}
+		line := bytes.TrimSpace(buf[:n])
+		if len(line) == 0 {
+			return 0, fmt.Errorf("%s is empty", k.path)
+		}
+		return parseDecimal(line)
+	}
+}
+
+// Close releases the descriptor; a later read opens the file again.
+func (k *keptAttr) Close() {
+	if k.file != nil {
+		_ = k.file.Close()
+		k.file = nil
+	}
+}

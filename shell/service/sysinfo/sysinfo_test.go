@@ -604,3 +604,40 @@ func TestDisksAtStatsOnlyTheMountsAskedFor(t *testing.T) {
 		t.Errorf("no paths found %+v", got)
 	}
 }
+
+// The reader keeps each core's cpufreq attribute open between polls and
+// reads it from its start again, so a poll sees the frequency of that
+// moment; Close lets it go, and the next poll opens it anew.
+func TestAKeptFrequencyIsReadAfreshEveryPoll(t *testing.T) {
+	attr := "devices/system/cpu/cpu0/cpufreq/scaling_cur_freq"
+	fakeSys(t, map[string]string{attr: "1200000\n"})
+	fakeProc(t, "cpu  1 0 1 10 0 0 0 0 0 0\ncpu0 1 0 1 10 0 0 0 0 0 0\n", "")
+	r := &CPUReader{OmitTemperature: true}
+	defer r.Close()
+	read := func() uint64 {
+		t.Helper()
+		cpu, err := r.Read()
+		if err != nil || len(cpu.Cores) != 1 {
+			t.Fatalf("read %+v, %v", cpu, err)
+		}
+		return cpu.Cores[0].FrequencyMHz
+	}
+	write := func(khz string) {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(SysRoot, attr), []byte(khz), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := read(); got != 1200 {
+		t.Fatalf("first poll %d MHz, want 1200", got)
+	}
+	write("3600000\n")
+	if got := read(); got != 3600 {
+		t.Errorf("after the frequency rose, %d MHz, want 3600", got)
+	}
+	r.Close()
+	write("800000\n")
+	if got := read(); got != 800 {
+		t.Errorf("after Close, %d MHz, want 800 from the reopened attribute", got)
+	}
+}
