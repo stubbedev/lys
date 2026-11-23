@@ -900,7 +900,10 @@ func TestAnXTransientThatGrowsAfterItsMapIsCentredOverItsParent(t *testing.T) {
 		}
 		return ws[i], true
 	}
-	open := func(t *testing.T) (*Harness, *xclient, xproto.Window) {
+	knownToX := func(xc *xclient, win xproto.Window, w ipc.Window) bool {
+		return xc.geometry(win) == rectOf(w.Rect)
+	}
+	open := func(t *testing.T) (*Harness, *xclient, xproto.Window, wmipc.Rect) {
 		h := StartXwayland(t, func(err error) { t.Errorf("xwayland reported: %v", err) }, small)
 		xc := xDial(t, h)
 		project := xc.window(image.Rect(0, 0, 80, 60), 0xff0000, false, map[string][]byte{
@@ -912,11 +915,13 @@ func TestAnXTransientThatGrowsAfterItsMapIsCentredOverItsParent(t *testing.T) {
 			"WM_TRANSIENT_FOR":    binary.LittleEndian.AppendUint32(nil, uint32(project)),
 			"_NET_WM_WINDOW_TYPE": xc.atom("_NET_WM_WINDOW_TYPE_DIALOG"),
 		})
-		h.Eventually("the tour floating", func(_ *headless.Backend, c *compositor.Compositor) bool {
+		var placed wmipc.Rect
+		h.Eventually("the tour floating where X has it", func(_ *headless.Backend, c *compositor.Compositor) bool {
 			w, ok := byApp(windowsOf(c), "tour")
-			return ok && w.Floating
+			placed = w.Rect
+			return ok && w.Floating && knownToX(xc, tour, w)
 		})
-		return h, xc, tour
+		return h, xc, tour, placed
 	}
 	grow := func(t *testing.T, xc *xclient, win xproto.Window) {
 		t.Helper()
@@ -931,7 +936,7 @@ func TestAnXTransientThatGrowsAfterItsMapIsCentredOverItsParent(t *testing.T) {
 		return ok && w.Rect.Width == 60 && w.Rect.Height == 45
 	}
 	t.Run("placed by lys-wm", func(t *testing.T) {
-		h, xc, tour := open(t)
+		h, xc, tour, _ := open(t)
 		grow(t, xc, tour)
 		h.Eventually("the tour at its real size", grown)
 		h.Do(func(_ *headless.Backend, c *compositor.Compositor) error {
@@ -945,7 +950,7 @@ func TestAnXTransientThatGrowsAfterItsMapIsCentredOverItsParent(t *testing.T) {
 		})
 	})
 	t.Run("moved by the user", func(t *testing.T) {
-		h, xc, tour := open(t)
+		h, xc, tour, placed := open(t)
 		var moved wmipc.Rect
 		h.Do(func(_ *headless.Backend, c *compositor.Compositor) error {
 			a, err := wm.ParseAction("move left")
@@ -954,10 +959,10 @@ func TestAnXTransientThatGrowsAfterItsMapIsCentredOverItsParent(t *testing.T) {
 			}
 			return c.Dispatch(a)
 		})
-		h.Eventually("the tour moved", func(_ *headless.Backend, c *compositor.Compositor) bool {
+		h.Eventually("the tour moved where X has it", func(_ *headless.Backend, c *compositor.Compositor) bool {
 			w, ok := byApp(windowsOf(c), "tour")
 			moved = w.Rect
-			return ok && xc.geometry(tour).Min.X < 80
+			return ok && w.Rect.X < placed.X && knownToX(xc, tour, w)
 		})
 		grow(t, xc, tour)
 		h.Eventually("the tour at its real size", grown)
