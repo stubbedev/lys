@@ -715,6 +715,8 @@ wm-palette-new-name = New colour name
 wm-palette-add = Add colour
 wm-palette-reset = Back to lys-wm’s colour
 wm-palette-taken = There is already a colour called { $name }
+wm-palette-add-failed = The colour { $name } was not added
+wm-palette-reset-failed = The colour { $name } was not reset
 
 ## What a bind does, by lys-wm action: $first is the first argument, or default without any; $args all of them; $rest all after the first
 wm-action-focus = { $first ->

@@ -1,6 +1,7 @@
 package settings
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"os"
@@ -231,8 +232,8 @@ func TestEachDateControlIsOneInteractiveCallAndARefusalRevertsIt(t *testing.T) {
 	if len(calls) != 3 || calls[2].method != "SetTimezone" || fmt.Sprint(calls[2].args) != "[Europe/Copenhagen true]" {
 		t.Fatalf("%+v", calls)
 	}
-	if p := treetest.First[*sysPanel](t, footer); !strings.Contains(p.problem.Text(), "NixOS") || zone.current != "UTC" {
-		t.Fatalf("problem %q, zone %q: want the service's message and the old zone", p.problem.Text(), zone.current)
+	if p := treetest.First[*sysPanel](t, footer); p.problem.Text() != locale.T().Get("settings-sys-failed", i18n.Str("service", timedateName)) || !strings.Contains(p.problem.detail.Text(), "NixOS") || zone.current != "UTC" {
+		t.Fatalf("problem %q over %q, zone %q: want the app's summary over the service's message and the old zone", p.problem.Text(), p.problem.detail.Text(), zone.current)
 	}
 }
 
@@ -319,6 +320,29 @@ func TestTheFormatsWriteLocaleConfAndChangeThePreview(t *testing.T) {
 	dropdownNamed(t, footer, "LC_NUMERIC").SetSelected(0)
 	if got := fileText(t, filepath.Join(config, "locale.conf")); got != "# mine\nLC_MONETARY=en_GB.utf8\n" {
 		t.Fatalf("locale.conf %q after the same-as-language choice", got)
+	}
+	notSaved := func() *inlineState {
+		for _, st := range treetest.All[*inlineState](footer) {
+			if st.Visible() && st.Text() == tr.Get("settings-region-format-not-saved") {
+				return st
+			}
+		}
+		return nil
+	}
+	if err := os.Chmod(config, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(config, 0o700) })
+	dropdownNamed(t, footer, "LC_PAPER").SetSelected(1 + slices.Index(glibclocaletest.Names, "en_GB.utf8"))
+	if st := notSaved(); st == nil || st.kind != stateError || !strings.Contains(st.detail.Text(), config) || st.detail.Visible() {
+		t.Fatalf("a locale.conf that cannot be written says %v", st)
+	}
+	if err := os.Chmod(config, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	dropdownNamed(t, footer, "LC_PAPER").SetSelected(0)
+	if st := notSaved(); st != nil {
+		t.Fatalf("a written format still says %q", st.Text())
 	}
 	if calls, _ := lc.snapshot(); len(calls) != 0 {
 		t.Fatalf("the user's formats called localed: %+v", calls)
@@ -534,9 +558,43 @@ func TestTheClockCardShowsTheZoneAndWhetherTheTimeIsSynchronized(t *testing.T) {
 	if c.zone.Text() != "UTC · UTC+00:00" || c.sync.Text() != tr.Get("settings-date-sync-manual") {
 		t.Fatalf("set by hand: %q, %q", c.zone.Text(), c.sync.Text())
 	}
+	if c.zoneProblem.Visible() {
+		t.Fatalf("a known zone says %q", c.zoneProblem.Text())
+	}
 	c.showSystem("Nowhere/Atlantis", true, true)
-	if !strings.Contains(c.zone.Text(), `"Nowhere/Atlantis"`) {
-		t.Fatalf("an unknown zone reads %q", c.zone.Text())
+	if c.zone.Visible() || !c.zoneProblem.Visible() || c.zoneProblem.Text() != tr.Get("settings-date-zone-unknown", i18n.Str("zone", "Nowhere/Atlantis")) || !strings.Contains(c.zoneProblem.detail.Text(), `"Nowhere/Atlantis"`) || c.zoneProblem.detail.Visible() {
+		t.Fatalf("an unknown zone shows the zone %v, says %q over %q", c.zone.Visible(), c.zoneProblem.Text(), c.zoneProblem.detail.Text())
+	}
+	c.showSystem("UTC", false, false)
+	if !c.zone.Visible() || c.zoneProblem.Visible() {
+		t.Fatalf("a known zone again shows the zone %v, says %q", c.zone.Visible(), c.zoneProblem.Text())
+	}
+}
+
+// A date the session's time locale cannot format hides the clock and
+// says so, the locale's error only in the closed detail.
+func TestTheClockCardSaysADateItCannotFormatInTheAppsWords(t *testing.T) {
+	dirs := glibclocaletest.Dirs(t)
+	lcTime := filepath.Join(dirs, "en_US.utf8", "LC_TIME")
+	raw, err := os.ReadFile(lcTime)
+	if err != nil {
+		t.Fatal(err)
+	}
+	broken := bytes.Replace(raw, []byte("%m/%d/%Y"), []byte("%5m/%d/Y"), 1)
+	if bytes.Equal(broken, raw) {
+		t.Fatalf("en_US's LC_TIME holds no %q date format", "%m/%d/%Y")
+	}
+	if err := os.WriteFile(lcTime, broken, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	useLocales(t, glibclocale.NewSource("", dirs))
+	t.Setenv("LC_ALL", "en_US.utf8")
+	k := testKit(t, "")
+	k.clock = fakeclock.At(time.Date(2026, time.November, 19, 14, 5, 0, 0, time.UTC))
+	c := newClockCard(k)
+	t.Cleanup(c.close)
+	if c.clock.Visible() || c.date.Visible() || !c.problem.Visible() || c.problem.Text() != locale.T().Get("settings-date-clock-unformattable") || !strings.Contains(c.problem.detail.Text(), "%5m") || c.problem.detail.Visible() {
+		t.Fatalf("an unformattable date shows clock %v date %v, says %q over %q", c.clock.Visible(), c.date.Visible(), c.problem.Text(), c.problem.detail.Text())
 	}
 }
 

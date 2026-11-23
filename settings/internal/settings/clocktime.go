@@ -72,7 +72,7 @@ type clockTimeEditor struct {
 	minute     *widget.Dropdown
 	hours      []int
 	minutes    []int
-	problem    *widget.Label
+	problem    *inlineState
 }
 
 func newClockTimeEditor(k *kit, s slot, name string, step int, avoid func() (daytime.Time, bool)) *clockTimeEditor {
@@ -84,7 +84,7 @@ func newClockTimeEditor(k *kit, s slot, name string, step int, avoid func() (day
 	e.minute.SetAccessibleName(t.Get("settings-clock-time-minute", i18n.Str("name", name)))
 	e.hour.OnSelect = func(int) { e.write() }
 	e.minute.OnSelect = func(int) { e.write() }
-	e.problem = k.errorText("")
+	e.problem = k.inlineState()
 	row := gapBox(widget.Row)
 	row.AppendAligned(e.hour, false, widget.AlignCenter)
 	row.AppendAligned(k.label(":", css.DimLabel), false, widget.AlignCenter)
@@ -123,25 +123,20 @@ func (e *clockTimeEditor) write() {
 		err = e.slot.set(at.String())
 	}
 	e.refresh()
-	e.show(err)
-}
-
-func (e *clockTimeEditor) show(err error) {
-	e.problem.SetVisible(err != nil)
 	if err != nil {
-		e.problem.SetText(err.Error())
+		e.problem.Error(locale.T().Get("settings-clock-time-not-set"), err, nil)
 	}
 }
 
 func (e *clockTimeEditor) refresh() {
 	at, err := e.value()
 	if err != nil {
-		e.show(err)
+		e.problem.Error(locale.T().Get("settings-clock-time-unreadable"), err, nil)
 		e.hour.SetEnabled(false)
 		e.minute.SetEnabled(false)
 		return
 	}
-	e.show(nil)
+	e.problem.Clear()
 	e.hour.SetEnabled(true)
 	e.minute.SetEnabled(true)
 	avoided, avoiding := e.avoid()

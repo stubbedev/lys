@@ -29,7 +29,7 @@ type paletteGrid struct {
 	tiles   []control
 	resets  []resetButton
 	name    *widget.Entry
-	problem *widget.Label
+	problem *inlineState
 	shown   []string
 }
 
@@ -47,8 +47,7 @@ func newPaletteGrid(k *kit, s slot) *paletteGrid {
 	line := gapBox(widget.Row)
 	line.Append(p.name, true)
 	line.AppendAligned(add, false, widget.AlignCenter)
-	p.problem = k.errorText("")
-	p.problem.SetVisible(false)
+	p.problem = k.inlineState()
 	p.Append(p.grid, false)
 	p.Append(line, false)
 	p.Append(p.problem, false)
@@ -92,7 +91,7 @@ func (p *paletteGrid) colorSlot(name string) slot {
 func (p *paletteGrid) reset(name string) {
 	own := maps.Clone(asMap(p.own.get()))
 	delete(own, name)
-	_ = p.own.set(own)
+	p.problem.Result(locale.T().Get("wm-palette-reset-failed", i18n.Str("name", name)), p.own.set(own))
 	p.refresh()
 }
 
@@ -126,23 +125,18 @@ func (p *paletteGrid) rebuild(names []string) {
 }
 
 func (p *paletteGrid) add() {
+	t := locale.T()
 	name := strings.TrimSpace(p.name.Text())
 	switch {
 	case name == "":
 		return
 	case slices.Contains(p.names(), name):
-		p.say(locale.T().Get("wm-palette-taken", i18n.Str("name", name)))
+		p.problem.Error(t.Get("wm-palette-taken", i18n.Str("name", name)), nil, nil)
 		return
 	}
-	if err := p.colorSlot(name).set("#000000"); err != nil {
-		p.say(err.Error())
-		return
+	err := p.colorSlot(name).set("#000000")
+	p.problem.Result(t.Get("wm-palette-add-failed", i18n.Str("name", name)), err)
+	if err == nil {
+		p.name.SetText("")
 	}
-	p.say("")
-	p.name.SetText("")
-}
-
-func (p *paletteGrid) say(text string) {
-	p.problem.SetText(text)
-	p.problem.SetVisible(text != "")
 }

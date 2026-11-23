@@ -141,7 +141,7 @@ type sysPanel struct {
 	svc     sysService
 	conn    *dbus.Conn
 	props   sysProps
-	problem *widget.Label
+	problem *inlineState
 	icon    string
 	state   *cardState
 	body    *widget.Box
@@ -154,8 +154,7 @@ type sysPanel struct {
 // the glyph of its state while the service is asked or unreachable.
 func newSysPanel(k *kit, name string, path dbus.ObjectPath, icon string) *sysPanel {
 	p := &sysPanel{Box: gapBox(widget.Column), k: k, svc: sysService{name: name, iface: name, path: path}, icon: icon, state: k.cardState()}
-	p.problem = k.errorText("")
-	p.problem.SetVisible(false)
+	p.problem = k.inlineState()
 	p.body = gapBox(widget.Column)
 	p.state.Loading(locale.T().Get("settings-sys-reading", i18n.Str("service", name)))
 	p.Append(p.problem, false)
@@ -229,10 +228,7 @@ func (p *sysPanel) changed(changed sysProps) {
 }
 
 func (p *sysPanel) fail(err error) {
-	p.problem.SetVisible(err != nil)
-	if err != nil {
-		p.problem.SetText(err.Error())
-	}
+	p.problem.Result(locale.T().Get("settings-sys-failed", i18n.Str("service", p.svc.name)), err)
 }
 
 func (p *sysPanel) do(method string, args ...any) {
@@ -385,14 +381,18 @@ func dateTimeLead(k *kit) widget.Widget {
 
 type clockCard struct {
 	*widget.Box
-	k      *kit
-	date   *widget.Label
-	clock  *widget.Label
-	zone   *widget.Label
-	sync   *widget.Label
-	names  *glibclocale.Time
-	stop   func() bool
-	closed bool
+	k     *kit
+	date  *widget.Label
+	clock *widget.Label
+	zone  *widget.Label
+	sync  *widget.Label
+	// problem says why the clock cannot be shown, zoneProblem why the
+	// zone cannot.
+	problem     *inlineState
+	zoneProblem *inlineState
+	names       *glibclocale.Time
+	stop        func() bool
+	closed      bool
 }
 
 func newClockCard(k *kit) *clockCard {
@@ -405,8 +405,9 @@ func newClockCard(k *kit) *clockCard {
 	c.sync = k.label("", css.Caption, css.DimLabel)
 	c.zone.SetVisible(false)
 	c.sync.SetVisible(false)
-	for _, l := range []*widget.Label{c.clock, c.date, c.zone, c.sync} {
-		c.Append(l, false)
+	c.problem, c.zoneProblem = k.inlineState(), k.inlineState()
+	for _, w := range []widget.Widget{c.clock, c.date, c.problem, c.zone, c.zoneProblem, c.sync} {
+		c.Append(w, false)
 	}
 	c.names = sessionTimeLocale()
 	c.tick()
@@ -480,11 +481,11 @@ func (c *clockCard) tick() {
 	}
 	now := c.k.clock.Now()
 	date, clock, err := formatClock(c.names, c.k.store, now)
-	if err != nil {
-		date = err.Error()
-	}
 	c.date.SetText(date)
 	c.clock.SetText(clock)
+	c.date.SetVisible(err == nil)
+	c.clock.SetVisible(err == nil)
+	c.problem.Result(locale.T().Get("settings-date-clock-unformattable"), err)
 	next := now.Truncate(time.Minute).Add(time.Minute).Sub(now)
 	c.stop = c.k.clock.AfterFunc(next, func() { c.k.invoke(c.tick) })
 }
@@ -509,13 +510,12 @@ func syncKey(ntp, synchronized bool) string {
 }
 
 func (c *clockCard) showSystem(zone string, ntp, synchronized bool) {
+	t := locale.T()
 	line, err := zoneLine(zone, c.k.clock.Now())
-	if err != nil {
-		line = err.Error()
-	}
 	c.zone.SetText(line)
-	c.zone.SetVisible(zone != "")
-	c.sync.SetText(locale.T().Get(syncKey(ntp, synchronized)))
+	c.zone.SetVisible(zone != "" && err == nil)
+	c.zoneProblem.Result(t.Get("settings-date-zone-unknown", i18n.Str("zone", zone)), err)
+	c.sync.SetText(t.Get(syncKey(ntp, synchronized)))
 	c.sync.SetVisible(true)
 }
 
@@ -700,8 +700,7 @@ func regionFormats(k *kit, lang func() string) (widget.Widget, func()) {
 	}
 	preview := k.note("")
 	units := k.note("")
-	formatsProblem := k.errorText("")
-	formatsProblem.SetVisible(false)
+	formatsProblem := k.inlineState()
 	head := widget.NewBox(widget.Column, widget.Current().Spacing/2, 0)
 	head.Append(preview, false)
 	head.Append(units, false)
@@ -748,11 +747,7 @@ func regionFormats(k *kit, lang func() string) (widget.Widget, func()) {
 				if i > 0 {
 					value = l.names[i-1]
 				}
-				err := writeLocaleConf(conf, key, value)
-				formatsProblem.SetVisible(err != nil)
-				if err != nil {
-					formatsProblem.SetText(err.Error())
-				}
+				formatsProblem.Result(t.Get("settings-region-format-not-saved"), writeLocaleConf(conf, key, value))
 				showPreview()
 			}
 			formats.Append(k.row(t.Get("settings-region-"+strings.ToLower(strings.ReplaceAll(key, "_", "-"))), "").withControl(dd))

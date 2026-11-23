@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/fakeclock"
-	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/backlight"
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/render"
@@ -74,16 +73,16 @@ func lightPanel(t *testing.T, f brightnessControl, err error) *displaysPanel {
 func TestEachDisplayShowsAndSetsItsOwnBrightness(t *testing.T) {
 	f := &fakeBrightness{at: map[string]float64{"eDP-1": 60}}
 	p := lightPanel(t, f, nil)
-	if note := rowText(p.lightRow, "description"); !p.lightRow.Visible() || !p.lightSlider.Visible() || p.lightSlider.Value() != 60 || note != "" {
-		t.Fatalf("the built-in display shows row %v slider %v at %v, note %q", p.lightRow.Visible(), p.lightSlider.Visible(), p.lightSlider.Value(), note)
+	if !p.lightRow.Visible() || !p.lightSlider.Visible() || p.lightSlider.Value() != 60 || p.lightState.Visible() {
+		t.Fatalf("the built-in display shows row %v slider %v at %v, note %q", p.lightRow.Visible(), p.lightSlider.Visible(), p.lightSlider.Value(), p.lightState.Text())
 	}
 	p.lightSlider.OnCommit(30)
 	if !slices.Equal(f.sets, []string{"eDP-1"}) || f.at["eDP-1"] != 30 || p.lightSlider.Value() != 30 {
 		t.Errorf("sliding to 30 set %v to %v, the slider shows %v", f.sets, f.at, p.lightSlider.Value())
 	}
 	p.selectOutput(1)
-	if note := rowText(p.lightRow, "description"); p.lightSlider.Visible() || note != locale.T().Get("settings-displays-brightness-none") {
-		t.Errorf("a display nothing drives shows slider %v, note %q", p.lightSlider.Visible(), note)
+	if p.lightSlider.Visible() || !p.lightState.Visible() || p.lightState.Text() != locale.T().Get("settings-displays-brightness-none") {
+		t.Errorf("a display nothing drives shows slider %v, note %q", p.lightSlider.Visible(), p.lightState.Text())
 	}
 	p.close()
 	if !f.closed {
@@ -102,9 +101,9 @@ func TestABrightnessLysShellRefusesIsSaid(t *testing.T) {
 
 func TestWithoutLysShellTheDisplaysSayTheirBrightnessCannotBeRead(t *testing.T) {
 	p := lightPanel(t, nil, errors.New("no lys-shell"))
-	want := locale.T().Get("settings-displays-brightness-unavailable", i18n.Str("reason", "no lys-shell"))
-	if note := rowText(p.lightRow, "description"); !p.lightRow.Visible() || p.lightSlider.Visible() || note != want {
-		t.Errorf("without lys-shell: row %v, slider %v, note %q", p.lightRow.Visible(), p.lightSlider.Visible(), note)
+	st := p.lightState
+	if !p.lightRow.Visible() || p.lightSlider.Visible() || !st.Visible() || st.kind != stateUnavailable || st.Text() != locale.T().Get("settings-displays-brightness-unavailable") || st.detail.Text() != "no lys-shell" || st.detail.Visible() {
+		t.Errorf("without lys-shell: row %v, slider %v, note %q over %q", p.lightRow.Visible(), p.lightSlider.Visible(), st.Text(), st.detail.Text())
 	}
 }
 
@@ -336,8 +335,8 @@ func TestARefusedTemperaturePreviewIsSaid(t *testing.T) {
 	f := &fakeNightlight{previewErr: errors.New("temperature refused")}
 	c, _ := kelvinRow(t, f)
 	c.button.OnClick()
-	if !c.problem.Visible() || !strings.Contains(c.problem.Text(), "temperature refused") {
-		t.Errorf("a refused preview shows %q (%v)", c.problem.Text(), c.problem.Visible())
+	if !c.problem.Visible() || c.problem.kind != stateError || c.problem.Text() != locale.T().Get("settings-nightlight-preview-failed") || !strings.Contains(c.problem.detail.Text(), "temperature refused") || c.problem.detail.Visible() {
+		t.Errorf("a refused preview shows %q over %q (%v)", c.problem.Text(), c.problem.detail.Text(), c.problem.Visible())
 	}
 	if !c.button.Enabled() {
 		t.Error("a refused preview left the button disabled")

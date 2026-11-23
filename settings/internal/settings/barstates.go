@@ -6,7 +6,6 @@ import (
 	"slices"
 
 	"github.com/stubbedev/lys/desktop/config"
-	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
@@ -36,7 +35,7 @@ type steppedPreview struct {
 	at      int
 	shown   *livePreview
 	chips   *widget.ChoiceChips
-	problem *widget.Label
+	problem *inlineState
 }
 
 // steppingThrough is a module's preview stepping through the states
@@ -49,8 +48,7 @@ func newSteppedPreview(k *kit, module config.BarModule, read barStates) *stepped
 	p := &steppedPreview{Box: gapBox(widget.Column), k: k, module: module, read: read}
 	p.chips = newChipGroup(k, widget.ChooseOne, nil)
 	p.chips.OnChanged = func(i int, _ bool) { p.show(i) }
-	p.problem = k.errorText("")
-	p.problem.SetVisible(false)
+	p.problem = k.inlineState()
 	p.readStates()
 	p.shown = newLivePreview(k, "settings-bar-item-preview", p.draw)
 	p.Append(p.shown, false)
@@ -73,9 +71,9 @@ func (p *steppedPreview) readStates() {
 		held = p.states[p.at].name
 	}
 	states, err := p.read(p.k, p.k.store.svc.Config())
-	p.problem.SetVisible(err != nil)
+	p.problem.Clear()
 	if err != nil {
-		p.problem.SetText(locale.T().Get("settings-bar-states-unread", i18n.Str("reason", err.Error())))
+		p.problem.Unavailable("", locale.T().Get("settings-bar-states-unread"), err)
 	}
 	p.states, p.at = states, max(0, slices.IndexFunc(states, func(s barState) bool { return s.name == held }))
 	names := make([]string, len(states))

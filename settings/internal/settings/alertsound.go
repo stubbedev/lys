@@ -46,7 +46,7 @@ type alertSoundList struct {
 	rows    *widget.ItemGroup
 	sounds  []alertSound
 	state   *cardState
-	problem *widget.Label
+	problem *inlineState
 	syncing bool
 }
 
@@ -58,8 +58,7 @@ func newAlertSoundList(k *kit, s slot, list lister) *alertSoundList {
 	scroll := widget.NewScroll(e.rows)
 	scroll.VerticalOnly = true
 	scroll.SetMaxContentHeight(choiceListPx)
-	e.problem = k.errorText("")
-	e.problem.SetVisible(false)
+	e.problem = k.inlineState()
 	e.Append(scroll, false)
 	e.Append(e.problem, false)
 	e.build(alertSoundNames(list(), s.text()))
@@ -123,9 +122,8 @@ func (e *alertSoundList) build(names []string) {
 
 func (e *alertSoundList) choose(name string) {
 	err := e.slot.set(name)
-	e.problem.SetVisible(err != nil)
+	e.problem.Result(locale.T().Get("settings-sound-alert-not-set"), err)
 	if err != nil {
-		e.problem.SetText(err.Error())
 		e.refresh()
 	}
 }
@@ -133,11 +131,10 @@ func (e *alertSoundList) choose(name string) {
 func (e *alertSoundList) preview(name string) {
 	volume := e.k.store.svc.Config().Notification.SoundPolicy().Volume
 	async(e.k, func() error { return playAlertSound(name, volume) }, func(err error) {
-		e.problem.SetVisible(err != nil)
 		if err != nil {
 			log.Printf("settings: play the alert sound %q: %v", name, err)
-			e.problem.SetText(locale.T().Get("settings-sound-alert-play-failed") + ": " + err.Error())
 		}
+		e.problem.Result(locale.T().Get("settings-sound-alert-play-failed"), err)
 	})
 }
 

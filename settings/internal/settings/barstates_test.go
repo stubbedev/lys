@@ -2,12 +2,15 @@ package settings
 
 import (
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/ui/widget"
+
+	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
 func steppedOf(t *testing.T, k *kit, page string) *steppedPreview {
@@ -86,8 +89,8 @@ func TestTheKeyboardInputChipCyclesThroughTheConfiguredLayouts(t *testing.T) {
 func TestALayoutOutsideTheXKBRegistryIsSaidNotGuessed(t *testing.T) {
 	k, _, _, _ := wmKit(t, "input:\n  keyboard:\n    layout: us,zz\n")
 	p := steppedOf(t, k, "keyboard-input")
-	if !p.problem.Visible() || len(p.states) != 1 {
-		t.Errorf("an unknown layout gave states %v and problem shown %v, want the one known layout and the problem said", chipNames(p), p.problem.Visible())
+	if !p.problem.Visible() || len(p.states) != 1 || p.problem.Text() != locale.T().Get("settings-bar-states-unread") || !strings.Contains(p.problem.detail.Text(), "zz") || p.problem.detail.Visible() {
+		t.Errorf("an unknown layout gave states %v and problem shown %v reading %q over %q, want the one known layout and the problem said", chipNames(p), p.problem.Visible(), p.problem.Text(), p.problem.detail.Text())
 	}
 	if p.chips.Visible() {
 		t.Error("a single state offers chips to pick it")

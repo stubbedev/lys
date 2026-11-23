@@ -2,6 +2,7 @@ package settings
 
 import (
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/i18n"
@@ -77,8 +78,8 @@ func TestAClockTimeThatIsNotOneSaysSo(t *testing.T) {
 	k := testKit(t, "")
 	var held any = "7 o'clock"
 	e := newClockTimeEditor(k, memorySlot(&held, nil), "From", everyFiveMinutes, anyClockTime)
-	if !e.problem.Visible() || widget.IsEnabled(e.hour) || widget.IsEnabled(e.minute) {
-		t.Fatalf("a malformed time shows problem %v, pickers enabled %v %v", e.problem.Visible(), widget.IsEnabled(e.hour), widget.IsEnabled(e.minute))
+	if !e.problem.Visible() || e.problem.Text() != locale.T().Get("settings-clock-time-unreadable") || !strings.Contains(e.problem.detail.Text(), "7 o'clock") || widget.IsEnabled(e.hour) || widget.IsEnabled(e.minute) {
+		t.Fatalf("a malformed time shows problem %v reading %q over %q, pickers enabled %v %v", e.problem.Visible(), e.problem.Text(), e.problem.detail.Text(), widget.IsEnabled(e.hour), widget.IsEnabled(e.minute))
 	}
 	e.hour.SetSelected(3)
 	if held != "7 o'clock" {
@@ -87,8 +88,8 @@ func TestAClockTimeThatIsNotOneSaysSo(t *testing.T) {
 	held = "09:00"
 	r := newClockTimeEditor(k, memorySlot(&held, func(any) bool { return true }), "From", everyFiveMinutes, anyClockTime)
 	r.hour.SetSelected(10)
-	if !r.problem.Visible() || r.problem.Text() != "refused" || r.hour.Selected() != 9 {
-		t.Errorf("a refused time shows %q (%v), hour %d", r.problem.Text(), r.problem.Visible(), r.hour.Selected())
+	if !r.problem.Visible() || r.problem.Text() != locale.T().Get("settings-clock-time-not-set") || r.problem.detail.Text() != "refused" || r.hour.Selected() != 9 {
+		t.Errorf("a refused time shows %q over %q (%v), hour %d", r.problem.Text(), r.problem.detail.Text(), r.problem.Visible(), r.hour.Selected())
 	}
 }
 

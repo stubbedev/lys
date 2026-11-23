@@ -54,7 +54,7 @@ type fontEditor struct {
 	label     *widget.Label
 	btn       *widget.Button
 	sample    *widget.Label
-	problem   *widget.Label
+	problem   *inlineState
 	shown     string
 }
 
@@ -80,8 +80,7 @@ func newFontEditor(k *kit, s slot, monospace bool) *fontEditor {
 	}
 	c.sample = wrapped(k.label(locale.T().Get(sampleKey), "font-sample"))
 	c.sample.SetSizePx(fontSamplePx)
-	c.problem = k.errorText("")
-	c.problem.SetVisible(false)
+	c.problem = k.inlineState()
 	c.AppendAligned(menu, false, widget.AlignStart)
 	c.Append(c.sample, false)
 	c.Append(c.problem, false)
@@ -106,10 +105,9 @@ func (c *fontEditor) showSample(l loadedFamily) {
 	if l.family != c.shown {
 		return
 	}
-	c.problem.SetVisible(l.err != nil)
 	c.sample.SetVisible(l.err == nil)
+	c.problem.Result(locale.T().Get("settings-font-unavailable", i18n.Str("family", l.family)), l.err)
 	if l.err != nil {
-		c.problem.SetText(locale.T().Get("settings-font-unavailable", i18n.Str("family", l.family), i18n.Str("reason", l.err.Error())))
 		return
 	}
 	c.sample.SetFace(l.face)

@@ -163,8 +163,8 @@ func TestASoundTheThemeLacksSaysWhyAndPlaysNothing(t *testing.T) {
 	k := testKit(t, "modules:\n  notifications:\n    sound-default: missing\n")
 	e := alertList(t, k, "bell")
 	e.sound(t, "missing").play.OnClick()
-	if !e.problem.Visible() || !strings.HasPrefix(e.problem.Text(), locale.T().Get("settings-sound-alert-play-failed")) || !strings.Contains(e.problem.Text(), sounds.ErrNoSound.Error()) {
-		t.Fatalf("the problem reads %q, shown %v", e.problem.Text(), e.problem.Visible())
+	if !e.problem.Visible() || e.problem.kind != stateError || e.problem.Text() != locale.T().Get("settings-sound-alert-play-failed") || !strings.Contains(e.problem.detail.Text(), sounds.ErrNoSound.Error()) || e.problem.detail.Visible() {
+		t.Fatalf("the problem reads %q over %q, shown %v, detail shown %v", e.problem.Text(), e.problem.detail.Text(), e.problem.Visible(), e.problem.detail.Visible())
 	}
 	if plays := srv.Plays(); len(plays) != 0 {
 		t.Fatalf("a missing sound played %+v", plays)

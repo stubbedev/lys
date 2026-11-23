@@ -11,6 +11,8 @@ import (
 	"github.com/stubbedev/lys/desktop/service/network/vpntext"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
+
+	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
 const wireGuardPrivateKey = "private-key"
@@ -49,7 +51,7 @@ type vpnForm struct {
 	rawToggle  *modeToggle
 	rawHint    *widget.Label
 	raw        *widget.TextArea
-	problem    *widget.Label
+	problem    *inlineState
 	saveButton *widget.Button
 }
 
@@ -80,8 +82,7 @@ func newVPNForm(p *networkPanel) *vpnForm {
 	f.raw.SetAccessibleName(i18n.T("dropdown-network-vpn-advanced-show"))
 	f.raw.AddClass("vpn-raw")
 	f.Append(f.raw, false)
-	f.problem = k.errorText("")
-	f.problem.SetVisible(false)
+	f.problem = k.inlineState()
 	f.Append(f.problem, false)
 	cancel := k.cancelButton(f.close)
 	f.saveButton = k.primaryButton(i18n.T("dropdown-network-vpn-save"), f.save)
@@ -96,7 +97,7 @@ func (f *vpnForm) open(uuid, name string, prof vpnProfile) {
 	f.kinds = network.KindsWith(f.p.ctl.vpnKinds(), prof.kind)
 	f.selected = max(0, slices.IndexFunc(f.kinds, func(k network.VPNKind) bool { return k.ID == prof.kind }))
 	f.editing = uuid
-	f.setProblem("")
+	f.problem.Clear()
 	f.name.SetText(name)
 	f.nameField.SetError("")
 	labels := make([]string, len(f.kinds))
@@ -125,7 +126,7 @@ func (f *vpnForm) kindSelected(i int) {
 		return
 	}
 	f.selected = i
-	f.setProblem("")
+	f.problem.Clear()
 	f.rebuild(nil)
 }
 
@@ -252,7 +253,7 @@ func (f *vpnForm) save() {
 	if name == "" || len(problems) > 0 {
 		return
 	}
-	f.setProblem("")
+	f.problem.Clear()
 	f.saveButton.SetEnabled(false)
 	ctl, uuid := f.p.ctl, f.editing
 	async(f.p.k, func() error {
@@ -264,8 +265,8 @@ func (f *vpnForm) save() {
 		})
 	}, func(err error) {
 		f.saveButton.SetEnabled(true)
+		f.problem.Result(locale.T().Get("settings-network-vpn-not-saved"), err)
 		if err != nil {
-			f.setProblem(err.Error())
 			return
 		}
 		f.close()
@@ -284,22 +285,17 @@ func (f *vpnForm) imported(path string) {
 	values, err := network.ReadWgQuick(path)
 	switch {
 	case errors.Is(err, network.ErrNotWgQuick):
-		f.setProblem(i18n.T("dropdown-network-vpn-import-failed"))
+		f.problem.Error(i18n.T("dropdown-network-vpn-import-failed"), nil, nil)
 		return
 	case err != nil:
-		f.setProblem(i18n.T("dropdown-network-vpn-import-error", i18n.Str("error", err.Error())))
+		f.problem.Error(locale.T().Get("settings-network-vpn-import-unreadable"), err, nil)
 		return
 	}
-	f.setProblem("")
+	f.problem.Clear()
 	if strings.TrimSpace(f.name.Text()) == "" {
 		f.name.SetText(values["interface"])
 	}
 	f.rebuild(values)
-}
-
-func (f *vpnForm) setProblem(text string) {
-	f.problem.SetText(text)
-	f.problem.SetVisible(text != "")
 }
 
 func (f *vpnForm) close() {

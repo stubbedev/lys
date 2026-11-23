@@ -778,9 +778,9 @@ func TestAFontRowShowsASampleInItsFamily(t *testing.T) {
 	}
 	ed.refresh()
 	ed.refresh()
-	want := tr.Get("settings-font-unavailable", i18n.Str("family", "Missing Sans"), i18n.Str("reason", "not installed"))
-	if !slices.Equal(loaded, []string{"Inter", "Missing Sans"}) || ed.sample.Visible() || ed.problem.Text() != want {
-		t.Fatalf("loaded %q, sample shown %v, problem %q", loaded, ed.sample.Visible(), ed.problem.Text())
+	want := tr.Get("settings-font-unavailable", i18n.Str("family", "Missing Sans"))
+	if !slices.Equal(loaded, []string{"Inter", "Missing Sans"}) || ed.sample.Visible() || ed.problem.Text() != want || ed.problem.detail.Text() != "not installed" || ed.problem.detail.Visible() {
+		t.Fatalf("loaded %q, sample shown %v, problem %q over %q", loaded, ed.sample.Visible(), ed.problem.Text(), ed.problem.detail.Text())
 	}
 	mono := fieldControl(k, k.store, pageRow(t, "fonts", "general.font-mono")).(*fontEditor)
 	if mono.sample.Text() != tr.Get("settings-font-sample-mono") {

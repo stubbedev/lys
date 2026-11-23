@@ -6,7 +6,6 @@ import (
 	"io"
 
 	"github.com/stubbedev/lys/desktop/config"
-	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
 
@@ -77,25 +76,29 @@ func generatorSampleField(rules presetRules) cardField {
 // be copied.
 type generatorSample struct {
 	*widget.Box
-	k      *kit
-	field  func(key string) slot
-	rules  presetRules
-	text   *widget.Label
-	copy   *widget.Button
-	sample string
+	k       *kit
+	field   func(key string) slot
+	rules   presetRules
+	text    *widget.Label
+	copy    *widget.Button
+	problem *inlineState
+	sample  string
 }
 
 func newGeneratorSample(k *kit, field func(key string) slot, rules presetRules) *generatorSample {
-	g := &generatorSample{Box: gapBox(widget.Row), k: k, field: field, rules: rules}
+	g := &generatorSample{Box: gapBox(widget.Column), k: k, field: field, rules: rules, problem: k.inlineState()}
 	g.AddClass("generator-sample")
 	g.text = k.label("", "generator-sample-text", css.Monospace)
 	g.text.SetEllipsize(widget.EllipsizeMiddle)
 	g.text.SetMaxWidthChars(generatorSampleChars)
 	again := k.reloadButton("settings-generator-sample-again", g.refresh)
 	g.copy = k.iconButton("ld-copy-symbolic", "settings-generator-sample-copy", g.copySample)
-	g.AppendAligned(g.text, true, widget.AlignCenter)
-	g.AppendAligned(again, false, widget.AlignCenter)
-	g.AppendAligned(g.copy, false, widget.AlignCenter)
+	line := gapBox(widget.Row)
+	line.AppendAligned(g.text, true, widget.AlignCenter)
+	line.AppendAligned(again, false, widget.AlignCenter)
+	line.AppendAligned(g.copy, false, widget.AlignCenter)
+	g.Append(line, false)
+	g.Append(g.problem, false)
 	g.refresh()
 	return g
 }
@@ -107,16 +110,11 @@ func (g *generatorSample) refresh() {
 		g.sample, err = rules.Generate(rand.Reader)
 	}
 	g.copy.SetEnabled(err == nil)
-	if err != nil {
-		g.text.SetText(locale.T().Get("settings-generator-sample-failed", i18n.Str("reason", err.Error())))
-		return
-	}
 	g.text.SetText(g.sample)
 	g.text.SetTooltip(g.sample)
+	g.problem.Result(locale.T().Get("settings-generator-sample-failed"), err)
 }
 
 func (g *generatorSample) copySample() {
-	if err := g.k.copySecret(g.sample); err != nil {
-		g.text.SetText(locale.T().Get("settings-generator-sample-failed", i18n.Str("reason", err.Error())))
-	}
+	g.problem.Result(locale.T().Get("settings-generator-sample-copy-failed"), g.k.copySecret(g.sample))
 }

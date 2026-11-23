@@ -335,6 +335,9 @@ func checkServicelessPage(t *testing.T, id string, page widget.Widget) {
 		if l, ok := x.(*widget.Label); ok && shown(l) && rawError(l.Text()) {
 			t.Errorf("%s: a label reads an error's own words: %q", id, l.Text())
 		}
+		if tip, ok := x.(interface{ TooltipText() string }); ok && shown(x) && rawError(tip.TooltipText()) {
+			t.Errorf("%s: a %T's tooltip reads an error's own words: %q", id, x, tip.TooltipText())
+		}
 		if !widget.HasClass(x, css.Card) || !shown(x) {
 			return
 		}
@@ -441,6 +444,21 @@ func actionFailure(action string) error {
 	return fmt.Errorf("settings: %s: %w", action, dialFailure("the system bus", "/run/dbus/system_bus_socket"))
 }
 
+// refusingSlot swaps a slot for one refusing every write with the
+// error it is given; given nil, it restores the slot it first swapped.
+func refusingSlot() func(s *slot, err error) {
+	var held slot
+	return func(s *slot, err error) {
+		if held.set == nil {
+			held = *s
+		}
+		*s = held
+		if err != nil {
+			s.set = func(any) error { return err }
+		}
+	}
+}
+
 // Every page's action failure, with no service to ask, is said the
 // app's own way: a summary over the failure's error, which waits in
 // the state's closed detail, and no shown label reads as an error's own
@@ -513,6 +531,58 @@ func TestEveryPagesActionFailureIsSaidInTheAppsWords(t *testing.T) {
 			}
 			p.fail("settings-displays-apply-failed", err)
 			return p.status
+		}},
+		{soundID, tr.Get("settings-sound-alert-not-set"), func() func(widget.Widget, error) *inlineState {
+			refuse := refusingSlot()
+			return func(page widget.Widget, err error) *inlineState {
+				e := treetest.First[*alertSoundList](t, page)
+				refuse(&e.slot, err)
+				e.choose("bell")
+				return e.problem
+			}
+		}()},
+		{dateTimeID, tr.Get("settings-sys-failed", i18n.Str("service", timedateName)), func(page widget.Widget, err error) *inlineState {
+			p := treetest.First[*sysPanel](t, page)
+			p.fail(err)
+			return p.problem
+		}},
+		{regionID, tr.Get("settings-sys-failed", i18n.Str("service", localeName)), func(page widget.Widget, err error) *inlineState {
+			p := treetest.First[*sysPanel](t, page)
+			p.fail(err)
+			return p.problem
+		}},
+		{displaysID, tr.Get("settings-nightlight-preview-failed"), func(page widget.Widget, err error) *inlineState {
+			e := treetest.First[*kelvinEditor](t, page)
+			k.nightlight = func() (nightlightControl, error) {
+				if err != nil {
+					return nil, err
+				}
+				return &fakeNightlight{}, nil
+			}
+			e.preview()
+			return e.problem
+		}},
+		{"fonts", tr.Get("settings-font-unavailable", i18n.Str("family", "Sans")), func(page widget.Widget, err error) *inlineState {
+			f := treetest.First[*fontEditor](t, page)
+			f.shown = "Sans"
+			f.showSample(loadedFamily{family: "Sans", face: k.face, err: err})
+			return f.problem
+		}},
+		{"wm-session", tr.Get("wm-palette-add-failed", i18n.Str("name", "mint")), func() func(widget.Widget, error) *inlineState {
+			refuse := refusingSlot()
+			return func(page widget.Widget, err error) *inlineState {
+				p := treetest.First[*paletteGrid](t, page)
+				refuse(&p.own, err)
+				p.name.SetText("mint")
+				p.add()
+				return p.problem
+			}
+		}()},
+		{"bitwarden", tr.Get("settings-generator-sample-copy-failed"), func(page widget.Widget, err error) *inlineState {
+			g := treetest.First[*generatorSample](t, page)
+			k.copySecret = func(string) error { return err }
+			g.copySample()
+			return g.problem
 		}},
 	} {
 		t.Run(c.page+"/"+c.summary, func(t *testing.T) {

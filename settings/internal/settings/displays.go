@@ -93,8 +93,10 @@ type displaysPanel struct {
 	light       displayLight
 	lightRow    *settingRow
 	lightSlider *widgets.DebouncedSlider
-	closed      bool
-	syncing     bool
+	// lightState says why the selected display shows no level.
+	lightState *inlineState
+	closed     bool
+	syncing    bool
 }
 
 type confirmation struct {
@@ -198,6 +200,8 @@ func (p *displaysPanel) buildControls() {
 	p.lightSlider.SetAccessibleName(t.Get("settings-displays-brightness"))
 	p.lightSlider.OnCommit = p.setBrightness
 	p.lightRow = k.row(t.Get("settings-displays-brightness"), "").withControl(p.lightSlider)
+	p.lightState = k.inlineState()
+	p.lightRow.AddDetail(p.lightState)
 	p.lightRow.SetVisible(false)
 	rows.Append(p.lightRow)
 	p.controls.Append(rows, false)

@@ -136,11 +136,11 @@ func (p *displaysPanel) showBrightness() {
 	p.lightSlider.SetVisible(ok)
 	switch {
 	case p.light.err != nil:
-		p.lightRow.SetDescription(t.Get("settings-displays-brightness-unavailable", i18n.Str("reason", p.light.err.Error())))
+		p.lightState.Unavailable("", t.Get("settings-displays-brightness-unavailable"), p.light.err)
 	case !ok:
-		p.lightRow.SetDescription(t.Get("settings-displays-brightness-none"))
+		p.lightState.Empty("", t.Get("settings-displays-brightness-none"))
 	default:
-		p.lightRow.SetDescription("")
+		p.lightState.Clear()
 		p.lightSlider.Set(level)
 	}
 }
@@ -260,7 +260,7 @@ type kelvinEditor struct {
 	slider  *slider
 	button  *widget.Button
 	label   *widget.Label
-	problem *widget.Label
+	problem *inlineState
 }
 
 func newKelvinEditor(k *kit, s slot) *kelvinEditor {
@@ -271,8 +271,7 @@ func newKelvinEditor(k *kit, s slot) *kelvinEditor {
 	e.label = k.label(t.Get("settings-nightlight-preview"))
 	e.button = k.roleButton(roleSecondary, e.label, e.preview)
 	e.button.SetTooltip(t.Get("settings-nightlight-preview-tooltip", i18n.Int("seconds", int64(nightlight.PreviewLength/time.Second))))
-	e.problem = k.errorText("")
-	e.problem.SetVisible(false)
+	e.problem = k.inlineState()
 	line := gapBox(widget.Row)
 	line.Append(e.slider, true)
 	line.AppendAligned(e.button, false, widget.AlignCenter)
@@ -289,7 +288,7 @@ func (e *kelvinEditor) preview() {
 	t := locale.T()
 	temp := uint32(math.Round(e.slider.Value()))
 	e.previewing(true)
-	e.problem.SetVisible(false)
+	e.problem.Clear()
 	async(e.k, func() error {
 		ctl, err := e.k.nightlight()
 		if err != nil {
@@ -300,8 +299,7 @@ func (e *kelvinEditor) preview() {
 	}, func(err error) {
 		if err != nil {
 			e.previewing(false)
-			e.problem.SetText(t.Get("settings-nightlight-preview-failed", i18n.Str("reason", err.Error())))
-			e.problem.SetVisible(true)
+			e.problem.Error(t.Get("settings-nightlight-preview-failed"), err, nil)
 			return
 		}
 		e.k.clock.AfterFunc(nightlight.PreviewLength, func() { e.k.invoke(func() { e.previewing(false) }) })

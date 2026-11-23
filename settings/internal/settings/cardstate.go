@@ -192,6 +192,16 @@ func (s *stateParts) Error(summary string, detail error, retry func()) {
 	s.show(stateError, cardStateErrorIcon, summary, detail, act)
 }
 
+// Result says how an action ended: nothing when err is nil, else the
+// failure, summary over err behind the disclosure.
+func (s *stateParts) Result(summary string, err error) {
+	if err == nil {
+		s.Clear()
+		return
+	}
+	s.Error(summary, err, nil)
+}
+
 // errText is err's text, "" for nil.
 func errText(err error) string {
 	if err == nil {

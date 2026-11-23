@@ -13,7 +13,6 @@ import (
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -476,16 +475,16 @@ type fingerprintReading struct {
 type fingerprintSwitch struct {
 	*widget.Box
 	toggle  *toggle
-	status  *widget.Label
+	status  *inlineState
 	enrol   *widget.Button
 	reading fingerprintReading
 	known   bool
 }
 
 func newFingerprintSwitch(k *kit, s slot) *fingerprintSwitch {
-	c := &fingerprintSwitch{Box: gapBox(widget.Column), toggle: newToggle(k, s), status: k.label("", css.Caption, css.DimLabel)}
+	c := &fingerprintSwitch{Box: gapBox(widget.Column), toggle: newToggle(k, s), status: k.inlineState()}
 	c.AppendAligned(c.toggle, false, widget.AlignEnd)
-	c.AppendAligned(wrapped(c.status), false, widget.AlignEnd)
+	c.AppendAligned(c.status, false, widget.AlignEnd)
 	if enrol, ok := k.pageButton(locale.T().Get("settings-fingerprint-enrol"), usersID); ok {
 		c.enrol = enrol
 		c.AppendAligned(c.enrol, false, widget.AlignEnd)
@@ -506,22 +505,23 @@ func (c *fingerprintSwitch) ready() bool { return c.reading.err == nil && c.read
 func (c *fingerprintSwitch) fit() {
 	t := locale.T()
 	r := c.reading
-	c.status.SetVisible(c.known && !c.ready())
 	if c.enrol != nil {
 		c.enrol.SetVisible(c.known && r.err == nil && r.fingers == 0)
 	}
 	if !c.known {
+		c.status.Clear()
 		return
 	}
 	switch {
 	case errors.Is(r.err, errNoReader):
-		c.status.SetText(t.Get("settings-fingerprint-no-reader"))
+		c.status.Unavailable("", t.Get("settings-fingerprint-no-reader"), nil)
 	case r.err != nil:
-		c.status.SetText(t.Get("settings-fingerprint-unavailable"))
+		c.status.Unavailable("", t.Get("settings-fingerprint-unavailable"), r.err)
 	case r.fingers == 0:
-		c.status.SetText(t.Get("settings-fingerprint-none"))
+		c.status.Empty("", t.Get("settings-fingerprint-none"))
+	default:
+		c.status.Clear()
 	}
-	c.status.SetTooltip(errText(r.err))
 	c.toggle.SetEnabled(c.ready() || c.toggle.On() || (r.err != nil && !errors.Is(r.err, errNoReader)))
 }
 

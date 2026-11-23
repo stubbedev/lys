@@ -180,11 +180,7 @@ func defaultAppsFooter(k *kit) widget.Widget {
 }
 
 func (d *defaultApps) fail(err error) {
-	if err == nil {
-		d.problem.Clear()
-		return
-	}
-	d.problem.Error(locale.T().Get("settings-default-apps-failed"), err, nil)
+	d.problem.Result(locale.T().Get("settings-default-apps-failed"), err)
 }
 
 func (d *defaultApps) reread(r indexedApps) {

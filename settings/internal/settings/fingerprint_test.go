@@ -463,8 +463,11 @@ func TestAFingerprintSwitchIsHeldBackUntilAFingerCanUnlock(t *testing.T) {
 			if status != tc.status {
 				t.Errorf("the status reads %q, want %q", status, tc.status)
 			}
-			if want := errText(tc.reading.err); errors.Is(tc.reading.err, errNoReader) == false && c.status.TooltipText() != want {
-				t.Errorf("the status explains %q, want %q", c.status.TooltipText(), want)
+			if want := errText(tc.reading.err); !errors.Is(tc.reading.err, errNoReader) && (c.status.detail.Text() != want || c.status.detail.Visible() || c.status.reveal.button.Visible() != (want != "")) {
+				t.Errorf("the status explains %q, shown %v, behind a disclosure %v, want %q", c.status.detail.Text(), c.status.detail.Visible(), c.status.reveal.button.Visible(), want)
+			}
+			if c.status.TooltipText() != "" {
+				t.Errorf("the status carries the tooltip %q", c.status.TooltipText())
 			}
 			if widget.IsEnabled(c.toggle) != tc.enabled {
 				t.Errorf("the switch is enabled %v, want %v", widget.IsEnabled(c.toggle), tc.enabled)

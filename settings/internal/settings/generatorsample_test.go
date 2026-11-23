@@ -7,6 +7,8 @@ import (
 
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/ui/widget"
+
+	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
 func presetSample(t *testing.T, c *cardList) *generatorSample {
@@ -37,13 +39,18 @@ func TestAPasswordPresetShowsASampleDrawnFromItsRules(t *testing.T) {
 	var copied string
 	k.copySecret = func(s string) error { copied = s; return nil }
 	g.copySample()
-	if copied != g.sample {
-		t.Errorf("copying put %q on the clipboard, want the sample %q", copied, g.sample)
+	if copied != g.sample || g.problem.Visible() {
+		t.Errorf("copying put %q on the clipboard, want the sample %q; problem %q", copied, g.sample, g.problem.Text())
 	}
 	k.copySecret = func(string) error { return errors.New("no clipboard") }
 	g.copySample()
-	if !strings.Contains(g.text.Text(), "no clipboard") {
-		t.Errorf("a failed copy shows %q", g.text.Text())
+	if g.text.Text() != g.sample || !g.problem.Visible() || g.problem.Text() != locale.T().Get("settings-generator-sample-copy-failed") || g.problem.detail.Text() != "no clipboard" || g.problem.detail.Visible() {
+		t.Errorf("a failed copy shows %q, says %q over %q", g.text.Text(), g.problem.Text(), g.problem.detail.Text())
+	}
+	k.copySecret = func(string) error { return nil }
+	g.copySample()
+	if g.problem.Visible() {
+		t.Errorf("a copy that went through still says %q", g.problem.Text())
 	}
 }
 
@@ -65,7 +72,7 @@ func TestAPresetWhoseRulesDoNotHoldShowsWhyInsteadOfASample(t *testing.T) {
 	}
 	k := testKit(t, "")
 	g := newGeneratorSample(k, field, passwordRules)
-	if g.sample != "" || !strings.Contains(g.text.Text(), "length") || widget.IsEnabled(g.copy) {
-		t.Errorf("rules that do not hold sample %q, show %q, copy enabled %v", g.sample, g.text.Text(), widget.IsEnabled(g.copy))
+	if g.sample != "" || g.text.Text() != "" || widget.IsEnabled(g.copy) || g.problem.Text() != locale.T().Get("settings-generator-sample-failed") || !strings.Contains(g.problem.detail.Text(), "length") || g.problem.detail.Visible() {
+		t.Errorf("rules that do not hold sample %q, show %q, say %q over %q, copy enabled %v", g.sample, g.text.Text(), g.problem.Text(), g.problem.detail.Text(), widget.IsEnabled(g.copy))
 	}
 }

@@ -170,11 +170,7 @@ func (s *pausing) load() {
 }
 
 func (s *pausing) fail(err error) {
-	if err == nil {
-		s.problem.Clear()
-		return
-	}
-	s.problem.Error(locale.T().Get("settings-power-pause-refused"), err, nil)
+	s.problem.Result(locale.T().Get("settings-power-pause-refused"), err)
 }
 
 func (s *pausing) show(l pauseListing) {

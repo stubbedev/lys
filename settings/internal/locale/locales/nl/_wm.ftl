@@ -712,6 +712,8 @@ wm-palette-new-name = Naam van de nieuwe kleur
 wm-palette-add = Kleur toevoegen
 wm-palette-reset = Terug naar de kleur van lys-wm
 wm-palette-taken = Er is al een kleur met de naam { $name }
+wm-palette-add-failed = De kleur { $name } is niet toegevoegd
+wm-palette-reset-failed = De kleur { $name } is niet teruggezet
 ## What a bind does, by lys-wm action: $first is the first argument, or default without any; $args all of them; $rest all after the first
 wm-action-focus = { $first ->
         [left] Het venster links focussen

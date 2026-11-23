@@ -14,6 +14,8 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/ui/widget"
+
+	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
 func workVPN(f *fakeNet) {
@@ -64,8 +66,8 @@ func TestARefusedSaveKeepsTheFormAndSaysWhy(t *testing.T) {
 	fillWireGuard(t, form, network.GenerateKeyPair())
 	form.name.SetText("Office")
 	clickText(t, form, i18n.T("dropdown-network-vpn-save"), 0)
-	if len(f.added) != 1 || !form.Visible() || form.problem.Text() != f.vpnErr.Error() || formEntry(t, form, "interface").entry.Text() != "wg9" {
-		t.Errorf("a refused save: written %d, form %v, says %q", len(f.added), form.Visible(), form.problem.Text())
+	if len(f.added) != 1 || !form.Visible() || form.problem.Text() != locale.T().Get("settings-network-vpn-not-saved") || !strings.Contains(form.problem.detail.Text(), f.vpnErr.Error()) || form.problem.detail.Visible() || formEntry(t, form, "interface").entry.Text() != "wg9" {
+		t.Errorf("a refused save: written %d, form %v, says %q over %q", len(f.added), form.Visible(), form.problem.Text(), form.problem.detail.Text())
 	}
 }
 
@@ -165,8 +167,8 @@ func TestAWgQuickFileFillsTheWireGuardForm(t *testing.T) {
 		t.Errorf("a file that is no wg-quick config says %q, names %q", form.problem.Text(), form.name.Text())
 	}
 	pickers.fileFn(filepath.Join(dir, "gone.conf"))
-	if !strings.Contains(form.problem.Text(), "gone.conf") {
-		t.Errorf("a missing file says %q", form.problem.Text())
+	if form.problem.Text() != locale.T().Get("settings-network-vpn-import-unreadable") || !strings.Contains(form.problem.detail.Text(), "gone.conf") || form.problem.detail.Visible() {
+		t.Errorf("a missing file says %q over %q", form.problem.Text(), form.problem.detail.Text())
 	}
 	pickers.fileFn(conf)
 	if form.problem.Visible() || form.name.Text() != "office" || formEntry(t, form, "peer-endpoint").entry.Text() != "vpn.example.com:51820" || formEntry(t, form, "private-key").entry.Text() != pair.Private {
