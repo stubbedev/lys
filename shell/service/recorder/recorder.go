@@ -65,10 +65,10 @@ const (
 type Session interface {
 	// Start records the source with opts; term reports an unexpected
 	// end (a source disconnect, a full disk), never a requested Stop.
-	Start(opts Options, term func(reason string)) (Recording, error)
+	Start(opts Options, term func(err error)) (Recording, error)
 	// StartReplay records the source with opts into a ring holding the
 	// last span; onKey runs after each keyframe enters it.
-	StartReplay(opts Options, span time.Duration, term func(reason string), onKey func()) (Replay, error)
+	StartReplay(opts Options, span time.Duration, term func(err error), onKey func()) (Replay, error)
 	Close() error
 }
 
@@ -119,8 +119,9 @@ type Change struct {
 	Preparing   bool
 	ElapsedSecs uint32
 	OutputPath  string
-	// Error is why the last recording failed to start or ended on its
-	// own, "" once a new one starts.
+	// Error says, in the shell's words, that the last recording failed
+	// to start or ended on its own, "" once a new one starts; what
+	// failed is the log's.
 	Error string
 	// Replay is the instant replay's state, ReplayBytes the memory its
 	// ring holds while armed, ReplaySaving whether a save is writing.
@@ -143,7 +144,7 @@ type State struct {
 	preparing   bool
 	elapsed     uint32
 	output      string
-	lastErr     string
+	failed      bool
 	recording   Recording
 	session     Session
 	cancelStart context.CancelFunc
@@ -200,12 +201,14 @@ func (s *State) snapshotLocked() Change {
 		Preparing:    s.preparing,
 		ElapsedSecs:  s.elapsed,
 		OutputPath:   s.output,
-		Error:        s.lastErr,
 		Replay:       s.replayStatus,
 		ReplaySaving: s.replaySave != nil,
 	}
 	if s.replay != nil {
 		c.ReplayBytes = s.replay.Bytes()
+	}
+	if s.failed {
+		c.Error = i18n.T("recorder-toast-failed")
 	}
 	return c
 }
@@ -236,7 +239,7 @@ func (s *State) Start() {
 	}
 	s.status = StatusStarting
 	s.preparing = true
-	s.lastErr = ""
+	s.failed = false
 	ctx, cancel := context.WithCancel(context.Background())
 	s.cancelStart = cancel
 	s.gen++
@@ -276,7 +279,7 @@ func (s *State) runStart(ctx context.Context, gen uint64) {
 		return
 	case <-time.After(time.Duration(cfg.StartDelayMs) * time.Millisecond):
 	}
-	rec, err := session.Start(opts, func(reason string) { s.unexpectedStop(gen, reason) })
+	rec, err := session.Start(opts, func(err error) { s.unexpectedStop(gen, err) })
 	if err != nil {
 		s.failStart(errors.Join(err, session.Close()))
 		return
@@ -321,13 +324,14 @@ func endCapture(c interface{ Stop() error }, session Session) error {
 // failStart logs a failed start and settles to Idle with its error.
 func (s *State) failStart(err error) {
 	log.Printf("recorder: failed to start recording: %v", err)
-	s.fail(err.Error())
+	s.fail()
 }
 
-// fail settles to Idle with reason as the error state, and reports it.
-func (s *State) fail(reason string) {
+// fail settles to Idle in the failed state and reports it; the caller
+// has logged what failed.
+func (s *State) fail() {
 	s.mu.Lock()
-	s.lastErr = reason
+	s.failed = true
 	s.mu.Unlock()
 	s.resetIdle()
 	s.showError(i18n.T("recorder-toast-failed"))
@@ -335,7 +339,7 @@ func (s *State) fail(reason string) {
 
 // unexpectedStop handles a recording that stopped by itself: a live recording that died
 // on its own is torn down and reported.
-func (s *State) unexpectedStop(gen uint64, reason string) {
+func (s *State) unexpectedStop(gen uint64, err error) {
 	s.mu.Lock()
 	if s.status != StatusRecording || s.gen != gen {
 		s.mu.Unlock()
@@ -344,11 +348,11 @@ func (s *State) unexpectedStop(gen uint64, reason string) {
 	s.status = StatusStopping
 	rec, session := s.recording, s.session
 	s.mu.Unlock()
-	log.Printf("recorder: recording terminated unexpectedly: %s", reason)
+	log.Printf("recorder: recording terminated unexpectedly: %v", err)
 	if err := endCapture(rec, session); err != nil {
 		log.Printf("recorder: end the terminated recording: %v", err)
 	}
-	s.fail(reason)
+	s.fail()
 }
 
 // Stop stops the recording, or cancels one still starting. Only the
@@ -381,7 +385,7 @@ func (s *State) Stop() {
 	go func() {
 		if err := endCapture(rec, session); err != nil {
 			log.Printf("recorder: end the recording to %s: %v", path, err)
-			s.fail(err.Error())
+			s.fail()
 			return
 		}
 		s.mu.Lock()

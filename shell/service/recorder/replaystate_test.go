@@ -189,7 +189,7 @@ func TestReplayFailuresAreReported(t *testing.T) {
 	if s.Snapshot().Replay != recorder.ReplayArmed {
 		t.Error("a failed save disarmed the replay")
 	}
-	rp.Fail("recorder: the output is gone: DP-1")
+	rp.Fail(errors.New("recorder: the output is gone: DP-1"))
 	waittest.Until(t, func() bool { return s.Snapshot().Replay == recorder.ReplayOff }, "the replay to be off")
 	if rp.Stops() != 1 || engine.Sessions()[0].Closed() != 1 {
 		t.Errorf("stops %d, closes %d after the capture died", rp.Stops(), engine.Sessions()[0].Closed())
@@ -291,7 +291,7 @@ func TestReplayCaptureDeathWaitsForTheSaveWritingIt(t *testing.T) {
 	s, engine, rp, release, saved := holdASave(t)
 	torndown := make(chan struct{})
 	go func() {
-		rp.Fail("recorder: the output is gone: DP-1")
+		rp.Fail(errors.New("recorder: the output is gone: DP-1"))
 		close(torndown)
 	}()
 	waittest.Until(t, func() bool { return s.Snapshot().Replay == recorder.ReplayOff }, "the replay off")

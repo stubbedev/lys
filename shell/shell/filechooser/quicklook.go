@@ -10,6 +10,7 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/lib/render"
@@ -281,14 +282,11 @@ func readHead(path string) ([]byte, error) {
 // item count, a file's type described, an image's pixel size.
 func previewDetail(e Entry, p preview) string {
 	if p.kind == previewFolder {
-		items := strconv.Itoa(p.items) + " items"
-		switch {
-		case p.more:
-			items = groupThousands(p.items) + "+ items"
-		case p.items == 1:
-			items = "1 item"
+		items := i18n.T("file-chooser-folder-items", i18n.Int("count", int64(p.items)), i18n.Str("shown", groupThousands(p.items)))
+		if p.more {
+			items = i18n.T("file-chooser-folder-items-capped", i18n.Str("shown", groupThousands(p.items)))
 		}
-		return "Folder · " + items + " · " + FormatTime(e.Modified)
+		return i18n.T("file-chooser-kind-folder") + " · " + items + " · " + FormatTime(e.Modified)
 	}
 	kind := p.description
 	if kind == "" {

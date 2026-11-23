@@ -93,7 +93,7 @@ type recordingParts struct {
 // every 20 ms, both writing to one sink on one clock.
 type recording struct {
 	p    recordingParts
-	term func(reason string)
+	term func(err error)
 	sink sampleSink
 
 	// mu guards the clock and the mixer: the audio sources push from
@@ -190,7 +190,7 @@ func (s *fileSink) discard() error {
 // startRecording opens opts.OutputPath and starts recording parts into
 // it. On failure everything parts held is released and the file
 // removed.
-func startRecording(parts recordingParts, opts Options, term func(reason string)) (*recording, error) {
+func startRecording(parts recordingParts, opts Options, term func(err error)) (*recording, error) {
 	return startPipeline(parts, term, func(tracks []mux.Track) (sampleSink, error) {
 		sink, err := openFileSink(opts.OutputPath, opts.Format, tracks)
 		if err != nil {
@@ -203,7 +203,7 @@ func startRecording(parts recordingParts, opts Options, term func(reason string)
 // startPipeline starts recording parts into the sink open makes for
 // the recording's tracks. On failure everything parts held is
 // released, the sink discarded.
-func startPipeline(parts recordingParts, term func(reason string), open func([]mux.Track) (sampleSink, error)) (_ *recording, err error) {
+func startPipeline(parts recordingParts, term func(err error), open func([]mux.Track) (sampleSink, error)) (_ *recording, err error) {
 	r := &recording{p: parts, term: term, stop: make(chan struct{})}
 	defer func() {
 		if err != nil {
@@ -259,7 +259,7 @@ func (r *recording) release() error {
 // report runs off the loop: the state's teardown calls Stop, which waits
 // for the loops.
 func (r *recording) fail(err error) {
-	r.failOnce.Do(func() { go r.term(err.Error()) })
+	r.failOnce.Do(func() { go r.term(err) })
 }
 
 func (r *recording) writeVideo(pkts []gpu.Packet) error {

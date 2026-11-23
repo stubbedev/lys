@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/portaldialogs"
 	"github.com/stubbedev/lys/lib/render"
@@ -254,7 +255,7 @@ func TestReplaceNoticeWrapsInsideThePanel(t *testing.T) {
 			})
 			hs.do(hs.c.confirm)
 			hs.run(func() {
-				want := "“" + name + "” already exists in “" + filepath.Base(hs.root) + "”. Replace it?"
+				want := i18n.T("file-chooser-save-exists", i18n.Str("name", name), i18n.Str("folder", filepath.Base(hs.root)))
 				if got := hs.c.ui.noticeLabel.Text(); got != want {
 					t.Errorf("notice %q, want %q", got, want)
 				}

@@ -18,22 +18,22 @@ import (
 
 const testFPS = 30
 
-// termLog collects the reasons a recording reported ending on its own.
+// termLog collects the errors a recording reported ending on its own.
 type termLog struct {
-	mu      sync.Mutex
-	reasons []string
+	mu   sync.Mutex
+	errs []error
 }
 
-func (l *termLog) term(reason string) {
+func (l *termLog) term(err error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	l.reasons = append(l.reasons, reason)
+	l.errs = append(l.errs, err)
 }
 
-func (l *termLog) all() []string {
+func (l *termLog) all() []error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	return slices.Clone(l.reasons)
+	return slices.Clone(l.errs)
 }
 
 func startTest(t *testing.T, parts recordingParts, format config.RecorderFormat) (*recording, string, *termLog) {
@@ -211,7 +211,7 @@ func TestFailuresOfBothTracksAreReportedOnce(t *testing.T) {
 	go func() { r.loops.Wait(); close(ended) }()
 	waittest.For(t, ended, "the tracks to end after their file closed")
 	waittest.UntilSlow(t, func() bool { return len(terms.all()) > 0 }, "the failure report")
-	if got := terms.all(); len(got) != 1 || !strings.Contains(got[0], "file already closed") {
+	if got := terms.all(); len(got) != 1 || !errors.Is(got[0], os.ErrClosed) {
 		t.Errorf("reported %q, want the write failure once", got)
 	}
 	if err := r.Stop(); err == nil {
@@ -223,10 +223,11 @@ func TestFailuresOfBothTracksAreReportedOnce(t *testing.T) {
 // what was recorded before it is still finalized on Stop.
 func TestRecordingFailureIsReportedAndStillFinalized(t *testing.T) {
 	fx := loadFixture(t)
-	video := &fakeVideo{fx: fx, failAt: 4, failErr: errors.New("recorder: the output is gone: HDMI-A-1")}
+	gone := errors.New("recorder: the output is gone: HDMI-A-1")
+	video := &fakeVideo{fx: fx, failAt: 4, failErr: gone}
 	r, path, terms := startTest(t, recordingParts{video: video}, config.RecorderFormatMp4)
 	waittest.UntilSlow(t, func() bool { return len(terms.all()) > 0 }, "the failure report")
-	if got := terms.all(); !slices.Equal(got, []string{"recorder: the output is gone: HDMI-A-1"}) {
+	if got := terms.all(); len(got) != 1 || !errors.Is(got[0], gone) {
 		t.Fatalf("reported %q, want the failure once", got)
 	}
 	if err := r.Stop(); err != nil {
@@ -271,7 +272,7 @@ func TestStartRecordingReportsAnEncoderThatFailsToClose(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "x.webm")
 	closeErr := errors.New("recorder: close the H.264 encoder recording HDMI-A-1 on iGPU: gpu: timed out")
 	video := &fakeVideo{fx: fx, closeErr: closeErr}
-	_, err := startRecording(recordingParts{video: video, fps: testFPS, wall: systemClock{}}, Options{OutputPath: path, Format: "webm"}, func(string) {})
+	_, err := startRecording(recordingParts{video: video, fps: testFPS, wall: systemClock{}}, Options{OutputPath: path, Format: "webm"}, func(error) {})
 	if err == nil || !strings.Contains(err.Error(), `no muxer for output format "webm"`) {
 		t.Errorf("start = %v, want the start's own failure", err)
 	}
@@ -316,7 +317,7 @@ func TestWebcamFramesBecomeTheOverlay(t *testing.T) {
 	}
 	close(cam.frames)
 	waittest.UntilSlow(t, func() bool { return len(terms.all()) > 0 }, "the camera's report")
-	if got := terms.all(); len(got) != 1 || !strings.Contains(got[0], "the webcam stopped: /dev/video0 hung up") {
+	if got := terms.all(); len(got) != 1 || !strings.Contains(got[0].Error(), "the webcam stopped: /dev/video0 hung up") {
 		t.Errorf("reported %q, want the camera's reason", got)
 	}
 	if err := r.Stop(); err != nil {
@@ -353,7 +354,7 @@ func TestStartRecordingFailsCleanly(t *testing.T) {
 	} {
 		video := &fakeVideo{fx: fx}
 		cam := &fakeCamera{}
-		_, err := startRecording(recordingParts{video: video, cam: cam, audio: c.audio, fps: testFPS, wall: systemClock{}}, c.opts, func(string) {})
+		_, err := startRecording(recordingParts{video: video, cam: cam, audio: c.audio, fps: testFPS, wall: systemClock{}}, c.opts, func(error) {})
 		if err == nil || !strings.Contains(err.Error(), c.want) {
 			t.Errorf("%s: %v, want %q", name, err, c.want)
 		}

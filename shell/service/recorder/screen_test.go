@@ -264,7 +264,7 @@ func TestWebcamOverlayIsEncodedIntoTheFrame(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "cam.mkv")
 	period := time.Second / 30
 	wall := newFakeWall(time.Date(2026, 11, 14, 12, 0, 0, 0, time.UTC), period)
-	rec, err := startRecording(recordingParts{video: video, cam: cam, camRect: rect, fps: 30, wall: wall}, Options{OutputPath: path, Format: config.RecorderFormatMkv}, func(r string) { t.Errorf("reported %q", r) })
+	rec, err := startRecording(recordingParts{video: video, cam: cam, camRect: rect, fps: 30, wall: wall}, Options{OutputPath: path, Format: config.RecorderFormatMkv}, func(err error) { t.Errorf("reported %v", err) })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -305,12 +305,12 @@ func TestClosingASessionEndsItsCaptureFirst(t *testing.T) {
 		t.Fatal(err)
 	}
 	path := filepath.Join(t.TempDir(), "closed.mkv")
-	rec, err := s.Start(Options{OutputPath: path, Format: config.RecorderFormatMkv, Framerate: 30}, func(r string) { t.Errorf("reported %q", r) })
+	rec, err := s.Start(Options{OutputPath: path, Format: config.RecorderFormatMkv, Framerate: 30}, func(err error) { t.Errorf("reported %v", err) })
 	if err != nil {
 		closeOrFail(t, "the session", s)
 		t.Fatal(err)
 	}
-	if _, err := s.Start(Options{OutputPath: path, Format: config.RecorderFormatMkv, Framerate: 30}, func(string) {}); !errors.Is(err, errSessionCaptures) {
+	if _, err := s.Start(Options{OutputPath: path, Format: config.RecorderFormatMkv, Framerate: 30}, func(error) {}); !errors.Is(err, errSessionCaptures) {
 		t.Errorf("a second capture of the session: %v, want errSessionCaptures", err)
 	}
 	const frames = 10

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stubbedev/lys/desktop/i18n"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/waittest"
 
@@ -92,7 +93,7 @@ func TestDrivesUnlockWithAPassphrase(t *testing.T) {
 		errText = hs.c.ui.unlock.err.Text()
 		open = hs.c.ui.unlock.box.Visible() && hs.c.ui.unlock.entry.Text() == ""
 	})
-	if errText != "Cannot unlock “Vault”. Check the passphrase and try again." || strings.Contains(errText, "Operation not permitted") || !open {
+	if errText != i18n.T("file-chooser-unlock-failed", i18n.Str("volume", "Vault")) || strings.Contains(errText, "Operation not permitted") || !open {
 		t.Errorf("a wrong passphrase: error %q, prompt open and emptied %v", errText, open)
 	}
 	pending(t, got)
@@ -116,7 +117,7 @@ func TestDrivesEject(t *testing.T) {
 	got := hs.open(t, OpenRequest{})
 	hs.waitButton(t, "STICK", true)
 	hs.click(t, "STICK")
-	eject := "Eject “STICK”"
+	eject := i18n.T("file-chooser-eject", i18n.Str("volume", "STICK"))
 	hs.waitButton(t, eject, true)
 	u.Calls.Store(nil)
 	u.Busy.Store(true)

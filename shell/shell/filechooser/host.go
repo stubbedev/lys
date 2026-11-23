@@ -13,6 +13,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/fileuri"
 	"github.com/stubbedev/lys/desktop/fswatch"
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/mime"
 	"github.com/stubbedev/lys/desktop/shell/layers"
 	"github.com/stubbedev/lys/desktop/shell/reveal"
@@ -590,19 +591,19 @@ func (c *Chooser) build(r request) {
 	// drag handle.
 	th := widget.Current()
 	headerRow := widget.NewBox(widget.Row, th.Spacing/4, 0)
-	headerRow.Append(c.iconButton("ld-arrow-up-symbolic", "Up", c.goUp), false)
+	headerRow.Append(c.iconButton("ld-arrow-up-symbolic", i18n.T("file-chooser-nav-up"), c.goUp), false)
 	if s.mode == ModeSave || s.mode.folders() {
-		headerRow.Append(c.iconButton("ld-folder-plus-symbolic", "Create Folder", c.showNewFolder), false)
+		headerRow.Append(c.iconButton("ld-folder-plus-symbolic", i18n.T("file-chooser-nav-new-folder"), c.showNewFolder), false)
 	}
 	titleLabel := widget.NewLabel(c.d.Font, widgets.TextPx(styling.Subtitle, 1), title, 0)
 	titleLabel.AddClass("file-chooser-title", css.Heading)
 	titleLabel.SetAlignment(render.AlignCenter)
 	titleLabel.SetEllipsize(widget.EllipsizeEnd)
 	headerRow.AppendAligned(titleLabel, true, widget.AlignCenter)
-	u.viewToggle, u.viewIcon = c.swappableIconButton(viewIcon(c.view.grid), "Toggle grid view", c.toggleView)
-	u.previewToggle = c.iconToggle("ld-panel-right-symbolic", "Preview pane", false, c.togglePreview)
-	u.hiddenTg = c.iconToggle("ld-eye-symbolic", "Show hidden files", c.hidden, c.toggleHidden)
-	u.recursiveToggle = c.iconToggle("ld-folder-search-symbolic", "Search subfolders", c.recursive, c.toggleRecursive)
+	u.viewToggle, u.viewIcon = c.swappableIconButton(viewIcon(c.view.grid), i18n.T("file-chooser-nav-grid"), c.toggleView)
+	u.previewToggle = c.iconToggle("ld-panel-right-symbolic", i18n.T("file-chooser-nav-preview"), false, c.togglePreview)
+	u.hiddenTg = c.iconToggle("ld-eye-symbolic", i18n.T("file-chooser-nav-hidden"), c.hidden, c.toggleHidden)
+	u.recursiveToggle = c.iconToggle("ld-folder-search-symbolic", i18n.T("file-chooser-nav-recursive"), c.recursive, c.toggleRecursive)
 	headerRow.Append(u.viewToggle, false)
 	for _, b := range []*widget.ToggleButton{u.previewToggle, u.hiddenTg, u.recursiveToggle} {
 		headerRow.Append(b, false)
@@ -620,7 +621,7 @@ func (c *Chooser) build(r request) {
 	u.location = &locationEntry{ComboEntry: combo, tab: c.tabLocation}
 	u.location.OnChanged = c.completeLocation
 	u.location.AddClass("file-chooser-location")
-	u.location.SetPlaceholder("Type a path")
+	u.location.SetPlaceholder(i18n.T("file-chooser-placeholder-location"))
 	u.location.OnActivate = c.goToLocation
 	u.location.OnEscape = func() bool { c.hideLocation(); return true }
 	u.location.SetVisible(false)
@@ -628,7 +629,7 @@ func (c *Chooser) build(r request) {
 	// No debounce: filtering the cached listing
 	// is an in-memory scan, and a recursive walk is cancelled by its
 	// generation instead.
-	u.search = widget.NewSearchEntry(c.d.Font, widgets.TextPx(styling.Body, 1), "Filter this folder")
+	u.search = widget.NewSearchEntry(c.d.Font, widgets.TextPx(styling.Body, 1), i18n.T("file-chooser-placeholder-search"))
 	u.search.AddClass("file-chooser-search")
 	u.search.SetDelay(0)
 	u.search.OnSearchChanged = c.setSearch
@@ -653,7 +654,7 @@ func (c *Chooser) build(r request) {
 	nameRow := section(widget.Row, "file-chooser-name-row")
 	u.name = widget.NewEntry(c.d.Font, widgets.TextPx(styling.Body, 1), 0)
 	u.name.AddClass("file-chooser-name")
-	u.name.SetPlaceholder("File name")
+	u.name.SetPlaceholder(i18n.T("file-chooser-placeholder-name"))
 	u.name.SetText(name)
 	u.name.OnActivate = func(string) { c.confirm() }
 	u.name.OnChanged = func(string) { c.clearNotice() }
@@ -665,18 +666,18 @@ func (c *Chooser) build(r request) {
 	u.noticeLabel = c.label("", "file-chooser-notice-label", css.Warning)
 	u.noticeLabel.SetWrap(true)
 	u.notice.AppendAligned(u.noticeLabel, true, widget.AlignCenter)
-	u.replace, _ = c.textButton("Replace", "file-chooser-replace", css.DestructiveAction, c.confirm)
+	u.replace, _ = c.textButton(i18n.T("file-chooser-button-replace"), "file-chooser-replace", css.DestructiveAction, c.confirm)
 	u.notice.AppendAligned(u.replace, false, widget.AlignCenter)
 	u.notice.SetVisible(false)
 
 	// The new folder row: a name and Create.
 	u.newFolder = section(widget.Row, "file-chooser-new-folder")
 	u.newFolderName = widget.NewEntry(c.d.Font, widgets.TextPx(styling.Body, 1), 0)
-	u.newFolderName.SetPlaceholder("Folder name")
+	u.newFolderName.SetPlaceholder(i18n.T("file-chooser-placeholder-folder-name"))
 	u.newFolderName.OnActivate = func(string) { c.createFolder() }
 	u.newFolderName.OnEscape = func() bool { c.ui.newFolder.SetVisible(false); return true }
 	u.newFolder.Append(u.newFolderName, true)
-	create, _ := c.textButton("Create", "file-chooser-create-folder", css.SuggestedAction, c.createFolder)
+	create, _ := c.textButton(i18n.T("file-chooser-button-create"), "file-chooser-create-folder", css.SuggestedAction, c.createFolder)
 	u.newFolder.Append(create, false)
 	u.newFolder.SetVisible(false)
 
@@ -698,7 +699,7 @@ func (c *Chooser) build(r request) {
 		footer.Append(row, false)
 	}
 	footer.Append(widget.NewSpacer(0, 0), true)
-	cancel, _ := c.textButton("Cancel", "file-chooser-cancel", css.Outline, func() { c.finish(nil) })
+	cancel, _ := c.textButton(i18n.T("file-chooser-button-cancel"), "file-chooser-cancel", css.Outline, func() { c.finish(nil) })
 	accept := r.acceptLabel
 	if accept == "" {
 		accept = s.mode.confirmLabel()
@@ -751,8 +752,8 @@ func (c *Chooser) sidebar(u *ui) widget.Widget {
 	}
 	opening := c.opening()
 	favorites := c.favorites(nil, opening)
-	u.favorites = section("Favorites", favorites)
-	u.locations = section("Locations", nil)
+	u.favorites = section(i18n.T("file-chooser-section-favorites"), favorites)
+	u.locations = section(i18n.T("file-chooser-section-locations"), nil)
 	u.unlock = c.newUnlockRow()
 	box.Append(u.unlock.box, false)
 	c.offLoop.Go(func() {
@@ -783,11 +784,11 @@ func (c *Chooser) opening() bool { return c.s.mode == ModeOpenFile || c.s.mode =
 func (c *Chooser) favorites(places []Place, opening bool) []Place {
 	var favorites []Place
 	if c.d.RecentFile != "" && opening {
-		favorites = append(favorites, Place{Label: "Recent", Path: recentLocation, Icon: "ld-history-symbolic"})
+		favorites = append(favorites, Place{Label: i18n.T("file-chooser-place-recent"), Path: recentLocation, Icon: "ld-history-symbolic"})
 	}
 	favorites = append(favorites, places...)
 	if c.d.TrashDirs != nil && opening {
-		favorites = append(favorites, Place{Label: "Trash", Path: trashLocation, Icon: "ld-trash-2-symbolic"})
+		favorites = append(favorites, Place{Label: i18n.T("file-chooser-place-trash"), Path: trashLocation, Icon: "ld-trash-2-symbolic"})
 	}
 	return favorites
 }
@@ -809,7 +810,7 @@ func (c *Chooser) fillPlaces(list *widget.Box, places []Place) {
 			list.Append(b, false)
 			continue
 		}
-		list.Append(widget.NewContextMenu(c.d.Font, b, widget.MenuItem{Label: "Remove from Bookmarks", OnClick: func() { c.unbookmark(p.Path) }}), false)
+		list.Append(widget.NewContextMenu(c.d.Font, b, widget.MenuItem{Label: i18n.T("file-chooser-remove-bookmark"), OnClick: func() { c.unbookmark(p.Path) }}), false)
 	}
 }
 
@@ -856,7 +857,7 @@ func (c *Chooser) views(u *ui) widget.Widget {
 		l.OnSelectionChanged = func([]int) { c.refreshPreview() }
 	}
 
-	u.empty = c.label("No items", "file-chooser-empty", css.DimLabel)
+	u.empty = c.label(i18n.T("file-chooser-empty-folder"), "file-chooser-empty", css.DimLabel)
 	u.ql = c.newPreviewView("file-chooser-quicklook", 32, quicklookImageW, quicklookImageH, quicklookTextW, quicklookTextH)
 	u.quicklook = u.ql.card
 	u.quicklook.AddClass(css.Card)
@@ -1399,12 +1400,12 @@ func (c *Chooser) relist() {
 	u.grid.SetVisible(grid)
 	u.list.Reset()
 	u.grid.Reset()
-	empty := "No items"
+	empty := i18n.T("file-chooser-empty-folder")
 	switch {
 	case c.s.loading:
-		empty = "Loading…"
+		empty = i18n.T("file-chooser-loading")
 	case c.s.listErr != nil && !c.s.searching():
-		empty = "Cannot read this folder."
+		empty = i18n.T("file-chooser-unreadable")
 	}
 	u.empty.SetText(empty)
 	u.empty.SetVisible(len(c.s.entries) == 0)
@@ -1540,7 +1541,7 @@ func (c *Chooser) goToLocation(text string) {
 		case st.err == nil && !c.s.mode.folders():
 			c.finish([]string{fileuri.FromPath(path)})
 		default:
-			c.warn("No folder or file at " + path + ".")
+			c.warn(i18n.T("file-chooser-location-missing", i18n.Str("path", path)))
 		}
 	})
 }
@@ -1561,12 +1562,12 @@ func (c *Chooser) createFolder() {
 		return
 	}
 	if name == "." || name == ".." || strings.Contains(name, "/") {
-		c.warn("“" + name + "” is not a folder name.")
+		c.warn(i18n.T("file-chooser-folder-name-invalid", i18n.Str("name", name)))
 		return
 	}
 	path := filepath.Join(c.s.dir, name)
 	if err := os.Mkdir(path, 0o755); err != nil { //nolint:gosec // a folder the user creates, as any file manager does
-		c.failed("Cannot create “"+name+"”.", err)
+		c.failed(i18n.T("file-chooser-create-failed", i18n.Str("name", name)), err)
 		return
 	}
 	c.ui.newFolder.SetVisible(false)
@@ -1676,10 +1677,14 @@ func (c *Chooser) saveView() {
 	c.viewFile.Write([]byte(c.view.String()))
 }
 
+// columnTitles are the messages titling the columns, in SortColumn
+// order.
+var columnTitles = [...]string{"file-chooser-column-name", "file-chooser-column-size", "file-chooser-column-modified", "file-chooser-column-kind"}
+
 // updateSortLabels marks the sort column with its direction.
 func (c *Chooser) updateSortLabels() {
 	for col, l := range c.ui.sortLabels {
-		text := [...]string{"Name", "Size", "Modified", "Kind"}[col]
+		text := i18n.T(columnTitles[col])
 		if SortColumn(col) == c.s.view.sort {
 			if c.s.view.asc {
 				text += " ↑"
@@ -1748,12 +1753,12 @@ func (c *Chooser) confirmSave() {
 			c.ui.name.SetText("")
 			c.goTo(path)
 		case check.noFolder:
-			c.warn("The folder " + dir + " does not exist.")
+			c.warn(i18n.T("file-chooser-save-no-folder", i18n.Str("folder", dir)))
 		case check.notWritable:
-			c.warn("You cannot save in " + dir + ".")
+			c.warn(i18n.T("file-chooser-save-not-writable", i18n.Str("folder", dir)))
 		case check.exists && c.replacing != path:
 			c.replacing = path
-			c.ui.noticeLabel.SetText("“" + filepath.Base(path) + "” already exists in “" + filepath.Base(dir) + "”. Replace it?")
+			c.ui.noticeLabel.SetText(i18n.T("file-chooser-save-exists", i18n.Str("name", filepath.Base(path)), i18n.Str("folder", filepath.Base(dir))))
 			c.ui.replace.SetVisible(true)
 			c.ui.notice.SetVisible(true)
 		default:
@@ -1836,7 +1841,7 @@ func (c *Chooser) refreshPreview() {
 	c.dropPreview()
 	u.quicklook.SetVisible(false)
 	u.pv.visual.Clear()
-	u.pv.name.SetText("No selection")
+	u.pv.name.SetText(i18n.T("file-chooser-no-selection"))
 	u.pv.info.SetText("")
 }
 

@@ -21,6 +21,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/fileuri"
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/apptheme"
 	"github.com/stubbedev/lys/desktop/shell/reveal"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
@@ -1361,7 +1362,7 @@ func TestSaveAsksBeforeReplacing(t *testing.T) {
 	var notice string
 	var visible bool
 	hs.do(func() { notice, visible = hs.c.ui.noticeLabel.Text(), hs.c.ui.notice.Visible() })
-	if !visible || notice != "“b.txt” already exists in “"+filepath.Base(hs.root)+"”. Replace it?" {
+	if !visible || notice != i18n.T("file-chooser-save-exists", i18n.Str("name", "b.txt"), i18n.Str("folder", filepath.Base(hs.root))) {
 		t.Errorf("notice %v %q", visible, notice)
 	}
 	hs.do(func() { hs.c.ui.name.SetText("b.txt ") })
@@ -1381,7 +1382,7 @@ func TestSaveAsksBeforeReplacing(t *testing.T) {
 	hs.click(t, "Save")
 	pending(t, got)
 	hs.do(func() { notice = hs.c.ui.noticeLabel.Text() })
-	if notice != "The folder "+filepath.Join(hs.root, "missing")+" does not exist." {
+	if notice != i18n.T("file-chooser-save-no-folder", i18n.Str("folder", filepath.Join(hs.root, "missing"))) {
 		t.Errorf("missing folder notice %q", notice)
 	}
 	locked := filepath.Join(hs.root, "locked")
@@ -1392,7 +1393,7 @@ func TestSaveAsksBeforeReplacing(t *testing.T) {
 	hs.click(t, "Save")
 	pending(t, got)
 	hs.do(func() { notice = hs.c.ui.noticeLabel.Text() })
-	if os.Geteuid() != 0 && notice != "You cannot save in "+locked+"." {
+	if os.Geteuid() != 0 && notice != i18n.T("file-chooser-save-not-writable", i18n.Str("folder", locked)) {
 		t.Errorf("read-only folder notice %q", notice)
 	}
 	hs.click(t, "Cancel")
@@ -1526,7 +1527,7 @@ func TestTypeAheadAndLocation(t *testing.T) {
 	hs.do(func() { hs.c.goToLocation("../nope") })
 	var notice string
 	hs.do(func() { notice = hs.c.ui.noticeLabel.Text() })
-	if notice != "No folder or file at "+filepath.Join(hs.root, "nope")+"." {
+	if notice != i18n.T("file-chooser-location-missing", i18n.Str("path", filepath.Join(hs.root, "nope"))) {
 		t.Errorf("a missing path noticed %q", notice)
 	}
 	hs.do(func() { hs.c.goToLocation("a.png") })
@@ -1561,7 +1562,7 @@ func TestCreateFolder(t *testing.T) {
 		t.Errorf("no folder created: %v", err)
 	}
 	var notice string
-	for name, want := range map[string]string{"..": "“..” is not a folder name.", "a/b": "“a/b” is not a folder name."} {
+	for name, want := range map[string]string{"..": i18n.T("file-chooser-folder-name-invalid", i18n.Str("name", "..")), "a/b": i18n.T("file-chooser-folder-name-invalid", i18n.Str("name", "a/b"))} {
 		hs.do(func() { hs.c.showNewFolder(); hs.c.ui.newFolderName.SetText(name); hs.c.createFolder() })
 		hs.do(func() { notice = hs.c.ui.noticeLabel.Text() })
 		if notice != want {
@@ -1575,7 +1576,7 @@ func TestCreateFolder(t *testing.T) {
 		hs.c.createFolder()
 	})
 	hs.do(func() { notice = hs.c.ui.noticeLabel.Text() })
-	if notice != "Cannot create “docs”." {
+	if notice != i18n.T("file-chooser-create-failed", i18n.Str("name", "docs")) {
 		t.Errorf("a taken name noticed %q", notice)
 	}
 	hs.click(t, "Cancel")

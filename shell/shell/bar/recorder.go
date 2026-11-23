@@ -89,7 +89,7 @@ func (m *recorderModule) refresh() {
 	setClass(m.chrome, "recorder-preparing", snap.Preparing)
 	setClass(m.chrome, "recorder-replay", snap.Replay == recorder.ReplayArmed)
 	// A failed start or a recording that died stays visible until the
-	// next start: recorder-failed tints the icon, the tooltip says why.
+	// next start: recorder-failed tints the icon, the tooltip says it failed.
 	failed := recorderFailure(snap)
 	setClass(m.chrome, "recorder-failed", failed != "")
 	m.btn.SetDescription(failed)

@@ -100,8 +100,8 @@ func TestRecorderPreparingClass(t *testing.T) {
 }
 
 // A start that fails (a GPU without a video encoder) leaves the idle
-// module tinted by recorder-failed with the reason as its tooltip; a
-// new start takes both away.
+// module tinted by recorder-failed with the failure's summary as its
+// tooltip, never the error's own text; a new start takes both away.
 func TestRecorderFailedState(t *testing.T) {
 	cfg := config.Defaults()
 	cfg.Recorder.OutputDirectory = t.TempDir()
@@ -120,7 +120,7 @@ func TestRecorderFailedState(t *testing.T) {
 	chrome := widget.NewBox(widget.Row, 0, 0)
 	onHeadlessLoop(func() bool { m.setChrome(chrome); return true })
 	failed := func() bool {
-		return widget.HasClass(chrome, "recorder-failed") && m.btn.Detail() == noEncoder.Error()
+		return widget.HasClass(chrome, "recorder-failed") && m.btn.Detail() == i18n.T("recorder-toast-failed")
 	}
 	if onHeadlessLoop(failed) || onHeadlessLoop(func() bool { return m.btn.Detail() != "" }) {
 		t.Fatal("a fresh module shows a failure")

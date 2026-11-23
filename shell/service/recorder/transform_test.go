@@ -102,7 +102,7 @@ func TestRecordsTransformedOutputsAndRegionsUpright(t *testing.T) {
 				}
 				defer closeOrFail(t, "the session", s)
 				path := filepath.Join(t.TempDir(), "rec.mkv")
-				rec, err := s.Start(Options{OutputPath: path, Format: config.RecorderFormatMkv, Framerate: 30}, func(r string) { t.Errorf("reported %q", r) })
+				rec, err := s.Start(Options{OutputPath: path, Format: config.RecorderFormatMkv, Framerate: 30}, func(err error) { t.Errorf("reported %v", err) })
 				if err != nil {
 					t.Fatal(err)
 				}

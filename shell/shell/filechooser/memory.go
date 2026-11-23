@@ -13,6 +13,7 @@ import (
 	"sync"
 
 	"github.com/stubbedev/lys/desktop/fileuri"
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/lib/atomicfile"
 	"github.com/stubbedev/lys/lib/xdg"
 
@@ -220,7 +221,7 @@ func (c *Chooser) unbookmark(dir string) {
 // not be written.
 func (c *Chooser) bookmarksChanged(err error) {
 	if err != nil {
-		c.failed("Cannot change the bookmarks.", err)
+		c.failed(i18n.T("file-chooser-bookmarks-failed"), err)
 		return
 	}
 	opening := c.opening()

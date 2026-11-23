@@ -20,6 +20,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/fileuri"
 	"github.com/stubbedev/lys/desktop/glob"
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/mime"
 	"github.com/stubbedev/lys/lib/xdg"
 )
@@ -59,11 +60,11 @@ func (m Mode) multiple() bool { return m == ModeOpenMultiple || m == ModeFolders
 func (m Mode) confirmLabel() string {
 	switch {
 	case m == ModeSave:
-		return "Save"
+		return i18n.T("file-chooser-button-save")
 	case m.folders():
-		return "Select"
+		return i18n.T("file-chooser-button-select")
 	}
-	return "Open"
+	return i18n.T("file-chooser-button-open")
 }
 
 // Entry is one listed file or directory.
@@ -88,25 +89,21 @@ func (e Entry) Name() string {
 // ext is a file's extension without its dot, "" for none.
 func (e Entry) ext() string { return strings.TrimPrefix(filepath.Ext(e.Name()), ".") }
 
-// kindKey is what the Kind column sorts by, compared folded: Kind
-// before the extension is upper cased.
-func (e Entry) kindKey() string {
-	switch ext := e.ext(); {
-	case e.IsDir:
-		return "Folder"
-	case ext != "":
-		return ext
-	}
-	return "File"
-}
+// kindKey is what the Kind column sorts a file by, compared folded:
+// Kind before the extension is upper cased, so its extension, else
+// unnamed, the label of a file without one.
+func (e Entry) kindKey(unnamed string) string { return cmp.Or(e.ext(), unnamed) }
 
 // Kind is the displayed type: Folder, the uppercased extension (PNG),
 // or File without one.
 func (e Entry) Kind() string {
-	if ext := e.ext(); !e.IsDir && ext != "" {
+	switch ext := e.ext(); {
+	case e.IsDir:
+		return i18n.T("file-chooser-kind-folder")
+	case ext != "":
 		return strings.ToUpper(ext)
 	}
-	return e.kindKey()
+	return i18n.T("file-chooser-kind-file")
 }
 
 // hiddenNames are the names dir's .hidden file lists, one a line, which
@@ -222,9 +219,14 @@ const (
 
 var sortNames = [...]string{"name", "size", "modified", "kind"}
 
-// SortEntries orders directories first, then by the column.
+// SortEntries orders directories first, then by the column; folders
+// have one kind, so the Kind column orders them by name.
 func SortEntries(entries []Entry, key SortColumn, asc bool) {
 	byName := func(a, b Entry) int { return compareFold(a.Name(), b.Name()) }
+	var unnamed string
+	if key == SortKind {
+		unnamed = i18n.T("file-chooser-kind-file")
+	}
 	slices.SortStableFunc(entries, func(a, b Entry) int {
 		if a.IsDir != b.IsDir {
 			if a.IsDir {
@@ -233,13 +235,13 @@ func SortEntries(entries []Entry, key SortColumn, asc bool) {
 			return 1
 		}
 		var c int
-		switch key {
-		case SortSize:
+		switch {
+		case key == SortSize:
 			c = cmp.Compare(a.Size, b.Size)
-		case SortModified:
+		case key == SortModified:
 			c = a.Modified.Compare(b.Modified)
-		case SortKind:
-			c = cmp.Or(compareFold(a.kindKey(), b.kindKey()), byName(a, b))
+		case key == SortKind && !a.IsDir:
+			c = cmp.Or(compareFold(a.kindKey(unnamed), b.kindKey(unnamed)), byName(a, b))
 		default:
 			c = byName(a, b)
 		}
@@ -435,7 +437,9 @@ func withExtension(name string, f Filter) string {
 }
 
 // allFiles is the escape hatch appended after a request's filters.
-var allFiles = Filter{Name: "All Files", Rules: []Rule{{RuleGlob, "*"}}}
+func allFiles() Filter {
+	return Filter{Name: i18n.T("file-chooser-filter-all"), Rules: []Rule{{RuleGlob, "*"}}}
+}
 
 // withAllFiles appends All Files to a non-empty filter list that has
 // no catch-all, so a restrictive app filter can always be bypassed.
@@ -443,7 +447,7 @@ func withAllFiles(filters []Filter) []Filter {
 	if len(filters) == 0 || slices.ContainsFunc(filters, matchesEverything) {
 		return filters
 	}
-	return append(slices.Clip(filters), allFiles)
+	return append(slices.Clip(filters), allFiles())
 }
 
 // MatchesFilter reports whether name passes the active filter: no
@@ -587,7 +591,7 @@ func isRaster(path string) bool {
 // previewInfo is the preview card's detail line.
 func previewInfo(e Entry) string {
 	if e.IsDir {
-		return "Folder · " + FormatTime(e.Modified)
+		return i18n.T("file-chooser-kind-folder") + " · " + FormatTime(e.Modified)
 	}
 	return fileKind(e) + " · " + HumanSize(e.Size) + " · " + FormatTime(e.Modified)
 }
@@ -596,9 +600,9 @@ func previewInfo(e Entry) string {
 // without one.
 func fileKind(e Entry) string {
 	if ext := e.ext(); ext != "" {
-		return strings.ToUpper(ext) + " file"
+		return i18n.T("file-chooser-kind-typed", i18n.Str("type", strings.ToUpper(ext)))
 	}
-	return "File"
+	return i18n.T("file-chooser-kind-file")
 }
 
 // Place is a sidebar shortcut; Bookmark marks one from the GTK
@@ -628,7 +632,7 @@ func UserPlaces(env xdg.Env, home string) ([]Place, error) {
 	if home == "" {
 		return nil, nil
 	}
-	places := []Place{{Label: "Home", Path: home, Icon: "ld-house-symbolic"}}
+	places := []Place{{Label: i18n.T("file-chooser-place-home"), Path: home, Icon: "ld-house-symbolic"}}
 	var errs []error
 	for _, d := range userPlaceDirs {
 		path, ok, err := env.UserDir(d.key)
@@ -767,7 +771,7 @@ func ListRecent(path string, mode Mode) ([]Entry, error) {
 // mounts, those under /media, /run/media/<user> and the home
 // directory (not hidden ones).
 func OtherLocations(mounts io.Reader, home, user string) []Place {
-	locations := []Place{{Label: "Computer", Path: "/", Icon: "ld-hard-drive-symbolic"}}
+	locations := []Place{{Label: i18n.T("file-chooser-place-computer"), Path: "/", Icon: "ld-hard-drive-symbolic"}}
 	for _, path := range VisibleMounts(mounts, home, user) {
 		locations = append(locations, Place{Label: filepath.Base(path), Path: path, Icon: "ld-usb-symbolic"})
 	}
@@ -839,7 +843,7 @@ func gvfsLabel(name string) string {
 	}
 	switch {
 	case kv["share"] != "" && kv["server"] != "":
-		return kv["share"] + " on " + kv["server"]
+		return i18n.T("file-chooser-share-on-server", i18n.Str("share", kv["share"]), i18n.Str("server", kv["server"]))
 	case kv["host"] != "" && kv["user"] != "":
 		return kv["user"] + "@" + kv["host"]
 	case kv["host"] != "":
@@ -902,14 +906,14 @@ const maxCrumbTail = 3
 func Crumbs(dir, home string) []Crumb {
 	switch dir {
 	case recentLocation:
-		return []Crumb{{"Recent", recentLocation, true}}
+		return []Crumb{{i18n.T("file-chooser-place-recent"), recentLocation, true}}
 	case trashLocation:
-		return []Crumb{{"Trash", trashLocation, true}}
+		return []Crumb{{i18n.T("file-chooser-place-trash"), trashLocation, true}}
 	}
 	base, baseLabel := "/", "/"
 	rest := strings.TrimPrefix(dir, "/")
 	if home != "" && (dir == home || strings.HasPrefix(dir, strings.TrimSuffix(home, "/")+"/")) {
-		base, baseLabel = home, "Home"
+		base, baseLabel = home, i18n.T("file-chooser-place-home")
 		rest = strings.TrimPrefix(strings.TrimPrefix(dir, home), "/")
 	}
 	var names []string

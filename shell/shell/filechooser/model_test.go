@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/fileuri"
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/mime"
 	"github.com/stubbedev/lys/lib/xdg"
 )
@@ -686,5 +687,16 @@ func TestListRecent(t *testing.T) {
 	}
 	if crumbs := Crumbs(recentLocation, "/home/u"); len(crumbs) != 1 || crumbs[0].Label != "Recent" {
 		t.Errorf("Recent crumbs = %v", crumbs)
+	}
+}
+
+// The Kind column orders folders, which have one kind, by name, and a
+// file without an extension by the label it shows.
+func TestKindSortOrdersFoldersByNameAndUnnamedFilesByTheirLabel(t *testing.T) {
+	entries := []Entry{entry("z.d", true, 0), entry("a.x", true, 0), entry("b.zip", false, 0), entry("Makefile", false, 0), entry("a.bin", false, 0)}
+	SortEntries(entries, SortKind, true)
+	want := []string{"a.x", "z.d", "a.bin", "Makefile", "b.zip"}
+	if got := names(entries); !slices.Equal(got, want) {
+		t.Errorf("kind asc = %v, want %v (a file without an extension sorts as %q)", got, want, i18n.T("file-chooser-kind-file"))
 	}
 }

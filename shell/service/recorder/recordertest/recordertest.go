@@ -105,7 +105,7 @@ type Session struct {
 }
 
 // Start implements recorder.Session.
-func (s *Session) Start(opts recorder.Options, term func(string)) (recorder.Recording, error) {
+func (s *Session) Start(opts recorder.Options, term func(error)) (recorder.Recording, error) {
 	if s.e.StartErr != nil {
 		return nil, s.e.StartErr
 	}
@@ -117,7 +117,7 @@ func (s *Session) Start(opts recorder.Options, term func(string)) (recorder.Reco
 }
 
 // StartReplay implements recorder.Session.
-func (s *Session) StartReplay(opts recorder.Options, span time.Duration, term func(string), onKey func()) (recorder.Replay, error) {
+func (s *Session) StartReplay(opts recorder.Options, span time.Duration, term func(error), onKey func()) (recorder.Replay, error) {
 	if s.e.StartErr != nil {
 		return nil, s.e.StartErr
 	}
@@ -152,7 +152,7 @@ type Recording struct {
 	paused  []bool
 	stops   int
 	hold    chan struct{}
-	term    func(string)
+	term    func(error)
 	write   bool
 	stopErr error
 }
@@ -207,7 +207,7 @@ func (r *Recording) Stops() int {
 }
 
 // Fail ends the recording on its own, as a dying capture reports.
-func (r *Recording) Fail(reason string) { r.term(reason) }
+func (r *Recording) Fail(err error) { r.term(err) }
 
 // Replay is a fake recorder.Replay: Save writes the path and format it
 // was asked for into the file, as a muxed ring would write footage.
@@ -217,7 +217,7 @@ type Replay struct {
 	Span time.Duration
 
 	mu           sync.Mutex
-	term         func(string)
+	term         func(error)
 	onKey        func()
 	bytes        uint64
 	saves        []string
@@ -314,4 +314,4 @@ func (r *Replay) Stops() int {
 }
 
 // Fail ends the replay on its own, as a dying capture reports.
-func (r *Replay) Fail(reason string) { r.term(reason) }
+func (r *Replay) Fail(err error) { r.term(err) }

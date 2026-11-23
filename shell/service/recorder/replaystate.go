@@ -78,12 +78,12 @@ func (s *State) runReplay(gen uint64) {
 	opts := BuildOptions(cfg, s.now())
 	session, err := s.engine.OpenOutput(cfg.Replay.Output, opts.ShowCursor)
 	if err != nil {
-		s.replayFailed(gen, err.Error())
+		s.replayFailed(gen, err)
 		return
 	}
-	rep, err := session.StartReplay(opts, cfg.Replay.Seconds.Span(), func(reason string) { s.replayEnded(gen, reason) }, s.notify)
+	rep, err := session.StartReplay(opts, cfg.Replay.Seconds.Span(), func(err error) { s.replayEnded(gen, err) }, s.notify)
 	if err != nil {
-		s.replayFailed(gen, errors.Join(err, session.Close()).Error())
+		s.replayFailed(gen, errors.Join(err, session.Close()))
 		return
 	}
 	s.mu.Lock()
@@ -207,7 +207,7 @@ func (s *State) replaySaved(saving *replaySave) {
 
 // replayFailed settles a start that failed to Off, unless a stop or a
 // newer start came first, and reports it.
-func (s *State) replayFailed(gen uint64, reason string) {
+func (s *State) replayFailed(gen uint64, err error) {
 	s.mu.Lock()
 	if s.replayGen != gen || s.replayStatus != ReplayStarting {
 		s.mu.Unlock()
@@ -215,13 +215,13 @@ func (s *State) replayFailed(gen uint64, reason string) {
 	}
 	s.replayStatus = ReplayOff
 	s.mu.Unlock()
-	log.Printf("recorder: failed to arm the instant replay: %s", reason)
+	log.Printf("recorder: failed to arm the instant replay: %v", err)
 	s.notify()
 	s.showError(i18n.T("recorder-toast-replay-failed"))
 }
 
 // replayEnded tears down an armed replay whose capture died on its own.
-func (s *State) replayEnded(gen uint64, reason string) {
+func (s *State) replayEnded(gen uint64, err error) {
 	s.mu.Lock()
 	if s.replayGen != gen || s.replayStatus != ReplayArmed {
 		s.mu.Unlock()
@@ -230,7 +230,7 @@ func (s *State) replayEnded(gen uint64, reason string) {
 	s.replayGen++
 	teardown := s.takeReplayLocked()
 	s.mu.Unlock()
-	log.Printf("recorder: the instant replay ended unexpectedly: %s", reason)
+	log.Printf("recorder: the instant replay ended unexpectedly: %v", err)
 	s.notify()
 	teardown.run()
 	s.showError(i18n.T("recorder-toast-replay-failed"))

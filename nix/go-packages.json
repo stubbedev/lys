@@ -310,10 +310,29 @@
       "strings",
       "sync"
     ],
+    "testImports": [
+      "desktop/i18n/i18ntest"
+    ],
     "testExternal": [
-      "regexp",
       "testing",
       "testing/fstest"
+    ]
+  },
+  "desktop/i18n/i18ntest": {
+    "external": [
+      "fmt",
+      "go/ast",
+      "go/parser",
+      "go/token",
+      "io/fs",
+      "os",
+      "path/filepath",
+      "regexp",
+      "slices",
+      "strings"
+    ],
+    "testExternal": [
+      "testing"
     ]
   },
   "desktop/i18n/locales/greeter": {
@@ -5073,6 +5092,7 @@
       "login/internal/greeter/assets"
     ],
     "testImports": [
+      "desktop/i18n/i18ntest",
       "desktop/shell/treetest",
       "lib/dbustest",
       "lib/logind/logindtest",
@@ -6866,9 +6886,10 @@
     "embeds": [
       "settings/internal/locale/locales"
     ],
+    "testImports": [
+      "desktop/i18n/i18ntest"
+    ],
     "testExternal": [
-      "regexp",
-      "slices",
       "strings",
       "testing"
     ]
@@ -7701,16 +7722,12 @@
     ]
   },
   "shell/internal/rawerrors": {
+    "testImports": [
+      "desktop/i18n/i18ntest"
+    ],
     "testExternal": [
-      "go/ast",
-      "go/parser",
-      "go/token",
-      "io/fs",
-      "os",
       "path/filepath",
-      "regexp",
       "slices",
-      "strings",
       "testing"
     ]
   },
@@ -9713,6 +9730,7 @@
       "desktop/fileuri",
       "desktop/fswatch",
       "desktop/glob",
+      "desktop/i18n",
       "desktop/imagedecode",
       "desktop/mime",
       "desktop/offheap",

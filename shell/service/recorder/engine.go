@@ -208,7 +208,7 @@ type gpuSession struct {
 var errSessionCaptures = errors.New("recorder: the session already runs a capture")
 
 // Start implements Session: the parts opts asks for, into a new file.
-func (g *gpuSession) Start(opts Options, term func(reason string)) (Recording, error) {
+func (g *gpuSession) Start(opts Options, term func(err error)) (Recording, error) {
 	if g.capture != nil {
 		return nil, errSessionCaptures
 	}
@@ -226,7 +226,7 @@ func (g *gpuSession) Start(opts Options, term func(reason string)) (Recording, e
 
 // StartReplay implements Session: the parts opts asks for, into a ring
 // holding span.
-func (g *gpuSession) StartReplay(opts Options, span time.Duration, term func(reason string), onKey func()) (Replay, error) {
+func (g *gpuSession) StartReplay(opts Options, span time.Duration, term func(err error), onKey func()) (Replay, error) {
 	if g.capture != nil {
 		return nil, errSessionCaptures
 	}

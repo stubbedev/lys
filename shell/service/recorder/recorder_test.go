@@ -169,6 +169,7 @@ func TestStartClaimIsSynchronousAndStopCancelsTheStart(t *testing.T) {
 // with the reason as the module's error state, logged and notified; the
 // next start clears it.
 func TestFailedStartsResetWithTheirReason(t *testing.T) {
+	logged := logtest.Tee(t)
 	noEncoder := fmt.Errorf("recorder: %w: llvmpipe encodes no H.264", recorder.ErrNoVideoEncoder)
 	for name, engine := range map[string]*recordertest.Engine{
 		"picker":  {OpenErr: recorder.ErrPickerCancelled},
@@ -188,8 +189,11 @@ func TestFailedStartsResetWithTheirReason(t *testing.T) {
 				t.Error("an encoder failure leaked the session")
 			}
 		}
-		if snap.Error != want {
-			t.Errorf("%s: error state %q, want %q", name, snap.Error, want)
+		if snap.Error != i18n.T("recorder-toast-failed") || strings.Contains(snap.Error, want) {
+			t.Errorf("%s: error state %q, want the summary without %q", name, snap.Error, want)
+		}
+		if !strings.Contains(logged.String(), want) {
+			t.Errorf("%s: log %q, want %q", name, logged.String(), want)
 		}
 		if _, n := log.snapshot(); n[0] != i18n.T("recorder-toast-failed")+": " {
 			t.Errorf("%s: notice %q, want the summary without %q", name, n[0], want)
@@ -222,7 +226,7 @@ func TestStopFailureIsReported(t *testing.T) {
 	s.Stop()
 	waittest.Until(t, func() bool { _, n := log.snapshot(); return len(n) == 1 }, "the failure notice")
 	wantFailure(t, "a failed stop", log, logged, i18n.T("recorder-toast-failed"), "no space left")
-	if snap := s.Snapshot(); snap.Status != recorder.StatusIdle || snap.Error != engine.StopErr.Error() {
+	if snap := s.Snapshot(); snap.Status != recorder.StatusIdle || snap.Error != i18n.T("recorder-toast-failed") {
 		t.Errorf("after a failed stop = %+v", snap)
 	}
 }
@@ -233,7 +237,7 @@ func TestUnexpectedTerminationTearsDown(t *testing.T) {
 	s.Start()
 	waittest.Until(t, func() bool { return s.Snapshot().Active }, "the state to be recording")
 	rec := engine.Recordings()[0]
-	rec.Fail("disk full")
+	rec.Fail(errors.New("disk full"))
 	waittest.Until(t, func() bool { return s.Snapshot().Status == recorder.StatusIdle }, "the state to be idle")
 	if rec.Stops() != 1 {
 		t.Errorf("stops = %d", rec.Stops())
@@ -244,7 +248,7 @@ func TestUnexpectedTerminationTearsDown(t *testing.T) {
 	// A stale report from a finished recording is ignored.
 	s.Start()
 	waittest.Until(t, func() bool { return s.Snapshot().Active }, "recording again")
-	rec.Fail("late") // the report is handled before Fail returns
+	rec.Fail(errors.New("late")) // the report is handled before Fail returns
 	if !s.Snapshot().Active {
 		t.Error("a stale termination stopped the new recording")
 	}
@@ -342,7 +346,7 @@ func TestSessionCloseFailureFailsTheStoppedRecording(t *testing.T) {
 	if slices.Contains(toasts, i18n.T("recorder-toast-stopped")) {
 		t.Errorf("toasts = %q: a recording whose session failed to close was reported saved", toasts)
 	}
-	if snap := s.Snapshot(); snap.Status != recorder.StatusIdle || snap.Error != closeErr.Error() {
+	if snap := s.Snapshot(); snap.Status != recorder.StatusIdle || snap.Error != i18n.T("recorder-toast-failed") {
 		t.Errorf("after the failed close = %+v", snap)
 	}
 	if got := engine.Sessions()[0].Closed(); got != 1 {
@@ -354,12 +358,15 @@ func TestSessionCloseFailureJoinsTheFailedStart(t *testing.T) {
 	startErr := errors.New("recorder: a 64x48 H.264 encoder: out of memory")
 	closeErr := errors.New("recorder: close the compositor connection capturing DP-1: broken pipe")
 	engine := &recordertest.Engine{StartErr: startErr, CloseErr: closeErr}
+	logged := logtest.Tee(t)
 	s, log := newState(t, engine, nil)
 	s.Start()
 	waittest.Until(t, func() bool { _, n := log.snapshot(); return len(n) == 1 }, "the failure notice")
-	snap := s.Snapshot()
-	if snap.Status != recorder.StatusIdle || !strings.Contains(snap.Error, startErr.Error()) || !strings.Contains(snap.Error, closeErr.Error()) {
-		t.Errorf("after the failed start = %+v, want both the start and the close error", snap)
+	if snap := s.Snapshot(); snap.Status != recorder.StatusIdle || snap.Error != i18n.T("recorder-toast-failed") {
+		t.Errorf("after the failed start = %+v, want idle with the summary", snap)
+	}
+	if got := logged.String(); !strings.Contains(got, startErr.Error()) || !strings.Contains(got, closeErr.Error()) {
+		t.Errorf("log = %q, want both the start and the close error", got)
 	}
 }
 
@@ -370,12 +377,15 @@ func TestSessionCloseFailureOfATerminatedRecordingIsLogged(t *testing.T) {
 	s, _ := newState(t, engine, nil)
 	s.Start()
 	waittest.Until(t, func() bool { return s.Snapshot().Active }, "the state to be recording")
-	engine.Recordings()[0].Fail("disk full")
+	engine.Recordings()[0].Fail(errors.New("disk full"))
 	waittest.Until(t, func() bool { return s.Snapshot().Status == recorder.StatusIdle }, "the state to be idle")
 	if got := logged.String(); !strings.Contains(got, "end the terminated recording: "+closeErr.Error()) {
 		t.Errorf("log = %q, want the close error of the terminated recording", got)
 	}
-	if got := s.Snapshot().Error; got != "disk full" {
-		t.Errorf("error state %q, want the termination reason", got)
+	if got := s.Snapshot().Error; got != i18n.T("recorder-toast-failed") {
+		t.Errorf("error state %q, want the summary", got)
+	}
+	if got := logged.String(); !strings.Contains(got, "terminated unexpectedly: disk full") {
+		t.Errorf("log = %q, want the termination reason", got)
 	}
 }

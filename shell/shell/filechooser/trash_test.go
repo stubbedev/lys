@@ -6,6 +6,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/stubbedev/lys/desktop/i18n"
 )
 
 // writeTrashed puts a file in trash/files under name with the info
@@ -151,7 +153,7 @@ func TestNetworkLocations(t *testing.T) {
 	want := []string{
 		"cloud.example.com=dav:host=cloud.example.com,ssl=true|ld-server-symbolic",
 		"me@example.com=sftp:host=example.com,user=me|ld-server-symbolic",
-		"media on nas=smb-share:server=nas,share=media|ld-server-symbolic",
+		i18n.T("file-chooser-share-on-server", i18n.Str("share", "media"), i18n.Str("server", "nas")) + "=smb-share:server=nas,share=media|ld-server-symbolic",
 	}
 	if !slices.Equal(got, want) {
 		t.Errorf("network locations =\n%q\nwant\n%q", got, want)

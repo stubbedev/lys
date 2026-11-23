@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/desktop/styling"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
@@ -155,7 +156,7 @@ func (c *Chooser) volumeRow(v udisks.Volume, p Place) widget.Widget {
 	}
 	row := widget.NewBox(widget.Row, 0, 0)
 	row.Append(b, true)
-	row.AppendAligned(c.iconButton("ld-eject-symbolic", "Eject “"+p.Label+"”", func() { c.ejectVolume(v, p.Label) }), false, widget.AlignCenter)
+	row.AppendAligned(c.iconButton("ld-eject-symbolic", i18n.T("file-chooser-eject", i18n.Str("volume", p.Label)), func() { c.ejectVolume(v, p.Label) }), false, widget.AlignCenter)
 	return row
 }
 
@@ -177,7 +178,7 @@ func (c *Chooser) mountVolume(object dbus.ObjectPath, label string) {
 		return mounted{at, err}
 	}, func(m mounted) {
 		if m.err != nil {
-			c.failed("Cannot mount “"+label+"”.", m.err)
+			c.failed(i18n.T("file-chooser-mount-failed", i18n.Str("volume", label)), m.err)
 			return
 		}
 		c.clearNotice()
@@ -199,9 +200,9 @@ func (c *Chooser) ejectVolume(v udisks.Volume, label string) {
 	}, func(err error) {
 		switch {
 		case errors.Is(err, udisks.ErrBusy):
-			c.warn("“" + label + "” is in use. Close the files on it, then eject it again.")
+			c.warn(i18n.T("file-chooser-eject-busy", i18n.Str("volume", label)))
 		case err != nil:
-			c.failed("Cannot eject “"+label+"”.", err)
+			c.failed(i18n.T("file-chooser-eject-failed", i18n.Str("volume", label)), err)
 		default:
 			c.clearNotice()
 			if slices.ContainsFunc(v.MountPoints, func(mp string) bool { return underRoot(c.s.dir, mp) }) {
@@ -235,13 +236,13 @@ func (c *Chooser) newUnlockRow() *unlockRow {
 	u.entry = widget.NewEntry(c.d.Font, widgets.TextPx(styling.Body, 1), 0)
 	u.entry.AddClass("file-chooser-passphrase")
 	u.entry.SetEcho(widget.EchoPassword)
-	u.entry.SetPlaceholder("Passphrase")
+	u.entry.SetPlaceholder(i18n.T("file-chooser-placeholder-passphrase"))
 	u.entry.OnActivate = func(string) { c.unlockVolume() }
 	u.entry.OnEscape = func() bool { c.closeUnlock(); return true }
 	u.err = c.label("", "file-chooser-unlock-error", css.Caption, css.Warning)
 	u.err.SetWrap(true)
 	u.err.SetVisible(false)
-	unlock, _ := c.textButton("Unlock", "file-chooser-unlock-button", css.SuggestedAction, c.unlockVolume)
+	unlock, _ := c.textButton(i18n.T("file-chooser-button-unlock"), "file-chooser-unlock-button", css.SuggestedAction, c.unlockVolume)
 	u.box.Append(u.title, false)
 	u.box.Append(u.entry, false)
 	u.box.Append(u.err, false)
@@ -254,7 +255,7 @@ func (c *Chooser) newUnlockRow() *unlockRow {
 func (c *Chooser) askPassphrase(v udisks.Volume) {
 	u := c.ui.unlock
 	u.volume = v
-	u.title.SetText("Unlock “" + v.Label + "”")
+	u.title.SetText(i18n.T("file-chooser-unlock-volume", i18n.Str("volume", v.Label)))
 	u.entry.SetText("")
 	u.err.SetVisible(false)
 	u.box.SetVisible(true)
@@ -291,7 +292,7 @@ func (c *Chooser) unlockVolume() {
 	}, func(r unlocked) {
 		if r.err != nil {
 			log.Printf("file chooser: unlock %s: %v", v.Label, r.err)
-			u.err.SetText("Cannot unlock “" + v.Label + "”. Check the passphrase and try again.")
+			u.err.SetText(i18n.T("file-chooser-unlock-failed", i18n.Str("volume", v.Label)))
 			u.err.SetVisible(true)
 			c.focus(u.entry)
 			return

@@ -16,7 +16,7 @@ type replay struct {
 
 // startReplay starts recording parts into a ring holding span; onKey
 // runs after each keyframe enters it.
-func startReplay(parts recordingParts, span time.Duration, term func(reason string), onKey func()) (*replay, error) {
+func startReplay(parts recordingParts, span time.Duration, term func(err error), onKey func()) (*replay, error) {
 	rp := &replay{}
 	rec, err := startPipeline(parts, term, func(tracks []mux.Track) (sampleSink, error) {
 		rp.ring = newReplayRing(span, tracks, onKey)
