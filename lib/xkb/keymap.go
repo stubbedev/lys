@@ -439,12 +439,11 @@ func wrapGroup(group int32, numGroups uint32, act rangeAction, num uint32) uint3
 	return uint32(rem) //nolint:gosec // checked non-negative
 }
 
-func (m *Keymap) findInterps(k *key, group, lvl uint32) ([]*interpret, bool) {
+func (m *Keymap) findInterps(out []*interpret, k *key, group, lvl uint32) ([]*interpret, bool) {
 	l := m.level(k, group, lvl)
 	if l == nil || len(l.syms) == 0 {
-		return nil, false
+		return out, false
 	}
-	out := make([]*interpret, 0, len(l.syms))
 	for _, sym := range l.syms {
 		out = append(out, m.findInterp(k, sym, lvl, out))
 	}
@@ -500,7 +499,7 @@ func (in *interpret) matches(mods uint32) bool {
 	return false
 }
 
-func (m *Keymap) applyInterps(k *key) {
+func (m *Keymap) applyInterps(k *key, interps []*interpret) []*interpret {
 	var vmodmap uint32
 	for g := range k.numGroups {
 		group := &k.groups[g]
@@ -508,7 +507,8 @@ func (m *Keymap) applyInterps(k *key) {
 			continue
 		}
 		for lvl := range group.typ.numLevels {
-			interps, found := m.findInterps(k, g, lvl)
+			var found bool
+			interps, found = m.findInterps(interps[:0], k, g, lvl)
 			if !found {
 				continue
 			}
@@ -528,6 +528,7 @@ func (m *Keymap) applyInterps(k *key) {
 	if k.explicit&explicitVmodmap == 0 {
 		k.vmodmap = vmodmap
 	}
+	return interps
 }
 
 func isModAction(t actionType) bool { return t == actModSet || t == actModLatch || t == actModLock }
@@ -574,8 +575,9 @@ func (m *Keymap) effectiveMask(mods uint32) uint32 {
 }
 
 func (m *Keymap) deriveFields() {
+	var interps []*interpret
 	for i := range m.keys {
-		m.applyInterps(&m.keys[i])
+		interps = m.applyInterps(&m.keys[i], interps)
 		dropRepeatedCategories(&m.keys[i])
 	}
 	for i := range m.keys {
