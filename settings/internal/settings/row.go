@@ -44,6 +44,10 @@ type kit struct {
 	clock widgets.Clock
 	// pickers opens popovers and dialogs; nil without a window.
 	pickers pickers
+	// toast shows text in a toast over the window for life; undoing is
+	// the toast whose Undo puts the latest removal back (offerUndo).
+	toast   func(text string, life time.Duration) (*widget.Toast, error)
+	undoing *widget.Toast
 	// wm is lys-wm's config once a page of it was opened; onWMChange
 	// refreshes the window when a change to it settled.
 	wm         *wmBackend

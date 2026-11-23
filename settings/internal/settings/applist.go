@@ -27,8 +27,9 @@ type appListSpec struct {
 	controls func(list *appList, app string) []widget.Widget
 	// show sets the rows' controls to what the config holds.
 	show func(rows []string)
-	// drop takes app out of the config.
-	drop func(app string)
+	// drop takes app out of the config, returning what puts it back as it
+	// was.
+	drop func(app string) (restore func())
 }
 
 // appList is a list of apps, one row per app: its face, its controls and
@@ -106,11 +107,27 @@ func (c *appList) keep(app string) {
 	}
 }
 
-// remove takes app's row away and app out of the config.
+// remove takes app's row away and app out of the config, its Undo
+// putting both back.
 func (c *appList) remove(app string) {
+	at := slices.Index(c.rows, app)
 	c.pending = slices.DeleteFunc(c.pending, func(p string) bool { return p == app })
-	c.spec.drop(app)
+	restore := c.spec.drop(app)
 	c.rebuild()
+	c.k.offerUndo(c.name(app), func() {
+		restore()
+		c.keep(app)
+		c.rows = insertAt(slices.DeleteFunc(slices.Clone(c.rows), func(r string) bool { return r == app }), at, app)
+		c.rebuild()
+	})
+}
+
+// name is what app is called: its installed app's name, else its id.
+func (c *appList) name(app string) string {
+	if a, ok := c.apps.byID[app]; ok && a.DisplayName() != "" {
+		return a.DisplayName()
+	}
+	return app
 }
 
 func (c *appList) face(app string) *widget.Box {

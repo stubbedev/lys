@@ -567,13 +567,7 @@ func (c *cardList) appendCard(i int) {
 		cd.reset = c.k.resetButton(c.spec.resetKey, func() { c.resetItem(i) })
 		header.AppendAligned(cd.reset.Button, false, widget.AlignCenter)
 	}
-	remove := c.k.removeButton("settings-list-remove", func() {
-		if i < len(c.local) {
-			c.local = append(c.local[:i:i], c.local[i+1:]...)
-			c.rebuild()
-			c.commit()
-		}
-	})
+	remove := c.k.removeButton("settings-list-remove", func() { c.removeItem(i) })
 	body := gapBox(widget.Column)
 	body.AddClass(look.body)
 	fill := func() {
@@ -601,6 +595,35 @@ func (c *cardList) appendCard(i int) {
 	c.cards = append(c.cards, cd)
 	c.place(i)
 	c.retitle(i)
+}
+
+// removeItem takes card i away, its Undo putting the item back where it
+// stood.
+func (c *cardList) removeItem(i int) {
+	if i >= len(c.local) {
+		return
+	}
+	item, name := c.local[i], c.itemName(i)
+	c.local = append(c.local[:i:i], c.local[i+1:]...)
+	c.rebuild()
+	c.commit()
+	c.k.offerUndo(name, func() {
+		c.local = insertAt(c.local, i, item)
+		c.rebuild()
+		c.commit()
+	})
+}
+
+// itemName is what card i is called: its title, else its identity.
+func (c *cardList) itemName(i int) string {
+	if c.spec.title != nil {
+		return c.spec.title(c.local[i], i+1)
+	}
+	if id := c.spec.identity; id != nil {
+		name, _ := c.local[i][id.key].(string)
+		return name
+	}
+	return ""
 }
 
 // sectionCard is a list's card: lys-ui's card, header over body split

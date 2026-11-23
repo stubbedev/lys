@@ -186,10 +186,7 @@ func (e *mailQueryEditor) refresh() {
 	e.chips.Clear()
 	for i, q := range terms {
 		chip := widget.NewChip(e.k.face, q.label())
-		chip.SetDismiss(chipRemoveName(locale.T()), func() {
-			e.terms = slices.Delete(e.terms, i, i+1)
-			e.write()
-		})
+		chip.SetDismiss(chipRemoveName(locale.T()), func() { e.removeTerm(i) })
 		e.chips.Append(chip)
 	}
 	e.chips.SetVisible(ok)
@@ -237,6 +234,26 @@ func countMail(query string) (uint32, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), notmuchTimeout)
 	defer cancel()
 	return mail.CLI{}.Count(ctx, query)
+}
+
+// removeTerm takes term i out of the query, its Undo putting it back
+// where it stood.
+func (e *mailQueryEditor) removeTerm(i int) {
+	q := e.terms[i]
+	e.terms = slices.Delete(e.terms, i, i+1)
+	e.write()
+	e.k.offerUndo(q.label(), func() {
+		terms, ok := parseQuery(e.slot.text())
+		if !ok {
+			log.Printf("settings: undo removing %s from the query: %q no longer reads as terms", q.label(), e.slot.text())
+			return
+		}
+		if slices.Contains(terms, q) {
+			return
+		}
+		e.terms = insertAt(terms, i, q)
+		e.write()
+	})
 }
 
 func (e *mailQueryEditor) write() {

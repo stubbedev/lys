@@ -131,9 +131,23 @@ func (c *monitorSet) refresh() {
 	}
 	t := locale.T()
 	for _, name := range away {
-		remove := c.k.removeButton("settings-list-remove", func() {
-			c.write(slices.DeleteFunc(c.listed(), func(n string) bool { return n == name }))
-		})
+		remove := c.k.removeButton("settings-list-remove", func() { c.removeAway(name) })
 		c.away.Append(c.k.row(name, t.Get("settings-monitors-away")).withControl(remove))
 	}
+}
+
+// removeAway takes the display name, not connected, off the list, its
+// Undo putting it back where it stood.
+func (c *monitorSet) removeAway(name string) {
+	listed := c.listed()
+	at := slices.Index(listed, name)
+	if at < 0 {
+		return
+	}
+	c.write(slices.Delete(listed, at, at+1))
+	c.k.offerUndo(name, func() {
+		if listed := c.listed(); !slices.Contains(listed, name) {
+			c.write(insertAt(listed, at, name))
+		}
+	})
 }

@@ -248,18 +248,26 @@ func (c *deviceCards) follow(cd *deviceCard) {
 }
 
 // forget takes every key of the card's rows the device sets out of what
-// lys-wm reads.
+// lys-wm reads, its Undo setting each back to what it held.
 func (c *deviceCards) forget(cd *deviceCard) {
-	var edits []wmconfig.Edit
+	var edits, undo []wmconfig.Edit
 	for _, spec := range cd.specs {
 		for _, path := range append([]string{spec.path}, spec.also...) {
-			if cd.scope.value(path) != nil {
+			if v := cd.scope.value(path); v != nil {
 				edits = append(edits, cd.scope.clearing(path))
+				undo = append(undo, cd.scope.editing(path, v))
 			}
 		}
 	}
+	c.edit("forget", cd.name, edits)
+	c.k.offerUndo(cd.name, func() { c.edit("restore", cd.name, undo) })
+}
+
+// edit applies the edits to device name's keys, what saying why in the
+// error, and rebuilds the cards.
+func (c *deviceCards) edit(what, name string, edits []wmconfig.Edit) {
 	if err := c.k.wm.edit(edits...); err != nil {
-		log.Printf("settings: forget the device %s: %v", cd.name, err)
+		log.Printf("settings: %s the device %s: %v", what, name, err)
 	}
 	c.rebuild()
 }

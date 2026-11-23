@@ -237,7 +237,10 @@ func (s *pausing) row(st pause.State, u pause.Unit) widget.Widget {
 	row.AddClass("pause-unit")
 	row.showProblem(failed)
 	if slices.Contains(st.Picks, u) {
-		row.AddAction(s.k.removeButton("settings-power-pause-remove", func() { s.set(u, false) }))
+		row.AddAction(s.k.removeButton("settings-power-pause-remove", func() {
+			s.set(u, false)
+			s.k.offerUndo(name, func() { s.set(u, true) })
+		}))
 	}
 	return row
 }

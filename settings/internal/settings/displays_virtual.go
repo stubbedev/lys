@@ -135,9 +135,29 @@ func (p *displaysPanel) showVirtualRows(w *wmBackend, name string) {
 	s := virtualSlot(w, name)
 	mode := newChoiceEditor(p.k, nestedSlot(s, []string{"mode"}), choiceSpec{list: fixedChoices(virtualModeChoices()), free: true})
 	p.addExtra(p.k.keyRow("settings-displays-virtual-mode").withControl(mode))
-	remove := p.k.removeButton("settings-displays-virtual-remove", func() {
-		s.unset()
+	remove := p.k.removeButton("settings-displays-virtual-remove", func() { p.removeVirtual(w, name) })
+	p.addExtra(p.k.keyRow("settings-displays-virtual").withControl(remove))
+}
+
+// removeVirtual takes the virtual display name out of lys-wm's config,
+// its Undo putting it back where it stood.
+func (p *displaysPanel) removeVirtual(w *wmBackend, name string) {
+	stored, _ := w.value(virtualOutputsPath).([]any)
+	at := slices.IndexFunc(stored, func(it any) bool { return asMap(it)["name"] == name })
+	if at < 0 {
+		return
+	}
+	display := stored[at]
+	virtualSlot(w, name).unset()
+	p.render()
+	p.k.offerUndo(name, func() {
+		if slices.Contains(virtualNames(w), name) {
+			return
+		}
+		items, _ := w.value(virtualOutputsPath).([]any)
+		if err := w.edit(wmconfig.Edit{Path: []string{virtualOutputsPath}, Value: insertAt(items, at, display)}); err != nil {
+			p.fail("settings-displays-save-failed", err)
+		}
 		p.render()
 	})
-	p.addExtra(p.k.keyRow("settings-displays-virtual").withControl(remove))
 }

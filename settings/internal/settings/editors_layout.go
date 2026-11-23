@@ -194,11 +194,7 @@ func (c *layoutEditor) fillHeader(i int) {
 			c.showCard()
 		}
 	}
-	remove := c.k.removeButton("settings-list-remove", func() {
-		c.layouts = slices.Delete(c.layouts, i, i+1)
-		c.commit()
-		c.rebuild()
-	})
+	remove := c.k.removeButton("settings-list-remove", func() { c.removeLayout(i) })
 	c.header.AppendAligned(c.k.label(t.Get("settings-layout-monitor-label"), "layout-extends-label", css.DimLabel), false, widget.AlignCenter)
 	c.header.AppendAligned(monitor, false, widget.AlignCenter)
 	c.header.AppendAligned(c.k.label(t.Get("settings-layout-extends-label"), "layout-extends-label", css.DimLabel), false, widget.AlignCenter)
@@ -342,12 +338,7 @@ func (c *layoutEditor) chip(item config.BarItem) *widget.Chip {
 	content.AppendAligned(name, false, widget.AlignCenter)
 	for m, mod := range item.Group.Modules {
 		sub := c.moduleChip(mod.Module)
-		sub.SetDismiss(chipRemoveName(locale.T()), func() {
-			g := c.group(chip)
-			g.Modules = slices.Delete(g.Modules, m, m+1)
-			c.commit()
-			c.showCard()
-		})
+		sub.SetDismiss(chipRemoveName(locale.T()), func() { c.removeGroupModule(chip, m) })
 		content.AppendAligned(sub, false, widget.AlignCenter)
 	}
 	var add *widget.Button
@@ -379,12 +370,77 @@ func (c *layoutEditor) group(chip *widget.Chip) *config.BarGroup {
 	return (*c.zone(at.card, at.zone))[i].Group
 }
 
+// removeLayout takes layout i away, its Undo putting it back where it
+// stood and showing it.
+func (c *layoutEditor) removeLayout(i int) {
+	l := c.layouts[i]
+	c.layouts = slices.Delete(c.layouts, i, i+1)
+	c.commit()
+	c.rebuild()
+	c.k.offerUndo(monitorLabel(l.Monitor), func() {
+		c.layouts = insertAt(c.layouts, i, l)
+		c.at = min(i, len(c.layouts)-1)
+		c.commit()
+		c.rebuild()
+	})
+}
+
 func (c *layoutEditor) removeItem(chip *widget.Chip) {
 	at, i := c.locate(chip)
 	items := c.zone(at.card, at.zone)
+	item := (*items)[i]
 	*items = slices.Delete(*items, i, i+1)
 	c.commit()
 	c.showCard()
+	c.k.offerUndo(itemName(item), func() { c.restoreItem(at, i, item) })
+}
+
+// itemName is what a bar item is called: its group's name, else its
+// module's title.
+func itemName(item config.BarItem) string {
+	if item.Group != nil {
+		return item.Group.Name
+	}
+	return moduleTitle(item.Module)
+}
+
+// restoreItem puts item back at i of the zone at, while its layout is
+// still there.
+func (c *layoutEditor) restoreItem(at zoneRef, i int, item config.BarItem) {
+	if at.card >= len(c.layouts) {
+		log.Printf("settings: undo the bar item at %v: layout %d is gone", at, at.card)
+		return
+	}
+	items := c.zone(at.card, at.zone)
+	*items = insertAt(*items, i, item)
+	c.commit()
+	c.showCard()
+}
+
+// removeGroupModule takes module m out of chip's group, its Undo putting
+// it back while the group is still there.
+func (c *layoutEditor) removeGroupModule(chip *widget.Chip, m int) {
+	at, i := c.locate(chip)
+	g := c.group(chip)
+	mod := g.Modules[m]
+	g.Modules = slices.Delete(g.Modules, m, m+1)
+	c.commit()
+	c.showCard()
+	c.k.offerUndo(moduleTitle(mod.Module), func() {
+		var g *config.BarGroup
+		if at.card < len(c.layouts) {
+			if items := *c.zone(at.card, at.zone); i < len(items) {
+				g = items[i].Group
+			}
+		}
+		if g == nil {
+			log.Printf("settings: undo the module %s of the group at %v %d: the group is gone", mod.Module, at, i)
+			return
+		}
+		g.Modules = insertAt(g.Modules, m, mod)
+		c.commit()
+		c.showCard()
+	})
 }
 
 func (c *layoutEditor) moved(src *widget.ChipBox, from int, dst *widget.ChipBox, to int) {

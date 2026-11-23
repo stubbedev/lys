@@ -34,7 +34,15 @@ func testAppList(t *testing.T, stored *[]string) (*appList, *int) {
 				checks[app].SetChecked(slices.Contains(*stored, app))
 			}
 		},
-		drop: func(app string) { *stored = slices.DeleteFunc(*stored, func(s string) bool { return s == app }) },
+		drop: func(app string) func() {
+			at := slices.Index(*stored, app)
+			*stored = slices.DeleteFunc(*stored, func(s string) bool { return s == app })
+			return func() {
+				if at >= 0 {
+					*stored = insertAt(*stored, at, app)
+				}
+			}
+		},
 	})
 	return l, &writes
 }

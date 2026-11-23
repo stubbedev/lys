@@ -1,6 +1,7 @@
 package settings
 
 import (
+	"log"
 	"slices"
 	"strings"
 
@@ -136,14 +137,29 @@ func (b *labelBuilder) refresh() {
 		if s.token == "" {
 			chip.AddClass("label-builder-text")
 		}
-		chip.SetDismiss(chipRemoveName(locale.T()), func() {
-			b.segs = slices.Delete(b.segs, i, i+1)
-			b.write()
-		})
+		chip.SetDismiss(chipRemoveName(locale.T()), func() { b.removeSegment(i) })
 		b.chips.Append(chip)
 	}
 	b.preview.show(b.kind.render(b.slot.text()))
 	b.raw.refresh()
+}
+
+// removeSegment takes segment i out of the label, its Undo putting the
+// label back as it was while nothing changed it since: the text around a
+// removed part merges, so only the whole label says where it stood.
+func (b *labelBuilder) removeSegment(i int) {
+	before, name := b.slot.text(), b.chipText(b.segs[i])
+	b.segs = slices.Delete(b.segs, i, i+1)
+	b.write()
+	after := b.slot.text()
+	b.k.offerUndo(name, func() {
+		if now := b.slot.text(); now != after {
+			log.Printf("settings: undo removing %s from the label: it changed since, to %q", name, now)
+			return
+		}
+		_ = b.slot.set(before)
+		b.refresh()
+	})
 }
 
 func (b *labelBuilder) write() {

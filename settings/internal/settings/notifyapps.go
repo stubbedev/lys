@@ -87,10 +87,20 @@ func newNotifyApps(k *kit, slots []slot) *notifyApps {
 				}
 			}
 		},
-		drop: func(pattern string) {
+		drop: func(pattern string) func() {
+			was := make([]int, len(c.slots))
 			for i := range c.slots {
-				if listed := c.listed(i); slices.Contains(listed, pattern) {
+				listed := c.listed(i)
+				was[i] = slices.Index(listed, pattern)
+				if was[i] >= 0 {
 					c.write(i, slices.DeleteFunc(listed, func(p string) bool { return p == pattern }))
+				}
+			}
+			return func() {
+				for i, at := range was {
+					if listed := c.listed(i); at >= 0 && !slices.Contains(listed, pattern) {
+						c.write(i, insertAt(listed, at, pattern))
+					}
 				}
 			}
 		},

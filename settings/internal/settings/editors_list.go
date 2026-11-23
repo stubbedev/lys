@@ -163,8 +163,25 @@ func (c *listEditor) remove(item listItem) {
 		return
 	}
 	values := c.values()
+	removed := values[i]
 	c.rebuild(slices.Delete(values, i, i+1))
 	c.commit()
+	c.k.offerUndo(listEntryName(removed), func() {
+		c.rebuild(insertAt(c.stored(), i, removed))
+		c.commit()
+	})
+}
+
+// listEntryName names a list editor's entry in its undo: a word itself,
+// a pair by its key.
+func listEntryName(v any) string {
+	switch v := v.(type) {
+	case string:
+		return v
+	case [2]string:
+		return v[0]
+	}
+	return ""
 }
 
 func (c *listEditor) move(item listItem, delta int) {

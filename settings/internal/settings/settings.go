@@ -145,6 +145,9 @@ func Run(page, setting string) error {
 		ins.Bind(application)
 	}
 	k.pickers = windowPickers{app: application, win: win, theme: theme}
+	k.toast = func(text string, life time.Duration) (*widget.Toast, error) {
+		return application.ShowToast(text, life, &app.ToastConfig{Host: win})
+	}
 	k.overlays = func(output string, content widget.Widget, interactive bool) (func(), error) {
 		return outputOverlay(application, sess.Outputs(), theme, output, content, interactive)
 	}

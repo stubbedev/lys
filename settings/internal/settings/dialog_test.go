@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/ui/app"
+	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -28,8 +29,31 @@ func TestADialogLeadsWithCancelAndEndsWithItsAffirmativeAction(t *testing.T) {
 	if !slices.Equal(cfg.Buttons, want) {
 		t.Errorf("buttons %+v, want %+v", cfg.Buttons, want)
 	}
-	if !cfg.Modal || cfg.Width != alertWidth || cfg.CancelResponse != responseCancel || cfg.DefaultResponse != responseConfirm || cfg.ValidateResponse != nil {
+	if !cfg.Modal || cfg.Width != app.MessageBoxConfig("", "", nil, nil).Width || cfg.CancelResponse != responseCancel || cfg.DefaultResponse != responseConfirm || cfg.ValidateResponse != nil {
 		t.Errorf("modal %v width %d cancel %q default %q validates %v", cfg.Modal, cfg.Width, cfg.CancelResponse, cfg.DefaultResponse, cfg.ValidateResponse != nil)
+	}
+}
+
+// A dialog is lys-ui's message box: its title over its description at
+// the message box's width, unless it names its own, with its content,
+// focus and close hook on top.
+func TestADialogIsLysUIsMessageBoxWithItsOwnParts(t *testing.T) {
+	content, focus := widget.NewSpacer(1, 1), widget.NewSpacer(1, 1)
+	closed := 0
+	box := app.MessageBoxConfig("Rename", "Pick a new name.", nil, nil)
+	cfg := dialogSpec{title: "Rename", description: "Pick a new name.", content: content, focus: focus, onClosed: func() { closed++ }}.config(func() {})
+	if cfg.Title != box.Title || cfg.Description != box.Description || cfg.Width != box.Width || !cfg.Modal {
+		t.Errorf("title %q description %q width %d modal %v, want the message box's %q %q %d", cfg.Title, cfg.Description, cfg.Width, cfg.Modal, box.Title, box.Description, box.Width)
+	}
+	if cfg.Content != content || cfg.Focus != focus || cfg.OnClosed == nil {
+		t.Fatalf("content %v focus %v closes %v, want the spec's", cfg.Content, cfg.Focus, cfg.OnClosed != nil)
+	}
+	cfg.OnClosed()
+	if closed != 1 {
+		t.Errorf("closing ran the spec's hook %d times", closed)
+	}
+	if wide := (dialogSpec{title: "Wide", width: 640}).config(func() {}); wide.Width != 640 {
+		t.Errorf("a spec naming 640px got %d", wide.Width)
 	}
 }
 

@@ -78,11 +78,17 @@ func (c *appStrip) rebuild() {
 	c.none.Empty("", locale.T().Get(c.spec.none))
 }
 
-func (c *appStrip) chip(id string) *widget.Chip {
-	name, icon := id, appFallbackIcon
+// face is what app id is called and its icon: its installed app's, else
+// the id and the fallback icon.
+func (c *appStrip) face(id string) (name, icon string) {
 	if a, ok := c.apps.byID[id]; ok {
-		name, icon = cmp.Or(a.DisplayName(), id), cmp.Or(a.Icon(), appFallbackIcon)
+		return cmp.Or(a.DisplayName(), id), cmp.Or(a.Icon(), appFallbackIcon)
 	}
+	return id, appFallbackIcon
+}
+
+func (c *appStrip) chip(id string) *widget.Chip {
+	name, icon := c.face(id)
 	chip := widget.NewChip(c.k.face, name)
 	chip.AddClass(c.spec.class + "-app")
 	chip.SetContent(widget.NewThemeIcon(icon, appStripIconPx))
@@ -98,9 +104,19 @@ func (c *appStrip) move(from, to int) {
 }
 
 func (c *appStrip) drop(at int) {
+	id := c.ids[at]
 	c.ids = slices.Delete(c.ids, at, at+1)
 	c.write(slices.Clone(c.ids))
 	c.rebuild()
+	name, _ := c.face(id)
+	c.k.offerUndo(name, func() {
+		if slices.Contains(c.ids, id) {
+			return
+		}
+		c.ids = insertAt(c.ids, at, id)
+		c.write(slices.Clone(c.ids))
+		c.rebuild()
+	})
 }
 
 func (c *appStrip) pick() {

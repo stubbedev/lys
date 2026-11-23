@@ -476,12 +476,26 @@ func (r *ruleEffects) addEffect(key string) {
 	r.rebuild()
 }
 
+// removeEffect takes the effect key off the rule, its Undo putting it
+// back as it was set.
 func (r *ruleEffects) removeEffect(key string) {
 	r.added = slices.DeleteFunc(r.added, func(a string) bool { return a == key })
-	if r.field(key).get() != nil {
+	was := r.field(key).get()
+	if was != nil {
 		r.field(key).unset()
 	}
 	r.rebuild()
+	r.k.offerUndo(effectLabel(key), func() {
+		if !slices.Contains(r.added, key) {
+			r.added = append(r.added, key)
+		}
+		if was != nil {
+			if err := r.field(key).set(was); err != nil {
+				log.Printf("settings: restore the effect %s: %v", key, err)
+			}
+		}
+		r.rebuild()
+	})
 }
 
 func (r *ruleEffects) refresh() {

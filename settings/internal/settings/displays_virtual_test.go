@@ -96,6 +96,7 @@ func TestAVirtualDisplayIsAddedToTheArrangementSizedAndRemoved(t *testing.T) {
 	if len(removes) != 1 {
 		t.Fatalf("%d remove buttons", len(removes))
 	}
+	shown := undoToasts(r.k)
 	removes[0].(*widget.Button).OnClick()
 	r.l.until("lys-wm to remove the virtual display", func() bool {
 		return !slices.ContainsFunc(r.p.heads, func(h displays.Head) bool { return h.Name == "VIRT-1" })
@@ -103,4 +104,9 @@ func TestAVirtualDisplayIsAddedToTheArrangementSizedAndRemoved(t *testing.T) {
 	if strings.Contains(string(r.config(t)), virtualOutputsPath) {
 		t.Errorf("the config still holds %s:\n%s", virtualOutputsPath, r.config(t))
 	}
+	pressUndo(t, lastUndo(t, shown))
+	r.l.until("lys-wm to restore the virtual display at its size", func() bool {
+		o, ok := r.outputs(t)["VIRT-1"]
+		return ok && o.Rect.Width == 1280
+	})
 }

@@ -1,7 +1,6 @@
 package settings
 
 import (
-	"cmp"
 	"errors"
 	"fmt"
 
@@ -11,10 +10,6 @@ import (
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
-
-// alertWidth is a dialog's width unless it names its own, lys-ui's
-// MessageBox's.
-const alertWidth = 440
 
 // The responses every dialog shares: Cancel's and the affirmative
 // action's.
@@ -51,7 +46,7 @@ type dialogAction struct {
 // button never comes before Cancel.
 type dialogSpec struct {
 	title, description string
-	// width is the dialog's width, alertWidth when zero.
+	// width is the dialog's width, lys-ui's message box's when zero.
 	width          uint32
 	content, focus widget.Widget
 	actions        []dialogAction
@@ -66,7 +61,9 @@ type dialogSpec struct {
 	onClosed   func()
 }
 
-// config is lys-ui's dialog for s, closeDialog closing it for submit.
+// config is lys-ui's message box for s, closeDialog closing it for
+// submit: Enter answers the affirmative action alone, so a dialog
+// without one leaves Enter alone rather than answer Cancel.
 func (s dialogSpec) config(closeDialog func()) app.DialogConfig {
 	buttons := make([]app.DialogButton, 0, len(s.actions)+2)
 	buttons = append(buttons, app.DialogButton{Label: locale.T().Get("settings-cancel"), Response: responseCancel, Role: app.ButtonRoleCancel, Appearance: app.AppearancePlain})
@@ -77,22 +74,17 @@ func (s dialogSpec) config(closeDialog func()) app.DialogConfig {
 		}
 		buttons = append(buttons, app.DialogButton{Label: a.label, Response: a.response, Appearance: look})
 	}
-	cfg := app.DialogConfig{
-		Title:          s.title,
-		Description:    s.description,
-		Width:          cmp.Or(s.width, alertWidth),
-		Content:        s.content,
-		Focus:          s.focus,
-		Modal:          true,
-		CancelResponse: responseCancel,
-		OnResponse:     s.onResponse,
-		OnClosed:       s.onClosed,
-	}
 	if s.apply != "" {
 		buttons = append(buttons, app.DialogButton{Label: s.apply, Response: responseConfirm, Role: app.ButtonRoleDefault, Appearance: app.AppearanceSuggested})
-		cfg.DefaultResponse = responseConfirm
 	}
-	cfg.Buttons = buttons
+	cfg := app.MessageBoxConfig(s.title, s.description, buttons, s.onResponse)
+	if s.apply == "" {
+		cfg.DefaultResponse = ""
+	}
+	if s.width != 0 {
+		cfg.Width = s.width
+	}
+	cfg.Content, cfg.Focus, cfg.OnClosed = s.content, s.focus, s.onClosed
 	if s.submit != nil {
 		cfg.ValidateResponse = func(r string) bool {
 			if r != responseConfirm {

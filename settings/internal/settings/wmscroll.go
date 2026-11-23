@@ -226,7 +226,13 @@ func (c *columnPresets) remove(i int) {
 	if len(c.widths) <= 1 {
 		return
 	}
+	w := c.widths[i]
 	c.write(slices.Delete(slices.Clone(c.widths), i, i+1))
+	c.k.offerUndo(w.label(), func() {
+		if !slices.Contains(c.widths, w) {
+			c.write(insertAt(c.widths, i, w))
+		}
+	})
 }
 
 func (c *columnPresets) typed() columnWidth {

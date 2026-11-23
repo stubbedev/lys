@@ -178,10 +178,28 @@ func (c *monitorWallpapers) showAway() {
 		if slices.ContainsFunc(c.tiles, func(tile monitorTile) bool { return tile.name == name }) {
 			continue
 		}
-		remove := c.k.removeButton("settings-list-remove", func() {
-			_ = c.slot.set(withoutMonitor(c.slot.get(), name))
-			c.refresh()
-		})
+		remove := c.k.removeButton("settings-list-remove", func() { c.removeAway(name) })
 		c.away.Append(c.k.row(name, t.Get("settings-wallpaper-monitor-away")).withControl(remove))
 	}
+}
+
+// removeAway takes the wallpaper of the display name, not connected, off
+// the list, its Undo putting it back where it stood.
+func (c *monitorWallpapers) removeAway(name string) {
+	stored, _ := c.slot.get().([]any)
+	at := slices.IndexFunc(stored, func(v any) bool { m, _ := v.(map[string]any); return m["name"] == name })
+	if at < 0 {
+		return
+	}
+	entry := stored[at]
+	_ = c.slot.set(withoutMonitor(stored, name))
+	c.refresh()
+	c.k.offerUndo(name, func() {
+		if _, ok := monitorEntry(c.slot.get(), name); ok {
+			return
+		}
+		stored, _ := c.slot.get().([]any)
+		_ = c.slot.set(insertAt(stored, at, entry))
+		c.refresh()
+	})
 }

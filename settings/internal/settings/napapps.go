@@ -43,10 +43,19 @@ func newNapApps(k *kit, s slot) *napApps {
 				c.levels[app].SetSelected(max(slices.Index(config.NapLevels(), config.NapLevel(stored[app])), 0))
 			}
 		},
-		drop: func(app string) {
+		drop: func(app string) func() {
 			stored := storedNapLevels(s)
+			level, had := stored[app]
 			delete(stored, app)
 			writeNapLevels(s, stored)
+			return func() {
+				if !had {
+					return
+				}
+				stored := storedNapLevels(s)
+				stored[app] = level
+				writeNapLevels(s, stored)
+			}
 		},
 	})
 	return c
