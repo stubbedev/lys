@@ -11,6 +11,8 @@ import (
 	"math"
 
 	xdraw "golang.org/x/image/draw"
+
+	"github.com/stubbedev/lys/lib/third_party/rasterx"
 )
 
 // Icon is a rasterized icon ready to blend onto a canvas. Its pixels
@@ -65,34 +67,54 @@ func (i *Icon) native(num, denom int) bool {
 // the rest stays transparent. Unsupported SVG elements are an error, not
 // silently dropped.
 func LoadSVG(data []byte, w, h int) (*Icon, error) {
-	if w <= 0 || h <= 0 {
-		return nil, fmt.Errorf("render: invalid icon size %dx%d", w, h)
-	}
-	doc, err := parseSVG(data)
+	doc, img, m, err := fitSVG(data, w, h)
 	if err != nil {
 		return nil, err
 	}
+	doc.draw(img, m, nil)
+	return stillIcon(img, 0, 0), nil
+}
+
+// LoadSymbolicSVG rasterizes a symbolic icon as LoadSVG does, its
+// horizontal and vertical edges fitted to whole pixels: a stem keeps
+// its rounded width, at least a pixel and halves rounding down, and the
+// geometry between edges follows them, so a one-unit stroke is one
+// pixel wide at any size off the icon's grid.
+func LoadSymbolicSVG(data []byte, w, h int) (*Icon, error) {
+	doc, img, m, err := fitSVG(data, w, h)
+	if err != nil {
+		return nil, err
+	}
+	grid := doc.gridFit(img, m)
+	doc.draw(img, m, &grid)
+	return stillIcon(img, 0, 0), nil
+}
+
+func fitSVG(data []byte, w, h int) (*svgDoc, *image.RGBA, rasterx.Matrix2D, error) {
+	if w <= 0 || h <= 0 {
+		return nil, nil, rasterx.Matrix2D{}, fmt.Errorf("render: invalid icon size %dx%d", w, h)
+	}
+	doc, err := parseSVG(data)
+	if err != nil {
+		return nil, nil, rasterx.Matrix2D{}, err
+	}
 	vb := doc.icon.ViewBox
 	if vb.W <= 0 || vb.H <= 0 {
-		return nil, errors.New("render: svg has no usable viewBox (want w x h > 0)")
+		return nil, nil, rasterx.Matrix2D{}, errors.New("render: svg has no usable viewBox (want w x h > 0)")
 	}
-
 	scale := math.Min(float64(w)/vb.W, float64(h)/vb.H)
 	fitW := float64(vb.W * scale)
 	fitH := float64(vb.H * scale)
 	offX := (float64(w) - fitW) / 2
 	offY := (float64(h) - fitH) / 2
-
-	img := image.NewRGBA(image.Rect(0, 0, w, h))
-	doc.draw(img, fitViewBox(vb.X, vb.Y, vb.W, vb.H, offX, offY, fitW, fitH))
-	return stillIcon(img, 0, 0), nil
+	return doc, image.NewRGBA(image.Rect(0, 0, w, h)), fitViewBox(vb.X, vb.Y, vb.W, vb.H, offX, offY, fitW, fitH), nil
 }
 
 // rasterSVG draws doc's region (rx, ry, rw, rh in its user units)
 // into a w x h image.
 func rasterSVG(doc *svgDoc, rx, ry, rw, rh float64, w, h int) *image.RGBA {
 	img := image.NewRGBA(image.Rect(0, 0, w, h))
-	doc.draw(img, fitViewBox(rx, ry, rw, rh, 0, 0, float64(w), float64(h)))
+	doc.draw(img, fitViewBox(rx, ry, rw, rh, 0, 0, float64(w), float64(h)), nil)
 	return img
 }
 

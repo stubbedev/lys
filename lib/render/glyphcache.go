@@ -146,7 +146,7 @@ func cachedOutlineRaster(t *Typeface, gid font.GID, scale, penX, penY float64) (
 	m := Affine{A: scale, C: scale * t.slant, D: -scale, E: bucketOffset(key.fx), F: bucketOffset(key.fy)}
 	hint := hintVertical(outlineEdges(outline, t.upem), t.blueZones(), scale, m.F, t.upem)
 	g := rasterOutline(outline, func(p ot.SegmentPoint) (float64, float64) {
-		y := hint.device(float64(p.Y), scale, m.F)
+		y := hint.device(float64(p.Y))
 		x, _ := m.Apply(float64(p.X), (m.F-y)/scale)
 		return x, y
 	})

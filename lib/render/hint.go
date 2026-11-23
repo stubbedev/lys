@@ -85,15 +85,15 @@ func runeExtent(f *font.Face, r rune) (lo, hi float64, ok bool) {
 }
 
 func (z blueZone) contains(e hintEdge, fuzz float64) bool {
-	if z.top == e.inkAbove {
+	if z.top == e.inkAfter {
 		return false
 	}
-	return e.y >= math.Min(z.ref, z.over)-fuzz && e.y <= math.Max(z.ref, z.over)+fuzz
+	return e.at >= math.Min(z.ref, z.over)-fuzz && e.at <= math.Max(z.ref, z.over)+fuzz
 }
 
 func (z blueZone) row(e hintEdge, scale, fy float64) float64 {
 	ref := math.Round(fy - float64(scale*z.ref))
-	if math.Abs(e.y-z.over) >= math.Abs(e.y-z.ref) {
+	if math.Abs(e.at-z.over) >= math.Abs(e.at-z.ref) {
 		return ref
 	}
 	overshoot := float64(scale * math.Abs(z.over-z.ref))
@@ -107,9 +107,9 @@ func (z blueZone) row(e hintEdge, scale, fy float64) float64 {
 }
 
 type hintEdge struct {
-	y        float64
-	xlo, xhi float64
-	inkAbove bool
+	at       float64
+	lo, hi   float64
+	inkAfter bool
 }
 
 func outlineEdges(outline font.GlyphOutline, upem float64) []hintEdge {
@@ -180,10 +180,10 @@ func appendContourEdges(edges []hintEdge, c []ot.SegmentPoint, flat, minLength f
 		last := at(start + j - 1)
 		if j-i >= 2 && xhi-xlo >= minLength && last.X != first.X {
 			edges = append(edges, hintEdge{
-				y:        float64(first.Y),
-				xlo:      xlo,
-				xhi:      xhi,
-				inkAbove: (last.X > first.X) == counterClockwise,
+				at:       float64(first.Y),
+				lo:       xlo,
+				hi:       xhi,
+				inkAfter: (last.X > first.X) == counterClockwise,
 			})
 		}
 		i = j
@@ -191,100 +191,112 @@ func appendContourEdges(edges []hintEdge, c []ot.SegmentPoint, flat, minLength f
 	return edges
 }
 
-type yAnchor struct {
-	y, row float64
+type gridAnchor struct {
+	at, row float64
 }
 
-type verticalHint []yAnchor
+type axisHint struct {
+	origin, scale float64
+	anchors       []gridAnchor
+}
 
-func hintVertical(edges []hintEdge, zones []blueZone, scale, fy, upem float64) verticalHint {
-	device := func(e hintEdge) float64 { return fy - float64(scale*e.y) }
-	h := make(verticalHint, 0, len(edges))
+func hintVertical(edges []hintEdge, zones []blueZone, scale, fy, upem float64) axisHint {
+	device := func(e hintEdge) float64 { return fy - float64(scale*e.at) }
+	h := axisHint{origin: fy, scale: -scale, anchors: make([]gridAnchor, 0, len(edges))}
 	zoned := make([]bool, len(edges))
 	rows := make([]float64, len(edges))
 	fuzz := float64(upem * zoneFuzzPerEm)
 	for i, e := range edges {
 		best := -1
 		for k, z := range zones {
-			if z.contains(e, fuzz) && (best < 0 || math.Abs(e.y-z.ref) < math.Abs(e.y-zones[best].ref)) {
+			if z.contains(e, fuzz) && (best < 0 || math.Abs(e.at-z.ref) < math.Abs(e.at-zones[best].ref)) {
 				best = k
 			}
 		}
 		if best >= 0 {
 			rows[i], zoned[i] = zones[best].row(e, scale, fy), true
-			h = h.with(e.y, rows[i])
+			h = h.with(e.at, rows[i])
 		}
 	}
 	stemmed := make([]bool, len(edges))
 	for _, s := range pairStems(edges, float64(upem*stemMaxWidthPerEm)) {
-		b, t := edges[s.bottom], edges[s.top]
-		width := math.Max(1, math.Round(float64(scale*(t.y-b.y))))
+		b, t := edges[s.lo], edges[s.hi]
+		width := math.Max(1, math.Round(float64(scale*(t.at-b.at))))
 		switch {
-		case zoned[s.bottom] && zoned[s.top]:
-		case zoned[s.bottom]:
-			h = h.with(t.y, rows[s.bottom]-width)
-		case zoned[s.top]:
-			h = h.with(b.y, rows[s.top]+width)
+		case zoned[s.lo] && zoned[s.hi]:
+		case zoned[s.lo]:
+			h = h.with(t.at, rows[s.lo]-width)
+		case zoned[s.hi]:
+			h = h.with(b.at, rows[s.hi]+width)
 		default:
 			top := math.Round(float64((device(b)+device(t))/2) - float64(width/2))
-			h = h.with(t.y, top).with(b.y, top+width)
+			h = h.with(t.at, top).with(b.at, top+width)
 		}
-		stemmed[s.bottom], stemmed[s.top] = true, true
+		stemmed[s.lo], stemmed[s.hi] = true, true
 	}
 	for i, e := range edges {
 		if !zoned[i] && !stemmed[i] {
-			h = h.with(e.y, math.Round(device(e)))
+			h = h.with(e.at, math.Round(device(e)))
 		}
 	}
 	return h
 }
 
-func (h verticalHint) with(y, row float64) verticalHint {
-	k, found := slices.BinarySearchFunc(h, y, compareAnchorY)
-	if found || (k > 0 && h[k-1].row < row) || (k < len(h) && h[k].row > row) {
+func (h axisHint) with(at, row float64) axisHint {
+	k, found := slices.BinarySearchFunc(h.anchors, at, compareAnchor)
+	if found || (k > 0 && !h.ordered(h.anchors[k-1].row, row)) || (k < len(h.anchors) && !h.ordered(row, h.anchors[k].row)) {
 		return h
 	}
-	return slices.Insert(h, k, yAnchor{y: y, row: row})
+	h.anchors = slices.Insert(h.anchors, k, gridAnchor{at: at, row: row})
+	return h
 }
 
-func compareAnchorY(a yAnchor, y float64) int { return cmp.Compare(a.y, y) }
-
-func (h verticalHint) device(y, scale, fy float64) float64 {
-	if len(h) == 0 {
-		return fy - float64(scale*y)
+func (h axisHint) ordered(a, b float64) bool {
+	if h.scale < 0 {
+		return a >= b
 	}
-	k, found := slices.BinarySearchFunc(h, y, compareAnchorY)
+	return a <= b
+}
+
+func compareAnchor(a gridAnchor, at float64) int { return cmp.Compare(a.at, at) }
+
+func (h axisHint) device(at float64) float64 {
+	n := len(h.anchors)
+	if n == 0 {
+		return h.origin + float64(h.scale*at)
+	}
+	k, found := slices.BinarySearchFunc(h.anchors, at, compareAnchor)
 	switch {
 	case found:
-		return h[k].row
+		return h.anchors[k].row
 	case k == 0:
-		return h[0].row + float64(scale*(h[0].y-y))
-	case k == len(h):
-		return h[k-1].row - float64(scale*(y-h[k-1].y))
+		return h.anchors[0].row + float64(h.scale*(at-h.anchors[0].at))
+	case k == n:
+		return h.anchors[n-1].row + float64(h.scale*(at-h.anchors[n-1].at))
 	}
-	lo, hi := h[k-1], h[k]
-	return lo.row + float64((hi.row-lo.row)*(y-lo.y)/(hi.y-lo.y))
+	lo, hi := h.anchors[k-1], h.anchors[k]
+	return lo.row + float64((hi.row-lo.row)*(at-lo.at)/(hi.at-lo.at))
 }
 
 type stem struct {
-	bottom, top int
+	lo, hi int
 }
 
 func pairStems(edges []hintEdge, maxWidth float64) []stem {
 	nearest := func(i int) int {
 		e, best := edges[i], -1
 		for j, o := range edges {
-			if o.inkAbove == e.inkAbove || math.Min(e.xhi, o.xhi) <= math.Max(e.xlo, o.xlo) {
+			if o.inkAfter == e.inkAfter || math.Min(e.hi, o.hi) <= math.Max(e.lo, o.lo) {
 				continue
 			}
-			gap := o.y - e.y
-			if !e.inkAbove {
+			gap := o.at - e.at
+			if !e.inkAfter {
 				gap = -gap
 			}
 			if gap <= 0 || gap > maxWidth {
 				continue
 			}
-			if best < 0 || gap < math.Abs(edges[best].y-e.y) {
+			if best < 0 || gap < math.Abs(edges[best].at-e.at) {
 				best = j
 			}
 		}
@@ -292,11 +304,11 @@ func pairStems(edges []hintEdge, maxWidth float64) []stem {
 	}
 	var stems []stem
 	for i, e := range edges {
-		if !e.inkAbove {
+		if !e.inkAfter {
 			continue
 		}
 		if j := nearest(i); j >= 0 && nearest(j) == i {
-			stems = append(stems, stem{bottom: i, top: j})
+			stems = append(stems, stem{lo: i, hi: j})
 		}
 	}
 	return stems

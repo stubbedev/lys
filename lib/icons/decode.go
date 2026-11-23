@@ -35,6 +35,7 @@ func DecodeImage(data []byte, fileName string, w, h int) (*render.Icon, error) {
 		}
 		data, ext = unzipped, ".svg"
 	}
+	symbolic := IsSymbolic(fileName, data)
 	if bytes.Contains(data, []byte(currentColor)) {
 		data = bytes.ReplaceAll(data, []byte(currentColor), []byte("#ffffff"))
 	}
@@ -43,6 +44,9 @@ func DecodeImage(data []byte, fileName string, w, h int) (*render.Icon, error) {
 	}
 	if ext == ".jpg" || ext == ".jpeg" || hasJPEGMagic(data) {
 		return render.LoadJPEG(data, w, h)
+	}
+	if symbolic {
+		return render.LoadSymbolicSVG(data, w, h)
 	}
 	return render.LoadSVG(data, w, h)
 }
