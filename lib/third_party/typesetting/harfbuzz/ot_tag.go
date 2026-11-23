@@ -29,7 +29,7 @@ func oldTagFromScript(script language.Script) tables.Tag {
 		return ot.Tag('m'<<24 | 'a'<<16 | 't'<<8 | 'h')
 
 	/* KATAKANA and HIRAGANA both map to 'kana' */
-	case language.Hiragana:
+	case language.Hiragana, language.Katakana_Or_Hiragana:
 		return ot.Tag('k'<<24 | 'a'<<16 | 'n'<<8 | 'a')
 
 	/* Spaces at the end are preserved, unlike ISO 15924 */
@@ -82,8 +82,10 @@ func newTagFromScript(script language.Script) tables.Tag {
 // Most of the script tags are the same as the ISO 15924 tag but lowercased.
 // So we just do that, and handle the exceptional cases in a switch.
 func allTagsFromScript(script language.Script) []tables.Tag {
-	var tags []tables.Tag
+	return appendTagsFromScript(nil, script)
+}
 
+func appendTagsFromScript(tags []tables.Tag, script language.Script) []tables.Tag {
 	tag := newTagFromScript(script)
 	if tag != tagDefaultScript {
 		// HB_SCRIPT_MYANMAR maps to 'mym2', but there is no 'mym3'.

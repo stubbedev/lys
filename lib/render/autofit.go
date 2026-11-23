@@ -21,22 +21,7 @@ func (h *hinter) autofit(f *font.Face) *autofit.Face {
 
 type autofitSource struct{ face *font.Face }
 
-func (s autofitSource) Upem() int64 { return int64(s.face.Upem()) }
-
-func (s autofitSource) Lookup(r rune) (uint32, bool) {
-	gid, ok := s.face.Cmap.Lookup(r)
-	return uint32(gid), ok
-}
-
-func (s autofitSource) Mappings() []autofit.Mapping {
-	var out []autofit.Mapping
-	for it := s.face.Cmap.Iter(); it.Next(); {
-		r, gid := it.Char()
-		out = append(out, autofit.Mapping{Rune: r, Glyph: uint32(gid)})
-	}
-	return out
-}
-
+func (s autofitSource) Face() *font.Face { return s.face }
 
 func (s autofitSource) LoadOutline(o *autofit.Outline, gid uint32) bool {
 	sc := takeGlyphScratch()

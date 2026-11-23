@@ -237,12 +237,12 @@ func (h *glyphHints) linkSegments(widths []width) {
 	}
 }
 
-func (h *glyphHints) insertEdge(fpos int16, dir direction) int {
+func (h *glyphHints) insertEdge(fpos int16, dir direction, topToBottom bool) int {
 	h.edges = append(h.edges, edge{})
 	k := len(h.edges) - 1
 	for k > 0 {
 		prev := &h.edges[k-1]
-		if prev.fpos < fpos {
+		if topToBottom && prev.fpos > fpos || !topToBottom && prev.fpos < fpos {
 			break
 		}
 		if prev.fpos == fpos && dir == h.majorDir {
@@ -254,7 +254,7 @@ func (h *glyphHints) insertEdge(fpos int16, dir direction) int {
 	return k
 }
 
-func (h *glyphHints) computeEdges(edgeDistanceThreshold int64) {
+func (h *glyphHints) computeEdges(edgeDistanceThreshold int64, topToBottom bool) {
 	scale := h.yScale
 	h.edges = h.edges[:0]
 	segs := h.segments
@@ -285,7 +285,7 @@ func (h *glyphHints) computeEdges(edgeDistanceThreshold int64) {
 			attach(i, &h.edges[found])
 			continue
 		}
-		k := h.insertEdge(s.pos, s.dir)
+		k := h.insertEdge(s.pos, s.dir, topToBottom)
 		opos := mulFix(int64(s.pos), scale)
 		h.edges[k] = edge{first: i, last: i, dir: s.dir, fpos: s.pos, opos: opos, pos: opos, link: none, serif: none}
 		s.edgeNext = i
@@ -423,7 +423,7 @@ func stemCenter(orgCenter, curLen int64) int64 {
 	return cur + dOff
 }
 
-func (h *glyphHints) hintEdges() {
+func (h *glyphHints) hintEdges(topToBottom bool) {
 	edges := h.edges
 	anchor := none
 	hasNonStem := false
@@ -517,7 +517,8 @@ func (h *glyphHints) hintEdges() {
 			}
 			e.flags |= edgeDone
 			edges[e2].flags |= edgeDone
-			if k > 0 && e.pos < edges[k-1].pos && e.link != none && abs(edges[e.link].pos-edges[k-1].pos) > 16 {
+			if k > 0 && (topToBottom && e.pos > edges[k-1].pos || !topToBottom && e.pos < edges[k-1].pos) &&
+				e.link != none && abs(edges[e.link].pos-edges[k-1].pos) > 16 {
 				e.pos = edges[k-1].pos
 			}
 		}

@@ -1,12 +1,17 @@
 package autofit
 
 import (
+	"iter"
 	"math"
 	"strings"
-	"unicode/utf8"
+
+	"github.com/stubbedev/lys/lib/third_party/typesetting/font/opentype/tables"
 )
 
-const maxWidths = 16
+const (
+	maxWidths       = 16
+	maxBlueClusters = 64
+)
 
 const (
 	blueTop          uint16 = 1 << 0
@@ -41,41 +46,47 @@ type latinMetrics struct {
 	widths                []width
 	edgeDistanceThreshold int64
 	blues                 []blue
+	reverse               map[uint32]rune
+}
+
+func clusters(text string) iter.Seq[string] {
+	return func(yield func(string) bool) {
+		for c := range strings.SplitSeq(text, " ") {
+			if c != "" && !yield(c) {
+				return
+			}
+		}
+	}
 }
 
 func latinConstant(upem, c int64) int64 { return c * upem / 2048 }
 
 func flatThreshold(upem int64) int64 { return upem / 14 }
 
-func clusters(text string, yield func(r rune, single bool)) {
-	for field := range strings.FieldsSeq(text) {
-		r, size := utf8.DecodeRuneInString(field)
-		yield(r, size == len(field))
-	}
-}
-
-func newLatinMetrics(src Source, st style) (*latinMetrics, bool) {
-	m := &latinMetrics{upem: src.Upem()}
-	m.initWidths(src, scripts[st.script].standard)
-	if !m.initBlues(src, blueStringsets[st.blues]) {
+func (f *Face) newLatinMetrics(st *style) (*latinMetrics, bool) {
+	m := &latinMetrics{upem: f.upem}
+	m.initWidths(f, scripts[st.script].standard, st.coverage)
+	if !m.initBlues(f, blueStringsets[st.blues], st.coverage) {
 		return nil, false
 	}
+	m.reverse = f.layout.reverseCharmap(st.script)
 	return m, true
 }
 
-func (m *latinMetrics) initWidths(src Source, standard string) {
-	var gid uint32
-	found := false
-	clusters(standard, func(r rune, single bool) {
-		if found || !single {
-			return
+func (f *Face) standardGlyph(standard string, coverage tables.Tag) (uint32, bool) {
+	var shaped []shapedGlyph
+	for c := range clusters(standard) {
+		shaped = f.layout.cluster(shaped[:0], c, coverage)
+		if len(shaped) == 1 && shaped[0].gid != 0 {
+			return shaped[0].gid, true
 		}
-		if g, ok := src.Lookup(r); ok && g != 0 {
-			gid, found = g, true
-		}
-	})
-	if found {
-		m.widths = standardWidths(src, gid, m.upem)
+	}
+	return 0, false
+}
+
+func (m *latinMetrics) initWidths(f *Face, standard string, coverage tables.Tag) {
+	if gid, ok := f.standardGlyph(standard, coverage); ok {
+		m.widths = standardWidths(f.src, gid, m.upem)
 	}
 	stdw := latinConstant(m.upem, 50)
 	if len(m.widths) > 0 {
@@ -155,40 +166,41 @@ func contourBounds(o Outline, nn int) (first, last int) {
 	return first, o.Ends[nn]
 }
 
-func (m *latinMetrics) initBlues(src Source, set []blueString) bool {
+func (m *latinMetrics) initBlues(f *Face, set []blueString, coverage tables.Tag) bool {
 	flatLimit := flatThreshold(m.upem)
 	var outline Outline
+	var shaped []shapedGlyph
+	flats, rounds := make([]int64, 0, maxBlueClusters), make([]int64, 0, maxBlueClusters)
 	for _, bs := range set {
 		top := bs.properties&blueTop != 0
 		subTop := bs.properties&blueSubTop != 0
-		var flats, rounds []int64
+		flats, rounds = flats[:0], rounds[:0]
 		var ascender, descender int64
-		clusters(bs.text, func(r rune, single bool) {
-			if !single {
-				return
-			}
+		for c := range clusters(bs.text) {
+			shaped = f.layout.cluster(shaped[:0], c, coverage)
 			bestYExtremum := int64(math.MaxInt64)
 			if top {
 				bestYExtremum = math.MinInt64
 			}
 			bestRound := false
-			gid, ok := src.Lookup(r)
-			if ok && gid != 0 {
-				if y, round, ok := m.blueExtremum(src, &outline, gid, bs.properties, flatLimit, &ascender, &descender); ok {
-					if top && y > bestYExtremum || !top && y < bestYExtremum {
-						bestYExtremum, bestRound = y, round
-					}
+			for _, g := range shaped {
+				if g.gid == 0 {
+					continue
+				}
+				y, round, ok := m.blueExtremum(f.src, &outline, g, bs.properties, flatLimit, &ascender, &descender)
+				if ok && (top && y > bestYExtremum || !top && y < bestYExtremum) {
+					bestYExtremum, bestRound = y, round
 				}
 			}
 			if bestYExtremum == math.MinInt64 || bestYExtremum == math.MaxInt64 {
-				return
+				continue
 			}
 			if bestRound {
 				rounds = append(rounds, bestYExtremum)
 			} else {
 				flats = append(flats, bestYExtremum)
 			}
-		})
+		}
 		if len(flats) == 0 && len(rounds) == 0 {
 			continue
 		}
@@ -278,8 +290,8 @@ func sortBlues(table []*blue) {
 	}
 }
 
-func (m *latinMetrics) blueExtremum(src Source, buf *Outline, gid uint32, props uint16, flatLimit int64, ascender, descender *int64) (int64, bool, bool) {
-	if !src.LoadOutline(buf, gid) || len(buf.Points) <= 2 {
+func (m *latinMetrics) blueExtremum(src Source, buf *Outline, g shapedGlyph, props uint16, flatLimit int64, ascender, descender *int64) (int64, bool, bool) {
+	if !src.LoadOutline(buf, g.gid) || len(buf.Points) <= 2 {
 		return 0, false, false
 	}
 	o := *buf
@@ -297,16 +309,16 @@ func (m *latinMetrics) blueExtremum(src Source, buf *Outline, gid uint32, props 
 			if top {
 				if bestPoint < 0 || y > bestY {
 					bestPoint, bestY = pp, y
-					*ascender = max(*ascender, bestY)
+					*ascender = max(*ascender, bestY+g.yOffset)
 				} else {
-					*descender = min(*descender, y)
+					*descender = min(*descender, y+g.yOffset)
 				}
 			} else {
 				if bestPoint < 0 || y < bestY {
 					bestPoint, bestY = pp, y
-					*descender = min(*descender, bestY)
+					*descender = min(*descender, bestY+g.yOffset)
 				} else {
-					*ascender = max(*ascender, y)
+					*ascender = max(*ascender, y+g.yOffset)
 				}
 			}
 		}
@@ -321,6 +333,7 @@ func (m *latinMetrics) blueExtremum(src Source, buf *Outline, gid uint32, props 
 		if skip {
 			return 0, false, false
 		}
+		bestY += g.yOffset
 	}
 	return bestY, round, true
 }

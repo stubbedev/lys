@@ -327,6 +327,27 @@ FT_MulFix rounding of a component matrix; the CORDIC length; appending
 keeps the buffer's points and allocates nothing)
 and `font/lys_gvar_test.go` (outlines unchanged).
 
+### OpenType layout queries are exported
+
+`harfbuzz/lys_layout.go`: what FreeType's autohinter asks HarfBuzz,
+answered from the parsed tables: `AppendOTScriptTags`
+(`hb_ot_tags_from_script_and_language` without a language, appending to
+the caller's buffer), `CollectAllLookups` and `CollectFeatureLookups`
+(`hb_ot_layout_collect_lookups` over every language system, feature
+variations included), `CollectGSUBOutput` and `CollectGPOSInput`
+(`hb_ot_layout_lookup_collect_glyphs`'s output and input sets, nested
+contextual lookups followed to HarfBuzz 14's depth of 64, and its
+`ClassDef` coverage quirk kept) and `Font.WouldSubstitute`
+(`hb_ot_layout_lookup_would_substitute`). `font/opentype/tables` adds
+`PairSet.SecondGlyphs` and `font` adds `Font.NumGlyphs`, the maxp glyph
+count. `harfbuzz/ot_tag.go` maps `Hrkt` to `kana` as HarfBuzz 14 does.
+render's autohinter uses them to give glyphs the styles FreeType gives
+them and to build its accent table, which is what lets it match FreeType
+built with HarfBuzz without loading libharfbuzz. Pinned by
+`harfbuzz/lys_layout_test.go` against libharfbuzz 14 on six faces: every
+script and feature collected from GSUB and GPOS, every lookup's glyphs,
+and would-substitute for every glyph of every GSUB lookup.
+
 ### CFF drops zero-length lines as FreeType does
 
 `font/cff/interpreter/charstrings.go`, `font/cff/charstring.go`: a line
@@ -337,7 +358,6 @@ render's autohinter analyses the points FreeType loads, and a duplicate
 point shifted every point after it. Pinned by
 `font/cff/lys_charstring_test.go`.
 
-
 ### Shaping allocates less
 
 `harfbuzz/ot_shape_normalize.go`, `buffer.go`: the normalization context
@@ -346,7 +366,6 @@ holding them as method values, which saves three allocations per shaped
 run. `harfbuzz/ot_layout_gsubgpos.go`: a lookup subtable's accelerator
 holds the subtable instead of a closure over it, one allocation fewer
 per subtable for every `Font`.
-
 
 ## Not patched
 

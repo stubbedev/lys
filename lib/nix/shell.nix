@@ -31,8 +31,10 @@
             pkgs.pipewire
             # libei, the C client the EIS server tests drive.
             pkgs.libei
-            # libfreetype, the light autohinter render's port is held to.
+            # libfreetype, the light autohinter render's port is held to,
+            # and the libharfbuzz it loads for OpenType layout.
             pkgs.freetype
+            pkgs.harfbuzz
             # libxkbcommon, the reference the xkb package's differential
             # tests and keysym table generator hold it to.
             pkgs.libxkbcommon
@@ -94,12 +96,13 @@
         # its VA-API encoder libva; both find the host's drivers
         # (/run/opengl-driver on NixOS). The pipewire and eis tests load
         # libpipewire and libei, the reference clients they are held to, and
-        # render's autohinter tests load libfreetype.
+        # render's autohinter tests load libfreetype with libharfbuzz.
         LD_LIBRARY_PATH = lib.makeLibraryPath (gpuDrivers.libraries
           ++ [
             pkgs.pipewire
             pkgs.libei
             pkgs.freetype
+            pkgs.harfbuzz
             pkgs.libxkbcommon
             pkgs.libxcb
           ]);

@@ -5,25 +5,20 @@ import (
 	"slices"
 	"sync"
 	"sync/atomic"
+
+	"github.com/stubbedev/lys/lib/third_party/typesetting/font"
 )
 
 // Source is the font a Face analyses.
 type Source interface {
-	Upem() int64
-	Lookup(r rune) (uint32, bool)
-	Mappings() []Mapping
+	Face() *font.Face
 	LoadOutline(o *Outline, gid uint32) bool
 }
 
-// Mapping is one cmap entry.
-type Mapping struct {
-	Rune  rune
-	Glyph uint32
-}
-
 const (
-	styleMask    uint16 = 0x1FFF
-	styleNonBase uint16 = 0x4000
+	styleMask       uint16 = 0x1FFF
+	styleUnassigned        = styleMask
+	styleNonBase    uint16 = 0x4000
 )
 
 type styleMetrics struct {
@@ -47,98 +42,99 @@ func takeHints() *glyphHints {
 // glyph and, computed when first needed, each style's blue zones and
 // stem widths.
 type Face struct {
-	src     Source
-	upem    int64
-	glyphs  map[uint32]uint16
-	reverse map[uint32]rune
-	styles  [len(styles)]styleMetrics
+	src    Source
+	upem   int64
+	layout *layout
+	glyphs []uint16
+	styles [len(styles)]styleMetrics
 }
 
-// NewFace assigns src's glyphs to scripts as FreeType does.
+// NewFace assigns src's glyphs to styles as FreeType built with
+// HarfBuzz does: by their cmap entries and the OpenType features that
+// reach them.
 func NewFace(src Source) *Face {
-	f := &Face{src: src, upem: src.Upem()}
-	mappings := src.Mappings()
-	slices.SortFunc(mappings, func(a, b Mapping) int { return cmp.Compare(a.Rune, b.Rune) })
-	f.glyphs = coverage(mappings)
-	f.reverse = reverseCharmap(src)
+	face := src.Face()
+	f := &Face{src: src, upem: int64(face.Upem()), layout: newLayout(face)}
+	f.glyphs = f.coverage(face)
 	return f
 }
 
-func coverage(mappings []Mapping) map[uint32]uint16 {
-	glyphs := make(map[uint32]uint16, len(mappings))
+func (f *Face) coverage(face *font.Face) []uint16 {
+	gstyles := make([]uint16, face.NumGlyphs())
+	for i := range gstyles {
+		gstyles[i] = styleUnassigned
+	}
+	if face.Cmap == nil {
+		return fallback(gstyles)
+	}
+	var mappings []mapping
+	for it := face.Cmap.Iter(); it.Next(); {
+		r, gid := it.Char()
+		if gid != 0 && int(gid) < len(gstyles) {
+			mappings = append(mappings, mapping{Rune: r, Glyph: uint32(gid)})
+		}
+	}
+	slices.SortFunc(mappings, func(a, b mapping) int { return cmp.Compare(a.Rune, b.Rune) })
 	inRanges := func(ranges []uniRange, visit func(gid uint32)) {
 		for _, r := range ranges {
-			k, _ := slices.BinarySearchFunc(mappings, r.first, func(m Mapping, first rune) int { return cmp.Compare(m.Rune, first) })
+			k, _ := slices.BinarySearchFunc(mappings, r.first, func(m mapping, first rune) int { return cmp.Compare(m.Rune, first) })
 			for ; k < len(mappings) && mappings[k].Rune <= r.last; k++ {
-				if gid := mappings[k].Glyph; gid != 0 {
-					visit(gid)
-				}
+				visit(mappings[k].Glyph)
 			}
 		}
 	}
-	for i, st := range styles {
+	for i := range styles {
 		ss := uint16(i)
+		st := &styles[i]
+		if st.coverage != 0 {
+			f.layout.assignCoverage(gstyles, ss, false)
+			continue
+		}
 		sc := &scripts[st.script]
 		inRanges(sc.ranges, func(gid uint32) {
-			if _, ok := glyphs[gid]; !ok {
-				glyphs[gid] = ss
+			if gstyles[gid] == styleUnassigned {
+				gstyles[gid] = ss
 			}
 		})
 		inRanges(sc.nonbase, func(gid uint32) {
-			if g, ok := glyphs[gid]; ok && g&styleMask == ss {
-				glyphs[gid] = g | styleNonBase
+			if gstyles[gid]&styleMask == ss {
+				gstyles[gid] |= styleNonBase
 			}
 		})
 	}
-	glyphs[0] = fallbackStyle
-	for _, m := range mappings {
-		if _, ok := glyphs[m.Glyph]; !ok {
-			glyphs[m.Glyph] = fallbackStyle
+	for i := range styles {
+		if styles[i].coverage == 0 {
+			f.layout.assignCoverage(gstyles, uint16(i), false)
 		}
 	}
-	return glyphs
+	f.layout.assignCoverage(gstyles, latinStyle, true)
+	return fallback(gstyles)
 }
 
-var (
-	latinStyle    = styleOf(latinScript)
-	fallbackStyle = styleOf(haniScript)
-)
-
-func styleOf(script int) uint16 {
-	i := slices.IndexFunc(styles[:], func(st style) bool { return st.script == script })
-	if i < 0 || i > int(styleMask) {
-		panic("autofit: no default style for a script the tables name")
-	}
-	return uint16(i)
-}
-
-func (f *Face) style(gid uint32) uint16 {
-	if s, ok := f.glyphs[gid]; ok {
-		return s
-	}
-	return latinStyle
-}
-
-func reverseCharmap(src Source) map[uint32]rune {
-	reverse := make(map[uint32]rune, len(adjustments))
-	for _, a := range adjustments {
-		if gid, ok := src.Lookup(a.codepoint); ok && gid != 0 {
-			reverse[gid] = a.codepoint
+func fallback(gstyles []uint16) []uint16 {
+	for i, gs := range gstyles {
+		if gs&styleMask == styleUnassigned {
+			gstyles[i] = gs&^styleMask | fallbackStyle
 		}
 	}
-	return reverse
+	return gstyles
+}
+
+type mapping struct {
+	Rune  rune
+	Glyph uint32
 }
 
 func (f *Face) metrics(ss int) *styleMetrics {
 	sm := &f.styles[ss]
 	sm.once.Do(func() {
-		switch st := styles[ss]; st.writing {
+		switch st := &styles[ss]; st.writing {
 		case writingLatin:
-			if m, ok := newLatinMetrics(f.src, st); ok {
+			if m, ok := f.newLatinMetrics(st); ok {
 				sm.latin = m
 			}
 		case writingCJK, writingIndic:
-			sm.cjk = newCJKMetrics(f.src, st)
+			sm.cjk = f.newCJKMetrics(st)
 		}
 	})
 	return sm
@@ -241,7 +237,10 @@ func (f *Face) Hint(dst []Point, gid uint32, o Outline, size26d6 int64) (out []P
 	if len(o.Points) == 0 {
 		return dst, false, false
 	}
-	gs := f.style(gid)
+	if int(gid) >= len(f.glyphs) {
+		return dst, false, false
+	}
+	gs := f.glyphs[gid]
 	ss := int(gs & styleMask)
 	sm := f.metrics(ss)
 	nominal := divFix(size26d6, f.upem)
@@ -274,18 +273,19 @@ func (f *Face) hintCJK(h *glyphHints, sm *styleMetrics, o Outline, nominal int64
 
 func (f *Face) hintLatin(h *glyphHints, sm *styleMetrics, gid uint32, gs uint16, o Outline, nominal int64) {
 	m := sm.latin
+	topToBottom := scripts[styles[gs&styleMask].script].topToBottom
 	axis := sm.latinAxis(nominal)
 	h.upem, h.xScale, h.yScale = f.upem, nominal, axis.scale
 	h.reload(o)
 
 	var adj uint32
-	if cp, ok := f.reverse[gid]; ok {
+	if cp, ok := m.reverse[gid]; ok {
 		adj = adjustmentFlags(cp)
 	}
 	h.applyTilde(adj)
 	h.computeSegments()
 	h.linkSegments(m.widths)
-	h.computeEdges(m.edgeDistanceThreshold)
+	h.computeEdges(m.edgeDistanceThreshold, topToBottom)
 
 	var accentHeightLimit int64
 	if adj != 0 {
@@ -321,7 +321,7 @@ func (f *Face) hintLatin(h *glyphHints, sm *styleMetrics, gid uint32, gs uint16,
 	if gs&styleNonBase == 0 {
 		h.computeBlueEdges(axis, f.upem)
 	}
-	h.hintEdges()
+	h.hintEdges(topToBottom)
 	h.alignEdgePoints()
 	h.alignStrongPoints()
 	h.alignWeakPoints()

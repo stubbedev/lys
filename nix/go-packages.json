@@ -3679,15 +3679,27 @@
     ]
   },
   "lib/render/internal/autofit": {
+    "imports": [
+      "lib/third_party/typesetting/font",
+      "lib/third_party/typesetting/font/opentype/tables",
+      "lib/third_party/typesetting/harfbuzz",
+      "lib/third_party/typesetting/language"
+    ],
     "external": [
       "cmp",
+      "iter",
       "math",
       "math/bits",
       "slices",
       "strings",
       "sync",
-      "sync/atomic",
-      "unicode/utf8"
+      "sync/atomic"
+    ],
+    "testImports": [
+      "lib/testbuild"
+    ],
+    "testExternal": [
+      "testing"
     ]
   },
   "lib/sdnotify": {
@@ -4094,6 +4106,7 @@
       "encoding/binary",
       "errors",
       "fmt",
+      "iter",
       "math",
       "math/bits",
       "slices",
@@ -4166,15 +4179,21 @@
       "fmt",
       "math",
       "math/bits",
+      "slices",
       "sort",
       "strconv",
       "strings",
       "sync"
     ],
     "testImports": [
+      "lib/clib",
       "lib/testbuild"
     ],
     "testExternal": [
+      "bytes",
+      "github.com/ebitengine/purego",
+      "os",
+      "runtime",
       "testing"
     ]
   },

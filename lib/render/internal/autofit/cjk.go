@@ -1,6 +1,11 @@
 package autofit
 
-import "strings"
+import (
+	"iter"
+	"strings"
+
+	"github.com/stubbedev/lys/lib/third_party/typesetting/font/opentype/tables"
+)
 
 const (
 	cjkBlueTop   uint16 = 1 << 0
@@ -43,28 +48,18 @@ type scaledCJK struct {
 	axis    [2]scaledCJKAxis
 }
 
-func newCJKMetrics(src Source, st style) *cjkMetrics {
-	m := &cjkMetrics{upem: src.Upem()}
-	m.initWidths(src, scripts[st.script].standard)
+func (f *Face) newCJKMetrics(st *style) *cjkMetrics {
+	m := &cjkMetrics{upem: f.upem}
+	m.initWidths(f, scripts[st.script].standard, st.coverage)
 	if st.writing == writingCJK {
-		m.initBlues(src, blueStringsets[st.blues])
+		m.initBlues(f, blueStringsets[st.blues], st.coverage)
 	}
 	return m
 }
 
-func (m *cjkMetrics) initWidths(src Source, standard string) {
-	var gid uint32
-	found := false
-	clusters(standard, func(r rune, single bool) {
-		if found || !single {
-			return
-		}
-		if g, ok := src.Lookup(r); ok && g != 0 {
-			gid, found = g, true
-		}
-	})
-	if found {
-		m.axis[dimHorz].widths, m.axis[dimVert].widths = cjkStandardWidths(src, gid, m.upem)
+func (m *cjkMetrics) initWidths(f *Face, standard string, coverage tables.Tag) {
+	if gid, ok := f.standardGlyph(standard, coverage); ok {
+		m.axis[dimHorz].widths, m.axis[dimVert].widths = cjkStandardWidths(f.src, gid, m.upem)
 	}
 	for d := range m.axis {
 		a := &m.axis[d]
@@ -103,22 +98,24 @@ func (h *glyphHints) stemWidths(upem int64) []width {
 	return sortAndQuantizeWidths(widths, upem/100)
 }
 
-func cjkClusters(text string, yield func(r rune, single, fill bool)) {
-	fill := true
-	for field := range strings.FieldsSeq(text) {
-		for strings.HasPrefix(field, "|") {
-			fill = false
-			field = field[1:]
+func cjkClusters(text string) iter.Seq2[string, bool] {
+	return func(yield func(string, bool) bool) {
+		fill := true
+		for c := range clusters(text) {
+			for strings.HasPrefix(c, "|") {
+				fill = false
+				c = c[1:]
+			}
+			if c != "" && !yield(c, fill) {
+				return
+			}
 		}
-		if field == "" {
-			continue
-		}
-		clusters(field, func(r rune, single bool) { yield(r, single, fill) })
 	}
 }
 
-func (m *cjkMetrics) initBlues(src Source, set []blueString) {
+func (m *cjkMetrics) initBlues(f *Face, set []blueString, coverage tables.Tag) {
 	var o Outline
+	var shaped []shapedGlyph
 	for _, bs := range set {
 		horiz := bs.properties&cjkBlueHoriz != 0
 		top := bs.properties&cjkBlueTop != 0
@@ -127,13 +124,13 @@ func (m *cjkMetrics) initBlues(src Source, set []blueString) {
 			axis = &m.axis[dimHorz]
 		}
 		var fills, flats []int64
-		cjkClusters(bs.text, func(r rune, single, fill bool) {
-			if !single {
-				return
+		for c, fill := range cjkClusters(bs.text) {
+			shaped = f.layout.cluster(shaped[:0], c, coverage)
+			if len(shaped) != 1 || shaped[0].gid == 0 {
+				continue
 			}
-			gid, ok := src.Lookup(r)
-			if !ok || gid == 0 || !src.LoadOutline(&o, gid) || len(o.Points) <= 2 {
-				return
+			if !f.src.LoadOutline(&o, shaped[0].gid) || len(o.Points) <= 2 {
+				continue
 			}
 			best := cjkExtremum(o, horiz, top)
 			if fill {
@@ -141,7 +138,7 @@ func (m *cjkMetrics) initBlues(src Source, set []blueString) {
 			} else {
 				flats = append(flats, best)
 			}
-		})
+		}
 		if len(fills) == 0 && len(flats) == 0 {
 			continue
 		}
@@ -359,7 +356,7 @@ func (h *glyphHints) computeEdgesCJK(edgeDistanceThreshold int64) {
 			e.last = i
 			continue
 		}
-		k := h.insertEdge(s.pos, s.dir)
+		k := h.insertEdge(s.pos, s.dir, false)
 		opos := mulFix(int64(s.pos), scale)
 		h.edges[k] = edge{first: i, last: i, dir: s.dir, fpos: s.pos, opos: opos, pos: opos, link: none, serif: none}
 		s.edgeNext = i

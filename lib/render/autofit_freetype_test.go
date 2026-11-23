@@ -53,6 +53,10 @@ var (
 func loadFreetype(t *testing.T) *freetype {
 	t.Helper()
 	freetypeOnce.Do(func() {
+		if _, err := clib.Open(clib.SystemCandidates("libharfbuzz.so.0")); err != nil {
+			freetypeErr = fmt.Errorf("libharfbuzz, which FreeType's autohinter needs for OpenType coverage: %w", err)
+			return
+		}
 		h, err := clib.Open(clib.SystemCandidates("libfreetype.so.6"))
 		if err != nil {
 			freetypeErr = err
@@ -113,6 +117,7 @@ var autofitReferenceFaces = []struct {
 	{"Go Mono", func(*testing.T) []byte { return gomono.TTF }},
 	{"WenQuanYi Micro Hei", func(t *testing.T) []byte { return readEnvFont(t, "LYS_TEST_CJK_FONT") }},
 	{"Lohit Odia", func(t *testing.T) []byte { return readEnvFont(t, "LYS_TEST_INDIC_FONT") }},
+	{"Libertinus Serif", func(t *testing.T) []byte { return readEnvFont(t, "LYS_TEST_FEATURES_FONT") }},
 }
 
 const (
@@ -158,7 +163,7 @@ func readTestFile(t *testing.T, path string) []byte {
 	return data
 }
 
-func TestAutofitHintsEveryMappedGlyphAsFreeTypesLightAutohinter(t *testing.T) {
+func TestAutofitHintsEveryGlyphAsFreeTypesLightAutohinter(t *testing.T) {
 	if testbuild.Race {
 		t.Skip("one goroutine of integer arithmetic: the race detector only slows the comparison")
 	}
@@ -177,14 +182,9 @@ func TestAutofitHintsEveryMappedGlyphAsFreeTypesLightAutohinter(t *testing.T) {
 				t.Fatalf("FreeType reads %d units per em, render %v: the FT_FaceRec offsets do not match this FreeType", got, tf.upem)
 			}
 			hf := tf.hints.autofit(tf.face)
-			var gids []font.GID
-			seen := map[font.GID]bool{}
-			for it := tf.face.Cmap.Iter(); it.Next(); {
-				_, gid := it.Char()
-				if !seen[gid] {
-					seen[gid] = true
-					gids = append(gids, gid)
-				}
+			gids := make([]font.GID, tf.face.NumGlyphs())
+			for i := range gids {
+				gids[i] = font.GID(i)
 			}
 			compared, mismatched := 0, 0
 			for px := int64(8); px <= 40; px++ {
