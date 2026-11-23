@@ -2,7 +2,6 @@ package icons
 
 import (
 	"image"
-	"io/fs"
 	"sync"
 	"testing"
 
@@ -15,7 +14,7 @@ type heldFS struct {
 	entered, release chan struct{}
 }
 
-func (f *heldFS) ReadDir(name string) ([]fs.DirEntry, error) {
+func (f *heldFS) ReadDir(name string) ([]dirEntry, error) {
 	f.once.Do(func() {
 		close(f.entered)
 		<-f.release

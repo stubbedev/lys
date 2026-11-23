@@ -220,7 +220,7 @@ func (f *countingFS) ReadFile(name string) ([]byte, error) {
 	return f.osFS.ReadFile(name)
 }
 
-func (f *countingFS) ReadDir(name string) ([]fs.DirEntry, error) {
+func (f *countingFS) ReadDir(name string) ([]dirEntry, error) {
 	f.count()
 	return f.osFS.ReadDir(name)
 }
@@ -356,7 +356,7 @@ type overlapFS struct {
 
 const overlapWait = 10 * time.Second
 
-func (f *overlapFS) ReadDir(name string) ([]fs.DirEntry, error) {
+func (f *overlapFS) ReadDir(name string) ([]dirEntry, error) {
 	f.mu.Lock()
 	f.inFlight++
 	if f.inFlight > 1 {

@@ -166,7 +166,7 @@ func buildNamespaceIndex(fsys themeFS, dir string, baseDirs []string) *themeInde
 // counting wrapper in tests.
 type themeFS interface {
 	ReadFile(name string) ([]byte, error)
-	ReadDir(name string) ([]fs.DirEntry, error)
+	ReadDir(name string) ([]dirEntry, error)
 	Stat(name string) (fs.FileInfo, error)
 }
 
@@ -179,7 +179,7 @@ func (osFS) ReadFile(name string) ([]byte, error) {
 
 // ReadDir lists name unsorted: the index groups entries by stem, so
 // the sort os.ReadDir does would be wasted.
-func (osFS) ReadDir(name string) ([]fs.DirEntry, error) { return listDir(name) }
+func (osFS) ReadDir(name string) ([]dirEntry, error) { return listDir(name) }
 
 func (osFS) Stat(name string) (fs.FileInfo, error) {
 	return os.Stat(name)
@@ -332,7 +332,7 @@ func buildThemeIndex(fsys themeFS, theme string, baseDirs []string) *themeIndex 
 	for _, base := range baseDirs {
 		plan(slot{path: filepath.Join(base, "", ""), theme: len(ix.chain)})
 	}
-	listings := make([][]fs.DirEntry, len(paths))
+	listings := make([][]dirEntry, len(paths))
 	forEachConcurrently(len(paths), func(i int) {
 		listings[i], _ = fsys.ReadDir(paths[i])
 	})
@@ -377,7 +377,7 @@ func topComponent(dir string) (string, bool) {
 
 // add appends slot s and indexes its entries: regular files and links
 // with an icon extension, by stem.
-func (ix *themeIndex) add(s slot, des []fs.DirEntry) {
+func (ix *themeIndex) add(s slot, des []dirEntry) {
 	n := int32(len(ix.slots)) //nolint:gosec // slots are directories, far below 2^31
 	ix.slots = append(ix.slots, s)
 	for _, de := range des {

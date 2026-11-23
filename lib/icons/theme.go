@@ -77,23 +77,23 @@ func loadTheme(fsys themeFS, baseDirs []string, dirName string) *Theme {
 // ScaledDirectories are read into Dirs - a directory's Scale comes from
 // its own section - and entries without a usable section are skipped.
 func parseIndex(data []byte) *Theme {
-	secs := parseINI(data)
-	icon := secs["Icon Theme"]
-	t := &Theme{Name: icon["Name"]}
-	for inh := range strings.SplitSeq(icon["Inherits"], ",") {
+	secs := parseIndexSections(string(data))
+	icon := secs.section("Icon Theme")
+	t := &Theme{Name: icon.get(keyName)}
+	for inh := range strings.SplitSeq(icon.get(keyInherits), ",") {
 		if inh = strings.TrimSpace(inh); inh != "" {
 			t.Inherits = append(t.Inherits, inh)
 		}
 	}
 	seen := map[string]bool{}
-	for _, list := range []string{icon["Directories"], icon["ScaledDirectories"]} {
+	for _, list := range []string{icon.get(keyDirectories), icon.get(keyScaledDirectories)} {
 		for entry := range strings.SplitSeq(list, ",") {
 			entry = strings.TrimSpace(entry)
 			if entry == "" || seen[entry] {
 				continue
 			}
 			seen[entry] = true
-			if d, ok := dirFromSection(secs[entry], entry); ok {
+			if d, ok := dirFromSection(secs.section(entry), entry); ok {
 				t.Dirs = append(t.Dirs, d)
 			}
 		}
@@ -101,11 +101,121 @@ func parseIndex(data []byte) *Theme {
 	return t
 }
 
+// indexKey is one of the index.theme keys lookup reads.
+type indexKey uint8
+
+const (
+	keyName indexKey = iota
+	keyInherits
+	keyDirectories
+	keyScaledDirectories
+	keySize
+	keyMinSize
+	keyMaxSize
+	keyThreshold
+	keyScale
+	keyType
+	indexKeys
+)
+
+var indexKeyNames = [indexKeys]string{
+	keyName: "Name", keyInherits: "Inherits", keyDirectories: "Directories",
+	keyScaledDirectories: "ScaledDirectories", keySize: "Size", keyMinSize: "MinSize",
+	keyMaxSize: "MaxSize", keyThreshold: "Threshold", keyScale: "Scale", keyType: "Type",
+}
+
+// indexSection holds the keys lookup reads of one [section], each its
+// first value.
+type indexSection struct {
+	values [indexKeys]string
+	set    uint16
+}
+
+func (s *indexSection) get(k indexKey) string {
+	if s == nil {
+		return ""
+	}
+	return s.values[k]
+}
+
+// indexSections are an index.theme's sections by name; a section named
+// twice is one section.
+type indexSections struct {
+	byName map[string]int
+	list   []indexSection
+}
+
+func (s *indexSections) section(name string) *indexSection {
+	if i, ok := s.byName[name]; ok {
+		return &s.list[i]
+	}
+	return nil
+}
+
+// parseIndexSections reads the sections of an index.theme, keeping each
+// key's first value: lines are trimmed, # starts a comment, keys before
+// the first section and lines without = are ignored.
+func parseIndexSections(data string) indexSections {
+	secs := indexSections{byName: map[string]int{}}
+	cur := -1
+	for line := range strings.SplitSeq(data, "\n") {
+		line = strings.TrimSpace(strings.TrimSuffix(line, "\r"))
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
+			name := line[1 : len(line)-1]
+			i, ok := secs.byName[name]
+			if !ok {
+				i = len(secs.list)
+				secs.byName[name] = i
+				secs.list = append(secs.list, indexSection{})
+			}
+			cur = i
+			continue
+		}
+		if cur < 0 {
+			continue
+		}
+		key, value, ok := strings.Cut(line, "=")
+		if !ok {
+			continue
+		}
+		k, ok := keyOf(strings.TrimSpace(key))
+		if !ok {
+			continue
+		}
+		if sec := &secs.list[cur]; sec.set&(1<<k) == 0 {
+			sec.values[k], sec.set = strings.TrimSpace(value), sec.set|1<<k
+		}
+	}
+	return secs
+}
+
+func keyOf(name string) (indexKey, bool) {
+	for k := range indexKeys {
+		if indexKeyNames[k] == name {
+			return k, true
+		}
+	}
+	return 0, false
+}
+
+// intValue is s as an integer, false for an empty or malformed one.
+func intValue(s string) (int, bool) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return 0, false
+	}
+	v, err := strconv.Atoi(s)
+	return v, err == nil
+}
+
 // dirFromSection interprets one [path] section of index.theme; ok is
 // false when the section is missing or has no usable Size.
-func dirFromSection(sec map[string]string, path string) (Dir, bool) {
-	size, err := strconv.Atoi(strings.TrimSpace(sec["Size"]))
-	if err != nil || size <= 0 {
+func dirFromSection(sec *indexSection, path string) (Dir, bool) {
+	size, ok := intValue(sec.get(keySize))
+	if !ok || size <= 0 {
 		return Dir{}, false
 	}
 	d := Dir{
@@ -117,19 +227,19 @@ func dirFromSection(sec map[string]string, path string) (Dir, bool) {
 		Scale:     1,
 		Type:      Threshold,
 	}
-	if v, err := strconv.Atoi(strings.TrimSpace(sec["MinSize"])); err == nil && v > 0 {
+	if v, ok := intValue(sec.get(keyMinSize)); ok && v > 0 {
 		d.MinSize = v
 	}
-	if v, err := strconv.Atoi(strings.TrimSpace(sec["MaxSize"])); err == nil && v > 0 {
+	if v, ok := intValue(sec.get(keyMaxSize)); ok && v > 0 {
 		d.MaxSize = v
 	}
-	if v, err := strconv.Atoi(strings.TrimSpace(sec["Threshold"])); err == nil && v >= 0 {
+	if v, ok := intValue(sec.get(keyThreshold)); ok && v >= 0 {
 		d.Threshold = v
 	}
-	if v, err := strconv.Atoi(strings.TrimSpace(sec["Scale"])); err == nil && v > 0 {
+	if v, ok := intValue(sec.get(keyScale)); ok && v > 0 {
 		d.Scale = v
 	}
-	switch strings.ToLower(strings.TrimSpace(sec["Type"])) {
+	switch strings.ToLower(strings.TrimSpace(sec.get(keyType))) {
 	case "fixed":
 		d.Type = Fixed
 	case "scalable":
@@ -167,39 +277,6 @@ func (d Dir) distance(size int) int {
 	default:
 		return max(d.Size-d.Threshold-size, size-(d.Size+d.Threshold), 0)
 	}
-}
-
-// parseINI parses the desktop-entry-style keyfile an index.theme is:
-// [Section] headers, Key=Value lines, # comments. Duplicate keys keep
-// the first value, matching how the spec's reference readers behave.
-func parseINI(data []byte) map[string]map[string]string {
-	secs := map[string]map[string]string{}
-	cur := ""
-	for line := range strings.SplitSeq(string(data), "\n") {
-		line = strings.TrimSpace(strings.TrimSuffix(line, "\r"))
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
-			cur = line[1 : len(line)-1]
-			if _, ok := secs[cur]; !ok {
-				secs[cur] = map[string]string{}
-			}
-			continue
-		}
-		if cur == "" {
-			continue
-		}
-		key, value, ok := strings.Cut(line, "=")
-		if !ok {
-			continue
-		}
-		key = strings.TrimSpace(key)
-		if _, dup := secs[cur][key]; !dup {
-			secs[cur][key] = strings.TrimSpace(value)
-		}
-	}
-	return secs
 }
 
 // themeChain walks the inheritance chain of themeName: the theme

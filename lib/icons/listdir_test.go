@@ -32,7 +32,7 @@ func TestListDirMatchesTheStandardLibrary(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	slices.SortFunc(got, func(a, b fs.DirEntry) int { return strings.Compare(a.Name(), b.Name()) })
+	slices.SortFunc(got, func(a, b dirEntry) int { return strings.Compare(a.Name(), b.Name()) })
 	want, err := os.ReadDir(dir)
 	if err != nil {
 		t.Fatal(err)

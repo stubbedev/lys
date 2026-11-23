@@ -17,25 +17,25 @@ const (
 	direntNameAt   = 19
 )
 
-type listedEntry struct {
+// dirEntry is a directory entry's name and type, held by value so a
+// listing of thousands of icons is one slice, not an allocation each.
+type dirEntry struct {
 	name string
 	typ  fs.FileMode
-	dir  string
 }
 
-func (e listedEntry) Name() string               { return e.name }
-func (e listedEntry) IsDir() bool                { return e.typ.IsDir() }
-func (e listedEntry) Type() fs.FileMode          { return e.typ }
-func (e listedEntry) Info() (fs.FileInfo, error) { return os.Lstat(filepath.Join(e.dir, e.name)) }
+func (e dirEntry) Name() string      { return e.name }
+func (e dirEntry) IsDir() bool       { return e.typ.IsDir() }
+func (e dirEntry) Type() fs.FileMode { return e.typ }
 
-func listDir(dir string) ([]fs.DirEntry, error) {
+func listDir(dir string) ([]dirEntry, error) {
 	fd, err := unix.Open(dir, unix.O_RDONLY|unix.O_DIRECTORY|unix.O_CLOEXEC, 0)
 	if err != nil {
 		return nil, &fs.PathError{Op: "open", Path: dir, Err: err}
 	}
 	defer func() { _ = unix.Close(fd) }()
 	buf := make([]byte, 32<<10)
-	var out []fs.DirEntry
+	var out []dirEntry
 	for {
 		n, err := unix.ReadDirent(fd, buf)
 		if errors.Is(err, unix.EINTR) {
@@ -53,7 +53,7 @@ func listDir(dir string) ([]fs.DirEntry, error) {
 	}
 }
 
-func appendDirents(out []fs.DirEntry, dir string, buf []byte) ([]fs.DirEntry, error) {
+func appendDirents(out []dirEntry, dir string, buf []byte) ([]dirEntry, error) {
 	for len(buf) > 0 {
 		if len(buf) < direntNameAt {
 			return out, fmt.Errorf("icons: list %s: a %d byte directory record", dir, len(buf))
@@ -77,7 +77,7 @@ func appendDirents(out []fs.DirEntry, dir string, buf []byte) ([]fs.DirEntry, er
 			}
 			typ = info.Mode().Type()
 		}
-		out = append(out, listedEntry{name: name, typ: typ, dir: dir})
+		out = append(out, dirEntry{name: name, typ: typ})
 	}
 	return out, nil
 }
