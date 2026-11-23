@@ -6,5 +6,5 @@ dropdown-privacy-mute = Mute
 dropdown-privacy-unmute = Unmute
 dropdown-privacy-end = End
 dropdown-privacy-end-confirm = End { $app }? Unsaved work in it may be lost.
-dropdown-privacy-end-failed = Could not end { $app }: { $error }
+dropdown-privacy-end-failed = Could not end { $app }
 dropdown-privacy-cancel = Cancel

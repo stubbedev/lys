@@ -64,11 +64,12 @@ dropdown-battery-energy-cpu = { $percent } % einer CPU
 dropdown-battery-energy-watts = { $watts }, { $percent } % einer CPU
 dropdown-battery-energy-show = Anzeigen
 dropdown-battery-energy-quit = Beenden
-dropdown-battery-energy-quit-failed = { $app } konnte nicht beendet werden: { $error }
+dropdown-battery-energy-quit-failed = { $app } konnte nicht beendet werden
+dropdown-battery-energy-show-failed = { $app } konnte nicht angezeigt werden
 dropdown-battery-paused = Im Akkubetrieb pausiert
 dropdown-battery-paused-now = Pausiert, bis Sie den Netzstecker einstecken
-dropdown-battery-paused-failed = Konnte nicht pausieren: { $error }
-dropdown-battery-paused-resume-failed = Konnte nicht fortsetzen: { $error }
+dropdown-battery-paused-failed = Konnte nicht pausieren
+dropdown-battery-paused-resume-failed = Konnte nicht fortsetzen
 
 ## Alerts
 battery-alert-low = Akku schwach

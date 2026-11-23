@@ -54,11 +54,12 @@ dropdown-battery-energy-cpu = { $percent }% de um CPU
 dropdown-battery-energy-watts = { $watts }, { $percent }% de um CPU
 dropdown-battery-energy-show = Mostrar
 dropdown-battery-energy-quit = Sair
-dropdown-battery-energy-quit-failed = Não foi possível fechar { $app }: { $error }
+dropdown-battery-energy-quit-failed = Não foi possível fechar { $app }
+dropdown-battery-energy-show-failed = Não foi possível mostrar { $app }
 dropdown-battery-paused = Em pausa com bateria
 dropdown-battery-paused-now = Em pausa até ligar à corrente
-dropdown-battery-paused-failed = Não foi possível pôr em pausa: { $error }
-dropdown-battery-paused-resume-failed = Não foi possível retomar: { $error }
+dropdown-battery-paused-failed = Não foi possível pôr em pausa
+dropdown-battery-paused-resume-failed = Não foi possível retomar
 
 battery-alert-low = Bateria fraca
 battery-alert-critical = Bateria criticamente fraca

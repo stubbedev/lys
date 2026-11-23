@@ -46,9 +46,9 @@ func startPausedUnits(ctx *ModuleContext, system, session *dbus.Conn) func() {
 func pausedUnitDetail(e pause.Entry) string {
 	switch e.Status {
 	case pause.StatusPauseFailed:
-		return i18n.T("dropdown-battery-paused-failed", i18n.Str("error", e.Err))
+		return i18n.T("dropdown-battery-paused-failed")
 	case pause.StatusResumeFailed:
-		return i18n.T("dropdown-battery-paused-resume-failed", i18n.Str("error", e.Err))
+		return i18n.T("dropdown-battery-paused-resume-failed")
 	case pause.StatusPaused:
 	}
 	return i18n.T("dropdown-battery-paused-now")

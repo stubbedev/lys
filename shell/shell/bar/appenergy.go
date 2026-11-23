@@ -153,7 +153,7 @@ func (s *energySection) row(r energy.Report, a energy.App, windows []wmipc.Windo
 		show := dropdownButton(widget.NewLabel(v.font, v.px, i18n.T("dropdown-battery-energy-show"), 0), func() {
 			serviceWrite(s.ctx, func(context.Context) error { return lyswm.Dispatch("focuswindow " + id) }, func(err error) {
 				if err != nil {
-					toastFailure(s.ctx.Toast, "energy", err.Error())
+					toastFailure(s.ctx.Toast, "energy", i18n.T("dropdown-battery-energy-show-failed", i18n.Str("app", name)), err)
 				}
 			})
 		}, "battery-energy-show", css.Small)
@@ -162,9 +162,7 @@ func (s *energySection) row(r energy.Report, a energy.App, windows []wmipc.Windo
 	src := s.ctx.AppEnergy
 	if unit, ok := src.Quittable(a); ok {
 		row.AddAction(s.quits.button(v.font, v.px, i18n.T("dropdown-battery-energy-quit"), unit, "battery-energy-quit",
-			func(err error) string {
-				return i18n.T("dropdown-battery-energy-quit-failed", i18n.Str("app", name), i18n.Str("error", err.Error()))
-			},
+			i18n.T("dropdown-battery-energy-quit-failed", i18n.Str("app", name)),
 			func(ctx context.Context) error { return src.Quit(ctx, unit) }))
 	}
 	return row

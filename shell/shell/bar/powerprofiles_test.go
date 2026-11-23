@@ -218,7 +218,7 @@ func TestAFailedCycleToastsWhy(t *testing.T) {
 	case got = <-toasts:
 	default:
 	}
-	if want := i18n.T("power-profiles-switch-failed") + ": " + src.setErr.Error(); got != want {
+	if want := i18n.T("power-profiles-switch-failed"); got != want {
 		t.Errorf("toast = %q, want %q", got, want)
 	}
 }

@@ -39,7 +39,9 @@ bar-keybind-mode-default = standaard
 
 bar-nightlight-on = Aan
 bar-nightlight-off = Uit
-bar-nightlight-no-location = Automatisch schema gepauzeerd, geen locatie: { $reason }
+bar-nightlight-no-location = Automatisch schema gepauzeerd, geen locatie
+bar-nightlight-unavailable = Nachtlicht is niet beschikbaar
+bar-nightlight-refused = Het scherm weigerde het nachtlicht
 
 bar-storage-multiple = Meerdere
 
@@ -106,10 +108,10 @@ bar-audio-capture-screen = een toepassing deelt het scherm
 ## Fouten die een module op zijn knop toont
 bar-module-failed = Fout
 bar-custom-command-timed-out = De opdracht duurde te lang en is gestopt
-bar-custom-command-failed = De opdracht kon niet worden uitgevoerd: { $error }
+bar-custom-command-failed = De opdracht kon niet worden uitgevoerd
 bar-world-clock-invalid-zone = Onbekende tijdzone ‘{ $zone }’
 bar-world-clock-invalid-layout = Niet-ondersteunde tijdnotatie ‘{ $layout }’
-bar-world-clock-invalid-format = De notatie kan niet worden getoond: { $error }
+bar-world-clock-invalid-format = De notatie kan niet worden getoond
 
 ## Uitklappanelen
-bar-dropdown-size-not-saved = Het uitklappaneel houdt zijn nieuwe grootte, maar die is niet opgeslagen: { $error }
+bar-dropdown-size-not-saved = Het uitklappaneel houdt zijn nieuwe grootte, maar die is niet opgeslagen

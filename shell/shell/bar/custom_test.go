@@ -248,7 +248,7 @@ func TestAFailedCustomModuleShowsThoughHideIfEmptyHidesItsOutput(t *testing.T) {
 	if onHeadlessLoop(m.btn.Visible) {
 		t.Fatal("an empty output left the button visible")
 	}
-	failure := i18n.T("bar-custom-command-failed", i18n.Str("error", "fork/exec /bin/sh: no such file or directory"))
+	failure := i18n.T("bar-custom-command-failed")
 	m.take(customSample{failure: failure})
 	waitHeadless(t, "the failed button shown", func() bool { return m.btn.Visible() && m.btn.HasClass(barview.FailedClass) })
 	if got, want := onHeadlessLoop(m.btn.Label().Text), i18n.T("bar-module-failed"); got != want {

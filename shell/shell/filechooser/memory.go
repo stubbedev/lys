@@ -220,7 +220,7 @@ func (c *Chooser) unbookmark(dir string) {
 // not be written.
 func (c *Chooser) bookmarksChanged(err error) {
 	if err != nil {
-		c.warn("Cannot change the bookmarks: " + errorText(err))
+		c.failed("Cannot change the bookmarks.", err)
 		return
 	}
 	opening := c.opening()

@@ -330,7 +330,7 @@ func (s *State) fail(reason string) {
 	s.lastErr = reason
 	s.mu.Unlock()
 	s.resetIdle()
-	s.showError(fmt.Sprintf("%s: %s", i18n.T("recorder-toast-failed"), reason))
+	s.showError(i18n.T("recorder-toast-failed"))
 }
 
 // unexpectedStop handles a recording that stopped by itself: a live recording that died
@@ -470,11 +470,13 @@ func (s *State) toast(label, icon string, ms uint32) {
 	}
 }
 
-// showError reports message as a toast and a desktop notification.
-func (s *State) showError(message string) {
-	s.toast(message, errorIcon, stopToastMS)
+// showError reports summary, what failed in the shell's words, as a
+// toast and as a desktop notification's summary; the error's own text
+// is the log's, never either's.
+func (s *State) showError(summary string) {
+	s.toast(summary, errorIcon, stopToastMS)
 	if s.hooks.Notify != nil {
-		s.hooks.Notify(i18n.T("notification-source-recorder"), i18n.T("recorder-notification-failed"), message, errorIcon)
+		s.hooks.Notify(i18n.T("notification-source-recorder"), summary, "", errorIcon)
 	}
 }
 

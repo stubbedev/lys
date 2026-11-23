@@ -123,14 +123,14 @@ func (c *Clipboard) pinAction(d clipboardData) Action {
 	if d.pinned {
 		return Action{Title: i18n.T("launcher-action-unpin"), Icon: "ld-x-symbolic", Run: func(context.Context) Outcome {
 			if err := c.history.Unpin(d.id); err != nil {
-				return Stay{Message: err.Error()}
+				return Failed{Summary: modes.PinFailure(err, false), Err: err}
 			}
 			return Reload{}
 		}}
 	}
 	return Action{Title: i18n.T("launcher-action-pin"), Icon: "ld-bookmark-symbolic", Run: func(context.Context) Outcome {
 		if err := c.history.Pin(d.id); err != nil {
-			return Stay{Message: err.Error()}
+			return Failed{Summary: modes.PinFailure(err, true), Err: err}
 		}
 		return Reload{}
 	}}
@@ -241,7 +241,7 @@ func (e *Emoji) typeKeeping(ctx context.Context, tone modes.SkinTone, variant st
 	select {
 	case err := <-saved:
 		if err != nil {
-			return Stay{Message: i18n.T("launcher-skin-tone-not-saved", i18n.Str("error", err.Error()))}
+			return Failed{Summary: i18n.T("launcher-skin-tone-not-saved"), Err: err}
 		}
 		return Type{Text: variant}
 	case <-ctx.Done():

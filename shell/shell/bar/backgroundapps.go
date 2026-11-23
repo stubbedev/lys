@@ -124,9 +124,7 @@ func (v *backgroundAppsView) row(a backgroundapps.App) *widget.Item {
 	row.SetMedia(icon, false)
 	instance, name := a.Instance, a.Name
 	stop := v.stops.button(v.font, v.px, i18n.T("dropdown-background-apps-stop"), instance, "background-apps-stop",
-		func(err error) string {
-			return i18n.T("dropdown-background-apps-stop-failed", i18n.Str("app", name), i18n.Str("error", err.Error()))
-		},
+		i18n.T("dropdown-background-apps-stop-failed", i18n.Str("app", name)),
 		func(ctx context.Context) error { return v.src.Stop(ctx, instance) })
 	row.AddAction(stop)
 	return row

@@ -23,7 +23,7 @@ type nightlightCard struct {
 	item     *widget.Item
 	toggle   *widget.Switch
 	slider   *widgets.DebouncedSlider
-	failure  *widget.Label
+	failure  *widget.Alert
 	syncing  bool
 	writeErr error
 }
@@ -48,9 +48,7 @@ func newNightlightCard(ctx ModuleContext, font render.Font, px float64, svc *nig
 	c.slider.Knob.AddClass("brightness-nightlight-slider")
 	c.slider.ValueLabel().AddClass("brightness-slider-value", css.Numeric)
 	c.slider.OnCommit = c.committed
-	c.failure = widget.NewLabel(font, sectionLabelPx(), "", 0)
-	c.failure.AddClass("brightness-nightlight-error", css.Caption, css.Error)
-	c.failure.SetWrap(true)
+	c.failure = writeAlert(font, "brightness-nightlight-error")
 	body := itemBody()
 	body.Append(c.slider, false)
 	body.Append(c.failure, false)
@@ -92,26 +90,36 @@ func (c *nightlightCard) apply() {
 	c.toggle.SetEnabled(available)
 	c.slider.SetEnabled(available)
 	c.item.SetDescription(c.status())
-	problem := s.problem()
-	if s.saveErr != nil {
-		problem = s.saveErr
+	title, problem := c.problem()
+	if !available {
+		problem = nil
 	}
-	if c.writeErr != nil {
-		problem = c.writeErr
+	showFailure(c.failure, title, problem)
+}
+
+// problem is what keeps the night light from what was asked, with the
+// summary its alert shows: a temperature that cannot be set, one not
+// saved, or a display that refused it; nil without one.
+func (c *nightlightCard) problem() (string, error) {
+	s := c.svc
+	switch {
+	case c.writeErr != nil:
+		return i18n.T("dropdown-brightness-nightlight-invalid"), c.writeErr
+	case s.saveErr != nil:
+		return i18n.T("dropdown-brightness-nightlight-not-saved"), s.saveErr
+	case s.refused != nil:
+		return s.refusal(), s.refused
 	}
-	c.failure.SetVisible(problem != nil && available)
-	if problem != nil {
-		c.failure.SetText(problem.Error())
-	}
+	return "", nil
 }
 
 func (c *nightlightCard) status() string {
 	s := c.svc
 	switch {
 	case s.unavailable != nil:
-		return i18n.T("dropdown-brightness-nightlight-unavailable", i18n.Str("reason", s.unavailable.Error()))
+		return i18n.T("dropdown-brightness-nightlight-unavailable")
 	case s.noLocation() != nil:
-		return i18n.T("bar-nightlight-no-location", i18n.Str("reason", s.noLocation().Error()))
+		return i18n.T("bar-nightlight-no-location")
 	case s.showing():
 		return i18n.T("dropdown-brightness-nightlight-on", i18n.Str("kelvin", strconv.Itoa(s.live.Temp())))
 	}

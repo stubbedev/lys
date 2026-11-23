@@ -92,7 +92,7 @@ func TestDrivesUnlockWithAPassphrase(t *testing.T) {
 		errText = hs.c.ui.unlock.err.Text()
 		open = hs.c.ui.unlock.box.Visible() && hs.c.ui.unlock.entry.Text() == ""
 	})
-	if !strings.Contains(errText, "Operation not permitted") || !open {
+	if errText != "Cannot unlock “Vault”. Check the passphrase and try again." || strings.Contains(errText, "Operation not permitted") || !open {
 		t.Errorf("a wrong passphrase: error %q, prompt open and emptied %v", errText, open)
 	}
 	pending(t, got)

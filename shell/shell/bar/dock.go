@@ -361,7 +361,7 @@ func (d *dock) activate(a dockApp) {
 		return
 	}
 	if !app.found {
-		toastFailure(d.ctx.Toast, "dock", i18n.T("dock-no-desktop-entry", i18n.Str("app", a.appID)))
+		toastFailure(d.ctx.Toast, "dock", i18n.T("dock-no-desktop-entry", i18n.Str("app", a.appID)), fmt.Errorf("no desktop entry for %s", a.appID))
 		return
 	}
 	d.start(app)
@@ -370,7 +370,7 @@ func (d *dock) activate(a dockApp) {
 // start launches app, toasting a launch that fails.
 func (d *dock) start(app taskApp) {
 	d.launch(app, func(err error) {
-		toastFailure(d.ctx.Toast, "dock", i18n.T("dock-launch-failed", i18n.Str("app", app.name), i18n.Str("error", err.Error())))
+		toastFailure(d.ctx.Toast, "dock", i18n.T("dock-launch-failed", i18n.Str("app", app.name)), err)
 	})
 }
 
@@ -400,7 +400,7 @@ func (d *dock) menuItems(a dockApp) []widget.MenuItem {
 func (d *dock) writePinned(pinned []any, failed, appID string) {
 	d.ctx.setConfig(dockPathPinned, pinned, func(err error) {
 		if err != nil {
-			toastFailure(d.ctx.Toast, "dock", i18n.T(failed, i18n.Str("app", appID), i18n.Str("error", err.Error())))
+			toastFailure(d.ctx.Toast, "dock", i18n.T(failed, i18n.Str("app", appID)), err)
 		}
 	})
 }

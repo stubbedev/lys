@@ -60,8 +60,8 @@ func TestThePausedSectionListsWhatIsPausedAndWhatFailedAndHidesWhenNothingIs(t *
 	labels := onHeadlessLoop(func() []string { return treetest.Labels(v.paused.box) })
 	for _, want := range []string{
 		"docker.service", i18n.T("dropdown-battery-paused-now"),
-		"nix-gc.timer", i18n.T("dropdown-battery-paused-failed", i18n.Str("error", "Unit nix-gc.timer not loaded.")),
-		"syncthing.service", i18n.T("dropdown-battery-paused-resume-failed", i18n.Str("error", "Connection timed out")),
+		"nix-gc.timer", i18n.T("dropdown-battery-paused-failed"),
+		"syncthing.service", i18n.T("dropdown-battery-paused-resume-failed"),
 	} {
 		if !slices.Contains(labels, want) {
 			t.Errorf("labels %q lack %q", labels, want)

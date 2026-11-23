@@ -223,10 +223,10 @@ type netVPNForm struct {
 	rawTyped   bool // the kind has a typed form; the raw editor is extra
 	rawOpen    bool
 	errLabel   *widget.Label
-	// importFailed says the file chooser could not open, the error as
-	// its description.
-	importFailed *widget.Alert
-	deleteBtn    *widget.Button
+	// failed says the file chooser could not open or NM refused a
+	// write, the error as its description.
+	failed    *widget.Alert
+	deleteBtn *widget.Button
 	// confirming is set while the alert is up; a second Delete click asks
 	// nothing more.
 	confirming bool
@@ -275,8 +275,8 @@ func newNetVPNForm(v *networkView) *netVPNForm {
 	foot.Append(scroll, true)
 	f.errLabel = v.errorLabel()
 	foot.Append(f.errLabel, false)
-	f.importFailed = writeAlert(v.font, "network-vpn-import-failed")
-	foot.Append(f.importFailed, false)
+	f.failed = writeAlert(v.font, "network-vpn-failed")
+	foot.Append(f.failed, false)
 	f.deleteBtn = v.ghostText(i18n.T("dropdown-network-vpn-delete"), "network-vpn-delete", f.askDelete)
 	foot.Append(formActions(
 		f.deleteBtn,
@@ -318,7 +318,7 @@ func (f *netVPNForm) open(uuid, name, kind string, values map[string]string) {
 	f.selected = max(0, slices.IndexFunc(f.kinds, func(k network.VPNKind) bool { return k.ID == kind }))
 	f.editing = uuid
 	f.setError("")
-	f.importFailed.SetVisible(false)
+	f.failed.SetVisible(false)
 	f.name.SetText(name)
 	labels := make([]string, len(f.kinds))
 	for i, k := range f.kinds {
@@ -508,6 +508,7 @@ func (f *netVPNForm) save() {
 		return
 	}
 	f.setError("")
+	f.failed.SetVisible(false)
 	f.v.vpnSave(f.editing, kind.ID, name, values)
 }
 
@@ -523,9 +524,11 @@ func (f *netVPNForm) markBad(bad []network.VPNProblem) {
 	}
 }
 
-// fail shows that NM refused; the form stays, values
+// fail shows that NM refused under title; the form stays, values
 // intact, so the user can correct what it refused.
-func (f *netVPNForm) fail(reason string) { f.setError(reason) }
+func (f *netVPNForm) fail(title string, err error) {
+	reportWrite(f.failed, "network", title, err)
+}
 
 func (f *netVPNForm) setError(reason string) {
 	f.errLabel.SetText(reason)
@@ -583,7 +586,7 @@ func (f *netVPNForm) importDone(path string, err error) {
 	if errors.Is(err, portal.ErrCancelled) {
 		return
 	}
-	reportWrite(f.importFailed, "network", i18n.T("dropdown-network-vpn-import-error"), err)
+	f.fail(i18n.T("dropdown-network-vpn-import-error"), err)
 	if err != nil {
 		return
 	}
@@ -620,9 +623,7 @@ func (v *networkView) vpnToggle(uuid string) {
 		return
 	}
 	name := v.vpnName(uuid)
-	v.act(func(ctx context.Context) error { return vpn.Toggle(ctx, uuid) }, func(err error) string {
-		return i18n.T("dropdown-network-vpn-error-toggle", i18n.Str("name", name), i18n.Str("error", err.Error()))
-	}, nil)
+	v.act(func(ctx context.Context) error { return vpn.Toggle(ctx, uuid) }, i18n.T("dropdown-network-vpn-error-toggle", i18n.Str("name", name)), nil)
 }
 
 // vpnRow is the profile the rows show as uuid.
@@ -659,13 +660,12 @@ func (v *networkView) vpnEdit(uuid string) {
 	}
 	row, _ := v.vpnRow(uuid)
 	name, shown := row.Name, v.vpnName(uuid)
-	v.showActionError("")
+	v.actionFailed.SetVisible(false)
 	go func() {
 		dict, err := vpn.SettingsOf(v.life, uuid)
 		v.ctx.Invoke(func() {
+			reportWrite(v.actionFailed, "network", i18n.T("dropdown-network-vpn-error-read", i18n.Str("name", shown)), err)
 			if err != nil {
-				log.Printf("network: cannot read VPN profile %s: %v", uuid, err)
-				v.showActionError(i18n.T("dropdown-network-vpn-error-read", i18n.Str("name", shown), i18n.Str("error", err.Error())))
 				return
 			}
 			v.vpnForm.showEdit(uuid, name, network.KindOf(dict), network.ReadProfileValues(dict))
@@ -690,7 +690,7 @@ func (v *networkView) vpnSave(uuid, kind, name string, values map[string]string)
 		} else {
 			err = vpn.Update(context.Background(), uuid, kind, name, values)
 		}
-		v.vpnWritten(err, "cannot save VPN profile")
+		v.vpnWritten(err, i18n.T("dropdown-network-vpn-error-save", i18n.Str("name", name)))
 	}()
 }
 
@@ -701,18 +701,18 @@ func (v *networkView) vpnDelete(uuid string) {
 		return
 	}
 	v.body.Show(netPageBrowse)
-	go func() { v.vpnWritten(vpn.Remove(context.Background(), uuid), "cannot delete VPN profile") }()
+	title := i18n.T("dropdown-network-vpn-error-delete", i18n.Str("name", v.vpnName(uuid)))
+	go func() { v.vpnWritten(vpn.Remove(context.Background(), uuid), title) }()
 }
 
-// vpnWritten reopens the form with NM's refusal; success needs nothing,
-// NM announces the profile and the rows rebuild.
-func (v *networkView) vpnWritten(err error, what string) {
+// vpnWritten reopens the form with NM's refusal under title; success
+// needs nothing, NM announces the profile and the rows rebuild.
+func (v *networkView) vpnWritten(err error, title string) {
 	if err == nil {
 		return
 	}
-	log.Printf("network: %s: %v", what, err)
 	v.ctx.Invoke(func() {
-		v.vpnForm.fail(err.Error())
+		v.vpnForm.fail(title, err)
 		v.body.Show(netPageEdit)
 	})
 }

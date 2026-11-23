@@ -139,9 +139,9 @@ dropdown-bluetooth-pairing-common-pins = Veelgebruikte pincodes: 0000, 1234, 111
 dropdown-bluetooth-pairing-failed = Koppelen mislukt. De pincode is mogelijk onjuist of het verzoek is verlopen.
 
 ## Fouten
-dropdown-bluetooth-error-power-on = Kan Bluetooth niet inschakelen: { $error }
-dropdown-bluetooth-error-power-off = Kan Bluetooth niet uitschakelen: { $error }
-dropdown-bluetooth-error-scan = Kan niet naar apparaten zoeken: { $error }
+dropdown-bluetooth-error-power-on = Kan Bluetooth niet inschakelen
+dropdown-bluetooth-error-power-off = Kan Bluetooth niet uitschakelen
+dropdown-bluetooth-error-scan = Kan niet naar apparaten zoeken
 
 ## Een apparaat vergeten
 dropdown-bluetooth-forget-confirm = { $name } vergeten?

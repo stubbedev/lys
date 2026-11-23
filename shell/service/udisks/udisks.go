@@ -254,17 +254,6 @@ func (c *Client) Eject(ctx context.Context, v Volume) error {
 	return nil
 }
 
-// Message is what UDisks2 said went wrong in err, for the user; err's
-// own text when it was not UDisks2's answer.
-func Message(err error) string {
-	if dbusErr, ok := errors.AsType[dbus.Error](err); ok && len(dbusErr.Body) > 0 {
-		if msg, ok := dbusErr.Body[0].(string); ok && msg != "" {
-			return msg
-		}
-	}
-	return err.Error()
-}
-
 func boolOf(props map[string]dbus.Variant, key string) bool {
 	b, _ := props[key].Value().(bool)
 	return b

@@ -4,8 +4,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/stubbedev/lys/desktop/i18n"
-
 	"github.com/stubbedev/lys/shell/service/launcher"
 )
 
@@ -79,7 +77,7 @@ func (*Controls) Actions(e Entry) []Action {
 			bounded, cancel := context.WithTimeout(ctx, controlTimeout)
 			defer cancel()
 			if err := effect(bounded); err != nil {
-				return Stay{Message: i18n.T("launcher-failed", i18n.Str("what", ctl.Title), i18n.Str("error", err.Error()))}
+				return failed(ctl.Title, err)
 			}
 			return Close{}
 		}

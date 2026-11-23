@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"log"
 	"net/url"
 	"os/exec"
 	"strings"
@@ -132,7 +133,8 @@ func (h *Host) readCode(img image.Image) (string, error) {
 			switch a {
 			case ActionCopy:
 				if err := h.CopyText(payload); err != nil {
-					h.Toast(i18n.T("screenshot-qr-copy-failed", i18n.Str("error", err.Error())), "ld-scan-qr-code-symbolic")
+					log.Printf("screenshot: copy the QR code: %v", err)
+					h.Toast(i18n.T("screenshot-qr-copy-failed"), "ld-scan-qr-code-symbolic")
 				}
 			case ActionOpen:
 				h.OpenURL(payload)

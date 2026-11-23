@@ -168,6 +168,7 @@ func TestReplayFromTheCLIBesideARecording(t *testing.T) {
 // A replay that cannot open its output, or whose capture dies, settles
 // off and says why; a failed save leaves it armed and reports it.
 func TestReplayFailuresAreReported(t *testing.T) {
+	logged := logtest.Tee(t)
 	engine := &recordertest.Engine{OpenErr: errors.New("recorder: the output is gone: DP-9")}
 	s, log := newState(t, engine, nil)
 	s.StartReplay()
@@ -175,9 +176,7 @@ func TestReplayFailuresAreReported(t *testing.T) {
 	if snap := s.Snapshot(); snap.Replay != recorder.ReplayOff {
 		t.Errorf("after a failed open = %+v", snap)
 	}
-	if toasts, _ := log.snapshot(); !strings.Contains(toasts[0], "DP-9") {
-		t.Errorf("toasts %q", toasts)
-	}
+	wantFailure(t, "a failed open", log, logged, i18n.T("recorder-toast-replay-failed"), "DP-9")
 
 	engine = &recordertest.Engine{}
 	s, log = newState(t, engine, nil)
@@ -195,10 +194,10 @@ func TestReplayFailuresAreReported(t *testing.T) {
 	if rp.Stops() != 1 || engine.Sessions()[0].Closed() != 1 {
 		t.Errorf("stops %d, closes %d after the capture died", rp.Stops(), engine.Sessions()[0].Closed())
 	}
-	toasts, _ := log.snapshot()
-	if !slices.ContainsFunc(toasts, func(s string) bool { return strings.Contains(s, "disk full") }) ||
-		!slices.ContainsFunc(toasts, func(s string) bool { return strings.Contains(s, "DP-1") }) {
-		t.Errorf("toasts %q", toasts)
+	wantFailure(t, "a failed save", log, logged, i18n.T("recorder-toast-replay-failed"), "disk full")
+	wantFailure(t, "a capture that died", log, logged, i18n.T("recorder-toast-replay-failed"), "DP-1")
+	if toasts, _ := log.snapshot(); slices.ContainsFunc(toasts, func(s string) bool { return strings.Contains(s, "disk full") || strings.Contains(s, "DP-1") }) {
+		t.Errorf("toasts %q carry an error", toasts)
 	}
 }
 
@@ -217,14 +216,13 @@ func TestSessionCloseFailureOfTheReplayIsReported(t *testing.T) {
 	closeErr := errors.New("recorder: close the compositor connection capturing DP-1: broken pipe")
 	startErr := errors.New("recorder: a 64x48 H.264 encoder: out of memory")
 	engine := &recordertest.Engine{StartErr: startErr, CloseErr: closeErr}
+	logged := logtest.Tee(t)
 	s, log := newState(t, engine, nil)
 	s.StartReplay()
 	waittest.Until(t, func() bool { toasts, _ := log.snapshot(); return len(toasts) > 0 }, "the failure report")
-	if toasts, _ := log.snapshot(); !strings.Contains(toasts[0], startErr.Error()) || !strings.Contains(toasts[0], closeErr.Error()) {
-		t.Errorf("toasts %q, want both the start and the close error", toasts)
-	}
+	wantFailure(t, "a failed start", log, logged, i18n.T("recorder-toast-replay-failed"), startErr.Error())
+	wantFailure(t, "a failed start", log, logged, i18n.T("recorder-toast-replay-failed"), closeErr.Error())
 
-	logged := logtest.Tee(t)
 	engine = &recordertest.Engine{CloseErr: closeErr}
 	s, _ = newState(t, engine, nil)
 	s.StartReplay()

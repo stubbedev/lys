@@ -123,7 +123,7 @@ func (f *FileBrowser) open(path string) launcher.Action {
 		return launcher.ActionClose{}
 	}
 	if err := launcher.Open(path, f.cfg.Terminal, ""); err != nil {
-		return failed(f.state(), err)
+		return failed(f.state(), RanFailed(filepath.Base(path), err), err)
 	}
 	return launcher.ActionClose{}
 }

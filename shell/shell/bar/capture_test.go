@@ -10,7 +10,6 @@ import (
 	"image/png"
 	"os"
 	"os/exec"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -204,8 +203,7 @@ func TestHeadlessScreenshotCopyFailureReachesTheNotification(t *testing.T) {
 	if _, err := os.Stat(path); err != nil {
 		t.Fatalf("a failed copy lost the saved file: %v", err)
 	}
-	notCopied, _, _ := strings.Cut(i18n.T("screenshot-not-copied", i18n.Str("error", "\x00")), "\x00")
-	if n := waittest.For(t, notices, "the notification"); n.Summary != i18n.T("screenshot-saved") || !strings.HasPrefix(n.Body, path+"\n"+notCopied) {
+	if n := waittest.For(t, notices, "the notification"); n.Summary != i18n.T("screenshot-saved") || n.Body != path+"\n"+i18n.T("screenshot-not-copied") {
 		t.Fatalf("the notification reads %q / %q, want the path and the failed copy", n.Summary, n.Body)
 	}
 }

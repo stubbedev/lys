@@ -175,7 +175,7 @@ dropdown-network-save-not-now = Not now
 ## Forgetting a network
 dropdown-network-forget-confirm = Forget { $name }?
 dropdown-network-forget-confirm-detail = Its saved password and settings are deleted. Joining it again asks for the password.
-dropdown-network-error-forget = Could not forget { $name }: { $error }
+dropdown-network-error-forget = Could not forget { $name }
 
 ## Hidden networks
 dropdown-network-hidden-join = Join a hidden network
@@ -187,12 +187,14 @@ dropdown-network-hidden-error-name-empty = Enter the network's name
 dropdown-network-hidden-error-name-too-long = That name is too long for a network
 dropdown-network-hidden-error-password = Enter the network's password
 dropdown-network-scan = Scan for networks
-dropdown-network-error-wifi-on = Could not turn Wi-Fi on: { $error }
-dropdown-network-error-wifi-off = Could not turn Wi-Fi off: { $error }
-dropdown-network-error-disconnect = Could not disconnect from { $name }: { $error }
+dropdown-network-error-wifi-on = Could not turn Wi-Fi on
+dropdown-network-error-wifi-off = Could not turn Wi-Fi off
+dropdown-network-error-disconnect = Could not disconnect from { $name }
 dropdown-network-vpn-import-error = Could not open a file
-dropdown-network-vpn-error-toggle = Could not switch { $name }: { $error }
-dropdown-network-vpn-error-read = Could not read { $name }: { $error }
+dropdown-network-vpn-error-toggle = Could not switch { $name }
+dropdown-network-vpn-error-read = Could not read { $name }
+dropdown-network-vpn-error-save = Could not save { $name }
+dropdown-network-vpn-error-delete = Could not delete { $name }
 
 ## Enterprise sign-in
 
@@ -217,4 +219,4 @@ dropdown-network-enterprise-error-path = Certificate and key paths must be absol
 dropdown-network-enterprise-error-client-cert = TLS needs your user certificate
 dropdown-network-enterprise-error-private-key = TLS needs your private key
 dropdown-network-enterprise-error-auth = Sign-in refused. Check your identity, password and certificates
-dropdown-network-enterprise-error-browse = Could not open the file chooser: { $error }
+dropdown-network-enterprise-error-browse = Could not open the file chooser

@@ -3,7 +3,6 @@ package bar
 import (
 	"context"
 	"errors"
-	"log"
 
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/network"
@@ -81,6 +80,7 @@ type netEnterpriseForm struct {
 	caCert         *widget.Entry
 	domain         *widget.Entry
 	errLabel       *widget.Label
+	browseFailed   *widget.Alert
 }
 
 func newNetEnterpriseForm(v *networkView) *netEnterpriseForm {
@@ -133,6 +133,8 @@ func newNetEnterpriseForm(v *networkView) *netEnterpriseForm {
 	f.body.Append(widget.NewField(v.font, i18n.T("dropdown-network-enterprise-domain"), f.domain), false)
 	f.errLabel = v.errorLabel()
 	f.body.Append(f.errLabel, false)
+	f.browseFailed = writeAlert(v.font, "network-enterprise-browse-failed")
+	f.body.Append(f.browseFailed, false)
 	f.body.Append(formActions(
 		v.outlineText(i18n.T("dropdown-network-cancel"), "network-enterprise-cancel", f.cancel),
 		v.primaryText(i18n.T("dropdown-network-connect"), "network-enterprise-connect", f.connect),
@@ -186,6 +188,7 @@ func (f *netEnterpriseForm) show(target eapTarget, errMessage string) {
 	f.head.SetTitle(target.ssid())
 	f.head.SetDescription(securityLabel(network.SecurityEnterprise))
 	f.showError(errMessage)
+	f.browseFailed.SetVisible(false)
 	f.syncMethod()
 	f.SetVisible(true)
 	f.v.focus(f.identity)
@@ -265,15 +268,13 @@ func (f *netEnterpriseForm) browse(target *widget.Entry, title string) {
 }
 
 func (f *netEnterpriseForm) browsed(target *widget.Entry, path string, err error) {
-	switch {
-	case errors.Is(err, portal.ErrCancelled):
-		return
-	case err != nil:
-		log.Printf("network: enterprise file chooser: %v", err)
-		f.showError(i18n.T("dropdown-network-enterprise-error-browse", i18n.Str("error", err.Error())))
+	if errors.Is(err, portal.ErrCancelled) {
 		return
 	}
-	target.SetText(path)
+	reportWrite(f.browseFailed, "network", i18n.T("dropdown-network-enterprise-error-browse"), err)
+	if err == nil {
+		target.SetText(path)
+	}
 }
 
 // connectEnterprise joins target with eap; a refused sign-in opens

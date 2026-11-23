@@ -172,7 +172,7 @@ dropdown-network-save-not-now = Nicht jetzt
 ## Ein Netzwerk vergessen
 dropdown-network-forget-confirm = { $name } vergessen?
 dropdown-network-forget-confirm-detail = Das gespeicherte Passwort und die Einstellungen werden gelöscht. Beim erneuten Verbinden wird das Passwort abgefragt.
-dropdown-network-error-forget = { $name } konnte nicht vergessen werden: { $error }
+dropdown-network-error-forget = { $name } konnte nicht vergessen werden
 
 ## Versteckte Netzwerke
 dropdown-network-hidden-join = Mit verstecktem Netzwerk verbinden
@@ -184,12 +184,14 @@ dropdown-network-hidden-error-name-empty = Geben Sie den Namen des Netzwerks ein
 dropdown-network-hidden-error-name-too-long = Dieser Name ist für ein Netzwerk zu lang
 dropdown-network-hidden-error-password = Geben Sie das Passwort des Netzwerks ein
 dropdown-network-scan = Nach Netzwerken suchen
-dropdown-network-error-wifi-on = WLAN konnte nicht eingeschaltet werden: { $error }
-dropdown-network-error-wifi-off = WLAN konnte nicht ausgeschaltet werden: { $error }
-dropdown-network-error-disconnect = Verbindung zu { $name } konnte nicht getrennt werden: { $error }
+dropdown-network-error-wifi-on = WLAN konnte nicht eingeschaltet werden
+dropdown-network-error-wifi-off = WLAN konnte nicht ausgeschaltet werden
+dropdown-network-error-disconnect = Verbindung zu { $name } konnte nicht getrennt werden
 dropdown-network-vpn-import-error = Datei konnte nicht geöffnet werden
-dropdown-network-vpn-error-toggle = { $name } konnte nicht umgeschaltet werden: { $error }
-dropdown-network-vpn-error-read = { $name } konnte nicht gelesen werden: { $error }
+dropdown-network-vpn-error-toggle = { $name } konnte nicht umgeschaltet werden
+dropdown-network-vpn-error-read = { $name } konnte nicht gelesen werden
+dropdown-network-vpn-error-save = { $name } konnte nicht gespeichert werden
+dropdown-network-vpn-error-delete = { $name } konnte nicht gelöscht werden
 
 ## Unternehmensanmeldung
 
@@ -214,4 +216,4 @@ dropdown-network-enterprise-error-path = Pfade zu Zertifikaten und Schlüsseln m
 dropdown-network-enterprise-error-client-cert = TLS benötigt Ihr Benutzerzertifikat
 dropdown-network-enterprise-error-private-key = TLS benötigt Ihren privaten Schlüssel
 dropdown-network-enterprise-error-auth = Anmeldung abgelehnt. Prüfen Sie Identität, Passwort und Zertifikate
-dropdown-network-enterprise-error-browse = Dateiauswahl konnte nicht geöffnet werden: { $error }
+dropdown-network-enterprise-error-browse = Dateiauswahl konnte nicht geöffnet werden

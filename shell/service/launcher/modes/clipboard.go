@@ -2,6 +2,7 @@ package modes
 
 import (
 	"context"
+	"errors"
 	"strconv"
 	"strings"
 
@@ -119,8 +120,8 @@ func (c *Clipboard) Activate(_ context.Context, target launcher.Target, kind lau
 			c.history.ClearUnpinned()
 			return launcher.ActionReload{State: c.state()}
 		case togglePin:
-			if err := c.togglePin(target, id); err != nil {
-				return failed(c.state(), err)
+			if pinning, err := c.togglePin(target, id); err != nil {
+				return failed(c.state(), PinFailure(err, pinning), err)
 			}
 			return launcher.ActionReload{State: c.state()}
 		}
@@ -213,11 +214,26 @@ func entryBytes(history ClipboardHistory, id uint64) ([]byte, error) {
 	return nil, clipboard.ErrEntryGone
 }
 
-// togglePin pins the row's entry, or unpins a pinned one.
-func (c *Clipboard) togglePin(target launcher.Target, id uint64) error {
+// PinFailure is what the launcher says of a pin, or with pinning
+// false an unpin, that err refused.
+func PinFailure(err error, pinning bool) string {
+	switch {
+	case errors.Is(err, clipboard.ErrPinnedFull):
+		return i18n.T("launcher-clipboard-pinned-full")
+	case errors.Is(err, clipboard.ErrEntryGone):
+		return i18n.T("launcher-clipboard-gone")
+	case pinning:
+		return i18n.T("launcher-clipboard-pin-failed")
+	}
+	return i18n.T("launcher-clipboard-unpin-failed")
+}
+
+// togglePin pins the row's entry, or unpins a pinned one, saying
+// which it tried.
+func (c *Clipboard) togglePin(target launcher.Target, id uint64) (pinning bool, err error) {
 	i, _ := target.Row()
 	if c.pinned[i] {
-		return c.history.Unpin(id)
+		return false, c.history.Unpin(id)
 	}
-	return c.history.Pin(id)
+	return true, c.history.Pin(id)
 }

@@ -607,7 +607,7 @@ func TestAFailedEndShowsInTheDropdown(t *testing.T) {
 	if len(*signals) != 1 {
 		t.Fatalf("sent %v, want one signal", *signals)
 	}
-	want := i18n.T("dropdown-privacy-end-failed", i18n.Str("app", "zoom"), i18n.Str("error", syscall.EPERM.Error()))
+	want := i18n.T("dropdown-privacy-end-failed", i18n.Str("app", "zoom"))
 	if l := onHeadlessLoop(func() []string { return treetest.Labels(v.capture) }); !slices.Contains(l, want) {
 		t.Errorf("labels %q, want the failure %q", l, want)
 	}
@@ -752,7 +752,7 @@ func TestAScreenShareStopIsPendingToastsAndRetries(t *testing.T) {
 	v := openView(t, ctx, audioDropdown).(*audioView)
 	shares.set(chromeShare)
 	waitHeadless(t, "the share listed", func() bool { return slices.Contains(treetest.Labels(v.capture), "org.chromium.Chromium") })
-	failed := i18n.T("dropdown-screen-share-stop-failed", i18n.Str("app", "org.chromium.Chromium"), i18n.Str("error", "no reply"))
+	failed := i18n.T("dropdown-screen-share-stop-failed", i18n.Str("app", "org.chromium.Chromium"))
 	checkStopButton(t, v.capture, v.capture.render, "audio-capture-action", gate, shown, failed, "org.chromium.Chromium")
 	if got := shares.stoppedSessions(); !slices.Equal(got, []dbus.ObjectPath{chromeShare.Session}) {
 		t.Errorf("stopped %v, want the share once", got)

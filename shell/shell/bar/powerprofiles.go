@@ -93,7 +93,7 @@ func (m *powerProfilesModule) cycle() {
 		if err == nil {
 			return
 		}
-		toastFailure(m.ctx.Toast, "power-profiles", i18n.T("power-profiles-switch-failed")+": "+err.Error())
+		toastFailure(m.ctx.Toast, "power-profiles", i18n.T("power-profiles-switch-failed"), err)
 	})
 }
 

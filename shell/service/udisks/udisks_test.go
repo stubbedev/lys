@@ -98,7 +98,7 @@ func TestMountAndUnlock(t *testing.T) {
 		t.Errorf("after mounting the stick reads %+v", s)
 	}
 	wrong := []byte("wrong horse")
-	if _, err := c.Unlock(ctx, vault, wrong); err == nil || !strings.Contains(udisks.Message(err), "Operation not permitted") {
+	if _, err := c.Unlock(ctx, vault, wrong); err == nil || !strings.Contains(err.Error(), "Operation not permitted") {
 		t.Errorf("a wrong passphrase = %v", err)
 	}
 	right := []byte(u.Passphrase)

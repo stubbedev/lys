@@ -4,11 +4,11 @@ import (
 	"context"
 	"errors"
 	"slices"
-	"strings"
 	"sync/atomic"
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/launchermatch"
 	"github.com/stubbedev/lys/lib/waittest"
 
@@ -174,9 +174,8 @@ func TestAToneThatIsNotSavedTypesNothingAndSaysWhy(t *testing.T) {
 	refused := errors.New("config: save: read-only file system")
 	p := NewEmoji(modes.AvailableEmoji, modes.ToneNone, func(_ modes.SkinTone, saved func(error)) { saved(refused) })
 	actions := p.Actions(thumbsUp(t, p))
-	stay, ok := actions[3].Run(ctx).(Stay)
-	if !ok || !strings.Contains(stay.Message, refused.Error()) {
-		t.Errorf("a refused tone ran %#v, want it said instead of typed", actions[3].Run(ctx))
+	if f, ok := actions[3].Run(ctx).(Failed); !ok || f.Summary != i18n.T("launcher-skin-tone-not-saved") || !errors.Is(f.Err, refused) {
+		t.Errorf("a refused tone ran %#v, want it said instead of typed, the error apart", actions[3].Run(ctx))
 	}
 	if got := actions[0].Run(ctx); got != (Type{Text: "👍"}) {
 		t.Errorf("the default action %v after a refused tone", got)

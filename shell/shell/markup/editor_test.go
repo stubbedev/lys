@@ -9,6 +9,7 @@ import (
 	"testing"
 	"weak"
 
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
@@ -185,8 +186,8 @@ func TestSaveWaitsForTheWriteAndAFailureKeepsTheEditorOpen(t *testing.T) {
 
 	apptest.On(a, func() bool { s.done(errors.New("cannot save x.png: disk full")); return true })
 	apptest.Never(t, "a failed write closed the editor", h.closed)
-	if got := apptest.On(a, func() string { return h.e.status.Text() }); got != "cannot save x.png: disk full" {
-		t.Fatalf("the editor shows %q after a failed write", got)
+	if got := apptest.On(a, func() string { return h.e.status.Text() }); got != i18n.T("screenshot-editor-not-saved") {
+		t.Fatalf("the editor shows %q after a failed write, want the summary without the error", got)
 	}
 
 	apptest.On(a, func() bool { h.e.Undo(); return true })

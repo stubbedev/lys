@@ -172,6 +172,13 @@ type (
 	// Stay leaves everything as it is, Message shown when not empty (a
 	// failure said in the footer rather than swallowed).
 	Stay struct{ Message string }
+	// Failed leaves everything as it is and says Summary, what failed in
+	// the launcher's words, in the footer; the footer has no room for a
+	// detail, so Err goes to the log.
+	Failed struct {
+		Summary string
+		Err     error
+	}
 	// Reload loads the current level's providers again.
 	Reload struct{}
 )
@@ -185,6 +192,7 @@ func (SetQuery) isOutcome()  {}
 func (Push) isOutcome()      {}
 func (Replace) isOutcome()   {}
 func (Stay) isOutcome()      {}
+func (Failed) isOutcome()    {}
 func (Reload) isOutcome()    {}
 
 // Spec says how a provider's rows take part in a list.

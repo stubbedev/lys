@@ -88,7 +88,7 @@ func (v *mailView) rebuild() {
 	v.list.Clear()
 	rows := mailDropdownRows(v.ctx.Mail.PerAccount(), v.ctx.Mail.State(), v.ctx.Config.Mail)
 	if err := mailFailure(rows); err != nil {
-		v.errorText.SetText(err.Error())
+		showFailureDetail(v.errorText, err)
 		v.pages.Show("error")
 		return
 	}

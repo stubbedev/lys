@@ -200,7 +200,7 @@ func TestABackgroundAppStopIsPendingToastsAndRetries(t *testing.T) {
 	f.set(t, backgroundApp("org.gnome.Fractal", "1234", "Syncing messages"))
 	v := openView(t, ctx, backgroundAppsDropdown).(*backgroundAppsView)
 	waitHeadless(t, "the app listed", func() bool { return slices.Contains(treetest.Labels(v), "Fractal") })
-	failed := i18n.T("dropdown-background-apps-stop-failed", i18n.Str("app", "Fractal"), i18n.Str("error", "no reply"))
+	failed := i18n.T("dropdown-background-apps-stop-failed", i18n.Str("app", "Fractal"))
 	checkStopButton(t, v, v.rebuild, "background-apps-stop", gate, shown, failed, "Fractal")
 	if got := rec.recorded(); !slices.Equal(got, []string{"1234"}) {
 		t.Errorf("stopped %q, want instance 1234 once", got)

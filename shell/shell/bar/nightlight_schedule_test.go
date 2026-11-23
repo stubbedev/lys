@@ -13,6 +13,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/geo"
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/identity"
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/logtest"
@@ -481,8 +482,8 @@ func TestNightlightWithoutALocationDoesNotFollowASun(t *testing.T) {
 	}
 	failure := errors.New("geoclue: get client: no such service")
 	m.svc.lookupFailed(failure)
-	if tip := m.btn.Detail(); !strings.Contains(tip, failure.Error()) {
-		t.Errorf("tooltip = %q, want the reason", tip)
+	if tip := m.btn.Detail(); tip != i18n.T("bar-nightlight-no-location") || strings.Contains(tip, failure.Error()) {
+		t.Errorf("tooltip = %q, want the summary without the error", tip)
 	}
 	if !widget.HasClass(chrome, "nightlight-no-location") || widget.HasClass(chrome, "nightlight-refused") {
 		t.Error("the module does not show the no-location state")
@@ -1072,8 +1073,8 @@ func TestNightlightShowsARefusal(t *testing.T) {
 	refusal := &nightlight.RefusedError{Protocol: "zwlr_gamma_control_manager_v1", Output: "DP-1"}
 	fake.refused = refusal
 	fake.changed()
-	if got := m.btn.Detail(); got != refusal.Error() {
-		t.Errorf("tooltip = %q, want %q", got, refusal.Error())
+	if got, want := m.btn.Detail(), i18n.T("bar-nightlight-refused"); got != want {
+		t.Errorf("tooltip = %q, want %q", got, want)
 	}
 	if !widget.HasClass(chrome, "nightlight-refused") {
 		t.Error("no nightlight-refused class")
@@ -1087,19 +1088,23 @@ func TestNightlightShowsARefusal(t *testing.T) {
 	}
 }
 
-// A strength outside the documented ranges is refused with the range in
-// the tooltip instead of being clamped.
+// A strength outside the documented ranges is refused, saying so in the
+// tooltip and the range in the log, instead of being clamped.
 func TestNightlightRejectsAnOutOfRangeStrength(t *testing.T) {
 	cfg := sunsetConfig(false)
 	cfg.Nightlight.Temperature = 500
 	fake := &fakeSunset{clock: sunsetDay}
+	logs := logtest.Capture(t)
 	m := newTestNightlight(t, cfg, fake.env(t))
 	m.svc.toggle()
 	if fake.starts != 0 {
 		t.Error("an out-of-range temperature reached the filter")
 	}
-	if tip := m.btn.Detail(); !strings.Contains(tip, "500K") {
-		t.Errorf("tooltip = %q, want the rejected temperature", tip)
+	if tip := m.btn.Detail(); tip != i18n.T("dropdown-brightness-nightlight-invalid") {
+		t.Errorf("tooltip = %q, want the strength said to be out of range", tip)
+	}
+	if !strings.Contains(logs.String(), "500K") {
+		t.Errorf("log %q, want the rejected temperature", logs.String())
 	}
 }
 

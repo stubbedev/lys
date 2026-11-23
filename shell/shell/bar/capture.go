@@ -8,6 +8,7 @@ import (
 	"slices"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/clipboard"
 	"github.com/stubbedev/lys/desktop/service/hyprland"
 	"github.com/stubbedev/lys/lib/portaldialogs"
@@ -132,10 +133,7 @@ func (s *captureServices) trigger(mode, target string) {
 func (s *captureServices) read(kind screenshot.ReadKind) {
 	go func() {
 		if _, err := s.host.Read(portaldialogs.Caller{}, kind); err != nil && !errors.Is(err, context.Canceled) {
-			log.Printf("screenshot: reading the screen: %v", err)
-			if s.host.Toast != nil {
-				s.host.Toast(err.Error(), "ld-scan-text-symbolic")
-			}
+			toastFailure(s.host.Toast, "screenshot: reading the screen", readFailure(err), err)
 		}
 	}()
 }
@@ -223,4 +221,17 @@ func putOnClipboard(application *app.Application, clip *clipboard.Clipboard, con
 		return nil, app.ErrClipboardUnavailable
 	}
 	return nil, device.Write(content)
+}
+
+// readFailure is what a toast says of a screen reading that failed.
+func readFailure(err error) string {
+	switch {
+	case errors.Is(err, screenshot.ErrNoTesseract):
+		return i18n.T("screenshot-read-no-tesseract")
+	case errors.Is(err, screenshot.ErrNoText):
+		return i18n.T("screenshot-read-no-text")
+	case errors.Is(err, screenshot.ErrNoCode):
+		return i18n.T("screenshot-read-no-code")
+	}
+	return i18n.T("screenshot-read-failed")
 }

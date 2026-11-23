@@ -630,7 +630,7 @@ func TestNetworkDropdownContentOnTheRootWrapper(t *testing.T) {
 	if len(kids) != 5 {
 		t.Fatalf("content children = %d, want the action error, active, secret, the save offer, and the body stack", len(kids))
 	}
-	if kids[0] != widget.Widget(v.actionErr) || kids[1] != widget.Widget(v.active) || kids[2] != widget.Widget(v.secret) || kids[3] != widget.Widget(v.saveOffer) {
+	if kids[0] != widget.Widget(v.actionFailed) || kids[1] != widget.Widget(v.active) || kids[2] != widget.Widget(v.secret) || kids[3] != widget.Widget(v.saveOffer) {
 		t.Error("the action error, active connections, secret form and save offer are not under the content wrapper")
 	}
 	if kids[4] != widget.Widget(v.body) {
@@ -921,7 +921,7 @@ func TestNetworkForgetRunsOnlyWhenAccepted(t *testing.T) {
 	onHeadlessLoop(func() bool { v.askForget("saved", v.forget); alerts.answers[1](true); return true })
 	waitHeadless(t, "the forget", func() bool { _, f, _, _, _ := wifi.calls(); return slices.Equal(f, []string{"saved"}) })
 	settleNetReads(t, v)
-	if onHeadlessLoop(func() bool { return v.actionErr.Visible() }) {
+	if onHeadlessLoop(func() bool { return v.actionFailed.Visible() }) {
 		t.Error("a forget that went through shows an error")
 	}
 }
@@ -935,10 +935,11 @@ func TestNetworkRefusedForgetShowsWhy(t *testing.T) {
 	v, _, _ := newNetTestView(t, network.Snapshot{WifiEnabled: true}, netDeps{wifiCtl: wifi})
 	settleNetReads(t, v)
 	onHeadlessLoop(func() bool { v.forget("saved"); return true })
-	waitHeadless(t, "the refusal", func() bool { return v.actionErr.Visible() })
-	if got := onHeadlessLoop(v.actionErr.Text); plain(got) != "Could not forget saved: not allowed" {
-		t.Errorf("error = %q, want the refusal", got)
-	}
+	waitHeadless(t, "the refusal", func() bool { return v.actionFailed.Visible() })
+	onHeadlessLoop(func() bool {
+		wantFailure(t, "a refused forget", v.actionFailed, i18n.T("dropdown-network-error-forget", i18n.Str("name", "saved")), "not allowed")
+		return true
+	})
 }
 
 func TestNetworkActiveForgetAsksThenForgetsAndDisconnects(t *testing.T) {
@@ -969,7 +970,7 @@ func TestNetworkActiveForgetRefusedKeepsTheConnection(t *testing.T) {
 	settleNetReads(t, v)
 	alerts := &fakeAlert{}
 	onHeadlessLoop(func() bool { v.ctx.Alert = alerts.ask; v.active.forget(); alerts.answers[0](true); return true })
-	waitHeadless(t, "the refusal", func() bool { return v.actionErr.Visible() })
+	waitHeadless(t, "the refusal", func() bool { return v.actionFailed.Visible() })
 	if _, _, _, _, d := wifi.calls(); d != 0 {
 		t.Error("a refused forget still disconnected")
 	}
@@ -1226,14 +1227,17 @@ func TestNetworkRefusedSwitchAndDisconnectShowWhy(t *testing.T) {
 	v, _, _ := newNetTestView(t, network.Snapshot{WifiEnabled: true, HasWifi: true, Wifi: network.StatusConnected, WifiSSID: "home"}, netDeps{wifiCtl: wifi})
 	settleNetReads(t, v)
 	onHeadlessLoop(func() bool { v.wifiToggled(false); return true })
-	waitHeadless(t, "the refused switch", v.actionErr.Visible)
-	if got, want := onHeadlessLoop(v.actionErr.Text), i18n.T("dropdown-network-error-wifi-off", i18n.Str("error", "rfkill blocked")); got != want {
-		t.Errorf("a refused switch says %q", got)
-	}
+	waitHeadless(t, "the refused switch", v.actionFailed.Visible)
+	onHeadlessLoop(func() bool {
+		wantFailure(t, "a refused switch", v.actionFailed, i18n.T("dropdown-network-error-wifi-off"), "rfkill blocked")
+		return true
+	})
 	settleNetReads(t, v)
 	onHeadlessLoop(func() bool { v.active.disconnect(); return true })
-	refusedDisconnect := i18n.T("dropdown-network-error-disconnect", i18n.Str("name", "home"), i18n.Str("error", "busy"))
-	waitHeadless(t, "the refused disconnect", func() bool { return v.actionErr.Text() == refusedDisconnect })
+	refusedDisconnect := i18n.T("dropdown-network-error-disconnect", i18n.Str("name", "home"))
+	waitHeadless(t, "the refused disconnect", func() bool {
+		return v.actionFailed.Title() == refusedDisconnect && v.actionFailed.Description() == "busy"
+	})
 	wifi.mu.Lock()
 	wifi.enableErr = nil
 	wifi.mu.Unlock()
@@ -1241,7 +1245,7 @@ func TestNetworkRefusedSwitchAndDisconnectShowWhy(t *testing.T) {
 	onHeadlessLoop(func() bool { v.wifiToggled(true); return true })
 	waitHeadless(t, "the switch that goes through", func() bool { _, _, on, _, _ := wifi.calls(); return len(on) == 2 })
 	settleNetReads(t, v)
-	if onHeadlessLoop(v.actionErr.Visible) {
-		t.Errorf("a switch that went through left %q", onHeadlessLoop(v.actionErr.Text))
+	if onHeadlessLoop(v.actionFailed.Visible) {
+		t.Errorf("a switch that went through left %q", onHeadlessLoop(v.actionFailed.Title))
 	}
 }

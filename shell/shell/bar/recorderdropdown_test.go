@@ -417,9 +417,10 @@ func TestRecorderDropdownShowsAFailedSaveWhoseWriteRemountedTheBars(t *testing.T
 	was := sw.On()
 	doOnLoopOf(ctx, func() { sw.SetOn(!was) })
 	waitHeadless(t, "the failed save shown", v.failure.Visible)
-	if got := onHeadlessLoop(v.failure.Text); got != "config: save: no space left on device" {
-		t.Errorf("error %q, want the failed save", got)
-	}
+	onHeadlessLoop(func() bool {
+		wantFailure(t, "a failed save", v.failure, i18n.T("recorder-setting-not-saved"), "config: save: no space left on device")
+		return true
+	})
 	if onHeadlessLoop(sw.On) != was {
 		t.Error("the switch stays on the value that was not saved")
 	}
@@ -437,9 +438,10 @@ func TestRecorderDropdownShowsAFailedSaveAndRestoresTheControl(t *testing.T) {
 	log.failWith(errors.New("config: save: no space left on device"))
 	doOnLoopOf(ctx, func() { sw.SetOn(was) })
 	waitHeadless(t, "the failed save shown", v.failure.Visible)
-	if got := onHeadlessLoop(v.failure.Text); got != "config: save: no space left on device" {
-		t.Errorf("error %q, want the failed save", got)
-	}
+	onHeadlessLoop(func() bool {
+		wantFailure(t, "a failed save", v.failure, i18n.T("recorder-setting-not-saved"), "config: save: no space left on device")
+		return true
+	})
 	if onHeadlessLoop(sw.On) == was {
 		t.Error("the switch stays on the value that was not saved")
 	}

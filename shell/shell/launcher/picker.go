@@ -271,8 +271,15 @@ func (p *picker) commit(monitor string) {
 	p.saving = true
 	if err := p.walls.Commit(path, monitor, func(err error) { p.saved(path, err) }); err != nil {
 		p.saving = false
-		p.chrome.SetMessage(pango.Escape(i18n.T("launcher-failed", i18n.Str("what", i18n.T("launcher-wallpaper-title")), i18n.Str("error", err.Error()))))
+		p.fail(i18n.T("launcher-failed", i18n.Str("what", i18n.T("launcher-wallpaper-title"))), err)
 	}
+}
+
+// fail says summary, what failed in the launcher's words, on the
+// message line, which has no room for a detail: err goes to the log.
+func (p *picker) fail(summary string, err error) {
+	log.Printf("launcher: %s: %v", summary, err)
+	p.chrome.SetMessage(pango.Escape(summary))
 }
 
 func (p *picker) saved(path string, err error) {
@@ -284,7 +291,7 @@ func (p *picker) saved(path string, err error) {
 		return
 	}
 	if err != nil {
-		p.chrome.SetMessage(pango.Escape(i18n.T("launcher-wallpaper-not-saved", i18n.Str("error", err.Error()))))
+		p.fail(i18n.T("launcher-wallpaper-not-saved"), err)
 		return
 	}
 	p.finish(true, path)

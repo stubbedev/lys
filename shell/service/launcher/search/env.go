@@ -1,9 +1,8 @@
 package search
 
 import (
-	"github.com/stubbedev/lys/desktop/i18n"
-
 	"github.com/stubbedev/lys/shell/service/launcher"
+	"github.com/stubbedev/lys/shell/service/launcher/modes"
 )
 
 // Env is how providers reach out of the process: a seam, so a test's
@@ -30,7 +29,7 @@ func RealEnv(terminal string) Env {
 }
 
 func failed(what string, err error) Outcome {
-	return Stay{Message: i18n.T("launcher-failed", i18n.Str("what", what), i18n.Str("error", err.Error()))}
+	return Failed{Summary: modes.RanFailed(what, err), Err: err}
 }
 
 func (env Env) open(what, target string) Outcome {

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/opener/openertest"
 	"github.com/stubbedev/lys/desktop/pango"
 
@@ -14,7 +15,10 @@ import (
 	"github.com/stubbedev/lys/shell/service/launcher/launchertest"
 )
 
-func wantNoTerminalMessage(t *testing.T, a launcher.Action, names ...string) {
+// wantNoTerminalMessage requires a to keep the panel open saying what
+// has no terminal to run in, in the launcher's words: the error's own
+// text is the log's.
+func wantNoTerminalMessage(t *testing.T, a launcher.Action, what string) {
 	t.Helper()
 	_, err := launcher.DetectTerminal("")
 	none, ok := errors.AsType[*launcher.NoTerminalError](err)
@@ -25,10 +29,8 @@ func wantNoTerminalMessage(t *testing.T, a launcher.Action, names ...string) {
 	if !ok || reload.State.Message == nil {
 		t.Fatalf("action = %#v, want the panel kept open with a message", a)
 	}
-	for _, want := range append(names, pango.Escape(none.Error())) {
-		if !strings.Contains(*reload.State.Message, want) {
-			t.Errorf("message %q does not say %q", *reload.State.Message, want)
-		}
+	if got, want := *reload.State.Message, pango.Escape(i18n.T("launcher-no-terminal", i18n.Str("what", what))); got != want || strings.Contains(got, pango.Escape(none.Error())) {
+		t.Errorf("message %q, want %q without the error", got, want)
 	}
 }
 
@@ -119,7 +121,7 @@ func TestDrunTerminalAppWithoutATerminalStaysAndSaysSo(t *testing.T) {
 		t.Fatalf("items = %+v, want the terminal app", st.Items)
 	}
 	a := d.Activate(bg, launcher.RowTarget(0), launcher.ActivateDefault{}, "")
-	wantNoTerminalMessage(t, a, "tui.desktop")
+	wantNoTerminalMessage(t, a, "Tui")
 	if st := a.(launcher.ActionReload).State; len(st.Items) != 1 || !st.MarkupRows {
 		t.Errorf("the list after the refusal = %+v, want it kept", st)
 	}
@@ -153,7 +155,7 @@ func TestFileBrowserTerminalHandlerWithoutATerminalStaysAndSaysSo(t *testing.T) 
 	}
 	cfg := DefaultFileBrowserConfig()
 	cfg.Directory = filepath.Dir(dir)
-	wantNoTerminalMessage(t, NewFileBrowser(cfg).open(dir), "files.desktop")
+	wantNoTerminalMessage(t, NewFileBrowser(cfg).open(dir), "a dir")
 	if files.HasRun() {
 		t.Error("the handler ran without a terminal")
 	}

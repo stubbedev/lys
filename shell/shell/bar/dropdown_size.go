@@ -1,8 +1,6 @@
 package bar
 
 import (
-	"log"
-
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/lib/render"
@@ -131,10 +129,7 @@ func saveDropdownSize(ctx ModuleContext, name string, size widget.Size) {
 		if err == nil {
 			return
 		}
-		log.Printf("bar: dropdown %s: %v", name, err)
-		if ctx.Toast != nil {
-			ctx.Toast(i18n.T("bar-dropdown-size-not-saved", i18n.Str("error", err.Error())), "ld-alert-triangle-symbolic")
-		}
+		toastFailure(ctx.Toast, "bar: dropdown "+name, i18n.T("bar-dropdown-size-not-saved"), err)
 	})
 }
 

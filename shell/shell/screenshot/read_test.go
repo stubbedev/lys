@@ -176,9 +176,9 @@ func TestReadQRToastsATranslatedCopyFailureAndNothingOnSuccess(t *testing.T) {
 	copyErr := errors.New("clipboard owner vanished")
 	h.CopyText = func(string) error { return copyErr }
 	(*notified)[0].Respond(ActionCopy)
-	want := i18n.T("screenshot-qr-copy-failed", i18n.Str("error", copyErr.Error()))
-	if strings.HasPrefix(want, "No localization") || !strings.Contains(want, copyErr.Error()) {
-		t.Fatalf("the catalogue renders %q, want the message carrying the error", want)
+	want := i18n.T("screenshot-qr-copy-failed")
+	if strings.HasPrefix(want, "No localization") || strings.Contains(want, copyErr.Error()) {
+		t.Fatalf("the catalogue renders %q, want the summary without the error", want)
 	}
 	if !slices.Equal(rec.toasts, []string{want}) {
 		t.Fatalf("a failed copy toasts %q, want %q", rec.toasts, want)

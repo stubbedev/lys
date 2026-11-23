@@ -917,13 +917,11 @@ func TestBtDropdownRefusedPowerOnPutsTheSwitchBack(t *testing.T) {
 	if !visible(d.emptyOff) {
 		t.Error("a refused power-on hid the off state")
 	}
-	if !visible(d.errLabel) || plain(d.errLabel.Text()) != "Could not turn Bluetooth on: org.bluez.Error.Blocked" {
-		t.Errorf("error = %q (shown %v), want the refusal", d.errLabel.Text(), visible(d.errLabel))
-	}
+	wantFailure(t, "a refused power-on", d.failed, "Could not turn Bluetooth on", "org.bluez.Error.Blocked")
 	delete(src.fail, "enable")
 	d.toggle.SetOn(true)
-	if !d.toggle.On() || visible(d.errLabel) {
-		t.Errorf("a power-on that went through: switch %v, error shown %v; want on and no error", d.toggle.On(), visible(d.errLabel))
+	if !d.toggle.On() || visible(d.failed) {
+		t.Errorf("a power-on that went through: switch %v, error shown %v; want on and no error", d.toggle.On(), visible(d.failed))
 	}
 }
 
@@ -934,9 +932,7 @@ func TestBtDropdownRefusedPowerOffPutsTheSwitchBack(t *testing.T) {
 	if !d.toggle.On() || !d.enabled {
 		t.Error("a refused power-off left the switch off")
 	}
-	if plain(d.errLabel.Text()) != "Could not turn Bluetooth off: org.bluez.Error.Failed" {
-		t.Errorf("error = %q, want the refusal", d.errLabel.Text())
-	}
+	wantFailure(t, "a refused power-off", d.failed, "Could not turn Bluetooth off", "org.bluez.Error.Failed")
 }
 
 func TestBtDropdownPowerOnThatGoesThroughShowsNoError(t *testing.T) {
@@ -947,8 +943,8 @@ func TestBtDropdownPowerOnThatGoesThroughShowsNoError(t *testing.T) {
 	if !d.toggle.On() || !d.enabled {
 		t.Error("a power-on that went through turned the switch back off")
 	}
-	if visible(d.errLabel) || d.errLabel.Text() != "" {
-		t.Errorf("a power-on that went through shows %q", d.errLabel.Text())
+	if visible(d.failed) {
+		t.Errorf("a power-on that went through shows %q", d.failed.Title())
 	}
 }
 
@@ -959,16 +955,14 @@ func TestBtDropdownRefusedScanEndsAtOnce(t *testing.T) {
 	if d.scanning || !d.scanBtn.Enabled() || widget.HasClass(d.scanBtn, "scanning") {
 		t.Error("a refused scan keeps the button scanning")
 	}
-	if !visible(d.errLabel) || plain(d.errLabel.Text()) != "Could not search for devices: org.bluez.Error.NotReady" {
-		t.Errorf("error = %q (shown %v), want the refusal", d.errLabel.Text(), visible(d.errLabel))
-	}
+	wantFailure(t, "a refused scan", d.failed, "Could not search for devices", "org.bluez.Error.NotReady")
 	if visible(d.scanningHint) || !visible(d.emptyNoDevices) {
 		t.Error("a refused scan still shows the scanning hint")
 	}
 	delete(src.fail, "scan")
 	d.scanBtn.OnClick()
-	if !d.scanning || d.scanBtn.Enabled() || visible(d.errLabel) {
-		t.Errorf("the retry: scanning %v, button enabled %v, error shown %v; want scanning without the old error", d.scanning, d.scanBtn.Enabled(), visible(d.errLabel))
+	if !d.scanning || d.scanBtn.Enabled() || visible(d.failed) {
+		t.Errorf("the retry: scanning %v, button enabled %v, error shown %v; want scanning without the old error", d.scanning, d.scanBtn.Enabled(), visible(d.failed))
 	}
 	d.finishScan(d.scanGen)
 	if d.scanning || !d.scanBtn.Enabled() {

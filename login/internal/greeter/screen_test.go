@@ -463,7 +463,7 @@ func TestGreeterRefusesAnEmptyUserAndANoGreetd(t *testing.T) {
 	r.connectErr = errors.New("no GREETD_SOCK")
 	r.s.prompt.Username.SetText("ada")
 	r.s.submit("pw")
-	if len(r.convs) != 0 || r.s.prompt.Error.Text() != "greetd unavailable: \u2068no GREETD_SOCK\u2069" || !r.s.prompt.Entry.Enabled() {
+	if len(r.convs) != 0 || r.s.prompt.Error.Text() != "greetd unavailable" || !r.s.prompt.Entry.Enabled() {
 		t.Errorf("no greetd: message %q, entry enabled %v", r.s.prompt.Error.Text(), r.s.prompt.Entry.Enabled())
 	}
 }

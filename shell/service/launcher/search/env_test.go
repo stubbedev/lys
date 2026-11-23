@@ -32,9 +32,10 @@ func wantNoTerminalNotice(t *testing.T, o Outcome, what string, ran *spawned) {
 	if !ok {
 		t.Fatalf("the test's environment has a terminal: %v", err)
 	}
-	stay, ok := o.(Stay)
-	if !ok || !strings.Contains(stay.Message, what) || !strings.Contains(stay.Message, none.Error()) {
-		t.Errorf("outcome = %#v, want the panel kept open saying %s has no terminal to run in", o, what)
+	f, ok := o.(Failed)
+	_, noTerminal := errors.AsType[*launcher.NoTerminalError](f.Err)
+	if !ok || !noTerminal || f.Summary != i18n.T("launcher-no-terminal", i18n.Str("what", what)) || strings.Contains(f.Summary, none.Error()) {
+		t.Errorf("outcome = %#v, want the panel kept open saying %s has no terminal to run in, the error apart", o, what)
 	}
 	if len(ran.argv) != 0 {
 		t.Errorf("spawned %q with no terminal to run it in", ran.argv)
@@ -97,8 +98,8 @@ func TestAFailedOpenStaysAndSaysWhy(t *testing.T) {
 	open := i18n.T("launcher-action-open")
 	web := NewWeb(env, "", "https://search.example/?q={query}")
 	o := runAction(t, web.Actions(Entry{Data: "gopher://host/page"}), open)
-	if stay, ok := o.(Stay); !ok || !strings.Contains(stay.Message, refused.Error()) {
-		t.Errorf("a refused open = %#v, want the panel kept open with the reason", o)
+	if f, ok := o.(Failed); !ok || !errors.Is(f.Err, refused) || f.Summary != i18n.T("launcher-no-terminal", i18n.Str("what", open)) {
+		t.Errorf("a refused open = %#v, want the panel kept open saying so, the error apart", o)
 	}
 	o = runAction(t, web.Actions(Entry{Data: "https://example.com/"}), open)
 	if _, closed := o.(Close); !closed {

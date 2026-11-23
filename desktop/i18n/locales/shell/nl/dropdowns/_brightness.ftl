@@ -15,4 +15,6 @@ dropdown-brightness-auto-resume = Hervatten
 dropdown-brightness-nightlight-title = Nachtlicht
 dropdown-brightness-nightlight-on = Aan op { $kelvin }K
 dropdown-brightness-nightlight-kelvin = { $kelvin }K
-dropdown-brightness-nightlight-unavailable = Niet beschikbaar: { $reason }
+dropdown-brightness-nightlight-unavailable = Niet beschikbaar
+dropdown-brightness-nightlight-invalid = Die temperatuur kan niet worden ingesteld
+dropdown-brightness-nightlight-not-saved = De temperatuur is niet opgeslagen

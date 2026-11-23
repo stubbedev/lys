@@ -28,7 +28,7 @@ import (
 )
 
 // t is the greeter's t! (lys-greeter.ftl, the desktop locale).
-func t(id string, args ...i18n.Arg) string { return i18n.Greeter().Get(id, args...) }
+func t(id string) string { return i18n.Greeter().Get(id) }
 
 // CustomSessionName labels the explicit `-- <argv>` session.
 func CustomSessionName() string { return t("greeter-custom-session") }
@@ -428,7 +428,7 @@ func (s *screen) startConversation(username string, password *string) {
 	conv, err := s.d.connect(auth.Start{Session: s.startedSession, Before: s.handOver})
 	if err != nil {
 		log.Printf("greeter: cannot connect to greetd: %v", err)
-		s.prompt.SetMessage(t("greeter-greetd-unavailable", i18n.Str("error", err.Error())))
+		s.prompt.SetMessage(t("greeter-greetd-unavailable"))
 		s.setForm(true)
 		return
 	}

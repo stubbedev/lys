@@ -158,7 +158,7 @@ dropdown-network-save-not-now = Agora não
 ## Esquecer uma rede
 dropdown-network-forget-confirm = Esquecer { $name }?
 dropdown-network-forget-confirm-detail = A palavra-passe e as definições guardadas serão eliminadas. Para voltar a ligar-se, será pedida a palavra-passe.
-dropdown-network-error-forget = Não foi possível esquecer { $name }: { $error }
+dropdown-network-error-forget = Não foi possível esquecer { $name }
 
 ## Redes ocultas
 dropdown-network-hidden-join = Ligar a uma rede oculta
@@ -170,12 +170,14 @@ dropdown-network-hidden-error-name-empty = Introduza o nome da rede
 dropdown-network-hidden-error-name-too-long = Esse nome é demasiado longo para uma rede
 dropdown-network-hidden-error-password = Introduza a palavra-passe da rede
 dropdown-network-scan = Procurar redes
-dropdown-network-error-wifi-on = Não foi possível ativar o Wi-Fi: { $error }
-dropdown-network-error-wifi-off = Não foi possível desativar o Wi-Fi: { $error }
-dropdown-network-error-disconnect = Não foi possível desligar de { $name }: { $error }
+dropdown-network-error-wifi-on = Não foi possível ativar o Wi-Fi
+dropdown-network-error-wifi-off = Não foi possível desativar o Wi-Fi
+dropdown-network-error-disconnect = Não foi possível desligar de { $name }
 dropdown-network-vpn-import-error = Não foi possível abrir um ficheiro
-dropdown-network-vpn-error-toggle = Não foi possível alternar { $name }: { $error }
-dropdown-network-vpn-error-read = Não foi possível ler { $name }: { $error }
+dropdown-network-vpn-error-toggle = Não foi possível alternar { $name }
+dropdown-network-vpn-error-read = Não foi possível ler { $name }
+dropdown-network-vpn-error-save = Não foi possível guardar { $name }
+dropdown-network-vpn-error-delete = Não foi possível eliminar { $name }
 
 ## Início de sessão empresarial
 
@@ -200,4 +202,4 @@ dropdown-network-enterprise-error-path = Os caminhos dos certificados e das chav
 dropdown-network-enterprise-error-client-cert = O TLS precisa do seu certificado do utilizador
 dropdown-network-enterprise-error-private-key = O TLS precisa da sua chave privada
 dropdown-network-enterprise-error-auth = Início de sessão recusado. Verifique a identidade, a palavra-passe e os certificados
-dropdown-network-enterprise-error-browse = Não foi possível abrir o seletor de ficheiros: { $error }
+dropdown-network-enterprise-error-browse = Não foi possível abrir o seletor de ficheiros

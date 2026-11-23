@@ -45,11 +45,13 @@ func newNightlightDropdown(t *testing.T, cfg *config.Config, env sunsetEnv) nigh
 	return nightlightDropdown{view: v, card: v.night, svc: ctx.Nightlight, writes: writes, saveFail: saveFail}
 }
 
+// failure is the error the card's failure alert describes, "" with
+// the alert down.
 func (d nightlightDropdown) failure() string {
 	if !d.card.failure.Visible() {
 		return ""
 	}
-	return d.card.failure.Text()
+	return d.card.failure.Description()
 }
 
 func TestBrightnessDropdownTogglesTheNightLight(t *testing.T) {
@@ -117,9 +119,7 @@ func TestBrightnessDropdownRefusedTemperatureKeepsTheServiceValue(t *testing.T) 
 	if len(*d.writes) != 0 {
 		t.Errorf("a refused strength reached the config: %v", *d.writes)
 	}
-	if !strings.Contains(d.failure(), "300%") {
-		t.Errorf("error %q, want the gamma that refused it", d.failure())
-	}
+	wantFailure(t, "a refused strength", d.card.failure, i18n.T("dropdown-brightness-nightlight-invalid"), "300%")
 	if got := d.card.slider.Value(); got != 5000 {
 		t.Errorf("slider at %v, want it back at the service's 5000K", got)
 	}
@@ -168,6 +168,10 @@ func TestBrightnessDropdownFailedSaveRestoresTheSavedTemperature(t *testing.T) {
 	onHeadlessLoop(func() bool { *d.saveFail = full; return true })
 	dragNightlightSlider(d, 3200)
 	waitHeadless(t, "the failed save shown", func() bool { return d.failure() == full.Error() })
+	onHeadlessLoop(func() bool {
+		wantFailure(t, "a failed save", d.card.failure, i18n.T("dropdown-brightness-nightlight-not-saved"), full.Error())
+		return true
+	})
 	if got := onHeadlessLoop(d.card.slider.Value); got != 5000 {
 		t.Errorf("slider at %v after a failed save, want the saved 5000K", got)
 	}
@@ -222,9 +226,7 @@ func TestBrightnessDropdownShowsAFailedNightLightWrite(t *testing.T) {
 	if d.card.toggle.On() {
 		t.Error("the switch stays on although the display refused the filter")
 	}
-	if d.failure() != refusal.Error() {
-		t.Errorf("error %q, want %q", d.failure(), refusal.Error())
-	}
+	wantFailure(t, "a refused filter", d.card.failure, i18n.T("bar-nightlight-refused"), refusal.Error())
 	onHeadlessLoop(func() bool { d.card.toggle.SetOn(true); return true })
 	if d.card.toggle.On() || d.failure() != refusal.Error() {
 		t.Error("a second attempt did not fail the same way")
@@ -291,7 +293,7 @@ func TestBrightnessDropdownSaysWhyTheNightLightIsUnavailable(t *testing.T) {
 	if d.card.toggle.Enabled() || d.card.slider.Enabled() {
 		t.Error("the night light's controls stay usable without a colour protocol")
 	}
-	want := i18n.T("dropdown-brightness-nightlight-unavailable", i18n.Str("reason", nightlight.ErrUnsupported.Error()))
+	want := i18n.T("dropdown-brightness-nightlight-unavailable")
 	if got := itemText(d.card.item, "description"); got != want {
 		t.Errorf("description %q, want %q", got, want)
 	}

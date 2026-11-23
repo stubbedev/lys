@@ -63,13 +63,13 @@ func (w *Windows) Actions(e Entry) []Action {
 	return []Action{
 		{Title: i18n.T("launcher-action-switch-window"), Icon: "ld-app-window-symbolic", Run: func(ctx context.Context) Outcome {
 			if err := w.backend.Focus(ctx, win.ID); err != nil {
-				return Stay{Message: i18n.T("launcher-failed", i18n.Str("what", win.Title), i18n.Str("error", err.Error()))}
+				return failed(win.Title, err)
 			}
 			return Close{}
 		}},
 		{Title: i18n.T("launcher-action-close-window"), Icon: "ld-x-symbolic", Run: func(ctx context.Context) Outcome {
 			if err := w.backend.Close(ctx, win.ID); err != nil {
-				return Stay{Message: i18n.T("launcher-failed", i18n.Str("what", win.Title), i18n.Str("error", err.Error()))}
+				return failed(win.Title, err)
 			}
 			return Close{}
 		}},

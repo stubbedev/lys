@@ -505,6 +505,9 @@ func (e *Engine) apply(ctx context.Context, o Outcome, loads *sync.WaitGroup) {
 		if v.Message != "" {
 			e.deliver(func() { e.sink.Notice(v.Message) })
 		}
+	case Failed:
+		log.Printf("launcher: %s: %v", v.Summary, v.Err)
+		e.deliver(func() { e.sink.Notice(v.Summary) })
 	}
 }
 

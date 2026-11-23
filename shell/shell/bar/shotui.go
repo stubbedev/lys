@@ -157,9 +157,9 @@ func (u *shotUI) edit(shot shotthumb.Shot) {
 	}
 }
 
-// failed toasts the message key names with err as its error.
+// failed toasts the summary key names, logging err with it.
 func (u *shotUI) failed(key string, err error) {
-	toastFailure(u.toast, "screenshot", i18n.T(key, i18n.Str("error", err.Error())))
+	toastFailure(u.toast, "screenshot", i18n.T(key), err)
 }
 
 // writer encodes and writes an edited image off the loop and, when

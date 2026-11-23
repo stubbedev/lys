@@ -50,7 +50,9 @@ bar-keybind-mode-default = predeterminado
 ## Night light
 bar-nightlight-on = Activada
 bar-nightlight-off = Desactivada
-bar-nightlight-no-location = Programación automática en pausa, sin ubicación: { $reason }
+bar-nightlight-no-location = Programación automática en pausa, sin ubicación
+bar-nightlight-unavailable = La luz nocturna no está disponible
+bar-nightlight-refused = La pantalla ha rechazado la luz nocturna
 
 ## Storage
 bar-storage-multiple = Varios
@@ -124,10 +126,10 @@ bar-audio-capture-screen = una aplicación comparte la pantalla
 ## Fallos que un módulo muestra en su botón
 bar-module-failed = Error
 bar-custom-command-timed-out = La orden tardó demasiado y se detuvo
-bar-custom-command-failed = No se pudo ejecutar la orden: { $error }
+bar-custom-command-failed = No se pudo ejecutar la orden
 bar-world-clock-invalid-zone = Zona horaria desconocida «{ $zone }»
 bar-world-clock-invalid-layout = Formato de hora no admitido «{ $layout }»
-bar-world-clock-invalid-format = No se puede mostrar el formato: { $error }
+bar-world-clock-invalid-format = No se puede mostrar el formato
 
 ## Desplegables
-bar-dropdown-size-not-saved = El desplegable conserva su nuevo tamaño, pero no se ha guardado: { $error }
+bar-dropdown-size-not-saved = El desplegable conserva su nuevo tamaño, pero no se ha guardado

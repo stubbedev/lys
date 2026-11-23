@@ -8,6 +8,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/pango"
+	"github.com/stubbedev/lys/lib/logtest"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/app"
 
@@ -238,30 +241,35 @@ func TestPickerEnterSetsTheFocusedMonitorAndControlEnterEveryOne(t *testing.T) {
 	}
 }
 
-// A wallpaper that cannot be set says why as text, what the error
-// holds of markup escaped, and the picker stays open.
-func TestPickerAFailedCommitSaysTheErrorAsText(t *testing.T) {
+// A wallpaper that cannot be set says so in the launcher's words, the
+// error in the log alone, and the picker stays open.
+func TestPickerAFailedCommitSaysSo(t *testing.T) {
+	logged := logtest.Capture(t)
 	h := newPickerHarness(t, "/w/a.png")
 	h.walls.commitErr = errors.New("write <b>a.png</b>: disk full")
 	p := h.openPicker()
 	h.press("Return")
 	markup := p.chrome.Message.Markup()
-	if !p.chrome.Message.Visible() || !strings.Contains(markup, "&lt;b&gt;a.png&lt;/b&gt;: disk full") || strings.Contains(markup, "<b>") {
-		t.Errorf("the failed commit shows %q (visible %t), want the error as text", markup, p.chrome.Message.Visible())
+	want := pango.Escape(i18n.T("launcher-failed", i18n.Str("what", i18n.T("launcher-wallpaper-title"))))
+	if !p.chrome.Message.Visible() || markup != want || strings.Contains(markup, "disk full") {
+		t.Errorf("the failed commit shows %q (visible %t), want %q", markup, p.chrome.Message.Visible(), want)
+	}
+	if !strings.Contains(logged.String(), "write <b>a.png</b>: disk full") {
+		t.Errorf("log %q, want the error", logged.String())
 	}
 	if h.s.picker != p {
 		t.Error("the failed commit closed the picker")
 	}
 }
 
-func TestPickerAFailedSaveSaysTheErrorAndStaysOpen(t *testing.T) {
+func TestPickerAFailedSaveSaysSoAndStaysOpen(t *testing.T) {
 	h := newPickerHarness(t, "/w/a.png")
 	p := h.openPicker()
 	h.press("Return")
 	h.walls.save(t, errors.New("config: save: write <runtime.yaml>: read-only file system"))
 	markup := p.chrome.Message.Markup()
-	if !p.chrome.Message.Visible() || !strings.Contains(markup, "&lt;runtime.yaml&gt;: read-only file system") {
-		t.Errorf("the failed save shows %q (visible %t), want the error as text", markup, p.chrome.Message.Visible())
+	if want := pango.Escape(i18n.T("launcher-wallpaper-not-saved")); !p.chrome.Message.Visible() || markup != want {
+		t.Errorf("the failed save shows %q (visible %t), want %q", markup, p.chrome.Message.Visible(), want)
 	}
 	if h.s.picker != p || h.walls.ended != 0 {
 		t.Errorf("the failed save closed the picker: %d preview ends", h.walls.ended)

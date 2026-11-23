@@ -12,15 +12,30 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/pango"
 
 	"github.com/stubbedev/lys/shell/service/launcher"
 )
 
-func failed(state launcher.ModeState, err error) launcher.Action {
-	message := pango.Escape(err.Error())
+// failed reloads state saying summary, what failed in the launcher's
+// words; the message line has no room for a detail, so err goes to the
+// log.
+func failed(state launcher.ModeState, summary string, err error) launcher.Action {
+	log.Printf("launcher: %s: %v", summary, err)
+	message := pango.Escape(summary)
 	state.Message = &message
 	return launcher.ActionReload{State: state}
+}
+
+// RanFailed is the summary of what, a command, an app or a file, that
+// err kept from running or opening: no terminal to run it in, or a
+// failure.
+func RanFailed(what string, err error) string {
+	if _, ok := errors.AsType[*launcher.NoTerminalError](err); ok {
+		return i18n.T("launcher-no-terminal", i18n.Str("what", what))
+	}
+	return i18n.T("launcher-failed", i18n.Str("what", what))
 }
 
 // IsIgnored reports whether an entry is one the user keeps out of
@@ -137,7 +152,7 @@ func (r *Run) Activate(ctx context.Context, target launcher.Target, kind launche
 	}
 	_, alt := kind.(launcher.ActivateAlt)
 	if err := r.execute(command, alt); err != nil {
-		return failed(r.Load(ctx), err)
+		return failed(r.Load(ctx), RanFailed(command, err), err)
 	}
 	return launcher.ActionClose{}
 }

@@ -75,6 +75,15 @@ type drunEntry struct {
 	isLink    bool
 }
 
+// shownName is the entry as a message names it: its app's name, or
+// the link it opens.
+func (e drunEntry) shownName() string {
+	if e.app != nil {
+		return e.app.DisplayName()
+	}
+	return e.url
+}
+
 type drunRow struct {
 	item  launcher.Item
 	entry drunEntry
@@ -178,7 +187,7 @@ func (d *Drun) Activate(ctx context.Context, target launcher.Target, kind launch
 		}
 		e := d.entries[i]
 		if err := d.launch(e); err != nil {
-			return failed(d.Load(ctx), fmt.Errorf("launch %s: %w", e.desktopID, err))
+			return failed(d.Load(ctx), RanFailed(e.shownName(), err), fmt.Errorf("launch %s: %w", e.desktopID, err))
 		}
 		d.record(e.desktopID)
 		return launcher.ActionClose{}

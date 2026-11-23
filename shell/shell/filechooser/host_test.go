@@ -1575,7 +1575,7 @@ func TestCreateFolder(t *testing.T) {
 		hs.c.createFolder()
 	})
 	hs.do(func() { notice = hs.c.ui.noticeLabel.Text() })
-	if notice != "Cannot create “docs”: file exists" {
+	if notice != "Cannot create “docs”." {
 		t.Errorf("a taken name noticed %q", notice)
 	}
 	hs.click(t, "Cancel")
@@ -1633,7 +1633,7 @@ func TestRecentAndListingErrors(t *testing.T) {
 	hs.do(func() { hs.c.goTo(locked) })
 	var empty string
 	hs.do(func() { empty = hs.c.ui.empty.Text() })
-	if os.Geteuid() != 0 && empty != "Cannot read this folder: permission denied" {
+	if os.Geteuid() != 0 && empty != "Cannot read this folder." {
 		t.Errorf("an unreadable folder shows %q", empty)
 	}
 	hs.click(t, "Cancel")

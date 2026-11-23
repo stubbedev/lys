@@ -176,7 +176,7 @@ dropdown-network-save-not-now = Plus tard
 ## Oublier un réseau
 dropdown-network-forget-confirm = Oublier { $name } ?
 dropdown-network-forget-confirm-detail = Son mot de passe et ses paramètres enregistrés seront supprimés. Pour le rejoindre à nouveau, le mot de passe sera demandé.
-dropdown-network-error-forget = Impossible d'oublier { $name } : { $error }
+dropdown-network-error-forget = Impossible d'oublier { $name }
 
 ## Réseaux masqués
 dropdown-network-hidden-join = Rejoindre un réseau masqué
@@ -188,12 +188,14 @@ dropdown-network-hidden-error-name-empty = Saisissez le nom du réseau
 dropdown-network-hidden-error-name-too-long = Ce nom est trop long pour un réseau
 dropdown-network-hidden-error-password = Saisissez le mot de passe du réseau
 dropdown-network-scan = Rechercher des réseaux
-dropdown-network-error-wifi-on = Impossible d'activer le Wi-Fi : { $error }
-dropdown-network-error-wifi-off = Impossible de désactiver le Wi-Fi : { $error }
-dropdown-network-error-disconnect = Impossible de se déconnecter de { $name } : { $error }
+dropdown-network-error-wifi-on = Impossible d'activer le Wi-Fi
+dropdown-network-error-wifi-off = Impossible de désactiver le Wi-Fi
+dropdown-network-error-disconnect = Impossible de se déconnecter de { $name }
 dropdown-network-vpn-import-error = Impossible d'ouvrir un fichier
-dropdown-network-vpn-error-toggle = Impossible de basculer { $name } : { $error }
-dropdown-network-vpn-error-read = Impossible de lire { $name } : { $error }
+dropdown-network-vpn-error-toggle = Impossible de basculer { $name }
+dropdown-network-vpn-error-read = Impossible de lire { $name }
+dropdown-network-vpn-error-save = Impossible d'enregistrer { $name }
+dropdown-network-vpn-error-delete = Impossible de supprimer { $name }
 
 ## Connexion entreprise
 
@@ -218,4 +220,4 @@ dropdown-network-enterprise-error-path = Les chemins des certificats et des clé
 dropdown-network-enterprise-error-client-cert = TLS nécessite votre certificat utilisateur
 dropdown-network-enterprise-error-private-key = TLS nécessite votre clé privée
 dropdown-network-enterprise-error-auth = Connexion refusée. Vérifiez votre identité, votre mot de passe et vos certificats
-dropdown-network-enterprise-error-browse = Impossible d'ouvrir le sélecteur de fichiers : { $error }
+dropdown-network-enterprise-error-browse = Impossible d'ouvrir le sélecteur de fichiers

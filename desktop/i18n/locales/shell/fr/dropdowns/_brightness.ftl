@@ -21,4 +21,6 @@ dropdown-brightness-auto-resume = Reprendre
 dropdown-brightness-nightlight-title = Éclairage nocturne
 dropdown-brightness-nightlight-on = Activé à { $kelvin } K
 dropdown-brightness-nightlight-kelvin = { $kelvin } K
-dropdown-brightness-nightlight-unavailable = Indisponible : { $reason }
+dropdown-brightness-nightlight-unavailable = Indisponible
+dropdown-brightness-nightlight-invalid = Cette température ne peut pas être appliquée
+dropdown-brightness-nightlight-not-saved = La température n'a pas été enregistrée

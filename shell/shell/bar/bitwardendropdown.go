@@ -374,7 +374,7 @@ func (v *bitwardenView) copyLiveTOTP() {
 // showError replaces the pages with why there is no vault.
 func (v *bitwardenView) showError(err error) {
 	log.Printf("bitwarden: %v", err)
-	v.pages.Add(bwPageError, widgets.EmptyState(v.font, v.px, "ld-shield-check-symbolic", i18n.T("dropdown-bitwarden-unavailable"), err.Error()))
+	v.pages.Add(bwPageError, failurePage(v.font, v.px, "ld-shield-check-symbolic", i18n.T("dropdown-bitwarden-unavailable"), err))
 	v.pages.Show(bwPageError)
 	v.genBtn.SetVisible(false)
 	v.sendBtn.SetVisible(false)

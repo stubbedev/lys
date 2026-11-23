@@ -158,7 +158,7 @@ dropdown-network-save-not-now = Niet nu
 ## Een netwerk vergeten
 dropdown-network-forget-confirm = { $name } vergeten?
 dropdown-network-forget-confirm-detail = Het opgeslagen wachtwoord en de instellingen worden verwijderd. Bij opnieuw verbinden wordt om het wachtwoord gevraagd.
-dropdown-network-error-forget = Kan { $name } niet vergeten: { $error }
+dropdown-network-error-forget = Kan { $name } niet vergeten
 
 ## Verborgen netwerken
 dropdown-network-hidden-join = Verbinden met een verborgen netwerk
@@ -170,12 +170,14 @@ dropdown-network-hidden-error-name-empty = Voer de naam van het netwerk in
 dropdown-network-hidden-error-name-too-long = Die naam is te lang voor een netwerk
 dropdown-network-hidden-error-password = Voer het wachtwoord van het netwerk in
 dropdown-network-scan = Zoeken naar netwerken
-dropdown-network-error-wifi-on = Kan wifi niet inschakelen: { $error }
-dropdown-network-error-wifi-off = Kan wifi niet uitschakelen: { $error }
-dropdown-network-error-disconnect = Kan de verbinding met { $name } niet verbreken: { $error }
+dropdown-network-error-wifi-on = Kan wifi niet inschakelen
+dropdown-network-error-wifi-off = Kan wifi niet uitschakelen
+dropdown-network-error-disconnect = Kan de verbinding met { $name } niet verbreken
 dropdown-network-vpn-import-error = Kan geen bestand openen
-dropdown-network-vpn-error-toggle = Kan { $name } niet schakelen: { $error }
-dropdown-network-vpn-error-read = Kan { $name } niet lezen: { $error }
+dropdown-network-vpn-error-toggle = Kan { $name } niet schakelen
+dropdown-network-vpn-error-read = Kan { $name } niet lezen
+dropdown-network-vpn-error-save = Kan { $name } niet opslaan
+dropdown-network-vpn-error-delete = Kan { $name } niet verwijderen
 
 ## Zakelijke aanmelding
 
@@ -200,4 +202,4 @@ dropdown-network-enterprise-error-path = Paden van certificaten en sleutels moet
 dropdown-network-enterprise-error-client-cert = TLS heeft uw gebruikerscertificaat nodig
 dropdown-network-enterprise-error-private-key = TLS heeft uw privésleutel nodig
 dropdown-network-enterprise-error-auth = Aanmelding geweigerd. Controleer uw identiteit, wachtwoord en certificaten
-dropdown-network-enterprise-error-browse = Kan de bestandskiezer niet openen: { $error }
+dropdown-network-enterprise-error-browse = Kan de bestandskiezer niet openen

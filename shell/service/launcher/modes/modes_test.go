@@ -3,6 +3,7 @@ package modes
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -12,10 +13,12 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/pango"
 	"github.com/stubbedev/lys/desktop/service/clipboard"
 	"github.com/stubbedev/lys/desktop/service/clipboard/historybudget"
 	"github.com/stubbedev/lys/lib/fdtest"
+	"github.com/stubbedev/lys/lib/logtest"
 	"github.com/stubbedev/lys/lib/wmipc"
 
 	"github.com/stubbedev/lys/shell/service/launcher"
@@ -774,20 +777,41 @@ func TestClipboardKbCustom3TogglesThePin(t *testing.T) {
 
 // A refused pin is said as its text: what the error holds of markup
 // reaches the message row escaped, and nothing is pinned.
-func TestClipboardARefusedPinIsSaidAsText(t *testing.T) {
+func TestClipboardARefusedPinIsSaidInTheLaunchersWords(t *testing.T) {
+	logged := logtest.Capture(t)
 	f, _ := newFakeClipboard(t, [2]string{"text/plain", "keep"})
 	f.pinErr = errors.New(`pinning <b>"keep"</b> & the rest failed`)
 	m := NewClipboard(f)
 	m.Load(bg)
 	r, ok := m.Activate(bg, launcher.RowTarget(0), launcher.ActivateKbCustom{N: togglePin}, "").(launcher.ActionReload)
 	if !ok || r.State.Message == nil {
-		t.Fatalf("a refused pin = %#v, want a reload saying why", r)
+		t.Fatalf("a refused pin = %#v, want a reload saying so", r)
 	}
-	if text, ok := pango.PlainText(*r.State.Message); !ok || text != f.pinErr.Error() {
-		t.Errorf("the message %q reads %q (markup parsed: %v), want the error as text: %q", *r.State.Message, text, ok, f.pinErr)
+	if text, ok := pango.PlainText(*r.State.Message); !ok || text != i18n.T("launcher-clipboard-pin-failed") {
+		t.Errorf("the message %q reads %q (markup parsed: %v), want the summary without the error", *r.State.Message, text, ok)
+	}
+	if !strings.Contains(logged.String(), f.pinErr.Error()) {
+		t.Errorf("log %q, want the refusal", logged.String())
 	}
 	if r.State.Items[0].Flags.Has(launcher.FlagActive) {
 		t.Error("the refused pin shows as pinned")
+	}
+}
+
+func TestPinFailureSaysWhatWasRefused(t *testing.T) {
+	for _, c := range []struct {
+		err     error
+		pinning bool
+		want    string
+	}{
+		{fmt.Errorf("clipboard: pin entry 3: %w", clipboard.ErrPinnedFull), true, "launcher-clipboard-pinned-full"},
+		{fmt.Errorf("clipboard: pin entry 3: %w", clipboard.ErrEntryGone), true, "launcher-clipboard-gone"},
+		{errors.New("disk full"), true, "launcher-clipboard-pin-failed"},
+		{errors.New("disk full"), false, "launcher-clipboard-unpin-failed"},
+	} {
+		if got := PinFailure(c.err, c.pinning); got != i18n.T(c.want) {
+			t.Errorf("PinFailure(%v, %v) = %q, want %s", c.err, c.pinning, got, c.want)
+		}
 	}
 }
 

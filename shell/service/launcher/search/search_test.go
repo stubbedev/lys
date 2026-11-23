@@ -2,6 +2,7 @@ package search
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -15,6 +16,7 @@ import (
 	"github.com/stubbedev/lys/desktop/launchermatch"
 	"github.com/stubbedev/lys/desktop/pango"
 	"github.com/stubbedev/lys/lib/fdtest"
+	"github.com/stubbedev/lys/lib/logtest"
 	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/shell/service/launcher"
@@ -425,6 +427,34 @@ func TestActivatingRecordsTheUse(t *testing.T) {
 	data, err := os.ReadFile(freq.path)
 	if err != nil || !strings.Contains(string(data), "Thing") {
 		t.Errorf("file: %s, %v", data, err)
+	}
+}
+
+func TestAFailedActionSaysItsSummaryAndLogsItsError(t *testing.T) {
+	logged := logtest.Capture(t)
+	s := &sink{}
+	p := &fakeProvider{spec: Spec{Section: SectionNone}, entries: []Entry{entry("Thing")}, actions: []Action{
+		{Title: "Open", Run: func(context.Context) Outcome {
+			return Failed{Summary: "Thing failed", Err: errors.New("exec: thing: not found")}
+		}},
+	}}
+	e := start(t, s, nil, p)
+	e.SetQuery("thi", 1)
+	until(t, s, "Thing")
+	e.Activate("Thing", 0)
+	waittest.Until(t, func() bool {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		return len(s.notices) == 1
+	}, "the failure said")
+	s.mu.Lock()
+	notices, finished := slices.Clone(s.notices), len(s.finished)
+	s.mu.Unlock()
+	if notices[0] != "Thing failed" || finished != 0 {
+		t.Errorf("notices %q with %d finishes, want the summary alone and the panel kept", notices, finished)
+	}
+	if got := logged.String(); !strings.Contains(got, "launcher: Thing failed: exec: thing: not found") {
+		t.Errorf("log %q, want the summary with its error", got)
 	}
 }
 

@@ -318,8 +318,8 @@ func TestARefusedPinIsSaidInTheFooter(t *testing.T) {
 	row := loaded(t, c)[0]
 	pin := actionTitled(t, c.Actions(row), i18n.T("launcher-action-pin"))
 	h.history.Remove(row.Data.(clipboardData).id)
-	if s, ok := pin.Run(ctx).(Stay); !ok || s.Message == "" {
-		t.Error("a refused pin must say why")
+	if f, ok := pin.Run(ctx).(Failed); !ok || f.Summary != i18n.T("launcher-clipboard-gone") || f.Err == nil {
+		t.Errorf("a pin of an entry gone = %#v, want it said in the launcher's words, the error apart", pin.Run(ctx))
 	}
 }
 

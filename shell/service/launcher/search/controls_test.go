@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/i18n"
 )
 
 func controlAction(t *testing.T, ctl Control) Action {
@@ -38,9 +39,9 @@ func TestAControlThatFailsSaysSoAndStays(t *testing.T) {
 	o := controlAction(t, Control{ID: "x", Title: "Turn Off Wi-Fi", Effect: RunNow(func(context.Context) error {
 		return errors.New("no permission")
 	})}).Run(context.Background())
-	stay, ok := o.(Stay)
-	if !ok || !strings.Contains(stay.Message, "Turn Off Wi-Fi") || !strings.Contains(stay.Message, "no permission") {
-		t.Errorf("outcome %+v", o)
+	f, ok := o.(Failed)
+	if !ok || f.Summary != i18n.T("launcher-failed", i18n.Str("what", "Turn Off Wi-Fi")) || strings.Contains(f.Summary, "no permission") || f.Err == nil || f.Err.Error() != "no permission" {
+		t.Errorf("outcome %+v, want the failure said with the error apart", o)
 	}
 }
 

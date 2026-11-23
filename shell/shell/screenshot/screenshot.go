@@ -237,7 +237,7 @@ func (h *Host) save(img *image.RGBA) (string, error) {
 		h.Present(shot)
 	}
 	if cfg.Notify {
-		n := savedNotice(path, copyErr)
+		n := savedNotice(path, copyErr == nil)
 		if !thumbnail {
 			n.Actions = []Action{ActionEdit, ActionOpenFolder, ActionDelete}
 			n.Respond = func(a Action) { h.act(a, shot) }
@@ -313,10 +313,12 @@ type Notice struct {
 	Respond func(Action)
 }
 
-func savedNotice(path string, copyErr error) Notice {
+// savedNotice announces the screenshot saved at path, saying so when
+// it was not copied; the copy's error is the log's, not the body's.
+func savedNotice(path string, copied bool) Notice {
 	n := Notice{Summary: i18n.T("screenshot-saved"), Body: path, Icon: path}
-	if copyErr != nil {
-		n.Body += "\n" + i18n.T("screenshot-not-copied", i18n.Str("error", copyErr.Error()))
+	if !copied {
+		n.Body += "\n" + i18n.T("screenshot-not-copied")
 	}
 	return n
 }

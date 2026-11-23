@@ -115,7 +115,7 @@ func TestAnUnsavedDropdownSizeToasts(t *testing.T) {
 	var toasts []string
 	ctx.Toast = func(label, _ string) { toasts = append(toasts, label) }
 	saveDropdownSize(ctx, "audio", widget.Size{W: 400, H: 300})
-	want := i18n.T("bar-dropdown-size-not-saved", i18n.Str("error", "config: save: disk full"))
+	want := i18n.T("bar-dropdown-size-not-saved")
 	if !slices.Equal(toasts, []string{want}) {
 		t.Errorf("a failed save toasted %q, want %q", toasts, want)
 	}

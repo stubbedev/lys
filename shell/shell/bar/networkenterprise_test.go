@@ -216,14 +216,15 @@ func TestNetworkEnterpriseCertificateComesFromTheFileChooser(t *testing.T) {
 	waitHeadless(t, "the picked path", func() bool { return v.enterprise.caCert.Text() == "/etc/ssl/campus-ca.pem" })
 	choose(answer{err: fmt.Errorf("open: %w", portal.ErrCancelled)})
 	choose(answer{err: errors.New("no portal")})
-	waitHeadless(t, "the chooser's failure", func() bool { return v.enterprise.errLabel.Visible() })
+	waitHeadless(t, "the chooser's failure", func() bool { return v.enterprise.browseFailed.Visible() })
 	onHeadlessLoop(func() bool {
 		f := v.enterprise
 		if f.caCert.Text() != "/etc/ssl/campus-ca.pem" {
 			t.Errorf("a dismissed or failed chooser changed the path to %q", f.caCert.Text())
 		}
-		if want := i18n.T("dropdown-network-enterprise-error-browse", i18n.Str("error", "no portal")); f.errLabel.Text() != want {
-			t.Errorf("error %q, want %q", f.errLabel.Text(), want)
+		wantFailure(t, "a chooser that cannot open", f.browseFailed, i18n.T("dropdown-network-enterprise-error-browse"), "no portal")
+		if f.errLabel.Visible() {
+			t.Errorf("the chooser's failure reached the form's line %q", f.errLabel.Text())
 		}
 		return true
 	})

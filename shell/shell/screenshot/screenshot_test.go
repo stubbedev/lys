@@ -289,7 +289,7 @@ func TestHostReportsAFailedCopyInTheNotification(t *testing.T) {
 	}
 	want := Notice{
 		Summary: i18n.T("screenshot-saved"),
-		Body:    path + "\n" + i18n.T("screenshot-not-copied", i18n.Str("error", "no data-control and no input serial")),
+		Body:    path + "\n" + i18n.T("screenshot-not-copied"),
 		Icon:    path,
 	}
 	if len(*notified) != 1 || plain((*notified)[0]) != plain(want) {

@@ -49,7 +49,9 @@ bar-keybind-mode-default = Standard
 ## Night light
 bar-nightlight-on = An
 bar-nightlight-off = Aus
-bar-nightlight-no-location = Automatischer Zeitplan pausiert, kein Standort: { $reason }
+bar-nightlight-no-location = Automatischer Zeitplan pausiert, kein Standort
+bar-nightlight-unavailable = Nachtlicht ist nicht verfügbar
+bar-nightlight-refused = Der Bildschirm hat das Nachtlicht abgelehnt
 
 ## Storage
 bar-storage-multiple = Mehrere
@@ -123,10 +125,10 @@ bar-audio-capture-screen = eine App gibt den Bildschirm frei
 ## Fehler, die ein Modul auf seiner Schaltfläche zeigt
 bar-module-failed = Fehler
 bar-custom-command-timed-out = Der Befehl hat zu lange gedauert und wurde beendet
-bar-custom-command-failed = Der Befehl konnte nicht ausgeführt werden: { $error }
+bar-custom-command-failed = Der Befehl konnte nicht ausgeführt werden
 bar-world-clock-invalid-zone = Unbekannte Zeitzone „{ $zone }“
 bar-world-clock-invalid-layout = Nicht unterstütztes Zeitformat „{ $layout }“
-bar-world-clock-invalid-format = Das Format kann nicht angezeigt werden: { $error }
+bar-world-clock-invalid-format = Das Format kann nicht angezeigt werden
 
 ## Ausklappfelder
-bar-dropdown-size-not-saved = Das Ausklappfeld behält seine neue Größe, sie wurde aber nicht gespeichert: { $error }
+bar-dropdown-size-not-saved = Das Ausklappfeld behält seine neue Größe, sie wurde aber nicht gespeichert

@@ -54,11 +54,12 @@ dropdown-battery-energy-cpu = { $percent }% van een CPU
 dropdown-battery-energy-watts = { $watts }, { $percent }% van een CPU
 dropdown-battery-energy-show = Tonen
 dropdown-battery-energy-quit = Stoppen
-dropdown-battery-energy-quit-failed = Kan { $app } niet stoppen: { $error }
+dropdown-battery-energy-quit-failed = Kan { $app } niet stoppen
+dropdown-battery-energy-show-failed = Kan { $app } niet tonen
 dropdown-battery-paused = Gepauzeerd op batterij
 dropdown-battery-paused-now = Gepauzeerd tot je de stroom aansluit
-dropdown-battery-paused-failed = Kon niet pauzeren: { $error }
-dropdown-battery-paused-resume-failed = Kon niet verdergaan: { $error }
+dropdown-battery-paused-failed = Kon niet pauzeren
+dropdown-battery-paused-resume-failed = Kon niet verdergaan
 
 battery-alert-low = Accu bijna leeg
 battery-alert-critical = Accu kritiek laag

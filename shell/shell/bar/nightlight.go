@@ -79,10 +79,12 @@ func (m *nightlightModule) render() {
 	}
 	refusal, noLocation := "", ""
 	switch {
-	case m.svc.problem() != nil:
-		refusal = m.svc.problem().Error()
+	case m.svc.unavailable != nil:
+		refusal = i18n.T("bar-nightlight-unavailable")
+	case m.svc.refused != nil:
+		refusal = m.svc.refusal()
 	case m.svc.noLocation() != nil:
-		noLocation = i18n.T("bar-nightlight-no-location", i18n.Str("reason", m.svc.noLocation().Error()))
+		noLocation = i18n.T("bar-nightlight-no-location")
 	}
 	setClass(m.chrome, "nightlight-refused", refusal != "")
 	setClass(m.chrome, "nightlight-no-location", noLocation != "")

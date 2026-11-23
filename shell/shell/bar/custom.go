@@ -436,7 +436,7 @@ func (m *customModule) commandOutput(parent context.Context, command string) (cu
 		case ctx.Err() != nil:
 			return customSample{}, false
 		case !exitedWithOutput(err):
-			return m.failed(i18n.T("bar-custom-command-failed", i18n.Str("error", err.Error())), err), true
+			return m.failed(i18n.T("bar-custom-command-failed"), err), true
 		}
 	}
 	return customSample{output: strings.TrimSpace(strings.ToValidUTF8(out.String(), "�"))}, true
@@ -493,7 +493,7 @@ func (m *customModule) watchOnce(ctx context.Context, command string, sample fun
 	}
 	if err != nil {
 		if ctx.Err() == nil {
-			sample(m.failed(i18n.T("bar-custom-command-failed", i18n.Str("error", err.Error())), fmt.Errorf("start watch command: %w", err)))
+			sample(m.failed(i18n.T("bar-custom-command-failed"), fmt.Errorf("start watch command: %w", err)))
 		}
 		return nil, false
 	}

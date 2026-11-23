@@ -3,7 +3,6 @@ package bar
 import (
 	"errors"
 	"slices"
-	"strings"
 	"sync"
 	"testing"
 
@@ -196,7 +195,7 @@ func TestTreemanDropdownDetailAndActions(t *testing.T) {
 		t.Errorf("ran = %q", got)
 	}
 
-	// A failed action toasts its reason.
+	// A failed action toasts that it failed, its reason in the log.
 	src.mu.Lock()
 	src.actionErr = errors.New("busy")
 	src.mu.Unlock()
@@ -206,8 +205,8 @@ func TestTreemanDropdownDetailAndActions(t *testing.T) {
 		defer toastMu.Unlock()
 		return len(toasts) == 1
 	})
-	if !strings.HasSuffix(toasts[0], ": busy") {
-		t.Errorf("toast = %q", toasts[0])
+	if toasts[0] != i18n.T("dropdown-treeman-action-failed") {
+		t.Errorf("toast = %q, want the summary alone", toasts[0])
 	}
 
 	// The worktree going away drops back to the list.

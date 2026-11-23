@@ -2,6 +2,7 @@ package bar
 
 import (
 	"errors"
+	"log"
 
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/network"
@@ -107,5 +108,6 @@ func hiddenNetworkError(err error) string {
 	case errors.Is(err, network.ErrHiddenNameTooLong):
 		return i18n.T("dropdown-network-hidden-error-name-too-long")
 	}
-	return err.Error()
+	log.Printf("network: hidden network: %v", err)
+	return i18n.T("dropdown-network-error-generic")
 }

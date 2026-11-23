@@ -46,7 +46,7 @@ type btDropdown struct {
 	scanIcon   *widget.Icon
 	toggle     *widget.Switch
 	card       *btPairingCard
-	errLabel   *widget.Label
+	failed     *widget.Alert
 
 	mySection, availSection *widget.Box
 	myCard, availCard       *widget.Box
@@ -161,11 +161,8 @@ func newBtDropdown(ctx ModuleContext, src bluetooth.Source) *btDropdown {
 
 	// The content column, scrolled.
 	col := dropdownContent("bluetooth-content")
-	d.errLabel = widget.NewLabel(font, px, "", 0)
-	d.errLabel.AddClass("bluetooth-error", css.Error)
-	d.errLabel.SetWrap(true)
-	d.errLabel.SetVisible(false)
-	col.Append(d.errLabel, false)
+	d.failed = writeAlert(font, "bluetooth-error")
+	col.Append(d.failed, false)
 	d.card = newBtPairingCard(ctx)
 	d.card.onOutput = d.onPairingOutput
 	col.Append(d.card.root, false)
@@ -476,25 +473,16 @@ func (d *btDropdown) toggleDone(active bool, err error) {
 	if err == nil {
 		return
 	}
-	log.Printf("bluetooth: set powered %v: %v", active, err)
 	key := "dropdown-bluetooth-error-power-off"
 	if active {
 		key = "dropdown-bluetooth-error-power-on"
 	}
 	d.enabled = d.src.State().Enabled
-	d.showError(btText(key, "error", err.Error()))
+	reportWrite(d.failed, "bluetooth", btText(key), err)
 	d.render()
 }
 
-func (d *btDropdown) showError(text string) {
-	d.errLabel.SetText(text)
-	d.errLabel.SetVisible(true)
-}
-
-func (d *btDropdown) clearError() {
-	d.errLabel.SetText("")
-	d.errLabel.SetVisible(false)
-}
+func (d *btDropdown) clearError() { d.failed.SetVisible(false) }
 
 // onScan is a timed discovery, with the button held in its scanning
 // state for the scan's length, or until the discovery is refused.
@@ -520,8 +508,7 @@ func (d *btDropdown) scanStarted(gen int, err error) {
 	if err == nil || gen != d.scanGen {
 		return
 	}
-	log.Printf("bluetooth: start discovery: %v", err)
-	d.showError(btText("dropdown-bluetooth-error-scan", "error", err.Error()))
+	reportWrite(d.failed, "bluetooth", btText("dropdown-bluetooth-error-scan"), err)
 	d.finishScan(gen)
 }
 

@@ -49,7 +49,9 @@ bar-keybind-mode-default = default
 ## Night light
 bar-nightlight-on = On
 bar-nightlight-off = Off
-bar-nightlight-no-location = Auto-schedule paused, no location: { $reason }
+bar-nightlight-no-location = Auto-schedule paused, no location
+bar-nightlight-unavailable = Night light is not available
+bar-nightlight-refused = The display refused the night light
 
 ## Storage
 bar-storage-multiple = Multiple
@@ -123,10 +125,10 @@ bar-audio-capture-screen = an app shares the screen
 ## Failures a module shows on its button
 bar-module-failed = Error
 bar-custom-command-timed-out = The command took too long and was stopped
-bar-custom-command-failed = The command could not run: { $error }
+bar-custom-command-failed = The command could not run
 bar-world-clock-invalid-zone = Unknown time zone “{ $zone }”
 bar-world-clock-invalid-layout = Unsupported time layout “{ $layout }”
-bar-world-clock-invalid-format = The format cannot be shown: { $error }
+bar-world-clock-invalid-format = The format cannot be shown
 
 ## Dropdowns
-bar-dropdown-size-not-saved = The dropdown keeps its new size, but it was not saved: { $error }
+bar-dropdown-size-not-saved = The dropdown keeps its new size, but it was not saved

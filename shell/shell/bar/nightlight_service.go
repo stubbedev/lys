@@ -10,6 +10,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/geo"
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/identity"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/xdg"
@@ -101,7 +102,6 @@ type nightlightService struct {
 	location    *geo.Coordinates
 	locationErr error
 	pinned      bool
-	lookupErr   string
 
 	watchers  []nightlightWatcher
 	nextWatch int
@@ -198,11 +198,13 @@ func (s *nightlightService) notify() {
 
 func (s *nightlightService) showing() bool { return s.enabled && s.refused == nil }
 
-func (s *nightlightService) problem() error {
-	if s.unavailable != nil {
-		return s.unavailable
+// refusal is what keeps the filter off, in the shell's words: a
+// configured strength out of range, or a display that refused it.
+func (s *nightlightService) refusal() string {
+	if s.nightErr != nil && errors.Is(s.refused, s.nightErr) {
+		return i18n.T("dropdown-brightness-nightlight-invalid")
 	}
-	return s.refused
+	return i18n.T("bar-nightlight-refused")
 }
 
 var nightlightOwner serialWorker
@@ -442,7 +444,7 @@ func (s *nightlightService) refreshRefusal(refused error) {
 }
 
 func (s *nightlightService) setLocation(loc geo.Coordinates) {
-	s.lookupErr, s.locationErr = "", nil
+	s.locationErr = nil
 	if s.location != nil && *s.location == loc {
 		return
 	}
@@ -459,8 +461,7 @@ func (s *nightlightService) setLocation(loc geo.Coordinates) {
 }
 
 func (s *nightlightService) lookupFailed(err error) {
-	if text := err.Error(); text != s.lookupErr {
-		s.lookupErr = text
+	if !sameErrorText(err, s.locationErr) {
 		log.Printf("nightlight: the location lookup failed: %v", err)
 	}
 	s.locationErr = err

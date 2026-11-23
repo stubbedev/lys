@@ -275,7 +275,7 @@ func TestTheFrenchLauncherSettingsResolve(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	failed := shell.Get("launcher-failed", Str("what", "Alacritty"), Str("error", "x"))
+	failed := shell.Get("launcher-failed", Str("what", "Alacritty"))
 	if strings.Contains(failed, "de Alacritty") {
 		t.Errorf("launcher-failed does not elide before a vowel: %q", failed)
 	}

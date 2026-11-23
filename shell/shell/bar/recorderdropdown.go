@@ -219,7 +219,7 @@ type recorderView struct {
 	camReads     *refresher[[]devicechoice.DeviceChoice]
 	replayMemory *widget.Label
 	replaySave   *widget.Button
-	failure      *widget.Label
+	failure      *widget.Alert
 	reverting    bool
 }
 
@@ -290,10 +290,7 @@ func recorderDropdown(ctx ModuleContext) widget.Widget {
 	content.Append(dropdownGroup(v.sectionHeader("ld-history-symbolic", i18n.T("dropdown-recorder-section-replay")), replayCard), false)
 	v.replaySave = dropdownButton(widget.NewButtonContent(font, px, "ld-history-symbolic", i18n.T("dropdown-recorder-replay-save")), v.saveReplay, "recorder-replay-save-button")
 	content.Append(v.replaySave, false)
-	v.failure = widget.NewLabel(font, sectionLabelPx(), "", 0)
-	v.failure.AddClass("recorder-error", css.Caption, css.Error)
-	v.failure.SetWrap(true)
-	v.failure.SetVisible(false)
+	v.failure = writeAlert(font, "recorder-error")
 	content.Append(v.failure, false)
 	v.applyState(v.snapshot())
 	return v
@@ -435,11 +432,10 @@ func (v *recorderView) webcamMoved(x, y uint8) {
 // dropdown and revert puts the control back on the saved value.
 func (v *recorderView) writeConfig(path string, value any, revert func()) {
 	v.ctx.setConfig(path, value, func(err error) {
-		v.failure.SetVisible(err != nil)
+		reportWrite(v.failure, "recorder", i18n.T("recorder-setting-not-saved"), err)
 		if err == nil {
 			return
 		}
-		v.failure.SetText(err.Error())
 		v.reverting = true
 		revert()
 		v.reverting = false

@@ -271,7 +271,7 @@ func (p *Processes) Actions(e Entry) []Action {
 	signal := func(title string, sig unix.Signal) Action {
 		return confirmed(Action{Title: title, Icon: "ld-x-symbolic", Run: func(context.Context) Outcome {
 			if err := signalProcess(p.root, proc, sig); err != nil {
-				return Stay{Message: i18n.T("launcher-failed", i18n.Str("what", title), i18n.Str("error", err.Error()))}
+				return failed(title, err)
 			}
 			return Close{}
 		}})

@@ -177,7 +177,7 @@ func (c *Chooser) mountVolume(object dbus.ObjectPath, label string) {
 		return mounted{at, err}
 	}, func(m mounted) {
 		if m.err != nil {
-			c.warn("Cannot mount “" + label + "”: " + udisks.Message(m.err))
+			c.failed("Cannot mount “"+label+"”.", m.err)
 			return
 		}
 		c.clearNotice()
@@ -201,7 +201,7 @@ func (c *Chooser) ejectVolume(v udisks.Volume, label string) {
 		case errors.Is(err, udisks.ErrBusy):
 			c.warn("“" + label + "” is in use. Close the files on it, then eject it again.")
 		case err != nil:
-			c.warn("Cannot eject “" + label + "”: " + udisks.Message(err))
+			c.failed("Cannot eject “"+label+"”.", err)
 		default:
 			c.clearNotice()
 			if slices.ContainsFunc(v.MountPoints, func(mp string) bool { return underRoot(c.s.dir, mp) }) {
@@ -270,7 +270,7 @@ func (c *Chooser) closeUnlock() {
 // unlockVolume unlocks the volume asked about with the passphrase
 // typed, off the loop, then mounts it and opens it. The passphrase
 // leaves the entry at once and lives in a slice zeroed after the call;
-// a wrong one keeps the prompt open with UDisks2's answer.
+// a wrong one keeps the prompt open saying so.
 func (c *Chooser) unlockVolume() {
 	u, drives := c.ui.unlock, c.drives()
 	if drives == nil || u.entry.Text() == "" {
@@ -290,7 +290,8 @@ func (c *Chooser) unlockVolume() {
 		return unlocked{object, err}
 	}, func(r unlocked) {
 		if r.err != nil {
-			u.err.SetText(udisks.Message(r.err))
+			log.Printf("file chooser: unlock %s: %v", v.Label, r.err)
+			u.err.SetText("Cannot unlock “" + v.Label + "”. Check the passphrase and try again.")
 			u.err.SetVisible(true)
 			c.focus(u.entry)
 			return

@@ -3,4 +3,4 @@
 dropdown-background-apps-title = Aplicaciones en segundo plano
 dropdown-background-apps-empty = No hay ninguna aplicación ejecutándose en segundo plano.
 dropdown-background-apps-stop = Detener
-dropdown-background-apps-stop-failed = No se pudo detener { $app }: { $error }
+dropdown-background-apps-stop-failed = No se pudo detener { $app }

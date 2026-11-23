@@ -49,17 +49,16 @@ func noticesIn(t *testing.T, loc string) {
 	}
 
 	const path = "/shots/a.png"
-	copyErr := errors.New("no data-control")
-	saved := savedNotice(path, copyErr)
+	saved := savedNotice(path, false)
 	want := Notice{
 		Summary: catalogue.Get("screenshot-saved"),
-		Body:    path + "\n" + catalogue.Get("screenshot-not-copied", i18n.Str("error", copyErr.Error())),
+		Body:    path + "\n" + catalogue.Get("screenshot-not-copied"),
 		Icon:    path,
 	}
 	if plain(saved) != plain(want) {
 		t.Errorf("saved notice %q, want %q", plain(saved), plain(want))
 	}
-	if got := savedNotice(path, nil); plain(got) != plain(Notice{Summary: want.Summary, Body: path, Icon: path}) {
+	if got := savedNotice(path, true); plain(got) != plain(Notice{Summary: want.Summary, Body: path, Icon: path}) {
 		t.Errorf("saved notice without a copy failure %q", plain(got))
 	}
 

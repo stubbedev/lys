@@ -353,9 +353,13 @@ func TestVPNFormEditsAndDeletes(t *testing.T) {
 	vpn.writeErr = errors.New("permission denied")
 	vpn.mu.Unlock()
 	doOnLoopOf(v.ctx, f.save)
-	waitHeadless(t, "the refusal", func() bool { return v.body.Visible() == netPageEdit && f.errLabel.Visible() })
-	if f.errLabel.Text() != "permission denied" || typedEntry(t, f, "gateway").Text() != "vpn.example.com" {
-		t.Errorf("refused: %q", f.errLabel.Text())
+	waitHeadless(t, "the refusal", func() bool { return v.body.Visible() == netPageEdit && f.failed.Visible() })
+	onHeadlessLoop(func() bool {
+		wantFailure(t, "a refused save", f.failed, i18n.T("dropdown-network-vpn-error-save", i18n.Str("name", f.name.Text())), "permission denied")
+		return true
+	})
+	if f.errLabel.Visible() || typedEntry(t, f, "gateway").Text() != "vpn.example.com" {
+		t.Errorf("refused: line %q, gateway %q", f.errLabel.Text(), typedEntry(t, f, "gateway").Text())
 	}
 	vpn.mu.Lock()
 	vpn.writeErr = nil
@@ -408,13 +412,16 @@ func TestVPNFormEditsAndDeletes(t *testing.T) {
 		v.vpnCloseForm()
 		v.vpnEdit("missing")
 	})
-	waitHeadless(t, "the unreadable profile's reason", v.actionErr.Visible)
+	waitHeadless(t, "the unreadable profile's reason", v.actionFailed.Visible)
 	if v.body.Visible() != netPageBrowse {
 		t.Error("an unreadable profile opened the editor")
 	}
-	if got := onHeadlessLoop(v.actionErr.Text); !strings.HasPrefix(plain(got), "Could not read missing: ") {
-		t.Errorf("the unreadable profile says %q", got)
-	}
+	onHeadlessLoop(func() bool {
+		if plain(v.actionFailed.Title()) != "Could not read missing" || v.actionFailed.Description() == "" || strings.Contains(v.actionFailed.Title(), v.actionFailed.Description()) {
+			t.Errorf("the unreadable profile says %q / %q", v.actionFailed.Title(), v.actionFailed.Description())
+		}
+		return true
+	})
 }
 
 func TestVPNFormWireGuard(t *testing.T) {
@@ -482,18 +489,18 @@ func TestVPNFormWireGuard(t *testing.T) {
 		f.setError("")
 		f.importDone("", fmt.Errorf("open: %w", portal.ErrCancelled))
 	})
-	if f.errLabel.Visible() || f.importFailed.Visible() || f.name.Text() != "Mine" {
+	if f.errLabel.Visible() || f.failed.Visible() || f.name.Text() != "Mine" {
 		t.Error("a dismissed chooser reported a failure")
 	}
 	doOnLoopOf(v.ctx, func() { f.importDone("", errors.New("no portal")) })
-	if !f.importFailed.Visible() || f.importFailed.Title() != i18n.T("dropdown-network-vpn-import-error") || f.importFailed.Description() != "no portal" || f.name.Text() != "Mine" {
-		t.Errorf("a chooser that cannot open: alert %v %q / %q, name %q", f.importFailed.Visible(), f.importFailed.Title(), f.importFailed.Description(), f.name.Text())
+	if !f.failed.Visible() || f.failed.Title() != i18n.T("dropdown-network-vpn-import-error") || f.failed.Description() != "no portal" || f.name.Text() != "Mine" {
+		t.Errorf("a chooser that cannot open: alert %v %q / %q, name %q", f.failed.Visible(), f.failed.Title(), f.failed.Description(), f.name.Text())
 	}
-	if strings.Contains(f.importFailed.Title(), "no portal") || f.errLabel.Visible() {
-		t.Errorf("the error reaches the title %q or the form's line %q", f.importFailed.Title(), f.errLabel.Text())
+	if strings.Contains(f.failed.Title(), "no portal") || f.errLabel.Visible() {
+		t.Errorf("the error reaches the title %q or the form's line %q", f.failed.Title(), f.errLabel.Text())
 	}
 	doOnLoopOf(v.ctx, f.importFile)
-	waitHeadless(t, "the import after a failed chooser", func() bool { return !f.importFailed.Visible() })
+	waitHeadless(t, "the import after a failed chooser", func() bool { return !f.failed.Visible() })
 }
 
 // vpnRows is the VPN section's rows in order, the add row last.
@@ -533,13 +540,14 @@ func TestVPNRefusedToggleShowsWhy(t *testing.T) {
 	v, _ := newVPNTestView(t, vpn, nil)
 	doOnLoopOf(v.ctx, func() { v.apply(v.read(context.Background())) })
 	onHeadlessLoop(func() bool { v.vpnToggle("u1"); return true })
-	waitHeadless(t, "the refusal", v.actionErr.Visible)
-	if got := onHeadlessLoop(v.actionErr.Text); plain(got) != "Could not switch Work: no secrets" {
-		t.Errorf("a refused toggle says %q", got)
-	}
+	waitHeadless(t, "the refusal", v.actionFailed.Visible)
+	onHeadlessLoop(func() bool {
+		wantFailure(t, "a refused toggle", v.actionFailed, i18n.T("dropdown-network-vpn-error-toggle", i18n.Str("name", "Work")), "no secrets")
+		return true
+	})
 	vpn.mu.Lock()
 	vpn.toggErr = nil
 	vpn.mu.Unlock()
 	onHeadlessLoop(func() bool { v.vpnToggle("u1"); return true })
-	waitHeadless(t, "the second toggle", func() bool { _, _, _, tg := vpn.writes(); return len(tg) == 2 && !v.actionErr.Visible() })
+	waitHeadless(t, "the second toggle", func() bool { _, _, _, tg := vpn.writes(); return len(tg) == 2 && !v.actionFailed.Visible() })
 }

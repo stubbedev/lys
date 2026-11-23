@@ -97,8 +97,8 @@ type captureSection struct {
 }
 
 type cameraPrompt struct {
-	pid     int
-	failure error
+	pid    int
+	failed bool
 }
 
 func newCaptureSection(ctx ModuleContext, font render.Font, px float64, refresh func()) *captureSection {
@@ -149,9 +149,7 @@ func (c *captureSection) render() {
 		session, app := sh.Session, shareApp(sh)
 		row := c.row(app, shareTargets(sh), cfg.CaptureScreenIcon)
 		row.AddAction(c.shareStops.button(c.font, c.px, i18n.T("dropdown-screen-share-stop"), session, "audio-capture-action",
-			func(err error) string {
-				return i18n.T("dropdown-screen-share-stop-failed", i18n.Str("app", app), i18n.Str("error", err.Error()))
-			},
+			i18n.T("dropdown-screen-share-stop-failed", i18n.Str("app", app)),
 			func(ctx context.Context) error { return c.ctx.ScreenShares.Stop(ctx, session) }))
 		c.list.Append(row)
 	}
@@ -168,8 +166,8 @@ func (c *captureSection) cameraRow(cam privacy.CameraUser, icon string) *widget.
 		row.AddAction(c.button(i18n.T("dropdown-privacy-end"), ask, "audio-capture-action", css.DestructiveAction))
 		return row
 	}
-	if err := c.prompt.failure; err != nil {
-		row := c.row(cam.Name, i18n.T("dropdown-privacy-end-failed", i18n.Str("app", cam.Name), i18n.Str("error", err.Error())), icon)
+	if c.prompt.failed {
+		row := c.row(cam.Name, i18n.T("dropdown-privacy-end-failed", i18n.Str("app", cam.Name)), icon)
 		row.AddClass("audio-capture-failed", css.Error)
 		row.AddAction(c.button(i18n.T("dropdown-privacy-end"), ask, "audio-capture-action", css.DestructiveAction))
 		return row
@@ -184,7 +182,7 @@ func (c *captureSection) cameraRow(cam privacy.CameraUser, icon string) *widget.
 		c.prompt = nil
 		if err := c.signal(pid, syscall.SIGTERM); err != nil {
 			log.Printf("audio: end %s (pid %d): %v", cam.Name, pid, err)
-			c.prompt = &cameraPrompt{pid: pid, failure: err}
+			c.prompt = &cameraPrompt{pid: pid, failed: true}
 		}
 		c.render()
 	}, "audio-capture-confirm", css.DestructiveAction))

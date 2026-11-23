@@ -184,7 +184,8 @@ func (s *State) SaveReplay() (string, error) {
 		return "", fmt.Errorf("recorder: the output directory: %w", err)
 	}
 	if err := rep.Save(path, cfg.OutputFormat); err != nil {
-		s.showError(fmt.Sprintf("%s: %v", i18n.T("recorder-toast-replay-failed"), err))
+		log.Printf("recorder: save the instant replay to %s: %v", path, err)
+		s.showError(i18n.T("recorder-toast-replay-failed"))
 		return "", err
 	}
 	s.toast(i18n.T("recorder-toast-replay-saved"), replayIcon, stopToastMS)
@@ -216,7 +217,7 @@ func (s *State) replayFailed(gen uint64, reason string) {
 	s.mu.Unlock()
 	log.Printf("recorder: failed to arm the instant replay: %s", reason)
 	s.notify()
-	s.showError(fmt.Sprintf("%s: %s", i18n.T("recorder-toast-replay-failed"), reason))
+	s.showError(i18n.T("recorder-toast-replay-failed"))
 }
 
 // replayEnded tears down an armed replay whose capture died on its own.
@@ -232,5 +233,5 @@ func (s *State) replayEnded(gen uint64, reason string) {
 	log.Printf("recorder: the instant replay ended unexpectedly: %s", reason)
 	s.notify()
 	teardown.run()
-	s.showError(fmt.Sprintf("%s: %s", i18n.T("recorder-toast-replay-failed"), reason))
+	s.showError(i18n.T("recorder-toast-replay-failed"))
 }

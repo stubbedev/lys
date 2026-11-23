@@ -63,7 +63,7 @@ type networkView struct {
 	scanBtn      *widget.Button
 	wifiSwitch   *widget.Switch
 	syncing      bool
-	actionErr    *widget.Label
+	actionFailed *widget.Alert
 	active       *netActive
 	secret       *netSecretForm
 	saveOffer    *netSaveOffer
@@ -195,9 +195,8 @@ func newNetworkView(ctx ModuleContext, deps netDeps) *networkView {
 	// The content wraps the active connections, the secret form, and
 	// the body stack.
 	content := dropdownContent("network-content")
-	v.actionErr = v.errorLabel()
-	v.actionErr.AddClass("network-action-error")
-	content.Append(v.actionErr, false)
+	v.actionFailed = writeAlert(v.font, "network-action-error")
+	content.Append(v.actionFailed, false)
 	content.Append(v.active, false)
 	content.Append(v.secret, false)
 	content.Append(v.saveOffer, false)
@@ -489,7 +488,7 @@ func (v *networkView) connectDone(err error) {
 		v.fail(connectFailureMessage(ce.Failure))
 	default:
 		log.Printf("network: connect: %v", err)
-		v.fail(err.Error())
+		v.fail(i18n.T("dropdown-network-error-generic"))
 	}
 	v.active.apply(v.cur.snap, v.progress)
 	v.rebuildList()
@@ -575,33 +574,22 @@ func (v *networkView) forgetThen(ssid string, then func()) {
 	if w == nil {
 		return
 	}
-	v.act(func(ctx context.Context) error { return w.Forget(ctx, ssid) }, func(err error) string {
-		return i18n.T("dropdown-network-error-forget", i18n.Str("name", ssid), i18n.Str("error", err.Error()))
-	}, then)
+	v.act(func(ctx context.Context) error { return w.Forget(ctx, ssid) }, i18n.T("dropdown-network-error-forget", i18n.Str("name", ssid)), then)
 }
 
 // act runs write off the loop under the module's write bound, then
-// re-reads: a failure shows over the list as failed words it, a write
-// that goes through runs then on the loop (nil for nothing).
-func (v *networkView) act(write func(context.Context) error, failed func(error) string, then func()) {
-	v.showActionError("")
+// re-reads: a failure shows over the list under failed with the error
+// as its description, a write that goes through runs then on the loop
+// (nil for nothing).
+func (v *networkView) act(write func(context.Context) error, failed string, then func()) {
+	v.actionFailed.SetVisible(false)
 	serviceWrite(v.ctx, write, func(err error) {
 		defer v.refresh()
-		if err != nil {
-			message := failed(err)
-			log.Printf("network: %s", message)
-			v.showActionError(message)
-			return
-		}
-		if then != nil {
+		reportWrite(v.actionFailed, "network", failed, err)
+		if err == nil && then != nil {
 			then()
 		}
 	})
-}
-
-func (v *networkView) showActionError(text string) {
-	v.actionErr.SetText(text)
-	v.actionErr.SetVisible(text != "")
 }
 
 // refresh re-reads off the loop and applies, through the view's reader.
@@ -620,9 +608,7 @@ func (v *networkView) wifiToggled(on bool) {
 	if on {
 		id = "dropdown-network-error-wifi-on"
 	}
-	v.act(func(ctx context.Context) error { return w.SetEnabled(ctx, on) }, func(err error) string {
-		return i18n.T(id, i18n.Str("error", err.Error()))
-	}, nil)
+	v.act(func(ctx context.Context) error { return w.SetEnabled(ctx, on) }, i18n.T(id), nil)
 }
 
 // follow re-reads on NetworkManager, saved-profile, and agent changes
@@ -855,9 +841,7 @@ func (a *netActive) disconnect() {
 		return
 	}
 	ssid := a.ssid
-	a.v.act(w.Disconnect, func(err error) string {
-		return i18n.T("dropdown-network-error-disconnect", i18n.Str("name", ssid), i18n.Str("error", err.Error()))
-	}, nil)
+	a.v.act(w.Disconnect, i18n.T("dropdown-network-error-disconnect", i18n.Str("name", ssid)), nil)
 }
 
 // forget is the saved profiles go, then the link.

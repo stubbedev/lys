@@ -172,7 +172,7 @@ dropdown-network-save-not-now = Ahora no
 ## Olvidar una red
 dropdown-network-forget-confirm = ¿Olvidar { $name }?
 dropdown-network-forget-confirm-detail = Se eliminarán su contraseña y su configuración guardadas. Para volver a conectarse se pedirá la contraseña.
-dropdown-network-error-forget = No se ha podido olvidar { $name }: { $error }
+dropdown-network-error-forget = No se ha podido olvidar { $name }
 
 ## Redes ocultas
 dropdown-network-hidden-join = Conectarse a una red oculta
@@ -184,12 +184,14 @@ dropdown-network-hidden-error-name-empty = Introduzca el nombre de la red
 dropdown-network-hidden-error-name-too-long = Ese nombre es demasiado largo para una red
 dropdown-network-hidden-error-password = Introduzca la contraseña de la red
 dropdown-network-scan = Buscar redes
-dropdown-network-error-wifi-on = No se ha podido activar el Wi-Fi: { $error }
-dropdown-network-error-wifi-off = No se ha podido desactivar el Wi-Fi: { $error }
-dropdown-network-error-disconnect = No se ha podido desconectar de { $name }: { $error }
+dropdown-network-error-wifi-on = No se ha podido activar el Wi-Fi
+dropdown-network-error-wifi-off = No se ha podido desactivar el Wi-Fi
+dropdown-network-error-disconnect = No se ha podido desconectar de { $name }
 dropdown-network-vpn-import-error = No se ha podido abrir un archivo
-dropdown-network-vpn-error-toggle = No se ha podido cambiar { $name }: { $error }
-dropdown-network-vpn-error-read = No se ha podido leer { $name }: { $error }
+dropdown-network-vpn-error-toggle = No se ha podido cambiar { $name }
+dropdown-network-vpn-error-read = No se ha podido leer { $name }
+dropdown-network-vpn-error-save = No se ha podido guardar { $name }
+dropdown-network-vpn-error-delete = No se ha podido eliminar { $name }
 
 ## Inicio de sesión empresarial
 
@@ -214,4 +216,4 @@ dropdown-network-enterprise-error-path = Las rutas de certificados y claves debe
 dropdown-network-enterprise-error-client-cert = TLS necesita su certificado de usuario
 dropdown-network-enterprise-error-private-key = TLS necesita su clave privada
 dropdown-network-enterprise-error-auth = Inicio de sesión rechazado. Compruebe su identidad, contraseña y certificados
-dropdown-network-enterprise-error-browse = No se ha podido abrir el selector de archivos: { $error }
+dropdown-network-enterprise-error-browse = No se ha podido abrir el selector de archivos

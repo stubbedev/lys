@@ -50,7 +50,9 @@ bar-keybind-mode-default = predefinita
 ## Night light
 bar-nightlight-on = Attiva
 bar-nightlight-off = Disattiva
-bar-nightlight-no-location = Pianificazione automatica in pausa, nessuna posizione: { $reason }
+bar-nightlight-no-location = Pianificazione automatica in pausa, nessuna posizione
+bar-nightlight-unavailable = La luce notturna non è disponibile
+bar-nightlight-refused = Lo schermo ha rifiutato la luce notturna
 
 ## Storage
 bar-storage-multiple = Multipli
@@ -124,10 +126,10 @@ bar-audio-capture-screen = un'app condivide lo schermo
 ## Errori che un modulo mostra sul suo pulsante
 bar-module-failed = Errore
 bar-custom-command-timed-out = Il comando ha impiegato troppo tempo ed è stato interrotto
-bar-custom-command-failed = Impossibile eseguire il comando: { $error }
+bar-custom-command-failed = Impossibile eseguire il comando
 bar-world-clock-invalid-zone = Fuso orario sconosciuto «{ $zone }»
 bar-world-clock-invalid-layout = Formato dell’ora non supportato «{ $layout }»
-bar-world-clock-invalid-format = Impossibile mostrare il formato: { $error }
+bar-world-clock-invalid-format = Impossibile mostrare il formato
 
 ## Menu a discesa
-bar-dropdown-size-not-saved = Il menu mantiene la nuova dimensione, ma non è stata salvata: { $error }
+bar-dropdown-size-not-saved = Il menu mantiene la nuova dimensione, ma non è stata salvata

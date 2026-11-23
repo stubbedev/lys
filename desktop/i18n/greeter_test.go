@@ -28,7 +28,7 @@ func TestGreeterDomain(t *testing.T) {
 	if got := l.Get("greeter-caps-lock"); got != "Caps Lock is on" {
 		t.Errorf("fallback caps lock = %q", got)
 	}
-	if got := l.Get("greeter-greetd-unavailable", Str("error", "no socket")); got != "greetd unavailable: \u2068no socket\u2069" {
+	if got := l.Get("greeter-greetd-unavailable"); got != "greetd unavailable" {
 		t.Errorf("unavailable = %q", got)
 	}
 	if got := l.Get("greeter-login-incorrect"); got != "Incorrect username or password" {

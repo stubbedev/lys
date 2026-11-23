@@ -298,7 +298,7 @@ func (v *treemanView) run(action treeman.Action, path string) {
 	}
 	v.ctx.Go(func() {
 		if err := src.RunAction(context.Background(), action, path); err != nil {
-			toastFailure(v.ctx.Toast, "treeman", i18n.T("dropdown-treeman-action-failed")+": "+err.Error())
+			toastFailure(v.ctx.Toast, "treeman", i18n.T("dropdown-treeman-action-failed"), err)
 		}
 	})
 }

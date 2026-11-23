@@ -106,7 +106,7 @@ func (s *SSH) Activate(ctx context.Context, target launcher.Target, kind launche
 		return launcher.ActionNothing{}
 	}
 	if err := s.connect(strings.TrimSpace(host)); err != nil {
-		return failed(s.Load(ctx), err)
+		return failed(s.Load(ctx), RanFailed(strings.TrimSpace(host), err), err)
 	}
 	return launcher.ActionClose{}
 }

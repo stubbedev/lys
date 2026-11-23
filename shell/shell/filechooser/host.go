@@ -2,8 +2,6 @@ package filechooser
 
 import (
 	"context"
-	"errors"
-	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
@@ -381,6 +379,9 @@ func (c *Chooser) requestListing(dir string) {
 		c.d.Invoke(func() {
 			if c.s != s || !s.setListing(dir, l) {
 				return
+			}
+			if l.err != nil {
+				log.Printf("file chooser: read %s: %v", dir, l.err)
 			}
 			if c.reloading {
 				c.reloading = false
@@ -1403,7 +1404,7 @@ func (c *Chooser) relist() {
 	case c.s.loading:
 		empty = "Loading…"
 	case c.s.listErr != nil && !c.s.searching():
-		empty = "Cannot read this folder: " + errorText(c.s.listErr)
+		empty = "Cannot read this folder."
 	}
 	u.empty.SetText(empty)
 	u.empty.SetVisible(len(c.s.entries) == 0)
@@ -1565,20 +1566,12 @@ func (c *Chooser) createFolder() {
 	}
 	path := filepath.Join(c.s.dir, name)
 	if err := os.Mkdir(path, 0o755); err != nil { //nolint:gosec // a folder the user creates, as any file manager does
-		c.warn("Cannot create “" + name + "”: " + errorText(err))
+		c.failed("Cannot create “"+name+"”.", err)
 		return
 	}
 	c.ui.newFolder.SetVisible(false)
 	c.clearNotice()
 	c.goTo(path)
-}
-
-// errorText is an error's last, human part (the path is shown apart).
-func errorText(err error) string {
-	if pe, ok := errors.AsType[*fs.PathError](err); ok {
-		return pe.Err.Error()
-	}
-	return err.Error()
 }
 
 // afterNavigate empties the search box (the session already dropped
@@ -1784,6 +1777,14 @@ func checkSave(path, dir string) saveCheck {
 		return saveCheck{notWritable: true}
 	}
 	return saveCheck{exists: err == nil}
+}
+
+// failed shows summary, what failed in the dialog's words, in the
+// notice; the notice is one line with no room for a detail, so err goes
+// to the log.
+func (c *Chooser) failed(summary string, err error) {
+	log.Printf("file chooser: %s %v", summary, err)
+	c.warn(summary)
 }
 
 // warn shows a warning in the notice.

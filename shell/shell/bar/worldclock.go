@@ -33,7 +33,7 @@ func newWorldClock(ctx ModuleContext) (Module, error) {
 	m := &worldClockModule{}
 	m.btn = newBarButton(ctx, barview.Icon(cfg.Icon()), "")
 	template := barview.NewWorldClock(cfg.Format, shellClockNames(), time.LoadLocation)
-	var lastErr string
+	var lastErr error
 	spec := samplerSpec[worldClockShown]{
 		key:   configKey("world-clock", ctx.Config),
 		pause: pauseLocked,
@@ -51,13 +51,13 @@ func newWorldClock(ctx ModuleContext) (Module, error) {
 		sample: func() (worldClockShown, bool) {
 			text, err := template.Render(ctx.Clock.Now())
 			if err == nil {
-				lastErr = ""
+				lastErr = nil
 				return worldClockShown{text: text}, true
 			}
-			if err.Error() != lastErr {
-				lastErr = err.Error()
+			if !sameErrorText(err, lastErr) {
 				log.Printf("world-clock: %v", err)
 			}
+			lastErr = err
 			return worldClockShown{failure: barview.WorldClockFailure(err)}, true
 		},
 		same: func(a, b worldClockShown) bool { return a == b },

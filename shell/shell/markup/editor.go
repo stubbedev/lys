@@ -1,7 +1,6 @@
 package markup
 
 import (
-	"fmt"
 	"image"
 	"log"
 	"path/filepath"
@@ -137,8 +136,8 @@ func (e *Editor) SetTool(t Tool) {
 }
 
 // Save flattens the marks into the image, writes it over the capture and
-// closes the editor once written; a failed write keeps it open with the
-// error shown.
+// closes the editor once written; a failed write keeps it open saying
+// so.
 func (e *Editor) Save() { e.write(e.d.Save, e.path) }
 
 // SaveAs asks where to save a copy and writes it there as Save does.
@@ -151,7 +150,7 @@ func (e *Editor) SaveAs() {
 		OnSave:    func(path string) { e.write(e.d.SaveAs, path) },
 	})
 	if err != nil {
-		e.fail(fmt.Errorf("save as: %w", err))
+		e.fail(i18n.T("screenshot-editor-save-as-failed"), err)
 	}
 }
 
@@ -172,16 +171,18 @@ func (e *Editor) write(w Writer, path string) {
 			return
 		}
 		if err != nil {
-			e.fail(err)
+			e.fail(i18n.T("screenshot-editor-not-saved"), err)
 			return
 		}
 		e.Close()
 	})
 }
 
-func (e *Editor) fail(err error) {
-	log.Printf("markup: %v", err)
-	e.status.SetText(err.Error())
+// fail says summary, what failed in the shell's words, on the status
+// line, which has no room for a detail: err goes to the log.
+func (e *Editor) fail(summary string, err error) {
+	log.Printf("markup: %s: %v", summary, err)
+	e.status.SetText(summary)
 }
 
 // Undo takes the newest mark back.

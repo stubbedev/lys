@@ -64,11 +64,12 @@ dropdown-battery-energy-cpu = { $percent }% of a CPU
 dropdown-battery-energy-watts = { $watts }, { $percent }% of a CPU
 dropdown-battery-energy-show = Show
 dropdown-battery-energy-quit = Quit
-dropdown-battery-energy-quit-failed = Could not quit { $app }: { $error }
+dropdown-battery-energy-quit-failed = Could not quit { $app }
+dropdown-battery-energy-show-failed = Could not show { $app }
 dropdown-battery-paused = Paused on Battery
 dropdown-battery-paused-now = Paused until you plug in
-dropdown-battery-paused-failed = Could not pause: { $error }
-dropdown-battery-paused-resume-failed = Could not resume: { $error }
+dropdown-battery-paused-failed = Could not pause
+dropdown-battery-paused-resume-failed = Could not resume
 
 ## Alerts
 battery-alert-low = Battery low

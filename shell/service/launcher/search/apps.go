@@ -2,6 +2,7 @@ package search
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/stubbedev/lys/desktop/desktopentry"
@@ -96,7 +97,7 @@ func (a *Apps) launch(app *desktopentry.App, terminal bool) Outcome {
 	}
 	argv, ok := shlex.Split(app.Exec())
 	if !ok {
-		return Stay{Message: i18n.T("launcher-failed", i18n.Str("what", app.DisplayName()), i18n.Str("error", "unparseable Exec line"))}
+		return failed(app.DisplayName(), fmt.Errorf("unparseable Exec line %q", app.Exec()))
 	}
 	kept := argv[:0]
 	for _, tok := range argv {

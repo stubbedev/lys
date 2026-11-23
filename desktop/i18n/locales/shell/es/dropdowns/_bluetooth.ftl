@@ -156,9 +156,9 @@ dropdown-bluetooth-pairing-common-pins = PIN habituales: 0000, 1234, 1111
 dropdown-bluetooth-pairing-failed = El emparejamiento ha fallado. Puede que el PIN sea incorrecto o que la solicitud haya caducado.
 
 ## Errores
-dropdown-bluetooth-error-power-on = No se ha podido activar el Bluetooth: { $error }
-dropdown-bluetooth-error-power-off = No se ha podido desactivar el Bluetooth: { $error }
-dropdown-bluetooth-error-scan = No se han podido buscar dispositivos: { $error }
+dropdown-bluetooth-error-power-on = No se ha podido activar el Bluetooth
+dropdown-bluetooth-error-power-off = No se ha podido desactivar el Bluetooth
+dropdown-bluetooth-error-scan = No se han podido buscar dispositivos
 
 ## Olvidar un dispositivo
 dropdown-bluetooth-forget-confirm = ¿Olvidar { $name }?

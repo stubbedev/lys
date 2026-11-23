@@ -525,7 +525,7 @@ func TestTheDockToastsALaunchThatFailsAndAnAppWithoutAnEntry(t *testing.T) {
 	}
 	r.launchErr = errors.New("exec: firefox: not found")
 	r.d.entries["firefox"].ClickAt(widget.Point{})
-	failed := i18n.T("dock-launch-failed", i18n.Str("app", "Firefox"), i18n.Str("error", "exec: firefox: not found"))
+	failed := i18n.T("dock-launch-failed", i18n.Str("app", "Firefox"))
 	if got := shown.list(); !slices.Equal(got, []string{failed}) {
 		t.Errorf("toasts %q, want %q", got, failed)
 	}
@@ -561,8 +561,8 @@ func TestTheDockToastsAPinThatIsNotSavedEvenWhenItRemountedTheDock(t *testing.T)
 	menuLabel(r.d.menuItems(r.d.entries["foot"].app), i18n.T("dock-pin")).OnClick()
 	menuLabel(r.d.menuItems(r.d.entries["firefox"].app), i18n.T("dock-unpin")).OnClick()
 	want := []string{
-		i18n.T("dock-pin-failed", i18n.Str("app", "foot"), i18n.Str("error", "config: save: read-only file system")),
-		i18n.T("dock-unpin-failed", i18n.Str("app", "firefox"), i18n.Str("error", "config: save: read-only file system")),
+		i18n.T("dock-pin-failed", i18n.Str("app", "foot")),
+		i18n.T("dock-unpin-failed", i18n.Str("app", "firefox")),
 	}
 	if got := shown.list(); !slices.Equal(got, want) {
 		t.Errorf("toasts %q, want %q", got, want)

@@ -114,7 +114,7 @@ func TestDeletingAScreenshotFromItsThumbnailToastsAFailure(t *testing.T) {
 	gone := filepath.Join(dir, "gone.png")
 	u.discard(shotthumb.Shot{Path: gone})
 	waitHeadless(t, "the failed delete toasted", func() bool { return len(shown.list()) == 1 })
-	want := i18n.T("screenshot-delete-failed", i18n.Str("error", screenshot.Saved{Path: gone}.Discard().Error()))
+	want := i18n.T("screenshot-delete-failed")
 	if got := shown.list(); got[0] != want {
 		t.Errorf("toasted %q, want %q", got[0], want)
 	}
@@ -136,8 +136,8 @@ func TestCopyingAnEditedScreenshotToastsAFailure(t *testing.T) {
 	u.copyEdited(transfer.Content{}, nil)
 	u.copyEdited(transfer.Content{}, errors.New("png: invalid format"))
 	want := []string{
-		i18n.T("screenshot-copy-edited-failed", i18n.Str("error", "no clipboard owner")),
-		i18n.T("screenshot-copy-edited-failed", i18n.Str("error", "png: invalid format")),
+		i18n.T("screenshot-copy-edited-failed"),
+		i18n.T("screenshot-copy-edited-failed"),
 	}
 	if got := shown.list(); copies != 2 || !slices.Equal(got, want) {
 		t.Errorf("%d copies, toasts %q; want two copies, the image that did not encode not offered, and %q", copies, got, want)

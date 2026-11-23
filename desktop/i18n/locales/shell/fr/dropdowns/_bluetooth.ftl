@@ -166,9 +166,9 @@ dropdown-bluetooth-pairing-common-pins = NIP courants : 0000, 1234, 1111
 dropdown-bluetooth-pairing-failed = Échec du jumelage. Le NIP est peut-être incorrect ou la demande a expiré.
 
 ## Erreurs
-dropdown-bluetooth-error-power-on = Impossible d'activer le Bluetooth : { $error }
-dropdown-bluetooth-error-power-off = Impossible de désactiver le Bluetooth : { $error }
-dropdown-bluetooth-error-scan = Impossible de rechercher des appareils : { $error }
+dropdown-bluetooth-error-power-on = Impossible d'activer le Bluetooth
+dropdown-bluetooth-error-power-off = Impossible de désactiver le Bluetooth
+dropdown-bluetooth-error-scan = Impossible de rechercher des appareils
 
 ## Oublier un appareil
 dropdown-bluetooth-forget-confirm = Oublier { $name } ?

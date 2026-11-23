@@ -172,7 +172,7 @@ dropdown-network-save-not-now = Non ora
 ## Dimenticare una rete
 dropdown-network-forget-confirm = Dimenticare { $name }?
 dropdown-network-forget-confirm-detail = La password e le impostazioni salvate verranno eliminate. Per riconnettersi verrà chiesta la password.
-dropdown-network-error-forget = Impossibile dimenticare { $name }: { $error }
+dropdown-network-error-forget = Impossibile dimenticare { $name }
 
 ## Reti nascoste
 dropdown-network-hidden-join = Connetti a una rete nascosta
@@ -184,12 +184,14 @@ dropdown-network-hidden-error-name-empty = Inserisci il nome della rete
 dropdown-network-hidden-error-name-too-long = Questo nome è troppo lungo per una rete
 dropdown-network-hidden-error-password = Inserisci la password della rete
 dropdown-network-scan = Cerca reti
-dropdown-network-error-wifi-on = Impossibile attivare il Wi-Fi: { $error }
-dropdown-network-error-wifi-off = Impossibile disattivare il Wi-Fi: { $error }
-dropdown-network-error-disconnect = Impossibile disconnettersi da { $name }: { $error }
+dropdown-network-error-wifi-on = Impossibile attivare il Wi-Fi
+dropdown-network-error-wifi-off = Impossibile disattivare il Wi-Fi
+dropdown-network-error-disconnect = Impossibile disconnettersi da { $name }
 dropdown-network-vpn-import-error = Impossibile aprire un file
-dropdown-network-vpn-error-toggle = Impossibile commutare { $name }: { $error }
-dropdown-network-vpn-error-read = Impossibile leggere { $name }: { $error }
+dropdown-network-vpn-error-toggle = Impossibile commutare { $name }
+dropdown-network-vpn-error-read = Impossibile leggere { $name }
+dropdown-network-vpn-error-save = Impossibile salvare { $name }
+dropdown-network-vpn-error-delete = Impossibile eliminare { $name }
 
 ## Accesso aziendale
 
@@ -214,4 +216,4 @@ dropdown-network-enterprise-error-path = I percorsi di certificati e chiavi devo
 dropdown-network-enterprise-error-client-cert = TLS richiede il tuo certificato utente
 dropdown-network-enterprise-error-private-key = TLS richiede la tua chiave privata
 dropdown-network-enterprise-error-auth = Accesso rifiutato. Controlla identità, password e certificati
-dropdown-network-enterprise-error-browse = Impossibile aprire il selettore di file: { $error }
+dropdown-network-enterprise-error-browse = Impossibile aprire il selettore di file

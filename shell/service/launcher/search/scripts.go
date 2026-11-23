@@ -220,11 +220,10 @@ func (s *Scripts) run(ctx context.Context, sc Script, args []string) Outcome {
 		cmd := exec.CommandContext(ctx, argv[0], argv[1:]...) //nolint:gosec // the user's own script
 		cmd.Stdout, cmd.Stderr = &out, &errOut
 		if err := cmd.Run(); err != nil {
-			detail := strings.TrimSpace(errOut.String())
-			if detail == "" {
-				detail = err.Error()
+			if stderr := strings.TrimSpace(errOut.String()); stderr != "" {
+				err = fmt.Errorf("%w: %s", err, stderr)
 			}
-			return Stay{Message: i18n.T("launcher-failed", i18n.Str("what", sc.Title), i18n.Str("error", detail))}
+			return failed(sc.Title, err)
 		}
 		return Copy{Text: strings.TrimRight(out.String(), "\n")}
 	}
