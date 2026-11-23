@@ -386,15 +386,14 @@ var factories = map[string]Factory{
 // Create builds the module named by a layout entry. Custom modules
 // (custom-*) resolve through the [modules.custom] definitions; a name
 // outside both is an error, logged by the caller while the rest of the
-// bar builds; a schema module without one (updates) is "not
-// implemented".
+// bar builds.
 func Create(name string, ctx ModuleContext) (Module, error) {
 	if def, ok := barview.CustomDefinition(name, ctx.Config); ok {
 		return newCustomByID(ctx, def.Id)
 	}
 	factory, ok := factories[name]
 	if !ok {
-		return nil, fmt.Errorf("bar: module %q not implemented", name)
+		return nil, fmt.Errorf("bar: unknown module %q", name)
 	}
 	return factory(ctx)
 }

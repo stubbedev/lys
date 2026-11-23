@@ -20,12 +20,6 @@ func iconsShown(w widget.Widget) []string {
 func TestEveryModuleWithAPageShowsItsIconInTheLayout(t *testing.T) {
 	for _, m := range config.BuiltinModules {
 		icon, ok := moduleIcon(m)
-		if slices.Contains(pagelessModules, m) {
-			if ok {
-				t.Errorf("%s has no page but shows the icon %s", m, icon)
-			}
-			continue
-		}
 		if !ok || icon == "" {
 			t.Errorf("%s shows no icon", m)
 		}
@@ -45,11 +39,7 @@ func TestLayoutChipsAndThePickerShowEachModulesIcon(t *testing.T) {
 		}
 	}
 	p := c.pickModule(nil, func(config.BarModule) {})
-	at := slices.Index(p.all, string(config.ModuleUpdates))
-	if got := iconsShown(p.rows.ChildAt(at)); len(got) != 0 {
-		t.Errorf("updates, which has no page, shows icons %v in the picker", got)
-	}
-	at = slices.Index(p.all, string(config.ModuleClock))
+	at := slices.Index(p.all, string(config.ModuleClock))
 	if got := iconsShown(p.rows.ChildAt(at)); !slices.Equal(got, []string{"ld-clock-symbolic"}) {
 		t.Errorf("the clock's picker row shows %v", got)
 	}

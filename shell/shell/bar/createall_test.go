@@ -2,7 +2,6 @@ package bar
 
 import (
 	"errors"
-	"strings"
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/config"
@@ -50,16 +49,17 @@ func TestAppendItemsSkipsUnknownModule(t *testing.T) {
 	}
 }
 
-// updates is in the schema without a module: its slot is skipped as
-// "not implemented" and the rest of the section builds.
-func TestUnimplementedSchemaModuleIsSkipped(t *testing.T) {
-	ctx := newTestContext(t, config.Defaults())
-	if _, err := createOnHeadlessLoop("updates", ctx); err == nil || !strings.Contains(err.Error(), "not implemented") {
-		t.Fatalf("updates: %v, want a not-implemented error", err)
+// Every module the config accepts has a factory, so no layout entry
+// the config takes is dropped as unknown.
+func TestEveryBuiltinModuleHasAFactory(t *testing.T) {
+	for _, m := range config.BuiltinModules {
+		if _, ok := factories[string(m)]; !ok {
+			t.Errorf("%s is accepted by the config but has no factory", m)
+		}
 	}
-	items := itemsZone([]config.BarItem{{Module: "updates"}, {Module: "clock"}}, ctx).Children()
-	if len(items[0].(*widget.Box).Children()) != 0 || len(items[1].(*widget.Box).Children()) != 1 {
-		t.Error("want the updates item empty and the clock built")
+	ctx := newTestContext(t, config.Defaults())
+	if _, err := createOnHeadlessLoop("updates", ctx); err == nil || err.Error() != `bar: unknown module "updates"` {
+		t.Errorf("updates: %v, want the unknown-module error", err)
 	}
 }
 

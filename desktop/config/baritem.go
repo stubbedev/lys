@@ -204,7 +204,6 @@ const (
 	ModuleStorage          BarModule = "storage"
 	ModuleSystray          BarModule = "systray"
 	ModuleTreeman          BarModule = "treeman"
-	ModuleUpdates          BarModule = "updates"
 	ModuleWeather          BarModule = "weather"
 	ModuleWindowTitle      BarModule = "window-title"
 	ModuleWorkspaces       BarModule = "workspaces"
@@ -220,7 +219,7 @@ var BuiltinModules = []BarModule{
 	ModuleNetwork, ModuleNightlight, ModuleNotifications, ModulePower,
 	ModulePowerProfiles, ModuleRAM, ModuleRecorder, ModuleScreenshot,
 	ModuleSeparator, ModuleStorage, ModuleSystray,
-	ModuleTreeman, ModuleUpdates, ModuleWeather,
+	ModuleTreeman, ModuleWeather,
 	ModuleWindowTitle, ModuleWorkspaces, ModuleWorldClock,
 }
 

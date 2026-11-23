@@ -271,7 +271,7 @@ bar:
 
 Bar module name. Built-in modules or custom modules with a `custom-<id>` pattern.
 
-One of: `"audio"`, `"background-apps"`, `"battery"`, `"bitwarden"`, `"bluetooth"`, `"brightness"`, `"cava"`, `"clock"`, `"cpu"`, `"dashboard"`, `"idle-inhibit"`, `"keybind-mode"`, `"keyboard-input"`, `"mail"`, `"media"`, `"minimized-windows"`, `"netstat"`, `"network"`, `"nightlight"`, `"notifications"`, `"power"`, `"power-profiles"`, `"ram"`, `"recorder"`, `"screenshot"`, `"separator"`, `"storage"`, `"systray"`, `"treeman"`, `"updates"`, `"weather"`, `"window-title"`, `"workspaces"`, `"world-clock"`.
+One of: `"audio"`, `"background-apps"`, `"battery"`, `"bitwarden"`, `"bluetooth"`, `"brightness"`, `"cava"`, `"clock"`, `"cpu"`, `"dashboard"`, `"idle-inhibit"`, `"keybind-mode"`, `"keyboard-input"`, `"mail"`, `"media"`, `"minimized-windows"`, `"netstat"`, `"network"`, `"nightlight"`, `"notifications"`, `"power"`, `"power-profiles"`, `"ram"`, `"recorder"`, `"screenshot"`, `"separator"`, `"storage"`, `"systray"`, `"treeman"`, `"weather"`, `"window-title"`, `"workspaces"`, `"world-clock"`.
 
 String matching `^custom-[a-z0-9-]+$`.
 

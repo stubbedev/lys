@@ -8,10 +8,6 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 )
 
-// pagelessModules are the schema's modules lys-shell does not build, so
-// no page sets them.
-var pagelessModules = []config.BarModule{config.ModuleUpdates}
-
 // templateTail is the sections barItemPage closes every page with, in
 // its order.
 var templateTail = []string{"settings-section-icons", "settings-section-thresholds", "settings-section-bar-item"}
@@ -65,12 +61,6 @@ func TestEveryBarModuleHasOnePageBuiltFromTheTemplate(t *testing.T) {
 	k.nav = layout(k.store.svc.Config(), bothParts)
 	for _, m := range config.BuiltinModules {
 		pages := barItemPagesOf(k.nav, m)
-		if slices.Contains(pagelessModules, m) {
-			if len(pages) != 0 {
-				t.Errorf("%s, which lys-shell does not build, has a page", m)
-			}
-			continue
-		}
 		if len(pages) != 1 {
 			t.Errorf("%s has %d bar item pages, want one", m, len(pages))
 			continue
