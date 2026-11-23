@@ -212,7 +212,8 @@ func on[T any](s Signal[T], at objects, handle func(dbus.ObjectPath, T, dbus.Seq
 		if err != nil {
 			return errors.Join(err, sig.CloseFDs())
 		}
-		err = errors.Join(handle(sig.Path, v, sig.Sequence), s.closeUndeclared(sig))
+		closed := s.closeUndeclared(sig)
+		err = errors.Join(handle(sig.Path, v, sig.Sequence), closed)
 		if l, ok := any(v).(lent); ok {
 			err = errors.Join(err, l.closeLent())
 		}

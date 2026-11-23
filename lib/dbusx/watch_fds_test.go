@@ -191,3 +191,31 @@ func TestAWatchClosesTheDescriptorsInArgumentsItsSignalDoesNotDeclare(t *testing
 	}
 	pipe.RequireEveryCopyClosed(t)
 }
+
+func TestTheUndeclaredDescriptorsAreClosedBeforeTheHandlerRuns(t *testing.T) {
+	w := startWatched(t)
+	inHandler, release := make(chan struct{}), make(chan struct{})
+	watch, err := dbusx.WatchSignals(t.Context(), w.client, dbusx.FromOwner(watchedName), func(err error) { t.Errorf("the watch failed: %v", err) },
+		dbusx.On(tickSignal, watchedPath, func(counted, dbus.Sequence) error {
+			inHandler <- struct{}{}
+			<-release
+			return nil
+		}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = watch.Stop() })
+
+	pipe := dbustest.NewPipe(t)
+	write := pipe.Write
+	if err := w.service.Emit(watchedPath, tickSignal.Name(), uint32(1), write); err != nil {
+		t.Fatal(err)
+	}
+	waittest.For(t, inHandler, "the Tick handler")
+	got := copiesOf(t, write)
+	close(release)
+	if len(got) != 0 {
+		t.Errorf("descriptors %v hold the sent pipe while the handler runs: what Tick does not declare is closed before its handler is told", got)
+	}
+	pipe.RequireEveryCopyClosed(t)
+}
