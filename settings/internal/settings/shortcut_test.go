@@ -10,31 +10,55 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/xkb"
 	"github.com/stubbedev/lys/ui/widget"
+	"github.com/stubbedev/lys/ui/widget/css"
 )
 
 func TestTheRecorderAndLysWMsFormConvertBothWays(t *testing.T) {
+	k := testKit(t, "")
+	r := k.wmChordRecorder("probe")
 	for accel, chord := range map[string]string{
 		"Shift+Super+K":       "SUPER + SHIFT + K",
 		"Ctrl+Alt+Delete":     "CTRL + ALT + Delete",
 		"Return":              "Return",
 		"Super+XF86AudioMute": "SUPER + XF86AudioMute",
 	} {
-		if got := recordedChord(accel); got != chord {
+		r.SetAccel(accel)
+		if got := recorderChord(r); got != chord {
 			t.Errorf("%s: chord %q, want %q", accel, got, chord)
 		}
-		if got := recorderAccel(chord); got != accel {
-			t.Errorf("%s: accelerator %q, want %q", chord, got, accel)
+		r.SetAccel("")
+		if !showChord(r, chord) || r.Accel() != accel {
+			t.Errorf("%s: accelerator %q, want %q", chord, r.Accel(), accel)
 		}
 	}
-	if got := recorderAccel("win+shift+q"); got != "Shift+Super+Q" {
-		t.Errorf("aliases and case: %q", got)
-	}
-	for _, none := range []string{"", "SUPER + ", "HYPER + K", "SUPER + mouse:272", "SUPER + mouse_down"} {
-		if got := recorderAccel(none); got != "" {
-			t.Errorf("%q records as %q, want nothing", none, got)
+	for tap, chord := range map[widget.Tap]string{
+		widget.NewTap(widget.ModSuper, 0):                             "SUPER",
+		widget.NewTap(widget.ModSuper, widget.ModCtrl):                "CTRL + SUPER",
+		widget.NewTap(widget.ModShift, widget.ModSuper|widget.ModAlt): "SUPER + ALT + SHIFT",
+	} {
+		r.SetTap(tap)
+		if got := recorderChord(r); got != chord {
+			t.Errorf("%v: chord %q, want %q", tap, got, chord)
+		}
+		r.SetAccel("Ctrl+Q")
+		shown := showChord(r, chord)
+		if got, ok := r.Tap(); !shown || !ok || got != tap || r.Accel() != "" {
+			t.Errorf("%s: the recorder shows tap %v %v, accelerator %q", chord, got, ok, r.Accel())
 		}
 	}
-	if recordedChord("") != "" {
+	if !showChord(r, "win+shift+q") || r.Accel() != "Shift+Super+Q" {
+		t.Errorf("aliases and case: %q", r.Accel())
+	}
+	if !showChord(r, "control + super_l") || recorderChord(r) != "CTRL + SUPER" {
+		t.Errorf("a tap's aliases and case: %q", recorderChord(r))
+	}
+	for _, none := range []string{"SUPER + ", "HYPER + K", "SUPER + mouse:272", "SUPER + mouse_down", "SUPER + Super_L"} {
+		r.SetAccel("Ctrl+Q")
+		if showChord(r, none) || recorderChord(r) != "" {
+			t.Errorf("%q records as %q, want nothing", none, recorderChord(r))
+		}
+	}
+	if !showChord(r, "") || recorderChord(r) != "" {
 		t.Error("an empty recorder records a chord")
 	}
 }
@@ -57,6 +81,17 @@ func TestTapChordsClashAsChords(t *testing.T) {
 	if want := []int{2, 4, 0, -1, 1, -1, 0}; !slices.Equal(partner, want) {
 		t.Fatalf("partners %v, want %v", partner, want)
 	}
+}
+
+// keycapTexts are the texts of the keycaps under root, in order.
+func keycapTexts(root widget.Widget) []string {
+	var out []string
+	for _, w := range treetest.WithClass(root, css.Keycap) {
+		if l, ok := w.(*widget.Label); ok {
+			out = append(out, l.Text())
+		}
+	}
+	return out
 }
 
 func bindCards(t *testing.T, declared string) (*cardList, wmFiles) {
@@ -112,6 +147,74 @@ func TestTheChordIsRecordedAndWrittenInLysWMsSyntax(t *testing.T) {
 	ed.recorder.RecordPress(xkb.Keysym('K'), widget.ModSuper|widget.ModShift)
 	if got := fileText(t, files.runtime); !strings.Contains(got, "chord: SUPER + SHIFT + K") {
 		t.Fatalf("%q", got)
+	}
+}
+
+func TestATapChordIsShownAndRecordedAsLysWMBindsIt(t *testing.T) {
+	c, files := bindCards(t, "binds:\n  - {chord: CTRL + SUPER_L, action: kill}\n")
+	openCard(c, 0)
+	ed := treetest.First[*chordEditor](t, c.cards[0].root)
+	if got, ok := ed.recorder.Tap(); !ok || got != widget.NewTap(widget.ModSuper, widget.ModCtrl) || !ed.recorder.Visible() || ed.text.Visible() {
+		t.Fatalf("the tap chord shows tap %v %v, recorder %v, text %v", got, ok, ed.recorder.Visible(), ed.text.Visible())
+	}
+	if got := keycapTexts(ed.recorder); !slices.Equal(got, []string{"Ctrl", "Super"}) {
+		t.Fatalf("the recorder's keycaps %v, want [Ctrl Super]", got)
+	}
+	ed.recorder.StartRecording()
+	ed.recorder.RecordPress(xkb.KeyAltL, 0)
+	ed.recorder.RecordPress(xkb.KeyShiftL, widget.ModAlt)
+	ed.recorder.RecordRelease(xkb.KeyShiftL)
+	if got := fileText(t, files.runtime); !strings.Contains(got, "chord: ALT + SHIFT") {
+		t.Fatalf("a recorded tap wrote %q", got)
+	}
+	ed.recorder.StartRecording()
+	ed.recorder.RecordPress(xkb.KeySuperL, 0)
+	ed.recorder.RecordPress(xkb.Keysym('k'), widget.ModSuper)
+	ed.recorder.RecordRelease(xkb.KeySuperL)
+	if got := fileText(t, files.runtime); !strings.Contains(got, "chord: SUPER + K") {
+		t.Fatalf("a key pressed while Super is down wrote %q, want the key and no tap", got)
+	}
+}
+
+func TestARecordedTapClashesWithTheBindHoldingIt(t *testing.T) {
+	k, w, _, files := wmKit(t, "binds:\n  - {chord: SUPER, action: exec rofi}\n  - {chord: SUPER + Space, action: global dev.stubbe.lys.shell:launcher}\n")
+	e := fieldControl(k, w, launcherShortcutRow()).(*bindRecorders)
+	chord := e.chords[0]
+	chord.recorder.StartRecording()
+	chord.recorder.RecordPress(xkb.KeySuperR, 0)
+	chord.recorder.RecordRelease(xkb.KeySuperR)
+	if got := fileText(t, files.runtime); strings.Count(got, "chord: SUPER\n") != 2 {
+		t.Fatalf("the tap recorded for the launcher wrote %q", got)
+	}
+	e.refresh()
+	if !chord.clash.Visible() || !strings.Contains(unisolated(chord.clash.Text()), "Super") {
+		t.Fatalf("a tap another bind holds reads %v %q", chord.clash.Visible(), chord.clash.Text())
+	}
+	chord.recorder.StartRecording()
+	chord.recorder.RecordPress(xkb.KeyControlL, 0)
+	chord.recorder.RecordPress(xkb.KeySuperL, widget.ModCtrl)
+	chord.recorder.RecordRelease(xkb.KeySuperL)
+	e.refresh()
+	if chord.clash.Visible() {
+		t.Fatalf("Super tapped with Ctrl held clashes with Super tapped alone: %q", chord.clash.Text())
+	}
+}
+
+func TestAModeCanBeEnteredByATap(t *testing.T) {
+	tb, _, _, files := shortcutTableOf(t, modesConfig)
+	tb.add.OnClick()
+	tb.adding.name.SetText("move")
+	tb.adding.chord.StartRecording()
+	tb.adding.chord.RecordPress(xkb.KeyAltR, 0)
+	tb.adding.chord.RecordRelease(xkb.KeyAltR)
+	tb.addMode(tb.adding.name.Text(), recorderChord(tb.adding.chord))
+	if tb.adding.problem.Visible() {
+		t.Fatalf("adding a mode entered by a tap says %q", tb.adding.problem.Text())
+	}
+	binds, _ := runtimeTree(t, files)[bindsKey].([]any)
+	last, _ := binds[len(binds)-1].(map[string]any)
+	if last[chordKey] != "ALT" || last[actionKey] != enterModeAction("move") {
+		t.Fatalf("the bind entering the mode is %v", last)
 	}
 }
 
@@ -230,5 +333,26 @@ func TestTheLauncherPageOpensWithItsShortcut(t *testing.T) {
 	}
 	if launcherAction != "global dev.stubbe.lys.shell:launcher" {
 		t.Fatalf("the launcher's bind action is %q", launcherAction)
+	}
+}
+
+func TestALauncherKeyRecordsNoTap(t *testing.T) {
+	const path = "launcher.keybindings"
+	k := testKit(t, "launcher:\n  keybindings:\n    cancel: \"Control+q\"\n")
+	c := fieldControl(k, k.store, field(path, launcherKeysRow)).(*launcherBindings)
+	i := slices.IndexFunc(config.LauncherDefaultKeybindings, func(b config.LauncherBinding) bool { return b.Action == "cancel" })
+	rec := treetest.All[*widget.ShortcutRecorder](c)[i]
+	rec.StartRecording()
+	rec.RecordPress(xkb.KeySuperL, 0)
+	rec.RecordRelease(xkb.KeySuperL)
+	if _, tapped := rec.Tap(); tapped || !rec.Recording() || rec.Accel() != "Ctrl+Q" {
+		t.Fatalf("a tap on a launcher key: tap %v, recording %v, key %q", tapped, rec.Recording(), rec.Accel())
+	}
+	if got, _ := k.store.value(path).(map[string]any); got["cancel"] != "Control+q" {
+		t.Fatalf("a tap on a launcher key wrote %v", got)
+	}
+	rec.RecordPress(xkb.Keysym('w'), widget.ModCtrl)
+	if got, _ := k.store.value(path).(map[string]any); got["cancel"] != "Control+w" {
+		t.Fatalf("a key after the refused tap wrote %v", got)
 	}
 }

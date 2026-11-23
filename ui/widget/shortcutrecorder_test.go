@@ -272,3 +272,156 @@ func TestShortcutRecorderCancelKeepsTheCallersMessage(t *testing.T) {
 		t.Errorf("a new key left %q on %q, want no message", r.Error(), r.Accel())
 	}
 }
+
+func tapRecorder(t *testing.T, accel string) (*ShortcutRecorder, *[]Tap, *[]string) {
+	t.Helper()
+	r := NewShortcutRecorder(chromeFace(t), accel)
+	r.SetRecordTaps(true)
+	var taps []Tap
+	var changes []string
+	r.OnTap = func(tap Tap) { taps = append(taps, tap) }
+	r.OnChanged = func(a string) { changes = append(changes, a) }
+	r.StartRecording()
+	return r, &taps, &changes
+}
+
+func TestARecorderRecordsAModifierPressedAndReleasedAloneAsATap(t *testing.T) {
+	r, taps, changes := tapRecorder(t, "Ctrl+Q")
+	r.RecordPress(xkb.KeySuperL, 0)
+	if !r.Recording() || len(*taps) != 0 {
+		t.Fatalf("a press alone committed: recording=%v taps=%v", r.Recording(), *taps)
+	}
+	r.RecordRelease(xkb.KeySuperL)
+	want := NewTap(ModSuper, 0)
+	if r.Recording() || !slices.Equal(*taps, []Tap{want}) || len(*changes) != 0 {
+		t.Fatalf("the release: recording=%v taps=%v changes=%v", r.Recording(), *taps, *changes)
+	}
+	if got, ok := r.Tap(); !ok || got != want || r.Accel() != "" {
+		t.Errorf("the recorder holds tap %v %v, accel %q", got, ok, r.Accel())
+	}
+	if got := recorderKeycaps(r); !slices.Equal(got, []string{"Super"}) {
+		t.Errorf("keycaps %v, want [Super]", got)
+	}
+	if st := Describe(r.button); st.Description != "Super" {
+		t.Errorf("the description reads %q", st.Description)
+	}
+	if !slices.Contains(r.row.Children(), Widget(r.clear)) {
+		t.Error("a recorder holding a tap hides its clear button")
+	}
+	r.StartRecording()
+	r.RecordPress(xkb.KeySuperR, 0)
+	r.RecordRelease(xkb.KeySuperR)
+	if len(*taps) != 1 {
+		t.Errorf("recording the same tap again fired OnTap: %v", *taps)
+	}
+}
+
+func TestATapIsOfTheLastModifierWithTheOthersHeld(t *testing.T) {
+	r, taps, _ := tapRecorder(t, "")
+	r.RecordPress(xkb.KeyControlL, 0)
+	r.RecordPress(xkb.KeyAltL, ModCtrl)
+	r.RecordPress(xkb.KeySuperL, ModCtrl|ModAlt)
+	r.RecordRelease(xkb.KeySuperL)
+	want := NewTap(ModSuper, ModCtrl|ModAlt)
+	if !slices.Equal(*taps, []Tap{want}) {
+		t.Fatalf("taps %v, want [%v]", *taps, want)
+	}
+	if got := recorderKeycaps(r); !slices.Equal(got, []string{"Ctrl", "Alt", "Super"}) {
+		t.Errorf("keycaps %v, want [Ctrl Alt Super]", got)
+	}
+	if want.String() != "Ctrl+Alt+Super" {
+		t.Errorf("the tap reads %q", want.String())
+	}
+}
+
+func TestAnyPressBetweenAModifiersPressAndReleaseCancelsItsTap(t *testing.T) {
+	r, taps, _ := tapRecorder(t, "")
+	r.RecordPress(xkb.KeySuperL, 0)
+	r.RecordPress(xkb.KeyShiftL, ModSuper)
+	r.RecordRelease(xkb.KeyShiftL)
+	r.RecordRelease(xkb.KeySuperL)
+	if !slices.Equal(*taps, []Tap{NewTap(ModShift, ModSuper)}) {
+		t.Fatalf("taps %v: a modifier pressed after Super is the tap, Super's is gone", *taps)
+	}
+
+	r, taps, changes := tapRecorder(t, "")
+	r.RecordPress(xkb.KeySuperL, 0)
+	r.RecordPress(xkb.KeyCapsLock, ModSuper)
+	r.RecordRelease(xkb.KeySuperL)
+	if len(*taps) != 0 || !r.Recording() {
+		t.Fatalf("Caps Lock between Super's press and release: taps %v recording %v", *taps, r.Recording())
+	}
+
+	r.RecordPress(xkb.KeySuperL, 0)
+	r.Validate = func(string) error { return errors.New("refused") }
+	r.RecordPress(xkb.Keysym('k'), ModSuper)
+	r.RecordRelease(xkb.KeySuperL)
+	if len(*taps) != 0 || len(*changes) != 0 || !r.Recording() {
+		t.Fatalf("a refused key between Super's press and release: taps %v changes %v recording %v", *taps, *changes, r.Recording())
+	}
+	r.Validate = nil
+	r.RecordPress(xkb.KeySuperL, 0)
+	r.RecordPress(xkb.Keysym('k'), ModSuper)
+	if len(*taps) != 0 || !slices.Equal(*changes, []string{"Super+K"}) {
+		t.Fatalf("Super+K: taps %v changes %v", *taps, *changes)
+	}
+}
+
+func TestARecorderRecordsNoTapUnlessAskedTo(t *testing.T) {
+	r := NewShortcutRecorder(chromeFace(t), "Ctrl+Q")
+	var taps []Tap
+	r.OnTap = func(tap Tap) { taps = append(taps, tap) }
+	r.StartRecording()
+	r.RecordPress(xkb.KeyControlL, 0)
+	r.RecordPress(xkb.KeySuperL, ModCtrl)
+	r.RecordRelease(xkb.KeySuperL)
+	r.RecordRelease(xkb.KeyControlL)
+	if len(taps) != 0 || !r.Recording() || r.Accel() != "Ctrl+Q" {
+		t.Fatalf("a recorder not recording taps: taps %v recording %v accel %q", taps, r.Recording(), r.Accel())
+	}
+	if _, ok := r.Tap(); ok {
+		t.Error("a recorder not recording taps holds one")
+	}
+}
+
+func TestARecordedKeyOrClearReplacesATap(t *testing.T) {
+	r, _, changes := tapRecorder(t, "")
+	r.SetTap(NewTap(ModSuper, ModCtrl))
+	if got := recorderKeycaps(r); r.Recording() || !slices.Equal(got, []string{"Ctrl", "Super"}) {
+		t.Fatalf("SetTap: recording %v keycaps %v", r.Recording(), got)
+	}
+	r.StartRecording()
+	r.RecordPress(xkb.KeyF9, ModSuper)
+	if _, ok := r.Tap(); ok || r.Accel() != "Super+F9" || !slices.Equal(*changes, []string{"Super+F9"}) {
+		t.Fatalf("a key over a tap: accel %q changes %v", r.Accel(), *changes)
+	}
+	r.SetTap(NewTap(ModAlt, 0))
+	r.clear.ClickAt(Point{})
+	if _, ok := r.Tap(); ok || r.Accel() != "" || !slices.Equal(*changes, []string{"Super+F9", ""}) {
+		t.Fatalf("clearing a tap: accel %q changes %v", r.Accel(), *changes)
+	}
+	r.SetTap(NewTap(ModAlt, 0))
+	r.SetAccel("Ctrl+Q")
+	if _, ok := r.Tap(); ok {
+		t.Error("SetAccel kept the tap")
+	}
+}
+
+func TestNewTapRefusesWhatIsNoTap(t *testing.T) {
+	for name, c := range map[string]struct{ mod, held Mods }{
+		"none":           {0, ModCtrl},
+		"two modifiers":  {ModCtrl | ModAlt, 0},
+		"caps lock":      {ModCapsLock, 0},
+		"held itself":    {ModSuper, ModSuper | ModCtrl},
+		"held caps lock": {ModSuper, ModCapsLock},
+	} {
+		func() {
+			defer func() {
+				if recover() == nil {
+					t.Errorf("%s: NewTap(%#x, %#x) did not panic", name, c.mod, c.held)
+				}
+			}()
+			NewTap(c.mod, c.held)
+		}()
+	}
+}

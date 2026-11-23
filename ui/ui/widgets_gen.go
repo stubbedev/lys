@@ -7378,9 +7378,39 @@ func (b *ShortcutRecorderBuilder) WatchError(get func() string) *ShortcutRecorde
 	return b
 }
 
+// RecordTaps calls (*widget.ShortcutRecorder).SetRecordTaps.
+func (b *ShortcutRecorderBuilder) RecordTaps(on bool) *ShortcutRecorderBuilder {
+	b.do(func(s *Scope, w *widget.ShortcutRecorder) { w.SetRecordTaps(on) })
+	return b
+}
+
+// WatchRecordTaps re-applies SetRecordTaps with get's value after every update.
+func (b *ShortcutRecorderBuilder) WatchRecordTaps(get func() bool) *ShortcutRecorderBuilder {
+	b.watch(func(w *widget.ShortcutRecorder) { w.SetRecordTaps(get()) })
+	return b
+}
+
+// Tap calls (*widget.ShortcutRecorder).SetTap.
+func (b *ShortcutRecorderBuilder) Tap(t widget.Tap) *ShortcutRecorderBuilder {
+	b.do(func(s *Scope, w *widget.ShortcutRecorder) { w.SetTap(t) })
+	return b
+}
+
+// WatchTap re-applies SetTap with get's value after every update.
+func (b *ShortcutRecorderBuilder) WatchTap(get func() widget.Tap) *ShortcutRecorderBuilder {
+	b.watch(func(w *widget.ShortcutRecorder) { w.SetTap(get()) })
+	return b
+}
+
 // OnChanged sets the widget's OnChanged field.
 func (b *ShortcutRecorderBuilder) OnChanged(fn func(accel string)) *ShortcutRecorderBuilder {
 	b.do(func(_ *Scope, w *widget.ShortcutRecorder) { w.OnChanged = fn })
+	return b
+}
+
+// OnTap sets the widget's OnTap field.
+func (b *ShortcutRecorderBuilder) OnTap(fn func(widget.Tap)) *ShortcutRecorderBuilder {
+	b.do(func(_ *Scope, w *widget.ShortcutRecorder) { w.OnTap = fn })
 	return b
 }
 

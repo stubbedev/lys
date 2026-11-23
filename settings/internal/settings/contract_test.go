@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/lib/xkb"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/settings/internal/keys"
@@ -219,5 +220,41 @@ func TestEveryChordOfTheInstalledLysWMsDefaultsIsReadAndHasKeycaps(t *testing.T)
 		if label, ok := widget.KeyLabel(k.Sym); !ok {
 			t.Errorf("%q: its key has no keycap, it reads %q", chord, label)
 		}
+	}
+}
+
+func TestEveryRecordedTapIsABindTheInstalledLysWMReads(t *testing.T) {
+	wmtest.Need(t)
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	f, err := wmconfig.Open(os.Getenv, wmconfig.Exec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	type press struct {
+		sym  xkb.Keysym
+		held widget.Mods
+	}
+	r := testKit(t, "").wmChordRecorder("probe")
+	var binds []any
+	for _, presses := range [][]press{
+		{{xkb.KeySuperL, 0}},
+		{{xkb.KeyControlR, 0}},
+		{{xkb.KeyControlL, 0}, {xkb.KeySuperR, widget.ModCtrl}},
+		{{xkb.KeySuperL, 0}, {xkb.KeyAltL, widget.ModSuper}, {xkb.KeyShiftR, widget.ModSuper | widget.ModAlt}},
+	} {
+		r.StartRecording()
+		for _, p := range presses {
+			r.RecordPress(p.sym, p.held)
+		}
+		r.RecordRelease(presses[len(presses)-1].sym)
+		chord := recorderChord(r)
+		c, err := keys.WM.Parse(chord)
+		if _, tap := c.Trigger.(keys.Tap); err != nil || !tap || c.WM() != chord {
+			t.Errorf("%v recorded %q, which reads %+v, %v", presses, chord, c, err)
+		}
+		binds = append(binds, map[string]any{chordKey: chord, actionKey: "kill"})
+	}
+	if err := f.Check([]wmconfig.Edit{{Path: []string{bindsKey}, Value: binds}}); err != nil {
+		t.Fatalf("lys-wm refuses the recorded taps %v: %v", binds, err)
 	}
 }

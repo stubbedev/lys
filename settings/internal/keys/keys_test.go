@@ -194,3 +194,27 @@ func TestAChordNothingReadsShowsItsPartsAsKeys(t *testing.T) {
 		t.Errorf("an unknown key reads %q", got)
 	}
 }
+
+func TestATapChordIsTheRecordersTapBothWays(t *testing.T) {
+	for _, f := range fixtures {
+		tap, ok := f.chord.Tap()
+		_, isTap := f.chord.Trigger.(Tap)
+		selfHeld := isTap && f.chord.Mods&f.chord.Trigger.(Tap).mod != 0
+		if ok != (isTap && !selfHeld) {
+			t.Errorf("%q: recorder tap %v, want %v", f.wm, ok, isTap && !selfHeld)
+			continue
+		}
+		if !ok {
+			continue
+		}
+		if back := FromTap(tap); back != f.chord || back.WM() != f.wm {
+			t.Errorf("%q: the recorder's tap %v is chord %q", f.wm, tap, back.WM())
+		}
+		if !slices.Equal(tap.Labels(), f.labels) {
+			t.Errorf("%q: the recorder's keycaps %v, the chord's %v", f.wm, tap.Labels(), f.labels)
+		}
+	}
+	if got := FromTap(widget.NewTap(widget.ModCtrl, widget.ModSuper|widget.ModAlt)).WM(); got != "SUPER + ALT + CTRL" {
+		t.Errorf("a recorded tap writes %q", got)
+	}
+}

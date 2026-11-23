@@ -42,8 +42,8 @@ type Wheel struct{ Dir widget.WheelDirection }
 
 // Tap is one modifier pressed and released with no key between, as
 // lys-wm fires it on release: "SUPER" taps Super, "CTRL + SUPER" taps
-// Super with Ctrl held. Only parseWM makes one, so it always holds
-// exactly one modifier.
+// Super with Ctrl held. Only parseWM and FromTap make one, so it always
+// holds exactly one modifier.
 type Tap struct{ mod widget.Mods }
 
 // Form is one of the ways a chord is written.
@@ -229,6 +229,22 @@ func (c Chord) Accel() (string, bool) {
 		return "", false
 	}
 	return widget.AccelLabel(k.Sym, c.Mods), true
+}
+
+// Tap is c as the shortcut recorder holds a tap; false for any other
+// chord and for a tap of a modifier it also holds ("SUPER + SUPER_L"),
+// which no press and release records.
+func (c Chord) Tap() (widget.Tap, bool) {
+	t, ok := c.Trigger.(Tap)
+	if !ok || c.Mods&t.mod != 0 {
+		return widget.Tap{}, false
+	}
+	return widget.NewTap(t.mod, c.Mods), true
+}
+
+// FromTap is the chord the shortcut recorder's tap t presses.
+func FromTap(t widget.Tap) Chord {
+	return Chord{Mods: t.Held(), Trigger: Tap{t.Mod()}}
 }
 
 // Labels are c's keycaps: the modifiers in lys-ui's order, then the

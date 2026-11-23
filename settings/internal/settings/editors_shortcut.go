@@ -39,20 +39,47 @@ func identifyChord(text string) chordIdentity {
 	return chordIdentity{text: strings.ToLower(strings.TrimSpace(text))}
 }
 
-// recorderAccel is what a recorder shows for a lys-wm chord: its
-// accelerator, empty for none and for a chord no key records.
-func recorderAccel(chord string) string {
+// recorderValue is what a recorder holds for a lys-wm chord: its
+// accelerator or its tap, nothing for an empty chord; false for a chord
+// no press records, a pointer one or one lys-wm does not read.
+func recorderValue(chord string) (accel string, tap widget.Tap, ok bool) {
+	if chord == "" {
+		return "", widget.Tap{}, true
+	}
 	c, err := keys.WM.Parse(chord)
 	if err != nil {
-		return ""
+		return "", widget.Tap{}, false
 	}
-	accel, _ := c.Accel()
-	return accel
+	if accel, ok := c.Accel(); ok {
+		return accel, widget.Tap{}, true
+	}
+	tap, ok = c.Tap()
+	return "", tap, ok
 }
 
-// recordedChord is the accelerator a recorder recorded in lys-wm's
-// form, empty for none.
-func recordedChord(accel string) string {
+// showChord shows the lys-wm chord on r, leaving r as it is when it
+// shows the chord already; false, r unassigned, for a chord no press
+// records.
+func showChord(r *widget.ShortcutRecorder, chord string) bool {
+	accel, tap, ok := recorderValue(chord)
+	shown, _ := r.Tap()
+	switch {
+	case tap != widget.Tap{}:
+		if shown != tap {
+			r.SetTap(tap)
+		}
+	case r.Accel() != accel || shown != widget.Tap{}:
+		r.SetAccel(accel)
+	}
+	return ok
+}
+
+// recorderChord is what r holds in lys-wm's form, empty for nothing.
+func recorderChord(r *widget.ShortcutRecorder) string {
+	if tap, ok := r.Tap(); ok {
+		return keys.FromTap(tap).WM()
+	}
+	accel := r.Accel()
 	if accel == "" {
 		return ""
 	}
@@ -83,6 +110,21 @@ func (k *kit) shortcutRecorder(name string, unset recorderUnset) *widget.Shortcu
 	r.SetTooltip(name)
 	r.SetClearable(unset == unsetClears)
 	return r
+}
+
+// wmChordRecorder is a recorder of lys-wm chords, named and explained by
+// name, which records taps as lys-wm binds them.
+func (k *kit) wmChordRecorder(name string) *widget.ShortcutRecorder {
+	r := k.shortcutRecorder(name, unsetClears)
+	r.SetRecordTaps(true)
+	return r
+}
+
+// onChordRecorded hands record every chord the user records on r, a
+// key or a tap, in lys-wm's form, empty once cleared.
+func onChordRecorded(r *widget.ShortcutRecorder, record func(chord string)) {
+	r.OnChanged = func(string) { record(recorderChord(r)) }
+	r.OnTap = func(widget.Tap) { record(recorderChord(r)) }
 }
 
 // keycaps is a chord drawn as lys-ui's keycaps: one picture, its keys
@@ -128,14 +170,14 @@ type chordEditor struct {
 
 func newChordEditor(k *kit, s slot) *chordEditor {
 	e := &chordEditor{Box: gapBox(widget.Row), k: k, slot: s}
-	e.recorder = k.shortcutRecorder(locale.T().Get("wm-binds-chord"), unsetClears)
-	e.recorder.OnChanged = func(accel string) {
-		if accel == "" {
+	e.recorder = k.wmChordRecorder(locale.T().Get("wm-binds-chord"))
+	onChordRecorded(e.recorder, func(chord string) {
+		if chord == "" {
 			e.slot.unset()
 			return
 		}
-		_ = e.slot.set(recordedChord(accel))
-	}
+		_ = e.slot.set(chord)
+	})
 	e.text = newText(k, s, false)
 	e.AppendAligned(e.recorder, true, widget.AlignCenter)
 	e.AppendAligned(e.text, true, widget.AlignCenter)
@@ -144,17 +186,11 @@ func newChordEditor(k *kit, s slot) *chordEditor {
 }
 
 func (e *chordEditor) refresh() {
-	stored := e.slot.text()
-	accel := recorderAccel(stored)
-	byText := stored != "" && accel == ""
+	byText := !showChord(e.recorder, e.slot.text())
 	e.recorder.SetVisible(!byText)
 	e.text.SetVisible(byText)
 	if byText {
 		e.text.refresh()
-		return
-	}
-	if accel != e.recorder.Accel() {
-		e.recorder.SetAccel(accel)
 	}
 }
 
@@ -303,8 +339,8 @@ type actionChord struct {
 
 func newActionChord(k *kit, binds slot, names *bindNames, action, name string) *actionChord {
 	c := newHeldChord(k, names, action, "")
-	c.recorder = k.shortcutRecorder(name, unsetClears)
-	c.recorder.OnChanged = func(accel string) { _ = binds.set(rebound(bindItems(binds), action, recordedChord(accel))) }
+	c.recorder = k.wmChordRecorder(name)
+	onChordRecorded(c.recorder, func(chord string) { _ = binds.set(rebound(bindItems(binds), action, chord)) })
 	return c
 }
 
@@ -362,9 +398,7 @@ func (c *actionChord) refresh(binds slot) {
 	if c.recorder == nil || c.recorder.Recording() {
 		return
 	}
-	if accel := recorderAccel(chord); c.recorder.Accel() != accel {
-		c.recorder.SetAccel(accel)
-	}
+	showChord(c.recorder, chord)
 }
 
 // launcherAction is the bind lys-shell opens the launcher on.

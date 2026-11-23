@@ -445,13 +445,13 @@ func newModeForm(k *kit, confirmKey string, withChord bool, onConfirm func(name,
 	confirm := func() {
 		chord := ""
 		if f.chord != nil {
-			chord = recordedChord(f.chord.Accel())
+			chord = recorderChord(f.chord)
 		}
 		onConfirm(f.name.Text(), chord)
 	}
 	f.name.OnActivate = func(string) { confirm() }
 	if withChord {
-		f.chord = k.shortcutRecorder(t.Get("wm-mode-chord"), unsetClears)
+		f.chord = k.wmChordRecorder(t.Get("wm-mode-chord"))
 		row.AppendAligned(f.chord, false, widget.AlignCenter)
 	}
 	row.AppendAligned(k.primaryButton(t.Get(confirmKey), confirm), false, widget.AlignCenter)
