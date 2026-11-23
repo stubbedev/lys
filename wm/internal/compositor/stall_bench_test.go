@@ -11,19 +11,25 @@ import (
 
 	"golang.org/x/sys/unix"
 
+	"github.com/stubbedev/lys/wm/internal/loop"
 	"github.com/stubbedev/lys/wm/internal/render"
 	"github.com/stubbedev/lys/wm/internal/testenv"
 )
 
 func reportLatencies(b *testing.B, samples []time.Duration) {
 	b.Helper()
+	reportLatenciesAs(b, "", samples)
+}
+
+func reportLatenciesAs(b *testing.B, prefix string, samples []time.Duration) {
+	b.Helper()
 	slices.Sort(samples)
 	at := func(q float64) float64 {
 		return float64(samples[int(q*float64(len(samples)-1))]) / float64(time.Millisecond)
 	}
-	b.ReportMetric(at(0.5), "p50-ms")
-	b.ReportMetric(at(0.99), "p99-ms")
-	b.ReportMetric(at(1), "max-ms")
+	b.ReportMetric(at(0.5), prefix+"p50-ms")
+	b.ReportMetric(at(0.99), prefix+"p99-ms")
+	b.ReportMetric(at(1), prefix+"max-ms")
 }
 
 func BenchmarkStallShmUpload(b *testing.B) {
@@ -113,8 +119,21 @@ func BenchmarkStallCursorThemeMiss(b *testing.B) {
 		benchRenderer(b, name, func(b *testing.B, r render.Renderer) {
 			for _, s := range shapes {
 				b.Run(s.name, func(b *testing.B) {
-					c := &Compositor{cursors: CursorConfig{Theme: theme, Size: s.px}, renderer: r, pointers: map[cursorKey]*cursorTexture{}}
-					samples := make([]time.Duration, 0, 1024)
+					l, err := loop.New()
+					if err != nil {
+						b.Fatal(err)
+					}
+					defer l.Close()
+					c := &Compositor{
+						loop:         l,
+						cursors:      CursorConfig{Theme: theme, Size: s.px},
+						cursorLoader: loadCursorImage,
+						renderer:     r,
+						pointers:     map[cursorKey]*cursorTexture{},
+						report:       func(err error) { b.Error(err) },
+					}
+					stalls := make([]time.Duration, 0, 1024)
+					landings := make([]time.Duration, 0, 1024)
 					b.ReportAllocs()
 					for b.Loop() {
 						for _, ct := range c.pointers {
@@ -130,9 +149,24 @@ func BenchmarkStallCursorThemeMiss(b *testing.B) {
 						if _, err := c.cursorTextureAt("default", s.px); err != nil {
 							b.Fatal(fmt.Errorf("the %s cursor: %w", s.name, err))
 						}
-						samples = append(samples, time.Since(at))
+						stalls = append(stalls, time.Since(at))
+						c.offLoopWork.Wait()
+						if err := l.Post(func() error {
+							l.Stop()
+							return nil
+						}); err != nil {
+							b.Fatal(err)
+						}
+						if err := l.Run(); err != nil {
+							b.Fatal(err)
+						}
+						if _, ok := c.pointers[cursorKey{"default", s.px}]; !ok {
+							b.Fatal("the themed cursor never landed")
+						}
+						landings = append(landings, time.Since(at))
 					}
-					reportLatencies(b, samples)
+					reportLatenciesAs(b, "stall-", stalls)
+					reportLatenciesAs(b, "landed-", landings)
 				})
 			}
 		})
