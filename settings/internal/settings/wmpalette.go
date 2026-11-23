@@ -27,6 +27,7 @@ type paletteGrid struct {
 	builtIn map[string]any
 	grid    *widget.FlowBox
 	tiles   []control
+	resets  []resetButton
 	name    *widget.Entry
 	problem *widget.Label
 	shown   []string
@@ -78,7 +79,11 @@ func (p *paletteGrid) colorSlot(name string) slot {
 				own = map[string]any{}
 			}
 			own[name] = v
-			return p.own.set(own)
+			if err := p.own.set(own); err != nil {
+				return err
+			}
+			p.refresh()
+			return nil
 		},
 		unset: func() { p.reset(name) },
 	}
@@ -92,29 +97,31 @@ func (p *paletteGrid) reset(name string) {
 }
 
 func (p *paletteGrid) refresh() {
-	names := p.names()
-	if slices.Equal(names, p.shown) {
-		for _, tile := range p.tiles {
-			tile.refresh()
-		}
-		return
+	if names := p.names(); !slices.Equal(names, p.shown) {
+		p.rebuild(names)
 	}
+	own := asMap(p.own.get())
+	for i, name := range p.shown {
+		_, overridden := own[name]
+		p.resets[i].show(overridden)
+		p.tiles[i].refresh()
+	}
+}
+
+func (p *paletteGrid) rebuild(names []string) {
 	p.shown = names
 	p.grid.Clear()
-	p.tiles = p.tiles[:0]
-	own := asMap(p.own.get())
-	for _, name := range names {
+	p.tiles = make([]control, len(names))
+	p.resets = make([]resetButton, len(names))
+	for i, name := range names {
+		p.tiles[i] = colorButton(p.k, p.colorSlot(name))
+		p.resets[i] = p.k.resetButton("wm-palette-reset", func() { p.reset(name) })
 		head := gapBox(widget.Row)
 		head.Append(p.k.label(name, css.Caption), true)
-		if _, overridden := own[name]; overridden {
-			head.AppendAligned(p.k.resetButton("wm-palette-reset", func() { p.reset(name) }).Button, false, widget.AlignCenter)
-		}
-		ed := colorButton(p.k, p.colorSlot(name))
-		ed.refresh()
-		tile := captionTile(head, ed)
+		head.AppendAligned(p.resets[i].Button, false, widget.AlignCenter)
+		tile := captionTile(head, p.tiles[i])
 		tile.AddClass("wm-palette-tile")
 		p.grid.Append(tile)
-		p.tiles = append(p.tiles, ed)
 	}
 }
 
@@ -133,7 +140,6 @@ func (p *paletteGrid) add() {
 	}
 	p.say("")
 	p.name.SetText("")
-	p.refresh()
 }
 
 func (p *paletteGrid) say(text string) {
