@@ -25,7 +25,11 @@ func newLidRig(t *testing.T, lidClosed bool) *lidRig {
 	ctx, cancel := context.WithCancel(context.Background())
 	r.cancel = cancel
 	t.Cleanup(cancel)
-	go func() { r.ended <- VerifyWhileLidOpen(ctx, r.client, "ada", func(res Result) { r.results <- res }) }()
+	lid, err := followLid(ctx, r.client)
+	if err != nil {
+		t.Fatal(err)
+	}
+	go func() { r.ended <- lid.verify(ctx, r.client, "ada", func(res Result) { r.results <- res }) }()
 	return r
 }
 

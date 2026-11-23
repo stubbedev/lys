@@ -11,30 +11,50 @@ import (
 )
 
 func VerifyWhileLidOpen(ctx context.Context, conn *dbus.Conn, user string, onResult func(Result)) error {
-	lid := make(chan bool, 1)
-	failures := make(chan error, 1)
+	l, err := followLid(ctx, conn)
+	if err != nil {
+		return err
+	}
+	return l.verify(ctx, conn, user, onResult)
+}
+
+type lidFollowing struct {
+	closed   bool
+	lid      chan bool
+	failures chan error
+	w        *logind.Watch
+}
+
+func followLid(ctx context.Context, conn *dbus.Conn) (*lidFollowing, error) {
+	l := &lidFollowing{lid: make(chan bool, 1), failures: make(chan error, 1)}
 	closed, w, err := logind.NewManager(conn).FollowLid(ctx,
 		func(err error) {
 			select {
-			case failures <- err:
+			case l.failures <- err:
 			default:
 			}
 		},
 		func(closed bool) {
 			select {
-			case <-lid:
+			case <-l.lid:
 			default:
 			}
-			lid <- closed
+			l.lid <- closed
 		})
 	if err != nil {
-		return fmt.Errorf("fprint: %w", err)
+		return nil, fmt.Errorf("fprint: %w", err)
 	}
+	l.closed, l.w = closed, w
+	return l, nil
+}
+
+func (l *lidFollowing) verify(ctx context.Context, conn *dbus.Conn, user string, onResult func(Result)) error {
 	defer func() {
-		if err := w.Stop(); err != nil && !errors.Is(err, logind.ErrDisconnected) {
+		if err := l.w.Stop(); err != nil && !errors.Is(err, logind.ErrDisconnected) {
 			log.Printf("fprint: stop following the lid: %v", err)
 		}
 	}()
+	closed := l.closed
 	var scan *scanning
 	defer func() { scan.stop() }()
 	for {
@@ -52,17 +72,17 @@ func VerifyWhileLidOpen(ctx context.Context, conn *dbus.Conn, user string, onRes
 		select {
 		case <-ctx.Done():
 			return nil
-		case closed = <-lid:
+		case closed = <-l.lid:
 		case err := <-scan.ended():
 			scan = nil
 			if err != nil {
 				onResult(Stopped)
 			}
 			return err
-		case err := <-failures:
+		case err := <-l.failures:
 			return fmt.Errorf("fprint: follow the lid: %w", err)
-		case <-w.Done():
-			return fmt.Errorf("fprint: follow the lid: %w", w.Stop())
+		case <-l.w.Done():
+			return fmt.Errorf("fprint: follow the lid: %w", l.w.Stop())
 		}
 	}
 }
