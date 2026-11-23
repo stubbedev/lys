@@ -97,12 +97,14 @@ type Logind struct {
 	// connection closes at the end of the test.
 	OnLock dbustest.Var[func()]
 
-	cfg  Config
-	conn *dbus.Conn
+	cfg     Config
+	conn    *dbus.Conn
+	changes *dbusx.PropertyChanges
 
 	mu        sync.Mutex
 	sessions  map[logind.SessionID]*session
 	lidClosed bool
+	lidRead   func()
 	refusals  map[string]*dbus.Error
 	sleeping  bool
 	hooks     hooks
@@ -165,7 +167,8 @@ func StartUnit(t testing.TB, cfg Config) *Logind {
 // services, on a connection of its own.
 func Serve(t testing.TB, bus *dbustest.Bus, cfg Config) *Logind {
 	t.Helper()
-	l := &Logind{Bus: bus, cfg: cfg, conn: bus.Conn(t), sessions: map[logind.SessionID]*session{}, refusals: map[string]*dbus.Error{}}
+	conn := bus.Conn(t)
+	l := &Logind{Bus: bus, cfg: cfg, conn: conn, changes: dbusx.OrderPropertyChanges(conn), sessions: map[logind.SessionID]*session{}, refusals: map[string]*dbus.Error{}}
 	t.Cleanup(l.hooks.wait)
 	for _, id := range []logind.SessionID{cfg.Own, cfg.Display} {
 		if id != "" {
@@ -319,27 +322,37 @@ func (l *Logind) SetLockedHint(t testing.TB, id logind.SessionID, locked bool) b
 }
 
 func (l *Logind) setLockedHint(s *session, locked bool) error {
-	l.mu.Lock()
-	s.locked = locked
-	l.mu.Unlock()
 	event := EventUnlockedHint
 	if locked {
 		event = EventLockedHint
 	}
-	l.record(event)
-	return l.propertyChanged(s, "LockedHint", locked)
+	return l.changeSession(s, "LockedHint", locked, func() {
+		s.locked = locked
+		l.record(event)
+	})
 }
 
 func (l *Logind) setIdleHint(s *session, idle bool) error {
-	l.mu.Lock()
-	s.idle = idle
-	l.mu.Unlock()
 	event := EventActiveHint
 	if idle {
 		event = EventIdleHint
 	}
-	l.record(event)
-	return l.propertyChanged(s, "IdleHint", idle)
+	return l.changeSession(s, "IdleHint", idle, func() {
+		s.idle = idle
+		l.record(event)
+	})
+}
+
+// changeSession runs set under the fake's lock and announces that
+// property name of s is now v, after the replies to every read of the
+// older value.
+func (l *Logind) changeSession(s *session, name string, v any, set func()) error {
+	return l.changes.Announce(s.path, logind.SessionInterface, func() map[string]any {
+		l.mu.Lock()
+		defer l.mu.Unlock()
+		set()
+		return map[string]any{name: v}
+	})
 }
 
 // SetLidClosed sets the lid state the Manager's LidClosed reports.
@@ -350,11 +363,14 @@ func (l *Logind) SetLidClosed(closed bool) {
 }
 
 // SwitchLid sets the lid state and announces it with PropertiesChanged,
-// as logind does when the lid switch moves.
+// as logind does when the lid switch moves: a read that took the older
+// state is answered before the signal goes out.
 func (l *Logind) SwitchLid(t testing.TB, closed bool) bool {
 	t.Helper()
-	l.SetLidClosed(closed)
-	return l.AnnounceManagerProperty(t, "LidClosed", closed)
+	return sent(t, l.changes.Announce(logind.ManagerPath, logind.ManagerInterface, func() map[string]any {
+		l.SetLidClosed(closed)
+		return map[string]any{"LidClosed": closed}
+	}))
 }
 
 // AnnounceManagerProperty has logind announce, with PropertiesChanged,
@@ -362,17 +378,19 @@ func (l *Logind) SwitchLid(t testing.TB, closed bool) bool {
 // without changing the manager.
 func (l *Logind) AnnounceManagerProperty(t testing.TB, name string, v any) bool {
 	t.Helper()
-	return sent(t, dbusx.PropertiesChanged.Emit(l.conn, logind.ManagerPath, dbusx.ChangedProperties{
-		Interface:   logind.ManagerInterface,
-		Changed:     map[string]dbus.Variant{name: dbus.MakeVariant(v)},
-		Invalidated: []string{},
+	return sent(t, l.changes.Announce(logind.ManagerPath, logind.ManagerInterface, func() map[string]any {
+		return map[string]any{name: v}
 	}))
 }
 
 func (l *Logind) lidClosedNow() any {
 	l.mu.Lock()
-	defer l.mu.Unlock()
-	return l.lidClosed
+	closed, read := l.lidClosed, l.lidRead
+	l.mu.Unlock()
+	if read != nil {
+		read()
+	}
+	return closed
 }
 
 // SetActive changes whether session id is in the foreground and
@@ -383,10 +401,7 @@ func (l *Logind) SetActive(t testing.TB, id logind.SessionID, active bool) bool 
 }
 
 func (l *Logind) setActive(s *session, active bool) error {
-	l.mu.Lock()
-	s.active = active
-	l.mu.Unlock()
-	return l.propertyChanged(s, "Active", active)
+	return l.changeSession(s, "Active", active, func() { s.active = active })
 }
 
 // AnnounceProperty has logind announce, with PropertiesChanged, that
@@ -395,15 +410,7 @@ func (l *Logind) setActive(s *session, active bool) error {
 // reader must report rather than take for a hint.
 func (l *Logind) AnnounceProperty(t testing.TB, id logind.SessionID, name string, v any) bool {
 	t.Helper()
-	return l.announce(t, id, func(s *session) error { return l.propertyChanged(s, name, v) })
-}
-
-func (l *Logind) propertyChanged(s *session, name string, v any) error {
-	return dbusx.PropertiesChanged.Emit(l.conn, s.path, dbusx.ChangedProperties{
-		Interface:   logind.SessionInterface,
-		Changed:     map[string]dbus.Variant{name: dbus.MakeVariant(v)},
-		Invalidated: []string{},
-	})
+	return l.announce(t, id, func(s *session) error { return l.changeSession(s, name, v, func() {}) })
 }
 
 // PrepareForSleep emits the manager's PrepareForSleep(start), as logind

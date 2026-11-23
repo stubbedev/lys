@@ -1,7 +1,8 @@
 // Package dbusx holds the D-Bus plumbing every lys process shares, on
 // lys-lib's patched godbus: exporting interfaces at a path and under a
 // well-known name, serving property getters (computed on every read)
-// and setters over org.freedesktop.DBus.Properties, introspection
+// and setters over org.freedesktop.DBus.Properties, announcing their
+// changes only after the replies to older reads, introspection
 // built on demand, watching a name for its owner and a peer for its
 // signals, and dialing the system bus within a bound.
 package dbusx
