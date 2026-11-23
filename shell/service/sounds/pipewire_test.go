@@ -2,6 +2,7 @@ package sounds
 
 import (
 	"context"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -104,9 +105,13 @@ func startPipeWirePulse(t *testing.T) string {
 		}
 	})
 	waittest.UntilSlow(t, func() bool {
-		_, err := os.Stat(sock)
-		return err == nil
-	}, "pipewire to open its pulse socket")
+		conn, err := net.Dial("unix", sock)
+		if err != nil {
+			return false
+		}
+		_ = conn.Close()
+		return true
+	}, "pipewire to accept on its pulse socket")
 	return "unix:" + sock
 }
 
