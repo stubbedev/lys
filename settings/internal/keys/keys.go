@@ -1,7 +1,9 @@
 // Package keys is a key combination as lys-settings reads, writes and
 // shows it: a Chord parsed from lys-wm's form ("SUPER + SHIFT + K"),
 // the launcher's rofi form ("Control+k") or lys-ui's accelerator form
-// ("Ctrl+K"), printed back to each and drawn as keycap labels.
+// ("Ctrl+K"), printed back to each and drawn as keycap labels. lys-wm's
+// form also has tap chords, a modifier pressed and released alone
+// ("SUPER", "CTRL + SUPER_L"), which neither other form can write.
 package keys
 
 import (
@@ -22,7 +24,7 @@ type Chord struct {
 }
 
 // Trigger is what a chord's modifiers are held for: a Key, a pointer
-// Button or a Wheel step.
+// Button, a Wheel step or the Tap of one more modifier.
 type Trigger interface {
 	wm() string
 	label() string
@@ -37,6 +39,12 @@ type Button struct{ Code uint32 }
 
 // Wheel is one step of a pointer's wheel.
 type Wheel struct{ Dir widget.WheelDirection }
+
+// Tap is one modifier pressed and released with no key between, as
+// lys-wm fires it on release: "SUPER" taps Super, "CTRL + SUPER" taps
+// Super with Ctrl held. Only parseWM makes one, so it always holds
+// exactly one modifier.
+type Tap struct{ mod widget.Mods }
 
 // Form is one of the ways a chord is written.
 type Form uint8
@@ -68,14 +76,17 @@ type modifier struct {
 	rofi string
 	// wmNames are every name lys-wm reads for it, upper-case.
 	wmNames []string
+	// wmTapKeys are the keysym names, upper-case, lys-wm reads as a tap
+	// of it beside wmNames.
+	wmTapKeys []string
 }
 
 // modifiers are in lys-wm's order, the one its form is printed in.
 var modifiers = [...]modifier{
-	{mod: widget.ModSuper, wm: "SUPER", rofi: "Super", wmNames: []string{"SUPER", "MOD4", "WIN", "LOGO"}},
-	{mod: widget.ModCtrl, wm: "CTRL", rofi: "Control", wmNames: []string{"CTRL", "CONTROL"}},
-	{mod: widget.ModAlt, wm: "ALT", rofi: "Alt", wmNames: []string{"ALT", "MOD1"}},
-	{mod: widget.ModShift, wm: "SHIFT", rofi: "Shift", wmNames: []string{"SHIFT"}},
+	{mod: widget.ModSuper, wm: "SUPER", rofi: "Super", wmNames: []string{"SUPER", "MOD4", "WIN", "LOGO"}, wmTapKeys: []string{"SUPER_L", "SUPER_R"}},
+	{mod: widget.ModCtrl, wm: "CTRL", rofi: "Control", wmNames: []string{"CTRL", "CONTROL"}, wmTapKeys: []string{"CONTROL_L", "CONTROL_R"}},
+	{mod: widget.ModAlt, wm: "ALT", rofi: "Alt", wmNames: []string{"ALT", "MOD1"}, wmTapKeys: []string{"ALT_L", "ALT_R"}},
+	{mod: widget.ModShift, wm: "SHIFT", rofi: "Shift", wmNames: []string{"SHIFT"}, wmTapKeys: []string{"SHIFT_L", "SHIFT_R"}},
 }
 
 // wmModifier is the modifier lys-wm reads name as, in any case.
@@ -83,6 +94,18 @@ func wmModifier(name string) (modifier, bool) {
 	upper := strings.ToUpper(name)
 	for _, m := range modifiers {
 		if slices.Contains(m.wmNames, upper) {
+			return m, true
+		}
+	}
+	return modifier{}, false
+}
+
+// wmTap is the modifier lys-wm reads name, a chord's last part, as a
+// tap of, in any case: a modifier's name or its keysym's.
+func wmTap(name string) (modifier, bool) {
+	upper := strings.ToUpper(name)
+	for _, m := range modifiers {
+		if slices.Contains(m.wmNames, upper) || slices.Contains(m.wmTapKeys, upper) {
 			return m, true
 		}
 	}
@@ -116,7 +139,8 @@ func (f Form) Parse(text string) (Chord, error) {
 }
 
 // parseWM reads lys-wm's form as lys-wm does: modifier names in any
-// case, then a pointer trigger or a keysym name, exact before any case.
+// case, then a tapped modifier, a pointer trigger or a keysym name,
+// exact before any case.
 func parseWM(text string) (Chord, error) {
 	parts := strings.Split(text, plus)
 	for i := range parts {
@@ -133,6 +157,10 @@ func parseWM(text string) (Chord, error) {
 			return Chord{}, fmt.Errorf("keys: lys-wm chord %q: unknown modifier %q", text, p)
 		}
 		c.Mods |= m.mod
+	}
+	if m, ok := wmTap(last); ok {
+		c.Trigger = Tap{m.mod}
+		return c, nil
 	}
 	lower := strings.ToLower(last)
 	switch {
@@ -177,8 +205,8 @@ func (c Chord) WM() string {
 	return strings.Join(append(parts, c.Trigger.wm()), wmJoin)
 }
 
-// Rofi is c in the launcher's form; false for a pointer chord, which
-// the launcher's key table has none of.
+// Rofi is c in the launcher's form; false for a pointer or tap chord,
+// which the launcher's key table has none of.
 func (c Chord) Rofi() (string, bool) {
 	k, ok := c.Trigger.(Key)
 	if !ok {
@@ -193,8 +221,8 @@ func (c Chord) Rofi() (string, bool) {
 	return strings.Join(append(parts, xkb.KeysymGetName(k.Sym)), plus), true
 }
 
-// Accel is c in lys-ui's accelerator form; false for a pointer chord,
-// which no accelerator is.
+// Accel is c in lys-ui's accelerator form; false for a pointer or tap
+// chord, which no accelerator is.
 func (c Chord) Accel() (string, bool) {
 	k, ok := c.Trigger.(Key)
 	if !ok {
@@ -283,3 +311,7 @@ func (w Wheel) wm() string {
 }
 
 func (w Wheel) label() string { return widget.WheelLabel(w.Dir) }
+
+func (t Tap) wm() string { return modifierOf(t.mod).wm }
+
+func (t Tap) label() string { return modifierName(t.mod) }

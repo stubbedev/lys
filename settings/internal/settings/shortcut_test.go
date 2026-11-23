@@ -51,6 +51,14 @@ func TestChordsThatMeanTheSameKeyClashInOnePass(t *testing.T) {
 	}
 }
 
+func TestTapChordsClashAsChords(t *testing.T) {
+	chords := []string{"SUPER", "CTRL + SUPER", "super_l", "SUPER + CTRL", "ctrl + Super_R", "SUPER + Super_L", "win"}
+	partner := chordClashes(chords, identifyChord)
+	if want := []int{2, 4, 0, -1, 1, -1, 0}; !slices.Equal(partner, want) {
+		t.Fatalf("partners %v, want %v", partner, want)
+	}
+}
+
 func bindCards(t *testing.T, declared string) (*cardList, wmFiles) {
 	t.Helper()
 	k, w, _, files := wmKit(t, declared)

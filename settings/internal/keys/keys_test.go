@@ -35,6 +35,12 @@ var fixtures = []fixture{
 	{Chord{widget.ModSuper, Button{0x113}}, "SUPER + mouse:275", "", "", []string{"Super", "Button 4"}},
 	{Chord{widget.ModSuper | widget.ModCtrl, Wheel{widget.WheelDown}}, "SUPER + CTRL + mouse_down", "", "", []string{"Ctrl", "Super", "Wheel down"}},
 	{Chord{widget.ModSuper, Wheel{widget.WheelUp}}, "SUPER + mouse_up", "", "", []string{"Super", "Wheel up"}},
+	{Chord{0, Tap{widget.ModSuper}}, "SUPER", "", "", []string{"Super"}},
+	{Chord{0, Tap{widget.ModShift}}, "SHIFT", "", "", []string{"Shift"}},
+	{Chord{widget.ModCtrl, Tap{widget.ModSuper}}, "CTRL + SUPER", "", "", []string{"Ctrl", "Super"}},
+	{Chord{widget.ModSuper, Tap{widget.ModCtrl}}, "SUPER + CTRL", "", "", []string{"Super", "Ctrl"}},
+	{Chord{widget.ModSuper | widget.ModAlt, Tap{widget.ModShift}}, "SUPER + ALT + SHIFT", "", "", []string{"Alt", "Super", "Shift"}},
+	{Chord{widget.ModAlt, Tap{widget.ModAlt}}, "ALT + ALT", "", "", []string{"Alt", "Alt"}},
 }
 
 func TestEveryChordParsesFromAndPrintsToEachForm(t *testing.T) {
@@ -60,7 +66,7 @@ func TestEveryChordParsesFromAndPrintsToEachForm(t *testing.T) {
 			s, ok := form.print(f.chord)
 			if form.text == "" {
 				if ok {
-					t.Errorf("the pointer chord %q printed as %q in form %d", f.wm, s, form.form)
+					t.Errorf("%q, which form %d cannot write, printed as %q", f.wm, form.form, s)
 				}
 				continue
 			}
@@ -89,6 +95,52 @@ func TestAChordReadsAnyCaseAndEveryModifierName(t *testing.T) {
 	}
 }
 
+func TestATapReadsEveryNameOfItsModifierInAnyCase(t *testing.T) {
+	for _, c := range []struct {
+		text string
+		want Chord
+	}{
+		{"super", Chord{0, Tap{widget.ModSuper}}},
+		{"Mod4", Chord{0, Tap{widget.ModSuper}}},
+		{"WIN", Chord{0, Tap{widget.ModSuper}}},
+		{"logo", Chord{0, Tap{widget.ModSuper}}},
+		{"Super_L", Chord{0, Tap{widget.ModSuper}}},
+		{"SUPER_R", Chord{0, Tap{widget.ModSuper}}},
+		{"control", Chord{0, Tap{widget.ModCtrl}}},
+		{"Control_L", Chord{0, Tap{widget.ModCtrl}}},
+		{"control_r", Chord{0, Tap{widget.ModCtrl}}},
+		{"MOD1", Chord{0, Tap{widget.ModAlt}}},
+		{"Alt_L", Chord{0, Tap{widget.ModAlt}}},
+		{"ALT_R", Chord{0, Tap{widget.ModAlt}}},
+		{"Shift_L", Chord{0, Tap{widget.ModShift}}},
+		{"shift_r", Chord{0, Tap{widget.ModShift}}},
+		{"ctrl+super_l", Chord{widget.ModCtrl, Tap{widget.ModSuper}}},
+		{"SHIFT + Shift_L", Chord{widget.ModShift, Tap{widget.ModShift}}},
+		{"win + mod1 + control", Chord{widget.ModSuper | widget.ModAlt, Tap{widget.ModCtrl}}},
+	} {
+		if got, err := WM.Parse(c.text); err != nil || got != c.want {
+			t.Errorf("WM.Parse(%q) = %+v, %v; want %+v", c.text, got, err, c.want)
+		}
+	}
+	if got, err := WM.Parse("SUPER + Meta_L"); err != nil || got != (Chord{widget.ModSuper, Key{xkb.KeyMetaL}}) {
+		t.Errorf("a modifier key lys-wm taps none of reads %+v, %v; want the key", got, err)
+	}
+}
+
+func TestATapIsNoKeyAndNoOtherTap(t *testing.T) {
+	tap := Chord{widget.ModSuper, Tap{widget.ModShift}}
+	for _, other := range []Chord{
+		{widget.ModShift, Tap{widget.ModSuper}},
+		{widget.ModSuper, Key{xkb.KeyShiftL}},
+		{widget.ModSuper | widget.ModShift, Tap{widget.ModShift}},
+		{0, Tap{widget.ModShift}},
+	} {
+		if tap == other {
+			t.Errorf("%q is the same chord as %q", tap.WM(), other.WM())
+		}
+	}
+}
+
 func TestAStringThatIsNoChordIsAnErrorNamingIt(t *testing.T) {
 	for _, c := range []struct {
 		form Form
@@ -100,6 +152,16 @@ func TestAStringThatIsNoChordIsAnErrorNamingIt(t *testing.T) {
 		{WM, "SUPER + nosuchkey"},
 		{WM, "SUPER + mouse:left"},
 		{WM, "SUPER + mouse:"},
+		{WM, "HYPER + SUPER"},
+		{WM, "SUPER_L + Q"},
+		{WM, "SUPER_L + SUPER"},
+		{WM, "SUPER + SUPER_X"},
+		{WM, "SUPER + SUPER_LEFT"},
+		{WM, "SUPER + + SHIFT"},
+		{WM, "SUPER + "},
+		{Rofi, "Super"},
+		{Accel, "Super"},
+		{Accel, "Ctrl+Super"},
 		{Rofi, ""},
 		{Rofi, "Hyper+k"},
 		{Rofi, "Control+nosuchkey"},
