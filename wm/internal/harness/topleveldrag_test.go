@@ -80,7 +80,8 @@ func TestADraggedToplevelFollowsThePointerWithoutConfigures(t *testing.T) {
 		w, _ := windowRect(h, idTab)
 		return tab.Logical == image.Pt(w.Rect.Width, w.Rect.Height)
 	})
-	settle(t, h)
+	tab.Stop()
+	quiesce(t, h, a.c, a.w)
 	configures := tab.Configures
 	last, _ := windowRect(h, idTab)
 	for i := 1; i <= 100; i++ {
