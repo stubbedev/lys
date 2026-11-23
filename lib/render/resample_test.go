@@ -193,3 +193,18 @@ func TestResampleReadsStillAndVersionedPixelsInPlace(t *testing.T) {
 		}
 	}
 }
+
+func TestSharedChromaConvertsAsYCbCrToRGB(t *testing.T) {
+	for cb := range 256 {
+		for cr := range 256 {
+			c := newYCbCrChroma(uint8(cb), uint8(cr))
+			for y := range 256 {
+				r, g, b := c.rgb(uint8(y))
+				wr, wg, wb := color.YCbCrToRGB(uint8(y), uint8(cb), uint8(cr))
+				if r != wr || g != wg || b != wb {
+					t.Fatalf("Y %d Cb %d Cr %d: %d %d %d, color.YCbCrToRGB %d %d %d", y, cb, cr, r, g, b, wr, wg, wb)
+				}
+			}
+		}
+	}
+}

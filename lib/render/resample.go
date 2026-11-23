@@ -137,10 +137,15 @@ func rowReader(src image.Image, r image.Rectangle) func(y int) []uint8 {
 			case image.YCbCrSubsampleRatio420, image.YCbCrSubsampleRatio422:
 				ci := s.COffset(r.Min.X, r.Min.Y+y)
 				parity := r.Min.X & 1
+				var chroma ycbcrChroma
+				last := -1
 				for x := range w {
-					c := ci + (x+parity)>>1
-					buf[x*4], buf[x*4+1], buf[x*4+2] = color.YCbCrToRGB(ys[x], s.Cb[c], s.Cr[c])
-					buf[x*4+3] = 0xff
+					if c := ci + (x+parity)>>1; c != last {
+						chroma, last = newYCbCrChroma(s.Cb[c], s.Cr[c]), c
+					}
+					p := buf[x*4 : x*4+4 : x*4+4]
+					p[0], p[1], p[2] = chroma.rgb(ys[x])
+					p[3] = 0xff
 				}
 			default:
 				for x := range w {
@@ -168,6 +173,31 @@ func rowReader(src image.Image, r image.Rectangle) func(y int) []uint8 {
 		}
 		return buf
 	}
+}
+
+// ycbcrChroma is the chroma half of color.YCbCrToRGB, computed once for
+// the pixels that share a chroma sample.
+type ycbcrChroma struct{ r, g, b int32 }
+
+func newYCbCrChroma(cb, cr uint8) ycbcrChroma {
+	cb1, cr1 := int32(cb)-128, int32(cr)-128
+	return ycbcrChroma{r: 91881 * cr1, g: -22554*cb1 - 46802*cr1, b: 116130 * cb1}
+}
+
+// rgb is color.YCbCrToRGB(y, cb, cr) for c's cb and cr.
+func (c ycbcrChroma) rgb(y uint8) (uint8, uint8, uint8) {
+	yy1 := int32(y) * 0x10101
+	return clampYCbCr(yy1 + c.r), clampYCbCr(yy1 + c.g), clampYCbCr(yy1 + c.b)
+}
+
+func clampYCbCr(v int32) uint8 {
+	switch {
+	case v < 0:
+		return 0
+	case v > 0xffffff:
+		return 0xff
+	}
+	return uint8(v >> 16)
 }
 
 // taps are one output pixel's source indices and their weights.
@@ -236,32 +266,36 @@ func cubicScale(dst *image.RGBA, rows rowSource) {
 		ringRow[i] = -1
 	}
 	clampRow := func(y int) int { return min(max(y, 0), rows.h-1) }
+	line := make([]float32, rows.w*4)
 	filtered := func(y int) []float32 {
 		slot := y % span
 		if ringRow[slot] == y {
 			return ring[slot]
 		}
-		line, out := rows.row(y), ring[slot]
+		out := ring[slot]
+		for i, v := range rows.row(y) {
+			line[i] = float32(v)
+		}
 		for dx, t := range xt {
 			var a0, a1, a2, a3 float32
 			if t.first >= 0 && t.first+len(t.w) <= rows.w {
 				px := line[t.first*4:]
 				for _, wgt := range t.w {
 					p := px[:4:4]
-					a0 += float32(wgt * float32(p[0]))
-					a1 += float32(wgt * float32(p[1]))
-					a2 += float32(wgt * float32(p[2]))
-					a3 += float32(wgt * float32(p[3]))
+					a0 += float32(wgt * p[0])
+					a1 += float32(wgt * p[1])
+					a2 += float32(wgt * p[2])
+					a3 += float32(wgt * p[3])
 					px = px[4:]
 				}
 			} else {
 				for i, wgt := range t.w {
 					o := min(max(t.first+i, 0), rows.w-1) * 4
 					p := line[o : o+4 : o+4]
-					a0 += float32(wgt * float32(p[0]))
-					a1 += float32(wgt * float32(p[1]))
-					a2 += float32(wgt * float32(p[2]))
-					a3 += float32(wgt * float32(p[3]))
+					a0 += float32(wgt * p[0])
+					a1 += float32(wgt * p[1])
+					a2 += float32(wgt * p[2])
+					a3 += float32(wgt * p[3])
 				}
 			}
 			q := out[dx*4 : dx*4+4 : dx*4+4]
