@@ -140,9 +140,9 @@ func TestSignalsCloseTheirDescriptors(t *testing.T) {
 	}
 	defer func() { _ = r.Close(); _ = w.Close() }()
 	fd := dbus.UnixFD(w.Fd())
-	emit := func(from *dbus.Conn, action string) {
+	emit := func(from *dbus.Conn, action string, carried ...any) {
 		t.Helper()
-		if err := from.Emit(classicPath, classicActionInvoked.Name(), uint32(7), action, fd); err != nil {
+		if err := from.Emit(classicPath, classicActionInvoked.Name(), append([]any{uint32(7), action}, carried...)...); err != nil {
 			t.Error(err)
 		}
 	}
@@ -152,20 +152,25 @@ func TestSignalsCloseTheirDescriptors(t *testing.T) {
 			t.Fatalf("action %q, want %q", got, want)
 		}
 	}
-	emit(conn, "warm")
-	await("warm")
+	fence := func(name string) {
+		t.Helper()
+		emit(conn, name)
+		await(name)
+	}
+	fence("warm")
 	before := fdtest.Own(t)
 	const events = 16
 	for range events {
-		emit(impostor, "forged")
+		emit(impostor, "forged", fd)
 	}
 	if err := impostor.BusObject().Call("org.freedesktop.DBus.GetId", 0).Err; err != nil {
 		t.Fatal(err)
 	}
 	for i := range events {
 		want := "open" + strconv.Itoa(i)
-		emit(conn, want)
+		emit(conn, want, fd)
 		await(want)
 	}
+	fence("settled")
 	fdtest.RequireNoneBeyond(t, before, "the notifier read what the daemon and another peer sent")
 }
