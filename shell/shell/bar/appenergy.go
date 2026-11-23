@@ -25,8 +25,8 @@ type appEnergySource interface {
 	Report() (energy.Report, bool)
 	Subscribe() (<-chan struct{}, func())
 	Watch(life context.Context, failed func(error))
-	Quittable(app energy.App) (unit string, ok bool)
-	Quit(ctx context.Context, unit string) error
+	Quittable(app energy.App) (appenergy.Target, bool)
+	Quit(ctx context.Context, target appenergy.Target) error
 }
 
 type appEnergy struct {
@@ -35,15 +35,15 @@ type appEnergy struct {
 	uid     uint32
 }
 
-func (a appEnergy) Quittable(app energy.App) (string, bool) {
+func (a appEnergy) Quittable(app energy.App) (appenergy.Target, bool) {
 	if a.session == nil {
-		return "", false
+		return appenergy.Target{}, false
 	}
 	return appenergy.Quittable(app, a.uid)
 }
 
-func (a appEnergy) Quit(ctx context.Context, unit string) error {
-	return appenergy.Quit(ctx, a.session, unit)
+func (a appEnergy) Quit(ctx context.Context, target appenergy.Target) error {
+	return appenergy.Quit(ctx, a.session, target)
 }
 
 func startAppEnergy(ctx *ModuleContext, system, session *dbus.Conn) func() {
@@ -87,12 +87,12 @@ type energySection struct {
 	box   *widget.Box
 	pages *widget.Stack
 	list  *widget.ItemGroup
-	quits *stopButtons[string]
+	quits *stopButtons[appenergy.Target]
 }
 
 func (v *batteryView) energySection() widget.Widget {
 	s := &energySection{ctx: v.ctx, view: v}
-	s.quits = newStopButtons[string](v.ctx, "energy", s.apply)
+	s.quits = newStopButtons[appenergy.Target](v.ctx, "energy", s.apply)
 	card, list := itemCard()
 	card.AddClass("battery-energy")
 	s.list = list
@@ -160,10 +160,10 @@ func (s *energySection) row(r energy.Report, a energy.App, windows []wmipc.Windo
 		row.AddAction(show)
 	}
 	src := s.ctx.AppEnergy
-	if unit, ok := src.Quittable(a); ok {
-		row.AddAction(s.quits.button(v.font, v.px, i18n.T("dropdown-battery-energy-quit"), unit, "battery-energy-quit",
+	if target, ok := src.Quittable(a); ok {
+		row.AddAction(s.quits.button(v.font, v.px, i18n.T("dropdown-battery-energy-quit"), target, "battery-energy-quit",
 			i18n.T("dropdown-battery-energy-quit-failed", i18n.Str("app", name)),
-			func(ctx context.Context) error { return src.Quit(ctx, unit) }))
+			func(ctx context.Context) error { return src.Quit(ctx, target) }))
 	}
 	return row
 }

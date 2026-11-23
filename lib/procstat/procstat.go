@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"math"
 	"os"
 	"strconv"
 	"sync"
@@ -13,11 +14,12 @@ import (
 )
 
 // Stat is what /proc/<pid>/stat says of a process: its command name, its
-// state, the clock ticks it ran in user and kernel mode, and the clock
-// tick it started at after boot.
+// state, its parent, the clock ticks it ran in user and kernel mode, and
+// the clock tick it started at after boot.
 type Stat struct {
 	Comm      string
 	State     string
+	Parent    uint32
 	CPUTicks  uint64
 	StartTime uint64
 }
@@ -25,6 +27,7 @@ type Stat struct {
 const (
 	firstAfterComm = 3
 	stateField     = 3
+	parentField    = 4
 	utimeField     = 14
 	stimeField     = 15
 	startTimeField = 22
@@ -70,6 +73,13 @@ func parse(stat []byte) (Stat, error) {
 		}
 		return v, nil
 	}
+	parent, err := field(parentField)
+	if err != nil {
+		return Stat{}, err
+	}
+	if parent > math.MaxUint32 {
+		return Stat{}, fmt.Errorf("parent %d of %q: not a process id", parent, stat)
+	}
 	utime, err := field(utimeField)
 	if err != nil {
 		return Stat{}, err
@@ -82,7 +92,7 @@ func parse(stat []byte) (Stat, error) {
 	if err != nil {
 		return Stat{}, err
 	}
-	return Stat{Comm: string(comm), State: string(fields[stateField-firstAfterComm]), CPUTicks: utime + stime, StartTime: start}, nil
+	return Stat{Comm: string(comm), State: string(fields[stateField-firstAfterComm]), Parent: uint32(parent), CPUTicks: utime + stime, StartTime: start}, nil
 }
 
 // CPU is the time the process or thread ran in user and kernel mode.

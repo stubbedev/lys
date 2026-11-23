@@ -1,14 +1,20 @@
 // Package appenergy follows lys-power's per-app energy report on the
 // system bus for the shell, keeps lys-power sampling while a viewer is
-// open, and stops an app's unit through the user's systemd.
+// open, and quits an app: the one job in its unit that uses the energy,
+// or else the unit itself through the user's systemd.
 package appenergy
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
+	"os"
+	"syscall"
 	"time"
 
 	"github.com/stubbedev/lys/lib/dbusx"
+	"github.com/stubbedev/lys/lib/procstat"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/power/energy"
 
@@ -63,19 +69,60 @@ func (m *Monitor) Watch(life context.Context, failed func(error)) {
 	}
 }
 
-// Quittable is the unit to stop to quit app, when user uid owns it.
-func Quittable(app energy.App, uid uint32) (string, bool) {
-	owner, unit, ok := app.UserUnit()
-	return unit, ok && owner == uid
+// Target is what quitting an app ends: one job in its unit, or the
+// whole unit.
+type Target struct {
+	unit   string
+	job    energy.ProcessID
+	hasJob bool
 }
 
-// Quit stops unit through the systemd user manager on session.
-func Quit(ctx context.Context, session *dbus.Conn, unit string) error {
+// Quittable is what to end to quit app, when user uid owns its unit.
+func Quittable(app energy.App, uid uint32) (Target, bool) {
+	owner, unit, ok := app.UserUnit()
+	if !ok || owner != uid {
+		return Target{}, false
+	}
+	if app.Job == nil {
+		return Target{unit: unit}, true
+	}
+	return Target{unit: unit, job: *app.Job, hasJob: true}, true
+}
+
+// Quit ends t: it terminates its job, or stops its unit through the
+// systemd user manager on session.
+func Quit(ctx context.Context, session *dbus.Conn, t Target) error {
+	if t.hasJob {
+		return terminate(t.job)
+	}
 	ctx, cancel := context.WithTimeout(ctx, callTimeout)
 	defer cancel()
 	var job dbus.ObjectPath
-	if err := session.Object(systemdName, systemdPath).CallWithContext(ctx, stopUnit, 0, unit, "replace").Store(&job); err != nil {
-		return fmt.Errorf("stop %s: %w", unit, err)
+	if err := session.Object(systemdName, systemdPath).CallWithContext(ctx, stopUnit, 0, t.unit, "replace").Store(&job); err != nil {
+		return fmt.Errorf("stop %s: %w", t.unit, err)
+	}
+	return nil
+}
+
+func terminate(id energy.ProcessID) error {
+	pid := int(id.PID)
+	p, err := os.FindProcess(pid)
+	if err != nil {
+		return fmt.Errorf("find process %d: %w", pid, err)
+	}
+	defer func() { _ = p.Release() }()
+	st, err := procstat.Of(pid)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("terminate %d: %w", pid, err)
+	}
+	if st.StartTime != id.Start {
+		return nil
+	}
+	if err := p.Signal(syscall.SIGTERM); err != nil && !errors.Is(err, os.ErrProcessDone) {
+		return fmt.Errorf("terminate %d: %w", pid, err)
 	}
 	return nil
 }

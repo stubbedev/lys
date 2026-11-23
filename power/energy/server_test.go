@@ -57,7 +57,7 @@ func TestTheReportIsReadAndEveryNewOneAnnounced(t *testing.T) {
 
 	want := energy.Report{Covered: 90 * time.Second, Source: energy.SourcePackage, Watts: 12.5, Apps: []energy.App{
 		{Cgroup: firefox, Command: "firefox", PIDs: []uint32{10, 11}, CPU: 0.4, Wakeups: 300, GPU: 0.1, Impact: 0.56, Watts: 4},
-		{Cgroup: tmux, Command: "tmux: server", PIDs: []uint32{20}, CPU: 0.1, Impact: 0.1, Watts: 1},
+		{Cgroup: tmux, Command: "claude", PIDs: []uint32{20, 21}, Job: &energy.ProcessID{PID: 21, Start: 987654}, CPU: 0.1, Impact: 0.1, Watts: 1},
 	}, Panels: []energy.Panel{
 		{Device: "0000:00:02.0", Mode: energy.SelfRefreshPanelReplaySU, Readings: 45, Residency: 0.9},
 		{Device: "0000:03:00.0", Mode: energy.SelfRefreshUnsupported, Readings: 45},

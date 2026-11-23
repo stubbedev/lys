@@ -31,6 +31,17 @@ func process(pid uint32, command string, cpu time.Duration, threads ...energy.Th
 	return energy.Process{ID: energy.ProcessID{PID: pid, Start: 1}, Command: command, CPU: cpu, Threads: threads}
 }
 
+func child(pid, parent uint32, start uint64, exe string, cpu time.Duration) energy.Process {
+	return energy.Process{ID: energy.ProcessID{PID: pid, Start: start}, Parent: parent, Command: exe, Exe: "/bin/" + exe, CPU: cpu}
+}
+
+func jobOf(t *testing.T, before, after []energy.Process) *energy.ProcessID {
+	t.Helper()
+	prev := sample(0, processes(tmux, 0, before...))
+	cur := sample(time.Second, processes(tmux, time.Second, after...))
+	return app(t, energy.Attribute([]energy.Interval{measure(t, prev, cur)}), tmux).Job
+}
+
 func thread(tid uint32, switches uint64) energy.Thread {
 	return energy.Thread{TID: tid, Name: "t", Switches: switches}
 }
@@ -208,6 +219,72 @@ func TestThreadRatesNameTheirProcess(t *testing.T) {
 	}
 	if !slices.Equal(a.Threads, want) {
 		t.Errorf("threads = %+v, want %+v", a.Threads, want)
+	}
+}
+
+func TestAProgramStartedInATerminalIsTheJobToQuit(t *testing.T) {
+	zsh := child(1, 0, 10, "zsh", 0)
+	before := []energy.Process{zsh, child(2, 1, 20, "claude", 0), child(3, 2, 30, "bash", 0)}
+	after := []energy.Process{zsh, child(2, 1, 20, "claude", 800*time.Millisecond), child(3, 2, 30, "bash", 100*time.Millisecond)}
+	if job := jobOf(t, before, after); job == nil || *job != (energy.ProcessID{PID: 2, Start: 20}) {
+		t.Errorf("job = %v, want claude, not the terminal's whole scope", job)
+	}
+}
+
+func TestAToolAProgramRanIsItsOwnJob(t *testing.T) {
+	zsh := child(1, 0, 10, "zsh", 0)
+	before := []energy.Process{zsh, child(2, 1, 20, "claude", 0), child(3, 2, 30, "bash", 0), child(4, 3, 40, "php", 0)}
+	after := []energy.Process{zsh, child(2, 1, 20, "claude", 100*time.Millisecond), child(3, 2, 30, "bash", 0), child(4, 3, 40, "php", 900*time.Millisecond)}
+	if job := jobOf(t, before, after); job == nil || job.PID != 4 {
+		t.Errorf("job = %v, want php, the program the row is named for, not claude which ran it", job)
+	}
+}
+
+func TestAJobTakesInTheHelpersItsProgramForked(t *testing.T) {
+	foot := child(1, 0, 10, "foot", 0)
+	main := child(2, 1, 20, "chrome", 0)
+	zygote := child(3, 2, 30, "chrome", 0)
+	before := []energy.Process{foot, main, zygote, child(4, 3, 40, "chrome", 0)}
+	after := []energy.Process{foot, main, zygote, child(4, 3, 40, "chrome", 900*time.Millisecond)}
+	if job := jobOf(t, before, after); job == nil || job.PID != 2 {
+		t.Errorf("job = %v, want chrome's first process, which its renderer and zygote descend from", job)
+	}
+}
+
+func TestAnAppsOwnHelperIsNoJobOfItsOwn(t *testing.T) {
+	firefox := child(1, 0, 10, "firefox", 0)
+	before := []energy.Process{firefox, child(2, 1, 20, "firefox", 0)}
+	after := []energy.Process{firefox, child(2, 1, 20, "firefox", 900*time.Millisecond)}
+	if job := jobOf(t, before, after); job != nil {
+		t.Errorf("job = %v, want none: a content process runs the app's own program, so quitting stops the app", job)
+	}
+}
+
+func TestTheLeaderItselfIsNoJob(t *testing.T) {
+	before := []energy.Process{child(1, 0, 10, "foot", 0), child(2, 1, 20, "zsh", 0)}
+	after := []energy.Process{child(1, 0, 10, "foot", 900*time.Millisecond), child(2, 1, 20, "zsh", 0)}
+	if job := jobOf(t, before, after); job != nil {
+		t.Errorf("job = %v, want none: the busiest process is the one the unit was started for", job)
+	}
+}
+
+func TestAnUnreadableProgramIsNoJob(t *testing.T) {
+	zsh := child(1, 0, 10, "zsh", 0)
+	hidden := child(2, 1, 20, "claude", 900*time.Millisecond)
+	hidden.Exe = ""
+	if job := jobOf(t, []energy.Process{zsh, child(2, 1, 20, "claude", 0)}, []energy.Process{zsh, hidden}); job != nil {
+		t.Errorf("job = %v, want none without knowing which program it runs", job)
+	}
+}
+
+func TestABusiestProcessThatHasExitedIsNoJob(t *testing.T) {
+	zsh := child(1, 0, 10, "zsh", 0)
+	a0 := sample(0, processes(tmux, 0, zsh, child(2, 1, 20, "claude", 0)))
+	a1 := sample(time.Second, processes(tmux, time.Second, zsh, child(2, 1, 20, "claude", 900*time.Millisecond)))
+	a2 := sample(2*time.Second, processes(tmux, 1100*time.Millisecond, zsh))
+	a := app(t, energy.Attribute([]energy.Interval{measure(t, a0, a1), measure(t, a1, a2)}), tmux)
+	if a.Command != "claude" || a.Job != nil {
+		t.Errorf("command %q, job %v; want claude named and no job left to quit", a.Command, a.Job)
 	}
 }
 

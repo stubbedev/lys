@@ -3487,6 +3487,7 @@
       "bytes",
       "encoding/binary",
       "fmt",
+      "math",
       "os",
       "strconv",
       "sync",
@@ -8025,13 +8026,18 @@
   "shell/service/appenergy": {
     "imports": [
       "lib/dbusx",
+      "lib/procstat",
       "lib/third_party/godbus",
       "power/energy",
       "shell/service/powerprop"
     ],
     "external": [
       "context",
+      "errors",
       "fmt",
+      "io/fs",
+      "os",
+      "syscall",
       "time"
     ],
     "testImports": [
@@ -8040,6 +8046,8 @@
       "lib/waittest"
     ],
     "testExternal": [
+      "io",
+      "os/exec",
       "sync",
       "testing"
     ]

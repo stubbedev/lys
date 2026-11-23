@@ -192,6 +192,15 @@ or is the `.name-wrapped` of a Nix wrapper, the base of its first argument
 names it instead (`lys-login`, not `.lys-login-wrap`), while a name the
 process set itself, such as `tmux: server`, stays.
 
+Quitting an app from lys-shell's battery dropdown ends the **job** that uses
+the energy: the busiest process, with the processes above it that run the
+same program, the way a browser's renderers descend from its first process.
+A `php` that `claude` ran in a terminal is a job of its own: only it is sent
+`SIGTERM`, and `claude` and the terminal stay. When the job reaches the
+unit's first process, as a browser's content process does, it is the app
+itself, and its whole unit is stopped through the user's systemd. Only the
+user's own units can be quit.
+
 The service publishes the report over the last 5 minutes as the `Report`
 property of `dev.stubbe.lys.Energy1` on the system bus, which every user may
 read. It samples only when it must: every 2 seconds for 30 seconds after
@@ -212,7 +221,7 @@ in almost every sample. The debugfs is root's, so only the service and
 `lys-power energy` makes the same measurement in the terminal, over `-for`,
 with each thread's wakeups under `-threads` and as JSON under `-json`. It
 reads the panels every 250 ms of the window. Run it as root to read the RAPL
-counters, every process's GPU time and the panels.
+counters, every process's GPU time and program, and the panels.
 
 ## Pausing services on battery
 

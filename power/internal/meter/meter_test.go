@@ -87,13 +87,18 @@ func (mc machine) thread(pid, tid, name string, voluntary, involuntary string) {
 
 func (mc machine) process(pid, comm string) {
 	mc.stat(pid, comm, "3", "2", "100")
+	mc.proc.link(pid+"/exe", "/bin/"+comm)
 	if err := os.MkdirAll(filepath.Join(mc.proc.root, pid, "fd"), 0o755); err != nil {
 		mc.proc.t.Fatal(err)
 	}
 }
 
 func (mc machine) stat(pid, comm, utime, stime, start string) {
-	mc.proc.write(pid+"/stat", pid+" ("+comm+") S 1 "+pid+" "+pid+" 0 -1 4194560 100 0 0 0 "+utime+" "+stime+" 0 0 20 0 1 0 "+start+" 12345 67\n")
+	mc.statOf(pid, comm, "1", utime, stime, start)
+}
+
+func (mc machine) statOf(pid, comm, parent, utime, stime, start string) {
+	mc.proc.write(pid+"/stat", pid+" ("+comm+") S "+parent+" "+pid+" "+pid+" 0 -1 4194560 100 0 0 0 "+utime+" "+stime+" 0 0 20 0 1 0 "+start+" 12345 67\n")
 }
 
 func pids(g energy.Group) []uint32 {
@@ -180,10 +185,12 @@ func TestProcessesThreadsAndTheirSwitches(t *testing.T) {
 func TestEachProcessCarriesItsCPUTimeAndStart(t *testing.T) {
 	mc := newMachine(t)
 	mc.unit(session, "1", "7356\n7826\n")
-	mc.stat("7356", ".lys-login-wrap", "1", "1", "500")
+	mc.statOf("7356", ".lys-login-wrap", "1701", "1", "1", "500")
 	mc.proc.write("7356/cmdline", "/nix/store/ks59-lys-login/bin/lys-login\x00worker\x00session\x00")
+	mc.proc.link("7356/exe", "/nix/store/ks59-lys-login/bin/.lys-login-wrapped")
 	mc.thread("7356", "7356", ".lys-login-wrap", "0", "0")
-	mc.stat("7826", "lys-wm", "15000", "8367", "900")
+	mc.statOf("7826", "lys-wm", "7356", "15000", "8367", "900")
+	mc.proc.link("7826/exe", "/nix/store/3caj-lys-wm/bin/lys-wm")
 	mc.thread("7826", "7826", "lys-wm", "0", "0")
 	s, _ := mc.sample(t)
 	g := find(t, s, session)
@@ -197,11 +204,11 @@ func TestEachProcessCarriesItsCPUTimeAndStart(t *testing.T) {
 	}
 	want := []energy.Process{
 		{
-			ID: energy.ProcessID{PID: 7356, Start: 500}, Command: "lys-login",
+			ID: energy.ProcessID{PID: 7356, Start: 500}, Parent: 1701, Command: "lys-login", Exe: "/nix/store/ks59-lys-login/bin/.lys-login-wrapped",
 			CPU: worker, Threads: []energy.Thread{{TID: 7356, Name: ".lys-login-wrap"}}, GPU: map[energy.DRMClient]map[string]energy.Engine{},
 		},
 		{
-			ID: energy.ProcessID{PID: 7826, Start: 900}, Command: "lys-wm",
+			ID: energy.ProcessID{PID: 7826, Start: 900}, Parent: 7356, Command: "lys-wm", Exe: "/nix/store/3caj-lys-wm/bin/lys-wm",
 			CPU: wm, Threads: []energy.Thread{{TID: 7826, Name: "lys-wm"}}, GPU: map[energy.DRMClient]map[string]energy.Engine{},
 		},
 	}
@@ -228,6 +235,7 @@ func TestAProcessIsNamedForItsProgramWhereItsCommandNameIsShortened(t *testing.T
 		mc := newMachine(t)
 		mc.unit(appScope, "1", "40\n")
 		mc.stat("40", tc.comm, "0", "0", "1")
+		mc.proc.link("40/exe", "/bin/x")
 		mc.proc.write("40/cmdline", tc.cmdline)
 		mc.thread("40", "40", tc.comm, "0", "0")
 		s, _ := mc.sample(t)
@@ -241,11 +249,25 @@ func TestACommandLineLongerThanAPathStillNamesTheProgram(t *testing.T) {
 	mc := newMachine(t)
 	mc.unit(appScope, "1", "40\n")
 	mc.stat("40", ".java-wrapped", "0", "0", "1")
+	mc.proc.link("40/exe", "/bin/java")
 	mc.proc.write("40/cmdline", "/usr/bin/java\x00-cp\x00"+strings.Repeat("x", 3*4096)+"\x00")
 	mc.thread("40", "40", "java", "0", "0")
 	s, _ := mc.sample(t)
 	if got := find(t, s, appScope).Processes[0].Command; got != "java" {
 		t.Errorf("named %q, want java", got)
+	}
+}
+
+func TestAProcessWhoseProgramIsGoneIsSkipped(t *testing.T) {
+	mc := newMachine(t)
+	mc.unit(appScope, "1", "40\n41\n")
+	mc.process("40", "foot")
+	mc.thread("40", "40", "foot", "0", "0")
+	mc.stat("41", "zombie", "0", "0", "1")
+	mc.thread("41", "41", "zombie", "0", "0")
+	s, _ := mc.sample(t)
+	if got := pids(find(t, s, appScope)); !reflect.DeepEqual(got, []uint32{40}) {
+		t.Errorf("pids = %v, want 40 alone: 41 has no program left", got)
 	}
 }
 

@@ -35,9 +35,9 @@ type Meter struct {
 }
 
 type Gaps struct {
-	EnergyUnreadable bool
-	GPUUnreadable    int
-	PanelsUnreadable bool
+	EnergyUnreadable    bool
+	ProcessesUnreadable int
+	PanelsUnreadable    bool
 }
 
 func (m Meter) Sample(now func() time.Time) (energy.Sample, Gaps, error) {
@@ -243,8 +243,19 @@ func (m Meter) process(pid uint32, seen map[energy.DRMClient]bool, gaps *Gaps) (
 		}
 		command = programName(command, argv0)
 	}
+	readable := true
+	exe, err := os.Readlink(filepath.Join(dir, "exe"))
+	switch {
+	case Gone(err):
+		return energy.Process{}, false, nil
+	case errors.Is(err, fs.ErrPermission):
+		gaps.ProcessesUnreadable++
+		readable = false
+	case err != nil:
+		return energy.Process{}, false, fmt.Errorf("reading the program of %d: %w", pid, err)
+	}
 	p := energy.Process{
-		ID: energy.ProcessID{PID: pid, Start: st.StartTime}, Command: command,
+		ID: energy.ProcessID{PID: pid, Start: st.StartTime}, Parent: st.Parent, Command: command, Exe: exe,
 		CPU: cpu,
 		GPU: map[energy.DRMClient]map[string]energy.Engine{},
 	}
@@ -269,6 +280,9 @@ func (m Meter) process(pid uint32, seen map[energy.DRMClient]bool, gaps *Gaps) (
 			return energy.Process{}, false, err
 		}
 		p.Threads = append(p.Threads, energy.Thread{TID: uint32(tid), Name: name, Switches: switches})
+	}
+	if !readable {
+		return p, true, nil
 	}
 	return p, true, m.clients(&p, dir, seen, gaps)
 }
@@ -350,7 +364,7 @@ func (m Meter) clients(p *energy.Process, dir string, seen map[energy.DRMClient]
 		return nil
 	}
 	if errors.Is(err, fs.ErrPermission) {
-		gaps.GPUUnreadable++
+		gaps.ProcessesUnreadable++
 		return nil
 	}
 	if err != nil {
@@ -362,7 +376,7 @@ func (m Meter) clients(p *energy.Process, dir string, seen map[energy.DRMClient]
 			continue
 		}
 		if errors.Is(err, fs.ErrPermission) {
-			gaps.GPUUnreadable++
+			gaps.ProcessesUnreadable++
 			return nil
 		}
 		if err != nil {
@@ -376,7 +390,7 @@ func (m Meter) clients(p *energy.Process, dir string, seen map[energy.DRMClient]
 			continue
 		}
 		if errors.Is(err, fs.ErrPermission) {
-			gaps.GPUUnreadable++
+			gaps.ProcessesUnreadable++
 			return nil
 		}
 		if err != nil {

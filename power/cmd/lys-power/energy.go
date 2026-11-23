@@ -87,8 +87,8 @@ func writeEnergy(w io.Writer, r energy.Report, gaps meter.Gaps, o energyOptions)
 	if gaps.EnergyUnreadable {
 		fmt.Fprintln(w, "        the RAPL energy counters are root's to read")
 	}
-	if gaps.GPUUnreadable > 0 {
-		fmt.Fprintf(w, "        GPU time of %d processes is unreadable without root\n", gaps.GPUUnreadable)
+	if gaps.ProcessesUnreadable > 0 {
+		fmt.Fprintf(w, "        the GPU time and program of %d processes are unreadable without root\n", gaps.ProcessesUnreadable)
 	}
 	for _, p := range r.Panels {
 		fmt.Fprintf(w, "panel:  %s %s, self-refreshing in %s of %d readings\n", p.Device, p.Mode, percent(p.Residency), p.Readings)

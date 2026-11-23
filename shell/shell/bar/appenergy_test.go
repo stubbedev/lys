@@ -14,6 +14,8 @@ import (
 	"github.com/stubbedev/lys/lib/wmipc"
 	"github.com/stubbedev/lys/power/energy"
 	"github.com/stubbedev/lys/ui/widget"
+
+	"github.com/stubbedev/lys/shell/service/appenergy"
 )
 
 type fakeEnergy struct {
@@ -23,7 +25,7 @@ type fakeEnergy struct {
 	report  energy.Report
 	running bool
 	watches int
-	quit    []string
+	quit    []appenergy.Target
 }
 
 func (f *fakeEnergy) set(r energy.Report, running bool) {
@@ -48,19 +50,18 @@ func (f *fakeEnergy) Watch(life context.Context, _ func(error)) {
 	<-life.Done()
 }
 
-func (f *fakeEnergy) Quittable(a energy.App) (string, bool) {
-	uid, unit, ok := a.UserUnit()
-	return unit, ok && uid == 1000
+func (f *fakeEnergy) Quittable(a energy.App) (appenergy.Target, bool) {
+	return appenergy.Quittable(a, 1000)
 }
 
-func (f *fakeEnergy) Quit(_ context.Context, unit string) error {
+func (f *fakeEnergy) Quit(_ context.Context, target appenergy.Target) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.quit = append(f.quit, unit)
+	f.quit = append(f.quit, target)
 	return nil
 }
 
-func (f *fakeEnergy) state() (int, []string) {
+func (f *fakeEnergy) state() (int, []appenergy.Target) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.watches, slices.Clone(f.quit)
@@ -69,6 +70,7 @@ func (f *fakeEnergy) state() (int, []string) {
 const (
 	firefoxScope = "user.slice/user-1000.slice/user@1000.service/app.slice/app-firefox-1.scope"
 	dockerScope  = "system.slice/docker-abc.scope"
+	tmuxScope    = "user.slice/user-1000.slice/user@1000.service/app.slice/tmux-spawn-1.scope"
 )
 
 func busyReport(source energy.Source) energy.Report {
@@ -151,11 +153,34 @@ func TestOnlyTheUsersOwnAppsCanBeQuit(t *testing.T) {
 	}
 	onHeadlessLoop(func() bool { quits[0].(*widget.Button).ClickAt(widget.Point{}); return true })
 	waitHeadless(t, "the quit", func() bool { _, quit := src.state(); return len(quit) == 1 })
-	if _, quit := src.state(); quit[0] != "app-firefox-1.scope" {
-		t.Errorf("quit %q, want firefox's scope", quit)
+	if want, _ := appenergy.Quittable(busyReport(energy.SourceNone).Apps[0], 1000); quit(src)[0] != want {
+		t.Errorf("quit %+v, want firefox's scope", quit(src))
 	}
 	if shows := onHeadlessLoop(func() []widget.Widget { return treetest.WithClass(v, "battery-energy-show") }); len(shows) != 0 {
 		t.Errorf("%d show buttons without any window", len(shows))
+	}
+}
+
+func quit(src *fakeEnergy) []appenergy.Target {
+	_, q := src.state()
+	return q
+}
+
+func TestQuittingAJobInATerminalEndsThatJob(t *testing.T) {
+	claude := energy.App{Cgroup: tmuxScope, Command: "claude", PIDs: []uint32{20, 21}, Job: &energy.ProcessID{PID: 21, Start: 99}, Impact: 0.6}
+	src := &fakeEnergy{}
+	src.set(energy.Report{Covered: time.Minute, Source: energy.SourceNone, Apps: []energy.App{claude}}, true)
+	v := openBatteryEnergy(t, src)
+	quits := onHeadlessLoop(func() []widget.Widget { return treetest.WithClass(v, "battery-energy-quit") })
+	if len(quits) != 1 {
+		t.Fatalf("%d quit buttons, want claude's", len(quits))
+	}
+	onHeadlessLoop(func() bool { quits[0].(*widget.Button).ClickAt(widget.Point{}); return true })
+	waitHeadless(t, "the quit", func() bool { return len(quit(src)) == 1 })
+	job, _ := appenergy.Quittable(claude, 1000)
+	scope, _ := appenergy.Quittable(energy.App{Cgroup: tmuxScope}, 1000)
+	if got := quit(src)[0]; got != job || got == scope {
+		t.Errorf("quit %+v, want claude's job %+v, not the terminal's scope", got, job)
 	}
 }
 

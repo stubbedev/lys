@@ -40,7 +40,9 @@ type ProcessID struct {
 
 type ProcessInfo struct {
 	ID      ProcessID
+	Parent  uint32
 	Command string
+	Exe     string
 }
 
 type Process struct {
@@ -303,6 +305,34 @@ func (t *appTotal) pids() []uint32 {
 	return out
 }
 
+func (t *appTotal) job(busiest ProcessID) *ProcessID {
+	if len(t.latest) == 0 {
+		return nil
+	}
+	byPID := make(map[uint32]ProcessInfo, len(t.latest))
+	for _, p := range t.latest {
+		byPID[p.ID.PID] = p.ProcessInfo
+	}
+	leader := slices.MinFunc(t.latest, func(a, b ProcessInterval) int {
+		return cmp.Or(cmp.Compare(a.ID.Start, b.ID.Start), cmp.Compare(a.ID.PID, b.ID.PID))
+	}).ProcessInfo
+	cur, ok := byPID[busiest.PID]
+	if !ok || cur.ID != busiest || cur.Exe == "" {
+		return nil
+	}
+	for range len(t.latest) {
+		parent, ok := byPID[cur.Parent]
+		if cur.ID == leader.ID || !ok || parent.Exe != cur.Exe {
+			break
+		}
+		cur = parent
+	}
+	if cur.ID == leader.ID {
+		return nil
+	}
+	return &cur.ID
+}
+
 func Attribute(intervals []Interval) Report {
 	r := Report{Source: SourceNone}
 	if len(intervals) == 0 {
@@ -357,6 +387,7 @@ func Attribute(intervals []Interval) Report {
 		}
 		if busiest, ok := t.busiest(); ok {
 			app.Command = t.processes[busiest].command
+			app.Job = t.job(busiest)
 		}
 		if source != SourceNone {
 			app.Watts = t.joules / seconds

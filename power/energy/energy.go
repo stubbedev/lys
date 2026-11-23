@@ -81,6 +81,7 @@ type App struct {
 	Cgroup  string
 	Command string
 	PIDs    []uint32
+	Job     *ProcessID
 	CPU     float64
 	Wakeups float64
 	GPU     float64
@@ -139,14 +140,16 @@ func (r Report) Significant(n int) []App {
 }
 
 type wireApp struct {
-	Cgroup  string
-	Command string
-	PIDs    []uint32
-	CPU     float64
-	Wakeups float64
-	GPU     float64
-	Impact  float64
-	Watts   float64
+	Cgroup   string
+	Command  string
+	PIDs     []uint32
+	JobPID   uint32
+	JobStart uint64
+	CPU      float64
+	Wakeups  float64
+	GPU      float64
+	Impact   float64
+	Watts    float64
 }
 
 type wirePanel struct {
@@ -167,7 +170,11 @@ type wireReport struct {
 func toWire(r Report) wireReport {
 	apps := make([]wireApp, len(r.Apps))
 	for i, a := range r.Apps {
-		apps[i] = wireApp{a.Cgroup, a.Command, a.PIDs, a.CPU, a.Wakeups, a.GPU, a.Impact, a.Watts}
+		w := wireApp{Cgroup: a.Cgroup, Command: a.Command, PIDs: a.PIDs, CPU: a.CPU, Wakeups: a.Wakeups, GPU: a.GPU, Impact: a.Impact, Watts: a.Watts}
+		if a.Job != nil {
+			w.JobPID, w.JobStart = a.Job.PID, a.Job.Start
+		}
+		apps[i] = w
 	}
 	panels := make([]wirePanel, len(r.Panels))
 	for i, p := range r.Panels {
@@ -188,6 +195,9 @@ func fromWire(w wireReport) (Report, error) {
 	apps := make([]App, len(w.Apps))
 	for i, a := range w.Apps {
 		apps[i] = App{Cgroup: a.Cgroup, Command: a.Command, PIDs: a.PIDs, CPU: a.CPU, Wakeups: a.Wakeups, GPU: a.GPU, Impact: a.Impact, Watts: a.Watts}
+		if a.JobPID != 0 {
+			apps[i].Job = &ProcessID{PID: a.JobPID, Start: a.JobStart}
+		}
 	}
 	var panels []Panel
 	for _, p := range w.Panels {

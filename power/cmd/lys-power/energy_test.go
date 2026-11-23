@@ -48,7 +48,7 @@ func (s *steps) Sample(func() time.Time) (energy.Sample, meter.Gaps, error) {
 		return energy.Sample{}, meter.Gaps{}, errors.New("no more samples")
 	}
 	s.calls++
-	return s.samples[s.calls-1], meter.Gaps{GPUUnreadable: s.calls}, nil
+	return s.samples[s.calls-1], meter.Gaps{ProcessesUnreadable: s.calls}, nil
 }
 
 func TestMeasureEnergyComparesTwoSamplesTheGivenTimeApart(t *testing.T) {
@@ -65,7 +65,7 @@ func TestMeasureEnergyComparesTwoSamplesTheGivenTimeApart(t *testing.T) {
 	if slept != 4*time.Second || r.Covered != 4*time.Second || len(r.Apps) != 1 || r.Apps[0].CPU != 0.5 {
 		t.Errorf("slept %s, report %+v", slept, r)
 	}
-	if gaps.GPUUnreadable != 2 {
+	if gaps.ProcessesUnreadable != 2 {
 		t.Errorf("gaps = %+v, want the second sample's", gaps)
 	}
 	if _, _, err := measureEnergy(&steps{samples: s.samples[:1], panels: make([]energy.PanelState, 3)}, time.Second, func(time.Duration) {}); err == nil {
@@ -110,12 +110,12 @@ var shown = energy.Report{Covered: 10 * time.Second, Source: energy.SourcePackag
 
 func TestEnergyTable(t *testing.T) {
 	var out bytes.Buffer
-	if err := writeEnergy(&out, shown, meter.Gaps{GPUUnreadable: 3}, energyOptions{threads: true}); err != nil {
+	if err := writeEnergy(&out, shown, meter.Gaps{ProcessesUnreadable: 3}, energyOptions{threads: true}); err != nil {
 		t.Fatal(err)
 	}
 	for _, want := range []string{
 		"power:  16.50 W from the package over 10s",
-		"GPU time of 3 processes is unreadable without root",
+		"the GPU time and program of 3 processes are unreadable without root",
 		"tmux: server  tmux-spawn-1.scope  12.25 W  1060.0%  2300.0     0.0%  1106.0%",
 		"  go/go       10/12                                 760.0\n",
 		"760.0",

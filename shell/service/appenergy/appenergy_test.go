@@ -2,12 +2,18 @@ package appenergy_test
 
 import (
 	"context"
+	"errors"
+	"io"
+	"os"
+	"os/exec"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/dbusx"
+	"github.com/stubbedev/lys/lib/procstat"
 	"github.com/stubbedev/lys/lib/testhome"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/waittest"
@@ -120,7 +126,11 @@ func TestQuitStopsTheUnitThroughTheUsersSystemd(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(release)
-	if err := appenergy.Quit(context.Background(), bus.Conn(t), "app-firefox-1.scope"); err != nil {
+	target, ok := appenergy.Quittable(energy.App{Cgroup: firefoxScope}, 1000)
+	if !ok {
+		t.Fatal("the user's own app is not quittable")
+	}
+	if err := appenergy.Quit(context.Background(), bus.Conn(t), target); err != nil {
 		t.Fatal(err)
 	}
 	sd.mu.Lock()
@@ -132,20 +142,106 @@ func TestQuitStopsTheUnitThroughTheUsersSystemd(t *testing.T) {
 
 func TestQuitWithoutSystemdFails(t *testing.T) {
 	bus := dbustest.Start(t)
-	if err := appenergy.Quit(context.Background(), bus.Conn(t), "a.scope"); err == nil {
+	target, ok := appenergy.Quittable(energy.App{Cgroup: firefoxScope}, 1000)
+	if !ok {
+		t.Fatal("the user's own app is not quittable")
+	}
+	if err := appenergy.Quit(context.Background(), bus.Conn(t), target); err == nil {
 		t.Error("quit without a user manager")
 	}
 }
 
 func TestOnlyTheUsersOwnUnitsAreQuittable(t *testing.T) {
-	mine := energy.App{Cgroup: "user.slice/user-1000.slice/user@1000.service/app.slice/app-foot-3.scope"}
-	if unit, ok := appenergy.Quittable(mine, 1000); !ok || unit != "app-foot-3.scope" {
-		t.Errorf("own app: %q %v", unit, ok)
+	mine := energy.App{Cgroup: firefoxScope}
+	if _, ok := appenergy.Quittable(mine, 1000); !ok {
+		t.Error("the user's own app is not quittable")
 	}
 	if _, ok := appenergy.Quittable(mine, 1001); ok {
 		t.Error("another user's app is quittable")
 	}
-	if _, ok := appenergy.Quittable(energy.App{Cgroup: "system.slice/docker-1.scope"}, 0); ok {
-		t.Error("a system unit is quittable")
+	if _, ok := appenergy.Quittable(energy.App{Cgroup: "system.slice/docker-1.scope", Job: &energy.ProcessID{PID: 5, Start: 1}}, 0); ok {
+		t.Error("a job in a system unit is quittable")
+	}
+}
+
+const (
+	firefoxScope = "user.slice/user-1000.slice/user@1000.service/app.slice/app-firefox-1.scope"
+	tmuxScope    = "user.slice/user-1000.slice/user@1000.service/app.slice/tmux-spawn-1.scope"
+	childEnv     = "APPENERGY_TEST_CHILD"
+)
+
+func TestChild(t *testing.T) {
+	if os.Getenv(childEnv) == "" {
+		t.Skip("the process the quit tests end")
+	}
+	_, _ = io.Copy(io.Discard, os.Stdin)
+}
+
+func startChild(t *testing.T) (*exec.Cmd, energy.ProcessID, io.Closer) {
+	t.Helper()
+	cmd := exec.Command(os.Args[0], "-test.run=^TestChild$", "-test.count=1")
+	cmd.Env = append(os.Environ(), childEnv+"=1")
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
+		_ = stdin.Close()
+	})
+	st, err := procstat.Of(cmd.Process.Pid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return cmd, energy.ProcessID{PID: uint32(cmd.Process.Pid), Start: st.StartTime}, stdin
+}
+
+func quitJob(t *testing.T, job energy.ProcessID) error {
+	t.Helper()
+	target, ok := appenergy.Quittable(energy.App{Cgroup: tmuxScope, Job: &job}, 1000)
+	if !ok {
+		t.Fatal("the user's own job is not quittable")
+	}
+	return appenergy.Quit(context.Background(), dbustest.Start(t).Conn(t), target)
+}
+
+func TestQuittingAJobTerminatesItAloneAndLeavesTheUnit(t *testing.T) {
+	cmd, job, _ := startChild(t)
+	if err := quitJob(t, job); err != nil {
+		t.Fatal(err)
+	}
+	err := cmd.Wait()
+	var exit *exec.ExitError
+	if !errors.As(err, &exit) || exit.Sys().(syscall.WaitStatus).Signal() != syscall.SIGTERM {
+		t.Errorf("the job ended with %v, want SIGTERM", err)
+	}
+}
+
+func TestAJobWhosePIDWasReusedIsLeftAlone(t *testing.T) {
+	cmd, job, stdin := startChild(t)
+	job.Start++
+	if err := quitJob(t, job); err != nil {
+		t.Fatal(err)
+	}
+	if err := stdin.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmd.Wait(); err != nil {
+		t.Errorf("the process now holding the job's PID ended with %v, want a clean exit of its own", err)
+	}
+}
+
+func TestAJobThatHasExitedIsQuitAlready(t *testing.T) {
+	cmd, job, _ := startChild(t)
+	if err := cmd.Process.Kill(); err != nil {
+		t.Fatal(err)
+	}
+	_ = cmd.Wait()
+	if err := quitJob(t, job); err != nil {
+		t.Errorf("quitting a job that has exited: %v", err)
 	}
 }
