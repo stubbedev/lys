@@ -86,9 +86,11 @@ func TestThemeIconNeverDecodesOnTheLoopAtFractionalScales(t *testing.T) {
 				def.SetTheme("hicolor")
 			})
 			w := NewThemeIcon("flag", 16)
+			release := occupyAssetWorkers(t)
 			if data, dev := paintIcon(w, 16, sc.num, sc.denom); centerPx(data, dev) != render.RGB(0, 0, 0) {
 				t.Error("the first paint decoded inline")
 			}
+			release()
 			settleAssets(t, f)
 			data, dev := paintIcon(w, 16, sc.num, sc.denom)
 			if got := centerPx(data, dev); got != render.RGB(0, 0xff, 0) {
