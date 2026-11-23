@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"slices"
 	"sync"
 	"testing"
 	"unsafe"
@@ -20,6 +21,7 @@ import (
 )
 
 const (
+	ftLoadNoScale       = 1 << 0
 	ftLoadNoBitmap      = 1 << 3
 	ftLoadForceAutohint = 1 << 5
 	ftLoadTargetLight   = 1 << 16
@@ -30,6 +32,8 @@ const (
 	ftSlotOutline    = 200
 	ftOutlineNPoints = 2
 	ftOutlinePoints  = 8
+	ftOutlineTags    = 16
+	ftOutlineEnds    = 24
 )
 
 type freetype struct {
@@ -216,5 +220,44 @@ func TestAutofitHintsEveryMappedGlyphAsFreeTypesLightAutohinter(t *testing.T) {
 				t.Errorf("%d of %d hinted glyphs differ from FreeType", mismatched, compared)
 			}
 		})
+	}
+}
+
+func TestCFFOutlinesLoadAsFreeTypeLoadsThem(t *testing.T) {
+	ft := loadFreetype(t)
+	data := readEnvFont(t, "LYS_TEST_FEATURES_FONT")
+	tf := loadFirstFace(t, data)
+	var face unsafe.Pointer
+	if rc := ft.newFace(ft.library, &data[0], int64(len(data)), 0, &face); rc != 0 {
+		t.Fatalf("FT_New_Memory_Face: error %d", rc)
+	}
+	defer runtime.KeepAlive(data)
+	defer ft.doneFace(face)
+	ftTags := [...]uint8{autofit.On: 1, autofit.Conic: 0, autofit.Cubic: 2}
+	mismatched := 0
+	for g := range tf.face.NumGlyphs() {
+		if rc := ft.loadGlyph(face, uint32(g), ftLoadNoScale|ftLoadNoBitmap); rc != 0 {
+			t.Fatalf("FT_Load_Glyph %d: error %d", g, rc)
+		}
+		outline := unsafe.Add(peek[unsafe.Pointer](face, ftFaceGlyph), ftSlotOutline)
+		var want autofit.Outline
+		points, tags, ends := peek[unsafe.Pointer](outline, ftOutlinePoints), peek[unsafe.Pointer](outline, ftOutlineTags), peek[unsafe.Pointer](outline, ftOutlineEnds)
+		for i := range int(peek[uint16](outline, ftOutlineNPoints)) {
+			want.Points = append(want.Points, autofit.Point{X: peek[int64](points, 16*i), Y: peek[int64](points, 16*i+8)})
+			want.Tags = append(want.Tags, autofit.Tag(slices.Index(ftTags[:], peek[uint8](tags, i)&3)))
+		}
+		for i := range int(peek[uint16](outline, 0)) {
+			want.Ends = append(want.Ends, int(peek[uint16](ends, 2*i)))
+		}
+		got, _ := loadTestOutline(tf, font.GID(g))
+		if fmt.Sprint(got) != fmt.Sprint(want) {
+			mismatched++
+			if mismatched <= 5 {
+				t.Errorf("glyph %d: loaded %v, FreeType %v", g, got, want)
+			}
+		}
+	}
+	if mismatched > 0 {
+		t.Errorf("%d of %d glyphs load other points than FreeType's", mismatched, tf.face.NumGlyphs())
 	}
 }

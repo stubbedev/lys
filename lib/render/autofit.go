@@ -37,6 +37,7 @@ func (s autofitSource) Mappings() []autofit.Mapping {
 	return out
 }
 
+
 func (s autofitSource) LoadOutline(o *autofit.Outline, gid uint32) bool {
 	sc := takeGlyphScratch()
 	defer glyphScratches.Put(sc)
@@ -73,39 +74,44 @@ func (sc *glyphScratch) loadOutline(f *font.Face, gid font.GID) bool {
 	if !ok || len(segs.Segments) == 0 {
 		return false
 	}
+	var pending ot.SegmentPoint
+	start := 0
 	add := func(p ot.SegmentPoint, tag autofit.Tag) {
-		o.Points = append(o.Points, autofit.Point{X: fontUnit(p.X), Y: fontUnit(p.Y)})
+		o.Points = append(o.Points, autofit.Point{X: cffUnit(p.X), Y: cffUnit(p.Y)})
 		o.Tags = append(o.Tags, tag)
 	}
+	draw := func() {
+		if len(o.Points) == start {
+			add(pending, autofit.On)
+		}
+	}
 	closeContour := func() {
-		if len(o.Points) == 0 {
+		last := len(o.Points) - 1
+		if last < start {
 			return
 		}
-		first := 0
-		if len(o.Ends) > 0 {
-			first = o.Ends[len(o.Ends)-1] + 1
-		}
-		last := len(o.Points) - 1
-		if last > first && o.Tags[last] == autofit.On && o.Points[last] == o.Points[first] {
-			o.Points, o.Tags = o.Points[:last], o.Tags[:last]
+		if o.Tags[last] == autofit.On && o.Points[last] == o.Points[start] {
 			last--
 		}
-		if last >= first {
+		if last <= start {
+			last = start - 1
+		} else {
 			o.Ends = append(o.Ends, last)
 		}
+		o.Points, o.Tags = o.Points[:last+1], o.Tags[:last+1]
+		start = last + 1
 	}
 	for _, seg := range segs.Segments {
 		args := seg.ArgsSlice()
 		switch seg.Op {
 		case ot.SegmentOpMoveTo:
 			closeContour()
-			add(args[0], autofit.On)
+			pending = args[0]
 		case ot.SegmentOpLineTo:
+			draw()
 			add(args[0], autofit.On)
-		case ot.SegmentOpQuadTo:
-			add(args[0], autofit.Conic)
-			add(args[1], autofit.On)
 		case ot.SegmentOpCubeTo:
+			draw()
 			add(args[0], autofit.Cubic)
 			add(args[1], autofit.Cubic)
 			add(args[2], autofit.On)
@@ -114,6 +120,8 @@ func (sc *glyphScratch) loadOutline(f *font.Face, gid font.GID) bool {
 	closeContour()
 	return len(o.Ends) > 0
 }
+
+func cffUnit(v float32) int64 { return int64(math.Round(float64(v)*1024)) >> 10 }
 
 type devicePoint struct{ x, y float64 }
 

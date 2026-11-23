@@ -73,6 +73,7 @@ type CharstringReader struct {
 	isPathOpen   bool
 
 	seenHintmask bool
+	hintmaskNew  bool
 
 	// bounds for an empty path is {0,0,0,0}
 	// however, for the first point in the path,
@@ -107,6 +108,13 @@ func (out *CharstringReader) determineHintmaskSize(state *Machine) {
 }
 
 func (out *CharstringReader) Hintmask(state *Machine) {
+	out.Cntrmask(state)
+	out.hintmaskNew = true
+}
+
+// Cntrmask reads a counter mask, which unlike a hint mask does not
+// start a new hint map.
+func (out *CharstringReader) Cntrmask(state *Machine) {
 	out.determineHintmaskSize(state)
 	state.SkipBytes(out.hintmaskSize)
 }
@@ -116,6 +124,7 @@ func (out *CharstringReader) move(pt Point) {
 
 	out.CurrentPoint.Move(pt.X, pt.Y)
 	out.isPathOpen = false
+	out.hintmaskNew = false
 	out.firstPoint = out.CurrentPoint
 	out.Segments = append(out.Segments, ot.Segment{
 		Op:   ot.SegmentOpMoveTo,
@@ -125,6 +134,10 @@ func (out *CharstringReader) move(pt Point) {
 
 // pt is in absolute coordinates
 func (out *CharstringReader) line(pt Point) {
+	if pt == out.CurrentPoint && !out.hintmaskNew {
+		return
+	}
+	out.hintmaskNew = false
 	if !out.isPathOpen {
 		out.isPathOpen = true
 		out.updateBounds(out.CurrentPoint)
@@ -138,6 +151,7 @@ func (out *CharstringReader) line(pt Point) {
 }
 
 func (out *CharstringReader) curve(pt1, pt2, pt3 Point) {
+	out.hintmaskNew = false
 	if !out.isPathOpen {
 		out.isPathOpen = true
 		out.updateBounds(out.CurrentPoint)

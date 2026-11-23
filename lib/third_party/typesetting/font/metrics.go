@@ -34,6 +34,9 @@ func (f *Font) GlyphName(glyph GID) string {
 // This value is only relevant for scalable fonts.
 func (f *Font) Upem() uint16 { return f.upem }
 
+// NumGlyphs returns the glyph count of the maxp table.
+func (f *Font) NumGlyphs() int { return f.nGlyphs }
+
 var (
 	metricsTagHorizontalAscender  = ot.Tag('h'<<24 | 'a'<<16 | 's'<<8 | 'c')
 	metricsTagHorizontalDescender = ot.Tag('h'<<24 | 'd'<<16 | 's'<<8 | 'c')

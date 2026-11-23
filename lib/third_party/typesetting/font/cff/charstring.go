@@ -90,7 +90,11 @@ func (met *type2CharstringHandler) Apply(state *ps.Machine, op ps.Operator) erro
 			if state.ArgStack.Top&1 != 0 {
 				met.width = met.nominalWidthX + state.ArgStack.Vals[0]
 			}
-			met.cs.Hintmask(state)
+			if op.Operator == 19 {
+				met.cs.Hintmask(state)
+			} else {
+				met.cs.Cntrmask(state)
+			}
 			// the stack is managed by the previous call
 			return nil
 
@@ -270,7 +274,11 @@ func (met *cff2CharstringHandler) Apply(state *ps.Machine, op ps.Operator) error
 		case 19, 20: // hintmask, cntrmask
 			// variable number of arguments, but always even
 			// for xxxmask, if there are arguments on the stack, then this is an impliied stem
-			met.cs.Hintmask(state)
+			if op.Operator == 19 {
+				met.cs.Hintmask(state)
+			} else {
+				met.cs.Cntrmask(state)
+			}
 			// the stack is managed by the previous call
 			return nil
 		case 21: // rmoveto

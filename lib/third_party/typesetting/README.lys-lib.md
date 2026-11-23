@@ -327,6 +327,17 @@ FT_MulFix rounding of a component matrix; the CORDIC length; appending
 keeps the buffer's points and allocates nothing)
 and `font/lys_gvar_test.go` (outlines unchanged).
 
+### CFF drops zero-length lines as FreeType does
+
+`font/cff/interpreter/charstrings.go`, `font/cff/charstring.go`: a line
+to the current point is left out of the outline unless a `hintmask` came
+right before it, as FreeType's CFF engine does, which keeps such lines
+only as hint map boundaries; `cntrmask` no longer counts as a hint mask.
+render's autohinter analyses the points FreeType loads, and a duplicate
+point shifted every point after it. Pinned by
+`font/cff/lys_charstring_test.go`.
+
+
 ### Shaping allocates less
 
 `harfbuzz/ot_shape_normalize.go`, `buffer.go`: the normalization context
