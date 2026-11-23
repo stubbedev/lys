@@ -28,6 +28,17 @@ type outcome struct {
 	said    dbus.Sequence
 }
 
+// question is a notification Ask posted, whose daemon has answered
+// Notify: what the daemon says after that reply is about it.
+type question struct {
+	id           uint32
+	posted       dbus.Sequence
+	outcomes     <-chan outcome
+	unreadable   <-chan error
+	watch        *dbusx.Watch
+	stopWatching context.CancelFunc
+}
+
 // Ask posts a notification with buttons and waits for the user:
 // the key of
 // the button pressed, or ok=false when the notification closed or
@@ -37,8 +48,17 @@ type outcome struct {
 // daemon says after it answered Notify is about this notification: an
 // id it used before may be the one it hands out again.
 func (s *Sender) Ask(ctx context.Context, appName, summary, body, appIcon string, actions []Action, timeout time.Duration) (key string, ok bool, err error) {
+	q, err := s.ask(ctx, appName, summary, body, appIcon, actions, timeout)
+	if err != nil {
+		return "", false, err
+	}
+	return q.answer(ctx)
+}
+
+// ask posts the notification and returns once the daemon answered
+// Notify; answer, which must follow, waits for the user.
+func (s *Sender) ask(ctx context.Context, appName, summary, body, appIcon string, actions []Action, timeout time.Duration) (*question, error) {
 	watching, stopWatching := context.WithCancel(ctx)
-	defer stopWatching()
 	outcomes, unreadable := make(chan outcome, 16), make(chan error, 1)
 	tell := func(o outcome) {
 		select {
@@ -63,40 +83,51 @@ func (s *Sender) Ask(ctx context.Context, appName, summary, body, appIcon string
 			return nil
 		}))
 	if err != nil {
-		return "", false, fmt.Errorf("desktopnotify: %w", err)
-	}
-	defer func() {
 		stopWatching()
-		_ = watch.Stop()
-	}()
+		return nil, fmt.Errorf("desktopnotify: %w", err)
+	}
+	q := &question{outcomes: outcomes, unreadable: unreadable, watch: watch, stopWatching: stopWatching}
 
 	flat := make([]string, 0, 2*len(actions))
 	for _, a := range actions {
 		flat = append(flat, a.Key, a.Label)
 	}
-	hints := iconHints(appIcon)
-	var id uint32
 	call := s.conn.Object(busName, path).CallWithContext(ctx, method, 0,
-		appName, uint32(0), appIcon, summary, body, flat, hints, intconv.Clamp[int32](timeout.Milliseconds()))
+		appName, uint32(0), appIcon, summary, body, flat, iconHints(appIcon), intconv.Clamp[int32](timeout.Milliseconds()))
 	if call.Err != nil {
-		return "", false, fmt.Errorf("desktopnotify: Notify: %w", call.Err)
+		q.stop()
+		return nil, fmt.Errorf("desktopnotify: Notify: %w", call.Err)
 	}
-	if err := call.Store(&id); err != nil {
-		return "", false, fmt.Errorf("desktopnotify: Notify reply: %w", err)
+	if err := call.Store(&q.id); err != nil {
+		q.stop()
+		return nil, fmt.Errorf("desktopnotify: Notify reply: %w", err)
 	}
+	q.posted = call.ResponseSequence
+	return q, nil
+}
+
+// answer waits for the press or the close the daemon announces after
+// its Notify reply, then stops watching.
+func (q *question) answer(ctx context.Context) (key string, ok bool, err error) {
+	defer q.stop()
 	for {
 		select {
 		case <-ctx.Done():
 			return "", false, nil
-		case <-watch.Done():
+		case <-q.watch.Done():
 			return "", false, nil
-		case err := <-unreadable:
+		case err := <-q.unreadable:
 			return "", false, fmt.Errorf("desktopnotify: %w", err)
-		case o := <-outcomes:
-			if o.id != id || o.said < call.ResponseSequence {
+		case o := <-q.outcomes:
+			if o.id != q.id || o.said < q.posted {
 				continue
 			}
 			return o.key, o.pressed, nil
 		}
 	}
+}
+
+func (q *question) stop() {
+	q.stopWatching()
+	_ = q.watch.Stop()
 }

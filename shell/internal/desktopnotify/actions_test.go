@@ -9,7 +9,6 @@ import (
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
-	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/shell/internal/notifytest"
 	"github.com/stubbedev/lys/shell/service/notifications"
@@ -183,19 +182,16 @@ func TestAskHearsTheShellsOwnServerOnItsOwnConnection(t *testing.T) {
 			t.Errorf("release the notification server: %v", err)
 		}
 	})
-	type answer struct {
-		key string
-		ok  bool
-		err error
+	q, err := NewSender(conn).ask(t.Context(), "lys-shell", "s", "b", "", yesNoActions, time.Minute)
+	if err != nil {
+		t.Fatalf("ask: %v", err)
 	}
-	answered := make(chan answer, 1)
-	go func() {
-		key, ok, err := NewSender(conn).Ask(t.Context(), "lys-shell", "s", "b", "", yesNoActions, time.Minute)
-		answered <- answer{key, ok, err}
-	}()
-	waittest.Until(t, func() bool { return len(svc.Popups()) == 1 }, "the server to show the question")
-	svc.InvokeAction(svc.Popups()[0].ID, "allow", "")
-	if a := waittest.For(t, answered, "Ask to hear the press its own server announced"); a.err != nil || !a.ok || a.key != "allow" {
-		t.Fatalf("Ask = %q %v %v, want allow", a.key, a.ok, a.err)
+	popups := svc.Popups()
+	if len(popups) != 1 {
+		t.Fatalf("popups once Notify answered = %d, want the question", len(popups))
+	}
+	svc.InvokeAction(popups[0].ID, "allow", "")
+	if key, ok, err := q.answer(t.Context()); err != nil || !ok || key != "allow" {
+		t.Fatalf("Ask = %q %v %v, want allow", key, ok, err)
 	}
 }
