@@ -197,9 +197,7 @@ func (c *Canvas) DrawImageDevice(img image.Image, x, y int) {
 	}
 	for py := r.Min.Y; py < r.Max.Y; py++ {
 		for px := r.Min.X; px < r.Max.X; px++ {
-			sr, sg, sb, sa := img.At(b.Min.X+px-x, b.Min.Y+py-y).RGBA()
-			src := Color(sa>>8<<24 | sr>>8<<16 | sg>>8<<8 | sb>>8)
-			c.blend(px, py, src)
+			c.blend(px, py, pixelColor(img, nil, b.Min.X+px-x, b.Min.Y+py-y))
 		}
 	}
 }
@@ -348,6 +346,23 @@ func (v VersionedImage) SubImage(r image.Rectangle) image.Image {
 
 // rgbaOf is img's pixels as an *image.RGBA when it holds them so: the
 // image itself, or a still or versioned image's; nil otherwise.
+// pixelColor is img's pixel at (x, y) as a premultiplied Color, read
+// from rgba, img's RGBA pixels when rgbaOf found them, in place.
+func pixelColor(img image.Image, rgba *image.RGBA, x, y int) Color {
+	if rgba != nil {
+		return rgbaColor(rgba, x, y)
+	}
+	r, g, b, a := img.At(x, y).RGBA()
+	return Color(a>>8<<24 | r>>8<<16 | g>>8<<8 | b>>8)
+}
+
+// rgbaColor is rgba's pixel at (x, y) as a premultiplied Color.
+func rgbaColor(rgba *image.RGBA, x, y int) Color {
+	o := rgba.PixOffset(x, y)
+	p := rgba.Pix[o : o+4 : o+4]
+	return Color(uint32(p[3])<<24 | uint32(p[0])<<16 | uint32(p[1])<<8 | uint32(p[2]))
+}
+
 func rgbaOf(img image.Image) *image.RGBA {
 	switch v := img.(type) {
 	case *image.RGBA:

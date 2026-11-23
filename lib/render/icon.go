@@ -335,6 +335,5 @@ func (i *Icon) Xform(x, y int, m Affine, num, denom int) M3 {
 
 // texel is the premultiplied pixel at (x, y) from the icon's origin.
 func (i *Icon) texel(x, y int) Color {
-	p := i.img.Pix[i.img.PixOffset(i.img.Rect.Min.X+x, i.img.Rect.Min.Y+y):]
-	return Color(uint32(p[3])<<24 | uint32(p[0])<<16 | uint32(p[1])<<8 | uint32(p[2]))
+	return rgbaColor(i.img.RGBA, i.img.Rect.Min.X+x, i.img.Rect.Min.Y+y)
 }

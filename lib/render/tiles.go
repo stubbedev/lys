@@ -86,11 +86,11 @@ func (c *Canvas) PaintImageTiles(img image.Image, t Tile, clip Rect, radii Corne
 	}
 	iw, ih := ib.Dx(), ib.Dy()
 	kx, ky := TexelScale(iw, g.W), TexelScale(ih, g.H)
+	rgba := rgbaOf(img)
 	c.paintTiles(g, func(u, v float32) Color {
 		sx := ib.Min.X + min(max(int(u*kx), 0), iw-1)
 		sy := ib.Min.Y + min(max(int(v*ky), 0), ih-1)
-		r, gr, b, a := img.At(sx, sy).RGBA()
-		return Color(a>>8<<24 | r>>8<<16 | gr>>8<<8 | b>>8)
+		return pixelColor(img, rgba, sx, sy)
 	})
 }
 

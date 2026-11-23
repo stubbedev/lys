@@ -678,16 +678,7 @@ func (c *Canvas) blendSampled(img image.Image, full, dst Rect) {
 		sy := b.Min.Y + (py-full.Y)*b.Dy()/full.H
 		for px := dst.X; px < dst.X+dst.W; px++ {
 			sx := b.Min.X + (px-full.X)*b.Dx()/full.W
-			var src Color
-			if rgba != nil {
-				o := rgba.PixOffset(sx, sy)
-				p := rgba.Pix[o : o+4 : o+4]
-				src = Color(uint32(p[3])<<24 | uint32(p[0])<<16 | uint32(p[1])<<8 | uint32(p[2]))
-			} else {
-				sr, sg, sb, sa := img.At(sx, sy).RGBA()
-				src = Color(sa>>8<<24 | sr>>8<<16 | sg>>8<<8 | sb>>8)
-			}
-			if src != 0 {
+			if src := pixelColor(img, rgba, sx, sy); src != 0 {
 				c.blend(px, py, src)
 			}
 		}
@@ -719,15 +710,7 @@ func (c *Canvas) DrawImageCover(img image.Image, r Rect, radii Corners) {
 			if cov <= 0 {
 				continue
 			}
-			var src Color
-			if rgba != nil {
-				p := rgba.Pix[rgba.PixOffset(b.Min.X+sx, b.Min.Y+sy):]
-				src = Color(uint32(p[3])<<24 | uint32(p[0])<<16 | uint32(p[1])<<8 | uint32(p[2]))
-			} else {
-				sr, sg, sb, sa := img.At(b.Min.X+sx, b.Min.Y+sy).RGBA()
-				src = Color(sa>>8<<24 | sr>>8<<16 | sg>>8<<8 | sb>>8)
-			}
-			c.blend(px, py, coverageScale(src, cov255(cov)))
+			c.blend(px, py, coverageScale(pixelColor(img, rgba, b.Min.X+sx, b.Min.Y+sy), cov255(cov)))
 		}
 	}
 }
