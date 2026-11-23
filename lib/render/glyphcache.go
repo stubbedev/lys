@@ -143,7 +143,13 @@ func cachedOutlineRaster(t *Typeface, gid font.GID, scale, penX, penY float64) (
 	}
 	// Font units to pixels: scaled, y flipped, sheared by the face's
 	// slant, offset by the pen's fractional position.
-	g := rasterOutlineXform(outline, Affine{A: scale, C: scale * t.slant, D: -scale, E: bucketOffset(key.fx), F: bucketOffset(key.fy)})
+	m := Affine{A: scale, C: scale * t.slant, D: -scale, E: bucketOffset(key.fx), F: bucketOffset(key.fy)}
+	hint := hintVertical(outlineEdges(outline, t.upem), t.blueZones(), scale, m.F, t.upem)
+	g := rasterOutline(outline, func(p ot.SegmentPoint) (float64, float64) {
+		y := hint.device(float64(p.Y), scale, m.F)
+		x, _ := m.Apply(float64(p.X), (m.F-y)/scale)
+		return x, y
+	})
 	glyphs.put(key, g, len(g.mask))
 	return g, true
 }
@@ -155,10 +161,20 @@ func cachedOutlineRaster(t *Typeface, gid font.GID, scale, penX, penY float64) (
 // transformed clip. The bounds grow a pixel on every side, the
 // anti-aliasing margin the per-pixel blit has always worked in.
 func rasterOutlineXform(outline font.GlyphOutline, m Affine) *GlyphMask {
-	minX, minY, maxX, maxY := math.Inf(1), math.Inf(1), math.Inf(-1), math.Inf(-1)
-	for _, seg := range outline.Segments {
-		for _, p := range seg.Args {
-			x, y := m.Apply(float64(p.X), float64(p.Y))
+	return rasterOutline(outline, func(p ot.SegmentPoint) (float64, float64) {
+		return m.Apply(float64(p.X), float64(p.Y))
+	})
+}
+
+func rasterOutline(outline font.GlyphOutline, place func(ot.SegmentPoint) (float64, float64)) *GlyphMask {
+	type placedPoint struct{ x, y float64 }
+	placed := make([]placedPoint, 0, 3*len(outline.Segments))
+	x0, y0 := place(ot.SegmentPoint{})
+	minX, minY, maxX, maxY := x0, y0, x0, y0
+	for i := range outline.Segments {
+		for _, p := range outline.Segments[i].ArgsSlice() {
+			x, y := place(p)
+			placed = append(placed, placedPoint{x: x, y: y})
 			minX, minY = math.Min(minX, x), math.Min(minY, y)
 			maxX, maxY = math.Max(maxX, x), math.Max(maxY, y)
 		}
@@ -171,26 +187,25 @@ func rasterOutlineXform(outline font.GlyphOutline, m Affine) *GlyphMask {
 		return &GlyphMask{}
 	}
 	rast := vector.NewRasterizer(w, h)
-	toRaster := func(p ot.SegmentPoint) (float32, float32) {
-		x, y := m.Apply(float64(p.X), float64(p.Y))
-		return float32(x) - float32(ox), float32(y) - float32(oy)
+	next := func() (float32, float32) {
+		p := placed[0]
+		placed = placed[1:]
+		return float32(p.x) - float32(ox), float32(p.y) - float32(oy)
 	}
 	for _, seg := range outline.Segments {
 		switch seg.Op {
 		case ot.SegmentOpMoveTo:
-			x, y := toRaster(seg.Args[0])
-			rast.MoveTo(x, y)
+			rast.MoveTo(next())
 		case ot.SegmentOpLineTo:
-			x, y := toRaster(seg.Args[0])
-			rast.LineTo(x, y)
+			rast.LineTo(next())
 		case ot.SegmentOpQuadTo:
-			cx, cy := toRaster(seg.Args[0])
-			ex, ey := toRaster(seg.Args[1])
+			cx, cy := next()
+			ex, ey := next()
 			rast.QuadTo(cx, cy, ex, ey)
 		case ot.SegmentOpCubeTo:
-			c1x, c1y := toRaster(seg.Args[0])
-			c2x, c2y := toRaster(seg.Args[1])
-			ex, ey := toRaster(seg.Args[2])
+			c1x, c1y := next()
+			c2x, c2y := next()
+			ex, ey := next()
 			rast.CubeTo(c1x, c1y, c2x, c2y, ex, ey)
 		}
 	}

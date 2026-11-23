@@ -122,6 +122,9 @@ type Typeface struct {
 	// metrics memoizes Metrics; metricsRead marks it computed.
 	metrics     FaceMetrics
 	metricsRead bool
+
+	blues     []blueZone
+	bluesRead bool
 }
 
 // FaceMetrics is a face's font-relative metrics expressed as ratios
