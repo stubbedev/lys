@@ -420,7 +420,7 @@ func TestABlurRegionIsNotRedrawnWhenNothingBehindItChanged(t *testing.T) {
 			t.Fatal(err)
 		}
 		h.Eventually("the region blurred", frostedAt(75, 45))
-		settle(t, h)
+		quiesce(t, h, c, glass)
 		far := c.Layer(testclient.LayerSpec{Layer: cwlr.ZwlrLayerShellV1LayerTop, Anchor: cwlr.ZwlrLayerSurfaceV1AnchorTop | cwlr.ZwlrLayerSurfaceV1AnchorLeft, Size: image.Pt(6, 6)}, func(pix []byte, _ int, _ image.Point, frame int) {
 			for i := range pix {
 				pix[i] = byte(frame)

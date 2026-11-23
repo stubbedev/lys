@@ -44,9 +44,11 @@ func atRest(b *headless.Backend, c *compositor.Compositor) bool {
 	return !b.Outputs()[0].FrameOwed() && !c.Animating(c.Outputs()[0])
 }
 
-func quiesce(t *testing.T, h *Harness, c *testclient.Client, w *testclient.Window) {
+func quiesce(t *testing.T, h *Harness, c *testclient.Client, ws ...*testclient.Window) {
 	t.Helper()
-	w.Stop()
+	for _, w := range ws {
+		w.Stop()
+	}
 	for range 5 {
 		settle(t, h)
 		before := presentCount(h)

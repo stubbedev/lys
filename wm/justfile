@@ -213,8 +213,10 @@ write-baselines args="":
 # `just docker hardware`, which renders on the host's GPU, also gets the DRM
 # card nodes: its tests open them without master and never commit, so a
 # running session keeps the display. The container user has a passwd entry,
-# which Xwayland's local-user access check needs. Memory is capped, as the
-# race suite runs many binaries.
+# which Xwayland's local-user access check needs. SYS_PTRACE lifts Docker's
+# seccomp filter on kcmp, which the fd tests compare their own descriptors
+# with; the user is not root, so it gains no capability, as on CI.
+# Memory is capped, as the race suite runs many binaries.
 docker recipe="gates" memory="10g":
     #!/usr/bin/env bash
     set -euo pipefail
@@ -253,7 +255,7 @@ docker recipe="gates" memory="10g":
     for var in LYS_TEST_ARGS LYS_TEST_PACKAGES; do
         [[ -v $var ]] && host+=(-e "$var")
     done
-    docker run --rm --init --user "$(id -u):$(id -g)" --device /dev/kvm "${host[@]}" \
+    docker run --rm --init --user "$(id -u):$(id -g)" --cap-add SYS_PTRACE --device /dev/kvm "${host[@]}" \
         --memory {{quote(memory)}} --memory-swap {{quote(memory)}} --pids-limit 4096 --tmpfs /dev/shm:rw,nosuid,nodev,exec,size=1g,mode=1777 \
         -v /nix/store:/nix/store:ro -v "$dir/env.sh:/env.sh:ro" -v "$dir/passwd:/etc/passwd:ro" -v "$dir/group:/etc/group:ro" -v "$(git rev-parse --show-toplevel):/src" -v lys-wm-go:/go -w /src/wm -e SSL_CERT_FILE="$certs" \
         debian:trixie-slim "$bash" -c 'source /env.sh && export HOME=/go/home GOMODCACHE=/go/mod GOCACHE=/go/cache TMPDIR=/tmp LYS_WM_CONTAINER=1 && unset XDG_RUNTIME_DIR WAYLAND_DISPLAY DISPLAY DBUS_SESSION_BUS_ADDRESS && mkdir -p "$HOME" && exec just "$1"' docker "$recipe"

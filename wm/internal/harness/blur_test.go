@@ -35,12 +35,16 @@ func testATranslucentWindowBlursWhatIsBehindIt(t *testing.T, start gpuStarter) {
 	c.DispatchUntil("the spot to map", spot.Mapped)
 	glass := c.Window("glass", testclient.Fill(0, 0, 0))
 	c.DispatchUntil("the glass to map", glass.Mapped)
-	settle(t, h)
+	quiesce(t, h, c, bg, spot, glass)
+	presents := presentCount(h)
 	if err := errors.Join(spot.Destroy(), c.Display.Flush()); err != nil {
 		t.Fatal(err)
 	}
 	glassRect := image.Rect(50, 35, 110, 65)
 	h.Eventually("the glass re-blurred where the spot below it left", func(b *headless.Backend, _ *compositor.Compositor) bool {
+		if b.Outputs()[0].Presents() == presents {
+			return false
+		}
 		var damage image.Rectangle
 		for _, r := range b.Outputs()[0].LastDamage() {
 			damage = damage.Union(r)

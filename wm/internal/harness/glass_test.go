@@ -41,8 +41,7 @@ func glassOn(t *testing.T, start gpuStarter, paint testclient.Painter, configure
 	bg.Stop()
 	glass := c.Window("glass", testclient.Fill(0, 0, 0))
 	c.DispatchUntil("the glass to map", glass.Mapped)
-	glass.Stop()
-	settle(t, h)
+	quiesce(t, h, c, glass)
 	return h
 }
 
@@ -355,8 +354,7 @@ func TestMicaTintsWithTheWallpaperAtOneBlurPerOutput(t *testing.T) {
 		if r1-r0 > f1-f0 {
 			t.Errorf("%d blur redraws over %d frames behind two mica windows, want one a frame", r1-r0, f1-f0)
 		}
-		wallpaper.Stop()
-		settle(t, h)
+		quiesce(t, h, shell, wallpaper)
 		r0 = blurRedraws(h)
 		h.Advance(100 * time.Millisecond)
 		if r1 = blurRedraws(h); r1 != r0 {
@@ -429,8 +427,7 @@ func glassOverBand(t *testing.T, start gpuStarter, damage testclient.Damager) (r
 	bg.Stop()
 	glass := c.Window("glass", testclient.Fill(0, 0, 0))
 	c.DispatchUntil("the glass to map", glass.Mapped)
-	glass.Stop()
-	settle(t, h)
+	quiesce(t, h, c, glass)
 	before := filteredPixels(h)
 	for range bandFrames {
 		if err := bg.Redraw(); err != nil {

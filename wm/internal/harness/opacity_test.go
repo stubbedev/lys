@@ -105,7 +105,7 @@ func testInactiveWindowsDimAndAFocusChangeRepaintsOnlyTheTwo(t *testing.T, start
 	h.Eventually("the first two dimmed, the focused third not", func(b *headless.Backend, comp *compositor.Compositor) bool {
 		return at(20, 100, dimmed)(b, comp) && at(90, 100, dimmed)(b, comp) && at(140, 100, white)(b, comp)
 	})
-	settle(t, h)
+	quiesce(t, h, c, ws...)
 	h.dispatch("focus left")
 	h.Eventually("the dim moved from the second to the third", func(b *headless.Backend, comp *compositor.Compositor) bool {
 		return at(90, 100, white)(b, comp) && at(140, 100, dimmed)(b, comp)

@@ -227,7 +227,7 @@ func TestAHyprlandVisibleRegionClipsDamage(t *testing.T) {
 		t.Fatal(err)
 	}
 	h.Eventually("the region clipped", showing(130, 80, backgroundPixel))
-	settle(t, h)
+	quiesce(t, h, c, w)
 
 	presents := presentCount(h)
 	update := c.Buffer(w.Size, 1, testclient.Fill(0, 0, 0xff))

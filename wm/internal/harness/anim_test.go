@@ -82,6 +82,7 @@ func testAMovedWindowAnimatesOnTheFrameClock(t *testing.T, start gpuStarter) {
 	w := c.Window("moved", testclient.Fill(gray[0], gray[1], gray[2]))
 	c.DispatchUntil("the window to map", w.Mapped)
 	h.Eventually("the window over the whole output", showing(5, 5, gray))
+	quiesce(t, h, c, w)
 
 	moved := h.Hold()
 	h.Do(func(_ *headless.Backend, comp *compositor.Compositor) error { return comp.Reconfigure(next) })
