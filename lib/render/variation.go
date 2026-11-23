@@ -110,7 +110,7 @@ func (t *Typeface) WithVariations(vs ...Variation) *Typeface {
 		axes[i] = font.Variation{Tag: ot.MustNewTag(v.Tag), Value: v.Value}
 	}
 	f.SetVariations(axes)
-	v := &Typeface{face: f, upem: base.upem, features: t.features, base: base, vars: kept, inst: inst}
+	v := &Typeface{face: f, upem: base.upem, features: t.features, base: base, vars: kept, inst: inst, hints: &hinter{}}
 	inst.byKey[key] = v
 	return v
 }

@@ -123,8 +123,7 @@ type Typeface struct {
 	metrics     FaceMetrics
 	metricsRead bool
 
-	blues     []blueZone
-	bluesRead bool
+	hints *hinter
 }
 
 // FaceMetrics is a face's font-relative metrics expressed as ratios
@@ -230,7 +229,7 @@ func LoadFont(data []byte) (*Typeface, error) {
 	if err != nil {
 		return nil, fmt.Errorf("render: parse font: %w", err)
 	}
-	return &Typeface{face: face, upem: float64(face.Upem())}, nil
+	return &Typeface{face: face, upem: float64(face.Upem()), hints: &hinter{}}, nil
 }
 
 // NewTypeface wraps an already-resolved face, as returned by a font
@@ -239,7 +238,7 @@ func NewTypeface(face *font.Face) (*Typeface, error) {
 	if face == nil {
 		return nil, errors.New("render: nil face")
 	}
-	return &Typeface{face: face, upem: float64(face.Upem())}, nil
+	return &Typeface{face: face, upem: float64(face.Upem()), hints: &hinter{}}, nil
 }
 
 // Family returns the resolved face's family name.

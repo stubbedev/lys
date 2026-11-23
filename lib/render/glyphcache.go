@@ -134,21 +134,23 @@ func cachedOutlineRaster(t *Typeface, gid font.GID, scale, penX, penY float64) (
 		}
 		return g, true
 	}
-	outline, ok := t.face.GlyphDataOutline(gid)
-	if !ok || len(outline.Segments) == 0 {
-		// Cache the negative so blank glyphs stop re-parsing their
-		// (empty) outlines per draw.
+	outline, ok := fontOutline(t.face, gid)
+	if !ok {
 		glyphs.put(key, nil, 16)
 		return nil, false
 	}
-	// Font units to pixels: scaled, y flipped, sheared by the face's
-	// slant, offset by the pen's fractional position.
 	m := Affine{A: scale, C: scale * t.slant, D: -scale, E: bucketOffset(key.fx), F: bucketOffset(key.fy)}
-	hint := hintVertical(outlineEdges(outline, t.upem), t.blueZones(), scale, m.F, t.upem)
-	g := rasterOutline(outline, func(p ot.SegmentPoint) (float64, float64) {
-		y := hint.device(float64(p.Y))
-		x, _ := m.Apply(float64(p.X), (m.F-y)/scale)
-		return x, y
+	hinted, isHinted := t.hints.autofit(t.face).Hint(uint32(gid), outline, int64(math.Round(scale*t.upem*64)))
+	g := rasterPath(devicePoint{m.E, m.F}, func(path pathBuilder) {
+		outlinePath(outline, func(i int) devicePoint {
+			p := outline.Points[i]
+			y := m.F - float64(scale*float64(p.Y))
+			if isHinted {
+				y = m.F - float64(float64(hinted[i])/64)
+			}
+			x, _ := m.Apply(float64(p.X), (m.F-y)/scale)
+			return devicePoint{x, y}
+		}, path)
 	})
 	glyphs.put(key, g, len(g.mask))
 	return g, true
@@ -156,28 +158,59 @@ func cachedOutlineRaster(t *Typeface, gid font.GID, scale, penX, penY float64) (
 
 // rasterOutlineXform rasterizes an outline mapped from font units to
 // pixels by m into an 8bpp coverage mask, the mask origin at the
-// integer pen position: a glyph's map (its scale, y flipped, the
-// face's slant, the fractional pen offset) or a color glyph's
-// transformed clip. The bounds grow a pixel on every side, the
-// anti-aliasing margin the per-pixel blit has always worked in.
+// integer pen position: a color glyph's transformed clip. The bounds
+// grow a pixel on every side, the anti-aliasing margin the per-pixel
+// blit has always worked in.
 func rasterOutlineXform(outline font.GlyphOutline, m Affine) *GlyphMask {
-	return rasterOutline(outline, func(p ot.SegmentPoint) (float64, float64) {
-		return m.Apply(float64(p.X), float64(p.Y))
+	place := func(p ot.SegmentPoint) devicePoint {
+		x, y := m.Apply(float64(p.X), float64(p.Y))
+		return devicePoint{x, y}
+	}
+	return rasterPath(place(ot.SegmentPoint{}), func(path pathBuilder) {
+		for _, seg := range outline.Segments {
+			args := seg.ArgsSlice()
+			switch seg.Op {
+			case ot.SegmentOpMoveTo:
+				path.moveTo(place(args[0]))
+			case ot.SegmentOpLineTo:
+				path.lineTo(place(args[0]))
+			case ot.SegmentOpQuadTo:
+				path.quadTo(place(args[0]), place(args[1]))
+			case ot.SegmentOpCubeTo:
+				path.cubeTo(place(args[0]), place(args[1]), place(args[2]))
+			}
+		}
 	})
 }
 
-func rasterOutline(outline font.GlyphOutline, place func(ot.SegmentPoint) (float64, float64)) *GlyphMask {
-	type placedPoint struct{ x, y float64 }
-	placed := make([]placedPoint, 0, 3*len(outline.Segments))
-	x0, y0 := place(ot.SegmentPoint{})
-	minX, minY, maxX, maxY := x0, y0, x0, y0
-	for i := range outline.Segments {
-		for _, p := range outline.Segments[i].ArgsSlice() {
-			x, y := place(p)
-			placed = append(placed, placedPoint{x: x, y: y})
-			minX, minY = math.Min(minX, x), math.Min(minY, y)
-			maxX, maxY = math.Max(maxX, x), math.Max(maxY, y)
-		}
+type recordedPath struct {
+	ops []ot.SegmentOp
+	pts []devicePoint
+}
+
+func (r *recordedPath) moveTo(p devicePoint) {
+	r.ops, r.pts = append(r.ops, ot.SegmentOpMoveTo), append(r.pts, p)
+}
+
+func (r *recordedPath) lineTo(p devicePoint) {
+	r.ops, r.pts = append(r.ops, ot.SegmentOpLineTo), append(r.pts, p)
+}
+
+func (r *recordedPath) quadTo(c, p devicePoint) {
+	r.ops, r.pts = append(r.ops, ot.SegmentOpQuadTo), append(r.pts, c, p)
+}
+
+func (r *recordedPath) cubeTo(c1, c2, p devicePoint) {
+	r.ops, r.pts = append(r.ops, ot.SegmentOpCubeTo), append(r.pts, c1, c2, p)
+}
+
+func rasterPath(origin devicePoint, trace func(pathBuilder)) *GlyphMask {
+	var rec recordedPath
+	trace(&rec)
+	minX, minY, maxX, maxY := origin.x, origin.y, origin.x, origin.y
+	for _, p := range rec.pts {
+		minX, minY = math.Min(minX, p.x), math.Min(minY, p.y)
+		maxX, maxY = math.Max(maxX, p.x), math.Max(maxY, p.y)
 	}
 	ox := int(math.Floor(minX)) - 1
 	oy := int(math.Floor(minY)) - 1
@@ -187,13 +220,14 @@ func rasterOutline(outline font.GlyphOutline, place func(ot.SegmentPoint) (float
 		return &GlyphMask{}
 	}
 	rast := vector.NewRasterizer(w, h)
+	pts := rec.pts
 	next := func() (float32, float32) {
-		p := placed[0]
-		placed = placed[1:]
+		p := pts[0]
+		pts = pts[1:]
 		return float32(p.x) - float32(ox), float32(p.y) - float32(oy)
 	}
-	for _, seg := range outline.Segments {
-		switch seg.Op {
+	for _, op := range rec.ops {
+		switch op {
 		case ot.SegmentOpMoveTo:
 			rast.MoveTo(next())
 		case ot.SegmentOpLineTo:

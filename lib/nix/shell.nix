@@ -31,6 +31,8 @@
             pkgs.pipewire
             # libei, the C client the EIS server tests drive.
             pkgs.libei
+            # libfreetype, the light autohinter render's port is held to.
+            pkgs.freetype
             # libxkbcommon, the reference the xkb package's differential
             # tests and keysym table generator hold it to.
             pkgs.libxkbcommon
@@ -84,11 +86,13 @@
         # The GPU renderer (package gpu) loads libvulkan at runtime, and
         # its VA-API encoder libva; both find the host's drivers
         # (/run/opengl-driver on NixOS). The pipewire and eis tests load
-        # libpipewire and libei, the reference clients they are held to.
+        # libpipewire and libei, the reference clients they are held to, and
+        # render's autohinter tests load libfreetype.
         LD_LIBRARY_PATH = lib.makeLibraryPath (gpuDrivers.libraries
           ++ [
             pkgs.pipewire
             pkgs.libei
+            pkgs.freetype
             pkgs.libxkbcommon
             pkgs.libxcb
           ]);
