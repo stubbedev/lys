@@ -1,6 +1,7 @@
 package desktopentry
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -268,5 +269,26 @@ func TestPathProgramsFindsWhatAPathScanFinds(t *testing.T) {
 		if got := findOnPath(program); got != want {
 			t.Errorf("scan of %q = %v, want %v", program, got, want)
 		}
+	}
+}
+
+func TestKeyFileLinesEndAsBufioScansThem(t *testing.T) {
+	for _, data := range []string{
+		"[Desktop Entry]\nName=Files\nExec=nautilus\n",
+		"[Desktop Entry]\r\nName=Files\r\nExec=nautilus\r\n",
+		"[Desktop Entry]\nName=Files\nExec=nautilus",
+	} {
+		kf, err := ParseKeyFile([]byte(data))
+		if err != nil {
+			t.Fatalf("%q: %v", data, err)
+		}
+		for key, want := range map[string]string{"Name": "Files", "Exec": "nautilus"} {
+			if got, ok := kf.String(DesktopGroup, key); !ok || got != want {
+				t.Errorf("%q: %s is %q, %v; want %q", data, key, got, ok, want)
+			}
+		}
+	}
+	if _, err := ParseKeyFile([]byte("[Desktop Entry]\r\nName\r\n")); !errors.Is(err, ErrMalformed) {
+		t.Errorf("a CRLF line without = parsed: %v", err)
 	}
 }

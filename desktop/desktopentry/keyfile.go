@@ -6,8 +6,6 @@
 package desktopentry
 
 import (
-	"bufio"
-	"bytes"
 	"errors"
 	"fmt"
 	"os"
@@ -34,12 +32,10 @@ var ErrMalformed = errors.New("desktopentry: malformed key file")
 func ParseKeyFile(data []byte) (*KeyFile, error) {
 	kf := &KeyFile{groups: map[string]map[string]string{}, languages: Languages()}
 	var group map[string]string
-	sc := bufio.NewScanner(bytes.NewReader(data))
-	sc.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 	line := 0
-	for sc.Scan() {
+	for raw := range strings.SplitSeq(string(data), "\n") {
 		line++
-		text := strings.TrimLeft(sc.Text(), " \t")
+		text := strings.TrimLeft(strings.TrimSuffix(raw, "\r"), " \t")
 		if text == "" || strings.HasPrefix(text, "#") {
 			continue
 		}
@@ -62,9 +58,6 @@ func ParseKeyFile(data []byte) (*KeyFile, error) {
 		key = strings.TrimRight(key, " \t")
 		// A repeated key keeps the last value, as GKeyFile does.
 		group[key] = strings.TrimLeft(value, " \t")
-	}
-	if err := sc.Err(); err != nil {
-		return nil, err
 	}
 	return kf, nil
 }

@@ -193,13 +193,13 @@ func findOnPath(program string) bool {
 func pathPrograms() func(program string) bool {
 	first := map[string]string{}
 	for _, dir := range filepath.SplitList(os.Getenv("PATH")) {
-		entries, err := os.ReadDir(dir)
+		names, err := dirNames(dir)
 		if err != nil {
 			continue
 		}
-		for _, entry := range entries {
-			if _, seen := first[entry.Name()]; !seen {
-				first[entry.Name()] = dir
+		for _, name := range names {
+			if _, seen := first[name]; !seen {
+				first[name] = dir
 			}
 		}
 	}
@@ -600,16 +600,17 @@ func walkFlat(dirs []string) []entryFile {
 	seen := map[string]bool{}
 	var out []entryFile
 	for _, dir := range dirs {
-		entries, err := os.ReadDir(dir)
+		names, err := dirNames(dir)
 		if err != nil {
 			continue
 		}
-		for _, e := range entries {
-			if filepath.Ext(e.Name()) != ".desktop" || seen[e.Name()] {
+		slices.Sort(names)
+		for _, name := range names {
+			if filepath.Ext(name) != ".desktop" || seen[name] {
 				continue
 			}
-			seen[e.Name()] = true
-			out = append(out, entryFile{id: e.Name(), path: filepath.Join(dir, e.Name())})
+			seen[name] = true
+			out = append(out, entryFile{id: name, path: filepath.Join(dir, name)})
 		}
 	}
 	return out
@@ -628,4 +629,14 @@ func Describe(dirs []string, appID string) (name, icon string) {
 		return appID, ""
 	}
 	return app.DisplayName(), app.Icon()
+}
+
+// dirNames lists the names in dir, unsorted, without a DirEntry each.
+func dirNames(dir string) ([]string, error) {
+	f, err := os.Open(dir) //nolint:gosec // an application or PATH directory the caller lists
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = f.Close() }()
+	return f.Readdirnames(-1)
 }
