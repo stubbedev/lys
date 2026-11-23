@@ -193,13 +193,32 @@ func (f Format) Decode(px []byte) Color {
 }
 
 func (f Format) DecodeRow(row []byte) {
+	t := traits[f]
 	switch {
-	case f.TenBit() || f.RGBOrder():
-		for i := 0; i < len(row); i += 4 {
-			c := f.Decode(row[i : i+4])
-			row[i], row[i+1], row[i+2], row[i+3] = c.B, c.G, c.R, c.A
+	case t.tenBit:
+		for i := 0; i+4 <= len(row); i += 4 {
+			p := row[i : i+4 : i+4]
+			v := binary.LittleEndian.Uint32(p)
+			b, g, r, a := tenToEight(v), tenToEight(v>>10), tenToEight(v>>20), uint8(v>>30)*0x55
+			if t.rgbOrder {
+				r, b = b, r
+			}
+			if t.opaque {
+				a = 0xff
+			}
+			p[0], p[1], p[2], p[3] = b, g, r, a
 		}
-	case f.Opaque():
+	case t.rgbOrder:
+		var alpha uint32
+		if t.opaque {
+			alpha = 0xff000000
+		}
+		for i := 0; i+4 <= len(row); i += 4 {
+			p := row[i : i+4 : i+4]
+			v := binary.LittleEndian.Uint32(p)
+			binary.LittleEndian.PutUint32(p, v&0xff00ff00|v>>16&0xff|v&0xff<<16|alpha)
+		}
+	case t.opaque:
 		for i := 3; i < len(row); i += 4 {
 			row[i] = 0xff
 		}
