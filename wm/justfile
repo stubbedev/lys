@@ -250,6 +250,9 @@ docker recipe="gates" memory="10g":
     if [[ -d /etc/egl/egl_external_platform.d ]]; then
         host+=(-v "$(readlink -f /etc/egl/egl_external_platform.d):/etc/egl/egl_external_platform.d:ro")
     fi
+    for var in LYS_TEST_ARGS LYS_TEST_PACKAGES; do
+        [[ -v $var ]] && host+=(-e "$var")
+    done
     docker run --rm --init --user "$(id -u):$(id -g)" --device /dev/kvm "${host[@]}" \
         --memory {{quote(memory)}} --memory-swap {{quote(memory)}} --pids-limit 4096 --tmpfs /dev/shm:rw,nosuid,nodev,exec,size=1g,mode=1777 \
         -v /nix/store:/nix/store:ro -v "$dir/env.sh:/env.sh:ro" -v "$dir/passwd:/etc/passwd:ro" -v "$dir/group:/etc/group:ro" -v "$(git rev-parse --show-toplevel):/src" -v lys-wm-go:/go -w /src/wm -e SSL_CERT_FILE="$certs" \
