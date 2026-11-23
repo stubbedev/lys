@@ -145,7 +145,7 @@ type GL struct {
 	pBlendFunc               uintptr
 	ColorMask                func(r, g, b, a uint8)
 	ClearColor               func(r, g, b, a float32)
-	Clear                    func(mask uint32)
+	clear                    uintptr
 	CreateShader             func(typ uint32) uint32
 	shaderSource             func(shader uint32, count int32, sources **byte, lengths *int32)
 	CompileShader            func(shader uint32)
@@ -218,7 +218,7 @@ func (gl *GL) load(l *Library, path string) error {
 		{&gl.pBlendFunc, "glBlendFunc"},
 		{&gl.ColorMask, "glColorMask"},
 		{&gl.ClearColor, "glClearColor"},
-		{&gl.Clear, "glClear"},
+		{&gl.clear, "glClear"},
 		{&gl.CreateShader, "glCreateShader"},
 		{&gl.shaderSource, "glShaderSource"},
 		{&gl.CompileShader, "glCompileShader"},
@@ -432,6 +432,11 @@ func (gl *GL) call(fn uintptr, n int) {
 func (gl *GL) BindTexture(target, texture uint32) {
 	gl.args[0], gl.args[1] = uintptr(target), uintptr(texture)
 	gl.call(gl.bindTexture, 2)
+}
+
+func (gl *GL) Clear(mask uint32) {
+	gl.args[0] = uintptr(mask)
+	gl.call(gl.clear, 1)
 }
 
 func (gl *GL) Scissor(x, y, width, height int32) {

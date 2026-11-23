@@ -105,7 +105,7 @@ type eglFuncs struct {
 	bindAPI            func(api uint32) uint32
 	createContext      func(dpy, config, share uintptr, attribs *int32) uintptr
 	destroyContext     func(dpy, ctx uintptr) uint32
-	makeCurrent        func(dpy, draw, read, ctx uintptr) uint32
+	pMakeCurrent       uintptr
 	pGetCurrentContext uintptr
 	getPlatformDisplay func(platform uint32, native uintptr, attribs *int32) uintptr
 	queryDevices       func(max int32, devices *uintptr, num *int32) uint32
@@ -157,7 +157,7 @@ func Load(paths Paths) (*Library, error) {
 		{&e.bindAPI, "eglBindAPI"},
 		{&e.createContext, "eglCreateContext"},
 		{&e.destroyContext, "eglDestroyContext"},
-		{&e.makeCurrent, "eglMakeCurrent"},
+		{&e.pMakeCurrent, "eglMakeCurrent"},
 		{&e.pGetCurrentContext, "eglGetCurrentContext"},
 	}); err != nil {
 		return nil, err
@@ -262,6 +262,9 @@ type Display struct {
 	exts    []string
 	attribs []int32
 	robust  bool
+	// current holds eglMakeCurrent's arguments, so the call, made for
+	// every frame, passes them without allocating.
+	current [4]uintptr
 }
 
 func (l *Library) Surfaceless() (*Display, error) {
@@ -365,7 +368,7 @@ func (d *Display) GL() *GL {
 
 func (d *Display) MakeCurrent() error {
 	d.lib.switches.Add(1)
-	if d.lib.egl.makeCurrent(d.dpy, 0, 0, d.ctx) != eglTrue {
+	if !d.makeCurrent(d.ctx) {
 		return d.lib.fail("eglMakeCurrent")
 	}
 	return nil
@@ -373,10 +376,16 @@ func (d *Display) MakeCurrent() error {
 
 func (d *Display) Release() error {
 	forget(d)
-	if d.lib.egl.makeCurrent(d.dpy, 0, 0, 0) != eglTrue {
+	if !d.makeCurrent(0) {
 		return d.lib.fail("eglMakeCurrent(none)")
 	}
 	return nil
+}
+
+func (d *Display) makeCurrent(ctx uintptr) bool {
+	d.current = [4]uintptr{d.dpy, 0, 0, ctx}
+	r, _, _ := purego.SyscallN(d.lib.egl.pMakeCurrent, d.current[:]...)
+	return r&0xffffffff == eglTrue
 }
 
 func (l *Library) ContextSwitches() uint64 {
