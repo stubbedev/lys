@@ -17,6 +17,7 @@ import (
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
 
+	"github.com/stubbedev/lys/settings/internal/locale"
 	"github.com/stubbedev/lys/settings/internal/wmconfig"
 )
 
@@ -278,9 +279,9 @@ func TestEveryShellControlWritesOnlyWhatLysShellAccepts(t *testing.T) {
 			var steps []string
 			sweepRow(t, row, driven, func(action string) {
 				steps = append(steps, action)
-				if row.problem.Visible() {
-					t.Errorf("%s: refused: %s", action, row.problem.Text())
-					row.showProblem(nil)
+				if problemShown(row.settingRow) {
+					t.Errorf("%s: refused: %s", action, problemText(row.settingRow))
+					row.showProblem(rowProblem{})
 				}
 			})
 			var problems []string
@@ -294,6 +295,55 @@ func TestEveryShellControlWritesOnlyWhatLysShellAccepts(t *testing.T) {
 				t.Errorf("after %q lys-shell reads back %v\nruntime.yaml:\n%s", steps, problems, runtimeFile(t, &k))
 			}
 		})
+	}
+}
+
+// refusingBackend is a backend whose every write fails with err.
+type refusingBackend struct {
+	backend
+	err error
+}
+
+func (b refusingBackend) slot(path string) slot {
+	s := b.backend.slot(path)
+	s.set = func(any) error { return b.err }
+	return s
+}
+
+// Every lys-shell row whose write is refused says so in the app's
+// words: the row's problem line is a summary over the refusal's error,
+// which waits in its closed detail, and no shown text but an opened
+// detail reads as an error chain.
+func TestEveryShellRowSaysARefusedWriteInTheAppsWords(t *testing.T) {
+	base := testKit(t, "")
+	summary := locale.T().Get("settings-row-not-saved")
+	refusals := 0
+	for _, spec := range shellRows() {
+		t.Run(spec.path, func(t *testing.T) {
+			k := *base
+			k.store = testStore(t, "")
+			err := actionFailure("write " + spec.path)
+			row := newFieldRow(&k, refusingBackend{k.store, err}, spec)
+			sweepRow(t, row, nil, func(action string) {
+				if !problemShown(row.settingRow) {
+					return
+				}
+				p := row.problem
+				refusals++
+				if p.kind != stateError || p.Text() != summary || p.detail.Text() != err.Error() || p.detail.Visible() {
+					t.Errorf("%s: the row says %v %q over %q, detail shown %v", action, p.kind, p.Text(), p.detail.Text(), p.detail.Visible())
+				}
+				walkShown(row, func(w widget.Widget) {
+					if l, ok := w.(*widget.Label); ok && l.Visible() && !widget.HasClass(l, "card-state-detail") && rawError(l.Text()) {
+						t.Errorf("%s: the row reads %q", action, l.Text())
+					}
+				})
+				p.Clear()
+			})
+		})
+	}
+	if refusals == 0 {
+		t.Fatal("no row said a refused write")
 	}
 }
 

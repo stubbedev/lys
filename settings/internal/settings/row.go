@@ -227,18 +227,17 @@ type control interface {
 // controls of the rows of one card share the card's control column.
 type settingRow struct {
 	*widget.Item
-	// problem says why the row's last change was refused, hidden while
-	// nothing was.
-	problem *widget.Label
+	k *kit
+	// problem says why the row did not do what it was last asked, nil
+	// until it first has to.
+	problem *inlineState
 }
 
 // row is a row titled title, described by description ("" for none).
 func (k *kit) row(title, description string) *settingRow {
-	r := &settingRow{Item: widget.NewItem(k.face, title, description), problem: k.errorText("")}
+	r := &settingRow{Item: widget.NewItem(k.face, title, description), k: k}
 	r.SetSmall(true)
 	r.SetLines(1, rowDescriptionLines)
-	r.problem.SetVisible(false)
-	r.AddDetail(r.problem)
 	return r
 }
 
@@ -305,20 +304,45 @@ func controlFit(ctl widget.Widget) widget.ItemControlFit {
 	return widget.ItemControlNatural
 }
 
-// showProblem shows why a change was refused, or hides the line for nil.
-func (r *settingRow) showProblem(err error) {
-	r.problem.SetClass(css.Error, true)
-	r.problem.SetVisible(err != nil)
-	if err != nil {
-		r.problem.SetText(err.Error())
+// rowProblem is why a row did not do what it was asked: summary says
+// so in the app's words, err is the failure behind it. The zero
+// rowProblem is none.
+type rowProblem struct {
+	summary string
+	err     error
+}
+
+// notSaved is the problem of a write that failed with err, none for
+// nil.
+func notSaved(err error) rowProblem {
+	if err == nil {
+		return rowProblem{}
 	}
+	return rowProblem{summary: locale.T().Get("settings-row-not-saved"), err: err}
+}
+
+// problemLine is the row's problem line, made and placed under its text
+// the first time it is asked for.
+func (r *settingRow) problemLine() *inlineState {
+	if r.problem == nil {
+		r.problem = r.k.inlineState()
+		r.AddDetail(r.problem)
+	}
+	return r.problem
+}
+
+// showProblem shows p's summary on the problem line, its error behind
+// the disclosure, or hides the line for none.
+func (r *settingRow) showProblem(p rowProblem) {
+	if p.err == nil && r.problem == nil {
+		return
+	}
+	r.problemLine().Result(p.summary, p.err)
 }
 
 // showPending says the value is being checked before it is written.
 func (r *settingRow) showPending(value any) {
-	r.problem.SetClass(css.Error, false)
-	r.problem.SetText(locale.T().Get("settings-checking", i18n.Str("value", fmt.Sprint(value))))
-	r.problem.SetVisible(true)
+	r.problemLine().Loading(locale.T().Get("settings-checking", i18n.Str("value", fmt.Sprint(value))))
 }
 
 // errorText is a caption in the error color, wrapping: why something
@@ -354,14 +378,14 @@ func newFieldRow(k *kit, be backend, spec rowSpec) *fieldRow {
 	var r *fieldRow
 	report := func(err error) {
 		if r != nil {
-			r.showProblem(err)
+			r.showProblem(notSaved(err))
 		}
 	}
 	if spec.vet == nil {
 		r = newSettingRow(k, be, spec, fieldControl(k, reportingBackend{be, report}, spec))
 		return r
 	}
-	v := &vetter{k: k, check: func(ctx context.Context, value any) error { return spec.vet(ctx, k, value) }}
+	v := &vetter{k: k, check: func(ctx context.Context, value any) rowProblem { return spec.vet(ctx, k, value) }}
 	vetted := vettingBackend{reportingBackend{be, report}, v}
 	r = newSettingRow(k, vetted, spec, fieldControl(k, vetted, spec))
 	v.row = r
@@ -390,7 +414,7 @@ func (b vettingBackend) slot(path string) slot {
 func (b vettingBackend) reset(path string) {
 	d, ok := b.defaultOf(path)
 	if !ok {
-		b.v.row.showProblem(fmt.Errorf("settings: %s has no default to check before resetting it", path))
+		b.v.row.showProblem(rowProblem{summary: locale.T().Get("settings-row-not-reset"), err: fmt.Errorf("settings: %s has no default to check before resetting it", path)})
 		return
 	}
 	b.v.start(d, func() error {
@@ -405,7 +429,7 @@ func (b vettingBackend) reset(path string) {
 // drops the check of the one before.
 type vetter struct {
 	k       *kit
-	check   func(ctx context.Context, value any) error
+	check   func(ctx context.Context, value any) rowProblem
 	row     *fieldRow
 	current uint64
 	cancel  context.CancelFunc
@@ -419,11 +443,11 @@ func (v *vetter) start(value any, write func() error) {
 	v.cancel = cancel
 	v.row.showPending(value)
 	stop := v.k.clock.AfterFunc(commandTimeout, func() {
-		v.k.invoke(func() { v.settle(run, checkTimedOut{}, write) })
+		v.k.invoke(func() { v.settle(run, checkTimedOut(value), write) })
 	})
-	async(v.k, func() error { return v.check(ctx, value) }, func(err error) {
+	async(v.k, func() rowProblem { return v.check(ctx, value) }, func(why rowProblem) {
 		stop()
-		v.settle(run, err, write)
+		v.settle(run, why, write)
 	})
 }
 
@@ -434,22 +458,25 @@ func (v *vetter) drop() {
 	}
 }
 
-func (v *vetter) settle(run uint64, err error, write func() error) {
+func (v *vetter) settle(run uint64, why rowProblem, write func() error) {
 	if run != v.current || v.cancel == nil {
 		return
 	}
 	v.drop()
-	if err == nil {
-		err = write()
+	if why.err == nil {
+		why = notSaved(write())
 	}
-	v.row.showProblem(err)
+	v.row.showProblem(why)
 	v.row.refresh()
 }
 
-type checkTimedOut struct{}
-
-func (checkTimedOut) Error() string {
-	return locale.T().Get("settings-check-timed-out", i18n.Int("seconds", int64(commandTimeout/time.Second)))
+// checkTimedOut is the problem of value, whose check took longer than
+// commandTimeout.
+func checkTimedOut(value any) rowProblem {
+	return rowProblem{
+		summary: locale.T().Get("settings-check-timed-out", i18n.Int("seconds", int64(commandTimeout/time.Second))),
+		err:     fmt.Errorf("settings: checking %v did not finish within %s", value, commandTimeout),
+	}
 }
 
 // reportingBackend hands report the outcome of every write through its
@@ -488,7 +515,7 @@ func newSettingRow(k *kit, be backend, spec rowSpec, ctl control) *fieldRow {
 		if d, ok := ctl.(interface{ discardDraft() }); ok {
 			d.discardDraft()
 		}
-		r.showProblem(nil)
+		r.showProblem(rowProblem{})
 		be.reset(spec.path)
 	})
 	r.AddAction(r.reset.Button)

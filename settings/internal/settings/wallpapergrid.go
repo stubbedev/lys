@@ -33,7 +33,7 @@ func cachedThumb(thumbs launcher.ImageThumbnails) func(path string) wallpaperThu
 	return func(path string) wallpaperThumb {
 		img, _, err := thumbs.Load(path)
 		if img == nil {
-			return thumbFailure(path, err)
+			return wallpaperThumb{err: err}
 		}
 		if err != nil {
 			log.Printf("settings: wallpaper thumbnail: %v", err)
@@ -54,7 +54,7 @@ type wallpaperGrid struct {
 	path     *fileEditor
 	grid     *widget.FlowBox
 	note     *widget.Label
-	problem  *widget.Label
+	problem  *inlineState
 	thumbs   *thumbCache
 	tiles    []*wallpaperTile
 	pictures string
@@ -71,7 +71,7 @@ func newWallpaperGrid(k *kit, s slot) *wallpaperGrid {
 	g.grid = widget.NewWrapBox(choiceCardGap, choiceCardGap, widget.JustifyStart)
 	g.grid.SetAccessibleName(locale.T().Get("settings-wallpaper-grid"))
 	g.note = k.note("")
-	g.problem = k.errorText("")
+	g.problem = k.inlineState()
 	g.AppendAligned(g.path, false, widget.AlignStart)
 	g.Append(g.grid, false)
 	g.Append(g.note, false)
@@ -130,11 +130,10 @@ func (g *wallpaperGrid) show(l pictureListing) {
 		g.note.SetText(t.Get("settings-wallpaper-grid-empty", i18n.Str("folders", strings.Join(g.dirs, ", "))))
 	}
 	g.note.SetVisible(len(l.images) == 0)
-	g.problem.SetVisible(l.err != nil)
 	if l.err != nil {
 		log.Printf("settings: %v", l.err)
-		g.problem.SetText(t.Get("settings-wallpaper-grid-failed", i18n.Str("error", l.err.Error())))
 	}
+	g.problem.Result(t.Get("settings-wallpaper-grid-failed"), l.err)
 }
 
 func (g *wallpaperGrid) paintThumbs() {

@@ -9,7 +9,6 @@ import (
 	"slices"
 	"time"
 
-	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/lib/intconv"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/power/pause"
@@ -206,23 +205,26 @@ func scopeText(u pause.Unit) string {
 	return locale.T().Get("settings-power-pause-user")
 }
 
-func entryText(st pause.State, u pause.Unit) string {
+// entryText is u's scope, and that it is paused while it is; failed
+// is u's pause or resume that failed, over the error lys-power got,
+// none while neither did.
+func entryText(st pause.State, u pause.Unit) (text string, failed rowProblem) {
 	t := locale.T()
+	text = scopeText(u)
 	i := slices.IndexFunc(st.Entries, func(e pause.Entry) bool { return e.Unit == u })
 	if i < 0 {
-		return scopeText(u)
+		return text, rowProblem{}
 	}
 	e := st.Entries[i]
-	var status string
 	switch e.Status {
 	case pause.StatusPaused:
-		status = t.Get("settings-power-pause-paused")
+		return text + " · " + t.Get("settings-power-pause-paused"), rowProblem{}
 	case pause.StatusPauseFailed:
-		status = t.Get("settings-power-pause-failed", i18n.Str("error", e.Err))
+		return text, rowProblem{summary: t.Get("settings-power-pause-failed"), err: errors.New(e.Err)}
 	case pause.StatusResumeFailed:
-		status = t.Get("settings-power-pause-resume-failed", i18n.Str("error", e.Err))
+		return text, rowProblem{summary: t.Get("settings-power-pause-resume-failed"), err: errors.New(e.Err)}
 	}
-	return scopeText(u) + " · " + status
+	return text, rowProblem{}
 }
 
 func (s *pausing) row(st pause.State, u pause.Unit) widget.Widget {
@@ -230,8 +232,10 @@ func (s *pausing) row(st pause.State, u pause.Unit) widget.Widget {
 	if i := slices.IndexFunc(s.listing.candidates, func(c pauseCandidate) bool { return c.unit == u }); i >= 0 {
 		name = cmp.Or(s.listing.candidates[i].description, name)
 	}
-	row := s.k.row(name, u.Name()+" · "+entryText(st, u))
+	text, failed := entryText(st, u)
+	row := s.k.row(name, u.Name()+" · "+text)
 	row.AddClass("pause-unit")
+	row.showProblem(failed)
 	if slices.Contains(st.Picks, u) {
 		row.AddAction(s.k.removeButton("settings-power-pause-remove", func() { s.set(u, false) }))
 	}

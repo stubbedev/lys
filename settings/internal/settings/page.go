@@ -95,7 +95,7 @@ type rowSpec struct {
 	// shownWhen hides the row while its condition does not hold: what it
 	// sets has no effect then.
 	shownWhen rowCondition
-	vet       func(ctx context.Context, k *kit, v any) error
+	vet       func(ctx context.Context, k *kit, v any) rowProblem
 }
 
 // rowCondition is what another field of the page, in the row's own

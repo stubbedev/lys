@@ -85,7 +85,7 @@ func (p *monitorPicker) setTiles(tiles []monitorTile) {
 }
 
 func (p *monitorPicker) setThumb(name string, th wallpaperThumb) {
-	if th == (wallpaperThumb{}) {
+	if !th.loaded() {
 		delete(p.thumbs, name)
 	} else {
 		p.thumbs[name] = th

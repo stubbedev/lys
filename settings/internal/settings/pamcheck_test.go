@@ -9,7 +9,9 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/fakeclock"
-	"github.com/stubbedev/lys/ui/widget/css"
+	"github.com/stubbedev/lys/desktop/i18n"
+
+	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
 const pamServicePath = "login.lock.pam-service"
@@ -39,8 +41,8 @@ func TestAPAMServiceIsSavedOnceTheLockCanUseIt(t *testing.T) {
 	if v := k.store.value(pamServicePath); v != "lys-lock" {
 		t.Errorf("a service that passed was stored as %v", v)
 	}
-	if row.problem.Visible() {
-		t.Errorf("a service that passed reports %q", row.problem.Text())
+	if problemShown(row.settingRow) {
+		t.Errorf("a service that passed reports %q", problemText(row.settingRow))
 	}
 }
 
@@ -55,8 +57,8 @@ func TestAPAMServiceTheLockCannotUseIsNotSaved(t *testing.T) {
 	if v := k.store.value(pamServicePath); v != before {
 		t.Errorf("a refused service was stored: %v, want %v kept", v, before)
 	}
-	if !row.problem.Visible() || !strings.Contains(row.problem.Text(), "User account has expired") || !strings.Contains(row.problem.Text(), "login") {
-		t.Errorf("a refused service reports %q (visible %v)", row.problem.Text(), row.problem.Visible())
+	if !refused(row, locale.T().Get("settings-pam-check-failed", i18n.Str("service", "login")), "User account has expired") {
+		t.Errorf("a refused service reports %q", problemText(row.settingRow))
 	}
 }
 
@@ -107,7 +109,13 @@ func (h *heldChecks) runLoop(t *testing.T) {
 }
 
 func pending(row *fieldRow, service string) bool {
-	return row.problem.Visible() && !row.problem.HasClass(css.Error) && strings.Contains(row.problem.Text(), service)
+	return problemShown(row.settingRow) && row.problem.kind == stateLoading && strings.Contains(row.problem.Text(), service)
+}
+
+// refused reports a row saying summary over a closed detail holding
+// cause.
+func refused(row *fieldRow, summary, cause string) bool {
+	return failedWith(row.problem, summary, cause)
 }
 
 func TestASlowPAMCheckLeavesTheWindowResponsive(t *testing.T) {
@@ -118,7 +126,7 @@ func TestASlowPAMCheckLeavesTheWindowResponsive(t *testing.T) {
 	openChoices(t, k, c).pick(t, "lys-lock")
 	h.waitStarted(t, "lys-lock")
 	if !pending(row, "lys-lock") {
-		t.Fatalf("while the check runs the row shows %q (visible %v, error %v)", row.problem.Text(), row.problem.Visible(), row.problem.HasClass(css.Error))
+		t.Fatalf("while the check runs the row shows %q", problemText(row.settingRow))
 	}
 	if v := k.store.value(pamServicePath); v != before {
 		t.Fatalf("a service was stored before its check passed: %v", v)
@@ -128,15 +136,15 @@ func TestASlowPAMCheckLeavesTheWindowResponsive(t *testing.T) {
 	}
 	k.clock.(*fakeclock.Clock).Advance(commandTimeout - time.Second)
 	if !pending(row, "lys-lock") {
-		t.Fatalf("before the timeout the row shows %q", row.problem.Text())
+		t.Fatalf("before the timeout the row shows %q", problemText(row.settingRow))
 	}
 	h.release["lys-lock"] <- nil
 	h.runLoop(t)
 	if v := k.store.value(pamServicePath); v != "lys-lock" {
 		t.Errorf("a service whose slow check passed was stored as %v", v)
 	}
-	if row.problem.Visible() {
-		t.Errorf("a service that passed reports %q", row.problem.Text())
+	if problemShown(row.settingRow) {
+		t.Errorf("a service that passed reports %q", problemText(row.settingRow))
 	}
 	k.clock.(*fakeclock.Clock).Advance(time.Minute)
 	if len(h.loop) != 0 {
@@ -156,12 +164,13 @@ func TestAPAMCheckThatNeverAnswersIsRefusedAtTheTimeout(t *testing.T) {
 	if v := k.store.value(pamServicePath); v != before {
 		t.Errorf("a service whose check timed out was stored: %v", v)
 	}
-	if !row.problem.Visible() || !row.problem.HasClass(css.Error) || !strings.Contains(unisolated(row.problem.Text()), "5 seconds") {
-		t.Errorf("a timed-out check reports %q (visible %v)", row.problem.Text(), row.problem.Visible())
+	timedOut := locale.T().Get("settings-check-timed-out", i18n.Int("seconds", 5))
+	if !refused(row, timedOut, "lys-lock") {
+		t.Errorf("a timed-out check reports %q", problemText(row.settingRow))
 	}
 	h.runLoop(t)
-	if !strings.Contains(unisolated(row.problem.Text()), "5 seconds") {
-		t.Errorf("the cancelled check's late answer replaced the timeout with %q", row.problem.Text())
+	if problemText(row.settingRow) != timedOut {
+		t.Errorf("the cancelled check's late answer replaced the timeout with %q", problemText(row.settingRow))
 	}
 }
 
@@ -215,7 +224,8 @@ func TestAResetToAPAMServiceTheLockCannotUseIsRefused(t *testing.T) {
 	if v := k.store.value(pamServicePath); v != "lys-lock" {
 		t.Errorf("a reset to a refused default left %v, want lys-lock kept", v)
 	}
-	if !row.problem.Visible() || !strings.Contains(row.problem.Text(), "no such service") {
-		t.Errorf("a refused reset reports %q (visible %v)", row.problem.Text(), row.problem.Visible())
+	d, _ := k.store.defaultOf(pamServicePath)
+	if !refused(row, locale.T().Get("settings-pam-check-failed", i18n.Str("service", d.(string))), "no such service") {
+		t.Errorf("a refused reset reports %q", problemText(row.settingRow))
 	}
 }

@@ -102,8 +102,8 @@ func TestACustomModuleTheShellRefusesIsHeldWithTheReason(t *testing.T) {
 	k := testKit(t, gpuModule)
 	e := customEditor(t, k)
 	_ = e.cards.fieldSlot(0, "mode").set("sometimes")
-	if !e.cards.draft.Visible() || !strings.Contains(e.cards.draft.Text(), "sometimes") {
-		t.Fatalf("a refused mode shows draft %v %q", e.cards.draft.Visible(), e.cards.draft.Text())
+	if !failedWith(e.cards.draft, locale.T().Get("settings-list-draft"), "sometimes") {
+		t.Fatalf("a refused mode shows draft %v %q over %q", e.cards.draft.Visible(), e.cards.draft.Text(), e.cards.draft.detail.Text())
 	}
 	if m := customItem(t, k, 0); m["mode"] != "poll" {
 		t.Errorf("the refused mode was stored: %v", m["mode"])
@@ -121,17 +121,22 @@ func TestRunOnceShowsWhatTheCommandPrints(t *testing.T) {
 	k := testKit(t, "")
 	t2 := locale.T()
 	for command, want := range map[string]string{
-		"echo 72":         t2.Get("settings-custom-run-output", i18n.Str("output", "72")),
-		"true":            t2.Get("settings-custom-run-empty"),
-		"":                t2.Get("settings-custom-run-no-command"),
-		"echo no; exit 3": "exit status 3",
+		"echo 72": t2.Get("settings-custom-run-output", i18n.Str("output", "72")),
+		"true":    t2.Get("settings-custom-run-empty"),
+		"":        t2.Get("settings-custom-run-no-command"),
 	} {
 		value := command
 		r := newCommandRun(k, stringSlot(&value, func() {}), "settings-custom-run-empty")
 		r.run()
-		if got := r.output.Text(); !strings.Contains(got, want) || !r.output.Visible() {
+		if got := r.output.Text(); !strings.Contains(got, want) || !r.output.Visible() || r.problem.Visible() {
 			t.Errorf("%q shows %q, want %q", command, got, want)
 		}
+	}
+	value := "echo no; exit 3"
+	r := newCommandRun(k, stringSlot(&value, func() {}), "settings-custom-run-empty")
+	r.run()
+	if r.output.Visible() || !failedWith(r.problem, t2.Get("settings-custom-run-failed"), "exit status 3") {
+		t.Errorf("a failing command shows output %v, says %q over %q", r.output.Visible(), r.problem.Text(), r.problem.detail.Text())
 	}
 }
 

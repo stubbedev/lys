@@ -73,16 +73,20 @@ func TestACustomClickCommandCanBeRunOnce(t *testing.T) {
 	for command, want := range map[string]string{
 		"echo clicked": tr.Get("settings-custom-run-output", i18n.Str("output", "clicked")),
 		"true":         tr.Get("settings-command-run-empty"),
-		"exit 4":       tr.Get("settings-custom-run-failed", i18n.Str("reason", `run "exit 4": exit status 4`)),
 	} {
 		c.entry.SetText(command)
 		if v := k.store.value("modules.media.left-click"); v != command {
 			t.Fatalf("typing %q stored %v", command, v)
 		}
 		c.run.run()
-		if got := c.run.output.Text(); got != want {
-			t.Errorf("%q shows %q, want %q", command, got, want)
+		if got := c.run.output.Text(); got != want || !c.run.output.Visible() || c.run.problem.Visible() {
+			t.Errorf("%q shows %q, shown %v, problem %q", command, got, c.run.output.Visible(), c.run.problem.Text())
 		}
+	}
+	c.entry.SetText("exit 4")
+	c.run.run()
+	if c.run.output.Visible() || !failedWith(c.run.problem, tr.Get("settings-custom-run-failed"), `run "exit 4": exit status 4`) {
+		t.Errorf("a failed command shows output %v, says %q over %q", c.run.output.Visible(), c.run.problem.Text(), c.run.problem.detail.Text())
 	}
 }
 

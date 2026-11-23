@@ -3,12 +3,13 @@ package settings
 import (
 	"errors"
 	"slices"
-	"strings"
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/ui/widget"
+
+	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
 func TestTheSharePickerOpensOnAPagePickedFromPictures(t *testing.T) {
@@ -123,7 +124,7 @@ func TestAPreviewLysShellRefusesSaysWhy(t *testing.T) {
 	k.shellCommand = func(...string) error { return errors.New("SharePicker service not running") }
 	b := sharePickerTryButton(t, k)
 	b.button.OnClick()
-	if !b.outcome.Visible() || !strings.Contains(b.outcome.Text(), "SharePicker service not running") {
-		t.Errorf("a refused preview shows %q (visible %v)", b.outcome.Text(), b.outcome.Visible())
+	if !failedWith(b.outcome, locale.T().Get("settings-try-failed"), "SharePicker service not running") {
+		t.Errorf("a refused preview shows %q over %q (visible %v)", b.outcome.Text(), b.outcome.detail.Text(), b.outcome.Visible())
 	}
 }

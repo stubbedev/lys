@@ -281,9 +281,9 @@ func TestAProxyInLysWMsEnvironmentThisPageDoesNotWriteIsSaid(t *testing.T) {
 	if p.proxy.methods.Selected() != manualIndex(t, p) || !p.proxy.problem.Visible() {
 		t.Fatalf("an unwritten proxy shows method %d, problem %v", p.proxy.methods.Selected(), p.proxy.problem.Visible())
 	}
-	want := locale.T().Get("settings-proxy-env-unread", i18n.Str("reason", locale.T().Get("settings-proxy-env-scheme")))
-	if p.proxy.problem.Text() != want {
-		t.Fatalf("it says %q, want %q", p.proxy.problem.Text(), want)
+	want := locale.T().Get("settings-proxy-env-unread", i18n.Str("problem", locale.T().Get("settings-proxy-env-scheme")))
+	if !failedWith(p.proxy.problem, want, "https://proxy:443") {
+		t.Fatalf("it says %q over %q, want %q", p.proxy.problem.Text(), p.proxy.problem.detail.Text(), want)
 	}
 }
 

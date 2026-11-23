@@ -57,6 +57,20 @@ func TestABarItemPageSaysWhetherItIsInTheBarAndAddsIt(t *testing.T) {
 	}
 }
 
+// A module the bar refuses is not added, and the placement says so in
+// the app's words, the refusal in the closed detail.
+func TestAModuleTheBarRefusesIsSaidNotAdded(t *testing.T) {
+	k := testKit(t, "bar:\n  layout:\n    - monitor: \"*\"\n      right: [clock]\n")
+	p := newPlacementRow(k, only(config.BarModule("ghost")))
+	p.add.OnClick()
+	if layoutsHold(k.store.svc.Config().Bar.Layout, config.BarModule("ghost")) {
+		t.Fatal("the refused module is in the bar")
+	}
+	if !failedWith(p.problem, locale.T().Get("settings-bar-placement-failed"), "bar.layout") || !p.add.Visible() {
+		t.Errorf("the refusal says %q over %q, add shown %v", p.problem.Text(), p.problem.detail.Text(), p.add.Visible())
+	}
+}
+
 func containsLabel(w widget.Widget, text string) bool {
 	return slices.Contains(treetest.Labels(w), text)
 }

@@ -8,7 +8,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/intconv"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
@@ -109,12 +108,29 @@ func TestThePicksShowWithWhatHappenedToThemAndOnlyTheSystemsAndYoursAreListed(t 
 	for _, want := range []string{
 		"Docker Application Container Engine",
 		"docker.service · " + tr.Get("settings-power-pause-system") + " · " + tr.Get("settings-power-pause-paused"),
-		"nix-gc.timer · " + tr.Get("settings-power-pause-system") + " · " + tr.Get("settings-power-pause-failed", i18n.Str("error", "Unit nix-gc.timer not loaded.")),
-		"qdrant.service · " + tr.Get("settings-power-pause-system") + " · " + tr.Get("settings-power-pause-resume-failed", i18n.Str("error", "Connection timed out")),
+		"nix-gc.timer · " + tr.Get("settings-power-pause-system"),
+		"qdrant.service · " + tr.Get("settings-power-pause-system"),
 		"syncthing.service · " + tr.Get("settings-power-pause-user"),
 	} {
 		if !slices.Contains(labels, want) {
 			t.Errorf("no %q among %q", want, labels)
+		}
+	}
+	problems := map[string]*inlineState{}
+	for _, row := range treetest.All[*settingRow](s.rows) {
+		problems[row.Title()] = row.problem
+	}
+	for unit, want := range map[string]struct{ summary, cause string }{
+		"nix-gc.timer":   {tr.Get("settings-power-pause-failed"), "Unit nix-gc.timer not loaded."},
+		"qdrant.service": {tr.Get("settings-power-pause-resume-failed"), "Connection timed out"},
+	} {
+		if p := problems[unit]; p == nil || !failedWith(p, want.summary, want.cause) {
+			t.Errorf("%s says %v", unit, p)
+		}
+	}
+	for _, unit := range []string{"Docker Application Container Engine", "syncthing.service"} {
+		if p, ok := problems[unit]; !ok || p != nil {
+			t.Errorf("%s has the problem line %v", unit, p)
 		}
 	}
 	for _, l := range labels {

@@ -57,14 +57,14 @@ func TestACustomSearchAddressIsTestedWithASampleQuery(t *testing.T) {
 	}
 	k.openURI = func(string) error { return errors.New("no browser") }
 	e.test()
-	if got := e.tried.Text(); got != tr.Get("settings-web-engine-test-failed", i18n.Str("reason", "no browser")) {
-		t.Fatalf("a failed open shows %q", got)
+	if e.tried.Visible() || !failedWith(e.problem, tr.Get("settings-web-engine-test-failed"), "no browser") {
+		t.Fatalf("a failed open shows %q over %q, the tried line shown %v", e.problem.Text(), e.problem.detail.Text(), e.tried.Visible())
 	}
 	e.inputs[1].SetText("https://mine.example/?q=")
 	opened = nil
 	k.openURI = func(uri string) error { opened = append(opened, uri); return nil }
 	e.test()
-	if len(opened) != 0 || e.tried.Text() != tr.Get("settings-web-engine-no-query", i18n.Str("token", "{query}")) {
+	if len(opened) != 0 || e.problem.Visible() || e.tried.Text() != tr.Get("settings-web-engine-no-query", i18n.Str("token", "{query}")) {
 		t.Fatalf("an address without {query} opened %q and shows %q", opened, e.tried.Text())
 	}
 }

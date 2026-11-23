@@ -4,14 +4,16 @@ import (
 	"image/color"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/imagedecode"
 	"github.com/stubbedev/lys/desktop/service/wallpaper/extract"
 	"github.com/stubbedev/lys/desktop/styling/material"
 	"github.com/stubbedev/lys/ui/widget"
+
+	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
 func TestTheThemingWallpaperIsTheOneTheShellThemesFrom(t *testing.T) {
@@ -104,8 +106,8 @@ func TestTheSourceColourSaysWhyItShowsNoSwatches(t *testing.T) {
 	}
 	k, c := sourceSwatchesOf(t, "wallpaper:\n  wallpaper: "+broken+"\n")
 	_, decodeErr := imagedecode.Open(broken)
-	if !c.problem.Visible() || !strings.Contains(c.problem.Text(), broken) || !strings.Contains(c.problem.Text(), decodeErr.Error()) {
-		t.Errorf("an unreadable wallpaper shows the problem %q (shown %v)", c.problem.Text(), c.problem.Visible())
+	if !failedWith(c.problem, locale.T().Get("settings-matugen-source-failed", i18n.Str("file", broken)), decodeErr.Error()) {
+		t.Errorf("an unreadable wallpaper shows the problem %q over %q (shown %v)", c.problem.Text(), c.problem.detail.Text(), c.problem.Visible())
 	}
 	if n := len(c.shown.cards); n != extract.SourceColorChoices || c.shown.cards[0].pic.draw != nil {
 		t.Errorf("an unreadable wallpaper offers %d cards, want %d ranks without a colour", n, extract.SourceColorChoices)

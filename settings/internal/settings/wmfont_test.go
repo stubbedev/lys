@@ -4,7 +4,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/i18n"
@@ -76,9 +75,26 @@ func TestATabFontLysWMCannotReadIsNotWritten(t *testing.T) {
 		if got := w.value("tabs.font"); got != "/fonts/Inter-Regular.ttf" {
 			t.Errorf("picking %s wrote %v", family, got)
 		}
-		if want := tr.Get(key, i18n.Str("family", family)); !c.problem.Visible() || !strings.HasPrefix(c.problem.Text(), want) {
-			t.Errorf("picking %s says %q, want it to start %q", family, c.problem.Text(), want)
+		if want := tr.Get(key, i18n.Str("family", family)); !c.problem.Visible() || c.problem.kind != stateError || c.problem.Text() != want || c.problem.detail.Text() == "" || c.problem.detail.Visible() {
+			t.Errorf("picking %s says %q over %q, want %q", family, c.problem.Text(), c.problem.detail.Text(), want)
 		}
+	}
+}
+
+// A tab font file whose family cannot be read says so in the app's
+// words, the reader's error in the closed detail.
+func TestATabFontFileThatCannotBeReadSaysSo(t *testing.T) {
+	k, w, _ := tabFontKit(t, "tabs:\n  font: /fonts/Broken.ttf\n")
+	c := fieldControl(k, w, wmField("tabs.font")).(*wmFontEditor)
+	if !failedWith(c.problem, locale.T().Get("wm-tabs-font-file-unreadable"), "not a font lys-wm reads") {
+		t.Errorf("an unreadable font file says %q over %q", c.problem.Text(), c.problem.detail.Text())
+	}
+	if err := w.slot("tabs.font").set("/fonts/Inter-Regular.ttf"); err != nil {
+		t.Fatal(err)
+	}
+	c.refresh()
+	if c.problem.Visible() {
+		t.Errorf("a readable font file still says %q", c.problem.Text())
 	}
 }
 

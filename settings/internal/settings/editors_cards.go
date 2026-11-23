@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	"github.com/stubbedev/lys/desktop/config"
-	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
 
@@ -155,13 +154,13 @@ type cardList struct {
 	// draft says why the cards are not written while the target would
 	// refuse them; drafted is the stored value they were drafted over and
 	// checks counts the checks asked, so only the latest answer applies.
-	draft    *widget.Label
+	draft    *inlineState
 	drafted  any
 	drafting bool
 	checks   int
 	partners []int
 	groups   map[int]*cardGroup
-	picking  *widget.Label
+	picking  *inlineState
 }
 
 // cardGroupKey is the group a card is filed under: rank orders the
@@ -229,9 +228,7 @@ func newCardList(k *kit, s slot, spec cardSpec) *cardList {
 	c.list = gapBox(widget.Column)
 	c.list.AddClass(spec.look().list)
 	c.Append(c.list, false)
-	c.draft = k.label("", css.Caption, css.Error)
-	c.draft.SetWrap(true)
-	c.draft.SetVisible(false)
+	c.draft = k.inlineState()
 	addKey := spec.addKey
 	if addKey == "" {
 		addKey = "settings-list-add"
@@ -244,8 +241,7 @@ func newCardList(k *kit, s slot, spec cardSpec) *cardList {
 		actions.AppendAligned(add, false, widget.AlignCenter)
 		actions.AppendAligned(c.pickButton(*spec.pick), false, widget.AlignCenter)
 		c.AppendAligned(actions, false, widget.AlignStart)
-		c.picking = wrapped(k.label("", css.Caption))
-		c.picking.SetVisible(false)
+		c.picking = k.inlineState()
 		c.Append(c.picking, false)
 	}
 	c.Append(c.draft, false)
@@ -276,18 +272,17 @@ func (c *cardList) pickButton(pick cardPick) *widget.Button {
 	var b *widget.Button
 	b = c.k.secondaryButton(t.Get(pick.key), func() {
 		b.SetEnabled(false)
-		c.picking.SetText(t.Get(pick.waiting))
-		c.picking.SetVisible(true)
+		c.picking.Loading(t.Get(pick.waiting))
 		async(c.k, func() picked {
 			item, err := pick.item()
 			return picked{item, err}
 		}, func(p picked) {
 			b.SetEnabled(true)
 			if p.err != nil {
-				c.picking.SetText(pick.refusal(p.err))
+				c.picking.Error(pick.refusal(p.err), p.err, nil)
 				return
 			}
-			c.picking.SetVisible(false)
+			c.picking.Clear()
 			c.appendItem(p.item)
 		})
 	})
@@ -347,7 +342,7 @@ func (c *cardList) write(items []any) {
 		return
 	}
 	c.drafting = false
-	c.draft.SetVisible(false)
+	c.draft.Clear()
 }
 
 // discardDraft drops the draft and any answer still on its way, so the
@@ -355,7 +350,7 @@ func (c *cardList) write(items []any) {
 func (c *cardList) discardDraft() {
 	c.checks++
 	c.drafting = false
-	c.draft.SetVisible(false)
+	c.draft.Clear()
 	if c.spec.keep != nil && slices.ContainsFunc(c.local, func(m map[string]any) bool { return !c.spec.keep(m) }) {
 		c.local = slices.DeleteFunc(c.local, func(m map[string]any) bool { return !c.spec.keep(m) })
 		c.rebuild()
@@ -366,8 +361,7 @@ func (c *cardList) discardDraft() {
 // target refuses them.
 func (c *cardList) hold(err error) {
 	c.drafting, c.drafted = true, c.slot.get()
-	c.draft.SetText(locale.T().Get("settings-list-draft", i18n.Str("reason", strings.TrimSpace(err.Error()))))
-	c.draft.SetVisible(true)
+	c.draft.Error(locale.T().Get("settings-list-draft"), err, nil)
 }
 
 // fieldSlot is the slot of one key of card i: unset removes the key.
@@ -716,7 +710,7 @@ func (c *cardList) refresh() {
 		return
 	}
 	c.drafting = false
-	c.draft.SetVisible(false)
+	c.draft.Clear()
 	stored := c.stored()
 	var kept []int
 	for i, m := range c.local {

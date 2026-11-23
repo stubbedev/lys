@@ -46,6 +46,7 @@ type webEngineEditor struct {
 	custom  *widget.Box
 	inputs  []*liveText
 	tried   *widget.Label
+	problem *inlineState
 	chosen  bool
 	syncing bool
 }
@@ -85,8 +86,10 @@ func newWebEngineEditor(k *kit, name, url slot) *webEngineEditor {
 	}
 	e.tried = k.note("", "format-preview")
 	e.tried.SetVisible(false)
+	e.problem = k.inlineState()
 	e.custom.AppendAligned(k.secondaryButton(t.Get("settings-web-engine-test"), e.test), false, widget.AlignStart)
 	e.custom.Append(e.tried, false)
+	e.custom.Append(e.problem, false)
 	e.AppendAligned(e.pick, false, widget.AlignStart)
 	e.Append(e.custom, false)
 	e.refresh()
@@ -132,6 +135,7 @@ func (e *webEngineEditor) refresh() {
 
 func (e *webEngineEditor) test() {
 	t := locale.T()
+	e.problem.Clear()
 	e.tried.SetVisible(true)
 	target, ok := config.FillQueryURL(e.url.text(), webSearchSample)
 	if !ok {
@@ -139,10 +143,8 @@ func (e *webEngineEditor) test() {
 		return
 	}
 	async(e.k, func() error { return e.k.openURI(target) }, func(err error) {
-		if err != nil {
-			e.tried.SetText(t.Get("settings-web-engine-test-failed", i18n.Str("reason", err.Error())))
-			return
-		}
+		e.tried.SetVisible(err == nil)
 		e.tried.SetText(t.Get("settings-web-engine-tested", i18n.Str("query", webSearchSample), i18n.Str("url", target)))
+		e.problem.Result(t.Get("settings-web-engine-test-failed"), err)
 	})
 }

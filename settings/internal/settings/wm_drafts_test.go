@@ -4,6 +4,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
 func TestANewCardIsADraftUntilLysWMTakesIt(t *testing.T) {
@@ -13,8 +15,8 @@ func TestANewCardIsADraftUntilLysWMTakesIt(t *testing.T) {
 	c := row.ctl.(*shortcutTable).main
 	fake.reject = "binds[1].chord: is empty"
 	buttonsOfRole(c, roleAdd)[0].OnClick()
-	if len(c.local) != 2 || !c.draft.Visible() || !strings.Contains(c.draft.Text(), "binds[1].chord: is empty") {
-		t.Fatalf("%d cards, draft %v %q", len(c.local), c.draft.Visible(), c.draft.Text())
+	if len(c.local) != 2 || !failedWith(c.draft, locale.T().Get("settings-list-draft"), "binds[1].chord: is empty") {
+		t.Fatalf("%d cards, draft %v %q over %q", len(c.local), c.draft.Visible(), c.draft.Text(), c.draft.detail.Text())
 	}
 	noFile(t, files.runtime)
 	if w.class == "error" || fake.reloads != 0 {

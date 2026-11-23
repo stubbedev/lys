@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/identity"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/ui/widget"
@@ -80,20 +79,14 @@ func (k *kit) showToast(t shellToast) error { return k.shellCommand(t.args()...)
 type tryButton struct {
 	*widget.Box
 	button  *widget.Button
-	outcome *widget.Label
+	outcome *inlineState
 }
 
 func newTryButton(k *kit, labelKey string, try func() error) *tryButton {
 	t := locale.T()
-	b := &tryButton{Box: gapBox(widget.Row), outcome: k.errorText("")}
-	b.outcome.SetVisible(false)
+	b := &tryButton{Box: gapBox(widget.Row), outcome: k.inlineState()}
 	run := func() {
-		async(k, try, func(err error) {
-			b.outcome.SetVisible(err != nil)
-			if err != nil {
-				b.outcome.SetText(t.Get("settings-try-failed", i18n.Str("reason", err.Error())))
-			}
-		})
+		async(k, try, func(err error) { b.outcome.Result(t.Get("settings-try-failed"), err) })
 	}
 	b.button, _ = k.contentButton(roleSecondary, "ld-play-symbolic", t.Get(labelKey), run)
 	b.AppendAligned(b.button, false, widget.AlignCenter)

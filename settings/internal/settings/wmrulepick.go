@@ -4,7 +4,6 @@ import (
 	"errors"
 	"regexp"
 
-	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/lib/wmipc"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
@@ -57,5 +56,5 @@ func rulePickRefusal(err error) string {
 	case errors.Is(err, errUnnamedWindow):
 		return t.Get("wm-rules-pick-unnamed")
 	}
-	return t.Get("wm-rules-pick-failed", i18n.Str("reason", err.Error()))
+	return t.Get("wm-rules-pick-failed")
 }

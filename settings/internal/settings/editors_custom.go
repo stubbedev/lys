@@ -159,6 +159,7 @@ type commandRun struct {
 	command  slot
 	emptyKey string
 	output   *widget.Label
+	problem  *inlineState
 	runs     int
 }
 
@@ -166,13 +167,16 @@ func newCommandRun(k *kit, command slot, emptyKey string) *commandRun {
 	c := &commandRun{Box: gapBox(widget.Column), k: k, command: command, emptyKey: emptyKey}
 	c.output = k.note("", "format-preview")
 	c.output.SetVisible(false)
+	c.problem = k.inlineState()
 	c.AppendAligned(k.secondaryButton(locale.T().Get("settings-custom-run-once"), c.run), false, widget.AlignStart)
 	c.Append(c.output, false)
+	c.Append(c.problem, false)
 	return c
 }
 
 func (c *commandRun) run() {
 	t := locale.T()
+	c.problem.Clear()
 	c.output.SetVisible(true)
 	command := c.command.text()
 	if command == "" {
@@ -186,19 +190,19 @@ func (c *commandRun) run() {
 		if asked != c.runs {
 			return
 		}
+		c.output.SetVisible(o.err == nil)
 		c.output.SetText(o.message(c.emptyKey))
+		c.problem.Result(t.Get("settings-custom-run-failed"), o.err)
 	})
 }
 
+// message is what a run that went through printed, or emptyKey's text
+// for nothing.
 func (o commandOutcome) message(emptyKey string) string {
-	t := locale.T()
-	switch {
-	case o.err != nil:
-		return t.Get("settings-custom-run-failed", i18n.Str("reason", o.err.Error()))
-	case o.output == "":
-		return t.Get(emptyKey)
+	if o.output == "" {
+		return locale.T().Get(emptyKey)
 	}
-	return t.Get("settings-custom-run-output", i18n.Str("output", o.output))
+	return locale.T().Get("settings-custom-run-output", i18n.Str("output", o.output))
 }
 
 func (c *commandRun) refresh() {}

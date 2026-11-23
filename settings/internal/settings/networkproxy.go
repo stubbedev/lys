@@ -67,6 +67,8 @@ var proxyProblems = map[error]string{
 	proxyenv.ErrURL:          "settings-proxy-env-url",
 }
 
+// proxyProblem says what is wrong with a proxy that failed with err,
+// in the page's words.
 func proxyProblem(err error) string {
 	if e, ok := errors.AsType[*proxyInConfigError](err); ok {
 		return locale.T().Get("settings-proxy-env-config", i18n.Str("names", strings.Join(e.names, ", ")))
@@ -76,7 +78,7 @@ func proxyProblem(err error) string {
 			return locale.T().Get(key)
 		}
 	}
-	return err.Error()
+	return locale.T().Get("settings-proxy-not-applied")
 }
 
 type proxyServerInput struct {
@@ -101,7 +103,7 @@ type proxyForm struct {
 	servers  [len(proxyenv.Kinds)]proxyServerInput
 	exclude  []any
 	chips    *nameChips
-	problem  *widget.Label
+	problem  *inlineState
 	status   *wmStatus
 	st       *proxyState
 	path     dbus.ObjectPath
@@ -178,7 +180,7 @@ func (f *proxyForm) manualForm() *widget.Box {
 		in.host = k.entry()
 		in.host.SetPlaceholder(t.Get("settings-proxy-host-hint"))
 		in.host.SetAccessibleName(t.Get(proxyServerLabels[kind]))
-		in.host.OnChanged = func(string) { in.field.SetError(""); f.problem.SetVisible(false) }
+		in.host.OnChanged = func(string) { in.field.SetError(""); f.problem.Clear() }
 		in.host.OnActivate = func(string) { f.apply() }
 		in.port = widget.NewSpinButton(k.face, k.textPx(), widget.Current().Text, 1, 65535, 1, 0)
 		in.port.SetAccessibleName(t.Get("settings-proxy-port"))
@@ -202,8 +204,7 @@ func (f *proxyForm) manualForm() *widget.Box {
 		problem:     proxyExclusionProblem,
 	})
 	box.Append(widget.NewField(k.face, t.Get("settings-proxy-exclude"), f.chips), false)
-	f.problem = k.errorText("")
-	f.problem.SetVisible(false)
+	f.problem = k.inlineState()
 	box.Append(f.problem, false)
 	box.AppendAligned(k.primaryButton(t.Get("settings-proxy-apply"), f.apply), false, widget.AlignStart)
 	f.status = newWMStatus(k, f.wm)
@@ -271,8 +272,7 @@ func proxyChoiceOf(m network.ProxyMethod) proxyChoice {
 func (f *proxyForm) showManual() bool {
 	env, err := wmEnv(f.wm)
 	if err != nil {
-		f.problem.SetText(err.Error())
-		f.problem.SetVisible(true)
+		f.problem.Error(locale.T().Get("settings-proxy-env-unreadable"), err, nil)
 		return false
 	}
 	m, set, err := proxyenv.FromEnv(env)
@@ -280,8 +280,7 @@ func (f *proxyForm) showManual() bool {
 	case !set:
 		return false
 	case err != nil:
-		f.problem.SetText(locale.T().Get("settings-proxy-env-unread", i18n.Str("reason", proxyProblem(err))))
-		f.problem.SetVisible(true)
+		f.problem.Error(locale.T().Get("settings-proxy-env-unread", i18n.Str("problem", proxyProblem(err))), err, nil)
 	case !m.Equal(f.applied):
 		f.fill(m)
 	}
@@ -308,7 +307,7 @@ func (f *proxyForm) fill(m proxyenv.Manual) {
 		f.exclude[i] = x.String()
 	}
 	f.chips.refresh()
-	f.problem.SetVisible(false)
+	f.problem.Clear()
 }
 
 func wmEnv(w *wmBackend) (map[string]string, error) {
@@ -415,14 +414,11 @@ func (f *proxyForm) parse() (proxyenv.Manual, bool) {
 		f.showProblem(err)
 		return proxyenv.Manual{}, false
 	}
-	f.problem.SetVisible(false)
+	f.problem.Clear()
 	return m, true
 }
 
-func (f *proxyForm) showProblem(err error) {
-	f.problem.SetText(proxyProblem(err))
-	f.problem.SetVisible(true)
-}
+func (f *proxyForm) showProblem(err error) { f.problem.Error(proxyProblem(err), err, nil) }
 
 func (f *proxyForm) writeEnv(m *proxyenv.Manual) bool {
 	if err := writeProxyEnv(f.wm, m); err != nil {

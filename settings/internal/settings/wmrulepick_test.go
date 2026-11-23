@@ -70,13 +70,13 @@ func TestAPickThatFindsNoWindowAddsNoRuleAndSaysWhy(t *testing.T) {
 		if len(l.local) != 1 {
 			t.Errorf("%s added a rule: %v", c.name, l.local)
 		}
-		if !l.picking.Visible() || l.picking.Text() != c.want {
+		if !l.picking.Visible() || l.picking.kind != stateError || l.picking.Text() != c.want || l.picking.detail.Text() == "" || l.picking.detail.Visible() {
 			t.Errorf("%s says %q, want %q", c.name, l.picking.Text(), c.want)
 		}
 	}
 	reason := fmt.Errorf("wmstate: ask lys-wm for pickwindow: %w", errors.New("lys-wm: compositor: the window pick was cancelled"))
-	if got := rulePickRefusal(reason); !strings.Contains(got, "the window pick was cancelled") {
-		t.Errorf("a cancelled pick says %q, want lys-wm's reason", got)
+	if got := rulePickRefusal(reason); got != locale.T().Get("wm-rules-pick-failed") {
+		t.Errorf("a cancelled pick says %q, want the app's summary", got)
 	}
 	if got := rulePickRefusal(wmstate.ErrNoWindow); got != locale.T().Get("wm-rules-pick-none") {
 		t.Errorf("no window says %q", got)

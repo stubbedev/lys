@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stubbedev/lys/settings/internal/locale"
 	"github.com/stubbedev/lys/settings/internal/wmconfig"
 	"github.com/stubbedev/lys/settings/internal/wmtest"
 )
@@ -42,8 +43,8 @@ func TestAWorkspaceRuleLysWMRefusesIsHeldAsADraft(t *testing.T) {
 	fake.reject = "workspaces[1]: needs exactly one of id and match"
 	c.appendItem(map[string]any{"id": int64(2), "match": "any"})
 	noFile(t, files.runtime)
-	if !c.draft.Visible() || !strings.Contains(c.draft.Text(), "needs exactly one of id and match") {
-		t.Fatalf("the refused rule shows %q (visible %v)", c.draft.Text(), c.draft.Visible())
+	if !failedWith(c.draft, locale.T().Get("settings-list-draft"), "needs exactly one of id and match") {
+		t.Fatalf("the refused rule shows %q over %q (visible %v)", c.draft.Text(), c.draft.detail.Text(), c.draft.Visible())
 	}
 }
 

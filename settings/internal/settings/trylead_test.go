@@ -3,7 +3,6 @@ package settings
 import (
 	"errors"
 	"slices"
-	"strings"
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/shell/treetest"
@@ -46,8 +45,8 @@ func TestATestNotificationNoDaemonTakesSaysWhy(t *testing.T) {
 	k := testKit(t, "")
 	b := pageLead(t, k, "notifications")
 	b.button.OnClick()
-	if !b.outcome.Visible() || !strings.Contains(b.outcome.Text(), "no notification daemon in the tests") {
-		t.Errorf("a refused notification shows %q (visible %v)", b.outcome.Text(), b.outcome.Visible())
+	if !failedWith(b.outcome, locale.T().Get("settings-try-failed"), "no notification daemon in the tests") {
+		t.Errorf("a refused notification shows %q over %q (visible %v)", b.outcome.Text(), b.outcome.detail.Text(), b.outcome.Visible())
 	}
 }
 
@@ -86,8 +85,8 @@ func TestAToastPresetCardShowsItsPresetAndItsCommand(t *testing.T) {
 	if len(ran) != 1 || !slices.Equal(ran[0], []string{"toast", "--preset", "brb"}) {
 		t.Errorf("trying the preset ran %q", ran)
 	}
-	if !b.outcome.Visible() || !strings.Contains(b.outcome.Text(), "lys-shell is not running") {
-		t.Errorf("a failed try shows %q (visible %v)", b.outcome.Text(), b.outcome.Visible())
+	if !failedWith(b.outcome, locale.T().Get("settings-try-failed"), "lys-shell is not running") {
+		t.Errorf("a failed try shows %q over %q (visible %v)", b.outcome.Text(), b.outcome.detail.Text(), b.outcome.Visible())
 	}
 }
 

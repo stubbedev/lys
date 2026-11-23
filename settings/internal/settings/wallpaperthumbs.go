@@ -5,7 +5,6 @@ import (
 	"log"
 	"math"
 
-	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/imagedecode"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
@@ -16,19 +15,19 @@ import (
 
 const thumbWidth = 320
 
+// wallpaperThumb is a picture's thumbnail, or err, why it cannot be
+// shown; the zero thumb is one not loaded yet.
 type wallpaperThumb struct {
-	img     image.Image
-	failure string
+	img image.Image
+	err error
 }
 
-func thumbFailure(path string, err error) wallpaperThumb {
-	return wallpaperThumb{failure: locale.T().Get("settings-wallpaper-thumb-failed", i18n.Str("file", path), i18n.Str("error", err.Error()))}
-}
+func (th wallpaperThumb) loaded() bool { return th.img != nil || th.err != nil }
 
 func decodeThumb(path string) wallpaperThumb {
 	img, err := imagedecode.Open(path)
 	if err != nil {
-		return thumbFailure(path, err)
+		return wallpaperThumb{err: err}
 	}
 	return wallpaperThumb{img: scaledThumb(img)}
 }
@@ -44,11 +43,14 @@ func scaledThumb(img image.Image) image.Image {
 	return out
 }
 
+// thumbFailed is what a thumb that cannot be shown says on its tile.
+func thumbFailed() string { return locale.T().Get("settings-wallpaper-thumb-failed") }
+
 func thumbName(label string, th wallpaperThumb) string {
-	if th.failure == "" {
+	if th.err == nil {
 		return label
 	}
-	return label + ": " + th.failure
+	return label + ": " + thumbFailed()
 }
 
 type thumbCache struct {
@@ -90,8 +92,8 @@ func (c *thumbCache) next() {
 		if c.closed {
 			return
 		}
-		if th.failure != "" {
-			log.Printf("settings: wallpaper thumbnail: %s", th.failure)
+		if th.err != nil {
+			log.Printf("settings: wallpaper thumbnail of %s: %v", path, th.err)
 		}
 		c.thumbs[path] = th
 		c.loaded()
@@ -109,7 +111,7 @@ func paintThumb(k *kit, cv *render.Canvas, tile render.Rect, thumb wallpaperThum
 	} else {
 		cv.RoundedRect(tile, tileRadius, th.CardColor())
 	}
-	if thumb.failure == "" {
+	if thumb.err == nil {
 		return
 	}
 	cv.RoundedBorder(tile, corners, render.UniformInsets(focusRing), th.DestructiveColor())
@@ -118,7 +120,7 @@ func paintThumb(k *kit, cv *render.Canvas, tile render.Rect, thumb wallpaperThum
 	lineH := int(math.Ceil(px * 1.4))
 	width := float64(tile.W - 2*pad)
 	room := max(0, (tile.H-2*lineH-4*pad)/lineH)
-	lines := render.WrapText(k.face, thumb.failure, width, px)
+	lines := render.WrapText(k.face, thumbFailed(), width, px)
 	if len(lines) > room {
 		lines = lines[:room]
 		if room > 0 {

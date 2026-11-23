@@ -273,6 +273,12 @@ func TestDisplaysWithNoDisplaySaySoInsetLikeARow(t *testing.T) {
 	}
 }
 
+// failedWith reports s saying summary, in the app's words, over a
+// closed detail holding cause.
+func failedWith(s *inlineState, summary, cause string) bool {
+	return s != nil && s.Visible() && s.kind == stateError && s.Text() == summary && !rawError(s.Text()) && strings.Contains(s.detail.Text(), cause) && !s.detail.Visible()
+}
+
 // goErrorChain is a label reading as a Go error: a lowercase phrase,
 // then at least two more each after ": ".
 var goErrorChain = regexp.MustCompile(`^[a-z][^:\n]*: [^:\n]+: `)
@@ -578,6 +584,17 @@ func TestEveryPagesActionFailureIsSaidInTheAppsWords(t *testing.T) {
 				return p.problem
 			}
 		}()},
+		{"notifications", tr.Get("settings-try-failed"), func(page widget.Widget, err error) *inlineState {
+			b := treetest.First[*tryButton](t, page)
+			k.notify = func(string, string) error { return err }
+			b.button.OnClick()
+			return b.outcome
+		}},
+		{"wallpaper", tr.Get("settings-wallpaper-grid-failed"), func(page widget.Widget, err error) *inlineState {
+			g := treetest.First[*wallpaperGrid](t, page)
+			g.show(pictureListing{err: err})
+			return g.problem
+		}},
 		{"bitwarden", tr.Get("settings-generator-sample-copy-failed"), func(page widget.Widget, err error) *inlineState {
 			g := treetest.First[*generatorSample](t, page)
 			k.copySecret = func(string) error { return err }

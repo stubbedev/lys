@@ -50,7 +50,7 @@ type sourceOffer struct {
 	path    string
 	cycling bool
 	colors  []material.ARGB
-	failure string
+	err     error
 }
 
 func readSourceOffer(w config.WallpaperConfig, theming string) sourceOffer {
@@ -61,7 +61,7 @@ func readSourceOffer(w config.WallpaperConfig, theming string) sourceOffer {
 	}
 	img, err := imagedecode.Open(path)
 	if err != nil {
-		offer.failure = locale.T().Get("settings-matugen-source-failed", i18n.Str("file", path), i18n.Str("error", err.Error()))
+		offer.err = err
 		return offer
 	}
 	offer.colors = extract.SourceColors(material.SampleImage(img, extract.SampleSide))
@@ -79,7 +79,7 @@ type sourceSwatches struct {
 	slot    slot
 	cards   *widget.Box
 	note    *widget.Label
-	problem *widget.Label
+	problem *inlineState
 	shown   *choiceCards
 	inputs  sourceInputs
 	read    bool
@@ -91,12 +91,11 @@ func newSourceSwatches(k *kit, s slot) *sourceSwatches {
 	c.AddClass("source-swatches")
 	c.cards = gapBox(widget.Column)
 	c.note = k.note("")
-	c.problem = k.errorText("")
+	c.problem = k.inlineState()
 	c.Append(c.cards, false)
 	c.Append(c.note, false)
 	c.Append(c.problem, false)
 	c.note.SetVisible(false)
-	c.problem.SetVisible(false)
 	c.refresh()
 	return c
 }
@@ -117,8 +116,8 @@ func (c *sourceSwatches) refresh() {
 		if c.closed || !reflect.DeepEqual(inputs, c.inputs) {
 			return
 		}
-		if o.failure != "" {
-			log.Printf("settings: matugen source colours: %s", o.failure)
+		if o.err != nil {
+			log.Printf("settings: matugen source colours of %s: %v", o.path, o.err)
 		}
 		c.show(o)
 	})
@@ -145,15 +144,14 @@ func (c *sourceSwatches) show(o sourceOffer) {
 	c.shown = newCards(c.k, c.indexSlot(count), values, labels, pictures)
 	c.cards.Clear()
 	c.cards.Append(c.shown, false)
-	c.note.SetVisible(o.failure == "" && len(o.colors) == 0)
+	c.note.SetVisible(o.err == nil && len(o.colors) == 0)
 	switch {
 	case o.cycling:
 		c.note.SetText(t.Get("settings-matugen-source-cycling"))
 	case o.path == "":
 		c.note.SetText(t.Get("settings-matugen-source-none"))
 	}
-	c.problem.SetText(o.failure)
-	c.problem.SetVisible(o.failure != "")
+	c.problem.Result(t.Get("settings-matugen-source-failed", i18n.Str("file", o.path)), o.err)
 }
 
 func (c *sourceSwatches) indexSlot(count int) slot {

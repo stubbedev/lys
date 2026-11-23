@@ -39,19 +39,24 @@ func withModuleAdded(layouts []config.BarLayout, m config.BarModule) []config.Ba
 
 type placementRow struct {
 	*widget.Box
-	k      *kit
-	module barModuleOf
-	status *widget.Label
-	add    *widget.Button
+	k       *kit
+	module  barModuleOf
+	status  *widget.Label
+	add     *widget.Button
+	problem *inlineState
 }
 
 func newPlacementRow(k *kit, module barModuleOf) *placementRow {
-	p := &placementRow{Box: gapBox(widget.Row), k: k, module: module}
+	p := &placementRow{Box: gapBox(widget.Column), k: k, module: module}
 	p.AddClass("settings-bar-placement")
 	p.status = k.label("", "settings-bar-placement-status", css.Caption)
 	p.add = k.addButton("settings-bar-placement-add", p.place)
-	p.AppendAligned(p.status, true, widget.AlignCenter)
-	p.AppendAligned(p.add, false, widget.AlignCenter)
+	p.problem = k.inlineState()
+	line := gapBox(widget.Row)
+	line.AppendAligned(p.status, true, widget.AlignCenter)
+	line.AppendAligned(p.add, false, widget.AlignCenter)
+	p.Append(line, false)
+	p.Append(p.problem, false)
 	p.refresh()
 	return p
 }
@@ -61,11 +66,11 @@ func (p *placementRow) place() {
 	if !ok {
 		return
 	}
-	if err := p.k.store.set(barLayoutPath, config.Encode(withModuleAdded(p.k.store.svc.Config().Bar.Layout, m))); err != nil {
-		p.status.SetText(err.Error())
-		return
+	err := p.k.store.set(barLayoutPath, config.Encode(withModuleAdded(p.k.store.svc.Config().Bar.Layout, m)))
+	p.problem.Result(locale.T().Get("settings-bar-placement-failed"), err)
+	if err == nil {
+		p.refresh()
 	}
-	p.refresh()
 }
 
 func (p *placementRow) refresh() {

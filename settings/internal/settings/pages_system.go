@@ -99,28 +99,17 @@ const lockBlurSoftMax = 100
 var ownCursor = shownWhen("login.greeter.match-cursor", switchedOff)
 
 var pamServiceRow rowOpt = func(r *rowSpec) {
-	r.vet = func(ctx context.Context, k *kit, v any) error {
+	r.vet = func(ctx context.Context, k *kit, v any) rowProblem {
 		service, ok := v.(string)
 		if !ok {
-			return fmt.Errorf("settings: %v is no PAM service name", v)
+			return notSaved(fmt.Errorf("settings: %v is no PAM service name", v))
 		}
 		if err := k.checkPAM(ctx, service); err != nil {
-			return pamRefusal{service: service, err: err}
+			return rowProblem{summary: locale.T().Get("settings-pam-check-failed", i18n.Str("service", service)), err: err}
 		}
-		return nil
+		return rowProblem{}
 	}
 }
-
-type pamRefusal struct {
-	service string
-	err     error
-}
-
-func (r pamRefusal) Error() string {
-	return locale.T().Get("settings-pam-check-failed", i18n.Str("service", r.service), i18n.Str("reason", r.err.Error()))
-}
-
-func (r pamRefusal) Unwrap() error { return r.err }
 
 var lockBackgroundPictures = map[string]picture{
 	string(config.BackgroundColor): drawn(func(cv *render.Canvas, r render.Rect) {
@@ -159,9 +148,10 @@ var lockLinks = []pageLink{
 
 type greeterFooter struct {
 	*widget.Box
-	k      *kit
-	status *widget.Label
-	hint   *widget.Label
+	k       *kit
+	status  *widget.Label
+	hint    *widget.Label
+	outcome *inlineState
 }
 
 func newGreeterFooter(k *kit) *greeterFooter {
@@ -170,18 +160,17 @@ func newGreeterFooter(k *kit) *greeterFooter {
 	f.AddClass("settings-section")
 	f.status = wrapped(k.label("", "settings-greeter-status", css.Caption))
 	f.hint = wrapped(k.label(t.Get(greeterApplyHint), "settings-section-title"))
+	f.outcome = k.inlineState()
 	apply := func() {
 		async(k, func() error { return applyGreeter(k.store, loginRuntimeDir) }, func(err error) {
-			if err != nil {
-				log.Printf("settings: greeter apply: %v", err)
-			}
-			f.hint.SetText(greeterApplyOutcome(t, err))
+			f.showOutcome(err)
 			f.configChanged()
 		})
 	}
 	f.Append(f.status, false)
 	f.AppendAligned(k.primaryButton(t.Get(greeterApplyLabel), apply), false, widget.AlignStart)
 	f.Append(f.hint, false)
+	f.Append(f.outcome, false)
 	f.configChanged()
 	return f
 }
@@ -201,30 +190,40 @@ func (f *greeterFooter) configChanged() {
 	f.status.SetText(locale.T().Get(key))
 }
 
-func greeterApplyOutcome(t *i18n.Loader, err error) string {
+// showOutcome says how applying ended: done, or why not, the error
+// behind it in the closed detail.
+func (f *greeterFooter) showOutcome(err error) {
+	t := locale.T()
+	f.hint.SetVisible(false)
 	if err == nil {
-		return t.Get(greeterApplyDone)
+		f.outcome.Empty("", t.Get(greeterApplyDone))
+		return
 	}
-	if errors.Is(err, dmsocket.ErrNoDaemon) {
-		return t.Get(greeterApplyNoDaemon)
-	}
-	because := func(id, reason string) string { return t.Get(id, i18n.Str("reason", reason)) }
-	if errors.Is(err, greeterconfig.ErrInvalid) {
-		return because(greeterApplyInvalid, err.Error())
+	log.Printf("settings: greeter apply: %v", err)
+	f.outcome.Error(t.Get(greeterApplyFailure(err)), err, nil)
+}
+
+// greeterApplyFailure is the message of an apply that failed with err.
+func greeterApplyFailure(err error) string {
+	switch {
+	case errors.Is(err, dmsocket.ErrNoDaemon):
+		return greeterApplyNoDaemon
+	case errors.Is(err, greeterconfig.ErrInvalid):
+		return greeterApplyInvalid
 	}
 	refused, ok := errors.AsType[*dmsocket.RefusedError](err)
 	if !ok {
-		return because(greeterApplyFailed, err.Error())
+		return greeterApplyFailed
 	}
 	switch refused.Refusal {
 	case dmsocket.Invalid:
-		return because(greeterApplyInvalid, refused.Reason)
+		return greeterApplyInvalid
 	case dmsocket.Unauthorized:
-		return because(greeterApplyUnauthorized, refused.Reason)
+		return greeterApplyUnauthorized
 	case dmsocket.Dismissed:
-		return t.Get(greeterApplyDismissed)
+		return greeterApplyDismissed
 	default:
-		return because(greeterApplyFailed, refused.Reason)
+		return greeterApplyFailed
 	}
 }
 

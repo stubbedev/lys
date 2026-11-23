@@ -3,10 +3,11 @@ package settings
 import (
 	"errors"
 	"reflect"
-	"strings"
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/shell/treetest"
+
+	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
 func TestARefusedCardWriteIsHeldAsADraftWithTheReason(t *testing.T) {
@@ -18,8 +19,8 @@ func TestARefusedCardWriteIsHeldAsADraftWithTheReason(t *testing.T) {
 	c := newCardList(k, s, thresholdCards)
 	c.local = append(c.local, item)
 	c.commit()
-	if !c.draft.Visible() || !strings.Contains(c.draft.Text(), refused.Error()) || !c.drafting {
-		t.Fatalf("a refused write shows draft %v %q", c.draft.Visible(), c.draft.Text())
+	if !failedWith(c.draft, locale.T().Get("settings-list-draft"), refused.Error()) || !c.drafting {
+		t.Fatalf("a refused write shows draft %v %q over %q", c.draft.Visible(), c.draft.Text(), c.draft.detail.Text())
 	}
 	accepted := slot{get: func() any { return stored }, set: func(v any) error { stored = v; return nil }, unset: func() {}}
 	c = newCardList(k, accepted, thresholdCards)

@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/ui/widget"
+
+	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
 func TestAMailQueryReadsAsConditionsAndWritesBack(t *testing.T) {
@@ -99,15 +101,21 @@ func TestTheMailQuerySaysHowManyMessagesItMatches(t *testing.T) {
 	for q, want := range map[string]string{
 		"tag:unread and not tag:spam": "1 message matches",
 		"tag:none":                    "No message matches",
-		"tag:(":                       "Could not count the matches: unbalanced parenthesis",
 	} {
 		if err := k.store.set(path, q); err != nil {
 			t.Fatal(err)
 		}
 		e.refresh()
-		if unisolated(e.count.Text()) != want {
-			t.Errorf("%q shows %q, want %q", q, e.count.Text(), want)
+		if unisolated(e.count.Text()) != want || e.count.kind == stateError {
+			t.Errorf("%q shows %v %q, want %q", q, e.count.kind, e.count.Text(), want)
 		}
+	}
+	if err := k.store.set(path, "tag:("); err != nil {
+		t.Fatal(err)
+	}
+	e.refresh()
+	if !failedWith(e.count, locale.T().Get("settings-mail-query-count-failed"), "unbalanced parenthesis") {
+		t.Errorf("a query notmuch refuses shows %q over %q", e.count.Text(), e.count.detail.Text())
 	}
 	if err := k.store.set(path, ""); err != nil {
 		t.Fatal(err)

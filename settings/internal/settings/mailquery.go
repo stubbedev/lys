@@ -147,7 +147,7 @@ type mailQueryEditor struct {
 	raw     *text
 	toggle  *modeToggle
 	picker  *searchPicker
-	count   *widget.Label
+	count   *inlineState
 	counted string
 }
 
@@ -163,7 +163,8 @@ func newMailQueryEditor(k *kit, s slot, optional bool) *mailQueryEditor {
 	e.notice = k.note(t.Get("settings-mail-query-handwritten"))
 	e.raw = newText(k, s, optional)
 	e.toggle = k.textModeToggle(func(bool) { e.refresh() })
-	e.count = k.note("", "mail-query-count")
+	e.count = k.inlineState()
+	e.count.AddClass("mail-query-count")
 	e.Append(line, false)
 	e.Append(e.count, false)
 	e.Append(e.notice, false)
@@ -207,8 +208,12 @@ type mailMatches struct {
 
 func (e *mailQueryEditor) recount() {
 	query := strings.TrimSpace(e.slot.text())
-	e.count.SetVisible(query != "")
-	if query == "" || query == e.counted {
+	if query == "" {
+		e.counted = ""
+		e.count.Clear()
+		return
+	}
+	if query == e.counted {
 		return
 	}
 	e.counted = query
@@ -221,10 +226,10 @@ func (e *mailQueryEditor) recount() {
 		}
 		t := locale.T()
 		if m.err != nil {
-			e.count.SetText(t.Get("settings-mail-query-count-failed", i18n.Str("reason", m.err.Error())))
+			e.count.Error(t.Get("settings-mail-query-count-failed"), m.err, nil)
 			return
 		}
-		e.count.SetText(t.Get("settings-mail-query-count", i18n.Int("n", int64(m.n))))
+		e.count.Empty("", t.Get("settings-mail-query-count", i18n.Int("n", int64(m.n))))
 	})
 }
 

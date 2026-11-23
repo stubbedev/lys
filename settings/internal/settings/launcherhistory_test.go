@@ -3,7 +3,6 @@ package settings
 import (
 	"errors"
 	"slices"
-	"strings"
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/shell/treetest"
@@ -43,7 +42,7 @@ func TestClearingTheLauncherHistoryAsksThenRunsLysShell(t *testing.T) {
 	if len(ran) != 1 || !slices.Equal(ran[0], []string{"launcher", "-clear-history"}) {
 		t.Fatalf("confirming ran %q, want lys-shell launcher -clear-history", ran)
 	}
-	if !c.outcome.Visible() || c.outcome.Text() != locale.T().Get(clearHistoryKey+"-done") {
+	if !c.outcome.Visible() || c.outcome.kind == stateError || c.outcome.Text() != locale.T().Get(clearHistoryKey+"-done") {
 		t.Errorf("a cleared history shows %q (visible %v)", c.outcome.Text(), c.outcome.Visible())
 	}
 }
@@ -56,8 +55,8 @@ func TestAFailedClearSaysWhy(t *testing.T) {
 	c := clearHistoryControl(t, k)
 	c.button.OnClick()
 	pickers.dialogs[0].OnResponse(responseConfirm)
-	if !c.outcome.Visible() || !strings.Contains(c.outcome.Text(), "lys-shell is not installed") || c.outcome.Text() == locale.T().Get(clearHistoryKey+"-done") {
-		t.Errorf("a failed clear shows %q (visible %v)", c.outcome.Text(), c.outcome.Visible())
+	if !failedWith(c.outcome, locale.T().Get(clearHistoryKey+"-failed"), "lys-shell is not installed") {
+		t.Errorf("a failed clear shows %q over %q (visible %v)", c.outcome.Text(), c.outcome.detail.Text(), c.outcome.Visible())
 	}
 	if !c.button.Enabled() {
 		t.Error("after a failed clear the button stays disabled")
@@ -74,7 +73,7 @@ func TestWithoutAWindowToAskInNothingIsCleared(t *testing.T) {
 	k.pickers = nil
 	c := clearHistoryControl(t, k)
 	c.button.OnClick()
-	if len(ran) != 0 || !c.outcome.Visible() || !strings.Contains(c.outcome.Text(), "no window to ask in") {
-		t.Errorf("without a window clear ran %q and shows %q", ran, c.outcome.Text())
+	if len(ran) != 0 || !failedWith(c.outcome, locale.T().Get(clearHistoryKey+"-failed"), "no window to ask in") {
+		t.Errorf("without a window clear ran %q and shows %q over %q", ran, c.outcome.Text(), c.outcome.detail.Text())
 	}
 }

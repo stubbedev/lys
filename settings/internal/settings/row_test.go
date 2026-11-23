@@ -11,6 +11,17 @@ import (
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
+// problemShown reports whether r's problem line shows.
+func problemShown(r *settingRow) bool { return r.problem != nil && r.problem.Visible() }
+
+// problemText is what r's problem line says, "" without one.
+func problemText(r *settingRow) string {
+	if r.problem == nil {
+		return ""
+	}
+	return r.problem.Text()
+}
+
 func TestRowSaysWhyAValueWasRefused(t *testing.T) {
 	k := testKit(t, "")
 	const path = "styling.palette.bg"
@@ -18,27 +29,27 @@ func TestRowSaysWhyAValueWasRefused(t *testing.T) {
 		return newText(k, s, false)
 	})))
 	entry := row.ctl.(*text)
-	if row.problem.Visible() {
-		t.Fatal("a fresh row reports a problem")
+	if row.problem != nil {
+		t.Fatal("a fresh row has a problem line")
 	}
 	entry.SelectAll()
 	entry.Insert("#zz")
 	entry.KeyAction(widget.KeyEnter, 0)
-	if !row.problem.Visible() || row.problem.Text() == "" {
-		t.Fatal("a refused value left no word on the row")
+	if !refused(row, locale.T().Get("settings-row-not-saved"), "#zz") {
+		t.Fatalf("a refused value says %q", problemText(row.settingRow))
 	}
 	entry.SelectAll()
 	entry.Insert("#102030")
 	entry.KeyAction(widget.KeyEnter, 0)
-	if row.problem.Visible() || k.store.value(path) != "#102030" {
-		t.Errorf("an accepted value: problem shown %v, value %v", row.problem.Visible(), k.store.value(path))
+	if problemShown(row.settingRow) || k.store.value(path) != "#102030" {
+		t.Errorf("an accepted value: problem shown %v, value %v", problemShown(row.settingRow), k.store.value(path))
 	}
 	entry.SelectAll()
 	entry.Insert("#zz")
 	entry.KeyAction(widget.KeyEnter, 0)
 	row.refreshSource()
 	row.reset.ClickAt(widget.Point{})
-	if row.problem.Visible() {
+	if problemShown(row.settingRow) {
 		t.Error("a reset kept the refusal up")
 	}
 }

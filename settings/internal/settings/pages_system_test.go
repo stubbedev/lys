@@ -9,7 +9,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
-	"strings"
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/config"
@@ -144,7 +143,7 @@ func greeterApplyButton(t *testing.T, footer *widget.Box) *widget.Button {
 	return buttons[0]
 }
 
-func clickGreeterApply(t *testing.T, runtimeDir string) []string {
+func clickGreeterApply(t *testing.T, runtimeDir string) *greeterFooter {
 	t.Helper()
 	k := testKit(t, "")
 	saved := loginRuntimeDir
@@ -153,7 +152,7 @@ func clickGreeterApply(t *testing.T, runtimeDir string) []string {
 	t.Setenv("XDG_STATE_HOME", t.TempDir())
 	footer := newGreeterFooter(k)
 	greeterApplyButton(t, footer.Box).ClickAt(widget.Point{})
-	return treetest.Labels(footer)
+	return footer
 }
 
 func TestGreeterApplyNamesWhatHappened(t *testing.T) {
@@ -163,29 +162,30 @@ func TestGreeterApplyNamesWhatHappened(t *testing.T) {
 		name   string
 		answer dmsocket.Reply
 		want   string
+		reason string
 		status string
 	}{
-		{"applied", dmsocket.Answer("/etc/lys-shell/runtime.yaml", nil), tr.Get(greeterApplyDone), tr.Get(greeterApplied)},
-		{
-			"invalid", dmsocket.Answer("", dmsocket.Refuse(dmsocket.Invalid, "no recognised login screen keys")),
-			tr.Get(greeterApplyInvalid, i18n.Str("reason", "no recognised login screen keys")), tr.Get(greeterPending),
-		},
-		{
-			"not authorized", dmsocket.Answer("", dmsocket.Refuse(dmsocket.Unauthorized, "polkit does not authorize uid 1000")),
-			tr.Get(greeterApplyUnauthorized, i18n.Str("reason", "polkit does not authorize uid 1000")), tr.Get(greeterPending),
-		},
-		{"dismissed", dmsocket.Answer("", dmsocket.Refuse(dmsocket.Dismissed, "the authentication was dismissed")), tr.Get(greeterApplyDismissed), tr.Get(greeterPending)},
-		{
-			"failed", dmsocket.Answer("", dmsocket.Refuse(dmsocket.Failed, "write /etc/lys-shell/runtime.yaml: disk full")),
-			tr.Get(greeterApplyFailed, i18n.Str("reason", "write /etc/lys-shell/runtime.yaml: disk full")), tr.Get(greeterPending),
-		},
+		{"applied", dmsocket.Answer("/etc/lys-shell/runtime.yaml", nil), greeterApplyDone, "", greeterApplied},
+		{"invalid", dmsocket.Answer("", dmsocket.Refuse(dmsocket.Invalid, "no recognised login screen keys")), greeterApplyInvalid, "no recognised login screen keys", greeterPending},
+		{"not authorized", dmsocket.Answer("", dmsocket.Refuse(dmsocket.Unauthorized, "polkit does not authorize uid 1000")), greeterApplyUnauthorized, "polkit does not authorize uid 1000", greeterPending},
+		{"dismissed", dmsocket.Answer("", dmsocket.Refuse(dmsocket.Dismissed, "the authentication was dismissed")), greeterApplyDismissed, "the authentication was dismissed", greeterPending},
+		{"failed", dmsocket.Answer("", dmsocket.Refuse(dmsocket.Failed, "write /etc/lys-shell/runtime.yaml: disk full")), greeterApplyFailed, "write /etc/lys-shell/runtime.yaml: disk full", greeterPending},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			dir, daemon := serveFakeDaemon(t, c.answer)
-			labels := clickGreeterApply(t, dir)
+			f := clickGreeterApply(t, dir)
 			daemon.request(t)
-			if want := []string{c.status, tr.Get(greeterApplyLabel), c.want}; !slices.Equal(labels, want) {
-				t.Errorf("the footer shows %q, want %q", labels, want)
+			if f.status.Text() != tr.Get(c.status) || f.hint.Visible() {
+				t.Errorf("the footer says %q, hint shown %v", f.status.Text(), f.hint.Visible())
+			}
+			if c.reason == "" {
+				if !f.outcome.Visible() || f.outcome.kind == stateError || f.outcome.Text() != tr.Get(c.want) {
+					t.Errorf("the outcome reads %v %q, want %q", f.outcome.kind, f.outcome.Text(), tr.Get(c.want))
+				}
+				return
+			}
+			if !failedWith(f.outcome, tr.Get(c.want), c.reason) {
+				t.Errorf("the outcome reads %q over %q, want %q over %q", f.outcome.Text(), f.outcome.detail.Text(), tr.Get(c.want), c.reason)
 			}
 		})
 	}
@@ -194,18 +194,18 @@ func TestGreeterApplyNamesWhatHappened(t *testing.T) {
 func TestGreeterApplyWithoutTheDisplayManager(t *testing.T) {
 	noPrograms(t)
 	tr := locale.T()
-	labels := clickGreeterApply(t, sockdir.Dir(t))
-	if want := []string{tr.Get(greeterPending), tr.Get(greeterApplyLabel), tr.Get(greeterApplyNoDaemon)}; !slices.Equal(labels, want) {
-		t.Errorf("without a daemon the footer shows %q, want %q", labels, want)
+	f := clickGreeterApply(t, sockdir.Dir(t))
+	if f.status.Text() != tr.Get(greeterPending) || !failedWith(f.outcome, tr.Get(greeterApplyNoDaemon), dmsocket.ErrNoDaemon.Error()) {
+		t.Errorf("without a daemon the footer says %q, the outcome %q over %q", f.status.Text(), f.outcome.Text(), f.outcome.detail.Text())
 	}
 }
 
 func TestGreeterApplyFooterStartsWithWhatApplyingChanges(t *testing.T) {
 	tr := locale.T()
 	t.Setenv("XDG_STATE_HOME", t.TempDir())
-	labels := treetest.Labels(newGreeterFooter(testKit(t, "")))
-	if want := []string{tr.Get(greeterPending), tr.Get(greeterApplyLabel), tr.Get(greeterApplyHint)}; !slices.Equal(labels, want) {
-		t.Errorf("the footer shows %q, want %q", labels, want)
+	f := newGreeterFooter(testKit(t, ""))
+	if f.status.Text() != tr.Get(greeterPending) || !f.hint.Visible() || f.hint.Text() != tr.Get(greeterApplyHint) || f.outcome.Visible() {
+		t.Errorf("the footer says %q, hint %q shown %v, outcome shown %v", f.status.Text(), f.hint.Text(), f.hint.Visible(), f.outcome.Visible())
 	}
 }
 
@@ -264,21 +264,22 @@ func TestTheLoginScreenSaysWhetherItsSettingsWereApplied(t *testing.T) {
 
 func TestGreeterApplyOutcomesReadApartInEveryLanguage(t *testing.T) {
 	const reason = "the daemon's own words"
-	invalid := fmt.Errorf("%w: %s", greeterconfig.ErrInvalid, reason)
-	outcomes := []struct {
-		name   string
-		err    error
-		id     string
-		reason string
+	for _, c := range []struct {
+		name string
+		err  error
+		id   string
 	}{
-		{"applied", nil, greeterApplyDone, ""},
-		{"no daemon", dmsocket.ErrNoDaemon, greeterApplyNoDaemon, ""},
-		{"invalid before it is sent", invalid, greeterApplyInvalid, invalid.Error()},
-		{"invalid", dmsocket.Refuse(dmsocket.Invalid, reason), greeterApplyInvalid, reason},
-		{"not authorized", dmsocket.Refuse(dmsocket.Unauthorized, reason), greeterApplyUnauthorized, reason},
-		{"dismissed", dmsocket.Refuse(dmsocket.Dismissed, reason), greeterApplyDismissed, ""},
-		{"failed", dmsocket.Refuse(dmsocket.Failed, reason), greeterApplyFailed, reason},
-		{"failed before an answer", errors.New(reason), greeterApplyFailed, reason},
+		{"no daemon", dmsocket.ErrNoDaemon, greeterApplyNoDaemon},
+		{"invalid before it is sent", fmt.Errorf("%w: %s", greeterconfig.ErrInvalid, reason), greeterApplyInvalid},
+		{"invalid", dmsocket.Refuse(dmsocket.Invalid, reason), greeterApplyInvalid},
+		{"not authorized", dmsocket.Refuse(dmsocket.Unauthorized, reason), greeterApplyUnauthorized},
+		{"dismissed", dmsocket.Refuse(dmsocket.Dismissed, reason), greeterApplyDismissed},
+		{"failed", dmsocket.Refuse(dmsocket.Failed, reason), greeterApplyFailed},
+		{"failed before an answer", errors.New(reason), greeterApplyFailed},
+	} {
+		if got := greeterApplyFailure(c.err); got != c.id {
+			t.Errorf("%s says %s, want %s", c.name, got, c.id)
+		}
 	}
 	ids := []string{
 		greeterApplyLabel, greeterApplyHint, greeterApplyDone, greeterApplyNoDaemon,
@@ -289,21 +290,15 @@ func TestGreeterApplyOutcomesReadApartInEveryLanguage(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, c := range outcomes {
-			got := greeterApplyOutcome(tr, c.err)
-			if want := tr.Get(c.id, i18n.Str("reason", c.reason)); got != want {
-				t.Errorf("%s: %s says %q, want the %s message %q", lang, c.name, got, c.id, want)
-			}
-			if carries := strings.Contains(got, reason); carries != (c.reason != "") {
-				t.Errorf("%s: %s says %q, carrying the reason = %v", lang, c.name, got, carries)
-			}
-		}
 		texts := make([]string, len(ids))
 		for i, id := range ids {
 			if !tr.Has(id) {
 				t.Errorf("%s: no %s", lang, id)
 			}
-			texts[i] = tr.Get(id, i18n.Str("reason", reason))
+			texts[i] = tr.Get(id)
+			if rawError(texts[i]) {
+				t.Errorf("%s: %s reads as an error chain: %q", lang, id, texts[i])
+			}
 			if same := slices.Index(texts[:i], texts[i]); same >= 0 {
 				t.Errorf("%s: %s and %s both read %q", lang, ids[same], id, texts[i])
 			}

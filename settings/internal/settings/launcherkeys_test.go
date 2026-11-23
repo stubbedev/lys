@@ -67,7 +67,7 @@ func TestALauncherActionsFurtherKeysReadUnderItsName(t *testing.T) {
 	k := testKit(t, "launcher:\n  keybindings:\n    cancel: \"Escape,Control+q,Control+bracketleft\"\n")
 	c := fieldControl(k, k.store, field("launcher.keybindings", launcherKeysRow)).(*launcherBindings)
 	labels := strings.Join(treetest.Labels(c), "|")
-	if !strings.Contains(labels, "Close the launcher|||Also|Ctrl|Q|Ctrl|[|Esc") {
+	if !strings.Contains(labels, "Close the launcher||Also|Ctrl|Q|Ctrl|[|Esc") {
 		t.Errorf("cancel's further keys are not shown as keycaps under it: %q", labels)
 	}
 	if strings.Contains(labels, "bracketleft") || strings.Contains(labels, "Control") {

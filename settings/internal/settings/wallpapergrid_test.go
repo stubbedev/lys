@@ -1,6 +1,7 @@
 package settings
 
 import (
+	"errors"
 	"image"
 	"image/color"
 	"image/png"
@@ -12,6 +13,8 @@ import (
 
 	"github.com/stubbedev/lys/desktop/imagedecode"
 	"github.com/stubbedev/lys/ui/widget"
+
+	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
 func savePNG(t *testing.T, path string, img image.Image) {
@@ -69,7 +72,7 @@ func TestTheWallpaperGridShowsThePickerFoldersPicturesAndSetsOne(t *testing.T) {
 		t.Fatalf("the grid shows %v, want the two pictures of %s", got, dir)
 	}
 	shown, failed := g.tiles[1], g.tiles[0]
-	if shown.thumb.img == nil || shown.thumb.failure != "" {
+	if shown.thumb.img == nil || shown.thumb.err != nil {
 		t.Errorf("the readable picture's tile holds %+v, want its thumbnail", shown.thumb)
 	}
 	if b := shown.thumb.img.Bounds(); max(b.Dx(), b.Dy()) > 256 {
@@ -79,11 +82,11 @@ func TestTheWallpaperGridShowsThePickerFoldersPicturesAndSetsOne(t *testing.T) {
 		t.Errorf("the readable tile is named %q", name)
 	}
 	_, decodeErr := imagedecode.Open(broken)
-	if failed.thumb.img != nil || !strings.Contains(failed.thumb.failure, broken) || !strings.Contains(failed.thumb.failure, decodeErr.Error()) {
-		t.Errorf("the broken picture's tile holds %+v, want a failure naming %s and %v", failed.thumb, broken, decodeErr)
+	if failed.thumb.img != nil || failed.thumb.err == nil || !strings.Contains(failed.thumb.err.Error(), broken) || !strings.Contains(failed.thumb.err.Error(), decodeErr.Error()) {
+		t.Errorf("the broken picture's tile holds %+v, want an error naming %s and %v", failed.thumb, broken, decodeErr)
 	}
-	if name := widget.Describe(failed).Name; !strings.Contains(name, failed.thumb.failure) {
-		t.Errorf("the broken tile is named %q, without its failure", name)
+	if name := widget.Describe(failed).Name; name != "broken.jpg: "+locale.T().Get("settings-wallpaper-thumb-failed") || rawError(name) {
+		t.Errorf("the broken tile is named %q, want its name and the app's summary", name)
 	}
 	cached, err := filepath.Glob(filepath.Join(os.Getenv("XDG_CACHE_HOME"), "thumbnails", "large", "*.png"))
 	if err != nil || len(cached) != 1 {
@@ -115,8 +118,8 @@ func TestTheWallpaperGridSaysWhyItShowsNoPictures(t *testing.T) {
 		t.Fatal(err)
 	}
 	k, g := wallpaperGridOf(t, "wallpaper:\n  picker-directories: ["+notDir+"]\n")
-	if !g.problem.Visible() || !strings.Contains(g.problem.Text(), notDir) {
-		t.Errorf("a folder that cannot be read shows the problem %q (shown %v)", g.problem.Text(), g.problem.Visible())
+	if !failedWith(g.problem, locale.T().Get("settings-wallpaper-grid-failed"), notDir) {
+		t.Errorf("a folder that cannot be read shows the problem %q over %q (shown %v)", g.problem.Text(), g.problem.detail.Text(), g.problem.Visible())
 	}
 	dir := t.TempDir()
 	savePNG(t, filepath.Join(dir, "a.png"), solidImage(8, 8, color.RGBA{R: 0xff, A: 0xff}))
@@ -137,7 +140,7 @@ func TestTheThumbnailCacheDecodesOnePictureAtATimeOffTheLoop(t *testing.T) {
 	loaded := 0
 	c := newThumbCache(k, func(path string) wallpaperThumb {
 		decoded = append(decoded, path)
-		return wallpaperThumb{failure: path}
+		return wallpaperThumb{err: errors.New(path)}
 	}, func() { loaded++ })
 	for _, p := range []string{"/a", "/b", "/a", "", "/c"} {
 		c.get(p)

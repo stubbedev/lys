@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-	"strings"
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/imagedecode"
@@ -17,6 +16,7 @@ import (
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/settings/internal/displays"
+	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
 func wallpaperFile(t *testing.T, name string, write func(*os.File) error) string {
@@ -64,22 +64,19 @@ func TestAWallpaperThatCannotBeDecodedSaysSoOnItsTile(t *testing.T) {
 	fakeHeads(t, []displays.Head{head("DP-1", 0), head("HDMI-A-1", 1920)}, nil)
 	c := fieldControl(k, k.store, field("wallpaper.monitors", monitorWallpaperRow)).(*monitorWallpapers)
 	failed := c.picker.thumbs["DP-1"]
-	if failed.img != nil || !strings.Contains(failed.failure, broken) {
-		t.Fatalf("the broken wallpaper's tile holds %+v, want a failure naming %s", failed, broken)
-	}
 	_, decodeErr := imagedecode.Open(broken)
-	if decodeErr == nil || !strings.Contains(failed.failure, decodeErr.Error()) {
-		t.Errorf("the failure %q does not carry the decoder's error %v", failed.failure, decodeErr)
+	if failed.img != nil || decodeErr == nil || failed.err == nil || failed.err.Error() != decodeErr.Error() {
+		t.Fatalf("the broken wallpaper's tile holds %+v, want the decoder's error %v", failed, decodeErr)
 	}
-	if name := widget.Describe(c.picker.handles[0]).Name; !strings.Contains(name, failed.failure) {
-		t.Errorf("the broken tile is named %q, without its failure", name)
+	if name := widget.Describe(c.picker.handles[0]).Name; name != c.picker.tiles[0].label+" (DP-1): "+locale.T().Get("settings-wallpaper-thumb-failed") || rawError(name) {
+		t.Errorf("the broken tile is named %q, want its label and the app's summary", name)
 	}
 	c.picker.choose("HDMI-A-1")
 	if got, want := tileEdge(t, c.picker, 0), widget.Current().DestructiveColor(); got != want {
 		t.Errorf("the broken tile's edge is %v, want the destructive %v", got, want)
 	}
 	shown := c.picker.thumbs["HDMI-A-1"]
-	if shown.img == nil || shown.failure != "" {
+	if shown.img == nil || shown.err != nil {
 		t.Errorf("the readable wallpaper's tile holds %+v, want its picture", shown)
 	}
 	if name := widget.Describe(c.picker.handles[1]).Name; name != c.picker.tiles[1].label+" (HDMI-A-1)" {

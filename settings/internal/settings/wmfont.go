@@ -16,9 +16,12 @@ type readFamily struct {
 	err          error
 }
 
+// resolvedFont is the file of a family lys-wm can read, or failed,
+// the summary of why not, over err.
 type resolvedFont struct {
-	family, path string
-	err          error
+	path   string
+	failed string
+	err    error
 }
 
 type wmFontEditor struct {
@@ -28,7 +31,7 @@ type wmFontEditor struct {
 	picker  *fontEditor
 	browse  *widget.Button
 	file    *widget.Label
-	problem *widget.Label
+	problem *inlineState
 	read    string
 	family  string
 }
@@ -41,7 +44,7 @@ func newWMFontEditor(k *kit, s slot) *wmFontEditor {
 	c.browse = k.browseButton(func(path string) { _ = c.slot.set(path) })
 	head.AppendAligned(c.browse, false, widget.AlignStart)
 	c.file = k.note("", "font-file")
-	c.problem = k.errorText("")
+	c.problem = k.inlineState()
 	c.Append(head, false)
 	c.Append(c.file, false)
 	c.Append(c.problem, false)
@@ -60,7 +63,7 @@ func (c *wmFontEditor) refresh() {
 	}
 	if path != c.read {
 		c.read, c.family = path, ""
-		c.problem.SetVisible(false)
+		c.problem.Clear()
 		if path != "" {
 			async(c.k, func() readFamily {
 				family, err := c.k.fileFamily(path)
@@ -76,15 +79,8 @@ func (c *wmFontEditor) showFamily(r readFamily) {
 		return
 	}
 	c.family = r.family
-	c.showProblem(r.err)
+	c.problem.Result(locale.T().Get("wm-tabs-font-file-unreadable"), r.err)
 	c.picker.refresh()
-}
-
-func (c *wmFontEditor) showProblem(err error) {
-	c.problem.SetVisible(err != nil)
-	if err != nil {
-		c.problem.SetText(err.Error())
-	}
 }
 
 func (c *wmFontEditor) pick(v any) error {
@@ -92,11 +88,8 @@ func (c *wmFontEditor) pick(v any) error {
 	if !ok {
 		return fmt.Errorf("settings: a font family is a name, not %v", v)
 	}
-	async(c.k, func() resolvedFont {
-		path, err := c.k.wmFontFile(family)
-		return resolvedFont{family, path, err}
-	}, func(r resolvedFont) {
-		c.showProblem(r.err)
+	async(c.k, func() resolvedFont { return c.k.wmFontFile(family) }, func(r resolvedFont) {
+		c.problem.Result(r.failed, r.err)
 		if r.err == nil {
 			_ = c.slot.set(r.path)
 		}
@@ -104,16 +97,16 @@ func (c *wmFontEditor) pick(v any) error {
 	return nil
 }
 
-func (k *kit) wmFontFile(family string) (string, error) {
+func (k *kit) wmFontFile(family string) resolvedFont {
 	t := locale.T()
 	path, err := k.fontFile(family)
 	if err != nil {
-		return "", fmt.Errorf("%s: %w", t.Get("wm-tabs-font-unresolved", i18n.Str("family", family)), err)
+		return resolvedFont{failed: t.Get("wm-tabs-font-unresolved", i18n.Str("family", family)), err: err}
 	}
 	if _, err := k.fileFamily(path); err != nil {
-		return "", fmt.Errorf("%s: %w", t.Get("wm-tabs-font-unreadable", i18n.Str("family", family)), err)
+		return resolvedFont{failed: t.Get("wm-tabs-font-unreadable", i18n.Str("family", family)), err: err}
 	}
-	return path, nil
+	return resolvedFont{path: path}
 }
 
 func readFontFamily(path string) (string, error) {

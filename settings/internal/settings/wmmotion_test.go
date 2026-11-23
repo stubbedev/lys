@@ -209,14 +209,14 @@ func TestTheMotionEditorsWriteWhatLysWMAccepts(t *testing.T) {
 	blank[itemNameKey] = "bouncy"
 	curves.appendItem(blank)
 	if curves.draft.Visible() {
-		t.Fatalf("lys-wm refuses a new curve: %s", curves.draft.Text())
+		t.Fatalf("lys-wm refuses a new curve: %s", curves.draft.detail.Text())
 	}
 	e := curves.cards[0].controls[0].(*curveEditor)
 	e.writeBezier([4]float64{0.34, 1.56, 0.64, 1})
 	pickChoice(e.kind, curveKindSpring)
 	pickChoice(e.kind, curveKindBezier)
 	if curves.draft.Visible() {
-		t.Fatalf("lys-wm refuses the curve the editor wrote: %s", curves.draft.Text())
+		t.Fatalf("lys-wm refuses the curve the editor wrote: %s", curves.draft.detail.Text())
 	}
 	g := fieldControl(k, w, wmEventsRow()).(*eventTable)
 	for name, r := range g.rows {

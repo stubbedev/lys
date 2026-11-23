@@ -2,9 +2,7 @@ package settings
 
 import (
 	"github.com/stubbedev/lys/desktop/config"
-	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -27,13 +25,12 @@ type clearHistory struct {
 	*widget.Box
 	k       *kit
 	button  *widget.Button
-	outcome *widget.Label
+	outcome *inlineState
 }
 
 func newClearHistory(k *kit) *clearHistory {
-	c := &clearHistory{Box: gapBox(widget.Row), k: k, outcome: wrapped(k.label("", css.Caption))}
+	c := &clearHistory{Box: gapBox(widget.Row), k: k, outcome: k.inlineState()}
 	c.button = k.destructiveButton(locale.T().Get(clearHistoryKey+"-button"), c.ask)
-	c.outcome.SetVisible(false)
 	c.AppendAligned(c.button, false, widget.AlignCenter)
 	c.Append(c.outcome, true)
 	return c
@@ -57,14 +54,9 @@ func (c *clearHistory) clear() {
 
 func (c *clearHistory) show(err error) {
 	t := locale.T()
-	c.outcome.SetVisible(true)
 	if err != nil {
-		c.outcome.RemoveClass(css.DimLabel)
-		c.outcome.AddClass(css.Error)
-		c.outcome.SetText(t.Get(clearHistoryKey+"-failed", i18n.Str("reason", err.Error())))
+		c.outcome.Error(t.Get(clearHistoryKey+"-failed"), err, nil)
 		return
 	}
-	c.outcome.RemoveClass(css.Error)
-	c.outcome.AddClass(css.DimLabel)
-	c.outcome.SetText(t.Get(clearHistoryKey + "-done"))
+	c.outcome.Empty("", t.Get(clearHistoryKey+"-done"))
 }
