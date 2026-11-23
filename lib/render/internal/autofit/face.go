@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"slices"
 	"sync"
+	"sync/atomic"
 )
 
 // Source is the font a Face analyses.
@@ -11,7 +12,7 @@ type Source interface {
 	Upem() int64
 	Lookup(r rune) (uint32, bool)
 	Mappings() []Mapping
-	Outline(gid uint32) (Outline, bool)
+	LoadOutline(o *Outline, gid uint32) bool
 }
 
 // Mapping is one cmap entry.
@@ -29,6 +30,16 @@ const (
 type styleMetrics struct {
 	once    sync.Once
 	metrics *latinMetrics
+	scaled  atomic.Pointer[scaledAxis]
+}
+
+var hintsPool sync.Pool
+
+func takeHints() *glyphHints {
+	if h, ok := hintsPool.Get().(*glyphHints); ok {
+		return h
+	}
+	return new(glyphHints)
 }
 
 // Face is FreeType's light autohinter for one font: the style of each
@@ -45,7 +56,7 @@ type Face struct {
 // NewFace assigns src's glyphs to scripts as FreeType does.
 func NewFace(src Source) *Face {
 	f := &Face{src: src, upem: src.Upem()}
-	mappings := slices.Clone(src.Mappings())
+	mappings := src.Mappings()
 	slices.SortFunc(mappings, func(a, b Mapping) int { return cmp.Compare(a.Rune, b.Rune) })
 	f.glyphs = coverage(mappings)
 	f.reverse = reverseCharmap(src)
@@ -53,7 +64,7 @@ func NewFace(src Source) *Face {
 }
 
 func coverage(mappings []Mapping) map[uint32]uint16 {
-	glyphs := make(map[uint32]uint16)
+	glyphs := make(map[uint32]uint16, len(mappings))
 	inRanges := func(ranges []uniRange, visit func(gid uint32)) {
 		for _, r := range ranges {
 			k, _ := slices.BinarySearchFunc(mappings, r.first, func(m Mapping, first rune) int { return cmp.Compare(m.Rune, first) })
@@ -97,7 +108,7 @@ func (f *Face) style(gid uint32) uint16 {
 }
 
 func reverseCharmap(src Source) map[uint32]rune {
-	reverse := make(map[uint32]rune)
+	reverse := make(map[uint32]rune, len(adjustments))
 	for _, a := range adjustments {
 		if gid, ok := src.Lookup(a.codepoint); ok && gid != 0 {
 			reverse[gid] = a.codepoint
@@ -106,23 +117,32 @@ func reverseCharmap(src Source) map[uint32]rune {
 	return reverse
 }
 
-func (f *Face) metrics(ss int) *latinMetrics {
+func (f *Face) metrics(ss int) *styleMetrics {
 	sm := &f.styles[ss]
 	sm.once.Do(func() {
 		if m, ok := newLatinMetrics(f.src, styles[ss]); ok {
 			sm.metrics = m
 		}
 	})
-	return sm.metrics
+	return sm
 }
 
 type scaledAxis struct {
-	scale  int64
-	widths []width
-	blues  []blue
+	nominal int64
+	scale   int64
+	blues   []blue
 }
 
-func (m *latinMetrics) scale(yScale int64) scaledAxis {
+func (sm *styleMetrics) axis(nominal int64) *scaledAxis {
+	if a := sm.scaled.Load(); a != nil && a.nominal == nominal {
+		return a
+	}
+	a := sm.metrics.scale(nominal)
+	sm.scaled.Store(a)
+	return a
+}
+
+func (m *latinMetrics) scale(yScale int64) *scaledAxis {
 	scale := yScale
 	adjust := slices.IndexFunc(m.blues, func(b blue) bool { return b.flags&zoneAdjustment != 0 })
 	if adjust >= 0 {
@@ -139,11 +159,7 @@ func (m *latinMetrics) scale(yScale int64) scaledAxis {
 			}
 		}
 	}
-	a := scaledAxis{scale: scale, widths: slices.Clone(m.widths), blues: slices.Clone(m.blues)}
-	for i := range a.widths {
-		a.widths[i].cur = mulFix(a.widths[i].org, scale)
-		a.widths[i].fit = a.widths[i].cur
-	}
+	a := &scaledAxis{nominal: yScale, scale: scale, blues: slices.Clone(m.blues)}
 	for i := range a.blues {
 		b := &a.blues[i]
 		b.ref.cur = mulFix(b.ref.org, scale)
@@ -193,22 +209,25 @@ func (m *latinMetrics) scale(yScale int64) scaledAxis {
 // Hint returns the hinted y of every point of o, in 26.6 device pixels
 // at size26d6 pixels per em, or false when FreeType would not hint the
 // glyph with its Latin writing system.
-func (f *Face) Hint(gid uint32, o Outline, size26d6 int64) ([]int64, bool) {
+func (f *Face) Hint(dst []int64, gid uint32, o Outline, size26d6 int64) ([]int64, bool) {
 	if len(o.Points) == 0 {
-		return nil, false
+		return dst, false
 	}
 	gs := f.style(gid)
 	ss := int(gs & styleMask)
 	if gs&styleMask == styleFallback || !styles[ss].latin {
-		return nil, false
+		return dst, false
 	}
-	m := f.metrics(ss)
+	sm := f.metrics(ss)
+	m := sm.metrics
 	if m == nil {
-		return nil, false
+		return dst, false
 	}
 	nominal := divFix(size26d6, f.upem)
-	axis := m.scale(nominal)
-	h := &glyphHints{upem: f.upem, xScale: nominal, yScale: axis.scale}
+	axis := sm.axis(nominal)
+	h := takeHints()
+	defer hintsPool.Put(h)
+	h.upem, h.xScale, h.yScale = f.upem, nominal, axis.scale
 	h.reload(o)
 
 	var adj uint32
@@ -252,7 +271,7 @@ func (f *Face) Hint(gid uint32, o Outline, size26d6 int64) ([]int64, bool) {
 		}
 	}
 	if gs&styleNonBase == 0 {
-		h.computeBlueEdges(&axis, f.upem)
+		h.computeBlueEdges(axis, f.upem)
 	}
 	h.hintEdges()
 	h.alignEdgePoints()
@@ -260,9 +279,8 @@ func (f *Face) Hint(gid uint32, o Outline, size26d6 int64) ([]int64, bool) {
 	h.alignWeakPoints()
 	h.separateVertically(adj, accentHeightLimit)
 
-	ys := make([]int64, len(h.points))
 	for i := range h.points {
-		ys[i] = h.points[i].y
+		dst = append(dst, h.points[i].y)
 	}
-	return ys, true
+	return dst, true
 }

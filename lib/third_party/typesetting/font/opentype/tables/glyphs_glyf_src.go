@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"slices"
 )
 
 // shared with gvar, sbix, eblc
@@ -432,4 +433,101 @@ func (c *CompositeGlyphPart) ArgsAsTranslation() (int16, int16) {
 func (c *CompositeGlyphPart) ArgsAsIndices() (int, int) {
 	// arg1 and arg2 are interpreted as unsigned integers here
 	return int(c.arg1), int(c.arg2)
+}
+
+// AppendSimpleGlyphPoints decodes the simple glyph [gid] straight into dst,
+// one point(x, y, onCurve) per point, then markEnd on the last point of
+// each contour, without the intermediate slices [Glyf.Glyph] builds. simple is false, and dst
+// unchanged, for a composite glyph; a glyph without outline is simple
+// with no points and the zero header.
+func AppendSimpleGlyphPoints[P any](g Glyf, dst []P, gid GlyphID, point func(x, y int16, onCurve bool) P, markEnd func(*P)) (out []P, header GlyphHeader, simple bool, err error) {
+	src, err := g.glyphBytes(gid)
+	if err != nil || len(src) == 0 {
+		return dst, GlyphHeader{}, err == nil, err
+	}
+	header, err = parseGlyphHeader(src)
+	if err != nil {
+		return dst, GlyphHeader{}, false, err
+	}
+	if header.numberOfContours < 0 {
+		return dst, header, false, nil
+	}
+	src = src[glyphHeaderSize:]
+	contours := int(header.numberOfContours)
+	if len(src) < 2*contours+2 {
+		return dst, header, false, fmt.Errorf("reading SimpleGlyph: EOF: expected length: %d, got %d", 2*contours+2, len(src))
+	}
+	ends := src[:2*contours]
+	instructions := int(binary.BigEndian.Uint16(src[2*contours:]))
+	src = src[2*contours+2:]
+	if len(src) < instructions {
+		return dst, header, false, fmt.Errorf("reading SimpleGlyph: EOF: expected length: %d, got %d", instructions, len(src))
+	}
+	src = src[instructions:]
+	if contours == 0 {
+		return dst, header, true, nil
+	}
+	numPoints := int(binary.BigEndian.Uint16(ends[2*contours-2:])) + 1
+
+	const repeatFlag = 0x08
+	var flagsLength, lengthX, lengthY int
+	for i := 0; i < numPoints; i++ {
+		if flagsLength >= len(src) {
+			return dst, header, false, errors.New("reading SimpleGlyph: invalid simple glyph data flags (EOF)")
+		}
+		flag := src[flagsLength]
+		flagsLength++
+		n := 1
+		if flag&repeatFlag != 0 {
+			if flagsLength >= len(src) {
+				return dst, header, false, errors.New("reading SimpleGlyph: invalid simple glyph data flags (EOF)")
+			}
+			n += min(int(src[flagsLength]), numPoints-i-1)
+			flagsLength++
+		}
+		lengthX += n * coordinateLength(flag, xShortVector, xIsSameOrPositiveXShortVector)
+		lengthY += n * coordinateLength(flag, yShortVector, yIsSameOrPositiveYShortVector)
+		i += n - 1
+	}
+	flags, src := src[:flagsLength], src[flagsLength:]
+	if len(src) < lengthX+lengthY {
+		return dst, header, false, fmt.Errorf("reading SimpleGlyph: EOF: expected length: %d, got %d", lengthX+lengthY, len(src))
+	}
+	dataX, dataY := src[:lengthX], src[lengthX:lengthX+lengthY]
+
+	start := len(dst)
+	dst = slices.Grow(dst, numPoints)
+	var posX, posY int
+	var x, y, dx, dy int16
+	for cursor := 0; len(dst)-start < numPoints; {
+		flag := flags[cursor]
+		cursor++
+		n := 1
+		if flag&repeatFlag != 0 {
+			n += min(int(flags[cursor]), numPoints-(len(dst)-start)-1)
+			cursor++
+		}
+		for range n {
+			posX, dx = readContourPoint(flag, dataX, posX, xShortVector, xIsSameOrPositiveXShortVector)
+			posY, dy = readContourPoint(flag, dataY, posY, yShortVector, yIsSameOrPositiveYShortVector)
+			x, y = x+dx, y+dy
+			dst = append(dst, point(x, y, flag&1 != 0))
+		}
+	}
+	for c := range contours {
+		if end := int(binary.BigEndian.Uint16(ends[2*c:])); end < numPoints {
+			markEnd(&dst[start+end])
+		}
+	}
+	return dst, header, true, nil
+}
+
+func coordinateLength(flag, shortFlag, sameFlag byte) int {
+	switch {
+	case flag&shortFlag != 0:
+		return 1
+	case flag&sameFlag == 0:
+		return 2
+	}
+	return 0
 }

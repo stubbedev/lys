@@ -31,6 +31,12 @@ func runeGlyph(t *testing.T, tf *Typeface, r rune) font.GID {
 	return gid
 }
 
+func loadTestOutline(tf *Typeface, gid font.GID) (autofit.Outline, bool) {
+	var o autofit.Outline
+	ok := autofitSource{tf.face}.LoadOutline(&o, uint32(gid))
+	return o, ok
+}
+
 func contourYExtents(o autofit.Outline) [][2]int64 {
 	var extents [][2]int64
 	first := 0
@@ -48,7 +54,7 @@ func contourYExtents(o autofit.Outline) [][2]int64 {
 func TestTheDotOfAnIStaysApartFromItsStem(t *testing.T) {
 	tf := loadInter(t)
 	gid := runeGlyph(t, tf, 'i')
-	outline, _ := fontOutline(tf.face, gid)
+	outline, _ := loadTestOutline(tf, gid)
 	extents := contourYExtents(outline)
 	if len(extents) != 2 {
 		t.Fatalf("premise: Inter's i has %d contours, want a stem and a dot", len(extents))
@@ -104,11 +110,11 @@ func TestTheDotOfAnIStaysApartFromItsStem(t *testing.T) {
 func TestHintingPutsTheXHeightOnAWholeRow(t *testing.T) {
 	tf := loadInter(t)
 	gid := runeGlyph(t, tf, 'x')
-	outline, _ := fontOutline(tf.face, gid)
+	outline, _ := loadTestOutline(tf, gid)
 	hf := tf.hints.autofit(tf.face)
 	offGrid := 0
 	for px := int64(9); px <= 32; px++ {
-		ys, ok := hf.Hint(uint32(gid), outline, px*64)
+		ys, ok := hf.Hint(nil, uint32(gid), outline, px*64)
 		if !ok {
 			t.Fatalf("%dpx: x is not hinted", px)
 		}
@@ -138,14 +144,14 @@ func TestAGlyphNoScriptCoversDrawsUnhinted(t *testing.T) {
 		t.Fatal(err)
 	}
 	gid := runeGlyph(t, tf, 'ℓ')
-	outline, _ := fontOutline(tf.face, gid)
-	if _, hinted := tf.hints.autofit(tf.face).Hint(uint32(gid), outline, 13*64); hinted {
+	outline, _ := loadTestOutline(tf, gid)
+	if _, hinted := tf.hints.autofit(tf.face).Hint(nil, uint32(gid), outline, 13*64); hinted {
 		t.Fatal("ℓ, which no script covers, is hinted; FreeType gives it its CJK fallback, which the port does not have")
 	}
 	scale := 13 / tf.upem
 	glyphs.dropAll()
 	got, _, _ := GlyphCoverage(tf, gid, scale, 0, 0, RGB(255, 255, 255))
-	want := rasterPath(devicePoint{}, func(path pathBuilder) {
+	want := new(glyphScratch).raster(devicePoint{}, func(path pathBuilder) {
 		outlinePath(outline, func(i int) devicePoint {
 			p := outline.Points[i]
 			return devicePoint{scale * float64(p.X), -scale * float64(p.Y)}

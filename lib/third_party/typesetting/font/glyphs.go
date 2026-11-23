@@ -46,8 +46,7 @@ type glyphSet map[tables.GlyphID]struct{}
 
 func (f *Face) getPointsForGlyph(gid tables.GlyphID) []contourPoint {
 	var out []contourPoint
-	seenGlyphs := make(glyphSet) // used to deny loops
-	f.getPointsForGlyphRec(gid, 0, seenGlyphs, &out)
+	f.getPointsForGlyphRec(gid, 0, nil, &out)
 	return out
 }
 
@@ -69,39 +68,45 @@ func (f *Face) getPointsForGlyphRec(gid tables.GlyphID, currentDepth int, curren
 		return
 	}
 
+	if out, header, simple, err := tables.AppendSimpleGlyphPoints(f.glyf, *allPoints, gid, newContourPoint, markEndPoint); err == nil && simple {
+		start := len(*allPoints)
+		*allPoints = append(out, make([]contourPoint, phantomCount)...)
+		points := (*allPoints)[start:]
+		f.setPhantoms(gid, header, points[len(points)-phantomCount:])
+		if f.isVar() {
+			f.gvar.applyDeltasToPoints(gid, f.coords, points)
+		}
+		if currentDepth == 0 {
+			tx := -points[len(points)-phantomCount+phantomLeft].X
+			for i := range *allPoints {
+				(*allPoints)[i].translate(tx, 0)
+			}
+		}
+		return
+	}
+
 	g, err := f.glyf.Glyph(gid)
 	if err != nil {
 		g = tables.Glyph{}
 	}
 
-	var points []contourPoint
-	if data, ok := g.Data.(tables.SimpleGlyph); ok {
-		points = getContourPoints(data) // fetch the "real" points
-	} else { // zeros values are enough
-		points = make([]contourPoint, g.PointNumbersCount())
-	}
+	points := make([]contourPoint, g.PointNumbersCount(), g.PointNumbersCount()+phantomCount)
 
 	// init phantom point
 	points = append(points, make([]contourPoint, phantomCount)...)
 	phantoms := points[len(points)-phantomCount:]
 
-	hDelta := float32(g.XMin - f.hmtx.SideBearing(gid))
-	vOrig := float32(g.YMax + f.vmtx.SideBearing(gid))
-	hAdv := float32(f.getBaseAdvance(gid, f.hmtx, false))
-	vAdv := float32(f.getBaseAdvance(gid, f.vmtx, true))
-	phantoms[phantomLeft].X = hDelta
-	phantoms[phantomRight].X = hAdv + hDelta
-	phantoms[phantomTop].Y = vOrig
-	phantoms[phantomBottom].Y = vOrig - vAdv
+	f.setPhantoms(gid, g.GlyphHeader, phantoms)
 
 	if f.isVar() {
 		f.gvar.applyDeltasToPoints(gid, f.coords, points)
 	}
 
 	switch data := g.Data.(type) {
-	case tables.SimpleGlyph:
-		*allPoints = append(*allPoints, points...)
 	case tables.CompositeGlyph:
+		if currentGlyphs == nil {
+			currentGlyphs = make(glyphSet) // used to deny loops
+		}
 		for compIndex, item := range data.Glyphs {
 			if _, has := currentGlyphs[item.GlyphIndex]; has {
 				continue
@@ -162,20 +167,22 @@ func (f *Face) getPointsForGlyphRec(gid tables.GlyphID, currentDepth int, curren
 	}
 }
 
-// return all the contour points, without phantoms
-func getContourPoints(sg tables.SimpleGlyph) []contourPoint {
-	const flagOnCurve = 1 << 0 // 0x0001
-
-	points := make([]contourPoint, len(sg.Points))
-	for _, end := range sg.EndPtsOfContours {
-		points[end].isEndPoint = true
-	}
-	for i, p := range sg.Points {
-		points[i].X, points[i].Y = float32(p.X), float32(p.Y)
-		points[i].isOnCurve = p.Flag&flagOnCurve != 0
-	}
-	return points
+func (f *Face) setPhantoms(gid tables.GlyphID, header tables.GlyphHeader, phantoms []contourPoint) {
+	hDelta := float32(header.XMin - f.hmtx.SideBearing(gid))
+	vOrig := float32(header.YMax + f.vmtx.SideBearing(gid))
+	hAdv := float32(f.getBaseAdvance(gid, f.hmtx, false))
+	vAdv := float32(f.getBaseAdvance(gid, f.vmtx, true))
+	phantoms[phantomLeft].X = hDelta
+	phantoms[phantomRight].X = hAdv + hDelta
+	phantoms[phantomTop].Y = vOrig
+	phantoms[phantomBottom].Y = vOrig - vAdv
 }
+
+func newContourPoint(x, y int16, onCurve bool) contourPoint {
+	return contourPoint{SegmentPoint: SegmentPoint{X: float32(x), Y: float32(y)}, isOnCurve: onCurve}
+}
+
+func markEndPoint(p *contourPoint) { p.isEndPoint = true }
 
 func extentsFromPoints(allPoints []contourPoint) (ext GlyphExtents) {
 	truePoints := allPoints[:len(allPoints)-phantomCount]

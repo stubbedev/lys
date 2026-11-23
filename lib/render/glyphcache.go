@@ -12,11 +12,12 @@ package render
 
 import (
 	"image"
-	"image/color"
 	"math"
+	"sync"
 
 	"golang.org/x/image/draw"
 
+	"github.com/stubbedev/lys/lib/render/internal/autofit"
 	"github.com/stubbedev/lys/lib/third_party/typesetting/font"
 	ot "github.com/stubbedev/lys/lib/third_party/typesetting/font/opentype"
 	"github.com/stubbedev/lys/lib/third_party/vector"
@@ -134,14 +135,18 @@ func cachedOutlineRaster(t *Typeface, gid font.GID, scale, penX, penY float64) (
 		}
 		return g, true
 	}
-	outline, ok := fontOutline(t.face, gid)
-	if !ok {
+	sc := takeGlyphScratch()
+	defer glyphScratches.Put(sc)
+	if !sc.loadOutline(t.face, gid) {
 		glyphs.put(key, nil, 16)
 		return nil, false
 	}
+	outline := sc.outline
 	m := Affine{A: scale, C: scale * t.slant, D: -scale, E: bucketOffset(key.fx), F: bucketOffset(key.fy)}
-	hinted, isHinted := t.hints.autofit(t.face).Hint(uint32(gid), outline, int64(math.Round(scale*t.upem*64)))
-	g := rasterPath(devicePoint{m.E, m.F}, func(path pathBuilder) {
+	var isHinted bool
+	sc.ys, isHinted = t.hints.autofit(t.face).Hint(sc.ys[:0], uint32(gid), outline, int64(math.Round(scale*t.upem*64)))
+	hinted := sc.ys
+	g := sc.raster(devicePoint{m.E, m.F}, func(path pathBuilder) {
 		outlinePath(outline, func(i int) devicePoint {
 			p := outline.Points[i]
 			y := m.F - float64(scale*float64(p.Y))
@@ -156,17 +161,14 @@ func cachedOutlineRaster(t *Typeface, gid font.GID, scale, penX, penY float64) (
 	return g, true
 }
 
-// rasterOutlineXform rasterizes an outline mapped from font units to
-// pixels by m into an 8bpp coverage mask, the mask origin at the
-// integer pen position: a color glyph's transformed clip. The bounds
-// grow a pixel on every side, the anti-aliasing margin the per-pixel
-// blit has always worked in.
 func rasterOutlineXform(outline font.GlyphOutline, m Affine) *GlyphMask {
 	place := func(p ot.SegmentPoint) devicePoint {
 		x, y := m.Apply(float64(p.X), float64(p.Y))
 		return devicePoint{x, y}
 	}
-	return rasterPath(place(ot.SegmentPoint{}), func(path pathBuilder) {
+	sc := takeGlyphScratch()
+	defer glyphScratches.Put(sc)
+	return sc.raster(place(ot.SegmentPoint{}), func(path pathBuilder) {
 		for _, seg := range outline.Segments {
 			args := seg.ArgsSlice()
 			switch seg.Op {
@@ -204,11 +206,29 @@ func (r *recordedPath) cubeTo(c1, c2, p devicePoint) {
 	r.ops, r.pts = append(r.ops, ot.SegmentOpCubeTo), append(r.pts, c1, c2, p)
 }
 
-func rasterPath(origin devicePoint, trace func(pathBuilder)) *GlyphMask {
-	var rec recordedPath
-	trace(&rec)
+type glyphScratch struct {
+	contours []font.ContourPoint
+	outline  autofit.Outline
+	ys       []int64
+	path     recordedPath
+	z        vector.Rasterizer
+	mask     image.Alpha
+}
+
+var glyphScratches sync.Pool
+
+func takeGlyphScratch() *glyphScratch {
+	if sc, ok := glyphScratches.Get().(*glyphScratch); ok {
+		return sc
+	}
+	return &glyphScratch{}
+}
+
+func (sc *glyphScratch) raster(origin devicePoint, trace func(pathBuilder)) *GlyphMask {
+	sc.path.ops, sc.path.pts = sc.path.ops[:0], sc.path.pts[:0]
+	trace(&sc.path)
 	minX, minY, maxX, maxY := origin.x, origin.y, origin.x, origin.y
-	for _, p := range rec.pts {
+	for _, p := range sc.path.pts {
 		minX, minY = math.Min(minX, p.x), math.Min(minY, p.y)
 		maxX, maxY = math.Max(maxX, p.x), math.Max(maxY, p.y)
 	}
@@ -219,33 +239,35 @@ func rasterPath(origin devicePoint, trace func(pathBuilder)) *GlyphMask {
 	if w <= 0 || h <= 0 {
 		return &GlyphMask{}
 	}
-	rast := vector.NewRasterizer(w, h)
-	pts := rec.pts
+	z := &sc.z
+	z.Reset(w, h)
+	pts := sc.path.pts
 	next := func() (float32, float32) {
 		p := pts[0]
 		pts = pts[1:]
 		return float32(p.x) - float32(ox), float32(p.y) - float32(oy)
 	}
-	for _, op := range rec.ops {
+	for _, op := range sc.path.ops {
 		switch op {
 		case ot.SegmentOpMoveTo:
-			rast.MoveTo(next())
+			z.MoveTo(next())
 		case ot.SegmentOpLineTo:
-			rast.LineTo(next())
+			z.LineTo(next())
 		case ot.SegmentOpQuadTo:
 			cx, cy := next()
 			ex, ey := next()
-			rast.QuadTo(cx, cy, ex, ey)
+			z.QuadTo(cx, cy, ex, ey)
 		case ot.SegmentOpCubeTo:
 			c1x, c1y := next()
 			c2x, c2y := next()
 			ex, ey := next()
-			rast.CubeTo(c1x, c1y, c2x, c2y, ex, ey)
+			z.CubeTo(c1x, c1y, c2x, c2y, ex, ey)
 		}
 	}
-	mask := image.NewAlpha(image.Rect(0, 0, w, h))
-	rast.Draw(mask, mask.Bounds(), image.NewUniform(color.Alpha{A: 255}), image.Point{})
-	return &GlyphMask{mask: mask.Pix, w: w, h: h, ox: ox, oy: oy}
+	sc.mask = image.Alpha{Pix: make([]uint8, w*h), Stride: w, Rect: image.Rect(0, 0, w, h)}
+	z.DrawOp = draw.Src
+	z.Draw(&sc.mask, sc.mask.Rect, image.Opaque, image.Point{})
+	return &GlyphMask{mask: sc.mask.Pix, w: w, h: h, ox: ox, oy: oy}
 }
 
 // cachedScaledBitmap returns gid's embedded bitmap strike scaled to

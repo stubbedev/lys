@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/lib/text"
+	"github.com/stubbedev/lys/lib/third_party/typesetting/font"
 )
 
 // benchText200 is a 200-rune line: an entry's worst realistic paste.
@@ -134,5 +135,23 @@ func BenchmarkDrawImageRect(b *testing.B) {
 				cv.DrawImageRect(img, Rect{W: 48, H: 48})
 			}
 		})
+	}
+}
+
+func BenchmarkRasterizeGlyphsCold(b *testing.B) {
+	tf := testTypeface(b)
+	var gids []font.GID
+	for _, r := range "the quick brown fox jumps over the lazy dog" {
+		if gid, ok := tf.face.NominalGlyph(r); ok {
+			gids = append(gids, gid)
+		}
+	}
+	scale := 14 / tf.upem
+	b.ReportAllocs()
+	for b.Loop() {
+		glyphs.dropAll()
+		for _, gid := range gids {
+			cachedOutlineRaster(tf, gid, scale, 0, 0)
+		}
 	}
 }

@@ -147,11 +147,11 @@ func TestAutofitHintsEveryMappedGlyphAsFreeTypesLightAutohinter(t *testing.T) {
 					t.Fatalf("FT_Set_Char_Size %dpx: error %d", px, rc)
 				}
 				for _, gid := range gids {
-					outline, ok := fontOutline(tf.face, gid)
+					outline, ok := loadTestOutline(tf, gid)
 					if !ok {
 						continue
 					}
-					got, hinted := hf.Hint(uint32(gid), outline, px*64)
+					got, hinted := hf.Hint(nil, uint32(gid), outline, px*64)
 					if !hinted {
 						continue
 					}

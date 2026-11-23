@@ -3,6 +3,8 @@ package render
 import (
 	"bytes"
 	"testing"
+
+	"github.com/stubbedev/lys/lib/testbuild"
 )
 
 // TestGlyphAtlasWarmDrawMatchesCold pins the atlas's core promise: a
@@ -254,5 +256,33 @@ func TestPlayingARecordedGlyphLooksNothingUp(t *testing.T) {
 	defer glyphs.mu.Unlock()
 	if n := glyphs.gets - before; n != 0 {
 		t.Errorf("playing a recording made %d glyph cache lookups, want 0", n)
+	}
+}
+
+func TestAColdGlyphRasterAllocatesOnlyItsMask(t *testing.T) {
+	if testbuild.Race {
+		t.Skip("the race detector's sync.Pool drops what is put back, so reused scratch reallocates")
+	}
+	tf := testTypeface(t)
+	gid, ok := tf.face.NominalGlyph('g')
+	if !ok {
+		t.Fatal("the face has no g")
+	}
+	scale := 14 / tf.upem
+	g, ok := cachedOutlineRaster(tf, gid, scale, 0, 0)
+	if !ok {
+		t.Fatal("g has no outline")
+	}
+	key := glyphKey{face: tf, scale: scale, gid: gid}
+	cached := testing.AllocsPerRun(50, func() {
+		glyphs.dropAll()
+		glyphs.put(key, g, len(g.mask))
+	})
+	cold := testing.AllocsPerRun(50, func() {
+		glyphs.dropAll()
+		cachedOutlineRaster(tf, gid, scale, 0, 0)
+	})
+	if extra := cold - cached; extra != 2 {
+		t.Errorf("rasterizing a glyph allocates %v times besides the atlas entry, want 2: its mask and the mask's header", extra)
 	}
 }

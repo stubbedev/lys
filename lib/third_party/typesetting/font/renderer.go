@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sync"
 
 	ot "github.com/stubbedev/lys/lib/third_party/typesetting/font/opentype"
 	"github.com/stubbedev/lys/lib/third_party/typesetting/font/opentype/tables"
@@ -501,16 +502,23 @@ type ContourPoint struct {
 	End     bool
 }
 
-func (f *Face) GlyphContours(gid GID) ([]ContourPoint, bool) {
+func (f *Face) AppendGlyphContours(dst []ContourPoint, gid GID) ([]ContourPoint, bool) {
 	g := gID(gid)
 	if f.cff != nil || f.cff2 != nil || int(g) >= f.glyf.Len() {
-		return nil, false
+		return dst, false
 	}
-	points := f.getPointsForGlyph(g)
-	points = points[:len(points)-phantomCount]
-	out := make([]ContourPoint, len(points))
-	for i, p := range points {
-		out[i] = ContourPoint{X: p.X, Y: p.Y, OnCurve: p.isOnCurve, End: p.isEndPoint}
+	buf, ok := contourScratch.Get().(*[]contourPoint)
+	if !ok {
+		buf = new([]contourPoint)
 	}
-	return out, true
+	points := (*buf)[:0]
+	f.getPointsForGlyphRec(g, 0, nil, &points)
+	for _, p := range points[:len(points)-phantomCount] {
+		dst = append(dst, ContourPoint{X: p.X, Y: p.Y, OnCurve: p.isOnCurve, End: p.isEndPoint})
+	}
+	*buf = points
+	contourScratch.Put(buf)
+	return dst, true
 }
+
+var contourScratch sync.Pool

@@ -85,8 +85,8 @@ func (m *latinMetrics) initWidths(src Source, standard string) {
 }
 
 func standardWidths(src Source, gid uint32, upem int64) []width {
-	o, ok := src.Outline(gid)
-	if !ok || len(o.Points) == 0 {
+	var o Outline
+	if !src.LoadOutline(&o, gid) || len(o.Points) == 0 {
 		return nil
 	}
 	h := &glyphHints{upem: upem, xScale: 0x10000, yScale: 0x10000}
@@ -157,6 +157,7 @@ func contourBounds(o Outline, nn int) (first, last int) {
 
 func (m *latinMetrics) initBlues(src Source, set []blueString) bool {
 	flatLimit := flatThreshold(m.upem)
+	var outline Outline
 	for _, bs := range set {
 		top := bs.properties&blueTop != 0
 		subTop := bs.properties&blueSubTop != 0
@@ -173,7 +174,7 @@ func (m *latinMetrics) initBlues(src Source, set []blueString) bool {
 			bestRound := false
 			gid, ok := src.Lookup(r)
 			if ok && gid != 0 {
-				if y, round, ok := m.blueExtremum(src, gid, bs.properties, flatLimit, &ascender, &descender); ok {
+				if y, round, ok := m.blueExtremum(src, &outline, gid, bs.properties, flatLimit, &ascender, &descender); ok {
 					if top && y > bestYExtremum || !top && y < bestYExtremum {
 						bestYExtremum, bestRound = y, round
 					}
@@ -277,11 +278,11 @@ func sortBlues(table []*blue) {
 	}
 }
 
-func (m *latinMetrics) blueExtremum(src Source, gid uint32, props uint16, flatLimit int64, ascender, descender *int64) (int64, bool, bool) {
-	o, ok := src.Outline(gid)
-	if !ok || len(o.Points) <= 2 {
+func (m *latinMetrics) blueExtremum(src Source, buf *Outline, gid uint32, props uint16, flatLimit int64, ascender, descender *int64) (int64, bool, bool) {
+	if !src.LoadOutline(buf, gid) || len(buf.Points) <= 2 {
 		return 0, false, false
 	}
+	o := *buf
 	points := o.Points
 	top := props&(blueTop|blueSubTop) != 0
 	bestPoint, bestContourFirst, bestContourLast := -1, -1, -1

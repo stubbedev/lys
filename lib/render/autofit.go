@@ -37,34 +37,42 @@ func (s autofitSource) Mappings() []autofit.Mapping {
 	return out
 }
 
-func (s autofitSource) Outline(gid uint32) (autofit.Outline, bool) {
-	return fontOutline(s.face, font.GID(gid))
+func (s autofitSource) LoadOutline(o *autofit.Outline, gid uint32) bool {
+	sc := takeGlyphScratch()
+	defer glyphScratches.Put(sc)
+	if !sc.loadOutline(s.face, font.GID(gid)) {
+		return false
+	}
+	o.Points = append(o.Points[:0], sc.outline.Points...)
+	o.Tags = append(o.Tags[:0], sc.outline.Tags...)
+	o.Ends = append(o.Ends[:0], sc.outline.Ends...)
+	return true
 }
 
 func fontUnit(v float32) int64 { return int64(math.Floor(float64(v) + 0.5)) }
 
-func fontOutline(f *font.Face, gid font.GID) (autofit.Outline, bool) {
-	if contours, ok := f.GlyphContours(gid); ok {
-		o := autofit.Outline{
-			Points: make([]autofit.Point, len(contours)),
-			Tags:   make([]autofit.Tag, len(contours)),
-		}
-		for i, c := range contours {
-			o.Points[i] = autofit.Point{X: fontUnit(c.X), Y: fontUnit(c.Y)}
+func (sc *glyphScratch) loadOutline(f *font.Face, gid font.GID) bool {
+	o := &sc.outline
+	o.Points, o.Tags, o.Ends = o.Points[:0], o.Tags[:0], o.Ends[:0]
+	var ok bool
+	if sc.contours, ok = f.AppendGlyphContours(sc.contours[:0], gid); ok {
+		for i, c := range sc.contours {
+			tag := autofit.On
 			if !c.OnCurve {
-				o.Tags[i] = autofit.Conic
+				tag = autofit.Conic
 			}
+			o.Points = append(o.Points, autofit.Point{X: fontUnit(c.X), Y: fontUnit(c.Y)})
+			o.Tags = append(o.Tags, tag)
 			if c.End {
 				o.Ends = append(o.Ends, i)
 			}
 		}
-		return o, len(o.Ends) > 0
+		return len(o.Ends) > 0
 	}
 	segs, ok := f.GlyphDataOutline(gid)
 	if !ok || len(segs.Segments) == 0 {
-		return autofit.Outline{}, false
+		return false
 	}
-	var o autofit.Outline
 	add := func(p ot.SegmentPoint, tag autofit.Tag) {
 		o.Points = append(o.Points, autofit.Point{X: fontUnit(p.X), Y: fontUnit(p.Y)})
 		o.Tags = append(o.Tags, tag)
@@ -104,7 +112,7 @@ func fontOutline(f *font.Face, gid font.GID) (autofit.Outline, bool) {
 		}
 	}
 	closeContour()
-	return o, len(o.Ends) > 0
+	return len(o.Ends) > 0
 }
 
 type devicePoint struct{ x, y float64 }

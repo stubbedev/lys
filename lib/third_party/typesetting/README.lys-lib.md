@@ -300,15 +300,24 @@ their default and at 0.7 on every axis.
 
 ### A glyph's TrueType contour points are exported
 
-`font/renderer.go`: `Face.GlyphContours` returns the `glyf` points of a
-glyph, variations applied, with their on-curve and end-of-contour flags:
-the points `GlyphDataOutline` builds its segments from, before implied
-on-curve midpoints are inserted. render's autohinter, a port of
-FreeType's, analyses exactly the points FreeType's loader yields, and
-those midpoints would add segments and change its direction analysis.
-It is false for a CFF or CFF2 face and a glyph past the table. Pinned by
+`font/renderer.go`: `Face.AppendGlyphContours` appends the `glyf` points
+of a glyph, variations applied, with their on-curve and end-of-contour
+flags, to a caller's buffer: the points `GlyphDataOutline` builds its
+segments from, before implied on-curve midpoints are inserted. render's
+autohinter, a port of FreeType's, analyses exactly the points FreeType's
+loader yields, and those midpoints would add segments and change its
+direction analysis. It is false for a CFF or CFF2 face and a glyph past
+the table. `tables.AppendSimpleGlyphPoints` decodes a simple glyph's
+points straight into the caller's slice, two passes over the flags and
+no intermediate `SimpleGlyph`, and `font/glyphs.go` loads simple glyphs
+through it into the phantom-padded buffer it returns, allocating the
+composite loop guard only for a composite glyph; `AppendGlyphContours`
+loads into a pooled buffer. A simple glyph's contours cost no
+allocation where upstream took seven. Pinned by
 `font/lys_contours_test.go` (every glyph of Quicksand VF at three
-weights: the contours build the same segments as `GlyphDataOutline`).
+weights: the contours build the same segments as `GlyphDataOutline`;
+appending keeps the buffer's points and allocates nothing)
+and `font/lys_gvar_test.go` (outlines unchanged).
 
 ## Not patched
 
