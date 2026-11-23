@@ -389,6 +389,7 @@
     ],
     "testImports": [
       "desktop/icons/icontest",
+      "lib/render",
       "lib/waittest"
     ],
     "testExternal": [
@@ -3605,6 +3606,7 @@
   "lib/render": {
     "imports": [
       "lib/intconv",
+      "lib/render/internal/autofit",
       "lib/text",
       "lib/third_party/gomath",
       "lib/third_party/oksvg",
@@ -3619,7 +3621,6 @@
     ],
     "external": [
       "bytes",
-      "cmp",
       "embed",
       "encoding/binary",
       "encoding/xml",
@@ -3658,6 +3659,7 @@
       "lib/render/testdata/NotoSansHebrew-Regular.ttf"
     ],
     "testImports": [
+      "lib/clib",
       "lib/golden",
       "lib/testbuild",
       "lib/third_party/typesetting/fontscan",
@@ -3665,6 +3667,7 @@
     ],
     "testExternal": [
       "context",
+      "github.com/ebitengine/purego",
       "golang.org/x/image/font/gofont/goitalic",
       "golang.org/x/image/font/gofont/gomono",
       "golang.org/x/image/font/gofont/goregular",
@@ -3673,6 +3676,18 @@
       "path/filepath",
       "reflect",
       "testing"
+    ]
+  },
+  "lib/render/internal/autofit": {
+    "external": [
+      "cmp",
+      "math",
+      "math/bits",
+      "slices",
+      "strings",
+      "sync",
+      "sync/atomic",
+      "unicode/utf8"
     ]
   },
   "lib/sdnotify": {
@@ -4079,6 +4094,7 @@
       "fmt",
       "math",
       "math/bits",
+      "slices",
       "sort",
       "unicode/utf16"
     ],
@@ -4088,7 +4104,6 @@
     "testExternal": [
       "bytes",
       "reflect",
-      "slices",
       "testing"
     ]
   },
