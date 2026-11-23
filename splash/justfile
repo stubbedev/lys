@@ -44,6 +44,7 @@ initramfs-tools image="ubuntu:24.04":
     compat="$(nix build --no-link --print-out-paths ..#lys-splash.compat)"
     docker run --rm -v "${compat}:/compat:ro" "{{ image }}" bash -euo pipefail -c '
       export DEBIAN_FRONTEND=noninteractive
+      sed -i -E "s#^URIs: .*#URIs: http://azure.archive.ubuntu.com/ubuntu/#" /etc/apt/sources.list.d/ubuntu.sources
       printf "%s\n" "Acquire::Retries \"3\";" "Acquire::http::Timeout \"30\";" "Acquire::https::Timeout \"30\";" > /etc/apt/apt.conf.d/99lys-timeouts
       apt-get update -qq
       apt-get install -qq -y --no-install-recommends initramfs-tools linux-image-virtual zstd >/dev/null
