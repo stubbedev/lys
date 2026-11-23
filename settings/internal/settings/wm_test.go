@@ -222,8 +222,8 @@ func TestAToggleWritesAnOverrideLeavingTheConfigAndReloads(t *testing.T) {
 	if src := w.source("tearing"); src.label != locale.T().Get("settings-source-override") || !src.reset {
 		t.Fatalf("an override of a config key: %+v", src)
 	}
-	if w.notice != "" {
-		t.Fatalf("a good change says %q", w.notice)
+	if w.notice.kind != stateNone {
+		t.Fatalf("a good change says %q over %v", w.notice.summary, w.notice.err)
 	}
 }
 
@@ -243,13 +243,13 @@ func TestARefusedChangeShowsWhyAndTheRowGoesBack(t *testing.T) {
 	if got := w.value("gaps.inner"); got != int64(3) {
 		t.Fatalf("the row holds a value the file does not: %v", got)
 	}
-	if !strings.Contains(w.notice, "gaps.inner: nope") || !strings.Contains(w.notice, files.runtime) || w.class != "error" {
-		t.Fatalf("%q %q", w.notice, w.class)
+	if !strings.Contains(errText(w.notice.err), "gaps.inner: nope") || !strings.Contains(errText(w.notice.err), files.runtime) || !w.notice.failed() || w.notice.summary != locale.T().Get("wm-status-not-applied") {
+		t.Fatalf("%v %q over %v", w.notice.kind, w.notice.summary, w.notice.err)
 	}
 	fake.reject = ""
 	n.OnValueChanged(4)
-	if w.notice != "" {
-		t.Fatalf("a later good change leaves %q", w.notice)
+	if w.notice.kind != stateNone {
+		t.Fatalf("a later good change leaves %q over %v", w.notice.summary, w.notice.err)
 	}
 	if got := fileText(t, files.runtime); got != "gaps:\n  inner: 4\n" {
 		t.Fatalf("%q", got)
@@ -280,13 +280,13 @@ func TestAHomeManagerConfigTakesChangesAsOverrides(t *testing.T) {
 		t.Fatal(err)
 	}
 	k.wm = w
-	if w.notice != "" {
-		t.Fatalf("a read-only config warns: %q", w.notice)
+	if w.notice.kind != stateNone {
+		t.Fatalf("a read-only config warns: %q over %v", w.notice.summary, w.notice.err)
 	}
 	c := fieldControl(k, w, wmField("tearing")).(*toggle)
 	c.OnChanged(true)
-	if w.notice != "" || fake.checks != 1 || fake.reloads != 1 {
-		t.Fatalf("%q, %d checks, %d reloads", w.notice, fake.checks, fake.reloads)
+	if w.notice.kind != stateNone || fake.checks != 1 || fake.reloads != 1 {
+		t.Fatalf("%q over %v, %d checks, %d reloads", w.notice.summary, w.notice.err, fake.checks, fake.reloads)
 	}
 	if got := fileText(t, filepath.Join(dir, "lys-wm", "runtime.yaml")); got != "tearing: true\n" {
 		t.Fatalf("%q", got)
@@ -321,13 +321,13 @@ func TestAReadOnlyOverrideFileShowsOnThePage(t *testing.T) {
 		t.Fatal(err)
 	}
 	k.wm = w
-	if !strings.Contains(w.notice, runtime) || w.class != "warning" {
-		t.Fatalf("%q %q", w.notice, w.class)
+	if !strings.Contains(errText(w.notice.err), runtime) || w.notice.kind != stateUnavailable || w.notice.summary != locale.T().Get("wm-status-read-only") {
+		t.Fatalf("%v %q over %v", w.notice.kind, w.notice.summary, w.notice.err)
 	}
 	c := fieldControl(k, w, wmField("tearing")).(*toggle)
 	c.OnChanged(true)
-	if !strings.Contains(w.notice, "read-only") || fake.checks != 0 || fake.reloads != 0 {
-		t.Fatalf("%q, %d checks, %d reloads", w.notice, fake.checks, fake.reloads)
+	if !strings.Contains(errText(w.notice.err), "read-only") || fake.checks != 0 || fake.reloads != 0 {
+		t.Fatalf("%q over %v, %d checks, %d reloads", w.notice.summary, w.notice.err, fake.checks, fake.reloads)
 	}
 	if got := w.value("tearing"); got != false {
 		t.Fatalf("%v", got)

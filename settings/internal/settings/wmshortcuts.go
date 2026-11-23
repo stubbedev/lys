@@ -1,7 +1,6 @@
 package settings
 
 import (
-	"errors"
 	"maps"
 	"reflect"
 	"slices"
@@ -57,19 +56,20 @@ func (s shortcuts) drop(name string) {
 
 // parseModeName is text as the name of a new mode beside taken: neither the
 // reset lys-wm's submap action leaves every mode with nor a name already
-// taken; lys-wm's own check says what else it refuses.
-func parseModeName(text string, taken []string) (string, error) {
+// taken; lys-wm's own check says what else it refuses. A name it refuses
+// is "" beside the sentence saying why.
+func parseModeName(text string, taken []string) (name, problem string) {
 	t := locale.T()
-	name := strings.TrimSpace(text)
+	name = strings.TrimSpace(text)
 	switch {
 	case name == "":
-		return "", errors.New(t.Get("wm-mode-name-missing"))
+		return "", t.Get("wm-mode-name-missing")
 	case name == leaveModeName:
-		return "", errors.New(t.Get("wm-mode-name-reset", i18n.Str("name", name)))
+		return "", t.Get("wm-mode-name-reset", i18n.Str("name", name))
 	case slices.Contains(taken, name):
-		return "", errors.New(t.Get("wm-mode-name-taken", i18n.Str("name", name)))
+		return "", t.Get("wm-mode-name-taken", i18n.Str("name", name))
 	}
-	return name, nil
+	return name, ""
 }
 
 // entersMode reports whether item is a bind entering the mode name.
@@ -166,7 +166,7 @@ type shortcutTable struct {
 	add    *widget.Button
 	adding *modeForm
 	// problem says why the last mode deletion did not land.
-	problem *widget.Label
+	problem *inlineState
 }
 
 func newShortcutTable(k *kit, binds slot) *shortcutTable {
@@ -201,8 +201,7 @@ func newShortcutTable(k *kit, binds slot) *shortcutTable {
 	tb.Append(tb.adding, false)
 	tb.add = k.addButton("wm-mode-add", func() { tb.showAdding(true) })
 	tb.AppendAligned(tb.add, false, widget.AlignStart)
-	tb.problem = k.errorText("")
-	tb.problem.SetVisible(false)
+	tb.problem = k.inlineState()
 	tb.Append(tb.problem, false)
 	tb.showAdding(false)
 	tb.buildModes()
@@ -246,22 +245,21 @@ func (tb *shortcutTable) current() shortcuts {
 
 // apply writes next over what is stored once lys-wm would take it, else says
 // in problem why it would not; done runs once it is written.
-func (tb *shortcutTable) apply(next shortcuts, problem *widget.Label, done func()) {
+func (tb *shortcutTable) apply(next shortcuts, problem *inlineState, done func()) {
 	edits := next.edits(tb.current())
 	if len(edits) == 0 {
 		done()
 		return
 	}
+	t := locale.T()
 	async(tb.k, tb.k.wm.checkEdits(edits...), func(err error) {
 		if err != nil {
-			problem.SetText(strings.TrimSpace(err.Error()))
-			problem.SetVisible(true)
+			problem.Error(t.Get("wm-mode-refused"), err, nil)
 			return
 		}
-		problem.SetVisible(false)
+		problem.Clear()
 		if err := tb.k.wm.edit(edits...); err != nil {
-			problem.SetText(err.Error())
-			problem.SetVisible(true)
+			problem.Error(t.Get("wm-mode-not-saved"), err, nil)
 			return
 		}
 		done()
@@ -282,17 +280,17 @@ func (tb *shortcutTable) owners() []clashOwner {
 
 func (tb *shortcutTable) addMode(text, chord string) {
 	now := tb.current()
-	name, err := parseModeName(text, now.names())
-	if err != nil {
-		tb.adding.fail(err)
+	name, problem := parseModeName(text, now.names())
+	if problem != "" {
+		tb.adding.fail(problem)
 		return
 	}
 	if chord == "" {
-		tb.adding.fail(errors.New(locale.T().Get("wm-mode-chord-missing")))
+		tb.adding.fail(locale.T().Get("wm-mode-chord-missing"))
 		return
 	}
 	if owner, clashes := clashWith(chord, tb.owners()); clashes {
-		tb.adding.fail(errors.New(clashText(chord, owner.owner)))
+		tb.adding.fail(clashText(chord, owner.owner))
 		return
 	}
 	tb.apply(now.withMode(name, chord), tb.adding.problem, func() { tb.showAdding(false) })
@@ -304,9 +302,9 @@ func (tb *shortcutTable) renameMode(g *modeGroup, text string) {
 		g.showRenaming(false)
 		return
 	}
-	name, err := parseModeName(text, now.names())
-	if err != nil {
-		g.form.fail(err)
+	name, problem := parseModeName(text, now.names())
+	if problem != "" {
+		g.form.fail(problem)
 		return
 	}
 	tb.apply(now.renamed(g.name, name), g.form.problem, func() { g.showRenaming(false) })
@@ -317,8 +315,7 @@ func (tb *shortcutTable) deleteMode(name string) {
 		tb.apply(tb.current().without(name), tb.problem, func() {})
 	}, i18n.Str("mode", name))
 	if err != nil {
-		tb.problem.SetText(err.Error())
-		tb.problem.SetVisible(true)
+		tb.problem.Error(locale.T().Get("wm-mode-delete-failed"), err, nil)
 	}
 }
 
@@ -433,7 +430,7 @@ type modeForm struct {
 	*widget.Box
 	name    *widget.Entry
 	chord   *widget.ShortcutRecorder
-	problem *widget.Label
+	problem *inlineState
 }
 
 func newModeForm(k *kit, confirmKey string, withChord bool, onConfirm func(name, chord string), onCancel func()) *modeForm {
@@ -460,8 +457,7 @@ func newModeForm(k *kit, confirmKey string, withChord bool, onConfirm func(name,
 	row.AppendAligned(k.primaryButton(t.Get(confirmKey), confirm), false, widget.AlignCenter)
 	row.AppendAligned(k.cancelButton(onCancel), false, widget.AlignCenter)
 	f.Append(row, false)
-	f.problem = k.errorText("")
-	f.problem.SetVisible(false)
+	f.problem = k.inlineState()
 	f.Append(f.problem, false)
 	return f
 }
@@ -471,10 +467,8 @@ func (f *modeForm) reset(name string) {
 	if f.chord != nil {
 		f.chord.SetAccel("")
 	}
-	f.problem.SetVisible(false)
+	f.problem.Clear()
 }
 
-func (f *modeForm) fail(err error) {
-	f.problem.SetText(err.Error())
-	f.problem.SetVisible(true)
-}
+// fail says problem, a sentence saying why the form cannot be applied.
+func (f *modeForm) fail(problem string) { f.problem.Error(problem, nil, nil) }

@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/stubbedev/lys/desktop/config"
-	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
@@ -56,7 +55,7 @@ type nameChips struct {
 	labels  []string
 	entry   *widget.Entry
 	problem *widget.Label
-	unread  *widget.Label
+	unread  *inlineState
 }
 
 func newNameChips(k *kit, s slot, spec nameChipsSpec) *nameChips {
@@ -70,8 +69,7 @@ func newNameChips(k *kit, s slot, spec nameChipsSpec) *nameChips {
 	c.entry.OnActivate = func(string) { c.add() }
 	c.problem = k.errorText("")
 	c.problem.SetVisible(false)
-	c.unread = k.note("")
-	c.unread.SetVisible(false)
+	c.unread = k.inlineState()
 	add := gapBox(widget.Row)
 	add.AppendAligned(c.entry, true, widget.AlignCenter)
 	add.AppendAligned(k.addButton(spec.addKey, c.add), false, widget.AlignCenter)
@@ -82,8 +80,7 @@ func newNameChips(k *kit, s slot, spec nameChipsSpec) *nameChips {
 	c.refresh()
 	async(k, spec.offered(k), func(o offeredNames) {
 		if o.err != nil {
-			c.unread.SetText(locale.T().Get("settings-names-unread", i18n.Str("reason", o.err.Error())))
-			c.unread.SetVisible(true)
+			c.unread.Note(locale.T().Get("settings-names-unread"), o.err)
 		}
 		c.offered = o.names
 		c.refresh()

@@ -11,6 +11,8 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
+
+	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
 const (
@@ -95,6 +97,11 @@ func TestWithoutTheTzTablesTheZonesAreListedAndTheMapSaysWhy(t *testing.T) {
 	}
 	if cat.noMap == nil || !strings.Contains(cat.noMap.Error(), countryTableName) || len(cat.pins) != 0 {
 		t.Errorf("without %s: no map %v, %d pins", countryTableName, cat.noMap, len(cat.pins))
+	}
+	c := newZoneChooser(testKit(t, ""), cat, func(string) {})
+	wantClosedFailure(t, "the chooser without a map", c.notice.stateParts, c.notice.Text(), locale.T().Get("settings-date-zone-no-map"), countryTableName)
+	if !c.noteRow.Visible() {
+		t.Error("the note's row is hidden")
 	}
 }
 

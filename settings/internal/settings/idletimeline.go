@@ -85,7 +85,22 @@ type idleTimelineLine struct {
 	*widget.Box
 	source idleSource
 	bar    *timelineBar
-	text   *widget.Label
+	text   *inlineState
+}
+
+// show draws times on the line, or says they could not be read, err
+// why.
+func (line *idleTimelineLine) show(times map[idleStage]idleTime, err error) {
+	line.bar.marks = nil
+	if err == nil {
+		line.bar.marks = idleSequence(times)
+	}
+	line.bar.Invalidate()
+	if err != nil {
+		line.text.Note(locale.T().Get("settings-idle-times-unreadable"), err)
+		return
+	}
+	line.text.Note(idleSequenceText(line.bar.marks), nil)
 }
 
 type idleTimeline struct {
@@ -104,7 +119,7 @@ func idleTimelinePreview(k *kit) widget.Widget {
 	tl.Append(tl.off, false)
 	for _, source := range idleSources {
 		line := &idleTimelineLine{Box: widget.NewBox(widget.Column, 0, 0), source: source, bar: &timelineBar{Base: widget.NewBase()}}
-		line.text = k.note("")
+		line.text = k.inlineState()
 		head := gapBox(widget.Row)
 		ic := k.icon(source.icon())
 		ic.SetAccessibleName(source.name())
@@ -128,14 +143,6 @@ func (tl *idleTimeline) configChanged() {
 	tl.off.SetVisible(!on)
 	for _, line := range tl.lines {
 		line.SetVisible(on && (line.source == idleOnAC || tl.battery))
-		times, err := idleTimesOn(tl.k.store, line.source)
-		if err != nil {
-			line.bar.marks = nil
-			line.text.SetText(err.Error())
-			continue
-		}
-		line.bar.marks = idleSequence(times)
-		line.bar.Invalidate()
-		line.text.SetText(idleSequenceText(line.bar.marks))
+		line.show(idleTimesOn(tl.k.store, line.source))
 	}
 }

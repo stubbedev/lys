@@ -255,9 +255,9 @@ func TestEveryWMControlWritesOnlyWhatLysWMAccepts(t *testing.T) {
 		row := newFieldRow(k, w, spec)
 		k.onWMChange = row.refresh
 		sweepRow(t, row, nil, func(action string) {
-			if w.class == "error" {
-				t.Errorf("%s: %s: %s", spec.path, action, w.notice)
-				w.show("", "")
+			if w.notice.failed() {
+				t.Errorf("%s: %s: %v", spec.path, action, w.notice.err)
+				w.show(wmNotice{})
 			}
 		})
 	}
@@ -457,11 +457,11 @@ func TestARefusedChangeLeavesEveryWMControlAtTheLastAcceptedState(t *testing.T) 
 		row := newFieldRow(k, w, spec)
 		k.onWMChange = row.refresh
 		sweepRow(t, row, nil, func(action string) {
-			if w.class != "error" {
+			if !w.notice.failed() {
 				return
 			}
-			notice := w.notice
-			w.show("", "")
+			notice := w.notice.err
+			w.show(wmNotice{})
 			fresh := newFieldRow(k, w, spec)
 			if got, want := controlState(row), controlState(fresh); !slices.Equal(got, want) {
 				t.Errorf("%s (%s): after a refused %s (%s) the row shows %q, the stored config %q", spec.path, spec.labelKey(), action, notice, got, want)

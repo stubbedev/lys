@@ -157,6 +157,7 @@ type idleCell struct {
 	source  idleSource
 	chips   *presetPicker[float64]
 	warning *widget.Label
+	unread  *inlineState
 }
 
 func newIdleCell(k *kit, stage idleStage, source idleSource) *idleCell {
@@ -164,18 +165,25 @@ func newIdleCell(k *kit, stage idleStage, source idleSource) *idleCell {
 	c.chips = newIdleChips(k, k.store.slot(stage.path(source)))
 	c.chips.SetAccessibleName(locale.T().Get("settings-idle-cell", i18n.Str("stage", stage.name()), i18n.Str("source", source.name())))
 	c.warning = wrapped(k.label("", css.Caption, css.Warning))
+	c.unread = k.inlineState()
 	c.Append(c.chips, false)
 	c.Append(c.warning, false)
+	c.Append(c.unread, false)
 	c.refresh()
 	return c
 }
 
 func (c *idleCell) refresh() {
 	c.chips.refresh()
-	times, err := idleTimesOn(c.k.store, c.source)
+	c.showTimes(idleTimesOn(c.k.store, c.source))
+}
+
+// showTimes warns when the cell's stage comes after a later one in
+// times, or says times could not be read, err why.
+func (c *idleCell) showTimes(times map[idleStage]idleTime, err error) {
+	c.unread.Result(locale.T().Get("settings-idle-times-unreadable"), err)
 	if err != nil {
-		c.warning.SetText(err.Error())
-		c.warning.SetVisible(true)
+		c.warning.SetVisible(false)
 		return
 	}
 	then, overtaken := idleOvertaken(times, c.stage)

@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/geo"
-	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
 
@@ -288,7 +287,7 @@ type zoneChooser struct {
 	button   *widget.Button
 	face     *widget.ButtonContent
 	worldMap *zoneMap
-	notice   *widget.Label
+	notice   *inlineState
 	mapRow   *insetRow
 	noteRow  *insetRow
 	picker   *searchPicker
@@ -303,12 +302,12 @@ func newZoneChooser(k *kit, cat zoneCatalog, choose func(string)) *zoneChooser {
 	c.button, c.face = k.contentButton(rolePicker, "ld-globe-symbolic", "", c.open)
 	c.button.SetAccessibleName(locale.T().Get("settings-date-zone"))
 	c.worldMap = newZoneMap(cat, c.choose)
-	c.notice = k.note("")
+	c.notice = k.inlineState()
 	c.mapRow, c.noteRow = newInsetRow(c.worldMap), newInsetRow(c.notice)
 	c.mapRow.SetVisible(len(cat.pins) > 0)
 	c.noteRow.SetVisible(cat.noMap != nil)
 	if cat.noMap != nil {
-		c.notice.SetText(locale.T().Get("settings-date-zone-no-map", i18n.Str("error", cat.noMap.Error())))
+		c.notice.Note(locale.T().Get("settings-date-zone-no-map"), cat.noMap)
 	}
 	return c
 }

@@ -81,7 +81,7 @@ type displaysPanel struct {
 	scale       *presetPicker[float64]
 	rows        *widget.ItemGroup
 	extra       []*settingRow
-	capsNote    *widget.Label
+	capsNote    *inlineState
 	caps        outputCapabilities
 	identify    *widget.Button
 	addVirtual  *widget.Button
@@ -205,8 +205,7 @@ func (p *displaysPanel) buildControls() {
 	p.lightRow.SetVisible(false)
 	rows.Append(p.lightRow)
 	p.controls.Append(rows, false)
-	p.capsNote = wrapped(k.label("", css.Caption))
-	p.capsNote.SetVisible(false)
+	p.capsNote = k.inlineState()
 	p.controls.Append(p.capsNote, false)
 }
 
@@ -686,7 +685,7 @@ func (p *displaysPanel) showExtraRows() {
 		p.rows.Remove(row)
 	}
 	p.extra = nil
-	p.capsNote.SetVisible(false)
+	p.capsNote.Clear()
 	if len(p.heads) == 0 {
 		return
 	}
@@ -712,10 +711,7 @@ func (p *displaysPanel) showExtraRows() {
 		ctl := f.item(p.k, func(key string) slot { return nestedSlot(rule(), []string{key}) })
 		p.addExtra(p.k.keyRow(f.label).withControl(ctl))
 	}
-	if note := p.caps.note(h.Name, hidden); note != "" {
-		p.capsNote.SetText(note)
-		p.capsNote.SetVisible(true)
-	}
+	p.capsNote.Note(p.caps.note(h.Name, hidden))
 }
 
 type outputCapabilities struct {
@@ -729,24 +725,26 @@ func (c outputCapabilities) of(name string) (wmipc.OutputCapabilities, bool) {
 	return caps, ok && c.err == nil
 }
 
-func (c outputCapabilities) note(name string, hidden bool) string {
+// note is what the display note says, "" for nothing, and the error
+// behind it when the capabilities could not be read.
+func (c outputCapabilities) note(name string, hidden bool) (string, error) {
 	t := locale.T()
 	_, known := c.of(name)
 	switch {
 	case !c.read:
-		return ""
+		return "", nil
 	case errors.Is(c.err, wmstate.ErrNotRunning):
-		return t.Get("settings-displays-caps-not-running")
+		return t.Get("settings-displays-caps-not-running"), nil
 	case errors.Is(c.err, wmstate.ErrOutdated):
-		return t.Get("settings-displays-caps-outdated")
+		return t.Get("settings-displays-caps-outdated"), nil
 	case c.err != nil:
-		return t.Get("settings-displays-caps-unreadable", i18n.Str("reason", c.err.Error()))
+		return t.Get("settings-displays-caps-unreadable"), c.err
 	case !known:
-		return t.Get("settings-displays-caps-off")
+		return t.Get("settings-displays-caps-off"), nil
 	case hidden:
-		return t.Get("settings-displays-caps-hidden")
+		return t.Get("settings-displays-caps-hidden"), nil
 	}
-	return ""
+	return "", nil
 }
 
 type outputCapabilityKey struct {

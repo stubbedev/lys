@@ -147,10 +147,13 @@ func TestACustomFilenameCanInsertTheCounter(t *testing.T) {
 	if !slices.ContainsFunc(kind.insert, func(c choice) bool { return c.value == config.ScreenshotCounter && c.group == "1" }) {
 		t.Fatalf("the custom format offers no counter: %+v", kind.insert)
 	}
-	if got := kind.render("shot-%Y-{counter}.png"); got != "shot-2026-1.png" {
-		t.Errorf("renders %q", got)
+	if got, err := kind.render("shot-%Y-{counter}.png"); err != nil || got != "shot-2026-1.png" {
+		t.Errorf("renders %q, %v", got, err)
 	}
-	if got := kind.render("{counter}{counter}.png"); !strings.Contains(got, "more than once") {
-		t.Errorf("a twice counter renders %q, want the reason", got)
+	if got, err := kind.render("{counter}{counter}.png"); err == nil || !strings.Contains(err.Error(), "more than once") {
+		t.Errorf("a twice counter renders %q, %v, want the reason", got, err)
+	}
+	if got, want := kind.label("{counter}{counter}.png"), locale.T().Get("settings-format-invalid"); got != want {
+		t.Errorf("a twice counter is offered as %q, want %q", got, want)
 	}
 }

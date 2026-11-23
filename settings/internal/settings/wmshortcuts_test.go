@@ -154,12 +154,10 @@ func TestAModeLysWMRefusesIsNotWritten(t *testing.T) {
 	fake.reject = "submaps.move: refused by the test"
 	tb.showAdding(true)
 	tb.addMode("move", "SUPER + M")
-	if !tb.adding.problem.Visible() || !strings.Contains(tb.adding.problem.Text(), "refused by the test") {
-		t.Fatalf("lys-wm's refusal reads %v %q", tb.adding.problem.Visible(), tb.adding.problem.Text())
-	}
+	wantClosedFailure(t, "lys-wm's refusal of a mode", tb.adding.problem.stateParts, tb.adding.problem.Text(), locale.T().Get("wm-mode-refused"), "refused by the test")
 	noFile(t, files.runtime)
-	if w.class == "error" || fake.reloads != 0 {
-		t.Fatalf("a refused mode was tried as a change: %q, %d reloads", w.notice, fake.reloads)
+	if w.notice.failed() || fake.reloads != 0 {
+		t.Fatalf("a refused mode was tried as a change: %v, %d reloads", w.notice.err, fake.reloads)
 	}
 }
 
@@ -334,15 +332,15 @@ func TestLysWMTakesTheBuiltInModeDeletedAndAModeAdded(t *testing.T) {
 	}
 	tb.deleteMode("resize")
 	pickers.respond(responseConfirm)
-	if tb.problem.Visible() || w.class == "error" {
-		t.Fatalf("lys-wm refused the deletion: %q %q", tb.problem.Text(), w.notice)
+	if tb.problem.Visible() || w.notice.failed() {
+		t.Fatalf("lys-wm refused the deletion: %q %v", tb.problem.Text(), w.notice.err)
 	}
 	if slices.Contains(tb.shown, "resize") {
 		t.Fatalf("the deleted mode is still shown: %v", tb.shown)
 	}
 	tb.addMode("move", "SUPER + ALT + M")
-	if tb.adding.problem.Visible() || w.class == "error" {
-		t.Fatalf("lys-wm refused the new mode: %q %q", tb.adding.problem.Text(), w.notice)
+	if tb.adding.problem.Visible() || w.notice.failed() {
+		t.Fatalf("lys-wm refused the new mode: %q %v", tb.adding.problem.Text(), w.notice.err)
 	}
 	if !slices.Equal(tb.shown, []string{"move"}) {
 		t.Fatalf("modes after the add: %v", tb.shown)

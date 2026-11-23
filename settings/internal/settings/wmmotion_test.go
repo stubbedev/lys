@@ -229,11 +229,11 @@ func TestTheMotionEditorsWriteWhatLysWMAccepts(t *testing.T) {
 			}
 		}
 	}
-	if err := w.file.Check(nil); err != nil || w.class == "error" {
-		t.Fatalf("lys-wm refuses what the editors wrote: %v %s", err, w.notice)
+	if err := w.file.Check(nil); err != nil || w.notice.failed() {
+		t.Fatalf("lys-wm refuses what the editors wrote: %v %v", err, w.notice.err)
 	}
 	w.slot(eventsPath).set(map[string]any{"windows": map[string]any{"duration": int64(0)}})
-	if w.class != "error" {
+	if !w.notice.failed() {
 		t.Error("a zero duration was taken")
 	}
 }

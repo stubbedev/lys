@@ -2,7 +2,6 @@ package settings
 
 import (
 	"errors"
-	"strings"
 	"testing"
 	"time"
 
@@ -65,7 +64,5 @@ func TestAnUnreadableRegionIsSaid(t *testing.T) {
 	k := testKit(t, "")
 	k.region = func() (region.Prefs, error) { return region.Prefs{}, errors.New("no locale archive") }
 	h := regionRow(t, k, "weather", "modules.weather.units")
-	if want := locale.T().Get("settings-region-unreadable", i18n.Str("reason", "no locale archive")); h.hint.Text() != want || !strings.Contains(h.hint.Text(), "no locale archive") {
-		t.Errorf("an unreadable region reads %q", h.hint.Text())
-	}
+	wantClosedFailure(t, "an unreadable region", h.hint.stateParts, h.hint.Text(), locale.T().Get("settings-region-unreadable"), "no locale archive")
 }

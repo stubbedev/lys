@@ -23,12 +23,14 @@ type switchControl[S any] interface {
 }
 
 // switchSpec is what a shellSwitch shows: the state opened from lys-shell,
-// whether it is on and the line saying it, and the message keys of its
-// row, its waiting, its absence and a refused switch.
+// whether it is on and the line saying it, with a time it names as the
+// clock shows it or, with the error why it cannot, as a 24-hour time,
+// and the message keys of its row, its waiting, its absence and a
+// refused switch.
 type switchSpec[S any] struct {
 	open                        func(k *kit) (switchControl[S], error)
 	on                          func(S) bool
-	words                       func(k *kit, s S) string
+	words                       func(k *kit, s S) (string, error)
 	label, loading, unavailable string
 	refused                     string
 }
@@ -49,7 +51,10 @@ type shellSwitch[S any] struct {
 	known   bool
 	syncing bool
 	unread  bool
-	closed  bool
+	// unclocked is set while the status says the clock's format cannot
+	// be read.
+	unclocked bool
+	closed    bool
 }
 
 func newShellSwitch[S any](k *kit, spec switchSpec[S]) *shellSwitch[S] {
@@ -161,14 +166,29 @@ func (p *shellSwitch[S]) show(st S) {
 	p.toggle.SetOn(p.spec.on(st))
 	p.syncing = false
 	p.state, p.known = st, true
-	p.SetDescription(p.spec.words(p.k, st))
+	p.describe()
+}
+
+// describe says the state in the row's description, and on the status
+// when its time cannot be shown as the clock shows times.
+func (p *shellSwitch[S]) describe() {
+	words, err := p.spec.words(p.k, p.state)
+	p.SetDescription(words)
+	switch {
+	case err != nil:
+		p.unclocked = true
+		p.fail("settings-clock-format-unread", err)
+	case p.unclocked:
+		p.unclocked = false
+		p.status.Clear()
+	}
 }
 
 // configChanged says the state again, in words that may follow the
 // config.
 func (p *shellSwitch[S]) configChanged() {
 	if p.known {
-		p.SetDescription(p.spec.words(p.k, p.state))
+		p.describe()
 	}
 }
 

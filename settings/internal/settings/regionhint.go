@@ -45,14 +45,14 @@ type regionHint struct {
 	k        *kit
 	slot     slot
 	inner    control
-	hint     *widget.Label
+	hint     *inlineState
 	regional string
 	words    func(region.Prefs) (string, error)
 }
 
 func newRegionHint(k *kit, s slot, inner control, regional string, words func(region.Prefs) (string, error)) *regionHint {
 	h := &regionHint{Box: widget.NewBox(widget.Column, widget.Current().Spacing/2, 0), k: k, slot: s, inner: inner, regional: regional, words: words}
-	h.hint = k.note("")
+	h.hint = k.inlineState()
 	h.Append(inner, false)
 	h.Append(h.hint, false)
 	h.show()
@@ -65,16 +65,15 @@ func (h *regionHint) refresh() {
 }
 
 func (h *regionHint) show() {
-	v, _ := h.slot.get().(string)
-	h.hint.SetVisible(v == h.regional)
-	if v != h.regional {
+	if v, _ := h.slot.get().(string); v != h.regional {
+		h.hint.Clear()
 		return
 	}
 	text, err := h.regionWords()
 	if err != nil {
-		text = locale.T().Get("settings-region-unreadable", i18n.Str("reason", err.Error()))
+		text = locale.T().Get("settings-region-unreadable")
 	}
-	h.hint.SetText(text)
+	h.hint.Note(text, err)
 }
 
 func (h *regionHint) regionWords() (string, error) {

@@ -98,7 +98,7 @@ type proxyForm struct {
 	pac      *widget.Entry
 	field    *widget.Field
 	wm       *wmBackend
-	noManual *widget.Label
+	noManual *inlineState
 	manual   *widget.Box
 	servers  [len(proxyenv.Kinds)]proxyServerInput
 	exclude  []any
@@ -119,11 +119,10 @@ func newProxyForm(p *networkPanel) *proxyForm {
 	f.AddClass("proxy-form")
 	f.none = k.note(t.Get("settings-proxy-no-connection"))
 	f.Append(f.none, false)
-	f.noManual = k.note("")
-	switch w, err := proxyWM(k); {
-	case err != nil:
-		f.noManual.SetText(err.Error())
-	default:
+	f.noManual = k.inlineState()
+	if w, why, err := proxyWM(k); w == nil {
+		f.noManual.Note(why, err)
+	} else {
 		f.wm = w
 		f.choices = append(f.choices, proxyChoiceManual)
 	}
@@ -157,16 +156,19 @@ func newProxyForm(p *networkPanel) *proxyForm {
 	return f
 }
 
-func proxyWM(k *kit) (*wmBackend, error) {
+// proxyWM is lys-wm's backend, or, nil, why a manual proxy cannot be
+// set: why in the app's words, with the error behind it when there is
+// one.
+func proxyWM(k *kit) (w *wmBackend, why string, err error) {
 	t := locale.T()
 	if !k.parts.wm {
-		return nil, errors.New(t.Get("settings-proxy-manual-missing"))
+		return nil, t.Get("settings-proxy-manual-missing"), nil
 	}
-	w, err := k.wmBackend()
+	w, err = k.wmBackend()
 	if err != nil {
-		return nil, errors.New(t.Get("settings-proxy-manual-unread", i18n.Str("reason", err.Error())))
+		return nil, t.Get("settings-proxy-manual-unread"), err
 	}
-	return w, nil
+	return w, "", nil
 }
 
 func (f *proxyForm) manualForm() *widget.Box {

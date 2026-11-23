@@ -10,9 +10,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
-	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -152,7 +150,7 @@ type worldClockEditor struct {
 	clocks  slot
 	cards   *cardList
 	notice  *widget.Label
-	preview *widget.Label
+	preview *formatPreview
 	raw     *formatEditor
 	toggle  *modeToggle
 }
@@ -205,8 +203,7 @@ func newWorldClockEditor(k *kit, s slot, meta config.FieldMeta) *worldClockEdito
 		keep:  func(item map[string]any) bool { zone, _ := item["zone"].(string); return zone != "" },
 	})
 	e.notice = k.note(t.Get("settings-world-clock-handwritten"))
-	e.preview = k.label("", "format-preview", css.Caption, css.DimLabel)
-	e.preview.SetEllipsize(widget.EllipsizeEnd)
+	e.preview = k.formatPreview()
 	e.raw = newFormatEditor(k, s, meta.Optional, placeholderFormat(meta.Placeholders))
 	e.toggle = k.textModeToggle(func(bool) { e.refresh() })
 	e.Append(e.notice, false)
@@ -244,9 +241,5 @@ func (e *worldClockEditor) showPreview() {
 	if !ok {
 		return
 	}
-	text, err := w.render(formatSampleTime)
-	if err != nil {
-		text = locale.T().Get("settings-format-invalid", i18n.Str("reason", err.Error()))
-	}
-	e.preview.SetText(locale.T().Get("settings-format-preview", i18n.Str("text", text)))
+	e.preview.show(w.render(formatSampleTime))
 }

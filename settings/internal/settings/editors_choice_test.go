@@ -546,8 +546,8 @@ func TestAStrftimeFieldOffersPresetsWithAPreview(t *testing.T) {
 	c := b.raw
 	c.entry.SelectAll()
 	c.entry.Insert("%Q")
-	if !strings.Contains(c.preview.Text(), strings.SplitN(locale.T().Get("settings-format-invalid"), " ", 2)[0]) {
-		t.Fatalf("a bad pattern previews %q", c.preview.Text())
+	if want := locale.T().Get("settings-format-invalid"); c.preview.Text() != want || c.preview.sample.Visible() || c.preview.invalid.detail.Text() == "" || c.preview.invalid.reveal.open {
+		t.Fatalf("a bad pattern previews %q, want %q with the error %q in the closed detail", c.preview.Text(), want, c.preview.invalid.detail.Text())
 	}
 	if v := k.store.value(path); v != "%Y-%m-%d" {
 		t.Fatalf("typing wrote %v", v)
@@ -577,8 +577,8 @@ func TestAFormatFieldInsertsItsPlaceholdersWithAPreview(t *testing.T) {
 	if want := "Bat " + ps[0].Sample; !strings.Contains(c.preview.Text(), want) {
 		t.Fatalf("preview %q, want %q", c.preview.Text(), want)
 	}
-	if got := placeholderFormat(ps).render("{{percent}}%"); got != ps[0].Sample+"%" {
-		t.Fatalf("a compact token renders %q", got)
+	if got, err := placeholderFormat(ps).render("{{percent}}%"); err != nil || got != ps[0].Sample+"%" {
+		t.Fatalf("a compact token renders %q, %v", got, err)
 	}
 }
 

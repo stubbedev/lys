@@ -173,7 +173,7 @@ dropdown-network-scan = Zoeken naar netwerken
 dropdown-network-error-wifi-on = Kan wifi niet inschakelen: { $error }
 dropdown-network-error-wifi-off = Kan wifi niet uitschakelen: { $error }
 dropdown-network-error-disconnect = Kan de verbinding met { $name } niet verbreken: { $error }
-dropdown-network-vpn-import-error = Kan geen bestand openen: { $error }
+dropdown-network-vpn-import-error = Kan geen bestand openen
 dropdown-network-vpn-error-toggle = Kan { $name } niet schakelen: { $error }
 dropdown-network-vpn-error-read = Kan { $name } niet lezen: { $error }
 

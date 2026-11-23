@@ -103,6 +103,11 @@ func TestAScheduleWindowSaysWhenItRunsIntoTheNextDay(t *testing.T) {
 	if want := tr.Get("settings-schedule-range", i18n.Str("from", "09:00"), i18n.Str("to", "17:00"), i18n.Str("overnight", "false")); day != want || day == overnight {
 		t.Errorf("09:00-17:00 reads %q, want %q", day, want)
 	}
+	for _, item := range []map[string]any{{"from": "25:00", "to": "07:00"}, {"from": "22:00", "to": "soon"}} {
+		if got, want := scheduleTitle(item, 0), tr.Get("settings-clock-time-unreadable"); got != want {
+			t.Errorf("%v reads %q, want %q", item, got, want)
+		}
+	}
 }
 
 func TestTheScheduleTimesArePickers(t *testing.T) {

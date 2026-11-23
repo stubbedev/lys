@@ -308,10 +308,10 @@ func TestWithoutLysWMManualIsNotOfferedAndTheReasonIsSaid(t *testing.T) {
 		if slices.Contains(p.proxy.choices, proxyChoiceManual) {
 			t.Fatalf("an unreadable lys-wm offers %v", p.proxy.choices)
 		}
-		prefix, _, _ := strings.Cut(locale.T().Get("settings-proxy-manual-unread", i18n.Str("reason", "\x00")), "\x00")
-		if !p.proxy.noManual.Visible() || !strings.HasPrefix(p.proxy.noManual.Text(), prefix) || len(p.proxy.noManual.Text()) == len(prefix) {
-			t.Fatalf("the note shows %v reading %q", p.proxy.noManual.Visible(), p.proxy.noManual.Text())
+		if !p.proxy.noManual.Visible() {
+			t.Fatal("the note is hidden")
 		}
+		wantClosedFailure(t, "the manual proxy's note", p.proxy.noManual.stateParts, p.proxy.noManual.Text(), locale.T().Get("settings-proxy-manual-unread"), "executable file not found")
 	})
 	t.Run("not connected", func(t *testing.T) {
 		k := testKit(t, "")

@@ -45,22 +45,25 @@ func TestAnOutputRowShowsWhenTheDisplayCanUseItOrItsRuleSetsIt(t *testing.T) {
 func TestTheDisplayNoteSaysWhyEveryOptionShows(t *testing.T) {
 	tr := locale.T()
 	known := map[string]wmipc.OutputCapabilities{"DP-1": {MaxBitDepth: wmipc.Depth8}}
+	broken := errors.New("lys-wmctl: broken pipe")
 	for _, c := range []struct {
-		name   string
-		caps   outputCapabilities
-		output string
-		hidden bool
-		want   string
+		name    string
+		caps    outputCapabilities
+		output  string
+		hidden  bool
+		want    string
+		wantErr error
 	}{
-		{"not read yet", outputCapabilities{}, "DP-1", false, ""},
-		{"no lys-wm", outputCapabilities{read: true, err: wmstate.ErrNotRunning}, "DP-1", false, tr.Get("settings-displays-caps-not-running")},
-		{"an older lys-wm", outputCapabilities{read: true, err: fmt.Errorf("%w: output DP-1", wmstate.ErrOutdated)}, "DP-1", false, tr.Get("settings-displays-caps-outdated")},
-		{"a display that is off", outputCapabilities{read: true, byName: known}, "HDMI-A-1", false, tr.Get("settings-displays-caps-off")},
-		{"a display with hidden options", outputCapabilities{read: true, byName: known}, "DP-1", true, tr.Get("settings-displays-caps-hidden")},
-		{"a display that can use every option", outputCapabilities{read: true, byName: known}, "DP-1", false, ""},
+		{"not read yet", outputCapabilities{}, "DP-1", false, "", nil},
+		{"no lys-wm", outputCapabilities{read: true, err: wmstate.ErrNotRunning}, "DP-1", false, tr.Get("settings-displays-caps-not-running"), nil},
+		{"an older lys-wm", outputCapabilities{read: true, err: fmt.Errorf("%w: output DP-1", wmstate.ErrOutdated)}, "DP-1", false, tr.Get("settings-displays-caps-outdated"), nil},
+		{"a display that is off", outputCapabilities{read: true, byName: known}, "HDMI-A-1", false, tr.Get("settings-displays-caps-off"), nil},
+		{"a display with hidden options", outputCapabilities{read: true, byName: known}, "DP-1", true, tr.Get("settings-displays-caps-hidden"), nil},
+		{"a display that can use every option", outputCapabilities{read: true, byName: known}, "DP-1", false, "", nil},
+		{"capabilities that cannot be read", outputCapabilities{read: true, err: broken}, "DP-1", false, tr.Get("settings-displays-caps-unreadable"), broken},
 	} {
-		if got := c.caps.note(c.output, c.hidden); got != c.want {
-			t.Errorf("%s: %q, want %q", c.name, got, c.want)
+		if got, err := c.caps.note(c.output, c.hidden); got != c.want || !errors.Is(err, c.wantErr) {
+			t.Errorf("%s: %q, %v, want %q, %v", c.name, got, err, c.want, c.wantErr)
 		}
 	}
 	if _, ok := (outputCapabilities{read: true, byName: known}).of("DP-1"); !ok {

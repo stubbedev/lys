@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"math"
 	"time"
 
@@ -207,7 +206,7 @@ var nightlightSwitch = switchSpec[bool]{
 		return ctl, nil
 	},
 	on:          func(on bool) bool { return on },
-	words:       func(k *kit, on bool) string { return nightlightWords(k, on, k.clock.Now()) },
+	words:       func(k *kit, on bool) (string, error) { return nightlightWords(k, on, k.clock.Now()) },
 	label:       "settings-nightlight-now",
 	loading:     "settings-shell-asking",
 	unavailable: "settings-nightlight-unavailable",
@@ -220,33 +219,29 @@ func nightlightNow(k *kit) rowWidget { return newShellSwitch(k, nightlightSwitch
 // schedule, until when a switch holds: a switch made now lasts until
 // the schedule's next change and the schedule then keeps it to the end
 // of the night.
-func nightlightWords(k *kit, on bool, now time.Time) string {
+func nightlightWords(k *kit, on bool, now time.Time) (string, error) {
 	t := locale.T()
 	cfg := k.store.svc.Config().Nightlight
 	switch {
 	case !cfg.AutoSchedule && on:
-		return t.Get("settings-nightlight-is-on")
+		return t.Get("settings-nightlight-is-on"), nil
 	case !cfg.AutoSchedule:
-		return t.Get("settings-nightlight-is-off")
+		return t.Get("settings-nightlight-is-off"), nil
 	case cfg.Schedule == config.NightlightScheduleSun && on:
-		return t.Get("settings-nightlight-on-until-sunrise")
+		return t.Get("settings-nightlight-on-until-sunrise"), nil
 	case cfg.Schedule == config.NightlightScheduleSun:
-		return t.Get("settings-nightlight-turn-on-until-sunrise")
+		return t.Get("settings-nightlight-turn-on-until-sunrise"), nil
 	}
 	morning := cfg.CustomHours.Hours().To()
 	end := morning.On(now)
 	if !end.After(now) {
 		end = morning.On(now.AddDate(0, 0, 1))
 	}
-	at, err := timeOfDayText(sessionTimeLocale(), k.store, end, now)
-	if err != nil {
-		at = morning.String()
-		log.Printf("settings: the night light's end as the clock shows it, showing %s: %v", at, err)
-	}
+	at, err := shownTimeOfDay(k.store, end, now)
 	if on {
-		return t.Get("settings-nightlight-on-until", i18n.Str("time", at))
+		return t.Get("settings-nightlight-on-until", i18n.Str("time", at)), err
 	}
-	return t.Get("settings-nightlight-turn-on-until", i18n.Str("time", at))
+	return t.Get("settings-nightlight-turn-on-until", i18n.Str("time", at)), err
 }
 
 var kelvin = withEditor(func(k *kit, s slot, _ config.FieldMeta) control { return newKelvinEditor(k, s) })

@@ -1,6 +1,7 @@
 package settings
 
 import (
+	"errors"
 	"slices"
 	"strings"
 	"testing"
@@ -56,6 +57,11 @@ func TestTheIdleTimelineFollowsTheTimesOfEachSource(t *testing.T) {
 	tl.configChanged()
 	if ac.bar.marks[0] != (idleMark{idleLock, time.Minute}) {
 		t.Fatalf("after moving the lock to 1 minute the sequence starts %v", ac.bar.marks[0])
+	}
+	ac.show(nil, errors.New("read idle.dim.ac: not a duration"))
+	wantClosedFailure(t, "a line over unreadable times", ac.text.stateParts, ac.text.Text(), tr.Get("settings-idle-times-unreadable"), "not a duration")
+	if ac.bar.marks != nil {
+		t.Errorf("a line over unreadable times marks %v", ac.bar.marks)
 	}
 }
 

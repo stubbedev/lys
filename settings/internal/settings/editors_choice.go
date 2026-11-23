@@ -474,7 +474,20 @@ type formatKind struct {
 	presets    []string
 	separators []string
 	escapes    []string
-	render     func(string) string
+	render     func(string) (string, error)
+}
+
+// label is s as a choice shows it: its sample, or that it is no valid
+// format.
+func (f formatKind) label(s string) string { return formatLabel(f.render, s) }
+
+// formatLabel is s as render renders it, or that it is no valid format.
+func formatLabel(render func(string) (string, error), s string) string {
+	text, err := render(s)
+	if err != nil {
+		return locale.T().Get("settings-format-invalid")
+	}
+	return text
 }
 
 func placeholderFormat(ps []config.Placeholder) formatKind {
@@ -483,23 +496,23 @@ func placeholderFormat(ps []config.Placeholder) formatKind {
 	for _, p := range ps {
 		f.insert = append(f.insert, choice{value: p.Token, label: cmp.Or(t.Get(p.Key), p.Name), group: p.Token})
 	}
-	f.render = func(s string) string {
+	f.render = func(s string) (string, error) {
 		pairs := make([]string, 0, 4*len(ps))
 		for _, p := range ps {
 			pairs = append(pairs, p.Token, p.Sample, strings.ReplaceAll(p.Token, " ", ""), p.Sample)
 		}
-		return strings.NewReplacer(pairs...).Replace(s)
+		return strings.NewReplacer(pairs...).Replace(s), nil
 	}
 	return f
 }
 
 func strftimeFormat() formatKind {
-	return formatKind{presets: strftimePresets, render: func(s string) string {
+	return formatKind{presets: strftimePresets, render: func(s string) (string, error) {
 		f, err := config.ParseStrftimeFormat(s)
 		if err != nil {
-			return locale.T().Get("settings-format-invalid", i18n.Str("reason", err.Error()))
+			return "", err
 		}
-		return f.Format(formatSampleTime)
+		return f.Format(formatSampleTime), nil
 	}}
 }
 
@@ -530,7 +543,7 @@ func strftimeParts() formatKind {
 	f.escapes = []string{"%%"}
 	t := locale.T()
 	for _, p := range timeParts {
-		f.insert = append(f.insert, choice{value: p.directive, label: t.Get(p.key), group: f.render(p.directive)})
+		f.insert = append(f.insert, choice{value: p.directive, label: t.Get(p.key), group: f.label(p.directive)})
 	}
 	return f
 }
@@ -544,7 +557,7 @@ type formatEditor struct {
 	kind    formatKind
 	entry   *text
 	open    *widget.Button
-	preview *widget.Label
+	preview *formatPreview
 	picker  *searchPicker
 }
 
@@ -555,8 +568,7 @@ func newFormatEditor(k *kit, s slot, optional bool, kind formatKind) *formatEdit
 		icon, tip = "ld-chevron-down-symbolic", "settings-format-presets"
 	}
 	c.open = k.pickerIconButton(icon, tip, c.show)
-	c.preview = k.label("", "format-preview", css.Caption, css.DimLabel)
-	c.preview.SetEllipsize(widget.EllipsizeEnd)
+	c.preview = k.formatPreview()
 	typed := c.entry.OnChanged
 	c.entry.OnChanged = func(text string) {
 		typed(text)
@@ -579,7 +591,41 @@ func (c *formatEditor) refresh() {
 }
 
 func (c *formatEditor) showPreview(text string) {
-	c.preview.SetText(locale.T().Get("settings-format-preview", i18n.Str("text", c.kind.render(text))))
+	c.preview.show(c.kind.render(text))
+}
+
+// formatPreview is a format's sample under its entry: the format at the
+// sample time, or, for one that does not parse, that it is no valid
+// format, the error behind the disclosure.
+type formatPreview struct {
+	*widget.Box
+	sample  *widget.Label
+	invalid *inlineState
+}
+
+func (k *kit) formatPreview() *formatPreview {
+	p := &formatPreview{Box: widget.NewBox(widget.Column, 0, 0), sample: k.label("", "format-preview", css.Caption, css.DimLabel), invalid: k.inlineState()}
+	p.sample.SetEllipsize(widget.EllipsizeEnd)
+	p.Append(p.sample, false)
+	p.Append(p.invalid, false)
+	return p
+}
+
+// show previews text, or the failure err when it is not nil.
+func (p *formatPreview) show(text string, err error) {
+	p.sample.SetVisible(err == nil)
+	p.invalid.Result(locale.T().Get("settings-format-invalid"), err)
+	if err == nil {
+		p.sample.SetText(locale.T().Get("settings-format-preview", i18n.Str("text", text)))
+	}
+}
+
+// Text is what the preview says: the sample, or the failure's summary.
+func (p *formatPreview) Text() string {
+	if p.sample.Visible() {
+		return p.sample.Text()
+	}
+	return p.invalid.Text()
 }
 
 func (c *formatEditor) options() []choice {
@@ -588,10 +634,10 @@ func (c *formatEditor) options() []choice {
 	}
 	out := make([]choice, 0, len(c.kind.presets)+1)
 	if current := c.slot.text(); current != "" && !slices.Contains(c.kind.presets, current) {
-		out = append(out, choice{value: current, label: c.kind.render(current), group: current})
+		out = append(out, choice{value: current, label: c.kind.label(current), group: current})
 	}
 	for _, p := range c.kind.presets {
-		out = append(out, choice{value: p, label: c.kind.render(p), group: p})
+		out = append(out, choice{value: p, label: c.kind.label(p), group: p})
 	}
 	return out
 }

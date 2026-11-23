@@ -116,12 +116,34 @@ func TestTheDoNotDisturbStatusSaysWhyAndUntilWhen(t *testing.T) {
 		"held off":              {dndState{reason: notifications.FocusOverride, until: tonight}, dndStatusOf(dndHeldOff, "22:00")},
 		"held off, open":        {dndState{reason: notifications.FocusOverride}, dndStatusOf(dndHeldOffOpen, "")},
 	} {
-		if got := dndStatusText(k, c.state, now); got != c.want {
-			t.Errorf("%s reads %q, want %q", name, got, c.want)
+		if got, err := dndStatusText(k, c.state, now); err != nil || got != c.want {
+			t.Errorf("%s reads %q, %v, want %q", name, got, err, c.want)
 		}
 	}
 	if dndStatusOf(dndHeldOn, "22:00") == dndStatusOf(dndHeldOff, "22:00") || dndStatusOf(dndOff, "") == dndStatusOf(dndManual, "") {
 		t.Error("on and off read the same")
+	}
+}
+
+// A switch whose time the clock's format cannot show says so on its
+// status, the error behind the disclosure, with the words it has in the
+// description; once the time shows again, the status clears.
+func TestASwitchWhoseTimeCannotBeShownSaysWhy(t *testing.T) {
+	k := testKit(t, "")
+	k.dnd = func() (dndControl, error) { return &fakeDND{state: dndState{reason: notifications.FocusOff}}, nil }
+	unclocked := errors.New("read the clock format \"%Q\": unknown directive")
+	spec := dndSwitch
+	spec.words = func(*kit, dndState) (string, error) { return "Off until 22:00", unclocked }
+	p := newShellSwitch(k, spec)
+	t.Cleanup(p.close)
+	if p.Description() != "Off until 22:00" {
+		t.Errorf("the description reads %q", p.Description())
+	}
+	wantClosedFailure(t, "the switch with an unshown time", p.status.stateParts, p.status.Text(), locale.T().Get("settings-clock-format-unread"), "unknown directive")
+	unclocked = nil
+	p.configChanged()
+	if p.status.Visible() {
+		t.Errorf("with the time shown again the status says %q", p.status.Text())
 	}
 }
 

@@ -135,7 +135,7 @@ type columnPresets struct {
 	k       *kit
 	slot    slot
 	cards   *widget.FlowBox
-	problem *widget.Label
+	problem *inlineState
 	adder   *widget.Box
 	unit    *choicePick
 	amount  *widget.SpinButton
@@ -154,7 +154,7 @@ func newColumnPresets(k *kit, s slot) *columnPresets {
 	c := &columnPresets{Box: gapBox(widget.Column), k: k, slot: s}
 	c.AddClass("column-presets")
 	c.cards = widget.NewWrapBox(choiceCardGap, choiceCardGap, widget.JustifyStart)
-	c.problem = k.errorText("")
+	c.problem = k.inlineState()
 	c.unit = newChoicePick(k, []string{t.Get("wm-scroll-presets-share"), t.Get("wm-scroll-presets-pixels")}, presetUnitShare)
 	c.amount = widget.NewSpinButton(k.face, k.textPx(), 0, 1, percentPerShare, 1, 0)
 	c.unit.OnSelect = func(int) { c.unitChanged() }
@@ -176,11 +176,10 @@ func (c *columnPresets) stacked() {}
 
 func (c *columnPresets) refresh() {
 	widths, err := parseColumnWidths(c.slot.get())
-	c.problem.SetVisible(err != nil)
+	c.problem.Result(locale.T().Get("wm-column-widths-unreadable"), err)
 	c.cards.SetVisible(err == nil)
 	c.adder.SetVisible(err == nil)
 	if err != nil {
-		c.problem.SetText(err.Error())
 		return
 	}
 	c.widths = widths

@@ -4,9 +4,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -76,7 +74,7 @@ type labelBuilder struct {
 	segs    []segment
 	chips   *widget.ChipBox
 	add     *widget.Button
-	preview *widget.Label
+	preview *formatPreview
 	raw     *formatEditor
 	toggle  *modeToggle
 	picker  *searchPicker
@@ -99,8 +97,7 @@ func newLabelBuilder(k *kit, s slot, optional bool, kind formatKind) *labelBuild
 	line := gapBox(widget.Row)
 	line.Append(b.chips, true)
 	line.AppendAligned(b.add, false, widget.AlignStart)
-	b.preview = k.label("", "format-preview", css.Caption, css.DimLabel)
-	b.preview.SetEllipsize(widget.EllipsizeEnd)
+	b.preview = k.formatPreview()
 	b.raw = newFormatEditor(k, s, optional, kind)
 	b.raw.SetVisible(false)
 	b.toggle = k.textModeToggle(b.raw.SetVisible)
@@ -145,7 +142,7 @@ func (b *labelBuilder) refresh() {
 		})
 		b.chips.Append(chip)
 	}
-	b.preview.SetText(locale.T().Get("settings-format-preview", i18n.Str("text", b.kind.render(b.slot.text()))))
+	b.preview.show(b.kind.render(b.slot.text()))
 	b.raw.refresh()
 }
 
@@ -161,7 +158,7 @@ func (b *labelBuilder) options() []choice {
 		out = append(out, choice{value: sep, label: "“" + sep + "”", group: t.Get("settings-format-separators")})
 	}
 	for _, p := range b.kind.presets {
-		out = append(out, choice{value: p, label: b.kind.render(p), group: t.Get("settings-format-whole")})
+		out = append(out, choice{value: p, label: b.kind.label(p), group: t.Get("settings-format-whole")})
 	}
 	return out
 }

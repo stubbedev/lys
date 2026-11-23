@@ -50,16 +50,16 @@ func filenamePrefixProblem(prefix string) string {
 func screenshotNameParts() formatKind {
 	f := strftimeParts()
 	f.render = renderScreenshotName
-	f.insert = append(f.insert, choice{value: config.ScreenshotCounter, label: locale.T().Get("settings-filename-counter"), group: renderScreenshotName(config.ScreenshotCounter)})
+	f.insert = append(f.insert, choice{value: config.ScreenshotCounter, label: locale.T().Get("settings-filename-counter"), group: f.label(config.ScreenshotCounter)})
 	return f
 }
 
-func renderScreenshotName(s string) string {
+func renderScreenshotName(s string) (string, error) {
 	f, err := config.ParseScreenshotFilename(s)
 	if err != nil {
-		return locale.T().Get("settings-format-invalid", i18n.Str("reason", err.Error()))
+		return "", err
 	}
-	return f.At(formatSampleTime).Numbered(1)
+	return f.At(formatSampleTime).Numbered(1), nil
 }
 
 func parseFilename(format string) (filenameParts, bool) {
@@ -120,7 +120,7 @@ func choiceLabels(formats []string) []string {
 	t := locale.T()
 	out := make([]string, len(formats))
 	for i, f := range formats {
-		out[i] = cmp.Or(renderScreenshotName(f), t.Get("settings-filename-none"))
+		out[i] = cmp.Or(formatLabel(renderScreenshotName, f), t.Get("settings-filename-none"))
 	}
 	return out
 }
@@ -218,7 +218,9 @@ func (e *filenameEditor) refresh() {
 	e.notice.SetVisible(!simple)
 	e.toggle.SetVisible(simple)
 	e.custom.SetVisible(!simple || e.toggle.isOn())
-	full := filepath.Join(config.ScreenshotDirectory(e.dir.text(), systemHost.env), renderScreenshotName(format))
+	name, err := renderScreenshotName(format)
+	e.path.SetVisible(err == nil)
+	full := filepath.Join(config.ScreenshotDirectory(e.dir.text(), systemHost.env), name)
 	key := "settings-filename-path"
 	switch {
 	case strings.Contains(format, config.ScreenshotCounter):

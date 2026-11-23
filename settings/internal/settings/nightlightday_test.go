@@ -52,11 +52,11 @@ func TestTheNightLightSaysHowLongASwitchHolds(t *testing.T) {
 		},
 	} {
 		k := nightKit(t, tc.yaml, tc.now)
-		if got := nightlightWords(k, true, tc.now); got != tc.on {
-			t.Errorf("%s, on reads %q, want %q", tc.name, got, tc.on)
+		if got, err := nightlightWords(k, true, tc.now); err != nil || got != tc.on {
+			t.Errorf("%s, on reads %q, %v, want %q", tc.name, got, err, tc.on)
 		}
-		if got := nightlightWords(k, false, tc.now); got != tc.off {
-			t.Errorf("%s, off reads %q, want %q", tc.name, got, tc.off)
+		if got, err := nightlightWords(k, false, tc.now); err != nil || got != tc.off {
+			t.Errorf("%s, off reads %q, %v, want %q", tc.name, got, err, tc.off)
 		}
 	}
 }
@@ -106,10 +106,12 @@ func TestTheNightLightDayFollowsThePinnedOrFoundPlace(t *testing.T) {
 		t.Errorf("with no place found yet: %q, %d tints, %v", text, len(tints), err)
 	}
 	k.nightLocation = func() (geo.Coordinates, error) { return geo.Coordinates{}, errors.New("the record is torn") }
-	text, tints, _, _ = nightDay(k, k.store.svc.Config().Nightlight, now)
-	if want := locale.T().Get("settings-nightlight-day-unreadable", i18n.Str("reason", "the record is torn")); tints != nil || text != want {
-		t.Errorf("with an unreadable place: %q, %d tints", text, len(tints))
+	text, tints, _, err = nightDay(k, k.store.svc.Config().Nightlight, now)
+	if want := locale.T().Get("settings-nightlight-day-unreadable"); tints != nil || text != want || err == nil || err.Error() != "the record is torn" {
+		t.Errorf("with an unreadable place: %q over %v, %d tints, want %q over the error", text, err, len(tints), want)
 	}
+	d := nightlightDayPreview(k).(*nightlightDay)
+	wantClosedFailure(t, "the day with an unreadable place", d.text.stateParts, d.text.Text(), locale.T().Get("settings-nightlight-day-unreadable"), "the record is torn")
 	k.nightLocation = func() (geo.Coordinates, error) { return geo.NewCoordinates(78.2, 15.6) }
 	text, tints, _, _ = nightDay(k, k.store.svc.Config().Nightlight, now)
 	if tints == nil || text != locale.T().Get("settings-nightlight-day-polar-day") {

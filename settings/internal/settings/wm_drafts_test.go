@@ -19,8 +19,8 @@ func TestANewCardIsADraftUntilLysWMTakesIt(t *testing.T) {
 		t.Fatalf("%d cards, draft %v %q over %q", len(c.local), c.draft.Visible(), c.draft.Text(), c.draft.detail.Text())
 	}
 	noFile(t, files.runtime)
-	if w.class == "error" || fake.reloads != 0 {
-		t.Fatalf("a draft was tried as a change: %q, %d reloads", w.notice, fake.reloads)
+	if w.notice.failed() || fake.reloads != 0 {
+		t.Fatalf("a draft was tried as a change: %v, %d reloads", w.notice.err, fake.reloads)
 	}
 	row.refresh()
 	if len(c.local) != 2 {

@@ -38,23 +38,24 @@ func rememberedNightLocation() (geo.Coordinates, error) {
 
 // nightDaylight is the days the night light's schedule follows: its
 // custom hours, or the sun at the pinned place or the one lys-shell
-// found; false with the words saying why there is none.
-func nightDaylight(k *kit, cfg config.NightlightConfig) (nightlight.Daylight, string, bool) {
+// found; nil with the words saying why there is none, and the error
+// behind them when there is one.
+func nightDaylight(k *kit, cfg config.NightlightConfig) (nightlight.Daylight, string, error) {
 	t := locale.T()
 	if cfg.Schedule == config.NightlightScheduleCustom {
-		return nightlight.HoursOf(cfg.CustomHours.Hours()), "", true
+		return nightlight.HoursOf(cfg.CustomHours.Hours()), "", nil
 	}
 	if place, pinned := cfg.Location.Pinned(); pinned {
-		return nightlight.SunAt(place.Coordinates()), "", true
+		return nightlight.SunAt(place.Coordinates()), "", nil
 	}
 	at, err := k.nightLocation()
 	switch {
 	case errors.Is(err, fs.ErrNotExist):
-		return nil, t.Get("settings-nightlight-day-no-location"), false
+		return nil, t.Get("settings-nightlight-day-no-location"), nil
 	case err != nil:
-		return nil, t.Get("settings-nightlight-day-unreadable", i18n.Str("reason", err.Error())), false
+		return nil, t.Get("settings-nightlight-day-unreadable"), err
 	}
-	return nightlight.SunAt(at), "", true
+	return nightlight.SunAt(at), "", nil
 }
 
 // tint is white as s shows it.
@@ -70,13 +71,13 @@ type nightlightDay struct {
 	*widget.Box
 	k     *kit
 	strip *dayStrip
-	text  *widget.Label
+	text  *inlineState
 }
 
 func nightlightDayPreview(k *kit) widget.Widget {
 	d := &nightlightDay{Box: widget.NewBox(widget.Column, widget.Current().Spacing/2, widget.Current().Padding), k: k, strip: &dayStrip{Base: widget.NewBase()}}
 	d.SetAccessibleName(locale.T().Get("settings-nightlight-day"))
-	d.text = k.note("")
+	d.text = k.inlineState()
 	d.Append(d.strip, false)
 	d.Append(d.text, false)
 	d.configChanged()
@@ -90,27 +91,25 @@ func (d *nightlightDay) configChanged() {
 		return
 	}
 	text, tints, now, err := nightDay(d.k, cfg, d.k.clock.Now())
-	if err != nil {
-		text = err.Error()
-	}
 	d.strip.tints, d.strip.now = tints, now
 	d.strip.SetVisible(tints != nil)
 	d.strip.Invalidate()
-	d.text.SetText(text)
+	d.text.Note(text, err)
 }
 
 // nightDay is the day at now under cfg's schedule: its words, the tint
 // at each of daySamples moments from midnight to midnight, and how far
-// through the day now is; no tints when the schedule has no days.
+// through the day now is; no tints when the schedule has no days. With
+// an error the words say what could not be shown, the error why.
 func nightDay(k *kit, cfg config.NightlightConfig, now time.Time) (string, []render.Color, float64, error) {
 	t := locale.T()
 	night, err := nightlight.NewSetting(int(cfg.Temperature), int(cfg.Gamma))
 	if err != nil {
-		return "", nil, 0, err
+		return t.Get("settings-nightlight-day-failed"), nil, 0, err
 	}
-	days, why, ok := nightDaylight(k, cfg)
-	if !ok {
-		return why, nil, 0, nil
+	days, why, err := nightDaylight(k, cfg)
+	if days == nil {
+		return why, nil, 0, err
 	}
 	midnight := dayOf(now)
 	length := midnight.AddDate(0, 0, 1).Sub(midnight)
@@ -131,11 +130,11 @@ func nightDay(k *kit, cfg config.NightlightConfig, now time.Time) (string, []ren
 	names := sessionTimeLocale()
 	start, err := timeOfDayText(names, k.store, day.Start, now)
 	if err != nil {
-		return "", nil, 0, fmt.Errorf("the night light's day: %w", err)
+		return t.Get("settings-nightlight-day-failed"), nil, 0, fmt.Errorf("the night light's day: %w", err)
 	}
 	end, err := timeOfDayText(names, k.store, day.End, now)
 	if err != nil {
-		return "", nil, 0, fmt.Errorf("the night light's day: %w", err)
+		return t.Get("settings-nightlight-day-failed"), nil, 0, fmt.Errorf("the night light's day: %w", err)
 	}
 	return t.Get("settings-nightlight-day-times", i18n.Str("start", start), i18n.Str("end", end)), tints, through, nil
 }

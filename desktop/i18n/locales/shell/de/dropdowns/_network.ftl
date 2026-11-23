@@ -187,7 +187,7 @@ dropdown-network-scan = Nach Netzwerken suchen
 dropdown-network-error-wifi-on = WLAN konnte nicht eingeschaltet werden: { $error }
 dropdown-network-error-wifi-off = WLAN konnte nicht ausgeschaltet werden: { $error }
 dropdown-network-error-disconnect = Verbindung zu { $name } konnte nicht getrennt werden: { $error }
-dropdown-network-vpn-import-error = Datei konnte nicht geöffnet werden: { $error }
+dropdown-network-vpn-import-error = Datei konnte nicht geöffnet werden
 dropdown-network-vpn-error-toggle = { $name } konnte nicht umgeschaltet werden: { $error }
 dropdown-network-vpn-error-read = { $name } konnte nicht gelesen werden: { $error }
 

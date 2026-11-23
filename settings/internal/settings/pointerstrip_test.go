@@ -102,7 +102,7 @@ func TestEverySectionShowsWhenLysWMCannotSayWhichDevicesAreConnected(t *testing.
 	}{
 		{"no lys-wm", nil, locale.T().Get("wm-pointers-not-running")},
 		{"an older lys-wm", map[string]string{"devices": `[{"name":"Synaptics TM3276","capabilities":["pointer"]}]`}, locale.T().Get("wm-pointers-outdated")},
-		{"an answer that is no list", map[string]string{"devices": `{}`}, "could not be read"},
+		{"an answer that is no list", map[string]string{"devices": `{}`}, locale.T().Get("wm-pointers-unreadable")},
 	} {
 		k, _, fake, _ := wmKit(t, "")
 		fake.running = c.running
@@ -110,10 +110,14 @@ func TestEverySectionShowsWhenLysWMCannotSayWhichDevicesAreConnected(t *testing.
 		if got, want := shownSections(p), map[string]bool{"pointer": true, "touchpad": true}; !maps.Equal(got, want) {
 			t.Errorf("%s: the sections show %v, want %v", c.name, got, want)
 		}
-		if text := p.pointers.Text(); !strings.Contains(text, c.want) {
+		if text := p.pointers.Text(); text != c.want {
 			t.Errorf("%s: the strip says %q, want %q", c.name, text, c.want)
 		}
 	}
+	k, _, fake, _ := wmKit(t, "")
+	fake.running = map[string]string{"devices": `{}`}
+	p := buildPage(k, pointerTestPage())
+	wantClosedFailure(t, "the strip over an unreadable answer", p.pointers.stateParts, p.pointers.Text(), locale.T().Get("wm-pointers-unreadable"), "json")
 }
 
 func TestOnlyALysWMPageFollowsDevices(t *testing.T) {

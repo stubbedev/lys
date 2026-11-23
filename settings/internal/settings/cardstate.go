@@ -202,6 +202,20 @@ func (s *stateParts) Result(summary string, err error) {
 	s.Error(summary, err, nil)
 }
 
+// Note says summary, a localized sentence, dim: with detail, when not
+// nil, the error behind it, out of sight behind the disclosure;
+// nothing for an empty summary.
+func (s *stateParts) Note(summary string, detail error) {
+	switch {
+	case summary == "":
+		s.Clear()
+	case detail == nil:
+		s.Empty("", summary)
+	default:
+		s.Unavailable(cardStateErrorIcon, summary, detail)
+	}
+}
+
 // errText is err's text, "" for nil.
 func errText(err error) string {
 	if err == nil {

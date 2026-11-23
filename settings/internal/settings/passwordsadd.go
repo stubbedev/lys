@@ -19,9 +19,11 @@ const (
 	itemNoSecret  = formProblem("settings-passwords-add-no-secret")
 )
 
+// formProblem is the message key of what a new item lacks, "" for
+// nothing.
 type formProblem string
 
-func (p formProblem) Error() string { return locale.T().Get(string(p)) }
+func (p formProblem) text() string { return locale.T().Get(string(p)) }
 
 type newKeyringItem struct {
 	label  string
@@ -29,7 +31,7 @@ type newKeyringItem struct {
 	secret []byte
 }
 
-func parseNewItem(label, username, service string, secret []byte) (newKeyringItem, error) {
+func parseNewItem(label, username, service string, secret []byte) (newKeyringItem, formProblem) {
 	label = strings.TrimSpace(label)
 	if label == "" {
 		return newKeyringItem{}, itemNoName
@@ -43,7 +45,7 @@ func parseNewItem(label, username, service string, secret []byte) (newKeyringIte
 			attrs[key] = value
 		}
 	}
-	return newKeyringItem{label: label, attrs: attrs, secret: secret}, nil
+	return newKeyringItem{label: label, attrs: attrs, secret: secret}, ""
 }
 
 type keyringItemForm struct {
@@ -105,9 +107,9 @@ func (p *passwordsPanel) addItem(f *keyringItemForm, coll dbus.ObjectPath, done 
 	if f.busy || p.c == nil {
 		return
 	}
-	item, err := parseNewItem(f.label.Text(), f.username.Text(), f.service.Text(), []byte(f.secret.Text()))
-	if err != nil {
-		f.messages.Error(err.Error(), nil, nil)
+	item, problem := parseNewItem(f.label.Text(), f.username.Text(), f.service.Text(), []byte(f.secret.Text()))
+	if problem != "" {
+		f.messages.Error(problem.text(), nil, nil)
 		return
 	}
 	f.busy = true

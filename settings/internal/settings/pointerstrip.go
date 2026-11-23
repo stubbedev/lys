@@ -7,15 +7,13 @@ import (
 
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/lib/wmipc"
-	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 	"github.com/stubbedev/lys/settings/internal/wmstate"
 )
 
 type pointerStrip struct {
-	*widget.Label
+	*inlineState
 	k       *kit
 	w       *wmBackend
 	known   bool
@@ -29,10 +27,9 @@ type pointersRead struct {
 }
 
 func newPointerStrip(k *kit, w *wmBackend) *pointerStrip {
-	l := k.label("", "wm-pointers", css.Caption, css.DimLabel)
-	l.SetWrap(true)
-	l.SetVisible(false)
-	return &pointerStrip{Label: l, k: k, w: w}
+	s := &pointerStrip{inlineState: k.inlineState(), k: k, w: w}
+	s.AddClass("wm-pointers")
+	return s
 }
 
 func (s *pointerStrip) load(then func()) {
@@ -42,8 +39,7 @@ func (s *pointerStrip) load(then func()) {
 		return pointersRead{devices, err}
 	}, func(r pointersRead) {
 		s.known, s.devices, s.err = true, r.devices, r.err
-		s.SetText(s.text())
-		s.SetVisible(true)
+		s.Note(s.text())
 		then()
 	})
 }
@@ -55,21 +51,23 @@ func (s *pointerStrip) allows(class wmipc.DeviceClass) bool {
 	return slices.ContainsFunc(s.devices, func(d wmipc.Device) bool { return d.Class == class })
 }
 
-func (s *pointerStrip) text() string {
+// text is what the strip says, and the error behind it when lys-wm's
+// answer could not be read.
+func (s *pointerStrip) text() (string, error) {
 	t := locale.T()
 	switch {
 	case errors.Is(s.err, wmstate.ErrNotRunning):
-		return t.Get("wm-pointers-not-running")
+		return t.Get("wm-pointers-not-running"), nil
 	case errors.Is(s.err, wmstate.ErrOutdated):
-		return t.Get("wm-pointers-outdated")
+		return t.Get("wm-pointers-outdated"), nil
 	case s.err != nil:
-		return t.Get("wm-pointers-unreadable", i18n.Str("reason", s.err.Error()))
+		return t.Get("wm-pointers-unreadable"), s.err
 	case len(s.devices) == 0:
-		return t.Get("wm-pointers-none")
+		return t.Get("wm-pointers-none"), nil
 	}
 	names := make([]string, len(s.devices))
 	for i, d := range s.devices {
 		names[i] = t.Get("wm-pointers-device", i18n.Str("name", d.Name), i18n.Str("kind", t.Get("wm-pointers-class-"+string(d.Class))))
 	}
-	return t.Get("wm-pointers-connected", i18n.Str("devices", strings.Join(names, ", ")))
+	return t.Get("wm-pointers-connected", i18n.Str("devices", strings.Join(names, ", "))), nil
 }

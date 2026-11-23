@@ -223,7 +223,10 @@ type netVPNForm struct {
 	rawTyped   bool // the kind has a typed form; the raw editor is extra
 	rawOpen    bool
 	errLabel   *widget.Label
-	deleteBtn  *widget.Button
+	// importFailed says the file chooser could not open, the error as
+	// its description.
+	importFailed *widget.Alert
+	deleteBtn    *widget.Button
 	// confirming is set while the alert is up; a second Delete click asks
 	// nothing more.
 	confirming bool
@@ -272,6 +275,8 @@ func newNetVPNForm(v *networkView) *netVPNForm {
 	foot.Append(scroll, true)
 	f.errLabel = v.errorLabel()
 	foot.Append(f.errLabel, false)
+	f.importFailed = writeAlert(v.font, "network-vpn-import-failed")
+	foot.Append(f.importFailed, false)
 	f.deleteBtn = v.ghostText(i18n.T("dropdown-network-vpn-delete"), "network-vpn-delete", f.askDelete)
 	foot.Append(formActions(
 		f.deleteBtn,
@@ -313,6 +318,7 @@ func (f *netVPNForm) open(uuid, name, kind string, values map[string]string) {
 	f.selected = max(0, slices.IndexFunc(f.kinds, func(k network.VPNKind) bool { return k.ID == kind }))
 	f.editing = uuid
 	f.setError("")
+	f.importFailed.SetVisible(false)
 	f.name.SetText(name)
 	labels := make([]string, len(f.kinds))
 	for i, k := range f.kinds {
@@ -571,14 +577,14 @@ func (f *netVPNForm) importFile() {
 // importDone reads the picked file here rather than off the loop: a
 // wg-quick file is a few hundred bytes on local
 // disk. Dismissing the chooser is not a failure, and saying so would
-// be noise.
+// be noise; a chooser that cannot open says so in the form's alert,
+// the error as its description.
 func (f *netVPNForm) importDone(path string, err error) {
-	switch {
-	case errors.Is(err, portal.ErrCancelled):
+	if errors.Is(err, portal.ErrCancelled) {
 		return
-	case err != nil:
-		log.Printf("network: VPN import: %v", err)
-		f.setError(i18n.T("dropdown-network-vpn-import-error", i18n.Str("error", err.Error())))
+	}
+	reportWrite(f.importFailed, "network", i18n.T("dropdown-network-vpn-import-error"), err)
+	if err != nil {
 		return
 	}
 	values, err := network.ReadWgQuick(path)

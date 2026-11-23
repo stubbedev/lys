@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/stubbedev/lys/desktop/i18n"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 	"github.com/stubbedev/lys/settings/internal/wmconfig"
@@ -99,9 +98,7 @@ func virtualSlot(w *wmBackend, name string) slot {
 			if base, _ := w.baseValue(virtualOutputsPath).([]any); len(all) == 0 && len(base) == 0 {
 				e = wmconfig.Edit{Path: []string{virtualOutputsPath}, Unset: true}
 			}
-			if err := w.edit(e); err != nil {
-				w.show(err.Error(), css.Error)
-			}
+			w.notApplied(w.edit(e))
 		},
 	}
 }

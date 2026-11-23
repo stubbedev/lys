@@ -173,7 +173,7 @@ dropdown-network-scan = Procurar redes
 dropdown-network-error-wifi-on = Não foi possível ativar o Wi-Fi: { $error }
 dropdown-network-error-wifi-off = Não foi possível desativar o Wi-Fi: { $error }
 dropdown-network-error-disconnect = Não foi possível desligar de { $name }: { $error }
-dropdown-network-vpn-import-error = Não foi possível abrir um ficheiro: { $error }
+dropdown-network-vpn-import-error = Não foi possível abrir um ficheiro
 dropdown-network-vpn-error-toggle = Não foi possível alternar { $name }: { $error }
 dropdown-network-vpn-error-read = Não foi possível ler { $name }: { $error }
 

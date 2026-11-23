@@ -8,6 +8,8 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
+
+	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
 func desktopAccent(t *testing.T, k *kit) render.Color {
@@ -106,8 +108,20 @@ func TestARefusedBorderColourPutsTheRowBack(t *testing.T) {
 	if colors := c.colors.values(); !slices.Equal(colors, []any{"accent"}) {
 		t.Fatalf("after the refusal the row shows %v", colors)
 	}
-	if w.class != "error" || !strings.Contains(w.notice, "refused") {
-		t.Fatalf("the refusal is not shown: %q %q", w.class, w.notice)
+	if !w.notice.failed() || !strings.Contains(errText(w.notice.err), "refused") {
+		t.Fatalf("the refusal is not shown: %v %q over %v", w.notice.kind, w.notice.summary, w.notice.err)
+	}
+	status := newWMStatus(k, w)
+	wantClosedFailure(t, "lys-wm's status after a refusal", status.stateParts, status.Text(), locale.T().Get("wm-status-not-applied"), "refused")
+	w.show(wmNotice{kind: stateEmpty, summary: locale.T().Get("wm-status-not-running")})
+	status.refresh()
+	if status.kind != stateEmpty || status.Text() != locale.T().Get("wm-status-not-running") || status.reveal.button.Visible() {
+		t.Errorf("not running, the status shows %v %q, disclosure %v", status.kind, status.Text(), status.reveal.button.Visible())
+	}
+	w.show(wmNotice{})
+	status.refresh()
+	if status.Visible() {
+		t.Errorf("with nothing to say the status shows %q", status.Text())
 	}
 	noFile(t, files.runtime)
 }

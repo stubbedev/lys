@@ -482,13 +482,18 @@ func TestVPNFormWireGuard(t *testing.T) {
 		f.setError("")
 		f.importDone("", fmt.Errorf("open: %w", portal.ErrCancelled))
 	})
-	if f.errLabel.Visible() || f.name.Text() != "Mine" {
+	if f.errLabel.Visible() || f.importFailed.Visible() || f.name.Text() != "Mine" {
 		t.Error("a dismissed chooser reported a failure")
 	}
 	doOnLoopOf(v.ctx, func() { f.importDone("", errors.New("no portal")) })
-	if !f.errLabel.Visible() || plain(f.errLabel.Text()) != "Could not open a file: no portal" || f.name.Text() != "Mine" {
-		t.Errorf("a chooser that cannot open: error %v %q, name %q", f.errLabel.Visible(), f.errLabel.Text(), f.name.Text())
+	if !f.importFailed.Visible() || f.importFailed.Title() != i18n.T("dropdown-network-vpn-import-error") || f.importFailed.Description() != "no portal" || f.name.Text() != "Mine" {
+		t.Errorf("a chooser that cannot open: alert %v %q / %q, name %q", f.importFailed.Visible(), f.importFailed.Title(), f.importFailed.Description(), f.name.Text())
 	}
+	if strings.Contains(f.importFailed.Title(), "no portal") || f.errLabel.Visible() {
+		t.Errorf("the error reaches the title %q or the form's line %q", f.importFailed.Title(), f.errLabel.Text())
+	}
+	doOnLoopOf(v.ctx, f.importFile)
+	waitHeadless(t, "the import after a failed chooser", func() bool { return !f.importFailed.Visible() })
 }
 
 // vpnRows is the VPN section's rows in order, the add row last.

@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/shell/treetest"
+
+	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
 func presetsOf(t *testing.T, p *settingsPage) *columnPresets {
@@ -86,9 +88,10 @@ func TestAColumnWidthLysWMWouldRefuseIsNamedNotDrawn(t *testing.T) {
 		}
 	}
 	c := newColumnPresets(testKit(t, ""), slot{get: func() any { return []any{0.5, "wide"} }})
-	if !c.problem.Visible() || c.cards.Visible() || c.adder.Visible() {
+	if c.cards.Visible() || c.adder.Visible() {
 		t.Error("a list with a width lys-wm would refuse is drawn instead of named")
 	}
+	wantClosedFailure(t, "a list with a width lys-wm would refuse", c.problem.stateParts, c.problem.Text(), locale.T().Get("wm-column-widths-unreadable"), "wide")
 }
 
 func TestTheLayoutIsPickedFromPictures(t *testing.T) {

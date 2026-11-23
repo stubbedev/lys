@@ -23,8 +23,8 @@ func accelEditorOf(t *testing.T, p *settingsPage, class string) *accelCurveEdito
 
 func acceptedByLysWM(t *testing.T, k *kit) {
 	t.Helper()
-	if k.wm.class == "error" {
-		t.Fatalf("lys-wm refuses what the editor wrote: %s", k.wm.notice)
+	if k.wm.notice.failed() {
+		t.Fatalf("lys-wm refuses what the editor wrote: %v", k.wm.notice.err)
 	}
 	if err := k.wm.file.Check(nil); err != nil {
 		t.Fatalf("lys-wm refuses the file: %v", err)
@@ -143,8 +143,8 @@ func TestARestepedCurveIsWrittenAndAZeroStepIsRefused(t *testing.T) {
 	if err := k.wm.slot(accelPointsPath("input.pointer")).set(accelCurve{step: 0, points: []float64{0, 1}}.value()); err != nil {
 		t.Fatal(err)
 	}
-	if k.wm.class != "error" || !strings.Contains(k.wm.notice, "step") {
-		t.Fatalf("lys-wm took a zero step: %q", k.wm.notice)
+	if !k.wm.notice.failed() || !strings.Contains(errText(k.wm.notice.err), "step") {
+		t.Fatalf("lys-wm took a zero step: %v", k.wm.notice.err)
 	}
 }
 

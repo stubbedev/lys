@@ -131,6 +131,15 @@ func TestTheIdleTableWarnsWhenALaterStageComesFirst(t *testing.T) {
 	if ac.warning.Visible() {
 		t.Error("the warning stays once the order is fixed")
 	}
+	ac.showTimes(nil, errors.New("read idle.dim.ac: not a duration"))
+	wantClosedFailure(t, "a cell over unreadable times", ac.unread.stateParts, ac.unread.Text(), locale.T().Get("settings-idle-times-unreadable"), "not a duration")
+	if ac.warning.Visible() {
+		t.Error("a cell over unreadable times warns of their order")
+	}
+	g.refresh()
+	if ac.unread.Visible() {
+		t.Errorf("read again, the cell still says %q", ac.unread.Text())
+	}
 }
 
 func TestTheBatteryColumnLeavesWithoutABattery(t *testing.T) {

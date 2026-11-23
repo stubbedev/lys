@@ -190,7 +190,7 @@ dropdown-network-scan = Scan for networks
 dropdown-network-error-wifi-on = Could not turn Wi-Fi on: { $error }
 dropdown-network-error-wifi-off = Could not turn Wi-Fi off: { $error }
 dropdown-network-error-disconnect = Could not disconnect from { $name }: { $error }
-dropdown-network-vpn-import-error = Could not open a file: { $error }
+dropdown-network-vpn-import-error = Could not open a file
 dropdown-network-vpn-error-toggle = Could not switch { $name }: { $error }
 dropdown-network-vpn-error-read = Could not read { $name }: { $error }
 

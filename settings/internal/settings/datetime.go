@@ -470,6 +470,16 @@ func timeOfDayText(names *glibclocale.Time, s store, at, now time.Time) (string,
 	return names.Format(format, at)
 }
 
+// shownTimeOfDay is at as the clock shows it, or, with the error why it
+// cannot, as a 24-hour time.
+func shownTimeOfDay(s store, at, now time.Time) (string, error) {
+	text, err := timeOfDayText(sessionTimeLocale(), s, at, now)
+	if err != nil {
+		return at.Format("15:04"), err
+	}
+	return text, nil
+}
+
 func dayOf(t time.Time) time.Time {
 	y, m, d := t.Date()
 	return time.Date(y, m, d, 0, 0, 0, 0, t.Location())

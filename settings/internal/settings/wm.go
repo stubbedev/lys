@@ -11,8 +11,6 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/lib/wmipc"
-	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 	"github.com/stubbedev/lys/settings/internal/wmconfig"
@@ -39,8 +37,32 @@ type wmBackend struct {
 	overrides map[string]any
 	pending   []wmconfig.Edit
 	busy      bool
-	// notice is what the status line says; class colors it.
-	notice, class string
+	// notice is what the status line says.
+	notice wmNotice
+}
+
+// wmNotice is what a lys-wm page's status line says: summary, in the
+// app's words, as kind shows it, with err, the failure behind it, in
+// the line's detail. The zero wmNotice says nothing.
+type wmNotice struct {
+	kind    cardStateKind
+	summary string
+	err     error
+}
+
+// failed is whether the notice says something failed.
+func (n wmNotice) failed() bool { return n.kind == stateError }
+
+// showOn shows the notice on s.
+func (n wmNotice) showOn(s *stateParts) {
+	switch n.kind {
+	case stateError:
+		s.Error(n.summary, n.err, nil)
+	case stateNone:
+		s.Clear()
+	default:
+		s.Note(n.summary, n.err)
+	}
 }
 
 func (k *kit) wmBackend() (*wmBackend, error) {
@@ -81,23 +103,32 @@ func openWM(k *kit, run wmconfig.Runner) (*wmBackend, error) {
 func wmPath(path string) []string { return strings.Split(path, ".") }
 
 func (w *wmBackend) reread() {
+	t := locale.T()
 	tree, exists, err := w.file.Read()
 	if err != nil {
-		w.show(err.Error(), css.Error)
+		w.show(wmNotice{kind: stateError, summary: t.Get("wm-status-unreadable"), err: err})
 		return
 	}
 	overrides, err := w.file.Overrides()
 	if err != nil {
-		w.show(err.Error(), css.Error)
+		w.show(wmNotice{kind: stateError, summary: t.Get("wm-status-unreadable"), err: err})
 		return
 	}
 	w.tree, w.exists, w.overrides = tree, exists, overrides
 	if err := w.file.Writable(); err != nil {
-		w.show(err.Error(), css.Warning)
+		w.show(wmNotice{kind: stateUnavailable, summary: t.Get("wm-status-read-only"), err: err})
 	}
 }
 
-func (w *wmBackend) show(notice, class string) { w.notice, w.class = notice, class }
+func (w *wmBackend) show(n wmNotice) { w.notice = n }
+
+// notApplied says an edit lys-wm's config did not take, err why; nothing
+// for nil.
+func (w *wmBackend) notApplied(err error) {
+	if err != nil {
+		w.show(wmNotice{kind: stateError, summary: locale.T().Get("wm-status-not-applied"), err: err})
+	}
+}
 
 func (w *wmBackend) fieldOf(path string) (wmconfig.Field, bool) {
 	return w.schema.Field(wmPath(path))
@@ -445,14 +476,13 @@ func (w *wmBackend) flush() {
 }
 
 func (w *wmBackend) settled(reload wmconfig.Reload, err error) {
-	w.show("", "")
+	w.show(wmNotice{})
 	w.reread()
-	t := locale.T()
 	switch {
 	case err != nil:
-		w.show(err.Error(), css.Error)
+		w.notApplied(err)
 	case reload == wmconfig.NotRunning:
-		w.show(t.Get("wm-status-not-running"), "info")
+		w.show(wmNotice{kind: stateEmpty, summary: locale.T().Get("wm-status-not-running")})
 	}
 	if w.k.onWMChange != nil {
 		w.k.onWMChange()
@@ -462,26 +492,18 @@ func (w *wmBackend) settled(reload wmconfig.Reload, err error) {
 // wmStatus is the line over a lys-wm page saying why a change did not land, or
 // that the file cannot take any.
 type wmStatus struct {
-	*widget.Label
+	*inlineState
 	w *wmBackend
 }
 
 func newWMStatus(k *kit, w *wmBackend) *wmStatus {
-	l := k.label("", "wm-status", css.Caption)
-	l.SetWrap(true)
-	s := &wmStatus{Label: l, w: w}
+	s := &wmStatus{inlineState: k.inlineState(), w: w}
+	s.AddClass("wm-status")
 	s.refresh()
 	return s
 }
 
-func (s *wmStatus) refresh() {
-	s.SetText(s.w.notice)
-	s.SetVisible(s.w.notice != "")
-	s.RemoveClass(badgeStatuses...)
-	if s.w.class != "" {
-		s.AddClass(s.w.class)
-	}
-}
+func (s *wmStatus) refresh() { s.w.notice.showOn(s.stateParts) }
 
 // wmKey is a key's label: `gaps.inner` reads wm-gaps-inner.
 func wmKey(path string) string {

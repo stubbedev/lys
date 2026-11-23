@@ -87,16 +87,15 @@ func (c *clockRange) refresh() {
 	c.to.refresh()
 }
 
+// scheduleTitle is the window's times, or that one is no time of day,
+// which the card's time editor shows with the error behind it.
 func scheduleTitle(item map[string]any, _ int) string {
 	rawFrom, _ := item["from"].(string)
 	rawTo, _ := item["to"].(string)
-	from, err := daytime.Parse(rawFrom)
-	if err != nil {
-		return err.Error()
-	}
-	to, err := daytime.Parse(rawTo)
-	if err != nil {
-		return err.Error()
+	from, fromErr := daytime.Parse(rawFrom)
+	to, toErr := daytime.Parse(rawTo)
+	if fromErr != nil || toErr != nil {
+		return locale.T().Get("settings-clock-time-unreadable")
 	}
 	return locale.T().Get("settings-schedule-range", i18n.Str("from", from.String()), i18n.Str("to", to.String()), i18n.Str("overnight", strconv.FormatBool(!to.After(from))))
 }

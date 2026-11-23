@@ -153,8 +153,9 @@ func TestUnderLysWMEachWorkspaceItKeepsIsAChipThatHidesIt(t *testing.T) {
 func TestWithoutARunningLysWMTheWorkspaceChipsSayWhy(t *testing.T) {
 	k, _, _, _ := wmKit(t, "")
 	c := workspaceIgnoreChips(t, k, compositor.LysWM)
-	if !c.unread.Visible() || !strings.Contains(c.unread.Text(), "no lys-wm is running") || len(c.labels) != 0 {
-		t.Fatalf("unread %v %q, chips %q", c.unread.Visible(), c.unread.Text(), c.labels)
+	wantClosedFailure(t, "the workspace chips without lys-wm", c.unread.stateParts, c.unread.Text(), locale.T().Get("settings-names-unread"), "no lys-wm is running")
+	if len(c.labels) != 0 {
+		t.Fatalf("chips %q", c.labels)
 	}
 }
 
@@ -196,8 +197,9 @@ func TestWithoutTheCompositorsSocketTheWorkspaceChipsSayWhy(t *testing.T) {
 	t.Setenv(compositor.SwaySocketEnv, filepath.Join(t.TempDir(), "gone.sock"))
 	k := testKit(t, "")
 	c := workspaceIgnoreChips(t, k, compositor.Sway)
-	if !c.unread.Visible() || !strings.Contains(c.unread.Text(), "sway") || len(c.labels) != 0 {
-		t.Fatalf("unread %v %q, chips %q", c.unread.Visible(), c.unread.Text(), c.labels)
+	wantClosedFailure(t, "the workspace chips without sway's socket", c.unread.stateParts, c.unread.Text(), locale.T().Get("settings-names-unread"), "sway")
+	if len(c.labels) != 0 {
+		t.Fatalf("chips %q", c.labels)
 	}
 }
 

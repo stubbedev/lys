@@ -404,19 +404,19 @@ func TestAnItemWithoutAnAccountHasNoCopyUsername(t *testing.T) {
 }
 
 func TestANewItemNeedsANameAndAPasswordAndKeepsWhatWasGiven(t *testing.T) {
-	item, err := parseNewItem("  Mail ", " me@example.org ", "", []byte("pw"))
-	if err != nil {
-		t.Fatal(err)
+	item, problem := parseNewItem("  Mail ", " me@example.org ", "", []byte("pw"))
+	if problem != "" {
+		t.Fatal(problem.text())
 	}
 	want := map[string]string{schemaAttribute: genericSchema, usernameAttr: "me@example.org"}
 	if item.label != "Mail" || !maps.Equal(item.attrs, want) || string(item.secret) != "pw" {
 		t.Fatalf("parsed %+v", item)
 	}
-	if _, err := parseNewItem(" ", "me", "mail", []byte("pw")); !errors.Is(err, itemNoName) {
-		t.Errorf("a blank name: %v", err)
+	if _, problem := parseNewItem(" ", "me", "mail", []byte("pw")); problem != itemNoName {
+		t.Errorf("a blank name: %q", problem)
 	}
-	if _, err := parseNewItem("Mail", "me", "mail", nil); !errors.Is(err, itemNoSecret) {
-		t.Errorf("no password: %v", err)
+	if _, problem := parseNewItem("Mail", "me", "mail", nil); problem != itemNoSecret {
+		t.Errorf("no password: %q", problem)
 	}
 }
 

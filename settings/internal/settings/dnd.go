@@ -114,7 +114,7 @@ func (c *shellDND) close() error { return c.svc.conn.Close() }
 var dndSwitch = switchSpec[dndState]{
 	open:        func(k *kit) (switchControl[dndState], error) { return k.dnd() },
 	on:          func(s dndState) bool { return s.on },
-	words:       func(k *kit, s dndState) string { return dndStatusText(k, s, k.clock.Now()) },
+	words:       func(k *kit, s dndState) (string, error) { return dndStatusText(k, s, k.clock.Now()) },
 	label:       "settings-dnd-now",
 	loading:     "settings-shell-asking",
 	unavailable: "settings-dnd-unavailable",
@@ -133,14 +133,11 @@ func notificationsLead(k *kit) widget.Widget {
 	return &closingBox{content, dnd.close}
 }
 
-func dndStatusText(k *kit, st dndState, now time.Time) string {
-	at := ""
+func dndStatusText(k *kit, st dndState, now time.Time) (string, error) {
+	var at string
+	var err error
 	if !st.until.IsZero() {
-		text, err := timeOfDayText(sessionTimeLocale(), k.store, st.until, now)
-		if err != nil {
-			return err.Error()
-		}
-		at = text
+		at, err = shownTimeOfDay(k.store, st.until, now)
 	}
-	return locale.T().Get("settings-dnd-status", i18n.Str("status", string(st.status())), i18n.Str("time", at))
+	return locale.T().Get("settings-dnd-status", i18n.Str("status", string(st.status())), i18n.Str("time", at)), err
 }
