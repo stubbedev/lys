@@ -58,25 +58,32 @@ func (ac *otLayoutLookupAccelerator) apply(c *otApplyContext) bool {
 
 // represents one layout subtable, with its own coverage
 type applicable struct {
-	objApply func(c *otApplyContext) bool
+	gsub tables.GSUBLookup
+	gpos tables.GPOSLookup
 
 	digest setDigest
 }
 
 func newGSUBApplicable(table tables.GSUBLookup) applicable {
-	ap := applicable{objApply: func(c *otApplyContext) bool { return c.applyGSUB(table) }}
+	ap := applicable{gsub: table}
 	ap.digest.collectCoverage(table.Cov())
 	return ap
 }
 
 func newGPOSApplicable(table tables.GPOSLookup) applicable {
-	ap := applicable{objApply: func(c *otApplyContext) bool { return c.applyGPOS(table) }}
+	ap := applicable{gpos: table}
 	ap.digest.collectCoverage(table.Cov())
 	return ap
 }
 
 func (ap applicable) apply(c *otApplyContext) bool {
-	return ap.digest.mayHave(gID(c.buffer.cur(0).Glyph)) && ap.objApply(c)
+	if !ap.digest.mayHave(gID(c.buffer.cur(0).Glyph)) {
+		return false
+	}
+	if ap.gsub != nil {
+		return c.applyGSUB(ap.gsub)
+	}
+	return c.applyGPOS(ap.gpos)
 }
 
 type getSubtablesContext []applicable

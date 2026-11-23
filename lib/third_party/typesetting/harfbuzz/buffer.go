@@ -109,6 +109,8 @@ type Buffer struct {
 	planCache map[Face][]*shapePlan
 
 	digest setDigest
+
+	normalizeContext otNormalizeContext
 }
 
 // NewBuffer allocate a storage with default options.

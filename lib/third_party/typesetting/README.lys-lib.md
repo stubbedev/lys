@@ -327,6 +327,16 @@ FT_MulFix rounding of a component matrix; the CORDIC length; appending
 keeps the buffer's points and allocates nothing)
 and `font/lys_gvar_test.go` (outlines unchanged).
 
+### Shaping allocates less
+
+`harfbuzz/ot_shape_normalize.go`, `buffer.go`: the normalization context
+lives in the `Buffer` and calls the shaper's methods directly instead of
+holding them as method values, which saves three allocations per shaped
+run. `harfbuzz/ot_layout_gsubgpos.go`: a lookup subtable's accelerator
+holds the subtable instead of a closure over it, one allocation fewer
+per subtable for every `Font`.
+
+
 ## Not patched
 
 Loading tables as subslices of one buffer instead of per-table copies

@@ -62,11 +62,9 @@ const (
 )
 
 type otNormalizeContext struct {
-	plan      *otShapePlan
-	buffer    *Buffer
-	font      *Font
-	decompose func(c *otNormalizeContext, ab rune) (a, b rune, ok bool)
-	compose   func(c *otNormalizeContext, a, b rune) (ab rune, ok bool)
+	plan   *otShapePlan
+	buffer *Buffer
+	font   *Font
 }
 
 func setGlyph(info *GlyphInfo, font *Font) {
@@ -89,7 +87,7 @@ func decompose(c *otNormalizeContext, shortest bool, ab rune) int {
 	var aGlyph, bGlyph GID
 	buffer := c.buffer
 	font := c.font
-	a, b, ok := c.decompose(c, ab)
+	a, b, ok := c.plan.shaper.decompose(c, ab)
 	if !ok {
 		return 0
 	}
@@ -260,13 +258,8 @@ func otShapeNormalize(plan *otShapePlan, buffer *Buffer, font *Font) {
 			mode = nmComposedDiacritics
 		}
 	}
-	c := otNormalizeContext{
-		plan,
-		buffer,
-		font,
-		plan.shaper.decompose,
-		plan.shaper.compose,
-	}
+	c := &buffer.normalizeContext
+	*c = otNormalizeContext{plan, buffer, font}
 
 	alwaysShortCircuit := mode == nmNone
 	mightShortCircuit := alwaysShortCircuit ||
@@ -408,7 +401,7 @@ func otShapeNormalize(plan *otShapePlan, buffer *Buffer, font *Font) {
 				if starter == len(buffer.outInfo)-1 ||
 					buffer.prev().getModifiedCombiningClass() < buffer.cur(0).getModifiedCombiningClass() {
 					/* And compose. */
-					composed, ok := c.compose(&c, buffer.outInfo[starter].codepoint, buffer.cur(0).codepoint)
+					composed, ok := c.plan.shaper.compose(c, buffer.outInfo[starter].codepoint, buffer.cur(0).codepoint)
 					if ok { // And the font has glyph for the composite.
 						glyph, ok := font.face.NominalGlyph(composed) /* Composes. */
 						if ok {
