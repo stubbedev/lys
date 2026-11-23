@@ -183,6 +183,15 @@ one), or else from the battery's discharge power. Each app gets the share of
 that power its impact has, the kernel's own CPU time keeping its part. With no
 power reading over the whole window, apps carry impact but no watts.
 
+An app is named for its busiest process over the window, the CPU time,
+wakeups and GPU time of each process counted alike, so a terminal's scope
+running `claude` under `zsh` reads `claude`, and the login session's scope
+reads `lys-wm` rather than the session worker that started it. A process is
+named for its program: where the kernel's 15-byte command name is cut short,
+or is the `.name-wrapped` of a Nix wrapper, the base of its first argument
+names it instead (`lys-login`, not `.lys-login-wrap`), while a name the
+process set itself, such as `tmux: server`, stays.
+
 The service publishes the report over the last 5 minutes as the `Report`
 property of `dev.stubbe.lys.Energy1` on the system bus, which every user may
 read. It samples only when it must: every 2 seconds for 30 seconds after

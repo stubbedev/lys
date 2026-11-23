@@ -3,6 +3,7 @@ package energy_test
 import (
 	"errors"
 	"math"
+	"slices"
 	"testing"
 	"time"
 
@@ -19,11 +20,19 @@ const (
 func near(a, b float64) bool { return math.Abs(a-b) < 1e-9 }
 
 func group(cgroup string, cpu time.Duration, threads ...energy.Thread) energy.Group {
-	return energy.Group{Cgroup: cgroup, Command: "cmd", CPU: cpu, Threads: threads}
+	return processes(cgroup, cpu, process(1, "p", 0, threads...))
+}
+
+func processes(cgroup string, cpu time.Duration, procs ...energy.Process) energy.Group {
+	return energy.Group{Cgroup: cgroup, CPU: cpu, Processes: procs}
+}
+
+func process(pid uint32, command string, cpu time.Duration, threads ...energy.Thread) energy.Process {
+	return energy.Process{ID: energy.ProcessID{PID: pid, Start: 1}, Command: command, CPU: cpu, Threads: threads}
 }
 
 func thread(tid uint32, switches uint64) energy.Thread {
-	return energy.Thread{PID: tid, TID: tid, Process: "p", Name: "t", Switches: switches}
+	return energy.Thread{TID: tid, Name: "t", Switches: switches}
 }
 
 func sample(at time.Duration, groups ...energy.Group) energy.Sample {
@@ -124,6 +133,81 @@ func TestAProcessMovedIntoAScopeKeepsItsThreadCounts(t *testing.T) {
 	a := app(t, energy.Attribute([]energy.Interval{measure(t, prev, cur)}), firefox)
 	if !near(a.Wakeups, 5) {
 		t.Errorf("wakeups = %v, want the 5 since the move, not the thread's lifetime", a.Wakeups)
+	}
+}
+
+const session = "user.slice/user-1000.slice/session-3.scope"
+
+func TestAnAppIsNamedAfterItsBusiestProcessNotItsFirst(t *testing.T) {
+	prev := sample(0, processes(session, 0, process(10, ".lys-login-wrap", 20*time.Millisecond), process(20, "lys-wm", time.Second), process(30, "Xwayland", time.Second)))
+	cur := sample(time.Second, processes(session, 150*time.Millisecond, process(10, ".lys-login-wrap", 20*time.Millisecond), process(20, "lys-wm", 1100*time.Millisecond), process(30, "Xwayland", 1050*time.Millisecond)))
+	a := app(t, energy.Attribute([]energy.Interval{measure(t, prev, cur)}), session)
+	if a.Command != "lys-wm" {
+		t.Errorf("command = %q, want lys-wm, the busiest process, not the session worker with the lowest PID", a.Command)
+	}
+	if len(a.PIDs) != 3 || a.PIDs[0] != 10 {
+		t.Errorf("pids = %v, want all three", a.PIDs)
+	}
+}
+
+func TestTheBusiestProcessIsTheBusiestOverTheWholeWindow(t *testing.T) {
+	a0 := sample(0, processes(tmux, 0, process(1, "zsh", 0), process(2, "claude", 0), process(3, "make", 0)))
+	a1 := sample(time.Second, processes(tmux, time.Second, process(1, "zsh", 0), process(2, "claude", 300*time.Millisecond), process(3, "make", 700*time.Millisecond)))
+	a2 := sample(2*time.Second, processes(tmux, 2*time.Second, process(1, "zsh", 0), process(2, "claude", 1200*time.Millisecond), process(3, "make", 800*time.Millisecond)))
+	a := app(t, energy.Attribute([]energy.Interval{measure(t, a0, a1), measure(t, a1, a2)}), tmux)
+	if a.Command != "claude" {
+		t.Errorf("command = %q, want claude at 1.2s over make at 0.8s, though make was busier in the first interval", a.Command)
+	}
+}
+
+func TestWakeupsAndGPUTimeCountTowardTheBusiestProcess(t *testing.T) {
+	gpu := energy.DRMClient{Device: "0000:00:02.0", ID: 1}
+	drawing := func(busy uint64) energy.Process {
+		p := process(5, "game", 0)
+		p.GPU = map[energy.DRMClient]map[string]energy.Engine{gpu: {"rcs": {Clock: energy.EngineNanoseconds, Busy: busy}}}
+		return p
+	}
+	prev := sample(0, processes(tmux, 0, process(1, "zsh", 0), process(2, "poller", 0, thread(2, 0)), drawing(0)))
+	cur := sample(time.Second, processes(tmux, 10*time.Millisecond, process(1, "zsh", 10*time.Millisecond), process(2, "poller", 0, thread(2, 1000)), drawing(0)))
+	if a := app(t, energy.Attribute([]energy.Interval{measure(t, prev, cur)}), tmux); a.Command != "poller" {
+		t.Errorf("command = %q, want poller, whose wakeups cost more than zsh's 10ms", a.Command)
+	}
+	cur = sample(time.Second, processes(tmux, 10*time.Millisecond, process(1, "zsh", 10*time.Millisecond), process(2, "poller", 0, thread(2, 1000)), drawing(5e8)))
+	if a := app(t, energy.Attribute([]energy.Interval{measure(t, prev, cur)}), tmux); a.Command != "game" {
+		t.Errorf("command = %q, want game, half a second on the GPU", a.Command)
+	}
+}
+
+func TestAnIdleAppIsNamedAfterItsLowestPID(t *testing.T) {
+	prev := sample(0, processes(tmux, 0, process(7, "b", 0), process(3, "a", 0)))
+	cur := sample(time.Second, processes(tmux, 50*time.Millisecond, process(7, "b", 0), process(3, "a", 0)))
+	if a := app(t, energy.Attribute([]energy.Interval{measure(t, prev, cur)}), tmux); a.Command != "a" {
+		t.Errorf("command = %q, want a: with no process busier than another, the lowest PID", a.Command)
+	}
+}
+
+func TestAReusedPIDIsANewProcessCountedFromZero(t *testing.T) {
+	old := process(5, "exited", time.Second)
+	reused := process(5, "reused", 3*time.Second)
+	reused.ID.Start = 2
+	prev := sample(0, processes(tmux, 0, old, process(6, "steady", 0)))
+	cur := sample(time.Second, processes(tmux, time.Second, reused, process(6, "steady", 2500*time.Millisecond)))
+	if a := app(t, energy.Attribute([]energy.Interval{measure(t, prev, cur)}), tmux); a.Command != "reused" {
+		t.Errorf("command = %q, want reused: its 3s are its own, not 2s past the exited process it replaced", a.Command)
+	}
+}
+
+func TestThreadRatesNameTheirProcess(t *testing.T) {
+	prev := sample(0, processes(tmux, 0, process(1, "zsh", 0, thread(1, 0)), process(2, "claude", 0, thread(2, 0), thread(9, 0))))
+	cur := sample(time.Second, processes(tmux, 0, process(1, "zsh", 0, thread(1, 3)), process(2, "claude", 0, thread(2, 40), thread(9, 7))))
+	a := app(t, energy.Attribute([]energy.Interval{measure(t, prev, cur)}), tmux)
+	want := []energy.ThreadRate{
+		{PID: 2, TID: 2, Process: "claude", Name: "t", Wakeups: 40},
+		{PID: 2, TID: 9, Process: "claude", Name: "t", Wakeups: 7},
+		{PID: 1, TID: 1, Process: "zsh", Name: "t", Wakeups: 3},
+	}
+	if !slices.Equal(a.Threads, want) {
+		t.Errorf("threads = %+v, want %+v", a.Threads, want)
 	}
 }
 
@@ -231,14 +315,19 @@ func TestAReportMixingSourcesClaimsNoWatts(t *testing.T) {
 func TestGPUTimeInNanosecondsAndCycles(t *testing.T) {
 	ns := energy.DRMClient{Device: "0000:03:00.0", ID: 4}
 	cycles := energy.DRMClient{Device: "0000:00:02.0", ID: 9}
-	prev := sample(0, energy.Group{Cgroup: firefox, GPU: map[energy.DRMClient]map[string]energy.Engine{
+	gpu := func(engines map[energy.DRMClient]map[string]energy.Engine) energy.Group {
+		p := process(1, "firefox", 0)
+		p.GPU = engines
+		return processes(firefox, 0, p)
+	}
+	prev := sample(0, gpu(map[energy.DRMClient]map[string]energy.Engine{
 		ns:     {"gfx": {Clock: energy.EngineNanoseconds, Busy: 1e9}},
 		cycles: {"rcs": {Clock: energy.EngineCycles, Busy: 100, Total: 1000}},
-	}})
-	cur := sample(2*time.Second, energy.Group{Cgroup: firefox, GPU: map[energy.DRMClient]map[string]energy.Engine{
+	}))
+	cur := sample(2*time.Second, gpu(map[energy.DRMClient]map[string]energy.Engine{
 		ns:     {"gfx": {Clock: energy.EngineNanoseconds, Busy: 1.5e9}},
 		cycles: {"rcs": {Clock: energy.EngineCycles, Busy: 350, Total: 2000}},
-	}})
+	}))
 	a := app(t, energy.Attribute([]energy.Interval{measure(t, prev, cur)}), firefox)
 	if !near(a.GPU, 0.25+0.25) {
 		t.Errorf("GPU = %v, want 0.25 from each engine", a.GPU)

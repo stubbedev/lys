@@ -10,9 +10,9 @@ import (
 )
 
 type Thread struct {
-	PID, TID      uint32
-	Process, Name string
-	Switches      uint64
+	TID      uint32
+	Name     string
+	Switches uint64
 }
 
 type EngineClock uint8
@@ -33,13 +33,27 @@ type DRMClient struct {
 	ID     uint64
 }
 
-type Group struct {
-	Cgroup  string
+type ProcessID struct {
+	PID   uint32
+	Start uint64
+}
+
+type ProcessInfo struct {
+	ID      ProcessID
 	Command string
-	PIDs    []uint32
+}
+
+type Process struct {
+	ProcessInfo
 	CPU     time.Duration
 	Threads []Thread
 	GPU     map[DRMClient]map[string]Engine
+}
+
+type Group struct {
+	Cgroup    string
+	CPU       time.Duration
+	Processes []Process
 }
 
 type Counter struct {
@@ -66,18 +80,39 @@ type Interval struct {
 	Panels   []PanelState
 }
 
-type AppInterval struct {
-	Cgroup   string
-	Command  string
-	PIDs     []uint32
+type Usage struct {
 	CPU      time.Duration
 	Switches uint64
 	GPU      time.Duration
-	Threads  []Thread
 }
 
-func (a AppInterval) busy() time.Duration {
-	return a.CPU + time.Duration(float64(a.Switches)*float64(WakeupCost)) + a.GPU
+func (u Usage) busy() time.Duration {
+	return u.CPU + time.Duration(float64(u.Switches)*float64(WakeupCost)) + u.GPU
+}
+
+func (u Usage) plus(o Usage) Usage {
+	return Usage{CPU: u.CPU + o.CPU, Switches: u.Switches + o.Switches, GPU: u.GPU + o.GPU}
+}
+
+type ProcessInterval struct {
+	ProcessInfo
+	Usage   Usage
+	Threads []Thread
+}
+
+type AppInterval struct {
+	Cgroup    string
+	CPU       time.Duration
+	Processes []ProcessInterval
+}
+
+func (a AppInterval) usage() Usage {
+	u := Usage{CPU: a.CPU}
+	for _, p := range a.Processes {
+		u.Switches += p.Usage.Switches
+		u.GPU += p.Usage.GPU
+	}
+	return u
 }
 
 var ErrNotLater = errors.New("the sample is not later than the one before")
@@ -112,42 +147,54 @@ func Measure(prev, cur Sample) (Interval, error) {
 }
 
 type previous struct {
-	cpu     map[string]time.Duration
-	threads map[uint32]uint64
-	engines map[DRMClient]map[string]Engine
+	cpu       map[string]time.Duration
+	processes map[ProcessID]time.Duration
+	threads   map[uint32]uint64
+	engines   map[DRMClient]map[string]Engine
 }
 
 func index(s Sample) previous {
 	p := previous{
-		cpu:     make(map[string]time.Duration, len(s.Groups)),
-		threads: make(map[uint32]uint64),
-		engines: make(map[DRMClient]map[string]Engine),
+		cpu:       make(map[string]time.Duration, len(s.Groups)),
+		processes: make(map[ProcessID]time.Duration),
+		threads:   make(map[uint32]uint64),
+		engines:   make(map[DRMClient]map[string]Engine),
 	}
 	for _, g := range s.Groups {
 		p.cpu[g.Cgroup] = g.CPU
-		for _, t := range g.Threads {
-			p.threads[t.TID] = t.Switches
+		for _, proc := range g.Processes {
+			p.processes[proc.ID] = proc.CPU
+			for _, t := range proc.Threads {
+				p.threads[t.TID] = t.Switches
+			}
+			maps.Copy(p.engines, proc.GPU)
 		}
-		maps.Copy(p.engines, g.GPU)
 	}
 	return p
 }
 
 func (p previous) since(g Group, span time.Duration) AppInterval {
-	a := AppInterval{Cgroup: g.Cgroup, Command: g.Command, PIDs: g.PIDs, CPU: counterDelta(p.cpu[g.Cgroup], g.CPU)}
-	a.Threads = make([]Thread, 0, len(g.Threads))
-	for _, t := range g.Threads {
-		t.Switches = counterDelta(p.threads[t.TID], t.Switches)
-		a.Switches += t.Switches
-		a.Threads = append(a.Threads, t)
-	}
-	for client, engines := range g.GPU {
-		before := p.engines[client]
-		for name, e := range engines {
-			a.GPU += engineBusy(before[name], e, span)
-		}
+	a := AppInterval{Cgroup: g.Cgroup, CPU: counterDelta(p.cpu[g.Cgroup], g.CPU), Processes: make([]ProcessInterval, 0, len(g.Processes))}
+	for _, proc := range g.Processes {
+		a.Processes = append(a.Processes, p.process(proc, span))
 	}
 	return a
+}
+
+func (p previous) process(proc Process, span time.Duration) ProcessInterval {
+	pi := ProcessInterval{ProcessInfo: proc.ProcessInfo, Usage: Usage{CPU: counterDelta(p.processes[proc.ID], proc.CPU)}, Threads: make([]Thread, 0, len(proc.Threads))}
+	for _, t := range proc.Threads {
+		t.Switches = counterDelta(p.threads[t.TID], t.Switches)
+		pi.Usage.Switches += t.Switches
+		pi.Threads = append(pi.Threads, t)
+	}
+	for client, engines := range proc.GPU {
+		before := p.engines[client]
+		for name, e := range engines {
+			pi.Usage.GPU += engineBusy(before[name], e, span)
+		}
+	}
+	return pi
 }
 
 func counterDelta[T time.Duration | uint64](prev, cur T) T {
@@ -204,18 +251,65 @@ func wrapped(prev, cur Counter) (uint64, error) {
 	return cur.Range - prev.Microjoules + cur.Microjoules, nil
 }
 
+type processTotal struct {
+	command string
+	usage   Usage
+	threads map[uint32]Thread
+}
+
+type appTotal struct {
+	usage     Usage
+	latest    []ProcessInterval
+	processes map[ProcessID]*processTotal
+	joules    float64
+}
+
+func (t *appTotal) add(a AppInterval, u Usage) {
+	t.usage = t.usage.plus(u)
+	t.latest = a.Processes
+	for _, pi := range a.Processes {
+		pt, ok := t.processes[pi.ID]
+		if !ok {
+			pt = &processTotal{threads: map[uint32]Thread{}}
+			t.processes[pi.ID] = pt
+		}
+		pt.command = pi.Command
+		pt.usage = pt.usage.plus(pi.Usage)
+		for _, th := range pi.Threads {
+			th.Switches += pt.threads[th.TID].Switches
+			pt.threads[th.TID] = th
+		}
+	}
+}
+
+func (t *appTotal) busiest() (ProcessID, bool) {
+	if len(t.processes) == 0 {
+		return ProcessID{}, false
+	}
+	return slices.MinFunc(slices.Collect(maps.Keys(t.processes)), func(a, b ProcessID) int {
+		return cmp.Or(
+			cmp.Compare(t.processes[b].usage.busy(), t.processes[a].usage.busy()),
+			cmp.Compare(a.PID, b.PID),
+			cmp.Compare(a.Start, b.Start),
+		)
+	}), true
+}
+
+func (t *appTotal) pids() []uint32 {
+	out := make([]uint32, len(t.latest))
+	for i, p := range t.latest {
+		out[i] = p.ID.PID
+	}
+	return out
+}
+
 func Attribute(intervals []Interval) Report {
 	r := Report{Source: SourceNone}
 	if len(intervals) == 0 {
 		return r
 	}
 	r.Panels = panels(intervals)
-	type total struct {
-		app     AppInterval
-		threads map[uint32]Thread
-		joules  float64
-	}
-	totals := map[string]*total{}
+	totals := map[string]*appTotal{}
 	source := intervals[0].Source
 	var joules float64
 	for _, iv := range intervals {
@@ -224,26 +318,21 @@ func Attribute(intervals []Interval) Report {
 		if iv.Source != source {
 			source = SourceNone
 		}
+		usages := make([]Usage, len(iv.Apps))
 		busy := iv.OtherCPU
-		for _, a := range iv.Apps {
-			busy += a.busy()
+		for i, a := range iv.Apps {
+			usages[i] = a.usage()
+			busy += usages[i].busy()
 		}
-		for _, a := range iv.Apps {
+		for i, a := range iv.Apps {
 			t, ok := totals[a.Cgroup]
 			if !ok {
-				t = &total{app: AppInterval{Cgroup: a.Cgroup}, threads: map[uint32]Thread{}}
+				t = &appTotal{processes: map[ProcessID]*processTotal{}}
 				totals[a.Cgroup] = t
 			}
-			t.app.Command, t.app.PIDs = a.Command, a.PIDs
-			t.app.CPU += a.CPU
-			t.app.Switches += a.Switches
-			t.app.GPU += a.GPU
-			for _, th := range a.Threads {
-				th.Switches += t.threads[th.TID].Switches
-				t.threads[th.TID] = th
-			}
+			t.add(a, usages[i])
 			if busy > 0 {
-				t.joules += iv.Joules * float64(a.busy()) / float64(busy)
+				t.joules += iv.Joules * float64(usages[i].busy()) / float64(busy)
 			}
 		}
 	}
@@ -256,16 +345,18 @@ func Attribute(intervals []Interval) Report {
 		t := totals[unit]
 		app := App{
 			Cgroup:  unit,
-			Command: t.app.Command,
-			PIDs:    t.app.PIDs,
-			CPU:     t.app.CPU.Seconds() / seconds,
-			Wakeups: float64(t.app.Switches) / seconds,
-			GPU:     t.app.GPU.Seconds() / seconds,
-			Impact:  t.app.busy().Seconds() / seconds,
-			Threads: threadRates(t.threads, seconds),
+			PIDs:    t.pids(),
+			CPU:     t.usage.CPU.Seconds() / seconds,
+			Wakeups: float64(t.usage.Switches) / seconds,
+			GPU:     t.usage.GPU.Seconds() / seconds,
+			Impact:  t.usage.busy().Seconds() / seconds,
+			Threads: threadRates(t.processes, seconds),
 		}
 		if app.Impact == 0 {
 			continue
+		}
+		if busiest, ok := t.busiest(); ok {
+			app.Command = t.processes[busiest].command
 		}
 		if source != SourceNone {
 			app.Watts = t.joules / seconds
@@ -276,13 +367,15 @@ func Attribute(intervals []Interval) Report {
 	return r
 }
 
-func threadRates(threads map[uint32]Thread, seconds float64) []ThreadRate {
-	out := make([]ThreadRate, 0, len(threads))
-	for _, t := range threads {
-		if t.Switches == 0 {
-			continue
+func threadRates(processes map[ProcessID]*processTotal, seconds float64) []ThreadRate {
+	out := []ThreadRate{}
+	for id, p := range processes {
+		for _, t := range p.threads {
+			if t.Switches == 0 {
+				continue
+			}
+			out = append(out, ThreadRate{PID: id.PID, TID: t.TID, Process: p.command, Name: t.Name, Wakeups: float64(t.Switches) / seconds})
 		}
-		out = append(out, ThreadRate{PID: t.PID, TID: t.TID, Process: t.Process, Name: t.Name, Wakeups: float64(t.Switches) / seconds})
 	}
 	slices.SortFunc(out, func(a, b ThreadRate) int {
 		return cmp.Or(cmp.Compare(b.Wakeups, a.Wakeups), cmp.Compare(a.TID, b.TID))

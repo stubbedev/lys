@@ -1,8 +1,8 @@
 // Package meter samples the counters energy attribution works from: each
-// app cgroup's CPU time and processes, each thread's context switches,
-// each DRM client's engine time, the RAPL energy counters, the battery's
-// discharge power and each eDP panel's self-refresh state in the DRM
-// debugfs.
+// app cgroup's CPU time, each of its processes' CPU time, each thread's
+// context switches, each DRM client's engine time, the RAPL energy
+// counters, the battery's discharge power and each eDP panel's
+// self-refresh state in the DRM debugfs.
 package meter
 
 import (
@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -18,6 +19,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/stubbedev/lys/lib/procstat"
 
 	"github.com/stubbedev/lys/power/energy"
 	"github.com/stubbedev/lys/power/internal/supply"
@@ -149,14 +152,14 @@ func (m Meter) group(rel string, seen map[energy.DRMClient]bool, gaps *Gaps) (en
 	if err != nil {
 		return energy.Group{}, false, err
 	}
-	g := energy.Group{Cgroup: rel, CPU: cpu, PIDs: make([]uint32, 0, len(pids)), GPU: map[energy.DRMClient]map[string]energy.Engine{}}
+	g := energy.Group{Cgroup: rel, CPU: cpu, Processes: make([]energy.Process, 0, len(pids))}
 	for _, pid := range pids {
-		alive, err := m.process(&g, pid, seen, gaps)
+		p, alive, err := m.process(pid, seen, gaps)
 		if err != nil {
 			return energy.Group{}, false, err
 		}
 		if alive {
-			g.PIDs = append(g.PIDs, pid)
+			g.Processes = append(g.Processes, p)
 		}
 	}
 	return g, true, nil
@@ -216,40 +219,99 @@ func usage(path string) (time.Duration, error) {
 	return 0, fmt.Errorf("reading %s: no usage_usec", path)
 }
 
-func (m Meter) process(g *energy.Group, pid uint32, seen map[energy.DRMClient]bool, gaps *Gaps) (bool, error) {
+func (m Meter) process(pid uint32, seen map[energy.DRMClient]bool, gaps *Gaps) (energy.Process, bool, error) {
 	dir := filepath.Join(m.Proc, strconv.FormatUint(uint64(pid), 10))
-	comm, err := readTrim(filepath.Join(dir, "comm"))
+	st, err := procstat.Read(filepath.Join(dir, "stat"))
 	if Gone(err) {
-		return false, nil
+		return energy.Process{}, false, nil
 	}
 	if err != nil {
-		return false, err
+		return energy.Process{}, false, err
 	}
-	if g.Command == "" {
-		g.Command = comm
+	cpu, err := st.CPU()
+	if err != nil {
+		return energy.Process{}, false, fmt.Errorf("the CPU time of %d: %w", pid, err)
+	}
+	command := st.Comm
+	if mayBeShortened(command) {
+		argv0, err := firstArg(filepath.Join(dir, "cmdline"))
+		if Gone(err) {
+			return energy.Process{}, false, nil
+		}
+		if err != nil {
+			return energy.Process{}, false, err
+		}
+		command = programName(command, argv0)
+	}
+	p := energy.Process{
+		ID: energy.ProcessID{PID: pid, Start: st.StartTime}, Command: command,
+		CPU: cpu,
+		GPU: map[energy.DRMClient]map[string]energy.Engine{},
 	}
 	tids, err := os.ReadDir(filepath.Join(dir, "task"))
 	if Gone(err) {
-		return false, nil
+		return energy.Process{}, false, nil
 	}
 	if err != nil {
-		return false, fmt.Errorf("listing the threads of %d: %w", pid, err)
+		return energy.Process{}, false, fmt.Errorf("listing the threads of %d: %w", pid, err)
 	}
+	p.Threads = make([]energy.Thread, 0, len(tids))
 	for _, e := range tids {
 		tid, err := strconv.ParseUint(e.Name(), 10, 32)
 		if err != nil {
-			return false, fmt.Errorf("thread %q of %d: %w", e.Name(), pid, err)
+			return energy.Process{}, false, fmt.Errorf("thread %q of %d: %w", e.Name(), pid, err)
 		}
 		name, switches, err := threadStatus(filepath.Join(dir, "task", e.Name(), "status"))
 		if Gone(err) {
 			continue
 		}
 		if err != nil {
-			return false, err
+			return energy.Process{}, false, err
 		}
-		g.Threads = append(g.Threads, energy.Thread{PID: pid, TID: uint32(tid), Process: comm, Name: name, Switches: switches})
+		p.Threads = append(p.Threads, energy.Thread{TID: uint32(tid), Name: name, Switches: switches})
 	}
-	return true, m.clients(g, dir, seen, gaps)
+	return p, true, m.clients(&p, dir, seen, gaps)
+}
+
+const commLen = 15
+
+func mayBeShortened(comm string) bool {
+	return len(comm) == commLen || strings.HasPrefix(comm, ".")
+}
+
+func programName(comm, argv0 string) string {
+	if argv0 == "" {
+		return comm
+	}
+	program := filepath.Base(argv0)
+	truncated := len(comm) == commLen
+	if truncated && strings.HasPrefix(program, comm) {
+		return program
+	}
+	for _, suffix := range []string{"-wrapped", "-unwrapped"} {
+		wrapper := "." + program + suffix
+		if comm == wrapper || truncated && strings.HasPrefix(wrapper, comm) {
+			return program
+		}
+	}
+	return comm
+}
+
+const maxArg = 4096
+
+func firstArg(path string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", fmt.Errorf("opening %s: %w", path, err)
+	}
+	defer func() { _ = f.Close() }()
+	buf := make([]byte, maxArg)
+	n, err := io.ReadFull(f, buf)
+	if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) {
+		return "", fmt.Errorf("reading %s: %w", path, err)
+	}
+	arg, _, _ := bytes.Cut(buf[:n], []byte{0})
+	return string(arg), nil
 }
 
 func threadStatus(path string) (name string, switches uint64, err error) {
@@ -282,7 +344,7 @@ func threadStatus(path string) (name string, switches uint64, err error) {
 	return name, switches, nil
 }
 
-func (m Meter) clients(g *energy.Group, dir string, seen map[energy.DRMClient]bool, gaps *Gaps) error {
+func (m Meter) clients(p *energy.Process, dir string, seen map[energy.DRMClient]bool, gaps *Gaps) error {
 	fds, err := os.ReadDir(filepath.Join(dir, "fd"))
 	if Gone(err) {
 		return nil
@@ -328,7 +390,7 @@ func (m Meter) clients(g *energy.Group, dir string, seen map[energy.DRMClient]bo
 			continue
 		}
 		seen[client] = true
-		g.GPU[client] = engines
+		p.GPU[client] = engines
 	}
 	return nil
 }

@@ -57,7 +57,7 @@ func (f *fakeSampler) Sample(func() time.Time) (energy.Sample, meter.Gaps, error
 	f.calls++
 	return energy.Sample{
 		At:     time.Now(),
-		Groups: []energy.Group{{Cgroup: "app.slice/a.scope", Command: "a", CPU: time.Duration(f.calls) * time.Second}},
+		Groups: []energy.Group{{Cgroup: "app.slice/a.scope", CPU: time.Duration(f.calls) * time.Second, Processes: []energy.Process{{ID: energy.ProcessID{PID: 1}, Command: "a"}}}},
 	}, meter.Gaps{}, nil
 }
 

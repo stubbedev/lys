@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/stubbedev/lys/lib/testbuild"
 )
@@ -49,5 +50,21 @@ func TestOfReadsTheKernelsStatOfAProcess(t *testing.T) {
 	}
 	if _, err := Of(-1); !errors.Is(err, fs.ErrNotExist) {
 		t.Errorf("Of(-1): %v, want fs.ErrNotExist", err)
+	}
+}
+
+func TestCPUIsTheTicksAtTheKernelsClockRate(t *testing.T) {
+	tick, err := Stat{CPUTicks: 1}.CPU()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tick <= 0 || time.Second%tick != 0 {
+		t.Fatalf("one tick = %s, want a whole fraction of a second", tick)
+	}
+	if got, err := (Stat{CPUTicks: 250}).CPU(); err != nil || got != 250*tick {
+		t.Errorf("250 ticks = %s, %v; want %s", got, err, 250*tick)
+	}
+	if got, err := (Stat{}).CPU(); err != nil || got != 0 {
+		t.Errorf("no ticks = %s, %v; want 0", got, err)
 	}
 }

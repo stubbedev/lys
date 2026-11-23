@@ -2,9 +2,14 @@ package procstat
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
 	"os"
 	"strconv"
+	"sync"
+	"time"
+
+	"github.com/stubbedev/lys/lib/intconv"
 )
 
 // Stat is what /proc/<pid>/stat says of a process: its command name, its
@@ -23,6 +28,7 @@ const (
 	utimeField     = 14
 	stimeField     = 15
 	startTimeField = 22
+	atClkTck       = 17
 )
 
 // Of is the Stat of process pid.
@@ -77,4 +83,52 @@ func parse(stat []byte) (Stat, error) {
 		return Stat{}, err
 	}
 	return Stat{Comm: string(comm), State: string(fields[stateField-firstAfterComm]), CPUTicks: utime + stime, StartTime: start}, nil
+}
+
+// CPU is the time the process or thread ran in user and kernel mode.
+func (s Stat) CPU() (time.Duration, error) {
+	clockTick.once.Do(func() { clockTick.tick, clockTick.err = readClockTick() })
+	if clockTick.err != nil {
+		return 0, clockTick.err
+	}
+	return intconv.Duration(s.CPUTicks, clockTick.tick), nil
+}
+
+var clockTick struct {
+	once sync.Once
+	tick time.Duration
+	err  error
+}
+
+func readClockTick() (time.Duration, error) {
+	hz, err := readClockTicks()
+	if err != nil {
+		return 0, err
+	}
+	if hz == 0 || hz > uint64(time.Second) {
+		return 0, fmt.Errorf("procstat: AT_CLKTCK %d is not a clock rate in (0, 1e9] Hz", hz)
+	}
+	return time.Second / time.Duration(hz), nil
+}
+
+func readClockTicks() (uint64, error) {
+	const name = "/proc/self/auxv"
+	auxv, err := os.ReadFile(name)
+	if err != nil {
+		return 0, fmt.Errorf("procstat: %w", err)
+	}
+	word := strconv.IntSize / 8
+	for i := 0; i+2*word <= len(auxv); i += 2 * word {
+		if auxvWord(auxv[i:], word) == atClkTck {
+			return auxvWord(auxv[i+word:], word), nil
+		}
+	}
+	return 0, fmt.Errorf("procstat: no AT_CLKTCK in %s", name)
+}
+
+func auxvWord(b []byte, word int) uint64 {
+	if word == 8 {
+		return binary.NativeEndian.Uint64(b)
+	}
+	return uint64(binary.NativeEndian.Uint32(b))
 }

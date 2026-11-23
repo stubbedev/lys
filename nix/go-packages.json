@@ -2015,7 +2015,6 @@
   "desktop/swaytest": {
     "imports": [
       "lib/dbustest",
-      "lib/intconv",
       "lib/procstat",
       "lib/sockdir",
       "lib/testhome",
@@ -2035,7 +2034,6 @@
       "slices",
       "strconv",
       "strings",
-      "sync",
       "testing",
       "time"
     ],
@@ -3482,11 +3480,17 @@
     ]
   },
   "lib/procstat": {
+    "imports": [
+      "lib/intconv"
+    ],
     "external": [
       "bytes",
+      "encoding/binary",
       "fmt",
       "os",
-      "strconv"
+      "strconv",
+      "sync",
+      "time"
     ],
     "testImports": [
       "lib/testbuild"
@@ -6003,6 +6007,7 @@
   },
   "power/internal/meter": {
     "imports": [
+      "lib/procstat",
       "power/energy",
       "power/internal/supply"
     ],
@@ -6011,6 +6016,7 @@
       "bytes",
       "errors",
       "fmt",
+      "io",
       "io/fs",
       "os",
       "path/filepath",

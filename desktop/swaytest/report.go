@@ -2,7 +2,6 @@ package swaytest
 
 import (
 	"context"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -13,10 +12,8 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
-	"github.com/stubbedev/lys/lib/intconv"
 	"github.com/stubbedev/lys/lib/procstat"
 )
 
@@ -25,7 +22,6 @@ const (
 	maxBacktrace     = 64 << 10
 	maxThreads       = 64
 	backtraceTimeout = 10 * time.Second
-	atClkTck         = 17
 )
 
 type watch struct {
@@ -81,7 +77,7 @@ func sampleCPU(pid int) cpuSample {
 	if err != nil {
 		return cpuSample{err: err}
 	}
-	d, err := ticksDuration(st.CPUTicks)
+	d, err := st.CPU()
 	return cpuSample{time: d, err: err}
 }
 
@@ -117,7 +113,7 @@ func threadLine(dir string, tid int) string {
 	if err != nil {
 		return fmt.Sprintf("%d: error: %v, wchan %s", tid, err, wchan)
 	}
-	cpu, err := ticksDuration(st.CPUTicks)
+	cpu, err := st.CPU()
 	return fmt.Sprintf("%d %s: state %s, wchan %s, CPU %s", tid, st.Comm, st.State, wchan, cpuSample{time: cpu, err: err})
 }
 
@@ -152,49 +148,6 @@ func statusState(pid int) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("no State line in %s", name)
-}
-
-func ticksDuration(ticks uint64) (time.Duration, error) {
-	tick, err := clockTick()
-	if err != nil {
-		return 0, err
-	}
-	return intconv.Duration(ticks, tick), nil
-}
-
-var clockTick = sync.OnceValues(readClockTick)
-
-func readClockTick() (time.Duration, error) {
-	hz, err := readClockTicks()
-	if err != nil {
-		return 0, err
-	}
-	if hz == 0 || hz > uint64(time.Second) {
-		return 0, fmt.Errorf("AT_CLKTCK %d is not a clock rate in (0, 1e9] Hz", hz)
-	}
-	return time.Second / time.Duration(hz), nil
-}
-
-func readClockTicks() (uint64, error) {
-	const name = "/proc/self/auxv"
-	auxv, err := os.ReadFile(name)
-	if err != nil {
-		return 0, err
-	}
-	word := strconv.IntSize / 8
-	for i := 0; i+2*word <= len(auxv); i += 2 * word {
-		if auxvWord(auxv[i:], word) == atClkTck {
-			return auxvWord(auxv[i+word:], word), nil
-		}
-	}
-	return 0, fmt.Errorf("no AT_CLKTCK in %s", name)
-}
-
-func auxvWord(b []byte, word int) uint64 {
-	if word == 8 {
-		return binary.NativeEndian.Uint64(b)
-	}
-	return uint64(binary.NativeEndian.Uint32(b))
 }
 
 func onlineCPUs() (string, error) {

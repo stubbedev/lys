@@ -54,8 +54,8 @@ func (s *steps) Sample(func() time.Time) (energy.Sample, meter.Gaps, error) {
 func TestMeasureEnergyComparesTwoSamplesTheGivenTimeApart(t *testing.T) {
 	at := time.Date(2026, 11, 20, 12, 0, 0, 0, time.UTC)
 	s := &steps{samples: []energy.Sample{
-		{At: at, Groups: []energy.Group{{Cgroup: "app.slice/a.scope", Command: "a"}}},
-		{At: at.Add(4 * time.Second), Groups: []energy.Group{{Cgroup: "app.slice/a.scope", Command: "a", CPU: 2 * time.Second}}},
+		{At: at, Groups: []energy.Group{{Cgroup: "app.slice/a.scope", Processes: []energy.Process{{ID: energy.ProcessID{PID: 1}, Command: "a"}}}}},
+		{At: at.Add(4 * time.Second), Groups: []energy.Group{{Cgroup: "app.slice/a.scope", CPU: 2 * time.Second, Processes: []energy.Process{{ID: energy.ProcessID{PID: 1}, Command: "a", CPU: 2 * time.Second}}}}},
 	}, panels: make([]energy.PanelState, 15)}
 	var slept time.Duration
 	r, gaps, err := measureEnergy(s, 4*time.Second, func(d time.Duration) { slept += d })

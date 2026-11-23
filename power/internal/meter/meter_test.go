@@ -6,8 +6,11 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/stubbedev/lys/lib/procstat"
 
 	"github.com/stubbedev/lys/power/energy"
 	"github.com/stubbedev/lys/power/internal/meter"
@@ -83,10 +86,22 @@ func (mc machine) thread(pid, tid, name string, voluntary, involuntary string) {
 }
 
 func (mc machine) process(pid, comm string) {
-	mc.proc.write(pid+"/comm", comm+"\n")
+	mc.stat(pid, comm, "3", "2", "100")
 	if err := os.MkdirAll(filepath.Join(mc.proc.root, pid, "fd"), 0o755); err != nil {
 		mc.proc.t.Fatal(err)
 	}
+}
+
+func (mc machine) stat(pid, comm, utime, stime, start string) {
+	mc.proc.write(pid+"/stat", pid+" ("+comm+") S 1 "+pid+" "+pid+" 0 -1 4194560 100 0 0 0 "+utime+" "+stime+" 0 0 20 0 1 0 "+start+" 12345 67\n")
+}
+
+func pids(g energy.Group) []uint32 {
+	out := make([]uint32, 0, len(g.Processes))
+	for _, p := range g.Processes {
+		out = append(out, p.ID.PID)
+	}
+	return out
 }
 
 func (mc machine) sample(t *testing.T) (energy.Sample, meter.Gaps) {
@@ -147,17 +162,100 @@ func TestProcessesThreadsAndTheirSwitches(t *testing.T) {
 	mc.thread("42", "42", "sleep", "0", "0")
 	s, _ := mc.sample(t)
 	g := find(t, s, appScope)
-	if !reflect.DeepEqual(g.PIDs, []uint32{40, 41, 42}) || g.Command != "foot" {
-		t.Errorf("pids %v, command %q, want 40 41 42 and foot", g.PIDs, g.Command)
+	if got := pids(g); !reflect.DeepEqual(got, []uint32{40, 41, 42}) {
+		t.Errorf("pids %v, want 40 41 42", got)
 	}
-	want := []energy.Thread{
-		{PID: 40, TID: 40, Process: "foot", Name: "foot", Switches: 12},
-		{PID: 40, TID: 43, Process: "foot", Name: "foot:gdrv0", Switches: 5},
-		{PID: 41, TID: 41, Process: "fish", Name: "fish", Switches: 2},
-		{PID: 42, TID: 42, Process: "sleep", Name: "sleep", Switches: 0},
+	want := map[string][]energy.Thread{
+		"foot":  {{TID: 40, Name: "foot", Switches: 12}, {TID: 43, Name: "foot:gdrv0", Switches: 5}},
+		"fish":  {{TID: 41, Name: "fish", Switches: 2}},
+		"sleep": {{TID: 42, Name: "sleep", Switches: 0}},
 	}
-	if !reflect.DeepEqual(g.Threads, want) {
-		t.Errorf("threads = %+v, want %+v", g.Threads, want)
+	for _, p := range g.Processes {
+		if !reflect.DeepEqual(p.Threads, want[p.Command]) {
+			t.Errorf("%d %s threads = %+v, want %+v", p.ID.PID, p.Command, p.Threads, want[p.Command])
+		}
+	}
+}
+
+func TestEachProcessCarriesItsCPUTimeAndStart(t *testing.T) {
+	mc := newMachine(t)
+	mc.unit(session, "1", "7356\n7826\n")
+	mc.stat("7356", ".lys-login-wrap", "1", "1", "500")
+	mc.proc.write("7356/cmdline", "/nix/store/ks59-lys-login/bin/lys-login\x00worker\x00session\x00")
+	mc.thread("7356", "7356", ".lys-login-wrap", "0", "0")
+	mc.stat("7826", "lys-wm", "15000", "8367", "900")
+	mc.thread("7826", "7826", "lys-wm", "0", "0")
+	s, _ := mc.sample(t)
+	g := find(t, s, session)
+	worker, err := procstat.Stat{CPUTicks: 2}.CPU()
+	if err != nil {
+		t.Fatal(err)
+	}
+	wm, err := procstat.Stat{CPUTicks: 23367}.CPU()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []energy.Process{
+		{
+			ID: energy.ProcessID{PID: 7356, Start: 500}, Command: "lys-login",
+			CPU: worker, Threads: []energy.Thread{{TID: 7356, Name: ".lys-login-wrap"}}, GPU: map[energy.DRMClient]map[string]energy.Engine{},
+		},
+		{
+			ID: energy.ProcessID{PID: 7826, Start: 900}, Command: "lys-wm",
+			CPU: wm, Threads: []energy.Thread{{TID: 7826, Name: "lys-wm"}}, GPU: map[energy.DRMClient]map[string]energy.Engine{},
+		},
+	}
+	if !reflect.DeepEqual(g.Processes, want) {
+		t.Errorf("processes = %+v, want %+v", g.Processes, want)
+	}
+}
+
+func TestAProcessIsNamedForItsProgramWhereItsCommandNameIsShortened(t *testing.T) {
+	for _, tc := range []struct {
+		comm, cmdline, want string
+	}{
+		{".lys-login-wrap", "/nix/store/x-lys-login/bin/lys-login\x00daemon\x00", "lys-login"},
+		{".claude-unwrapp", "/nix/store/x-claude-code/bin/claude\x00", "claude"},
+		{".gh-wrapped", "/nix/store/x-gh/bin/gh\x00pr\x00", "gh"},
+		{".xdg-desktop-po", "/nix/store/x-portal/libexec/xdg-desktop-portal\x00", "xdg-desktop-portal"},
+		{"systemd-journal", "/nix/store/x-systemd/lib/systemd/systemd-journald\x00", "systemd-journald"},
+		{"tmux: server", "/nix/store/x-tmux/bin/tmux\x00", "tmux: server"},
+		{"oom-notify", "/nix/store/x-bash/bin/bash\x00/etc/oom-notify\x00", "oom-notify"},
+		{"tmux-pick-sessi", "/nix/store/x-zsh/bin/zsh\x00/home/u/bin/tmux-pick-session\x00", "tmux-pick-sessi"},
+		{".hidden", "/opt/other\x00", ".hidden"},
+		{".kworker-wrapp", "", ".kworker-wrapp"},
+	} {
+		mc := newMachine(t)
+		mc.unit(appScope, "1", "40\n")
+		mc.stat("40", tc.comm, "0", "0", "1")
+		mc.proc.write("40/cmdline", tc.cmdline)
+		mc.thread("40", "40", tc.comm, "0", "0")
+		s, _ := mc.sample(t)
+		if got := find(t, s, appScope).Processes[0].Command; got != tc.want {
+			t.Errorf("%q run as %q is named %q, want %q", tc.comm, tc.cmdline, got, tc.want)
+		}
+	}
+}
+
+func TestACommandLineLongerThanAPathStillNamesTheProgram(t *testing.T) {
+	mc := newMachine(t)
+	mc.unit(appScope, "1", "40\n")
+	mc.stat("40", ".java-wrapped", "0", "0", "1")
+	mc.proc.write("40/cmdline", "/usr/bin/java\x00-cp\x00"+strings.Repeat("x", 3*4096)+"\x00")
+	mc.thread("40", "40", "java", "0", "0")
+	s, _ := mc.sample(t)
+	if got := find(t, s, appScope).Processes[0].Command; got != "java" {
+		t.Errorf("named %q, want java", got)
+	}
+}
+
+func TestAMalformedProcessStatIsAnError(t *testing.T) {
+	mc := newMachine(t)
+	mc.unit(appScope, "1", "40\n")
+	mc.proc.write("40/stat", "40 (foot) S 1 2 3\n")
+	mc.thread("40", "40", "foot", "0", "0")
+	if _, _, err := mc.m.Sample(time.Now); err == nil {
+		t.Error("a truncated /proc/40/stat sampled")
 	}
 }
 
@@ -166,10 +264,15 @@ func TestAProcessThatExitsMidSampleIsSkipped(t *testing.T) {
 	mc.unit(appScope, "1", "40\n50\n")
 	mc.process("40", "foot")
 	mc.thread("40", "40", "foot", "1", "1")
-	mc.proc.write("50/comm", "gone\n")
+	mc.process("50", "gone")
 	s, _ := mc.sample(t)
-	if g := find(t, s, appScope); !reflect.DeepEqual(g.PIDs, []uint32{40}) {
-		t.Errorf("pids = %v, want 40 alone: 50 has no threads left", g.PIDs)
+	if got := pids(find(t, s, appScope)); !reflect.DeepEqual(got, []uint32{40}) {
+		t.Errorf("pids = %v, want 40 alone: 50 has no threads left", got)
+	}
+	mc.unit(appScope, "1", "40\n60\n")
+	s, _ = mc.sample(t)
+	if got := pids(find(t, s, appScope)); !reflect.DeepEqual(got, []uint32{40}) {
+		t.Errorf("pids = %v, want 40 alone: 60 has no stat left", got)
 	}
 }
 
@@ -210,8 +313,9 @@ func TestGPUClientsAreReadOnceAcrossProcesses(t *testing.T) {
 		{Device: "0000:03:00.0", ID: 7}: {"gfx": {Clock: energy.EngineNanoseconds, Busy: 1500}},
 		{Device: "i915", ID: 3}:         {"render": {Clock: energy.EngineNanoseconds, Busy: 20}},
 	}
-	if g := find(t, s, appScope); !reflect.DeepEqual(g.GPU, want) {
-		t.Errorf("GPU = %+v, want %+v", g.GPU, want)
+	g := find(t, s, appScope)
+	if !reflect.DeepEqual(g.Processes[0].GPU, want) || len(g.Processes[1].GPU) != 0 {
+		t.Errorf("GPU = %+v and %+v, want %+v on 40 and the shared client not again on 41", g.Processes[0].GPU, g.Processes[1].GPU, want)
 	}
 }
 
