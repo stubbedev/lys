@@ -80,6 +80,10 @@
         # third_party/typesetting's heap-budget and lazy-table tests
         # parse a real font of thousands of glyphs.
         LYS_TEST_DEJAVU_SANS = "${pkgs.dejavu_fonts.minimal}/share/fonts/truetype/DejaVuSans.ttf";
+        # render's autohinter is compared with FreeType's on a CJK and an
+        # Indic face, the two writing systems besides Latin.
+        LYS_TEST_CJK_FONT = "${pkgs.wqy_microhei}/share/fonts/truetype/wqy-microhei.ttc";
+        LYS_TEST_INDIC_FONT = "${pkgs.lohit-fonts.odia}/share/fonts/truetype/Lohit-Odia.ttf";
         LYS_TEST_XCURSOR_PATH = "${pkgs.vanilla-dmz}/share/icons";
       }
       // {

@@ -307,16 +307,24 @@ segments from, before implied on-curve midpoints are inserted. render's
 autohinter, a port of FreeType's, analyses exactly the points FreeType's
 loader yields, and those midpoints would add segments and change its
 direction analysis. It is false for a CFF or CFF2 face and a glyph past
-the table. `tables.AppendSimpleGlyphPoints` decodes a simple glyph's
+the table. The points are loaded as FreeType's TrueType loader loads an
+unscaled glyph: varied points rounded to whole font units, and a
+component's points put through its matrix in 16.16 fixed point with
+each product rounded as `FT_MulFix` does, its varied offset rounded, and
+a scaled offset multiplied by `FT_Hypot` of the matrix columns
+(`FT_Vector_Length`'s CORDIC, ported); `GlyphDataOutline` keeps
+upstream's float composition. `tables.AppendSimpleGlyphPoints` decodes a simple glyph's
 points straight into the caller's slice, two passes over the flags and
 no intermediate `SimpleGlyph`, and `font/glyphs.go` loads simple glyphs
 through it into the phantom-padded buffer it returns, allocating the
 composite loop guard only for a composite glyph; `AppendGlyphContours`
 loads into a pooled buffer. A simple glyph's contours cost no
 allocation where upstream took seven. Pinned by
-`font/lys_contours_test.go` (every glyph of Quicksand VF at three
-weights: the contours build the same segments as `GlyphDataOutline`;
-appending keeps the buffer's points and allocates nothing)
+`font/lys_contours_test.go` (every glyph of Quicksand VF: at the default
+instance the contours build `GlyphDataOutline`'s segments, at three
+varied weights every point is a whole font unit within one of it;
+FT_MulFix rounding of a component matrix; the CORDIC length; appending
+keeps the buffer's points and allocates nothing)
 and `font/lys_gvar_test.go` (outlines unchanged).
 
 ## Not patched

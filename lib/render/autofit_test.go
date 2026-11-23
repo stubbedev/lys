@@ -114,13 +114,13 @@ func TestHintingPutsTheXHeightOnAWholeRow(t *testing.T) {
 	hf := tf.hints.autofit(tf.face)
 	offGrid := 0
 	for px := int64(9); px <= 32; px++ {
-		ys, ok := hf.Hint(nil, uint32(gid), outline, px*64)
+		pts, _, ok := hf.Hint(nil, uint32(gid), outline, px*64)
 		if !ok {
 			t.Fatalf("%dpx: x is not hinted", px)
 		}
-		top := ys[0]
-		for _, y := range ys {
-			top = max(top, y)
+		top := pts[0].Y
+		for _, p := range pts {
+			top = max(top, p.Y)
 		}
 		if top%64 != 0 {
 			t.Errorf("at %dpx the top of x sits at %d/64 px, off a whole row", px, top)
@@ -138,26 +138,40 @@ func TestHintingPutsTheXHeightOnAWholeRow(t *testing.T) {
 	}
 }
 
-func TestAGlyphNoScriptCoversDrawsUnhinted(t *testing.T) {
+func TestAGlyphNoScriptCoversIsHintedOnBothAxesByTheCJKFallback(t *testing.T) {
 	tf, err := LoadFont(goregular.TTF)
 	if err != nil {
 		t.Fatal(err)
 	}
 	gid := runeGlyph(t, tf, 'ℓ')
 	outline, _ := loadTestOutline(tf, gid)
-	if _, hinted := tf.hints.autofit(tf.face).Hint(nil, uint32(gid), outline, 13*64); hinted {
-		t.Fatal("ℓ, which no script covers, is hinted; FreeType gives it its CJK fallback, which the port does not have")
+	const px = 11
+	hinted, horizontal, ok := tf.hints.autofit(tf.face).Hint(nil, uint32(gid), outline, px*64)
+	if !ok || !horizontal {
+		t.Fatalf("ℓ, which no script covers, is hinted %v, horizontally %v; FreeType hints it with its CJK fallback on both axes", ok, horizontal)
 	}
-	scale := 13 / tf.upem
+	moved := false
+	for i, p := range outline.Points {
+		if hinted[i].X != mulFix26(p.X, px, tf.upem) {
+			moved = true
+		}
+	}
+	if !moved {
+		t.Error("premise: the CJK fallback moves no point of ℓ horizontally at 11px")
+	}
+	scale := px / tf.upem
 	glyphs.dropAll()
 	got, _, _ := GlyphCoverage(tf, gid, scale, 0, 0, RGB(255, 255, 255))
 	want := new(glyphScratch).raster(devicePoint{}, func(path pathBuilder) {
 		outlinePath(outline, func(i int) devicePoint {
-			p := outline.Points[i]
-			return devicePoint{scale * float64(p.X), -scale * float64(p.Y)}
+			return devicePoint{float64(hinted[i].X) / 64, -float64(hinted[i].Y) / 64}
 		}, path)
 	})
 	if got.ox != want.ox || got.oy != want.oy || !bytes.Equal(got.mask, want.mask) {
-		t.Error("ℓ is not drawn as its outline scaled linearly")
+		t.Error("ℓ is not drawn at its hinted points on both axes")
 	}
+}
+
+func mulFix26(v int64, px int64, upem float64) int64 {
+	return int64(math.Round(float64(v) * float64(px*64) / upem))
 }

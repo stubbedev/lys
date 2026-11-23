@@ -43,6 +43,7 @@ const (
 	flagConic             uint16 = 1 << 0
 	flagCubic             uint16 = 1 << 1
 	flagControl                  = flagConic | flagCubic
+	flagTouchX            uint16 = 1 << 2
 	flagTouchY            uint16 = 1 << 3
 	flagWeakInterpolation uint16 = 1 << 4
 	flagNear              uint16 = 1 << 5
@@ -79,6 +80,7 @@ type segment struct {
 	edgeNext           int
 	link, serif        int
 	score              int64
+	len                int64
 	first, last        int
 }
 
@@ -105,6 +107,40 @@ type glyphHints struct {
 	segments   []segment
 	edges      []edge
 	majorDir   direction
+	touch      uint16
+	horizontal bool
+}
+
+func (d direction) transposed() direction {
+	switch d {
+	case dirUp:
+		return dirRight
+	case dirRight:
+		return dirUp
+	case dirDown:
+		return dirLeft
+	case dirLeft:
+		return dirDown
+	}
+	return d
+}
+
+func (h *glyphHints) transpose() {
+	for i := range h.points {
+		p := &h.points[i]
+		p.fx, p.fy = p.fy, p.fx
+		p.ox, p.oy = p.oy, p.ox
+		p.x, p.y = p.y, p.x
+		p.inDir, p.outDir = p.inDir.transposed(), p.outDir.transposed()
+	}
+	h.xScale, h.yScale = h.yScale, h.xScale
+	h.majorDir = -h.majorDir
+	h.horizontal = !h.horizontal
+	if h.horizontal {
+		h.touch = flagTouchX
+	} else {
+		h.touch = flagTouchY
+	}
 }
 
 func direction2(dx, dy int64) direction {
@@ -167,6 +203,7 @@ func (h *glyphHints) reload(o Outline) {
 	if orientationIsPostScript(o) {
 		h.majorDir = dirRight
 	}
+	h.touch, h.horizontal = flagTouchY, false
 	if n == 0 {
 		return
 	}
@@ -316,7 +353,7 @@ func (h *glyphHints) alignEdgePoints() {
 		pos := h.edges[s.edge].pos
 		for p := s.first; ; p = h.points[p].next {
 			h.points[p].y = pos
-			h.points[p].flags |= flagTouchY
+			h.points[p].flags |= h.touch
 			if p == s.last {
 				break
 			}
@@ -331,13 +368,13 @@ func (h *glyphHints) alignStrongPoints() {
 	}
 	for i := range h.points {
 		p := &h.points[i]
-		if p.flags&flagTouchY != 0 || p.flags&flagWeakInterpolation != 0 {
+		if p.flags&h.touch != 0 || p.flags&flagWeakInterpolation != 0 {
 			continue
 		}
 		u, ou := p.fy, p.oy
 		fu := u
 		p.y = h.strongPosition(u, ou, fu)
-		p.flags |= flagTouchY
+		p.flags |= h.touch
 	}
 }
 
@@ -448,7 +485,7 @@ func (h *glyphHints) alignWeakPoints() {
 		p := c
 		endPoint := pts[p].prev
 		firstPoint := p
-		for p <= endPoint && pts[p].flags&flagTouchY == 0 {
+		for p <= endPoint && pts[p].flags&h.touch == 0 {
 			p++
 		}
 		if p > endPoint {
@@ -457,12 +494,12 @@ func (h *glyphHints) alignWeakPoints() {
 		firstTouched := p
 		lastTouched := p
 		for {
-			for p < endPoint && pts[p+1].flags&flagTouchY != 0 {
+			for p < endPoint && pts[p+1].flags&h.touch != 0 {
 				p++
 			}
 			lastTouched = p
 			p++
-			for p <= endPoint && pts[p].flags&flagTouchY == 0 {
+			for p <= endPoint && pts[p].flags&h.touch == 0 {
 				p++
 			}
 			if p > endPoint {

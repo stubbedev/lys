@@ -22,15 +22,16 @@ type Mapping struct {
 }
 
 const (
-	styleMask     uint16 = 0x1FFF
-	styleFallback        = styleMask
-	styleNonBase  uint16 = 0x4000
+	styleMask    uint16 = 0x1FFF
+	styleNonBase uint16 = 0x4000
 )
 
 type styleMetrics struct {
-	once    sync.Once
-	metrics *latinMetrics
-	scaled  atomic.Pointer[scaledAxis]
+	once        sync.Once
+	latin       *latinMetrics
+	cjk         *cjkMetrics
+	scaledLatin atomic.Pointer[scaledAxis]
+	scaledCJK   atomic.Pointer[scaledCJK]
 }
 
 var hintsPool sync.Pool
@@ -89,16 +90,27 @@ func coverage(mappings []Mapping) map[uint32]uint16 {
 			}
 		})
 	}
-	glyphs[0] = styleFallback
+	glyphs[0] = fallbackStyle
 	for _, m := range mappings {
 		if _, ok := glyphs[m.Glyph]; !ok {
-			glyphs[m.Glyph] = styleFallback
+			glyphs[m.Glyph] = fallbackStyle
 		}
 	}
 	return glyphs
 }
 
-var latinStyle = uint16(slices.IndexFunc(styles[:], func(st style) bool { return st.script == latinScript }))
+var (
+	latinStyle    = styleOf(latinScript)
+	fallbackStyle = styleOf(haniScript)
+)
+
+func styleOf(script int) uint16 {
+	i := slices.IndexFunc(styles[:], func(st style) bool { return st.script == script })
+	if i < 0 || i > int(styleMask) {
+		panic("autofit: no default style for a script the tables name")
+	}
+	return uint16(i)
+}
 
 func (f *Face) style(gid uint32) uint16 {
 	if s, ok := f.glyphs[gid]; ok {
@@ -120,8 +132,13 @@ func reverseCharmap(src Source) map[uint32]rune {
 func (f *Face) metrics(ss int) *styleMetrics {
 	sm := &f.styles[ss]
 	sm.once.Do(func() {
-		if m, ok := newLatinMetrics(f.src, styles[ss]); ok {
-			sm.metrics = m
+		switch st := styles[ss]; st.writing {
+		case writingLatin:
+			if m, ok := newLatinMetrics(f.src, st); ok {
+				sm.latin = m
+			}
+		case writingCJK, writingIndic:
+			sm.cjk = newCJKMetrics(f.src, st)
 		}
 	})
 	return sm
@@ -133,12 +150,21 @@ type scaledAxis struct {
 	blues   []blue
 }
 
-func (sm *styleMetrics) axis(nominal int64) *scaledAxis {
-	if a := sm.scaled.Load(); a != nil && a.nominal == nominal {
+func (sm *styleMetrics) latinAxis(nominal int64) *scaledAxis {
+	if a := sm.scaledLatin.Load(); a != nil && a.nominal == nominal {
 		return a
 	}
-	a := sm.metrics.scale(nominal)
-	sm.scaled.Store(a)
+	a := sm.latin.scale(nominal)
+	sm.scaledLatin.Store(a)
+	return a
+}
+
+func (sm *styleMetrics) cjkAxes(nominal int64) *scaledCJK {
+	if a := sm.scaledCJK.Load(); a != nil && a.nominal == nominal {
+		return a
+	}
+	a := sm.cjk.scale(nominal)
+	sm.scaledCJK.Store(a)
 	return a
 }
 
@@ -206,27 +232,49 @@ func (m *latinMetrics) scale(yScale int64) *scaledAxis {
 	return a
 }
 
-// Hint returns the hinted y of every point of o, in 26.6 device pixels
-// at size26d6 pixels per em, or false when FreeType would not hint the
-// glyph with its Latin writing system.
-func (f *Face) Hint(dst []int64, gid uint32, o Outline, size26d6 int64) ([]int64, bool) {
+// Hint appends the hinted position of every point of o, in 26.6 device
+// pixels at size26d6 pixels per em, to dst. horizontal reports whether
+// x is hinted too, as the CJK and Indic writing systems hint it; Latin
+// leaves x scaled. It is false when FreeType would leave the glyph
+// unhinted.
+func (f *Face) Hint(dst []Point, gid uint32, o Outline, size26d6 int64) (out []Point, horizontal, ok bool) {
 	if len(o.Points) == 0 {
-		return dst, false
+		return dst, false, false
 	}
 	gs := f.style(gid)
 	ss := int(gs & styleMask)
-	if gs&styleMask == styleFallback || !styles[ss].latin {
-		return dst, false
-	}
 	sm := f.metrics(ss)
-	m := sm.metrics
-	if m == nil {
-		return dst, false
-	}
 	nominal := divFix(size26d6, f.upem)
-	axis := sm.axis(nominal)
 	h := takeHints()
 	defer hintsPool.Put(h)
+	switch {
+	case sm.latin != nil:
+		f.hintLatin(h, sm, gid, gs, o, nominal)
+	case sm.cjk != nil:
+		f.hintCJK(h, sm, o, nominal)
+		horizontal = true
+	default:
+		return dst, false, false
+	}
+	for i := range h.points {
+		dst = append(dst, Point{X: h.points[i].x, Y: h.points[i].y})
+	}
+	return dst, horizontal, true
+}
+
+func (f *Face) hintCJK(h *glyphHints, sm *styleMetrics, o Outline, nominal int64) {
+	axes := sm.cjkAxes(nominal)
+	h.upem, h.xScale, h.yScale = f.upem, axes.axis[dimHorz].scale, axes.axis[dimVert].scale
+	h.reload(o)
+	h.transpose()
+	h.hintAxisCJK(sm.cjk, &axes.axis[dimHorz], dimHorz)
+	h.transpose()
+	h.hintAxisCJK(sm.cjk, &axes.axis[dimVert], dimVert)
+}
+
+func (f *Face) hintLatin(h *glyphHints, sm *styleMetrics, gid uint32, gs uint16, o Outline, nominal int64) {
+	m := sm.latin
+	axis := sm.latinAxis(nominal)
 	h.upem, h.xScale, h.yScale = f.upem, nominal, axis.scale
 	h.reload(o)
 
@@ -278,9 +326,4 @@ func (f *Face) Hint(dst []int64, gid uint32, o Outline, size26d6 int64) ([]int64
 	h.alignStrongPoints()
 	h.alignWeakPoints()
 	h.separateVertically(adj, accentHeightLimit)
-
-	for i := range h.points {
-		dst = append(dst, h.points[i].y)
-	}
-	return dst, true
 }

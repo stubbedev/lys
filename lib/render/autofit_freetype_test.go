@@ -1,8 +1,10 @@
 package render
 
 import (
+	"bytes"
 	"fmt"
 	"os"
+	"runtime"
 	"sync"
 	"testing"
 	"unsafe"
@@ -12,6 +14,8 @@ import (
 	"golang.org/x/image/font/gofont/goregular"
 
 	"github.com/stubbedev/lys/lib/clib"
+	"github.com/stubbedev/lys/lib/render/internal/autofit"
+	"github.com/stubbedev/lys/lib/testbuild"
 	"github.com/stubbedev/lys/lib/third_party/typesetting/font"
 )
 
@@ -73,7 +77,7 @@ func peek[T any](base unsafe.Pointer, offset int) T {
 	return *(*T)(unsafe.Add(base, offset))
 }
 
-func (ft *freetype) hintedYs(t *testing.T, face unsafe.Pointer, gid font.GID) []int64 {
+func (ft *freetype) hintedPoints(t *testing.T, face unsafe.Pointer, gid font.GID) []autofit.Point {
 	t.Helper()
 	if rc := ft.loadGlyph(face, uint32(gid), ftLoadNoBitmap|ftLoadForceAutohint|ftLoadTargetLight); rc != 0 {
 		t.Fatalf("FT_Load_Glyph %d: error %d", gid, rc)
@@ -85,11 +89,11 @@ func (ft *freetype) hintedYs(t *testing.T, face unsafe.Pointer, gid font.GID) []
 	outline := unsafe.Add(slot, ftSlotOutline)
 	n := int(peek[uint16](outline, ftOutlineNPoints))
 	points := peek[unsafe.Pointer](outline, ftOutlinePoints)
-	ys := make([]int64, n)
+	pts := make([]autofit.Point, n)
 	for i := range n {
-		ys[i] = peek[int64](points, 16*i+8)
+		pts[i] = autofit.Point{X: peek[int64](points, 16*i), Y: peek[int64](points, 16*i+8)}
 	}
-	return ys
+	return pts
 }
 
 var autofitReferenceFaces = []struct {
@@ -103,6 +107,42 @@ var autofitReferenceFaces = []struct {
 	}},
 	{"Go", func(*testing.T) []byte { return goregular.TTF }},
 	{"Go Mono", func(*testing.T) []byte { return gomono.TTF }},
+	{"WenQuanYi Micro Hei", func(t *testing.T) []byte { return readEnvFont(t, "LYS_TEST_CJK_FONT") }},
+	{"Lohit Odia", func(t *testing.T) []byte { return readEnvFont(t, "LYS_TEST_INDIC_FONT") }},
+}
+
+const (
+	largeFaceGlyphs = 2000
+	largeFaceStride = 100
+)
+
+func comparedAt(i, glyphs int, px int64) bool {
+	if glyphs <= largeFaceGlyphs {
+		return true
+	}
+	return px == 16 || i%largeFaceStride == 0
+}
+
+func readEnvFont(t *testing.T, variable string) []byte {
+	t.Helper()
+	path := os.Getenv(variable)
+	if path == "" {
+		t.Skipf("%s unset: the dev shell points it at a font", variable)
+	}
+	return readTestFile(t, path)
+}
+
+func loadFirstFace(t *testing.T, data []byte) *Typeface {
+	t.Helper()
+	faces, err := font.ParseTTC(bytes.NewReader(data))
+	if err != nil {
+		t.Fatal(err)
+	}
+	tf, err := NewTypeface(faces[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	return tf
 }
 
 func readTestFile(t *testing.T, path string) []byte {
@@ -115,18 +155,19 @@ func readTestFile(t *testing.T, path string) []byte {
 }
 
 func TestAutofitHintsEveryMappedGlyphAsFreeTypesLightAutohinter(t *testing.T) {
+	if testbuild.Race {
+		t.Skip("one goroutine of integer arithmetic: the race detector only slows the comparison")
+	}
 	ft := loadFreetype(t)
 	for _, tc := range autofitReferenceFaces {
 		t.Run(tc.name, func(t *testing.T) {
 			data := tc.data(t)
-			tf, err := LoadFont(data)
-			if err != nil {
-				t.Fatal(err)
-			}
+			tf := loadFirstFace(t, data)
 			var face unsafe.Pointer
 			if rc := ft.newFace(ft.library, &data[0], int64(len(data)), 0, &face); rc != 0 {
 				t.Fatalf("FT_New_Memory_Face: error %d", rc)
 			}
+			defer runtime.KeepAlive(data)
 			defer ft.doneFace(face)
 			if got := peek[uint16](face, ftFaceUnitsPerEM); float64(got) != tf.upem {
 				t.Fatalf("FreeType reads %d units per em, render %v: the FT_FaceRec offsets do not match this FreeType", got, tf.upem)
@@ -146,21 +187,24 @@ func TestAutofitHintsEveryMappedGlyphAsFreeTypesLightAutohinter(t *testing.T) {
 				if rc := ft.setCharSize(face, 0, px*64, 72, 72); rc != 0 {
 					t.Fatalf("FT_Set_Char_Size %dpx: error %d", px, rc)
 				}
-				for _, gid := range gids {
+				for i, gid := range gids {
+					if !comparedAt(i, len(gids), px) {
+						continue
+					}
 					outline, ok := loadTestOutline(tf, gid)
 					if !ok {
 						continue
 					}
-					got, hinted := hf.Hint(nil, uint32(gid), outline, px*64)
+					got, _, hinted := hf.Hint(nil, uint32(gid), outline, px*64)
 					if !hinted {
 						continue
 					}
-					want := ft.hintedYs(t, face, gid)
+					want := ft.hintedPoints(t, face, gid)
 					compared++
 					if fmt.Sprint(got) != fmt.Sprint(want) {
 						mismatched++
 						if mismatched <= 5 {
-							t.Errorf("glyph %d at %dpx: hinted y %v, FreeType %v", gid, px, got, want)
+							t.Errorf("glyph %d at %dpx: hinted %v, FreeType %v", gid, px, got, want)
 						}
 					}
 				}

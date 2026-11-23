@@ -512,7 +512,7 @@ func (f *Face) AppendGlyphContours(dst []ContourPoint, gid GID) ([]ContourPoint,
 		buf = new([]contourPoint)
 	}
 	points := (*buf)[:0]
-	f.getPointsForGlyphRec(g, 0, nil, &points)
+	f.getPointsForGlyphRec(g, 0, nil, true, &points)
 	for _, p := range points[:len(points)-phantomCount] {
 		dst = append(dst, ContourPoint{X: p.X, Y: p.Y, OnCurve: p.isOnCurve, End: p.isEndPoint})
 	}

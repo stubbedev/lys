@@ -9,6 +9,8 @@ import (
 	"image"
 	"image/jpeg"
 	"image/png"
+	"math"
+	"math/bits"
 
 	ot "github.com/stubbedev/lys/lib/third_party/typesetting/font/opentype"
 	"github.com/stubbedev/lys/lib/third_party/typesetting/font/opentype/tables"
@@ -46,7 +48,7 @@ type glyphSet map[tables.GlyphID]struct{}
 
 func (f *Face) getPointsForGlyph(gid tables.GlyphID) []contourPoint {
 	var out []contourPoint
-	f.getPointsForGlyphRec(gid, 0, nil, &out)
+	f.getPointsForGlyphRec(gid, 0, nil, false, &out)
 	return out
 }
 
@@ -57,7 +59,7 @@ const maxCompositeNesting = 20 // protect against malicious fonts
 // for composite, recursively calls itself; allPoints includes phantom points and is
 // always at least of length phantomCount, even for a missing, too-deeply-nested or
 // otherwise malformed glyph (in which case an empty-but-valid outline is produced).
-func (f *Face) getPointsForGlyphRec(gid tables.GlyphID, currentDepth int, currentGlyphs glyphSet, allPoints *[]contourPoint /* OUT */) {
+func (f *Face) getPointsForGlyphRec(gid tables.GlyphID, currentDepth int, currentGlyphs glyphSet, exact bool, allPoints *[]contourPoint /* OUT */) {
 	// adapted from harfbuzz/src/OT/glyf/Glyph.hh
 
 	if currentDepth > maxCompositeNesting || int(gid) >= f.glyf.Len() {
@@ -75,6 +77,9 @@ func (f *Face) getPointsForGlyphRec(gid tables.GlyphID, currentDepth int, curren
 		f.setPhantoms(gid, header, points[len(points)-phantomCount:])
 		if f.isVar() {
 			f.gvar.applyDeltasToPoints(gid, f.coords, points)
+			if exact {
+				roundPoints(points)
+			}
 		}
 		if currentDepth == 0 {
 			tx := -points[len(points)-phantomCount+phantomLeft].X
@@ -100,6 +105,9 @@ func (f *Face) getPointsForGlyphRec(gid tables.GlyphID, currentDepth int, curren
 
 	if f.isVar() {
 		f.gvar.applyDeltasToPoints(gid, f.coords, points)
+		if exact {
+			roundPoints(points)
+		}
 	}
 
 	switch data := g.Data.(type) {
@@ -116,7 +124,7 @@ func (f *Face) getPointsForGlyphRec(gid tables.GlyphID, currentDepth int, curren
 			// recurse on component
 			var compPoints []contourPoint
 
-			f.getPointsForGlyphRec(item.GlyphIndex, currentDepth+1, currentGlyphs, &compPoints)
+			f.getPointsForGlyphRec(item.GlyphIndex, currentDepth+1, currentGlyphs, exact, &compPoints)
 
 			// getPointsForGlyphRec guarantees at least the phantom points, so a
 			// component always contributes a well-formed slice here.
@@ -125,6 +133,13 @@ func (f *Face) getPointsForGlyphRec(gid tables.GlyphID, currentDepth int, curren
 			/* Copy phantom points from component if USE_MY_METRICS flag set */
 			if item.HasUseMyMetrics() {
 				copy(phantoms, compPoints[LC-phantomCount:])
+			}
+
+			if exact {
+				composeExact(&item, compPoints[:LC-phantomCount], points[compIndex], *allPoints)
+				*allPoints = append(*allPoints, compPoints[0:LC-phantomCount]...)
+				delete(currentGlyphs, item.GlyphIndex)
+				continue
 			}
 
 			/* Apply component transformation & translation */
@@ -288,6 +303,107 @@ func transformPoints(c *tables.CompositeGlyphPart, points []contourPoint) {
 			points[i].translate(transX, transY)
 		}
 	}
+}
+
+func roundPoints(points []contourPoint) {
+	for i := range points {
+		points[i].X = float32(math.Floor(float64(points[i].X) + 0.5))
+		points[i].Y = float32(math.Floor(float64(points[i].Y) + 0.5))
+	}
+}
+
+func composeExact(c *tables.CompositeGlyphPart, comp []contourPoint, offset contourPoint, base []contourPoint) {
+	const scaledComponentOffset = 0x0800
+	xx, yx, xy, yy := fixed214(c.Scale[0]), fixed214(c.Scale[1]), fixed214(c.Scale[2]), fixed214(c.Scale[3])
+	haveScale := c.Scale != [4]float32{1, 0, 0, 1}
+	if haveScale {
+		for i := range comp {
+			x, y := int64(comp[i].X), int64(comp[i].Y)
+			comp[i].X = float32(mulFix(x, xx) + mulFix(y, xy))
+			comp[i].Y = float32(mulFix(x, yx) + mulFix(y, yy))
+		}
+	}
+	var dx, dy int64
+	if c.IsAnchored() {
+		p1, p2 := c.ArgsAsIndices()
+		if p1 >= len(base) || p2 >= len(comp) {
+			return
+		}
+		dx, dy = int64(base[p1].X-comp[p2].X), int64(base[p1].Y-comp[p2].Y)
+	} else {
+		a1, a2 := c.ArgsAsTranslation()
+		dx, dy = int64(a1)+int64(offset.X), int64(a2)+int64(offset.Y)
+		if dx == 0 && dy == 0 {
+			return
+		}
+		if haveScale && c.Flags&scaledComponentOffset != 0 {
+			dx = mulFix(dx, vectorLength(xx, xy))
+			dy = mulFix(dy, vectorLength(yy, yx))
+		}
+	}
+	for i := range comp {
+		comp[i].translate(float32(dx), float32(dy))
+	}
+}
+
+func fixed214(v float32) int64 { return int64(v*16384) * 4 }
+
+func mulFix(a, b int64) int64 {
+	ab := a * b
+	return (ab + 0x8000 + (ab >> 63)) >> 16
+}
+
+func vectorLength(x, y int64) int64 {
+	switch {
+	case x == 0:
+		return abs64(y)
+	case y == 0:
+		return abs64(x)
+	}
+	const safeMSB = 29
+	shift := 31 - bits.LeadingZeros32(uint32(abs64(x)|abs64(y)))
+	if shift <= safeMSB {
+		shift = safeMSB - shift
+		x, y = int64(uint64(x)<<shift), int64(uint64(y)<<shift)
+	} else {
+		shift -= safeMSB
+		x, y = x>>shift, y>>shift
+		shift = -shift
+	}
+	switch {
+	case y > x && y > -x:
+		x, y = y, -x
+	case y > x:
+		x, y = -x, -y
+	case y < -x:
+		x, y = -y, x
+	}
+	b := int64(1)
+	for i := 1; i < 23; i++ {
+		if y > 0 {
+			x, y = x+((y+b)>>i), y-((x+b)>>i)
+		} else {
+			x, y = x-((y+b)>>i), y+((x+b)>>i)
+		}
+		b <<= 1
+	}
+	neg := x < 0
+	v := abs64(x)
+	v = int64((uint64(v)*0xDBD95B16 + 0x40000000) >> 32)
+	if neg {
+		v = -v
+	}
+	if shift > 0 {
+		return (v + (1 << (shift - 1))) >> shift
+	}
+	return int64(uint32(v) << -shift)
+}
+
+func abs64(v int64) int64 {
+	if v < 0 {
+		return -v
+	}
+	return v
 }
 
 func getGlyphExtents(g tables.GlyphHeader, metrics tables.Hmtx, gid gID) GlyphExtents {

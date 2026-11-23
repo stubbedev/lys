@@ -4006,6 +4006,7 @@
       "image/png",
       "io",
       "math",
+      "math/bits",
       "sort",
       "strconv",
       "strings",

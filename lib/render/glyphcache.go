@@ -143,15 +143,19 @@ func cachedOutlineRaster(t *Typeface, gid font.GID, scale, penX, penY float64) (
 	}
 	outline := sc.outline
 	m := Affine{A: scale, C: scale * t.slant, D: -scale, E: bucketOffset(key.fx), F: bucketOffset(key.fy)}
-	var isHinted bool
-	sc.ys, isHinted = t.hints.autofit(t.face).Hint(sc.ys[:0], uint32(gid), outline, int64(math.Round(scale*t.upem*64)))
-	hinted := sc.ys
+	var hintedX, isHinted bool
+	sc.hinted, hintedX, isHinted = t.hints.autofit(t.face).Hint(sc.hinted[:0], uint32(gid), outline, int64(math.Round(scale*t.upem*64)))
+	hinted := sc.hinted
 	g := sc.raster(devicePoint{m.E, m.F}, func(path pathBuilder) {
 		outlinePath(outline, func(i int) devicePoint {
 			p := outline.Points[i]
-			y := m.F - float64(scale*float64(p.Y))
-			if isHinted {
-				y = m.F - float64(float64(hinted[i])/64)
+			if !isHinted {
+				x, y := m.Apply(float64(p.X), float64(p.Y))
+				return devicePoint{x, y}
+			}
+			y := m.F - float64(float64(hinted[i].Y)/64)
+			if hintedX {
+				return devicePoint{float64(float64(hinted[i].X)/64) + float64(t.slant*(m.F-y)) + m.E, y}
 			}
 			x, _ := m.Apply(float64(p.X), (m.F-y)/scale)
 			return devicePoint{x, y}
@@ -209,7 +213,7 @@ func (r *recordedPath) cubeTo(c1, c2, p devicePoint) {
 type glyphScratch struct {
 	contours []font.ContourPoint
 	outline  autofit.Outline
-	ys       []int64
+	hinted   []autofit.Point
 	path     recordedPath
 	z        vector.Rasterizer
 	mask     image.Alpha

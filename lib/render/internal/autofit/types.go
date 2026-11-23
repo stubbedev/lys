@@ -7,10 +7,19 @@ type script struct {
 	ranges, nonbase []uniRange
 }
 
+type writingSystem uint8
+
+const (
+	writingDummy writingSystem = iota
+	writingLatin
+	writingCJK
+	writingIndic
+)
+
 type style struct {
-	script int
-	latin  bool
-	blues  int
+	script  int
+	writing writingSystem
+	blues   int
 }
 
 type blueString struct {
