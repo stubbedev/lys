@@ -2,10 +2,12 @@ package meter_test
 
 import (
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -26,7 +28,7 @@ const (
 var at = time.Date(2026, 11, 20, 12, 0, 0, 0, time.UTC)
 
 type tree struct {
-	t    *testing.T
+	t    testing.TB
 	root string
 }
 
@@ -58,7 +60,7 @@ type machine struct {
 	supply, dri            tree
 }
 
-func newMachine(t *testing.T) machine {
+func newMachine(t testing.TB) machine {
 	dir := t.TempDir()
 	mc := machine{
 		cgroup:   tree{t, filepath.Join(dir, "cgroup")},
@@ -341,6 +343,25 @@ func TestGPUClientsAreReadOnceAcrossProcesses(t *testing.T) {
 	}
 }
 
+func TestOnlyDescriptorsOnADRMDeviceAreGPUClients(t *testing.T) {
+	mc := newMachine(t)
+	mc.unit(appScope, "1", "40\n")
+	mc.process("40", "app")
+	mc.thread("40", "40", "app", "0", "0")
+	info := "drm-driver:\ti915\ndrm-client-id:\t%s\ndrm-engine-render:\t20 ns\n"
+	for fd, target := range map[string]string{"3": "/dev/dri", "4": "/dev/drink/x", "5": "/dev/dr", "6": "/dev/dri/card0"} {
+		mc.proc.link("40/fd/"+fd, target)
+		mc.proc.write("40/fdinfo/"+fd, fmt.Sprintf(info, fd))
+	}
+	s, _ := mc.sample(t)
+	want := map[energy.DRMClient]map[string]energy.Engine{
+		{Device: "i915", ID: 6}: {"render": {Clock: energy.EngineNanoseconds, Busy: 20}},
+	}
+	if got := find(t, s, appScope).Processes[0].GPU; !reflect.DeepEqual(got, want) {
+		t.Errorf("GPU = %+v, want only the descriptor under /dev/dri/: %+v", got, want)
+	}
+}
+
 func TestParseFDInfo(t *testing.T) {
 	xe := []byte("drm-driver:\txe\ndrm-pdev:\t0000:00:02.0\ndrm-client-id:\t12\ndrm-cycles-rcs:\t400\ndrm-total-cycles-rcs:\t9000\ndrm-cycles-bcs:\t0\ndrm-total-cycles-bcs:\t9000\n")
 	client, engines, ok, err := meter.ParseFDInfo(xe)
@@ -438,5 +459,29 @@ func TestTheBatteryCountsOnlyWhileDischarging(t *testing.T) {
 	}
 	if _, _, err := mc.m.Sample(time.Now); !errors.Is(err, fs.ErrNotExist) {
 		t.Errorf("a battery reporting no power: %v, want the missing file named", err)
+	}
+}
+
+func BenchmarkSampleProcessesWithGPUClients(b *testing.B) {
+	mc := newMachine(b)
+	var unit []string
+	for p := range 40 {
+		pid := strconv.Itoa(100 + p)
+		unit = append(unit, pid)
+		mc.process(pid, "app")
+		mc.thread(pid, pid, "app", "10", "2")
+		for fd := range 40 {
+			mc.proc.link(pid+"/fd/"+strconv.Itoa(fd), "/dev/null")
+			mc.proc.write(pid+"/fdinfo/"+strconv.Itoa(fd), "pos:\t0\n")
+		}
+		mc.proc.link(pid+"/fd/40", "/dev/dri/renderD128")
+		mc.proc.write(pid+"/fdinfo/40", "drm-driver:\ti915\ndrm-client-id:\t"+pid+"\ndrm-engine-render:\t20 ns\ndrm-engine-video:\t5 ns\n")
+	}
+	mc.unit("app.slice/app.scope", "500", strings.Join(unit, "\n")+"\n")
+	b.ReportAllocs()
+	for b.Loop() {
+		if _, _, err := mc.m.Sample(func() time.Time { return at }); err != nil {
+			b.Fatal(err)
+		}
 	}
 }

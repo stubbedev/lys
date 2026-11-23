@@ -6,7 +6,6 @@
 package meter
 
 import (
-	"bufio"
 	"bytes"
 	"errors"
 	"fmt"
@@ -21,6 +20,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/lib/procstat"
+	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/power/energy"
 	"github.com/stubbedev/lys/power/internal/supply"
@@ -359,7 +359,7 @@ func threadStatus(path string) (name string, switches uint64, err error) {
 }
 
 func (m Meter) clients(p *energy.Process, dir string, seen map[energy.DRMClient]bool, gaps *Gaps) error {
-	fds, err := os.ReadDir(filepath.Join(dir, "fd"))
+	fdDir, err := os.Open(filepath.Join(dir, "fd"))
 	if Gone(err) {
 		return nil
 	}
@@ -370,8 +370,18 @@ func (m Meter) clients(p *energy.Process, dir string, seen map[energy.DRMClient]
 	if err != nil {
 		return fmt.Errorf("listing %s/fd: %w", dir, err)
 	}
+	defer func() { _ = fdDir.Close() }()
+	fds, err := fdDir.Readdirnames(-1)
+	if Gone(err) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("listing %s/fd: %w", dir, err)
+	}
+	dirFD := int(fdDir.Fd())
+	var target [len(driPrefix)]byte
 	for _, fd := range fds {
-		target, err := os.Readlink(filepath.Join(dir, "fd", fd.Name()))
+		n, err := unix.Readlinkat(dirFD, fd, target[:])
 		if Gone(err) {
 			continue
 		}
@@ -380,12 +390,12 @@ func (m Meter) clients(p *energy.Process, dir string, seen map[energy.DRMClient]
 			return nil
 		}
 		if err != nil {
-			return fmt.Errorf("reading %s/fd/%s: %w", dir, fd.Name(), err)
+			return fmt.Errorf("reading %s/fd/%s: %w", dir, fd, err)
 		}
-		if !strings.HasPrefix(target, "/dev/dri/") {
+		if n < len(driPrefix) || string(target[:]) != driPrefix {
 			continue
 		}
-		raw, err := os.ReadFile(filepath.Join(dir, "fdinfo", fd.Name()))
+		raw, err := os.ReadFile(filepath.Join(dir, "fdinfo", fd))
 		if Gone(err) {
 			continue
 		}
@@ -394,11 +404,11 @@ func (m Meter) clients(p *energy.Process, dir string, seen map[energy.DRMClient]
 			return nil
 		}
 		if err != nil {
-			return fmt.Errorf("reading %s/fdinfo/%s: %w", dir, fd.Name(), err)
+			return fmt.Errorf("reading %s/fdinfo/%s: %w", dir, fd, err)
 		}
 		client, engines, ok, err := ParseFDInfo(raw)
 		if err != nil {
-			return fmt.Errorf("%s/fdinfo/%s: %w", dir, fd.Name(), err)
+			return fmt.Errorf("%s/fdinfo/%s: %w", dir, fd, err)
 		}
 		if !ok || seen[client] {
 			continue
@@ -409,14 +419,16 @@ func (m Meter) clients(p *energy.Process, dir string, seen map[energy.DRMClient]
 	return nil
 }
 
+// driPrefix starts the link of a descriptor open on a DRM device.
+const driPrefix = "/dev/dri/"
+
 func ParseFDInfo(raw []byte) (energy.DRMClient, map[string]energy.Engine, bool, error) {
 	var client energy.DRMClient
 	var driver string
 	hasID := false
 	engines := map[string]energy.Engine{}
-	scan := bufio.NewScanner(bytes.NewReader(raw))
-	for scan.Scan() {
-		key, value, ok := strings.Cut(scan.Text(), ":")
+	for line := range strings.Lines(string(raw)) {
+		key, value, ok := strings.Cut(strings.TrimRight(line, "\r\n"), ":")
 		if !ok {
 			continue
 		}
@@ -458,9 +470,6 @@ func ParseFDInfo(raw []byte) (energy.DRMClient, map[string]energy.Engine, bool, 
 			e.Clock, e.Busy = energy.EngineCycles, n
 			engines[name] = e
 		}
-	}
-	if err := scan.Err(); err != nil {
-		return energy.DRMClient{}, nil, false, err
 	}
 	if !hasID {
 		return energy.DRMClient{}, nil, false, nil
