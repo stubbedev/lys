@@ -14,7 +14,7 @@ import (
 
 type (
 	// ColorFunc maps a color to x y coordinates
-	ColorFunc func(x, y int) color.Color
+	ColorFunc func(x, y int) color.NRGBA
 	// Scanner interface for path generating types
 	Scanner interface {
 		Start(a fixed.Point26_6)

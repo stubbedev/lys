@@ -105,7 +105,9 @@ func (doc *svgDoc) draw(img *image.RGBA, m rasterx.Matrix2D) {
 
 func drawSVGPaths(dst draw.Image, paths []oksvg.SvgPath, m rasterx.Matrix2D) {
 	b := dst.Bounds()
-	dasher := rasterx.NewDasher(b.Dx(), b.Dy(), newSVGScanner(b.Dx(), b.Dy(), dst))
+	buf := takeSVGBuffers()
+	defer svgBufferPool.Put(buf)
+	dasher := rasterx.NewDasher(b.Dx(), b.Dy(), newSVGScanner(b.Dx(), b.Dy(), dst, buf))
 	for i := range paths {
 		paths[i].DrawTransformed(dasher, 1, m)
 	}

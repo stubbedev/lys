@@ -4278,6 +4278,7 @@
       "lib/testbuild"
     ],
     "testExternal": [
+      "bytes",
       "crypto/sha256",
       "fmt",
       "testing"

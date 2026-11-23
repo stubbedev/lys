@@ -321,7 +321,7 @@ func TestSVGScannerEvenOddMatchesTheVectorCoverage(t *testing.T) {
 			img := image.NewRGBA(image.Rect(0, 0, w, h))
 			var sc rasterx.Scanner = rasterx.NewScannerGV(w, h, img, img.Bounds())
 			if evenOdd {
-				sc = newSVGScanner(w, h, img)
+				sc = newSVGScanner(w, h, img, new(svgBuffers))
 			}
 			sc.Clear()
 			sc.SetWinding(!evenOdd)
@@ -393,7 +393,7 @@ func TestSVGScannerEvenOddPathsAreIndependent(t *testing.T) {
 	}
 
 	img := image.NewRGBA(image.Rect(0, 0, 20, 20))
-	sc := newSVGScanner(20, 20, img)
+	sc := newSVGScanner(20, 20, img, new(svgBuffers))
 	sc.Clear()
 	sc.SetWinding(false)
 	sc.SetColor(color.NRGBA{0xff, 0xff, 0xff, 0xff})
@@ -664,7 +664,7 @@ func TestSVGScannerNonzeroMatchesTheWholeTarget(t *testing.T) {
 			}
 			whole, boxed := image.NewRGBA(image.Rect(0, 0, w, h)), image.NewRGBA(image.Rect(0, 0, w, h))
 			paint(rasterx.NewScannerGV(w, h, whole, whole.Bounds()))
-			paint(newSVGScanner(w, h, boxed))
+			paint(newSVGScanner(w, h, boxed, new(svgBuffers)))
 			worst := 0
 			for i := range whole.Pix {
 				worst = max(worst, abs(int(whole.Pix[i])-int(boxed.Pix[i])))

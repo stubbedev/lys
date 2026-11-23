@@ -424,6 +424,10 @@ func (z *Rasterizer) rasterizeDstRGBASrcUniformOpSrc(dst *image.RGBA, r image.Re
 
 func (z *Rasterizer) rasterizeOpOver(dst draw.Image, r image.Rectangle, src image.Image, sp image.Point) {
 	z.accumulateMask()
+	if dst, ok := dst.(*image.RGBA); ok {
+		z.rasterizeDstRGBAOp(dst, r, src, sp, draw.Over)
+		return
+	}
 	out := color.RGBA64{}
 	outc := color.Color(&out)
 	for y, y1 := 0, r.Max.Y-r.Min.Y; y < y1; y++ {
@@ -447,6 +451,10 @@ func (z *Rasterizer) rasterizeOpOver(dst draw.Image, r image.Rectangle, src imag
 
 func (z *Rasterizer) rasterizeOpSrc(dst draw.Image, r image.Rectangle, src image.Image, sp image.Point) {
 	z.accumulateMask()
+	if dst, ok := dst.(*image.RGBA); ok {
+		z.rasterizeDstRGBAOp(dst, r, src, sp, draw.Src)
+		return
+	}
 	out := color.RGBA64{}
 	outc := color.Color(&out)
 	for y, y1 := 0, r.Max.Y-r.Min.Y; y < y1; y++ {
@@ -465,3 +473,52 @@ func (z *Rasterizer) rasterizeOpSrc(dst draw.Image, r image.Rectangle, src image
 		}
 	}
 }
+
+// rasterizeDstRGBAOp is rasterizeOpOver and rasterizeOpSrc for an RGBA
+// destination: the same arithmetic on its pixels in place, reading the
+// source through RGBA64At where it has one, and leaving out pixels the
+// path does not cover, which the arithmetic would leave unchanged under
+// Over and clear under Src.
+func (z *Rasterizer) rasterizeDstRGBAOp(dst *image.RGBA, r image.Rectangle, src image.Image, sp image.Point, op draw.Op) {
+	src64, _ := src.(image.RGBA64Image)
+	for y, y1 := 0, r.Max.Y-r.Min.Y; y < y1; y++ {
+		for x, x1 := 0, r.Max.X-r.Min.X; x < x1; x++ {
+			p := image.Point{r.Min.X + x, r.Min.Y + y}
+			if !p.In(dst.Rect) {
+				continue
+			}
+			ma := z.bufU32[y*z.size.X+x]
+			d := dst.Pix[dst.PixOffset(p.X, p.Y):][:4:4]
+			if ma == 0 {
+				if op == draw.Src {
+					d[0], d[1], d[2], d[3] = 0, 0, 0, 0
+				}
+				continue
+			}
+			var sr, sg, sb, sa uint32
+			if src64 != nil {
+				c := src64.RGBA64At(sp.X+x, sp.Y+y)
+				sr, sg, sb, sa = uint32(c.R), uint32(c.G), uint32(c.B), uint32(c.A)
+			} else {
+				sr, sg, sb, sa = src.At(sp.X+x, sp.Y+y).RGBA()
+			}
+			if op == draw.Src {
+				d[0] = high(sr * ma / 0xffff)
+				d[1] = high(sg * ma / 0xffff)
+				d[2] = high(sb * ma / 0xffff)
+				d[3] = high(sa * ma / 0xffff)
+				continue
+			}
+			dr, dg, db, da := uint32(d[0])*0x101, uint32(d[1])*0x101, uint32(d[2])*0x101, uint32(d[3])*0x101
+			a := 0xffff - (sa * ma / 0xffff)
+			d[0] = high((dr*a + sr*ma) / 0xffff)
+			d[1] = high((dg*a + sg*ma) / 0xffff)
+			d[2] = high((db*a + sb*ma) / 0xffff)
+			d[3] = high((da*a + sa*ma) / 0xffff)
+		}
+	}
+}
+
+// high is the 8-bit channel image.RGBA.Set stores for a color.RGBA64
+// channel computed as v.
+func high(v uint32) uint8 { return uint8(uint16(v) >> 8) }

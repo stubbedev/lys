@@ -4,6 +4,7 @@ import (
 	"image"
 	"image/draw"
 	"math"
+	"sync"
 
 	"golang.org/x/image/math/fixed"
 
@@ -21,12 +22,9 @@ import (
 // wave, and composite through the same source.
 type svgScanner struct {
 	*rasterx.ScannerGV
+	*svgBuffers
 	evenOdd bool
 	w, h    int
-	points  []svgPoint
-	z       vector.Rasterizer
-	area    []float32
-	mask    image.Alpha
 	// boxW and boxH are the even-odd area's size.
 	boxW, boxH int
 	// The pen and the current subpath's start, in pixels of the box.
@@ -35,32 +33,35 @@ type svgScanner struct {
 	minX, minY, maxX, maxY     fixed.Int26_6
 }
 
+// svgBuffers is what a scanner grows while it rasterizes, kept for the
+// next document's paths.
+type svgBuffers struct {
+	points []svgPoint
+	z      vector.Rasterizer
+	area   []float32
+	mask   image.Alpha
+}
+
+var svgBufferPool sync.Pool
+
+func takeSVGBuffers() *svgBuffers {
+	if b, ok := svgBufferPool.Get().(*svgBuffers); ok {
+		return b
+	}
+	return new(svgBuffers)
+}
+
 // svgPoint is one vertex of the accumulated path, in pixels.
 type svgPoint struct {
 	x, y  float32
 	start bool
 }
 
-func newSVGScanner(w, h int, dest draw.Image) *svgScanner {
-	s := &svgScanner{ScannerGV: rasterx.NewScannerGV(0, 0, dest, dest.Bounds()), w: w, h: h}
+func newSVGScanner(w, h int, dest draw.Image, buf *svgBuffers) *svgScanner {
+	s := &svgScanner{ScannerGV: rasterx.NewScannerGV(0, 0, dest, dest.Bounds()), svgBuffers: buf, w: w, h: h}
 	s.Clear()
 	return s
 }
-
-// SetColor sets the next path's paint. A gradient's source is
-// rasterx's ColorFuncImage, which embeds image.Uniform and so inherits
-// its RGBA64At; image/draw prefers that over At, and would paint the
-// Uniform's leftover color instead of the gradient. The source is
-// handed to draw behind an image that only answers At.
-func (s *svgScanner) SetColor(c any) {
-	s.ScannerGV.SetColor(c)
-	if _, uniform := s.Source.(*image.Uniform); !uniform {
-		s.Source = atOnly{s.Source}
-	}
-}
-
-// atOnly is an image whose pixels come from At alone.
-type atOnly struct{ image.Image }
 
 // SetWinding picks the fill rule for the next path.
 func (s *svgScanner) SetWinding(useNonZeroWinding bool) { s.evenOdd = !useNonZeroWinding }

@@ -24,6 +24,12 @@ func (c *ColorFuncImage) At(x, y int) color.Color {
 	return c.colorFunc(x, y)
 }
 
+// RGBA64At returns the color at the point x,y without boxing it.
+func (c *ColorFuncImage) RGBA64At(x, y int) color.RGBA64 {
+	r, g, b, a := c.colorFunc(x, y).RGBA()
+	return color.RGBA64{uint16(r), uint16(g), uint16(b), uint16(a)}
+}
+
 type (
 	// ColorFuncImage implements and image
 	// using the provided colorFunc
@@ -61,10 +67,26 @@ func (s *ScannerGV) GetPathExtent() fixed.Rectangle26_6 {
 // At returns the color of the ClipImage at the point x,y
 func (c *ClipImage) At(x, y int) color.Color {
 	p := image.Point{x, y}
-	if p.In(c.clip) {
-		return c.ColorFuncImage.At(x, y)
+	switch {
+	case !p.In(c.clip):
+		return noApha
+	case c.colorFunc == nil:
+		return c.Uniform.C
 	}
-	return noApha
+	return c.ColorFuncImage.At(x, y)
+}
+
+// RGBA64At returns the color of the ClipImage at the point x,y without
+// boxing it.
+func (c *ClipImage) RGBA64At(x, y int) color.RGBA64 {
+	p := image.Point{x, y}
+	switch {
+	case !p.In(c.clip):
+		return color.RGBA64{}
+	case c.colorFunc == nil:
+		return c.Uniform.RGBA64At(x, y)
+	}
+	return c.ColorFuncImage.RGBA64At(x, y)
 }
 
 // SetWinding set the winding rule for the scanner
@@ -80,9 +102,7 @@ func (s *ScannerGV) SetColor(clr interface{}) {
 		if s.clipImage.clip == image.ZR {
 			s.Source = &s.clipImage.ColorFuncImage.Uniform
 		} else {
-			s.clipImage.ColorFuncImage.colorFunc = func(x, y int) color.Color {
-				return c
-			}
+			s.clipImage.ColorFuncImage.colorFunc = nil
 			s.Source = s.clipImage
 		}
 	case ColorFunc:
@@ -99,7 +119,7 @@ func (s *ScannerGV) SetColor(clr interface{}) {
 // that region -- if size is 0 then ignored (set to image.ZR to clear)
 func (s *ScannerGV) SetClip(rect image.Rectangle) {
 	s.clipImage.clip = rect
-	if s.Source == &s.clipImage.ColorFuncImage.Uniform {
+	if s.Source == &s.clipImage.ColorFuncImage.Uniform || s.clipImage.colorFunc == nil {
 		s.SetColor(s.clipImage.ColorFuncImage.Uniform.C)
 	} else {
 		s.SetColor(s.clipImage.ColorFuncImage.colorFunc)

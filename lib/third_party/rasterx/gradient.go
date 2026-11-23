@@ -57,7 +57,7 @@ func ApplyOpacity(c color.Color, opacity float64) color.NRGBA {
 // tColor takes the paramaterized value along the gradient's stops and
 // returns a color depending on the spreadMethod value of the gradient and
 // the gradient's slice of stop values.
-func (g *Gradient) tColor(t, opacity float64) color.Color {
+func (g *Gradient) tColor(t, opacity float64) color.NRGBA {
 	d := len(g.Stops)
 	// These cases can be taken care of early on
 	if t >= 1.0 && g.Spread == PadSpread {
@@ -129,7 +129,7 @@ func (g *Gradient) tColor(t, opacity float64) color.Color {
 	}
 }
 
-func (g *Gradient) blendStops(t, opacity float64, s1, s2 GradStop, flip bool) color.Color {
+func (g *Gradient) blendStops(t, opacity float64, s1, s2 GradStop, flip bool) color.NRGBA {
 	s1off := s1.Offset
 	if s1.Offset > s2.Offset && !flip { // happens in repeat spread mode
 		s1off--
@@ -147,11 +147,11 @@ func (g *Gradient) blendStops(t, opacity float64, s1, s2 GradStop, flip bool) co
 	r1, g1, b1, _ := s1.StopColor.RGBA()
 	r2, g2, b2, _ := s2.StopColor.RGBA()
 
-	return ApplyOpacity(color.RGBA{
+	return color.NRGBA{
 		uint8((float64(float64(r1)*(1-tp)) + float64(float64(r2)*tp)) / 256),
 		uint8((float64(float64(g1)*(1-tp)) + float64(float64(g2)*tp)) / 256),
 		uint8((float64(float64(b1)*(1-tp)) + float64(float64(b2)*tp)) / 256),
-		0xFF}, (float64(s1.Opacity*(1-tp))+float64(s2.Opacity*tp))*opacity)
+		uint8((float64(s1.Opacity*(1-tp)) + float64(s2.Opacity*tp)) * opacity * 0xFF)}
 }
 
 // GetColorFunction returns the color function
@@ -201,14 +201,14 @@ func (g *Gradient) GetColorFunctionUS(opacity float64, objMatrix Matrix2D) inter
 			// t is just distance from center
 			// scaled by the bounds aspect ratio times r
 			if g.Units == ObjectBoundingBox {
-				return ColorFunc(func(xi, yi int) color.Color {
+				return ColorFunc(func(xi, yi int) color.NRGBA {
 					x, y := gradT.Transform(float64(xi)+0.5, float64(yi)+0.5)
 					dx := float64(x) - cx
 					dy := float64(y) - cy
 					return g.tColor(math.Sqrt(dx*dx/(rx*rx)+(dy*dy)/(ry*ry)), opacity)
 				})
 			}
-			return ColorFunc(func(xi, yi int) color.Color {
+			return ColorFunc(func(xi, yi int) color.NRGBA {
 				x := float64(xi) + 0.5
 				y := float64(yi) + 0.5
 				dx := x - cx
@@ -233,7 +233,7 @@ func (g *Gradient) GetColorFunctionUS(opacity float64, objMatrix Matrix2D) inter
 			}
 		}
 		if g.Units == ObjectBoundingBox {
-			return ColorFunc(func(xi, yi int) color.Color {
+			return ColorFunc(func(xi, yi int) color.NRGBA {
 				x, y := gradT.Transform(float64(xi)+0.5, float64(yi)+0.5)
 				ex := x / rx
 				ey := y / ry
@@ -252,7 +252,7 @@ func (g *Gradient) GetColorFunctionUS(opacity float64, objMatrix Matrix2D) inter
 				return g.tColor(math.Sqrt(float64(dx*dx)+float64(dy*dy))/math.Sqrt(float64(tdx*tdx)+float64(tdy*tdy)), opacity)
 			})
 		}
-		return ColorFunc(func(xi, yi int) color.Color {
+		return ColorFunc(func(xi, yi int) color.NRGBA {
 			x := float64(xi) + 0.5
 			y := float64(yi) + 0.5
 			ex := x / rx
@@ -282,7 +282,7 @@ func (g *Gradient) GetColorFunctionUS(opacity float64, objMatrix Matrix2D) inter
 		dx := p2x - p1x
 		dy := p2y - p1y
 		d := (float64(dx*dx) + float64(dy*dy)) // self inner prod
-		return ColorFunc(func(xi, yi int) color.Color {
+		return ColorFunc(func(xi, yi int) color.NRGBA {
 			x, y := gradT.Transform(float64(xi)+0.5, float64(yi)+0.5)
 			dfx := x - p1x
 			dfy := y - p1y
@@ -300,7 +300,7 @@ func (g *Gradient) GetColorFunctionUS(opacity float64, objMatrix Matrix2D) inter
 	// if d == 0.0 {
 	// 	fmt.Println("zero delta")
 	// }
-	return ColorFunc(func(xi, yi int) color.Color {
+	return ColorFunc(func(xi, yi int) color.NRGBA {
 		x := float64(xi) + 0.5
 		y := float64(yi) + 0.5
 		dfx := x - p1x

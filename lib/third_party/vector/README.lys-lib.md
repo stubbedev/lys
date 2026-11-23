@@ -24,6 +24,18 @@ that reaches an addition or a subtraction is now converted first. amd64's result
 are unchanged. Pinned by `lys_test.go`, which also holds the assembly accumulators
 to the portable ones on the architectures that have them, and by `just no-fused`.
 
+### A non-uniform source paints an RGBA target in place
+
+`vector.go`: `Draw` with a source other than `image.Uniform` went through
+`draw.Image`'s `At` and `Set` for every pixel of the path's box, boxing a
+`color.Color` three times per pixel. For an `*image.RGBA` target,
+`rasterizeDstRGBAOp` now runs the same arithmetic on the pixels in place,
+reads the source through `RGBA64At` where it has one (as `image/draw`
+does), and leaves out uncovered pixels, which the arithmetic leaves
+unchanged under Over and clears under Src. Pinned by `lys_rgba_test.go`:
+every pixel equals the generic path's, both operators, both kinds of
+source.
+
 No initialisation: `haveAccumulateSIMD` is a function reading
 `cpu.X86.HasSSE41` on use, where upstream copied it into a variable when the
 package was imported. Pinned by `TestImportingCostsNothing`.

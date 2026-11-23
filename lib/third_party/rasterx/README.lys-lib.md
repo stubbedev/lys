@@ -25,6 +25,18 @@ first. That includes `x/2`, which the compiler turns into a product, and `x*y*2`
 which it turns into `x*y + x*y`. amd64's results are unchanged. Pinned by the
 family's goldens, which hold exactly on amd64 and arm64, and by `just no-fused`.
 
+### Gradients paint without boxing a color per pixel
+
+`fill.go`, `gradient.go`, `scan.go`: `ColorFunc` returns `color.NRGBA`
+instead of `color.Color`, and the stop blend builds it directly, so a
+gradient pixel no longer allocates. `ColorFuncImage` and `ClipImage`
+answer `RGBA64At` from the gradient; upstream's inherited the embedded
+`image.Uniform`'s, so `image/draw`, which prefers `RGBA64At`, painted
+the uniform's color instead of the gradient. A uniform color behind a
+clip is answered from the uniform rather than through a closure.
+Pinned by `lys_gradient_test.go` (`RGBA64At` agrees with `At` on and
+off the clip) and by render's SVG goldens.
+
 ### Import path
 
 `scan.go` imports `third_party/vector` in place of `golang.org/x/image/vector`.
