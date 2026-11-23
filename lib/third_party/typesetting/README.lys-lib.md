@@ -298,6 +298,18 @@ installed faces (Noto, JetBrainsMono Nerd Font), had the same name,
 extents, outline and vertical origin as upstream's, variable fonts at
 their default and at 0.7 on every axis.
 
+### A glyph's TrueType contour points are exported
+
+`font/renderer.go`: `Face.GlyphContours` returns the `glyf` points of a
+glyph, variations applied, with their on-curve and end-of-contour flags:
+the points `GlyphDataOutline` builds its segments from, before implied
+on-curve midpoints are inserted. render's autohinter, a port of
+FreeType's, analyses exactly the points FreeType's loader yields, and
+those midpoints would add segments and change its direction analysis.
+It is false for a CFF or CFF2 face and a glyph past the table. Pinned by
+`font/lys_contours_test.go` (every glyph of Quicksand VF at three
+weights: the contours build the same segments as `GlyphDataOutline`).
+
 ## Not patched
 
 Loading tables as subslices of one buffer instead of per-table copies

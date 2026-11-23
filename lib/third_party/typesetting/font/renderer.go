@@ -494,3 +494,23 @@ func (f *Face) GlyphDataBitmap(gid GID) (GlyphBitmap, bool) {
 
 	return GlyphBitmap{}, false
 }
+
+type ContourPoint struct {
+	X, Y    float32
+	OnCurve bool
+	End     bool
+}
+
+func (f *Face) GlyphContours(gid GID) ([]ContourPoint, bool) {
+	g := gID(gid)
+	if f.cff != nil || f.cff2 != nil || int(g) >= f.glyf.Len() {
+		return nil, false
+	}
+	points := f.getPointsForGlyph(g)
+	points = points[:len(points)-phantomCount]
+	out := make([]ContourPoint, len(points))
+	for i, p := range points {
+		out[i] = ContourPoint{X: p.X, Y: p.Y, OnCurve: p.isOnCurve, End: p.isEndPoint}
+	}
+	return out, true
+}
