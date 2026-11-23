@@ -83,7 +83,7 @@ func readSVGIcon(body []byte) (*oksvg.SvgIcon, error) {
 // draw renders the document into img through m, user space to img
 // pixels. A run of paths under the same clip regions draws into a
 // layer that composites through their intersected coverage.
-func (doc *svgDoc) draw(img *image.RGBA, m rasterx.Matrix2D, grid *svgGrid) {
+func (doc *svgDoc) draw(img *image.RGBA, m rasterx.Matrix2D) {
 	paths := doc.icon.SVGPaths
 	masks := make(map[*oksvg.SvgIcon]*image.Alpha)
 	for i := 0; i < len(paths); {
@@ -92,48 +92,34 @@ func (doc *svgDoc) draw(img *image.RGBA, m rasterx.Matrix2D, grid *svgGrid) {
 			j++
 		}
 		if len(doc.clips[i]) == 0 {
-			drawSVGPaths(gridScanner(img, grid), paths[i:j], m)
+			drawSVGPaths(img, paths[i:j], m)
 		} else {
 			layer := image.NewRGBA(img.Rect)
-			drawSVGPaths(gridScanner(layer, grid), paths[i:j], m)
-			mask := clipMask(doc.clips[i], m, img.Rect, masks, grid)
+			drawSVGPaths(layer, paths[i:j], m)
+			mask := clipMask(doc.clips[i], m, img.Rect, masks)
 			draw.DrawMask(img, img.Rect, layer, img.Rect.Min, mask, img.Rect.Min, draw.Over)
 		}
 		i = j
 	}
 }
 
-func drawSVGPaths(s *svgScanner, paths []oksvg.SvgPath, m rasterx.Matrix2D) {
-	dasher := rasterx.NewDasher(s.w, s.h, s)
+func drawSVGPaths(dst draw.Image, paths []oksvg.SvgPath, m rasterx.Matrix2D) {
+	b := dst.Bounds()
+	dasher := rasterx.NewDasher(b.Dx(), b.Dy(), newSVGScanner(b.Dx(), b.Dy(), dst))
 	for i := range paths {
 		paths[i].DrawTransformed(dasher, 1, m)
 	}
 }
 
-func gridScanner(dst draw.Image, grid *svgGrid) *svgScanner {
-	b := dst.Bounds()
-	s := newSVGScanner(b.Dx(), b.Dy(), dst)
-	s.grid = grid
-	return s
-}
-
-func (doc *svgDoc) gridFit(img *image.RGBA, m rasterx.Matrix2D) svgGrid {
-	var fills []svgFill
-	s := gridScanner(img, nil)
-	s.record = &fills
-	drawSVGPaths(s, doc.icon.SVGPaths, m)
-	return fitSVGGrid(fills, float64(max(img.Rect.Dx(), img.Rect.Dy())))
-}
-
 // clipMask is the coverage of the intersected regions, each rendered
 // once per draw (masks caches them).
-func clipMask(regions []*oksvg.SvgIcon, m rasterx.Matrix2D, rect image.Rectangle, masks map[*oksvg.SvgIcon]*image.Alpha, grid *svgGrid) *image.Alpha {
+func clipMask(regions []*oksvg.SvgIcon, m rasterx.Matrix2D, rect image.Rectangle, masks map[*oksvg.SvgIcon]*image.Alpha) *image.Alpha {
 	region := func(r *oksvg.SvgIcon) *image.Alpha {
 		if a, ok := masks[r]; ok {
 			return a
 		}
 		a := image.NewAlpha(rect)
-		drawSVGPaths(gridScanner(a, grid), r.SVGPaths, m)
+		drawSVGPaths(a, r.SVGPaths, m)
 		masks[r] = a
 		return a
 	}

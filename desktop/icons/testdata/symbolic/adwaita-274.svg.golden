@@ -1,6 +1,6 @@
 <svg width='16' height='16'
      xmlns:gpa='https://www.gtk.org/grappa'
-     gpa:version='2'>
+     gpa:version='3'>
   <path d='M3.94 3.66L4.87 4.60Q5.07 4.80 5.06 5.07Q5.06 5.35 4.87 5.54Q4.67 5.74 4.40 5.73Q4.12 5.73 3.93 5.54L3.00 4.60Q2.80 4.40 2.81 4.13Q2.81 3.85 3.00 3.66Q3.20 3.46 3.47 3.47Q3.75 3.47 3.94 3.66Z'
 stroke='none'
 fill='rgb(0,0,0)'

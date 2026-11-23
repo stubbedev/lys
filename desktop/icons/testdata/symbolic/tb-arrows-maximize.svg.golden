@@ -1,6 +1,18 @@
 <svg width='16' height='16'
      xmlns:gpa='https://www.gtk.org/grappa'
-     gpa:version='2'>
+     gpa:version='3'>
+  <metadata>
+    <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'>
+      <path d='M10.67 2.67L13.33 2.67L13.33 5.33' fill='none' stroke='rgb(0,0,0)' stroke-width='1.33' stroke-linecap='round' stroke-linejoin='round' stroke-miterlimit='4.00'/>
+      <path d='M9.33 6.67L13.33 2.67' fill='none' stroke='rgb(0,0,0)' stroke-width='1.33' stroke-linecap='round' stroke-linejoin='round' stroke-miterlimit='4.00'/>
+      <path d='M5.33 13.33L2.67 13.33L2.67 10.67' fill='none' stroke='rgb(0,0,0)' stroke-width='1.33' stroke-linecap='round' stroke-linejoin='round' stroke-miterlimit='4.00'/>
+      <path d='M2.67 13.33L6.67 9.33' fill='none' stroke='rgb(0,0,0)' stroke-width='1.33' stroke-linecap='round' stroke-linejoin='round' stroke-miterlimit='4.00'/>
+      <path d='M10.67 13.33L13.33 13.33L13.33 10.67' fill='none' stroke='rgb(0,0,0)' stroke-width='1.33' stroke-linecap='round' stroke-linejoin='round' stroke-miterlimit='4.00'/>
+      <path d='M9.33 9.33L13.33 13.33' fill='none' stroke='rgb(0,0,0)' stroke-width='1.33' stroke-linecap='round' stroke-linejoin='round' stroke-miterlimit='4.00'/>
+      <path d='M5.33 2.67L2.67 2.67L2.67 5.33' fill='none' stroke='rgb(0,0,0)' stroke-width='1.33' stroke-linecap='round' stroke-linejoin='round' stroke-miterlimit='4.00'/>
+      <path d='M2.67 2.67L6.67 6.67' fill='none' stroke='rgb(0,0,0)' stroke-width='1.33' stroke-linecap='round' stroke-linejoin='round' stroke-miterlimit='4.00'/>
+    </svg>
+  </metadata>
   <path d='M10.67 2.00L13.33 2.00Q13.61 2.00 13.80 2.20Q14.00 2.39 14.00 2.67L14.00 5.33Q14.00 5.61 13.80 5.80Q13.61 6.00 13.33 6.00Q13.06 6.00 12.86 5.80Q12.67 5.61 12.67 5.33L12.67 2.67L13.33 2.67L13.33 3.33L10.67 3.33Q10.39 3.33 10.20 3.14Q10.00 2.94 10.00 2.67Q10.00 2.39 10.20 2.20Q10.39 2.00 10.67 2.00Z'
 stroke='none'
 fill='rgb(0,0,0)'

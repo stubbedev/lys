@@ -65,3 +65,10 @@ rebased onto it and the patch dropped.
 - Strokes scale with the transform: srwiley/oksvg#54
 - Stroke defaults are SVG's: srwiley/oksvg#55
 - userSpaceOnUse gradients follow the transform: srwiley/oksvg#56
+
+### Paths report their stroke and transform
+
+`svg_path.go`, `SvgPath.Stroked` and `SvgPath.Transform`: whether a path
+is stroked and the transform it draws through, which upstream keeps
+unexported. `render` snaps a symbolic icon's strokes to the pixel grid
+from them.

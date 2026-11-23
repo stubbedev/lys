@@ -1,6 +1,29 @@
 <svg width='16' height='16'
      xmlns:gpa='https://www.gtk.org/grappa'
-     gpa:version='2'>
+     gpa:version='3'>
+  <metadata>
+    <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'>
+      <path d='M2.00 2.00L7.00 2.00' fill='rgb(0,0,0)'/>
+      <path d='M2.00 2.00L7.00 2.00' fill='none' stroke='rgb(0,0,0)' stroke-width='0.50' stroke-linecap='butt' stroke-linejoin='miter' stroke-miterlimit='4.00'/>
+      <path d='M6.00 1.00L8.00 2.00L6.00 3.00Z' fill='rgb(0,0,0)'/>
+      <path d='M2.00 5.00L10.00 10.00' fill='rgb(0,0,0)'/>
+      <path d='M2.00 5.00L10.00 10.00' fill='none' stroke='rgb(0,0,0)' stroke-width='0.50' stroke-linecap='butt' stroke-linejoin='miter' stroke-miterlimit='4.00'/>
+      <path d='M2.00 12.00L6.00 14.00L10.00 12.00' fill='none' stroke='rgb(0,0,0)' stroke-width='0.50' stroke-linecap='butt' stroke-linejoin='miter' stroke-miterlimit='4.00'/>
+      <path d='M1.55 10.66L2.89 12.45L0.66 12.45Z' fill='rgb(0,0,0)'/>
+      <path d='M5.00 13.00L7.00 14.00L5.00 15.00Z' fill='rgb(0,0,0)'/>
+      <path d='M8.66 11.55L10.89 11.55L9.55 13.34Z' fill='rgb(0,0,0)'/>
+      <path d='M10.00 2.00L14.00 2.00' fill='rgb(0,0,0)'/>
+      <path d='M10.00 2.00L14.00 2.00' fill='none' stroke='rgb(0,0,0)' stroke-width='0.50' stroke-linecap='butt' stroke-linejoin='miter' stroke-miterlimit='4.00'/>
+      <path d='M10.00 5.00L14.00 5.00' fill='rgb(0,0,0)'/>
+      <path d='M10.00 5.00L14.00 5.00' fill='none' stroke='rgb(0,0,0)' stroke-width='0.50' stroke-linecap='butt' stroke-linejoin='miter' stroke-miterlimit='4.00'/>
+      <path d='M14.00 5.00L15.00 6.00' fill='rgb(0,0,0)'/>
+      <path d='M14.00 5.00L15.00 6.00' fill='none' stroke='rgb(0,0,0)' stroke-width='0.50' stroke-linecap='butt' stroke-linejoin='miter' stroke-miterlimit='4.00'/>
+      <path d='M10.00 7.00L14.00 7.00' fill='rgb(0,0,0)'/>
+      <path d='M10.00 7.00L14.00 7.00' fill='none' stroke='rgb(0,0,0)' stroke-width='0.50' stroke-linecap='butt' stroke-linejoin='miter' stroke-miterlimit='4.00'/>
+      <path d='M10.00 9.00L14.00 9.00' fill='rgb(0,0,0)'/>
+      <path d='M10.00 9.00L14.00 9.00' fill='none' stroke='rgb(0,0,0)' stroke-width='0.50' stroke-linecap='butt' stroke-linejoin='miter' stroke-miterlimit='4.00'/>
+    </svg>
+  </metadata>
   <path d='M2.00 2.00L7.00 2.00'
 stroke='none'
 fill='rgb(0,0,0)'

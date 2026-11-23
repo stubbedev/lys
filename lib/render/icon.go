@@ -71,22 +71,25 @@ func LoadSVG(data []byte, w, h int) (*Icon, error) {
 	if err != nil {
 		return nil, err
 	}
-	doc.draw(img, m, nil)
+	doc.draw(img, m)
 	return stillIcon(img, 0, 0), nil
 }
 
-// LoadSymbolicSVG rasterizes a symbolic icon as LoadSVG does, its
-// horizontal and vertical edges fitted to whole pixels: a stem keeps
-// its rounded width, at least a pixel and halves rounding down, and the
-// geometry between edges follows them, so a one-unit stroke is one
-// pixel wide at any size off the icon's grid.
+// LoadSymbolicSVG rasterizes a symbolic icon from its stroke source, the
+// SVG in a GTK symbolic icon's metadata or the document itself: each
+// stroke's width rounded to whole device pixels and the whole icon
+// placed by one scale and offset per axis that land its straight
+// horizontal and vertical strokes on whole pixels.
 func LoadSymbolicSVG(data []byte, w, h int) (*Icon, error) {
-	doc, img, m, err := fitSVG(data, w, h)
+	source, err := symbolicSource(data)
 	if err != nil {
 		return nil, err
 	}
-	grid := doc.gridFit(img, m)
-	doc.draw(img, m, &grid)
+	doc, img, m, err := fitSVG(source, w, h)
+	if err != nil {
+		return nil, err
+	}
+	doc.draw(img, snapStrokes(doc, m, w, h))
 	return stillIcon(img, 0, 0), nil
 }
 
@@ -114,7 +117,7 @@ func fitSVG(data []byte, w, h int) (*svgDoc, *image.RGBA, rasterx.Matrix2D, erro
 // into a w x h image.
 func rasterSVG(doc *svgDoc, rx, ry, rw, rh float64, w, h int) *image.RGBA {
 	img := image.NewRGBA(image.Rect(0, 0, w, h))
-	doc.draw(img, fitViewBox(rx, ry, rw, rh, 0, 0, float64(w), float64(h)), nil)
+	doc.draw(img, fitViewBox(rx, ry, rw, rh, 0, 0, float64(w), float64(h)))
 	return img
 }
 

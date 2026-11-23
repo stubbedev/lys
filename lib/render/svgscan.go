@@ -4,7 +4,6 @@ import (
 	"image"
 	"image/draw"
 	"math"
-	"slices"
 
 	"golang.org/x/image/math/fixed"
 
@@ -34,8 +33,6 @@ type svgScanner struct {
 	penX, penY, startX, startY float32
 	open                       bool
 	minX, minY, maxX, maxY     fixed.Int26_6
-	grid                       *svgGrid
-	record                     *[]svgFill
 }
 
 // svgPoint is one vertex of the accumulated path, in pixels.
@@ -74,9 +71,6 @@ func (s *svgScanner) GetPathExtent() fixed.Rectangle26_6 {
 }
 
 func (s *svgScanner) add(a fixed.Point26_6, start bool) {
-	if s.grid != nil {
-		a = s.grid.place(a)
-	}
 	s.minX, s.minY = min(s.minX, a.X), min(s.minY, a.Y)
 	s.maxX, s.maxY = max(s.maxX, a.X), max(s.maxY, a.Y)
 	s.points = append(s.points, svgPoint{float32(a.X) / 64, float32(a.Y) / 64, start})
@@ -102,10 +96,6 @@ func (s *svgScanner) box() image.Rectangle {
 
 // Draw composites the accumulated path through the source.
 func (s *svgScanner) Draw() {
-	if s.record != nil {
-		*s.record = append(*s.record, svgFill{points: slices.Clone(s.points), evenOdd: s.evenOdd})
-		return
-	}
 	box := s.box()
 	if box.Empty() {
 		return

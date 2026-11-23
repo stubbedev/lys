@@ -1,6 +1,16 @@
 <svg width='16' height='16'
      xmlns:gpa='https://www.gtk.org/grappa'
-     gpa:version='2'>
+     gpa:version='3'>
+  <metadata>
+    <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'>
+      <path d='M12.56 8.17L13.71 7.03L13.69 7.03C14.97 5.70 14.94 3.59 13.61 2.31C12.32 1.07 10.27 1.07 8.98 2.31L7.83 3.45' fill='none' stroke='rgb(0,0,0)' stroke-width='1.33' stroke-linecap='round' stroke-linejoin='round' stroke-miterlimit='4.00'/>
+      <path d='M3.45 7.83L2.31 8.97C1.03 10.30 1.06 12.41 2.39 13.69C3.68 14.93 5.73 14.93 7.02 13.69L8.16 12.55' fill='none' stroke='rgb(0,0,0)' stroke-width='1.33' stroke-linecap='round' stroke-linejoin='round' stroke-miterlimit='4.00'/>
+      <path d='M5.33 1.33L5.33 3.33' fill='none' stroke='rgb(0,0,0)' stroke-width='1.33' stroke-linecap='round' stroke-linejoin='round' stroke-miterlimit='4.00'/>
+      <path d='M1.33 5.33L3.33 5.33' fill='none' stroke='rgb(0,0,0)' stroke-width='1.33' stroke-linecap='round' stroke-linejoin='round' stroke-miterlimit='4.00'/>
+      <path d='M10.67 12.67L10.67 14.67' fill='none' stroke='rgb(0,0,0)' stroke-width='1.33' stroke-linecap='round' stroke-linejoin='round' stroke-miterlimit='4.00'/>
+      <path d='M12.67 10.67L14.67 10.67' fill='none' stroke='rgb(0,0,0)' stroke-width='1.33' stroke-linecap='round' stroke-linejoin='round' stroke-miterlimit='4.00'/>
+    </svg>
+  </metadata>
   <path d='M12.09 7.69L13.24 6.55L13.71 7.03L13.71 7.69L13.69 7.69Q13.42 7.69 13.22 7.50Q13.03 7.30 13.03 7.03Q13.03 6.90 13.08 6.78Q13.12 6.66 13.21 6.56Q13.98 5.77 13.96 4.66Q13.94 3.56 13.15 2.79Q12.37 2.04 11.30 2.04Q10.22 2.04 9.44 2.79L8.30 3.93Q8.11 4.12 7.83 4.12Q7.56 4.12 7.36 3.92Q7.17 3.73 7.17 3.45Q7.17 3.18 7.36 2.98L8.52 1.83Q9.68 0.71 11.30 0.71Q12.91 0.71 14.08 1.83Q15.27 2.99 15.29 4.64Q15.32 6.30 14.17 7.49L13.69 7.03L13.69 6.36L13.71 6.36Q13.84 6.36 13.96 6.41Q14.09 6.46 14.18 6.56Q14.37 6.75 14.37 7.03Q14.37 7.30 14.18 7.50L13.03 8.64Q12.83 8.83 12.56 8.83Q12.28 8.83 12.09 8.64Q11.89 8.44 11.89 8.16Q11.89 7.89 12.09 7.69Z'
 stroke='none'
 fill='rgb(0,0,0)'

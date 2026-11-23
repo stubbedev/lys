@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stubbedev/lys/lib/render"
+
 	"github.com/stubbedev/lys/desktop/icons/usvg"
 )
 
@@ -76,4 +78,43 @@ func firstDifference(got, want string) string {
 		return fmt.Sprintf("line %d:\n got  ...%s\n want ...%s", i+1, g[lo:min(len(g), j+40)], w[lo:min(len(w), j+40)])
 	}
 	return fmt.Sprintf("%d lines, want %d", len(gl), len(wl))
+}
+
+func TestTheStrokeSourceDrawsWhatTheOutlinesDraw(t *testing.T) {
+	const size = 64
+	goldens, err := filepath.Glob(filepath.Join("testdata", "symbolic", "*.svg.golden"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	checked := 0
+	for _, golden := range goldens {
+		icon := readFile(t, golden)
+		open, end := strings.Index(icon, "<metadata>"), strings.Index(icon, "</metadata>")
+		if open < 0 {
+			if strings.Contains(icon, "stroke='rgb(0,0,0)'") {
+				t.Errorf("%s: a stroke without its metadata source", golden)
+			}
+			continue
+		}
+		checked++
+		outlines, err := render.LoadSVG([]byte(icon), size, size)
+		if err != nil {
+			t.Fatalf("%s: outlines: %v", golden, err)
+		}
+		source, err := render.LoadSVG([]byte(icon[open+len("<metadata>"):end]), size, size)
+		if err != nil {
+			t.Fatalf("%s: stroke source: %v", golden, err)
+		}
+		total := 0
+		for i, p := range outlines.Image().Pix {
+			d := int(p) - int(source.Image().Pix[i])
+			total += max(d, -d)
+		}
+		if mean := float64(total) / float64(len(outlines.Image().Pix)); mean > 1 {
+			t.Errorf("%s: the stroke source and the outlines differ by %.2f per channel on average", golden, mean)
+		}
+	}
+	if checked == 0 {
+		t.Fatal("premise: no golden carries a stroke source")
+	}
 }

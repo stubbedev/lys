@@ -1,6 +1,16 @@
 <svg width='16' height='16'
      xmlns:gpa='https://www.gtk.org/grappa'
-     gpa:version='2'>
+     gpa:version='3'>
+  <metadata>
+    <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'>
+      <path d='M13.33 6.67L13.33 5.33C13.33 4.91 13.16 4.50 12.86 4.20L10.47 1.81C10.17 1.50 9.76 1.33 9.33 1.33L4.00 1.33C3.26 1.33 2.67 1.93 2.67 2.67L2.67 13.33C2.67 14.07 3.26 14.67 4.00 14.67L6.90 14.67' fill='none' stroke='rgb(0,0,0)' stroke-width='1.33' stroke-linecap='round' stroke-linejoin='round' stroke-miterlimit='4.00'/>
+      <path d='M9.33 1.33L9.33 4.67C9.33 5.03 9.63 5.33 10.00 5.33L13.33 5.33' fill='none' stroke='rgb(0,0,0)' stroke-width='1.33' stroke-linecap='round' stroke-linejoin='round' stroke-miterlimit='4.00'/>
+      <path d='M10.67 9.33C9.93 9.33 9.33 9.93 9.33 10.67' fill='none' stroke='rgb(0,0,0)' stroke-width='1.33' stroke-linecap='round' stroke-linejoin='round' stroke-miterlimit='4.00'/>
+      <path d='M10.67 14.67C9.93 14.67 9.33 14.07 9.33 13.33' fill='none' stroke='rgb(0,0,0)' stroke-width='1.33' stroke-linecap='round' stroke-linejoin='round' stroke-miterlimit='4.00'/>
+      <path d='M13.33 9.33C14.07 9.33 14.67 9.93 14.67 10.67' fill='none' stroke='rgb(0,0,0)' stroke-width='1.33' stroke-linecap='round' stroke-linejoin='round' stroke-miterlimit='4.00'/>
+      <path d='M13.33 14.67C14.07 14.67 14.67 14.07 14.67 13.33' fill='none' stroke='rgb(0,0,0)' stroke-width='1.33' stroke-linecap='round' stroke-linejoin='round' stroke-miterlimit='4.00'/>
+    </svg>
+  </metadata>
   <path d='M12.67 6.67L12.67 5.33Q12.67 4.94 12.39 4.67L10.00 2.28Q9.72 2.00 9.33 2.00L4.00 2.00Q3.33 2.00 3.33 2.67L3.33 13.33Q3.33 14.00 4.00 14.00L6.90 14.00Q7.18 14.00 7.37 14.20Q7.57 14.39 7.57 14.67Q7.57 14.94 7.37 15.14Q7.18 15.33 6.90 15.33L4.00 15.33Q3.17 15.33 2.59 14.75Q2.00 14.16 2.00 13.33L2.00 2.67Q2.00 1.84 2.59 1.25Q3.17 0.67 4.00 0.67L9.33 0.67Q10.28 0.67 10.94 1.33L13.33 3.73Q14.00 4.39 14.00 5.33L14.00 6.67Q14.00 6.94 13.80 7.14Q13.61 7.33 13.33 7.33Q13.06 7.33 12.86 7.14Q12.67 6.94 12.67 6.67Z'
 stroke='none'
 fill='rgb(0,0,0)'

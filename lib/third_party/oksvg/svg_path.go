@@ -119,3 +119,7 @@ func (svgp *SvgPath) SetFillColor(clr color.Color) {
 func (svgp *SvgPath) SetLineColor(clr color.Color) {
 	svgp.linerColor = clr
 }
+
+func (svgp *SvgPath) Stroked() bool { return svgp.linerColor != nil }
+
+func (svgp *SvgPath) Transform() rasterx.Matrix2D { return svgp.mAdder.M }

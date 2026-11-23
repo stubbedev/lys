@@ -1,15 +1,53 @@
-<svg width='16' height='16' viewBox='0 0 24 24'
+<svg width='16' height='16'
      xmlns:gpa='https://www.gtk.org/grappa'
-     gpa:version='2'>
-  <g fill='none' stroke='rgb(0,0,0)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' gpa:stroke='foreground'>
-    <path d='M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4'/>
-    <path d='M14 13.12c0 2.38 0 6.38-1 8.88'/>
-    <path d='M17.29 21.02c.12-.6.43-2.3.5-3.02'/>
-    <path d='M2 12a10 10 0 0 1 18-6'/>
-    <path d='M2 16h.01'/>
-    <path d='M21.8 16c.2-2 .131-5.354 0-6'/>
-    <path d='M5 19.5C5.5 18 6 15 6 12a6 6 0 0 1 .34-2'/>
-    <path d='M8.65 22c.21-.66.45-1.32.57-2'/>
-    <path d='M9 6.8a6 6 0 0 1 9 5.2v2'/>
-  </g>
+     gpa:version='3'>
+  <metadata>
+    <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'>
+      <path d='M8.00 6.67C7.26 6.67 6.67 7.26 6.67 8.00C6.67 8.68 6.60 9.67 6.49 10.67' fill='none' stroke='rgb(0,0,0)' stroke-width='1.33' stroke-linecap='round' stroke-linejoin='round' stroke-miterlimit='4.00'/>
+      <path d='M9.33 8.75C9.33 10.33 9.33 13.00 8.67 14.67' fill='none' stroke='rgb(0,0,0)' stroke-width='1.33' stroke-linecap='round' stroke-linejoin='round' stroke-miterlimit='4.00'/>
+      <path d='M11.53 14.01C11.61 13.61 11.81 12.48 11.86 12.00' fill='none' stroke='rgb(0,0,0)' stroke-width='1.33' stroke-linecap='round' stroke-linejoin='round' stroke-miterlimit='4.00'/>
+      <path d='M1.33 8.00C1.33 5.13 3.17 2.58 5.89 1.68C8.61 0.77 11.61 1.70 13.33 4.00' fill='none' stroke='rgb(0,0,0)' stroke-width='1.33' stroke-linecap='round' stroke-linejoin='round' stroke-miterlimit='4.00'/>
+      <path d='M1.33 10.67L1.34 10.67' fill='none' stroke='rgb(0,0,0)' stroke-width='1.33' stroke-linecap='round' stroke-linejoin='round' stroke-miterlimit='4.00'/>
+      <path d='M14.53 10.67C14.67 9.33 14.62 7.10 14.53 6.67' fill='none' stroke='rgb(0,0,0)' stroke-width='1.33' stroke-linecap='round' stroke-linejoin='round' stroke-miterlimit='4.00'/>
+      <path d='M3.33 13.00C3.67 12.00 4.00 10.00 4.00 8.00C4.00 7.55 4.08 7.10 4.23 6.67' fill='none' stroke='rgb(0,0,0)' stroke-width='1.33' stroke-linecap='round' stroke-linejoin='round' stroke-miterlimit='4.00'/>
+      <path d='M5.77 14.67C5.91 14.23 6.07 13.79 6.15 13.33' fill='none' stroke='rgb(0,0,0)' stroke-width='1.33' stroke-linecap='round' stroke-linejoin='round' stroke-miterlimit='4.00'/>
+      <path d='M6.00 4.53C7.24 3.82 8.76 3.82 10.00 4.53C11.24 5.25 12.00 6.57 12.00 8.00L12.00 9.33' fill='none' stroke='rgb(0,0,0)' stroke-width='1.33' stroke-linecap='round' stroke-linejoin='round' stroke-miterlimit='4.00'/>
+    </svg>
+  </metadata>
+  <path d='M8.00 7.33Q7.33 7.33 7.33 8.00Q7.33 9.09 7.16 10.74Q7.13 11.01 6.91 11.19Q6.70 11.36 6.42 11.33Q6.15 11.30 5.97 11.09Q5.80 10.87 5.83 10.60Q6.00 9.02 6.00 8.00Q6.00 7.17 6.59 6.59Q7.17 6.00 8.00 6.00Q8.28 6.00 8.47 6.20Q8.67 6.39 8.67 6.67Q8.67 6.94 8.47 7.14Q8.28 7.33 8.00 7.33Z'
+stroke='none'
+fill='rgb(0,0,0)'
+gpa:fill='foreground'/>
+  <path d='M10.00 8.75Q10.00 13.13 9.29 14.91Q9.18 15.17 8.93 15.28Q8.68 15.39 8.42 15.29Q8.16 15.18 8.05 14.93Q7.95 14.68 8.05 14.42Q8.67 12.87 8.67 8.75Q8.67 8.47 8.86 8.28Q9.06 8.08 9.33 8.08Q9.61 8.08 9.80 8.28Q10.00 8.47 10.00 8.75Z'
+stroke='none'
+fill='rgb(0,0,0)'
+gpa:fill='foreground'/>
+  <path d='M10.87 13.88Q11.13 12.58 11.20 11.94Q11.22 11.66 11.44 11.49Q11.65 11.31 11.92 11.34Q12.20 11.36 12.37 11.58Q12.55 11.79 12.52 12.06Q12.45 12.77 12.18 14.14Q12.13 14.41 11.90 14.57Q11.67 14.72 11.40 14.67Q11.13 14.61 10.97 14.38Q10.82 14.15 10.87 13.88Z'
+stroke='none'
+fill='rgb(0,0,0)'
+gpa:fill='foreground'/>
+  <path d='M0.67 8.00Q0.67 5.63 2.05 3.71Q3.44 1.79 5.68 1.04Q7.93 0.29 10.19 1.00Q12.45 1.71 13.87 3.60Q14.03 3.82 13.99 4.09Q13.95 4.37 13.73 4.53Q13.51 4.70 13.24 4.66Q12.97 4.62 12.80 4.40Q11.64 2.85 9.79 2.27Q7.94 1.70 6.10 2.31Q4.27 2.92 3.13 4.49Q2.00 6.06 2.00 8.00Q2.00 8.28 1.80 8.47Q1.61 8.67 1.33 8.67Q1.06 8.67 0.86 8.47Q0.67 8.28 0.67 8.00Z'
+stroke='none'
+fill='rgb(0,0,0)'
+gpa:fill='foreground'/>
+  <path d='M1.33 10.00L1.34 10.00Q1.62 10.00 1.81 10.20Q2.01 10.39 2.01 10.67Q2.01 10.94 1.81 11.14Q1.62 11.33 1.34 11.33L1.33 11.33Q1.06 11.33 0.86 11.14Q0.67 10.94 0.67 10.67Q0.67 10.39 0.86 10.20Q1.06 10.00 1.33 10.00Z'
+stroke='none'
+fill='rgb(0,0,0)'
+gpa:fill='foreground'/>
+  <path d='M13.87 10.60Q14.13 8.02 13.88 6.80Q13.83 6.53 13.98 6.30Q14.13 6.07 14.40 6.01Q14.67 5.96 14.90 6.11Q15.13 6.26 15.19 6.53Q15.47 7.95 15.20 10.73Q15.17 11.01 14.96 11.18Q14.74 11.36 14.47 11.33Q14.19 11.30 14.02 11.09Q13.84 10.88 13.87 10.60Z'
+stroke='none'
+fill='rgb(0,0,0)'
+gpa:fill='foreground'/>
+  <path d='M2.70 12.79Q3.33 10.89 3.33 8.00Q3.33 7.20 3.60 6.45Q3.69 6.18 3.94 6.07Q4.19 5.95 4.45 6.04Q4.71 6.13 4.83 6.38Q4.95 6.63 4.86 6.89Q4.67 7.43 4.67 8.00Q4.67 11.11 3.97 13.21Q3.88 13.47 3.63 13.60Q3.38 13.72 3.12 13.63Q2.86 13.55 2.74 13.30Q2.61 13.05 2.70 12.79Z'
+stroke='none'
+fill='rgb(0,0,0)'
+gpa:fill='foreground'/>
+  <path d='M5.13 14.46Q5.16 14.38 5.21 14.21Q5.43 13.54 5.49 13.22Q5.54 12.95 5.76 12.79Q5.99 12.63 6.26 12.68Q6.53 12.72 6.69 12.95Q6.85 13.18 6.80 13.45Q6.73 13.86 6.48 14.62Q6.43 14.79 6.40 14.87Q6.32 15.13 6.07 15.26Q5.83 15.39 5.56 15.30Q5.30 15.22 5.17 14.97Q5.05 14.73 5.13 14.46Z'
+stroke='none'
+fill='rgb(0,0,0)'
+gpa:fill='foreground'/>
+  <path d='M5.67 3.96Q8.00 2.61 10.33 3.96Q12.67 5.31 12.67 8.00L12.67 9.33Q12.67 9.61 12.47 9.80Q12.28 10.00 12.00 10.00Q11.72 10.00 11.53 9.80Q11.33 9.61 11.33 9.33L11.33 8.00Q11.33 6.07 9.67 5.11Q8.00 4.15 6.33 5.11Q6.09 5.25 5.83 5.18Q5.56 5.11 5.42 4.87Q5.28 4.63 5.36 4.36Q5.43 4.09 5.67 3.96Z'
+stroke='none'
+fill='rgb(0,0,0)'
+gpa:fill='foreground'/>
 </svg>

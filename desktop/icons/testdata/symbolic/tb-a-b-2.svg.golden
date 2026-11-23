@@ -1,6 +1,15 @@
 <svg width='16' height='16'
      xmlns:gpa='https://www.gtk.org/grappa'
-     gpa:version='2'>
+     gpa:version='3'>
+  <metadata>
+    <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'>
+      <path d='M10.67 14.00L12.67 14.00C13.21 14.00 13.65 13.55 13.65 13.01L13.67 13.00C13.67 12.45 13.21 12.00 12.67 12.00L10.67 12.00L10.67 14.00' fill='none' stroke='rgb(0,0,0)' stroke-width='1.33' stroke-linecap='round' stroke-linejoin='round' stroke-miterlimit='4.00'/>
+      <path d='M10.67 10.00L12.33 10.00C12.89 9.99 13.33 10.44 13.33 11.00C13.33 11.56 12.89 12.00 12.33 12.00L10.67 12.00L10.67 10.00' fill='none' stroke='rgb(0,0,0)' stroke-width='1.33' stroke-linecap='round' stroke-linejoin='round' stroke-miterlimit='4.00'/>
+      <path d='M2.67 6.00L2.67 3.33C2.67 2.64 3.26 2.00 4.00 2.00C4.74 2.00 5.33 2.64 5.33 3.33L5.33 6.00' fill='none' stroke='rgb(0,0,0)' stroke-width='1.33' stroke-linecap='round' stroke-linejoin='round' stroke-miterlimit='4.00'/>
+      <path d='M1.99 7.99C1.99 11.30 4.68 13.99 7.99 13.99M13.99 7.99C13.99 4.67 11.31 1.99 7.99 1.99' fill='none' stroke='rgb(0,0,0)' stroke-width='1.33' stroke-linecap='round' stroke-linejoin='round' stroke-miterlimit='4.00'/>
+      <path d='M5.33 4.67L2.67 4.67' fill='none' stroke='rgb(0,0,0)' stroke-width='1.33' stroke-linecap='round' stroke-linejoin='round' stroke-miterlimit='4.00'/>
+    </svg>
+  </metadata>
   <path d='M10.67 13.33L12.67 13.33Q12.80 13.33 12.89 13.24Q12.99 13.14 12.99 13.01Q12.99 12.88 13.04 12.76Q13.09 12.64 13.18 12.54L13.20 12.53L13.67 13.00L13.00 13.00Q13.00 12.67 12.67 12.67L10.67 12.67L10.67 12.00L11.33 12.00L11.33 14.00Q11.33 14.28 11.14 14.47Q10.94 14.67 10.67 14.67Q10.39 14.67 10.20 14.47Q10.00 14.28 10.00 14.00L10.00 12.00Q10.00 11.72 10.20 11.53Q10.39 11.33 10.67 11.33L12.67 11.33Q13.35 11.33 13.84 11.82Q14.33 12.31 14.33 13.00Q14.33 13.13 14.28 13.26Q14.23 13.38 14.14 13.47L14.12 13.48L13.65 13.01L14.32 13.01Q14.32 13.69 13.83 14.18Q13.35 14.67 12.67 14.67L10.67 14.67Q10.39 14.67 10.20 14.47Q10.00 14.28 10.00 14.00Q10.00 13.72 10.20 13.53Q10.39 13.33 10.67 13.33Z'
 stroke='none'
 fill='rgb(0,0,0)'

@@ -1,6 +1,13 @@
 <svg width='16' height='16'
      xmlns:gpa='https://www.gtk.org/grappa'
-     gpa:version='2'>
+     gpa:version='3'>
+  <metadata>
+    <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'>
+      <path d='M10.67 5.33L8.00 2.67L5.33 5.33' fill='none' stroke='rgb(0,0,0)' stroke-width='1.33' stroke-linecap='round' stroke-linejoin='round' stroke-miterlimit='4.00'/>
+      <path d='M8.00 13.33L8.00 2.67' fill='none' stroke='rgb(0,0,0)' stroke-width='1.33' stroke-linecap='round' stroke-linejoin='round' stroke-miterlimit='4.00'/>
+      <path d='M12.00 12.00C9.33 11.11 8.00 8.89 8.00 5.33' fill='none' stroke='rgb(0,0,0)' stroke-width='1.33' stroke-linecap='round' stroke-linejoin='round' stroke-miterlimit='4.00'/>
+    </svg>
+  </metadata>
   <path d='M10.20 5.80L7.53 3.14L8.00 2.67L8.47 3.14L5.80 5.80Q5.61 6.00 5.33 6.00Q5.06 6.00 4.86 5.80Q4.67 5.61 4.67 5.33Q4.67 5.06 4.86 4.86L7.53 2.20Q7.72 2.00 8.00 2.00Q8.28 2.00 8.47 2.20L11.14 4.86Q11.33 5.06 11.33 5.33Q11.33 5.61 11.14 5.80Q10.94 6.00 10.67 6.00Q10.39 6.00 10.20 5.80Z'
 stroke='none'
 fill='rgb(0,0,0)'

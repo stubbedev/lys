@@ -8,21 +8,27 @@ import (
 	"github.com/stubbedev/lys/desktop/icons/usvg"
 )
 
-// This file re-emits an arbitrary symbolic-style SVG as a
-// filled-path-only GTK Grappa symbolic icon, outlining strokes into
-// filled polygons.
-
 const (
 	targetSize float32 = 16
 	// resolutionScale is the stroker/dasher precision target.
 	resolutionScale float32 = 4
 	// FormatVersion is stamped onto every emitted SVG via gpa:version.
-	FormatVersion = 2
+	FormatVersion = 3
 )
 
 type scaledPath struct {
 	d             string
 	isBoundingBox bool
+}
+
+type sourcePath struct {
+	d      string
+	stroke *skpath.Stroke
+}
+
+type symbolicPaths struct {
+	filled []scaledPath
+	source []sourcePath
 }
 
 // ToSymbolic converts svg to a symbolic icon; false when nothing can
@@ -37,15 +43,15 @@ func ToSymbolic(svg string) (string, bool) {
 	if sourceSize > 0 {
 		scale = targetSize / sourceSize
 	}
-	var paths []scaledPath
+	var paths symbolicPaths
 	collectPaths(tree.Root, skpath.FromScale(scale, scale), &paths)
-	if len(paths) == 0 {
+	if len(paths.filled) == 0 {
 		return buildFallbackSVG(svg)
 	}
 	return buildGTKSVG(paths), true
 }
 
-func collectPaths(g *usvg.Group, parent skpath.Transform, paths *[]scaledPath) {
+func collectPaths(g *usvg.Group, parent skpath.Transform, paths *symbolicPaths) {
 	for _, child := range g.Children {
 		switch c := child.(type) {
 		case *usvg.Path:
@@ -56,43 +62,64 @@ func collectPaths(g *usvg.Group, parent skpath.Transform, paths *[]scaledPath) {
 	}
 }
 
-func processPath(p *usvg.Path, parent skpath.Transform, paths *[]scaledPath) {
+func processPath(p *usvg.Path, parent skpath.Transform, paths *symbolicPaths) {
 	transformed, ok := p.Data.Transform(parent)
 	if !ok {
 		return
 	}
+	d := pathData(transformed)
 	if p.HasFill {
 		pushPath(transformed, false, paths)
+		paths.pushSource(sourcePath{d: d})
 	}
 	if p.Stroke != nil {
-		if outlined, ok := outlineStroke(transformed, p.Stroke, parent); ok {
-			pushPath(outlined, false, paths)
+		if centre, st, ok := strokeCentreline(transformed, p.Stroke, parent); ok {
+			if outlined, ok := centre.StrokePath(st, resolutionScale); ok {
+				pushPath(outlined, false, paths)
+				paths.pushSource(sourcePath{d: pathData(centre), stroke: &st})
+			}
 		}
 	}
 	if !p.HasFill && p.Stroke == nil {
-		pushPath(transformed, isBoundingBoxPath(transformed, targetSize), paths)
+		bbox := isBoundingBoxPath(transformed, targetSize)
+		pushPath(transformed, bbox, paths)
+		if !bbox {
+			paths.pushSource(sourcePath{d: d})
+		}
 	}
 }
 
-func pushPath(p *skpath.Path, bbox bool, paths *[]scaledPath) {
+func pushPath(p *skpath.Path, bbox bool, paths *symbolicPaths) {
 	if d := pathData(p); d != "" {
-		*paths = append(*paths, scaledPath{d: d, isBoundingBox: bbox})
+		paths.filled = append(paths.filled, scaledPath{d: d, isBoundingBox: bbox})
 	}
 }
 
-func outlineStroke(geometry *skpath.Path, s *usvg.Stroke, parent skpath.Transform) (*skpath.Path, bool) {
+func (paths *symbolicPaths) pushSource(p sourcePath) {
+	if p.d != "" {
+		paths.source = append(paths.source, p)
+	}
+}
+
+func (paths *symbolicPaths) stroked() bool {
+	for _, p := range paths.source {
+		if p.stroke != nil {
+			return true
+		}
+	}
+	return false
+}
+
+func strokeCentreline(geometry *skpath.Path, s *usvg.Stroke, parent skpath.Transform) (*skpath.Path, skpath.Stroke, bool) {
 	st := s.ToSkia()
 	st.Width *= skpath.ComputeResolutionScale(parent)
-	if st.Dash != nil {
-		dash := st.Dash
-		st.Dash = nil
-		dashed, ok := geometry.DashPath(dash, resolutionScale)
-		if !ok {
-			return nil, false
-		}
-		return dashed.StrokePath(st, resolutionScale)
+	if st.Dash == nil {
+		return geometry, st, true
 	}
-	return geometry.StrokePath(st, resolutionScale)
+	dash := st.Dash
+	st.Dash = nil
+	dashed, ok := geometry.DashPath(dash, resolutionScale)
+	return dashed, st, ok
 }
 
 // isBoundingBoxPath reports a four-corner rectangle covering the whole
@@ -195,18 +222,49 @@ func formatCoord(f float32) string {
 	return fmt.Sprintf("%.2f", float64(f))
 }
 
-func buildGTKSVG(paths []scaledPath) string {
+func buildGTKSVG(paths symbolicPaths) string {
 	var b strings.Builder
 	b.WriteString("<svg width='16' height='16'\n")
 	b.WriteString("     xmlns:gpa='https://www.gtk.org/grappa'\n")
 	fmt.Fprintf(&b, "     gpa:version='%d'>\n", FormatVersion)
-	for _, p := range paths {
+	if paths.stroked() {
+		writeStrokeSource(&b, paths.source)
+	}
+	for _, p := range paths.filled {
 		if !p.isBoundingBox {
 			b.WriteString(buildFillPathElement(p.d))
 		}
 	}
 	b.WriteString("</svg>\n")
 	return b.String()
+}
+
+func writeStrokeSource(b *strings.Builder, source []sourcePath) {
+	b.WriteString("  <metadata>\n")
+	b.WriteString("    <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'>\n")
+	for _, p := range source {
+		if p.stroke == nil {
+			b.WriteString("      <path d='" + p.d + "' fill='rgb(0,0,0)'/>\n")
+			continue
+		}
+		b.WriteString("      <path d='" + p.d + "' fill='none' stroke='rgb(0,0,0)'")
+		writeStrokeAttrs(b, p.stroke)
+		b.WriteString("/>\n")
+	}
+	b.WriteString("    </svg>\n")
+	b.WriteString("  </metadata>\n")
+}
+
+var (
+	svgLineCaps  = [...]string{skpath.CapButt: "butt", skpath.CapRound: "round", skpath.CapSquare: "square"}
+	svgLineJoins = [...]string{skpath.JoinMiter: "miter", skpath.JoinMiterClip: "miter-clip", skpath.JoinRound: "round", skpath.JoinBevel: "bevel"}
+)
+
+func writeStrokeAttrs(b *strings.Builder, s *skpath.Stroke) {
+	b.WriteString(" stroke-width='" + formatCoord(s.Width) + "'")
+	b.WriteString(" stroke-linecap='" + svgLineCaps[s.LineCap] + "'")
+	b.WriteString(" stroke-linejoin='" + svgLineJoins[s.LineJoin] + "'")
+	b.WriteString(" stroke-miterlimit='" + formatCoord(s.MiterLimit) + "'")
 }
 
 func buildFillPathElement(d string) string {
@@ -218,7 +276,7 @@ func buildFallbackSVG(original string) (string, bool) {
 	if !ok {
 		return "", false
 	}
-	return buildGTKSVG([]scaledPath{{d: d}}), true
+	return buildGTKSVG(symbolicPaths{filled: []scaledPath{{d: d}}}), true
 }
 
 func extractPathDFallback(content string) (string, bool) {

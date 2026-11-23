@@ -138,7 +138,8 @@ func TestNeedsMigration(t *testing.T) {
 		legacyLucideWifi: true,
 		current:          false,
 		"<svg xmlns:gpa='https://www.gtk.org/grappa' gpa:version='3'/>":  false,
-		"<svg xmlns:gpa='https://www.gtk.org/grappa' gpa:version='+2'/>": false, // u32 parse takes a +
+		"<svg xmlns:gpa='https://www.gtk.org/grappa' gpa:version='+3'/>": false, // u32 parse takes a +
+		"<svg xmlns:gpa='https://www.gtk.org/grappa' gpa:version='2'/>":  true,
 		"<svg xmlns:gpa='https://www.gtk.org/grappa' gpa:version='x'/>":  true,
 		"<svg/>": true, // unversioned
 	} {
