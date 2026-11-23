@@ -2,6 +2,7 @@ package frametrace
 
 import (
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -17,6 +18,8 @@ func (benchSync) Finish() error          { return nil }
 func (benchSync) Counts() render.Counts  { return render.Counts{} }
 
 func BenchmarkRecorderFrame(b *testing.B) {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
 	now := time.Second
 	r, err := Create(filepath.Join(b.TempDir(), "trace"), Header{}, benchSync{}, Clock{
 		Now:    func() time.Duration { return now },
