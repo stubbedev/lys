@@ -511,3 +511,23 @@ func TestWithoutAnAbsoluteHomeNoFaceIsWritten(t *testing.T) {
 		t.Fatalf("%s was left in the working directory", left[0].Name())
 	}
 }
+
+// The identity header is a row of an item group on its card, as every
+// row of a card is, not an inset row placed in the card on its own.
+func TestTheIdentityHeaderIsInAnItemGroupOnItsCard(t *testing.T) {
+	p := usersFooter(testKit(t, "")).(*usersPanel)
+	found := false
+	walkAncestry(p, nil, func(x widget.Widget, above []widget.Widget) {
+		row, ok := x.(*insetRow)
+		if !ok || !treetest.Contains(row, p.face) {
+			return
+		}
+		found = true
+		if !onCard(above) {
+			t.Error("the identity header is in no item group on a card")
+		}
+	})
+	if !found {
+		t.Fatal("no inset row holds the identity header's picture")
+	}
+}

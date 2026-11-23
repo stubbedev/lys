@@ -194,7 +194,7 @@ type appShortcutsEditor struct {
 	*widget.Box
 	k         *kit
 	binds     slot
-	list      *widget.Box
+	rows      *widget.ItemGroup
 	state     *cardState
 	reload    *widget.Button
 	entries   []*actionChord
@@ -216,10 +216,9 @@ func bindActionNames(k *kit) *bindNames {
 
 func newAppShortcutsEditor(k *kit, binds slot) *appShortcutsEditor {
 	e := &appShortcutsEditor{Box: gapBox(widget.Column), k: k, binds: binds, names: bindActionNames(k)}
-	e.list = gapBox(widget.Column)
 	e.state = k.cardState()
-	e.Append(e.state.lone(), false)
-	e.Append(e.list, false)
+	e.rows = widget.NewItemGroup()
+	e.Append(e.rows, false)
 	e.reload = k.reloadButton("wm-app-shortcuts-reload", e.load)
 	e.reload.SetHAlign(widget.AlignStart)
 	e.Append(e.reload, false)
@@ -236,7 +235,8 @@ func (e *appShortcutsEditor) load() {
 
 func (e *appShortcutsEditor) show(l appShortcutsListing) {
 	t := locale.T()
-	e.list.Clear()
+	e.rows.Clear()
+	e.rows.Append(e.state)
 	e.entries, e.shortcuts = e.entries[:0], l.shortcuts
 	e.reload.SetVisible(l.err == nil)
 	switch {
@@ -248,26 +248,20 @@ func (e *appShortcutsEditor) show(l appShortcutsListing) {
 		e.state.Clear()
 	}
 	for _, sc := range l.shortcuts {
-		row := gapBox(widget.Row)
-		row.AddClass("app-shortcut")
-		text := widget.NewBox(widget.Column, widget.Current().Spacing/4, 0)
-		text.Append(e.k.label(cmp.Or(sc.Description, sc.ID)), false)
-		text.Append(e.k.label(sc.app, css.Caption, css.DimLabel), false)
-		row.AppendAligned(text, true, widget.AlignCenter)
+		name := cmp.Or(sc.Description, sc.ID)
+		row := e.k.row(name, sc.app)
 		var entry *actionChord
 		if sc.Trigger != "" {
 			entry = newHeldChord(e.k, e.names, sc.action(), heldChord(sc))
-			row.AppendAligned(e.k.keycaps(keys.Accel.Labels(sc.Trigger)), false, widget.AlignCenter)
+			row.withControl(e.k.keycaps(keys.Accel.Labels(sc.Trigger)))
 			row.SetTooltip(t.Get("wm-app-shortcuts-hotkey"))
 		} else {
-			entry = newActionChord(e.k, e.binds, e.names, sc.action(), cmp.Or(sc.Description, sc.ID))
-			row.AppendAligned(entry.recorder, false, widget.AlignCenter)
+			entry = newActionChord(e.k, e.binds, e.names, sc.action(), name)
+			row.withControl(entry.recorder)
 		}
+		row.AddDetail(entry.clash)
 		e.entries = append(e.entries, entry)
-		box := gapBox(widget.Column)
-		box.Append(row, false)
-		box.Append(entry.clash, false)
-		e.list.Append(box, false)
+		e.rows.Append(row)
 	}
 	e.refresh()
 }

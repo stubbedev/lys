@@ -164,19 +164,20 @@ func entryScore(e settingEntry, words []string) (int, bool) {
 // activatable row per hit, opening its setting.
 type searchResults struct {
 	*widget.Scroll
-	k      *kit
-	list   *widget.Box
-	empty  *widget.Label
-	open   func(settingEntry)
-	hits   []settingEntry
-	button []*widget.Button
+	k     *kit
+	list  *widget.Box
+	group *widget.ItemGroup
+	empty *widget.Label
+	open  func(settingEntry)
+	hits  []settingEntry
+	rows  []*settingRow
 }
 
 func newSearchResults(k *kit, open func(settingEntry)) *searchResults {
 	th := widget.Current()
-	r := &searchResults{k: k, open: open}
-	r.list = widget.NewBox(widget.Column, 0, 0)
-	r.list.AddClass(css.Card, "search-results")
+	r := &searchResults{k: k, open: open, group: widget.NewItemGroup()}
+	r.list = sectionGroup(r.group)
+	r.list.AddClass("search-results")
 	r.empty = k.label(locale.T().Get("settings-search-empty"), "search-empty", css.DimLabel)
 	content := widget.NewBox(widget.Column, 3*th.Spacing, 3*th.Padding)
 	content.AddClass("settings-page")
@@ -191,28 +192,20 @@ func newSearchResults(k *kit, open func(settingEntry)) *searchResults {
 // show lists hits.
 func (r *searchResults) show(hits []settingEntry) {
 	r.hits = hits
-	r.list.Clear()
-	r.button = r.button[:0]
+	r.group.Clear()
+	r.rows = r.rows[:0]
 	r.empty.SetVisible(len(hits) == 0)
 	r.list.SetVisible(len(hits) > 0)
-	th := widget.Current()
-	for i, h := range hits {
-		if i > 0 {
-			r.list.Append(widget.NewSeparator(widget.Horizontal), false)
-		}
-		text := widget.NewBox(widget.Column, th.Spacing/4, 0)
-		text.SetPadding(cardInsets())
-		text.Append(r.k.label(h.label), false)
-		text.Append(r.k.label(h.place, "search-result-place", css.Caption, css.DimLabel), false)
+	for _, h := range hits {
+		row := r.k.row(h.label, h.place)
 		if h.description != "" {
 			d := r.k.label(h.description, css.Caption, css.DimLabel)
 			d.SetEllipsize(widget.EllipsizeEnd)
-			text.Append(d, false)
+			row.AddDetail(d)
 		}
-		b := r.k.roleButton(rolePlain, text, func() { r.open(h) })
-		b.SetHAlign(widget.AlignFill)
-		r.list.Append(b, false)
-		r.button = append(r.button, b)
+		row.SetOnActivate(func() { r.open(h) })
+		r.group.Append(row)
+		r.rows = append(r.rows, row)
 	}
 	r.SetOffset(0, 0)
 }

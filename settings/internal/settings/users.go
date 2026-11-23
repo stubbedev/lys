@@ -734,10 +734,12 @@ func (p *usersPanel) newPasswordForm() *passwordForm {
 	f := &passwordForm{Box: gapBox(widget.Column)}
 	f.AddClass("password-change")
 	f.current, f.next, f.confirm = p.k.passwordEntry("settings-users-password-current"), p.k.passwordEntry("settings-users-password-new"), p.k.passwordEntry("settings-users-password-confirm")
-	f.Append(p.k.row(t.Get("settings-users-password-current"), "").withControl(f.current).withTrailing(p.k.revealButton(f.current)), false)
-	f.Append(p.k.row(t.Get("settings-users-password-new"), "").withControl(f.next).withTrailing(p.k.revealButton(f.next, f.confirm)), false)
-	f.Append(p.k.row(t.Get("settings-users-password-confirm"), "").withControl(f.confirm), false)
-	f.Append(p.strengthRow(f.next), false)
+	rows := widget.NewItemGroup()
+	rows.Append(p.k.row(t.Get("settings-users-password-current"), "").withControl(f.current).withTrailing(p.k.revealButton(f.current)))
+	rows.Append(p.k.row(t.Get("settings-users-password-new"), "").withControl(f.next).withTrailing(p.k.revealButton(f.next, f.confirm)))
+	rows.Append(p.k.row(t.Get("settings-users-password-confirm"), "").withControl(f.confirm))
+	rows.Append(p.strengthRow(f.next))
+	f.Append(rows, false)
 	f.messages = p.k.inlineState()
 	f.Append(f.messages, false)
 	return f

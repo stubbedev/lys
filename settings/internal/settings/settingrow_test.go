@@ -37,41 +37,56 @@ func rowDescription(row rowWidget) *widget.Label {
 // rowsAreTheRowType holds on every page: every row is the row type (an
 // item no row type builds is a hand-built row), every shown row's
 // description wraps to two lines at most, and every row sits in an item
-// group on a card.
-func rowsAreTheRowType() pageCheck {
+// group on a card. Each of titles is a row some page shows.
+func rowsAreTheRowType(titles ...string) pageCheck {
 	rows := 0
+	met := map[string]bool{}
 	return pageCheck{visit: func(t *testing.T, w *window) {
-		id := w.pageID
-		walkAncestry(w.page, nil, func(x widget.Widget, above []widget.Widget) {
-			if _, ok := x.(*insetRow); ok {
-				return
-			}
-			row, isRow := x.(rowWidget)
-			if !isRow {
-				if el, ok := x.(interface{ Element() string }); ok && el.Element() == "item" {
-					t.Errorf("%s: a %T is a row no row type builds", id, x)
-				}
-				return
-			}
-			if !shown(row) {
-				return
-			}
+		checkRowsAreTheRowType(t, w.pageID, w.page, func(row rowWidget) {
 			rows++
-			if d := rowDescription(row); shown(d) {
-				line := d.Measure(widget.Column, 1<<20).Nat
-				if h := d.Bounds().H; h > 2*line {
-					t.Errorf("%s: %q's description is %dpx tall, more than two %dpx lines", id, row.asRow().Title(), h, line)
-				}
-			}
-			if !onCard(above) {
-				t.Errorf("%s: the %q row is in no item group on a card", id, row.asRow().Title())
-			}
+			met[row.asRow().Title()] = true
 		})
 	}, done: func(t *testing.T) {
 		if rows == 0 {
 			t.Error("no page laid out a row")
 		}
+		for _, title := range titles {
+			if !met[title] {
+				t.Errorf("no page showed %q as a row", title)
+			}
+		}
 	}}
+}
+
+// checkRowsAreTheRowType checks the rows under root, laid out, as
+// rowsAreTheRowType does, handing each shown one to each.
+func checkRowsAreTheRowType(t *testing.T, id string, root widget.Widget, each func(rowWidget)) {
+	t.Helper()
+	walkAncestry(root, nil, func(x widget.Widget, above []widget.Widget) {
+		if _, ok := x.(*insetRow); ok {
+			return
+		}
+		row, isRow := x.(rowWidget)
+		if !isRow {
+			if el, ok := x.(interface{ Element() string }); ok && el.Element() == "item" {
+				t.Errorf("%s: a %T is a row no row type builds", id, x)
+			}
+			return
+		}
+		if !shown(row) {
+			return
+		}
+		each(row)
+		if d := rowDescription(row); shown(d) {
+			line := d.Measure(widget.Column, 1<<20).Nat
+			if h := d.Bounds().H; h > 2*line {
+				t.Errorf("%s: %q's description is %dpx tall, more than two %dpx lines", id, row.asRow().Title(), h, line)
+			}
+		}
+		if !onCard(above) {
+			t.Errorf("%s: the %q row is in no item group on a card", id, row.asRow().Title())
+		}
+	})
 }
 
 // onCard reports the widgets above a row holding it in an item group
@@ -270,5 +285,58 @@ func TestAnEmptySoundDeviceDropdownHoldsTheColumn(t *testing.T) {
 	styledLayOut(k, c.body, 900)
 	if w := c.devices.Bounds().W; w != widget.ItemColumnWidth || w <= c.devices.Measure(widget.Row, widget.Unknown).Nat {
 		t.Errorf("the empty device dropdown is %dpx wide, want the column's %d", w, widget.ItemColumnWidth)
+	}
+}
+
+// In the password dialog the entries with a reveal button after them
+// start and end at one x with the one without: the reveal sits outside
+// the control column.
+func TestPasswordEntriesLineUpWithAndWithoutTheirReveal(t *testing.T) {
+	k := testKit(t, "")
+	f := (&usersPanel{k: k}).newPasswordForm()
+	box := widget.NewBox(widget.Column, 0, 0)
+	box.Append(f, false)
+	styledLayOut(k, box, passwordDialogWidth)
+	columnEdges{"current": f.current.Bounds(), "new": f.next.Bounds(), "confirm": f.confirm.Bounds()}.shareEdges(t, "password dialog")
+	var reveals []*widget.Button
+	for _, b := range treetest.All[*widget.Button](f) {
+		if shown(b) {
+			reveals = append(reveals, b)
+		}
+	}
+	if len(reveals) != 2 {
+		t.Fatalf("%d buttons shown in the form, want the two reveals", len(reveals))
+	}
+	end := f.confirm.Bounds().X + f.confirm.Bounds().W
+	for i, b := range reveals {
+		if x := b.Bounds().X; x < end {
+			t.Errorf("reveal %d starts at x %d, inside the column ending at %d", i, x, end)
+		}
+	}
+}
+
+// A choice editor is a field of its card's control column: its combobox
+// starts and ends at the x an entry of the card does, and with the
+// unknown badge beside it the editor still ends at the column's end.
+func TestAChoiceEditorFitsTheControlColumn(t *testing.T) {
+	k := testKit(t, "")
+	value := "foot"
+	s := slot{get: func() any { return value }, set: func(v any) error { value, _ = v.(string); return nil }, unset: func() { value = "" }}
+	choice := newChoiceEditor(k, s, choiceSpec{list: fixed("foot", "kitty")})
+	entry := k.entry()
+	rows := widget.NewItemGroup(k.row("Terminal", "").withControl(choice), k.row("Name", "").withControl(entry))
+	box := widget.NewBox(widget.Column, 0, 0)
+	box.Append(rows, false)
+	styledLayOut(k, box, 900)
+	columnEdges{"choice": choice.combo.Bounds(), "entry": entry.Bounds()}.shareEdges(t, "a known choice")
+	value = "unlisted"
+	choice.refresh()
+	styledLayOut(k, box, 900)
+	if !choice.unknown.Visible() {
+		t.Fatal("an unlisted value shows no unknown badge")
+	}
+	columnEdges{"choice": choice.Bounds(), "entry": entry.Bounds()}.shareEdges(t, "an unknown choice")
+	if c, e := choice.combo.Bounds(), entry.Bounds(); c.X+c.W != e.X+e.W {
+		t.Errorf("beside the badge the combobox ends at x %d, the column at %d", c.X+c.W, e.X+e.W)
 	}
 }

@@ -304,6 +304,51 @@ func TestItemGroupControlsShareOneColumn(t *testing.T) {
 	}
 }
 
+// A trailing action sits outside the column: the column controls of a
+// group start and end at one x whether or not their item has one, and
+// keep doing so once it hides or goes; a natural control keeps the
+// row's end.
+func TestItemTrailingActionsSitOutsideTheColumn(t *testing.T) {
+	face := chromeFace(t)
+	plain := NewEntry(face, 14, 0)
+	revealed := NewEntry(face, 14, 0)
+	sw := NewSwitch(false)
+	reveal := NewButton(NewLabel(face, 14, "Show", 0), 0, 0)
+	g := NewItemGroup()
+	a, b, c := NewItem(face, "Password", ""), NewItem(face, "Confirm", ""), NewItem(face, "Remember", "")
+	a.SetControl(revealed, ItemControlColumn)
+	a.AddTrailing(reveal)
+	b.SetControl(plain, ItemControlColumn)
+	c.SetControl(sw, ItemControlNatural)
+	g.Append(a)
+	g.Append(b)
+	g.Append(c)
+	layOutItems(g, 700)
+	r, p := revealed.Bounds(), plain.Bounds()
+	if r.X != p.X || r.W != p.W {
+		t.Errorf("the entry with a trailing action spans x %d..%d, the one without %d..%d", r.X, r.X+r.W, p.X, p.X+p.W)
+	}
+	if rv := reveal.Bounds(); rv.X < r.X+r.W {
+		t.Errorf("the trailing action at x %d starts inside the column ending at %d", rv.X, r.X+r.W)
+	}
+	line := a.row.Bounds()
+	if s, rv := sw.Bounds(), reveal.Bounds(); s.X+s.W != line.X+line.W || rv.X+rv.W != line.X+line.W {
+		t.Errorf("the switch ends at %d and the trailing action at %d, want both at the row's end %d", s.X+s.W, rv.X+rv.W, line.X+line.W)
+	}
+	reveal.SetVisible(false)
+	layOutItems(g, 700)
+	if r, p := revealed.Bounds(), plain.Bounds(); r.X != p.X || r.W != p.W || r.X+r.W != line.X+line.W {
+		t.Errorf("with the action hidden the entries span x %d..%d and %d..%d, want both to end at the row's end %d", r.X, r.X+r.W, p.X, p.X+p.W, line.X+line.W)
+	}
+	reveal.SetVisible(true)
+	layOutItems(g, 700)
+	g.Remove(a)
+	layOutItems(g, 700)
+	if p := plain.Bounds(); p.X+p.W != line.X+line.W {
+		t.Errorf("after the row with the action left, the entry ends at %d, want the row's end %d", p.X+p.W, line.X+line.W)
+	}
+}
+
 // Outside a group a column control is at least ItemColumnWidth wide,
 // and an item leaving its group leaves the group's column too.
 func TestItemColumnFloorsAndFollowsItsGroup(t *testing.T) {

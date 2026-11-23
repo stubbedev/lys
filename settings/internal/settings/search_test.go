@@ -7,6 +7,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/settingspage"
+	"github.com/stubbedev/lys/desktop/shell/apptheme"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
 
@@ -111,10 +112,10 @@ func TestSearchJumpsToTheSetting(t *testing.T) {
 	if !ok || hit.page != displaysID {
 		t.Fatalf("the best hit for tearing mode is %+v", hit)
 	}
-	if len(w.results.button) != len(w.results.hits) || w.results.empty.Visible() {
-		t.Fatalf("%d result rows for %d hits", len(w.results.button), len(w.results.hits))
+	if len(w.results.rows) != len(w.results.hits) || w.results.empty.Visible() {
+		t.Fatalf("%d result rows for %d hits", len(w.results.rows), len(w.results.hits))
 	}
-	w.results.button[0].ClickAt(widget.Point{})
+	w.results.rows[0].ClickAt(widget.Point{})
 	if w.pageID != displaysID || w.stack.Visible() != w.names[len(w.names)-1] || w.search.Text() != "" {
 		t.Fatalf("after the jump page %q shows %q, search %q", w.pageID, w.stack.Visible(), w.search.Text())
 	}
@@ -128,6 +129,29 @@ func TestSearchJumpsToTheSetting(t *testing.T) {
 	w.root.Arrange(render.Rect{W: windowWidth, H: windowHeight})
 	if focused == nil || focused != widget.FirstFocusable(row.ctl) {
 		t.Errorf("focus went to %T, want the row's switch", focused)
+	}
+}
+
+// Every search result is a setting row in an item group on a card, the
+// rows the page sweep holds every page's to, and activating one opens
+// its setting.
+func TestSearchResultsAreSettingRows(t *testing.T) {
+	k := testKit(t, "")
+	cfg := k.store.svc.Config()
+	w := newWindow(k, cfg, (&fakeAfter{}).after)
+	w.stack.SetTransition(widget.StackNone, 0)
+	apptheme.New(cfg).Attach(w.root)
+	w.search.SetText("scale")
+	w.root.Arrange(render.Rect{W: sweepW, H: sweepH})
+	var met []string
+	checkRowsAreTheRowType(t, searchPage, w.results, func(row rowWidget) { met = append(met, row.asRow().Title()) })
+	if len(met) == 0 || len(met) != len(w.results.hits) {
+		t.Fatalf("%d result rows met for %d hits", len(met), len(w.results.hits))
+	}
+	hit := w.results.hits[0]
+	w.results.rows[0].KeyAction(widget.KeyEnter, 0)
+	if w.pageID != hit.page || w.stack.Visible() == searchPage {
+		t.Fatalf("Enter on the first result shows %q on page %q, want %q", w.stack.Visible(), w.pageID, hit.page)
 	}
 }
 

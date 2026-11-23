@@ -56,17 +56,19 @@ type keyringItemForm struct {
 func (p *passwordsPanel) newItemForm() *keyringItemForm {
 	t := locale.T()
 	f := &keyringItemForm{Box: gapBox(widget.Column)}
+	rows := widget.NewItemGroup()
 	text := func(key string) *widget.Entry {
 		e := p.k.entry()
 		e.SetAccessibleName(t.Get(key))
-		f.Append(p.k.row(t.Get(key), "").withControl(e), false)
+		rows.Append(p.k.row(t.Get(key), "").withControl(e))
 		return e
 	}
 	f.label = text("settings-passwords-label")
 	f.username = text("settings-passwords-add-username")
 	f.service = text("settings-passwords-add-service")
 	f.secret = p.k.passwordEntry("settings-passwords-secret")
-	f.Append(p.k.row(t.Get("settings-passwords-secret"), "").withControl(f.secret).withTrailing(p.k.revealButton(f.secret)), false)
+	rows.Append(p.k.row(t.Get("settings-passwords-secret"), "").withControl(f.secret).withTrailing(p.k.revealButton(f.secret)))
+	f.Append(rows, false)
 	f.messages = p.k.inlineState()
 	f.Append(f.messages, false)
 	return f

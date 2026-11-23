@@ -1,7 +1,6 @@
 package settings
 
 import (
-	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -38,9 +37,7 @@ func TestABindClashingWithAModeIsMarkedOnBoth(t *testing.T) {
 }
 
 func TestAnAppShortcutClashingWithABindIsMarked(t *testing.T) {
-	state := t.TempDir()
-	t.Setenv("XDG_STATE_HOME", state)
-	writeFile(t, filepath.Join(state, "lys-shell", "portal-shortcuts.json"), `{"org.example.Recorder":[{"id":"start","description":"Start recording"},{"id":"stop","description":"Stop recording"},{"id":"held","description":"Push to talk","trigger":"Super+Escape"}]}`)
+	registerAppShortcuts(t, `{"org.example.Recorder":[{"id":"start","description":"Start recording"},{"id":"stop","description":"Stop recording"},{"id":"held","description":"Push to talk","trigger":"Super+Escape"}]}`)
 	k, w, _, _ := wmKit(t, "binds:\n  - {chord: SUPER + ALT + R, action: global org.example.Recorder:start}\n  - {chord: SUPER + ALT + R, action: exec foot}\n  - {chord: SUPER + ALT + S, action: global org.example.Recorder:stop}\nsubmaps:\n  resize:\n    - {chord: SUPER + Escape, action: kill}\n")
 	e := fieldControl(k, w, appShortcutsRow()).(*appShortcutsEditor)
 	if len(e.entries) != 3 {

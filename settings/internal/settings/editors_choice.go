@@ -268,11 +268,15 @@ func newChoiceEditor(k *kit, s slot, spec choiceSpec) *choiceEditor {
 		c.combo.SetAction(spec.browse(k, c.pick))
 	}
 	c.AppendAligned(c.unknown, false, widget.AlignCenter)
-	c.AppendAligned(c.combo, false, widget.AlignCenter)
+	c.AppendAligned(c.combo, true, widget.AlignCenter)
 	c.refresh()
 	async(k, spec.list, c.setItems)
 	return c
 }
+
+// columnField makes the editor a field of the control column: its
+// combobox takes the column's width beside the unknown badge.
+func (c *choiceEditor) columnField() {}
 
 func (c *choiceEditor) dirtyBadge() *widget.Badge { return c.entry.badge }
 

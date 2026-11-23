@@ -32,7 +32,9 @@ var itemClasses = [...]string{ItemDefault: "", ItemOutline: css.Outline, ItemMut
 // The controls of the items in one ItemGroup share a column
 // (ItemControlColumn), so a card's fields start and end at one x, and
 // their readings (ItemValue) share a width, so the tracks before them
-// end at one x. It
+// end at one x. Trailing actions sit outside the column: every column
+// of a group leaves room for the widest of them, so a column control
+// lines up whether or not its item has one. It
 // styles as the `item` element with the variant's class (.outline,
 // .muted), .small for the small size, .activatable while it activates,
 // its .media tile, .title and .description.
@@ -55,6 +57,8 @@ type Item struct {
 	control Widget
 	fit     ItemControlFit
 	column  *itemSlot
+	// trailing hold the actions after the control.
+	trailing []*itemSlot
 	// values are the readings inside the control.
 	values []*ItemValue
 	// titleLines and descLines cap the labels' rows, 0 for no cap.
@@ -256,8 +260,27 @@ func valuesIn(w Widget) []*ItemValue {
 func (it *Item) ControlFit() ItemControlFit { return it.fit }
 
 // AddTrailing appends w (a reveal, an overflow button) after the
-// control, at the row's end.
-func (it *Item) AddTrailing(w Widget) { it.actions.AppendAligned(w, false, AlignCenter) }
+// control, at the row's end, outside the control column.
+func (it *Item) AddTrailing(w Widget) {
+	s := &itemSlot{item: it, kind: slotTrailing}
+	s.initComposite(s, w)
+	it.trailing = append(it.trailing, s)
+	it.actions.AppendAligned(s, false, AlignCenter)
+	it.eachPeer(slotColumn, func(c *itemSlot) { c.InvalidateLayout() })
+}
+
+// gutter is what the item's shown trailing actions take after its
+// control, each with the gap before it.
+func (it *Item) gutter() int {
+	gap := it.actions.gap(it.actions.style(it.actions))
+	g := 0
+	for _, s := range it.trailing {
+		if ownVisible(s) {
+			g += gap + s.natural().Nat
+		}
+	}
+	return g
+}
 
 // item is the Item an embedding row is built on, so an ItemGroup finds
 // the column its controls share.
@@ -279,6 +302,9 @@ const (
 	slotColumn slotKind = iota
 	// slotValue is a control's reading.
 	slotValue
+	// slotTrailing is a trailing action, its own width; the columns of
+	// its item's group make room for the widest.
+	slotTrailing
 )
 
 // itemSlot holds a widget as wide as the widest slot of its kind in its
@@ -312,13 +338,20 @@ func (s *itemSlot) width() Sizes {
 	if s.kind == slotColumn {
 		req.Nat = ItemColumnWidth
 	}
-	widest := func(o *itemSlot) { req = req.widest(o.natural()) }
-	if s.item.group == nil {
-		s.item.eachSlot(s.kind, widest)
-		return req
+	s.item.eachPeer(s.kind, func(o *itemSlot) { req = req.widest(o.natural()) })
+	return req.grow(s.pad())
+}
+
+// pad is the room a column slot leaves after its control for the
+// trailing actions of the widest gutter among its peers, less its own
+// item's, which follow it: 0 for another slot.
+func (s *itemSlot) pad() int {
+	if s.kind != slotColumn || s.item == nil {
+		return 0
 	}
-	s.item.group.eachSlot(s.kind, widest)
-	return req
+	widest := 0
+	s.item.eachPeer(slotColumn, func(o *itemSlot) { widest = max(widest, o.item.gutter()) })
+	return widest - s.item.gutter()
 }
 
 // natural is the held widget's own request across.
@@ -331,30 +364,61 @@ func (s *itemSlot) Measure(axis Axis, forSize int) Sizes {
 	if sz, ok := s.measureHit(axis, forSize); ok {
 		return sz
 	}
-	if axis == Column || s.item == nil {
+	if axis == Column && forSize != Unknown {
+		return s.measureStore(axis, forSize, measureChild(s, s.root, axis, max(0, forSize-s.pad())))
+	}
+	if axis == Column || s.item == nil || s.kind == slotTrailing {
 		return s.measureStore(axis, forSize, measureChild(s, s.root, axis, forSize))
 	}
 	return s.measureStore(axis, forSize, s.width())
 }
 
-// markMeasureDirty relayouts the other slots of its kind with this one:
-// their width depends on its widget's.
+// Arrange lays the held widget over the slot but its pad, at its start.
+func (s *itemSlot) Arrange(r render.Rect) {
+	s.node.Arrange(r)
+	setParents(s.self, s.root)
+	inner := s.insets().outer().Shrink(r)
+	inner.W = max(0, inner.W-s.pad())
+	arrangeChild(s.root, inner)
+}
+
+// Visible is the slot's own flag, and for a trailing action its
+// widget's too: a hidden action takes no room and no gap.
+func (s *itemSlot) Visible() bool {
+	if s.kind == slotTrailing && !ownVisible(s.root) {
+		return false
+	}
+	return s.node.Visible()
+}
+
+// markMeasureDirty relayouts the other slots of its kind with this one,
+// and the columns with a trailing action: their width depends on its
+// widget's.
 func (s *itemSlot) markMeasureDirty() bool {
 	was := s.node.markMeasureDirty()
 	if s.item == nil {
 		return was
 	}
-	peers := func(o *itemSlot) {
+	kind := s.kind
+	if kind == slotTrailing {
+		kind = slotColumn
+	}
+	s.item.eachPeer(kind, func(o *itemSlot) {
 		if o != s && !o.measureDirty {
 			o.InvalidateLayout()
 		}
-	}
-	if g := s.item.group; g != nil {
-		g.eachSlot(s.kind, peers)
-		return was
-	}
-	s.item.eachSlot(s.kind, peers)
+	})
 	return was
+}
+
+// eachPeer visits the slots of kind sharing a width with the item's:
+// its group's, or its own outside one.
+func (it *Item) eachPeer(kind slotKind, visit func(*itemSlot)) {
+	if it.group != nil {
+		it.group.eachSlot(kind, visit)
+		return
+	}
+	it.eachSlot(kind, visit)
 }
 
 // eachSlot visits the item's slots of kind.

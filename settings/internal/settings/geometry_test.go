@@ -54,13 +54,14 @@ const sweepW, sweepH = 1400, 6000
 // to hold all of it, holds every pageCheck. The pages are built and
 // laid out once for all of them.
 func TestEveryLaidOutPageHoldsThePageChecks(t *testing.T) {
+	registerAppShortcuts(t, recorderShortcuts)
 	k := testKit(t, geometryYAML)
 	cfg := k.store.svc.Config()
 	w := newWindow(k, cfg, func(_ time.Duration, fn func()) { fn() })
 	w.stack.SetTransition(widget.StackNone, 0)
 	apptheme.New(cfg).Attach(w.root)
 	accent := namedColor(themed(k, gapBox(widget.Column)), css.AccentColor)
-	checks := []pageCheck{sectionHeadersCarryNoTextButton(), modeTogglesAreInsetLinks(accent), controlRowsShareHeightCentreAndGap(), pagesCarryNoMargins(), cardFieldsLineUp(), tabReachesEveryControl(w), trashIconsShareTheErrorColor(), rowsAreTheRowType(), resetNeverMovesTheControl(), sliderSectionsShareOneValueColumn(), sliderRowsReadTheirValueOnce(), choicesFollowTheSegmentRule(), oneRelatedSectionLast()}
+	checks := []pageCheck{sectionHeadersCarryNoTextButton(), modeTogglesAreInsetLinks(accent), controlRowsShareHeightCentreAndGap(), pagesCarryNoMargins(), cardFieldsLineUp(), tabReachesEveryControl(w), trashIconsShareTheErrorColor(), rowsAreTheRowType("Start recording", "Push to talk"), resetNeverMovesTheControl(), sliderSectionsShareOneValueColumn(), sliderRowsReadTheirValueOnce(), choicesFollowTheSegmentRule(), oneRelatedSectionLast()}
 	for _, sec := range w.sections {
 		for _, p := range sec.pages {
 			w.show(p.id)

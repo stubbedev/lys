@@ -26,7 +26,7 @@ func TestWrappedWidgetStylesAsItself(t *testing.T) {
 	if bare := measure(widget.NewSwitch(false)); plain != bare {
 		t.Errorf("unstyled wrapped switch %v, want the bare one's %v", plain, bare)
 	}
-	widget.LoadStylesheet(`switch { min-width: 50px; min-height: 30px; } .setting-control switch { min-width: calc(2rem + 20px); min-height: calc(1rem + 14px); }`)
+	widget.LoadStylesheet(`switch { min-width: 50px; min-height: 30px; } .wrapper-row switch { min-width: calc(2rem + 20px); min-height: calc(1rem + 14px); }`)
 	t.Cleanup(func() { widget.LoadStylesheet("") })
 	if got := measure(widget.NewSwitch(false)); got != (widget.Size{W: 50, H: 30}) {
 		t.Errorf("bare switch %v, want 50x30", got)
@@ -36,7 +36,7 @@ func TestWrappedWidgetStylesAsItself(t *testing.T) {
 	}
 	sw := wrapSwitch{widget.NewSwitch(true)}
 	row := widget.NewBox(widget.Row, 0, 0)
-	row.AddClass("setting-control")
+	row.AddClass("wrapper-row")
 	row.Append(sw, false)
 	measure(row)
 	if got := widget.SizeWithinAsChild(sw, widget.Size{W: 300, H: 100}); got != (widget.Size{W: 52, H: 30}) {

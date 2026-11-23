@@ -129,10 +129,21 @@ func TestTheActionOffersLysWMsActions(t *testing.T) {
 	}
 }
 
-func TestAnAppShortcutRecordedBecomesAGlobalBind(t *testing.T) {
+// recorderShortcuts are an app's registered shortcuts: one the user
+// binds, one the app holds itself.
+const recorderShortcuts = `{"org.example.Recorder":[{"id":"start","description":"Start recording"},{"id":"held","description":"Push to talk","trigger":"Ctrl+Alt+P"}]}`
+
+// registerAppShortcuts makes registered the shortcuts apps registered
+// through lys-shell's portal, in a state directory of the test's own.
+func registerAppShortcuts(t *testing.T, registered string) {
+	t.Helper()
 	state := t.TempDir()
 	t.Setenv("XDG_STATE_HOME", state)
-	writeFile(t, filepath.Join(state, "lys-shell", "portal-shortcuts.json"), `{"org.example.Recorder":[{"id":"start","description":"Start recording"},{"id":"held","description":"Push to talk","trigger":"Ctrl+Alt+P"}]}`)
+	writeFile(t, filepath.Join(state, "lys-shell", "portal-shortcuts.json"), registered)
+}
+
+func TestAnAppShortcutRecordedBecomesAGlobalBind(t *testing.T) {
+	registerAppShortcuts(t, recorderShortcuts)
 	k, w, _, files := wmKit(t, "binds:\n  - {chord: SUPER + Q, action: kill}\n")
 	e := fieldControl(k, w, appShortcutsRow()).(*appShortcutsEditor)
 	if len(e.entries) != 2 || e.entries[0].recorder == nil || e.entries[1].recorder != nil {
