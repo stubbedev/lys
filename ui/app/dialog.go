@@ -584,19 +584,31 @@ func (a *Application) CalendarDialog(parent *Window, initial widget.Date, onSele
 	return d, err
 }
 
-// MessageBox opens the standard preset, an alert dialog: the
+// messageBoxWidth is a message box's width.
+const messageBoxWidth = 440
+
+// MessageBoxConfig declares the standard preset, an alert dialog: the
 // title over the muted text, wrapped, above the buttons, the dialog as
-// tall as they need.
-func (a *Application) MessageBox(parent *Window, title, text string, buttons []DialogButton) (*Dialog, error) {
-	return a.NewDialog(parent, DialogConfig{
+// tall as they need. Enter answers the ButtonRoleDefault button, else
+// the first; Escape the ButtonRoleCancel button, else the last;
+// onResponse gets every response.
+func MessageBoxConfig(title, text string, buttons []DialogButton, onResponse func(response string)) DialogConfig {
+	return DialogConfig{
 		Title:           title,
 		Description:     text,
-		Width:           440,
+		Width:           messageBoxWidth,
 		Buttons:         buttons,
 		Modal:           true,
 		DefaultResponse: defaultResponse(buttons),
 		CancelResponse:  cancelResponse(buttons),
-	})
+		OnResponse:      onResponse,
+	}
+}
+
+// MessageBox opens MessageBoxConfig's dialog over parent, without a
+// response callback.
+func (a *Application) MessageBox(parent *Window, title, text string, buttons []DialogButton) (*Dialog, error) {
+	return a.NewDialog(parent, MessageBoxConfig(title, text, buttons, nil))
 }
 
 // defaultResponse is the response Enter fires: the button marked

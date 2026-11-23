@@ -73,6 +73,71 @@ func TestMessageBoxDefaults(t *testing.T) {
 	}
 }
 
+// TestMessageBoxConfig pins the preset's declaration: the title over
+// the text, the buttons in the order given, modal at the message box
+// width, Enter and Escape on the role-marked buttons wherever they sit,
+// and every response reaching onResponse once.
+func TestMessageBoxConfig(t *testing.T) {
+	buttons := []DialogButton{
+		{Label: "Cancel", Response: "cancel", Role: ButtonRoleCancel},
+		{Label: "Keep", Response: "keep"},
+		{Label: "Discard", Response: "discard", Role: ButtonRoleDefault, Appearance: AppearanceDestructive},
+	}
+	var got []string
+	cfg := MessageBoxConfig("Discard changes?", "They are lost for good.", buttons, func(r string) { got = append(got, r) })
+
+	if cfg.Title != "Discard changes?" || cfg.Description != "They are lost for good." {
+		t.Errorf("title, description = %q, %q", cfg.Title, cfg.Description)
+	}
+	if !cfg.Modal || cfg.Width != messageBoxWidth || cfg.Height != 0 || cfg.Content != nil || cfg.Bare {
+		t.Errorf("modal %v width %d height %d content %v bare %v, want a modal %dpx card fitted to its text", cfg.Modal, cfg.Width, cfg.Height, cfg.Content, cfg.Bare, messageBoxWidth)
+	}
+	if len(cfg.Buttons) != len(buttons) {
+		t.Fatalf("buttons = %d, want %d", len(cfg.Buttons), len(buttons))
+	}
+	for i, b := range buttons {
+		if cfg.Buttons[i] != b {
+			t.Errorf("button %d = %+v, want %+v", i, cfg.Buttons[i], b)
+		}
+	}
+	if cfg.DefaultResponse != "discard" || cfg.CancelResponse != "cancel" {
+		t.Errorf("default, cancel = %q, %q, want discard, cancel", cfg.DefaultResponse, cfg.CancelResponse)
+	}
+
+	app := &Application{}
+	d := &Dialog{app: app, win: &Window{app: app}, cfg: cfg}
+	d.Respond("keep")
+	d.Respond("discard")
+	if len(got) != 1 || got[0] != "keep" {
+		t.Errorf("responses = %q, want exactly [keep]", got)
+	}
+}
+
+// TestMessageBoxConfigPositional pins the fallbacks without roles, the
+// first button Enter's and the last Escape's, and a box without buttons
+// binding neither key.
+func TestMessageBoxConfigPositional(t *testing.T) {
+	cfg := MessageBoxConfig("Lunch?", "", []DialogButton{
+		{Label: "Pizza", Response: "pizza"},
+		{Label: "Sushi", Response: "sushi"},
+		{Label: "Skip", Response: "skip"},
+	}, nil)
+	if cfg.DefaultResponse != "pizza" || cfg.CancelResponse != "skip" {
+		t.Errorf("default, cancel = %q, %q, want pizza, skip", cfg.DefaultResponse, cfg.CancelResponse)
+	}
+
+	empty := MessageBoxConfig("Done", "Saved.", nil, nil)
+	if empty.DefaultResponse != "" || empty.CancelResponse != "" {
+		t.Errorf("default, cancel = %q, %q without buttons, want neither key bound", empty.DefaultResponse, empty.CancelResponse)
+	}
+	app := &Application{}
+	d := &Dialog{app: app, win: &Window{app: app}, cfg: empty}
+	d.Respond("ok")
+	if !d.Closed() {
+		t.Error("a box without a response callback did not close on its response")
+	}
+}
+
 // TestModalBlocksParentInput pins the modal rule: a blocked
 // surfaceInput drops pointer presses, motion, and wheel, so the parent
 // window is inert while a dialog is open.
