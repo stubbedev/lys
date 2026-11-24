@@ -38,8 +38,9 @@ the end-to-end and contract tests skip without `LYS_SETTINGS_HEADLESS`.
 
 `just packages lys-settings` builds the package. `just checks settings-hm-module
 settings-wrapper-vulkan` adds the Home Manager module check and the wrapper and
-desktop-file check. accounts-daemon's rename (`nix/accounts-vm.nix`) is a
-scenario of the shared NixOS VM `just checks desktop-vms-system`. Repository-wide recipes, the Nix layout, CI and releases are in [Developing lys](/development/).
+desktop-file check. `lys-users-helper` changing accounts through pkexec with
+no AccountsService (`nix/users-vm.nix`) is a scenario of the shared NixOS VM
+`just checks desktop-vms-system`. Repository-wide recipes, the Nix layout, CI and releases are in [Developing lys](/development/).
 `nix fmt` formats Nix files with alejandra.
 
 ## Releases

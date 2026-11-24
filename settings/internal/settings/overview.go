@@ -1,7 +1,6 @@
 package settings
 
 import (
-	"cmp"
 	"context"
 	"errors"
 	"math"
@@ -88,25 +87,16 @@ func showStatus(k *kit, status tileStatus, desc *widget.Label) {
 	})
 }
 
-func accountStatus(ctx context.Context, k *kit) (string, error) {
-	conn, err := k.systemBus()
+func accountStatus(_ context.Context, k *kit) (string, error) {
+	db, err := k.readAccounts()
 	if err != nil {
 		return "", err
 	}
-	defer func() { _ = conn.Close() }()
-	acc, err := openAccounts(ctx, conn)
+	self, err := readSelf(db)
 	if err != nil {
 		return "", err
 	}
-	props, err := acc.user.props(ctx)
-	if err != nil {
-		return "", err
-	}
-	name := cmp.Or(props.str("RealName"), props.str("UserName"))
-	if name == "" {
-		return "", errNoStatus
-	}
-	return locale.T().Get("settings-overview-signed-in", i18n.Str("name", name)), nil
+	return locale.T().Get("settings-overview-signed-in", i18n.Str("name", self.DisplayName())), nil
 }
 
 func enumLabel(path, value string) string {

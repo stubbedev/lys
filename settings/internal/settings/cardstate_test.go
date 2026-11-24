@@ -505,15 +505,6 @@ func TestEveryPagesActionFailureIsSaidInTheAppsWords(t *testing.T) {
 			p.fail(err)
 			return p.problem
 		}},
-		{usersID, tr.Get("settings-users-add-no-password", i18n.Str("name", "zoe")), func(page widget.Widget, err error) *inlineState {
-			p := treetest.First[*usersPanel](t, page)
-			if err == nil {
-				p.fail(nil)
-				return p.problem
-			}
-			p.fail(&passwordNotSetError{login: "zoe", err: err})
-			return p.problem
-		}},
 		{loginItemsID, tr.Get("settings-login-apps-failed"), func(page widget.Widget, err error) *inlineState {
 			l := treetest.First[*loginItems](t, page)
 			l.fail(err)

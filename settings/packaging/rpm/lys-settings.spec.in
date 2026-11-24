@@ -12,6 +12,8 @@ ExclusiveArch:  x86_64 aarch64
 
 BuildRequires:  desktop-file-utils
 Requires:       hicolor-icon-theme
+Requires:       shadow-utils
+Recommends:     polkit
 Recommends:     vulkan-loader
 Recommends:     mesa-vulkan-drivers
 Recommends:     (lys-shell = @VERSION@ or lys-wm)
@@ -28,6 +30,8 @@ lys-settings configures lys-shell and lys-wm: its pages edit lys-shell's runtime
 %install
 install -d %{buildroot}%{_bindir}
 install -m 0755 lys-settings %{buildroot}%{_bindir}/
+install -D -m 0755 lys-users-helper %{buildroot}%{_libexecdir}/lys-users-helper
+install -D -m 0644 dev.stubbe.lys.settings.users.policy %{buildroot}%{_datadir}/polkit-1/actions/dev.stubbe.lys.settings.users.policy
 install -D -m 0644 dev.stubbe.lys.settings.desktop %{buildroot}%{_datadir}/applications/dev.stubbe.lys.settings.desktop
 desktop-file-validate %{buildroot}%{_datadir}/applications/dev.stubbe.lys.settings.desktop
 install -D -m 0644 lys-settings.svg %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/lys-settings.svg
@@ -37,6 +41,8 @@ install -m 0644 icons/hicolor/scalable/actions/*.svg %{buildroot}%{_datadir}/lys
 %files
 %license LICENSE
 %{_bindir}/lys-settings
+%{_libexecdir}/lys-users-helper
+%{_datadir}/polkit-1/actions/dev.stubbe.lys.settings.users.policy
 %{_datadir}/applications/dev.stubbe.lys.settings.desktop
 %{_datadir}/icons/hicolor/scalable/apps/lys-settings.svg
 %{_datadir}/lys-settings

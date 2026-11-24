@@ -1,6 +1,6 @@
 // Package shacrypt is SHA-512 crypt(3), the "$6$" scheme of Ulrich
 // Drepper's "Unix crypt using SHA-256 and SHA-512", as glibc implements it
-// and as /etc/shadow and AccountsService's SetPassword take it.
+// and as /etc/shadow and chpasswd -e take it.
 package shacrypt
 
 import (
@@ -27,6 +27,8 @@ const (
 	MaxRounds = 999_999_999
 	// MaxSalt is the longest salt; a longer one is cut.
 	MaxSalt = 16
+
+	digestLen = 86
 )
 
 // The defined refusals of a setting.
@@ -34,6 +36,7 @@ var (
 	ErrPrefix = errors.New("a SHA-512 crypt setting starts with $6$")
 	ErrRounds = errors.New("rounds= is a decimal count followed by $")
 	ErrSalt   = errors.New("a salt is made of ./0-9A-Za-z")
+	ErrDigest = errors.New("a hash ends in $ and a digest of 86 characters of ./0-9A-Za-z")
 )
 
 // Setting is the salt and rounds a hash is made with.
@@ -115,11 +118,26 @@ func Verify(password []byte, hash string) (bool, error) {
 	return subtle.ConstantTimeCompare([]byte(st.Hash(password)), []byte(hash)) == 1, nil
 }
 
+// CheckHash reports whether s is a whole hash as Setting.Hash writes it:
+// a setting in its own spelling, "$" and the digest, and nothing else.
+// The error never quotes s.
+func CheckHash(s string) error {
+	st, err := ParseSetting(s)
+	if err != nil {
+		return errors.Unwrap(err)
+	}
+	digest, ok := strings.CutPrefix(s, st.String()+"$")
+	if !ok || len(digest) != digestLen || strings.Trim(digest, alphabet) != "" {
+		return ErrDigest
+	}
+	return nil
+}
+
 // Hash is password hashed with st: the setting, "$" and the digest.
 func (st Setting) Hash(password []byte) string {
 	sum := st.digest(password)
 	var b strings.Builder
-	b.Grow(len(prefix) + len(roundsPrefix) + 10 + len(st.salt) + 1 + 86)
+	b.Grow(len(prefix) + len(roundsPrefix) + 10 + len(st.salt) + 1 + digestLen)
 	b.WriteString(st.String())
 	b.WriteByte('$')
 	for _, g := range groups {

@@ -5,7 +5,6 @@ import (
 	"image"
 	"image/color"
 	"image/png"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -15,6 +14,7 @@ import (
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
 
+	"github.com/stubbedev/lys/settings/internal/accounts"
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
@@ -136,9 +136,8 @@ func avatarFile(t *testing.T) string {
 }
 
 func TestAPictureFromAFileIsCroppedInADialogAndSetOnApply(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
 	k := testKit(t, "")
+	f := serveAccounts(k, alice)
 	pickers := &fakePickers{}
 	k.pickers = pickers
 	p := &usersPanel{Box: gapBox(widget.Column), k: k}
@@ -167,17 +166,17 @@ func TestAPictureFromAFileIsCroppedInADialogAndSetOnApply(t *testing.T) {
 	if zoom.Value() != cropper.crop.zoom {
 		t.Fatalf("the slider reads %v while the crop zooms %v", zoom.Value(), cropper.crop.zoom)
 	}
-	face := filepath.Join(home, ".face")
 	pickers.respond(responseCancel)
-	if _, err := os.Stat(face); !os.IsNotExist(err) {
-		t.Fatalf("cancelling the crop set the picture: %v", err)
+	if made := f.made(); len(made) != 0 {
+		t.Fatalf("cancelling the crop set the picture: %#v", made)
 	}
 	pickers.respond(responseConfirm)
-	data, err := os.ReadFile(face)
-	if err != nil {
-		t.Fatalf("applying the crop set no picture: %v", err)
+	made := f.made()
+	pic, ok := made[len(made)-1].(accounts.SetPicture)
+	if len(made) != 1 || !ok {
+		t.Fatalf("applying the crop asked %#v", made)
 	}
-	if img, err := png.Decode(bytes.NewReader(data)); err != nil || img.Bounds().Dx() != avatarSide {
+	if img, err := png.Decode(bytes.NewReader(pic.Picture)); err != nil || img.Bounds().Dx() != avatarSide {
 		t.Fatalf("the picture set is %v, %v", img, err)
 	}
 }

@@ -3,10 +3,11 @@ package settings
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
-	"image"
 	"image/png"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -17,174 +18,208 @@ import (
 
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/desktop/useraccount"
 	"github.com/stubbedev/lys/lib/dbustest"
-	"github.com/stubbedev/lys/lib/dbusx"
 	"github.com/stubbedev/lys/lib/logtest"
-	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	secrets "github.com/stubbedev/lys/secrets/control"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
 
+	"github.com/stubbedev/lys/settings/internal/accounts"
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
-type fakeAccounts struct {
-	*fakeSys
-	selfPath dbus.ObjectPath
-	cached   []dbus.ObjectPath
-}
-
-func (f fakeAccounts) FindUserById(uid int64) (dbus.ObjectPath, *dbus.Error) {
-	f.record("FindUserById", uid)
-	return f.selfPath, nil
-}
-
-func (f fakeAccounts) ListCachedUsers() ([]dbus.ObjectPath, *dbus.Error) {
-	return f.cached, nil
-}
-
-const createdUser = dbus.ObjectPath("/org/freedesktop/Accounts/User3000")
-
-func (f fakeAccounts) CreateUser(name, real string, kind int32) (dbus.ObjectPath, *dbus.Error) {
-	return createdUser, f.record("CreateUser", name, real, kind)
-}
-
-func (f fakeAccounts) DeleteUser(uid int64, remove bool) *dbus.Error {
-	return f.record("DeleteUser", uid, remove)
-}
-
-type fakeAccountUser struct{ *fakeSys }
-
-func (f fakeAccountUser) SetRealName(name string) *dbus.Error {
-	return f.record("SetRealName", name)
-}
-
-func (f fakeAccountUser) SetIconFile(path string) *dbus.Error {
-	return f.record("SetIconFile", path)
-}
-
-func (f fakeAccountUser) SetAccountType(kind int32) *dbus.Error {
-	return f.record("SetAccountType", kind)
-}
-
-func (f fakeAccountUser) SetPassword(hash, hint string) *dbus.Error {
-	return f.record("SetPassword", hash, hint)
-}
-
 type fakeAccount struct {
-	name, real  string
-	uid         uint64
-	accountType int32
-	icon        string
+	name, full string
+	uid        uint32
+	kind       accounts.Kind
 }
 
 var (
-	alice = fakeAccount{name: "alice", real: "Alice", uid: 1000}
-	bob   = fakeAccount{name: "bob", real: "Bob", uid: 2000}
+	alice = fakeAccount{name: "alice", full: "Alice", uid: uint32(os.Getuid())}
+	bob   = fakeAccount{name: "bob", full: "Bob", uid: 50002}
 )
 
-func (a fakeAccount) path() dbus.ObjectPath {
-	return dbus.ObjectPath(fmt.Sprintf("/org/freedesktop/Accounts/User%d", a.uid))
+// fakeAccounts is the passwd and group databases lys-settings reads, and
+// a lys-users-helper that takes every request the real one decodes,
+// records it and, unless refused, makes it.
+type fakeAccounts struct {
+	mu       sync.Mutex
+	accounts []fakeAccount
+	requests []accounts.Request
+	refuse   error
 }
 
-func serveAccounts(t *testing.T, bus *dbustest.Bus, self fakeAccount, others ...fakeAccount) (manager, user *fakeSys) {
-	t.Helper()
-	s := serveAllAccounts(t, bus, self, others...)
-	return s.manager, s.self
-}
-
-// servedAccounts are the fakes of a served AccountsService: the manager,
-// the session's user, the others in order, and the user CreateUser
-// makes.
-type servedAccounts struct {
-	manager, self, created *fakeSys
-	others                 []*fakeSys
-}
-
-func serveAllAccounts(t *testing.T, bus *dbustest.Bus, self fakeAccount, others ...fakeAccount) servedAccounts {
-	t.Helper()
-	conn := bus.Conn(t)
-	s := servedAccounts{created: &fakeSys{props: map[string]any{}, conn: conn}}
-	if _, err := dbusx.Export(conn, createdUser, dbusx.Interface{Name: accountsUser, Methods: fakeAccountUser{s.created}, Properties: s.created.getters()}); err != nil {
-		t.Fatal(err)
-	}
-	s.manager = &fakeSys{props: map[string]any{"DaemonVersion": "23.13"}, conn: conn}
-	cached := make([]dbus.ObjectPath, 0, 1+len(others))
-	for i, a := range append([]fakeAccount{self}, others...) {
-		f := &fakeSys{props: map[string]any{"UserName": a.name, "RealName": a.real, "IconFile": a.icon, "AccountType": a.accountType, "Uid": a.uid}, conn: conn}
-		if i == 0 {
-			s.self = f
-		} else {
-			s.others = append(s.others, f)
+func (f *fakeAccounts) read() (accounts.Database, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	var passwd strings.Builder
+	var admins []string
+	passwd.WriteString("root:x:0:0:root:/root:/bin/sh\nsvc:x:998:998:service:/var/lib/svc:/usr/sbin/nologin\n")
+	for _, a := range f.accounts {
+		fmt.Fprintf(&passwd, "%s:x:%d:%d:%s:/home/%s:/bin/sh\n", a.name, a.uid, a.uid, a.full, a.name)
+		if a.kind == accounts.Admin {
+			admins = append(admins, a.name)
 		}
-		if _, err := dbusx.Export(conn, a.path(), dbusx.Interface{Name: accountsUser, Methods: fakeAccountUser{f}, Properties: f.getters()}); err != nil {
-			t.Fatal(err)
-		}
-		cached = append(cached, a.path())
 	}
-	if _, err := dbusx.Export(conn, accountsPath, dbusx.Interface{Name: accountsName, Methods: fakeAccounts{s.manager, self.path(), cached}, Properties: s.manager.getters()}); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := dbusx.Own(conn, accountsName); err != nil {
-		t.Fatal(err)
-	}
-	return s
+	return accounts.ParseDatabase(passwd.String(), "wheel:x:10:"+strings.Join(admins, ",")+"\n", useraccount.UIDRange{Min: 1, Max: 60000}), nil
 }
 
-func usersFixture(t *testing.T, bus *dbustest.Bus) (*usersPanel, *loop) {
+func (f *fakeAccounts) change(_ context.Context, r accounts.Request) error {
+	data, err := accounts.Encode(r)
+	if err != nil {
+		return err
+	}
+	decoded, err := accounts.Decode(r.Class(), data)
+	if err != nil {
+		return accounts.Errorf(accounts.ErrInvalid, "%v", err)
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.requests = append(f.requests, decoded)
+	if f.refuse != nil {
+		return f.refuse
+	}
+	switch r := decoded.(type) {
+	case accounts.Rename:
+		f.edit(alice.name, func(a *fakeAccount) { a.full = string(r.RealName) })
+	case accounts.Create:
+		f.accounts = append(f.accounts, fakeAccount{name: string(r.Login), full: string(r.RealName), uid: 50100, kind: r.Kind})
+	case accounts.Edit:
+		f.edit(string(r.Login), func(a *fakeAccount) {
+			if r.RealName != nil {
+				a.full = string(*r.RealName)
+			}
+			if r.Kind != nil {
+				a.kind = *r.Kind
+			}
+		})
+	case accounts.Delete:
+		f.accounts = slices.DeleteFunc(f.accounts, func(a fakeAccount) bool { return a.name == string(r.Login) })
+	}
+	return nil
+}
+
+func (f *fakeAccounts) edit(name string, fn func(*fakeAccount)) {
+	for i := range f.accounts {
+		if f.accounts[i].name == name {
+			fn(&f.accounts[i])
+		}
+	}
+}
+
+func (f *fakeAccounts) refuseWith(err error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.refuse = err
+}
+
+func (f *fakeAccounts) made() []accounts.Request {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return slices.Clone(f.requests)
+}
+
+func (f *fakeAccounts) named(name string) fakeAccount {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for _, a := range f.accounts {
+		if a.name == name {
+			return a
+		}
+	}
+	return fakeAccount{}
+}
+
+func serveAccounts(k *kit, self fakeAccount, others ...fakeAccount) *fakeAccounts {
+	f := &fakeAccounts{accounts: append([]fakeAccount{self}, others...)}
+	k.readAccounts, k.changeAccount = f.read, f.change
+	return f
+}
+
+var errNotAuthorized = accounts.Errorf(accounts.ErrNotAuthorized, "pkexec refused: Not authorized")
+
+func usersFixture(t *testing.T, bus *dbustest.Bus, accts ...fakeAccount) (*usersPanel, *loop, *fakeAccounts) {
 	t.Helper()
-	t.Setenv("XDG_CACHE_HOME", t.TempDir())
 	k, l := systemKit(t, bus)
+	var f *fakeAccounts
+	if len(accts) > 0 {
+		f = serveAccounts(k, accts[0], accts[1:]...)
+	}
 	p := usersFooter(k).(*usersPanel)
 	t.Cleanup(p.close)
-	return p, l
+	return p, l, f
 }
 
-func TestAStockAvatarIsOneSetIconFileAndTheNameOneSetRealName(t *testing.T) {
+func TestAStockAvatarIsOnePictureRequestAndTheNameOneRename(t *testing.T) {
 	bus := dbustest.Start(t)
-	_, user := serveAccounts(t, bus, alice, bob)
-	p, l := usersFixture(t, bus)
+	p, l, f := usersFixture(t, bus, alice, bob)
 	l.until("the account", func() bool { return p.realName.Enabled() })
 	if p.realName.Text() != "Alice" || p.admin.Visible() {
 		t.Fatalf("name %q, admin section shown %v for a standard user", p.realName.Text(), p.admin.Visible())
 	}
 	stockAvatarChoice(t, p, 0).OnClick()
-	l.until("SetIconFile", func() bool { c, _ := user.snapshot(); return len(c) == 1 })
-	calls, _ := user.snapshot()
-	if calls[0].method != "SetIconFile" {
-		t.Fatalf("%+v", calls)
+	l.until("the picture", func() bool { return len(f.made()) == 1 })
+	pic, ok := f.made()[0].(accounts.SetPicture)
+	if !ok {
+		t.Fatalf("%#v", f.made())
 	}
-	path, _ := calls[0].args[0].(string)
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	img, err := png.Decode(bytes.NewReader(data))
+	img, err := png.Decode(bytes.NewReader(pic.Picture))
 	if err != nil || img.Bounds().Dx() != avatarSide || img.Bounds().Dy() != avatarSide {
 		t.Fatalf("the avatar handed over is %v, %v; want a %dpx PNG", img.Bounds(), err, avatarSide)
 	}
 	p.realName.SetText("Alice Liddell")
 	p.realName.OnActivate("Alice Liddell")
-	l.until("SetRealName", func() bool { c, _ := user.snapshot(); return len(c) == 2 })
-	if calls, _ := user.snapshot(); calls[1].method != "SetRealName" || fmt.Sprint(calls[1].args) != "[Alice Liddell]" {
-		t.Fatalf("%+v", calls)
+	l.until("the rename", func() bool { return len(f.made()) == 2 })
+	if r, ok := f.made()[1].(accounts.Rename); !ok || r.RealName != "Alice Liddell" {
+		t.Fatalf("%#v", f.made()[1])
+	}
+	if got := f.named("alice").full; got != "Alice Liddell" || p.problem.Visible() {
+		t.Fatalf("alice is called %q, the page reads %q", got, p.problem.Text())
+	}
+}
+
+func TestARefusedRenameOrPictureLeavesTheAccountAndSaysWhy(t *testing.T) {
+	bus := dbustest.Start(t)
+	p, l, f := usersFixture(t, bus, alice)
+	l.until("the account", func() bool { return p.realName.Enabled() })
+	f.refuseWith(errNotAuthorized)
+	p.realName.SetText("Mallory")
+	p.realName.OnActivate("Mallory")
+	l.until("the refusal", func() bool { return p.problem.Visible() })
+	if p.problem.Text() != locale.T().Get("settings-users-failed") || !strings.Contains(p.problem.detail.Text(), "Not authorized") {
+		t.Fatalf("the page reads %q over %q", p.problem.Text(), p.problem.detail.Text())
+	}
+	if got := f.named("alice").full; got != "Alice" || p.realName.Text() != "Alice" || p.face.Initials() != "A" {
+		t.Fatalf("after a refused rename alice is %q, the field reads %q, the avatar %q", got, p.realName.Text(), p.face.Initials())
+	}
+	p.problem.Clear()
+	stockAvatarChoice(t, p, 1).OnClick()
+	l.until("the second refusal", func() bool { return p.problem.Visible() })
+	if _, ok := f.made()[1].(accounts.SetPicture); !ok || !strings.Contains(p.problem.detail.Text(), "Not authorized") {
+		t.Fatalf("asked %#v, the page reads %q", f.made(), p.problem.detail.Text())
+	}
+}
+
+func TestANameTheGECOSFieldCannotHoldIsRefusedBeforeTheHelper(t *testing.T) {
+	bus := dbustest.Start(t)
+	p, l, f := usersFixture(t, bus, alice)
+	l.until("the account", func() bool { return p.realName.Enabled() })
+	if err := p.rename("Alice:x:0:0"); !errors.Is(err, accounts.ErrRealName) {
+		t.Fatalf("rename: %v, want %v", err, accounts.ErrRealName)
+	}
+	l.drain()
+	if len(f.made()) != 0 {
+		t.Fatalf("the helper was asked: %#v", f.made())
 	}
 }
 
 func TestTheHeaderShowsWhoYouAreAndKeepsANameTypedAndLeft(t *testing.T) {
-	icon := filepath.Join(t.TempDir(), "alice")
-	pic := image.NewRGBA(image.Rect(0, 0, 8, 8))
-	var buf bytes.Buffer
-	if err := png.Encode(&buf, pic); err != nil {
-		t.Fatal(err)
-	}
-	put(t, icon, buf.String())
 	self := alice
-	self.icon, self.accountType = icon, accountAdmin
+	self.kind = accounts.Admin
 	bus := dbustest.Start(t)
-	_, user := serveAccounts(t, bus, self)
-	p, l := usersFixture(t, bus)
+	p, l, f := usersFixture(t, bus, self)
 	l.until("the account", func() bool { return p.realName.Enabled() })
 	tr := locale.T()
 	if want := tr.Get("settings-users-identity", i18n.Str("login", "alice"), i18n.Str("type", tr.Get("settings-users-type-admin"))); p.identity.Text() != want {
@@ -200,9 +235,9 @@ func TestTheHeaderShowsWhoYouAreAndKeepsANameTypedAndLeft(t *testing.T) {
 	}
 	p.realName.SetText("  Alice Liddell ")
 	p.realName.OnActivate(p.realName.Text())
-	l.until("SetRealName", func() bool { c, _ := user.snapshot(); return len(c) == 1 })
-	if calls, _ := user.snapshot(); fmt.Sprint(calls[0].args) != "[Alice Liddell]" || p.realName.dirtyBadge().Visible() {
-		t.Fatalf("the name saved %+v, badge still shown %v", calls, p.realName.dirtyBadge().Visible())
+	l.until("the rename", func() bool { return len(f.made()) == 1 })
+	if r := f.made()[0].(accounts.Rename); r.RealName != "Alice Liddell" || p.realName.dirtyBadge().Visible() {
+		t.Fatalf("the name saved %#v, badge still shown %v", r, p.realName.dirtyBadge().Visible())
 	}
 	if p.face.Initials() != "AL" {
 		t.Errorf("after the rename the avatar reads %q", p.face.Initials())
@@ -222,35 +257,35 @@ func TestAnAccountPictureThatCannotBeReadSaysSo(t *testing.T) {
 	}
 }
 
-func TestWithoutAccountsServiceTheAvatarIsWrittenToFace(t *testing.T) {
+func TestWithoutTheAccountsTheCardSaysSoAndNothingIsChanged(t *testing.T) {
 	bus := dbustest.Start(t)
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	p, l := usersFixture(t, bus)
+	p, l, _ := usersFixture(t, bus)
 	l.drain()
 	if p.realName.Enabled() || p.admin.Visible() {
-		t.Fatal("the name or the admin section without AccountsService")
+		t.Fatal("the name or the admin section without the accounts")
 	}
 	if st, want := p.accounts, locale.T().Get("settings-users-unavailable"); st.kind != stateUnavailable || st.Title() != want || st.detail.Text() == "" || p.realName.Placeholder() != "" {
-		t.Fatalf("without AccountsService the card shows %v %q over %q, the name reads %q; want %q", st.kind, st.Title(), st.detail.Text(), p.realName.Placeholder(), want)
+		t.Fatalf("without the accounts the card shows %v %q over %q, the name reads %q; want %q", st.kind, st.Title(), st.detail.Text(), p.realName.Placeholder(), want)
 	}
-	stockAvatarChoice(t, p, 1).OnClick()
-	l.until("~/.face", func() bool { _, err := os.Stat(filepath.Join(home, ".face")); return err == nil })
-	data, _ := os.ReadFile(filepath.Join(home, ".face"))
-	if _, err := png.Decode(bytes.NewReader(data)); err != nil {
-		t.Fatalf("~/.face is no PNG: %v", err)
+	if err := p.rename("Mallory"); err == nil {
+		t.Fatal("a rename without the accounts was taken")
 	}
-	if left, _ := filepath.Glob(filepath.Join(home, ".face?*")); len(left) != 0 {
-		t.Fatalf("a temporary file was left: %v", left)
+}
+
+func TestAnAccountNotInThePasswdDatabaseIsUnavailable(t *testing.T) {
+	bus := dbustest.Start(t)
+	p, l, _ := usersFixture(t, bus, fakeAccount{name: "ldap", uid: uint32(os.Getuid()) + 1})
+	l.drain()
+	if p.realName.Enabled() || p.accounts.kind != stateUnavailable || !strings.Contains(p.accounts.detail.Text(), "no entry") {
+		t.Fatalf("an account the passwd database does not hold shows %v %q", p.accounts.kind, p.accounts.detail.Text())
 	}
 }
 
 func TestAnAdministratorSeesTheOtherUsers(t *testing.T) {
 	admin := alice
-	admin.accountType = accountAdmin
+	admin.kind = accounts.Admin
 	bus := dbustest.Start(t)
-	manager, _ := serveAccounts(t, bus, admin, bob)
-	p, l := usersFixture(t, bus)
+	p, l, f := usersFixture(t, bus, admin, bob)
 	l.until("the admin section", func() bool { return p.admin.Visible() && len(p.others) == 2 })
 	if got := len(buttonsTitled(p.admin, locale.T().Get("settings-users-edit"))); got != 1 {
 		t.Fatalf("the list offers %d users' details, want only the other user's", got)
@@ -259,6 +294,9 @@ func TestAnAdministratorSeesTheOtherUsers(t *testing.T) {
 		if !slices.Contains(treetest.Labels(p.admin), want) {
 			t.Errorf("the list reads %v, want %q", treetest.Labels(p.admin), want)
 		}
+	}
+	if slices.Contains(treetest.Labels(p.admin), "service") || !slices.Contains(p.taken, "svc") {
+		t.Errorf("a system account is listed, or its name is free: %v, %v", treetest.Labels(p.admin), p.taken)
 	}
 	pickers := &fakePickers{}
 	p.k.pickers = pickers
@@ -275,52 +313,53 @@ func TestAnAdministratorSeesTheOtherUsers(t *testing.T) {
 	}
 	ask.OnResponse(responseCancel)
 	l.drain()
-	if calls, _ := manager.snapshot(); len(calls) != 1 {
-		t.Fatalf("cancelling removed a user: %+v", calls)
+	if len(f.made()) != 0 {
+		t.Fatalf("cancelling removed a user: %#v", f.made())
 	}
+	f.refuseWith(errNotAuthorized)
 	ask.OnResponse(responseKeepHome)
-	l.until("DeleteUser", func() bool { c, _ := manager.snapshot(); return len(c) == 2 })
-	if calls, _ := manager.snapshot(); calls[1].method != "DeleteUser" || fmt.Sprint(calls[1].args) != "[2000 false]" {
-		t.Fatalf("keeping the home folder: %+v", calls)
+	l.until("the refusal", func() bool { return p.problem.Visible() })
+	if d, ok := f.made()[0].(accounts.Delete); !ok || d != (accounts.Delete{Login: "bob"}) || f.named("bob").name != "bob" {
+		t.Fatalf("keeping the home folder asked %#v and left %+v", f.made(), f.named("bob"))
 	}
 	l.until("the list again", func() bool { return len(buttonsTitled(p.admin, locale.T().Get("settings-users-edit"))) == 1 })
+	f.refuseWith(nil)
 	remove().OnResponse(responseDeleteFiles)
-	l.until("DeleteUser", func() bool { c, _ := manager.snapshot(); return len(c) == 3 })
-	if calls, _ := manager.snapshot(); fmt.Sprint(calls[2].args) != "[2000 true]" {
-		t.Fatalf("deleting the files: %+v", calls)
+	l.until("the removal", func() bool { return len(f.made()) == 2 })
+	if d := f.made()[1].(accounts.Delete); d != (accounts.Delete{Login: "bob", RemoveHome: true}) {
+		t.Fatalf("deleting the files: %#v", d)
 	}
+	l.until("the list without bob", func() bool { return len(buttonsTitled(p.admin, locale.T().Get("settings-users-edit"))) == 0 })
 }
 
 func TestWithoutAWindowRemovingAUserIsRefused(t *testing.T) {
 	admin := alice
-	admin.accountType = accountAdmin
+	admin.kind = accounts.Admin
 	bus := dbustest.Start(t)
-	manager, _ := serveAccounts(t, bus, admin, bob)
-	p, l := usersFixture(t, bus)
+	p, l, f := usersFixture(t, bus, admin, bob)
 	l.until("the admin section", func() bool { return len(buttonsTitled(p.admin, locale.T().Get("settings-users-edit"))) == 1 })
 	p.k.pickers = nil
 	p.confirmRemove(p.others[1])
 	l.drain()
-	if calls, _ := manager.snapshot(); !p.problem.Visible() || len(calls) != 1 {
-		t.Fatalf("problem shown %v, calls %+v", p.problem.Visible(), calls)
+	if !p.problem.Visible() || len(f.made()) != 0 {
+		t.Fatalf("problem shown %v, requests %#v", p.problem.Visible(), f.made())
 	}
 }
 
 func TestTheUsersPageOfARealAccountFitsTheWindow(t *testing.T) {
-	self := fakeAccount{name: "alexanderstage", real: "Alexander Stage", uid: 1000, accountType: accountAdmin, icon: "/var/lib/AccountsService/icons/alexanderstage"}
+	self := fakeAccount{name: "alexanderstage", full: "Alexander Stage", uid: uint32(os.Getuid()), kind: accounts.Admin}
 	others := []fakeAccount{
-		{name: "margaret.hamilton", real: "Margaret Hamilton-Whitfield", uid: 1001},
-		{name: "jonas.kristoffersen", real: "Jonas Bjørn Kristoffersen", uid: 1002, accountType: accountAdmin},
-		{name: "soeren", real: "Søren Østergaard Nielsen", uid: 1003},
-		{name: "backup-operator", real: "Nightly Backup Operator Account", uid: 1004},
-		{name: "guest", uid: 1005},
+		{name: "margaret.hamilton", full: "Margaret Hamilton-Whitfield", uid: 50001},
+		{name: "jonas.kristoffersen", full: "Jonas Bjørn Kristoffersen", uid: 50002, kind: accounts.Admin},
+		{name: "soeren", full: "Søren Østergaard Nielsen", uid: 50003},
+		{name: "backup-operator", full: "Nightly Backup Operator Account", uid: 50004},
+		{name: "guest", uid: 50005},
 	}
 	bus := dbustest.Start(t)
-	serveAccounts(t, bus, self, others...)
 	enrolled := []string{"right-index-finger", "left-index-finger"}
 	serveFprint(t, bus, true, &enrolled, new(atomic.Bool))
-	t.Setenv("XDG_CACHE_HOME", t.TempDir())
 	k, _ := systemKit(t, bus)
+	serveAccounts(k, self, others...)
 	w := newWindow(k, k.store.svc.Config(), func(_ time.Duration, fn func()) { fn() })
 	w.show(usersID)
 	if got := len(buttonsTitled(w.page, locale.T().Get("settings-users-edit"))); got != len(others) {
@@ -340,6 +379,48 @@ func TestTheUsersPageOfARealAccountFitsTheWindow(t *testing.T) {
 		t.Fatalf("the users page lists %d enrolled fingers, want %d", got, len(enrolled))
 	}
 	assertPageFits(t, w)
+}
+
+func TestTheHelperIsInTheLibexecBesideTheBinDirectory(t *testing.T) {
+	for exe, want := range map[string]string{
+		"/usr/bin/lys-settings":                               "/usr/libexec/lys-users-helper",
+		"/nix/store/x-lys-settings/bin/.lys-settings-wrapped": "/nix/store/x-lys-settings/libexec/lys-users-helper",
+	} {
+		if got := usersHelperPath(exe); got != want {
+			t.Errorf("%s: %s, want %s", exe, got, want)
+		}
+	}
+}
+
+func TestAChangeGoesToTheHelpersStandardInputAndItsAnswerIsTheError(t *testing.T) {
+	sh, err := exec.LookPath("sh")
+	if err != nil {
+		t.Skip("no sh to stand in for pkexec")
+	}
+	dir := t.TempDir()
+	got := filepath.Join(dir, "request")
+	helper := filepath.Join(dir, "helper")
+	put(t, helper, "#!"+sh+"\n[ \"$1\" = others ] || exit 2\ncat > "+got+"\ncase \"$(cat "+got+")\" in *zoe*) echo '{\"kind\":\"taken\",\"detail\":\"zoe is already an account\"}'; exit 1 ;; esac\n")
+	if err := os.Chmod(helper, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := runUsersHelper(context.Background(), []string{helper}, accounts.Delete{Login: "bob"}); err != nil {
+		t.Fatalf("a change the helper made: %v", err)
+	}
+	data, err := os.ReadFile(got)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r, err := accounts.Decode(accounts.Others, data); err != nil || r != (accounts.Delete{Login: "bob"}) {
+		t.Fatalf("the helper read %q: %#v, %v", data, r, err)
+	}
+	err = runUsersHelper(context.Background(), []string{helper}, accounts.Delete{Login: "zoe"})
+	if e, ok := errors.AsType[*accounts.Error](err); !ok || e.Kind != accounts.ErrTaken {
+		t.Fatalf("a refusal: %v", err)
+	}
+	if err := runUsersHelper(context.Background(), []string{filepath.Join(dir, "absent")}, accounts.Delete{Login: "bob"}); err == nil {
+		t.Fatal("a missing helper succeeded")
+	}
 }
 
 type fakeLogin struct {
@@ -498,20 +579,6 @@ func TestWithoutAWindowChangingThePasswordIsRefused(t *testing.T) {
 	}
 }
 
-func TestWithoutAnAbsoluteHomeNoFaceIsWritten(t *testing.T) {
-	cwd := t.TempDir()
-	t.Chdir(cwd)
-	for _, home := range []string{"", "home"} {
-		err := writeFace(fakeHost(t, map[string]string{"HOME": home}), []byte("face"))
-		if err == nil || !strings.Contains(err.Error(), "HOME is not an absolute path") {
-			t.Errorf("HOME=%q: %v, want an error naming HOME", home, err)
-		}
-	}
-	if left := entries(cwd); len(left) != 0 {
-		t.Fatalf("%s was left in the working directory", left[0].Name())
-	}
-}
-
 // The identity header is a row of an item group on its card, as every
 // row of a card is, not an inset row placed in the card on its own.
 func TestTheIdentityHeaderIsInAnItemGroupOnItsCard(t *testing.T) {
@@ -529,5 +596,21 @@ func TestTheIdentityHeaderIsInAnItemGroupOnItsCard(t *testing.T) {
 	})
 	if !found {
 		t.Fatal("no inset row holds the identity header's picture")
+	}
+}
+
+func TestTheAccountTileSaysWhoIsSignedInFromThePasswdDatabase(t *testing.T) {
+	k := testKit(t, "")
+	if _, err := accountStatus(context.Background(), k); err == nil {
+		t.Fatal("a status without the accounts")
+	}
+	serveAccounts(k, alice)
+	got, err := accountStatus(context.Background(), k)
+	if want := locale.T().Get("settings-overview-signed-in", i18n.Str("name", "Alice")); err != nil || got != want {
+		t.Fatalf("status %q, %v; want %q", got, err, want)
+	}
+	serveAccounts(k, fakeAccount{name: "nameless", uid: alice.uid})
+	if got, _ := accountStatus(context.Background(), k); got != locale.T().Get("settings-overview-signed-in", i18n.Str("name", "nameless")) {
+		t.Fatalf("an account without a full name reads %q", got)
 	}
 }

@@ -24,6 +24,7 @@ in {
       imports = [options];
       config = lib.mkIf config.programs.lys-settings.enable {
         environment.systemPackages = [config.programs.lys-settings.package];
+        security.polkit.enable = lib.mkDefault true;
       };
     };
 

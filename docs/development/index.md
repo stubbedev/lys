@@ -65,7 +65,7 @@ NixOS test, one boot for all of them: `nix/desktop-vms.nix` gathers them into
 `desktop-vms-session` (lys-shell on lys-wm, then the idle wakeup gate, each
 in a fresh session of the same boot), `desktop-vms-screencast` (a screen
 shared through lys-shell's portal) and
-`desktop-vms-system` (KMS, accounts-daemon, lys-secrets activation, lys-power
+`desktop-vms-system` (KMS, lys-users-helper, lys-secrets activation, lys-power
 freezing a user's unit on battery, lys-polkit,
 then the clock steps and suspend of `shell/internal/clockwatch`). The session
 VM, the screencast VM and the system VM are a CI job each, since the lane's

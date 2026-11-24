@@ -19,6 +19,7 @@ import (
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
 
+	"github.com/stubbedev/lys/settings/internal/accounts"
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
@@ -98,6 +99,8 @@ func Run(page, setting string) error {
 		notify:        sendNotification,
 		shellCommand:  runShellCommand,
 		checkPAM:      checkPAMService,
+		readAccounts:  accounts.ReadDatabase,
+		changeAccount: changeAccount,
 		openURI:       openWithDefaultApp,
 		i2c:           systemHost.i2cAccess,
 		hibernation:   func() ([]hibernate.Blocker, error) { return hibernate.Blockers(os.DirFS("/")) },

@@ -89,8 +89,7 @@ func startFprintWith(t *testing.T, withDevice bool, enrolled ...string) *fprintR
 	t.Helper()
 	r := &fprintRig{bus: dbustest.Start(t), enrolled: enrolled}
 	r.manager, r.device = serveFprint(t, r.bus, withDevice, &r.enrolled, &r.unknownDeleteOne)
-	t.Setenv("USER", "alice")
-	r.p, r.l = usersFixture(t, r.bus)
+	r.p, r.l, _ = usersFixture(t, r.bus)
 	return r
 }
 

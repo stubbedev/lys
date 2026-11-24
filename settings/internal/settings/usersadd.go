@@ -1,48 +1,36 @@
 package settings
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"slices"
-	"strings"
 
 	"github.com/stubbedev/lys/desktop/i18n"
-	"github.com/stubbedev/lys/lib/shacrypt"
-	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/ui/widget"
-	"golang.org/x/text/unicode/norm"
 
+	"github.com/stubbedev/lys/settings/internal/accounts"
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
-const maxLoginName = 32
-
-var accountTypes = []int32{accountStandard, accountAdmin}
-
-var accountTypeLabels = map[int32]string{
-	accountStandard: "settings-users-type-standard",
-	accountAdmin:    "settings-users-type-admin",
+var accountTypeLabels = map[accounts.Kind]string{
+	accounts.Standard: "settings-users-type-standard",
+	accounts.Admin:    "settings-users-type-admin",
 }
 
 var (
-	errLoginEmpty    = errors.New("a login name is not empty")
-	errLoginLong     = fmt.Errorf("a login name has at most %d characters", maxLoginName)
-	errLoginStart    = errors.New("a login name starts with a lower-case letter or _")
-	errLoginChars    = errors.New("a login name holds only lower-case letters, digits, - and _")
 	errLoginTaken    = errors.New("the login name is another user's")
 	errPasswordEmpty = errors.New("a new user's password is not empty")
 	errPasswordDiffs = errors.New("the passwords differ")
 )
 
 var newAccountProblems = map[error]string{
-	errLoginEmpty:    "settings-users-add-name-empty",
-	errLoginLong:     "settings-users-add-name-long",
-	errLoginStart:    "settings-users-add-name-start",
-	errLoginChars:    "settings-users-add-name-chars",
-	errLoginTaken:    "settings-users-add-name-taken",
-	errPasswordEmpty: "settings-users-add-password-empty",
-	errPasswordDiffs: "settings-users-password-mismatch",
+	accounts.ErrLoginEmpty: "settings-users-add-name-empty",
+	accounts.ErrLoginLong:  "settings-users-add-name-long",
+	accounts.ErrLoginStart: "settings-users-add-name-start",
+	accounts.ErrLoginChars: "settings-users-add-name-chars",
+	errLoginTaken:          "settings-users-add-name-taken",
+	errPasswordEmpty:       "settings-users-add-password-empty",
+	errPasswordDiffs:       "settings-users-password-mismatch",
 }
 
 // sayAccountProblem says in messages why the account form refused err:
@@ -52,85 +40,51 @@ func sayAccountProblem(messages *inlineState, err error, login, failed string) {
 	t := locale.T()
 	for sentinel, key := range newAccountProblems {
 		if errors.Is(err, sentinel) {
-			messages.Error(t.Get(key, i18n.Str("name", login), i18n.Int("max", maxLoginName)), nil, nil)
+			messages.Error(t.Get(key, i18n.Str("name", login), i18n.Int("max", accounts.MaxLogin)), nil, nil)
 			return
 		}
 	}
 	messages.Error(t.Get(failed), err, nil)
 }
 
-type loginName string
-
-func parseLoginName(s string, taken []string) (loginName, error) {
-	switch {
-	case s == "":
-		return "", errLoginEmpty
-	case len(s) > maxLoginName:
-		return "", fmt.Errorf("%q: %w", s, errLoginLong)
-	case !loginStart(rune(s[0])):
-		return "", fmt.Errorf("%q: %w", s, errLoginStart)
-	case strings.IndexFunc(s, func(r rune) bool { return !loginRune(r) }) >= 0:
-		return "", fmt.Errorf("%q: %w", s, errLoginChars)
-	case slices.Contains(taken, s):
+func parseLoginName(s string, taken []string) (accounts.Login, error) {
+	login, err := accounts.ParseLogin(s)
+	if err != nil {
+		return "", err
+	}
+	if slices.Contains(taken, s) {
 		return "", fmt.Errorf("%q: %w", s, errLoginTaken)
 	}
-	return loginName(s), nil
+	return login, nil
 }
 
-func loginStart(r rune) bool { return r == '_' || r >= 'a' && r <= 'z' }
-
-func loginRune(r rune) bool { return loginStart(r) || r == '-' || r >= '0' && r <= '9' }
-
-func deriveLogin(full string) string {
-	var b strings.Builder
-	for _, r := range norm.NFD.String(strings.ToLower(full)) {
-		if loginRune(r) && (b.Len() > 0 || loginStart(r)) {
-			b.WriteRune(r)
-		}
-		if b.Len() == maxLoginName {
-			break
-		}
+func parseNewAccount(full, login string, kind accounts.Kind, password, confirm []byte, taken []string) (accounts.Create, error) {
+	if !slices.Contains(accounts.Kinds, kind) {
+		return accounts.Create{}, fmt.Errorf("settings: %s", kind)
 	}
-	return b.String()
-}
-
-type newAccount struct {
-	login       loginName
-	real        string
-	accountType int32
-	hash        string
-}
-
-func parseNewAccount(full, login string, accountType int32, password, confirm []byte, taken []string) (newAccount, error) {
 	name, err := parseLoginName(login, taken)
 	if err != nil {
-		return newAccount{}, err
+		return accounts.Create{}, err
 	}
-	if err := checkAccountType(accountType); err != nil {
-		return newAccount{}, err
+	real, err := accounts.ParseRealName(full)
+	if err != nil {
+		return accounts.Create{}, err
 	}
 	if len(password) == 0 {
-		return newAccount{}, errPasswordEmpty
+		return accounts.Create{}, errPasswordEmpty
 	}
 	hash, err := hashPassword(password, confirm)
 	if err != nil {
-		return newAccount{}, err
+		return accounts.Create{}, err
 	}
-	return newAccount{login: name, real: strings.TrimSpace(full), accountType: accountType, hash: hash}, nil
+	return accounts.Create{Login: name, RealName: real, Kind: kind, Hash: hash}, nil
 }
 
-func checkAccountType(accountType int32) error {
-	if !slices.Contains(accountTypes, accountType) {
-		return fmt.Errorf("settings: account type %d", accountType)
-	}
-	return nil
-}
-
-func hashPassword(password, confirm []byte) (string, error) {
+func hashPassword(password, confirm []byte) (accounts.Hash, error) {
 	if string(password) != string(confirm) {
 		return "", errPasswordDiffs
 	}
-	return shacrypt.Hash(password), nil
+	return accounts.HashPassword(password), nil
 }
 
 // passwordPair is a password asked for twice, with the strength meter.
@@ -159,25 +113,25 @@ func (pp passwordPair) clear() {
 	pp.repeat.SetText("")
 }
 
-// accountTypeChoice is the account types as a segmented control, current
+// accountTypeChoice is the account kinds as a segmented control, current
 // active.
-func (p *usersPanel) accountTypeChoice(current int32) *choicePick {
+func (p *usersPanel) accountTypeChoice(current accounts.Kind) *choicePick {
 	t := locale.T()
-	labels := make([]string, len(accountTypes))
-	for i, kind := range accountTypes {
+	labels := make([]string, len(accounts.Kinds))
+	for i, kind := range accounts.Kinds {
 		labels[i] = t.Get(accountTypeLabels[kind])
 	}
-	kinds := newChoicePick(p.k, labels, max(slices.Index(accountTypes, current), 0))
+	kinds := newChoicePick(p.k, labels, max(slices.Index(accounts.Kinds, current), 0))
 	kinds.SetAccessibleName(t.Get("settings-users-add-type"))
 	return kinds
 }
 
-// chosenAccountType is the type kinds has active, -1 for none.
-func chosenAccountType(kinds *choicePick) int32 {
-	if i := kinds.Selected(); i >= 0 && i < len(accountTypes) {
-		return accountTypes[i]
+func chosenAccountType(kinds *choicePick) (accounts.Kind, error) {
+	i := kinds.Selected()
+	if i < 0 || i >= len(accounts.Kinds) {
+		return 0, fmt.Errorf("no account type is chosen (%d)", i)
 	}
-	return -1
+	return accounts.Kinds[i], nil
 }
 
 type addUserForm struct {
@@ -194,18 +148,18 @@ func (p *usersPanel) newAddUserForm() *addUserForm {
 	t := locale.T()
 	f := &addUserForm{Box: gapBox(widget.Column), derived: true}
 	f.AddClass("user-add")
-	f.kinds = p.accountTypeChoice(accountStandard)
+	f.kinds = p.accountTypeChoice(accounts.Standard)
 	f.full, f.login = p.k.entry(), p.k.entry()
 	f.full.SetAccessibleName(t.Get("settings-users-add-full"))
 	f.login.SetAccessibleName(t.Get("settings-users-add-name"))
 	f.full.OnChanged = func(text string) {
 		if f.derived {
-			f.login.SetText(deriveLogin(text))
+			f.login.SetText(accounts.DeriveLogin(text))
 		}
 	}
 	f.login.OnChanged = func(text string) {
-		f.derived = text == "" || text == deriveLogin(f.full.Text())
-		f.checkLogin(p.takenLogins())
+		f.derived = text == "" || text == accounts.DeriveLogin(f.full.Text())
+		f.checkLogin(p.taken)
 	}
 	rows := widget.NewItemGroup()
 	rows.Append(p.k.row(t.Get("settings-users-add-type"), "").withControl(f.kinds))
@@ -225,14 +179,6 @@ func (f *addUserForm) checkLogin(taken []string) {
 		return
 	}
 	f.messages.Clear()
-}
-
-func (p *usersPanel) takenLogins() []string {
-	names := make([]string, len(p.others))
-	for i, u := range p.others {
-		names[i] = u.name
-	}
-	return names
 }
 
 // openAddUserDialog asks for the new user's type, names and password in a
@@ -256,54 +202,31 @@ func (p *usersPanel) openAddUserDialog() {
 }
 
 func (p *usersPanel) addUser(f *addUserForm, done func()) {
-	if f.busy || p.acc == nil {
+	if f.busy {
+		return
+	}
+	kind, err := chosenAccountType(f.kinds)
+	if err != nil {
+		f.messages.Error(locale.T().Get("settings-users-add-failed"), err, nil)
 		return
 	}
 	password, repeat := f.take()
-	account, err := parseNewAccount(f.full.Text(), f.login.Text(), chosenAccountType(f.kinds), password, repeat, p.takenLogins())
+	account, err := parseNewAccount(f.full.Text(), f.login.Text(), kind, password, repeat, p.taken)
 	clear0(password)
 	clear0(repeat)
 	if err != nil {
 		sayAccountProblem(f.messages, err, f.login.Text(), "settings-users-add-failed")
 		return
 	}
-	acc := *p.acc
 	f.busy = true
-	async(p.k, func() error {
-		_, err := withTimeout(func(ctx context.Context) (struct{}, error) { return struct{}{}, acc.create(ctx, account) })
-		return err
-	}, func(err error) {
+	p.k.changeAccountAsync(account, func(err error) {
 		f.busy = false
 		p.loadAdmin()
-		if _, created := errors.AsType[*passwordNotSetError](err); err != nil && !created {
+		if err != nil {
 			f.messages.Error(locale.T().Get("settings-users-add-failed"), err, nil)
 			return
 		}
 		f.clear()
 		done()
-		p.fail(err)
 	})
-}
-
-type passwordNotSetError struct {
-	login loginName
-	err   error
-}
-
-func (e *passwordNotSetError) Error() string {
-	return fmt.Sprintf("set the password of %s: %v", e.login, e.err)
-}
-
-func (e *passwordNotSetError) Unwrap() error { return e.err }
-
-func (a accounts) create(ctx context.Context, n newAccount) error {
-	var path dbus.ObjectPath
-	if err := a.manager().storeInteractive(ctx, "CreateUser", &path, string(n.login), n.real, n.accountType); err != nil {
-		return err
-	}
-	user := sysService{conn: a.conn, name: accountsName, iface: accountsUser, path: path}
-	if err := user.callInteractive(ctx, "SetPassword", n.hash, ""); err != nil {
-		return &passwordNotSetError{login: n.login, err: err}
-	}
-	return nil
 }

@@ -6929,6 +6929,14 @@
       "testing"
     ]
   },
+  "settings/cmd/lys-users-helper": {
+    "imports": [
+      "settings/internal/usershelper"
+    ],
+    "external": [
+      "os"
+    ]
+  },
   "settings/e2e": {
     "testImports": [
       "desktop/settingspage",
@@ -6950,6 +6958,31 @@
       "strings",
       "testing",
       "time"
+    ]
+  },
+  "settings/internal/accounts": {
+    "imports": [
+      "desktop/useraccount",
+      "lib/shacrypt"
+    ],
+    "external": [
+      "bytes",
+      "cmp",
+      "encoding/json",
+      "errors",
+      "fmt",
+      "golang.org/x/text/unicode/norm",
+      "image",
+      "image/png",
+      "os",
+      "slices",
+      "strconv",
+      "strings",
+      "unicode",
+      "unicode/utf8"
+    ],
+    "testExternal": [
+      "testing"
     ]
   },
   "settings/internal/displays": {
@@ -7079,6 +7112,7 @@
       "desktop/styling",
       "desktop/styling/material",
       "desktop/tzdb",
+      "desktop/useraccount",
       "lib/atomicfile",
       "lib/dbusx",
       "lib/glibclocale",
@@ -7088,7 +7122,6 @@
       "lib/pam",
       "lib/pulse/native",
       "lib/render",
-      "lib/shacrypt",
       "lib/third_party/godbus",
       "lib/wmipc",
       "lib/xcursor",
@@ -7102,6 +7135,7 @@
       "secrets/client",
       "secrets/control",
       "secrets/vault",
+      "settings/internal/accounts",
       "settings/internal/displays",
       "settings/internal/keys",
       "settings/internal/locale",
@@ -7142,7 +7176,6 @@
       "golang.org/x/image/draw",
       "golang.org/x/text/language",
       "golang.org/x/text/language/display",
-      "golang.org/x/text/unicode/norm",
       "image",
       "image/jpeg",
       "image/png",
@@ -7183,6 +7216,7 @@
       "lib/logind/logindtest",
       "lib/logtest",
       "lib/pulse/pulsetest",
+      "lib/shacrypt",
       "lib/sockdir",
       "lib/testhome",
       "lib/waittest",
@@ -7202,6 +7236,35 @@
       "path",
       "runtime",
       "syscall",
+      "testing"
+    ]
+  },
+  "settings/internal/usershelper": {
+    "imports": [
+      "desktop/useraccount",
+      "lib/atomicfile",
+      "settings/internal/accounts"
+    ],
+    "external": [
+      "bytes",
+      "context",
+      "encoding/json",
+      "errors",
+      "fmt",
+      "io",
+      "io/fs",
+      "os",
+      "os/exec",
+      "path/filepath",
+      "strconv",
+      "strings",
+      "time"
+    ],
+    "testExternal": [
+      "encoding/xml",
+      "image",
+      "image/png",
+      "slices",
       "testing"
     ]
   },

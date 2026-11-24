@@ -1,59 +1,49 @@
 package settings
 
 import (
-	"cmp"
-	"context"
-	"strings"
+	"fmt"
+	"slices"
 
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/ui/widget"
 
+	"github.com/stubbedev/lys/settings/internal/accounts"
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
 const responseRemove = "remove"
 
-// accountEdit is what the user sheet changes of an account: its full
-// name and type, and its password when hash is not empty.
-type accountEdit struct {
-	real        string
-	accountType int32
-	hash        string
-}
-
-func parseAccountEdit(full string, accountType int32, password, confirm []byte) (accountEdit, error) {
-	if err := checkAccountType(accountType); err != nil {
-		return accountEdit{}, err
+func parseAccountEdit(u accounts.Account, full string, kind accounts.Kind, password, confirm []byte) (*accounts.Edit, error) {
+	if !slices.Contains(accounts.Kinds, kind) {
+		return nil, fmt.Errorf("settings: %s", kind)
 	}
-	edit := accountEdit{real: strings.TrimSpace(full), accountType: accountType}
-	if len(password) == 0 && len(confirm) == 0 {
-		return edit, nil
-	}
-	hash, err := hashPassword(password, confirm)
+	login, err := u.Ref()
 	if err != nil {
-		return accountEdit{}, err
+		return nil, err
 	}
-	edit.hash = hash
-	return edit, nil
-}
-
-// apply makes u what e says, calling AccountsService only for what
-// differs, and stops at the first refusal.
-func (e accountEdit) apply(ctx context.Context, user sysService, u otherUser) error {
-	if e.real != u.real {
-		if err := user.callInteractive(ctx, "SetRealName", e.real); err != nil {
-			return err
+	name, err := accounts.ParseRealName(full)
+	if err != nil {
+		return nil, err
+	}
+	edit := accounts.Edit{Login: login}
+	changed := false
+	if string(name) != u.FullName {
+		edit.RealName, changed = &name, true
+	}
+	if kind != u.Kind {
+		edit.Kind, changed = &kind, true
+	}
+	if len(password) != 0 || len(confirm) != 0 {
+		hash, err := hashPassword(password, confirm)
+		if err != nil {
+			return nil, err
 		}
+		edit.Hash, changed = &hash, true
 	}
-	if e.accountType != u.accountType {
-		if err := user.callInteractive(ctx, "SetAccountType", e.accountType); err != nil {
-			return err
-		}
+	if !changed {
+		return nil, nil
 	}
-	if e.hash == "" {
-		return nil
-	}
-	return user.callInteractive(ctx, "SetPassword", e.hash, "")
+	return &edit, nil
 }
 
 // userSheet is another user's details as an administrator edits them:
@@ -61,21 +51,21 @@ func (e accountEdit) apply(ctx context.Context, user sysService, u otherUser) er
 type userSheet struct {
 	*widget.Box
 	passwordPair
-	user     otherUser
+	user     accounts.Account
 	full     *widget.Entry
 	kinds    *choicePick
 	messages *inlineState
 	busy     bool
 }
 
-func (p *usersPanel) newUserSheet(u otherUser) *userSheet {
+func (p *usersPanel) newUserSheet(u accounts.Account) *userSheet {
 	t := locale.T()
 	f := &userSheet{Box: gapBox(widget.Column), user: u}
 	f.AddClass("user-sheet")
 	f.full = p.k.entry()
 	f.full.SetAccessibleName(t.Get("settings-users-add-full"))
-	f.full.SetText(u.real)
-	f.kinds = p.accountTypeChoice(u.accountType)
+	f.full.SetText(u.FullName)
+	f.kinds = p.accountTypeChoice(u.Kind)
 	rows := widget.NewItemGroup()
 	rows.Append(p.k.row(t.Get("settings-users-add-full"), "").withControl(f.full))
 	rows.Append(p.k.row(t.Get("settings-users-add-type"), "").withControl(f.kinds))
@@ -87,23 +77,23 @@ func (p *usersPanel) newUserSheet(u otherUser) *userSheet {
 	return f
 }
 
-func accountTypeName(accountType int32) string {
-	return locale.T().Get(accountTypeLabels[accountType])
+func accountTypeName(kind accounts.Kind) string {
+	return locale.T().Get(accountTypeLabels[kind])
 }
 
-func (u otherUser) identity() string {
-	return locale.T().Get("settings-users-identity", i18n.Str("login", u.name), i18n.Str("type", accountTypeName(u.accountType)))
+func accountIdentity(u accounts.Account) string {
+	return locale.T().Get("settings-users-identity", i18n.Str("login", u.Name), i18n.Str("type", accountTypeName(u.Kind)))
 }
 
 // openUserSheet shows u's details in a modal dialog, which stays open
-// over a refusal and closes once AccountsService took every change, or
-// hands over to the question whether to remove u.
-func (p *usersPanel) openUserSheet(u otherUser) {
+// over a refusal and closes once every change is made, or hands over to
+// the question whether to remove u.
+func (p *usersPanel) openUserSheet(u accounts.Account) {
 	t := locale.T()
 	f := p.newUserSheet(u)
-	_, err := p.k.openDialog("edit the user "+u.name, dialogSpec{
-		title:       cmp.Or(u.real, u.name),
-		description: u.identity(),
+	_, err := p.k.openDialog("edit the user "+u.Name, dialogSpec{
+		title:       u.DisplayName(),
+		description: accountIdentity(u),
 		width:       passwordDialogWidth,
 		content:     f,
 		focus:       f.full,
@@ -126,20 +116,26 @@ func (p *usersPanel) editUser(f *userSheet, done func()) {
 	if f.busy {
 		return
 	}
+	kind, err := chosenAccountType(f.kinds)
+	if err != nil {
+		f.messages.Error(locale.T().Get("settings-users-edit-failed"), err, nil)
+		return
+	}
 	password, repeat := f.take()
-	edit, err := parseAccountEdit(f.full.Text(), chosenAccountType(f.kinds), password, repeat)
+	edit, err := parseAccountEdit(f.user, f.full.Text(), kind, password, repeat)
 	clear0(password)
 	clear0(repeat)
 	if err != nil {
-		sayAccountProblem(f.messages, err, f.user.name, "settings-users-edit-failed")
+		sayAccountProblem(f.messages, err, f.user.Name, "settings-users-edit-failed")
 		return
 	}
-	user, u := sysService{conn: p.conn, name: accountsName, iface: accountsUser, path: f.user.path}, f.user
+	if edit == nil {
+		f.clear()
+		done()
+		return
+	}
 	f.busy = true
-	async(p.k, func() error {
-		_, err := withTimeout(func(ctx context.Context) (struct{}, error) { return struct{}{}, edit.apply(ctx, user, u) })
-		return err
-	}, func(err error) {
+	p.k.changeAccountAsync(*edit, func(err error) {
 		f.busy = false
 		p.loadAdmin()
 		if err != nil {

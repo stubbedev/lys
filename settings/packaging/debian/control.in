@@ -15,8 +15,11 @@ Package: lys-settings
 Architecture: amd64 arm64
 Depends:
  ${misc:Depends},
- hicolor-icon-theme
+ hicolor-icon-theme,
+ passwd
 Recommends:
+ pkexec,
+ polkitd,
  libvulkan1,
  mesa-vulkan-drivers,
  lys-shell (= @VERSION@) | lys-wm

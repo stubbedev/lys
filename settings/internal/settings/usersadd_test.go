@@ -9,95 +9,61 @@ import (
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/shacrypt"
 
+	"github.com/stubbedev/lys/settings/internal/accounts"
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
-func TestALoginNameIsWhatUseraddTakes(t *testing.T) {
-	for _, in := range []string{"zoe", "_build", "a-b_c9", strings.Repeat("a", maxLoginName)} {
-		if got, err := parseLoginName(in, []string{"bob"}); err != nil || string(got) != in {
-			t.Errorf("%q: %q %v", in, got, err)
-		}
+func TestALoginNameMustBeFree(t *testing.T) {
+	if got, err := parseLoginName("zoe", []string{"bob"}); err != nil || got != "zoe" {
+		t.Errorf("a free name: %q, %v", got, err)
 	}
-	for in, want := range map[string]error{
-		"":                                  errLoginEmpty,
-		strings.Repeat("a", maxLoginName+1): errLoginLong,
-		"9lives":                            errLoginStart,
-		"-x":                                errLoginStart,
-		"Zoe":                               errLoginStart,
-		"zo e":                              errLoginChars,
-		"zoë":                               errLoginChars,
-		"zoe.smith":                         errLoginChars,
-		"bob":                               errLoginTaken,
-	} {
-		if _, err := parseLoginName(in, []string{"bob"}); !errors.Is(err, want) {
-			t.Errorf("%q: %v, want %v", in, err, want)
-		}
+	if _, err := parseLoginName("bob", []string{"bob"}); !errors.Is(err, errLoginTaken) {
+		t.Errorf("a taken name: %v", err)
 	}
-}
-
-func TestALoginNameIsMadeFromTheFullName(t *testing.T) {
-	for in, want := range map[string]string{
-		"Zoë Smith":              "zoesmith",
-		"  Ana-María  López":     "ana-marialopez",
-		"42 Douglas":             "douglas",
-		"Ølaf":                   "laf",
-		"日本":                     "",
-		strings.Repeat("Ab", 40): strings.Repeat("ab", maxLoginName/2),
-	} {
-		got := deriveLogin(in)
-		if got != want {
-			t.Errorf("%q made %q, want %q", in, got, want)
-		}
-		if got != "" {
-			if _, err := parseLoginName(got, nil); err != nil {
-				t.Errorf("%q made %q, which is no login name: %v", in, got, err)
-			}
-		}
+	if _, err := parseLoginName("Bob", nil); !errors.Is(err, accounts.ErrLoginStart) {
+		t.Errorf("an invalid name: %v", err)
 	}
 }
 
 func TestANewAccountHoldsAHashOfItsPasswordAndNeverThePassword(t *testing.T) {
-	a, err := parseNewAccount("  Zoë Smith ", "zoe", accountAdmin, []byte("pw-9"), []byte("pw-9"), nil)
+	a, err := parseNewAccount("  Zoë Smith ", "zoe", accounts.Admin, []byte("pw-9"), []byte("pw-9"), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if a.login != "zoe" || a.real != "Zoë Smith" || a.accountType != accountAdmin {
+	if a.Login != "zoe" || a.RealName != "Zoë Smith" || a.Kind != accounts.Admin {
 		t.Fatalf("account %+v", a)
 	}
-	if ok, err := shacrypt.Verify([]byte("pw-9"), a.hash); !ok || err != nil || !strings.HasPrefix(a.hash, "$6$") {
-		t.Fatalf("hash %q does not verify: %v", a.hash, err)
+	if ok, err := shacrypt.Verify([]byte("pw-9"), string(a.Hash)); !ok || err != nil || !strings.HasPrefix(string(a.Hash), "$6$") {
+		t.Fatalf("the hash does not verify: %v", err)
 	}
 	for _, c := range []struct {
 		login       string
-		kind        int32
+		kind        accounts.Kind
 		pw, confirm string
 		want        error
 	}{
-		{"zoe", accountStandard, "", "", errPasswordEmpty},
-		{"zoe", accountStandard, "a", "b", errPasswordDiffs},
-		{"Zoe", accountStandard, "a", "a", errLoginStart},
-		{"bob", accountStandard, "a", "a", errLoginTaken},
+		{"zoe", accounts.Standard, "", "", errPasswordEmpty},
+		{"zoe", accounts.Standard, "a", "b", errPasswordDiffs},
+		{"Zoe", accounts.Standard, "a", "a", accounts.ErrLoginStart},
+		{"bob", accounts.Standard, "a", "a", errLoginTaken},
 	} {
 		if _, err := parseNewAccount("", c.login, c.kind, []byte(c.pw), []byte(c.confirm), []string{"bob"}); !errors.Is(err, c.want) {
 			t.Errorf("%+v: %v", c, err)
 		}
 	}
 	if _, err := parseNewAccount("", "zoe", 7, []byte("a"), []byte("a"), nil); err == nil {
-		t.Error("an account type AccountsService does not define was taken")
+		t.Error("an account kind lys does not define was taken")
 	}
 }
 
-func addUserDialog(t *testing.T, refuseCreate, refusePassword string) (*usersPanel, *loop, *fakePickers, *addUserForm, *fakeSys, *fakeSys) {
+func addUserDialog(t *testing.T, refuse error) (*usersPanel, *loop, *fakePickers, *addUserForm, *fakeAccounts) {
 	t.Helper()
 	admin := alice
-	admin.accountType = accountAdmin
+	admin.kind = accounts.Admin
 	bus := dbustest.Start(t)
-	s := serveAllAccounts(t, bus, admin, bob)
-	manager, created := s.manager, s.created
-	p, l := usersFixture(t, bus)
+	p, l, f := usersFixture(t, bus, admin, bob)
 	l.until("the admin section", func() bool { return p.admin.Visible() && len(p.others) == 2 })
-	manager.refuseWith(refuseCreate)
-	created.refuseWith(refusePassword)
+	f.refuseWith(refuse)
 	pickers := &fakePickers{}
 	p.k.pickers = pickers
 	buttonsTitled(p.admin, locale.T().Get("settings-users-add-open"))[0].OnClick()
@@ -105,11 +71,11 @@ func addUserDialog(t *testing.T, refuseCreate, refusePassword string) (*usersPan
 		t.Fatalf("Add User opened %d dialogs", len(pickers.dialogs))
 	}
 	cfg := pickers.dialogs[0]
-	f := cfg.Content.(*addUserForm)
-	if !cfg.Modal || cfg.CancelResponse != responseCancel || cfg.DefaultResponse != responseConfirm || cfg.Focus != f.full {
+	form := cfg.Content.(*addUserForm)
+	if !cfg.Modal || cfg.CancelResponse != responseCancel || cfg.DefaultResponse != responseConfirm || cfg.Focus != form.full {
 		t.Fatalf("dialog modal %v cancel %q default %q", cfg.Modal, cfg.CancelResponse, cfg.DefaultResponse)
 	}
-	return p, l, pickers, f, manager, created
+	return p, l, pickers, form, f
 }
 
 func fill(f *addUserForm, full, login, pw, confirm string) {
@@ -123,45 +89,46 @@ func fill(f *addUserForm, full, login, pw, confirm string) {
 	f.repeat.SetText(confirm)
 }
 
-func TestAddingAUserCreatesItAndSetsAHashOfItsPassword(t *testing.T) {
-	p, l, pickers, f, manager, created := addUserDialog(t, "", "")
-	pickChoice(f.kinds, 1)
-	fill(f, "Zoë Smith", "", "correct-Horse-9", "correct-Horse-9")
-	if f.login.Text() != "zoesmith" {
-		t.Fatalf("the login name reads %q", f.login.Text())
+func TestAddingAUserCreatesItWithAHashOfItsPassword(t *testing.T) {
+	p, l, pickers, form, f := addUserDialog(t, nil)
+	pickChoice(form.kinds, 1)
+	fill(form, "Zoë Smith", "", "correct-Horse-9", "correct-Horse-9")
+	if form.login.Text() != "zoesmith" {
+		t.Fatalf("the login name reads %q", form.login.Text())
 	}
-	f.login.SetText("bob")
-	f.login.OnChanged("bob")
-	if want := locale.T().Get("settings-users-add-name-taken", i18n.Str("name", "bob")); f.messages.Text() != want || !f.messages.Visible() {
-		t.Fatalf("a taken login reads %q, want %q", f.messages.Text(), want)
+	for _, taken := range []string{"bob", "svc"} {
+		form.login.SetText(taken)
+		form.login.OnChanged(taken)
+		if want := locale.T().Get("settings-users-add-name-taken", i18n.Str("name", taken)); form.messages.Text() != want || !form.messages.Visible() {
+			t.Fatalf("a taken login reads %q, want %q", form.messages.Text(), want)
+		}
 	}
-	f.login.SetText("zoe")
-	f.login.OnChanged("zoe")
-	f.full.SetText("Zoë Smith-Jones")
-	f.full.OnChanged("Zoë Smith-Jones")
-	if f.login.Text() != "zoe" || f.messages.Visible() {
-		t.Fatalf("an edited login name became %q, message %q", f.login.Text(), f.messages.Text())
+	form.login.SetText("zoe")
+	form.login.OnChanged("zoe")
+	form.full.SetText("Zoë Smith-Jones")
+	form.full.OnChanged("Zoë Smith-Jones")
+	if form.login.Text() != "zoe" || form.messages.Visible() {
+		t.Fatalf("an edited login name became %q, message %q", form.login.Text(), form.messages.Text())
 	}
 	if pickers.respond(responseConfirm) {
 		t.Fatal("the dialog closed before the user was added")
 	}
-	l.until("SetPassword", func() bool { c, _ := created.snapshot(); return len(c) == 1 })
 	l.until("the dialog closed", func() bool { return pickers.dialogsClosed == 1 })
-	calls, _ := manager.snapshot()
-	if last := calls[len(calls)-1]; last.method != "CreateUser" || len(last.args) != 3 || last.args[0] != "zoe" || last.args[1] != "Zoë Smith-Jones" || last.args[2] != accountAdmin {
-		t.Fatalf("CreateUser got %+v", last)
+	made := f.made()
+	c, ok := made[0].(accounts.Create)
+	if len(made) != 1 || !ok || c.Login != "zoe" || c.RealName != "Zoë Smith-Jones" || c.Kind != accounts.Admin {
+		t.Fatalf("asked %#v", made)
 	}
-	set, _ := created.snapshot()
-	hash, _ := set[0].args[0].(string)
-	if ok, err := shacrypt.Verify([]byte("correct-Horse-9"), hash); set[0].method != "SetPassword" || !ok || err != nil || set[0].args[1] != "" {
-		t.Fatalf("SetPassword got %+v: %v", set[0], err)
+	if ok, err := shacrypt.Verify([]byte("correct-Horse-9"), string(c.Hash)); !ok || err != nil {
+		t.Fatalf("the hash does not verify: %v", err)
 	}
-	if p.problem.Visible() {
-		t.Fatalf("the page shows %q", p.problem.Text())
+	if p.problem.Visible() || f.named("zoe").name != "zoe" {
+		t.Fatalf("the page shows %q, zoe is %+v", p.problem.Text(), f.named("zoe"))
 	}
+	l.until("zoe listed", func() bool { return len(p.others) == 3 })
 }
 
-func TestAnAccountThatCannotBeAddedIsSaidAndNotCreated(t *testing.T) {
+func TestAnAccountThatCannotBeAddedIsSaidAndNotAsked(t *testing.T) {
 	for _, c := range []struct {
 		login, pw, confirm, want string
 	}{
@@ -170,45 +137,32 @@ func TestAnAccountThatCannotBeAddedIsSaidAndNotCreated(t *testing.T) {
 		{"9zoe", "a", "a", locale.T().Get("settings-users-add-name-start")},
 		{"alice", "a", "a", locale.T().Get("settings-users-add-name-taken", i18n.Str("name", "alice"))},
 	} {
-		_, l, pickers, f, manager, created := addUserDialog(t, "", "")
-		fill(f, "Zoë", c.login, c.pw, c.confirm)
-		if pickers.respond(responseConfirm) || f.messages.Text() != c.want {
-			t.Errorf("%+v: the dialog reads %q, want %q", c, f.messages.Text(), c.want)
+		_, l, pickers, form, f := addUserDialog(t, nil)
+		fill(form, "Zoë", c.login, c.pw, c.confirm)
+		if pickers.respond(responseConfirm) || form.messages.Text() != c.want {
+			t.Errorf("%+v: the dialog reads %q, want %q", c, form.messages.Text(), c.want)
 		}
 		l.drain()
-		if calls, _ := manager.snapshot(); len(calls) != 1 {
-			t.Errorf("%+v called %+v", c, calls)
+		if len(f.made()) != 0 {
+			t.Errorf("%+v asked %#v", c, f.made())
 		}
-		if calls, _ := created.snapshot(); len(calls) != 0 {
-			t.Errorf("%+v set a password: %+v", c, calls)
-		}
-		if !pickers.respond(responseCancel) || f.password.Text() != "" || f.repeat.Text() != "" {
+		if !pickers.respond(responseCancel) || form.password.Text() != "" || form.repeat.Text() != "" {
 			t.Errorf("%+v: cancelling left a password in the dialog", c)
 		}
 	}
 }
 
-func TestARefusedCreateUserKeepsTheDialogOpen(t *testing.T) {
-	_, l, pickers, f, _, created := addUserDialog(t, "not authorized", "")
-	fill(f, "Zoë", "zoe", "pw", "pw")
+func TestARefusedCreateKeepsTheDialogOpenAndAddsNobody(t *testing.T) {
+	p, l, pickers, form, f := addUserDialog(t, accounts.Errorf(accounts.ErrFailed, "chpasswd refused; the account was removed again"))
+	fill(form, "Zoë", "zoe", "pw", "pw")
 	pickers.respond(responseConfirm)
-	l.until("the refusal", func() bool { return f.messages.Visible() })
-	if f.messages.Text() != locale.T().Get("settings-users-add-failed") || !strings.Contains(f.messages.detail.Text(), "not authorized") || pickers.dialogsClosed != 0 {
-		t.Fatalf("the dialog reads %q over %q, closed %d", f.messages.Text(), f.messages.detail.Text(), pickers.dialogsClosed)
+	l.until("the refusal", func() bool { return form.messages.Visible() })
+	if form.messages.Text() != locale.T().Get("settings-users-add-failed") || !strings.Contains(form.messages.detail.Text(), "chpasswd refused") || pickers.dialogsClosed != 0 {
+		t.Fatalf("the dialog reads %q over %q, closed %d", form.messages.Text(), form.messages.detail.Text(), pickers.dialogsClosed)
 	}
-	if calls, _ := created.snapshot(); len(calls) != 0 {
-		t.Fatalf("a password was set without a user: %+v", calls)
-	}
-}
-
-func TestAUserAddedWithoutItsPasswordIsSaidOnThePage(t *testing.T) {
-	p, l, pickers, f, _, _ := addUserDialog(t, "", "not authorized")
-	fill(f, "Zoë", "zoe", "pw", "pw")
-	pickers.respond(responseConfirm)
-	l.until("the dialog closed", func() bool { return pickers.dialogsClosed == 1 })
-	want := locale.T().Get("settings-users-add-no-password", i18n.Str("name", "zoe"))
-	if !p.problem.Visible() || p.problem.Text() != want || !strings.Contains(p.problem.detail.Text(), "not authorized") {
-		t.Fatalf("the page reads %q over %q, want %q over the refusal", p.problem.Text(), p.problem.detail.Text(), want)
+	l.drain()
+	if f.named("zoe").name != "" || len(p.others) != 2 {
+		t.Fatalf("a refused create added %+v", f.named("zoe"))
 	}
 }
 

@@ -46,7 +46,7 @@ build:
 
 # Build the release binary into dist/, as the archive and the packages ship it.
 dist:
-    CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -I {{ fhs_interpreter }}" -o dist/ ./cmd/lys-settings
+    CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -I {{ fhs_interpreter }}" -o dist/ ./cmd/lys-settings ./cmd/lys-users-helper
     go tool install-icons dist/icons/hicolor/scalable/actions $(cat resources/icons.txt)
 
 # Run the settings app.
@@ -87,9 +87,10 @@ archive version arch=arch() dist="dist":
     staging="lys-settings-{{ version }}-{{ arch }}-linux"
     rm -rf "${staging}"
     mkdir -p "${staging}/icons"
-    cp "{{ dist }}/lys-settings" LICENSE \
+    cp "{{ dist }}/lys-settings" "{{ dist }}/lys-users-helper" LICENSE \
         resources/dev.stubbe.lys.settings.desktop \
         resources/lys-settings.svg \
+        resources/dev.stubbe.lys.settings.users.policy \
         "${staging}/"
     cp -R "{{ dist }}/icons/hicolor" "${staging}/icons/"
     tar czf "${staging}.tar.gz" "${staging}"
@@ -111,7 +112,8 @@ smoke-test package:
 
     for file in /usr/share/applications/dev.stubbe.lys.settings.desktop \
         /usr/share/icons/hicolor/scalable/apps/lys-settings.svg \
-        /usr/share/lys-settings/icons/hicolor/scalable/actions/ld-x-symbolic.svg; do
+        /usr/share/lys-settings/icons/hicolor/scalable/actions/ld-x-symbolic.svg \
+        /usr/share/polkit-1/actions/dev.stubbe.lys.settings.users.policy; do
         [[ -f ${file} ]] || fail "${file} is missing"
     done
 
@@ -123,5 +125,10 @@ smoke-test package:
     status=0
     lys-settings --bogus >/dev/null 2>&1 || status=$?
     [[ ${status} -eq 2 ]] || fail "an unknown flag exited ${status}, want 2"
+
+    [[ -x /usr/libexec/lys-users-helper ]] || fail "/usr/libexec/lys-users-helper is missing"
+    status=0
+    /usr/libexec/lys-users-helper others </dev/null >/dev/null 2>&1 || status=$?
+    [[ ${status} -eq 1 ]] || fail "lys-users-helper without pkexec exited ${status}, want 1"
 
     echo "smoke test: {{ package }} installs and runs"

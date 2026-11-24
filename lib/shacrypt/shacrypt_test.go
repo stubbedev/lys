@@ -99,3 +99,41 @@ func TestASettingThatIsNotOneIsRefused(t *testing.T) {
 		}
 	}
 }
+
+func TestAWholeHashChecksAndAnythingElseIsRefusedWithoutQuotingIt(t *testing.T) {
+	for _, st := range []Setting{NewSetting(), mustSetting(t, "$6$rounds=10000$saltstring")} {
+		if err := CheckHash(st.Hash([]byte("pw"))); err != nil {
+			t.Errorf("%s: %v", st, err)
+		}
+	}
+	good := mustSetting(t, "$6$saltstring").Hash([]byte("pw"))
+	for in, want := range map[string]error{
+		"":                                     ErrPrefix,
+		"$5$saltstring$" + good[15:]:           ErrPrefix,
+		"$6$rounds=x$salt$abc":                 ErrRounds,
+		"$6$sa:lt$abc":                         ErrSalt,
+		"$6$saltstring":                        ErrDigest,
+		good[:len(good)-1]:                     ErrDigest,
+		good + "x":                             ErrDigest,
+		good[:len(good)-1] + ":":               ErrDigest,
+		good[:len(good)-1] + "\n":              ErrDigest,
+		"$6$rounds=10$saltstring$" + good[15:]: ErrDigest,
+	} {
+		err := CheckHash(in)
+		if !errors.Is(err, want) {
+			t.Errorf("%q: %v, want %v", in, err, want)
+		}
+		if err != nil && in != "" && strings.Contains(err.Error(), in) {
+			t.Errorf("%q: the error %q quotes it", in, err)
+		}
+	}
+}
+
+func mustSetting(t *testing.T, s string) Setting {
+	t.Helper()
+	st, err := ParseSetting(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return st
+}

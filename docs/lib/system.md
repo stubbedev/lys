@@ -343,8 +343,8 @@ lys-wm's tests hold those views to its own JSON.
 ## shacrypt
 
 `shacrypt` is SHA-512 crypt(3), the `$6$` hash `/etc/shadow` and
-AccountsService's `SetPassword` take, in pure Go and held to the reference
-vectors of Ulrich Drepper's specification.
+`chpasswd -e` take, in pure Go and held to the reference vectors of Ulrich
+Drepper's specification.
 
 - `Hash(password)` hashes with `NewSetting()`: a 16-character salt from
   `crypto/rand` and the default 5000 rounds.
@@ -354,6 +354,9 @@ vectors of Ulrich Drepper's specification.
   `ErrSalt`.
 - `Setting.Hash` hashes with that setting; `Verify` checks a password against
   a stored hash in constant time.
+- `CheckHash` accepts only a whole hash as `Setting.Hash` writes it, so a
+  value handed to `chpasswd -e` cannot carry another field or line; anything
+  else is one of the setting's errors or `ErrDigest`, and never quoted.
 
 ## appearance, portalsettings
 

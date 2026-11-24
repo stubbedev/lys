@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC
+ "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<policyconfig>
+  <vendor>lys</vendor>
+  <vendor_url>https://github.com/stubbedev/lys/tree/main/settings</vendor_url>
+  <action id="dev.stubbe.lys.settings.users.self">
+    <description>Change your own full name and picture</description>
+    <message>Authentication is required to change your full name or picture</message>
+    <icon_name>system-users</icon_name>
+    <defaults>
+      <allow_any>auth_self</allow_any>
+      <allow_inactive>auth_self</allow_inactive>
+      <allow_active>yes</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/libexec/lys-users-helper</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv1">self</annotate>
+  </action>
+  <action id="dev.stubbe.lys.settings.users.others">
+    <description>Add, change and remove user accounts</description>
+    <message>Authentication is required to add, change or remove a user account</message>
+    <icon_name>system-users</icon_name>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/libexec/lys-users-helper</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv1">others</annotate>
+  </action>
+</policyconfig>

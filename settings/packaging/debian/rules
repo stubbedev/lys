@@ -13,6 +13,8 @@ override_dh_strip:
 override_dh_auto_install:
 	install -d debian/lys-settings/usr/bin
 	install -m 0755 lys-settings debian/lys-settings/usr/bin/
+	install -D -m 0755 lys-users-helper debian/lys-settings/usr/libexec/lys-users-helper
+	install -D -m 0644 dev.stubbe.lys.settings.users.policy debian/lys-settings/usr/share/polkit-1/actions/dev.stubbe.lys.settings.users.policy
 
 	install -D -m 0644 dev.stubbe.lys.settings.desktop debian/lys-settings/usr/share/applications/dev.stubbe.lys.settings.desktop
 	desktop-file-validate debian/lys-settings/usr/share/applications/dev.stubbe.lys.settings.desktop
