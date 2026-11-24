@@ -39,7 +39,7 @@ func (s composeSource) read() ([]byte, error) {
 	if s.builtin {
 		return builtinCompose, nil
 	}
-	return os.ReadFile(s.path) //nolint:gosec // a Compose file the user, the locale or an include names
+	return os.ReadFile(s.path)
 }
 
 type composeNode struct {
