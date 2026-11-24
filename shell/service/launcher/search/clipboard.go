@@ -172,10 +172,35 @@ func (*Emoji) Whole() {}
 // Load implements Provider.
 func (e *Emoji) Load(_ context.Context, publish func([]Entry)) {
 	table := e.load()
-	entries := make([]Entry, len(table))
+	const idPrefix = "emoji:"
+	size := 0
+	for _, em := range table {
+		size += len(idPrefix) + len(em.Glyph)
+		for _, k := range em.Keywords {
+			size += len(k) + 1
+		}
+	}
+	text := make([]byte, 0, size)
+	ends := make([][2]int, len(table))
 	for i, em := range table {
-		id := "emoji:" + em.Glyph
-		entries[i] = Entry{ID: id, Learn: id, Title: em.Name, Keywords: strings.Join(em.Keywords, " "), Glyph: em.WithTone(e.tone), Data: em}
+		text = append(append(text, idPrefix...), em.Glyph...)
+		ends[i][0] = len(text)
+		for j, k := range em.Keywords {
+			if j > 0 {
+				text = append(text, ' ')
+			}
+			text = append(text, k...)
+		}
+		ends[i][1] = len(text)
+	}
+	all := string(text)
+	entries := make([]Entry, len(table))
+	from := 0
+	for i := range table {
+		em := &table[i]
+		id, keywords := all[from:ends[i][0]], all[ends[i][0]:ends[i][1]]
+		from = ends[i][1]
+		entries[i] = Entry{ID: id, Learn: id, Title: em.Name, Keywords: keywords, Glyph: em.WithTone(e.tone), Data: em}
 	}
 	publish(entries)
 }
@@ -208,7 +233,7 @@ func SkinToneName(tone modes.SkinTone) config.LauncherSkinTone { return skinTone
 // Actions implements Provider: type and copy in the current tone, then,
 // for an emoji that takes one, each of the five tones.
 func (e *Emoji) Actions(entry Entry) []Action {
-	em, ok := entry.Data.(modes.Emoji)
+	em, ok := entry.Data.(*modes.Emoji)
 	if !ok {
 		return nil
 	}

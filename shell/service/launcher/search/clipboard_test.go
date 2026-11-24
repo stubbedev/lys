@@ -167,6 +167,33 @@ func fakeEmoji() []modes.Emoji {
 	}
 }
 
+func TestEachEmojiRowCarriesOnlyItsOwnIDAndKeywords(t *testing.T) {
+	table := func() []modes.Emoji {
+		return []modes.Emoji{
+			{Glyph: "🙂", Name: "slightly smiling face", Keywords: []string{"happy", "smile"}},
+			{Glyph: "🫥", Name: "dotted line face"},
+			{Glyph: "🚀", Name: "rocket", Keywords: []string{"launch"}},
+		}
+	}
+	got := loaded(t, NewEmoji(table, modes.ToneNone, nil))
+	want := []struct{ id, keywords string }{
+		{"emoji:🙂", "happy smile"},
+		{"emoji:🫥", ""},
+		{"emoji:🚀", "launch"},
+	}
+	if len(got) != len(want) {
+		t.Fatalf("%d rows, want %d", len(got), len(want))
+	}
+	for i, w := range want {
+		if got[i].ID != w.id || got[i].Learn != w.id || got[i].Keywords != w.keywords {
+			t.Errorf("row %d: id %q learn %q keywords %q, want id and learn %q, keywords %q", i, got[i].ID, got[i].Learn, got[i].Keywords, w.id, w.keywords)
+		}
+		if strings.Contains(got[i].Keywords, "emoji:") {
+			t.Errorf("row %d keywords %q run into the next row's id", i, got[i].Keywords)
+		}
+	}
+}
+
 func TestEmojiRowsSearchTheirKeywordsAndEnterTheGlyph(t *testing.T) {
 	p := NewEmoji(fakeEmoji, modes.ToneNone, nil)
 	got := loaded(t, p)
