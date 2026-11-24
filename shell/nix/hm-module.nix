@@ -77,8 +77,8 @@ in
       description = ''
         Install the user-space soft dependencies lys-shell's config implies
         (theme-provider tools like matugen/wallust/pywal, xdg-utils, plus notmuch when the `mail` module is in the layout).
-        System-level dependencies (NetworkManager, bluez, upower,
-        power-profiles-daemon, pipewire/wireplumber) are not installed by home-manager — enable those
+        System-level dependencies (NetworkManager, bluez,
+        lys-power, pipewire/wireplumber) are not installed by home-manager — enable those
         at the NixOS level.
       '';
     };
