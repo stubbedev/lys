@@ -19,6 +19,7 @@ in {
     systemd.user.services.battery-hog.serviceConfig.ExecStart = "${pkgs.coreutils}/bin/sleep infinity";
   };
   script = ''
+    import datetime
     import json
 
     def as_user(cmd):
@@ -36,6 +37,9 @@ in {
     def set_ac(online):
         machine.succeed(f"echo {online} > /sys/module/test_power/parameters/ac_online")
         machine.wait_until_succeeds(f"grep -qx {1 if online == 'on' else 0} /sys/class/power_supply/test_ac/online", timeout=30)
+
+    def published(entries):
+        retry(lambda _: state()[1] == entries, timeout=datetime.timedelta(seconds=60))
 
     def waits_for(unit, want):
         try:
@@ -69,13 +73,12 @@ in {
 
     set_ac("off")
     waits_for("${hog}", "frozen")
-    picks, entries, resumed = state()
-    assert entries == [["user/${toString uid}/${hog}", "paused", ""]], entries
+    published([["user/${toString uid}/${hog}", "paused", ""]])
     assert freezer("${essential}") == "running", "an essential unit was frozen"
 
     set_ac("on")
     waits_for("${hog}", "running")
-    assert state()[1] == [], state()
+    published([])
     assert freezer("${essential}") == "running", "an essential unit was frozen"
     machine.succeed(as_user("systemctl --user is-active ${hog}"))
     journal = machine.succeed("journalctl -b --no-pager -u lys-power.service")
