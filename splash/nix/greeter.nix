@@ -58,7 +58,7 @@ in {
   virtualisation.memorySize = 2048;
   environment.sessionVariables = {
     LIBGL_ALWAYS_SOFTWARE = "1";
-    LYS_WM_RENDERER = "gles";
+    LYS_WM_RENDERER = "lavapipe";
   };
   environment.systemPackages = [drmTools];
   hardware.graphics.enable = true;

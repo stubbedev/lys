@@ -63,8 +63,8 @@ frame are `desktop/splashframe`, outside the splash, because lys-login's greeter
 computes its first frame from them too.
 
 virtio-gpu and vkms have no Vulkan driver, so `nix/greeter.nix` sets
-`LYS_WM_RENDERER=gles` in the session variables, which reach the greeter's
-lys-wm through PAM: it renders with GLES on llvmpipe instead of stopping.
+`LYS_WM_RENDERER=lavapipe` in the session variables, which reach the greeter's
+lys-wm through PAM: it renders with Vulkan on lavapipe instead of stopping.
 
 Expected frames live in `internal/theme/testdata/golden`; this manual's
 pictures of the splash are those files.
