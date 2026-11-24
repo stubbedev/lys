@@ -16,8 +16,8 @@ import (
 	"github.com/stubbedev/lys/desktop/service/mpris"
 	"github.com/stubbedev/lys/desktop/service/network"
 	"github.com/stubbedev/lys/desktop/service/powerprofiles"
+	"github.com/stubbedev/lys/desktop/service/powersupply"
 	"github.com/stubbedev/lys/desktop/service/pulse"
-	"github.com/stubbedev/lys/desktop/service/upower"
 	"github.com/stubbedev/lys/desktop/shell/apptheme"
 	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/lib/render"
@@ -53,7 +53,7 @@ type ModuleContext struct {
 	Font       render.Font
 	Style      *barStyle
 	Hyprland   *hyprland.Connection
-	Battery    upower.Source
+	Battery    powersupply.Source
 	Brightness brightness.Source
 	Pulse      pulse.Source
 	Media      mpris.Source

@@ -1694,7 +1694,6 @@ settings-power-loading = Akku und Energiemodus werden gelesen…
 settings-power-unavailable = Akku und Energiemodus können nicht gelesen werden
 settings-power-failed = Die Energieeinstellungen wurden nicht geändert
 settings-power-battery = Akku
-settings-power-no-upower = UPower läuft nicht, daher kann der Akku nicht gelesen werden
 settings-power-no-battery = Dieser Computer hat keinen Akku; er läuft am Netz
 settings-power-percent = { $percent ->
     [one] { $percent } %
@@ -1706,16 +1705,11 @@ settings-power-health-detail = { $percent ->
    *[other] Hält { $percent } % seiner Nennkapazität
 }
 settings-power-charge-limit = Ladegrenze
-settings-power-charge-limit-detail = { $percent ->
-    [one] Hört bei { $percent } % auf zu laden, um den Akku zu schonen
-   *[other] Hört bei { $percent } % auf zu laden, um den Akku zu schonen
-}
 settings-power-charge-limit-choice-detail = Hält den Akku am Netzteil bei dieser Ladung, damit er langsamer altert; vor dem üblichen Aufbruch wird er trotzdem voll geladen. 100 % schaltet das Halten aus.
 settings-power-charge-limit-refused = Die Ladegrenze wurde nicht geändert
 settings-power-state-unknown = Zustand unbekannt
 settings-power-state-charging = Wird geladen
 settings-power-state-discharging = Akkubetrieb
-settings-power-state-empty = Leer
 settings-power-state-full = Vollständig geladen
 settings-power-state-not-charging = Angeschlossen, lädt nicht
 settings-power-state-with-time = { $state } · { $time }

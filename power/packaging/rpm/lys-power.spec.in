@@ -12,7 +12,6 @@ ExclusiveArch:  x86_64 aarch64
 
 BuildRequires:  systemd-rpm-macros
 Requires:       systemd
-Recommends:     upower
 Recommends:     (power-profiles-daemon or tuned-ppd)
 
 %description

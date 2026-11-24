@@ -9,8 +9,8 @@ import (
 
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/powerprofiles"
-	"github.com/stubbedev/lys/desktop/service/upower"
-	"github.com/stubbedev/lys/desktop/service/upower/upowertest"
+	"github.com/stubbedev/lys/desktop/service/powersupply"
+	"github.com/stubbedev/lys/desktop/service/powersupply/powersupplytest"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/dbustest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
@@ -24,7 +24,6 @@ type fakePower struct {
 	state      powerState
 	profileErr error
 	profiles   []string
-	limits     []bool
 	chosen     []charge.Limit
 	following  context.Context
 	closed     bool
@@ -46,11 +45,6 @@ func (f *fakePower) setProfile(_ context.Context, profile string) error {
 	return nil
 }
 
-func (f *fakePower) setChargeLimit(_ context.Context, on bool) error {
-	f.limits = append(f.limits, on)
-	return nil
-}
-
 func (f *fakePower) setLimit(_ context.Context, limit charge.Limit) error {
 	f.chosen = append(f.chosen, limit)
 	f.state.charge.Limit = limit
@@ -61,10 +55,9 @@ func (f *fakePower) close() error { f.closed = true; return nil }
 
 func laptop() *fakePower {
 	return &fakePower{state: powerState{
-		upower: true,
-		battery: upower.Device{
-			IsPresent: true, Percentage: 72.4, State: upower.StateDischarging, TimeToEmpty: 2*time.Hour + 35*time.Minute,
-			Capacity: 91.6, ChargeThresholdSupported: true, ChargeEndThreshold: 80,
+		battery: powersupply.Device{
+			IsPresent: true, Percentage: 72.4, State: powersupply.StateDischarging, TimeToEmpty: 2*time.Hour + 35*time.Minute,
+			Capacity: 91.6,
 		},
 		profiles: powerprofiles.Snapshot{
 			Available: true, Active: powerprofiles.ProfileBalanced,
@@ -94,23 +87,14 @@ func TestTheBatteryShowsItsChargeStateTimeLeftAndHealth(t *testing.T) {
 		tr.Get("settings-power-percent", i18n.Int("percent", 72)),
 		detail,
 		tr.Get("settings-power-health-detail", i18n.Int("percent", 92)),
-		tr.Get("settings-power-charge-limit-detail", i18n.Int("percent", 80)),
 	} {
 		if !shows(p.battery, want) {
 			t.Errorf("the battery card lacks %q among %q", want, treetest.Labels(p.battery))
 		}
 	}
-	limit := treetest.All[*widget.Switch](p.battery)
-	if len(limit) != 1 {
-		t.Fatalf("%d switches on the battery card, want the charge limit", len(limit))
-	}
-	limit[0].OnChanged(true)
-	if !slices.Equal(f.limits, []bool{true}) {
-		t.Errorf("the charge limit switch set %v", f.limits)
-	}
 }
 
-func TestLysPowersLimitIsPickedFromItsChoicesInsteadOfUPowersSwitch(t *testing.T) {
+func TestLysPowersLimitIsPickedFromItsChoices(t *testing.T) {
 	f := laptop()
 	f.state.lysPower = true
 	f.state.charge = charge.State{Limit: charge.Limit85, Reason: charge.ReasonHolding, Dock: charge.DockDocked}
@@ -135,20 +119,24 @@ func TestLysPowersLimitIsPickedFromItsChoicesInsteadOfUPowersSwitch(t *testing.T
 	}
 }
 
-func TestAnUnmanagedBatteryKeepsUPowersSwitch(t *testing.T) {
-	f := laptop()
-	f.state.lysPower = true
-	f.state.charge = charge.State{Limit: charge.Limit80, Reason: charge.ReasonUnmanaged, Dock: charge.DockUnknown}
-	p := powerPanelOf(t, f)
-	if len(treetest.All[*widget.Switch](p.battery)) != 1 || len(treetest.All[*widget.Dropdown](p.battery)) != 0 {
-		t.Errorf("an unmanaged battery reads %q", treetest.Labels(p.battery))
+func TestNoLimitIsOfferedWhereLysPowerHoldsNone(t *testing.T) {
+	for name, st := range map[string]powerState{
+		"lys-power not running": {},
+		"an unmanaged battery":  {lysPower: true, charge: charge.State{Limit: charge.Limit80, Reason: charge.ReasonUnmanaged, Dock: charge.DockUnknown}},
+	} {
+		f := laptop()
+		f.state.lysPower, f.state.charge = st.lysPower, st.charge
+		p := powerPanelOf(t, f)
+		if len(treetest.All[*widget.Switch](p.battery)) != 0 || len(treetest.All[*widget.Dropdown](p.battery)) != 0 {
+			t.Errorf("%s: the battery card reads %q", name, treetest.Labels(p.battery))
+		}
 	}
 }
 
 func TestABatteryWithoutAChargeLimitOrHealthShowsNeither(t *testing.T) {
 	f := laptop()
-	f.state.battery.ChargeThresholdSupported, f.state.battery.Capacity = false, 0
-	f.state.battery.State, f.state.battery.TimeToEmpty = upower.StateFullyCharged, 0
+	f.state.battery.Capacity = 0
+	f.state.battery.State, f.state.battery.TimeToEmpty = powersupply.StateFullyCharged, 0
 	p := powerPanelOf(t, f)
 	tr := locale.T()
 	if n := len(treetest.All[*widget.Switch](p.battery)); n != 0 {
@@ -159,15 +147,14 @@ func TestABatteryWithoutAChargeLimitOrHealthShowsNeither(t *testing.T) {
 	}
 }
 
-func TestNoBatteryAndNoUPowerAreSaid(t *testing.T) {
+func TestNoBatteryIsSaid(t *testing.T) {
 	tr := locale.T()
 	for _, c := range []struct {
 		name  string
 		state powerState
 		want  string
 	}{
-		{"no battery", powerState{upower: true, battery: upower.Device{IsPresent: false, Percentage: 0}}, "settings-power-no-battery"},
-		{"no UPower", powerState{}, "settings-power-no-upower"},
+		{"no battery", powerState{battery: powersupply.Device{IsPresent: false, Percentage: 0}}, "settings-power-no-battery"},
 	} {
 		p := powerPanelOf(t, &fakePower{state: c.state})
 		labels := treetest.Labels(p.battery)
@@ -276,7 +263,7 @@ func TestBatteryTimesReadInHoursAndMinutes(t *testing.T) {
 			t.Errorf("%v reads %q, want %q", d, got, want)
 		}
 	}
-	dev := upower.Device{State: upower.StateCharging, TimeToFull: 30 * time.Second}
+	dev := powersupply.Device{State: powersupply.StateCharging, TimeToFull: 30 * time.Second}
 	if got := batteryDetail(dev); got != tr.Get("settings-power-state-charging") {
 		t.Errorf("under a minute to full reads %q, want only the state", got)
 	}
@@ -299,26 +286,26 @@ func TestTheSleepAndLockLinksOpenTheirPagesWhenListed(t *testing.T) {
 	}
 }
 
-func TestTheSystemControlTellsAbsentServicesFromABattery(t *testing.T) {
+func TestTheSystemControlReadsTheBatteryWithoutAnyService(t *testing.T) {
 	bus := dbustest.Start(t)
-	ctl, err := openPower(func() (*dbus.Conn, error) { return bus.Conn(t), nil })
+	battery := powersupplytest.New(powersupplytest.Battery(64, powersupply.StateCharging, powersupply.WarningNone))
+	ctl, err := openPower(func() (*dbus.Conn, error) { return bus.Conn(t), nil }, battery)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = ctl.close() })
 	st, err := callWithin(powerCallWait, ctl.read)
-	if err != nil || st.upower || st.profiles.Available {
-		t.Fatalf("with neither service: %+v, %v", st, err)
-	}
-	upowertest.Serve(t, bus.Conn(t), upowertest.Battery(64, upower.StateCharging, upower.WarningNone))
-	st, err = callWithin(powerCallWait, ctl.read)
-	if err != nil || !st.hasBattery() || st.battery.Percentage != 64 {
-		t.Fatalf("with UPower: %+v, %v", st, err)
+	if err != nil || !st.hasBattery() || st.battery.Percentage != 64 || st.profiles.Available || st.lysPower {
+		t.Fatalf("with no service on the bus: %+v, %v", st, err)
 	}
 	ctx, stop := context.WithCancel(t.Context())
 	ticks, err := ctl.changes(ctx)
 	if err != nil {
 		t.Fatal(err)
+	}
+	battery.SetDevice(powersupplytest.Battery(65, powersupply.StateCharging, powersupply.WarningNone))
+	if _, open := <-ticks; !open {
+		t.Fatal("the changes ended before the battery's")
 	}
 	stop()
 	for range ticks {

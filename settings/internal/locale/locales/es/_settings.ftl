@@ -1695,7 +1695,6 @@ settings-power-loading = Leyendo la batería y el modo de energía…
 settings-power-unavailable = No se pueden leer la batería ni el modo de energía
 settings-power-failed = No se cambiaron los ajustes de energía
 settings-power-battery = Batería
-settings-power-no-upower = UPower no se está ejecutando, así que no se puede leer la batería
 settings-power-no-battery = Este equipo no tiene batería; funciona con la corriente
 settings-power-percent = { $percent ->
     [one] { $percent } %
@@ -1707,16 +1706,11 @@ settings-power-health-detail = { $percent ->
    *[other] Conserva el { $percent } % de su capacidad de diseño
 }
 settings-power-charge-limit = Límite de carga
-settings-power-charge-limit-detail = { $percent ->
-    [one] Deja de cargar al { $percent } % para cuidar la batería
-   *[other] Deja de cargar al { $percent } % para cuidar la batería
-}
 settings-power-charge-limit-choice-detail = Mantiene la batería con esta carga conectada a la corriente para que se desgaste menos; aun así se carga al máximo antes de que sueles salir. El 100 % desactiva el límite.
 settings-power-charge-limit-refused = No se cambió el límite de carga
 settings-power-state-unknown = Estado desconocido
 settings-power-state-charging = Cargando
 settings-power-state-discharging = Con batería
-settings-power-state-empty = Vacía
 settings-power-state-full = Carga completa
 settings-power-state-not-charging = Enchufado, sin cargar
 settings-power-state-with-time = { $state } · { $time }

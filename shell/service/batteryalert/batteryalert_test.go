@@ -4,15 +4,15 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/service/powerprofiles"
-	"github.com/stubbedev/lys/desktop/service/upower"
+	"github.com/stubbedev/lys/desktop/service/powersupply"
 )
 
-func discharging(pct float64, w upower.WarningLevel) Reading {
-	return Reading{Warning: w, Percentage: pct, State: upower.StateDischarging}
+func discharging(pct float64, w powersupply.WarningLevel) Reading {
+	return Reading{Warning: w, Percentage: pct, State: powersupply.StateDischarging}
 }
 
 func charging(pct float64) Reading {
-	return Reading{Warning: upower.WarningNone, Percentage: pct, State: upower.StateCharging}
+	return Reading{Warning: powersupply.WarningNone, Percentage: pct, State: powersupply.StateCharging}
 }
 
 func TestNextAlertsOncePerTransition(t *testing.T) {
@@ -26,35 +26,35 @@ func TestNextAlertsOncePerTransition(t *testing.T) {
 		steps     []step
 	}{
 		{"low once, critical once, staying silent", 0, []step{
-			{discharging(30, upower.WarningNone), 0},
-			{discharging(10, upower.WarningLow), LevelLow},
-			{discharging(9, upower.WarningLow), 0},
-			{discharging(5, upower.WarningCritical), LevelCritical},
-			{discharging(4, upower.WarningCritical), 0},
-			{discharging(2, upower.WarningAction), 0},
+			{discharging(30, powersupply.WarningNone), 0},
+			{discharging(10, powersupply.WarningLow), LevelLow},
+			{discharging(9, powersupply.WarningLow), 0},
+			{discharging(5, powersupply.WarningCritical), LevelCritical},
+			{discharging(4, powersupply.WarningCritical), 0},
+			{discharging(2, powersupply.WarningAction), 0},
 		}},
 		{"plugging in and unplugging re-arms", 0, []step{
-			{discharging(9, upower.WarningLow), LevelLow},
+			{discharging(9, powersupply.WarningLow), LevelLow},
 			{charging(9), 0},
-			{discharging(9, upower.WarningLow), LevelLow},
-			{discharging(4, upower.WarningCritical), LevelCritical},
+			{discharging(9, powersupply.WarningLow), LevelLow},
+			{discharging(4, powersupply.WarningCritical), LevelCritical},
 			{charging(4), 0},
-			{discharging(4, upower.WarningCritical), LevelCritical},
+			{discharging(4, powersupply.WarningCritical), LevelCritical},
 		}},
 		{"straight to critical is one critical alert", 0, []step{
-			{discharging(3, upower.WarningCritical), LevelCritical},
+			{discharging(3, powersupply.WarningCritical), LevelCritical},
 		}},
 		{"charged once on crossing the limit", 80, []step{
-			{discharging(60, upower.WarningNone), 0},
+			{discharging(60, powersupply.WarningNone), 0},
 			{charging(60), 0},
 			{charging(79), 0},
 			{charging(80), LevelCharged},
 			{charging(85), 0},
-			{discharging(84, upower.WarningNone), 0},
+			{discharging(84, powersupply.WarningNone), 0},
 			{charging(84), 0},
 		}},
 		{"plugging in above the limit is no crossing", 80, []step{
-			{discharging(90, upower.WarningNone), 0},
+			{discharging(90, powersupply.WarningNone), 0},
 			{charging(90), 0},
 		}},
 		{"charged off at zero", 0, []step{
@@ -62,7 +62,7 @@ func TestNextAlertsOncePerTransition(t *testing.T) {
 			{charging(100), 0},
 		}},
 		{"a first reading already charged says nothing", 80, []step{
-			{Reading{Warning: upower.WarningNone, Percentage: 100, State: upower.StateFullyCharged}, 0},
+			{Reading{Warning: powersupply.WarningNone, Percentage: 100, State: powersupply.StateFullyCharged}, 0},
 		}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -90,28 +90,28 @@ func TestSaverSwitchesAtItsLevelAndRestoresOnAC(t *testing.T) {
 		steps []step
 	}{
 		{"low switches and AC restores", SaverLow, []step{
-			{discharging(30, upower.WarningNone), powerprofiles.ProfilePerformance, ""},
-			{discharging(10, upower.WarningLow), powerprofiles.ProfilePerformance, powerprofiles.ProfilePowerSaver},
-			{discharging(5, upower.WarningCritical), powerprofiles.ProfilePowerSaver, ""},
+			{discharging(30, powersupply.WarningNone), powerprofiles.ProfilePerformance, ""},
+			{discharging(10, powersupply.WarningLow), powerprofiles.ProfilePerformance, powerprofiles.ProfilePowerSaver},
+			{discharging(5, powersupply.WarningCritical), powerprofiles.ProfilePowerSaver, ""},
 			{charging(5), powerprofiles.ProfilePowerSaver, powerprofiles.ProfilePerformance},
 			{charging(20), powerprofiles.ProfilePerformance, ""},
-			{discharging(10, upower.WarningLow), powerprofiles.ProfileBalanced, powerprofiles.ProfilePowerSaver},
+			{discharging(10, powersupply.WarningLow), powerprofiles.ProfileBalanced, powerprofiles.ProfilePowerSaver},
 		}},
 		{"critical waits past low", SaverCritical, []step{
-			{discharging(10, upower.WarningLow), powerprofiles.ProfileBalanced, ""},
-			{discharging(4, upower.WarningCritical), powerprofiles.ProfileBalanced, powerprofiles.ProfilePowerSaver},
+			{discharging(10, powersupply.WarningLow), powerprofiles.ProfileBalanced, ""},
+			{discharging(4, powersupply.WarningCritical), powerprofiles.ProfileBalanced, powerprofiles.ProfilePowerSaver},
 			{charging(4), powerprofiles.ProfilePowerSaver, powerprofiles.ProfileBalanced},
 		}},
 		{"never leaves the profile alone", SaverNever, []step{
-			{discharging(4, upower.WarningCritical), powerprofiles.ProfileBalanced, ""},
+			{discharging(4, powersupply.WarningCritical), powerprofiles.ProfileBalanced, ""},
 			{charging(4), powerprofiles.ProfileBalanced, ""},
 		}},
 		{"already saving has nothing to restore", SaverLow, []step{
-			{discharging(10, upower.WarningLow), powerprofiles.ProfilePowerSaver, ""},
+			{discharging(10, powersupply.WarningLow), powerprofiles.ProfilePowerSaver, ""},
 			{charging(10), powerprofiles.ProfilePowerSaver, ""},
 		}},
 		{"on AC at a low level does not switch", SaverLow, []step{
-			{Reading{Warning: upower.WarningLow, Percentage: 9, State: upower.StateCharging}, powerprofiles.ProfileBalanced, ""},
+			{Reading{Warning: powersupply.WarningLow, Percentage: 9, State: powersupply.StateCharging}, powerprofiles.ProfileBalanced, ""},
 		}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -138,21 +138,21 @@ func TestLowPowerIsOfferedOncePerUnplugAtTwentyPercent(t *testing.T) {
 		steps []step
 	}{
 		{"once at twenty, again after the next unplug", []step{
-			{discharging(25, upower.WarningNone), powerprofiles.ProfileBalanced, false},
-			{discharging(20, upower.WarningNone), powerprofiles.ProfileBalanced, true},
-			{discharging(15, upower.WarningNone), powerprofiles.ProfileBalanced, false},
-			{discharging(9, upower.WarningLow), powerprofiles.ProfileBalanced, false},
+			{discharging(25, powersupply.WarningNone), powerprofiles.ProfileBalanced, false},
+			{discharging(20, powersupply.WarningNone), powerprofiles.ProfileBalanced, true},
+			{discharging(15, powersupply.WarningNone), powerprofiles.ProfileBalanced, false},
+			{discharging(9, powersupply.WarningLow), powerprofiles.ProfileBalanced, false},
 			{charging(9), powerprofiles.ProfileBalanced, false},
-			{discharging(9, upower.WarningLow), powerprofiles.ProfileBalanced, true},
+			{discharging(9, powersupply.WarningLow), powerprofiles.ProfileBalanced, true},
 		}},
 		{"not while power-saver is on, then once it is turned off", []step{
-			{discharging(18, upower.WarningNone), powerprofiles.ProfilePowerSaver, false},
-			{discharging(17, upower.WarningNone), powerprofiles.ProfilePerformance, true},
+			{discharging(18, powersupply.WarningNone), powerprofiles.ProfilePowerSaver, false},
+			{discharging(17, powersupply.WarningNone), powerprofiles.ProfilePerformance, true},
 		}},
 		{"never on AC or in an unknown state", []step{
 			{charging(10), powerprofiles.ProfileBalanced, false},
-			{Reading{Percentage: 10, State: upower.StateFullyCharged}, powerprofiles.ProfileBalanced, false},
-			{Reading{Percentage: 15, State: upower.StateUnknown}, powerprofiles.ProfileBalanced, false},
+			{Reading{Percentage: 10, State: powersupply.StateFullyCharged}, powerprofiles.ProfileBalanced, false},
+			{Reading{Percentage: 15, State: powersupply.StateUnknown}, powerprofiles.ProfileBalanced, false},
 		}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -167,11 +167,11 @@ func TestLowPowerIsOfferedOncePerUnplugAtTwentyPercent(t *testing.T) {
 		})
 	}
 	var o Offer
-	if _, offer := o.Step(discharging(10, upower.WarningLow), func() (string, bool) { return "", false }); offer {
+	if _, offer := o.Step(discharging(10, powersupply.WarningLow), func() (string, bool) { return "", false }); offer {
 		t.Error("offered Low Power without a power profile to switch")
 	}
 	asked := false
-	if _, offer := o.Step(discharging(30, upower.WarningNone), func() (string, bool) { asked = true; return powerprofiles.ProfileBalanced, true }); offer || asked {
+	if _, offer := o.Step(discharging(30, powersupply.WarningNone), func() (string, bool) { asked = true; return powerprofiles.ProfileBalanced, true }); offer || asked {
 		t.Errorf("above twenty percent: offer %v, profile read %v; want neither", offer, asked)
 	}
 }

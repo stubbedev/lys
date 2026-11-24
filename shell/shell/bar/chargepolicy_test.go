@@ -97,16 +97,16 @@ func TestHealthHidesWithoutADesignAndNamesItsCycles(t *testing.T) {
 	}
 }
 
-func TestLysPowersPolicyReplacesTheUPowerSwitch(t *testing.T) {
+func TestTheChargeCardShowsLysPowersPolicyOnly(t *testing.T) {
 	ctx := newTestContext(t, config.Defaults())
 	src := &fakeCharge{}
 	ctx.Charge = src
-	ctx.Battery = newFakeBattery(chargeLimitBattery())
+	ctx.Battery = newFakeBattery(presentBattery())
 	v := openView(t, ctx, batteryDropdown).(*batteryView)
 	waitHeadless(t, "the battery page", func() bool { return v.body.Visible() == "battery" })
 	onHeadlessLoop(func() bool {
-		if !widget.IsVisible(v.chargeSwitch) || widget.IsVisible(v.chargeFull) {
-			t.Error("without lys-power the UPower switch is not alone")
+		if widget.IsVisible(v.chargeCard) || !widget.IsVisible(v.chargeUnsupported) {
+			t.Error("without lys-power the charge card shows, or the note does not")
 		}
 		return true
 	})
@@ -114,8 +114,8 @@ func TestLysPowersPolicyReplacesTheUPowerSwitch(t *testing.T) {
 	src.set(charge.State{Limit: charge.Limit90, Reason: charge.ReasonHolding, Dock: charge.DockDocked}, true)
 	waitHeadless(t, "the policy shown", func() bool { return widget.IsVisible(v.chargeFull) })
 	onHeadlessLoop(func() bool {
-		if widget.IsVisible(v.chargeSwitch) {
-			t.Error("the UPower switch shows beside lys-power's policy")
+		if widget.IsVisible(v.chargeUnsupported) {
+			t.Error("the unsupported note shows beside lys-power's policy")
 		}
 		if want := i18n.T("dropdown-battery-hold", i18n.Str("limit", "90")); !slices.Contains(treetest.Labels(v.charge), want) {
 			t.Errorf("the card reads %q, want %q", treetest.Labels(v.charge), want)
@@ -129,7 +129,9 @@ func TestLysPowersPolicyReplacesTheUPowerSwitch(t *testing.T) {
 	waitHeadless(t, "the button hidden while charging to full", func() bool { return !widget.IsVisible(v.chargeFull) })
 
 	src.set(charge.State{Limit: charge.Limit90, Reason: charge.ReasonUnmanaged, Dock: charge.DockDocked}, true)
-	waitHeadless(t, "the switch back for an unmanaged battery", func() bool { return widget.IsVisible(v.chargeSwitch) })
+	waitHeadless(t, "the note back for an unmanaged battery", func() bool {
+		return !widget.IsVisible(v.chargeCard) && widget.IsVisible(v.chargeUnsupported)
+	})
 }
 
 func TestAFailedFullChargeSaysWhy(t *testing.T) {
@@ -137,7 +139,7 @@ func TestAFailedFullChargeSaysWhy(t *testing.T) {
 	src := &fakeCharge{err: errors.New("dev.stubbe.lys.Charge1.Error.NotAuthorized: no")}
 	src.set(charge.State{Limit: charge.Limit80, Reason: charge.ReasonHolding, Dock: charge.DockUnknown}, true)
 	ctx.Charge = src
-	ctx.Battery = newFakeBattery(chargeLimitBattery())
+	ctx.Battery = newFakeBattery(presentBattery())
 	v := openView(t, ctx, batteryDropdown).(*batteryView)
 	waitHeadless(t, "the button", func() bool { return widget.IsVisible(v.chargeFull) })
 	onHeadlessLoop(func() bool { v.chargeFull.OnClick(); return true })

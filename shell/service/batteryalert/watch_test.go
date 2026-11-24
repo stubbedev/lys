@@ -10,20 +10,15 @@ import (
 
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/powerprofiles"
-	"github.com/stubbedev/lys/desktop/service/upower"
-	"github.com/stubbedev/lys/desktop/service/upower/upowertest"
-	"github.com/stubbedev/lys/lib/dbustest"
-	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/desktop/service/powersupply"
+	"github.com/stubbedev/lys/desktop/service/powersupply/powersupplytest"
 	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/shell/internal/desktopnotify"
 	"github.com/stubbedev/lys/shell/service/batteryalert"
 )
 
-const (
-	displayPath = dbus.ObjectPath(upower.DisplayDevicePath)
-	mousePath   = dbus.ObjectPath("/org/freedesktop/UPower/devices/mouse_hidpp_0")
-)
+const mouse = "hidpp_battery_0"
 
 type sent struct{ summary, body, icon string }
 
@@ -98,27 +93,26 @@ func (f *fakeProfiles) switches() []string {
 
 type rig struct {
 	t        *testing.T
-	fake     *upowertest.Fake
+	fake     *powersupplytest.Fake
 	notifier *fakeNotifier
 	profiles *fakeProfiles
 }
 
-func start(t *testing.T, display map[string]dbus.Variant, cfg batteryalert.Config) *rig {
+func start(t *testing.T, display powersupply.Device, cfg batteryalert.Config) *rig {
 	t.Helper()
 	return startPressing(t, display, cfg, "")
 }
 
-func startPressing(t *testing.T, display map[string]dbus.Variant, cfg batteryalert.Config, press string) *rig {
+func startPressing(t *testing.T, display powersupply.Device, cfg batteryalert.Config, press string) *rig {
 	t.Helper()
-	bus := dbustest.Start(t)
 	r := &rig{t: t, notifier: &fakeNotifier{answer: press}, profiles: &fakeProfiles{active: powerprofiles.ProfilePerformance}}
-	r.fake = upowertest.Serve(t, bus.Conn(t), display)
+	r.fake = powersupplytest.New(display)
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
-	if err := batteryalert.Watch(ctx, upower.NewOn(bus.Conn(t)), r.profiles, r.notifier, func() batteryalert.Config { return cfg }); err != nil {
+	if err := batteryalert.Watch(ctx, r.fake, r.profiles, r.notifier, func() batteryalert.Config { return cfg }); err != nil {
 		t.Fatal(err)
 	}
-	r.waitReads(displayPath, 1)
+	r.waitReads(1)
 	return r
 }
 
@@ -127,9 +121,14 @@ func (r *rig) waitFor(what string, done func() bool) {
 	waittest.Until(r.t, done, what)
 }
 
-func (r *rig) waitReads(path dbus.ObjectPath, n int) {
+func (r *rig) waitReads(n int) {
 	r.t.Helper()
-	r.waitFor("read "+string(path), func() bool { return r.fake.Reads(path) >= n })
+	r.waitFor("battery reads", func() bool { return r.fake.Reads() >= n })
+}
+
+func (r *rig) waitPeripheralReads(n int) {
+	r.t.Helper()
+	r.waitFor("peripheral reads", func() bool { return r.fake.PeripheralReads() >= n })
 }
 
 func (r *rig) waitSent(n int) {
@@ -140,20 +139,20 @@ func (r *rig) waitSent(n int) {
 func remaining(pct string) string { return i18n.T("battery-alert-remaining", i18n.Str("percent", pct)) }
 
 func TestBatteryAlertsFollowTheWarningLevel(t *testing.T) {
-	r := start(t, upowertest.Battery(30, upower.StateDischarging, upower.WarningNone), batteryalert.Config{Notify: true})
+	r := start(t, powersupplytest.Battery(30, powersupply.StateDischarging, powersupply.WarningNone), batteryalert.Config{Notify: true})
 	steps := []struct {
-		props map[string]dbus.Variant
+		props powersupply.Device
 		sends int
 	}{
-		{upowertest.Battery(10, upower.StateDischarging, upower.WarningLow), 1},
-		{upowertest.Battery(9, upower.StateDischarging, upower.WarningLow), 1},
-		{upowertest.Battery(5, upower.StateDischarging, upower.WarningCritical), 2},
-		{upowertest.Battery(5, upower.StateCharging, upower.WarningNone), 2},
-		{upowertest.Battery(6, upower.StateDischarging, upower.WarningCritical), 3},
+		{powersupplytest.Battery(10, powersupply.StateDischarging, powersupply.WarningLow), 1},
+		{powersupplytest.Battery(9, powersupply.StateDischarging, powersupply.WarningLow), 1},
+		{powersupplytest.Battery(5, powersupply.StateDischarging, powersupply.WarningCritical), 2},
+		{powersupplytest.Battery(5, powersupply.StateCharging, powersupply.WarningNone), 2},
+		{powersupplytest.Battery(6, powersupply.StateDischarging, powersupply.WarningCritical), 3},
 	}
 	for i, s := range steps {
-		r.fake.SetDisplay(s.props)
-		r.waitReads(displayPath, i+2)
+		r.fake.SetDevice(s.props)
+		r.waitReads(i + 2)
 		r.waitSent(s.sends)
 	}
 	want := []sent{
@@ -164,8 +163,8 @@ func TestBatteryAlertsFollowTheWarningLevel(t *testing.T) {
 	if got := r.notifier.all(); !slices.Equal(got, want) {
 		t.Errorf("notifications = %+v\nwant %+v", got, want)
 	}
-	if got, want := r.fake.Reads(displayPath), len(steps)+1; got != want {
-		t.Errorf("display reads = %d, want %d: one at start and one per PropertiesChanged, nothing polled", got, want)
+	if got, want := r.fake.Reads(), len(steps)+1; got != want {
+		t.Errorf("display reads = %d, want %d: one at start and one per change, nothing polled", got, want)
 	}
 	if got := r.profiles.switches(); len(got) != 0 {
 		t.Errorf("auto-saver never switched the profile: %v", got)
@@ -173,26 +172,27 @@ func TestBatteryAlertsFollowTheWarningLevel(t *testing.T) {
 }
 
 func TestBatteryAlertsOffSendNothing(t *testing.T) {
-	r := start(t, upowertest.Battery(30, upower.StateDischarging, upower.WarningNone), batteryalert.Config{})
-	r.fake.SetDisplay(upowertest.Battery(4, upower.StateDischarging, upower.WarningCritical))
-	r.waitReads(displayPath, 2)
-	r.fake.Add(mousePath, upowertest.Peripheral(upower.KindMouse, "MX", 3, upower.WarningCritical))
-	r.waitReads(mousePath, 1)
-	r.fake.SetDisplay(upowertest.Battery(3, upower.StateDischarging, upower.WarningCritical))
-	r.waitReads(displayPath, 3)
+	r := start(t, powersupplytest.Battery(30, powersupply.StateDischarging, powersupply.WarningNone), batteryalert.Config{})
+	r.fake.SetDevice(powersupplytest.Battery(4, powersupply.StateDischarging, powersupply.WarningCritical))
+	r.waitReads(2)
+	r.fake.SetPeripherals(powersupplytest.Peripheral(mouse, powersupply.KindMouse, "MX", 3, powersupply.WarningCritical))
+	r.waitPeripheralReads(1)
+	r.fake.SetDevice(powersupplytest.Battery(3, powersupply.StateDischarging, powersupply.WarningCritical))
+	r.waitReads(3)
 	if got := r.notifier.all(); len(got) != 0 {
 		t.Errorf("notify-low off sent %+v", got)
 	}
 }
 
 func TestPeripheralAlertsOncePerDevice(t *testing.T) {
-	r := start(t, upowertest.Battery(80, upower.StateDischarging, upower.WarningNone), batteryalert.Config{Notify: true})
-	r.fake.Add(mousePath, upowertest.Peripheral(upower.KindMouse, "MX Master 3", 5, upower.WarningLow))
+	r := start(t, powersupplytest.Battery(80, powersupply.StateDischarging, powersupply.WarningNone), batteryalert.Config{Notify: true})
+	r.fake.SetPeripherals(powersupplytest.Peripheral(mouse, powersupply.KindMouse, "MX Master 3", 5, powersupply.WarningLow))
 	r.waitSent(1)
-	r.fake.Change(mousePath, upowertest.Peripheral(upower.KindMouse, "MX Master 3", 4, upower.WarningLow))
-	r.waitReads(mousePath, 2)
-	r.fake.Remove(mousePath)
-	r.fake.Add(mousePath, upowertest.Peripheral(upower.KindMouse, "", 2, upower.WarningCritical))
+	r.fake.SetPeripherals(powersupplytest.Peripheral(mouse, powersupply.KindMouse, "MX Master 3", 4, powersupply.WarningLow))
+	r.waitPeripheralReads(2)
+	r.fake.SetPeripherals()
+	r.waitPeripheralReads(3)
+	r.fake.SetPeripherals(powersupplytest.Peripheral(mouse, powersupply.KindMouse, "", 2, powersupply.WarningCritical))
 	r.waitSent(2)
 	want := []sent{
 		{i18n.T("battery-alert-device-low", i18n.Str("device", "MX Master 3")), remaining("5"), "ld-mouse-symbolic"},
@@ -201,14 +201,14 @@ func TestPeripheralAlertsOncePerDevice(t *testing.T) {
 	if got := r.notifier.all(); !slices.Equal(got, want) {
 		t.Errorf("notifications = %+v\nwant %+v", got, want)
 	}
-	if got := r.fake.Reads(displayPath); got != 1 {
+	if got := r.fake.Reads(); got != 1 {
 		t.Errorf("peripheral changes re-read the battery %d times", got-1)
 	}
 }
 
 func TestChargedNotifiesAtTheLimit(t *testing.T) {
-	r := start(t, upowertest.Battery(70, upower.StateCharging, upower.WarningNone), batteryalert.Config{Notify: true, ChargedAt: 80})
-	r.fake.SetDisplay(upowertest.Battery(80, upower.StateCharging, upower.WarningNone))
+	r := start(t, powersupplytest.Battery(70, powersupply.StateCharging, powersupply.WarningNone), batteryalert.Config{Notify: true, ChargedAt: 80})
+	r.fake.SetDevice(powersupplytest.Battery(80, powersupply.StateCharging, powersupply.WarningNone))
 	r.waitSent(1)
 	want := sent{i18n.T("battery-alert-charged"), i18n.T("battery-alert-charged-body", i18n.Str("percent", "80")), "ld-battery-full-symbolic"}
 	if got := r.notifier.all(); len(got) != 1 || got[0] != want {
@@ -217,10 +217,10 @@ func TestChargedNotifiesAtTheLimit(t *testing.T) {
 }
 
 func TestAutoSaverSwitchesAndRestores(t *testing.T) {
-	r := start(t, upowertest.Battery(30, upower.StateDischarging, upower.WarningNone), batteryalert.Config{SaverAt: batteryalert.SaverLow})
-	r.fake.SetDisplay(upowertest.Battery(10, upower.StateDischarging, upower.WarningLow))
+	r := start(t, powersupplytest.Battery(30, powersupply.StateDischarging, powersupply.WarningNone), batteryalert.Config{SaverAt: batteryalert.SaverLow})
+	r.fake.SetDevice(powersupplytest.Battery(10, powersupply.StateDischarging, powersupply.WarningLow))
 	r.waitFor("power-saver", func() bool { return len(r.profiles.switches()) == 1 })
-	r.fake.SetDisplay(upowertest.Battery(10, upower.StateCharging, upower.WarningNone))
+	r.fake.SetDevice(powersupplytest.Battery(10, powersupply.StateCharging, powersupply.WarningNone))
 	r.waitFor("the previous profile back", func() bool { return len(r.profiles.switches()) == 2 })
 	if got, want := r.profiles.switches(), []string{powerprofiles.ProfilePowerSaver, powerprofiles.ProfilePerformance}; !slices.Equal(got, want) {
 		t.Errorf("switches = %v, want %v", got, want)
@@ -228,13 +228,13 @@ func TestAutoSaverSwitchesAndRestores(t *testing.T) {
 }
 
 func TestAutoSaverNeverSwitches(t *testing.T) {
-	r := start(t, upowertest.Battery(30, upower.StateDischarging, upower.WarningNone), batteryalert.Config{SaverAt: batteryalert.SaverNever})
-	r.fake.SetDisplay(upowertest.Battery(3, upower.StateDischarging, upower.WarningCritical))
-	r.waitReads(displayPath, 2)
-	r.fake.SetDisplay(upowertest.Battery(3, upower.StateCharging, upower.WarningNone))
-	r.waitReads(displayPath, 3)
-	r.fake.SetDisplay(upowertest.Battery(4, upower.StateCharging, upower.WarningNone))
-	r.waitReads(displayPath, 4)
+	r := start(t, powersupplytest.Battery(30, powersupply.StateDischarging, powersupply.WarningNone), batteryalert.Config{SaverAt: batteryalert.SaverNever})
+	r.fake.SetDevice(powersupplytest.Battery(3, powersupply.StateDischarging, powersupply.WarningCritical))
+	r.waitReads(2)
+	r.fake.SetDevice(powersupplytest.Battery(3, powersupply.StateCharging, powersupply.WarningNone))
+	r.waitReads(3)
+	r.fake.SetDevice(powersupplytest.Battery(4, powersupply.StateCharging, powersupply.WarningNone))
+	r.waitReads(4)
 	if got := r.profiles.switches(); len(got) != 0 {
 		t.Errorf("auto-saver-at never switched to %v", got)
 	}
@@ -245,8 +245,8 @@ func offered(pct string) sent {
 }
 
 func TestLowPowerIsOfferedAtTwentyPercentAndTurnedOnByItsButton(t *testing.T) {
-	r := startPressing(t, upowertest.Battery(30, upower.StateDischarging, upower.WarningNone), batteryalert.Config{Notify: true}, "low-power")
-	r.fake.SetDisplay(upowertest.Battery(20, upower.StateDischarging, upower.WarningNone))
+	r := startPressing(t, powersupplytest.Battery(30, powersupply.StateDischarging, powersupply.WarningNone), batteryalert.Config{Notify: true}, "low-power")
+	r.fake.SetDevice(powersupplytest.Battery(20, powersupply.StateDischarging, powersupply.WarningNone))
 	r.waitFor("Low Power switched on", func() bool { return len(r.profiles.switches()) == 1 })
 	if got, want := r.profiles.switches(), []string{powerprofiles.ProfilePowerSaver}; !slices.Equal(got, want) {
 		t.Errorf("switches = %v, want %v", got, want)
@@ -257,19 +257,19 @@ func TestLowPowerIsOfferedAtTwentyPercentAndTurnedOnByItsButton(t *testing.T) {
 }
 
 func TestLowPowerDismissedIsNotOfferedAgainUntilTheNextUnplug(t *testing.T) {
-	r := start(t, upowertest.Battery(30, upower.StateDischarging, upower.WarningNone), batteryalert.Config{Notify: true})
+	r := start(t, powersupplytest.Battery(30, powersupply.StateDischarging, powersupply.WarningNone), batteryalert.Config{Notify: true})
 	steps := []struct {
-		props  map[string]dbus.Variant
+		props  powersupply.Device
 		offers int
 	}{
-		{upowertest.Battery(20, upower.StateDischarging, upower.WarningNone), 1},
-		{upowertest.Battery(19, upower.StateDischarging, upower.WarningNone), 1},
-		{upowertest.Battery(19, upower.StateCharging, upower.WarningNone), 1},
-		{upowertest.Battery(19, upower.StateDischarging, upower.WarningNone), 2},
+		{powersupplytest.Battery(20, powersupply.StateDischarging, powersupply.WarningNone), 1},
+		{powersupplytest.Battery(19, powersupply.StateDischarging, powersupply.WarningNone), 1},
+		{powersupplytest.Battery(19, powersupply.StateCharging, powersupply.WarningNone), 1},
+		{powersupplytest.Battery(19, powersupply.StateDischarging, powersupply.WarningNone), 2},
 	}
 	for i, s := range steps {
-		r.fake.SetDisplay(s.props)
-		r.waitReads(displayPath, i+2)
+		r.fake.SetDevice(s.props)
+		r.waitReads(i + 2)
 		r.waitFor("the offers", func() bool { return len(r.notifier.asks()) >= s.offers })
 	}
 	if got, want := r.notifier.asks(), []sent{offered("20"), offered("19")}; !slices.Equal(got, want) {
@@ -281,15 +281,15 @@ func TestLowPowerDismissedIsNotOfferedAgainUntilTheNextUnplug(t *testing.T) {
 }
 
 func TestLowPowerIsNotOfferedUnderPowerSaverOrWithNotificationsOff(t *testing.T) {
-	r := start(t, upowertest.Battery(30, upower.StateDischarging, upower.WarningNone), batteryalert.Config{Notify: true})
+	r := start(t, powersupplytest.Battery(30, powersupply.StateDischarging, powersupply.WarningNone), batteryalert.Config{Notify: true})
 	if err := r.profiles.SetActive(context.Background(), powerprofiles.ProfilePowerSaver); err != nil {
 		t.Fatal(err)
 	}
-	r.fake.SetDisplay(upowertest.Battery(15, upower.StateDischarging, upower.WarningNone))
-	r.waitReads(displayPath, 2)
-	quiet := start(t, upowertest.Battery(30, upower.StateDischarging, upower.WarningNone), batteryalert.Config{})
-	quiet.fake.SetDisplay(upowertest.Battery(15, upower.StateDischarging, upower.WarningNone))
-	quiet.waitReads(displayPath, 2)
+	r.fake.SetDevice(powersupplytest.Battery(15, powersupply.StateDischarging, powersupply.WarningNone))
+	r.waitReads(2)
+	quiet := start(t, powersupplytest.Battery(30, powersupply.StateDischarging, powersupply.WarningNone), batteryalert.Config{})
+	quiet.fake.SetDevice(powersupplytest.Battery(15, powersupply.StateDischarging, powersupply.WarningNone))
+	quiet.waitReads(2)
 	if got := append(r.notifier.asks(), quiet.notifier.asks()...); len(got) != 0 {
 		t.Errorf("offered Low Power %+v under power-saver or with notify-low off", got)
 	}

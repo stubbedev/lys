@@ -2,14 +2,13 @@ package bar
 
 import (
 	"context"
-	"errors"
 	"log"
 	"sync"
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/service/idle/idlepolicy"
-	"github.com/stubbedev/lys/desktop/service/upower"
+	"github.com/stubbedev/lys/desktop/service/powersupply"
 	"github.com/stubbedev/lys/lib/logind"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/power/attention"
@@ -18,12 +17,9 @@ import (
 	"github.com/stubbedev/lys/shell/service/kbdlight"
 )
 
-// The waits of the idle policy's non-logind calls: how long lock-before-
-// sleep waits for the lock screen, and one read of the power source.
-const (
-	sleepLockWait = 5 * time.Second
-	upowerTimeout = 5 * time.Second
-)
+// sleepLockWait is how long lock-before-sleep waits for the lock
+// screen.
+const sleepLockWait = 5 * time.Second
 
 type idlePolicy struct {
 	svc      *idle.Service
@@ -123,11 +119,7 @@ func (p *idlePolicy) stopSleepLocked() {
 
 func (p *idlePolicy) followPowerSource(ctx context.Context) <-chan struct{} {
 	done := make(chan struct{})
-	if p.system == nil {
-		close(done)
-		return done
-	}
-	battery := upower.NewOn(p.system)
+	battery := powersupply.New(powersupply.Dir)
 	ticks, stop, err := battery.SubscribeOnBattery(ctx)
 	if err != nil {
 		log.Printf("idle: power source: %v; the AC timeouts apply", err)
@@ -152,14 +144,10 @@ func (p *idlePolicy) followPowerSource(ctx context.Context) <-chan struct{} {
 	return done
 }
 
-func readPowerSource(ctx context.Context, battery *upower.System) idlepolicy.PowerSource {
-	reading, cancel := context.WithTimeout(ctx, upowerTimeout)
-	defer cancel()
-	on, err := battery.OnBattery(reading)
+func readPowerSource(ctx context.Context, battery *powersupply.Sysfs) idlepolicy.PowerSource {
+	on, err := battery.OnBattery(ctx)
 	if err != nil {
-		if !errors.Is(err, context.Canceled) {
-			log.Printf("idle: power source: %v; the AC timeouts apply", err)
-		}
+		log.Printf("idle: power source: %v; the AC timeouts apply", err)
 		return idlepolicy.AC
 	}
 	if on {

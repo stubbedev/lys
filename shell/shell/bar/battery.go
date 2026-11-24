@@ -7,7 +7,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/jinja"
-	"github.com/stubbedev/lys/desktop/service/upower"
+	"github.com/stubbedev/lys/desktop/service/powersupply"
 	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/ui/widget"
 )
@@ -26,11 +26,11 @@ func batteryVars(percentage float64) map[string]any {
 	return map[string]any{"percent": int64(math.Round(percentage))}
 }
 
-// battery is the module: a label fed from the UPower device snapshot,
+// battery is the module: a label fed from the battery snapshot,
 // refreshed on PropertiesChanged.
 type battery struct {
 	ctx    ModuleContext
-	source upower.Source
+	source powersupply.Source
 	btn    *barButton
 	icon   *widget.Icon
 	firstRead
@@ -52,7 +52,7 @@ func newBattery(ctx ModuleContext) (Module, error) {
 }
 
 // apply updates the label and state icon for the device.
-func (m *battery) apply(dev upower.Device) {
+func (m *battery) apply(dev powersupply.Device) {
 	cfg := m.ctx.Config.Battery
 	label := batteryLabel(cfg.Format, dev.Percentage, dev.IsPresent)
 	m.btn.ApplyThresholds(dev.Percentage, m.ctx.Config.Thresholds.Battery)
@@ -63,14 +63,14 @@ func (m *battery) apply(dev upower.Device) {
 // setIcon picks the icon: alert when absent
 // or unknown, charging when charging, else the level list bucketed by
 // percentage, a battery held at its charge limit among them.
-func (m *battery) setIcon(cfg config.BatteryConfig, dev upower.Device) {
+func (m *battery) setIcon(cfg config.BatteryConfig, dev powersupply.Device) {
 	setter := m.icon
 	if setter == nil {
 		return
 	}
 	var name string
 	switch {
-	case !dev.IsPresent || dev.State == upower.StateUnknown:
+	case !dev.IsPresent || dev.State == powersupply.StateUnknown:
 		name = cfg.AlertIcon
 	case batteryCharging(dev.State):
 		name = cfg.ChargingIcon

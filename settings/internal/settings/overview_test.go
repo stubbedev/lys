@@ -10,8 +10,8 @@ import (
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/bluetooth"
 	"github.com/stubbedev/lys/desktop/service/network"
+	"github.com/stubbedev/lys/desktop/service/powersupply"
 	"github.com/stubbedev/lys/desktop/service/pulse"
-	"github.com/stubbedev/lys/desktop/service/upower"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/ui/widget"
 
@@ -76,14 +76,14 @@ func TestATileShowsItsLiveStatusAndKeepsItsDescriptionWithoutOne(t *testing.T) {
 	newWindow(k, k.store.svc.Config(), (&fakeAfter{}).after)
 	k.statuses = map[string]tileStatus{
 		"settings-nav-sound-section": func(context.Context, *kit) (string, error) { return "Speakers · 40%", nil },
-		"settings-nav-account":       func(context.Context, *kit) (string, error) { return "", errors.New("no accounts-daemon") },
+		"settings-nav-account":       func(context.Context, *kit) (string, error) { return "", errors.New("the accounts cannot be read") },
 	}
 	tiles := overviewTiles(k)
 	if got := descriptionOf(t, tiles, "settings-nav-sound-section"); got != "Speakers · 40%" {
 		t.Errorf("the sound tile reads %q", got)
 	}
 	if got, want := descriptionOf(t, tiles, "settings-nav-account"), locale.T().Attr("settings-nav-account", "description"); got != want {
-		t.Errorf("an account tile without accounts-daemon reads %q, want its description %q", got, want)
+		t.Errorf("an account tile without the accounts reads %q, want its description %q", got, want)
 	}
 }
 
@@ -145,7 +145,7 @@ func TestEveryTileStatusNamesASection(t *testing.T) {
 
 func TestThePowerTileShowsTheChargeAndNothingWithoutABattery(t *testing.T) {
 	k := testKit(t, "")
-	f := &fakePower{state: powerState{upower: true, battery: upower.Device{IsPresent: true, Percentage: 64, State: upower.StateCharging}}}
+	f := &fakePower{state: powerState{battery: powersupply.Device{IsPresent: true, Percentage: 64, State: powersupply.StateCharging}}}
 	k.power = func() (powerControl, error) { return f, nil }
 	got, err := powerStatus(t.Context(), k)
 	if err != nil || !strings.Contains(got, percentText(64)) || !f.closed {

@@ -49,7 +49,7 @@ const (
 	// HistMax caps the unplug log so a stale habit ages out of the model.
 	HistMax = 60
 	// Tick is how soon the daemon retries a failed evaluation, and how
-	// often it checks the power source when no UPower signals reach it.
+	// often it checks the power source when no udev events reach it.
 	Tick = time.Minute
 	// BusTimeout bounds connecting to the system bus.
 	BusTimeout = 5 * time.Second

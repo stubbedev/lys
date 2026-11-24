@@ -35,7 +35,7 @@ bar:
 | `tooltip` | bool | `true` | Show the module's state in a tooltip on hover. |
 | `label-show` | bool | `false` | Display label. |
 | `label-max-length` | u32 | `0` | Max label characters before truncation with ellipsis. Set to 0 to disable. |
-| `auto-saver-at` | [`AutoSaverLevel`](/shell/config/types#auto-saver-level) | `"never"` | Switch to power-saver when the battery reaches this UPower warning level, and back to the previous profile once it is on AC again. |
+| `auto-saver-at` | [`AutoSaverLevel`](/shell/config/types#auto-saver-level) | `"never"` | Switch to power-saver when the battery reaches this warning level, and back to the previous profile once it is on AC again. |
 
 ::: details More about `format`
 

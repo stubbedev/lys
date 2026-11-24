@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/stubbedev/lys/desktop/service/powersupply"
 	"github.com/stubbedev/lys/lib/intconv"
 )
 
@@ -34,28 +35,7 @@ type Battery struct {
 // OnAC reports whether any mains or USB-C source is currently online. Both
 // types matter: a USB-C-only charger may never fire a Mains event.
 func (s Supply) OnAC() (bool, error) {
-	entries, err := os.ReadDir(s.Dir)
-	if err != nil {
-		return false, fmt.Errorf("reading %s: %w", s.Dir, err)
-	}
-	for _, entry := range entries {
-		dir := filepath.Join(s.Dir, entry.Name())
-		typ, err := readTrim(filepath.Join(dir, "type"))
-		if err != nil {
-			continue
-		}
-		if typ != "Mains" && typ != "USB" {
-			continue
-		}
-		online, err := readTrim(filepath.Join(dir, "online"))
-		if err != nil {
-			continue
-		}
-		if online == "1" {
-			return true, nil
-		}
-	}
-	return false, nil
+	return powersupply.OnAC(s.Dir)
 }
 
 // Battery finds the battery to manage: BAT0 when present, else the first

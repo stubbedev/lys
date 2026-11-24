@@ -11,12 +11,10 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
-	"slices"
 	"syscall"
 	"time"
 
 	"github.com/stubbedev/lys/lib/dbusx"
-	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
 	"github.com/stubbedev/lys/power/charge"
 	"github.com/stubbedev/lys/power/internal/busauth"
@@ -203,15 +201,15 @@ func applyProfile(log *slog.Logger, pc ProfileClient, onAC bool) string {
 }
 
 // Run evaluates the policy until the context is canceled. It sleeps until
-// something can change the outcome: an AC edge (UPower's OnBattery), a
+// something can change the outcome: an AC edge (udev's power_supply
+// events), a
 // charge-to-full request (inotify on the runtime directory), the next
 // time-based change Eval reports (a wall-clock timer that survives suspend
 // and clock changes), a change to the units paused on battery, a new
 // charge limit, a display connected or disconnected, or SIGHUP.
 // On battery it pauses the units chosen for it and on AC resumes them,
-// retrying every Tick while any of that fails. Without a system bus it falls back to
-// checking the power source every Tick; losing the bus ends it with an
-// error. ready runs once, after the first evaluation applied and every
+// retrying every Tick while any of that fails. Without udev's events it
+// falls back to checking the power source every Tick. ready runs once, after the first evaluation applied and every
 // service is on the bus; its error ends Run.
 func Run(ctx context.Context, cfg config.Config, log *slog.Logger, ready func() error) error {
 	if cfg.StateDir == config.DefaultStateDir {
@@ -219,9 +217,6 @@ func Run(ctx context.Context, cfg config.Config, log *slog.Logger, ready func() 
 	}
 
 	var pc ProfileClient
-	var acEdges <-chan struct{}
-	var upower *dbusx.Watch
-	var upowerDone <-chan struct{}
 	var discharging chan bool
 	var pz *pauser.Pauser
 	var pauses <-chan struct{}
@@ -229,15 +224,10 @@ func Run(ctx context.Context, cfg config.Config, log *slog.Logger, ready func() 
 	var limits <-chan struct{}
 	conn, err := dbusx.DialSystem(ctx, config.BusTimeout)
 	if err != nil {
-		log.Warn("system bus unavailable: no power profiles, polling the power source", "err", err, "every", config.Tick)
+		log.Warn("system bus unavailable: no power profiles", "err", err)
 	} else {
 		defer closeLogged(log, "system bus", conn)
 		pc = profiles.New(conn)
-		if upower, acEdges, err = watchOnBattery(ctx, conn, log); err != nil {
-			return err
-		}
-		defer stopLogged(log, upower)
-		upowerDone = upower.Done()
 		discharging = make(chan bool, 1)
 		energyDone := make(chan struct{})
 		energyCtx, stopEnergy := context.WithCancel(ctx)
@@ -284,7 +274,14 @@ func Run(ctx context.Context, cfg config.Config, log *slog.Logger, ready func() 
 		limits = chargeChanges.wakes
 	}
 
-	displays, err := watchDisplays()
+	supplies, err := watchUdev(supplySubsystem)
+	if err != nil {
+		log.Warn("power supply events unseen, polling the power source", "err", err, "every", config.Tick)
+	} else {
+		defer closeLogged(log, "uevent socket", supplies)
+	}
+
+	displays, err := watchUdev(displaySubsystem)
 	if err != nil {
 		log.Warn("display hotplug unseen, the dock state follows other events", "err", err)
 	} else {
@@ -334,7 +331,7 @@ func Run(ctx context.Context, cfg config.Config, log *slog.Logger, ready func() 
 		if err == nil && pz != nil && applyPause(ctx, pz, result.Discharging(), log) {
 			next = earliest(next, now.Add(config.Tick))
 		}
-		if acEdges == nil {
+		if supplies == nil {
 			next = earliest(next, now.Add(config.Tick))
 		}
 		if err := timer.Arm(next); err != nil {
@@ -350,13 +347,8 @@ func Run(ctx context.Context, cfg config.Config, log *slog.Logger, ready func() 
 		select {
 		case <-ctx.Done():
 			return nil
-		case <-upowerDone:
-			if ctx.Err() != nil {
-				return nil
-			}
-			return fmt.Errorf("watching UPower for AC edges: %w", upower.Stop())
 		case <-timer.wakes():
-		case <-acEdges:
+		case <-supplies.wakes():
 		case <-requests.wakes():
 		case <-pauses:
 		case <-limits:
@@ -391,41 +383,6 @@ func earliest(deadline, fallback time.Time) time.Time {
 		return fallback
 	}
 	return deadline
-}
-
-const (
-	upowerName                 = "org.freedesktop.UPower"
-	upowerPath dbus.ObjectPath = "/org/freedesktop/UPower"
-	onBattery                  = "OnBattery"
-)
-
-// watchOnBattery follows UPower's property changes, across UPower
-// restarts, and signals only those touching OnBattery, which flips on
-// every AC edge; lid and other property changes are not worth an
-// evaluation.
-func watchOnBattery(ctx context.Context, conn *dbus.Conn, log *slog.Logger) (*dbusx.Watch, <-chan struct{}, error) {
-	wake := make(chan struct{}, 1)
-	changed := dbusx.On(dbusx.PropertiesChanged, upowerPath, func(c dbusx.ChangedProperties, _ dbus.Sequence) error {
-		if touchesOnBattery(c) {
-			notify(wake)
-		}
-		return nil
-	}).WithArg0(upowerName)
-	failed := func(err error) { log.Warn("reading a UPower signal", "err", err) }
-	watch, err := dbusx.WatchSignals(ctx, conn, dbusx.FromOwner(upowerName), failed, changed)
-	if err != nil {
-		return nil, nil, fmt.Errorf("subscribing to UPower signals: %w", err)
-	}
-	return watch, wake, nil
-}
-
-// touchesOnBattery reports whether a PropertiesChanged changes or
-// invalidates OnBattery.
-func touchesOnBattery(c dbusx.ChangedProperties) bool {
-	if _, ok := c.Changed[onBattery]; ok {
-		return true
-	}
-	return slices.Contains(c.Invalidated, onBattery)
 }
 
 // adoptLegacyHistory copies the first unplug history found in legacyDirs
@@ -510,11 +467,5 @@ type closer interface {
 func closeLogged(log *slog.Logger, what string, c closer) {
 	if err := c.Close(); err != nil {
 		log.Warn("closing "+what, "err", err)
-	}
-}
-
-func stopLogged(log *slog.Logger, w *dbusx.Watch) {
-	if err := w.Stop(); err != nil && !errors.Is(err, dbusx.ErrDisconnected) {
-		log.Warn("stopping the UPower watch", "err", err)
 	}
 }

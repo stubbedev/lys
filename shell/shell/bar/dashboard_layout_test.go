@@ -9,10 +9,11 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/mpris"
+	"github.com/stubbedev/lys/desktop/service/powersupply"
 	"github.com/stubbedev/lys/desktop/service/pulse"
-	"github.com/stubbedev/lys/desktop/service/upower"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/power/charge"
 	"github.com/stubbedev/lys/ui/widget"
 )
 
@@ -107,7 +108,7 @@ func layoutContext(t *testing.T) ModuleContext {
 	t.Helper()
 	ctx := styledContext(t, config.Defaults())
 	ctx.Pulse = &fakePulseSource{dev: pulse.Device{Description: "Speakers", Volume: pct(40)}, ticks: make(chan struct{}, 1)}
-	ctx.Battery = newFakeBattery(upower.Device{Percentage: 64, IsPresent: true, State: upower.StateDischarging, TimeToEmpty: 3 * time.Hour})
+	ctx.Battery = newFakeBattery(powersupply.Device{Percentage: 64, IsPresent: true, State: powersupply.StateDischarging, TimeToEmpty: 3 * time.Hour})
 	return ctx
 }
 
@@ -170,7 +171,7 @@ func TestTheBatteryAndNetworkCardsShareTheirRowEqually(t *testing.T) {
 		t.Errorf("beside the battery card the download %+v is not stacked under the upload %+v", down, up)
 	}
 
-	ctx.Battery = newFakeBattery(upower.Device{})
+	ctx.Battery = newFakeBattery(powersupply.Device{})
 	absent := openDashboard(t, ctx, noRadiosDashboard)
 	attachTheme(ctx, absent)
 	arrangeDropdown(ctx, absent, 380, 900)
@@ -203,16 +204,20 @@ func speedBounds(t *testing.T, v widget.Widget) (up, down render.Rect) {
 
 func TestTheBatteryCardSaysWhatThePowerSaverToggleCannot(t *testing.T) {
 	ctx := layoutContext(t)
-	dev := upower.Device{Percentage: 79, IsPresent: true, State: upower.StatePendingCharge, ChargeThresholdSupported: true, ChargeThresholdEnabled: true, ChargeEndThreshold: 80}
+	dev := powersupply.Device{Percentage: 79, IsPresent: true, State: powersupply.StatePendingCharge}
 	ctx.Battery = newFakeBattery(dev)
+	held := charge.State{Limit: charge.Limit80, Reason: charge.ReasonHolding, Dock: charge.DockUnknown}
+	policy := &fakeCharge{}
+	policy.set(held, true)
+	ctx.Charge = policy
 	v := openDashboard(t, ctx, noRadiosDashboard)
 	state := classedWidget(t, v, "battery-state").(*widget.Label)
 	if state.Text() != batteryStateLabel(dev) {
 		t.Errorf("the battery state reads %q, want %q", state.Text(), batteryStateLabel(dev))
 	}
 	limit := classedWidget(t, v, "battery-limit").(*widget.Label)
-	if !limit.Visible() || limit.Text() != dashboardChargeLimit(dev) {
-		t.Errorf("the charge limit shows %v reading %q, want %q", limit.Visible(), limit.Text(), dashboardChargeLimit(dev))
+	if want := dashboardChargeLimit(held, true); !limit.Visible() || limit.Text() != want {
+		t.Errorf("the charge limit shows %v reading %q, want %q", limit.Visible(), limit.Text(), want)
 	}
 	card := dashboardCardHeaded(t, v, i18n.T("dropdown-dashboard-battery"))
 	walkTree(card, func(w widget.Widget) bool {
@@ -226,7 +231,8 @@ func TestTheBatteryCardSaysWhatThePowerSaverToggleCannot(t *testing.T) {
 		return true
 	})
 
-	ctx.Battery = newFakeBattery(upower.Device{Percentage: 79, IsPresent: true, State: upower.StateDischarging})
+	ctx.Battery = newFakeBattery(powersupply.Device{Percentage: 79, IsPresent: true, State: powersupply.StateDischarging})
+	policy.set(charge.State{Limit: charge.Limit80, Reason: charge.ReasonUnplug, Dock: charge.DockUnknown}, true)
 	v = openDashboard(t, ctx, noRadiosDashboard)
 	if classedWidget(t, v, "battery-limit").(*widget.Label).Visible() {
 		t.Error("the charge limit shows with none in force")

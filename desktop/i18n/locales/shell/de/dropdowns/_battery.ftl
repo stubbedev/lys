@@ -26,9 +26,7 @@ dropdown-battery-health = Zustand
 ## Charge Limit
 dropdown-battery-charge-limit = Ladegrenze
 dropdown-battery-limit-to = Auf { $threshold } % begrenzen
-dropdown-battery-resumes-at = Laden wird bei { $threshold } % fortgesetzt
 dropdown-battery-charge-limit-not-supported = Ladegrenze wird auf diesem Gerät nicht unterstützt
-dropdown-battery-charge-limit-failed = Ladegrenze konnte nicht geändert werden
 dropdown-battery-health-cycles = Zustand, { $cycles ->
     [one] { $cycles } Ladezyklus
    *[other] { $cycles } Ladezyklen
@@ -97,15 +95,4 @@ battery-device-mouse = Maus
 battery-device-touchpad = Touchpad
 battery-device-keyboard = Tastatur
 battery-device-controller = Controller
-battery-device-headset = Headset
-battery-device-headphones = Kopfhörer
-battery-device-speakers = Lautsprecher
-battery-device-phone = Telefon
-battery-device-tablet = Tablet
 battery-device-pen = Stift
-battery-device-watch = Uhr
-battery-device-ups = USV
-battery-device-printer = Drucker
-battery-device-camera = Kamera
-battery-device-computer = Computer
-battery-device-monitor = Monitor

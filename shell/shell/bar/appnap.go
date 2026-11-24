@@ -11,8 +11,8 @@ import (
 	"github.com/stubbedev/lys/desktop/compositor"
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/service/lyswm"
+	"github.com/stubbedev/lys/desktop/service/powersupply"
 	"github.com/stubbedev/lys/desktop/service/pulse"
-	"github.com/stubbedev/lys/desktop/service/upower"
 	"github.com/stubbedev/lys/lib/intconv"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/power/nap"
@@ -69,7 +69,7 @@ func runAppNap(ctx context.Context, d appNapDeps) error {
 	defer stopAudio()
 	inhibits, stopInhibits := d.inhibit.Changes()
 	defer stopInhibits()
-	battery := upower.NewOn(d.system)
+	battery := powersupply.New(powersupply.Dir)
 	supply, stopSupply, err := battery.SubscribeOnBattery(ctx)
 	if err != nil {
 		return fmt.Errorf("follow the power supply: %w", err)

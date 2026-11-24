@@ -66,7 +66,7 @@ power-profiles-daemon, only the charge policy applies.
 
 The service wakes only when something can change the result:
 
-- UPower's `OnBattery` property changes (plug or unplug);
+- a power supply changes (a `power_supply` uevent: plug or unplug);
 - a `full` request or a departure appears in `/run/battery-charge`;
 - the charge limit changes;
 - a display is connected or disconnected (a DRM uevent);
@@ -486,7 +486,7 @@ writing the same thresholds work against each other.
 
 The module installs `lys-power`, its system unit, wanted by
 `graphical.target`, and the tmpfiles rule that creates `/run/battery-charge`.
-It also enables `services.upower`, `services.power-profiles-daemon` and
+It also enables `services.power-profiles-daemon` and
 `security.polkit` with `mkDefault`. Set any of them to `false` to run without
 it, for example when TLP manages the power profiles. `autoBrightness.enable` installs the package's
 user unit `lys-power-brightness.service` and has it wanted by
@@ -525,6 +525,7 @@ Install the binary as `/usr/bin/lys-power`, the unit under
 `sudo systemd-tmpfiles --create lys-power.conf` and enable the unit.
 
 lys-power needs a battery that exposes `charge_control_*_threshold` (ThinkPad,
-ASUS and Framework laptops among others), and `upower` and
-`power-profiles-daemon` (or Fedora's `tuned-ppd`) for the profile switching
-and the instant reaction to plug and unplug.
+ASUS and Framework laptops among others), and `power-profiles-daemon` (or
+Fedora's `tuned-ppd`) for the profile switching. It reads the power source
+from `/sys/class/power_supply` and reacts to plug and unplug through the
+kernel's uevents, with no daemon in between.

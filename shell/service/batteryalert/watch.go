@@ -13,8 +13,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/powerprofiles"
-	"github.com/stubbedev/lys/desktop/service/upower"
-	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/desktop/service/powersupply"
 
 	"github.com/stubbedev/lys/shell/internal/desktopnotify"
 )
@@ -47,12 +46,12 @@ const callTimeout = 5 * time.Second
 const appName = "lys-shell"
 
 type watcher struct {
-	battery     upower.Source
+	battery     powersupply.Source
 	profiles    powerprofiles.Source
 	notifier    Notifier
 	config      func() Config
 	display     Reading
-	peripherals map[dbus.ObjectPath]Reading
+	peripherals map[string]Reading
 	saver       Saver
 	offer       Offer
 	asking      sync.WaitGroup
@@ -63,7 +62,7 @@ type watcher struct {
 // through Next, the saver and the Low Power offer. Nothing runs between
 // signals but an offer waiting for its answer. profiles
 // may be nil, which leaves the power profile alone.
-func Watch(ctx context.Context, battery upower.Source, profiles powerprofiles.Source, notifier Notifier, config func() Config) error {
+func Watch(ctx context.Context, battery powersupply.Source, profiles powerprofiles.Source, notifier Notifier, config func() Config) error {
 	displayTicks, stopDisplay, err := battery.Subscribe(ctx)
 	if err != nil {
 		return fmt.Errorf("battery alerts: follow the battery: %w", err)
@@ -72,7 +71,7 @@ func Watch(ctx context.Context, battery upower.Source, profiles powerprofiles.So
 	if err != nil {
 		return errors.Join(fmt.Errorf("battery alerts: follow the peripherals: %w", err), stopDisplay())
 	}
-	w := &watcher{battery: battery, profiles: profiles, notifier: notifier, config: config, peripherals: map[dbus.ObjectPath]Reading{}}
+	w := &watcher{battery: battery, profiles: profiles, notifier: notifier, config: config, peripherals: map[string]Reading{}}
 	go func() {
 		defer w.asking.Wait()
 		defer stopping("the battery", stopDisplay)
@@ -196,14 +195,14 @@ func (w *watcher) readPeripherals(ctx context.Context) {
 		return
 	}
 	notify := w.config().Notify
-	seen := make(map[dbus.ObjectPath]Reading, len(list))
+	seen := make(map[string]Reading, len(list))
 	for _, p := range list {
 		cur := FromPeripheral(p)
-		if level, ok := Next(w.peripherals[p.Path], cur, 0); ok && notify {
+		if level, ok := Next(w.peripherals[p.Name], cur, 0); ok && notify {
 			name := i18n.Str("device", PeripheralName(p))
 			w.send(call, i18n.T(peripheralSummaryIDs[level], name), remaining(cur), PeripheralIcon(p))
 		}
-		seen[p.Path] = cur
+		seen[p.Name] = cur
 	}
 	w.peripherals = seen
 }

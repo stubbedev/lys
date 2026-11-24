@@ -5,7 +5,7 @@ import (
 	"net/url"
 
 	"github.com/stubbedev/lys/desktop/service/mpris"
-	"github.com/stubbedev/lys/desktop/service/upower"
+	"github.com/stubbedev/lys/desktop/service/powersupply"
 	"github.com/stubbedev/lys/desktop/shell/lockview"
 )
 
@@ -25,10 +25,10 @@ func nowPlayingOf(p mpris.Player, ok bool) (nowPlaying, bool) {
 	return np, true
 }
 
-func batteryLevelOf(d upower.Device) (lockview.BatteryLevel, bool) {
+func batteryLevelOf(d powersupply.Device) (lockview.BatteryLevel, bool) {
 	if !d.IsPresent {
 		return lockview.BatteryLevel{}, false
 	}
-	charging := d.State == upower.StateCharging || d.State == upower.StatePendingCharge
+	charging := d.State == powersupply.StateCharging || d.State == powersupply.StatePendingCharge
 	return lockview.BatteryLevel{Percent: int(math.Round(d.Percentage)), Charging: charging}, true
 }

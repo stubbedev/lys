@@ -58,7 +58,7 @@ type PowerProfilesConfig struct {
 	ScrollUp ClickAction `cfg:"scroll-up"`
 	// Action on scroll down.
 	ScrollDown ClickAction `cfg:"scroll-down"`
-	// Switch to power-saver when the battery reaches this UPower warning
+	// Switch to power-saver when the battery reaches this warning
 	// level, and back to the previous profile once it is on AC again.
 	AutoSaverAt AutoSaverLevel `cfg:"auto-saver-at"`
 }
@@ -68,9 +68,9 @@ type AutoSaverLevel string
 
 // AutoSaverLevel values.
 const (
-	// At UPower's low warning level.
+	// At the low warning level, 20%.
 	AutoSaverLow AutoSaverLevel = "low"
-	// At UPower's critical warning level.
+	// At the critical warning level, 5%.
 	AutoSaverCritical AutoSaverLevel = "critical"
 	// Never switch automatically.
 	AutoSaverNever AutoSaverLevel = "never"

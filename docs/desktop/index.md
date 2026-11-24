@@ -16,7 +16,7 @@ go get github.com/stubbedev/lys
 | `styling` | Design tokens, palettes, themes and the colour providers (Matugen, Pywal, Wallust) |
 | `i18n` | Fluent localization in English (US), German, Spanish, French, Italian, Dutch and European Portuguese, picked from `LANGUAGE`, `LC_ALL`, `LC_MESSAGES` and `LANG` by language (Brazilian Portuguese reads European Portuguese) with English as the fallback |
 | `icons` | Icon sources (Tabler, Simple Icons, Material, Lucide), fetching and installing them |
-| `service/...` | Clients of the session's services: audio over the PulseAudio protocol, MPRIS, UPower, notifications, idle, night light, clipboard, wallpaper, Bitwarden, the lys-wm IPC |
+| `service/...` | Clients of the session's services: audio over the PulseAudio protocol, MPRIS, the kernel's power supplies, notifications, idle, night light, clipboard, wallpaper, Bitwarden, the lys-wm IPC |
 | `shell/...` | Widgets and helpers shared by the shell and the lock screen |
 | `shell/barview` | The bar drawn from a config, without services: its zones, module buttons, separator and workspace strip, which lys-shell fills with live modules and lys-settings previews |
 | `shell/osdview` | The on-screen display drawn from a config and an event, without services: the card lys-shell maps on a layer surface and lys-settings previews |

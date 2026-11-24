@@ -38,9 +38,8 @@ in
       type = lib.types.bool;
       default = false;
       description = ''
-        Enable the backing system services lys-shell integrates with: UPower
-        (battery), BlueZ (bluetooth), and GeoClue (location for the night light
-        auto-schedule), plus xdg-utils. Set with `mkDefault` so
+        Enable the backing system services lys-shell integrates with: BlueZ
+        (bluetooth), plus xdg-utils. Set with `mkDefault` so
         your own settings win. Networking (NetworkManager),
         power-profiles-daemon, and PipeWire are intentionally left out — enable
         those deliberately to avoid clashing with your setup.
@@ -168,7 +167,6 @@ in
       })
 
       (lib.mkIf cfg.autoInstallDependencies {
-        services.upower.enable = lib.mkDefault true;
         hardware.bluetooth.enable = lib.mkDefault true;
 
         # GeoClue backs the night light auto-schedule's location lookup when

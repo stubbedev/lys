@@ -8,7 +8,6 @@ import (
 	"github.com/stubbedev/lys/desktop/service/bluetooth"
 	"github.com/stubbedev/lys/desktop/service/network"
 	"github.com/stubbedev/lys/desktop/service/powerprofiles"
-	"github.com/stubbedev/lys/desktop/service/upower"
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
@@ -18,7 +17,7 @@ import (
 // starts NetworkManager without D-Bus activation, so a shell started
 // while it restarts finds it absent, and a switch can bring any of
 // them up later.
-var lateServiceNames = []string{network.BusName, upower.BusName, bluetooth.BusName, powerprofiles.BusName}
+var lateServiceNames = []string{network.BusName, bluetooth.BusName, powerprofiles.BusName}
 
 // lateStart brings up a client the shell could not start without its
 // service: apply hands it to the module context on the UI loop, stop

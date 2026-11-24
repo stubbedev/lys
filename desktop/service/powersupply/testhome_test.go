@@ -1,4 +1,4 @@
-package upower
+package powersupply
 
 import (
 	"testing"

@@ -10,9 +10,9 @@ import (
 	"github.com/stubbedev/lys/desktop/service/mpris"
 	"github.com/stubbedev/lys/desktop/service/network"
 	"github.com/stubbedev/lys/desktop/service/powerprofiles"
+	"github.com/stubbedev/lys/desktop/service/powersupply"
 	"github.com/stubbedev/lys/desktop/service/pulse"
 	"github.com/stubbedev/lys/desktop/service/recorder/devicechoice"
-	"github.com/stubbedev/lys/desktop/service/upower"
 	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
@@ -50,9 +50,9 @@ type stuckBattery struct {
 	*stuckCalls
 }
 
-func (f *stuckBattery) Read(context.Context) (upower.Device, error) {
+func (f *stuckBattery) Read(context.Context) (powersupply.Device, error) {
 	f.hold()
-	return upower.Device{}, nil
+	return powersupply.Device{}, nil
 }
 
 func (f *stuckBattery) Subscribe(context.Context) (<-chan struct{}, func() error, error) {
@@ -102,7 +102,7 @@ func (f *stuckPulse) Subscribe(context.Context) (<-chan struct{}, func(), error)
 
 func stuckServices(ctx *ModuleContext, h *stuckCalls) {
 	ctx.Network = &stuckNetwork{stuckCalls: h}
-	ctx.Battery = &stuckBattery{fakeBattery: newFakeBattery(upower.Device{}), stuckCalls: h}
+	ctx.Battery = &stuckBattery{fakeBattery: newFakeBattery(powersupply.Device{}), stuckCalls: h}
 	ctx.PowerProfiles = &stuckProfiles{stuckCalls: h}
 	ctx.Brightness = &stuckBrightness{stuckCalls: h}
 	ctx.Pulse = &stuckPulse{fakePulseSource: &fakePulseSource{ticks: make(chan struct{})}, stuckCalls: h}
@@ -280,7 +280,7 @@ func TestClosedDropdownsAskNothingOfTheirServices(t *testing.T) {
 	t.Cleanup(widget.SetAnimationsInstant(true))
 	media := &countedMedia{fakeMediaSource: newFakeMedia(mpris.Player{BusName: "org.mpris.MediaPlayer2.x", Title: "Song", State: mpris.StatePlaying})}
 	net := newCountedNetwork()
-	bat := &countedBattery{fakeBattery: newFakeBattery(upower.Device{IsPresent: true})}
+	bat := &countedBattery{fakeBattery: newFakeBattery(powersupply.Device{IsPresent: true})}
 	ctx.Media, ctx.Network, ctx.Battery = media, net, bat
 	var hide []func()
 	for _, build := range []func(ModuleContext) widget.Widget{mediaDropdown, networkDropdown, batteryDropdown, calendarDropdown} {

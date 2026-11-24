@@ -1278,6 +1278,46 @@
       "testing"
     ]
   },
+  "desktop/service/powersupply": {
+    "imports": [
+      "lib/intconv",
+      "lib/udevmonitor"
+    ],
+    "external": [
+      "context",
+      "errors",
+      "fmt",
+      "io/fs",
+      "log",
+      "math/bits",
+      "os",
+      "path/filepath",
+      "slices",
+      "strconv",
+      "strings",
+      "sync",
+      "syscall",
+      "time"
+    ],
+    "testImports": [
+      "lib/testhome",
+      "lib/udevmonitor/udevmonitortest",
+      "lib/waittest"
+    ],
+    "testExternal": [
+      "testing"
+    ]
+  },
+  "desktop/service/powersupply/powersupplytest": {
+    "imports": [
+      "desktop/service/powersupply"
+    ],
+    "external": [
+      "context",
+      "slices",
+      "sync"
+    ]
+  },
   "desktop/service/pulse": {
     "imports": [
       "lib/intconv",
@@ -1386,42 +1426,6 @@
       "path/filepath",
       "testing",
       "time"
-    ]
-  },
-  "desktop/service/upower": {
-    "imports": [
-      "lib/dbusx",
-      "lib/third_party/godbus"
-    ],
-    "external": [
-      "cmp",
-      "context",
-      "fmt",
-      "log",
-      "slices",
-      "time"
-    ],
-    "testImports": [
-      "desktop/service/upower/upowertest",
-      "lib/dbustest",
-      "lib/testhome",
-      "lib/waittest"
-    ],
-    "testExternal": [
-      "errors",
-      "testing"
-    ]
-  },
-  "desktop/service/upower/upowertest": {
-    "imports": [
-      "desktop/service/upower",
-      "lib/third_party/godbus"
-    ],
-    "external": [
-      "maps",
-      "slices",
-      "sync",
-      "testing"
     ]
   },
   "desktop/service/wallpaper/extract": {
@@ -5268,7 +5272,7 @@
       "desktop/logging",
       "desktop/outputsize",
       "desktop/service/mpris",
-      "desktop/service/upower",
+      "desktop/service/powersupply",
       "desktop/shell/apptheme",
       "desktop/shell/lockclient",
       "desktop/shell/lockview",
@@ -5313,6 +5317,7 @@
       "time"
     ],
     "testImports": [
+      "desktop/service/powersupply/powersupplytest",
       "desktop/shell/treetest",
       "lib/dbustest",
       "lib/logtest",
@@ -5325,7 +5330,6 @@
     "testExternal": [
       "image/color",
       "image/draw",
-      "maps",
       "net",
       "strconv",
       "strings",
@@ -5954,7 +5958,6 @@
       "log/slog",
       "os",
       "os/signal",
-      "slices",
       "strconv",
       "strings",
       "sync",
@@ -6284,6 +6287,7 @@
   },
   "power/internal/supply": {
     "imports": [
+      "desktop/service/powersupply",
       "lib/intconv"
     ],
     "external": [
@@ -7031,11 +7035,11 @@
       "desktop/service/network/vpntext",
       "desktop/service/notifications/notifymodel",
       "desktop/service/powerprofiles",
+      "desktop/service/powersupply",
       "desktop/service/pulse",
       "desktop/service/recorder/devicechoice",
       "desktop/service/recorder/webcamframe",
       "desktop/service/rfkill",
-      "desktop/service/upower",
       "desktop/service/wallpaper/extract",
       "desktop/service/workspaces",
       "desktop/settingspage",
@@ -7150,7 +7154,7 @@
       "desktop/resources",
       "desktop/service/backlight",
       "desktop/service/lyswm/lyswmtest",
-      "desktop/service/upower/upowertest",
+      "desktop/service/powersupply/powersupplytest",
       "desktop/service/workspaces/workspacestest",
       "desktop/shell/treetest",
       "lib/dbustest",
@@ -8211,8 +8215,7 @@
     "imports": [
       "desktop/i18n",
       "desktop/service/powerprofiles",
-      "desktop/service/upower",
-      "lib/third_party/godbus",
+      "desktop/service/powersupply",
       "shell/internal/desktopnotify"
     ],
     "external": [
@@ -8227,8 +8230,7 @@
       "time"
     ],
     "testImports": [
-      "desktop/service/upower/upowertest",
-      "lib/dbustest",
+      "desktop/service/powersupply/powersupplytest",
       "lib/testhome",
       "lib/waittest"
     ],
@@ -9518,12 +9520,12 @@
       "desktop/service/network/vpntext",
       "desktop/service/niri",
       "desktop/service/powerprofiles",
+      "desktop/service/powersupply",
       "desktop/service/pulse",
       "desktop/service/recorder/devicechoice",
       "desktop/service/recorder/webcamframe",
       "desktop/service/rfkill",
       "desktop/service/sway",
-      "desktop/service/upower",
       "desktop/service/workspaces",
       "desktop/settingspage",
       "desktop/shell/apptheme",
@@ -14817,47 +14819,6 @@
     ],
     "external": [
       "golang.org/x/sys/unix",
-      "testing"
-    ]
-  },
-  "wm/internal/scanner": {
-    "imports": [
-      "lib/protocols",
-      "lib/srcroot",
-      "wm/internal/wire"
-    ],
-    "external": [
-      "bytes",
-      "cmp",
-      "encoding/json",
-      "encoding/xml",
-      "errors",
-      "flag",
-      "fmt",
-      "go/format",
-      "go/token",
-      "go/types",
-      "io",
-      "maps",
-      "os",
-      "path",
-      "path/filepath",
-      "slices",
-      "strconv",
-      "strings"
-    ],
-    "testImports": [
-      "lib/testhome",
-      "wm/internal/protocol/client/wayland",
-      "wm/internal/protocol/server/cursorshape",
-      "wm/internal/protocol/server/presentationtime",
-      "wm/internal/protocol/server/wayland",
-      "wm/internal/protocol/server/wlrlayershell",
-      "wm/internal/protocol/server/xdgshell"
-    ],
-    "testExternal": [
-      "golang.org/x/sys/unix",
-      "runtime",
       "testing"
     ]
   },

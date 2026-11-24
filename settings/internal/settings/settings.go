@@ -11,6 +11,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/logging"
 	"github.com/stubbedev/lys/desktop/service/clipboard"
+	"github.com/stubbedev/lys/desktop/service/powersupply"
 	"github.com/stubbedev/lys/desktop/shell/apptheme"
 	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/lib/hibernate"
@@ -83,7 +84,7 @@ func Run(page, setting string) error {
 		systemBus:     dialSystemBus,
 		network:       func() (netControl, error) { return openNetwork(dialSystemBus) },
 		statuses:      tileStatuses,
-		power:         func() (powerControl, error) { return openPower(dialSystemBus) },
+		power:         func() (powerControl, error) { return openPower(dialSystemBus, powersupply.New(powersupply.Dir)) },
 		pausing:       func() (pauseControl, error) { return openPausing(dialSystemBus, dialSessionBus) },
 		bluetooth:     func() (btControl, error) { return openBluetooth(dialSystemBus) },
 		dnd:           func() (dndControl, error) { return openDND(dialSessionBus) },

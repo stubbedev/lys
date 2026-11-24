@@ -12,7 +12,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/powerprofiles"
-	"github.com/stubbedev/lys/desktop/service/upower"
+	"github.com/stubbedev/lys/desktop/service/powersupply"
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/power/charge"
@@ -36,14 +36,12 @@ var powerModePictures = map[string]picture{
 
 var powerModeOrder = []string{powerprofiles.ProfilePowerSaver, powerprofiles.ProfileBalanced, powerprofiles.ProfilePerformance}
 
-var batteryStateKeys = map[upower.DeviceState]string{
-	upower.StateUnknown:          "settings-power-state-unknown",
-	upower.StateCharging:         "settings-power-state-charging",
-	upower.StateDischarging:      "settings-power-state-discharging",
-	upower.StateEmpty:            "settings-power-state-empty",
-	upower.StateFullyCharged:     "settings-power-state-full",
-	upower.StatePendingCharge:    "settings-power-state-not-charging",
-	upower.StatePendingDischarge: "settings-power-state-not-charging",
+var batteryStateKeys = map[powersupply.DeviceState]string{
+	powersupply.StateUnknown:       "settings-power-state-unknown",
+	powersupply.StateCharging:      "settings-power-state-charging",
+	powersupply.StateDischarging:   "settings-power-state-discharging",
+	powersupply.StateFullyCharged:  "settings-power-state-full",
+	powersupply.StatePendingCharge: "settings-power-state-not-charging",
 }
 
 var degradedKeys = map[string]string{
@@ -57,8 +55,7 @@ var powerLinks = []pageLink{
 }
 
 type powerState struct {
-	upower   bool
-	battery  upower.Device
+	battery  powersupply.Device
 	profiles powerprofiles.Snapshot
 	// charge is lys-power's charge policy; lysPower is false while
 	// lys-power is not on the bus.
@@ -66,10 +63,10 @@ type powerState struct {
 	lysPower bool
 }
 
-func (s powerState) hasBattery() bool { return s.upower && s.battery.IsPresent }
+func (s powerState) hasBattery() bool { return s.battery.IsPresent }
 
 // chargeManaged reports whether lys-power holds the battery's charge, so
-// its limit is chosen instead of UPower's switch.
+// its limit can be chosen.
 func (s powerState) chargeManaged() bool {
 	return s.lysPower && s.charge.Reason != charge.ReasonUnmanaged
 }
@@ -78,40 +75,30 @@ type powerControl interface {
 	read(ctx context.Context) (powerState, error)
 	changes(ctx context.Context) (<-chan struct{}, error)
 	setProfile(ctx context.Context, profile string) error
-	setChargeLimit(ctx context.Context, on bool) error
 	setLimit(ctx context.Context, limit charge.Limit) error
 	close() error
 }
 
-type upowerControl struct {
+type systemPower struct {
 	conn     *dbus.Conn
-	battery  *upower.System
+	battery  powersupply.Source
 	profiles *powerprofiles.System
 	charge   *charge.Client
 }
 
-func openPower(dial func() (*dbus.Conn, error)) (powerControl, error) {
+func openPower(dial func() (*dbus.Conn, error), battery powersupply.Source) (powerControl, error) {
 	conn, err := dial()
 	if err != nil {
 		return nil, fmt.Errorf("connect to the system bus: %w", err)
 	}
-	return &upowerControl{conn: conn, battery: upower.NewOn(conn), profiles: powerprofiles.NewOn(conn), charge: charge.NewClient(conn)}, nil
+	return &systemPower{conn: conn, battery: battery, profiles: powerprofiles.NewOn(conn), charge: charge.NewClient(conn)}, nil
 }
 
-func serviceUnknown(err error) bool {
-	reply, ok := errors.AsType[dbus.Error](err)
-	return ok && reply.Name == dbusx.ErrServiceUnknown
-}
-
-func (c *upowerControl) read(ctx context.Context) (powerState, error) {
+func (c *systemPower) read(ctx context.Context) (powerState, error) {
 	var st powerState
-	dev, err := c.battery.Read(ctx)
-	switch {
-	case serviceUnknown(err):
-	case err != nil:
-		return powerState{}, fmt.Errorf("read the battery from UPower: %w", err)
-	default:
-		st.upower, st.battery = true, dev
+	var err error
+	if st.battery, err = c.battery.Read(ctx); err != nil {
+		return powerState{}, fmt.Errorf("read the battery: %w", err)
 	}
 	if st.profiles, err = c.profiles.Read(ctx); err != nil {
 		return powerState{}, fmt.Errorf("read the power mode from power-profiles-daemon: %w", err)
@@ -127,10 +114,10 @@ func (c *upowerControl) read(ctx context.Context) (powerState, error) {
 	return st, nil
 }
 
-func (c *upowerControl) changes(ctx context.Context) (<-chan struct{}, error) {
+func (c *systemPower) changes(ctx context.Context) (<-chan struct{}, error) {
 	battery, stopBattery, err := c.battery.Subscribe(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("follow UPower: %w", err)
+		return nil, fmt.Errorf("follow the battery: %w", err)
 	}
 	profiles, stopProfiles, err := c.profiles.Subscribe(ctx)
 	if err != nil {
@@ -146,22 +133,18 @@ func (c *upowerControl) changes(ctx context.Context) (<-chan struct{}, error) {
 	return mergeTicks("the battery, power mode and charge policy", stop, battery, profiles, policyTicks), nil
 }
 
-func (c *upowerControl) setProfile(ctx context.Context, profile string) error {
+func (c *systemPower) setProfile(ctx context.Context, profile string) error {
 	if err := c.profiles.SetActive(ctx, profile); err != nil {
 		return fmt.Errorf("switch the power mode to %s: %w", profile, err)
 	}
 	return nil
 }
 
-func (c *upowerControl) setChargeLimit(ctx context.Context, on bool) error {
-	return c.battery.EnableChargeThreshold(ctx, on)
-}
-
-func (c *upowerControl) setLimit(ctx context.Context, limit charge.Limit) error {
+func (c *systemPower) setLimit(ctx context.Context, limit charge.Limit) error {
 	return c.charge.SetLimit(ctx, limit)
 }
 
-func (c *upowerControl) close() error { return c.conn.Close() }
+func (c *systemPower) close() error { return c.conn.Close() }
 
 func powerBatteryPage(*config.Config) pageSpec {
 	return pageSpec{
@@ -336,9 +319,6 @@ func (p *powerPanel) batteryRows() widget.Widget {
 	st := p.state
 	rows := widget.NewItemGroup()
 	switch {
-	case !st.upower:
-		rows.Append(p.k.row(t.Get("settings-power-battery"), t.Get("settings-power-no-upower")))
-		return rows
 	case !st.hasBattery():
 		rows.Append(p.k.row(t.Get("settings-power-battery"), t.Get("settings-power-no-battery")))
 		return rows
@@ -351,16 +331,6 @@ func (p *powerPanel) batteryRows() widget.Widget {
 	}
 	if st.chargeManaged() {
 		rows.Append(p.limitRow())
-		return rows
-	}
-	if dev.ChargeThresholdSupported {
-		limit := widget.NewSwitch(dev.ChargeThresholdEnabled)
-		limit.SetAccessibleName(t.Get("settings-power-charge-limit"))
-		limit.OnChanged = func(on bool) {
-			p.run(powerActionChargeLimit, func(ctx context.Context, ctl powerControl) error { return ctl.setChargeLimit(ctx, on) })
-		}
-		detail := t.Get("settings-power-charge-limit-detail", i18n.Int("percent", int64(dev.ChargeEndThreshold)))
-		rows.Append(p.k.row(t.Get("settings-power-charge-limit"), detail).withControl(limit))
 	}
 	return rows
 }
@@ -388,15 +358,15 @@ func percentText(v float64) string {
 	return locale.T().Get("settings-power-percent", i18n.Int("percent", roundPercent(v)))
 }
 
-func batteryDetail(dev upower.Device) string {
+func batteryDetail(dev powersupply.Device) string {
 	t := locale.T()
 	state := t.Get(batteryStateKeys[dev.State])
 	var timeKey string
 	var left time.Duration
 	switch dev.State {
-	case upower.StateCharging:
+	case powersupply.StateCharging:
 		timeKey, left = "settings-power-time-to-full", dev.TimeToFull
-	case upower.StateDischarging:
+	case powersupply.StateDischarging:
 		timeKey, left = "settings-power-time-to-empty", dev.TimeToEmpty
 	default:
 		return state

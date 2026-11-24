@@ -52,7 +52,6 @@ in {
 
   config = lib.mkMerge [
     (lib.mkIf cfg.enable {
-      services.upower.enable = lib.mkDefault true;
       services.power-profiles-daemon.enable = lib.mkDefault true;
 
       environment.systemPackages = [cfg.package];

@@ -30,7 +30,6 @@ Suggests:       pipewire-pulseaudio
 Suggests:       wireplumber
 Suggests:       NetworkManager
 Suggests:       bluez
-Suggests:       upower
 Suggests:       tesseract
 Suggests:       power-profiles-daemon
 

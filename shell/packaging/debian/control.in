@@ -30,7 +30,6 @@ Suggests:
  dbus-user-session,
  bluez,
  network-manager,
- upower,
  power-profiles-daemon,
  pipewire-pulse,
  wireplumber,

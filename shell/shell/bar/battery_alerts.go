@@ -6,7 +6,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/service/powerprofiles"
-	"github.com/stubbedev/lys/desktop/service/upower"
+	"github.com/stubbedev/lys/desktop/service/powersupply"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
 	"github.com/stubbedev/lys/shell/internal/desktopnotify"
@@ -16,7 +16,7 @@ import (
 // startBatteryAlerts runs the low-battery notifications and the
 // automatic power-saver for the session, whether or not a battery
 // module is placed: a battery running flat matters either way.
-func startBatteryAlerts(battery upower.Source, profiles powerprofiles.Source, session *dbus.Conn, current func() *config.Config) func() {
+func startBatteryAlerts(battery powersupply.Source, profiles powerprofiles.Source, session *dbus.Conn, current func() *config.Config) func() {
 	ctx, cancel := context.WithCancel(context.Background())
 	err := batteryalert.Watch(ctx, battery, profiles, desktopnotify.NewSender(session), func() batteryalert.Config {
 		return batteryAlertConfig(current())

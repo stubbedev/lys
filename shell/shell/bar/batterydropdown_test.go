@@ -10,7 +10,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/powerprofiles"
-	"github.com/stubbedev/lys/desktop/service/upower"
+	"github.com/stubbedev/lys/desktop/service/powersupply"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
@@ -32,17 +32,12 @@ func TestBatteryFormatters(t *testing.T) {
 			t.Errorf("healthValue(%v) = %q, want %q", in, got, want)
 		}
 	}
-	for in, want := range map[uint32]uint32{80: 75, 5: 0, 3: 0} {
-		if got := resumeThreshold(in); got != want {
-			t.Errorf("resumeThreshold(%d) = %d, want %d", in, got, want)
-		}
-	}
 }
 
 func TestBatteryClasses(t *testing.T) {
-	crit := upower.Device{Percentage: 12, WarningLevel: upower.WarningCritical}
-	low := upower.Device{Percentage: 15, WarningLevel: upower.WarningNone}
-	normal := upower.Device{Percentage: 76, WarningLevel: upower.WarningNone}
+	crit := powersupply.Device{Percentage: 12, WarningLevel: powersupply.WarningCritical}
+	low := powersupply.Device{Percentage: 15, WarningLevel: powersupply.WarningNone}
+	normal := powersupply.Device{Percentage: 76, WarningLevel: powersupply.WarningNone}
 	if got := batteryLevelClass(crit, "good"); got != "crit" {
 		t.Errorf("gauge critical = %q", got)
 	}
@@ -55,16 +50,16 @@ func TestBatteryClasses(t *testing.T) {
 	if got := batteryLevelClass(normal, ""); got != "" {
 		t.Errorf("hero normal = %q, want none", got)
 	}
-	if got := heroStateClass(upower.Device{State: upower.StateCharging}); got != "good" {
+	if got := heroStateClass(powersupply.Device{State: powersupply.StateCharging}); got != "good" {
 		t.Errorf("hero charging = %q", got)
 	}
-	if got := heroStateClass(upower.Device{State: upower.StateCharging, WarningLevel: upower.WarningAction}); got != "crit" {
+	if got := heroStateClass(powersupply.Device{State: powersupply.StateCharging, WarningLevel: powersupply.WarningAction}); got != "crit" {
 		t.Errorf("hero critical beats charging: %q", got)
 	}
-	if got := heroStateClass(upower.Device{State: upower.StateDischarging}); got != "" {
+	if got := heroStateClass(powersupply.Device{State: powersupply.StateDischarging}); got != "" {
 		t.Errorf("hero discharging = %q, want none", got)
 	}
-	if got := heroStateClass(upower.Device{State: upower.StatePendingCharge}); got != "" {
+	if got := heroStateClass(powersupply.Device{State: powersupply.StatePendingCharge}); got != "" {
 		t.Errorf("hero held at the charge limit = %q, want none", got)
 	}
 	for in, want := range map[float64]string{92: "good", 80: "good", 68: "fair", 50: "fair", 30: "poor", 0: "unknown"} {
@@ -72,16 +67,16 @@ func TestBatteryClasses(t *testing.T) {
 			t.Errorf("healthClass(%v) = %q, want %q", in, got, want)
 		}
 	}
-	if got := batteryStateLabel(upower.Device{State: upower.StateCharging, WarningLevel: upower.WarningLow}); got != i18n.T("dropdown-battery-critical") {
+	if got := batteryStateLabel(powersupply.Device{State: powersupply.StateCharging, WarningLevel: powersupply.WarningLow}); got != i18n.T("dropdown-battery-critical") {
 		t.Errorf("low while charging = %q, want critical", got)
 	}
 }
 
-func presentBattery() upower.Device {
-	return upower.Device{
-		Percentage: 64, State: upower.StateDischarging, IsPresent: true,
+func presentBattery() powersupply.Device {
+	return powersupply.Device{
+		Percentage: 64, State: powersupply.StateDischarging, IsPresent: true,
 		TimeToEmpty: 2 * time.Hour, EnergyRate: 8.2, EnergyFull: 55, Capacity: 91,
-		WarningLevel: upower.WarningNone, ChargeEndThreshold: 80,
+		WarningLevel: powersupply.WarningNone,
 	}
 }
 
@@ -91,7 +86,7 @@ func TestBatteryDropdownEmptyWithoutBattery(t *testing.T) {
 	if v.body.Visible() != "empty" {
 		t.Errorf("no service: page %q", v.body.Visible())
 	}
-	ctx.Battery = newFakeBattery(upower.Device{Percentage: 50, State: upower.StateDischarging})
+	ctx.Battery = newFakeBattery(powersupply.Device{Percentage: 50, State: powersupply.StateDischarging})
 	v = openView(t, ctx, batteryDropdown).(*batteryView)
 	if v.body.Visible() != "empty" {
 		t.Errorf("IsPresent false: page %q, want empty", v.body.Visible())
@@ -374,13 +369,13 @@ func TestBatteryDropdownSection(t *testing.T) {
 		t.Errorf("gauge %v good=%v", v.gauge.Value(), v.gauge.HasClass("good"))
 	}
 	if v.chargeCard.Visible() || !v.chargeUnsupported.Visible() {
-		t.Error("unsupported threshold: want the note, not the card")
+		t.Error("without lys-power: want the note, not the card")
 	}
 
-	// Charging at a critical level with a supported, enabled limit.
-	src.update(func(d *upower.Device) {
-		d.State, d.WarningLevel, d.Percentage = upower.StateCharging, upower.WarningCritical, 9
-		d.TimeToFull, d.ChargeThresholdSupported, d.ChargeThresholdEnabled = time.Hour, true, true
+	// Charging at a critical level.
+	src.update(func(d *powersupply.Device) {
+		d.State, d.WarningLevel, d.Percentage = powersupply.StateCharging, powersupply.WarningCritical, 9
+		d.TimeToFull = time.Hour
 	})
 	dev, fresh := v.readDevice(t.Context())
 	doOnLoopOf(ctx, func() { v.applyDevice(dev, fresh) })
@@ -392,22 +387,6 @@ func TestBatteryDropdownSection(t *testing.T) {
 	}
 	if !v.heroInput.Visible() || v.drawLabel.Text() != i18n.T("dropdown-battery-input") {
 		t.Error("charging with a rate: want the input line and label")
-	}
-	if !v.chargeCard.Visible() || v.chargeUnsupported.Visible() || !v.chargeSwitch.On() {
-		t.Error("supported threshold: want the card, switched on")
-	}
-	if got := itemText(v.charge, "description"); got != i18n.T("dropdown-battery-resumes-at", i18n.Str("threshold", "75")) {
-		t.Errorf("resume = %q", got)
-	}
-	if calls := src.thresholdCalls(); len(calls) != 0 {
-		t.Errorf("a backend state change wrote the threshold: %v", calls)
-	}
-
-	// The user toggling writes it.
-	doOnLoopOf(ctx, v.chargeSwitch.Toggle)
-	waitHeadless(t, "the threshold write", func() bool { return len(src.thresholdCalls()) == 1 })
-	if calls := src.thresholdCalls(); calls[0] {
-		t.Errorf("toggle off wrote %v", calls)
 	}
 }
 
@@ -490,7 +469,7 @@ func TestBatteryDropdownProfiles(t *testing.T) {
 // them to nothing).
 func TestBatteryDetailsShowTheirText(t *testing.T) {
 	ctx := styledContext(t, config.Defaults())
-	ctx.Battery = newFakeBattery(upower.Device{Percentage: 64, State: upower.StateDischarging, IsPresent: true, EnergyRate: 9.4, Capacity: 92})
+	ctx.Battery = newFakeBattery(powersupply.Device{Percentage: 64, State: powersupply.StateDischarging, IsPresent: true, EnergyRate: 9.4, Capacity: 92})
 	v := openView(t, ctx, batteryDropdown).(*batteryView)
 	waitHeadless(t, "the battery page", func() bool { return v.body.Visible() == "battery" })
 	doOnLoopOf(ctx, func() {
@@ -531,8 +510,8 @@ func TestBatteryDropdownListsPeripherals(t *testing.T) {
 		t.Fatal("no peripherals: want the devices section hidden and empty")
 	}
 
-	mouse := upower.Peripheral{Path: "/org/freedesktop/UPower/devices/mouse_0", Kind: upower.KindMouse, Model: "MX Master 3", Percentage: 5, WarningLevel: upower.WarningLow}
-	pad := upower.Peripheral{Path: "/org/freedesktop/UPower/devices/gaming_input_0", Kind: upower.KindGamingInput, Percentage: 72.6}
+	mouse := powersupply.Peripheral{Name: "hidpp_battery_0", Kind: powersupply.KindMouse, Model: "MX Master 3", Percentage: 5, WarningLevel: powersupply.WarningLow}
+	pad := powersupply.Peripheral{Name: "hid-pad-battery", Kind: powersupply.KindGamingInput, Percentage: 72.6}
 	src.setPeripherals(mouse, pad)
 	waitHeadless(t, "two device rows", func() bool { return len(v.devices.Children()) == 2 })
 	if !v.devicesSection.Visible() {
@@ -562,7 +541,7 @@ func TestABatteryHeldAtItsChargeLimitIsNotCharging(t *testing.T) {
 	ctx := newTestContext(t, config.Defaults())
 	v := openView(t, ctx, batteryDropdown).(*batteryView)
 	held := presentBattery()
-	held.State, held.Percentage, held.EnergyRate, held.ChargeThresholdEnabled = upower.StatePendingCharge, 80, 3, true
+	held.State, held.Percentage, held.EnergyRate = powersupply.StatePendingCharge, 80, 3
 	doOnLoopOf(ctx, func() { v.applyDevice(held, true) })
 	if got := v.heroState.Text(); got != i18n.T("dropdown-battery-not-charging") || got == i18n.T("dropdown-battery-charging") {
 		t.Errorf("held at the limit the hero reads %q, want %q", got, i18n.T("dropdown-battery-not-charging"))
@@ -578,7 +557,7 @@ func TestABatteryHeldAtItsChargeLimitIsNotCharging(t *testing.T) {
 	}
 
 	charging := presentBattery()
-	charging.State, charging.EnergyRate = upower.StateCharging, 30
+	charging.State, charging.EnergyRate = powersupply.StateCharging, 30
 	doOnLoopOf(ctx, func() { v.applyDevice(charging, true) })
 	if got := v.heroState.Text(); got != i18n.T("dropdown-battery-charging") {
 		t.Errorf("charging the hero reads %q", got)
@@ -586,52 +565,6 @@ func TestABatteryHeldAtItsChargeLimitIsNotCharging(t *testing.T) {
 	if !v.heroState.HasClass("good") || !widget.IsVisible(v.heroInput) {
 		t.Error("charging the hero is not good or shows no input")
 	}
-}
-
-func chargeLimitBattery() upower.Device {
-	dev := presentBattery()
-	dev.ChargeThresholdSupported, dev.ChargeThresholdEnabled = true, true
-	return dev
-}
-
-func TestAFailedChargeLimitWritePutsTheSwitchBackAndSaysWhy(t *testing.T) {
-	ctx := newTestContext(t, config.Defaults())
-	src := newFakeBattery(chargeLimitBattery())
-	src.thresholdErr = errors.New("org.freedesktop.UPower.Error: not authorized")
-	ctx.Battery = src
-	v := openView(t, ctx, batteryDropdown).(*batteryView)
-	waitHeadless(t, "the battery page", func() bool { return v.body.Visible() == "battery" })
-	defer src.reads.hold()()
-	onHeadlessLoop(func() bool { v.chargeSwitch.Toggle(); return true })
-	waitHeadless(t, "the failure shown", func() bool { return v.chargeFailed.Visible() })
-	onHeadlessLoop(func() bool {
-		if !v.chargeSwitch.On() {
-			t.Error("the switch stayed off though the write failed")
-		}
-		if !v.chargeSwitch.Enabled() {
-			t.Error("the switch stayed insensitive after the write")
-		}
-		if v.chargeFailed.Title() != i18n.T("dropdown-battery-charge-limit-failed") || v.chargeFailed.Description() != src.thresholdErr.Error() {
-			t.Errorf("the alert reads %q / %q", v.chargeFailed.Title(), v.chargeFailed.Description())
-		}
-		return true
-	})
-}
-
-func TestAChargeLimitWriteThatGoesThroughShowsNoAlert(t *testing.T) {
-	ctx := newTestContext(t, config.Defaults())
-	src := newFakeBattery(chargeLimitBattery())
-	ctx.Battery = src
-	v := openView(t, ctx, batteryDropdown).(*batteryView)
-	waitHeadless(t, "the battery page", func() bool { return v.body.Visible() == "battery" })
-	onHeadlessLoop(func() bool { v.chargeSwitch.Toggle(); return true })
-	waitHeadless(t, "the write", func() bool { return len(src.thresholdCalls()) == 1 && v.chargeSwitch.Enabled() })
-	onHeadlessLoop(func() bool {
-		if v.chargeFailed.Visible() || v.chargeSwitch.On() {
-			t.Errorf("after a good write: alert %v, switch on %v", v.chargeFailed.Visible(), v.chargeSwitch.On())
-		}
-		return true
-	})
 }
 
 func profilesSource() *fakePPSource {

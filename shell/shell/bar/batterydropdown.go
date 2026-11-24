@@ -11,7 +11,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/powerprofiles"
-	"github.com/stubbedev/lys/desktop/service/upower"
+	"github.com/stubbedev/lys/desktop/service/powersupply"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/power/charge"
@@ -24,21 +24,21 @@ import (
 // batteryCharging reports whether power flows into the battery: a
 // battery plugged in but held (pending charge, as at a charge limit)
 // is not charging.
-func batteryCharging(state upower.DeviceState) bool {
-	return state == upower.StateCharging
+func batteryCharging(state powersupply.DeviceState) bool {
+	return state == powersupply.StateCharging
 }
 
 // batteryStateLabel reads critical first, then
 // charging, plugged in but not charging, full, or on battery.
-func batteryStateLabel(dev upower.Device) string {
+func batteryStateLabel(dev powersupply.Device) string {
 	switch {
 	case dev.WarningLevel.Low():
 		return i18n.T("dropdown-battery-critical")
 	case batteryCharging(dev.State):
 		return i18n.T("dropdown-battery-charging")
-	case dev.State == upower.StatePendingCharge:
+	case dev.State == powersupply.StatePendingCharge:
 		return i18n.T("dropdown-battery-not-charging")
-	case dev.State == upower.StateFullyCharged:
+	case dev.State == powersupply.StateFullyCharged:
 		return i18n.T("dropdown-battery-plugged-in")
 	default:
 		return i18n.T("dropdown-battery-on-battery")
@@ -47,7 +47,7 @@ func batteryStateLabel(dev upower.Device) string {
 
 // batteryTimeDisplay is the time until full
 // while charging, else the time remaining; empty when unknown.
-func batteryTimeDisplay(dev upower.Device) string {
+func batteryTimeDisplay(dev powersupply.Device) string {
 	remaining, id := dev.TimeToEmpty, "dropdown-battery-time-remaining"
 	if batteryCharging(dev.State) {
 		remaining, id = dev.TimeToFull, "dropdown-battery-time-until-full"
@@ -84,7 +84,7 @@ func formatWattHours(wh float64) string {
 // batteryLevelClass is the gauge and hero percentage class: "crit" at a low
 // warning level, "warn" at or under 20%, else fallback ("good" for the
 // gauge, "" for the hero percentage).
-func batteryLevelClass(dev upower.Device, fallback string) string {
+func batteryLevelClass(dev powersupply.Device, fallback string) string {
 	switch {
 	case dev.WarningLevel.Low():
 		return "crit"
@@ -94,7 +94,7 @@ func batteryLevelClass(dev upower.Device, fallback string) string {
 	return fallback
 }
 
-func heroStateClass(dev upower.Device) string {
+func heroStateClass(dev powersupply.Device) string {
 	switch {
 	case dev.WarningLevel.Low():
 		return "crit"
@@ -121,15 +121,6 @@ func healthValue(capacity float64) string {
 		return "--"
 	}
 	return strconv.FormatFloat(capacity, 'f', 0, 64) + "%"
-}
-
-// resumeThreshold: five under the limit, floored
-// at zero.
-func resumeThreshold(end uint32) uint32 {
-	if end < 5 {
-		return 0
-	}
-	return end - 5
 }
 
 // batteryVariants is every variant class a battery label may carry.
@@ -167,16 +158,10 @@ type batteryView struct {
 	chargeCard                              *widget.Box
 	charge                                  *widget.Item
 	chargeUnsupported                       *widget.Alert
-	chargeSwitch                            *widget.Switch
 	// chargeFull asks lys-power for a full charge.
 	chargeFull *widget.Button
-	// dev is the battery as last read, which lys-power's charge policy
-	// is shown against.
-	dev upower.Device
-	// chargeFailed says why the last charge-limit write failed.
+	// chargeFailed says why the last full charge request failed.
 	chargeFailed *widget.Alert
-	// syncing marks programmatic switch moves.
-	syncing bool
 
 	profileButtons map[string]*widget.ToggleButton
 	// marking blocks the toggles' handler while the view sets them: only a user's toggle selects a profile.
@@ -200,7 +185,7 @@ type batteryView struct {
 	// through them too, so it can never land after a newer change.
 	device      *refresher[batteryRead]
 	profiles    *refresher[*powerprofiles.Snapshot]
-	peripherals *refresher[[]upower.Peripheral]
+	peripherals *refresher[[]powersupply.Peripheral]
 
 	*openFollow
 }
@@ -224,7 +209,7 @@ func batteryDropdown(ctx ModuleContext) widget.Widget {
 	content.Append(v.pausedSection(), false)
 	content.Append(v.profileSection(), false)
 	v.Append(content, true)
-	v.applyDevice(upower.Device{}, false)
+	v.applyDevice(powersupply.Device{}, false)
 	v.applyPeripherals(nil)
 	v.applyProfiles(nil)
 	if ctx.Battery != nil {
@@ -304,9 +289,6 @@ func (v *batteryView) batterySection() widget.Widget {
 	v.charge = widget.NewItem(v.font, "", "")
 	v.charge.SetSmall(true)
 	v.charge.AddClass("charge-limit")
-	v.chargeSwitch = namedSwitch(i18n.T("dropdown-battery-charge-limit"), false)
-	v.chargeSwitch.OnChanged = v.chargeToggled
-	v.charge.AddAction(v.chargeSwitch)
 	fullLabel := widget.NewLabel(v.font, v.px, i18n.T("dropdown-battery-charge-full"), 0)
 	v.chargeFull = dropdownButton(fullLabel, v.requestFull, "battery-charge-full", css.Small)
 	v.charge.AddAction(v.chargeFull)
@@ -404,25 +386,25 @@ func (v *batteryView) profileSection() widget.Widget {
 	return dropdownSection(sectionLabel(v.font, i18n.T("dropdown-battery-power-profile")), seg, v.profilesUnavailable, v.profileFailed)
 }
 
-func (v *batteryView) readDevice(ctx context.Context) (upower.Device, bool) {
+func (v *batteryView) readDevice(ctx context.Context) (powersupply.Device, bool) {
 	if v.ctx.Battery == nil {
-		return upower.Device{}, false
+		return powersupply.Device{}, false
 	}
 	dev, err := v.ctx.Battery.Read(ctx)
 	if err != nil {
 		log.Printf("battery: %v", err)
-		return upower.Device{}, false
+		return powersupply.Device{}, false
 	}
 	return dev, true
 }
 
 // batteryRead is one device read: ok is false when the read failed.
 type batteryRead struct {
-	dev upower.Device
+	dev powersupply.Device
 	ok  bool
 }
 
-func (v *batteryView) applyDevice(dev upower.Device, ok bool) {
+func (v *batteryView) applyDevice(dev powersupply.Device, ok bool) {
 	if !ok || !dev.IsPresent {
 		v.body.Show("empty")
 		return
@@ -458,7 +440,6 @@ func (v *batteryView) applyDevice(dev upower.Device, ok bool) {
 	v.healthText.SetText(healthValue(dev.Capacity))
 	v.healthLabel.SetText(healthCaption(dev.ChargeCycles))
 
-	v.dev = dev
 	v.applyChargeLimit()
 }
 
@@ -472,27 +453,15 @@ func healthCaption(cycles uint32) string {
 }
 
 // applyChargeLimit shows lys-power's charge policy and its charge to
-// full while it manages the battery, else UPower's charge limit switch.
+// full while it manages the battery, else that no limit is held.
 func (v *batteryView) applyChargeLimit() {
-	if st, ok := v.chargePolicy(); ok {
-		v.chargeCard.SetVisible(true)
-		v.chargeUnsupported.SetVisible(false)
+	st, ok := v.chargePolicy()
+	v.chargeCard.SetVisible(ok)
+	v.chargeUnsupported.SetVisible(!ok)
+	v.chargeFull.SetVisible(ok && !st.Reason.Full())
+	if ok {
 		v.charge.SetTitle(chargeExplanation(st, v.timeOfDay))
-		v.charge.SetDescription("")
-		v.chargeSwitch.SetVisible(false)
-		v.chargeFull.SetVisible(!st.Reason.Full())
-		return
 	}
-	dev := v.dev
-	v.chargeFull.SetVisible(false)
-	v.chargeSwitch.SetVisible(true)
-	v.chargeCard.SetVisible(dev.ChargeThresholdSupported)
-	v.chargeUnsupported.SetVisible(!dev.ChargeThresholdSupported)
-	v.charge.SetTitle(i18n.T("dropdown-battery-limit-to",
-		i18n.Str("threshold", strconv.FormatUint(uint64(dev.ChargeEndThreshold), 10))))
-	v.charge.SetDescription(i18n.T("dropdown-battery-resumes-at",
-		i18n.Str("threshold", strconv.FormatUint(uint64(resumeThreshold(dev.ChargeEndThreshold)), 10))))
-	v.syncChargeSwitch(dev.ChargeThresholdEnabled)
 }
 
 // chargePolicy is lys-power's charge policy, false while lys-power is
@@ -524,36 +493,6 @@ func (v *batteryView) requestFull() {
 	serviceWrite(v.ctx, src.ChargeFull, func(err error) {
 		v.chargeFull.SetEnabled(true)
 		reportWrite(v.chargeFailed, "battery", i18n.T("dropdown-battery-charge-full-failed"), err)
-	})
-}
-
-func (v *batteryView) syncChargeSwitch(on bool) {
-	v.syncing = true
-	v.chargeSwitch.SetOn(on)
-	v.syncing = false
-}
-
-// chargeToggled writes the charge limit off the loop, the switch
-// insensitive meanwhile. A failure puts the switch back and says why
-// under it in the same turn of the loop, and the re-read after the
-// write then sets the switch where the battery holds it.
-func (v *batteryView) chargeToggled(enabled bool) {
-	if v.syncing || v.ctx.Battery == nil {
-		return
-	}
-	src := v.ctx.Battery
-	v.chargeSwitch.SetEnabled(false)
-	serviceWrite(v.ctx, func(ctx context.Context) error {
-		return src.EnableChargeThreshold(ctx, enabled)
-	}, func(err error) {
-		v.chargeSwitch.SetEnabled(true)
-		if err != nil {
-			v.syncChargeSwitch(!enabled)
-		}
-		reportWrite(v.chargeFailed, "battery", i18n.T("dropdown-battery-charge-limit-failed"), err)
-		if v.device != nil {
-			v.device.request()
-		}
 	})
 }
 
@@ -665,7 +604,7 @@ func (v *batteryView) follow(life context.Context) {
 	v.paused.follow(life)
 }
 
-// deviceSection lists the peripherals UPower reports, hidden while
+// deviceSection lists the peripherals the kernel reports, hidden while
 // there are none.
 func (v *batteryView) deviceSection() widget.Widget {
 	v.devices = widget.NewBox(widget.Column, 0, 0)
@@ -674,7 +613,7 @@ func (v *batteryView) deviceSection() widget.Widget {
 	return v.devicesSection
 }
 
-func (v *batteryView) readPeripherals(ctx context.Context) []upower.Peripheral {
+func (v *batteryView) readPeripherals(ctx context.Context) []powersupply.Peripheral {
 	list, err := v.ctx.Battery.Peripherals(ctx)
 	if err != nil {
 		log.Printf("battery: %v", err)
@@ -685,7 +624,7 @@ func (v *batteryView) readPeripherals(ctx context.Context) []upower.Peripheral {
 
 // applyPeripherals rebuilds the device rows: each peripheral's icon
 // ringed by its charge, its name and its percentage.
-func (v *batteryView) applyPeripherals(list []upower.Peripheral) {
+func (v *batteryView) applyPeripherals(list []powersupply.Peripheral) {
 	v.devices.Clear()
 	for _, p := range list {
 		percent := uint8(min(max(math.Round(p.Percentage), 0), 100))

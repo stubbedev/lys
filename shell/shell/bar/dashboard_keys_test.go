@@ -13,8 +13,8 @@ import (
 	"github.com/stubbedev/lys/desktop/service/mpris"
 	"github.com/stubbedev/lys/desktop/service/network"
 	"github.com/stubbedev/lys/desktop/service/powerprofiles"
+	"github.com/stubbedev/lys/desktop/service/powersupply"
 	"github.com/stubbedev/lys/desktop/service/pulse"
-	"github.com/stubbedev/lys/desktop/service/upower"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
@@ -376,7 +376,7 @@ func lookContext(t *testing.T) ModuleContext {
 	ctx.Notifications.SetDND(true)
 	ctx.IdleInhibit = idleinhibit.NewState(inhibitduration.Duration{})
 	ctx.Media = newFakeMedia(mpris.Player{BusName: "org.mpris.MediaPlayer2.x", Title: "Song", Artist: "Band", State: mpris.StatePlaying, CanGoNext: true, CanGoPrevious: true})
-	ctx.Battery = newFakeBattery(upower.Device{Percentage: 64, IsPresent: true, State: upower.StateDischarging, TimeToEmpty: 3 * time.Hour})
+	ctx.Battery = newFakeBattery(powersupply.Device{Percentage: 64, IsPresent: true, State: powersupply.StateDischarging, TimeToEmpty: 3 * time.Hour})
 	ctx.Network = &fakeNetworkSource{snap: network.Snapshot{HasWifi: true, WifiEnabled: true, WifiSSID: "lan", Primary: network.ConnectionWifi}, ticks: make(chan struct{}, 2)}
 	ctx.PowerProfiles = &fakePPSource{snap: powerprofiles.Snapshot{Available: true, Active: powerprofiles.ProfilePowerSaver}, ticks: make(chan struct{}, 2)}
 	ctx.Pulse = &fakePulseSource{dev: pulse.Device{Description: "Speakers", Volume: pct(40)}, ticks: make(chan struct{}, 1)}

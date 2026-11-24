@@ -4,8 +4,8 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/stubbedev/lys/desktop/service/bluetooth"
 	"github.com/stubbedev/lys/desktop/service/network"
-	"github.com/stubbedev/lys/desktop/service/upower"
 	"github.com/stubbedev/lys/lib/dbustest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/waittest"
@@ -65,8 +65,8 @@ func TestLateServicesStartTheirClientAndRebuild(t *testing.T) {
 	if applied != 1 {
 		t.Errorf("the started client was applied %d times, want 1", applied)
 	}
-	appear(upower.BusName)
-	expect("UPower appearing", false)
+	appear(bluetooth.BusName)
+	expect("BlueZ appearing", false)
 
 	late.stop()
 	if stops != 1 {

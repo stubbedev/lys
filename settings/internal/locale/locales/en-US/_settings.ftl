@@ -1694,7 +1694,6 @@ settings-power-loading = Reading the battery and power mode…
 settings-power-unavailable = The battery and power mode cannot be read
 settings-power-failed = The power settings were not changed
 settings-power-battery = Battery
-settings-power-no-upower = UPower is not running, so the battery cannot be read
 settings-power-no-battery = This computer has no battery; it runs on mains power
 settings-power-percent = { $percent ->
     [one] { $percent }%
@@ -1706,16 +1705,11 @@ settings-power-health-detail = { $percent ->
    *[other] Holds { $percent }% of its design capacity
 }
 settings-power-charge-limit = Charge limit
-settings-power-charge-limit-detail = { $percent ->
-    [one] Stops charging at { $percent }% to spare the battery
-   *[other] Stops charging at { $percent }% to spare the battery
-}
 settings-power-charge-limit-choice-detail = Holds the battery at this charge on AC to slow its wear; it still charges to full before you usually leave. 100% turns the hold off.
 settings-power-charge-limit-refused = The charge limit was not changed
 settings-power-state-unknown = State unknown
 settings-power-state-charging = Charging
 settings-power-state-discharging = On battery
-settings-power-state-empty = Empty
 settings-power-state-full = Fully charged
 settings-power-state-not-charging = Plugged in, not charging
 settings-power-state-with-time = { $state } · { $time }

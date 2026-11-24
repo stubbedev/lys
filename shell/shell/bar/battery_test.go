@@ -12,7 +12,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
-	"github.com/stubbedev/lys/desktop/service/upower"
+	"github.com/stubbedev/lys/desktop/service/powersupply"
 	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/desktop/styling"
@@ -86,20 +86,16 @@ func ptrF(v float64) *float64 {
 	return p
 }
 
-// fakeBattery is a scriptable upower.Source, safe across a follow
+// fakeBattery is a scriptable powersupply.Source, safe across a follow
 // goroutine and the test.
 type fakeBattery struct {
 	mu          sync.Mutex
-	dev         upower.Device
+	dev         powersupply.Device
 	ticks       chan struct{}
 	read        chan struct{}
-	threshold   []bool
-	peripherals []upower.Peripheral
+	peripherals []powersupply.Peripheral
 	pticks      chan struct{}
-	// thresholdErr fails EnableChargeThreshold, leaving the limit as
-	// it was.
-	thresholdErr error
-	reads        readHold
+	reads       readHold
 }
 
 type readHold struct {
@@ -124,11 +120,11 @@ func (h *readHold) wait() {
 	}
 }
 
-func newFakeBattery(dev upower.Device) *fakeBattery {
+func newFakeBattery(dev powersupply.Device) *fakeBattery {
 	return &fakeBattery{dev: dev, ticks: make(chan struct{}, 4), read: make(chan struct{}, 1), pticks: make(chan struct{}, 4)}
 }
 
-func (f *fakeBattery) Read(context.Context) (upower.Device, error) {
+func (f *fakeBattery) Read(context.Context) (powersupply.Device, error) {
 	select {
 	case f.read <- struct{}{}:
 	default:
@@ -140,7 +136,7 @@ func (f *fakeBattery) Read(context.Context) (upower.Device, error) {
 }
 
 // update edits the scripted device.
-func (f *fakeBattery) update(edit func(*upower.Device)) {
+func (f *fakeBattery) update(edit func(*powersupply.Device)) {
 	f.mu.Lock()
 	edit(&f.dev)
 	f.mu.Unlock()
@@ -150,27 +146,9 @@ func (f *fakeBattery) Subscribe(ctx context.Context) (<-chan struct{}, func() er
 	return f.ticks, func() error { return nil }, nil
 }
 
-func (f *fakeBattery) EnableChargeThreshold(_ context.Context, enabled bool) error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.threshold = append(f.threshold, enabled)
-	if f.thresholdErr != nil {
-		return f.thresholdErr
-	}
-	f.dev.ChargeThresholdEnabled = enabled
-	return nil
-}
-
-// thresholdCalls are the EnableChargeThreshold arguments so far.
-func (f *fakeBattery) thresholdCalls() []bool {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	return slices.Clone(f.threshold)
-}
-
 func (f *fakeBattery) Push() { f.ticks <- struct{}{} }
 
-func (f *fakeBattery) Peripherals(context.Context) ([]upower.Peripheral, error) {
+func (f *fakeBattery) Peripherals(context.Context) ([]powersupply.Peripheral, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return slices.Clone(f.peripherals), nil
@@ -182,7 +160,7 @@ func (f *fakeBattery) SubscribePeripherals(context.Context) (<-chan struct{}, fu
 
 // setPeripherals replaces the scripted peripherals and ticks their
 // subscription.
-func (f *fakeBattery) setPeripherals(list ...upower.Peripheral) {
+func (f *fakeBattery) setPeripherals(list ...powersupply.Peripheral) {
 	f.mu.Lock()
 	f.peripherals = list
 	f.mu.Unlock()
@@ -199,7 +177,7 @@ func TestBatteryModuleRendersAndRestyles(t *testing.T) {
 	cfg.Thresholds.Battery = []config.ThresholdEntry{{Below: ptrF(20), LabelColor: &cv, IconColor: &cv}}
 	cfg.Bar.Layout = []config.BarLayout{{Monitor: "*"}}
 
-	source := newFakeBattery(upower.Device{Percentage: 75, State: upower.StateDischarging, IsPresent: true})
+	source := newFakeBattery(powersupply.Device{Percentage: 75, State: powersupply.StateDischarging, IsPresent: true})
 	style := computeStyle(cfg, styling.Default())
 	ctx := ModuleContext{Config: cfg, Font: testFont(t), Style: &style, Battery: source, gen: testGen(t)}
 	// App is required by the module; Invoke is what the subscription
@@ -224,7 +202,7 @@ func TestBatteryModuleRendersAndRestyles(t *testing.T) {
 	}
 
 	// Drop below the threshold: same template, error color.
-	source.update(func(d *upower.Device) { d.Percentage = 12 })
+	source.update(func(d *powersupply.Device) { d.Percentage = 12 })
 	if err := readAndApply(m.source.Read, m.apply); err != nil {
 		t.Fatal(err)
 	}
@@ -235,7 +213,7 @@ func TestBatteryModuleRendersAndRestyles(t *testing.T) {
 		t.Errorf("at 12%% the button vars = %q, want the status-error threshold", m.btn.InlineStyle())
 	}
 	// Back above: the defaults return.
-	source.update(func(d *upower.Device) { d.Percentage = 60 })
+	source.update(func(d *powersupply.Device) { d.Percentage = 60 })
 	if err := readAndApply(m.source.Read, m.apply); err != nil {
 		t.Fatal(err)
 	}
@@ -246,7 +224,7 @@ func TestBatteryModuleRendersAndRestyles(t *testing.T) {
 
 func TestBatteryStateIcon(t *testing.T) {
 	cfg := config.Defaults()
-	source := newFakeBattery(upower.Device{Percentage: 75, State: upower.StateDischarging, IsPresent: true})
+	source := newFakeBattery(powersupply.Device{Percentage: 75, State: powersupply.StateDischarging, IsPresent: true})
 	style := computeStyle(cfg, styling.Default())
 	ctx := ModuleContext{Config: cfg, Font: testFont(t), Style: &style, Battery: source, gen: testGen(t)}
 	m := &battery{ctx: ctx, source: source}
@@ -265,7 +243,7 @@ func TestBatteryStateIcon(t *testing.T) {
 		t.Errorf("icon at 75%% = %q", got)
 	}
 	// Charging overrides the level list.
-	source.update(func(d *upower.Device) { d.State = upower.StateCharging })
+	source.update(func(d *powersupply.Device) { d.State = powersupply.StateCharging })
 	if err := readAndApply(m.source.Read, m.apply); err != nil {
 		t.Fatal(err)
 	}
@@ -274,7 +252,7 @@ func TestBatteryStateIcon(t *testing.T) {
 	}
 	// Held at the charge limit: plugged in, not charging, so the level
 	// list again.
-	source.update(func(d *upower.Device) { d.State, d.Percentage = upower.StatePendingCharge, 80 })
+	source.update(func(d *powersupply.Device) { d.State, d.Percentage = powersupply.StatePendingCharge, 80 })
 	if err := readAndApply(m.source.Read, m.apply); err != nil {
 		t.Fatal(err)
 	}
@@ -282,7 +260,7 @@ func TestBatteryStateIcon(t *testing.T) {
 		t.Errorf("pending-charge icon at 80%% = %q, want the level icon", got)
 	}
 	// Absent falls back to the alert icon.
-	source.update(func(d *upower.Device) { d.State, d.Percentage, d.IsPresent = upower.StateUnknown, 0, false })
+	source.update(func(d *powersupply.Device) { d.State, d.Percentage, d.IsPresent = powersupply.StateUnknown, 0, false })
 	if err := readAndApply(m.source.Read, m.apply); err != nil {
 		t.Fatal(err)
 	}
@@ -293,7 +271,7 @@ func TestBatteryStateIcon(t *testing.T) {
 
 func TestBatteryAbsentBatteryShowsNA(t *testing.T) {
 	cfg := config.Defaults()
-	source := newFakeBattery(upower.Device{})
+	source := newFakeBattery(powersupply.Device{})
 	style := computeStyle(cfg, styling.Default())
 	m := &battery{ctx: ModuleContext{Config: cfg, Font: testFont(t), Style: &style, Battery: source, gen: testGen(t)}, source: source}
 	m.btn = newBarButton(m.ctx, m.icon, "")
@@ -356,49 +334,32 @@ func TestLoadFileRejectsBadBattery(t *testing.T) {
 	}
 }
 
-func TestStateFromUint32(t *testing.T) {
-	for _, tc := range []struct {
-		wire uint32
-		want upower.DeviceState
-	}{
-		{1, upower.StateCharging},
-		{2, upower.StateDischarging},
-		{4, upower.StateFullyCharged},
-		{7, upower.StateUnknown},
-	} {
-		if got := upower.StateFromUint32(tc.wire); got != tc.want {
-			t.Errorf("StateFromUint32(%d) = %v, want %v", tc.wire, got, tc.want)
-		}
-	}
-}
-
 func testFont(t *testing.T) render.Font { return treetest.Font(t) }
 
 func TestBatteryDropdownStateAndTime(t *testing.T) {
-	for state, id := range map[upower.DeviceState]string{
-		upower.StateCharging:         "dropdown-battery-charging",
-		upower.StatePendingCharge:    "dropdown-battery-not-charging",
-		upower.StateFullyCharged:     "dropdown-battery-plugged-in",
-		upower.StateDischarging:      "dropdown-battery-on-battery",
-		upower.StateUnknown:          "dropdown-battery-on-battery",
-		upower.StatePendingDischarge: "dropdown-battery-on-battery",
+	for state, id := range map[powersupply.DeviceState]string{
+		powersupply.StateCharging:      "dropdown-battery-charging",
+		powersupply.StatePendingCharge: "dropdown-battery-not-charging",
+		powersupply.StateFullyCharged:  "dropdown-battery-plugged-in",
+		powersupply.StateDischarging:   "dropdown-battery-on-battery",
+		powersupply.StateUnknown:       "dropdown-battery-on-battery",
 	} {
-		if got := batteryStateLabel(upower.Device{State: state}); got != i18n.T(id) {
+		if got := batteryStateLabel(powersupply.Device{State: state}); got != i18n.T(id) {
 			t.Errorf("state %d = %q, want %s", state, got, id)
 		}
 	}
 	hm := i18n.T("dropdown-battery-duration-hm", i18n.Str("hours", "3"), i18n.Str("minutes", "04"))
-	discharging := upower.Device{State: upower.StateDischarging, TimeToEmpty: 3*time.Hour + 4*time.Minute, TimeToFull: time.Hour}
+	discharging := powersupply.Device{State: powersupply.StateDischarging, TimeToEmpty: 3*time.Hour + 4*time.Minute, TimeToFull: time.Hour}
 	if got := batteryTimeDisplay(discharging); got != i18n.T("dropdown-battery-time-remaining", i18n.Str("duration", hm)) {
 		t.Errorf("discharging = %q", got)
 	}
 	m := i18n.T("dropdown-battery-duration-m", i18n.Str("minutes", "18"))
-	charging := upower.Device{State: upower.StateCharging, TimeToEmpty: 5 * time.Hour, TimeToFull: 18 * time.Minute}
+	charging := powersupply.Device{State: powersupply.StateCharging, TimeToEmpty: 5 * time.Hour, TimeToFull: 18 * time.Minute}
 	if got := batteryTimeDisplay(charging); got != i18n.T("dropdown-battery-time-until-full", i18n.Str("duration", m)) {
 		t.Errorf("charging = %q", got)
 	}
 	// Unknown times (0) show nothing, whichever side the state reads.
-	if got := batteryTimeDisplay(upower.Device{State: upower.StateCharging, TimeToEmpty: time.Hour}); got != "" {
+	if got := batteryTimeDisplay(powersupply.Device{State: powersupply.StateCharging, TimeToEmpty: time.Hour}); got != "" {
 		t.Errorf("charging without time-to-full = %q, want empty", got)
 	}
 }

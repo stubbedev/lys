@@ -20,9 +20,7 @@ dropdown-battery-health = Conditie
 
 dropdown-battery-charge-limit = Laadlimiet
 dropdown-battery-limit-to = Beperken tot { $threshold }%
-dropdown-battery-resumes-at = Hervat opladen bij { $threshold }%
 dropdown-battery-charge-limit-not-supported = Laadlimiet wordt op dit apparaat niet ondersteund
-dropdown-battery-charge-limit-failed = Kan de laadlimiet niet wijzigen
 dropdown-battery-health-cycles = Conditie, { $cycles ->
     [one] { $cycles } cyclus
    *[other] { $cycles } cycli
@@ -85,15 +83,4 @@ battery-device-mouse = Muis
 battery-device-touchpad = Touchpad
 battery-device-keyboard = Toetsenbord
 battery-device-controller = Controller
-battery-device-headset = Headset
-battery-device-headphones = Koptelefoon
-battery-device-speakers = Luidsprekers
-battery-device-phone = Telefoon
-battery-device-tablet = Tablet
 battery-device-pen = Pen
-battery-device-watch = Horloge
-battery-device-ups = UPS
-battery-device-printer = Printer
-battery-device-camera = Camera
-battery-device-computer = Computer
-battery-device-monitor = Monitor

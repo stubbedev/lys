@@ -10,6 +10,7 @@ in {
   module = {pkgs, ...}: {
     imports = [self.nixosModules.lys-power];
     services.lys-power.enable = true;
+    services.upower.enable = false;
     boot.kernelModules = ["test_power"];
     boot.extraModprobeConfig = "options test_power usb_online=off";
     users.users.${user} = {
@@ -45,14 +46,14 @@ in {
         try:
             machine.wait_until_succeeds(f"{freezer_of(unit)} | grep -qx {want}", timeout=60)
         except Exception:
-            print(machine.execute("journalctl -b --no-pager -u lys-power.service -u upower.service")[1])
+            print(machine.execute("journalctl -b --no-pager -u lys-power.service")[1])
             raise
 
     machine.succeed("grep -qx Mains /sys/class/power_supply/test_ac/type", "grep -qx 1 /sys/class/power_supply/test_ac/online")
     machine.succeed("grep -qx 0 /sys/class/power_supply/test_usb/online")
     machine.succeed("systemctl start lys-power.service")
     machine.wait_for_unit("lys-power.service")
-    machine.wait_for_unit("upower.service")
+    machine.fail("systemctl is-active upower.service")
     machine.wait_until_succeeds("busctl --system status dev.stubbe.lys.Pause1", timeout=30)
 
     machine.succeed("systemctl start user@${toString uid}.service")
@@ -61,8 +62,8 @@ in {
     assert freezer("${hog}") == "running", freezer("${hog}")
     assert freezer("${essential}") == "running", freezer("${essential}")
 
-    refused = machine.fail(as_user("busctl --system call ${pause} PickUser as 2 ${hog} ${essential} 2>&1"))
-    assert "the session or the system needs it running" in refused, refused
+    refusal = machine.fail(as_user("busctl --system call ${pause} PickUser as 2 ${hog} ${essential} 2>&1"))
+    assert "the session or the system needs it running" in refusal, refusal
     assert state()[0] == [], f"a refused pick changed the picks: {state()}"
 
     machine.succeed(as_user("busctl --system call ${pause} PickUser as 1 ${hog}"))

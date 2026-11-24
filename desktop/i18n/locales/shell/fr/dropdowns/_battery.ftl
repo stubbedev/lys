@@ -26,9 +26,7 @@ dropdown-battery-health = Santé
 ## Limite de charge
 dropdown-battery-charge-limit = Limite de charge
 dropdown-battery-limit-to = Limiter à { $threshold } %
-dropdown-battery-resumes-at = Reprend la charge à { $threshold } %
 dropdown-battery-charge-limit-not-supported = Limite de charge non prise en charge sur cet appareil
-dropdown-battery-charge-limit-failed = Impossible de modifier la limite de charge
 dropdown-battery-health-cycles = Santé, { $cycles ->
     [one] { $cycles } cycle
    *[other] { $cycles } cycles
@@ -97,15 +95,4 @@ battery-device-mouse = Souris
 battery-device-touchpad = Pavé tactile
 battery-device-keyboard = Clavier
 battery-device-controller = Manette
-battery-device-headset = Casque micro
-battery-device-headphones = Casque
-battery-device-speakers = Haut-parleurs
-battery-device-phone = Téléphone
-battery-device-tablet = Tablette
 battery-device-pen = Stylet
-battery-device-watch = Montre
-battery-device-ups = Onduleur
-battery-device-printer = Imprimante
-battery-device-camera = Appareil photo
-battery-device-computer = Ordinateur
-battery-device-monitor = Écran

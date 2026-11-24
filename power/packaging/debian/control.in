@@ -16,7 +16,6 @@ Depends:
  ${misc:Depends},
  systemd
 Recommends:
- upower,
  power-profiles-daemon
 Description: adaptive battery charging and power profile policy for the lys desktop
  lys-power holds a laptop's battery at 75-80% while it is plugged in and

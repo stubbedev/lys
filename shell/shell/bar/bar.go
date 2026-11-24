@@ -26,8 +26,8 @@ import (
 	"github.com/stubbedev/lys/desktop/service/mpris"
 	"github.com/stubbedev/lys/desktop/service/network"
 	"github.com/stubbedev/lys/desktop/service/powerprofiles"
+	"github.com/stubbedev/lys/desktop/service/powersupply"
 	"github.com/stubbedev/lys/desktop/service/pulse"
-	"github.com/stubbedev/lys/desktop/service/upower"
 	"github.com/stubbedev/lys/desktop/shell/apptheme"
 	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/desktop/shell/dockview"
@@ -343,11 +343,11 @@ func (s *shellStart) startServices(system *dbus.Conn) {
 	starts.Go(func() { notifs = startNotifications(s.cfg.Notification, s.ctx.Clock) })
 	starts.Wait()
 
+	battery := powersupply.New(powersupply.Dir)
+	s.ctx.Battery = battery
+	s.down.add(s.followPowerSourceForWallpaper(battery))
 	s.ctx.Hyprland = hypr
 	if s.system != nil {
-		battery := upower.NewOn(s.system)
-		s.ctx.Battery = battery
-		s.down.add(s.followPowerSourceForWallpaper(battery))
 		s.ctx.Network = network.NewOn(s.system)
 		s.ctx.PowerProfiles = powerprofiles.NewOn(s.system)
 	}

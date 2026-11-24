@@ -216,16 +216,20 @@ func (c *charges) SetDeparture(ctx context.Context, caller charge.Caller, at tim
 	return nil
 }
 
-// displaySubsystems are the subsystems whose udev events can announce a
-// display being connected or disconnected.
-var displaySubsystems = []string{"drm"}
+// Subsystems whose udev events can change an evaluation: a display
+// connected or disconnected moves the dock state, and a power supply's
+// event is an AC edge or a battery's status.
+const (
+	displaySubsystem = "drm"
+	supplySubsystem  = "power_supply"
+)
 
-// watchDisplays wakes on udev's events from displaySubsystems; the
-// kernel drops every other event before it reaches the socket.
-func watchDisplays() (*fdWake, error) {
-	fd, err := udevmonitor.Open(displaySubsystems)
+// watchUdev wakes on udev's events from subsystem; the kernel drops
+// every other event before it reaches the socket.
+func watchUdev(subsystem string) (*fdWake, error) {
+	fd, err := udevmonitor.Open([]string{subsystem})
 	if err != nil {
-		return nil, fmt.Errorf("listening for display hotplug: %w", err)
+		return nil, fmt.Errorf("listening for udev's %s events: %w", subsystem, err)
 	}
-	return newFDWake(fd, "udev:drm", udevmonitor.MaxMessage), nil
+	return newFDWake(fd, "udev:"+subsystem, udevmonitor.MaxMessage), nil
 }

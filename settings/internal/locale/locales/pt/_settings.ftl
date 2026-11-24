@@ -1685,7 +1685,6 @@ settings-power-loading = A ler a bateria e o modo de energia…
 settings-power-unavailable = Não é possível ler a bateria nem o modo de energia
 settings-power-failed = As definições de energia não foram alteradas
 settings-power-battery = Bateria
-settings-power-no-upower = O UPower não está em execução, por isso não é possível ler a bateria
 settings-power-no-battery = Este computador não tem bateria; funciona ligado à corrente
 settings-power-percent = { $percent ->
     [one] { $percent }%
@@ -1697,16 +1696,11 @@ settings-power-health-detail = { $percent ->
    *[other] Mantém { $percent }% da capacidade de origem
 }
 settings-power-charge-limit = Limite de carga
-settings-power-charge-limit-detail = { $percent ->
-    [one] Para de carregar aos { $percent }% para poupar a bateria
-   *[other] Para de carregar aos { $percent }% para poupar a bateria
-}
 settings-power-charge-limit-choice-detail = Mantém a bateria nesta carga ligada à corrente para que se desgaste mais devagar; mesmo assim carrega totalmente antes da hora a que costuma sair. 100% desativa o limite.
 settings-power-charge-limit-refused = O limite de carga não foi alterado
 settings-power-state-unknown = Estado desconhecido
 settings-power-state-charging = A carregar
 settings-power-state-discharging = Com bateria
-settings-power-state-empty = Vazia
 settings-power-state-full = Carga completa
 settings-power-state-not-charging = Ligado, sem carregar
 settings-power-state-with-time = { $state } · { $time }

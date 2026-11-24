@@ -16,8 +16,8 @@ import (
 	"github.com/stubbedev/lys/desktop/service/mpris"
 	"github.com/stubbedev/lys/desktop/service/network"
 	"github.com/stubbedev/lys/desktop/service/powerprofiles"
+	"github.com/stubbedev/lys/desktop/service/powersupply"
 	"github.com/stubbedev/lys/desktop/service/pulse"
-	"github.com/stubbedev/lys/desktop/service/upower"
 	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/app"
@@ -72,7 +72,7 @@ type countedBattery struct {
 	reads atomic.Int64
 }
 
-func (f *countedBattery) Read(ctx context.Context) (upower.Device, error) {
+func (f *countedBattery) Read(ctx context.Context) (powersupply.Device, error) {
 	f.reads.Add(1)
 	return f.fakeBattery.Read(ctx)
 }
@@ -124,7 +124,7 @@ func newDashboardRig(t *testing.T) *dashboardRig {
 		t: t, a: a,
 		network:  newCountedNetwork(),
 		profiles: newCountedProfiles(),
-		battery:  &countedBattery{fakeBattery: newFakeBattery(upower.Device{Percentage: 64, IsPresent: true, State: upower.StateDischarging, TimeToEmpty: time.Hour})},
+		battery:  &countedBattery{fakeBattery: newFakeBattery(powersupply.Device{Percentage: 64, IsPresent: true, State: powersupply.StateDischarging, TimeToEmpty: time.Hour})},
 		media:    &countedMedia{fakeMediaSource: newFakeMedia(mpris.Player{BusName: "org.mpris.MediaPlayer2.x", Title: "Song", Artist: "Band", State: mpris.StatePlaying, CanGoNext: true})},
 	}
 	ctx.Network, ctx.PowerProfiles, ctx.Battery, ctx.Media = rig.network, rig.profiles, rig.battery, rig.media
@@ -297,7 +297,7 @@ func TestDashboardFollowsOnlyWhileOpen(t *testing.T) {
 
 	reads, positions := rig.reads(), rig.media.positions.Load()
 	rig.network.ticks <- struct{}{}
-	rig.battery.update(func(d *upower.Device) { d.Percentage = 11 })
+	rig.battery.update(func(d *powersupply.Device) { d.Percentage = 11 })
 	rig.battery.ticks <- struct{}{}
 	time.Sleep(dashboardPoll*2 + dashboardPoll/2)
 	apptest.Dispatched(t, rig.a)

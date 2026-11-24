@@ -26,9 +26,7 @@ dropdown-battery-health = Stato di salute
 ## Charge Limit
 dropdown-battery-charge-limit = Limite di carica
 dropdown-battery-limit-to = Limita al { $threshold }%
-dropdown-battery-resumes-at = Riprende la carica al { $threshold }%
 dropdown-battery-charge-limit-not-supported = Limite di carica non supportato su questo dispositivo
-dropdown-battery-charge-limit-failed = Impossibile modificare il limite di carica
 dropdown-battery-health-cycles = Salute, { $cycles ->
     [one] { $cycles } ciclo
    *[other] { $cycles } cicli
@@ -97,15 +95,4 @@ battery-device-mouse = Mouse
 battery-device-touchpad = Touchpad
 battery-device-keyboard = Tastiera
 battery-device-controller = Controller
-battery-device-headset = Cuffie con microfono
-battery-device-headphones = Cuffie
-battery-device-speakers = Altoparlanti
-battery-device-phone = Telefono
-battery-device-tablet = Tablet
 battery-device-pen = Penna
-battery-device-watch = Orologio
-battery-device-ups = UPS
-battery-device-printer = Stampante
-battery-device-camera = Fotocamera
-battery-device-computer = Computer
-battery-device-monitor = Monitor

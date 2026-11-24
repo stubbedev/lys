@@ -1,27 +1,27 @@
 // Package batteryalert decides when a battery deserves a notification
 // and when the power profile follows the battery: pure functions over
-// consecutive UPower readings, so every transition is a table test.
+// consecutive battery readings, so every transition is a table test.
 package batteryalert
 
 import (
 	"github.com/stubbedev/lys/desktop/service/powerprofiles"
-	"github.com/stubbedev/lys/desktop/service/upower"
+	"github.com/stubbedev/lys/desktop/service/powersupply"
 )
 
-// Reading is the part of a UPower device the alerts follow.
+// Reading is the part of a battery the alerts follow.
 type Reading struct {
-	Warning    upower.WarningLevel
+	Warning    powersupply.WarningLevel
 	Percentage float64
-	State      upower.DeviceState
+	State      powersupply.DeviceState
 }
 
 // FromDevice is the DisplayDevice's reading.
-func FromDevice(d upower.Device) Reading {
+func FromDevice(d powersupply.Device) Reading {
 	return Reading{Warning: d.WarningLevel, Percentage: d.Percentage, State: d.State}
 }
 
 // FromPeripheral is a peripheral's reading.
-func FromPeripheral(p upower.Peripheral) Reading {
+func FromPeripheral(p powersupply.Peripheral) Reading {
 	return Reading{Warning: p.WarningLevel, Percentage: p.Percentage, State: p.State}
 }
 
@@ -29,7 +29,7 @@ func FromPeripheral(p upower.Peripheral) Reading {
 // looks like from the device.
 func (r Reading) OnAC() bool {
 	switch r.State {
-	case upower.StateCharging, upower.StateFullyCharged, upower.StatePendingCharge:
+	case powersupply.StateCharging, powersupply.StateFullyCharged, powersupply.StatePendingCharge:
 		return true
 	}
 	return false
@@ -46,14 +46,14 @@ const (
 )
 
 // Next is the alert the step from prev to cur raises, if any. Low and
-// Critical follow UPower's WarningLevel, so the thresholds are UPower's
-// PercentageLow and PercentageCritical: one alert on entering each, none
+// Critical follow the battery's WarningLevel, so the thresholds are
+// powersupply's PercentageLow and PercentageCritical: one alert on entering each, none
 // while staying, and since plugging in clears the warning, unplugging
 // again re-arms both. Charged fires once when a battery charging
 // crosses chargedAt; zero turns it off.
 func Next(prev, cur Reading, chargedAt uint8) (Level, bool) {
 	if r := cur.Warning.Rank(); r > prev.Warning.Rank() {
-		if r == upower.WarningCritical.Rank() {
+		if r == powersupply.WarningCritical.Rank() {
 			return LevelCritical, true
 		}
 		return LevelLow, true
@@ -98,11 +98,11 @@ func (s Saver) Step(at SaverAt, cur Reading, active string) (Saver, string, bool
 	return Saver{Engaged: true, Restore: active}, powerprofiles.ProfilePowerSaver, true
 }
 
-func (a SaverAt) warning() upower.WarningLevel {
+func (a SaverAt) warning() powersupply.WarningLevel {
 	if a == SaverLow {
-		return upower.WarningLow
+		return powersupply.WarningLow
 	}
-	return upower.WarningCritical
+	return powersupply.WarningCritical
 }
 
 // OfferAt is the charge, in percent, at which a battery discharging is
@@ -121,7 +121,7 @@ func (o Offer) Step(cur Reading, active func() (profile string, ok bool)) (Offer
 	switch {
 	case cur.OnAC():
 		return Offer{}, false
-	case o.Made, cur.State != upower.StateDischarging, cur.Percentage > OfferAt:
+	case o.Made, cur.State != powersupply.StateDischarging, cur.Percentage > OfferAt:
 		return o, false
 	}
 	profile, ok := active()

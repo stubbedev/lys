@@ -2,7 +2,6 @@ package lock
 
 import (
 	"fmt"
-	"maps"
 	"net"
 	"path/filepath"
 	"slices"
@@ -11,7 +10,8 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/service/mpris"
-	"github.com/stubbedev/lys/desktop/service/upower"
+	"github.com/stubbedev/lys/desktop/service/powersupply"
+	"github.com/stubbedev/lys/desktop/service/powersupply/powersupplytest"
 	"github.com/stubbedev/lys/desktop/shell/lockview"
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/sockdir"
@@ -154,72 +154,29 @@ func TestAStoppedWatchPostsNothing(t *testing.T) {
 	}
 }
 
-type fakeUPower struct {
-	mu    sync.Mutex
-	props map[string]dbus.Variant
-	conn  *dbus.Conn
-}
-
-func (u *fakeUPower) GetAll(string) (map[string]dbus.Variant, *dbus.Error) {
-	u.mu.Lock()
-	defer u.mu.Unlock()
-	return maps.Clone(u.props), nil
-}
-
-func (u *fakeUPower) set(t *testing.T, percent float64, state uint32) {
-	t.Helper()
-	u.mu.Lock()
-	u.props["Percentage"] = dbus.MakeVariant(percent)
-	u.props["State"] = dbus.MakeVariant(state)
-	u.mu.Unlock()
-	changed := map[string]dbus.Variant{"Percentage": dbus.MakeVariant(percent)}
-	if err := u.conn.Emit(upower.DisplayDevicePath, "org.freedesktop.DBus.Properties.PropertiesChanged", "org.freedesktop.UPower.Device", changed, []string{}); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func startUPower(t *testing.T, bus *dbustest.Bus, present bool) *fakeUPower {
-	t.Helper()
-	conn := bus.Conn(t)
-	u := &fakeUPower{conn: conn, props: map[string]dbus.Variant{
-		"IsPresent":  dbus.MakeVariant(present),
-		"Percentage": dbus.MakeVariant(57.4),
-		"State":      dbus.MakeVariant(uint32(2)),
-	}}
-	if err := conn.ExportMethodTable(map[string]any{"GetAll": u.GetAll}, upower.DisplayDevicePath, "org.freedesktop.DBus.Properties"); err != nil {
-		t.Fatal(err)
-	}
-	if reply, err := conn.RequestName(upower.BusName, dbus.NameFlagDoNotQueue); err != nil || reply != dbus.RequestNameReplyPrimaryOwner {
-		t.Fatalf("own %s: %v %v", upower.BusName, reply, err)
-	}
-	return u
-}
-
 type batterySeen struct {
 	level lockview.BatteryLevel
 	ok    bool
 }
 
-func watchBattery(t *testing.T) (chan batterySeen, loopQueue, func()) {
+func watchBattery(t *testing.T, src powersupply.Source) (chan batterySeen, loopQueue, func()) {
 	t.Helper()
 	loop := make(loopQueue, 8)
 	watches := &busWatches{invoke: loop.Invoke}
 	seen := make(chan batterySeen, 8)
-	stop := watches.battery(func(l lockview.BatteryLevel, ok bool) { seen <- batterySeen{l, ok} })
+	stop := watches.battery(src)(func(l lockview.BatteryLevel, ok bool) { seen <- batterySeen{l, ok} })
 	return seen, loop, func() { stop(); watches.wait() }
 }
 
-func TestTheBatteryFollowsUPower(t *testing.T) {
-	bus := dbustest.Start(t)
-	bus.UseAsSystemBus(t)
-	u := startUPower(t, bus, true)
-	seen, loop, stop := watchBattery(t)
+func TestTheBatteryFollowsTheMachinesBattery(t *testing.T) {
+	src := powersupplytest.New(powersupplytest.Battery(57.4, powersupply.StateDischarging, powersupply.WarningNone))
+	seen, loop, stop := watchBattery(t, src)
 	defer stop()
 	loop.next(t, "the first reading")
 	if got := <-seen; !got.ok || got.level != (lockview.BatteryLevel{Percent: 57}) {
 		t.Fatalf("first reading %+v %v", got.level, got.ok)
 	}
-	u.set(t, 58, 1)
+	src.SetDevice(powersupplytest.Battery(58, powersupply.StateCharging, powersupply.WarningNone))
 	loop.next(t, "the charging reading")
 	if got := <-seen; !got.ok || got.level != (lockview.BatteryLevel{Percent: 58, Charging: true}) {
 		t.Fatalf("charging reading %+v %v", got.level, got.ok)
@@ -227,24 +184,11 @@ func TestTheBatteryFollowsUPower(t *testing.T) {
 }
 
 func TestADesktopWithoutABatteryShowsNone(t *testing.T) {
-	bus := dbustest.Start(t)
-	bus.UseAsSystemBus(t)
-	startUPower(t, bus, false)
-	seen, loop, stop := watchBattery(t)
+	seen, loop, stop := watchBattery(t, powersupplytest.New(powersupply.Device{}))
 	defer stop()
 	loop.next(t, "the first reading")
 	if got := <-seen; got.ok {
 		t.Errorf("no battery shows %+v", got.level)
-	}
-}
-
-func TestWithoutUPowerTheBatteryIsNeverShown(t *testing.T) {
-	bus := dbustest.Start(t)
-	bus.UseAsSystemBus(t)
-	seen, loop, stop := watchBattery(t)
-	stop()
-	if len(seen) != 0 || len(loop) != 0 {
-		t.Error("a bus without UPower reported a battery")
 	}
 }
 
@@ -270,10 +214,8 @@ func TestStoppingAWatchEndsItsDialOfASilentBus(t *testing.T) {
 	t.Setenv("DBUS_SYSTEM_BUS_ADDRESS", "unix:path="+sock)
 	t.Setenv("DBUS_SESSION_BUS_ADDRESS", "unix:path="+sock)
 	watches := &busWatches{invoke: func(func()) { t.Error("a silent bus posted to the lock") }}
-	stopBattery := watches.battery(func(lockview.BatteryLevel, bool) {})
 	stopFingerprint := watches.fingerprint("ada")(func(fprint.Result) {})
 	stopMedia := newSessionMedia(watches, config.MediaConfig{}).Watch(func(nowPlaying, bool) {})
-	stopBattery()
 	stopFingerprint()
 	stopMedia()
 	ended := make(chan struct{})

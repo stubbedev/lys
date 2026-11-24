@@ -20,7 +20,7 @@ func TestAppendItemsSkipsModuleThatFailsToBuild(t *testing.T) {
 	ok := stubModule{root: widget.NewBox(widget.Row, 0, 0)}
 	factories["test-ok"] = func(ModuleContext) (Module, error) { return ok, nil }
 	factories["test-missing"] = func(ModuleContext) (Module, error) {
-		return nil, errors.New("upower: The name is not activatable")
+		return nil, errors.New("bluetooth: The name is not activatable")
 	}
 	defer delete(factories, "test-ok")
 	defer delete(factories, "test-missing")

@@ -10,7 +10,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/service/mpris"
-	"github.com/stubbedev/lys/desktop/service/upower"
+	"github.com/stubbedev/lys/desktop/service/powersupply"
 	"github.com/stubbedev/lys/desktop/shell/lockview"
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
@@ -40,26 +40,29 @@ type busWatches struct {
 
 func (b *busWatches) wait() { b.wg.Wait() }
 
-func (b *busWatches) run(what string, dial busDial, body func(ctx context.Context, conn *dbus.Conn) error) (stop func()) {
+func (b *busWatches) watch(what string, body func(ctx context.Context) error) (stop func()) {
 	ctx, cancel := context.WithCancel(context.Background())
 	b.wg.Go(func() {
+		if err := body(ctx); err != nil && ctx.Err() == nil {
+			log.Printf("lock: %s: %v", what, err)
+		}
+	})
+	return cancel
+}
+
+func (b *busWatches) run(what string, dial busDial, body func(ctx context.Context, conn *dbus.Conn) error) (stop func()) {
+	return b.watch(what, func(ctx context.Context) error {
 		conn, err := dial(ctx)
 		if err != nil {
-			if ctx.Err() == nil {
-				log.Printf("lock: %s: %v", what, err)
-			}
-			return
+			return err
 		}
 		defer func() {
 			if err := conn.Close(); err != nil {
 				log.Printf("lock: %s: close the bus connection: %v", what, err)
 			}
 		}()
-		if err := body(ctx, conn); err != nil && ctx.Err() == nil {
-			log.Printf("lock: %s: %v", what, err)
-		}
+		return body(ctx, conn)
 	})
-	return cancel
 }
 
 func (b *busWatches) post(ctx context.Context, fn func()) {
@@ -145,39 +148,37 @@ func (m *sessionMedia) Next(bus string) {
 	m.control(mediaControl{what: "next track", bus: bus, run: (*mpris.Service).Next})
 }
 
-func (b *busWatches) battery(onChange func(lockview.BatteryLevel, bool)) (stop func()) {
-	return b.run("battery", dialSystemBus, func(ctx context.Context, conn *dbus.Conn) (err error) {
-		src := upower.NewOn(conn)
-		ticks, unsubscribe, err := src.Subscribe(ctx)
-		if err != nil {
-			return err
-		}
-		defer func() {
-			if stopErr := unsubscribe(); stopErr != nil {
-				err = errors.Join(err, fmt.Errorf("stop following UPower: %w", stopErr))
-			}
-		}()
-		for {
-			dev, err := src.Read(ctx)
-			if de, ok := errors.AsType[dbus.Error](err); ok && de.Name == "org.freedesktop.DBus.Error.ServiceUnknown" {
-				log.Printf("lock: battery: no UPower on the system bus")
-				return nil
-			}
+// battery follows src for the lock's battery level.
+func (b *busWatches) battery(src powersupply.Source) func(onChange func(lockview.BatteryLevel, bool)) (stop func()) {
+	return func(onChange func(lockview.BatteryLevel, bool)) func() {
+		return b.watch("battery", func(ctx context.Context) (err error) {
+			ticks, unsubscribe, err := src.Subscribe(ctx)
 			if err != nil {
 				return err
 			}
-			level, present := batteryLevelOf(dev)
-			b.post(ctx, func() { onChange(level, present) })
-			select {
-			case <-ctx.Done():
-				return nil
-			case _, open := <-ticks:
-				if !open {
+			defer func() {
+				if stopErr := unsubscribe(); stopErr != nil {
+					err = errors.Join(err, fmt.Errorf("stop following the battery: %w", stopErr))
+				}
+			}()
+			for {
+				dev, err := src.Read(ctx)
+				if err != nil {
+					return err
+				}
+				level, present := batteryLevelOf(dev)
+				b.post(ctx, func() { onChange(level, present) })
+				select {
+				case <-ctx.Done():
 					return nil
+				case _, open := <-ticks:
+					if !open {
+						return nil
+					}
 				}
 			}
-		}
-	})
+		})
+	}
 }
 
 func (b *busWatches) fingerprint(user string) func(onResult func(fprint.Result)) (stop func()) {

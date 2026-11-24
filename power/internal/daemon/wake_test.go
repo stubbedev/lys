@@ -8,34 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys/lib/dbusx"
-	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/udevmonitor"
 	"github.com/stubbedev/lys/lib/waittest"
 	"golang.org/x/sys/unix"
 )
-
-func TestTouchesOnBattery(t *testing.T) {
-	t.Parallel()
-	tests := []struct {
-		name    string
-		changed dbusx.ChangedProperties
-		want    bool
-	}{
-		{"changed", dbusx.ChangedProperties{Interface: upowerName, Changed: map[string]dbus.Variant{"OnBattery": dbus.MakeVariant(true)}}, true},
-		{"invalidated", dbusx.ChangedProperties{Interface: upowerName, Changed: map[string]dbus.Variant{}, Invalidated: []string{"OnBattery"}}, true},
-		{"lid only", dbusx.ChangedProperties{Interface: upowerName, Changed: map[string]dbus.Variant{"LidIsClosed": dbus.MakeVariant(true)}}, false},
-		{"nothing", dbusx.ChangedProperties{Interface: upowerName}, false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			if got := touchesOnBattery(tt.changed); got != tt.want {
-				t.Errorf("touchesOnBattery() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
 
 const quietWindow = 200 * time.Millisecond
 
@@ -111,30 +87,43 @@ func TestNilWatchNeverWakes(t *testing.T) {
 	}
 }
 
-func TestDisplayWatchWakesOnlyForDisplays(t *testing.T) {
+func TestAUdevWatchWakesOnlyForItsSubsystem(t *testing.T) {
 	t.Parallel()
-	fds, err := unix.Socketpair(unix.AF_UNIX, unix.SOCK_DGRAM|unix.SOCK_CLOEXEC|unix.SOCK_NONBLOCK, 0)
-	if err != nil {
-		t.Fatal(err)
+	events := map[string][]string{
+		"mem":            {"ACTION=change", "SUBSYSTEM=mem", "DEVPATH=/devices/virtual/mem/null"},
+		displaySubsystem: {"ACTION=change", "SUBSYSTEM=drm", "DEVPATH=/devices/pci0000:00/0000:00:02.0/drm/card0", "HOTPLUG=1"},
+		supplySubsystem:  {"ACTION=change", "SUBSYSTEM=power_supply", "DEVPATH=/devices/LNXSYSTM:00/ACPI0003:00/power_supply/AC"},
 	}
-	defer unix.Close(fds[1])
-	if err := udevmonitor.Filter(fds[0], displaySubsystems); err != nil {
-		t.Fatal(err)
+	for _, subsystem := range []string{displaySubsystem, supplySubsystem} {
+		t.Run(subsystem, func(t *testing.T) {
+			t.Parallel()
+			fds, err := unix.Socketpair(unix.AF_UNIX, unix.SOCK_DGRAM|unix.SOCK_CLOEXEC|unix.SOCK_NONBLOCK, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer unix.Close(fds[1])
+			if err := udevmonitor.Filter(fds[0], []string{subsystem}); err != nil {
+				t.Fatal(err)
+			}
+			send := func(props []string) {
+				t.Helper()
+				if _, err := unix.Write(fds[1], udevmonitor.Frame(props...)); err != nil {
+					t.Fatal(err)
+				}
+			}
+			for other, props := range events {
+				if other != subsystem {
+					send(props)
+				}
+			}
+			pending := []unix.PollFd{{Fd: int32(fds[0]), Events: unix.POLLIN}}
+			if n, err := unix.Poll(pending, 0); err != nil || n != 0 {
+				t.Fatalf("another subsystem's uevent reached the %s watch: %d ready, %v", subsystem, n, err)
+			}
+			watch := newFDWake(fds[0], "udev:"+subsystem, udevmonitor.MaxMessage)
+			defer watch.Close()
+			send(events[subsystem])
+			waittest.For(t, watch.wakes(), "a "+subsystem+" event to wake the watch")
+		})
 	}
-	send := func(props ...string) {
-		t.Helper()
-		if _, err := unix.Write(fds[1], udevmonitor.Frame(props...)); err != nil {
-			t.Fatal(err)
-		}
-	}
-	send("ACTION=change", "SUBSYSTEM=mem", "DEVPATH=/devices/virtual/mem/null")
-	send("ACTION=change", "SUBSYSTEM=power_supply", "DEVPATH=/devices/LNXSYSTM:00/PNP0C0A:00/power_supply/BAT0")
-	pending := []unix.PollFd{{Fd: int32(fds[0]), Events: unix.POLLIN}}
-	if n, err := unix.Poll(pending, 0); err != nil || n != 0 {
-		t.Fatalf("an unrelated uevent reached the display watch: %d ready, %v", n, err)
-	}
-	watch := newFDWake(fds[0], "udev:drm", udevmonitor.MaxMessage)
-	defer watch.Close()
-	send("ACTION=change", "SUBSYSTEM=drm", "DEVPATH=/devices/pci0000:00/0000:00:02.0/drm/card0", "HOTPLUG=1")
-	waittest.For(t, watch.wakes(), "a display hotplug to wake the watch")
 }

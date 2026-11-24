@@ -14,12 +14,13 @@ import (
 	"github.com/stubbedev/lys/desktop/service/idleinhibit/inhibitduration"
 	"github.com/stubbedev/lys/desktop/service/mpris"
 	"github.com/stubbedev/lys/desktop/service/powerprofiles"
+	"github.com/stubbedev/lys/desktop/service/powersupply"
 	"github.com/stubbedev/lys/desktop/service/pulse"
-	"github.com/stubbedev/lys/desktop/service/upower"
 	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/power/charge"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/shell/internal/notifytest"
@@ -43,16 +44,21 @@ func TestDashboardBatteryHelpers(t *testing.T) {
 			t.Errorf("%v%% charging=%v = %q, want %q", tc.pct, tc.charging, got, tc.want)
 		}
 	}
-	held := upower.Device{ChargeThresholdSupported: true, ChargeThresholdEnabled: true, ChargeEndThreshold: 80}
-	if got, want := dashboardChargeLimit(held), i18n.T("dropdown-battery-limit-to", i18n.Str("threshold", "80")); got != want {
+	held := charge.State{Limit: charge.Limit85, Reason: charge.ReasonHolding, Dock: charge.DockUnknown}
+	if got, want := dashboardChargeLimit(held, true), i18n.T("dropdown-battery-limit-to", i18n.Str("threshold", "85")); got != want {
 		t.Errorf("a limit in force reads %q, want %q", got, want)
 	}
-	for _, dev := range []upower.Device{
-		{ChargeThresholdSupported: true, ChargeEndThreshold: 80},
-		{ChargeThresholdEnabled: true, ChargeEndThreshold: 80},
+	for name, st := range map[string]struct {
+		state   charge.State
+		running bool
+	}{
+		"lys-power not running": {held, false},
+		"charging to full":      {charge.State{Limit: charge.Limit85, Reason: charge.ReasonUnplug}, true},
+		"no limit":              {charge.State{Limit: charge.Limit100, Reason: charge.ReasonUnlimited}, true},
+		"an unmanaged battery":  {charge.State{Limit: charge.Limit80, Reason: charge.ReasonUnmanaged}, true},
 	} {
-		if got := dashboardChargeLimit(dev); got != "" {
-			t.Errorf("no limit in force (supported %v, enabled %v) reads %q", dev.ChargeThresholdSupported, dev.ChargeThresholdEnabled, got)
+		if got := dashboardChargeLimit(st.state, st.running); got != "" {
+			t.Errorf("%s reads %q", name, got)
 		}
 	}
 }
@@ -102,7 +108,7 @@ func TestTheDashboardBatteryAndTheBarModuleShareOneThresholdSet(t *testing.T) {
 	cfg := config.Defaults()
 	blue := config.ColorValue{Kind: config.ColorToken, Token: config.TokenBlue}
 	cfg.Thresholds.Battery = []config.ThresholdEntry{{Below: ptrF(50), IconColor: &blue}}
-	device := upower.Device{Percentage: 40, State: upower.StateDischarging, IsPresent: true}
+	device := powersupply.Device{Percentage: 40, State: powersupply.StateDischarging, IsPresent: true}
 	ctx := newTestContext(t, cfg)
 	ctx.Battery = newFakeBattery(device)
 	v := openView(t, ctx, noRadiosDashboard).(*dashboardView)
@@ -137,7 +143,7 @@ func TestTheDashboardBatteryAndTheBarModuleShareOneThresholdSet(t *testing.T) {
 	if got := m.btn.Thresholds().IconColor; got == nil || *got != blue {
 		t.Errorf("the bar module's icon override = %+v, want the shared threshold's blue", got)
 	}
-	m.apply(upower.Device{Percentage: 60, State: upower.StateDischarging, IsPresent: true})
+	m.apply(powersupply.Device{Percentage: 60, State: powersupply.StateDischarging, IsPresent: true})
 	if !m.btn.Thresholds().IsEmpty() {
 		t.Errorf("above the shared threshold the bar module still overrides %+v", m.btn.Thresholds())
 	}
@@ -151,7 +157,7 @@ func TestDashboardPaintsFromTheStylesheet(t *testing.T) {
 	cfg := config.Defaults()
 	ctx := styledContext(t, cfg)
 	ctx.Media = newFakeMedia(mpris.Player{BusName: "org.mpris.MediaPlayer2.x", Title: "Song", Artist: "Band", State: mpris.StatePlaying})
-	ctx.Battery = newFakeBattery(upower.Device{Percentage: 8, State: upower.StateDischarging, IsPresent: true, TimeToEmpty: 20 * time.Minute})
+	ctx.Battery = newFakeBattery(powersupply.Device{Percentage: 8, State: powersupply.StateDischarging, IsPresent: true, TimeToEmpty: 20 * time.Minute})
 	v := openView(t, ctx, noRadiosDashboard).(*dashboardView)
 
 	var gauge *widget.ProgressBar
@@ -277,7 +283,7 @@ func TestDashboardMediaAndBatterySections(t *testing.T) {
 	cfg := config.Defaults()
 	ctx := newTestContext(t, cfg)
 	ctx.Media = newFakeMedia(mpris.Player{BusName: "org.mpris.MediaPlayer2.x", Title: "Song", Artist: "Band", State: mpris.StatePlaying})
-	ctx.Battery = newFakeBattery(upower.Device{Percentage: 8, State: upower.StateDischarging, IsPresent: true, TimeToEmpty: 20 * time.Minute})
+	ctx.Battery = newFakeBattery(powersupply.Device{Percentage: 8, State: powersupply.StateDischarging, IsPresent: true, TimeToEmpty: 20 * time.Minute})
 	v := openView(t, ctx, noRadiosDashboard).(*dashboardView)
 	texts := map[string]bool{}
 	walkTree(v, func(w widget.Widget) bool {
@@ -286,7 +292,7 @@ func TestDashboardMediaAndBatterySections(t *testing.T) {
 		}
 		return true
 	})
-	dev := upower.Device{Percentage: 8, State: upower.StateDischarging, TimeToEmpty: 20 * time.Minute}
+	dev := powersupply.Device{Percentage: 8, State: powersupply.StateDischarging, TimeToEmpty: 20 * time.Minute}
 	for _, want := range []string{"Song", "Band", "8%", batteryTimeDisplay(dev), batteryStateLabel(dev), i18n.T("dropdown-dashboard-now-playing")} {
 		if !texts[want] {
 			t.Errorf("dashboard is missing %q", want)
@@ -461,7 +467,7 @@ func TestDashboardBatteryDetailTakesTheThresholdColor(t *testing.T) {
 		t.Helper()
 		cfg := config.Defaults()
 		ctx := newTestContext(t, cfg)
-		ctx.Battery = newFakeBattery(upower.Device{Percentage: pct, State: upower.StateDischarging, IsPresent: true, TimeToEmpty: 20 * time.Minute})
+		ctx.Battery = newFakeBattery(powersupply.Device{Percentage: pct, State: powersupply.StateDischarging, IsPresent: true, TimeToEmpty: 20 * time.Minute})
 		v := openView(t, ctx, noRadiosDashboard).(*dashboardView)
 		var detail *widget.Label
 		walkTree(v, func(w widget.Widget) bool {
@@ -574,11 +580,11 @@ func TestDashboardQuickActionTiles(t *testing.T) {
 	}
 }
 
-// The battery card shows only for a present battery: a desktop's UPower display device
-// reports none, and the card follows a battery arriving or leaving.
+// The battery card shows only for a present battery: a desktop has
+// none, and the card follows a battery arriving or leaving.
 func TestDashboardBatteryCardFollowsPresence(t *testing.T) {
 	ctx := newTestContext(t, config.Defaults())
-	bat := newFakeBattery(upower.Device{Percentage: 50, IsPresent: false})
+	bat := newFakeBattery(powersupply.Device{Percentage: 50, IsPresent: false})
 	ctx.Battery = bat
 	v := openView(t, ctx, noRadiosDashboard).(*dashboardView)
 	card := func() *widget.Box {
@@ -593,7 +599,7 @@ func TestDashboardBatteryCardFollowsPresence(t *testing.T) {
 	if card().Visible() {
 		t.Error("the battery card shows with no battery present")
 	}
-	bat.update(func(d *upower.Device) { d.IsPresent = true })
+	bat.update(func(d *powersupply.Device) { d.IsPresent = true })
 	refreshDashboard(v)
 	if !card().Visible() {
 		t.Error("the battery card stays hidden once a battery is present")

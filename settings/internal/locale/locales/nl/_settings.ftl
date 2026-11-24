@@ -1684,7 +1684,6 @@ settings-power-loading = Batterij en energiestand worden gelezen…
 settings-power-unavailable = De batterij en energiestand kunnen niet worden gelezen
 settings-power-failed = De energie-instellingen zijn niet gewijzigd
 settings-power-battery = Batterij
-settings-power-no-upower = UPower draait niet, dus de batterij kan niet worden gelezen
 settings-power-no-battery = Deze computer heeft geen batterij; hij draait op netstroom
 settings-power-percent = { $percent ->
     [one] { $percent }%
@@ -1696,16 +1695,11 @@ settings-power-health-detail = { $percent ->
    *[other] Houdt { $percent }% van zijn ontwerpcapaciteit
 }
 settings-power-charge-limit = Laadlimiet
-settings-power-charge-limit-detail = { $percent ->
-    [one] Stopt met laden bij { $percent }% om de batterij te sparen
-   *[other] Stopt met laden bij { $percent }% om de batterij te sparen
-}
 settings-power-charge-limit-choice-detail = Houdt de batterij aan de lader op deze lading zodat hij langzamer slijt; vóór je gebruikelijke vertrek laadt hij toch helemaal op. 100% zet de limiet uit.
 settings-power-charge-limit-refused = De laadlimiet is niet gewijzigd
 settings-power-state-unknown = Status onbekend
 settings-power-state-charging = Bezig met laden
 settings-power-state-discharging = Op batterij
-settings-power-state-empty = Leeg
 settings-power-state-full = Volledig opgeladen
 settings-power-state-not-charging = Aangesloten, laadt niet
 settings-power-state-with-time = { $state } · { $time }

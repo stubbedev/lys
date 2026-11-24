@@ -16,13 +16,14 @@ import (
 	"github.com/stubbedev/lys/desktop/service/mpris"
 	"github.com/stubbedev/lys/desktop/service/network"
 	"github.com/stubbedev/lys/desktop/service/powerprofiles"
+	"github.com/stubbedev/lys/desktop/service/powersupply"
 	"github.com/stubbedev/lys/desktop/service/pulse"
 	"github.com/stubbedev/lys/desktop/service/rfkill"
-	"github.com/stubbedev/lys/desktop/service/upower"
 	"github.com/stubbedev/lys/desktop/settingspage"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/desktop/spawn"
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/power/charge"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
@@ -71,7 +72,7 @@ type dashboardReadings struct {
 	network   network.Snapshot
 	networkOK bool
 	profiles  powerprofiles.Snapshot
-	battery   upower.Device
+	battery   powersupply.Device
 	batteryOK bool
 	radios    rfkill.Snapshot
 	sink      pulse.Device
@@ -657,18 +658,20 @@ func dashboardBatteryIcon(percent float64, charging bool) string {
 	return "ld-battery-warning-symbolic"
 }
 
-func dashboardChargeLimit(dev upower.Device) string {
-	if !dev.ChargeThresholdSupported || !dev.ChargeThresholdEnabled {
+// dashboardChargeLimit names the limit lys-power holds the battery at,
+// "" while it holds none.
+func dashboardChargeLimit(st charge.State, running bool) string {
+	if !running || st.Reason != charge.ReasonHolding {
 		return ""
 	}
-	return i18n.T("dropdown-battery-limit-to", i18n.Str("threshold", strconv.FormatUint(uint64(dev.ChargeEndThreshold), 10)))
+	return i18n.T("dropdown-battery-limit-to", i18n.Str("threshold", strconv.Itoa(st.Limit.Percent())))
 }
 
 // battery is the battery card: icon and percent, the gauge, then what
 // the power-saver toggle cannot say: whether it charges, the time left
 // or until full, and the charge limit in force, tinted by the battery's
 // thresholds. The card shows only while a battery is present: a
-// desktop's UPower display device, or none at all, leaves the network
+// desktop without one leaves the network
 // card the row.
 func (v *dashboardView) battery() *widget.Box {
 	card := v.card("ld-battery-full-symbolic", i18n.T("dropdown-dashboard-battery"))
@@ -712,7 +715,10 @@ func (v *dashboardView) battery() *widget.Box {
 		remaining.SetText(left)
 		remaining.SetVisible(left != "")
 		remaining.SetInlineStyle(colorDecl("color", colors.LabelColor))
-		held := dashboardChargeLimit(dev)
+		held := ""
+		if v.ctx.Charge != nil {
+			held = dashboardChargeLimit(v.ctx.Charge.Value())
+		}
 		limit.SetText(held)
 		limit.SetVisible(held != "")
 	})

@@ -16,7 +16,7 @@ import (
 	"github.com/stubbedev/lys/desktop/service/lyswm/lyswmtest"
 	"github.com/stubbedev/lys/desktop/service/network"
 	"github.com/stubbedev/lys/desktop/service/powerprofiles"
-	"github.com/stubbedev/lys/desktop/service/upower"
+	"github.com/stubbedev/lys/desktop/service/powersupply"
 	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/logtest"
@@ -223,7 +223,7 @@ type heldBattery struct {
 	h *heldRead
 }
 
-func (s heldBattery) Read(ctx context.Context) (upower.Device, error) {
+func (s heldBattery) Read(ctx context.Context) (powersupply.Device, error) {
 	s.h.wait()
 	return s.fakeBattery.Read(ctx)
 }
@@ -260,7 +260,7 @@ func TestHeadlessLoopRunsWhileAReadIsBlocked(t *testing.T) {
 			return Create("brightness", ctx)
 		}},
 		{name: "battery", create: func(ctx ModuleContext, h *heldRead, ticks chan struct{}) (Module, error) {
-			f := newFakeBattery(upower.Device{})
+			f := newFakeBattery(powersupply.Device{})
 			f.ticks = ticks
 			ctx.Battery = heldBattery{f, h}
 			return Create("battery", ctx)
@@ -555,7 +555,7 @@ func TestMountingAFullLayoutCompletesWhileEverySourceHolds(t *testing.T) {
 
 func TestAModuleStaysHiddenUntilItsFirstRead(t *testing.T) {
 	ctx, a := loopContext(t)
-	source := heldBattery{newFakeBattery(upower.Device{IsPresent: true, Percentage: 50}), newHeldRead(t)}
+	source := heldBattery{newFakeBattery(powersupply.Device{IsPresent: true, Percentage: 50}), newHeldRead(t)}
 	source.h.held.Store(true)
 	ctx.Battery = source
 	var chrome *widget.Box

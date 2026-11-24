@@ -47,8 +47,8 @@
     checks.lys-power-nixos-module = pkgs.runCommand "lys-power-nixos-module" {} ''
       unit=${pkg}/lib/systemd/system/lys-power.service
       grep -qxF "ExecStart=${lib.getExe pkg} run" $unit
-      grep -qxF "After=power-profiles-daemon.service upower.service" $unit
-      grep -qxF "Wants=upower.service" $unit
+      grep -qxF "After=power-profiles-daemon.service" $unit
+      if grep -q "upower" $unit; then echo "lys-power.service still orders itself after UPower" >&2; exit 1; fi
       grep -qxF "Type=notify" $unit
       grep -qxF "StateDirectory=lys-power" $unit
       grep -qxF "Restart=on-failure" $unit
@@ -64,7 +64,7 @@
       ${fail (!lib.elem pkg nixos.systemd.tmpfiles.packages) "lys-power is not in systemd.tmpfiles.packages"}
       ${fail (!lib.elem pkg nixos.environment.systemPackages) "lys-power is not in environment.systemPackages"}
       ${fail (!lib.elem pkg nixos.services.dbus.packages) "lys-power's system bus policy is not in services.dbus.packages"}
-      ${fail (!nixos.services.upower.enable) "upower is not enabled"}
+      ${fail nixos.services.upower.enable "upower is enabled, which lys-power does not need"}
       ${fail (!nixos.services.power-profiles-daemon.enable) "power-profiles-daemon is not enabled"}
       ${fail ((environment nixos).LYS_POWER_DEVICE_POLICY != "battery" || (environment nixos).LYS_POWER_DEVICE_DENY != "") "the device power policy does not default to battery with nothing denied"}
       ${fail ((environment devices).LYS_POWER_DEVICE_POLICY != "off") "devicePower.policy does not reach LYS_POWER_DEVICE_POLICY"}

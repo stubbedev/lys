@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/config"
-	"github.com/stubbedev/lys/desktop/service/upower"
+	"github.com/stubbedev/lys/desktop/service/powersupply"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/shell/internal/apptest"
@@ -130,7 +130,7 @@ func TestABuiltAheadDropdownReadsNothingUntilItOpens(t *testing.T) {
 	cfg := config.Defaults()
 	cfg.Bar.Layout = []config.BarLayout{{Monitor: "*", Show: true, Right: []config.BarItem{{Module: "battery"}}}}
 	ctx := newTestContext(t, cfg)
-	battery := &countedBattery{fakeBattery: newFakeBattery(upower.Device{IsPresent: true})}
+	battery := &countedBattery{fakeBattery: newFakeBattery(powersupply.Device{IsPresent: true})}
 	ctx.Battery = battery
 	r, q := prebuildingRegistryOf(ctx)
 	q.run(func() { r.attachHost("DP-1", fakeHost{}, widget.Size{W: 1600, H: 1000}) })

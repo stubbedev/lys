@@ -17,6 +17,7 @@ import (
 	"github.com/stubbedev/lys/desktop/imagedecode"
 	"github.com/stubbedev/lys/desktop/logging"
 	"github.com/stubbedev/lys/desktop/outputsize"
+	"github.com/stubbedev/lys/desktop/service/powersupply"
 	"github.com/stubbedev/lys/desktop/shell/apptheme"
 	"github.com/stubbedev/lys/desktop/shell/lockclient"
 	"github.com/stubbedev/lys/desktop/shell/lockview"
@@ -121,7 +122,7 @@ func Run(cfg *config.Config, stdout io.Writer, vaultHelper []string) error {
 		},
 		SetLockedHint:    hints.set,
 		Media:            newSessionMedia(watches, cfg.Media),
-		Battery:          watches.battery,
+		Battery:          watches.battery(powersupply.New(powersupply.Dir)),
 		Fingerprint:      watches.fingerprint(auth.CurrentUsername()),
 		OnKeyboardLayout: a.OnKeyboardLayout,
 		NextLayout:       layouts.Switcher("lock"),

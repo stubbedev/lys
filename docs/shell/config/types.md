@@ -121,8 +121,8 @@ String.
 
 | Value | Meaning |
 |---|---|
-| `"low"` | At UPower's low warning level. |
-| `"critical"` | At UPower's critical warning level. |
+| `"low"` | At the low warning level, 20%. |
+| `"critical"` | At the critical warning level, 5%. |
 | `"never"` | Never switch automatically. |
 
 ## BarAutoHide {#bar-auto-hide}

@@ -22,7 +22,7 @@ if it dies while the session is locked. It reports state to logind with
 
 - Clock and date.
 - The current MPRIS track with play/pause and next. Only local cover art is drawn.
-- Battery charge from UPower, on machines with a battery.
+- Battery charge from the kernel, on machines with a battery.
 - The keyboard layout chip when the keymap has several layouts; click it or use the
   compositor's layout keys to switch.
 - **Switch User**, under lys-login's display manager when another account

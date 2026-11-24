@@ -149,9 +149,9 @@ func TestTheBatteryColumnLeavesWithoutABattery(t *testing.T) {
 		power func() (powerControl, error)
 		shown bool
 	}{
-		"a laptop":         {func() (powerControl, error) { return laptop(), nil }, true},
-		"a desktop":        {func() (powerControl, error) { return desktop, nil }, false},
-		"no UPower to ask": {func() (powerControl, error) { return nil, errors.New("no UPower") }, true},
+		"a laptop":          {func() (powerControl, error) { return laptop(), nil }, true},
+		"a desktop":         {func() (powerControl, error) { return desktop, nil }, false},
+		"no battery to ask": {func() (powerControl, error) { return nil, errors.New("no battery") }, true},
 	} {
 		k := testKit(t, "")
 		asked := 0

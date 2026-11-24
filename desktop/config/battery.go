@@ -29,15 +29,12 @@ func NapLevels() []NapLevel { return slices.Clone(napLevels) }
 // BatteryConfig configures the battery module.
 //
 // Battery level, charging state, and a dropdown with the batteries of
-// peripherals UPower reports (wireless mice, keyboards, controllers,
-// headsets) and power-profile controls. Low and critical battery levels
+// peripherals the kernel reports (wireless mice, keyboards, controllers,
+// pens) and power-profile controls. Low and critical battery levels
 // send critical notifications whether or not the module is placed.
 //
-// ::: warning
-//
-// This module uses `upower` (D-Bus) for battery information. Ensure `upower` daemon is running and exposes a battery device (verify with `upower --battery` or `upower --dump`).
-//
-// :::
+// The battery is read from the kernel's `/sys/class/power_supply`; no
+// daemon is needed.
 type BatteryConfig struct {
 	// Icons for battery levels from empty to full.
 	//
@@ -84,11 +81,11 @@ type BatteryConfig struct {
 	ScrollUp ClickAction `cfg:"scroll-up"`
 	// Action on scroll down.
 	ScrollDown ClickAction `cfg:"scroll-down"`
-	// Send a critical notification when the battery, or a peripheral UPower
-	// reports such as a wireless mouse, enters UPower's low or critical
+	// Send a critical notification when the battery, or a peripheral the
+	// kernel reports such as a wireless mouse, enters the low or critical
 	// warning level.
 	//
-	// The levels follow UPower's `PercentageLow` and `PercentageCritical`.
+	// Low is 20% and critical 5%, on battery.
 	// Each level notifies once; plugging in and unplugging again re-arms them.
 	// At 20% on battery it also offers Low Power (the power-saver profile)
 	// with a button that turns it on, once until the next unplug, and never

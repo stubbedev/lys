@@ -4,7 +4,7 @@ import (
 	"context"
 	"log"
 
-	"github.com/stubbedev/lys/desktop/service/upower"
+	"github.com/stubbedev/lys/desktop/service/powersupply"
 )
 
 // tellWallpaperOLED tells the wallpaper, on the loop, which outputs
@@ -18,7 +18,7 @@ func (s *shellStart) tellWallpaperOLED(names []string) {
 
 // followPowerSourceForWallpaper tells the wallpaper whether the machine
 // runs on its battery, now and at every change, until the returned stop.
-func (s *shellStart) followPowerSourceForWallpaper(battery *upower.System) (stop func()) {
+func (s *shellStart) followPowerSourceForWallpaper(battery *powersupply.Sysfs) (stop func()) {
 	if s.wall == nil {
 		return func() {}
 	}
@@ -30,9 +30,7 @@ func (s *shellStart) followPowerSourceForWallpaper(battery *upower.System) (stop
 		return func() {}
 	}
 	read := func() {
-		reading, done := context.WithTimeout(life, upowerTimeout)
-		on, err := battery.OnBattery(reading)
-		done()
+		on, err := battery.OnBattery(life)
 		if err != nil {
 			log.Printf("wallpaper: power source: %v; the OLED dim keeps its last state", err)
 			return
