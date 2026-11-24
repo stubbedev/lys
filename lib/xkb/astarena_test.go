@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/stubbedev/lys/lib/testbuild"
 )
 
 func keymapWithKeys(n int) string {
@@ -49,6 +51,7 @@ func TestParsingMoreKeysAllocatesOnlyForChunks(t *testing.T) {
 }
 
 func TestCompilingMoreKeysCarvesTheirGroupsAndLevelsFromChunks(t *testing.T) {
+	testbuild.SkipAllocBudget(t)
 	ctx := NewContext(func(string) string { return "" })
 	ctx.SetLogLevel(LogCritical)
 	compile := func(text string) func() {
@@ -83,6 +86,7 @@ func keymapWithInterprets(n int) string {
 }
 
 func TestParsingMoreInterpretsCarvesTheirBodiesAndArgumentsFromChunks(t *testing.T) {
+	testbuild.SkipAllocBudget(t)
 	ctx := NewContext(func(string) string { return "" })
 	ctx.SetLogLevel(LogCritical)
 	parse := func(text string) func() {
@@ -132,18 +136,25 @@ func TestAnUnrecognizedKeysymCostsNothingUnlessItsWarningIsWanted(t *testing.T) 
 			}
 		}
 	}
+	var warned []string
+	ctx.SetLogFunc(func(_ LogLevel, text string) { warned = append(warned, text) })
+	ctx.SetLogLevel(LogWarning)
+	parse(keymap(1))()
+	unrecognized := 0
+	for _, w := range warned {
+		if strings.Contains(w, `unrecognized keysym "nosuchkeysym"`) {
+			unrecognized++
+		}
+	}
+	if unrecognized != 1 {
+		t.Errorf("with warnings on, parsing logged %q, want the unrecognized keysym once", warned)
+	}
+	testbuild.SkipAllocBudget(t)
 	ctx.SetLogLevel(LogCritical)
 	const few, many = 64, 1024
 	base := testing.AllocsPerRun(5, parse(keymap(few)))
 	more := testing.AllocsPerRun(5, parse(keymap(many)))
 	if perKey := (more - base) / (many - few); perKey > 0.1 {
 		t.Errorf("with warnings off, each further unrecognized keysym allocates %.3f times", perKey)
-	}
-	var warned []string
-	ctx.SetLogFunc(func(_ LogLevel, text string) { warned = append(warned, text) })
-	ctx.SetLogLevel(LogWarning)
-	parse(keymap(1))()
-	if len(warned) != 1 || !strings.Contains(warned[0], `unrecognized keysym "nosuchkeysym"`) {
-		t.Errorf("with warnings on, parsing logged %q, want the unrecognized keysym", warned)
 	}
 }
