@@ -50,7 +50,7 @@
     scripts = map (script: "${script}") s.scripts;
   };
   session = config: args: {
-    command = "${pkgs.systemd}/bin/systemd-cat -t lys-wm ${config.programs.lys-wm.package}/bin/lys-wm --systemd --renderer gles ${args}";
+    command = "${pkgs.systemd}/bin/systemd-cat -t lys-wm ${config.programs.lys-wm.package}/bin/lys-wm --systemd --renderer lavapipe ${args}";
     inherit user;
   };
 in

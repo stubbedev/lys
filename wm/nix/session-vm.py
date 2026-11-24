@@ -81,6 +81,7 @@ def session_started(scenario):
     framed = sorted(set(re.findall(r"drawing the cursor in the frame on ([^:]+):", journal)))
     assert framed == sorted(scenario["framed_cursors"]), f"the cursor is drawn in the frame on {framed}"
     machine.succeed(f"journalctl -b --no-pager -t lys-wm | grep 'rendering on {scenario['renders_on']},'")
+    machine.succeed(f"journalctl -b --no-pager -t lys-wm | grep 'lys-wm: {scenario['renders_on']}.s frames are drawn on the CPU by llvmpipe'")
     machine.fail("journalctl -b --no-pager -t lys-wm | grep CREATE_DUMB")
     if scenario["sole_compositor"]:
         machine.wait_until_succeeds("[ \"$(pgrep -cx lys-wm)\" = 1 ] && ls -l /proc/$(pgrep -x lys-wm)/fd | grep -q /dev/dri/card", timeout=60)
