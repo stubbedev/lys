@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -26,7 +25,6 @@ import (
 	"github.com/stubbedev/lys/wm/internal/loop"
 	cw "github.com/stubbedev/lys/wm/internal/protocol/client/wayland"
 	"github.com/stubbedev/lys/wm/internal/render"
-	"github.com/stubbedev/lys/wm/internal/render/gles"
 	"github.com/stubbedev/lys/wm/internal/render/vulkan"
 	"github.com/stubbedev/lys/wm/internal/server"
 	"github.com/stubbedev/lys/wm/internal/testenv"
@@ -422,36 +420,6 @@ func TestVulkanSharesLinearBytesWithAHostOfImplicitModifiers(t *testing.T) {
 		t.Fatal(err)
 	}
 	checkLinearBytes(t, r, s, modifiers, r, fourcc.Linear)
-}
-
-func TestAnEGLHostImportsThoseBytesWithNoModifier(t *testing.T) {
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
-	display, err := testenv.GPU(t).Surfaceless()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		if err := display.Close(); err != nil {
-			t.Error(err)
-		}
-	}()
-	host, err := gles.New(display)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		if err := host.Close(); err != nil {
-			t.Error(err)
-		}
-	}()
-	r := testenv.VulkanDMABUFs(t)
-	s := &vulkanStack{r: r}
-	modifiers, err := s.modifiers(hostTaking(fourcc.Invalid))
-	if err != nil {
-		t.Fatal(err)
-	}
-	checkLinearBytes(t, r, s, modifiers, host, fourcc.Invalid)
 }
 
 func TestVulkanCopiesLinearBytesForADeviceThatRendersNoLinear(t *testing.T) {

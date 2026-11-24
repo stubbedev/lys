@@ -1,6 +1,6 @@
 // Package shader compiles the one language lys-wm's screen shaders are written
 // in, a subset of GLSL ES 1.00, and hands it to each renderer in the form it
-// takes: GLSL for GLES, SPIR-V for Vulkan and a Go program for the CPU.
+// takes: SPIR-V for Vulkan and a Go program for the CPU.
 package shader
 
 import (
@@ -305,37 +305,16 @@ func (*continueStmt) isStmt() {}
 func (*returnStmt) isStmt()   {}
 func (*blockStmt) isStmt()    {}
 
-type span struct{ from, to int }
-
 type Program struct {
 	functions []*function
 	main      *function
-	source    []byte
-	blanks    []span
 	usesTime  bool
 	spirv     []byte
-	glsl      string
 }
 
 // UsesTime says the shader's image changes on its own, so its output keeps
 // drawing frames.
 func (p *Program) UsesTime() bool { return p.usesTime }
 
-// GLES is the source for a GLSL ES 1.00 driver: the shader as written with
-// precision blanked out in favour of highp, on the same lines and columns.
-func (p *Program) GLES() string { return p.glsl }
-
 // SPIRV is the module for lys-lib's gpu.FragmentShader, in the host's byte order.
 func (p *Program) SPIRV() []byte { return p.spirv }
-
-func (p *Program) buildGLES() {
-	src := append([]byte(nil), p.source...)
-	for _, s := range p.blanks {
-		for i := s.from; i < s.to; i++ {
-			if src[i] != '\n' {
-				src[i] = ' '
-			}
-		}
-	}
-	p.glsl = "precision highp float;precision highp int;" + string(src)
-}

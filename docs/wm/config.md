@@ -108,8 +108,8 @@ Some defaults depend on the renderer chosen at startup:
 
 | Renderer | Default look |
 | --- | --- |
-| GLES or Vulkan on a GPU | Everything; blur for clients that ask for it |
-| GLES on llvmpipe or softpipe, Vulkan on lavapipe or SwiftShader | No blur, the overview's included; `ext_background_effect_v1` is offered without blur |
+| Vulkan on a GPU | Everything; blur for clients that ask for it |
+| Vulkan on lavapipe or SwiftShader | No blur, the overview's included; `ext_background_effect_v1` is offered without blur |
 | Software renderer (`--renderer soft`) | Also no shadow and no animated workspace switch |
 
 Setting `decoration.blur.enabled` or an enabled layer rule's `blur: true` takes blur

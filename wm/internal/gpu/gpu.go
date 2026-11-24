@@ -1,9 +1,9 @@
-// Package gpu binds libEGL, libGLESv2 and libgbm through purego: displays on
-// the GBM, device and surfaceless platforms, GLES2 contexts, dmabuf images,
-// native fences and buffer allocation.
+// Package gpu binds libgbm through purego for buffer allocation, and holds the
+// dmabuf and YUV types the renderers share and the loop thread's pinning.
 package gpu
 
 import (
+	"errors"
 	"fmt"
 	"image"
 	"unsafe"
@@ -14,30 +14,21 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-const (
-	EGLEnv    = "LYS_WM_LIBEGL"
-	GLESv2Env = "LYS_WM_LIBGLESV2"
-	GBMEnv    = "LYS_WM_LIBGBM"
-)
+const GBMEnv = "LYS_WM_LIBGBM"
 
-var (
-	defaultEGL    = "libEGL.so.1"
-	defaultGLESv2 = "libGLESv2.so.2"
-	defaultGBM    = "libgbm.so.1"
-)
+var ErrUnsupported = errors.New("gpu: unsupported")
+
+var defaultGBM = "libgbm.so.1"
 
 type Paths struct {
-	EGL, GLESv2, GBM string
+	GBM string
 }
 
 func PathsFromEnv(getenv func(string) string) Paths {
-	pick := func(env, fallback string) string {
-		if p := getenv(env); p != "" {
-			return p
-		}
-		return fallback
+	if p := getenv(GBMEnv); p != "" {
+		return Paths{GBM: p}
 	}
-	return Paths{EGL: pick(EGLEnv, defaultEGL), GLESv2: pick(GLESv2Env, defaultGLESv2), GBM: pick(GBMEnv, defaultGBM)}
+	return Paths{GBM: defaultGBM}
 }
 
 func open(path, env string) (uintptr, error) {

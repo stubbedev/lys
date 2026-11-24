@@ -7689,6 +7689,7 @@
       "unicode"
     ],
     "testExternal": [
+      "regexp",
       "testing"
     ]
   },
@@ -12905,7 +12906,6 @@
       "wm/internal/gpu",
       "wm/internal/loop",
       "wm/internal/render",
-      "wm/internal/render/gles",
       "wm/internal/render/soft",
       "wm/internal/render/vulkan",
       "wm/internal/wm"
@@ -13008,7 +13008,6 @@
       "lib/testhome",
       "lib/waittest",
       "wm/internal/compositor",
-      "wm/internal/render/gles",
       "wm/internal/server",
       "wm/internal/testenv"
     ],
@@ -13018,7 +13017,6 @@
       "os",
       "os/exec",
       "path/filepath",
-      "runtime",
       "strings",
       "testing",
       "time"
@@ -13544,21 +13542,19 @@
       "github.com/ebitengine/purego",
       "golang.org/x/sys/unix",
       "image",
-      "os",
-      "path/filepath",
       "runtime",
-      "slices",
-      "strings",
       "sync",
-      "sync/atomic",
       "unsafe"
     ],
     "testImports": [
       "lib/fdtest",
-      "lib/testhome",
-      "wm/internal/testenv"
+      "lib/testhome"
     ],
     "testExternal": [
+      "os",
+      "path/filepath",
+      "slices",
+      "strings",
       "testing"
     ]
   },
@@ -14803,38 +14799,6 @@
       "testing"
     ]
   },
-  "wm/internal/render/gles": {
-    "imports": [
-      "lib/fourcc",
-      "lib/gpu",
-      "wm/internal/gpu",
-      "wm/internal/region",
-      "wm/internal/render",
-      "wm/internal/shader"
-    ],
-    "external": [
-      "cmp",
-      "errors",
-      "fmt",
-      "golang.org/x/sys/unix",
-      "image",
-      "math",
-      "runtime",
-      "slices",
-      "strconv",
-      "strings"
-    ],
-    "testImports": [
-      "lib/testhome",
-      "wm/internal/render/rendertest",
-      "wm/internal/render/soft",
-      "wm/internal/testenv"
-    ],
-    "testExternal": [
-      "os",
-      "testing"
-    ]
-  },
   "wm/internal/render/rendertest": {
     "imports": [
       "lib/drm",
@@ -15437,7 +15401,7 @@
       "wm/internal/protocol/client/wlrlayershell",
       "wm/internal/protocol/client/xdgshell",
       "wm/internal/render",
-      "wm/internal/render/gles",
+      "wm/internal/render/vulkan",
       "wm/internal/testenv",
       "wm/internal/wire",
       "wm/internal/wlclient",
@@ -15462,7 +15426,6 @@
       "lib/inter",
       "lib/render",
       "lib/xcursor",
-      "wm/internal/gpu",
       "wm/internal/render/vulkan",
       "wm/internal/xkb"
     ],

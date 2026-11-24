@@ -17,7 +17,6 @@ import (
 	"github.com/stubbedev/lys/lib/xcursor"
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys/wm/internal/gpu"
 	"github.com/stubbedev/lys/wm/internal/render/vulkan"
 	"github.com/stubbedev/lys/wm/internal/xkb"
 )
@@ -65,15 +64,6 @@ func UdevRecord(t testing.TB, data, node string) {
 	if _, err := os.Stat(record); err != nil {
 		missing(t, "udev has no record of %s (%v), so libinput declines it as never initialized; run where udevd keeps its database, or mount it into the container", node, err)
 	}
-}
-
-func GPU(t testing.TB) *gpu.Library {
-	t.Helper()
-	l, err := gpu.Load(gpu.PathsFromEnv(os.Getenv))
-	if err != nil {
-		missing(t, "%v", err)
-	}
-	return l
 }
 
 func Library(t testing.TB, name, path string, err error) {

@@ -211,7 +211,7 @@ func TestSecondariesRenderWithThePrimarysRendererAndNoOther(t *testing.T) {
 	for _, c := range []struct {
 		renderer Renderer
 		want     string
-	}{{Vulkan, "Vulkan"}, {GLES, "GLES"}, {Lavapipe, ""}} {
+	}{{Vulkan, "Vulkan"}, {Lavapipe, ""}} {
 		got := ""
 		if s := stackFor(c.renderer, gpu.Paths{}); s != nil {
 			got = s.name
@@ -219,49 +219,6 @@ func TestSecondariesRenderWithThePrimarysRendererAndNoOther(t *testing.T) {
 		if got != c.want {
 			t.Errorf("renderer %d gives secondaries the stack %q, want %q", c.renderer, got, c.want)
 		}
-	}
-}
-
-type refusingGBM struct{}
-
-func (refusingGBM) Allocate(image.Point, fourcc.Format, []fourcc.Modifier, gpu.Usage) (*gpu.Buffer, error) {
-	return nil, errors.New("software GBM needs dumb buffers, which a render node refuses")
-}
-
-func TestAStackThatCannotAllocateOnTheRenderNodeMovesToTheCard(t *testing.T) {
-	file := func(name string) func() (*kdrm.Device, error) {
-		return func() (*kdrm.Device, error) {
-			fd, err := unix.MemfdCreate(name, unix.MFD_CLOEXEC)
-			if err != nil {
-				return nil, err
-			}
-			return kdrm.FromFD(fd, name), nil
-		}
-	}
-	world := &blitWorld{memory: map[int]*soft.Buffer{}}
-	var opened, closed int
-	s, err := openStackOnFile([]func() (*kdrm.Device, error){file("renderD128"), file("card0")}, func(int) (gpuStack, error) {
-		opened++
-		stack := gpuStack{gbm: fakeGBM{world}, gpu: &fakeRenderer{Renderer: soft.New(), world: world}, closeGPU: func() error { closed++; return nil }}
-		if opened == 1 {
-			stack.gbm = refusingGBM{}
-		}
-		return stack, nil
-	}, allocatesScanout)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if opened != 2 || closed != 1 {
-		t.Fatalf("opened %d stacks and closed %d, want the first closed and the second kept", opened, closed)
-	}
-	if err := s.closeGPU(); err != nil {
-		t.Fatal(err)
-	}
-	_, err = openStackOnFile([]func() (*kdrm.Device, error){file("renderD128")}, func(int) (gpuStack, error) {
-		return gpuStack{gbm: refusingGBM{}, closeGPU: func() error { return nil }}, nil
-	}, allocatesScanout)
-	if err == nil || !strings.Contains(err.Error(), "renderD128") || !strings.Contains(err.Error(), "refuses") {
-		t.Fatalf("no file that allocates: %v", err)
 	}
 }
 
@@ -276,70 +233,32 @@ func TestAFileWhoseBuffersTheCardRefusesGivesWayToTheNext(t *testing.T) {
 		}
 	}
 	var opened, closed int
-	open := func(int) (gpuStack, error) {
+	open := func(int) (gbmFile, error) {
 		opened++
-		return gpuStack{closeGPU: func() error { closed++; return nil }}, nil
+		return gbmFile{close: func() error { closed++; return nil }}, nil
 	}
 	vouched := 0
-	refuseFirst := func(gpuStack) error {
+	refuseFirst := func(gbmFile) error {
 		vouched++
 		if vouched == 1 {
 			return errors.New("ADDFB2: invalid argument")
 		}
 		return nil
 	}
-	s, err := openStackOnFile([]func() (*kdrm.Device, error){file("renderD128"), file("card0")}, open, refuseFirst)
+	s, err := openGBMOnFile([]func() (*kdrm.Device, error){file("renderD128"), file("card0")}, open, refuseFirst)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if opened != 2 || closed != 1 {
 		t.Fatalf("opened %d stacks and closed %d, want the refused one closed and the next kept", opened, closed)
 	}
-	if err := s.closeGPU(); err != nil {
+	if err := s.close(); err != nil {
 		t.Fatal(err)
 	}
-	_, err = openStackOnFile([]func() (*kdrm.Device, error){file("renderD128"), file("card0")}, open, func(gpuStack) error { return errors.New("ADDFB2: invalid argument") })
+	_, err = openGBMOnFile([]func() (*kdrm.Device, error){file("renderD128"), file("card0")}, open, func(gbmFile) error { return errors.New("ADDFB2: invalid argument") })
 	if err == nil || !strings.Contains(err.Error(), "on renderD128: ADDFB2") || !strings.Contains(err.Error(), "on card0: ADDFB2") {
 		t.Fatalf("no file whose buffers the card takes: %v", err)
 	}
-}
-
-func TestASoftwareStackMovesToTheCardWithoutAllocating(t *testing.T) {
-	file := func(name string) func() (*kdrm.Device, error) {
-		return func() (*kdrm.Device, error) {
-			fd, err := unix.MemfdCreate(name, unix.MFD_CLOEXEC)
-			if err != nil {
-				return nil, err
-			}
-			return kdrm.FromFD(fd, name), nil
-		}
-	}
-	world := &blitWorld{memory: map[int]*soft.Buffer{}}
-	var opened, closed int
-	s, err := openStackOnFile([]func() (*kdrm.Device, error){file("renderD128"), file("card0")}, func(int) (gpuStack, error) {
-		opened++
-		stack := gpuStack{gbm: fakeGBM{world}, gpu: &fakeRenderer{Renderer: soft.New(), world: world}, closeGPU: func() error { closed++; return nil }, softwareOnly: true}
-		if opened == 1 {
-			stack.gbm = failingOnAllocate{t}
-		}
-		return stack, nil
-	}, allocatesScanout)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if opened != 2 || closed != 1 {
-		t.Fatalf("opened %d stacks and closed %d, want the first closed and the second kept", opened, closed)
-	}
-	if err := s.closeGPU(); err != nil {
-		t.Fatal(err)
-	}
-}
-
-type failingOnAllocate struct{ t *testing.T }
-
-func (f failingOnAllocate) Allocate(image.Point, fourcc.Format, []fourcc.Modifier, gpu.Usage) (*gpu.Buffer, error) {
-	f.t.Error("a software stack tried to allocate on the render node, which makes Mesa log the refusal")
-	return nil, errors.New("gbm refuses")
 }
 
 func TestASecondaryGPUResetRebuildsItsRendererAndAFourthEndsTheSession(t *testing.T) {

@@ -86,7 +86,7 @@ func TestEachDRMRendererOpensItsOwnStack(t *testing.T) {
 	for _, c := range []struct {
 		kind rendererKind
 		want drmbackend.Renderer
-	}{{vulkanRenderer, drmbackend.Vulkan}, {lavapipeRenderer, drmbackend.Lavapipe}, {glesRenderer, drmbackend.GLES}} {
+	}{{vulkanRenderer, drmbackend.Vulkan}, {lavapipeRenderer, drmbackend.Lavapipe}} {
 		if got := drmRenderer(c.kind); got != c.want {
 			t.Errorf("renderer %v opens the drm stack %d, want %d", c.kind, got, c.want)
 		}

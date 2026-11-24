@@ -285,7 +285,8 @@ func start(t testing.TB, s setup, modes ...backend.Mode) *Harness {
 		h.loopG.Store(goroutineID())
 		unpin := gpu.PinThread()
 		err := h.loop.Run()
-		h.done <- errors.Join(err, unpin())
+		unpin()
+		h.done <- err
 	}()
 	return h
 }

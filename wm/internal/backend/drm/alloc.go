@@ -14,7 +14,6 @@ import (
 	"github.com/stubbedev/lys/wm/internal/gpu"
 	"github.com/stubbedev/lys/wm/internal/loop"
 	"github.com/stubbedev/lys/wm/internal/render"
-	"github.com/stubbedev/lys/wm/internal/render/gles"
 	"github.com/stubbedev/lys/wm/internal/render/vulkan"
 )
 
@@ -43,17 +42,14 @@ type gpuAllocator struct {
 	closeGPU  func() error
 }
 
-type gpuStack struct {
-	gbm      bufferMaker
-	gpu      gpuRenderer
-	closeGPU func() error
-	// softwareOnly marks a stack that allocates only on a card node.
-	softwareOnly bool
+type gbmFile struct {
+	gbm   bufferMaker
+	close func() error
 }
 
-func openStackOnFile(files []func() (*kdrm.Device, error), open func(fd int) (gpuStack, error), vouch func(gpuStack) error) (gpuStack, error) {
+func openGBMOnFile(files []func() (*kdrm.Device, error), open func(fd int) (gbmFile, error), vouch func(gbmFile) error) (gbmFile, error) {
 	var errs []error
-	for i, file := range files {
+	for _, file := range files {
 		f, err := file()
 		if err != nil {
 			errs = append(errs, err)
@@ -64,27 +60,15 @@ func openStackOnFile(files []func() (*kdrm.Device, error), open func(fd int) (gp
 			errs = append(errs, fmt.Errorf("on %s: %w", f.Path(), err), f.Close())
 			continue
 		}
-		if s.softwareOnly && i < len(files)-1 {
-			errs = append(errs, s.closeGPU(), f.Close())
-			continue
-		}
 		if err := vouch(s); err != nil {
-			errs = append(errs, fmt.Errorf("on %s: %w", f.Path(), err), s.closeGPU(), f.Close())
+			errs = append(errs, fmt.Errorf("on %s: %w", f.Path(), err), s.close(), f.Close())
 			continue
 		}
-		closeStack := s.closeGPU
-		s.closeGPU = func() error { return errors.Join(closeStack(), f.Close()) }
+		closeGBM := s.close
+		s.close = func() error { return errors.Join(closeGBM(), f.Close()) }
 		return s, nil
 	}
-	return gpuStack{}, errors.Join(errs...)
-}
-
-func allocatesScanout(s gpuStack) error {
-	probe, err := s.gbm.Allocate(image.Pt(16, 16), scanoutFormat, nil, gpu.UseRendering|gpu.UseScanout)
-	if err != nil {
-		return err
-	}
-	return probe.Close()
+	return gbmFile{}, errors.Join(errs...)
 }
 
 func addFB2Modifiers(dev device) (bool, error) {
@@ -93,28 +77,6 @@ func addFB2Modifiers(dev device) (bool, error) {
 		return false, fmt.Errorf("drm: ADDFB2 modifier support of %s: %w", dev.Path(), err)
 	}
 	return modifiers == 1, nil
-}
-
-func newGLESAllocator(dev device, paths gpu.Paths) (*gpuAllocator, error) {
-	modifiers, err := addFB2Modifiers(dev)
-	if err != nil {
-		return nil, err
-	}
-	files, err := renderFiles(dev)
-	if err != nil {
-		return nil, err
-	}
-	s, err := openStackOnFile(files, func(fd int) (gpuStack, error) {
-		stack, err := gles.OnGBM(fd, paths)
-		if err != nil {
-			return gpuStack{}, fmt.Errorf("render with GLES: %w", err)
-		}
-		return gpuStack{gbm: stack.GBM, gpu: stack.Renderer, closeGPU: stack.Close, softwareOnly: stack.SoftwareOnly()}, nil
-	}, allocatesScanout)
-	if err != nil {
-		return nil, fmt.Errorf("drm: rendering for %s: %w", dev.Path(), err)
-	}
-	return &gpuAllocator{dev: dev, path: dev.Path(), modifiers: modifiers, mem: gbmMemory{gbm: s.gbm, gpu: s.gpu}, gpu: s.gpu, closeGPU: s.closeGPU}, nil
 }
 
 func newVulkanAllocator(dev device, paths gpu.Paths) (*gpuAllocator, error) {
@@ -154,26 +116,26 @@ func newGBMAllocator(dev device, paths gpu.Paths, filesOf func(device) ([]func()
 	if err != nil {
 		return nil, err
 	}
-	allocator := func(s gpuStack) *gpuAllocator {
-		return &gpuAllocator{dev: dev, path: dev.Path(), modifiers: modifiers, mem: gbmMemory{gbm: s.gbm, gpu: r}, gpu: r, closeGPU: func() error { return errors.Join(r.Close(), s.closeGPU()) }}
+	allocator := func(s gbmFile) *gpuAllocator {
+		return &gpuAllocator{dev: dev, path: dev.Path(), modifiers: modifiers, mem: gbmMemory{gbm: s.gbm, gpu: r}, gpu: r, closeGPU: func() error { return errors.Join(r.Close(), s.close()) }}
 	}
-	s, err := openStackOnFile(files, func(fd int) (gpuStack, error) { return gbmOn(fd, paths) }, func(s gpuStack) error { return allocator(s).probe() })
+	s, err := openGBMOnFile(files, func(fd int) (gbmFile, error) { return gbmOn(fd, paths) }, func(s gbmFile) error { return allocator(s).probe() })
 	if err != nil {
 		return nil, errors.Join(fmt.Errorf("drm: scanout buffers for %s that %s draws into: %w", dev.Path(), r.DeviceName(), err), r.Close())
 	}
 	return allocator(s), nil
 }
 
-func gbmOn(fd int, paths gpu.Paths) (gpuStack, error) {
+func gbmOn(fd int, paths gpu.Paths) (gbmFile, error) {
 	lib, err := gpu.LoadGBM(paths)
 	if err != nil {
-		return gpuStack{}, err
+		return gbmFile{}, err
 	}
 	g, err := lib.Open(fd)
 	if err != nil {
-		return gpuStack{}, errors.Join(err, lib.Close())
+		return gbmFile{}, errors.Join(err, lib.Close())
 	}
-	return gpuStack{gbm: g, closeGPU: func() error {
+	return gbmFile{gbm: g, close: func() error {
 		g.Close()
 		return lib.Close()
 	}}, nil
@@ -336,7 +298,6 @@ type Renderer uint8
 const (
 	Vulkan Renderer = iota
 	Lavapipe
-	GLES
 )
 
 type Options struct {
@@ -347,11 +308,8 @@ type Options struct {
 }
 
 func primaryAllocator(dev device, opts Options) (allocator, error) {
-	switch opts.Renderer {
-	case Lavapipe:
+	if opts.Renderer == Lavapipe {
 		return newLavapipeAllocator(dev, opts.Paths)
-	case GLES:
-		return newGLESAllocator(dev, opts.Paths)
 	}
 	return newVulkanAllocator(dev, opts.Paths)
 }

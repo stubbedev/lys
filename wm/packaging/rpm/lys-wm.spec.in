@@ -11,16 +11,14 @@ Source0:        https://github.com/stubbedev/lys/releases/download/v%{version}/l
 ExclusiveArch:  x86_64 aarch64
 
 BuildRequires:  systemd-rpm-macros
-Requires:       libglvnd-egl
-Requires:       libglvnd-gles
 Requires:       libinput
+Requires:       vulkan-loader
 Requires:       xkeyboard-config
 Requires:       mesa-libgbm
 Recommends:     xorg-x11-server-Xwayland
 Recommends:     xdg-desktop-portal
 Recommends:     lys-shell
 Recommends:     foot
-Recommends:     vulkan-loader
 Recommends:     mesa-vulkan-drivers
 
 %description

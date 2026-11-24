@@ -243,11 +243,8 @@ type namedStack struct {
 }
 
 func stackFor(renderer Renderer, paths gpu.Paths) *namedStack {
-	switch renderer {
-	case Lavapipe:
+	if renderer == Lavapipe {
 		return nil
-	case GLES:
-		return &namedStack{"GLES", func(dev device) (*gpuAllocator, error) { return newGLESAllocator(dev, paths) }}
 	}
 	return &namedStack{"Vulkan", func(dev device) (*gpuAllocator, error) { return newVulkanAllocator(dev, paths) }}
 }

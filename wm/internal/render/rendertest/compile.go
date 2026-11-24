@@ -74,7 +74,8 @@ func CompilesOnAPinnedThread(job func() error) (uint64, error) {
 		if err == nil {
 			err = job()
 		}
-		done <- result{compiles, errors.Join(err, unpin())}
+		unpin()
+		done <- result{compiles, err}
 	}()
 	got := <-done
 	return got.compiles, got.err
@@ -150,16 +151,5 @@ func CompilesLeaveRealtimeOncePerDrawState(t *testing.T, r render.Renderer, targ
 		if step.Compiles != 0 || step.ColdDraws != 0 {
 			t.Fatalf("compiles and cold draws per step %+v: want none but the first frame of each", got)
 		}
-	}
-}
-
-func WarmedTargetDrawsOrdinaryFramesWithoutLeavingRealtime(t *testing.T, r render.Renderer, target render.Target, warm func() error) {
-	t.Helper()
-	if err := warm(); err != nil {
-		t.Fatal(err)
-	}
-	e := Effects(t, r, []render.Format{render.ARGB8888, render.XRGB8888})
-	if got := MeasureCompiles(t, r, "an ordinary frame after the warm-up", PaintEffects(r, target, e)); got.Compiles != 0 || got.ColdDraws != 0 {
-		t.Fatalf("%+v: want nothing compiled", got)
 	}
 }

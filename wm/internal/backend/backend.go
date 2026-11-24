@@ -186,7 +186,7 @@ func Fatal(err error) bool {
 }
 
 func GPULost(err error) bool {
-	return errors.Is(err, gpu.ErrContextLost) || errors.Is(err, lgpu.ErrDeviceLost)
+	return errors.Is(err, lgpu.ErrDeviceLost)
 }
 
 func Broken(format string, args ...any) error {

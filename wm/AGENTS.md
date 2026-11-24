@@ -25,7 +25,7 @@ commit.
 Verify locally before pushing, push, and check CI once when pushes stop; do not sit polling it. A red `main`
 is fixed before anything else lands.
 
-The dev shell runs the GPU tests on Mesa's llvmpipe. On a machine with a GPU,
+The dev shell runs the GPU tests on Mesa's lavapipe. On a machine with a GPU,
 run `just wm::docker hardware` after changes to rendering, DRM, dmabuf, capture or frame
 pacing: it runs the GPU, DRM-without-master and nested dmabuf tests on the
 host's GPU and fails if any of them skips, then measures es2gears
@@ -51,7 +51,7 @@ every session on a machine would see and take. They skip unless
 `LYS_WM_SEAT=1`, which is never set beside a session, not even in
 `just wm::docker`: a container shares the host's input devices.
 `just packages vm-pace-drm` plays `lys-wm-pace -backend drm` on vkms's vblanks in
-a VM, on llvmpipe, so its late frames are about the latch, not the GPU.
+a VM, on lavapipe, so its late frames are about the latch, not the GPU.
 
 After changes to Xwayland, X11 window management or scaling, run the real X
 applications too. `just packages vm-xwayland-idea` drives

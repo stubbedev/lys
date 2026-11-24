@@ -2,7 +2,7 @@
   pkgs,
   lys-wm,
 }: let
-  gpuPackages = ["render/vulkan" "render/gles" "harness"];
+  gpuPackages = ["render/vulkan" "harness"];
   seatPackages = ["backend/drm" "session"];
   tests = lys-wm.overrideAttrs {
     pname = "lys-wm-vm-tests";
@@ -109,7 +109,6 @@ in
           gpu.wait_for_unit("multi-user.target")
           gpu.succeed("test -c /dev/udmabuf")
           gpu_tests("vulkan", "render/vulkan", ".", "OnHardware")
-          gpu_tests("gles", "render/gles", "AsyncRead", "^$")
           gpu_tests(
               "harness",
               "harness",

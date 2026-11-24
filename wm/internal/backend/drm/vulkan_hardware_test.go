@@ -4,22 +4,14 @@ import (
 	"errors"
 	"fmt"
 	"image"
-	"os"
 	"path/filepath"
 	"slices"
 	"testing"
 
 	kdrm "github.com/stubbedev/lys/lib/drm"
 
-	"github.com/stubbedev/lys/wm/internal/gpu"
 	"github.com/stubbedev/lys/wm/internal/testenv"
 )
-
-func withoutGL() gpu.Paths {
-	paths := gpu.PathsFromEnv(os.Getenv)
-	paths.EGL, paths.GLESv2 = "/nonexistent/libEGL.so.1", "/nonexistent/libGLESv2.so.2"
-	return paths
-}
 
 func TestVulkanRendersIntoScanoutBuffersOnEveryCardOnHardware(t *testing.T) {
 	for _, node := range cardNodes(t) {

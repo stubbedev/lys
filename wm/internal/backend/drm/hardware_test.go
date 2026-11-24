@@ -141,12 +141,11 @@ func colorTransform(t *testing.T, o *Output) {
 func TestStartOnEveryCardWithoutMaster(t *testing.T) {
 	cards := cardNodes(t)
 	for _, card := range cards {
-		for _, vulkan := range []bool{false, true} {
-			name := filepath.Base(card) + "/gles"
-			if vulkan {
-				name = filepath.Base(card) + "/vulkan"
-			}
-			t.Run(name, func(t *testing.T) { startWithoutMaster(t, card, vulkan) })
+		for _, r := range []struct {
+			name     string
+			renderer Renderer
+		}{{"vulkan", Vulkan}, {"lavapipe", Lavapipe}} {
+			t.Run(filepath.Base(card)+"/"+r.name, func(t *testing.T) { startWithoutMaster(t, card, r.renderer) })
 		}
 	}
 }
@@ -188,7 +187,7 @@ func testFrame(t *testing.T, r render.Renderer, target render.ReadTarget, what s
 	}
 }
 
-func startWithoutMaster(t *testing.T, card string, vulkan bool) {
+func startWithoutMaster(t *testing.T, card string, renderer Renderer) {
 	dev, err := kdrm.Open(card)
 	if err != nil {
 		t.Skipf("cannot open %s: %v", card, err)
@@ -199,15 +198,7 @@ func startWithoutMaster(t *testing.T, card string, vulkan bool) {
 		t.Fatal(err)
 	}
 	defer l.Close()
-	paths := gpu.PathsFromEnv(os.Getenv)
-	if vulkan {
-		paths = withoutGL()
-	}
-	renderer := GLES
-	if vulkan {
-		renderer = Vulkan
-	}
-	b, err := New(l, dev, Options{Paths: paths, Report: func(err error) { t.Error(err) }, Renderer: renderer, Master: WithoutMaster})
+	b, err := New(l, dev, Options{Paths: gpu.PathsFromEnv(os.Getenv), Report: func(err error) { t.Error(err) }, Renderer: renderer, Master: WithoutMaster})
 	if err != nil {
 		skipWithoutVulkan(t, card, err)
 	}
@@ -248,9 +239,9 @@ func TestMesaAndKMSShareNoHandlesOnHardware(t *testing.T) {
 			}
 			defer dev.Close()
 			own := device{kernel: dev}
-			a, err := newGLESAllocator(own, gpu.PathsFromEnv(os.Getenv))
+			a, err := newVulkanAllocator(own, gpu.PathsFromEnv(os.Getenv))
 			if err != nil {
-				t.Skipf("no GLES on %s: %v", card, err)
+				skipWithoutVulkan(t, card, err)
 			}
 			defer func() {
 				if err := a.close(); err != nil {
@@ -321,12 +312,7 @@ func TestTenBitScanoutBuffersDrawOnEveryCardOnHardware(t *testing.T) {
 }
 
 func tenBitOnCard(t *testing.T, node string, open openStack) {
-	unpin := gpu.PinThread()
-	defer func() {
-		if err := unpin(); err != nil {
-			t.Error(err)
-		}
-	}()
+	defer gpu.PinThread()()
 	a := stackOn(t, node, open)
 	t.Cleanup(func() {
 		if err := a.close(); err != nil {

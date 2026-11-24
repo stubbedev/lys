@@ -9,7 +9,7 @@ animation through a real client and the IPC socket, and reports per step.
 ```sh
 just docker pace                  # headless, Vulkan, on the host's GPU in a container
 just pace drm vulkan              # real page flips, from a text console
-just pace drm gles 30 "-json report.json -scenarios move,genie"
+just pace drm lavapipe 30 "-json report.json -scenarios move,genie"
 ```
 
 `just pace` refuses the headless backend outside the container, where it would render on the GPU beside the session; with `drm` it takes the display and runs from a text console. It runs no tests first; `just docker hardware` runs the hardware tests,
@@ -18,7 +18,7 @@ then pacing, and stops if the tests fail.
 | Flag | Default | Effect |
 | --- | --- | --- |
 | `-backend` | `headless` | `headless` (simulated 60 Hz clock on a real GPU) or `drm` (takes the display; refuses to run with `WAYLAND_DISPLAY`, `DISPLAY` or a graphical `XDG_SESSION_TYPE`) |
-| `-renderer` | `vulkan` | `vulkan` or `soft` on `headless`, `vulkan`, `lavapipe` or `gles` on `drm` |
+| `-renderer` | `vulkan` | `vulkan` or `soft` on `headless`, `vulkan` or `lavapipe` on `drm` |
 | `-compositor` | next to `lys-wm-pace`, else `PATH` | The lys-wm binary |
 | `-rounds` | `10` | Plays per animation |
 | `-scenarios` | all | Comma-separated scenario names |
@@ -88,8 +88,8 @@ reported in one run.
 | `render_passes_after_first_frame`, `filter_passes_after_first_frame` | `glass-tiles` steps: passes in any frame after the first, limits 1 and 0 | Tiles refiltering the shared background chain every frame |
 | `filter_pixels_per_frame`, `repaint_pixels_per_frame` | `glass-over-busy`: pixels filtered within damage and repainted, worst frame | Refiltering or repainting the whole window instead of the damaged band plus blur reach |
 | `uploads_per_frame` | Texture creations and updates per composited frame, worst | Re-uploading unchanged content |
-| `gpu_waits_per_frame` | Loop waits on the GPU per composited frame (fence waits on Vulkan, `glFinish` on GLES), worst, no slack | Stalling the loop on the GPU |
-| `submits_per_frame` | GPU submissions per composited frame (Vulkan queue submits, GLES flushes), worst, no slack | Extra submissions per pass |
+| `gpu_waits_per_frame` | Loop waits on the GPU per composited frame (fence waits), worst, no slack | Stalling the loop on the GPU |
+| `submits_per_frame` | GPU submissions per composited frame (Vulkan queue submits), worst, no slack | Extra submissions per pass |
 | `thumb_draws_per_settle` | Overview thumbnails drawn per play | Redrawing undamaged thumbnails |
 | `damage_rects_per_frame` | Rects in the worst frame's damage or repaint region (cap 32) | Damage outgrowing its cap |
 | `allocs_per_frame` | Heap allocations in the costliest frame of a play, from the play where that is lowest | Allocation added to a per-play path |

@@ -28,7 +28,7 @@ shell_drivers := "__EGL_VENDOR_LIBRARY_DIRS LIBGL_ALWAYS_SOFTWARE VK_DRIVER_FILE
 
 # The tests that need a real GPU, which the dev shell otherwise runs on Mesa's
 # llvmpipe and lavapipe.
-hardware_tests := "TestAlphaCut|TestABlurAlphaThreshold|TestACaptureRepaintsOnlyTheDamage|TestACommitThatChangesNothing|TestZoom|TestTheViewFollows|TestCapturesShowTheUnzoomed|TestScanoutStopsWhileZoomed|TestAFloatingWindowDraggedToAnEdge|TestATiledWindowDragged|TestThePreviewBlurs|TestGlass|TestTheRim|TestMica|TestAHiddenBlur|TestABlurBehindAnOpaque|TestAClosingWindowKeeps|TestAClosingWindowLoses|" + card_tests + "|TestDMABUFClientsOnTheGPURenderers|TestImageCopyCaptureIntoDMABUFs|TestFullscreenDMABUFsScanOutDirectly|TestARoundedWindowThatFillsTheOutputIsComposited|TestAFullscreenDMABUFScansOutOverAWallpaperAndABar|TestAnARGBDMABUFScansOutOnlyWhenItsOpaqueRegionCoversIt|TestATenBitDMABUFScansOutUnconverted|TestDestroyingAReplacedBufferStillOnScreenSendsNoRelease|TestAnHDROutputScansOutOnlyWhatMatchesItsSignal|TestColorParity|TestAFullscreenSurfaceIsOfferedThePlaneFormats|TestEveryTextureFormatDrawsItsColour|TestTenBitShmBuffersShowTheirColour|TestScaledClientCursorsReachThePlaneWithoutASynchronousReadback|TestScreencopyIntoDMABUFsOnTheGPURenderers|TestAScreencopyIntoADMABUF|TestParityWithTheSoftwareRenderer|TestMaskEdgesMatchTheSoftwareRendererAcrossA4KOutput|TestReadKeepsTheStridePadding|TestReadRowsWritesOnlyThoseRows|TestAnAsyncReadSeesTheFrameItWasStartedAfter|TestNestedLysWMRendersWithVulkan|TestATranslucentWindowBlurs|TestXRayBlur|TestABlurRegion|TestARegionIsClipped|TestARuleOffTurnsBlur|TestADecorationBlurLeaves|TestXRayAppliesToBlur|TestASubsurfaceRegion|TestAnAlphaModifierFadesTheBlur|TestPopupsBlurByTheirRegion|TestAPopupsFirstFrame|TestDecorationBlurReachesPopups|TestBordersAndTabBars|TestRoundedWindowsAndBorders|TestATranslucentBorder|TestAFloatingWindowCasts|TestAGradientBorder|TestInactiveWindows|TestADimAround|TestAMovedWindow|TestWindowsPopIn|TestAWorkspaceSwitch|TestBorderColours|TestAGoo|TestAMorphing|TestAnElastic|TestAGenie|TestScreenShaders|TestAScreenShader|TestTheExampleShaders|TestTheLockScreenAndScreencopy|TestAShader|TestWindowedVideosGoToOverlayPlanes|TestScaledAndLetterboxedFullscreenDMABUFsScanOut|TestAnEGLHostImportsThoseBytes|TestVulkanCopiesLinearBytes|TestAVulkanStackLeavesNoDescriptor"
+hardware_tests := "TestAlphaCut|TestABlurAlphaThreshold|TestACaptureRepaintsOnlyTheDamage|TestACommitThatChangesNothing|TestZoom|TestTheViewFollows|TestCapturesShowTheUnzoomed|TestScanoutStopsWhileZoomed|TestAFloatingWindowDraggedToAnEdge|TestATiledWindowDragged|TestThePreviewBlurs|TestGlass|TestTheRim|TestMica|TestAHiddenBlur|TestABlurBehindAnOpaque|TestAClosingWindowKeeps|TestAClosingWindowLoses|" + card_tests + "|TestDMABUFClientsOnTheGPURenderers|TestImageCopyCaptureIntoDMABUFs|TestFullscreenDMABUFsScanOutDirectly|TestARoundedWindowThatFillsTheOutputIsComposited|TestAFullscreenDMABUFScansOutOverAWallpaperAndABar|TestAnARGBDMABUFScansOutOnlyWhenItsOpaqueRegionCoversIt|TestATenBitDMABUFScansOutUnconverted|TestDestroyingAReplacedBufferStillOnScreenSendsNoRelease|TestAnHDROutputScansOutOnlyWhatMatchesItsSignal|TestColorParity|TestAFullscreenSurfaceIsOfferedThePlaneFormats|TestEveryTextureFormatDrawsItsColour|TestTenBitShmBuffersShowTheirColour|TestScaledClientCursorsReachThePlaneWithoutASynchronousReadback|TestScreencopyIntoDMABUFsOnTheGPURenderers|TestAScreencopyIntoADMABUF|TestParityWithTheSoftwareRenderer|TestMaskEdgesMatchTheSoftwareRendererAcrossA4KOutput|TestReadKeepsTheStridePadding|TestReadRowsWritesOnlyThoseRows|TestAnAsyncReadSeesTheFrameItWasStartedAfter|TestNestedLysWMRendersWithVulkan|TestATranslucentWindowBlurs|TestXRayBlur|TestABlurRegion|TestARegionIsClipped|TestARuleOffTurnsBlur|TestADecorationBlurLeaves|TestXRayAppliesToBlur|TestASubsurfaceRegion|TestAnAlphaModifierFadesTheBlur|TestPopupsBlurByTheirRegion|TestAPopupsFirstFrame|TestDecorationBlurReachesPopups|TestBordersAndTabBars|TestRoundedWindowsAndBorders|TestATranslucentBorder|TestAFloatingWindowCasts|TestAGradientBorder|TestInactiveWindows|TestADimAround|TestAMovedWindow|TestWindowsPopIn|TestAWorkspaceSwitch|TestBorderColours|TestAGoo|TestAMorphing|TestAnElastic|TestAGenie|TestScreenShaders|TestAScreenShader|TestTheExampleShaders|TestTheLockScreenAndScreencopy|TestAShader|TestWindowedVideosGoToOverlayPlanes|TestScaledAndLetterboxedFullscreenDMABUFsScanOut|TestVulkanCopiesLinearBytes|TestAVulkanStackLeavesNoDescriptor"
 
 # Measure how smoothly the animations reach the screen; docs/frame-pacing.md
 # has the columns. Refuses a software rasteriser unless args has
@@ -67,7 +67,7 @@ hardware:
     unset {{ shell_drivers }}
     dir=$(mktemp -d)
     trap 'rm -rf "$dir"' EXIT
-    if ! LYS_WM_HEADLESS=1 go test -count=1 -timeout 5m -v -run '{{ hardware_tests }}' ./internal/render/gles/ ./internal/render/vulkan/ ./internal/backend/drm/ ./internal/backend/nested/ ./internal/harness/ | tee "$dir/tests.log" | grep -E '^(--- |ok|FAIL)|_test.go'; then
+    if ! LYS_WM_HEADLESS=1 go test -count=1 -timeout 5m -v -run '{{ hardware_tests }}' ./internal/render/vulkan/ ./internal/backend/drm/ ./internal/backend/nested/ ./internal/harness/ | tee "$dir/tests.log" | grep -E '^(--- |ok|FAIL)|_test.go'; then
         cat "$dir/tests.log" >&2
         exit 1
     fi
@@ -150,7 +150,7 @@ render-bench:
         exit 1
     fi
     unset {{ shell_drivers }}
-    LYS_WM_HEADLESS=1 go test -run '^$' -bench 'WindowsOnHardware' -benchtime 500x ./internal/render/gles/ ./internal/render/vulkan/
+    LYS_WM_HEADLESS=1 go test -run '^$' -bench 'WindowsOnHardware' -benchtime 500x ./internal/render/vulkan/
 
 # How many times the gates play each animation: enough for RSS growth to repeat
 # over three rounds after the two that warm up, as the baselines were measured.
@@ -396,7 +396,7 @@ smoke-test package:
         [[ -f ${file} ]] || fail "${file} is missing"
     done
 
-    for soname in libEGL.so.1 libGLESv2.so.2 libgbm.so.1 libinput.so.10; do
+    for soname in libvulkan.so.1 libgbm.so.1 libinput.so.10; do
         ldconfig -p | grep -qF "${soname} " || fail "${soname}, which lys-wm loads, is not on the library path"
     done
 

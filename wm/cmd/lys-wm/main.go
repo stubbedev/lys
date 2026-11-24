@@ -123,7 +123,6 @@ type rendererKind uint8
 
 const (
 	softRenderer rendererKind = iota + 1
-	glesRenderer
 	vulkanRenderer
 	lavapipeRenderer
 )
@@ -131,7 +130,7 @@ const (
 var rendererNames = []struct {
 	name string
 	kind rendererKind
-}{{"soft", softRenderer}, {"gles", glesRenderer}, {"vulkan", vulkanRenderer}, {"lavapipe", lavapipeRenderer}}
+}{{"soft", softRenderer}, {"vulkan", vulkanRenderer}, {"lavapipe", lavapipeRenderer}}
 
 func (k rendererKind) String() string {
 	for _, r := range rendererNames {
@@ -145,7 +144,7 @@ func (k rendererKind) String() string {
 func renderersOn(kind backendKind) []rendererKind {
 	switch kind {
 	case drmBackend:
-		return []rendererKind{vulkanRenderer, lavapipeRenderer, glesRenderer}
+		return []rendererKind{vulkanRenderer, lavapipeRenderer}
 	case nestedBackend:
 		return []rendererKind{vulkanRenderer, softRenderer}
 	}
@@ -572,7 +571,7 @@ func run(args []string) (err error) {
 	path := flags.String("config", "", "config file (default: $XDG_CONFIG_HOME/lys-wm/config.yaml)")
 	runtime := flags.String("runtime", "", "runtime overrides merged over the config, which must exist when given (default: "+config.RuntimeFile+" beside the config file, when it exists)")
 	withSystemd := flags.Bool("systemd", false, "export the session environment to D-Bus activation and the systemd user manager, and run "+systemd.Target+" while lys-wm runs")
-	rendererName := flags.String("renderer", "", "vulkan, lavapipe, gles or soft (default: $LYS_WM_RENDERER, else vulkan for the drm and nested backends, soft for headless; drm takes vulkan, lavapipe (Vulkan on the CPU, into buffers the card allocates, for a card without a Vulkan driver) or gles, nested and headless take vulkan or soft)")
+	rendererName := flags.String("renderer", "", "vulkan, lavapipe or soft (default: $LYS_WM_RENDERER, else vulkan for the drm and nested backends, soft for headless; drm takes vulkan or lavapipe (Vulkan on the CPU, into buffers the card allocates, for a card without a Vulkan driver), nested and headless take vulkan or soft)")
 	requested := flags.String("backend", "", "output and input backend: drm, nested or headless (default: nested when WAYLAND_DISPLAY is set, else drm)")
 	framesPath := flags.String("frame-trace", "", "record every frame's timing to this file as JSON lines; see https://stubbedev.github.io/lys/wm/frame-pacing")
 	cpuProfile := flags.String("cpu-profile", "", "write a Go CPU profile to this file while lys-wm runs")
@@ -841,17 +840,17 @@ func run(args []string) (err error) {
 	fmt.Fprintf(os.Stderr, "lys-wm: listening on %s with the %s backend\n", listening, kind)
 	rtdebug.SetGCPercent(gcPercent)
 	rtdebug.SetMemoryLimit(softMemoryLimit)
-	unpin := gpu.PinThread()
+	defer gpu.PinThread()()
 	restore, yield := compositorThread.raise(session.SystemBus(os.Getenv), l.Hand)
 	if err := gpu.CompileThrough(yield); err != nil {
-		return errors.Join(err, restore(), unpin())
+		return errors.Join(err, restore())
 	}
 	if err := s.comp.BuildOffThread(); err != nil {
-		return errors.Join(err, restore(), unpin())
+		return errors.Join(err, restore())
 	}
 	ran := l.Run()
 	if errors.Is(ran, nested.ErrClosed) {
 		ran = nil
 	}
-	return errors.Join(ran, restore(), unpin())
+	return errors.Join(ran, restore())
 }

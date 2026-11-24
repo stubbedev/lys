@@ -1322,7 +1322,7 @@ func SurvivesALostDevice(t *testing.T, r render.Renderer) {
 
 	r.LoseDevice()
 	lost := r.Lost()
-	if !errors.Is(lost, gpu.ErrContextLost) && !errors.Is(lost, lgpu.ErrDeviceLost) {
+	if !errors.Is(lost, lgpu.ErrDeviceLost) {
 		t.Fatalf("a lost device reports %v, want a loss", lost)
 	}
 	during, err := r.NewTexture(render.ARGB8888, small, small.X*4, solid(blue, small))

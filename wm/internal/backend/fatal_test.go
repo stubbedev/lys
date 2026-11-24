@@ -9,7 +9,6 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/wm/internal/backend"
-	"github.com/stubbedev/lys/wm/internal/gpu"
 )
 
 func TestOnlyAGoneDeviceOrABrokenInvariantIsFatalAndAGPUResetIsRecoverable(t *testing.T) {
@@ -21,15 +20,10 @@ func TestOnlyAGoneDeviceOrABrokenInvariantIsFatalAndAGPUResetIsRecoverable(t *te
 		{err: fmt.Errorf("dmabuf: import a client's buffer: %w", unix.ENODEV)},
 		{err: fmt.Errorf("%w: nested: host gone", backend.ErrDeviceLost), fatal: true},
 		{err: backend.Broken("present without BeginFrame"), fatal: true},
-		{err: fmt.Errorf("gles: render pass: %w", &gpu.EGLError{Op: "eglMakeCurrent", Code: 0x300E}), reset: true},
-		{err: fmt.Errorf("gles: render pass: %w", &gpu.GLError{Op: "draw", Code: 0x0507}), reset: true},
-		{err: fmt.Errorf("gles: %w", &gpu.GLError{Op: "glGetGraphicsResetStatus", Code: 0x8254}), reset: true},
 		{err: fmt.Errorf("vulkan: render pass: %w", lgpu.ErrDeviceLost), reset: true},
 		{err: fmt.Errorf("drm: commit the frame: %w", unix.EBUSY)},
 		{err: fmt.Errorf("drm: test the frame: %w", unix.EINVAL)},
 		{err: fmt.Errorf("drm: commit the frame: %w", unix.EACCES)},
-		{err: fmt.Errorf("gles: render pass: %w", &gpu.GLError{Op: "draw", Code: 0x0505})},
-		{err: fmt.Errorf("gles: render pass: %w", &gpu.EGLError{Op: "eglMakeCurrent", Code: 0x3002})},
 		{err: errors.New("compositor: tab label: no glyphs")},
 	} {
 		if got := backend.Fatal(tc.err); got != tc.fatal {

@@ -64,7 +64,7 @@ func TestChooseRenderer(t *testing.T) {
 		requested string
 		backend   backendKind
 		want      rendererKind
-	}{{"", nestedBackend, vulkanRenderer}, {"", headlessBackend, softRenderer}, {"", drmBackend, vulkanRenderer}, {"gles", drmBackend, glesRenderer}, {"lavapipe", drmBackend, lavapipeRenderer}, {"soft", nestedBackend, softRenderer}, {"vulkan", headlessBackend, vulkanRenderer}, {"vulkan", drmBackend, vulkanRenderer}, {"vulkan", nestedBackend, vulkanRenderer}} {
+	}{{"", nestedBackend, vulkanRenderer}, {"", headlessBackend, softRenderer}, {"", drmBackend, vulkanRenderer}, {"lavapipe", drmBackend, lavapipeRenderer}, {"soft", nestedBackend, softRenderer}, {"vulkan", headlessBackend, vulkanRenderer}, {"vulkan", drmBackend, vulkanRenderer}, {"vulkan", nestedBackend, vulkanRenderer}} {
 		if got, err := chooseRenderer(c.requested, c.backend); err != nil || got != c.want {
 			t.Errorf("chooseRenderer(%q, %v) = %v, %v; want %v", c.requested, c.backend, got, err, c.want)
 		}
@@ -73,7 +73,7 @@ func TestChooseRenderer(t *testing.T) {
 		requested string
 		backend   backendKind
 		available string
-	}{{"metal", nestedBackend, "vulkan, soft"}, {"metal", headlessBackend, "soft, vulkan"}, {"soft", drmBackend, "vulkan, lavapipe, gles"}, {"gles", nestedBackend, "vulkan, soft"}, {"gles", headlessBackend, "soft, vulkan"}, {"lavapipe", nestedBackend, "vulkan, soft"}, {"lavapipe", headlessBackend, "soft, vulkan"}} {
+	}{{"metal", nestedBackend, "vulkan, soft"}, {"metal", headlessBackend, "soft, vulkan"}, {"soft", drmBackend, "vulkan, lavapipe"}, {"gles", drmBackend, "vulkan, lavapipe"}, {"gles", nestedBackend, "vulkan, soft"}, {"gles", headlessBackend, "soft, vulkan"}, {"lavapipe", nestedBackend, "vulkan, soft"}, {"lavapipe", headlessBackend, "soft, vulkan"}} {
 		_, err := chooseRenderer(c.requested, c.backend)
 		if !errors.Is(err, errUnavailableRenderer) || !strings.Contains(err.Error(), "available: "+c.available) || !strings.Contains(err.Error(), c.backend.String()) {
 			t.Errorf("chooseRenderer(%q, %v) = %v, want errUnavailableRenderer naming the %v backend and %s", c.requested, c.backend, err, c.backend, c.available)
@@ -653,7 +653,7 @@ func TestTheRendererComesFromTheFlagThenTheEnvironment(t *testing.T) {
 	for _, c := range []struct {
 		flag, env string
 		want      rendererKind
-	}{{"", "", vulkanRenderer}, {"", "gles", glesRenderer}, {"vulkan", "gles", vulkanRenderer}, {"gles", "", glesRenderer}, {"", "lavapipe", lavapipeRenderer}, {"vulkan", "lavapipe", vulkanRenderer}} {
+	}{{"", "", vulkanRenderer}, {"", "lavapipe", lavapipeRenderer}, {"vulkan", "lavapipe", vulkanRenderer}, {"lavapipe", "", lavapipeRenderer}, {"vulkan", "gles", vulkanRenderer}} {
 		if got, err := rendererFor(c.flag, env(c.env), drmBackend); err != nil || got != c.want {
 			t.Errorf("rendererFor(%q, %s=%q) = %v, %v; want %v", c.flag, rendererEnv, c.env, got, err, c.want)
 		}
@@ -661,10 +661,10 @@ func TestTheRendererComesFromTheFlagThenTheEnvironment(t *testing.T) {
 	if _, err := rendererFor("", env("soft"), drmBackend); err == nil || !strings.Contains(err.Error(), rendererEnv) {
 		t.Errorf("an unusable %s gave %v, want an error naming the variable", rendererEnv, err)
 	}
-	if _, err := rendererFor("gles", env("metal"), drmBackend); err != nil {
+	if _, err := rendererFor("lavapipe", env("metal"), drmBackend); err != nil {
 		t.Errorf("the flag did not override %s=metal: %v", rendererEnv, err)
 	}
-	for _, kind := range []backendKind{nestedBackend, headlessBackend} {
+	for _, kind := range []backendKind{drmBackend, nestedBackend, headlessBackend} {
 		if _, err := rendererFor("", env("gles"), kind); !errors.Is(err, errUnavailableRenderer) || !strings.Contains(err.Error(), rendererEnv) {
 			t.Errorf("%s=gles on the %v backend gave %v, want errUnavailableRenderer naming the variable", rendererEnv, kind, err)
 		}

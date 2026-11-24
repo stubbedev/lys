@@ -21,7 +21,6 @@ import (
 	cw "github.com/stubbedev/lys/wm/internal/protocol/client/wayland"
 	cwlr "github.com/stubbedev/lys/wm/internal/protocol/client/wlrlayershell"
 	cxdg "github.com/stubbedev/lys/wm/internal/protocol/client/xdgshell"
-	"github.com/stubbedev/lys/wm/internal/render/gles"
 	"github.com/stubbedev/lys/wm/internal/testenv"
 	"github.com/stubbedev/lys/wm/internal/wire"
 	"github.com/stubbedev/lys/wm/internal/wlclient"
@@ -45,7 +44,7 @@ type Client struct {
 	Outputs          []*cw.WlOutput
 	registry         *cw.WlRegistry
 	globals          *registry
-	stack            *gles.Stack
+	stack            *clientGPU
 	sends            int
 	watchPools       bool
 	pools            []fdtest.Watch

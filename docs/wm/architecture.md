@@ -12,7 +12,7 @@ reasonable Go alternative exists, and then it is loaded at runtime with
 
 | Need | Source |
 | --- | --- |
-| EGL, GLES2, GBM | `libEGL.so.1`, `libGLESv2.so.2`, `libgbm.so.1` through purego (`internal/gpu`) |
+| GBM | `libgbm.so.1` through purego (`internal/gpu`) |
 | Vulkan | `libvulkan.so.1` through lys-lib's `third_party/vk` and `gpu` |
 | Input devices | `libinput.so.10` through purego (`internal/session`) |
 | Keymaps and keyboard state | lys-lib's `xkb`, pure Go |
@@ -29,7 +29,7 @@ reasonable Go alternative exists, and then it is loaded at runtime with
 Adding a purego library or a dependency to this table is a decision.
 
 - The Nix build bakes the purego libraries' store paths in; release builds load
-  them by soname. `LYS_WM_LIBEGL`, `LYS_WM_LIBGLESV2`, `LYS_WM_LIBGBM`, `LYS_WM_LIBINPUT` and
+  them by soname. `LYS_WM_LIBGBM`, `LYS_WM_LIBINPUT` and
   `LYS_LIBVULKAN` override them.
 - Without cgo, `os.Setenv` does not reach libc's `getenv`: anything a driver
   reads must be in the process environment at start.
@@ -65,9 +65,9 @@ Everything lives under `internal/` except the commands.
 | `backend/headless` | Virtual outputs rendered in software and injected input, for tests |
 | `backend/virtual` | An in-memory output on any backend, paced by its own clock, never presented |
 | `render` | The renderer interface |
-| `render/soft`, `render/gles`, `render/vulkan` | CPU, GLES2 and Vulkan (lys-lib `gpu`) renderers |
+| `render/soft`, `render/vulkan` | CPU and Vulkan (lys-lib `gpu`) renderers |
 | `render/rendertest` | The scene and checks every renderer is held to the software renderer's pixels with |
-| `gpu` | purego bindings for EGL, GLES2 and GBM; `PinThread` |
+| `gpu` | purego bindings for GBM, the dmabuf and YUV types; `PinThread` |
 | `shader` | The screen-shader language: GLSL ES 1.00 subset to GLSL, SPIR-V and a Go program |
 | `colorspace` | Transfer functions, primaries, ICC profiles, transforms between encodings; pure |
 | `region` | Pixel regions as disjoint rectangles |
@@ -154,9 +154,9 @@ the loop:
 
 On close the compositor waits for these goroutines.
 
-The loop goroutine is locked to its OS thread (`gpu.PinThread`), so its GL
-context stays current between renderer calls; on any other goroutine the
-renderer makes its context current around each call.
+The loop goroutine is locked to its OS thread (`gpu.PinThread`), so the
+thread whose priority is raised is the one that renders, and pipeline
+compiles on it leave realtime first (`gpu.CompileThrough`).
 
 The pinned thread and the input reader's thread raise their priority the same
 way (`cmd/lys-wm/priority.go`), always with `SCHED_FLAG_RESET_ON_FORK`:
@@ -219,9 +219,8 @@ Everything else is scoped and reported through `Config.Report`:
 
 ### GPU reset
 
-A lost GLES context (`gpu.ErrContextLost`) or Vulkan device (lys-lib
-`gpu.ErrDeviceLost`) is `backend.GPULost`, not fatal. The EGL context is
-created with `EGL_LOSE_CONTEXT_ON_RESET`.
+A lost Vulkan device (lys-lib `gpu.ErrDeviceLost`) is `backend.GPULost`, not
+fatal.
 
 - After a loss every renderer call is a successful no-op (`render.LostPass`,
   `LostRead`); no caller sees an error. `Renderer.Lost` is the one place a
@@ -434,17 +433,16 @@ foreign-toplevel activate all call it. Nothing else mutates WM state.
   what the copy does.
 - Cards come and go with udev. A removed secondary drops its outputs; losing
   the primary is fatal. Connector names are globally unique across cards.
-- GBM and EGL get their own file on the device (the render node, or a second
-  card file where the stack needs dumb buffers), and the Vulkan driver opens
-  its own, because GEM handles are per file. KMS imports close their handles
+- GBM gets its own file on the device (the render node, or a second card file
+  where it needs dumb buffers), and the Vulkan driver opens its own, because
+  GEM handles are per file. KMS imports close their handles
   once the framebuffer holds a reference.
 
 ### Renderers
 
 | Renderer | Selected by | Notes |
 | --- | --- | --- |
-| GLES2 | `-renderer gles` on drm only | glvnd picks the vendor; GBM platform; one configless context per display, no surfaces. The drm path for a card without a Vulkan driver, as in VMs and the login screen's software mode; nested and headless refuse it |
-| Vulkan | default for drm and nested; `-renderer vulkan` on headless | The renderer of every hardware path. On drm it needs a Vulkan driver for the primary card, the device behind the card's own DRM node: without one lys-wm stops at startup with `drm.ErrNoVulkan`, naming the card, `-renderer lavapipe` and `LYS_WM_RENDERER=lavapipe`, and never falls back to another device by itself. On drm it takes its scanout buffers from GBM with `GBM_BO_USE_SCANOUT` and imports them to render, since xe refuses ADDFB2 for memory Mesa's Vulkan driver allocates (it binds it into its VM before the scanout flag can be set); it loads no EGL or GLES unless a secondary card has no Vulkan driver (`TestStartOnEveryCardWithoutMaster`, with those two libraries unloadable). Nested: renders into memory it exports, on the device the host's dmabuf feedback names. Headless: tries render nodes first |
+| Vulkan | default for drm and nested; `-renderer vulkan` on headless | The renderer of every hardware path. On drm it needs a Vulkan driver for the primary card, the device behind the card's own DRM node: without one lys-wm stops at startup with `drm.ErrNoVulkan`, naming the card, `-renderer lavapipe` and `LYS_WM_RENDERER=lavapipe`, and never falls back to another device by itself. On drm it takes its scanout buffers from GBM with `GBM_BO_USE_SCANOUT` and imports them to render, since xe refuses ADDFB2 for memory Mesa's Vulkan driver allocates (it binds it into its VM before the scanout flag can be set). Nested: renders into memory it exports, on the device the host's dmabuf feedback names. Headless: tries render nodes first |
 | lavapipe | `-renderer lavapipe` on drm only | Vulkan on the CPU (lys-lib `gpu.OpenCPU`, which opens only a device of type CPU that exports dmabufs) for a card without a Vulkan driver: vkms, virtio-gpu without venus, the login screen's software mode. GBM on the card allocates the scanout buffers, as under Vulkan, and lavapipe imports them; the card's node is the main device clients are told. It needs `/dev/udmabuf` (lavapipe shares dmabufs only through it) and fails with `drm.ErrNoLavapipe` without it. Chosen only by name, never by a fallback, and logged at startup |
 | Software | default for headless | Reference for every pixel test |
 
@@ -462,21 +460,6 @@ the next try drops that modifier, so the list falls down in the driver's order
 before the next format is tried, and the winner is reported. Every
 renderer is pixel-compared against the software renderer by
 `render/rendertest`.
-
-A client dmabuf that names no modifier is sampled under GLES the way the
-display samples the linear one: through `GL_TEXTURE_EXTERNAL_OES` where
-`eglQueryDmaBufModifiersEXT` lists linear as external-only, as NVIDIA does
-(`TestAnEGLHostImportsThoseBytesWithNoModifier`). A dmabuf query that returns
-`EGL_FALSE` and leaves `EGL_SUCCESS` is outside
-`EGL_EXT_image_dma_buf_import_modifiers`, which names an error for every
-failure and returns `EGL_TRUE` with a count of zero for a format with no
-modifiers; it is reported as `gpu.ErrUnsupported`, naming the vendor and the
-query, and the compositor then offers no `zwp_linux_dmabuf_v1`. NVIDIA's EGL
-does this, and fails `eglCreateImageKHR` the same way, in a process that
-brought up NVIDIA's Vulkan driver before it first initialised EGL; a process
-that initialised EGL first imports on every later display. The nested
-package's test therefore opens its EGL host before its Vulkan device, and
-`just docker hardware` selects no Vulkan test of that package ahead of it.
 
 ### Scanout and planes
 
@@ -543,7 +526,7 @@ unmatched ops damage. Surface damage is clipped by opaque ops above it. Above
 
 - Every draw takes a coverage mask: a rounded rectangle to keep and one to cut,
   antialiased by signed distance. lys-lib's `gpu` owns the formula once
-  (`gpu.MaskGLSL` for GLES and Vulkan, `gpu.Mask.Coverage` for software).
+  (`gpu.MaskGLSL` for Vulkan, `gpu.Mask.Coverage` for software).
 - A masked op covers only its solid part for culling; direct scanout never
   takes a rounded window.
 - Effects render into a `Renderer.NewTextureTarget` and sample it in a later
@@ -591,7 +574,7 @@ no shader variant compiles and no target is float.
   `failed` (`GammaBlocked`) and the CTM folds into the encode. The cursor plane
   stays in use with its image encoded on the CPU to the output's signal
   (`compositor/hdrcursor.go`).
-- Tested against fake KMS, lavapipe and llvmpipe only.
+- Tested against fake KMS and lavapipe only.
 
 ## Tiled displays
 
@@ -911,12 +894,11 @@ none of this runs. [Upgrade](./guide/upgrade) is the user guide.
   `PlainConfig` sets to the process's stdout and stderr. A test that reads an
   exec's output names a pipe there: the harness tests share one process and
   run in parallel, so none replaces `os.Stderr` or another process global.
-- The dev shell points EGL at llvmpipe (`__EGL_VENDOR_LIBRARY_DIRS`,
-  `LIBGL_ALWAYS_SOFTWARE=1`) and `VK_DRIVER_FILES` at lavapipe. Unset them to
-  test on the machine's driver.
+- The dev shell points `VK_DRIVER_FILES` at lavapipe, and the GL clients the
+  tests start at llvmpipe (`__EGL_VENDOR_LIBRARY_DIRS`,
+  `LIBGL_ALWAYS_SOFTWARE=1`). Unset them to test on the machine's driver.
 - dmabuf paths need `/dev/udmabuf` on lavapipe, so they run in the
-  `wm-vms-go-tests` NixOS check; `just docker hardware` runs them on a real GPU
-  with both renderers. The `xdnd` scenario of `wm-vms-share` drags files between Wayland and X both ways.
+  `wm-vms-go-tests` NixOS check; `just docker hardware` runs them on a real GPU. The `xdnd` scenario of `wm-vms-share` drags files between Wayland and X both ways.
 - The DRM backend's tests run a fake device on a loop from `loop.NewManual`,
   whose clock stands still unless a test sets it: with nothing ready and no
   work off the loop on its way back, the rig moves it to the next armed timer,

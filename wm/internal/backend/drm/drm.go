@@ -1,5 +1,5 @@
 // Package drm is the native backend: one DRM device driven with atomic KMS,
-// scanning out buffers the Vulkan renderer exports or GBM allocates for GLES.
+// scanning out buffers GBM allocates and the Vulkan renderer draws into.
 package drm
 
 import (

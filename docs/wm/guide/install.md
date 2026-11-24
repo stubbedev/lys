@@ -42,9 +42,9 @@ point the display manager at `lys-wm --systemd` yourself.
 sudo apt install ./lys-wm_<version>_amd64.deb    # _arm64.deb on aarch64
 ```
 
-- Depends: `libegl1`, `libgles2`, `libgbm1`, `libinput10`, `xkb-data`.
+- Depends: `libgbm1`, `libinput10`, `libvulkan1`, `xkb-data`.
 - Recommends: `xwayland`, `xdg-desktop-portal`, `lys-shell`, `foot`,
-  `libvulkan1`, `mesa-vulkan-drivers`.
+  `mesa-vulkan-drivers`.
 
 `lys-shell` is not in the distribution archive; it is in the same
 [release](https://github.com/stubbedev/lys/releases/latest). It is the
@@ -56,10 +56,9 @@ session's only portal backend: without it, no portal answers.
 sudo dnf install ./lys-wm-<version>-1.fc<release>.x86_64.rpm    # .aarch64.rpm on aarch64
 ```
 
-- Requires: `libglvnd-egl`, `libglvnd-gles`, `mesa-libgbm`, `libinput`,
-  `xkeyboard-config`.
+- Requires: `mesa-libgbm`, `libinput`, `vulkan-loader`, `xkeyboard-config`.
 - Recommends: `xorg-x11-server-Xwayland`, `xdg-desktop-portal`, `lys-shell`,
-  `foot`, `vulkan-loader`, `mesa-vulkan-drivers`.
+  `foot`, `mesa-vulkan-drivers`.
 
 The lys-shell and portal notes above apply.
 
@@ -85,8 +84,6 @@ work on every install.
 | Dependency | Default | Override |
 | --- | --- | --- |
 | Vulkan | `libvulkan.so.1` | `LYS_LIBVULKAN` |
-| EGL (GLES renderer, drm only) | `libEGL.so.1` | `LYS_WM_LIBEGL` |
-| GLES2 (GLES renderer, drm only) | `libGLESv2.so.2` | `LYS_WM_LIBGLESV2` |
 | GBM (scanout buffers) | `libgbm.so.1` | `LYS_WM_LIBGBM` |
 | libinput | `libinput.so.10` | `LYS_WM_LIBINPUT` |
 | xkeyboard-config | `/usr/share/X11/xkb` | `XKB_CONFIG_ROOT` |

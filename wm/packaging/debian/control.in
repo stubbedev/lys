@@ -14,17 +14,15 @@ Package: lys-wm
 Architecture: amd64 arm64
 Depends:
  ${misc:Depends},
- libegl1,
  libgbm1,
- libgles2,
  libinput10,
+ libvulkan1,
  xkb-data
 Recommends:
  xwayland,
  xdg-desktop-portal,
  lys-shell,
  foot,
- libvulkan1,
  mesa-vulkan-drivers
 Description: pure-Go tiling Wayland compositor for the lys desktop
  lys-wm is the lys desktop's compositor: a tiling Wayland compositor on

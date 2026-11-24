@@ -15,7 +15,7 @@ import (
 	cld "github.com/stubbedev/lys/wm/internal/protocol/client/linuxdmabuf"
 	cw "github.com/stubbedev/lys/wm/internal/protocol/client/wayland"
 	"github.com/stubbedev/lys/wm/internal/render"
-	"github.com/stubbedev/lys/wm/internal/render/gles"
+	"github.com/stubbedev/lys/wm/internal/render/vulkan"
 	"github.com/stubbedev/lys/wm/internal/wire"
 	"github.com/stubbedev/lys/wm/internal/wlclient/feedback"
 )
@@ -166,31 +166,54 @@ func UDMABUF(size image.Point, paint Painter) (gpu.DMABUF, func() error, error) 
 	return d, m.close, nil
 }
 
-func (c *Client) gpuStack(fb feedback.Feedback) *gles.Stack {
+type clientGPU struct {
+	gbm      *gpu.GBM
+	renderer *vulkan.Renderer
+}
+
+func openClientGPU(node string) (_ *clientGPU, closeGPU func() error, err error) {
+	fd, err := unix.Open(node, unix.O_RDWR|unix.O_CLOEXEC, 0)
+	if err != nil {
+		return nil, nil, fmt.Errorf("testclient: open %s: %w", node, err)
+	}
+	lib, err := gpu.LoadGBM(gpu.PathsFromEnv(os.Getenv))
+	if err != nil {
+		return nil, nil, errors.Join(err, unix.Close(fd))
+	}
+	g, err := lib.Open(fd)
+	if err != nil {
+		return nil, nil, errors.Join(fmt.Errorf("testclient: GBM on %s: %w", node, err), lib.Close(), unix.Close(fd))
+	}
+	closeGBM := func() error {
+		g.Close()
+		return errors.Join(lib.Close(), unix.Close(fd))
+	}
+	r, err := vulkan.OpenRenderNode(node)
+	if err != nil {
+		return nil, nil, errors.Join(fmt.Errorf("testclient: Vulkan on %s to read buffers back: %w", node, err), closeGBM())
+	}
+	return &clientGPU{gbm: g, renderer: r}, func() error { return errors.Join(r.Close(), closeGBM()) }, nil
+}
+
+func (c *Client) gpuStack(fb feedback.Feedback) *clientGPU {
 	c.t.Helper()
 	if c.stack != nil {
 		return c.stack
 	}
 	node, err := feedback.RenderNode(fb.Main)
 	c.must(err)
-	fd, err := unix.Open(node, unix.O_RDWR|unix.O_CLOEXEC, 0)
-	if err != nil {
-		c.t.Fatalf("testclient: open %s: %v", node, err)
-	}
-	s, err := gles.OnGBM(fd, gpu.PathsFromEnv(os.Getenv))
-	if err != nil {
-		c.must(errors.Join(fmt.Errorf("testclient: GLES on %s: %w", node, err), unix.Close(fd)))
-	}
+	s, closeGPU, err := openClientGPU(node)
+	c.must(err)
 	c.t.Cleanup(func() {
-		if err := errors.Join(s.Close(), unix.Close(fd)); err != nil {
-			c.t.Errorf("testclient: close GLES on %s: %v", node, err)
+		if err := closeGPU(); err != nil {
+			c.t.Errorf("testclient: close the GPU on %s: %v", node, err)
 		}
 	})
 	c.stack = s
 	return s
 }
 
-func readBack(r *gles.Renderer, b gpu.DMABUF) (pix []byte, err error) {
+func readBack(r *vulkan.Renderer, b gpu.DMABUF) (pix []byte, err error) {
 	tex, err := r.ImportTexture(b)
 	if err != nil {
 		return nil, err
@@ -217,27 +240,27 @@ func readBack(r *gles.Renderer, b gpu.DMABUF) (pix []byte, err error) {
 func (c *Client) gbmMemory(fb feedback.Feedback, format fourcc.Format, size image.Point, modifiers []fourcc.Modifier, usage gpu.Usage) memory {
 	c.t.Helper()
 	s := c.gpuStack(fb)
-	b, err := s.GBM.Allocate(size, format, modifiers, usage)
+	b, err := s.gbm.Allocate(size, format, modifiers, usage)
 	c.must(err)
-	return c.gbmBuffer(s.Renderer, b, format)
+	return c.gbmBuffer(s.renderer, b, format)
 }
 
 func (c *Client) linearMemory(fb feedback.Feedback, format fourcc.Format, size image.Point) memory {
 	c.t.Helper()
 	s := c.gpuStack(fb)
-	b, err := s.GBM.Allocate(size, format.WithAlpha(), []fourcc.Modifier{fourcc.Linear}, 0)
+	b, err := s.gbm.Allocate(size, format.WithAlpha(), []fourcc.Modifier{fourcc.Linear}, 0)
 	if err != nil && format != dmabufFormat {
 		c.t.Skipf("testclient: %v", err)
 	}
 	c.must(err)
-	m := c.gbmBuffer(s.Renderer, b, format)
+	m := c.gbmBuffer(s.renderer, b, format)
 	if m.mapped == nil {
 		c.must(errors.Join(fmt.Errorf("testclient: GBM allocated a %v buffer with modifier %v when asked for linear", b.Format, b.Modifier), m.close()))
 	}
 	return m
 }
 
-func (c *Client) gbmBuffer(r *gles.Renderer, b *gpu.Buffer, format fourcc.Format) memory {
+func (c *Client) gbmBuffer(r *vulkan.Renderer, b *gpu.Buffer, format fourcc.Format) memory {
 	c.t.Helper()
 	if len(b.Planes) != 1 {
 		c.must(errors.Join(fmt.Errorf("testclient: a %v buffer with modifier %v has %d planes", b.Format, b.Modifier, len(b.Planes)), b.Close()))

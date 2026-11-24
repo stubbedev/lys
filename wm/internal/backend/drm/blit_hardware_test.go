@@ -16,8 +16,8 @@ import (
 
 type openStack func(*kdrm.Device) (*gpuAllocator, error)
 
-func openGLES(dev *kdrm.Device) (*gpuAllocator, error) {
-	return newGLESAllocator(device{kernel: dev}, gpu.PathsFromEnv(os.Getenv))
+func openLavapipe(dev *kdrm.Device) (*gpuAllocator, error) {
+	return newLavapipeAllocator(device{kernel: dev}, gpu.PathsFromEnv(os.Getenv))
 }
 
 func openVulkan(dev *kdrm.Device) (*gpuAllocator, error) {
@@ -27,7 +27,7 @@ func openVulkan(dev *kdrm.Device) (*gpuAllocator, error) {
 var gpuStacks = []struct {
 	name string
 	open openStack
-}{{"gles", openGLES}, {"vulkan", openVulkan}}
+}{{"vulkan", openVulkan}, {"lavapipe", openLavapipe}}
 
 func cardNodes(t *testing.T) []string {
 	t.Helper()
@@ -135,12 +135,7 @@ func TestABlitThroughAVulkanLinearCopyShowsTheFrameOnHardware(t *testing.T) {
 
 func blitThroughACopy(t *testing.T, open openStack) {
 	cards := cardNodes(t)
-	unpin := gpu.PinThread()
-	defer func() {
-		if err := unpin(); err != nil {
-			t.Error(err)
-		}
-	}()
+	defer gpu.PinThread()()
 	primary, local := stackOn(t, cards[0], open), stackOn(t, cards[0], open)
 	a := &blitAllocator{primary: primary, local: local}
 	t.Cleanup(func() {
@@ -225,7 +220,7 @@ func TestABlitBetweenTwoStacksOnOneCardShowsTheFrameOnHardware(t *testing.T) {
 			for _, native := range []bool{true, false} {
 				name := p.name + " to " + l.name + " handing over with a sync_file"
 				if !native {
-					name = p.name + " to " + l.name + " handing over with glFinish"
+					name = p.name + " to " + l.name + " handing over with a wait for the GPU to finish"
 				}
 				t.Run(name, func(t *testing.T) { blitBetweenStacks(t, node, p.open, l.open, native) })
 			}
@@ -234,12 +229,7 @@ func TestABlitBetweenTwoStacksOnOneCardShowsTheFrameOnHardware(t *testing.T) {
 }
 
 func blitBetweenStacks(t *testing.T, node string, openPrimary, openLocal openStack, native bool) {
-	unpin := gpu.PinThread()
-	defer func() {
-		if err := unpin(); err != nil {
-			t.Error(err)
-		}
-	}()
+	defer gpu.PinThread()()
 	primary, local := stackOn(t, node, openPrimary), stackOn(t, node, openLocal)
 	if !native {
 		local.gpu = finishOnly{local.gpu}

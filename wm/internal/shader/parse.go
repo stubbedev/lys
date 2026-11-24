@@ -51,16 +51,15 @@ func Compile(src []byte) (*Program, error) {
 	if len(src) > maxSource {
 		return nil, errorAt(1, 1, "the source is %d bytes, more than the %d allowed", len(src), maxSource)
 	}
-	tokens, blanks, err := lex(src)
+	tokens, err := lex(src)
 	if err != nil {
 		return nil, err
 	}
-	p := &parser{tokens: tokens, program: &Program{source: src, blanks: blanks}, functions: map[string]*function{}, scale: 1}
+	p := &parser{tokens: tokens, program: &Program{}, functions: map[string]*function{}, scale: 1}
 	p.push()
 	if err := p.parseProgram(); err != nil {
 		return nil, err
 	}
-	p.program.buildGLES()
 	p.program.spirv = emitSPIRV(p.program)
 	return p.program, nil
 }
@@ -146,7 +145,6 @@ func (p *parser) declare(t token, v any) error {
 func (p *parser) skipPrecision() {
 	t := p.tok()
 	if t.kind == tokIdent && slices.Contains(precisions, t.text) {
-		p.program.blanks = append(p.program.blanks, span{t.from, t.to})
 		p.at++
 	}
 }
@@ -202,7 +200,6 @@ func (p *parser) topLevel() error {
 }
 
 func (p *parser) precisionStatement() error {
-	start := p.tok()
 	p.at++
 	if !p.accept("lowp") && !p.accept("mediump") && !p.accept("highp") {
 		return p.fail("precision takes lowp, mediump or highp")
@@ -210,12 +207,7 @@ func (p *parser) precisionStatement() error {
 	if !p.accept("float") && !p.accept("int") && !p.accept("sampler2D") {
 		return p.fail("precision applies to float, int or sampler2D")
 	}
-	end := p.tok()
-	if err := p.expect(";"); err != nil {
-		return err
-	}
-	p.program.blanks = append(p.program.blanks, span{start.from, end.to})
-	return nil
+	return p.expect(";")
 }
 
 func (p *parser) provided() error {

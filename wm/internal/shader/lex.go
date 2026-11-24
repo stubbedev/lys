@@ -18,7 +18,6 @@ type token struct {
 	kind      tokenKind
 	text      string
 	line, col int
-	from, to  int
 }
 
 var puncts = []string{"++", "--", "+=", "-=", "*=", "/=", "<=", ">=", "==", "!=", "&&", "||", "^^", "+", "-", "*", "/", "<", ">", "=", "!", "?", ":", ";", ",", ".", "(", ")", "{", "}", "[", "]"}
@@ -36,7 +35,6 @@ type lexer struct {
 	at        int
 	line, col int
 	tokens    []token
-	blanks    []span
 }
 
 func (l *lexer) advance(n int) {
@@ -68,7 +66,6 @@ func (l *lexer) directive() error {
 	if text != "#version 100" {
 		return l.fail("%q: the only directive is #version 100; use const instead of #define, and there are no #ifdefs", text)
 	}
-	l.blanks = append(l.blanks, span{l.at, l.at + end})
 	l.advance(end)
 	return nil
 }
@@ -106,11 +103,11 @@ func (l *lexer) number() error {
 	if floating {
 		kind = tokFloat
 	}
-	l.tokens = append(l.tokens, token{kind: kind, text: string(l.src[start:l.at]), line: line, col: col, from: start, to: l.at})
+	l.tokens = append(l.tokens, token{kind: kind, text: string(l.src[start:l.at]), line: line, col: col})
 	return nil
 }
 
-func lex(src []byte) ([]token, []span, error) {
+func lex(src []byte) ([]token, error) {
 	l := &lexer{src: src, line: 1, col: 1}
 	for l.at < len(src) {
 		c := src[l.at]
@@ -125,38 +122,38 @@ func lex(src []byte) ([]token, []span, error) {
 		case len(rest) >= 2 && c == '/' && rest[1] == '*':
 			end := strings.Index(l.rest(), "*/")
 			if end < 0 {
-				return nil, nil, l.fail("a comment that never ends")
+				return nil, l.fail("a comment that never ends")
 			}
 			l.advance(end + 2)
 		case c == '#':
 			if err := l.directive(); err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 		case isIdentStart(c):
 			start, line, col := l.at, l.line, l.col
 			for l.at < len(src) && (isIdentStart(src[l.at]) || isDigit(src[l.at])) {
 				l.advance(1)
 			}
-			l.tokens = append(l.tokens, token{kind: tokIdent, text: string(src[start:l.at]), line: line, col: col, from: start, to: l.at})
+			l.tokens = append(l.tokens, token{kind: tokIdent, text: string(src[start:l.at]), line: line, col: col})
 		case isDigit(c) || c == '.' && len(rest) >= 2 && isDigit(rest[1]):
 			if err := l.number(); err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 		default:
 			found := false
 			for _, p := range puncts {
 				if strings.HasPrefix(string(rest[:min(2, len(rest))]), p) {
-					l.tokens = append(l.tokens, token{kind: tokPunct, text: p, line: l.line, col: l.col, from: l.at, to: l.at + len(p)})
+					l.tokens = append(l.tokens, token{kind: tokPunct, text: p, line: l.line, col: l.col})
 					l.advance(len(p))
 					found = true
 					break
 				}
 			}
 			if !found {
-				return nil, nil, l.fail("unexpected character %q", string(c))
+				return nil, l.fail("unexpected character %q", string(c))
 			}
 		}
 	}
-	l.tokens = append(l.tokens, token{kind: tokEOF, line: l.line, col: l.col, from: len(src), to: len(src)})
-	return l.tokens, l.blanks, nil
+	l.tokens = append(l.tokens, token{kind: tokEOF, line: l.line, col: l.col})
+	return l.tokens, nil
 }

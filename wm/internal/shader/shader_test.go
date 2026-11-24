@@ -93,27 +93,6 @@ func TestDiagnosticsNameTheLineAndWhatIsWrong(t *testing.T) {
 	}
 }
 
-func TestGLESKeepsLinesAndForcesHighp(t *testing.T) {
-	p, err := shader.Compile([]byte("#version 100\nprecision mediump float;\nuniform mediump float time;\nvoid main() {\n  lowp vec4 c = vec4(time);\n  gl_FragColor = c;\n}\n"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	src := p.GLES()
-	if strings.Contains(src, "mediump") || strings.Contains(src, "lowp") || strings.Contains(src, "#version") {
-		t.Errorf("precision or version left in:\n%s", src)
-	}
-	if !strings.HasPrefix(src, "precision highp float;") {
-		t.Errorf("no highp prefix:\n%s", src)
-	}
-	lines := strings.Split(src, "\n")
-	if !strings.Contains(lines[4], "vec4 c = vec4(time)") {
-		t.Errorf("line 5 moved: %q", lines[4])
-	}
-	if !p.UsesTime() {
-		t.Error("UsesTime false for a shader reading time")
-	}
-}
-
 const allFeatures = `
 precision highp float;
 uniform sampler2D tex;
@@ -213,18 +192,27 @@ func TestTheGLSLAcceptsWhatWeAccept(t *testing.T) {
 	sources := exampleSources(t)
 	sources["allFeatures"] = []byte(allFeatures)
 	for name, src := range sources {
-		p, err := shader.Compile(src)
-		if err != nil {
+		if _, err := shader.Compile(src); err != nil {
 			t.Fatalf("%s: %v", name, err)
 		}
 		path := filepath.Join(t.TempDir(), "shader.frag")
-		if err := os.WriteFile(path, []byte("#version 100\n"+p.GLES()), 0o600); err != nil {
+		if err := os.WriteFile(path, []byte(asGLSLES(src)), 0o600); err != nil {
 			t.Fatal(err)
 		}
 		if out, err := exec.Command(glslang, path).CombinedOutput(); err != nil {
 			t.Errorf("%s: glslang: %v\n%s", name, err, out)
 		}
 	}
+}
+
+func asGLSLES(src []byte) string {
+	lines := strings.Split(string(src), "\n")
+	for i, l := range lines {
+		if strings.HasPrefix(strings.TrimSpace(l), "#version") {
+			lines[i] = ""
+		}
+	}
+	return "#version 100\nprecision highp float;\nprecision highp int;\n" + strings.Join(lines, "\n")
 }
 
 func shade(t *testing.T, src string, in shader.Inputs, sample func(u, v float32) [4]float32) [4]float32 {

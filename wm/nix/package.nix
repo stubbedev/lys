@@ -21,8 +21,6 @@
         # purego loads these at runtime; the store paths are baked in so the
         # binary needs no library search path.
         ldflags = with pkgs; [
-          "-X github.com/stubbedev/lys/wm/internal/gpu.defaultEGL=${libglvnd}/lib/libEGL.so.1"
-          "-X github.com/stubbedev/lys/wm/internal/gpu.defaultGLESv2=${libglvnd}/lib/libGLESv2.so.2"
           "-X github.com/stubbedev/lys/wm/internal/gpu.defaultGBM=${libgbm}/lib/libgbm.so.1"
           "-X github.com/stubbedev/lys/lib/xkb.defaultRoot=${xkeyboard-config}/share/X11/xkb"
           "-X github.com/stubbedev/lys/lib/third_party/vk.defaultLibrary=${vulkan-loader}/lib/libvulkan.so.1"
