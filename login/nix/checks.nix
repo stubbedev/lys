@@ -112,7 +112,7 @@
         in
           pkgs.runCommand "lys-login-daemon-software-render" {} ''
             ${lib.optionalString (failedAssertions (system "software") != []) ''echo "renderer = software failed evaluation under the lys-login display manager" >&2; exit 1''}
-            [ "$(${compositor "software"})" = "LYS_WM_RENDERER=gles LYS_UI_RENDERER=cpu" ] || { echo "renderer = software leaves the daemon's lys-wm on Vulkan or the greeter on the GPU" >&2; exit 1; }
+            [ "$(${compositor "software"})" = "LYS_WM_RENDERER=lavapipe LYS_UI_RENDERER=cpu" ] || { echo "renderer = software leaves the daemon's lys-wm on Vulkan or the greeter on the GPU" >&2; exit 1; }
             [ "$(${compositor "auto"})" = "LYS_WM_RENDERER= LYS_UI_RENDERER=" ] || { echo "renderer = auto forces a software path on the daemon's lys-wm" >&2; exit 1; }
             ${lib.optionalString (!rejects {graphicsWrapper = ["nixGL"];} "greeter.graphicsWrapper") ''echo "a graphicsWrapper passed evaluation under the lys-login display manager" >&2; exit 1''}
             ${lib.optionalString (rejects {} "greeter.graphicsWrapper") ''echo "the default graphicsWrapper was rejected" >&2; exit 1''}

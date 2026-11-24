@@ -291,8 +291,10 @@ in {
           so on a host without one cage exits and greetd keeps restarting it.
           `software` needs no GPU vendor driver at all: the greeter draws on
           the CPU (`LYS_UI_RENDERER=cpu`), and its compositor renders with
-          GLES on dumb buffers under the daemon (`LYS_WM_RENDERER=gles`, set by
-          wrapping `compositorPackage`) or with pixman under greetd
+          Vulkan on the CPU into the card's buffers under the daemon
+          (`LYS_WM_RENDERER=lavapipe`, set by wrapping `compositorPackage`;
+          lavapipe shares them through {file}`/dev/udmabuf`, which systemd
+          grants the seat's sessions) or with pixman under greetd
           (`WLR_RENDERER=pixman`). It reaches the greeter's compositor only, not
           the sessions it starts. Use `software` on VMs, headless-ish boxes, or
           any host where GPU init is unreliable and you would rather guarantee

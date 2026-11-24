@@ -18,7 +18,7 @@ sudo dnf install ./lys-login-<version>-*.x86_64.rpm ./lys-wm-<version>-*.x86_64.
 | Recommends | `lys-wm`, `lys-secrets`, `polkitd`, `libvulkan1`, `mesa-vulkan-drivers` | `lys-wm`, `lys-secrets`, `polkit`, `vulkan-loader`, `mesa-vulkan-drivers` |
 
 lys-wm renders with Vulkan; on a card without a Vulkan driver, such as a VM's
-virtio-gpu, put `LYS_WM_RENDERER=gles` in `/etc/environment`
+virtio-gpu, put `LYS_WM_RENDERER=lavapipe` in `/etc/environment`
 ([Rendering without a GPU](/login/install/other#rendering-without-a-gpu)).
 
 ## What it installs

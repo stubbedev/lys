@@ -81,8 +81,9 @@ lys-greeter-session --config /etc/lys-shell/config.yaml --state /var/lib/lys-gre
 
 The greeter draws on the CPU when Vulkan is unavailable; `LYS_UI_RENDERER=cpu`
 forces it. The display manager's lys-wm renders with Vulkan and stops on a card
-without a Vulkan driver, such as a VM's virtio-gpu; `LYS_WM_RENDERER=gles` makes
-it render with GLES, on llvmpipe when no GPU driver is there. The greeter's
+without a Vulkan driver, such as a VM's virtio-gpu; `LYS_WM_RENDERER=lavapipe`
+makes it render with Vulkan on lavapipe, Mesa's CPU driver, which needs
+`/dev/udmabuf` (systemd grants it to the seat's sessions). The greeter's
 lys-wm gets its environment from PAM, not from the unit, so put the line in
 `/etc/environment` (read by `pam_env`), where lys-wm sessions find it too.
 For cage set `WLR_RENDERER=pixman` and `WLR_DRM_NO_MODIFIERS=1`.

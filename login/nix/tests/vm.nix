@@ -58,7 +58,7 @@ in {
     ];
     environment.sessionVariables = {
       LIBGL_ALWAYS_SOFTWARE = "1";
-      LYS_WM_RENDERER = "gles";
+      LYS_WM_RENDERER = "lavapipe";
     };
     environment.systemPackages = [scenarioJournal];
     hardware.graphics.enable = true;

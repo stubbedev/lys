@@ -30,7 +30,7 @@ names its scenario.
 Each check is also `just checks login-<name>` from the repository root. Repository-wide recipes, the Nix layout, CI and releases are in [Developing lys](/development/).
 
 The VM checks show the greeter on virtio-gpu, which has no Vulkan driver, so
-`nix/tests/vm.nix` sets `LYS_WM_RENDERER=gles` in the session variables
+`nix/tests/vm.nix` sets `LYS_WM_RENDERER=lavapipe` in the session variables
 for the greeter's lys-wm and the lys-wm sessions.
 
 The greeter logs `greeter: ready: ...` once its first frame is on screen and it

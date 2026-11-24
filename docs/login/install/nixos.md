@@ -36,9 +36,10 @@ programs.lys-login.greeter.compositorPackage = config.programs.lys-wm.package;
 
 lys-wm renders with Vulkan and stops on a card without a Vulkan driver, such as
 a VM's virtio-gpu without venus. There, `greeter.renderer = "software"` runs the
-greeter's lys-wm with GLES on llvmpipe; set
-`environment.sessionVariables.LYS_WM_RENDERER = "gles"` instead to cover the
-greeter and every lys-wm session, which inherit it through PAM.
+greeter's lys-wm with Vulkan on lavapipe, Mesa's CPU driver; set
+`environment.sessionVariables.LYS_WM_RENDERER = "lavapipe"` instead to cover the
+greeter and every lys-wm session, which inherit it through PAM. lavapipe shares
+buffers through `/dev/udmabuf`, which systemd grants the seat's sessions.
 
 With [lys-splash](/splash/) as boot splash, set
 `greeter.splashPackage`. The unit then conflicts with `lys-splash-quit.service`,
@@ -89,7 +90,7 @@ All under `programs.lys-login`.
 | `greeter.session.command` | string | `""` | Fallback session offered as "Custom"; the only entry when no session files exist. |
 | `greeter.session.environment` | list of strings | `[]` | Extra `KEY=value` for every session. |
 | `greeter.cagePackage` | package | `pkgs.cage` | greetd only: the kiosk compositor. |
-| `greeter.renderer` | `"auto"` or `"software"` | `"auto"` | `software` needs no GPU driver: the greeter draws on the CPU, lys-wm renders with GLES (`LYS_WM_RENDERER=gles`) under the daemon, cage with pixman under greetd. Sessions are not affected. |
+| `greeter.renderer` | `"auto"` or `"software"` | `"auto"` | `software` needs no GPU driver: the greeter draws on the CPU, lys-wm renders with Vulkan on lavapipe (`LYS_WM_RENDERER=lavapipe`) under the daemon, cage with pixman under greetd. Sessions are not affected. |
 | `greeter.graphicsWrapper` | list of strings | `[]` | greetd only: command prefix around the launch, e.g. nixGL. |
 
 Evaluation fails when no session can be offered, when `autologin.user` is set
