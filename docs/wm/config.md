@@ -479,7 +479,7 @@ An event's unset key comes from its parent, else its default motion below. A
 | `scratchpad` | spring 900, 60 | `slidevert` |
 | `overview` | spring 300, 34 (a spring unless this event names a curve) | |
 | `layers_in` | spring 800, 54 | `fade` |
-| `layers_out` | spring 900, 58 | `fade` |
+| `layers_out` | spring 900, 58 | `popin 108%` |
 | `fade` | spring 800, 56 | |
 | `fade_out` | spring 900, 56 | |
 | `snap`, `zoom` | `spring` unless given a curve or duration | |
@@ -492,7 +492,7 @@ An event's unset key comes from its parent, else its default motion below. A
 | `windows` | `global` | Every window animation | | still |
 | `windows_move` | `windows` | A tile moving or resizing; a resize waits until every affected window has drawn its new size, up to 100 ms ([layout changes land together](./architecture#layout-changes-land-together)) | `morph` (stretches toward its target as a liquid blob), `elastic` (a mouse-dragged window bends like jelly) | still |
 | `windows_in` | `windows` | A window appearing | `popin <percent>`, `slide`, `bud` (grows out of the nearest window) | still |
-| `windows_out` | `windows` | A window closing | `popin <percent>`, `slide`, `bud` | still |
+| `windows_out` | `windows` | A window closing | `popin <percent>` (up to 200%: above 100% it grows as it fades), `slide`, `bud` | still |
 | `windows_minimize` | `windows` | Minimizing and restoring | `genie` (toward the taskbar's rectangle, else the nearest edge), `fade` | cross-fade |
 | `overview` | `global` | The [overview](#overview) opening, closing and rearranging | | still |
 | `fade` | `global` | Every fade | | fade |
@@ -506,7 +506,7 @@ An event's unset key comes from its parent, else its default motion below. A
 | `scratchpad` | `global` | A [scratchpad](#scratchpads) showing or hiding | `slidevert`, `fade`, `popin <percent>` | cross-fade |
 | `layers` | `global` | Every layer-shell surface animation | | fade |
 | `layers_in` | `layers` | A layer surface mapping | `slide`, `popin <percent>`, `fade` | cross-fade |
-| `layers_out` | `layers` | A layer surface unmapping | `slide`, `popin <percent>`, `fade` | cross-fade |
+| `layers_out` | `layers` | A layer surface unmapping | `slide`, `popin <percent>` (up to 200%: above 100% it grows around its centre as it fades, the way macOS dismisses a popover), `fade` | cross-fade |
 | `snap` | `windows` | The [drag preview](#drag_preview) moving | | still |
 | `fade_snap` | `fade` | The drag preview appearing and going | | fade |
 | `zoom` | `global` | The `zoom` action changing magnification | | still |

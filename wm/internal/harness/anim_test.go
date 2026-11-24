@@ -253,6 +253,49 @@ func testAWorkspaceSwitchSlidesBothWorkspaces(t *testing.T, start gpuStarter) {
 	h.idleFor(200*time.Millisecond, "after the switch ended")
 }
 
+func TestALayerSurfaceLeavesByEnlargingWhileItFades(t *testing.T) {
+	t.Parallel()
+	onEachConfiguredRenderer(t, testALayerSurfaceLeavesByEnlargingWhileItFades)
+}
+
+func testALayerSurfaceLeavesByEnlargingWhileItFades(t *testing.T, start gpuStarter) {
+	d := time.Second
+	off, on := false, true
+	fade, lift := anim.Style{Kind: anim.FadeStyle}, anim.Style{Kind: anim.Popin, Percent: 150}
+	table, errs := anim.Resolve(true, map[anim.Event]anim.Setting{
+		anim.Global:    {Enabled: &off},
+		anim.LayersOut: {Enabled: &on, Shape: anim.Linear, Duration: &d, Style: &lift},
+		anim.LayersIn:  {Style: &fade},
+	})
+	if len(errs) != 0 {
+		t.Fatal(errs)
+	}
+	h := start(t, func(cfg *compositor.Config) {
+		cfg.Animations = table
+	}, tall)
+	bg := [3]byte{compositor.Background.R, compositor.Background.G, compositor.Background.B}
+	shell := testclient.Connect(t, h.Socket())
+	bar := shell.Layer(topBar(cwlr.ZwlrLayerSurfaceV1KeyboardInteractivityNone), testclient.Fill(barColor[2], barColor[1], barColor[0]))
+	shell.DispatchUntil("the bar to map", bar.Mapped)
+	h.Eventually("the bar in place at once", func(b *headless.Backend, c *compositor.Compositor) bool {
+		return showing(80, 15, barColor)(b, c) && showing(80, 21, bg)(b, c)
+	})
+
+	closing := h.Hold()
+	if err := errors.Join(bar.Destroy(), shell.Display.Roundtrip()); err != nil {
+		t.Fatal(err)
+	}
+	h.AdvanceTo(closing + 500*time.Millisecond)
+	h.Eventually("the closed bar half faded and grown past its lower edge", func(b *headless.Backend, _ *compositor.Compositor) bool {
+		shot := snapshot(b.Outputs()[0])
+		return nearProgress(pixel(shot, 80, 21), barColor, bg, 0.5, frameSlack(tall, d)) && nearProgress(pixel(shot, 80, 10), barColor, bg, 0.5, frameSlack(tall, d))
+	})
+	h.AdvanceTo(closing + time.Second + tall.Interval())
+	h.Eventually("the closed bar gone", func(b *headless.Backend, c *compositor.Compositor) bool {
+		return showing(80, 10, bg)(b, c) && showing(80, 21, bg)(b, c)
+	})
+}
+
 func TestLayerSurfacesSlideInAndFadeOut(t *testing.T) {
 	t.Parallel()
 	onEachConfiguredRenderer(t, testLayerSurfacesSlideInAndFadeOut)

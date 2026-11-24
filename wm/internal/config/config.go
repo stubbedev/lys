@@ -1000,7 +1000,7 @@ func (p *parser) animations(r rawAnimations, motion map[anim.Event]anim.Setting)
 			}
 		}
 		if st := at.V.Style; st != nil {
-			style, err := anim.ParseStyle(st.V)
+			style, err := anim.ParseStyle(st.V, e.Direction())
 			if err != nil {
 				p.fail(st.Line, key+".style", "%v", err)
 				continue
@@ -2390,17 +2390,17 @@ func (p *parser) animation(a *At[rawRuleAnim], key string) *wm.WindowAnimation {
 	if a == nil {
 		return nil
 	}
-	style := func(s *At[string], k string) anim.Style {
+	style := func(s *At[string], k string, d anim.Direction) anim.Style {
 		if s == nil {
 			return anim.Style{}
 		}
-		st, err := anim.ParseStyle(s.V)
+		st, err := anim.ParseStyle(s.V, d)
 		if err != nil {
 			p.fail(s.Line, key+".animation."+k, "%v", err)
 		}
 		return st
 	}
-	return &wm.WindowAnimation{Off: a.V.Off, In: style(a.V.In, "in"), Out: style(a.V.Out, "out")}
+	return &wm.WindowAnimation{Off: a.V.Off, In: style(a.V.In, "in", anim.Enter), Out: style(a.V.Out, "out", anim.Exit)}
 }
 
 func blursAnyLayer(rules []At[rawLayerRule]) bool {

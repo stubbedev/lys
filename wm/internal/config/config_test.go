@@ -296,6 +296,8 @@ func TestErrorsNameFileLineAndKey(t *testing.T) {
 		"animations:\n  curves:\n    linear: {bezier: [0, 0, 1, 1]}\n":          "t.yaml:3: animations.curves.linear: is a built-in curve",
 		"animations:\n  events:\n    windows: {curve: bouncy}\n":                `t.yaml:3: animations.events.windows.curve: "bouncy" is not a curve (known: ease,`,
 		"animations:\n  events:\n    windows_in: {style: popin 120%}\n":         "t.yaml:3: animations.events.windows_in.style: anim: popin takes a percentage from 0% to 100%",
+		"animations:\n  events:\n    layers_out: {style: popin 250%}\n":         "t.yaml:3: animations.events.layers_out.style: anim: popin takes a percentage from 0% to 200%",
+		"rules:\n  - {app_id: a, animation: {in: popin 108%}}\n":                "t.yaml:2: rules[0].animation.in: anim: popin takes a percentage from 0% to 100%",
 		"animations:\n  events:\n    windows_in: {style: wobble}\n":             `t.yaml:3: animations.events.windows_in.style: anim: unknown style "wobble"`,
 		"animations:\n  events:\n    fade_in: {style: slide}\n":                 "t.yaml:3: animations.events.fade_in: event fade_in takes no style slide",
 		"animations:\n  events:\n    windows: {duration: 0}\n":                  "t.yaml:3: animations.events.windows.duration: 0 is not a positive number of milliseconds",
@@ -1238,7 +1240,7 @@ func TestBlockOutFrom(t *testing.T) {
 
 func TestLayerRules(t *testing.T) {
 	c, err := Parse("t.yaml", []byte(`layer_rules:
-  - {namespace: ^lys-shell-notification-popup$, animation: {in: slide, out: fade}, block_out_from: screencast}
+  - {namespace: ^lys-shell-notification-popup$, animation: {in: slide, out: popin 108%}, block_out_from: screencast}
   - {namespace: ^lys-shell-bar-, blur: true, blur_alpha_threshold: 0.2, shadow: true, rounding: 12, opacity: 0.9, dim_around: true}
   - {namespace: ^lys-shell-wallpaper$, animation: false}
 `))
@@ -1246,7 +1248,7 @@ func TestLayerRules(t *testing.T) {
 		t.Fatal(err)
 	}
 	p := wm.DecideLayer(c.LayerRules, "lys-shell-notification-popup")
-	if p.Animation == nil || p.Animation.In.Kind != anim.Slide || p.Animation.Out.Kind != anim.FadeStyle || p.BlockOutFrom != wm.BlockScreencast {
+	if p.Animation == nil || p.Animation.In.Kind != anim.Slide || p.Animation.Out != (anim.Style{Kind: anim.Popin, Percent: 108}) || p.BlockOutFrom != wm.BlockScreencast {
 		t.Errorf("notification: %+v", p)
 	}
 	p = wm.DecideLayer(c.LayerRules, "lys-shell-bar-DP-1")
@@ -1694,5 +1696,18 @@ func TestOneColorOfATabOrTitleBarStateKeepsTheOtherAtItsDefault(t *testing.T) {
 	}
 	if _, err := Parse("t.yaml", []byte("tabs:\n  urgent:\n    background: nope\n")); err == nil || !strings.Contains(err.Error(), "tabs.urgent.background") {
 		t.Errorf("a bad colour: %v, want an error naming tabs.urgent.background", err)
+	}
+}
+
+func TestAnExitsPopinEnlargesPastTheWholeSize(t *testing.T) {
+	c, err := Parse("t.yaml", []byte("animations:\n  events:\n    layers_out: {style: popin 150%}\n    windows_out: {style: popin 104%}\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s := c.Animations.Style(anim.LayersOut); s != (anim.Style{Kind: anim.Popin, Percent: 150}) {
+		t.Errorf("layers_out %s", s)
+	}
+	if s := c.Animations.Style(anim.WindowsOut); s != (anim.Style{Kind: anim.Popin, Percent: 104}) {
+		t.Errorf("windows_out %s", s)
 	}
 }

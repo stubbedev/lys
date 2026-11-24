@@ -37,13 +37,18 @@ func anchoredSlide(area, r image.Rectangle, anchor swlr.ZwlrLayerSurfaceV1Anchor
 }
 
 func (c *Compositor) layerStyled(e anim.Event, l *layer) (image.Rectangle, float64) {
-	goal := l.bounds()
 	st, _ := c.layerStyle(l, e)
-	switch st.Kind {
-	case anim.Slide:
-		return anchoredSlide(l.output.Logical(), goal, l.surface.Current().Anchor), 1
-	case anim.Popin:
-		return styled(st, l.output, goal), 1
+	return layerStyledAs(st, l.output.Logical(), l.bounds(), l.surface.Current().Anchor)
+}
+
+func layerStyledAs(st anim.Style, area, goal image.Rectangle, anchor swlr.ZwlrLayerSurfaceV1Anchor) (image.Rectangle, float64) {
+	switch {
+	case st.Kind == anim.Slide:
+		return anchoredSlide(area, goal, anchor), 1
+	case st.Enlarges():
+		return styled(st, area, goal), 0
+	case st.Kind == anim.Popin:
+		return styled(st, area, goal), 1
 	}
 	return goal, 0
 }

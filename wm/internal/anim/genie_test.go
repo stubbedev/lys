@@ -77,7 +77,7 @@ func TestMinimizeEventInheritsAndTakesGenie(t *testing.T) {
 	if s := (Table{}).Style(WindowsMinimize); s.Kind != Genie {
 		t.Errorf("default style %v", s)
 	}
-	if s, err := ParseStyle("genie"); err != nil || s.Kind != Genie {
+	if s, err := ParseStyle("genie", Enter); err != nil || s.Kind != Genie {
 		t.Errorf("parse genie: %v, %v", s, err)
 	}
 	off := false

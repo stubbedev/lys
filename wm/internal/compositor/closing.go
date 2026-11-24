@@ -40,7 +40,7 @@ func (cl *closing) done(now time.Duration) bool {
 	return cl.motion.Done(now) && cl.fade.Done(now) && (cl.genie == nil || cl.genie.progress.Done(now))
 }
 
-func styled(st anim.Style, o *output.Output, goal image.Rectangle) image.Rectangle {
+func styled(st anim.Style, area, goal image.Rectangle) image.Rectangle {
 	if st.Kind == anim.Bud {
 		st = anim.Style{Kind: anim.Popin, Percent: budFallback}
 	}
@@ -51,7 +51,7 @@ func styled(st anim.Style, o *output.Output, goal image.Rectangle) image.Rectang
 		corner := goal.Min.Add(goal.Size().Sub(size).Div(2))
 		return image.Rectangle{Min: corner, Max: corner.Add(size)}
 	case anim.Slide:
-		return slideOff(o.Logical(), goal)
+		return slideOff(area, goal)
 	}
 	return goal
 }
@@ -126,7 +126,7 @@ func (c *Compositor) appear(w *window, goal image.Rectangle, now time.Duration) 
 	w.bud = image.Rectangle{}
 	if o != nil {
 		style := c.windowStyle(w, anim.WindowsIn)
-		start := styled(style, o, goal)
+		start := styled(style, o.Logical(), goal)
 		if style.Kind == anim.Bud {
 			if n, ok := c.neighbour(w, goal); ok {
 				w.bud, start = n, budRect(n, goal)
@@ -234,7 +234,7 @@ func (c *Compositor) startClosing(w *window, now time.Duration) error {
 	cl := &closing{snapshot: tt, frost: fr, output: w.output, level: windowLevel, motion: anim.NewTween(start, anim.LerpRect), fade: anim.NewTween(1.0, anim.Lerp)}
 	if curve := c.animations.Curve(anim.WindowsOut); curve != anim.Instant {
 		style := c.windowStyle(w, anim.WindowsOut)
-		end := styled(style, w.output, goal)
+		end := styled(style, w.output.Logical(), goal)
 		if style.Kind == anim.Bud {
 			if n, ok := c.neighbour(w, w.tile); ok {
 				cl.bud, end = n, budRect(n, w.tile)

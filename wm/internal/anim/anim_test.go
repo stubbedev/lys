@@ -137,14 +137,30 @@ func TestTweensRetargetFromWhatTheyShow(t *testing.T) {
 }
 
 func TestStylesParseAndDefaultPerEvent(t *testing.T) {
-	for text, want := range map[string]Style{"popin": {Popin, 80}, "popin 60%": {Popin, 60}, "slide": {Slide, 0}} {
-		if got, err := ParseStyle(text); err != nil || got != want {
-			t.Errorf("%q parsed to %+v, %v", text, got, err)
+	for _, d := range []Direction{Enter, Exit} {
+		for text, want := range map[string]Style{"popin": {Popin, 80}, "popin 60%": {Popin, 60}, "popin 100%": {Popin, 100}, "slide": {Slide, 0}} {
+			if got, err := ParseStyle(text, d); err != nil || got != want || got.Enlarges() {
+				t.Errorf("%q parsed to %+v, %v", text, got, err)
+			}
+		}
+		for _, text := range []string{"", "popin 60", "popin -1%", "popin 201%", "popin big%", "slide left", "spin"} {
+			if _, err := ParseStyle(text, d); err == nil {
+				t.Errorf("%q accepted", text)
+			}
 		}
 	}
-	for _, text := range []string{"", "popin 60", "popin -1%", "slide left", "spin"} {
-		if _, err := ParseStyle(text); err == nil {
-			t.Errorf("%q accepted", text)
+	if got, err := ParseStyle("popin 108%", Exit); err != nil || got != (Style{Popin, 108}) || !got.Enlarges() {
+		t.Errorf("an exit's popin 108%% parsed to %+v, %v", got, err)
+	}
+	if _, err := ParseStyle("popin 108%", Enter); err == nil || err.Error() != `anim: popin takes a percentage from 0% to 100%, not "108%"` {
+		t.Errorf("an entrance's popin 108%%: %v", err)
+	}
+	if _, err := ParseStyle("popin 108", Exit); err == nil || err.Error() != `anim: popin takes a percentage from 0% to 200%, not "108"` {
+		t.Errorf("an exit's popin 108: %v", err)
+	}
+	for _, e := range Events() {
+		if want := map[bool]Direction{true: Exit, false: Enter}[e == WindowsOut || e == LayersOut]; e.Direction() != want {
+			t.Errorf("%s runs in direction %d", e, e.Direction())
 		}
 	}
 	if s := (Table{}).Style(WindowsIn); s != (Style{Popin, 80}) {

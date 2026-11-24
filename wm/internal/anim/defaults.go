@@ -15,6 +15,7 @@ var (
 	defaultOpen  = Style{Kind: Popin, Percent: 92}
 	defaultClose = Style{Kind: Popin, Percent: 94}
 	layerFade    = Style{Kind: FadeStyle}
+	layerLift    = Style{Kind: Popin, Percent: 108}
 	off          = false
 
 	defaultMotion = map[Event]Setting{
@@ -27,7 +28,7 @@ var (
 		Workspaces:      {Shape: switchSpring},
 		Scratchpad:      {Shape: switchSpring},
 		LayersIn:        {Shape: layerInSpring, Style: &layerFade},
-		LayersOut:       {Shape: layerOutSpring, Style: &layerFade},
+		LayersOut:       {Shape: layerOutSpring, Style: &layerLift},
 		BorderAngle:     {Enabled: &off},
 	}
 )

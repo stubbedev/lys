@@ -52,6 +52,16 @@ func TestDefaultMotionIsTunedPerEvent(t *testing.T) {
 	if s := table.Style(LayersIn); s.Kind != FadeStyle {
 		t.Errorf("a layer surface enters with %s, which would slide a full-screen one", s)
 	}
+	if s := table.Style(LayersOut); s != (Style{Kind: Popin, Percent: 108}) || !s.Enlarges() {
+		t.Errorf("a layer surface leaves with %s, not by enlarging while it fades", s)
+	}
+	reduced, errs := ResolveReduced(DefaultMotion())
+	if len(errs) != 0 {
+		t.Fatal(errs)
+	}
+	if s := reduced.Style(LayersOut); s.Kind != FadeStyle {
+		t.Errorf("under reduced motion a layer surface leaves with %s, not a plain fade", s)
+	}
 }
 
 func TestAConfigsKeysBeatTheDefaultMotionBelowThem(t *testing.T) {

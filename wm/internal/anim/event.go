@@ -68,9 +68,22 @@ func (s Style) String() string {
 	return styleNames[s.Kind]
 }
 
+func (s Style) Enlarges() bool {
+	return s.Kind == Popin && s.Percent > 100
+}
+
 const defaultPopin = 80
 
-func ParseStyle(text string) (Style, error) {
+type Direction uint8
+
+const (
+	Enter Direction = iota
+	Exit
+)
+
+var popinCeiling = [...]float64{Enter: 100, Exit: 200}
+
+func ParseStyle(text string, d Direction) (Style, error) {
 	fields := strings.Fields(text)
 	if len(fields) == 0 {
 		return Style{}, errors.New("anim: an empty style")
@@ -85,8 +98,8 @@ func ParseStyle(text string) (Style, error) {
 			s.Percent = defaultPopin
 		case kind == Popin && len(fields) == 2:
 			v, err := strconv.ParseFloat(strings.TrimSuffix(fields[1], "%"), 64)
-			if err != nil || !strings.HasSuffix(fields[1], "%") || !(v >= 0 && v <= 100) {
-				return Style{}, fmt.Errorf("anim: popin takes a percentage from 0%% to 100%%, not %q", fields[1])
+			if err != nil || !strings.HasSuffix(fields[1], "%") || !(v >= 0 && v <= popinCeiling[d]) {
+				return Style{}, fmt.Errorf("anim: popin takes a percentage from 0%% to %g%%, not %q", popinCeiling[d], fields[1])
 			}
 			s.Percent = v
 		case len(fields) > 1:
@@ -106,25 +119,26 @@ const (
 )
 
 var events = [eventCount]struct {
-	name    string
-	parent  Event
-	styles  []StyleKind
-	style   Style
-	reduced reduction
-	shape   Shape
+	name      string
+	parent    Event
+	styles    []StyleKind
+	direction Direction
+	style     Style
+	reduced   reduction
+	shape     Shape
 }{
 	Global:          {name: "global", parent: Global, reduced: fades},
 	Windows:         {name: "windows", parent: Global},
 	WindowsMove:     {name: "windows_move", parent: Windows, styles: []StyleKind{Morph, Elastic}},
 	WindowsIn:       {name: "windows_in", parent: Windows, styles: []StyleKind{Popin, Slide, Bud}, style: Style{Kind: Popin, Percent: defaultPopin}},
-	WindowsOut:      {name: "windows_out", parent: Windows, styles: []StyleKind{Popin, Slide, Bud}, style: Style{Kind: Popin, Percent: defaultPopin}},
+	WindowsOut:      {name: "windows_out", parent: Windows, styles: []StyleKind{Popin, Slide, Bud}, direction: Exit, style: Style{Kind: Popin, Percent: defaultPopin}},
 	Fade:            {name: "fade", parent: Global, reduced: fades},
 	FadeIn:          {name: "fade_in", parent: Fade, reduced: fades},
 	FadeOut:         {name: "fade_out", parent: Fade, reduced: fades},
 	Workspaces:      {name: "workspaces", parent: Global, styles: []StyleKind{Slide, SlideVert, FadeStyle, Popin, Goo}, style: Style{Kind: Slide}, reduced: crossFades},
 	Layers:          {name: "layers", parent: Global, reduced: fades},
 	LayersIn:        {name: "layers_in", parent: Layers, styles: []StyleKind{Slide, Popin, FadeStyle}, style: Style{Kind: Slide}, reduced: crossFades},
-	LayersOut:       {name: "layers_out", parent: Layers, styles: []StyleKind{Slide, Popin, FadeStyle}, style: Style{Kind: Slide}, reduced: crossFades},
+	LayersOut:       {name: "layers_out", parent: Layers, styles: []StyleKind{Slide, Popin, FadeStyle}, direction: Exit, style: Style{Kind: Slide}, reduced: crossFades},
 	FadeSwitch:      {name: "fade_switch", parent: Fade, reduced: fades},
 	FadeDim:         {name: "fade_dim", parent: Fade, reduced: fades},
 	FadeShadow:      {name: "fade_shadow", parent: Fade, reduced: fades},
@@ -143,6 +157,10 @@ func (e Event) String() string {
 
 func (e Event) Parent() (Event, bool) {
 	return events[e].parent, e != Global
+}
+
+func (e Event) Direction() Direction {
+	return events[e].direction
 }
 
 func (e Event) StyleNames() []string {
