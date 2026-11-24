@@ -140,15 +140,15 @@ func (n *node) stopAnimations() {
 // value.
 func (n *node) animFrame(now time.Time) {
 	na := n.anims
-	na.props.Each(func(p style.Prop) { style.CopyLonghand(&n.cs, &na.base, p) })
+	na.props.Each(func(p style.Prop) { style.CopyLonghand(n.cs, &na.base, p) })
 	for i := range na.runs {
 		r := &na.runs[i]
 		progress, before, ok := r.a.Sample(r.local(now))
 		if !ok {
 			continue
 		}
-		na.under = n.cs
-		r.a.Keyframes.Apply(&n.cs, &na.under, progress, &r.a.Timing, before, r.a.Composition)
+		na.under = *n.cs
+		r.a.Keyframes.Apply(n.cs, &na.under, progress, &r.a.Timing, before, r.a.Composition)
 	}
 	if !na.props.And(style.LayoutProps).Empty() {
 		n.InvalidateLayout()

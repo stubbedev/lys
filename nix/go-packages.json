@@ -2804,6 +2804,21 @@
       "testing"
     ]
   },
+  "lib/intern": {
+    "external": [
+      "hash/maphash",
+      "runtime",
+      "sync",
+      "unsafe",
+      "weak"
+    ],
+    "testImports": [
+      "lib/testbuild"
+    ],
+    "testExternal": [
+      "testing"
+    ]
+  },
   "lib/internal/av1": {
     "imports": [
       "lib/intconv",
@@ -12412,6 +12427,7 @@
       "lib/gpu",
       "lib/icons",
       "lib/intconv",
+      "lib/intern",
       "lib/logutil",
       "lib/render",
       "lib/text",
@@ -12435,6 +12451,7 @@
       "encoding/hex",
       "errors",
       "fmt",
+      "hash/maphash",
       "image",
       "image/color",
       "io",

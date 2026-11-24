@@ -77,7 +77,7 @@ func (n *node) startTransitions(start, end style.Values) {
 	steps := make([]anim.Step, len(groups))
 	for i, g := range groups {
 		apply := func(e float64) {
-			g.props.Each(func(p style.Prop) { style.Interpolate(&n.cs, &start, &end, p, e) })
+			g.props.Each(func(p style.Prop) { style.Interpolate(n.cs, &start, &end, p, e) })
 			if g.layout {
 				n.InvalidateLayout()
 			} else {

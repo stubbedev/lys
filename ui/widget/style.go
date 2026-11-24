@@ -20,6 +20,7 @@ package widget
 
 import (
 	"fmt"
+	"hash/maphash"
 	"os"
 	"path/filepath"
 	"slices"
@@ -31,6 +32,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/lib/assetfile"
+	"github.com/stubbedev/lys/lib/intern"
 	"github.com/stubbedev/lys/lib/render"
 
 	"github.com/stubbedev/lys/ui/internal/style"
@@ -631,12 +633,13 @@ func envFor(n *node, gen uint64) style.Env {
 	if r == n || r.csGen != gen {
 		return env
 	}
-	if r.cs.Has(style.PropFontSize) && r.cs.FontSize > 0 {
-		env.Rem = r.cs.FontSize
+	rs := r.lastStyle()
+	if rs.Has(style.PropFontSize) && rs.FontSize > 0 {
+		env.Rem = rs.FontSize
 		env.RootLineHeight = env.Rem * ratioOr(env.Font.LineHeight, 1.2)
 	}
-	if r.cs.Has(style.PropLineHeight) && r.cs.LineHeight > 0 {
-		env.RootLineHeight = r.cs.LineHeight
+	if rs.Has(style.PropLineHeight) && rs.LineHeight > 0 {
+		env.RootLineHeight = rs.LineHeight
 	}
 	return env
 }
@@ -1948,7 +1951,7 @@ func hoverActiveOf(w Widget) style.State {
 // the widget's measure before the widget answers from it.
 func (n *node) style(w Widget) *style.Values {
 	if !n.styleDirty && n.csGen == n.scratch().styleGenNow() {
-		return &n.cs
+		return n.lastStyle()
 	}
 	v := n.restyle(w)
 	restyleParts(w)
@@ -2010,7 +2013,7 @@ func (n *node) restyle(w Widget) *style.Values {
 		work.self.caches = true
 		work.self.point(n, w)
 		work.scratch.SetPrevCounters(prevCounters, srcCounters)
-		style.Compute(layers, &work.self, parent, &n.cs, envFor(n, gen), &work.scratch, v)
+		style.Compute(layers, &work.self, parent, n.lastStyle(), envFor(n, gen), &work.scratch, v)
 		if c.sens.pseudo {
 			n.computePseudos(work, gen, layers, v)
 		}
@@ -2028,38 +2031,88 @@ func (n *node) restyle(w Widget) *style.Values {
 	if c.sens.pseudo {
 		n.requestPseudoImages(w)
 	}
-	if !firstStyle && n.trCancel == nil && n.anims == nil && n.cs.Equal(v) {
+	if !firstStyle && n.trCancel == nil && n.anims == nil && n.lastStyle().Equal(v) {
 		t.styleBusy = false
-		return &n.cs
+		return n.lastStyle()
 	}
-	old := n.cs
-	n.cs = *v
+	old := n.lastStyle()
+	if old == n.ownCS {
+		kept := *old
+		old = &kept
+	}
+	n.settleStyle(v)
 	t.styleBusy = false
-	requestStyleImages(&n.cs, w)
-	n.ink = inkOf(&n.cs)
-	n.transitionValues(&old, &n.cs, firstStyle)
-	n.syncAnimation(&n.cs)
+	requestStyleImages(n.cs, w)
+	n.ink = inkOf(n.cs)
+	n.transitionValues(old, n.cs, firstStyle)
+	n.syncAnimation(n.cs)
 	n.settleInk()
-	if !old.Equal(&n.cs) {
+	if !old.Equal(n.cs) {
 		if inv, ok := w.(interface{ Invalidate() }); ok {
 			inv.Invalidate()
 		}
 		if h, ok := w.(styleRestyler); ok {
-			h.styleRestyled(old, n.cs)
+			h.styleRestyled(*old, *n.cs)
 		}
 	}
-	if layoutKey(&n.cs) != layoutKey(&old) {
+	if layoutKey(n.cs) != layoutKey(old) {
 		if inv, ok := w.(interface{ InvalidateLayout() }); ok {
 			inv.InvalidateLayout()
 		}
 	}
-	if inheritedKey(&n.cs) != inheritedKey(&old) {
+	if inheritedKey(n.cs) != inheritedKey(old) {
 		restyleSubtree(w)
 	}
 	if c.sens.counters && !n.cs.Counters.Equal(old.Counters) {
 		restyleCountersAfter(w)
 	}
-	return &n.cs
+	return n.cs
+}
+
+var blankStyle style.Values
+
+func (n *node) lastStyle() *style.Values {
+	if n.cs == nil {
+		return &blankStyle
+	}
+	return n.cs
+}
+
+func (n *node) settleStyle(v *style.Values) {
+	if n.trCancel != nil || n.anims != nil || v.Transition.Active() || len(v.Animation) > 0 {
+		if n.ownCS == nil {
+			n.ownCS = new(style.Values)
+		}
+		*n.ownCS = *v
+		n.cs = n.ownCS
+		return
+	}
+	n.cs = computedStyles().Intern(v)
+}
+
+var (
+	computedStylesOnce sync.Once
+	computedStylesTab  *intern.Table[style.Values]
+)
+
+func computedStyles() *intern.Table[style.Values] {
+	computedStylesOnce.Do(func() {
+		seed := maphash.MakeSeed()
+		computedStylesTab = intern.NewTable(func(v *style.Values) uint64 {
+			var h maphash.Hash
+			h.SetSeed(seed)
+			intern.Raw(&h, &v.Scalars)
+			return h.Sum64()
+		}, sameComputedStyle)
+	})
+	return computedStylesTab
+}
+
+func sameComputedStyle(a, b *style.Values) bool {
+	if !a.Equal(b) || (a.Starting == nil) != (b.Starting == nil) {
+		return false
+	}
+	return a.Starting == nil || a.Starting.Equal(b.Starting)
 }
 
 // restyleCountersAfter marks what reads w's counter set: its subtree,

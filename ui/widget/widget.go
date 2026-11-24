@@ -170,7 +170,8 @@ type node struct {
 	// the tree. styleDirty is the fine-grained half: set by class, id,
 	// state, and inherited-value changes, it forces the next read to
 	// recompute and diff-invalidates the smallest correct region.
-	cs         style.Values
+	cs         *style.Values
+	ownCS      *style.Values
 	csGen      uint64
 	styleSeen  uint64
 	styleDmg   uint64
@@ -479,7 +480,7 @@ func ownVisible(w Widget) bool {
 	// An unparented widget's cascade cannot resolve yet; its last one
 	// stands until a container parents it, whose relayout then reads
 	// the fresh value.
-	v := &n.cs
+	v := n.lastStyle()
 	if n.parent != nil || n.styleRoot {
 		v = n.style(w)
 	}
@@ -757,7 +758,7 @@ func (n *node) place(r render.Rect) {
 // makes it a query container; before its container records it, the
 // last computed style answers.
 func (n *node) queryContainer() bool {
-	v := &n.cs
+	v := n.lastStyle()
 	if n.self != nil {
 		v = n.style(n.self)
 	}
