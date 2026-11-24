@@ -112,7 +112,7 @@ Details: [Application model](application-model.md), [Input model](input-model.md
 | fractional scale | wp_viewporter + wp_fractional_scale_v1, live rescale; integer fallback |
 | clipboard | wl_data_device + primary selection; text, images, URIs, HTML |
 | clipboard managers | ext-data-control-v1, wlr-data-control fallback |
-| taskbars, launchers | wlr-foreign-toplevel-management, xdg-activation, `OpenURL`/`OpenPath` (portal, xdg-open fallback); xdg-foreign v2 exports every toplevel so portal dialogs parent to it |
+| taskbars, launchers | wlr-foreign-toplevel-management, xdg-activation, `OpenURL`/`OpenPath` (the OpenURI portal); xdg-foreign v2 exports every toplevel so portal dialogs parent to it |
 | idle | idle inhibit, ext-idle-notify-v1 (`OnIdle`) |
 | shortcuts | keyboard-shortcuts-inhibit, GlobalShortcuts portal, xx_hotkey_v1 client-chosen hotkeys |
 | printing (GtkPrintDialog, GtkPrintOperation) | `Application.Print` through the Print portal, `ExportPDF`; pages painted as rasters into a PDF by `pdf` |

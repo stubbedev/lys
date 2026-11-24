@@ -143,3 +143,18 @@ func TestCopyingAnEditedScreenshotToastsAFailure(t *testing.T) {
 		t.Errorf("%d copies, toasts %q; want two copies, the image that did not encode not offered, and %q", copies, got, want)
 	}
 }
+
+func TestOpeningFromAScreenshotToastsAFailure(t *testing.T) {
+	shown := &toasts{}
+	u := &shotUI{toast: shown.record}
+	u.failedTo("screenshot-open-link-failed")(nil)
+	if got := shown.list(); len(got) != 0 {
+		t.Fatalf("an open that went through toasted %q", got)
+	}
+	u.failedTo("screenshot-open-link-failed")(app.ErrPortalUnavailable)
+	u.failedTo("screenshot-open-folder-failed")(app.ErrPortalDenied)
+	want := []string{i18n.T("screenshot-open-link-failed"), i18n.T("screenshot-open-folder-failed")}
+	if got := shown.list(); !slices.Equal(got, want) {
+		t.Errorf("toasted %q, want %q", got, want)
+	}
+}

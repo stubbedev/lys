@@ -245,10 +245,10 @@ func NewApplication(sess *wlsession.Session, opts ...Option) *Application {
 		step:         sess.Step,
 		windowIcons:  make(map[*Window]*postedIcon),
 		appliedIcons: make(map[*hostWindow]*postedIcon),
-		launchState:  launcher{openPortal: portalOpen, openExternal: xdgOpen},
 		videoMemory:  newUdmabufMemory,
 	}
 	a.inhibitShortcuts = a.sessionInhibitShortcuts
+	a.launchState = launcher{openURI: a.portalOpenURI}
 	a.dnd = dragdrop.New(sess, a.Invoke)
 	a.OnStop(func() { a.dnd.Stop() })
 	a.OnStop(startFontWarm(warmFonts))

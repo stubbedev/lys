@@ -27,6 +27,7 @@ type mockDesktop struct {
 	monitor dbus.ObjectPath
 	owner   string
 	print   mockPrint
+	opened  []string
 	handout *dbus.UnixFD
 }
 
@@ -142,7 +143,7 @@ func startMockDesktop(t *testing.T) *mockDesktop {
 	bus := dbustest.Session(t)
 	conn := bus.Conn(t)
 	d := &mockDesktop{t: t, conn: conn}
-	for iface, v := range map[string]any{"org.freedesktop.portal.Inhibit": inhibitIface{d}, "org.freedesktop.portal.Background": backgroundIface{d}, portalPrintIface: printIface{d}} {
+	for iface, v := range map[string]any{"org.freedesktop.portal.Inhibit": inhibitIface{d}, "org.freedesktop.portal.Background": backgroundIface{d}, portalPrintIface: printIface{d}, "org.freedesktop.portal.OpenURI": openURIIface{d}} {
 		if err := conn.Export(v, "/org/freedesktop/portal/desktop", iface); err != nil {
 			t.Fatal(err)
 		}

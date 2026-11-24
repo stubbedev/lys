@@ -1,8 +1,9 @@
-// Package opener opens a file or URI with the user's default app, as
-// xdg-open does without its desktop detection: the target's mimetype
-// (x-scheme-handler/<scheme> for a URI, the shared-mime-info glob and
-// magic answer for a file), the default app the mimeapps.list files name
-// for it or its nearest parent type, launched through its desktop entry.
+// Package opener opens a file or URI with the user's default app: the
+// target's mimetype (x-scheme-handler/<scheme> for a URI, the
+// shared-mime-info glob and magic answer for a file), the default app the
+// mimeapps.list files name for it or its nearest parent type, launched
+// through its desktop entry. It is the opener behind lys's OpenURI
+// portal, and the shell's own links open through it.
 package opener
 
 import (

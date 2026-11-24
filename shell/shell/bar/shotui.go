@@ -90,8 +90,12 @@ func (u *shotUI) wire(h *screenshot.Host) {
 			u.release(shot)
 		})
 	}
-	h.OpenFolder = func(dir string) { u.app.Invoke(func() { u.app.OpenPath(dir) }) }
-	h.OpenURL = func(uri string) { u.app.Invoke(func() { u.app.OpenURL(uri) }) }
+	h.OpenFolder = func(dir string) {
+		u.app.Invoke(func() { u.app.OpenPath(dir, u.failedTo("screenshot-open-folder-failed")) })
+	}
+	h.OpenURL = func(uri string) {
+		u.app.Invoke(func() { u.app.OpenURL(uri, u.failedTo("screenshot-open-link-failed")) })
+	}
 	h.Working = u.working
 }
 
@@ -160,6 +164,15 @@ func (u *shotUI) edit(shot shotthumb.Shot) {
 // failed toasts the summary key names, logging err with it.
 func (u *shotUI) failed(key string, err error) {
 	toastFailure(u.toast, "screenshot", i18n.T(key), err)
+}
+
+// failedTo is a done callback that toasts key when the work failed.
+func (u *shotUI) failedTo(key string) func(error) {
+	return func(err error) {
+		if err != nil {
+			u.failed(key, err)
+		}
+	}
 }
 
 // writer encodes and writes an edited image off the loop and, when

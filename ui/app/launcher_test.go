@@ -2,91 +2,93 @@ package app
 
 import (
 	"errors"
-	"sync"
+	"slices"
+	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys/lib/waittest"
+	"github.com/stubbedev/lys/lib/dbustest"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
-// launchRecorder records transport calls race-safely.
-type launchRecorder struct {
-	mu        sync.Mutex
-	calls     []launchCall
-	portalErr error
-}
+const refusedURI = "https://refused.example"
 
-type launchCall struct {
-	uri    string
-	parent string
-	token  string
-}
+type openURIIface struct{ d *mockDesktop }
 
-func (r *launchRecorder) portal() func(uri, parent, token string) error {
-	return func(uri, parent, token string) error {
-		r.mu.Lock()
-		defer r.mu.Unlock()
-		r.calls = append(r.calls, launchCall{uri, parent, token})
-		return r.portalErr
+func (o openURIIface) OpenURI(sender dbus.Sender, _, uri string, opts map[string]dbus.Variant) (dbus.ObjectPath, *dbus.Error) {
+	o.d.mu.Lock()
+	o.d.opened = append(o.d.opened, uri)
+	o.d.mu.Unlock()
+	path := o.d.handle(sender, opts)
+	code := uint32(0)
+	if uri == refusedURI {
+		code = 2
 	}
+	o.d.respond(sender, path, code, map[string]dbus.Variant{})
+	return path, nil
 }
 
-func (r *launchRecorder) external() func(uri string) error {
-	return func(uri string) error {
-		r.mu.Lock()
-		defer r.mu.Unlock()
-		r.calls = append(r.calls, launchCall{uri: uri, token: "external"})
-		return nil
-	}
-}
-
-func (r *launchRecorder) snapshot() []launchCall {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	out := make([]launchCall, len(r.calls))
-	copy(out, r.calls)
-	return out
-}
-
-// TestOpenURLPortalFirst pins the transport order: without activation
-// support the open runs immediately through the portal; a failing
-// portal falls back to the external opener exactly once.
-func TestOpenURLPortalFirst(t *testing.T) {
-	a := testApp(nil) // no session: no activation protocol
-	rec := &launchRecorder{}
-	a.launchState.openPortal = rec.portal()
-	a.launchState.openExternal = rec.external()
-
-	a.OpenURL("https://example.com")
-	waittest.Until(t, func() bool { return len(rec.snapshot()) == 1 }, "the portal call")
-	if got := rec.snapshot()[0]; got.uri != "https://example.com" || got.token != "" {
-		t.Errorf("portal call = %+v", got)
-	}
-
-	// A failing portal falls back.
-	rec.calls, rec.portalErr = nil, errors.New("portal down")
-	a.OpenURL("https://fallback.example")
-	waittest.Until(t, func() bool {
-		for _, c := range rec.snapshot() {
-			if c.token == "external" {
-				return true
-			}
-		}
-		return false
-	}, "the fallback")
-	if got := rec.snapshot(); len(got) != 2 || got[1].uri != "https://fallback.example" {
-		t.Errorf("fallback calls = %+v", got)
-	}
-}
-
-// TestOpenPathEncodesFileURI pins the FileLauncher shape: a path
-// launches as its file:// URI.
-func TestOpenPathEncodesFileURI(t *testing.T) {
+func launchApp(t *testing.T) *Application {
+	t.Helper()
 	a := testApp(nil)
-	rec := &launchRecorder{}
-	a.launchState.openPortal = rec.portal()
-	a.OpenPath("/tmp/report.pdf")
-	waittest.Until(t, func() bool { return len(rec.snapshot()) == 1 }, "the portal call")
-	if got := rec.snapshot()[0].uri; got != "file:///tmp/report.pdf" {
-		t.Errorf("opened %q, want the file URI", got)
+	a.launchState = launcher{openURI: a.portalOpenURI}
+	t.Cleanup(func() { a.desktop().close() })
+	return a
+}
+
+func openAndWait(t *testing.T, a *Application, open func(string, func(error)), target string) error {
+	t.Helper()
+	var result *error
+	open(target, func(err error) { result = &err })
+	pumpUntil(t, a, func() bool { return result != nil })
+	return *result
+}
+
+func (d *mockDesktop) openedURIs() []string {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return slices.Clone(d.opened)
+}
+
+func TestOpenURLOpensThroughThePortal(t *testing.T) {
+	d := startMockDesktop(t)
+	a := launchApp(t)
+	if err := openAndWait(t, a, a.OpenURL, "https://example.com"); err != nil {
+		t.Fatalf("OpenURL = %v", err)
+	}
+	if err := openAndWait(t, a, a.OpenPath, "/tmp/report.pdf"); err != nil {
+		t.Fatalf("OpenPath = %v", err)
+	}
+	if got, want := d.openedURIs(), []string{"https://example.com", "file:///tmp/report.pdf"}; !slices.Equal(got, want) {
+		t.Errorf("the portal opened %q, want %q", got, want)
+	}
+}
+
+func TestOpenURLRefusedByThePortalReachesTheCaller(t *testing.T) {
+	d := startMockDesktop(t)
+	a := launchApp(t)
+	if err := openAndWait(t, a, a.OpenURL, refusedURI); !errors.Is(err, ErrPortalDenied) || !strings.Contains(err.Error(), refusedURI) {
+		t.Fatalf("a refused open = %v, want ErrPortalDenied naming the URI", err)
+	}
+	if got := d.openedURIs(); !slices.Equal(got, []string{refusedURI}) {
+		t.Errorf("the portal was asked %q, want one call", got)
+	}
+}
+
+func TestOpenURLWithoutAPortalSaysSo(t *testing.T) {
+	dbustest.Session(t)
+	a := launchApp(t)
+	if err := openAndWait(t, a, a.OpenURL, "https://example.com"); !errors.Is(err, ErrPortalUnavailable) {
+		t.Fatalf("opening without a portal = %v, want ErrPortalUnavailable", err)
+	}
+}
+
+func TestOpenURLWithoutAURIFails(t *testing.T) {
+	d := startMockDesktop(t)
+	a := launchApp(t)
+	if err := openAndWait(t, a, a.OpenURL, ""); err == nil {
+		t.Fatal("opening an empty URI succeeded")
+	}
+	if got := d.openedURIs(); len(got) != 0 {
+		t.Errorf("the portal was asked %q for an empty URI", got)
 	}
 }

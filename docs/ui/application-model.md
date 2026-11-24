@@ -24,7 +24,7 @@ the window with keyboard focus. A closed window is reaped and its
 | `gtk::Application::quit` | `Application.Quit`; ignores vetoes |
 | GApplication single instance | `app.ClaimInstance` |
 | `FileDialog` | `Application.OpenFileDialog` and friends |
-| `UriLauncher`, `FileLauncher` | `Application.OpenURL`, `OpenPath`: the OpenURI portal with an activation token, else `xdg-open` |
+| `UriLauncher`, `FileLauncher` | `Application.OpenURL`, `OpenPath`: the OpenURI portal with an activation token; its refusal or absence reaches the caller's `done` |
 | `scale-factor` | per-window scale, following `preferred_scale` live |
 
 The component layer is in [Components](components.md); the full
