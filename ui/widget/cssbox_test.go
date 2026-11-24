@@ -806,3 +806,44 @@ func TestBackdropRegionAsksARootThatKnows(t *testing.T) {
 		t.Errorf("a root with no say is its own rect, got %v", got)
 	}
 }
+
+func TestAnAncestorOrSiblingChangedBetweenRestylesMatchesAfresh(t *testing.T) {
+	face := goldenFace(t)
+	loadCSS(t, `label { color: #ff0000; } .on label { color: #00ff00; } .lead + .tail label { color: #0000ff; } :disabled .tail label { color: #777777; }`)
+	lbl := NewLabel(face, 14, "hi", 0)
+	tail := NewBox(Row, 0, 0)
+	tail.AddClass("tail")
+	tail.Append(lbl, false)
+	lead := NewSpacer(10, 10)
+	outer := NewBox(Row, 0, 0)
+	outer.Append(lead, false)
+	outer.Append(tail, false)
+	root := NewBox(Row, 0, 0)
+	root.Append(outer, false)
+	arrangeTree(t, root, 200, 40)
+	color := func() render.Color {
+		CollectDamage(root)
+		return lbl.style(lbl).Color
+	}
+	if got := color(); got != render.RGB(0xff, 0, 0) {
+		t.Fatalf("with no ancestor rule matching: %08x", uint32(got))
+	}
+	outer.AddClass("on")
+	if got := color(); got != render.RGB(0, 0xff, 0) {
+		t.Fatalf("after the ancestor took .on: %08x", uint32(got))
+	}
+	lead.AddClass("lead")
+	if got := color(); got != render.RGB(0, 0, 0xff) {
+		t.Fatalf("after the previous sibling took .lead: %08x", uint32(got))
+	}
+	outer.SetEnabled(false)
+	if got := color(); got != render.RGB(0x77, 0x77, 0x77) {
+		t.Fatalf("after the ancestor was disabled: %08x", uint32(got))
+	}
+	outer.SetEnabled(true)
+	lead.RemoveClass("lead")
+	outer.RemoveClass("on")
+	if got := color(); got != render.RGB(0xff, 0, 0) {
+		t.Errorf("after every ancestor and sibling change was undone: %08x", uint32(got))
+	}
+}

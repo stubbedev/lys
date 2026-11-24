@@ -1475,10 +1475,19 @@ func nodeOf(w Widget) *node {
 // each link's adapters hang off the previous one and are rewritten per
 // match — so walking the tree allocates only on first use of a depth.
 type styleTargeter struct {
-	n    *node
-	w    Widget
-	anc  *styleTargeter // the reused adapter for the parent link
-	prev *styleTargeter // the reused adapter for the previous sibling
+	n      *node
+	w      Widget
+	anc    *styleTargeter // the reused adapter for the parent link
+	prev   *styleTargeter // the reused adapter for the previous sibling
+	caches bool
+	filled bool
+	target style.Target
+}
+
+func (s *styleTargeter) point(n *node, w Widget) {
+	if s.n != n || s.w != w {
+		s.n, s.w, s.filled = n, w, false
+	}
 }
 
 // forget drops the widgets the shared adapter chain points at once a
@@ -1488,14 +1497,23 @@ func (s *styleTargeter) forget() {
 	if s == nil {
 		return
 	}
-	s.n, s.w = nil, nil
+	s.n, s.w, s.filled, s.target = nil, nil, false, style.Target{}
 	s.anc.forget()
 	s.prev.forget()
 }
 
 func (s *styleTargeter) StyleID() any { return s.n }
 
-func (s *styleTargeter) StyleTarget(t *style.Target) { s.n.fillTarget(t, s.w) }
+func (s *styleTargeter) StyleTarget(t *style.Target) {
+	if s.filled {
+		*t = s.target
+		return
+	}
+	s.n.fillTarget(t, s.w)
+	if s.caches {
+		s.target, s.filled = *t, true
+	}
+}
 
 func (s *styleTargeter) StyleParent() style.Node {
 	p := styleParentOf(s.n)
@@ -1507,9 +1525,9 @@ func (s *styleTargeter) StyleParent() style.Node {
 		return nil
 	}
 	if s.anc == nil {
-		s.anc = &styleTargeter{}
+		s.anc = &styleTargeter{caches: s.caches}
 	}
-	s.anc.n, s.anc.w = pn, p
+	s.anc.point(pn, p)
 	return s.anc
 }
 
@@ -1524,9 +1542,9 @@ func (s *styleTargeter) StylePrev() style.Node {
 		return nil
 	}
 	if s.prev == nil {
-		s.prev = &styleTargeter{}
+		s.prev = &styleTargeter{caches: s.caches}
 	}
-	s.prev.n, s.prev.w = pn, pw
+	s.prev.point(pn, pw)
 	return s.prev
 }
 
@@ -1984,7 +2002,8 @@ func (n *node) restyle(w Widget) *style.Values {
 	t.styleBusy = true
 	v := &t.styleNext
 	if layers := t.layersFor(c, n); len(layers) > 0 || n.inline != nil || inherits {
-		t.styleSelf.n, t.styleSelf.w = n, w
+		t.styleSelf.caches = true
+		t.styleSelf.point(n, w)
 		t.styleScratch.SetPrevCounters(prevCounters, srcCounters)
 		style.Compute(layers, &t.styleSelf, parent, &n.cs, envFor(n, gen), &t.styleScratch, v)
 		if c.sens.pseudo {
