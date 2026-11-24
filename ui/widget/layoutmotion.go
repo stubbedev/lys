@@ -120,7 +120,7 @@ func (n *node) parentShownBefore(walk uint64) bool {
 	if n.parent == nil {
 		return false
 	}
-	pn := nodeOf(n.parent)
+	pn := n.parentNode
 	if pn == nil {
 		return false
 	}

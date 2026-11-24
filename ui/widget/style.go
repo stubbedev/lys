@@ -1647,7 +1647,7 @@ func visibleSiblings(n *node, w Widget) ([]Widget, int) {
 	if n.parent == nil {
 		return nil, -1
 	}
-	pn := nodeOf(n.parent)
+	pn := n.parentNode
 	if pn == nil {
 		return nil, -1
 	}
@@ -1838,12 +1838,7 @@ func SetStyleRoot(w Widget) {
 }
 
 // parentNodeOf returns the node behind n's recorded parent.
-func parentNodeOf(n *node) *node {
-	if n.parent == nil {
-		return nil
-	}
-	return nodeOf(n.parent)
-}
+func parentNodeOf(n *node) *node { return n.parentNode }
 
 // hoverActiveOf reads the hover and press visuals a widget tracks in
 // its own fields, so the plain fields the router drives stay the one

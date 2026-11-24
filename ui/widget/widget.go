@@ -93,9 +93,10 @@ type Widget interface {
 // the memoized Measure result, dropped by InvalidateLayout when a
 // mutation changes what a widget wants.
 type node struct {
-	layout layoutProps
-	bounds render.Rect
-	parent Widget
+	layout     layoutProps
+	bounds     render.Rect
+	parent     Widget
+	parentNode *node
 	// layoutMotion is the programmatic layout motion (SetLayoutMotion)
 	// and motion the running one. shownWalk is the damage walk the
 	// widget (or a child of it) last painted in, zero before any: a
@@ -800,7 +801,7 @@ func (n *node) setParent(p, self Widget) {
 		n.csGen = 0
 		n.styleSeen = 0
 		n.styleDmg = 0
-		n.parent = p
+		n.parent, n.parentNode = p, nodeOf(p)
 		// Measured before it had ancestors, the widget resolved no scoped
 		// stylesheet and inherited nothing: its cached size, and every
 		// container cache above it, may be wrong now.
@@ -813,7 +814,7 @@ func (n *node) setParent(p, self Widget) {
 		hasRelink(p)
 		return
 	}
-	n.parent = p
+	n.parent, n.parentNode = p, nodeOf(p)
 }
 
 // hasRelink marks what a :has() match may have read wrong before a
