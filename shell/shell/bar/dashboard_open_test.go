@@ -103,8 +103,8 @@ type dashboardRig struct {
 const dashboardRigOutput = "RIG-1"
 
 const (
-	dashboardFirstOpenMallocs = 20000
-	dashboardReopenMallocs    = 3000
+	dashboardFirstOpenMallocs = 7000
+	dashboardReopenMallocs    = 2000
 	dashboardPollAllocs       = 30
 	dashboardPollReads        = 6
 )
@@ -231,7 +231,16 @@ func (r *dashboardRig) assertReads(what string, n int64) {
 	}
 }
 
+func warmProcessCaches(t *testing.T) {
+	t.Helper()
+	warm := newDashboardRig(t)
+	warm.measureOpen()
+	warm.awaitReads(1)
+	warm.close()
+}
+
 func TestDashboardOpenCounts(t *testing.T) {
+	warmProcessCaches(t)
 	rig := newDashboardRig(t)
 	firstMallocs, firstTime := rig.measureOpen()
 	rig.awaitReads(1)
