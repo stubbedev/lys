@@ -18,7 +18,7 @@ then pacing, and stops if the tests fail.
 | Flag | Default | Effect |
 | --- | --- | --- |
 | `-backend` | `headless` | `headless` (simulated 60 Hz clock on a real GPU) or `drm` (takes the display; refuses to run with `WAYLAND_DISPLAY`, `DISPLAY` or a graphical `XDG_SESSION_TYPE`) |
-| `-renderer` | `vulkan` | `vulkan` or `soft` on `headless`, `vulkan` or `gles` on `drm` |
+| `-renderer` | `vulkan` | `vulkan` or `soft` on `headless`, `vulkan`, `lavapipe` or `gles` on `drm` |
 | `-compositor` | next to `lys-wm-pace`, else `PATH` | The lys-wm binary |
 | `-rounds` | `10` | Plays per animation |
 | `-scenarios` | all | Comma-separated scenario names |

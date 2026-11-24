@@ -427,8 +427,11 @@ foreign-toplevel activate all call it. Nothing else mutates WM state.
 - Secondary cards show frames the primary rendered. With a render node: GPU
   blit from a linear buffer the primary renders (or, on NVIDIA, a linear copy
   made by its Vulkan copy engine), ordered by sync files. Without one (vkms,
-  DisplayLink): CPU copy into linear dumb buffers. A Vulkan session blits with
-  Vulkan, falling back to GLES on a card without a Vulkan driver.
+  DisplayLink): CPU copy into linear dumb buffers. A secondary blits with the
+  primary's renderer and nothing else: a Vulkan session's card without a
+  Vulkan driver takes the CPU copy, and a lavapipe session's secondaries take
+  the primary's linear buffers or the CPU copy, since a blit on the CPU costs
+  what the copy does.
 - Cards come and go with udev. A removed secondary drops its outputs; losing
   the primary is fatal. Connector names are globally unique across cards.
 - GBM and EGL get their own file on the device (the render node, or a second
@@ -441,7 +444,8 @@ foreign-toplevel activate all call it. Nothing else mutates WM state.
 | Renderer | Selected by | Notes |
 | --- | --- | --- |
 | GLES2 | `-renderer gles` on drm only | glvnd picks the vendor; GBM platform; one configless context per display, no surfaces. The drm path for a card without a Vulkan driver, as in VMs and the login screen's software mode; nested and headless refuse it |
-| Vulkan | default for drm and nested; `-renderer vulkan` on headless | The renderer of every hardware path. On drm it needs a Vulkan driver for the primary card: without one lys-wm stops at startup with `drm.ErrNoVulkan`, naming the card, `-renderer gles` and `LYS_WM_RENDERER=gles`, and never falls back to GLES by itself. lavapipe drives no DRM node, so vkms and virtio-gpu without venus run `-renderer gles` on llvmpipe, as the NixOS VM checks do (`nix/session-vm.nix`). On drm it takes its scanout buffers from GBM with `GBM_BO_USE_SCANOUT` and imports them to render, since xe refuses ADDFB2 for memory Mesa's Vulkan driver allocates (it binds it into its VM before the scanout flag can be set); it loads no EGL or GLES unless a secondary card has no Vulkan driver (`TestStartOnEveryCardWithoutMaster`, with those two libraries unloadable). Nested: renders into memory it exports, on the device the host's dmabuf feedback names. Headless: tries render nodes first |
+| Vulkan | default for drm and nested; `-renderer vulkan` on headless | The renderer of every hardware path. On drm it needs a Vulkan driver for the primary card, the device behind the card's own DRM node: without one lys-wm stops at startup with `drm.ErrNoVulkan`, naming the card, `-renderer lavapipe` and `LYS_WM_RENDERER=lavapipe`, and never falls back to another device by itself. On drm it takes its scanout buffers from GBM with `GBM_BO_USE_SCANOUT` and imports them to render, since xe refuses ADDFB2 for memory Mesa's Vulkan driver allocates (it binds it into its VM before the scanout flag can be set); it loads no EGL or GLES unless a secondary card has no Vulkan driver (`TestStartOnEveryCardWithoutMaster`, with those two libraries unloadable). Nested: renders into memory it exports, on the device the host's dmabuf feedback names. Headless: tries render nodes first |
+| lavapipe | `-renderer lavapipe` on drm only | Vulkan on the CPU (lys-lib `gpu.OpenCPU`, which opens only a device of type CPU that exports dmabufs) for a card without a Vulkan driver: vkms, virtio-gpu without venus, the login screen's software mode. GBM on the card allocates the scanout buffers, as under Vulkan, and lavapipe imports them; the card's node is the main device clients are told. It needs `/dev/udmabuf` (lavapipe shares dmabufs only through it) and fails with `drm.ErrNoLavapipe` without it. Chosen only by name, never by a fallback, and logged at startup |
 | Software | default for headless | Reference for every pixel test |
 
 Scanout memory is GBM's under both renderers (`gpuAllocator` over

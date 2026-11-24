@@ -171,29 +171,27 @@ func TestASecondaryStaysOnTheFirstStackItsCardRuns(t *testing.T) {
 	world := &blitWorld{memory: map[int]*soft.Buffer{}}
 	primary := &Backend{alloc: fakeStack(world, "primary", true)}
 	dev := device{kernel: kdrm.FromFD(-1, "/dev/dri/card1")}
-	vulkanStack := namedStack{"Vulkan", func(device) (*gpuAllocator, error) { return fakeStack(world, "local", true), nil }}
-	noVulkan := namedStack{"Vulkan", func(device) (*gpuAllocator, error) { return nil, errors.New("no Vulkan driver") }}
-	glesStack := namedStack{"GLES", func(device) (*gpuAllocator, error) { return fakeStack(world, "local", true), nil }}
-	noGLES := namedStack{"GLES", func(device) (*gpuAllocator, error) { return nil, errors.New("no EGL vendor") }}
+	vulkanStack := &namedStack{"Vulkan", func(device) (*gpuAllocator, error) { return fakeStack(world, "local", true), nil }}
+	noVulkan := &namedStack{"Vulkan", func(device) (*gpuAllocator, error) { return nil, errors.New("no Vulkan driver") }}
 	unlinear := fakeStack(world, "primary", true)
 	unlinear.gpu.(*fakeRenderer).unlinear = true
 	for _, c := range []struct {
 		name      string
 		primary   *Backend
-		stacks    []namedStack
+		stack     *namedStack
 		canRender bool
 		wantBlit  bool
 		want      []string
 	}{
-		{"Vulkan on both", primary, []namedStack{vulkanStack, glesStack}, true, true, []string{"the primary GPU's linear buffers, or, where card1 refuses them, a GPU blit with Vulkan on card1"}},
-		{"a card without Vulkan renders with GLES", primary, []namedStack{noVulkan, glesStack}, true, true, []string{"a GPU blit with GLES on card1"}},
-		{"a card that renders with nothing takes the CPU copy", primary, []namedStack{noVulkan, noGLES}, true, false, []string{"a CPU copy", "no Vulkan driver", "no EGL vendor"}},
-		{"a card without a render node takes the CPU copy", primary, []namedStack{vulkanStack}, false, false, []string{"a CPU copy", "no render node"}},
-		{"GPUs that share no buffer take the CPU copy", &Backend{alloc: unlinear}, []namedStack{vulkanStack}, true, false, []string{"a CPU copy", "share no buffer", "renders into no linear buffer", "opens no Vulkan device"}},
-		{"a primary that is no GPU stack takes the CPU copy", &Backend{alloc: &copyAllocator{primary: soft.New()}}, []namedStack{vulkanStack}, true, false, []string{"a CPU copy", "shares no buffers"}},
+		{"Vulkan on both", primary, vulkanStack, true, true, []string{"the primary GPU's linear buffers, or, where card1 refuses them, a GPU blit with Vulkan on card1"}},
+		{"a card without Vulkan takes the CPU copy", primary, noVulkan, true, false, []string{"a CPU copy", "no Vulkan driver"}},
+		{"a card beside a primary on the CPU takes the CPU copy", primary, nil, true, false, []string{"the primary GPU's linear buffers, or, where card1 refuses them, a CPU copy, since the primary renders on the CPU"}},
+		{"a card without a render node takes the CPU copy", primary, vulkanStack, false, false, []string{"a CPU copy", "no render node"}},
+		{"GPUs that share no buffer take the CPU copy", &Backend{alloc: unlinear}, vulkanStack, true, false, []string{"a CPU copy", "share no buffer", "renders into no linear buffer", "opens no Vulkan device"}},
+		{"a primary that is no GPU stack takes the CPU copy", &Backend{alloc: &copyAllocator{primary: soft.New()}}, vulkanStack, true, false, []string{"a CPU copy", "shares no buffers"}},
 	} {
 		t.Run(c.name, func(t *testing.T) {
-			alloc, how := secondaryAllocator(dev, c.primary, c.stacks, c.canRender)
+			alloc, how := secondaryAllocator(dev, c.primary, c.stack, c.canRender)
 			if first, ok := alloc.(*linearFirst); ok {
 				alloc = first.own
 			}
@@ -209,19 +207,18 @@ func TestASecondaryStaysOnTheFirstStackItsCardRuns(t *testing.T) {
 	}
 }
 
-func TestStacksFollowTheRequestedRenderer(t *testing.T) {
-	names := func(opts Options) []string {
-		var out []string
-		for _, s := range stacksFor(opts) {
-			out = append(out, s.name)
+func TestSecondariesRenderWithThePrimarysRendererAndNoOther(t *testing.T) {
+	for _, c := range []struct {
+		renderer Renderer
+		want     string
+	}{{Vulkan, "Vulkan"}, {GLES, "GLES"}, {Lavapipe, ""}} {
+		got := ""
+		if s := stackFor(c.renderer, gpu.Paths{}); s != nil {
+			got = s.name
 		}
-		return out
-	}
-	if got := names(Options{}); !slices.Equal(got, []string{"GLES"}) {
-		t.Errorf("a GLES session's secondaries try %v", got)
-	}
-	if got := names(Options{Vulkan: true}); !slices.Equal(got, []string{"Vulkan", "GLES"}) {
-		t.Errorf("a Vulkan session's secondaries try %v", got)
+		if got != c.want {
+			t.Errorf("renderer %d gives secondaries the stack %q, want %q", c.renderer, got, c.want)
+		}
 	}
 }
 

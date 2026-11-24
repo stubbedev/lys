@@ -20,6 +20,8 @@ import (
 
 var ErrNoVulkan = errors.New("drm: no Vulkan driver renders for the card")
 
+var ErrNoLavapipe = errors.New("drm: no Vulkan device on the CPU (lavapipe) renders into dmabufs")
+
 type gpuRenderer interface {
 	render.Renderer
 	RenderableModifiers(format fourcc.Format) ([]fourcc.Modifier, error)
@@ -112,6 +114,26 @@ func newGLESAllocator(dev device, paths gpu.Paths) (*gpuAllocator, error) {
 }
 
 func newVulkanAllocator(dev device, paths gpu.Paths) (*gpuAllocator, error) {
+	return newGBMAllocator(dev, paths, func(card uint64) (*vulkan.Renderer, error) {
+		r, err := vulkan.Open(card)
+		if err != nil {
+			return nil, vulkanOpenError(dev.Path(), err)
+		}
+		return r, nil
+	})
+}
+
+func newLavapipeAllocator(dev device, paths gpu.Paths) (*gpuAllocator, error) {
+	return newGBMAllocator(dev, paths, func(card uint64) (*vulkan.Renderer, error) {
+		r, err := vulkan.OpenCPU(card)
+		if err != nil {
+			return nil, lavapipeOpenError(dev.Path(), err)
+		}
+		return r, nil
+	})
+}
+
+func newGBMAllocator(dev device, paths gpu.Paths, open func(card uint64) (*vulkan.Renderer, error)) (*gpuAllocator, error) {
 	modifiers, err := addFB2Modifiers(dev)
 	if err != nil {
 		return nil, err
@@ -124,9 +146,9 @@ func newVulkanAllocator(dev device, paths gpu.Paths) (*gpuAllocator, error) {
 	if err != nil {
 		return nil, err
 	}
-	r, err := vulkan.Open(number)
+	r, err := open(number)
 	if err != nil {
-		return nil, vulkanOpenError(dev.Path(), err)
+		return nil, err
 	}
 	s, err := openStackOnFile(files, func(fd int) (gpuStack, error) { return gbmOn(fd, paths) })
 	if err != nil {
@@ -135,7 +157,7 @@ func newVulkanAllocator(dev device, paths gpu.Paths) (*gpuAllocator, error) {
 	closeGPU := func() error { return errors.Join(r.Close(), s.closeGPU()) }
 	a := &gpuAllocator{dev: dev, path: dev.Path(), modifiers: modifiers, mem: gbmMemory{gbm: s.gbm, gpu: r}, gpu: r, closeGPU: closeGPU}
 	if err := a.probe(); err != nil {
-		return nil, errors.Join(fmt.Errorf("drm: allocate scanout buffers for %s with Vulkan: %w", dev.Path(), err), closeGPU())
+		return nil, errors.Join(fmt.Errorf("drm: allocate scanout buffers for %s with %s: %w", dev.Path(), r.DeviceName(), err), closeGPU())
 	}
 	return a, nil
 }
@@ -160,6 +182,13 @@ func vulkanOpenError(path string, err error) error {
 		return fmt.Errorf("%w %s: %w", ErrNoVulkan, path, err)
 	}
 	return fmt.Errorf("drm: render for %s with Vulkan: %w", path, err)
+}
+
+func lavapipeOpenError(path string, err error) error {
+	if errors.Is(err, lgpu.ErrNoVulkan) || errors.Is(err, lgpu.ErrNoDevice) {
+		return fmt.Errorf("%w for %s (lavapipe shares dmabufs only through /dev/udmabuf): %w", ErrNoLavapipe, path, err)
+	}
+	return fmt.Errorf("drm: render for %s with Vulkan on the CPU: %w", path, err)
 }
 
 func (a *gpuAllocator) probe() error {
@@ -295,18 +324,29 @@ const (
 	WithoutMaster
 )
 
+type Renderer uint8
+
+const (
+	Vulkan Renderer = iota
+	Lavapipe
+	GLES
+)
+
 type Options struct {
-	Paths  gpu.Paths
-	Report func(error)
-	Vulkan bool
-	Master Master
+	Paths    gpu.Paths
+	Report   func(error)
+	Renderer Renderer
+	Master   Master
 }
 
 func primaryAllocator(dev device, opts Options) (allocator, error) {
-	if opts.Vulkan {
-		return newVulkanAllocator(dev, opts.Paths)
+	switch opts.Renderer {
+	case Lavapipe:
+		return newLavapipeAllocator(dev, opts.Paths)
+	case GLES:
+		return newGLESAllocator(dev, opts.Paths)
 	}
-	return newGLESAllocator(dev, opts.Paths)
+	return newVulkanAllocator(dev, opts.Paths)
 }
 
 func New(l *loop.Loop, dev *kdrm.Device, opts Options) (*Backend, error) {

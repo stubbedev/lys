@@ -110,6 +110,20 @@ func Vulkan(t testing.TB) *vulkan.Renderer {
 	return r
 }
 
+func VulkanCPU(t testing.TB, card uint64) *vulkan.Renderer {
+	t.Helper()
+	r, err := vulkan.OpenCPU(card)
+	if err != nil {
+		missing(t, "%v", err)
+	}
+	t.Cleanup(func() {
+		if err := CloseDriver(r.Close); err != nil {
+			t.Error(err)
+		}
+	})
+	return r
+}
+
 const udmabufNode = "/dev/udmabuf"
 
 func VulkanDMABUFs(t testing.TB) *vulkan.Renderer {

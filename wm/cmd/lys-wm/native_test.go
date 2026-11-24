@@ -82,13 +82,24 @@ func TestTheLidPolicyRunsOnceTheWakeHoldoffPasses(t *testing.T) {
 	}
 }
 
-func TestAPrimaryWithoutVulkanNamesTheCardAndTheWayToGLES(t *testing.T) {
+func TestEachDRMRendererOpensItsOwnStack(t *testing.T) {
+	for _, c := range []struct {
+		kind rendererKind
+		want drmbackend.Renderer
+	}{{vulkanRenderer, drmbackend.Vulkan}, {lavapipeRenderer, drmbackend.Lavapipe}, {glesRenderer, drmbackend.GLES}} {
+		if got := drmRenderer(c.kind); got != c.want {
+			t.Errorf("renderer %v opens the drm stack %d, want %d", c.kind, got, c.want)
+		}
+	}
+}
+
+func TestAPrimaryWithoutVulkanNamesTheCardAndTheWayToLavapipe(t *testing.T) {
 	missing := fmt.Errorf("drm: card0: %w /dev/dri/card0: vulkan: no Vulkan device draws", drmbackend.ErrNoVulkan)
 	err := withRendererHint(missing)
 	if !errors.Is(err, drmbackend.ErrNoVulkan) {
 		t.Fatalf("%v no longer wraps ErrNoVulkan", err)
 	}
-	for _, want := range []string{"/dev/dri/card0", "--renderer gles", "LYS_WM_RENDERER=gles"} {
+	for _, want := range []string{"/dev/dri/card0", "--renderer lavapipe", "LYS_WM_RENDERER=lavapipe"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("%v does not say %q", err, want)
 		}

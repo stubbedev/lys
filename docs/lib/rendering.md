@@ -150,7 +150,9 @@ func main() {
 - A `Device` and everything made from it belong to one goroutine.
 - `Open` picks the first device with a graphics queue that exports dmabufs,
   else the first with a graphics queue. `OpenNode` opens the device behind a
-  DRM node.
+  DRM node. `OpenCPU` opens only a device of type CPU (lavapipe) that exports
+  dmabufs, never a GPU, to render into buffers a card without a Vulkan driver
+  allocates.
 - `Prepare` builds pipelines on a worker; a pass that meets an unbuilt pipeline
   skips that draw and reports `Incomplete`.
 

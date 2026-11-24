@@ -21,10 +21,13 @@ import (
 )
 
 func TestOptionsAreCheckedAtTheBoundary(t *testing.T) {
-	for _, args := range [][]string{{"-backend", "nested"}, {"-renderer", "metal"}, {"-renderer", "gles"}, {"-backend", "drm", "-renderer", "soft"}, {"-rounds", "0"}, {"-scenarios", "nope"}} {
+	for _, args := range [][]string{{"-backend", "nested"}, {"-renderer", "metal"}, {"-renderer", "gles"}, {"-renderer", "lavapipe"}, {"-backend", "drm", "-renderer", "soft"}, {"-rounds", "0"}, {"-scenarios", "nope"}} {
 		if _, err := parseOptions(args, io.Discard); err == nil {
 			t.Errorf("%v was accepted", args)
 		}
+	}
+	if _, err := parseOptions([]string{"-backend", "drm", "-renderer", "lavapipe"}, io.Discard); err != nil {
+		t.Errorf("lavapipe on the drm backend: %v", err)
 	}
 	if _, err := parseOptions([]string{"-backend", "drm", "-renderer", "gles"}, io.Discard); err != nil {
 		t.Errorf("gles on the drm backend: %v", err)

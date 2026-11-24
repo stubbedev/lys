@@ -287,6 +287,12 @@ func TestExportsIsProven(t *testing.T) {
 		if d.Exports() {
 			t.Errorf("%s exports with /dev/udmabuf hidden", d.Name())
 		}
+		if cpu, err := OpenCPU(); !errors.Is(err, ErrNoDevice) {
+			if err == nil {
+				cpu.Close()
+			}
+			t.Errorf("OpenCPU with /dev/udmabuf hidden gives %v, want ErrNoDevice", err)
+		}
 		return
 	}
 	lavapipe := os.Getenv("LYS_TEST_LAVAPIPE")
@@ -368,6 +374,28 @@ func TestDevicesShareTheProcessInstance(t *testing.T) {
 			t.Fatalf("open %d got %q, want %q", i, d.Name(), name)
 		}
 		d.Close()
+	}
+}
+
+func TestOpenCPUOpensOnlyADeviceOnTheCPU(t *testing.T) {
+	d, err := OpenCPU()
+	if errors.Is(err, ErrNoDevice) && os.Getenv("LYS_TEST_GPU") != "lavapipe" {
+		t.Skipf("no Vulkan device on the CPU exports dmabufs here: %v", err)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d.Close()
+	var props vk.PhysicalDeviceProperties
+	d.cmds.GetPhysicalDeviceProperties(d.phys, &props)
+	if props.DeviceType != vk.PhysicalDeviceTypeCpu {
+		t.Errorf("OpenCPU opened %s, a device of type %d", d.Name(), props.DeviceType)
+	}
+	if !d.Exports() {
+		t.Errorf("OpenCPU opened %s, which does not export dmabufs", d.Name())
+	}
+	if _, ok := d.RenderNode(); ok {
+		t.Errorf("%s on the CPU names a render node", d.Name())
 	}
 }
 

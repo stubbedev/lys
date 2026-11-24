@@ -42,7 +42,7 @@ var backends = []string{"headless", "drm"}
 
 func renderersOn(backend string) []string {
 	if backend == "drm" {
-		return []string{"vulkan", "gles"}
+		return []string{"vulkan", "lavapipe", "gles"}
 	}
 	return []string{"vulkan", "soft"}
 }
@@ -65,7 +65,7 @@ func parseOptions(args []string, stderr io.Writer) (options, error) {
 	flags := flag.NewFlagSet("lys-wm-pace", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	flags.StringVar(&o.backend, "backend", "headless", "headless, on a simulated 60 Hz clock, or drm, which takes the display and needs a text console: "+strings.Join(backends, ", "))
-	flags.StringVar(&o.renderer, "renderer", "vulkan", "vulkan or soft on the headless backend, vulkan or gles on drm")
+	flags.StringVar(&o.renderer, "renderer", "vulkan", "vulkan or soft on the headless backend, vulkan, lavapipe or gles on drm")
 	flags.StringVar(&o.compositor, "compositor", "", "the lys-wm binary (default: next to this one, else on PATH)")
 	flags.StringVar(&o.jsonPath, "json", "", "write the report with every frame to this file as JSON")
 	flags.StringVar(&o.cpuProfile, "cpu-profile", "", "write a Go CPU profile of lys-wm to this file")

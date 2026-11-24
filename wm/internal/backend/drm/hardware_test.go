@@ -203,7 +203,11 @@ func startWithoutMaster(t *testing.T, card string, vulkan bool) {
 	if vulkan {
 		paths = withoutGL()
 	}
-	b, err := New(l, dev, Options{Paths: paths, Report: func(err error) { t.Error(err) }, Vulkan: vulkan, Master: WithoutMaster})
+	renderer := GLES
+	if vulkan {
+		renderer = Vulkan
+	}
+	b, err := New(l, dev, Options{Paths: paths, Report: func(err error) { t.Error(err) }, Renderer: renderer, Master: WithoutMaster})
 	if err != nil {
 		skipWithoutVulkan(t, card, err)
 	}

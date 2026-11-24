@@ -36,7 +36,7 @@ var formats = []struct {
 
 type Renderer struct {
 	d         *lgpu.Device
-	node      uint64
+	source    source
 	pass      *pass
 	idle      pass
 	counts    render.Counts
@@ -51,9 +51,15 @@ type Renderer struct {
 	shaders   map[*screenShader]struct{}
 }
 
-func newRenderer(d *lgpu.Device, node uint64) *Renderer {
+type source struct {
+	reopen func() (*lgpu.Device, error)
+	node   uint64
+	main   uint64
+}
+
+func newRenderer(d *lgpu.Device, s source) *Renderer {
 	r := &Renderer{
-		d: d, node: node,
+		d: d, source: s,
 		textures: map[*texture]struct{}{}, targets: map[*Target]struct{}{}, linears: map[*linearCopy]struct{}{}, shaders: map[*screenShader]struct{}{},
 	}
 	d.BeforeBuild(r.compiling)
@@ -124,13 +130,6 @@ func (r *Renderer) LoseDevice() {
 	r.lost = fmt.Errorf("vulkan: a device loss raised by LoseDevice: %w", lgpu.ErrDeviceLost)
 }
 
-func (r *Renderer) open() (*lgpu.Device, error) {
-	if r.node == 0 {
-		return lgpu.Open()
-	}
-	return lgpu.OpenNode(r.node)
-}
-
 func (r *Renderer) Recover() error {
 	if r.pass != nil {
 		return errors.New("vulkan: Recover during a pass")
@@ -160,7 +159,7 @@ func (r *Renderer) Recover() error {
 	r.builds += r.d.PipelineBuilds()
 	gpu.Compiling()
 	r.d.Close()
-	d, err := r.open()
+	d, err := r.source.reopen()
 	if err != nil {
 		return fmt.Errorf("vulkan: a new device after a device loss: %w", err)
 	}
@@ -188,11 +187,24 @@ func (r *Renderer) Recover() error {
 }
 
 func Open(node uint64) (*Renderer, error) {
-	d, err := lgpu.OpenNode(node)
+	return opened(source{reopen: func() (*lgpu.Device, error) { return lgpu.OpenNode(node) }, node: node, main: node})
+}
+
+var ErrNoCard = errors.New("vulkan: a device on the CPU needs the card it renders for")
+
+func OpenCPU(card uint64) (*Renderer, error) {
+	if card == 0 {
+		return nil, ErrNoCard
+	}
+	return opened(source{reopen: lgpu.OpenCPU, main: card})
+}
+
+func opened(s source) (*Renderer, error) {
+	d, err := s.reopen()
 	if err != nil {
 		return nil, fmt.Errorf("vulkan: %w", err)
 	}
-	return newRenderer(d, node), nil
+	return newRenderer(d, s), nil
 }
 
 func OpenDefault() (*Renderer, error) {
@@ -206,11 +218,7 @@ func OpenDefault() (*Renderer, error) {
 			return r, nil
 		}
 	}
-	d, err := lgpu.Open()
-	if err != nil {
-		return nil, fmt.Errorf("vulkan: %w", err)
-	}
-	return newRenderer(d, 0), nil
+	return opened(source{reopen: lgpu.Open})
 }
 
 func OpenRenderNode(path string) (*Renderer, error) {
@@ -726,15 +734,15 @@ func (r *Renderer) DMABUFFormats() ([]gpu.FormatModifier, error) {
 }
 
 func (r *Renderer) MainDevice() (uint64, error) {
-	if r.node == 0 {
+	if r.source.main == 0 {
 		return 0, fmt.Errorf("%w: %s was opened without a DRM node", gpu.ErrUnsupported, r.d.Name())
 	}
-	return r.node, nil
+	return r.source.main, nil
 }
 
 func (r *Renderer) RenderNode() (string, error) {
-	if _, err := r.MainDevice(); err != nil {
-		return "", err
+	if r.source.node == 0 {
+		return "", fmt.Errorf("%w: %s has no render node", gpu.ErrUnsupported, r.d.Name())
 	}
 	nodes, err := filepath.Glob("/dev/dri/renderD*")
 	if err != nil {
@@ -742,7 +750,7 @@ func (r *Renderer) RenderNode() (string, error) {
 	}
 	for _, n := range nodes {
 		var st unix.Stat_t
-		if unix.Stat(n, &st) == nil && sameGPU(n, r.node) {
+		if unix.Stat(n, &st) == nil && sameGPU(n, r.source.node) {
 			return n, nil
 		}
 	}

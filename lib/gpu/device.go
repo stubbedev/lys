@@ -122,18 +122,32 @@ type Device struct {
 
 // Open picks the first Vulkan device with a graphics queue that
 // exports dmabufs, else the first with a graphics queue.
-func Open() (*Device, error) { return open(nil) }
+func Open() (*Device, error) { return open(selection{}) }
 
 // OpenNode opens the Vulkan device behind the DRM node dev, its device
 // number (st_rdev, as of /dev/dri/renderD128 or /dev/dri/card0): the
 // device a dmabuf consumer negotiated, which must export dmabufs.
 // linux-dmabuf's main device may name either node of a GPU.
 func OpenNode(dev uint64) (*Device, error) {
-	return open(&drmNode{major: int64(unix.Major(dev)), minor: int64(unix.Minor(dev))})
+	return open(selection{node: &drmNode{major: int64(unix.Major(dev)), minor: int64(unix.Minor(dev))}})
 }
+
+// OpenCPU opens a Vulkan device that runs on the CPU (lavapipe) and
+// exports dmabufs: it renders into dmabufs another device allocates,
+// for a display whose card has no Vulkan driver. It never opens a GPU.
+func OpenCPU() (*Device, error) { return open(selection{cpu: true}) }
 
 // drmNode is a DRM render node's major and minor device number.
 type drmNode struct{ major, minor int64 }
+
+// selection is the device an open asks for: the one behind node, a CPU
+// device, or, neither named, any. A named one must export dmabufs.
+type selection struct {
+	node *drmNode
+	cpu  bool
+}
+
+func (s selection) named() bool { return s.node != nil || s.cpu }
 
 // vulkan is the process's Vulkan instance, made by the first Open that
 // succeeds in making one and held for the process's life: devices come
@@ -201,11 +215,11 @@ func physicalDeviceCount(cmds *vk.Commands, instance vk.Instance) uint32 {
 	return n
 }
 
-// open picks the first device node names (any, nil) with a graphics
-// queue that exports dmabufs, else, with no node named, the first with
-// a graphics queue.
-func open(node *drmNode) (*Device, error) {
-	instance, cmds, err := processInstance(node)
+// open picks the first device sel names with a graphics queue that
+// exports dmabufs, else, with none named, the first with a graphics
+// queue.
+func open(sel selection) (*Device, error) {
+	instance, cmds, err := processInstance(sel.node)
 	if err != nil {
 		return nil, err
 	}
@@ -221,12 +235,12 @@ func open(node *drmNode) (*Device, error) {
 	}
 	var reasons []error
 	modes := []bool{true, false}
-	if node != nil {
+	if sel.named() {
 		modes = modes[:1]
 	}
 	for _, exporting := range modes {
 		for _, p := range phys {
-			err := d.pick(p, exporting, node)
+			err := d.pick(p, exporting, sel)
 			if err == nil {
 				if err = d.open(); err == nil {
 					if err = d.createPipelines(); err == nil && exporting {
@@ -265,11 +279,14 @@ func createInstance(cmds *vk.Commands) (vk.Instance, error) {
 }
 
 // pick takes p when it has a graphics queue, exporting the dmabuf
-// export extensions, and when node is named it is that render node.
-func (d *Device) pick(p vk.PhysicalDevice, exporting bool, node *drmNode) error {
+// export extensions, and it is the node or the CPU device sel names.
+func (d *Device) pick(p vk.PhysicalDevice, exporting bool, sel selection) error {
 	var props vk.PhysicalDeviceProperties
 	d.cmds.GetPhysicalDeviceProperties(p, &props)
 	name := cname(props.DeviceName[:])
+	if sel.cpu && props.DeviceType != vk.PhysicalDeviceTypeCpu {
+		return fmt.Errorf("%s does not run on the CPU", name)
+	}
 	var n uint32
 	d.cmds.EnumerateDeviceExtensionProperties(p, 0, &n, nil)
 	exts := make([]vk.ExtensionProperties, n)
@@ -294,7 +311,7 @@ func (d *Device) pick(p vk.PhysicalDevice, exporting bool, node *drmNode) error 
 		d.cmds.GetPhysicalDeviceProperties2(p, &props2)
 		runtime.KeepAlive(&drm)
 	}
-	if node != nil {
+	if node := sel.node; node != nil {
 		if !have["VK_EXT_physical_device_drm"] {
 			return fmt.Errorf("%s cannot name its DRM node (no VK_EXT_physical_device_drm)", name)
 		}

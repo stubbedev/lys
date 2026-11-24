@@ -59,7 +59,7 @@ type native struct {
 	handler     backend.Handler
 	cards       []*card
 	report      func(error)
-	vulkan      bool
+	renderer    drmbackend.Renderer
 	lid         *os.File
 	lidAction   session.LidAction
 	lidClosed   bool
@@ -71,11 +71,11 @@ type native struct {
 const lidHoldoff = 30 * time.Second
 
 type nativeOptions struct {
-	input  session.InputConfig
-	gpu    string
-	lid    session.LidAction
-	vulkan bool
-	holder *session.Holder
+	input    session.InputConfig
+	gpu      string
+	lid      session.LidAction
+	renderer drmbackend.Renderer
+	holder   *session.Holder
 }
 
 func choosePrimary(cards []gpuCard, configured string) (int, string, error) {
@@ -139,7 +139,7 @@ func (n *native) gpuCards() ([]gpuCard, error) {
 }
 
 func openNative(l *loop.Loop, getenv func(string) string, opts nativeOptions, report func(error)) (_ *native, err error) {
-	n := &native{l: l, paths: gpu.PathsFromEnv(getenv), report: report, vulkan: opts.vulkan}
+	n := &native{l: l, paths: gpu.PathsFromEnv(getenv), report: report, renderer: opts.renderer}
 	if opts.holder != nil {
 		n.logind, err = opts.holder, opts.holder.Open(n)
 	} else {
@@ -242,7 +242,9 @@ func (n *native) add(g gpuCard) error {
 	}
 	c := &card{name: g.name, device: device, dev: kdrm.FromFD(fd, g.udev.Devnode)}
 	if len(n.cards) == 0 {
-		c.backend, err = drmbackend.New(n.l, c.dev, n.drmOptions())
+		if c.backend, err = drmbackend.New(n.l, c.dev, n.drmOptions()); err == nil && n.renderer == drmbackend.Lavapipe {
+			fmt.Fprintf(os.Stderr, "lys-wm: %s's frames are drawn on the CPU by %s, as --renderer lavapipe asks, into buffers %s allocates\n", g.name, deviceName(c.backend.Renderer()), g.name)
+		}
 	} else {
 		var how string
 		if c.backend, how, err = drmbackend.NewSecondary(n.l, c.dev, n.primary().backend, n.drmOptions(), g.render); err == nil {
@@ -256,15 +258,32 @@ func (n *native) add(g gpuCard) error {
 	return nil
 }
 
+func drmRenderer(renderer rendererKind) drmbackend.Renderer {
+	switch renderer {
+	case lavapipeRenderer:
+		return drmbackend.Lavapipe
+	case glesRenderer:
+		return drmbackend.GLES
+	}
+	return drmbackend.Vulkan
+}
+
+func deviceName(r render.Renderer) string {
+	if named, ok := r.(render.NamedDevice); ok {
+		return named.DeviceName()
+	}
+	return fmt.Sprintf("%T", r)
+}
+
 func withRendererHint(err error) error {
 	if errors.Is(err, drmbackend.ErrNoVulkan) {
-		return fmt.Errorf("%w (the drm backend renders with Vulkan unless run with --renderer gles or LYS_WM_RENDERER=gles)", err)
+		return fmt.Errorf("%w (the drm backend renders with the card's Vulkan driver; --renderer lavapipe or LYS_WM_RENDERER=lavapipe renders on the CPU instead)", err)
 	}
 	return err
 }
 
 func (n *native) drmOptions() drmbackend.Options {
-	return drmbackend.Options{Paths: n.paths, Report: n.report, Vulkan: n.vulkan}
+	return drmbackend.Options{Paths: n.paths, Report: n.report, Renderer: n.renderer}
 }
 
 func (n *native) addSecondary(g gpuCard) {

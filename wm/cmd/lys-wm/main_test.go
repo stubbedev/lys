@@ -64,7 +64,7 @@ func TestChooseRenderer(t *testing.T) {
 		requested string
 		backend   backendKind
 		want      rendererKind
-	}{{"", nestedBackend, vulkanRenderer}, {"", headlessBackend, softRenderer}, {"", drmBackend, vulkanRenderer}, {"gles", drmBackend, glesRenderer}, {"soft", nestedBackend, softRenderer}, {"vulkan", headlessBackend, vulkanRenderer}, {"vulkan", drmBackend, vulkanRenderer}, {"vulkan", nestedBackend, vulkanRenderer}} {
+	}{{"", nestedBackend, vulkanRenderer}, {"", headlessBackend, softRenderer}, {"", drmBackend, vulkanRenderer}, {"gles", drmBackend, glesRenderer}, {"lavapipe", drmBackend, lavapipeRenderer}, {"soft", nestedBackend, softRenderer}, {"vulkan", headlessBackend, vulkanRenderer}, {"vulkan", drmBackend, vulkanRenderer}, {"vulkan", nestedBackend, vulkanRenderer}} {
 		if got, err := chooseRenderer(c.requested, c.backend); err != nil || got != c.want {
 			t.Errorf("chooseRenderer(%q, %v) = %v, %v; want %v", c.requested, c.backend, got, err, c.want)
 		}
@@ -73,7 +73,7 @@ func TestChooseRenderer(t *testing.T) {
 		requested string
 		backend   backendKind
 		available string
-	}{{"metal", nestedBackend, "vulkan, soft"}, {"metal", headlessBackend, "soft, vulkan"}, {"soft", drmBackend, "vulkan, gles"}, {"gles", nestedBackend, "vulkan, soft"}, {"gles", headlessBackend, "soft, vulkan"}} {
+	}{{"metal", nestedBackend, "vulkan, soft"}, {"metal", headlessBackend, "soft, vulkan"}, {"soft", drmBackend, "vulkan, lavapipe, gles"}, {"gles", nestedBackend, "vulkan, soft"}, {"gles", headlessBackend, "soft, vulkan"}, {"lavapipe", nestedBackend, "vulkan, soft"}, {"lavapipe", headlessBackend, "soft, vulkan"}} {
 		_, err := chooseRenderer(c.requested, c.backend)
 		if !errors.Is(err, errUnavailableRenderer) || !strings.Contains(err.Error(), "available: "+c.available) || !strings.Contains(err.Error(), c.backend.String()) {
 			t.Errorf("chooseRenderer(%q, %v) = %v, want errUnavailableRenderer naming the %v backend and %s", c.requested, c.backend, err, c.backend, c.available)
@@ -653,7 +653,7 @@ func TestTheRendererComesFromTheFlagThenTheEnvironment(t *testing.T) {
 	for _, c := range []struct {
 		flag, env string
 		want      rendererKind
-	}{{"", "", vulkanRenderer}, {"", "gles", glesRenderer}, {"vulkan", "gles", vulkanRenderer}, {"gles", "", glesRenderer}} {
+	}{{"", "", vulkanRenderer}, {"", "gles", glesRenderer}, {"vulkan", "gles", vulkanRenderer}, {"gles", "", glesRenderer}, {"", "lavapipe", lavapipeRenderer}, {"vulkan", "lavapipe", vulkanRenderer}} {
 		if got, err := rendererFor(c.flag, env(c.env), drmBackend); err != nil || got != c.want {
 			t.Errorf("rendererFor(%q, %s=%q) = %v, %v; want %v", c.flag, rendererEnv, c.env, got, err, c.want)
 		}

@@ -1,6 +1,7 @@
 package vulkan_test
 
 import (
+	"errors"
 	"image"
 	"path/filepath"
 	"strings"
@@ -8,6 +9,7 @@ import (
 	"time"
 
 	lgpu "github.com/stubbedev/lys/lib/gpu"
+	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/wm/internal/gpu"
 	"github.com/stubbedev/lys/wm/internal/render"
@@ -252,6 +254,38 @@ func TestARenderNodeNamesTheMainDeviceOnHardware(t *testing.T) {
 	}
 	if got != node {
 		t.Fatalf("a renderer opened on %s names %s", node, got)
+	}
+}
+
+func TestARendererOnTheCPUNamesTheCardItRendersForThroughALoss(t *testing.T) {
+	card := unix.Mkdev(226, 7)
+	r := testenv.VulkanCPU(t, card)
+	check := func(when string) {
+		t.Helper()
+		if !render.SoftwareDevice(r.DeviceName()) {
+			t.Errorf("%s: OpenCPU renders on %s", when, r.DeviceName())
+		}
+		if got, err := r.MainDevice(); err != nil || got != card {
+			t.Errorf("%s: the main device is %d (%v), want the card %d", when, got, err, card)
+		}
+		if node, err := r.RenderNode(); !errors.Is(err, gpu.ErrUnsupported) {
+			t.Errorf("%s: the renderer names the render node %q (%v), but the card's node belongs to no device it renders with", when, node, err)
+		}
+	}
+	check("on the first device")
+	r.LoseDevice()
+	if err := r.Recover(); err != nil {
+		t.Fatal(err)
+	}
+	check("after a device loss")
+}
+
+func TestARendererOnTheCPUNeedsACard(t *testing.T) {
+	if r, err := vulkan.OpenCPU(0); !errors.Is(err, vulkan.ErrNoCard) {
+		if err == nil {
+			_ = r.Close()
+		}
+		t.Fatalf("OpenCPU without a card gives %v, want ErrNoCard", err)
 	}
 }
 
