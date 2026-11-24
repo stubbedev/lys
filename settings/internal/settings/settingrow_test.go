@@ -5,6 +5,7 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/service/pulse"
 	"github.com/stubbedev/lys/desktop/shell/apptheme"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
@@ -338,5 +339,83 @@ func TestAChoiceEditorFitsTheControlColumn(t *testing.T) {
 	columnEdges{"choice": choice.Bounds(), "entry": entry.Bounds()}.shareEdges(t, "an unknown choice")
 	if c, e := choice.combo.Bounds(), entry.Bounds(); c.X+c.W != e.X+e.W {
 		t.Errorf("beside the badge the combobox ends at x %d, the column at %d", c.X+c.W, e.X+e.W)
+	}
+}
+
+// A device picker with its level under it is a field of its card's
+// control column: its dropdown and its level start and end at one x with
+// an entry of the card, for a device list and for a choice editor alike.
+func TestALevelledDeviceFitsTheControlColumn(t *testing.T) {
+	for _, tc := range []struct {
+		name, path string
+		opts       []rowOpt
+		dropdown   func(*levelledDevice) widget.Boundser
+	}{
+		{"microphone", "modules.recorder.microphone-device", []rowOpt{microphoneDevice}, func(c *levelledDevice) widget.Boundser { return c.pick.(*choiceControl).pick.drop }},
+		{"cava source", "modules.cava.source", nil, func(c *levelledDevice) widget.Boundser { return c.pick.(*choiceEditor).combo }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c, k, _ := levelledRow(t, soundServer(t), "", tc.path, tc.opts...)
+			entry := k.entry()
+			row := k.row("Device", "").withControl(c)
+			rows := widget.NewItemGroup(row, k.row("Name", "").withControl(entry))
+			box := widget.NewBox(widget.Column, 0, 0)
+			box.Append(rows, false)
+			styledLayOut(k, box, 900)
+			if fit := row.ControlFit(); fit != widget.ItemControlColumn {
+				t.Fatalf("the %s row holds its picker at fit %d, want the column", tc.name, fit)
+			}
+			if !shown(c.level.meter) {
+				t.Fatal("the level meter is not shown")
+			}
+			columnEdges{"device": c.Bounds(), "dropdown": tc.dropdown(c).Bounds(), "level": c.level.meter.Bounds(), "entry": entry.Bounds()}.shareEdges(t, tc.name)
+		})
+	}
+}
+
+// The composite editors outside the control column keep their own width
+// at the row's end beside a card's column, however wide the column: a
+// path field and its browse button, a button choice with its code spin, a
+// size's mode and spin with or without a slider, the sleep action over
+// its lines, a soft range's slider and an offset's two.
+func TestCompositeEditorsKeepTheirOwnWidth(t *testing.T) {
+	k := testKit(t, "")
+	stored := func(v any) slot { return memSlot(&v) }
+	whole := config.FieldMeta{Min: 0, Max: 1000}
+	editors := []struct {
+		name string
+		ctl  widget.Widget
+	}{
+		{"path", newFileEditor(k, stored("/usr/share/backgrounds/default.png"))},
+		{"button", newNamedOrWhole(k, stored(int64(275)), config.FieldMeta{Variants: []string{"left", "right", "middle"}, Min: 0, Max: 1000})},
+		{"size", newSizeEditor(k, stored(1.0), 1)},
+		{"size slider", newSizeSliderEditor(k, stored(1.0), 1, 100, 800)},
+		{"sleep action", fieldControl(k, k.store, field("idle.suspend-action", sleepActionRow))},
+		{"soft range", newSoftRange(k, stored(int64(10)), whole, 0, 100, 1, unitPixels)},
+		{"offset", newOffsetEditor(k, stored([]any{int64(0), int64(4)}), "decoration.shadow.offset", -32, 32)},
+	}
+	for _, e := range editors {
+		t.Run(e.name, func(t *testing.T) {
+			wide := k.entry()
+			wide.SetWidthChars(150, 150)
+			row := k.row(e.name, "").withControl(e.ctl)
+			rows := widget.NewItemGroup(row, k.row("Name", "").withControl(wide))
+			box := widget.NewBox(widget.Column, 0, 0)
+			box.Append(rows, false)
+			styledLayOut(k, box, 3200)
+			if fit := row.ControlFit(); fit != widget.ItemControlNatural {
+				t.Fatalf("the %s row holds its editor at fit %d, want its own width", e.name, fit)
+			}
+			b, w := e.ctl.(widget.Boundser).Bounds(), wide.Bounds()
+			if nat := e.ctl.Measure(widget.Row, widget.Unknown).Nat; b.W != nat {
+				t.Errorf("the %s editor is %dpx wide, not its own %dpx", e.name, b.W, nat)
+			}
+			if b.W >= w.W {
+				t.Errorf("the %s editor is %dpx wide, stretched to the %dpx column", e.name, b.W, w.W)
+			}
+			if b.X+b.W != w.X+w.W {
+				t.Errorf("the %s editor ends at x %d, not at the row's end %d", e.name, b.X+b.W, w.X+w.W)
+			}
+		})
 	}
 }

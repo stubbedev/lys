@@ -42,6 +42,12 @@ func (c *namedOrWhole) choose(i int) {
 	c.refresh()
 }
 
+// fit keeps the button choice at its own width (controlFit): the code
+// spin appears beside the dropdown while a code is chosen, and in the
+// card's control column it would widen every field of the card while it
+// shows, as the action editor's command entry would.
+func (c *namedOrWhole) fit() widget.ItemControlFit { return widget.ItemControlNatural }
+
 func (c *namedOrWhole) refresh() {
 	selected := 0
 	switch v := c.slot.get().(type) {

@@ -135,6 +135,11 @@ func newLevelledDevice(k *kit, s slot, target func(name string) (pulse.CaptureTa
 	return c
 }
 
+// fit holds the device picker where its picker alone would be: a
+// dropdown in the card's control column, the level under it as wide
+// (controlFit).
+func (c *levelledDevice) fit() widget.ItemControlFit { return controlFit(c.pick) }
+
 func (c *levelledDevice) follow() { c.level.follow(c.target(c.slot.text())) }
 
 func (c *levelledDevice) refresh() {

@@ -315,6 +315,11 @@ func newOffsetEditor(k *kit, s slot, path string, lo, hi float64) *offsetEditor 
 	return c
 }
 
+// fit keeps an offset at its own width (controlFit): it is two
+// labelled sliders in a form grid of their own, their tracks lined up
+// with each other, not one field of the card's control column.
+func (c *offsetEditor) fit() widget.ItemControlFit { return widget.ItemControlNatural }
+
 func (c *offsetEditor) refresh() {
 	for _, a := range c.axes {
 		a.refresh()

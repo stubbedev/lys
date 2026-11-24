@@ -360,6 +360,11 @@ func (c *fileEditor) dirtyBadge() *widget.Badge { return c.entry.badge }
 
 func (c *fileEditor) refresh() { c.entry.refresh() }
 
+// fit keeps a path field at the row's end at its own width, the
+// pathEntryChars every path row shares beside the browse button, never
+// stretched over the card's control column (controlFit).
+func (c *fileEditor) fit() widget.ItemControlFit { return widget.ItemControlNatural }
+
 type folderItem struct {
 	*fileEditor
 	value *string

@@ -163,6 +163,12 @@ func newSizeParts(k *kit, s slot, baseRem float64) *sizeEditor {
 	return c
 }
 
+// fit keeps a size at its own width (controlFit): the scale-or-pixels
+// choice and the spin are two controls each as wide as it reads, and the
+// slider of one with a slider ends its track where the card's other
+// sliders do, by its reading, not in the control column.
+func (c *sizeEditor) fit() widget.ItemControlFit { return widget.ItemControlNatural }
+
 // configure sets the spin for a mode (configure_spin_for_mode): whole
 // pixels, or a scale in hundredths, then shows v.
 func (c *sizeEditor) configure(px bool, v float64) {

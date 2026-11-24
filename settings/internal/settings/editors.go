@@ -371,6 +371,12 @@ func newSoftRange(k *kit, s slot, meta config.FieldMeta, lo, hi, step float64, u
 	return c
 }
 
+// fit keeps a soft range at its own width, as every slider is
+// (controlFit): its field is the reading its card's sliders share
+// (widget.ItemValue), so its track ends where theirs do; in the control
+// column its track would set the width of every field of the card.
+func (c *softRange) fit() widget.ItemControlFit { return widget.ItemControlNatural }
+
 // refresh moves the knob, clamped to the slider's range, then shows the
 // value itself in the field.
 func (c *softRange) refresh() {

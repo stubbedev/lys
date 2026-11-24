@@ -97,6 +97,12 @@ func newSleepAction(k *kit, s slot, meta config.FieldMeta) *sleepAction {
 	return c
 }
 
+// fit keeps the sleep action at its own width (controlFit): under its
+// choice are the lines saying what the action does and why one cannot
+// be taken, text as wide as it reads, which in the card's control column
+// would set the width of every field of the card.
+func (c *sleepAction) fit() widget.ItemControlFit { return widget.ItemControlNatural }
+
 func (c *sleepAction) know(a sleepAvailability) {
 	c.can, c.unknown, c.blockers = a.can, a.err, a.blockers
 	c.pick.setOptions(c.options())
