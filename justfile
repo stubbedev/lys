@@ -161,7 +161,12 @@ eval-jobs select *flags:
 # into one part per shard and a last part for every other package; `wm/2` runs
 # only the second part's packages of those, and the last part, `wm/4` for wm's
 # three shards, runs the rest of them and every other gate:
-# `just gates wm/2:race wm:gates`.
+# `just gates wm/2:race wm:gates`. A shard entry that names tests of a package
+# splits that one package: its part runs only those tests, with `go test -run`,
+# and the last part runs the package with every test a shard names skipped. A
+# split recipe runs once per package it splits, beside the run of its whole
+# packages, each a process of its own that reads its packages, -run and -skip
+# patterns from $LYS_TEST_PACKAGES, $LYS_TEST_RUN and $LYS_TEST_SKIP.
 [script("bash")]
 gates *targets:
     set -euo pipefail
@@ -172,8 +177,19 @@ gates *targets:
     fi
     tasks=()
     compile=0
-    declare -A shard=() rest=() seen=() splits=([race]=1)
+    declare -A pkgs=() runs=() skips=() rest=() selects=() dropped=() seen=() splits=([race]=1)
     while read -r gate; do splits[$gate]=1; done < <(jq -r '.["sharded-gates"][]' ci/components.json)
+    # shellcheck disable=SC2016
+    units='
+        .components[$c].shards as $shards
+        | if $part <= ($shards | length) then
+            $shards[$part - 1]
+            | ([.[] | strings] | select(length > 0) | "packages - " + join(" ")),
+              (.[] | objects | "run ^(\(.tests | join("|")))$ " + .package)
+          else
+            ([$shards[][] | if type == "string" then . else .package end] | unique | "rest - " + join(" ")),
+            ([$shards[][] | objects] | group_by(.package)[] | "skip ^(\([.[].tests[]] | join("|")))$ " + .[0].package)
+          end'
     for spec in "${targets[@]}"; do
         target=${spec%%:*}
         suite=${spec#"$target"}
@@ -211,14 +227,20 @@ gates *targets:
                     exit 1
                 fi
                 seen[$task]=1
-                tasks+=("$task")
                 if [[ "$kind" == gates ]]; then compile=1; fi
-                if [[ ! -v splits[$recipe] ]] || [[ -z "$part" ]] || (( shards == 0 )); then continue; fi
-                if (( part <= shards )); then
-                    shard[$task]=$(jq -r --arg c "$c" --argjson i "$((part - 1))" '.components[$c].shards[$i] | join(" ")' ci/components.json)
-                else
-                    rest[$task]=$(jq -r --arg c "$c" '[.components[$c].shards[][]] | join(" ")' ci/components.json)
+                if [[ ! -v splits[$recipe] ]] || [[ -z "$part" ]] || (( shards == 0 )); then
+                    tasks+=("$task")
+                    continue
                 fi
+                while read -r scope pattern list; do
+                    case "$scope" in
+                        packages) unit=$task; pkgs[$unit]=$list ;;
+                        rest) unit=$task; rest[$unit]=$list ;;
+                        run) unit="${task} ${list}"; pkgs[$unit]=$list; runs[$unit]=$pattern ;;
+                        skip) unit="${task} ${list}"; pkgs[$unit]=$list; skips[$unit]=$pattern; selects[$task]=1 ;;
+                    esac
+                    tasks+=("$unit")
+                done < <(jq -r --arg c "$c" --argjson part "$part" "$units" ci/components.json)
             done < <(jq -r --arg c "$c" --arg kind "$kind" --arg arch "{{ arch() }}" --argjson part "${part:-0}" '
                 .["gate-runners"][$arch] as $only
                 | .["sharded-gates"] as $split
@@ -271,12 +293,19 @@ gates *targets:
             cat "${dir}/list.log" >&2
             exit 1
         fi
-        rest[$task]=$(comm -23 "${dir}/all" "${dir}/sharded" | paste -sd' ')
-        if [[ -z "${rest[$task]}" ]]; then
+        pkgs[$task]=$(comm -23 "${dir}/all" "${dir}/sharded" | paste -sd' ')
+        if [[ -n "${pkgs[$task]}" ]]; then continue; fi
+        if [[ ! -v selects[$task] ]]; then
             echo "gates: ${c}'s shards hold every package, so ${target} ${recipe} would test none" >&2
             exit 1
         fi
+        dropped[$task]=1
     done
+    kept=()
+    for task in "${tasks[@]}"; do
+        if [[ ! -v dropped[$task] ]]; then kept+=("$task"); fi
+    done
+    tasks=("${kept[@]}")
     if (( compile )) && (( ${#tasks[@]} > 1 )); then
         trees=()
         for c in "${components[@]}"; do trees+=("./${c}/..."); done
@@ -300,22 +329,24 @@ gates *targets:
         task=${running[$pid]}
         unset "running[$pid]"
         if (( status == 0 )); then
-            printf 'ok    %-26s %4ss\n' "$task" "$((SECONDS - started[$pid]))"
+            printf 'ok    %-40s %4ss\n' "$task" "$((SECONDS - started[$pid]))"
         else
-            printf 'FAIL  %-26s %4ss  exit %s\n' "$task" "$((SECONDS - started[$pid]))" "$status"
+            printf 'FAIL  %-40s %4ss  exit %s\n' "$task" "$((SECONDS - started[$pid]))" "$status"
             failed+=("$task")
         fi
     }
     for task in "${tasks[@]}"; do
         while (( ${#running[@]} >= slots )); do reap; done
-        read -r target recipe <<< "$task"
+        read -r target recipe _ <<< "$task"
         c=${target%%/*}
-        packages="${shard[$task]-${rest[$task]-}}"
         (
             set +euo pipefail
             # shellcheck source=/dev/null
             source "${envs[$c]}"
-            if [[ -n "$packages" ]]; then export LYS_TEST_PACKAGES="$packages"; fi
+            unset LYS_TEST_PACKAGES LYS_TEST_RUN LYS_TEST_SKIP
+            if [[ -v pkgs[$task] ]]; then export LYS_TEST_PACKAGES="${pkgs[$task]}"; fi
+            if [[ -v runs[$task] ]]; then export LYS_TEST_RUN="${runs[$task]}"; fi
+            if [[ -v skips[$task] ]]; then export LYS_TEST_SKIP="${skips[$task]}"; fi
             exec just --justfile "${c}/justfile" --working-directory "$c" "$recipe"
         ) > "$(log "$task")" 2>&1 &
         running[$!]=$task

@@ -283,9 +283,11 @@ fuzz duration="5m":
 
 # Run every test and the patched xgb fork's under the race detector, which
 # needs cgo; the binaries lys-wm ships keep CGO_ENABLED=0. LYS_WM_HEADLESS=1
-# turns a missing dev-shell program into a failure instead of a skip.
+# turns a missing dev-shell program into a failure instead of a skip. One CI
+# part tests $LYS_TEST_PACKAGES, the tests $LYS_TEST_RUN picks and
+# $LYS_TEST_SKIP leaves.
 race:
-    CGO_ENABLED=1 LYS_WM_HEADLESS=1 go test -race -skip '{{host_skip}}' ${LYS_TEST_ARGS--count=1} ${LYS_TEST_PACKAGES:-./...}
+    CGO_ENABLED=1 LYS_WM_HEADLESS=1 go test -race -run "${LYS_TEST_RUN-}" -skip "{{host_skip}}${LYS_TEST_SKIP:+|$LYS_TEST_SKIP}" ${LYS_TEST_ARGS--count=1} ${LYS_TEST_PACKAGES:-./...}
 
 # Run every release gate in order: vet, lint, test, build.
 check: vet lint no-fused test build
@@ -308,9 +310,10 @@ lint:
 
 # Run the test suite for every package, the harness that boots lys-wm on the
 # headless backend and drives real clients included. LYS_WM_HEADLESS=1 turns a
-# missing dev-shell program into a failure instead of a skip.
+# missing dev-shell program into a failure instead of a skip. One CI part tests
+# $LYS_TEST_PACKAGES, the tests $LYS_TEST_RUN picks and $LYS_TEST_SKIP leaves.
 test:
-    LYS_WM_HEADLESS=1 go test -skip '{{host_skip}}' ${LYS_TEST_ARGS--count=1} ${LYS_TEST_PACKAGES:-./...}
+    LYS_WM_HEADLESS=1 go test -run "${LYS_TEST_RUN-}" -skip "{{host_skip}}${LYS_TEST_SKIP:+|$LYS_TEST_SKIP}" ${LYS_TEST_ARGS--count=1} ${LYS_TEST_PACKAGES:-./...}
 
 # Compile-check every package; the output is discarded.
 build:

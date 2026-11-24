@@ -1,11 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"maps"
 	"reflect"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -43,17 +45,22 @@ type Job struct {
 }
 
 type Component struct {
-	Paths      []string   `json:"paths"`
-	GoPackages string     `json:"go-packages"`
-	Depends    []string   `json:"depends"`
-	AffectsAll bool       `json:"affects-all"`
-	Package    bool       `json:"package"`
-	Gates      []string   `json:"gates"`
-	Race       bool       `json:"race"`
-	Jobs       []Job      `json:"jobs"`
-	VMs        [][]string `json:"vms"`
-	FreeDisk   bool       `json:"free-disk"`
-	Shards     [][]string `json:"shards"`
+	Paths      []string       `json:"paths"`
+	GoPackages string         `json:"go-packages"`
+	Depends    []string       `json:"depends"`
+	AffectsAll bool           `json:"affects-all"`
+	Package    bool           `json:"package"`
+	Gates      []string       `json:"gates"`
+	Race       bool           `json:"race"`
+	Jobs       []Job          `json:"jobs"`
+	VMs        [][]string     `json:"vms"`
+	FreeDisk   bool           `json:"free-disk"`
+	Shards     [][]ShardEntry `json:"shards"`
+}
+
+type ShardEntry struct {
+	Package string   `json:"package"`
+	Tests   []string `json:"tests"`
 }
 
 type Target struct {
@@ -92,6 +99,25 @@ type Plan struct {
 	Jobs       []Matrix `json:"jobs"`
 	Lanes      []Lane   `json:"lanes"`
 	Packages   []string `json:"packages"`
+}
+
+func (e *ShardEntry) UnmarshalJSON(data []byte) error {
+	if err := json.Unmarshal(data, &e.Package); err == nil {
+		e.Tests = nil
+		return nil
+	}
+	type selection ShardEntry
+	var s selection
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&s); err != nil {
+		return fmt.Errorf(`a shard entry is a package directory like "./internal/x" or {"package": "./internal/x", "tests": ["TestA"]}, not %s: %w`, data, err)
+	}
+	if len(s.Tests) == 0 {
+		return fmt.Errorf("the shard entry %s selects no test of %s, which a shard names alone to test all of it", data, s.Package)
+	}
+	*e = ShardEntry(s)
+	return nil
 }
 
 func (t *Target) UnmarshalJSON(data []byte) error {
@@ -258,6 +284,8 @@ func validateGateRunners(cfg Config) []error {
 	return errs
 }
 
+var testName = regexp.MustCompile(`^Test(?:[A-Z0-9_][A-Za-z0-9_]*)?$`)
+
 func validateShards(name string, c Component, shardedGates []string) []error {
 	if len(c.Shards) == 0 {
 		return nil
@@ -268,22 +296,68 @@ func validateShards(name string, c Component, shardedGates []string) []error {
 	} else if !slices.ContainsFunc(c.Gates, func(g string) bool { return slices.Contains(shardedGates, g) }) && !c.Race {
 		errs = append(errs, fmt.Errorf("%s has shards but neither a %s gate nor a race suite to split", name, strings.Join(shardedGates, " or ")))
 	}
-	seen := map[string]bool{}
+	whole := map[string]bool{}
+	tests := map[string]bool{}
 	for i, shard := range c.Shards {
 		if len(shard) == 0 {
 			errs = append(errs, fmt.Errorf("%s shard %d names no packages", name, i+1))
 		}
-		for _, pattern := range shard {
-			if !strings.HasPrefix(pattern, "./") || pattern == "./..." {
-				errs = append(errs, fmt.Errorf("%s shard %d names %q, which is no package directory under %s/", name, i+1, pattern, name))
+		selected := map[string]bool{}
+		for _, e := range shard {
+			if !strings.HasPrefix(e.Package, "./") || e.Package == "./..." {
+				errs = append(errs, fmt.Errorf("%s shard %d names %q, which is no package directory under %s/", name, i+1, e.Package, name))
 			}
-			if seen[pattern] {
-				errs = append(errs, fmt.Errorf("%s names %q in two shards", name, pattern))
+			if len(e.Tests) == 0 {
+				if whole[e.Package] {
+					errs = append(errs, fmt.Errorf("%s names %q in two shards", name, e.Package))
+				}
+				whole[e.Package] = true
+				continue
 			}
-			seen[pattern] = true
+			if strings.HasSuffix(e.Package, "/...") {
+				errs = append(errs, fmt.Errorf("%s shard %d selects tests of %q, which is no single package", name, i+1, e.Package))
+			}
+			if selected[e.Package] {
+				errs = append(errs, fmt.Errorf("%s shard %d selects tests of %q twice", name, i+1, e.Package))
+			}
+			selected[e.Package] = true
+			for _, test := range e.Tests {
+				if !testName.MatchString(test) {
+					errs = append(errs, fmt.Errorf("%s shard %d selects %q of %s, which is no test function's name", name, i+1, test, e.Package))
+				}
+				if tests[e.Package+" "+test] {
+					errs = append(errs, fmt.Errorf("%s selects %s's %s twice", name, e.Package, test))
+				}
+				tests[e.Package+" "+test] = true
+			}
+		}
+	}
+	for _, pkg := range c.selectedPackages() {
+		for _, w := range slices.Sorted(maps.Keys(whole)) {
+			if covers(w, pkg) {
+				errs = append(errs, fmt.Errorf("%s tests %s whole as %s in one shard and by test name in another", name, pkg, w))
+			}
 		}
 	}
 	return errs
+}
+
+func (c Component) selectedPackages() []string {
+	var pkgs []string
+	for _, shard := range c.Shards {
+		for _, e := range shard {
+			if len(e.Tests) > 0 && !slices.Contains(pkgs, e.Package) {
+				pkgs = append(pkgs, e.Package)
+			}
+		}
+	}
+	slices.Sort(pkgs)
+	return pkgs
+}
+
+func covers(pattern, pkg string) bool {
+	tree, ok := strings.CutSuffix(pattern, "/...")
+	return pattern == pkg || ok && (pkg == tree || strings.HasPrefix(pkg, tree+"/"))
 }
 
 type suiteOf struct {

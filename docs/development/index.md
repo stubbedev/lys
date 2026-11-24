@@ -24,7 +24,7 @@ Inside a shell, `just <component>::<recipe>` runs the same recipe:
 
 | Recipe | Effect |
 | --- | --- |
-| `just gates [target]...` | Every Go gate and race suite of the targets (default every component) in parallel, each recipe in its own process in its component's dev shell, as many at once as cores and memory allow, over one Go build cache; prints each result, the failures' logs and the wall clock. A target is a component or one part of a component with `shards` (`wm/2`), with `:gates` for its Go gates alone or `:race` for its race suite alone, as CI's Go jobs name them: `just gates wm/3:race lib`. |
+| `just gates [target]...` | Every Go gate and race suite of the targets (default every component) in parallel, each recipe in its own process in its component's dev shell, as many at once as cores and memory allow, over one Go build cache; prints each result, the failures' logs and the wall clock. A target is a component or one part of a component with `shards` (`wm/2`), with `:gates` for its Go gates alone or `:race` for its race suite alone, as CI's Go jobs name them: `just gates wm/3:race lib`. A part that splits a package by test name runs that package in a process of its own beside the part's other packages. |
 | `just checks <name>...` | Build Nix checks for this machine, named `<component>-<check>`: `just checks login-vms-greeter wm-module`. |
 | `just vm-checks <name>...` | Run NixOS VM checks one after another on closures built first: the drivers, then each test alone. |
 | `just build-stage <component>... [vm]...` | A CI build job for this machine: every package and non-VM check of the components, and the named VM checks' closures, in one `nix build` that keeps going past a failure. Their dev shells are `just build-shells`' work. |
@@ -136,8 +136,11 @@ A runner has four cores, and `just gates` runs four recipes at once, so a job
 whose recipes are each a few minutes long ends with its longest one: lib's
 race suite (510 s) and its gates (test 377 s, lint 204 s) in one job took 9.7
 minutes, the last job of run 44897398937, and run apart, the race suite with
-power's short gates beside it; wm's light race parts (91 to 117 s each) share
-a job with shell's third race part and first test part instead.
+power's short gates beside it; wm's light race parts, `wm/1` and `wm/2` (91 to
+117 s each), share a job with shell's third race part and first test part
+instead, and the harness's halves, `wm/3` and `wm/4` (254 and 230 s on four
+local cores), have a job each, as settings' two race parts share one with
+secrets (219 s on four local cores, against 333 s unsplit).
 
 The jobs run in lanes, each a build and the jobs on it, none waiting for
 another lane's build:
@@ -216,19 +219,37 @@ first runners. The jobs on the builds:
      Go build cache, whatever subset runs.
    - **Shards**: a component one of whose suites would not fit a job lists
      `shards`, each a list of its package directories (`./cmd/lys-wm`,
-     `./internal/...`). Part *k* of its race suite, and of each gate the
-     top-level `sharded-gates` names (`test` and `test-lysdebug`), tests only
-     shard *k*'s packages, and the last part, `wm/4` for wm's three shards,
-     tests every package of `go list ./...` no shard names (with the recipe's
-     build flags: `-race` for race, `-tags lysdebug` for test-lysdebug) and
-     runs every other gate, so no test is dropped when a package is added. The
-     parts reach the recipe as `$LYS_TEST_PACKAGES`, which the sharded recipes
-     of a component test instead of `./...`. wm splits only its race suite
-     (`wm/3:race`, the harness, takes about eight minutes alone), ui its test
-     and lysdebug suites (`ui/1`, the client and app tests, so the part with
-     lint, vet and no-fused keeps a margin under ten minutes), and shell its
-     test and race suites; `ci/affected`'s tests fail when a shard names a
-     directory without tests or a sharded recipe ignores `$LYS_TEST_PACKAGES`.
+     `./internal/...`) and of tests of one package by name
+     (`{"package": "./internal/harness", "tests": ["TestA", "TestB"]}`), which
+     splits a package too slow for one job. Part *k* of its race suite, and of
+     each gate the top-level `sharded-gates` names (`test` and
+     `test-lysdebug`), tests only shard *k*'s packages, and its named tests
+     with `go test -run '^(TestA|TestB)$'`; the last part, `wm/4` for wm's
+     three shards, tests every package of `go list ./...` no shard names (with
+     the recipe's build flags: `-race` for race, `-tags lysdebug` for
+     test-lysdebug), every package split by test name with
+     `-skip` of every test the shards name, and runs every other gate, so no
+     test is dropped when a package or a test is added. `go test` takes one
+     `-run` for all its packages, so `just gates` runs a part's recipe once
+     for its whole packages and once more for each package it splits, each in
+     a process of its own, with the packages in `$LYS_TEST_PACKAGES` and the
+     patterns in `$LYS_TEST_RUN` and `$LYS_TEST_SKIP`, which the sharded
+     recipes of a component test instead of `./...` and every test. wm splits
+     its race suite: the harness, about eight and a half minutes as one part,
+     runs its 185 slowest tests in `wm/3` and the rest beside wm's other
+     packages in `wm/4`. ui splits its test and lysdebug suites (`ui/1`, the
+     client and app tests, so the part with lint, vet and no-fused keeps a
+     margin under ten minutes), shell its test and race suites, and settings
+     its race suite: `./internal/settings` runs one test at a time, since the
+     UI's font shaper and preview state are not goroutine-safe, and took up
+     to nine minutes under `-race`, so `settings/1` runs its five slowest
+     tests and `settings/2` the rest and every other package. A new test
+     joins the last part, so when a part outgrows its job, regroup the named
+     tests from `go test -json` times. `ci/affected` refuses a shard that names a directory
+     without tests, a test its package does not declare, a name that is not
+     a test function's or a test twice, a package both whole and by test
+     name, and a sharded recipe that ignores one of the three variables, on
+     every plan, not only when `ci/` changes.
    - Each Go job restores the newest Go build cache it saved, by its job id,
      and saves it at the end whether it passed, failed or timed out, under a
      key of this run, so the next run starts from this run's compiled packages,

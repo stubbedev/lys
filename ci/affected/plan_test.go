@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -16,7 +15,7 @@ import (
 var testComponents = map[string]Component{
 	"repository": {Paths: []string{"go.mod", "nix/"}, GoPackages: "nix/go-packages.json", AffectsAll: true, Jobs: []Job{{Name: "tidy", Runners: []Runner{X86_64}, Run: "just tidy-check"}}},
 	"lib":        {Paths: []string{"docs/lib/xkb.md"}, Gates: []string{"vet", "test"}, Race: true},
-	"ui":         {Gates: []string{"test"}, Shards: [][]string{{"./widget"}, {"./app", "./anim/..."}}, Jobs: []Job{{Name: "GPU", Runners: []Runner{X86_64}, Run: "just in ui gpu"}}},
+	"ui":         {Gates: []string{"test"}, Shards: [][]ShardEntry{packages("./widget"), packages("./app", "./anim/...")}, Jobs: []Job{{Name: "GPU", Runners: []Runner{X86_64}, Run: "just in ui gpu"}}},
 	"wm":         {Depends: []string{"ui"}, Package: true, VMs: [][]string{{"wm-vm"}, {"wm-vm-apps", "wm-vm-share"}}, FreeDisk: true},
 	"login":      {Depends: []string{"wm"}, Package: true, VMs: [][]string{{"login-vm"}}},
 	"polkit":     {},
@@ -29,6 +28,14 @@ var testConfig = Config{
 		X86_64:  {{target("ui/3")}, {target("ui/1"), target("ui/2"), target("lib:race")}, {target("lib:gates")}},
 		AArch64: {{target("lib"), target("ui")}},
 	},
+}
+
+func packages(patterns ...string) []ShardEntry {
+	entries := make([]ShardEntry, len(patterns))
+	for i, p := range patterns {
+		entries[i] = ShardEntry{Package: p}
+	}
+	return entries
 }
 
 func target(s string) Target {
@@ -370,8 +377,8 @@ func TestValidateRefusesUnknownNames(t *testing.T) {
 			{Name: "nowhere", Run: "true"},
 		}},
 		"ui":    {FreeDisk: true},
-		"shell": {Shards: [][]string{{"./bar", "./..."}, {}, {"bar", "./bar"}}, Race: true},
-		"lib":   {Shards: [][]string{{"./xkb"}}},
+		"shell": {Shards: [][]ShardEntry{packages("./bar", "./..."), {}, packages("bar", "./bar")}, Race: true},
+		"lib":   {Shards: [][]ShardEntry{packages("./xkb")}},
 	}
 	wantErrors(t, validate(Config{Components: bad, ShardedGates: []string{"test", "test-lysdebug"}}), []string{
 		`"wn"`, `"riscv"`, "without a name", "wm / idle has no command", "wm / nowhere runs on no runner", `"login-vm", which is not wm's`,
@@ -385,10 +392,10 @@ func TestValidateRefusesGoJobsThatDoNotRunEverySuiteExactlyOnce(t *testing.T) {
 	cfg := Config{
 		ShardedGates: []string{"test"},
 		Components: map[string]Component{
-			"a": {Gates: []string{"test"}, Race: true, Shards: [][]string{{"./x"}}},
+			"a": {Gates: []string{"test"}, Race: true, Shards: [][]ShardEntry{packages("./x")}},
 			"b": {Gates: []string{"vet"}},
 			"c": {Race: true},
-			"d": {Gates: []string{"test"}, Shards: [][]string{{"./y"}}},
+			"d": {Gates: []string{"test"}, Shards: [][]ShardEntry{packages("./y")}},
 		},
 		GoJobs: map[Runner][][]Target{
 			X86_64:  {{target("a/1"), target("a")}, {target("b:race")}, {target("nope")}, {target("b/2")}, {}, {target("d")}},
@@ -416,7 +423,7 @@ func TestValidateRefusesGoJobsThatDoNotRunEverySuiteExactlyOnce(t *testing.T) {
 func TestValidateAcceptsAComponentRunWholeOnOneSuiteAndInPartsOnAnother(t *testing.T) {
 	cfg := Config{
 		ShardedGates: []string{"test"},
-		Components:   map[string]Component{"a": {Gates: []string{"test"}, Race: true, Shards: [][]string{{"./x"}}}},
+		Components:   map[string]Component{"a": {Gates: []string{"test"}, Race: true, Shards: [][]ShardEntry{packages("./x")}}},
 		GoJobs: map[Runner][][]Target{
 			X86_64:  {{target("a:gates"), target("a/1:race")}, {target("a/2:race")}},
 			AArch64: {{target("a/1")}, {target("a/2")}},
@@ -428,7 +435,7 @@ func TestValidateAcceptsAComponentRunWholeOnOneSuiteAndInPartsOnAnother(t *testi
 }
 
 func TestShardsNeedAGateListedToSplit(t *testing.T) {
-	cfg := Config{Components: map[string]Component{"a": {Gates: []string{"test"}, Shards: [][]string{{"./x"}}}}}
+	cfg := Config{Components: map[string]Component{"a": {Gates: []string{"test"}, Shards: [][]ShardEntry{packages("./x")}}}}
 	wantErrors(t, errors.Join(validateShards("a", cfg.Components["a"], nil)...), []string{"a has shards, but sharded-gates names no gate a shard splits"})
 	if errs := validateShards("a", cfg.Components["a"], []string{"vet", "test"}); len(errs) != 0 {
 		t.Errorf("a test gate split by a sharded-gates naming test was refused: %v", errs)
@@ -496,7 +503,7 @@ func TestImportsOfMapsPackagesAndTestsToComponents(t *testing.T) {
 }
 
 func TestTheRepositorysComponentsAreValid(t *testing.T) {
-	cfg, err := load(filepath.Join("..", "components.json"))
+	cfg, err := load(filepath.Join("..", ".."))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -514,96 +521,6 @@ func TestTheRepositorysComponentsAreValid(t *testing.T) {
 	}
 }
 
-func TestEveryShardNamesTestedPackagesOfItsComponent(t *testing.T) {
-	cfg, err := load(filepath.Join("..", "components.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	components := cfg.Components
-	for _, name := range slices.Sorted(maps.Keys(components)) {
-		for _, shard := range components[name].Shards {
-			for _, pattern := range shard {
-				dir := filepath.Join("..", "..", name, strings.TrimSuffix(pattern, "/..."))
-				tests, err := filepath.Glob(filepath.Join(dir, "*_test.go"))
-				if err != nil {
-					t.Fatal(err)
-				}
-				if strings.HasSuffix(pattern, "/...") {
-					tests, err = testFilesUnder(dir)
-					if err != nil {
-						t.Fatalf("%s shard %s: %v", name, pattern, err)
-					}
-				}
-				if len(tests) == 0 {
-					t.Errorf("%s's shard names %s, which holds no test", name, pattern)
-				}
-			}
-		}
-	}
-}
-
-func testFilesUnder(dir string) ([]string, error) {
-	var tests []string
-	err := filepath.WalkDir(dir, func(path string, _ os.DirEntry, err error) error {
-		if err == nil && strings.HasSuffix(path, "_test.go") {
-			tests = append(tests, path)
-		}
-		return err
-	})
-	return tests, err
-}
-
-func TestEveryShardedRecipeTestsTheShardsPackages(t *testing.T) {
-	cfg, err := load(filepath.Join("..", "components.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	components := cfg.Components
-	for _, name := range slices.Sorted(maps.Keys(components)) {
-		c := components[name]
-		if len(c.Shards) == 0 {
-			continue
-		}
-		data, err := os.ReadFile(filepath.Join("..", "..", name, "justfile"))
-		if err != nil {
-			t.Fatalf("%s has shards, but its justfile does not read: %v", name, err)
-		}
-		var sharded []string
-		for _, g := range cfg.ShardedGates {
-			if slices.Contains(c.Gates, g) {
-				sharded = append(sharded, g)
-			}
-		}
-		if c.Race {
-			sharded = append(sharded, "race")
-		}
-		for _, recipe := range sharded {
-			body := recipeBody(string(data), recipe)
-			if !strings.Contains(body, testPackages) || strings.Contains(body, " ./...") {
-				t.Errorf("%s/justfile's %s recipe does not test exactly $%s, so its shards would not split it:\n%s", name, recipe, testPackages, body)
-			}
-		}
-	}
-}
-
-func recipeBody(justfile, recipe string) string {
-	var body strings.Builder
-	in := false
-	for line := range strings.Lines(justfile) {
-		if m := recipeLine.FindStringSubmatch(line); m != nil && !strings.HasPrefix(line, " ") {
-			in = m[1] == recipe
-			continue
-		}
-		if in && line != "\n" && !strings.HasPrefix(line, " ") && !strings.HasPrefix(line, "\t") {
-			in = false
-		}
-		if in {
-			body.WriteString(line)
-		}
-	}
-	return body.String()
-}
-
 func TestTheRecipeBodyIsTheIndentedLinesUnderItsHeader(t *testing.T) {
 	justfile := "test:\n    go test ./...\n\n    echo done\n# race\nrace:\n    go test -race $X\nbuild:\n    go build\n"
 	if got, want := recipeBody(justfile, "race"), "    go test -race $X\n"; got != want {
@@ -613,10 +530,6 @@ func TestTheRecipeBodyIsTheIndentedLinesUnderItsHeader(t *testing.T) {
 		t.Fatalf("test body %q, want %q", got, want)
 	}
 }
-
-const testPackages = "LYS_TEST_PACKAGES"
-
-var recipeLine = regexp.MustCompile(`(?m)^@?([a-z][a-z0-9_-]*)([^\n]*?):(?:[ \t]|$)`)
 
 func recipesOf(justfile string) []string {
 	var recipes []string
@@ -629,7 +542,7 @@ func recipesOf(justfile string) []string {
 }
 
 func TestEveryGateIsARecipeOfItsComponent(t *testing.T) {
-	cfg, err := load(filepath.Join("..", "components.json"))
+	cfg, err := load(filepath.Join("..", ".."))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -661,4 +574,136 @@ func TestTheRecipeMatcherFindsRecipesAndSkipsAssignments(t *testing.T) {
 	if got, want := recipesOf(justfile), []string{"test", "race", "write-baselines", "initramfs-tools"}; !slices.Equal(got, want) {
 		t.Fatalf("recipes %v, want %v", got, want)
 	}
+}
+
+func TestAShardEntryIsAPackageOrSomeOfItsTestsByName(t *testing.T) {
+	var shards [][]ShardEntry
+	if err := json.Unmarshal([]byte(`[["./a", {"package": "./b", "tests": ["TestX", "TestY"]}]]`), &shards); err != nil {
+		t.Fatal(err)
+	}
+	want := [][]ShardEntry{{{Package: "./a"}, {Package: "./b", Tests: []string{"TestX", "TestY"}}}}
+	if !reflect.DeepEqual(shards, want) {
+		t.Fatalf("shards %+v, want %+v", shards, want)
+	}
+	for _, tc := range []struct{ in, want string }{
+		{`[[{"package": "./b"}]]`, "selects no test of ./b"},
+		{`[[{"package": "./b", "tests": []}]]`, "selects no test of ./b"},
+		{`[[{"package": "./b", "test": ["TestX"]}]]`, `unknown field "test"`},
+		{`[[3]]`, "a shard entry is a package directory"},
+	} {
+		if err := json.Unmarshal([]byte(tc.in), &shards); err == nil || !strings.Contains(err.Error(), tc.want) {
+			t.Errorf("%s decoded to %v, want an error naming %s", tc.in, err, tc.want)
+		}
+	}
+}
+
+func selection(pkg string, tests ...string) ShardEntry {
+	return ShardEntry{Package: pkg, Tests: tests}
+}
+
+func TestValidateAcceptsAPackageSplitByTestNameOverShards(t *testing.T) {
+	c := Component{Race: true, Shards: [][]ShardEntry{
+		{selection("./x", "TestA", "TestB"), {Package: "./y/..."}},
+		{selection("./x", "TestC"), selection("./z", "TestA", "Test")},
+	}}
+	if errs := validateShards("a", c, []string{"test"}); len(errs) != 0 {
+		t.Fatalf("validate refused a package split by test name: %v", errs)
+	}
+	if got := c.selectedPackages(); !slices.Equal(got, []string{"./x", "./z"}) {
+		t.Errorf("selected packages %v, want ./x and ./z", got)
+	}
+}
+
+func TestValidateRefusesATestSelectionThatIsNotExactOrNotOnce(t *testing.T) {
+	c := Component{Race: true, Shards: [][]ShardEntry{
+		{selection("./x", "TestA", "^TestB$", "Testa", "Test-B", "TestA"), selection("./t/...", "TestA")},
+		{selection("./x", "TestC"), selection("./x", "TestD"), selection("./w/v", "TestA")},
+		{{Package: "./w/..."}, {Package: "./t/..."}},
+	}}
+	wantErrors(t, errors.Join(validateShards("a", c, []string{"test"})...), []string{
+		`a shard 1 selects "^TestB$" of ./x, which is no test function's name`,
+		`a shard 1 selects "Testa" of ./x, which is no test function's name`,
+		`a shard 1 selects "Test-B" of ./x, which is no test function's name`,
+		"a selects ./x's TestA twice",
+		`a shard 1 selects tests of "./t/...", which is no single package`,
+		`a shard 2 selects tests of "./x" twice`,
+		"a tests ./w/v whole as ./w/... in one shard and by test name in another",
+		"a tests ./t/... whole as ./t/... in one shard and by test name in another",
+	})
+}
+
+func writeTree(t *testing.T, files map[string]string) string {
+	t.Helper()
+	root := t.TempDir()
+	for path, body := range files {
+		full := filepath.Join(root, path)
+		if err := os.MkdirAll(filepath.Dir(full), 0o750); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(full, []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return root
+}
+
+const splitJustfile = "test:\n    go test -run \"${LYS_TEST_RUN-}\" -skip \"${LYS_TEST_SKIP-}\" ${LYS_TEST_PACKAGES:-./...}\n"
+
+func TestTheTreeHoldsEveryTestAShardSelects(t *testing.T) {
+	root := writeTree(t, map[string]string{
+		"a/justfile":           splitJustfile,
+		"a/x/x_test.go":        "package x\n\nimport \"testing\"\n\nfunc TestA(t *testing.T) {}\n\nfunc TestB(t *testing.T) {}\n\nfunc helper() {}\n\ntype s struct{}\n\nfunc (s) TestC(t *testing.T) {}\n",
+		"a/x/y_test.go":        "package x_test\n\nimport \"testing\"\n\nfunc TestD(t *testing.T) {}\n",
+		"a/y/y.go":             "package y\n",
+		"a/z/deep/z_test.go":   "package deep\n",
+		"a/empty/doc.go":       "package empty\n",
+		"a/broken/bad_test.go": "package broken\nfunc (",
+	})
+	cfg := Config{ShardedGates: []string{"test"}, Components: map[string]Component{"a": {Gates: []string{"test"}, Shards: [][]ShardEntry{
+		{selection("./x", "TestA", "TestD"), {Package: "./z/..."}},
+		{selection("./x", "TestB")},
+	}}}}
+	if err := checkTree(root, cfg); err != nil {
+		t.Fatalf("checkTree refused shards whose tests exist: %v", err)
+	}
+	cfg.Components["a"] = Component{Gates: []string{"test"}, Shards: [][]ShardEntry{
+		{selection("./x", "TestA", "TestC", "TestE"), {Package: "./y"}},
+		{selection("./empty", "TestA"), selection("./broken", "TestA"), {Package: "./missing/..."}},
+	}}
+	wantErrors(t, checkTree(root, cfg), []string{
+		"a shard 1 selects TestC of ./x, which no test file there declares",
+		"a shard 1 selects TestE of ./x, which no test file there declares",
+		"a shard 1 names ./y, which holds no test",
+		"a shard 2 selects tests of ./empty: " + filepath.Join(root, "a", "empty") + " holds no test file",
+		"a shard 2 selects tests of ./broken: parse " + filepath.Join(root, "a", "broken", "bad_test.go"),
+		"a shard 2 names ./missing/...: ",
+	})
+}
+
+func TestEveryShardedRecipeReadsTheShardVariables(t *testing.T) {
+	whole := Component{Gates: []string{"test", "vet"}, Race: true, Shards: [][]ShardEntry{packages("./x")}}
+	split := Component{Gates: []string{"test", "vet"}, Race: true, Shards: [][]ShardEntry{{selection("./x", "TestA")}}}
+	packagesOnly := "test:\n    go test ${LYS_TEST_PACKAGES:-./...}\nrace:\n    go test -race ${LYS_TEST_PACKAGES:-./...}\nvet:\n    go vet ./...\n"
+	both := strings.ReplaceAll(packagesOnly, "go test", "go test -run \"${LYS_TEST_RUN-}\" -skip \"${LYS_TEST_SKIP-}\"")
+	root := writeTree(t, map[string]string{"packages/justfile": packagesOnly, "both/justfile": both, "whole/justfile": "test:\n    go test ./...\nrace:\n    go test -race -run \"$LYS_TEST_RUN\" ${LYS_TEST_PACKAGES}\n"})
+	for _, tc := range []struct {
+		dir string
+		c   Component
+	}{{"packages", whole}, {"both", whole}, {"both", split}} {
+		if errs := checkShardedRecipes(filepath.Join(root, tc.dir, "justfile"), "a", tc.c, []string{"test"}); len(errs) != 0 {
+			t.Errorf("%s/justfile refused for %+v: %v", tc.dir, tc.c.Shards, errs)
+		}
+	}
+	wantErrors(t, errors.Join(checkShardedRecipes(filepath.Join(root, "packages", "justfile"), "a", split, []string{"test"})...), []string{
+		"a/justfile's test recipe does not read $LYS_TEST_RUN, so a's shards would not split it",
+		"a/justfile's test recipe does not read $LYS_TEST_SKIP",
+		"a/justfile's race recipe does not read $LYS_TEST_RUN",
+		"a/justfile's race recipe does not read $LYS_TEST_SKIP",
+	})
+	wantErrors(t, errors.Join(checkShardedRecipes(filepath.Join(root, "whole", "justfile"), "a", split, []string{"test"})...), []string{
+		"a/justfile's test recipe does not read $LYS_TEST_PACKAGES",
+		"a/justfile's test recipe tests ./... rather than $LYS_TEST_PACKAGES",
+		"a/justfile's race recipe does not read $LYS_TEST_SKIP",
+	})
+	wantErrors(t, errors.Join(checkShardedRecipes(filepath.Join(root, "nowhere", "justfile"), "a", split, nil)...), []string{"a has shards, but its justfile does not read"})
 }

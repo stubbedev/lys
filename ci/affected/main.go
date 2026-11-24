@@ -10,6 +10,7 @@ import (
 	"maps"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -35,7 +36,7 @@ func run(args []string, stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
-	cfg, err := load(root + "/ci/components.json")
+	cfg, err := load(root)
 	if err != nil {
 		return err
 	}
@@ -50,7 +51,8 @@ func run(args []string, stdout io.Writer) error {
 	return writeText(stdout, p)
 }
 
-func load(path string) (Config, error) {
+func load(root string) (Config, error) {
+	path := filepath.Join(root, "ci", "components.json")
 	data, err := os.ReadFile(path) //nolint:gosec // ci/components.json under the module root
 	if err != nil {
 		return Config{}, fmt.Errorf("read the components: %w", err)
@@ -61,7 +63,7 @@ func load(path string) (Config, error) {
 	if err := dec.Decode(&cfg); err != nil {
 		return Config{}, fmt.Errorf("parse %s: %w", path, err)
 	}
-	if err := validate(cfg); err != nil {
+	if err := errors.Join(validate(cfg), checkTree(root, cfg)); err != nil {
 		return Config{}, fmt.Errorf("%s: %w", path, err)
 	}
 	return cfg, nil
