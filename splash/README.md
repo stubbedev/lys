@@ -53,4 +53,4 @@ Do not start the daemon on a running desktop: it takes over the display.
 ## License
 
 MIT. The embedded font is Inter Regular under the SIL Open Font License 1.1
-(`internal/theme/assets/LICENSE-Inter.txt`); the logo is lys's.
+(lys-lib's `inter/LICENSE-Inter.txt`); the logo is lys's.

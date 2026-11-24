@@ -19,7 +19,5 @@ override_dh_auto_install:
 	install -D -m 0644 lys-wm.desktop debian/lys-wm/usr/share/wayland-sessions/lys-wm.desktop
 	install -D -m 0644 90-lys-wm.conf debian/lys-wm/etc/security/limits.d/90-lys-wm.conf
 
-	install -d debian/lys-wm/usr/share/lys-wm
-	ln -s ../fonts/truetype/dejavu/DejaVuSans.ttf debian/lys-wm/usr/share/lys-wm/DejaVuSans.ttf
-
 	install -D -m 0644 THIRD_PARTY.md debian/lys-wm/usr/share/doc/lys-wm/THIRD_PARTY.md
+	install -D -m 0644 Inter.LICENSE debian/lys-wm/usr/share/doc/lys-wm/Inter.LICENSE

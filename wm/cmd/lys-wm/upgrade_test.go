@@ -63,7 +63,6 @@ func startProcess(t *testing.T, binary, config string, extra ...string) *running
 
 func startBare(t *testing.T, binary, config string, extra ...string) *running {
 	t.Helper()
-	testenv.Font(t)
 	testenv.XKBCompiler(t)
 	dir := testenv.SocketDir(t)
 	runtime := filepath.Join(dir, "runtime")

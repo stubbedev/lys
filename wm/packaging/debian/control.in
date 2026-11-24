@@ -14,7 +14,6 @@ Package: lys-wm
 Architecture: amd64 arm64
 Depends:
  ${misc:Depends},
- fonts-dejavu-core,
  libegl1,
  libgbm1,
  libgles2,

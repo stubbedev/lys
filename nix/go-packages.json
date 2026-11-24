@@ -2866,6 +2866,14 @@
       "testing"
     ]
   },
+  "lib/inter": {
+    "external": [
+      "embed"
+    ],
+    "embeds": [
+      "lib/inter/Inter-Regular.ttf"
+    ]
+  },
   "lib/intern": {
     "external": [
       "hash/maphash",
@@ -3736,6 +3744,7 @@
     "testImports": [
       "lib/clib",
       "lib/golden",
+      "lib/inter",
       "lib/testbuild",
       "lib/third_party/typesetting/fontscan",
       "lib/waittest"
@@ -11006,12 +11015,12 @@
     "imports": [
       "desktop/splashframe",
       "desktop/tokens",
+      "lib/inter",
       "lib/render",
       "splash/internal/kms",
       "splash/internal/protocol"
     ],
     "external": [
-      "embed",
       "errors",
       "fmt",
       "go.yaml.in/yaml/v3",
@@ -11023,9 +11032,6 @@
       "strconv",
       "strings",
       "unicode/utf8"
-    ],
-    "embeds": [
-      "splash/internal/theme/assets/Inter-Regular.ttf"
     ],
     "testImports": [
       "desktop/config",
@@ -12673,6 +12679,7 @@
     "imports": [
       "lib/appearance",
       "lib/drm",
+      "lib/inter",
       "lib/logind",
       "lib/portalsettings",
       "lib/render",
@@ -15455,6 +15462,7 @@
   },
   "wm/internal/testenv": {
     "imports": [
+      "lib/inter",
       "lib/render",
       "lib/xcursor",
       "wm/internal/gpu",

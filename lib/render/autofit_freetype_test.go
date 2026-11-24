@@ -15,6 +15,7 @@ import (
 	"golang.org/x/image/font/gofont/goregular"
 
 	"github.com/stubbedev/lys/lib/clib"
+	"github.com/stubbedev/lys/lib/inter"
 	"github.com/stubbedev/lys/lib/render/internal/autofit"
 	"github.com/stubbedev/lys/lib/testbuild"
 	"github.com/stubbedev/lys/lib/third_party/typesetting/font"
@@ -110,9 +111,7 @@ var autofitReferenceFaces = []struct {
 }{
 	{"Cantarell", func(t *testing.T) []byte { return readTestFile(t, "testdata/Cantarell-Regular.ttf") }},
 	{"Quicksand", func(t *testing.T) []byte { return readTestFile(t, "testdata/Quicksand-VF.ttf") }},
-	{"Inter", func(t *testing.T) []byte {
-		return readTestFile(t, "../../splash/internal/theme/assets/Inter-Regular.ttf")
-	}},
+	{"Inter", func(*testing.T) []byte { return inter.Regular }},
 	{"Go", func(*testing.T) []byte { return goregular.TTF }},
 	{"Go Mono", func(*testing.T) []byte { return gomono.TTF }},
 	{"WenQuanYi Micro Hei", func(t *testing.T) []byte { return readEnvFont(t, "LYS_TEST_CJK_FONT") }},

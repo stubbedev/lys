@@ -36,8 +36,8 @@ Adding a purego library or a dependency to this table is a decision.
 - Keymaps compile in the xkb v2 format; clients receive xkb_v1 text, as
   `wl_keyboard` carries. `TestLibxkbcommonClientsReadAllThreeLayouts` holds the
   output to libxkbcommon's `xkbcli`.
-- lys-wm discovers no fonts. The tab font is `tabs.font`, else `LYS_WM_FONT`,
-  else the DejaVu Sans the build bakes in.
+- lys-wm discovers no fonts. The tab font is `tabs.font`, else the Inter
+  Regular embedded in the binary (lys-lib's `inter`).
 
 ## Packages
 

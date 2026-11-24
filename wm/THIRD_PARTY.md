@@ -43,6 +43,13 @@ registry. hwdata licenses that data under GPL-2.0-or-later or the XFree86 1.0
 licence, at the user's choice; lys uses it under the XFree86 1.0 licence. The
 statement is kept verbatim in lys-lib's `edid/LICENSE.hwdata`.
 
+## Fonts
+
+lys-wm draws tab titles in Inter Regular (https://github.com/rsms/inter),
+embedded through lys-lib's `inter` package unless `tabs.font` names another
+font. It is under the SIL Open Font License 1.1, kept verbatim in lys-lib's
+`inter/LICENSE-Inter.txt` and shipped as `Inter.LICENSE`.
+
 ## Ported code
 
 Code ported from Hyprland, aquamarine, hyprwayland-scanner or libwayland is

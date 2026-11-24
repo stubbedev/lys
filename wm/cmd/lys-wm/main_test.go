@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"testing"
 
+	"github.com/stubbedev/lys/lib/inter"
 	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/wmipc"
 
@@ -97,22 +98,39 @@ func TestConfigPath(t *testing.T) {
 	}
 }
 
-func TestFontPath(t *testing.T) {
-	env := func(v string) func(string) string { return func(string) string { return v } }
-	if got := fontPath("/a.ttf", env("/b.ttf")); got != "/a.ttf" {
-		t.Errorf("the config font lost to %q", got)
+func TestTheTabFontIsBuiltInUnlessTheConfigNamesOne(t *testing.T) {
+	builtIn, err := tabFont("")
+	if err != nil {
+		t.Fatal(err)
 	}
-	if got := fontPath("", env("/b.ttf")); got != "/b.ttf" {
-		t.Errorf("LYS_WM_FONT lost to %q", got)
+	if family := builtIn.Family(); family != "Inter" {
+		t.Errorf("the built-in tab font is %q, want Inter", family)
 	}
-	if got := fontPath("", env("")); got != defaultFont {
-		t.Errorf("the built-in font lost to %q", got)
+	if shaped := builtIn.Shape("Tabs", 13); shaped.NotDefCount() != 0 || shaped.Advance() <= 0 {
+		t.Errorf("the built-in tab font shaped %q with %d missing glyphs, %v wide", "Tabs", shaped.NotDefCount(), shaped.Advance())
+	}
+	configured := filepath.Join(t.TempDir(), "Inter.ttf")
+	if err := os.WriteFile(configured, inter.Regular, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if f, err := tabFont(configured); err != nil || f.Family() != "Inter" {
+		t.Errorf("tabs.font %s: %v, %v", configured, f, err)
+	}
+	missing := filepath.Join(t.TempDir(), "missing.ttf")
+	if _, err := tabFont(missing); !errors.Is(err, fs.ErrNotExist) || !strings.Contains(err.Error(), "tabs.font") || !strings.Contains(err.Error(), missing) {
+		t.Errorf("a missing tabs.font: %v", err)
+	}
+	notAFont := filepath.Join(t.TempDir(), "font.ttf")
+	if err := os.WriteFile(notAFont, []byte("not a font"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tabFont(notAFont); err == nil || !strings.Contains(err.Error(), notAFont) {
+		t.Errorf("a tabs.font that is no font: %v", err)
 	}
 }
 
 func testSource(t *testing.T, path string, explicit bool) source {
 	t.Helper()
-	testenv.Font(t)
 	return source{path: path, explicit: explicit, runtime: filepath.Join(filepath.Dir(path), config.RuntimeFile), keymaps: testenv.XKBCompiler(t), getenv: os.Getenv, notices: io.Discard}
 }
 
@@ -130,6 +148,9 @@ func TestLoadingTheConfig(t *testing.T) {
 	}
 	if len(first.cfg.Binds) == 0 || len(first.env) == 0 {
 		t.Errorf("the built-in config gave %d binds, env %v", len(first.cfg.Binds), first.env)
+	}
+	if family := first.cfg.Font.Family(); family != "Inter" {
+		t.Errorf("the built-in config draws tabs in %q, want the built-in Inter", family)
 	}
 	if err := first.keymaps.Close(); err != nil {
 		t.Fatal(err)
@@ -228,7 +249,6 @@ func startSession(t *testing.T, config string) (string, string, <-chan error) {
 func startSessionOnBus(t *testing.T, config, bus string) (string, string, <-chan error) {
 	t.Helper()
 	t.Setenv("DBUS_SESSION_BUS_ADDRESS", bus)
-	testenv.Font(t)
 	testenv.XKBCompiler(t)
 	dir := testenv.SocketDir(t)
 	runtime := filepath.Join(dir, "runtime")
@@ -432,7 +452,6 @@ func TestTheExitActionEndsTheSession(t *testing.T) {
 }
 
 func TestCheckConfigAcceptsWhatAReloadWouldAndRefusesTheRest(t *testing.T) {
-	testenv.Font(t)
 	testenv.XKBCompiler(t)
 	dir := t.TempDir()
 	getenv := func(name string) string {
@@ -476,7 +495,6 @@ func TestCheckConfigAcceptsWhatAReloadWouldAndRefusesTheRest(t *testing.T) {
 }
 
 func TestCheckConfigWithACandidateOverrideJudgesItAsAReloadWould(t *testing.T) {
-	testenv.Font(t)
 	testenv.XKBCompiler(t)
 	dir := t.TempDir()
 	getenv := func(name string) string {
@@ -585,7 +603,6 @@ func TestEffectiveConfigNamesEachKeysLayer(t *testing.T) {
 }
 
 func TestCheckConfigPrintsNothingWhenItAcceptsTheBuiltInConfig(t *testing.T) {
-	testenv.Font(t)
 	testenv.XKBCompiler(t)
 	dir := t.TempDir()
 	getenv := func(name string) string {

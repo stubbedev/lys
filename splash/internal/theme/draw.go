@@ -1,7 +1,6 @@
 package theme
 
 import (
-	_ "embed" // the font
 	"fmt"
 	"image"
 	"math"
@@ -10,13 +9,11 @@ import (
 
 	"github.com/stubbedev/lys/desktop/splashframe"
 	"github.com/stubbedev/lys/desktop/tokens"
+	"github.com/stubbedev/lys/lib/inter"
 	"github.com/stubbedev/lys/lib/render"
 
 	"github.com/stubbedev/lys/splash/internal/kms"
 )
-
-//go:embed assets/Inter-Regular.ttf
-var fontTTF []byte
 
 // Frames is how many steps one turn of the throbber takes.
 const Frames = 36
@@ -128,7 +125,7 @@ type throbberStep struct {
 // NewRenderer prepares drawing with t; bgrt is the firmware's logo, nil
 // when it left none.
 func NewRenderer(t Theme, bgrt *splashframe.BGRT) (*Renderer, error) {
-	face, err := render.LoadFont(fontTTF)
+	face, err := render.LoadFont(inter.Regular)
 	if err != nil {
 		return nil, fmt.Errorf("theme: load the embedded font: %w", err)
 	}

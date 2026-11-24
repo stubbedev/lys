@@ -14,7 +14,7 @@
     },
     "packaging": {},
     "lib": {
-      "paths": ["docs/lib/xkb.md", "splash/internal/theme/assets/Inter-Regular.ttf"],
+      "paths": ["docs/lib/xkb.md"],
       "gates": ["fmt-check", "vet", "lint", "no-fused", "test", "build"],
       "race": true,
       "jobs": [

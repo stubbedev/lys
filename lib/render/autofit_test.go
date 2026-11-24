@@ -7,15 +7,14 @@ import (
 
 	"golang.org/x/image/font/gofont/goregular"
 
+	"github.com/stubbedev/lys/lib/inter"
 	"github.com/stubbedev/lys/lib/render/internal/autofit"
 	"github.com/stubbedev/lys/lib/third_party/typesetting/font"
 )
 
-const interRegular = "../../splash/internal/theme/assets/Inter-Regular.ttf"
-
 func loadInter(t *testing.T) *Typeface {
 	t.Helper()
-	tf, err := LoadFont(readTestFile(t, interRegular))
+	tf, err := LoadFont(inter.Regular)
 	if err != nil {
 		t.Fatal(err)
 	}

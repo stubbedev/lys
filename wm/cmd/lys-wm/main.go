@@ -21,6 +21,7 @@ import (
 	"time"
 
 	kdrm "github.com/stubbedev/lys/lib/drm"
+	"github.com/stubbedev/lys/lib/inter"
 	gtext "github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/wmipc"
 	"github.com/stubbedev/lys/lib/xcursor"
@@ -242,26 +243,21 @@ func openOther(kind backendKind, renderer rendererKind, l *loop.Loop) (backend.B
 	return b, nil
 }
 
-var defaultFont = "DejaVuSans.ttf"
-
-func fontPath(configured string, getenv func(string) string) string {
-	if configured != "" {
-		return configured
+func tabFont(configured string) (*gtext.Typeface, error) {
+	if configured == "" {
+		f, err := gtext.LoadFont(inter.Regular)
+		if err != nil {
+			return nil, fmt.Errorf("load the built-in tab font: %w", err)
+		}
+		return f, nil
 	}
-	if env := getenv("LYS_WM_FONT"); env != "" {
-		return env
-	}
-	return defaultFont
-}
-
-func loadFont(path string) (*gtext.Typeface, error) {
-	data, err := os.ReadFile(path) //nolint:gosec // the font path comes from the build, the config or the environment
+	data, err := os.ReadFile(configured) //nolint:gosec // the font path tabs.font names
 	if err != nil {
-		return nil, fmt.Errorf("read the tab font (set tabs.font in the config, or LYS_WM_FONT): %w", err)
+		return nil, fmt.Errorf("read the tab font tabs.font names: %w", err)
 	}
 	f, err := gtext.LoadFont(data)
 	if err != nil {
-		return nil, fmt.Errorf("load the tab font %s: %w", path, err)
+		return nil, fmt.Errorf("load the tab font %s that tabs.font names: %w", configured, err)
 	}
 	return f, nil
 }
@@ -341,7 +337,7 @@ func (s source) load(accent render.Color) (loaded, error) {
 	if err != nil {
 		return loaded{}, err
 	}
-	font, err := loadFont(fontPath(file.Font, s.getenv))
+	font, err := tabFont(file.Font)
 	if err != nil {
 		return loaded{}, err
 	}

@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/lib/inter"
 	gtext "github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/xcursor"
 	"golang.org/x/sys/unix"
@@ -139,17 +140,9 @@ func CursorTheme(t testing.TB) *xcursor.Theme {
 
 func Font(t testing.TB) *gtext.Typeface {
 	t.Helper()
-	path := os.Getenv("LYS_WM_FONT")
-	if path == "" {
-		missing(t, "LYS_WM_FONT is not set")
-	}
-	data, err := os.ReadFile(path) //nolint:gosec // the test font path comes from the dev shell
+	f, err := gtext.LoadFont(inter.Regular)
 	if err != nil {
-		missing(t, "no test font: %v", err)
-	}
-	f, err := gtext.LoadFont(data)
-	if err != nil {
-		t.Fatalf("testenv: load %s: %v", path, err)
+		t.Fatalf("testenv: load the built-in Inter: %v", err)
 	}
 	return f
 }

@@ -39,7 +39,7 @@ Schema `format`s for string keys:
 | Format | Keys | Value | Empty |
 | --- | --- | --- | --- |
 | `lys-wm-color` | every colour | A palette name or `#rrggbb[aa]` | Refused |
-| `lys-wm-font-file` | `tabs.font` | A TrueType or OpenType file; relative to lys-wm's working directory | `LYS_WM_FONT`, then the built-in font |
+| `lys-wm-font-file` | `tabs.font` | A TrueType or OpenType file; relative to lys-wm's working directory | The built-in Inter Regular |
 | `lys-wm-icon-theme` | `tabs.icon_theme` | An installed freedesktop icon theme's directory name; never a path | `Adwaita` |
 | `lys-wm-xkb-layout` | `input.keyboard.layout` | Layout names, comma-separated without spaces: `us,dk` | `XKB_DEFAULT_*`, when every keyboard key is empty |
 | `lys-wm-xkb-variant` | `input.keyboard.variant` | One variant per layout, at most as many as layouts; an empty item is that layout's default: `,nodeadkeys` | Each layout's default |
@@ -679,7 +679,7 @@ once it settles (a bind's at key release, hover's at the next input).
 | `padding` | Between strip and windows, 0 or more. At 0 strip and window share one outline | 0 |
 | `text_height` | 1 or more | 11 |
 | `text_padding` | 0 or more | 8 |
-| `font` | A TrueType or OpenType file | `LYS_WM_FONT`, then the packaged DejaVu Sans |
+| `font` | A TrueType or OpenType file; one that cannot be read or loaded fails the config | The built-in Inter Regular |
 | `icon_theme` | Freedesktop icon theme name | `Adwaita` (then `hicolor`) |
 | `active`, `inactive`, `urgent` | `{background, text}`; a colour left out keeps its default | `accent`/`crust`, `surface0`/`text`, `red`/`crust` |
 

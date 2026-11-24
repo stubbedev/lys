@@ -5,13 +5,12 @@ Name:           lys-wm
 Version:        @VERSION@
 Release:        1%{?dist}
 Summary:        Pure-Go tiling Wayland compositor for the lys desktop
-License:        MIT AND Apache-2.0 AND BSD-2-Clause AND BSD-3-Clause AND LGPL-2.1-or-later AND (Unlicense OR BSD-3-Clause)
+License:        MIT AND OFL-1.1 AND Apache-2.0 AND BSD-2-Clause AND BSD-3-Clause AND LGPL-2.1-or-later AND (Unlicense OR BSD-3-Clause)
 URL:            https://github.com/stubbedev/lys/tree/main/wm
 Source0:        https://github.com/stubbedev/lys/releases/download/v%{version}/lys-wm-%{version}-%{_arch}-linux.tar.gz
 ExclusiveArch:  x86_64 aarch64
 
 BuildRequires:  systemd-rpm-macros
-Requires:       dejavu-sans-fonts
 Requires:       libglvnd-egl
 Requires:       libglvnd-gles
 Requires:       libinput
@@ -45,11 +44,8 @@ install -D -m 0644 lys-wm-portals.conf %{buildroot}%{_datadir}/xdg-desktop-porta
 install -D -m 0644 lys-wm.desktop %{buildroot}%{_datadir}/wayland-sessions/lys-wm.desktop
 install -D -m 0644 90-lys-wm.conf %{buildroot}%{_sysconfdir}/security/limits.d/90-lys-wm.conf
 
-install -d %{buildroot}%{_datadir}/lys-wm
-ln -s ../fonts/dejavu-sans-fonts/DejaVuSans.ttf %{buildroot}%{_datadir}/lys-wm/DejaVuSans.ttf
-
 %files
-%license LICENSE xgb.LICENSE
+%license LICENSE xgb.LICENSE Inter.LICENSE
 %doc THIRD_PARTY.md
 %{_bindir}/lys-wm
 %{_bindir}/lys-wmctl
@@ -57,7 +53,6 @@ ln -s ../fonts/dejavu-sans-fonts/DejaVuSans.ttf %{buildroot}%{_datadir}/lys-wm/D
 %{_datadir}/xdg-desktop-portal/lys-wm-portals.conf
 %{_datadir}/wayland-sessions/lys-wm.desktop
 %config(noreplace) %{_sysconfdir}/security/limits.d/90-lys-wm.conf
-%{_datadir}/lys-wm
 
 %changelog
 * @DATE@ @MAINTAINER@ - @VERSION@-1

@@ -85,7 +85,6 @@
         ATSPI_LIBEXEC = "${pkgs.at-spi2-core}/libexec";
         ATSPI_GSETTINGS_SCHEMA_DIR = pkgs.glib.getSchemaPath pkgs.gsettings-desktop-schemas;
         LYS_SHELL_TEST_EMOJI_FONT = "${pkgs.noto-fonts-color-emoji}/share/fonts/noto/NotoColorEmoji.ttf";
-        inherit (import ../../wm/nix/test-env.nix pkgs) LYS_WM_FONT;
         XKB_CONFIG_ROOT = "${pkgs.xkeyboard-config}/share/X11/xkb";
         XLOCALEDIR = "${pkgs.libX11}/share/X11/locale";
 
