@@ -258,7 +258,7 @@ func (o *Overlay) open(frames map[string]render.StillImage) {
 	}
 	for i, out := range outs {
 		mon := o.monitors[i]
-		a := &area{o: o, mon: mon, frame: frames[mon.Connector]}
+		a := &area{o: o, mon: mon, frame: loupe.NewFrame(frames[mon.Connector])}
 		layer, err := OpenSurface(o.app, out, layers.RegionOverlay, o.surfaceRoot(a),
 			keys.OnKey(o.app.KeySym, func(_ *widget.Router, sym xkb.Keysym, mods app.Mods) { o.key(sym, mods) }))
 		if err != nil {
@@ -393,7 +393,7 @@ type area struct {
 	o   *Overlay
 	mon Monitor
 	// frame is the frozen frame, without pixels over the live screen.
-	frame render.StillImage
+	frame loupe.Frame
 	// selecting and adjust are the legends before and after there is a
 	// selection; legends both, or none without a font.
 	selecting, adjust *widget.Box
@@ -496,7 +496,7 @@ func (a *area) Paint(cv *render.Canvas) {
 	sel := a.local(ed.sel)
 	selDev := cv.MapRect(sel).Intersect(dev)
 	if a.frozen() {
-		loupe.DrawFrame(cv, a.frame, b)
+		a.frame.Draw(cv, b)
 		for _, r := range around(dev, selDev) {
 			cv.FillRectDevice(r, render.Color(dimAlpha<<24))
 		}

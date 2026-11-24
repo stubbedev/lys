@@ -9871,7 +9871,6 @@
       "strings"
     ],
     "testImports": [
-      "desktop/shell/treetest",
       "lib/testhome",
       "shell/internal/apptest",
       "shell/internal/keytest"

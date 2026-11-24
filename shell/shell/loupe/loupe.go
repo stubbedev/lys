@@ -32,18 +32,29 @@ var (
 	crossBlack = render.RGBA(0, 0, 0, 230)
 )
 
-// DrawFrame paints the frozen frame over the logical box: one frame
-// pixel per device pixel when the frame has the box's device size, the
-// output's usual case, else scaled into it as it is drawn. The frame is
-// drawn from its own pixels, never from a resampled copy, so the
-// surface holds no raster beyond the capture.
-func DrawFrame(cv *render.Canvas, frame render.StillImage, box render.Rect) {
+// Frame is a frozen frame as a surface keeps it: its pixels, and the
+// same still image held once as the image a canvas draws, so painting
+// it allocates nothing.
+type Frame struct {
+	render.StillImage
+	drawn image.Image
+}
+
+// NewFrame is still as a Frame.
+func NewFrame(still render.StillImage) Frame { return Frame{StillImage: still, drawn: still} }
+
+// Draw paints the frame over the logical box: one frame pixel per
+// device pixel when the frame has the box's device size, the output's
+// usual case, else scaled into it as it is drawn. The frame is drawn
+// from its own pixels, never from a resampled copy, so the surface
+// holds no raster beyond the capture.
+func (f Frame) Draw(cv *render.Canvas, box render.Rect) {
 	dev := cv.MapRect(box)
-	if b := frame.Bounds(); b.Dx() == dev.W && b.Dy() == dev.H {
-		cv.DrawImageDevice(frame, dev.X, dev.Y)
+	if b := f.Bounds(); b.Dx() == dev.W && b.Dy() == dev.H {
+		cv.DrawImageDevice(f.drawn, dev.X, dev.Y)
 		return
 	}
-	cv.DrawImageCover(frame, box, render.Corners{})
+	cv.DrawImageCover(f.drawn, box, render.Corners{})
 }
 
 // SampleAt is the frame pixel under a surface-local logical point: the

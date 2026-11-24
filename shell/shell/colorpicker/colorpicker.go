@@ -196,7 +196,7 @@ func (p *Picker) show(frames map[string]render.StillImage, ch chan result, opts 
 		if !ok || frame.RGBA == nil {
 			continue
 		}
-		l := &surface{p: p, frame: frame, logicalW: mon.Width, logicalH: mon.Height, hoverSwatch: -1}
+		l := &surface{p: p, frame: loupe.NewFrame(frame), logicalW: mon.Width, logicalH: mon.Height, hoverSwatch: -1}
 		layer, err := regionoverlay.OpenSurface(p.app, out, layers.ColorPicker, l, keys.OnKey(p.app.KeySym, p.key))
 		if err != nil {
 			log.Printf("color picker: surface on %s: %v", mon.Connector, err)
@@ -310,7 +310,7 @@ func pixel(img *image.RGBA, x, y int) RGB {
 type surface struct {
 	widget.Base
 	p                  *Picker
-	frame              render.StillImage
+	frame              loupe.Frame
 	logicalW, logicalH int
 
 	cursorX, cursorY float64
@@ -367,7 +367,7 @@ func (l *surface) ClickAt(p widget.Point) {
 
 func (l *surface) Paint(cv *render.Canvas) {
 	b := l.Bounds()
-	loupe.DrawFrame(cv, l.frame, b)
+	l.frame.Draw(cv, b)
 	drawStrip(cv, l.p.history, stripRects(b, len(l.p.history)), l.hoverSwatch)
 	if l.hasCursor && l.hoverSwatch < 0 && !l.p.noLoupe {
 		drawLoupe(cv, l.p.font, l.frame.RGBA, l.logicalW, l.logicalH, b, l.cursorX, l.cursorY, l.p.format)

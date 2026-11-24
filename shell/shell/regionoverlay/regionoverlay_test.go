@@ -13,6 +13,8 @@ import (
 	"github.com/stubbedev/lys/lib/xkb"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
+
+	"github.com/stubbedev/lys/shell/shell/loupe"
 )
 
 var mons = []Monitor{
@@ -95,12 +97,12 @@ func TestLabelOrigin(t *testing.T) {
 // accentCSS gives the area its accent.
 const accentCSS = `.region-overlay-window .region-overlay-area { color: #b4befe; }`
 
-// stillOf is img as an identified frame, nil as no frame.
-func stillOf(img *image.RGBA) render.StillImage {
+// frameOf is img as an identified frame, nil as no frame.
+func frameOf(img *image.RGBA) loupe.Frame {
 	if img == nil {
-		return render.StillImage{}
+		return loupe.Frame{}
 	}
-	return render.NewStillImage(img)
+	return loupe.NewFrame(render.NewStillImage(img))
 }
 
 func harness(frame *image.RGBA, windows ...image.Rectangle) (*Overlay, *area, chan result) {
@@ -108,7 +110,7 @@ func harness(frame *image.RGBA, windows ...image.Rectangle) (*Overlay, *area, ch
 	o.ed = editor{bounds: layout(o.monitors)}
 	ch := make(chan result, 1)
 	o.reply = ch
-	a := &area{o: o, mon: mons[0], frame: stillOf(frame)}
+	a := &area{o: o, mon: mons[0], frame: frameOf(frame)}
 	o.areas = []*area{a}
 	root := o.surfaceRoot(a)
 	widget.SizeWithin(root, widget.Size{W: 40, H: 30})
@@ -358,7 +360,7 @@ func TestPaintFrozenFromTheFrame(t *testing.T) {
 	surface := func(frame *image.RGBA) (*area, *render.Canvas, []byte) {
 		o := &Overlay{monitors: []Monitor{mon}, sheet: widget.NewStylesheet(accentCSS, 0)}
 		o.ed = editor{bounds: layout(o.monitors), sel: image.Rect(100, 50, 300, 250)}
-		a := &area{o: o, mon: mon, frame: render.NewStillImage(frame)}
+		a := &area{o: o, mon: mon, frame: loupe.NewFrame(render.NewStillImage(frame))}
 		root := o.surfaceRoot(a)
 		widget.SizeWithin(root, widget.Size{W: w, H: h})
 		root.Arrange(render.Rect{W: w, H: h})

@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/config"
-	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/xkb"
 	"github.com/stubbedev/lys/ui/app"
@@ -106,7 +105,7 @@ func TestClickPicksAndRemembers(t *testing.T) {
 	p := &Picker{historyPath: filepath.Join(dir, "h")}
 	ch := make(chan result, 1)
 	p.reply = ch
-	l := &surface{p: p, frame: render.NewStillImage(gradient()), logicalW: 60, logicalH: 40}
+	l := &surface{p: p, frame: loupe.NewFrame(render.NewStillImage(gradient())), logicalW: 60, logicalH: 40}
 	l.Arrange(render.Rect{W: 60, H: 40})
 	l.ClickAt(widget.Point{X: 10, Y: 5})
 	r := <-ch
@@ -213,16 +212,19 @@ func TestCancelIsForItsOwnRequest(t *testing.T) {
 }
 
 // The surface paints the frozen frame from its own pixels, at the 2x
-// device scale it was captured at, without a resampled copy; the click
-// still reads the frame pixel under the pointer.
+// device scale it was captured at, allocating nothing: no resampled
+// copy, and no allocation for the runtime to start a collection in. A
+// paint is counted in allocations averaged over many, as one stray
+// allocation of another goroutine is no paint's. The click still reads
+// the frame pixel under the pointer.
 func TestSurfacePaintsTheFrame(t *testing.T) {
 	frame := gradient()
-	l := &surface{p: &Picker{}, frame: render.NewStillImage(frame), logicalW: 60, logicalH: 40}
+	l := &surface{p: &Picker{}, frame: loupe.NewFrame(render.NewStillImage(frame)), logicalW: 60, logicalH: 40}
 	l.Arrange(render.Rect{W: 60, H: 40})
 	data := make([]byte, render.Stride(120)*80)
 	cv := render.NewScaled(data, render.Stride(120), 120, 80, 2, 1)
-	if got := treetest.HeapBytes(func() { l.Paint(cv) }); got >= uint64(len(frame.Pix))/4 {
-		t.Errorf("painting allocated %d bytes, a copy of the %d-byte frame", got, len(frame.Pix))
+	if n := testing.AllocsPerRun(100, func() { l.Paint(cv) }); n != 0 {
+		t.Errorf("a paint allocates %v times, want never", n)
 	}
 	for _, p := range []image.Point{{0, 0}, {37, 21}, {119, 79}} {
 		want := frame.RGBAAt(p.X, p.Y)
@@ -239,7 +241,7 @@ func TestTabCyclesTheReadoutAndThePickUsesIt(t *testing.T) {
 	}
 	ch := make(chan result, 1)
 	p.reply, p.format = ch, p.startFormat("")
-	l := &surface{p: p, frame: render.NewStillImage(gradient()), logicalW: 60, logicalH: 40, hoverSwatch: -1}
+	l := &surface{p: p, frame: loupe.NewFrame(render.NewStillImage(gradient())), logicalW: 60, logicalH: 40, hoverSwatch: -1}
 	p.views = []*surface{l}
 	l.Arrange(render.Rect{W: 60, H: 40})
 	p.key(nil, xkb.KeyTab, 0)
@@ -280,7 +282,7 @@ func TestClickingARecentSwatchPicksItAgain(t *testing.T) {
 	p := &Picker{historyPath: filepath.Join(t.TempDir(), "h"), history: []RGB{old, older}, format: config.ColorFormatRGB}
 	ch := make(chan result, 1)
 	p.reply = ch
-	l := &surface{p: p, frame: render.NewStillImage(gradient()), logicalW: 400, logicalH: 300, hoverSwatch: -1}
+	l := &surface{p: p, frame: loupe.NewFrame(render.NewStillImage(gradient())), logicalW: 400, logicalH: 300, hoverSwatch: -1}
 	l.Arrange(render.Rect{W: 400, H: 300})
 	rects := stripRects(l.Bounds(), 2)
 	at := widget.Point{X: rects[1].X + 3, Y: rects[1].Y + 3}
