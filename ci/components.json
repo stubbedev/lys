@@ -190,7 +190,6 @@
               "TestLysUIPopoverAndNestedMenu",
               "TestMicaTintsWithTheWallpaperAtOneBlurPerOutput",
               "TestModeGroupLayerAndBellEventsAndTheLayerAndDeviceQueries",
-              "TestNestedGLESNamesWhatAHostWithoutAMainDeviceLacks",
               "TestNestedLysWMHidesTheHostCursor",
               "TestNestedLysWMRendersWithVulkan",
               "TestNestedLysWMRendersWithVulkanIntoTheHostsBuffersAfterAGPUReset",
@@ -245,11 +244,6 @@
         ]
       ],
       "jobs": [
-        {
-          "name": "pacing, GLES",
-          "runners": ["x86_64"],
-          "run": "just in wm pace-gate gles"
-        },
         {
           "name": "pacing, Vulkan",
           "runners": ["x86_64"],

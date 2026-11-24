@@ -8,7 +8,7 @@ default:
 # gates, the vulnerability scan and the race detector. Each package's tests run
 # once plain, in `check`, and once under `race`, and the animations are played
 # against their baselines. CI runs each as a separate job in the dev shell.
-gates: plain race pace-gates
+gates: plain race pace-gate
 
 # Every gate but the race detector.
 plain: fmt-check check vuln
@@ -26,8 +26,8 @@ host_skip := card_tests + "|OnASeat"
 # real GPU unset them to load the drivers in /run/opengl-driver instead.
 shell_drivers := "__EGL_VENDOR_LIBRARY_DIRS LIBGL_ALWAYS_SOFTWARE VK_DRIVER_FILES GBM_BACKENDS_PATH"
 
-# The tests that need a real GPU, and the GLES harness tests, which the dev
-# shell otherwise runs on Mesa's llvmpipe.
+# The tests that need a real GPU, which the dev shell otherwise runs on Mesa's
+# llvmpipe and lavapipe.
 hardware_tests := "TestAlphaCut|TestABlurAlphaThreshold|TestACaptureRepaintsOnlyTheDamage|TestACommitThatChangesNothing|TestZoom|TestTheViewFollows|TestCapturesShowTheUnzoomed|TestScanoutStopsWhileZoomed|TestAFloatingWindowDraggedToAnEdge|TestATiledWindowDragged|TestThePreviewBlurs|TestGlass|TestTheRim|TestMica|TestAHiddenBlur|TestABlurBehindAnOpaque|TestAClosingWindowKeeps|TestAClosingWindowLoses|" + card_tests + "|TestDMABUFClientsOnTheGPURenderers|TestImageCopyCaptureIntoDMABUFs|TestFullscreenDMABUFsScanOutDirectly|TestARoundedWindowThatFillsTheOutputIsComposited|TestAFullscreenDMABUFScansOutOverAWallpaperAndABar|TestAnARGBDMABUFScansOutOnlyWhenItsOpaqueRegionCoversIt|TestATenBitDMABUFScansOutUnconverted|TestDestroyingAReplacedBufferStillOnScreenSendsNoRelease|TestAnHDROutputScansOutOnlyWhatMatchesItsSignal|TestColorParity|TestAFullscreenSurfaceIsOfferedThePlaneFormats|TestEveryTextureFormatDrawsItsColour|TestTenBitShmBuffersShowTheirColour|TestScaledClientCursorsReachThePlaneWithoutASynchronousReadback|TestScreencopyIntoDMABUFsOnTheGPURenderers|TestAScreencopyIntoADMABUF|TestParityWithTheSoftwareRenderer|TestMaskEdgesMatchTheSoftwareRendererAcrossA4KOutput|TestReadKeepsTheStridePadding|TestReadRowsWritesOnlyThoseRows|TestAnAsyncReadSeesTheFrameItWasStartedAfter|TestNestedLysWMRendersWithVulkan|TestATranslucentWindowBlurs|TestXRayBlur|TestABlurRegion|TestARegionIsClipped|TestARuleOffTurnsBlur|TestADecorationBlurLeaves|TestXRayAppliesToBlur|TestASubsurfaceRegion|TestAnAlphaModifierFadesTheBlur|TestPopupsBlurByTheirRegion|TestAPopupsFirstFrame|TestDecorationBlurReachesPopups|TestBordersAndTabBars|TestRoundedWindowsAndBorders|TestATranslucentBorder|TestAFloatingWindowCasts|TestAGradientBorder|TestInactiveWindows|TestADimAround|TestAMovedWindow|TestWindowsPopIn|TestAWorkspaceSwitch|TestBorderColours|TestAGoo|TestAMorphing|TestAnElastic|TestAGenie|TestScreenShaders|TestAScreenShader|TestTheExampleShaders|TestTheLockScreenAndScreencopy|TestAShader|TestWindowedVideosGoToOverlayPlanes|TestScaledAndLetterboxedFullscreenDMABUFsScanOut|TestAnEGLHostImportsThoseBytes|TestVulkanCopiesLinearBytes|TestAVulkanStackLeavesNoDescriptor"
 
 # Measure how smoothly the animations reach the screen; docs/frame-pacing.md
@@ -52,7 +52,7 @@ pace backend="headless" renderer="vulkan" rounds="10" args="":
 
 # Run the GPU tests on the container's /run/opengl-driver instead of the dev
 # shell's llvmpipe, failing when any of them skips, then report frame rate and
-# lateness on each GPU renderer and gate what no load can change: headless
+# lateness on the Vulkan renderer and gate what no load can change: headless
 # lys-wm in a private runtime dir, with Xwayland off, runs es2gears_wayland and
 # reports its frame rate, and lys-wm-pace plays the animations, reports late
 # frames and fails when a step's per-frame counts pass cmd/lys-wm-pace/baseline.json.
@@ -107,14 +107,9 @@ hardware:
         fi
         echo "pacing: $fps fps on headless $renderer lys-wm at 60 Hz"
     }
-    pace gles
     pace vulkan
     go build -o "$dir/lys-wm-pace" ./cmd/lys-wm-pace
-    rc=0
-    for renderer in gles vulkan; do
-        "$dir/lys-wm-pace" -compositor "$dir/lys-wm" -renderer "$renderer" -rounds {{ pace_rounds }} -gate || rc=1
-    done
-    exit "$rc"
+    "$dir/lys-wm-pace" -compositor "$dir/lys-wm" -renderer vulkan -rounds {{ pace_rounds }} -gate
 
 # Drive a real Chromium through what stopped it painting in #397: output
 # power, moves between a 60 and a 144 Hz output, a window across both, power
@@ -161,13 +156,10 @@ render-bench:
 # over three rounds after the two that warm up, as the baselines were measured.
 pace_rounds := "5"
 
-# Both renderers, one after the other.
-pace-gates: (pace-gate "gles") (pace-gate "vulkan")
-
 # Fail when a step's per-frame counts pass cmd/lys-wm-pace/baseline.json on the
 # dev shell's software rasterisers. Everything it gates is counted, so a busy
 # machine passes the same; docs/frame-pacing.md has what it measures.
-pace-gate renderer="gles":
+pace-gate renderer="vulkan":
     #!/usr/bin/env bash
     set -euo pipefail
     dir=$(mktemp -d)
@@ -175,8 +167,8 @@ pace-gate renderer="gles":
     go build -o "$dir/" ./cmd/lys-wm ./cmd/lys-wm-pace
     "$dir/lys-wm-pace" -compositor "$dir/lys-wm" -renderer {{ quote(renderer) }} -rounds {{ pace_rounds }} -allow-software -gate
 
-# Write cmd/lys-wm-pace/baseline.json's limits for gles and vulkan on a GPU, under
-# gles/gpu and vulkan/gpu: run it as `just docker pace-baseline`. The file lands in
+# Write cmd/lys-wm-pace/baseline.json's Vulkan limits on a GPU, under
+# vulkan/gpu: run it as `just docker pace-baseline`. The file lands in
 # the checkout, and a software driver is refused.
 pace-baseline:
     #!/usr/bin/env bash
@@ -188,8 +180,7 @@ pace-baseline:
     unset {{ shell_drivers }}
     just write-baselines
 
-# The same on the dev shell's software rasterisers, under gles/software and
-# vulkan/software.
+# The same on the dev shell's lavapipe, under vulkan/software.
 pace-baseline-software: (write-baselines "-allow-software")
 
 [private]
@@ -199,10 +190,8 @@ write-baselines args="":
     dir=$(mktemp -d)
     trap 'rm -rf "$dir"' EXIT
     go build -o "$dir/" ./cmd/lys-wm ./cmd/lys-wm-pace
-    for renderer in gles vulkan; do
-        # shellcheck disable=SC2086
-        "$dir/lys-wm-pace" -compositor "$dir/lys-wm" -renderer "$renderer" -rounds {{ pace_rounds }} -write-baseline cmd/lys-wm-pace/baseline.json {{ args }}
-    done
+    # shellcheck disable=SC2086
+    "$dir/lys-wm-pace" -compositor "$dir/lys-wm" -renderer vulkan -rounds {{ pace_rounds }} -write-baseline cmd/lys-wm-pace/baseline.json {{ args }}
 
 # Run a recipe in a container that sees only the dev shell's store paths,
 # the checkout, its own Go caches, /dev/kvm, the GPUs' render nodes and

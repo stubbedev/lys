@@ -128,42 +128,13 @@ func StartUntracedWith(t *testing.T, configure func(*compositor.Config), modes .
 	return start(t, setup{open: softBackend, configure: configure}, modes...)
 }
 
-func glesBackend(l *loop.Loop) (*headless.Backend, error) {
-	return headless.NewGLES(l, gpu.PathsFromEnv(os.Getenv))
-}
-
-func StartGLES(t *testing.T, configure func(*compositor.Config), modes ...backend.Mode) *Harness {
-	t.Helper()
-	glesTurn.hold(t)
-	testenv.GPU(t)
-	return start(t, setup{open: glesBackend, configure: configure, traced: true}, modes...)
-}
-
-func StartInheritedGLES(t *testing.T, configure func(*compositor.Config), modes ...backend.Mode) *Harness {
-	t.Helper()
-	glesTurn.hold(t)
-	testenv.GPU(t)
-	open := func(l *loop.Loop) (*headless.Backend, error) {
-		b, err := glesBackend(l)
-		if err != nil {
-			return nil, err
-		}
-		b.InheritFrames()
-		return b, nil
-	}
-	return start(t, setup{open: open, configure: configure, traced: true}, modes...)
-}
-
 type rendererTurn struct {
 	sync.Mutex
 	turn   chan struct{}
 	holder testing.TB
 }
 
-var (
-	glesTurn   = rendererTurn{turn: make(chan struct{}, 1)}
-	vulkanTurn = rendererTurn{turn: make(chan struct{}, 1)}
-)
+var vulkanTurn = rendererTurn{turn: make(chan struct{}, 1)}
 
 func (r *rendererTurn) hold(t testing.TB) {
 	t.Helper()
@@ -196,11 +167,19 @@ func StartVulkan(t *testing.T, configure func(*compositor.Config), modes ...back
 	return start(t, setup{open: vulkanBackend, configure: configure, traced: true}, modes...)
 }
 
-func StartGLESWithCursorPlanes(t *testing.T, size image.Point, configure func(*compositor.Config), modes ...backend.Mode) *Harness {
+func StartInheritedVulkan(t *testing.T, configure func(*compositor.Config), modes ...backend.Mode) *Harness {
 	t.Helper()
-	glesTurn.hold(t)
-	testenv.GPU(t)
-	return start(t, setup{open: withCursorPlanes(glesBackend, size), configure: configure, traced: true}, modes...)
+	vulkanTurn.hold(t)
+	testenv.Vulkan(t)
+	open := func(l *loop.Loop) (*headless.Backend, error) {
+		b, err := vulkanBackend(l)
+		if err != nil {
+			return nil, err
+		}
+		b.InheritFrames()
+		return b, nil
+	}
+	return start(t, setup{open: open, configure: configure, traced: true}, modes...)
 }
 
 func StartVulkanWithCursorPlanes(t *testing.T, size image.Point, configure func(*compositor.Config), modes ...backend.Mode) *Harness {

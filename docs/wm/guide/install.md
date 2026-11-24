@@ -88,9 +88,9 @@ work on every install.
 | Dependency | Default | Override |
 | --- | --- | --- |
 | Vulkan | `libvulkan.so.1` | `LYS_LIBVULKAN` |
-| EGL (GLES renderer) | `libEGL.so.1` | `LYS_WM_LIBEGL` |
-| GLES2 (GLES renderer) | `libGLESv2.so.2` | `LYS_WM_LIBGLESV2` |
-| GBM (GLES renderer) | `libgbm.so.1` | `LYS_WM_LIBGBM` |
+| EGL (GLES renderer, drm only) | `libEGL.so.1` | `LYS_WM_LIBEGL` |
+| GLES2 (GLES renderer, drm only) | `libGLESv2.so.2` | `LYS_WM_LIBGLESV2` |
+| GBM (scanout buffers) | `libgbm.so.1` | `LYS_WM_LIBGBM` |
 | libinput | `libinput.so.10` | `LYS_WM_LIBINPUT` |
 | xkeyboard-config | `/usr/share/X11/xkb` | `XKB_CONFIG_ROOT` |
 | Tab font | Inter Regular, built in | `tabs.font` in the config |

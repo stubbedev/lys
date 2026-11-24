@@ -19,7 +19,7 @@ func testDMABUFClientsOnTheGPURenderers(t *testing.T, start gpuStarter) {
 	c := testclient.Connect(t, h.Socket())
 	w := c.Window("dmabuf", testclient.Fill(0, 0, 0xff))
 	c.DispatchUntil("the window to map", w.Mapped)
-	h.Eventually("the shm window through GLES", showing(120, 80, [3]byte{0xff, 0, 0}))
+	h.Eventually("the shm window", showing(120, 80, [3]byte{0xff, 0, 0}))
 	child := c.Surface()
 	sub, err := c.Subcompositor.GetSubsurface(child, w.Surface)
 	if err != nil {

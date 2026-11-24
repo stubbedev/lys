@@ -97,7 +97,7 @@ func TestAnInheritedFrameGivesWayWhenNoClientDraws(t *testing.T) {
 }
 
 func TestTheFirstFrameOverAnInheritedOneFadesFromIt(t *testing.T) {
-	t.Run("imported on the GPU", func(t *testing.T) { testTheFirstFrameOverAnInheritedOneFadesFromIt(t, StartInheritedGLES) })
+	t.Run("imported on the GPU", func(t *testing.T) { testTheFirstFrameOverAnInheritedOneFadesFromIt(t, StartInheritedVulkan) })
 	t.Run("copied by the CPU", func(t *testing.T) { testTheFirstFrameOverAnInheritedOneFadesFromIt(t, StartInherited) })
 }
 

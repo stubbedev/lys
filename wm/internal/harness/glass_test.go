@@ -197,12 +197,6 @@ func specularCases(t *testing.T, test func(t *testing.T, start gpuStarter)) {
 			return StartWithCursorPlanes(t, cursor, cfg, modes...)
 		})
 	})
-	t.Run("gles", func(t *testing.T) {
-		test(t, func(t *testing.T, cfg func(*compositor.Config), modes ...backend.Mode) *Harness {
-			t.Helper()
-			return StartGLESWithCursorPlanes(t, cursor, cfg, modes...)
-		})
-	})
 	t.Run("vulkan", func(t *testing.T) {
 		test(t, func(t *testing.T, cfg func(*compositor.Config), modes ...backend.Mode) *Harness {
 			t.Helper()

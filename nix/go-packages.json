@@ -12954,7 +12954,6 @@
       "wm/internal/gpu",
       "wm/internal/loop",
       "wm/internal/render",
-      "wm/internal/render/gles",
       "wm/internal/render/soft",
       "wm/internal/render/vulkan",
       "wm/internal/wm",
@@ -12990,7 +12989,6 @@
       "wm/internal/protocol/client/wayland",
       "wm/internal/protocol/client/xdgshell",
       "wm/internal/render",
-      "wm/internal/render/gles",
       "wm/internal/render/soft",
       "wm/internal/render/vulkan",
       "wm/internal/wire",
@@ -13011,6 +13009,7 @@
       "lib/testhome",
       "lib/waittest",
       "wm/internal/compositor",
+      "wm/internal/render/gles",
       "wm/internal/server",
       "wm/internal/testenv"
     ],
@@ -13292,7 +13291,6 @@
       "wm/internal/protocol/client/wayland",
       "wm/internal/protocol/client/xdgdecoration",
       "wm/internal/protocol/client/xdgshell",
-      "wm/internal/render/gles",
       "wm/internal/testenv",
       "wm/internal/wlclient"
     ],

@@ -253,12 +253,10 @@ type starter func(t *testing.T, modes ...backend.Mode) *Harness
 type gpuStarter func(t *testing.T, configure func(*compositor.Config), modes ...backend.Mode) *Harness
 
 func onEachGPURenderer(t *testing.T, test func(t *testing.T, start gpuStarter)) {
-	t.Run("gles", func(t *testing.T) { test(t, StartGLES) })
 	t.Run("vulkan", func(t *testing.T) { test(t, StartVulkan) })
 }
 
 func onEachDMABUFRenderer(t *testing.T, test func(t *testing.T, start gpuStarter)) {
-	t.Run("gles", func(t *testing.T) { test(t, StartGLES) })
 	t.Run("vulkan", func(t *testing.T) {
 		if !testenv.Vulkan(t).Device().Exports() {
 			t.Skip("this Vulkan device shares no dmabufs; lavapipe needs /dev/udmabuf")
@@ -349,9 +347,6 @@ func onEachRenderer(t *testing.T, test func(t *testing.T, start starter)) {
 		start starter
 	}{
 		{"soft", Start},
-		{"gles", func(t *testing.T, modes ...backend.Mode) *Harness {
-			return StartGLES(t, func(*compositor.Config) {}, modes...)
-		}},
 		{"vulkan", func(t *testing.T, modes ...backend.Mode) *Harness {
 			return StartVulkan(t, func(*compositor.Config) {}, modes...)
 		}},

@@ -85,7 +85,6 @@ func TestTenBitShmBuffersShowTheirColour(t *testing.T) {
 		start func(t *testing.T) *Harness
 	}{
 		{"soft", func(t *testing.T) *Harness { return Start(t, small) }},
-		{"gles", func(t *testing.T) *Harness { return StartGLES(t, func(*compositor.Config) {}, small) }},
 		{"vulkan", func(t *testing.T) *Harness { return StartVulkan(t, func(*compositor.Config) {}, small) }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

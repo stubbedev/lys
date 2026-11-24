@@ -14,7 +14,7 @@ with the tools and environment its tests need: `nix develop .#wm`,
 
 ```sh
 just in wm plain race        # recipes of wm/justfile, in .#wm
-just in wm pace-gate gles    # a recipe with its arguments
+just in wm pace-gate vulkan  # a recipe with its arguments
 ```
 
 Inside a shell, `just <component>::<recipe>` runs the same recipe:
@@ -199,8 +199,8 @@ first runners. The jobs on the builds:
      hold every VM check the flake has there, each exactly once, and none it
      lacks.
    - **Further jobs**, each a `run` command: lib's and ui's GPU and headless
-     suites (one job each, `just in lib gpu headless`), wm's GLES and Vulkan
-     pacing gates (apart, since each is timing-sensitive and near five
+     suites (one job each, `just in lib gpu headless`), wm's Vulkan
+     pacing gate (apart, since it is timing-sensitive and near five
      minutes) and the repository check, on the dev shells, and splash's
      initramfs-tools image, which needs `lys-splash`, after splash's build.
    - **Go jobs**, one per entry of `go-jobs`: `just gates <target>...`, each

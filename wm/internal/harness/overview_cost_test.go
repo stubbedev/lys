@@ -16,7 +16,7 @@ import (
 func TestAPiledOverviewClosingDoesNotDrawWhatIsCovered(t *testing.T) {
 	t.Parallel()
 	const screens, most = 6, 300
-	h := StartGLES(t, func(cfg *compositor.Config) {
+	h := StartVulkan(t, func(cfg *compositor.Config) {
 		cfg.Animations = springTable(t)
 		cfg.Decor.Rounding = 12
 		cfg.Decor.Shadow = compositor.Shadow{Enabled: true, Range: 24, Power: 3, Scale: 1, Offset: image.Pt(0, 8), Active: render.Color{A: 0x60}, Inactive: render.Color{A: 0x60}}

@@ -57,10 +57,6 @@ func benchRenderers(b *testing.B, run func(b *testing.B, open func(testing.TB) s
 		open func(testing.TB) setup
 	}{
 		{"soft", func(testing.TB) setup { return setup{open: softBackend} }},
-		{"gles", func(tb testing.TB) setup {
-			testenv.GPU(tb)
-			return setup{open: glesBackend}
-		}},
 		{"vulkan", func(tb testing.TB) setup {
 			testenv.Vulkan(tb)
 			return setup{open: vulkanBackend}

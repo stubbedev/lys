@@ -43,49 +43,47 @@ func BenchmarkStallShmUpload(b *testing.B) {
 		{"1080p-full", image.Pt(1920, 1080), image.Rect(0, 0, 1920, 1080)},
 		{"4K-terminal-line", full4K.Max, image.Rect(100, 800, 2100, 840)},
 	}
-	for _, name := range []string{"gles", "vulkan"} {
-		benchRenderer(b, name, func(b *testing.B, r render.Renderer) {
-			for _, d := range damages {
-				b.Run(d.name, func(b *testing.B) {
-					stride := d.size.X * 4
-					pix := make([]byte, stride*d.size.Y)
-					for i := range pix {
-						pix[i] = byte(i)
+	benchRenderer(b, "vulkan", func(b *testing.B, r render.Renderer) {
+		for _, d := range damages {
+			b.Run(d.name, func(b *testing.B) {
+				stride := d.size.X * 4
+				pix := make([]byte, stride*d.size.Y)
+				for i := range pix {
+					pix[i] = byte(i)
+				}
+				tex, err := r.NewTexture(render.ARGB8888, d.size, stride, pix)
+				if err != nil {
+					b.Fatal(err)
+				}
+				defer func() { _ = tex.Destroy() }()
+				target, err := r.NewTarget(image.Pt(16, 16))
+				if err != nil {
+					b.Fatal(err)
+				}
+				defer func() { _ = target.Destroy() }()
+				data := pix[d.rect.Min.Y*stride+d.rect.Min.X*4:]
+				samples := make([]time.Duration, 0, 1024)
+				b.SetBytes(int64(d.rect.Dx() * d.rect.Dy() * 4))
+				b.ReportAllocs()
+				for b.Loop() {
+					at := time.Now()
+					if err := tex.Update(d.rect, stride, data); err != nil {
+						b.Fatal(err)
 					}
-					tex, err := r.NewTexture(render.ARGB8888, d.size, stride, pix)
+					samples = append(samples, time.Since(at))
+					p, err := r.Begin(target, render.Region{image.Rectangle{Max: target.Size()}})
 					if err != nil {
 						b.Fatal(err)
 					}
-					defer func() { _ = tex.Destroy() }()
-					target, err := r.NewTarget(image.Pt(16, 16))
-					if err != nil {
+					p.DrawTexture(tex, render.FRect{W: 16, H: 16}, image.Rectangle{Max: target.Size()}, render.Normal, 1, render.Mask{})
+					if err := p.End(); err != nil {
 						b.Fatal(err)
 					}
-					defer func() { _ = target.Destroy() }()
-					data := pix[d.rect.Min.Y*stride+d.rect.Min.X*4:]
-					samples := make([]time.Duration, 0, 1024)
-					b.SetBytes(int64(d.rect.Dx() * d.rect.Dy() * 4))
-					b.ReportAllocs()
-					for b.Loop() {
-						at := time.Now()
-						if err := tex.Update(d.rect, stride, data); err != nil {
-							b.Fatal(err)
-						}
-						samples = append(samples, time.Since(at))
-						p, err := r.Begin(target, render.Region{image.Rectangle{Max: target.Size()}})
-						if err != nil {
-							b.Fatal(err)
-						}
-						p.DrawTexture(tex, render.FRect{W: 16, H: 16}, image.Rectangle{Max: target.Size()}, render.Normal, 1, render.Mask{})
-						if err := p.End(); err != nil {
-							b.Fatal(err)
-						}
-					}
-					reportLatencies(b, samples)
-				})
-			}
-		})
-	}
+				}
+				reportLatencies(b, samples)
+			})
+		}
+	})
 }
 
 func dropPageCache(b *testing.B, path string) {
@@ -115,7 +113,7 @@ func BenchmarkStallCursorThemeMiss(b *testing.B) {
 		{"resampled-36-cold", 36, true},
 		{"resampled-72", 72, false},
 	}
-	for _, name := range []string{"soft", "gles", "vulkan"} {
+	for _, name := range []string{"soft", "vulkan"} {
 		benchRenderer(b, name, func(b *testing.B, r render.Renderer) {
 			for _, s := range shapes {
 				b.Run(s.name, func(b *testing.B) {

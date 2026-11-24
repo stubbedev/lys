@@ -27,9 +27,9 @@ is fixed before anything else lands.
 
 The dev shell runs the GPU tests on Mesa's llvmpipe. On a machine with a GPU,
 run `just wm::docker hardware` after changes to rendering, DRM, dmabuf, capture or frame
-pacing: it runs the GPU, DRM-without-master, nested dmabuf and GLES harness
-tests on the host's GPU and fails if any of them skips, then measures es2gears
-against headless GLES lys-wm in a private runtime dir (Xwayland off) and reports its
+pacing: it runs the GPU, DRM-without-master and nested dmabuf tests on the
+host's GPU and fails if any of them skips, then measures es2gears
+against headless Vulkan lys-wm in a private runtime dir (Xwayland off) and reports its
 frame rate, and plays every animation under `lys-wm-pace`
 (`../docs/wm/frame-pacing.md`), reporting late frames and failing when a step's
 per-frame counts pass `cmd/lys-wm-pace/baseline.json`. No gate judges time: a

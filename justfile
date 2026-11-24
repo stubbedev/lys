@@ -21,7 +21,7 @@ default:
     @just --list --list-submodules
 
 # Run component recipes in the component's dev shell, as CI does:
-# `just in wm plain race`, `just in wm pace-gate gles`.
+# `just in wm plain race`, `just in wm pace-gate vulkan`.
 in component +args:
     nix develop .#{{ component }} -c just --justfile {{ component }}/justfile --working-directory {{ component }} {{ args }}
 

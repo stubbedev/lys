@@ -19,7 +19,6 @@ import (
 	"github.com/stubbedev/lys/wm/internal/backend/nested"
 	"github.com/stubbedev/lys/wm/internal/compositor"
 	"github.com/stubbedev/lys/wm/internal/data"
-	"github.com/stubbedev/lys/wm/internal/gpu"
 	"github.com/stubbedev/lys/wm/internal/loop"
 	"github.com/stubbedev/lys/wm/internal/seat"
 	"github.com/stubbedev/lys/wm/internal/server"
@@ -56,7 +55,7 @@ func startNestedOn(t *testing.T, host *Harness, renderer nested.Renderer, config
 	if n.loop, err = loop.New(); err != nil {
 		t.Fatal(err)
 	}
-	b, err := nested.New(n.loop, host.Socket(), nested.Options{Renderer: renderer, GPU: gpu.PathsFromEnv(os.Getenv)})
+	b, err := nested.New(n.loop, host.Socket(), nested.Options{Renderer: renderer})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -399,36 +398,16 @@ func TestNestedLysWMRendersWithVulkanIntoTheHostsBuffersAfterAGPUReset(t *testin
 	}
 }
 
-func TestNestedGLESNamesWhatAHostWithoutAMainDeviceLacks(t *testing.T) {
-	if !testenv.Vulkan(t).Device().Exports() {
-		t.Skip("this Vulkan device shares no dmabufs; lavapipe needs /dev/udmabuf")
-	}
-	host := StartVulkan(t, func(*compositor.Config) {}, small)
+func TestNestedVulkanNamesAHostWithoutDMABUFs(t *testing.T) {
+	host := Start(t, small)
 	l, err := loop.New()
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer l.Close()
-	_, err = nested.New(l, host.Socket(), nested.Options{Renderer: nested.GLES, GPU: gpu.PathsFromEnv(os.Getenv)})
-	if err == nil || !regexp.MustCompile(`GLES renderer needs the device the host names`).MatchString(err.Error()) {
-		t.Fatalf("nested GLES on a host that names no device: %v", err)
-	}
-}
-
-func TestNestedGPURenderersNameAHostWithoutDMABUFs(t *testing.T) {
-	host := Start(t, small)
-	for _, r := range []nested.Renderer{nested.GLES, nested.Vulkan} {
-		l, err := loop.New()
-		if err != nil {
-			t.Fatal(err)
-		}
-		_, err = nested.New(l, host.Socket(), nested.Options{Renderer: r, GPU: gpu.PathsFromEnv(os.Getenv)})
-		if err == nil || !regexp.MustCompile(`needs the host's zwp_linux_dmabuf_v1`).MatchString(err.Error()) {
-			t.Errorf("renderer %d on a host without dmabufs: %v", r, err)
-		}
-		if err := l.Close(); err != nil {
-			t.Error(err)
-		}
+	_, err = nested.New(l, host.Socket(), nested.Options{Renderer: nested.Vulkan})
+	if err == nil || !regexp.MustCompile(`needs the host's zwp_linux_dmabuf_v1`).MatchString(err.Error()) {
+		t.Errorf("nested Vulkan on a host without dmabufs: %v", err)
 	}
 }
 
@@ -498,19 +477,6 @@ func headlessCost(t *testing.T, name string, h *Harness) {
 	costMeter{t, h.Busy, c, w}.log(name)
 }
 
-func hostNamesItsDevice(h *Harness) bool {
-	named := false
-	h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
-		r, ok := b.Renderer().(interface{ MainDevice() (uint64, error) })
-		if ok {
-			_, err := r.MainDevice()
-			named = err == nil
-		}
-		return nil
-	})
-	return named
-}
-
 func TestNestedFrameCost(t *testing.T) {
 	if raceEnabled {
 		t.Skip("the race detector slows every frame, so the costs it would log measure the detector")
@@ -520,20 +486,10 @@ func TestNestedFrameCost(t *testing.T) {
 	}
 	newHost := func(t *testing.T) *Harness { return StartVulkan(t, func(*compositor.Config) {}, desktop) }
 	for round := range 3 {
-		t.Run(fmt.Sprintf("headless-gles/%d", round), func(t *testing.T) {
-			headlessCost(t, "headless gles", StartGLES(t, func(*compositor.Config) {}, desktop))
-		})
 		t.Run(fmt.Sprintf("headless-vulkan/%d", round), func(t *testing.T) {
 			headlessCost(t, "headless vulkan", newHost(t))
 		})
 		t.Run(fmt.Sprintf("nested-soft/%d", round), func(t *testing.T) { nestedCost(t, "nested soft", newHost(t), nested.Soft) })
 		t.Run(fmt.Sprintf("nested-vulkan/%d", round), func(t *testing.T) { nestedCost(t, "nested vulkan", newHost(t), nested.Vulkan) })
-		t.Run(fmt.Sprintf("gles/%d", round), func(t *testing.T) {
-			host := newHost(t)
-			if !hostNamesItsDevice(host) {
-				t.Skip("nested GLES allocates through GBM on the device its host names, and a host on lavapipe names none")
-			}
-			nestedCost(t, "nested gles", host, nested.GLES)
-		})
 	}
 }

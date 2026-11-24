@@ -64,7 +64,7 @@ func TestChooseRenderer(t *testing.T) {
 		requested string
 		backend   backendKind
 		want      rendererKind
-	}{{"", nestedBackend, glesRenderer}, {"", headlessBackend, softRenderer}, {"", drmBackend, vulkanRenderer}, {"gles", drmBackend, glesRenderer}, {"soft", nestedBackend, softRenderer}, {"gles", headlessBackend, glesRenderer}, {"vulkan", headlessBackend, vulkanRenderer}, {"vulkan", drmBackend, vulkanRenderer}, {"vulkan", nestedBackend, vulkanRenderer}} {
+	}{{"", nestedBackend, vulkanRenderer}, {"", headlessBackend, softRenderer}, {"", drmBackend, vulkanRenderer}, {"gles", drmBackend, glesRenderer}, {"soft", nestedBackend, softRenderer}, {"vulkan", headlessBackend, vulkanRenderer}, {"vulkan", drmBackend, vulkanRenderer}, {"vulkan", nestedBackend, vulkanRenderer}} {
 		if got, err := chooseRenderer(c.requested, c.backend); err != nil || got != c.want {
 			t.Errorf("chooseRenderer(%q, %v) = %v, %v; want %v", c.requested, c.backend, got, err, c.want)
 		}
@@ -72,9 +72,11 @@ func TestChooseRenderer(t *testing.T) {
 	for _, c := range []struct {
 		requested string
 		backend   backendKind
-	}{{"metal", nestedBackend}, {"metal", headlessBackend}, {"soft", drmBackend}} {
-		if _, err := chooseRenderer(c.requested, c.backend); err == nil {
-			t.Errorf("chooseRenderer(%q, %v) succeeded", c.requested, c.backend)
+		available string
+	}{{"metal", nestedBackend, "vulkan, soft"}, {"metal", headlessBackend, "soft, vulkan"}, {"soft", drmBackend, "vulkan, gles"}, {"gles", nestedBackend, "vulkan, soft"}, {"gles", headlessBackend, "soft, vulkan"}} {
+		_, err := chooseRenderer(c.requested, c.backend)
+		if !errors.Is(err, errUnavailableRenderer) || !strings.Contains(err.Error(), "available: "+c.available) || !strings.Contains(err.Error(), c.backend.String()) {
+			t.Errorf("chooseRenderer(%q, %v) = %v, want errUnavailableRenderer naming the %v backend and %s", c.requested, c.backend, err, c.backend, c.available)
 		}
 	}
 }
@@ -661,5 +663,13 @@ func TestTheRendererComesFromTheFlagThenTheEnvironment(t *testing.T) {
 	}
 	if _, err := rendererFor("gles", env("metal"), drmBackend); err != nil {
 		t.Errorf("the flag did not override %s=metal: %v", rendererEnv, err)
+	}
+	for _, kind := range []backendKind{nestedBackend, headlessBackend} {
+		if _, err := rendererFor("", env("gles"), kind); !errors.Is(err, errUnavailableRenderer) || !strings.Contains(err.Error(), rendererEnv) {
+			t.Errorf("%s=gles on the %v backend gave %v, want errUnavailableRenderer naming the variable", rendererEnv, kind, err)
+		}
+		if _, err := rendererFor("gles", env(""), kind); !errors.Is(err, errUnavailableRenderer) {
+			t.Errorf("-renderer gles on the %v backend gave %v, want errUnavailableRenderer", kind, err)
+		}
 	}
 }

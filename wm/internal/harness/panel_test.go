@@ -43,11 +43,11 @@ func startMountedInherited(t *testing.T, panel render.Transform, configure func(
 	return start(t, setup{open: mounted(softBackend, panel, true), configure: configure, traced: true}, small)
 }
 
-func startMountedInheritedGLES(t *testing.T, panel render.Transform, configure func(*compositor.Config)) *Harness {
+func startMountedInheritedVulkan(t *testing.T, panel render.Transform, configure func(*compositor.Config)) *Harness {
 	t.Helper()
-	glesTurn.hold(t)
-	testenv.GPU(t)
-	return start(t, setup{open: mounted(glesBackend, panel, true), configure: configure, traced: true}, small)
+	vulkanTurn.hold(t)
+	testenv.Vulkan(t)
+	return start(t, setup{open: mounted(vulkanBackend, panel, true), configure: configure, traced: true}, small)
 }
 
 func shownOutput(t *testing.T, h *Harness) ipc.Output {
@@ -91,7 +91,7 @@ func TestAnOutputWithoutAPanelTransformStaysUpright(t *testing.T) {
 }
 
 func TestTheInheritedFrameFadesOnTheTurnedPanelUnturned(t *testing.T) {
-	t.Run("imported on the GPU", func(t *testing.T) { testTheInheritedFrameFadesUnturned(t, startMountedInheritedGLES) })
+	t.Run("imported on the GPU", func(t *testing.T) { testTheInheritedFrameFadesUnturned(t, startMountedInheritedVulkan) })
 	t.Run("copied by the CPU", func(t *testing.T) { testTheInheritedFrameFadesUnturned(t, startMountedInherited) })
 }
 

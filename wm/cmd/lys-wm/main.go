@@ -127,17 +127,31 @@ const (
 	vulkanRenderer
 )
 
+var rendererNames = []struct {
+	name string
+	kind rendererKind
+}{{"soft", softRenderer}, {"gles", glesRenderer}, {"vulkan", vulkanRenderer}}
+
 func (k rendererKind) String() string {
-	switch k {
-	case softRenderer:
-		return "soft"
-	case glesRenderer:
-		return "gles"
-	case vulkanRenderer:
-		return "vulkan"
+	for _, r := range rendererNames {
+		if r.kind == k {
+			return r.name
+		}
 	}
 	return fmt.Sprintf("renderer%d", k)
 }
+
+func renderersOn(kind backendKind) []rendererKind {
+	switch kind {
+	case drmBackend:
+		return []rendererKind{vulkanRenderer, glesRenderer}
+	case nestedBackend:
+		return []rendererKind{vulkanRenderer, softRenderer}
+	}
+	return []rendererKind{softRenderer, vulkanRenderer}
+}
+
+var errUnavailableRenderer = errors.New("renderer unavailable")
 
 const rendererEnv = "LYS_WM_RENDERER"
 
@@ -153,33 +167,24 @@ func rendererFor(flag string, getenv func(string) string, kind backendKind) (ren
 }
 
 func chooseRenderer(requested string, kind backendKind) (rendererKind, error) {
-	switch requested {
-	case "":
-		switch kind {
-		case headlessBackend:
-			return softRenderer, nil
-		case drmBackend:
-			return vulkanRenderer, nil
-		}
-		return glesRenderer, nil
-	case "soft":
-		if kind == drmBackend {
-			return 0, errors.New("the drm backend renders with GLES or Vulkan")
-		}
-		return softRenderer, nil
-	case "gles":
-		return glesRenderer, nil
-	case "vulkan":
-		return vulkanRenderer, nil
+	available := renderersOn(kind)
+	if requested == "" {
+		return available[0], nil
 	}
-	return 0, fmt.Errorf("unknown renderer %q (available: gles, soft, vulkan)", requested)
+	for _, k := range available {
+		if k.String() == requested {
+			return k, nil
+		}
+	}
+	names := make([]string, len(available))
+	for i, k := range available {
+		names[i] = k.String()
+	}
+	return 0, fmt.Errorf("%w: the %s backend takes no renderer %q (available: %s)", errUnavailableRenderer, kind, requested, strings.Join(names, ", "))
 }
 
-func openHeadless(l *loop.Loop, renderer rendererKind, paths gpu.Paths) (*headless.Backend, error) {
-	switch renderer {
-	case glesRenderer:
-		return headless.NewGLES(l, paths)
-	case vulkanRenderer:
+func openHeadless(l *loop.Loop, renderer rendererKind) (*headless.Backend, error) {
+	if renderer == vulkanRenderer {
 		return headless.NewVulkan(l)
 	}
 	return headless.New(l), nil
@@ -211,7 +216,6 @@ func openBackend(kind backendKind, renderer rendererKind, l *loop.Loop, opts nat
 }
 
 func openOther(kind backendKind, renderer rendererKind, l *loop.Loop) (backend.Backend, error) {
-	paths := gpu.PathsFromEnv(os.Getenv)
 	hint := func(err error) error {
 		if err != nil && renderer != softRenderer {
 			return fmt.Errorf("%w (run with --renderer soft to render in software)", err)
@@ -223,17 +227,14 @@ func openOther(kind backendKind, renderer rendererKind, l *loop.Loop) (backend.B
 		if err != nil {
 			return nil, err
 		}
-		opts := nested.Options{Renderer: nested.Soft, GPU: paths}
-		switch renderer {
-		case glesRenderer:
-			opts.Renderer = nested.GLES
-		case vulkanRenderer:
+		opts := nested.Options{Renderer: nested.Soft}
+		if renderer == vulkanRenderer {
 			opts.Renderer = nested.Vulkan
 		}
 		b, err := nested.New(l, host, opts)
 		return b, hint(err)
 	}
-	b, err := openHeadless(l, renderer, paths)
+	b, err := openHeadless(l, renderer)
 	if err != nil {
 		return nil, hint(err)
 	}
@@ -570,7 +571,7 @@ func run(args []string) (err error) {
 	path := flags.String("config", "", "config file (default: $XDG_CONFIG_HOME/lys-wm/config.yaml)")
 	runtime := flags.String("runtime", "", "runtime overrides merged over the config, which must exist when given (default: "+config.RuntimeFile+" beside the config file, when it exists)")
 	withSystemd := flags.Bool("systemd", false, "export the session environment to D-Bus activation and the systemd user manager, and run "+systemd.Target+" while lys-wm runs")
-	rendererName := flags.String("renderer", "", "gles, soft or vulkan (default: $LYS_WM_RENDERER, else vulkan for the drm backend, gles for nested, soft for headless; drm takes gles or vulkan)")
+	rendererName := flags.String("renderer", "", "vulkan, gles or soft (default: $LYS_WM_RENDERER, else vulkan for the drm and nested backends, soft for headless; drm takes vulkan or gles, nested and headless take vulkan or soft)")
 	requested := flags.String("backend", "", "output and input backend: drm, nested or headless (default: nested when WAYLAND_DISPLAY is set, else drm)")
 	framesPath := flags.String("frame-trace", "", "record every frame's timing to this file as JSON lines; see https://stubbedev.github.io/lys/wm/frame-pacing")
 	cpuProfile := flags.String("cpu-profile", "", "write a Go CPU profile to this file while lys-wm runs")

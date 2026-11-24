@@ -32,7 +32,7 @@ func TestTearingFollowsTheSwitchTheHintAndTheRules(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			s := fullscreenScanout(t, StartGLES, func(cfg *compositor.Config) {
+			s := fullscreenScanout(t, StartVulkan, func(cfg *compositor.Config) {
 				cfg.Tearing, cfg.Rules = tc.tearing, tc.rules
 			})
 			if tc.async {
@@ -99,7 +99,7 @@ func TestOneTearingControlPerSurfaceUntilItIsGone(t *testing.T) {
 
 func TestDestroyingTheHintStopsTearing(t *testing.T) {
 	t.Parallel()
-	s := fullscreenScanout(t, StartGLES, func(cfg *compositor.Config) { cfg.Tearing = true })
+	s := fullscreenScanout(t, StartVulkan, func(cfg *compositor.Config) { cfg.Tearing = true })
 	hint, err := tearingManager(t, s.c).GetTearingControl(s.w.Surface)
 	if err != nil {
 		t.Fatal(err)

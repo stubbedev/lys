@@ -11,7 +11,6 @@ import (
 	"github.com/stubbedev/lys/lib/edid"
 
 	"github.com/stubbedev/lys/wm/internal/backend"
-	"github.com/stubbedev/lys/wm/internal/gpu"
 	"github.com/stubbedev/lys/wm/internal/loop"
 	cw "github.com/stubbedev/lys/wm/internal/protocol/client/wayland"
 	xdg "github.com/stubbedev/lys/wm/internal/protocol/client/xdgshell"
@@ -64,13 +63,11 @@ type Renderer uint8
 
 const (
 	Soft Renderer = iota + 1
-	GLES
 	Vulkan
 )
 
 type Options struct {
 	Renderer Renderer
-	GPU      gpu.Paths
 }
 
 func New(l *loop.Loop, socket string, opts Options) (_ *Backend, err error) {
@@ -138,12 +135,8 @@ func New(l *loop.Loop, socket string, opts Options) (_ *Backend, err error) {
 	switch opts.Renderer {
 	case Soft:
 		b.chain = &shmChain{shm: b.shm, soft: soft.New()}
-	case GLES, Vulkan:
-		open := openStack(openVulkan)
-		if opts.Renderer == GLES {
-			open = openGLES(opts.GPU)
-		}
-		c, err := newDMABUFChain(host, globals, reg, open)
+	case Vulkan:
+		c, err := newDMABUFChain(host, globals, reg)
 		if err != nil {
 			return nil, err
 		}

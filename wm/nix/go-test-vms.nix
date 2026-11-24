@@ -113,8 +113,8 @@ in
           gpu_tests(
               "harness",
               "harness",
-              "TestGlass|TestTheRim|TestMica|TestAHiddenBlur|TestABlurBehindAnOpaque|TestAClosingWindowKeeps|TestABlurRegion|TestPopupsBlurByTheirRegion|TestAPopupsFirstFrame|TestDecorationBlurReachesPopups|Nested(LysWMRendersWithVulkan|GLESNames|GPURenderers)|FrameCost|OnTheGPURenderers|TestADMABUFDestroyed|TestFullscreenDMABUFs|TestAnHDROutputScansOutOnlyWhatMatchesItsSignal|TestAFullscreenDMABUF|TestAnARGBDMABUF|TestATenBit|TestDestroyingAReplaced|TestAFullscreenSurface|TestATranslucentFullscreen|TestARoundedWindow|TestImageCopyCaptureIntoDMABUFs|TestACaptureIntoADMABUF|TestAFrameDestroyedWhile|TestScaledClientCursors|TestTenBitShm|TheVulkanRenderer|TestIntegerScale|TestAScreenShader|TestTheExampleShaders|TestTheLockScreenAndScreencopy|TestAGenie|TestScanoutStopsOnly|TestAWindowWhoseBufferIsGone|TestTheFirstFrameOverAnInheritedOneFadesFromIt",
-              "OnHardware|TestScreencopyIntoDMABUFs|TestACaptureIntoADMABUF|TestNestedFrameCost/gles|TestAnARGBDMABUF|TestATenBitDMABUF",
+              "TestGlass|TestTheRim|TestMica|TestAHiddenBlur|TestABlurBehindAnOpaque|TestAClosingWindowKeeps|TestABlurRegion|TestPopupsBlurByTheirRegion|TestAPopupsFirstFrame|TestDecorationBlurReachesPopups|Nested(LysWMRendersWithVulkan|VulkanNames)|FrameCost|OnTheGPURenderers|TestADMABUFDestroyed|TestFullscreenDMABUFs|TestAnHDROutputScansOutOnlyWhatMatchesItsSignal|TestAFullscreenDMABUF|TestAnARGBDMABUF|TestATenBit|TestDestroyingAReplaced|TestAFullscreenSurface|TestATranslucentFullscreen|TestARoundedWindow|TestImageCopyCaptureIntoDMABUFs|TestACaptureIntoADMABUF|TestAFrameDestroyedWhile|TestScaledClientCursors|TestTenBitShm|TheVulkanRenderer|TestIntegerScale|TestAScreenShader|TestTheExampleShaders|TestTheLockScreenAndScreencopy|TestAGenie|TestScanoutStopsOnly|TestAWindowWhoseBufferIsGone|TestTheFirstFrameOverAnInheritedOneFadesFromIt",
+              "OnHardware|TestScreencopyIntoDMABUFs|TestACaptureIntoADMABUF|TestAnARGBDMABUF|TestATenBitDMABUF",
           )
 
       with subtest("seat"):

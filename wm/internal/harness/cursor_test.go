@@ -311,7 +311,7 @@ func TestScaledClientCursorsReachThePlaneWithoutASynchronousReadback(t *testing.
 	for _, stack := range []struct {
 		name  string
 		start func(*testing.T, image.Point, func(*compositor.Config), ...backend.Mode) *Harness
-	}{{"gles", StartGLESWithCursorPlanes}, {"vulkan", StartVulkanWithCursorPlanes}} {
+	}{{"vulkan", StartVulkanWithCursorPlanes}} {
 		t.Run(stack.name, func(t *testing.T) {
 			scaledCursorOnThePlane(t, stack.start(t, plane, func(*compositor.Config) {}, small))
 		})

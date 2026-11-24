@@ -1,14 +1,12 @@
 package compositor
 
 import (
-	"errors"
 	"image"
 	"testing"
 
 	gtext "github.com/stubbedev/lys/lib/render"
 
 	"github.com/stubbedev/lys/wm/internal/render"
-	"github.com/stubbedev/lys/wm/internal/render/gles"
 	"github.com/stubbedev/lys/wm/internal/render/soft"
 	"github.com/stubbedev/lys/wm/internal/testenv"
 )
@@ -20,17 +18,6 @@ func benchRenderer(b *testing.B, name string, run func(b *testing.B, r render.Re
 		switch name {
 		case "soft":
 			run(b, soft.New())
-		case "gles":
-			d, err := testenv.GPU(b).Surfaceless()
-			if err != nil {
-				b.Fatal(err)
-			}
-			r, err := gles.New(d)
-			if err != nil {
-				b.Fatal(err)
-			}
-			defer func() { _ = errors.Join(r.Close(), d.Close()) }()
-			run(b, r)
 		case "vulkan":
 			run(b, testenv.Vulkan(b))
 		}
@@ -54,7 +41,7 @@ func benchBackdrop(b *testing.B, r render.Renderer, size image.Point) render.Tex
 }
 
 func BenchmarkBlurChainRedraw(b *testing.B) {
-	for _, name := range []string{"soft", "gles", "vulkan"} {
+	for _, name := range []string{"soft", "vulkan"} {
 		benchRenderer(b, name, func(b *testing.B, r render.Renderer) {
 			area := image.Rect(0, 0, 1000, 600)
 			tex := benchBackdrop(b, r, area.Size())
@@ -79,7 +66,7 @@ func BenchmarkBlurChainRedraw(b *testing.B) {
 func BenchmarkGlassComposite(b *testing.B) {
 	full := render.Glass{Saturation: 1.5, Brightness: 1.05, Contrast: 1.1, Bezel: 16, Amount: 8}
 	colour := render.Glass{Saturation: 1.5, Brightness: 1.05, Contrast: 1.1}
-	for _, name := range []string{"soft", "gles", "vulkan"} {
+	for _, name := range []string{"soft", "vulkan"} {
 		benchRenderer(b, name, func(b *testing.B, r render.Renderer) {
 			size := image.Pt(1000, 600)
 			tex := benchBackdrop(b, r, size)

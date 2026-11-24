@@ -7,13 +7,11 @@ import (
 	"slices"
 
 	"github.com/stubbedev/lys/lib/fourcc"
-	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/wm/internal/gpu"
 	ld "github.com/stubbedev/lys/wm/internal/protocol/client/linuxdmabuf"
 	cw "github.com/stubbedev/lys/wm/internal/protocol/client/wayland"
 	"github.com/stubbedev/lys/wm/internal/render"
-	"github.com/stubbedev/lys/wm/internal/render/gles"
 	"github.com/stubbedev/lys/wm/internal/render/vulkan"
 	"github.com/stubbedev/lys/wm/internal/wire"
 	"github.com/stubbedev/lys/wm/internal/wlclient"
@@ -35,23 +33,9 @@ type sharedBuffer struct {
 	free    func() error
 }
 
-type gpuRenderer interface {
-	render.Renderer
-	Finish() error
-}
-
-type dmabufStack interface {
-	renderer() gpuRenderer
-	modifiers(host feedback.Feedback) ([]fourcc.Modifier, error)
-	allocate(size image.Point, modifiers []fourcc.Modifier) (sharedBuffer, error)
-	close() error
-}
-
-type openStack func(main uint64) (dmabufStack, error)
-
 type dmabufChain struct {
 	linux     *ld.ZwpLinuxDmabufV1
-	stack     dmabufStack
+	stack     *vulkanStack
 	modifiers []fourcc.Modifier
 }
 
@@ -81,12 +65,12 @@ func hostFormats(host *wlclient.Display, globals registry, reg *cw.WlRegistry) (
 	return linux, feedback.Feedback{Tranches: []feedback.Tranche{{Formats: events.formats}}}, nil
 }
 
-func newDMABUFChain(host *wlclient.Display, globals registry, reg *cw.WlRegistry, open openStack) (*dmabufChain, error) {
+func newDMABUFChain(host *wlclient.Display, globals registry, reg *cw.WlRegistry) (*dmabufChain, error) {
 	linux, fb, err := hostFormats(host, globals, reg)
 	if err != nil {
 		return nil, err
 	}
-	stack, err := open(fb.Main)
+	stack, err := openVulkan(fb.Main)
 	if err != nil {
 		return nil, errors.Join(err, linux.Destroy())
 	}
@@ -102,64 +86,6 @@ func hostImports(host feedback.Feedback, rendered []fourcc.Modifier) []fourcc.Mo
 	return slices.DeleteFunc(slices.Clone(rendered), func(m fourcc.Modifier) bool {
 		return !host.Imports(gpu.FormatModifier{Format: dmabufFormat, Modifier: m})
 	})
-}
-
-type glesStack struct {
-	fd    int
-	stack *gles.Stack
-}
-
-func openGLES(paths gpu.Paths) openStack {
-	return func(main uint64) (dmabufStack, error) {
-		if main == 0 {
-			return nil, fmt.Errorf("nested: the GLES renderer needs the device the host names through %s version %d", dmabufHostName, dmabufVersion)
-		}
-		node, err := feedback.RenderNode(main)
-		if err != nil {
-			return nil, fmt.Errorf("nested: the host's renderer: %w", err)
-		}
-		fd, err := unix.Open(node, unix.O_RDWR|unix.O_CLOEXEC, 0)
-		if err != nil {
-			return nil, fmt.Errorf("nested: open %s: %w", node, err)
-		}
-		stack, err := gles.OnGBM(fd, paths)
-		if err != nil {
-			return nil, errors.Join(fmt.Errorf("nested: GLES on %s: %w", node, err), unix.Close(fd))
-		}
-		return &glesStack{fd: fd, stack: stack}, nil
-	}
-}
-
-func (s *glesStack) renderer() gpuRenderer {
-	return s.stack.Renderer
-}
-
-func (s *glesStack) modifiers(host feedback.Feedback) ([]fourcc.Modifier, error) {
-	rendered, err := s.stack.Renderer.RenderableModifiers(dmabufFormat)
-	if err != nil {
-		return nil, err
-	}
-	shared := hostImports(host, rendered)
-	if len(shared) == 0 && !host.Imports(gpu.FormatModifier{Format: dmabufFormat, Modifier: fourcc.Invalid}) {
-		return nil, fmt.Errorf("nested: the host and %s share no %v modifier", s.stack.GBM.Backend(), dmabufFormat)
-	}
-	return shared, nil
-}
-
-func (s *glesStack) allocate(size image.Point, modifiers []fourcc.Modifier) (sharedBuffer, error) {
-	bo, err := s.stack.GBM.Allocate(size, dmabufFormat, modifiers, gpu.UseRendering)
-	if err != nil {
-		return sharedBuffer{}, err
-	}
-	target, err := s.stack.Renderer.ImportFramebuffer(bo.DMABUF)
-	if err != nil {
-		return sharedBuffer{}, errors.Join(err, bo.Close())
-	}
-	return sharedBuffer{target: target, dmabuf: bo.DMABUF, free: func() error { return errors.Join(target.Destroy(), bo.Close()) }}, nil
-}
-
-func (s *glesStack) close() error {
-	return errors.Join(s.stack.Close(), unix.Close(s.fd))
 }
 
 // hostLayout is how a buffer reaches a host that imports no modifier the
@@ -195,7 +121,7 @@ type vulkanStack struct {
 	layout hostLayout
 }
 
-func openVulkan(main uint64) (dmabufStack, error) {
+func openVulkan(main uint64) (*vulkanStack, error) {
 	var (
 		r   *vulkan.Renderer
 		err error
@@ -209,10 +135,6 @@ func openVulkan(main uint64) (dmabufStack, error) {
 		return nil, fmt.Errorf("nested: %w", err)
 	}
 	return &vulkanStack{r: r}, nil
-}
-
-func (s *vulkanStack) renderer() gpuRenderer {
-	return s.r
 }
 
 func (s *vulkanStack) modifiers(host feedback.Feedback) ([]fourcc.Modifier, error) {
@@ -268,11 +190,11 @@ func (s *vulkanStack) close() error {
 }
 
 func (c *dmabufChain) renderer() render.Renderer {
-	return c.stack.renderer()
+	return c.stack.r
 }
 
 func (c *dmabufChain) finish() error {
-	return c.stack.renderer().Finish()
+	return c.stack.r.Finish()
 }
 
 func (c *dmabufChain) allocate(o *Output, size image.Point) ([]*buffer, func() error, error) {

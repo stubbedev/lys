@@ -43,7 +43,7 @@ func movePointerTo(h *Harness, x, y float64) {
 }
 
 func TestAnHDROutputMovesItsCursorOnThePlane(t *testing.T) {
-	h := StartGLESWithCursorPlanes(t, image.Pt(64, 64), hdrRule, small)
+	h := StartVulkanWithCursorPlanes(t, image.Pt(64, 64), hdrRule, small)
 	c := testclient.Connect(t, h.Socket())
 	w := c.Window("still", testclient.Fill(0x40, 0x40, 0x40))
 	c.DispatchUntil("the window to map", w.Mapped)
@@ -78,7 +78,7 @@ func TestAnHDROutputMovesItsCursorOnThePlane(t *testing.T) {
 
 func TestAnHDRFullscreenBufferKeepsScanningOutUnderAMovingCursor(t *testing.T) {
 	t.Parallel()
-	h := StartGLESWithCursorPlanes(t, image.Pt(64, 64), hdrRule, small)
+	h := StartVulkanWithCursorPlanes(t, image.Pt(64, 64), hdrRule, small)
 	h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
 		b.Outputs()[0].AllowScanout(primaryPlane)
 		return nil

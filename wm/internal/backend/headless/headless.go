@@ -21,7 +21,6 @@ import (
 	"github.com/stubbedev/lys/wm/internal/gpu"
 	"github.com/stubbedev/lys/wm/internal/loop"
 	"github.com/stubbedev/lys/wm/internal/render"
-	"github.com/stubbedev/lys/wm/internal/render/gles"
 	"github.com/stubbedev/lys/wm/internal/render/soft"
 	"github.com/stubbedev/lys/wm/internal/render/vulkan"
 	"github.com/stubbedev/lys/wm/internal/wm"
@@ -82,24 +81,6 @@ func New(l *loop.Loop) *Backend {
 	b.touch = &Touch{device{b, "headless-touch", backend.Touch}}
 	b.switches = &Switches{device{b, "headless-switches", 0}}
 	return b
-}
-
-func NewGLES(l *loop.Loop, paths gpu.Paths) (*Backend, error) {
-	lib, err := gpu.Load(paths)
-	if err != nil {
-		return nil, err
-	}
-	d, err := lib.Surfaceless()
-	if err != nil {
-		return nil, fmt.Errorf("headless: %w", err)
-	}
-	r, err := gles.New(d)
-	if err != nil {
-		return nil, errors.Join(err, d.Close())
-	}
-	b := New(l)
-	b.renderer, b.closeGPU = r, func() error { return errors.Join(r.Close(), d.Close()) }
-	return b, nil
 }
 
 func NewVulkan(l *loop.Loop) (*Backend, error) {

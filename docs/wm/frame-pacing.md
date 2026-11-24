@@ -18,7 +18,7 @@ then pacing, and stops if the tests fail.
 | Flag | Default | Effect |
 | --- | --- | --- |
 | `-backend` | `headless` | `headless` (simulated 60 Hz clock on a real GPU) or `drm` (takes the display; refuses to run with `WAYLAND_DISPLAY`, `DISPLAY` or a graphical `XDG_SESSION_TYPE`) |
-| `-renderer` | `vulkan` | `gles` or `vulkan` |
+| `-renderer` | `vulkan` | `vulkan` or `soft` on `headless`, `vulkan` or `gles` on `drm` |
 | `-compositor` | next to `lys-wm-pace`, else `PATH` | The lys-wm binary |
 | `-rounds` | `10` | Plays per animation |
 | `-scenarios` | all | Comma-separated scenario names |
@@ -74,8 +74,8 @@ frame at rest (`-` if not reached in the step).
 
 Timing depends on the machine, so it is reported and never gated. `-gate`
 checks counts per frame or per play against `cmd/lys-wm-pace/baseline.json`,
-which holds one set per renderer and device class: `gles/gpu`, `vulkan/gpu`,
-`gles/software`, `vulkan/software`. Every step and metric over its limit is
+which holds one set per renderer and device class: `vulkan/gpu` and
+`vulkan/software`. Every step and metric over its limit is
 reported in one run.
 
 | Limit | Counts | Catches |
@@ -96,8 +96,7 @@ reported in one run.
 | `file_io_per_frame` | Median read/write syscalls per frame on the loop thread (`/proc/thread-self/io`; ioctls and socket calls are not counted) | File I/O every frame |
 | RSS growth (1024 KiB, fixed) | Smallest per-round rise in resident size after 2 warm-up rounds; needs at least 5 rounds. The compositor runs with glibc's `mmap_threshold` pinned at its 128 KiB default, so a software rasteriser's freed images go back to the system instead of growing malloc's heap for the first rounds | A leak that repeats with the animation |
 
-`just pace-gate gles` and `just pace-gate vulkan` run the gate on the dev
-shell's software rasterisers, as CI does; `just docker hardware` runs it on the
+`just pace-gate` runs the gate on the dev shell's lavapipe, as CI does; `just docker hardware` runs it on the
 GPU.
 A change that is meant to cost more updates the limits and commits them:
 `just pace-baseline-software` writes the software sets,

@@ -21,10 +21,13 @@ import (
 )
 
 func TestOptionsAreCheckedAtTheBoundary(t *testing.T) {
-	for _, args := range [][]string{{"-backend", "nested"}, {"-renderer", "metal"}, {"-rounds", "0"}, {"-scenarios", "nope"}} {
+	for _, args := range [][]string{{"-backend", "nested"}, {"-renderer", "metal"}, {"-renderer", "gles"}, {"-backend", "drm", "-renderer", "soft"}, {"-rounds", "0"}, {"-scenarios", "nope"}} {
 		if _, err := parseOptions(args, io.Discard); err == nil {
 			t.Errorf("%v was accepted", args)
 		}
+	}
+	if _, err := parseOptions([]string{"-backend", "drm", "-renderer", "gles"}, io.Discard); err != nil {
+		t.Errorf("gles on the drm backend: %v", err)
 	}
 	o, err := parseOptions([]string{"-scenarios", "move,genie"}, io.Discard)
 	if err != nil {
@@ -226,14 +229,14 @@ func TestALimitNeedsRoundsForGrowthToRepeat(t *testing.T) {
 }
 
 func costReport(step string, cost frametrace.CostSummary, growth ...rssGrowth) *report {
-	return &report{Header: frametrace.Header{Renderer: "gles", Software: true}, Steps: []stepReport{{Name: step, Summary: frametrace.Summary{Cost: cost}}}, Growth: growth}
+	return &report{Header: frametrace.Header{Renderer: "vulkan", Software: true}, Steps: []stepReport{{Name: step, Summary: frametrace.Summary{Cost: cost}}}, Growth: growth}
 }
 
 func TestTheGateNamesEveryStepAndMetricOverItsLimit(t *testing.T) {
 	var fine frametrace.CostSummary
 	fine.Draws.Worst = 10
-	b := baseline{"gles/software": derive(costReport("move", fine, rssGrowth{Scenario: "move", KiB: 100}))}
-	b["gles/software"].Steps["genie"] = b["gles/software"].Steps["move"]
+	b := baseline{"vulkan/software": derive(costReport("move", fine, rssGrowth{Scenario: "move", KiB: 100}))}
+	b["vulkan/software"].Steps["genie"] = b["vulkan/software"].Steps["move"]
 	if err := checkBaseline(b, costReport("move", fine, rssGrowth{Scenario: "move", KiB: 100})); err != nil {
 		t.Fatalf("the run the limits came from: %v", err)
 	}
@@ -261,12 +264,12 @@ func TestAGPUIsNotHeldToTheSoftwareRenderersLimits(t *testing.T) {
 	gpu := costReport("overview-10-open", c)
 	gpu.RealGPU, gpu.Header.Software = true, false
 	var none frametrace.CostSummary
-	b := baseline{"gles/software": derive(costReport("overview-10-open", none))}
+	b := baseline{"vulkan/software": derive(costReport("overview-10-open", none))}
 	err := checkBaseline(b, gpu)
-	if err == nil || !strings.Contains(err.Error(), "no limits for gles/gpu") {
+	if err == nil || !strings.Contains(err.Error(), "no limits for vulkan/gpu") {
 		t.Fatalf("a GPU against software limits: %v", err)
 	}
-	b["gles/gpu"] = derive(gpu)
+	b["vulkan/gpu"] = derive(gpu)
 	if err := checkBaseline(b, gpu); err != nil {
 		t.Fatalf("a GPU against its own limits: %v", err)
 	}
@@ -283,8 +286,8 @@ func TestDamageRectsAreLimitedByTheCapWhateverWasObserved(t *testing.T) {
 
 func TestAGPUWaitIsOverALimitOfNone(t *testing.T) {
 	var none frametrace.CostSummary
-	b := baseline{"gles/software": derive(costReport("resize-grow", none))}
-	if got := b["gles/software"].Steps["resize-grow"]["gpu_waits_per_frame"]; got != 0 {
+	b := baseline{"vulkan/software": derive(costReport("resize-grow", none))}
+	if got := b["vulkan/software"].Steps["resize-grow"]["gpu_waits_per_frame"]; got != 0 {
 		t.Fatalf("gpu wait limit %d from a run without any, want 0", got)
 	}
 	waited := none
@@ -295,7 +298,7 @@ func TestAGPUWaitIsOverALimitOfNone(t *testing.T) {
 }
 
 func TestEveryStepHasEveryLimitInEveryBaseline(t *testing.T) {
-	for _, key := range []string{"gles/software", "vulkan/software"} {
+	for _, key := range []string{"vulkan/software"} {
 		if _, ok := checkedInBaseline[key]; !ok {
 			t.Errorf("no baseline for %s", key)
 		}
@@ -336,8 +339,8 @@ func TestTheReportShowsSchedulerLatencyGCPausesAndTheNewCounts(t *testing.T) {
 func TestTiledGlassFiltersNothingAfterTheFirstFrameOfItsAnimation(t *testing.T) {
 	var settled frametrace.CostSummary
 	settled.Filters.Worst, settled.Passes.Worst, settled.Passes.AfterFirst = 4, 6, 1
-	b := baseline{"gles/software": derive(costReport("glass-tiles-slide-back", settled))}
-	l := b["gles/software"].Steps["glass-tiles-slide-back"]
+	b := baseline{"vulkan/software": derive(costReport("glass-tiles-slide-back", settled))}
+	l := b["vulkan/software"].Steps["glass-tiles-slide-back"]
 	if l["filter_passes_after_first_frame"] != 0 || l["render_passes_after_first_frame"] != 1 {
 		t.Fatalf("limits %v: want no filter and only the frame's own pass after the first frame", l)
 	}
@@ -357,8 +360,8 @@ func TestTiledGlassFiltersNothingAfterTheFirstFrameOfItsAnimation(t *testing.T) 
 func TestABusyBandUnderGlassIsHeldToThePixelsItsReachTouches(t *testing.T) {
 	var band frametrace.CostSummary
 	band.FilterPx.Worst, band.RepaintPx.Worst = 400_000, 300_000
-	b := baseline{"gles/software": derive(costReport("glass-over-busy", band))}
-	l := b["gles/software"].Steps["glass-over-busy"]
+	b := baseline{"vulkan/software": derive(costReport("glass-over-busy", band))}
+	l := b["vulkan/software"].Steps["glass-over-busy"]
 	if l["filter_pixels_per_frame"] != 500_000 || l["repaint_pixels_per_frame"] != 375_000 {
 		t.Fatalf("limits %v: want a quarter over what was measured", l)
 	}
@@ -375,8 +378,8 @@ func TestABusyBandUnderGlassIsHeldToThePixelsItsReachTouches(t *testing.T) {
 func TestASecondSubmitInAFrameIsOverTheLimitOfOne(t *testing.T) {
 	var one frametrace.CostSummary
 	one.Submits.Worst = 1
-	b := baseline{"gles/software": derive(costReport("glass-over-busy", one))}
-	if got := b["gles/software"].Steps["glass-over-busy"]["submits_per_frame"]; got != 1 {
+	b := baseline{"vulkan/software": derive(costReport("glass-over-busy", one))}
+	if got := b["vulkan/software"].Steps["glass-over-busy"]["submits_per_frame"]; got != 1 {
 		t.Fatalf("submit limit %d from a run of one a frame, want 1", got)
 	}
 	two := one
