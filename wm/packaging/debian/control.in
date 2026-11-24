@@ -22,8 +22,6 @@ Depends:
 Recommends:
  xwayland,
  xdg-desktop-portal,
- xdg-desktop-portal-wlr,
- xdg-desktop-portal-gtk,
  lys-shell,
  foot,
  libvulkan1,
@@ -34,5 +32,5 @@ Description: pure-Go tiling Wayland compositor for the lys desktop
  .
  It installs a lys-wm session for display managers, the
  lys-wm-session.target user unit the session starts, and the portal
- configuration that routes screen sharing and screenshots to lys-shell.
+ configuration that routes every portal to lys-shell.
  lys-wmctl queries and drives a running lys-wm over its IPC socket.

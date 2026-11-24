@@ -790,9 +790,11 @@ installs `share/xdg-desktop-portal/lys-wm-portals.conf`
 
 | Interface | Backends, in order |
 | --- | --- |
-| ScreenCast, Screenshot | lys-shell, then xdg-desktop-portal-wlr |
 | InputCapture | lys-shell's `lys-shell-lys-wm.portal`, over the `capture` IPC ([IPC](./ipc#input-capture)) |
-| everything else | lys-shell, then xdg-desktop-portal-gtk |
+| everything else | lys-shell |
+
+lys-shell implements every interface xdg-desktop-portal-wlr and
+xdg-desktop-portal-gtk offer, so neither is a fallback or a dependency.
 
 lys-wm reads `org.freedesktop.appearance accent-color` back from the portal
 (`cmd/lys-wm/accent.go`); a change posts a config reload.

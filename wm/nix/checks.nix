@@ -142,7 +142,10 @@
               programs.lys-wm.enable = true;
               services.greetd.enable = true;
               boot.loader.grub.enable = false;
-              fileSystems."/".device = "nodev";
+              fileSystems."/" = {
+                device = "nodev";
+                fsType = "tmpfs";
+              };
               system.stateVersion = "25.11";
             }
           ];
@@ -151,8 +154,10 @@
       in
         assert builtins.elem self'.packages.lys-wm machine.config.xdg.portal.configPackages;
         assert machine.config.programs.foot.enable;
-        assert machine.config.xdg.portal.wlr.enable;
-        assert builtins.elem pkgs.xdg-desktop-portal-gtk machine.config.xdg.portal.extraPortals;
+        assert builtins.all (a: a.assertion) machine.config.assertions;
+        assert !machine.config.xdg.portal.enable;
+        assert !machine.config.xdg.portal.wlr.enable;
+        assert !builtins.elem pkgs.xdg-desktop-portal-gtk machine.config.xdg.portal.extraPortals;
         assert builtins.elem "lys-wm" machine.config.services.displayManager.sessionData.sessionNames;
           pkgs.runCommand "lys-wm-module" {} ''
             grep -q "^Exec=${self'.packages.lys-wm}/bin/lys-wm --systemd$" ${sessions}/share/wayland-sessions/lys-wm.desktop

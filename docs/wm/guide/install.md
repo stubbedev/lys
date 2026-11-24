@@ -43,14 +43,12 @@ sudo apt install ./lys-wm_<version>_amd64.deb    # _arm64.deb on aarch64
 ```
 
 - Depends: `libegl1`, `libgles2`, `libgbm1`, `libinput10`, `xkb-data`.
-- Recommends: `xwayland`, `xdg-desktop-portal`, `xdg-desktop-portal-wlr`,
-  `xdg-desktop-portal-gtk`, `lys-shell`, `foot`, `libvulkan1`,
-  `mesa-vulkan-drivers`.
+- Recommends: `xwayland`, `xdg-desktop-portal`, `lys-shell`, `foot`,
+  `libvulkan1`, `mesa-vulkan-drivers`.
 
 `lys-shell` is not in the distribution archive; it is in the same
-[release](https://github.com/stubbedev/lys/releases/latest). Without it,
-`xdg-desktop-portal-wlr` serves screen sharing and screenshots and
-`xdg-desktop-portal-gtk` the other portals.
+[release](https://github.com/stubbedev/lys/releases/latest). It is the
+session's only portal backend: without it, no portal answers.
 
 ## Fedora
 
@@ -60,9 +58,8 @@ sudo dnf install ./lys-wm-<version>-1.fc<release>.x86_64.rpm    # .aarch64.rpm o
 
 - Requires: `libglvnd-egl`, `libglvnd-gles`, `mesa-libgbm`, `libinput`,
   `xkeyboard-config`.
-- Recommends: `xorg-x11-server-Xwayland`, `xdg-desktop-portal`,
-  `xdg-desktop-portal-wlr`, `xdg-desktop-portal-gtk`, `lys-shell`, `foot`,
-  `vulkan-loader`, `mesa-vulkan-drivers`.
+- Recommends: `xorg-x11-server-Xwayland`, `xdg-desktop-portal`, `lys-shell`,
+  `foot`, `vulkan-loader`, `mesa-vulkan-drivers`.
 
 The lys-shell and portal notes above apply.
 

@@ -1117,6 +1117,4 @@ locker, not lys-wm, sets logind's `LockedHint`.
 Display manager sessions should use `--systemd`; nested sessions should not.
 
 The package installs `lys-wm-portals.conf`, routing every portal to lys-shell's
-backend, falling back to xdg-desktop-portal-wlr for screen sharing and
-screenshots and xdg-desktop-portal-gtk for the rest. Portal backends are D-Bus
-activated, so they need `--systemd`.
+backend alone. Portal backends are D-Bus activated, so they need `--systemd`.

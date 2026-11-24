@@ -45,6 +45,11 @@
           ${pkgs.gnugrep}/bin/grep -m1 -F -- "$(${pkgs.coreutils}/bin/cat /tmp/share-pick)"
         '';
       in {
+        xdg.portal.wlr.enable = true;
+        xdg.portal.config.lys-wm = {
+          "org.freedesktop.impl.portal.ScreenCast" = "wlr";
+          "org.freedesktop.impl.portal.Screenshot" = "wlr";
+        };
         xdg.portal.wlr.settings.screencast = {
           chooser_type = "dmenu";
           chooser_cmd = "${chooser}";

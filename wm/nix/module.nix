@@ -49,14 +49,13 @@ in {
           }
         ];
         services.displayManager.sessionPackages = [cfg.package];
-        xdg.portal = {
-          enable = true;
-          configPackages = lib.mkDefault [cfg.package];
-        };
+        xdg.portal.configPackages = lib.mkDefault [cfg.package];
       }
       (import (modulesPath + "/programs/wayland/wayland-session.nix") {
         inherit lib pkgs;
         enableXWayland = false;
+        enableWlrPortal = false;
+        enableGtkPortal = false;
       })
     ]);
   };

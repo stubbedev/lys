@@ -18,8 +18,6 @@ Requires:       xkeyboard-config
 Requires:       mesa-libgbm
 Recommends:     xorg-x11-server-Xwayland
 Recommends:     xdg-desktop-portal
-Recommends:     xdg-desktop-portal-wlr
-Recommends:     xdg-desktop-portal-gtk
 Recommends:     lys-shell
 Recommends:     foot
 Recommends:     vulkan-loader
@@ -28,7 +26,7 @@ Recommends:     mesa-vulkan-drivers
 %description
 lys-wm is the lys desktop's compositor: a tiling Wayland compositor on DRM/KMS through logind and libinput, with Xwayland for X11 clients.
 
-It installs a lys-wm session for display managers, the lys-wm-session.target user unit the session starts, and the portal configuration that routes screen sharing and screenshots to lys-shell. lys-wmctl queries and drives a running lys-wm over its IPC socket.
+It installs a lys-wm session for display managers, the lys-wm-session.target user unit the session starts, and the portal configuration that routes every portal to lys-shell. lys-wmctl queries and drives a running lys-wm over its IPC socket.
 
 %prep
 %setup -q -n lys-wm-%{version}-%{_arch}-linux

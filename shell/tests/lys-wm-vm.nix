@@ -472,6 +472,12 @@ in
             print(f"{mode} consent dialog at", box)
             click(out["rect"]["x"] + box[2] - 60, out["rect"]["y"] + box[3] - 32)
 
+        portals = "/run/current-system/sw/share/xdg-desktop-portal/portals"
+        installed = sorted(machine.succeed(f"ls {portals}").split())
+        print("portal backends:", installed)
+        if "wlr.portal" in installed or "gtk.portal" in installed:
+            raise Exception(f"xdg-desktop-portal-wlr or -gtk is installed: {installed}")
+
         allow("screenshot", "shot.json", "09-screenshot-consent")
         wait("the screenshot answer", lambda: machine.execute("grep -q code /tmp/lys/shot.json")[0] == 0, tries=30)
         answer = json.loads(machine.succeed("cat /tmp/lys/shot.json"))
@@ -480,6 +486,24 @@ in
         if not uri.startswith("file://"):
             raise Exception(f"the screenshot portal answered {answer}")
         machine.succeed(f"test -s '{uri[len('file://'):]}'")
+
+        calm = calm_capture("before-share-picker")
+        machine.succeed(f"su - ${user} -c '{env} portal-client screencast > /tmp/lys/cast.json 2>&1 &'")
+
+        def picker_shown():
+            box = changed_box(calm, capture("share-picker", out))
+            return box is not None and box[2] - box[0] > 100
+
+        wait("the share picker", picker_shown, tries=30)
+        time.sleep(1)
+        shot("09b-share-picker")
+        machine.send_key("esc")
+        wait("the screencast answer", lambda: machine.execute("grep -q code /tmp/lys/cast.json")[0] == 0, tries=30)
+        answer = json.loads(machine.succeed("cat /tmp/lys/cast.json"))
+        print("portal screencast:", answer)
+        if answer["code"] != 1:
+            raise Exception(f"Esc in the share picker answered {answer}, want cancelled")
+        wait("the share picker to close", lambda: not picker_shown(), tries=30)
 
         allow("globalshortcuts", "shortcuts.json", "14-shortcut-editor")
         wait("the bound shortcut", lambda: machine.execute("grep -q bound /tmp/lys/shortcuts.json")[0] == 0, tries=30)
