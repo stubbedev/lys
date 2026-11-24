@@ -157,10 +157,11 @@ eval-jobs select *flags:
 # target `<component>:gates` runs only its Go gates and `<component>:race` only
 # its race suite, as CI's Go jobs pick them. On a system `gate-runners` in
 # ci/components.json names, only the gates it lists there run. A component with `shards` in
-# ci/components.json splits its test and race suites into one part per shard
-# and a last part for every other package; `wm/2` runs only the second part's
-# test and race suites, and the last part, `wm/4` for wm's three shards, runs
-# the rest of them and every other gate: `just gates wm/2:race wm:gates`.
+# ci/components.json splits its race suite and the gates `sharded-gates` names
+# into one part per shard and a last part for every other package; `wm/2` runs
+# only the second part's packages of those, and the last part, `wm/4` for wm's
+# three shards, runs the rest of them and every other gate:
+# `just gates wm/2:race wm:gates`.
 [script("bash")]
 gates *targets:
     set -euo pipefail
@@ -171,7 +172,8 @@ gates *targets:
     fi
     tasks=()
     compile=0
-    declare -A shard=() rest=() seen=()
+    declare -A shard=() rest=() seen=() splits=([race]=1)
+    while read -r gate; do splits[$gate]=1; done < <(jq -r '.["sharded-gates"][]' ci/components.json)
     for spec in "${targets[@]}"; do
         target=${spec%%:*}
         suite=${spec#"$target"}
@@ -211,7 +213,7 @@ gates *targets:
                 seen[$task]=1
                 tasks+=("$task")
                 if [[ "$kind" == gates ]]; then compile=1; fi
-                if [[ "$recipe" != test && "$recipe" != race ]] || [[ -z "$part" ]] || (( shards == 0 )); then continue; fi
+                if [[ ! -v splits[$recipe] ]] || [[ -z "$part" ]] || (( shards == 0 )); then continue; fi
                 if (( part <= shards )); then
                     shard[$task]=$(jq -r --arg c "$c" --argjson i "$((part - 1))" '.components[$c].shards[$i] | join(" ")' ci/components.json)
                 else
@@ -219,9 +221,10 @@ gates *targets:
                 fi
             done < <(jq -r --arg c "$c" --arg kind "$kind" --arg arch "{{ arch() }}" --argjson part "${part:-0}" '
                 .["gate-runners"][$arch] as $only
+                | .["sharded-gates"] as $split
                 | .components[$c] | (.shards // [] | length) as $n
                 | if $kind == "race" then (select(.race) | "race") else (.gates // [])[] | select(. as $g | $only == null or ($only | index($g))) end
-                | select($part == 0 or $part > $n or . == "test" or . == "race")
+                | select(. as $g | $part == 0 or $part > $n or $g == "race" or ($split | index($g)))
             ' ci/components.json)
         done
         if (( ${#tasks[@]} == count )); then
@@ -257,7 +260,10 @@ gates *targets:
             set -euo pipefail
             cd "$c"
             build=()
-            if [[ "$recipe" == race ]]; then export CGO_ENABLED=1; build=(-race); fi
+            case "$recipe" in
+                race) export CGO_ENABLED=1; build=(-race) ;;
+                test-lysdebug) build=(-tags lysdebug) ;;
+            esac
             go list "${build[@]}" ./... | sort > "${dir}/all"
             go list "${build[@]}" "${sharded[@]}" | sort > "${dir}/sharded"
         ) 2> "${dir}/list.log"; then

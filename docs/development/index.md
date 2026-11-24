@@ -96,9 +96,10 @@ Every CI job, and every local gate run, finishes in under ten minutes of wall
 clock; a job that grows past that is split or made cheaper, never given a longer
 timeout. Every job's `timeout-minutes` is 10.
 
-`ci/components.json` holds `components`, `gate-runners` and `go-jobs`. Per component it says
-which recipes of its justfile are its Go gates (`gates`), whether it has a race
-suite (`race`), how its test and race suites split into parts (`shards`), its
+`ci/components.json` holds `components`, `sharded-gates`, `gate-runners` and
+`go-jobs`. Per component it says which recipes of its justfile are its Go gates
+(`gates`), whether it has a race suite (`race`), how its race suite and the
+gates `sharded-gates` names split into parts (`shards`), its
 further jobs (each a `run` command on named runners, with `after-build` when it
 uses its component's build rather than only a dev shell), its NixOS VM checks
 (`vms`, a list of jobs, each a list of checks run in one job, with `free-disk`
@@ -215,18 +216,19 @@ first runners. The jobs on the builds:
      Go build cache, whatever subset runs.
    - **Shards**: a component one of whose suites would not fit a job lists
      `shards`, each a list of its package directories (`./cmd/lys-wm`,
-     `./internal/...`). Part *k* of its test gate or race suite tests only shard
-     *k*'s packages, and the last part, `wm/4` for wm's three shards, tests
-     every package of `go list ./...` no shard names (with the race suite's
-     build flags for race) and runs every other gate, so no test is dropped
-     when a package is added. The parts reach the recipe as
-     `$LYS_TEST_PACKAGES`, which the `test` and `race` recipes of a sharded
-     component test instead of `./...`. wm splits only its race suite
-     (`wm/3:race`, the harness, takes about eight minutes alone), ui only its
-     test gate (`ui/1`, the client and app tests, so the part with lint, vet,
-     no-fused and the lysdebug suite keeps a margin under ten minutes), and shell
-     both suites; `ci/affected`'s tests fail when a shard names a directory without
-     tests or a sharded recipe ignores `$LYS_TEST_PACKAGES`.
+     `./internal/...`). Part *k* of its race suite, and of each gate the
+     top-level `sharded-gates` names (`test` and `test-lysdebug`), tests only
+     shard *k*'s packages, and the last part, `wm/4` for wm's three shards,
+     tests every package of `go list ./...` no shard names (with the recipe's
+     build flags: `-race` for race, `-tags lysdebug` for test-lysdebug) and
+     runs every other gate, so no test is dropped when a package is added. The
+     parts reach the recipe as `$LYS_TEST_PACKAGES`, which the sharded recipes
+     of a component test instead of `./...`. wm splits only its race suite
+     (`wm/3:race`, the harness, takes about eight minutes alone), ui its test
+     and lysdebug suites (`ui/1`, the client and app tests, so the part with
+     lint, vet and no-fused keeps a margin under ten minutes), and shell its
+     test and race suites; `ci/affected`'s tests fail when a shard names a
+     directory without tests or a sharded recipe ignores `$LYS_TEST_PACKAGES`.
    - Each Go job restores the newest Go build cache it saved, by its job id,
      and saves it at the end whether it passed, failed or timed out, under a
      key of this run, so the next run starts from this run's compiled packages,

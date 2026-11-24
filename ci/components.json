@@ -138,6 +138,7 @@
       "vms": [["desktop-vms-session"], ["desktop-vms-screencast"], ["desktop-vms-system"]]
     }
   },
+  "sharded-gates": ["test", "test-lysdebug"],
   "gate-runners": {
     "aarch64": ["vet", "test", "build", "test-lysdebug", "atspi", "atspi-verify", "dist"]
   },

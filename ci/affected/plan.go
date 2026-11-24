@@ -28,8 +28,6 @@ const (
 	packageRunner = X86_64
 )
 
-const shardedGate = "test"
-
 type Suite string
 
 const (
@@ -65,9 +63,10 @@ type Target struct {
 }
 
 type Config struct {
-	Components  map[string]Component  `json:"components"`
-	GateRunners map[Runner][]string   `json:"gate-runners"`
-	GoJobs      map[Runner][][]Target `json:"go-jobs"`
+	Components   map[string]Component  `json:"components"`
+	GateRunners  map[Runner][]string   `json:"gate-runners"`
+	ShardedGates []string              `json:"sharded-gates"`
+	GoJobs       map[Runner][][]Target `json:"go-jobs"`
 }
 
 type Matrix struct {
@@ -221,7 +220,7 @@ func validate(cfg Config) error {
 		if c.FreeDisk && len(c.VMs) == 0 {
 			errs = append(errs, fmt.Errorf("%s frees disk for VM checks it does not have", name))
 		}
-		errs = append(errs, validateShards(name, c)...)
+		errs = append(errs, validateShards(name, c, cfg.ShardedGates)...)
 	}
 	errs = append(errs, validateGateRunners(cfg)...)
 	errs = append(errs, validateGoJobs(cfg)...)
@@ -259,13 +258,15 @@ func validateGateRunners(cfg Config) []error {
 	return errs
 }
 
-func validateShards(name string, c Component) []error {
+func validateShards(name string, c Component, shardedGates []string) []error {
 	if len(c.Shards) == 0 {
 		return nil
 	}
 	var errs []error
-	if !slices.Contains(c.Gates, shardedGate) && !c.Race {
-		errs = append(errs, fmt.Errorf("%s has shards but neither a %s gate nor a race suite to split", name, shardedGate))
+	if len(shardedGates) == 0 {
+		errs = append(errs, fmt.Errorf("%s has shards, but sharded-gates names no gate a shard splits", name))
+	} else if !slices.ContainsFunc(c.Gates, func(g string) bool { return slices.Contains(shardedGates, g) }) && !c.Race {
+		errs = append(errs, fmt.Errorf("%s has shards but neither a %s gate nor a race suite to split", name, strings.Join(shardedGates, " or ")))
 	}
 	seen := map[string]bool{}
 	for i, shard := range c.Shards {

@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"maps"
 	"os"
 	"path/filepath"
@@ -22,7 +23,8 @@ var testComponents = map[string]Component{
 }
 
 var testConfig = Config{
-	Components: testComponents,
+	Components:   testComponents,
+	ShardedGates: []string{"test"},
 	GoJobs: map[Runner][][]Target{
 		X86_64:  {{target("ui/3")}, {target("ui/1"), target("ui/2"), target("lib:race")}, {target("lib:gates")}},
 		AArch64: {{target("lib"), target("ui")}},
@@ -371,16 +373,17 @@ func TestValidateRefusesUnknownNames(t *testing.T) {
 		"shell": {Shards: [][]string{{"./bar", "./..."}, {}, {"bar", "./bar"}}, Race: true},
 		"lib":   {Shards: [][]string{{"./xkb"}}},
 	}
-	wantErrors(t, validate(Config{Components: bad}), []string{
+	wantErrors(t, validate(Config{Components: bad, ShardedGates: []string{"test", "test-lysdebug"}}), []string{
 		`"wn"`, `"riscv"`, "without a name", "wm / idle has no command", "wm / nowhere runs on no runner", `"login-vm", which is not wm's`,
 		"wm's VM job 2 runs no VM check", "ui frees disk for VM checks it does not have",
 		`shell shard 1 names "./...", which is no package directory`, "shell shard 2 names no packages",
-		`shell shard 3 names "bar", which is no package directory`, `shell names "./bar" in two shards`, "lib has shards but neither a test gate nor a race suite",
+		`shell shard 3 names "bar", which is no package directory`, `shell names "./bar" in two shards`, "lib has shards but neither a test or test-lysdebug gate nor a race suite",
 	})
 }
 
 func TestValidateRefusesGoJobsThatDoNotRunEverySuiteExactlyOnce(t *testing.T) {
 	cfg := Config{
+		ShardedGates: []string{"test"},
 		Components: map[string]Component{
 			"a": {Gates: []string{"test"}, Race: true, Shards: [][]string{{"./x"}}},
 			"b": {Gates: []string{"vet"}},
@@ -412,7 +415,8 @@ func TestValidateRefusesGoJobsThatDoNotRunEverySuiteExactlyOnce(t *testing.T) {
 
 func TestValidateAcceptsAComponentRunWholeOnOneSuiteAndInPartsOnAnother(t *testing.T) {
 	cfg := Config{
-		Components: map[string]Component{"a": {Gates: []string{"test"}, Race: true, Shards: [][]string{{"./x"}}}},
+		ShardedGates: []string{"test"},
+		Components:   map[string]Component{"a": {Gates: []string{"test"}, Race: true, Shards: [][]string{{"./x"}}}},
 		GoJobs: map[Runner][][]Target{
 			X86_64:  {{target("a:gates"), target("a/1:race")}, {target("a/2:race")}},
 			AArch64: {{target("a/1")}, {target("a/2")}},
@@ -420,6 +424,14 @@ func TestValidateAcceptsAComponentRunWholeOnOneSuiteAndInPartsOnAnother(t *testi
 	}
 	if err := validate(cfg); err != nil {
 		t.Fatalf("validate refused a well-formed split: %v", err)
+	}
+}
+
+func TestShardsNeedAGateListedToSplit(t *testing.T) {
+	cfg := Config{Components: map[string]Component{"a": {Gates: []string{"test"}, Shards: [][]string{{"./x"}}}}}
+	wantErrors(t, errors.Join(validateShards("a", cfg.Components["a"], nil)...), []string{"a has shards, but sharded-gates names no gate a shard splits"})
+	if errs := validateShards("a", cfg.Components["a"], []string{"vet", "test"}); len(errs) != 0 {
+		t.Errorf("a test gate split by a sharded-gates naming test was refused: %v", errs)
 	}
 }
 
@@ -557,8 +569,10 @@ func TestEveryShardedRecipeTestsTheShardsPackages(t *testing.T) {
 			t.Fatalf("%s has shards, but its justfile does not read: %v", name, err)
 		}
 		var sharded []string
-		if slices.Contains(c.Gates, shardedGate) {
-			sharded = append(sharded, shardedGate)
+		for _, g := range cfg.ShardedGates {
+			if slices.Contains(c.Gates, g) {
+				sharded = append(sharded, g)
+			}
 		}
 		if c.Race {
 			sharded = append(sharded, "race")
