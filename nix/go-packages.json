@@ -9,18 +9,22 @@
       "errors",
       "flag",
       "fmt",
+      "go/ast",
+      "go/parser",
+      "go/token",
       "io",
+      "io/fs",
       "maps",
       "os",
       "os/exec",
+      "path/filepath",
       "reflect",
+      "regexp",
       "slices",
       "strconv",
       "strings"
     ],
     "testExternal": [
-      "path/filepath",
-      "regexp",
       "testing"
     ]
   },
@@ -306,7 +310,8 @@
       "slices",
       "strconv",
       "strings",
-      "sync"
+      "sync",
+      "time"
     ],
     "testImports": [
       "desktop/i18n/i18ntest"
@@ -8602,6 +8607,7 @@
       "desktop/service/niri",
       "desktop/service/sway",
       "desktop/shlex",
+      "lib/intconv",
       "lib/third_party/gomath",
       "lib/wmipc",
       "shell/internal/gvariant",
@@ -8674,8 +8680,7 @@
       "shell/service/launcher",
       "shell/service/launcher/answer",
       "shell/service/launcher/charnames",
-      "shell/service/launcher/modes",
-      "shell/service/sysinfo"
+      "shell/service/launcher/modes"
     ],
     "external": [
       "bufio",
