@@ -239,13 +239,22 @@ func (c *Context) UserData() any {
 	return c.userData
 }
 
-func (c *Context) log(level LogLevel, verbosity, code int, format string, args ...any) {
+func (c *Context) logTarget(level LogLevel, verbosity int) (fn LogFunc, wanted bool) {
 	if c == nil {
-		return
+		return nil, false
 	}
 	c.mu.RLock()
-	fn, wanted := c.logFn, c.logLevel >= level && c.verbosity >= verbosity
-	c.mu.RUnlock()
+	defer c.mu.RUnlock()
+	return c.logFn, c.logLevel >= level && c.verbosity >= verbosity
+}
+
+func (c *Context) logs(level LogLevel, verbosity int) bool {
+	_, wanted := c.logTarget(level, verbosity)
+	return wanted
+}
+
+func (c *Context) log(level LogLevel, verbosity, code int, format string, args ...any) {
+	fn, wanted := c.logTarget(level, verbosity)
 	if !wanted {
 		return
 	}

@@ -1407,7 +1407,9 @@ func (p *parser) warnf(code int, format string, args ...any) {
 
 func (p *parser) warnKeysymName(name string, known bool) {
 	if !known {
-		p.warnf(warnUnrecognizedKeysym, "unrecognized keysym \"%s\"", name)
+		if p.ctx.logs(LogWarning, 0) {
+			p.warnf(warnUnrecognizedKeysym, "unrecognized keysym \"%s\"", name)
+		}
 		return
 	}
 	if p.ctx.LogVerbosity() < minVerbosityDeprecated {

@@ -109,3 +109,41 @@ func TestParsingMoreInterpretsCarvesTheirBodiesAndArgumentsFromChunks(t *testing
 		t.Errorf("each further interpret allocates %.3f times, want its body and action arguments carved from shared chunks", perInterpret)
 	}
 }
+
+func TestAnUnrecognizedKeysymCostsNothingUnlessItsWarningIsWanted(t *testing.T) {
+	keymap := func(n int) string {
+		var b strings.Builder
+		b.WriteString("xkb_keymap {\nxkb_symbols \"t\" {\n")
+		for i := range n {
+			fmt.Fprintf(&b, "key <K%d> { [ nosuchkeysym ] };\n", i)
+		}
+		b.WriteString("};\n};\n")
+		return b.String()
+	}
+	ctx := NewContext(func(string) string { return "" })
+	parse := func(text string) func() {
+		return func() {
+			pf, err := ctx.newSession(FormatTextV1).parseText("(input string)", text)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := pf.defaultMap(); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	ctx.SetLogLevel(LogCritical)
+	const few, many = 64, 1024
+	base := testing.AllocsPerRun(5, parse(keymap(few)))
+	more := testing.AllocsPerRun(5, parse(keymap(many)))
+	if perKey := (more - base) / (many - few); perKey > 0.1 {
+		t.Errorf("with warnings off, each further unrecognized keysym allocates %.3f times", perKey)
+	}
+	var warned []string
+	ctx.SetLogFunc(func(_ LogLevel, text string) { warned = append(warned, text) })
+	ctx.SetLogLevel(LogWarning)
+	parse(keymap(1))()
+	if len(warned) != 1 || !strings.Contains(warned[0], `unrecognized keysym "nosuchkeysym"`) {
+		t.Errorf("with warnings on, parsing logged %q, want the unrecognized keysym", warned)
+	}
+}
