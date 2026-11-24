@@ -378,3 +378,64 @@ func TestFrameImageOddWidthRow(t *testing.T) {
 		}
 	}
 }
+
+func referencePixel(f Format, px []byte) color.RGBA {
+	if f.BytesPerPixel() == 3 {
+		if f == FormatRGB888 {
+			return color.RGBA{px[2], px[1], px[0], 0xff}
+		}
+		return color.RGBA{px[0], px[1], px[2], 0xff}
+	}
+	v := uint32(px[0]) | uint32(px[1])<<8 | uint32(px[2])<<16 | uint32(px[3])<<24
+	var c color.RGBA
+	switch f {
+	case FormatARGB8888, FormatXRGB8888:
+		c = color.RGBA{uint8(v >> 16), uint8(v >> 8), uint8(v), uint8(v >> 24)}
+	case FormatABGR8888, FormatXBGR8888:
+		c = color.RGBA{uint8(v), uint8(v >> 8), uint8(v >> 16), uint8(v >> 24)}
+	case FormatARGB2101010, FormatXRGB2101010:
+		c = color.RGBA{uint8(v >> 22), uint8(v >> 12), uint8(v >> 2), uint8(v>>30) * 0x55}
+	case FormatABGR2101010, FormatXBGR2101010:
+		c = color.RGBA{uint8(v >> 2), uint8(v >> 12), uint8(v >> 22), uint8(v>>30) * 0x55}
+	}
+	if !f.hasAlpha() {
+		c.A = 0xff
+	}
+	return c
+}
+
+func TestFrameImageMatchesAPixelByPixelConversionAtEveryRowLength(t *testing.T) {
+	formats := []Format{
+		FormatARGB8888, FormatXRGB8888, FormatABGR8888, FormatXBGR8888,
+		FormatARGB2101010, FormatXRGB2101010, FormatABGR2101010, FormatXBGR2101010,
+		FormatRGB888, FormatBGR888,
+	}
+	for _, f := range formats {
+		bpp := f.BytesPerPixel()
+		for w := 1; w <= 9; w++ {
+			data := make([]byte, w*bpp)
+			for i := range data {
+				data[i] = byte(i*37 + w*11 + 5)
+			}
+			fr := Frame{Width: w, Height: 1, Stride: len(data), Format: f, Data: data}
+			wide := image.NewRGBA(image.Rect(0, 0, w+4, 1))
+			dst, ok := wide.SubImage(image.Rect(0, 0, w, 1)).(*image.RGBA)
+			if !ok {
+				t.Fatal("an RGBA sub-image is not an RGBA")
+			}
+			if err := fr.ImageInto(dst); err != nil {
+				t.Fatal(err)
+			}
+			for x := range w {
+				if got, want := wide.RGBAAt(x, 0), referencePixel(f, data[x*bpp:]); got != want {
+					t.Errorf("%s width %d pixel %d = %v, want %v", f, w, x, got, want)
+				}
+			}
+			for x := w; x < w+4; x++ {
+				if wide.RGBAAt(x, 0) != (color.RGBA{}) {
+					t.Errorf("%s width %d wrote pixel %d past the row", f, w, x)
+				}
+			}
+		}
+	}
+}

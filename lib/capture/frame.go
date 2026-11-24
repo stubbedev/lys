@@ -213,34 +213,39 @@ func convertRow32(dst, src []byte, f Format) {
 	if !f.hasAlpha() {
 		opaque = 0xff << 24
 	}
+	n := min(len(src), len(dst)) &^ 3
+	src, dst = src[:n], dst[:n]
 	switch f {
 	case FormatABGR8888:
 		copy(dst, src)
 	case FormatXBGR8888:
-		for len(src) >= 4 && len(dst) >= 4 {
-			binary.LittleEndian.PutUint32(dst, binary.LittleEndian.Uint32(src)|opaque)
-			dst, src = dst[4:], src[4:]
+		for i := 0; i < n; i += 4 {
+			binary.LittleEndian.PutUint32(dst[i:i+4], binary.LittleEndian.Uint32(src[i:i+4])|opaque)
 		}
 	case FormatARGB8888, FormatXRGB8888:
 		opaque2 := uint64(opaque)<<32 | uint64(opaque)
-		for len(src) >= 8 && len(dst) >= 8 {
-			binary.LittleEndian.PutUint64(dst, swapRB(binary.LittleEndian.Uint64(src))|opaque2)
-			dst, src = dst[8:], src[8:]
+		i := 0
+		for ; i+16 <= n; i += 16 {
+			s, d := src[i:i+16], dst[i:i+16]
+			binary.LittleEndian.PutUint64(d[:8], swapRB(binary.LittleEndian.Uint64(s[:8]))|opaque2)
+			binary.LittleEndian.PutUint64(d[8:], swapRB(binary.LittleEndian.Uint64(s[8:]))|opaque2)
 		}
-		if len(src) >= 4 && len(dst) >= 4 {
-			binary.LittleEndian.PutUint32(dst, intconv.Must[uint32](swapRB(uint64(binary.LittleEndian.Uint32(src))))|opaque)
+		if i+8 <= n {
+			binary.LittleEndian.PutUint64(dst[i:i+8], swapRB(binary.LittleEndian.Uint64(src[i:i+8]))|opaque2)
+			i += 8
+		}
+		if i < n {
+			binary.LittleEndian.PutUint32(dst[i:n], intconv.Must[uint32](swapRB(uint64(binary.LittleEndian.Uint32(src[i:n]))))|opaque)
 		}
 	case FormatARGB2101010, FormatXRGB2101010:
-		for len(src) >= 4 && len(dst) >= 4 {
-			px := binary.LittleEndian.Uint32(src)
-			binary.LittleEndian.PutUint32(dst, rgba(ten(px>>20), ten(px>>10), ten(px), two(px>>30))|opaque)
-			dst, src = dst[4:], src[4:]
+		for i := 0; i < n; i += 4 {
+			px := binary.LittleEndian.Uint32(src[i : i+4])
+			binary.LittleEndian.PutUint32(dst[i:i+4], rgba(ten(px>>20), ten(px>>10), ten(px), two(px>>30))|opaque)
 		}
 	case FormatABGR2101010, FormatXBGR2101010:
-		for len(src) >= 4 && len(dst) >= 4 {
-			px := binary.LittleEndian.Uint32(src)
-			binary.LittleEndian.PutUint32(dst, rgba(ten(px), ten(px>>10), ten(px>>20), two(px>>30))|opaque)
-			dst, src = dst[4:], src[4:]
+		for i := 0; i < n; i += 4 {
+			px := binary.LittleEndian.Uint32(src[i : i+4])
+			binary.LittleEndian.PutUint32(dst[i:i+4], rgba(ten(px), ten(px>>10), ten(px>>20), two(px>>30))|opaque)
 		}
 	}
 }
@@ -258,15 +263,30 @@ func rgba(r, g, b, a uint8) uint32 {
 // opaque RGBA bytes: RGB888 ([23:0] R:G:B) sits in memory as B, G, R;
 // BGR888 as R, G, B.
 func convertRow24(dst, src []byte, f Format) {
-	for i, j := 0, 0; i+2 < len(src); i, j = i+3, j+4 {
-		if f == FormatRGB888 {
-			dst[j], dst[j+1], dst[j+2] = src[i+2], src[i+1], src[i]
-		} else {
-			dst[j], dst[j+1], dst[j+2] = src[i], src[i+1], src[i+2]
+	swap := f == FormatRGB888
+	for len(src) >= 12 && len(dst) >= 16 {
+		w0, w1, w2 := binary.LittleEndian.Uint32(src), binary.LittleEndian.Uint32(src[4:]), binary.LittleEndian.Uint32(src[8:])
+		lo := uint64(w0&0xffffff) | uint64(w0>>24|w1<<8&0xffff00)<<32
+		hi := uint64(w1>>16|w2<<16&0xff0000) | uint64(w2>>8)<<32
+		if swap {
+			lo, hi = swapRB(lo), swapRB(hi)
 		}
-		dst[j+3] = 0xff
+		binary.LittleEndian.PutUint64(dst, lo|opaquePair)
+		binary.LittleEndian.PutUint64(dst[8:], hi|opaquePair)
+		src, dst = src[12:], dst[16:]
+	}
+	for len(src) >= 3 && len(dst) >= 4 {
+		if swap {
+			dst[0], dst[1], dst[2] = src[2], src[1], src[0]
+		} else {
+			dst[0], dst[1], dst[2] = src[0], src[1], src[2]
+		}
+		dst[3] = 0xff
+		src, dst = src[3:], dst[4:]
 	}
 }
+
+const opaquePair = 0xff000000_ff000000
 
 // ten narrows a 10-bit channel (the low bits of v) to 8 bits.
 func ten(v uint32) uint8 { return uint8((v & 0x3ff) >> 2) }
