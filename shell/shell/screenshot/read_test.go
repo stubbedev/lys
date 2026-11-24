@@ -356,3 +356,26 @@ func TestTesseractReadsAFixtureLine(t *testing.T) {
 		t.Fatalf("tesseract read %q, %v", got, err)
 	}
 }
+
+func TestQRLuminanceMatchesGozxingsOwnForTranslucentPixelsInASubImage(t *testing.T) {
+	big := image.NewRGBA(image.Rect(0, 0, 40, 30))
+	for i := range big.Pix {
+		big.Pix[i] = byte(i*131 + i/7)
+	}
+	for i := 3; i < len(big.Pix); i += 4 {
+		big.Pix[i] = max(big.Pix[i], big.Pix[i-1], big.Pix[i-2], big.Pix[i-3])
+	}
+	sub, ok := big.SubImage(image.Rect(5, 4, 33, 21)).(*image.RGBA)
+	if !ok {
+		t.Fatal("an RGBA sub-image is not an RGBA")
+	}
+	want := gozxing.NewLuminanceSourceFromImage(sub).GetMatrix()
+	got := luminance(sub)
+	if !slices.Equal(got, want) {
+		t.Fatalf("luminance differs from gozxing's: %d bytes, want %d", len(got), len(want))
+	}
+	whole := gozxing.NewLuminanceSourceFromImage(big).GetMatrix()
+	if slices.Equal(got, whole[:len(got)]) {
+		t.Fatal("the sub-image's luminance is the whole image's, not its own")
+	}
+}

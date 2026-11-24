@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/url"
 	"os/exec"
+	"slices"
 	"strings"
 	"time"
 
@@ -115,7 +116,7 @@ func (h *Host) readText(c portaldialogs.Caller, img *image.RGBA, langs []string)
 	return text, nil
 }
 
-func (h *Host) readCode(img image.Image) (string, error) {
+func (h *Host) readCode(img *image.RGBA) (string, error) {
 	payload, err := DecodeQR(img)
 	if err != nil {
 		return "", err
@@ -151,8 +152,13 @@ func IsURL(s string) bool {
 }
 
 // DecodeQR is the payload of the QR code in img, ErrNoCode when it holds none.
-func DecodeQR(img image.Image) (string, error) {
-	bmp, err := gozxing.NewBinaryBitmapFromImage(img)
+func DecodeQR(img *image.RGBA) (string, error) {
+	w, h := img.Rect.Dx(), img.Rect.Dy()
+	src, err := gozxing.NewPlanarYUVLuminanceSource(luminance(img), w, h, 0, 0, w, h, false)
+	if err != nil {
+		return "", fmt.Errorf("cannot read the region for a QR code: %w", err)
+	}
+	bmp, err := gozxing.NewBinaryBitmap(gozxing.NewHybridBinarizer(src))
 	if err != nil {
 		return "", fmt.Errorf("cannot read the region for a QR code: %w", err)
 	}
@@ -164,6 +170,20 @@ func DecodeQR(img image.Image) (string, error) {
 		return "", fmt.Errorf("cannot decode the QR code: %w", err)
 	}
 	return res.GetText(), nil
+}
+
+func luminance(img *image.RGBA) []byte {
+	w, h := img.Rect.Dx(), img.Rect.Dy()
+	out := make([]byte, 0, w*h)
+	for y := range h {
+		at := img.PixOffset(img.Rect.Min.X, img.Rect.Min.Y+y)
+		for px := range slices.Chunk(img.Pix[at:at+w*4], 4) {
+			r, g, b, a := uint32(px[0])*0x101, uint32(px[1])*0x101, uint32(px[2])*0x101, uint32(px[3])*0x101
+			lum := (r + 2*g + b) * 255 / (4 * 0xffff)
+			out = append(out, byte((lum*a+(0xffff-a)*255)/0xffff)) //nolint:gosec // a blend of two values at most 255
+		}
+	}
+	return out
 }
 
 func recognize(ctx context.Context, img *image.RGBA, langs []string) (string, error) {
