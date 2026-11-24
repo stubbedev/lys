@@ -2279,6 +2279,7 @@
     "external": [
       "bufio",
       "bytes",
+      "encoding/xml",
       "errors",
       "fmt",
       "golang.org/x/sys/unix",
@@ -2295,6 +2296,9 @@
       "lib/fdtest",
       "lib/testbuild",
       "lib/testhome"
+    ],
+    "testExternal": [
+      "slices"
     ]
   },
   "lib/dbusx": {
@@ -5144,6 +5148,7 @@
     ],
     "testExternal": [
       "golang.org/x/sys/unix",
+      "os",
       "sync",
       "testing"
     ]
@@ -14901,6 +14906,47 @@
     ],
     "external": [
       "golang.org/x/sys/unix",
+      "testing"
+    ]
+  },
+  "wm/internal/scanner": {
+    "imports": [
+      "lib/protocols",
+      "lib/srcroot",
+      "wm/internal/wire"
+    ],
+    "external": [
+      "bytes",
+      "cmp",
+      "encoding/json",
+      "encoding/xml",
+      "errors",
+      "flag",
+      "fmt",
+      "go/format",
+      "go/token",
+      "go/types",
+      "io",
+      "maps",
+      "os",
+      "path",
+      "path/filepath",
+      "slices",
+      "strconv",
+      "strings"
+    ],
+    "testImports": [
+      "lib/testhome",
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/protocol/server/cursorshape",
+      "wm/internal/protocol/server/presentationtime",
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/protocol/server/wlrlayershell",
+      "wm/internal/protocol/server/xdgshell"
+    ],
+    "testExternal": [
+      "golang.org/x/sys/unix",
+      "runtime",
       "testing"
     ]
   },
