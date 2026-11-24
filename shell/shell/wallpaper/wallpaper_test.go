@@ -110,7 +110,7 @@ func TestTransitionOf(t *testing.T) {
 		config.AnimationNone: TransitionNone, config.AnimationFade: TransitionCrossfade,
 		config.AnimationSlideUp: TransitionSlideUp, config.AnimationSlideDown: TransitionSlideDown,
 		config.AnimationSlideRight: TransitionSlideRight, config.AnimationGenie: TransitionCrossfade,
-		config.AnimationSwingUp: TransitionCrossfade, config.AnimationFlip: TransitionCrossfade,
+		config.AnimationSwingUp: TransitionCrossfade, config.AnimationFlip: TransitionCrossfade, config.AnimationLift: TransitionCrossfade,
 	} {
 		if got := stackTransition(in); got != want {
 			t.Errorf("%s = %v, want %v", in, got, want)

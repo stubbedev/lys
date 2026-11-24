@@ -175,3 +175,38 @@ func TestAnimationDurationFieldsCarryTheirRange(t *testing.T) {
 		}
 	}
 }
+
+func TestTransientSurfacesLiftAwayByDefaultAndEnterAsBefore(t *testing.T) {
+	a := DefaultsAnimations()
+	for _, s := range []AnimSurface{AnimNotifications, AnimOsd, AnimDropdown, AnimSharePicker, AnimPower, AnimDialog, AnimFileChooser, AnimPrint, AnimLock, AnimLauncher, AnimMenu} {
+		if got := a.TransitionFor(s, true); got != AnimationLift {
+			t.Errorf("surface %d leaves by %v, want lift", s, got)
+		}
+		if got := a.TransitionFor(s, false); got != AnimationFade {
+			t.Errorf("surface %d enters by %v, want fade", s, got)
+		}
+	}
+	slide := AnimationSlideDown
+	a.Osd.Exit = &slide
+	if got := a.TransitionFor(AnimOsd, true); got != AnimationSlideDown {
+		t.Errorf("an OSD exit set to slide-down leaves by %v", got)
+	}
+	a.ReducedMotion = true
+	if got := a.TransitionFor(AnimNotifications, true); got != AnimationFade {
+		t.Errorf("under reduced motion a lift leaves by %v, want fade", got)
+	}
+}
+
+func TestALiftExitParsesAndAnUnknownOneFails(t *testing.T) {
+	s := Load(t.TempDir(), func(Diagnostic) {})
+	if err := s.SetByPath("animations.notifications.exit", ParseCLIValue("lift")); err != nil {
+		t.Fatal(err)
+	}
+	if got := s.Config().Animations.Notifications.Exit; got == nil || *got != AnimationLift {
+		t.Errorf("notifications.exit = %v, want lift", got)
+	}
+	err := s.SetByPath("animations.notifications.exit", ParseCLIValue("lift-off"))
+	if err == nil || !strings.Contains(err.Error(), "unknown variant `lift-off`") {
+		t.Errorf("an unknown exit: %v", err)
+	}
+}

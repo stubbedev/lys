@@ -11,7 +11,7 @@ settings-animations-enter = Einblendübergang
     .description = Übergang beim Erscheinen von Oberflächen. Ohne Wert wird Übergang verwendet
 
 settings-animations-exit = Ausblendübergang
-    .description = Übergang beim Verschwinden von Oberflächen. Ohne Wert wird Übergang verwendet
+    .description = Übergang beim Verschwinden von Oberflächen. Ohne Wert Abheben
 
 settings-animations-enter-duration = Einblenddauer
     .description = Dauer der Einblendanimation in Millisekunden. Ohne Wert wird Dauer verwendet
@@ -80,3 +80,4 @@ enum-animation-type-genie = Flaschengeist
 enum-animation-type-zoom = Zoomen
 enum-animation-type-rotate = Drehen
 enum-animation-type-flip = Kippen
+enum-animation-type-lift = Abheben

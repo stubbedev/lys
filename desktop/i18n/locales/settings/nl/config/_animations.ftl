@@ -11,7 +11,7 @@ settings-animations-enter = Verschijnovergang
     .description = Overgang die wordt gebruikt wanneer oppervlakken verschijnen. Niet ingesteld valt terug op Overgang
 
 settings-animations-exit = Verdwijnovergang
-    .description = Overgang die wordt gebruikt wanneer oppervlakken verdwijnen. Niet ingesteld valt terug op Overgang
+    .description = Overgang die wordt gebruikt wanneer oppervlakken verdwijnen. Niet ingesteld: Optillen
 
 settings-animations-enter-duration = Verschijnduur
     .description = Duur van de verschijnanimatie in milliseconden. Niet ingesteld valt terug op Duur
@@ -79,3 +79,4 @@ enum-animation-type-genie = Geest
 enum-animation-type-zoom = Zoomen
 enum-animation-type-rotate = Draaien
 enum-animation-type-flip = Omslaan
+enum-animation-type-lift = Optillen

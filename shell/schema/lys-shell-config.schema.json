@@ -99,6 +99,11 @@
           "const": "flip",
           "description": "Card flip: open out from a vertical edge (horizontal scale through zero).",
           "type": "string"
+        },
+        {
+          "const": "lift",
+          "description": "Lift away: grow slightly about the center while fading out.",
+          "type": "string"
         }
       ]
     },
@@ -179,6 +184,11 @@
           "const": "flip",
           "description": "Card flip: open out from a vertical edge (horizontal scale through zero).",
           "type": "string"
+        },
+        {
+          "const": "lift",
+          "description": "Lift away: grow slightly about the center while fading out.",
+          "type": "string"
         }
       ]
     },
@@ -227,8 +237,8 @@
         },
         "exit": {
           "$ref": "#/$defs/Nullable_AnimationType",
-          "default": null,
-          "description": "Global exit transition. Unset → `transition`."
+          "default": "lift",
+          "description": "Global exit transition: `lift` unless set."
         },
         "exit-duration": {
           "$ref": "#/$defs/Nullable_AnimationMS",
@@ -343,7 +353,7 @@
         "transition": {
           "$ref": "#/$defs/AnimationType",
           "default": "fade",
-          "description": "Transition style used for enter/exit of the OSD, toasts, and\nnotification cards. Base fallback for every surface and direction."
+          "description": "Transition style used for enter/exit of the OSD, toasts, and\nnotification cards. Base fallback for every surface and direction\n`enter` and `exit` leave unset."
         },
         "ui-duration": {
           "$ref": "#/$defs/AnimationMS",
@@ -11272,7 +11282,7 @@
         "enabled": true,
         "enter": null,
         "enter-duration": null,
-        "exit": null,
+        "exit": "lift",
         "exit-duration": null,
         "file-chooser": {
           "enter": null,

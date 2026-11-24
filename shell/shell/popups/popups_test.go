@@ -890,6 +890,9 @@ func TestCardsPlayTheirExit(t *testing.T) {
 	if leaving.rev.Revealed() {
 		t.Error("the dismissed card is not exiting")
 	}
+	if got := leaving.rev.Transition(); got != widget.RevealLift {
+		t.Errorf("the dismissed card leaves by %v, want the default lift", got)
+	}
 	leaving.rev.Finish()
 	if got := p.stackOrder(); !slices.EqualFunc(got, [][]uint32{{a}}, slices.Equal) {
 		t.Errorf("stack after the exit = %v, want [[%d]]", got, a)

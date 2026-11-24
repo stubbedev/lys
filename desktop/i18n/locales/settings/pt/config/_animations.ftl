@@ -11,7 +11,7 @@ settings-animations-enter = Transição de entrada
     .description = Transição usada quando as superfícies aparecem. Se não estiver definida, usa Transição
 
 settings-animations-exit = Transição de saída
-    .description = Transição usada quando as superfícies desaparecem. Se não estiver definida, usa Transição
+    .description = Transição usada quando as superfícies desaparecem. Se não estiver definida, Elevar
 
 settings-animations-enter-duration = Duração da entrada
     .description = Duração da animação de entrada em milissegundos. Se não estiver definida, usa Duração
@@ -79,3 +79,4 @@ enum-animation-type-genie = Génio
 enum-animation-type-zoom = Ampliar
 enum-animation-type-rotate = Rodar
 enum-animation-type-flip = Virar
+enum-animation-type-lift = Elevar

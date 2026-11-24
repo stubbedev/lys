@@ -14,7 +14,7 @@ import (
 type TransitionKind uint8
 
 // Transitions. The [animations] types a Stack cannot do (swing,
-// bounce, genie, zoom, rotate, flip) fall back to Crossfade.
+// bounce, genie, zoom, rotate, flip, lift) fall back to Crossfade.
 const (
 	TransitionNone TransitionKind = iota
 	TransitionCrossfade
@@ -54,7 +54,7 @@ func stackTransition(t config.AnimationType) TransitionKind {
 		return TransitionSlideRight
 	case config.AnimationFade, config.AnimationSwingUp, config.AnimationSwingDown, config.AnimationSwingLeft,
 		config.AnimationSwingRight, config.AnimationBounce, config.AnimationGenie, config.AnimationZoom,
-		config.AnimationRotate, config.AnimationFlip:
+		config.AnimationRotate, config.AnimationFlip, config.AnimationLift:
 		return TransitionCrossfade
 	}
 	panic("wallpaper: unknown animation type " + string(t))

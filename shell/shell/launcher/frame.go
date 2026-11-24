@@ -200,23 +200,29 @@ type panelMotion struct {
 	targetH int
 }
 
-// panelStyle is how a configured transition moves the panel.
+// panelStyle is how a configured transition moves the panel: scale is
+// its size at reveal 0 as a fraction of its rest, 0 for a panel that
+// keeps its size, and shift how far below its rest it starts.
 type panelStyle struct {
-	grow  bool
+	scale float64
 	shift int
 }
+
+const panelGrowFrom = 0.94
 
 func panelStyleFor(t config.AnimationType) panelStyle {
 	const slide = 24
 	switch t {
 	case config.AnimationFade:
 		return panelStyle{}
+	case config.AnimationLift:
+		return panelStyle{scale: widget.LiftScale}
 	case config.AnimationSlideUp, config.AnimationSwingUp:
 		return panelStyle{shift: slide}
 	case config.AnimationSlideDown, config.AnimationSwingDown:
 		return panelStyle{shift: -slide}
 	}
-	return panelStyle{grow: true}
+	return panelStyle{scale: panelGrowFrom}
 }
 
 // panelSizeSpring is a touch quicker than a window's: the list follows
@@ -393,10 +399,10 @@ func (m *panelMotion) shownRect(out render.Rect) render.Rect {
 		r.Y += int(math.Round((1 - m.reveal) * float64(m.style.shift)))
 		return r
 	}
-	if !m.style.grow {
+	from := m.style.scale
+	if from == 0 {
 		return r
 	}
-	const from = 0.94
 	s := from + float64((1-from)*m.reveal)
 	w, h := int(math.Round(float64(r.W)*s)), int(math.Round(float64(r.H)*s))
 	return render.Rect{X: r.X + (r.W-w)/2, Y: r.Y + (r.H-h)/2, W: w, H: h}

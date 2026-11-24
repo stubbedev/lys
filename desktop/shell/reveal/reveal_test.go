@@ -17,7 +17,7 @@ func TestTransitionCoversEveryStyle(t *testing.T) {
 		config.AnimationSwingLeft: widget.RevealSwingLeft, config.AnimationSwingRight: widget.RevealSwingRight,
 		config.AnimationBounce: widget.RevealBounce, config.AnimationGenie: widget.RevealGenie,
 		config.AnimationZoom: widget.RevealZoom, config.AnimationRotate: widget.RevealRotate,
-		config.AnimationFlip: widget.RevealFlip,
+		config.AnimationFlip: widget.RevealFlip, config.AnimationLift: widget.RevealLift,
 	} {
 		if got := Transition(style); got != want {
 			t.Errorf("%s: %v, want %v", style, got, want)
@@ -37,6 +37,10 @@ func TestArmResolvesTheCascade(t *testing.T) {
 	Arm(r, anims, config.AnimOsd, false)
 	if r.Transition() != widget.RevealFade {
 		t.Errorf("osd enter = %v, want the base fade", r.Transition())
+	}
+	Arm(r, anims, config.AnimNotifications, true)
+	if r.Transition() != widget.RevealLift {
+		t.Errorf("notifications exit = %v, want the default lift", r.Transition())
 	}
 	anims.Enabled = false
 	Arm(r, anims, config.AnimOsd, true)

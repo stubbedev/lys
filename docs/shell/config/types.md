@@ -51,6 +51,7 @@ the edge the surface sits on. |
 | `"zoom"` | Scale in smoothly from the center with no overshoot. |
 | `"rotate"` | Spin in: rotate into place while scaling up and fading in. |
 | `"flip"` | Card flip: open out from a vertical edge (horizontal scale through zero). |
+| `"lift"` | Lift away: grow slightly about the center while fading out. |
 
 ## AnimationType2 {#animation-type2}
 
@@ -77,6 +78,7 @@ the edge the surface sits on. |
 | `"zoom"` | Scale in smoothly from the center with no overshoot. |
 | `"rotate"` | Spin in: rotate into place while scaling up and fading in. |
 | `"flip"` | Card flip: open out from a vertical edge (horizontal scale through zero). |
+| `"lift"` | Lift away: grow slightly about the center while fading out. |
 
 ## AppIconSource {#app-icon-source}
 

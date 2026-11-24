@@ -11,7 +11,7 @@ settings-animations-enter = Enter Transition
     .description = Transition used when surfaces appear. Unset falls back to Transition
 
 settings-animations-exit = Exit Transition
-    .description = Transition used when surfaces disappear. Unset falls back to Transition
+    .description = Transition used when surfaces disappear. Lift unless set
 
 settings-animations-enter-duration = Enter Duration
     .description = Enter animation length in milliseconds. Unset falls back to Duration
@@ -81,3 +81,4 @@ enum-animation-type-genie = Genie
 enum-animation-type-zoom = Zoom
 enum-animation-type-rotate = Rotate
 enum-animation-type-flip = Flip
+enum-animation-type-lift = Lift

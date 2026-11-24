@@ -22,11 +22,12 @@ type AnimationsConfig struct {
 	// Animation duration in milliseconds.
 	Duration AnimationMS `cfg:"duration"`
 	// Transition style used for enter/exit of the OSD, toasts, and
-	// notification cards. Base fallback for every surface and direction.
+	// notification cards. Base fallback for every surface and direction
+	// `enter` and `exit` leave unset.
 	Transition AnimationType `cfg:"transition"`
 	// Global enter transition. Unset → `transition`.
 	Enter *AnimationType `cfg:"enter"`
-	// Global exit transition. Unset → `transition`.
+	// Global exit transition: `lift` unless set.
 	Exit *AnimationType `cfg:"exit"`
 	// Global enter duration in ms. Unset → `duration`.
 	EnterDuration *AnimationMS `cfg:"enter-duration"`
@@ -105,10 +106,12 @@ func (a AnimationsConfig) CompositorOwnsMotion() bool { return a.session != sess
 // DefaultsAnimations returns the schema defaults.
 func DefaultsAnimations() AnimationsConfig {
 	enter, exit := AnimationMS(0), AnimationMS(0)
+	lift := AnimationLift
 	return AnimationsConfig{
 		Enabled:             true,
 		Duration:            200,
 		Transition:          AnimationFade,
+		Exit:                &lift,
 		InteractionDuration: 150,
 		UIDuration:          250,
 		Indicators:          true,
@@ -298,6 +301,8 @@ const (
 	AnimationRotate AnimationType = "rotate"
 	// Card flip: open out from a vertical edge (horizontal scale through zero).
 	AnimationFlip AnimationType = "flip"
+	// Lift away: grow slightly about the center while fading out.
+	AnimationLift AnimationType = "lift"
 )
 
 var _ = registerEnum(
@@ -305,6 +310,7 @@ var _ = registerEnum(
 	AnimationSlideUp, AnimationSlideDown, AnimationSlideLeft, AnimationSlideRight,
 	AnimationSwingUp, AnimationSwingDown, AnimationSwingLeft, AnimationSwingRight,
 	AnimationBounce, AnimationGenie, AnimationZoom, AnimationRotate, AnimationFlip,
+	AnimationLift,
 )
 
 // SurfaceAnimation is one surface's override.

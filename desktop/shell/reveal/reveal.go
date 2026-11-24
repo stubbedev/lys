@@ -46,6 +46,8 @@ func Transition(t config.AnimationType) widget.RevealTransition {
 		return widget.RevealRotate
 	case config.AnimationFlip:
 		return widget.RevealFlip
+	case config.AnimationLift:
+		return widget.RevealLift
 	}
 	return widget.RevealFade
 }

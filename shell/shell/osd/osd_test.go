@@ -649,10 +649,12 @@ func (p *paintCounter) HitTest(pt widget.Point) widget.Widget { return p.HitLeaf
 // compositor whose opacity takes the fade of a surface's root only, as
 // lys-ui's application does; fades records the opacities it was asked
 // for.
-func fadeHarness(t *testing.T, alpha bool) (h *harness, leaf *paintCounter, fades *[]float64, frame func()) {
+func fadeHarness(t *testing.T, alpha bool, exit config.AnimationType) (h *harness, leaf *paintCounter, fades *[]float64, frame func()) {
 	t.Helper()
 	fades = new([]float64)
-	h = readyHarness(t, config.Defaults())
+	cfg := config.Defaults()
+	cfg.Animations.Osd.Exit = &exit
+	h = readyHarness(t, cfg)
 	widget.SetSurfaceFade(func(w widget.Widget, a float64) bool {
 		if !alpha || len(h.opened) == 0 || w != h.opened[len(h.opened)-1].cfg.Root {
 			return false
@@ -689,7 +691,7 @@ func fadeHarness(t *testing.T, alpha bool) (h *harness, leaf *paintCounter, fade
 // surface's opacity: the card paints once and the fade's frames repaint
 // none of it.
 func TestOsdFadesAsSurfaceOpacity(t *testing.T) {
-	h, leaf, fades, frame := fadeHarness(t, true)
+	h, leaf, fades, frame := fadeHarness(t, true, config.AnimationFade)
 	h.osd.face.view.Root().Finish()
 	frame()
 	h.fire(t, time.Duration(config.DefaultsOsd().Duration)*time.Millisecond)
@@ -709,7 +711,7 @@ func TestOsdFadesAsSurfaceOpacity(t *testing.T) {
 // Where the compositor cannot fade the surface the OSD still fades, by
 // painting the card through each frame's alpha.
 func TestOsdFadesByPaintingWithoutSurfaceOpacity(t *testing.T) {
-	h, leaf, fades, frame := fadeHarness(t, false)
+	h, leaf, fades, frame := fadeHarness(t, false, config.AnimationFade)
 	h.osd.face.view.Root().Finish()
 	frame()
 	if leaf.paints == 0 {
@@ -717,5 +719,26 @@ func TestOsdFadesByPaintingWithoutSurfaceOpacity(t *testing.T) {
 	}
 	if len(*fades) != 0 {
 		t.Errorf("surface opacities %v without a compositor to take them", *fades)
+	}
+}
+
+// The default exit lifts the OSD away: its opacity still runs as the
+// surface's, ending transparent, while the card is drawn growing.
+func TestOsdLiftsAwayWithItsSurfaceOpacity(t *testing.T) {
+	h, _, fades, frame := fadeHarness(t, true, *config.DefaultsAnimations().Exit)
+	root := h.osd.face.view.Root()
+	root.Finish()
+	frame()
+	h.fire(t, time.Duration(config.DefaultsOsd().Duration)*time.Millisecond)
+	if got := root.Transition(); got != widget.RevealLift {
+		t.Errorf("the OSD leaves by %v, want the default lift", got)
+	}
+	root.Finish()
+	frame()
+	if want := []float64{reveal.FadeFrom, 1, 0}; !slices.Equal(*fades, want) {
+		t.Errorf("surface opacities %v, want %v", *fades, want)
+	}
+	if !h.opened[0].closed {
+		t.Error("the lifted OSD stayed mapped")
 	}
 }

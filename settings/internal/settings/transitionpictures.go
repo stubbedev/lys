@@ -87,6 +87,12 @@ var transitionPoses = map[config.AnimationType]func(t float64) pose{
 		return p
 	},
 	config.AnimationFlip: func(t float64) pose { p := settled(); p.sx = t; return p },
+	config.AnimationLift: func(t float64) pose {
+		p := settled()
+		s := widget.LiftScale + float64((1-widget.LiftScale)*t)
+		p.sx, p.sy, p.alpha = s, s, t
+		return p
+	},
 }
 
 // quad is the corners of a surface in pose p inside cell, clockwise

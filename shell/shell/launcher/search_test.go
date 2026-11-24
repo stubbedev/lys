@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"math"
 	"slices"
 	"strings"
 	"sync"
@@ -503,7 +504,7 @@ func TestLauncherAnimationOverrideNoneIsInstant(t *testing.T) {
 }
 
 func TestTransitionsMoveThePanelTheirWay(t *testing.T) {
-	if s := panelStyleFor(config.AnimationFade); s.grow || s.shift != 0 {
+	if s := panelStyleFor(config.AnimationFade); s != (panelStyle{}) {
 		t.Errorf("fade: %+v", s)
 	}
 	if s := panelStyleFor(config.AnimationSlideUp); s.shift <= 0 {
@@ -512,8 +513,36 @@ func TestTransitionsMoveThePanelTheirWay(t *testing.T) {
 	if s := panelStyleFor(config.AnimationSlideDown); s.shift >= 0 {
 		t.Errorf("slide down falls from above: %+v", s)
 	}
-	if s := panelStyleFor(config.AnimationZoom); !s.grow {
-		t.Errorf("zoom: %+v", s)
+	if s := panelStyleFor(config.AnimationZoom); s.scale <= 0 || s.scale >= 1 || s.shift != 0 {
+		t.Errorf("zoom grows from smaller: %+v", s)
+	}
+	if s := panelStyleFor(config.AnimationLift); s.scale != widget.LiftScale || s.shift != 0 {
+		t.Errorf("lift leaves larger: %+v", s)
+	}
+}
+
+func TestALiftingPanelGrowsAboutItsCentreAsItCloses(t *testing.T) {
+	h := newPanelHarness(t)
+	p, _ := h.openPanel()
+	m := p.v.motion
+	out := render.Rect{W: 1600, H: 1000}
+	rest := m.restRect(out)
+	m.style = panelStyleFor(config.AnimationLift)
+	last := render.Rect{}
+	for reveal := 1.0; reveal >= 0; reveal -= 0.1 {
+		m.reveal = reveal
+		r := m.shownRect(out)
+		if r.W < last.W || r.H < last.H {
+			t.Fatalf("at reveal %v the panel %+v shrank from %+v", reveal, r, last)
+		}
+		if cx, cy := r.X+r.W/2, r.Y+r.H/2; cx-(rest.X+rest.W/2) > 1 || cx-(rest.X+rest.W/2) < -1 || cy-(rest.Y+rest.H/2) > 1 || cy-(rest.Y+rest.H/2) < -1 {
+			t.Fatalf("at reveal %v the panel %+v left the centre of %+v", reveal, r, rest)
+		}
+		last = r
+	}
+	m.reveal = 0
+	if got, want := m.shownRect(out).W, int(math.Round(float64(rest.W)*widget.LiftScale)); got != want {
+		t.Errorf("a closed lift is %d wide, want %d", got, want)
 	}
 }
 
@@ -863,7 +892,7 @@ func TestReducedMotionFadesAndNothingMoves(t *testing.T) {
 	if m.reveal >= 1 {
 		t.Errorf("reveal %v: reduced motion keeps the fade", m.reveal)
 	}
-	if m.style.grow || m.style.shift != 0 {
+	if m.style != (panelStyle{}) {
 		t.Errorf("style %+v: nothing may move", m.style)
 	}
 	out := render.Rect{W: 1600, H: 1000}
@@ -921,7 +950,7 @@ func TestReducedMotionConfigKeyFadesThePanel(t *testing.T) {
 	defer widget.SetReducedMotion(false)
 	p, _ := h.openPanel()
 	m := p.v.motion
-	if m.style.grow || m.style.shift != 0 {
+	if m.style != (panelStyle{}) {
 		t.Errorf("style %+v: nothing may move", m.style)
 	}
 	if m.reveal >= 1 || m.instant {

@@ -27,6 +27,7 @@ func TestEveryTransitionEndsSettledAndStartsWhereItsNameSays(t *testing.T) {
 		config.AnimationZoom:       func(p pose) bool { return p.sx < 1 && p.sx == p.sy },
 		config.AnimationRotate:     func(p pose) bool { return p.angle != 0 },
 		config.AnimationFlip:       func(p pose) bool { return p.sx < 1 && p.sy == 1 },
+		config.AnimationLift:       func(p pose) bool { return p.sx > 1 && p.sx == p.sy && p.alpha > 0 && p.alpha < 1 },
 	} {
 		if p := transitionPoses[kind](first); !check(p) {
 			t.Errorf("%s starts at %+v", kind, p)

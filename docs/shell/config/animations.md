@@ -16,9 +16,9 @@ Enter/exit and change animations for transient surfaces.
 | `enabled` | bool | `true` | Enable enter/exit animations (OSD, toasts, notifications) and icon-change crossfades. When disabled, surfaces appear instantly. |
 | `reduced-motion` | bool | `false` | Replace motion with fades in the shell and, through the portal's reduced-motion setting, in apps: surfaces fade instead of sliding, swinging or bouncing, and looping indicators stop. Under lys-wm this key has no effect and says so: lys-wm's `animations.reduced_motion` owns the setting for the whole desktop. |
 | `duration` | [`AnimationMS`](/shell/config/types#animation-m-s) | `200` | Animation duration in milliseconds. |
-| `transition` | [`AnimationType`](/shell/config/types#animation-type) | `"fade"` | Transition style used for enter/exit of the OSD, toasts, and notification cards. Base fallback for every surface and direction. |
+| `transition` | [`AnimationType`](/shell/config/types#animation-type) | `"fade"` | Transition style used for enter/exit of the OSD, toasts, and notification cards. Base fallback for every surface and direction `enter` and `exit` leave unset. |
 | `enter` | [`AnimationType`](/shell/config/types#animation-type) or null | `null` | Global enter transition. Unset → `transition`. |
-| `exit` | [`AnimationType`](/shell/config/types#animation-type) or null | `null` | Global exit transition. Unset → `transition`. |
+| `exit` | [`AnimationType`](/shell/config/types#animation-type) or null | `"lift"` | Global exit transition: `lift` unless set. |
 | `enter-duration` | [`AnimationMS`](/shell/config/types#animation-m-s) or null | `null` | Global enter duration in ms. Unset → `duration`. |
 | `exit-duration` | [`AnimationMS`](/shell/config/types#animation-m-s) or null | `null` | Global exit duration in ms. Unset → `duration`. |
 | `interaction-duration` | [`AnimationMS`](/shell/config/types#animation-m-s) | `150` | Duration in ms for in-place dropdown transitions: hover highlights and the page/stack crossfades inside dropdowns. `enabled: false` removes them entirely. |
@@ -45,6 +45,7 @@ animations:
   reduced-motion: false
   duration: 200
   transition: fade
+  exit: lift
   interaction-duration: 150
   ui-duration: 250
   indicators: true

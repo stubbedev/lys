@@ -162,7 +162,7 @@ func TestHeadlessDesktopReducedMotionReachesThePanel(t *testing.T) {
 	p := apptest.On(a, func() *panel { return s.panel })
 	m := apptest.On(a, func() *panelMotion { return p.v.motion })
 	apptest.Until(t, a, "the fade's end", func() bool { return m.reveal == 1 })
-	if style := apptest.On(a, func() panelStyle { return m.style }); style.grow || style.shift != 0 {
+	if style := apptest.On(a, func() panelStyle { return m.style }); style != (panelStyle{}) {
 		t.Errorf("style %+v: nothing may move", style)
 	}
 	rest := apptest.On(a, func() bool { return p.v.box.Bounds() == m.restRect(p.v.root.Bounds()) })

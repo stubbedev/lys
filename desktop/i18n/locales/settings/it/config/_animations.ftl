@@ -11,7 +11,7 @@ settings-animations-enter = Transizione di comparsa
     .description = Transizione usata quando le superfici appaiono. Se non impostata, si usa Transizione
 
 settings-animations-exit = Transizione di scomparsa
-    .description = Transizione usata quando le superfici scompaiono. Se non impostata, si usa Transizione
+    .description = Transizione usata quando le superfici scompaiono. Se non impostata, Sollevamento
 
 settings-animations-enter-duration = Durata della comparsa
     .description = Durata dell'animazione di comparsa in millisecondi. Se non impostata, si usa Durata
@@ -80,3 +80,4 @@ enum-animation-type-genie = Genio
 enum-animation-type-zoom = Zoom
 enum-animation-type-rotate = Rotazione
 enum-animation-type-flip = Capovolgimento
+enum-animation-type-lift = Sollevamento
