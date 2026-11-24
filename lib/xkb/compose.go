@@ -1,6 +1,7 @@
 package xkb
 
 import (
+	_ "embed"
 	"errors"
 	"fmt"
 	"io"
@@ -18,11 +19,28 @@ const (
 	composeMaxErrors  = 10
 )
 
+const composeFallbackLocale = "en_US.UTF-8"
+
 var xlocaleCandidates = []string{"/usr/share/X11/locale", "/run/current-system/sw/share/X11/locale", "/usr/local/share/X11/locale"}
 
-// defaultXLocaleDir is the libX11 locale directory a distribution build
-// bakes in with -X; empty, the usual locations are searched.
-var defaultXLocaleDir string
+//go:embed Compose.en_US.UTF-8
+var builtinCompose []byte
+
+type composeSource struct {
+	path    string
+	builtin bool
+}
+
+func composeFile(path string) composeSource { return composeSource{path: path} }
+
+var builtinComposeSource = composeSource{path: "(built-in " + composeFallbackLocale + " Compose)", builtin: true}
+
+func (s composeSource) read() ([]byte, error) {
+	if s.builtin {
+		return builtinCompose, nil
+	}
+	return os.ReadFile(s.path) //nolint:gosec // a Compose file the user, the locale or an include names
+}
 
 type composeNode struct {
 	children map[Keysym]*composeNode
@@ -41,9 +59,6 @@ func xlocaleDir(getenv func(string) string) string {
 	if dir := getenv("XLOCALEDIR"); dir != "" {
 		return dir
 	}
-	if defaultXLocaleDir != "" {
-		return defaultXLocaleDir
-	}
 	for _, dir := range xlocaleCandidates {
 		if info, err := os.Stat(dir); err == nil && info.IsDir() {
 			return dir
@@ -53,6 +68,9 @@ func xlocaleDir(getenv func(string) string) string {
 }
 
 func resolveLocaleFile(dir, file, name string, rightToLeft bool) string {
+	if dir == "" {
+		return ""
+	}
 	src, err := os.ReadFile(filepath.Join(dir, file)) //nolint:gosec // a locale file under the X locale directory
 	if err != nil {
 		return ""
@@ -81,33 +99,31 @@ func resolveLocaleFile(dir, file, name string, rightToLeft bool) string {
 	return ""
 }
 
-func (c *Context) localeComposePath(dir, locale string) string {
-	const fallback = "en_US.UTF-8"
+func (c *Context) localeCompose(dir, locale string) (composeSource, bool) {
 	if locale == "C" {
-		locale = fallback
+		locale = composeFallbackLocale
 	}
 	resolved := resolveLocaleFile(dir, "compose.dir", locale, true)
-	if resolved == "" {
+	if resolved == "" && locale != composeFallbackLocale {
 		installed, err := c.localeInstalled(locale)
 		if err != nil {
 			c.log(LogError, 0, invalidComposeLocale, "No Compose file for locale \"%s\": %v\n", locale, err)
-			return ""
+			return composeSource{}, false
 		}
 		if !installed {
 			c.log(LogError, 0, invalidComposeLocale, "No Compose file for locale \"%s\": locale is either invalid or not installed\n", locale)
-			return ""
+			return composeSource{}, false
 		}
-		resolved = resolveLocaleFile(dir, "compose.dir", fallback, true)
-		if resolved == "" {
-			c.log(LogError, 0, invalidComposeLocale, "No Compose file for locale \"%s\": failed to use fallback \"%s\"\n", locale, fallback)
-			return ""
-		}
-		c.log(LogWarning, 0, invalidComposeLocale, "No Compose file for locale \"%s\": using locale fallback \"%s\"\n", locale, fallback)
+		resolved = resolveLocaleFile(dir, "compose.dir", composeFallbackLocale, true)
+		c.log(LogWarning, 0, invalidComposeLocale, "No Compose file for locale \"%s\": using locale fallback \"%s\"\n", locale, composeFallbackLocale)
 	}
-	if resolved == "" || filepath.IsAbs(resolved) {
-		return resolved
+	switch {
+	case resolved == "":
+		return builtinComposeSource, true
+	case filepath.IsAbs(resolved):
+		return composeFile(resolved), true
 	}
-	return filepath.Join(dir, resolved)
+	return composeFile(filepath.Join(dir, resolved)), true
 }
 
 func composeLocale(getenv func(string) string, locale string) string {
@@ -125,42 +141,42 @@ func composeLocale(getenv func(string) string, locale string) string {
 // NewComposeTableFromLocale finds and parses the active Compose file the
 // way libxkbcommon does: $XCOMPOSEFILE, $XDG_CONFIG_HOME/XCompose or
 // ~/.config/XCompose, ~/.XCompose, then the locale's system file, with
-// en_US.UTF-8 standing in for a locale that has none. An empty locale
-// reads LC_ALL, LC_CTYPE and LANG.
+// en_US.UTF-8 standing in for a locale that has none. Where the system
+// has no X locale data, the built-in en_US.UTF-8 table, libX11's (see
+// LICENSE.libX11), is that system file. An empty locale reads LC_ALL,
+// LC_CTYPE and LANG.
 func (c *Context) NewComposeTableFromLocale(locale string) (*ComposeTable, error) {
 	locale = composeLocale(c.getenv, locale)
 	dir := xlocaleDir(c.getenv)
-	if dir != "" {
-		if alias := resolveLocaleFile(dir, "locale.alias", locale, false); alias != "" {
-			locale = alias
-		}
+	if alias := resolveLocaleFile(dir, "locale.alias", locale, false); alias != "" {
+		locale = alias
 	}
-	var candidates []string
+	var candidates []composeSource
 	if p := c.getenv("XCOMPOSEFILE"); p != "" {
-		candidates = append(candidates, p)
+		candidates = append(candidates, composeFile(p))
 	}
 	if xdg := c.getenv("XDG_CONFIG_HOME"); filepath.IsAbs(xdg) {
-		candidates = append(candidates, filepath.Join(xdg, "XCompose"))
+		candidates = append(candidates, composeFile(filepath.Join(xdg, "XCompose")))
 	} else if c.getenv("HOME") != "" {
-		candidates = append(candidates, filepath.Join(c.getenv("HOME"), ".config", "XCompose"))
+		candidates = append(candidates, composeFile(filepath.Join(c.getenv("HOME"), ".config", "XCompose")))
 	}
 	if c.getenv("HOME") != "" {
-		candidates = append(candidates, filepath.Join(c.getenv("HOME"), ".XCompose"))
+		candidates = append(candidates, composeFile(filepath.Join(c.getenv("HOME"), ".XCompose")))
 	}
-	if dir != "" {
-		if p := c.localeComposePath(dir, locale); p != "" {
-			candidates = append(candidates, p)
-		}
+	if src, ok := c.localeCompose(dir, locale); ok {
+		candidates = append(candidates, src)
 	}
-	for _, path := range candidates {
-		src, err := os.ReadFile(path) //nolint:gosec // a Compose file the user or the locale names
+	paths := make([]string, 0, len(candidates))
+	for _, candidate := range candidates {
+		src, err := candidate.read()
 		if err != nil {
+			paths = append(paths, candidate.path)
 			continue
 		}
-		return c.parseCompose(path, src, locale)
+		return c.parseCompose(candidate.path, src, locale)
 	}
 	c.log(LogError, 0, invalidComposeLocale, "couldn't find a Compose file for locale \"%s\"\n", locale)
-	return nil, fmt.Errorf("xkb: no Compose file for locale %q in %v", locale, candidates)
+	return nil, fmt.Errorf("xkb: no Compose file for locale %q in %v", locale, paths)
 }
 
 // NewComposeTableFromFile parses one Compose file.
@@ -343,15 +359,16 @@ func (l *composeLexer) composeEscape(b *strings.Builder) {
 	}
 }
 
-func (l *composeLexer) includePath(p *composeParser) (string, error) {
+func (l *composeLexer) includePath(p *composeParser) (composeSource, error) {
 	for l.pos < len(l.src) && (l.src[l.pos] == ' ' || l.src[l.pos] == '\t' || l.src[l.pos] == '\r') {
 		l.pos++
 	}
 	if l.pos >= len(l.src) || l.src[l.pos] != '"' {
-		return "", fmt.Errorf("%s: include must be followed by a path", l.name)
+		return composeSource{}, fmt.Errorf("%s: include must be followed by a path", l.name)
 	}
 	l.pos++
 	var b strings.Builder
+	builtin := false
 	for l.pos < len(l.src) && l.src[l.pos] != '\n' && l.src[l.pos] != '"' {
 		c := l.src[l.pos]
 		l.pos++
@@ -369,30 +386,33 @@ func (l *composeLexer) includePath(p *composeParser) (string, error) {
 			b.WriteByte('%')
 		case 'H':
 			if p.ctx.getenv("HOME") == "" {
-				return "", fmt.Errorf("%s: %%H in an include, but HOME is not set", l.name)
+				return composeSource{}, fmt.Errorf("%s: %%H in an include, but HOME is not set", l.name)
 			}
 			b.WriteString(p.ctx.getenv("HOME"))
 		case 'L':
-			dir := xlocaleDir(p.ctx.getenv)
-			path := ""
-			if dir != "" {
-				path = p.ctx.localeComposePath(dir, p.locale)
+			src, ok := p.ctx.localeCompose(xlocaleDir(p.ctx.getenv), p.locale)
+			if !ok {
+				return composeSource{}, fmt.Errorf("%s: cannot expand %%L for locale %q", l.name, p.locale)
 			}
-			if path == "" {
-				return "", fmt.Errorf("%s: cannot expand %%L for locale %q", l.name, p.locale)
-			}
-			b.WriteString(path)
+			builtin = builtin || src.builtin
+			b.WriteString(src.path)
 		case 'S':
 			b.WriteString(xlocaleDir(p.ctx.getenv))
 		default:
-			return "", fmt.Errorf("%s: unknown %%%c in an include", l.name, f)
+			return composeSource{}, fmt.Errorf("%s: unknown %%%c in an include", l.name, f)
 		}
 	}
 	if l.pos >= len(l.src) || l.src[l.pos] != '"' {
-		return "", fmt.Errorf("%s: unterminated include statement", l.name)
+		return composeSource{}, fmt.Errorf("%s: unterminated include statement", l.name)
 	}
 	l.pos++
-	return b.String(), nil
+	if !builtin {
+		return composeFile(b.String()), nil
+	}
+	if b.String() != builtinComposeSource.path {
+		return composeSource{}, fmt.Errorf("%s: %%L is the built-in Compose table, which an include can only name alone", l.name)
+	}
+	return builtinComposeSource, nil
 }
 
 type composeParser struct {
@@ -510,7 +530,7 @@ func (p *composeParser) parseLine(l *composeLexer, depth int) (bool, error) {
 }
 
 func (p *composeParser) parseIncludeLine(l *composeLexer, depth int) error {
-	path, err := l.includePath(p)
+	src, err := l.includePath(p)
 	if err != nil {
 		return err
 	}
@@ -524,11 +544,11 @@ func (p *composeParser) parseIncludeLine(l *composeLexer, depth int) error {
 	if depth >= composeMaxInclude {
 		return &composeFatal{fmt.Errorf("%s: exceeded the include depth of %d", l.name, composeMaxInclude)}
 	}
-	src, err := os.ReadFile(path) //nolint:gosec // a path from the user's Compose file, as libxkbcommon follows it
+	text, err := src.read()
 	if err != nil {
 		return &composeFatal{fmt.Errorf("%s: open included file: %w", l.name, err)}
 	}
-	if err := p.parse(path, src, depth+1); err != nil {
+	if err := p.parse(src.path, text, depth+1); err != nil {
 		return &composeFatal{err}
 	}
 	return nil

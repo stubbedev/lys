@@ -162,7 +162,6 @@
         package = pkgs.runCommand "lys-login-package" {} ''
           grep -q "${lib.getLib pkgs.pam}/lib" ${pkg}/bin/lys-login || { echo "lys-login lacks libpam on its library path" >&2; exit 1; }
           grep -q "${pkgs.xkeyboard-config}/share/X11/xkb" ${pkg}/bin/.lys-login-wrapped || { echo "lys-login lacks the keyboard data path" >&2; exit 1; }
-          grep -q "${pkgs.libX11}/share/X11/locale" ${pkg}/bin/.lys-login-wrapped || { echo "lys-login lacks the locale data path" >&2; exit 1; }
           grep -q '<action id="dev.stubbe.lys.login.apply-config">' ${pkg}/share/polkit-1/actions/dev.stubbe.lys.login.policy || { echo "lys-login does not install its polkit action" >&2; exit 1; }
           touch "$out"
         '';

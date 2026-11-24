@@ -2,7 +2,6 @@
   lib,
   lysGo,
   makeWrapper,
-  libX11,
   xkeyboard-config,
   libva,
   vulkan-loader,
@@ -46,7 +45,6 @@ lysGo.build {
     "-s"
     "-w"
     "-X github.com/stubbedev/lys/lib/xkb.defaultRoot=${xkeyboard-config}/share/X11/xkb"
-    "-X github.com/stubbedev/lys/lib/xkb.defaultXLocaleDir=${libX11}/share/X11/locale"
   ];
 
   # The suite runs in `just check` (it needs a compositor and D-Bus).

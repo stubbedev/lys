@@ -21,7 +21,6 @@
         "-s"
         "-w"
         "-X github.com/stubbedev/lys/lib/xkb.defaultRoot=${pkgs.xkeyboard-config}/share/X11/xkb"
-        "-X github.com/stubbedev/lys/lib/xkb.defaultXLocaleDir=${pkgs.libX11}/share/X11/locale"
       ];
 
       # The suite runs in `just check`: it needs a compositor and D-Bus.

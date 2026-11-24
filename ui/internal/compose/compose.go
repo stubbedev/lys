@@ -1,15 +1,17 @@
 // Package compose turns keysym sequences into text: pressing ' then e
 // on a us-intl/deadkeys layout commits "é". The XKB keymap only yields
 // the dead_acute keysym; composing needs an XKB compose table
-// (~/.XCompose plus the system file), which this package resolves and
-// parses once per process and shares across input contexts.
+// (~/.XCompose plus the system file, or the en_US.UTF-8 table lys-lib
+// builds in where the system has no X locale data), which this package
+// resolves and parses once per process and shares across input contexts.
 //
 // The parser, trie, and state machine come from lys-lib's pure-Go
 // compose implementation (no cgo, the Compose file is just data); this
 // package adds lys-ui's semantics on top: Feed answers pending,
 // done-with-text, or none; backspace unwinds one level; a nil table —
-// no compose file anywhere — is the disabled state and every call is a
-// no-op, so callers never branch on whether compose exists.
+// an uninstalled locale, or no compose file that parses — is the
+// disabled state and every call is a no-op, so callers never branch on
+// whether compose exists.
 //
 // Compose commits on completion only, X11 style: while a sequence is
 // in flight no text is emitted, and there is no preedit display (that
@@ -32,10 +34,11 @@ type Table struct {
 
 // Load resolves the active compose file the way X11 clients do and
 // parses it: $XCOMPOSEFILE, then ~/.XCompose, then the system file for
-// the locale (LC_ALL/LC_CTYPE/LANG, with en_US.UTF-8 as the fallback).
-// A nil Table means compose is disabled — no compose file exists, and
-// dead-key layouts simply keep producing bare dead keysyms, which
-// callers then treat like any other non-text key.
+// the locale (LC_ALL/LC_CTYPE/LANG, with en_US.UTF-8 as the fallback),
+// the built-in en_US.UTF-8 table where the system has no X locale data.
+// A nil Table means compose is disabled — the locale is not installed or
+// no compose file parses — and dead-key layouts simply keep producing
+// bare dead keysyms, which callers then treat like any other non-text key.
 func Load() *Table {
 	t, err := xkb.NewContext(os.Getenv).NewComposeTableFromLocale("")
 	if err != nil || t == nil {

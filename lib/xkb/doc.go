@@ -3,7 +3,8 @@
 // serializing keymap text in the xkb_v1 and libxkbcommon v2 formats, tracking
 // modifier, layout and LED state, composing keysym sequences into text, and
 // reading keymaps from an X server. It reads xkeyboard-config and Compose data
-// from the system and links no C. Package registry lists what a ruleset offers,
+// from the system, falls back to the en_US.UTF-8 Compose table it embeds from
+// libX11 (see LICENSE.libX11) where the system has none, and links no C. Package registry lists what a ruleset offers,
 // and package x11 is an X11 connection for SetupX11.
 //
 // Its behaviour follows libxkbcommon 1.13, whose sources (MIT) it was written

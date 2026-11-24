@@ -38,7 +38,8 @@ A `Context` adds the default include path on first use, unless created with
 
 `XKB_LOG_LEVEL` and `XKB_LOG_VERBOSITY` set logging. An environment variable set
 to the empty string counts as unset. Distribution builds whose data lives
-elsewhere set `xkb.defaultRoot` and `xkb.defaultXLocaleDir` with `-X`.
+elsewhere set `xkb.defaultRoot` with `-X`, and `XLOCALEDIR` names a libX11
+locale directory outside the usual places.
 
 ## Keymap formats
 
@@ -64,6 +65,9 @@ elsewhere set `xkb.defaultRoot` and `xkb.defaultXLocaleDir` with `-X`.
   identical; masks print as numbers.
 - Without glibc locale data or musl, locales other than `C` and `POSIX` count
   as not installed.
+- Without libX11's locale data, the `en_US.UTF-8` Compose table built into the
+  package, libX11's own (`LICENSE.libX11`), is every installed locale's system
+  Compose file, and `include "%L"` names it.
 - X11 functions take the `X11Conn` interface instead of an `xcb_connection_t`;
   `xkb/x11` implements it.
 

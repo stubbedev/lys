@@ -10,7 +10,6 @@
       subPackages = ["ui/..."];
       ldflags = [
         "-X github.com/stubbedev/lys/lib/xkb.defaultRoot=${pkgs.xkeyboard-config}/share/X11/xkb"
-        "-X github.com/stubbedev/lys/lib/xkb.defaultXLocaleDir=${pkgs.libX11}/share/X11/locale"
       ];
       doCheck = false;
       # The GPU renderer loads the Vulkan loader at run time (no

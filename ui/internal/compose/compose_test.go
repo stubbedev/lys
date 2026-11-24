@@ -199,12 +199,30 @@ func TestXComposeFileBeatsTheUserFile(t *testing.T) {
 	}
 }
 
-func TestLoadWithoutAnyComposeFileIsDisabled(t *testing.T) {
+func TestLoadWithoutLocaleDataComposesThroughTheBuiltinTable(t *testing.T) {
 	t.Setenv("XCOMPOSEFILE", "")
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", "")
 	t.Setenv("XLOCALEDIR", t.TempDir())
+	t.Setenv("LC_ALL", "C")
+	tb := Load()
+	if tb == nil {
+		t.Fatal("Load() = nil without X locale data")
+	}
+	if res, text := feedAll(tb.Start(), xkb.KeyDeadAcute, 'e'); res != Done || text != "é" {
+		t.Fatalf("built-in table dead_acute+e = %v %q, want done \"é\"", res, text)
+	}
+}
+
+func TestLoadForAnUninstalledLocaleIsDisabled(t *testing.T) {
+	t.Setenv("XCOMPOSEFILE", "")
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", "")
+	t.Setenv("XLOCALEDIR", t.TempDir())
+	t.Setenv("LOCPATH", t.TempDir())
+	t.Setenv("LC_ALL", "zz_ZZ.UTF-8")
 	if tb := Load(); tb != nil {
-		t.Fatal("Load() should be nil with no compose file anywhere")
+		t.Fatal("Load() should be nil for a locale that is not installed")
 	}
 }
 
