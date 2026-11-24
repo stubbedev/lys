@@ -27,15 +27,22 @@ type treeState struct {
 	gridCursors depthStack[int]
 	order       []int
 
-	layers       []style.Layer
-	styleScratch style.Scratch
-	styleSelf    styleTargeter
-	styleNext    style.Values
-	pseudoNext   [len(pseudoNames)]style.Values
-	styleBusy    bool
-	styling      int
-	pinnedGen    uint64
+	layers    []style.Layer
+	root      *node
+	work      *styleWork
+	styleBusy bool
+	styling   int
+	pinnedGen uint64
 }
+
+type styleWork struct {
+	scratch style.Scratch
+	self    styleTargeter
+	next    style.Values
+	pseudo  [len(pseudoNames)]style.Values
+}
+
+var styleWorks = sync.Pool{New: func() any { return new(styleWork) }}
 
 type shiftState struct {
 	shifted, culling bool
@@ -66,8 +73,22 @@ func (n *node) scratch() *treeState {
 	for p := parentNodeOf(root); p != nil; p = parentNodeOf(p) {
 		root = p
 	}
-	root.tree = new(treeState)
+	root.tree = &treeState{root: root}
 	return n.knownTree()
+}
+
+func (t *treeState) styleWork() *styleWork {
+	if t.work == nil {
+		t.work, _ = styleWorks.Get().(*styleWork)
+	}
+	return t.work
+}
+
+func (t *treeState) releaseWork() {
+	if t.work != nil {
+		styleWorks.Put(t.work)
+		t.work = nil
+	}
 }
 
 func (n *node) knownTree() *treeState {
@@ -88,6 +109,9 @@ func (n *node) leaveTree() {
 		return
 	}
 	n.tree = nil
+	if old.root == n && !old.styleBusy {
+		old.releaseWork()
+	}
 	if n.culled {
 		n.culled = false
 		old.culled--

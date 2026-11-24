@@ -2004,16 +2004,17 @@ func (n *node) restyle(w Widget) *style.Values {
 		panic("widget: a restyle started inside another's compute")
 	}
 	t.styleBusy = true
-	v := &t.styleNext
+	work := t.styleWork()
+	v := &work.next
 	if layers := t.layersFor(c, n); len(layers) > 0 || n.inline != nil || inherits {
-		t.styleSelf.caches = true
-		t.styleSelf.point(n, w)
-		t.styleScratch.SetPrevCounters(prevCounters, srcCounters)
-		style.Compute(layers, &t.styleSelf, parent, &n.cs, envFor(n, gen), &t.styleScratch, v)
+		work.self.caches = true
+		work.self.point(n, w)
+		work.scratch.SetPrevCounters(prevCounters, srcCounters)
+		style.Compute(layers, &work.self, parent, &n.cs, envFor(n, gen), &work.scratch, v)
 		if c.sens.pseudo {
-			n.computePseudos(t, gen, layers, v)
+			n.computePseudos(work, gen, layers, v)
 		}
-		t.styleSelf.forget()
+		work.self.forget()
 	} else {
 		*v = style.Values{}
 		if n.pseudoGen != gen {
@@ -2126,10 +2127,10 @@ func lastStyleKid(w Widget) Widget {
 // computePseudos cascades the pseudo-element rules of this widget,
 // inheriting from its own computed style, and repaints when one moved.
 // A widget no rule addresses keeps no set at all.
-func (n *node) computePseudos(t *treeState, gen uint64, layers []style.Layer, self *style.Values) {
+func (n *node) computePseudos(work *styleWork, gen uint64, layers []style.Layer, self *style.Values) {
 	addressed := false
 	for i, name := range pseudoNames {
-		if style.ComputePseudo(layers, &t.styleSelf, self, envFor(n, gen), &t.styleScratch, &t.pseudoNext[i], name) {
+		if style.ComputePseudo(layers, &work.self, self, envFor(n, gen), &work.scratch, &work.pseudo[i], name) {
 			addressed = true
 		}
 	}
@@ -2146,13 +2147,13 @@ func (n *node) computePseudos(t *treeState, gen uint64, layers []style.Layer, se
 		n.Invalidate()
 	} else {
 		for i := range pseudoNames {
-			if !n.pseudo[i].Equal(&t.pseudoNext[i]) {
+			if !n.pseudo[i].Equal(&work.pseudo[i]) {
 				n.Invalidate()
 				break
 			}
 		}
 	}
-	*n.pseudo = t.pseudoNext
+	*n.pseudo = work.pseudo
 }
 
 // PseudoStyle returns w's computed ::before/::after/::first-letter

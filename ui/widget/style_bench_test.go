@@ -131,3 +131,30 @@ func BenchmarkStyleGalleryPaint(b *testing.B) {
 	}
 	b.ReportMetric(float64(painted), "px/frame")
 }
+
+func BenchmarkStyledWidgetsBuiltBeforeTheirTree(b *testing.B) {
+	face := goldenFace(b)
+	loadGalleryCSS(b)
+	root := NewBox(Column, 0, 0)
+	b.ReportAllocs()
+	for b.Loop() {
+		col := NewBox(Column, 4, 0)
+		col.AddClass("toolbar")
+		for i := range 40 {
+			lbl := NewLabel(face, 14, "row", 0)
+			if i%3 == 0 {
+				lbl.AddClass("status")
+			}
+			btn := NewButton(NewLabel(face, 14, "go", 0), 4, 0)
+			btn.AddClass("primary")
+			row := NewBox(Row, 4, 0)
+			row.Append(lbl, true)
+			row.Append(btn, false)
+			col.Append(row, false)
+		}
+		root.Append(col, false)
+		root.Measure(Row, Unknown)
+		root.Arrange(render.Rect{W: 400, H: 2000})
+		root.Remove(col)
+	}
+}
