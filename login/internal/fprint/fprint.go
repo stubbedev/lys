@@ -157,7 +157,7 @@ func defaultDevice(ctx context.Context, conn *dbus.Conn) (dbus.ObjectPath, error
 	callCtx, cancel := context.WithTimeout(ctx, callTimeout)
 	defer cancel()
 	var dev dbus.ObjectPath
-	err := conn.Object(BusName, ManagerPath).CallWithContext(callCtx, ManagerIface+".GetDefaultDevice", dbus.FlagNoAutoStart).Store(&dev)
+	err := conn.Object(BusName, ManagerPath).CallWithContext(callCtx, ManagerIface+".GetDefaultDevice", 0).Store(&dev)
 	if isNamed(err, errNoDevice, errNoService, errNoName) {
 		return "", fmt.Errorf("%w: %w", ErrUnavailable, err)
 	}
