@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -83,7 +84,7 @@ func TestABusRestartsAtTheSameSocket(t *testing.T) {
 // into a failed test rather than a skip.
 func TestLaunchWithoutADaemonFails(t *testing.T) {
 	t.Setenv("PATH", t.TempDir())
-	_, err := launch(t.TempDir(), SocketPath(t), time.After)
+	_, err := launch(t.TempDir(), SocketPath(t), nil, time.After)
 	if !errors.Is(err, exec.ErrNotFound) || !strings.Contains(err.Error(), "dbus-daemon") {
 		t.Fatalf("launch without dbus-daemon = %v, want a not-found error naming it", err)
 	}
@@ -127,7 +128,7 @@ func launchWithGuard(t *testing.T, d fakeDaemon) (results <-chan launched, armed
 		return trigger
 	}
 	go func() {
-		b, err := launch(d.dir, SocketPath(t), after)
+		b, err := launch(d.dir, SocketPath(t), nil, after)
 		out <- launched{b, err}
 	}()
 	return out, arm, trigger
@@ -210,5 +211,59 @@ func TestVarIsOrderedAcrossGoroutines(t *testing.T) {
 	v.Store(3)
 	if got := v.Load(); got != 3 {
 		t.Fatalf("after Store(3) = %d", got)
+	}
+}
+
+func activatable(t *testing.T, argv ...string) Service {
+	t.Helper()
+	t.Setenv(activatedEnv, "1")
+	exe, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return Service{Name: activatedName, Exec: append([]string{exe}, argv...)}
+}
+
+func dbusErrorName(err error) string {
+	de, ok := errors.AsType[dbus.Error](err)
+	if !ok {
+		return ""
+	}
+	return de.Name
+}
+
+func TestABusActivatesAServiceOnTheFirstCallThatAllowsIt(t *testing.T) {
+	argv := []string{"plain", "it's", `"double" \back $HOME *`, ""}
+	client := Start(t, activatable(t, argv...)).Conn(t)
+	obj := client.Object(activatedName, activatedPath)
+	err := obj.Call(activatedIface+".Args", dbus.FlagNoAutoStart).Err
+	if name := dbusErrorName(err); name != "org.freedesktop.DBus.Error.NameHasNoOwner" {
+		t.Fatalf("a call that forbids auto-start reached %s: %v", activatedName, err)
+	}
+	var got []string
+	if err := obj.Call(activatedIface+".Args", 0).Store(&got); err != nil {
+		t.Fatalf("a call to %s did not activate it: %v", activatedName, err)
+	}
+	if !slices.Equal(got, argv) {
+		t.Errorf("the activated service ran with %q, want %q", got, argv)
+	}
+}
+
+func TestANameWithoutAServiceIsUnknown(t *testing.T) {
+	client := Start(t, activatable(t)).Conn(t)
+	err := client.Object("com.example.Missing", activatedPath).Call(activatedIface+".Args", 0).Err
+	if name := dbusErrorName(err); name != "org.freedesktop.DBus.Error.ServiceUnknown" {
+		t.Fatalf("a call to a name no service provides = %v, want ServiceUnknown", err)
+	}
+}
+
+func TestAServiceAFileCannotCarryFailsTheLaunch(t *testing.T) {
+	for name, s := range map[string]Service{
+		"no command":   {Name: activatedName},
+		"a line break": {Name: activatedName, Exec: []string{"/bin/true", "a\nb"}},
+	} {
+		if _, err := launch(t.TempDir(), SocketPath(t), []Service{s}, time.After); err == nil || !strings.Contains(err.Error(), activatedName) {
+			t.Errorf("%s: launch = %v, want an error naming the service", name, err)
+		}
 	}
 }

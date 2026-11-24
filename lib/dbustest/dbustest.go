@@ -9,6 +9,7 @@ package dbustest
 import (
 	"bufio"
 	"bytes"
+	"encoding/xml"
 	"errors"
 	"fmt"
 	"os"
@@ -37,6 +38,7 @@ const config = `<!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-BUS Bus Config
     <allow eavesdrop="true"/>
     <allow own="*"/>
   </policy>
+  <servicedir>%SERVICES%</servicedir>
 </busconfig>
 `
 
@@ -51,12 +53,25 @@ type Bus struct {
 	stop    sync.Once
 }
 
+// Service is a name the bus activates on demand: the first message to
+// Name that does not forbid auto-start makes the bus run Exec, which
+// connects back to the address in StarterEnv (StarterConn) and owns
+// Name. The process inherits the environment the bus was started in.
+type Service struct {
+	Name string
+	Exec []string
+}
+
+// StarterEnv is the variable the bus hands an activated Service its
+// address in.
+const StarterEnv = "DBUS_STARTER_ADDRESS"
+
 // Start launches a dbus-daemon on a fresh socket (SocketPath) for the
-// test and stops it at cleanup. A missing dbus-daemon fails the test:
-// the dev shell provides one.
-func Start(t testing.TB) *Bus {
+// test, able to activate services, and stops it at cleanup. A missing
+// dbus-daemon fails the test: the dev shell provides one.
+func Start(t testing.TB, services ...Service) *Bus {
 	t.Helper()
-	return StartAt(t, SocketPath(t))
+	return StartAt(t, SocketPath(t), services...)
 }
 
 // SocketPath is a fresh bus socket path, removed with the test, in a
@@ -68,11 +83,12 @@ func SocketPath(t testing.TB) string {
 	return filepath.Join(sockdir.Dir(t), "bus")
 }
 
-// StartAt launches a dbus-daemon bound to sock for the test and stops
-// it at cleanup. The bus accepts connections once StartAt returns.
-func StartAt(t testing.TB, sock string) *Bus {
+// StartAt launches a dbus-daemon bound to sock for the test, able to
+// activate services, and stops it at cleanup. The bus accepts
+// connections once StartAt returns.
+func StartAt(t testing.TB, sock string, services ...Service) *Bus {
 	t.Helper()
-	b, err := launch(t.TempDir(), sock, time.After)
+	b, err := launch(t.TempDir(), sock, services, time.After)
 	if err != nil {
 		t.Fatalf("dbustest: %v", err)
 	}
@@ -80,17 +96,71 @@ func StartAt(t testing.TB, sock string) *Bus {
 	return b
 }
 
-// launch runs a dbus-daemon bound to sock, its config written to dir,
+func writeServices(dir string, services []Service) error {
+	if err := os.Mkdir(dir, 0o700); err != nil {
+		return fmt.Errorf("create the service directory %s: %w", dir, err)
+	}
+	for _, s := range services {
+		line, err := execLine(s.Exec)
+		if err != nil {
+			return fmt.Errorf("the service %s: %w", s.Name, err)
+		}
+		path := filepath.Join(dir, s.Name+".service")
+		file := "[D-BUS Service]\nName=" + s.Name + "\nExec=" + line + "\n"
+		if err := os.WriteFile(path, []byte(file), 0o600); err != nil {
+			return fmt.Errorf("write the service file %s: %w", path, err)
+		}
+	}
+	return nil
+}
+
+func execLine(argv []string) (string, error) {
+	if len(argv) == 0 {
+		return "", errors.New("no command to run")
+	}
+	quoted := make([]string, len(argv))
+	for i, arg := range argv {
+		if strings.ContainsAny(arg, "\n\x00") {
+			return "", fmt.Errorf("argument %q holds a line break or NUL, which a service file cannot carry", arg)
+		}
+		quoted[i] = "'" + strings.ReplaceAll(arg, "'", `'\''`) + "'"
+	}
+	return strings.ReplaceAll(strings.Join(quoted, " "), `\`, `\\`), nil
+}
+
+// StarterConn connects an activated Service to the bus that started it.
+func StarterConn() (*dbus.Conn, error) {
+	addr := os.Getenv(StarterEnv)
+	if addr == "" {
+		return nil, fmt.Errorf("dbustest: %s is unset: the process was not activated by a bus", StarterEnv)
+	}
+	conn, err := dbus.Connect(addr)
+	if err != nil {
+		return nil, fmt.Errorf("dbustest: connect the starter bus %s: %w", addr, err)
+	}
+	return conn, nil
+}
+
+// launch runs a dbus-daemon bound to sock that activates services, its
+// config and service files written to dir,
 // and returns once the daemon prints its address: it does so only
 // after binding the socket. A daemon that exits first fails at once;
 // the hang guard armed with after only stops one that does neither.
-func launch(dir, sock string, after func(time.Duration) <-chan time.Time) (*Bus, error) {
+func launch(dir, sock string, services []Service, after func(time.Duration) <-chan time.Time) (*Bus, error) {
 	daemon, err := exec.LookPath("dbus-daemon")
 	if err != nil {
 		return nil, fmt.Errorf("dbus-daemon not on PATH: %w", err)
 	}
+	serviceDir := filepath.Join(dir, "services")
+	if err := writeServices(serviceDir, services); err != nil {
+		return nil, err
+	}
+	var escapedDir strings.Builder
+	if err := xml.EscapeText(&escapedDir, []byte(serviceDir)); err != nil {
+		return nil, fmt.Errorf("escape the service directory %s: %w", serviceDir, err)
+	}
 	confPath := filepath.Join(dir, "bus.conf")
-	conf := strings.Replace(config, "%SOCKET%", dbus.EscapeBusAddressValue(sock), 1)
+	conf := strings.NewReplacer("%SOCKET%", dbus.EscapeBusAddressValue(sock), "%SERVICES%", escapedDir.String()).Replace(config)
 	if err := os.WriteFile(confPath, []byte(conf), 0o600); err != nil {
 		return nil, fmt.Errorf("write bus config %s: %w", confPath, err)
 	}
