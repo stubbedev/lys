@@ -24,16 +24,16 @@ Editor intellisense via JSON Schema. Install the [YAML extension](https://market
 | [`dock`](/shell/config/dock) | A dock of pinned apps and open windows, on its own surface beside the bar. |
 | [`dropdowns`](/shell/config/dropdowns) | Per-dropdown foldout panel sizing. |
 | [`general`](/shell/config/general) | Shell-wide settings that don't belong to any specific module. |
-| [`idle`](/shell/config/idle) | Built-in idle policy: keyboard backlight off, dim, lock, screens off, |
+| [`idle`](/shell/config/idle) | Built-in idle policy: keyboard backlight off, dim, lock, screens off, suspend, lock before sleep. |
 | [`launcher`](/shell/config/launcher) | Application launcher / dmenu (rofi replacement). |
 | [`login`](/shell/config/login) | Login screen: the greeter and the lock screen, one screen in two modes. |
 | [`mail-account`](/shell/config/mail-account) | One mail account in the `modules.mail` per-account breakdown. |
 | [`osd`](/shell/config/osd) | On-screen display overlay for transient events like volume and brightness. |
 | [`passwords`](/shell/config/passwords) | The Passwords page over the keyring. |
 | [`portal`](/shell/config/portal) | Desktop-portal policy for sandboxed apps. |
-| [`share-picker`](/shell/config/share-picker) | Screen-share picker shown by xdg-desktop-portal when an app requests a |
+| [`share-picker`](/shell/config/share-picker) | Screen-share picker shown by xdg-desktop-portal when an app requests a window, output, or region to capture. |
 | [`styling`](/shell/config/styling) | Theme, palette, and rounding tokens applied shell-wide. Changes recompile the stylesheet. |
-| [`thresholds`](/shell/config/thresholds) | Warning levels of CPU, RAM, disk and battery, shared by their bar |
+| [`thresholds`](/shell/config/thresholds) | Warning levels of CPU, RAM, disk and battery, shared by their bar modules and the dashboard. |
 | [`toast-preset`](/shell/config/toast-preset) | A reusable toast preset, triggerable by id with `lys-shell toast --preset <id>`. |
 | [`wallpaper`](/shell/config/wallpaper) | Wallpaper rendering, cycling, and per-monitor overrides. |
 
@@ -45,8 +45,8 @@ Modules appear inside the `bar.layout` list. Each row links to the full referenc
 |---|---|
 | [`audio`](/shell/config/modules/audio) | Speaker volume and mute, the microphone's state, and a capture indicator. |
 | [`background-apps`](/shell/config/modules/background-apps) | Background apps indicator. |
-| [`battery`](/shell/config/modules/battery) | Battery level, charging state, and a dropdown with the batteries of |
-| [`bitwarden`](/shell/config/modules/bitwarden) | Bitwarden vault: the bar shows whether it is locked; the dropdown logs |
+| [`battery`](/shell/config/modules/battery) | Battery level, charging state, and a dropdown with the batteries of peripherals the kernel reports (wireless mice, keyboards, controllers, pens) and power-profile controls. Low and critical battery levels send critical notifications whether or not the module is placed. |
+| [`bitwarden`](/shell/config/modules/bitwarden) | Bitwarden vault: the bar shows whether it is locked; the dropdown logs in, unlocks, searches the vault and copies an item's username, password or one-time code. |
 | [`bluetooth`](/shell/config/modules/bluetooth) | Bluetooth connection status with a dropdown for pairing and managing devices. |
 | [`brightness`](/shell/config/modules/brightness) | Backlight control bar module. |
 | [`cava`](/shell/config/modules/cava) | Audio frequency bars visualizing the output stream. |

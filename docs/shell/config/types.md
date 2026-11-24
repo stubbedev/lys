@@ -45,9 +45,7 @@ notifications). Driven per frame by the custom revealer
 | `"swing-left"` | Slide in from / out to the left edge with a rotating swing. |
 | `"swing-right"` | Slide in from / out to the right edge with a rotating swing. |
 | `"bounce"` | Scale in from a shrunken state with an elastic overshoot, then settle. |
-| `"genie"` | Suck in toward / out to the surface's anchored edge (macOS "genie"
-minimize, approximated with an affine scale-and-slide). Auto-orients to
-the edge the surface sits on. |
+| `"genie"` | Suck in toward / out to the surface's anchored edge (macOS "genie" minimize, approximated with an affine scale-and-slide). Auto-orients to the edge the surface sits on. |
 | `"zoom"` | Scale in smoothly from the center with no overshoot. |
 | `"rotate"` | Spin in: rotate into place while scaling up and fading in. |
 | `"flip"` | Card flip: open out from a vertical edge (horizontal scale through zero). |
@@ -72,9 +70,7 @@ notifications). Driven per frame by the custom revealer
 | `"swing-left"` | Slide in from / out to the left edge with a rotating swing. |
 | `"swing-right"` | Slide in from / out to the right edge with a rotating swing. |
 | `"bounce"` | Scale in from a shrunken state with an elastic overshoot, then settle. |
-| `"genie"` | Suck in toward / out to the surface's anchored edge (macOS "genie"
-minimize, approximated with an affine scale-and-slide). Auto-orients to
-the edge the surface sits on. |
+| `"genie"` | Suck in toward / out to the surface's anchored edge (macOS "genie" minimize, approximated with an affine scale-and-slide). Auto-orients to the edge the surface sits on. |
 | `"zoom"` | Scale in smoothly from the center with no overshoot. |
 | `"rotate"` | Spin in: rotate into place while scaling up and fading in. |
 | `"flip"` | Card flip: open out from a vertical edge (horizontal scale through zero). |
@@ -532,7 +528,7 @@ length only.
 | Field | Description |
 |---|---|
 | `width` | Panel width override. Unset uses the built-in default width. |
-| `height` | Panel height cap in pixels (e.g. `"400px"`): the height a panel grows |
+| `height` | Panel height cap in pixels (e.g. `"400px"`): the height a panel grows to before its lists scroll. Shorter content keeps the panel at its own height. Unset grows the panel to its content, up to the monitor. A multiplier is an error: the height has no built-in base to scale. |
 
 ## DynamicLauncherConfig {#dynamic-launcher-config}
 
@@ -540,7 +536,7 @@ Launcher installation policy.
 
 | Field | Description |
 |---|---|
-| `install-token-apps` | App ids granted an install token, with which they install |
+| `install-token-apps` | App ids granted an install token, with which they install desktop launchers with no confirmation dialog (a software center, such as `org.gnome.Software`). Every other app asks the user. |
 
 ## ExecutionMode {#execution-mode}
 
@@ -548,15 +544,8 @@ Execution mode for custom module commands.
 
 | Value | Meaning |
 |---|---|
-| `"poll"` | Run command at regular intervals defined by `interval-ms`.
-
-Best for commands that complete quickly and return current state
-(e.g., reading a file, querying system status). |
-| `"watch"` | Spawn long-running process and update display on each stdout line.
-
-Best for event-driven updates without polling overhead
-(e.g., `pactl subscribe`, `inotifywait`, `tail -f`).
-Configure `restart-policy` to control restarts after exit. |
+| `"poll"` | Run command at regular intervals defined by `interval-ms`. Best for commands that complete quickly and return current state (e.g., reading a file, querying system status). |
+| `"watch"` | Spawn long-running process and update display on each stdout line. Best for event-driven updates without polling overhead (e.g., `pactl subscribe`, `inotifywait`, `tail -f`). Configure `restart-policy` to control restarts after exit. |
 
 ## FitMode {#fit-mode}
 
@@ -747,7 +736,7 @@ How emoji are offered.
 
 | Field | Description |
 |---|---|
-| `skin-tone` | The skin tone of person and hand emoji. Picking a tone from an emoji's |
+| `skin-tone` | The skin tone of person and hand emoji. Picking a tone from an emoji's actions makes it the new default. |
 
 ## LauncherFileSort {#launcher-file-sort}
 
@@ -839,9 +828,9 @@ The search panel: one ranked list over apps, windows, files and more.
 | `providers` | What the list searches, and what it leaves out by omission. |
 | `web-engine` | Web search fallback: the engine's name, shown on the row. |
 | `web-url` | Web search fallback: the URL, with `{query}` where the search goes. |
-| `file-roots` | Directories the file index walks (`~` allowed). Empty indexes the home |
-| `file-exclude` | Directory names the file index skips, on top of hidden ones and the |
-| `commands-dir` | Directory of script commands. Empty uses `launcher/commands` in the |
+| `file-roots` | Directories the file index walks (`~` allowed). Empty indexes the home directory. |
+| `file-exclude` | Directory names the file index skips, on top of hidden ones and the built-in list (`node_modules`, `vendor`, `target`, ...). |
+| `commands-dir` | Directory of script commands. Empty uses `launcher/commands` in the config directory. |
 | `currency-rates` | Fetch the European Central Bank's daily reference rates (at most once a day, cached) for currency answers such as `100 usd in eur`. |
 | `previews` | Show the side pane for files, snippets, windows and clipboard entries, in the search panel and the window and clipboard modes. |
 | `quicklinks` | Links to open by name or keyword. |
@@ -1002,11 +991,11 @@ Greeter mode: the login screen before login, as the display manager.
 |---|---|
 | `show-user-list` | Show clickable avatars for the machine's login users. |
 | `show-power-buttons` | Show the shutdown/reboot buttons at the bottom of the screen. |
-| `match-cursor` | Show the cursor of the last user's session: the one it recorded |
+| `match-cursor` | Show the cursor of the last user's session: the one it recorded with `lys-login record-cursor`, else the one its dotfiles name. cursor-theme and cursor-size then apply only where neither says. |
 | `cursor-theme` | Xcursor theme used on the login screen (empty = system default). |
-| `cursor-size` | Logical cursor size on the login screen. Scaled automatically per |
-| `screen-reader` | Screen reader the accessibility menu and Super+Alt+S start: a |
-| `fingerprint` | Accept an enrolled fingerprint (fprintd) alongside the password: |
+| `cursor-size` | Logical cursor size on the login screen. Scaled automatically per display, so HiDPI outputs get a matching high-resolution cursor. |
+| `screen-reader` | Screen reader the accessibility menu and Super+Alt+S start: a program on the PATH or an absolute path. Its row is hidden when it is not installed. |
+| `fingerprint` | Accept an enrolled fingerprint (fprintd) alongside the password: whichever comes first logs in. Turn it off to log in with the password alone, which also opens the login keyring. Nothing changes without fprintd or an enrolled finger. |
 
 ## LoginLockConfig {#login-lock-config}
 
@@ -1019,15 +1008,15 @@ crashes (the compositor shows a solid color), unlike a layer-shell overlay.
 
 | Field | Description |
 |---|---|
-| `enabled` | Let lys-shell handle session locking. When off, lock requests are ignored |
-| `lock-on-start` | Lock the session as soon as the shell starts. For autologin setups |
-| `grace-period-ms` | Grace window after locking during which the screen unlocks without a |
-| `blank-timeout-ms` | Black out the lock screen after this idle time (milliseconds, `0` = |
-| `pam-service` | PAM service name used to authenticate the unlock. Distro-dependent: |
-| `show-media` | Show the track a media player is playing, with play/pause and next, |
-| `show-battery` | Show the battery's charge in the top right corner. Absent on a |
-| `fingerprint` | Accept an enrolled fingerprint (fprintd) alongside the password: |
-| `show-switch-user` | Offer "Switch user" under the password when the machine has more than |
+| `enabled` | Let lys-shell handle session locking. When off, lock requests are ignored and an external locker (e.g. hyprlock) stays responsible. |
+| `lock-on-start` | Lock the session as soon as the shell starts. For autologin setups (e.g. greetd with no password at boot) where the lock screen is the access gate: the session comes up locked and requires the password before use. Off by default — a normal login has already authenticated. |
+| `grace-period-ms` | Grace window after locking during which the screen unlocks without a password (milliseconds, `0` = always require the password). |
+| `blank-timeout-ms` | Black out the lock screen after this idle time (milliseconds, `0` = never). This is a visual blank that hides the clock/prompt and dismisses on any key; true display power-off (DPMS) is left to your idle daemon. |
+| `pam-service` | PAM service name used to authenticate the unlock. Distro-dependent: `system-auth` (Arch/Fedora), `login`, or a custom `/etc/pam.d` entry. |
+| `show-media` | Show the track a media player is playing, with play/pause and next, under the clock. Only a player's local cover art is shown. |
+| `show-battery` | Show the battery's charge in the top right corner. Absent on a machine without a battery. |
+| `fingerprint` | Accept an enrolled fingerprint (fprintd) alongside the password: whichever succeeds first unlocks, and a fingerprint that does not match counts as a failed attempt. Nothing changes without fprintd or an enrolled finger. |
+| `show-switch-user` | Offer "Switch user" under the password when the machine has more than one account to log in to: lys-login's display manager starts a greeter on a free VT and keeps this session running, locked. |
 
 ## MailAccount {#mail-account}
 
@@ -1179,9 +1168,9 @@ it on by itself. Notifications held back still reach the history.
 
 | Field | Description |
 |---|---|
-| `allow-critical` | Critical notifications (a low battery, a failed backup, an alarm) |
-| `allow-apps` | App-name or desktop-entry globs whose notifications pop up even in |
-| `schedule` | Windows of the week do-not-disturb turns itself on in, in the local |
+| `allow-critical` | Critical notifications (a low battery, a failed backup, an alarm) pop up even in do-not-disturb. |
+| `allow-apps` | App-name or desktop-entry globs whose notifications pop up even in do-not-disturb. Supports `*` and `?`. |
+| `schedule` | Windows of the week do-not-disturb turns itself on in, in the local time zone. A window whose `to` is not after its `from` runs past midnight into the next day. Toggling do-not-disturb by hand inside a window overrides it until the window ends. |
 | `while-sharing` | Turn do-not-disturb on while the screen is shared or recorded. |
 | `while-fullscreen` | Turn do-not-disturb on while a window is fullscreen. |
 
@@ -1218,10 +1207,7 @@ How workspace numbers are displayed.
 | Value | Meaning |
 |---|---|
 | `"absolute"` | Show actual Hyprland workspace IDs (1, 2, 3, 4, 5, 6...). |
-| `"relative"` | Show numbers relative to monitor's starting workspace.
-
-If monitor has workspaces 4, 5, 6 assigned, they display as 1, 2, 3.
-Useful when keybinds use per-monitor numbering (Shift+1 for ws 4, etc.). |
+| `"relative"` | Show numbers relative to monitor's starting workspace. If monitor has workspaces 4, 5, 6 assigned, they display as 1, 2, 3. Useful when keybinds use per-monitor numbering (Shift+1 for ws 4, etc.). |
 
 ## OsdMedia {#osd-media}
 
@@ -1229,7 +1215,7 @@ Track changes of the active media player that show the now-playing OSD.
 
 | Value | Meaning |
 |---|---|
-| `"requested"` | Only changes the user asked for: a media key or `lys-shell media next|previous`. |
+| `"requested"` | Only changes the user asked for: a media key or `lys-shell media next\|previous`. |
 | `"always"` | Every track change, the player advancing through a playlist included. |
 | `"never"` | Never show the now-playing OSD. |
 
@@ -1327,7 +1313,7 @@ A place: `name` as shown, `latitude` and `longitude` in decimal degrees.
 
 | Field | Description |
 |---|---|
-| `name` | The place's name as shown, such as the city; left out for a position |
+| `name` | The place's name as shown, such as the city; left out for a position set by hand. |
 | `latitude` | Latitude in decimal degrees, north positive, from -90 to 90. |
 | `longitude` | Longitude in decimal degrees, east positive, from -180 to 180. |
 
@@ -1360,7 +1346,7 @@ Persistent screen-sharing reminders.
 
 | Field | Description |
 |---|---|
-| `reminder-days` | Days an app may keep sharing your screen without asking, after you |
+| `reminder-days` | Days an app may keep sharing your screen without asking, after you allowed it to, before its next share asks again whether to keep allowing it. 0 never asks again. |
 
 ## Program {#program}
 
@@ -1616,8 +1602,7 @@ Temperature unit for display.
 |---|---|
 | `"metric"` | Celsius (metric). |
 | `"imperial"` | Fahrenheit (imperial). |
-| `"region"` | The unit of the session's region: Fahrenheit where it measures in
-US customary units, Celsius elsewhere. |
+| `"region"` | The unit of the session's region: Fahrenheit where it measures in US customary units, Celsius elsewhere. |
 
 ## ThemeProvider {#theme-provider}
 
@@ -1667,8 +1652,7 @@ Time display format.
 |---|---|
 | `"12h"` | 12-hour format with AM/PM (e.g., "6:30 AM"). |
 | `"24h"` | 24-hour format (e.g., "06:30"). |
-| `"region"` | The clock of the session's region: 12-hour where its time format
-is, 24-hour elsewhere. |
+| `"region"` | The clock of the session's region: 12-hour where its time format is, 24-hour elsewhere. |
 
 ## ToastPreset {#toast-preset}
 
@@ -1725,9 +1709,7 @@ Where the urgent pulse animation is applied.
 | Value | Meaning |
 |---|---|
 | `"workspace"` | Pulse the entire workspace. |
-| `"application"` | Pulse only the app icon(s) belonging to the urgent window.
-
-Falls back to `workspace` when app icons are disabled. |
+| `"application"` | Pulse only the app icon(s) belonging to the urgent window. Falls back to `workspace` when app icons are disabled. |
 
 ## UserSessionConfig {#user-session-config}
 
@@ -1882,7 +1864,7 @@ Per-workspace styling override.
 
 | Field | Description |
 |---|---|
-| `icon` | Custom icon for this workspace. When set, the icon is shown regardless |
+| `icon` | Custom icon for this workspace. When set, the icon is shown regardless of the module's `display-mode`, so a row can mix labeled workspaces with icon-only ones (e.g. `[1][2][icon]`). |
 | `color` | Custom background color for this workspace when active. |
 | `label` | Text shown instead of the workspace's name or index. |
 

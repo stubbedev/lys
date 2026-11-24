@@ -157,7 +157,7 @@ func oneOfVariants(def config.Schema) (string, bool) {
 			continue
 		}
 		desc, _ := s["description"].(string)
-		fmt.Fprintf(&b, "| `%s` | %s |\n", jsonLiteral(value), desc)
+		b.WriteString(tableRow("`"+jsonLiteral(value)+"`", desc))
 		rows = true
 	}
 	if !rows {
@@ -228,11 +228,7 @@ func objectShape(def config.Schema) (string, bool) {
 	for _, name := range order {
 		prop, _ := props[name].(config.Schema)
 		desc, _ := prop["description"].(string)
-		first := ""
-		if ls := lines(desc); len(ls) > 0 {
-			first = strings.TrimSpace(ls[0])
-		}
-		fmt.Fprintf(&b, "| `%s` | %s |\n", name, first)
+		b.WriteString(tableRow("`"+name+"`", summaryLine(desc)))
 	}
 	b.WriteByte('\n')
 	return b.String(), true

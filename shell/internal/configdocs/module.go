@@ -268,8 +268,7 @@ func ruleMatches(g config.DocGroup, f field) bool {
 func renderGroup(b *strings.Builder, g config.DocGroup, fields []field) {
 	fmt.Fprintf(b, "## %s\n\n| Field | Type | Default | Description |\n|---|---|---|---|\n", g.Title)
 	for _, f := range fields {
-		fmt.Fprintf(b, "| `%s` | %s | %s | %s |\n", f.name, f.typeCell, f.defaultCell,
-			strings.ReplaceAll(summaryLine(f.description), "|", "\\|"))
+		b.WriteString(tableRow("`"+f.name+"`", f.typeCell, f.defaultCell, summaryLine(f.description)))
 	}
 	b.WriteByte('\n')
 	for _, f := range fields {
@@ -317,36 +316,43 @@ func renderDefaults(b *strings.Builder, sec config.DocSection) {
 
 // summaryLine is the first paragraph joined on one line.
 func summaryLine(description string) string {
-	var parts []string
-	started := false
-	for _, l := range lines(description) {
-		blank := strings.TrimSpace(l) == ""
-		if !started {
-			if blank {
-				continue
-			}
-			started = true
-		}
-		if blank {
-			break
-		}
+	ls := lines(description)
+	start, end := firstParagraph(ls)
+	parts := make([]string, 0, end-start)
+	for _, l := range ls[start:end] {
 		parts = append(parts, strings.TrimSpace(l))
 	}
 	return strings.Join(parts, " ")
 }
 
-// paragraphsAfterFirst are the lines past the first paragraph (the
-// leading blank lines skipped, then the first paragraph).
+// firstParagraph is the line range of the first paragraph: from the
+// first non-blank line to a blank line, or to a heading or a code fence,
+// which interrupt a paragraph.
+func firstParagraph(ls []string) (int, int) {
+	start := 0
+	for start < len(ls) && strings.TrimSpace(ls[start]) == "" {
+		start++
+	}
+	end := start
+	for end < len(ls) && strings.TrimSpace(ls[end]) != "" && (end == start || !interruptsParagraph(ls[end])) {
+		end++
+	}
+	return start, end
+}
+
+func interruptsParagraph(line string) bool {
+	if isFenceLine(line) {
+		return true
+	}
+	_, _, heading := parseATXHeading(line)
+	return heading
+}
+
+// paragraphsAfterFirst are the lines past the first paragraph.
 func paragraphsAfterFirst(description string) []string {
 	ls := lines(description)
-	i := 0
-	for i < len(ls) && strings.TrimSpace(ls[i]) == "" {
-		i++
-	}
-	for i < len(ls) && strings.TrimSpace(ls[i]) != "" {
-		i++
-	}
-	return ls[i:]
+	_, end := firstParagraph(ls)
+	return ls[end:]
 }
 
 // bodyAfterSummary is the description after its first paragraph.

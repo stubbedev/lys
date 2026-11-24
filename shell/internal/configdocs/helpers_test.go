@@ -51,6 +51,14 @@ func TestSummaryAndBody(t *testing.T) {
 	if got := bodyAfterSummary("summary line one\nsoft wrap\n\n## Examples\n\n- item"); got != "\n## Examples\n\n- item" {
 		t.Errorf("body = %q", got)
 	}
+	for _, interrupted := range []string{"summary\n## Examples\n\n- item", "summary\n```yaml\nx: 1\n```"} {
+		if summaryLine(interrupted) != "summary" || !hasRichBody(interrupted) {
+			t.Errorf("%q: summary = %q, rich body = %v", interrupted, summaryLine(interrupted), hasRichBody(interrupted))
+		}
+	}
+	if got := bodyAfterSummary("summary\n## Examples\n\n- item"); got != "## Examples\n\n- item" {
+		t.Errorf("body after an interrupting heading = %q", got)
+	}
 }
 
 func TestTypeSlugAndCells(t *testing.T) {
