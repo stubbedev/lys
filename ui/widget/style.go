@@ -1167,11 +1167,13 @@ func (n *node) SetInlineStylePriority(css string, priority int) {
 	if css == "" {
 		n.inline = nil
 	} else {
-		n.inline = style.ParseDeclarations(css)
+		n.inline = inlineBlocks.Get(css, style.ParseDeclarations)
 		noteInlineUnits(n.inline.Units())
 	}
 	n.invalidateStyle()
 }
+
+var inlineBlocks intern.Cache[string, style.Block]
 
 func noteInlineUnits(u style.UnitReads) {
 	cascadeMu.Lock()

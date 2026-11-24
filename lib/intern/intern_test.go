@@ -98,3 +98,35 @@ func TestRawHashesAValueByItsMemory(t *testing.T) {
 		t.Error("values one field apart hashed alike")
 	}
 }
+
+func TestACacheBuildsEachKeyOnceWhileItsValueIsHeld(t *testing.T) {
+	var c Cache[string, flat]
+	builds := 0
+	build := func(k string) *flat {
+		builds++
+		return &flat{name: k}
+	}
+	a := c.Get("a", build)
+	if a.name != "a" || builds != 1 {
+		t.Fatalf("the first get built %d times and gave %+v", builds, *a)
+	}
+	if c.Get("a", build) != a || builds != 1 {
+		t.Error("a held key was built again")
+	}
+	if b := c.Get("b", build); b == a || b.name != "b" || builds != 2 {
+		t.Errorf("another key shared the first one's value or was not built: %+v after %d builds", *b, builds)
+	}
+	for range 20 {
+		runtime.GC()
+		if c.Len() == 1 {
+			break
+		}
+	}
+	if n := c.Len(); n != 1 {
+		t.Fatalf("the cache holds %d values after twenty collections, want only the one still referenced", n)
+	}
+	if c.Get("a", build) != a || builds != 2 {
+		t.Error("the still-held key lost its value")
+	}
+	runtime.KeepAlive(a)
+}

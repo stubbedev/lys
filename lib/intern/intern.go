@@ -1,7 +1,8 @@
 // Package intern shares one copy of equal values. A Table hands back a
-// canonical pointer for each distinct value it is given, and forgets a
-// value once nothing but the table refers to it. Raw hashes a value's
-// memory as it lies, for the tables whose values are large flat structs.
+// canonical pointer for each distinct value it is given, and a Cache
+// one value built per key; both forget a value once nothing but they
+// refer to it. Raw hashes a value's memory as it lies, for the tables
+// whose values are large flat structs.
 package intern
 
 import (
@@ -86,4 +87,72 @@ func (t *Table[T]) sweep(h uint64) {
 	}
 	clear(t.slots[h][len(live):])
 	t.slots[h] = live
+}
+
+// Cache shares the value built from each key: Get builds it on the
+// first request and hands the same pointer back while anything still
+// holds it, then forgets it. The zero Cache is ready to use and safe
+// for concurrent use; the values it hands out are shared, so callers
+// must never write through them.
+type Cache[K comparable, V any] struct {
+	mu sync.Mutex
+	m  map[K]weak.Pointer[V]
+}
+
+type cacheEntry[K comparable, V any] struct {
+	key K
+	ptr weak.Pointer[V]
+}
+
+// Get returns the value for k, building it with build when the cache
+// holds none. build runs without the cache's lock.
+func (c *Cache[K, V]) Get(k K, build func(K) *V) *V {
+	if v := c.lookup(k); v != nil {
+		return v
+	}
+	v := build(k)
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if wp, ok := c.m[k]; ok {
+		if held := wp.Value(); held != nil {
+			return held
+		}
+	}
+	if c.m == nil {
+		c.m = map[K]weak.Pointer[V]{}
+	}
+	wp := weak.Make(v)
+	c.m[k] = wp
+	runtime.AddCleanup(v, c.forget, cacheEntry[K, V]{key: k, ptr: wp})
+	return v
+}
+
+// Len is the number of values the cache still holds.
+func (c *Cache[K, V]) Len() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	n := 0
+	for _, wp := range c.m {
+		if wp.Value() != nil {
+			n++
+		}
+	}
+	return n
+}
+
+func (c *Cache[K, V]) lookup(k K) *V {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if wp, ok := c.m[k]; ok {
+		return wp.Value()
+	}
+	return nil
+}
+
+func (c *Cache[K, V]) forget(e cacheEntry[K, V]) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.m[e.key] == e.ptr {
+		delete(c.m, e.key)
+	}
 }

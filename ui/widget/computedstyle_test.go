@@ -67,3 +67,31 @@ func TestATransitionWritesOnlyItsOwnWidgetsStyle(t *testing.T) {
 		t.Errorf("a button added mid-flight starts at %#08x, want black", uint32(got))
 	}
 }
+
+func TestWidgetsWithTheSameInlineStyleShareItsParse(t *testing.T) {
+	face := goldenFace(t)
+	a, b, c := NewLabel(face, 14, "a", 0), NewLabel(face, 14, "b", 0), NewLabel(face, 14, "c", 0)
+	a.SetInlineStyle("color: #123456;")
+	b.SetInlineStyle("color: #123456;")
+	c.SetInlineStyle("color: #654321;")
+	if a.inline == nil || a.inline != b.inline {
+		t.Error("two widgets with the same inline style parsed it twice")
+	}
+	if c.inline == a.inline {
+		t.Fatal("a different inline style shares another's parse")
+	}
+	root := NewBox(Column, 0, 0)
+	root.Append(a, false)
+	root.Append(c, false)
+	arrangeTree(t, root, 200, 60)
+	if got := a.style(a).Color; got != render.RGB(0x12, 0x34, 0x56) {
+		t.Errorf("the shared inline style gives %08x", uint32(got))
+	}
+	if got := c.style(c).Color; got != render.RGB(0x65, 0x43, 0x21) {
+		t.Errorf("the other inline style gives %08x", uint32(got))
+	}
+	b.SetInlineStyle("")
+	if b.inline != nil || a.inline == nil {
+		t.Error("clearing one widget's inline style touched the other's, or kept its own")
+	}
+}
