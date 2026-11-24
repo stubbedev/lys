@@ -640,6 +640,7 @@ type session struct {
 	raw    map[string]rawFile
 	parsed map[string]*parsedFile
 	ast    *astArenas
+	keys   *keyArenas
 }
 
 type rawFile struct {
@@ -681,6 +682,17 @@ func (s *session) parseText(name, src string) (*parsedFile, error) {
 		s.ast = ast
 	}
 	return newParsedFile(s.Context, s.ast, name, src), nil
+}
+
+func (s *session) keyArenas() (*keyArenas, error) {
+	if s.keys == nil {
+		keys, err := newKeyArenas()
+		if err != nil {
+			return nil, err
+		}
+		s.keys = keys
+	}
+	return s.keys, nil
 }
 
 func (s *session) processInclude(stmt includeStmt, typ fileType) (*xkbFile, error) {

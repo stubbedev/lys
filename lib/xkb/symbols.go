@@ -72,15 +72,6 @@ type keyInfo struct {
 	rangeNum    uint32
 }
 
-func (k *keyInfo) clone() *keyInfo {
-	out := *k
-	out.groups = make([]groupInfo, len(k.groups))
-	for i := range k.groups {
-		out.groups[i] = k.groups[i].clone()
-	}
-	return &out
-}
-
 type modMapEntry struct {
 	merge      mergeMode
 	haveSymbol bool
@@ -102,10 +93,12 @@ type symbolsInfo struct {
 	mods          modSet
 	keymap        *Keymap
 	ctx           *session
+	arenas        *keyArenas
 }
 
-func newSymbolsInfo(ctx *session, keymap *Keymap, depth int, mods *modSet) *symbolsInfo {
+func newSymbolsInfo(ctx *session, keymap *Keymap, depth int, mods *modSet, arenas *keyArenas) *symbolsInfo {
 	info := &symbolsInfo{
+		arenas:        arenas,
 		depth:         depth,
 		explicitGroup: layoutInvalid,
 		defaultKey:    &keyInfo{name: "*"},
@@ -343,14 +336,14 @@ func (info *symbolsInfo) handleInclude(inc includeDecl) error {
 	if info.depth >= includeMaxDepth {
 		return fmt.Errorf("exceeded the include depth of %d at %q", includeMaxDepth, inc.text)
 	}
-	included := newSymbolsInfo(info.ctx, info.keymap, info.depth+1, &info.mods)
+	included := newSymbolsInfo(info.ctx, info.keymap, info.depth+1, &info.mods, info.arenas)
 	included.name = inc.text
 	for _, stmt := range inc.stmts {
 		f, err := info.ctx.processInclude(stmt, fileSymbols)
 		if err != nil {
 			return err
 		}
-		next := newSymbolsInfo(info.ctx, info.keymap, info.depth+1, &included.mods)
+		next := newSymbolsInfo(info.ctx, info.keymap, info.depth+1, &included.mods, info.arenas)
 		switch {
 		case stmt.modifier != "":
 			next.explicitGroup = explicitGroupFromModifier(stmt.modifier)
@@ -407,7 +400,7 @@ func (info *symbolsInfo) groupIndex(k *keyInfo, index expr, field groupField) (u
 		if uint32(len(k.groups)) >= info.keymap.format.maxGroups() { //nolint:gosec // at most maxGroups
 			return 0, codedf(codeGroupIndex, "too many groups for key <%s>", k.name)
 		}
-		k.groups = append(k.groups, groupInfo{})
+		k.groups = carve(info.arenas.groupInfos, k.groups, len(k.groups)+1)
 		return uint32(len(k.groups) - 1), nil //nolint:gosec // at most maxGroups
 	}
 	g, err := resolveGroup(index, info.keymap.format.maxGroups())
@@ -415,15 +408,17 @@ func (info *symbolsInfo) groupIndex(k *keyInfo, index expr, field groupField) (u
 		return 0, coded(codeGroupIndex, fmt.Errorf("group index of key <%s>: %w", k.name, err))
 	}
 	g--
-	k.groups = extend(k.groups, int(g)+1)
+	k.groups = carve(info.arenas.groupInfos, k.groups, int(g)+1)
 	return g, nil
 }
 
-func extend[T any](s []T, n int) []T {
+func carve[T any](a *heapslab.Arena[T], s []T, n int) []T {
 	if n <= len(s) {
 		return s
 	}
-	return append(s, make([]T, n-len(s))...)
+	out := a.AllocSlice(n)
+	copy(out, s)
+	return out
 }
 
 func (info *symbolsInfo) addSymbols(k *keyInfo, index, value expr) error {
@@ -447,7 +442,7 @@ func (info *symbolsInfo) addSymbols(k *keyInfo, index, value expr) error {
 	for len(levels) > 0 && len(levels[len(levels)-1].syms) == 0 {
 		levels = levels[:len(levels)-1]
 	}
-	g.levels = extend(g.levels, len(levels))
+	g.levels = carve(info.arenas.levels, g.levels, len(levels))
 	g.defined |= groupSyms
 	for i, l := range levels {
 		g.levels[i].syms = l.syms
@@ -477,7 +472,7 @@ func (info *symbolsInfo) addActions(k *keyInfo, index, value expr) error {
 	if g.defined&groupActs != 0 {
 		return fmt.Errorf("actions for key <%s> group %d already defined", k.name, ndx+1)
 	}
-	g.levels = extend(g.levels, len(lists))
+	g.levels = carve(info.arenas.levels, g.levels, len(lists))
 	g.defined |= groupActs
 	nonEmpty := 0
 	for i, list := range lists {
@@ -589,7 +584,7 @@ func (info *symbolsInfo) setType(k *keyInfo, index, value expr) error {
 		return coded(codeGroupIndex, fmt.Errorf("the type of key <%s>: %w", k.name, err))
 	}
 	g--
-	k.groups = extend(k.groups, int(g)+1)
+	k.groups = carve(info.arenas.groupInfos, k.groups, int(g)+1)
 	k.groups[g].typ = val
 	k.groups[g].defined |= groupType
 	return nil
@@ -658,7 +653,7 @@ func (info *symbolsInfo) handleGlobalVar(v varDecl) error {
 }
 
 func (info *symbolsInfo) handleSymbols(d *symbolsDecl) error {
-	k := info.defaultKey.clone()
+	k := info.arenas.cloneKey(info.defaultKey)
 	k.merge = d.merge
 	k.name = d.name
 	var errs []error
@@ -852,22 +847,36 @@ func upperSyms(syms []Keysym) []Keysym {
 }
 
 type keyArenas struct {
-	groups *heapslab.Arena[keyGroup]
-	levels *heapslab.Arena[level]
+	infos      *heapslab.Arena[keyInfo]
+	groupInfos *heapslab.Arena[groupInfo]
+	groups     *heapslab.Arena[keyGroup]
+	levels     *heapslab.Arena[level]
 }
 
 const keyArenaChunk = 512
 
-func newKeyArenas() (keyArenas, error) {
+func newKeyArenas() (*keyArenas, error) {
+	infos, ierr := heapslab.NewArena[keyInfo](keyArenaChunk)
+	groupInfos, ginfoErr := heapslab.NewArena[groupInfo](keyArenaChunk)
 	groups, gerr := heapslab.NewArena[keyGroup](keyArenaChunk)
 	levels, lerr := heapslab.NewArena[level](keyArenaChunk)
-	if err := errors.Join(gerr, lerr); err != nil {
-		return keyArenas{}, fmt.Errorf("xkb: key arenas: %w", err)
+	if err := errors.Join(ierr, ginfoErr, gerr, lerr); err != nil {
+		return nil, fmt.Errorf("xkb: key arenas: %w", err)
 	}
-	return keyArenas{groups: groups, levels: levels}, nil
+	return &keyArenas{infos: infos, groupInfos: groupInfos, groups: groups, levels: levels}, nil
 }
 
-func (m *Keymap) copyKey(ki *keyInfo, a keyArenas) {
+func (a *keyArenas) cloneKey(k *keyInfo) *keyInfo {
+	out := a.infos.Alloc()
+	*out = *k
+	out.groups = make([]groupInfo, len(k.groups))
+	for i := range k.groups {
+		out.groups[i] = k.groups[i].clone()
+	}
+	return out
+}
+
+func (m *Keymap) copyKey(ki *keyInfo, a *keyArenas) {
 	k := m.keyByName(ki.name, false)
 	if k == nil {
 		m.ctx.verbose(verbosityDetailed, warnUndefinedKeycode, "Key <%s> not found in keycodes; Symbols ignored\n", ki.name)
@@ -963,7 +972,11 @@ func (m *Keymap) copyModMap(entry modMapEntry) {
 }
 
 func (m *Keymap) compileSymbols(f *xkbFile, ctx *session) error {
-	info := newSymbolsInfo(ctx, m, 0, &m.mods)
+	arenas, err := ctx.keyArenas()
+	if err != nil {
+		return err
+	}
+	info := newSymbolsInfo(ctx, m, 0, &m.mods, arenas)
 	if f != nil {
 		if err := info.handleFile(f); err != nil {
 			return err
@@ -972,10 +985,6 @@ func (m *Keymap) compileSymbols(f *xkbFile, ctx *session) error {
 	m.sections[fileSymbols] = escapeMapName(info.name)
 	m.mods = info.mods
 	m.groupNames = info.groupNames
-	arenas, err := newKeyArenas()
-	if err != nil {
-		return err
-	}
 	for _, ki := range info.keys {
 		m.copyKey(ki, arenas)
 	}

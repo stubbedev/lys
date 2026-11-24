@@ -67,7 +67,7 @@ func TestCompilingMoreKeysCarvesTheirGroupsAndLevelsFromChunks(t *testing.T) {
 	more := testing.AllocsPerRun(5, compile(keymapWithKeys(many)))
 	perKey := (more - base) / (many - few)
 	t.Logf("compiling %d keys allocates %v times, %d keys %v times: %.3f a key", few, base, many, more, perKey)
-	if perKey > 8.5 {
+	if perKey > 5.5 {
 		t.Errorf("each further key allocates %.3f times to compile, want its groups and levels carved from shared chunks", perKey)
 	}
 }
