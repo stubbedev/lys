@@ -219,7 +219,7 @@ func (d *actionDefaults) setField(format KeymapFormat, mods *modSet, elem, field
 }
 
 func (d *actionDefaults) parse(c *Context, format KeymapFormat, mods *modSet, def expr) (action, error) {
-	call, ok := def.(exprAction)
+	call, ok := def.(*exprAction)
 	if !ok {
 		return action{}, fmt.Errorf("expected an action definition, found %T", def)
 	}
@@ -255,7 +255,7 @@ func (d *actionDefaults) parse(c *Context, format KeymapFormat, mods *modSet, de
 
 func splitActionArg(arg expr) (expr, expr) {
 	switch v := arg.(type) {
-	case exprAssign:
+	case *exprAssign:
 		return v.left, v.right
 	case exprUnary:
 		if v.op == tokExclam || v.op == tokInvert {

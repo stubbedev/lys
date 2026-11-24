@@ -478,8 +478,8 @@ func (info *symbolsInfo) addActions(k *keyInfo, index, value expr) error {
 	for i, list := range lists {
 		l := &g.levels[i]
 		var actions []action
-		for _, def := range list.actions {
-			a, err := info.defaults.parse(info.ctx.Context, info.keymap.format, &info.mods, def)
+		for j := range list.actions {
+			a, err := info.defaults.parse(info.ctx.Context, info.keymap.format, &info.mods, &list.actions[j])
 			if err != nil {
 				info.ctx.logError(coded(codeInvalidValue, fmt.Errorf("illegal action definition for <%s>: %w", k.name, err)))
 				a = action{typ: actNone}

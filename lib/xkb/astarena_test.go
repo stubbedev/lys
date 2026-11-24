@@ -71,3 +71,41 @@ func TestCompilingMoreKeysCarvesTheirGroupsAndLevelsFromChunks(t *testing.T) {
 		t.Errorf("each further key allocates %.3f times to compile, want its groups and levels carved from shared chunks", perKey)
 	}
 }
+
+func keymapWithInterprets(n int) string {
+	var b strings.Builder
+	b.WriteString("xkb_keymap {\nxkb_compat \"t\" {\n")
+	for i := range n {
+		fmt.Fprintf(&b, "interpret Shift_L+AnyOf(all) { useModMapMods = level%d; repeat = false; action = SetMods(modifiers = Shift, clearLocks); };\n", 1+i%2)
+	}
+	b.WriteString("};\n};\n")
+	return b.String()
+}
+
+func TestParsingMoreInterpretsCarvesTheirBodiesAndArgumentsFromChunks(t *testing.T) {
+	ctx := NewContext(func(string) string { return "" })
+	ctx.SetLogLevel(LogCritical)
+	parse := func(text string) func() {
+		return func() {
+			pf, err := ctx.newSession(FormatTextV1).parseText("(input string)", text)
+			if err != nil {
+				t.Fatal(err)
+			}
+			f, err := pf.defaultMap()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(f.sections) != 1 {
+				t.Fatalf("parsed %d sections, want compat", len(f.sections))
+			}
+		}
+	}
+	const few, many = 64, 1024
+	base := testing.AllocsPerRun(5, parse(keymapWithInterprets(few)))
+	more := testing.AllocsPerRun(5, parse(keymapWithInterprets(many)))
+	perInterpret := (more - base) / (many - few)
+	t.Logf("parsing %d interprets allocates %v times, %d interprets %v times: %.3f an interpret", few, base, many, more, perInterpret)
+	if perInterpret > 0.2 {
+		t.Errorf("each further interpret allocates %.3f times, want its body and action arguments carved from shared chunks", perInterpret)
+	}
+}

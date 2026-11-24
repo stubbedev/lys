@@ -217,7 +217,7 @@ func (info *compatInfo) handleFile(f *xkbFile) error {
 		switch v := d.(type) {
 		case includeDecl:
 			err = info.handleInclude(v)
-		case interpDecl:
+		case *interpDecl:
 			err = info.handleInterp(v)
 		case groupCompatDecl:
 		case ledMapDecl:
@@ -242,7 +242,7 @@ func (info *compatInfo) resolvePredicate(e expr) (matchOp, uint32, error) {
 	}
 	pred := matchExactly
 	switch v := e.(type) {
-	case exprAction:
+	case *exprAction:
 		p, ok := lookupName(matchNames, v.name)
 		if !ok || len(v.args) != 1 {
 			return 0, 0, fmt.Errorf("illegal modifier predicate %q", v.name)
@@ -320,8 +320,8 @@ func (info *compatInfo) parseInterpActions(value expr) ([]action, error) {
 		return []action{a}, nil
 	}
 	var actions []action
-	for _, def := range list.actions {
-		a, err := info.defaults.parse(info.ctx.Context, info.format, &info.mods, def)
+	for i := range list.actions {
+		a, err := info.defaults.parse(info.ctx.Context, info.format, &info.mods, &list.actions[i])
 		if err != nil {
 			return nil, err
 		}
@@ -422,7 +422,7 @@ func (info *compatInfo) handleGlobalVar(v varDecl) error {
 	return codedf(codeUnknownDefault, "default defined for unknown field %q", l.field)
 }
 
-func (info *compatInfo) handleInterp(d interpDecl) error {
+func (info *compatInfo) handleInterp(d *interpDecl) error {
 	pred, mods, err := info.resolvePredicate(d.match)
 	if err != nil {
 		return fmt.Errorf("interpret: %w", err)

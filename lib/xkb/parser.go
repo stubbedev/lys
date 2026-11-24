@@ -142,7 +142,7 @@ func (includeDecl) isDecl()     {}
 func (*keycodeDecl) isDecl()    {}
 func (aliasDecl) isDecl()       {}
 func (vmodDecl) isDecl()        {}
-func (interpDecl) isDecl()      {}
+func (*interpDecl) isDecl()     {}
 func (typeDecl) isDecl()        {}
 func (*symbolsDecl) isDecl()    {}
 func (modMapDecl) isDecl()      {}
@@ -188,6 +188,8 @@ type (
 type parser struct {
 	declScratch  [1]decl
 	levelScratch []levelItem
+	varScratch   []varDecl
+	argScratch   []expr
 	ast          *astArenas
 	ctx          *Context
 	exprDepth    int
@@ -573,19 +575,35 @@ func (p *parser) parseVarBlock() ([]varDecl, error) {
 	if _, err := p.expect(tokOBrace, "'{'"); err != nil {
 		return nil, err
 	}
-	var body []varDecl
+	start := len(p.varScratch)
+	defer func() { p.varScratch = popScratch(p.varScratch, start) }()
 	for p.tok.kind != tokCBrace {
 		v, err := p.parseVarDecl()
 		if err != nil {
 			return nil, err
 		}
-		body = append(body, v)
+		p.varScratch = append(p.varScratch, v)
 	}
+	body := carveScratch(p.ast.bodies, p.varScratch[start:])
 	if err := p.advance(); err != nil {
 		return nil, err
 	}
 	_, err := p.expect(tokSemi, "';'")
 	return body, err
+}
+
+func carveScratch[T any](a *heapslab.Arena[T], items []T) []T {
+	if len(items) == 0 {
+		return nil
+	}
+	out := a.AllocSlice(len(items))
+	copy(out, items)
+	return out
+}
+
+func popScratch[T any](scratch []T, start int) []T {
+	clear(scratch[start:])
+	return scratch[:start]
 }
 
 func (p *parser) parseVMods(merge mergeMode) ([]decl, error) {
@@ -703,7 +721,8 @@ func (p *parser) parseInterpret(merge mergeMode) ([]decl, error) {
 	if err != nil {
 		return nil, err
 	}
-	d := interpDecl{merge: merge, sym: sym}
+	d := p.ast.interps.Alloc()
+	*d = interpDecl{merge: merge, sym: sym}
 	if p.tok.kind == tokPlus {
 		if err := p.advance(); err != nil {
 			return nil, err
@@ -1004,7 +1023,9 @@ func (p *parser) parseExpr(minPrec int) (expr, error) {
 			if err != nil {
 				return nil, err
 			}
-			left = exprAssign{left: left, right: right}
+			assign := p.ast.assigns.Alloc()
+			*assign = exprAssign{left: left, right: right}
+			left = assign
 			continue
 		}
 		prec := binaryPrec(p.tok.kind)
@@ -1065,7 +1086,13 @@ func (p *parser) parseTerm() (expr, error) {
 		return nil, err
 	}
 	if p.tok.kind == tokOParen {
-		return p.parseActionCall(first)
+		action, err := p.parseActionCall(first)
+		if err != nil {
+			return nil, err
+		}
+		boxed := p.ast.actions.Alloc()
+		*boxed = action
+		return boxed, nil
 	}
 	return p.parseLhsRest(first)
 }
@@ -1076,12 +1103,14 @@ func (p *parser) parseActionCall(name string) (exprAction, error) {
 	}
 	action := exprAction{name: name}
 	if p.tok.kind != tokCParen {
+		start := len(p.argScratch)
+		defer func() { p.argScratch = popScratch(p.argScratch, start) }()
 		for {
 			arg, err := p.parseExpr(0)
 			if err != nil {
 				return exprAction{}, err
 			}
-			action.args = append(action.args, arg)
+			p.argScratch = append(p.argScratch, arg)
 			more, err := p.acceptComma()
 			if err != nil {
 				return exprAction{}, err
@@ -1090,6 +1119,7 @@ func (p *parser) parseActionCall(name string) (exprAction, error) {
 				break
 			}
 		}
+		action.args = carveScratch(p.ast.args, p.argScratch[start:])
 	}
 	_, err := p.expect(tokCParen, "')'")
 	return action, err
@@ -1212,7 +1242,9 @@ func (p *parser) parseLevelItem() (levelItem, error) {
 		if err != nil {
 			return levelItem{}, err
 		}
-		return levelItem{kind: levelActs, acts: exprActionList{actions: []exprAction{action}}}, nil
+		actions := p.ast.actions.AllocSlice(1)
+		actions[0] = action
+		return levelItem{kind: levelActs, acts: exprActionList{actions: actions}}, nil
 	}
 	sym, err := p.parseKeysymLit()
 	if err != nil {
@@ -1455,6 +1487,10 @@ type astArenas struct {
 	syms       *heapslab.Arena[Keysym]
 	symLists   *heapslab.Arena[exprKeysymList]
 	symsLevels *heapslab.Arena[exprSymsLevels]
+	args       *heapslab.Arena[expr]
+	actions    *heapslab.Arena[exprAction]
+	assigns    *heapslab.Arena[exprAssign]
+	interps    *heapslab.Arena[interpDecl]
 }
 
 const (
@@ -1464,7 +1500,7 @@ const (
 
 func newASTArenas() (*astArenas, error) {
 	var a astArenas
-	var errs [8]error
+	var errs [12]error
 	a.keycodes, errs[0] = heapslab.NewArena[keycodeDecl](astChunk)
 	a.symbols, errs[1] = heapslab.NewArena[symbolsDecl](astChunk)
 	a.bodies, errs[2] = heapslab.NewArena[varDecl](astChunk)
@@ -1473,6 +1509,10 @@ func newASTArenas() (*astArenas, error) {
 	a.syms, errs[5] = heapslab.NewArena[Keysym](astChunk)
 	a.symLists, errs[6] = heapslab.NewArena[exprKeysymList](astChunk)
 	a.symsLevels, errs[7] = heapslab.NewArena[exprSymsLevels](astChunk)
+	a.args, errs[8] = heapslab.NewArena[expr](astChunk)
+	a.actions, errs[9] = heapslab.NewArena[exprAction](astChunk)
+	a.assigns, errs[10] = heapslab.NewArena[exprAssign](astChunk)
+	a.interps, errs[11] = heapslab.NewArena[interpDecl](astChunk)
 	if err := errors.Join(errs[:]...); err != nil {
 		return nil, fmt.Errorf("xkb: syntax tree arenas: %w", err)
 	}
