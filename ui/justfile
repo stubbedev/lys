@@ -79,7 +79,7 @@ atspi-verify:
 # desktop session.
 headless:
     #!/bin/sh
-    dir="{{headless_test_dir}}"
+    dir="{{ headless_test_dir }}"
     just test-env "$dir" || exit 1
     trap 'just test-env-stop "$dir"' EXIT INT TERM
     . "$dir/client.env"
@@ -119,9 +119,9 @@ docker recipe="check" memory="10g":
         gpu+=(-v /run/opengl-driver:/run/opengl-driver:ro)
     fi
     docker run --rm --init --user "$(id -u):$(id -g)" --cap-add SYS_PTRACE --device /dev/kvm "${gpu[@]}" \
-        --memory {{quote(memory)}} --memory-swap {{quote(memory)}} --pids-limit 4096 --tmpfs /dev/shm:rw,nosuid,nodev,exec,size=1g,mode=1777 \
+        --memory {{ quote(memory) }} --memory-swap {{ quote(memory) }} --pids-limit 4096 --tmpfs /dev/shm:rw,nosuid,nodev,exec,size=1g,mode=1777 \
         -v /nix/store:/nix/store:ro -v "$dir/env.sh:/env.sh:ro" -v "$dir/passwd:/etc/passwd:ro" -v "$dir/group:/etc/group:ro" -v "$(git rev-parse --show-toplevel):/src" -v lys-ui-go:/go -w /src/ui -e SSL_CERT_FILE="$certs" \
-        debian:trixie-slim "$bash" -c 'source /env.sh && export HOME=/go/home GOMODCACHE=/go/mod GOCACHE=/go/cache TMPDIR=/tmp FONTCONFIG_FILE="$LYS_UI_TEST_FONTCONFIG" && unset XDG_RUNTIME_DIR WAYLAND_DISPLAY DISPLAY DBUS_SESSION_BUS_ADDRESS && mkdir -p "$HOME" && exec just "$1"' docker {{quote(recipe)}}
+        debian:trixie-slim "$bash" -c 'source /env.sh && export HOME=/go/home GOMODCACHE=/go/mod GOCACHE=/go/cache TMPDIR=/tmp FONTCONFIG_FILE="$LYS_UI_TEST_FONTCONFIG" && unset XDG_RUNTIME_DIR WAYLAND_DISPLAY DISPLAY DBUS_SESSION_BUS_ADDRESS && mkdir -p "$HOME" && exec just "$1"' docker {{ quote(recipe) }}
 
 # `check` plus the headless input gate - what CI runs. The gate is
 # required there: LYS_TEST_HEADLESS=1 turns every skip into a failure.
@@ -184,12 +184,12 @@ demo:
 # LYS_DEBUG picks trace categories (see lys-lib's debug package).
 demo-headless LYS_DEBUG="input,frame": test-env test-build
     #!/bin/sh
-    dir="{{test_dir}}"
+    dir="{{ test_dir }}"
     if [ ! -f "$dir/client.env" ]; then
         echo "test compositor env missing; run just test-env"; exit 1
     fi
     . "$dir/client.env"
-    export WAYLAND_DISPLAY DBUS_SESSION_BUS_ADDRESS XDG_RUNTIME_DIR="$dir" LYS_DEBUG="{{LYS_DEBUG}}"
+    export WAYLAND_DISPLAY DBUS_SESSION_BUS_ADDRESS XDG_RUNTIME_DIR="$dir" LYS_DEBUG="{{ LYS_DEBUG }}"
     "$dir/lys-ui-hello" >"$dir/demo.log" 2>&1 &
     echo $! >"$dir/demo.pid"
     sleep 1
@@ -214,7 +214,7 @@ gallery:
 # sway that floats its windows at the origin. The docs site shows them.
 docshots dir="../docs/public/ui-widgets":
     #!/bin/sh
-    env="{{test_dir}}-shots"
+    env="{{ test_dir }}-shots"
     # Scale 2, so the shots stay sharp on high-density screens, on a
     # mode 1280 logical pixels wide: a floating window wider than the
     # output is centered over its edges, cropping the shot.
@@ -222,7 +222,7 @@ docshots dir="../docs/public/ui-widgets":
     trap 'just test-env-stop "$env"' EXIT INT TERM
     . "$env/client.env"
     export WAYLAND_DISPLAY DBUS_SESSION_BUS_ADDRESS XDG_RUNTIME_DIR="$env"
-    go run ./cmd/lys-ui-gallery -shots "{{dir}}"
+    go run ./cmd/lys-ui-gallery -shots "{{ dir }}"
 
 # Run the application-model demo (lys-ui-multi): per-output bars,
 # on-demand windows, close-request veto, Escape quits.
@@ -232,12 +232,12 @@ multi:
 # Run the application-model demo inside the headless test compositor.
 multi-headless LYS_DEBUG="input,frame": test-env test-build
     #!/bin/sh
-    dir="{{test_dir}}"
+    dir="{{ test_dir }}"
     if [ ! -f "$dir/client.env" ]; then
         echo "test compositor env missing; run just test-env"; exit 1
     fi
     . "$dir/client.env"
-    export WAYLAND_DISPLAY DBUS_SESSION_BUS_ADDRESS XDG_RUNTIME_DIR="$dir" LYS_DEBUG="{{LYS_DEBUG}}"
+    export WAYLAND_DISPLAY DBUS_SESSION_BUS_ADDRESS XDG_RUNTIME_DIR="$dir" LYS_DEBUG="{{ LYS_DEBUG }}"
     go build -tags lysdebug -o "$dir/lys-ui-multi" ./cmd/lys-ui-multi || exit 1
     "$dir/lys-ui-multi" >"$dir/demo.log" 2>&1 &
     echo $! >"$dir/demo.pid"
@@ -250,8 +250,8 @@ multi-headless LYS_DEBUG="input,frame": test-env test-build
 
 # Build the headless test binaries: the traced showcase and wlpointer.
 test-build dir=test_dir:
-    go build -tags lysdebug -o {{dir}}/lys-ui-hello ./cmd/lys-ui-hello
-    go build -o {{dir}}/wlpointer ./cmd/wlpointer
+    go build -tags lysdebug -o {{ dir }}/lys-ui-hello ./cmd/lys-ui-hello
+    go build -o {{ dir }}/wlpointer ./cmd/wlpointer
 
 # Start the headless test compositor: sway on wlroots' headless backend
 # in a private XDG_RUNTIME_DIR, so synthetic-input runs never touch the
@@ -263,7 +263,7 @@ test-build dir=test_dir:
 # the state test guard them).
 test-env dir=test_dir output="mode 1280x800 scale 1":
     #!/bin/sh
-    dir="{{dir}}"
+    dir="{{ dir }}"
     if [ -f "$dir/sway.pid" ] && kill -0 "$(cat "$dir/sway.pid")" 2>/dev/null; then
         echo "test compositor already running in $dir"
         exit 0
@@ -277,7 +277,7 @@ test-env dir=test_dir output="mode 1280x800 scale 1":
     mkdir -p "$dir" && chmod 700 "$dir"
     # focus_on_window_activation focus: a granted xdg-activation token
     # moves the focus, which the activation test checks.
-    printf '%s\n' 'output * {{output}}' \
+    printf '%s\n' 'output * {{ output }}' \
         'default_border none' \
         'default_floating_border none' \
         'input type:keyboard repeat_delay 5000' \
@@ -336,7 +336,7 @@ test-env dir=test_dir output="mode 1280x800 scale 1":
 # Stop the headless test compositor and wipe its runtime dir.
 test-env-stop dir=test_dir:
     #!/bin/sh
-    dir="{{dir}}"
+    dir="{{ dir }}"
     if [ -f "$dir/sway.pid" ]; then
         pid="$(cat "$dir/sway.pid")"
         kill "$pid" 2>/dev/null
@@ -359,28 +359,28 @@ test-env-stop dir=test_dir:
 
 # Follow the headless demo's trace log.
 test-log:
-    tail -n 40 -f {{test_dir}}/demo.log
+    tail -n 40 -f {{ test_dir }}/demo.log
 
 # Move the virtual pointer to compositor coordinates in the test env.
 move x="220" y="120": test-env test-build
-    env XDG_RUNTIME_DIR={{test_dir}} $(cat {{test_dir}}/client.env) {{test_dir}}/wlpointer move {{x}} {{y}}
+    env XDG_RUNTIME_DIR={{ test_dir }} $(cat {{ test_dir }}/client.env) {{ test_dir }}/wlpointer move {{ x }} {{ y }}
 
 # Click the virtual pointer at compositor coordinates (optional button code).
 click x="220" y="120" button="272": test-env test-build
-    env XDG_RUNTIME_DIR={{test_dir}} $(cat {{test_dir}}/client.env) {{test_dir}}/wlpointer click {{x}} {{y}} {{button}}
+    env XDG_RUNTIME_DIR={{ test_dir }} $(cat {{ test_dir }}/client.env) {{ test_dir }}/wlpointer click {{ x }} {{ y }} {{ button }}
 
 # Rest the pointer on compositor coordinates for a duration, so
 # dwell-dependent behavior (tooltip delay) can trigger.
 dwell x="150" y="80" ms="900": test-env test-build
-    env XDG_RUNTIME_DIR={{test_dir}} $(cat {{test_dir}}/client.env) {{test_dir}}/wlpointer dwell {{x}} {{y}} {{ms}}
+    env XDG_RUNTIME_DIR={{ test_dir }} $(cat {{ test_dir }}/client.env) {{ test_dir }}/wlpointer dwell {{ x }} {{ y }} {{ ms }}
 
 # Send a vertical wheel tick at compositor coordinates (positive down).
 axis x="450" y="350" dy="60": test-env test-build
-    env XDG_RUNTIME_DIR={{test_dir}} $(cat {{test_dir}}/client.env) {{test_dir}}/wlpointer axis {{x}} {{y}} {{dy}}
+    env XDG_RUNTIME_DIR={{ test_dir }} $(cat {{ test_dir }}/client.env) {{ test_dir }}/wlpointer axis {{ x }} {{ y }} {{ dy }}
 
 # Sweep the pointer along a row (y0 == y1) or column through the test env.
 sweep x0="100" y0="100" x1="600" y1="100" step="40": test-env test-build
-    env XDG_RUNTIME_DIR={{test_dir}} $(cat {{test_dir}}/client.env) {{test_dir}}/wlpointer sweep {{x0}} {{y0}} {{x1}} {{y1}} {{step}}
+    env XDG_RUNTIME_DIR={{ test_dir }} $(cat {{ test_dir }}/client.env) {{ test_dir }}/wlpointer sweep {{ x0 }} {{ y0 }} {{ x1 }} {{ y1 }} {{ step }}
 
 # Run the layer-shell panel (lys-ui-panel): right-anchored widgets with live input.
 panel:

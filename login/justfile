@@ -24,7 +24,7 @@ lint:
 # Run the test suite in a random order, so a test that leans on state an
 # earlier one left behind fails instead of passing by declaration order.
 test *args:
-    go test ${LYS_TEST_ARGS--shuffle=on} ./... {{args}}
+    go test ${LYS_TEST_ARGS--shuffle=on} ./... {{ args }}
 
 # Run the test suite under the race detector, which needs cgo.
 race:
@@ -45,7 +45,7 @@ fhs_interpreter := if arch() == "aarch64" { "/lib/ld-linux-aarch64.so.1" } else 
 # runtime through purego), stripped, asking for the standard loader;
 # beside it the notice of the wordlist lys-desktop's config links in.
 dist:
-    CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -I {{fhs_interpreter}}" -o dist/ ./cmd/lys-login
+    CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -I {{ fhs_interpreter }}" -o dist/ ./cmd/lys-login
     install -m 0644 "../desktop/service/bitwarden/generator/eff_large_wordlist.NOTICE" dist/
 
 # Format every Go source in place (gofumpt and gci via golangci-lint).

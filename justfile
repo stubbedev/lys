@@ -166,7 +166,8 @@ eval-jobs select *flags:
 # and the last part runs the package with every test a shard names skipped. A
 # split recipe runs once per package it splits, beside the run of its whole
 # packages, each a process of its own that reads its packages, -run and -skip
-# patterns from $LYS_TEST_PACKAGES, $LYS_TEST_RUN and $LYS_TEST_SKIP.
+# patterns from $LYS_TEST_PACKAGES, $LYS_TEST_RUN and $LYS_TEST_SKIP. Before
+# any of it, each target component's justfile must pass `just --fmt --check`.
 [script("bash")]
 gates *targets:
     set -euo pipefail
@@ -258,6 +259,13 @@ gates *targets:
     trap 'jobs -pr | xargs -r kill 2>/dev/null; wait; rm -rf "$dir"' EXIT
     declare -A running=() started=() envs=()
     mapfile -t components < <(printf '%s\n' "${tasks[@]}" | cut -d' ' -f1 | cut -d/ -f1 | sort -u)
+    for c in "${components[@]}"; do
+        if ! just --fmt --check --justfile "${c}/justfile" > "${dir}/fmt.log" 2>&1; then
+            echo "gates: ${c}/justfile is not formatted; just --fmt --justfile ${c}/justfile fixes it:" >&2
+            cat "${dir}/fmt.log" >&2
+            exit 1
+        fi
+    done
     for c in "${components[@]}"; do
         envs[$c]="${dir}/env-${#envs[@]}"
         nix print-dev-env ".#${c}" > "${envs[$c]}" 2> "${envs[$c]}.log" &

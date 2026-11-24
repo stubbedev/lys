@@ -531,42 +531,26 @@ func TestTheRecipeBodyIsTheIndentedLinesUnderItsHeader(t *testing.T) {
 	}
 }
 
-func recipesOf(justfile string) []string {
-	var recipes []string
-	for _, m := range recipeLine.FindAllStringSubmatch(justfile, -1) {
-		if rest := strings.TrimSpace(m[2]); !strings.HasPrefix(rest, ":=") && !strings.Contains(rest, " := ") {
-			recipes = append(recipes, m[1])
-		}
-	}
-	return recipes
-}
-
 func TestEveryGateIsARecipeOfItsComponent(t *testing.T) {
-	cfg, err := load(filepath.Join("..", ".."))
-	if err != nil {
-		t.Fatal(err)
+	root := writeTree(t, map[string]string{
+		"a/justfile": "lint:\n    golangci-lint run\ntest *args:\n    go test ./...\nrace:\n    go test -race ./...\n",
+		"b/justfile": "lint:\n    golangci-lint run\n",
+	})
+	cfg := Config{Components: map[string]Component{
+		"a": {Gates: []string{"lint", "test"}, Race: true},
+		"b": {Gates: []string{"lint"}},
+		"c": {},
+	}}
+	if err := checkTree(root, cfg); err != nil {
+		t.Fatalf("checkTree refused gates every justfile has: %v", err)
 	}
-	components := cfg.Components
-	for _, name := range slices.Sorted(maps.Keys(components)) {
-		c := components[name]
-		want := slices.Clone(c.Gates)
-		if c.Race {
-			want = append(want, "race")
-		}
-		if len(want) == 0 {
-			continue
-		}
-		data, err := os.ReadFile(filepath.Join("..", "..", name, "justfile"))
-		if err != nil {
-			t.Fatalf("%s runs gates, but its justfile does not read: %v", name, err)
-		}
-		have := recipesOf(string(data))
-		for _, recipe := range want {
-			if !slices.Contains(have, recipe) {
-				t.Errorf("ci/components.json runs %s's gate %q, which %s/justfile has no recipe for", name, recipe, name)
-			}
-		}
-	}
+	cfg.Components["b"] = Component{Gates: []string{"lint", "vet"}, Race: true}
+	cfg.Components["d"] = Component{Gates: []string{"test"}}
+	wantErrors(t, checkTree(root, cfg), []string{
+		`ci/components.json runs b's gate "vet", which b/justfile has no recipe for`,
+		`ci/components.json runs b's gate "race", which b/justfile has no recipe for`,
+		"d runs gates, but its justfile does not read",
+	})
 }
 
 func TestTheRecipeMatcherFindsRecipesAndSkipsAssignments(t *testing.T) {

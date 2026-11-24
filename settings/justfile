@@ -46,12 +46,12 @@ build:
 
 # Build the release binary into dist/, as the archive and the packages ship it.
 dist:
-    CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -I {{fhs_interpreter}}" -o dist/ ./cmd/lys-settings
+    CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -I {{ fhs_interpreter }}" -o dist/ ./cmd/lys-settings
     go tool install-icons dist/icons/hicolor/scalable/actions $(cat resources/icons.txt)
 
 # Run the settings app.
 run *args:
-    go run ./cmd/lys-settings {{args}}
+    go run ./cmd/lys-settings {{ args }}
 
 # Format every Go source in place.
 fmt:
@@ -75,9 +75,9 @@ docker recipe="check" memory="6g":
     forward=()
     [[ -v LYS_TEST_ARGS ]] && forward=(-e LYS_TEST_ARGS)
     docker run --rm --init --user "$(id -u):$(id -g)" --cap-add SYS_PTRACE "${forward[@]}" \
-        --memory {{quote(memory)}} --memory-swap {{quote(memory)}} --pids-limit 4096 --tmpfs /dev/shm:rw,nosuid,nodev,exec,size=1g,mode=1777 \
+        --memory {{ quote(memory) }} --memory-swap {{ quote(memory) }} --pids-limit 4096 --tmpfs /dev/shm:rw,nosuid,nodev,exec,size=1g,mode=1777 \
         -v /nix/store:/nix/store:ro -v "$dir/env.sh:/env.sh:ro" -v "$dir/passwd:/etc/passwd:ro" -v "$dir/group:/etc/group:ro" -v "$(git rev-parse --show-toplevel):/src" -v lys-settings-go:/go -w /src/settings -e SSL_CERT_FILE="$certs" \
-        debian:trixie-slim "$bash" -c 'source /env.sh && export HOME=/go/home GOMODCACHE=/go/mod GOCACHE=/go/cache GOLANGCI_LINT_CACHE=/go/lint TMPDIR=/tmp && unset XDG_RUNTIME_DIR WAYLAND_DISPLAY DISPLAY DBUS_SESSION_BUS_ADDRESS && mkdir -p "$HOME" && exec just "$1"' docker {{quote(recipe)}}
+        debian:trixie-slim "$bash" -c 'source /env.sh && export HOME=/go/home GOMODCACHE=/go/mod GOCACHE=/go/cache GOLANGCI_LINT_CACHE=/go/lint TMPDIR=/tmp && unset XDG_RUNTIME_DIR WAYLAND_DISPLAY DISPLAY DBUS_SESSION_BUS_ADDRESS && mkdir -p "$HOME" && exec just "$1"' docker {{ quote(recipe) }}
 
 # Pack the dist/ build into lys-settings-<version>-<arch>-linux.tar.gz, the release
 # archive the packages are built from.

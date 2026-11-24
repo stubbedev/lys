@@ -39,16 +39,16 @@ hardware_tests := "TestAlphaCut|TestABlurAlphaThreshold|TestACaptureRepaintsOnly
 pace backend="headless" renderer="vulkan" rounds="10" args="":
     #!/usr/bin/env bash
     set -euo pipefail
-    if [[ "${LYS_WM_CONTAINER-}" != 1 && {{quote(backend)}} != drm ]]; then
-        echo "pace: the {{backend}} backend renders on the GPU beside the session; run it as \`just docker pace\`, or with backend=drm from a text console" >&2
+    if [[ "${LYS_WM_CONTAINER-}" != 1 && {{ quote(backend) }} != drm ]]; then
+        echo "pace: the {{ backend }} backend renders on the GPU beside the session; run it as \`just docker pace\`, or with backend=drm from a text console" >&2
         exit 1
     fi
-    unset {{shell_drivers}}
+    unset {{ shell_drivers }}
     dir=$(mktemp -d)
     trap 'rm -rf "$dir"' EXIT
     go build -o "$dir/" ./cmd/lys-wm ./cmd/lys-wm-pace
     # shellcheck disable=SC2086
-    "$dir/lys-wm-pace" -backend {{quote(backend)}} -renderer {{quote(renderer)}} -rounds {{quote(rounds)}} {{args}}
+    "$dir/lys-wm-pace" -backend {{ quote(backend) }} -renderer {{ quote(renderer) }} -rounds {{ quote(rounds) }} {{ args }}
 
 # Run the GPU tests on the container's /run/opengl-driver instead of the dev
 # shell's llvmpipe, failing when any of them skips, then report frame rate and
@@ -64,10 +64,10 @@ hardware:
         echo "hardware: its tests open the DRM card nodes; run it as \`just docker hardware\`" >&2
         exit 1
     fi
-    unset {{shell_drivers}}
+    unset {{ shell_drivers }}
     dir=$(mktemp -d)
     trap 'rm -rf "$dir"' EXIT
-    if ! LYS_WM_HEADLESS=1 go test -count=1 -timeout 5m -v -run '{{hardware_tests}}' ./internal/render/gles/ ./internal/render/vulkan/ ./internal/backend/drm/ ./internal/backend/nested/ ./internal/harness/ | tee "$dir/tests.log" | grep -E '^(--- |ok|FAIL)|_test.go'; then
+    if ! LYS_WM_HEADLESS=1 go test -count=1 -timeout 5m -v -run '{{ hardware_tests }}' ./internal/render/gles/ ./internal/render/vulkan/ ./internal/backend/drm/ ./internal/backend/nested/ ./internal/harness/ | tee "$dir/tests.log" | grep -E '^(--- |ok|FAIL)|_test.go'; then
         cat "$dir/tests.log" >&2
         exit 1
     fi
@@ -112,7 +112,7 @@ hardware:
     go build -o "$dir/lys-wm-pace" ./cmd/lys-wm-pace
     rc=0
     for renderer in gles vulkan; do
-        "$dir/lys-wm-pace" -compositor "$dir/lys-wm" -renderer "$renderer" -rounds {{pace_rounds}} -gate || rc=1
+        "$dir/lys-wm-pace" -compositor "$dir/lys-wm" -renderer "$renderer" -rounds {{ pace_rounds }} -gate || rc=1
     done
     exit "$rc"
 
@@ -128,7 +128,7 @@ chromium:
         echo "chromium: it renders on the GPU beside the session; run it as \`just docker chromium\`" >&2
         exit 1
     fi
-    unset {{shell_drivers}}
+    unset {{ shell_drivers }}
     PATH="$CHROMIUM_BIN:$PATH" LYS_WM_CHROMIUM=1 LYS_WM_HEADLESS=1 go test -count=1 -timeout 5m -v -run '^TestChromium' ./internal/harness/
 
 # Measure what can hold up the compositor thread between frames (#260): an shm
@@ -140,7 +140,7 @@ stalls:
     #!/usr/bin/env bash
     set -euo pipefail
     if [[ "${LYS_WM_CONTAINER-}" == 1 ]]; then
-        unset {{shell_drivers}}
+        unset {{ shell_drivers }}
     fi
     LYS_WM_HEADLESS=1 go test -run '^$' -bench '^BenchmarkStall' -benchtime 200x ./internal/compositor/ ./internal/harness/
 
@@ -154,7 +154,7 @@ render-bench:
         echo "render-bench: it renders on the GPU; run it as \`just docker render-bench\`" >&2
         exit 1
     fi
-    unset {{shell_drivers}}
+    unset {{ shell_drivers }}
     LYS_WM_HEADLESS=1 go test -run '^$' -bench 'WindowsOnHardware' -benchtime 500x ./internal/render/gles/ ./internal/render/vulkan/
 
 # How many times the gates play each animation: enough for RSS growth to repeat
@@ -173,7 +173,7 @@ pace-gate renderer="gles":
     dir=$(mktemp -d)
     trap 'rm -rf "$dir"' EXIT
     go build -o "$dir/" ./cmd/lys-wm ./cmd/lys-wm-pace
-    "$dir/lys-wm-pace" -compositor "$dir/lys-wm" -renderer {{quote(renderer)}} -rounds {{pace_rounds}} -allow-software -gate
+    "$dir/lys-wm-pace" -compositor "$dir/lys-wm" -renderer {{ quote(renderer) }} -rounds {{ pace_rounds }} -allow-software -gate
 
 # Write cmd/lys-wm-pace/baseline.json's limits for gles and vulkan on a GPU, under
 # gles/gpu and vulkan/gpu: run it as `just docker pace-baseline`. The file lands in
@@ -185,7 +185,7 @@ pace-baseline:
         echo "pace-baseline: it measures the GPU; run it as \`just docker pace-baseline\`" >&2
         exit 1
     fi
-    unset {{shell_drivers}}
+    unset {{ shell_drivers }}
     just write-baselines
 
 # The same on the dev shell's software rasterisers, under gles/software and
@@ -201,7 +201,7 @@ write-baselines args="":
     go build -o "$dir/" ./cmd/lys-wm ./cmd/lys-wm-pace
     for renderer in gles vulkan; do
         # shellcheck disable=SC2086
-        "$dir/lys-wm-pace" -compositor "$dir/lys-wm" -renderer "$renderer" -rounds {{pace_rounds}} -write-baseline cmd/lys-wm-pace/baseline.json {{args}}
+        "$dir/lys-wm-pace" -compositor "$dir/lys-wm" -renderer "$renderer" -rounds {{ pace_rounds }} -write-baseline cmd/lys-wm-pace/baseline.json {{ args }}
     done
 
 # Run a recipe in a container that sees only the dev shell's store paths,
@@ -229,7 +229,7 @@ docker recipe="gates" memory="10g":
     certs=$(nix build --inputs-from . --no-link --print-out-paths nixpkgs#cacert^out)/etc/ssl/certs/ca-bundle.crt
     docker volume create lys-wm-go > /dev/null
     docker run --rm -v lys-wm-go:/go debian:trixie-slim chown "$(id -u):$(id -g)" /go
-    recipe={{quote(recipe)}}
+    recipe={{ quote(recipe) }}
     nodes=(/dev/dri/renderD* /dev/nvidia* /dev/udmabuf)
     if [[ "$recipe" == hardware ]]; then
         nodes+=(/dev/dri/card*)
@@ -256,7 +256,7 @@ docker recipe="gates" memory="10g":
         [[ -v $var ]] && host+=(-e "$var")
     done
     docker run --rm --init --user "$(id -u):$(id -g)" --cap-add SYS_PTRACE --device /dev/kvm "${host[@]}" \
-        --memory {{quote(memory)}} --memory-swap {{quote(memory)}} --pids-limit 4096 --tmpfs /dev/shm:rw,nosuid,nodev,exec,size=1g,mode=1777 \
+        --memory {{ quote(memory) }} --memory-swap {{ quote(memory) }} --pids-limit 4096 --tmpfs /dev/shm:rw,nosuid,nodev,exec,size=1g,mode=1777 \
         -v /nix/store:/nix/store:ro -v "$dir/env.sh:/env.sh:ro" -v "$dir/passwd:/etc/passwd:ro" -v "$dir/group:/etc/group:ro" -v "$(git rev-parse --show-toplevel):/src" -v lys-wm-go:/go -w /src/wm -e SSL_CERT_FILE="$certs" \
         debian:trixie-slim "$bash" -c 'source /env.sh && export HOME=/go/home GOMODCACHE=/go/mod GOCACHE=/go/cache TMPDIR=/tmp LYS_WM_CONTAINER=1 && unset XDG_RUNTIME_DIR WAYLAND_DISPLAY DISPLAY DBUS_SESSION_BUS_ADDRESS && mkdir -p "$HOME" && exec just "$1"' docker "$recipe"
 
@@ -267,11 +267,11 @@ docker recipe="gates" memory="10g":
 vm-online test memory="10g":
     #!/usr/bin/env bash
     set -euo pipefail
-    driver=$(nix build --no-link --print-out-paths .#{{quote(test)}}.driver)
+    driver=$(nix build --no-link --print-out-paths .#{{ quote(test) }}.driver)
     out=$(mktemp -d)
     echo "vm-online: screenshots in $out"
     docker run --rm --init --user "$(id -u):$(id -g)" --device /dev/kvm \
-        --memory {{quote(memory)}} --memory-swap {{quote(memory)}} --pids-limit 4096 \
+        --memory {{ quote(memory) }} --memory-swap {{ quote(memory) }} --pids-limit 4096 \
         -v /nix/store:/nix/store:ro -v "$out:/out" -e TMPDIR=/tmp -e HOME=/tmp \
         debian:trixie-slim "$driver/bin/nixos-test-driver" -o /out
 
@@ -279,7 +279,7 @@ vm-online test memory="10g":
 # requests with valid headers and arbitrary arguments. The gates run only the
 # seed corpus; this explores for as long as asked.
 fuzz duration="5m":
-    LYS_WM_HEADLESS=1 go test -run='^$' -fuzz=FuzzRequests -fuzztime={{duration}} ./internal/harness/
+    LYS_WM_HEADLESS=1 go test -run='^$' -fuzz=FuzzRequests -fuzztime={{ duration }} ./internal/harness/
 
 # Run every test and the patched xgb fork's under the race detector, which
 # needs cgo; the binaries lys-wm ships keep CGO_ENABLED=0. LYS_WM_HEADLESS=1
@@ -287,7 +287,7 @@ fuzz duration="5m":
 # part tests $LYS_TEST_PACKAGES, the tests $LYS_TEST_RUN picks and
 # $LYS_TEST_SKIP leaves.
 race:
-    CGO_ENABLED=1 LYS_WM_HEADLESS=1 go test -race -run "${LYS_TEST_RUN-}" -skip "{{host_skip}}${LYS_TEST_SKIP:+|$LYS_TEST_SKIP}" ${LYS_TEST_ARGS--count=1} ${LYS_TEST_PACKAGES:-./...}
+    CGO_ENABLED=1 LYS_WM_HEADLESS=1 go test -race -run "${LYS_TEST_RUN-}" -skip "{{ host_skip }}${LYS_TEST_SKIP:+|$LYS_TEST_SKIP}" ${LYS_TEST_ARGS--count=1} ${LYS_TEST_PACKAGES:-./...}
 
 # Run every release gate in order: vet, lint, test, build.
 check: vet lint no-fused test build
@@ -313,7 +313,7 @@ lint:
 # missing dev-shell program into a failure instead of a skip. One CI part tests
 # $LYS_TEST_PACKAGES, the tests $LYS_TEST_RUN picks and $LYS_TEST_SKIP leaves.
 test:
-    LYS_WM_HEADLESS=1 go test -run "${LYS_TEST_RUN-}" -skip "{{host_skip}}${LYS_TEST_SKIP:+|$LYS_TEST_SKIP}" ${LYS_TEST_ARGS--count=1} ${LYS_TEST_PACKAGES:-./...}
+    LYS_WM_HEADLESS=1 go test -run "${LYS_TEST_RUN-}" -skip "{{ host_skip }}${LYS_TEST_SKIP:+|$LYS_TEST_SKIP}" ${LYS_TEST_ARGS--count=1} ${LYS_TEST_PACKAGES:-./...}
 
 # Compile-check every package; the output is discarded.
 build:
@@ -334,7 +334,7 @@ dist_font := "/usr/share/lys-wm/DejaVuSans.ttf"
 # at runtime through purego by soname), stripped, asking for the standard
 # loader.
 dist:
-    CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -I {{fhs_interpreter}} -X main.defaultFont={{dist_font}}" -o dist/ ./cmd/lys-wm ./cmd/lys-wmctl
+    CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -I {{ fhs_interpreter }} -X main.defaultFont={{ dist_font }}" -o dist/ ./cmd/lys-wm ./cmd/lys-wmctl
 
 # Regenerate the protocol bindings from lys-lib's protocols.
 generate:
@@ -349,7 +349,6 @@ fmt:
 fmt-check:
     golangci-lint fmt --diff ./...
 
-
 # Fail when a reachable dependency has a known vulnerability.
 vuln:
     govulncheck ./...
@@ -358,7 +357,7 @@ vuln:
 start issue:
     #!/usr/bin/env bash
     set -euo pipefail
-    issue={{quote(issue)}}
+    issue={{ quote(issue) }}
     if [[ ! "$issue" =~ ^[0-9]+$ ]]; then
         echo "start: issue must be a number, got '$issue'" >&2
         exit 1

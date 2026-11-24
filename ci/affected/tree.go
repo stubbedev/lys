@@ -27,6 +27,7 @@ func checkTree(root string, cfg Config) error {
 	var errs []error
 	for _, name := range slices.Sorted(maps.Keys(cfg.Components)) {
 		c := cfg.Components[name]
+		errs = append(errs, checkGateRecipes(filepath.Join(root, name, "justfile"), name, c)...)
 		if len(c.Shards) == 0 {
 			continue
 		}
@@ -103,6 +104,38 @@ func testsIn(dir string) (map[string]bool, error) {
 		}
 	}
 	return tests, nil
+}
+
+func checkGateRecipes(path, name string, c Component) []error {
+	want := slices.Clone(c.Gates)
+	if c.Race {
+		want = append(want, "race")
+	}
+	if len(want) == 0 {
+		return nil
+	}
+	data, err := os.ReadFile(path) //nolint:gosec // a component's justfile under the module root
+	if err != nil {
+		return []error{fmt.Errorf("%s runs gates, but its justfile does not read: %w", name, err)}
+	}
+	have := recipesOf(string(data))
+	var errs []error
+	for _, recipe := range want {
+		if !slices.Contains(have, recipe) {
+			errs = append(errs, fmt.Errorf("ci/components.json runs %s's gate %q, which %s/justfile has no recipe for", name, recipe, name))
+		}
+	}
+	return errs
+}
+
+func recipesOf(justfile string) []string {
+	var recipes []string
+	for _, m := range recipeLine.FindAllStringSubmatch(justfile, -1) {
+		if rest := strings.TrimSpace(m[2]); !strings.HasPrefix(rest, ":=") && !strings.Contains(rest, " := ") {
+			recipes = append(recipes, m[1])
+		}
+	}
+	return recipes
 }
 
 func checkShardedRecipes(path, name string, c Component, shardedGates []string) []error {

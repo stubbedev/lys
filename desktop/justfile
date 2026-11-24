@@ -20,7 +20,7 @@ no-fused:
     no-fused
 
 test *args:
-    go test ${LYS_TEST_ARGS--shuffle=on} ./... {{args}}
+    go test ${LYS_TEST_ARGS--shuffle=on} ./... {{ args }}
 
 race:
     CGO_ENABLED=1 go test -race ${LYS_TEST_ARGS--shuffle=on} ./...
