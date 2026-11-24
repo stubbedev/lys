@@ -185,7 +185,7 @@ func TestARestyleKeepsTheGenerationItStartedUnder(t *testing.T) {
 	}
 }
 
-func TestAStyledWidgetGivesBackItsComputeBuffersWhenItJoinsATree(t *testing.T) {
+func TestOnlyAnArrangedTreeKeepsStyleComputeBuffers(t *testing.T) {
 	face := goldenFace(t)
 	LoadStylesheet(galleryCSS)
 	t.Cleanup(func() { LoadStylesheet("") })
@@ -193,20 +193,24 @@ func TestAStyledWidgetGivesBackItsComputeBuffersWhenItJoinsATree(t *testing.T) {
 	lbl.AddClass("status")
 	lbl.Measure(Row, Unknown)
 	own := lbl.tree
-	if own == nil || own.root != &lbl.node || own.work == nil {
-		t.Fatal("a widget styled on its own holds no tree with compute buffers of its own")
+	if own == nil || own.root != &lbl.node {
+		t.Fatal("a widget styled on its own holds no tree of its own")
+	}
+	if own.work != nil {
+		t.Error("a detached widget's tree kept its compute buffers after computing")
+	}
+	if got := lbl.style(lbl).Color; got != render.RGB(0x88, 0x88, 0x88) {
+		t.Errorf("the detached widget's colour is %08x, want label.status's", uint32(got))
 	}
 	root := NewBox(Column, 0, 0)
 	root.Append(lbl, false)
 	root.Measure(Row, Unknown)
 	root.Arrange(render.Rect{W: 200, H: 40})
-	if own.work != nil {
-		t.Error("the widget's own tree kept its compute buffers after the widget joined another tree")
-	}
-	if lbl.tree == own || lbl.tree == nil || lbl.tree.work == nil {
-		t.Error("the joined widget does not style through its new tree's buffers")
-	}
+	lbl.AddClass("other")
 	if got := lbl.style(lbl).Color; got != render.RGB(0x88, 0x88, 0x88) {
 		t.Errorf("the joined widget's colour is %08x, want label.status's", uint32(got))
+	}
+	if lbl.tree == own || lbl.tree == nil || lbl.tree.work == nil {
+		t.Error("the arranged tree the widget joined does not keep compute buffers for its next restyle")
 	}
 }

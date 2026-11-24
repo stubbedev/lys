@@ -84,6 +84,13 @@ func (t *treeState) styleWork() *styleWork {
 	return t.work
 }
 
+func (t *treeState) endCompute() {
+	t.styleBusy = false
+	if t.root != nil && t.root.parent == nil && t.root.bounds.Empty() {
+		t.releaseWork()
+	}
+}
+
 func (t *treeState) releaseWork() {
 	if t.work != nil {
 		styleWorks.Put(t.work)

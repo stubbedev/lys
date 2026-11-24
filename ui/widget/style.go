@@ -2032,7 +2032,7 @@ func (n *node) restyle(w Widget) *style.Values {
 		n.requestPseudoImages(w)
 	}
 	if !firstStyle && n.trCancel == nil && n.anims == nil && n.lastStyle().Equal(v) {
-		t.styleBusy = false
+		t.endCompute()
 		return n.lastStyle()
 	}
 	old := n.lastStyle()
@@ -2041,7 +2041,7 @@ func (n *node) restyle(w Widget) *style.Values {
 		old = &kept
 	}
 	n.settleStyle(v)
-	t.styleBusy = false
+	t.endCompute()
 	requestStyleImages(n.cs, w)
 	n.ink = inkOf(n.cs)
 	n.transitionValues(old, n.cs, firstStyle)
