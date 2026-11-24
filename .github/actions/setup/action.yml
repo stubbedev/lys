@@ -7,7 +7,9 @@ description: >-
   earlier run, and gives the runner KVM, unprivileged user namespaces or free
   disk when the job asks. A job that compiles Go gets /dev/udmabuf, the only
   dmabuf a runner without a GPU has: lavapipe exports and imports through it,
-  and test clients allocate from it.
+  and test clients allocate from it. The runners' azure kernels build udmabuf
+  in (CONFIG_UDMABUF=y), so the node exists and only needs opening to the
+  runner's user.
   The job saves the Go build cache itself, with ./.github/actions/go-cache-save
   on the go-cache-path, go-cache-marked and go-cache-key outputs under
   if: always() && go-cache-save, so a job that failed or timed out still leaves
@@ -71,11 +73,11 @@ runs:
     - if: inputs.go-cache != ''
       shell: bash
       run: |
-        sudo modprobe udmabuf
-        echo 'KERNEL=="udmabuf", MODE="0666"' | sudo tee /etc/udev/rules.d/99-udmabuf.rules
-        sudo udevadm control --reload-rules
-        sudo udevadm trigger --name-match=udmabuf
-        test -r /dev/udmabuf -a -w /dev/udmabuf
+        if [[ ! -c /dev/udmabuf ]]; then
+          echo "setup: $(uname -r) has no /dev/udmabuf" >&2
+          exit 1
+        fi
+        sudo chmod 0666 /dev/udmabuf
 
     - if: inputs.userns == 'true'
       shell: bash
