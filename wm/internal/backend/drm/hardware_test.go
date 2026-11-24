@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	kdrm "github.com/stubbedev/lys/lib/drm"
-	"github.com/stubbedev/lys/lib/edid"
 
 	"github.com/stubbedev/lys/wm/internal/backend"
 	"github.com/stubbedev/lys/wm/internal/gpu"
@@ -200,15 +199,11 @@ func startWithoutMaster(t *testing.T, card string, vulkan bool) {
 		t.Fatal(err)
 	}
 	defer l.Close()
-	vendors, err := edid.LoadVendors(edid.PNPPath(os.Getenv))
-	if err != nil {
-		t.Skipf("no PNP ID database: %v", err)
-	}
 	paths := gpu.PathsFromEnv(os.Getenv)
 	if vulkan {
 		paths = withoutGL()
 	}
-	b, err := New(l, dev, Options{Paths: paths, Vendors: vendors, Report: func(err error) { t.Error(err) }, Vulkan: vulkan, Master: WithoutMaster})
+	b, err := New(l, dev, Options{Paths: paths, Report: func(err error) { t.Error(err) }, Vulkan: vulkan, Master: WithoutMaster})
 	if err != nil {
 		skipWithoutVulkan(t, card, err)
 	}

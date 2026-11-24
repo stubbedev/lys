@@ -11,7 +11,6 @@ import (
 	"time"
 
 	kdrm "github.com/stubbedev/lys/lib/drm"
-	"github.com/stubbedev/lys/lib/edid"
 	"github.com/stubbedev/lys/lib/logind"
 	"golang.org/x/sys/unix"
 
@@ -54,7 +53,6 @@ type native struct {
 	sessionWork loop.Serial
 	l           *loop.Loop
 	paths       gpu.Paths
-	vendors     edid.Vendors
 	logind      broker
 	monitor     *session.Monitor
 	input       *session.Libinput
@@ -159,9 +157,6 @@ func openNative(l *loop.Loop, getenv func(string) string, opts nativeOptions, re
 		report(fmt.Errorf("%w; lys-wm takes the lid as open until libinput reports it", lidErr))
 	} else {
 		n.lidClosed = closed
-	}
-	if n.vendors, err = edid.LoadVendors(edid.PNPPath(getenv)); err != nil {
-		return nil, err
 	}
 	cards, err := n.gpuCards()
 	if err != nil {
@@ -269,7 +264,7 @@ func withRendererHint(err error) error {
 }
 
 func (n *native) drmOptions() drmbackend.Options {
-	return drmbackend.Options{Paths: n.paths, Vendors: n.vendors, Report: n.report, Vulkan: n.vulkan}
+	return drmbackend.Options{Paths: n.paths, Report: n.report, Vulkan: n.vulkan}
 }
 
 func (n *native) addSecondary(g gpuCard) {

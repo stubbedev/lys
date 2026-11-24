@@ -7,7 +7,6 @@ import (
 	"slices"
 
 	kdrm "github.com/stubbedev/lys/lib/drm"
-	"github.com/stubbedev/lys/lib/edid"
 	"github.com/stubbedev/lys/lib/fourcc"
 	lgpu "github.com/stubbedev/lys/lib/gpu"
 	"golang.org/x/sys/unix"
@@ -297,11 +296,10 @@ const (
 )
 
 type Options struct {
-	Paths   gpu.Paths
-	Vendors edid.Vendors
-	Report  func(error)
-	Vulkan  bool
-	Master  Master
+	Paths  gpu.Paths
+	Report func(error)
+	Vulkan bool
+	Master Master
 }
 
 func primaryAllocator(dev device, opts Options) (allocator, error) {

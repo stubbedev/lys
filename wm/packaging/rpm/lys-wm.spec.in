@@ -12,7 +12,6 @@ ExclusiveArch:  x86_64 aarch64
 
 BuildRequires:  systemd-rpm-macros
 Requires:       dejavu-sans-fonts
-Requires:       hwdata
 Requires:       libglvnd-egl
 Requires:       libglvnd-gles
 Requires:       libinput

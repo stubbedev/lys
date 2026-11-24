@@ -222,9 +222,10 @@ embedded SPIR-V; `just generate` rebuilds them.
   syncobjs and sync files.
 - `fourcc` names DRM pixel formats and modifiers.
 - `edid` parses make, model and serial (`Parse`), colour and HDR data
-  (`ParseHDR`) and the variable refresh range (`ParseVRR`). `LoadVendors` reads
-  the PNP ID database from `PNPPath`: `LYS_PNP_IDS` if set, else hwdata's
-  `pnp.ids`.
+  (`ParseHDR`) and the variable refresh range (`ParseVRR`). `Vendor` names a
+  maker from the PNP ID table built into the package, generated from hwdata's
+  `pnp.ids` (`go generate ./edid` in the dev shell; a test fails when it is
+  stale).
 
 ## dmabufs
 

@@ -2,8 +2,6 @@ package edid
 
 import (
 	"encoding/hex"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -22,21 +20,17 @@ func base(t *testing.T) []byte {
 	return b
 }
 
-func vendors(t *testing.T) Vendors {
-	t.Helper()
-	path := filepath.Join(t.TempDir(), "pnp.ids")
-	if err := os.WriteFile(path, []byte("GSM\tLG Electronics\nSAM\tSamsung Electric Company\nbad line\n"), 0o600); err != nil {
-		t.Fatal(err)
+func withChecksum(b []byte) []byte {
+	var sum byte
+	for _, c := range b[:127] {
+		sum += c
 	}
-	v, err := LoadVendors(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return v
+	b[127] = -sum
+	return b
 }
 
 func TestParseARealMonitor(t *testing.T) {
-	info, err := Parse(base(t), vendors(t))
+	info, err := Parse(base(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -48,22 +42,34 @@ func TestParseARealMonitor(t *testing.T) {
 	}
 }
 
+func TestAVendorIsNamedFromTheEmbeddedRegistry(t *testing.T) {
+	if name, ok := Vendor("SAM"); !ok || name != "Samsung Electric Company" {
+		t.Fatalf("SAM: %q, %v", name, ok)
+	}
+	if name, ok := Vendor("VQ@"); !ok || name != "Vision Quest" {
+		t.Fatalf("VQ@: %q, %v", name, ok)
+	}
+	for _, id := range []string{"XQX", "inu", "", "SAMS"} {
+		if name, ok := Vendor(id); ok {
+			t.Errorf("%q is named %q", id, name)
+		}
+	}
+}
+
 func TestFallbacksAndRejection(t *testing.T) {
 	b := base(t)
-	info, err := Parse(b, nil)
-	if err != nil || info.Make != "SAM" {
+	unknown := append([]byte(nil), b[:128]...)
+	unknown[8], unknown[9] = 0x62, 0x38
+	unknown = withChecksum(unknown)
+	info, err := Parse(unknown)
+	if err != nil || info.PNP != "XQX" || info.Make != "XQX" {
 		t.Fatalf("%+v, %v: an unknown vendor keeps its PNP ID", info, err)
 	}
 	stripped := append([]byte(nil), b[:128]...)
 	for i := 54; i < 126; i++ {
 		stripped[i] = 1
 	}
-	var sum byte
-	for _, c := range stripped[:127] {
-		sum += c
-	}
-	stripped[127] = -sum
-	info, err = Parse(stripped, vendors(t))
+	info, err = Parse(withChecksum(stripped))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,13 +78,10 @@ func TestFallbacksAndRejection(t *testing.T) {
 	}
 	bad := append([]byte(nil), b...)
 	bad[20]++
-	if _, err := Parse(bad, nil); err == nil || !strings.Contains(err.Error(), "checksum") {
+	if _, err := Parse(bad); err == nil || !strings.Contains(err.Error(), "checksum") {
 		t.Fatalf("a bad checksum: %v", err)
 	}
-	if _, err := Parse(b[:64], nil); err == nil {
+	if _, err := Parse(b[:64]); err == nil {
 		t.Fatal("a short EDID was accepted")
-	}
-	if _, err := LoadVendors("/nonexistent/pnp.ids"); err == nil || !strings.Contains(err.Error(), PNPEnv) {
-		t.Fatalf("a missing database: %v", err)
 	}
 }

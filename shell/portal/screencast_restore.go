@@ -375,7 +375,7 @@ func readDisplays(dir string) (map[string]displayID, error) {
 		if len(blob) == 0 {
 			continue
 		}
-		info, err := edid.Parse(blob, nil)
+		info, err := edid.Parse(blob)
 		if err != nil {
 			warnf("screencast: connector %s: %v", e.Name(), err)
 			continue

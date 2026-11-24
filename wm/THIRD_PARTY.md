@@ -35,6 +35,14 @@ server that leaves a write or round trip unfinished for five seconds, so a wedge
 Xwayland cannot hang the compositor thread (#260). Its licence, BSD-3-Clause, is kept verbatim in
 `third_party/xgb/LICENSE`.
 
+## Data
+
+lys-lib's `edid` package names monitor makers from a table generated from
+`pnp.ids` of [hwdata](https://github.com/vcrhonek/hwdata), the UEFI PNP ID
+registry. hwdata licenses that data under GPL-2.0-or-later or the XFree86 1.0
+licence, at the user's choice; lys uses it under the XFree86 1.0 licence. The
+statement is kept verbatim in lys-lib's `edid/LICENSE.hwdata`.
+
 ## Ported code
 
 Code ported from Hyprland, aquamarine, hyprwayland-scanner or libwayland is

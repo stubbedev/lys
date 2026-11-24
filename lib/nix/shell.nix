@@ -111,6 +111,8 @@
         XKB_CONFIG_ROOT = "${pkgs.xkeyboard-config}/share/X11/xkb";
         XLOCALEDIR = "${pkgs.libX11}/share/X11/locale";
         LYS_XKB_KEYSYMS_H = "${pkgs.libxkbcommon.dev}/include/xkbcommon/xkbcommon-keysyms.h";
+        # The PNP ID registry the edid package's vendor table comes from.
+        LYS_HWDATA_PNP_IDS = "${pkgs.hwdata}/share/hwdata/pnp.ids";
         # Mesa's lavapipe, a CPU Vulkan driver: the GPU tests force it
         # (VK_DRIVER_FILES) to run without a GPU, as CI does.
         LYS_TEST_LAVAPIPE = "${pkgs.mesa}/share/vulkan/icd.d/lvp_icd.${pkgs.stdenv.hostPlatform.parsed.cpu.name}.json";

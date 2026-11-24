@@ -1,9 +1,9 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: lys-wm
 Source: https://github.com/stubbedev/lys/tree/main/wm
-Comment: The protocol XML the bindings derive from, the code ported from
- Hyprland and the licences of each are listed in
- /usr/share/doc/lys-wm/THIRD_PARTY.md.
+Comment: The protocol XML the bindings derive from, the PNP ID table
+ generated from hwdata, the code ported from Hyprland and the licences of
+ each are listed in /usr/share/doc/lys-wm/THIRD_PARTY.md.
 
 Files: *
 Copyright: 2026 Alexander Bugge Stage

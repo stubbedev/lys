@@ -56,9 +56,10 @@ svg-refs:
     done
 
 # Compile the GPU renderer's GLSL to the SPIR-V package gpu embeds, and
-# regenerate the Wayland protocol bindings and the keysym tables.
+# regenerate the Wayland protocol bindings, the keysym tables and the PNP ID
+# table.
 generate:
-    go generate ./gpu ./wlr ./xkb ./third_party/wayland/xdg ./third_party/wayland/unstable/...
+    go generate ./edid ./gpu ./wlr ./xkb ./third_party/wayland/xdg ./third_party/wayland/unstable/...
 
 # Download the upstream protocol XML pinned in protocols/sources.json.
 protocols-fetch:

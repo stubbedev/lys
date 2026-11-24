@@ -148,7 +148,6 @@ type Backend struct {
 	async        bool
 	number       uint64
 	driver       string
-	vendors      edid.Vendors
 	report       func(error)
 	dev          device
 	alloc        allocator
@@ -244,7 +243,7 @@ func newBackend(l *loop.Loop, dev device, alloc allocator, opts Options) (*Backe
 	if opts.Master > WithoutMaster {
 		return nil, fmt.Errorf("drm: Options.Master %d is neither HoldsMaster nor WithoutMaster", opts.Master)
 	}
-	b := &Backend{loop: l, dev: dev, alloc: alloc, vendors: opts.Vendors, report: opts.Report, paused: opts.Master == WithoutMaster, events: make([]byte, eventBuffer), clientFBs: map[backend.ScanoutKey]*clientFB{}, unimportable: map[backend.ScanoutKey]error{}, fenceTime: kdrm.SyncFileSignalTime, now: l.Now}
+	b := &Backend{loop: l, dev: dev, alloc: alloc, report: opts.Report, paused: opts.Master == WithoutMaster, events: make([]byte, eventBuffer), clientFBs: map[backend.ScanoutKey]*clientFB{}, unimportable: map[backend.ScanoutKey]error{}, fenceTime: kdrm.SyncFileSignalTime, now: l.Now}
 	if a, ok := alloc.(*gpuAllocator); ok && !a.gpu.NativeFences() {
 		opts.Report(fmt.Errorf("drm: %T has no native fences, so every frame blocks the compositor until the GPU has finished it", a.gpu))
 	}
@@ -804,7 +803,7 @@ func (b *Backend) light(c kdrm.Connector, t *tiling) error {
 		if err != nil {
 			return err
 		}
-		if info, err := edid.Parse(data, b.vendors); err != nil {
+		if info, err := edid.Parse(data); err != nil {
 			b.report(fmt.Errorf("drm: %s has an EDID lys-wm cannot read, so only its connector names it: %w", c.Name(), err))
 		} else {
 			o.identity, o.vrrHold, o.oled = info, b.vrrHold(c, data), b.oled(c, data)

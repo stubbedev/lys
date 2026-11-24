@@ -12,7 +12,6 @@ import (
 	"unsafe"
 
 	kdrm "github.com/stubbedev/lys/lib/drm"
-	"github.com/stubbedev/lys/lib/edid"
 	"github.com/stubbedev/lys/lib/fourcc"
 	"golang.org/x/sys/unix"
 
@@ -173,10 +172,6 @@ func onASeat(t *testing.T, driver string) (*seat, *Output) {
 		t.Fatal(err)
 	}
 	paths := gpu.PathsFromEnv(os.Getenv)
-	vendors, err := edid.LoadVendors(edid.PNPPath(os.Getenv))
-	if err != nil {
-		t.Fatal(err)
-	}
 	alloc, err := newGLESAllocator(device{kernel: dev}, paths)
 	if err != nil {
 		t.Fatal(err)
@@ -187,7 +182,7 @@ func onASeat(t *testing.T, driver string) (*seat, *Output) {
 	}
 	t.Cleanup(func() { _ = l.Close() })
 	s := &seat{t: t, l: l, dev: &seatDevice{Device: dev}, h: &seatHandler{}}
-	if s.b, err = newBackend(l, device{kernel: s.dev}, alloc, Options{Paths: paths, Vendors: vendors, Report: func(err error) { s.reports = append(s.reports, err) }, Master: HoldsMaster}); err != nil {
+	if s.b, err = newBackend(l, device{kernel: s.dev}, alloc, Options{Paths: paths, Report: func(err error) { s.reports = append(s.reports, err) }, Master: HoldsMaster}); err != nil {
 		t.Fatal(errors.Join(err, alloc.close()))
 	}
 	t.Cleanup(func() {

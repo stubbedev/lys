@@ -4,12 +4,10 @@
 package edid
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 )
 
@@ -21,46 +19,6 @@ const (
 	tagSerial       = 0xff
 	tagName         = 0xfc
 )
-
-// PNPEnv is the environment variable that points PNPPath at a PNP ID
-// database.
-const PNPEnv = "LYS_PNP_IDS"
-
-var defaultPNP = "/usr/share/hwdata/pnp.ids"
-
-// PNPPath is the PNP ID database to load: the path in PNPEnv when set,
-// read through getenv, and otherwise hwdata's pnp.ids.
-func PNPPath(getenv func(string) string) string {
-	if p := getenv(PNPEnv); p != "" {
-		return p
-	}
-	return defaultPNP
-}
-
-// Vendors maps three-letter PNP IDs to manufacturer names.
-type Vendors map[string]string
-
-// LoadVendors reads a pnp.ids file of tab-separated ID and name lines,
-// skipping lines that are not.
-func LoadVendors(path string) (Vendors, error) {
-	f, err := os.Open(path) //nolint:gosec // the PNP ID database from the build or the environment
-	if err != nil {
-		return nil, fmt.Errorf("edid: read the PNP ID database (set %s to hwdata's pnp.ids): %w", PNPEnv, err)
-	}
-	defer f.Close()
-	v := Vendors{}
-	sc := bufio.NewScanner(f)
-	for sc.Scan() {
-		id, name, ok := strings.Cut(sc.Text(), "\t")
-		if ok && len(id) == 3 {
-			v[id] = strings.TrimSpace(name)
-		}
-	}
-	if err := sc.Err(); err != nil {
-		return nil, fmt.Errorf("edid: read %s: %w", path, err)
-	}
-	return v, nil
-}
 
 // Info is a display's identity: its PNP manufacturer ID, its make (the
 // manufacturer's name, or the PNP ID when unknown), its model and its
@@ -82,14 +40,14 @@ var ErrInvalid = errors.New("edid: invalid")
 // serial come from the name and serial descriptors, falling back to
 // the product code and the numeric serial in hex; a zero numeric
 // serial leaves Serial empty. It fails with ErrInvalid.
-func Parse(b []byte, vendors Vendors) (Info, error) {
+func Parse(b []byte) (Info, error) {
 	if err := checkBase(b); err != nil {
 		return Info{}, err
 	}
 	id := binary.BigEndian.Uint16(b[8:])
 	pnp := string([]byte{byte(id>>10&0x1f) + 'A' - 1, byte(id>>5&0x1f) + 'A' - 1, byte(id&0x1f) + 'A' - 1})
 	info := Info{PNP: pnp, Make: pnp}
-	if name, ok := vendors[pnp]; ok {
+	if name, ok := Vendor(pnp); ok {
 		info.Make = name
 	}
 	eachDisplayDescriptor(b, func(tag byte, d []byte) {

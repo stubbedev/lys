@@ -26,7 +26,6 @@
           "-X github.com/stubbedev/lys/wm/internal/gpu.defaultGBM=${libgbm}/lib/libgbm.so.1"
           "-X github.com/stubbedev/lys/lib/xkb.defaultRoot=${xkeyboard-config}/share/X11/xkb"
           "-X github.com/stubbedev/lys/lib/third_party/vk.defaultLibrary=${vulkan-loader}/lib/libvulkan.so.1"
-          "-X github.com/stubbedev/lys/lib/edid.defaultPNP=${hwdata}/share/hwdata/pnp.ids"
           "-X github.com/stubbedev/lys/wm/internal/session.defaultLibinput=${libinput.out}/lib/libinput.so.10"
           "-X github.com/stubbedev/lys/wm/internal/xwayland.defaultXwayland=${xwayland}/bin/Xwayland"
           "-X main.defaultFont=${dejavu_fonts}/share/fonts/truetype/DejaVuSans.ttf"

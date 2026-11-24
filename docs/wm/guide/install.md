@@ -43,7 +43,7 @@ sudo apt install ./lys-wm_<version>_amd64.deb    # _arm64.deb on aarch64
 ```
 
 - Depends: `libegl1`, `libgles2`, `libgbm1`, `libinput10`, `xkb-data`,
-  `hwdata`, `fonts-dejavu-core`.
+  `fonts-dejavu-core`.
 - Recommends: `xwayland`, `xdg-desktop-portal`, `xdg-desktop-portal-wlr`,
   `xdg-desktop-portal-gtk`, `lys-shell`, `foot`, `libvulkan1`,
   `mesa-vulkan-drivers`.
@@ -60,7 +60,7 @@ sudo dnf install ./lys-wm-<version>-1.fc<release>.x86_64.rpm    # .aarch64.rpm o
 ```
 
 - Requires: `libglvnd-egl`, `libglvnd-gles`, `mesa-libgbm`, `libinput`,
-  `xkeyboard-config`, `hwdata`, `dejavu-sans-fonts`.
+  `xkeyboard-config`, `dejavu-sans-fonts`.
 - Recommends: `xorg-x11-server-Xwayland`, `xdg-desktop-portal`,
   `xdg-desktop-portal-wlr`, `xdg-desktop-portal-gtk`, `lys-shell`, `foot`,
   `vulkan-loader`, `mesa-vulkan-drivers`.
@@ -94,7 +94,6 @@ work on every install.
 | GBM (GLES renderer) | `libgbm.so.1` | `LYS_WM_LIBGBM` |
 | libinput | `libinput.so.10` | `LYS_WM_LIBINPUT` |
 | xkeyboard-config | `/usr/share/X11/xkb` | `XKB_CONFIG_ROOT` |
-| PNP IDs (hwdata) | `/usr/share/hwdata/pnp.ids` | `LYS_PNP_IDS` |
 | Tab font | `/usr/share/lys-wm/DejaVuSans.ttf` | `tabs.font` in the config, or `LYS_WM_FONT` |
 | Xwayland | `Xwayland` on `PATH` | `LYS_WM_XWAYLAND` |
 

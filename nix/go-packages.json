@@ -2437,18 +2437,40 @@
       "lib/third_party/gomath"
     ],
     "external": [
-      "bufio",
       "bytes",
+      "cmp",
       "encoding/binary",
       "errors",
       "fmt",
-      "os",
+      "slices",
       "strings",
       "time"
     ],
     "testExternal": [
       "encoding/hex",
       "math",
+      "os",
+      "path/filepath",
+      "testing"
+    ]
+  },
+  "lib/edid/internal/genpnp": {
+    "imports": [
+      "lib/atomicfile"
+    ],
+    "external": [
+      "bytes",
+      "cmp",
+      "flag",
+      "fmt",
+      "go/format",
+      "log",
+      "os",
+      "slices",
+      "strings",
+      "unicode/utf8"
+    ],
+    "testExternal": [
       "path/filepath",
       "testing"
     ]
@@ -4740,6 +4762,7 @@
     ],
     "external": [
       "debug/elf",
+      "embed",
       "encoding/binary",
       "errors",
       "fmt",
@@ -4757,6 +4780,9 @@
       "sync",
       "unicode/utf8",
       "unsafe"
+    ],
+    "embeds": [
+      "lib/xkb/Compose.en_US.UTF-8"
     ],
     "testImports": [
       "lib/clib",
@@ -10981,7 +11007,6 @@
       "math",
       "net",
       "os",
-      "os/exec",
       "path/filepath",
       "reflect",
       "slices",
@@ -11014,6 +11039,7 @@
       "golang.org/x/image/font/gofont/goregular",
       "image/color",
       "log",
+      "os/exec",
       "regexp",
       "runtime",
       "runtime/debug",
@@ -12519,7 +12545,6 @@
     "imports": [
       "lib/appearance",
       "lib/drm",
-      "lib/edid",
       "lib/logind",
       "lib/portalsettings",
       "lib/render",
