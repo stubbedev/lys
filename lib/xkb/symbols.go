@@ -6,6 +6,8 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/stubbedev/memory-go/heapslab"
 )
 
 type groupField uint8
@@ -413,10 +415,15 @@ func (info *symbolsInfo) groupIndex(k *keyInfo, index expr, field groupField) (u
 		return 0, coded(codeGroupIndex, fmt.Errorf("group index of key <%s>: %w", k.name, err))
 	}
 	g--
-	for int(g) >= len(k.groups) {
-		k.groups = append(k.groups, groupInfo{})
-	}
+	k.groups = extend(k.groups, int(g)+1)
 	return g, nil
+}
+
+func extend[T any](s []T, n int) []T {
+	if n <= len(s) {
+		return s
+	}
+	return append(s, make([]T, n-len(s))...)
 }
 
 func (info *symbolsInfo) addSymbols(k *keyInfo, index, value expr) error {
@@ -440,9 +447,7 @@ func (info *symbolsInfo) addSymbols(k *keyInfo, index, value expr) error {
 	for len(levels) > 0 && len(levels[len(levels)-1].syms) == 0 {
 		levels = levels[:len(levels)-1]
 	}
-	for len(g.levels) < len(levels) {
-		g.levels = append(g.levels, level{})
-	}
+	g.levels = extend(g.levels, len(levels))
 	g.defined |= groupSyms
 	for i, l := range levels {
 		g.levels[i].syms = l.syms
@@ -472,9 +477,7 @@ func (info *symbolsInfo) addActions(k *keyInfo, index, value expr) error {
 	if g.defined&groupActs != 0 {
 		return fmt.Errorf("actions for key <%s> group %d already defined", k.name, ndx+1)
 	}
-	for len(g.levels) < len(lists) {
-		g.levels = append(g.levels, level{})
-	}
+	g.levels = extend(g.levels, len(lists))
 	g.defined |= groupActs
 	nonEmpty := 0
 	for i, list := range lists {
@@ -586,9 +589,7 @@ func (info *symbolsInfo) setType(k *keyInfo, index, value expr) error {
 		return coded(codeGroupIndex, fmt.Errorf("the type of key <%s>: %w", k.name, err))
 	}
 	g--
-	for int(g) >= len(k.groups) {
-		k.groups = append(k.groups, groupInfo{})
-	}
+	k.groups = extend(k.groups, int(g)+1)
 	k.groups[g].typ = val
 	k.groups[g].defined |= groupType
 	return nil
@@ -850,7 +851,23 @@ func upperSyms(syms []Keysym) []Keysym {
 	return syms
 }
 
-func (m *Keymap) copyKey(ki *keyInfo) {
+type keyArenas struct {
+	groups *heapslab.Arena[keyGroup]
+	levels *heapslab.Arena[level]
+}
+
+const keyArenaChunk = 512
+
+func newKeyArenas() (keyArenas, error) {
+	groups, gerr := heapslab.NewArena[keyGroup](keyArenaChunk)
+	levels, lerr := heapslab.NewArena[level](keyArenaChunk)
+	if err := errors.Join(gerr, lerr); err != nil {
+		return keyArenas{}, fmt.Errorf("xkb: key arenas: %w", err)
+	}
+	return keyArenas{groups: groups, levels: levels}, nil
+}
+
+func (m *Keymap) copyKey(ki *keyInfo, a keyArenas) {
 	k := m.keyByName(ki.name, false)
 	if k == nil {
 		m.ctx.verbose(verbosityDetailed, warnUndefinedKeycode, "Key <%s> not found in keycodes; Symbols ignored\n", ki.name)
@@ -880,14 +897,14 @@ func (m *Keymap) copyKey(ki *keyInfo) {
 			groups[i] = groups[0].clone()
 		}
 	}
-	k.groups = make([]keyGroup, k.numGroups)
+	k.groups = a.groups.AllocSlice(int(k.numGroups))
 	for i := range groups {
 		g := &groups[i]
 		t, explicit := m.typeForGroup(ki, g, i)
 		if int(t.numLevels) < len(g.levels) {
 			m.ctx.verbose(verbosityBrief, warnExtraSymbolsIgnored, "Type \"%s\" has %d levels, but <%s> has %d levels; Ignoring extra symbols\n", t.name, t.numLevels, ki.name, len(g.levels))
 		}
-		levels := make([]level, t.numLevels)
+		levels := a.levels.AllocSlice(int(t.numLevels))
 		copy(levels, g.levels)
 		k.groups[i] = keyGroup{explicitType: explicit, typ: t, levels: levels}
 	}
@@ -955,8 +972,12 @@ func (m *Keymap) compileSymbols(f *xkbFile, ctx *session) error {
 	m.sections[fileSymbols] = escapeMapName(info.name)
 	m.mods = info.mods
 	m.groupNames = info.groupNames
+	arenas, err := newKeyArenas()
+	if err != nil {
+		return err
+	}
 	for _, ki := range info.keys {
-		m.copyKey(ki)
+		m.copyKey(ki, arenas)
 	}
 	for _, mm := range info.modmaps {
 		m.copyModMap(mm)
