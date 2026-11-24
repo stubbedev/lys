@@ -52,7 +52,7 @@ func Run(ctx context.Context, cfg config.Config, log *slog.Logger) (err error) {
 	}
 	defer closing.Join(&err, "session bus", sessionBus)
 
-	d := New(light, backlight, displaySessions{logind.NewManager(system)}, ppdProfile{source: powerprofiles.NewOn(system), log: log}, realClock{}, log, p)
+	d := New(light, backlight, displaySessions{logind.NewManager(system)}, lysProfile{source: powerprofiles.NewOn(system), log: log}, realClock{}, log, p)
 	server, release, err := autobrightness.Serve(sessionBus, autobrightness.Following, d.Resume)
 	if err != nil {
 		return err
@@ -71,13 +71,13 @@ func (s displaySessions) Display(ctx context.Context) (Session, error) {
 	return session, nil
 }
 
-// ppdProfile is power-profiles-daemon's active profile.
-type ppdProfile struct {
+// lysProfile is the active profile lys-power publishes.
+type lysProfile struct {
 	source powerprofiles.Source
 	log    *slog.Logger
 }
 
-func (p ppdProfile) Saver(ctx context.Context) (<-chan bool, error) {
+func (p lysProfile) Saver(ctx context.Context) (<-chan bool, error) {
 	return powerprofiles.FollowSaver(ctx, p.source, config.BusTimeout, func(err error) {
 		p.log.Error("following the power profile", "err", err)
 	})

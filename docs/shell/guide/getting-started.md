@@ -46,7 +46,7 @@ Modules talk to these services. Install the ones you use:
 | PipeWire with WirePlumber and pipewire-pulse | `audio` |
 | NetworkManager | `network` |
 | BlueZ | `bluetooth` |
-| power-profiles-daemon | `power-profiles` |
+| [lys-power](/power/) | `power-profiles` |
 | tzdata (`zone.tab`, `tzdata.zi`) | `nightlight` auto-schedule without a pinned place: it follows the time zone's city |
 | tesseract | `lys-shell screenshot text` |
 
@@ -55,22 +55,21 @@ Modules talk to these services. Install the ones you use:
 ```sh [Arch]
 sudo pacman -S --needed vulkan-icd-loader libva intel-media-driver
 sudo pacman -S --needed bluez bluez-utils networkmanager \
-  power-profiles-daemon pipewire wireplumber pipewire-pulse
-sudo systemctl enable --now bluetooth NetworkManager power-profiles-daemon
+  pipewire wireplumber pipewire-pulse
+sudo systemctl enable --now bluetooth NetworkManager
 ```
 
 ```sh [Debian / Ubuntu]
 sudo apt install libvulkan1 libva2 libva-drm2 intel-media-va-driver mesa-va-drivers
 sudo apt install dbus-user-session bluez network-manager \
-  power-profiles-daemon pipewire-pulse wireplumber
-sudo systemctl enable --now bluetooth NetworkManager power-profiles-daemon
+  pipewire-pulse wireplumber
+sudo systemctl enable --now bluetooth NetworkManager
 ```
 
 ```sh [Fedora]
 sudo dnf install vulkan-loader libva intel-media-driver mesa-va-drivers
 # Workstation ships these; Minimal and Server need them:
-sudo dnf install pipewire-pulseaudio wireplumber NetworkManager bluez \
-  power-profiles-daemon
+sudo dnf install pipewire-pulseaudio wireplumber NetworkManager bluez
 ```
 
 :::

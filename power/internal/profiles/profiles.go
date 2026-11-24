@@ -1,149 +1,167 @@
-// Package profiles talks to power-profiles-daemon over the system bus, and
-// decides which profile belongs on which power source.
+// Package profiles applies a power profile to the knobs the kernel
+// offers: the ACPI platform profile and every cpufreq policy's energy
+// performance preference, each set to the choice its driver lists that
+// is nearest the profile, and decides which profile belongs on which
+// power source.
 package profiles
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"io/fs"
+	"os"
+	"path/filepath"
 	"slices"
+	"strings"
 
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+
+	"github.com/stubbedev/lys/power/profile"
 )
 
-// ErrAbsent reports that power-profiles-daemon is not on the system bus,
-// which callers treat as "profile handling unavailable", not as a fault.
-var ErrAbsent = errors.New("power-profiles-daemon not found on the system bus")
+// ErrNoChoice is a knob whose driver lists none of the choices a profile
+// can use.
+var ErrNoChoice = errors.New("profiles: the driver offers no choice for the profile")
 
-type endpoint struct {
-	bus   string
-	path  dbus.ObjectPath
-	iface string
+// nearest lists, per profile and knob, the choices nearest the profile
+// first. The platform profile's are the kernel's platform_profile names;
+// the preferences are the cpufreq drivers' energy_performance_preference
+// names.
+var (
+	platformNearest = map[profile.Profile][]string{
+		profile.PowerSaver:  {"low-power", "quiet", "cool", "balanced"},
+		profile.Balanced:    {"balanced", "balanced-performance", "quiet", "low-power"},
+		profile.Performance: {"performance", "balanced-performance", "balanced"},
+	}
+	preferenceNearest = map[profile.Profile][]string{
+		profile.PowerSaver:  {"power", "balance_power", "default"},
+		profile.Balanced:    {"balance_performance", "default", "balance_power"},
+		profile.Performance: {"performance", "balance_performance", "default"},
+	}
+)
+
+// knob is one sysfs attribute a profile sets, with the file listing the
+// choices its driver takes.
+type knob struct {
+	path, choices string
+	nearest       map[profile.Profile][]string
 }
 
-// Bus names and object paths, modern first and legacy second: ppd moved to
-// the org.freedesktop.UPower prefix in 0.10 but distros shipped the old
-// net.hadess name for years after.
-var known = [...]endpoint{
-	{"org.freedesktop.UPower.PowerProfiles", "/net/hadess/PowerProfiles", "org.freedesktop.UPower.PowerProfiles"},
-	{"net.hadess.PowerProfiles", "/net/hadess/PowerProfiles", "net.hadess.PowerProfiles"},
+// Knobs are the profile knobs under a sysfs root.
+type Knobs struct {
+	knobs []knob
 }
 
-// Client talks to power-profiles-daemon over a caller-owned bus
-// connection. The daemon is located on first use and again after it
-// disappears, so a ppd that starts late or restarts is picked up without
-// reconnecting.
-type Client struct {
-	conn  *dbus.Conn
-	found *endpoint
-}
-
-// New returns a client on conn; it does no I/O until first used.
-func New(conn *dbus.Conn) *Client {
-	return &Client{conn: conn}
-}
-
-// Available lists the profiles ppd offers.
-func (c *Client) Available() ([]string, error) {
-	variant, err := c.property("Profiles")
+// Find lists the knobs under sys, the sysfs root.
+func Find(sys string) (Knobs, error) {
+	var k Knobs
+	platform := filepath.Join(sys, "firmware", "acpi", "platform_profile")
+	switch _, err := os.Stat(platform); {
+	case err == nil:
+		k.knobs = append(k.knobs, knob{path: platform, choices: platform + "_choices", nearest: platformNearest})
+	case !errors.Is(err, fs.ErrNotExist):
+		return Knobs{}, fmt.Errorf("profiles: look for %s: %w", platform, err)
+	}
+	policies, err := filepath.Glob(filepath.Join(sys, "devices", "system", "cpu", "cpufreq", "policy*", "energy_performance_preference"))
 	if err != nil {
-		return nil, err
+		return Knobs{}, fmt.Errorf("profiles: list the cpufreq policies under %s: %w", sys, err)
 	}
-	raw, ok := variant.Value().([]map[string]dbus.Variant)
-	if !ok {
-		return nil, fmt.Errorf("unexpected Profiles type %T", variant.Value())
+	slices.Sort(policies)
+	for _, pref := range policies {
+		k.knobs = append(k.knobs, knob{path: pref, choices: filepath.Join(filepath.Dir(pref), "energy_performance_available_preferences"), nearest: preferenceNearest})
 	}
-	names := make([]string, 0, len(raw))
-	for _, profile := range raw {
-		inner, ok := profile["Profile"]
-		if !ok {
-			continue
-		}
-		if name, ok := inner.Value().(string); ok {
-			names = append(names, name)
-		}
-	}
-	return names, nil
+	return k, nil
 }
 
-// Active returns the name of the active profile.
-func (c *Client) Active() (string, error) {
-	variant, err := c.property("ActiveProfile")
-	if err != nil {
-		return "", err
+// Empty reports a machine with no knob, where no profile changes
+// anything.
+func (k Knobs) Empty() bool { return len(k.knobs) == 0 }
+
+// Apply sets every knob to its choice nearest p, writing only those not
+// already there. A knob that fails does not stop the others; every
+// failure is in the error.
+func (k Knobs) Apply(p profile.Profile) error {
+	errs := make([]error, 0, len(k.knobs))
+	for _, kn := range k.knobs {
+		errs = append(errs, kn.apply(p))
 	}
-	name, ok := variant.Value().(string)
-	if !ok {
-		return "", fmt.Errorf("unexpected ActiveProfile type %T", variant.Value())
-	}
-	return name, nil
+	return errors.Join(errs...)
 }
 
-// Set activates the named profile. SetProperty passes the value through
-// as-is, so the variant org.freedesktop.DBus.Properties.Set expects is
-// made here; a raw string makes ppd reject the whole call.
-func (c *Client) Set(name string) error {
-	ep, err := c.locate()
+func (kn knob) apply(p profile.Profile) error {
+	choices, err := readFields(kn.choices)
 	if err != nil {
 		return err
 	}
-	if err := c.object(ep).SetProperty(ep.iface+".ActiveProfile", dbus.MakeVariant(name)); err != nil {
-		c.found = nil
-		return fmt.Errorf("setting ActiveProfile to %q on %s: %w", name, ep.bus, err)
+	want, ok := choose(kn.nearest[p], choices)
+	if !ok {
+		return fmt.Errorf("%w: %s offers %v, none of %v for %s", ErrNoChoice, kn.path, choices, kn.nearest[p], p)
+	}
+	current, err := readFields(kn.path)
+	if err != nil {
+		return err
+	}
+	if slices.Equal(current, []string{want}) {
+		return nil
+	}
+	if err := writeAttr(kn.path, want); err != nil {
+		return fmt.Errorf("profiles: write %s to %s for %s: %w", want, kn.path, p, err)
 	}
 	return nil
 }
 
-// property reads one ppd property, forgetting the located endpoint when
-// the read fails so the next call searches again.
-func (c *Client) property(name string) (dbus.Variant, error) {
-	ep, err := c.locate()
-	if err != nil {
-		return dbus.Variant{}, err
-	}
-	variant, err := c.object(ep).GetProperty(ep.iface + "." + name)
-	if err != nil {
-		c.found = nil
-		return dbus.Variant{}, fmt.Errorf("reading %s from %s: %w", name, ep.bus, err)
-	}
-	return variant, nil
-}
-
-// locate returns the endpoint ppd answers on, probing the known names when
-// none is remembered.
-func (c *Client) locate() (endpoint, error) {
-	if c.found != nil {
-		return *c.found, nil
-	}
-	errs := make([]error, 0, len(known))
-	for _, ep := range known {
-		if _, err := c.object(ep).GetProperty(ep.iface + ".ActiveProfile"); err != nil {
-			errs = append(errs, fmt.Errorf("%s: %w", ep.bus, err))
-			continue
+// choose is the first of nearest the driver offers.
+func choose(nearest, offered []string) (string, bool) {
+	for _, c := range nearest {
+		if slices.Contains(offered, c) {
+			return c, true
 		}
-		c.found = &ep
-		return ep, nil
 	}
-	return endpoint{}, fmt.Errorf("%w: %w", ErrAbsent, errors.Join(errs...))
+	return "", false
 }
 
-func (c *Client) object(ep endpoint) dbus.BusObject {
-	return c.conn.Object(ep.bus, ep.path)
+// writeAttr writes a sysfs attribute; a var so tests can fail it.
+var writeAttr = func(path, value string) error {
+	return os.WriteFile(path, []byte(value), 0o644) //nolint:gosec // sysfs ignores the mode; the attribute has its own permissions
 }
 
-// Pick returns the profile to activate for the given power source: full
-// performance on AC, power-saver on battery, each falling back to balanced
-// when unavailable. An empty available set yields "", meaning "nothing to
-// do"; ppd always offers balanced, so that case only means ppd is absent.
-func Pick(available []string, onAC bool) string {
-	if len(available) == 0 {
-		return ""
+func readFields(path string) ([]string, error) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("profiles: read %s: %w", path, err)
 	}
-	want := "balanced"
-	switch {
-	case onAC && slices.Contains(available, "performance"):
-		want = "performance"
-	case !onAC && slices.Contains(available, "power-saver"):
-		want = "power-saver"
+	return strings.Fields(string(raw)), nil
+}
+
+// rivals are the bus names of the daemons that set the same knobs:
+// power-profiles-daemon under its current and its legacy name, which
+// tuned-ppd claims too.
+var rivals = [...]string{"org.freedesktop.UPower.PowerProfiles", "net.hadess.PowerProfiles"}
+
+// ErrRival is another daemon setting the power profile.
+var ErrRival = errors.New("profiles: power-profiles-daemon or tuned-ppd runs, and would fight lys-power over the power profile; stop and disable it")
+
+// Rival fails with ErrRival while a daemon owns one of the rivals'
+// names on conn.
+func Rival(ctx context.Context, conn *dbus.Conn) error {
+	for _, name := range rivals {
+		var owned bool
+		if err := conn.BusObject().CallWithContext(ctx, "org.freedesktop.DBus.NameHasOwner", 0, name).Store(&owned); err != nil {
+			return fmt.Errorf("profiles: ask whether %s runs: %w", name, err)
+		}
+		if owned {
+			return fmt.Errorf("%w: %s is on the system bus", ErrRival, name)
+		}
 	}
-	return want
+	return nil
+}
+
+// Pick is the profile for the power source: full performance on AC,
+// power-saver on battery.
+func Pick(onAC bool) profile.Profile {
+	if onAC {
+		return profile.Performance
+	}
+	return profile.PowerSaver
 }

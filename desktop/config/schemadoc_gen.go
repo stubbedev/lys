@@ -1222,7 +1222,7 @@ var schemaDocs = map[string]string{
 	"PowerConfig.ShowSuspend":                        "Show the Suspend button in the power menu.",
 	"PowerConfig.ShutdownCommand":                    "Command run by the power menu's Shut down button.",
 	"PowerConfig.SuspendCommand":                     "Command run by the power menu's Suspend button.",
-	"PowerProfilesConfig":                            "Power profile indicator and switcher (power-profiles-daemon).\n\nShows the active profile with a per-profile icon and color, and cycles\nthrough the available profiles on click. Backed by the same\npower-profiles-daemon D-Bus interface as `powerprofilesctl`.",
+	"PowerProfilesConfig":                            "Power profile indicator and switcher (lys-power).\n\nShows the active profile with a per-profile icon and color, and cycles\nthrough the profiles on click. Backed by the power profile lys-power\nsets and publishes as `dev.stubbe.lys.Profile1` on the system bus.",
 	"PowerProfilesConfig.AutoSaverAt":                "Switch to power-saver when the battery reaches this warning\nlevel, and back to the previous profile once it is on AC again.",
 	"PowerProfilesConfig.BorderColor":                "Border color token.",
 	"PowerProfilesConfig.BorderShow":                 "Display border around button.",

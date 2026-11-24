@@ -1,4 +1,4 @@
-// Package powerprofile follows power-profiles-daemon's active profile on
+// Package powerprofile follows the power profile lys-power publishes on
 // the system bus, so lys-wm can save power while the user asked for it.
 package powerprofile
 
@@ -11,28 +11,14 @@ import (
 
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/power/profile"
 
 	"github.com/stubbedev/lys/wm/internal/loop"
 )
 
-const (
-	propsIface    = "org.freedesktop.DBus.Properties"
-	activeProfile = "ActiveProfile"
-	powerSaver    = "power-saver"
-	callTimeout   = 5 * time.Second
-)
+const callTimeout = 5 * time.Second
 
-type service struct {
-	name string
-	path dbus.ObjectPath
-}
-
-var services = [...]service{
-	{"org.freedesktop.UPower.PowerProfiles", "/org/freedesktop/UPower/PowerProfiles"},
-	{"net.hadess.PowerProfiles", "/net/hadess/PowerProfiles"},
-}
-
-type profile struct {
+type state struct {
 	asOf  dbus.Sequence
 	owned bool
 	saver bool
@@ -44,14 +30,14 @@ type Watcher struct {
 	changed func(saver bool) error
 	report  func(error)
 	cancel  context.CancelFunc
-	watches []*dbusx.Watch
+	watch   *dbusx.Watch
 	read    chan struct{}
 
 	mu   sync.Mutex
 	lost []error
 
-	profiles [len(services)]profile
-	saver    bool
+	last  state
+	saver bool
 }
 
 func Watch(l *loop.Loop, address string, changed func(saver bool) error, report func(error)) (*Watcher, error) {
@@ -60,105 +46,96 @@ func Watch(l *loop.Loop, address string, changed func(saver bool) error, report 
 		return nil, fmt.Errorf("powerprofile: connect to the system bus: %w", err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	w := &Watcher{conn: conn, loop: l, changed: changed, report: report, cancel: cancel, watches: make([]*dbusx.Watch, 0, len(services)), read: make(chan struct{})}
-	for i, s := range services {
-		watch, err := dbusx.WatchSignals(ctx, conn, dbusx.FromOwner(s.name), w.failed,
-			dbusx.OnOwnerChange(s.name, func(_, owner string, announced dbus.Sequence) error {
-				if owner == "" {
-					return w.post(i, profile{asOf: announced})
-				}
-				return w.refresh(ctx, i)
-			}),
-			dbusx.On(dbusx.PropertiesChanged, s.path, func(c dbusx.ChangedProperties, sent dbus.Sequence) error {
-				return w.signalled(i, c, sent)
-			}).WithArg0(s.name))
-		if err != nil {
-			close(w.read)
-			return nil, errors.Join(fmt.Errorf("powerprofile: follow %s: %w", s.name, err), w.Close())
-		}
-		w.watches = append(w.watches, watch)
+	w := &Watcher{conn: conn, loop: l, changed: changed, report: report, cancel: cancel, read: make(chan struct{})}
+	w.watch, err = dbusx.WatchSignals(ctx, conn, dbusx.FromOwner(profile.ServiceName), w.failed,
+		dbusx.OnOwnerChange(profile.ServiceName, func(_, owner string, announced dbus.Sequence) error {
+			if owner == "" {
+				return w.post(state{asOf: announced})
+			}
+			return w.refresh(ctx)
+		}),
+		dbusx.On(dbusx.PropertiesChanged, profile.ServicePath, w.signalled).WithArg0(profile.Interface))
+	if err != nil {
+		close(w.read)
+		return nil, errors.Join(fmt.Errorf("powerprofile: follow %s: %w", profile.ServiceName, err), w.Close())
 	}
 	go func() {
 		defer close(w.read)
-		for i := range services {
-			if err := w.refresh(ctx, i); err != nil {
-				w.failed(err)
-			}
+		if err := w.refresh(ctx); err != nil {
+			w.failed(err)
 		}
 	}()
 	return w, nil
 }
 
-func (w *Watcher) signalled(i int, c dbusx.ChangedProperties, sent dbus.Sequence) error {
-	v, ok := c.Changed[activeProfile]
+func (w *Watcher) signalled(c dbusx.ChangedProperties, sent dbus.Sequence) error {
+	v, ok := c.Changed[profile.Property]
 	if !ok {
 		return nil
 	}
-	saver, err := isSaver(services[i], v)
+	saver, err := isSaver(v)
 	if err != nil {
 		return err
 	}
-	return w.post(i, profile{asOf: sent, owned: true, saver: saver})
+	return w.post(state{asOf: sent, owned: true, saver: saver})
 }
 
-func isSaver(s service, v dbus.Variant) (bool, error) {
-	p, ok := v.Value().(string)
+func isSaver(v dbus.Variant) (bool, error) {
+	name, ok := v.Value().(string)
 	if !ok {
-		return false, fmt.Errorf("powerprofile: %s.%s is a %s, not a string", s.name, activeProfile, v.Signature())
+		return false, fmt.Errorf("powerprofile: %s.%s is a %s, not a string", profile.Interface, profile.Property, v.Signature())
 	}
-	return p == powerSaver, nil
+	p, err := profile.Parse(name)
+	if err != nil {
+		return false, fmt.Errorf("powerprofile: %s.%s: %w", profile.Interface, profile.Property, err)
+	}
+	return p == profile.PowerSaver, nil
 }
 
-func (w *Watcher) refresh(ctx context.Context, i int) error {
-	p, err := read(ctx, w.conn, services[i])
+func (w *Watcher) refresh(ctx context.Context) error {
+	st, err := read(ctx, w.conn)
 	if err != nil {
 		return err
 	}
-	return w.post(i, p)
+	return w.post(st)
 }
 
-func read(ctx context.Context, conn *dbus.Conn, s service) (profile, error) {
+func read(ctx context.Context, conn *dbus.Conn) (state, error) {
 	ctx, cancel := context.WithTimeout(ctx, callTimeout)
 	defer cancel()
-	has := conn.BusObject().CallWithContext(ctx, "org.freedesktop.DBus.NameHasOwner", 0, s.name)
+	has := conn.BusObject().CallWithContext(ctx, "org.freedesktop.DBus.NameHasOwner", 0, profile.ServiceName)
 	var owned bool
 	if err := has.Store(&owned); err != nil {
-		return profile{}, fmt.Errorf("powerprofile: ask whether %s runs: %w", s.name, err)
+		return state{}, fmt.Errorf("powerprofile: ask whether %s runs: %w", profile.ServiceName, err)
 	}
 	if !owned {
-		return profile{asOf: has.ResponseSequence}, nil
+		return state{asOf: has.ResponseSequence}, nil
 	}
-	get := conn.Object(s.name, s.path).CallWithContext(ctx, propsIface+".Get", 0, s.name, activeProfile)
+	get := conn.Object(profile.ServiceName, profile.ServicePath).CallWithContext(ctx, dbusx.PropertiesInterface+".Get", 0, profile.Interface, profile.Property)
 	var v dbus.Variant
 	if err := get.Store(&v); err != nil {
-		return profile{}, fmt.Errorf("powerprofile: read %s.%s: %w", s.name, activeProfile, err)
+		return state{}, fmt.Errorf("powerprofile: read %s.%s: %w", profile.Interface, profile.Property, err)
 	}
-	saver, err := isSaver(s, v)
+	saver, err := isSaver(v)
 	if err != nil {
-		return profile{}, err
+		return state{}, err
 	}
-	return profile{asOf: get.ResponseSequence, owned: true, saver: saver}, nil
+	return state{asOf: get.ResponseSequence, owned: true, saver: saver}, nil
 }
 
-func (w *Watcher) post(i int, p profile) error {
-	if err := w.loop.Post(func() error { return w.apply(i, p) }); err != nil {
-		return fmt.Errorf("powerprofile: hand %s's profile to the loop: %w", services[i].name, err)
+func (w *Watcher) post(st state) error {
+	if err := w.loop.Post(func() error { return w.apply(st) }); err != nil {
+		return fmt.Errorf("powerprofile: hand %s's profile to the loop: %w", profile.ServiceName, err)
 	}
 	return nil
 }
 
-func (w *Watcher) apply(i int, p profile) error {
-	if p.asOf <= w.profiles[i].asOf {
+func (w *Watcher) apply(st state) error {
+	if st.asOf <= w.last.asOf {
 		return nil
 	}
-	w.profiles[i] = p
-	saver := false
-	for _, q := range w.profiles {
-		if q.owned {
-			saver = q.saver
-			break
-		}
-	}
+	w.last = st
+	saver := st.owned && st.saver
 	if saver == w.saver {
 		return nil
 	}
@@ -181,8 +158,8 @@ func (w *Watcher) Close() error {
 	w.cancel()
 	<-w.read
 	var errs []error
-	for _, watch := range w.watches {
-		if err := watch.Stop(); err != nil && !errors.Is(err, dbusx.ErrDisconnected) {
+	if w.watch != nil {
+		if err := w.watch.Stop(); err != nil && !errors.Is(err, dbusx.ErrDisconnected) {
 			errs = append(errs, fmt.Errorf("powerprofile: %w", err))
 		}
 	}

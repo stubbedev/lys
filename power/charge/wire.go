@@ -2,7 +2,6 @@ package charge
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -12,9 +11,6 @@ import (
 
 	"github.com/stubbedev/lys/power/internal/busauth"
 )
-
-// AuthTimeout bounds a call that may wait for the caller to authenticate.
-const AuthTimeout = 2 * time.Minute
 
 const propertiesChanged = dbusx.PropertiesInterface + ".PropertiesChanged"
 
@@ -122,19 +118,7 @@ type methods struct {
 }
 
 func (m methods) call(sender dbus.Sender, do func(context.Context, Caller) error) *dbus.Error {
-	ctx, cancel := context.WithTimeout(context.Background(), AuthTimeout)
-	defer cancel()
-	c, err := busauth.Of(ctx, m.conn, sender)
-	if err == nil {
-		err = do(ctx, c)
-	}
-	if r, ok := errors.AsType[Refusal](err); ok {
-		return dbus.NewError(ErrNotAuthorized, []any{r.Reason})
-	}
-	if err != nil {
-		return dbusx.Failed(err.Error())
-	}
-	return nil
+	return busauth.Answer(m.conn, sender, ErrNotAuthorized, do)
 }
 
 func (m methods) SetLimit(sender dbus.Sender, percent byte) *dbus.Error {

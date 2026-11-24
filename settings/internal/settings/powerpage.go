@@ -44,11 +44,6 @@ var batteryStateKeys = map[powersupply.DeviceState]string{
 	powersupply.StatePendingCharge: "settings-power-state-not-charging",
 }
 
-var degradedKeys = map[string]string{
-	"lap-detected":               "settings-power-mode-degraded-lap",
-	"high-operating-temperature": "settings-power-mode-degraded-heat",
-}
-
 var powerLinks = []pageLink{
 	{"idle", "settings-power-link-idle-detail"},
 	{"lock", "settings-power-link-lock-detail"},
@@ -101,7 +96,7 @@ func (c *systemPower) read(ctx context.Context) (powerState, error) {
 		return powerState{}, fmt.Errorf("read the battery: %w", err)
 	}
 	if st.profiles, err = c.profiles.Read(ctx); err != nil {
-		return powerState{}, fmt.Errorf("read the power mode from power-profiles-daemon: %w", err)
+		return powerState{}, fmt.Errorf("read the power mode from lys-power: %w", err)
 	}
 	st.charge, err = c.charge.State(ctx)
 	switch {
@@ -121,7 +116,7 @@ func (c *systemPower) changes(ctx context.Context) (<-chan struct{}, error) {
 	}
 	profiles, stopProfiles, err := c.profiles.Subscribe(ctx)
 	if err != nil {
-		return nil, errors.Join(fmt.Errorf("follow power-profiles-daemon: %w", err), stopBattery())
+		return nil, errors.Join(fmt.Errorf("follow lys-power's power mode: %w", err), stopBattery())
 	}
 	policy := chargestate.Follow(c.conn, func(err error) { log.Printf("settings: follow the charge policy: %v", err) })
 	policyTicks, unsubscribe := policy.Subscribe()
@@ -417,13 +412,6 @@ func (p *powerPanel) modeRows() widget.Widget {
 			return nil
 		},
 	}, values, labels, powerModePictures), false)
-	if snap.PerformanceDegraded != "" {
-		key, ok := degradedKeys[snap.PerformanceDegraded]
-		if !ok {
-			key = "settings-power-mode-degraded"
-		}
-		box.Append(p.k.note(t.Get(key)), false)
-	}
 	return box
 }
 

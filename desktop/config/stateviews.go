@@ -50,7 +50,7 @@ func (c IdleInhibitConfig) Icons() map[string]IconConfig {
 	}
 }
 
-// Power profiles, as power-profiles-daemon names them.
+// Power profiles, as lys-power names them.
 const (
 	ProfilePowerSaver  = "power-saver"
 	ProfileBalanced    = "balanced"

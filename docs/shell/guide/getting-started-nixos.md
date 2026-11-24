@@ -25,7 +25,7 @@ lys-shell comes from the lys flake as `nixosModules.lys-shell`, `homeModules.lys
 | `programs.lys-shell.systemd.enable` | `false` | Run `lys-shell shell` as a systemd user service. |
 | `programs.lys-shell.systemd.target` | `"graphical-session.target"` | Target the service binds to. |
 | `programs.lys-shell.portal.enable` | `true` | Make lys-shell the xdg-desktop-portal backend for every interface (through `xdg.portal`, with `mkDefault` routing). |
-| `programs.lys-shell.autoInstallDependencies` | `false` | Enable BlueZ, and install xdg-utils. NetworkManager, power-profiles-daemon and PipeWire are left to you. |
+| `programs.lys-shell.autoInstallDependencies` | `false` | Enable BlueZ, and install xdg-utils. NetworkManager, lys-power and PipeWire are left to you. |
 
 ## home-manager module
 
@@ -63,7 +63,7 @@ lys-shell comes from the lys flake as `nixosModules.lys-shell`, `homeModules.lys
 | `autoInstallDependencies` | `false` | Install the user-space tools the config needs: the `styling.theme-provider` tool (matugen, wallust or pywal), xdg-utils, and notmuch when `mail` is in the layout. |
 | `portal.enable` | `false` | Install the portal backend at user level (portal and D-Bus files, a user service, a `portals.conf` routing every interface to lys-shell). Use this outside NixOS; on NixOS use the system option. |
 
-System services (NetworkManager, BlueZ, power-profiles-daemon, PipeWire) are not installed by home-manager.
+System services (NetworkManager, BlueZ, lys-power, PipeWire) are not installed by home-manager.
 
 ## Lock screen
 

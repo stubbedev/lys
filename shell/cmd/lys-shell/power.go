@@ -28,23 +28,17 @@ func powerCommand() *cli.Command {
 	}
 }
 
-// withPower connects to the power profiles daemon around a handler.
+// withPower connects to lys-shell's power profile service around a handler.
 func withPower(run func(*cli.Matches, *daemonProxy) error) func(*cli.Matches) error {
 	return withDaemon("Power profiles", powerprofiles.ServiceName, powerprofiles.ServicePath, powerprofiles.ServiceName, run)
 }
 
 func powerStatus(m *cli.Matches, p *daemonProxy) error {
-	var active, degraded string
+	var active string
 	if err := p.prop("get active profile", "ActiveProfile", &active); err != nil {
 		return err
 	}
-	if err := p.prop("get degradation status", "PerformanceDegraded", &degraded); err != nil {
-		return err
-	}
 	fmt.Fprintf(m.Stdout(), "Active profile: %s\n", active)
-	if degraded != "" {
-		fmt.Fprintf(m.Stdout(), "Performance degraded: %s\n", degraded)
-	}
 	return nil
 }
 

@@ -1723,14 +1723,11 @@ settings-power-hours-minutes = { $hours ->
 }
 settings-power-mode = Power mode
 settings-power-mode-detail = Trade battery life for speed; the system keeps the choice
-settings-power-no-daemon = power-profiles-daemon is not running, so the power mode cannot be changed
+settings-power-no-daemon = lys-power is not setting a power profile here, so the power mode cannot be changed
 settings-power-mode-power-saver = Power Saver
 settings-power-mode-balanced = Balanced
 settings-power-mode-performance = Performance
 settings-power-mode-refused = The power mode was not changed
-settings-power-mode-degraded = Performance is limited by the hardware right now
-settings-power-mode-degraded-lap = Performance is limited while the computer sits on a lap
-settings-power-mode-degraded-heat = Performance is limited while the computer is too hot
 settings-power-link-idle-detail = When the screen dims, turns off, and the computer sleeps
 settings-power-link-lock-detail = How the screen locks and unlocks
 settings-power-section-pause = Paused on Battery

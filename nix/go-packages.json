@@ -1258,23 +1258,23 @@
     "imports": [
       "lib/dbusx",
       "lib/intconv",
-      "lib/third_party/godbus"
+      "lib/third_party/godbus",
+      "power/profile"
     ],
     "external": [
       "context",
       "errors",
       "fmt",
       "slices",
-      "sync",
       "time"
     ],
     "testImports": [
       "lib/dbustest",
       "lib/testhome",
-      "lib/third_party/godbus/prop",
       "lib/waittest"
     ],
     "testExternal": [
+      "sync",
       "testing"
     ]
   },
@@ -5693,7 +5693,6 @@
     ],
     "external": [
       "context",
-      "errors",
       "fmt",
       "slices",
       "sync",
@@ -5705,6 +5704,7 @@
       "lib/testhome"
     ],
     "testExternal": [
+      "errors",
       "os",
       "testing"
     ]
@@ -5727,10 +5727,10 @@
       "power/internal/history",
       "power/internal/meter",
       "power/internal/predict",
-      "power/internal/profiles",
       "power/internal/sleepcheck",
       "power/internal/supply",
       "power/internal/wakesource",
+      "power/profile",
       "power/sleep"
     ],
     "external": [
@@ -5874,6 +5874,7 @@
   },
   "power/internal/busauth": {
     "imports": [
+      "lib/dbusx",
       "lib/intconv",
       "lib/peercred",
       "lib/polkit",
@@ -5881,7 +5882,9 @@
     ],
     "external": [
       "context",
-      "fmt"
+      "errors",
+      "fmt",
+      "time"
     ]
   },
   "power/internal/camlight": {
@@ -5971,7 +5974,8 @@
       "power/internal/statefile",
       "power/internal/supply",
       "power/internal/wakesource",
-      "power/nap"
+      "power/nap",
+      "power/profile"
     ],
     "external": [
       "context",
@@ -6216,14 +6220,25 @@
   },
   "power/internal/profiles": {
     "imports": [
-      "lib/third_party/godbus"
+      "lib/third_party/godbus",
+      "power/profile"
     ],
     "external": [
+      "context",
       "errors",
       "fmt",
-      "slices"
+      "io/fs",
+      "os",
+      "path/filepath",
+      "slices",
+      "strings"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/testhome"
     ],
     "testExternal": [
+      "syscall",
       "testing"
     ]
   },
@@ -6394,6 +6409,30 @@
       "os",
       "reflect",
       "testing"
+    ]
+  },
+  "power/profile": {
+    "imports": [
+      "lib/dbusx",
+      "lib/third_party/godbus",
+      "power/internal/busauth"
+    ],
+    "external": [
+      "context",
+      "fmt",
+      "slices",
+      "sync"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/intconv",
+      "lib/testhome"
+    ],
+    "testExternal": [
+      "errors",
+      "os",
+      "testing",
+      "time"
     ]
   },
   "power/sleep": {
@@ -13878,6 +13917,7 @@
     "imports": [
       "lib/dbusx",
       "lib/third_party/godbus",
+      "power/profile",
       "wm/internal/loop"
     ],
     "external": [

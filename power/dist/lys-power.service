@@ -1,7 +1,6 @@
 [Unit]
 Description=lys-power adaptive battery charging and power profile policy
 Documentation=https://github.com/stubbedev/lys/tree/main/power
-After=power-profiles-daemon.service
 
 [Service]
 Type=notify
@@ -11,7 +10,7 @@ Restart=on-failure
 RestartSec=10s
 NoNewPrivileges=true
 ProtectSystem=strict
-ReadWritePaths=-/run/battery-charge -/sys/module/pcie_aspm/parameters/policy -/sys/module/snd_hda_intel/parameters/power_save
+ReadWritePaths=-/run/battery-charge -/sys/module/pcie_aspm/parameters/policy -/sys/module/snd_hda_intel/parameters/power_save -/sys/firmware/acpi/platform_profile
 ReadOnlyPaths=/proc/sys -/proc/sysrq-trigger -/proc/acpi -/proc/fs -/proc/irq -/sys/kernel -/sys/module -/sys/power -/sys/firmware -/sys/fs
 ProtectHome=read-only
 PrivateTmp=true

@@ -41,7 +41,7 @@ in
         Enable the backing system services lys-shell integrates with: BlueZ
         (bluetooth), plus xdg-utils. Set with `mkDefault` so
         your own settings win. Networking (NetworkManager),
-        power-profiles-daemon, and PipeWire are intentionally left out — enable
+        lys-power (the power profile), and PipeWire are intentionally left out — enable
         those deliberately to avoid clashing with your setup.
       '';
     };

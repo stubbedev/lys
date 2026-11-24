@@ -12,10 +12,9 @@ ExclusiveArch:  x86_64 aarch64
 
 BuildRequires:  systemd-rpm-macros
 Requires:       systemd
-Recommends:     (power-profiles-daemon or tuned-ppd)
 
 %description
-lys-power holds a laptop's battery at 75-80% while it is plugged in and learns when the charger usually comes out, charging to 100% in the two hours before that moment. It also switches the power-profiles-daemon profile on every AC edge: performance on AC, power-saver on battery.
+lys-power holds a laptop's battery at 75-80% while it is plugged in and learns when the charger usually comes out, charging to 100% in the two hours before that moment. It also sets the power profile itself, the ACPI platform profile and the CPUs' energy preference, on every AC edge: performance on AC, power-saver on battery. It does not start beside power-profiles-daemon or tuned-ppd, which set the same knobs.
 
 As a user service, lys-power-brightness sets the screen brightness from an ambient light sensor, or else from short camera captures that are never kept or sent anywhere.
 
@@ -45,6 +44,7 @@ install -D -m 0644 lys-power.tmpfiles %{buildroot}%{_tmpfilesdir}/lys-power.conf
 install -D -m 0644 dev.stubbe.lys.Energy1.conf %{buildroot}%{_datadir}/dbus-1/system.d/dev.stubbe.lys.Energy1.conf
 install -D -m 0644 dev.stubbe.lys.Pause1.conf %{buildroot}%{_datadir}/dbus-1/system.d/dev.stubbe.lys.Pause1.conf
 install -D -m 0644 dev.stubbe.lys.Charge1.conf %{buildroot}%{_datadir}/dbus-1/system.d/dev.stubbe.lys.Charge1.conf
+install -D -m 0644 dev.stubbe.lys.Profile1.conf %{buildroot}%{_datadir}/dbus-1/system.d/dev.stubbe.lys.Profile1.conf
 install -D -m 0644 dev.stubbe.lys.power.policy %{buildroot}%{_datadir}/polkit-1/actions/dev.stubbe.lys.power.policy
 
 install -D -m 0644 dev.stubbe.lys.Nap1.conf %{buildroot}%{_datadir}/dbus-1/system.d/dev.stubbe.lys.Nap1.conf
@@ -71,6 +71,7 @@ install -D -m 0644 dev.stubbe.lys.Sleep1.conf %{buildroot}%{_datadir}/dbus-1/sys
 %{_datadir}/dbus-1/system.d/dev.stubbe.lys.Energy1.conf
 %{_datadir}/dbus-1/system.d/dev.stubbe.lys.Pause1.conf
 %{_datadir}/dbus-1/system.d/dev.stubbe.lys.Charge1.conf
+%{_datadir}/dbus-1/system.d/dev.stubbe.lys.Profile1.conf
 %{_datadir}/polkit-1/actions/dev.stubbe.lys.power.policy
 %{_datadir}/dbus-1/system.d/dev.stubbe.lys.Nap1.conf
 %{_datadir}/dbus-1/system.d/dev.stubbe.lys.Sleep1.conf

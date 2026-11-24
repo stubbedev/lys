@@ -80,7 +80,7 @@ Everything lives under `internal/` except the commands.
 | `handover` | Moves kernel objects and state to the next lys-wm process |
 | `ipc` | The IPC socket and event stream |
 | `systemd` | Hands the environment to D-Bus activation and the user manager; runs `lys-wm-session.target` |
-| `powerprofile`, `rtkit` | power-profiles-daemon's active profile; RealtimeKit priority requests |
+| `powerprofile`, `rtkit` | lys-power's active power profile; RealtimeKit priority requests |
 | `frametrace` | JSON-lines record of each composited frame's cost and presentation |
 | `harness`, `testclient`, `testenv`, `golden` | Compositor-in-the-loop tests, a scripted client, skip-or-fail policy for missing tools, golden images |
 
@@ -615,7 +615,7 @@ frame (`edid.ParseVRR` minimum refresh, else 24 Hz).
 
 ## Power saver
 
-While power-profiles-daemon reports `power-saver`, every output above
+While lys-power reports the `power-saver` profile, every output above
 `power_saver_frame_rate` presents on every k-th vblank, k the refresh over the
 cap rounded up (`backend.Mode.PacedInterval`); under VRR the cap is a minimum
 frame interval. A frame's turn counts from the frame last shown, never from

@@ -1713,14 +1713,11 @@ settings-power-hours-minutes = { $hours ->
 }
 settings-power-mode = Energiestand
 settings-power-mode-detail = Ruil batterijduur in voor snelheid; het systeem onthoudt de keuze
-settings-power-no-daemon = power-profiles-daemon draait niet, dus de energiestand kan niet worden gewijzigd
+settings-power-no-daemon = lys-power stelt hier geen energieprofiel in, dus de energiestand kan niet worden gewijzigd
 settings-power-mode-power-saver = Energiebesparing
 settings-power-mode-balanced = Gebalanceerd
 settings-power-mode-performance = Prestaties
 settings-power-mode-refused = De energiestand is niet gewijzigd
-settings-power-mode-degraded = De hardware beperkt de prestaties op dit moment
-settings-power-mode-degraded-lap = De prestaties zijn beperkt zolang de computer op schoot ligt
-settings-power-mode-degraded-heat = De prestaties zijn beperkt zolang de computer te warm is
 settings-power-link-idle-detail = Wanneer het scherm dimt, uitgaat en de computer slaapt
 settings-power-link-lock-detail = Hoe het scherm vergrendelt en ontgrendelt
 settings-power-section-pause = Gepauzeerd op batterij

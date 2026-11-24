@@ -25,7 +25,7 @@ const (
 )
 
 const (
-	AuthTimeout = 2 * time.Minute
+	AuthTimeout = busauth.AuthTimeout
 	callTimeout = 5 * time.Second
 )
 

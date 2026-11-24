@@ -10,7 +10,7 @@ import (
 	"github.com/stubbedev/lys/lib/dbustest"
 )
 
-// fakeProfiles is power-profiles-daemon as the Go service sees it. The
+// fakeProfiles is lys-power's profile as the Go service sees it. The
 // daemon reads it from the bus goroutine, so the test changes it
 // through update.
 type fakeProfiles struct {
@@ -78,11 +78,6 @@ func TestPowerCommandsAgainstTheDaemon(t *testing.T) {
 			t.Errorf("%v: code %d stdout %q stderr %q, want %q", c.args, code, stdout, stderr, c.want)
 		}
 	}
-
-	src.update(func(f *fakeProfiles) { f.snap.PerformanceDegraded = "lap-detected" })
-	if stdout, _, _ := runCaptured(t, false, "power", "status"); stdout != "Active profile: balanced\nPerformance degraded: lap-detected\n" {
-		t.Errorf("degraded status: %q", stdout)
-	}
 }
 
 func TestPowerErrorsSayWhatFailed(t *testing.T) {
@@ -112,7 +107,7 @@ func TestPowerErrorsSayWhatFailed(t *testing.T) {
 func TestPowerDaemonNeedsTheSystemDaemon(t *testing.T) {
 	dbustest.Session(t)
 	if _, err := powerprofiles.ServeDaemon(dbustest.SessionConn(t), &fakeProfiles{}); err == nil {
-		t.Fatal("served without power-profiles-daemon")
+		t.Fatal("served without lys-power's profile")
 	}
 	_, stderr, _ := runCaptured(t, false, "power", "list")
 	if stderr != "Error: Power profiles service not running. Start lys-shell shell first.\n" {

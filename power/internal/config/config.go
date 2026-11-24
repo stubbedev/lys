@@ -207,6 +207,11 @@ func (c Config) LastACPath() string {
 	return filepath.Join(c.StateDir, "last-ac")
 }
 
+// ProfilePath holds the power profile last set.
+func (c Config) ProfilePath() string {
+	return filepath.Join(c.StateDir, "profile")
+}
+
 // PausePath records the units chosen to pause on battery and those
 // paused.
 func (c Config) PausePath() string {

@@ -8159,7 +8159,7 @@
       "type": "object"
     },
     "PowerProfilesConfig": {
-      "description": "Power profile indicator and switcher (power-profiles-daemon).\n\nShows the active profile with a per-profile icon and color, and cycles\nthrough the available profiles on click. Backed by the same\npower-profiles-daemon D-Bus interface as `powerprofilesctl`.",
+      "description": "Power profile indicator and switcher (lys-power).\n\nShows the active profile with a per-profile icon and color, and cycles\nthrough the profiles on click. Backed by the power profile lys-power\nsets and publishes as `dev.stubbe.lys.Profile1` on the system bus.",
       "properties": {
         "auto-saver-at": {
           "$ref": "#/$defs/AutoSaverLevel",

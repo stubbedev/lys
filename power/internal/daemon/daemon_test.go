@@ -13,27 +13,20 @@ import (
 
 	"github.com/stubbedev/lys/power/internal/config"
 	"github.com/stubbedev/lys/power/internal/daemon"
+	"github.com/stubbedev/lys/power/profile"
 )
 
-// fakeProfiles records Set calls and answers Available from a fixed list.
+// fakeProfiles records Set calls, failing them with fail.
 type fakeProfiles struct {
-	available []string
-	sets      []string
-	fail      bool
+	sets []profile.Profile
+	fail error
 }
 
-func (f *fakeProfiles) Available() ([]string, error) {
-	if f.fail {
-		return nil, errors.New("dbus down")
+func (f *fakeProfiles) Set(p profile.Profile) error {
+	if f.fail != nil {
+		return f.fail
 	}
-	return f.available, nil
-}
-
-func (f *fakeProfiles) Set(name string) error {
-	if f.fail {
-		return errors.New("dbus down")
-	}
-	f.sets = append(f.sets, name)
+	f.sets = append(f.sets, p)
 	return nil
 }
 
@@ -67,7 +60,7 @@ func newFixture(t *testing.T) *fixture {
 	}
 	f := &fixture{
 		root:     root,
-		profiles: &fakeProfiles{available: []string{"performance", "balanced", "power-saver"}},
+		profiles: &fakeProfiles{},
 		log:      slog.New(slog.NewTextHandler(io.Discard, nil)),
 		cfg:      cfg,
 	}
@@ -161,7 +154,7 @@ func TestFirstRunHoldsBaseAndPicksProfile(t *testing.T) {
 	if got := f.thresholds(t); got != "75/80" {
 		t.Errorf("thresholds = %s, want 75/80 with no history", got)
 	}
-	if len(f.profiles.sets) != 1 || f.profiles.sets[0] != "performance" {
+	if len(f.profiles.sets) != 1 || f.profiles.sets[0] != profile.Performance {
 		t.Errorf("sets = %v, want exactly one performance on the first run", f.profiles.sets)
 	}
 }
@@ -240,7 +233,7 @@ func TestUnplugDropsToPowerSaver(t *testing.T) {
 	f.unplug(t)
 	f.eval(t, 2, 17, 10)
 
-	if len(f.profiles.sets) < 2 || f.profiles.sets[len(f.profiles.sets)-1] != "power-saver" {
+	if len(f.profiles.sets) < 2 || f.profiles.sets[len(f.profiles.sets)-1] != profile.PowerSaver {
 		t.Errorf("sets = %v, want the unplug to drop to power-saver", f.profiles.sets)
 	}
 }
@@ -260,16 +253,21 @@ func TestUnwritableBatteryIsSkipped(t *testing.T) {
 	}
 }
 
-func TestProfileFailureIsNotFatal(t *testing.T) {
+func TestAProfileFailureIsReportedAndTheThresholdsStillApply(t *testing.T) {
 	f := newFixture(t)
-	f.profiles.fail = true
+	busy := errors.New("write platform_profile: device or resource busy")
+	f.profiles.fail = busy
+	f.writeBattery(t, "40", "100")
 
 	result, err := daemon.Eval(f.cfg, f.log, time.Date(2026, 1, 5, 16, 0, 0, 0, time.UTC), f.profiles)
 	if err != nil {
 		t.Fatalf("Eval() error = %v, want thresholds to still apply", err)
 	}
-	if !result.OnAC {
-		t.Error("OnAC = false, want true")
+	if !errors.Is(result.ProfileErr, busy) || result.ProfileSet != "" {
+		t.Errorf("result profile %q, error %v; want none set and %v reported", result.ProfileSet, result.ProfileErr, busy)
+	}
+	if got := f.thresholds(t); got != "75/80" {
+		t.Errorf("thresholds = %s, want 75/80 despite the profile", got)
 	}
 }
 
@@ -281,7 +279,7 @@ func TestNoProfilesClientStillManagesThresholds(t *testing.T) {
 		t.Fatalf("Eval() error = %v", err)
 	}
 	if got := f.thresholds(t); got != "95/100" {
-		t.Errorf("thresholds = %s, want 95/100 without ppd", got)
+		t.Errorf("thresholds = %s, want 95/100 without profile knobs", got)
 	}
 }
 

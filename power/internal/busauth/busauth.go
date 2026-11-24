@@ -4,8 +4,11 @@ package busauth
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"time"
 
+	"github.com/stubbedev/lys/lib/dbusx"
 	"github.com/stubbedev/lys/lib/intconv"
 	"github.com/stubbedev/lys/lib/peercred"
 	"github.com/stubbedev/lys/lib/polkit"
@@ -36,6 +39,28 @@ func Of(ctx context.Context, conn *dbus.Conn, sender dbus.Sender) (Caller, error
 		return Caller{}, fmt.Errorf("the bus gives %s no uid or pid: %v", sender, creds)
 	}
 	return Caller{Sender: string(sender), UID: uid, PID: pid}, nil
+}
+
+// AuthTimeout bounds a call that may wait for the caller to authenticate.
+const AuthTimeout = 2 * time.Minute
+
+// Answer runs do for the caller behind sender, within AuthTimeout, and
+// answers the method call: a Refusal is the error named notAuthorized,
+// any other error a Failed.
+func Answer(conn *dbus.Conn, sender dbus.Sender, notAuthorized string, do func(context.Context, Caller) error) *dbus.Error {
+	ctx, cancel := context.WithTimeout(context.Background(), AuthTimeout)
+	defer cancel()
+	c, err := Of(ctx, conn, sender)
+	if err == nil {
+		err = do(ctx, c)
+	}
+	if r, ok := errors.AsType[Refusal](err); ok {
+		return dbus.NewError(notAuthorized, []any{r.Reason})
+	}
+	if err != nil {
+		return dbusx.Failed(err.Error())
+	}
+	return nil
 }
 
 // Authorizer decides whether a caller may: nil when it may, a Refusal

@@ -1,5 +1,6 @@
 // Command lys-power applies power-source policy on Linux laptops: it
-// swaps the power-profiles-daemon profile on AC edges and adaptively moves
+// sets the power profile (the platform profile and the CPUs' energy
+// preference) on AC edges and adaptively moves
 // the battery charge thresholds so the machine leaves the desk with a full
 // battery without spending its life plugged in at 100%. As a user service
 // it also sets the backlight from the room's light, and answers the idle
@@ -30,10 +31,10 @@ import (
 	"github.com/stubbedev/lys/power/internal/devicepower"
 	"github.com/stubbedev/lys/power/internal/history"
 	"github.com/stubbedev/lys/power/internal/predict"
-	"github.com/stubbedev/lys/power/internal/profiles"
 	"github.com/stubbedev/lys/power/internal/sleepcheck"
 	"github.com/stubbedev/lys/power/internal/supply"
 	"github.com/stubbedev/lys/power/internal/wakesource"
+	"github.com/stubbedev/lys/power/profile"
 )
 
 const usage = `lys-power: power profile swapping and adaptive battery charging
@@ -116,9 +117,13 @@ func dispatch(args []string, cfg config.Config, log *slog.Logger) error {
 		return attend.Run(ctx, cfg, log)
 	case "once":
 		return withBus(log, func(conn *dbus.Conn) error {
-			var pc daemon.ProfileClient
-			if conn != nil {
-				pc = profiles.New(conn)
+			pp, err := daemon.OpenProfile(context.Background(), cfg, log, conn)
+			if err != nil {
+				return err
+			}
+			var pc daemon.ProfileSetter
+			if pp != nil {
+				pc = pp
 			}
 			result, err := daemon.Eval(cfg, log, time.Now(), pc)
 			log.Info("evaluated", "result", result)
@@ -199,9 +204,9 @@ func requestFull(cfg config.Config) error {
 // status renders the current state. The output accumulates through
 // fmt.Appendf, which cannot fail, so the caller gets one string to print.
 func status(cfg config.Config, now time.Time, conn *dbus.Conn) (string, error) {
-	var client *profiles.Client
+	var client *profile.Client
 	if conn != nil {
-		client = profiles.New(conn)
+		client = profile.NewClient(conn)
 	}
 	sup := supply.Supply{Dir: cfg.SupplyDir}
 
@@ -323,19 +328,17 @@ func appendDevices(out []byte, mode devicepower.Mode, state daemon.DeviceState, 
 	return out
 }
 
-func appendProfile(out []byte, client *profiles.Client) []byte {
+func appendProfile(out []byte, client *profile.Client) []byte {
 	if client == nil {
 		return fmt.Appendf(out, "profile:     system bus not reachable\n")
 	}
-	active, err := client.Active()
+	ctx, cancel := context.WithTimeout(context.Background(), config.BusTimeout)
+	defer cancel()
+	active, err := client.Active(ctx)
 	if err != nil {
 		return fmt.Appendf(out, "profile:     %v\n", err)
 	}
-	available, err := client.Available()
-	if err != nil {
-		return fmt.Appendf(out, "profile:     %s (available: %v)\n", active, err)
-	}
-	return fmt.Appendf(out, "profile:     %s (available: %v)\n", active, available)
+	return fmt.Appendf(out, "profile:     %s\n", active)
 }
 
 func showPrediction(cfg config.Config, now time.Time) (string, error) {

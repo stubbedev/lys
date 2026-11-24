@@ -30,7 +30,7 @@ Suggests:       wireplumber
 Suggests:       NetworkManager
 Suggests:       bluez
 Suggests:       tesseract
-Suggests:       power-profiles-daemon
+Suggests:       lys-power
 
 %description
 lys-shell is a compositor-agnostic Wayland desktop shell: bar, dropdowns, launcher, notifications, OSD and an xdg-desktop-portal backend, configured in YAML or through lys-settings, a package of its own.

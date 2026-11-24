@@ -9,11 +9,12 @@
     ...
   }: let
     pkg = self.packages.${pkgs.stdenv.hostPlatform.system}.lys-power;
-    eval = settings:
+    evalBeside = extra: settings:
       (inputs.nixpkgs.lib.nixosSystem {
         inherit (pkgs.stdenv.hostPlatform) system;
         modules = [
           self.nixosModules.lys-power
+          extra
           {
             services.lys-power = settings;
             boot.loader.grub.enable = false;
@@ -25,7 +26,10 @@
           }
         ];
       }).config;
+    eval = evalBeside {};
     nixos = eval {enable = true;};
+    refusals = extra: map (a: a.message) (lib.filter (a: !a.assertion) (evalBeside extra {enable = true;}).assertions);
+    refuses = extra: lib.any (lib.hasPrefix "services.lys-power sets the power profile itself") (refusals extra);
     bright = eval {
       enable = true;
       autoBrightness.enable = true;
@@ -47,14 +51,14 @@
     checks.lys-power-nixos-module = pkgs.runCommand "lys-power-nixos-module" {} ''
       unit=${pkg}/lib/systemd/system/lys-power.service
       grep -qxF "ExecStart=${lib.getExe pkg} run" $unit
-      grep -qxF "After=power-profiles-daemon.service" $unit
+      if grep -q "After=" $unit; then echo "lys-power.service still orders itself after another daemon" >&2; exit 1; fi
       if grep -q "upower" $unit; then echo "lys-power.service still orders itself after UPower" >&2; exit 1; fi
       grep -qxF "Type=notify" $unit
       grep -qxF "StateDirectory=lys-power" $unit
       grep -qxF "Restart=on-failure" $unit
       grep -qxF "RestartSec=10s" $unit
       grep -qxF "ProtectSystem=strict" $unit
-      grep -qxF "ReadWritePaths=-/run/battery-charge -/sys/module/pcie_aspm/parameters/policy -/sys/module/snd_hda_intel/parameters/power_save" $unit
+      grep -qxF "ReadWritePaths=-/run/battery-charge -/sys/module/pcie_aspm/parameters/policy -/sys/module/snd_hda_intel/parameters/power_save -/sys/firmware/acpi/platform_profile" $unit
       grep -qxF "ReadOnlyPaths=/proc/sys -/proc/sysrq-trigger -/proc/acpi -/proc/fs -/proc/irq -/sys/kernel -/sys/module -/sys/power -/sys/firmware -/sys/fs" $unit
       if grep -qx "ProtectKernelTunables=.*" $unit; then echo "lys-power.service sets ProtectKernelTunables, which makes the charge thresholds read-only" >&2; exit 1; fi
       grep -qxF "d /run/battery-charge 0775 root users -" ${pkg}/lib/tmpfiles.d/lys-power.conf
@@ -65,7 +69,10 @@
       ${fail (!lib.elem pkg nixos.environment.systemPackages) "lys-power is not in environment.systemPackages"}
       ${fail (!lib.elem pkg nixos.services.dbus.packages) "lys-power's system bus policy is not in services.dbus.packages"}
       ${fail nixos.services.upower.enable "upower is enabled, which lys-power does not need"}
-      ${fail (!nixos.services.power-profiles-daemon.enable) "power-profiles-daemon is not enabled"}
+      ${fail nixos.services.power-profiles-daemon.enable "power-profiles-daemon is enabled beside lys-power"}
+      ${fail (refuses {}) "lys-power refuses a system without a rival profile daemon"}
+      ${fail (!refuses {services.power-profiles-daemon.enable = true;}) "lys-power does not refuse power-profiles-daemon"}
+      ${fail (!refuses {services.tuned.enable = true;}) "lys-power does not refuse tuned's power-profiles-daemon API"}
       ${fail ((environment nixos).LYS_POWER_DEVICE_POLICY != "battery" || (environment nixos).LYS_POWER_DEVICE_DENY != "") "the device power policy does not default to battery with nothing denied"}
       ${fail ((environment devices).LYS_POWER_DEVICE_POLICY != "off") "devicePower.policy does not reach LYS_POWER_DEVICE_POLICY"}
       ${fail ((environment devices).LYS_POWER_DEVICE_DENY != "usb:046d:c52b pci:8086:a840") "devicePower.deny does not reach LYS_POWER_DEVICE_DENY"}

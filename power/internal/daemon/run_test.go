@@ -13,8 +13,12 @@ import (
 
 func runOnPrivateBus(t *testing.T, ready func() error) (stop context.CancelFunc, done <-chan error) {
 	t.Helper()
-	f := newFixture(t)
-	t.Setenv("DBUS_SYSTEM_BUS_ADDRESS", dbustest.Start(t).Address)
+	return runFixtureOn(t, newFixture(t), dbustest.Start(t), ready)
+}
+
+func runFixtureOn(t *testing.T, f *fixture, bus *dbustest.Bus, ready func() error) (stop context.CancelFunc, done <-chan error) {
+	t.Helper()
+	t.Setenv("DBUS_SYSTEM_BUS_ADDRESS", bus.Address)
 	ctx, cancel := context.WithCancel(context.Background())
 	ended, finished := make(chan error, 1), make(chan struct{})
 	go func() {

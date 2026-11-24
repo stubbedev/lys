@@ -7,11 +7,11 @@ outline: [2, 3]
 
 <div v-pre>
 
-Power profile indicator and switcher (power-profiles-daemon).
+Power profile indicator and switcher (lys-power).
 
 Shows the active profile with a per-profile icon and color, and cycles
-through the available profiles on click. Backed by the same
-power-profiles-daemon D-Bus interface as `powerprofilesctl`.
+through the profiles on click. Backed by the power profile lys-power
+sets and publishes as `dev.stubbe.lys.Profile1` on the system bus.
 
 Add it to your layout with `power-profiles`:
 

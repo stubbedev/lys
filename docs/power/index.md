@@ -12,16 +12,38 @@ time the charger usually comes out and charges to **100%** in the two hours
 before then. You leave with a full battery that did not spend the night at
 full.
 
-It also switches the
-[power-profiles-daemon](https://gitlab.freedesktop.org/upower/power-profiles-daemon)
-profile when the power source changes: `performance` on AC and `power-saver`
-on battery. When one of those is missing it uses `balanced`. It switches only
-when the power source changes, so a profile you pick by hand stays until the
-next plug or unplug.
+It also sets the power profile when the power source changes: `performance`
+on AC and `power-saver` on battery. It switches only when the power source
+changes, so a profile you pick by hand stays until the next plug or unplug.
 
 On a machine without a battery, or with an embedded controller that hides the
-charge thresholds, only the profile switching applies. Without
-power-profiles-daemon, only the charge policy applies.
+charge thresholds, only the profile switching applies. On one with neither an
+ACPI platform profile nor a CPU energy preference, only the charge policy
+applies.
+
+## The power profile
+
+lys-power sets the profile itself, with no power-profiles-daemon in between:
+
+| Profile | `/sys/firmware/acpi/platform_profile` | cpufreq `energy_performance_preference` |
+| --- | --- | --- |
+| `power-saver` | `low-power`, else `quiet`, `cool`, `balanced` | `power`, else `balance_power`, `default` |
+| `balanced` | `balanced`, else `balanced-performance`, `quiet`, `low-power` | `balance_performance`, else `default`, `balance_power` |
+| `performance` | `performance`, else `balanced-performance`, `balanced` | `performance`, else `balance_performance`, `default` |
+
+Each knob takes the first of its list that its driver offers in
+`platform_profile_choices` or `energy_performance_available_preferences`,
+every cpufreq policy alike; a knob already at its value is not written. A
+driver that offers none of the list, or a write the kernel refuses, fails the
+switch with the knob's path, and the profile in force stays the last one set.
+The profile is kept in `/var/lib/lys-power/profile` and set again at start.
+
+The active profile is the `Active` property of `dev.stubbe.lys.Profile1` on
+the system bus, which lys-shell, lys-settings and lys-wm follow. Its
+`SetActive` method needs the polkit action `dev.stubbe.lys.power.profile`,
+which an active local session holds. power-profiles-daemon and `tuned-ppd` set
+the same knobs, so lys-power refuses to start while either owns
+`org.freedesktop.UPower.PowerProfiles` or `net.hadess.PowerProfiles`.
 
 ## The charge policy
 
@@ -350,7 +372,7 @@ more than 6 percentage points from the current one, and then in steps over
 1.5 seconds rather than in one jump. It drives every backlight under
 `/sys/class/backlight`, through logind, as the shell's brightness keys do.
 
-**Low Power Mode.** While power-profiles-daemon's profile is `power-saver`
+**Low Power Mode.** While the power profile is `power-saver`
 (which lys-power picks on battery), the level for the room is 12% lower, as
 macOS slightly dims the display on battery. The backlight moves there, and
 back when the profile changes again, in the same gradual steps, as automatic
@@ -486,9 +508,9 @@ writing the same thresholds work against each other.
 
 The module installs `lys-power`, its system unit, wanted by
 `graphical.target`, and the tmpfiles rule that creates `/run/battery-charge`.
-It also enables `services.power-profiles-daemon` and
-`security.polkit` with `mkDefault`. Set any of them to `false` to run without
-it, for example when TLP manages the power profiles. `autoBrightness.enable` installs the package's
+It also enables `security.polkit` with `mkDefault`, and refuses to evaluate
+beside `services.power-profiles-daemon` or `services.tuned.ppdSupport`, which
+set the same power profile knobs. `autoBrightness.enable` installs the package's
 user unit `lys-power-brightness.service` and has it wanted by
 `graphical-session.target`; it works with or without `enable`. Either option
 also puts the attention check's user unit and its session bus activation
@@ -515,17 +537,16 @@ systemctl --user enable --now lys-power-brightness   # automatic brightness, opt
 The tarball `lys-power-<version>-<arch>-linux.tar.gz` holds the same files.
 Install the binary as `/usr/bin/lys-power`, the unit under
 `/usr/lib/systemd/system/`, `lys-power-brightness.service` under
-`/usr/lib/systemd/user/` and `lys-power.tmpfiles` as
-`/usr/lib/tmpfiles.d/lys-power.conf`, `dev.stubbe.lys.Energy1.conf` and
-`dev.stubbe.lys.Pause1.conf` under `/usr/share/dbus-1/system.d/` and
+`/usr/lib/systemd/user/`, `lys-power.tmpfiles` as
+`/usr/lib/tmpfiles.d/lys-power.conf`, `dev.stubbe.lys.Energy1.conf`,
+`dev.stubbe.lys.Pause1.conf`, `dev.stubbe.lys.Charge1.conf`,
+`dev.stubbe.lys.Profile1.conf`, `dev.stubbe.lys.Nap1.conf` and
+`dev.stubbe.lys.Sleep1.conf` under `/usr/share/dbus-1/system.d/` and
 `dev.stubbe.lys.power.policy` under `/usr/share/polkit-1/actions/`, then run
-`/usr/lib/tmpfiles.d/lys-power.conf` and `dev.stubbe.lys.Energy1.conf` and
-`dev.stubbe.lys.Nap1.conf` and `dev.stubbe.lys.Sleep1.conf` under
-`/usr/share/dbus-1/system.d/`, then run
 `sudo systemd-tmpfiles --create lys-power.conf` and enable the unit.
 
 lys-power needs a battery that exposes `charge_control_*_threshold` (ThinkPad,
-ASUS and Framework laptops among others), and `power-profiles-daemon` (or
-Fedora's `tuned-ppd`) for the profile switching. It reads the power source
+ASUS and Framework laptops among others), and must not run beside
+power-profiles-daemon or Fedora's `tuned-ppd`. It reads the power source
 from `/sys/class/power_supply` and reacts to plug and unplug through the
 kernel's uevents, with no daemon in between.

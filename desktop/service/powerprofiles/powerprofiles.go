@@ -1,23 +1,23 @@
-// Package powerprofiles is the power-profiles-daemon client: the
-// active profile, the available set, property-change ticks, and the
-// cycle action.
+// Package powerprofiles is the client of the power profile lys-power
+// sets: the active profile, the available set, property-change ticks,
+// and the cycle action.
 package powerprofiles
 
 import (
 	"context"
 	"fmt"
 	"slices"
-	"sync"
 
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/power/profile"
 )
 
-// Profile names as the daemon spells them.
+// Profile names as lys-power spells them.
 const (
-	ProfilePowerSaver  = "power-saver"
-	ProfileBalanced    = "balanced"
-	ProfilePerformance = "performance"
+	ProfilePowerSaver  = string(profile.PowerSaver)
+	ProfileBalanced    = string(profile.Balanced)
+	ProfilePerformance = string(profile.Performance)
 )
 
 // Canonical cycle order: power-saver → balanced →
@@ -48,23 +48,16 @@ func NextProfile(current string, available []string) string {
 	return cycle[0]
 }
 
-// Snapshot is one daemon state.
+// Snapshot is the profile as lys-power last published it.
 type Snapshot struct {
+	// Available is lys-power publishing a profile.
 	Available bool
 	Active    string
 	Profiles  []string
-	// PerformanceDegraded is the daemon's degradation reason ("" when
-	// performance is not degraded).
-	PerformanceDegraded string
 }
 
-const (
-	// BusName is power-profiles-daemon's well-known name on the system bus.
-	BusName     = "org.freedesktop.UPower.PowerProfiles"
-	daemonPath  = "/org/freedesktop/UPower/PowerProfiles"
-	daemonIface = "org.freedesktop.UPower.PowerProfiles"
-	properties  = "org.freedesktop.DBus.Properties"
-)
+// BusName is lys-power's power profile service on the system bus.
+const BusName = profile.ServiceName
 
 // Source is the module's seam.
 type Source interface {
@@ -72,75 +65,66 @@ type Source interface {
 	Read(ctx context.Context) (Snapshot, error)
 	// SetActive switches the profile.
 	SetActive(ctx context.Context, profile string) error
-	// Subscribe ticks on daemon property changes. The channel closes
-	// when ctx completes; stop terminates the listener and reports what
-	// releasing its match met.
+	// Subscribe ticks on each change of the active profile. The channel
+	// closes when ctx completes; stop terminates the listener and reports
+	// what releasing its match met.
 	Subscribe(ctx context.Context) (<-chan struct{}, func() error, error)
 }
 
-// System reads the real daemon over the system bus.
+// System reads lys-power's profile over the system bus.
 type System struct {
-	mu   sync.Mutex
-	conn *dbus.Conn
+	conn   *dbus.Conn
+	client *profile.Client
 }
 
-// NewOn reads the daemon over conn, which stays the caller's.
-func NewOn(conn *dbus.Conn) *System { return &System{conn: conn} }
+// NewOn reads lys-power over conn, which stays the caller's.
+func NewOn(conn *dbus.Conn) *System { return &System{conn: conn, client: profile.NewClient(conn)} }
 
-// Read collects the snapshot; an absent daemon reads as unavailable
-// with the canonical cycle available.
+// Read collects the snapshot; lys-power not publishing a profile reads
+// as unavailable with balanced active.
 func (s *System) Read(ctx context.Context) (Snapshot, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	snap := Snapshot{Active: ProfileBalanced}
-	obj := s.conn.Object(BusName, daemonPath)
-	var active string
-	if err := obj.CallWithContext(ctx, properties+".Get", 0, daemonIface, "ActiveProfile").Store(&active); err != nil {
-		return snap, nil
+	active, err := s.client.Active(ctx)
+	if dbusx.Unowned(err) {
+		return Snapshot{Active: ProfileBalanced}, nil
 	}
-	snap.Available = true
-	snap.Active = active
-
-	var degraded string
-	if err := obj.CallWithContext(ctx, properties+".Get", 0, daemonIface, "PerformanceDegraded").Store(&degraded); err == nil {
-		snap.PerformanceDegraded = degraded
+	if err != nil {
+		return Snapshot{}, fmt.Errorf("powerprofiles: %w", err)
 	}
-	var raw []map[string]dbus.Variant
-	if err := obj.CallWithContext(ctx, properties+".Get", 0, daemonIface, "Profiles").Store(&raw); err == nil {
-		for _, entry := range raw {
-			if name, ok := entry["Profile"].Value().(string); ok {
-				snap.Profiles = append(snap.Profiles, name)
-			}
-		}
+	all := profile.All()
+	names := make([]string, len(all))
+	for i, p := range all {
+		names[i] = string(p)
 	}
-	return snap, nil
+	return Snapshot{Available: true, Active: string(active), Profiles: names}, nil
 }
 
-// SetActive writes the ActiveProfile property.
-func (s *System) SetActive(ctx context.Context, profile string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	obj := s.conn.Object(BusName, daemonPath)
-	return obj.CallWithContext(ctx, properties+".Set", 0, daemonIface, "ActiveProfile",
-		dbus.MakeVariant(profile)).Err
+// SetActive asks lys-power to switch to the profile named name.
+func (s *System) SetActive(ctx context.Context, name string) error {
+	p, err := profile.Parse(name)
+	if err != nil {
+		return fmt.Errorf("powerprofiles: %w", err)
+	}
+	if err := s.client.SetActive(ctx, p); err != nil {
+		return fmt.Errorf("powerprofiles: %w", err)
+	}
+	return nil
 }
 
-// Subscribe ticks on the daemon's PropertiesChanged.
+// Subscribe ticks on lys-power's PropertiesChanged.
 func (s *System) Subscribe(ctx context.Context) (<-chan struct{}, func() error, error) {
-	ticks, stop, err := dbusx.Ticks(ctx, s.conn, dbusx.FromOwner(BusName), "powerprofiles", daemonRoutes)
+	ticks, stop, err := dbusx.Ticks(ctx, s.conn, dbusx.FromOwner(BusName), "powerprofiles", routes)
 	if err != nil {
 		return nil, nil, fmt.Errorf("powerprofiles: %w", err)
 	}
 	return ticks, stop, nil
 }
 
-// daemonRoutes call changed for a change of the daemon's properties.
-func daemonRoutes(changed func()) []dbusx.Route {
+// routes call changed for a change of lys-power's profile.
+func routes(changed func()) []dbusx.Route {
 	return []dbusx.Route{
-		dbusx.On(dbusx.PropertiesChanged, daemonPath, func(dbusx.ChangedProperties, dbus.Sequence) error {
+		dbusx.On(dbusx.PropertiesChanged, profile.ServicePath, func(dbusx.ChangedProperties, dbus.Sequence) error {
 			changed()
 			return nil
-		}).WithArg0(daemonIface),
+		}).WithArg0(profile.Interface),
 	}
 }

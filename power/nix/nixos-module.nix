@@ -52,7 +52,16 @@ in {
 
   config = lib.mkMerge [
     (lib.mkIf cfg.enable {
-      services.power-profiles-daemon.enable = lib.mkDefault true;
+      assertions = [
+        {
+          assertion = !config.services.power-profiles-daemon.enable;
+          message = "services.lys-power sets the power profile itself, and does not start beside power-profiles-daemon: set services.power-profiles-daemon.enable = false.";
+        }
+        {
+          assertion = !(config.services.tuned.enable && config.services.tuned.ppdSupport);
+          message = "services.lys-power sets the power profile itself, and does not start beside tuned's power-profiles-daemon API: set services.tuned.ppdSupport = false.";
+        }
+      ];
 
       environment.systemPackages = [cfg.package];
       systemd.packages = [cfg.package];

@@ -1724,14 +1724,11 @@ settings-power-hours-minutes = { $hours ->
 }
 settings-power-mode = Modalità energetica
 settings-power-mode-detail = Scambia autonomia con velocità; il sistema ricorda la scelta
-settings-power-no-daemon = power-profiles-daemon non è in esecuzione, quindi la modalità energetica non può essere cambiata
+settings-power-no-daemon = lys-power non imposta qui alcun profilo energetico, quindi la modalità energetica non può essere cambiata
 settings-power-mode-power-saver = Risparmio energetico
 settings-power-mode-balanced = Bilanciata
 settings-power-mode-performance = Prestazioni
 settings-power-mode-refused = La modalità energetica non è stata cambiata
-settings-power-mode-degraded = L'hardware sta limitando le prestazioni
-settings-power-mode-degraded-lap = Le prestazioni sono limitate mentre il computer è sulle gambe
-settings-power-mode-degraded-heat = Le prestazioni sono limitate mentre il computer è troppo caldo
 settings-power-link-idle-detail = Quando lo schermo si attenua, si spegne e il computer va in sospensione
 settings-power-link-lock-detail = Come lo schermo si blocca e si sblocca
 settings-power-section-pause = In pausa a batteria

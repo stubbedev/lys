@@ -15,13 +15,13 @@ Architecture: amd64 arm64
 Depends:
  ${misc:Depends},
  systemd
-Recommends:
- power-profiles-daemon
 Description: adaptive battery charging and power profile policy for the lys desktop
  lys-power holds a laptop's battery at 75-80% while it is plugged in and
  learns when the charger usually comes out, charging to 100% in the two
- hours before that moment. It also switches the power-profiles-daemon
- profile on every AC edge: performance on AC, power-saver on battery.
+ hours before that moment. It also sets the power profile itself, the
+ ACPI platform profile and the CPUs' energy preference, on every AC edge:
+ performance on AC, power-saver on battery. It does not start beside
+ power-profiles-daemon or tuned-ppd, which set the same knobs.
  .
  As a user service, lys-power-brightness sets the screen brightness from
  an ambient light sensor, or else from short camera captures that are

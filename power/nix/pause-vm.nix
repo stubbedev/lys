@@ -54,6 +54,7 @@ in {
     machine.succeed("systemctl start lys-power.service")
     machine.wait_for_unit("lys-power.service")
     machine.fail("systemctl is-active upower.service")
+    machine.fail("systemctl is-active power-profiles-daemon.service")
     machine.wait_until_succeeds("busctl --system status dev.stubbe.lys.Pause1", timeout=30)
 
     machine.succeed("systemctl start user@${toString uid}.service")

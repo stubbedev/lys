@@ -36,7 +36,7 @@ type powerProfilesModule struct {
 
 func newPowerProfiles(ctx ModuleContext) (Module, error) {
 	if ctx.PowerProfiles == nil {
-		return nil, errors.New("power-profiles: no power-profiles-daemon available")
+		return nil, errors.New("power-profiles: lys-power publishes no power profile")
 	}
 	m := &powerProfilesModule{ctx: ctx, src: ctx.PowerProfiles}
 	m.icon = barview.Icon(ctx.Config.PowerProfiles.Icon())

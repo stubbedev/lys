@@ -13,8 +13,9 @@ lys-power holds the charge at a limit you choose (80% unless you pick 85, 90,
 95 or 100%), learns when the charger usually comes out, and charges to 100% in
 the two hours before that moment, before a calendar event away from the desk,
 or on a bare charger away from a dock. It also
-switches the [power-profiles-daemon](https://gitlab.freedesktop.org/upower/power-profiles-daemon)
-profile on every AC edge: `performance` on AC, `power-saver` on battery.
+sets the power profile itself, the ACPI platform profile and the CPUs' energy
+preference, on every AC edge: `performance` on AC, `power-saver` on battery,
+and refuses to run beside power-profiles-daemon or `tuned-ppd`.
 On battery it powers down idle devices, as macOS does: PCI runtime power
 management, USB autosuspend (never for keyboards, mice or audio), Wi-Fi power
 save, PCIe ASPM, SATA link power and audio power save. Optionally, as a user service, it sets the screen brightness from an ambient

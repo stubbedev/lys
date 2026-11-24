@@ -66,7 +66,7 @@ Modules appear inside the `bar.layout` list. Each row links to the full referenc
 | [`nightlight`](/shell/config/modules/nightlight) | Night light: warms the display colors, by hand or on a schedule. |
 | [`notifications`](/shell/config/modules/notifications) | Notification center: icon in the bar, dropdown with history, DND toggle. |
 | [`power`](/shell/config/modules/power) | Shutdown, reboot, and logout menu. |
-| [`power-profiles`](/shell/config/modules/power-profiles) | Power profile indicator and switcher (power-profiles-daemon). |
+| [`power-profiles`](/shell/config/modules/power-profiles) | Power profile indicator and switcher (lys-power). |
 | [`ram`](/shell/config/modules/ram) | Memory and swap usage. |
 | [`recorder`](/shell/config/modules/recorder) | Native screen recorder encoding on the GPU's video encoder. |
 | [`screenshot`](/shell/config/modules/screenshot) | Screenshot capture button. |

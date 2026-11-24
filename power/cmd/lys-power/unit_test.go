@@ -196,6 +196,22 @@ func TestTheServiceCanWriteEveryDevicePowerKnob(t *testing.T) {
 	}
 }
 
+func TestTheServiceCanWriteThePowerProfileKnobs(t *testing.T) {
+	mounts := sandboxOf(t, "../../dist/lys-power.service")
+	for _, file := range []string{
+		"/sys/firmware/acpi/platform_profile",
+		"/sys/devices/system/cpu/cpufreq/policy0/energy_performance_preference",
+		"/var/lib/lys-power/profile",
+	} {
+		if !writableIn(mounts, file) {
+			t.Errorf("lys-power.service leaves %s read-only", file)
+		}
+	}
+	if writableIn(mounts, "/sys/firmware/acpi/platform_profile_choices") {
+		t.Error("lys-power.service may write the platform profile's choices, not only the profile")
+	}
+}
+
 func TestTheServiceKeepsKernelTunablesAndTheSystemReadOnly(t *testing.T) {
 	mounts := sandboxOf(t, "../../dist/lys-power.service")
 	for _, file := range []string{

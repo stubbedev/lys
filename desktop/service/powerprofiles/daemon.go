@@ -27,16 +27,6 @@ func profileName(raw string) string {
 	}
 }
 
-// degradedName is PerformanceDegradationReason's round trip.
-func degradedName(raw string) string {
-	switch raw {
-	case "", "lap-detected", "high-operating-temperature":
-		return raw
-	default:
-		return "unknown"
-	}
-}
-
 // cycleNext is the fixed three-step order, an
 // unknown profile going to balanced (unlike NextProfile it ignores
 // which profiles the hardware offers).
@@ -102,8 +92,8 @@ func (d *Daemon) ListProfiles() ([]string, *dbus.Error) {
 }
 
 // ServeDaemon exports the interface for the service over src. It is
-// only served when power-profiles-daemon answered:
-// without it the CLI reports the service as not running.
+// only served when lys-power publishes a profile: without it the CLI
+// reports the service as not running.
 func ServeDaemon(conn *dbus.Conn, src Source) (func(), error) {
 	d := &Daemon{src: src}
 	if !d.read().Available {
@@ -115,11 +105,10 @@ func ServeDaemon(conn *dbus.Conn, src Source) (func(), error) {
 		Interface: ServiceName,
 		Methods:   d,
 		Properties: dbusx.Getters{
-			"ActiveProfile":       func() any { return profileName(d.read().Active) },
-			"PerformanceDegraded": func() any { return degradedName(d.read().PerformanceDegraded) },
-			"ProfileCount":        func() any { return intconv.Clamp[uint32](len(d.read().Profiles)) },
+			"ActiveProfile": func() any { return profileName(d.read().Active) },
+			"ProfileCount":  func() any { return intconv.Clamp[uint32](len(d.read().Profiles)) },
 		},
 	})
 }
 
-var errUnavailable = errors.New("powerprofiles: power-profiles-daemon unavailable")
+var errUnavailable = errors.New("powerprofiles: lys-power publishes no power profile")

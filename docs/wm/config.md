@@ -1049,7 +1049,7 @@ sleeps and gets none until it is shown again.
 power_saver_frame_rate: 0
 ```
 
-Default 60, an integer 0 or more; 0 is off. While power-profiles-daemon's
+Default 60, an integer 0 or more; 0 is off. While lys-power's
 profile is `power-saver`, a faster output composites every k-th vblank (k is
 refresh / rate rounded up) and its surfaces get frame callbacks at that rate.
 Under adaptive sync it is a minimum frame interval.

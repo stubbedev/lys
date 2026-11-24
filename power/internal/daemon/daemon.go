@@ -30,20 +30,17 @@ import (
 	"github.com/stubbedev/lys/power/internal/statefile"
 	"github.com/stubbedev/lys/power/internal/supply"
 	"github.com/stubbedev/lys/power/nap"
+	"github.com/stubbedev/lys/power/profile"
 )
-
-// ProfileClient is the slice of power-profiles-daemon the manager needs. A
-// nil client means profile handling is unavailable and is skipped.
-type ProfileClient interface {
-	Available() ([]string, error)
-	Set(name string) error
-}
 
 // Result reports what one evaluation observed and changed.
 type Result struct {
-	OnAC           bool
-	HasBattery     bool
-	ProfileSet     string
+	OnAC       bool
+	HasBattery bool
+	// ProfileSet is the profile an AC edge switched to, "" when none
+	// was; ProfileErr is why the switch failed.
+	ProfileSet     profile.Profile
+	ProfileErr     error
 	RecordedUnplug bool
 	ClearedFullNow bool
 	// Applied holds the thresholds written by this evaluation, nil when
@@ -67,7 +64,7 @@ func (r Result) Changed() bool {
 func (r Result) LogValue() slog.Value {
 	attrs := []slog.Attr{
 		slog.Bool("on_ac", r.OnAC),
-		slog.String("profile", r.ProfileSet),
+		slog.String("profile", string(r.ProfileSet)),
 		slog.Bool("recorded_unplug", r.RecordedUnplug),
 		slog.Bool("cleared_full_now", r.ClearedFullNow),
 	}
@@ -76,6 +73,9 @@ func (r Result) LogValue() slog.Value {
 	}
 	if !r.Recheck.IsZero() {
 		attrs = append(attrs, slog.Time("recheck", r.Recheck))
+	}
+	if r.ProfileErr != nil {
+		attrs = append(attrs, slog.String("profile_error", r.ProfileErr.Error()))
 	}
 	return slog.GroupValue(attrs...)
 }
@@ -92,7 +92,7 @@ const (
 // Eval performs one evaluation of the policy. It is idempotent: nothing at
 // the wanted state is touched, including a profile the user picked by hand
 // between AC edges.
-func Eval(cfg config.Config, log *slog.Logger, now time.Time, pc ProfileClient) (Result, error) {
+func Eval(cfg config.Config, log *slog.Logger, now time.Time, pc ProfileSetter) (Result, error) {
 	at := history.At(now)
 	sup := supply.Supply{Dir: cfg.SupplyDir}
 
@@ -124,7 +124,7 @@ func Eval(cfg config.Config, log *slog.Logger, now time.Time, pc ProfileClient) 
 		if err := writeLastAC(cfg.LastACPath(), cur); err != nil {
 			return result, err
 		}
-		result.ProfileSet = applyProfile(log, pc, onAC)
+		result.ProfileSet, result.ProfileErr = applyProfile(log, pc, onAC)
 	}
 
 	if prev == acMains && cur == acBattery {
@@ -173,31 +173,19 @@ func Eval(cfg config.Config, log *slog.Logger, now time.Time, pc ProfileClient) 
 	return result, nil
 }
 
-// applyProfile switches ppd to the profile for the power source and returns
-// it, or "" when nothing was set. Profile trouble never blocks the
-// threshold half of the policy.
-func applyProfile(log *slog.Logger, pc ProfileClient, onAC bool) string {
+// applyProfile switches to the profile for the power source and returns
+// it, with why it failed. Profile trouble never blocks the threshold half
+// of the policy: it is logged and returned.
+func applyProfile(log *slog.Logger, pc ProfileSetter, onAC bool) (profile.Profile, error) {
 	if pc == nil {
-		return ""
+		return "", nil
 	}
-	available, err := pc.Available()
-	if errors.Is(err, profiles.ErrAbsent) {
-		log.Info("power profile handling unavailable", "err", err)
-		return ""
-	}
-	if err != nil {
-		log.Warn("listing power profiles", "err", err)
-		return ""
-	}
-	want := profiles.Pick(available, onAC)
-	if want == "" {
-		return ""
-	}
+	want := profiles.Pick(onAC)
 	if err := pc.Set(want); err != nil {
-		log.Warn("setting power profile", "profile", want, "err", err)
-		return ""
+		log.Error("switching the power profile on an AC edge", "profile", want, "err", err)
+		return "", err
 	}
-	return want
+	return want, nil
 }
 
 // Run evaluates the policy until the context is canceled. It sleeps until
@@ -216,7 +204,6 @@ func Run(ctx context.Context, cfg config.Config, log *slog.Logger, ready func() 
 		adoptLegacyHistory(cfg.HistoryPath(), config.LegacyStateDirs[:], log)
 	}
 
-	var pc ProfileClient
 	var discharging chan bool
 	var pz *pauser.Pauser
 	var pauses <-chan struct{}
@@ -224,10 +211,17 @@ func Run(ctx context.Context, cfg config.Config, log *slog.Logger, ready func() 
 	var limits <-chan struct{}
 	conn, err := dbusx.DialSystem(ctx, config.BusTimeout)
 	if err != nil {
-		log.Warn("system bus unavailable: no power profiles", "err", err)
+		log.Warn("system bus unavailable: the power profile is not published", "err", err)
+		conn = nil
 	} else {
 		defer closeLogged(log, "system bus", conn)
-		pc = profiles.New(conn)
+	}
+	pc, releaseProfile, err := startProfile(ctx, cfg, log, conn)
+	if err != nil {
+		return err
+	}
+	defer releaseProfile()
+	if conn != nil {
 		discharging = make(chan bool, 1)
 		energyDone := make(chan struct{})
 		energyCtx, stopEnergy := context.WithCancel(ctx)

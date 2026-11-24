@@ -205,31 +205,15 @@ func TestARefusedSwitchIsSaidInTheLanguageAndKeepsTheMode(t *testing.T) {
 	}
 }
 
-func TestADegradedPerformanceModeSaysWhy(t *testing.T) {
-	tr := locale.T()
-	for reason, key := range map[string]string{
-		"lap-detected": "settings-power-mode-degraded-lap", "high-operating-temperature": "settings-power-mode-degraded-heat", "fan-broken": "settings-power-mode-degraded",
-	} {
-		f := laptop()
-		f.state.profiles.PerformanceDegraded = reason
-		if p := powerPanelOf(t, f); !shows(p.modes, tr.Get(key)) {
-			t.Errorf("degraded by %s reads %q", reason, treetest.Labels(p.modes))
-		}
-	}
-	if p := powerPanelOf(t, laptop()); shows(p.modes, tr.Get("settings-power-mode-degraded")) {
-		t.Error("an undegraded mode says it is degraded")
-	}
-}
-
-func TestNoPowerProfilesDaemonIsSaidWithoutCards(t *testing.T) {
+func TestNoLysPowerProfileIsSaidWithoutCards(t *testing.T) {
 	f := laptop()
 	f.state.profiles = powerprofiles.Snapshot{}
 	p := powerPanelOf(t, f)
 	if !shows(p.modes, locale.T().Get("settings-power-no-daemon")) || len(treetest.All[*choiceCard](p.modes)) != 0 {
-		t.Errorf("without power-profiles-daemon the mode reads %q", treetest.Labels(p.modes))
+		t.Errorf("without lys-power's profile the mode reads %q", treetest.Labels(p.modes))
 	}
 	if !shows(p.battery, locale.T().Get("settings-power-percent", i18n.Int("percent", 72))) {
-		t.Error("the battery is hidden without power-profiles-daemon")
+		t.Error("the battery is hidden without lys-power's profile")
 	}
 }
 
