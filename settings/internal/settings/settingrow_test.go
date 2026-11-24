@@ -1,6 +1,8 @@
 package settings
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"testing"
@@ -14,6 +16,7 @@ import (
 	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/displays"
+	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
 // walkAncestry is walkOwn with the widgets above each, from the root
@@ -370,6 +373,42 @@ func TestALevelledDeviceFitsTheControlColumn(t *testing.T) {
 			}
 			columnEdges{"device": c.Bounds(), "dropdown": tc.dropdown(c).Bounds(), "level": c.level.meter.Bounds(), "entry": entry.Bounds()}.shareEdges(t, tc.name)
 		})
+	}
+}
+
+func TestALevelledDevicesFailureLeavesTheControlColumnItsWidth(t *testing.T) {
+	const path = "modules.recorder.microphone-device"
+	layOut := func(k *kit, c *levelledDevice) (column int, entry widget.Boundser) {
+		e := k.entry()
+		rows := widget.NewItemGroup(k.row("Device", "").withControl(c), k.row("Name", "").withControl(e))
+		box := widget.NewBox(widget.Column, 0, 0)
+		box.Append(rows, false)
+		styledLayOut(k, box, 900)
+		return c.Bounds().W, e
+	}
+	working, wk, _ := levelledRow(t, soundServer(t), "", path, microphoneDevice)
+	wantColumn, _ := layOut(wk, working)
+	if shown(working.level.state) {
+		t.Fatal("a working level shows a failure")
+	}
+
+	before := openPulse
+	unreachable := errors.New("no sound server answered on any of the sockets this test points at, which makes for a long line of text")
+	openPulse = func(context.Context) (*pulse.Service, error) { return nil, unreachable }
+	t.Cleanup(func() { openPulse = before })
+	k := testKit(t, "")
+	failing := fieldControl(k, k.store, field(path, microphoneDevice)).(*levelledDevice)
+	t.Cleanup(failing.close)
+	column, entry := layOut(k, failing)
+	if !shown(failing.level.state) || failing.level.state.Text() != locale.T().Get("settings-sound-unreachable") {
+		t.Fatalf("an unreachable server shows %q, shown %v", failing.level.state.Text(), shown(failing.level.state))
+	}
+	if column != wantColumn {
+		t.Errorf("the failure widened the control column from %d to %d", wantColumn, column)
+	}
+	columnEdges{"device": failing.Bounds(), "entry": entry.Bounds()}.shareEdges(t, "a failed level")
+	if st := failing.level.state.Bounds(); st.X >= failing.Bounds().X {
+		t.Errorf("the failure sits in the control column at x %d, the column starts at %d; want it under the row's text", st.X, failing.Bounds().X)
 	}
 }
 

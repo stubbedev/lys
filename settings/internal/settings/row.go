@@ -260,6 +260,9 @@ func (k *kit) keyRow(key string) *settingRow { return k.row(locale.T().Get(key),
 // withControl places ctl as the row's control where controlFit holds it.
 func (r *settingRow) withControl(ctl widget.Widget) *settingRow {
 	r.SetControl(ctl, controlFit(ctl))
+	if d, ok := ctl.(interface{ detail() widget.Widget }); ok {
+		r.AddDetail(d.detail())
+	}
 	return r
 }
 

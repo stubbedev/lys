@@ -18,7 +18,7 @@ import (
 type deviceLevel struct {
 	*widget.Box
 	meter   *levelMeter
-	state   *cardState
+	state   *inlineState
 	svc     *pulse.Service
 	capture *pulse.Capture
 	// want is the device to record, nil while there is none; held is the
@@ -30,11 +30,10 @@ type deviceLevel struct {
 
 func newDeviceLevel(k *kit) *deviceLevel {
 	t := locale.T()
-	d := &deviceLevel{Box: gapBox(widget.Column), meter: newLevelMeter(k), state: k.cardState()}
+	d := &deviceLevel{Box: gapBox(widget.Column), meter: newLevelMeter(k), state: k.inlineState()}
 	d.meter.SetAccessibleName(t.Get("settings-device-level"))
 	d.meter.SetTooltip(t.Get("settings-device-level"))
 	d.Append(d.meter, false)
-	d.Append(d.state.lone(), false)
 	async(k, func() soundConnection {
 		ctx, cancel := context.WithTimeout(context.Background(), soundTimeout)
 		defer cancel()
@@ -139,6 +138,11 @@ func newLevelledDevice(k *kit, s slot, target func(name string) (pulse.CaptureTa
 // dropdown in the card's control column, the level under it as wide
 // (controlFit).
 func (c *levelledDevice) fit() widget.ItemControlFit { return controlFit(c.pick) }
+
+// detail is why the level cannot be shown, under the row's text rather
+// than in the control column, where its text would set the width of
+// every field of the card.
+func (c *levelledDevice) detail() widget.Widget { return c.level.state }
 
 func (c *levelledDevice) follow() { c.level.follow(c.target(c.slot.text())) }
 

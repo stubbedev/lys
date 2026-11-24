@@ -71,8 +71,8 @@ func TestCavasSourceShowsTheLevelOfWhatCavaRecords(t *testing.T) {
 	}
 	c.level.follow(cava.Target("bad\x00name"))
 	srv.WaitRecords(t, 0)
-	if st := c.level.state; st.kind != stateError || st.Title() != locale.T().Get("settings-device-level-failed") || !strings.Contains(st.detail.Text(), "invalid capture device name") {
-		t.Fatalf("a source no capture can name shows %v %q over %q", st.kind, st.Title(), st.detail.Text())
+	if st := c.level.state; st.kind != stateError || st.Text() != locale.T().Get("settings-device-level-failed") || !strings.Contains(st.detail.Text(), "invalid capture device name") {
+		t.Fatalf("a source no capture can name shows %v %q over %q", st.kind, st.Text(), st.detail.Text())
 	}
 	c.refresh()
 	if rec := srv.WaitRecords(t, 1)[0]; rec.Source != "mic" || c.level.state.Visible() {
@@ -87,8 +87,8 @@ func TestADeviceLevelWithoutASoundServerSaysSo(t *testing.T) {
 	k := testKit(t, "")
 	c := fieldControl(k, k.store, field("modules.recorder.microphone-device", microphoneDevice)).(*levelledDevice)
 	t.Cleanup(c.close)
-	if st := c.level.state; st.kind != stateUnavailable || st.Title() != locale.T().Get("settings-sound-unreachable") || st.detail.Text() != "no server in the test" || c.level.meter.Visible() {
-		t.Fatalf("without a server the level shows %v %q over %q, the meter shown %v", st.kind, st.Title(), st.detail.Text(), c.level.meter.Visible())
+	if st := c.level.state; st.kind != stateUnavailable || st.Text() != locale.T().Get("settings-sound-unreachable") || st.detail.Text() != "no server in the test" || c.level.meter.Visible() {
+		t.Fatalf("without a server the level shows %v %q over %q, the meter shown %v", st.kind, st.Text(), st.detail.Text(), c.level.meter.Visible())
 	}
 	if c.level.capture != nil {
 		t.Fatal("a capture without a server")
