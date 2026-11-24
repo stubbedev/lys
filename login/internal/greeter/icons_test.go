@@ -40,8 +40,8 @@ func firstFrameAt(root widget.Widget, scale int) {
 
 func TestTheGreetersFirstFrameAsksForNoIconItsPreloadDecoded(t *testing.T) {
 	installTestIcons(t)
-	asked := 0
-	t.Cleanup(widget.SetInvoker(func(func()) { asked++ }))
+	var asked atomic.Int32
+	t.Cleanup(widget.SetInvoker(func(func()) { asked.Add(1) }))
 	r := newRig(t, func(i *Init) { i.HandOver = true })
 	widget.SetStyleRoot(r.s.root)
 	r.s.start()
@@ -53,11 +53,11 @@ func TestTheGreetersFirstFrameAsksForNoIconItsPreloadDecoded(t *testing.T) {
 	icons.wait()
 
 	firstFrameAt(r.s.root, preloaded)
-	if asked != 0 || widget.TreeAssetsOwed(r.s.root) != 0 {
-		t.Errorf("the first frame at the preloaded scale asked for %d icon(s) off the loop: it would be presented without them, or held for them", asked)
+	if n := asked.Load(); n != 0 || widget.TreeAssetsOwed(r.s.root) != 0 {
+		t.Errorf("the first frame at the preloaded scale asked for %d icon(s) off the loop: it would be presented without them, or held for them", n)
 	}
 	firstFrameAt(r.s.root, other)
-	if asked == 0 {
+	if asked.Load() == 0 {
 		t.Error("a frame at a scale nothing was preloaded for asked for no icon: this test would not see a missing preload")
 	}
 }
