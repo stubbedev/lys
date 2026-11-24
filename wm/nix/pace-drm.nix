@@ -13,7 +13,7 @@
   });
   user = "alice";
   paceScript = pkgs.writeShellScript "lys-wm-pace-drm" ''
-    ${pace}/bin/lys-wm-pace -compositor ${pace}/bin/lys-wm -backend drm -renderer gles -allow-software -rounds ${toString rounds} -scenarios ${scenarios} -json /tmp/pace.json > /tmp/pace.txt 2>&1
+    ${pace}/bin/lys-wm-pace -compositor ${pace}/bin/lys-wm -backend drm -renderer lavapipe -allow-software -rounds ${toString rounds} -scenarios ${scenarios} -json /tmp/pace.json > /tmp/pace.txt 2>&1
     echo $? > /tmp/pace.status
   '';
   session = {
