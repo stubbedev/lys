@@ -21,7 +21,7 @@ settings-modules-nightlight-transition-duration = Übergang
     .description = Dauer des Übergangs zwischen Tag und Nacht in Minuten, 0 für sofortiges Umschalten (0–120)
 
 settings-modules-nightlight-location = Ort
-    .description = Wo der Zeitplan der Sonne folgt: automatisch ermittelt oder eine gewählte Stadt
+    .description = Wo der Zeitplan der Sonne folgt: die Stadt deiner Zeitzone oder eine gewählte Stadt
 
 settings-modules-nightlight-icon-off = Symbol für aus
     .description = Symbol, wenn der Filter deaktiviert ist

@@ -226,7 +226,6 @@ archive version arch=arch() dist="dist":
         resources/dev.stubbe.lys.*.service \
         resources/xdg-desktop-portal-lys-shell.service \
         resources/lys-shell-portals.conf \
-        resources/geoclue-lys-shell.conf \
         "${staging}/"
     tar czf "${staging}.tar.gz" "${staging}"
     rm -rf "${staging}"

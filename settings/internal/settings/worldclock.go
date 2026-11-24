@@ -132,12 +132,12 @@ func clocksOf(items []any) []zoneClock {
 
 func (h host) timeZones() []choice {
 	zones := []string{localZoneName, "UTC"}
-	table, err := h.zoneTable()
+	db, err := h.tz().Database()
 	if err != nil {
 		log.Printf("settings: the time zones beyond %s and UTC: %v", localZoneName, err)
 	}
-	for _, r := range table.rows {
-		zones = append(zones, r.zone)
+	for _, z := range db.Zones() {
+		zones = append(zones, z.Name())
 	}
 	slices.Sort(zones[2:])
 	return timezoneChoices(zones)

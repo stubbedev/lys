@@ -6,19 +6,14 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
-	"github.com/stubbedev/lys/desktop/geo"
 	"github.com/stubbedev/lys/lib/atomicfile"
 )
 
 // overrideFile is the record's name inside the lys-shell state dir.
 const overrideFile = "nightlight-override"
-
-// locationFile is the last GeoClue fix's name inside the state dir.
-const locationFile = "nightlight-location"
 
 // overrideMaxAge discards records old enough to span a whole day/night
 // cycle (persist.rs MAX_AGE).
@@ -97,39 +92,4 @@ func parseOverride(body string, now time.Time) (Override, bool) {
 		return Override{}, false
 	}
 	return Override{Phase: phase, Enabled: fields[1] == "on"}, true
-}
-
-// SaveLocation remembers a fix for the next start, atomically, so a
-// restart at night tints the display at once rather than after GeoClue
-// answers.
-func SaveLocation(dir string, loc geo.Coordinates) error {
-	body := strconv.FormatFloat(loc.Latitude(), 'f', -1, 64) + " " + strconv.FormatFloat(loc.Longitude(), 'f', -1, 64) + "\n"
-	return saveState(dir, locationFile, body)
-}
-
-// LoadLocation reads the remembered fix; the error wraps fs.ErrNotExist
-// when there is none, and names the file when it is unusable.
-func LoadLocation(dir string) (geo.Coordinates, error) {
-	path := filepath.Join(dir, locationFile)
-	body, err := os.ReadFile(path) //nolint:gosec // lys-shell's own state dir
-	if err != nil {
-		return geo.Coordinates{}, fmt.Errorf("nightlight: read the location: %w", err)
-	}
-	fields := strings.Fields(string(body))
-	if len(fields) != 2 {
-		return geo.Coordinates{}, fmt.Errorf("nightlight: %s holds %d fields, want latitude and longitude", path, len(fields))
-	}
-	latitude, err := strconv.ParseFloat(fields[0], 64)
-	if err != nil {
-		return geo.Coordinates{}, fmt.Errorf("nightlight: latitude in %s: %w", path, err)
-	}
-	longitude, err := strconv.ParseFloat(fields[1], 64)
-	if err != nil {
-		return geo.Coordinates{}, fmt.Errorf("nightlight: longitude in %s: %w", path, err)
-	}
-	loc, err := geo.NewCoordinates(latitude, longitude)
-	if err != nil {
-		return geo.Coordinates{}, fmt.Errorf("nightlight: the location in %s: %w", path, err)
-	}
-	return loc, nil
 }

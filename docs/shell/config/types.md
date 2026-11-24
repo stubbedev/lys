@@ -110,12 +110,12 @@ String.
 
 ## AutoPlace {#auto-place}
 
-`"auto"` to follow GeoClue, or a place: `name`, `latitude` and
-`longitude`.
+`"auto"` to follow the system time zone's place, or a place: `name`,
+`latitude` and `longitude`.
 
 | Value | Meaning |
 |---|---|
-| `"auto"` | Follow the machine's location through GeoClue. |
+| `"auto"` | Follow the place of the system time zone. |
 
 ## AutoSaverLevel {#auto-saver-level}
 

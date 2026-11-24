@@ -12,7 +12,7 @@ lys-shell is a Wayland desktop shell written in Go on [lys-ui](/ui/). It runs on
 
 ## Install
 
-[Install](/install/) covers the packages, the tarball and the flake; [NixOS](/shell/guide/getting-started-nixos) has the module options. lys-shell's packages install the binaries, the systemd user units, the portal and D-Bus files, the icons, shell completions and a GeoClue drop-in.
+[Install](/install/) covers the packages, the tarball and the flake; [NixOS](/shell/guide/getting-started-nixos) has the module options. lys-shell's packages install the binaries, the systemd user units, the portal and D-Bus files, the icons and shell completions.
 
 ### Build from source
 
@@ -47,7 +47,7 @@ Modules talk to these services. Install the ones you use:
 | NetworkManager | `network` |
 | BlueZ | `bluetooth` |
 | power-profiles-daemon | `power-profiles` |
-| GeoClue | `nightlight` auto-schedule without coordinates |
+| tzdata (`zone.tab`, `tzdata.zi`) | `nightlight` auto-schedule without a pinned place: it follows the time zone's city |
 | tesseract | `lys-shell screenshot text` |
 
 ::: code-group

@@ -31,7 +31,7 @@ func migrateNightlightCoordinates(tree any) any {
 	case hasPath(section, "location"):
 		log.Printf("config: %s.latitude and longitude are ignored: %s.location is set", nightlightPath, nightlightPath)
 	case latNumber && lonNumber && lat == 0 && lon == 0:
-		log.Printf("config: %s.latitude and longitude of 0, 0 are dropped; the location follows GeoClue", nightlightPath)
+		log.Printf("config: %s.latitude and longitude of 0, 0 are dropped; the location follows the time zone", nightlightPath)
 	default:
 		place := map[string]any{}
 		if hasLatitude {

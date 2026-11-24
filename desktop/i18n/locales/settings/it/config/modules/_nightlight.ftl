@@ -21,7 +21,7 @@ settings-modules-nightlight-transition-duration = Transizione
     .description = Durata in minuti della transizione tra giorno e notte, 0 per un passaggio istantaneo (0-120)
 
 settings-modules-nightlight-location = Località
-    .description = Dove la programmazione segue il sole: rilevata automaticamente o una città scelta
+    .description = Dove la programmazione segue il sole: la città del tuo fuso orario o una città scelta
 
 settings-modules-nightlight-icon-off = Icona disattivata
     .description = Icona quando il filtro è disattivato

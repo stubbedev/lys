@@ -10,6 +10,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/geo"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/desktop/tzdb"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
@@ -48,7 +49,7 @@ func TestTheCitiesAreTheZoneTablesPlaces(t *testing.T) {
 }
 
 func TestTheCitiesFailWithoutAUsableZoneTable(t *testing.T) {
-	if _, err := fakeHost(t, nil).zonePlaces(); !errors.Is(err, errNoZoneTable) {
+	if _, err := fakeHost(t, nil).zonePlaces(); !errors.Is(err, tzdb.ErrNoZoneTable) {
 		t.Errorf("without a table: %v", err)
 	}
 	h := fakeHost(t, nil)
@@ -166,7 +167,7 @@ func TestTheNightLightLocationIsAutomaticOrAPickedCity(t *testing.T) {
 
 func TestWithoutACityListTheCoordinatesStillPinTheLocation(t *testing.T) {
 	k := testKit(t, "")
-	p := newLocationPicker(k, k.store.slot("modules.nightlight.location"), automaticOrPinned, listedPlaces(nil, errNoZoneTable))
+	p := newLocationPicker(k, k.store.slot("modules.nightlight.location"), automaticOrPinned, listedPlaces(nil, tzdb.ErrNoZoneTable))
 	if !p.notice.Visible() || p.notice.Text() != locale.T().Get("settings-location-no-cities") || !strings.Contains(p.notice.detail.Text(), "zone1970.tab") {
 		t.Errorf("the missing list reads %v %q over %q", p.notice.Visible(), p.notice.Text(), p.notice.detail.Text())
 	}

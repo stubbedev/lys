@@ -73,8 +73,8 @@ func (f *fakeSunset) env(t *testing.T) sunsetEnv {
 			return func() bool { return true }
 		},
 		stateDir: t.TempDir(),
-		locate: func(context.Context) (geo.Coordinates, error) {
-			return geo.Coordinates{}, errors.New("no GeoClue in this test")
+		locate: func() (geo.Coordinates, error) {
+			return geo.Coordinates{}, errors.New("no time zone in this test")
 		},
 		clockJumps: func(ctx context.Context, _ func()) error {
 			<-ctx.Done()
@@ -354,18 +354,15 @@ func TestNightlightLiveEnvNeedsAStateDir(t *testing.T) {
 	vars := func(values map[string]string) xdg.Env {
 		return func(name string) string { return values[name] }
 	}
-	env, err := liveSunsetEnv(vars(map[string]string{"XDG_STATE_HOME": "/state"}), nil)
+	env, err := liveSunsetEnv(vars(map[string]string{"XDG_STATE_HOME": "/state"}))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if want := filepath.Join("/state", identity.Name); env.stateDir != want {
 		t.Errorf("stateDir = %q, want %q", env.stateDir, want)
 	}
-	if _, err := env.locate(context.Background()); err == nil || !strings.Contains(err.Error(), "no system bus") {
-		t.Errorf("locate without a system bus = %v, want it to say there is none", err)
-	}
 	for _, values := range []map[string]string{nil, {"HOME": "relative"}, {"XDG_STATE_HOME": "relative"}} {
-		if _, err := liveSunsetEnv(vars(values), nil); err == nil || !strings.Contains(err.Error(), "no state directory") {
+		if _, err := liveSunsetEnv(vars(values)); err == nil || !strings.Contains(err.Error(), "no state directory") {
 			t.Errorf("%v: err = %v, want no state directory", values, err)
 		}
 	}
@@ -406,9 +403,10 @@ func TestNightlightToggleSavesQuietly(t *testing.T) {
 	}
 }
 
-// With no coordinates configured, a GeoClue fix drives the schedule: at
-// 12:00 UTC it is night in Sydney, and a move moves the schedule.
-func TestNightlightFollowsGeoClueWithoutCoordinates(t *testing.T) {
+// With no coordinates configured, the time zone's place drives the
+// schedule: at 12:00 UTC it is night in Sydney, and a move moves the
+// schedule.
+func TestNightlightFollowsTheTimeZoneWithoutCoordinates(t *testing.T) {
 	fake := &fakeSunset{clock: sunsetDay}
 	m := newTestNightlight(t, unpinnedConfig(), fake.env(t))
 	m.svc.setLocation(mustLocation(t, -33.87, 151.21))
@@ -421,17 +419,17 @@ func TestNightlightFollowsGeoClueWithoutCoordinates(t *testing.T) {
 	}
 }
 
-// Explicit coordinates are the user's choice: they win, and GeoClue is
-// never asked, while it is asked without them.
-func TestNightlightPinnedCoordinatesBeatGeoClue(t *testing.T) {
+// Explicit coordinates are the user's choice: they win, and the time
+// zone is never asked, while it is asked without them.
+func TestNightlightPinnedCoordinatesBeatTheTimeZone(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
 		cfg     *config.Config
 		lookups bool
 		running bool
 	}{
-		{"pinned to Copenhagen, GeoClue in Sydney", sunsetConfig(true), false, false},
-		{"unpinned, GeoClue in Sydney", unpinnedConfig(), true, true},
+		{"pinned to Copenhagen, the time zone in Sydney", sunsetConfig(true), false, false},
+		{"unpinned, the time zone in Sydney", unpinnedConfig(), true, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			fake := &fakeSunset{clock: sunsetDay}
@@ -439,7 +437,7 @@ func TestNightlightPinnedCoordinatesBeatGeoClue(t *testing.T) {
 			var asked atomic.Int32
 			located := make(chan struct{}, 8)
 			sydney := mustLocation(t, -33.87, 151.21)
-			env.locate = func(context.Context) (geo.Coordinates, error) {
+			env.locate = func() (geo.Coordinates, error) {
 				asked.Add(1)
 				located <- struct{}{}
 				return sydney, nil
@@ -456,7 +454,7 @@ func TestNightlightPinnedCoordinatesBeatGeoClue(t *testing.T) {
 			headlessLoop.Lock()
 			defer headlessLoop.Unlock()
 			if got := asked.Load() > 0; got != tc.lookups {
-				t.Errorf("asked GeoClue = %v, want %v", got, tc.lookups)
+				t.Errorf("asked the time zone = %v, want %v", got, tc.lookups)
 			}
 			if fake.running != tc.running {
 				t.Errorf("running = %v, want %v", fake.running, tc.running)
@@ -480,7 +478,7 @@ func TestNightlightWithoutALocationDoesNotFollowASun(t *testing.T) {
 	if m.btn.Detail() != "" {
 		t.Errorf("tooltip %q while the first lookup is out", m.btn.Detail())
 	}
-	failure := errors.New("geoclue: get client: no such service")
+	failure := errors.New("nightlight: the time zone UTC: the tz database places it nowhere: pin a place in modules.nightlight.location")
 	m.svc.lookupFailed(failure)
 	if tip := m.btn.Detail(); tip != i18n.T("bar-nightlight-no-location") || strings.Contains(tip, failure.Error()) {
 		t.Errorf("tooltip = %q, want the summary without the error", tip)
@@ -512,7 +510,7 @@ func TestNightlightHidesTheNoLocationStateWithTheScheduleOff(t *testing.T) {
 	m := newTestNightlight(t, cfg, fake.env(t))
 	chrome := widget.NewBox(widget.Row, 0, 0)
 	m.setChrome(chrome)
-	m.svc.lookupFailed(errors.New("geoclue: down"))
+	m.svc.lookupFailed(errors.New("tz: down"))
 	if m.btn.Detail() != "" || widget.HasClass(chrome, "nightlight-no-location") {
 		t.Error("the no-location state shows with the schedule off")
 	}
@@ -523,20 +521,20 @@ func TestNightlightLogsARepeatingLookupFailureOnce(t *testing.T) {
 	fake := &fakeSunset{clock: sunsetDay}
 	m := newTestNightlight(t, unpinnedConfig(), fake.env(t))
 	for range 3 {
-		m.svc.lookupFailed(errors.New("geoclue: down"))
+		m.svc.lookupFailed(errors.New("tz: down"))
 	}
-	if got := strings.Count(logs.String(), "geoclue: down"); got != 1 {
+	if got := strings.Count(logs.String(), "tz: down"); got != 1 {
 		t.Errorf("logged %d times, want once: %q", got, logs.String())
 	}
-	m.svc.lookupFailed(errors.New("geoclue: denied"))
-	if !strings.Contains(logs.String(), "geoclue: denied") {
+	m.svc.lookupFailed(errors.New("tz: torn"))
+	if !strings.Contains(logs.String(), "tz: torn") {
 		t.Error("a different failure was not logged")
 	}
 	// Recovering and failing again is news.
 	m.svc.setLocation(mustLocation(t, 55.6, 12.5))
 	logs.Reset()
-	m.svc.lookupFailed(errors.New("geoclue: denied"))
-	if !strings.Contains(logs.String(), "geoclue: denied") {
+	m.svc.lookupFailed(errors.New("tz: torn"))
+	if !strings.Contains(logs.String(), "tz: torn") {
 		t.Error("a failure after a recovery was not logged")
 	}
 }
@@ -548,7 +546,7 @@ func TestNightlightKeepsItsLocationThroughAFailedLookup(t *testing.T) {
 	chrome := widget.NewBox(widget.Row, 0, 0)
 	m.setChrome(chrome)
 	m.svc.setLocation(mustLocation(t, 55.6, 12.5))
-	m.svc.lookupFailed(errors.New("geoclue: down"))
+	m.svc.lookupFailed(errors.New("tz: down"))
 	if widget.HasClass(chrome, "nightlight-no-location") {
 		t.Error("a failed refresh hid the location the schedule follows")
 	}
@@ -556,38 +554,6 @@ func TestNightlightKeepsItsLocationThroughAFailedLookup(t *testing.T) {
 	m.svc.evaluate()
 	if fake.running {
 		t.Error("the schedule stopped following the location it had")
-	}
-}
-
-// A remembered fix lets a restart at night tint at once; a config that
-// pins the location ignores it.
-func TestNightlightRestartUsesTheRememberedFix(t *testing.T) {
-	fake := &fakeSunset{clock: sunsetNight}
-	env := fake.env(t)
-	first := newTestNightlight(t, unpinnedConfig(), env)
-	first.svc.setLocation(mustLocation(t, 55.6, 12.5))
-	first.svc.stop()
-
-	again := &fakeSunset{clock: sunsetNight}
-	restartEnv := again.env(t)
-	restartEnv.stateDir = env.stateDir
-	m := newTestNightlight(t, unpinnedConfig(), restartEnv)
-	m.svc.evaluate()
-	if !again.running {
-		t.Error("the restart did not apply the remembered fix")
-	}
-
-	pinnedDay := sunsetConfig(true)
-	if err := nightlight.SaveLocation(env.stateDir, mustLocation(t, -33.87, 151.21)); err != nil {
-		t.Fatal(err)
-	}
-	pinned := &fakeSunset{clock: sunsetDay}
-	pinnedEnv := pinned.env(t)
-	pinnedEnv.stateDir = env.stateDir
-	p := newTestNightlight(t, pinnedDay, pinnedEnv)
-	p.svc.evaluate()
-	if pinned.running {
-		t.Error("a remembered fix in Sydney beat the pinned coordinates")
 	}
 }
 
@@ -1014,7 +980,7 @@ func TestNightlightWithoutAClockWatchStillSchedulesAndSaysSo(t *testing.T) {
 // The shell's real environment watches the kernel's clock, and lets go
 // with the module.
 func TestNightlightLiveEnvWatchesTheClock(t *testing.T) {
-	env, err := liveSunsetEnv(func(string) string { return t.TempDir() }, nil)
+	env, err := liveSunsetEnv(func(string) string { return t.TempDir() })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1225,9 +1191,9 @@ func TestNightlightCustomHoursNeedNoLocation(t *testing.T) {
 	fake := &fakeSunset{clock: time.Date(2024, 6, 21, 12, 0, 0, 0, time.UTC)}
 	env := fake.env(t)
 	var asked atomic.Int32
-	env.locate = func(context.Context) (geo.Coordinates, error) {
+	env.locate = func() (geo.Coordinates, error) {
 		asked.Add(1)
-		return geo.Coordinates{}, errors.New("no GeoClue in this test")
+		return geo.Coordinates{}, errors.New("no time zone in this test")
 	}
 	m := newTestNightlight(t, customConfig(t), env)
 	chrome := widget.NewBox(widget.Row, 0, 0)
@@ -1238,12 +1204,12 @@ func TestNightlightCustomHoursNeedNoLocation(t *testing.T) {
 	headlessLoop.Lock()
 	defer headlessLoop.Unlock()
 	if n := asked.Load(); n != 0 {
-		t.Errorf("the custom hours asked GeoClue %d times", n)
+		t.Errorf("the custom hours asked the time zone %d times", n)
 	}
 	if m.svc.timer == nil {
 		t.Error("the custom hours armed no timer without a location")
 	}
-	m.svc.lookupFailed(errors.New("geoclue: down"))
+	m.svc.lookupFailed(errors.New("tz: down"))
 	if m.btn.Detail() != "" || widget.HasClass(chrome, "nightlight-no-location") {
 		t.Error("the custom hours show the no-location state")
 	}

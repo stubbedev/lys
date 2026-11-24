@@ -21,7 +21,7 @@ settings-modules-nightlight-transition-duration = Transition
     .description = Length of the transition between day and night in minutes, 0 for an instant switch (0-120)
 
 settings-modules-nightlight-location = Location
-    .description = Where the schedule follows the sun: found automatically, or a city you pick
+    .description = Where the schedule follows the sun: your time zone's city, or a city you pick
 
 settings-modules-nightlight-icon-off = Icon Off
     .description = Icon when filter is disabled

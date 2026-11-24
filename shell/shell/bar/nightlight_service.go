@@ -3,7 +3,6 @@ package bar
 import (
 	"context"
 	"errors"
-	"io/fs"
 	"log"
 	"sync"
 	"time"
@@ -12,7 +11,7 @@ import (
 	"github.com/stubbedev/lys/desktop/geo"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/identity"
-	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/desktop/tzdb"
 	"github.com/stubbedev/lys/lib/xdg"
 
 	"github.com/stubbedev/lys/shell/internal/clockwatch"
@@ -20,10 +19,8 @@ import (
 )
 
 const (
-	nightlightScheduleTick  = time.Minute
-	nightlightLocationEach  = 6 * time.Hour
-	nightlightLocationRetry = 5 * time.Minute
-	nightlightLookupTimeout = 30 * time.Second
+	nightlightScheduleTick = time.Minute
+	nightlightZoneCheck    = 5 * time.Minute
 )
 
 const nightlightTemperaturePath = "modules.nightlight.temperature"
@@ -42,11 +39,11 @@ type sunsetEnv struct {
 	now        func() time.Time
 	after      func(d time.Duration, fn func()) (stop func() bool)
 	stateDir   string
-	locate     func(ctx context.Context) (geo.Coordinates, error)
+	locate     func() (geo.Coordinates, error)
 	clockJumps func(ctx context.Context, onJump func()) error
 }
 
-func liveSunsetEnv(vars xdg.Env, system *dbus.Conn) (sunsetEnv, error) {
+func liveSunsetEnv(vars xdg.Env) (sunsetEnv, error) {
 	dir, ok := vars.StateDir(identity.Name)
 	if !ok {
 		return sunsetEnv{}, errors.New("nightlight: no state directory: neither XDG_STATE_HOME nor HOME is an absolute path")
@@ -59,15 +56,10 @@ func liveSunsetEnv(vars xdg.Env, system *dbus.Conn) (sunsetEnv, error) {
 			}
 			return f, nil
 		},
-		now:      time.Now,
-		after:    func(d time.Duration, fn func()) func() bool { return time.AfterFunc(d, fn).Stop },
-		stateDir: dir,
-		locate: func(ctx context.Context) (geo.Coordinates, error) {
-			if system == nil {
-				return geo.Coordinates{}, errors.New("geoclue: the shell has no system bus connection")
-			}
-			return nightlight.QueryLocation(ctx, system)
-		},
+		now:        time.Now,
+		after:      func(d time.Duration, fn func()) func() bool { return time.AfterFunc(d, fn).Stop },
+		stateDir:   dir,
+		locate:     func() (geo.Coordinates, error) { return nightlight.Locate(tzdb.System) },
 		clockJumps: clockwatch.Watch,
 	}, nil
 }
@@ -117,7 +109,7 @@ type nightlightWatcher struct {
 }
 
 func startNightlight(ctx ModuleContext) *nightlightService {
-	env, err := liveSunsetEnv(xdg.OS, ctx.System)
+	env, err := liveSunsetEnv(xdg.OS)
 	if err != nil {
 		log.Print(err)
 		return &nightlightService{ctx: ctx, cfg: ctx.Config.Nightlight, unavailable: err}
@@ -148,16 +140,9 @@ func newNightlightService(ctx ModuleContext, env sunsetEnv) *nightlightService {
 			return
 		}
 		s.filter = filter
-		var remembered *geo.Coordinates
-		if followsTheSun(cfg) && !s.pinned {
-			remembered = s.readRememberedLocation()
-		}
 		restored, hasRestored := nightlight.LoadOverride(env.stateDir, env.now())
 		s.onLoop(func() {
 			s.connected = true
-			if remembered != nil && s.location == nil {
-				s.location = remembered
-			}
 			if hasRestored {
 				s.autoPhase, s.manualOverride = restored.Phase, true
 				if restored.Enabled {
@@ -256,17 +241,6 @@ func (w *serialWorker) drain() {
 	}
 }
 
-func (s *nightlightService) readRememberedLocation() *geo.Coordinates {
-	remembered, err := nightlight.LoadLocation(s.env.stateDir)
-	switch {
-	case err == nil:
-		return &remembered
-	case !errors.Is(err, fs.ErrNotExist):
-		log.Print(err)
-	}
-	return nil
-}
-
 func (s *nightlightService) run() {
 	s.life, s.cancel = context.WithCancel(s.ctx.Life())
 	s.ctx.Invoke(s.tick)
@@ -301,24 +275,22 @@ func (s *nightlightService) followClock(ctx context.Context) {
 }
 
 func (s *nightlightService) followLocation(ctx context.Context) {
+	check := time.NewTicker(nightlightZoneCheck)
+	defer check.Stop()
 	for {
-		lookup, done := context.WithTimeout(ctx, nightlightLookupTimeout)
-		loc, err := s.env.locate(lookup)
-		done()
-		if ctx.Err() != nil {
+		loc, err := s.env.locate()
+		switch {
+		case ctx.Err() != nil:
 			return
-		}
-		wait := nightlightLocationEach
-		if err != nil {
-			wait = nightlightLocationRetry
+		case err != nil:
 			s.ctx.Invoke(func() { s.lookupFailed(err) })
-		} else {
+		default:
 			s.ctx.Invoke(func() { s.setLocation(loc) })
 		}
 		select {
 		case <-ctx.Done():
 			return
-		case <-time.After(wait):
+		case <-check.C:
 		}
 	}
 }
@@ -449,12 +421,7 @@ func (s *nightlightService) setLocation(loc geo.Coordinates) {
 		return
 	}
 	s.location = &loc
-	log.Printf("nightlight: the location changed, following GeoClue")
-	s.onOwner(func() {
-		if err := nightlight.SaveLocation(s.env.stateDir, loc); err != nil {
-			log.Print(err)
-		}
-	})
+	log.Printf("nightlight: following the sun at the time zone's place, %s", loc)
 	s.evaluate()
 	s.armTick()
 	s.notify()

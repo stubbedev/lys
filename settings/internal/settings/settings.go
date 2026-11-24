@@ -89,7 +89,7 @@ func Run(page, setting string) error {
 		bluetooth:     func() (btControl, error) { return openBluetooth(dialSystemBus) },
 		dnd:           func() (dndControl, error) { return openDND(dialSessionBus) },
 		nightlight:    func() (nightlightControl, error) { return openNightlight(dialSessionBus) },
-		nightLocation: rememberedNightLocation,
+		nightLocation: timeZonePlace,
 		region:        sessionRegion,
 		brightness:    func() (brightnessControl, error) { return openBrightness(dialSessionBus) },
 		vault:         func() (vaultControl, error) { return openVault(dialSessionBus) },

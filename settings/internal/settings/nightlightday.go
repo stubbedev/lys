@@ -3,15 +3,13 @@ package settings
 import (
 	"errors"
 	"fmt"
-	"io/fs"
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/geo"
 	"github.com/stubbedev/lys/desktop/i18n"
-	"github.com/stubbedev/lys/desktop/identity"
+	"github.com/stubbedev/lys/desktop/tzdb"
 	"github.com/stubbedev/lys/lib/render"
-	"github.com/stubbedev/lys/lib/xdg"
 	"github.com/stubbedev/lys/shell/service/nightlight"
 	"github.com/stubbedev/lys/ui/widget"
 
@@ -25,20 +23,13 @@ const (
 	dayNowW    = 2
 )
 
-// rememberedNightLocation is where lys-shell last found itself through
-// GeoClue, the place its sunset-to-sunrise schedule follows when none is
-// pinned.
-func rememberedNightLocation() (geo.Coordinates, error) {
-	dir, ok := xdg.OS.StateDir(identity.Name)
-	if !ok {
-		return geo.Coordinates{}, errors.New("no state directory: neither XDG_STATE_HOME nor HOME is an absolute path")
-	}
-	return nightlight.LoadLocation(dir)
-}
+// timeZonePlace is the place of the machine's time zone, which the
+// night light's schedule follows when none is pinned.
+func timeZonePlace() (geo.Coordinates, error) { return nightlight.Locate(tzdb.System) }
 
 // nightDaylight is the days the night light's schedule follows: its
-// custom hours, or the sun at the pinned place or the one lys-shell
-// found; nil with the words saying why there is none, and the error
+// custom hours, or the sun at the pinned place or the time zone's;
+// nil with the words saying why there is none, and the error
 // behind them when there is one.
 func nightDaylight(k *kit, cfg config.NightlightConfig) (nightlight.Daylight, string, error) {
 	t := locale.T()
@@ -50,7 +41,7 @@ func nightDaylight(k *kit, cfg config.NightlightConfig) (nightlight.Daylight, st
 	}
 	at, err := k.nightLocation()
 	switch {
-	case errors.Is(err, fs.ErrNotExist):
+	case errors.Is(err, tzdb.ErrNoCoordinates):
 		return nil, t.Get("settings-nightlight-day-no-location"), nil
 	case err != nil:
 		return nil, t.Get("settings-nightlight-day-unreadable"), err

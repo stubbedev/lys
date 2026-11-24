@@ -66,8 +66,8 @@ type kit struct {
 	mailCount  func(query string) (uint32, error)
 	dnd        func() (dndControl, error)
 	nightlight func() (nightlightControl, error)
-	// nightLocation is where lys-shell last found itself for the night
-	// light, fs.ErrNotExist before it ever did.
+	// nightLocation is the time zone's place the night light follows
+	// without a pinned one.
 	nightLocation func() (geo.Coordinates, error)
 	// region is the session's region, which the fields following it
 	// resolve against.

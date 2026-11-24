@@ -29,7 +29,7 @@ bar:
 | `schedule` | [`NightlightSchedule`](/shell/config/types#nightlight-schedule) | `"sunset-to-sunrise"` | What the schedule follows: the sun, from sunset to sunrise, or the custom hours. Only used when `auto-schedule` is on. |
 | `custom-hours` | [`NightlightHours`](/shell/config/types#nightlight-hours) | `{...}` | When the custom schedule turns the filter on (`from`) and off (`to`), as HH:MM: the next day when `to` is not after `from`. Only used when `schedule` is `custom`. |
 | `transition-duration` | [`NightlightTransition`](/shell/config/types#nightlight-transition) | `15` | Length of the transition between day and night, in whole minutes, centered on civil dawn or dusk, or on the custom hours. 0 switches at once. Range: 0-120. |
-| `location` | [`AutoPlace`](/shell/config/types#auto-place) | `"auto"` | Where the schedule follows the sun: `"auto"` asks GeoClue, a place (`name`, `latitude`, `longitude`) pins it. Only used when `auto-schedule` is on and `schedule` is `sunset-to-sunrise`. |
+| `location` | [`AutoPlace`](/shell/config/types#auto-place) | `"auto"` | Where the schedule follows the sun: `"auto"` follows the system time zone's place, a place (`name`, `latitude`, `longitude`) pins it. Only used when `auto-schedule` is on and `schedule` is `sunset-to-sunrise`. |
 | `icon-off` | string | `"ld-sun-symbolic"` | Icon when filter is disabled (showing normal daylight colors). |
 | `icon-on` | string | `"ld-moon-symbolic"` | Icon when filter is enabled (showing warm night colors). |
 | `border-show` | bool | `false` | Display border around button. |
@@ -73,23 +73,11 @@ Transitions are centered on civil dawn and dusk (sun 6 degrees below the
 horizon), or on the custom hours' start and end. During polar day or
 night the sun's schedule keeps the filter off or on.
 
-The location is `location`: a pinned place, or with `"auto"` GeoClue's
-fix, the last of which is kept in the state directory. Without a usable location the schedule does not run;
-the tooltip and the log say why.
-
-When no GeoClue agent runs, lys-shell registers as one during the
-lookup, which needs it on GeoClue's agent whitelist. The deb and rpm
-install `/etc/geoclue/conf.d/50-lys-shell.conf`, and the NixOS module's
-`autoInstallDependencies` sets it up. From the tarball, install its
-`geoclue-lys-shell.conf` at that path and restart geoclue. GeoClue
-before 2.7 reads no `conf.d`: add the file's `lys-shell` entry to
-`/etc/geoclue/geoclue.conf` and `lys-shell` to `whitelist` under
-`[agent]`. A drop-in `whitelist` replaces the main file's, so the
-shipped one repeats upstream's list; add any agents you rely on.
-
-When GeoClue answers but finds no fix, it has no source that can place
-the machine: set `url` under `[wifi]`, describe the location in
-`/etc/geolocation`, or pin a place in `location`.
+The location is `location`: a pinned place, or with `"auto"` the place
+of the system time zone (`$TZ`, else the zone `/etc/localtime` links
+to) in the tz database's `zone.tab`. A zone the database places nowhere,
+such as `UTC` or `Etc/GMT+1`, needs a pinned place. Without a usable
+location the schedule does not run; the tooltip and the log say why.
 
 A manual click cancels a running transition, applies at once, and holds
 until the next transition begins.

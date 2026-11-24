@@ -304,7 +304,6 @@ func (s *shellStart) startServices(system *dbus.Conn) {
 	if system != nil {
 		s.system = system
 		s.down.add(func() { _ = system.Close() })
-		s.ctx.System = system
 		s.systemUp.Store(system)
 	}
 	s.lateStarts = map[string]lateStart{}

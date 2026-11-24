@@ -21,7 +21,6 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/apptheme"
 	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/lib/render"
-	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
 
@@ -106,9 +105,6 @@ type ModuleContext struct {
 	// Tasks is the window list the minimized-windows modules and the docks
 	// share; nil when the compositor offers no foreign-toplevel list.
 	Tasks *taskHub
-	// System is the shell's one system bus connection, nil without one;
-	// what reads it never closes it.
-	System *dbus.Conn
 	// SetConfig writes a runtime override and persists it, off the loop,
 	// then hands done the error that refused or lost it, or nil once it
 	// is saved; nil without a config service. Modules write through

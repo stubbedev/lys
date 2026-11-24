@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/geo"
+	"github.com/stubbedev/lys/desktop/tzdb"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
 
@@ -49,23 +50,23 @@ type zoneCatalog struct {
 func utcOffset(t time.Time) string { return "UTC" + t.Format("-07:00") }
 
 func (h host) zoneCatalog(listed []string, now time.Time) (zoneCatalog, error) {
-	table, err := h.zoneTable()
+	db, err := h.tz().Database()
 	var countries map[string]string
 	if err == nil {
-		countries, err = table.countryNames()
+		countries, err = db.CountryNames()
 	}
 	if err != nil {
 		cat, cerr := newZoneCatalog(listed, nil, nil, now)
 		cat.noMap = err
 		return cat, cerr
 	}
-	return newZoneCatalog(listed, table.rows, countries, now)
+	return newZoneCatalog(listed, db.Zones(), countries, now)
 }
 
-func newZoneCatalog(listed []string, rows []zoneRow, countries map[string]string, now time.Time) (zoneCatalog, error) {
-	byZone := make(map[string]zoneRow, len(rows))
-	for _, r := range rows {
-		byZone[r.zone] = r
+func newZoneCatalog(listed []string, zones []tzdb.Zone, countries map[string]string, now time.Time) (zoneCatalog, error) {
+	byZone := make(map[string]tzdb.Zone, len(zones))
+	for _, z := range zones {
+		byZone[z.Name()] = z
 	}
 	cat := zoneCatalog{zones: make([]tzZone, 0, len(listed))}
 	for _, name := range listed {
@@ -81,14 +82,14 @@ func newZoneCatalog(listed []string, rows []zoneRow, countries map[string]string
 		}
 		if r, ok := byZone[name]; ok {
 			z.city = zoneCity(name)
-			for _, code := range r.countries {
+			for _, code := range r.Countries() {
 				country, ok := countries[code]
 				if !ok {
-					return zoneCatalog{}, fmt.Errorf("the time zone %s is in the country %q, which %s does not name", name, code, countryTableName)
+					return zoneCatalog{}, fmt.Errorf("the time zone %s is in the country %q, which %s does not name", name, code, tzdb.CountryTableName)
 				}
 				z.countries = append(z.countries, country)
 			}
-			cat.pins = append(cat.pins, zonePin{zone: name, at: r.at})
+			cat.pins = append(cat.pins, zonePin{zone: name, at: r.Coordinates()})
 		}
 		cat.zones = append(cat.zones, z)
 	}

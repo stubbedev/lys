@@ -21,7 +21,7 @@ settings-modules-nightlight-transition-duration = Transition
     .description = Durée de la transition entre le jour et la nuit en minutes, 0 pour un basculement immédiat (0-120)
 
 settings-modules-nightlight-location = Emplacement
-    .description = Où le programme suit le soleil : trouvé automatiquement ou une ville choisie
+    .description = Où le programme suit le soleil : la ville de votre fuseau horaire ou une ville choisie
 
 settings-modules-nightlight-icon-off = Icône désactivée
     .description = Icône lorsque le filtre est désactivé

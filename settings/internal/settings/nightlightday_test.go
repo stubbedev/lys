@@ -97,13 +97,13 @@ func TestTheNightLightDayShowsTheCustomNight(t *testing.T) {
 	}
 }
 
-func TestTheNightLightDayFollowsThePinnedOrFoundPlace(t *testing.T) {
+func TestTheNightLightDayFollowsThePinnedPlaceOrTheTimeZones(t *testing.T) {
 	now := time.Date(2026, 6, 21, 12, 0, 0, 0, time.UTC)
 	sun := "modules:\n  nightlight:\n    auto-schedule: true\n    schedule: sunset-to-sunrise\n"
 	k := nightKit(t, sun, now)
 	text, tints, _, err := nightDay(k, k.store.svc.Config().Nightlight, now)
 	if err != nil || tints != nil || text != locale.T().Get("settings-nightlight-day-no-location") {
-		t.Errorf("with no place found yet: %q, %d tints, %v", text, len(tints), err)
+		t.Errorf("in a time zone without a place: %q, %d tints, %v", text, len(tints), err)
 	}
 	k.nightLocation = func() (geo.Coordinates, error) { return geo.Coordinates{}, errors.New("the record is torn") }
 	text, tints, _, err = nightDay(k, k.store.svc.Config().Nightlight, now)

@@ -17,7 +17,7 @@ settings-modules-nightlight-transition-duration = Overgang
     .description = Duur van de overgang tussen dag en nacht in minuten, 0 voor direct wisselen (0-120)
 
 settings-modules-nightlight-location = Locatie
-    .description = Waar het schema de zon volgt: automatisch gevonden of een gekozen stad
+    .description = Waar het schema de zon volgt: de stad van je tijdzone of een gekozen stad
 
 settings-modules-nightlight-icon-off = Pictogram uit
     .description = Pictogram als het filter uitgeschakeld is

@@ -2071,6 +2071,25 @@
     ]
   },
   "desktop/tokens": {},
+  "desktop/tzdb": {
+    "imports": [
+      "desktop/geo"
+    ],
+    "external": [
+      "bufio",
+      "errors",
+      "fmt",
+      "io/fs",
+      "os",
+      "path/filepath",
+      "slices",
+      "strings"
+    ],
+    "testExternal": [
+      "math",
+      "testing"
+    ]
+  },
   "desktop/useraccount": {
     "external": [
       "bufio",
@@ -7059,6 +7078,7 @@
       "desktop/strftime",
       "desktop/styling",
       "desktop/styling/material",
+      "desktop/tzdb",
       "lib/atomicfile",
       "lib/dbusx",
       "lib/glibclocale",
@@ -8895,19 +8915,17 @@
   "shell/service/nightlight": {
     "imports": [
       "desktop/geo",
-      "desktop/identity",
       "desktop/service/nightlight/nightschedule",
+      "desktop/tzdb",
       "lib/atomicfile",
       "lib/dbusx",
       "lib/third_party/godbus",
-      "lib/third_party/godbus/prop",
       "lib/third_party/gomath",
       "lib/third_party/wayland/wl",
       "lib/third_party/wayland/wlclient",
       "lib/wlr"
     ],
     "external": [
-      "context",
       "encoding/binary",
       "errors",
       "fmt",
@@ -9541,6 +9559,7 @@
       "desktop/spawn",
       "desktop/strftime",
       "desktop/styling",
+      "desktop/tzdb",
       "desktop/useraccount",
       "lib/dbusx",
       "lib/glibclocale",
@@ -9642,7 +9661,6 @@
       "fmt",
       "image",
       "io",
-      "io/fs",
       "log",
       "maps",
       "math",
@@ -9698,6 +9716,7 @@
       "image/color",
       "image/draw",
       "image/png",
+      "io/fs",
       "math/rand/v2",
       "net",
       "net/http",

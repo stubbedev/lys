@@ -41,23 +41,11 @@ type NightlightConfig struct {
 	// horizon), or on the custom hours' start and end. During polar day or
 	// night the sun's schedule keeps the filter off or on.
 	//
-	// The location is `location`: a pinned place, or with `"auto"` GeoClue's
-	// fix, the last of which is kept in the state directory. Without a usable location the schedule does not run;
-	// the tooltip and the log say why.
-	//
-	// When no GeoClue agent runs, lys-shell registers as one during the
-	// lookup, which needs it on GeoClue's agent whitelist. The deb and rpm
-	// install `/etc/geoclue/conf.d/50-lys-shell.conf`, and the NixOS module's
-	// `autoInstallDependencies` sets it up. From the tarball, install its
-	// `geoclue-lys-shell.conf` at that path and restart geoclue. GeoClue
-	// before 2.7 reads no `conf.d`: add the file's `lys-shell` entry to
-	// `/etc/geoclue/geoclue.conf` and `lys-shell` to `whitelist` under
-	// `[agent]`. A drop-in `whitelist` replaces the main file's, so the
-	// shipped one repeats upstream's list; add any agents you rely on.
-	//
-	// When GeoClue answers but finds no fix, it has no source that can place
-	// the machine: set `url` under `[wifi]`, describe the location in
-	// `/etc/geolocation`, or pin a place in `location`.
+	// The location is `location`: a pinned place, or with `"auto"` the place
+	// of the system time zone (`$TZ`, else the zone `/etc/localtime` links
+	// to) in the tz database's `zone.tab`. A zone the database places nowhere,
+	// such as `UTC` or `Etc/GMT+1`, needs a pinned place. Without a usable
+	// location the schedule does not run; the tooltip and the log say why.
 	//
 	// A manual click cancels a running transition, applies at once, and holds
 	// until the next transition begins.
@@ -73,9 +61,10 @@ type NightlightConfig struct {
 	// on civil dawn or dusk, or on the custom hours. 0 switches at once.
 	// Range: 0-120.
 	TransitionDuration NightlightTransition `cfg:"transition-duration"`
-	// Where the schedule follows the sun: `"auto"` asks GeoClue, a place
-	// (`name`, `latitude`, `longitude`) pins it. Only used when
-	// `auto-schedule` is on and `schedule` is `sunset-to-sunrise`.
+	// Where the schedule follows the sun: `"auto"` follows the system time
+	// zone's place, a place (`name`, `latitude`, `longitude`) pins it.
+	// Only used when `auto-schedule` is on and `schedule` is
+	// `sunset-to-sunrise`.
 	//
 	// The former `latitude` and `longitude` keys still read, as a place
 	// without a name; 0, 0 among them is taken as unset.

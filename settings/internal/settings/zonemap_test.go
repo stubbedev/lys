@@ -9,6 +9,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/geo"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/desktop/tzdb"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
 
@@ -28,9 +29,9 @@ var (
 func zoneinfoHost(t *testing.T, zones, countries string) host {
 	t.Helper()
 	h := fakeHost(t, nil)
-	put(t, h.path("usr/share/zoneinfo", zoneTableName), zones)
+	put(t, h.path("usr/share/zoneinfo", tzdb.ZoneTableName), zones)
 	if countries != "" {
-		put(t, h.path("usr/share/zoneinfo", countryTableName), countries)
+		put(t, h.path("usr/share/zoneinfo", tzdb.CountryTableName), countries)
 	}
 	return h
 }
@@ -85,7 +86,7 @@ func TestWithoutTheTzTablesTheZonesAreListedAndTheMapSaysWhy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !errors.Is(cat.noMap, errNoZoneTable) || len(cat.pins) != 0 || len(cat.zones) != len(mapListed) {
+	if !errors.Is(cat.noMap, tzdb.ErrNoZoneTable) || len(cat.pins) != 0 || len(cat.zones) != len(mapListed) {
 		t.Errorf("no map %v, %d pins, %d zones", cat.noMap, len(cat.pins), len(cat.zones))
 	}
 	if got := cat.label("Asia/Tokyo"); got != "Asia/Tokyo · JST · UTC+09:00" {
@@ -95,11 +96,11 @@ func TestWithoutTheTzTablesTheZonesAreListedAndTheMapSaysWhy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cat.noMap == nil || !strings.Contains(cat.noMap.Error(), countryTableName) || len(cat.pins) != 0 {
-		t.Errorf("without %s: no map %v, %d pins", countryTableName, cat.noMap, len(cat.pins))
+	if cat.noMap == nil || !strings.Contains(cat.noMap.Error(), tzdb.CountryTableName) || len(cat.pins) != 0 {
+		t.Errorf("without %s: no map %v, %d pins", tzdb.CountryTableName, cat.noMap, len(cat.pins))
 	}
 	c := newZoneChooser(testKit(t, ""), cat, func(string) {})
-	wantClosedFailure(t, "the chooser without a map", c.notice.stateParts, c.notice.Text(), locale.T().Get("settings-date-zone-no-map"), countryTableName)
+	wantClosedFailure(t, "the chooser without a map", c.notice.stateParts, c.notice.Text(), locale.T().Get("settings-date-zone-no-map"), tzdb.CountryTableName)
 	if !c.noteRow.Visible() {
 		t.Error("the note's row is hidden")
 	}

@@ -10,7 +10,8 @@ import (
 	"github.com/stubbedev/lys/desktop/geo"
 )
 
-// placeAutomatic is the AutoPlace that follows the machine's location.
+// placeAutomatic is the AutoPlace that follows the system time zone's
+// place.
 const placeAutomatic = "auto"
 
 // Place is a named position, refused at load off the globe or at 0, 0.
@@ -112,11 +113,10 @@ func (Place) configSchema(g *schemaGen) Schema {
 	return s
 }
 
-// AutoPlace is a position the machine finds itself, through GeoClue, or
-// a pinned Place.
+// AutoPlace is the system time zone's place, or a pinned Place.
 //
-// `"auto"` to follow GeoClue, or a place: `name`, `latitude` and
-// `longitude`.
+// `"auto"` to follow the system time zone's place, or a place: `name`,
+// `latitude` and `longitude`.
 type AutoPlace struct {
 	place  geo.Place
 	pinned bool
@@ -154,7 +154,7 @@ func (AutoPlace) configSchema(g *schemaGen) Schema {
 	return Schema{
 		"description": typeDoc(typeOf[AutoPlace]()),
 		"oneOf": []any{
-			Schema{"const": placeAutomatic, "type": "string", "description": "Follow the machine's location through GeoClue."},
+			Schema{"const": placeAutomatic, "type": "string", "description": "Follow the place of the system time zone."},
 			g.subschema(typeOf[Place]()),
 		},
 	}

@@ -1,8 +1,8 @@
 // Package nightlight is the night light module's service side: the
 // colour filter it applies through the compositor's CTM or gamma
 // protocol, the dawn/dusk schedule (NOAA sunrise equation, no network)
-// and its easing, the GeoClue location lookup, and the records that
-// survive restarts.
+// and its easing, the time zone's place it follows, and the records
+// that survive restarts.
 package nightlight
 
 import (

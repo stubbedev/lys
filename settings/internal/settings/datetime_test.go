@@ -15,6 +15,7 @@ import (
 	"github.com/stubbedev/lys/desktop/fakeclock"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/desktop/tzdb"
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/dbusx"
 	"github.com/stubbedev/lys/lib/glibclocale"
@@ -187,8 +188,8 @@ func switchNamed(t *testing.T, root widget.Widget, name string) *widget.Switch {
 
 func TestEachDateControlIsOneInteractiveCallAndARefusalRevertsIt(t *testing.T) {
 	h := useHostRoot(t)
-	put(t, h.path("usr/share/zoneinfo", zoneTableName), "DK\t+5540+01235\tEurope/Copenhagen\n")
-	put(t, h.path("usr/share/zoneinfo", countryTableName), "DK\tDenmark\n")
+	put(t, h.path("usr/share/zoneinfo", tzdb.ZoneTableName), "DK\t+5540+01235\tEurope/Copenhagen\n")
+	put(t, h.path("usr/share/zoneinfo", tzdb.CountryTableName), "DK\tDenmark\n")
 	bus := dbustest.Start(t)
 	td := &fakeSys{props: map[string]any{"Timezone": "UTC", "NTP": true, "CanNTP": true, "LocalRTC": false}}
 	serveFake(t, bus, timedateName, timedatePath, td, fakeTimedate{td})

@@ -3,7 +3,6 @@ package nightlight
 import (
 	"errors"
 	"io"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -141,46 +140,5 @@ func TestSaveOverrideReportsWhyItFailed(t *testing.T) {
 	}
 	if entries, err := os.ReadDir(dir); err != nil || len(entries) != 1 {
 		t.Errorf("state dir = %v, %v; want no temp file left", entries, err)
-	}
-}
-
-func TestLocationRoundTrips(t *testing.T) {
-	dir := filepath.Join(t.TempDir(), "state")
-	want := mustLocation(t, -33.8688, 151.2093)
-	if err := SaveLocation(dir, want); err != nil {
-		t.Fatal(err)
-	}
-	if got, err := LoadLocation(dir); err != nil || got != want {
-		t.Errorf("loaded %+v, %v; want %+v", got, err, want)
-	}
-	next := mustLocation(t, 55.6, 12.5)
-	if err := SaveLocation(dir, next); err != nil {
-		t.Fatal(err)
-	}
-	if got, err := LoadLocation(dir); err != nil || got != next {
-		t.Errorf("a second save loaded %+v, %v; want %+v", got, err, next)
-	}
-	entries, err := os.ReadDir(dir)
-	if err != nil || len(entries) != 1 {
-		t.Errorf("state dir = %v, %v; want the record and no temp file", entries, err)
-	}
-}
-
-func TestLoadLocationSaysWhyThereIsNone(t *testing.T) {
-	if _, err := LoadLocation(t.TempDir()); !errors.Is(err, fs.ErrNotExist) {
-		t.Errorf("no record: %v, want ErrNotExist", err)
-	}
-	for _, bad := range []string{"", "55.6", "55.6 12.5 3", "north 12.5", "55.6 east", "95 12.5", "0 0"} {
-		dir := t.TempDir()
-		if err := os.WriteFile(filepath.Join(dir, locationFile), []byte(bad), 0o600); err != nil {
-			t.Fatal(err)
-		}
-		_, err := LoadLocation(dir)
-		if err == nil || errors.Is(err, fs.ErrNotExist) || !strings.Contains(err.Error(), locationFile) {
-			t.Errorf("%q: err = %v, want one naming the record", bad, err)
-		}
-		if err != nil && (!strings.HasPrefix(err.Error(), "nightlight: ") || strings.Count(err.Error(), "nightlight:") != 1) {
-			t.Errorf("%q: err = %v, want it to name the night light exactly once, first", bad, err)
-		}
 	}
 }
