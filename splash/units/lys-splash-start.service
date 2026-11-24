@@ -3,7 +3,7 @@ Description=Show the lys-splash boot splash
 DefaultDependencies=no
 Wants=lys-splash-ask-password.path systemd-vconsole-setup.service
 After=systemd-vconsole-setup.service systemd-udev-trigger.service systemd-udevd.service
-Before=lys-splash-ask-password.service
+Before=lys-splash-ask-password.service systemd-ask-password-console.path
 Conflicts=plymouth-start.service
 @kernel_command_line_conditions@
 ConditionVirtualization=!container

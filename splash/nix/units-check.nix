@@ -74,6 +74,13 @@ pkgs.runCommand "lys-splash-units-check" {nativeBuildInputs = [pkgs.systemd];} '
     fi
   done
 
+  for start in ${splash}/lib/systemd/system/lys-splash-start.service ${splash.compat}/lib/systemd/system/lys-splash-start.service; do
+    grep -Eq "^Before=(.* )?systemd-ask-password-console.path( |$)" "$start" || {
+      echo "$start does not start before systemd-ask-password-console.path, whose plymouth/pid condition then races it" >&2
+      exit 1
+    }
+  done
+
   for unit in ${splash}/lib/systemd/system/* ${splash.compat}/lib/systemd/system/*; do
     name=$(basename "$unit")
     case $name in
