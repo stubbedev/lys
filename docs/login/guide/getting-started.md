@@ -33,17 +33,19 @@ greetd.
   PATH.
 - **A compositor with `ext-session-lock-v1`** for the lock screen.
 - Optional: **lys-secrets** or **gnome-keyring** to open with the login;
-  **libvulkan** for GPU drawing (the CPU is used otherwise); **AccountsService**
-  to hide system accounts from the user list.
+  **libvulkan** for GPU drawing (the CPU is used otherwise).
 
 ## The greeter
 
 - **Session picker**: Wayland and X11 sessions sorted by name, X11 ones labelled
   `(X11)`. The last one used is preselected. Hidden when there is only one.
-- **User list**: accounts with UID 1000–59999 and a login shell, minus those
-  AccountsService marks `SystemAccount=true` (2 s timeout). Avatars come from
-  `/var/lib/AccountsService/icons/<user>` or `~/.face`. Hidden above 8 users;
-  typing a name always works.
+- **User list**: accounts with a login shell and a UID in `UID_MIN`–`UID_MAX`
+  of `/etc/login.defs` (1000–60000 where it sets none). Under `lys-login daemon`
+  it leaves out an account whose `/var/lib/AccountsService/users/<user>`, left
+  by AccountsService, says `SystemAccount=true`; the daemon reads it as root,
+  and AccountsService itself is never asked. Avatars come from
+  `/var/lib/lys/avatars/<user>`, then `/var/lib/AccountsService/icons/<user>`,
+  then `~/.face`. Hidden above 8 users; typing a name always works.
 - **Remembered username**, prefilled with focus on the password.
 - **PAM conversation**: extra prompts (one-time codes, expired password changes)
   and refusal reasons appear on screen. A wrong password keeps the greeter up.

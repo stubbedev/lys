@@ -3,18 +3,23 @@
 package useraccount
 
 import (
+	"cmp"
 	"fmt"
 	"log"
 	"os"
 	"os/user"
 	"path/filepath"
 	"strconv"
-	"strings"
 )
 
-// accountsServiceIcons is where AccountsService (and gdm and sddm)
-// keep avatars, one file per login name.
+// AvatarsDir is where lys keeps avatars, one file per login name,
+// readable by the greeter where home directories are not.
+const AvatarsDir = "/var/lib/lys/avatars"
+
 const accountsServiceIcons = "/var/lib/AccountsService/icons"
+
+// AvatarPath is the file in AvatarsDir that holds login's avatar.
+func AvatarPath(login string) string { return filepath.Join(AvatarsDir, login) }
 
 // Account is one user account.
 type Account struct {
@@ -37,16 +42,11 @@ func Current() (Account, error) {
 			return Account{}, fmt.Errorf("look up the current user: %w", err)
 		}
 	}
-	real, _, _ := strings.Cut(u.Name, ",")
-	real = strings.TrimSpace(real)
-	if real == "" {
-		real = u.Username
-	}
-	return Account{Name: u.Username, RealName: real, Home: u.HomeDir, Avatar: FindAvatar(u.Username, u.HomeDir)}, nil
+	return Account{Name: u.Username, RealName: cmp.Or(fullName(u.Name), u.Username), Home: u.HomeDir, Avatar: FindAvatar(u.Username, u.HomeDir)}, nil
 }
 
-// FindAvatar is the first readable avatar for a login: the
-// AccountsService icon, then ~/.face.
+// FindAvatar is the first readable avatar for a login: lys's own, the
+// one AccountsService left behind, then ~/.face.
 func FindAvatar(name, home string) string {
 	for _, candidate := range avatarCandidates(name, home) {
 		if f, err := os.Open(candidate); err == nil { //nolint:gosec // avatar lookup
@@ -57,8 +57,6 @@ func FindAvatar(name, home string) string {
 	return ""
 }
 
-// avatarCandidates is where an avatar may be, in order; a seam for
-// tests, which cannot write the AccountsService directory.
 var avatarCandidates = func(name, home string) []string {
-	return []string{filepath.Join(accountsServiceIcons, name), filepath.Join(home, ".face")}
+	return []string{AvatarPath(name), filepath.Join(accountsServiceIcons, name), filepath.Join(home, ".face")}
 }

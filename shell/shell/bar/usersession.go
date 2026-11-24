@@ -38,8 +38,8 @@ func sessionPowerAction(action config.SessionAction) powermenu.Action {
 // currentAccount is the user the dashboard shows (a seam for tests).
 var currentAccount = useraccount.Current
 
-// setAvatar paints the account's face (the AccountsService icon, else
-// ~/.face), looked up afresh, onto the tile as its background image,
+// setAvatar paints the account's face (useraccount.FindAvatar's,
+// looked up afresh) onto the tile as its background image,
 // cover-fit inside the rounded box, reporting whether it found one.
 func setAvatar(tile *widget.Box, acct useraccount.Account) bool {
 	path := useraccount.FindAvatar(acct.Name, acct.Home)

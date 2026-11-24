@@ -13,6 +13,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/desktop/tokens"
+	"github.com/stubbedev/lys/desktop/useraccount"
 	"github.com/stubbedev/lys/lib/logtest"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/xdg"
@@ -55,7 +56,12 @@ func TestParseOptions(t *testing.T) {
 		t.Errorf("last-user path = %s", LastUserPath(o.StatePath))
 	}
 
-	for _, bad := range [][]string{{"--config"}, {"--env", "NOEQUALS"}, {"--bogus"}, {"--sessions"}, {"--state"}} {
+	o, err = ParseOptions(greetd, []string{"--system-account", "spare", "--system-account", "temp_root"})
+	if err != nil || !slices.Equal(o.SystemAccounts, []string{"spare", "temp_root"}) {
+		t.Errorf("system accounts: %+v, %v", o.SystemAccounts, err)
+	}
+
+	for _, bad := range [][]string{{"--config"}, {"--env", "NOEQUALS"}, {"--bogus"}, {"--sessions"}, {"--state"}, {"--system-account"}, {"--system-account", ""}} {
 		requireUsageError(t, greetd, bad, "")
 	}
 }
@@ -166,7 +172,7 @@ func TestTheCommandLineAnOptionsWritesParsesBackToItInAnyEnvironment(t *testing.
 		nil,
 		{"--", "sway", "--unsupported-gpu"},
 		{"--no-sessions", "--no-xsessions", "--", "sway"},
-		{"--config", "/etc/c.yaml", "--state", "/var/lib/g/last", "--sessions", "/a", "--sessions", "/b", "--no-xsessions", "--env", "A=b", "--env", "C=d e", "--hand-over"},
+		{"--config", "/etc/c.yaml", "--state", "/var/lib/g/last", "--sessions", "/a", "--sessions", "/b", "--no-xsessions", "--env", "A=b", "--env", "C=d e", "--system-account", "spare", "--system-account", "temp_root", "--hand-over"},
 	} {
 		want, err := ParseOptions(daemon, args)
 		if err != nil {
@@ -286,23 +292,27 @@ func TestDiscoverPrecedenceAndSort(t *testing.T) {
 
 const passwd = `root:x:0:0:root:/root:/bin/bash
 daemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin
-alice:x:1000:1000:Alice Wonder,,,:/home/alice:/bin/zsh
 bob:x:1001:1001::/home/bob:/bin/bash
+alice:x:1000:1000:Alice Wonder,,,:/home/alice:/bin/zsh
 svc:x:998:998:service:/var/lib/svc:/usr/sbin/nologin
 nobody:x:65534:65534:nobody:/nonexistent:/usr/sbin/nologin
 carol:x:1002:1002:Carol:/home/carol:/bin/false
+dave:x:30500:30500:Dave:/home/dave:/bin/sh
 garbage
 `
 
-func TestParsePasswd(t *testing.T) {
-	users := parsePasswd(passwd)
+func TestTheUserListIsTheAccountsInRangeWithALoginShell(t *testing.T) {
+	users := usersOf(passwd, useraccount.UIDRange{Min: 1000, Max: 29999})
 	if len(users) != 2 || users[0].Name != "alice" || users[1].Name != "bob" {
 		t.Fatalf("users = %+v, want alice and bob", users)
 	}
 	if users[0].DisplayName != "Alice Wonder" || users[1].DisplayName != "bob" || users[0].Home != "/home/alice" || users[0].UID != 1000 || users[1].UID != 1001 {
 		t.Errorf("fields: %+v", users)
 	}
-	if len(parsePasswd("garbage\nno:fields\n")) != 0 {
+	if got := usersOf(passwd, useraccount.DefaultUIDRange); len(got) != 3 || got[2].Name != "dave" {
+		t.Errorf("by the default range: %+v, want dave listed too", got)
+	}
+	if len(usersOf("garbage\nno:fields\n", useraccount.DefaultUIDRange)) != 0 {
 		t.Error("malformed lines kept")
 	}
 }

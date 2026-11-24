@@ -1,19 +1,12 @@
 package greeter
 
 import (
+	"log"
 	"os"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/stubbedev/lys/desktop/useraccount"
-)
-
-// uidMin and uidMax bound the regular-user range offered in the user
-// list: below is system accounts, above reserved ranges and nobody.
-const (
-	uidMin = 1000
-	uidMax = 59999
 )
 
 // User is one login account offered in the user list (users.rs).
@@ -31,51 +24,37 @@ type User struct {
 	Icon string
 }
 
-// ReadUsers reads the login users from /etc/passwd.
+// ReadUsers reads the people's accounts from the passwd database, by the
+// user ID range of login.defs.
 func ReadUsers() []User {
-	data, _ := os.ReadFile("/etc/passwd")
-	return parsePasswd(string(data))
+	data, err := os.ReadFile(useraccount.PasswdPath)
+	if err != nil {
+		log.Printf("greeter: listing nobody: %v", err)
+	}
+	return usersOf(string(data), useraccount.ReadUIDRange(useraccount.LoginDefsPath))
 }
 
-// LoadUsers is what the user list offers: ReadUsers without system accounts,
-// with the avatars resolved.
-func LoadUsers() []User {
-	users := withoutSystemAccounts(ReadUsers(), accountsBusTimeout)
+// LoadUsers is what the user list offers: ReadUsers without the system
+// accounts named, with the avatars resolved.
+func LoadUsers(systemAccounts []string) []User {
+	users := withoutSystemAccounts(ReadUsers(), systemAccounts)
+	names := make([]string, len(users))
 	for i := range users {
 		users[i].Icon = useraccount.FindAvatar(users[i].Name, users[i].Home)
+		names[i] = users[i].Name
 	}
+	log.Printf("greeter: listing %d login users: %s", len(users), strings.Join(names, " "))
 	return users
 }
 
-// parsePasswd keeps regular-range accounts with a login shell, sorted
-// by lowercased display name.
-func parsePasswd(text string) []User {
-	var users []User
-	for line := range strings.SplitSeq(text, "\n") {
-		f := strings.Split(line, ":")
-		if len(f) != 7 {
-			continue
-		}
-		uid, err := strconv.ParseUint(f[2], 10, 32)
-		if err != nil || uid < uidMin || uid > uidMax || !isLoginShell(f[6]) {
-			continue
-		}
-		full, _, _ := strings.Cut(f[4], ",")
-		full = strings.TrimSpace(full)
-		display := full
-		if display == "" {
-			display = f[0]
-		}
-		users = append(users, User{Name: f[0], UID: uint32(uid), DisplayName: display, Home: f[5]})
+func usersOf(passwd string, r useraccount.UIDRange) []User {
+	people := useraccount.People(passwd, r)
+	users := make([]User, len(people))
+	for i, e := range people {
+		users[i] = User{Name: e.Name, UID: e.UID, DisplayName: e.DisplayName(), Home: e.Home}
 	}
 	sort.SliceStable(users, func(i, j int) bool {
 		return strings.ToLower(users[i].DisplayName) < strings.ToLower(users[j].DisplayName)
 	})
 	return users
-}
-
-// isLoginShell reports whether shell allows an interactive login.
-func isLoginShell(shell string) bool {
-	return shell != "" && !strings.HasSuffix(shell, "nologin") &&
-		!strings.HasSuffix(shell, "/false") && shell != "/bin/sync"
 }

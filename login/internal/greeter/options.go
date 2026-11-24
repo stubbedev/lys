@@ -85,8 +85,10 @@ type Options struct {
 	// Command is the explicit fallback session from `-- <argv>`.
 	Command []string
 	// Env holds extra KEY=value entries for the session.
-	Env      []string
-	HandOver bool
+	Env []string
+	// SystemAccounts are left out of the user list.
+	SystemAccounts []string
+	HandOver       bool
 }
 
 // ApplyCacheDir keeps the greeter's caches beside its state, the one
@@ -106,20 +108,21 @@ type UsageError struct{ detail string }
 
 func (e UsageError) Error() string {
 	return e.detail + "\nusage: lys-login greet [--config PATH] [--sessions DIR]... [--no-sessions] [--xsessions DIR]... [--no-xsessions] " +
-		"[--state PATH] [--env KEY=VAL]... [--hand-over] [-- <session argv...>]"
+		"[--state PATH] [--env KEY=VAL]... [--system-account NAME]... [--hand-over] [-- <session argv...>]"
 }
 
 // The command line's flags.
 const (
-	configFlag      = "--config"
-	sessionsFlag    = "--sessions"
-	noSessionsFlag  = "--no-sessions"
-	xSessionsFlag   = "--xsessions"
-	noXSessionsFlag = "--no-xsessions"
-	stateFlag       = "--state"
-	envFlag         = "--env"
-	handOverFlag    = "--hand-over"
-	commandFlag     = "--"
+	configFlag        = "--config"
+	sessionsFlag      = "--sessions"
+	noSessionsFlag    = "--no-sessions"
+	xSessionsFlag     = "--xsessions"
+	noXSessionsFlag   = "--no-xsessions"
+	stateFlag         = "--state"
+	envFlag           = "--env"
+	systemAccountFlag = "--system-account"
+	handOverFlag      = "--hand-over"
+	commandFlag       = "--"
 )
 
 type sessionDirFlags struct {
@@ -193,6 +196,12 @@ func ParseOptions(d Defaults, args []string) (Options, error) {
 				err = UsageError{envFlag + " value must be KEY=VAL"}
 			}
 			o.Env = append(o.Env, v)
+		case systemAccountFlag:
+			v, err = value(&i, systemAccountFlag, "a login NAME")
+			if err == nil && v == "" {
+				err = UsageError{systemAccountFlag + " requires a login NAME, not an empty one"}
+			}
+			o.SystemAccounts = append(o.SystemAccounts, v)
 		default:
 			err = UsageError{"unexpected argument: " + args[i]}
 		}
@@ -220,12 +229,15 @@ func ParseOptions(d Defaults, args []string) (Options, error) {
 // it says everything, so a greeter started with it resolves nothing
 // from its own environment.
 func (o Options) Args() []string {
-	args := make([]string, 0, 7+2*(len(o.SessionDirs)+len(o.XSessionDirs)+len(o.Env))+len(o.Command))
+	args := make([]string, 0, 7+2*(len(o.SessionDirs)+len(o.XSessionDirs)+len(o.Env)+len(o.SystemAccounts))+len(o.Command))
 	args = append(args, configFlag, o.ConfigPath, stateFlag, o.StatePath)
 	args = appendSessionDirs(args, sessionsFlag, noSessionsFlag, o.SessionDirs)
 	args = appendSessionDirs(args, xSessionsFlag, noXSessionsFlag, o.XSessionDirs)
 	for _, kv := range o.Env {
 		args = append(args, envFlag, kv)
+	}
+	for _, name := range o.SystemAccounts {
+		args = append(args, systemAccountFlag, name)
 	}
 	if o.HandOver {
 		args = append(args, handOverFlag)

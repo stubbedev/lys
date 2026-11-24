@@ -89,10 +89,13 @@
         machine.wait_for_unit("greetd.service")
         await_ready(machine, "username", 1)
         logged = machine.succeed("scenario-journal -t lys-greeter -o cat --no-pager")
-        if "not listing spare:" not in logged:
-            raise Exception(f"the system account was not left out:\n{logged}")
-        if "not listing hugo:" in logged:
-            raise Exception(f"the regular account was left out:\n{logged}")
+        lists = [line.rsplit("login users:", 1)[1].split() for line in logged.splitlines() if "greeter: listing " in line and "login users:" in line]
+        if not lists:
+            raise Exception(f"the greeter did not say whom it lists:\n{logged}")
+        if "spare" in lists[-1]:
+            raise Exception(f"the account above login.defs' UID_MAX was listed: {lists[-1]}")
+        if "hugo" not in lists[-1]:
+            raise Exception(f"the regular account was left out: {lists[-1]}")
         machine.screenshot("hidden-01-list")
         machine.send_chars("spare\nspare-vm\n")
         machine.wait_until_succeeds("test -s /tmp/lys-login/session", timeout=30)
@@ -141,6 +144,7 @@ in
     journal = "-t lys-greeter";
     node = {
       imports = [self.nixosModules.lys-login vm.module vm.systemAccount] ++ map (s: s.module) scenarios;
+      users.users.spare.uid = 30500;
       services.timesyncd.enable = false;
       programs.lys-login.greeter = {
         enable = true;

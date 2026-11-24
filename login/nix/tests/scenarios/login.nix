@@ -97,6 +97,7 @@ in {
     await_background({(0, 0, 0)}, "first greeter")
     machine.screenshot("login-01-greeter")
 
+    machine.fail("systemctl cat accounts-daemon.service")
     listed = machine.succeed("scenario-journal -t lys-login -o cat --no-pager")
     if "not listing spare:" not in listed:
         raise Exception(f"the system account was not left out:\n{listed}")

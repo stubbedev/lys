@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -282,8 +283,8 @@ func (o Options) greeterConfig() config.LoginGreeterConfig {
 
 // greeterCursor is the cursor the next greeter shows: the greeter's
 // config, else the record the remembered user's last session left.
-func (o Options) greeterCursor(g config.LoginGreeterConfig) greeter.Cursor {
-	return greeter.KioskCursor(g, o.CursorDir, greeter.ReadUsers(), greeter.LoadLast(greeter.LastUserPath(o.Greeter.StatePath)))
+func (o Options) greeterCursor(g config.LoginGreeterConfig, users []greeter.User) greeter.Cursor {
+	return greeter.KioskCursor(g, o.CursorDir, users, greeter.LoadLast(greeter.LastUserPath(o.Greeter.StatePath)))
 }
 
 type loginMethod int
@@ -353,7 +354,9 @@ func (o Options) greet(ctx context.Context, vt int, upgrades <-chan *pendingUpgr
 	}
 	defer func() { _ = ln.Close() }()
 	cfg := filepath.Join(o.RuntimeDir, "kiosk.yaml")
-	if err := os.WriteFile(cfg, []byte(kioskConfig(kiosk{greet: o.greeterCommand(), cursor: o.greeterCursor(settings), keyboard: o.greeterKeyboard(), a11y: o.greeterAccessibility()})), 0o644); err != nil { //nolint:gosec // the greeter user reads it
+	users := greeter.ReadUsers()
+	command := o.greeterCommand(greeter.SystemAccounts(greeter.AccountsServiceUsersDir, users))
+	if err := os.WriteFile(cfg, []byte(kioskConfig(kiosk{greet: command, cursor: o.greeterCursor(settings, users), keyboard: o.greeterKeyboard(), a11y: o.greeterAccessibility()})), 0o644); err != nil { //nolint:gosec // the greeter user reads it
 		return greeted{}, fmt.Errorf("write %s: %w", cfg, err)
 	}
 	gw := exec.Command(o.Self, o.greeterWorkerArgs(sock, cfg, vt)...) //nolint:gosec // lys-login itself
@@ -399,9 +402,10 @@ func (o Options) greet(ctx context.Context, vt int, upgrades <-chan *pendingUpgr
 	return g, err
 }
 
-func (o Options) greeterCommand() []string {
+func (o Options) greeterCommand(systemAccounts []string) []string {
 	g := o.Greeter
 	g.HandOver = true
+	g.SystemAccounts = append(slices.Clone(g.SystemAccounts), systemAccounts...)
 	return append([]string{o.Self, "greet"}, g.Args()...)
 }
 

@@ -71,7 +71,7 @@ in {
   };
 
   systemAccount = {
-    services.accounts-daemon.enable = true;
+    services.accounts-daemon.enable = false;
     users.users.spare = {
       isNormalUser = true;
       password = "spare-vm";

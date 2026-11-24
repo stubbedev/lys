@@ -533,9 +533,9 @@ func TestTheGreeterHandsOverToTheDisplayManager(t *testing.T) {
 		"/bin/lys-login", "greet", "--config", "/etc/lys-shell/config.yaml", "--state", "/var/lib/lys-greeter/last-session",
 		"--sessions", "/usr/local/share/wayland-sessions", "--sessions", "/usr/share/wayland-sessions",
 		"--xsessions", "/usr/local/share/xsessions", "--xsessions", "/usr/share/xsessions",
-		"--hand-over", "--", "fallback-session",
+		"--system-account", "spare", "--hand-over", "--", "fallback-session",
 	}
-	if got := o.greeterCommand(); !slices.Equal(got, want) {
+	if got := o.greeterCommand([]string{"spare"}); !slices.Equal(got, want) {
 		t.Errorf("greeter command %q, want %q", got, want)
 	}
 }

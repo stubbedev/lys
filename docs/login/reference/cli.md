@@ -3,7 +3,7 @@
 ## lys-login greet
 
 ```text
-lys-login greet [--config PATH] [--sessions DIR]... [--no-sessions] [--xsessions DIR]... [--no-xsessions] [--state PATH] [--env KEY=VAL]... [--hand-over] [-- <session argv...>]
+lys-login greet [--config PATH] [--sessions DIR]... [--no-sessions] [--xsessions DIR]... [--no-xsessions] [--state PATH] [--env KEY=VAL]... [--system-account NAME]... [--hand-over] [-- <session argv...>]
 ```
 
 | Flag | Default | Effect |
@@ -15,6 +15,7 @@ lys-login greet [--config PATH] [--sessions DIR]... [--no-sessions] [--xsessions
 | `--no-xsessions` | | Offer no X11 session. Contradicts `--xsessions`. |
 | `--state PATH` | `$XDG_STATE_HOME/lys-greeter/last-session`, else `$HOME/.local/state/lys-greeter/last-session`; a variable that holds no absolute path counts as unset, and with neither the flag is required | Last-session file; other [state](/login/guide/configuration#state) goes beside it. |
 | `--env KEY=VAL` | | Extra session environment, applied after the `XDG_SESSION_TYPE` derived from the session kind. Repeatable. |
+| `--system-account NAME` | | Leave `NAME` out of the user list; it still logs in by typing its name. Repeatable. The daemon passes one for each account `/var/lib/AccountsService/users/NAME` marks `SystemAccount=true`. |
 | `--hand-over` | off | Set by the daemon: after a login, keep showing the background until the daemon stops the compositor. Without it the greeter exits so greetd can start the session. |
 | `-- <argv...>` | | Fallback session offered as "Custom" (type `wayland`). |
 

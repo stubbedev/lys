@@ -4,24 +4,26 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"testing"
 )
 
-// The AccountsService icon wins over ~/.face; an unreadable or missing
-// file is skipped; none at all is "".
+// lys's avatar wins over the one AccountsService left, which wins over
+// ~/.face; an unreadable or missing file is skipped; none at all is "".
 func TestFindAvatarOrder(t *testing.T) {
 	dir := t.TempDir()
+	lys := filepath.Join(dir, "lys", "ada")
 	service := filepath.Join(dir, "icons", "ada")
 	home := filepath.Join(dir, "home")
 	face := filepath.Join(home, ".face")
 	prev := avatarCandidates
-	avatarCandidates = func(string, string) []string { return []string{service, face} }
+	avatarCandidates = func(string, string) []string { return []string{lys, service, face} }
 	t.Cleanup(func() { avatarCandidates = prev })
 	if got := FindAvatar("ada", home); got != "" {
 		t.Errorf("no avatar = %q", got)
 	}
-	for _, p := range []string{face, service} {
+	for _, p := range []string{face, service, lys} {
 		if err := os.MkdirAll(filepath.Dir(p), 0o700); err != nil {
 			t.Fatal(err)
 		}
@@ -29,14 +31,25 @@ func TestFindAvatarOrder(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if got := FindAvatar("ada", home); got != service {
-		t.Errorf("avatar = %q, want the AccountsService icon", got)
+	for _, step := range []struct{ want, then string }{{lys, lys}, {service, service}, {face, ""}} {
+		if got := FindAvatar("ada", home); got != step.want {
+			t.Errorf("avatar = %q, want %q", got, step.want)
+		}
+		if step.then != "" {
+			if err := os.Remove(step.then); err != nil {
+				t.Fatal(err)
+			}
+		}
 	}
-	if err := os.Remove(service); err != nil {
-		t.Fatal(err)
+}
+
+func TestAvatarsAreLookedForInLysThenAccountsServiceThenHome(t *testing.T) {
+	want := []string{"/var/lib/lys/avatars/ada", "/var/lib/AccountsService/icons/ada", "/home/ada/.face"}
+	if got := avatarCandidates("ada", "/home/ada"); !slices.Equal(got, want) {
+		t.Errorf("candidates = %q, want %q", got, want)
 	}
-	if got := FindAvatar("ada", home); got != face {
-		t.Errorf("avatar = %q, want ~/.face", got)
+	if got := AvatarPath("ada"); got != want[0] {
+		t.Errorf("AvatarPath = %q, want %q", got, want[0])
 	}
 }
 

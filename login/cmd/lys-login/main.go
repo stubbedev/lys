@@ -2,7 +2,8 @@
 //
 //	lys-login greet [--config PATH] [--sessions DIR]... [--no-sessions]
 //	                [--xsessions DIR]... [--no-xsessions] [--state PATH]
-//	                [--env KEY=VAL]... [--hand-over] [-- <session argv...>]
+//	                [--env KEY=VAL]... [--system-account NAME]...
+//	                [--hand-over] [-- <session argv...>]
 //	lys-login lock
 //	lys-login daemon --vt N --service NAME --greeter-user NAME
 //	                 --compositor PATH [--runtime-dir DIR] [--splash PATH]
@@ -132,7 +133,7 @@ func greet(args []string) int {
 	err = greeter.Run(greeter.Init{
 		Config:      cfg,
 		Sessions:    sessions,
-		Users:       greeter.LoadUsers(),
+		Users:       greeter.LoadUsers(opts.SystemAccounts),
 		LastSession: greeter.LoadLast(opts.StatePath),
 		LastUser:    greeter.LoadLast(greeter.LastUserPath(opts.StatePath)),
 		Layouts:     greeter.LoadLayouts(opts.StatePath),

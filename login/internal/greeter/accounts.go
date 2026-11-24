@@ -1,75 +1,76 @@
 package greeter
 
 import (
-	"context"
+	"bufio"
 	"errors"
+	"io/fs"
 	"log"
-	"time"
-
-	"github.com/stubbedev/lys/lib/dbusx"
-	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"os"
+	"path/filepath"
+	"slices"
+	"strings"
 )
 
-const (
-	accountsBusName      = "org.freedesktop.Accounts"
-	accountsPath         = dbus.ObjectPath("/org/freedesktop/Accounts")
-	accountsUserIface    = "org.freedesktop.Accounts.User"
-	accountsBusTimeout   = 2 * time.Second
-	dbusServiceUnknown   = "org.freedesktop.DBus.Error.ServiceUnknown"
-	dbusPropertiesGetter = "org.freedesktop.DBus.Properties.Get"
-)
+// AccountsServiceUsersDir is where AccountsService left a file per
+// account it knew, readable by root alone.
+const AccountsServiceUsersDir = "/var/lib/AccountsService/users"
 
-// withoutSystemAccounts leaves out the accounts AccountsService marks as
-// system accounts: on Ubuntu an administrator's spare account has a login
-// shell and a regular UID, and only this tells it from a person's. It decides
-// the list alone: a left-out account still logs in by typing its name, and
-// any doubt lists the account, as the list is a convenience and a stale one
-// costs nothing where a wrongly short one would hide a person.
-func withoutSystemAccounts(users []User, timeout time.Duration) []User {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-	conn, err := dbusx.DialSystem(ctx, timeout)
-	if err != nil {
-		log.Printf("greeter: listing every login user: %v", err)
-		return users
-	}
-	defer func() {
-		if err := conn.Close(); err != nil {
-			log.Printf("greeter: close the system bus: %v", err)
-		}
-	}()
-	listed := make([]User, 0, len(users))
-	for i, u := range users {
-		system, err := isSystemAccount(ctx, conn, u.Name)
-		switch {
-		case err == nil && system:
-			log.Printf("greeter: not listing %s: AccountsService marks it a system account", u.Name)
+// SystemAccounts is the users whose file in dir marks them a system
+// account: on Ubuntu an administrator's spare account has a login shell
+// and a regular UID, and only this tells it from a person's. An account
+// without a file is a person's; one whose file cannot be read is
+// logged and listed, as the list is a convenience and a wrongly short
+// one would hide a person. Only root reads dir, so the display manager
+// asks and hands the answer to the greeter.
+func SystemAccounts(dir string, users []User) []string {
+	var system []string
+	for _, u := range users {
+		marked, err := markedSystemAccount(filepath.Join(dir, u.Name))
+		if err != nil {
+			log.Printf("greeter: listing %s: %v", u.Name, err)
 			continue
-		case err == nil:
-		case isServiceUnknown(err) || ctx.Err() != nil:
-			log.Printf("greeter: listing every login user: AccountsService did not answer: %v", err)
-			return append(listed, users[i:]...)
-		default:
-			log.Printf("greeter: listing %s: ask AccountsService: %v", u.Name, err)
+		}
+		if marked {
+			system = append(system, u.Name)
+		}
+	}
+	return system
+}
+
+func markedSystemAccount(path string) (bool, error) {
+	f, err := os.Open(path) //nolint:gosec // a file under AccountsServiceUsersDir, named by a passwd entry
+	if errors.Is(err, fs.ErrNotExist) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	defer func() { _ = f.Close() }()
+	section := ""
+	sc := bufio.NewScanner(f)
+	for sc.Scan() {
+		line := strings.TrimSpace(sc.Text())
+		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
+			section = line[1 : len(line)-1]
+			continue
+		}
+		key, value, ok := strings.Cut(line, "=")
+		if ok && section == "User" && strings.TrimSpace(key) == "SystemAccount" {
+			v := strings.TrimSpace(value)
+			return v == "true" || v == "1", nil
+		}
+	}
+	return false, sc.Err()
+}
+
+func withoutSystemAccounts(users []User, system []string) []User {
+	listed := make([]User, 0, len(users))
+	for _, u := range users {
+		if slices.Contains(system, u.Name) {
+			log.Printf("greeter: not listing %s: AccountsService marked it a system account", u.Name)
+			continue
 		}
 		listed = append(listed, u)
 	}
 	return listed
-}
-
-func isSystemAccount(ctx context.Context, conn *dbus.Conn, name string) (bool, error) {
-	var path dbus.ObjectPath
-	if err := conn.Object(accountsBusName, accountsPath).CallWithContext(ctx, accountsBusName+".FindUserByName", 0, name).Store(&path); err != nil {
-		return false, err
-	}
-	var system bool
-	if err := conn.Object(accountsBusName, path).CallWithContext(ctx, dbusPropertiesGetter, 0, accountsUserIface, "SystemAccount").Store(&system); err != nil {
-		return false, err
-	}
-	return system, nil
-}
-
-func isServiceUnknown(err error) bool {
-	var busErr dbus.Error
-	return errors.As(err, &busErr) && busErr.Name == dbusServiceUnknown
 }
