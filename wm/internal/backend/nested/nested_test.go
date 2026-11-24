@@ -408,10 +408,7 @@ func TestAHostLayoutIsChosenFromWhatBothSidesTake(t *testing.T) {
 }
 
 func TestVulkanSharesLinearBytesWithAHostOfImplicitModifiers(t *testing.T) {
-	r := testenv.Vulkan(t)
-	if !r.Device().Exports() {
-		t.Skip("this Vulkan device shares no dmabufs; lavapipe needs /dev/udmabuf")
-	}
+	r := testenv.VulkanDMABUFs(t)
 	rendered, err := r.ExportModifiers(dmabufFormat)
 	if err != nil {
 		t.Fatal(err)
@@ -448,10 +445,7 @@ func TestAnEGLHostImportsThoseBytesWithNoModifier(t *testing.T) {
 			t.Error(err)
 		}
 	}()
-	r := testenv.Vulkan(t)
-	if !r.Device().Exports() {
-		t.Skip("this Vulkan device shares no dmabufs; lavapipe needs /dev/udmabuf")
-	}
+	r := testenv.VulkanDMABUFs(t)
 	s := &vulkanStack{r: r}
 	modifiers, err := s.modifiers(hostTaking(fourcc.Invalid))
 	if err != nil {
@@ -461,18 +455,12 @@ func TestAnEGLHostImportsThoseBytesWithNoModifier(t *testing.T) {
 }
 
 func TestVulkanCopiesLinearBytesForADeviceThatRendersNoLinear(t *testing.T) {
-	r := testenv.Vulkan(t)
-	if !r.Device().Exports() {
-		t.Skip("this Vulkan device shares no dmabufs; lavapipe needs /dev/udmabuf")
-	}
+	r := testenv.VulkanDMABUFs(t)
 	checkLinearBytes(t, r, &vulkanStack{r: r, layout: hostLayout{modifier: fourcc.Invalid, copied: true}}, nil, r, fourcc.Linear)
 }
 
 func TestAVulkanStackLeavesNoDescriptorOfABufferItFreed(t *testing.T) {
-	r := testenv.Vulkan(t)
-	if !r.Device().Exports() {
-		t.Skip("this Vulkan device shares no dmabufs; lavapipe needs /dev/udmabuf")
-	}
+	r := testenv.VulkanDMABUFs(t)
 	rendered, err := r.ExportModifiers(dmabufFormat)
 	if err != nil {
 		t.Fatal(err)

@@ -10,6 +10,7 @@ import (
 	"github.com/stubbedev/lys/wm/internal/compositor"
 	ccm "github.com/stubbedev/lys/wm/internal/protocol/client/colormanagement"
 	"github.com/stubbedev/lys/wm/internal/testclient"
+	"github.com/stubbedev/lys/wm/internal/testenv"
 )
 
 func hdrRule(cfg *compositor.Config) {
@@ -78,6 +79,7 @@ func TestAnHDROutputMovesItsCursorOnThePlane(t *testing.T) {
 
 func TestAnHDRFullscreenBufferKeepsScanningOutUnderAMovingCursor(t *testing.T) {
 	t.Parallel()
+	testenv.VulkanDMABUFs(t)
 	h := StartVulkanWithCursorPlanes(t, image.Pt(64, 64), hdrRule, small)
 	h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
 		b.Outputs()[0].AllowScanout(primaryPlane)

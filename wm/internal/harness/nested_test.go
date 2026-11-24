@@ -325,9 +325,7 @@ func TestNestedTilingSession(t *testing.T) {
 }
 
 func TestNestedLysWMRendersWithVulkan(t *testing.T) {
-	if !testenv.Vulkan(t).Device().Exports() {
-		t.Skip("this Vulkan device shares no dmabufs with a host; lavapipe needs /dev/udmabuf")
-	}
+	testenv.VulkanDMABUFs(t)
 	host := StartVulkan(t, func(*compositor.Config) {}, desktop)
 	n := startNestedOn(t, host, nested.Vulkan, func(*compositor.Config) {})
 	host.EventuallySlow("the nested lys-wm window", mappedToplevels(1))
@@ -351,9 +349,7 @@ func refill(t *testing.T, c *testclient.Client, w *testclient.Window, paint test
 }
 
 func TestNestedLysWMRendersWithVulkanIntoTheHostsBuffersAfterAGPUReset(t *testing.T) {
-	if !testenv.Vulkan(t).Device().Exports() {
-		t.Skip("this Vulkan device shares no dmabufs with a host; lavapipe needs /dev/udmabuf")
-	}
+	testenv.VulkanDMABUFs(t)
 	host := StartVulkan(t, func(*compositor.Config) {}, desktop)
 	got := &reports{}
 	n := startNestedOn(t, host, nested.Vulkan, func(cfg *compositor.Config) { cfg.Report = got.report })
@@ -481,9 +477,7 @@ func TestNestedFrameCost(t *testing.T) {
 	if raceEnabled {
 		t.Skip("the race detector slows every frame, so the costs it would log measure the detector")
 	}
-	if !testenv.Vulkan(t).Device().Exports() {
-		t.Skip("this Vulkan device shares no dmabufs with a host; lavapipe needs /dev/udmabuf")
-	}
+	testenv.VulkanDMABUFs(t)
 	newHost := func(t *testing.T) *Harness { return StartVulkan(t, func(*compositor.Config) {}, desktop) }
 	for round := range 3 {
 		t.Run(fmt.Sprintf("headless-vulkan/%d", round), func(t *testing.T) {

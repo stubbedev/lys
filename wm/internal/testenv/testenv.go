@@ -110,6 +110,22 @@ func Vulkan(t testing.TB) *vulkan.Renderer {
 	return r
 }
 
+const udmabufNode = "/dev/udmabuf"
+
+func VulkanDMABUFs(t testing.TB) *vulkan.Renderer {
+	t.Helper()
+	r := Vulkan(t)
+	if r.Device().Exports() {
+		return r
+	}
+	f, err := os.OpenFile(udmabufNode, os.O_RDWR, 0)
+	if err == nil {
+		err = f.Close()
+	}
+	missing(t, "%s shares no dmabufs; lavapipe exports and imports them only through %s (open: %v)", r.Device().Name(), udmabufNode, err)
+	return r
+}
+
 func XKBCompiler(t testing.TB) *xkb.Compiler {
 	t.Helper()
 	return xkb.NewCompiler(os.Getenv)

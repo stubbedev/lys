@@ -629,9 +629,7 @@ func (l lockEvents) Locked(*csl.ExtSessionLockV1) error {
 func (lockEvents) Finished(*csl.ExtSessionLockV1) error { return nil }
 
 func TestUpgradeKeepsAWindowOfDMABUFs(t *testing.T) {
-	if !testenv.Vulkan(t).Device().Exports() {
-		t.Skip("this Vulkan device shares no dmabufs; lavapipe needs /dev/udmabuf")
-	}
+	testenv.VulkanDMABUFs(t)
 	binary := buildLysWM(t)
 	s := startProcess(t, binary, "", "--renderer", "vulkan")
 	c := testclient.Connect(t, s.waylandSocket())

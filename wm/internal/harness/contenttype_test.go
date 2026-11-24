@@ -17,6 +17,7 @@ import (
 	cct "github.com/stubbedev/lys/wm/internal/protocol/client/contenttype"
 	ctc "github.com/stubbedev/lys/wm/internal/protocol/client/tearingcontrol"
 	"github.com/stubbedev/lys/wm/internal/testclient"
+	"github.com/stubbedev/lys/wm/internal/testenv"
 	"github.com/stubbedev/lys/wm/internal/wm"
 )
 
@@ -122,7 +123,7 @@ func TestAFullscreenGameTearsLikeARuleWouldMakeIt(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			s := fullscreenScanout(t, StartVulkan, func(cfg *compositor.Config) {
+			s := fullscreenScanout(t, startVulkanDMABUFs, func(cfg *compositor.Config) {
 				cfg.Tearing, cfg.Rules = tc.tearing, tc.rules
 			})
 			if tc.content != cct.WpContentTypeV1TypeNone {
@@ -190,6 +191,7 @@ func TestACompositedFullscreenGameStatesItsFrameHints(t *testing.T) {
 
 func TestZoomOverATearingGameResetsTheFrameHints(t *testing.T) {
 	t.Parallel()
+	testenv.VulkanDMABUFs(t)
 	s := tearingGame(t)
 	s.show(t, "the game", s.c.DMABUF(image.Pt(160, 100), testclient.Fill(0xff, 0, 0)))
 	s.h.Eventually("the game tearing as a game", frameHints(true, true, wm.ContentGame))

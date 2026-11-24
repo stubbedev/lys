@@ -256,13 +256,14 @@ func onEachGPURenderer(t *testing.T, test func(t *testing.T, start gpuStarter)) 
 	t.Run("vulkan", func(t *testing.T) { test(t, StartVulkan) })
 }
 
+func startVulkanDMABUFs(t *testing.T, configure func(*compositor.Config), modes ...backend.Mode) *Harness {
+	t.Helper()
+	testenv.VulkanDMABUFs(t)
+	return StartVulkan(t, configure, modes...)
+}
+
 func onEachDMABUFRenderer(t *testing.T, test func(t *testing.T, start gpuStarter)) {
-	t.Run("vulkan", func(t *testing.T) {
-		if !testenv.Vulkan(t).Device().Exports() {
-			t.Skip("this Vulkan device shares no dmabufs; lavapipe needs /dev/udmabuf")
-		}
-		test(t, StartVulkan)
-	})
+	t.Run("vulkan", func(t *testing.T) { test(t, startVulkanDMABUFs) })
 }
 
 const gpuGoldenTolerance = 1
