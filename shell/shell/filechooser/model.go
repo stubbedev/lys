@@ -22,6 +22,7 @@ import (
 	"github.com/stubbedev/lys/desktop/glob"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/mime"
+	"github.com/stubbedev/lys/lib/intconv"
 	"github.com/stubbedev/lys/lib/xdg"
 )
 
@@ -558,26 +559,16 @@ func hasPrefixFold(s, lower string) bool {
 	return true
 }
 
-// HumanSize is a byte count in binary units (1.5 KB).
-func HumanSize(n int64) string {
-	units := [...]string{"B", "KB", "MB", "GB", "TB"}
-	size, unit := float64(n), 0
-	for size >= 1024 && unit < len(units)-1 {
-		size /= 1024
-		unit++
-	}
-	if unit == 0 {
-		return fmt.Sprintf("%d B", n)
-	}
-	return fmt.Sprintf("%.1f %s", size, units[unit])
-}
+// HumanSize is a file size in the desktop locale's binary units.
+func HumanSize(n int64) string { return i18n.Shell().ByteSize(intconv.Clamp[uint64](n)) }
 
-// FormatTime is a modification time in local time, "" for none.
+// FormatTime is a modification time in local time, in the desktop
+// locale's numeric date and time, "" for none.
 func FormatTime(t time.Time) string {
 	if t.IsZero() {
 		return ""
 	}
-	return t.Local().Format("2006-01-02 15:04")
+	return i18n.Shell().DateTime(t.Local())
 }
 
 // rasterExts are the image types thumbnailed (imagedecode's formats).

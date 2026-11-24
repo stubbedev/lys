@@ -20,6 +20,11 @@
 // negotiated languages in order; a missing message yields i18n-embed's
 // "No localization for id" marker rather than an empty string.
 //
+// A loader formats integers, byte sizes and numeric dates and times by
+// the CLDR conventions of its most preferred negotiated catalogue
+// (Integer, ByteSize, Time, DateTime), for a caller to pass as a
+// string argument.
+//
 // Interpolated placeables are wrapped in Unicode isolation marks
 // (U+2068 ... U+2069) exactly as fluent-bundle does by default, which
 // i18n-embed never turns off.

@@ -20,7 +20,6 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/shell/service/launcher"
-	"github.com/stubbedev/lys/shell/service/sysinfo"
 )
 
 const (
@@ -255,7 +254,7 @@ func (p *Processes) Load(ctx context.Context, publish func([]Entry)) {
 		pid := strconv.Itoa(proc.pid)
 		entries[i] = Entry{
 			ID: "process:" + pid, Title: proc.name,
-			Subtitle: i18n.T("launcher-process-subtitle", i18n.Str("memory", sysinfo.AutoBytes(proc.rss)), i18n.Str("pid", pid)),
+			Subtitle: i18n.T("launcher-process-subtitle", i18n.Str("memory", i18n.Shell().ByteSize(proc.rss)), i18n.Str("pid", pid)),
 			Keywords: pid + " " + proc.cmdline, Icon: launcher.IconName("ld-activity-symbolic"), Data: proc,
 		}
 	}

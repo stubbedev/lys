@@ -193,7 +193,7 @@ func (a Assets) Source(locale string) (string, error) {
 // Select negotiates the requested languages against the available
 // ones and loads the result, fallback last. It is an error when the
 // fallback itself has no partials or a loaded locale has no plural
-// rule set.
+// rule set or number and date formats.
 func Select(assets Assets, requested []LangID) (*Loader, error) {
 	available, err := assets.Available()
 	if err != nil {

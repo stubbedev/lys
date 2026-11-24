@@ -14,7 +14,6 @@ import (
 	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/shell/service/recorder"
-	"github.com/stubbedev/lys/shell/service/sysinfo"
 )
 
 // Recorder config paths the dropdown writes.
@@ -475,7 +474,7 @@ func (v *recorderView) applyState(c recorder.Change) {
 	v.replaySave.SetEnabled(armed && !c.ReplaySaving)
 	memory := "-"
 	if armed {
-		memory = sysinfo.AutoBytes(c.ReplayBytes)
+		memory = i18n.Shell().ByteSize(c.ReplayBytes)
 	}
 	v.replayMemory.SetText(memory)
 	if c.Paused {

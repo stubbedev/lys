@@ -69,24 +69,24 @@ func touch(t *testing.T, root string, rel ...string) {
 	}
 }
 
-func TestHumanSizeScalesByUnit(t *testing.T) {
-	for n, want := range map[int64]string{
-		0: "0 B", 512: "512 B", 1024: "1.0 KB", 1536: "1.5 KB",
-		1 << 20: "1.0 MB", 3 << 30: "3.0 GB",
-	} {
-		if got := HumanSize(n); got != want {
-			t.Errorf("HumanSize(%d) = %q, want %q", n, got, want)
+func TestHumanSizeIsTheLocaleByteSize(t *testing.T) {
+	for _, n := range []int64{0, 512, 1536, 3 << 30} {
+		if got, want := HumanSize(n), i18n.Shell().ByteSize(uint64(n)); got != want {
+			t.Errorf("HumanSize(%d) = %q, want the locale's %q", n, got, want)
 		}
+	}
+	if got, want := HumanSize(-1), i18n.Shell().ByteSize(0); got != want {
+		t.Errorf("HumanSize(-1) = %q, want a negative size clamped to %q", got, want)
 	}
 }
 
-func TestFormatTime(t *testing.T) {
+func TestFormatTimeIsTheLocaleDateTimeInLocalTime(t *testing.T) {
 	if got := FormatTime(time.Time{}); got != "" {
 		t.Errorf("no time = %q, want empty", got)
 	}
-	at := time.Date(2026, 3, 4, 5, 6, 7, 0, time.Local)
-	if got := FormatTime(at); got != "2026-03-04 05:06" {
-		t.Errorf("FormatTime = %q", got)
+	at := time.Date(2026, 3, 4, 5, 6, 7, 0, time.UTC)
+	if got, want := FormatTime(at), i18n.Shell().DateTime(at.Local()); got != want {
+		t.Errorf("FormatTime = %q, want the locale's local %q", got, want)
 	}
 }
 

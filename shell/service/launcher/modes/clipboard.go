@@ -8,6 +8,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/clipboard"
+	"github.com/stubbedev/lys/lib/intconv"
 
 	"github.com/stubbedev/lys/shell/service/launcher"
 )
@@ -184,7 +185,7 @@ func EntryPreview(history ClipboardHistory, e clipboard.Entry) launcher.Preview 
 	facts := func() []launcher.PreviewFact {
 		return []launcher.PreviewFact{
 			{Label: i18n.T("launcher-preview-type"), Value: e.Mime},
-			{Label: i18n.T("launcher-preview-size"), Value: clipboard.HumanSize(e.Size())},
+			{Label: i18n.T("launcher-preview-size"), Value: i18n.Shell().ByteSize(intconv.Clamp[uint64](e.Size()))},
 		}
 	}
 	switch e.Kind() {

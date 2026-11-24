@@ -39,7 +39,7 @@ func bwSendCaption(s vault.Send) string {
 	}
 	line := accesses
 	if !s.Deletion.IsZero() {
-		line += " · " + i18n.T("dropdown-bitwarden-send-deletes", i18n.Str("date", s.Deletion.Local().Format("2006-01-02 15:04")))
+		line += " · " + i18n.T("dropdown-bitwarden-send-deletes", i18n.Str("date", i18n.Shell().DateTime(s.Deletion.Local())))
 	}
 	if s.HasPassword {
 		line += " · " + i18n.T("dropdown-bitwarden-send-protected")

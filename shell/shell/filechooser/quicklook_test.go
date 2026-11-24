@@ -274,7 +274,7 @@ func TestFolderPreviewCountsItems(t *testing.T) {
 	if n, more, err := testReader.Count(dir, 12); n != 12 || more || err != nil {
 		t.Errorf("counting 12 to 12 = %d, %v, %v", n, more, err)
 	}
-	if got := previewDetail(Entry{IsDir: true}, preview{kind: previewFolder, items: folderCountCap, more: true}); !strings.HasPrefix(got, i18n.T("file-chooser-kind-folder")+" · "+i18n.T("file-chooser-folder-items-capped", i18n.Str("shown", "10,000"))) {
+	if got := previewDetail(Entry{IsDir: true}, preview{kind: previewFolder, items: folderCountCap, more: true}); !strings.HasPrefix(got, i18n.T("file-chooser-kind-folder")+" · "+i18n.T("file-chooser-folder-items-capped", i18n.Str("shown", i18n.Shell().Integer(folderCountCap)))) {
 		t.Errorf("a capped count reads %q", got)
 	}
 }

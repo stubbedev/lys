@@ -469,7 +469,7 @@ func TestRecorderDropdownInstantReplay(t *testing.T) {
 	waitHeadless(t, "armed", func() bool { return v.replaySave.Enabled() })
 	rp := engine.Replays()[0]
 	rp.Keyframe(3 << 20)
-	waitHeadless(t, "the ring's memory", func() bool { return v.replayMemory.Text() == "3.0 MiB" })
+	waitHeadless(t, "the ring's memory", func() bool { return v.replayMemory.Text() == i18n.Shell().ByteSize(3<<20) })
 	release := rp.HoldSave()
 	doOnLoopOf(ctx, v.replaySave.OnClick)
 	if v.replaySave.Enabled() {
@@ -477,7 +477,7 @@ func TestRecorderDropdownInstantReplay(t *testing.T) {
 	}
 	waitHeadless(t, "the save writing", func() bool { return ctx.Recorder.Snapshot().ReplaySaving })
 	rp.Keyframe(4 << 20)
-	waitHeadless(t, "the ring's memory while saving", func() bool { return v.replayMemory.Text() == "4.0 MiB" })
+	waitHeadless(t, "the ring's memory while saving", func() bool { return v.replayMemory.Text() == i18n.Shell().ByteSize(4<<20) })
 	if v.replaySave.Enabled() {
 		t.Error("a state change re-enabled Save while the save writes")
 	}

@@ -103,7 +103,7 @@ func TestClipboardRowsPreviewEachKindInFull(t *testing.T) {
 	if err != nil || c.Image == nil || c.Image.Bounds().Dx() != 3 {
 		t.Errorf("image: %v %v", c.Image, err)
 	}
-	if got := factValues(p); got[i18n.T("launcher-preview-type")] != "image/png" || got[i18n.T("launcher-preview-size")] != clipboard.HumanSize(len(pngData)) {
+	if got := factValues(p); got[i18n.T("launcher-preview-type")] != "image/png" || got[i18n.T("launcher-preview-size")] != i18n.Shell().ByteSize(uint64(len(pngData))) {
 		t.Errorf("image facts %v", got)
 	}
 	if _, c, err := load(2); err != nil || c.Text != "package a\n" || c.Name != file {

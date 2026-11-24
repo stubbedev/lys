@@ -7,7 +7,7 @@ import (
 )
 
 func focusText(f notifications.Focus) string {
-	at := func(id string) string { return i18n.T(id, i18n.Str("time", f.Until.Format("15:04"))) }
+	at := func(id string) string { return i18n.T(id, i18n.Str("time", i18n.Shell().Time(f.Until))) }
 	switch f.Reason {
 	case notifications.FocusManual:
 		return i18n.T("notification-dnd-reason-manual")

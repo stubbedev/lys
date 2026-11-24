@@ -282,9 +282,9 @@ func readHead(path string) ([]byte, error) {
 // item count, a file's type described, an image's pixel size.
 func previewDetail(e Entry, p preview) string {
 	if p.kind == previewFolder {
-		items := i18n.T("file-chooser-folder-items", i18n.Int("count", int64(p.items)), i18n.Str("shown", groupThousands(p.items)))
+		items := i18n.T("file-chooser-folder-items", i18n.Int("count", int64(p.items)), i18n.Str("shown", i18n.Shell().Integer(int64(p.items))))
 		if p.more {
-			items = i18n.T("file-chooser-folder-items-capped", i18n.Str("shown", groupThousands(p.items)))
+			items = i18n.T("file-chooser-folder-items-capped", i18n.Str("shown", i18n.Shell().Integer(int64(p.items))))
 		}
 		return i18n.T("file-chooser-kind-folder") + " · " + items + " · " + FormatTime(e.Modified)
 	}
@@ -296,18 +296,4 @@ func previewDetail(e Entry, p preview) string {
 		kind += " · " + strconv.Itoa(p.size.X) + " × " + strconv.Itoa(p.size.Y)
 	}
 	return kind + " · " + HumanSize(e.Size) + " · " + FormatTime(e.Modified)
-}
-
-// groupThousands writes n with a comma between each group of three
-// digits.
-func groupThousands(n int) string {
-	s := strconv.Itoa(n)
-	var b []byte
-	for i := range len(s) {
-		if i > 0 && (len(s)-i)%3 == 0 {
-			b = append(b, ',')
-		}
-		b = append(b, s[i])
-	}
-	return string(b)
 }

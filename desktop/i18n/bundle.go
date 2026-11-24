@@ -20,21 +20,27 @@ const maxPlaceables = 100
 type bundle struct {
 	locale   LangID
 	plural   pluralRules
+	formats  localeFormats
 	messages map[string]*entry
 	terms    map[string]*entry
 }
 
 // newBundle adds a resource the way FluentBundle::add_resource does: a
 // duplicate id keeps the first definition. A locale without a plural
-// rule set is an error.
+// rule set or number and date formats is an error.
 func newBundle(locale LangID, res *resource) (*bundle, error) {
 	rules, err := cardinalRulesFor(locale)
+	if err != nil {
+		return nil, err
+	}
+	formats, err := formatsFor(locale)
 	if err != nil {
 		return nil, err
 	}
 	b := &bundle{
 		locale:   locale,
 		plural:   rules,
+		formats:  formats,
 		messages: map[string]*entry{},
 		terms:    map[string]*entry{},
 	}
