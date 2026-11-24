@@ -79,6 +79,7 @@ func TestPopoverKeyRoot(t *testing.T) {
 
 // keySpy records forwarded KeyActions.
 type keySpy struct {
+	widget.Nodeless
 	onAction func(widget.KeyAction, widget.Mods)
 }
 

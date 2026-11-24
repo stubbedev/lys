@@ -390,6 +390,7 @@ func (r *popoverRegistry) take(h Host) *Popover {
 // routeKey path uses — so a combo fires exactly once whichever path
 // sees it, and the two can never disagree.
 type popoverKeyRoot struct {
+	widget.Nodeless
 	onDismiss func()
 	content   widget.Widget
 	// maxW and maxH cap the content at (re)fit: the open's ceilings

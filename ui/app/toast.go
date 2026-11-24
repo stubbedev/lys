@@ -239,6 +239,7 @@ func (r *toastRegistry) takeHost(h Host) (movedToasts, bool) {
 // each toast invalidates its own pixels through the damage collector
 // (which descends through Children).
 type toastLayer struct {
+	widget.Nodeless
 	hw      *hostWindow
 	root    widget.Widget
 	clock   *anim.Clock

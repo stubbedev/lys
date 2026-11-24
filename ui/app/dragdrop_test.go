@@ -41,6 +41,7 @@ func (f *fakeDnD) ReadPayload(mime string, done func([]byte, error)) {
 
 // dragStub is a clickable widget that declares draggable content.
 type dragStub struct {
+	widget.Nodeless
 	bounds  render.Rect
 	clicks  int
 	refuse  bool
@@ -80,6 +81,7 @@ func (s *dragStub) DragContent() *widget.DragContent {
 // dropZone plays the drop target: it decides by mime, tracks the
 // highlight, and records the drop.
 type dropZone struct {
+	widget.Nodeless
 	bounds   render.Rect
 	mime     string
 	dragOver bool

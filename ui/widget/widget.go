@@ -81,6 +81,7 @@ type Widget interface {
 	// HitTest returns the deepest widget whose area contains p, or nil
 	// when p misses the tree below this widget.
 	HitTest(p Point) Widget
+	styleNode() *node
 }
 
 // node carries the arranged bounds, parent link, and tooltip text

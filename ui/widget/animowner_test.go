@@ -74,7 +74,10 @@ func TestAWidgetUnderANodelessRootRunsOnThatRootsHost(t *testing.T) {
 	}
 }
 
-type nodelessRoot struct{ child Widget }
+type nodelessRoot struct {
+	Nodeless
+	child Widget
+}
 
 func (r *nodelessRoot) Measure(axis Axis, forSize int) Sizes { return r.child.Measure(axis, forSize) }
 func (r *nodelessRoot) Arrange(rect render.Rect)             { r.child.Arrange(rect) }

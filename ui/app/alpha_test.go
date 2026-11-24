@@ -22,6 +22,7 @@ import (
 // scaffolding - no invalidation state - so the harness pre-seeds the
 // pending damage region to get a frame painted.
 type solid struct {
+	widget.Nodeless
 	col     render.Color
 	natural widget.Size
 	bounds  render.Rect

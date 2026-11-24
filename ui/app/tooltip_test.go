@@ -67,6 +67,7 @@ func TestTooltipShouldClose(t *testing.T) {
 
 // tipTarget is a hoverable widget carrying a tooltip, for router tests.
 type tipTarget struct {
+	widget.Nodeless
 	bounds  render.Rect
 	tooltip string
 }

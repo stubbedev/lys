@@ -26,6 +26,7 @@ import (
 // inkProbe is a leaf that fills its bounds — the paint-count hook.
 // (Internal packages cannot embed widget.node, so this is hand-rolled.)
 type inkProbe struct {
+	widget.Nodeless
 	bounds render.Rect
 	paints int
 }

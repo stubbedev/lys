@@ -1457,17 +1457,21 @@ func (n *node) elementOf(w Widget) string {
 	return n.elemName
 }
 
-// styleNoder is implemented by every node-embedding widget.
-type styleNoder interface{ styleNode() *node }
-
 func (n *node) styleNode() *node { return n }
+
+// Nodeless is embedded by a widget that keeps no node of its own: it
+// takes no style, records no parent and caches no layout, so the tree
+// walks pass over it.
+type Nodeless struct{}
+
+func (Nodeless) styleNode() *node { return nil }
 
 // nodeOf returns the shared node behind w, or nil.
 func nodeOf(w Widget) *node {
-	if n, ok := w.(styleNoder); ok {
-		return n.styleNode()
+	if w == nil {
+		return nil
 	}
-	return nil
+	return w.styleNode()
 }
 
 // styleTargeter adapts one widget (and, through StyleParent and

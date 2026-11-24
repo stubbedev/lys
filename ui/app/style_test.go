@@ -63,7 +63,9 @@ func TestCSSSurfaceElementNames(t *testing.T) {
 	nameSurfaceElement(unnamed{}, elemPopover)
 }
 
-type unnamed struct{}
+type unnamed struct {
+	widget.Nodeless
+}
 
 func (unnamed) Measure(widget.Axis, int) widget.Sizes { return widget.Sizes{} }
 func (unnamed) Arrange(render.Rect)                   {}

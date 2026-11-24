@@ -27,6 +27,7 @@ func testFace(t testing.TB) *render.Typeface {
 // spyRoot records the Arrange rect, standing in for a window's root
 // widget.
 type spyRoot struct {
+	widget.Nodeless
 	arranged render.Rect
 	nat      widget.Size
 	painted  int

@@ -571,7 +571,10 @@ func TestFirstLayoutResolvesScopedStyles(t *testing.T) {
 }
 
 // passthrough is a cache-less wrapper, as the inspector overlay is.
-type passthrough struct{ child Widget }
+type passthrough struct {
+	Nodeless
+	child Widget
+}
 
 func (p passthrough) Measure(axis Axis, forSize int) Sizes { return p.child.Measure(axis, forSize) }
 func (p passthrough) Arrange(r render.Rect)                { p.child.Arrange(r) }
@@ -582,7 +585,7 @@ func (p passthrough) Children() []Widget                   { return []Widget{p.c
 func TestLayoutPendingSeesThroughWrappers(t *testing.T) {
 	root := NewBox(Column, 0, 0)
 	root.Append(NewSpacer(10, 10), false)
-	wrapped := passthrough{root}
+	wrapped := passthrough{child: root}
 	SizeWithin(wrapped, Size{W: 100, H: 100})
 	wrapped.Arrange(render.Rect{W: 100, H: 100})
 	// A style change inside makes layout pending.
