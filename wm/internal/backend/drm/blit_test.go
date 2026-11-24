@@ -247,7 +247,7 @@ func TestAStackThatCannotAllocateOnTheRenderNodeMovesToTheCard(t *testing.T) {
 			stack.gbm = refusingGBM{}
 		}
 		return stack, nil
-	})
+	}, allocatesScanout)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -259,9 +259,48 @@ func TestAStackThatCannotAllocateOnTheRenderNodeMovesToTheCard(t *testing.T) {
 	}
 	_, err = openStackOnFile([]func() (*kdrm.Device, error){file("renderD128")}, func(int) (gpuStack, error) {
 		return gpuStack{gbm: refusingGBM{}, closeGPU: func() error { return nil }}, nil
-	})
+	}, allocatesScanout)
 	if err == nil || !strings.Contains(err.Error(), "renderD128") || !strings.Contains(err.Error(), "refuses") {
 		t.Fatalf("no file that allocates: %v", err)
+	}
+}
+
+func TestAFileWhoseBuffersTheCardRefusesGivesWayToTheNext(t *testing.T) {
+	file := func(name string) func() (*kdrm.Device, error) {
+		return func() (*kdrm.Device, error) {
+			fd, err := unix.MemfdCreate(name, unix.MFD_CLOEXEC)
+			if err != nil {
+				return nil, err
+			}
+			return kdrm.FromFD(fd, name), nil
+		}
+	}
+	var opened, closed int
+	open := func(int) (gpuStack, error) {
+		opened++
+		return gpuStack{closeGPU: func() error { closed++; return nil }}, nil
+	}
+	vouched := 0
+	refuseFirst := func(gpuStack) error {
+		vouched++
+		if vouched == 1 {
+			return errors.New("ADDFB2: invalid argument")
+		}
+		return nil
+	}
+	s, err := openStackOnFile([]func() (*kdrm.Device, error){file("renderD128"), file("card0")}, open, refuseFirst)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if opened != 2 || closed != 1 {
+		t.Fatalf("opened %d stacks and closed %d, want the refused one closed and the next kept", opened, closed)
+	}
+	if err := s.closeGPU(); err != nil {
+		t.Fatal(err)
+	}
+	_, err = openStackOnFile([]func() (*kdrm.Device, error){file("renderD128"), file("card0")}, open, func(gpuStack) error { return errors.New("ADDFB2: invalid argument") })
+	if err == nil || !strings.Contains(err.Error(), "on renderD128: ADDFB2") || !strings.Contains(err.Error(), "on card0: ADDFB2") {
+		t.Fatalf("no file whose buffers the card takes: %v", err)
 	}
 }
 
@@ -284,7 +323,7 @@ func TestASoftwareStackMovesToTheCardWithoutAllocating(t *testing.T) {
 			stack.gbm = failingOnAllocate{t}
 		}
 		return stack, nil
-	})
+	}, allocatesScanout)
 	if err != nil {
 		t.Fatal(err)
 	}

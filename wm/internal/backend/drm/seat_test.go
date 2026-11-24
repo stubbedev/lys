@@ -172,7 +172,7 @@ func onASeat(t *testing.T, driver string) (*seat, *Output) {
 		t.Fatal(err)
 	}
 	paths := gpu.PathsFromEnv(os.Getenv)
-	alloc, err := newGLESAllocator(device{kernel: dev}, paths)
+	alloc, err := newLavapipeAllocator(device{kernel: dev}, paths)
 	if err != nil {
 		t.Fatal(err)
 	}

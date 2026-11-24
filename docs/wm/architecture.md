@@ -450,9 +450,13 @@ foreign-toplevel activate all call it. Nothing else mutates WM state.
 
 Scanout memory is GBM's under both renderers (`gpuAllocator` over
 `gbmMemory`), in a modifier from the primary plane's `IN_FORMATS` the renderer
-also draws into. An allocator is vouched for only once its probe buffer has
+also draws into. An allocator is vouched for only once its probe buffer, at
+least as large as the card's smallest framebuffer (virtio-gpu's is 32x32), has
 become a framebuffer on the card, so it is always opened on a card node, never
-a render node. The
+a render node. GBM's file on the device is the first whose buffers pass that
+probe: the render node, then a second card file, or, under lavapipe, the card
+file first, since a CPU renderer draws into the card's dumb buffers, which a
+render node refuses. The
 allocator picks among those; when the modeset's test commit refuses its pick,
 the next try drops that modifier, so the list falls down in the driver's order
 before the next format is tried, and the winner is reported. Every

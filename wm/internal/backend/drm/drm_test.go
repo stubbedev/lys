@@ -107,6 +107,7 @@ type fakeDevice struct {
 	noCTM             bool
 	deep              []fourcc.Format
 	refuseFrames      func(fb uint64) bool
+	minSize           [2]uint32
 	refuseCursorAt    func(at image.Point) error
 	refuseAsync       bool
 	refusePowerOff    bool
@@ -248,7 +249,7 @@ func (f *fakeDevice) PrimeHandleToFD(h uint32) (int, error) {
 }
 
 func (f *fakeDevice) Resources() (kdrm.Resources, error) {
-	res := kdrm.Resources{CRTCs: []uint32{10, 11}, Connectors: []uint32{20}, Encoders: []uint32{30}}
+	res := kdrm.Resources{CRTCs: []uint32{10, 11}, Connectors: []uint32{20}, Encoders: []uint32{30}, MinSize: f.minSize}
 	if f.connectors != nil {
 		res.Connectors = f.connectors
 	}
@@ -513,7 +514,7 @@ func (f *fakeDevice) AddFB2(fb kdrm.FB) (uint32, error) {
 	if fb.Handles[0] >= primeHandles {
 		f.imports++
 	}
-	if f.refuseAddFB {
+	if f.refuseAddFB || fb.Width < f.minSize[0] || fb.Height < f.minSize[1] {
 		return 0, fmt.Errorf("add a framebuffer: %w", unix.EINVAL)
 	}
 	prime := fb.Handles[0] >= primeHandles && (fb.Format == scanoutFormat || fb.Format == fourcc.NV12)

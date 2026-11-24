@@ -23,6 +23,18 @@ func TestTheProbeTurnsAScanoutBufferIntoAFramebufferAndRemovesIt(t *testing.T) {
 	}
 }
 
+func TestTheProbeBufferIsAsLargeAsTheCardsSmallestFramebuffer(t *testing.T) {
+	a := fakeStack(&blitWorld{memory: map[int]*soft.Buffer{}}, "card", true)
+	dev := a.dev.kernel.(*fakeDevice)
+	dev.minSize = [2]uint32{32, 24}
+	if err := a.probe(); err != nil {
+		t.Fatalf("a card whose framebuffers are at least 32x24 (virtio-gpu's are 32x32) refused the probe: %v", err)
+	}
+	if dev.fbs != 1 {
+		t.Fatalf("the probe created %d framebuffers, want 1", dev.fbs)
+	}
+}
+
 func TestTheProbeFailsWhenTheCardTakesNoFramebufferFromAScanoutBuffer(t *testing.T) {
 	a := fakeStack(&blitWorld{memory: map[int]*soft.Buffer{}}, "card", true)
 	a.dev.kernel.(*fakeDevice).refuseAddFB = true

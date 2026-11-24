@@ -40,6 +40,12 @@ func renderFiles(dev device) ([]func() (*kdrm.Device, error), error) {
 	return []func() (*kdrm.Device, error){func() (*kdrm.Device, error) { return kdrm.Open(node) }, second}, nil
 }
 
+func cardFilesFirst(dev device) ([]func() (*kdrm.Device, error), error) {
+	files, err := renderFiles(dev)
+	slices.Reverse(files)
+	return files, err
+}
+
 func secondFileOn(dev device) (*kdrm.Device, error) {
 	reopened, err := kdrm.Open(dev.Path())
 	if err != nil {
