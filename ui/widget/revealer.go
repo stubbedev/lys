@@ -45,7 +45,14 @@ const (
 	RevealSwingRight
 	// RevealGenie sucks the child toward the revealer's genie edge.
 	RevealGenie
+	// RevealLift scales the child about its center from LiftScale while
+	// it fades in, and back up to LiftScale while it fades out: a
+	// dismissed surface lifts away toward the viewer.
+	RevealLift
 )
+
+// LiftScale is the scale a lifting surface leaves at and enters from.
+const LiftScale = 1.08
 
 // Edge is one side of a rect.
 type Edge uint8
@@ -265,7 +272,7 @@ func (r *Revealer) setProgress(p float64) {
 		return
 	}
 	r.progress = p
-	if r.fadesSurface(p) && r.drawnOpaque {
+	if r.fadesSurface(p) && r.drawnOpaque && r.shownTransition() == RevealFade {
 		return
 	}
 	if r.collapses() {
@@ -281,11 +288,19 @@ func (r *Revealer) setProgress(p float64) {
 }
 
 func (r *Revealer) fadesSurface(alpha float64) bool {
-	if r.shownTransition() != RevealFade {
+	if !r.fadesThroughSurface() {
 		return false
 	}
 	r.surfaceAlpha = fadeSurface(r, alpha)
 	return r.surfaceAlpha
+}
+
+// fadesThroughSurface reports a transition whose opacity a surface's
+// root can hand to the compositor: the fade, and the lift, whose scale
+// it still paints.
+func (r *Revealer) fadesThroughSurface() bool {
+	t := r.shownTransition()
+	return t == RevealFade || t == RevealLift
 }
 
 // Measure is the child's size, nothing for a hidden RevealNone, and
@@ -370,7 +385,7 @@ func (r *Revealer) shows() bool {
 func (r *Revealer) Paint(cv *render.Canvas) {
 	r.painted = render.Rect{}
 	r.drawnOpaque = false
-	if r.surfaceAlpha && r.shownTransition() != RevealFade {
+	if r.surfaceAlpha && !r.fadesThroughSurface() {
 		fadeSurface(r, 1)
 		r.surfaceAlpha = false
 	}
@@ -397,7 +412,7 @@ func (r *Revealer) Paint(cv *render.Canvas) {
 	}
 	p := r.progress
 	switch {
-	case r.shownTransition() == RevealNone || p >= 1 || r.surfaceAlpha:
+	case r.shownTransition() == RevealNone || p >= 1 || (r.surfaceAlpha && r.shownTransition() == RevealFade):
 		if p >= 1 && r.landLayer(cv, layer) {
 			layer = nil
 		} else {
@@ -422,6 +437,9 @@ func (r *Revealer) Paint(cv *render.Canvas) {
 	}
 	dev := cv.MapRect(r.bounds)
 	m, alpha, clip := r.transform(dev, p)
+	if r.surfaceAlpha {
+		alpha = 1
+	}
 	if r.reuses(cv, layer, dev) {
 		r.layer = layer
 	} else {
@@ -487,6 +505,9 @@ func (r *Revealer) transform(b render.Rect, p float64) (m render.Affine, alpha f
 		return render.Scale(s, s).About(cx, cy), p, false
 	case RevealZoom:
 		return render.Scale(t, t).About(cx, cy), p, false
+	case RevealLift:
+		s := LiftScale + float64((1-LiftScale)*t)
+		return render.Scale(s, s).About(cx, cy), p, false
 	case RevealRotate:
 		s := 0.3 + float64(0.7*t)
 		return render.Rotate((1-t)*180).Mul(render.Scale(s, s)).About(cx, cy), p, false

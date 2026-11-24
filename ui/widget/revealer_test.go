@@ -765,3 +765,103 @@ func TestRevealerRootFadeInFromHiddenPaintsItsChildOnce(t *testing.T) {
 		t.Errorf("surface alphas %v, want a run from 0 to 1", *alphas)
 	}
 }
+
+func TestRevealerLiftLeavesEnlargingWhileItFades(t *testing.T) {
+	c := pinAnimClock(t)
+	r, _ := revealerAt(t, c, RevealLift)
+	r.SetDuration(0)
+	r.SetRevealed(true)
+	r.SetDuration(100 * time.Millisecond)
+	b := r.bounds
+	lastScale, lastAlpha := 0.0, 2.0
+	for p := 1.0; p >= 0; p -= 0.05 {
+		m, alpha, clip := r.transform(b, p)
+		got := m.MapBounds(b)
+		scale := float64(got.W) / float64(b.W)
+		if clip || scale < lastScale || alpha > lastAlpha {
+			t.Fatalf("at %v: scale %v after %v, alpha %v after %v, clip %v", p, scale, lastScale, alpha, lastAlpha, clip)
+		}
+		lastScale, lastAlpha = scale, alpha
+	}
+	if m, alpha, _ := r.transform(b, 0); m.MapBounds(b) != (render.Rect{X: 18, Y: 19, W: 44, H: 22}) || alpha != 0 {
+		t.Errorf("hidden: %v at alpha %v, want LiftScale about the center, transparent", m.MapBounds(b), alpha)
+	}
+	if m, alpha, _ := r.transform(b, 1); m.MapBounds(b) != b || alpha != 1 {
+		t.Errorf("at rest: %v at alpha %v", m.MapBounds(b), alpha)
+	}
+
+	r.SetRevealed(false)
+	advance(c, 50*time.Millisecond)
+	cv := paintReveal(r)
+	if got := lit(cv, render.Rect{X: 0, Y: 0, W: 80, H: 20}); got == 0 {
+		t.Error("a lifting exit drew nothing above its slot")
+	}
+	if red := redAt(cv, 40, 30); red == 0 || red == 255 {
+		t.Errorf("mid-exit red %d, want part faded", red)
+	}
+	c.drive()
+	if got := lit(paintReveal(r), render.Rect{W: 80, H: 60}); got != 0 {
+		t.Errorf("a landed lift still draws %d px", got)
+	}
+}
+
+func TestRevealerLiftUnderReducedMotionOnlyFades(t *testing.T) {
+	t.Cleanup(func() { SetReducedMotion(false) })
+	SetReducedMotion(true)
+	c := pinAnimClock(t)
+	r, _ := revealerAt(t, c, RevealLift)
+	r.SetDuration(0)
+	r.SetRevealed(true)
+	r.SetDuration(100 * time.Millisecond)
+	r.SetRevealed(false)
+	advance(c, 50*time.Millisecond)
+	cv := paintReveal(r)
+	if got := lit(cv, render.Rect{X: 0, Y: 0, W: 80, H: 20}); got != 0 {
+		t.Errorf("a reduced lift drew %d px outside its slot", got)
+	}
+	if red := redAt(cv, 40, 30); red == 0 || red == 255 {
+		t.Errorf("mid-exit red %d, want part faded", red)
+	}
+}
+
+func TestRevealerLiftAtItsSurfaceRootFadesTheSurfaceAndScalesTheChild(t *testing.T) {
+	c := pinAnimClock(t)
+	r, _ := revealerAt(t, c, RevealLift)
+	alphas := surfaceFadeFor(t, r)
+	r.SetDuration(0)
+	r.SetRevealed(true)
+	r.SetDuration(100 * time.Millisecond)
+	paintReveal(r)
+	CollectDamage(r)
+	*alphas = nil
+
+	r.SetRevealed(false)
+	advance(c, 50*time.Millisecond)
+	cv := paintReveal(r)
+	if got := lit(cv, render.Rect{X: 0, Y: 0, W: 80, H: 20}); got == 0 {
+		t.Error("a lifting exit at its surface root drew nothing above its slot")
+	}
+	if red := redAt(cv, 40, 30); red != 255 {
+		t.Errorf("mid-exit red %d, want the paint opaque with the surface carrying the fade", red)
+	}
+	driveFrames(c, r)
+	if n := len(*alphas); n < 3 || (*alphas)[n-1] != 0 {
+		t.Fatalf("surface alphas %v, want a run ending at 0", *alphas)
+	}
+	for i := 1; i < len(*alphas); i++ {
+		if (*alphas)[i] > (*alphas)[i-1] {
+			t.Fatalf("surface alphas %v rise during a lift out", *alphas)
+		}
+	}
+
+	*alphas = nil
+	r.SetRevealed(true)
+	advance(c, 50*time.Millisecond)
+	if got := lit(paintReveal(r), render.Rect{X: 0, Y: 0, W: 80, H: 20}); got == 0 {
+		t.Error("a lift back in from hidden at its surface root drew nothing past its slot")
+	}
+	driveFrames(c, r)
+	if n := len(*alphas); n == 0 || (*alphas)[n-1] != 1 {
+		t.Errorf("surface alphas %v, want a run ending at 1", *alphas)
+	}
+}
