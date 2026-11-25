@@ -467,3 +467,25 @@ func TestTheConnectedNetworkShowsItsSignal(t *testing.T) {
 		}
 	}
 }
+
+// A connection without an address yet read "Connected to Home ·", the
+// separator before an address it did not have; with one, the address
+// follows it.
+func TestAConnectionReadsItsAddressOnlyOnceItHasOne(t *testing.T) {
+	st := homeNets().state
+	if got := wifiDetail(st); strings.Contains(got, "·") || !strings.Contains(got, "Home") {
+		t.Errorf("no address yet: %q", got)
+	}
+	st.snap.WifiIP4 = "192.168.1.20"
+	if got := wifiDetail(st); !strings.Contains(got, "Home") || !strings.Contains(got, "· \u2068192.168.1.20") {
+		t.Errorf("addressed: %q", got)
+	}
+	wired := network.Snapshot{Wired: network.StatusConnected, WiredSpeed: 1000}
+	if got := wiredDetail(wired); strings.Contains(got, "·") || !strings.Contains(got, "1000") {
+		t.Errorf("wired without an address: %q", got)
+	}
+	wired.WiredIP4 = "10.0.0.2"
+	if got := wiredDetail(wired); !strings.Contains(got, "· \u206810.0.0.2") {
+		t.Errorf("wired addressed: %q", got)
+	}
+}

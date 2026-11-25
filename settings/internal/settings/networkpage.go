@@ -604,7 +604,7 @@ func wiredDetail(s network.Snapshot) string {
 	if s.Wired != network.StatusConnected {
 		return t.Get("settings-wifi-wired-down")
 	}
-	return t.Get("settings-wifi-wired-up", i18n.Str("speed", strconv.FormatUint(uint64(s.WiredSpeed), 10)), i18n.Str("address", s.WiredIP4))
+	return addressed(t, "settings-wifi-wired-up", s.WiredIP4, i18n.Str("speed", strconv.FormatUint(uint64(s.WiredSpeed), 10)))
 }
 
 func wifiDetail(st netState) string {
@@ -615,7 +615,16 @@ func wifiDetail(st netState) string {
 	case st.active == "":
 		return t.Get("settings-wifi-not-connected")
 	}
-	return t.Get("settings-wifi-connected-to", i18n.Str("name", st.active), i18n.Str("address", st.snap.WifiIP4))
+	return addressed(t, "settings-wifi-connected-to", st.snap.WifiIP4, i18n.Str("name", st.active))
+}
+
+// addressed is the status message key with the connection's address,
+// or its -unaddressed form while the connection has none yet.
+func addressed(t *i18n.Loader, key, address string, args ...i18n.Arg) string {
+	if address == "" {
+		return t.Get(key+"-unaddressed", args...)
+	}
+	return t.Get(key, append(args, i18n.Str("address", address))...)
 }
 
 // activeAccessPoint is the strongest access point of the network
