@@ -344,6 +344,28 @@ func TestOpenMultipleAnswersEveryFile(t *testing.T) {
 	}
 }
 
+// A breadcrumb longer than crumbMaxChars characters keeps what fits and
+// ends in an ellipsis, cut between characters, not inside one; a short
+// one is shown whole.
+func TestALongBreadcrumbIsShortenedBetweenCharacters(t *testing.T) {
+	hs := newHarness(t, "")
+	long := filepath.Join(hs.root, "re\u0301sume\u0301s-and-many-more-letters")
+	if err := os.Mkdir(long, 0o755); err != nil {
+		t.Fatalf("make the folder %s: %v", long, err)
+	}
+	hs.open(t, OpenRequest{})
+	hs.do(func() { hs.c.goTo(long) })
+	hs.run(func() {
+		var got []string
+		for _, crumb := range treetest.WithClass(hs.cfg.Root, "file-chooser-crumb") {
+			got = append(got, widget.Describe(crumb).Name)
+		}
+		if want := []string{"Home", "re\u0301sume\u0301s-and-man…"}; !slices.Equal(got, want) {
+			t.Errorf("crumbs = %q, want %q", got, want)
+		}
+	})
+}
+
 func TestActivatingAFileOpensItAndAFolderEntersIt(t *testing.T) {
 	hs := newHarness(t, "")
 	got := hs.open(t, OpenRequest{})

@@ -340,6 +340,21 @@ func TestALineIsCutOnACharacterBoundary(t *testing.T) {
 	}
 }
 
+// A copied line is cut between the characters a reader sees: a family
+// emoji, a flag and an accented letter written with a combining mark
+// stay whole at the cut, never split into their code points.
+func TestALineIsCutBetweenWholeCharacters(t *testing.T) {
+	for _, tc := range []struct{ text, want string }{
+		{"ab👨‍👩‍👧‍👦cdef", "ab👨‍👩‍👧‍👦…"},
+		{"ab🇩🇰cdef", "ab🇩🇰…"},
+		{"abe\u0301cdef", "abe\u0301…"},
+	} {
+		if got, _ := entry(textMime, tc.text).line(4); got != tc.want {
+			t.Errorf("line(4) of %q = %q, want %q", tc.text, got, tc.want)
+		}
+	}
+}
+
 func TestOnlyTextHasALine(t *testing.T) {
 	for _, e := range []content{
 		entry(URIListMime, "file:///tmp/notes.txt\n"),

@@ -22,6 +22,7 @@ import (
 	"github.com/stubbedev/lys/lib/intconv"
 	"github.com/stubbedev/lys/lib/portaldialogs"
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/text"
 	"github.com/stubbedev/lys/lib/xkb"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/transfer"
@@ -1383,7 +1384,7 @@ func (c *Chooser) relist() {
 		if i > 0 {
 			u.crumbs.AppendAligned(c.label("›", "file-chooser-crumb-sep", css.DimLabel), false, widget.AlignCenter)
 		}
-		b, l := c.textButton(truncate(cr.Label, crumbMaxChars), "file-chooser-crumb", css.Ghost, nil)
+		b, l := c.textButton(text.Ellipsize(cr.Label, crumbMaxChars), "file-chooser-crumb", css.Ghost, nil)
 		b.AddClass(css.Small)
 		if cr.Current {
 			b.AddClass("current")
@@ -1433,15 +1434,6 @@ func (c *Chooser) selectedPath() string {
 		return e.Path
 	}
 	return ""
-}
-
-// truncate shortens s to n runes with an ellipsis.
-func truncate(s string, n int) string {
-	r := []rune(s)
-	if len(r) <= n {
-		return s
-	}
-	return string(r[:n-1]) + "…"
 }
 
 func (c *Chooser) goTo(dir string) {

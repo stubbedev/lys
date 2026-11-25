@@ -25,6 +25,7 @@ import (
 	"sync/atomic"
 	"unicode/utf8"
 
+	"github.com/stubbedev/lys/lib/text"
 	"github.com/stubbedev/lys/ui/transfer"
 	"github.com/stubbedev/memory-go"
 
@@ -264,8 +265,8 @@ func (c content) line(maxChars int) (string, bool) {
 	if kindOf(c.mime) != KindText {
 		return "", false
 	}
-	text, _ := c.text()
-	return truncateChars(strings.Join(strings.Fields(text), " "), maxChars), true
+	selected, _ := c.text()
+	return text.Ellipsize(strings.Join(strings.Fields(selected), " "), maxChars), true
 }
 
 // IsTextMime reports whether a mime type names plain text.
@@ -766,25 +767,6 @@ func (h *History) setDigest(id uint64, d Digest) {
 
 // Len reports how many entries are held.
 func (h *History) Len() int { return len(h.entries) }
-
-// truncateChars cuts to maxChars characters, not bytes: a byte-wise
-// cut would split a multi-byte character.
-func truncateChars(text string, maxChars int) string {
-	if utf8.RuneCountInString(text) <= maxChars {
-		return text
-	}
-	keep := max(maxChars-1, 0)
-	var b strings.Builder
-	for _, r := range text {
-		if keep == 0 {
-			break
-		}
-		b.WriteRune(r)
-		keep--
-	}
-	b.WriteRune('…')
-	return b.String()
-}
 
 // ErrEntryGone is an entry that left the history since a row was drawn
 // for it.

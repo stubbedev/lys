@@ -867,6 +867,7 @@
       "desktop/offheap",
       "desktop/service/clipboard/historybudget",
       "lib/atomicfile",
+      "lib/text",
       "ui/app",
       "ui/transfer"
     ],
@@ -9991,6 +9992,7 @@
       "lib/intconv",
       "lib/portaldialogs",
       "lib/render",
+      "lib/text",
       "lib/third_party/godbus",
       "lib/xdg",
       "lib/xkb",
