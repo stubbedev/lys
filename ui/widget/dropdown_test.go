@@ -652,3 +652,23 @@ func TestDropdownShrinksAndEllipsizes(t *testing.T) {
 		t.Errorf("short dropdown %dpx wide, want its natural %d", got, nat)
 	}
 }
+
+// A dropdown's list reads in the dropdown's own text size, not a fixed
+// one of the list's: a 12px dropdown's items are 12px, as its face
+// is (#324).
+func TestADropdownsListReadsInItsSize(t *testing.T) {
+	for _, px := range []float64{12, 16} {
+		dd, host := hostDropdown(t, NewDropdown(testFace(t), px, []string{"Always show", "Only while recording"}, 0))
+		dd.Open()
+		var sizes []float64
+		walkTree(host.popovers[0], func(w Widget, _ int) {
+			if l, ok := w.(*Label); ok && (l.Text() == "Always show" || l.Text() == "Only while recording") {
+				sizes = append(sizes, l.SizePx())
+			}
+		})
+		if len(sizes) != 2 || sizes[0] != px || sizes[1] != px {
+			t.Errorf("a %vpx dropdown lists its items at %v", px, sizes)
+		}
+		dd.Close()
+	}
+}

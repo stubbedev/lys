@@ -40,7 +40,7 @@ func shownLabels(c *Command) []string {
 // and its group first, and shows the empty state when nothing matches.
 func TestCommandFilters(t *testing.T) {
 	var picked []string
-	c := NewCommand(goldenFace(t), "Type a command...", testCommandGroups(&picked)...)
+	c := NewCommand(goldenFace(t), 14, "Type a command...", testCommandGroups(&picked)...)
 	c.SetQuery("se")
 	if got, want := shownLabels(c), []string{"Settings", "Search Emoji"}; !slices.Equal(got, want) {
 		t.Errorf("se shows %v, want %v", got, want)
@@ -63,7 +63,7 @@ func TestCommandFilters(t *testing.T) {
 // the focus from the entry.
 func TestCommandKeyboardAndClick(t *testing.T) {
 	var picked []string
-	c := NewCommand(goldenFace(t), "", testCommandGroups(&picked)...)
+	c := NewCommand(goldenFace(t), 14, "", testCommandGroups(&picked)...)
 	arrangeTree(t, c, 400, 400)
 	r := &Router{Root: c}
 	r.SetFocus(c.FocusTarget())
@@ -99,7 +99,7 @@ func TestGoldenCommand(t *testing.T) {
 			SetTheme(tc.th)
 			defer SetTheme(nil)
 			var picked []string
-			c := NewCommand(face, "Type a command or search...", testCommandGroups(&picked)...)
+			c := NewCommand(face, 14, "Type a command or search...", testCommandGroups(&picked)...)
 			c.AddClass(css.Card)
 			NewGolden(t, c, "command-"+tc.name, goldenTheme(tc.th), goldenFrame(360, 330))
 		})
@@ -115,7 +115,7 @@ func TestCommandRowsAreCentered(t *testing.T) {
 	t.Cleanup(func() { SetTheme(prev) })
 	SetTheme(DarkTheme())
 	var picked []string
-	c := NewCommand(testFace(t), "Search...", testCommandGroups(&picked)...)
+	c := NewCommand(testFace(t), 14, "Search...", testCommandGroups(&picked)...)
 	arrangeTree(t, c, 320, 400)
 	cb, row := c.Bounds(), c.rows[0].Bounds()
 	if left, right := row.X-cb.X, cb.X+cb.W-(row.X+row.W); left != right {
@@ -133,7 +133,7 @@ func TestCommandListOverflowingRowsAreCentered(t *testing.T) {
 	for i := range items {
 		items[i] = CommandItem{Label: fmt.Sprintf("Item %d", i)}
 	}
-	c := NewCommandList(testFace(t), CommandGroup{Heading: "Many", Items: items})
+	c := NewCommandList(testFace(t), 14, CommandGroup{Heading: "Many", Items: items})
 	arrangeTree(t, c, 320, 400)
 	if r := c.scroll.AxisRange(Column); !r.Overflows() {
 		t.Fatal("the list does not overflow")
@@ -150,7 +150,7 @@ func TestCommandListOverflowingRowsAreCentered(t *testing.T) {
 func TestCommandList(t *testing.T) {
 	pinAnimClock(t)
 	var picked []string
-	c := NewCommandList(goldenFace(t), testCommandGroups(&picked)...)
+	c := NewCommandList(goldenFace(t), 14, testCommandGroups(&picked)...)
 	arrangeTree(t, c, 400, 400)
 	if c.input != nil || len(c.column.Children()) != 1 {
 		t.Fatal("the list has a search row")
@@ -193,7 +193,7 @@ func TestCommandList(t *testing.T) {
 // its entry.
 func TestCommandSearchKeepsTheFocusInTheEntry(t *testing.T) {
 	var picked []string
-	c := NewCommand(goldenFace(t), "", testCommandGroups(&picked)...)
+	c := NewCommand(goldenFace(t), 14, "", testCommandGroups(&picked)...)
 	arrangeTree(t, c, 400, 400)
 	if isFocusable(c) {
 		t.Error("a searching command takes the focus itself")
@@ -222,7 +222,7 @@ func manyGroups(n, m int) []CommandGroup {
 // list (#322).
 func TestCommandListGrowsToItsRows(t *testing.T) {
 	face := testFace(t)
-	list := NewCommandList(face, manyGroups(6, 6)...)
+	list := NewCommandList(face, 14, manyGroups(6, 6)...)
 	tall := SizeWithin(list, Size{W: 300, H: 4000})
 	if tall.H <= commandListHeight {
 		t.Fatalf("pick list measured %dpx tall under a 4000px ceiling, want its rows' height past %d", tall.H, commandListHeight)
@@ -231,7 +231,7 @@ func TestCommandListGrowsToItsRows(t *testing.T) {
 	if list.scroll.AxisRange(Column).Overflows() {
 		t.Error("a pick list at its natural height scrolls")
 	}
-	short := NewCommandList(face, manyGroups(6, 6)...)
+	short := NewCommandList(face, 14, manyGroups(6, 6)...)
 	if h := SizeWithin(short, Size{W: 300, H: 200}).H; h != 200 {
 		t.Errorf("pick list under a 200px ceiling measured %d, want 200", h)
 	}
@@ -240,7 +240,7 @@ func TestCommandListGrowsToItsRows(t *testing.T) {
 		t.Error("a pick list held to 200px does not scroll")
 	}
 	var picked []string
-	palette := NewCommand(face, "Search...", append(testCommandGroups(&picked), manyGroups(6, 6)...)...)
+	palette := NewCommand(face, 14, "Search...", append(testCommandGroups(&picked), manyGroups(6, 6)...)...)
 	if h := SizeWithin(palette.scroll, Size{W: 300, H: 4000}).H; h != commandListHeight {
 		t.Errorf("search palette list %dpx tall, want cmdk's %d", h, commandListHeight)
 	}
@@ -256,7 +256,7 @@ func TestCommandListRevealsTheHighlightWithItsHeading(t *testing.T) {
 		h, row  int
 		heading bool
 	}{{200, 4 * 6, true}, {200, 4*6 + 3, true}, {200, 4*6 + 4, false}, {40, 4 * 6, false}} {
-		list := NewCommandList(face, manyGroups(6, 6)...)
+		list := NewCommandList(face, 14, manyGroups(6, 6)...)
 		list.highlightRow(tc.row)
 		for range 3 {
 			arrangeTree(t, list, 300, tc.h)

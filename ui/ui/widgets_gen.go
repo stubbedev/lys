@@ -2792,14 +2792,18 @@ type CommandBuilder struct {
 // Command builds a widget.Command with widget.NewCommand.
 func Command(placeholder string, groups ...widget.CommandGroup) *CommandBuilder {
 	b := &CommandBuilder{}
-	b.init(b, func(s *Scope) *widget.Command { return widget.NewCommand(s.face(b.face), placeholder, groups...) })
+	b.init(b, func(s *Scope) *widget.Command {
+		return widget.NewCommand(s.face(b.face), s.size(b.size), placeholder, groups...)
+	})
 	return b
 }
 
 // CommandList builds a widget.Command with widget.NewCommandList.
 func CommandList(groups ...widget.CommandGroup) *CommandBuilder {
 	b := &CommandBuilder{}
-	b.init(b, func(s *Scope) *widget.Command { return widget.NewCommandList(s.face(b.face), groups...) })
+	b.init(b, func(s *Scope) *widget.Command {
+		return widget.NewCommandList(s.face(b.face), s.size(b.size), groups...)
+	})
 	return b
 }
 

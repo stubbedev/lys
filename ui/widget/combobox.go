@@ -25,6 +25,9 @@ type ComboboxOption[T comparable] struct {
 // comboboxWidth is the trigger's and list's least width.
 const comboboxWidth = 200
 
+// comboboxTextSize is a Combobox's trigger and list text size.
+const comboboxTextSize = 14
+
 // comboboxSearch is the list's search placeholder until one is set.
 const comboboxSearch = "Search..."
 
@@ -34,6 +37,7 @@ const comboboxSearch = "Search..."
 // left in place, a check trailing each option the combobox holds.
 type comboboxList struct {
 	face   render.Font
+	sizePx float64
 	search string
 	checks []*Box
 	close  func()
@@ -49,7 +53,7 @@ func openComboboxList[T comparable](l *comboboxList, from Widget, anchor Boundse
 		l.checks = append(l.checks, check)
 		item := CommandItem{Label: o.Label, Trailing: check, OnSelect: func() { pick(o.Value) }}
 		if o.Detail != "" {
-			detail := NewLabel(l.face, commandTextSize, o.Detail, 0)
+			detail := NewLabel(l.face, l.sizePx, o.Detail, 0)
 			detail.AddClass("detail")
 			trailing := NewBox(Row, 8, 0)
 			trailing.AppendAligned(detail, false, AlignCenter)
@@ -63,7 +67,7 @@ func openComboboxList[T comparable](l *comboboxList, from Widget, anchor Boundse
 		}
 		groups[at].Items = append(groups[at].Items, item)
 	}
-	list := NewCommand(l.face, l.search, groups...)
+	list := NewCommand(l.face, l.sizePx, l.search, groups...)
 	list.SetSizeRequest(max(comboboxWidth, width), 0)
 	l.close = OpenPopover(from, anchor, list, PopoverOptions{Focus: list.FocusTarget(), Gap: PopoverGap, OnClosed: func() { l.close = nil }})
 }
@@ -121,9 +125,9 @@ type Combobox[T comparable] struct {
 // placeholder while nothing is selected.
 func NewCombobox[T comparable](face render.Font, placeholder string, options ...ComboboxOption[T]) *Combobox[T] {
 	face = requireFace("widget.NewCombobox", face)
-	c := &Combobox[T]{placeholder: placeholder, options: slices.Clone(options), list: comboboxList{face: face, search: comboboxSearch}}
+	c := &Combobox[T]{placeholder: placeholder, options: slices.Clone(options), list: comboboxList{face: face, sizePx: comboboxTextSize, search: comboboxSearch}}
 	c.SetElement("combobox")
-	c.text = NewLabel(face, 14, "", 0)
+	c.text = NewLabel(face, comboboxTextSize, "", 0)
 	row := NewBox(Row, 8, 0)
 	row.AppendAligned(c.text, true, AlignCenter)
 	row.AppendAligned(newDropdownArrow(), false, AlignCenter)
@@ -238,7 +242,7 @@ type ComboboxEntry struct {
 // that offers options.
 func NewComboboxEntry(face render.Font, sizePx float64, options ...ComboboxOption[string]) *ComboboxEntry {
 	face = requireFace("widget.NewComboboxEntry", face)
-	c := &ComboboxEntry{options: slices.Clone(options), list: comboboxList{face: face, search: comboboxSearch}}
+	c := &ComboboxEntry{options: slices.Clone(options), list: comboboxList{face: face, sizePx: sizePx, search: comboboxSearch}}
 	c.SetElement("combobox")
 	c.entry = NewEntry(face, sizePx, 0)
 	c.entry.setSlots(c.entry.leading, c.entry.leadingClick, newDropdownArrow(), func(Point) { c.Open() })

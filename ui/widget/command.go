@@ -61,9 +61,6 @@ func (r *commandRow) ClickAt(Point) {
 // commandListHeight caps the list, cmdk's max-h-[300px].
 const commandListHeight = 300
 
-// commandTextSize is the item text size.
-const commandTextSize = 14
-
 // Command is a searchable list of actions: a search entry over grouped
 // items that filters them fuzzily as the query is typed, ranking the
 // best matches first within each group and the groups by their best,
@@ -79,6 +76,8 @@ const commandTextSize = 14
 type Command struct {
 	composite
 	face render.Font
+	// sizePx is the search's, the items' and the empty state's text size.
+	sizePx float64
 	// input is the search entry, nil for a list without a search row.
 	input     *Entry
 	column    *Box
@@ -96,10 +95,10 @@ type Command struct {
 }
 
 // NewCommand returns a command over groups whose search entry shows
-// placeholder.
-func NewCommand(face render.Font, placeholder string, groups ...CommandGroup) *Command {
-	c := &Command{face: requireFace("widget.NewCommand", face)}
-	c.input = NewEntry(c.face, commandTextSize, 0)
+// placeholder, its text painted with face at sizePx.
+func NewCommand(face render.Font, sizePx float64, placeholder string, groups ...CommandGroup) *Command {
+	c := &Command{face: requireFace("widget.NewCommand", face), sizePx: sizePx}
+	c.input = NewEntry(c.face, sizePx, 0)
 	c.input.SetPlaceholder(placeholder)
 	c.input.OnChanged = func(string) { c.filter() }
 	search := NewBox(Row, 8, 0)
@@ -111,10 +110,11 @@ func NewCommand(face render.Font, placeholder string, groups ...CommandGroup) *C
 	return c
 }
 
-// NewCommandList returns a command over groups with no search row: a
-// pick list, such as a dropdown's, that is its own focus target.
-func NewCommandList(face render.Font, groups ...CommandGroup) *Command {
-	c := &Command{face: requireFace("widget.NewCommandList", face)}
+// NewCommandList returns a command over groups with no search row, its
+// items painted with face at sizePx: a pick list, such as a dropdown's,
+// that is its own focus target and reads in its trigger's size.
+func NewCommandList(face render.Font, sizePx float64, groups ...CommandGroup) *Command {
+	c := &Command{face: requireFace("widget.NewCommandList", face), sizePx: sizePx}
 	c.build(nil, groups)
 	return c
 }
@@ -123,7 +123,7 @@ func NewCommandList(face render.Font, groups ...CommandGroup) *Command {
 func (c *Command) build(search *Box, groups []CommandGroup) {
 	c.column, c.list = NewBox(Column, 0, 0), NewBox(Column, 0, 4)
 	c.SetElement("command")
-	c.empty = NewLabel(c.face, commandTextSize, "No results found.", 0)
+	c.empty = NewLabel(c.face, c.sizePx, "No results found.", 0)
 	c.empty.AddClass("empty")
 	c.empty.SetAlignment(render.AlignCenter)
 	c.scroll = NewScroll(c.list)
@@ -167,7 +167,7 @@ func (c *Command) newRow(g int, it CommandItem) *commandRow {
 	if it.Icon != nil {
 		r.AppendAligned(it.Icon, false, AlignCenter)
 	}
-	r.AppendAligned(NewLabel(c.face, commandTextSize, it.Label, 0), true, AlignCenter)
+	r.AppendAligned(NewLabel(c.face, c.sizePx, it.Label, 0), true, AlignCenter)
 	if it.Shortcut != "" {
 		sc := NewLabel(c.face, 12, it.Shortcut, 0)
 		sc.AddClass("shortcut")

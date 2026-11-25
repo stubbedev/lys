@@ -256,7 +256,7 @@ func (d *Dropdown) newList() *Command {
 		}
 		row++
 	}
-	list := NewCommandList(d.face, groups...)
+	list := NewCommandList(d.face, d.sizePx, groups...)
 	list.highlightRow(highlight)
 	return list
 }
