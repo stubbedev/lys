@@ -43,6 +43,7 @@ type Item struct {
 	stack   *Box
 	row     *Box
 	text    *Box
+	head    *Box
 	media   *Box
 	title   *Label
 	desc    *Label
@@ -98,19 +99,20 @@ const itemGap = 8
 // title alone.
 func NewItem(face render.Font, title, description string) *Item {
 	face = requireFace("widget.NewItem", face)
-	it := &Item{stack: NewBox(Column, itemGap, 0), row: NewBox(Row, 16, 0), text: NewBox(Column, 4, 0), actions: NewBox(Row, 8, 0)}
+	it := &Item{stack: NewBox(Column, itemGap, 0), row: NewBox(Row, 16, 0), text: NewBox(Column, 4, 0), head: NewBox(Column, 4, 0), actions: NewBox(Row, 8, 0)}
 	it.SetElement("item")
 	it.title = NewLabel(face, 14, title, 0)
 	it.title.AddClass("title")
 	it.title.SetWrap(true)
-	it.text.Append(it.title, false)
+	it.head.Append(it.title, false)
 	it.desc = NewLabel(face, 14, description, 0)
 	it.desc.AddClass("description")
 	it.desc.SetWrap(true)
 	it.desc.SetVisible(description != "")
-	it.text.Append(it.desc, false)
+	it.head.Append(it.desc, false)
+	it.text.Append(it.head, false)
 	it.row.AppendAligned(it.text, true, AlignCenter)
-	it.row.AppendAligned(it.actions, false, AlignCenter)
+	it.row.AppendAligned(it.actions, false, AlignStart)
 	it.stack.Append(it.row, false)
 	it.initComposite(it, it.stack)
 	it.SetHExpand(true)
@@ -134,7 +136,24 @@ func (it *Item) SetMedia(w Widget, bare bool) {
 		it.media.SetSizeRequest(32, 32)
 	}
 	it.media.Append(NewSpacer(0, 0), true).AppendAligned(w, false, AlignCenter).Append(NewSpacer(0, 0), true)
-	it.row.InsertAligned(0, it.media, false, AlignCenter)
+	it.row.InsertAligned(0, it.media, false, AlignStart)
+}
+
+// Arrange lays the item out, then centres the media and the actions on
+// the title and the description, the row's head: a detail opening
+// under them leaves them where they stood (a row's start when they are
+// the taller).
+func (it *Item) Arrange(r render.Rect) {
+	it.composite.Arrange(r)
+	head, row := it.head.Bounds(), it.row.Bounds()
+	for _, w := range [...]*Box{it.media, it.actions} {
+		if w == nil || !IsVisible(w) {
+			continue
+		}
+		b := w.Bounds()
+		b.Y = max(row.Y, head.Y+(head.H-b.H)/2)
+		w.Arrange(b)
+	}
 }
 
 // SetTitle replaces the title.
@@ -194,14 +213,15 @@ func (it *Item) SetTitleClass(name string, on bool) { it.title.SetClass(name, on
 func (it *Item) AddTitleSuffix(w Widget) {
 	if it.titleLine == nil {
 		it.titleLine = NewBox(Row, 8, 0)
-		it.text.Remove(it.title)
+		it.head.Remove(it.title)
 		it.titleLine.AppendAligned(it.title, false, AlignCenter)
-		it.text.InsertAligned(0, it.titleLine, false, AlignFill)
+		it.head.InsertAligned(0, it.titleLine, false, AlignFill)
 	}
 	it.titleLine.AppendAligned(w, false, AlignCenter)
 }
 
-// AddDetail adds w (a problem line, a note) under the description.
+// AddDetail adds w (a problem line, a note) under the description,
+// outside the head the media and the actions centre on.
 func (it *Item) AddDetail(w Widget) { it.text.Append(w, false) }
 
 // SetControl places the row's control by fit, after the actions and

@@ -470,3 +470,36 @@ func TestItemValuesShareOneWidthAcrossTheirGroup(t *testing.T) {
 		t.Errorf("after a control left, the pair's reading is %dpx wide, want %d", w, own)
 	}
 }
+
+// An Item's media and actions stand centred on its title and
+// description: a detail shown under them leaves them where they were,
+// beside the head rather than centred on the whole block (#265).
+func TestAnItemsDetailLeavesItsMediaAndActionsBesideTheHead(t *testing.T) {
+	face := testFace(t)
+	it := NewItem(face, "The permission store cannot be read", "Who uses the microphone")
+	icon := NewSpacer(16, 16)
+	it.SetMedia(icon, false)
+	action := NewSpacer(24, 24)
+	it.AddAction(action)
+	detail := NewLabel(face, 14, "line one\nline two\nline three\nline four", 0)
+	detail.SetVisible(false)
+	it.AddDetail(detail)
+	lay := func() (media, act render.Rect) {
+		h := SizeWithin(it, Size{W: 400, H: 1000}).H
+		it.Arrange(render.Rect{W: 400, H: h})
+		return icon.Bounds(), action.Bounds()
+	}
+	media, act := lay()
+	head := it.head.Bounds()
+	if c := head.Y + head.H/2; abs(act.Y+act.H/2-c) > 1 || abs(media.Y+media.H/2-c) > 1 {
+		t.Fatalf("collapsed: media %v, action %v, want both centred on the head %v", media, act, head)
+	}
+	detail.SetVisible(true)
+	openMedia, openAct := lay()
+	if openMedia != media || openAct != act {
+		t.Errorf("with the detail shown the media moved %v -> %v and the action %v -> %v", media, openMedia, act, openAct)
+	}
+	if it.text.Bounds().H <= head.H+20 {
+		t.Fatalf("the detail did not open under the head (text %v)", it.text.Bounds())
+	}
+}
