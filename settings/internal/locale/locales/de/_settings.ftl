@@ -1270,6 +1270,7 @@ settings-video-height = { $n }p
 settings-bar-placement-present = In Ihrer Leiste
 settings-bar-placement-absent = Nicht in Ihrer Leiste
 settings-bar-placement-add = Zur Leiste hinzufügen
+settings-bar-placement-arrange = Leiste anordnen
 settings-bar-placement-failed = Es wurde nicht zur Leiste hinzugefügt
 settings-bar-preview = Leistenvorschau
 settings-bar-preview-none = Das Leistenlayout zeigt keine Leiste auf allen Bildschirmen

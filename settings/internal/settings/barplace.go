@@ -37,12 +37,16 @@ func withModuleAdded(layouts []config.BarLayout, m config.BarModule) []config.Ba
 	return out
 }
 
+// placementRow says whether a module is in the bar, with Add to Bar
+// while it is not and, once it is, the way to the Bar page that arranges
+// and removes it.
 type placementRow struct {
 	*widget.Box
 	k       *kit
 	module  barModuleOf
 	status  *widget.Label
 	add     *widget.Button
+	arrange *widget.Button
 	problem *inlineState
 }
 
@@ -55,6 +59,10 @@ func newPlacementRow(k *kit, module barModuleOf) *placementRow {
 	line := gapBox(widget.Row)
 	line.AppendAligned(p.status, true, widget.AlignCenter)
 	line.AppendAligned(p.add, false, widget.AlignCenter)
+	if arrange, ok := k.pageButton(locale.T().Get("settings-bar-placement-arrange"), barPageID); ok {
+		p.arrange = arrange
+		line.AppendAligned(p.arrange, false, widget.AlignCenter)
+	}
 	p.Append(line, false)
 	p.Append(p.problem, false)
 	p.refresh()
@@ -86,6 +94,9 @@ func (p *placementRow) refresh() {
 	}
 	p.status.SetText(locale.T().Get(key))
 	p.add.SetVisible(!in)
+	if p.arrange != nil {
+		p.arrange.SetVisible(in)
+	}
 }
 
 // barItemHead is what a bar item opens with: whether its module is in

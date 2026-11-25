@@ -72,6 +72,29 @@ func TestAModuleTheBarRefusesIsSaidNotAdded(t *testing.T) {
 	}
 }
 
+// After Add to Bar, "In your bar" stood alone, nothing at its end where
+// Add to Bar had been. A module in the bar offers the Bar page, which
+// arranges and removes it, in Add to Bar's place.
+func TestAModuleInTheBarOffersTheBarPage(t *testing.T) {
+	k := testKit(t, "bar:\n  layout:\n    - monitor: \"*\"\n      right: [clock]\n")
+	k.nav = layout(k.store.svc.Config(), bothParts)
+	var opened []string
+	k.openPage = func(id string) { opened = append(opened, id) }
+	p := newPlacementRow(k, only(config.ModuleWeather))
+	arrange := treetest.Button(t, p, locale.T().Get("settings-bar-placement-arrange"))
+	if arrange.Visible() {
+		t.Fatal("a module outside the bar offers to arrange the bar")
+	}
+	p.add.OnClick()
+	if !arrange.Visible() {
+		t.Fatal("after adding, nothing stands beside In your bar")
+	}
+	arrange.OnClick()
+	if !slices.Equal(opened, []string{barPageID}) {
+		t.Errorf("arranging opened %q", opened)
+	}
+}
+
 func containsLabel(w widget.Widget, text string) bool {
 	return slices.Contains(treetest.Labels(w), text)
 }

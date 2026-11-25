@@ -1273,6 +1273,7 @@ settings-video-height = { $n }p
 settings-bar-placement-present = Dans votre barre
 settings-bar-placement-absent = Pas dans votre barre
 settings-bar-placement-add = Ajouter à la barre
+settings-bar-placement-arrange = Organiser la barre
 settings-bar-placement-failed = Il n'a pas été ajouté à la barre
 settings-bar-preview = Aperçu de la barre
 settings-bar-preview-none = La disposition de la barre n’affiche aucune barre sur tous les écrans

@@ -1260,6 +1260,7 @@ settings-video-height = { $n }p
 settings-bar-placement-present = In je balk
 settings-bar-placement-absent = Niet in je balk
 settings-bar-placement-add = Aan balk toevoegen
+settings-bar-placement-arrange = Balk indelen
 settings-bar-placement-failed = Het is niet aan de balk toegevoegd
 settings-bar-preview = Voorbeeld van de balk
 settings-bar-preview-none = De balkindeling toont geen balk op alle beeldschermen

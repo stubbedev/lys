@@ -1270,6 +1270,7 @@ settings-video-height = { $n }p
 settings-bar-placement-present = In your bar
 settings-bar-placement-absent = Not in your bar
 settings-bar-placement-add = Add to Bar
+settings-bar-placement-arrange = Arrange the Bar
 settings-bar-placement-failed = It was not added to the bar
 settings-bar-preview = Bar preview
 settings-bar-preview-none = The bar layout shows no bar on every monitor
