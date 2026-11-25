@@ -187,11 +187,10 @@ func TestEnumSelectLabelsAndWrites(t *testing.T) {
 	if v := k.store.value("osd.position"); v != "top-left" {
 		t.Errorf("value = %v, want top-left", v)
 	}
-	// An enum without labels shows its raw values.
 	vpn, _ := config.Field("modules.network.vpn-show")
-	raw := newChoiceControl(k, pathSlot(k.store, "modules.network.vpn-show"), enumChoice(vpn))
-	if selection(raw) != "auto" {
-		t.Errorf("unlabeled selection %q, want the raw value", selection(raw))
+	named := newChoiceControl(k, pathSlot(k.store, "modules.network.vpn-show"), enumChoice(vpn))
+	if got, want := selection(named), locale.T().Get("enum-vpn-show-auto"); got != want {
+		t.Errorf("Show VPN State reads %q, want its label %q", got, want)
 	}
 	// A refresh does not write.
 	k.store.reset("osd.position")

@@ -71,10 +71,6 @@ func enumTypes(visit func(t reflect.Type)) {
 	walk(typeOf[Config]())
 }
 
-// unlabeledEnums have no variant labels: their options show as raw
-// values.
-var unlabeledEnums = []string{"VpnShow"}
-
 // Every enum value has its label in the settings FTL, and no override
 // is dead.
 func TestEveryEnumValueHasItsLabel(t *testing.T) {
@@ -84,7 +80,6 @@ func TestEveryEnumValueHasItsLabel(t *testing.T) {
 	enumTypes(func(et reflect.Type) {
 		enums++
 		name := schemaName(et)
-		unlabeled := slices.Contains(unlabeledEnums, name)
 		for _, v := range enumVariants(et) {
 			key := EnumLabelKey(name, v)
 			if _, ok := enumIdents[name+"."+v]; ok {
@@ -93,8 +88,8 @@ func TestEveryEnumValueHasItsLabel(t *testing.T) {
 					t.Errorf("%s.%s: the override is not needed", name, v)
 				}
 			}
-			if has := loader.Has(key); has == unlabeled {
-				t.Errorf("%s.%s: %s in the FTL = %v, want %v", name, v, key, has, !unlabeled)
+			if !loader.Has(key) {
+				t.Errorf("%s.%s: no %s in the FTL", name, v, key)
 			}
 		}
 	})

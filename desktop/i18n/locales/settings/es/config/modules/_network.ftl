@@ -83,3 +83,7 @@ settings-modules-network-scroll-up = Desplazar hacia arriba
 
 settings-modules-network-scroll-down = Desplazar hacia abajo
     .description = Orden de shell al desplazar hacia abajo
+
+enum-vpn-show-auto = Si hay una VPN configurada
+enum-vpn-show-always = Siempre
+enum-vpn-show-never = Nunca
