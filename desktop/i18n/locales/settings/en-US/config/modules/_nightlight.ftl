@@ -30,7 +30,7 @@ settings-modules-nightlight-icon-on = Icon On
     .description = Icon when filter is enabled
 
 settings-modules-nightlight-format = Format
-    .description = Label format string. Placeholders: {"{{ status }}"}, {"{{ temp }}"}, {"{{ gamma }}"}, {"{{ config_temp }}"}, {"{{ config_gamma }}"}
+    .description = What the label shows, built from the item's values and text of your own
 
 settings-modules-nightlight-border-show = Show Border
     .description = Display border around button
@@ -57,7 +57,7 @@ settings-modules-nightlight-label-color = Label Color
     .description = Label text color
 
 settings-modules-nightlight-label-max-length = Label Max Length
-    .description = Max characters before truncation
+    .description = Characters the label shows before it is cut short; 0 never cuts it
 
 settings-modules-nightlight-button-bg-color = Button Background
     .description = Button background color

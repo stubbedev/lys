@@ -39,11 +39,11 @@ settings-modules-dashboard-temp-error = Temp Error
     .description = CPU temperature (°C) at which the temp ring turns error
 
 settings-modules-dashboard-user-session-actions = Session Actions
-    .description = Session actions shown in the dashboard (lock, log-out, reboot, power-off)
+    .description = The session buttons the dashboard shows, in their order
 
 ## SessionAction variants
 enum-session-action-lock = Lock
 enum-session-action-logout = Log Out
 enum-session-action-suspend = Suspend
 enum-session-action-reboot = Reboot
-enum-session-action-power-off = Power Off
+enum-session-action-power-off = Shut Down

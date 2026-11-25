@@ -3,4 +3,4 @@
 ## Configuration des mots de passe
 
 settings-passwords-reveal-reprompt-minutes = Redemander après
-    .description = Minutes après lesquelles afficher un secret redemande le mot de passe de sa collection ; 0 ne redemande jamais
+    .description = Combien de temps après la saisie du mot de passe d'une collection l'affichage de ses secrets le redemande

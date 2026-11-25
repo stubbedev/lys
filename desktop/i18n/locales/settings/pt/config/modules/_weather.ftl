@@ -8,7 +8,7 @@ settings-modules-weather-units = Unidade de temperatura
     .description = Métrico (Celsius) ou imperial (Fahrenheit)
 
 settings-modules-weather-format = Formato da etiqueta
-    .description = Cadeia de formato com marcadores: {"{{ temp }}"}, {"{{ temp_unit }}"}, {"{{ feels_like }}"}, {"{{ condition }}"}, {"{{ humidity }}"}, {"{{ wind_speed }}"}, {"{{ wind_dir }}"}, {"{{ high }}"}, {"{{ low }}"}
+    .description = O que a etiqueta mostra, composto pelos valores do item e por texto próprio
 
 settings-modules-weather-refresh-interval = Intervalo de atualização
     .description = Intervalo de consulta em segundos
@@ -47,7 +47,7 @@ settings-modules-weather-label-color = Cor da etiqueta
     .description = Cor do texto da etiqueta
 
 settings-modules-weather-label-max-length = Comprimento máximo da etiqueta
-    .description = Máximo de caracteres antes de truncar
+    .description = Caracteres que a etiqueta mostra antes de ser cortada; 0 nunca a corta
 
 settings-modules-weather-button-bg-color = Fundo do botão
     .description = Cor de fundo do botão

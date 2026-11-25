@@ -3,7 +3,7 @@
 ## Mail Module Configuration
 
 settings-modules-mail-format = Formato
-    .description = Stringa di formato dell'etichetta. Segnaposto: {"{{ count }}"}
+    .description = Ciò che mostra l'etichetta, composto dai valori dell'elemento e da testo libero
 
 settings-modules-mail-query = Query
     .description = Query di ricerca notmuch di cui viene mostrato il numero di corrispondenze (ad es. tag:unread)
@@ -26,13 +26,13 @@ settings-modules-mail-notify = Notifica la nuova posta
     .description = Invia una notifica desktop per ogni nuovo messaggio (mittente, oggetto, icona del provider)
 
 settings-modules-mail-notify-summary = Riepilogo della notifica
-    .description = Testo del riepilogo. Segnaposto: {"{{ sender }}"}, {"{{ subject }}"}, {"{{ count }}"} (totale), {"{{ new }}"} (nuovi)
+    .description = Il titolo della notifica, composto da mittente, oggetto e conteggi della nuova posta e da testo libero
 
 settings-modules-mail-notify-body = Corpo della notifica
-    .description = Testo del corpo. Segnaposto: {"{{ sender }}"}, {"{{ subject }}"}, {"{{ count }}"} (totale), {"{{ new }}"} (nuovi)
+    .description = Il testo della notifica, composto da mittente, oggetto e conteggi della nuova posta e da testo libero
 
 settings-modules-mail-notify-click = Comando al clic sulla notifica
-    .description = Comando di shell eseguito al clic su una notifica di nuova posta. Segnaposto: {"{{ thread }}"} (thread notmuch)
+    .description = Comando eseguito al clic su una notifica di nuova posta; può ricevere il thread del messaggio
 
 settings-modules-mail-icon-name = Icona
     .description = Icona del modulo
@@ -62,7 +62,7 @@ settings-modules-mail-label-color = Colore dell'etichetta
     .description = Colore del testo dell'etichetta
 
 settings-modules-mail-label-max-length = Lunghezza massima dell'etichetta
-    .description = Numero massimo di caratteri prima del troncamento
+    .description = Caratteri mostrati dall'etichetta prima che venga troncata; 0 non la tronca mai
 
 settings-modules-mail-button-bg-color = Sfondo del pulsante
     .description = Colore di sfondo del pulsante

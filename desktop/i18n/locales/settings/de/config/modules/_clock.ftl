@@ -3,7 +3,7 @@
 ## Clock Module Configuration
 
 settings-modules-clock-format = Uhrzeitformat
-    .description = Anzeigeformat der Uhrzeit in strftime-Syntax
+    .description = Wie die Uhrzeit in der Leiste aussieht
 
 settings-modules-clock-icon-name = Symbolname
     .description = Symbolischer Symbolname
@@ -33,7 +33,7 @@ settings-modules-clock-label-color = Beschriftungsfarbe
     .description = Textfarbe der Beschriftung
 
 settings-modules-clock-label-max-length = Maximale Beschriftungslänge
-    .description = Maximale Zeichenanzahl vor dem Kürzen
+    .description = Zeichen, die die Beschriftung zeigt, bevor sie gekürzt wird; 0 kürzt nie
 
 settings-modules-clock-button-bg-color = Schaltflächenhintergrund
     .description = Hintergrundfarbe der Schaltfläche

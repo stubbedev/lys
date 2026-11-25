@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
@@ -145,5 +146,40 @@ func TestAnEmptiedWorldClockSaysSoAndPreviewsNothing(t *testing.T) {
 	e.cards.removeItem(0)
 	if e.preview.Visible() || !e.cards.end.empty.Visible() {
 		t.Errorf("emptied, the preview shows %v and the empty line %v", e.preview.Visible(), e.cards.end.empty.Visible())
+	}
+}
+
+// A first clock starts with no text ahead of it, so the preview and the
+// bar read "Preview: 09:41", not with a space before the time; a later
+// one is set apart from the one before. Each card's fields share one
+// column, the text before saying what it is for while empty.
+func TestAFirstWorldClockStartsFlushAndItsFieldsShareAColumn(t *testing.T) {
+	k := testKit(t, "modules:\n  world-clock:\n    format: \"\"\n")
+	e := fieldControl(k, k.store, field(worldClockPath, worldClockRow)).(*worldClockEditor)
+	e.cards.end.add.OnClick()
+	if v := k.store.value(worldClockPath); v != "{{ tz('UTC', '%H:%M') }}" {
+		t.Fatalf("a first clock stored %q", v)
+	}
+	if want := locale.T().Get("settings-format-preview", i18n.Str("text", formatSampleTime.UTC().Format("15:04"))); e.preview.Text() != want {
+		t.Errorf("the preview reads %q, want %q", e.preview.Text(), want)
+	}
+	e.cards.end.add.OnClick()
+	if v := k.store.value(worldClockPath); v != "{{ tz('UTC', '%H:%M') }} {{ tz('UTC', '%H:%M') }}" {
+		t.Fatalf("a second clock stored %q", v)
+	}
+	root := widget.NewBox(widget.Column, 0, 0)
+	root.Append(e, false)
+	styledLayOut(k, root, 900)
+	card := e.cards.cards[0]
+	var xs []int
+	for _, c := range card.controls {
+		xs = append(xs, boundsOf(c).X)
+	}
+	if xs[0] != xs[1] || xs[1] != xs[2] {
+		t.Errorf("the zone, text before and time start at x %v, not in one column", xs)
+	}
+	before, ok := card.controls[1].(*liveText)
+	if !ok || before.Placeholder() != locale.T().Get("settings-world-clock-before-placeholder") {
+		t.Errorf("the text before is a %T with placeholder %q", card.controls[1], before.Placeholder())
 	}
 }

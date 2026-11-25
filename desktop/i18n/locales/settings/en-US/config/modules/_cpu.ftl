@@ -9,7 +9,7 @@ settings-modules-cpu-temp-sensor = Temperature Sensor
     .description = The sensor the temperature is read from: picked automatically, or one by its label, such as Tctl
 
 settings-modules-cpu-format = Display Format
-    .description = Format string with placeholders: {"{{ percent }}"}, {"{{ freq_ghz }}"}, {"{{ avg_freq_ghz }}"}, {"{{ max_freq_ghz }}"}, {"{{ temp_c }}"}, {"{{ temp_f }}"}
+    .description = What the label shows, built from the item's values and text of your own
 
 settings-modules-cpu-icon-name = Icon Name
     .description = Symbolic icon name
@@ -39,7 +39,7 @@ settings-modules-cpu-label-color = Label Color
     .description = Label text color
 
 settings-modules-cpu-label-max-length = Label Max Length
-    .description = Max characters before truncation
+    .description = Characters the label shows before it is cut short; 0 never cuts it
 
 settings-modules-cpu-button-bg-color = Button Background
     .description = Button background color

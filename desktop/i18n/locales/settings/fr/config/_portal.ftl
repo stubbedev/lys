@@ -1,5 +1,5 @@
 settings-portal-screen-cast-reminder-days = Rappel de partage d'écran
-    .description = Nombre de jours pendant lesquels une application peut partager votre écran sans demander avant de redemander s'il faut continuer à l'autoriser ; 0 ne redemande jamais
+    .description = Combien de temps une application peut partager votre écran avant qu'on vous redemande s'il faut continuer à l'autoriser
 
 settings-portal-lockdown-disable-printing = Bloquer l'impression
     .description = Refuser les demandes d'impression de toutes les applications

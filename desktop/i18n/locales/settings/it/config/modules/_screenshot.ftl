@@ -6,10 +6,10 @@ settings-modules-screenshot-icon = Icona
     .description = Icona del pulsante della barra
 
 settings-modules-screenshot-output-directory = Cartella di destinazione
-    .description = Dove vengono salvate le schermate (vuoto usa la cartella XDG Immagini)
+    .description = Dove vengono salvate le schermate; Cartella predefinita è la cartella Immagini
 
 settings-modules-screenshot-filename-format = Formato del nome file
-    .description = Nome del file salvato, con gli specificatori strftime; {"{"}counter{"}"} numera i file 1, 2, 3 e così via
+    .description = Il nome che riceve un file salvato, da data, ora e un numero che conta 1, 2, 3 e così via
 
 settings-modules-screenshot-copy-to-clipboard = Copia negli appunti
     .description = Copia l'immagine acquisita negli appunti
@@ -45,7 +45,7 @@ settings-modules-screenshot-label-color = Colore dell'etichetta
     .description = Colore del testo dell'etichetta
 
 settings-modules-screenshot-label-max-length = Lunghezza massima dell'etichetta
-    .description = Numero massimo di caratteri prima del troncamento
+    .description = Caratteri mostrati dall'etichetta prima che venga troncata; 0 non la tronca mai
 
 settings-modules-screenshot-button-bg-color = Sfondo del pulsante
     .description = Colore di sfondo del pulsante
@@ -66,7 +66,7 @@ settings-modules-screenshot-scroll-down = Scorrimento in basso
     .description = Comando della shell allo scorrimento in basso
 
 settings-modules-screenshot-thumbnail-ms = Durata della miniatura
-    .description = Per quanto resta visibile la miniatura fluttuante dopo un'acquisizione, in millisecondi (0 la disattiva)
+    .description = Per quanto resta visibile la miniatura fluttuante dopo un'acquisizione
 
 settings-modules-screenshot-thumbnail-position = Posizione della miniatura
     .description = Angolo dello schermo in cui si trova la miniatura fluttuante

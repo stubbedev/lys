@@ -6,25 +6,25 @@ settings-login-background-mode = Background
     .description = How the login screen background is drawn: solid color, an image, or the wallpaper
 
 settings-login-background-image = Background Image
-    .description = Image file shown behind the login screen when background is set to "image"
+    .description = Picture shown behind the login screen when the background is Image
 
 settings-login-background-color = Background Color
-    .description = Fill color shown behind the login screen when background is set to "color"
+    .description = Fill color behind the login screen when the background is Color
 
 settings-login-blur = Blur
-    .description = Gaussian blur radius applied to image/wallpaper backgrounds (0 = none)
+    .description = How strongly a picture or wallpaper background is blurred; 0 keeps it sharp
 
 settings-login-show-clock = Show Clock
     .description = Display a clock above the credential prompt
 
 settings-login-clock-format = Clock Format
-    .description = strftime format for the login-screen time (e.g. %H:%M)
+    .description = How the time on the login screen reads
 
 settings-login-date-format = Date Format
-    .description = strftime format for the login-screen date (e.g. %A, %B %-d)
+    .description = How the date on the login screen reads
 
 settings-login-max-attempts = Max Attempts
-    .description = Failed password attempts on the lock screen before input is blocked (0 = unlimited). Screen stays locked.
+    .description = Wrong passwords on the lock screen before typing is blocked, the screen still locked; 0 sets no limit
 
 settings-login-show-failed-attempts = Show Failed Attempts
     .description = Show the failed-attempt count on the lock screen
@@ -36,13 +36,13 @@ settings-login-lock-lock-on-start = Lock on Start
     .description = Lock the session as soon as the shell starts, for autologin setups where the lock screen is the access gate
 
 settings-login-lock-grace-period-ms = Grace Period
-    .description = Window after locking during which the screen unlocks without a password (0 = always require it)
+    .description = How long after locking the screen still unlocks without a password
 
 settings-login-lock-blank-timeout-ms = Blank Timeout
-    .description = Black out the lock screen after this idle time (0 = never; visual only — DPMS is the idle daemon's job)
+    .description = Black out the lock screen after it sits idle this long; when the displays turn off is set on the Idle & Power page
 
 settings-login-lock-pam-service = PAM Service
-    .description = PAM service used to verify the password (e.g. system-auth, login)
+    .description = PAM service that checks the password, such as system-auth or login
 
 settings-login-lock-show-media = Show Now Playing
     .description = Show the playing track with play/pause and next on the lock screen (local cover art only)
@@ -69,7 +69,7 @@ settings-login-greeter-match-cursor = Match My Cursor
     .description = Show the cursor the last session to log in showed, instead of the theme and size set here
 
 settings-login-greeter-cursor-theme = Cursor Theme
-    .description = Xcursor theme used on the login screen (empty = system default)
+    .description = Cursor theme on the login screen; left unset, the system's own
 
 settings-login-greeter-cursor-size = Cursor Size
     .description = Logical cursor size; scaled per display so HiDPI outputs get a sharp cursor

@@ -8,7 +8,7 @@ settings-modules-weather-units = Temperatuureenheid
     .description = Metrisch (Celsius) of imperiaal (Fahrenheit)
 
 settings-modules-weather-format = Labelformaat
-    .description = Formaattekenreeks met plaatshouders: {"{{ temp }}"}, {"{{ temp_unit }}"}, {"{{ feels_like }}"}, {"{{ condition }}"}, {"{{ humidity }}"}, {"{{ wind_speed }}"}, {"{{ wind_dir }}"}, {"{{ high }}"}, {"{{ low }}"}
+    .description = Wat het label toont, opgebouwd uit de waarden van het item en eigen tekst
 
 settings-modules-weather-refresh-interval = Vernieuwingsinterval
     .description = Pollinginterval in seconden
@@ -47,7 +47,7 @@ settings-modules-weather-label-color = Labelkleur
     .description = Tekstkleur van het label
 
 settings-modules-weather-label-max-length = Maximale labellengte
-    .description = Maximaal aantal tekens voordat wordt afgekapt
+    .description = Tekens die het label toont voordat het wordt ingekort; 0 kort het nooit in
 
 settings-modules-weather-button-bg-color = Knopachtergrond
     .description = Achtergrondkleur van de knop

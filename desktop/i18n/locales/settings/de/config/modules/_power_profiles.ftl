@@ -3,7 +3,7 @@
 ## Power Profiles Module Configuration
 
 settings-modules-power-profiles-format = Format
-    .description = Formatzeichenkette der Beschriftung. Platzhalter: {"{{ profile }}"}
+    .description = Was die Beschriftung zeigt, zusammengesetzt aus den Werten des Elements und eigenem Text
 
 settings-modules-power-profiles-icon-power-saver = Symbol für Energiesparen
     .description = Symbol, solange das Profil Energiesparen aktiv ist
@@ -48,7 +48,7 @@ settings-modules-power-profiles-label-color = Beschriftungsfarbe
     .description = Textfarbe der Beschriftung (pro aktivem Profil überschrieben)
 
 settings-modules-power-profiles-label-max-length = Maximale Beschriftungslänge
-    .description = Maximale Zeichenanzahl vor dem Kürzen
+    .description = Zeichen, die die Beschriftung zeigt, bevor sie gekürzt wird; 0 kürzt nie
 
 settings-modules-power-profiles-button-bg-color = Schaltflächenhintergrund
     .description = Hintergrundfarbe der Schaltfläche

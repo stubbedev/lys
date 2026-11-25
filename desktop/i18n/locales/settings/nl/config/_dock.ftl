@@ -2,7 +2,7 @@ settings-dock-enabled = Dock tonen
     .description = Het dock met vastgezette toepassingen en geopende vensters tonen
 
 settings-dock-monitors = Monitoren
-    .description = Uitvoerapparaten die het dock tonen, op connectornaam, of * voor elk uitvoerapparaat
+    .description = Schermen die het dock tonen
 
 settings-dock-edge = Rand
     .description = Schermrand waaraan het dock staat
@@ -23,7 +23,7 @@ settings-dock-hover-zoom-size = Zoomgrootte
     .description = Grootte waartoe het pictogram onder de aanwijzer groeit
 
 settings-dock-pinned = Vastgezette toepassingen
-    .description = Toepassingen die altijd op het dock staan, op desktop-entry-ID
+    .description = Toepassingen die altijd op het dock staan, open of niet
 
 settings-dock-icon = Terugvalpictogram
     .description = Pictogram voor een toepassing zonder pictogram in de desktop-entry

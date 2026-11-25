@@ -9,7 +9,7 @@ settings-modules-netstat-interface = Interface
     .description = The network interface to watch: the active one, picked automatically, or one by name
 
 settings-modules-netstat-format = Display Format
-    .description = Format string with placeholders: {"{{ down_kib }}"}, {"{{ down_mib }}"}, {"{{ down_gib }}"}, {"{{ down_auto }}"}, {"{{ up_kib }}"}, {"{{ up_mib }}"}, {"{{ up_gib }}"}, {"{{ up_auto }}"}, {"{{ interface }}"}
+    .description = What the label shows, built from the item's values and text of your own
 
 settings-modules-netstat-icon-name = Icon Name
     .description = Symbolic icon name
@@ -39,7 +39,7 @@ settings-modules-netstat-label-color = Label Color
     .description = Label text color
 
 settings-modules-netstat-label-max-length = Label Max Length
-    .description = Max characters before truncation
+    .description = Characters the label shows before it is cut short; 0 never cuts it
 
 settings-modules-netstat-button-bg-color = Button Background
     .description = Button background color

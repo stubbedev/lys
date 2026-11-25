@@ -5,7 +5,7 @@ settings-modules-cpu-temp-sensor = Sensor de temperatura
     .description = O sensor de onde se lê a temperatura: escolhido automaticamente, ou um pela sua etiqueta, como Tctl
 
 settings-modules-cpu-format = Formato de apresentação
-    .description = Cadeia de formato com marcadores: {"{{ percent }}"}, {"{{ freq_ghz }}"}, {"{{ avg_freq_ghz }}"}, {"{{ max_freq_ghz }}"}, {"{{ temp_c }}"}, {"{{ temp_f }}"}
+    .description = O que a etiqueta mostra, composto pelos valores do item e por texto próprio
 
 settings-modules-cpu-icon-name = Nome do ícone
     .description = Nome do ícone simbólico
@@ -35,7 +35,7 @@ settings-modules-cpu-label-color = Cor da etiqueta
     .description = Cor do texto da etiqueta
 
 settings-modules-cpu-label-max-length = Comprimento máximo da etiqueta
-    .description = Máximo de caracteres antes de truncar
+    .description = Caracteres que a etiqueta mostra antes de ser cortada; 0 nunca a corta
 
 settings-modules-cpu-button-bg-color = Fundo do botão
     .description = Cor de fundo do botão

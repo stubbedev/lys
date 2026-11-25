@@ -857,9 +857,9 @@ func thresholdBound(k *kit, s slot) control {
 	return newOptionalNumber(k, s, 0, maxThreshold, 1, thresholdFallback, 0)
 }
 
-// thresholdTitle is card_title: the range the entry covers, or its
-// number.
-func thresholdTitle(item map[string]any, number int) string {
+// thresholdTitle is card_title: the range the entry covers, every
+// value for an entry bound on neither side.
+func thresholdTitle(item map[string]any, _ int) string {
 	num := func(v any) (string, bool) {
 		var f float64
 		switch n := v.(type) {
@@ -885,7 +885,7 @@ func thresholdTitle(item map[string]any, number int) string {
 	case hasBelow:
 		return "≤ " + below
 	}
-	return locale.T().Get("settings-threshold-card-title") + " " + strconv.Itoa(number)
+	return locale.T().Get("settings-threshold-card-any")
 }
 
 // liveText is an entry writing as it is typed.

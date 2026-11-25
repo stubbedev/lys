@@ -6,7 +6,7 @@ settings-modules-ram-poll-interval-ms = Intervalle d'interrogation
     .description = Intervalle d'interrogation en millisecondes
 
 settings-modules-ram-format = Format d'affichage
-    .description = Chaîne de format avec espaces réservés : {"{{ percent }}"}, {"{{ used_gib }}"}, {"{{ total_gib }}"}, {"{{ available_gib }}"}, {"{{ swap_percent }}"}, {"{{ swap_used_gib }}"}, {"{{ swap_total_gib }}"}
+    .description = Ce qu'affiche le libellé, composé des valeurs de l'élément et de texte libre
 
 settings-modules-ram-icon-name = Nom de l'icône
     .description = Nom d'icône symbolique
@@ -36,7 +36,7 @@ settings-modules-ram-label-color = Couleur du libellé
     .description = Couleur du texte du libellé
 
 settings-modules-ram-label-max-length = Longueur max. du libellé
-    .description = Nombre maximal de caractères avant troncature
+    .description = Caractères affichés par le libellé avant qu'il soit tronqué ; 0 ne le tronque jamais
 
 settings-modules-ram-button-bg-color = Arrière-plan du bouton
     .description = Couleur d'arrière-plan du bouton

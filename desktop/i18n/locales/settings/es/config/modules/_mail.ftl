@@ -3,7 +3,7 @@
 ## Mail Module Configuration
 
 settings-modules-mail-format = Formato
-    .description = Cadena de formato de la etiqueta. Marcadores: {"{{ count }}"}
+    .description = Lo que muestra la etiqueta, compuesto por los valores del elemento y texto propio
 
 settings-modules-mail-query = Consulta
     .description = Consulta de búsqueda de notmuch cuyo número de coincidencias se muestra (p. ej. tag:unread)
@@ -26,13 +26,13 @@ settings-modules-mail-notify = Notificar el correo nuevo
     .description = Lanza una notificación de escritorio por cada mensaje nuevo (remitente, asunto, icono del proveedor)
 
 settings-modules-mail-notify-summary = Resumen de la notificación
-    .description = Texto del resumen. Marcadores: {"{{ sender }}"}, {"{{ subject }}"}, {"{{ count }}"} (total), {"{{ new }}"} (nuevos)
+    .description = El título de la notificación, compuesto por el remitente, el asunto y los recuentos del correo nuevo y texto propio
 
 settings-modules-mail-notify-body = Cuerpo de la notificación
-    .description = Texto del cuerpo. Marcadores: {"{{ sender }}"}, {"{{ subject }}"}, {"{{ count }}"} (total), {"{{ new }}"} (nuevos)
+    .description = El texto de la notificación, compuesto por el remitente, el asunto y los recuentos del correo nuevo y texto propio
 
 settings-modules-mail-notify-click = Comando al pulsar la notificación
-    .description = Comando de shell que se ejecuta al pulsar una notificación de correo nuevo. Marcador: {"{{ thread }}"} (hilo de notmuch)
+    .description = Orden que se ejecuta al pulsar una notificación de correo nuevo; puede recibir el hilo del correo
 
 settings-modules-mail-icon-name = Icono
     .description = Icono del módulo
@@ -62,7 +62,7 @@ settings-modules-mail-label-color = Color de la etiqueta
     .description = Color del texto de la etiqueta
 
 settings-modules-mail-label-max-length = Longitud máxima de la etiqueta
-    .description = Máximo de caracteres antes de truncar
+    .description = Caracteres que muestra la etiqueta antes de recortarse; 0 no la recorta nunca
 
 settings-modules-mail-button-bg-color = Fondo del botón
     .description = Color de fondo del botón

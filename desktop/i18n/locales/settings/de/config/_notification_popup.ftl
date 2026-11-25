@@ -62,7 +62,7 @@ settings-modules-notifications-sounds = Töne
     .description = Welche Benachrichtigungen einen Ton abspielen; stumm bei „Nicht stören“, während der Bildschirmfreigabe und bei Stummschaltung
 
 settings-modules-notifications-sound-default = Standardton
-    .description = Name aus dem Klangthema, den eine Benachrichtigung ohne eigenen Ton abspielt
+    .description = Der Ton, den eine Benachrichtigung ohne eigenen Ton abspielt
 
 settings-modules-notifications-sound-mute-apps = Stumme Apps
     .description = Glob-Muster für App-Namen, deren Benachrichtigungen nie einen Ton abspielen

@@ -51,10 +51,10 @@ settings-modules-audio-label-color = Labelkleur
     .description = Tekstkleur van het label
 
 settings-modules-audio-format = Formaat
-    .description = Labelsjabloon (bijv. {"{{"} percent {"}}"} %)
+    .description = Wat het label toont, opgebouwd uit de waarden van het item en eigen tekst
 
 settings-modules-audio-label-max-length = Maximale labellengte
-    .description = Maximaal aantal tekens voordat wordt afgekapt
+    .description = Tekens die het label toont voordat het wordt ingekort; 0 kort het nooit in
 
 settings-modules-audio-button-bg-color = Knopachtergrond
     .description = Achtergrondkleur van de knop

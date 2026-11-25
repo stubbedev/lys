@@ -24,7 +24,7 @@ const (
 
 func clockHourFormat(cycle strftime.HourCycle) string {
 	if cycle == strftime.Hour12 {
-		return "%I %p"
+		return "%-I %p"
 	}
 	return "%H"
 }

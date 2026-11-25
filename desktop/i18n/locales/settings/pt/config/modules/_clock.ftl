@@ -1,5 +1,5 @@
 settings-modules-clock-format = Formato da hora
-    .description = Formato de apresentação da hora com a sintaxe strftime
+    .description = Como a hora aparece na barra
 
 settings-modules-clock-icon-name = Nome do ícone
     .description = Nome do ícone simbólico
@@ -29,7 +29,7 @@ settings-modules-clock-label-color = Cor da etiqueta
     .description = Cor do texto da etiqueta
 
 settings-modules-clock-label-max-length = Comprimento máximo da etiqueta
-    .description = Máximo de caracteres antes de truncar
+    .description = Caracteres que a etiqueta mostra antes de ser cortada; 0 nunca a corta
 
 settings-modules-clock-button-bg-color = Fundo do botão
     .description = Cor de fundo do botão

@@ -1189,7 +1189,7 @@ func TestThresholdCards(t *testing.T) {
 	c.local = append(c.local, c.spec.blank())
 	c.commit()
 	c.rebuild()
-	if len(c.cards) != 1 || c.cards[0].title.Text() != locale.T().Get("settings-threshold-card-title")+" 1" {
+	if len(c.cards) != 1 || c.cards[0].title.Text() != locale.T().Get("settings-threshold-card-any") {
 		t.Fatalf("new card titled %q", c.cards[0].title.Text())
 	}
 	below := c.cards[0].controls[1].(*optionalNumber)

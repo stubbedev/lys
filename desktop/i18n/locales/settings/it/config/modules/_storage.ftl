@@ -9,7 +9,7 @@ settings-modules-storage-mount-point = Dischi da mostrare
     .description = I dischi montati di cui l'elemento somma lo spazio; ne resta sempre uno scelto
 
 settings-modules-storage-format = Formato di visualizzazione
-    .description = Stringa di formato con i segnaposto: {"{{ percent }}"}, {"{{ used_tib }}"}, {"{{ used_gib }}"}, {"{{ used_mib }}"}, {"{{ used_auto }}"}, {"{{ total_tib }}"}, {"{{ total_gib }}"}, {"{{ total_mib }}"}, {"{{ total_auto }}"}, {"{{ free_tib }}"}, {"{{ free_gib }}"}, {"{{ free_mib }}"}, {"{{ free_auto }}"}, {"{{ filesystem }}"}
+    .description = Ciò che mostra l'etichetta, composto dai valori dell'elemento e da testo libero
 
 settings-modules-storage-icon-name = Nome dell'icona
     .description = Nome dell'icona simbolica
@@ -39,7 +39,7 @@ settings-modules-storage-label-color = Colore dell'etichetta
     .description = Colore del testo dell'etichetta
 
 settings-modules-storage-label-max-length = Lunghezza massima dell'etichetta
-    .description = Numero massimo di caratteri prima del troncamento
+    .description = Caratteri mostrati dall'etichetta prima che venga troncata; 0 non la tronca mai
 
 settings-modules-storage-button-bg-color = Sfondo del pulsante
     .description = Colore di sfondo del pulsante

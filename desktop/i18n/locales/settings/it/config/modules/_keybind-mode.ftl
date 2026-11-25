@@ -3,7 +3,7 @@
 ## Keybind Mode Module Configuration
 
 settings-modules-keybind-mode-format = Formato dell'etichetta
-    .description = Stringa di formato con i segnaposto: {"{{ mode }}"}
+    .description = Ciò che mostra l'etichetta, composto dai valori dell'elemento e da testo libero
 
 settings-modules-keybind-mode-icon-name = Nome dell'icona
     .description = Nome dell'icona simbolica
@@ -36,7 +36,7 @@ settings-modules-keybind-mode-label-color = Colore dell'etichetta
     .description = Colore del testo dell'etichetta
 
 settings-modules-keybind-mode-label-max-length = Lunghezza massima dell'etichetta
-    .description = Numero massimo di caratteri prima del troncamento (0 per disattivare)
+    .description = Caratteri mostrati dall'etichetta prima che venga troncata; 0 non la tronca mai
 
 settings-modules-keybind-mode-button-bg-color = Sfondo del pulsante
     .description = Colore di sfondo del pulsante

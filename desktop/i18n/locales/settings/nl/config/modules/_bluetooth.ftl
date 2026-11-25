@@ -35,7 +35,7 @@ settings-modules-bluetooth-label-color = Labelkleur
     .description = Tekstkleur van het label
 
 settings-modules-bluetooth-label-max-length = Maximale labellengte
-    .description = Maximaal aantal tekens voordat wordt afgekapt
+    .description = Tekens die het label toont voordat het wordt ingekort; 0 kort het nooit in
 
 settings-modules-bluetooth-button-bg-color = Knopachtergrond
     .description = Achtergrondkleur van de knop

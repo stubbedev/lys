@@ -1,5 +1,5 @@
 settings-modules-world-clock-format = Formato
-    .description = Cadeia de formato com blocos de fuso horário incorporados, com a sintaxe {"{"}timezone strftime{"}"}
+    .description = As horas que o item mostra, cada uma no seu fuso horário, com texto próprio entre elas
 
 settings-modules-world-clock-icon-name = Nome do ícone
     .description = Nome do ícone simbólico
@@ -29,7 +29,7 @@ settings-modules-world-clock-label-color = Cor da etiqueta
     .description = Cor do texto da etiqueta
 
 settings-modules-world-clock-label-max-length = Comprimento máximo da etiqueta
-    .description = Máximo de caracteres antes de truncar
+    .description = Caracteres que a etiqueta mostra antes de ser cortada; 0 nunca a corta
 
 settings-modules-world-clock-button-bg-color = Fundo do botão
     .description = Cor de fundo do botão

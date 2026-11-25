@@ -121,7 +121,7 @@ what it does, its group, its action as written or its keys.
 Each mode (`submaps`) follows the groups as one of its own, headed by its name
 and the chord that enters it, a recorder writing the bind `submap <name>`; a
 mode no bind enters says so. Its binds are listed under it and edited like any
-other. **Add a mode** asks for a name and the chord that enters it, and writes
+other. **Add mode** asks for a name and the chord that enters it, and writes
 the mode with `Escape` leading back out (`submap reset`) beside the bind
 entering it, in one change lys-wm checks first. A name already taken, or
 `reset` (which leaves every mode), is refused, as is a chord another bind holds.

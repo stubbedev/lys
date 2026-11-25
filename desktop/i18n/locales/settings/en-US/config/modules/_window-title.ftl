@@ -3,13 +3,13 @@
 ## Window Title Module Configuration
 
 settings-modules-window-title-format = Label Format
-    .description = Format string with placeholders: {"{{ title }}"}, {"{{ app }}"}
+    .description = What the label shows, built from the item's values and text of your own
 
 settings-modules-window-title-icon-name = Fallback Icon
     .description = Icon when no mapping matches
 
 settings-modules-window-title-icon-mappings = Icon Mappings
-    .description = Glob patterns to icon names (prefix with title: for title matching)
+    .description = The icon a window shows, matched by its app or its title
 
 settings-modules-window-title-border-show = Show Border
     .description = Display border around button
@@ -36,7 +36,7 @@ settings-modules-window-title-label-color = Label Color
     .description = Label text color
 
 settings-modules-window-title-label-max-length = Label Max Length
-    .description = Max characters before truncation (0 to disable)
+    .description = Characters the label shows before it is cut short; 0 never cuts it
 
 settings-modules-window-title-button-bg-color = Button Background
     .description = Button background color

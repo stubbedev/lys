@@ -3,7 +3,7 @@
 ## Keybind Mode Module Configuration
 
 settings-modules-keybind-mode-format = Label Format
-    .description = Format string with placeholders: {"{{ mode }}"}
+    .description = What the label shows, built from the item's values and text of your own
 
 settings-modules-keybind-mode-icon-name = Icon Name
     .description = Symbolic icon name
@@ -36,7 +36,7 @@ settings-modules-keybind-mode-label-color = Label Color
     .description = Label text color
 
 settings-modules-keybind-mode-label-max-length = Label Max Length
-    .description = Max characters before truncation (0 to disable)
+    .description = Characters the label shows before it is cut short; 0 never cuts it
 
 settings-modules-keybind-mode-button-bg-color = Button Background
     .description = Button background color

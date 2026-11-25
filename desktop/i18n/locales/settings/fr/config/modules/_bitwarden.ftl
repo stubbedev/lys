@@ -14,14 +14,14 @@ settings-modules-bitwarden-lock-with-session = Verrouiller avec la session
 settings-modules-bitwarden-unlock-with-session = Déverrouiller avec la session
     .description = Déverrouiller le coffre avec le mot de passe de l'écran de verrouillage, s'il est le mot de passe principal
 
-settings-modules-bitwarden-clipboard-clear = Vider le presse-papiers après (secondes)
-    .description = Effacer un secret copié après ce nombre de secondes, sauf si autre chose a été copié. 0 le laisse
+settings-modules-bitwarden-clipboard-clear = Vider le presse-papiers après
+    .description = Combien de temps un secret copié reste dans le presse-papiers, sauf si autre chose a été copié depuis
 
 settings-modules-bitwarden-network-folder = Dossier réseau
-    .description = Dossier du coffre dont les identifiants, nommés comme la connexion, répondent aux demandes de mot de passe Wi-Fi et VPN tant que le coffre est ouvert. Vide : aucun
+    .description = Dossier du coffre dont les identifiants, nommés comme la connexion, répondent aux demandes de mot de passe Wi-Fi et VPN tant que le coffre est ouvert ; avec Aucun, aucune demande n'obtient de réponse
 
 settings-modules-bitwarden-portal-folder = Dossier des secrets du portail
-    .description = Dossier du coffre où sont gardées les clés de trousseau des applications isolées, une fois chacune autorisée. Vide : trousseau seulement
+    .description = Dossier du coffre où sont gardées les clés de trousseau des applications isolées, une fois chacune autorisée ; avec Aucun, elles restent dans le trousseau seulement
 
 settings-modules-bitwarden-generator-passwords = Préréglages de mot de passe
     .description = Mots de passe aléatoires que le générateur du menu copie
@@ -35,7 +35,7 @@ enum-password-charset-digits = Chiffres (0-9)
 enum-password-charset-symbols = Symboles (!@#$%^&*)
 
 settings-modules-bitwarden-format = Format
-    .description = Chaîne de format du libellé. Espaces réservés : {"{{ count }}"} (éléments du coffre ouvert)
+    .description = Ce qu'affiche le libellé, composé des valeurs de l'élément et de texte libre
 
 settings-modules-bitwarden-icon-locked = Icône verrouillé
     .description = Icône lorsque le coffre est verrouillé ou déconnecté
@@ -68,7 +68,7 @@ settings-modules-bitwarden-label-color = Couleur du libellé
     .description = Couleur du texte du libellé
 
 settings-modules-bitwarden-label-max-length = Longueur max. du libellé
-    .description = Nombre max. de caractères avant troncature
+    .description = Caractères affichés par le libellé avant qu'il soit tronqué ; 0 ne le tronque jamais
 
 settings-modules-bitwarden-button-bg-color = Arrière-plan du bouton
     .description = Couleur d'arrière-plan du bouton

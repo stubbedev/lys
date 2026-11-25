@@ -6,7 +6,7 @@ settings-dock-enabled = Dock anzeigen
     .description = Das Dock mit angehefteten Apps und offenen Fenstern anzeigen
 
 settings-dock-monitors = Monitore
-    .description = Ausgaben, die das Dock zeigen, nach Anschlussname, oder * für alle Ausgaben
+    .description = Bildschirme, die das Dock zeigen
 
 settings-dock-edge = Rand
     .description = Bildschirmrand, an dem das Dock sitzt
@@ -27,7 +27,7 @@ settings-dock-hover-zoom-size = Zoomgröße
     .description = Größe, auf die das überfahrene App-Symbol wächst
 
 settings-dock-pinned = Angeheftete Apps
-    .description = Apps, die immer im Dock sind, nach Desktop-Eintrags-ID
+    .description = Apps, die immer im Dock sind, ob sie geöffnet sind oder nicht
 
 settings-dock-icon = Ersatzsymbol
     .description = Symbol für eine App ohne Symbol im Desktop-Eintrag

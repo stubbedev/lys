@@ -4,10 +4,10 @@ settings-osd-enabled = Attivato
     .description = Mostra gli indicatori a schermo per volume, luminosità, ecc.
 
 settings-osd-presets = Preset dei toast
-    .description = Toast riutilizzabili attivabili con lys-shell toast --preset <id>
+    .description = Toast salvati che una scorciatoia o uno script può mostrare per nome
 
 settings-osd-position = Posizione
-    .description = Dove appare l'OSD sullo schermo (ad es. top-center, bottom-right)
+    .description = Dove appare l'OSD sullo schermo
 
 settings-osd-duration = Durata
     .description = Per quanto resta visibile l'OSD prima di chiudersi automaticamente
@@ -28,7 +28,7 @@ settings-osd-text-align = Allineamento del testo
     .description = Allineamento orizzontale del contenuto di toast e interruttori dell'OSD
 
 settings-osd-media = In riproduzione
-    .description = Cambi di brano che mostrano l'OSD della riproduzione: su richiesta (tasti multimediali e lys-shell media next), sempre o mai
+    .description = Quali cambi di brano mostrano l'OSD della riproduzione: quelli su richiesta, dai tasti multimediali o da un comando, tutti o nessuno
 
 
 ## OsdPosition variants

@@ -39,7 +39,7 @@ settings-modules-dashboard-temp-error = Errore di temperatura
     .description = Temperatura della CPU (°C) alla quale l'anello della temperatura passa allo stato di errore
 
 settings-modules-dashboard-user-session-actions = Azioni di sessione
-    .description = Azioni di sessione mostrate nella dashboard (lock, log-out, reboot, power-off)
+    .description = I pulsanti di sessione mostrati nella dashboard, nel loro ordine
 
 ## SessionAction variants
 enum-session-action-lock = Blocca

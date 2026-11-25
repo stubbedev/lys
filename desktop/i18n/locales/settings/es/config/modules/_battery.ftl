@@ -36,7 +36,7 @@ settings-modules-battery-label-color = Color de la etiqueta
     .description = Color del texto de la etiqueta
 
 settings-modules-battery-label-max-length = Longitud máxima de la etiqueta
-    .description = Máximo de caracteres antes de truncar
+    .description = Caracteres que muestra la etiqueta antes de recortarse; 0 no la recorta nunca
 
 settings-modules-battery-button-bg-color = Fondo del botón
     .description = Color de fondo del botón
@@ -54,7 +54,7 @@ settings-modules-battery-scroll-down = Desplazar hacia abajo
     .description = Orden de shell al desplazar hacia abajo
 
 settings-modules-battery-format = Formato
-    .description = Plantilla de la etiqueta de la batería (p. ej. {"{{"} percent {"}}"} %)
+    .description = Lo que muestra la etiqueta, compuesto por los valores del elemento y texto propio
 
 settings-modules-battery-left-click = Clic izquierdo
     .description = Acción al hacer clic izquierdo

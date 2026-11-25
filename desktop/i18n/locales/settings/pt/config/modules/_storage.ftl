@@ -5,7 +5,7 @@ settings-modules-storage-mount-point = Discos a mostrar
     .description = Os discos montados cujo espaço o item soma; fica sempre um escolhido
 
 settings-modules-storage-format = Formato de apresentação
-    .description = Cadeia de formato com marcadores: {"{{ percent }}"}, {"{{ used_tib }}"}, {"{{ used_gib }}"}, {"{{ used_mib }}"}, {"{{ used_auto }}"}, {"{{ total_tib }}"}, {"{{ total_gib }}"}, {"{{ total_mib }}"}, {"{{ total_auto }}"}, {"{{ free_tib }}"}, {"{{ free_gib }}"}, {"{{ free_mib }}"}, {"{{ free_auto }}"}, {"{{ filesystem }}"}
+    .description = O que a etiqueta mostra, composto pelos valores do item e por texto próprio
 
 settings-modules-storage-icon-name = Nome do ícone
     .description = Nome do ícone simbólico
@@ -35,7 +35,7 @@ settings-modules-storage-label-color = Cor da etiqueta
     .description = Cor do texto da etiqueta
 
 settings-modules-storage-label-max-length = Comprimento máximo da etiqueta
-    .description = Máximo de caracteres antes de truncar
+    .description = Caracteres que a etiqueta mostra antes de ser cortada; 0 nunca a corta
 
 settings-modules-storage-button-bg-color = Fundo do botão
     .description = Cor de fundo do botão

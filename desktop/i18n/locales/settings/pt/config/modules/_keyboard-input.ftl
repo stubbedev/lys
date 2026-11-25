@@ -1,5 +1,5 @@
 settings-modules-keyboard-input-format = Formato da etiqueta
-    .description = Cadeia de formato com marcadores: {"{{ layout }}"}
+    .description = O que a etiqueta mostra, composto pelos valores do item e por texto próprio
 
 settings-modules-keyboard-input-icon-name = Nome do ícone
     .description = Nome do ícone simbólico
@@ -29,7 +29,7 @@ settings-modules-keyboard-input-label-color = Cor da etiqueta
     .description = Cor do texto da etiqueta
 
 settings-modules-keyboard-input-label-max-length = Comprimento máximo da etiqueta
-    .description = Máximo de caracteres antes de truncar (0 para desativar)
+    .description = Caracteres que a etiqueta mostra antes de ser cortada; 0 nunca a corta
 
 settings-modules-keyboard-input-button-bg-color = Fundo do botão
     .description = Cor de fundo do botão

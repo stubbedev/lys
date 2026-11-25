@@ -3,13 +3,13 @@
 ## Window Title Module Configuration
 
 settings-modules-window-title-format = Beschriftungsformat
-    .description = Formatzeichenkette mit Platzhaltern: {"{{ title }}"}, {"{{ app }}"}
+    .description = Was die Beschriftung zeigt, zusammengesetzt aus den Werten des Elements und eigenem Text
 
 settings-modules-window-title-icon-name = Ersatzsymbol
     .description = Symbol, wenn keine Zuordnung passt
 
 settings-modules-window-title-icon-mappings = Symbolzuordnungen
-    .description = Glob-Muster zu Symbolnamen (mit Präfix title: für Abgleich am Titel)
+    .description = Das Symbol, das ein Fenster zeigt, zugeordnet nach seiner App oder seinem Titel
 
 settings-modules-window-title-border-show = Rahmen anzeigen
     .description = Rahmen um die Schaltfläche anzeigen
@@ -36,7 +36,7 @@ settings-modules-window-title-label-color = Beschriftungsfarbe
     .description = Textfarbe der Beschriftung
 
 settings-modules-window-title-label-max-length = Maximale Beschriftungslänge
-    .description = Maximale Zeichenanzahl vor dem Kürzen (0 zum Deaktivieren)
+    .description = Zeichen, die die Beschriftung zeigt, bevor sie gekürzt wird; 0 kürzt nie
 
 settings-modules-window-title-button-bg-color = Schaltflächenhintergrund
     .description = Hintergrundfarbe der Schaltfläche

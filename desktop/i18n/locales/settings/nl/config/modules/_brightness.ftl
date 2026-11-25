@@ -26,7 +26,7 @@ settings-modules-brightness-label-color = Labelkleur
     .description = Tekstkleur van het label
 
 settings-modules-brightness-label-max-length = Maximale labellengte
-    .description = Maximaal aantal tekens voordat wordt afgekapt
+    .description = Tekens die het label toont voordat het wordt ingekort; 0 kort het nooit in
 
 settings-modules-brightness-min-brightness = Minimale helderheid
     .description = Ondergrens (%) voor de aanpasactie en lys-shell brightness, zodat dimmen nooit helemaal zwart maakt; gebruik de verduisteringsschakelaar om 0% te bereiken
@@ -38,7 +38,7 @@ settings-modules-brightness-button-bg-color = Knopachtergrond
     .description = Achtergrondkleur van de knop
 
 settings-modules-brightness-format = Formaat
-    .description = Labelsjabloon voor de helderheidsweergave (bijv. {"{{"} percent {"}}"} %)
+    .description = Wat het label toont, opgebouwd uit de waarden van het item en eigen tekst
 
 settings-modules-brightness-left-click = Linksklik
     .description = Actie bij linksklik

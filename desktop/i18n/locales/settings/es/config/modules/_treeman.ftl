@@ -3,7 +3,7 @@
 ## Treeman Module Configuration
 
 settings-modules-treeman-format = Formato de la etiqueta
-    .description = Cadena de formato con marcadores: {"{{ total }}"}, {"{{ stable }}"}, {"{{ up }}"}, {"{{ down }}"}, {"{{ failed }}"}
+    .description = Lo que muestra la etiqueta, compuesto por los valores del elemento y texto propio
 
 settings-modules-treeman-icon-name = Icono
     .description = Icono del módulo (se muestra cuando todos los árboles de trabajo están listos y en reposo)
@@ -45,7 +45,7 @@ settings-modules-treeman-label-color = Color de la etiqueta
     .description = Color del texto de la etiqueta
 
 settings-modules-treeman-label-max-length = Longitud máxima de la etiqueta
-    .description = Máximo de caracteres antes de truncar
+    .description = Caracteres que muestra la etiqueta antes de recortarse; 0 no la recorta nunca
 
 settings-modules-treeman-button-bg-color = Fondo del botón
     .description = Color de fondo del botón

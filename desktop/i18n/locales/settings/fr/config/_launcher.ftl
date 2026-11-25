@@ -2,13 +2,13 @@ settings-launcher-location = Position
     .description = Emplacement du lanceur à l'écran
 
 settings-launcher-width = Largeur
-    .description = Largeur de la surface : un multiplicateur de la valeur par défaut (1.0) ou des pixels (ex. : « 800px »)
+    .description = La largeur du lanceur, en multiple de sa largeur habituelle ou en pixels
 
 settings-launcher-lines = Lignes
     .description = Nombre de lignes de résultats visibles
 
 settings-launcher-monitor = Moniteur
-    .description = Connecteur de sortie où s'afficher (vide = moniteur actif)
+    .description = L'écran sur lequel le lanceur s'affiche
 
 settings-launcher-modes = Modes
     .description = Modes activés, dans l'ordre des onglets (drun, run, window, ssh, filebrowser, combi, keys ou un nom de script)
@@ -38,13 +38,13 @@ settings-launcher-case = Sensibilité à la casse
     .description = Effet de la casse sur la correspondance
 
 settings-launcher-terminal = Terminal
-    .description = Émulateur de terminal pour les applications en terminal (vide = détection automatique)
+    .description = Émulateur de terminal pour les applications en terminal ; laissé vide, un émulateur installé est recherché
 
 settings-launcher-show-icons = Afficher les icônes
     .description = Afficher une icône à côté des entrées
 
 settings-launcher-icon-theme = Thème d'icônes
-    .description = Thème d'icônes à utiliser (vide = thème du système)
+    .description = Icônes des lignes du lanceur ; Par défaut suit le thème d'icônes du système
 
 settings-launcher-sidebar-mode = Barre des modes
     .description = Afficher les onglets de modes en bas du lanceur
@@ -62,22 +62,22 @@ settings-launcher-display-names = Noms d'affichage des modes
     .description = Noms d'affichage remplacés par mode (ex. : drun = "apps")
 
 settings-launcher-scripts = Modes de script
-    .description = Modes de script personnalisés : nom → exécutable (protocole de script rofi)
+    .description = Vos propres modes, chacun un nom et le programme qui remplit sa liste
 
 settings-launcher-keybindings = Raccourcis clavier
-    .description = Raccourcis remplacés : action → touches séparées par des virgules (les actions non définies gardent les valeurs par défaut de rofi)
+    .description = Les touches qui lancent chaque action du lanceur ; une action non modifiée garde ses touches habituelles
 
 settings-launcher-mouse-bindings = Raccourcis de souris
     .description = Quels boutons de souris et sens de défilement déclenchent chaque action du lanceur, à la place de ceux par défaut
 
 settings-launcher-font = Police
-    .description = Police du lanceur sous forme de description Pango (ex. : « Inter 12 ») ; vide garde la police du shell
+    .description = Police et taille du lanceur ; Par défaut garde la police du shell
 
 settings-launcher-styles = Préréglages de style
     .description = Apparences nommées qu'un lancement peut demander par leur nom : chaque nom → le CSS appliqué tant que ce lancement s'affiche
 
 settings-launcher-preview-cmd = Commande d'aperçu
-    .description = Commande qui crée la miniature d'une ligne : {"{"}input{"}"} le fichier, {"{"}output{"}"} l'image à écrire, {"{"}size{"}"} la taille en pixels ; vide utilise les générateurs de miniatures du système
+    .description = Commande qui crée la miniature d'une ligne à partir du fichier, de l'image à écrire et de sa taille en pixels ; vide utilise les générateurs de miniatures du système
 
 settings-launcher-history = Historique
     .description = Historique des lancements et classement par fréquence d'utilisation
@@ -107,7 +107,7 @@ settings-launcher-history-max-size = Taille de l'historique
     .description = Nombre maximal d'entrées mémorisées par mode
 
 settings-launcher-drun-categories = Catégories
-    .description = N'afficher que les applications de ces catégories (vide = toutes)
+    .description = N'afficher que les applications de ces catégories ; si aucune n'est choisie, toutes s'affichent
 
 settings-launcher-drun-exclude-categories = Catégories exclues
     .description = Masquer les applications de ces catégories
@@ -116,25 +116,25 @@ settings-launcher-drun-match-fields = Champs de correspondance
     .description = Champs des entrées de bureau parcourus pendant la saisie
 
 settings-launcher-drun-display-format = Format d'affichage
-    .description = Modèle de ligne : {"{name}"}, {"{generic}"}, {"{exec}"}, {"{categories}"}, {"{comment}"} ; [..] ne s'affiche que s'il est rempli
+    .description = Ce qu'affiche la ligne de chaque application ; une partie entre crochets n'apparaît que si l'application en a la valeur
 
 settings-launcher-drun-show-actions = Afficher les actions
     .description = Montrer les actions des fichiers desktop comme lignes supplémentaires
 
 settings-launcher-drun-url-launcher = Lanceur d'URL
-    .description = Commande qui ouvre les entrées de bureau Type=Link (vide = l'ouvreur intégré)
+    .description = Commande qui ouvre les entrées qui sont des liens web ; Par défaut utilise l'ouvreur intégré
 
 settings-launcher-run-run-command = Commande d'exécution
-    .description = Modèle de validation simple ({"{cmd}"})
+    .description = Commande que lance une entrée validée, avec la commande saisie dedans
 
 settings-launcher-run-shell-command = Commande de terminal
-    .description = Modèle d'exécution dans un terminal ({"{terminal}"}, {"{cmd}"})
+    .description = Commande qui lance une entrée dans un terminal, à partir du terminal et de la commande saisie
 
 settings-launcher-run-list-command = Commande de liste
     .description = Commande supplémentaire dont chaque ligne de sortie standard ajoute une entrée
 
 settings-launcher-window-format = Format d'affichage
-    .description = Modèle de ligne : {"{w}"} espace de travail, {"{c}"} classe, {"{t}"} titre, {"{n}"} nom, {"{r}"} rôle
+    .description = Ce qu'affiche la ligne de chaque fenêtre, à partir de son espace de travail, son application, son titre, son nom et son rôle
 
 settings-launcher-window-match-fields = Champs de correspondance
     .description = Champs des fenêtres parcourus pendant la saisie
@@ -149,7 +149,7 @@ settings-launcher-ssh-client = Client SSH
     .description = Exécutable du client SSH
 
 settings-launcher-ssh-command = Commande de connexion
-    .description = Modèle de connexion ({"{terminal}"}, {"{ssh-client}"}, {"{host}"})
+    .description = Commande qui se connecte à un hôte, à partir du terminal, du client SSH et de l'hôte
 
 settings-launcher-ssh-parse-hosts = Lire /etc/hosts
     .description = Inclure les hôtes de /etc/hosts
@@ -158,7 +158,7 @@ settings-launcher-ssh-parse-known-hosts = Lire known_hosts
     .description = Inclure les hôtes de ~/.ssh/known_hosts
 
 settings-launcher-filebrowser-directory = Dossier de départ
-    .description = Dossier ouvert par l'explorateur (vide = dossier personnel)
+    .description = Dossier où s'ouvre l'explorateur de fichiers ; laissé vide, votre dossier personnel
 
 settings-launcher-filebrowser-sorting-method = Tri
     .description = Ordre des fichiers
@@ -170,13 +170,13 @@ settings-launcher-filebrowser-show-hidden = Afficher les fichiers cachés
     .description = Afficher les fichiers cachés dans la liste
 
 settings-launcher-filebrowser-command = Commande d'ouverture
-    .description = Commande qui ouvre le fichier choisi (vide = l'ouvreur intégré)
+    .description = Commande qui ouvre le fichier choisi ; Par défaut utilise l'ouvreur intégré
 
 settings-launcher-combi-modes = Modes combinés
     .description = Modes fusionnés dans la liste combinée
 
 settings-launcher-combi-display-format = Format d'affichage
-    .description = Modèle de ligne ({"{mode}"}, {"{text}"})
+    .description = Ce qu'affiche chaque ligne, à partir de son mode et de son texte
 
 enum-launcher-location-center = Centre
 enum-launcher-location-north-west = Haut gauche

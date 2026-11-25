@@ -12,7 +12,7 @@ settings-modules-weather-units = Temperatureinheit
     .description = Metrisch (Celsius) oder Imperial (Fahrenheit)
 
 settings-modules-weather-format = Beschriftungsformat
-    .description = Formatzeichenkette mit Platzhaltern: {"{{ temp }}"}, {"{{ temp_unit }}"}, {"{{ feels_like }}"}, {"{{ condition }}"}, {"{{ humidity }}"}, {"{{ wind_speed }}"}, {"{{ wind_dir }}"}, {"{{ high }}"}, {"{{ low }}"}
+    .description = Was die Beschriftung zeigt, zusammengesetzt aus den Werten des Elements und eigenem Text
 
 settings-modules-weather-refresh-interval = Aktualisierungsintervall
     .description = Abfrageintervall in Sekunden
@@ -51,7 +51,7 @@ settings-modules-weather-label-color = Beschriftungsfarbe
     .description = Textfarbe der Beschriftung
 
 settings-modules-weather-label-max-length = Maximale Beschriftungslänge
-    .description = Maximale Zeichenanzahl vor dem Kürzen
+    .description = Zeichen, die die Beschriftung zeigt, bevor sie gekürzt wird; 0 kürzt nie
 
 settings-modules-weather-button-bg-color = Schaltflächenhintergrund
     .description = Hintergrundfarbe der Schaltfläche

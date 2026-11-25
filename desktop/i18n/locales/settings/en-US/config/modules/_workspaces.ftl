@@ -50,7 +50,7 @@ settings-modules-workspaces-label-size = Label Size
     .description = Scale multiplier for workspace labels (0.25-3.0)
 
 settings-modules-workspaces-workspace-ignore = Ignore Workspaces
-    .description = Glob patterns matched against name, index, or id
+    .description = Workspaces left out, by name or number; a * matches any text
 
 settings-modules-workspaces-active-indicator = Active Indicator
     .description = Visual style for the active workspace
@@ -74,7 +74,7 @@ settings-modules-workspaces-border-color = Border Color
     .description = Border color for the workspaces container
 
 settings-modules-workspaces-workspace-map = Workspace Map
-    .description = Per-workspace icon and color overrides, keyed by name or id
+    .description = An icon and color for a workspace, chosen by its name or number
 
 settings-modules-workspaces-app-icon-map = App Icon Map
     .description = The icon a window shows, matched by its app or its title
@@ -104,10 +104,10 @@ settings-modules-workspaces-numbering = Numbering
     .description = How workspace numbers are displayed (absolute or relative)
 
 settings-modules-workspaces-highlight-active-on-other-monitor = Highlight Active on Other Monitor
-    .description = Use a different color for active workspaces on other monitors (only applies while { settings-modules-workspaces-monitor-specific } is off)
+    .description = Use a different color for active workspaces on other monitors, while { settings-modules-workspaces-monitor-specific } is off
 
 settings-modules-workspaces-active-on-other-monitor-color = Active on Other Monitor Color
-    .description = Color for focused workspace icons and labels active on other monitors (only used when { settings-modules-workspaces-highlight-active-on-other-monitor } is true)
+    .description = Color for the icons and labels of workspaces active on other monitors, while { settings-modules-workspaces-highlight-active-on-other-monitor } is on
 
 settings-modules-workspaces-hide-empty = Hide Empty
     .description = Hide tags with no clients unless they are active

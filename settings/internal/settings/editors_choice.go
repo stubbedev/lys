@@ -14,6 +14,7 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/shell/service/launcher"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
 
@@ -215,6 +216,49 @@ var (
 	sshClientRow   = programRow(listSSHClients)
 )
 
+// screenReaders are the screen readers lys-login's greeter can start,
+// by program, each named as its makers name it.
+var screenReaders = []choice{{value: "orca", label: "Orca"}}
+
+// screenReaderRow is the greeter's screen reader: the installed ones
+// listed, each read by its name, and a program no list holds marked as
+// not found.
+var screenReaderRow = withEditor(func(k *kit, s slot, meta config.FieldMeta) control {
+	installed := func() []choice {
+		programs := systemLists["Program"]()
+		return slices.DeleteFunc(slices.Clone(screenReaders), func(c choice) bool { return !hasValue(programs, c.value) })
+	}
+	return newChoiceEditor(k, namedValues(s, screenReaders), choiceSpec{
+		list:  installed,
+		unset: optionalUnset(meta.Optional),
+		known: func(current string, items []choice) bool {
+			return strings.Contains(current, "/") || slices.ContainsFunc(items, func(c choice) bool { return c.label == current })
+		},
+	})
+})
+
+// namedValues is s as a field reads and types it: a value names lists
+// by its name, which the field writes back as the value.
+func namedValues(s slot, names []choice) slot {
+	return slot{
+		get: func() any {
+			v, _ := s.get().(string)
+			if i := slices.IndexFunc(names, func(c choice) bool { return c.value == v }); i >= 0 {
+				return names[i].label
+			}
+			return s.get()
+		},
+		set: func(v any) error {
+			text, _ := v.(string)
+			if i := slices.IndexFunc(names, func(c choice) bool { return c.label == text }); i >= 0 {
+				return s.set(names[i].value)
+			}
+			return s.set(v)
+		},
+		unset: s.unset,
+	}
+}
+
 type choiceSpec struct {
 	list    lister
 	special []string
@@ -226,13 +270,15 @@ type choiceSpec struct {
 }
 
 // unsetValue is what a choice's empty value means: nothing, for a value
-// that must be set, the default, or the value it inherits.
+// that must be set, the default, the value it inherits, or that none is
+// chosen, for a value whose empty turns its feature off.
 type unsetValue uint8
 
 const (
 	unsetRefused unsetValue = iota
 	unsetDefault
 	unsetInherited
+	unsetNone
 )
 
 // optionalUnset is the empty value of a field optional or not, which
@@ -246,8 +292,11 @@ func optionalUnset(optional bool) unsetValue {
 
 // label is what the empty value reads.
 func (u unsetValue) label() string {
-	if u == unsetInherited {
+	switch u {
+	case unsetInherited:
 		return locale.T().Get("settings-inherited")
+	case unsetNone:
+		return locale.T().Get("settings-choice-none")
 	}
 	return specialLabel("")
 }
@@ -567,6 +616,14 @@ func placeholderFormat(ps []config.Placeholder) formatKind {
 	for _, p := range ps {
 		f.insert = append(f.insert, choice{value: p.Token, label: cmp.Or(t.Get(p.Key), p.Name), group: p.Token})
 	}
+	if launcherTemplate(ps) {
+		samples := make(map[string]string, len(ps))
+		for _, p := range ps {
+			samples[p.Name] = p.Sample
+		}
+		f.render = func(s string) (string, error) { return launcher.Render(s, launcher.Values(samples)), nil }
+		return f
+	}
 	f.render = func(s string) (string, error) {
 		pairs := make([]string, 0, 4*len(ps))
 		for _, p := range ps {
@@ -575,6 +632,12 @@ func placeholderFormat(ps []config.Placeholder) formatKind {
 		return strings.NewReplacer(pairs...).Replace(s), nil
 	}
 	return f
+}
+
+// launcherTemplate reports whether ps are a launcher template's, each
+// {name}, which the launcher renders with its optional [..] parts.
+func launcherTemplate(ps []config.Placeholder) bool {
+	return !slices.ContainsFunc(ps, func(p config.Placeholder) bool { return p.Token != "{"+p.Name+"}" })
 }
 
 func strftimeFormat() formatKind {

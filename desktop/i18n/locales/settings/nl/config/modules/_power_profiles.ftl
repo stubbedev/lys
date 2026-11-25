@@ -1,5 +1,5 @@
 settings-modules-power-profiles-format = Formaat
-    .description = Formaattekenreeks van het label. Plaatshouders: {"{{ profile }}"}
+    .description = Wat het label toont, opgebouwd uit de waarden van het item en eigen tekst
 
 settings-modules-power-profiles-icon-power-saver = Pictogram energiebesparing
     .description = Pictogram terwijl het energiebesparingsprofiel actief is
@@ -44,7 +44,7 @@ settings-modules-power-profiles-label-color = Labelkleur
     .description = Tekstkleur van het label (per actief profiel overschreven)
 
 settings-modules-power-profiles-label-max-length = Maximale labellengte
-    .description = Maximaal aantal tekens voordat wordt afgekapt
+    .description = Tekens die het label toont voordat het wordt ingekort; 0 kort het nooit in
 
 settings-modules-power-profiles-button-bg-color = Knopachtergrond
     .description = Achtergrondkleur van de knop

@@ -26,7 +26,7 @@ settings-modules-brightness-label-color = Cor da etiqueta
     .description = Cor do texto da etiqueta
 
 settings-modules-brightness-label-max-length = Comprimento máximo da etiqueta
-    .description = Máximo de caracteres antes de truncar
+    .description = Caracteres que a etiqueta mostra antes de ser cortada; 0 nunca a corta
 
 settings-modules-brightness-min-brightness = Brilho mínimo
     .description = Mínimo (%) para a ação de ajuste e lys-shell brightness, para que o escurecimento nunca fique totalmente escuro; use a alternância de apagão para chegar a 0%
@@ -38,7 +38,7 @@ settings-modules-brightness-button-bg-color = Fundo do botão
     .description = Cor de fundo do botão
 
 settings-modules-brightness-format = Formato
-    .description = Modelo da etiqueta do brilho (ex.: {"{{"} percent {"}}"} %)
+    .description = O que a etiqueta mostra, composto pelos valores do item e por texto próprio
 
 settings-modules-brightness-left-click = Clique esquerdo
     .description = Ação ao clicar com o botão esquerdo

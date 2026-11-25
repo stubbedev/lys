@@ -18,7 +18,7 @@ settings-modules-media-lyrics = Lyrics
     .description = Show synced lyrics from LRCLIB in the media dropdown. Sends the artist, title, album and length of every track to lrclib.net
 
 settings-modules-media-format = Format
-    .description = Label format with placeholders: {"{{ title }}"}, {"{{ artist }}"}, {"{{ album }}"}, {"{{ status }}"}, {"{{ status_icon }}"}
+    .description = What the label shows, built from the item's values and text of your own
 
 settings-modules-media-icon-name = Icon Name
     .description = Symbolic icon name for default mode
@@ -51,7 +51,7 @@ settings-modules-media-label-color = Label Color
     .description = Label text color
 
 settings-modules-media-label-max-length = Label Max Length
-    .description = Max characters before truncation
+    .description = Characters the label shows before it is cut short; 0 never cuts it
 
 settings-modules-media-button-bg-color = Button Background
     .description = Button background color

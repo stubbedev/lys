@@ -170,3 +170,21 @@ func TestASoundTheThemeLacksSaysWhyAndPlaysNothing(t *testing.T) {
 		t.Fatalf("a missing sound played %+v", plays)
 	}
 }
+
+func TestASoundReadsAsWordsNotItsThemeName(t *testing.T) {
+	k := testKit(t, "modules:\n  notifications:\n    sound-default: bell\n")
+	e := alertList(t, k, "bell", "message-new-instant", "dialog_warning")
+	var titles []string
+	for _, r := range treetest.All[*settingRow](e.rows) {
+		titles = append(titles, r.Title())
+	}
+	if want := []string{"Bell", "Message new instant", "Dialog warning"}; !slices.Equal(titles, want) {
+		t.Fatalf("the sounds read %q, want %q", titles, want)
+	}
+	if got := e.sound(t, "message-new-instant").radio.AccessibleName(); got != "Message new instant" {
+		t.Errorf("the radio is named %q", got)
+	}
+	if got := soundLabel(""); got != "" {
+		t.Errorf("an empty name reads %q", got)
+	}
+}

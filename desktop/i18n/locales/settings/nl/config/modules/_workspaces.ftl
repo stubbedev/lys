@@ -50,7 +50,7 @@ settings-modules-workspaces-label-size = Labelgrootte
     .description = Schaalfactor voor werkbladlabels (0.25-3.0)
 
 settings-modules-workspaces-workspace-ignore = Werkbladen negeren
-    .description = Glob-patronen die met naam, index of ID worden vergeleken
+    .description = Weggelaten werkbladen, op naam of nummer; een * past op elke tekst
 
 settings-modules-workspaces-active-indicator = Actief-indicator
     .description = Visuele stijl voor het actieve werkblad
@@ -74,7 +74,7 @@ settings-modules-workspaces-border-color = Randkleur
     .description = Randkleur van de werkbladhouder
 
 settings-modules-workspaces-workspace-map = Werkbladtoewijzing
-    .description = Overschrijvingen van pictogram en kleur per werkblad, op naam of ID
+    .description = Een pictogram en kleur voor een werkblad, gekozen op naam of nummer
 
 settings-modules-workspaces-app-icon-map = Toewijzing toepassingspictogrammen
     .description = Het pictogram dat een venster toont, gekozen op zijn app of zijn titel
@@ -104,10 +104,10 @@ settings-modules-workspaces-numbering = Nummering
     .description = Hoe werkbladnummers worden getoond (absoluut of relatief)
 
 settings-modules-workspaces-highlight-active-on-other-monitor = Actief op andere monitor markeren
-    .description = Een andere kleur gebruiken voor actieve werkbladen op andere monitoren (geldt alleen als { settings-modules-workspaces-monitor-specific } uit staat)
+    .description = Een andere kleur gebruiken voor actieve werkbladen op andere monitoren, zolang { settings-modules-workspaces-monitor-specific } uit staat
 
 settings-modules-workspaces-active-on-other-monitor-color = Kleur actief op andere monitor
-    .description = Kleur voor pictogrammen en labels van werkbladen die actief zijn op andere monitoren (alleen gebruikt als { settings-modules-workspaces-highlight-active-on-other-monitor } aan staat)
+    .description = Kleur voor pictogrammen en labels van werkbladen die actief zijn op andere monitoren, zolang { settings-modules-workspaces-highlight-active-on-other-monitor } aan staat
 
 settings-modules-workspaces-hide-empty = Lege verbergen
     .description = Tags zonder clients verbergen, tenzij ze actief zijn

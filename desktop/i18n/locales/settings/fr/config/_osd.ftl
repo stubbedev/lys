@@ -4,7 +4,7 @@ settings-osd-enabled = Activé
     .description = Afficher les indicateurs à l'écran pour le volume, la luminosité, etc.
 
 settings-osd-position = Position
-    .description = Position de l'OSD à l'écran (ex. : haut-centre, bas-droite)
+    .description = Position de l'OSD à l'écran
 
 settings-osd-duration = Durée
     .description = Durée de visibilité de l'OSD avant fermeture automatique
@@ -22,7 +22,7 @@ settings-osd-border = Bordure
 ## Variantes de OsdPosition
 
 settings-osd-presets = Préréglages de toasts
-    .description = Toasts réutilisables à déclencher avec lys-shell toast --preset <id>
+    .description = Toasts enregistrés qu'un raccourci ou un script peut afficher par leur nom
 settings-osd-layer = Couche
     .description = Couche layer-shell sur laquelle l'OSD est placé. Le mode de déchirement rétrograde la superposition en haut.
 settings-osd-text-align = Alignement du texte
@@ -31,7 +31,7 @@ enum-osd-text-align-start = Début
 enum-osd-text-align-center = Centre
 enum-osd-text-align-end = Fin
 settings-osd-media = Lecture en cours
-    .description = Changements de piste qui affichent l'OSD de lecture : demandés (touches multimédia et lys-shell media next), toujours ou jamais
+    .description = Quels changements de piste affichent l'OSD de lecture : ceux demandés, par les touches multimédia ou une commande, tous ou aucun
 enum-osd-media-requested = Demandés
 enum-osd-media-always = Toujours
 enum-osd-media-never = Jamais

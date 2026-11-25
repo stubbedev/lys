@@ -1,11 +1,11 @@
 settings-modules-window-title-format = Labelformaat
-    .description = Formaattekenreeks met plaatshouders: {"{{ title }}"}, {"{{ app }}"}
+    .description = Wat het label toont, opgebouwd uit de waarden van het item en eigen tekst
 
 settings-modules-window-title-icon-name = Terugvalpictogram
     .description = Pictogram als geen toewijzing overeenkomt
 
 settings-modules-window-title-icon-mappings = Pictogramtoewijzingen
-    .description = Glob-patronen naar pictogramnamen (begin met title: om op titel te zoeken)
+    .description = Het pictogram dat een venster toont, gekozen op zijn app of zijn titel
 
 settings-modules-window-title-border-show = Rand tonen
     .description = Rand rond de knop tonen
@@ -32,7 +32,7 @@ settings-modules-window-title-label-color = Labelkleur
     .description = Tekstkleur van het label
 
 settings-modules-window-title-label-max-length = Maximale labellengte
-    .description = Maximaal aantal tekens voordat wordt afgekapt (0 om uit te schakelen)
+    .description = Tekens die het label toont voordat het wordt ingekort; 0 kort het nooit in
 
 settings-modules-window-title-button-bg-color = Knopachtergrond
     .description = Achtergrondkleur van de knop

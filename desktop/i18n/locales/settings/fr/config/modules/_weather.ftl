@@ -12,7 +12,7 @@ settings-modules-weather-units = Unité de température
     .description = Métrique (Celsius) ou Impérial (Fahrenheit)
 
 settings-modules-weather-format = Format du libellé
-    .description = Chaîne de format avec espaces réservés : {"{{ temp }}"}, {"{{ temp_unit }}"}, {"{{ feels_like }}"}, {"{{ condition }}"}, {"{{ humidity }}"}, {"{{ wind_speed }}"}, {"{{ wind_dir }}"}, {"{{ high }}"}, {"{{ low }}"}
+    .description = Ce qu'affiche le libellé, composé des valeurs de l'élément et de texte libre
 
 settings-modules-weather-refresh-interval = Intervalle de rafraîchissement
     .description = Intervalle d'interrogation en secondes
@@ -51,7 +51,7 @@ settings-modules-weather-label-color = Couleur du libellé
     .description = Couleur du texte du libellé
 
 settings-modules-weather-label-max-length = Longueur max. du libellé
-    .description = Nombre maximal de caractères avant troncature
+    .description = Caractères affichés par le libellé avant qu'il soit tronqué ; 0 ne le tronque jamais
 
 settings-modules-weather-button-bg-color = Arrière-plan du bouton
     .description = Couleur d'arrière-plan du bouton

@@ -3,13 +3,13 @@
 ## Window Title Module Configuration
 
 settings-modules-window-title-format = Formato de la etiqueta
-    .description = Cadena de formato con marcadores: {"{{ title }}"}, {"{{ app }}"}
+    .description = Lo que muestra la etiqueta, compuesto por los valores del elemento y texto propio
 
 settings-modules-window-title-icon-name = Icono de reserva
     .description = Icono cuando no coincide ninguna asignación
 
 settings-modules-window-title-icon-mappings = Asignaciones de iconos
-    .description = Patrones glob a nombres de icono (anteponga title: para buscar en el título)
+    .description = El icono que muestra una ventana, según su aplicación o su título
 
 settings-modules-window-title-border-show = Mostrar el borde
     .description = Muestra un borde alrededor del botón
@@ -36,7 +36,7 @@ settings-modules-window-title-label-color = Color de la etiqueta
     .description = Color del texto de la etiqueta
 
 settings-modules-window-title-label-max-length = Longitud máxima de la etiqueta
-    .description = Máximo de caracteres antes de truncar (0 para desactivar)
+    .description = Caracteres que muestra la etiqueta antes de recortarse; 0 no la recorta nunca
 
 settings-modules-window-title-button-bg-color = Fondo del botón
     .description = Color de fondo del botón

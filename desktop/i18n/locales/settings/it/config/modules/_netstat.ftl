@@ -9,7 +9,7 @@ settings-modules-netstat-interface = Interfaccia
     .description = L'interfaccia di rete da monitorare: quella attiva, scelta automaticamente, o una per nome
 
 settings-modules-netstat-format = Formato di visualizzazione
-    .description = Stringa di formato con i segnaposto: {"{{ down_kib }}"}, {"{{ down_mib }}"}, {"{{ down_gib }}"}, {"{{ down_auto }}"}, {"{{ up_kib }}"}, {"{{ up_mib }}"}, {"{{ up_gib }}"}, {"{{ up_auto }}"}, {"{{ interface }}"}
+    .description = Ciò che mostra l'etichetta, composto dai valori dell'elemento e da testo libero
 
 settings-modules-netstat-icon-name = Nome dell'icona
     .description = Nome dell'icona simbolica
@@ -39,7 +39,7 @@ settings-modules-netstat-label-color = Colore dell'etichetta
     .description = Colore del testo dell'etichetta
 
 settings-modules-netstat-label-max-length = Lunghezza massima dell'etichetta
-    .description = Numero massimo di caratteri prima del troncamento
+    .description = Caratteri mostrati dall'etichetta prima che venga troncata; 0 non la tronca mai
 
 settings-modules-netstat-button-bg-color = Sfondo del pulsante
     .description = Colore di sfondo del pulsante

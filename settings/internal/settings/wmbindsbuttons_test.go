@@ -12,7 +12,7 @@ import (
 
 // Keyboard Shortcuts stacked two identical unlabelled "+" buttons, one
 // adding a bind and one a mode, and left App Shortcuts' Look again a
-// bare glyph beside framed buttons: Add a mode and Look again read
+// bare glyph beside framed buttons: Add mode and Look again read
 // their names on their faces, and the binds' add button is named for
 // what it adds, unlike the mode's.
 func TestKeyboardShortcutsButtonsSayWhatTheyDo(t *testing.T) {

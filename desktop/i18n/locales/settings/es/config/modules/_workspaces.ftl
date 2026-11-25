@@ -50,7 +50,7 @@ settings-modules-workspaces-label-size = Tamaño de las etiquetas
     .description = Multiplicador de escala de las etiquetas de las áreas de trabajo (0.25-3.0)
 
 settings-modules-workspaces-workspace-ignore = Ignorar áreas de trabajo
-    .description = Patrones glob que se comparan con el nombre, el índice o el id
+    .description = Áreas de trabajo que se omiten, por nombre o número; un * coincide con cualquier texto
 
 settings-modules-workspaces-active-indicator = Indicador de activa
     .description = Estilo visual del área de trabajo activa
@@ -74,7 +74,7 @@ settings-modules-workspaces-border-color = Color del borde
     .description = Color del borde del contenedor de las áreas de trabajo
 
 settings-modules-workspaces-workspace-map = Mapa de áreas de trabajo
-    .description = Iconos y colores personalizados por área de trabajo, indexados por nombre o id
+    .description = Un icono y un color para un área de trabajo, elegidos por su nombre o número
 
 settings-modules-workspaces-app-icon-map = Mapa de iconos de aplicaciones
     .description = El icono que muestra una ventana, según su aplicación o su título
@@ -104,10 +104,10 @@ settings-modules-workspaces-numbering = Numeración
     .description = Cómo se muestran los números de las áreas de trabajo (absolutos o relativos)
 
 settings-modules-workspaces-highlight-active-on-other-monitor = Resaltar la activa en otro monitor
-    .description = Usa un color distinto para las áreas de trabajo activas en otros monitores (solo se aplica cuando { settings-modules-workspaces-monitor-specific } está desactivado)
+    .description = Usa un color distinto para las áreas de trabajo activas en otros monitores, mientras { settings-modules-workspaces-monitor-specific } está desactivado
 
 settings-modules-workspaces-active-on-other-monitor-color = Color de activa en otro monitor
-    .description = Color de los iconos y etiquetas de las áreas de trabajo con el foco activas en otros monitores (solo se usa cuando { settings-modules-workspaces-highlight-active-on-other-monitor } está activado)
+    .description = Color de los iconos y etiquetas de las áreas de trabajo activas en otros monitores, mientras { settings-modules-workspaces-highlight-active-on-other-monitor } está activado
 
 settings-modules-workspaces-hide-empty = Ocultar vacías
     .description = Oculta las etiquetas sin clientes salvo que estén activas

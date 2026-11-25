@@ -2,7 +2,7 @@ settings-dock-enabled = Mostrar doca
     .description = Mostrar a doca de aplicações afixadas e janelas abertas
 
 settings-dock-monitors = Monitores
-    .description = Saídas que mostram a doca, pelo nome do conector, ou * para todas as saídas
+    .description = Ecrãs que mostram a doca
 
 settings-dock-edge = Margem
     .description = Margem do ecrã onde a doca fica
@@ -23,7 +23,7 @@ settings-dock-hover-zoom-size = Tamanho da ampliação
     .description = Tamanho até ao qual o ícone da aplicação sob o ponteiro cresce
 
 settings-dock-pinned = Aplicações afixadas
-    .description = Aplicações sempre na doca, pelo id da entrada de ambiente de trabalho
+    .description = Aplicações sempre na doca, abertas ou não
 
 settings-dock-icon = Ícone alternativo
     .description = Ícone para uma aplicação sem ícone na entrada de ambiente de trabalho

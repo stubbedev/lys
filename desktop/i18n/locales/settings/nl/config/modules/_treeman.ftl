@@ -1,5 +1,5 @@
 settings-modules-treeman-format = Labelformaat
-    .description = Formaattekenreeks met plaatshouders: {"{{ total }}"}, {"{{ stable }}"}, {"{{ up }}"}, {"{{ down }}"}, {"{{ failed }}"}
+    .description = Wat het label toont, opgebouwd uit de waarden van het item en eigen tekst
 
 settings-modules-treeman-icon-name = Pictogram
     .description = Modulepictogram (getoond als elke worktree rustig gereed is)
@@ -41,7 +41,7 @@ settings-modules-treeman-label-color = Labelkleur
     .description = Tekstkleur van het label
 
 settings-modules-treeman-label-max-length = Maximale labellengte
-    .description = Maximaal aantal tekens voordat wordt afgekapt
+    .description = Tekens die het label toont voordat het wordt ingekort; 0 kort het nooit in
 
 settings-modules-treeman-button-bg-color = Knopachtergrond
     .description = Achtergrondkleur van de knop

@@ -12,7 +12,7 @@ settings-modules-idle-inhibit-icon-active = Icona attivo
     .description = Icona mentre resta attivo
 
 settings-modules-idle-inhibit-format = Formato
-    .description = Stringa di formato con i segnaposto: {"{{ state }}"}, {"{{ remaining }}"}, {"{{ duration }}"}
+    .description = Ciò che mostra l'etichetta, composto dai valori dell'elemento e da testo libero
 
 settings-modules-idle-inhibit-border-show = Mostra il bordo
     .description = Mostra un bordo attorno al pulsante
@@ -39,7 +39,7 @@ settings-modules-idle-inhibit-label-color = Colore dell'etichetta
     .description = Colore del testo dell'etichetta
 
 settings-modules-idle-inhibit-label-max-length = Lunghezza massima dell'etichetta
-    .description = Numero massimo di caratteri prima del troncamento
+    .description = Caratteri mostrati dall'etichetta prima che venga troncata; 0 non la tronca mai
 
 settings-modules-idle-inhibit-button-bg-color = Sfondo del pulsante
     .description = Colore di sfondo del pulsante

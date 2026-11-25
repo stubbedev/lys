@@ -12,7 +12,7 @@ settings-modules-idle-inhibit-icon-active = Active Icon
     .description = Icon while keeping awake
 
 settings-modules-idle-inhibit-format = Format
-    .description = Format string using placeholders: {"{{ state }}"}, {"{{ remaining }}"}, {"{{ duration }}"}
+    .description = What the label shows, built from the item's values and text of your own
 
 settings-modules-idle-inhibit-border-show = Show Border
     .description = Display border around button
@@ -39,7 +39,7 @@ settings-modules-idle-inhibit-label-color = Label Color
     .description = Label text color
 
 settings-modules-idle-inhibit-label-max-length = Label Max Length
-    .description = Max characters before truncation
+    .description = Characters the label shows before it is cut short; 0 never cuts it
 
 settings-modules-idle-inhibit-button-bg-color = Button Background
     .description = Button background color

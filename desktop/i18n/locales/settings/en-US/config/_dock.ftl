@@ -6,7 +6,7 @@ settings-dock-enabled = Show Dock
     .description = Show the dock of pinned apps and open windows
 
 settings-dock-monitors = Monitors
-    .description = Outputs that show the dock, by connector name, or * for every output
+    .description = Displays that show the dock
 
 settings-dock-edge = Edge
     .description = Screen edge the dock sits on
@@ -27,7 +27,7 @@ settings-dock-hover-zoom-size = Zoom Size
     .description = Size the hovered app's icon grows to
 
 settings-dock-pinned = Pinned Apps
-    .description = Apps always on the dock, by desktop entry id
+    .description = Apps always on the dock, whether or not they are open
 
 settings-dock-icon = Fallback Icon
     .description = Icon for an app without a desktop entry icon

@@ -62,7 +62,7 @@ settings-modules-notifications-sounds = Sonidos
     .description = Qué notificaciones reproducen un sonido; silencio en No molestar, al compartir la pantalla y con el sonido silenciado
 
 settings-modules-notifications-sound-default = Sonido predeterminado
-    .description = Nombre del tema de sonido que reproduce una notificación sin sonido propio
+    .description = El sonido que reproduce una notificación sin sonido propio
 
 settings-modules-notifications-sound-mute-apps = Aplicaciones silenciadas
     .description = Patrones glob de nombres de aplicaciones cuyas notificaciones nunca reproducen sonido

@@ -9,7 +9,7 @@ settings-modules-netstat-interface = Interfaz
     .description = La interfaz de red que vigilar: la activa, elegida automáticamente, o una por su nombre
 
 settings-modules-netstat-format = Formato de visualización
-    .description = Cadena de formato con marcadores: {"{{ down_kib }}"}, {"{{ down_mib }}"}, {"{{ down_gib }}"}, {"{{ down_auto }}"}, {"{{ up_kib }}"}, {"{{ up_mib }}"}, {"{{ up_gib }}"}, {"{{ up_auto }}"}, {"{{ interface }}"}
+    .description = Lo que muestra la etiqueta, compuesto por los valores del elemento y texto propio
 
 settings-modules-netstat-icon-name = Nombre del icono
     .description = Nombre del icono simbólico
@@ -39,7 +39,7 @@ settings-modules-netstat-label-color = Color de la etiqueta
     .description = Color del texto de la etiqueta
 
 settings-modules-netstat-label-max-length = Longitud máxima de la etiqueta
-    .description = Máximo de caracteres antes de truncar
+    .description = Caracteres que muestra la etiqueta antes de recortarse; 0 no la recorta nunca
 
 settings-modules-netstat-button-bg-color = Fondo del botón
     .description = Color de fondo del botón

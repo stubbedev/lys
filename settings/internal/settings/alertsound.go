@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"log"
 	"slices"
+	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/mime"
@@ -77,6 +80,22 @@ func alertSoundNames(listed []choice, current string) []string {
 	return names
 }
 
+// soundLabel is a sound theme's name for a sound as words: its dashes
+// and underscores spaces, its first letter upper case.
+func soundLabel(name string) string {
+	words := strings.Map(func(r rune) rune {
+		if r == '-' || r == '_' {
+			return ' '
+		}
+		return r
+	}, name)
+	first, size := utf8.DecodeRuneInString(words)
+	if size == 0 {
+		return ""
+	}
+	return string(unicode.ToUpper(first)) + words[size:]
+}
+
 func (e *alertSoundList) refresh() {
 	current := e.slot.text()
 	names := alertSoundNames(e.list(), current)
@@ -95,8 +114,9 @@ func (e *alertSoundList) build(names []string) {
 	e.rows.Append(e.state)
 	e.sounds = e.sounds[:0]
 	for _, name := range names {
+		label := soundLabel(name)
 		radio := widget.NewCheckButton(false)
-		radio.SetAccessibleName(name)
+		radio.SetAccessibleName(label)
 		if len(e.sounds) > 0 {
 			radio.SetGroup(e.sounds[0].radio)
 		}
@@ -106,8 +126,8 @@ func (e *alertSoundList) build(names []string) {
 			}
 		}
 		play := e.k.iconButton("ld-play-symbolic", "settings-sound-alert-play", func() { e.preview(name) })
-		play.SetAccessibleName(locale.T().Get("settings-sound-alert-play") + ": " + name)
-		row := e.k.row(name, "").withControl(play)
+		play.SetAccessibleName(locale.T().Get("settings-sound-alert-play") + ": " + label)
+		row := e.k.row(label, "").withControl(play)
 		row.SetMedia(radio, true)
 		row.SetOnActivate(func() { radio.SetChecked(true) })
 		e.rows.Append(row)

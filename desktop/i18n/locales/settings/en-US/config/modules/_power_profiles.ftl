@@ -3,7 +3,7 @@
 ## Power Profiles Module Configuration
 
 settings-modules-power-profiles-format = Format
-    .description = Label format string. Placeholders: {"{{ profile }}"}
+    .description = What the label shows, built from the item's values and text of your own
 
 settings-modules-power-profiles-icon-power-saver = Power Saver Icon
     .description = Icon shown while the power-saver profile is active
@@ -48,7 +48,7 @@ settings-modules-power-profiles-label-color = Label Color
     .description = Label text color (overridden per active profile)
 
 settings-modules-power-profiles-label-max-length = Label Max Length
-    .description = Max characters before truncation
+    .description = Characters the label shows before it is cut short; 0 never cuts it
 
 settings-modules-power-profiles-button-bg-color = Button Background
     .description = Button background color

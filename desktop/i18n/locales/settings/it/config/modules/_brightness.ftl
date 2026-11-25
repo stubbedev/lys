@@ -30,7 +30,7 @@ settings-modules-brightness-label-color = Colore dell'etichetta
     .description = Colore del testo dell'etichetta
 
 settings-modules-brightness-label-max-length = Lunghezza massima dell'etichetta
-    .description = Numero massimo di caratteri prima del troncamento
+    .description = Caratteri mostrati dall'etichetta prima che venga troncata; 0 non la tronca mai
 
 settings-modules-brightness-min-brightness = Luminosità minima
     .description = Soglia minima (%) per l'azione di regolazione e per lys-shell brightness, così l'attenuazione non oscura mai del tutto; usa l'interruttore di oscuramento per arrivare allo 0%
@@ -42,7 +42,7 @@ settings-modules-brightness-button-bg-color = Sfondo del pulsante
     .description = Colore di sfondo del pulsante
 
 settings-modules-brightness-format = Formato
-    .description = Modello dell'etichetta per la luminosità (ad es. {"{{"} percent {"}}"} %)
+    .description = Ciò che mostra l'etichetta, composto dai valori dell'elemento e da testo libero
 
 settings-modules-brightness-left-click = Clic sinistro
     .description = Azione al clic sinistro

@@ -1,5 +1,5 @@
 settings-modules-clock-format = Tijdformaat
-    .description = Formaat van de tijdweergave in strftime-syntaxis
+    .description = Hoe de tijd in de balk eruitziet
 
 settings-modules-clock-icon-name = Pictogramnaam
     .description = Naam van het symbolische pictogram
@@ -29,7 +29,7 @@ settings-modules-clock-label-color = Labelkleur
     .description = Tekstkleur van het label
 
 settings-modules-clock-label-max-length = Maximale labellengte
-    .description = Maximaal aantal tekens voordat wordt afgekapt
+    .description = Tekens die het label toont voordat het wordt ingekort; 0 kort het nooit in
 
 settings-modules-clock-button-bg-color = Knopachtergrond
     .description = Achtergrondkleur van de knop

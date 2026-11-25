@@ -32,7 +32,7 @@ settings-modules-battery-label-color = Labelkleur
     .description = Tekstkleur van het label
 
 settings-modules-battery-label-max-length = Maximale labellengte
-    .description = Maximaal aantal tekens voordat wordt afgekapt
+    .description = Tekens die het label toont voordat het wordt ingekort; 0 kort het nooit in
 
 settings-modules-battery-button-bg-color = Knopachtergrond
     .description = Achtergrondkleur van de knop
@@ -50,7 +50,7 @@ settings-modules-battery-scroll-down = Omlaag scrollen
     .description = Shell-opdracht bij omlaag scrollen
 
 settings-modules-battery-format = Formaat
-    .description = Labelsjabloon voor de accuweergave (bijv. {"{{"} percent {"}}"} %)
+    .description = Wat het label toont, opgebouwd uit de waarden van het item en eigen tekst
 
 settings-modules-battery-left-click = Linksklik
     .description = Actie bij linksklik

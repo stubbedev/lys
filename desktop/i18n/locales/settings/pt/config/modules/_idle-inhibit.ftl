@@ -8,7 +8,7 @@ settings-modules-idle-inhibit-icon-active = Ícone ativo
     .description = Ícone enquanto se mantém acordado
 
 settings-modules-idle-inhibit-format = Formato
-    .description = Cadeia de formato com os marcadores: {"{{ state }}"}, {"{{ remaining }}"}, {"{{ duration }}"}
+    .description = O que a etiqueta mostra, composto pelos valores do item e por texto próprio
 
 settings-modules-idle-inhibit-border-show = Mostrar contorno
     .description = Mostrar contorno à volta do botão
@@ -35,7 +35,7 @@ settings-modules-idle-inhibit-label-color = Cor da etiqueta
     .description = Cor do texto da etiqueta
 
 settings-modules-idle-inhibit-label-max-length = Comprimento máximo da etiqueta
-    .description = Máximo de caracteres antes de truncar
+    .description = Caracteres que a etiqueta mostra antes de ser cortada; 0 nunca a corta
 
 settings-modules-idle-inhibit-button-bg-color = Fundo do botão
     .description = Cor de fundo do botão

@@ -287,7 +287,7 @@ func hourCycleRow(k *kit, fail func(error), changed func()) *settingRow {
 		h24.SetOn(c == strftime.Hour24)
 		showing = false
 		h24.SetEnabled(c == strftime.Hour12 || c == strftime.Hour24)
-		preview.SetText(l.Format(time.Now()))
+		preview.SetText(l.Format(formatSampleTime))
 	}
 	h24.OnChanged = func(on bool) {
 		if showing {
@@ -440,7 +440,7 @@ const clockDateFormat = "%A, %x"
 
 func clockTimeFormat(cycle strftime.HourCycle) string {
 	if cycle == strftime.Hour12 {
-		return "%I:%M %p"
+		return "%-I:%M %p"
 	}
 	return "%H:%M"
 }

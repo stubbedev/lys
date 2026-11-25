@@ -3,7 +3,7 @@
 ## Treeman Module Configuration
 
 settings-modules-treeman-format = Label Format
-    .description = Format string with placeholders: {"{{ total }}"}, {"{{ stable }}"}, {"{{ up }}"}, {"{{ down }}"}, {"{{ failed }}"}
+    .description = What the label shows, built from the item's values and text of your own
 
 settings-modules-treeman-icon-name = Icon
     .description = Module icon (shown when every worktree is resting-ready)
@@ -45,7 +45,7 @@ settings-modules-treeman-label-color = Label Color
     .description = Label text color
 
 settings-modules-treeman-label-max-length = Label Max Length
-    .description = Max characters before truncation
+    .description = Characters the label shows before it is cut short; 0 never cuts it
 
 settings-modules-treeman-button-bg-color = Button Background
     .description = Button background color

@@ -50,7 +50,7 @@ settings-modules-workspaces-label-size = Taille des libellés
     .description = Multiplicateur d'échelle pour les libellés d'espaces de travail (0.25-3.0)
 
 settings-modules-workspaces-workspace-ignore = Ignorer les espaces de travail
-    .description = Motifs glob correspondant au nom, à l'indice ou à l'identifiant des espaces de travail à masquer
+    .description = Espaces de travail laissés de côté, par nom ou numéro ; un * correspond à n'importe quel texte
 
 settings-modules-workspaces-active-indicator = Indicateur actif
     .description = Style visuel pour l'espace de travail actif
@@ -74,7 +74,7 @@ settings-modules-workspaces-border-color = Couleur de la bordure
     .description = Couleur de la bordure du conteneur d'espaces de travail
 
 settings-modules-workspaces-workspace-map = Carte des espaces de travail
-    .description = Remplacements d'icônes et de couleurs par espace de travail, par nom ou identifiant
+    .description = Une icône et une couleur pour un espace de travail, choisies selon son nom ou son numéro
 
 settings-modules-workspaces-app-icon-map = Carte des icônes d'applications
     .description = L'icône qu'affiche une fenêtre, selon son application ou son titre
@@ -104,10 +104,10 @@ settings-modules-workspaces-numbering = Numérotation
     .description = Mode d'affichage des numéros d'espaces de travail (absolu ou relatif)
 
 settings-modules-workspaces-highlight-active-on-other-monitor = Surligner l'actif sur un autre moniteur
-    .description = Utiliser une couleur différente pour les espaces de travail actifs sur d'autres moniteurs (uniquement si { settings-modules-workspaces-monitor-specific } est désactivé)
+    .description = Utiliser une couleur différente pour les espaces de travail actifs sur d'autres moniteurs, tant que { settings-modules-workspaces-monitor-specific } est désactivé
 
 settings-modules-workspaces-active-on-other-monitor-color = Couleur de l'actif sur un autre moniteur
-    .description = Couleur des icônes et libellés des espaces de travail actifs sur d'autres moniteurs (uniquement si { settings-modules-workspaces-highlight-active-on-other-monitor } est activé)
+    .description = Couleur des icônes et libellés des espaces de travail actifs sur d'autres moniteurs, tant que { settings-modules-workspaces-highlight-active-on-other-monitor } est activé
 
 settings-modules-workspaces-hide-empty = Masquer les vides
     .description = Masquer les étiquettes sans client, sauf si elles sont actives

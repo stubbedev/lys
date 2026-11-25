@@ -9,7 +9,7 @@ settings-modules-storage-mount-point = Disques affichés
     .description = Les disques montés dont l'élément additionne l'espace ; il en reste toujours un choisi
 
 settings-modules-storage-format = Format d'affichage
-    .description = Chaîne de format avec espaces réservés : {"{{ percent }}"}, {"{{ used_tib }}"}, {"{{ used_gib }}"}, {"{{ used_mib }}"}, {"{{ used_auto }}"}, {"{{ total_tib }}"}, {"{{ total_gib }}"}, {"{{ total_mib }}"}, {"{{ total_auto }}"}, {"{{ free_tib }}"}, {"{{ free_gib }}"}, {"{{ free_mib }}"}, {"{{ free_auto }}"}, {"{{ filesystem }}"}
+    .description = Ce qu'affiche le libellé, composé des valeurs de l'élément et de texte libre
 
 settings-modules-storage-icon-name = Nom de l'icône
     .description = Nom d'icône symbolique
@@ -39,7 +39,7 @@ settings-modules-storage-label-color = Couleur du libellé
     .description = Couleur du texte du libellé
 
 settings-modules-storage-label-max-length = Longueur max. du libellé
-    .description = Nombre maximal de caractères avant troncature
+    .description = Caractères affichés par le libellé avant qu'il soit tronqué ; 0 ne le tronque jamais
 
 settings-modules-storage-button-bg-color = Arrière-plan du bouton
     .description = Couleur d'arrière-plan du bouton

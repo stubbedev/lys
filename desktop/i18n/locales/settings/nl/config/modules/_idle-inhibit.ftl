@@ -8,7 +8,7 @@ settings-modules-idle-inhibit-icon-active = Pictogram actief
     .description = Pictogram zolang de computer wakker wordt gehouden
 
 settings-modules-idle-inhibit-format = Formaat
-    .description = Formaattekenreeks met plaatshouders: {"{{ state }}"}, {"{{ remaining }}"}, {"{{ duration }}"}
+    .description = Wat het label toont, opgebouwd uit de waarden van het item en eigen tekst
 
 settings-modules-idle-inhibit-border-show = Rand tonen
     .description = Rand rond de knop tonen
@@ -35,7 +35,7 @@ settings-modules-idle-inhibit-label-color = Labelkleur
     .description = Tekstkleur van het label
 
 settings-modules-idle-inhibit-label-max-length = Maximale labellengte
-    .description = Maximaal aantal tekens voordat wordt afgekapt
+    .description = Tekens die het label toont voordat het wordt ingekort; 0 kort het nooit in
 
 settings-modules-idle-inhibit-button-bg-color = Knopachtergrond
     .description = Achtergrondkleur van de knop

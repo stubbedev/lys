@@ -14,14 +14,14 @@ settings-modules-bitwarden-lock-with-session = Mit der Sitzung sperren
 settings-modules-bitwarden-unlock-with-session = Mit der Sitzung entsperren
     .description = Einen gesperrten Tresor mit dem Passwort des Sperrbildschirms entsperren, wenn es das Master-Passwort ist
 
-settings-modules-bitwarden-clipboard-clear = Zwischenablage leeren nach (Sekunden)
-    .description = Ein kopiertes Geheimnis nach so vielen Sekunden löschen, sofern nichts anderes kopiert wurde. 0 lässt es stehen
+settings-modules-bitwarden-clipboard-clear = Zwischenablage leeren nach
+    .description = Wie lange ein kopiertes Geheimnis in der Zwischenablage bleibt, sofern seitdem nichts anderes kopiert wurde
 
 settings-modules-bitwarden-network-folder = Netzwerkordner
-    .description = Tresorordner, dessen nach der Verbindung benannte Zugangsdaten WLAN- und VPN-Passwortanfragen beantworten, solange der Tresor geöffnet ist. Leer beantwortet keine
+    .description = Tresorordner, dessen nach der Verbindung benannte Zugangsdaten WLAN- und VPN-Passwortanfragen beantworten, solange der Tresor geöffnet ist; mit Keiner wird keine Anfrage beantwortet
 
 settings-modules-bitwarden-portal-folder = Ordner für Portal-Geheimnisse
-    .description = Tresorordner, in dem die Schlüsselbund-Schlüssel isolierter Apps abgelegt werden, nachdem Sie jede einzeln erlaubt haben. Leer behält sie nur im Schlüsselbund
+    .description = Tresorordner, in dem die Schlüsselbund-Schlüssel isolierter Apps abgelegt werden, nachdem Sie jede einzeln erlaubt haben; mit Keiner bleiben sie nur im Schlüsselbund
 
 settings-modules-bitwarden-generator-passwords = Passwortvorlagen
     .description = Passwörter aus Zufallszeichen, die der Generator im Dropdown kopiert
@@ -35,7 +35,7 @@ enum-password-charset-digits = Ziffern (0-9)
 enum-password-charset-symbols = Sonderzeichen (!@#$%^&*)
 
 settings-modules-bitwarden-format = Format
-    .description = Formatzeichenkette der Beschriftung. Platzhalter: {"{{ count }}"} (Einträge im geöffneten Tresor)
+    .description = Was die Beschriftung zeigt, zusammengesetzt aus den Werten des Elements und eigenem Text
 
 settings-modules-bitwarden-icon-locked = Symbol für gesperrt
     .description = Symbol, solange der Tresor gesperrt oder abgemeldet ist
@@ -68,7 +68,7 @@ settings-modules-bitwarden-label-color = Beschriftungsfarbe
     .description = Textfarbe der Beschriftung
 
 settings-modules-bitwarden-label-max-length = Maximale Beschriftungslänge
-    .description = Maximale Zeichenanzahl vor dem Kürzen
+    .description = Zeichen, die die Beschriftung zeigt, bevor sie gekürzt wird; 0 kürzt nie
 
 settings-modules-bitwarden-button-bg-color = Schaltflächenhintergrund
     .description = Hintergrundfarbe der Schaltfläche

@@ -3,7 +3,7 @@
 ## Configuration du module Profils d'alimentation
 
 settings-modules-power-profiles-format = Format
-    .description = Chaîne de format du libellé. Espaces réservés : {"{{ profile }}"}
+    .description = Ce qu'affiche le libellé, composé des valeurs de l'élément et de texte libre
 
 settings-modules-power-profiles-icon-power-saver = Icône Économie d'énergie
     .description = Icône affichée lorsque le profil économie d'énergie est actif
@@ -48,7 +48,7 @@ settings-modules-power-profiles-label-color = Couleur du libellé
     .description = Couleur du texte du libellé (remplacée selon le profil actif)
 
 settings-modules-power-profiles-label-max-length = Longueur max. du libellé
-    .description = Nombre max. de caractères avant troncature
+    .description = Caractères affichés par le libellé avant qu'il soit tronqué ; 0 ne le tronque jamais
 
 settings-modules-power-profiles-button-bg-color = Arrière-plan du bouton
     .description = Couleur d'arrière-plan du bouton

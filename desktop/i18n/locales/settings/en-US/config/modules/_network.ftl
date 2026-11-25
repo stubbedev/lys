@@ -64,7 +64,7 @@ settings-modules-network-label-color = Label Color
     .description = Label text color
 
 settings-modules-network-label-max-length = Label Max Length
-    .description = Max characters before truncation
+    .description = Characters the label shows before it is cut short; 0 never cuts it
 
 settings-modules-network-button-bg-color = Button Background
     .description = Button background color

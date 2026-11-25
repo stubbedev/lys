@@ -39,7 +39,7 @@ settings-modules-bluetooth-label-color = Color de la etiqueta
     .description = Color del texto de la etiqueta
 
 settings-modules-bluetooth-label-max-length = Longitud máxima de la etiqueta
-    .description = Máximo de caracteres antes de truncar
+    .description = Caracteres que muestra la etiqueta antes de recortarse; 0 no la recorta nunca
 
 settings-modules-bluetooth-button-bg-color = Fondo del botón
     .description = Color de fondo del botón

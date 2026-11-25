@@ -3,7 +3,7 @@
 ## Configuration du module Mode de raccourcis
 
 settings-modules-keybind-mode-format = Format du libellé
-    .description = Chaîne de format avec espaces réservés : {"{{ mode }}"}
+    .description = Ce qu'affiche le libellé, composé des valeurs de l'élément et de texte libre
 
 settings-modules-keybind-mode-icon-name = Nom de l'icône
     .description = Nom d'icône symbolique
@@ -36,7 +36,7 @@ settings-modules-keybind-mode-label-color = Couleur du libellé
     .description = Couleur du texte du libellé
 
 settings-modules-keybind-mode-label-max-length = Longueur max. du libellé
-    .description = Nombre maximal de caractères avant troncature (0 pour désactiver)
+    .description = Caractères affichés par le libellé avant qu'il soit tronqué ; 0 ne le tronque jamais
 
 settings-modules-keybind-mode-button-bg-color = Arrière-plan du bouton
     .description = Couleur d'arrière-plan du bouton

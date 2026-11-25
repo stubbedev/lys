@@ -4,10 +4,10 @@ settings-osd-enabled = Enabled
     .description = Show on-screen display overlays for volume, brightness, etc.
 
 settings-osd-presets = Toast Presets
-    .description = Reusable toasts triggerable with lys-shell toast --preset <id>
+    .description = Saved toasts a key binding or script can show by name
 
 settings-osd-position = Position
-    .description = Where on screen the OSD appears (e.g. top-center, bottom-right)
+    .description = Where on screen the OSD appears
 
 settings-osd-duration = Duration
     .description = How long the OSD stays visible before auto-dismissing
@@ -28,7 +28,7 @@ settings-osd-text-align = Text Alignment
     .description = Horizontal alignment of OSD toast/toggle content
 
 settings-osd-media = Now Playing
-    .description = Track changes that show the now-playing OSD: requested (media keys and lys-shell media next), always, or never
+    .description = Which track changes show the now-playing OSD: Requested ones, from the media keys or a command, every one, or none
 
 
 ## OsdPosition variants

@@ -56,7 +56,7 @@ settings-modules-notifications-sounds = Geluiden
     .description = Welke meldingen een geluid afspelen; stil bij niet storen, tijdens het delen van het scherm en als het geluid gedempt is
 
 settings-modules-notifications-sound-default = Standaardgeluid
-    .description = Naam uit het geluidsthema die een melding zonder eigen geluid afspeelt
+    .description = Het geluid dat een melding zonder eigen geluid afspeelt
 
 settings-modules-notifications-sound-mute-apps = Stille toepassingen
     .description = Globs van toepassingsnamen waarvan de meldingen nooit een geluid afspelen

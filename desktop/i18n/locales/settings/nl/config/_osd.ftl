@@ -2,10 +2,10 @@ settings-osd-enabled = Ingeschakeld
     .description = Schermweergave-overlays tonen voor volume, helderheid, enz.
 
 settings-osd-presets = Pop-upvoorinstellingen
-    .description = Herbruikbare pop-ups die je activeert met lys-shell toast --preset <id>
+    .description = Opgeslagen pop-ups die een sneltoets of script op naam kan tonen
 
 settings-osd-position = Positie
-    .description = Waar de OSD op het scherm verschijnt (bijv. top-center, bottom-right)
+    .description = Waar de OSD op het scherm verschijnt
 
 settings-osd-duration = Duur
     .description = Hoe lang de OSD zichtbaar blijft voordat hij automatisch sluit
@@ -26,7 +26,7 @@ settings-osd-text-align = Tekstuitlijning
     .description = Horizontale uitlijning van de inhoud van OSD-pop-ups/-schakelaars
 
 settings-osd-media = Speelt nu af
-    .description = Nummerwisselingen die de nu-afspelend-OSD tonen: requested (mediatoetsen en lys-shell media next), always of never
+    .description = Welke nummerwisselingen de nu-afspelend-OSD tonen: die op verzoek, via de mediatoetsen of een opdracht, elke of geen
 
 
 enum-osd-text-align-start = Begin

@@ -1,5 +1,5 @@
 settings-modules-world-clock-format = Formaat
-    .description = Formaattekenreeks met ingebedde tijdzoneblokken in de syntaxis {"{"}timezone strftime{"}"}
+    .description = De tijden die het item toont, elk in een eigen tijdzone, met eigen tekst ertussen
 
 settings-modules-world-clock-icon-name = Pictogramnaam
     .description = Naam van het symbolische pictogram
@@ -29,7 +29,7 @@ settings-modules-world-clock-label-color = Labelkleur
     .description = Tekstkleur van het label
 
 settings-modules-world-clock-label-max-length = Maximale labellengte
-    .description = Maximaal aantal tekens voordat wordt afgekapt
+    .description = Tekens die het label toont voordat het wordt ingekort; 0 kort het nooit in
 
 settings-modules-world-clock-button-bg-color = Knopachtergrond
     .description = Achtergrondkleur van de knop

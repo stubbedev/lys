@@ -144,3 +144,18 @@ func TestThePaletteTilesStandInColumnsWithTheirButtonUnderTheirName(t *testing.T
 		}
 	}
 }
+
+func TestAPaletteTileNamesItsColourAsTheColourPickersDo(t *testing.T) {
+	k, w, _, _ := wmKit(t, "palette:\n  overlay0: '#6c7086'\n")
+	p := fieldControl(k, w, wmPaletteRow()).(*paletteGrid)
+	var captions []string
+	for _, l := range treetest.All[*widget.Label](p.grid) {
+		captions = append(captions, l.Text())
+	}
+	if !slices.Contains(captions, "Overlay 0") || !slices.Contains(captions, "Red") {
+		t.Fatalf("the tiles read %q, want Overlay 0 and Red among them", captions)
+	}
+	if slices.Contains(captions, "overlay0") {
+		t.Errorf("a tile reads its raw key: %q", captions)
+	}
+}

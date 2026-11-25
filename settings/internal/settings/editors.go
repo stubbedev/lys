@@ -186,6 +186,16 @@ type text struct {
 
 func newText(k *kit, s slot, optional bool) *text { return bindText(k, k.entry(), s, optional) }
 
+// hinted is a text row whose empty field shows placeholder's text, what
+// the field takes or what leaving it empty does.
+func hinted(placeholder func() string) rowOpt {
+	return withEditor(func(k *kit, s slot, meta config.FieldMeta) control {
+		c := newText(k, s, meta.Optional)
+		c.SetPlaceholder(placeholder())
+		return c
+	})
+}
+
 // bindText has e edit s as a text control.
 func bindText(k *kit, e *widget.Entry, s slot, optional bool) *text {
 	t := locale.T()

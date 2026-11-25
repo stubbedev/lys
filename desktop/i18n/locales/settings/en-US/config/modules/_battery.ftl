@@ -36,7 +36,7 @@ settings-modules-battery-label-color = Label Color
     .description = Label text color
 
 settings-modules-battery-label-max-length = Label Max Length
-    .description = Max characters before truncation
+    .description = Characters the label shows before it is cut short; 0 never cuts it
 
 settings-modules-battery-button-bg-color = Button Background
     .description = Button background color
@@ -54,7 +54,7 @@ settings-modules-battery-scroll-down = Scroll Down
     .description = Shell command on scroll down
 
 settings-modules-battery-format = Format
-    .description = Label template for battery display (e.g. {"{{"} percent {"}}"} %)
+    .description = What the label shows, built from the item's values and text of your own
 
 settings-modules-battery-left-click = Left Click
     .description = Action on left click

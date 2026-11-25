@@ -20,7 +20,7 @@ settings-idle-attention = Kijken voor het dimmen
     .description = Voordat het scherm dimt, de camera minder dan een seconde aanzetten, eerst de infraroodcamera, om te zien of er een gezicht naar het scherm gekeerd is: een gezicht stelt het dimmen uit. Het lampje gaat aan terwijl hij kijkt. Het beeld wordt alleen op een gezicht gecontroleerd en weggegooid, nooit opgeslagen, gelogd of verstuurd, en er wordt niet gekeken zolang de sessie vergrendeld is of een andere app de camera gebruikt
 
 ## SleepAction variants
-enum-sleep-action-auto = Pauzestand, dan slaapstand indien mogelijk
+enum-sleep-action-auto = Automatisch
 enum-sleep-action-suspend = Pauzestand
 enum-sleep-action-hibernate = Slaapstand
 enum-sleep-action-hybrid-sleep = Hybride slaap

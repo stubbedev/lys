@@ -35,7 +35,7 @@ settings-modules-dashboard-temp-error = Temperatuurfout
     .description = CPU-temperatuur (°C) waarbij de temperatuurring de foutkleur krijgt
 
 settings-modules-dashboard-user-session-actions = Sessieacties
-    .description = Sessieacties op het dashboard (lock, log-out, reboot, power-off)
+    .description = De sessieknoppen die het dashboard toont, in hun volgorde
 
 enum-session-action-lock = Vergrendelen
 enum-session-action-logout = Afmelden

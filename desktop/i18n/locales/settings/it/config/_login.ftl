@@ -6,25 +6,25 @@ settings-login-background-mode = Sfondo
     .description = Come viene disegnato lo sfondo della schermata di accesso: colore pieno, un'immagine o lo sfondo del desktop
 
 settings-login-background-image = Immagine di sfondo
-    .description = File immagine mostrato dietro la schermata di accesso quando lo sfondo è impostato su "image"
+    .description = Immagine mostrata dietro la schermata di accesso quando lo sfondo è Immagine
 
 settings-login-background-color = Colore di sfondo
-    .description = Colore di riempimento mostrato dietro la schermata di accesso quando lo sfondo è impostato su "color"
+    .description = Colore di riempimento dietro la schermata di accesso quando lo sfondo è Colore
 
 settings-login-blur = Sfocatura
-    .description = Raggio della sfocatura gaussiana applicata agli sfondi immagine o desktop (0 = nessuna)
+    .description = Quanto è sfocato uno sfondo immagine o desktop; 0 lo lascia nitido
 
 settings-login-show-clock = Mostra l'orologio
     .description = Mostra un orologio sopra la richiesta delle credenziali
 
 settings-login-clock-format = Formato dell'orologio
-    .description = Formato strftime per l'ora della schermata di accesso (ad es. %H:%M)
+    .description = Come appare l'ora nella schermata di accesso
 
 settings-login-date-format = Formato della data
-    .description = Formato strftime per la data della schermata di accesso (ad es. %A %-d %B)
+    .description = Come appare la data nella schermata di accesso
 
 settings-login-max-attempts = Tentativi massimi
-    .description = Tentativi di password falliti nella schermata di blocco prima che l'inserimento venga bloccato (0 = illimitati). Lo schermo resta bloccato.
+    .description = Password errate nella schermata di blocco prima che la digitazione venga bloccata, con lo schermo ancora bloccato; 0 non pone limiti
 
 settings-login-show-failed-attempts = Mostra i tentativi falliti
     .description = Mostra il numero di tentativi falliti nella schermata di blocco
@@ -36,13 +36,13 @@ settings-login-lock-lock-on-start = Blocca all'avvio
     .description = Blocca la sessione appena si avvia la shell, per le configurazioni con accesso automatico in cui la schermata di blocco fa da controllo d'accesso
 
 settings-login-lock-grace-period-ms = Periodo di tolleranza
-    .description = Intervallo dopo il blocco in cui lo schermo si sblocca senza password (0 = richiedila sempre)
+    .description = Per quanto tempo dopo il blocco lo schermo si sblocca ancora senza password
 
 settings-login-lock-blank-timeout-ms = Oscuramento dopo
-    .description = Oscura la schermata di blocco dopo questo tempo di inattività (0 = mai; solo visivo: il DPMS è compito del demone di inattività)
+    .description = Oscura la schermata di blocco dopo questo tempo di inattività; quando si spengono gli schermi si imposta nella pagina Inattività e alimentazione
 
 settings-login-lock-pam-service = Servizio PAM
-    .description = Servizio PAM usato per verificare la password (ad es. system-auth, login)
+    .description = Servizio PAM che verifica la password, come system-auth o login
 
 settings-login-lock-show-media = Mostra il brano in riproduzione
     .description = Mostra il brano in riproduzione con riproduci/pausa e successivo nella schermata di blocco (solo copertine locali)
@@ -69,7 +69,7 @@ settings-login-greeter-match-cursor = Usa il mio cursore
     .description = Mostra il cursore dell'ultima sessione avviata invece del tema e della dimensione impostati qui
 
 settings-login-greeter-cursor-theme = Tema del cursore
-    .description = Tema Xcursor usato nella schermata di accesso (vuoto = predefinito di sistema)
+    .description = Tema del cursore nella schermata di accesso; se non impostato, quello di sistema
 
 settings-login-greeter-cursor-size = Dimensione del cursore
     .description = Dimensione logica del cursore; scalata per schermo così le uscite HiDPI hanno un cursore nitido

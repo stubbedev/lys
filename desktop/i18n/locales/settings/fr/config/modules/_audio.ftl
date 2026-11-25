@@ -51,10 +51,10 @@ settings-modules-audio-label-color = Couleur du libellé
     .description = Couleur du texte du libellé
 
 settings-modules-audio-format = Format
-    .description = Modèle du libellé (ex. : {"{{"} percent {"}}"} %)
+    .description = Ce qu'affiche le libellé, composé des valeurs de l'élément et de texte libre
 
 settings-modules-audio-label-max-length = Longueur max. du libellé
-    .description = Nombre maximal de caractères avant troncature
+    .description = Caractères affichés par le libellé avant qu'il soit tronqué ; 0 ne le tronque jamais
 
 settings-modules-audio-button-bg-color = Arrière-plan du bouton
     .description = Couleur d'arrière-plan du bouton

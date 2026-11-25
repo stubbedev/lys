@@ -18,7 +18,7 @@ settings-modules-media-lyrics = Liedtexte
     .description = Synchronisierte Liedtexte von LRCLIB im Medien-Dropdown anzeigen. Sendet Interpret, Titel, Album und Länge jedes Titels an lrclib.net
 
 settings-modules-media-format = Format
-    .description = Beschriftungsformat mit Platzhaltern: {"{{ title }}"}, {"{{ artist }}"}, {"{{ album }}"}, {"{{ status }}"}, {"{{ status_icon }}"}
+    .description = Was die Beschriftung zeigt, zusammengesetzt aus den Werten des Elements und eigenem Text
 
 settings-modules-media-icon-name = Symbolname
     .description = Symbolischer Symbolname für den Standardmodus
@@ -51,7 +51,7 @@ settings-modules-media-label-color = Beschriftungsfarbe
     .description = Textfarbe der Beschriftung
 
 settings-modules-media-label-max-length = Maximale Beschriftungslänge
-    .description = Maximale Zeichenanzahl vor dem Kürzen
+    .description = Zeichen, die die Beschriftung zeigt, bevor sie gekürzt wird; 0 kürzt nie
 
 settings-modules-media-button-bg-color = Schaltflächenhintergrund
     .description = Hintergrundfarbe der Schaltfläche

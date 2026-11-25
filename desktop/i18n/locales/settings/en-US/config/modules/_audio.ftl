@@ -51,10 +51,10 @@ settings-modules-audio-label-color = Label Color
     .description = Label text color
 
 settings-modules-audio-format = Format
-    .description = Label template (e.g. {"{{"} percent {"}}"} %)
+    .description = What the label shows, built from the item's values and text of your own
 
 settings-modules-audio-label-max-length = Label Max Length
-    .description = Max characters before truncation
+    .description = Characters the label shows before it is cut short; 0 never cuts it
 
 settings-modules-audio-button-bg-color = Button Background
     .description = Button background color

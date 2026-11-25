@@ -26,7 +26,7 @@ settings-modules-nightlight-icon-on = Pictogram aan
     .description = Pictogram als het filter ingeschakeld is
 
 settings-modules-nightlight-format = Formaat
-    .description = Formaattekenreeks van het label. Plaatshouders: {"{{ status }}"}, {"{{ temp }}"}, {"{{ gamma }}"}, {"{{ config_temp }}"}, {"{{ config_gamma }}"}
+    .description = Wat het label toont, opgebouwd uit de waarden van het item en eigen tekst
 
 settings-modules-nightlight-border-show = Rand tonen
     .description = Rand rond de knop tonen
@@ -53,7 +53,7 @@ settings-modules-nightlight-label-color = Labelkleur
     .description = Tekstkleur van het label
 
 settings-modules-nightlight-label-max-length = Maximale labellengte
-    .description = Maximaal aantal tekens voordat wordt afgekapt
+    .description = Tekens die het label toont voordat het wordt ingekort; 0 kort het nooit in
 
 settings-modules-nightlight-button-bg-color = Knopachtergrond
     .description = Achtergrondkleur van de knop

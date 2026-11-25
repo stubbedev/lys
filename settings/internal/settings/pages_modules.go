@@ -6,6 +6,9 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/i18n"
+
+	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
 // The module pages, in the order the sidebar lists them.
@@ -127,16 +130,16 @@ func backgroundAppsPage(*config.Config) pageSpec {
 }
 
 var barItemGroups = []struct {
-	key string
-	ids []string
+	key, icon string
+	ids       []string
 }{
-	{"settings-nav-bar-items-status", []string{
+	{"settings-nav-bar-items-status", "", []string{
 		"audio", "background-apps", "battery", "bluetooth", "brightness", "cpu", "dashboard", "idle-inhibit", "keybind-mode",
 		"keyboard-input", "netstat", "network", "nightlight", notificationBellID, "power", "power-profiles", "ram", "storage", "systray",
 	}},
-	{"settings-nav-bar-items-media", []string{"cava", "media", "recorder", "screenshot"}},
-	{"settings-nav-bar-items-productivity", []string{"bitwarden", "clock", "custom", "mail", "separator", "treeman", "weather", "world-clock"}},
-	{"settings-nav-bar-items-windows", []string{"minimized-windows", "window-title", "workspaces"}},
+	{"settings-nav-bar-items-media", "ld-music-symbolic", []string{"cava", "media", "recorder", "screenshot"}},
+	{"settings-nav-bar-items-productivity", "", []string{"bitwarden", "clock", "custom", "mail", "separator", "treeman", "weather", "world-clock"}},
+	{"settings-nav-bar-items-windows", "ld-layers-symbolic", []string{"minimized-windows", "window-title", "workspaces"}},
 }
 
 func barItemSections(cfg *config.Config) []navSection {
@@ -155,7 +158,7 @@ func barItemSections(cfg *config.Config) []navSection {
 			p.unlisted = unlistedOptional(cfg, id)
 			pages = append(pages, p)
 		}
-		out = append(out, navSection{key: g.key, pages: pages})
+		out = append(out, navSection{key: g.key, pages: pages, icon: g.icon})
 	}
 	return out
 }
@@ -191,7 +194,7 @@ func bitwardenPage(*config.Config) pageSpec {
 	return barItemPage(config.ModuleBitwarden, pageSpec{id: "bitwarden", navKey: "settings-nav-bitwarden", icon: "ld-shield-check-symbolic", header: "settings-page-bitwarden"}, barItemParts{
 		sections: []sectionSpec{
 			{title: "settings-section-general", rows: []rowSpec{field(m + ".format")}},
-			{title: "settings-section-bitwarden-account", preview: newVaultAccount, rows: fields(m+".server", m+".email")},
+			{title: "settings-section-bitwarden-account", preview: newVaultAccount, rows: []rowSpec{field(m + ".server"), field(m+".email", hinted(func() string { return i18n.T("dropdown-bitwarden-email-placeholder") }))}},
 			{title: "settings-section-bitwarden-security", rows: []rowSpec{
 				field(m + ".lock-with-session"),
 				field(m + ".unlock-with-session"),
@@ -459,7 +462,7 @@ func screenshotPage(*config.Config) pageSpec {
 	const m = "modules.screenshot"
 	return barItemPage(config.ModuleScreenshot, pageSpec{id: "screenshot", navKey: "settings-nav-screenshot", icon: "ld-camera-symbolic", header: "settings-page-screenshot"}, barItemParts{
 		sections: []sectionSpec{
-			{title: "settings-section-general", rows: []rowSpec{field(m + ".label")}},
+			{title: "settings-section-general", rows: []rowSpec{field(m+".label", hinted(func() string { return locale.T().Get("settings-screenshot-label-placeholder") }))}},
 			{title: "settings-section-screenshot-save", rows: []rowSpec{
 				field(screenshotDirPath),
 				field(m+".filename-format", screenshotNameRow),

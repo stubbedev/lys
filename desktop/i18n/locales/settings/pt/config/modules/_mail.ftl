@@ -1,5 +1,5 @@
 settings-modules-mail-format = Formato
-    .description = Cadeia de formato da etiqueta. Marcadores: {"{{ count }}"}
+    .description = O que a etiqueta mostra, composto pelos valores do item e por texto próprio
 
 settings-modules-mail-query = Consulta
     .description = Consulta de pesquisa do notmuch cujo número de resultados é mostrado (ex.: tag:unread)
@@ -22,13 +22,13 @@ settings-modules-mail-notify = Notificar correio novo
     .description = Emitir uma notificação por cada mensagem nova (remetente, assunto, ícone do fornecedor)
 
 settings-modules-mail-notify-summary = Resumo da notificação
-    .description = Texto do resumo. Marcadores: {"{{ sender }}"}, {"{{ subject }}"}, {"{{ count }}"} (total), {"{{ new }}"} (novas)
+    .description = O título da notificação, composto pelo remetente, assunto e contagens do novo correio e por texto próprio
 
 settings-modules-mail-notify-body = Corpo da notificação
-    .description = Texto do corpo. Marcadores: {"{{ sender }}"}, {"{{ subject }}"}, {"{{ count }}"} (total), {"{{ new }}"} (novas)
+    .description = O texto da notificação, composto pelo remetente, assunto e contagens do novo correio e por texto próprio
 
 settings-modules-mail-notify-click = Comando ao clicar na notificação
-    .description = Comando de shell executado ao clicar numa notificação de novo correio. Marcador: {"{{ thread }}"} (fio do notmuch)
+    .description = Comando executado ao clicar numa notificação de novo correio; pode receber o fio do correio
 
 settings-modules-mail-icon-name = Ícone
     .description = Ícone do módulo
@@ -58,7 +58,7 @@ settings-modules-mail-label-color = Cor da etiqueta
     .description = Cor do texto da etiqueta
 
 settings-modules-mail-label-max-length = Comprimento máximo da etiqueta
-    .description = Máximo de caracteres antes de truncar
+    .description = Caracteres que a etiqueta mostra antes de ser cortada; 0 nunca a corta
 
 settings-modules-mail-button-bg-color = Fundo do botão
     .description = Cor de fundo do botão

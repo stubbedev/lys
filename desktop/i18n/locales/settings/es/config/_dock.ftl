@@ -6,7 +6,7 @@ settings-dock-enabled = Mostrar el dock
     .description = Muestra el dock de aplicaciones fijadas y ventanas abiertas
 
 settings-dock-monitors = Monitores
-    .description = Salidas que muestran el dock, por nombre de conector, o * para todas las salidas
+    .description = Pantallas que muestran el dock
 
 settings-dock-edge = Borde
     .description = Borde de la pantalla en el que se sitúa el dock
@@ -27,7 +27,7 @@ settings-dock-hover-zoom-size = Tamaño de ampliación
     .description = Tamaño al que crece el icono de la aplicación bajo el puntero
 
 settings-dock-pinned = Aplicaciones fijadas
-    .description = Aplicaciones que siempre están en el dock, por id de entrada de escritorio
+    .description = Aplicaciones que siempre están en el dock, estén abiertas o no
 
 settings-dock-icon = Icono de reserva
     .description = Icono para una aplicación cuya entrada de escritorio no tiene icono

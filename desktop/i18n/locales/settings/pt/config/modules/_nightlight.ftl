@@ -26,7 +26,7 @@ settings-modules-nightlight-icon-on = Ícone ligado
     .description = Ícone quando o filtro está ativado
 
 settings-modules-nightlight-format = Formato
-    .description = Cadeia de formato da etiqueta. Marcadores: {"{{ status }}"}, {"{{ temp }}"}, {"{{ gamma }}"}, {"{{ config_temp }}"}, {"{{ config_gamma }}"}
+    .description = O que a etiqueta mostra, composto pelos valores do item e por texto próprio
 
 settings-modules-nightlight-border-show = Mostrar contorno
     .description = Mostrar contorno à volta do botão
@@ -53,7 +53,7 @@ settings-modules-nightlight-label-color = Cor da etiqueta
     .description = Cor do texto da etiqueta
 
 settings-modules-nightlight-label-max-length = Comprimento máximo da etiqueta
-    .description = Máximo de caracteres antes de truncar
+    .description = Caracteres que a etiqueta mostra antes de ser cortada; 0 nunca a corta
 
 settings-modules-nightlight-button-bg-color = Fundo do botão
     .description = Cor de fundo do botão

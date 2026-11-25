@@ -62,7 +62,7 @@ settings-modules-notifications-sounds = Sounds
     .description = Which notifications play a sound; silent in do-not-disturb, while sharing the screen and while muted
 
 settings-modules-notifications-sound-default = Default Sound
-    .description = Sound theme name a notification without its own sound plays
+    .description = The sound a notification without its own sound plays
 
 settings-modules-notifications-sound-mute-apps = Silent Apps
     .description = App-name globs whose notifications never play a sound

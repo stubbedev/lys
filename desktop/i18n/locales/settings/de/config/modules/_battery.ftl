@@ -36,7 +36,7 @@ settings-modules-battery-label-color = Beschriftungsfarbe
     .description = Textfarbe der Beschriftung
 
 settings-modules-battery-label-max-length = Maximale Beschriftungslänge
-    .description = Maximale Zeichenanzahl vor dem Kürzen
+    .description = Zeichen, die die Beschriftung zeigt, bevor sie gekürzt wird; 0 kürzt nie
 
 settings-modules-battery-button-bg-color = Schaltflächenhintergrund
     .description = Hintergrundfarbe der Schaltfläche
@@ -54,7 +54,7 @@ settings-modules-battery-scroll-down = Nach unten scrollen
     .description = Shell-Befehl beim Scrollen nach unten
 
 settings-modules-battery-format = Format
-    .description = Beschriftungsvorlage für die Akkuanzeige (z. B. {"{{"} percent {"}}"} %)
+    .description = Was die Beschriftung zeigt, zusammengesetzt aus den Werten des Elements und eigenem Text
 
 settings-modules-battery-left-click = Linksklick
     .description = Aktion bei Linksklick

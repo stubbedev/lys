@@ -3,7 +3,7 @@
 ## Keybind Mode Module Configuration
 
 settings-modules-keybind-mode-format = Beschriftungsformat
-    .description = Formatzeichenkette mit Platzhaltern: {"{{ mode }}"}
+    .description = Was die Beschriftung zeigt, zusammengesetzt aus den Werten des Elements und eigenem Text
 
 settings-modules-keybind-mode-icon-name = Symbolname
     .description = Symbolischer Symbolname
@@ -36,7 +36,7 @@ settings-modules-keybind-mode-label-color = Beschriftungsfarbe
     .description = Textfarbe der Beschriftung
 
 settings-modules-keybind-mode-label-max-length = Maximale Beschriftungslänge
-    .description = Maximale Zeichenanzahl vor dem Kürzen (0 zum Deaktivieren)
+    .description = Zeichen, die die Beschriftung zeigt, bevor sie gekürzt wird; 0 kürzt nie
 
 settings-modules-keybind-mode-button-bg-color = Schaltflächenhintergrund
     .description = Hintergrundfarbe der Schaltfläche

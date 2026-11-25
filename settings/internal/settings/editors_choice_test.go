@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/ui/widget"
 
@@ -69,10 +70,8 @@ func TestEveryListerHasATestFixture(t *testing.T) {
 }
 
 var freeFormRows = []string{
-	"modules.bitwarden.email",
 	"modules.bitwarden.network-folder",
 	"modules.bitwarden.portal-folder",
-	"modules.screenshot.label",
 	swallowExceptPath,
 }
 
@@ -120,13 +119,13 @@ func TestNoShellRowFallsBackToPlainTextUnlessItIsFreeForm(t *testing.T) {
 	}
 	k2 := testKit(t, "")
 	rows := append(shellRows(), field("modules.screenshot.label"))
+	if got := plainTextRows(t, k2, k2.store, rows); !slices.Equal(got, []string{"modules.screenshot.label"}) {
+		t.Fatalf("a text row off the list was not flagged: %v", got)
+	}
+	freeFormRows = append(slices.Clone(freeFormRows), "modules.screenshot.label")
+	defer func() { freeFormRows = freeFormRows[:len(freeFormRows)-1] }()
 	if got := plainTextRows(t, k2, k2.store, rows); len(got) != 0 {
 		t.Fatalf("a free-form row was flagged: %v", got)
-	}
-	freeFormRows = slices.DeleteFunc(slices.Clone(freeFormRows), func(p string) bool { return p == "modules.screenshot.label" })
-	defer func() { freeFormRows = append(freeFormRows, "modules.screenshot.label") }()
-	if got := plainTextRows(t, k2, k2.store, shellRows()); !slices.Equal(got, []string{"modules.screenshot.label"}) {
-		t.Fatalf("a text row off the list was not flagged: %v", got)
 	}
 }
 
@@ -647,6 +646,78 @@ func TestAChoiceOfTextIsOneCombobox(t *testing.T) {
 		combos := treetest.All[*widget.ComboboxEntry](c)
 		if focusable != 1 || buttons != 0 || len(combos) != 1 || widget.RoleOf(combos[0]) != widget.RoleComboBox {
 			t.Errorf("%s: %d focus stops, %d buttons, %d comboboxes; want one combobox and nothing beside it", path, focusable, buttons, len(combos))
+		}
+	}
+}
+
+func TestALauncherTemplatePreviewDropsTheBracketsOfItsOptionalParts(t *testing.T) {
+	f := placeholderFormat(config.Placeholders("launcher.drun.display-format"))
+	if got, err := f.render("{name} [({generic})]"); err != nil || got != "Firefox (Web Browser)" {
+		t.Fatalf("a filled optional part renders %q, %v", got, err)
+	}
+	w := placeholderFormat(config.Placeholders("launcher.window.format"))
+	if got, err := w.render("{t}[ ({r})]"); err != nil || got != "GitHub" {
+		t.Fatalf("an optional part with an empty value renders %q, %v", got, err)
+	}
+}
+
+func TestTheScreenReaderReadsByItsNameAndIsMarkedWhenNotInstalled(t *testing.T) {
+	k := testKit(t, "")
+	path := "login.greeter.screen-reader"
+	c := shellControl(t, k, path, screenReaderRow).(*choiceEditor)
+	if c.entry.Text() != "Orca" || !c.unknown.Visible() {
+		t.Fatalf("an uninstalled orca shows %q, not found %v", c.entry.Text(), c.unknown.Visible())
+	}
+
+	programs := systemLists["Program"]
+	t.Cleanup(func() { systemLists["Program"] = programs })
+	systemLists["Program"] = fixed("foot", "orca")
+	c = shellControl(t, k, path, screenReaderRow).(*choiceEditor)
+	if c.entry.Text() != "Orca" || c.unknown.Visible() {
+		t.Fatalf("an installed orca shows %q, not found %v", c.entry.Text(), c.unknown.Visible())
+	}
+	p := openChoices(t, k, c)
+	if !slices.Contains(p.all, "orca") || slices.Contains(p.all, "foot") {
+		t.Fatalf("offered %q, want the screen readers alone", p.all)
+	}
+	c.entry.SelectAll()
+	c.entry.Insert("/opt/reader")
+	c.entry.KeyAction(widget.KeyEnter, 0)
+	if v := k.store.value(path); v != "/opt/reader" || c.unknown.Visible() {
+		t.Fatalf("a path wrote %v, not found %v", v, c.unknown.Visible())
+	}
+	p = openChoices(t, k, c)
+	p.pick(t, "orca")
+	if v := k.store.value(path); v != "orca" || c.entry.Text() != "Orca" {
+		t.Fatalf("picking Orca wrote %v and shows %q", v, c.entry.Text())
+	}
+}
+
+// A field left empty says what it takes or what empty does, never a
+// blank box: the screenshot label, the Bitwarden email, a trusted
+// installer and the vault folders, which read None.
+func TestEmptyFieldsSayWhatTheyTake(t *testing.T) {
+	k := testKit(t, "")
+	tr := locale.T()
+	for path, want := range map[string]string{
+		"modules.screenshot.label": tr.Get("settings-screenshot-label-placeholder"),
+		"modules.bitwarden.email":  i18n.T("dropdown-bitwarden-email-placeholder"),
+	} {
+		page := strings.Split(path, ".")[1]
+		c, ok := fieldControl(k, k.store, pageRow(t, page, path)).(*text)
+		if !ok || c.Text() != "" || c.Placeholder() != want || want == "" {
+			t.Errorf("%s: a %T reading %q, placeholder %q, want %q", path, c, c.Text(), c.Placeholder(), want)
+		}
+	}
+	installers := fieldControl(k, k.store, pageRow(t, "privacy", "portal.dynamic-launcher.install-token-apps")).(*listEditor)
+	installers.appendRow("")
+	if got := installers.items[0].(textItem).Placeholder(); got != tr.Get("settings-portal-installer-placeholder") {
+		t.Errorf("a new trusted installer's entry says %q", got)
+	}
+	for _, path := range []string{"modules.bitwarden.network-folder", "modules.bitwarden.portal-folder"} {
+		c := fieldControl(k, k.store, pageRow(t, "bitwarden", path)).(*choiceEditor)
+		if got := c.combo.Entry().Placeholder(); c.slot.text() != "" || got != tr.Get("settings-choice-none") {
+			t.Errorf("%s empty reads %q, want None", path, got)
 		}
 	}
 }

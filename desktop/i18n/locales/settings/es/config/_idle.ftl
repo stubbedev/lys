@@ -24,7 +24,7 @@ settings-idle-attention = Mirar antes de atenuar
     .description = Antes de que la pantalla se atenúe, encender la cámara menos de un segundo, primero la de infrarrojos, para ver si hay una cara mirando a la pantalla: una cara aplaza la atenuación. Su luz se enciende mientras mira. La imagen solo se examina en busca de una cara y se descarta, nunca se guarda, registra ni envía, y no se mira nada mientras la sesión está bloqueada u otra aplicación usa la cámara
 
 ## SleepAction variants
-enum-sleep-action-auto = Suspender y luego hibernar si se puede
+enum-sleep-action-auto = Automático
 enum-sleep-action-suspend = Suspender
 enum-sleep-action-hibernate = Hibernar
 enum-sleep-action-hybrid-sleep = Suspensión híbrida

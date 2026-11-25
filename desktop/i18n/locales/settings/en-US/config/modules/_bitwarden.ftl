@@ -14,14 +14,14 @@ settings-modules-bitwarden-lock-with-session = Lock With the Session
 settings-modules-bitwarden-unlock-with-session = Unlock With the Session
     .description = Unlock a locked vault with the lock screen's password, when it is the master password
 
-settings-modules-bitwarden-clipboard-clear = Clear Clipboard After (seconds)
-    .description = Clear a copied secret after this many seconds unless something else was copied. 0 leaves it
+settings-modules-bitwarden-clipboard-clear = Clear Clipboard After
+    .description = How long a copied secret stays on the clipboard, unless something else was copied since
 
 settings-modules-bitwarden-network-folder = Network Folder
-    .description = Vault folder whose logins, named like the connection, answer Wi-Fi and VPN password requests while the vault is open. Empty answers none
+    .description = Vault folder whose logins, named like the connection, answer Wi-Fi and VPN password requests while the vault is open; with None, no request is answered
 
 settings-modules-bitwarden-portal-folder = Portal Secrets Folder
-    .description = Vault folder sandboxed apps' keyring keys are kept in, after you allow each. Empty keeps them in the keyring only
+    .description = Vault folder sandboxed apps' keyring keys are kept in, after you allow each; with None, they stay in the keyring only
 
 settings-modules-bitwarden-generator-passwords = Password Presets
     .description = Random-character passwords the dropdown's generator copies
@@ -35,7 +35,7 @@ enum-password-charset-digits = Digits (0-9)
 enum-password-charset-symbols = Symbols (!@#$%^&*)
 
 settings-modules-bitwarden-format = Format
-    .description = Label format string. Placeholders: {"{{ count }}"} (items in the open vault)
+    .description = What the label shows, built from the item's values and text of your own
 
 settings-modules-bitwarden-icon-locked = Locked Icon
     .description = Icon while the vault is locked or logged out
@@ -68,7 +68,7 @@ settings-modules-bitwarden-label-color = Label Color
     .description = Label text color
 
 settings-modules-bitwarden-label-max-length = Label Max Length
-    .description = Max characters before truncation
+    .description = Characters the label shows before it is cut short; 0 never cuts it
 
 settings-modules-bitwarden-button-bg-color = Button Background
     .description = Button background color

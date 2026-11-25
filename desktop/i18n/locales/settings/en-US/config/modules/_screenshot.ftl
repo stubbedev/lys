@@ -6,10 +6,10 @@ settings-modules-screenshot-icon = Icon
     .description = Bar button icon
 
 settings-modules-screenshot-output-directory = Output Directory
-    .description = Where screenshots are saved (empty uses the XDG Pictures directory)
+    .description = Where screenshots are saved; Default folder is your Pictures folder
 
 settings-modules-screenshot-filename-format = File Name Format
-    .description = Saved file name, using strftime specifiers; {"{"}counter{"}"} numbers the files 1, 2, 3 and on
+    .description = The name a saved file gets, from the date, the time and a number counting up 1, 2, 3 and on
 
 settings-modules-screenshot-copy-to-clipboard = Copy to Clipboard
     .description = Copy the captured image to the clipboard
@@ -45,7 +45,7 @@ settings-modules-screenshot-label-color = Label Color
     .description = Label text color
 
 settings-modules-screenshot-label-max-length = Label Max Length
-    .description = Max characters before truncation
+    .description = Characters the label shows before it is cut short; 0 never cuts it
 
 settings-modules-screenshot-button-bg-color = Button Background
     .description = Button background color
@@ -66,7 +66,7 @@ settings-modules-screenshot-scroll-down = Scroll Down
     .description = Shell command on scroll down
 
 settings-modules-screenshot-thumbnail-ms = Thumbnail Duration
-    .description = How long the floating thumbnail stays after a capture, in milliseconds (0 disables it)
+    .description = How long the floating thumbnail stays after a capture
 
 settings-modules-screenshot-thumbnail-position = Thumbnail Position
     .description = Screen corner the floating thumbnail sits in

@@ -5,7 +5,7 @@ settings-modules-storage-mount-point = Te tonen schijven
     .description = De gekoppelde schijven waarvan het item de ruimte optelt; er blijft er altijd één gekozen
 
 settings-modules-storage-format = Weergaveformaat
-    .description = Formaattekenreeks met plaatshouders: {"{{ percent }}"}, {"{{ used_tib }}"}, {"{{ used_gib }}"}, {"{{ used_mib }}"}, {"{{ used_auto }}"}, {"{{ total_tib }}"}, {"{{ total_gib }}"}, {"{{ total_mib }}"}, {"{{ total_auto }}"}, {"{{ free_tib }}"}, {"{{ free_gib }}"}, {"{{ free_mib }}"}, {"{{ free_auto }}"}, {"{{ filesystem }}"}
+    .description = Wat het label toont, opgebouwd uit de waarden van het item en eigen tekst
 
 settings-modules-storage-icon-name = Pictogramnaam
     .description = Naam van het symbolische pictogram
@@ -35,7 +35,7 @@ settings-modules-storage-label-color = Labelkleur
     .description = Tekstkleur van het label
 
 settings-modules-storage-label-max-length = Maximale labellengte
-    .description = Maximaal aantal tekens voordat wordt afgekapt
+    .description = Tekens die het label toont voordat het wordt ingekort; 0 kort het nooit in
 
 settings-modules-storage-button-bg-color = Knopachtergrond
     .description = Achtergrondkleur van de knop

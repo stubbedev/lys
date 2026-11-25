@@ -12,7 +12,7 @@ settings-modules-idle-inhibit-icon-active = Icône active
     .description = Icône pendant le maintien en éveil
 
 settings-modules-idle-inhibit-format = Format
-    .description = Chaîne de format avec espaces réservés : {"{{ state }}"}, {"{{ remaining }}"}, {"{{ duration }}"}
+    .description = Ce qu'affiche le libellé, composé des valeurs de l'élément et de texte libre
 
 settings-modules-idle-inhibit-border-show = Afficher la bordure
     .description = Afficher une bordure autour du bouton
@@ -39,7 +39,7 @@ settings-modules-idle-inhibit-label-color = Couleur du libellé
     .description = Couleur du texte du libellé
 
 settings-modules-idle-inhibit-label-max-length = Longueur max. du libellé
-    .description = Nombre maximal de caractères avant troncature
+    .description = Caractères affichés par le libellé avant qu'il soit tronqué ; 0 ne le tronque jamais
 
 settings-modules-idle-inhibit-button-bg-color = Arrière-plan du bouton
     .description = Couleur d'arrière-plan du bouton

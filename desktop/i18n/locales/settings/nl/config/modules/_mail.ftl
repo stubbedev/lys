@@ -1,5 +1,5 @@
 settings-modules-mail-format = Formaat
-    .description = Formaattekenreeks van het label. Plaatshouders: {"{{ count }}"}
+    .description = Wat het label toont, opgebouwd uit de waarden van het item en eigen tekst
 
 settings-modules-mail-query = Zoekopdracht
     .description = notmuch-zoekopdracht waarvan het aantal resultaten wordt getoond (bijv. tag:unread)
@@ -22,13 +22,13 @@ settings-modules-mail-notify = Melding bij nieuwe e-mail
     .description = Een bureaubladmelding geven per nieuw bericht (afzender, onderwerp, pictogram van de aanbieder)
 
 settings-modules-mail-notify-summary = Samenvatting van melding
-    .description = Samenvattingstekst. Plaatshouders: {"{{ sender }}"}, {"{{ subject }}"}, {"{{ count }}"} (totaal), {"{{ new }}"} (nieuw)
+    .description = De kop van de melding, opgebouwd uit afzender, onderwerp en aantallen van de nieuwe e-mail en eigen tekst
 
 settings-modules-mail-notify-body = Tekst van melding
-    .description = Hoofdtekst. Plaatshouders: {"{{ sender }}"}, {"{{ subject }}"}, {"{{ count }}"} (totaal), {"{{ new }}"} (nieuw)
+    .description = De tekst van de melding, opgebouwd uit afzender, onderwerp en aantallen van de nieuwe e-mail en eigen tekst
 
 settings-modules-mail-notify-click = Opdracht bij klikken op melding
-    .description = Shell-opdracht die wordt uitgevoerd bij een klik op een melding van nieuwe e-mail. Plaatshouder: {"{{ thread }}"} (notmuch-thread)
+    .description = Opdracht die wordt uitgevoerd bij een klik op een melding van nieuwe e-mail; ze kan de thread van de e-mail meekrijgen
 
 settings-modules-mail-icon-name = Pictogram
     .description = Modulepictogram
@@ -58,7 +58,7 @@ settings-modules-mail-label-color = Labelkleur
     .description = Tekstkleur van het label
 
 settings-modules-mail-label-max-length = Maximale labellengte
-    .description = Maximaal aantal tekens voordat wordt afgekapt
+    .description = Tekens die het label toont voordat het wordt ingekort; 0 kort het nooit in
 
 settings-modules-mail-button-bg-color = Knopachtergrond
     .description = Achtergrondkleur van de knop

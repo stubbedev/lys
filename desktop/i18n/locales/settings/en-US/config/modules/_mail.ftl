@@ -3,7 +3,7 @@
 ## Mail Module Configuration
 
 settings-modules-mail-format = Format
-    .description = Label format string. Placeholders: {"{{ count }}"}
+    .description = What the label shows, built from the item's values and text of your own
 
 settings-modules-mail-query = Query
     .description = notmuch search query whose match count is shown (e.g. tag:unread)
@@ -26,13 +26,13 @@ settings-modules-mail-notify = Notify on New Mail
     .description = Fire a desktop notification per new message (sender, subject, provider icon)
 
 settings-modules-mail-notify-summary = Notification Summary
-    .description = Summary text. Placeholders: {"{{ sender }}"}, {"{{ subject }}"}, {"{{ count }}"} (total), {"{{ new }}"} (new)
+    .description = The notification's heading, built from the new mail's sender, subject and counts and text of your own
 
 settings-modules-mail-notify-body = Notification Body
-    .description = Body text. Placeholders: {"{{ sender }}"}, {"{{ subject }}"}, {"{{ count }}"} (total), {"{{ new }}"} (new)
+    .description = The notification's text, built from the new mail's sender, subject and counts and text of your own
 
 settings-modules-mail-notify-click = Notification Click Command
-    .description = Shell command run when a new-mail notification is clicked. Placeholder: {"{{ thread }}"} (notmuch thread)
+    .description = Command run when a new-mail notification is clicked; it can be handed the mail's thread
 
 settings-modules-mail-icon-name = Icon
     .description = Module icon
@@ -62,7 +62,7 @@ settings-modules-mail-label-color = Label Color
     .description = Label text color
 
 settings-modules-mail-label-max-length = Label Max Length
-    .description = Max characters before truncation
+    .description = Characters the label shows before it is cut short; 0 never cuts it
 
 settings-modules-mail-button-bg-color = Button Background
     .description = Button background color

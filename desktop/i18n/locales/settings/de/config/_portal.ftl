@@ -1,5 +1,5 @@
 settings-portal-screen-cast-reminder-days = Erinnerung zur Bildschirmfreigabe
-    .description = Tage, die eine App Ihren Bildschirm ohne Nachfrage freigeben darf, bevor erneut gefragt wird, ob sie es weiterhin darf; 0 fragt nie erneut
+    .description = Wie lange eine App Ihren Bildschirm freigeben darf, bevor erneut gefragt wird, ob sie es weiterhin darf
 
 settings-portal-lockdown-disable-printing = Drucken sperren
     .description = Druckanfragen aller Apps ablehnen

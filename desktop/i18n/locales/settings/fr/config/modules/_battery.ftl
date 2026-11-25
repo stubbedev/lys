@@ -36,7 +36,7 @@ settings-modules-battery-label-color = Couleur du libellé
     .description = Couleur du texte du libellé
 
 settings-modules-battery-label-max-length = Longueur max. du libellé
-    .description = Nombre maximal de caractères avant troncature
+    .description = Caractères affichés par le libellé avant qu'il soit tronqué ; 0 ne le tronque jamais
 
 settings-modules-battery-button-bg-color = Arrière-plan du bouton
     .description = Couleur d'arrière-plan du bouton
@@ -54,7 +54,7 @@ settings-modules-battery-scroll-down = Défilement vers le bas
     .description = Commande à exécuter au défilement vers le bas
 
 settings-modules-battery-format = Format
-    .description = Modèle de libellé pour l'affichage de la batterie (ex. : {"{{"} percent {"}}"} %)
+    .description = Ce qu'affiche le libellé, composé des valeurs de l'élément et de texte libre
 
 settings-modules-battery-left-click = Clic gauche
     .description = Action au clic gauche

@@ -15,7 +15,7 @@ settings-modules-recorder-icon-replay = Icona replay
     .description = Icona quando è pronto solo il replay istantaneo
 
 settings-modules-recorder-format = Formato
-    .description = Stringa di formato con i segnaposto: {"{{ state }}"}, {"{{ elapsed }}"}
+    .description = Ciò che mostra l'etichetta, composto dai valori dell'elemento e da testo libero
 
 settings-modules-recorder-microphone = Microfono
     .description = Registra il microfono
@@ -81,7 +81,7 @@ settings-modules-recorder-label-color = Colore dell'etichetta
     .description = Colore del testo dell'etichetta
 
 settings-modules-recorder-label-max-length = Lunghezza massima dell'etichetta
-    .description = Numero massimo di caratteri prima del troncamento
+    .description = Caratteri mostrati dall'etichetta prima che venga troncata; 0 non la tronca mai
 
 settings-modules-recorder-button-bg-color = Sfondo del pulsante
     .description = Colore di sfondo del pulsante

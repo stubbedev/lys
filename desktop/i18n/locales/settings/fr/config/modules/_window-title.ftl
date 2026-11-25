@@ -3,13 +3,13 @@
 ## Configuration du module Titre de fenêtre
 
 settings-modules-window-title-format = Format du libellé
-    .description = Chaîne de format avec espaces réservés : {"{{ title }}"}, {"{{ app }}"}
+    .description = Ce qu'affiche le libellé, composé des valeurs de l'élément et de texte libre
 
 settings-modules-window-title-icon-name = Icône de repli
     .description = Icône lorsqu'aucune correspondance n'est trouvée
 
 settings-modules-window-title-icon-mappings = Correspondances d'icônes
-    .description = Motifs glob vers noms d'icônes (préfixer avec title: pour la correspondance par titre)
+    .description = L'icône qu'affiche une fenêtre, selon son application ou son titre
 
 settings-modules-window-title-border-show = Afficher la bordure
     .description = Afficher une bordure autour du bouton
@@ -36,7 +36,7 @@ settings-modules-window-title-label-color = Couleur du libellé
     .description = Couleur du texte du libellé
 
 settings-modules-window-title-label-max-length = Longueur max. du libellé
-    .description = Nombre maximal de caractères avant troncature (0 pour désactiver)
+    .description = Caractères affichés par le libellé avant qu'il soit tronqué ; 0 ne le tronque jamais
 
 settings-modules-window-title-button-bg-color = Arrière-plan du bouton
     .description = Couleur d'arrière-plan du bouton

@@ -14,7 +14,7 @@ settings-modules-media-lyrics = Songteksten
     .description = Gesynchroniseerde songteksten van LRCLIB tonen in het media-uitklapmenu. Stuurt de artiest, titel, het album en de lengte van elk nummer naar lrclib.net
 
 settings-modules-media-format = Formaat
-    .description = Labelformaat met plaatshouders: {"{{ title }}"}, {"{{ artist }}"}, {"{{ album }}"}, {"{{ status }}"}, {"{{ status_icon }}"}
+    .description = Wat het label toont, opgebouwd uit de waarden van het item en eigen tekst
 
 settings-modules-media-icon-name = Pictogramnaam
     .description = Naam van het symbolische pictogram voor de standaardmodus
@@ -47,7 +47,7 @@ settings-modules-media-label-color = Labelkleur
     .description = Tekstkleur van het label
 
 settings-modules-media-label-max-length = Maximale labellengte
-    .description = Maximaal aantal tekens voordat wordt afgekapt
+    .description = Tekens die het label toont voordat het wordt ingekort; 0 kort het nooit in
 
 settings-modules-media-button-bg-color = Knopachtergrond
     .description = Achtergrondkleur van de knop

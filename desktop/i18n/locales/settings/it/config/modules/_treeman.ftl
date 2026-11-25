@@ -3,7 +3,7 @@
 ## Treeman Module Configuration
 
 settings-modules-treeman-format = Formato dell'etichetta
-    .description = Stringa di formato con i segnaposto: {"{{ total }}"}, {"{{ stable }}"}, {"{{ up }}"}, {"{{ down }}"}, {"{{ failed }}"}
+    .description = Ciò che mostra l'etichetta, composto dai valori dell'elemento e da testo libero
 
 settings-modules-treeman-icon-name = Icona
     .description = Icona del modulo (mostrata quando tutti i worktree sono pronti e a riposo)
@@ -45,7 +45,7 @@ settings-modules-treeman-label-color = Colore dell'etichetta
     .description = Colore del testo dell'etichetta
 
 settings-modules-treeman-label-max-length = Lunghezza massima dell'etichetta
-    .description = Numero massimo di caratteri prima del troncamento
+    .description = Caratteri mostrati dall'etichetta prima che venga troncata; 0 non la tronca mai
 
 settings-modules-treeman-button-bg-color = Sfondo del pulsante
     .description = Colore di sfondo del pulsante

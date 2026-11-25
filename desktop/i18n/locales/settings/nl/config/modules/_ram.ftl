@@ -2,7 +2,7 @@ settings-modules-ram-poll-interval-ms = Pollinginterval
     .description = Pollinginterval in milliseconden
 
 settings-modules-ram-format = Weergaveformaat
-    .description = Formaattekenreeks met plaatshouders: {"{{ percent }}"}, {"{{ used_gib }}"}, {"{{ total_gib }}"}, {"{{ available_gib }}"}, {"{{ swap_percent }}"}, {"{{ swap_used_gib }}"}, {"{{ swap_total_gib }}"}
+    .description = Wat het label toont, opgebouwd uit de waarden van het item en eigen tekst
 
 settings-modules-ram-icon-name = Pictogramnaam
     .description = Naam van het symbolische pictogram
@@ -32,7 +32,7 @@ settings-modules-ram-label-color = Labelkleur
     .description = Tekstkleur van het label
 
 settings-modules-ram-label-max-length = Maximale labellengte
-    .description = Maximaal aantal tekens voordat wordt afgekapt
+    .description = Tekens die het label toont voordat het wordt ingekort; 0 kort het nooit in
 
 settings-modules-ram-button-bg-color = Knopachtergrond
     .description = Achtergrondkleur van de knop

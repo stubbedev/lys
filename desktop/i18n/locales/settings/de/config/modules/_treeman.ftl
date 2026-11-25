@@ -3,7 +3,7 @@
 ## Treeman Module Configuration
 
 settings-modules-treeman-format = Beschriftungsformat
-    .description = Formatzeichenkette mit Platzhaltern: {"{{ total }}"}, {"{{ stable }}"}, {"{{ up }}"}, {"{{ down }}"}, {"{{ failed }}"}
+    .description = Was die Beschriftung zeigt, zusammengesetzt aus den Werten des Elements und eigenem Text
 
 settings-modules-treeman-icon-name = Symbol
     .description = Modulsymbol (angezeigt, wenn alle Worktrees ruhend bereit sind)
@@ -45,7 +45,7 @@ settings-modules-treeman-label-color = Beschriftungsfarbe
     .description = Textfarbe der Beschriftung
 
 settings-modules-treeman-label-max-length = Maximale Beschriftungslänge
-    .description = Maximale Zeichenanzahl vor dem Kürzen
+    .description = Zeichen, die die Beschriftung zeigt, bevor sie gekürzt wird; 0 kürzt nie
 
 settings-modules-treeman-button-bg-color = Schaltflächenhintergrund
     .description = Hintergrundfarbe der Schaltfläche

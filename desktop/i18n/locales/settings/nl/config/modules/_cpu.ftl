@@ -5,7 +5,7 @@ settings-modules-cpu-temp-sensor = Temperatuursensor
     .description = De sensor waarvan de temperatuur wordt gelezen: automatisch gekozen, of één op zijn label, zoals Tctl
 
 settings-modules-cpu-format = Weergaveformaat
-    .description = Formaattekenreeks met plaatshouders: {"{{ percent }}"}, {"{{ freq_ghz }}"}, {"{{ avg_freq_ghz }}"}, {"{{ max_freq_ghz }}"}, {"{{ temp_c }}"}, {"{{ temp_f }}"}
+    .description = Wat het label toont, opgebouwd uit de waarden van het item en eigen tekst
 
 settings-modules-cpu-icon-name = Pictogramnaam
     .description = Naam van het symbolische pictogram
@@ -35,7 +35,7 @@ settings-modules-cpu-label-color = Labelkleur
     .description = Tekstkleur van het label
 
 settings-modules-cpu-label-max-length = Maximale labellengte
-    .description = Maximaal aantal tekens voordat wordt afgekapt
+    .description = Tekens die het label toont voordat het wordt ingekort; 0 kort het nooit in
 
 settings-modules-cpu-button-bg-color = Knopachtergrond
     .description = Achtergrondkleur van de knop

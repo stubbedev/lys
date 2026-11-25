@@ -24,7 +24,7 @@ settings-idle-attention = Look before dimming
     .description = Before the screen dims, switch the camera on for under a second, the infrared one first, to see whether a face is turned to the screen: a face postpones the dim. Its light comes on while it looks. The picture is only checked for a face and dropped, never saved, logged or sent, and nothing is looked at while the session is locked or another app uses the camera
 
 ## SleepAction variants
-enum-sleep-action-auto = Suspend, then hibernate if possible
+enum-sleep-action-auto = Automatic
 enum-sleep-action-suspend = Suspend
 enum-sleep-action-hibernate = Hibernate
 enum-sleep-action-hybrid-sleep = Hybrid sleep

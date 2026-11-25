@@ -1,5 +1,5 @@
 settings-portal-screen-cast-reminder-days = Recordatorio de pantalla compartida
-    .description = Días que una aplicación puede seguir compartiendo su pantalla sin preguntar antes de volver a preguntar si se le sigue permitiendo; 0 no vuelve a preguntar nunca
+    .description = Cuánto tiempo puede una aplicación seguir compartiendo su pantalla antes de volver a preguntar si se le sigue permitiendo
 
 settings-portal-lockdown-disable-printing = Bloquear impresión
     .description = Rechazar las solicitudes de impresión de todas las apps

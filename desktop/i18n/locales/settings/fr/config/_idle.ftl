@@ -24,7 +24,7 @@ settings-idle-attention = Regarder avant d'assombrir
     .description = Avant que l'écran ne s'assombrisse, allumer la caméra moins d'une seconde, la caméra infrarouge d'abord, pour voir si un visage est tourné vers l'écran : un visage reporte l'assombrissement. Son voyant s'allume pendant qu'elle regarde. L'image sert seulement à chercher un visage puis est jetée, jamais enregistrée, journalisée ni envoyée, et rien n'est regardé tant que la session est verrouillée ou qu'une autre application utilise la caméra
 
 ## SleepAction variants
-enum-sleep-action-auto = Veille, puis hibernation si possible
+enum-sleep-action-auto = Automatique
 enum-sleep-action-suspend = Veille
 enum-sleep-action-hibernate = Hibernation
 enum-sleep-action-hybrid-sleep = Veille hybride

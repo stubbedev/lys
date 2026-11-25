@@ -10,14 +10,14 @@ settings-modules-bitwarden-lock-with-session = Vergrendelen met de sessie
 settings-modules-bitwarden-unlock-with-session = Ontgrendelen met de sessie
     .description = Een vergrendelde kluis ontgrendelen met het wachtwoord van het vergrendelscherm, als dat het hoofdwachtwoord is
 
-settings-modules-bitwarden-clipboard-clear = Klembord wissen na (seconden)
-    .description = Een gekopieerd geheim na dit aantal seconden wissen, tenzij er iets anders is gekopieerd. 0 laat het staan
+settings-modules-bitwarden-clipboard-clear = Klembord wissen na
+    .description = Hoelang een gekopieerd geheim op het klembord blijft, tenzij er sindsdien iets anders is gekopieerd
 
 settings-modules-bitwarden-network-folder = Netwerkmap
-    .description = Kluismap waarvan de aanmeldgegevens, genoemd naar de verbinding, Wi-Fi- en VPN-wachtwoordverzoeken beantwoorden terwijl de kluis open is. Leeg beantwoordt er geen
+    .description = Kluismap waarvan de aanmeldgegevens, genoemd naar de verbinding, Wi-Fi- en VPN-wachtwoordverzoeken beantwoorden terwijl de kluis open is; met Geen wordt geen verzoek beantwoord
 
 settings-modules-bitwarden-portal-folder = Map voor portaalgeheimen
-    .description = Kluismap waarin de sleutelbossleutels van gesandboxte toepassingen worden bewaard, nadat je elk ervan toestaat. Leeg bewaart ze alleen in de sleutelbos
+    .description = Kluismap waarin de sleutelbossleutels van gesandboxte toepassingen worden bewaard, nadat je elk ervan toestaat; met Geen blijven ze alleen in de sleutelbos
 
 settings-modules-bitwarden-generator-passwords = Wachtwoordvoorinstellingen
     .description = Wachtwoorden van willekeurige tekens die de generator in het uitklapmenu kopieert
@@ -31,7 +31,7 @@ enum-password-charset-digits = Cijfers (0-9)
 enum-password-charset-symbols = Symbolen (!@#$%^&*)
 
 settings-modules-bitwarden-format = Formaat
-    .description = Formaattekenreeks van het label. Plaatshouders: {"{{ count }}"} (items in de open kluis)
+    .description = Wat het label toont, opgebouwd uit de waarden van het item en eigen tekst
 
 settings-modules-bitwarden-icon-locked = Pictogram vergrendeld
     .description = Pictogram terwijl de kluis vergrendeld of afgemeld is
@@ -64,7 +64,7 @@ settings-modules-bitwarden-label-color = Labelkleur
     .description = Tekstkleur van het label
 
 settings-modules-bitwarden-label-max-length = Maximale labellengte
-    .description = Maximaal aantal tekens voordat wordt afgekapt
+    .description = Tekens die het label toont voordat het wordt ingekort; 0 kort het nooit in
 
 settings-modules-bitwarden-button-bg-color = Knopachtergrond
     .description = Achtergrondkleur van de knop

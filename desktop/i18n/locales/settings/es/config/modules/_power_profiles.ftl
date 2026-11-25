@@ -3,7 +3,7 @@
 ## Power Profiles Module Configuration
 
 settings-modules-power-profiles-format = Formato
-    .description = Cadena de formato de la etiqueta. Marcadores: {"{{ profile }}"}
+    .description = Lo que muestra la etiqueta, compuesto por los valores del elemento y texto propio
 
 settings-modules-power-profiles-icon-power-saver = Icono de ahorro de energía
     .description = Icono que se muestra mientras el perfil de ahorro de energía está activo
@@ -48,7 +48,7 @@ settings-modules-power-profiles-label-color = Color de la etiqueta
     .description = Color del texto de la etiqueta (sustituido según el perfil activo)
 
 settings-modules-power-profiles-label-max-length = Longitud máxima de la etiqueta
-    .description = Máximo de caracteres antes de truncar
+    .description = Caracteres que muestra la etiqueta antes de recortarse; 0 no la recorta nunca
 
 settings-modules-power-profiles-button-bg-color = Fondo del botón
     .description = Color de fondo del botón

@@ -9,7 +9,7 @@ settings-modules-cpu-temp-sensor = Capteur de température
     .description = Le capteur dont la température est lue : choisi automatiquement, ou un capteur par son libellé, comme Tctl
 
 settings-modules-cpu-format = Format d'affichage
-    .description = Chaîne de format avec espaces réservés : {"{{ percent }}"}, {"{{ freq_ghz }}"}, {"{{ avg_freq_ghz }}"}, {"{{ max_freq_ghz }}"}, {"{{ temp_c }}"}, {"{{ temp_f }}"}
+    .description = Ce qu'affiche le libellé, composé des valeurs de l'élément et de texte libre
 
 settings-modules-cpu-icon-name = Nom de l'icône
     .description = Nom d'icône symbolique
@@ -39,7 +39,7 @@ settings-modules-cpu-label-color = Couleur du libellé
     .description = Couleur du texte du libellé
 
 settings-modules-cpu-label-max-length = Longueur max. du libellé
-    .description = Nombre maximal de caractères avant troncature
+    .description = Caractères affichés par le libellé avant qu'il soit tronqué ; 0 ne le tronque jamais
 
 settings-modules-cpu-button-bg-color = Arrière-plan du bouton
     .description = Couleur d'arrière-plan du bouton

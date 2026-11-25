@@ -1,5 +1,5 @@
 settings-portal-screen-cast-reminder-days = Screen-Share Reminder
-    .description = Days an app may keep sharing your screen without asking before it asks again whether to keep allowing it; 0 never asks again
+    .description = How long an app may keep sharing your screen before you are asked again whether to keep allowing it
 
 settings-portal-lockdown-disable-printing = Block Printing
     .description = Refuse every app's request to print

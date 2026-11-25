@@ -51,10 +51,10 @@ settings-modules-audio-label-color = Color de la etiqueta
     .description = Color del texto de la etiqueta
 
 settings-modules-audio-format = Formato
-    .description = Plantilla de la etiqueta (p. ej. {"{{"} percent {"}}"} %)
+    .description = Lo que muestra la etiqueta, compuesto por los valores del elemento y texto propio
 
 settings-modules-audio-label-max-length = Longitud máxima de la etiqueta
-    .description = Máximo de caracteres antes de truncar
+    .description = Caracteres que muestra la etiqueta antes de recortarse; 0 no la recorta nunca
 
 settings-modules-audio-button-bg-color = Fondo del botón
     .description = Color de fondo del botón

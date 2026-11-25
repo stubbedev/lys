@@ -3,7 +3,7 @@
 ## Keyboard Input Module Configuration
 
 settings-modules-keyboard-input-format = Beschriftungsformat
-    .description = Formatzeichenkette mit Platzhaltern: {"{{ layout }}"}
+    .description = Was die Beschriftung zeigt, zusammengesetzt aus den Werten des Elements und eigenem Text
 
 settings-modules-keyboard-input-icon-name = Symbolname
     .description = Symbolischer Symbolname
@@ -33,7 +33,7 @@ settings-modules-keyboard-input-label-color = Beschriftungsfarbe
     .description = Textfarbe der Beschriftung
 
 settings-modules-keyboard-input-label-max-length = Maximale Beschriftungslänge
-    .description = Maximale Zeichenanzahl vor dem Kürzen (0 zum Deaktivieren)
+    .description = Zeichen, die die Beschriftung zeigt, bevor sie gekürzt wird; 0 kürzt nie
 
 settings-modules-keyboard-input-button-bg-color = Schaltflächenhintergrund
     .description = Hintergrundfarbe der Schaltfläche

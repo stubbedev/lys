@@ -60,6 +60,9 @@ func TestATwelveHourClockNamesTheHoursSo(t *testing.T) {
 		if got := e.hour.Items()[22]; got != want {
 			t.Errorf("a 12-hour clock in %s names hour 22 %q, want %q", locale, got, want)
 		}
+		if got := e.hour.Items()[7]; got != "7 AM" {
+			t.Errorf("a 12-hour clock in %s names hour 7 %q, without a leading zero", locale, got)
+		}
 	}
 }
 
@@ -114,14 +117,14 @@ func TestAScheduleWindowSaysWhenItRunsIntoTheNextDay(t *testing.T) {
 }
 
 // The schedule's windows read 24-hour in their titles while their hour
-// pickers read "10 PM" and "07 AM": both follow the clock's format, so a
+// pickers read "10 PM" and "7 AM": both follow the clock's format, so a
 // 12-hour clock titles a window as its pickers read it.
 func TestAScheduleWindowReadsItsTimesAsTheClockDoes(t *testing.T) {
 	k := testKit(t, "modules:\n  clock:\n    format: \"%I:%M %p\"\n")
 	useLocales(t, glibclocale.NewSource("", glibclocaletest.Dirs(t)))
 	t.Setenv("LC_ALL", "en_US.utf8")
 	got := scheduleTitle(k, map[string]any{"from": "22:00", "to": "07:00"})
-	want := locale.T().Get("settings-schedule-range", i18n.Str("from", "10:00 PM"), i18n.Str("to", "07:00 AM"), i18n.Str("overnight", "true"))
+	want := locale.T().Get("settings-schedule-range", i18n.Str("from", "10:00 PM"), i18n.Str("to", "7:00 AM"), i18n.Str("overnight", "true"))
 	if got != want {
 		t.Errorf("22:00-07:00 on a 12-hour clock reads %q, want %q", got, want)
 	}

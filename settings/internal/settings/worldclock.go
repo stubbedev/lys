@@ -197,18 +197,20 @@ func newWorldClockEditor(k *kit, s slot, meta config.FieldMeta) *worldClockEdito
 	e.cards = newCardList(k, e.clocks, cardSpec{
 		title: func(item map[string]any, _ int) string { zone, _ := item["zone"].(string); return zone },
 		fields: []cardField{
-			{key: "zone", label: "settings-world-clock-zone", editor: func(k *kit, s slot) control {
+			{key: "zone", label: "settings-world-clock-zone", fill: true, editor: func(k *kit, s slot) control {
 				return newChoiceEditor(k, s, choiceSpec{list: zones})
 			}},
-			{key: "before", label: "settings-world-clock-before", editor: func(k *kit, s slot) control {
-				return newLiveText(k, s, "")
+			{key: "before", label: "settings-world-clock-before", fill: true, editor: func(k *kit, s slot) control {
+				return newLiveText(k, s, t.Get("settings-world-clock-before-placeholder"))
 			}},
 			{key: "format", label: "settings-world-clock-time", fill: true, editor: func(k *kit, s slot) control {
 				return newFormatParts(k, s, worldClockParts())
 			}},
 		},
-		blank: func() map[string]any { return map[string]any{"before": " ", "zone": "UTC", "format": "%H:%M"} },
-		keep:  func(item map[string]any) bool { zone, _ := item["zone"].(string); return zone != "" },
+		blank: func() map[string]any {
+			return map[string]any{"before": clockSeparator(len(e.cards.local)), "zone": "UTC", "format": "%H:%M"}
+		},
+		keep: func(item map[string]any) bool { zone, _ := item["zone"].(string); return zone != "" },
 	})
 	e.notice = k.note(t.Get("settings-world-clock-handwritten"))
 	e.preview = k.formatPreview()
@@ -221,6 +223,15 @@ func newWorldClockEditor(k *kit, s slot, meta config.FieldMeta) *worldClockEdito
 	e.Append(e.raw, false)
 	e.refresh()
 	return e
+}
+
+// clockSeparator is the text ahead of a new clock after held others: a
+// space setting it apart from the one before, none ahead of the first.
+func clockSeparator(held int) string {
+	if held == 0 {
+		return ""
+	}
+	return " "
 }
 
 func (e *worldClockEditor) dirtyBadge() *widget.Badge { return e.raw.dirtyBadge() }

@@ -1,5 +1,5 @@
 settings-modules-treeman-format = Format du libellé
-    .description = Chaîne de format. Espaces réservés : {"{{ total }}"}, {"{{ stable }}"}, {"{{ up }}"}, {"{{ down }}"}, {"{{ failed }}"}
+    .description = Ce qu'affiche le libellé, composé des valeurs de l'élément et de texte libre
 settings-modules-treeman-icon-name = Icône
     .description = Icône du module (affichée lorsque chaque worktree est au repos et prêt)
 settings-modules-treeman-icon-preparing = Icône de préparation
@@ -28,7 +28,7 @@ settings-modules-treeman-label-show = Afficher le libellé
 settings-modules-treeman-label-color = Couleur du libellé
     .description = Couleur du texte du libellé
 settings-modules-treeman-label-max-length = Longueur maximale du libellé
-    .description = Nombre maximal de caractères avant troncature
+    .description = Caractères affichés par le libellé avant qu'il soit tronqué ; 0 ne le tronque jamais
 settings-modules-treeman-button-bg-color = Arrière-plan du bouton
     .description = Couleur d'arrière-plan du bouton
 settings-modules-treeman-left-click = Clic gauche

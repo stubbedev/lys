@@ -3,7 +3,7 @@
 ## Configuration du module Horloge
 
 settings-modules-clock-format = Format de l'heure
-    .description = Format d'affichage de l'heure en syntaxe strftime
+    .description = Comment l'heure s'affiche dans la barre
 
 settings-modules-clock-icon-name = Nom de l'icône
     .description = Nom d'icône symbolique
@@ -33,7 +33,7 @@ settings-modules-clock-label-color = Couleur du libellé
     .description = Couleur du texte du libellé
 
 settings-modules-clock-label-max-length = Longueur max. du libellé
-    .description = Nombre maximal de caractères avant troncature
+    .description = Caractères affichés par le libellé avant qu'il soit tronqué ; 0 ne le tronque jamais
 
 settings-modules-clock-button-bg-color = Arrière-plan du bouton
     .description = Couleur d'arrière-plan du bouton

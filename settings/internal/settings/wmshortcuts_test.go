@@ -81,7 +81,7 @@ func TestAddingAModeWritesItAndTheBindEnteringIt(t *testing.T) {
 	tb, _, _, files := shortcutTableOf(t, modesConfig)
 	tb.add.OnClick()
 	if !tb.adding.Visible() || tb.add.Visible() {
-		t.Fatal("Add a mode opens no form")
+		t.Fatal("Add mode opens no form")
 	}
 	tb.adding.name.SetText(" move ")
 	tb.adding.chord.SetAccel("Super+M")

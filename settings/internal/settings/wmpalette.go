@@ -115,7 +115,7 @@ func (p *paletteGrid) rebuild(names []string) {
 	for i, name := range names {
 		p.tiles[i] = colorButton(p.k, p.colorSlot(name))
 		p.resets[i] = p.k.resetButton("wm-palette-reset", func() { p.reset(name) })
-		caption := p.k.label(name, css.Caption)
+		caption := p.k.label(wmColorLabel(name), css.Caption)
 		caption.SetEllipsize(widget.EllipsizeEnd)
 		caption.SetTooltip(name)
 		swatch := gapBox(widget.Row)

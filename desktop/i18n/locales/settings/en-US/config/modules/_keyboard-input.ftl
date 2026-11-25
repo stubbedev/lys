@@ -3,7 +3,7 @@
 ## Keyboard Input Module Configuration
 
 settings-modules-keyboard-input-format = Label Format
-    .description = Format string with placeholders: {"{{ layout }}"}
+    .description = What the label shows, built from the item's values and text of your own
 
 settings-modules-keyboard-input-icon-name = Icon Name
     .description = Symbolic icon name
@@ -33,7 +33,7 @@ settings-modules-keyboard-input-label-color = Label Color
     .description = Label text color
 
 settings-modules-keyboard-input-label-max-length = Label Max Length
-    .description = Max characters before truncation (0 to disable)
+    .description = Characters the label shows before it is cut short; 0 never cuts it
 
 settings-modules-keyboard-input-button-bg-color = Button Background
     .description = Button background color

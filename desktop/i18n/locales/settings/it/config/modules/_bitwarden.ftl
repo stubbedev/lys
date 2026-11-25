@@ -14,14 +14,14 @@ settings-modules-bitwarden-lock-with-session = Blocca con la sessione
 settings-modules-bitwarden-unlock-with-session = Sblocca con la sessione
     .description = Sblocca una cassaforte bloccata con la password della schermata di blocco, quando coincide con la password principale
 
-settings-modules-bitwarden-clipboard-clear = Svuota gli appunti dopo (secondi)
-    .description = Cancella un segreto copiato dopo questo numero di secondi, a meno che non sia stato copiato altro. 0 lo lascia
+settings-modules-bitwarden-clipboard-clear = Svuota gli appunti dopo
+    .description = Per quanto tempo un segreto copiato resta negli appunti, a meno che nel frattempo non sia stato copiato altro
 
 settings-modules-bitwarden-network-folder = Cartella di rete
-    .description = Cartella della cassaforte i cui login, con lo stesso nome della connessione, rispondono alle richieste di password Wi-Fi e VPN mentre la cassaforte è aperta. Vuoto non risponde a nessuna
+    .description = Cartella della cassaforte i cui login, con lo stesso nome della connessione, rispondono alle richieste di password Wi-Fi e VPN mentre la cassaforte è aperta; con Nessuna non si risponde a nessuna richiesta
 
 settings-modules-bitwarden-portal-folder = Cartella dei segreti del portale
-    .description = Cartella della cassaforte in cui vengono conservate le chiavi del portachiavi delle app in sandbox, dopo averle autorizzate una per una. Vuoto le conserva solo nel portachiavi
+    .description = Cartella della cassaforte in cui vengono conservate le chiavi del portachiavi delle app in sandbox, dopo averle autorizzate una per una; con Nessuna restano solo nel portachiavi
 
 settings-modules-bitwarden-generator-passwords = Preset di password
     .description = Password di caratteri casuali che il generatore del menu a discesa copia
@@ -35,7 +35,7 @@ enum-password-charset-digits = Cifre (0-9)
 enum-password-charset-symbols = Simboli (!@#$%^&*)
 
 settings-modules-bitwarden-format = Formato
-    .description = Stringa di formato dell'etichetta. Segnaposto: {"{{ count }}"} (elementi nella cassaforte aperta)
+    .description = Ciò che mostra l'etichetta, composto dai valori dell'elemento e da testo libero
 
 settings-modules-bitwarden-icon-locked = Icona bloccata
     .description = Icona quando la cassaforte è bloccata o disconnessa
@@ -68,7 +68,7 @@ settings-modules-bitwarden-label-color = Colore dell'etichetta
     .description = Colore del testo dell'etichetta
 
 settings-modules-bitwarden-label-max-length = Lunghezza massima dell'etichetta
-    .description = Numero massimo di caratteri prima del troncamento
+    .description = Caratteri mostrati dall'etichetta prima che venga troncata; 0 non la tronca mai
 
 settings-modules-bitwarden-button-bg-color = Sfondo del pulsante
     .description = Colore di sfondo del pulsante

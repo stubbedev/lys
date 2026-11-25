@@ -2,25 +2,25 @@ settings-login-background-mode = Achtergrond
     .description = Hoe de achtergrond van het aanmeldscherm wordt getekend: effen kleur, een afbeelding of de bureaubladachtergrond
 
 settings-login-background-image = Achtergrondafbeelding
-    .description = Afbeeldingsbestand achter het aanmeldscherm als de achtergrond op "image" staat
+    .description = Afbeelding achter het aanmeldscherm als de achtergrond Afbeelding is
 
 settings-login-background-color = Achtergrondkleur
-    .description = Vulkleur achter het aanmeldscherm als de achtergrond op "color" staat
+    .description = Vulkleur achter het aanmeldscherm als de achtergrond Kleur is
 
 settings-login-blur = Vervaging
-    .description = Straal van de Gaussiaanse vervaging op afbeeldings-/bureaubladachtergronden (0 = geen)
+    .description = Hoe sterk een afbeeldings- of bureaubladachtergrond vervaagt; 0 houdt hem scherp
 
 settings-login-show-clock = Klok tonen
     .description = Een klok boven de aanmeldvraag tonen
 
 settings-login-clock-format = Klokformaat
-    .description = strftime-formaat voor de tijd op het aanmeldscherm (bijv. %H:%M)
+    .description = Hoe de tijd op het aanmeldscherm eruitziet
 
 settings-login-date-format = Datumformaat
-    .description = strftime-formaat voor de datum op het aanmeldscherm (bijv. %A, %B %-d)
+    .description = Hoe de datum op het aanmeldscherm eruitziet
 
 settings-login-max-attempts = Maximaal aantal pogingen
-    .description = Mislukte wachtwoordpogingen op het vergrendelscherm voordat invoer wordt geblokkeerd (0 = onbeperkt). Het scherm blijft vergrendeld.
+    .description = Verkeerde wachtwoorden op het vergrendelscherm voordat typen wordt geblokkeerd, terwijl het scherm vergrendeld blijft; 0 stelt geen grens
 
 settings-login-show-failed-attempts = Mislukte pogingen tonen
     .description = Het aantal mislukte pogingen op het vergrendelscherm tonen
@@ -32,13 +32,13 @@ settings-login-lock-lock-on-start = Vergrendelen bij start
     .description = De sessie vergrendelen zodra de shell start, voor opstellingen met automatisch aanmelden waarin het vergrendelscherm de toegangspoort is
 
 settings-login-lock-grace-period-ms = Respijtperiode
-    .description = Periode na het vergrendelen waarin het scherm zonder wachtwoord ontgrendelt (0 = altijd vereisen)
+    .description = Hoelang na het vergrendelen het scherm nog zonder wachtwoord ontgrendelt
 
 settings-login-lock-blank-timeout-ms = Time-out voor zwart scherm
-    .description = Het vergrendelscherm zwart maken na deze inactiviteitstijd (0 = nooit; alleen visueel — DPMS is de taak van de inactiviteitsdaemon)
+    .description = Het vergrendelscherm zwart maken na zo lang niets doen; wanneer de schermen uitgaan, stel je in op de pagina Inactiviteit en energie
 
 settings-login-lock-pam-service = PAM-dienst
-    .description = PAM-dienst die het wachtwoord controleert (bijv. system-auth, login)
+    .description = PAM-dienst die het wachtwoord controleert, zoals system-auth of login
 
 settings-login-lock-show-media = Nu afspelend tonen
     .description = Het spelende nummer met afspelen/pauzeren en volgende op het vergrendelscherm tonen (alleen lokale hoesafbeeldingen)
@@ -65,7 +65,7 @@ settings-login-greeter-match-cursor = Mijn cursor overnemen
     .description = De cursor van de laatst aangemelde sessie tonen in plaats van het thema en de grootte die hier zijn ingesteld
 
 settings-login-greeter-cursor-theme = Cursorthema
-    .description = Xcursor-thema op het aanmeldscherm (leeg = systeemstandaard)
+    .description = Aanwijzerthema op het aanmeldscherm; niet ingesteld, dat van het systeem
 
 settings-login-greeter-cursor-size = Cursorgrootte
     .description = Logische cursorgrootte; per beeldscherm geschaald zodat HiDPI-schermen een scherpe cursor krijgen

@@ -26,7 +26,7 @@ settings-modules-background-apps-label-color = Cor da etiqueta
     .description = Cor do texto da etiqueta
 
 settings-modules-background-apps-label-max-length = Comprimento máximo da etiqueta
-    .description = Máximo de caracteres antes de truncar
+    .description = Caracteres que a etiqueta mostra antes de ser cortada; 0 nunca a corta
 
 settings-modules-background-apps-button-bg-color = Fundo do botão
     .description = Cor de fundo do botão

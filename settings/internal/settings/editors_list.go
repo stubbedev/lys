@@ -235,13 +235,24 @@ func (t textItem) itemValue() any { return t.Text() }
 var stringList = listRow(func(config.FieldMeta) listSpec { return stringListSpec() })
 
 // stringListSpec is a list of words, an entry per item.
-func stringListSpec() listSpec {
+func stringListSpec() listSpec { return textListSpec("") }
+
+// hintedList is a list of words whose empty entries show the message
+// key's text, what an item holds.
+func hintedList(key string) rowOpt {
+	return listRow(func(config.FieldMeta) listSpec { return textListSpec(locale.T().Get(key)) })
+}
+
+// textListSpec is a list of words, an entry per item showing
+// placeholder while empty.
+func textListSpec(placeholder string) listSpec {
 	return listSpec{
 		addKey: "settings-list-add", rowClass: "string-list-row", reorder: true, blank: always(""),
 		item: func(k *kit, v any, changed func()) listItem {
 			e := k.entry()
 			s, _ := v.(string)
 			e.SetText(s)
+			e.SetPlaceholder(placeholder)
 			e.OnChanged = func(string) { changed() }
 			return textItem{e}
 		},

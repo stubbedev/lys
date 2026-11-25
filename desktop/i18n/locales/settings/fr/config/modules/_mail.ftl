@@ -3,7 +3,7 @@
 ## Configuration du module Courrier
 
 settings-modules-mail-format = Format
-    .description = Chaîne de format du libellé. Espaces réservés : {"{{ count }}"}
+    .description = Ce qu'affiche le libellé, composé des valeurs de l'élément et de texte libre
 
 settings-modules-mail-query = Requête
     .description = Requête de recherche notmuch dont le nombre de correspondances est affiché (par ex. tag:unread)
@@ -26,13 +26,13 @@ settings-modules-mail-notify = Notifier les nouveaux courriers
     .description = Émettre une notification de bureau lorsque le nombre de non lus augmente
 
 settings-modules-mail-notify-summary = Résumé de la notification
-    .description = Texte du résumé. Espaces réservés : {"{{ sender }}"}, {"{{ subject }}"}, {"{{ count }}"} (total), {"{{ new }}"} (nouveaux)
+    .description = Le titre de la notification, composé de l'expéditeur, de l'objet et des nombres du nouveau courrier et de texte libre
 
 settings-modules-mail-notify-body = Corps de la notification
-    .description = Texte du corps. Espaces réservés : {"{{ sender }}"}, {"{{ subject }}"}, {"{{ count }}"} (total), {"{{ new }}"} (nouveaux)
+    .description = Le texte de la notification, composé de l'expéditeur, de l'objet et des nombres du nouveau courrier et de texte libre
 
 settings-modules-mail-notify-click = Commande au clic sur la notification
-    .description = Commande shell exécutée au clic sur une notification de nouveau courrier. Espace réservé : {"{{ thread }}"} (fil notmuch)
+    .description = Commande exécutée au clic sur une notification de nouveau courrier ; elle peut recevoir le fil du courrier
 
 settings-modules-mail-icon-name = Icône
     .description = Icône du module
@@ -62,7 +62,7 @@ settings-modules-mail-label-color = Couleur du libellé
     .description = Couleur du texte du libellé
 
 settings-modules-mail-label-max-length = Longueur max. du libellé
-    .description = Nombre max. de caractères avant troncature
+    .description = Caractères affichés par le libellé avant qu'il soit tronqué ; 0 ne le tronque jamais
 
 settings-modules-mail-button-bg-color = Arrière-plan du bouton
     .description = Couleur d'arrière-plan du bouton

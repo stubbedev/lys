@@ -51,10 +51,10 @@ settings-modules-audio-label-color = Colore dell'etichetta
     .description = Colore del testo dell'etichetta
 
 settings-modules-audio-format = Formato
-    .description = Modello dell'etichetta (ad es. {"{{"} percent {"}}"} %)
+    .description = Ciò che mostra l'etichetta, composto dai valori dell'elemento e da testo libero
 
 settings-modules-audio-label-max-length = Lunghezza massima dell'etichetta
-    .description = Numero massimo di caratteri prima del troncamento
+    .description = Caratteri mostrati dall'etichetta prima che venga troncata; 0 non la tronca mai
 
 settings-modules-audio-button-bg-color = Sfondo del pulsante
     .description = Colore di sfondo del pulsante

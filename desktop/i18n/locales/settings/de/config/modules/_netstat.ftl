@@ -9,7 +9,7 @@ settings-modules-netstat-interface = Schnittstelle
     .description = Die zu überwachende Netzwerkschnittstelle: die aktive, automatisch gewählt, oder eine nach Namen
 
 settings-modules-netstat-format = Anzeigeformat
-    .description = Formatzeichenkette mit Platzhaltern: {"{{ down_kib }}"}, {"{{ down_mib }}"}, {"{{ down_gib }}"}, {"{{ down_auto }}"}, {"{{ up_kib }}"}, {"{{ up_mib }}"}, {"{{ up_gib }}"}, {"{{ up_auto }}"}, {"{{ interface }}"}
+    .description = Was die Beschriftung zeigt, zusammengesetzt aus den Werten des Elements und eigenem Text
 
 settings-modules-netstat-icon-name = Symbolname
     .description = Symbolischer Symbolname
@@ -39,7 +39,7 @@ settings-modules-netstat-label-color = Beschriftungsfarbe
     .description = Textfarbe der Beschriftung
 
 settings-modules-netstat-label-max-length = Maximale Beschriftungslänge
-    .description = Maximale Zeichenanzahl vor dem Kürzen
+    .description = Zeichen, die die Beschriftung zeigt, bevor sie gekürzt wird; 0 kürzt nie
 
 settings-modules-netstat-button-bg-color = Schaltflächenhintergrund
     .description = Hintergrundfarbe der Schaltfläche

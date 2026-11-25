@@ -6,25 +6,25 @@ settings-login-background-mode = Fondo
     .description = Cómo se dibuja el fondo de la pantalla de inicio de sesión: color sólido, una imagen o el fondo de escritorio
 
 settings-login-background-image = Imagen de fondo
-    .description = Archivo de imagen que se muestra detrás de la pantalla de inicio de sesión cuando el fondo es "image"
+    .description = Imagen que se muestra detrás de la pantalla de inicio de sesión cuando el fondo es Imagen
 
 settings-login-background-color = Color de fondo
-    .description = Color de relleno que se muestra detrás de la pantalla de inicio de sesión cuando el fondo es "color"
+    .description = Color de relleno detrás de la pantalla de inicio de sesión cuando el fondo es Color
 
 settings-login-blur = Desenfoque
-    .description = Radio del desenfoque gaussiano aplicado a los fondos de imagen o de escritorio (0 = ninguno)
+    .description = Cuánto se desenfoca un fondo de imagen o de escritorio; 0 lo deja nítido
 
 settings-login-show-clock = Mostrar el reloj
     .description = Muestra un reloj encima de la solicitud de credenciales
 
 settings-login-clock-format = Formato del reloj
-    .description = Formato strftime de la hora en la pantalla de inicio de sesión (p. ej. %H:%M)
+    .description = Cómo se muestra la hora en la pantalla de inicio de sesión
 
 settings-login-date-format = Formato de la fecha
-    .description = Formato strftime de la fecha en la pantalla de inicio de sesión (p. ej. %A, %B %-d)
+    .description = Cómo se muestra la fecha en la pantalla de inicio de sesión
 
 settings-login-max-attempts = Intentos máximos
-    .description = Intentos de contraseña fallidos en la pantalla de bloqueo antes de bloquear la entrada (0 = ilimitados). La pantalla sigue bloqueada.
+    .description = Contraseñas incorrectas en la pantalla de bloqueo antes de bloquear la escritura, con la pantalla aún bloqueada; 0 no pone límite
 
 settings-login-show-failed-attempts = Mostrar intentos fallidos
     .description = Muestra el número de intentos fallidos en la pantalla de bloqueo
@@ -36,13 +36,13 @@ settings-login-lock-lock-on-start = Bloquear al iniciar
     .description = Bloquea la sesión en cuanto se inicia el shell, para configuraciones con inicio de sesión automático en las que la pantalla de bloqueo es la puerta de acceso
 
 settings-login-lock-grace-period-ms = Periodo de gracia
-    .description = Intervalo tras el bloqueo durante el cual la pantalla se desbloquea sin contraseña (0 = pedirla siempre)
+    .description = Cuánto tiempo después del bloqueo la pantalla aún se desbloquea sin contraseña
 
 settings-login-lock-blank-timeout-ms = Tiempo hasta oscurecer
-    .description = Oscurece la pantalla de bloqueo tras este tiempo de inactividad (0 = nunca; solo visual: DPMS es tarea del servicio de inactividad)
+    .description = Oscurece la pantalla de bloqueo tras este tiempo sin uso; cuándo se apagan las pantallas se ajusta en la página Inactividad y energía
 
 settings-login-lock-pam-service = Servicio PAM
-    .description = Servicio PAM usado para verificar la contraseña (p. ej. system-auth, login)
+    .description = Servicio PAM que comprueba la contraseña, como system-auth o login
 
 settings-login-lock-show-media = Mostrar lo que se reproduce
     .description = Muestra la pista en reproducción con reproducir/pausar y siguiente en la pantalla de bloqueo (solo carátulas locales)
@@ -69,7 +69,7 @@ settings-login-greeter-match-cursor = Igualar mi cursor
     .description = Mostrar el cursor de la última sesión iniciada en lugar del tema y el tamaño definidos aquí
 
 settings-login-greeter-cursor-theme = Tema del cursor
-    .description = Tema de Xcursor usado en la pantalla de inicio de sesión (vacío = predeterminado del sistema)
+    .description = Tema del cursor en la pantalla de inicio de sesión; sin definir, el del sistema
 
 settings-login-greeter-cursor-size = Tamaño del cursor
     .description = Tamaño lógico del cursor; se escala por pantalla para que las salidas HiDPI tengan un cursor nítido

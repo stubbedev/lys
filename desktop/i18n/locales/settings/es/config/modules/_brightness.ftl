@@ -30,7 +30,7 @@ settings-modules-brightness-label-color = Color de la etiqueta
     .description = Color del texto de la etiqueta
 
 settings-modules-brightness-label-max-length = Longitud máxima de la etiqueta
-    .description = Máximo de caracteres antes de truncar
+    .description = Caracteres que muestra la etiqueta antes de recortarse; 0 no la recorta nunca
 
 settings-modules-brightness-min-brightness = Brillo mínimo
     .description = Mínimo (%) para la acción de ajuste y para lys-shell brightness, de modo que atenuar nunca oscurezca del todo; use el conmutador de apagado para llegar al 0%
@@ -42,7 +42,7 @@ settings-modules-brightness-button-bg-color = Fondo del botón
     .description = Color de fondo del botón
 
 settings-modules-brightness-format = Formato
-    .description = Plantilla de la etiqueta del brillo (p. ej. {"{{"} percent {"}}"} %)
+    .description = Lo que muestra la etiqueta, compuesto por los valores del elemento y texto propio
 
 settings-modules-brightness-left-click = Clic izquierdo
     .description = Acción al hacer clic izquierdo

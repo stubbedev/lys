@@ -30,7 +30,7 @@ settings-modules-nightlight-icon-on = Icona attivata
     .description = Icona quando il filtro è attivo
 
 settings-modules-nightlight-format = Formato
-    .description = Stringa di formato dell'etichetta. Segnaposto: {"{{ status }}"}, {"{{ temp }}"}, {"{{ gamma }}"}, {"{{ config_temp }}"}, {"{{ config_gamma }}"}
+    .description = Ciò che mostra l'etichetta, composto dai valori dell'elemento e da testo libero
 
 settings-modules-nightlight-border-show = Mostra il bordo
     .description = Mostra un bordo attorno al pulsante
@@ -57,7 +57,7 @@ settings-modules-nightlight-label-color = Colore dell'etichetta
     .description = Colore del testo dell'etichetta
 
 settings-modules-nightlight-label-max-length = Lunghezza massima dell'etichetta
-    .description = Numero massimo di caratteri prima del troncamento
+    .description = Caratteri mostrati dall'etichetta prima che venga troncata; 0 non la tronca mai
 
 settings-modules-nightlight-button-bg-color = Sfondo del pulsante
     .description = Colore di sfondo del pulsante

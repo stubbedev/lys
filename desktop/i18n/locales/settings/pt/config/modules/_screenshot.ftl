@@ -2,10 +2,10 @@ settings-modules-screenshot-icon = Ícone
     .description = Ícone do botão da barra
 
 settings-modules-screenshot-output-directory = Pasta de destino
-    .description = Onde as capturas de ecrã são guardadas (vazio usa a pasta XDG de imagens)
+    .description = Onde as capturas de ecrã são guardadas; Pasta predefinida é a pasta Imagens
 
 settings-modules-screenshot-filename-format = Formato do nome do ficheiro
-    .description = Nome do ficheiro guardado, com especificadores strftime; {"{"}counter{"}"} numera os ficheiros 1, 2, 3 e assim por diante
+    .description = O nome que um ficheiro guardado recebe, a partir da data, da hora e de um número que conta 1, 2, 3 e assim por diante
 
 settings-modules-screenshot-copy-to-clipboard = Copiar para a área de transferência
     .description = Copiar a imagem capturada para a área de transferência
@@ -41,7 +41,7 @@ settings-modules-screenshot-label-color = Cor da etiqueta
     .description = Cor do texto da etiqueta
 
 settings-modules-screenshot-label-max-length = Comprimento máximo da etiqueta
-    .description = Máximo de caracteres antes de truncar
+    .description = Caracteres que a etiqueta mostra antes de ser cortada; 0 nunca a corta
 
 settings-modules-screenshot-button-bg-color = Fundo do botão
     .description = Cor de fundo do botão
@@ -62,7 +62,7 @@ settings-modules-screenshot-scroll-down = Deslocar para baixo
     .description = Comando da shell ao deslocar para baixo
 
 settings-modules-screenshot-thumbnail-ms = Duração da miniatura
-    .description = Quanto tempo a miniatura flutuante permanece após uma captura, em milissegundos (0 desativa-a)
+    .description = Quanto tempo a miniatura flutuante permanece após uma captura
 
 settings-modules-screenshot-thumbnail-position = Posição da miniatura
     .description = Canto do ecrã onde fica a miniatura flutuante

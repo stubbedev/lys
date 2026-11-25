@@ -6,10 +6,10 @@ settings-modules-screenshot-icon = Icono
     .description = Icono del botón de la barra
 
 settings-modules-screenshot-output-directory = Carpeta de salida
-    .description = Dónde se guardan las capturas de pantalla (vacío usa la carpeta Imágenes de XDG)
+    .description = Dónde se guardan las capturas de pantalla; Carpeta predeterminada es la carpeta Imágenes
 
 settings-modules-screenshot-filename-format = Formato del nombre de archivo
-    .description = Nombre del archivo guardado, con especificadores de strftime; {"{"}counter{"}"} numera los archivos 1, 2, 3 y así sucesivamente
+    .description = El nombre que recibe un archivo guardado, a partir de la fecha, la hora y un número que cuenta 1, 2, 3 y así sucesivamente
 
 settings-modules-screenshot-copy-to-clipboard = Copiar al portapapeles
     .description = Copia la imagen capturada al portapapeles
@@ -45,7 +45,7 @@ settings-modules-screenshot-label-color = Color de la etiqueta
     .description = Color del texto de la etiqueta
 
 settings-modules-screenshot-label-max-length = Longitud máxima de la etiqueta
-    .description = Máximo de caracteres antes de truncar
+    .description = Caracteres que muestra la etiqueta antes de recortarse; 0 no la recorta nunca
 
 settings-modules-screenshot-button-bg-color = Fondo del botón
     .description = Color de fondo del botón
@@ -66,7 +66,7 @@ settings-modules-screenshot-scroll-down = Desplazar hacia abajo
     .description = Orden de shell al desplazar hacia abajo
 
 settings-modules-screenshot-thumbnail-ms = Duración de la miniatura
-    .description = Cuánto tiempo permanece la miniatura flotante tras una captura, en milisegundos (0 la desactiva)
+    .description = Cuánto tiempo permanece la miniatura flotante tras una captura
 
 settings-modules-screenshot-thumbnail-position = Posición de la miniatura
     .description = Esquina de la pantalla en la que se sitúa la miniatura flotante

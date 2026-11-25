@@ -39,7 +39,7 @@ settings-modules-notifications-label-color = Couleur du libellé
     .description = Couleur du texte du libellé
 
 settings-modules-notifications-label-max-length = Longueur max. du libellé
-    .description = Nombre maximal de caractères avant troncature
+    .description = Caractères affichés par le libellé avant qu'il soit tronqué ; 0 ne le tronque jamais
 
 settings-modules-notifications-button-bg-color = Arrière-plan du bouton
     .description = Couleur d'arrière-plan du bouton

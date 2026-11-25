@@ -39,7 +39,7 @@ settings-modules-dashboard-temp-error = Error de temperatura
     .description = Temperatura de la CPU (°C) a partir de la cual el anillo de temperatura pasa a error
 
 settings-modules-dashboard-user-session-actions = Acciones de sesión
-    .description = Acciones de sesión que se muestran en el panel de control (bloquear, cerrar la sesión, reiniciar, apagar)
+    .description = Los botones de sesión que muestra el panel de control, en su orden
 
 ## SessionAction variants
 enum-session-action-lock = Bloquear

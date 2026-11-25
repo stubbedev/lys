@@ -5,7 +5,7 @@ settings-modules-netstat-interface = Interface
     .description = De te bewaken netwerkinterface: de actieve, automatisch gekozen, of één op naam
 
 settings-modules-netstat-format = Weergaveformaat
-    .description = Formaattekenreeks met plaatshouders: {"{{ down_kib }}"}, {"{{ down_mib }}"}, {"{{ down_gib }}"}, {"{{ down_auto }}"}, {"{{ up_kib }}"}, {"{{ up_mib }}"}, {"{{ up_gib }}"}, {"{{ up_auto }}"}, {"{{ interface }}"}
+    .description = Wat het label toont, opgebouwd uit de waarden van het item en eigen tekst
 
 settings-modules-netstat-icon-name = Pictogramnaam
     .description = Naam van het symbolische pictogram
@@ -35,7 +35,7 @@ settings-modules-netstat-label-color = Labelkleur
     .description = Tekstkleur van het label
 
 settings-modules-netstat-label-max-length = Maximale labellengte
-    .description = Maximaal aantal tekens voordat wordt afgekapt
+    .description = Tekens die het label toont voordat het wordt ingekort; 0 kort het nooit in
 
 settings-modules-netstat-button-bg-color = Knopachtergrond
     .description = Achtergrondkleur van de knop

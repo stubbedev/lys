@@ -11,7 +11,7 @@ settings-modules-recorder-icon-replay = Pictogram replay
     .description = Pictogram terwijl alleen de directe replay paraat staat
 
 settings-modules-recorder-format = Formaat
-    .description = Formaattekenreeks met plaatshouders: {"{{ state }}"}, {"{{ elapsed }}"}
+    .description = Wat het label toont, opgebouwd uit de waarden van het item en eigen tekst
 
 settings-modules-recorder-microphone = Microfoon
     .description = De microfoon in de opname vastleggen
@@ -77,7 +77,7 @@ settings-modules-recorder-label-color = Labelkleur
     .description = Tekstkleur van het label
 
 settings-modules-recorder-label-max-length = Maximale labellengte
-    .description = Maximaal aantal tekens voordat wordt afgekapt
+    .description = Tekens die het label toont voordat het wordt ingekort; 0 kort het nooit in
 
 settings-modules-recorder-button-bg-color = Knopachtergrond
     .description = Achtergrondkleur van de knop

@@ -2,7 +2,7 @@ settings-modules-ram-poll-interval-ms = Intervalo de consulta
     .description = Intervalo de consulta em milissegundos
 
 settings-modules-ram-format = Formato de apresentação
-    .description = Cadeia de formato com marcadores: {"{{ percent }}"}, {"{{ used_gib }}"}, {"{{ total_gib }}"}, {"{{ available_gib }}"}, {"{{ swap_percent }}"}, {"{{ swap_used_gib }}"}, {"{{ swap_total_gib }}"}
+    .description = O que a etiqueta mostra, composto pelos valores do item e por texto próprio
 
 settings-modules-ram-icon-name = Nome do ícone
     .description = Nome do ícone simbólico
@@ -32,7 +32,7 @@ settings-modules-ram-label-color = Cor da etiqueta
     .description = Cor do texto da etiqueta
 
 settings-modules-ram-label-max-length = Comprimento máximo da etiqueta
-    .description = Máximo de caracteres antes de truncar
+    .description = Caracteres que a etiqueta mostra antes de ser cortada; 0 nunca a corta
 
 settings-modules-ram-button-bg-color = Fundo do botão
     .description = Cor de fundo do botão

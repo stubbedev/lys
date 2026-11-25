@@ -50,7 +50,7 @@ settings-modules-workspaces-label-size = Dimensione dell'etichetta
     .description = Moltiplicatore di scala per le etichette degli spazi di lavoro (0.25-3.0)
 
 settings-modules-workspaces-workspace-ignore = Ignora spazi di lavoro
-    .description = Pattern glob confrontati con nome, indice o id
+    .description = Spazi di lavoro esclusi, per nome o numero; un * corrisponde a qualsiasi testo
 
 settings-modules-workspaces-active-indicator = Indicatore attivo
     .description = Stile visivo dello spazio di lavoro attivo
@@ -74,7 +74,7 @@ settings-modules-workspaces-border-color = Colore del bordo
     .description = Colore del bordo del contenitore degli spazi di lavoro
 
 settings-modules-workspaces-workspace-map = Mappa degli spazi di lavoro
-    .description = Icone e colori specifici per spazio di lavoro, indicizzati per nome o id
+    .description = Un'icona e un colore per uno spazio di lavoro, scelti in base al nome o al numero
 
 settings-modules-workspaces-app-icon-map = Mappa delle icone delle app
     .description = L'icona che mostra una finestra, in base alla sua applicazione o al suo titolo
@@ -104,10 +104,10 @@ settings-modules-workspaces-numbering = Numerazione
     .description = Come vengono mostrati i numeri degli spazi di lavoro (assoluti o relativi)
 
 settings-modules-workspaces-highlight-active-on-other-monitor = Evidenzia attivi su altri monitor
-    .description = Usa un colore diverso per gli spazi di lavoro attivi su altri monitor (si applica solo quando { settings-modules-workspaces-monitor-specific } è disattivato)
+    .description = Usa un colore diverso per gli spazi di lavoro attivi su altri monitor, finché { settings-modules-workspaces-monitor-specific } è disattivato
 
 settings-modules-workspaces-active-on-other-monitor-color = Colore attivo su altri monitor
-    .description = Colore per icone ed etichette degli spazi di lavoro attivi su altri monitor (usato solo quando { settings-modules-workspaces-highlight-active-on-other-monitor } è attivo)
+    .description = Colore per icone ed etichette degli spazi di lavoro attivi su altri monitor, finché { settings-modules-workspaces-highlight-active-on-other-monitor } è attivo
 
 settings-modules-workspaces-hide-empty = Nascondi vuoti
     .description = Nasconde i tag senza client, a meno che non siano attivi

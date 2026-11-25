@@ -15,7 +15,7 @@ settings-modules-recorder-icon-replay = Replay Icon
     .description = Icon while only the instant replay is armed
 
 settings-modules-recorder-format = Format
-    .description = Format string using placeholders: {"{{ state }}"}, {"{{ elapsed }}"}
+    .description = What the label shows, built from the item's values and text of your own
 
 settings-modules-recorder-microphone = Microphone
     .description = Capture the microphone in the recording
@@ -81,7 +81,7 @@ settings-modules-recorder-label-color = Label Color
     .description = Label text color
 
 settings-modules-recorder-label-max-length = Label Max Length
-    .description = Max characters before truncation
+    .description = Characters the label shows before it is cut short; 0 never cuts it
 
 settings-modules-recorder-button-bg-color = Button Background
     .description = Button background color

@@ -518,7 +518,7 @@ func clockCardAt(t *testing.T, config, timeLocale string) *clockCard {
 
 func TestTheClockCardShowsTodayInTheTimeLocaleAndTheClocksHourCycle(t *testing.T) {
 	c := clockCardAt(t, "modules:\n  clock:\n    format: \"%a %I:%M %p\"\n", "en_US.utf8")
-	if c.date.Text() != "Thursday, 11/19/2026" || c.clock.Text() != "02:05 PM" {
+	if c.date.Text() != "Thursday, 11/19/2026" || c.clock.Text() != "2:05 PM" {
 		t.Fatalf("en_US with a 12-hour clock shows %q, %q", c.date.Text(), c.clock.Text())
 	}
 	if err := c.k.store.set(clockFormatPath, "%a %H:%M"); err != nil {
@@ -715,5 +715,17 @@ func TestALocaleWithoutPaperDataIsAnError(t *testing.T) {
 	}
 	if got, err := previewUnits("en_US.UTF-8", "C"); err != nil || !strings.Contains(got, "A4") || !strings.Contains(got, locale.T().Get("settings-region-measurement-us")) {
 		t.Fatalf("en_US measurement on C paper = %q, %v", got, err)
+	}
+}
+
+func TestThe24HourSampleReadsTheTimeEveryFormatPreviewReads(t *testing.T) {
+	k := testKit(t, "modules:\n  clock:\n    format: \"%a %b %d %I:%M %p\"\n")
+	row := hourCycleRow(k, func(err error) { t.Fatal(err) }, func() {})
+	want, err := strftimeFormat().render("%a %b %d %I:%M %p")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(treetest.Labels(row), want) || want != "Sat Mar 14 09:41 AM" {
+		t.Fatalf("the row shows %q, want the format previews' %q", treetest.Labels(row), want)
 	}
 }

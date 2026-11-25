@@ -30,7 +30,7 @@ settings-modules-nightlight-icon-on = Icône activée
     .description = Icône lorsque le filtre est activé
 
 settings-modules-nightlight-format = Format
-    .description = Chaîne de format du libellé. Espaces réservés : {"{{ status }}"}, {"{{ temp }}"}, {"{{ gamma }}"}, {"{{ config_temp }}"}, {"{{ config_gamma }}"}
+    .description = Ce qu'affiche le libellé, composé des valeurs de l'élément et de texte libre
 
 settings-modules-nightlight-border-show = Afficher la bordure
     .description = Afficher une bordure autour du bouton
@@ -57,7 +57,7 @@ settings-modules-nightlight-label-color = Couleur du libellé
     .description = Couleur du texte du libellé
 
 settings-modules-nightlight-label-max-length = Longueur max. du libellé
-    .description = Nombre maximal de caractères avant troncature
+    .description = Caractères affichés par le libellé avant qu'il soit tronqué ; 0 ne le tronque jamais
 
 settings-modules-nightlight-button-bg-color = Arrière-plan du bouton
     .description = Couleur d'arrière-plan du bouton

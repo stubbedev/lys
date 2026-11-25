@@ -10,14 +10,14 @@ settings-modules-bitwarden-lock-with-session = Bloquear com a sessão
 settings-modules-bitwarden-unlock-with-session = Desbloquear com a sessão
     .description = Desbloquear um cofre bloqueado com a palavra-passe do ecrã de bloqueio, quando esta for a palavra-passe mestra
 
-settings-modules-bitwarden-clipboard-clear = Limpar a área de transferência após (segundos)
-    .description = Limpar um segredo copiado após este número de segundos, a menos que tenha sido copiada outra coisa. 0 mantém-no
+settings-modules-bitwarden-clipboard-clear = Limpar a área de transferência após
+    .description = Durante quanto tempo um segredo copiado fica na área de transferência, a menos que entretanto tenha sido copiada outra coisa
 
 settings-modules-bitwarden-network-folder = Pasta de redes
-    .description = Pasta do cofre cujas credenciais, com o nome da ligação, respondem aos pedidos de palavra-passe de Wi-Fi e VPN enquanto o cofre está aberto. Vazio não responde a nenhum
+    .description = Pasta do cofre cujas credenciais, com o nome da ligação, respondem aos pedidos de palavra-passe de Wi-Fi e VPN enquanto o cofre está aberto; com Nenhuma, nenhum pedido é respondido
 
 settings-modules-bitwarden-portal-folder = Pasta de segredos do portal
-    .description = Pasta do cofre onde as chaves do porta-chaves das aplicações isoladas são guardadas, depois de autorizar cada uma. Vazio mantém-nas apenas no porta-chaves
+    .description = Pasta do cofre onde as chaves do porta-chaves das aplicações isoladas são guardadas, depois de autorizar cada uma; com Nenhuma, ficam apenas no porta-chaves
 
 settings-modules-bitwarden-generator-passwords = Predefinições de palavras-passe
     .description = Palavras-passe de caracteres aleatórios que o gerador do menu pendente copia
@@ -31,7 +31,7 @@ enum-password-charset-digits = Algarismos (0-9)
 enum-password-charset-symbols = Símbolos (!@#$%^&*)
 
 settings-modules-bitwarden-format = Formato
-    .description = Cadeia de formato da etiqueta. Marcadores: {"{{ count }}"} (itens no cofre aberto)
+    .description = O que a etiqueta mostra, composto pelos valores do item e por texto próprio
 
 settings-modules-bitwarden-icon-locked = Ícone bloqueado
     .description = Ícone enquanto o cofre está bloqueado ou sem sessão iniciada
@@ -64,7 +64,7 @@ settings-modules-bitwarden-label-color = Cor da etiqueta
     .description = Cor do texto da etiqueta
 
 settings-modules-bitwarden-label-max-length = Comprimento máximo da etiqueta
-    .description = Máximo de caracteres antes de truncar
+    .description = Caracteres que a etiqueta mostra antes de ser cortada; 0 nunca a corta
 
 settings-modules-bitwarden-button-bg-color = Fundo do botão
     .description = Cor de fundo do botão

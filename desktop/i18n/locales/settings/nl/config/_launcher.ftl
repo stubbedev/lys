@@ -2,13 +2,13 @@ settings-launcher-location = Positie
     .description = Waar de starter op het scherm verschijnt
 
 settings-launcher-width = Breedte
-    .description = Breedte van het oppervlak — een factor van de standaard (1.0) of pixels (bijv. "800px")
+    .description = Hoe breed de starter is, als veelvoud van zijn gewone breedte of in pixels
 
 settings-launcher-lines = Regels
     .description = Zichtbare resultaatregels
 
 settings-launcher-monitor = Monitor
-    .description = Uitvoerconnector om op te tonen (leeg = uitvoer met focus)
+    .description = Het scherm waarop de starter verschijnt
 
 settings-launcher-modes = Modi
     .description = Ingeschakelde modi, in tabvolgorde (drun, run, window, ssh, filebrowser, combi, keys, of een scriptnaam)
@@ -38,13 +38,13 @@ settings-launcher-case = Hoofdlettergevoeligheid
     .description = Hoe hoofdletters het zoeken beïnvloeden
 
 settings-launcher-terminal = Terminal
-    .description = Terminalemulator voor terminaltoepassingen (leeg = automatisch detecteren)
+    .description = Terminalemulator voor terminaltoepassingen; leeg gelaten wordt een geïnstalleerde gezocht
 
 settings-launcher-show-icons = Pictogrammen tonen
     .description = Pictogrammen naast items tonen
 
 settings-launcher-icon-theme = Pictogramthema
-    .description = Overschrijving van het pictogramthema (leeg = systeemthema)
+    .description = Pictogrammen van de rijen in de starter; Standaard volgt het pictogramthema van het systeem
 
 settings-launcher-sidebar-mode = Zijbalkmodus
     .description = Modustabbladen onderaan de starter tonen
@@ -62,22 +62,22 @@ settings-launcher-display-names = Weergavenamen van modi
     .description = Overschrijvingen van de weergavenaam per modus (bijv. drun = "apps")
 
 settings-launcher-scripts = Scriptmodi
-    .description = Aangepaste scriptmodi: naam → uitvoerbaar bestand (rofi-scriptprotocol)
+    .description = Eigen modi, elk een naam en het programma dat de lijst vult
 
 settings-launcher-keybindings = Sneltoetsen
-    .description = Overschrijvingen van sneltoetsen: actie → door komma's gescheiden toetsen (niet-ingestelde acties behouden de rofi-standaarden)
+    .description = Welke toetsen elke actie van de starter uitvoeren; een actie die je niet wijzigt houdt haar gewone toetsen
 
 settings-launcher-mouse-bindings = Muisbindingen
     .description = Welke muisknoppen en scrollrichtingen elke actie van de starter uitvoeren, in plaats van de standaard
 
 settings-launcher-font = Lettertype
-    .description = Lettertype van de starter als Pango-beschrijving (bijv. "Inter 12"); leeg behoudt het shell-lettertype
+    .description = Lettertype en grootte van de starter; Standaard behoudt het lettertype van de shell
 
 settings-launcher-styles = Stijlvoorinstellingen
     .description = Benoemde stijlen die een start bij naam kan opvragen: elke naam → de CSS die geldt zolang die start zichtbaar is
 
 settings-launcher-preview-cmd = Voorbeeldopdracht
-    .description = Opdracht die een miniatuur voor een rij maakt: {"{"}input{"}"} het bestand, {"{"}output{"}"} de te schrijven afbeelding, {"{"}size{"}"} de grootte in pixels; leeg gebruikt de miniatuurgeneratoren van het systeem
+    .description = Opdracht die de miniatuur van een rij maakt uit het bestand, de te schrijven afbeelding en de grootte in pixels; leeg gebruikt de miniatuurgeneratoren van het systeem
 
 settings-launcher-history = Geschiedenis
     .description = Startgeschiedenis en rangschikking op frecency
@@ -107,7 +107,7 @@ settings-launcher-history-max-size = Geschiedenisgrootte
     .description = Maximaal aantal onthouden items per modus
 
 settings-launcher-drun-categories = Categorieën
-    .description = Alleen toepassingen binnen deze categorieën tonen (leeg = alle)
+    .description = Alleen toepassingen binnen deze categorieën tonen; is er geen gekozen, dan verschijnen alle toepassingen
 
 settings-launcher-drun-exclude-categories = Uitgesloten categorieën
     .description = Toepassingen binnen deze categorieën verbergen
@@ -116,25 +116,25 @@ settings-launcher-drun-match-fields = Zoekvelden
     .description = Velden van de desktop-entry die tijdens het typen worden doorzocht
 
 settings-launcher-drun-display-format = Weergaveformaat
-    .description = Rijsjabloon: {"{name}"}, {"{generic}"}, {"{exec}"}, {"{categories}"}, {"{comment}"}; [..] wordt alleen getoond als het gevuld is
+    .description = Wat de rij van elke app toont; een deel tussen vierkante haken verschijnt alleen als de app die waarde heeft
 
 settings-launcher-drun-show-actions = Acties tonen
     .description = Acties uit desktopbestanden als extra rijen tonen
 
 settings-launcher-drun-url-launcher = URL-starter
-    .description = Opdracht die desktop-entries met Type=Link opent (leeg = de ingebouwde opener)
+    .description = Opdracht die items opent die weblinks zijn; Standaard gebruikt de ingebouwde opener
 
 settings-launcher-run-run-command = Uitvoeropdracht
-    .description = Gewoon accepteersjabloon ({"{cmd}"})
+    .description = Opdracht die een geaccepteerd item uitvoert, met de getypte opdracht erin
 
 settings-launcher-run-shell-command = Terminalopdracht
-    .description = Sjabloon voor uitvoeren in terminal ({"{terminal}"}, {"{cmd}"})
+    .description = Opdracht die een item in een terminal uitvoert, uit de terminal en de getypte opdracht
 
 settings-launcher-run-list-command = Lijstopdracht
     .description = Extra opdracht waarvan de stdout-regels items toevoegen
 
 settings-launcher-window-format = Weergaveformaat
-    .description = Rijsjabloon: {"{w}"} werkblad, {"{c}"} klasse, {"{t}"} titel, {"{n}"} naam, {"{r}"} rol
+    .description = Wat de rij van elk venster toont, uit werkblad, app, titel, naam en rol
 
 settings-launcher-window-match-fields = Zoekvelden
     .description = Venstervelden die tijdens het typen worden doorzocht
@@ -149,7 +149,7 @@ settings-launcher-ssh-client = SSH-client
     .description = Uitvoerbaar bestand van de SSH-client
 
 settings-launcher-ssh-command = Verbindingsopdracht
-    .description = Verbindingssjabloon ({"{terminal}"}, {"{ssh-client}"}, {"{host}"})
+    .description = Opdracht die met een host verbindt, uit de terminal, de SSH-client en de host
 
 settings-launcher-ssh-parse-hosts = /etc/hosts inlezen
     .description = Hosts uit /etc/hosts opnemen
@@ -158,7 +158,7 @@ settings-launcher-ssh-parse-known-hosts = known_hosts inlezen
     .description = Hosts uit ~/.ssh/known_hosts opnemen
 
 settings-launcher-filebrowser-directory = Startmap
-    .description = Map waarin de browser opent (leeg = persoonlijke map)
+    .description = Map waarin de bestandsbrowser opent; leeg gelaten, je persoonlijke map
 
 settings-launcher-filebrowser-sorting-method = Sortering
     .description = Volgorde van bestanden
@@ -170,13 +170,13 @@ settings-launcher-filebrowser-show-hidden = Verborgen tonen
     .description = Verborgen bestanden tonen
 
 settings-launcher-filebrowser-command = Openopdracht
-    .description = Opdracht die het gekozen bestand opent (leeg = de ingebouwde opener)
+    .description = Opdracht die het gekozen bestand opent; Standaard gebruikt de ingebouwde opener
 
 settings-launcher-combi-modes = Gecombineerde modi
     .description = Modi die in de gecombineerde lijst worden samengevoegd
 
 settings-launcher-combi-display-format = Weergaveformaat
-    .description = Rijsjabloon ({"{mode}"}, {"{text}"})
+    .description = Wat elke rij toont, uit haar modus en haar tekst
 
 enum-launcher-location-center = Midden
 enum-launcher-location-north-west = Linksboven

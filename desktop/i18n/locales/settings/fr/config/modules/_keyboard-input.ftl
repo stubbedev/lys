@@ -3,7 +3,7 @@
 ## Configuration du module Saisie clavier
 
 settings-modules-keyboard-input-format = Format du libellé
-    .description = Chaîne de format avec espaces réservés : {"{{ layout }}"}
+    .description = Ce qu'affiche le libellé, composé des valeurs de l'élément et de texte libre
 
 settings-modules-keyboard-input-icon-name = Nom de l'icône
     .description = Nom d'icône symbolique
@@ -33,7 +33,7 @@ settings-modules-keyboard-input-label-color = Couleur du libellé
     .description = Couleur du texte du libellé
 
 settings-modules-keyboard-input-label-max-length = Longueur max. du libellé
-    .description = Nombre maximal de caractères avant troncature (0 pour désactiver)
+    .description = Caractères affichés par le libellé avant qu'il soit tronqué ; 0 ne le tronque jamais
 
 settings-modules-keyboard-input-button-bg-color = Arrière-plan du bouton
     .description = Couleur d'arrière-plan du bouton

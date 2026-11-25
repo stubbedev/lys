@@ -24,7 +24,7 @@ settings-idle-attention = Vor dem Abdunkeln hinsehen
     .description = Bevor der Bildschirm abdunkelt, die Kamera für weniger als eine Sekunde einschalten, zuerst die Infrarotkamera, um zu sehen, ob ein Gesicht dem Bildschirm zugewandt ist: Ein Gesicht schiebt das Abdunkeln auf. Ihre Leuchte geht dabei an. Das Bild wird nur auf ein Gesicht geprüft und verworfen, nie gespeichert, protokolliert oder gesendet, und nichts wird angesehen, solange die Sitzung gesperrt ist oder eine andere App die Kamera nutzt
 
 ## SleepAction variants
-enum-sleep-action-auto = Bereitschaft, dann Ruhezustand wenn möglich
+enum-sleep-action-auto = Automatisch
 enum-sleep-action-suspend = Bereitschaft
 enum-sleep-action-hibernate = Ruhezustand
 enum-sleep-action-hybrid-sleep = Hybrider Schlaf

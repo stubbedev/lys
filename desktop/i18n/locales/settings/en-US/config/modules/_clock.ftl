@@ -3,7 +3,7 @@
 ## Clock Module Configuration
 
 settings-modules-clock-format = Time Format
-    .description = Time display format using strftime syntax
+    .description = How the time in the bar reads
 
 settings-modules-clock-icon-name = Icon Name
     .description = Symbolic icon name
@@ -33,7 +33,7 @@ settings-modules-clock-label-color = Label Color
     .description = Label text color
 
 settings-modules-clock-label-max-length = Label Max Length
-    .description = Max characters before truncation
+    .description = Characters the label shows before it is cut short; 0 never cuts it
 
 settings-modules-clock-button-bg-color = Button Background
     .description = Button background color

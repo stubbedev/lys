@@ -6,10 +6,10 @@ settings-modules-screenshot-icon = Symbol
     .description = Symbol der Leistenschaltfläche
 
 settings-modules-screenshot-output-directory = Ausgabeordner
-    .description = Wo Bildschirmfotos gespeichert werden (leer verwendet den XDG-Bilderordner)
+    .description = Wo Bildschirmfotos gespeichert werden; Standardordner ist der Bilderordner
 
 settings-modules-screenshot-filename-format = Dateinamenformat
-    .description = Name der gespeicherten Datei mit strftime-Platzhaltern; {"{"}counter{"}"} nummeriert die Dateien 1, 2, 3 und so weiter
+    .description = Der Name, den eine gespeicherte Datei erhält, aus Datum, Uhrzeit und einer Zahl, die 1, 2, 3 und so weiter hochzählt
 
 settings-modules-screenshot-copy-to-clipboard = In die Zwischenablage kopieren
     .description = Das aufgenommene Bild in die Zwischenablage kopieren
@@ -45,7 +45,7 @@ settings-modules-screenshot-label-color = Beschriftungsfarbe
     .description = Textfarbe der Beschriftung
 
 settings-modules-screenshot-label-max-length = Maximale Beschriftungslänge
-    .description = Maximale Zeichenanzahl vor dem Kürzen
+    .description = Zeichen, die die Beschriftung zeigt, bevor sie gekürzt wird; 0 kürzt nie
 
 settings-modules-screenshot-button-bg-color = Schaltflächenhintergrund
     .description = Hintergrundfarbe der Schaltfläche
@@ -66,7 +66,7 @@ settings-modules-screenshot-scroll-down = Nach unten scrollen
     .description = Shell-Befehl beim Scrollen nach unten
 
 settings-modules-screenshot-thumbnail-ms = Anzeigedauer des Vorschaubilds
-    .description = Wie lange das schwebende Vorschaubild nach einer Aufnahme bleibt, in Millisekunden (0 deaktiviert es)
+    .description = Wie lange das schwebende Vorschaubild nach einer Aufnahme bleibt
 
 settings-modules-screenshot-thumbnail-position = Position des Vorschaubilds
     .description = Bildschirmecke, in der das schwebende Vorschaubild sitzt

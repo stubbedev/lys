@@ -12,7 +12,7 @@ settings-modules-weather-units = Temperature Unit
     .description = Metric (Celsius) or Imperial (Fahrenheit)
 
 settings-modules-weather-format = Label Format
-    .description = Format string with placeholders: {"{{ temp }}"}, {"{{ temp_unit }}"}, {"{{ feels_like }}"}, {"{{ condition }}"}, {"{{ humidity }}"}, {"{{ wind_speed }}"}, {"{{ wind_dir }}"}, {"{{ high }}"}, {"{{ low }}"}
+    .description = What the label shows, built from the item's values and text of your own
 
 settings-modules-weather-refresh-interval = Refresh Interval
     .description = Polling interval in seconds
@@ -51,7 +51,7 @@ settings-modules-weather-label-color = Label Color
     .description = Label text color
 
 settings-modules-weather-label-max-length = Label Max Length
-    .description = Max characters before truncation
+    .description = Characters the label shows before it is cut short; 0 never cuts it
 
 settings-modules-weather-button-bg-color = Button Background
     .description = Button background color

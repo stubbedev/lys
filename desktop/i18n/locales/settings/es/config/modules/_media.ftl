@@ -18,7 +18,7 @@ settings-modules-media-lyrics = Letras
     .description = Muestra letras sincronizadas de LRCLIB en el desplegable multimedia. Envía el artista, el título, el álbum y la duración de cada pista a lrclib.net
 
 settings-modules-media-format = Formato
-    .description = Formato de la etiqueta con marcadores: {"{{ title }}"}, {"{{ artist }}"}, {"{{ album }}"}, {"{{ status }}"}, {"{{ status_icon }}"}
+    .description = Lo que muestra la etiqueta, compuesto por los valores del elemento y texto propio
 
 settings-modules-media-icon-name = Nombre del icono
     .description = Nombre del icono simbólico para el modo predeterminado
@@ -51,7 +51,7 @@ settings-modules-media-label-color = Color de la etiqueta
     .description = Color del texto de la etiqueta
 
 settings-modules-media-label-max-length = Longitud máxima de la etiqueta
-    .description = Máximo de caracteres antes de truncar
+    .description = Caracteres que muestra la etiqueta antes de recortarse; 0 no la recorta nunca
 
 settings-modules-media-button-bg-color = Fondo del botón
     .description = Color de fondo del botón

@@ -9,7 +9,7 @@ settings-modules-storage-mount-point = Angezeigte Datenträger
     .description = Die eingehängten Datenträger, deren Speicher das Element zusammenzählt; einer bleibt gewählt
 
 settings-modules-storage-format = Anzeigeformat
-    .description = Formatzeichenkette mit Platzhaltern: {"{{ percent }}"}, {"{{ used_tib }}"}, {"{{ used_gib }}"}, {"{{ used_mib }}"}, {"{{ used_auto }}"}, {"{{ total_tib }}"}, {"{{ total_gib }}"}, {"{{ total_mib }}"}, {"{{ total_auto }}"}, {"{{ free_tib }}"}, {"{{ free_gib }}"}, {"{{ free_mib }}"}, {"{{ free_auto }}"}, {"{{ filesystem }}"}
+    .description = Was die Beschriftung zeigt, zusammengesetzt aus den Werten des Elements und eigenem Text
 
 settings-modules-storage-icon-name = Symbolname
     .description = Symbolischer Symbolname
@@ -39,7 +39,7 @@ settings-modules-storage-label-color = Beschriftungsfarbe
     .description = Textfarbe der Beschriftung
 
 settings-modules-storage-label-max-length = Maximale Beschriftungslänge
-    .description = Maximale Zeichenanzahl vor dem Kürzen
+    .description = Zeichen, die die Beschriftung zeigt, bevor sie gekürzt wird; 0 kürzt nie
 
 settings-modules-storage-button-bg-color = Schaltflächenhintergrund
     .description = Hintergrundfarbe der Schaltfläche

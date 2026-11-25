@@ -18,7 +18,7 @@ settings-modules-media-lyrics = Paroles
     .description = Affiche les paroles synchronisées de LRCLIB dans le menu média. Envoie l'artiste, le titre, l'album et la durée de chaque piste à lrclib.net
 
 settings-modules-media-format = Format
-    .description = Format du libellé avec espaces réservés : {"{{ title }}"}, {"{{ artist }}"}, {"{{ album }}"}, {"{{ status }}"}, {"{{ status_icon }}"}
+    .description = Ce qu'affiche le libellé, composé des valeurs de l'élément et de texte libre
 
 settings-modules-media-icon-name = Nom de l'icône
     .description = Nom d'icône symbolique pour le mode par défaut
@@ -51,7 +51,7 @@ settings-modules-media-label-color = Couleur du libellé
     .description = Couleur du texte du libellé
 
 settings-modules-media-label-max-length = Longueur max. du libellé
-    .description = Nombre maximal de caractères avant troncature
+    .description = Caractères affichés par le libellé avant qu'il soit tronqué ; 0 ne le tronque jamais
 
 settings-modules-media-button-bg-color = Arrière-plan du bouton
     .description = Couleur d'arrière-plan du bouton

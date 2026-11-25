@@ -3,7 +3,7 @@
 ## Configuration du module Horloge mondiale
 
 settings-modules-world-clock-format = Format
-    .description = Chaîne de format avec blocs de fuseau horaire intégrés en syntaxe {"{"}fuseau_horaire strftime{"}"}
+    .description = Les heures qu'affiche l'élément, chacune dans son fuseau horaire, avec du texte libre entre elles
 
 settings-modules-world-clock-icon-name = Nom de l'icône
     .description = Nom d'icône symbolique
@@ -33,7 +33,7 @@ settings-modules-world-clock-label-color = Couleur du libellé
     .description = Couleur du texte du libellé
 
 settings-modules-world-clock-label-max-length = Longueur max. du libellé
-    .description = Nombre maximal de caractères avant troncature
+    .description = Caractères affichés par le libellé avant qu'il soit tronqué ; 0 ne le tronque jamais
 
 settings-modules-world-clock-button-bg-color = Arrière-plan du bouton
     .description = Couleur d'arrière-plan du bouton

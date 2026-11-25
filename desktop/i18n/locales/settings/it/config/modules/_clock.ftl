@@ -3,7 +3,7 @@
 ## Clock Module Configuration
 
 settings-modules-clock-format = Formato dell'ora
-    .description = Formato di visualizzazione dell'ora con la sintassi strftime
+    .description = Come appare l'ora nella barra
 
 settings-modules-clock-icon-name = Nome dell'icona
     .description = Nome dell'icona simbolica
@@ -33,7 +33,7 @@ settings-modules-clock-label-color = Colore dell'etichetta
     .description = Colore del testo dell'etichetta
 
 settings-modules-clock-label-max-length = Lunghezza massima dell'etichetta
-    .description = Numero massimo di caratteri prima del troncamento
+    .description = Caratteri mostrati dall'etichetta prima che venga troncata; 0 non la tronca mai
 
 settings-modules-clock-button-bg-color = Sfondo del pulsante
     .description = Colore di sfondo del pulsante

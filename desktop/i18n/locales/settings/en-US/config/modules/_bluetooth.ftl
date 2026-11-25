@@ -39,7 +39,7 @@ settings-modules-bluetooth-label-color = Label Color
     .description = Label text color
 
 settings-modules-bluetooth-label-max-length = Label Max Length
-    .description = Max characters before truncation
+    .description = Characters the label shows before it is cut short; 0 never cuts it
 
 settings-modules-bluetooth-button-bg-color = Button Background
     .description = Button background color

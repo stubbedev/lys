@@ -6,7 +6,7 @@ settings-modules-ram-poll-interval-ms = Abfrageintervall
     .description = Abfrageintervall in Millisekunden
 
 settings-modules-ram-format = Anzeigeformat
-    .description = Formatzeichenkette mit Platzhaltern: {"{{ percent }}"}, {"{{ used_gib }}"}, {"{{ total_gib }}"}, {"{{ available_gib }}"}, {"{{ swap_percent }}"}, {"{{ swap_used_gib }}"}, {"{{ swap_total_gib }}"}
+    .description = Was die Beschriftung zeigt, zusammengesetzt aus den Werten des Elements und eigenem Text
 
 settings-modules-ram-icon-name = Symbolname
     .description = Symbolischer Symbolname
@@ -36,7 +36,7 @@ settings-modules-ram-label-color = Beschriftungsfarbe
     .description = Textfarbe der Beschriftung
 
 settings-modules-ram-label-max-length = Maximale Beschriftungslänge
-    .description = Maximale Zeichenanzahl vor dem Kürzen
+    .description = Zeichen, die die Beschriftung zeigt, bevor sie gekürzt wird; 0 kürzt nie
 
 settings-modules-ram-button-bg-color = Schaltflächenhintergrund
     .description = Hintergrundfarbe der Schaltfläche

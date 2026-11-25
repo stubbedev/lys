@@ -39,7 +39,7 @@ settings-modules-notifications-label-color = Beschriftungsfarbe
     .description = Textfarbe der Beschriftung
 
 settings-modules-notifications-label-max-length = Maximale Beschriftungslänge
-    .description = Maximale Zeichenanzahl vor dem Kürzen
+    .description = Zeichen, die die Beschriftung zeigt, bevor sie gekürzt wird; 0 kürzt nie
 
 settings-modules-notifications-button-bg-color = Schaltflächenhintergrund
     .description = Hintergrundfarbe der Schaltfläche

@@ -3,7 +3,7 @@
 ## World Clock Module Configuration
 
 settings-modules-world-clock-format = Format
-    .description = Formatzeichenkette mit eingebetteten Zeitzonenblöcken in der Syntax {"{"}timezone strftime{"}"}
+    .description = Die Uhrzeiten, die das Element zeigt, jede in ihrer eigenen Zeitzone, mit eigenem Text dazwischen
 
 settings-modules-world-clock-icon-name = Symbolname
     .description = Symbolischer Symbolname
@@ -33,7 +33,7 @@ settings-modules-world-clock-label-color = Beschriftungsfarbe
     .description = Textfarbe der Beschriftung
 
 settings-modules-world-clock-label-max-length = Maximale Beschriftungslänge
-    .description = Maximale Zeichenanzahl vor dem Kürzen
+    .description = Zeichen, die die Beschriftung zeigt, bevor sie gekürzt wird; 0 kürzt nie
 
 settings-modules-world-clock-button-bg-color = Schaltflächenhintergrund
     .description = Hintergrundfarbe der Schaltfläche

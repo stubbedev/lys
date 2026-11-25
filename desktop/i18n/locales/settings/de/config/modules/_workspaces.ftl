@@ -50,7 +50,7 @@ settings-modules-workspaces-label-size = Beschriftungsgröße
     .description = Skalierungsfaktor für Arbeitsflächenbeschriftungen (0.25–3.0)
 
 settings-modules-workspaces-workspace-ignore = Arbeitsflächen ignorieren
-    .description = Glob-Muster, die mit Name, Index oder ID abgeglichen werden
+    .description = Ausgelassene Arbeitsflächen, nach Name oder Nummer; ein * passt auf beliebigen Text
 
 settings-modules-workspaces-active-indicator = Aktivitätsanzeige
     .description = Visueller Stil der aktiven Arbeitsfläche
@@ -74,7 +74,7 @@ settings-modules-workspaces-border-color = Rahmenfarbe
     .description = Rahmenfarbe des Arbeitsflächencontainers
 
 settings-modules-workspaces-workspace-map = Arbeitsflächenzuordnung
-    .description = Symbol- und Farbüberschreibungen pro Arbeitsfläche, nach Name oder ID
+    .description = Ein Symbol und eine Farbe für eine Arbeitsfläche, gewählt nach ihrem Namen oder ihrer Nummer
 
 settings-modules-workspaces-app-icon-map = App-Symbolzuordnung
     .description = Das Symbol, das ein Fenster zeigt, zugeordnet nach seiner App oder seinem Titel
@@ -104,10 +104,10 @@ settings-modules-workspaces-numbering = Nummerierung
     .description = Wie Arbeitsflächennummern angezeigt werden (absolut oder relativ)
 
 settings-modules-workspaces-highlight-active-on-other-monitor = Aktive auf anderem Monitor hervorheben
-    .description = Eine andere Farbe für aktive Arbeitsflächen auf anderen Monitoren verwenden (gilt nur, wenn { settings-modules-workspaces-monitor-specific } aus ist)
+    .description = Eine andere Farbe für aktive Arbeitsflächen auf anderen Monitoren verwenden, solange { settings-modules-workspaces-monitor-specific } aus ist
 
 settings-modules-workspaces-active-on-other-monitor-color = Farbe für aktive auf anderem Monitor
-    .description = Farbe für Symbole und Beschriftungen fokussierter Arbeitsflächen, die auf anderen Monitoren aktiv sind (nur verwendet, wenn { settings-modules-workspaces-highlight-active-on-other-monitor } an ist)
+    .description = Farbe für Symbole und Beschriftungen von Arbeitsflächen, die auf anderen Monitoren aktiv sind, solange { settings-modules-workspaces-highlight-active-on-other-monitor } an ist
 
 settings-modules-workspaces-hide-empty = Leere ausblenden
     .description = Tags ohne Clients ausblenden, sofern sie nicht aktiv sind

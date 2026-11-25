@@ -15,7 +15,7 @@ settings-modules-recorder-icon-replay = Wiederholungssymbol
     .description = Symbol, solange nur die Sofortwiederholung bereit ist
 
 settings-modules-recorder-format = Format
-    .description = Formatzeichenkette mit Platzhaltern: {"{{ state }}"}, {"{{ elapsed }}"}
+    .description = Was die Beschriftung zeigt, zusammengesetzt aus den Werten des Elements und eigenem Text
 
 settings-modules-recorder-microphone = Mikrofon
     .description = Das Mikrofon in der Aufnahme mitschneiden
@@ -81,7 +81,7 @@ settings-modules-recorder-label-color = Beschriftungsfarbe
     .description = Textfarbe der Beschriftung
 
 settings-modules-recorder-label-max-length = Maximale Beschriftungslänge
-    .description = Maximale Zeichenanzahl vor dem Kürzen
+    .description = Zeichen, die die Beschriftung zeigt, bevor sie gekürzt wird; 0 kürzt nie
 
 settings-modules-recorder-button-bg-color = Schaltflächenhintergrund
     .description = Hintergrundfarbe der Schaltfläche

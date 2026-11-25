@@ -9,7 +9,7 @@ settings-modules-netstat-interface = Interface
     .description = L'interface réseau à surveiller : l'interface active, choisie automatiquement, ou une interface par son nom
 
 settings-modules-netstat-format = Format d'affichage
-    .description = Chaîne de format avec espaces réservés : {"{{ down_kib }}"}, {"{{ down_mib }}"}, {"{{ down_gib }}"}, {"{{ down_auto }}"}, {"{{ up_kib }}"}, {"{{ up_mib }}"}, {"{{ up_gib }}"}, {"{{ up_auto }}"}, {"{{ interface }}"}
+    .description = Ce qu'affiche le libellé, composé des valeurs de l'élément et de texte libre
 
 settings-modules-netstat-icon-name = Nom de l'icône
     .description = Nom d'icône symbolique
@@ -39,7 +39,7 @@ settings-modules-netstat-label-color = Couleur du libellé
     .description = Couleur du texte du libellé
 
 settings-modules-netstat-label-max-length = Longueur max. du libellé
-    .description = Nombre maximal de caractères avant troncature
+    .description = Caractères affichés par le libellé avant qu'il soit tronqué ; 0 ne le tronque jamais
 
 settings-modules-netstat-button-bg-color = Arrière-plan du bouton
     .description = Couleur d'arrière-plan du bouton

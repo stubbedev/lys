@@ -1,5 +1,5 @@
 settings-modules-keyboard-input-format = Labelformaat
-    .description = Formaattekenreeks met plaatshouders: {"{{ layout }}"}
+    .description = Wat het label toont, opgebouwd uit de waarden van het item en eigen tekst
 
 settings-modules-keyboard-input-icon-name = Pictogramnaam
     .description = Naam van het symbolische pictogram
@@ -29,7 +29,7 @@ settings-modules-keyboard-input-label-color = Labelkleur
     .description = Tekstkleur van het label
 
 settings-modules-keyboard-input-label-max-length = Maximale labellengte
-    .description = Maximaal aantal tekens voordat wordt afgekapt (0 om uit te schakelen)
+    .description = Tekens die het label toont voordat het wordt ingekort; 0 kort het nooit in
 
 settings-modules-keyboard-input-button-bg-color = Knopachtergrond
     .description = Achtergrondkleur van de knop

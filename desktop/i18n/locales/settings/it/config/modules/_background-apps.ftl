@@ -30,7 +30,7 @@ settings-modules-background-apps-label-color = Colore dell'etichetta
     .description = Colore del testo dell'etichetta
 
 settings-modules-background-apps-label-max-length = Lunghezza massima dell'etichetta
-    .description = Numero massimo di caratteri prima del troncamento
+    .description = Caratteri mostrati dall'etichetta prima che venga troncata; 0 non la tronca mai
 
 settings-modules-background-apps-button-bg-color = Sfondo del pulsante
     .description = Colore di sfondo del pulsante

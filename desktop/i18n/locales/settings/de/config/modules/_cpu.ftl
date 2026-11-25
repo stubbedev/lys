@@ -9,7 +9,7 @@ settings-modules-cpu-temp-sensor = Temperatursensor
     .description = Der Sensor, von dem die Temperatur gelesen wird: automatisch gewählt oder einer nach seiner Bezeichnung, etwa Tctl
 
 settings-modules-cpu-format = Anzeigeformat
-    .description = Formatzeichenkette mit Platzhaltern: {"{{ percent }}"}, {"{{ freq_ghz }}"}, {"{{ avg_freq_ghz }}"}, {"{{ max_freq_ghz }}"}, {"{{ temp_c }}"}, {"{{ temp_f }}"}
+    .description = Was die Beschriftung zeigt, zusammengesetzt aus den Werten des Elements und eigenem Text
 
 settings-modules-cpu-icon-name = Symbolname
     .description = Symbolischer Symbolname
@@ -39,7 +39,7 @@ settings-modules-cpu-label-color = Beschriftungsfarbe
     .description = Textfarbe der Beschriftung
 
 settings-modules-cpu-label-max-length = Maximale Beschriftungslänge
-    .description = Maximale Zeichenanzahl vor dem Kürzen
+    .description = Zeichen, die die Beschriftung zeigt, bevor sie gekürzt wird; 0 kürzt nie
 
 settings-modules-cpu-button-bg-color = Schaltflächenhintergrund
     .description = Hintergrundfarbe der Schaltfläche

@@ -1,5 +1,5 @@
 settings-modules-keybind-mode-format = Labelformaat
-    .description = Formaattekenreeks met plaatshouders: {"{{ mode }}"}
+    .description = Wat het label toont, opgebouwd uit de waarden van het item en eigen tekst
 
 settings-modules-keybind-mode-icon-name = Pictogramnaam
     .description = Naam van het symbolische pictogram
@@ -32,7 +32,7 @@ settings-modules-keybind-mode-label-color = Labelkleur
     .description = Tekstkleur van het label
 
 settings-modules-keybind-mode-label-max-length = Maximale labellengte
-    .description = Maximaal aantal tekens voordat wordt afgekapt (0 om uit te schakelen)
+    .description = Tekens die het label toont voordat het wordt ingekort; 0 kort het nooit in
 
 settings-modules-keybind-mode-button-bg-color = Knopachtergrond
     .description = Achtergrondkleur van de knop

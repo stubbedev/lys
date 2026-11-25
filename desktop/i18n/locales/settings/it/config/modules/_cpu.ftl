@@ -9,7 +9,7 @@ settings-modules-cpu-temp-sensor = Sensore di temperatura
     .description = Il sensore da cui si legge la temperatura: scelto automaticamente, o uno per etichetta, come Tctl
 
 settings-modules-cpu-format = Formato di visualizzazione
-    .description = Stringa di formato con i segnaposto: {"{{ percent }}"}, {"{{ freq_ghz }}"}, {"{{ avg_freq_ghz }}"}, {"{{ max_freq_ghz }}"}, {"{{ temp_c }}"}, {"{{ temp_f }}"}
+    .description = Ciò che mostra l'etichetta, composto dai valori dell'elemento e da testo libero
 
 settings-modules-cpu-icon-name = Nome dell'icona
     .description = Nome dell'icona simbolica
@@ -39,7 +39,7 @@ settings-modules-cpu-label-color = Colore dell'etichetta
     .description = Colore del testo dell'etichetta
 
 settings-modules-cpu-label-max-length = Lunghezza massima dell'etichetta
-    .description = Numero massimo di caratteri prima del troncamento
+    .description = Caratteri mostrati dall'etichetta prima che venga troncata; 0 non la tronca mai
 
 settings-modules-cpu-button-bg-color = Sfondo del pulsante
     .description = Colore di sfondo del pulsante

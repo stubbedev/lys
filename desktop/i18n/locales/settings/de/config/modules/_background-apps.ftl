@@ -30,7 +30,7 @@ settings-modules-background-apps-label-color = Beschriftungsfarbe
     .description = Textfarbe der Beschriftung
 
 settings-modules-background-apps-label-max-length = Maximale Beschriftungslänge
-    .description = Maximale Zeichenanzahl vor dem Kürzen
+    .description = Zeichen, die die Beschriftung zeigt, bevor sie gekürzt wird; 0 kürzt nie
 
 settings-modules-background-apps-button-bg-color = Schaltflächenhintergrund
     .description = Hintergrundfarbe der Schaltfläche

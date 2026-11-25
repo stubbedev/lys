@@ -1,5 +1,5 @@
 settings-portal-screen-cast-reminder-days = Promemoria di condivisione schermo
-    .description = Giorni in cui un'app può continuare a condividere lo schermo senza chiedere, prima che venga chiesto di nuovo se continuare a consentirlo; 0 non lo chiede più
+    .description = Per quanto tempo un'app può continuare a condividere lo schermo prima che venga chiesto di nuovo se continuare a consentirlo
 
 settings-portal-lockdown-disable-printing = Blocca la stampa
     .description = Rifiuta le richieste di stampa di tutte le app

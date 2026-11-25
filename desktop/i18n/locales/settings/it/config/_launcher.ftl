@@ -2,13 +2,13 @@ settings-launcher-location = Posizione
     .description = Dove appare l'avviatore sullo schermo
 
 settings-launcher-width = Larghezza
-    .description = Larghezza della superficie: un moltiplicatore del valore predefinito (1.0) o pixel (ad es. "800px")
+    .description = Quanto è largo l'avviatore, come multiplo della sua larghezza abituale o in pixel
 
 settings-launcher-lines = Righe
     .description = Righe di risultati visibili
 
 settings-launcher-monitor = Monitor
-    .description = Connettore dell'uscita su cui mostrarlo (vuoto = uscita con il focus)
+    .description = Lo schermo su cui appare l'avviatore
 
 settings-launcher-modes = Modalità
     .description = Modalità attive, nell'ordine delle schede (drun, run, window, ssh, filebrowser, combi, keys o il nome di uno script)
@@ -38,13 +38,13 @@ settings-launcher-case = Maiuscole/minuscole
     .description = Come le maiuscole e le minuscole influiscono sulla corrispondenza
 
 settings-launcher-terminal = Terminale
-    .description = Emulatore di terminale per le app da terminale (vuoto = rilevamento automatico)
+    .description = Emulatore di terminale per le app da terminale; se vuoto, se ne cerca uno installato
 
 settings-launcher-show-icons = Mostra icone
     .description = Mostra le icone accanto alle voci
 
 settings-launcher-icon-theme = Tema di icone
-    .description = Tema di icone alternativo (vuoto = tema di sistema)
+    .description = Icone delle righe dell'avviatore; Predefinito segue il tema di icone del sistema
 
 settings-launcher-sidebar-mode = Modalità barra laterale
     .description = Mostra le schede delle modalità in fondo all'avviatore
@@ -62,22 +62,22 @@ settings-launcher-display-names = Nomi visualizzati delle modalità
     .description = Nomi visualizzati alternativi per modalità (ad es. drun = "apps")
 
 settings-launcher-scripts = Modalità script
-    .description = Modalità script personalizzate: nome → eseguibile (protocollo script di rofi)
+    .description = Modalità proprie, ognuna un nome e il programma che ne riempie la lista
 
 settings-launcher-keybindings = Scorciatoie da tastiera
-    .description = Scorciatoie alternative: azione → tasti separati da virgole (le azioni non impostate mantengono i valori predefiniti di rofi)
+    .description = Quali tasti eseguono ogni azione dell'avviatore; un'azione non modificata mantiene i suoi tasti abituali
 
 settings-launcher-mouse-bindings = Associazioni del mouse
     .description = Quali pulsanti del mouse e direzioni di scorrimento eseguono ogni azione del launcher, al posto di quelli predefiniti
 
 settings-launcher-font = Carattere
-    .description = Carattere dell'avviatore come descrizione Pango (ad es. "Inter 12"); vuoto mantiene il carattere della shell
+    .description = Carattere e dimensione dell'avviatore; Predefinito mantiene il carattere della shell
 
 settings-launcher-styles = Stili predefiniti
     .description = Aspetti con nome che un avvio può richiedere per nome: ogni nome → il CSS applicato finché quell'avvio è visibile
 
 settings-launcher-preview-cmd = Comando di anteprima
-    .description = Comando che crea la miniatura di una riga: {"{"}input{"}"} il file, {"{"}output{"}"} l'immagine da scrivere, {"{"}size{"}"} la dimensione in pixel; vuoto usa i generatori di miniature di sistema
+    .description = Comando che crea la miniatura di una riga dal file, dall'immagine da scrivere e dalla sua dimensione in pixel; vuoto usa i generatori di miniature di sistema
 
 settings-launcher-history = Cronologia
     .description = Cronologia degli avvii e classificazione per frecency
@@ -107,7 +107,7 @@ settings-launcher-history-max-size = Dimensione della cronologia
     .description = Numero massimo di voci ricordate per modalità
 
 settings-launcher-drun-categories = Categorie
-    .description = Mostra solo le applicazioni di queste categorie (vuoto = tutte)
+    .description = Mostra solo le applicazioni di queste categorie; se non ne è scelta nessuna, appaiono tutte
 
 settings-launcher-drun-exclude-categories = Categorie escluse
     .description = Nasconde le applicazioni di queste categorie
@@ -116,25 +116,25 @@ settings-launcher-drun-match-fields = Campi di ricerca
     .description = Campi della voce desktop cercati durante la digitazione
 
 settings-launcher-drun-display-format = Formato di visualizzazione
-    .description = Modello della riga: {"{name}"}, {"{generic}"}, {"{exec}"}, {"{categories}"}, {"{comment}"}; [..] viene mostrato solo se compilato
+    .description = Ciò che mostra la riga di ogni app; una parte tra parentesi quadre appare solo se l'app ne ha il valore
 
 settings-launcher-drun-show-actions = Mostra azioni
     .description = Mostra le azioni del file desktop come righe aggiuntive
 
 settings-launcher-drun-url-launcher = Apertura URL
-    .description = Comando che apre le voci desktop Type=Link (vuoto = l'apertura integrata)
+    .description = Comando che apre le voci che sono link web; Predefinito usa l'apertura integrata
 
 settings-launcher-run-run-command = Comando di esecuzione
-    .description = Modello di accettazione semplice ({"{cmd}"})
+    .description = Comando eseguito da una voce confermata, con il comando digitato al suo interno
 
 settings-launcher-run-shell-command = Comando da terminale
-    .description = Modello di esecuzione nel terminale ({"{terminal}"}, {"{cmd}"})
+    .description = Comando che esegue una voce in un terminale, dal terminale e dal comando digitato
 
 settings-launcher-run-list-command = Comando di elenco
     .description = Comando aggiuntivo le cui righe di stdout aggiungono voci
 
 settings-launcher-window-format = Formato di visualizzazione
-    .description = Modello della riga: {"{w}"} spazio di lavoro, {"{c}"} classe, {"{t}"} titolo, {"{n}"} nome, {"{r}"} ruolo
+    .description = Ciò che mostra la riga di ogni finestra, da spazio di lavoro, app, titolo, nome e ruolo
 
 settings-launcher-window-match-fields = Campi di ricerca
     .description = Campi della finestra cercati durante la digitazione
@@ -149,7 +149,7 @@ settings-launcher-ssh-client = Client SSH
     .description = Eseguibile del client SSH
 
 settings-launcher-ssh-command = Comando di connessione
-    .description = Modello di connessione ({"{terminal}"}, {"{ssh-client}"}, {"{host}"})
+    .description = Comando che si collega a un host, dal terminale, dal client SSH e dall'host
 
 settings-launcher-ssh-parse-hosts = Leggi /etc/hosts
     .description = Include gli host da /etc/hosts
@@ -158,7 +158,7 @@ settings-launcher-ssh-parse-known-hosts = Leggi known_hosts
     .description = Include gli host da ~/.ssh/known_hosts
 
 settings-launcher-filebrowser-directory = Cartella iniziale
-    .description = Cartella in cui si apre il gestore file (vuoto = home)
+    .description = Cartella in cui si apre il gestore file; se vuoto, la cartella home
 
 settings-launcher-filebrowser-sorting-method = Ordinamento
     .description = Ordine dei file
@@ -170,13 +170,13 @@ settings-launcher-filebrowser-show-hidden = Mostra nascosti
     .description = Mostra i file nascosti
 
 settings-launcher-filebrowser-command = Comando di apertura
-    .description = Comando che apre il file scelto (vuoto = l'apertura integrata)
+    .description = Comando che apre il file scelto; Predefinito usa l'apertura integrata
 
 settings-launcher-combi-modes = Modalità combinate
     .description = Modalità unite nell'elenco combinato
 
 settings-launcher-combi-display-format = Formato di visualizzazione
-    .description = Modello della riga ({"{mode}"}, {"{text}"})
+    .description = Ciò che mostra ogni riga, dalla sua modalità e dal suo testo
 
 ## LauncherLocation variants
 enum-launcher-location-center = Centro

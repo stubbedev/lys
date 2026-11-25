@@ -9,7 +9,7 @@ settings-modules-storage-mount-point = Disks to Show
     .description = The mounted disks whose space the item adds up; one stays chosen
 
 settings-modules-storage-format = Display Format
-    .description = Format string with placeholders: {"{{ percent }}"}, {"{{ used_tib }}"}, {"{{ used_gib }}"}, {"{{ used_mib }}"}, {"{{ used_auto }}"}, {"{{ total_tib }}"}, {"{{ total_gib }}"}, {"{{ total_mib }}"}, {"{{ total_auto }}"}, {"{{ free_tib }}"}, {"{{ free_gib }}"}, {"{{ free_mib }}"}, {"{{ free_auto }}"}, {"{{ filesystem }}"}
+    .description = What the label shows, built from the item's values and text of your own
 
 settings-modules-storage-icon-name = Icon Name
     .description = Symbolic icon name
@@ -39,7 +39,7 @@ settings-modules-storage-label-color = Label Color
     .description = Label text color
 
 settings-modules-storage-label-max-length = Label Max Length
-    .description = Max characters before truncation
+    .description = Characters the label shows before it is cut short; 0 never cuts it
 
 settings-modules-storage-button-bg-color = Button Background
     .description = Button background color

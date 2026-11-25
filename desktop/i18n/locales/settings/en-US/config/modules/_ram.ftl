@@ -6,7 +6,7 @@ settings-modules-ram-poll-interval-ms = Poll Interval
     .description = Polling interval in milliseconds
 
 settings-modules-ram-format = Display Format
-    .description = Format string with placeholders: {"{{ percent }}"}, {"{{ used_gib }}"}, {"{{ total_gib }}"}, {"{{ available_gib }}"}, {"{{ swap_percent }}"}, {"{{ swap_used_gib }}"}, {"{{ swap_total_gib }}"}
+    .description = What the label shows, built from the item's values and text of your own
 
 settings-modules-ram-icon-name = Icon Name
     .description = Symbolic icon name
@@ -36,7 +36,7 @@ settings-modules-ram-label-color = Label Color
     .description = Label text color
 
 settings-modules-ram-label-max-length = Label Max Length
-    .description = Max characters before truncation
+    .description = Characters the label shows before it is cut short; 0 never cuts it
 
 settings-modules-ram-button-bg-color = Button Background
     .description = Button background color

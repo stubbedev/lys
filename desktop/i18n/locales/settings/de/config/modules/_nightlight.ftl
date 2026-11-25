@@ -30,7 +30,7 @@ settings-modules-nightlight-icon-on = Symbol für an
     .description = Symbol, wenn der Filter aktiviert ist
 
 settings-modules-nightlight-format = Format
-    .description = Formatzeichenkette der Beschriftung. Platzhalter: {"{{ status }}"}, {"{{ temp }}"}, {"{{ gamma }}"}, {"{{ config_temp }}"}, {"{{ config_gamma }}"}
+    .description = Was die Beschriftung zeigt, zusammengesetzt aus den Werten des Elements und eigenem Text
 
 settings-modules-nightlight-border-show = Rahmen anzeigen
     .description = Rahmen um die Schaltfläche anzeigen
@@ -57,7 +57,7 @@ settings-modules-nightlight-label-color = Beschriftungsfarbe
     .description = Textfarbe der Beschriftung
 
 settings-modules-nightlight-label-max-length = Maximale Beschriftungslänge
-    .description = Maximale Zeichenanzahl vor dem Kürzen
+    .description = Zeichen, die die Beschriftung zeigt, bevor sie gekürzt wird; 0 kürzt nie
 
 settings-modules-nightlight-button-bg-color = Schaltflächenhintergrund
     .description = Hintergrundfarbe der Schaltfläche

@@ -1,19 +1,19 @@
 settings-login-background-mode = Arrière-plan
     .description = Manière de dessiner l'arrière-plan de l'écran de connexion : couleur unie, image ou fond d'écran
 settings-login-background-image = Image d'arrière-plan
-    .description = Fichier image affiché derrière l'écran de connexion lorsque l'arrière-plan vaut « image »
+    .description = Image affichée derrière l'écran de connexion lorsque l'arrière-plan est Image
 settings-login-background-color = Couleur d'arrière-plan
-    .description = Couleur affichée derrière l'écran de connexion lorsque l'arrière-plan vaut « color »
+    .description = Couleur derrière l'écran de connexion lorsque l'arrière-plan est Couleur
 settings-login-blur = Flou
-    .description = Rayon du flou gaussien appliqué aux arrière-plans image et fond d'écran (0 = aucun)
+    .description = Intensité du flou d'un arrière-plan image ou fond d'écran ; 0 le laisse net
 settings-login-show-clock = Afficher l'horloge
     .description = Afficher une horloge au-dessus de la demande d'identifiants
 settings-login-clock-format = Format de l'heure
-    .description = Format strftime de l'heure sur l'écran de connexion (ex. : %H:%M)
+    .description = Comment l'heure s'affiche sur l'écran de connexion
 settings-login-date-format = Format de la date
-    .description = Format strftime de la date sur l'écran de connexion (ex. : %A, %B %-d)
+    .description = Comment la date s'affiche sur l'écran de connexion
 settings-login-max-attempts = Tentatives maximales
-    .description = Échecs de mot de passe sur l'écran de verrouillage avant le blocage de la saisie (0 = illimité). L'écran reste verrouillé.
+    .description = Mots de passe erronés sur l'écran de verrouillage avant que la saisie soit bloquée, l'écran restant verrouillé ; 0 ne fixe aucune limite
 settings-login-show-failed-attempts = Afficher les tentatives échouées
     .description = Afficher le nombre de tentatives échouées sur l'écran de verrouillage
 settings-login-lock-enabled = Activé
@@ -21,11 +21,11 @@ settings-login-lock-enabled = Activé
 settings-login-lock-lock-on-start = Verrouiller au démarrage
     .description = Verrouiller la session dès le démarrage du shell, pour les connexions automatiques où l'écran de verrouillage contrôle l'accès
 settings-login-lock-grace-period-ms = Délai de grâce
-    .description = Période après le verrouillage pendant laquelle l'écran se déverrouille sans mot de passe (0 = toujours l'exiger)
+    .description = Combien de temps après le verrouillage l'écran se déverrouille encore sans mot de passe
 settings-login-lock-blank-timeout-ms = Délai avant écran noir
-    .description = Noircir l'écran de verrouillage après ce temps d'inactivité (0 = jamais ; visuel uniquement, le DPMS relève du démon d'inactivité)
+    .description = Noircir l'écran de verrouillage après ce temps d'inactivité ; l'extinction des écrans se règle sur la page Inactivité et alimentation
 settings-login-lock-pam-service = Service PAM
-    .description = Service PAM qui vérifie le mot de passe (ex. : system-auth, login)
+    .description = Service PAM qui vérifie le mot de passe, comme system-auth ou login
 settings-login-lock-show-media = Afficher la lecture en cours
     .description = Afficher le morceau en cours avec lecture/pause et suivant sur l'écran de verrouillage (pochette locale uniquement)
 settings-login-lock-show-battery = Afficher la batterie
@@ -44,7 +44,7 @@ settings-login-greeter-match-cursor = Reprendre mon curseur
     .description = Afficher le curseur de la dernière session ouverte au lieu du thème et de la taille définis ici
 
 settings-login-greeter-cursor-theme = Thème de curseur
-    .description = Thème Xcursor utilisé sur l'écran de connexion (vide = valeur par défaut du système)
+    .description = Thème du curseur sur l'écran de connexion ; non défini, celui du système
 settings-login-greeter-cursor-size = Taille du curseur
     .description = Taille logique du curseur, mise à l'échelle pour chaque écran afin qu'il reste net en HiDPI
 settings-login-greeter-screen-reader = Lecteur d'écran

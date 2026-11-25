@@ -39,7 +39,7 @@ settings-modules-dashboard-temp-error = Temperaturfehler
     .description = CPU-Temperatur (°C), ab der der Temperaturring Fehler anzeigt
 
 settings-modules-dashboard-user-session-actions = Sitzungsaktionen
-    .description = Im Dashboard angezeigte Sitzungsaktionen (Sperren, Abmelden, Neu starten, Ausschalten)
+    .description = Die Sitzungsschaltflächen, die das Dashboard zeigt, in ihrer Reihenfolge
 
 ## SessionAction variants
 enum-session-action-lock = Sperren

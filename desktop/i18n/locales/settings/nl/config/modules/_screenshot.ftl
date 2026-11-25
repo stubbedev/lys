@@ -2,10 +2,10 @@ settings-modules-screenshot-icon = Pictogram
     .description = Pictogram van de balkknop
 
 settings-modules-screenshot-output-directory = Uitvoermap
-    .description = Waar schermafdrukken worden opgeslagen (leeg gebruikt de XDG-map Afbeeldingen)
+    .description = Waar schermafdrukken worden opgeslagen; Standaardmap is de map Afbeeldingen
 
 settings-modules-screenshot-filename-format = Formaat bestandsnaam
-    .description = Naam van het opgeslagen bestand, met strftime-specificaties; {"{"}counter{"}"} nummert de bestanden 1, 2, 3 enzovoort
+    .description = De naam die een opgeslagen bestand krijgt, uit de datum, de tijd en een getal dat 1, 2, 3 enzovoort optelt
 
 settings-modules-screenshot-copy-to-clipboard = Naar klembord kopiëren
     .description = De vastgelegde afbeelding naar het klembord kopiëren
@@ -41,7 +41,7 @@ settings-modules-screenshot-label-color = Labelkleur
     .description = Tekstkleur van het label
 
 settings-modules-screenshot-label-max-length = Maximale labellengte
-    .description = Maximaal aantal tekens voordat wordt afgekapt
+    .description = Tekens die het label toont voordat het wordt ingekort; 0 kort het nooit in
 
 settings-modules-screenshot-button-bg-color = Knopachtergrond
     .description = Achtergrondkleur van de knop
@@ -62,7 +62,7 @@ settings-modules-screenshot-scroll-down = Omlaag scrollen
     .description = Shell-opdracht bij omlaag scrollen
 
 settings-modules-screenshot-thumbnail-ms = Duur miniatuur
-    .description = Hoe lang de zwevende miniatuur na een opname blijft staan, in milliseconden (0 schakelt hem uit)
+    .description = Hoe lang de zwevende miniatuur na een opname blijft staan
 
 settings-modules-screenshot-thumbnail-position = Positie miniatuur
     .description = Schermhoek waarin de zwevende miniatuur staat

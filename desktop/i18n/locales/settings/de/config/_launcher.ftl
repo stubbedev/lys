@@ -4,13 +4,13 @@ settings-launcher-location = Position
     .description = Wo der Starter auf dem Bildschirm erscheint
 
 settings-launcher-width = Breite
-    .description = Breite der Oberfläche – ein Vielfaches der Standardbreite (1.0) oder Pixel (z. B. "800px")
+    .description = Wie breit der Starter ist, als Vielfaches seiner üblichen Breite oder in Pixeln
 
 settings-launcher-lines = Zeilen
     .description = Sichtbare Ergebniszeilen
 
 settings-launcher-monitor = Monitor
-    .description = Ausgabeanschluss für die Anzeige (leer = fokussierte Ausgabe)
+    .description = Der Bildschirm, auf dem der Starter erscheint
 
 settings-launcher-modes = Modi
     .description = Aktivierte Modi in Tab-Reihenfolge (drun, run, window, ssh, filebrowser, combi, keys oder ein Skriptname)
@@ -40,13 +40,13 @@ settings-launcher-case = Groß-/Kleinschreibung
     .description = Wie die Groß-/Kleinschreibung den Abgleich beeinflusst
 
 settings-launcher-terminal = Terminal
-    .description = Terminalemulator für Terminal-Apps (leer = automatisch erkennen)
+    .description = Terminalemulator für Terminal-Apps; leer gelassen, wird ein installierter gesucht
 
 settings-launcher-show-icons = Symbole anzeigen
     .description = Symbole neben den Einträgen anzeigen
 
 settings-launcher-icon-theme = Symbolthema
-    .description = Symbolthema überschreiben (leer = Systemthema)
+    .description = Symbole der Zeilen im Starter; Standard folgt dem Symbolthema des Systems
 
 settings-launcher-sidebar-mode = Seitenleistenmodus
     .description = Modus-Reiter am unteren Rand des Starters anzeigen
@@ -64,22 +64,22 @@ settings-launcher-display-names = Anzeigenamen der Modi
     .description = Anzeigenamen pro Modus überschreiben (z. B. drun = "apps")
 
 settings-launcher-scripts = Skriptmodi
-    .description = Eigene Skriptmodi: Name → ausführbare Datei (rofi-Skriptprotokoll)
+    .description = Eigene Modi, jeder ein Name und das Programm, das seine Liste füllt
 
 settings-launcher-keybindings = Tastenkürzel
-    .description = Tastenkürzel überschreiben: Aktion → kommagetrennte Tasten (nicht gesetzte Aktionen behalten die rofi-Standards)
+    .description = Welche Tasten jede Aktion des Starters ausführen; eine unveränderte Aktion behält ihre üblichen Tasten
 
 settings-launcher-mouse-bindings = Maustasten
     .description = Welche Maustasten und Scrollrichtungen jede Aktion des Starters auslösen, statt ihrer Standardbelegung
 
 settings-launcher-font = Schrift
-    .description = Schrift des Starters als Pango-Beschreibung (z. B. "Inter 12"); leer behält die Shell-Schrift
+    .description = Schrift und Größe des Starters; Standard behält die Schrift der Shell
 
 settings-launcher-styles = Stilvorlagen
     .description = Benannte Erscheinungsbilder, die ein Start beim Namen anfordern kann: jeder Name → das CSS, das während dieses Starts gilt
 
 settings-launcher-preview-cmd = Vorschaubefehl
-    .description = Befehl, der ein Zeilen-Vorschaubild erzeugt: {"{"}input{"}"} die Datei, {"{"}output{"}"} das zu schreibende Bild, {"{"}size{"}"} die Pixelgröße; leer verwendet die Vorschaubildgeneratoren des Systems
+    .description = Befehl, der aus der Datei, dem zu schreibenden Bild und seiner Größe in Pixeln das Vorschaubild einer Zeile erzeugt; leer verwendet die Vorschaubildgeneratoren des Systems
 
 settings-launcher-history = Verlauf
     .description = Startverlauf und Frecency-Ranking
@@ -109,7 +109,7 @@ settings-launcher-history-max-size = Verlaufsgröße
     .description = Maximal gemerkte Einträge pro Modus
 
 settings-launcher-drun-categories = Kategorien
-    .description = Nur Anwendungen aus diesen Kategorien anzeigen (leer = alle)
+    .description = Nur Anwendungen aus diesen Kategorien anzeigen; ist keine gewählt, erscheinen alle Anwendungen
 
 settings-launcher-drun-exclude-categories = Ausgeschlossene Kategorien
     .description = Anwendungen aus diesen Kategorien ausblenden
@@ -118,25 +118,25 @@ settings-launcher-drun-match-fields = Abgleichfelder
     .description = Felder des Desktop-Eintrags, die beim Tippen durchsucht werden
 
 settings-launcher-drun-display-format = Anzeigeformat
-    .description = Zeilenvorlage: {"{name}"}, {"{generic}"}, {"{exec}"}, {"{categories}"}, {"{comment}"}; [..] wird nur angezeigt, wenn gefüllt
+    .description = Was die Zeile jeder App zeigt; ein Teil in eckigen Klammern erscheint nur, wenn die App seinen Wert hat
 
 settings-launcher-drun-show-actions = Aktionen anzeigen
     .description = Aktionen aus Desktop-Dateien als zusätzliche Zeilen anzeigen
 
 settings-launcher-drun-url-launcher = URL-Starter
-    .description = Befehl zum Öffnen von Desktop-Einträgen mit Type=Link (leer = eingebauter Öffner)
+    .description = Befehl zum Öffnen von Einträgen, die Weblinks sind; Standard nutzt den eingebauten Öffner
 
 settings-launcher-run-run-command = Ausführungsbefehl
-    .description = Einfache Vorlage zum Übernehmen ({"{cmd}"})
+    .description = Befehl, den ein bestätigter Eintrag ausführt, mit dem eingegebenen Befehl darin
 
 settings-launcher-run-shell-command = Terminalbefehl
-    .description = Vorlage für die Ausführung im Terminal ({"{terminal}"}, {"{cmd}"})
+    .description = Befehl, der einen Eintrag in einem Terminal ausführt, aus dem Terminal und dem eingegebenen Befehl
 
 settings-launcher-run-list-command = Listenbefehl
     .description = Zusätzlicher Befehl, dessen Ausgabezeilen Einträge hinzufügen
 
 settings-launcher-window-format = Anzeigeformat
-    .description = Zeilenvorlage: {"{w}"} Arbeitsfläche, {"{c}"} Klasse, {"{t}"} Titel, {"{n}"} Name, {"{r}"} Rolle
+    .description = Was die Zeile jedes Fensters zeigt, aus Arbeitsfläche, App, Titel, Name und Rolle
 
 settings-launcher-window-match-fields = Abgleichfelder
     .description = Fensterfelder, die beim Tippen durchsucht werden
@@ -151,7 +151,7 @@ settings-launcher-ssh-client = SSH-Client
     .description = Programmdatei des SSH-Clients
 
 settings-launcher-ssh-command = Verbindungsbefehl
-    .description = Verbindungsvorlage ({"{terminal}"}, {"{ssh-client}"}, {"{host}"})
+    .description = Befehl, der sich mit einem Host verbindet, aus dem Terminal, dem SSH-Client und dem Host
 
 settings-launcher-ssh-parse-hosts = /etc/hosts auswerten
     .description = Hosts aus /etc/hosts einbeziehen
@@ -160,7 +160,7 @@ settings-launcher-ssh-parse-known-hosts = known_hosts auswerten
     .description = Hosts aus ~/.ssh/known_hosts einbeziehen
 
 settings-launcher-filebrowser-directory = Startordner
-    .description = Ordner, in dem der Browser öffnet (leer = Persönlicher Ordner)
+    .description = Ordner, in dem der Dateibrowser öffnet; leer gelassen, der persönliche Ordner
 
 settings-launcher-filebrowser-sorting-method = Sortierung
     .description = Reihenfolge der Dateien
@@ -172,13 +172,13 @@ settings-launcher-filebrowser-show-hidden = Verborgene anzeigen
     .description = Verborgene Dateien anzeigen
 
 settings-launcher-filebrowser-command = Öffnungsbefehl
-    .description = Befehl zum Öffnen der gewählten Datei (leer = eingebauter Öffner)
+    .description = Befehl zum Öffnen der gewählten Datei; Standard nutzt den eingebauten Öffner
 
 settings-launcher-combi-modes = Kombinierte Modi
     .description = Modi, die in die kombinierte Liste einfließen
 
 settings-launcher-combi-display-format = Anzeigeformat
-    .description = Zeilenvorlage ({"{mode}"}, {"{text}"})
+    .description = Was jede Zeile zeigt, aus ihrem Modus und ihrem Text
 
 ## LauncherLocation variants
 enum-launcher-location-center = Mitte
