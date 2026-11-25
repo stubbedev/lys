@@ -6,7 +6,7 @@ enum-execution-mode-watch = Watch
 
 ## Custom module fields
 
-settings-modules-custom-id = Id
+settings-modules-custom-id = ID
 settings-modules-custom-command = Command
 settings-modules-custom-mode = Mode
 settings-modules-custom-interval-ms = Interval (ms)

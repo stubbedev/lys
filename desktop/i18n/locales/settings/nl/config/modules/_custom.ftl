@@ -3,7 +3,7 @@ enum-execution-mode-watch = Volgen
 
 ## Custom module fields
 
-settings-modules-custom-id = Id
+settings-modules-custom-id = ID
 settings-modules-custom-command = Opdracht
 settings-modules-custom-mode = Modus
 settings-modules-custom-interval-ms = Interval (ms)
