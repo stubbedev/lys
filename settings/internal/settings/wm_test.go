@@ -1022,6 +1022,9 @@ func TestEveryWMConfigKeyHasARow(t *testing.T) {
 	}
 }
 
+// Every lys-wm choice a page offers reads by name, a list's choices
+// too: the title bar's buttons read as their raw close, minimize and
+// maximize while a list's element took its type from the list marker.
 func TestEveryLysWMChoiceOnAPageIsNamed(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	w, err := testKit(t, "").wmBackend()
@@ -1038,6 +1041,9 @@ func TestEveryLysWMChoiceOnAPageIsNamed(t *testing.T) {
 						continue
 					}
 					meta, ok := w.field(r.path)
+					if elem, listed := w.field(r.path + "." + wmconfig.Each); listed && meta.Kind != config.FieldEnum {
+						meta, ok = elem, true
+					}
 					if !ok || meta.Kind != config.FieldEnum || meta.Type == wmToggleType {
 						continue
 					}

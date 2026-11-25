@@ -136,13 +136,17 @@ func (w *wmBackend) fieldOf(path string) (wmconfig.Field, bool) {
 
 func (w *wmBackend) field(path string) (config.FieldMeta, bool) { return w.metaAt(wmPath(path)) }
 
-// metaAt is the editor's view of the key at keys.
+// metaAt is the editor's view of the key at keys; a list's element
+// names its choices after the list.
 func (w *wmBackend) metaAt(keys []string) (config.FieldMeta, bool) {
 	f, ok := w.schema.Field(keys)
 	if !ok {
 		return config.FieldMeta{}, false
 	}
 	key := keys[len(keys)-1]
+	if key == wmconfig.Each && len(keys) > 1 {
+		key = keys[len(keys)-2]
+	}
 	meta := config.FieldMeta{Min: f.Min, Max: f.Max, Optional: !f.HasDefault}
 	if choices, ok := wmChoices(f); ok {
 		meta.Kind, meta.Variants, meta.Type = config.FieldEnum, wmChoiceNames(choices), wmChoiceType(key)
