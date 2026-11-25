@@ -248,7 +248,7 @@ func newPresetPicker[T presetValue](k *kit, s slot, meta config.FieldMeta, unit 
 	p.custom = newNumber(k, scaledSlot[T](unit, s), lo, meta.Max/unit.per, 1, unit.digits)
 	p.custom.SetAccessibleName(t.Get("settings-duration-custom"))
 	p.typed = k.inUnit(p.custom, unit.unit)
-	p.SetTrailing(p.typed)
+	p.typed.SetVisible(false)
 	p.refresh()
 	return p
 }
@@ -275,8 +275,22 @@ func (p *presetPicker[T]) refresh() {
 		at = len(p.presets)
 	}
 	p.SetChecked(at, true)
-	p.typed.SetVisible(custom)
+	p.showTyped(custom)
 	p.custom.refresh()
+}
+
+// showTyped follows the chips with the number input, or takes it out of
+// their lines, so a hidden input holds no line of its own under them.
+func (p *presetPicker[T]) showTyped(on bool) {
+	if p.typed.Visible() == on {
+		return
+	}
+	p.typed.SetVisible(on)
+	if on {
+		p.SetTrailing(p.typed)
+	} else {
+		p.SetTrailing(nil)
+	}
 }
 
 func (p *presetPicker[T]) active() int {
