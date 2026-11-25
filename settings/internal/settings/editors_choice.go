@@ -623,6 +623,9 @@ func strftimeParts() formatKind {
 // preview's, so the two never show different times.
 var formatSampleTime = barview.SampleTime
 
+// formatEditor is a format edited as text, its parts to insert behind
+// the button after the entry and its sample under it. A Pango markup
+// format, long with its tags, takes its line's width.
 type formatEditor struct {
 	*widget.Box
 	k       *kit
@@ -648,7 +651,7 @@ func newFormatEditor(k *kit, s slot, optional bool, kind formatKind) *formatEdit
 		c.showPreview(text)
 	}
 	line := gapBox(widget.Row)
-	line.AppendAligned(c.entry, false, widget.AlignCenter)
+	line.AppendAligned(c.entry, kind.markup, widget.AlignCenter)
 	line.AppendAligned(c.open, false, widget.AlignCenter)
 	c.Append(line, false)
 	c.Append(c.preview, false)

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/ui/widget"
 )
 
@@ -41,5 +42,30 @@ func TestAMarkupFormatPreviewsStyledNotAsTags(t *testing.T) {
 	c.showPreview("{name} <span weight='light'")
 	if p.styled.Visible() || !p.invalid.Visible() {
 		t.Error("markup that does not parse still previews styled")
+	}
+}
+
+// On Launcher Modes the drun Display Format's markup showed in a
+// 170px entry, clipped to "{generic})</i></span>]" as one raw chip. A
+// markup format's entry takes the row's width under its text, the
+// insert button after it, and the drun and combi formats read whole.
+func TestAMarkupFormatsEntryTakesItsRowsWidth(t *testing.T) {
+	win := laidOutPage(t, "", "launcher-modes", sweepW)
+	seen := 0
+	for _, c := range treetest.All[*formatEditor](win.page) {
+		if !c.kind.markup || !shownIn(win.page, c) {
+			continue
+		}
+		seen++
+		editor, entry, open := c.Bounds(), c.entry.Bounds(), c.open.Bounds()
+		if spare := editor.W - entry.W - open.W; spare > 2*widget.Current().Spacing {
+			t.Errorf("a markup format's entry is %dpx wide, leaving %dpx of its %dpx line beside the button", entry.W, spare, editor.W)
+		}
+		if open.X < entry.X+entry.W {
+			t.Errorf("the insert button at %+v stands before the entry ending at %d", open, entry.X+entry.W)
+		}
+	}
+	if seen == 0 {
+		t.Fatal("Launcher Modes shows no markup format")
 	}
 }
