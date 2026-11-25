@@ -3,7 +3,7 @@ settings-osd-enabled = Aktiviert
     .description = Bildschirmeinblendungen für Lautstärke, Helligkeit usw. anzeigen
 
 settings-osd-presets = Toast-Vorlagen
-    .description = Wiederverwendbare Toasts, auslösbar mit `lys-shell toast --preset <id>`
+    .description = Wiederverwendbare Toasts, auslösbar mit lys-shell toast --preset <id>
 
 settings-osd-position = Position
     .description = Wo auf dem Bildschirm das OSD erscheint (z. B. top-center, bottom-right)
@@ -27,7 +27,7 @@ settings-osd-text-align = Textausrichtung
     .description = Horizontale Ausrichtung des Inhalts von OSD-Toasts/-Umschaltern
 
 settings-osd-media = Aktuelle Wiedergabe
-    .description = Titelwechsel, die das OSD der aktuellen Wiedergabe zeigen: angefordert (Medientasten und `lys-shell media next`), immer oder nie
+    .description = Titelwechsel, die das OSD der aktuellen Wiedergabe zeigen: angefordert (Medientasten und lys-shell media next), immer oder nie
 
 
 ## OsdPosition variants

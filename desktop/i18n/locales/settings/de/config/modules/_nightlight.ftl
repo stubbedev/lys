@@ -63,7 +63,7 @@ settings-modules-nightlight-button-bg-color = Schaltflächenhintergrund
     .description = Hintergrundfarbe der Schaltfläche
 
 settings-modules-nightlight-left-click = Linksklick
-    .description = Aktion bei Linksklick. `:toggle` für das eingebaute An/Aus, leer für keine Aktion oder ein Shell-Befehl
+    .description = Aktion bei Linksklick. :toggle für das eingebaute An/Aus, leer für keine Aktion oder ein Shell-Befehl
 
 settings-modules-nightlight-right-click = Rechtsklick
     .description = Shell-Befehl bei Rechtsklick

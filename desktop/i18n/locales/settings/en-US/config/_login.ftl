@@ -30,7 +30,7 @@ settings-login-show-failed-attempts = Show Failed Attempts
     .description = Show the failed-attempt count on the lock screen
 
 settings-login-lock-enabled = Enabled
-    .description = Let lys-shell lock the session (responds to loginctl lock-session and `lys-shell lock`)
+    .description = Let lys-shell lock the session (responds to loginctl lock-session and lys-shell lock)
 
 settings-login-lock-lock-on-start = Lock on Start
     .description = Lock the session as soon as the shell starts, for autologin setups where the lock screen is the access gate

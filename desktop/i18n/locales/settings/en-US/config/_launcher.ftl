@@ -235,7 +235,7 @@ settings-animations-launcher = Launcher
 # Search panel
 
 settings-launcher-search = Search Panel
-    .description = The panel `lys-shell launcher` opens with no arguments
+    .description = The panel lys-shell launcher opens with no arguments
 
 settings-launcher-search-providers = Sources
     .description = What the list searches

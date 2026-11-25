@@ -54,7 +54,7 @@ settings-modules-power-profiles-button-bg-color = Sfondo del pulsante
     .description = Colore di sfondo del pulsante
 
 settings-modules-power-profiles-left-click = Clic sinistro
-    .description = Azione al clic sinistro. Usa `:cycle` per il ciclo integrato dei profili, vuoto per nessuna azione, oppure un comando della shell
+    .description = Azione al clic sinistro. Usa :cycle per il ciclo integrato dei profili, vuoto per nessuna azione, oppure un comando della shell
 
 settings-modules-power-profiles-right-click = Clic destro
     .description = Comando della shell al clic destro

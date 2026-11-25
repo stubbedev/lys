@@ -59,7 +59,7 @@ settings-modules-nightlight-button-bg-color = Fundo do botão
     .description = Cor de fundo do botão
 
 settings-modules-nightlight-left-click = Clique esquerdo
-    .description = Ação ao clicar com o botão esquerdo. Use `:toggle` para ligar/desligar integrado, vazio para nenhuma ação, ou um comando da shell
+    .description = Ação ao clicar com o botão esquerdo. Use :toggle para ligar/desligar integrado, vazio para nenhuma ação, ou um comando da shell
 
 settings-modules-nightlight-right-click = Clique direito
     .description = Comando da shell ao clicar com o botão direito

@@ -54,7 +54,7 @@ settings-modules-power-profiles-button-bg-color = Arrière-plan du bouton
     .description = Couleur d'arrière-plan du bouton
 
 settings-modules-power-profiles-left-click = Clic gauche
-    .description = Action au clic gauche. Utilisez `:cycle` pour le cycle de profils intégré, vide pour aucune action, ou une commande shell
+    .description = Action au clic gauche. Utilisez :cycle pour le cycle de profils intégré, vide pour aucune action, ou une commande shell
 
 settings-modules-power-profiles-right-click = Clic droit
     .description = Commande shell au clic droit

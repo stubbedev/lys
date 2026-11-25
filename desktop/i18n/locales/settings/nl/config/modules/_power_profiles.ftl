@@ -50,7 +50,7 @@ settings-modules-power-profiles-button-bg-color = Knopachtergrond
     .description = Achtergrondkleur van de knop
 
 settings-modules-power-profiles-left-click = Linksklik
-    .description = Actie bij linksklik. Gebruik `:cycle` voor het ingebouwde doorlopen van profielen, leeg voor geen actie, of een shell-opdracht
+    .description = Actie bij linksklik. Gebruik :cycle voor het ingebouwde doorlopen van profielen, leeg voor geen actie, of een shell-opdracht
 
 settings-modules-power-profiles-right-click = Rechtsklik
     .description = Shell-opdracht bij rechtsklik

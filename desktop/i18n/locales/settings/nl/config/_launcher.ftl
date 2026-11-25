@@ -223,7 +223,7 @@ settings-animations-launcher = Starter
     .description = Overschrijving van de verschijn-/verdwijnanimatie voor de toepassingsstarter
 
 settings-launcher-search = Zoekpaneel
-    .description = Het paneel dat `lys-shell launcher` zonder argumenten opent
+    .description = Het paneel dat lys-shell launcher zonder argumenten opent
 
 settings-launcher-search-providers = Bronnen
     .description = Wat de lijst doorzoekt

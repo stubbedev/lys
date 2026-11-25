@@ -59,7 +59,7 @@ settings-modules-nightlight-button-bg-color = Knopachtergrond
     .description = Achtergrondkleur van de knop
 
 settings-modules-nightlight-left-click = Linksklik
-    .description = Actie bij linksklik. Gebruik `:toggle` voor het ingebouwde aan/uit, leeg voor geen actie, of een shell-opdracht
+    .description = Actie bij linksklik. Gebruik :toggle voor het ingebouwde aan/uit, leeg voor geen actie, of een shell-opdracht
 
 settings-modules-nightlight-right-click = Rechtsklik
     .description = Shell-opdracht bij rechtsklik

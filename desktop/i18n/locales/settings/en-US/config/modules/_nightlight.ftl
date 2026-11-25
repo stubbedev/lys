@@ -63,7 +63,7 @@ settings-modules-nightlight-button-bg-color = Button Background
     .description = Button background color
 
 settings-modules-nightlight-left-click = Left Click
-    .description = Action on left click. Use `:toggle` for built-in on/off, empty for no action, or a shell command
+    .description = Action on left click. Use :toggle for built-in on/off, empty for no action, or a shell command
 
 settings-modules-nightlight-right-click = Right Click
     .description = Shell command on right click

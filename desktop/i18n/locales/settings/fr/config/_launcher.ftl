@@ -223,7 +223,7 @@ settings-animations-launcher = Lanceur
     .description = Remplacement de l'animation d'entrée et de sortie du lanceur d'applications
 
 settings-launcher-search = Panneau de recherche
-    .description = Le panneau qu'ouvre `lys-shell launcher` sans argument
+    .description = Le panneau qu'ouvre lys-shell launcher sans argument
 
 settings-launcher-search-providers = Sources
     .description = Ce que la liste recherche

@@ -30,7 +30,7 @@ settings-login-show-failed-attempts = Fehlversuche anzeigen
     .description = Die Anzahl der Fehlversuche auf dem Sperrbildschirm anzeigen
 
 settings-login-lock-enabled = Aktiviert
-    .description = lys-shell die Sitzung sperren lassen (reagiert auf loginctl lock-session und `lys-shell lock`)
+    .description = lys-shell die Sitzung sperren lassen (reagiert auf loginctl lock-session und lys-shell lock)
 
 settings-login-lock-lock-on-start = Beim Start sperren
     .description = Die Sitzung sperren, sobald die Shell startet, für automatische Anmeldungen, bei denen der Sperrbildschirm die Zugangskontrolle ist

@@ -63,7 +63,7 @@ settings-modules-nightlight-button-bg-color = Fondo del botón
     .description = Color de fondo del botón
 
 settings-modules-nightlight-left-click = Clic izquierdo
-    .description = Acción al hacer clic izquierdo. Use `:toggle` para el encendido/apagado integrado, vacío para ninguna acción, o una orden de shell
+    .description = Acción al hacer clic izquierdo. Use :toggle para el encendido/apagado integrado, vacío para ninguna acción, o una orden de shell
 
 settings-modules-nightlight-right-click = Clic derecho
     .description = Orden de shell al hacer clic derecho

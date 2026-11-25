@@ -26,7 +26,7 @@ settings-login-show-failed-attempts = Mislukte pogingen tonen
     .description = Het aantal mislukte pogingen op het vergrendelscherm tonen
 
 settings-login-lock-enabled = Ingeschakeld
-    .description = lys-shell de sessie laten vergrendelen (reageert op loginctl lock-session en `lys-shell lock`)
+    .description = lys-shell de sessie laten vergrendelen (reageert op loginctl lock-session en lys-shell lock)
 
 settings-login-lock-lock-on-start = Vergrendelen bij start
     .description = De sessie vergrendelen zodra de shell start, voor opstellingen met automatisch aanmelden waarin het vergrendelscherm de toegangspoort is

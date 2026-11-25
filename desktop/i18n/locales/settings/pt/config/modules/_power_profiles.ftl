@@ -50,7 +50,7 @@ settings-modules-power-profiles-button-bg-color = Fundo do botão
     .description = Cor de fundo do botão
 
 settings-modules-power-profiles-left-click = Clique esquerdo
-    .description = Ação ao clicar com o botão esquerdo. Use `:cycle` para o ciclo de perfis integrado, vazio para nenhuma ação, ou um comando da shell
+    .description = Ação ao clicar com o botão esquerdo. Use :cycle para o ciclo de perfis integrado, vazio para nenhuma ação, ou um comando da shell
 
 settings-modules-power-profiles-right-click = Clique direito
     .description = Comando da shell ao clicar com o botão direito

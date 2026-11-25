@@ -63,7 +63,7 @@ settings-modules-nightlight-button-bg-color = Sfondo del pulsante
     .description = Colore di sfondo del pulsante
 
 settings-modules-nightlight-left-click = Clic sinistro
-    .description = Azione al clic sinistro. Usa `:toggle` per l'attivazione integrata, vuoto per nessuna azione, oppure un comando della shell
+    .description = Azione al clic sinistro. Usa :toggle per l'attivazione integrata, vuoto per nessuna azione, oppure un comando della shell
 
 settings-modules-nightlight-right-click = Clic destro
     .description = Comando della shell al clic destro

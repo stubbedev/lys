@@ -54,7 +54,7 @@ settings-modules-power-profiles-button-bg-color = Schaltflächenhintergrund
     .description = Hintergrundfarbe der Schaltfläche
 
 settings-modules-power-profiles-left-click = Linksklick
-    .description = Aktion bei Linksklick. `:cycle` für den eingebauten Profilwechsel, leer für keine Aktion oder ein Shell-Befehl
+    .description = Aktion bei Linksklick. :cycle für den eingebauten Profilwechsel, leer für keine Aktion oder ein Shell-Befehl
 
 settings-modules-power-profiles-right-click = Rechtsklick
     .description = Shell-Befehl bei Rechtsklick

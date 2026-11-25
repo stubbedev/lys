@@ -22,7 +22,7 @@ settings-osd-border = Bordure
 ## Variantes de OsdPosition
 
 settings-osd-presets = Préréglages de toasts
-    .description = Toasts réutilisables à déclencher avec `lys-shell toast --preset <id>`
+    .description = Toasts réutilisables à déclencher avec lys-shell toast --preset <id>
 settings-osd-layer = Couche
     .description = Couche layer-shell sur laquelle l'OSD est placé. Le mode de déchirement rétrograde la superposition en haut.
 settings-osd-text-align = Alignement du texte
@@ -31,7 +31,7 @@ enum-osd-text-align-start = Début
 enum-osd-text-align-center = Centre
 enum-osd-text-align-end = Fin
 settings-osd-media = Lecture en cours
-    .description = Changements de piste qui affichent l'OSD de lecture : demandés (touches multimédia et `lys-shell media next`), toujours ou jamais
+    .description = Changements de piste qui affichent l'OSD de lecture : demandés (touches multimédia et lys-shell media next), toujours ou jamais
 enum-osd-media-requested = Demandés
 enum-osd-media-always = Toujours
 enum-osd-media-never = Jamais

@@ -30,7 +30,7 @@ settings-login-show-failed-attempts = Mostra i tentativi falliti
     .description = Mostra il numero di tentativi falliti nella schermata di blocco
 
 settings-login-lock-enabled = Attivato
-    .description = Consente a lys-shell di bloccare la sessione (risponde a loginctl lock-session e a `lys-shell lock`)
+    .description = Consente a lys-shell di bloccare la sessione (risponde a loginctl lock-session e a lys-shell lock)
 
 settings-login-lock-lock-on-start = Blocca all'avvio
     .description = Blocca la sessione appena si avvia la shell, per le configurazioni con accesso automatico in cui la schermata di blocco fa da controllo d'accesso

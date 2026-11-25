@@ -54,7 +54,7 @@ settings-modules-power-profiles-button-bg-color = Button Background
     .description = Button background color
 
 settings-modules-power-profiles-left-click = Left Click
-    .description = Action on left click. Use `:cycle` for the built-in profile cycle, empty for no action, or a shell command
+    .description = Action on left click. Use :cycle for the built-in profile cycle, empty for no action, or a shell command
 
 settings-modules-power-profiles-right-click = Right Click
     .description = Shell command on right click

@@ -231,7 +231,7 @@ settings-animations-launcher = Avviatore
     .description = Animazione specifica di comparsa e scomparsa per l'avviatore delle applicazioni
 
 settings-launcher-search = Pannello di ricerca
-    .description = Il pannello che `lys-shell launcher` apre senza argomenti
+    .description = Il pannello che lys-shell launcher apre senza argomenti
 
 settings-launcher-search-providers = Sorgenti
     .description = Cosa cerca l'elenco
