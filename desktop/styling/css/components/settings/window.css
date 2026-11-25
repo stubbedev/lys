@@ -46,7 +46,8 @@ item.card-state .title {
   font-weight: var(--weight-normal);
 }
 
-item.card-state .media {
+item.card-state .media,
+.settings-page avatar {
   background-color: var(--border-default);
 }
 
