@@ -156,12 +156,13 @@ type Conversion struct {
 }
 
 // Show is the result as a person in l's locale reads it: ShowResult's
-// digits, then the unit, a degree sign without a space before it.
+// digits, then the unit spaced as the locale spaces one, a degree sign
+// without a space before it.
 func (c Conversion) Show(l *i18n.Loader) string {
 	if strings.HasPrefix(c.Unit, "°") {
 		return ShowResult(l, c.Value) + c.Unit
 	}
-	return ShowResult(l, c.Value) + " " + c.Unit
+	return l.WithUnit(ShowResult(l, c.Value), c.Unit)
 }
 
 // conversionWords separate the quantity from the unit wanted.

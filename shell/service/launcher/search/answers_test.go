@@ -132,7 +132,7 @@ func TestTimeAndDateRows(t *testing.T) {
 	for q, want := range map[string]string{
 		"15:00 PST in Copenhagen": "12:00\u202fAM CET (+1 day)",
 		"time in Tokyo":           "7:00\u202fPM JST",
-		"today + 90 days":         "Friday Feb 5, 2027",
+		"today + 90 days":         "Friday, Feb 5, 2027",
 		"days until 2027-01-01":   "55 days",
 		"days until 2026-11-08":   "1 day",
 	} {
@@ -142,7 +142,7 @@ func TestTimeAndDateRows(t *testing.T) {
 		}
 	}
 	got := c.Answer("time in Tokyo")
-	if sub := stripIsolation(got[0].Subtitle); sub != "Saturday Nov 7, 2026 in Tokyo" {
+	if sub := stripIsolation(got[0].Subtitle); sub != "Saturday, Nov 7, 2026 in Tokyo" {
 		t.Errorf("subtitle = %q", sub)
 	}
 	if acts := c.Actions(got[0]); len(acts) < 2 {
@@ -189,9 +189,11 @@ func TestADateRowShowsTheLocalesDateAndContinuesWithTheISODate(t *testing.T) {
 	for _, c := range []struct {
 		locale, title string
 	}{
-		{"en-US", "Friday Feb 5, 2027"},
-		{"de", "Freitag 05.02.2027"},
+		{"en-US", "Friday, Feb 5, 2027"},
+		{"de", "Freitag, 05.02.2027"},
+		{"es", "viernes, 5 de feb de 2027"},
 		{"fr", "vendredi 5 févr. 2027"},
+		{"pt", "sexta-feira, 05/02/2027"},
 	} {
 		calc := calculatorIn(t, c.locale, nil)
 		got := calc.Answer("today + 90 days")
@@ -219,7 +221,7 @@ func TestATimeRowsDayAndTheCurrencySourceSpeakTheLocalesDate(t *testing.T) {
 	if len(got) != 1 {
 		t.Fatalf("answer = %+v", got)
 	}
-	if sub := stripIsolation(got[0].Subtitle); !strings.HasPrefix(sub, "Samstag 07.11.2026") || strings.Contains(sub, "2026-11-07") {
+	if sub := stripIsolation(got[0].Subtitle); !strings.HasPrefix(sub, "Samstag, 07.11.2026") || strings.Contains(sub, "2026-11-07") {
 		t.Errorf("de subtitle = %q, want the German day and date", sub)
 	}
 	srv, _ := ecbServer(t, true)
@@ -300,10 +302,12 @@ func TestAConversionRowShowsTheLocalesDigitsAndContinuesWithThePlainOnes(t *test
 	}{
 		{"en-US", "5 km to mi", "3.1068559612 mi", "3.1068559612"},
 		{"de", "5 km to mi", "3,1068559612 mi", "3.1068559612"},
-		{"fr", "5 km to mi", "3,1068559612 mi", "3.1068559612"},
+		{"fr", "5 km to mi", "3,1068559612\u00a0mi", "3.1068559612"},
+		{"fr", "1 GB to MB", "1\u202f000\u00a0MB", "1000"},
 		{"en-US", "2 km to m", "2,000 m", "2000"},
 		{"de", "2 km to m", "2.000 m", "2000"},
 		{"de", "100 f to c", "37,7777777778°C", "37.7777777778"},
+		{"fr", "100 f to c", "37,7777777778°C", "37.7777777778"},
 	} {
 		calc := calculatorIn(t, c.locale, nil)
 		got := calc.Answer(c.query)

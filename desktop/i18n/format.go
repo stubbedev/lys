@@ -49,6 +49,7 @@ type localeFormats struct {
 	padHour           bool
 	dateTimeSeparator string
 	medium            mediumDate
+	weekdayDate       weekdayDate
 }
 
 // mediumDate is CLDR's medium date pattern: day and month in order,
@@ -61,78 +62,132 @@ type mediumDate struct {
 	separators [2]string
 }
 
+// weekdayDate is CLDR's medium date led by the weekday's full name:
+// the name, its separator, then the date, whose own separators can
+// differ from the plain medium date's ("sábado, 7 de nov de 2026" in
+// es, where the medium date reads "7 nov 2026").
+type weekdayDate struct {
+	weekdays  [7]string
+	separator string
+	date      mediumDate
+}
+
 func formatsFor(catalogue LangID) (localeFormats, error) {
 	switch catalogue.String() {
 	case "en-US":
+		medium := mediumDate{
+			order:      monthDayYear,
+			months:     [12]string{"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"},
+			separators: [2]string{" ", ", "},
+		}
 		return localeFormats{
 			decimal: ".", group: ",", minimumGrouping: 1, units: byteUnitSystems, unitSpace: " ",
 			order: monthDayYear, dateSeparator: "/", hour12: true, dateTimeSeparator: ", ",
-			medium: mediumDate{
-				order:      monthDayYear,
-				months:     [12]string{"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"},
-				separators: [2]string{" ", ", "},
+			medium: medium,
+			weekdayDate: weekdayDate{
+				weekdays:  [7]string{"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"},
+				separator: ", ",
+				date:      medium,
 			},
 		}, nil
 	case "de":
+		medium := mediumDate{
+			order:      dayMonthYear,
+			months:     [12]string{"01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"},
+			padDay:     true,
+			separators: [2]string{".", "."},
+		}
 		return localeFormats{
 			decimal: ",", group: ".", minimumGrouping: 1, units: byteUnitSystems, unitSpace: " ",
 			order: dayMonthYear, dateSeparator: ".", padHour: true, dateTimeSeparator: ", ",
-			medium: mediumDate{
-				order:      dayMonthYear,
-				months:     [12]string{"01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"},
-				padDay:     true,
-				separators: [2]string{".", "."},
+			medium: medium,
+			weekdayDate: weekdayDate{
+				weekdays:  [7]string{"Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"},
+				separator: ", ",
+				date:      medium,
 			},
 		}, nil
 	case "es":
+		medium := mediumDate{
+			order:      dayMonthYear,
+			months:     [12]string{"ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sept", "oct", "nov", "dic"},
+			separators: [2]string{" ", " "},
+		}
+		weekdayMedium := medium
+		weekdayMedium.separators = [2]string{" de ", " de "}
 		return localeFormats{
 			decimal: ",", group: ".", minimumGrouping: 2, units: byteUnitSystems, unitSpace: " ",
 			order: dayMonthYear, dateSeparator: "/", dateTimeSeparator: ", ",
-			medium: mediumDate{
-				order:      dayMonthYear,
-				months:     [12]string{"ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sept", "oct", "nov", "dic"},
-				separators: [2]string{" ", " "},
+			medium: medium,
+			weekdayDate: weekdayDate{
+				weekdays:  [7]string{"domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"},
+				separator: ", ",
+				date:      weekdayMedium,
 			},
 		}, nil
 	case "fr":
+		medium := mediumDate{
+			order:      dayMonthYear,
+			months:     [12]string{"janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."},
+			separators: [2]string{" ", " "},
+		}
 		return localeFormats{
 			decimal: ",", group: narrowNBSP, minimumGrouping: 1, units: octetUnitSystems, unitSpace: nbsp,
 			order: dayMonthYear, dateSeparator: "/", padDate: true, padHour: true, dateTimeSeparator: " ",
-			medium: mediumDate{
-				order:      dayMonthYear,
-				months:     [12]string{"janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."},
-				separators: [2]string{" ", " "},
+			medium: medium,
+			weekdayDate: weekdayDate{
+				weekdays:  [7]string{"dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"},
+				separator: " ",
+				date:      medium,
 			},
 		}, nil
 	case "it":
+		medium := mediumDate{
+			order:      dayMonthYear,
+			months:     [12]string{"gen", "feb", "mar", "apr", "mag", "giu", "lug", "ago", "set", "ott", "nov", "dic"},
+			separators: [2]string{" ", " "},
+		}
 		return localeFormats{
 			decimal: ",", group: ".", minimumGrouping: 2, units: byteUnitSystems, unitSpace: " ",
 			order: dayMonthYear, dateSeparator: "/", padDate: true, padHour: true, dateTimeSeparator: ", ",
-			medium: mediumDate{
-				order:      dayMonthYear,
-				months:     [12]string{"gen", "feb", "mar", "apr", "mag", "giu", "lug", "ago", "set", "ott", "nov", "dic"},
-				separators: [2]string{" ", " "},
+			medium: medium,
+			weekdayDate: weekdayDate{
+				weekdays:  [7]string{"domenica", "lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "sabato"},
+				separator: " ",
+				date:      medium,
 			},
 		}, nil
 	case "nl":
+		medium := mediumDate{
+			order:      dayMonthYear,
+			months:     [12]string{"jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug", "sep", "okt", "nov", "dec"},
+			separators: [2]string{" ", " "},
+		}
 		return localeFormats{
 			decimal: ",", group: ".", minimumGrouping: 1, units: byteUnitSystems, unitSpace: " ",
 			order: dayMonthYear, dateSeparator: "-", padHour: true, dateTimeSeparator: ", ",
-			medium: mediumDate{
-				order:      dayMonthYear,
-				months:     [12]string{"jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug", "sep", "okt", "nov", "dec"},
-				separators: [2]string{" ", " "},
+			medium: medium,
+			weekdayDate: weekdayDate{
+				weekdays:  [7]string{"zondag", "maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag"},
+				separator: " ",
+				date:      medium,
 			},
 		}, nil
 	case "pt":
+		medium := mediumDate{
+			order:      dayMonthYear,
+			months:     [12]string{"01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"},
+			padDay:     true,
+			separators: [2]string{"/", "/"},
+		}
 		return localeFormats{
 			decimal: ",", group: nbsp, minimumGrouping: 2, units: byteUnitSystems, unitSpace: " ",
 			order: dayMonthYear, dateSeparator: "/", padDate: true, padHour: true, dateTimeSeparator: ", ",
-			medium: mediumDate{
-				order:      dayMonthYear,
-				months:     [12]string{"01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"},
-				padDay:     true,
-				separators: [2]string{"/", "/"},
+			medium: medium,
+			weekdayDate: weekdayDate{
+				weekdays:  [7]string{"domingo", "segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado"},
+				separator: ", ",
+				date:      medium,
 			},
 		}, nil
 	}
@@ -186,6 +241,10 @@ func (m mediumDate) format(t time.Time) string {
 	return first + m.separators[0] + second + m.separators[1] + strconv.Itoa(t.Year())
 }
 
+func (w weekdayDate) format(t time.Time) string {
+	return w.weekdays[t.Weekday()] + w.separator + w.date.format(t)
+}
+
 func (f localeFormats) time(t time.Time) string {
 	minutes := pad2(t.Minute(), true)
 	if !f.hour12 {
@@ -230,15 +289,22 @@ func (l *Loader) FixedDecimal(x *big.Rat, fraction int) string {
 // the next unit, so 1,048,575 bytes are "1.0 MiB", never "1024.0 KiB".
 func (f localeFormats) byteSize(n, base uint64, units byteUnits) string {
 	if n < base {
-		return f.localize(strconv.FormatUint(n, 10)) + f.unitSpace + units[0]
+		return f.withUnit(f.localize(strconv.FormatUint(n, 10)), units[0])
 	}
 	size, unit := float64(n), 0
 	for unit < len(units)-1 && math.Round(size*10)/10 >= float64(base) {
 		size /= float64(base)
 		unit++
 	}
-	return f.localize(strconv.FormatFloat(size, 'f', 1, 64)) + f.unitSpace + units[unit]
+	return f.withUnit(f.localize(strconv.FormatFloat(size, 'f', 1, 64)), units[unit])
 }
+
+func (f localeFormats) withUnit(number, unit string) string { return number + f.unitSpace + unit }
+
+// WithUnit is number, already in the locale's digits, followed by
+// unit, spaced from it as the locale spaces a unit: "3.1 mi" in en-US,
+// "3,1 mi" (no-break space) in fr.
+func (l *Loader) WithUnit(number, unit string) string { return l.formats().withUnit(number, unit) }
 
 // ByteSize is a byte count in binary (1024-based) units with one
 // decimal, plain bytes below a kibibyte: "1.5 KiB" in en-US, "1,5 KiB"
@@ -265,6 +331,12 @@ func (l *Loader) Time(t time.Time) string { return l.formats().time(t) }
 // month never read the wrong way round: "Nov 7, 2026" in en-US,
 // "07.11.2026" in de, "7 nov. 2026" in fr, "07/11/2026" in pt (pt-PT).
 func (l *Loader) Date(t time.Time) string { return l.formats().medium.format(t) }
+
+// WeekdayDate is t's day in t's location, named by its weekday and the
+// locale's CLDR medium date, joined as the locale's pattern joins them:
+// "Saturday, Nov 7, 2026" in en-US, "Samstag, 07.11.2026" in de,
+// "sábado, 7 de nov de 2026" in es, "samedi 7 nov. 2026" in fr.
+func (l *Loader) WeekdayDate(t time.Time) string { return l.formats().weekdayDate.format(t) }
 
 // DateTime is t's numeric date and its time, in t's location:
 // "3/4/2026, 5:06 AM" in en-US, "4.3.2026, 05:06" in de, "04/03/2026

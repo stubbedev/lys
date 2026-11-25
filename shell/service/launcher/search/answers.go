@@ -114,11 +114,6 @@ func (c *Calculator) answerCurrency(q string) (Entry, bool) {
 	return calcEntry(q, value, shown+" "+cq.To.String(), source), true
 }
 
-// day is t's weekday and the locale's date, in t's location.
-func (c *Calculator) day(t time.Time) string {
-	return c.l.Get("cal-day-"+strings.ToLower(t.Weekday().String())) + " " + c.l.Date(t)
-}
-
 // timeEntry shows the time in the locale's hour cycle with its zone's
 // abbreviation; the value a row copies and continues with stays the
 // 24-hour clock a query reads back.
@@ -132,7 +127,7 @@ func (c *Calculator) timeEntry(q string, t answer.TimeAnswer) Entry {
 		}
 		shown = c.l.Get("launcher-answer-day-offset", i18n.Str("time", shown), i18n.Str("sign", sign), i18n.Int("days", int64(days)))
 	}
-	day := c.day(t.At)
+	day := c.l.WeekdayDate(t.At)
 	subtitle := day
 	if t.Place != "" {
 		subtitle = c.l.Get("launcher-answer-time-place", i18n.Str("day", day), i18n.Str("place", t.Place))
@@ -147,7 +142,7 @@ func (c *Calculator) dateEntry(q string, d answer.DateAnswer) Entry {
 		days := strconv.Itoa(d.Days)
 		return calcEntry(q, days, c.l.Get("launcher-answer-days", i18n.Int("days", int64(d.Days))), q)
 	}
-	return calcEntry(q, d.Day.Format(time.DateOnly), c.day(d.Day), q)
+	return calcEntry(q, d.Day.Format(time.DateOnly), c.l.WeekdayDate(d.Day), q)
 }
 
 type calcData struct{ value, shown, expr string }

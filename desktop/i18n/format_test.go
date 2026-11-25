@@ -2,6 +2,7 @@ package i18n
 
 import (
 	"math/big"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -212,6 +213,26 @@ func TestBinaryAndDecimalSizesDisagreeAboveAThousand(t *testing.T) {
 	}
 }
 
+func TestWithUnitSpacesTheUnitAsTheLocalesByteSizesDo(t *testing.T) {
+	for _, c := range []struct {
+		locale, want string
+	}{
+		{"en-US", "3.5 mi"},
+		{"de", "3,5 mi"},
+		{"fr", "3,5\u00a0mi"},
+		{"pt", "3,5 mi"},
+	} {
+		l := shellLoader(t, c.locale)
+		if got := l.WithUnit(l.Decimal(3.5, 1), "mi"); got != c.want {
+			t.Errorf("%s WithUnit = %q, want %q", c.locale, got, c.want)
+		}
+		size := l.ByteSize(512)
+		if got := l.WithUnit(l.Integer(512), size[len(size)-1:]); got != size {
+			t.Errorf("%s WithUnit = %q, want the space ByteSize puts in %q", c.locale, got, size)
+		}
+	}
+}
+
 func TestDateTimeFollowsTheLocalePatterns(t *testing.T) {
 	morning := time.Date(2026, 3, 4, 5, 6, 7, 0, time.UTC)
 	evening := time.Date(2026, 11, 24, 17, 30, 0, 0, time.UTC)
@@ -287,6 +308,59 @@ func TestDateNamesEveryMonthApartAndKeepsTheTimesDay(t *testing.T) {
 	at := time.Date(2026, 3, 4, 20, 0, 0, 0, time.UTC).In(zone)
 	if got := shellLoader(t, "en-US").Date(at); got != "Mar 5, 2026" {
 		t.Errorf("Date in UTC+9 = %q, want the zone's own day", got)
+	}
+}
+
+func TestWeekdayDateJoinsTheWeekdayAsTheLocalesPatternDoes(t *testing.T) {
+	saturday := time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC)
+	thursday := time.Date(2026, 9, 3, 12, 0, 0, 0, time.UTC)
+	for _, c := range []struct {
+		locale string
+		at     time.Time
+		want   string
+	}{
+		{"en-US", saturday, "Saturday, Nov 7, 2026"},
+		{"en-US", thursday, "Thursday, Sep 3, 2026"},
+		{"de", saturday, "Samstag, 07.11.2026"},
+		{"de", thursday, "Donnerstag, 03.09.2026"},
+		{"es", saturday, "sábado, 7 de nov de 2026"},
+		{"es", thursday, "jueves, 3 de sept de 2026"},
+		{"fr", saturday, "samedi 7 nov. 2026"},
+		{"fr", thursday, "jeudi 3 sept. 2026"},
+		{"it", saturday, "sabato 7 nov 2026"},
+		{"it", thursday, "giovedì 3 set 2026"},
+		{"nl", saturday, "zaterdag 7 nov 2026"},
+		{"nl", thursday, "donderdag 3 sep 2026"},
+		{"pt", saturday, "sábado, 07/11/2026"},
+		{"pt", thursday, "quinta-feira, 03/09/2026"},
+	} {
+		if got := shellLoader(t, c.locale).WeekdayDate(c.at); got != c.want {
+			t.Errorf("%s WeekdayDate(%v) = %q, want %q", c.locale, c.at, got, c.want)
+		}
+	}
+}
+
+func TestWeekdayDateNamesEveryWeekdayApartAndKeepsTheTimesDay(t *testing.T) {
+	for _, locale := range parseLangs(t, shipped) {
+		l := shellLoader(t, locale.String())
+		seen := map[string]time.Weekday{}
+		for day := 1; day <= 7; day++ {
+			at := time.Date(2026, 11, day, 12, 0, 0, 0, time.UTC)
+			got := l.WeekdayDate(at)
+			name := strings.FieldsFunc(got, func(r rune) bool { return r == ' ' || r == ',' })[0]
+			if prev, dup := seen[name]; dup {
+				t.Errorf("%s: %s and %s are both named %q", locale, prev, at.Weekday(), name)
+			}
+			seen[name] = at.Weekday()
+			if !strings.Contains(got, strconv.Itoa(day)) || !strings.Contains(got, "2026") {
+				t.Errorf("%s: %s reads %q, want its day and year", locale, at.Weekday(), got)
+			}
+		}
+	}
+	zone := time.FixedZone("UTC+9", 9*60*60)
+	at := time.Date(2026, 11, 6, 20, 0, 0, 0, time.UTC).In(zone)
+	if got := shellLoader(t, "en-US").WeekdayDate(at); got != "Saturday, Nov 7, 2026" {
+		t.Errorf("WeekdayDate in UTC+9 = %q, want the zone's own day", got)
 	}
 }
 
