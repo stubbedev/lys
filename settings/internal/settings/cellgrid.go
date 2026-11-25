@@ -71,17 +71,19 @@ func newCellGrid(k *kit, columns []string, rows []gridRow) *cellGrid {
 	return g
 }
 
-// heading is a column's heading.
+// columnHeading is a column's heading.
 func columnHeading(k *kit, key string) widget.Widget {
 	return k.label(locale.T().Get(key), css.Caption, css.DimLabel)
 }
 
+// control is the cell's control, refreshed with the grid.
 func (g *cellGrid) control(k *kit, spec rowSpec) control {
 	cell := fieldControl(k, k.store, spec)
 	g.cells = append(g.cells, cell)
 	return cell
 }
 
+// strip lays the cells out in columns of one width.
 func (g *cellGrid) strip(k *kit, columns []string, rows []gridRow) {
 	grid := widget.NewGrid(choiceCardGap*2, choiceCardGap).SetColumnHomogeneous(true)
 	for c, key := range columns {
@@ -97,6 +99,8 @@ func (g *cellGrid) strip(k *kit, columns []string, rows []gridRow) {
 	g.Append(grid, false)
 }
 
+// table lays each row out as its heading, then its cells packed at the
+// end, each column as wide as its widest cell.
 func (g *cellGrid) table(k *kit, columns []string, rows []gridRow) {
 	widths := make([]*widget.SizeGroup, len(columns))
 	for c := range widths {
