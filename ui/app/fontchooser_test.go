@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/lib/render"
+	"golang.org/x/image/font/gofont/gomono"
 	"golang.org/x/image/font/gofont/goregular"
 
 	"github.com/stubbedev/lys/ui/internal/sysfont"
@@ -123,7 +124,7 @@ func TestTheFontChooserLinesUpWithItsTitleAndButtons(t *testing.T) {
 		t.Fatal(err)
 	}
 	a := &Application{tooltipFace: face}
-	frame, err := a.dialogRoot(fontChooserDialog(face, []string{"alpha", "beta", "gamma"}, FontChooserConfig{FamilyOnly: true}), func(string) {})
+	frame, err := a.dialogRoot(fontChooserDialog(face, []string{"alpha", "beta", "gamma"}, sysfont.Best, FontChooserConfig{FamilyOnly: true}), func(string) {})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -191,7 +192,7 @@ func TestTheFontChoosersRowsLineUpWithItsSearchAndItsWidthHoldsStill(t *testing.
 	}
 	a := &Application{tooltipFace: face}
 	lay := func(size float64) (natural int, search *widget.Entry, list *widget.List) {
-		frame, err := a.dialogRoot(fontChooserDialog(face, []string{"alpha", "beta"}, FontChooserConfig{Size: size}), func(string) {})
+		frame, err := a.dialogRoot(fontChooserDialog(face, []string{"alpha", "beta"}, sysfont.Best, FontChooserConfig{Size: size}), func(string) {})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -233,5 +234,76 @@ func TestTheFontChoosersRowsLineUpWithItsSearchAndItsWidthHoldsStill(t *testing.
 	}
 	if large, _, _ := lay(40); large != small {
 		t.Errorf("the dialog wants %dpx with a 40px preview, %dpx with a 10px one", large, small)
+	}
+}
+
+// The font chooser's preview shows its sample in the selected family,
+// over the family the dialog's stylesheet gives its text, and wraps it
+// whole inside the dialog's width rather than cutting it (#370): it
+// paints the glyphs a wrapping label of the family's own face paints.
+func TestTheFontChoosersPreviewShowsTheSelectedFamilyWhole(t *testing.T) {
+	sans, err := render.LoadFont(goregular.TTF)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mono, err := render.LoadFont(gomono.TTF)
+	if err != nil {
+		t.Fatal(err)
+	}
+	faces := map[string]*render.Typeface{sans.Family(): sans, mono.Family(): mono}
+	widget.SetFaceResolver(func(family string, _ int) (render.Font, bool) {
+		f, ok := faces[family]
+		return f, ok
+	})
+	t.Cleanup(func() { widget.SetFaceResolver(nil) })
+	best := func(family string, _ float64) (*render.Typeface, error) {
+		if family == "mono" {
+			return mono, nil
+		}
+		return sans, nil
+	}
+	a := &Application{tooltipFace: sans}
+	const size = 13.0
+	frame, err := a.dialogRoot(fontChooserDialog(sans, []string{"mono", "sans"}, best, FontChooserConfig{Family: "mono", Size: size}), func(string) {})
+	if err != nil {
+		t.Fatal(err)
+	}
+	parent := widget.NewBox(widget.Column, 0, 0)
+	parent.AttachStylesheet(widget.NewStylesheet(`dialog { font-family: "`+sans.Family()+`"; }`, 0))
+	inheritStylesheets(frame.root, parent)
+	root := frame.root
+	const w, h = 380, 420
+	cvH := max(widget.SizeWithin(root, widget.Size{W: w, H: h}).H, h)
+	root.Arrange(render.Rect{W: w, H: cvH})
+	var preview *widget.Label
+	var walk func(widget.Widget)
+	walk = func(x widget.Widget) {
+		if l, ok := x.(*widget.Label); ok && strings.Contains(l.Text(), "lazy dog") {
+			preview = l
+		}
+		if c, ok := x.(interface{ Children() []widget.Widget }); ok {
+			for _, k := range c.Children() {
+				walk(k)
+			}
+		}
+	}
+	walk(root)
+	if preview == nil {
+		t.Fatal("no preview line")
+	}
+	want := widget.NewLabel(FontFallback(mono), size, preview.Text(), 0)
+	want.SetWrap(true)
+	want.Arrange(preview.Bounds())
+	ink := func(l *widget.Label) []bool {
+		data := make([]byte, render.Stride(w)*cvH)
+		l.Paint(render.New(data, render.Stride(w), w, cvH))
+		mask := make([]bool, len(data)/4)
+		for i := range mask {
+			mask[i] = data[i*4+3] != 0
+		}
+		return mask
+	}
+	if !slices.Equal(ink(preview), ink(want)) {
+		t.Errorf("the preview at %v paints other glyphs than %s's sample wrapped whole", preview.Bounds(), mono.Family())
 	}
 }

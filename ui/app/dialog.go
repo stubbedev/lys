@@ -460,12 +460,12 @@ func (a *Application) FontChooserDialog(parent *Window, cfg FontChooserConfig) (
 	if err != nil {
 		return nil, fmt.Errorf("app: font chooser: %w", err)
 	}
-	return a.NewDialog(parent, fontChooserDialog(face, families, cfg))
+	return a.NewDialog(parent, fontChooserDialog(face, families, sysfont.Best, cfg))
 }
 
 // fontChooserDialog is the font picker FontChooserDialog opens over
-// families, painted with face.
-func fontChooserDialog(face render.Font, families []string, cfg FontChooserConfig) DialogConfig {
+// families, painted with face, each family's face loaded by best.
+func fontChooserDialog(face render.Font, families []string, best func(family string, size float64) (*render.Typeface, error), cfg FontChooserConfig) DialogConfig {
 	initialSize := cfg.Size
 	if initialSize <= 0 {
 		initialSize = 13
@@ -478,7 +478,7 @@ func fontChooserDialog(face render.Font, families []string, cfg FontChooserConfi
 			return v
 		}
 		v := false
-		if tf, err := sysfont.Best(fam, 13); err == nil {
+		if tf, err := best(fam, 13); err == nil {
 			v = tf.IsMonospace()
 		}
 		monoCache[fam] = v
@@ -503,8 +503,13 @@ func fontChooserDialog(face render.Font, families []string, cfg FontChooserConfi
 
 	// The preview rebuilds its face through the production chain on
 	// every applied family or size change: what you see is what ships.
+	// It names its family in its own style too, over the family the
+	// dialog's stylesheet hands its text, and wraps onto a second line
+	// inside the width the rest of the dialog sets.
 	preview := widget.NewLabel(face, initialSize, "The quick brown fox jumps over the lazy dog 0123", 0)
+	preview.SetWrap(true)
 	preview.SetEllipsize(widget.EllipsizeEnd)
+	preview.SetMaxLines(fontPreviewLines)
 	preview.SetMaxWidthChars(1)
 	chosenSize := func() float64 {
 		if v, err := strconv.ParseFloat(strings.TrimSpace(sizeEntry.Text()), 64); err == nil && v > 0 && v <= 512 {
@@ -517,8 +522,9 @@ func fontChooserDialog(face render.Font, families []string, cfg FontChooserConfi
 		if i := list.Selected(); i >= 0 && i < len(model.fams) {
 			fam = model.fams[i]
 		}
-		if tf, err := sysfont.Best(fam, 13); err == nil {
+		if tf, err := best(fam, 13); err == nil {
 			preview.SetFace(FontFallback(tf))
+			preview.SetInlineStyle(cssFontFamily(tf.Family()))
 		}
 		preview.SetSizePx(chosenSize())
 	}
@@ -578,6 +584,16 @@ func fontChooserDialog(face render.Font, families []string, cfg FontChooserConfi
 			cfg.OnFont(fam, chosenSize())
 		},
 	}
+}
+
+// fontPreviewLines is the most lines the font chooser's preview wraps
+// onto before it ellipsizes.
+const fontPreviewLines = 2
+
+// cssFontFamily is the declaration naming family as a quoted CSS
+// string.
+func cssFontFamily(family string) string {
+	return `font-family: "` + strings.NewReplacer(`\`, `\\`, `"`, `\"`).Replace(family) + `";`
 }
 
 // CalendarDialog opens a modal calendar picker: a widget.Calendar
