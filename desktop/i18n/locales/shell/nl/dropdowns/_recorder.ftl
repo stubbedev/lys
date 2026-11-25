@@ -27,7 +27,6 @@ recorder-toast-stopped = Opname gestopt
 recorder-toast-failed = Opname mislukt
 recorder-notification-saved = Opname opgeslagen
 recorder-toast-replay-armed = Directe replay paraat
-recorder-status-replay-armed = Directe replay paraat ({ $size })
 recorder-toast-replay-saved = Replay opgeslagen
 recorder-toast-replay-failed = Directe replay mislukt
 recorder-notification-replay-saved = Replay opgeslagen

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/stubbedev/lys/desktop/i18n"
+	shelllocales "github.com/stubbedev/lys/desktop/i18n/locales/shell"
 
 	"github.com/stubbedev/lys/shell/internal/cli"
 	"github.com/stubbedev/lys/shell/service/recorder"
@@ -75,7 +76,11 @@ func recorderStatus(m *cli.Matches, p *daemonProxy) error {
 		if err := p.prop("get the instant replay memory", "ReplayBytes", &held); err != nil {
 			return err
 		}
-		fmt.Fprintln(m.Stdout(), replayArmedStatus(i18n.Shell(), held))
+		status, err := replayArmedStatus(held)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintln(m.Stdout(), status)
 	}
 	if !active {
 		fmt.Fprintln(m.Stdout(), "Idle")
@@ -100,9 +105,14 @@ func recorderStatus(m *cli.Matches, p *daemonProxy) error {
 }
 
 // replayArmedStatus is the status line of an armed instant replay
-// holding held bytes, in l's language and byte size.
-func replayArmedStatus(l *i18n.Loader, held uint64) string {
-	return l.Get("recorder-status-replay-armed", i18n.Str("size", l.ByteSize(held)))
+// holding held bytes. The CLI speaks English, as its help, errors and
+// the rest of this status do, so its byte size is en-US's too.
+func replayArmedStatus(held uint64) (string, error) {
+	english, err := i18n.Select(i18n.NewAssets(shelllocales.FS), []i18n.LangID{i18n.MustLangID("en-US")})
+	if err != nil {
+		return "", fmt.Errorf("format the instant replay's %d bytes: %w", held, err)
+	}
+	return "Instant replay armed (" + english.ByteSize(held) + ")", nil
 }
 
 func recorderReplaySave(m *cli.Matches, p *daemonProxy) error {

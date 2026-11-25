@@ -7456,6 +7456,7 @@
     "imports": [
       "desktop/config",
       "desktop/i18n",
+      "desktop/i18n/locales/shell",
       "desktop/icons",
       "desktop/identity",
       "desktop/logging",
@@ -7520,7 +7521,6 @@
     ],
     "testImports": [
       "desktop/fileuri",
-      "desktop/i18n/locales/shell",
       "desktop/icons/icontest",
       "desktop/opener/openertest",
       "desktop/portal/permissions/permstoretest",
