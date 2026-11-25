@@ -1434,6 +1434,7 @@ settings-range-windows = { $n ->
     [one] 1 finestra
    *[other] { $n } finestre
 }
+settings-range-span = { $low }–{ $high }
 settings-share-picker-windows-per-row = Finestre per riga
     .description = Il minimo e il massimo di schede finestra in una riga
 settings-dashboard-temp-levels = Temperatura

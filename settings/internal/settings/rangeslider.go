@@ -253,8 +253,8 @@ func (s *rangeSlider) Paint(cv *render.Canvas) {
 	for _, thumb := range s.thumbs {
 		paintSliderKnob(cv, s.look, thumb.Bounds(), widget.FocusVisible(thumb))
 	}
-	for i, label := range s.labelRects() {
-		s.k.face.DrawAligned(cv, s.reading(s.value(i)), label, px, th.Text, render.AlignCenter)
+	for _, r := range s.readings() {
+		s.k.face.DrawAligned(cv, r.text, r.box, px, th.Text, render.AlignCenter)
 	}
 	scale := render.Rect{X: t.X, Y: t.Y + t.H + thresholdStopR/2, W: t.W, H: lineH}
 	s.k.face.DrawAligned(cv, s.reading(s.spec.axis.lo), scale, px, th.Text, render.AlignStart)
@@ -271,31 +271,38 @@ func (s *rangeSlider) labelPx() (px float64, lineH int) {
 // rangeLabelGap is the least space between the two thumbs' readings.
 const rangeLabelGap = 8
 
-// labelRects are where the thumbs' readings are set over them: each
-// centred over its thumb, pushed apart evenly where they would come
-// closer than rangeLabelGap, and kept inside the slider.
-func (s *rangeSlider) labelRects() [2]render.Rect {
+// rangeReading is a reading set over the slider and the box it is set in.
+type rangeReading struct {
+	text string
+	box  render.Rect
+}
+
+// readings are what is set over the thumbs: each thumb's reading
+// centred over it, or, where the two would come closer than
+// rangeLabelGap, the range as one reading ("3–4 windows") centred
+// between them; either kept inside the slider.
+func (s *rangeSlider) readings() []rangeReading {
 	px, lineH := s.labelPx()
-	t, b := s.track(), s.Bounds()
-	var out [2]render.Rect
-	for i, thumb := range s.thumbs {
-		r := thumb.Bounds()
-		w := int(math.Ceil(s.k.face.Shape(s.reading(s.value(i)), px).Advance()))
-		out[i] = render.Rect{X: r.X + r.W/2 - w/2, Y: t.Y - thresholdStopR - lineH, W: w, H: lineH}
+	t := s.track()
+	y := t.Y - thresholdStopR - lineH
+	centre := func(i int) int { r := s.thumbs[i].Bounds(); return r.X + r.W/2 }
+	set := func(text string, mid int) rangeReading {
+		w := int(math.Ceil(s.k.face.Shape(text, px).Advance()))
+		return rangeReading{text: text, box: s.inside(render.Rect{X: mid - w/2, Y: y, W: w, H: lineH})}
 	}
-	if over := out[0].X + out[0].W + rangeLabelGap - out[1].X; over > 0 {
-		out[0].X -= over / 2
-		out[1].X += over - over/2
+	pair := []rangeReading{set(s.reading(s.value(0)), centre(0)), set(s.reading(s.value(1)), centre(1))}
+	if pair[1].box.X-(pair[0].box.X+pair[0].box.W) >= rangeLabelGap {
+		return pair
 	}
-	if shift := b.X - out[0].X; shift > 0 {
-		out[0].X += shift
-		out[1].X += shift
-	}
-	if shift := out[1].X + out[1].W - (b.X + b.W); shift > 0 {
-		out[0].X -= shift
-		out[1].X -= shift
-	}
-	return out
+	span := locale.T().Get("settings-range-span", i18n.Float("low", s.value(0)), i18n.Str("high", s.reading(s.value(1))))
+	return []rangeReading{set(span, (centre(0)+centre(1))/2)}
+}
+
+// inside is r moved across to lie within the slider.
+func (s *rangeSlider) inside(r render.Rect) render.Rect {
+	b := s.Bounds()
+	r.X = max(b.X, min(r.X, b.X+b.W-r.W))
+	return r
 }
 
 // sliderTrough is lys-ui's slider trough across track, at the trough's

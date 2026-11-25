@@ -1424,6 +1424,7 @@ settings-range-windows = { $n ->
     [one] 1 janela
    *[other] { $n } janelas
 }
+settings-range-span = { $low }–{ $high }
 settings-share-picker-windows-per-row = Janelas por linha
     .description = O mínimo e o máximo de cartões de janela numa linha
 settings-dashboard-temp-levels = Temperatura

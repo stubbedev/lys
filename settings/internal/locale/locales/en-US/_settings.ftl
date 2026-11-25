@@ -1433,6 +1433,7 @@ settings-range-windows = { $n ->
     [one] 1 window
    *[other] { $n } windows
 }
+settings-range-span = { $low }–{ $high }
 settings-share-picker-windows-per-row = Windows Per Row
     .description = The fewest and most window cards in one row
 settings-dashboard-temp-levels = Temperature
