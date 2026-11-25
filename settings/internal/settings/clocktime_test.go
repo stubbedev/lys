@@ -95,18 +95,40 @@ func TestAClockTimeThatIsNotOneSaysSo(t *testing.T) {
 
 func TestAScheduleWindowSaysWhenItRunsIntoTheNextDay(t *testing.T) {
 	tr := locale.T()
-	overnight := scheduleTitle(map[string]any{"from": "22:00", "to": "07:00"}, 0)
+	k := testKit(t, "modules:\n  clock:\n    format: \"%H:%M\"\n")
+	useLocales(t, glibclocale.NewSource("", glibclocaletest.Dirs(t)))
+	t.Setenv("LC_ALL", "en_US.utf8")
+	overnight := scheduleTitle(k, map[string]any{"from": "22:00", "to": "07:00"})
 	if want := tr.Get("settings-schedule-range", i18n.Str("from", "22:00"), i18n.Str("to", "07:00"), i18n.Str("overnight", "true")); overnight != want {
 		t.Errorf("22:00-07:00 reads %q, want %q", overnight, want)
 	}
-	day := scheduleTitle(map[string]any{"from": "09:00", "to": "17:00"}, 0)
+	day := scheduleTitle(k, map[string]any{"from": "09:00", "to": "17:00"})
 	if want := tr.Get("settings-schedule-range", i18n.Str("from", "09:00"), i18n.Str("to", "17:00"), i18n.Str("overnight", "false")); day != want || day == overnight {
 		t.Errorf("09:00-17:00 reads %q, want %q", day, want)
 	}
 	for _, item := range []map[string]any{{"from": "25:00", "to": "07:00"}, {"from": "22:00", "to": "soon"}} {
-		if got, want := scheduleTitle(item, 0), tr.Get("settings-clock-time-unreadable"); got != want {
+		if got, want := scheduleTitle(k, item), tr.Get("settings-clock-time-unreadable"); got != want {
 			t.Errorf("%v reads %q, want %q", item, got, want)
 		}
+	}
+}
+
+// The schedule's windows read 24-hour in their titles while their hour
+// pickers read "10 PM" and "07 AM": both follow the clock's format, so a
+// 12-hour clock titles a window as its pickers read it.
+func TestAScheduleWindowReadsItsTimesAsTheClockDoes(t *testing.T) {
+	k := testKit(t, "modules:\n  clock:\n    format: \"%I:%M %p\"\n")
+	useLocales(t, glibclocale.NewSource("", glibclocaletest.Dirs(t)))
+	t.Setenv("LC_ALL", "en_US.utf8")
+	got := scheduleTitle(k, map[string]any{"from": "22:00", "to": "07:00"})
+	want := locale.T().Get("settings-schedule-range", i18n.Str("from", "10:00 PM"), i18n.Str("to", "07:00 AM"), i18n.Str("overnight", "true"))
+	if got != want {
+		t.Errorf("22:00-07:00 on a 12-hour clock reads %q, want %q", got, want)
+	}
+	var held any = "22:00"
+	e := newClockTimeEditor(k, memorySlot(&held, nil), "From", everyFiveMinutes, anyClockTime)
+	if hour := e.hour.Items()[22]; !strings.Contains(got, strings.TrimSuffix(hour, " PM")+":00 PM") {
+		t.Errorf("the title %q does not read hour 22 as its picker's %q", got, hour)
 	}
 }
 

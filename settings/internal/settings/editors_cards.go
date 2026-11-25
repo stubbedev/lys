@@ -759,9 +759,14 @@ func (c *cardList) refresh() {
 
 // cardRow makes a full-width row with the card list spec builds.
 func cardRow(spec cardSpec) rowOpt {
+	return cardRowFor(func(*kit) cardSpec { return spec })
+}
+
+// cardRowFor is cardRow over a spec that reads the kit it is built in.
+func cardRowFor(spec func(k *kit) cardSpec) rowOpt {
 	return func(r *rowSpec) {
 		r.fullWidth = true
-		r.editor = func(k *kit, s slot, _ config.FieldMeta) control { return newCardList(k, s, spec) }
+		r.editor = func(k *kit, s slot, _ config.FieldMeta) control { return newCardList(k, s, spec(k)) }
 	}
 }
 

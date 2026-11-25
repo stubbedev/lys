@@ -23,25 +23,29 @@ const (
 	scheduleTo   = "07:00"
 )
 
-var dndScheduleList = cardRow(cardSpec{
-	title: scheduleTitle,
-	fields: []cardField{
-		{key: "days", label: "settings-schedule-days", editor: func(k *kit, s slot) control { return newWeekdaysEditor(k, s) }},
-		scheduleTimeField("from", "to", "settings-schedule-from"),
-		scheduleTimeField("to", "from", "settings-schedule-to"),
-	},
-	blank: func() map[string]any { return map[string]any{"from": scheduleFrom, "to": scheduleTo} },
-	keep: func(m map[string]any) bool {
-		from, _ := m["from"].(string)
-		to, _ := m["to"].(string)
-		return from != "" && to != ""
-	},
-	clean: func(m map[string]any) map[string]any {
-		if days, _ := m["days"].([]any); len(days) == 0 {
-			delete(m, "days")
-		}
-		return m
-	},
+// dndScheduleList is the do-not-disturb schedule, each window titled by
+// its times as the clock shows them.
+var dndScheduleList = cardRowFor(func(k *kit) cardSpec {
+	return cardSpec{
+		title: func(item map[string]any, _ int) string { return scheduleTitle(k, item) },
+		fields: []cardField{
+			{key: "days", label: "settings-schedule-days", editor: func(k *kit, s slot) control { return newWeekdaysEditor(k, s) }},
+			scheduleTimeField("from", "to", "settings-schedule-from"),
+			scheduleTimeField("to", "from", "settings-schedule-to"),
+		},
+		blank: func() map[string]any { return map[string]any{"from": scheduleFrom, "to": scheduleTo} },
+		keep: func(m map[string]any) bool {
+			from, _ := m["from"].(string)
+			to, _ := m["to"].(string)
+			return from != "" && to != ""
+		},
+		clean: func(m map[string]any) map[string]any {
+			if days, _ := m["days"].([]any); len(days) == 0 {
+				delete(m, "days")
+			}
+			return m
+		},
+	}
 })
 
 func scheduleTimeField(key, other, label string) cardField {
@@ -89,7 +93,7 @@ func (c *clockRange) refresh() {
 
 // scheduleTitle is the window's times, or that one is no time of day,
 // which the card's time editor shows with the error behind it.
-func scheduleTitle(item map[string]any, _ int) string {
+func scheduleTitle(k *kit, item map[string]any) string {
 	rawFrom, _ := item["from"].(string)
 	rawTo, _ := item["to"].(string)
 	from, fromErr := daytime.Parse(rawFrom)
@@ -97,7 +101,7 @@ func scheduleTitle(item map[string]any, _ int) string {
 	if fromErr != nil || toErr != nil {
 		return locale.T().Get("settings-clock-time-unreadable")
 	}
-	return locale.T().Get("settings-schedule-range", i18n.Str("from", from.String()), i18n.Str("to", to.String()), i18n.Str("overnight", strconv.FormatBool(!to.After(from))))
+	return locale.T().Get("settings-schedule-range", i18n.Str("from", clockTimeLabel(k, from)), i18n.Str("to", clockTimeLabel(k, to)), i18n.Str("overnight", strconv.FormatBool(!to.After(from))))
 }
 
 type weekdaysEditor struct {

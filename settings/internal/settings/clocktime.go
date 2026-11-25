@@ -29,14 +29,20 @@ func clockHourFormat(cycle strftime.HourCycle) string {
 	return "%H"
 }
 
+// clockCycle is the hour cycle the bar's clock shows, 24-hour while its
+// format does not compile.
+func clockCycle(k *kit) strftime.HourCycle {
+	l, err := clockLayout(k.store)
+	if err != nil {
+		log.Printf("settings: the hours as the clock shows them, showing 24-hour: %v", err)
+		return strftime.Hour24
+	}
+	return l.HourCycle()
+}
+
 func hourLabels(k *kit) []string {
 	labels := make([]string, hoursPerDay)
-	format := clockHourFormat(strftime.Hour24)
-	if l, err := clockLayout(k.store); err == nil {
-		format = clockHourFormat(l.HourCycle())
-	} else {
-		log.Printf("settings: the hours as the clock shows them, showing 24-hour: %v", err)
-	}
+	format := clockHourFormat(clockCycle(k))
 	names := sessionTimeLocale()
 	for h := range hoursPerDay {
 		at := time.Date(2000, time.January, 1, h, 0, 0, 0, time.UTC)
@@ -48,6 +54,18 @@ func hourLabels(k *kit) []string {
 		labels[h] = text
 	}
 	return labels
+}
+
+// clockTimeLabel is at as the bar's clock shows a time of day, in the
+// session's locale: "10:00 PM" on a 12-hour clock, "22:00" on a 24-hour
+// one, as the hour pickers read it.
+func clockTimeLabel(k *kit, at daytime.Time) string {
+	text, err := sessionTimeLocale().Format(clockTimeFormat(clockCycle(k)), at.On(time.Date(2000, time.January, 1, 0, 0, 0, 0, time.UTC)))
+	if err != nil {
+		log.Printf("settings: %s as the clock shows it, showing it as HH:MM: %v", at, err)
+		return at.String()
+	}
+	return text
 }
 
 func minuteChoices(step, current int) []int {
