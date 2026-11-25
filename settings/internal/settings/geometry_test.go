@@ -670,8 +670,8 @@ func TestThemeCardsShareOneSizeWithThePictureCards(t *testing.T) {
 		if len(sizes) != 1 {
 			t.Errorf("at %dpx the Theme page's picture cards differ in size: %v", w, sizes)
 		}
-		if _, ok := sizes[widget.Size{W: choiceCardW, H: choiceCardH}]; !ok {
-			t.Errorf("at %dpx no picture card is %dx%d: %v", w, choiceCardW, choiceCardH, sizes)
+		if _, ok := sizes[widget.Size{W: choiceCardW, H: win.k.choiceCardH()}]; !ok {
+			t.Errorf("at %dpx no picture card is %dx%d: %v", w, choiceCardW, win.k.choiceCardH(), sizes)
 		}
 	}
 }

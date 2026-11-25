@@ -13,7 +13,6 @@ import (
 
 const (
 	choiceCardW   = 104
-	choiceCardH   = 92
 	choicePicH    = 56
 	choiceCardGap = 8
 	choiceRing    = 2
@@ -115,7 +114,19 @@ func (c *choiceCard) Measure(axis widget.Axis, _ int) widget.Sizes {
 	if axis == widget.Row {
 		return widget.FixedSizes(choiceCardW)
 	}
-	return widget.FixedSizes(choiceCardH)
+	return widget.FixedSizes(c.k.choiceCardH())
+}
+
+// cardLineH is the height of one line of a card's name: the line the
+// face draws, so a box of it always holds the line.
+func (k *kit) cardLineH() int {
+	return int(math.Ceil(k.textPx() * k.face.Metrics().LineHeight))
+}
+
+// choiceCardH is a card's height: its picture, two lines of name, and
+// half the picture's inset below them, clear of the selection ring.
+func (k *kit) choiceCardH() int {
+	return choicePicH + 2*k.cardLineH() + choiceCardGap/2
 }
 
 func (c *choiceCard) picRect() render.Rect {
@@ -139,12 +150,11 @@ type cardLine struct {
 }
 
 // labelLines are the card's name set in labelRect: one line or two,
-// each at most a line's height, centred down the rect together.
+// each a full line's height, centred down the rect together.
 func (c *choiceCard) labelLines() []cardLine {
 	text := c.labelRect()
-	px := c.k.textPx()
-	lines := cardLabelLines(c.k.face, c.label, text.W, px)
-	lh := min(text.H/len(lines), int(math.Ceil(px*c.k.face.Metrics().LineHeight)))
+	lines := cardLabelLines(c.k.face, c.label, text.W, c.k.textPx())
+	lh := c.k.cardLineH()
 	y := text.Y + (text.H-lh*len(lines))/2
 	out := make([]cardLine, len(lines))
 	for i, line := range lines {

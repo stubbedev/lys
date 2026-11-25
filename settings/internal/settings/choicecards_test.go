@@ -108,27 +108,56 @@ func TestAPictureChoiceMissingAPictureRefusesToBuild(t *testing.T) {
 }
 
 // Media's "Application Mapped" broke onto two lines whose descenders
-// touched the selected card's ring. Every card's name ends half the
-// picture's inset above the card's bottom edge, clear of its ring.
-func TestACardsNameStaysClearOfItsRing(t *testing.T) {
-	win := laidOutPage(t, "", "media", sweepW)
-	twoLines := 0
-	for _, c := range treetest.All[*choiceCards](win.page) {
-		for _, card := range c.cards {
-			if card.Bounds().Empty() {
-				continue
+// touched the selected card's ring, and a later fix squeezed two-line
+// names below the height the face draws a line at, so they vanished:
+// most Theme presets showed no name. Every card's name shows every line
+// it is broken onto, ending half the picture's inset above the card's
+// bottom edge, clear of its ring.
+func TestACardsNameShowsEveryLineClearOfItsRing(t *testing.T) {
+	for _, id := range []string{"media", "theme"} {
+		win := laidOutPage(t, "", id, sweepW)
+		px := win.k.textPx()
+		twoLines := 0
+		for _, c := range treetest.All[*choiceCards](win.page) {
+			for _, card := range c.cards {
+				b := card.Bounds()
+				if b.Empty() {
+					continue
+				}
+				lines := card.labelLines()
+				if len(lines) == 2 {
+					twoLines++
+				}
+				stride := render.Stride(b.X + b.W)
+				buf := make([]byte, stride*(b.Y+b.H))
+				card.Paint(render.New(buf, stride, b.X+b.W, b.Y+b.H))
+				for _, line := range lines {
+					if line.text == "" || !inked(buf, stride, line.box) {
+						t.Errorf("%s: %q shows no %q in %v (a line is %dpx tall)", id, card.label, line.text, line.box, win.k.face.Shape(line.text, px).LineHeight())
+					}
+				}
+				last := lines[len(lines)-1].box
+				if room := b.Y + b.H - (last.Y + last.H); room < choiceCardGap/2 {
+					t.Errorf("%s: %q ends %dpx above its card's edge, want %d", id, card.label, room, choiceCardGap/2)
+				}
 			}
-			lines := card.labelLines()
-			if len(lines) == 2 {
-				twoLines++
-			}
-			b, last := card.Bounds(), lines[len(lines)-1].box
-			if room := b.Y + b.H - (last.Y + last.H); room < choiceCardGap/2 {
-				t.Errorf("%q ends %dpx above its card's edge, want %d", card.label, room, choiceCardGap/2)
+		}
+		if twoLines == 0 {
+			t.Fatalf("the %s page shows no card whose name takes two lines", id)
+		}
+	}
+}
+
+// inked reports whether any pixel of r in buf differs from r's first.
+func inked(buf []byte, stride int, r render.Rect) bool {
+	at := func(x, y int) [4]byte { return [4]byte(buf[y*stride+4*x:]) }
+	bg := at(r.X, r.Y)
+	for y := r.Y; y < r.Y+r.H; y++ {
+		for x := r.X; x < r.X+r.W; x++ {
+			if at(x, y) != bg {
+				return true
 			}
 		}
 	}
-	if twoLines == 0 {
-		t.Fatal("the Media page shows no card whose name takes two lines")
-	}
+	return false
 }
