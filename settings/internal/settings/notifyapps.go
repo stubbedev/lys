@@ -3,6 +3,7 @@ package settings
 import (
 	"slices"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/ui/widget"
@@ -58,6 +59,7 @@ func newNotifyApps(k *kit, slots []slot) *notifyApps {
 	c := &notifyApps{slots: slots, checks: map[string][]*widget.CheckButton{}}
 	c.pattern = k.entry()
 	c.pattern.SetPlaceholder(t.Get("settings-notify-apps-pattern"))
+	c.pattern.SetWidthChars(0, utf8.RuneCountInString(c.pattern.Placeholder()))
 	c.pattern.SetAccessibleName(t.Get("settings-notify-apps-pattern"))
 	c.pattern.OnActivate = func(text string) {
 		if p := strings.TrimSpace(text); p != "" {

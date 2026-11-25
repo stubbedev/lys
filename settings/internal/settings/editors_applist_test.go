@@ -111,3 +111,17 @@ func TestNoAppRuleSaysEveryAppIsLetThrough(t *testing.T) {
 		}
 	}
 }
+
+// The Apps pattern entry kept GTK's 150px text width beside Add an app,
+// cutting its placeholder ("Custom pattern, like org") with 370px of
+// the line free. It is wide enough to read its placeholder whole.
+func TestTheAppPatternEntryReadsItsPlaceholderWhole(t *testing.T) {
+	win := laidOutPage(t, "", "notifications", sweepW)
+	c := treetest.First[*notifyApps](t, win.page)
+	text := win.k.label(c.pattern.Placeholder()).Measure(widget.Row, widget.Unknown).Nat
+	whole := win.k.entry()
+	whole.SetTextWidth(text)
+	if need, got := whole.Measure(widget.Row, widget.Unknown).Nat, c.pattern.Bounds().W; got < need {
+		t.Errorf("the pattern entry is %dpx wide, its placeholder needs %dpx", got, need)
+	}
+}
