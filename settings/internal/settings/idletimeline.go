@@ -113,7 +113,7 @@ type idleTimeline struct {
 
 func idleTimelinePreview(k *kit) widget.Widget {
 	t := locale.T()
-	tl := &idleTimeline{Box: widget.NewBox(widget.Column, widget.Current().Spacing/2, widget.Current().Padding), k: k, battery: true}
+	tl := &idleTimeline{Box: widget.NewBox(widget.Column, widget.Current().Spacing/2, 0), k: k, battery: true}
 	tl.SetAccessibleName(t.Get("settings-idle-timeline"))
 	tl.off = k.note(t.Get("settings-idle-timeline-off"), "settings-preview-state")
 	tl.Append(tl.off, false)

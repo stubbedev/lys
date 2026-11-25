@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/shell/treetest"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -79,5 +80,17 @@ func TestWithoutABatteryTheTimelineShowsPluggedInAlone(t *testing.T) {
 	tl := idleTimelineOf(t, k)
 	if !tl.lines[0].Visible() || tl.lines[1].Visible() {
 		t.Fatalf("without a battery: plugged in shown %v, battery shown %v", tl.lines[0].Visible(), tl.lines[1].Visible())
+	}
+}
+
+// The When Idle timeline stood 8px in from its section's header, on no
+// column of the page, the padding of a framed preview kept on one drawn
+// straight onto the page. It starts on the header's column.
+func TestTheIdleTimelineStartsOnItsSectionsColumn(t *testing.T) {
+	win := laidOutPage(t, "", "idle", sweepW)
+	tl := treetest.First[*idleTimeline](t, win.page)
+	header := treetest.LabelReading(t, win.page, locale.T().Get("settings-section-idle-when")).Bounds()
+	if x := tl.lines[0].Bounds().X; x != header.X {
+		t.Errorf("the timeline starts at x=%d, its section's header at %d", x, header.X)
 	}
 }
