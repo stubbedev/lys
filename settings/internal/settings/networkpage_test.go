@@ -580,3 +580,40 @@ func TestEveryWiFiStrengthDrawsTheFanWithItsOwnArcsLit(t *testing.T) {
 		t.Errorf("a 40%% signal is named %q", name)
 	}
 }
+
+// Asking for a password, a network showed two Connect buttons stacked,
+// the row's and the form's, and the password field started under the
+// network's icon. The form's Connect is the only one, and its field
+// starts where the network's title does.
+func TestAPasswordFormHasOneConnectAndStartsUnderTheTitle(t *testing.T) {
+	k, p := netPanel(t, homeNets())
+	clickText(t, p.nets, locale.T().Get("settings-wifi-connect"), 1)
+	if p.password == nil {
+		t.Fatal("Connect on Cafe asked no password")
+	}
+	box := widget.NewBox(widget.Column, 0, 0)
+	box.Append(p, false)
+	styledLayOut(k, box, 1000)
+	var row *settingRow
+	for _, r := range treetest.All[*settingRow](p.nets) {
+		if treetest.Contains(r, p.password) {
+			row = r
+		}
+	}
+	if row == nil {
+		t.Fatal("the password field is in no row")
+	}
+	connects := 0
+	for _, b := range treetest.All[*widget.Button](row) {
+		if shown(b) && slices.Contains(treetest.Labels(b), locale.T().Get("settings-wifi-connect")) {
+			connects++
+		}
+	}
+	if connects != 1 {
+		t.Errorf("the asking row shows %d Connect buttons", connects)
+	}
+	title := treetest.WithClass(row, "title")[0].(*widget.Label)
+	if e, ti := p.password.Bounds(), title.Bounds(); e.X != ti.X {
+		t.Errorf("the password field starts at %d, the title at %d", e.X, ti.X)
+	}
+}
