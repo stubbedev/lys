@@ -9,6 +9,7 @@ import (
 	"github.com/stubbedev/lys/desktop/desktopentry"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/mime"
+	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
 
@@ -137,7 +138,8 @@ type defaultApps struct {
 	k       *kit
 	ix      appIndex
 	cats    *widget.Box
-	types   *widget.Box
+	types   *widget.ItemGroup
+	shown   []widget.Widget
 	filter  *widget.SearchEntry
 	problem *inlineState
 }
@@ -165,15 +167,11 @@ func defaultAppsFooter(k *kit) widget.Widget {
 	d.Append(d.problem, false)
 	d.cats = gapBox(widget.Column)
 	d.Append(newSection(k, "settings-section-default-categories", d.cats), false)
-	typesBody := widget.NewBox(widget.Column, 0, 0)
 	d.filter = widget.NewSearchEntry(k.face, k.textPx(), locale.T().Get("settings-default-types-filter"))
 	d.filter.SetDelay(0)
 	d.filter.OnSearchChanged = func(string) { d.showTypes() }
-	d.types = gapBox(widget.Column)
-	typesBody.Append(newInsetRow(d.filter), false)
-	typesBody.Append(widget.NewSeparator(widget.Horizontal), false)
-	typesBody.Append(d.types, false)
-	d.Append(newSection(k, "settings-section-default-types", typesBody), false)
+	d.types = widget.NewItemGroup(newInsetRow(d.filter))
+	d.Append(newSection(k, "settings-section-default-types", d.types), false)
 	dirs, lists := desktopentry.ApplicationDirs(), desktopentry.MimeAppsLists()
 	async(k, func() indexedApps { return withUserAssociations(indexApps(dirs, lists, mimeDescriber())) }, d.reread)
 	return d
@@ -211,23 +209,27 @@ func (d *defaultApps) show(ix appIndex) {
 	if d.k.parts.shell {
 		tiles.Append(d.terminalTile())
 	}
-	d.cats.Append(tiles, false)
+	d.cats.Append(newInsetRow(tiles), false)
 	d.showTypes()
 }
 
 type appTile struct {
 	*widget.Box
 	button *widget.Button
+	title  *widget.Label
 	app    *widget.Label
 }
 
 func (d *defaultApps) tile(title, icon, app string, pick func(anchor widget.Widget), reset func()) *appTile {
-	face := widget.NewBox(widget.Column, widget.Current().Spacing/2, 0)
+	th := widget.Current()
+	face := widget.NewBox(widget.Column, th.Spacing/2, 0)
+	face.SetPadding(render.Insets{Left: th.Padding, Right: th.Padding})
 	face.AppendAligned(widget.NewThemeIcon(cmp.Or(icon, appFallbackIcon), appTileIconPx), false, widget.AlignCenter)
-	face.AppendAligned(d.k.label(title, css.Caption, css.DimLabel), false, widget.AlignCenter)
-	tile := &appTile{Box: widget.NewBox(widget.Column, widget.Current().Spacing/2, 0), app: d.k.label(app)}
-	tile.app.SetEllipsize(widget.EllipsizeEnd)
-	face.AppendAligned(tile.app, false, widget.AlignCenter)
+	tile := &appTile{Box: widget.NewBox(widget.Column, th.Spacing/2, 0), title: d.k.label(title), app: d.k.label(app, css.Caption, css.DimLabel)}
+	for _, l := range []*widget.Label{tile.title, tile.app} {
+		l.SetEllipsize(widget.EllipsizeEnd)
+		face.AppendAligned(l, false, widget.AlignCenter)
+	}
 	tile.button = d.k.roleButton(roleTile, face, nil)
 	tile.button.SetSizeRequest(appTileW, -1)
 	tile.button.SetAccessibleName(title)
@@ -319,23 +321,27 @@ func (d *defaultApps) terminalTile() *appTile {
 }
 
 func (d *defaultApps) showTypes() {
-	d.types.Clear()
+	for _, w := range d.shown {
+		d.types.Remove(w)
+	}
+	d.shown = d.shown[:0]
 	filter := newWordFilter(d.filter.Text())
-	rows := widget.NewItemGroup()
-	d.types.Append(rows, false)
-	shown := 0
 	for _, mimeType := range d.ix.types {
 		name := d.ix.names[mimeType]
 		if !filter.matches(mimeType, name) {
 			continue
 		}
-		if shown == fileTypesShown {
-			rows.Append(newInsetRow(d.k.note(locale.T().Get("settings-default-types-more"))))
+		if len(d.shown) == fileTypesShown {
+			d.showType(newInsetRow(d.k.note(locale.T().Get("settings-default-types-more"))))
 			break
 		}
-		rows.Append(d.chooser(name, []string{mimeType}))
-		shown++
+		d.showType(d.chooser(name, []string{mimeType}))
 	}
+}
+
+func (d *defaultApps) showType(w widget.Widget) {
+	d.types.Append(w)
+	d.shown = append(d.shown, w)
 }
 
 func (d *defaultApps) chooser(title string, types []string) widget.Widget {
