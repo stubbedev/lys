@@ -79,12 +79,15 @@ var weekStartRow = withEditor(func(k *kit, s slot, meta config.FieldMeta) contro
 		values = append(values, current)
 	}
 	all := enumLabels(meta)
-	locale := sessionTimeLocale().FirstWeekday()
+	regional, err := k.region()
 	labels := make([]string, len(values))
 	pictures := make(map[string]picture, len(values))
 	for i, v := range values {
 		labels[i] = all[slices.Index(meta.Variants, v)]
-		day := mondayFirst(config.WeekStart(v).Weekday(locale))
+		if v == string(config.WeekStartAuto) && err != nil {
+			continue
+		}
+		day := mondayFirst(config.WeekStart(v).Weekday(regional.WeekStart))
 		pictures[v] = drawn(func(cv *render.Canvas, r render.Rect) { weekGrid(cv, r, day) })
 	}
 	return newCards(k, s, values, labels, pictures)
