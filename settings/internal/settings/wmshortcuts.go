@@ -355,14 +355,18 @@ func (tb *shortcutTable) discardDraft() {
 }
 
 // applyFilter narrows every list to the binds the search finds, and shows a
-// mode while the search is empty or finds one of its binds.
+// mode while the search is empty or finds one of its binds; the modes'
+// box shows only while one of them does, so an empty one adds no gap.
 func (tb *shortcutTable) applyFilter() {
 	tb.main.applyFilter()
 	searching := strings.TrimSpace(tb.filter.Text()) != ""
+	shown := false
 	for _, g := range tb.group {
 		g.list.applyFilter()
 		g.root.SetVisible(!searching || g.list.anyShown())
+		shown = shown || g.root.Visible()
 	}
+	tb.groups.SetVisible(shown)
 }
 
 // modeGroup is one mode in the table: its name, the chord entering it, its

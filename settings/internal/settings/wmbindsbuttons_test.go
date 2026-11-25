@@ -29,3 +29,20 @@ func TestKeyboardShortcutsButtonsSayWhatTheyDo(t *testing.T) {
 		t.Error("adding a bind and adding a mode share one name")
 	}
 }
+
+// With no mode, an empty box of modes stood between the binds' add
+// button and the mode's, so 16px parted them where 8px parted the binds'
+// from the line above it. The binds' add button sits as far from the
+// mode's as from what comes above it (EvenlySpaced).
+func TestTheBindsAddButtonsAreEvenlySpaced(t *testing.T) {
+	k, w, _, _ := wmKit(t, "binds: []\n")
+	tb := newShortcutTable(k, w.slot(bindsKey))
+	laidOut(tb)
+	tr := locale.T()
+	bind := treetest.Button(t, tb, tr.Get("settings-binds-add")).Bounds()
+	mode := treetest.Button(t, tb, tr.Get("wm-mode-add")).Bounds()
+	above := treetest.LabelReading(t, tb, tr.Get("settings-list-empty")).Bounds()
+	if over, under := bind.Y-(above.Y+above.H), mode.Y-(bind.Y+bind.H); over != under {
+		t.Errorf("the binds' add button sits %dpx under the line above and %dpx over the mode's", over, under)
+	}
+}
