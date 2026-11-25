@@ -369,6 +369,12 @@ func TestTheSelectedDisplayOffersOnlyWhatItCanDo(t *testing.T) {
 		if !r.p.capsNote.Visible() || r.p.capsNote.Text() != tr.Get("settings-displays-caps-hidden") {
 			t.Errorf("%s says %q over its options, want that some are hidden", name, r.p.capsNote.Text())
 		}
+		if !onCard(ancestors(r.p, r.p.capsRow)) || !treetest.Contains(r.p.rows, r.p.capsRow) || !treetest.Contains(r.p.capsRow, r.p.capsNote) {
+			t.Errorf("%s: the note that options are hidden is no inset row of the display's card", name)
+		}
+		if kids := r.p.rows.Children()[0].(interface{ Children() []widget.Widget }).Children(); kids[len(kids)-1] != widget.Widget(r.p.capsRow) {
+			t.Errorf("%s: the note that options are hidden is not the card's last row", name)
+		}
 	}
 }
 

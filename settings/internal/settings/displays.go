@@ -82,6 +82,7 @@ type displaysPanel struct {
 	rows        *widget.ItemGroup
 	extra       []*settingRow
 	capsNote    *inlineState
+	capsRow     *insetRow
 	caps        outputCapabilities
 	identify    *widget.Button
 	addVirtual  *widget.Button
@@ -206,7 +207,7 @@ func (p *displaysPanel) buildControls() {
 	rows.Append(p.lightRow)
 	p.controls.Append(rows, false)
 	p.capsNote = k.inlineState()
-	p.controls.Append(p.capsNote, false)
+	p.capsRow = newInsetRow(p.capsNote)
 }
 
 // addExtra adds row to the selected display's own rows, after the rows
@@ -514,7 +515,7 @@ func (p *displaysPanel) identifyOutputs(names []string) {
 	}
 	for _, name := range names {
 		label := p.k.label(name, "display-identify", css.H1)
-		done, err := p.k.overlays(name, label, false)
+		done, err := p.k.overlays(name, label, overlayCorner)
 		if err != nil {
 			log.Printf("settings: identify %s: %v", name, err)
 			continue
@@ -566,7 +567,7 @@ func (p *displaysPanel) startConfirm(previous, applied []displays.Setting, heads
 				continue
 			}
 			box := p.newConfirmBox()
-			done, err := p.k.overlays(s.Name, box, true)
+			done, err := p.k.overlays(s.Name, box, overlayCentred)
 			if err != nil {
 				log.Printf("settings: confirm on %s: %v", s.Name, err)
 				continue
@@ -685,6 +686,7 @@ func (p *displaysPanel) showExtraRows() {
 		p.rows.Remove(row)
 	}
 	p.extra = nil
+	p.rows.Remove(p.capsRow)
 	p.capsNote.Clear()
 	if len(p.heads) == 0 {
 		return
@@ -711,7 +713,12 @@ func (p *displaysPanel) showExtraRows() {
 		ctl := f.item(p.k, func(key string) slot { return nestedSlot(rule(), []string{key}) })
 		p.addExtra(p.k.keyRow(f.label).withControl(ctl))
 	}
-	p.capsNote.Note(p.caps.note(h.Name, hidden))
+	note, why := p.caps.note(h.Name, hidden)
+	if note == "" {
+		return
+	}
+	p.capsNote.Note(note, why)
+	p.rows.Append(p.capsRow)
 }
 
 type outputCapabilities struct {

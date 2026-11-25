@@ -146,3 +146,14 @@ func TestLoginItemsAddAppAndFilterAreInsetInTheirCards(t *testing.T) {
 	insetInItsCard(t, win.page, add, "Add app")
 	insetInItsCard(t, win.page, l.filter, "the services filter")
 }
+
+// ancestors are the widgets above w under root, from root down.
+func ancestors(root, w widget.Widget) []widget.Widget {
+	var out []widget.Widget
+	walkAncestry(root, nil, func(x widget.Widget, above []widget.Widget) {
+		if x == w {
+			out = above
+		}
+	})
+	return out
+}
