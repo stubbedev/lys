@@ -92,6 +92,8 @@ launcher-clipboard-files = { $count ->
     [one] { $names } ({ $count } file)
    *[other] { $names } ({ $count } files)
 }
+launcher-clipboard-prompt = clipboard
+launcher-clipboard-unsupported = No clipboard history: the compositor does not support wlr-data-control.
 launcher-picker-clipboard = Clipboard History
 launcher-picker-emoji = Emoji Picker
 launcher-picker-characters = Unicode Characters

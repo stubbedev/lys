@@ -95,6 +95,8 @@ launcher-clipboard-files = { $count ->
     [one] { $names } ({ $count } archivo)
    *[other] { $names } ({ $count } archivos)
 }
+launcher-clipboard-prompt = portapapeles
+launcher-clipboard-unsupported = No hay historial del portapapeles: el compositor no admite wlr-data-control.
 launcher-picker-clipboard = Historial del portapapeles
 launcher-picker-emoji = Selector de emojis
 launcher-picker-characters = Caracteres Unicode

@@ -92,6 +92,8 @@ launcher-clipboard-files = { $count ->
     [one] { $names } ({ $count } bestand)
    *[other] { $names } ({ $count } bestanden)
 }
+launcher-clipboard-prompt = klembord
+launcher-clipboard-unsupported = Geen klembordgeschiedenis: de compositor ondersteunt wlr-data-control niet.
 launcher-picker-clipboard = Klembordgeschiedenis
 launcher-picker-emoji = Emojikiezer
 launcher-picker-characters = Unicode-tekens

@@ -53,6 +53,8 @@ const (
 // copied file goes back as a file and an image as an image.
 type Clipboard struct {
 	history ClipboardHistory
+	// l is the language the mode speaks.
+	l *i18n.Loader
 	// ids are the entry ids in row order, so a row index resolves to
 	// the entry it was drawn for even after something new arrives;
 	// pinned says which of them are pinned.
@@ -62,16 +64,22 @@ type Clipboard struct {
 
 // NewClipboard builds the mode; a nil history is a compositor without
 // data-control, which the mode says rather than looking empty.
-func NewClipboard(history ClipboardHistory) *Clipboard { return &Clipboard{history: history} }
+func NewClipboard(history ClipboardHistory) *Clipboard { return newClipboardIn(i18n.Shell(), history) }
+
+// newClipboardIn builds the mode speaking l's language.
+func newClipboardIn(l *i18n.Loader, history ClipboardHistory) *Clipboard {
+	return &Clipboard{history: history, l: l}
+}
 
 // Name is "clipboard".
 func (*Clipboard) Name() string { return "clipboard" }
 
 func (c *Clipboard) state() launcher.ModeState {
+	prompt := c.l.Get("launcher-clipboard-prompt")
 	if c.history == nil {
 		c.ids, c.pinned = nil, nil
-		msg := "No clipboard history: the compositor does not support wlr-data-control."
-		return launcher.ModeState{Prompt: "clipboard", Message: &msg, NoCustom: true, UseHotKeys: true}
+		msg := c.l.Get("launcher-clipboard-unsupported")
+		return launcher.ModeState{Prompt: prompt, Message: &msg, NoCustom: true, UseHotKeys: true}
 	}
 	snap := c.history.Entries()
 	defer snap.Release()
@@ -81,7 +89,7 @@ func (c *Clipboard) state() launcher.ModeState {
 	items := make([]launcher.Item, len(entries))
 	for i, e := range entries {
 		c.ids[i] = e.ID
-		preview := EntryLabel(i18n.Shell(), e, previewChars)
+		preview := EntryLabel(c.l, e, previewChars)
 		info := strconv.FormatUint(e.ID, 10)
 		items[i] = launcher.Item{Display: preview, MatchText: preview, Info: &info, Icon: iconFor(e)}
 		if e.Pinned {
@@ -91,7 +99,7 @@ func (c *Clipboard) state() launcher.ModeState {
 	}
 	// Typed text matching nothing must not land on the clipboard: this
 	// mode restores, it does not compose.
-	return launcher.ModeState{Items: items, Prompt: "clipboard", NoCustom: true, UseHotKeys: true}
+	return launcher.ModeState{Items: items, Prompt: prompt, NoCustom: true, UseHotKeys: true}
 }
 
 // idAt is the entry id a row was drawn for.

@@ -95,6 +95,8 @@ launcher-clipboard-files = { $count ->
     [one] { $names } ({ $count } file)
    *[other] { $names } ({ $count } file)
 }
+launcher-clipboard-prompt = appunti
+launcher-clipboard-unsupported = Nessuna cronologia degli appunti: il compositor non supporta wlr-data-control.
 launcher-picker-clipboard = Cronologia degli appunti
 launcher-picker-emoji = Selettore emoji
 launcher-picker-characters = Caratteri Unicode

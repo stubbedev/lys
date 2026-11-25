@@ -13,13 +13,20 @@ import (
 // unisolated drops the isolation marks Fluent wraps placeables in.
 var unisolated = strings.NewReplacer("\u2068", "", "\u2069", "")
 
-// labelsIn labels each selection, oldest first, in locale's language.
-func labelsIn(t *testing.T, locale string, maxChars int, selections ...[2]string) []string {
+// loaderIn is the shell catalogue in locale's language.
+func loaderIn(t *testing.T, locale string) *i18n.Loader {
 	t.Helper()
 	l, err := i18n.Select(i18n.NewAssets(shelllocales.FS), []i18n.LangID{i18n.MustLangID(locale)})
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("select the shell catalogue for %s: %v", locale, err)
 	}
+	return l
+}
+
+// labelsIn labels each selection, oldest first, in locale's language.
+func labelsIn(t *testing.T, locale string, maxChars int, selections ...[2]string) []string {
+	t.Helper()
+	l := loaderIn(t, locale)
 	history, _ := newFakeClipboard(t, selections...)
 	snap := history.Entries()
 	defer snap.Release()
@@ -84,5 +91,45 @@ func TestALongTextIsCutToTheRow(t *testing.T) {
 	got := labelsIn(t, "en-US", 5, [2]string{"text/plain", "abcdefgh"})
 	if !slices.Equal(got, []string{"abcd…"}) {
 		t.Errorf("label = %q, want the text cut to five characters", got)
+	}
+}
+
+// launcherWords is everything the clipboard mode says of itself in
+// locale's language: its prompt with a history and without one, and
+// the message a compositor without data-control gets.
+func launcherWords(t *testing.T, locale string) (prompt, unsupportedPrompt, unsupported string) {
+	t.Helper()
+	history, _ := newFakeClipboard(t, [2]string{"text/plain", "copied"})
+	st := newClipboardIn(loaderIn(t, locale), history).Load(bg)
+	none := newClipboardIn(loaderIn(t, locale), nil).Load(bg)
+	if none.Message == nil {
+		t.Fatalf("%s: a clipboard without a history says nothing", locale)
+	}
+	return st.Prompt, none.Prompt, unisolated.Replace(*none.Message)
+}
+
+func TestTheClipboardModeSpeaksTheLocalesLanguage(t *testing.T) {
+	for locale, want := range map[string][3]string{
+		"en-US": {"clipboard", "clipboard", "No clipboard history: the compositor does not support wlr-data-control."},
+		"de":    {"Zwischenablage", "Zwischenablage", "Kein Verlauf der Zwischenablage: Der Compositor unterstützt wlr-data-control nicht."},
+	} {
+		prompt, unsupportedPrompt, unsupported := launcherWords(t, locale)
+		if got := [3]string{prompt, unsupportedPrompt, unsupported}; got != want {
+			t.Errorf("%s clipboard mode says %q, want %q", locale, got, want)
+		}
+	}
+}
+
+func TestADeClipboardLauncherKeepsNoEnglish(t *testing.T) {
+	prompt, unsupportedPrompt, unsupported := launcherWords(t, "de")
+	for _, said := range []string{prompt, unsupportedPrompt, unsupported} {
+		for _, english := range []string{"clipboard", "history", "compositor does not", "support"} {
+			if strings.Contains(said, english) {
+				t.Errorf("de clipboard mode says %q, which carries the English %q", said, english)
+			}
+		}
+	}
+	if !strings.Contains(unsupported, "wlr-data-control") {
+		t.Errorf("de message %q lost the protocol it names", unsupported)
 	}
 }

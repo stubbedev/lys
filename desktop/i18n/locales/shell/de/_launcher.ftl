@@ -92,6 +92,8 @@ launcher-clipboard-files = { $count ->
     [one] { $names } ({ $count } Datei)
    *[other] { $names } ({ $count } Dateien)
 }
+launcher-clipboard-prompt = Zwischenablage
+launcher-clipboard-unsupported = Kein Verlauf der Zwischenablage: Der Compositor unterstützt wlr-data-control nicht.
 launcher-picker-clipboard = Verlauf der Zwischenablage
 launcher-picker-emoji = Emoji-Auswahl
 launcher-picker-characters = Unicode-Zeichen

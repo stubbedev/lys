@@ -95,6 +95,8 @@ launcher-clipboard-files = { $count ->
     [one] { $names } ({ $count } ficheiro)
    *[other] { $names } ({ $count } ficheiros)
 }
+launcher-clipboard-prompt = área de transferência
+launcher-clipboard-unsupported = Sem histórico da área de transferência: o compositor não suporta wlr-data-control.
 launcher-picker-clipboard = Histórico da área de transferência
 launcher-picker-emoji = Seletor de emoji
 launcher-picker-characters = Caracteres Unicode

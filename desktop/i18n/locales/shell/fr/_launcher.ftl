@@ -92,6 +92,8 @@ launcher-clipboard-files = { $count ->
     [one] { $names } ({ $count } fichier)
    *[other] { $names } ({ $count } fichiers)
 }
+launcher-clipboard-prompt = presse-papiers
+launcher-clipboard-unsupported = Aucun historique du presse-papiers : le compositeur ne prend pas en charge wlr-data-control.
 launcher-picker-clipboard = Historique du presse-papiers
 launcher-picker-emoji = Sélecteur d'émojis
 launcher-picker-characters = Caractères Unicode
