@@ -367,3 +367,53 @@ func TestAComboboxEntrysEmptyValueReadsAsTextNotAsAHint(t *testing.T) {
 		t.Error("a plain placeholder lost the placeholder's color")
 	}
 }
+
+// inkSpan is the leftmost and rightmost x in [from, to) holding a pixel
+// off the black background, -1 and -1 for none.
+func inkSpan(data []byte, w, h, from, to int) (first, last int) {
+	first, last = -1, -1
+	for x := from; x < to; x++ {
+		for y := range h {
+			o := y*render.Stride(w) + x*4
+			if data[o] > 0x40 || data[o+1] > 0x40 || data[o+2] > 0x40 {
+				if first < 0 {
+					first = x
+				}
+				last = x
+				break
+			}
+		}
+	}
+	return first, last
+}
+
+// A combobox entry wears a dropdown's face: its text starts where a
+// dropdown's selection does, and it ends in the same down chevron at
+// the same place, not a dropdown's look of its own.
+func TestAComboboxEntryEndsInADropdownsChevronAtADropdownsInsets(t *testing.T) {
+	loadCSS(t, `entry, dropdown > button { background-color: #000000; border: none; }`)
+	const w, h = 200, 36
+	face := entryFace(t)
+	shot := func(wd Widget) []byte {
+		SizeWithin(wd, Size{W: w, H: h})
+		wd.Arrange(render.Rect{W: w, H: h})
+		return paintTree(wd, w, h)
+	}
+	dd := NewDropdown(face, 14, []string{"Apple"}, 0)
+	c := NewComboboxEntry(face, 14)
+	c.Entry().SetText("Apple")
+	ddShot, cShot := shot(dd), shot(c.Entry())
+	ddText, _ := inkSpan(ddShot, w, h, 0, w/2)
+	cText, _ := inkSpan(cShot, w, h, 0, w/2)
+	if ddText < 0 || ddText != cText {
+		t.Errorf("text starts at x=%d in the combobox entry, x=%d in the dropdown", cText, ddText)
+	}
+	ddFrom, ddTo := inkSpan(ddShot, w, h, w/2, w)
+	cFrom, cTo := inkSpan(cShot, w, h, w/2, w)
+	if ddFrom < 0 || ddFrom != cFrom || ddTo != cTo {
+		t.Errorf("chevron inks x=%d..%d in the combobox entry, x=%d..%d in the dropdown", cFrom, cTo, ddFrom, ddTo)
+	}
+	if sym, ok := c.Entry().trailing.(*Symbol); !ok || sym.Kind() != SymbolChevronDown {
+		t.Errorf("the combobox entry ends in %#v, want a down chevron", c.Entry().trailing)
+	}
+}

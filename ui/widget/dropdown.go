@@ -304,13 +304,22 @@ func (d *Dropdown) pick(i int) {
 	d.selectIndex(i)
 }
 
-// Dropdown face geometry: the label starts dropdownLabelX in, and the
-// chevron keeps dropdownChevronW clear at the right edge.
+// Dropdown face geometry, an entry's: the label starts where an
+// entry's text does, and the chevron, dropdownArrowSize across, ends
+// where an entry's trailing icon does, keeping dropdownChevronW clear
+// at the right edge. A combobox's chevron is the same symbol.
 const (
-	dropdownLabelX   = 8
-	dropdownChevronW = 28
-	dropdownMinW     = 80
+	dropdownArrowSize = 12
+	dropdownChevronW  = entryTrailingGap + dropdownArrowSize + 12
+	dropdownMinW      = 80
 )
+
+// dropdownLabelX is where the face's label starts, an entry's text inset.
+var dropdownLabelX = entryPad.Left
+
+// newDropdownArrow is the chevron a combobox's field ends in, the one a
+// dropdown's face paints.
+func newDropdownArrow() *Symbol { return NewSymbol(SymbolChevronDown, dropdownArrowSize) }
 
 // Measure wants the widest item plus arrow and padding, and one row
 // height; the closed face keeps its width whatever the selection, so a
@@ -330,7 +339,7 @@ func (d *Dropdown) Measure(axis Axis, forSize int) Sizes {
 	w := dropdownMinW
 	slot := d.iconSlot()
 	for _, label := range d.items {
-		if adv := int(d.face.Shape(label, d.sizePx).Advance()+0.5) + 14 + 24 + slot; adv > w {
+		if adv := dropdownLabelX + slot + int(d.face.Shape(label, d.sizePx).Advance()+0.5) + dropdownChevronW; adv > w {
 			w = adv
 		}
 	}
@@ -387,12 +396,15 @@ func (d *Dropdown) Paint(cv *render.Canvas) {
 		lx = end - int(sh.Advance()+0.5)
 	}
 	d.face.Draw(cv, sh, lx, baseline, col)
-	// The chevron: two strokes forming a v at the face's right edge,
-	// in the arrow node's color.
-	av := d.faceArrow.style(&d.faceArrow)
-	chev := pickc(0, av, style.PropColor, col)
-	cx, cy := d.bounds.X+d.bounds.W-16, d.bounds.Y+d.bounds.H/2
-	strokeChevron(cv, cx, cy, 4, math.Pi/2, chev)
+	// The chevron: a combobox's symbol at the face's right edge, in the
+	// arrow node's color over a symbol's muted one.
+	chev := t.TextMuted
+	if !d.Enabled() {
+		chev = col
+	}
+	chev = pickc(0, d.faceArrow.style(&d.faceArrow), style.PropColor, chev)
+	slot := d.bounds.X + d.bounds.W - (dropdownChevronW - entryTrailingGap)
+	paintSymbol(cv, SymbolChevronDown, render.Rect{X: slot, Y: d.bounds.Y, W: dropdownArrowSize, H: d.bounds.H}, dropdownArrowSize, chev)
 }
 
 // Role implements Roleer.

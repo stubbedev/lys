@@ -43,9 +43,6 @@ const (
 	SymbolMinus
 	// SymbolCheck is a check mark (selected, done).
 	SymbolCheck
-	// SymbolChevronsUpDown is an up chevron over a down one (a picker
-	// that opens a list).
-	SymbolChevronsUpDown
 	// SymbolSearch is a magnifying glass.
 	SymbolSearch
 	// SymbolCalendar is a calendar page (a date field).
@@ -140,9 +137,6 @@ func paintSymbol(cv *render.Canvas, kind SymbolKind, b render.Rect, size int, co
 		cv.Line(cx, cy-r, cx, cy+r, 1, col)
 	case SymbolCheck:
 		strokeCheck(cv, cx, cy, r, col)
-	case SymbolChevronsUpDown:
-		strokeChevron(cv, cx, cy-r/2-1, r/2, -math.Pi/2, col)
-		strokeChevron(cv, cx, cy+r/2+1, r/2, math.Pi/2, col)
 	case SymbolSearch:
 		d := r * 3 / 2
 		lens := render.Rect{X: cx - r, Y: cy - r, W: d, H: d}

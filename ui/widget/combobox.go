@@ -126,7 +126,7 @@ func NewCombobox[T comparable](face render.Font, placeholder string, options ...
 	c.text = NewLabel(face, 14, "", 0)
 	row := NewBox(Row, 8, 0)
 	row.AppendAligned(c.text, true, AlignCenter)
-	row.AppendAligned(NewSymbol(SymbolChevronsUpDown, 16), false, AlignCenter)
+	row.AppendAligned(newDropdownArrow(), false, AlignCenter)
 	c.trigger = NewButton(row, 0, 0)
 	c.trigger.AddClass(css.Outline)
 	c.trigger.SetSizeRequest(comboboxWidth, 0)
@@ -241,7 +241,7 @@ func NewComboboxEntry(face render.Font, sizePx float64, options ...ComboboxOptio
 	c := &ComboboxEntry{options: slices.Clone(options), list: comboboxList{face: face, search: comboboxSearch}}
 	c.SetElement("combobox")
 	c.entry = NewEntry(face, sizePx, 0)
-	c.entry.setSlots(c.entry.leading, c.entry.leadingClick, NewSymbol(SymbolChevronsUpDown, 16), func(Point) { c.Open() })
+	c.entry.setSlots(c.entry.leading, c.entry.leadingClick, newDropdownArrow(), func(Point) { c.Open() })
 	c.entry.keys = func(a KeyAction, _ Mods) bool {
 		if a != KeyDown {
 			return false

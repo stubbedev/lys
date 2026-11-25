@@ -248,8 +248,8 @@ func (e *Entry) setSlots(leading Widget, leadingClick func(Point), trailing Widg
 	e.InvalidateLayout()
 }
 
-// trailingRect is the icon's rect: the content height, at the end
-// edge inside the text insets.
+// trailingRect is the icon's rect: the content height, just after the
+// text area and the gap, as the leading one sits just before it.
 func (e *Entry) trailingRect() render.Rect {
 	if e.trailing == nil {
 		return render.Rect{}
@@ -257,7 +257,7 @@ func (e *Entry) trailingRect() render.Rect {
 	sz := e.slotSize(e.trailing)
 	in := e.textInsets()
 	return render.Rect{
-		X: e.bounds.X + e.bounds.W - in.Right,
+		X: e.bounds.X + e.bounds.W - in.Right + entryTrailingGap,
 		Y: e.bounds.Y + (e.bounds.H-sz.H)/2,
 		W: sz.W, H: sz.H,
 	}
