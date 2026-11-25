@@ -162,8 +162,9 @@ func (s *Switch) placeKnob() {
 // the input color under a knob that contrasts it (the window background
 // on a light palette, the text color on a dark one). A flip blends the
 // two by progress.
-// Disabled, the theme's on-track and knob fade through the derived
-// disabled colors (a stylesheet fades with its own :disabled rules).
+// Disabled, the whole switch fades as a disabled button's content does,
+// keeping its colors: off still reads as off, its knob as light or dark
+// as an enabled one's.
 func (s *Switch) Paint(cv *render.Canvas) {
 	t := Current()
 	v := s.style(s)
@@ -173,8 +174,7 @@ func (s *Switch) Paint(cv *render.Canvas) {
 	}
 	onTrack, onKnob := accentOf(v, t.Accent), t.OnAccent
 	if !IsEnabled(s) {
-		offTrack, offKnob = t.DisabledSurface(), t.DisabledText()
-		onTrack, onKnob = accentOf(v, t.DisabledAccent()), t.DisabledText()
+		defer cv.PopAlpha(cv.PushAlpha(disabledFade))
 	}
 	track, knob := mix(offTrack, onTrack, s.progress), mix(offKnob, onKnob, s.progress)
 	radii := radiusOr(v, s.bounds.H/2)

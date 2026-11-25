@@ -850,3 +850,30 @@ func TestAnAncestorOrSiblingChangedBetweenRestylesMatchesAfresh(t *testing.T) {
 		t.Errorf("after every ancestor and sibling change was undone: %08x", uint32(got))
 	}
 }
+
+// Enabling a composite again restyles what it holds, as a Box does: an
+// Item's title takes its :disabled look off with the Item (#270).
+func TestReEnablingACompositeRestylesItsDescendants(t *testing.T) {
+	face := goldenFace(t)
+	loadCSS(t, `label { color: #ff0000; } label:disabled { color: #777777; }`)
+	it := NewItem(face, "Title", "")
+	root := NewBox(Row, 0, 0)
+	root.Append(it, false)
+	arrangeTree(t, root, 300, 80)
+	title := it.title
+	color := func() render.Color {
+		CollectDamage(root)
+		return title.style(title).Color
+	}
+	if got := color(); got != render.RGB(0xff, 0, 0) {
+		t.Fatalf("enabled title %08x, want red", uint32(got))
+	}
+	it.SetEnabled(false)
+	if got := color(); got != render.RGB(0x77, 0x77, 0x77) {
+		t.Fatalf("disabled title %08x, want grey", uint32(got))
+	}
+	it.SetEnabled(true)
+	if got := color(); got != render.RGB(0xff, 0, 0) {
+		t.Errorf("re-enabled title %08x, want red again", uint32(got))
+	}
+}

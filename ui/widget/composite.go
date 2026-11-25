@@ -61,6 +61,14 @@ func (c *composite) initComposite(self, root Widget) {
 	c.self, c.root = self, root
 }
 
+// SetEnabled turns the composite and its whole delegated tree on or
+// off, like Box: every descendant restyles, so a :disabled rule leaves
+// them when the composite is enabled again.
+func (c *composite) SetEnabled(enabled bool) {
+	c.node.SetEnabled(enabled)
+	invalidateTree(c.self)
+}
+
 // setRoot swaps the delegated tree (a mode switch); the layout reflows.
 func (c *composite) setRoot(root Widget) {
 	c.root = root
