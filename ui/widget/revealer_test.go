@@ -1,6 +1,8 @@
 package widget
 
 import (
+	"fmt"
+	"slices"
 	"testing"
 	"time"
 
@@ -497,10 +499,10 @@ func TestRevealerLeavingTheSurfaceFadeRestoresItsAlpha(t *testing.T) {
 	alphas := surfaceFadeFor(t, r)
 	r.SetRevealed(true)
 	advance(c, 50*time.Millisecond)
-	r.SetTransition(RevealZoom)
+	r.SetTransition(RevealSlideUp)
 	paintReveal(r)
 	if n := len(*alphas); n == 0 || (*alphas)[n-1] != 1 {
-		t.Errorf("surface alphas %v after the fade gave way to a zoom, want the last at 1", *alphas)
+		t.Errorf("surface alphas %v after the fade gave way to a slide, want the last at 1", *alphas)
 	}
 }
 
@@ -863,5 +865,85 @@ func TestRevealerLiftAtItsSurfaceRootFadesTheSurfaceAndScalesTheChild(t *testing
 	driveFrames(c, r)
 	if n := len(*alphas); n == 0 || (*alphas)[n-1] != 1 {
 		t.Errorf("surface alphas %v, want a run ending at 1", *alphas)
+	}
+}
+
+// Halfway out, a revealer's blur shape is its child's carried where the
+// frame draws it: a zoom shrinks it about its center, a genie toward the
+// edge it collapses into, a flip narrows it, a slide moves it and cuts
+// it to its slot, and a rotation or swing turns it, never past what it
+// covers. At rest it is the child's own, hidden it is nothing.
+func TestRevealerBlurShapeFollowsItsTransition(t *testing.T) {
+	slot := render.Rect{X: 20, Y: 20, W: 40, H: 20}
+	half := func(t *testing.T, tr RevealTransition) (*Revealer, []render.Rect) {
+		t.Helper()
+		c := pinAnimClock(t)
+		r, _ := revealerAt(t, c, tr)
+		r.SetGenieEdge(EdgeTop)
+		r.SetRevealed(true)
+		r.Finish()
+		if got := r.BackdropRegion(); !slices.Equal(got, []render.Rect{slot}) {
+			t.Fatalf("at rest the blur shape is %v, want the slot %v", got, slot)
+		}
+		r.SetRevealed(false)
+		advance(c, 50*time.Millisecond)
+		return r, r.BackdropRegion()
+	}
+	span := func(region []render.Rect) render.Rect {
+		var b render.Rect
+		for _, r := range region {
+			b = b.Union(r)
+		}
+		return b
+	}
+	for _, tc := range []struct {
+		tr   RevealTransition
+		want func(b render.Rect) bool
+	}{
+		{RevealZoom, func(b render.Rect) bool { return b.W < slot.W && b.H < slot.H && b.X+b.W/2 == 40 && b.Y+b.H/2 == 30 }},
+		{RevealGenie, func(b render.Rect) bool { return b.Y == slot.Y && b.H < slot.H && b.W < slot.W }},
+		{RevealFlip, func(b render.Rect) bool { return b.W < slot.W && b.H == slot.H }},
+		{RevealSlideUp, func(b render.Rect) bool { return b.Y > slot.Y && b.Y+b.H == slot.Y+slot.H && b.W == slot.W }},
+		{RevealRotate, func(b render.Rect) bool { return !b.Empty() && b != slot }},
+		{RevealSwingDown, func(b render.Rect) bool { return !b.Empty() && b != slot }},
+	} {
+		t.Run(fmt.Sprint(tc.tr), func(t *testing.T) {
+			r, region := half(t, tc.tr)
+			b := span(region)
+			if !tc.want(b) {
+				t.Errorf("halfway out the blur shape spans %+v (%v), not where the frame draws the child", b, region)
+			}
+			if tc.tr == RevealRotate || tc.tr == RevealSwingDown {
+				m, _, _ := r.transform(r.bounds, r.progress)
+				if covers := m.MapBounds(slot); b.Intersect(covers) != b {
+					t.Errorf("the turned blur shape %+v leaves what the child covers, %+v", b, covers)
+				}
+			}
+			c := pinAnimClock(t)
+			c.host(t, r)
+			r.Finish()
+			if got := r.BackdropRegion(); got != nil {
+				t.Errorf("hidden, the blur shape is %v, want none", got)
+			}
+		})
+	}
+}
+
+// Every transition whose opacity is its progress fades through the
+// surface at a surface's root, so the compositor fades the blur behind
+// it too; a slide, which never fades, does not.
+func TestRevealerMovingTransitionsFadeThroughTheirSurface(t *testing.T) {
+	for _, tr := range []RevealTransition{RevealZoom, RevealGenie, RevealFlip, RevealRotate, RevealSwingUp, RevealBounce, RevealSlideDown} {
+		t.Run(fmt.Sprint(tr), func(t *testing.T) {
+			c := pinAnimClock(t)
+			r, _ := revealerAt(t, c, tr)
+			alphas := surfaceFadeFor(t, r)
+			r.SetRevealed(true)
+			advance(c, 50*time.Millisecond)
+			slide := tr == RevealSlideDown
+			if got := len(*alphas) > 0; got == slide {
+				t.Errorf("transition %v handed the surface %v", tr, *alphas)
+			}
+		})
 	}
 }

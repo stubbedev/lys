@@ -296,11 +296,49 @@ func (r *Revealer) fadesSurface(alpha float64) bool {
 }
 
 // fadesThroughSurface reports a transition whose opacity a surface's
-// root can hand to the compositor: the fade, and the lift, whose scale
-// it still paints.
+// root can hand to the compositor: every one whose opacity is its
+// progress, the transform still painted. A slide never fades, and
+// RevealNone does not move.
 func (r *Revealer) fadesThroughSurface() bool {
-	t := r.shownTransition()
-	return t == RevealFade || t == RevealLift
+	switch r.shownTransition() {
+	case RevealNone, RevealSlideUp, RevealSlideDown, RevealSlideLeft, RevealSlideRight:
+		return false
+	}
+	return true
+}
+
+// BackdropRegion implements BackdropRegioner: the blur shape behind
+// the child where the frame draws it - the child's own at rest, carried
+// mid-transition through the transform the paint draws it with, and
+// for a slide cut to the slot it slides in. Empty while hidden.
+func (r *Revealer) BackdropRegion() []render.Rect {
+	if r.child == nil || !r.shows() {
+		return nil
+	}
+	rest := BackdropRegion(r.child)
+	if r.progress >= 1 || r.shownTransition() == RevealFade || r.shownTransition() == RevealNone {
+		return rest
+	}
+	if r.collapses() {
+		return clipRegion(rest, r.bounds)
+	}
+	m, _, clip := r.transform(r.bounds, r.progress)
+	shown := m.MapRegion(rest)
+	if clip {
+		return clipRegion(shown, r.bounds)
+	}
+	return shown
+}
+
+// clipRegion is region cut to clip.
+func clipRegion(region []render.Rect, clip render.Rect) []render.Rect {
+	out := make([]render.Rect, 0, len(region))
+	for _, r := range region {
+		if r = r.Intersect(clip); !r.Empty() {
+			out = append(out, r)
+		}
+	}
+	return out
 }
 
 // Measure is the child's size, nothing for a hidden RevealNone, and

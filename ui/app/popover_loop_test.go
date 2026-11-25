@@ -581,3 +581,40 @@ func TestAPopoversRevealerFadesThroughItsSurface(t *testing.T) {
 		t.Error("a compositor that cannot fade the popover was reported fading it")
 	}
 }
+
+// The blur behind a popover whose revealer zooms out shrinks with the
+// card instead of staying the card's rectangle until the popover
+// closes: the shape the painter publishes is the revealer's frame.
+func TestAPopoversBlurShrinksWithItsZoomingCard(t *testing.T) {
+	now := time.Unix(1750000000, 0)
+	t.Cleanup(animclock.SetClock(func() time.Time { return now }))
+	t.Cleanup(widget.SetAnimationsInstant(false))
+	var clock anim.Clock
+	rev := widget.NewRevealer(widget.NewSpacer(100, 60))
+	rev.SetTransition(widget.RevealZoom)
+	rev.SetDuration(100 * time.Millisecond)
+	op, _, _, _ := newLoopPopover(rev)
+	t.Cleanup(widget.Host(rev, &clock))
+	op.keyRoot.Arrange(render.Rect{W: 100, H: 60})
+	rev.SetRevealed(true)
+	rev.Finish()
+	area := func() int {
+		a := 0
+		for _, r := range op.keyRoot.BackdropRegion() {
+			a += r.W * r.H
+		}
+		return a
+	}
+	if got := area(); got != 100*60 {
+		t.Fatalf("at rest the popover blurs %d px, want its 6000", got)
+	}
+	rev.SetRevealed(false)
+	for range 3 {
+		widget.AttachAnimations(&clock)
+		now = now.Add(anim.FrameInterval)
+		clock.Tick(now)
+	}
+	if got := area(); got <= 0 || got >= 100*60*3/4 {
+		t.Errorf("zooming out the popover blurs %d px, want a shrinking part of its 6000", got)
+	}
+}

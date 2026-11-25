@@ -115,20 +115,7 @@ func (m *Morph) BackdropRegion() []render.Rect {
 	clip, s, fx, fy := m.motionAt(content)
 	ox := float64(content.X) + float64(fx*float64(content.W))
 	oy := float64(content.Y) + float64(fy*float64(content.H))
-	at := func(v, o float64) int { return int(math.Round(o + float64((v-o)*s))) }
-	out := make([]render.Rect, 0, len(rest))
-	for _, r := range rest {
-		r = r.Intersect(clip)
-		if r.Empty() {
-			continue
-		}
-		x0, y0 := at(float64(r.X), ox), at(float64(r.Y), oy)
-		x1, y1 := at(float64(r.X+r.W), ox), at(float64(r.Y+r.H), oy)
-		if shown := (render.Rect{X: x0, Y: y0, W: x1 - x0, H: y1 - y0}).Intersect(m.bounds); !shown.Empty() {
-			out = append(out, shown)
-		}
-	}
-	return out
+	return clipRegion(render.Scale(s, s).About(ox, oy).MapRegion(clipRegion(rest, clip)), m.bounds)
 }
 
 // Reveal is the current reveal fraction.
