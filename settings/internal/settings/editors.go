@@ -17,7 +17,8 @@ import (
 type editorFunc func(k *kit, s slot, meta config.FieldMeta) control
 
 // autoEditor is the control a field's type calls for: toggle, a closed
-// choice, number_*, text, size, color, and the optional (inherit) forms.
+// choice, number_*, a percentage read in percent, text, size, color, and
+// the optional (inherit) forms.
 func autoEditor(k *kit, s slot, path string, meta config.FieldMeta) (control, error) {
 	switch {
 	case meta.Type == "Size":
@@ -34,6 +35,8 @@ func autoEditor(k *kit, s slot, path string, meta config.FieldMeta) (control, er
 		return newOptionalNumber(k, s, meta.Min, meta.Max, 1, 0, 0), nil
 	case meta.Optional && meta.Kind == config.FieldFloat:
 		return newOptionalNumber(k, s, meta.Min, meta.Max, optionalFloatStep, min(max(0, meta.Min), meta.Max), 2), nil
+	case meta.Type == "Percentage":
+		return numberEditor(k, s, meta, unitPercent), nil
 	}
 	if c, ok := semanticEditor(k, s, path, meta); ok {
 		return c, nil
