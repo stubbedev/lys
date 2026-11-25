@@ -2,6 +2,7 @@ package settings
 
 import (
 	"log"
+	"math"
 	"slices"
 	"unicode/utf8"
 
@@ -75,32 +76,36 @@ func newDropdownPick(k *kit, labels []string, selected int) *choicePick {
 func dropdownPick(k *kit, labels []string, selected int, live bool) *choicePick {
 	p := &choicePick{Box: widget.NewBox(widget.Row, 0, 0), k: k, drop: widget.NewDropdown(k.face, k.textPx(), nil, -1), live: live}
 	p.drop.OnSelect = p.picked
-	p.Append(p.drop, true)
+	p.AppendAligned(p.drop, false, widget.AlignCenter)
 	p.setLabels(labels, selected)
 	return p
 }
 
 func (p *choicePick) picked(i int) {
+	p.InvalidateLayout()
 	if !p.showing && p.OnSelect != nil {
 		p.OnSelect(i)
 	}
 }
 
-// dropdownWidest is the widest a dropdown asks to be, half again the
-// control column's least width: a dropdown sizes to its longest option, and one
-// long option ("Ask the session manager…") made the column of the whole
-// page that wide around a three-letter value, squeezing every row's
-// text; past it the value ellipsizes, the options showing whole in the
-// list.
-const dropdownWidest = widget.ItemColumnWidth * 3 / 2
-
-// Measure is the box's request, a dropdown's natural width held to
-// dropdownWidest.
+// Measure is the box's request, a dropdown asking for the width of the
+// value it shows rather than of its longest option: one long option
+// ("Ask the session manager…") made the page's control column that
+// wide around a three-letter value, squeezing every row's text. The
+// list still shows every option whole.
 func (p *choicePick) Measure(axis widget.Axis, forSize int) widget.Sizes {
 	s := p.Box.Measure(axis, forSize)
-	if axis == widget.Row && p.drop != nil {
-		s.Nat = min(s.Nat, max(s.Min, dropdownWidest))
+	if axis != widget.Row || p.drop == nil || len(p.labels) == 0 {
+		return s
 	}
+	px := p.k.textPx()
+	advance := func(text string) int { return int(math.Ceil(p.k.face.Shape(text, px).Advance())) }
+	widest := 0
+	for _, l := range p.labels {
+		widest = max(widest, advance(l))
+	}
+	shown := advance(p.labels[max(p.drop.Selected(), 0)])
+	s.Nat = max(s.Min, s.Nat-widest+shown)
 	return s
 }
 
@@ -143,6 +148,7 @@ func (p *choicePick) show(i int) {
 	defer func() { p.showing = false }()
 	if p.drop != nil {
 		p.drop.SetSelected(i)
+		p.InvalidateLayout()
 		return
 	}
 	p.segments.SetActive(i)
@@ -246,7 +252,7 @@ func newChoiceControl(k *kit, s slot, c closedChoice) *choiceControl {
 	}
 	cc.pick.OnSelect = cc.choose
 	cc.AppendAligned(cc.unknown, false, widget.AlignCenter)
-	cc.AppendAligned(cc.pick, true, widget.AlignCenter)
+	cc.AppendAligned(cc.pick, false, widget.AlignCenter)
 	cc.refresh()
 	return cc
 }

@@ -351,8 +351,9 @@ func TestAChoiceEditorFitsTheControlColumn(t *testing.T) {
 }
 
 // A device picker with its level under it is a field of its card's
-// control column: its dropdown and its level start and end at one x with
-// an entry of the card, for a device list and for a choice editor alike.
+// control column: it and its level start and end at one x with an entry
+// of the card, its dropdown, as wide as its value, at the column's
+// start, for a device list and for a choice editor alike.
 func TestALevelledDeviceFitsTheControlColumn(t *testing.T) {
 	for _, tc := range []struct {
 		name, path string
@@ -376,7 +377,10 @@ func TestALevelledDeviceFitsTheControlColumn(t *testing.T) {
 			if !shown(c.level.meter) {
 				t.Fatal("the level meter is not shown")
 			}
-			columnEdges{"device": c.Bounds(), "dropdown": tc.dropdown(c).Bounds(), "level": c.level.meter.Bounds(), "entry": entry.Bounds()}.shareEdges(t, tc.name)
+			columnEdges{"device": c.Bounds(), "level": c.level.meter.Bounds(), "entry": entry.Bounds()}.shareEdges(t, tc.name)
+			if d, dev := tc.dropdown(c).Bounds(), c.Bounds(); d.X != dev.X || d.X+d.W > dev.X+dev.W {
+				t.Errorf("%s: the picker spans x %d..%d, outside the column's start of %d..%d", tc.name, d.X, d.X+d.W, dev.X, dev.X+dev.W)
+			}
 		})
 	}
 }

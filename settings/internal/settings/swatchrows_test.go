@@ -4,9 +4,6 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/stubbedev/lys/desktop/shell/treetest"
-	"github.com/stubbedev/lys/ui/widget"
-
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
@@ -37,27 +34,15 @@ func TestAnUnsetWMColourWithoutADefaultReadsNone(t *testing.T) {
 	}
 }
 
-// Auto, None and Custom… led no swatch where every colour row does, so
-// their labels started left of the colours'. Every row but a header
-// leads with a swatch or an empty slot of the swatch's place.
-func TestEveryColourRowLeadsWithASwatchOrItsSlot(t *testing.T) {
+// The dropdowns' faces reserved an empty swatch slot for Auto, None and
+// Custom…, so their text started a slot's width in and staggered against
+// the fields around them. A row leads with a swatch only for a colour.
+func TestOnlyAColourRowLeadsWithASwatch(t *testing.T) {
 	k := testKit(t, "")
 	c := fieldControl(k, k.store, field("modules.clock.icon-color")).(*swatchPicker)
-	root, host := hosted(c)
-	click(root, c.drop)
-	if len(host.opened) != 1 {
-		t.Fatalf("a click opened %d popovers, want the list", len(host.opened))
-	}
-	list := host.opened[0]
-	c.drop.Close()
-	rows := 0
-	for _, n := range c.shown {
-		if !n.header {
-			rows++
+	for i, row := range dropdownRows(c.shown) {
+		if has := row.Leading != nil; has != c.shown[i].swatch {
+			t.Errorf("the %q row leads with a swatch %v, has a colour %v", row.Label, has, c.shown[i].swatch)
 		}
-	}
-	led := len(treetest.All[*widget.ColorSwatch](list)) + len(treetest.All[swatchSlot](list))
-	if led != rows || len(treetest.All[swatchSlot](list)) == 0 {
-		t.Errorf("%d of %d rows lead with a swatch or its slot", led, rows)
 	}
 }

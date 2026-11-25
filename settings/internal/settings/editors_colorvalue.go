@@ -68,7 +68,7 @@ func newSwatchPicker(k *kit, s slot, names colorNames, unsettable bool) *swatchP
 	c.drop = widget.NewDropdownRows(k.face, k.textPx(), nil, -1)
 	c.drop.OnSelect = c.picked
 	c.swatch = colorButton(k, s)
-	c.AppendAligned(c.drop, true, widget.AlignCenter)
+	c.AppendAligned(c.drop, false, widget.AlignCenter)
 	c.AppendAligned(c.swatch, false, widget.AlignCenter)
 	c.refresh()
 	return c
@@ -187,30 +187,21 @@ func (c *swatchPicker) rows(stored string) []swatchName {
 	return out
 }
 
-// dropdownRows are the dropdown's rows for names: every colour led by
-// its swatch, and every other row by an empty slot as wide, so the
-// labels of one list start at one x.
+// dropdownRows are the dropdown's rows for names, every colour led by
+// its swatch; a row without a colour (Auto, None, Custom… with none
+// stored) leads with nothing, so the dropdown's face shows a swatch only
+// for a colour.
 func dropdownRows(names []swatchName) []widget.DropdownRow {
 	rows := make([]widget.DropdownRow, len(names))
 	for i, n := range names {
 		rows[i] = widget.DropdownRow{Label: n.label, Header: n.header}
-		switch {
-		case n.header:
-		case n.swatch:
+		if n.swatch {
 			col := n.color
 			rows[i].Leading = func() widget.Widget { return widget.NewColorSwatch(col) }
-		default:
-			rows[i].Leading = func() widget.Widget { return swatchSlot{widget.NewColorSwatch(0)} }
 		}
 	}
 	return rows
 }
-
-// swatchSlot takes a swatch's place and paints nothing: what leads a row
-// whose colour has no swatch of its own.
-type swatchSlot struct{ *widget.ColorSwatch }
-
-func (swatchSlot) Paint(*render.Canvas) {}
 
 // picked writes the chosen row: a name or keyword as it is, custom as
 // white, with the color button shown for it, None as no value.
