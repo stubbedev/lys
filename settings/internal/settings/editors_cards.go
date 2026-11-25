@@ -276,7 +276,7 @@ func (c *cardList) appendItem(item map[string]any) {
 func (c *cardList) pickButton(pick cardPick) *widget.Button {
 	t := locale.T()
 	var b *widget.Button
-	b = c.k.secondaryButton(t.Get(pick.key), func() {
+	b = c.k.textButton(rolePicker, t.Get(pick.key), func() {
 		b.SetEnabled(false)
 		c.picking.Loading(t.Get(pick.waiting))
 		async(c.k, func() picked {
