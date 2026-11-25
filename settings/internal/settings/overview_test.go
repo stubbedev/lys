@@ -201,3 +201,27 @@ func TestEveryOverviewTileShowsItsOwnIcon(t *testing.T) {
 		t.Fatalf("the overview shows %d tile icons", tiles)
 	}
 }
+
+// The Time & Language and Desktop tiles stood 78px tall against the
+// others' 94, a tile's height following how its description measured.
+// Every overview tile is one height.
+func TestEveryOverviewTileIsOneHeight(t *testing.T) {
+	win := laidOutPage(t, "", overviewID, sweepW)
+	heights := map[int][]string{}
+	for _, ic := range treetest.All[*widget.Icon](win.page) {
+		if !ic.HasClass("settings-overview-icon") {
+			continue
+		}
+		var tile widget.Widget = ic
+		for p, ok := tile.(interface{ Parent() widget.Widget }); ok; p, ok = tile.(interface{ Parent() widget.Widget }) {
+			if b, isButton := p.Parent().(*widget.Button); isButton {
+				heights[b.Bounds().H] = append(heights[b.Bounds().H], b.AccessibleName())
+				break
+			}
+			tile = p.Parent()
+		}
+	}
+	if len(heights) != 1 {
+		t.Errorf("the overview's tiles are %v tall, want one height", heights)
+	}
+}

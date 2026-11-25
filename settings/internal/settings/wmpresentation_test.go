@@ -45,11 +45,11 @@ func TestLysWMsFractionsAndPushReadAsTheirUnits(t *testing.T) {
 	}
 }
 
-// Outer gap, Blur size and Mica blur size typed bare numbers beside
-// sibling spins reading "px", though each is a length in pixels. Every
-// one of their fields carries the pixel unit.
+// Outer gap, Blur size, Mica blur size and Snap distance typed bare
+// numbers beside sibling spins reading "px", though each is a length in
+// pixels. Every one of their fields carries the pixel unit.
 func TestLysWMsPixelLengthsReadInPixels(t *testing.T) {
-	for _, path := range []string{"decoration.blur.size", "decoration.blur.mica.size"} {
+	for _, path := range []string{"decoration.blur.size", "decoration.blur.mica.size", "drag_preview.snap_distance"} {
 		c := presented(t, path, int64(6), config.FieldMeta{Kind: config.FieldInt, Min: 0, Max: 1e9})
 		if labels := treetest.Labels(c); !slices.Contains(labels, unitPixels.addon()) {
 			t.Errorf("%s reads %q beside its number, want the pixel unit", path, labels)

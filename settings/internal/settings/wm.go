@@ -531,6 +531,7 @@ var wmPresentation = map[string]rowOpt{
 	"drag_preview.drag_switch.width": measuredIn(unitPixels),
 	"decoration.blur.size":           measuredIn(unitPixels),
 	"decoration.blur.mica.size":      measuredIn(unitPixels),
+	"drag_preview.snap_distance":     measuredIn(unitPixels),
 	"drag_preview.opacity":           fraction,
 	"overview.dim":                   fraction,
 	"hot_corners.pressure":           wholePixels,

@@ -55,6 +55,7 @@ func overviewTiles(k *kit) widget.Widget {
 	grid.SetMaxChildrenPerLine(overviewColumns)
 	grid.SetJustify(widget.JustifyFill)
 	grid.SetSelectionMode(widget.SelectionNone)
+	heights := widget.NewSizeGroup(widget.SizeGroupVertical)
 	for _, s := range k.nav {
 		if s.key == "settings-nav-home" || len(s.pages) == 0 {
 			continue
@@ -73,7 +74,7 @@ func overviewTiles(k *kit) widget.Widget {
 		}
 		tile := k.roleButton(roleTile, face, func() { k.openPage(first) })
 		tile.SetAccessibleName(t.Get(s.key))
-		grid.Append(tile)
+		grid.Append(heights.Add(tile))
 	}
 	return grid
 }
