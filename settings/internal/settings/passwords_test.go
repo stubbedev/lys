@@ -452,3 +452,25 @@ func TestAddItemStoresANewItemInTheShownCollectionAndStaysOpenOverAMissingName(t
 		t.Errorf("the count did not follow: %q", r.sidebarText())
 	}
 }
+
+// A keyring that could not be read still offered Add Item, Lock and
+// Change Password, pressed against the card's top edge: the actions
+// show, inset in the card, once a collection is shown, and not before.
+func TestTheKeyringActionsShowOnlyOverAShownCollection(t *testing.T) {
+	before := openKeyring
+	openKeyring = func(context.Context) (*client.Client, func(), error) {
+		return nil, nil, errors.New("no keyring daemon")
+	}
+	t.Cleanup(func() { openKeyring = before })
+	k := testKit(t, "")
+	p := passwordsKeyring(k).(*passwordsPanel)
+	t.Cleanup(p.close)
+	if p.head.Visible() {
+		t.Error("an unreadable keyring offers its collection's actions")
+	}
+	if !treetest.Contains(p.list, p.add) {
+		t.Error("the actions sit outside the card's inset rows")
+	}
+	r := startPasswords(t, 1)
+	r.l.until("the collection shown", func() bool { return r.p.head.Visible() })
+}

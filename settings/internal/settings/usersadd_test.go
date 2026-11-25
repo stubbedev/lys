@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/shacrypt"
 
@@ -66,7 +67,7 @@ func addUserDialog(t *testing.T, refuse error) (*usersPanel, *loop, *fakePickers
 	f.refuseWith(refuse)
 	pickers := &fakePickers{}
 	p.k.pickers = pickers
-	buttonsTitled(p.admin, locale.T().Get("settings-users-add-open"))[0].OnClick()
+	treetest.Button(t, p.admin, locale.T().Get("settings-users-add-open")).OnClick()
 	if len(pickers.dialogs) != 1 {
 		t.Fatalf("Add User opened %d dialogs", len(pickers.dialogs))
 	}

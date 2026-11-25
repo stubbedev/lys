@@ -1680,6 +1680,7 @@ settings-app-nap-add = App toevoegen
     .description = Meldingen over de batterij, en wanneer vanzelf energie wordt bespaard
 settings-power-section-battery = Batterij
 settings-power-section-mode = Energiestand
+    .description = Ruil batterijduur in voor snelheid; het systeem onthoudt de keuze
 settings-power-section-sleep = Slaap en vergrendeling
 settings-power-loading = Batterij en energiestand worden gelezen…
 settings-power-unavailable = De batterij en energiestand kunnen niet worden gelezen
@@ -1714,7 +1715,6 @@ settings-power-hours-minutes = { $hours ->
    *[other] { $minutes } minuten
 }
 settings-power-mode = Energiestand
-settings-power-mode-detail = Ruil batterijduur in voor snelheid; het systeem onthoudt de keuze
 settings-power-no-daemon = lys-power stelt hier geen energieprofiel in, dus de energiestand kan niet worden gewijzigd
 settings-power-mode-power-saver = Energiebesparing
 settings-power-mode-balanced = Gebalanceerd
@@ -1723,7 +1723,7 @@ settings-power-mode-refused = De energiestand is niet gewijzigd
 settings-power-link-idle-detail = Wanneer het scherm dimt, uitgaat en de computer slaapt
 settings-power-link-lock-detail = Hoe het scherm vergrendelt en ontgrendelt
 settings-power-section-pause = Gepauzeerd op batterij
-settings-power-pause-detail = De services, containers en timers die je hier kiest pauzeren zolang de computer op de batterij werkt en gaan verder zodra hij aan de stroom hangt. Voor die van het systeem is het wachtwoord van een beheerder nodig.
+    .description = De services, containers en timers die je hier kiest pauzeren zolang de computer op de batterij werkt en gaan verder zodra hij aan de stroom hangt. Voor die van het systeem is het wachtwoord van een beheerder nodig.
 settings-power-pause-none = Niets pauzeert op batterij
 settings-power-pause-add = Een service, container of timer pauzeren op batterij
 settings-power-pause-search = Services, containers en timers zoeken

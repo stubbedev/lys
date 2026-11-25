@@ -180,8 +180,8 @@ func TestARefusedPickIsSaidAndAnUnreachableLysPowerOffersNothing(t *testing.T) {
 
 	down := &fakePausing{unreadable: errors.New("dev.stubbe.lys.Pause1 is not running")}
 	s = pausingOf(t, down)
-	if s.add.Visible() || !slices.Contains(treetest.Labels(s.rows), tr.Get("settings-power-pause-unavailable")) {
-		t.Errorf("unreachable: add shown %v, rows %q", s.add.Visible(), treetest.Labels(s.rows))
+	if s.addRow.Visible() || !slices.Contains(treetest.Labels(s.rows), tr.Get("settings-power-pause-unavailable")) {
+		t.Errorf("unreachable: add shown %v, rows %q", s.addRow.Visible(), treetest.Labels(s.rows))
 	}
 	if !slices.Contains(treetest.Labels(s.rows), "dev.stubbe.lys.Pause1 is not running") {
 		t.Error("the reason is not shown")

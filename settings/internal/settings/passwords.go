@@ -134,6 +134,7 @@ type passwordsPanel struct {
 	sidebar    *widget.ItemGroup
 	collRows   map[dbus.ObjectPath]*settingRow
 	collTitle  *widget.Label
+	head       *insetRow
 	add        *widget.Button
 	lock       *widget.Button
 	lockFace   *widget.ButtonContent
@@ -175,12 +176,12 @@ func passwordsKeyring(k *kit) widget.Widget {
 	p.filter.SetDelay(0)
 	p.filter.OnSearchChanged = func(string) { p.showItems() }
 	p.state = k.cardState()
-	p.list = widget.NewItemGroup(newInsetRow(p.filter), p.state)
+	p.head = newInsetRow(head)
+	p.list = widget.NewItemGroup(p.head, newInsetRow(p.filter), p.state)
 	p.more, _ = k.contentButton(roleSecondary, "ld-chevron-down-symbolic", t.Get("settings-passwords-more"), p.loadMore)
 	p.more.SetHAlign(widget.AlignCenter)
 	p.more.SetVisible(false)
 	items := gapBox(widget.Column)
-	items.Append(head, false)
 	items.Append(p.list, false)
 	items.Append(p.more, false)
 	body := gapBox(widget.Row)
@@ -190,6 +191,7 @@ func passwordsKeyring(k *kit) widget.Widget {
 	p.detail = widget.NewBox(widget.Column, widget.Current().Spacing, 0)
 	p.detail.AddClass("password-detail")
 	p.detailRow = newInsetRow(p.detail)
+	p.refreshLock()
 	p.open()
 	return p
 }
@@ -284,8 +286,7 @@ func (p *passwordsPanel) refreshLock() {
 		row.SetState(widget.StateSelected, path == p.coll)
 	}
 	c, ok := p.current()
-	p.lock.SetVisible(ok)
-	p.add.SetVisible(ok)
+	p.head.SetVisible(ok)
 	p.collTitle.SetText(collectionTitle(c))
 	if c.Locked {
 		p.lockFace.SetIconName("ld-lock-open-symbolic")

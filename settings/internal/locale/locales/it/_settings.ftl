@@ -1691,6 +1691,7 @@ settings-app-nap-add = Aggiungi un’app
     .description = Notifiche sulla batteria e quando risparmiare energia da solo
 settings-power-section-battery = Batteria
 settings-power-section-mode = Modalità energetica
+    .description = Scambia autonomia con velocità; il sistema ricorda la scelta
 settings-power-section-sleep = Sospensione e blocco
 settings-power-loading = Lettura della batteria e della modalità energetica…
 settings-power-unavailable = Non è possibile leggere la batteria e la modalità energetica
@@ -1725,7 +1726,6 @@ settings-power-hours-minutes = { $hours ->
    *[other] { $minutes } minuti
 }
 settings-power-mode = Modalità energetica
-settings-power-mode-detail = Scambia autonomia con velocità; il sistema ricorda la scelta
 settings-power-no-daemon = lys-power non imposta qui alcun profilo energetico, quindi la modalità energetica non può essere cambiata
 settings-power-mode-power-saver = Risparmio energetico
 settings-power-mode-balanced = Bilanciata
@@ -1734,7 +1734,7 @@ settings-power-mode-refused = La modalità energetica non è stata cambiata
 settings-power-link-idle-detail = Quando lo schermo si attenua, si spegne e il computer va in sospensione
 settings-power-link-lock-detail = Come lo schermo si blocca e si sblocca
 settings-power-section-pause = In pausa a batteria
-settings-power-pause-detail = I servizi, i container e i timer scelti qui vanno in pausa mentre il computer funziona a batteria e riprendono quando è collegato alla corrente. Scegliere quelli di sistema richiede la password di un amministratore.
+    .description = I servizi, i container e i timer scelti qui vanno in pausa mentre il computer funziona a batteria e riprendono quando è collegato alla corrente. Scegliere quelli di sistema richiede la password di un amministratore.
 settings-power-pause-none = Niente va in pausa a batteria
 settings-power-pause-add = Metti in pausa un servizio, un container o un timer a batteria
 settings-power-pause-search = Cerca servizi, container e timer

@@ -1690,6 +1690,7 @@ settings-app-nap-add = Add an app
     .description = Notifications about the battery, and when to save power by itself
 settings-power-section-battery = Battery
 settings-power-section-mode = Power Mode
+    .description = Trade battery life for speed; the system keeps the choice
 settings-power-section-sleep = Sleep & Lock
 settings-power-loading = Reading the battery and power mode…
 settings-power-unavailable = The battery and power mode cannot be read
@@ -1724,7 +1725,6 @@ settings-power-hours-minutes = { $hours ->
    *[other] { $minutes } minutes
 }
 settings-power-mode = Power mode
-settings-power-mode-detail = Trade battery life for speed; the system keeps the choice
 settings-power-no-daemon = lys-power is not setting a power profile here, so the power mode cannot be changed
 settings-power-mode-power-saver = Power Saver
 settings-power-mode-balanced = Balanced
@@ -1733,7 +1733,7 @@ settings-power-mode-refused = The power mode was not changed
 settings-power-link-idle-detail = When the screen dims, turns off, and the computer sleeps
 settings-power-link-lock-detail = How the screen locks and unlocks
 settings-power-section-pause = Paused on Battery
-settings-power-pause-detail = The services, containers and timers chosen here pause while the computer runs on battery and resume when it is plugged in. Choosing the system's asks for an administrator's password.
+    .description = The services, containers and timers chosen here pause while the computer runs on battery and resume when it is plugged in. Choosing the system's asks for an administrator's password.
 settings-power-pause-none = Nothing pauses on battery
 settings-power-pause-add = Pause a service, container or timer on battery
 settings-power-pause-search = Search services, containers and timers

@@ -1693,6 +1693,7 @@ settings-app-nap-add = Ajouter une app
     .description = Notifications sur la batterie, et quand économiser l'énergie de lui-même
 settings-power-section-battery = Batterie
 settings-power-section-mode = Mode d'alimentation
+    .description = Échanger de l'autonomie contre de la vitesse ; le système garde ce choix
 settings-power-section-sleep = Veille et verrouillage
 settings-power-loading = Lecture de la batterie et du mode d'alimentation…
 settings-power-unavailable = La batterie et le mode d'alimentation ne peuvent pas être lus
@@ -1727,7 +1728,6 @@ settings-power-hours-minutes = { $hours ->
    *[other] { $minutes } minutes
 }
 settings-power-mode = Mode d'alimentation
-settings-power-mode-detail = Échanger de l'autonomie contre de la vitesse ; le système garde ce choix
 settings-power-no-daemon = lys-power ne règle ici aucun profil d'énergie, le mode d'alimentation ne peut donc pas être changé
 settings-power-mode-power-saver = Économie d'énergie
 settings-power-mode-balanced = Équilibré
@@ -1736,7 +1736,7 @@ settings-power-mode-refused = Le mode d'alimentation n'a pas été changé
 settings-power-link-idle-detail = Quand l'écran s'assombrit, s'éteint et l'ordinateur se met en veille
 settings-power-link-lock-detail = Comment l'écran se verrouille et se déverrouille
 settings-power-section-pause = En pause sur batterie
-settings-power-pause-detail = Les services, conteneurs et minuteurs choisis ici se mettent en pause quand l’ordinateur fonctionne sur batterie et reprennent une fois branché. Choisir ceux du système demande le mot de passe d’un administrateur.
+    .description = Les services, conteneurs et minuteurs choisis ici se mettent en pause quand l’ordinateur fonctionne sur batterie et reprennent une fois branché. Choisir ceux du système demande le mot de passe d’un administrateur.
 settings-power-pause-none = Rien ne se met en pause sur batterie
 settings-power-pause-add = Mettre en pause un service, un conteneur ou un minuteur sur batterie
 settings-power-pause-search = Rechercher des services, conteneurs et minuteurs

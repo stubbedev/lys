@@ -203,10 +203,16 @@ func cardInsets() render.Insets {
 // note, a preview.
 type insetRow struct{ *widget.Box }
 
-func newInsetRow(w widget.Widget) *insetRow {
+func newInsetRow(w widget.Widget) *insetRow { return insetRowOf(w, true) }
+
+// newInsetAction is an insetRow holding an action at its own width, at
+// the start of the row: a list's add button under its entries.
+func newInsetAction(w widget.Widget) *insetRow { return insetRowOf(w, false) }
+
+func insetRowOf(w widget.Widget, fill bool) *insetRow {
 	row := &insetRow{widget.NewBox(widget.Row, 0, 0)}
 	row.SetElement("item")
-	row.Append(w, true)
+	row.Append(w, fill)
 	return row
 }
 

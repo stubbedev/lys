@@ -43,7 +43,7 @@ func openVPNAdd(t *testing.T, f *fakeNet) (*kit, *networkPanel) {
 	if p.vpnForm.Visible() {
 		t.Fatal("the VPN form shows before Add VPN")
 	}
-	buttonsTitled(p.vpnSec, locale.T().Get("settings-vpn-add"))[0].OnClick()
+	treetest.Button(t, p.vpnSec, locale.T().Get("settings-vpn-add")).OnClick()
 	if !p.vpnForm.Visible() {
 		t.Fatal("Add VPN opened no form")
 	}

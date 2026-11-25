@@ -1690,6 +1690,7 @@ settings-app-nap-add = App hinzufügen
     .description = Benachrichtigungen zum Akku und wann von selbst Energie gespart wird
 settings-power-section-battery = Akku
 settings-power-section-mode = Energiemodus
+    .description = Akkulaufzeit gegen Geschwindigkeit abwägen; das System merkt sich die Wahl
 settings-power-section-sleep = Ruhezustand & Sperre
 settings-power-loading = Akku und Energiemodus werden gelesen…
 settings-power-unavailable = Akku und Energiemodus können nicht gelesen werden
@@ -1724,7 +1725,6 @@ settings-power-hours-minutes = { $hours ->
    *[other] { $minutes } Minuten
 }
 settings-power-mode = Energiemodus
-settings-power-mode-detail = Akkulaufzeit gegen Geschwindigkeit abwägen; das System merkt sich die Wahl
 settings-power-no-daemon = lys-power setzt hier kein Energieprofil, daher kann der Energiemodus nicht geändert werden
 settings-power-mode-power-saver = Energiesparen
 settings-power-mode-balanced = Ausgewogen
@@ -1733,7 +1733,7 @@ settings-power-mode-refused = Der Energiemodus wurde nicht geändert
 settings-power-link-idle-detail = Wann der Bildschirm abdunkelt, ausgeht und der Computer ruht
 settings-power-link-lock-detail = Wie der Bildschirm sperrt und entsperrt
 settings-power-section-pause = Im Akkubetrieb pausiert
-settings-power-pause-detail = Die hier gewählten Dienste, Container und Timer pausieren, solange der Computer im Akkubetrieb läuft, und laufen weiter, sobald er am Netz hängt. Für die des Systems ist das Passwort eines Administrators nötig.
+    .description = Die hier gewählten Dienste, Container und Timer pausieren, solange der Computer im Akkubetrieb läuft, und laufen weiter, sobald er am Netz hängt. Für die des Systems ist das Passwort eines Administrators nötig.
 settings-power-pause-none = Im Akkubetrieb pausiert nichts
 settings-power-pause-add = Dienst, Container oder Timer im Akkubetrieb pausieren
 settings-power-pause-search = Dienste, Container und Timer suchen

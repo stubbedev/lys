@@ -134,19 +134,20 @@ type pausing struct {
 	rows    *widget.ItemGroup
 	state   *cardState
 	add     *widget.Button
+	addRow  *insetRow
 }
 
 func newPausing(k *kit) *pausing {
 	t := locale.T()
 	s := &pausing{k: k, uid: intconv.Must[uint32](os.Getuid()), rows: widget.NewItemGroup(), state: k.cardState()}
 	body := gapBox(widget.Column)
-	body.Append(k.note(t.Get("settings-power-pause-detail")), false)
 	s.problem = k.inlineState()
 	body.Append(s.problem, false)
 	body.Append(s.rows, false)
 	s.add = k.addButton("settings-power-pause-add", s.openPicker)
 	s.add.SetAccessibleName(t.Get("settings-power-pause-add"))
-	body.AppendAligned(s.add, false, widget.AlignStart)
+	s.addRow = newInsetAction(s.add)
+	body.Append(s.addRow, false)
 	s.Box = newSection(k, "settings-power-section-pause", body)
 	s.load()
 	return s
@@ -177,7 +178,7 @@ func (s *pausing) show(l pauseListing) {
 	s.listing = l
 	s.rows.Clear()
 	s.rows.Append(s.state)
-	s.add.SetVisible(l.err == nil)
+	s.addRow.SetVisible(l.err == nil)
 	if l.err != nil {
 		s.state.Unavailable("ld-battery-full-symbolic", t.Get("settings-power-pause-unavailable"), l.err)
 		return

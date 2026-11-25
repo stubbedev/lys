@@ -538,10 +538,10 @@ func (p *usersPanel) showAdmin(l otherUsersListing) {
 		}
 		rows.Append(p.k.chevronRow(u.DisplayName(), accountIdentity(u), "settings-users-edit", func() { p.openUserSheet(u) }))
 	}
+	add, _ := p.k.contentButton(roleSecondary, "ld-plus-symbolic", locale.T().Get("settings-users-add-open"), p.openAddUserDialog)
+	rows.Append(newInsetAction(add))
 	body.Append(rows, false)
 	p.others, p.taken = l.users, l.taken
-	add := p.k.addButton("settings-users-add-open", p.openAddUserDialog)
-	body.AppendAligned(add, false, widget.AlignStart)
 	p.admin.Append(newSection(p.k, "settings-section-users-others", body), false)
 }
 

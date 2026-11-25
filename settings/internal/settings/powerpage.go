@@ -399,9 +399,7 @@ func (p *powerPanel) modeRows() widget.Widget {
 			labels = append(labels, t.Get("settings-power-mode-"+profile))
 		}
 	}
-	box := gapBox(widget.Column)
-	box.Append(p.k.note(t.Get("settings-power-mode-detail")), false)
-	box.Append(newCards(p.k, slot{
+	return widget.NewItemGroup(newInsetAction(newCards(p.k, slot{
 		get: func() any { return p.state.profiles.Active },
 		set: func(v any) error {
 			profile, ok := v.(string)
@@ -411,8 +409,7 @@ func (p *powerPanel) modeRows() widget.Widget {
 			p.run(powerActionProfile, func(ctx context.Context, ctl powerControl) error { return ctl.setProfile(ctx, profile) })
 			return nil
 		},
-	}, values, labels, powerModePictures), false)
-	return box
+	}, values, labels, powerModePictures)))
 }
 
 type batteryPresence struct {

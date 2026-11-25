@@ -90,7 +90,7 @@ type proxyServerInput struct {
 type proxyForm struct {
 	*widget.Box
 	p        *networkPanel
-	none     *widget.Label
+	none     *insetRow
 	row      *settingRow
 	choices  []proxyChoice
 	methods  *choicePick
@@ -117,7 +117,7 @@ func newProxyForm(p *networkPanel) *proxyForm {
 	t := locale.T()
 	f := &proxyForm{Box: gapBox(widget.Column), p: p, choices: []proxyChoice{proxyChoiceNone, proxyChoiceAuto}}
 	f.AddClass("proxy-form")
-	f.none = k.note(t.Get("settings-proxy-no-connection"))
+	f.none = newInsetRow(k.note(t.Get("settings-proxy-no-connection")))
 	f.Append(f.none, false)
 	f.noManual = k.inlineState()
 	if w, why, err := proxyWM(k); w == nil {
