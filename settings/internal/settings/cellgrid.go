@@ -48,6 +48,11 @@ func cellGridRow(key string, columns []string, rows ...gridRow) rowSpec {
 	})
 }
 
+// cellGrid is a grid of controls under their columns' headings, in rows
+// headed by their own when it has several kinds of thing. A strip, with
+// no row headings, gives its columns one width, so a column starts where
+// it would whatever its heading reads, and strips of as many columns line
+// up across pages; a table's columns are as wide as their own cells.
 type cellGrid struct {
 	*widget.Grid
 	cells []control
@@ -63,6 +68,7 @@ func newCellGrid(k *kit, columns []string, rows []gridRow) *cellGrid {
 			first = 1
 		}
 	}
+	g.SetColumnHomogeneous(first == 0)
 	for c, key := range columns {
 		g.Attach(k.label(t.Get(key), css.Caption, css.DimLabel), first+c, 0, 1, 1)
 	}

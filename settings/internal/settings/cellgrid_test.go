@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -66,4 +67,43 @@ func TestAGridRowWithTheWrongNumberOfCellsRefusesToBuild(t *testing.T) {
 	}()
 	cellGridRow("settings-state-icons", []string{"settings-wifi-title", "settings-wifi-wired"},
 		gridRow{cells: gridCells([]string{"modules.network.wifi-disabled-icon"}, iconRow)})
+}
+
+// State icon columns were each as wide as their heading, so Bluetooth's
+// four started at uneven steps and the second column of every two-icon
+// grid stood at its own x. The columns share one width: they start at
+// even steps, and grids of as many columns start them at one x.
+func TestACellGridsColumnsAreEvenWhateverTheirHeadingsRead(t *testing.T) {
+	starts := func(id string) []int {
+		win := laidOutPage(t, "", id, sweepW)
+		grids := treetest.All[*cellGrid](win.page)
+		if len(grids) != 1 {
+			t.Fatalf("%s holds %d cell grids, want one", id, len(grids))
+		}
+		var xs []int
+		for _, c := range grids[0].cells {
+			xs = append(xs, c.(widget.Boundser).Bounds().X)
+		}
+		return xs
+	}
+	bt := starts("bluetooth")
+	if len(bt) != 4 {
+		t.Fatalf("Bluetooth's grid holds %d icons, want four", len(bt))
+	}
+	for i := 2; i < len(bt); i++ {
+		if step, first := bt[i]-bt[i-1], bt[1]-bt[0]; step < first-1 || step > first+1 {
+			t.Errorf("Bluetooth's columns start at %v: step %d after %d", bt, step, first)
+		}
+	}
+	second := map[string]int{}
+	for _, id := range []string{"bitwarden", "idle-inhibit", "media"} {
+		xs := starts(id)
+		if len(xs) != 2 {
+			t.Fatalf("%s's grid holds %d icons, want two", id, len(xs))
+		}
+		second[id] = xs[1]
+	}
+	if second["bitwarden"] != second["idle-inhibit"] || second["bitwarden"] != second["media"] {
+		t.Errorf("two-icon grids start their second column at %v", second)
+	}
 }
