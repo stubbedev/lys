@@ -388,9 +388,9 @@ func (d *Dropdown) Paint(cv *render.Canvas) {
 	switch {
 	case d.list != nil:
 		bg = t.SurfacePressed
-	case d.hovered && d.Enabled():
+	case d.hovered && IsEnabled(d):
 		bg = t.SurfaceHover
-	case !d.Enabled():
+	case !IsEnabled(d):
 		bg = t.DisabledSurface()
 	}
 	bv := d.faceBtn.style(&d.faceBtn)
@@ -403,7 +403,7 @@ func (d *Dropdown) Paint(cv *render.Canvas) {
 	fx.pop()
 
 	col := t.Text
-	if !d.Enabled() {
+	if !IsEnabled(d) {
 		col = t.DisabledText()
 	}
 	lineH := d.face.Shape("lg", d.sizePx).LineHeight()
@@ -422,7 +422,7 @@ func (d *Dropdown) Paint(cv *render.Canvas) {
 	// The chevron: a combobox's symbol at the face's right edge, in the
 	// arrow node's color over a symbol's muted one.
 	chev := t.TextMuted
-	if !d.Enabled() {
+	if !IsEnabled(d) {
 		chev = col
 	}
 	chev = pickc(0, d.faceArrow.style(&d.faceArrow), style.PropColor, chev)
@@ -455,7 +455,7 @@ func (d *Dropdown) HitTest(p Point) Widget { return d.HitLeaf(d, p) }
 // ClickAt toggles the list; the Router invokes it when a press and
 // release land on the face.
 func (d *Dropdown) ClickAt(Point) {
-	if !d.Enabled() {
+	if !IsEnabled(d) {
 		return
 	}
 	if d.list != nil {
@@ -477,7 +477,7 @@ func (d *Dropdown) SetHovered(on bool) {
 // KeyAction implements KeyActionHandler: Enter or Down opens. The open
 // list holds the focus, so its keys reach it, not the face.
 func (d *Dropdown) KeyAction(a KeyAction, _ Mods) {
-	if !d.Enabled() {
+	if !IsEnabled(d) {
 		return
 	}
 	switch a {
@@ -490,7 +490,7 @@ func (d *Dropdown) KeyAction(a KeyAction, _ Mods) {
 // the activation pair (Enter is the first). Every other printable rune
 // feeds the type-ahead chain, which moves the selection.
 func (d *Dropdown) InsertRune(r rune) {
-	if !d.Enabled() {
+	if !IsEnabled(d) {
 		return
 	}
 	if r == ' ' {

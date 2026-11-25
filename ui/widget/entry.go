@@ -509,12 +509,12 @@ func (e *Entry) ReadOnly() bool { return e.readOnly }
 // input at all (it and its ancestors are enabled) and is not
 // read-only. Every mutation entry point opens with it; SetText is the
 // one deliberate exception.
-func (e *Entry) editable() bool { return e.Enabled() && !e.readOnly }
+func (e *Entry) editable() bool { return IsEnabled(e) && !e.readOnly }
 
 // rejectEdit rings the error bell for an edit a read-only field
 // refused (a disabled one takes no input at all).
 func (e *Entry) rejectEdit() {
-	if e.Enabled() && e.readOnly {
+	if IsEnabled(e) && e.readOnly {
 		ErrorBell(e)
 	}
 }
@@ -1543,7 +1543,7 @@ func (e *Entry) InsertRune(r rune) {
 // ignores keys outright; a read-only one keeps the motion and
 // selection keys and drops only the mutating ones.
 func (e *Entry) KeyAction(a KeyAction, mods Mods) {
-	if !e.Enabled() {
+	if !IsEnabled(e) {
 		return
 	}
 	if e.keys != nil && e.keys(a, mods) {

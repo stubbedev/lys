@@ -48,7 +48,7 @@ func (l *EditableLabel) Editing() bool { return l.editing }
 
 // StartEditing enters edit mode with the whole text selected.
 func (l *EditableLabel) StartEditing() {
-	if l.editing || !l.Enabled() {
+	if l.editing || !IsEnabled(l) {
 		return
 	}
 	l.editing = true

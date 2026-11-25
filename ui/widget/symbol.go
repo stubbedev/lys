@@ -104,9 +104,14 @@ func (s *Symbol) Measure(axis Axis, forSize int) Sizes {
 // Arrange records the rect.
 func (s *Symbol) Arrange(r render.Rect) { s.node.Arrange(r) }
 
-// Paint strokes the glyph centered in the bounds.
+// Paint strokes the glyph centered in the bounds, in the disabled text
+// colour while it or an ancestor is disabled.
 func (s *Symbol) Paint(cv *render.Canvas) {
-	paintSymbol(cv, s.kind, s.bounds, s.size, pickc(0, s.style(s), style.PropColor, Current().TextMuted))
+	col := Current().TextMuted
+	if !IsEnabled(s) {
+		col = Current().DisabledText()
+	}
+	paintSymbol(cv, s.kind, s.bounds, s.size, pickc(0, s.style(s), style.PropColor, col))
 }
 
 // paintSymbol strokes kind in col, centered in b at most size wide.

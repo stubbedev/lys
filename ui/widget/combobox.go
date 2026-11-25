@@ -315,7 +315,7 @@ func (c *ComboboxEntry) SetSearchPlaceholder(s string) { c.list.search = s }
 // Open shows the options in a Command in a popover under the entry; a
 // disabled combobox stays closed.
 func (c *ComboboxEntry) Open() {
-	if !c.entry.Enabled() {
+	if !IsEnabled(c.entry) {
 		return
 	}
 	options := c.Options()

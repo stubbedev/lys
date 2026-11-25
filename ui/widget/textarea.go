@@ -235,7 +235,7 @@ func (t *TextArea) ReadOnly() bool { return t.readOnly }
 // editable reports whether user edits may land: enabled throughout
 // the ancestor chain and not read-only. Every mutation entry point
 // opens with it; SetText is the deliberate exception.
-func (t *TextArea) editable() bool { return t.Enabled() && !t.readOnly }
+func (t *TextArea) editable() bool { return IsEnabled(t) && !t.readOnly }
 
 // pos is a line/column cursor or anchor position in the logical
 // document.
@@ -1449,7 +1449,7 @@ func (t *TextArea) InsertRune(r rune) {
 // read-only one keeps the motion and selection keys and drops only the
 // mutating ones.
 func (t *TextArea) KeyAction(a KeyAction, mods Mods) {
-	if !t.Enabled() {
+	if !IsEnabled(t) {
 		return
 	}
 	shift := mods&ModShift != 0

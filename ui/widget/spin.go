@@ -112,7 +112,7 @@ func (s *SpinButton) SetRange(min, max float64) {
 // KeyAction steps on Up/Down and PageUp/PageDown; every other key
 // edits the text.
 func (s *SpinButton) KeyAction(a KeyAction, mods Mods) {
-	if !s.Enabled() || s.ReadOnly() {
+	if !IsEnabled(s) || s.ReadOnly() {
 		s.Entry.KeyAction(a, mods)
 		return
 	}
@@ -133,7 +133,7 @@ func (s *SpinButton) KeyAction(a KeyAction, mods Mods) {
 // stepperClick steps up from a press on the steppers' upper half,
 // down from the lower.
 func (s *SpinButton) stepperClick(p Point) {
-	if !s.Enabled() || s.ReadOnly() {
+	if !IsEnabled(s) || s.ReadOnly() {
 		return
 	}
 	r := s.trailingRect()
