@@ -77,6 +77,60 @@ func TestByteSizeLocalizesNumberAndUnit(t *testing.T) {
 	}
 }
 
+func TestAByteSizeAboutToRoundUpStepsToTheNextUnit(t *testing.T) {
+	for _, c := range []struct {
+		n    uint64
+		want string
+	}{
+		{1<<20 - 1, "1.0 MiB"},
+		{1<<20 - 60, "1,023.9 KiB"},
+		{1<<30 - 1, "1.0 GiB"},
+	} {
+		if got := shellLoader(t, "en-US").ByteSize(c.n); got != c.want {
+			t.Errorf("ByteSize(%d) = %q, want %q", c.n, got, c.want)
+		}
+	}
+}
+
+func TestDecimalByteSizeCountsInThousandsAndLocalizes(t *testing.T) {
+	for _, c := range []struct {
+		locale string
+		n      uint64
+		want   string
+	}{
+		{"en-US", 0, "0 B"},
+		{"en-US", 999, "999 B"},
+		{"en-US", 1000, "1.0 kB"},
+		{"en-US", 1024, "1.0 kB"},
+		{"en-US", 1500, "1.5 kB"},
+		{"en-US", 999_999, "1.0 MB"},
+		{"en-US", 16_000_000_000, "16.0 GB"},
+		{"en-US", 500_107_862_016, "500.1 GB"},
+		{"en-US", 2_000_000_000_000, "2.0 TB"},
+		{"en-US", 1 << 63, "9.2 EB"},
+		{"de", 500_107_862_016, "500,1 GB"},
+		{"de", 999, "999 B"},
+		{"fr", 500_107_862_016, "500,1\u00a0Go"},
+		{"fr", 1500, "1,5\u00a0ko"},
+		{"fr", 512, "512\u00a0o"},
+		{"nl", 4_700_000_000, "4,7 GB"},
+	} {
+		if got := shellLoader(t, c.locale).DecimalByteSize(c.n); got != c.want {
+			t.Errorf("%s DecimalByteSize(%d) = %q, want %q", c.locale, c.n, got, c.want)
+		}
+	}
+}
+
+func TestBinaryAndDecimalSizesDisagreeAboveAThousand(t *testing.T) {
+	l := shellLoader(t, "en-US")
+	if binary, decimal := l.ByteSize(1_000_000), l.DecimalByteSize(1_000_000); binary != "976.6 KiB" || decimal != "1.0 MB" {
+		t.Errorf("a million bytes = %q binary, %q decimal, want 976.6 KiB and 1.0 MB", binary, decimal)
+	}
+	if binary, decimal := l.ByteSize(999), l.DecimalByteSize(999); binary != decimal {
+		t.Errorf("999 bytes = %q binary, %q decimal, want the same plain bytes", binary, decimal)
+	}
+}
+
 func TestDateTimeFollowsTheLocalePatterns(t *testing.T) {
 	morning := time.Date(2026, 3, 4, 5, 6, 7, 0, time.UTC)
 	evening := time.Date(2026, 11, 24, 17, 30, 0, 0, time.UTC)
@@ -138,6 +192,9 @@ func TestAnUnservedLocaleFormatsAsTheFallback(t *testing.T) {
 		}
 		if got := l.ByteSize(1536); got != "1.5 KiB" {
 			t.Errorf("%v: ByteSize = %q, want en-US's", requested, got)
+		}
+		if got := l.DecimalByteSize(1500); got != "1.5 kB" {
+			t.Errorf("%v: DecimalByteSize = %q, want en-US's", requested, got)
 		}
 	}
 }

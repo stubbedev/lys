@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
@@ -74,7 +75,7 @@ func TestVolumesListWhatTheUserSees(t *testing.T) {
 		t.Errorf("the stick reads %+v", s)
 	}
 	v, _ := find(vols, vault)
-	if v.Label != "500 GB Encrypted Volume" || !v.Locked {
+	if want := i18n.T("volume-encrypted-sized", i18n.Str("size", i18n.Shell().DecimalByteSize(500_000_000_000))); v.Label != want || !v.Locked {
 		t.Errorf("the vault reads %+v", v)
 	}
 	for _, p := range []dbus.ObjectPath{root, hidden} {

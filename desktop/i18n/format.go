@@ -2,6 +2,7 @@ package i18n
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -21,16 +22,24 @@ const (
 
 type byteUnits [7]string
 
+type unitSystems struct{ binary, decimal byteUnits }
+
 var (
-	iecUnits    = byteUnits{"B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB"}
-	octetUnits  = byteUnits{"o", "Kio", "Mio", "Gio", "Tio", "Pio", "Eio"}
+	byteUnitSystems = unitSystems{
+		binary:  byteUnits{"B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB"},
+		decimal: byteUnits{"B", "kB", "MB", "GB", "TB", "PB", "EB"},
+	}
+	octetUnitSystems = unitSystems{
+		binary:  byteUnits{"o", "Kio", "Mio", "Gio", "Tio", "Pio", "Eio"},
+		decimal: byteUnits{"o", "ko", "Mo", "Go", "To", "Po", "Eo"},
+	}
 	amPMMarkers = [2]string{"AM", "PM"}
 )
 
 type localeFormats struct {
 	decimal, group    string
 	minimumGrouping   int
-	units             byteUnits
+	units             unitSystems
 	unitSpace         string
 	order             dateOrder
 	dateSeparator     string
@@ -44,37 +53,37 @@ func formatsFor(catalogue LangID) (localeFormats, error) {
 	switch catalogue.String() {
 	case "en-US":
 		return localeFormats{
-			decimal: ".", group: ",", minimumGrouping: 1, units: iecUnits, unitSpace: " ",
+			decimal: ".", group: ",", minimumGrouping: 1, units: byteUnitSystems, unitSpace: " ",
 			order: monthDayYear, dateSeparator: "/", hour12: true, dateTimeSeparator: ", ",
 		}, nil
 	case "de":
 		return localeFormats{
-			decimal: ",", group: ".", minimumGrouping: 1, units: iecUnits, unitSpace: " ",
+			decimal: ",", group: ".", minimumGrouping: 1, units: byteUnitSystems, unitSpace: " ",
 			order: dayMonthYear, dateSeparator: ".", padHour: true, dateTimeSeparator: ", ",
 		}, nil
 	case "es":
 		return localeFormats{
-			decimal: ",", group: ".", minimumGrouping: 2, units: iecUnits, unitSpace: " ",
+			decimal: ",", group: ".", minimumGrouping: 2, units: byteUnitSystems, unitSpace: " ",
 			order: dayMonthYear, dateSeparator: "/", dateTimeSeparator: ", ",
 		}, nil
 	case "fr":
 		return localeFormats{
-			decimal: ",", group: narrowNBSP, minimumGrouping: 1, units: octetUnits, unitSpace: nbsp,
+			decimal: ",", group: narrowNBSP, minimumGrouping: 1, units: octetUnitSystems, unitSpace: nbsp,
 			order: dayMonthYear, dateSeparator: "/", padDate: true, padHour: true, dateTimeSeparator: " ",
 		}, nil
 	case "it":
 		return localeFormats{
-			decimal: ",", group: ".", minimumGrouping: 2, units: iecUnits, unitSpace: " ",
+			decimal: ",", group: ".", minimumGrouping: 2, units: byteUnitSystems, unitSpace: " ",
 			order: dayMonthYear, dateSeparator: "/", padDate: true, padHour: true, dateTimeSeparator: ", ",
 		}, nil
 	case "nl":
 		return localeFormats{
-			decimal: ",", group: ".", minimumGrouping: 1, units: iecUnits, unitSpace: " ",
+			decimal: ",", group: ".", minimumGrouping: 1, units: byteUnitSystems, unitSpace: " ",
 			order: dayMonthYear, dateSeparator: "-", padHour: true, dateTimeSeparator: ", ",
 		}, nil
 	case "pt":
 		return localeFormats{
-			decimal: ",", group: nbsp, minimumGrouping: 2, units: iecUnits, unitSpace: " ",
+			decimal: ",", group: nbsp, minimumGrouping: 2, units: byteUnitSystems, unitSpace: " ",
 			order: dayMonthYear, dateSeparator: "/", padDate: true, padHour: true, dateTimeSeparator: ", ",
 		}, nil
 	}
@@ -139,20 +148,35 @@ func (l *Loader) Integer(n int64) string {
 	return l.formats().localize(strconv.FormatInt(n, 10))
 }
 
-// ByteSize is a byte count in binary (1024-based) units with one
-// decimal, plain bytes below a kibibyte: "1.5 KiB" in en-US, "1,5 KiB"
-// in de, "1,5 Kio" in fr.
-func (l *Loader) ByteSize(n uint64) string {
-	f := l.formats()
-	if n < 1024 {
-		return f.localize(strconv.FormatUint(n, 10)) + f.unitSpace + f.units[0]
+// byteSize is n in powers of base named by units, with one decimal,
+// plain bytes below base. A size that would round up to base steps to
+// the next unit, so 1,048,575 bytes are "1.0 MiB", never "1024.0 KiB".
+func (f localeFormats) byteSize(n, base uint64, units byteUnits) string {
+	if n < base {
+		return f.localize(strconv.FormatUint(n, 10)) + f.unitSpace + units[0]
 	}
 	size, unit := float64(n), 0
-	for size >= 1024 && unit < len(f.units)-1 {
-		size /= 1024
+	for unit < len(units)-1 && math.Round(size*10)/10 >= float64(base) {
+		size /= float64(base)
 		unit++
 	}
-	return f.localize(strconv.FormatFloat(size, 'f', 1, 64)) + f.unitSpace + f.units[unit]
+	return f.localize(strconv.FormatFloat(size, 'f', 1, 64)) + f.unitSpace + units[unit]
+}
+
+// ByteSize is a byte count in binary (1024-based) units with one
+// decimal, plain bytes below a kibibyte: "1.5 KiB" in en-US, "1,5 KiB"
+// in de, "1,5 Kio" in fr. Memory and files are measured so.
+func (l *Loader) ByteSize(n uint64) string {
+	f := l.formats()
+	return f.byteSize(n, 1024, f.units.binary)
+}
+
+// DecimalByteSize is a byte count in decimal (1000-based) units with
+// one decimal, plain bytes below a kilobyte: "500.1 GB" in en-US,
+// "500,1 GB" in de, "500,1 Go" in fr. Drives are sold so.
+func (l *Loader) DecimalByteSize(n uint64) string {
+	f := l.formats()
+	return f.byteSize(n, 1000, f.units.decimal)
 }
 
 // Time is t's hour and minute in t's location, in the locale's hour

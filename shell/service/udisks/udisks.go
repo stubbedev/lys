@@ -11,9 +11,9 @@ import (
 	"fmt"
 	"log"
 	"slices"
-	"strconv"
 	"unsafe"
 
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
@@ -80,13 +80,14 @@ func (c *Client) Volumes(ctx context.Context) ([]Volume, error) {
 	if err := c.conn.Object(BusName, ManagerPath).CallWithContext(ctx, dbusx.ObjectManagerInterface+".GetManagedObjects", 0).Store(&objs); err != nil {
 		return nil, fmt.Errorf("udisks: listing objects: %w", err)
 	}
-	return volumesOf(objs), nil
+	return volumesOf(i18n.Shell(), objs), nil
 }
 
 // volumesOf picks the volumes a user sees from UDisks2's objects:
 // block devices with a filesystem or a locked encrypted container,
-// neither marked to ignore nor a system device.
-func volumesOf(objs objects) []Volume {
+// neither marked to ignore nor a system device. One without a label
+// is named in l's language.
+func volumesOf(l *i18n.Loader, objs objects) []Volume {
 	var vols []Volume
 	for path, ifaces := range objs {
 		block, ok := ifaces[BlockIface]
@@ -116,7 +117,7 @@ func volumesOf(objs objects) []Volume {
 			v.powerOff = boolOf(drive, "CanPowerOff")
 			v.Removable = boolOf(drive, "Removable") && (v.powerOff || boolOf(drive, "Ejectable"))
 		}
-		v.Label = cmp.Or(stringOf(block, "IdLabel"), stringOf(block, "HintName"), sizeLabel(v))
+		v.Label = cmp.Or(stringOf(block, "IdLabel"), stringOf(block, "HintName"), sizeLabel(l, v))
 		v.Icon = cmp.Or(stringOf(block, "HintSymbolicIconName"), stringOf(block, "HintIconName"))
 		vols = append(vols, v)
 	}
@@ -139,31 +140,17 @@ func unlocked(objs objects, path dbus.ObjectPath, ifaces map[string]map[string]d
 	return false
 }
 
-// sizeLabel names a volume without a label by its size, as GVfs does.
-func sizeLabel(v Volume) string {
-	kind := "Volume"
+// sizeLabel names a volume without a label by its size, in the
+// decimal units drives are sold in, as GVfs does, in l's language.
+func sizeLabel(l *i18n.Loader, v Volume) string {
+	unsized, sized := "volume-unnamed", "volume-unnamed-sized"
 	if v.Locked {
-		kind = "Encrypted Volume"
+		unsized, sized = "volume-encrypted", "volume-encrypted-sized"
 	}
 	if v.Size == 0 {
-		return kind
+		return l.Get(unsized)
 	}
-	return decimalSize(v.Size) + " " + kind
-}
-
-// decimalSize is a byte count in the decimal units drives are sold in.
-func decimalSize(n uint64) string {
-	units := [...]string{"B", "kB", "MB", "GB", "TB", "PB"}
-	unit := 0
-	whole, rest := n, uint64(0)
-	for whole >= 1000 && unit < len(units)-1 {
-		whole, rest = whole/1000, whole%1000
-		unit++
-	}
-	if whole < 10 && unit > 0 {
-		return strconv.FormatUint(whole, 10) + "." + strconv.FormatUint(rest/100, 10) + " " + units[unit]
-	}
-	return strconv.FormatUint(whole, 10) + " " + units[unit]
+	return l.Get(sized, i18n.Str("size", l.DecimalByteSize(v.Size)))
 }
 
 // Watch calls changed, from one goroutine, whenever UDisks2's objects
