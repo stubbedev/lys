@@ -198,36 +198,46 @@ func (spins columnEdges) endOnTheEdgeOf(t *testing.T, what string, fields column
 	}
 }
 
-// On Mouse & Touchpad every card's dropdowns, spins and entries start
-// and end at one x, whatever their choices; a control marked full-width
+// On Mouse & Touchpad every card's dropdowns, spins, switches and
+// entries end at one x, whatever their choices, and its entries and
+// other column fields start at one x too; a control marked full-width
 // takes the row's width under its text instead.
-func TestPointerCardsShareOneControlColumn(t *testing.T) {
+func TestPointerCardsShareOneControlEdge(t *testing.T) {
 	p := laidOutPage(t, "", "wm-pointer", sweepW).page
 	cards, wide := 0, 0
 	for _, g := range treetest.All[*widget.ItemGroup](p) {
-		edges := columnEdges{}
+		column := columnEdges{}
+		ends := map[int][]string{}
 		for _, r := range p.rows {
 			if !shown(r) || !treetest.Contains(g, r) {
 				continue
 			}
 			b := r.ctl.(widget.Boundser).Bounds()
 			switch r.ControlFit() {
-			case widget.ItemControlColumn:
-				edges[r.path] = b
 			case widget.ItemControlWide:
 				wide++
 				if rb := r.Bounds(); b.W < rb.W*3/4 {
 					t.Errorf("full-width %s is %dpx wide in its %dpx row", r.path, b.W, rb.W)
 				}
+				continue
+			case widget.ItemControlColumn:
+				column[r.path] = b
 			}
+			ends[b.X+b.W] = append(ends[b.X+b.W], r.path)
 		}
-		if len(edges) > 1 {
-			cards++
-			edges.shareEdges(t, fmt.Sprintf("wm-pointer card %d", cards))
+		if len(column) > 1 {
+			column.shareEdges(t, fmt.Sprintf("wm-pointer card %d", cards+1))
+		}
+		if len(ends) == 0 {
+			continue
+		}
+		cards++
+		if len(ends) > 1 {
+			t.Errorf("wm-pointer card %d's controls end at %v, want one x", cards, ends)
 		}
 	}
 	if cards == 0 || wide == 0 {
-		t.Fatalf("%d cards with a column and %d full-width controls, want both", cards, wide)
+		t.Fatalf("%d cards with controls and %d full-width controls, want both", cards, wide)
 	}
 }
 
@@ -394,8 +404,8 @@ func TestAChoiceEditorFitsTheControlColumn(t *testing.T) {
 
 // A device picker with its level under it is a field of its card's
 // control column: it and its level start and end at one x with an entry
-// of the card, its dropdown, as wide as its value, at the column's
-// start, for a device list and for a choice editor alike.
+// of the card, its dropdown, as wide as its value, ending on the
+// column's end, for a device list and for a choice editor alike.
 func TestALevelledDeviceFitsTheControlColumn(t *testing.T) {
 	for _, tc := range []struct {
 		name, path string
@@ -420,8 +430,8 @@ func TestALevelledDeviceFitsTheControlColumn(t *testing.T) {
 				t.Fatal("the level meter is not shown")
 			}
 			columnEdges{"device": c.Bounds(), "level": c.level.meter.Bounds(), "entry": entry.Bounds()}.shareEdges(t, tc.name)
-			if d, dev := tc.dropdown(c).Bounds(), c.Bounds(); d.X != dev.X || d.X+d.W > dev.X+dev.W {
-				t.Errorf("%s: the picker spans x %d..%d, outside the column's start of %d..%d", tc.name, d.X, d.X+d.W, dev.X, dev.X+dev.W)
+			if d, dev := tc.dropdown(c).Bounds(), c.Bounds(); d.X < dev.X || d.X+d.W != dev.X+dev.W {
+				t.Errorf("%s: the picker spans x %d..%d, not ending on the column's end in %d..%d", tc.name, d.X, d.X+d.W, dev.X, dev.X+dev.W)
 			}
 		})
 	}

@@ -134,10 +134,9 @@ func newLevelledDevice(k *kit, s slot, target func(name string) (pulse.CaptureTa
 	return c
 }
 
-// fit holds the device picker where its picker alone would be: a
-// dropdown in the card's control column, the level under it as wide
-// (controlFit).
-func (c *levelledDevice) fit() widget.ItemControlFit { return controlFit(c.pick) }
+// fit holds the device picker in the card's control column, the level
+// under it as wide and its dropdown ending on the column's end.
+func (c *levelledDevice) fit() widget.ItemControlFit { return widget.ItemControlColumn }
 
 // detail is why the level cannot be shown, under the row's text rather
 // than in the control column, where its text would set the width of

@@ -136,9 +136,9 @@ func TestAutoReportsAProbeItCouldNotRun(t *testing.T) {
 // The lines under the sleep action's choice set the width of its
 // control, so the choice started far left of the page's other choices
 // and squeezed the row's description to a few words. The lines are the
-// row's detail, under its text, and the choice sits in the control
-// column the page's other choices share.
-func TestTheSleepActionsChoiceSharesThePagesControlColumn(t *testing.T) {
+// row's detail, under its text, and the choice ends on the control edge
+// the page's other choices end on.
+func TestTheSleepActionsChoiceEndsWhereThePagesOtherChoicesDo(t *testing.T) {
 	win := laidOutPage(t, "", "idle", windowWidth)
 	sleep := treetest.All[*sleepAction](win.page)
 	if len(sleep) != 1 {
@@ -156,10 +156,10 @@ func TestTheSleepActionsChoiceSharesThePagesControlColumn(t *testing.T) {
 	if len(others) == 0 {
 		t.Fatal("the idle page shows no other choice")
 	}
-	b := sleep[0].Bounds()
+	b := sleep[0].pick.Bounds()
 	for _, o := range others {
-		if ob := o.Bounds(); ob.X != b.X || ob.X+ob.W != b.X+b.W {
-			t.Errorf("a choice spans %d..%d, the sleep action %d..%d", ob.X, ob.X+ob.W, b.X, b.X+b.W)
+		if ob := o.Bounds(); ob.X+ob.W != b.X+b.W {
+			t.Errorf("a choice ends at %d, the sleep action's at %d", ob.X+ob.W, b.X+b.W)
 		}
 	}
 }

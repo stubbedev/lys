@@ -91,10 +91,6 @@ func wmColorEditor(k *kit, s slot, unsettable bool) *swatchPicker {
 	return newSwatchPicker(k, s, func() ([]swatchName, []swatchName) { return nil, wmColorNames(k) }, unsettable)
 }
 
-// columnField makes the editor a field of the control column: its
-// dropdown takes the column's width beside the swatch.
-func (c *swatchPicker) columnField() {}
-
 // shellColorNames are lys-shell's colour keywords, auto and transparent,
 // and its palette tokens under their groups, each in p's colour.
 func shellColorNames(p styling.Palette) (keywords, named []swatchName) {

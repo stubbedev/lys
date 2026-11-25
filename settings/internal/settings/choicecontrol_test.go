@@ -9,7 +9,6 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
-	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -153,7 +152,7 @@ func TestTheSegmentRulePicksTheForm(t *testing.T) {
 	}
 	p := newChoicePick(k, []string{"On", "Off"}, 0)
 	p.setLabels([]string{"a", "b", "c", "d", "e"}, 4)
-	if p.segments == nil || p.Selected() != 4 || p.fit() != widget.ItemControlNatural {
+	if p.segments == nil || p.Selected() != 4 {
 		t.Error("new labels changed the form")
 	}
 	var heard []int

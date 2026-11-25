@@ -109,15 +109,6 @@ func (p *choicePick) Measure(axis widget.Axis, forSize int) widget.Sizes {
 	return s
 }
 
-// fit holds a dropdown in the card's control column; segments keep
-// their own width (controlFit).
-func (p *choicePick) fit() widget.ItemControlFit {
-	if p.drop != nil {
-		return widget.ItemControlColumn
-	}
-	return widget.ItemControlNatural
-}
-
 // SetAccessibleName names the segments or the dropdown.
 func (p *choicePick) SetAccessibleName(name string) {
 	if p.drop != nil {
@@ -253,11 +244,10 @@ func newChoiceControl(k *kit, s slot, c closedChoice) *choiceControl {
 	cc.pick.OnSelect = cc.choose
 	cc.AppendAligned(cc.unknown, false, widget.AlignCenter)
 	cc.AppendAligned(cc.pick, false, widget.AlignCenter)
+	cc.SetHAlign(widget.AlignEnd)
 	cc.refresh()
 	return cc
 }
-
-func (c *choiceControl) fit() widget.ItemControlFit { return c.pick.fit() }
 
 // SetAccessibleName names the pick.
 func (c *choiceControl) SetAccessibleName(name string) { c.pick.SetAccessibleName(name) }

@@ -99,9 +99,9 @@ func newSleepAction(k *kit, s slot, meta config.FieldMeta) *sleepAction {
 	return c
 }
 
-// fit holds the choice in the card's control column, beside the page's
-// other choices.
-func (c *sleepAction) fit() widget.ItemControlFit { return widget.ItemControlColumn }
+// fit holds the choice where the page's other choices stand, on the
+// control edge at its value's width.
+func (c *sleepAction) fit() widget.ItemControlFit { return controlFit(c.pick) }
 
 // detail is the lines saying what the stored action does and why one
 // cannot be taken, under the row's text.
