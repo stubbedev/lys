@@ -2,12 +2,14 @@ package settings
 
 import (
 	"cmp"
+	"fmt"
 	"slices"
 	"strings"
 	"sync"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/pango"
 	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/lib/render"
@@ -160,6 +162,11 @@ func semanticEditor(k *kit, s slot, path string, meta config.FieldMeta) (control
 	case wmActionFormat:
 		f, _ := k.wm.fieldOf(path)
 		return newWMActionEditor(k, s, f.Actions), true
+	}
+	if len(meta.Placeholders) > 0 && meta.Markup {
+		f := placeholderFormat(meta.Placeholders)
+		f.markup = true
+		return newFormatEditor(k, s, meta.Optional, f), true
 	}
 	if len(meta.Placeholders) > 0 {
 		return newLabelBuilder(k, s, meta.Optional, placeholderFormat(meta.Placeholders)), true
@@ -502,6 +509,9 @@ type formatKind struct {
 	separators []string
 	escapes    []string
 	render     func(string) (string, error)
+	// markup is a format whose rendered text is Pango markup, previewed
+	// styled.
+	markup bool
 }
 
 // label is s as a choice shows it: its sample, or that it is no valid
@@ -620,7 +630,12 @@ func (c *formatEditor) refresh() {
 }
 
 func (c *formatEditor) showPreview(text string) {
-	c.preview.show(c.kind.render(text))
+	rendered, err := c.kind.render(text)
+	if c.kind.markup {
+		c.preview.showMarkup(rendered, err)
+		return
+	}
+	c.preview.show(rendered, err)
 }
 
 // formatPreview is a format's sample under its entry: the format at the
@@ -628,25 +643,55 @@ func (c *formatEditor) showPreview(text string) {
 // format, the error behind the disclosure.
 type formatPreview struct {
 	*widget.Box
-	sample  *widget.Label
+	sample *widget.Label
+	// styled is the sample of a format rendering Pango markup.
+	styled  *widget.RichLabel
 	invalid *inlineState
 }
 
 func (k *kit) formatPreview() *formatPreview {
 	p := &formatPreview{Box: widget.NewBox(widget.Column, 0, 0), sample: k.label("", "format-preview", css.Caption, css.DimLabel), invalid: k.inlineState()}
 	p.sample.SetEllipsize(widget.EllipsizeEnd)
+	p.styled = widget.NewRichLabel(k.face, k.textPx(), "", 0)
+	p.styled.AddClass("format-preview", css.Caption, css.DimLabel)
+	p.styled.SetVisible(false)
 	p.Append(p.sample, false)
+	p.Append(p.styled, false)
 	p.Append(p.invalid, false)
 	return p
 }
 
 // show previews text, or the failure err when it is not nil.
 func (p *formatPreview) show(text string, err error) {
+	p.styled.SetVisible(false)
 	p.sample.SetVisible(err == nil)
 	p.invalid.Result(locale.T().Get("settings-format-invalid"), err)
 	if err == nil {
 		p.sample.SetText(locale.T().Get("settings-format-preview", i18n.Str("text", text)))
 	}
+}
+
+// previewSlot stands for the sample in the preview's message while the
+// message is split around it.
+const previewSlot = "\x00"
+
+// showMarkup previews markup, Pango markup, styled as the launcher
+// renders it; markup that does not parse is the failure it previews,
+// as err when it is not nil.
+func (p *formatPreview) showMarkup(markup string, err error) {
+	if err == nil {
+		before, after, _ := strings.Cut(locale.T().Get("settings-format-preview", i18n.Str("text", previewSlot)), previewSlot)
+		styled, ok := pango.Translate(pango.Escape(before) + markup + pango.Escape(after))
+		if ok {
+			p.sample.SetVisible(false)
+			p.invalid.Clear()
+			p.styled.SetMarkup(styled)
+			p.styled.SetVisible(true)
+			return
+		}
+		err = fmt.Errorf("settings: %q is no Pango markup", markup)
+	}
+	p.show("", err)
 }
 
 // Text is what the preview says: the sample, or the failure's summary.

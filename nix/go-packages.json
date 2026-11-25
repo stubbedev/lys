@@ -7130,6 +7130,7 @@
       "desktop/logging",
       "desktop/mime",
       "desktop/opener",
+      "desktop/pango",
       "desktop/portal/permissions",
       "desktop/region",
       "desktop/service/bluetooth",

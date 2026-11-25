@@ -42,7 +42,19 @@ type placeholderDecl struct {
 type formatField struct {
 	syntax       placeholderSyntax
 	placeholders []placeholderDecl
+	// markup marks a format whose text renders as Pango markup.
+	markup bool
 }
+
+// pangoMarkup is f rendering its text as Pango markup.
+func pangoMarkup(f formatField) formatField {
+	f.markup = true
+	return f
+}
+
+// isMarkup reports whether the format field f renders its text
+// as Pango markup.
+func isMarkup(f fieldInfo) bool { return formatFields[f.owner.Name()+"."+f.goName].markup }
 
 func ph(name, sample string) placeholderDecl { return placeholderDecl{name: name, sample: sample} }
 
@@ -110,14 +122,14 @@ var formatFields = map[string]formatField{
 	"WorldClockConfig.Format": jinjaFormat(
 		placeholderDecl{name: "tz", sample: "14:30 UTC", spelling: "{{ tz('UTC', '%H:%M %Z') }}"},
 	),
-	"LauncherDrunConfig.DisplayFormat": braceFormat(
+	"LauncherDrunConfig.DisplayFormat": pangoMarkup(braceFormat(
 		ph("name", "Firefox"), ph("generic", "Web Browser"), ph("exec", "firefox %u"),
 		ph("categories", "Network;WebBrowser;"), ph("comment", "Browse the Web"),
-	),
+	)),
 	"LauncherWindowConfig.Format": braceFormat(
 		ph("w", "1"), ph("c", "firefox"), ph("t", "GitHub"), ph("n", "firefox"), ph("r", ""),
 	),
-	"LauncherCombiConfig.DisplayFormat":    braceFormat(ph("mode", "drun"), ph("text", "Firefox")),
+	"LauncherCombiConfig.DisplayFormat":    pangoMarkup(braceFormat(ph("mode", "drun"), ph("text", "Firefox"))),
 	"LauncherRunConfig.RunCommand":         braceFormat(ph("cmd", "htop")),
 	"LauncherRunConfig.ShellCommand":       braceFormat(ph("terminal", "foot"), ph("cmd", "htop")),
 	"LauncherSSHConfig.Command":            braceFormat(ph("terminal", "foot"), ph("ssh-client", "ssh"), ph("host", "example.org")),

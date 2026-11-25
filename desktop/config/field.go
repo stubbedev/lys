@@ -50,6 +50,9 @@ type FieldMeta struct {
 	Elem *FieldMeta
 	// Placeholders are the values a format field substitutes.
 	Placeholders []Placeholder
+	// Markup is a format field whose text renders as Pango markup, its
+	// tags styling the text rather than reading as it.
+	Markup bool
 }
 
 // Field describes the leaf at a dot path, or a field inside a value
@@ -66,7 +69,7 @@ func Field(path string) (FieldMeta, bool) {
 	}
 	if sub == "" {
 		m := describeField(f)
-		m.Placeholders = placeholdersOf(holder, f)
+		m.Placeholders, m.Markup = placeholdersOf(holder, f), isMarkup(f)
 		return m, true
 	}
 	t := f.typ
@@ -87,7 +90,7 @@ func ItemField[T any](key string) (FieldMeta, bool) {
 		return FieldMeta{}, false
 	}
 	m := describeField(*f)
-	m.Placeholders = placeholdersOf(t, *f)
+	m.Placeholders, m.Markup = placeholdersOf(t, *f), isMarkup(*f)
 	return m, true
 }
 
