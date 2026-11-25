@@ -27,6 +27,13 @@ button.link.mode-toggle {
   box-shadow: inset 0 0 0 1px var(--border-default);
 }
 
+.settings-page item item {
+  padding-left: 0px;
+  padding-right: 0px;
+  border-left-width: 0px;
+  border-right-width: 0px;
+}
+
 .settings-section-header .disclosure-chevron {
   margin-right: 18px;
 }
