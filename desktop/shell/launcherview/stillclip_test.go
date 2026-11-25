@@ -3,9 +3,10 @@ package launcherview
 import (
 	"testing"
 
-	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
+
+	"github.com/stubbedev/lys/desktop/config"
 )
 
 // A still caps its panel to the room below the panel's top, but painted
