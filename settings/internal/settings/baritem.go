@@ -53,6 +53,8 @@ type barItemPart struct {
 
 // barItemSectionParts are a Bar Item section's controls over the keys the item
 // has: its toggles, its colours, and its mouse actions offering choices.
+// Several colours share a strip of captioned pickers; a lone colour is a
+// row of its own, its picker on the control edge as every colour row's.
 func barItemSectionParts(keys barItemKeys, choices func() []actionChoice) []barItemPart {
 	var parts []barItemPart
 	for _, key := range barItemToggles {
@@ -67,7 +69,11 @@ func barItemSectionParts(keys barItemKeys, choices func() []actionChoice) []barI
 			labels = append(labels, keys.label(key))
 		}
 	}
-	if len(colors) > 0 {
+	switch len(colors) {
+	case 0:
+	case 1:
+		parts = append(parts, barItemPart{keys: colors})
+	default:
 		parts = append(parts, barItemPart{label: "settings-bar-item-colors", keys: colors, build: func(k *kit, slots []slot) control {
 			return newColorStrip(k, slots, labels)
 		}})

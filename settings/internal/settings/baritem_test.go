@@ -157,3 +157,29 @@ func TestTheMouseWheelIsOutlined(t *testing.T) {
 		t.Errorf("the wheel's top edge %v is its fill", ring)
 	}
 }
+
+// Workspaces' only bar item colour, its border, stood as a captioned
+// picker in a one-cell strip beside the page's row dropdowns. A lone
+// colour is a row of its own, its picker on the control edge; a module
+// with several keeps them in one strip.
+func TestALoneBarItemColourIsARow(t *testing.T) {
+	win := laidOutPage(t, "", "workspaces", sweepW)
+	if strips := treetest.All[*colorStrip](win.page); len(strips) != 0 {
+		t.Errorf("the Workspaces page shows %d colour strips", len(strips))
+	}
+	found := false
+	for _, r := range win.page.rows {
+		if r.path == "modules.workspaces.border-color" {
+			_, found = r.ctl.(*swatchPicker)
+			if r.ControlFit() == widget.ItemControlWide {
+				t.Error("the border colour takes a line of its own")
+			}
+		}
+	}
+	if !found {
+		t.Error("the Workspaces page has no border colour row with a picker")
+	}
+	if strips := treetest.All[*colorStrip](laidOutPage(t, "", "brightness", sweepW).page); len(strips) != 1 {
+		t.Errorf("the Brightness page shows %d colour strips, want its one", len(strips))
+	}
+}
