@@ -551,7 +551,7 @@ func (p *settingsPage) refresh() {
 // number_u32_range, number_newtype).
 func spin(lo, hi, step float64, digits int) rowOpt {
 	return withEditor(func(k *kit, s slot, _ config.FieldMeta) control {
-		return newNumber(k, s, lo, hi, step, digits)
+		return k.numberField(newNumber(k, s, lo, hi, step, digits), bareCount)
 	})
 }
 

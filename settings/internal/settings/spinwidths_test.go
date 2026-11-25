@@ -30,22 +30,29 @@ func TestACardsSliderFieldsShareOneWidth(t *testing.T) {
 
 // Keyboard's Repeat rate and delay fields started at 1062, Slow keys' at
 // 1044, their arrows at 1129 (/s) and 1122 (ms); Motion's Snap distance,
-// a bare count, started 27px right of Window switcher delay's. Every
+// a bare count, started 27px right of Window switcher delay's, and
+// Cava's Bar Count 8px right of Bar Width's. Every
 // number field a page shows in a row, a slider's or a spin's, with a unit
 // or without, starts and ends at one x, its arrows on one x.
 func TestAPagesNumberFieldsStandInOneColumn(t *testing.T) {
-	for _, id := range []string{"wm-keyboard", "motion", "wm-effects", barPageID} {
+	for _, id := range []string{"wm-keyboard", "motion", "wm-effects", barPageID, "cava"} {
 		win := laidOutPage(t, "", id, sweepW)
 		starts, ends, arrows := map[int]bool{}, map[int]bool{}, map[int]bool{}
 		for _, r := range win.page.rows {
 			if !shown(r) || r.ControlFit() == widget.ItemControlWide {
 				continue
 			}
-			for _, f := range treetest.All[*unitNumber](r.ctl) {
-				if !shown(f) {
+			for _, n := range treetest.All[*number](r.ctl) {
+				if !shown(n) {
 					continue
 				}
-				b, s := f.Bounds(), f.number.Bounds()
+				b := n.Bounds()
+				for _, f := range treetest.All[*unitNumber](r.ctl) {
+					if f.number == n {
+						b = f.Bounds()
+					}
+				}
+				s := n.Bounds()
 				starts[b.X], ends[b.X+b.W], arrows[s.X+s.W] = true, true, true
 			}
 		}
