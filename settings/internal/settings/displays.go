@@ -515,7 +515,7 @@ func (p *displaysPanel) identifyOutputs(names []string) {
 	}
 	for _, name := range names {
 		label := p.k.label(name, "display-identify", css.H1)
-		done, err := p.k.overlays(name, label, false)
+		done, err := p.k.overlays(name, label, overlayCorner)
 		if err != nil {
 			log.Printf("settings: identify %s: %v", name, err)
 			continue
@@ -567,7 +567,7 @@ func (p *displaysPanel) startConfirm(previous, applied []displays.Setting, heads
 				continue
 			}
 			box := p.newConfirmBox()
-			done, err := p.k.overlays(s.Name, box, true)
+			done, err := p.k.overlays(s.Name, box, overlayCentred)
 			if err != nil {
 				log.Printf("settings: confirm on %s: %v", s.Name, err)
 				continue
