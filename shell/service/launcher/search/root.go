@@ -103,7 +103,7 @@ func NewRoot(cfg config.LauncherSearchConfig, power config.PowerConfig, d Deps, 
 		}
 	}
 	add(config.SearchCalculator, func() Provider {
-		return NewCalculator(d.Rates, answer.NewCurrencyParser(sessionLanguage()), answer.NewZones(time.LoadLocation), time.Now)
+		return NewCalculator(i18n.Shell(), d.Rates, answer.NewCurrencyParser(sessionLanguage()), answer.NewZones(time.LoadLocation), time.Now)
 	})
 	add(config.SearchShell, func() Provider { return NewShell(d.Env) })
 	var keys []string

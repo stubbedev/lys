@@ -14,19 +14,20 @@ import (
 )
 
 // Calculator answers arithmetic, unit and currency conversions, times
-// across zones and date arithmetic inline.
+// across zones and date arithmetic inline, in its loader's language.
 type Calculator struct {
+	l        *i18n.Loader
 	rates    *answer.Rates
 	currency answer.CurrencyParser
 	zones    *answer.Zones
 	now      func() time.Time
 }
 
-// NewCalculator answers currencies over rates (nil answers none), reading
-// "kr" and symbols with currency, placing times through zones, on now's
-// calendar.
-func NewCalculator(rates *answer.Rates, currency answer.CurrencyParser, zones *answer.Zones, now func() time.Time) *Calculator {
-	return &Calculator{rates: rates, currency: currency, zones: zones, now: now}
+// NewCalculator answers in l's language and formats, currencies over
+// rates (nil answers none), reading "kr" and symbols with currency,
+// placing times through zones, on now's calendar.
+func NewCalculator(l *i18n.Loader, rates *answer.Rates, currency answer.CurrencyParser, zones *answer.Zones, now func() time.Time) *Calculator {
+	return &Calculator{l: l, rates: rates, currency: currency, zones: zones, now: now}
 }
 
 // Spec implements Provider.
@@ -61,11 +62,11 @@ func (c *Calculator) Answer(query string) []Entry {
 	}
 	if tq, ok := answer.ParseTime(q); ok {
 		if t, ok := c.zones.Eval(tq, c.now()); ok {
-			return []Entry{timeEntry(q, t)}
+			return []Entry{c.timeEntry(q, t)}
 		}
 	}
 	if d, ok := answer.EvalDate(q, c.now()); ok {
-		return []Entry{dateEntry(q, d)}
+		return []Entry{c.dateEntry(q, d)}
 	}
 	if !looksCalculable(q) {
 		return nil
@@ -103,61 +104,64 @@ func (c *Calculator) answerCurrency(q string) (Entry, bool) {
 	}
 	value := answer.FormatAmount(v)
 	now := c.now()
-	source := i18n.T("launcher-answer-currency-source",
+	source := c.l.Get("launcher-answer-currency-source",
 		i18n.Str("amount", cq.Amount), i18n.Str("from", cq.From.String()), i18n.Str("to", cq.To.String()),
 		i18n.Str("date", snap.Table.Date.Format(time.DateOnly)))
 	if !snap.Fresh(now) {
-		source = i18n.T("launcher-answer-currency-stale", i18n.Str("source", source), i18n.Int("days", int64(snap.AgeDays(now))))
+		source = c.l.Get("launcher-answer-currency-stale", i18n.Str("source", source), i18n.Int("days", int64(snap.AgeDays(now))))
 	}
 	return calcEntry(q, value, value+" "+cq.To.String(), source), true
 }
 
-func weekdayName(d time.Weekday) string {
-	return i18n.T("cal-day-" + strings.ToLower(d.String()))
+func (c *Calculator) weekdayName(d time.Weekday) string {
+	return c.l.Get("cal-day-" + strings.ToLower(d.String()))
 }
 
-func timeEntry(q string, t answer.TimeAnswer) Entry {
+// timeEntry shows the time in the locale's hour cycle with its zone's
+// abbreviation; the value a row copies and continues with stays the
+// 24-hour clock a query reads back.
+func (c *Calculator) timeEntry(q string, t answer.TimeAnswer) Entry {
 	clock := t.At.Format("15:04")
-	shown := clock + " " + t.At.Format("MST")
+	shown := c.l.Time(t.At) + " " + t.At.Format("MST")
 	if t.DayOffset != 0 {
 		sign, days := "+", t.DayOffset
 		if days < 0 {
 			sign, days = "−", -days
 		}
-		shown = i18n.T("launcher-answer-day-offset", i18n.Str("time", shown), i18n.Str("sign", sign), i18n.Int("days", int64(days)))
+		shown = c.l.Get("launcher-answer-day-offset", i18n.Str("time", shown), i18n.Str("sign", sign), i18n.Int("days", int64(days)))
 	}
-	day := weekdayName(t.At.Weekday()) + " " + t.At.Format(time.DateOnly)
+	day := c.weekdayName(t.At.Weekday()) + " " + t.At.Format(time.DateOnly)
 	subtitle := day
 	if t.Place != "" {
-		subtitle = i18n.T("launcher-answer-time-place", i18n.Str("day", day), i18n.Str("place", t.Place))
+		subtitle = c.l.Get("launcher-answer-time-place", i18n.Str("day", day), i18n.Str("place", t.Place))
 	}
 	return calcEntry(q, clock, shown, subtitle)
 }
 
-func dateEntry(q string, d answer.DateAnswer) Entry {
+func (c *Calculator) dateEntry(q string, d answer.DateAnswer) Entry {
 	if d.Kind == answer.DateIsSpan {
 		days := strconv.Itoa(d.Days)
-		return calcEntry(q, days, i18n.T("launcher-answer-days", i18n.Int("days", int64(d.Days))), q)
+		return calcEntry(q, days, c.l.Get("launcher-answer-days", i18n.Int("days", int64(d.Days))), q)
 	}
 	iso := d.Day.Format(time.DateOnly)
-	return calcEntry(q, iso, weekdayName(d.Day.Weekday())+" "+iso, q)
+	return calcEntry(q, iso, c.weekdayName(d.Day.Weekday())+" "+iso, q)
 }
 
 type calcData struct{ value, shown, expr string }
 
 // Actions implements Provider.
-func (*Calculator) Actions(e Entry) []Action {
+func (c *Calculator) Actions(e Entry) []Action {
 	d, ok := e.Data.(calcData)
 	if !ok {
 		return nil
 	}
-	actions := []Action{copyAction(i18n.T("launcher-action-copy-result"), d.shown)}
+	actions := []Action{copyAction(c.l.Get("launcher-action-copy-result"), d.shown)}
 	if d.value != d.shown {
-		actions = append(actions, copyAction(i18n.T("launcher-action-copy-number"), d.value))
+		actions = append(actions, copyAction(c.l.Get("launcher-action-copy-number"), d.value))
 	}
 	return append(actions,
-		copyAction(i18n.T("launcher-action-copy-equation"), d.expr+" = "+d.shown),
-		Action{Title: i18n.T("launcher-action-continue"), Icon: "ld-corner-down-left-symbolic", Run: func(context.Context) Outcome {
+		copyAction(c.l.Get("launcher-action-copy-equation"), d.expr+" = "+d.shown),
+		Action{Title: c.l.Get("launcher-action-continue"), Icon: "ld-corner-down-left-symbolic", Run: func(context.Context) Outcome {
 			return SetQuery{Text: d.value}
 		}},
 	)
