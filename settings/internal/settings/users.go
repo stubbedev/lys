@@ -641,9 +641,9 @@ func (p *usersPanel) newPasswordForm() *passwordForm {
 	f.AddClass("password-change")
 	f.current, f.next, f.confirm = p.k.passwordEntry("settings-users-password-current"), p.k.passwordEntry("settings-users-password-new"), p.k.passwordEntry("settings-users-password-confirm")
 	rows := widget.NewItemGroup()
-	rows.Append(p.k.row(t.Get("settings-users-password-current"), "").withControl(f.current).withTrailing(p.k.revealButton(f.current)))
-	rows.Append(p.k.row(t.Get("settings-users-password-new"), "").withControl(f.next).withTrailing(p.k.revealButton(f.next, f.confirm)))
-	rows.Append(p.k.row(t.Get("settings-users-password-confirm"), "").withControl(f.confirm))
+	rows.Append(dialogField(p.k.row(t.Get("settings-users-password-current"), ""), f.current).withTrailing(p.k.revealButton(f.current)))
+	rows.Append(dialogField(p.k.row(t.Get("settings-users-password-new"), ""), f.next).withTrailing(p.k.revealButton(f.next, f.confirm)))
+	rows.Append(dialogField(p.k.row(t.Get("settings-users-password-confirm"), ""), f.confirm))
 	rows.Append(p.strengthRow(f.next))
 	f.Append(rows, false)
 	f.messages = p.k.inlineState()
@@ -669,7 +669,16 @@ func (p *usersPanel) strengthRow(next *widget.Entry) widget.Widget {
 		meter.SetValue(float64(passwordStrength(text)) / strengthClasses)
 		word.SetText(strengthWord(text))
 	}
-	return p.k.row(t.Get("settings-users-password-strength"), "").withControl(meter).withTrailing(word)
+	return dialogField(p.k.row(t.Get("settings-users-password-strength"), ""), meter).withTrailing(word)
+}
+
+// dialogField is row as a field of a dialog's form: its control on a
+// line of its own under its title, the dialog's full width, so in a
+// dialog as narrow as passwordDialogWidth every field starts and ends
+// at one x and every title reads whole in every language.
+func dialogField(row *settingRow, ctl widget.Widget) *settingRow {
+	row.placeControl(ctl, widget.ItemControlWide)
+	return row
 }
 
 func (f *passwordForm) clear() {

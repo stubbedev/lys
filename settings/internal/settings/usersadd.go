@@ -97,8 +97,8 @@ type passwordPair struct {
 func (p *usersPanel) newPasswordPair(into *widget.ItemGroup, passwordKey, confirmKey string) passwordPair {
 	t := locale.T()
 	pp := passwordPair{password: p.k.passwordEntry(passwordKey), repeat: p.k.passwordEntry(confirmKey)}
-	into.Append(p.k.row(t.Get(passwordKey), "").withControl(pp.password).withTrailing(p.k.revealButton(pp.password, pp.repeat)))
-	into.Append(p.k.row(t.Get(confirmKey), "").withControl(pp.repeat))
+	into.Append(dialogField(p.k.row(t.Get(passwordKey), ""), pp.password).withTrailing(p.k.revealButton(pp.password, pp.repeat)))
+	into.Append(dialogField(p.k.row(t.Get(confirmKey), ""), pp.repeat))
 	into.Append(p.strengthRow(pp.password))
 	return pp
 }
@@ -162,9 +162,9 @@ func (p *usersPanel) newAddUserForm() *addUserForm {
 		f.checkLogin(p.taken)
 	}
 	rows := widget.NewItemGroup()
-	rows.Append(p.k.row(t.Get("settings-users-add-type"), "").withControl(f.kinds))
-	rows.Append(p.k.row(t.Get("settings-users-add-full"), "").withControl(f.full))
-	rows.Append(p.k.keyRow("settings-users-add-name").withControl(f.login))
+	rows.Append(dialogField(p.k.row(t.Get("settings-users-add-type"), ""), f.kinds))
+	rows.Append(dialogField(p.k.row(t.Get("settings-users-add-full"), ""), f.full))
+	rows.Append(dialogField(p.k.keyRow("settings-users-add-name"), f.login))
 	f.passwordPair = p.newPasswordPair(rows, "settings-users-add-password", "settings-users-add-confirm")
 	f.Append(rows, false)
 	f.messages = p.k.inlineState()
