@@ -138,3 +138,30 @@ func TestSliderSetRangeClampsTheValue(t *testing.T) {
 		t.Errorf("narrowed below the value: value %v, heard %v; want 50 announced once", s.Value(), heard)
 	}
 }
+
+// A slider's unfilled trough was the theme's muted fill, about a card's
+// own color, so the track all but vanished; disabled, it turned to a
+// light text color, brighter than an enabled one. The trough reads
+// against the card behind it, and a disabled one more faintly.
+func TestASlidersTroughShowsOnItsCardAndFadesWhenDisabled(t *testing.T) {
+	trough := func(enabled bool) float64 {
+		s := NewSlider(0, 100, 1, 0)
+		s.SetEnabled(enabled)
+		const w, h = 200, 30
+		s.Arrange(render.Rect{W: w, H: h})
+		data := make([]byte, render.Stride(w)*h)
+		cv := render.New(data, render.Stride(w), w, h)
+		bg := Current().Surface
+		cv.Clear(render.Rect{W: w, H: h}, bg)
+		s.Paint(cv)
+		i := (h/2)*render.Stride(w) + (w-20)*4
+		return contrastRatio(render.RGBA(data[i], data[i+1], data[i+2], 255), bg)
+	}
+	on, off := trough(true), trough(false)
+	if on < 1.4 {
+		t.Errorf("an enabled trough reads at %.2f:1 on its card", on)
+	}
+	if off >= on || off <= 1.05 {
+		t.Errorf("a disabled trough reads at %.2f:1, the enabled one at %.2f:1; want fainter but seen", off, on)
+	}
+}

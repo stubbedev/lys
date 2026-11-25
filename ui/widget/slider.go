@@ -258,16 +258,21 @@ func (s *Slider) Measure(axis Axis, forSize int) Sizes {
 	}))
 }
 
+// troughAlpha is the unfilled trough's share of the text color, which
+// shows the track on whatever background the slider sits on, as
+// libadwaita's alpha(currentColor) trough does.
+const troughAlpha = 0.2
+
 // Paint draws the trough, its highlight, and the knob, each from its
 // node's style over the theme's colors. Disabled, the theme colors fade
 // through the derived disabled colors (a stylesheet fades with its own
 // :disabled rules).
 func (s *Slider) Paint(cv *render.Canvas) {
 	t := Current()
-	troughCol, fillCol, knobCol := t.MutedColor(), t.Accent, t.Text
+	troughCol, fillCol, knobCol := scaleAlpha(t.Text, troughAlpha), t.Accent, t.Text
 	v := s.style(s)
 	if !IsEnabled(s) {
-		troughCol, fillCol, knobCol = t.DisabledText(), t.DisabledAccent(), t.DisabledText()
+		troughCol, fillCol, knobCol = scaleAlpha(t.Text, troughAlpha*disabledFade), t.DisabledAccent(), t.DisabledText()
 	}
 	fillCol = accentOf(v, fillCol)
 	fx := pushEffects(cv, v, s.bounds, render.Corners{})
