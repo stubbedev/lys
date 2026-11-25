@@ -178,3 +178,26 @@ func TestTheConnectivityTileJoinsNetworkAndBluetooth(t *testing.T) {
 		t.Error("with neither service the tile got a status")
 	}
 }
+
+// The overview drew Sound and Bar Items: Media with one icon, and Apps
+// and Bar Items: Windows with another, each tile its section's first
+// page's. Every overview tile shows an icon of its own.
+func TestEveryOverviewTileShowsItsOwnIcon(t *testing.T) {
+	win := laidOutPage(t, "", overviewID, sweepW)
+	shows := map[string]int{}
+	tiles := 0
+	for _, ic := range treetest.All[*widget.Icon](win.page) {
+		if ic.HasClass("settings-overview-icon") {
+			tiles++
+			shows[ic.Name()]++
+		}
+	}
+	for name, n := range shows {
+		if n > 1 {
+			t.Errorf("%d overview tiles show %s", n, name)
+		}
+	}
+	if tiles < 10 {
+		t.Fatalf("the overview shows %d tile icons", tiles)
+	}
+}

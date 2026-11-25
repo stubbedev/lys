@@ -62,7 +62,7 @@ func overviewTiles(k *kit) widget.Widget {
 		first := s.pages[0].id
 		face := widget.NewBox(widget.Column, th.Spacing/2, 0)
 		face.SetPadding(cardInsets())
-		face.AppendAligned(k.icon(s.pages[0].icon, "settings-overview-icon"), false, widget.AlignStart)
+		face.AppendAligned(k.icon(s.tileIcon(), "settings-overview-icon"), false, widget.AlignStart)
 		face.Append(k.label(t.Get(s.key), "settings-overview-title", css.Heading), false)
 		desc := k.note(t.Attr(s.key, "description"), "settings-overview-description")
 		desc.SetWidthChars(overviewTileChars)

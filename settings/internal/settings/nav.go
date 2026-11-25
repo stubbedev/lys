@@ -23,6 +23,17 @@ const initialPage = overviewID
 type navSection struct {
 	key   string
 	pages []pageSpec
+	// icon is the section's own icon on the overview, "" for its first
+	// page's.
+	icon string
+}
+
+// tileIcon is the icon the section's overview tile shows.
+func (s navSection) tileIcon() string {
+	if s.icon != "" {
+		return s.icon
+	}
+	return s.pages[0].icon
 }
 
 // layout is the sidebar's sections in order,
@@ -105,7 +116,7 @@ func layout(cfg *config.Config, installed parts) []navSection {
 			pages[i].section = s.key
 		}
 		if len(pages) > 0 {
-			out = append(out, navSection{key: s.key, pages: pages})
+			out = append(out, navSection{key: s.key, pages: pages, icon: s.icon})
 		}
 	}
 	return out
