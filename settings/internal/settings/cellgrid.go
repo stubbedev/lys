@@ -2,6 +2,7 @@ package settings
 
 import (
 	"log"
+	"slices"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/ui/widget"
@@ -48,44 +49,80 @@ func cellGridRow(key string, columns []string, rows ...gridRow) rowSpec {
 	})
 }
 
-// cellGrid is a grid of controls under their columns' headings, in rows
-// headed by their own when it has several kinds of thing. A strip, with
-// no row headings, gives its columns one width, so a column starts where
-// it would whatever its heading reads, and strips of as many columns line
-// up across pages; a table's columns are as wide as their own cells.
+// cellGrid is controls under their columns' headings. A strip, one row
+// with no heading of its own, gives its columns one width, so a column
+// starts where it would whatever its heading reads, and strips of as
+// many columns line up across pages. A table, rows headed by the kind
+// of thing each is, reads as rows do: the heading at the start, the
+// controls packed at the end, each column as wide as its widest cell.
 type cellGrid struct {
-	*widget.Grid
+	*widget.Box
 	cells []control
 }
 
 func newCellGrid(k *kit, columns []string, rows []gridRow) *cellGrid {
-	t := locale.T()
-	g := &cellGrid{Grid: widget.NewGrid(choiceCardGap*2, choiceCardGap)}
+	g := &cellGrid{Box: widget.NewBox(widget.Column, choiceCardGap, 0)}
 	g.AddClass("cell-grid")
-	first := 0
-	for _, r := range rows {
-		if r.withHeader() {
-			first = 1
-		}
+	if slices.ContainsFunc(rows, gridRow.withHeader) {
+		g.table(k, columns, rows)
+		return g
 	}
-	g.SetColumnHomogeneous(first == 0)
+	g.strip(k, columns, rows)
+	return g
+}
+
+// heading is a column's heading.
+func columnHeading(k *kit, key string) widget.Widget {
+	return k.label(locale.T().Get(key), css.Caption, css.DimLabel)
+}
+
+func (g *cellGrid) control(k *kit, spec rowSpec) control {
+	cell := fieldControl(k, k.store, spec)
+	g.cells = append(g.cells, cell)
+	return cell
+}
+
+func (g *cellGrid) strip(k *kit, columns []string, rows []gridRow) {
+	grid := widget.NewGrid(choiceCardGap*2, choiceCardGap).SetColumnHomogeneous(true)
 	for c, key := range columns {
-		g.Attach(k.label(t.Get(key), css.Caption, css.DimLabel), first+c, 0, 1, 1)
+		grid.Attach(columnHeading(k, key), c, 0, 1, 1)
 	}
 	for i, r := range rows {
-		if r.withHeader() {
-			g.Attach(k.label(t.Get(r.key)), 0, i+1, 1, 1)
-		}
 		for c, spec := range r.cells {
-			if spec.path == "" {
-				continue
+			if spec.path != "" {
+				grid.Attach(g.control(k, spec), c, i+1, 1, 1)
 			}
-			cell := fieldControl(k, k.store, spec)
-			g.Attach(cell, first+c, i+1, 1, 1)
-			g.cells = append(g.cells, cell)
 		}
 	}
-	return g
+	g.Append(grid, false)
+}
+
+func (g *cellGrid) table(k *kit, columns []string, rows []gridRow) {
+	widths := make([]*widget.SizeGroup, len(columns))
+	for c := range widths {
+		widths[c] = widget.NewSizeGroup(widget.SizeGroupHorizontal)
+	}
+	line := func(head widget.Widget, cell func(c int) widget.Widget) {
+		row := widget.NewBox(widget.Row, choiceCardGap*2, 0)
+		row.AppendAligned(head, true, widget.AlignCenter)
+		for c := range columns {
+			row.AppendAligned(widths[c].Add(cell(c)), false, widget.AlignCenter)
+		}
+		g.Append(row, false)
+	}
+	line(widget.NewBox(widget.Row, 0, 0), func(c int) widget.Widget { return columnHeading(k, columns[c]) })
+	for _, r := range rows {
+		head := widget.Widget(widget.NewBox(widget.Row, 0, 0))
+		if r.withHeader() {
+			head = k.label(locale.T().Get(r.key))
+		}
+		line(head, func(c int) widget.Widget {
+			if r.cells[c].path == "" {
+				return widget.NewBox(widget.Row, 0, 0)
+			}
+			return g.control(k, r.cells[c])
+		})
+	}
 }
 
 func (g *cellGrid) refresh() {

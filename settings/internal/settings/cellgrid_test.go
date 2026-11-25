@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
@@ -106,4 +107,52 @@ func TestACellGridsColumnsAreEvenWhateverTheirHeadingsRead(t *testing.T) {
 	if second["bitwarden"] != second["idle-inhibit"] || second["bitwarden"] != second["media"] {
 		t.Errorf("two-icon grids start their second column at %v", second)
 	}
+}
+
+// Panel Sizes split its spare width over the module, Width and Height
+// columns alike, so an 84px dead gap stood between a width's spin box
+// and the height column. A table reads as rows do: each module at the
+// start, its sizes packed at the end, one gap between them, every
+// column at one x down the table.
+func TestATablesCellsArePackedAtTheEndInColumns(t *testing.T) {
+	win := laidOutPage(t, "", "bar", sweepW)
+	var g *cellGrid
+	for _, c := range treetest.All[*cellGrid](win.page) {
+		if len(c.cells) > 2 {
+			g = c
+		}
+	}
+	if g == nil {
+		t.Fatal("the bar page has no panel sizes table")
+	}
+	bounds := func(c control) render.Rect { return c.(widget.Boundser).Bounds() }
+	end := g.Bounds().X + g.Bounds().W
+	firstWidth, firstHeight := bounds(g.cells[0]), bounds(g.cells[1])
+	for i := 0; i+1 < len(g.cells); i += 2 {
+		width, height := bounds(g.cells[i]), bounds(g.cells[i+1])
+		if width.X != firstWidth.X || height.X != firstHeight.X {
+			t.Fatalf("row %d's cells start at %d and %d, the first row's at %d and %d", i/2, width.X, height.X, firstWidth.X, firstHeight.X)
+		}
+		if gap := height.X - inkEnd(g.cells[i]); gap > choiceCardGap*4 {
+			t.Errorf("row %d leaves %dpx between its width and its height", i/2, gap)
+		}
+		if right := end - (height.X + height.W); right > 0 {
+			t.Errorf("row %d's height ends %dpx before the table's end", i/2, right)
+		}
+	}
+}
+
+// inkEnd is where the last thing w shows ends: the right edge of its
+// rightmost visible leaf, whatever room w itself was given.
+func inkEnd(w widget.Widget) int {
+	end := 0
+	treetest.Walk(w, func(x widget.Widget) {
+		if c, ok := x.(interface{ Children() []widget.Widget }); ok && len(c.Children()) > 0 {
+			return
+		}
+		if b := x.(widget.Boundser).Bounds(); widget.IsVisible(x) && b.W > 0 {
+			end = max(end, b.X+b.W)
+		}
+	})
+	return end
 }
