@@ -47,6 +47,7 @@ item.card-state .title {
 }
 
 item.card-state .media,
+.settings-page item .media,
 .settings-page avatar {
   background-color: var(--border-default);
 }
