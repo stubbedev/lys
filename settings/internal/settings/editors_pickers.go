@@ -45,12 +45,14 @@ const (
 
 // fontEditor is FontControl: a menu button showing the family that
 // opens lys-ui's font dialog for families alone, monospace ones only
-// for the monospace field.
+// for the monospace field. While no family is set the button reads
+// unset and no sample shows.
 type fontEditor struct {
 	*widget.Box
 	k         *kit
 	slot      slot
 	monospace bool
+	unset     string
 	label     *widget.Label
 	btn       *widget.Button
 	sample    *widget.Label
@@ -65,7 +67,7 @@ type loadedFamily struct {
 }
 
 func newFontEditor(k *kit, s slot, monospace bool) *fontEditor {
-	c := &fontEditor{Box: widget.NewBox(widget.Column, widget.Current().Spacing/2, 0), k: k, slot: s, monospace: monospace}
+	c := &fontEditor{Box: widget.NewBox(widget.Column, widget.Current().Spacing/2, 0), k: k, slot: s, monospace: monospace, unset: locale.T().Get("settings-choice-default")}
 	menu := widget.NewBox(widget.Row, 0, 0)
 	menu.SetElement("menubutton")
 	menu.AddClass("font")
@@ -88,8 +90,22 @@ func newFontEditor(k *kit, s slot, monospace bool) *fontEditor {
 	return c
 }
 
+// whenUnset has the button read text while no family is set, in place
+// of the app's Default.
+func (c *fontEditor) whenUnset(text string) {
+	c.unset = text
+	c.refresh()
+}
+
 func (c *fontEditor) refresh() {
 	family, _ := c.slot.get().(string)
+	if family == "" {
+		c.label.SetText(c.unset)
+		c.shown = ""
+		c.sample.SetVisible(false)
+		c.problem.Clear()
+		return
+	}
 	c.label.SetText(family)
 	if family == c.shown {
 		return
