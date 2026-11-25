@@ -592,15 +592,23 @@ func description(key string) string {
 
 // formGrid lines a form's fields up: their labels share one column,
 // and the fields (dropdowns, spins, entries) at the end of their row
-// share another, so the controls of one form start and end at one x.
+// share another, so the controls of one form start and end at one x;
+// every control at its row's end takes the height of the tallest, so a
+// switch's row stands as tall as a field's.
 type formGrid struct {
 	k        *kit
 	labels   *widget.SizeGroup
 	controls *widget.SizeGroup
+	heights  *widget.SizeGroup
 }
 
 func (k *kit) formGrid() formGrid {
-	return formGrid{k: k, labels: widget.NewSizeGroup(widget.SizeGroupHorizontal), controls: widget.NewSizeGroup(widget.SizeGroupHorizontal)}
+	return formGrid{
+		k:        k,
+		labels:   widget.NewSizeGroup(widget.SizeGroupHorizontal),
+		controls: widget.NewSizeGroup(widget.SizeGroupHorizontal),
+		heights:  widget.NewSizeGroup(widget.SizeGroupVertical),
+	}
 }
 
 // label is text in the grid's label column, with classes, styled as
@@ -618,8 +626,11 @@ const itemTitle = "title"
 func (g formGrid) row(label widget.Widget, ctl widget.Widget, fill bool, more ...widget.Widget) *widget.Box {
 	row := gapBox(widget.Row)
 	row.AppendAligned(label, !fill, widget.AlignCenter)
-	if !fill && controlFit(ctl) == widget.ItemControlColumn {
-		ctl = g.controls.Add(ctl)
+	if !fill {
+		if controlFit(ctl) == widget.ItemControlColumn {
+			ctl = g.controls.Add(ctl)
+		}
+		ctl = g.heights.Add(ctl)
 	}
 	row.AppendAligned(ctl, fill, widget.AlignCenter)
 	for _, w := range more {
