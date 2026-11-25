@@ -7191,19 +7191,19 @@
             {
               "description": "Filter status (On, Off)",
               "name": "status",
-              "sample": "On",
+              "sample": "Off",
               "token": "{{ status }}"
             },
             {
               "description": "Current temperature in Kelvin (-- while off)",
               "name": "temp",
-              "sample": "4500",
+              "sample": "--",
               "token": "{{ temp }}"
             },
             {
               "description": "Current gamma percentage (-- while off)",
               "name": "gamma",
-              "sample": "80",
+              "sample": "--",
               "token": "{{ gamma }}"
             },
             {
