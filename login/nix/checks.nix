@@ -61,10 +61,23 @@
             && lib.hasInfix (builtins.unsafeDiscardStringContext "--splash ${lib.getExe splash} ") (builtins.unsafeDiscardStringContext u.serviceConfig.ExecStart);
           touchesSplash = u:
             lib.any (s: lib.hasInfix "lys-splash" (builtins.unsafeDiscardStringContext s)) (u.conflicts ++ u.after ++ [u.serviceConfig.ExecStart (u.serviceConfig.ExecStartPre or "")]);
+          withSplash = enable:
+            (greeterSystemWith {
+              imports = [self.nixosModules.lys-splash];
+              boot.lys-splash = {
+                inherit enable;
+                package = splash;
+              };
+            } {
+              displayManager = "lys-login";
+              compositorPackage = fakeLysWm;
+            }).systemd.services.lys-login;
         in
           pkgs.runCommand "lys-login-splash-unit" {} ''
             ${lib.optionalString (!handsOver (unit splash)) ''echo "with splashPackage the unit does not take the screen from lys-splash" >&2; exit 1''}
             ${lib.optionalString (touchesSplash (unit null)) ''echo "without splashPackage the unit names lys-splash" >&2; exit 1''}
+            ${lib.optionalString (!handsOver (withSplash true)) ''echo "with boot.lys-splash enabled and no splashPackage set, the unit does not take the screen from lys-splash" >&2; exit 1''}
+            ${lib.optionalString (touchesSplash (withSplash false)) ''echo "with boot.lys-splash imported but off, the unit names lys-splash" >&2; exit 1''}
             touch "$out"
           '';
         greeter-sessions-assertion = let

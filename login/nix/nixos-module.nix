@@ -251,14 +251,22 @@ in {
 
       splashPackage = lib.mkOption {
         type = lib.types.nullOr lib.types.package;
-        default = null;
+        default =
+          if config.boot.lys-splash.enable or false
+          then config.boot.lys-splash.package
+          else null;
+        defaultText = lib.literalExpression "if config.boot.lys-splash.enable then config.boot.lys-splash.package else null";
         example = lib.literalExpression "lys.packages.\${system}.lys-splash";
         description = ''
           lys-splash, when it is the boot splash: the `lys-login` display
           manager takes the screen from it without a blank frame. Its unit
           conflicts with `lys-splash-quit.service`, deactivates the splash
           before lys-wm starts, and quits it with `--retain-splash` once the
-          greeter's first frame is presented.
+          greeter's first frame is presented. It defaults to lys-splash's
+          own package whenever `boot.lys-splash` is enabled; without it,
+          lys-splash quits on its own and drops its frame, so the console's
+          text, a LUKS password prompt included, shows until the greeter
+          does.
         '';
       };
 
