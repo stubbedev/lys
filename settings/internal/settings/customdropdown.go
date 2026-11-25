@@ -29,6 +29,7 @@ type customDropdown struct {
 func newCustomDropdown(k *kit, choices []string, custom string, input customInput) *customDropdown {
 	d := &customDropdown{Box: gapBox(widget.Row), input: input, custom: len(choices)}
 	d.pick = newDropdownPick(k, append(slices.Clone(choices), custom), 0)
+	d.pick.fill = true
 	d.pick.OnSelect = func(i int) {
 		d.input.SetVisible(i == d.custom)
 		if d.OnSelect != nil {

@@ -7,6 +7,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
@@ -47,7 +48,9 @@ type choicePick struct {
 	k      *kit
 	labels []string
 	// live marks a dropdown over a list read from the system.
-	live     bool
+	live bool
+	// fill stretches a dropdown over the width it is given.
+	fill     bool
 	showing  bool
 	OnSelect func(i int)
 }
@@ -99,6 +102,23 @@ func (p *choicePick) Measure(axis widget.Axis, forSize int) widget.Sizes {
 	}
 	s.Nat = max(s.Min, s.Nat-p.drop.Measure(widget.Row, forSize).Nat+p.drop.SelectionWidth())
 	return s
+}
+
+// Arrange lays the box out in r: a dropdown over r's width when it
+// fills, else as wide as the value it shows at r's start however much
+// room r leaves, its face never stretched past its value by the width of
+// its longest option.
+func (p *choicePick) Arrange(r render.Rect) {
+	p.Box.Arrange(r)
+	if p.drop == nil {
+		return
+	}
+	w := r.W
+	if !p.fill {
+		w = min(w, p.drop.SelectionWidth())
+	}
+	d := p.drop.Bounds()
+	p.drop.Arrange(render.Rect{X: r.X, Y: d.Y, W: w, H: d.H})
 }
 
 // SetAccessibleName names the segments or the dropdown.

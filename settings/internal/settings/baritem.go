@@ -183,7 +183,9 @@ func (m *mouseActions) choose(i int) {
 	m.selected = i
 	m.title.SetText(locale.T().Get("settings-mouse-" + mouseButtons[i]))
 	m.editor.Clear()
-	m.editor.Append(newActionEditor(m.k, m.slots[i], m.choices), false)
+	ed := newActionEditor(m.k, m.slots[i], m.choices)
+	ed.SetHAlign(widget.AlignFill)
+	m.editor.Append(ed, false)
 	m.mouse.Invalidate()
 }
 

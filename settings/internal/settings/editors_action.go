@@ -72,6 +72,7 @@ func newCommandMenu(k *kit, s slot, choices []actionChoice, menu commandMenu) *a
 	c.pick = newCustomDropdown(k, labels, t.Get("settings-action-custom"), c.entry)
 	c.pick.OnSelect = c.selected
 	c.Append(c.pick, false)
+	c.SetHAlign(widget.AlignEnd)
 	if menu == clickMenu {
 		c.run = newCommandRun(k, s, "settings-command-run-empty")
 		c.Append(c.run, false)
@@ -81,10 +82,6 @@ func newCommandMenu(k *kit, s slot, choices []actionChoice, menu commandMenu) *a
 	c.refresh()
 	return c
 }
-
-// columnField holds the menu in the card's control column (controlFit),
-// so the commands of one card line up however long their presets read.
-func (c *actionEditor) columnField() {}
 
 func (c *actionEditor) command() string {
 	s, _ := c.slot.get().(string)
