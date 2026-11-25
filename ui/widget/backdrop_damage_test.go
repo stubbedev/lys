@@ -38,3 +38,43 @@ func TestBackdropFilterUnderPartialDamage(t *testing.T) {
 		t.Error("the partial repaint under the glass differs from a full repaint")
 	}
 }
+
+// A backdrop blur beside a clipping ancestor's edge blurs only what the
+// clip shows, its edge repeated past it: whatever the window paints
+// around the clip, the glass reads the same, where a dark window seeped
+// in as a seam down the inside of a notification's edge in
+// lys-settings' preview (#375).
+func TestABackdropBlurStopsAtItsClippingAncestor(t *testing.T) {
+	loadCSS(t, `.light { background-color: #ffffff; } .dark { background-color: #000000; } .glass { backdrop-filter: blur(8px); }`)
+	const w, h = 200, 80
+	glassAround := func(window string) (render.Rect, []byte) {
+		screen := NewBox(Column, 0, 0)
+		screen.AddClass("light")
+		screen.SetSizeRequest(140, 60)
+		glass := NewBox(Column, 0, 0)
+		glass.AddClass("glass")
+		glass.SetSizeRequest(60, 30)
+		view := NewScroll(NewOverlay().Append(screen).AppendAligned(glass, AlignEnd, AlignCenter))
+		view.SetSizeRequest(140, 60)
+		root := NewBox(Row, 0, 10)
+		root.AddClass(window)
+		root.Append(view, false)
+		data := make([]byte, render.Stride(w)*h)
+		paintFrame(render.New(data, render.Stride(w), w, h), root, w, h, render.RGB(0, 0, 0), render.Rect{W: w, H: h})
+		g := glass.Bounds()
+		if v := view.Bounds(); g.X+g.W != v.X+v.W || g.Y <= v.Y || g.Y+g.H >= v.Y+v.H {
+			t.Fatalf("the glass at %v does not end on the clip at %v", g, v)
+		}
+		return g, data
+	}
+	g, dark := glassAround("dark")
+	_, light := glassAround("light")
+	for y := g.Y; y < g.Y+g.H; y++ {
+		for x := g.X; x < g.X+g.W; x++ {
+			i := y*render.Stride(w) + x*4
+			if !bytes.Equal(dark[i:i+4], light[i:i+4]) {
+				t.Fatalf("the glass at %d,%d, %dpx inside the clip's edge, reads %v in a dark window and %v in a light one", x, y, g.X+g.W-x, dark[i:i+4], light[i:i+4])
+			}
+		}
+	}
+}

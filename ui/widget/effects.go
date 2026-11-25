@@ -213,16 +213,61 @@ func paintBackdrop(cv *render.Canvas, v *style.Values, bounds render.Rect, radii
 	if region.Empty() {
 		return
 	}
+	clip := cv.PushClipDevice(cv.Rect())
+	cv.PopClip(clip)
+	shown := region.Intersect(clip)
+	if shown.Empty() {
+		return
+	}
 	snap := cv.ScratchSnapshot(region)
 	defer snap.Release()
 	filt := cv.ScratchLayer(region)
 	defer filt.Release()
-	filt.Canvas().DrawCanvasDevice(snap.Canvas(), 0, 0)
+	if shown == region {
+		filt.Canvas().DrawCanvasDevice(snap.Canvas(), 0, 0)
+	} else {
+		wide := cv.ScratchLayer(region)
+		defer wide.Release()
+		extendEdges(wide.Canvas(), snap.Canvas(), shown, region, true)
+		extendEdges(filt.Canvas(), wide.Canvas(), shown, region, false)
+	}
 	render.ApplyFilters(filt, region, &v.Backdrop, render.FilterShape{Box: bounds, Radii: radii})
 	p := &render.Path{}
 	render.RoundedRectPath(p, bounds, radii)
 	filt.ApplyPathMask(p, region)
 	cv.DrawLayer(filt, region, render.BlendNormal)
+}
+
+// extendEdges draws src into dst over region, the pixels outside shown,
+// the part of region the clip shows, repeating shown's edge pixels:
+// across, columns of shown's rows; down, whole rows of region. What
+// lies past a clipping ancestor is not the widget's backdrop, so a blur
+// sampling it pulled the window's colours in through the clip's edge.
+func extendEdges(dst, src *render.Canvas, shown, region render.Rect, across bool) {
+	draw := func(to render.Rect, dx, dy int) {
+		prev := dst.PushClipDevice(to)
+		dst.DrawCanvasDevice(src, dx, dy)
+		dst.PopClip(prev)
+	}
+	if !across {
+		draw(render.Rect{X: region.X, Y: shown.Y, W: region.W, H: shown.H}, 0, 0)
+		for y := region.Y; y < shown.Y; y++ {
+			draw(render.Rect{X: region.X, Y: y, W: region.W, H: 1}, 0, y-shown.Y)
+		}
+		last := shown.Y + shown.H - 1
+		for y := last + 1; y < region.Y+region.H; y++ {
+			draw(render.Rect{X: region.X, Y: y, W: region.W, H: 1}, 0, y-last)
+		}
+		return
+	}
+	draw(shown, 0, 0)
+	for x := region.X; x < shown.X; x++ {
+		draw(render.Rect{X: x, Y: shown.Y, W: 1, H: shown.H}, x-shown.X, 0)
+	}
+	last := shown.X + shown.W - 1
+	for x := last + 1; x < region.X+region.W; x++ {
+		draw(render.Rect{X: x, Y: shown.Y, W: 1, H: shown.H}, x-last, 0)
+	}
 }
 
 // clipShapePath builds the clip shape's geometry against the border
