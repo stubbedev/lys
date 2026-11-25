@@ -15,7 +15,8 @@ type customInput interface {
 // customDropdown is a closed choice of named presets that ends in a
 // custom one, whose input follows the choice inline while it is chosen:
 // the one shape of presets with a value of the user's own. The choice
-// takes the form the segment rule gives its labels (choicePick).
+// is a dropdown however few presets it has, as wide as the line it is
+// on, so it reads alike wherever it stands.
 type customDropdown struct {
 	*widget.Box
 	pick   *choicePick
@@ -27,14 +28,14 @@ type customDropdown struct {
 
 func newCustomDropdown(k *kit, choices []string, custom string, input customInput) *customDropdown {
 	d := &customDropdown{Box: gapBox(widget.Row), input: input, custom: len(choices)}
-	d.pick = newChoicePick(k, append(slices.Clone(choices), custom), 0)
+	d.pick = newDropdownPick(k, append(slices.Clone(choices), custom), 0)
 	d.pick.OnSelect = func(i int) {
 		d.input.SetVisible(i == d.custom)
 		if d.OnSelect != nil {
 			d.OnSelect(i)
 		}
 	}
-	d.AppendAligned(d.pick, false, widget.AlignCenter)
+	d.AppendAligned(d.pick, true, widget.AlignCenter)
 	d.AppendAligned(input, false, widget.AlignCenter)
 	input.SetVisible(false)
 	return d
