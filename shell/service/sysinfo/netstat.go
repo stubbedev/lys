@@ -4,10 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"path/filepath"
-	"strconv"
 	"strings"
-
-	"github.com/stubbedev/lys/lib/third_party/gomath"
 )
 
 // NetTotals is one interface's lifetime byte counters.
@@ -63,20 +60,6 @@ func NetRate(name string, prev, now NetTotals, elapsed float64) (Rate, error) {
 		RxPerSec:  uint64(float64(now.Rx-prev.Rx) / elapsed),
 		TxPerSec:  uint64(float64(now.Tx-prev.Tx) / elapsed),
 	}, nil
-}
-
-// AutoBytes renders a byte count in IEC (1024-based) units with one
-// decimal, "KiB" through "EiB", plain bytes below a kibibyte. The unit
-// is picked from ln(size)/ln(1024).
-func AutoBytes(bytes uint64) string {
-	const kib = 1024
-	if bytes < kib {
-		return strconv.FormatUint(bytes, 10) + " B"
-	}
-	size := float64(bytes)
-	exp := int(gomath.Log(size) / 6.931471805599453)
-	prefix := "KMGTPE"[exp-1]
-	return strconv.FormatFloat(size/gomath.Pow(kib, float64(exp)), 'f', 1, 64) + " " + string(prefix) + "iB"
 }
 
 // ReadNetTotals reads every interface's rx/tx byte totals once.

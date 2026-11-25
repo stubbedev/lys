@@ -83,17 +83,19 @@ func ramContext(m sysinfo.Memory) map[string]any {
 	}
 }
 
-// storageContext is the storage format context.
+// storageContext is the storage format context: tib at two decimals,
+// gib at one, mib at none, and the shell locale's byte size.
 func storageContext(s sysinfo.Storage) map[string]any {
+	l := i18n.Shell()
 	fs := s.Filesystem
 	if s.Multiple {
-		fs = i18n.T("bar-storage-multiple")
+		fs = l.Get("bar-storage-multiple")
 	}
 	return map[string]any{
 		"percent":  pad2(s.UsagePercent),
-		"used_tib": tibStr(s.UsedBytes), "used_gib": gibStr(s.UsedBytes), "used_mib": mibStr(s.UsedBytes), "used_auto": sysinfo.AutoBytes(s.UsedBytes),
-		"total_tib": tibStr(s.TotalBytes), "total_gib": gibStr(s.TotalBytes), "total_mib": mibStr(s.TotalBytes), "total_auto": sysinfo.AutoBytes(s.TotalBytes),
-		"free_tib": tibStr(s.AvailableBytes), "free_gib": gibStr(s.AvailableBytes), "free_mib": mibStr(s.AvailableBytes), "free_auto": sysinfo.AutoBytes(s.AvailableBytes),
+		"used_tib": tibStr(s.UsedBytes), "used_gib": gibStr(s.UsedBytes), "used_mib": mibStr(s.UsedBytes), "used_auto": l.ByteSize(s.UsedBytes),
+		"total_tib": tibStr(s.TotalBytes), "total_gib": gibStr(s.TotalBytes), "total_mib": mibStr(s.TotalBytes), "total_auto": l.ByteSize(s.TotalBytes),
+		"free_tib": tibStr(s.AvailableBytes), "free_gib": gibStr(s.AvailableBytes), "free_mib": mibStr(s.AvailableBytes), "free_auto": l.ByteSize(s.AvailableBytes),
 		"filesystem": fs,
 	}
 }

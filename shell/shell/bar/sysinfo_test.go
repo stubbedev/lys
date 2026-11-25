@@ -44,6 +44,26 @@ func TestSysinfoContexts(t *testing.T) {
 	}
 }
 
+func TestStorageAutoSizesAreTheShellLocalesByteSize(t *testing.T) {
+	for _, c := range []struct {
+		bytes uint64
+		want  string
+	}{
+		{1023, "1,023 B"},
+		{1<<20 - 1, "1.0 MiB"},
+		{500_107_862_016, "465.8 GiB"},
+	} {
+		st := sysinfo.Storage{UsedBytes: c.bytes, TotalBytes: c.bytes, AvailableBytes: c.bytes}
+		got := jinja.RenderOr("{{ used_auto }}|{{ total_auto }}|{{ free_auto }}", storageContext(st))
+		if want := c.want + "|" + c.want + "|" + c.want; got != want {
+			t.Errorf("%d bytes = %q, want en-US's %q each", c.bytes, got, c.want)
+		}
+		if formatted := i18n.Shell().ByteSize(c.bytes); !strings.HasPrefix(got, formatted+"|") {
+			t.Errorf("%d bytes = %q, want the shell formatter's %q", c.bytes, got, formatted)
+		}
+	}
+}
+
 func TestSysinfoThresholdColors(t *testing.T) {
 	cfg := config.Defaults()
 	cv, err := config.ParseColorValue("status-error")

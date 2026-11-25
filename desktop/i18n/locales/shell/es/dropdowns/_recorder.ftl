@@ -29,6 +29,7 @@ recorder-toast-stopped = Grabación detenida
 recorder-toast-failed = La grabación ha fallado
 recorder-notification-saved = Grabación guardada
 recorder-toast-replay-armed = Repetición instantánea preparada
+recorder-status-replay-armed = Repetición instantánea preparada ({ $size })
 recorder-toast-replay-saved = Repetición guardada
 recorder-toast-replay-failed = La repetición instantánea ha fallado
 recorder-notification-replay-saved = Repetición guardada

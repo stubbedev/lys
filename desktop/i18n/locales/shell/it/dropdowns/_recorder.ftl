@@ -29,6 +29,7 @@ recorder-toast-stopped = Registrazione fermata
 recorder-toast-failed = Registrazione non riuscita
 recorder-notification-saved = Registrazione salvata
 recorder-toast-replay-armed = Replay istantaneo pronto
+recorder-status-replay-armed = Replay istantaneo pronto ({ $size })
 recorder-toast-replay-saved = Replay salvato
 recorder-toast-replay-failed = Replay istantaneo non riuscito
 recorder-notification-replay-saved = Replay salvato

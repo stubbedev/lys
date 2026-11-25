@@ -32,6 +32,7 @@ recorder-toast-stopped = Recording stopped
 recorder-toast-failed = Recording failed
 recorder-notification-saved = Recording saved
 recorder-toast-replay-armed = Instant replay armed
+recorder-status-replay-armed = Instant replay armed ({ $size })
 recorder-toast-replay-saved = Replay saved
 recorder-toast-replay-failed = Instant replay failed
 recorder-notification-replay-saved = Replay saved

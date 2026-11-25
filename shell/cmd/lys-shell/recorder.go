@@ -3,9 +3,10 @@ package main
 import (
 	"fmt"
 
+	"github.com/stubbedev/lys/desktop/i18n"
+
 	"github.com/stubbedev/lys/shell/internal/cli"
 	"github.com/stubbedev/lys/shell/service/recorder"
-	"github.com/stubbedev/lys/shell/service/sysinfo"
 )
 
 func recorderCommand() *cli.Command {
@@ -74,7 +75,7 @@ func recorderStatus(m *cli.Matches, p *daemonProxy) error {
 		if err := p.prop("get the instant replay memory", "ReplayBytes", &held); err != nil {
 			return err
 		}
-		fmt.Fprintf(m.Stdout(), "Instant replay armed (%s)\n", sysinfo.AutoBytes(held))
+		fmt.Fprintln(m.Stdout(), replayArmedStatus(i18n.Shell(), held))
 	}
 	if !active {
 		fmt.Fprintln(m.Stdout(), "Idle")
@@ -96,6 +97,12 @@ func recorderStatus(m *cli.Matches, p *daemonProxy) error {
 		fmt.Fprintf(m.Stdout(), "%s (%d:%02d) -> %s\n", state, elapsed/60, elapsed%60, file)
 	}
 	return nil
+}
+
+// replayArmedStatus is the status line of an armed instant replay
+// holding held bytes, in l's language and byte size.
+func replayArmedStatus(l *i18n.Loader, held uint64) string {
+	return l.Get("recorder-status-replay-armed", i18n.Str("size", l.ByteSize(held)))
 }
 
 func recorderReplaySave(m *cli.Matches, p *daemonProxy) error {
