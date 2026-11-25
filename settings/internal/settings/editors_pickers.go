@@ -47,7 +47,9 @@ const (
 // fontEditor is FontControl: a menu button showing the family that
 // opens lys-ui's font dialog for families alone, monospace ones only
 // for the monospace field. While no family is set the button reads
-// unset and no sample shows.
+// unset and no sample shows. The button is the row's control, on the
+// control edge; the sample and why a family cannot load are the row's
+// detail, under its text.
 type fontEditor struct {
 	*widget.Box
 	k         *kit
@@ -58,6 +60,7 @@ type fontEditor struct {
 	btn       *widget.Button
 	sample    *widget.Label
 	problem   *inlineState
+	below     *widget.Box
 	shown     string
 }
 
@@ -68,7 +71,7 @@ type loadedFamily struct {
 }
 
 func newFontEditor(k *kit, s slot, monospace bool) *fontEditor {
-	c := &fontEditor{Box: widget.NewBox(widget.Column, widget.Current().Spacing/2, 0), k: k, slot: s, monospace: monospace, unset: locale.T().Get("settings-choice-default")}
+	c := &fontEditor{Box: widget.NewBox(widget.Row, 0, 0), below: widget.NewBox(widget.Column, widget.Current().Spacing/2, 0), k: k, slot: s, monospace: monospace, unset: locale.T().Get("settings-choice-default")}
 	menu := widget.NewBox(widget.Row, 0, 0)
 	menu.SetElement("menubutton")
 	menu.AddClass("font")
@@ -84,12 +87,16 @@ func newFontEditor(k *kit, s slot, monospace bool) *fontEditor {
 	c.sample = wrapped(k.label(locale.T().Get(sampleKey), "font-sample"))
 	c.sample.SetSizePx(fontSamplePx)
 	c.problem = k.inlineState()
-	c.AppendAligned(menu, false, widget.AlignStart)
-	c.Append(c.sample, false)
-	c.Append(c.problem, false)
+	c.AppendAligned(menu, false, widget.AlignCenter)
+	c.below.Append(c.sample, false)
+	c.below.Append(c.problem, false)
 	c.refresh()
 	return c
 }
+
+// detail is the family's sample, or why it cannot load, under the row's
+// text.
+func (c *fontEditor) detail() widget.Widget { return c.below }
 
 // whenUnset has the button read text while no family is set, in place
 // of the app's Default.

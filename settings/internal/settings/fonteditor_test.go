@@ -43,3 +43,36 @@ func TestAFontEditorWithoutAFamilyReadsItsUnsetText(t *testing.T) {
 		t.Errorf("a picked family reads %q, sample shown %v, loaded %q", c.label.Text(), c.sample.Visible(), asked)
 	}
 }
+
+// The Fonts page's family buttons stood at the start of a block over
+// their samples, left of every other control's edge. Each button ends
+// on the row's control edge, and its sample reads under the row's text,
+// starting where the title does.
+func TestAFontButtonEndsOnTheControlEdgeItsSampleUnderTheText(t *testing.T) {
+	win := laidOutPage(t, "", "fonts", sweepW)
+	rows := 0
+	for _, r := range win.page.rows {
+		f, ok := r.ctl.(*fontEditor)
+		if !ok || !shown(r) {
+			continue
+		}
+		rows++
+		row, btn, title := r.Bounds(), f.btn.Bounds(), titleLabel(r).Bounds()
+		if end, inset := row.X+row.W-(btn.X+btn.W), title.X-row.X; end != inset {
+			t.Errorf("%s's button ends %dpx short of its row's end, want the row's %dpx inset", r.path, end, inset)
+		}
+		if !shown(f.sample) {
+			t.Fatalf("%s shows no sample", r.path)
+		}
+		sample := f.sample.Bounds()
+		if sample.X != title.X || sample.Y < title.Y+title.H {
+			t.Errorf("%s's sample at %+v is not under its title at %+v", r.path, sample, title)
+		}
+		if sample.X+sample.W > btn.X && sample.Y < btn.Y+btn.H {
+			t.Errorf("%s's sample at %+v runs beside its button at %+v", r.path, sample, btn)
+		}
+	}
+	if rows != 2 {
+		t.Fatalf("the Fonts page shows %d font rows, want 2", rows)
+	}
+}
