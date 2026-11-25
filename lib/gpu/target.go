@@ -162,7 +162,7 @@ func (t *Target) Close() {
 	}
 	t.buf.Planes = nil
 	t.sync.close()
-	d.retire(t)
+	d.discard(t)
 }
 
 // acquire records taking t back from its consumer for a, once the

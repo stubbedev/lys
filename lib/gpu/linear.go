@@ -112,7 +112,7 @@ func (l *Linear) Close() {
 	}
 	l.closed = true
 	delete(l.d.linears, l)
-	l.d.retire(l)
+	l.d.discard(l)
 }
 
 func (l *Linear) release() {

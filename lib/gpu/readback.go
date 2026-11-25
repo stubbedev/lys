@@ -127,7 +127,7 @@ func (r *Readback) Close() {
 	r.closed = true
 	d := r.d
 	delete(d.readbacks, r)
-	d.retire(r)
+	d.discard(r)
 }
 
 // hostReadBarrier records making the transfers before it available to

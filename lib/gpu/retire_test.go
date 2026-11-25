@@ -313,3 +313,116 @@ func TestAGrownFrameReadbackKeepsTheOneATimedOutFrameStillCopiesInto(t *testing.
 		t.Errorf("the readback holds %d bytes, want at least %d", got, want)
 	}
 }
+
+func awaitInflight(t *testing.T, d *Device) {
+	t.Helper()
+	if n := len(d.inflight); n > 0 {
+		if err := d.waitFence(d.inflight[n-1].fence); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestResourcesClosedWhileNothingDrawsComeBackWithoutAFrame(t *testing.T) {
+	d := openDevice(t)
+	cursor, err := d.NewTexture(fourcc.ARGB8888, 16, 16)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cursor.Close()
+	pix := make([]byte, 64*64*4)
+	for i := range 200 {
+		if err := cursor.Update(image.Rect(0, 0, 16, 16), 16*4, pix); err != nil {
+			t.Fatal(err)
+		}
+		tex, err := d.NewTexture(fourcc.ARGB8888, 64, 64)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := tex.Update(image.Rect(0, 0, 64, 64), 64*4, pix); err != nil {
+			t.Fatal(err)
+		}
+		tex.Close()
+		if n := len(d.graves); n > 1 {
+			t.Fatalf("after %d closes with no frame, %d closed resources still hold their memory, want at most the newest", i+1, n)
+		}
+		for _, g := range d.graves {
+			if g.after > d.submitted {
+				t.Fatalf("close %d left a resource waiting on uploads no submission carries", i+1)
+			}
+		}
+		awaitInflight(t, d)
+	}
+}
+
+func TestATextureAnUnfinishedPassSampledOutlivesItsClose(t *testing.T) {
+	d := openDevice(t)
+	tg := newTarget(t, d, 16, 16)
+	tex, err := d.NewTexture(fourcc.ARGB8888, 8, 8)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := tex.Update(image.Rect(0, 0, 8, 8), 32, make([]byte, 8*8*4)); err != nil {
+		t.Fatal(err)
+	}
+	p, err := d.Begin(tg, []image.Rectangle{image.Rect(0, 0, 8, 8)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p.DrawTexture(tex, FRect{W: 8, H: 8}, image.Rect(0, 0, 8, 8), TransformNormal, 1, Mask{})
+	if err := p.End(); err != nil {
+		t.Fatal(err)
+	}
+	tex.Close()
+	held := func() bool {
+		for _, g := range d.graves {
+			if g.item == destroyer(tex) {
+				return true
+			}
+		}
+		return false
+	}
+	if !held() {
+		t.Fatal("a texture a pass the GPU has not finished samples was destroyed when it was closed")
+	}
+	if err := d.Finish(); err != nil {
+		t.Fatal(err)
+	}
+	if held() {
+		t.Error("the texture outlived the pass that sampled it")
+	}
+}
+
+func TestABatchACloseCouldNotSubmitFailsTheNextSubmission(t *testing.T) {
+	d := openDevice(t)
+	tex, err := d.NewTexture(fourcc.ARGB8888, 8, 8)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := tex.Update(image.Rect(0, 0, 8, 8), 32, make([]byte, 8*8*4)); err != nil {
+		t.Fatal(err)
+	}
+	kept, err := d.NewTexture(fourcc.ARGB8888, 8, 8)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer kept.Close()
+	upload := func() error {
+		if err := kept.Update(image.Rect(0, 0, 8, 8), 32, make([]byte, 8*8*4)); err != nil {
+			return err
+		}
+		return d.Flush()
+	}
+	d.fault = vk.ErrorOutOfDeviceMemory
+	tex.Close()
+	if d.fault != vk.Success {
+		t.Fatal("closing a texture with uploads batched submitted nothing")
+	}
+	err = upload()
+	if !errors.Is(err, resultError(vk.ErrorOutOfDeviceMemory)) || !bytes.Contains([]byte(err.Error()), []byte("before a close")) {
+		t.Fatalf("the submission after a close whose batch failed: %v, want the close's failure", err)
+	}
+	if err := upload(); err != nil {
+		t.Errorf("the submission after the one that reported the failed close: %v", err)
+	}
+}

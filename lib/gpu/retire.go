@@ -1,6 +1,10 @@
 package gpu
 
-import "math"
+import (
+	"errors"
+	"fmt"
+	"math"
+)
 
 type destroyer interface{ destroy() }
 
@@ -19,6 +23,16 @@ func (d *Device) retire(item destroyer) {
 		return
 	}
 	d.graves = append(d.graves, grave{after: after, item: item})
+}
+
+func (d *Device) discard(item destroyer) {
+	if !d.framing && d.active == nil {
+		d.reap(false)
+		if err := d.flushBatch(); err != nil {
+			d.waitErr = errors.Join(d.waitErr, fmt.Errorf("gpu: submit the work batched before a close: %w", err))
+		}
+	}
+	d.retire(item)
 }
 
 func (d *Device) buryFinished(through uint64) {

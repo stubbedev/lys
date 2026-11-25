@@ -284,7 +284,7 @@ func (t *Texture) Close() {
 	}
 	t.closed = true
 	delete(t.d.textures, t)
-	t.d.retire(t)
+	t.d.discard(t)
 }
 
 func (t *Texture) release() {

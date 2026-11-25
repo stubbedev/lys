@@ -403,5 +403,5 @@ func (b *Buffer) Close() {
 	}
 	b.e.buf.Planes = nil
 	b.sync.close()
-	d.retire(b)
+	d.discard(b)
 }
