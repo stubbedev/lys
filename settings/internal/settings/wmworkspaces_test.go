@@ -7,6 +7,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/ui/widget"
+	"golang.org/x/image/font/gofont/gobold"
+	"golang.org/x/image/font/gofont/gomedium"
+
 	"github.com/stubbedev/lys/settings/internal/locale"
 	"github.com/stubbedev/lys/settings/internal/wmconfig"
 	"github.com/stubbedev/lys/settings/internal/wmtest"
@@ -195,5 +201,37 @@ func TestWorkspaceAndScratchpadCardsWriteWhatLysWMAccepts(t *testing.T) {
 	var rejected *wmconfig.RejectedError
 	if !ws.draft.Visible() || !errors.As(w.file.Check([]wmconfig.Edit{{Path: []string{"workspaces"}, Value: []any{map[string]any{"id": 0}}}}), &rejected) {
 		t.Errorf("workspace 0 is not refused: draft %q", ws.draft.Text())
+	}
+}
+
+// A workspace rule's card title, "Workspace 1", was a heading, heavier
+// than the row titles around it. A card's title reads as a row's title:
+// the same size, weight and color.
+func TestAWorkspaceRulesCardTitleReadsAsARowsTitle(t *testing.T) {
+	faces := map[bool]render.Font{}
+	for heavy, ttf := range map[bool][]byte{false: gomedium.TTF, true: gobold.TTF} {
+		f, err := render.LoadFont(ttf)
+		if err != nil {
+			t.Fatal(err)
+		}
+		faces[heavy] = f
+	}
+	widget.SetFaceResolver(func(_ string, weight int) (render.Font, bool) { return faces[weight > 600], true })
+	t.Cleanup(func() { widget.SetFaceResolver(nil) })
+	k, w, _, _ := wmKit(t, "workspaces:\n  - {id: 4}\n")
+	c := fieldControl(k, w, wmWorkspacesRow()).(*cardList)
+	text := c.cards[0].title.Text()
+	row := k.row(text, "").withControl(c)
+	themed(k, widget.NewItemGroup(row))
+	title := treetest.All[*widget.Label](row)[0]
+	if title.Text() != text {
+		t.Fatalf("the row's first label reads %q, not its title %q", title.Text(), text)
+	}
+	card := c.cards[0].title
+	if cw, tw := card.Measure(widget.Row, -1).Nat, title.Measure(widget.Row, -1).Nat; cw != tw {
+		t.Errorf("the card title is %dpx wide, the row's title of the same words %dpx", cw, tw)
+	}
+	if cc, tc := widget.CascadeColor(card), widget.CascadeColor(title); cc != tc {
+		t.Errorf("the card title reads in %#08x, the row's title in %#08x", uint32(cc), uint32(tc))
 	}
 }

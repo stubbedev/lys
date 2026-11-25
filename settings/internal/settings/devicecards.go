@@ -191,7 +191,7 @@ func (c *deviceCards) cardWidget(cd *deviceCard) *widget.Box {
 	t := locale.T()
 	header := gapBox(widget.Row)
 	header.AddClass(cardFormClasses.header)
-	title := c.k.label(cd.name, cardFormClasses.title, css.Heading)
+	title := c.k.label(cd.name, cardFormClasses.title, itemTitle)
 	title.SetEllipsize(widget.EllipsizeEnd)
 	header.AppendAligned(title, true, widget.AlignCenter)
 	if !cd.connected {

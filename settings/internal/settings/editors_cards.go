@@ -544,7 +544,7 @@ func (c *cardList) appendCard(i int) {
 			cd.icon = widget.NewThemeIcon(c.spec.icon(c.local[i]), appIconPx)
 			header.AppendAligned(cd.icon, false, widget.AlignCenter)
 		}
-		cd.title = c.k.label("", look.title, css.Heading)
+		cd.title = c.k.label("", look.title, itemTitle)
 		cd.title.SetEllipsize(widget.EllipsizeEnd)
 		header.AppendAligned(cd.title, true, widget.AlignCenter)
 	}
