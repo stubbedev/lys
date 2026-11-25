@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"math"
 	"slices"
 	"strconv"
 	"strings"
@@ -15,6 +16,7 @@ import (
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/network"
 	"github.com/stubbedev/lys/desktop/service/rfkill"
+	"github.com/stubbedev/lys/lib/render"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
@@ -33,10 +35,6 @@ const (
 	wiredIcon    = "ld-ethernet-port-symbolic"
 	airplaneIcon = "ld-plane-symbolic"
 )
-
-// defaultNetwork is the network module's default icons, whose signal
-// ladder the page's networks show their strength by.
-var defaultNetwork = config.DefaultsNetwork()
 
 var hiddenProblems = map[error]string{
 	network.ErrHiddenNameEmpty:      "settings-wifi-hidden-name-empty",
@@ -609,7 +607,7 @@ func (p *networkPanel) show() {
 	signIn := p.eap.target != nil
 	for _, ap := range visibleNetworks(st.aps) {
 		list.Append(p.networkRow(ap))
-		if t, ok := p.eap.target.(listedEAP); ok && t.ssid() == ap.Name() {
+		if p.signingIn(ap.Name()) {
 			list.Append(p.eap.row)
 			signIn = false
 		}
@@ -662,15 +660,32 @@ func activeAccessPoint(st netState) (network.AccessPoint, bool) {
 	return visibleNetworks(st.aps)[i], true
 }
 
-// signalIcon draws strength as the arcs it reaches over the dimmed full
-// Wi-Fi glyph, so a weak signal reads as a fan with one arc lit rather
-// than a lone dot; its percentage is its name.
-func signalIcon(strength uint8) *widget.Overlay {
-	full := widget.NewThemeIcon(wifiIcon, appIconPx)
-	full.AddClass(css.DimLabel)
-	level := widget.NewThemeIcon(defaultNetwork.WifiSignalIcon(strength), appIconPx)
-	level.SetAccessibleName(locale.T().Get("settings-wifi-signal", i18n.Int("percent", int64(strength))))
-	return widget.NewOverlay().Append(full).Append(level)
+// signalArcs is how many arcs of the Wi-Fi fan a signal can light over
+// its dot: four strengths, each drawn apart.
+const signalArcs = 3
+
+// signalIcon draws strength as the Wi-Fi fan, its dot and the arcs it
+// reaches lit and the rest faint, so every strength keeps the glyph's
+// shape and reads apart from the next; its percentage is its name.
+func signalIcon(strength uint8) *widget.DrawingArea {
+	lit := config.SignalIndex(strength, signalArcs+1)
+	fan := widget.NewDrawingArea(appIconPx, appIconPx)
+	fan.SetAccessibleName(locale.T().Get("settings-wifi-signal", i18n.Int("percent", int64(strength))))
+	fan.OnDraw = func(cv *render.Canvas, r render.Rect) {
+		th := widget.Current()
+		unit := float64(r.W) / 24
+		cx, cy := float64(r.X)+12*unit, float64(r.Y)+20*unit
+		half := math.Asin(0.7)
+		cv.Arc(cx, cy, unit/2, unit, 0, 2*math.Pi, th.Text)
+		for arc := 1; arc <= signalArcs; arc++ {
+			col := th.Border
+			if arc <= lit {
+				col = th.Text
+			}
+			cv.Arc(cx, cy, float64(5*arc)*unit, 2*unit, -math.Pi/2-half, 2*half, col)
+		}
+	}
+	return fan
 }
 
 // showSaved lists the saved Wi-Fi networks, in range or not, each with
@@ -768,10 +783,18 @@ func (p *networkPanel) networkRow(ap network.AccessPoint) widget.Widget {
 		row.AddDetail(p.passwordRow(func(password string) { p.connect(ap, password) }))
 		return row
 	}
-	if !connected {
+	if !connected && !p.signingIn(name) {
 		controls = append(controls, p.k.primaryButton(t.Get("settings-wifi-connect"), func() { p.join(ap, known) }))
 	}
 	return row.withControls(controls...)
+}
+
+// signingIn reports whether the enterprise sign-in is open for the
+// network in range named name, its form under that network's row
+// holding the Connect.
+func (p *networkPanel) signingIn(name string) bool {
+	t, ok := p.eap.target.(listedEAP)
+	return ok && t.ssid() == name
 }
 
 func (p *networkPanel) join(ap network.AccessPoint, known bool) {

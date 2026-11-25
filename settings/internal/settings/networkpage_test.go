@@ -1,6 +1,7 @@
 package settings
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"slices"
@@ -10,6 +11,7 @@ import (
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/network"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/lib/render"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
@@ -222,6 +224,40 @@ func TestAnEnterpriseNetworkSignsInWithItsEAPSettings(t *testing.T) {
 	p.eap.connect()
 	if !slices.Equal(f.eapJoins, []string{"Office"}) || p.eap.target != nil || p.eap.password.Text() != "" {
 		t.Errorf("signing in joined %v; form open for %v, password kept %q", f.eapJoins, p.eap.target, p.eap.password.Text())
+	}
+}
+
+// Opening Office's sign-in left the row's Connect above the form's own,
+// and its "Sign in to Office" was dim body text weaker than the field
+// labels under it. The open sign-in's network offers no Connect of its
+// own while the others keep theirs, and the form is headed as a heading
+// standing further from its first field than the fields from each other.
+func TestAnOpenSignInHoldsItsNetworksOnlyConnectUnderAHeading(t *testing.T) {
+	f := homeNets()
+	k, p := netPanel(t, f)
+	connect := locale.T().Get("settings-wifi-connect")
+	clickText(t, p.nets, connect, 0)
+	if p.eap.target == nil || p.eap.target.ssid() != "Office" {
+		t.Fatalf("Connect on Office opened the sign-in for %v", p.eap.target)
+	}
+	if labels := treetest.Labels(networkRowTitled(t, p, "Office")); slices.Contains(labels, connect) {
+		t.Errorf("Office's row still offers Connect beside its open sign-in: %q", labels)
+	}
+	if labels := treetest.Labels(networkRowTitled(t, p, "Cafe")); !slices.Contains(labels, connect) {
+		t.Errorf("Cafe's row lost its Connect: %q", labels)
+	}
+	if head := p.eap.head; !head.HasClass(css.Heading) || head.HasClass(css.DimLabel) {
+		t.Errorf("the sign-in's %q is styled %v, want a heading", head.Text(), head.Classes())
+	}
+	themed(k, p)
+	kids := p.eap.Children()
+	head, first, second := p.eap.head.Bounds(), kids[1].(widget.Boundser).Bounds(), kids[2].(widget.Boundser).Bounds()
+	if under, between := first.Y-(head.Y+head.H), second.Y-(first.Y+first.H); under <= between {
+		t.Errorf("the sign-in's heading stands %dpx over its first field, fields stand %dpx apart", under, between)
+	}
+	p.eap.cancel()
+	if labels := treetest.Labels(networkRowTitled(t, p, "Office")); !slices.Contains(labels, connect) {
+		t.Errorf("Office's row offers no Connect once its sign-in is cancelled: %q", labels)
 	}
 }
 
@@ -453,7 +489,7 @@ func TestTheConnectedNetworkShowsItsSignal(t *testing.T) {
 	_, p := netPanel(t, homeNets())
 	want := locale.T().Get("settings-wifi-signal", i18n.Int("percent", 80))
 	found := false
-	for _, ic := range treetest.All[*widget.Icon](p.status) {
+	for _, ic := range treetest.All[*widget.DrawingArea](p.status) {
 		found = found || ic.AccessibleName() == want
 	}
 	if !found {
@@ -462,7 +498,7 @@ func TestTheConnectedNetworkShowsItsSignal(t *testing.T) {
 	f := homeNets()
 	f.state.active = ""
 	_, p = netPanel(t, f)
-	for _, ic := range treetest.All[*widget.Icon](p.status) {
+	for _, ic := range treetest.All[*widget.DrawingArea](p.status) {
 		if ic.AccessibleName() == want {
 			t.Errorf("a disconnected Wi-Fi shows the signal %q", want)
 		}
@@ -491,59 +527,56 @@ func TestAConnectionReadsItsAddressOnlyOnceItHasOne(t *testing.T) {
 	}
 }
 
-// A weak network's signal was the weak glyph alone, a dot and one arc a
-// few pixels across that read as a speck. Every signal draws the arcs it
-// reaches over the full Wi-Fi fan, dimmed, so the glyph keeps its shape.
-func TestAWeakSignalKeepsTheWiFiShape(t *testing.T) {
-	for _, strength := range []uint8{5, 30, 60, 100} {
-		sig := signalIcon(strength)
-		icons := treetest.All[*widget.Icon](sig)
-		if len(icons) != 2 {
-			t.Fatalf("a %d%% signal draws %d glyphs", strength, len(icons))
+// A weak network's signal was the weak glyph alone, a speck; drawing the
+// level glyph over the dimmed full fan then made Office (60%) and Cafe
+// (40%) identical, three bright arcs barely apart from a dim fourth.
+// Every strength draws the whole fan, lighting its dot and one more arc
+// a quarter up: strengths a quarter apart draw apart, lit arcs in the
+// text's colour and the rest in the border's, far apart from it.
+func TestEveryWiFiStrengthDrawsTheFanWithItsOwnArcsLit(t *testing.T) {
+	th := widget.Current()
+	painted := func(strength uint8) (img []byte, lit, faint int) {
+		fan := signalIcon(strength)
+		fan.Arrange(render.Rect{W: appIconPx, H: appIconPx})
+		stride := render.Stride(appIconPx)
+		img = make([]byte, stride*appIconPx)
+		fan.Paint(render.New(img, stride, appIconPx, appIconPx))
+		swatch := func(col render.Color) [4]byte {
+			buf := make([]byte, 4)
+			render.New(buf, 4, 1, 1).FillRect(render.Rect{W: 1, H: 1}, col)
+			return [4]byte(buf)
 		}
-		fan, level := icons[0], icons[1]
-		if fan.Name() != wifiIcon || !fan.HasClass(css.DimLabel) {
-			t.Errorf("a %d%% signal is drawn over %q (dimmed %v), want the dimmed %q", strength, fan.Name(), fan.HasClass(css.DimLabel), wifiIcon)
+		text, border := swatch(th.Text), swatch(th.Border)
+		for px := range appIconPx * appIconPx {
+			switch [4]byte(img[4*px:]) {
+			case text:
+				lit++
+			case border:
+				faint++
+			}
 		}
-		if want := defaultNetwork.WifiSignalIcon(strength); level.Name() != want {
-			t.Errorf("a %d%% signal lights %q, want %q", strength, level.Name(), want)
+		return img, lit, faint
+	}
+	var prev []byte
+	prevLit := -1
+	for _, strength := range []uint8{10, 40, 60, 90} {
+		img, lit, faint := painted(strength)
+		if lit <= prevLit {
+			t.Errorf("a %d%% signal lights %d pixels, no more than the weaker one's %d", strength, lit, prevLit)
 		}
-	}
-}
-
-// Asking for a password, a network showed two Connect buttons stacked,
-// the row's and the form's, and the password field started under the
-// network's icon. The form's Connect is the only one, and its field
-// starts where the network's title does.
-func TestAPasswordFormHasOneConnectAndStartsUnderTheTitle(t *testing.T) {
-	k, p := netPanel(t, homeNets())
-	clickText(t, p.nets, locale.T().Get("settings-wifi-connect"), 1)
-	if p.password == nil {
-		t.Fatal("Connect on Cafe asked no password")
-	}
-	box := widget.NewBox(widget.Column, 0, 0)
-	box.Append(p, false)
-	styledLayOut(k, box, 1000)
-	var row *settingRow
-	for _, r := range treetest.All[*settingRow](p.nets) {
-		if treetest.Contains(r, p.password) {
-			row = r
+		if strength < 75 && faint == 0 {
+			t.Errorf("a %d%% signal draws no faint arc for the strength it lacks", strength)
 		}
-	}
-	if row == nil {
-		t.Fatal("the password field is in no row")
-	}
-	connects := 0
-	for _, b := range treetest.All[*widget.Button](row) {
-		if shown(b) && slices.Contains(treetest.Labels(b), locale.T().Get("settings-wifi-connect")) {
-			connects++
+		if bytes.Equal(img, prev) {
+			t.Errorf("a %d%% signal draws the same fan as the weaker one", strength)
 		}
+		prev, prevLit = img, lit
 	}
-	if connects != 1 {
-		t.Errorf("the asking row shows %d Connect buttons", connects)
+	same, _, _ := painted(65)
+	if sixty, _, _ := painted(60); !bytes.Equal(same, sixty) {
+		t.Error("60% and 65% draw different fans though they light the same arcs")
 	}
-	title := treetest.WithClass(row, "title")[0].(*widget.Label)
-	if e, ti := p.password.Bounds(), title.Bounds(); e.X != ti.X {
-		t.Errorf("the password field starts at %d, the title at %d", e.X, ti.X)
+	if name := signalIcon(40).AccessibleName(); name != locale.T().Get("settings-wifi-signal", i18n.Int("percent", 40)) {
+		t.Errorf("a 40%% signal is named %q", name)
 	}
 }

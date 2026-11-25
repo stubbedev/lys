@@ -6,7 +6,9 @@ import (
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/network"
 	"github.com/stubbedev/lys/desktop/service/network/eaptext"
+	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
+	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -72,7 +74,8 @@ func newEAPForm(p *networkPanel) *eapForm {
 	f := &eapForm{Box: gapBox(widget.Column), p: p}
 	f.row = newInsetRow(f)
 	f.AddClass("network-enterprise")
-	f.head = wrapped(k.label(""))
+	f.head = wrapped(k.label("", css.Heading))
+	f.head.SetMargin(render.Insets{Bottom: widget.Current().Spacing})
 	f.Append(f.head, false)
 	methods := make([]widget.DropdownItem[network.EAPMethod], len(network.EAPMethods))
 	for i, m := range network.EAPMethods {
