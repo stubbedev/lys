@@ -200,3 +200,56 @@ func TestASlidersOverhangIsWhereItsKnobEnds(t *testing.T) {
 		t.Error("a knob mid-trough reaches past the slider")
 	}
 }
+
+// A disabled slider's knob fades with its trough, keeping the knob's
+// own colors, instead of staying the stylesheet's full white (#362).
+func TestADisabledSlidersKnobFades(t *testing.T) {
+	knobAt := func(enabled bool) render.Color {
+		s := NewSlider(0, 100, 0, 50)
+		s.SetEnabled(enabled)
+		const w, h = 200, 30
+		arrangeTree(t, s, w, h)
+		data := paintTree(s, w, h)
+		return render.ColorFromBytes(data[(h/2)*render.Stride(w)+(w/2)*4:])
+	}
+	on, off := knobAt(true), knobAt(false)
+	if on.A() != 0xff || off.A() >= on.A() {
+		t.Errorf("knob %08x enabled, %08x disabled; want the disabled one faded", uint32(on), uint32(off))
+	}
+}
+
+// A slider look paints what a Slider paints, from the scale rules as
+// they cascade at its owner, its knob fading while the owner is
+// disabled: a hand-drawn range slider wears the slider's trough and
+// knob, not a copy of their rules (#262).
+func TestASliderLookPaintsAsASliderDoes(t *testing.T) {
+	loadCSS(t, `.owner scale trough { background-color: #ff0000; min-height: 4px; } .owner scale trough highlight { background-color: #00ff00; } .owner scale trough slider { background-color: #0000ff; min-width: 20px; min-height: 20px; }`)
+	owner := NewBox(Row, 0, 0)
+	owner.AddClass("owner")
+	arrangeTree(t, owner, 10, 10)
+	look := NewSliderLook(owner)
+	if look.KnobSize() != (Size{W: 20, H: 20}) || look.TroughThickness() != 4 {
+		t.Fatalf("knob %v, trough %dpx; want the owner's rules' 20x20 and 4px", look.KnobSize(), look.TroughThickness())
+	}
+	const w, h = 100, 30
+	paint := func() []byte {
+		data := make([]byte, render.Stride(w)*h)
+		cv := render.New(data, render.Stride(w), w, h)
+		look.PaintTrough(cv, render.Rect{X: 0, Y: 13, W: w, H: 4})
+		look.PaintFill(cv, render.Rect{X: 0, Y: 13, W: 30, H: 4})
+		look.PaintKnob(cv, render.Rect{X: 60, Y: 5, W: 20, H: 20})
+		return data
+	}
+	px := func(data []byte, x, y int) render.Color {
+		return render.ColorFromBytes(data[y*render.Stride(w)+x*4:])
+	}
+	data := paint()
+	if px(data, 45, 15) != render.RGB(0xff, 0, 0) || px(data, 15, 15) != render.RGB(0, 0xff, 0) || px(data, 70, 15) != render.RGB(0, 0, 0xff) {
+		t.Errorf("trough %08x, fill %08x, knob %08x; want the owner's red, green and blue", uint32(px(data, 45, 15)), uint32(px(data, 15, 15)), uint32(px(data, 70, 15)))
+	}
+	owner.SetEnabled(false)
+	data = paint()
+	if k := px(data, 70, 8); k.A() == 0xff {
+		t.Errorf("a disabled owner's knob %08x, want it faded", uint32(k))
+	}
+}

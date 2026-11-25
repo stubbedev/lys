@@ -152,14 +152,18 @@ func (s *Slider) troughProps() (length, thickness style.Prop) {
 // (less the unstyled inset).
 func (s *Slider) troughRect() render.Rect {
 	_, c := boxRects(boxOf(s.style(s), render.Insets{}), s.bounds)
-	tv := s.trough.style(&s.trough)
-	_, thickProp := s.troughProps()
-	th := picki(tv, thickProp, 6)
-	pad := s.troughPad()
+	th, pad := s.troughThickness(), s.troughPad()
 	if s.axis == Column {
 		return render.Rect{X: c.X + (c.W-th)/2, Y: c.Y + pad, W: th, H: max(c.H-2*pad, 0)}
 	}
 	return render.Rect{X: c.X + pad, Y: c.Y + (c.H-th)/2, W: max(c.W-2*pad, 0), H: th}
+}
+
+// troughThickness is the trough's thickness across the axis, 6px
+// unstyled.
+func (s *Slider) troughThickness() int {
+	_, thickProp := s.troughProps()
+	return picki(s.trough.style(&s.trough), thickProp, 6)
 }
 
 // troughPad is the trough's inset each end inside the content box:
@@ -290,53 +294,86 @@ const troughAlpha = 0.2
 // through the derived disabled colors (a stylesheet fades with its own
 // :disabled rules).
 func (s *Slider) Paint(cv *render.Canvas) {
-	t := Current()
-	troughCol, fillCol, knobCol := scaleAlpha(t.Text, troughAlpha), t.Accent, t.Text
 	v := s.style(s)
-	if !IsEnabled(s) {
-		troughCol, fillCol, knobCol = scaleAlpha(t.Text, troughAlpha*disabledFade), t.DisabledAccent(), t.DisabledText()
-	}
-	fillCol = accentOf(v, fillCol)
+	enabled := IsEnabled(s)
 	fx := pushEffects(cv, v, s.bounds, render.Corners{})
 	cv = fx.cv
 	defer fx.pop()
 	tr := s.troughRect()
-	tv := s.trough.style(&s.trough)
-	trRadii := radiusOr(tv, min(tr.W, tr.H)/2)
 	origin, span := s.along(tr)
 	at := origin + int(float64(span)*s.fraction())
-	if len(s.track) > 0 && IsEnabled(s) {
-		cv.PaintGradient(tr, trRadii, s.trackGradient())
+	if len(s.track) > 0 && enabled {
+		cv.PaintGradient(tr, s.troughRadii(tr), s.trackGradient())
 	} else {
-		paintBoxBehind(cv, tv, tr, trRadii, borderOf(tv), pickc(0, tv, style.PropBackgroundColor, troughCol))
-		s.paintHighlight(cv, tr, trRadii.TopLeft, origin, at, fillCol)
+		s.paintTrough(cv, tr, enabled)
+		s.paintFill(cv, s.highlightRect(tr, origin, at), enabled)
 	}
-
-	kv := s.trough.knob.style(&s.trough.knob)
 	kw, kh := s.knobSize()
 	knob := render.Rect{X: at - kw/2, Y: tr.Y + tr.H/2 - kh/2, W: kw, H: kh}
 	if s.axis == Column {
 		knob = render.Rect{X: tr.X + tr.W/2 - kw/2, Y: at - kh/2, W: kw, H: kh}
 	}
-	kfx := pushEffects(cv, kv, knob, radiusOr(kv, min(kw, kh)/2))
-	paintBoxBehind(kfx.cv, kv, knob, radiusOr(kv, min(kw, kh)/2), borderOf(kv), pickc(0, kv, style.PropBackgroundColor, knobCol))
-	kfx.pop()
+	s.paintKnob(cv, knob, enabled)
 	paintOutline(cv, v, s.bounds, radiusOr(v, 0))
 }
 
-// paintHighlight runs the highlight from the minimum's end at origin to
-// the knob at at.
-func (s *Slider) paintHighlight(cv *render.Canvas, tr render.Rect, radius, origin, at int, fill render.Color) {
-	lo, hi := min(origin, at), max(origin, at)
-	if hi <= lo {
+// troughRadii are the trough node's corners over a pill's, for tr.
+func (s *Slider) troughRadii(tr render.Rect) render.Corners {
+	return radiusOr(s.trough.style(&s.trough), min(tr.W, tr.H)/2)
+}
+
+// paintTrough paints the unfilled trough over tr: the trough node's box
+// over the text color at troughAlpha, fading further disabled.
+func (s *Slider) paintTrough(cv *render.Canvas, tr render.Rect, enabled bool) {
+	t, tv := Current(), s.trough.style(&s.trough)
+	col := scaleAlpha(t.Text, troughAlpha)
+	if !enabled {
+		col = scaleAlpha(t.Text, troughAlpha*disabledFade)
+	}
+	paintBoxBehind(cv, tv, tr, s.troughRadii(tr), borderOf(tv), pickc(0, tv, style.PropBackgroundColor, col))
+}
+
+// paintFill paints the trough's highlight over r: the highlight node's
+// box over the slider's accent, the derived disabled accent disabled.
+func (s *Slider) paintFill(cv *render.Canvas, r render.Rect, enabled bool) {
+	if r.Empty() {
 		return
 	}
-	filled := render.Rect{X: lo, Y: tr.Y, W: hi - lo, H: tr.H}
-	if s.axis == Column {
-		filled = render.Rect{X: tr.X, Y: lo, W: tr.W, H: hi - lo}
+	t := Current()
+	col := t.Accent
+	if !enabled {
+		col = t.DisabledAccent()
 	}
 	hv := s.trough.highlight.style(&s.trough.highlight)
-	paintBoxBehind(cv, hv, filled, radiusOr(hv, radius), borderOf(hv), pickc(0, hv, style.PropBackgroundColor, fill))
+	radius := s.troughRadii(r).TopLeft
+	paintBoxBehind(cv, hv, r, radiusOr(hv, radius), borderOf(hv), pickc(0, hv, style.PropBackgroundColor, accentOf(s.style(s), col)))
+}
+
+// paintKnob paints the knob over r, the knob node's box over the text
+// color; disabled, the whole knob fades, keeping its colors, as the
+// trough does.
+func (s *Slider) paintKnob(cv *render.Canvas, r render.Rect, enabled bool) {
+	if !enabled {
+		defer cv.PopAlpha(cv.PushAlpha(disabledFade))
+	}
+	kv := s.trough.knob.style(&s.trough.knob)
+	radii := radiusOr(kv, min(r.W, r.H)/2)
+	kfx := pushEffects(cv, kv, r, radii)
+	paintBoxBehind(kfx.cv, kv, r, radii, borderOf(kv), pickc(0, kv, style.PropBackgroundColor, Current().Text))
+	kfx.pop()
+}
+
+// highlightRect is the trough's highlight, from the minimum's end at
+// origin to the knob at at; empty at the minimum.
+func (s *Slider) highlightRect(tr render.Rect, origin, at int) render.Rect {
+	lo, hi := min(origin, at), max(origin, at)
+	if hi <= lo {
+		return render.Rect{}
+	}
+	if s.axis == Column {
+		return render.Rect{X: tr.X, Y: lo, W: tr.W, H: hi - lo}
+	}
+	return render.Rect{X: lo, Y: tr.Y, W: hi - lo, H: tr.H}
 }
 
 func (s *Slider) fraction() float64 {
@@ -422,4 +459,49 @@ func (s *Slider) KeyAction(a KeyAction, mods Mods) {
 	case KeyEnd:
 		s.SetValue(s.max)
 	}
+}
+
+// SliderLook paints a slider's parts for a control drawn by hand (a
+// range slider with two knobs, a threshold bar): the trough, its
+// highlight and the knob exactly as Slider paints them, from the
+// `scale trough`, `scale trough highlight` and `scale trough slider`
+// rules as they cascade at its owner, enabled while the owner is.
+type SliderLook struct {
+	owner  Widget
+	slider *Slider
+}
+
+// NewSliderLook returns the look of a slider styled at owner.
+func NewSliderLook(owner Widget) *SliderLook {
+	s := NewSlider(0, 1, 0, 0)
+	SetStyleAnchor(s, owner)
+	return &SliderLook{owner: owner, slider: s}
+}
+
+// PaintTrough paints the unfilled trough over r.
+func (l *SliderLook) PaintTrough(cv *render.Canvas, r render.Rect) {
+	l.slider.paintTrough(cv, r, IsEnabled(l.owner))
+}
+
+// PaintFill paints the trough's highlight over r, the span a value
+// covers.
+func (l *SliderLook) PaintFill(cv *render.Canvas, r render.Rect) {
+	l.slider.paintFill(cv, r, IsEnabled(l.owner))
+}
+
+// PaintKnob paints a knob over r, KnobSize big.
+func (l *SliderLook) PaintKnob(cv *render.Canvas, r render.Rect) {
+	l.slider.paintKnob(cv, r, IsEnabled(l.owner))
+}
+
+// KnobSize is the knob's size.
+func (l *SliderLook) KnobSize() Size {
+	w, h := l.slider.knobSize()
+	return Size{W: w, H: h}
+}
+
+// TroughThickness is the trough's thickness across a horizontal
+// slider.
+func (l *SliderLook) TroughThickness() int {
+	return l.slider.troughThickness()
 }
