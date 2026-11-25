@@ -664,8 +664,8 @@ func TestABordersAddButtonOffersAColorUnderItsAmericanID(t *testing.T) {
 	if en.Has("wm-border-add-colour") {
 		t.Error("en-US still carries the British wm-border-add-colour")
 	}
-	if got, want := c.colors.add.TooltipText(), locale.T().Get("wm-border-add-color"); got != want {
-		t.Errorf("the add button says %q, want %q", got, want)
+	if got, want := treetest.Labels(c.colors.end.add), locale.T().Get("wm-border-add-color"); !slices.Contains(got, want) {
+		t.Errorf("the add button reads %q, want %q", got, want)
 	}
 }
 

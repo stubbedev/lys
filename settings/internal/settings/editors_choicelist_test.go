@@ -25,10 +25,10 @@ func choiceList(t *testing.T, k *kit, page, path string) *choiceListEditor {
 
 func openAdd(t *testing.T, c *choiceListEditor) *searchPicker {
 	t.Helper()
-	if !c.add.Visible() {
+	if !c.end.add.Visible() {
 		t.Fatal("the list offers no add")
 	}
-	c.add.ClickAt(widget.Point{})
+	c.end.add.ClickAt(widget.Point{})
 	if c.picker == nil {
 		t.Fatal("add opened no list")
 	}
@@ -49,7 +49,7 @@ func TestAScriptModeNamesItsExecutableFile(t *testing.T) {
 	if got := k.store.value(launcherScriptsPath); !reflect.DeepEqual(got, map[string]any{"notes": "~/bin/notes2"}) {
 		t.Errorf("stored %v", got)
 	}
-	c.add.OnClick()
+	c.end.add.OnClick()
 	c.items[1].(mapItem).editor.(*fileEditor).entry.OnActivate("~/bin/orphan")
 	if got, _ := k.store.value(launcherScriptsPath).(map[string]any); len(got) != 1 {
 		t.Errorf("a script without a mode name was written: %v", got)

@@ -207,9 +207,8 @@ func newWorldClockEditor(k *kit, s slot, meta config.FieldMeta) *worldClockEdito
 				return newFormatParts(k, s, worldClockParts())
 			}},
 		},
-		blank:    func() map[string]any { return map[string]any{"before": " ", "zone": "UTC", "format": "%H:%M"} },
-		keep:     func(item map[string]any) bool { zone, _ := item["zone"].(string); return zone != "" },
-		addAtEnd: true,
+		blank: func() map[string]any { return map[string]any{"before": " ", "zone": "UTC", "format": "%H:%M"} },
+		keep:  func(item map[string]any) bool { zone, _ := item["zone"].(string); return zone != "" },
 	})
 	e.notice = k.note(t.Get("settings-world-clock-handwritten"))
 	e.preview = k.formatPreview()

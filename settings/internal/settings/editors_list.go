@@ -13,7 +13,7 @@ import (
 )
 
 // The list editors (string_list, icon_list, enum_list): one row per
-// item with move up, move down and remove, an add button below, every
+// item with move up, move down and remove, the list's end below, every
 // edit writing the whole list; an outside change rebuilds the rows.
 
 // listItem is one row's control over one item.
@@ -22,7 +22,7 @@ type listItem interface {
 	itemValue() any
 }
 
-// listSpec shapes a list editor: the add button's tooltip key, the
+// listSpec shapes a list editor: the add button's message key, the
 // row's class, whether rows reorder, the item control for a value
 // (changed writes the list), and a new item's value.
 type listSpec struct {
@@ -53,7 +53,7 @@ type listEditor struct {
 	slot  slot
 	spec  listSpec
 	rows  *widget.Box
-	add   *widget.Button
+	end   listEnd
 	items []listItem
 	// arrows are each row's move up and move down buttons, nil without
 	// reordering.
@@ -72,7 +72,7 @@ func newListEditor(k *kit, s slot, spec listSpec) *listEditor {
 	c.Append(c.rows, false)
 	// A new row writes only when it changes the stored value: a blank
 	// list item does, a map's keyless pair encodes away and does not.
-	c.add = k.addButton(spec.addKey, func() {
+	c.end = k.listEnd(c.Box, "", spec.addKey, func() {
 		if spec.pick != nil {
 			c.pickNew()
 			return
@@ -83,7 +83,6 @@ func newListEditor(k *kit, s slot, spec listSpec) *listEditor {
 			c.commit()
 		}
 	})
-	c.AppendAligned(c.add, false, widget.AlignStart)
 	c.rebuild(c.stored())
 	return c
 }
@@ -123,10 +122,12 @@ func (c *listEditor) rebuild(values []any) {
 	c.fit()
 }
 
-// fit hides the add button once the list is full, and enables each
-// row's arrows only toward a row they can swap with.
+// fit shows the empty line while there is no row, hides the add button
+// once the list is full, and enables each row's arrows only toward a row
+// they can swap with.
 func (c *listEditor) fit() {
-	c.add.SetVisible(c.spec.full == nil || !c.spec.full(len(c.items)))
+	c.end.show(len(c.items))
+	c.end.add.SetVisible(c.spec.full == nil || !c.spec.full(len(c.items)))
 	for i, a := range c.arrows {
 		a[0].SetEnabled(i > 0)
 		a[1].SetEnabled(i < len(c.arrows)-1)
@@ -137,7 +138,7 @@ func (c *listEditor) fit() {
 // the item, each later one replaces it.
 func (c *listEditor) pickNew() {
 	at := -1
-	c.spec.pick(c.add, func(v any) {
+	c.spec.pick(c.end.add, func(v any) {
 		values := c.values()
 		if at < 0 || at >= len(values) {
 			at = len(values)

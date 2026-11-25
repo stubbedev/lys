@@ -30,7 +30,7 @@ func TestAnIconMapPicksTheIconForEachPattern(t *testing.T) {
 		if err := icon.slot.set(42); err == nil {
 			t.Errorf("%s: a value that is not an icon name was taken", path)
 		}
-		c.add.OnClick()
+		c.end.add.OnClick()
 		_ = c.items[1].(mapItem).editor.(*iconEditor).slot.set("ld-x-symbolic")
 		if got, _ := k.store.value(path).(map[string]any); len(got) != 1 {
 			t.Errorf("%s: an icon without a pattern was written: %v", path, got)

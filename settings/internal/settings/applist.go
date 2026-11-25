@@ -5,17 +5,15 @@ import (
 
 	"github.com/stubbedev/lys/desktop/desktopentry"
 	"github.com/stubbedev/lys/ui/widget"
-
-	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
 // appListSpec is what an app list edits: the apps its config names and
 // the controls each app's row holds.
 type appListSpec struct {
-	// addKey is the add button's tooltip.
+	// addKey labels the add button.
 	addKey string
-	// emptyIcon and emptyKey say the list names no app.
-	emptyIcon, emptyKey string
+	// emptyKey says the list names no app.
+	emptyKey string
 	// rowClass is each row's class.
 	rowClass string
 	// extra, when set, sits beside the add button: another way to add.
@@ -33,7 +31,8 @@ type appListSpec struct {
 }
 
 // appList is a list of apps, one row per app: its face, its controls and
-// its remove button, and an add button picking an installed app. An app
+// its remove button, and the list's end, its add button picking an
+// installed app. An app
 // added keeps its row, though the config does not name it yet, until it
 // is removed.
 type appList struct {
@@ -44,24 +43,20 @@ type appList struct {
 	pending []string
 	rows    []string
 	list    *widget.Box
-	state   *cardState
-	add     *widget.Button
+	end     listEnd
 	// syncing is set while show sets the controls, so their handlers
 	// write nothing.
 	syncing bool
 }
 
 func newAppList(k *kit, spec appListSpec) *appList {
-	c := &appList{Box: gapBox(widget.Column), k: k, spec: spec, list: gapBox(widget.Column), state: k.cardState()}
-	c.add = k.addButton(spec.addKey, c.pickApp)
-	controls := gapBox(widget.Row)
-	controls.AppendAligned(c.add, false, widget.AlignCenter)
-	if spec.extra != nil {
-		controls.AppendAligned(spec.extra, true, widget.AlignCenter)
-	}
-	c.Append(c.state.lone(), false)
+	c := &appList{Box: gapBox(widget.Column), k: k, spec: spec, list: gapBox(widget.Column)}
 	c.Append(c.list, false)
-	c.Append(controls, false)
+	var beside []widget.Widget
+	if spec.extra != nil {
+		beside = append(beside, spec.extra)
+	}
+	c.end = k.listEnd(c.Box, spec.emptyKey, spec.addKey, c.pickApp, beside...)
 	k.withInstalledApps(func(ix installedApps) {
 		c.apps = ix
 		c.rebuild()
@@ -88,7 +83,7 @@ func (c *appList) named() []string {
 func (c *appList) pickApp() {
 	named := c.named()
 	apps := slices.DeleteFunc(slices.Clone(c.apps.shown), func(a desktopentry.App) bool { return slices.Contains(named, a.AppID()) })
-	openAppPicker(c.k, c.add, apps, func(a desktopentry.App) { c.addApp(a.AppID()) })
+	openAppPicker(c.k, c.end.add, apps, func(a desktopentry.App) { c.addApp(a.AppID()) })
 }
 
 // addApp gives app a row, unless it has one.
@@ -140,11 +135,7 @@ func (c *appList) face(app string) *widget.Box {
 func (c *appList) rebuild() {
 	c.list.Clear()
 	c.rows = c.named()
-	if len(c.rows) == 0 {
-		c.state.Empty(c.spec.emptyIcon, locale.T().Get(c.spec.emptyKey))
-	} else {
-		c.state.Clear()
-	}
+	c.end.show(len(c.rows))
 	for _, app := range c.rows {
 		row := gapBox(widget.Row)
 		row.AddClass(c.spec.rowClass)

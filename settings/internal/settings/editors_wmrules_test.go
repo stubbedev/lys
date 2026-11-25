@@ -64,7 +64,7 @@ func TestARuleShowsOnlyItsEffectsAndAddsOneFromTheMenu(t *testing.T) {
 		t.Fatalf("a rule with no effect shows the chips %v", got)
 	}
 	_, effects := openRule(t, c, 0)
-	if !effects.state.Visible() || len(effects.shown) != 0 {
+	if !effects.end.empty.Visible() || len(effects.shown) != 0 {
 		t.Fatalf("a rule with no effect shows %v", effects.shown)
 	}
 	offered := effects.offered()
@@ -82,7 +82,7 @@ func TestARuleShowsOnlyItsEffectsAndAddsOneFromTheMenu(t *testing.T) {
 	if got := fileText(t, files.runtime); !strings.Contains(got, "float: true") || !strings.Contains(got, "app_id: foot") {
 		t.Fatalf("adding float wrote %q", got)
 	}
-	if !slices.Equal(effects.shown, []string{"float"}) || effects.state.Visible() {
+	if !slices.Equal(effects.shown, []string{"float"}) || effects.end.empty.Visible() {
 		t.Errorf("after adding float the rule shows %v", effects.shown)
 	}
 	if got, want := chipTexts(c.cards[0].aside), []string{locale.T().Get("wm-rules-float")}; !slices.Equal(got, want) {
@@ -101,7 +101,7 @@ func TestARuleShowsOnlyItsEffectsAndAddsOneFromTheMenu(t *testing.T) {
 		t.Errorf("removing float wrote %q", got)
 	}
 	effects.removeEffect("blur_look")
-	if len(effects.shown) != 0 || !effects.state.Visible() {
+	if len(effects.shown) != 0 || !effects.end.empty.Visible() {
 		t.Errorf("after removing both the rule shows %v", effects.shown)
 	}
 }

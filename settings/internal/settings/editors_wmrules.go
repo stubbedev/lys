@@ -375,8 +375,7 @@ type ruleEffects struct {
 	added    []string
 	shown    []string
 	body     *widget.Box
-	state    *cardState
-	add      *widget.Button
+	end      listEnd
 	controls []control
 }
 
@@ -384,15 +383,12 @@ func newRuleEffects(k *kit, parts ruleParts, fields map[string][]cardField, bool
 	r := &ruleEffects{Box: gapBox(widget.Column), k: k, parts: parts, fields: fields, bools: bools, field: field}
 	r.AddClass("rule-effects")
 	r.body = gapBox(widget.Column)
-	r.state = k.cardState()
-	r.add = k.addButton("wm-rules-add-effect", func() {
+	r.Append(r.body, false)
+	r.end = k.listEnd(r.Box, "wm-rules-no-effects", "wm-rules-add-effect", func() {
 		if k.pickers != nil {
-			openChoicePicker(k, r.add, r.offered(), r.addEffect)
+			openChoicePicker(k, r.end.add, r.offered(), r.addEffect)
 		}
 	})
-	r.Append(r.state.lone(), false)
-	r.Append(r.body, false)
-	r.AppendAligned(r.add, false, widget.AlignStart)
 	r.rebuild()
 	return r
 }
@@ -436,12 +432,8 @@ func (r *ruleEffects) rebuild() {
 		}
 		r.body.Append(group, false)
 	}
-	if len(r.shown) == 0 {
-		r.state.Empty("ld-app-window-symbolic", t.Get("wm-rules-no-effects"))
-	} else {
-		r.state.Clear()
-	}
-	r.add.SetVisible(len(r.shown) < len(r.parts.effects))
+	r.end.show(len(r.shown))
+	r.end.add.SetVisible(len(r.shown) < len(r.parts.effects))
 }
 
 // offered are the effects the rule does not show yet, as the add menu's

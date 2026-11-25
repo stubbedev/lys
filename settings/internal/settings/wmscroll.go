@@ -159,7 +159,7 @@ func newColumnPresets(k *kit, s slot) *columnPresets {
 	c.amount = widget.NewSpinButton(k.face, k.textPx(), 0, 1, percentPerShare, 1, 0)
 	c.unit.OnSelect = func(int) { c.unitChanged() }
 	c.amount.OnValueChanged = func(float64) { c.showAddable() }
-	c.add = k.addButton("wm-scroll-presets-add", c.addWidth)
+	c.add = k.listAddButton("wm-scroll-presets-add", c.addWidth)
 	c.adder = gapBox(widget.Row)
 	c.adder.Append(c.unit, false)
 	c.adder.Append(c.amount, false)

@@ -132,7 +132,7 @@ func displaysLead(k *kit) widget.Widget {
 	inset.Top = 0
 	actions.SetPadding(inset)
 	actions.Append(p.identify, false)
-	p.addVirtual = k.addButton("settings-displays-virtual-add", p.addVirtualOutput)
+	p.addVirtual = k.listAddButton("settings-displays-virtual-add", p.addVirtualOutput)
 	actions.Append(p.addVirtual, false)
 	actions.Append(widget.NewBox(widget.Row, 0, 0), true)
 	actions.Append(p.apply, false)

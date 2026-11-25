@@ -20,8 +20,8 @@ import (
 
 // The card lists (card_form, threshold_list, the preset and override
 // lists): one card per list item, its fields the ordinary editors over
-// slots into the item, a remove button in the card's header and an
-// add button below.
+// slots into the item, a remove button in the card's header and the
+// list's end below.
 
 // cardField is one field of a card: the item key, its label key, and
 // the editor over the field's slot; or, for a control over several
@@ -128,13 +128,10 @@ type cardSpec struct {
 	// refuse the items. A refused write is held as a draft, shown with the
 	// reason and written once the cards make one the target takes.
 	check func(items []any) func() error
-	// addKey labels the add button's tooltip (settings-list-add).
-	addKey string
-	// addAtEnd ends the list with its add button in the control column, as
-	// the format editor it is part of ends its parts, not at the start.
-	addAtEnd bool
-	pick     *cardPick
-	classes  []string
+	// addKey labels the add button (settings-list-add).
+	addKey  string
+	pick    *cardPick
+	classes []string
 	// classed, when set, are the list's classes in place of
 	// cardFormClasses.
 	classed *cardClasses
@@ -158,6 +155,7 @@ type cardList struct {
 	// refuse them; drafted is the stored value they were drafted over and
 	// checks counts the checks asked, so only the latest answer applies.
 	draft    *inlineState
+	end      listEnd
 	drafted  any
 	drafting bool
 	checks   int
@@ -232,21 +230,12 @@ func newCardList(k *kit, s slot, spec cardSpec) *cardList {
 	c.list.AddClass(spec.look().list)
 	c.Append(c.list, false)
 	c.draft = k.inlineState()
-	addKey := spec.addKey
-	if addKey == "" {
-		addKey = "settings-list-add"
-	}
-	add := k.addButton(addKey, func() { c.appendItem(spec.blank()) })
-	switch {
-	case spec.pick == nil && spec.addAtEnd:
-		c.AppendAligned(add, false, widget.AlignEnd)
-	case spec.pick == nil:
-		c.AppendAligned(add, false, widget.AlignStart)
-	default:
-		actions := gapBox(widget.Row)
-		actions.AppendAligned(add, false, widget.AlignCenter)
-		actions.AppendAligned(c.pickButton(*spec.pick), false, widget.AlignCenter)
-		c.AppendAligned(actions, false, widget.AlignStart)
+	addKey := cmp.Or(spec.addKey, "settings-list-add")
+	add := func() { c.appendItem(spec.blank()) }
+	if spec.pick == nil {
+		c.end = k.listEnd(c.Box, "", addKey, add)
+	} else {
+		c.end = k.listEnd(c.Box, "", addKey, add, c.pickButton(*spec.pick))
 		c.picking = k.inlineState()
 		c.Append(c.picking, false)
 	}
@@ -407,6 +396,7 @@ func (c *cardList) rebuild() {
 	for i := range c.local {
 		c.appendCard(i)
 	}
+	c.end.show(len(c.local))
 	c.validate()
 	c.applyFilter()
 }

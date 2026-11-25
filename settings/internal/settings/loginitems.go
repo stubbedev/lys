@@ -393,7 +393,7 @@ func (l *loginItems) openApps() {
 	}
 	l.dirs = dirs
 	var add *widget.Button
-	add, _ = l.k.contentButton(roleSecondary, "ld-plus-symbolic", locale.T().Get("settings-login-apps-add"), func() { l.pickApp(add) })
+	add = l.k.listAddButton("settings-login-apps-add", func() { l.pickApp(add) })
 	l.add = newInsetAction(add)
 	l.loadApps()
 }

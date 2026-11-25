@@ -167,7 +167,7 @@ func passwordsKeyring(k *kit) widget.Widget {
 		coll := p.coll
 		p.act(func(ctx context.Context) error { return p.c.ChangeLock(ctx, coll) })
 	})
-	p.add, _ = k.contentButton(roleSecondary, "ld-plus-symbolic", t.Get("settings-passwords-add"), p.openAddItem)
+	p.add = k.listAddButton("settings-passwords-add", p.openAddItem)
 	head := gapBox(widget.Row)
 	head.AppendAligned(p.collTitle, true, widget.AlignCenter)
 	for _, b := range []*widget.Button{p.add, p.lock, change} {

@@ -43,7 +43,7 @@ func newPaletteGrid(k *kit, s slot) *paletteGrid {
 	p.name.SetPlaceholder(t.Get("wm-palette-new-name"))
 	p.name.SetAccessibleName(t.Get("wm-palette-new-name"))
 	p.name.OnActivate = func(string) { p.add() }
-	add := k.addButton("wm-palette-add", p.add)
+	add := k.listAddButton("wm-palette-add", p.add)
 	line := gapBox(widget.Row)
 	line.Append(p.name, true)
 	line.AppendAligned(add, false, widget.AlignCenter)

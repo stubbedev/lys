@@ -52,7 +52,7 @@ func buttonPhase(b *widget.Button) sweepPhase {
 	switch {
 	case !ok:
 		return phaseEdit
-	case role == roleAdd:
+	case role == roleAdd, role == roleListAdd:
 		return phaseAdd
 	case role == roleReset:
 		return phaseReset

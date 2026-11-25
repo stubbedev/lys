@@ -23,7 +23,7 @@ func TestAKnownVariableIsPickedByWhatItDoesAndFillsItsValue(t *testing.T) {
 	if len(c.items) != 1 || c.items[0].itemValue() != [2]string{"EDITOR", "nvim"} {
 		t.Fatalf("rows %v", c.values())
 	}
-	c.add.ClickAt(widget.Point{})
+	c.end.add.ClickAt(widget.Point{})
 	row, ok := c.items[1].(*envItem)
 	if !ok {
 		t.Fatalf("a new row is a %T", c.items[1])
@@ -44,7 +44,7 @@ func TestAKnownVariableIsPickedByWhatItDoesAndFillsItsValue(t *testing.T) {
 func TestAVariableNameThatCannotBeOneIsShownAndNotStored(t *testing.T) {
 	k, w, _, _ := wmKit(t, "")
 	c := envEditor(t, k, w)
-	c.add.ClickAt(widget.Point{})
+	c.end.add.ClickAt(widget.Point{})
 	row := c.items[0].(*envItem)
 	for _, name := range []string{"1PATH", "MY-VAR", "A B"} {
 		if err := row.names.slot.set(name); err != nil {

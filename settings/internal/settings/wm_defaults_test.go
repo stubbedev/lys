@@ -25,9 +25,9 @@ func desktopAccent(t *testing.T, k *kit) render.Color {
 func borderPicker(t *testing.T, f *fakePickers, c *borderEditor) *widget.SwatchPicker {
 	t.Helper()
 	f.content = nil
-	c.colors.add.OnClick()
+	c.colors.end.add.OnClick()
 	p, ok := f.content.(*widget.SwatchPicker)
-	if !ok || f.anchor != widget.Widget(c.colors.add) {
+	if !ok || f.anchor != widget.Widget(c.colors.end.add) {
 		t.Fatalf("+ opened %T beside %T, not the colour picker beside itself", f.content, f.anchor)
 	}
 	return p
@@ -87,11 +87,11 @@ func TestAddingABorderColourPicksAValidOneAndCancellingAddsNothing(t *testing.T)
 func TestABorderTakesNoMoreColoursThanLysWM(t *testing.T) {
 	k, w, _, _ := wmKitWith(t, "", "borders:\n  active:\n    colors: [red, blue, accent]\n    angle: 0\n")
 	c := fieldControl(k, w, wmBorder("borders.active")).(*borderEditor)
-	if c.colors.add.Visible() {
+	if c.colors.end.add.Visible() {
 		t.Fatal("+ is offered at lys-wm's most colours")
 	}
 	c.colors.remove(c.colors.items[2])
-	if !c.colors.add.Visible() {
+	if !c.colors.end.add.Visible() {
 		t.Fatal("+ stays hidden below the most colours")
 	}
 }

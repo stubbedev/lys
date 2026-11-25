@@ -31,12 +31,11 @@ type napApps struct {
 func newNapApps(k *kit, s slot) *napApps {
 	c := &napApps{levels: map[string]*widget.Dropdown{}}
 	c.appList = newAppList(k, appListSpec{
-		addKey:    "settings-app-nap-add",
-		emptyIcon: "ld-moon-symbolic",
-		emptyKey:  "settings-app-nap-none",
-		rowClass:  "nap-app",
-		stored:    func() []string { return slices.Sorted(maps.Keys(storedNapLevels(s))) },
-		controls:  func(list *appList, app string) []widget.Widget { return []widget.Widget{c.levelPick(list, s, app)} },
+		addKey:   "settings-app-nap-add",
+		emptyKey: "settings-app-nap-none",
+		rowClass: "nap-app",
+		stored:   func() []string { return slices.Sorted(maps.Keys(storedNapLevels(s))) },
+		controls: func(list *appList, app string) []widget.Widget { return []widget.Widget{c.levelPick(list, s, app)} },
 		show: func(rows []string) {
 			stored := storedNapLevels(s)
 			for _, app := range rows {

@@ -61,7 +61,7 @@ func TestEveryLaidOutPageHoldsThePageChecks(t *testing.T) {
 	w.stack.SetTransition(widget.StackNone, 0)
 	apptheme.New(cfg).Attach(w.root)
 	accent := namedColor(themed(k, gapBox(widget.Column)), css.AccentColor)
-	checks := []pageCheck{sectionHeadersCarryNoTextButton(), modeTogglesAreInsetLinks(accent), controlRowsShareHeightCentreAndGap(), pagesCarryNoMargins(), cardFieldsLineUp(), tabReachesEveryControl(w), trashIconsShareTheErrorColor(), rowsAreTheRowType("Start recording", "Push to talk"), resetNeverMovesTheControl(), sliderSectionsShareOneValueColumn(), sliderRowsReadTheirValueOnce(), choicesFollowTheSegmentRule(), oneRelatedSectionLast(), rowTitlesDifferInASection()}
+	checks := []pageCheck{sectionHeadersCarryNoTextButton(), modeTogglesAreInsetLinks(accent), controlRowsShareHeightCentreAndGap(), pagesCarryNoMargins(), cardFieldsLineUp(), tabReachesEveryControl(w), trashIconsShareTheErrorColor(), rowsAreTheRowType("Start recording", "Push to talk"), resetNeverMovesTheControl(), sliderSectionsShareOneValueColumn(), sliderRowsReadTheirValueOnce(), choicesFollowTheSegmentRule(), oneRelatedSectionLast(), rowTitlesDifferInASection(), listsEndWithTheirLabelledAdd()}
 	for _, sec := range w.sections {
 		for _, p := range sec.pages {
 			w.show(p.id)

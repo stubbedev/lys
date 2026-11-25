@@ -538,7 +538,7 @@ func (p *usersPanel) showAdmin(l otherUsersListing) {
 		}
 		rows.Append(p.k.chevronRow(u.DisplayName(), accountIdentity(u), "settings-users-edit", func() { p.openUserSheet(u) }))
 	}
-	add, _ := p.k.contentButton(roleSecondary, "ld-plus-symbolic", locale.T().Get("settings-users-add-open"), p.openAddUserDialog)
+	add := p.k.listAddButton("settings-users-add-open", p.openAddUserDialog)
 	rows.Append(newInsetAction(add))
 	body.Append(rows, false)
 	p.others, p.taken = l.users, l.taken

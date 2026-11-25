@@ -20,7 +20,7 @@ func TestAListsArrowsMoveOnlyWhereThereIsARow(t *testing.T) {
 			t.Errorf("row %d's arrows are enabled %v, want %v", i, got, want[i])
 		}
 	}
-	c.add.OnClick()
+	c.end.add.OnClick()
 	if len(c.arrows) != 4 || !widget.IsEnabled(c.arrows[2][1]) || widget.IsEnabled(c.arrows[3][1]) {
 		t.Errorf("after an add the former last row moves down %v, the new last %v", widget.IsEnabled(c.arrows[2][1]), widget.IsEnabled(c.arrows[3][1]))
 	}

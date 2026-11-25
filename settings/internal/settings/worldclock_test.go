@@ -128,16 +128,8 @@ func TestAWorldClockCardHoldsItsTimeAsNamedPartsAlone(t *testing.T) {
 	if got := parts.chipText(parts.segs[4]); got != locale.T().Get("settings-world-clock-zone-name") {
 		t.Errorf("the zone abbreviation reads %q", got)
 	}
-	var add *widget.Button
-	for _, c := range e.cards.Children() {
-		if b, ok := c.(*widget.Button); ok {
-			add = b
-		}
-	}
-	if add == nil {
-		t.Fatal("no add button under the cards")
-	}
-	if card := e.cards.cards[0].root.Bounds(); add.Bounds().X+add.Bounds().W != card.X+card.W {
-		t.Errorf("the add button ends at x %d, the card at %d", add.Bounds().X+add.Bounds().W, card.X+card.W)
+	add := e.cards.end.add
+	if card := e.cards.cards[0].root.Bounds(); add.Bounds().X != card.X {
+		t.Errorf("the add button starts at x %d, the card at %d", add.Bounds().X, card.X)
 	}
 }

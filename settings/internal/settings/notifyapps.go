@@ -66,11 +66,10 @@ func newNotifyApps(k *kit, slots []slot) *notifyApps {
 		}
 	}
 	c.appList = newAppList(k, appListSpec{
-		addKey:    "settings-notify-apps-add",
-		emptyIcon: "ld-bell-symbolic",
-		emptyKey:  "settings-notify-apps-none",
-		rowClass:  "notify-app",
-		extra:     c.pattern,
+		addKey:   "settings-notify-apps-add",
+		emptyKey: "settings-notify-apps-none",
+		rowClass: "notify-app",
+		extra:    c.pattern,
 		stored: func() []string {
 			var all []string
 			for i := range c.slots {

@@ -200,7 +200,7 @@ func newShortcutTable(k *kit, binds slot) *shortcutTable {
 	tb.Append(tb.groups, false)
 	tb.adding = newModeForm(k, "wm-mode-add-confirm", true, tb.addMode, func() { tb.showAdding(false) })
 	tb.Append(tb.adding, false)
-	tb.add, _ = k.contentButton(roleSecondary, "ld-plus-symbolic", t.Get("wm-mode-add"), func() { tb.showAdding(true) })
+	tb.add = k.listAddButton("wm-mode-add", func() { tb.showAdding(true) })
 	tb.AppendAligned(tb.add, false, widget.AlignStart)
 	tb.problem = k.inlineState()
 	tb.Append(tb.problem, false)

@@ -22,7 +22,7 @@ func TestAFolderListAddsWhatTheFolderDialogPicks(t *testing.T) {
 		}
 		f := &fakePickers{}
 		k.pickers = f
-		c.add.ClickAt(widget.Point{})
+		c.end.add.ClickAt(widget.Point{})
 		if f.folderFn == nil {
 			t.Fatalf("%s: add opened no folder dialog", path)
 		}

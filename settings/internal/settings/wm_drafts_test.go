@@ -14,7 +14,7 @@ func TestANewCardIsADraftUntilLysWMTakesIt(t *testing.T) {
 	k.onWMChange = row.refresh
 	c := row.ctl.(*shortcutTable).main
 	fake.reject = "binds[1].chord: is empty"
-	buttonsOfRole(c, roleAdd)[0].OnClick()
+	buttonsOfRole(c, roleListAdd)[0].OnClick()
 	if len(c.local) != 2 || !failedWith(c.draft, locale.T().Get("settings-list-draft"), "binds[1].chord: is empty") {
 		t.Fatalf("%d cards, draft %v %q over %q", len(c.local), c.draft.Visible(), c.draft.Text(), c.draft.detail.Text())
 	}
@@ -41,7 +41,7 @@ func TestResettingARowDropsItsDraft(t *testing.T) {
 	k.onWMChange = row.refresh
 	c := row.ctl.(*shortcutTable).main
 	fake.reject = "binds[1].chord: is empty"
-	buttonsOfRole(c, roleAdd)[0].OnClick()
+	buttonsOfRole(c, roleListAdd)[0].OnClick()
 	if !c.draft.Visible() {
 		t.Fatal("no draft")
 	}
@@ -60,7 +60,7 @@ func TestResettingTheShortcutsDropsAModesDraft(t *testing.T) {
 	tb := row.ctl.(*shortcutTable)
 	mode := tb.group[slices.IndexFunc(tb.group, func(g *modeGroup) bool { return g.name == "apps" })].list
 	fake.reject = "submaps.apps[1].chord: is empty"
-	buttonsOfRole(mode, roleAdd)[0].OnClick()
+	buttonsOfRole(mode, roleListAdd)[0].OnClick()
 	if !mode.draft.Visible() || len(mode.local) != 2 {
 		t.Fatalf("draft %v, %d cards", mode.draft.Visible(), len(mode.local))
 	}

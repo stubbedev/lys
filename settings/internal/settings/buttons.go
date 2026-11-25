@@ -1,6 +1,8 @@
 package settings
 
 import (
+	"cmp"
+
 	"github.com/stubbedev/lys/desktop/shell/apptheme"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
@@ -36,8 +38,12 @@ const (
 	// rolePlain is a picture that is its own button, an avatar or a
 	// speaker, with no fill of its own.
 	rolePlain
-	// roleAdd adds an item to a list.
+	// roleAdd adds a part after a row of parts: a format's chips, a
+	// strip's apps, a layout's tabs, a curve's points.
 	roleAdd
+	// roleListAdd adds an item to a list, reading what it adds, as the
+	// list's last row at its start.
+	roleListAdd
 	// roleRemove removes an item, in the destructive color.
 	roleRemove
 	// roleReset puts a value back to its default.
@@ -75,6 +81,7 @@ var buttonRoles = [...]buttonLook{
 	roleTile:        {classes: []string{css.Card}},
 	rolePlain:       {},
 	roleAdd:         {classes: []string{css.Outline, css.Icon}, icon: "ld-plus-symbolic"},
+	roleListAdd:     {classes: []string{css.Secondary, "list-add"}},
 	roleRemove:      {classes: []string{css.Ghost, css.DestructiveAction, css.Icon}, icon: "ld-trash-2-symbolic"},
 	roleReset:       {classes: []string{css.Ghost, css.Icon}, icon: "ld-rotate-ccw-symbolic"},
 	roleClear:       {classes: []string{css.Ghost, css.Icon}, icon: "ld-x-circle-symbolic"},
@@ -161,10 +168,44 @@ func (k *kit) pickerIconButton(icon, tooltipKey string, onClick func()) *widget.
 	return k.iconRoleButton(rolePickerIcon, icon, tooltipKey, onClick)
 }
 
-// addButton adds an item to a list.
+// addButton adds a part after a row of parts.
 func (k *kit) addButton(tooltipKey string, onClick func()) *widget.Button {
 	return k.glyphButton(roleAdd, tooltipKey, onClick)
 }
+
+// listAddButton adds an item to a list, reading the textKey message
+// after the add glyph.
+func (k *kit) listAddButton(textKey string, onClick func()) *widget.Button {
+	b, _ := k.contentButton(roleListAdd, buttonRoles[roleAdd].icon, locale.T().Get(textKey), onClick)
+	return b
+}
+
+// listEnd is a list's last rows: the line saying the list is empty,
+// shown while it is, and its add button at the list's start.
+type listEnd struct {
+	empty *widget.Label
+	add   *widget.Button
+}
+
+// listEnd appends a list's end to box: the emptyKey line
+// (settings-list-empty when "") and the addKey button running onAdd,
+// followed on its line by beside, other ways to add.
+func (k *kit) listEnd(box *widget.Box, emptyKey, addKey string, onAdd func(), beside ...widget.Widget) listEnd {
+	e := listEnd{empty: k.note(locale.T().Get(cmp.Or(emptyKey, "settings-list-empty"))), add: k.listAddButton(addKey, onAdd)}
+	e.empty.AddClass("list-empty")
+	line := gapBox(widget.Row)
+	line.AddClass("list-end")
+	line.AppendAligned(e.add, false, widget.AlignCenter)
+	for _, w := range beside {
+		line.AppendAligned(w, false, widget.AlignCenter)
+	}
+	box.Append(e.empty, false)
+	box.AppendAligned(line, false, widget.AlignStart)
+	return e
+}
+
+// show shows the empty line while the list holds no item.
+func (e listEnd) show(items int) { e.empty.SetVisible(items == 0) }
 
 // removeButton removes an item: a list's entry, a file, a grant.
 func (k *kit) removeButton(tooltipKey string, onClick func()) *widget.Button {

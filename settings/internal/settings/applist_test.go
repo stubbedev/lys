@@ -17,7 +17,7 @@ func testAppList(t *testing.T, stored *[]string) (*appList, *int) {
 	writes := 0
 	checks := map[string]*widget.CheckButton{}
 	l := newAppList(k, appListSpec{
-		addKey: "settings-notify-apps-add", emptyIcon: "ld-bell-symbolic", emptyKey: "settings-notify-apps-none", rowClass: "notify-app",
+		addKey: "settings-notify-apps-add", emptyKey: "settings-notify-apps-none", rowClass: "notify-app",
 		stored: func() []string { return slices.Clone(*stored) },
 		controls: func(list *appList, app string) []widget.Widget {
 			c := widget.NewCheckButton(false)
@@ -53,8 +53,8 @@ func testAppList(t *testing.T, stored *[]string) (*appList, *int) {
 func TestTheAppListKeepsOneRowPerAppAndAnAddedOneUntilRemoved(t *testing.T) {
 	stored := []string{"firefox", "org.gnome.Calculator"}
 	l, writes := testAppList(t, &stored)
-	if !slices.Equal(l.rows, stored) || l.state.Visible() || *writes != 0 {
-		t.Fatalf("rows %q, empty state %v, %d writes from showing", l.rows, l.state.Visible(), *writes)
+	if !slices.Equal(l.rows, stored) || l.end.empty.Visible() || *writes != 0 {
+		t.Fatalf("rows %q, empty state %v, %d writes from showing", l.rows, l.end.empty.Visible(), *writes)
 	}
 	if got := treetest.Labels(l.list); !slices.Contains(got, "Firefox") || !slices.Contains(got, "Calculator") {
 		t.Errorf("the rows read %q, want the installed apps' names", got)
@@ -74,8 +74,8 @@ func TestTheAppListKeepsOneRowPerAppAndAnAddedOneUntilRemoved(t *testing.T) {
 		t.Fatalf("after removing: rows %q, stored %q", l.rows, stored)
 	}
 	l.remove("org.gnome.Calculator")
-	if !l.state.Visible() || len(l.rows) != 0 {
-		t.Fatalf("an empty list shows its state %v over rows %q", l.state.Visible(), l.rows)
+	if !l.end.empty.Visible() || len(l.rows) != 0 {
+		t.Fatalf("an empty list shows its state %v over rows %q", l.end.empty.Visible(), l.rows)
 	}
 }
 
@@ -85,8 +85,8 @@ func TestTheAppListOffersOnlyTheAppsItLacks(t *testing.T) {
 	l, _ := testAppList(t, &stored)
 	f := &fakePickers{}
 	l.k.pickers = f
-	l.add.ClickAt(widget.Point{})
-	if f.content == nil || f.anchor != widget.Widget(l.add) {
+	l.end.add.ClickAt(widget.Point{})
+	if f.content == nil || f.anchor != widget.Widget(l.end.add) {
 		t.Fatal("Add opened no picker at the button")
 	}
 	if got := shownLabels(treetest.First[*widget.FlowBox](t, f.content)); slices.Contains(got, "Firefox") || slices.Contains(got, "Hidden") || len(got) != 2 {

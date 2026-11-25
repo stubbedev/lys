@@ -1453,16 +1453,13 @@ func TestEntriesKeepTheirGtkWidth(t *testing.T) {
 	}
 }
 
-// addButton is a list editor's add button.
-func addRowButton(c *listEditor) *widget.Button { return c.Children()[1].(*widget.Button) }
-
 func TestListAddWritesOnlyAChange(t *testing.T) {
 	k := testKit(t, "")
 	m := fieldControl(k, k.store, field("launcher.styles", launcherStylesRow)).(*listEditor)
 	if m.rows.HasClass("string-list") || !m.rows.HasClass("string-map") {
 		t.Error("the map's rows lack string_map's class")
 	}
-	addRowButton(m).ClickAt(widget.Point{})
+	m.end.add.ClickAt(widget.Point{})
 	if len(m.items) != 1 || k.store.svc.Source("launcher.styles") != config.SourceDefault {
 		t.Errorf("a blank pair wrote the map (%d rows, source %v)", len(m.items), k.store.svc.Source("launcher.styles"))
 	}
@@ -1470,7 +1467,7 @@ func TestListAddWritesOnlyAChange(t *testing.T) {
 	if !l.rows.HasClass("string-list") {
 		t.Error("a list lost string-list")
 	}
-	addRowButton(l).ClickAt(widget.Point{})
+	l.end.add.ClickAt(widget.Point{})
 	if got, _ := k.store.value("modules.notifications.blocklist").([]any); len(got) != 1 {
 		t.Errorf("a blank list item stored %v, want it written", got)
 	}
@@ -2479,19 +2476,19 @@ func TestAnEnumListAddsOnlyValuesItDoesNotHoldAndStopsWhenAllAre(t *testing.T) {
 	elem := config.FieldMeta{Kind: config.FieldEnum, Variants: []string{"close", "minimize", "maximize"}}
 	var stored any = []any{"close"}
 	c := newListEditor(k, slot{get: func() any { return stored }, set: func(v any) error { stored = v; return nil }, unset: func() { stored = nil }}, enumListSpec(elem))
-	c.add.OnClick()
-	c.add.OnClick()
+	c.end.add.OnClick()
+	c.end.add.OnClick()
 	if got, _ := stored.([]any); !slices.Equal(got, []any{"close", "minimize", "maximize"}) {
 		t.Fatalf("two adds stored %v, want each value once", got)
 	}
-	if c.add.Visible() {
+	if c.end.add.Visible() {
 		t.Error("the add button shows with every value listed")
 	}
 	c.remove(c.items[1])
-	if !c.add.Visible() {
+	if !c.end.add.Visible() {
 		t.Error("the add button stays hidden after a value is removed")
 	}
-	c.add.OnClick()
+	c.end.add.OnClick()
 	if got, _ := stored.([]any); !slices.Equal(got, []any{"close", "maximize", "minimize"}) {
 		t.Errorf("adding after a removal stored %v, want the removed value back", got)
 	}
