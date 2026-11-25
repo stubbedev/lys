@@ -180,3 +180,58 @@ func TestTheFontChooserLinesUpWithItsTitleAndButtons(t *testing.T) {
 		t.Error("the monospace filter has no label")
 	}
 }
+
+// The font chooser's family names start where the search field's text
+// does, and the dialog keeps its width whatever size its preview line
+// is shown at (#362).
+func TestTheFontChoosersRowsLineUpWithItsSearchAndItsWidthHoldsStill(t *testing.T) {
+	face, err := render.LoadFont(goregular.TTF)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := &Application{tooltipFace: face}
+	lay := func(size float64) (natural int, search *widget.Entry, list *widget.List) {
+		frame, err := a.dialogRoot(fontChooserDialog(face, []string{"alpha", "beta"}, FontChooserConfig{Size: size}), func(string) {})
+		if err != nil {
+			t.Fatal(err)
+		}
+		root := frame.root
+		natural = root.Measure(widget.Row, widget.Unknown).Nat
+		sz := widget.SizeWithin(root, widget.Size{W: 380, H: 600})
+		h := max(sz.H, 420)
+		root.Arrange(render.Rect{W: 380, H: h})
+		root.Paint(render.New(make([]byte, render.Stride(380)*h), render.Stride(380), 380, h))
+		var walk func(w widget.Widget)
+		walk = func(w widget.Widget) {
+			switch x := w.(type) {
+			case *widget.Entry:
+				if search == nil {
+					search = x
+				}
+			case *widget.List:
+				list = x
+			}
+			if c, ok := w.(interface{ Children() []widget.Widget }); ok {
+				for _, k := range c.Children() {
+					walk(k)
+				}
+			}
+		}
+		walk(root)
+		return natural, search, list
+	}
+	small, search, list := lay(10)
+	if search == nil || list == nil || len(list.Children()) == 0 {
+		t.Fatalf("search found %v, list found %v", search != nil, list != nil)
+	}
+	slot := list.Children()[0].(widget.Boundser).Bounds()
+	row := (&fontRowModel{face: face, fams: []string{"alpha"}}).Row(0)
+	row.Arrange(slot)
+	name := row.(interface{ Children() []widget.Widget }).Children()[0].(*widget.Label)
+	if textX := search.Bounds().X + 12; name.Bounds().X != textX {
+		t.Errorf("a family name starts at x=%d, want the search text's x=%d", name.Bounds().X, textX)
+	}
+	if large, _, _ := lay(40); large != small {
+		t.Errorf("the dialog wants %dpx with a 40px preview, %dpx with a 10px one", large, small)
+	}
+}

@@ -327,7 +327,10 @@ func (e *Entry) appendStyleKids(buf []Widget) []Widget {
 
 // entryPad is an unstyled field's padding, and entryMinHeight its
 // least height: 36px, the text 12px from either side.
-var entryPad = render.Insets{Top: 4, Right: 12, Bottom: 4, Left: 12}
+var entryPad = render.Insets{Top: 4, Right: entryPadX, Bottom: 4, Left: entryPadX}
+
+// entryPadX is an unstyled field's padding at either end.
+const entryPadX = 12
 
 const entryMinHeight = 36
 

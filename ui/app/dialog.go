@@ -419,7 +419,9 @@ type fontRowModel struct {
 func (m *fontRowModel) Len() int { return len(m.fams) }
 
 func (m *fontRowModel) Row(i int) widget.Widget {
-	return widget.NewLabel(m.face, 13, sysfont.FamilyDisplay(m.fams[i]), 0)
+	row := widget.NewBox(widget.Row, 0, 0)
+	row.SetPadding(render.Insets{Left: widget.CardListRowInset, Right: widget.CardListRowInset})
+	return row.Append(widget.NewLabel(m.face, 13, sysfont.FamilyDisplay(m.fams[i]), 0), true)
 }
 
 // FontChooserConfig declares a font chooser dialog.
@@ -502,6 +504,8 @@ func fontChooserDialog(face render.Font, families []string, cfg FontChooserConfi
 	// The preview rebuilds its face through the production chain on
 	// every applied family or size change: what you see is what ships.
 	preview := widget.NewLabel(face, initialSize, "The quick brown fox jumps over the lazy dog 0123", 0)
+	preview.SetEllipsize(widget.EllipsizeEnd)
+	preview.SetMaxWidthChars(1)
 	chosenSize := func() float64 {
 		if v, err := strconv.ParseFloat(strings.TrimSpace(sizeEntry.Text()), 64); err == nil && v > 0 && v <= 512 {
 			return v

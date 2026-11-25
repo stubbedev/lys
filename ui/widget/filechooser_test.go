@@ -510,7 +510,7 @@ func TestFileChooserPlacesReadAgainstTheirButtons(t *testing.T) {
 
 // A listing's names started on the list's very edge, directories dim
 // as if disabled and nothing told a folder from a file. Each row insets
-// a folder or file symbol by the theme's padding, its name after it in
+// a folder or file symbol by a card list's row inset, its name after it in
 // the text color, directory or not (#362).
 func TestFileChooserRowsInsetTheirKindAndName(t *testing.T) {
 	c := newChooser(t, FileModeOpen, nil)
@@ -519,8 +519,8 @@ func TestFileChooserRowsInsetTheirKindAndName(t *testing.T) {
 		row.Arrange(render.Rect{W: 300, H: 28})
 		kids := row.Children()
 		sym, name := kids[0].(*Symbol), kids[1].(*Label)
-		if got := sym.Bounds().X - row.Bounds().X; got != Current().Padding {
-			t.Errorf("%s: the symbol starts %dpx into its row, want %d", e.Name, got, Current().Padding)
+		if got := sym.Bounds().X - row.Bounds().X; got != CardListRowInset {
+			t.Errorf("%s: the symbol starts %dpx into its row, want %d", e.Name, got, CardListRowInset)
 		}
 		want := SymbolFile
 		if e.Dir {

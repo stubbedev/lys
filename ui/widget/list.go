@@ -652,6 +652,16 @@ func (l *List) Paint(cv *render.Canvas) {
 	cv.PopClip(prev)
 }
 
+// cardListPad is a card-framed list's (listview.card) padding inside
+// its 1px card border.
+const cardListPad = 6
+
+// CardListRowInset is the start padding a row of a card-framed list
+// gives its text: past the card's border and padding it starts where
+// an entry's text does, so a list under a search field reads in line
+// with the field's text.
+const CardListRowInset = entryPadX - cardListPad - 1
+
 // rowFill is the theme's band tint behind a hovered or selected row,
 // the fallback under a stylesheet's `row:hover` / `row:selected`
 // background: translucent over the viewport fill, as the bands always

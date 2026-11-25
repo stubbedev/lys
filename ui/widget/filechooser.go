@@ -566,7 +566,7 @@ func (m *chooserModel) Row(i int) Widget {
 			name, kind = name+string(filepath.Separator), SymbolFolder
 		}
 		row := NewBox(Row, 8, 0)
-		row.padding = render.Insets{Left: th.Padding, Right: th.Padding}
+		row.padding = render.Insets{Left: CardListRowInset, Right: CardListRowInset}
 		row.AppendAligned(NewSymbol(kind, 16), false, AlignCenter)
 		row.AppendAligned(NewLabel(m.face, m.sizePx, name, th.Text), true, AlignCenter)
 		m.rows[i] = row
