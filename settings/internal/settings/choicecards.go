@@ -2,6 +2,7 @@ package settings
 
 import (
 	"log"
+	"math"
 	"strings"
 	"unicode"
 
@@ -122,6 +123,14 @@ func (c *choiceCard) picRect() render.Rect {
 	return render.Rect{X: b.X + choiceCardGap, Y: b.Y + choiceCardGap, W: b.W - 2*choiceCardGap, H: choicePicH - choiceCardGap}
 }
 
+// labelRect is where the card's name is set: under its picture, inset
+// half the picture's inset so a name broken onto two lines still has
+// room for a word pair.
+func (c *choiceCard) labelRect() render.Rect {
+	b := c.Bounds()
+	return render.Rect{X: b.X + choiceCardGap/2, Y: b.Y + choicePicH, W: b.W - choiceCardGap, H: b.H - choicePicH}
+}
+
 func (c *choiceCard) Children() []widget.Widget {
 	if c.icon == nil {
 		return nil
@@ -157,8 +166,37 @@ func (c *choiceCard) Paint(cv *render.Canvas) {
 	default:
 		cv.RoundedBorder(b, corners, render.UniformInsets(1), th.Border)
 	}
-	text := render.Rect{X: b.X + choiceCardGap, Y: b.Y + choicePicH, W: b.W - 2*choiceCardGap, H: b.H - choicePicH}
-	c.k.face.DrawAligned(cv, fitLabel(c.k.face, c.label, text.W, c.k.textPx()), text, c.k.textPx(), th.Text, render.AlignCenter)
+	text := c.labelRect()
+	px := c.k.textPx()
+	lines := cardLabelLines(c.k.face, c.label, text.W, px)
+	lh := min(text.H/len(lines), int(math.Ceil(px*c.k.face.Metrics().LineHeight)))
+	y := text.Y + (text.H-lh*len(lines))/2
+	for _, line := range lines {
+		c.k.face.DrawAligned(cv, line, render.Rect{X: text.X, Y: y, W: text.W, H: lh}, px, th.Text, render.AlignCenter)
+		y += lh
+	}
+}
+
+// cardLabelLines is a card's name on one line where it fits, else broken
+// between words onto two, the second cut with an ellipsis where it still
+// runs past w; a first word wider than w leaves the name one cut line.
+func cardLabelLines(face render.Font, label string, w int, px float64) []string {
+	fits := func(s string) bool { return face.Shape(s, px).Advance() <= float64(w) }
+	if fits(label) {
+		return []string{label}
+	}
+	words := strings.Fields(label)
+	n := 0
+	for n < len(words) && fits(strings.Join(words[:n+1], " ")) {
+		n++
+	}
+	switch n {
+	case 0:
+		return []string{fitLabel(face, label, w, px)}
+	case len(words):
+		return []string{strings.Join(words, " ")}
+	}
+	return []string{strings.Join(words[:n], " "), fitLabel(face, strings.Join(words[n:], " "), w, px)}
 }
 
 func pictureChoice(pictures map[string]picture) rowOpt {
