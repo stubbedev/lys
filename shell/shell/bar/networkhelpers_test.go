@@ -8,14 +8,13 @@ import (
 	"github.com/stubbedev/lys/desktop/service/network"
 )
 
-// The dropdown's signal glyph climbs Lucide's wifi ladder in quarters,
+// The dropdown's signal glyph climbs Lucide's wifi ladder in thirds,
 // the steps the network module puts its default icons on.
 func TestSignalStrengthIcon(t *testing.T) {
 	for s, want := range map[uint8]string{
-		0: "ld-wifi-zero-symbolic", 24: "ld-wifi-zero-symbolic",
-		25: "ld-wifi-low-symbolic", 49: "ld-wifi-low-symbolic",
-		50: "ld-wifi-high-symbolic", 74: "ld-wifi-high-symbolic",
-		75: "ld-wifi-symbolic", 100: "ld-wifi-symbolic", 255: "ld-wifi-symbolic",
+		0: "ld-wifi-low-symbolic", 32: "ld-wifi-low-symbolic",
+		33: "ld-wifi-high-symbolic", 65: "ld-wifi-high-symbolic",
+		66: "ld-wifi-symbolic", 100: "ld-wifi-symbolic", 255: "ld-wifi-symbolic",
 	} {
 		if got := signalStrengthIcon(s); got != want {
 			t.Errorf("signalStrengthIcon(%d) = %q, want %q", s, got, want)

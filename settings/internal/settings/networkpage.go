@@ -452,7 +452,7 @@ func (p *networkPanel) unavailable(err error) {
 	p.savedSec.SetVisible(false)
 	p.vpnSec.SetVisible(false)
 	p.proxySec.SetVisible(false)
-	p.status.state.Unavailable("ld-wifi-zero-symbolic", locale.T().Get("settings-wifi-unavailable"), err)
+	p.status.state.Unavailable("ld-wifi-off-symbolic", locale.T().Get("settings-wifi-unavailable"), err)
 }
 
 func (p *networkPanel) follow() {

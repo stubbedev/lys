@@ -97,8 +97,8 @@ ld-watch-symbolic
 ld-webcam-symbolic
 ld-wifi-high-symbolic
 ld-wifi-low-symbolic
+ld-wifi-off-symbolic
 ld-wifi-symbolic
-ld-wifi-zero-symbolic
 ld-x-circle-symbolic
 ld-x-symbolic
 ld-zap-symbolic

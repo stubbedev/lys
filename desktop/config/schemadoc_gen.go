@@ -1048,7 +1048,7 @@ var schemaDocs = map[string]string{
 	"NetworkConfig.WifiConnectedIcon":                "Wi-Fi icon when connected but signal strength unavailable.",
 	"NetworkConfig.WifiDisabledIcon":                 "Wi-Fi icon when disabled.",
 	"NetworkConfig.WifiOfflineIcon":                  "Wi-Fi icon when disconnected.",
-	"NetworkConfig.WifiSignalIcons":                  "Wi-Fi signal strength icons from weak to excellent.\n\nThe signal percentage maps to icons: 0-25% uses icons\\[0\\], 26-50% uses\nicons\\[1\\], etc.",
+	"NetworkConfig.WifiSignalIcons":                  "Wi-Fi signal strength icons from weak to excellent.\n\nThe signal percentage maps to the icons in equal steps: with three,\n0-32% uses icons\\[0\\], 33-65% uses icons\\[1\\] and the rest icons\\[2\\].",
 	"NetworkConfig.WiredAcquiringIcon":               "Wired icon when connecting.",
 	"NetworkConfig.WiredConnectedIcon":               "Wired icon when connected.",
 	"NetworkConfig.WiredDisconnectedIcon":            "Wired icon when disconnected.",

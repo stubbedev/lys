@@ -24,7 +24,7 @@ bar:
 |---|---|---|---|
 | `wifi-disabled-icon` | string | `"ld-wifi-off-symbolic"` | Wi-Fi icon when disabled. |
 | `wifi-acquiring-icon` | string | `"ld-wifi-sync-symbolic"` | Wi-Fi icon when connecting. |
-| `wifi-offline-icon` | string | `"ld-wifi-zero-symbolic"` | Wi-Fi icon when disconnected. |
+| `wifi-offline-icon` | string | `"ld-wifi-off-symbolic"` | Wi-Fi icon when disconnected. |
 | `wifi-connected-icon` | string | `"ld-wifi-symbolic"` | Wi-Fi icon when connected but signal strength unavailable. |
 | `wifi-signal-icons` | array of string | `[...]` | Wi-Fi signal strength icons from weak to excellent. |
 | `wired-connected-icon` | string | `"ld-ethernet-port-symbolic"` | Wired icon when connected. |
@@ -42,8 +42,8 @@ bar:
 
 ::: details More about `wifi-signal-icons`
 
-The signal percentage maps to icons: 0-25% uses icons\[0\], 26-50% uses
-icons\[1\], etc.
+The signal percentage maps to the icons in equal steps: with three,
+0-32% uses icons\[0\], 33-65% uses icons\[1\] and the rest icons\[2\].
 
 :::
 
@@ -81,10 +81,9 @@ modules:
   network:
     wifi-disabled-icon: ld-wifi-off-symbolic
     wifi-acquiring-icon: ld-wifi-sync-symbolic
-    wifi-offline-icon: ld-wifi-zero-symbolic
+    wifi-offline-icon: ld-wifi-off-symbolic
     wifi-connected-icon: ld-wifi-symbolic
     wifi-signal-icons:
-      - ld-wifi-zero-symbolic
       - ld-wifi-low-symbolic
       - ld-wifi-high-symbolic
       - ld-wifi-symbolic

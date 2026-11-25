@@ -14,8 +14,8 @@ type NetworkConfig struct {
 	WifiConnectedIcon string `cfg:"wifi-connected-icon"`
 	// Wi-Fi signal strength icons from weak to excellent.
 	//
-	// The signal percentage maps to icons: 0-25% uses icons\[0\], 26-50% uses
-	// icons\[1\], etc.
+	// The signal percentage maps to the icons in equal steps: with three,
+	// 0-32% uses icons\[0\], 33-65% uses icons\[1\] and the rest icons\[2\].
 	WifiSignalIcons []string `cfg:"wifi-signal-icons"`
 	// Wired icon when connected.
 	WiredConnectedIcon string `cfg:"wired-connected-icon"`
@@ -71,10 +71,9 @@ func DefaultsNetwork() NetworkConfig {
 	return NetworkConfig{
 		WifiDisabledIcon:  "ld-wifi-off-symbolic",
 		WifiAcquiringIcon: "ld-wifi-sync-symbolic",
-		WifiOfflineIcon:   "ld-wifi-zero-symbolic",
+		WifiOfflineIcon:   "ld-wifi-off-symbolic",
 		WifiConnectedIcon: "ld-wifi-symbolic",
 		WifiSignalIcons: []string{
-			"ld-wifi-zero-symbolic",
 			"ld-wifi-low-symbolic",
 			"ld-wifi-high-symbolic",
 			"ld-wifi-symbolic",
