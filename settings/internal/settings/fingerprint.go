@@ -513,7 +513,7 @@ func (c *fingerprintSwitch) fit() {
 	case errors.Is(r.err, errNoReader):
 		c.status.Unavailable("", t.Get("settings-fingerprint-no-reader"), nil)
 	case r.err != nil:
-		c.status.Unavailable("", t.Get("settings-fingerprint-unavailable"), r.err)
+		c.status.Error(t.Get("settings-fingerprint-unavailable"), r.err, nil)
 	case r.fingers == 0:
 		c.status.Empty("", t.Get("settings-fingerprint-none"))
 	default:

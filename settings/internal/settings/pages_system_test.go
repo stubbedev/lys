@@ -18,6 +18,7 @@ import (
 	"github.com/stubbedev/lys/login/dmsocket"
 	"github.com/stubbedev/lys/login/greeterconfig"
 	"github.com/stubbedev/lys/ui/widget"
+	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -322,5 +323,15 @@ func TestGreeterApplyOutcomesReadApartInEveryLanguage(t *testing.T) {
 				t.Errorf("%s: %s is the %s text, not a translation: %q", lang, ids[i], i18n.Fallback, text)
 			}
 		}
+	}
+}
+
+// The hint under Apply to login screen read in the bright body style
+// while every other description on the page is dim and small. It reads
+// as a description.
+func TestTheGreeterApplyHintReadsAsADescription(t *testing.T) {
+	f := newGreeterFooter(testKit(t, ""))
+	if !f.hint.HasClass(css.Caption) || !f.hint.HasClass(css.DimLabel) {
+		t.Errorf("the hint is styled %v, want a description's caption and dim label", f.hint.Classes())
 	}
 }

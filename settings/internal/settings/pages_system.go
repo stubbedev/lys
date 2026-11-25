@@ -159,7 +159,7 @@ func newGreeterFooter(k *kit) *greeterFooter {
 	f := &greeterFooter{Box: gapBox(widget.Column), k: k}
 	f.AddClass("settings-section")
 	f.status = wrapped(k.label("", "settings-greeter-status", css.Caption))
-	f.hint = wrapped(k.label(t.Get(greeterApplyHint), "settings-section-title"))
+	f.hint = k.note(t.Get(greeterApplyHint), "settings-greeter-hint")
 	f.outcome = k.inlineState()
 	apply := func() {
 		async(k, func() error { return applyGreeter(k.store, loginRuntimeDir) }, func(err error) {

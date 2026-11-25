@@ -496,3 +496,30 @@ func TestWithoutAWindowDeletingAFingerIsRefused(t *testing.T) {
 		t.Fatalf("problem shown %v, calls %v, %d enrolled", r.p.problem.Visible(), r.methods(), len(enrolledFingers(s)))
 	}
 }
+
+// A fingerprint reader that could not be reached read as plain grey text
+// on the lock's fingerprint row, while the same kind of failure on Idle,
+// a system that could not be asked, is red under the warning glyph. It
+// reads as the failure it is; a computer without a reader is no failure
+// and stays a dim note.
+func TestAnUnreachableReaderReadsAsAFailureOnItsRow(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		err  error
+		kind cardStateKind
+	}{
+		{"fprintd unreachable", errors.New("the system bus is gone"), stateError},
+		{"no reader", errNoReader, stateUnavailable},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			k := testKit(t, "")
+			was := fingersEnrolled
+			fingersEnrolled = func(*kit) (int, error) { return 0, tc.err }
+			t.Cleanup(func() { fingersEnrolled = was })
+			c := fieldControl(k, k.store, pageRow(t, "lock", "login.lock.fingerprint")).(*fingerprintSwitch)
+			if c.status.kind != tc.kind {
+				t.Errorf("the status is of kind %v, want %v", c.status.kind, tc.kind)
+			}
+		})
+	}
+}
