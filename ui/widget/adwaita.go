@@ -454,7 +454,7 @@ var partRules = [][2]string{
 	{"choicechip", "min-height: 32px; padding: 0px 12px; border: 1px solid @borders; border-radius: 9999px; box-sizing: border-box; font-weight: 500; background-color: transparent; color: @window_fg_color;"},
 	{"choicechip:hover", "background-color: @muted_bg_color;"},
 	{"choicechip:checked", "border-color: @accent_bg_color; background-color: alpha(@accent_bg_color, 0.15); color: @accent_color;"},
-	{"colorswatch", "border: 1px solid alpha(@window_fg_color, 0.1); border-radius: {r-4};"},
+	{"colorswatch", "border: 1px solid alpha(@window_fg_color, 0.5); border-radius: {r-4};"},
 	{"colorswatch:selected", "box-shadow: 0px 0px 0px 2px @window_bg_color, 0px 0px 0px 4px @ring_color;"},
 	{"button.swatch", "background-color: transparent; padding: 4px; min-height: 0px; border-radius: {r-2};"},
 	{"button.colorbutton colorswatch", "min-width: 20px; min-height: 20px;"},
