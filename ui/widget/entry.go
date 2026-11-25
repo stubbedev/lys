@@ -21,7 +21,7 @@ type Entry struct {
 	dir         Direction
 	placeholder string
 	// placeholderIsValue paints the placeholder in the text's color: the
-	// empty text is a value of its own, not a hint (setEmptyValue).
+	// empty text is a value of its own, not a hint (SetEmptyValue).
 	placeholderIsValue bool
 
 	// OnChanged fires after the contents change, whatever the
@@ -453,10 +453,11 @@ func (e *Entry) restingLine(disp string) (string, bool) {
 	return render.EllipsizeText(e.font(), disp, e.ell, avail, e.fontPx()), true
 }
 
-// setEmptyValue makes the empty text a value of its own reading label:
-// shown as the placeholder, in the text's color as any value is. An
-// empty label takes it back.
-func (e *Entry) setEmptyValue(label string) {
+// SetEmptyValue makes the empty text a value of its own reading label,
+// such as an unset setting's "Default": shown where the placeholder
+// shows, in the text's color as any value is, where a placeholder, a
+// hint, is dim. An empty label takes it back.
+func (e *Entry) SetEmptyValue(label string) {
 	e.placeholderIsValue = label != ""
 	e.SetPlaceholder(label)
 	e.Invalidate()

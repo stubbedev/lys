@@ -2422,6 +2422,18 @@ func (b *ComboEntryBuilder) WatchEllipsize(get func() widget.EllipsizeMode) *Com
 	return b
 }
 
+// EmptyValue calls (*widget.ComboEntry).SetEmptyValue.
+func (b *ComboEntryBuilder) EmptyValue(label string) *ComboEntryBuilder {
+	b.do(func(s *Scope, w *widget.ComboEntry) { w.SetEmptyValue(label) })
+	return b
+}
+
+// WatchEmptyValue re-applies SetEmptyValue with get's value after every update.
+func (b *ComboEntryBuilder) WatchEmptyValue(get func() string) *ComboEntryBuilder {
+	b.watch(func(w *widget.ComboEntry) { w.SetEmptyValue(get()) })
+	return b
+}
+
 // LeadingIcon calls (*widget.ComboEntry).SetLeadingIcon.
 func (b *ComboEntryBuilder) LeadingIcon(name string, px float64, onClick func()) *ComboEntryBuilder {
 	b.do(func(s *Scope, w *widget.ComboEntry) { w.SetLeadingIcon(name, px, onClick) })
@@ -3335,6 +3347,18 @@ func (b *EditableLabelBuilder) WatchEllipsize(get func() widget.EllipsizeMode) *
 	return b
 }
 
+// EmptyValue calls (*widget.EditableLabel).SetEmptyValue.
+func (b *EditableLabelBuilder) EmptyValue(label string) *EditableLabelBuilder {
+	b.do(func(s *Scope, w *widget.EditableLabel) { w.SetEmptyValue(label) })
+	return b
+}
+
+// WatchEmptyValue re-applies SetEmptyValue with get's value after every update.
+func (b *EditableLabelBuilder) WatchEmptyValue(get func() string) *EditableLabelBuilder {
+	b.watch(func(w *widget.EditableLabel) { w.SetEmptyValue(get()) })
+	return b
+}
+
 // LeadingIcon calls (*widget.EditableLabel).SetLeadingIcon.
 func (b *EditableLabelBuilder) LeadingIcon(name string, px float64, onClick func()) *EditableLabelBuilder {
 	b.do(func(s *Scope, w *widget.EditableLabel) { w.SetLeadingIcon(name, px, onClick) })
@@ -3545,6 +3569,18 @@ func (b *EntryBuilder) Ellipsize(mode widget.EllipsizeMode) *EntryBuilder {
 // WatchEllipsize re-applies SetEllipsize with get's value after every update.
 func (b *EntryBuilder) WatchEllipsize(get func() widget.EllipsizeMode) *EntryBuilder {
 	b.watch(func(w *widget.Entry) { w.SetEllipsize(get()) })
+	return b
+}
+
+// EmptyValue calls (*widget.Entry).SetEmptyValue.
+func (b *EntryBuilder) EmptyValue(label string) *EntryBuilder {
+	b.do(func(s *Scope, w *widget.Entry) { w.SetEmptyValue(label) })
+	return b
+}
+
+// WatchEmptyValue re-applies SetEmptyValue with get's value after every update.
+func (b *EntryBuilder) WatchEmptyValue(get func() string) *EntryBuilder {
+	b.watch(func(w *widget.Entry) { w.SetEmptyValue(get()) })
 	return b
 }
 
@@ -7105,6 +7141,18 @@ func (b *SearchEntryBuilder) WatchEllipsize(get func() widget.EllipsizeMode) *Se
 	return b
 }
 
+// EmptyValue calls (*widget.SearchEntry).SetEmptyValue.
+func (b *SearchEntryBuilder) EmptyValue(label string) *SearchEntryBuilder {
+	b.do(func(s *Scope, w *widget.SearchEntry) { w.SetEmptyValue(label) })
+	return b
+}
+
+// WatchEmptyValue re-applies SetEmptyValue with get's value after every update.
+func (b *SearchEntryBuilder) WatchEmptyValue(get func() string) *SearchEntryBuilder {
+	b.watch(func(w *widget.SearchEntry) { w.SetEmptyValue(get()) })
+	return b
+}
+
 // LeadingIcon calls (*widget.SearchEntry).SetLeadingIcon.
 func (b *SearchEntryBuilder) LeadingIcon(name string, px float64, onClick func()) *SearchEntryBuilder {
 	b.do(func(s *Scope, w *widget.SearchEntry) { w.SetLeadingIcon(name, px, onClick) })
@@ -7865,6 +7913,18 @@ func (b *SpinButtonBuilder) Ellipsize(mode widget.EllipsizeMode) *SpinButtonBuil
 // WatchEllipsize re-applies SetEllipsize with get's value after every update.
 func (b *SpinButtonBuilder) WatchEllipsize(get func() widget.EllipsizeMode) *SpinButtonBuilder {
 	b.watch(func(w *widget.SpinButton) { w.SetEllipsize(get()) })
+	return b
+}
+
+// EmptyValue calls (*widget.SpinButton).SetEmptyValue.
+func (b *SpinButtonBuilder) EmptyValue(label string) *SpinButtonBuilder {
+	b.do(func(s *Scope, w *widget.SpinButton) { w.SetEmptyValue(label) })
+	return b
+}
+
+// WatchEmptyValue re-applies SetEmptyValue with get's value after every update.
+func (b *SpinButtonBuilder) WatchEmptyValue(get func() string) *SpinButtonBuilder {
+	b.watch(func(w *widget.SpinButton) { w.SetEmptyValue(get()) })
 	return b
 }
 

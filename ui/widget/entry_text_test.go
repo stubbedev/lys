@@ -321,3 +321,25 @@ func TestWidthCharsLeavesRoomForTheCaret(t *testing.T) {
 		t.Errorf("a %d-px char field holding 4 chars panned %dpx, want none", cp, e.ScrollX())
 	}
 }
+
+// An entry whose empty text is a value reads it in the text's color, as
+// an optional spin button's or a combobox entry's unset value does;
+// a hint placeholder stays in its own color (#357).
+func TestAnEntrysEmptyValueReadsAsText(t *testing.T) {
+	loadCSS(t, `entry { background-color: #000000; } entry > text { color: #ff0000; } entry > text > placeholder { color: #00ff00; }`)
+	e := NewEntry(entryFace(t), 14, 0)
+	e.SetEmptyValue("Default")
+	data, stride, sz := entryShot(t, e)
+	if _, n := inked(data, stride, sz, render.RGB(0xff, 0, 0)); n == 0 {
+		t.Error("the empty value is not in the text's color")
+	}
+	if _, n := inked(data, stride, sz, render.RGB(0, 0xff, 0)); n != 0 {
+		t.Errorf("the empty value painted %d px in the placeholder's color", n)
+	}
+	e.SetEmptyValue("")
+	e.SetPlaceholder("Search")
+	data, stride, sz = entryShot(t, e)
+	if _, n := inked(data, stride, sz, render.RGB(0, 0xff, 0)); n == 0 {
+		t.Error("a hint lost the placeholder's color")
+	}
+}

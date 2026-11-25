@@ -166,7 +166,7 @@ func (s *SpinButton) stepBy(n int) {
 // required again, filling an empty one with that value.
 func (s *SpinButton) SetOptional(placeholder string) {
 	s.optional = placeholder != ""
-	s.setEmptyValue(placeholder)
+	s.SetEmptyValue(placeholder)
 	s.fitRange()
 	if !s.optional && s.empty {
 		s.SetValue(s.value)

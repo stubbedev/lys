@@ -289,7 +289,7 @@ func (c *ComboboxEntry) Options() []ComboboxOption[string] {
 // empty label takes it back.
 func (c *ComboboxEntry) SetEmpty(label string) {
 	c.empty = label
-	c.entry.setEmptyValue(label)
+	c.entry.SetEmptyValue(label)
 }
 
 // SetAction places w, a browse button, after the entry; nil removes the
