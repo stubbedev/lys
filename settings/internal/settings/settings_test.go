@@ -2497,3 +2497,26 @@ func TestAnEnumListAddsOnlyValuesItDoesNotHoldAndStopsWhenAllAre(t *testing.T) {
 		t.Errorf("adding after a removal stored %v, want the removed value back", got)
 	}
 }
+
+// A size reads its unit after its number, px in pixels as a pixel field
+// does, and switching Scale and Pixels leaves its field as wide, so
+// nothing beside it moves.
+func TestASizeFieldReadsItsUnitAndKeepsItsWidthAcrossModes(t *testing.T) {
+	k := testKit(t, "")
+	c := newSizeEditor(k, pathSlot(k.store, "osd.margin"), config.OsdMarginBaseRem)
+	root := widget.NewBox(widget.Column, 0, 0)
+	root.AppendAligned(c, false, widget.AlignStart)
+	styledLayOut(k, root, 900)
+	scaleW := c.field.Bounds().W
+	if got, want := c.unit.Text(), locale.T().Get("settings-size-scale-unit"); got != want {
+		t.Errorf("a scale reads %q after it, want %q", got, want)
+	}
+	pickChoice(c.mode, sizePx)
+	styledLayOut(k, root, 900)
+	if got, want := c.unit.Text(), unitPixels.addon(); got != want {
+		t.Errorf("pixels read %q after them, want %q", got, want)
+	}
+	if pxW := c.field.Bounds().W; pxW != scaleW {
+		t.Errorf("the field is %dpx wide in pixels, %dpx as a scale", pxW, scaleW)
+	}
+}

@@ -94,6 +94,10 @@ type sizeEditor struct {
 	basePx float64
 	mode   *choicePick
 	spin   *widget.SpinButton
+	// field is the spin inside one border with the mode's unit after it,
+	// as wide in either mode, so switching it moves nothing beside it.
+	field *widget.InputGroup
+	unit  *widget.Label
 	// slide, nil for a size without one, is a slider over loPx to hiPx
 	// pixels, or the scales that make them, read by the spin, which
 	// takes a value past them.
@@ -105,7 +109,7 @@ type sizeEditor struct {
 func newSizeEditor(k *kit, s slot, baseRem float64) *sizeEditor {
 	c := newSizeParts(k, s, baseRem)
 	c.AppendAligned(c.mode, false, widget.AlignCenter)
-	c.AppendAligned(c.spin, false, widget.AlignCenter)
+	c.AppendAligned(c.field, false, widget.AlignCenter)
 	c.refresh()
 	return c
 }
@@ -115,7 +119,7 @@ func newSizeEditor(k *kit, s slot, baseRem float64) *sizeEditor {
 func newSizeSliderEditor(k *kit, s slot, baseRem, loPx, hiPx float64) *sizeEditor {
 	c := newSizeParts(k, s, baseRem)
 	c.loPx, c.hiPx = loPx, hiPx
-	c.slide = k.fieldSlider(loPx/c.basePx, hiPx/c.basePx, c.spin)
+	c.slide = k.fieldSlider(loPx/c.basePx, hiPx/c.basePx, c.field)
 	c.slide.OnValue = func(v float64) {
 		if !c.syncing {
 			c.spin.SetValue(v)
@@ -138,6 +142,10 @@ func newSizeParts(k *kit, s slot, baseRem float64) *sizeEditor {
 	c := &sizeEditor{Box: gapBox(widget.Row), k: k, slot: s, basePx: baseRem * remBasePx}
 	c.mode = newChoicePick(k, []string{t.Get("settings-size-scale"), t.Get("settings-size-px")}, sizeScale)
 	c.spin = widget.NewSpinButton(k.face, k.textPx(), 0, 0, maxPixels, 0.05, 2)
+	c.unit = k.label("")
+	c.unit.SetWidthChars(max(len([]rune(t.Get("settings-size-scale-unit"))), len([]rune(unitPixels.addon()))))
+	c.field = widget.NewInputGroup(c.spin)
+	c.field.Append(c.unit)
 	c.mode.OnSelect = func(i int) {
 		if c.syncing {
 			return
@@ -176,17 +184,24 @@ func (c *sizeEditor) configure(px bool, v float64) {
 	c.spin.SetValue(v)
 }
 
-// step sets the spin's step and digits for a mode: whole pixels, or a
-// scale in hundredths.
+// step sets the spin's step, digits and unit for a mode: whole pixels,
+// or a scale in hundredths, the spin as wide as the widest scale in
+// either.
 func (c *sizeEditor) step(px bool) {
+	defer c.spin.SetWidthChars(sizeChars, sizeChars)
 	if px {
 		c.spin.SetStep(1)
 		c.spin.SetDigits(0)
+		c.unit.SetText(unitPixels.addon())
 		return
 	}
 	c.spin.SetStep(0.05)
 	c.spin.SetDigits(2)
+	c.unit.SetText(locale.T().Get("settings-size-scale-unit"))
 }
+
+// sizeChars is the widest a size reads: the largest scale, in hundredths.
+var sizeChars = len(strconv.FormatFloat(maxPixels, 'f', 2, 64))
 
 func (c *sizeEditor) commit() {
 	v := c.spin.Value()

@@ -211,6 +211,7 @@ settings-generator-sample-failed = Kein Beispiel
 settings-generator-sample-copy-failed = Das Beispiel wurde nicht kopiert
 settings-size-scale = Skalierung
 settings-size-px = Pixel
+settings-size-scale-unit = ×
 settings-dropdown-width = Breite
     .description = Breite des Felds. Ohne Wert gilt der eingebaute Standard
 settings-dropdown-height = Höhe
