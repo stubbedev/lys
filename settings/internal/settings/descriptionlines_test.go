@@ -7,19 +7,18 @@ import (
 	"github.com/stubbedev/lys/ui/widget"
 )
 
-// Storage's Display Format cut its list of placeholders after two lines
-// ("{{ free_mib }}, {{ free_au…"), so some could not be read. A format
-// field's description reads whole; any other keeps to two lines.
-func TestAFormatFieldsDescriptionReadsWhole(t *testing.T) {
-	k := testKit(t, "")
-	for path, whole := range map[string]bool{"modules.storage.format": true, "bar.background-opacity": false} {
-		row := newFieldRow(k, k.store, field(path))
-		got := rowDescription(row).MaxLines()
-		if whole && got != 0 {
-			t.Errorf("%s's placeholders stop at %d lines", path, got)
+// Descriptions stopped at two lines although their row had room
+// (Launcher Width, Storage's placeholder list). Every row's description,
+// a format field's and any other's, reads whole at the window's width.
+func TestEveryRowsDescriptionReadsWhole(t *testing.T) {
+	win := laidOutPage(t, "", "storage", windowWidth)
+	for _, r := range win.page.rows {
+		d := rowDescription(r)
+		if !shown(d) {
+			continue
 		}
-		if !whole && got != rowDescriptionLines {
-			t.Errorf("%s's description wraps to %d lines, want %d", path, got, rowDescriptionLines)
+		if whole := uncappedHeight(d); d.Bounds().H < whole {
+			t.Errorf("%s's description is cut to %dpx of %dpx", r.path, d.Bounds().H, whole)
 		}
 	}
 }
@@ -38,5 +37,31 @@ func TestAChoiceRowsHintStandsOffItsLabel(t *testing.T) {
 	label, hint := labels[0].Bounds(), labels[1].Bounds()
 	if gap := hint.X - (label.X + label.W); gap < sectionGap() {
 		t.Errorf("the hint stands %dpx after the label, want %d at least", gap, sectionGap())
+	}
+}
+
+// Idle's Look before dimming and On lid close took about 340px for a
+// three-letter value, sized to their longest option, and made the page's
+// control column as wide, squeezing every row's text. A dropdown asks
+// for dropdownWidest at most.
+func TestADropdownAsksForNoMoreThanItsWidest(t *testing.T) {
+	win := laidOutPage(t, "", "idle", sweepW)
+	picks := 0
+	for _, r := range win.page.rows {
+		if r.ControlFit() != widget.ItemControlColumn {
+			continue
+		}
+		for _, p := range treetest.All[*choicePick](r.ctl) {
+			if p.drop == nil || !shown(p) {
+				continue
+			}
+			picks++
+			if w := p.Bounds().W; w > dropdownWidest {
+				t.Errorf("%s's dropdown reading %q is %dpx wide, more than %d", r.Title(), p.drop.Selection(), w, dropdownWidest)
+			}
+		}
+	}
+	if picks == 0 {
+		t.Fatal("the Idle page shows no dropdown in its control column")
 	}
 }

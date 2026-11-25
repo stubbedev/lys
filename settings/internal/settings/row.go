@@ -22,10 +22,11 @@ import (
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
-// rowDescriptionLines is how many rows a row's description wraps to
-// before it ends in an ellipsis, its whole text in its tooltip; a format
-// field's description, its list of placeholders, reads whole.
-const rowDescriptionLines = 2
+// rowDescriptionLines caps the rows a row's description wraps to, past
+// any description's length, so a description reads whole; the cap only
+// lets its ellipsis give way to a word too long for a narrow row (a
+// path) instead of widening the page.
+const rowDescriptionLines = 8
 
 // kit builds the window's widgets: the text face every label starts
 // from (the stylesheet then sizes and weighs it) and the store the
@@ -237,7 +238,7 @@ type control interface {
 }
 
 // settingRow is the window's one row: a title, a description wrapping
-// to rowDescriptionLines rows, what sits on the title's line (a unit, a
+// as far as it runs, what sits on the title's line (a unit, a
 // badge), a problem line, the actions and the control. It is lys-ui's
 // Item, so its media and trailing actions are the Item's, and the
 // controls of the rows of one card share the card's control column.
@@ -535,9 +536,6 @@ func (b reportingBackend) slot(path string) slot {
 // of the control so showing it never moves the control.
 func newSettingRow(k *kit, be backend, spec rowSpec, ctl control) *fieldRow {
 	r := &fieldRow{settingRow: k.keyRow(spec.labelKey()), k: k, be: be, path: spec.path, ctl: ctl, action: spec.action}
-	if meta, ok := be.field(spec.path); ok && len(meta.Placeholders) > 0 {
-		r.SetLines(1, 0)
-	}
 	r.badge = k.badge("")
 	r.AddTitleSuffix(r.badge)
 	if d, ok := ctl.(interface{ dirtyBadge() *widget.Badge }); ok {

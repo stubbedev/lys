@@ -86,6 +86,24 @@ func (p *choicePick) picked(i int) {
 	}
 }
 
+// dropdownWidest is the widest a dropdown asks to be, half again the
+// control column's least width: a dropdown sizes to its longest option, and one
+// long option ("Ask the session manager…") made the column of the whole
+// page that wide around a three-letter value, squeezing every row's
+// text; past it the value ellipsizes, the options showing whole in the
+// list.
+const dropdownWidest = widget.ItemColumnWidth * 3 / 2
+
+// Measure is the box's request, a dropdown's natural width held to
+// dropdownWidest.
+func (p *choicePick) Measure(axis widget.Axis, forSize int) widget.Sizes {
+	s := p.Box.Measure(axis, forSize)
+	if axis == widget.Row && p.drop != nil {
+		s.Nat = min(s.Nat, max(s.Min, dropdownWidest))
+	}
+	return s
+}
+
 // fit holds a dropdown in the card's control column; segments keep
 // their own width (controlFit).
 func (p *choicePick) fit() widget.ItemControlFit {
