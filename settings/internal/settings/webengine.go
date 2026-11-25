@@ -52,7 +52,6 @@ type webEngineEditor struct {
 }
 
 var webEngineRow rowOpt = func(r *rowSpec) {
-	r.fullWidth = true
 	r.also = []string{webURLPath}
 	r.editor = func(k *kit, s slot, _ config.FieldMeta) control {
 		return newWebEngineEditor(k, s, k.store.slot(webURLPath))
@@ -90,11 +89,18 @@ func newWebEngineEditor(k *kit, name, url slot) *webEngineEditor {
 	e.custom.AppendAligned(k.secondaryButton(t.Get("settings-web-engine-test"), e.test), false, widget.AlignStart)
 	e.custom.Append(e.tried, false)
 	e.custom.Append(e.problem, false)
-	e.AppendAligned(e.pick, false, widget.AlignStart)
-	e.Append(e.custom, false)
+	e.Append(e.pick, false)
 	e.refresh()
 	return e
 }
+
+// fit holds the engine's choice in the card's control column, beside
+// the page's other choices.
+func (e *webEngineEditor) fit() widget.ItemControlFit { return widget.ItemControlColumn }
+
+// detail is a custom engine's name, address and test, under the row's
+// text.
+func (e *webEngineEditor) detail() widget.Widget { return e.custom }
 
 func (e *webEngineEditor) known() int {
 	cur := webEngine{e.name.text(), e.url.text()}

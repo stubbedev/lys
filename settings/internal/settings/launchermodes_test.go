@@ -262,3 +262,40 @@ func TestTheModesSitBesideTheirOptionsOnlyWhereTheyFit(t *testing.T) {
 		}
 	}
 }
+
+// In the mode's narrow options pane a program row (the URL launcher, the
+// SSH client, the file manager) and a format row held their control at
+// its width beside the row's text, cutting the title to "URL Launc…" and
+// its description to a few words. Those rows stack their control under
+// the text, and every row of the pane reads its title whole.
+func TestTheModePanesRowsReadTheirTitlesWhole(t *testing.T) {
+	for _, mode := range []string{"drun", "window", "ssh", "filebrowser", "combi"} {
+		t.Run(mode, func(t *testing.T) {
+			win := laidOutPage(t, "", "launcher-modes", 1664)
+			lists := treetest.All[*launcherModeList](win.page)
+			if len(lists) != 1 {
+				t.Fatalf("%d mode lists", len(lists))
+			}
+			lists[0].selected = mode
+			lists[0].refresh()
+			layOut(win, 1664)
+			shownRows := 0
+			for _, r := range lists[0].rows {
+				if !shown(r) {
+					continue
+				}
+				shownRows++
+				title := treetest.WithClass(r, "title")[0].(*widget.Label)
+				if whole := widget.SizeWithin(title, widget.Size{W: 1 << 20, H: 1 << 20}).W; title.Bounds().W < whole {
+					t.Errorf("%s's title is cut to %dpx of %dpx", r.path, title.Bounds().W, whole)
+				}
+				if d := rowDescription(r); shown(d) && d.Bounds().H < uncappedHeight(d) {
+					t.Errorf("%s's description is cut", r.path)
+				}
+			}
+			if shownRows == 0 {
+				t.Fatalf("the %s pane shows no option", mode)
+			}
+		})
+	}
+}

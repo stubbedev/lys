@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -66,5 +68,41 @@ func TestACustomSearchAddressIsTestedWithASampleQuery(t *testing.T) {
 	e.test()
 	if len(opened) != 0 || e.problem.Visible() || e.tried.Text() != tr.Get("settings-web-engine-no-query", i18n.Str("token", "{query}")) {
 		t.Fatalf("an address without {query} opened %q and shows %q", opened, e.tried.Text())
+	}
+}
+
+// The engine's choice sat under the row's label, unlike every choice
+// beside it. It sits in the card's control column, ending on the edge the
+// switches end on, and a custom engine's fields open under the row.
+func TestTheWebEnginesChoiceSitsInTheControlColumn(t *testing.T) {
+	win := laidOutPage(t, "launcher:\n  search:\n    web-engine: Mine\n    web-url: \"https://mine/?q={query}\"\n", "launcher-modes", 1664)
+	e := treetest.All[*webEngineEditor](win.page)
+	if len(e) != 1 || !shown(e[0].custom) {
+		t.Fatalf("%d engine editors, the custom fields shown %v", len(e), len(e) == 1 && shown(e[0].custom))
+	}
+	var row *fieldRow
+	for _, r := range treetest.All[*fieldRow](win.page) {
+		if r.path == webEnginePath {
+			row = r
+		}
+	}
+	if row == nil || row.ControlFit() != widget.ItemControlColumn {
+		t.Fatal("the engine's row holds its choice outside the control column")
+	}
+	pick, title := e[0].pick.Bounds(), treetest.WithClass(row, "title")[0].(*widget.Label).Bounds()
+	if pick.Y >= title.Y+title.H {
+		t.Errorf("the choice at %v sits under the title at %v", pick, title)
+	}
+	edge := -1
+	for _, r := range treetest.All[*fieldRow](win.page) {
+		if sw, ok := r.ctl.(*toggle); ok && shownIn(win.page, sw) {
+			edge = sw.Bounds().X + sw.Bounds().W
+		}
+	}
+	if pick.X+pick.W != edge {
+		t.Errorf("the choice ends at %d, the switches at %d", pick.X+pick.W, edge)
+	}
+	if treetest.Contains(e[0], e[0].custom) {
+		t.Error("the custom engine's fields sit in the control column")
 	}
 }

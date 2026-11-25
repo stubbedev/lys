@@ -28,19 +28,19 @@ var launcherModeOptions = []struct {
 		field("launcher.drun.categories", desktopCategoriesRow),
 		field("launcher.drun.exclude-categories", desktopCategoriesRow),
 		field("launcher.drun.match-fields", enumList),
-		field("launcher.drun.display-format"),
+		field("launcher.drun.display-format", stackedRow),
 		field("launcher.drun.show-actions"),
-		field("launcher.drun.url-launcher", browserRow),
+		field("launcher.drun.url-launcher", browserRow, stackedRow),
 	}},
 	{[]string{"run"}, fields("launcher.run.run-command", "launcher.run.shell-command", "launcher.run.list-command")},
 	{[]string{"window", "windowcd"}, []rowSpec{
-		field("launcher.window.format"),
+		field("launcher.window.format", stackedRow),
 		field("launcher.window.match-fields", enumList),
 		field("launcher.window.hide-active"),
 		field("launcher.window.close-on-delete"),
 	}},
 	{[]string{"ssh"}, []rowSpec{
-		field("launcher.ssh.client", sshClientRow),
+		field("launcher.ssh.client", sshClientRow, stackedRow),
 		field("launcher.ssh.command"),
 		field("launcher.ssh.parse-hosts"),
 		field("launcher.ssh.parse-known-hosts"),
@@ -50,11 +50,11 @@ var launcherModeOptions = []struct {
 		field("launcher.filebrowser.sorting-method"),
 		field("launcher.filebrowser.directories-first"),
 		field("launcher.filebrowser.show-hidden"),
-		field("launcher.filebrowser.command", fileManagerRow),
+		field("launcher.filebrowser.command", fileManagerRow, stackedRow),
 	}},
 	{[]string{"combi"}, []rowSpec{
 		field("launcher.combi.modes", launcherModesRow),
-		field("launcher.combi.display-format"),
+		field("launcher.combi.display-format", stackedRow),
 	}},
 }
 
