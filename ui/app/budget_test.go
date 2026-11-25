@@ -140,7 +140,7 @@ func TestAllocBudgetFileWatchDrain(t *testing.T) {
 func TestAllocBudgetToastDamageWalk(t *testing.T) {
 	testbuild.SkipAllocBudget(t)
 	layer := &toastLayer{root: widget.NewBox(widget.Row, 0, 0), clock: new(anim.Clock)}
-	layer.add(widget.NewToast(testFace(t), "Saved", 0))
+	layer.add(widget.NewToast(testFace(t), "Saved", 0), false)
 	var damage widget.DamageCollector
 	damage.Collect(layer)
 	const budget = 0

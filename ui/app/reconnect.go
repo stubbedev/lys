@@ -229,7 +229,7 @@ func (a *Application) rebuildWindows(plan []*hostWindow) error {
 		if m, ok := a.carriedToasts[old]; ok {
 			if hw := a.rebuiltOf(old); hw != nil {
 				for _, t := range m.toasts {
-					a.hostToast(hw, t, m.placement)
+					a.hostToast(hw, t, m.placement, m.closeOnPress[t])
 				}
 			}
 		}

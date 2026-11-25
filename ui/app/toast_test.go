@@ -54,7 +54,7 @@ func TestToastLayerDropsOldestPastCap(t *testing.T) {
 	for i := range toasts {
 		toasts[i] = widget.NewToast(testFace(t), "toast", time.Second)
 		toasts[i].OnDismissed = func() { l.remove(toasts[i]) }
-		l.add(toasts[i])
+		l.add(toasts[i], false)
 	}
 
 	t.Run("the cap holds and the oldest drops", func(t *testing.T) {
@@ -89,7 +89,7 @@ func TestToastLayerArrange(t *testing.T) {
 	})
 
 	first := widget.NewToast(testFace(t), "one", 0)
-	l.add(first)
+	l.add(first, false)
 	l.Arrange(render.Rect{X: 0, Y: 0, W: 300, H: 200})
 
 	t.Run("a single toast sits bottom-center inside the margin", func(t *testing.T) {
@@ -109,7 +109,7 @@ func TestToastLayerArrange(t *testing.T) {
 	})
 
 	second := widget.NewToast(testFace(t), "two", 0)
-	l.add(second)
+	l.add(second, false)
 	l.Arrange(render.Rect{X: 0, Y: 0, W: 300, H: 200})
 
 	t.Run("the newest hugs the edge, older stacks above", func(t *testing.T) {
@@ -143,8 +143,8 @@ func TestToastLayerRemoveUnwraps(t *testing.T) {
 	b := widget.NewToast(testFace(t), "b", 0)
 	a.OnDismissed = func() { l.remove(a) }
 	b.OnDismissed = func() { l.remove(b) }
-	l.add(a)
-	l.add(b)
+	l.add(a, false)
+	l.add(b, false)
 
 	// A dismissed toast detaches; the survivor stays.
 	a.OnDismissed()
@@ -219,4 +219,66 @@ func TestToastsMoveOffAClosingWindow(t *testing.T) {
 
 	a.windows = nil
 	a.rehostToasts([]movedToasts{{toasts: []*widget.Toast{widget.NewToast(face, "x", time.Minute)}}})
+}
+
+// rectAt is a fixed rect standing in for the widget a toast stack
+// centres on.
+type rectAt render.Rect
+
+func (r rectAt) Bounds() render.Rect { return render.Rect(r) }
+
+// A stack given a widget to centre on sits on that widget's centre and
+// hugs its bottom edge, not the window's: a content pane beside a
+// sidebar keeps its toast in its own middle (#279).
+func TestAToastStackCentresOnTheWidgetItIsOver(t *testing.T) {
+	l := newToastLayerForTest(&spyRoot{nat: widget.Size{W: 50, H: 40}})
+	pane := render.Rect{X: 200, Y: 0, W: 400, H: 300}
+	l.over = rectAt(pane)
+	toast := widget.NewToast(testFace(t), "Removed", 0)
+	l.add(toast, false)
+	l.Arrange(render.Rect{W: 600, H: 400})
+	b := toast.Bounds()
+	if c := b.X + b.W/2; c < pane.X+pane.W/2-1 || c > pane.X+pane.W/2+1 {
+		t.Errorf("toast centred at x=%d, want the pane's centre %d", c, pane.X+pane.W/2)
+	}
+	if b.Y+b.H != pane.Y+pane.H-toastMargin {
+		t.Errorf("toast bottom at %d, want the pane's bottom less the margin %d", b.Y+b.H, pane.Y+pane.H-toastMargin)
+	}
+	l.over = nil
+	l.Arrange(render.Rect{W: 600, H: 400})
+	if b := toast.Bounds(); b.X+b.W/2 != 300 && b.X+b.W/2 != 299 {
+		t.Errorf("without a widget the toast centres at x=%d, want the window's 300", b.X+b.W/2)
+	}
+}
+
+// A toast that closes on a press goes on the next press outside it,
+// stays for a press on it (its Undo), and a plain toast outlives any
+// press (#279).
+func TestAToastClosingOnPressGoesOnTheNextPressOutsideIt(t *testing.T) {
+	l := newToastLayerForTest(&spyRoot{nat: widget.Size{W: 50, H: 40}})
+	undo := widget.NewToast(testFace(t), "Removed", time.Minute)
+	plain := widget.NewToast(testFace(t), "Saved", time.Minute)
+	var gone []string
+	undo.OnDismissed = func() { gone = append(gone, "undo"); l.remove(undo) }
+	plain.OnDismissed = func() { gone = append(gone, "plain"); l.remove(plain) }
+	l.add(plain, false)
+	l.add(undo, true)
+	l.Arrange(render.Rect{W: 600, H: 400})
+	on := undo.Bounds()
+	l.pressed(widget.Point{X: on.X + on.W/2, Y: on.Y + on.H/2})
+	if len(gone) != 0 || undo.Closed() {
+		t.Fatalf("a press on the toast closed %v", gone)
+	}
+	l.pressed(widget.Point{X: 5, Y: 5})
+	now := time.Now()
+	for range 120 {
+		now = now.Add(16 * time.Millisecond)
+		l.clock.Tick(now)
+	}
+	if !undo.Closed() || len(gone) != 1 || gone[0] != "undo" {
+		t.Error("a press outside left the toast that closes on a press up")
+	}
+	if plain.Closed() {
+		t.Error("a press closed a toast that does not close on one")
+	}
 }

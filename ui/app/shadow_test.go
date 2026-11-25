@@ -56,7 +56,7 @@ func TestToastShadowDamageInWindow(t *testing.T) {
 
 	toast := widget.NewToast(testFace(t), "Saved", 0)
 	toast.OnDismissed = func() { layer.remove(toast) }
-	layer.add(toast)
+	layer.add(toast, false)
 
 	// Opening the card invalidates the card plus its shadow ring —
 	// and nothing beyond the ring (both clip to the window: the ring

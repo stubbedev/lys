@@ -150,7 +150,7 @@ func Run(page, setting string) error {
 	}
 	k.pickers = windowPickers{app: application, win: win, theme: theme}
 	k.toast = func(text string, life time.Duration) (*widget.Toast, error) {
-		return application.ShowToast(text, life, &app.ToastConfig{Host: win})
+		return application.ShowToast(text, life, &app.ToastConfig{Host: win, Over: w.stack, CloseOnPress: true})
 	}
 	k.overlays = func(output string, content widget.Widget, at overlayPlacement) (func(), error) {
 		return outputOverlay(application, sess.Outputs(), theme, output, content, at)

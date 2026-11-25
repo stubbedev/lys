@@ -278,6 +278,9 @@ func (in *surfaceInput) HandlePointerButton(button, state, serial uint32) {
 		if button == widget.BTNMiddle {
 			in.primary.pasteAt(in.router, in.reportTransfer)
 		}
+		if l, ok := in.router.Root.(*toastLayer); ok {
+			l.pressed(p)
+		}
 		in.router.Press(button, p, in.mods())
 		// Remember the press for the drag gesture: the threshold is
 		// measured from here and start_drag wants this serial.

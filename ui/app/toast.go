@@ -54,6 +54,14 @@ type ToastConfig struct {
 	// Face renders the text; nil falls back to the tooltip face, then
 	// the default sans face.
 	Face *render.Typeface
+	// Over centres the stack on that widget of the window, hugging its
+	// edge, as on a content pane beside a sidebar; nil centres it on the
+	// window.
+	Over widget.Boundser
+	// CloseOnPress fades the toast out on the next press in the window
+	// outside it, as well as at the timeout: feedback, such as an undo,
+	// that the user's next action makes moot.
+	CloseOnPress bool
 }
 
 // Toast errors: ShowToast had nowhere to show the toast.
@@ -89,7 +97,8 @@ func (a *Application) ShowToast(text string, timeout time.Duration, cfg *ToastCo
 		pos:    cfg.Position,
 		margin: orDefault(max(cfg.Margin, 0), toastMargin),
 		max:    orDefault(max(cfg.MaxStack, 0), toastMaxStack),
-	})
+		over:   cfg.Over,
+	}, cfg.CloseOnPress)
 	widget.Announce(t, t.Text(), widget.LiveRegion(t))
 	return t, nil
 }
@@ -99,15 +108,17 @@ func (a *Application) ShowToast(text string, timeout time.Duration, cfg *ToastCo
 // collects every dialog's feedback.
 func (a *Application) SetToastHost(h Host) { a.toastHost = h }
 
-// toastPlacement is a stack's geometry.
+// toastPlacement is a stack's geometry: its edge, margin and cap, and
+// the widget it centres on, nil for the window.
 type toastPlacement struct {
 	pos         ToastPosition
 	margin, max int
+	over        widget.Boundser
 }
 
 // hostToast stacks t on hw's toast layer, wrapping the window's tree
 // with the layer on the first toast.
-func (a *Application) hostToast(hw *hostWindow, t *widget.Toast, pl toastPlacement) {
+func (a *Application) hostToast(hw *hostWindow, t *widget.Toast, pl toastPlacement, closeOnPress bool) {
 	layer := a.toasts.layerFor(hw.host, func() *toastLayer {
 		l := &toastLayer{hw: hw, root: hw.router.Root, clock: hw.anim}
 		// The first toast wraps the window's tree; the last removal
@@ -116,22 +127,24 @@ func (a *Application) hostToast(hw *hostWindow, t *widget.Toast, pl toastPlaceme
 		hw.dirty = true
 		return l
 	})
-	layer.pos, layer.margin, layer.max = pl.pos, pl.margin, pl.max
+	layer.pos, layer.margin, layer.max, layer.over = pl.pos, pl.margin, pl.max, pl.over
 	t.OnDismissed = func() { layer.remove(t) }
-	layer.add(t)
+	layer.add(t, closeOnPress)
 }
 
 // rehostToasts moves toasts a closed window carried onto the window
-// toasts go to now; with none left they stop.
+// toasts go to now, centred on it, the widget they centred on gone with
+// the closed one; with none left they stop.
 func (a *Application) rehostToasts(moved []movedToasts) {
 	for _, m := range moved {
+		m.placement.over = nil
 		hw := a.windowForToast(nil)
 		for _, t := range m.toasts {
 			if hw == nil {
 				t.Close()
 				continue
 			}
-			a.hostToast(hw, t, m.placement)
+			a.hostToast(hw, t, m.placement, m.closeOnPress[t])
 		}
 	}
 }
@@ -139,8 +152,9 @@ func (a *Application) rehostToasts(moved []movedToasts) {
 // movedToasts are one closed window's live toasts and their stack's
 // geometry.
 type movedToasts struct {
-	toasts    []*widget.Toast
-	placement toastPlacement
+	toasts       []*widget.Toast
+	placement    toastPlacement
+	closeOnPress map[*widget.Toast]bool
 }
 
 // resolveFace resolves the text face for app-provided widget text:
@@ -225,8 +239,8 @@ func (r *toastRegistry) takeHost(h Host) (movedToasts, bool) {
 	if l == nil || len(l.slots) == 0 {
 		return movedToasts{}, false
 	}
-	m := movedToasts{toasts: l.slots, placement: toastPlacement{pos: l.pos, margin: l.margin, max: l.max}}
-	l.slots = nil
+	m := movedToasts{toasts: l.slots, placement: toastPlacement{pos: l.pos, margin: l.margin, max: l.max, over: l.over}, closeOnPress: l.closeOnPress}
+	l.slots, l.closeOnPress = nil, nil
 	l.close()
 	return m, true
 }
@@ -245,10 +259,13 @@ type toastLayer struct {
 	clock   *anim.Clock
 	unhosts map[*widget.Toast]func()
 	pos     ToastPosition
-	// margin, max are the stack geometry; add refreshes them from the
-	// latest toast's config.
+	// margin, max and over are the stack geometry; add refreshes them
+	// from the latest toast's config.
 	margin, max int
+	over        widget.Boundser
 	slots       []*widget.Toast
+	// closeOnPress holds the toasts a press outside them fades out.
+	closeOnPress map[*widget.Toast]bool
 	// children is the cached Children() view over root and slots,
 	// rebuilt on add/remove so the damage walk borrows it for free.
 	children []widget.Widget
@@ -281,12 +298,19 @@ func (l *toastLayer) Measure(axis widget.Axis, forSize int) widget.Sizes {
 }
 
 // Arrange lays the root over the whole rect and stacks the toasts at
-// the configured edge, centered along it: the newest card hugs the
-// edge, older ones grow toward the interior.
-func (l *toastLayer) Arrange(r render.Rect) {
-	l.root.Arrange(r)
+// the configured edge of the widget they centre on, or of the window,
+// centered along it: the newest card hugs the edge, older ones grow
+// toward the interior.
+func (l *toastLayer) Arrange(win render.Rect) {
+	l.root.Arrange(win)
 	if len(l.slots) == 0 {
 		return
+	}
+	r := win
+	if l.over != nil {
+		if b := l.over.Bounds().Intersect(win); !b.Empty() {
+			r = b
+		}
 	}
 	maxW := min(max(0, r.W-2*l.margin), toastMaxWidth)
 	avail := widget.Size{W: maxW, H: max(0, r.H/2)}
@@ -340,15 +364,33 @@ func (l *toastLayer) HitTest(p widget.Point) widget.Widget {
 	return l.root.HitTest(p)
 }
 
-// add appends a toast, dropping — and thereby closing — the oldest
-// past the cap. Structural changes repaint through the window flag.
-func (l *toastLayer) add(t *widget.Toast) {
+// pressed fades out the toasts that close on a press, but for one the
+// press at p, in root coordinates, lands on.
+func (l *toastLayer) pressed(p widget.Point) {
+	for _, t := range l.slots {
+		if l.closeOnPress[t] && !t.Bounds().Contains(p.X, p.Y) {
+			t.Dismiss()
+		}
+	}
+}
+
+// add appends a toast, closing on a press outside it when closeOnPress
+// holds, dropping — and thereby closing — the oldest past the cap.
+// Structural changes repaint through the window flag.
+func (l *toastLayer) add(t *widget.Toast, closeOnPress bool) {
 	for len(l.slots) >= l.max && len(l.slots) > 0 {
 		oldest := l.slots[0]
 		l.slots = l.slots[1:]
+		delete(l.closeOnPress, oldest)
 		l.unhost(oldest)
 		oldest.Close()
 		l.markDirty()
+	}
+	if closeOnPress {
+		if l.closeOnPress == nil {
+			l.closeOnPress = make(map[*widget.Toast]bool)
+		}
+		l.closeOnPress[t] = true
 	}
 	l.slots = append(l.slots, t)
 	if l.unhosts == nil {
@@ -376,6 +418,7 @@ func (l *toastLayer) remove(t *widget.Toast) {
 			break
 		}
 	}
+	delete(l.closeOnPress, t)
 	l.unhost(t)
 	t.Close()
 	l.syncChildren()
