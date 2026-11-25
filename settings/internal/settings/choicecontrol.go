@@ -2,7 +2,6 @@ package settings
 
 import (
 	"log"
-	"math"
 	"slices"
 	"unicode/utf8"
 
@@ -95,17 +94,10 @@ func (p *choicePick) picked(i int) {
 // list still shows every option whole.
 func (p *choicePick) Measure(axis widget.Axis, forSize int) widget.Sizes {
 	s := p.Box.Measure(axis, forSize)
-	if axis != widget.Row || p.drop == nil || len(p.labels) == 0 {
+	if axis != widget.Row || p.drop == nil {
 		return s
 	}
-	px := p.k.textPx()
-	advance := func(text string) int { return int(math.Ceil(p.k.face.Shape(text, px).Advance())) }
-	widest := 0
-	for _, l := range p.labels {
-		widest = max(widest, advance(l))
-	}
-	shown := advance(p.labels[max(p.drop.Selected(), 0)])
-	s.Nat = max(s.Min, s.Nat-widest+shown)
+	s.Nat = max(s.Min, s.Nat-p.drop.Measure(widget.Row, forSize).Nat+p.drop.SelectionWidth())
 	return s
 }
 

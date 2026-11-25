@@ -348,15 +348,34 @@ func (d *Dropdown) Measure(axis Axis, forSize int) Sizes {
 		return d.measureStore(axis, forSize, FixedSizes(h))
 	}
 	w := dropdownMinW
-	slot := d.iconSlot()
-	for i, label := range d.items {
-		if adv := dropdownLabelX + d.iconWidth(i) + int(d.face.Shape(label, d.sizePx).Advance()+0.5) + dropdownChevronW; adv > w {
-			w = adv
-		}
+	for i := range d.items {
+		w = max(w, d.itemWidth(i))
 	}
-	ell := int(math.Ceil(d.face.Shape(render.Ellipsis, d.sizePx).Advance()))
-	least := max(dropdownMinW, dropdownLabelX+slot+ell+dropdownChevronW)
+	least := d.leastWidth()
 	return d.measureStore(axis, forSize, Sizes{Min: min(least, w), Nat: w})
+}
+
+// itemWidth is the face's width showing item i whole: the label start,
+// its icon, its label and the chevron.
+func (d *Dropdown) itemWidth(i int) int {
+	return dropdownLabelX + d.iconWidth(i) + int(d.face.Shape(d.items[i], d.sizePx).Advance()+0.5) + dropdownChevronW
+}
+
+// leastWidth is the face's least width: the label start, the icon slot,
+// an ellipsis and the chevron, never under the 80px floor.
+func (d *Dropdown) leastWidth() int {
+	ell := int(math.Ceil(d.face.Shape(render.Ellipsis, d.sizePx).Advance()))
+	return max(dropdownMinW, dropdownLabelX+d.iconSlot()+ell+dropdownChevronW)
+}
+
+// SelectionWidth is the width the face needs to show its selection
+// whole, the least width with nothing selected: what a dropdown sized to
+// its value asks for, where Measure asks for its widest item.
+func (d *Dropdown) SelectionWidth() int {
+	if d.selected < 0 || d.selected >= len(d.items) {
+		return d.leastWidth()
+	}
+	return max(d.leastWidth(), d.itemWidth(d.selected))
 }
 
 // Paint draws the face — surface, selection, chevron — in its pressed

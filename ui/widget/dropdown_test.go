@@ -753,3 +753,24 @@ func TestADropdownsIconlessRowsLineUpInTheListAndTakeNoSlotOnTheFace(t *testing.
 		t.Errorf("the iconless selection shows %T on the face", ic)
 	}
 }
+
+// A dropdown sized to its value asks for its selection's width: the
+// short value's face is narrower than the widest item's, as wide as the
+// widest's when that is selected, and never under the least width with
+// nothing selected.
+func TestDropdownSelectionWidthFollowsTheSelection(t *testing.T) {
+	d := NewDropdown(entryFace(t), 14, []string{"Off", "Suspend, then hibernate if possible"}, 0)
+	widest := d.Measure(Row, Unknown).Nat
+	short := d.SelectionWidth()
+	if short >= widest {
+		t.Errorf("the face reading Off asks for %dpx, the widest item %dpx", short, widest)
+	}
+	d.SetSelected(1)
+	if got := d.SelectionWidth(); got != widest {
+		t.Errorf("the face reading the widest item asks for %dpx, want its natural %d", got, widest)
+	}
+	d.SetSelected(-1)
+	if got, least := d.SelectionWidth(), d.Measure(Row, Unknown).Min; got != least {
+		t.Errorf("the face with nothing selected asks for %dpx, want its least %d", got, least)
+	}
+}
