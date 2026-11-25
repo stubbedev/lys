@@ -73,11 +73,34 @@ docker recipe="check" memory="6g":
     docker volume create lys-settings-go > /dev/null
     docker run --rm -v lys-settings-go:/go debian:trixie-slim chown "$(id -u):$(id -g)" /go
     forward=()
-    [[ -v LYS_TEST_ARGS ]] && forward=(-e LYS_TEST_ARGS)
+    [[ -v LYS_TEST_ARGS ]] && forward+=(-e LYS_TEST_ARGS)
+    [[ -v LYS_SETTINGS_SHOTS_PAGES ]] && forward+=(-e LYS_SETTINGS_SHOTS_PAGES)
     docker run --rm --init --user "$(id -u):$(id -g)" --cap-add SYS_PTRACE "${forward[@]}" \
         --memory {{ quote(memory) }} --memory-swap {{ quote(memory) }} --pids-limit 4096 --tmpfs /dev/shm:rw,nosuid,nodev,exec,size=1g,mode=1777 \
         -v /nix/store:/nix/store:ro -v "$dir/env.sh:/env.sh:ro" -v "$dir/passwd:/etc/passwd:ro" -v "$dir/group:/etc/group:ro" -v "$(git rev-parse --show-toplevel):/src" -v lys-settings-go:/go -w /src/settings -e SSL_CERT_FILE="$certs" \
         debian:trixie-slim "$bash" -c 'source /env.sh && export HOME=/go/home GOMODCACHE=/go/mod GOCACHE=/go/cache GOLANGCI_LINT_CACHE=/go/lint TMPDIR=/tmp && unset XDG_RUNTIME_DIR WAYLAND_DISPLAY DISPLAY DBUS_SESSION_BUS_ADDRESS && mkdir -p "$HOME" && exec just "$1"' docker {{ quote(recipe) }}
+
+# Screenshot every settings page, scrolled through, and every dialog, popover
+# and menu a click on it opens, into shots/ (or only the comma-separated pages
+# given), against a headless lys-wm in a throwaway container. A review aid:
+# the shots are looked at, not compared. A full run takes most of an hour, so
+# give pages when checking a change.
+shots pages="":
+    LYS_SETTINGS_SHOTS_PAGES={{ quote(pages) }} just docker shots-in 8g
+
+# The inside of shots: the app's and lys-shell's icons installed where the
+# window finds them, then TestShots writing into shots/.
+[script("bash")]
+shots-in:
+    set -euo pipefail
+    icons="$(mktemp -d)"
+    trap 'rm -rf "${icons}"' EXIT
+    go tool install-icons "${icons}/settings/hicolor/scalable/actions" $(cat resources/icons.txt)
+    go tool install-icons "${icons}/lys-shell/hicolor/scalable/actions"
+    mkdir -p shots
+    LYS_SETTINGS_HEADLESS=1 LYS_SETTINGS_SHOTS="$PWD/shots" \
+        LYS_SETTINGS_SHOTS_ICONS="${icons}/settings" LYS_SETTINGS_SHOTS_SHELL_ICONS="${icons}/lys-shell" \
+        go test -run '^TestShots$' -count=1 -timeout 90m ./internal/settings
 
 # Pack the dist/ build into lys-settings-<version>-<arch>-linux.tar.gz, the release
 # archive the packages are built from.

@@ -112,29 +112,12 @@ func Run(page, setting string) error {
 		forgetImage:   application.ForgetImage,
 		clock:         wallClock{},
 	}
-	after := func(d time.Duration, fn func()) {
-		time.AfterFunc(d, func() { application.Invoke(fn) })
-	}
-	w := newWindow(k, cfg, after)
-	k.onWMChange = w.refresh
-	theme.Attach(w.root)
-	w.request(launch{page: page, setting: setting})
-
-	win, err := application.NewWindow(app.WindowConfig{
-		Title: locale.T().Get("settings-title"), AppID: appID,
-		Width: windowWidth, Height: windowHeight,
-		Root: w.root, Background: theme.RenderPalette().Surface,
-		OnPresented: w.presentedFirst,
-	})
+	w, win, stop, err := openSettingsWindow(application, sess.Outputs, k, theme)
 	if err != nil {
-		return fmt.Errorf("settings: window: %w", err)
+		return err
 	}
-	w.onClose = win.Close
-	w.focus = func(target widget.Widget) {
-		if err := win.SetFocus(target); err != nil {
-			log.Printf("settings: focus %T: %v", target, err)
-		}
-	}
+	defer stop()
+	w.request(launch{page: page, setting: setting})
 	w.focusPage()
 	if err := application.AddAccel("ctrl+f", widget.NewAction("settings.search", w.focusSearch)); err != nil {
 		return fmt.Errorf("settings: search shortcut: %w", err)
@@ -149,12 +132,44 @@ func Run(page, setting string) error {
 		}
 		ins.Bind(application)
 	}
+	return application.Run()
+}
+
+// openSettingsWindow builds the settings window over application for k,
+// styled by theme: the window, its pickers, toasts, output overlays,
+// clipboard and reset-all wired to it, and a change to the config from
+// any source - a row, the reset buttons, the config file, another
+// lys-shell - restyling it and refreshing its page. stop ends that
+// following.
+func openSettingsWindow(application *app.Application, outputs func() []*app.Output, k *kit, theme *apptheme.Theme) (w *window, win *app.Window, stop func(), err error) {
+	cfg := k.store.svc.Config()
+	after := func(d time.Duration, fn func()) {
+		time.AfterFunc(d, func() { application.Invoke(fn) })
+	}
+	w = newWindow(k, cfg, after)
+	k.onWMChange = w.refresh
+	theme.Attach(w.root)
+	win, err = application.NewWindow(app.WindowConfig{
+		Title: locale.T().Get("settings-title"), AppID: appID,
+		Width: windowWidth, Height: windowHeight,
+		Root: w.root, Background: theme.RenderPalette().Surface,
+		OnPresented: w.presentedFirst,
+	})
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("settings: window: %w", err)
+	}
+	w.onClose = win.Close
+	w.focus = func(target widget.Widget) {
+		if err := win.SetFocus(target); err != nil {
+			log.Printf("settings: focus %T: %v", target, err)
+		}
+	}
 	k.pickers = windowPickers{app: application, win: win, theme: theme}
 	k.toast = func(text string, life time.Duration) (*widget.Toast, error) {
 		return application.ShowToast(text, life, &app.ToastConfig{Host: win, Over: w.stack, CloseOnPress: true})
 	}
 	k.overlays = func(output string, content widget.Widget, at overlayPlacement) (func(), error) {
-		return outputOverlay(application, sess.Outputs(), theme, output, content, at)
+		return outputOverlay(application, outputs(), theme, output, content, at)
 	}
 	clip := func() (*app.Clipboard, error) {
 		if c := application.Clipboard(); c != nil {
@@ -177,17 +192,13 @@ func Run(page, setting string) error {
 		return c.WriteText(text)
 	}
 	w.onResetAll = func() { confirmResetAll(application, win, k) }
-
-	// A change from any source - a row, the reset buttons, the config
-	// file, another lys-shell - restyles the window and refreshes the page.
-	cancel := svc.Subscribe(func(_, next *config.Config) {
+	stop = k.store.svc.Subscribe(func(_, next *config.Config) {
 		application.Invoke(func() {
 			theme.SetConfig(next)
 			w.refresh()
 		})
 	})
-	defer cancel()
-	return application.Run()
+	return w, win, stop, nil
 }
 
 // shipIcons puts the icons this app installs on the search path: they live in
