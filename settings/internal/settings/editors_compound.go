@@ -51,6 +51,12 @@ func newOptionalNumber(k *kit, s slot, lo, hi, step, fallback float64, digits in
 	return c
 }
 
+// spin holds the number at its own width on the control edge
+// (controlFit).
+func (c *optionalNumber) spin() {}
+
+func (c *optionalNumber) spinButton() *widget.SpinButton { return c.SpinButton }
+
 // write stores a whole number (float fields take it as one), or the
 // fraction when the spin shows digits.
 func (c *optionalNumber) write(v float64) {

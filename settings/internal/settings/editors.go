@@ -156,6 +156,11 @@ func newNumber(k *kit, s slot, lo, hi, step float64, digits int) *number {
 	return c
 }
 
+// spin holds a number at its own width on the control edge (controlFit).
+func (c *number) spin() {}
+
+func (c *number) spinButton() *widget.SpinButton { return c.SpinButton }
+
 func (c *number) refresh() {
 	switch v := c.slot.get().(type) {
 	case int64:
@@ -369,7 +374,7 @@ type softRange struct {
 func newSoftRange(k *kit, s slot, meta config.FieldMeta, lo, hi, step float64, u unit) *softRange {
 	n := newNumber(k, s, meta.Min, meta.Max, step, 0)
 	n.SetFitRange(lo, hi)
-	c := &softRange{slider: bindSlider(k.fieldSlider(lo, hi, k.numberField(n, u)), s, true), number: n}
+	c := &softRange{slider: bindSlider(k.fieldSlider(lo, hi, k.sliderField(n, u)), s, true), number: n}
 	c.OnValue = n.SetValue
 	n.refresh()
 	return c

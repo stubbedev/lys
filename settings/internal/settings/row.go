@@ -105,6 +105,9 @@ type kit struct {
 	familyFont func(family string) (render.Font, error)
 	fontFile   func(family string) (string, error)
 	fileFamily func(path string) (string, error)
+	// spins makes the spins of the page being built one width; nil
+	// outside a page.
+	spins *spinWidths
 	// forgetImage drops a raster's GPU copy before its pixels are freed.
 	forgetImage func(render.ImageID)
 	lockBg      *lockBackdrop
@@ -315,15 +318,19 @@ func (r *settingRow) withTrailing(ws ...widget.Widget) *settingRow {
 }
 
 // controlFit is where a row holds ctl: where a control that decides its
-// own fit says, under its text when it stacks, in the card's control
-// column when it is a field (a dropdown, a spin, an entry, or an editor
-// that reads as one), and at its own width at the row's end otherwise.
+// own fit says, under its text when it stacks, at its own width on the
+// control edge when it is a spin (its page's spins one width), in the
+// card's control column when it is a field (a dropdown, an entry, or an
+// editor that reads as one), and at its own width at the row's end
+// otherwise.
 func controlFit(ctl widget.Widget) widget.ItemControlFit {
 	switch c := ctl.(type) {
 	case interface{ fit() widget.ItemControlFit }:
 		return c.fit()
 	case interface{ stacked() }:
 		return widget.ItemControlWide
+	case interface{ spin() }:
+		return widget.ItemControlNatural
 	case interface{ columnField() }:
 		return widget.ItemControlColumn
 	case interface{ Role() widget.Role }:
@@ -554,6 +561,7 @@ func newSettingRow(k *kit, be backend, spec rowSpec, ctl control) *fieldRow {
 		fit = widget.ItemControlWide
 	}
 	r.placeControl(ctl, fit)
+	k.spinOf(ctl)
 	r.refreshSource()
 	return r
 }
@@ -628,6 +636,7 @@ const itemTitle = "title"
 func (g formGrid) row(label widget.Widget, ctl widget.Widget, fill bool, more ...widget.Widget) *widget.Box {
 	row := gapBox(widget.Row)
 	row.AppendAligned(label, !fill, widget.AlignCenter)
+	g.k.spinOf(ctl)
 	if !fill {
 		if controlFit(ctl) == widget.ItemControlColumn {
 			ctl = g.controls.Add(ctl)

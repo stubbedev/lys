@@ -163,6 +163,41 @@ func (edges columnEdges) shareEdges(t *testing.T, what string) {
 	}
 }
 
+// spinIn is the bounds of the spin field under w, false for none.
+func spinIn(w widget.Widget) (render.Rect, bool) {
+	var at render.Rect
+	found := false
+	treetest.Walk(w, func(x widget.Widget) {
+		if _, ok := x.(interface{ spin() }); ok && !found {
+			at, found = x.(widget.Boundser).Bounds(), true
+		}
+	})
+	return at, found
+}
+
+// endOnTheEdgeOf checks the spins share one width and end where the
+// column's fields end.
+func (spins columnEdges) endOnTheEdgeOf(t *testing.T, what string, fields columnEdges) {
+	t.Helper()
+	if len(spins) == 0 {
+		t.Fatalf("%s: no spin to check", what)
+	}
+	edge, width := -1, -1
+	for _, b := range fields {
+		edge = b.X + b.W
+	}
+	for name, b := range spins {
+		if b.X+b.W != edge {
+			t.Errorf("%s: %s ends at %d, the column at %d", what, name, b.X+b.W, edge)
+		}
+		if width < 0 {
+			width = b.W
+		} else if b.W != width {
+			t.Errorf("%s: %s is %dpx wide beside a %dpx spin", what, name, b.W, width)
+		}
+	}
+}
+
 // On Mouse & Touchpad every card's dropdowns, spins and entries start
 // and end at one x, whatever their choices; a control marked full-width
 // takes the row's width under its text instead.
@@ -225,26 +260,33 @@ func TestNightLightSwitchJoinsTheTemperatureCard(t *testing.T) {
 	t.Fatal("the temperature row is in no item group")
 }
 
-// On Warning Levels every card's spins and color dropdowns start and end
-// at one x, beside labels sharing one column.
+// On Warning Levels every card's color dropdowns start and end at one
+// x, its spins one width ending where the dropdowns end, beside labels
+// sharing one column.
 func TestWarningLevelCardsShareOneControlColumn(t *testing.T) {
 	p := laidOutPage(t, geometryYAML, thresholdsPageID, sweepW).page
 	cards := 0
 	for _, body := range treetest.WithClass(p, "card-form-body") {
-		edges := columnEdges{}
+		edges, spins := columnEdges{}, columnEdges{}
 		labels := map[int]bool{}
 		for i, row := range treetest.WithClass(body, "threshold-row") {
 			kids := row.(*widget.Box).Children()
-			edges[fmt.Sprintf("field %d", i)] = kids[1].(widget.Boundser).Bounds()
-			labels[kids[0].(widget.Boundser).Bounds().W] = true
+			if spin, ok := spinIn(kids[1]); ok {
+				spins[fmt.Sprintf("spin %d", i)] = spin
+			} else {
+				edges[fmt.Sprintf("field %d", i)] = kids[1].(widget.Boundser).Bounds()
+			}
+			labels[kids[0].(widget.Boundser).Bounds().X] = true
 		}
 		if len(edges) == 0 {
 			continue
 		}
 		cards++
-		edges.shareEdges(t, fmt.Sprintf("warning level card %d", cards))
+		what := fmt.Sprintf("warning level card %d", cards)
+		edges.shareEdges(t, what)
+		spins.endOnTheEdgeOf(t, what, edges)
 		if len(labels) != 1 {
-			t.Errorf("warning level card %d: label widths %v, want one", cards, labels)
+			t.Errorf("warning level card %d: labels start at %v, want one x", cards, labels)
 		}
 	}
 	if cards == 0 {

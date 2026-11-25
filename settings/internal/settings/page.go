@@ -348,6 +348,8 @@ const wmUnreachableIcon = "ld-app-window-symbolic"
 
 // buildPage lays out a page.
 func buildPage(k *kit, spec pageSpec) *settingsPage {
+	k.spins = newSpinWidths()
+	defer func() { k.spins = nil }()
 	t := locale.T()
 	th := widget.Current()
 	content := widget.NewBox(widget.Column, sectionGap(), 3*th.Padding)
