@@ -147,14 +147,13 @@ func newFilenameEditor(k *kit, s, dir slot, custom *labelBuilder) *filenameEdito
 	e.counter.SetAccessibleName(t.Get("settings-filename-counter"))
 	e.counter.OnSelect = func(int) { e.write() }
 	e.simple = gapBox(widget.Column)
+	grid := k.formGrid()
 	for _, part := range []struct {
 		key string
 		w   widget.Widget
 	}{{"settings-filename-prefix", e.prefix}, {"settings-filename-date", e.date}, {"settings-filename-time", e.clock}, {"settings-filename-counter", e.counter}} {
-		line := gapBox(widget.Row)
-		line.AppendAligned(k.label(t.Get(part.key), cardFormClasses.label, css.Caption), false, widget.AlignCenter)
-		line.Append(part.w, true)
-		e.simple.Append(line, false)
+		label := grid.labels.Add(k.label(t.Get(part.key), cardFormClasses.label, css.Caption))
+		e.simple.Append(grid.row(label, part.w, true), false)
 	}
 	e.problem = k.errorText("")
 	e.problem.SetVisible(false)

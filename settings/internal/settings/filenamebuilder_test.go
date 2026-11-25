@@ -8,6 +8,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -155,5 +156,21 @@ func TestACustomFilenameCanInsertTheCounter(t *testing.T) {
 	}
 	if got, want := kind.label("{counter}{counter}.png"), locale.T().Get("settings-format-invalid"); got != want {
 		t.Errorf("a twice counter is offered as %q, want %q", got, want)
+	}
+}
+
+// The form's Name, Date, Time and Counter fields start at one x, past
+// the widest of their labels, not each where its own label ends.
+func TestTheFilenameFormsFieldsShareALeftEdge(t *testing.T) {
+	k := testKit(t, "")
+	e := filenameControl(t, k)
+	root := widget.NewBox(widget.Column, 0, 0)
+	root.Append(e, false)
+	styledLayOut(k, root, 700)
+	x := e.prefix.Bounds().X
+	for name, w := range map[string]widget.Boundser{"date": e.date, "time": e.clock, "counter": e.counter} {
+		if got := w.Bounds().X; got != x {
+			t.Errorf("the %s field starts at x %d, the name at %d", name, got, x)
+		}
 	}
 }
