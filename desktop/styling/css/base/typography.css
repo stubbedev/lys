@@ -29,16 +29,20 @@ inputotp label,
 .title-4,
 .lead,
 .large-text,
-statuspage .title,
-dialog .title {
+statuspage .title {
   font-size: var(--text-subtitle);
 }
 
 .title-2,
 .title-3,
 .h3,
-.h4 {
+.h4,
+dialog .header .title {
   font-size: var(--text-title);
+}
+
+dialog .header .title {
+  font-weight: var(--weight-bold);
 }
 
 .title-1,

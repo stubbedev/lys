@@ -398,7 +398,7 @@ func controlRules() [][2]string {
 		{"bullets", "margin-left: 8px;"},
 		{"rows", "border: 1px solid @borders;"},
 		{"dialog", "border: 1px solid @borders; border-radius: {r+2};"},
-		{"dialog .title", "font-size: 1.125rem; font-weight: 600;"},
+		{"dialog .header .title", "font-size: 1.125rem; font-weight: 600;"},
 		{"dialog .description, dialog .footer label", "font-size: 0.875rem;"},
 		{"toast", "background-color: @popover_bg_color; color: @popover_fg_color; border: 1px solid @borders; border-radius: {r};"},
 		{"menubar", "background-color: @window_bg_color; border: 1px solid @borders; border-radius: {r}; padding: 4px; box-shadow: 0px 1px 2px alpha(black, 0.05);"},
