@@ -458,8 +458,8 @@ var fingersEnrolled = func(k *kit) (int, error) {
 }
 
 // fingerprintRow is a switch letting a finger unlock, held back while no
-// reader is there or no finger is enrolled, saying which beneath it with
-// a way to enrol one.
+// reader is there or no finger is enrolled, saying which under the row's
+// text with a way to enrol one.
 var fingerprintRow = withEditor(func(k *kit, s slot, _ config.FieldMeta) control {
 	return newFingerprintSwitch(k, s)
 })
@@ -470,8 +470,8 @@ type fingerprintReading struct {
 }
 
 type fingerprintSwitch struct {
-	*widget.Box
-	toggle  *toggle
+	*toggle
+	below   *widget.Box
 	status  *inlineState
 	enrol   *widget.Button
 	reading fingerprintReading
@@ -479,12 +479,11 @@ type fingerprintSwitch struct {
 }
 
 func newFingerprintSwitch(k *kit, s slot) *fingerprintSwitch {
-	c := &fingerprintSwitch{Box: gapBox(widget.Column), toggle: newToggle(k, s), status: k.inlineState()}
-	c.AppendAligned(c.toggle, false, widget.AlignEnd)
-	c.AppendAligned(c.status, false, widget.AlignEnd)
+	c := &fingerprintSwitch{toggle: newToggle(k, s), below: gapBox(widget.Column), status: k.inlineState()}
+	c.below.Append(c.status, false)
 	if enrol, ok := k.pageButton(locale.T().Get("settings-fingerprint-enrol"), usersID); ok {
 		c.enrol = enrol
-		c.AppendAligned(c.enrol, false, widget.AlignEnd)
+		c.below.AppendAligned(c.enrol, false, widget.AlignStart)
 	}
 	async(k, func() fingerprintReading {
 		n, err := fingersEnrolled(k)
@@ -496,6 +495,11 @@ func newFingerprintSwitch(k *kit, s slot) *fingerprintSwitch {
 	c.fit()
 	return c
 }
+
+// detail is what holds the switch back and the way to enrol a finger,
+// under the row's text, so neither squeezes the description beside the
+// switch.
+func (c *fingerprintSwitch) detail() widget.Widget { return c.below }
 
 func (c *fingerprintSwitch) ready() bool { return c.reading.err == nil && c.reading.fingers > 0 }
 
@@ -519,7 +523,7 @@ func (c *fingerprintSwitch) fit() {
 	default:
 		c.status.Clear()
 	}
-	c.toggle.SetEnabled(c.ready() || c.toggle.On() || (r.err != nil && !errors.Is(r.err, errNoReader)))
+	c.SetEnabled(c.ready() || c.On() || (r.err != nil && !errors.Is(r.err, errNoReader)))
 }
 
 func (c *fingerprintSwitch) refresh() {

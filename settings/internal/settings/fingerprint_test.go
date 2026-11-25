@@ -523,3 +523,34 @@ func TestAnUnreachableReaderReadsAsAFailureOnItsRow(t *testing.T) {
 		})
 	}
 }
+
+// The lock's fingerprint row stood its switch level with the title and
+// put the warning and its chevron under the switch, in the control
+// column, squeezing the description into what was left. What holds the
+// switch back reads under the row's text, the switch alone at its end.
+func TestAFingerprintRowsWarningReadsUnderItsText(t *testing.T) {
+	was := fingersEnrolled
+	fingersEnrolled = func(*kit) (int, error) { return 0, errors.New("the system bus is gone") }
+	t.Cleanup(func() { fingersEnrolled = was })
+	win := laidOutPage(t, "", "lock", sweepW)
+	var row *fieldRow
+	for _, r := range win.page.rows {
+		if _, ok := r.ctl.(*fingerprintSwitch); ok && shown(r) {
+			row = r
+			break
+		}
+	}
+	if row == nil {
+		t.Fatal("the lock page shows no fingerprint row")
+	}
+	c := row.ctl.(*fingerprintSwitch)
+	descLabel := treetest.LabelReading(t, row, description("settings-login-lock-fingerprint"))
+	desc := descLabel.Bounds()
+	status, sw := c.status.Bounds(), c.Bounds()
+	if !c.status.Visible() || status.X != desc.X || status.Y < desc.Y+desc.H {
+		t.Errorf("the warning sits at %+v, the description at %+v; want it under the description", status, desc)
+	}
+	if end := desc.X + descLabel.Measure(widget.Row, widget.Unknown).Nat; end > sw.X {
+		t.Errorf("the description's line ends at x=%d, past the switch at %d", end, sw.X)
+	}
+}
