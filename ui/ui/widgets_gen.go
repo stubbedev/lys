@@ -5329,6 +5329,18 @@ func (b *ItemGroupBuilder) Append(child Node) *ItemGroupBuilder {
 	return b
 }
 
+// Widths calls (*widget.ItemGroup).SetWidths.
+func (b *ItemGroupBuilder) Widths(itemWidths *widget.ItemWidths) *ItemGroupBuilder {
+	b.do(func(s *Scope, w *widget.ItemGroup) { w.SetWidths(itemWidths) })
+	return b
+}
+
+// WatchWidths re-applies SetWidths with get's value after every update.
+func (b *ItemGroupBuilder) WatchWidths(get func() *widget.ItemWidths) *ItemGroupBuilder {
+	b.watch(func(w *widget.ItemGroup) { w.SetWidths(get()) })
+	return b
+}
+
 // ItemValueBuilder builds a widget.ItemValue.
 type ItemValueBuilder struct {
 	base[*widget.ItemValue, *ItemValueBuilder]
