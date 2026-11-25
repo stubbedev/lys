@@ -193,7 +193,7 @@ func enumChoice(meta config.FieldMeta) closedChoice {
 		c.options[i] = choice{value: v, label: labels[i]}
 	}
 	if meta.Optional {
-		c.unset = locale.T().Get("settings-inherit")
+		c.unset = locale.T().Get("settings-inherited")
 	}
 	return c
 }

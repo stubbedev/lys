@@ -19,7 +19,7 @@ type namedOrWhole struct {
 
 func newNamedOrWhole(k *kit, s slot, meta config.FieldMeta) *namedOrWhole {
 	t := locale.T()
-	labels := slices.Concat([]string{t.Get("settings-inherit")}, enumLabels(meta))
+	labels := slices.Concat([]string{t.Get("settings-inherited")}, enumLabels(meta))
 	c := &namedOrWhole{slot: s, names: meta.Variants}
 	c.code = widget.NewSpinButton(k.face, k.textPx(), 0, meta.Min, meta.Max, 1, 0)
 	c.code.SetTooltip(t.Attr("wm-button-code", "description"))

@@ -95,7 +95,6 @@ settings-module-world-clock = Orologio mondiale
 settings-module-custom = Personalizzato: { $id }
     .description = Ciò che stampa un tuo comando
 settings-unit-scale = × la dimensione normale
-settings-inherit = Eredita (predefinito)
 settings-inherited = Ereditato
 settings-icon-none = Nessuna icona
 settings-icon-clear = Rimuovi l'icona

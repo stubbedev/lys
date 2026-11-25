@@ -551,7 +551,7 @@ func TestOptionalEnumInheritsOrPicks(t *testing.T) {
 	k := testKit(t, "")
 	meta, _ := config.Field("animations.enter")
 	c := newChoiceControl(k, pathSlot(k.store, "animations.enter"), enumChoice(meta))
-	if c.pick.Selected() != 0 || c.pick.Items()[0] != locale.T().Get("settings-inherit") {
+	if c.pick.Selected() != 0 || c.pick.Items()[0] != locale.T().Get("settings-inherited") {
 		t.Fatalf("unset shows %q", c.pick.Items()[c.pick.Selected()])
 	}
 	pickChoice(c.pick, 2)

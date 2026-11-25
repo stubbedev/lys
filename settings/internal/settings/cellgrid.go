@@ -55,13 +55,16 @@ func cellGridRow(key string, columns []string, rows ...gridRow) rowSpec {
 // many columns line up across pages. A table, rows headed by the kind
 // of thing each is, reads as rows do: the heading at the start, the
 // controls packed at the end, each column as wide as its widest cell.
+// Its spins are one width, capped as a page's are, so no value range
+// widens a column past what its values need.
 type cellGrid struct {
 	*widget.Box
 	cells []control
+	spins *spinWidths
 }
 
 func newCellGrid(k *kit, columns []string, rows []gridRow) *cellGrid {
-	g := &cellGrid{Box: widget.NewBox(widget.Column, choiceCardGap, 0)}
+	g := &cellGrid{Box: widget.NewBox(widget.Column, choiceCardGap, 0), spins: newSpinWidths()}
 	g.AddClass("cell-grid")
 	if slices.ContainsFunc(rows, gridRow.withHeader) {
 		g.table(k, columns, rows)
@@ -79,6 +82,9 @@ func columnHeading(k *kit, key string) widget.Widget {
 // control is the cell's control, refreshed with the grid.
 func (g *cellGrid) control(k *kit, spec rowSpec) control {
 	cell := fieldControl(k, k.store, spec)
+	if s, ok := cell.(spinField); ok {
+		g.spins.addSpin(s.spinButton())
+	}
 	g.cells = append(g.cells, cell)
 	return cell
 }
@@ -107,7 +113,7 @@ func (g *cellGrid) table(k *kit, columns []string, rows []gridRow) {
 		widths[c] = widget.NewSizeGroup(widget.SizeGroupHorizontal)
 	}
 	line := func(head widget.Widget, cell func(c int) widget.Widget) {
-		row := widget.NewBox(widget.Row, choiceCardGap*2, 0)
+		row := widget.NewBox(widget.Row, choiceCardGap, 0)
 		row.AppendAligned(head, true, widget.AlignCenter)
 		for c := range columns {
 			row.AppendAligned(widths[c].Add(cell(c)), false, widget.AlignCenter)
@@ -118,7 +124,7 @@ func (g *cellGrid) table(k *kit, columns []string, rows []gridRow) {
 	for _, r := range rows {
 		head := widget.Widget(widget.NewBox(widget.Row, 0, 0))
 		if r.withHeader() {
-			head = k.label(locale.T().Get(r.key))
+			head = wrapped(k.label(locale.T().Get(r.key)))
 		}
 		line(head, func(c int) widget.Widget {
 			if r.cells[c].path == "" {

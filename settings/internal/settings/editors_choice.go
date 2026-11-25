@@ -146,7 +146,7 @@ func semanticEditor(k *kit, s slot, path string, meta config.FieldMeta) (control
 		if len(meta.Placeholders) > 0 {
 			return newLabelBuilder(k, s, meta.Optional, placeholderFormat(meta.Placeholders)), true
 		}
-		return newChoiceEditor(k, s, choiceSpec{list: fixedChoices(commandsFor(path)), free: true, optional: meta.Optional, browse: (*kit).appCommandButton}), true
+		return newChoiceEditor(k, s, choiceSpec{list: fixedChoices(commandsFor(path)), free: true, unset: optionalUnset(meta.Optional), browse: (*kit).appCommandButton}), true
 	case "BitwardenServer":
 		return newChoiceEditor(k, s, choiceSpec{list: fixed(bitwardenServers...), free: true}), true
 	case "IdleTimeout":
@@ -158,7 +158,7 @@ func semanticEditor(k *kit, s slot, path string, meta config.FieldMeta) (control
 	case wmChordFormat:
 		return newChordEditor(k, s), true
 	case wmCommandFormat:
-		return newChoiceEditor(k, s, choiceSpec{list: appCommands, optional: meta.Optional}), true
+		return newChoiceEditor(k, s, choiceSpec{list: appCommands, unset: optionalUnset(meta.Optional)}), true
 	case wmActionFormat:
 		f, _ := k.wm.fieldOf(path)
 		return newWMActionEditor(k, s, f.Actions), true
@@ -175,7 +175,7 @@ func semanticEditor(k *kit, s slot, path string, meta config.FieldMeta) (control
 	if !ok {
 		return nil, false
 	}
-	spec := choiceSpec{list: list, special: meta.Variants, optional: meta.Optional}
+	spec := choiceSpec{list: list, special: meta.Variants, unset: optionalUnset(meta.Optional)}
 	switch meta.Type {
 	case wmLayoutFormat, wmOptionsFormat:
 		spec.expand, spec.known = toggleList, allListed
@@ -204,7 +204,7 @@ func wmSibling(k *kit, path, key string) string {
 
 func programRow(list string) rowOpt {
 	return withEditor(func(k *kit, s slot, meta config.FieldMeta) control {
-		return newChoiceEditor(k, s, choiceSpec{list: systemLists[list], special: meta.Variants, free: true, optional: meta.Optional, browse: (*kit).appCommandButton})
+		return newChoiceEditor(k, s, choiceSpec{list: systemLists[list], special: meta.Variants, free: true, unset: optionalUnset(meta.Optional), browse: (*kit).appCommandButton})
 	})
 }
 
@@ -215,13 +215,40 @@ var (
 )
 
 type choiceSpec struct {
-	list     lister
-	special  []string
-	expand   func(current string, items []choice) []choice
-	known    func(current string, items []choice) bool
-	browse   func(k *kit, pick func(string)) *widget.Button
-	free     bool
-	optional bool
+	list    lister
+	special []string
+	expand  func(current string, items []choice) []choice
+	known   func(current string, items []choice) bool
+	browse  func(k *kit, pick func(string)) *widget.Button
+	free    bool
+	unset   unsetValue
+}
+
+// unsetValue is what a choice's empty value means: nothing, for a value
+// that must be set, the default, or the value it inherits.
+type unsetValue uint8
+
+const (
+	unsetRefused unsetValue = iota
+	unsetDefault
+	unsetInherited
+)
+
+// optionalUnset is the empty value of a field optional or not, which
+// then reads as its default.
+func optionalUnset(optional bool) unsetValue {
+	if optional {
+		return unsetDefault
+	}
+	return unsetRefused
+}
+
+// label is what the empty value reads.
+func (u unsetValue) label() string {
+	if u == unsetInherited {
+		return locale.T().Get("settings-inherited")
+	}
+	return specialLabel("")
 }
 
 // choiceEditor is a text field offering choices: lys-ui's combobox
@@ -284,12 +311,12 @@ func newChoiceEditor(k *kit, s slot, spec choiceSpec) *choiceEditor {
 	c.combo.Entry().SetTextWidth(widget.GTKTextWidth)
 	c.combo.SetSearchPlaceholder(locale.T().Get("settings-choice-search"))
 	c.combo.OnPick = c.pick
-	c.entry = bindText(k, c.combo.Entry(), specialsByLabel(s, spec.special), spec.optional)
+	c.entry = bindText(k, c.combo.Entry(), specialsByLabel(s, spec.special), spec.unset != unsetRefused)
 	switch {
 	case slices.Contains(spec.special, ""):
-		c.combo.SetEmpty(specialLabel(""))
-	case spec.optional:
-		c.entry.SetPlaceholder(specialLabel(""))
+		c.combo.SetEmpty(spec.unset.label())
+	case spec.unset != unsetRefused:
+		c.combo.Entry().SetEmptyValue(spec.unset.label())
 	}
 	committed := c.entry.OnActivate
 	c.entry.OnActivate = func(text string) {
@@ -412,7 +439,7 @@ func choiceRow(k *kit, o choice) *widget.Box {
 // pick writes the value picked from the list or browsed for; a refused
 // one stays in the field, marked unsaved.
 func (c *choiceEditor) pick(v string) {
-	if c.spec.optional && v == "" {
+	if c.spec.unset != unsetRefused && v == "" {
 		c.slot.unset()
 	} else if c.slot.set(v) != nil {
 		return

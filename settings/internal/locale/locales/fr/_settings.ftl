@@ -478,7 +478,6 @@ settings-section-launcher-search = Panneau de recherche
 settings-section-launcher-scripts = Modes de script
     .description = Les modes dont un script fournit les entrées
 
-settings-inherit = Hériter (par défaut)
 settings-inherited = Hérité
 settings-icon-clear = Effacer l'icône
 settings-list-add = Ajouter

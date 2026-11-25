@@ -439,7 +439,7 @@ func newEventTable(k *kit, s slot) *eventTable {
 			name:     widget.NewBox(widget.Row, 0, 0),
 			on:       enabled(k, key("enabled")),
 			duration: duration(k, key("duration")),
-			curve:    newChoiceEditor(k, key("curve"), choiceSpec{list: fixedChoices(eventCurveChoices(k.wm)), optional: true}),
+			curve:    newChoiceEditor(k, key("curve"), choiceSpec{list: fixedChoices(eventCurveChoices(k.wm)), unset: unsetInherited}),
 		}
 		r.name.SetPadding(render.Insets{Left: depth[e.Name] * 2 * th.Padding})
 		r.name.Append(k.label(eventLabel(e.Name)), true)
@@ -448,7 +448,7 @@ func newEventTable(k *kit, s slot) *eventTable {
 		g.Attach(r.curve, 1, line+1, 1, 1)
 		g.Attach(r.duration, 2, line+1, 1, 1)
 		if len(e.Styles) > 0 {
-			r.style = newChoiceEditor(k, key("style"), choiceSpec{list: fixedChoices(styleChoices(e.Styles)), optional: true, known: styleListed(e.Styles)})
+			r.style = newChoiceEditor(k, key("style"), choiceSpec{list: fixedChoices(styleChoices(e.Styles)), unset: unsetInherited, known: styleListed(e.Styles)})
 			g.Attach(r.style, 3, line+1, 1, 1)
 		}
 		g.rows[e.Name] = r

@@ -29,7 +29,7 @@ type wmSwitch struct {
 func newWMSwitch(k *kit, s slot, fields []cardField) *wmSwitch {
 	t := locale.T()
 	choices := []string{
-		t.Get("settings-inherit"),
+		t.Get("settings-inherited"),
 		t.Get(config.EnumLabelKey(wmToggleType, wmToggleOff)),
 		t.Get(config.EnumLabelKey(wmToggleType, wmToggleOn)),
 	}

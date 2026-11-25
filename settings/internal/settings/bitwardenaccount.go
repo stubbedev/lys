@@ -322,7 +322,7 @@ func (a *vaultAccount) close() {
 // vaultFolderRow picks a vault folder from the open vault's folders, or
 // takes one typed while the vault is not open; empty is none.
 var vaultFolderRow = withEditor(func(k *kit, s slot, meta config.FieldMeta) control {
-	return newChoiceEditor(k, s, choiceSpec{list: func() []choice { return vaultFolderChoices(k) }, free: true, optional: meta.Optional})
+	return newChoiceEditor(k, s, choiceSpec{list: func() []choice { return vaultFolderChoices(k) }, free: true, unset: optionalUnset(meta.Optional)})
 })
 
 func vaultFolderChoices(k *kit) []choice {

@@ -95,7 +95,6 @@ settings-module-world-clock = World Clock
 settings-module-custom = Custom: { $id }
     .description = What a command of yours prints
 settings-unit-scale = × the normal size
-settings-inherit = Inherit (default)
 settings-inherited = Inherited
 settings-icon-none = No icon
 settings-icon-clear = Clear icon

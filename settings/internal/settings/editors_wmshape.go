@@ -400,7 +400,7 @@ func wmBorderEditor(k *kit, s slot, path []string) control {
 // wmDisplayEditor is a display's name, picked from the connected ones or
 // typed, empty for lys-wm's own choice.
 func wmDisplayEditor(k *kit, s slot, _ []string) control {
-	return newChoiceEditor(k, s, choiceSpec{list: systemLists["Monitor"], optional: true})
+	return newChoiceEditor(k, s, choiceSpec{list: systemLists["Monitor"], unset: unsetDefault})
 }
 
 // wmPathText is a file's path lys-wm reads, empty for none, saying so

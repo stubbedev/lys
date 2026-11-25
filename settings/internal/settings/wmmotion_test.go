@@ -276,3 +276,25 @@ func TestAnEventsPickersShowTheirLongestValue(t *testing.T) {
 		}
 	}
 }
+
+// An event's unset curve and style follow the event above it, so they
+// read Inherited as its unset spins do, never Default; a set one reads
+// its value.
+func TestAnEventsUnsetPickersReadInherited(t *testing.T) {
+	g, _, _ := eventTableOf(t, "animations:\n  events:\n    windows: {curve: linear}\n")
+	want := locale.T().Get("settings-inherited")
+	for name, r := range g.rows {
+		pickers := map[string]*choiceEditor{"curve": r.curve, "style": r.style}
+		for kind, p := range pickers {
+			if p == nil {
+				continue
+			}
+			if got := p.entry.Placeholder(); got != want {
+				t.Errorf("%s: the unset %s reads %q, want %q", name, kind, got, want)
+			}
+		}
+	}
+	if got := g.rows["windows"].curve.entry.Text(); got != "linear" {
+		t.Errorf("the set curve reads %q, not its value", got)
+	}
+}

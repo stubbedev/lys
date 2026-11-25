@@ -92,7 +92,6 @@ settings-module-world-clock = Wereldklok
 settings-module-custom = Aangepast: { $id }
     .description = Wat een eigen opdracht uitvoert
 settings-unit-scale = × de normale grootte
-settings-inherit = Overnemen (standaard)
 settings-inherited = Overgenomen
 settings-icon-none = Geen pictogram
 settings-icon-clear = Pictogram wissen

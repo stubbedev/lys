@@ -95,7 +95,6 @@ settings-module-world-clock = Weltuhr
 settings-module-custom = Eigenes: { $id }
     .description = Was einer Ihrer Befehle ausgibt
 settings-unit-scale = × die normale Größe
-settings-inherit = Erben (Standard)
 settings-inherited = Geerbt
 settings-icon-none = Kein Symbol
 settings-icon-clear = Symbol entfernen
