@@ -5,6 +5,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/ui/widget"
+	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -178,5 +180,40 @@ func TestAWgQuickFileFillsTheWireGuardForm(t *testing.T) {
 	pickers.fileFn(conf)
 	if form.name.Text() != "Mine" {
 		t.Errorf("an import renamed a typed name to %q", form.name.Text())
+	}
+}
+
+// The WireGuard form's "This machine" was a dim bold caption 10px under
+// the Import button, reading as the button's caption. It is a heading
+// at the text's colour, further from the button above than from the
+// field it heads.
+func TestAVPNFormsSectionHeadsItsFields(t *testing.T) {
+	k, p := openVPNAdd(t, vpnNets())
+	themed(k, p)
+	form := p.vpnForm
+	if form.kind().ID != network.WireGuard {
+		t.Fatalf("the form opens on %s", form.kind().ID)
+	}
+	heads := treetest.WithClass(form.fields, "vpn-section")
+	if len(heads) == 0 {
+		t.Fatal("the WireGuard form heads no section")
+	}
+	head := heads[0].(*widget.Label)
+	if widget.HasClass(head, css.DimLabel) || !widget.HasClass(head, css.Heading) {
+		t.Errorf("the section heading %q is styled %v", head.Text(), head.Classes())
+	}
+	kids := form.fields.Children()
+	at := slices.Index(kids, widget.Widget(head))
+	if at < 0 || at+1 >= len(kids) {
+		t.Fatal("the section heading heads nothing")
+	}
+	h, next, button := head.Bounds(), kids[at+1].(widget.Boundser).Bounds(), form.importBtn.Bounds()
+	above, below := h.Y-(button.Y+button.H), next.Y-(h.Y+h.H)
+	if at > 0 {
+		prev := kids[at-1].(widget.Boundser).Bounds()
+		above = h.Y - (prev.Y + prev.H)
+	}
+	if above <= below {
+		t.Errorf("the heading stands %dpx under what precedes it and %dpx over its field", above, below)
 	}
 }

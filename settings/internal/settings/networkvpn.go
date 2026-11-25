@@ -9,6 +9,7 @@ import (
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/network"
 	"github.com/stubbedev/lys/desktop/service/network/vpntext"
+	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
 
@@ -148,7 +149,7 @@ func (f *vpnForm) rebuild(values map[string]string) {
 	section := ""
 	for _, field := range kind.Fields {
 		if field.Section != "" && field.Section != section {
-			f.fields.Append(f.p.k.label(vpntext.SectionHeading(field.Section), css.CaptionHeading, css.DimLabel), false)
+			f.fields.Append(f.sectionHeading(field.Section), false)
 			section = field.Section
 		}
 		current, has := values[field.Key]
@@ -158,6 +159,16 @@ func (f *vpnForm) rebuild(values map[string]string) {
 		}
 		f.fields.Append(f.entry(kind, field, current), false)
 	}
+}
+
+// sectionHeading heads the fields of section: a heading at the text's
+// colour, a gap's width further from what comes before than from the
+// fields it heads, so it reads as theirs and not as a caption of the
+// button above.
+func (f *vpnForm) sectionHeading(section string) *widget.Label {
+	l := f.p.k.label(vpntext.SectionHeading(section), "vpn-section", css.Heading)
+	l.SetMargin(render.Insets{Top: widget.Current().Spacing})
+	return l
 }
 
 func (f *vpnForm) picker(field network.VPNField, current string, has bool) *widget.Dropdown {
