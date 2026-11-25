@@ -5,6 +5,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/service/recorder/webcamframe"
+	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
 )
@@ -106,4 +107,25 @@ func TestAWebcamMoveWithoutAPressChangesNothing(t *testing.T) {
 			t.Errorf("a move with no press wrote %s", path)
 		}
 	}
+}
+
+// rowTitlesDifferInASection checks no two field rows of one section
+// share a title: a switch and the editor it enables say which is which.
+func rowTitlesDifferInASection() pageCheck {
+	return pageCheck{visit: func(t *testing.T, w *window) {
+		for _, section := range treetest.WithClass(w.page, "settings-section") {
+			seen := map[string]bool{}
+			walkOwn(section, func(x widget.Widget) {
+				r, ok := x.(*fieldRow)
+				if !ok || !shown(x) {
+					return
+				}
+				title := r.Title()
+				if title != "" && seen[title] {
+					t.Errorf("%s: two rows of %q are titled %q", w.pageID, sectionTitle(section), title)
+				}
+				seen[title] = true
+			})
+		}
+	}}
 }
