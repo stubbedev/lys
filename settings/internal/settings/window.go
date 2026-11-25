@@ -204,6 +204,23 @@ func (w *window) openPage(id string) {
 	}
 	w.sidebar.SetActive(id)
 	w.show(id)
+	w.focusPage()
+}
+
+// focusPage gives the open page the keys: the focus a page opened from
+// within another (a link, a forwarded launch) held falls with the page
+// dropped, and lands on the new page, never on the close button, once
+// the page is laid out; a row a jump reveals takes them instead. A
+// sidebar pick keeps the keys in the sidebar.
+func (w *window) focusPage() {
+	if w.focus == nil {
+		return
+	}
+	page := w.page
+	if page.focusing == nil {
+		page.focusing = func() { w.focus(page) }
+		page.InvalidateLayout()
+	}
 }
 
 // refresh re-reads the open page and the sidebar cap after a config

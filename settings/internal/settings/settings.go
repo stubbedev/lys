@@ -135,6 +135,7 @@ func Run(page, setting string) error {
 			log.Printf("settings: focus %T: %v", target, err)
 		}
 	}
+	w.focusPage()
 	if err := application.AddAccel("ctrl+f", widget.NewAction("settings.search", w.focusSearch)); err != nil {
 		return fmt.Errorf("settings: search shortcut: %w", err)
 	}

@@ -683,6 +683,35 @@ func (p *settingsPage) Arrange(r render.Rect) {
 	}
 }
 
+// pageScrollStep is how far an arrow key scrolls a page.
+const pageScrollStep = 48
+
+// KeyAction scrolls the page under the keys: the arrows a step, Page Up
+// and Page Down a screen less a step, Home and End to its ends. Taking
+// keys makes the page itself a focus stop, where the focus lands when
+// the window switches to it.
+func (p *settingsPage) KeyAction(a widget.KeyAction, _ widget.Mods) {
+	r := p.AxisRange(widget.Column)
+	at := r.Offset
+	switch a {
+	case widget.KeyUp:
+		at -= pageScrollStep
+	case widget.KeyDown:
+		at += pageScrollStep
+	case widget.KeyPriorPage:
+		at -= max(r.Page-pageScrollStep, pageScrollStep)
+	case widget.KeyNextPage:
+		at += max(r.Page-pageScrollStep, pageScrollStep)
+	case widget.KeyHome:
+		at = 0
+	case widget.KeyEnd:
+		at = r.Max()
+	default:
+		return
+	}
+	p.SetAxisOffset(widget.Column, min(max(at, 0), r.Max()))
+}
+
 // own takes on w's close, run when the page is dropped.
 func (p *settingsPage) own(w widget.Widget) widget.Widget {
 	if c, ok := w.(interface{ close() }); ok {
