@@ -150,7 +150,7 @@ func semanticEditor(k *kit, s slot, path string, meta config.FieldMeta) (control
 	case "IdleTimeout":
 		return newIdleChips(k, s), true
 	case wmColorFormat:
-		return newWMColorEditor(k, s), true
+		return wmColorEditor(k, s, meta.Optional), true
 	case wmFontFormat:
 		return newWMFontEditor(k, s), true
 	case wmChordFormat:

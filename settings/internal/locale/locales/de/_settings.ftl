@@ -8,6 +8,7 @@ settings-apply = Anwenden
 settings-color-auto = Automatisch
 settings-color-transparent = Transparent
 settings-color-custom = Benutzerdefiniert …
+settings-color-none = Keine
 settings-custom-modules-editor = Eigene Module
     .description = Module, die die Ausgabe eines Befehls in der Leiste zeigen
 settings-theme-preset = Themenvorlage

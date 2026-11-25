@@ -8,6 +8,7 @@ settings-apply = Apply
 settings-color-auto = Auto
 settings-color-transparent = Transparent
 settings-color-custom = Custom...
+settings-color-none = None
 settings-custom-modules-editor = Custom Modules
     .description = Modules that show a command's output in the bar
 settings-theme-preset = Theme Preset

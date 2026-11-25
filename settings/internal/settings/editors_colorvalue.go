@@ -13,12 +13,14 @@ import (
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
-// swatchName is a colour a config names: the value it stores, the label
-// and group it is listed under, and, with swatch, the colour leading it.
+// swatchName is a row of a colour dropdown: a colour a config names,
+// with the value it stores, the label and group it is listed under and,
+// with swatch, the colour leading it; or, with header, a group's header
+// reading label.
 type swatchName struct {
 	value, label, group string
 	color               render.Color
-	swatch              bool
+	swatch, header      bool
 }
 
 // colorNames are the colours a config names: its keywords, listed ahead
@@ -43,18 +45,22 @@ type swatchPicker struct {
 	shown   []swatchName
 	ids     []string
 	syncing bool
+	// unsettable lists colorUnset for a colour the config leaves unset
+	// without a default.
+	unsettable bool
 }
 
-// Values that are not names: the custom colour's row, and lys-shell's
-// keywords.
+// Values that are not names: the custom colour's row, the unset colour's
+// row, and lys-shell's keywords.
 const (
 	colorAuto        = "auto"
 	colorTransparent = "transparent"
 	colorCustom      = "#custom"
+	colorUnset       = "#unset"
 )
 
-func newSwatchPicker(k *kit, s slot, names colorNames) *swatchPicker {
-	c := &swatchPicker{Box: gapBox(widget.Row), k: k, slot: s, names: names}
+func newSwatchPicker(k *kit, s slot, names colorNames, unsettable bool) *swatchPicker {
+	c := &swatchPicker{Box: gapBox(widget.Row), k: k, slot: s, names: names, unsettable: unsettable}
 	c.drop = widget.NewDropdownRows(k.face, k.textPx(), nil, -1)
 	c.drop.OnSelect = c.picked
 	c.swatch = colorButton(k, s)
@@ -67,13 +73,18 @@ func newSwatchPicker(k *kit, s slot, names colorNames) *swatchPicker {
 // newColorValueEditor is ColorValueControl: the swatch picker over
 // lys-shell's keywords and palette tokens.
 func newColorValueEditor(k *kit, s slot) *swatchPicker {
-	return newSwatchPicker(k, s, func() ([]swatchName, []swatchName) { return shellColorNames(k.palette()) })
+	return newSwatchPicker(k, s, func() ([]swatchName, []swatchName) { return shellColorNames(k.palette()) }, false)
 }
 
-// newWMColorEditor is a lys-wm colour: the swatch picker over lys-wm's
-// palette names.
-func newWMColorEditor(k *kit, s slot) *swatchPicker {
-	return newSwatchPicker(k, s, func() ([]swatchName, []swatchName) { return nil, wmColorNames(k) })
+// newWMColorEditor is a lys-wm colour with a default: the swatch picker
+// over lys-wm's palette names.
+func newWMColorEditor(k *kit, s slot) *swatchPicker { return wmColorEditor(k, s, false) }
+
+// wmColorEditor is a lys-wm colour, listing None ahead of the custom
+// colour when unsettable: a colour without a default, which lys-wm
+// leaves out while it is unset (a blur's tint).
+func wmColorEditor(k *kit, s slot, unsettable bool) *swatchPicker {
+	return newSwatchPicker(k, s, func() ([]swatchName, []swatchName) { return nil, wmColorNames(k) }, unsettable)
 }
 
 // columnField makes the editor a field of the control column: its
@@ -111,11 +122,14 @@ func wmColorNames(k *kit) []swatchName {
 }
 
 // rows are the dropdown's rows for the names and the stored value: the
-// keywords, the stored value when nothing lists it, custom, then the
-// named colours, a header ahead of each group.
+// keywords, None for an unsettable colour, the stored value when nothing
+// lists it, custom, then the named colours, a header ahead of each group.
 func (c *swatchPicker) rows(stored string) []swatchName {
 	keywords, named := c.names()
 	out := slices.Clone(keywords)
+	if c.unsettable {
+		out = append(out, swatchName{value: colorUnset, label: locale.T().Get("settings-color-none")})
+	}
 	if stored != "" && !strings.HasPrefix(stored, "#") && !slices.ContainsFunc(slices.Concat(keywords, named), func(n swatchName) bool { return n.value == stored }) {
 		out = append(out, swatchName{value: stored, label: stored})
 	}
@@ -124,32 +138,50 @@ func (c *swatchPicker) rows(stored string) []swatchName {
 	for _, n := range named {
 		if n.group != group {
 			group = n.group
-			out = append(out, swatchName{label: group})
+			out = append(out, swatchName{label: group, header: true})
 		}
 		out = append(out, n)
 	}
 	return out
 }
 
+// dropdownRows are the dropdown's rows for names: every colour led by
+// its swatch, and every other row by an empty slot as wide, so the
+// labels of one list start at one x.
 func dropdownRows(names []swatchName) []widget.DropdownRow {
 	rows := make([]widget.DropdownRow, len(names))
 	for i, n := range names {
-		rows[i] = widget.DropdownRow{Label: n.label, Header: n.value == ""}
-		if n.swatch {
+		rows[i] = widget.DropdownRow{Label: n.label, Header: n.header}
+		switch {
+		case n.header:
+		case n.swatch:
 			col := n.color
 			rows[i].Leading = func() widget.Widget { return widget.NewColorSwatch(col) }
+		default:
+			rows[i].Leading = func() widget.Widget { return swatchSlot{widget.NewColorSwatch(0)} }
 		}
 	}
 	return rows
 }
 
+// swatchSlot takes a swatch's place and paints nothing: what leads a row
+// whose colour has no swatch of its own.
+type swatchSlot struct{ *widget.ColorSwatch }
+
+func (swatchSlot) Paint(*render.Canvas) {}
+
 // picked writes the chosen row: a name or keyword as it is, custom as
-// white, with the color button shown for it.
+// white, with the color button shown for it, None as no value.
 func (c *swatchPicker) picked(i int) {
-	if c.syncing || i < 0 || i >= len(c.ids) || c.ids[i] == "" {
+	if c.syncing || i < 0 || i >= len(c.ids) || c.shown[i].header {
 		return
 	}
 	v := c.ids[i]
+	if v == colorUnset {
+		c.swatch.SetVisible(false)
+		c.slot.unset()
+		return
+	}
 	if v == colorCustom {
 		// A hex value already shows as custom, so choosing it starts a
 		// new one at white (select_custom).
@@ -164,7 +196,10 @@ func (c *swatchPicker) picked(i int) {
 func (c *swatchPicker) refresh() {
 	v, _ := c.slot.get().(string)
 	id := v
-	if strings.HasPrefix(v, "#") {
+	switch {
+	case v == "" && c.unsettable:
+		id = colorUnset
+	case strings.HasPrefix(v, "#"):
 		id = colorCustom
 	}
 	c.syncing = true

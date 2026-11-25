@@ -5,6 +5,7 @@ settings-apply = Toepassen
 settings-color-auto = Automatisch
 settings-color-transparent = Transparant
 settings-color-custom = Aangepast...
+settings-color-none = Geen
 settings-custom-modules-editor = Aangepaste modules
     .description = Modules die de uitvoer van een opdracht in de balk tonen
 settings-theme-preset = Themavoorinstelling
