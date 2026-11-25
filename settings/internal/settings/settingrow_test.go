@@ -40,7 +40,8 @@ func rowDescription(row rowWidget) *widget.Label {
 
 // rowsAreTheRowType holds on every page: every row is the row type (an
 // item no row type builds is a hand-built row), every shown row's
-// description wraps to two lines at most, and every row sits in an item
+// description but a format field's placeholder list wraps to two lines
+// at most, and every row sits in an item
 // group on a card. Each of titles is a row some page shows.
 func rowsAreTheRowType(titles ...string) pageCheck {
 	rows := 0
@@ -81,7 +82,7 @@ func checkRowsAreTheRowType(t *testing.T, id string, root widget.Widget, each fu
 			return
 		}
 		each(row)
-		if d := rowDescription(row); shown(d) {
+		if d := rowDescription(row); shown(d) && d.MaxLines() != 0 {
 			line := d.Measure(widget.Column, 1<<20).Nat
 			if h := d.Bounds().H; h > 2*line {
 				t.Errorf("%s: %q's description is %dpx tall, more than two %dpx lines", id, row.asRow().Title(), h, line)

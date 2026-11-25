@@ -23,7 +23,8 @@ import (
 )
 
 // rowDescriptionLines is how many rows a row's description wraps to
-// before it ends in an ellipsis, its whole text in its tooltip.
+// before it ends in an ellipsis, its whole text in its tooltip; a format
+// field's description, its list of placeholders, reads whole.
 const rowDescriptionLines = 2
 
 // kit builds the window's widgets: the text face every label starts
@@ -534,6 +535,9 @@ func (b reportingBackend) slot(path string) slot {
 // of the control so showing it never moves the control.
 func newSettingRow(k *kit, be backend, spec rowSpec, ctl control) *fieldRow {
 	r := &fieldRow{settingRow: k.keyRow(spec.labelKey()), k: k, be: be, path: spec.path, ctl: ctl, action: spec.action}
+	if meta, ok := be.field(spec.path); ok && len(meta.Placeholders) > 0 {
+		r.SetLines(1, 0)
+	}
 	r.badge = k.badge("")
 	r.AddTitleSuffix(r.badge)
 	if d, ok := ctl.(interface{ dirtyBadge() *widget.Badge }); ok {

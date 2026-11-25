@@ -364,8 +364,10 @@ func openChoicePicker(k *kit, anchor widget.Widget, opts []choice, pick func(str
 	}, pick)
 }
 
+// choiceRow is a choice's row in a picker: its label, and its hint
+// (a placeholder, a sample) a section's gap after it at the row's end.
 func choiceRow(k *kit, o choice) *widget.Box {
-	row := gapBox(widget.Row)
+	row := widget.NewBox(widget.Row, sectionGap(), 0)
 	label := k.label(o.label, "choice-label")
 	label.SetEllipsize(widget.EllipsizeEnd)
 	row.AppendAligned(label, true, widget.AlignCenter)
