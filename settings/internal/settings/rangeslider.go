@@ -241,8 +241,7 @@ func (s *rangeSlider) Paint(cv *render.Canvas) {
 		x0, x1 := s.xOf(b.from), s.xOf(b.to)
 		cv.RoundedRect(render.Rect{X: x0, Y: t.Y, W: max(1, x1-x0), H: t.H}, t.H/2, toneColor(th, b.tone))
 	}
-	px := s.k.textPx() * 0.85
-	lineH := int(px * 1.4)
+	px, lineH := s.labelPx()
 	for _, thumb := range s.thumbs {
 		r := thumb.Bounds()
 		cv.RoundedRect(r, thresholdStopR, th.CardColor())
@@ -250,12 +249,50 @@ func (s *rangeSlider) Paint(cv *render.Canvas) {
 		if widget.FocusVisible(thumb) {
 			cv.RoundedBorder(r, render.UniformCorners(thresholdStopR), render.UniformInsets(focusRing), th.Text)
 		}
-		label := render.Rect{X: r.X - 3*r.W, Y: t.Y - thresholdStopR - lineH, W: 7 * r.W, H: lineH}
-		s.k.face.DrawAligned(cv, s.reading(s.value(thumb.at)), label, px, th.Text, render.AlignCenter)
+	}
+	for i, label := range s.labelRects() {
+		s.k.face.DrawAligned(cv, s.reading(s.value(i)), label, px, th.Text, render.AlignCenter)
 	}
 	scale := render.Rect{X: t.X, Y: t.Y + t.H + thresholdStopR/2, W: t.W, H: lineH}
 	s.k.face.DrawAligned(cv, s.reading(s.spec.axis.lo), scale, px, th.Text, render.AlignStart)
 	s.k.face.DrawAligned(cv, s.reading(s.top()), scale, px, th.Text, render.AlignEnd)
+}
+
+// labelPx is the size the slider's readings are set at and their line
+// height.
+func (s *rangeSlider) labelPx() (px float64, lineH int) {
+	px = s.k.textPx() * 0.85
+	return px, int(px * 1.4)
+}
+
+// rangeLabelGap is the least space between the two thumbs' readings.
+const rangeLabelGap = 8
+
+// labelRects are where the thumbs' readings are set over them: each
+// centred over its thumb, pushed apart evenly where they would come
+// closer than rangeLabelGap, and kept inside the slider.
+func (s *rangeSlider) labelRects() [2]render.Rect {
+	px, lineH := s.labelPx()
+	t, b := s.track(), s.Bounds()
+	var out [2]render.Rect
+	for i, thumb := range s.thumbs {
+		r := thumb.Bounds()
+		w := int(math.Ceil(s.k.face.Shape(s.reading(s.value(i)), px).Advance()))
+		out[i] = render.Rect{X: r.X + r.W/2 - w/2, Y: t.Y - thresholdStopR - lineH, W: w, H: lineH}
+	}
+	if over := out[0].X + out[0].W + rangeLabelGap - out[1].X; over > 0 {
+		out[0].X -= over / 2
+		out[1].X += over - over/2
+	}
+	if shift := b.X - out[0].X; shift > 0 {
+		out[0].X += shift
+		out[1].X += shift
+	}
+	if shift := out[1].X + out[1].W - (b.X + b.W); shift > 0 {
+		out[0].X -= shift
+		out[1].X -= shift
+	}
+	return out
 }
 
 func (s *rangeSlider) HitTest(pt widget.Point) widget.Widget { return s.HitLeaf(s, pt) }
