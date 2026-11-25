@@ -333,3 +333,66 @@ func TestAScrolledViewBeneathAToastRepaintsWhole(t *testing.T) {
 		t.Errorf("a scroll beneath the toast owes %dpx of its view, want it whole, more than the %dpx strip", got, strip)
 	}
 }
+
+// A toast leaving its stack, dismissed or dropped past the cap, owes the
+// window the pixels it painted: once out of the tree no drain reaches
+// it, so the card stayed on screen and the page repainting beneath it
+// cut lines through it, as a Related row's description did on Privacy
+// (#370).
+func TestAToastLeavingItsStackOwesThePixelsItPainted(t *testing.T) {
+	defer anim.SetInstant(true)()
+	var owed []render.Rect
+	l := newToastLayerForTest(&spyRoot{nat: widget.Size{W: 300, H: 200}})
+	l.owe = func(r render.Rect) { owed = append(owed, r) }
+	l.max = 1
+	win := render.Rect{W: 300, H: 200}
+	covered := func(r render.Rect) bool {
+		for _, o := range owed {
+			if o.Intersect(r) == r {
+				return true
+			}
+		}
+		return false
+	}
+	first := widget.NewToast(testFace(t), "Removed", time.Minute)
+	first.OnDismissed = func() { l.remove(first) }
+	l.add(first, false)
+	l.Arrange(win)
+	if len(owed) != 0 {
+		t.Fatalf("showing a toast owed %v", owed)
+	}
+	at := painted(t, first, win)
+	second := widget.NewToast(testFace(t), "Removed again", time.Minute)
+	second.OnDismissed = func() { l.remove(second) }
+	l.add(second, false)
+	if !covered(at) {
+		t.Errorf("the toast the cap dropped painted %v, owed %v", at, owed)
+	}
+	l.Arrange(win)
+	owed = nil
+	at = painted(t, second, win)
+	l.remove(second)
+	if !covered(at) {
+		t.Errorf("the dismissed toast painted %v, owed %v", at, owed)
+	}
+}
+
+// painted is the bounding box of the pixels toast paints on a canvas of
+// win's size, failing when it paints none.
+func painted(t *testing.T, toast *widget.Toast, win render.Rect) render.Rect {
+	t.Helper()
+	data := make([]byte, render.Stride(win.W)*win.H)
+	toast.Paint(render.New(data, render.Stride(win.W), win.W, win.H))
+	box := render.Rect{}
+	for y := range win.H {
+		for x := range win.W {
+			if data[y*render.Stride(win.W)+x*4+3] != 0 {
+				box = box.Union(render.Rect{X: x, Y: y, W: 1, H: 1})
+			}
+		}
+	}
+	if box.Empty() {
+		t.Fatalf("the toast at %v paints nothing", toast.Bounds())
+	}
+	return box
+}

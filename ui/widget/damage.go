@@ -296,14 +296,22 @@ func touches(rects []render.Rect, r render.Rect) bool {
 }
 
 // InkRect is the rect w paints over: the rect it is shown at grown by
-// what its paint overflows it with, a shadow or an outline.
+// what its paint overflows it with, a shadow or an outline, and by the
+// extent a widget painting past its ink declares (a toast's shadow ring
+// and entrance slide).
 func InkRect(w Widget) render.Rect {
 	r := ShownRect(w)
 	if n := nodeOf(w); n != nil {
 		r = n.ink.Grow(r)
 	}
+	if pe, ok := w.(paintExtenter); ok {
+		r = r.Union(pe.paintExtent())
+	}
 	return r
 }
+
+// paintExtenter is a widget whose paint can reach past its ink.
+type paintExtenter interface{ paintExtent() render.Rect }
 
 // DamageArea returns the total pixel area the rects cover, counting
 // overlaps once per rect. Tests use it to pin how much of a frame a

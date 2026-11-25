@@ -121,7 +121,7 @@ type toastPlacement struct {
 // with the layer on the first toast.
 func (a *Application) hostToast(hw *hostWindow, t *widget.Toast, pl toastPlacement, closeOnPress bool) {
 	layer := a.toasts.layerFor(hw.host, func() *toastLayer {
-		l := &toastLayer{hw: hw, root: hw.router.Root, clock: hw.anim}
+		l := &toastLayer{hw: hw, root: hw.router.Root, clock: hw.anim, owe: hw.owe}
 		// The first toast wraps the window's tree; the last removal
 		// unwraps it.
 		hw.router.Root = l
@@ -272,6 +272,9 @@ type toastLayer struct {
 	children []widget.Widget
 	// inks is floating's storage, reused frame to frame.
 	inks []render.Rect
+	// owe owes the window a rect to repaint: where a toast that left the
+	// layer painted, which no drain of the tree reaches once it is gone.
+	owe func(render.Rect)
 }
 
 // Children exposes the wrapped root and the live toasts in paint
@@ -405,6 +408,7 @@ func (l *toastLayer) pressed(p widget.Point) {
 func (l *toastLayer) add(t *widget.Toast, closeOnPress bool) {
 	for len(l.slots) >= l.max && len(l.slots) > 0 {
 		oldest := l.slots[0]
+		l.left(oldest)
 		l.slots = l.slots[1:]
 		delete(l.closeOnPress, oldest)
 		l.unhost(oldest)
@@ -426,6 +430,13 @@ func (l *toastLayer) add(t *widget.Toast, closeOnPress bool) {
 	l.markDirty()
 }
 
+// left owes the window the pixels t painted as it leaves the stack.
+func (l *toastLayer) left(t *widget.Toast) {
+	if l.owe != nil {
+		l.owe(widget.InkRect(t))
+	}
+}
+
 func (l *toastLayer) unhost(t *widget.Toast) {
 	if unhost, ok := l.unhosts[t]; ok {
 		unhost()
@@ -439,6 +450,7 @@ func (l *toastLayer) unhost(t *widget.Toast) {
 func (l *toastLayer) remove(t *widget.Toast) {
 	for i, s := range l.slots {
 		if s == t {
+			l.left(t)
 			l.slots = append(l.slots[:i], l.slots[i+1:]...)
 			break
 		}

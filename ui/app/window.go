@@ -630,6 +630,14 @@ func (w *hostWindow) refuseScanout(err error) {
 	w.reallocate()
 }
 
+// owe owes the next frame r, in logical pixels: pixels a widget that
+// left the tree painted.
+func (w *hostWindow) owe(r render.Rect) {
+	bw, bh := w.layoutSize()
+	w.damage.Add(render.Rect{W: bw, H: bh}, r)
+	w.dirty = true
+}
+
 func (w *hostWindow) reallocate() {
 	w.pool.Resize(w.allocator())
 	bw, bh := w.layoutSize()
