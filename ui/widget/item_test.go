@@ -513,23 +513,24 @@ func TestAnItemsTextWrapsPretty(t *testing.T) {
 	}
 }
 
-// ItemGroups sharing ItemWidths share their readings' width and their
-// control column, so the tracks of two cards end at one x; a group
-// leaving the widths takes its own again (#262).
+// ItemGroups sharing ItemWidths share their control column, so the
+// tracks of two cards start at one x, while each card's readings keep
+// their own card's width beside their tracks, not the page's widest; a
+// group leaving the widths takes its own column again (#262, #354).
 func TestItemGroupsSharingWidthsLineUpAcrossCards(t *testing.T) {
 	face := chromeFace(t)
-	card := func(text string) (*ItemGroup, *ItemValue, *Slider) {
+	card := func(text string, title string) (*ItemGroup, *ItemValue, *Slider) {
 		v := NewItemValue(NewLabel(face, 14, text, 0))
 		s := NewSlider(0, 1, 0, 0)
 		b := NewBox(Row, 8, 0)
 		b.Append(s, true)
 		b.Append(v, false)
-		it := NewItem(face, "Setting", "")
+		it := NewItem(face, title, "")
 		it.SetControl(b, ItemControlColumn)
 		return NewItemGroup(it), v, s
 	}
-	shortCard, short, shortTrack := card("2")
-	longCard, long, longTrack := card("1000 ms")
+	shortCard, short, shortTrack := card("42 px", "Icon size")
+	longCard, long, longTrack := card("1000000 ms", "A much longer setting title")
 	page := NewBox(Column, 8, 0)
 	page.Append(shortCard, false)
 	page.Append(longCard, false)
@@ -537,14 +538,20 @@ func TestItemGroupsSharingWidthsLineUpAcrossCards(t *testing.T) {
 	shortCard.SetWidths(widths)
 	longCard.SetWidths(widths)
 	layOutItems(page, 700)
-	end := func(s *Slider) int { return s.Bounds().X + s.Bounds().W }
-	if short.Bounds().W != long.Bounds().W || end(shortTrack) != end(longTrack) || shortTrack.Bounds().X != longTrack.Bounds().X {
-		t.Errorf("shared: readings %d and %dpx, tracks %v and %v; want one width and one span", short.Bounds().W, long.Bounds().W, shortTrack.Bounds(), longTrack.Bounds())
+	if shortTrack.Bounds().X != longTrack.Bounds().X {
+		t.Errorf("shared: tracks start at x %d and %d, want one x", shortTrack.Bounds().X, longTrack.Bounds().X)
+	}
+	own := SizeWithin(NewLabel(face, 14, "42 px", 0), Size{W: 700, H: 100}).W
+	if short.Bounds().W != own || short.Bounds().W >= long.Bounds().W {
+		t.Errorf("shared: readings %d and %dpx wide, want the short one its own %d", short.Bounds().W, long.Bounds().W, own)
+	}
+	if gap := short.Bounds().X - (shortTrack.Bounds().X + shortTrack.Bounds().W); gap > 8 {
+		t.Errorf("the short reading stands %dpx off its track, want it beside", gap)
 	}
 	shortCard.SetWidths(nil)
 	layOutItems(page, 700)
-	if short.Bounds().W == long.Bounds().W {
-		t.Errorf("a card that left the widths still reads %dpx wide, the other card's width", short.Bounds().W)
+	if shortTrack.Bounds().X == longTrack.Bounds().X {
+		t.Errorf("a card that left the widths still starts its track at the other card's x %d", shortTrack.Bounds().X)
 	}
 }
 

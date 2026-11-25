@@ -634,11 +634,15 @@ func (s *itemSlot) markMeasureDirty() bool {
 }
 
 // eachPeer visits the slots of kind sharing a width with the item's:
-// its group's and those of the groups sharing its widths, or its own
-// outside one.
+// its group's, with those of the groups sharing its widths for the
+// control column, or its own outside one.
 func (it *Item) eachPeer(kind slotKind, visit func(*itemSlot)) {
-	if it.group != nil {
+	switch {
+	case it.group != nil && kind == slotColumn:
 		it.group.eachShared(kind, visit)
+		return
+	case it.group != nil:
+		it.group.eachSlot(kind, visit)
 		return
 	}
 	it.eachSlot(kind, visit)
@@ -797,9 +801,10 @@ type ItemGroup struct {
 }
 
 // ItemWidths joins ItemGroups, the cards of one page, so their items
-// share widths as the items of one group do: one control column, one
-// reading width, so the fields and the slider tracks of every joined
-// group start and end at one x.
+// share one control column: the fields and the slider tracks of every
+// joined group start at one x. Readings keep the width their own group
+// shares, so a reading stays beside its track instead of standing as
+// far off as the page's widest reading.
 type ItemWidths struct{ groups []*ItemGroup }
 
 // NewItemWidths returns widths no group shares yet.
@@ -920,8 +925,8 @@ func (g *ItemGroup) eachSlot(kind slotKind, visit func(*itemSlot)) {
 	}
 }
 
-// eachShared visits the slots of kind sharing a width with the group's:
-// those of every group sharing its ItemWidths, or its own.
+// eachShared visits the slots of kind of every group sharing the
+// group's ItemWidths, or its own.
 func (g *ItemGroup) eachShared(kind slotKind, visit func(*itemSlot)) {
 	if g.widths == nil {
 		g.eachSlot(kind, visit)
@@ -933,14 +938,14 @@ func (g *ItemGroup) eachShared(kind slotKind, visit func(*itemSlot)) {
 }
 
 // relaySlots remeasures every slot sharing a width with the group's
-// after its slots changed; nil has none.
+// slots after they changed: the joined groups' columns, its own
+// readings; nil has none.
 func (g *ItemGroup) relaySlots() {
 	if g == nil {
 		return
 	}
-	for _, kind := range [...]slotKind{slotColumn, slotValue} {
-		g.eachShared(kind, func(s *itemSlot) { s.InvalidateLayout() })
-	}
+	g.eachShared(slotColumn, func(s *itemSlot) { s.InvalidateLayout() })
+	g.eachSlot(slotValue, func(s *itemSlot) { s.InvalidateLayout() })
 }
 
 // CursorName asks for no shape of its own: only part of it is clickable.
