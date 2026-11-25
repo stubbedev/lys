@@ -57,6 +57,13 @@ type FlowBoxChild struct {
 	nat   Size
 }
 
+// shown reports whether c takes a slot: it and its content show. A
+// slot whose content is hidden holds nothing, so it takes no place on a
+// line, as GtkFlowBox lays out only the children that show.
+func (c *FlowBoxChild) shown() bool {
+	return IsVisible(c) && (c.child == nil || ownVisible(c.child))
+}
+
 // NewFlowBox returns an empty flow box with colSpacing between the
 // children of a line and rowSpacing between lines.
 func NewFlowBox(colSpacing, rowSpacing int) *FlowBox {
@@ -286,7 +293,7 @@ func (f *FlowBox) ChildAt(i int) *FlowBoxChild {
 // (gtk_flow_box_get_child_at_pos).
 func (f *FlowBox) IndexAt(p Point) int {
 	for i, c := range f.kids {
-		if IsVisible(c) && c.bounds.Contains(p.X, p.Y) {
+		if c.shown() && c.bounds.Contains(p.X, p.Y) {
 			return i
 		}
 	}
@@ -308,7 +315,7 @@ func (f *FlowBox) lines(width int) [][]int {
 	var line []int
 	used, perLine := 0, f.lineCap(width)
 	for i, c := range f.kids {
-		if !IsVisible(c) {
+		if !c.shown() {
 			continue
 		}
 		w := c.nat.W
@@ -358,7 +365,7 @@ func (f *FlowBox) Measure(axis Axis, forSize int) Sizes {
 		}
 		least := 0
 		for _, c := range f.kids {
-			if IsVisible(c) {
+			if c.shown() {
 				least = max(least, measureChild(f, c, Row, Unknown).Min)
 			}
 		}
@@ -370,7 +377,7 @@ func (f *FlowBox) Measure(axis Axis, forSize int) Sizes {
 // held to width, its natural height there.
 func (f *FlowBox) sizeKids(width int) {
 	for _, c := range f.kids {
-		if IsVisible(c) {
+		if c.shown() {
 			c.nat = childWithin(f, c, Size{W: width, H: math.MaxInt})
 		}
 	}
@@ -425,7 +432,7 @@ func (f *FlowBox) Arrange(r render.Rect) {
 func (f *FlowBox) Paint(cv *render.Canvas) {
 	paintCSSBox(cv, f.style(f), f.bounds)
 	for _, c := range f.kids {
-		if IsVisible(c) {
+		if c.shown() {
 			PaintChild(cv, c)
 		}
 	}
@@ -434,7 +441,7 @@ func (f *FlowBox) Paint(cv *render.Canvas) {
 // HitTest is the child under p, else the box.
 func (f *FlowBox) HitTest(p Point) Widget {
 	for _, c := range f.kids {
-		if !IsVisible(c) {
+		if !c.shown() {
 			continue
 		}
 		if hit := HitChild(c, p); hit != nil {

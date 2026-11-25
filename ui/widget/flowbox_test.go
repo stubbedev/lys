@@ -442,3 +442,22 @@ func TestFlowBoxCapForTheWidthMeasuresOnce(t *testing.T) {
 		t.Errorf("a fixed cap still asks the width cap: %v", asked)
 	}
 }
+
+// A child whose content was hidden kept its slot: the slot's own box
+// stayed visible, so a hidden trailing input still wrapped onto a line
+// of its own under the chips. A slot whose content is hidden takes no
+// place, and shows again with its content.
+func TestAFlowBoxSlotWithHiddenContentTakesNoPlace(t *testing.T) {
+	f := NewFlowBox(4, 6)
+	a, b := &solidLeaf{sz: Size{W: 40, H: 20}}, &solidLeaf{sz: Size{W: 40, H: 20}}
+	f.Append(a)
+	f.Append(b)
+	b.SetVisible(false)
+	if sz := SizeWithin(f, Size{W: 50, H: 1000}); sz.H != 20 {
+		t.Errorf("a slot with hidden content took a line: %v", sz)
+	}
+	b.SetVisible(true)
+	if sz := SizeWithin(f, Size{W: 50, H: 1000}); sz.H != 2*20+6 {
+		t.Errorf("the shown content took no line: %v", sz)
+	}
+}
