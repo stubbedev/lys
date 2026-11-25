@@ -43,8 +43,10 @@ type comboboxList struct {
 	close  func()
 }
 
-// open shows options under anchor, at least width wide, picking through
-// pick and checking the options checked holds, by option index.
+// openComboboxList shows options under anchor, its card starting at
+// the anchor's left edge and width wide (comboboxWidth at the least),
+// wider only where an option needs it, picking through pick and
+// checking the options checked holds, by option index.
 func openComboboxList[T comparable](l *comboboxList, from Widget, anchor Boundser, width int, options []ComboboxOption[T], checked func(i int) bool, pick func(T)) {
 	l.checks = l.checks[:0]
 	var groups []CommandGroup
@@ -68,8 +70,10 @@ func openComboboxList[T comparable](l *comboboxList, from Widget, anchor Boundse
 		groups[at].Items = append(groups[at].Items, item)
 	}
 	list := NewCommand(l.face, l.sizePx, l.search, groups...)
-	list.SetSizeRequest(max(comboboxWidth, width), 0)
-	l.close = OpenPopover(from, anchor, list, PopoverOptions{Focus: list.FocusTarget(), Gap: PopoverGap, OnClosed: func() { l.close = nil }})
+	l.close = OpenPopover(from, anchor, list, PopoverOptions{
+		Focus: list.FocusTarget(), Gap: PopoverGap, Align: PopoverStart, MinWidth: max(comboboxWidth, width),
+		OnClosed: func() { l.close = nil },
+	})
 }
 
 // comboboxGroup is the index of the group an option of heading joins:

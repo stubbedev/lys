@@ -36,6 +36,7 @@ func (p surfaceHost) OpenPopover(anchor widget.Boundser, content widget.Widget, 
 	pop, err := p.a.OpenPopover(p.host, PopoverConfig{
 		Anchor: anchor, Content: content, Focus: opts.Focus, Parent: p.parent,
 		Dismissal: dismissalOf(opts), OnClosed: opts.OnClosed, Gap: opts.Gap, Gravity: GravityOf(opts.Side),
+		Align: alignOf(opts.Align),
 	})
 	if err != nil {
 		p.a.reportPopup(fmt.Errorf("app: open a widget's popover: %w", err))
@@ -57,6 +58,14 @@ func GravityOf(s widget.PopoverSide) Gravity {
 		return GravityLeft
 	}
 	return GravityBottom
+}
+
+// alignOf is the alignment a widget popover asks for.
+func alignOf(a widget.PopoverAlign) PopoverAlign {
+	if a == widget.PopoverStart {
+		return PopoverStart
+	}
+	return PopoverCentered
 }
 
 // SetPopupErrorHandler installs fn to hear popups a widget asked for

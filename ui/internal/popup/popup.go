@@ -125,7 +125,7 @@ type Config struct {
 	X, Y int
 	// AnchorRect, when non-empty, anchors the popup to a widget's rect
 	// (parent surface coordinates) instead of the X, Y point: it opens on
-	// the Gravity side, centered on the rect across it, and the
+	// the Gravity side, aligned on the rect across it by Align, and the
 	// compositor flips it to the opposite side or slides it along when
 	// it would leave the output.
 	// Popovers and tooltips anchor this way; menus use the point.
@@ -138,6 +138,9 @@ type Config struct {
 	// Gap is the distance between an AnchorRect and the content on the
 	// opening side; it follows the popup when the compositor flips it.
 	Gap int
+	// Align is where an AnchorRect popup sits along the rect across the
+	// opening side; zero centres it.
+	Align Align
 	// NoPlate skips the theme's plate (fill and shadow) behind the
 	// content: the content paints its own look, its stylesheet
 	// declaring the background, and the rest of the surface stays
@@ -313,7 +316,7 @@ func (p *Popup) reposition(cfg Config) bool {
 }
 
 // Hold keeps the popup's edge across its opening axis where it is now
-// through every later resize; HoldNone centres it on its anchor again.
+// through every later resize; HoldNone places it by its Align again.
 func (p *Popup) Hold(h Hold) {
 	p.mu.Lock()
 	defer p.mu.Unlock()

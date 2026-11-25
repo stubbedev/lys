@@ -417,3 +417,24 @@ func TestAComboboxEntryEndsInADropdownsChevronAtADropdownsInsets(t *testing.T) {
 		t.Errorf("the combobox entry ends in %#v, want a down chevron", c.Entry().trailing)
 	}
 }
+
+// A combobox's list hangs from its trigger's left edge, its card as
+// wide as the trigger, and a combobox entry's from the entry's (#271).
+func TestAComboboxListIsAsWideAsItsTrigger(t *testing.T) {
+	c, host := newTestCombobox(t)
+	c.trigger.OnClick()
+	if host.opts[0].Align != PopoverStart {
+		t.Errorf("the list opens aligned %d, want PopoverStart", host.opts[0].Align)
+	}
+	if card, _ := openedCard(t, c, host); card != c.trigger.Bounds().W {
+		t.Errorf("the card is %dpx wide under a %dpx trigger", card, c.trigger.Bounds().W)
+	}
+	e, entryHost := newTestComboboxEntry(t, ComboboxOption[string]{Value: "a", Label: "a"})
+	e.Open()
+	if entryHost.opts[0].Align != PopoverStart {
+		t.Errorf("the entry's list opens aligned %d, want PopoverStart", entryHost.opts[0].Align)
+	}
+	if card, _ := openedCard(t, e, entryHost); card != e.entry.Bounds().W {
+		t.Errorf("the card is %dpx wide under a %dpx entry", card, e.entry.Bounds().W)
+	}
+}

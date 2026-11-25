@@ -32,6 +32,19 @@ const (
 	GravityLeft   = popup.GravityLeft
 )
 
+// PopoverAlign is where a popover sits along its anchor across the
+// side it opens on.
+type PopoverAlign = popup.Align
+
+// Popover alignments.
+const (
+	// PopoverCentered centres the popover on its anchor.
+	PopoverCentered = popup.AlignCenter
+	// PopoverStart lines the card's start edge up with the anchor's,
+	// as a dropdown's list hangs under its face.
+	PopoverStart = popup.AlignStart
+)
+
 // PopoverConfig declares a popover anchored to a widget.
 type PopoverConfig struct {
 	// Anchor is the widget to open beside; its Bounds must be current
@@ -43,6 +56,9 @@ type PopoverConfig struct {
 	// Gap is the distance between the anchor and the popover, kept
 	// on whichever side the compositor places it.
 	Gap int
+	// Align is where the card sits along the anchor across Gravity's
+	// side; zero centres it.
+	Align PopoverAlign
 	// Content is the popover's widget tree (a Menu is the common
 	// case), the card the stylesheet's `popover` element styles. A
 	// Revealer around the card is the card's own motion (OwnMotion):
@@ -595,6 +611,7 @@ func (a *Application) OpenPopover(host Host, cfg PopoverConfig) (*Popover, error
 		Gutter:  gutter,
 		Gravity: cfg.Gravity,
 		Gap:     cfg.Gap,
+		Align:   cfg.Align,
 		NoGrab:  noGrab,
 		// The theme's plate yields to a stylesheet that styles the
 		// popover's background, as GTK leaves a popover's look to CSS.

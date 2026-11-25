@@ -28,7 +28,11 @@ type placement struct {
 // side it shrinks on that axis (GtkPopover's resize), its content
 // giving way, rather than leave the output. The shadow gutter rides
 // on every side, so only the opening axis needs an offset to put the
-// content, not the gutter, the Gap away from the anchor.
+// content, not the gutter, the Gap away from the anchor. AlignStart
+// hangs the popup from the anchor's start corner instead, growing away
+// from it along the other axis, its gutter offset on that axis too, so
+// the content's start edge, not the shadow's, lines up with the
+// anchor's.
 func placementFor(cfg Config) placement {
 	const (
 		slideX  = xdg.PositionerConstraintAdjustmentSlideX
@@ -50,42 +54,93 @@ func placementFor(cfg Config) placement {
 	p := placement{rect: cfg.AnchorRect}
 	p.rect.X -= cfg.ParentMargin
 	p.rect.Y -= cfg.ParentMargin
+	p.anchor, p.gravity = edges(cfg.Gravity, cfg.Align)
+	vertical := false
 	switch cfg.Gravity {
 	case GravityTop:
-		p.anchor, p.gravity, p.adjust = xdg.PositionerAnchorTop, xdg.PositionerGravityTop, slideX|flipY|resizeY
-		p.offsetY = g
+		p.adjust, p.offsetY, vertical = slideX|flipY|resizeY, g, true
 	case GravityRight:
-		p.anchor, p.gravity, p.adjust = xdg.PositionerAnchorRight, xdg.PositionerGravityRight, slideY|flipX|resizeX
-		p.offsetX = -g
+		p.adjust, p.offsetX = slideY|flipX|resizeX, -g
 	case GravityLeft:
-		p.anchor, p.gravity, p.adjust = xdg.PositionerAnchorLeft, xdg.PositionerGravityLeft, slideY|flipX|resizeX
-		p.offsetX = g
+		p.adjust, p.offsetX = slideY|flipX|resizeX, g
 	default:
-		p.anchor, p.gravity, p.adjust = xdg.PositionerAnchorBottom, xdg.PositionerGravityBottom, slideX|flipY|resizeY
-		p.offsetY = -g
+		p.adjust, p.offsetY, vertical = slideX|flipY|resizeY, -g, true
+	}
+	if cfg.Align == AlignStart {
+		cross := intconv.Clamp[int32](-cfg.Gutter)
+		if vertical {
+			p.offsetX = cross
+		} else {
+			p.offsetY = cross
+		}
 	}
 	if cfg.Hold == HoldNone {
 		return p
 	}
-	if _, vertical := opposite(cfg.Gravity); vertical {
-		p.offsetX = intconv.Clamp[int32](heldStart(cfg.Hold, cfg.HoldAt, cfg.Width) - (p.rect.X + p.rect.W/2 - cfg.Width/2))
+	if vertical {
+		p.offsetX = intconv.Clamp[int32](heldStart(cfg.Hold, cfg.HoldAt, cfg.Width) - crossStart(cfg.Align, p.rect.X, p.rect.W, cfg.Width))
 		p.adjust &^= slideX
 	} else {
-		p.offsetY = intconv.Clamp[int32](heldStart(cfg.Hold, cfg.HoldAt, cfg.Height) - (p.rect.Y + p.rect.H/2 - cfg.Height/2))
+		p.offsetY = intconv.Clamp[int32](heldStart(cfg.Hold, cfg.HoldAt, cfg.Height) - crossStart(cfg.Align, p.rect.Y, p.rect.H, cfg.Height))
 		p.adjust &^= slideY
 	}
 	return p
 }
 
+// Align is where a rect-anchored popup sits along its anchor across
+// the opening axis.
+type Align uint8
+
+const (
+	// AlignCenter centres the popup on its anchor, as GtkPopover does.
+	AlignCenter Align = iota
+	// AlignStart lines the content's start edge up with the anchor's:
+	// the left edge of a popup opening up or down, the top edge of one
+	// opening sideways, as a combobox's list hangs under its face.
+	AlignStart
+)
+
+// edges is the anchor point and the growth direction of a popup
+// opening along gravity, aligned by align across it.
+func edges(gravity Gravity, align Align) (anchor, grow uint32) {
+	start := align == AlignStart
+	switch {
+	case gravity == GravityTop && start:
+		return xdg.PositionerAnchorTopLeft, xdg.PositionerGravityTopRight
+	case gravity == GravityTop:
+		return xdg.PositionerAnchorTop, xdg.PositionerGravityTop
+	case gravity == GravityRight && start:
+		return xdg.PositionerAnchorTopRight, xdg.PositionerGravityBottomRight
+	case gravity == GravityRight:
+		return xdg.PositionerAnchorRight, xdg.PositionerGravityRight
+	case gravity == GravityLeft && start:
+		return xdg.PositionerAnchorTopLeft, xdg.PositionerGravityBottomLeft
+	case gravity == GravityLeft:
+		return xdg.PositionerAnchorLeft, xdg.PositionerGravityLeft
+	case start:
+		return xdg.PositionerAnchorBottomLeft, xdg.PositionerGravityBottomRight
+	}
+	return xdg.PositionerAnchorBottom, xdg.PositionerGravityBottom
+}
+
+// crossStart is where a popup extent long starts along the cross axis
+// before any offset, hung from an anchor spanning at to at+span.
+func crossStart(align Align, at, span, extent int) int {
+	if align == AlignStart {
+		return at
+	}
+	return at + span/2 - extent/2
+}
+
 // Hold is the edge across a rect-anchored popup's opening axis that a
-// resize keeps in place. Such a popup sits centred on its anchor, so
-// without a hold it grows and shrinks on both sides at once. A held
+// resize keeps in place. A centred popup grows and shrinks on both
+// sides at once without a hold. A held
 // popup never slides along that axis: the compositor would move the
 // held edge.
 type Hold uint8
 
 const (
-	// HoldNone centres the popup on its anchor.
+	// HoldNone places the popup by its Align.
 	HoldNone Hold = iota
 	// HoldStart keeps the left edge of a popup opening up or down, the
 	// top edge of one opening sideways.

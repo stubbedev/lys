@@ -261,8 +261,9 @@ func (d *Dropdown) newList() *Command {
 	return list
 }
 
-// Open shows the item list in a popover beneath the face, at least as
-// wide as the face and highlighted on the selection, with the keyboard
+// Open shows the item list in a popover beneath the face, its card
+// starting at the face's left edge and as wide as the face unless an
+// item needs more, highlighted on the selection, with the keyboard
 // focus in the list. A disabled dropdown and one with nothing to
 // select stay closed.
 func (d *Dropdown) Open() {
@@ -270,9 +271,11 @@ func (d *Dropdown) Open() {
 		return
 	}
 	list := d.newList()
-	list.SetSizeRequest(d.bounds.W, 0)
 	d.list = list
-	d.closeList = OpenPopover(d, d, list, PopoverOptions{Focus: list, Gap: PopoverGap, OnClosed: func() { d.listClosed(list) }})
+	d.closeList = OpenPopover(d, d, list, PopoverOptions{
+		Focus: list, Gap: PopoverGap, Align: PopoverStart, MinWidth: d.bounds.W,
+		OnClosed: func() { d.listClosed(list) },
+	})
 	d.Invalidate()
 }
 

@@ -72,7 +72,28 @@ type PopoverOptions struct {
 	// Side is the side of the anchor the popover opens on, below
 	// unless set.
 	Side PopoverSide
+	// Align is where the popover sits along the anchor across Side,
+	// centred unless set.
+	Align PopoverAlign
+	// MinWidth is the least width of the popover's card, its border
+	// included: a list as wide as the face that opened it.
+	MinWidth int
 }
+
+// PopoverAlign is where a popover sits along its anchor across the
+// side it opens on; the compositor slides it where it would leave the
+// screen.
+type PopoverAlign uint8
+
+// The popover alignments.
+const (
+	// PopoverCentered centres the popover on its anchor, GtkPopover's
+	// placement.
+	PopoverCentered PopoverAlign = iota
+	// PopoverStart lines the card's start edge up with the anchor's,
+	// as a dropdown's list hangs under its face.
+	PopoverStart
+)
 
 // PopoverSide is the side of its anchor a popover opens on; the
 // compositor flips it to the other side where there is no room.
@@ -92,10 +113,12 @@ const PopoverGap = 4
 
 // OpenPopover opens content in a popover beside anchor through the
 // host of from's tree, and returns what closes it. The popover's own
-// node is a box around content, so content keeps its element and
-// style.
+// node is a box around content, at least opts.MinWidth wide, so
+// content keeps its element and style.
 func OpenPopover(from Widget, anchor Boundser, content Widget, opts PopoverOptions) (close func()) {
-	return hostOf(from, "OpenPopover").OpenPopover(anchor, NewBox(Column, 0, 0).Append(content, true), opts)
+	card := NewBox(Column, 0, 0).Append(content, true)
+	card.SetSizeRequest(opts.MinWidth, 0)
+	return hostOf(from, "OpenPopover").OpenPopover(anchor, card, opts)
 }
 
 // GrabFocus moves the keyboard focus of w's surface to w (GTK's

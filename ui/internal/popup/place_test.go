@@ -184,3 +184,82 @@ func TestSideOfIsWhereThePopupWasPlaced(t *testing.T) {
 		}
 	}
 }
+
+// placedAt is where a compositor puts a w by h popup by p, before any
+// constraint adjustment, following xdg_positioner: the anchor point on
+// the rect, the popup grown from it toward gravity, then the offset.
+func placedAt(p placement, w, h int32) (x, y int32) {
+	r := p.rect
+	ax := map[uint32]int32{
+		xdg.PositionerAnchorLeft: 0, xdg.PositionerAnchorTopLeft: 0, xdg.PositionerAnchorBottomLeft: 0,
+		xdg.PositionerAnchorRight: 1, xdg.PositionerAnchorTopRight: 1, xdg.PositionerAnchorBottomRight: 1,
+	}
+	ay := map[uint32]int32{
+		xdg.PositionerAnchorTop: 0, xdg.PositionerAnchorTopLeft: 0, xdg.PositionerAnchorTopRight: 0,
+		xdg.PositionerAnchorBottom: 1, xdg.PositionerAnchorBottomLeft: 1, xdg.PositionerAnchorBottomRight: 1,
+	}
+	x, y = int32(r.X)+int32(r.W)/2, int32(r.Y)+int32(r.H)/2
+	if f, ok := ax[p.anchor]; ok {
+		x = int32(r.X) + f*int32(r.W)
+	}
+	if f, ok := ay[p.anchor]; ok {
+		y = int32(r.Y) + f*int32(r.H)
+	}
+	switch p.gravity {
+	case xdg.PositionerGravityLeft, xdg.PositionerGravityTopLeft, xdg.PositionerGravityBottomLeft:
+		x -= w
+	case xdg.PositionerGravityRight, xdg.PositionerGravityTopRight, xdg.PositionerGravityBottomRight:
+	default:
+		x -= w / 2
+	}
+	switch p.gravity {
+	case xdg.PositionerGravityTop, xdg.PositionerGravityTopLeft, xdg.PositionerGravityTopRight:
+		y -= h
+	case xdg.PositionerGravityBottom, xdg.PositionerGravityBottomLeft, xdg.PositionerGravityBottomRight:
+	default:
+		y -= h / 2
+	}
+	return x + p.offsetX, y + p.offsetY
+}
+
+// A start-aligned popup's content, not its shadow gutter, starts on
+// the anchor's start edge whatever its width, the Gap away on the
+// opening side; a centred one sits across the anchor's middle (#271).
+func TestAStartAlignedPopupLinesItsContentUpWithTheAnchor(t *testing.T) {
+	rect := render.Rect{X: 400, Y: 300, W: 180, H: 36}
+	const g, gap = 10, 4
+	for _, tc := range []struct {
+		gravity     Gravity
+		w, h        int32
+		wantX, want int32
+	}{
+		{GravityBottom, 180 + 2*g, 120 + 2*g, 400, 300 + 36 + gap},
+		{GravityBottom, 260 + 2*g, 120 + 2*g, 400, 300 + 36 + gap},
+		{GravityTop, 260 + 2*g, 120 + 2*g, 400, 300 - gap - 120},
+		{GravityRight, 120 + 2*g, 260 + 2*g, 400 + 180 + gap, 300},
+		{GravityLeft, 120 + 2*g, 260 + 2*g, 400 - gap - 120, 300},
+	} {
+		cfg := Config{AnchorRect: rect, Gravity: tc.gravity, Gutter: g, Gap: gap, Align: AlignStart, Width: int(tc.w), Height: int(tc.h)}
+		x, y := placedAt(placementFor(cfg), tc.w, tc.h)
+		if x+g != tc.wantX || y+g != tc.want {
+			t.Errorf("gravity %d, %dx%d: content at %d,%d, want %d,%d", tc.gravity, tc.w, tc.h, x+g, y+g, tc.wantX, tc.want)
+		}
+	}
+	centred := Config{AnchorRect: rect, Gutter: g, Gap: gap, Width: 260 + 2*g, Height: 140}
+	if x, _ := placedAt(placementFor(centred), 260+2*g, 140); x+g != 400+90-130 {
+		t.Errorf("a centred popup's content starts at %d, want %d", x+g, 400+90-130)
+	}
+}
+
+// A start-aligned popup holds its edge through a resize as a centred
+// one does.
+func TestAStartAlignedPopupHoldsItsEdge(t *testing.T) {
+	rect := render.Rect{X: 400, Y: 300, W: 180, H: 36}
+	cfg := Config{AnchorRect: rect, Gutter: 10, Align: AlignStart, Hold: HoldStart, HoldAt: 390, Height: 200}
+	for _, w := range []int32{200, 320, 120} {
+		cfg.Width = int(w)
+		if x, _ := placedAt(placementFor(cfg), w, 200); x != 390 {
+			t.Errorf("%dpx wide: held left edge at %d, want 390", w, x)
+		}
+	}
+}
