@@ -88,6 +88,13 @@ launcher-clipboard-pinned-full = Non c'è più spazio per le voci fissate
 launcher-clipboard-pin-failed = Impossibile fissare la voce
 launcher-clipboard-unpin-failed = Impossibile sbloccare la voce
 launcher-clipboard-pinned = Fissato
+launcher-clipboard-image = Immagine · { $mime } · { $size }
+launcher-clipboard-other = { $mime } · { $size }
+launcher-clipboard-no-files = Nessun file
+launcher-clipboard-files = { $count ->
+    [one] { $names } ({ $count } file)
+   *[other] { $names } ({ $count } file)
+}
 launcher-picker-clipboard = Cronologia degli appunti
 launcher-picker-emoji = Selettore emoji
 launcher-picker-characters = Caratteri Unicode

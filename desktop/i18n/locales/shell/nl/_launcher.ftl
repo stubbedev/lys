@@ -85,6 +85,13 @@ launcher-clipboard-pinned-full = Er is geen ruimte meer voor vastgezette items
 launcher-clipboard-pin-failed = Kan het item niet vastzetten
 launcher-clipboard-unpin-failed = Kan het item niet losmaken
 launcher-clipboard-pinned = Vastgezet
+launcher-clipboard-image = Afbeelding · { $mime } · { $size }
+launcher-clipboard-other = { $mime } · { $size }
+launcher-clipboard-no-files = Geen bestanden
+launcher-clipboard-files = { $count ->
+    [one] { $names } ({ $count } bestand)
+   *[other] { $names } ({ $count } bestanden)
+}
 launcher-picker-clipboard = Klembordgeschiedenis
 launcher-picker-emoji = Emojikiezer
 launcher-picker-characters = Unicode-tekens

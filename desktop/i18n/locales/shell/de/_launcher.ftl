@@ -85,6 +85,13 @@ launcher-clipboard-pinned-full = Für angeheftete Einträge ist kein Platz mehr
 launcher-clipboard-pin-failed = Der Eintrag konnte nicht angeheftet werden
 launcher-clipboard-unpin-failed = Der Eintrag konnte nicht gelöst werden
 launcher-clipboard-pinned = Angeheftet
+launcher-clipboard-image = Bild · { $mime } · { $size }
+launcher-clipboard-other = { $mime } · { $size }
+launcher-clipboard-no-files = Keine Dateien
+launcher-clipboard-files = { $count ->
+    [one] { $names } ({ $count } Datei)
+   *[other] { $names } ({ $count } Dateien)
+}
 launcher-picker-clipboard = Verlauf der Zwischenablage
 launcher-picker-emoji = Emoji-Auswahl
 launcher-picker-characters = Unicode-Zeichen

@@ -319,39 +319,35 @@ func TestAStrayPercentInANameSurvivesDecoding(t *testing.T) {
 	}
 }
 
-func TestTextPreviewIsOneLine(t *testing.T) {
+func TestTextFoldsOntoOneLine(t *testing.T) {
 	text := entry(textMime, "  fn main() {\n    println!(\"hi\");\n}  ")
 
-	if got := text.preview(80); got != `fn main() { println!("hi"); }` {
-		t.Fatalf("preview = %q", got)
+	if got, ok := text.line(80); !ok || got != `fn main() { println!("hi"); }` {
+		t.Fatalf("line = %q, %v", got, ok)
 	}
 }
 
-func TestPreviewIsCutOnACharacterBoundary(t *testing.T) {
+func TestALineIsCutOnACharacterBoundary(t *testing.T) {
 	text := entry(textMime, strings.Repeat("é", 40))
 
-	got := text.preview(10)
+	got, _ := text.line(10)
 
 	if utf8.RuneCountInString(got) != 10 || !strings.HasSuffix(got, "…") {
-		t.Fatalf("preview = %q", got)
+		t.Fatalf("line = %q", got)
 	}
-	if got := entry(textMime, "short").preview(10); got != "short" {
-		t.Fatalf("a short preview was cut: %q", got)
+	if got, _ := entry(textMime, "short").line(10); got != "short" {
+		t.Fatalf("a short line was cut: %q", got)
 	}
 }
 
-func TestFileAndImagePreviewsSayWhatTheyAre(t *testing.T) {
-	cases := map[string]content{
-		"notes.txt":                  entry(URIListMime, "file:///tmp/notes.txt\n"),
-		"a.txt, b.txt (2 files)":     entry(URIListMime, "file:///tmp/a.txt\nfile:///tmp/b.txt\n"),
-		"No files":                   entry(URIListMime, "https://example.com\n"),
-		"Image · image/png · 2.0 KB": {mime: "image/png", data: make([]byte, 2048)},
-		"application/pdf · 4 B":      entry("application/pdf", "%PDF"),
-		"Image · image/png · 1.5 MB": {mime: "image/png", data: make([]byte, 3<<19)},
-	}
-	for want, e := range cases {
-		if got := e.preview(80); got != want {
-			t.Errorf("preview = %q, want %q", got, want)
+func TestOnlyTextHasALine(t *testing.T) {
+	for _, e := range []content{
+		entry(URIListMime, "file:///tmp/notes.txt\n"),
+		{mime: "image/png", data: make([]byte, 2048)},
+		entry("application/pdf", "%PDF"),
+	} {
+		if got, ok := e.line(80); ok || got != "" {
+			t.Errorf("%s line = %q, %v, want none: its caller labels it", e.mime, got, ok)
 		}
 	}
 }
@@ -510,8 +506,8 @@ func TestAListedEntryOutlivesItsEviction(t *testing.T) {
 		t.Fatalf("%d allocations while the snapshot holds the evicted entry, want 1", n)
 	}
 	e := snap.Entries()[0]
-	if got := e.Paths(); !slices.Equal(got, []string{"/tmp/a.png"}) || e.Preview(80) != "a.png" {
-		t.Fatalf("held entry reads %v / %q", got, e.Preview(80))
+	if got := e.Paths(); !slices.Equal(got, []string{"/tmp/a.png"}) || e.Size() != len("file:///tmp/a.png\n") {
+		t.Fatalf("held entry reads %v / %d bytes", got, e.Size())
 	}
 	snap.Release()
 	if n := live(h); n != 0 {
@@ -528,7 +524,7 @@ func TestAReleasedSnapshotCannotBeRead(t *testing.T) {
 
 	// Still in the history, so the bytes are live: the snapshot alone
 	// decides whether its entries may be read.
-	mustPanic(t, "reading a released entry", func() { e.Preview(10) })
+	mustPanic(t, "reading a released entry", func() { e.Line(10) })
 	mustPanic(t, "releasing twice", snap.Release)
 	if live(h) != 1 {
 		t.Fatal("the history's own entry was freed with the snapshot")

@@ -85,6 +85,13 @@ launcher-clipboard-pinned-full = Il ne reste plus de place pour les entrées ép
 launcher-clipboard-pin-failed = Impossible d'épingler l'entrée
 launcher-clipboard-unpin-failed = Impossible de désépingler l'entrée
 launcher-clipboard-pinned = Épinglé
+launcher-clipboard-image = Image · { $mime } · { $size }
+launcher-clipboard-other = { $mime } · { $size }
+launcher-clipboard-no-files = Aucun fichier
+launcher-clipboard-files = { $count ->
+    [one] { $names } ({ $count } fichier)
+   *[other] { $names } ({ $count } fichiers)
+}
 launcher-picker-clipboard = Historique du presse-papiers
 launcher-picker-emoji = Sélecteur d'émojis
 launcher-picker-characters = Caractères Unicode

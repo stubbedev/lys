@@ -88,6 +88,13 @@ launcher-clipboard-pinned-full = No queda espacio para entradas fijadas
 launcher-clipboard-pin-failed = No se ha podido fijar la entrada
 launcher-clipboard-unpin-failed = No se ha podido desfijar la entrada
 launcher-clipboard-pinned = Fijado
+launcher-clipboard-image = Imagen · { $mime } · { $size }
+launcher-clipboard-other = { $mime } · { $size }
+launcher-clipboard-no-files = Ningún archivo
+launcher-clipboard-files = { $count ->
+    [one] { $names } ({ $count } archivo)
+   *[other] { $names } ({ $count } archivos)
+}
 launcher-picker-clipboard = Historial del portapapeles
 launcher-picker-emoji = Selector de emojis
 launcher-picker-characters = Caracteres Unicode

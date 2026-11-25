@@ -85,6 +85,13 @@ launcher-clipboard-pinned-full = No room is left for pinned entries
 launcher-clipboard-pin-failed = Could not pin the entry
 launcher-clipboard-unpin-failed = Could not unpin the entry
 launcher-clipboard-pinned = Pinned
+launcher-clipboard-image = Image · { $mime } · { $size }
+launcher-clipboard-other = { $mime } · { $size }
+launcher-clipboard-no-files = No files
+launcher-clipboard-files = { $count ->
+    [one] { $names } ({ $count } file)
+   *[other] { $names } ({ $count } files)
+}
 launcher-picker-clipboard = Clipboard History
 launcher-picker-emoji = Emoji Picker
 launcher-picker-characters = Unicode Characters

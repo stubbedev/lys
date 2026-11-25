@@ -1,5 +1,5 @@
 // Package clipboard is the session's clipboard history: what gets
-// remembered, how it is labelled,
+// remembered, what it is,
 // what is refused, and the service that keeps it current from the
 // Wayland selection over lys-ui's data-control device.
 //
@@ -71,8 +71,8 @@ func SecretContent(text string) transfer.Content {
 	return transfer.Merge(transfer.Text(text), transfer.Payloads([]string{hint}, map[string][]byte{hint: []byte("secret")}))
 }
 
-// Kind is what a remembered selection is, for labelling and for
-// choosing an icon.
+// Kind is what a remembered selection is, for a caller to label it
+// and choose its icon by.
 type Kind uint8
 
 const (
@@ -199,12 +199,13 @@ func (e Entry) Size() int { return len(e.content().data) }
 // Paths returns the decoded paths in a text/uri-list entry.
 func (e Entry) Paths() []string { return e.content().paths() }
 
-// Preview is a single line for a list row, at most maxChars
-// characters.
-func (e Entry) Preview(maxChars int) string { return e.content().preview(maxChars) }
+// Line is a text entry folded onto one line, at most maxChars
+// characters; false for any other kind, which a caller labels from
+// its Kind, Mime, Size and Paths in its own language.
+func (e Entry) Line(maxChars int) (string, bool) { return e.content().line(maxChars) }
 
-// content is a selection's bytes under its mime, which is all the
-// labelling needs.
+// content is a selection's bytes under its mime, which is all reading
+// it needs.
 type content struct {
 	mime string
 	data []byte
@@ -255,37 +256,16 @@ func (c content) paths() []string {
 	return paths
 }
 
-// preview is a single line for a list row, at most maxChars
-// characters.
-func (c content) preview(maxChars int) string {
-	var label string
-	switch kindOf(c.mime) {
-	case KindText:
-		// Runs of whitespace — newlines included — collapse to one
-		// space, so a copied paragraph is one readable row rather
-		// than something that breaks the list's geometry.
-		text, _ := c.text()
-		label = strings.Join(strings.Fields(text), " ")
-	case KindFiles:
-		paths := c.paths()
-		names := make([]string, len(paths))
-		for i, p := range paths {
-			names[i] = p[strings.LastIndexByte(p, '/')+1:]
-		}
-		switch len(names) {
-		case 0:
-			label = "No files"
-		case 1:
-			label = names[0]
-		default:
-			label = fmt.Sprintf("%s (%d files)", strings.Join(names, ", "), len(names))
-		}
-	case KindImage:
-		label = "Image · " + c.mime + " · " + HumanSize(len(c.data))
-	case KindOther:
-		label = c.mime + " · " + HumanSize(len(c.data))
+// line is a text selection folded onto one line, at most maxChars
+// characters; false when it is not text. Runs of whitespace, newlines
+// included, collapse to one space, so a copied paragraph is one
+// readable row rather than something that breaks a list's geometry.
+func (c content) line(maxChars int) (string, bool) {
+	if kindOf(c.mime) != KindText {
+		return "", false
 	}
-	return truncateChars(label, maxChars)
+	text, _ := c.text()
+	return truncateChars(strings.Join(strings.Fields(text), " "), maxChars), true
 }
 
 // IsTextMime reports whether a mime type names plain text.
@@ -686,7 +666,7 @@ func (h *History) Pin(id uint64) error {
 	case e.p == nil:
 		return errNotInMemory
 	case h.pinnedSize+e.size > h.pinnedBudget:
-		return fmt.Errorf("%w: %s of %s pinned, the entry is %s", ErrPinnedFull, HumanSize(h.pinnedSize), HumanSize(h.pinnedBudget), HumanSize(e.size))
+		return fmt.Errorf("%w: %d of %d bytes pinned, the entry is %d bytes", ErrPinnedFull, h.pinnedSize, h.pinnedBudget, e.size)
 	}
 	h.account(*e, -1)
 	e.pinned = true
@@ -804,21 +784,6 @@ func truncateChars(text string, maxChars int) string {
 	}
 	b.WriteRune('…')
 	return b.String()
-}
-
-// HumanSize is a byte count short enough for a list row.
-func HumanSize(n int) string {
-	units := [...]string{"B", "KB", "MB", "GB"}
-	size := float64(n)
-	unit := 0
-	for size >= 1024 && unit < len(units)-1 {
-		size /= 1024
-		unit++
-	}
-	if unit == 0 {
-		return fmt.Sprintf("%d B", n)
-	}
-	return fmt.Sprintf("%.1f %s", size, units[unit])
 }
 
 // ErrEntryGone is an entry that left the history since a row was drawn

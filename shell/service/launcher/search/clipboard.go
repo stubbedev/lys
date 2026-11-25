@@ -54,9 +54,9 @@ func (c *Clipboard) read() []Entry {
 	all := snap.Entries()
 	entries := make([]Entry, len(all))
 	for i, e := range all {
-		// Preview folds the lines into one, so the title is what is searched.
+		// The label folds a text's lines into one, so the title is what is searched.
 		entries[i] = Entry{
-			ID: "clipboard:" + strconv.FormatUint(e.ID, 10), Title: e.Preview(clipboardPreviewChars), Icon: clipboardIcon(e), Data: clipboardData{id: e.ID, kind: e.Kind(), paths: e.Paths(), pinned: e.Pinned},
+			ID: "clipboard:" + strconv.FormatUint(e.ID, 10), Title: modes.EntryLabel(i18n.Shell(), e, clipboardPreviewChars), Icon: clipboardIcon(e), Data: clipboardData{id: e.ID, kind: e.Kind(), paths: e.Paths(), pinned: e.Pinned},
 		}
 		if e.Pinned {
 			entries[i].Hint = i18n.T("launcher-clipboard-pinned")

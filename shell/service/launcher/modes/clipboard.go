@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/clipboard"
@@ -80,7 +81,7 @@ func (c *Clipboard) state() launcher.ModeState {
 	items := make([]launcher.Item, len(entries))
 	for i, e := range entries {
 		c.ids[i] = e.ID
-		preview := e.Preview(previewChars)
+		preview := EntryLabel(i18n.Shell(), e, previewChars)
 		info := strconv.FormatUint(e.ID, 10)
 		items[i] = launcher.Item{Display: preview, MatchText: preview, Info: &info, Icon: iconFor(e)}
 		if e.Pinned {
@@ -157,6 +158,57 @@ func iconFor(e clipboard.Entry) launcher.Icon {
 	}
 	return launcher.IconName(name)
 }
+
+// EntryLabel is a clipboard entry's row in l's language: text folded
+// onto one line of at most maxChars characters, a copied file's name,
+// several files' names, as many as fit in maxChars, with their count,
+// and an image or anything else its type and size.
+func EntryLabel(l *i18n.Loader, e clipboard.Entry, maxChars int) string {
+	switch e.Kind() {
+	case clipboard.KindText:
+		line, _ := e.Line(maxChars)
+		return line
+	case clipboard.KindFiles:
+		return filesLabel(l, e.Paths(), maxChars)
+	}
+	args := []i18n.Arg{i18n.Str("mime", e.Mime), i18n.Str("size", l.ByteSize(intconv.Clamp[uint64](e.Size())))}
+	if e.Kind() == clipboard.KindImage {
+		return l.Get("launcher-clipboard-image", args...)
+	}
+	return l.Get("launcher-clipboard-other", args...)
+}
+
+// filesLabel names copied files: one by its name, several by as many
+// names as fit in maxChars characters and how many there are.
+func filesLabel(l *i18n.Loader, paths []string, maxChars int) string {
+	switch len(paths) {
+	case 0:
+		return l.Get("launcher-clipboard-no-files")
+	case 1:
+		return fileName(paths[0])
+	}
+	const separator, more = ", ", ", …"
+	var names strings.Builder
+	chars := 0
+	for i, p := range paths {
+		name := fileName(p)
+		width := utf8.RuneCountInString(name)
+		if i > 0 {
+			if chars+len(separator)+width > maxChars {
+				names.WriteString(more)
+				break
+			}
+			names.WriteString(separator)
+			chars += len(separator)
+		}
+		names.WriteString(name)
+		chars += width
+	}
+	return l.Get("launcher-clipboard-files", i18n.Str("names", names.String()), i18n.Int("count", int64(len(paths))))
+}
+
+// fileName is the last element of a copied path.
+func fileName(path string) string { return path[strings.LastIndexByte(path, '/')+1:] }
 
 // RowPreview is the row's entry in full, read from the history only once
 // the row is selected; false once the entry has left the history.
