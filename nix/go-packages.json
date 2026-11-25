@@ -8821,6 +8821,7 @@
     ],
     "testImports": [
       "desktop/fileuri",
+      "desktop/i18n/locales/shell",
       "desktop/opener/openertest",
       "desktop/service/clipboard/historybudget",
       "lib/fdtest",
@@ -8893,6 +8894,7 @@
       "unsafe"
     ],
     "testImports": [
+      "desktop/i18n/locales/shell",
       "desktop/service/clipboard/historybudget",
       "lib/fdtest",
       "lib/logtest",
@@ -9518,6 +9520,7 @@
   },
   "shell/service/udisks": {
     "imports": [
+      "desktop/i18n",
       "lib/dbusx",
       "lib/third_party/godbus"
     ],
@@ -9528,10 +9531,10 @@
       "fmt",
       "log",
       "slices",
-      "strconv",
       "unsafe"
     ],
     "testImports": [
+      "desktop/i18n/locales/shell",
       "lib/dbustest",
       "lib/testhome",
       "lib/waittest",
