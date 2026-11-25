@@ -9,7 +9,9 @@ import (
 )
 
 // keyNames are the display names of the keys that type no character
-// of their own, or whose character does not read as the key.
+// of their own, or whose character does not read as the key: a mark as
+// thin as a grave or an apostrophe is a speck on a keycap, so it reads
+// by its name.
 var keyNames = map[xkb.Keysym]string{
 	xkb.KeySpace:                 "Space",
 	xkb.KeyBackSpace:             "Backspace",
@@ -45,11 +47,15 @@ var keyNames = map[xkb.Keysym]string{
 	xkb.KeySuperR:                "Super",
 	xkb.KeyKPEnter:               "Enter",
 	xkb.KeyKPSpace:               "Space",
-	xkb.KeyDeadGrave:             "`",
-	xkb.KeyDeadAcute:             "´",
+	xkb.KeyGrave:                 "Backtick",
+	xkb.KeyDeadGrave:             "Backtick",
+	xkb.KeyApostrophe:            "Apostrophe",
+	xkb.KeyAcute:                 "Acute",
+	xkb.KeyDeadAcute:             "Acute",
 	xkb.KeyDeadCircumflex:        "^",
 	xkb.KeyDeadTilde:             "~",
-	xkb.KeyDeadDiaeresis:         "¨",
+	xkb.KeyDiaeresis:             "Diaeresis",
+	xkb.KeyDeadDiaeresis:         "Diaeresis",
 	xkb.KeyXF86AudioMute:         "Mute",
 	xkb.KeyXF86AudioMicMute:      "Mute Microphone",
 	xkb.KeyXF86AudioRaiseVolume:  "Volume Up",
@@ -70,7 +76,7 @@ var keyNames = map[xkb.Keysym]string{
 const keypadPrefix = "KP_"
 
 // KeyLabel is how a key reads on a keycap: a key that types a character
-// reads as that character, uppercased ("Q", "`", "["), a keypad key as
+// reads as that character, uppercased ("Q", "[", "-"), a keypad key as
 // its main key marked as the keypad's ("Enter (keypad)"), and a named
 // key by its name ("Backspace", "Page Up", "F5"). ok is false for a key
 // lys-ui has no name for; the label is then the keysym's own name.

@@ -126,7 +126,7 @@ func TestAClashSaysTheChordAsItReads(t *testing.T) {
 func TestAChordNothingReadsStillShowsAsKeycaps(t *testing.T) {
 	c, _ := bindCards(t, "binds:\n  - {chord: HYPER + grave, action: kill}\n")
 	aside := c.cards[0].aside.(*bindAside)
-	if got := treetest.Labels(aside.keys); !slices.Equal(got, []string{"HYPER", "`"}) {
+	if got := treetest.Labels(aside.keys); !slices.Equal(got, []string{"HYPER", "Backtick"}) {
 		t.Fatalf("the keycaps read %q", got)
 	}
 	if len(treetest.WithClass(aside.keys, css.Keycap)) != 2 {

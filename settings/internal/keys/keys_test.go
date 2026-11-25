@@ -24,7 +24,7 @@ var fixtures = []fixture{
 	{Chord{widget.ModCtrl | widget.ModAlt, Key{xkb.KeyDelete}}, "CTRL + ALT + Delete", "Control+Alt+Delete", "Ctrl+Alt+Delete", []string{"Ctrl", "Alt", "Delete"}},
 	{Chord{0, Key{xkb.KeyReturn}}, "Return", "Return", "Return", []string{"Enter"}},
 	{Chord{widget.ModSuper, Key{xkb.KeyBackSpace}}, "SUPER + BackSpace", "Super+BackSpace", "Super+BackSpace", []string{"Super", "Backspace"}},
-	{Chord{widget.ModAlt, Key{xkb.KeyGrave}}, "ALT + grave", "Alt+grave", "Alt+grave", []string{"Alt", "`"}},
+	{Chord{widget.ModAlt, Key{xkb.KeyGrave}}, "ALT + grave", "Alt+grave", "Alt+grave", []string{"Alt", "Backtick"}},
 	{Chord{widget.ModCtrl, Key{xkb.KeyBracketleft}}, "CTRL + bracketleft", "Control+bracketleft", "Ctrl+bracketleft", []string{"Ctrl", "["}},
 	{Chord{0, Key{xkb.KeyKPEnter}}, "KP_Enter", "KP_Enter", "KP_Enter", []string{"Enter (keypad)"}},
 	{Chord{widget.ModCtrl, Key{xkb.KeyKPHome}}, "CTRL + KP_Home", "Control+KP_Home", "Ctrl+KP_Home", []string{"Ctrl", "Home (keypad)"}},
@@ -184,7 +184,7 @@ func TestAStringThatIsNoChordIsAnErrorNamingIt(t *testing.T) {
 }
 
 func TestAChordNothingReadsShowsItsPartsAsKeys(t *testing.T) {
-	if got := WM.Labels("HYPER + super + grave"); !slices.Equal(got, []string{"HYPER", "Super", "`"}) {
+	if got := WM.Labels("HYPER + super + grave"); !slices.Equal(got, []string{"HYPER", "Super", "Backtick"}) {
 		t.Errorf("an unknown modifier reads %q", got)
 	}
 	if got := WM.Text("SUPER + bracketleft"); got != "Super+[" {

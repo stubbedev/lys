@@ -11,7 +11,8 @@ func TestAKeyReadsAsItsCharacterOrItsName(t *testing.T) {
 	for sym, want := range map[xkb.Keysym]string{
 		xkb.Keysym('q'):            "Q",
 		xkb.Keysym('1'):            "1",
-		xkb.KeyGrave:               "`",
+		xkb.KeyGrave:               "Backtick",
+		xkb.KeyApostrophe:          "Apostrophe",
 		xkb.KeyBracketleft:         "[",
 		xkb.KeyMinus:               "-",
 		xkb.KeyEqual:               "=",
@@ -26,7 +27,8 @@ func TestAKeyReadsAsItsCharacterOrItsName(t *testing.T) {
 		xkb.KeyKPPageDown:          "Page Down (keypad)",
 		xkb.KeyKP7:                 "7 (keypad)",
 		xkb.KeyKPAdd:               "+ (keypad)",
-		xkb.KeyDeadGrave:           "`",
+		xkb.KeyDeadGrave:           "Backtick",
+		xkb.KeyDeadAcute:           "Acute",
 		xkb.KeyF5:                  "F5",
 		xkb.KeyXF86AudioMute:       "Mute",
 		xkb.KeySuperL:              "Super",
@@ -75,7 +77,7 @@ func TestAShortcutLabelDrawsEachKeyAsItReads(t *testing.T) {
 	if want := []string{"Ctrl", "[", "Shift", "Page Up"}; !slices.Equal(got, want) {
 		t.Errorf("keycaps %q, want %q", got, want)
 	}
-	if got := accelText("Ctrl+grave"); got != "Ctrl+`" {
+	if got := accelText("Ctrl+grave"); got != "Ctrl+Backtick" {
 		t.Errorf("the accelerator reads %q", got)
 	}
 }
