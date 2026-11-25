@@ -468,9 +468,9 @@ func (w *hostWindow) enterIfDue() {
 }
 
 // ApplyVisual implements surfx.Driver: one motion frame.
-func (w *hostWindow) ApplyVisual(reveal float64, morph bool) {
+func (w *hostWindow) ApplyVisual(reveal float64, visual anim.Visual) {
 	if w.morph != nil {
-		w.morph.SetReveal(reveal, morph)
+		w.morph.SetReveal(reveal, visual)
 	}
 }
 

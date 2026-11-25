@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/ui/anim"
 	"github.com/stubbedev/lys/ui/media"
 	"github.com/stubbedev/lys/ui/widget"
 )
@@ -5974,8 +5975,8 @@ func (b *MorphBuilder) WatchRadius(get func() int) *MorphBuilder {
 }
 
 // Reveal calls (*widget.Morph).SetReveal.
-func (b *MorphBuilder) Reveal(reveal float64, morph bool) *MorphBuilder {
-	b.do(func(s *Scope, w *widget.Morph) { w.SetReveal(reveal, morph) })
+func (b *MorphBuilder) Reveal(reveal float64, visual anim.Visual) *MorphBuilder {
+	b.do(func(s *Scope, w *widget.Morph) { w.SetReveal(reveal, visual) })
 	return b
 }
 

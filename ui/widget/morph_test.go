@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/lib/render"
+
+	"github.com/stubbedev/lys/ui/anim"
 )
 
 type backdropProbe struct {
@@ -36,25 +38,25 @@ func TestMorphBackdropRegionFollowsTheReveal(t *testing.T) {
 	m.SetPlate(10, nil)
 	m.Arrange(render.Rect{W: 120, H: 220})
 
-	m.SetReveal(0, true)
+	m.SetReveal(0, anim.VisualGrow)
 	if got := m.BackdropRegion(); len(got) != 0 {
 		t.Fatalf("hidden: region %v, want none", got)
 	}
-	m.SetReveal(0.05, true)
+	m.SetReveal(0.05, anim.VisualGrow)
 	early := extent(m.BackdropRegion())
 	if early.H >= 100 || early.W >= 100 || early.Y != 10 {
 		t.Fatalf("early in the motion: region %+v, want a short, scaled one from the top edge", early)
 	}
-	m.SetReveal(0.5, true)
+	m.SetReveal(0.5, anim.VisualGrow)
 	mid := extent(m.BackdropRegion())
 	if mid.H <= early.H || mid.W <= early.W || mid.H >= 200 {
 		t.Fatalf("mid motion: region %+v after %+v, want it grown but not whole", mid, early)
 	}
-	m.SetReveal(1, true)
+	m.SetReveal(1, anim.VisualGrow)
 	if got := m.BackdropRegion(); !slices.Equal(got, probe.shape) {
 		t.Fatalf("at rest: region %v, want the content's %v", got, probe.shape)
 	}
-	m.SetReveal(0.5, false)
+	m.SetReveal(0.5, anim.VisualFade)
 	if got := m.BackdropRegion(); !slices.Equal(got, probe.shape) {
 		t.Fatalf("a plain fade: region %v, want the content's %v", got, probe.shape)
 	}
@@ -67,7 +69,7 @@ func TestMorphBackdropRegionKeepsTheContentsShape(t *testing.T) {
 	m := NewMorph(probe)
 	m.SetOrigin(0.5, 0)
 	m.Arrange(render.Rect{W: 100, H: 100})
-	m.SetReveal(0.8, true)
+	m.SetReveal(0.8, anim.VisualGrow)
 	got := extent(m.BackdropRegion())
 	if got.W > 21 || got.H > 21 || got.X < 38 {
 		t.Fatalf("region %+v, want the card, scaled", got)
@@ -78,12 +80,47 @@ func TestMorphFadeLeadsTheMotion(t *testing.T) {
 	m := NewMorph(&backdropProbe{})
 	for _, c := range []struct {
 		reveal float64
-		morph  bool
+		visual anim.Visual
 		want   float64
-	}{{0, true, 0}, {0.5, true, 0.8}, {1, true, 1}, {1.05, true, 1}, {-0.1, true, 0}, {0.5, false, 0.5}} {
-		m.SetReveal(c.reveal, c.morph)
+	}{
+		{0, anim.VisualGrow, 0},
+		{0.5, anim.VisualGrow, 0.8},
+		{1, anim.VisualGrow, 1},
+		{1.05, anim.VisualGrow, 1},
+		{-0.1, anim.VisualGrow, 0},
+		{0.5, anim.VisualFade, 0.5},
+		{0.5, anim.VisualLift, 0.5},
+		{1, anim.VisualLift, 1},
+		{0, anim.VisualLift, 0},
+	} {
+		m.SetReveal(c.reveal, c.visual)
 		if got := m.Fade(); got != c.want {
-			t.Errorf("reveal %v morph %v: fade %v, want %v", c.reveal, c.morph, got, c.want)
+			t.Errorf("reveal %v visual %v: fade %v, want %v", c.reveal, c.visual, got, c.want)
 		}
+	}
+}
+
+// A lifting surface's blur region is the whole content scaled up about
+// its center by the paint's own scale, LiftScale when hidden, and the
+// content's exactly at rest.
+func TestMorphBackdropRegionLiftsAboutTheCenter(t *testing.T) {
+	probe := &backdropProbe{shape: []render.Rect{{X: 20, Y: 20, W: 100, H: 200}}}
+	m := NewMorph(probe)
+	m.SetOrigin(0.5, 0)
+	m.SetPlate(20, nil)
+	m.Arrange(render.Rect{W: 140, H: 240})
+
+	m.SetReveal(0.5, anim.VisualLift)
+	mid := extent(m.BackdropRegion())
+	if mid.W <= 100 || mid.H <= 200 || mid.X+mid.W/2 != 70 || mid.Y+mid.H/2 != 120 {
+		t.Fatalf("mid lift: region %+v, want the content grown about its center", mid)
+	}
+	m.SetReveal(0.1, anim.VisualLift)
+	if late := extent(m.BackdropRegion()); late.W <= mid.W || late.H <= mid.H || float64(late.W) > 100*LiftScale+1 {
+		t.Fatalf("late in the exit: region %+v after %+v, want it grown further, at most LiftScale", late, mid)
+	}
+	m.SetReveal(1, anim.VisualLift)
+	if got := m.BackdropRegion(); !slices.Equal(got, probe.shape) {
+		t.Fatalf("at rest: region %v, want the content's %v", got, probe.shape)
 	}
 }

@@ -1,14 +1,16 @@
 // The enter/exit visual half of a popup: a widget.Morph the
-// coordinator drives. The popup grows out of the edge facing its
+// coordinator drives. A growing popup grows out of the edge facing its
 // anchor - scaling up while a rounded clip unrolls away from the
 // anchor and the surface fades in - with its shadow and plate drawn for
-// the unrolled shape, and shrinks back into the anchor on the way out.
-// Everything stays inside the popup's own surface.
+// the unrolled shape, and shrinks back into the anchor on the way out;
+// a lifting one scales about its center as it fades, and a fading one
+// only fades. Everything stays inside the popup's own surface.
 package popup
 
 import (
 	"github.com/stubbedev/lys/lib/render"
 
+	"github.com/stubbedev/lys/ui/anim"
 	"github.com/stubbedev/lys/ui/widget"
 )
 
@@ -18,18 +20,18 @@ type animView struct {
 	morph *widget.Morph
 }
 
-// newAnimView wraps root for motion painting. reveal and morph seed
+// newAnimView wraps root for motion painting. reveal and visual seed
 // the wrapper - the coordinator may already hold a frame from an Enter
 // that ran before the content existed (zero-duration enters land
 // inside New). The motion grows from the content edge facing the
 // anchor; plate paints the shadow and plate for a content rect inside
 // the inset gutter.
-func newAnimView(root widget.Widget, reveal float64, morph bool, g Gravity, inset int, plate func(cv *render.Canvas, content render.Rect)) *animView {
+func newAnimView(root widget.Widget, reveal float64, visual anim.Visual, g Gravity, inset int, plate func(cv *render.Canvas, content render.Rect)) *animView {
 	m := widget.NewMorph(root)
 	m.SetOrigin(originOf(g))
 	m.SetRadius(widget.Current().Radius)
 	m.SetPlate(inset, plate)
-	m.SetReveal(reveal, morph)
+	m.SetReveal(reveal, visual)
 	return &animView{morph: m}
 }
 
@@ -50,6 +52,6 @@ func originOf(g Gravity) (float64, float64) {
 }
 
 // setProgress applies one motion frame.
-func (a *animView) setProgress(reveal float64, morph bool) {
-	a.morph.SetReveal(reveal, morph)
+func (a *animView) setProgress(reveal float64, visual anim.Visual) {
+	a.morph.SetReveal(reveal, visual)
 }

@@ -49,7 +49,7 @@ func (p *inkProbe) HitTest(widget.Point) widget.Widget { return p }
 func newTweenView(t *testing.T, reveal float64, g Gravity) (*animView, *inkProbe) {
 	t.Helper()
 	probe := &inkProbe{}
-	v := newAnimView(probe, reveal, true, g, 0, nil)
+	v := newAnimView(probe, reveal, anim.VisualGrow, g, 0, nil)
 	widget.SizeWithin(v.morph, widget.Size{W: 100, H: 100})
 	v.morph.Arrange(render.Rect{X: 0, Y: 0, W: 60, H: 20})
 	return v, probe
@@ -66,7 +66,7 @@ func TestAnimViewFirstFramePaintsNothing(t *testing.T) {
 	}
 	// And the same holds for a recycled buffer that already holds the
 	// last opaque frame: Run raw-clears before the faded paint.
-	v.setProgress(1, true)
+	v.setProgress(1, anim.VisualGrow)
 	cv.ClearDevice(cv.Rect(), render.Color(0)) // raw clear, uncounted here
 	v.morph.Paint(cv)
 	if cv.Touched() == before {
@@ -74,7 +74,7 @@ func TestAnimViewFirstFramePaintsNothing(t *testing.T) {
 	}
 	opaque := cv.Touched()
 	before = cv.Touched()
-	v.setProgress(0.25, true)
+	v.setProgress(0.25, anim.VisualGrow)
 	v.morph.Paint(cv)
 	if cv.Touched() <= before || cv.Touched() < opaque/2 {
 		t.Errorf("mid-exit frame painted no ink (touched %d, before %d)", cv.Touched(), before)
@@ -496,7 +496,7 @@ func TestFirstConfigureFollowsThePopoverStyle(t *testing.T) {
 	if p, clock := configured(surfx.KindMenu, surfx.Style{From: 0.4}); p.Reveal() != 1 || clock.Active() {
 		t.Errorf("instant popover: reveal %v, tween running %v at the first configure; want rest", p.Reveal(), clock.Active())
 	}
-	long := surfx.Style{Enter: surfx.Spec{Duration: time.Hour}, Morph: true, From: 0.4}
+	long := surfx.Style{Enter: surfx.Spec{Duration: time.Hour, Visual: anim.VisualGrow}, From: 0.4}
 	p, clock := configured(surfx.KindMenu, long)
 	if p.Reveal() != 0.4 || !clock.Active() {
 		t.Errorf("long popover: reveal %v, tween running %v at the first configure; want 0.4, rising", p.Reveal(), clock.Active())

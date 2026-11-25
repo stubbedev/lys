@@ -40,7 +40,7 @@ var schemaDocs = map[string]string{
 	"AnimationsConfig.InteractionDuration":           "Duration in ms for in-place dropdown transitions: hover highlights and\nthe page/stack crossfades inside dropdowns. `enabled: false` removes\nthem entirely.",
 	"AnimationsConfig.Launcher":                      "Per-surface override for the application launcher.",
 	"AnimationsConfig.Lock":                          "Per-surface override for the lock screen reveal.",
-	"AnimationsConfig.Menu":                          "Per-surface override for menus, context menus, the lists of\ndropdown inputs and window previews. Enter and exit durations\ndefault to 0, so they open in the frame of the click; a longer one\nstarts already showing. `fade` only fades, any other transition\nalso grows the menu out of what it opened from.",
+	"AnimationsConfig.Menu":                          "Per-surface override for menus, context menus, the lists of\ndropdown inputs and window previews. Enter and exit durations\ndefault to 0, so they open in the frame of the click; a longer one\nstarts already showing. `fade` only fades, `lift` grows the menu\nabout its center as it fades, and any other transition grows it\nout of what it opened from and back into it.",
 	"AnimationsConfig.Notifications":                 "Per-surface override for notification popup cards.",
 	"AnimationsConfig.Osd":                           "Per-surface override for the OSD (volume/brightness/toggle/toast).",
 	"AnimationsConfig.Power":                         "Per-surface override for the power menu overlay.",

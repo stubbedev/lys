@@ -72,8 +72,9 @@ type AnimationsConfig struct {
 	// Per-surface override for menus, context menus, the lists of
 	// dropdown inputs and window previews. Enter and exit durations
 	// default to 0, so they open in the frame of the click; a longer one
-	// starts already showing. `fade` only fades, any other transition
-	// also grows the menu out of what it opened from.
+	// starts already showing. `fade` only fades, `lift` grows the menu
+	// about its center as it fades, and any other transition grows it
+	// out of what it opened from and back into it.
 	Menu SurfaceAnimation `cfg:"menu"`
 
 	// session is the compositor's say over reduced motion

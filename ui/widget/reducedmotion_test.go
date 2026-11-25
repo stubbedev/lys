@@ -35,7 +35,7 @@ func TestReducedMotionStopsMotionAndKeepsFades(t *testing.T) {
 	if plan.Enter.Duration <= 0 || plan.Enter.Duration > 500*time.Millisecond || plan.Enter.Spring != nil {
 		t.Errorf("reduced enter %+v, want a short plain fade", plan.Enter)
 	}
-	if plan.Morph {
+	if plan.Enter.Visual != anim.VisualFade || plan.Exit.Visual != anim.VisualFade {
 		t.Error("a surface still grows out of its anchor")
 	}
 	if moving.Enter.Spring == nil {

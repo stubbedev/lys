@@ -57,11 +57,13 @@ const (
 // Spec is one motion's shape: a tween's duration and curve, or a
 // physics spring (Spring set), which runs until it settles and may
 // overshoot the rest state - the surface swells past its size and
-// settles back.
+// settles back - and what the surface does along it, a fade by
+// default.
 type Spec struct {
 	Duration time.Duration
 	Easing   anim.Easing
 	Spring   *anim.SpringParams
+	Visual   anim.Visual
 }
 
 // revealPrecision is a reveal spring's settle precision: a reveal is a
@@ -91,15 +93,11 @@ func (s Spec) play(o anim.Owner, fn func(p float64)) anim.Cancel {
 	return anim.Play(o, tween)
 }
 
-// Style is a kind's enter and exit motion. Morph surfaces grow out of
-// the side facing their anchor - scaling up and unrolling a rounded
-// clip as they fade in - and shrink back into it on the way out;
-// without it they only fade. From is the reveal the enter starts at:
-// 0 paints nothing on the first frame, above it the first frame
-// already shows the surface.
+// Style is a kind's enter and exit motion, each with its own visual.
+// From is the reveal the enter starts at: 0 paints nothing on the
+// first frame, above it the first frame already shows the surface.
 type Style struct {
 	Enter, Exit Spec
-	Morph       bool
 	From        float64
 }
 
@@ -110,28 +108,24 @@ type Style struct {
 // back into the anchor.
 var Defaults = map[Kind]Style{
 	KindMenu: {
-		Enter: Spec{Spring: &anim.SpringSnappy},
-		Exit:  Spec{Duration: anim.DurationShort, Easing: anim.EmphasizedAccelerate},
-		Morph: true,
+		Enter: Spec{Spring: &anim.SpringSnappy, Visual: anim.VisualGrow},
+		Exit:  Spec{Duration: anim.DurationShort, Easing: anim.EmphasizedAccelerate, Visual: anim.VisualGrow},
 	},
 	KindTooltip: {
 		Enter: Spec{Duration: anim.DurationShort * 3 / 4, Easing: anim.EmphasizedDecelerate},
 		Exit:  Spec{Duration: anim.DurationShort / 2, Easing: anim.EmphasizedAccelerate},
 	},
 	KindToast: {
-		Enter: Spec{Spring: &anim.SpringBouncy},
-		Exit:  Spec{Duration: anim.DurationMedium, Easing: anim.EmphasizedAccelerate},
-		Morph: true,
+		Enter: Spec{Spring: &anim.SpringBouncy, Visual: anim.VisualGrow},
+		Exit:  Spec{Duration: anim.DurationMedium, Easing: anim.EmphasizedAccelerate, Visual: anim.VisualGrow},
 	},
 	KindDialog: {
-		Enter: Spec{Spring: &anim.SpringSmooth},
-		Exit:  Spec{Duration: anim.DurationShort, Easing: anim.EmphasizedAccelerate},
-		Morph: true,
+		Enter: Spec{Spring: &anim.SpringSmooth, Visual: anim.VisualGrow},
+		Exit:  Spec{Duration: anim.DurationShort, Easing: anim.EmphasizedAccelerate, Visual: anim.VisualGrow},
 	},
 	KindOverlay: {
-		Enter: Spec{Spring: &anim.SpringSmooth},
-		Exit:  Spec{Duration: anim.DurationMedium, Easing: anim.EmphasizedAccelerate},
-		Morph: true,
+		Enter: Spec{Spring: &anim.SpringSmooth, Visual: anim.VisualGrow},
+		Exit:  Spec{Duration: anim.DurationMedium, Easing: anim.EmphasizedAccelerate, Visual: anim.VisualGrow},
 	},
 }
 
@@ -214,7 +208,7 @@ func Plan(k Kind, motion bool) Style {
 	reduced := !motion || anim.Reduced()
 	switch {
 	case styled && reduced:
-		own.Morph = false
+		own.Enter.Visual, own.Exit.Visual = anim.VisualFade, anim.VisualFade
 		return own
 	case styled:
 		return own
@@ -231,10 +225,10 @@ func Plan(k Kind, motion bool) Style {
 // never touches wire objects itself.
 type Driver interface {
 	// ApplyVisual applies the reveal fraction, 0 hidden through 1 at
-	// rest - a spring enter may overshoot past 1 before it settles.
-	// morph says whether the surface grows out of its anchor (scale and
-	// clip with the fade) or only fades.
-	ApplyVisual(reveal float64, morph bool)
+	// rest - a spring enter may overshoot past 1 before it settles -
+	// drawn as visual says: a fade, a growth out of the anchor, or a
+	// lift.
+	ApplyVisual(reveal float64, visual anim.Visual)
 	// MarkFrame schedules a repaint of the current visual and wakes the
 	// surface's loop if it is parked. Called once per tween frame.
 	MarkFrame()
@@ -280,8 +274,8 @@ type Coordinator struct {
 	cancelEnter anim.Cancel
 	cancelExit  anim.Cancel
 	onDismissed func()
-	// morph is the running style's Morph, applied with every frame.
-	morph bool
+	// visual is the running direction's, applied with every frame.
+	visual anim.Visual
 }
 
 // NewCoordinator builds the machine for one surface of kind k, whose
@@ -323,12 +317,13 @@ func (c *Coordinator) Reveal() float64 {
 	return c.reveal
 }
 
-// Visual returns the current frame: the reveal fraction and whether
-// the motion morphs, for a driver building its view after frames ran.
-func (c *Coordinator) Visual() (reveal float64, morph bool) {
+// Visual returns the current frame: the reveal fraction and the
+// running direction's visual, for a driver building its view after
+// frames ran.
+func (c *Coordinator) Visual() (reveal float64, visual anim.Visual) {
 	c.mp.Lock()
 	defer c.mp.Unlock()
-	return c.reveal, c.morph
+	return c.reveal, c.visual
 }
 
 // motionOn resolves the motion decision for a launch.
@@ -355,7 +350,7 @@ func (c *Coordinator) Enter() {
 	}
 	c.ph = phaseOpen
 	st := Plan(c.kind, c.motionOn())
-	c.morph = st.Morph
+	c.visual = st.Enter.Visual
 	c.reveal = st.From
 	c.mp.Unlock()
 	// The first frame applies synchronously at the style's From,
@@ -363,7 +358,7 @@ func (c *Coordinator) Enter() {
 	// hidden/offset one (or, for a From above 0, an already readable
 	// one) — never a flash of the finished surface. (A zero duration
 	// then lands 1 inside play, on the same call stack.)
-	c.drv.ApplyVisual(st.From, st.Morph)
+	c.drv.ApplyVisual(st.From, st.Enter.Visual)
 	cancel := c.play(st.Enter, true, st.From)
 	c.mp.Lock()
 	if c.ph == phaseOpen && !c.destroyed {
@@ -389,7 +384,7 @@ func (c *Coordinator) Dismiss() bool {
 		c.cancelEnter = nil
 	}
 	st := Plan(c.kind, c.motionOn())
-	c.morph = st.Morph
+	c.visual = st.Exit.Visual
 	c.mp.Unlock()
 	// Input dies before the first exit frame: the seal is the whole
 	// click-through guarantee, and for a still-held client-side grab it
@@ -428,9 +423,9 @@ func (c *Coordinator) play(spec Spec, rising bool, start float64) anim.Cancel {
 			reveal = start * (1 - p)
 		}
 		c.reveal = reveal
-		morph := c.morph
+		visual := c.visual
 		c.mp.Unlock()
-		c.drv.ApplyVisual(reveal, morph)
+		c.drv.ApplyVisual(reveal, visual)
 		c.drv.MarkFrame()
 		if !rising && p >= 1 {
 			c.finishExit()

@@ -12,6 +12,7 @@ import (
 	"github.com/stubbedev/lys/lib/render"
 	"golang.org/x/image/font/gofont/goregular"
 
+	"github.com/stubbedev/lys/ui/anim"
 	"github.com/stubbedev/lys/ui/internal/surfx"
 	"github.com/stubbedev/lys/ui/internal/wlsession"
 	"github.com/stubbedev/lys/ui/widget"
@@ -366,19 +367,20 @@ func TestSetSurfaceMotion(t *testing.T) {
 }
 
 // The app's popover motion holds with surface motion off: a timed one
-// starts already showing, a zero one is instant, a negative duration
-// reads as zero, and reduced motion keeps the durations as a plain fade.
+// starts already showing with each direction's visual, a zero one is
+// instant, a negative duration reads as zero, and reduced motion keeps
+// the durations as a plain fade both ways.
 func TestSetPopoverMotion(t *testing.T) {
 	a := testApp(nil)
 	t.Cleanup(surfx.SetStyle(surfx.KindMenu, surfx.Style{}))
 	t.Cleanup(func() { surfx.SetEnabled(true) })
 	a.SetSurfaceMotion(false)
-	a.SetPopoverMotion(PopoverMotion{Enter: 300 * time.Millisecond, Exit: 100 * time.Millisecond, Grow: true})
+	a.SetPopoverMotion(PopoverMotion{Enter: 300 * time.Millisecond, Exit: 100 * time.Millisecond, EnterVisual: anim.VisualGrow, ExitVisual: anim.VisualLift})
 	st := surfx.Plan(surfx.KindMenu, true)
-	if st.Enter.Duration != 300*time.Millisecond || st.Exit.Duration != 100*time.Millisecond || st.Enter.Spring != nil || !st.Morph || st.From <= 0 {
-		t.Errorf("timed popover motion = %+v, want a 300ms growing tween starting above 0", st)
+	if st.Enter.Duration != 300*time.Millisecond || st.Exit.Duration != 100*time.Millisecond || st.Enter.Spring != nil || st.Enter.Visual != anim.VisualGrow || st.Exit.Visual != anim.VisualLift || st.From <= 0 {
+		t.Errorf("timed popover motion = %+v, want a 300ms growing tween starting above 0 and a lifting exit", st)
 	}
-	if st := surfx.Plan(surfx.KindMenu, false); st.Morph || st.Enter.Duration != 300*time.Millisecond {
+	if st := surfx.Plan(surfx.KindMenu, false); st.Enter.Visual != anim.VisualFade || st.Exit.Visual != anim.VisualFade || st.Enter.Duration != 300*time.Millisecond {
 		t.Errorf("reduced popover motion = %+v, want the 300ms as a plain fade", st)
 	}
 	if st := surfx.Plan(surfx.KindOverlay, true); st.Enter.Duration != 0 || st.Enter.Spring != nil {

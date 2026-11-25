@@ -9761,6 +9761,7 @@
       "shell/shell/sharepicker",
       "shell/shell/shotthumb",
       "shell/shell/wallpaper",
+      "ui/anim",
       "ui/app",
       "ui/gtksettings",
       "ui/transfer",
@@ -9825,7 +9826,6 @@
       "shell/internal/keytest",
       "shell/internal/notifytest",
       "shell/service/recorder/recordertest",
-      "ui/anim",
       "ui/atspitest"
     ],
     "testExternal": [
@@ -12567,6 +12567,7 @@
   "ui/ui": {
     "imports": [
       "lib/render",
+      "ui/anim",
       "ui/component",
       "ui/media",
       "ui/widget"

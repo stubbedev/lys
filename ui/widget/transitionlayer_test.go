@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/lib/render"
+
+	"github.com/stubbedev/lys/ui/anim"
 )
 
 // A transition paints through layers, a full-canvas buffer each, and
@@ -48,12 +50,12 @@ func TestTransitionLayersGoAtRest(t *testing.T) {
 	}
 
 	m := NewMorph(newStub(w, h))
-	m.SetReveal(0.5, true)
+	m.SetReveal(0.5, anim.VisualGrow)
 	paint(m)
 	if m.layer == nil {
 		t.Fatal("a morphing Morph painted without its layer")
 	}
-	m.SetReveal(1, true)
+	m.SetReveal(1, anim.VisualGrow)
 	paint(m)
 	if m.layer != nil || m.inner != nil {
 		t.Error("a Morph at rest kept its reveal's layers")

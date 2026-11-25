@@ -293,7 +293,7 @@
             "exit": null,
             "exit-duration": 0
           },
-          "description": "Per-surface override for menus, context menus, the lists of\ndropdown inputs and window previews. Enter and exit durations\ndefault to 0, so they open in the frame of the click; a longer one\nstarts already showing. `fade` only fades, any other transition\nalso grows the menu out of what it opened from."
+          "description": "Per-surface override for menus, context menus, the lists of\ndropdown inputs and window previews. Enter and exit durations\ndefault to 0, so they open in the frame of the click; a longer one\nstarts already showing. `fade` only fades, `lift` grows the menu\nabout its center as it fades, and any other transition grows it\nout of what it opened from and back into it."
         },
         "notifications": {
           "$ref": "#/$defs/SurfaceAnimation",

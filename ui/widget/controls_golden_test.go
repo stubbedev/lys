@@ -6,6 +6,7 @@ import (
 
 	"github.com/stubbedev/lys/lib/render"
 
+	"github.com/stubbedev/lys/ui/anim"
 	"github.com/stubbedev/lys/ui/internal/sysfont"
 	"github.com/stubbedev/lys/ui/widget/css"
 )
@@ -184,7 +185,7 @@ func TestGoldenMorphMidEnter(t *testing.T) {
 		Current().DrawShadow(cv, c, 8)
 		cv.RoundedRect(c, 8, Current().PopoverColor())
 	})
-	m.SetReveal(0.5, true)
+	m.SetReveal(0.5, anim.VisualGrow)
 	NewGolden(t, m, "morph-mid-enter", goldenTheme(DarkTheme()))
 }
 

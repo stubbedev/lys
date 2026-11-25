@@ -42,6 +42,7 @@ import (
 	"github.com/stubbedev/lys/lib/wallclock"
 	"github.com/stubbedev/lys/lib/wlr"
 	"github.com/stubbedev/lys/lib/xdg"
+	"github.com/stubbedev/lys/ui/anim"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
 
@@ -128,21 +129,32 @@ func followMotion(application *app.Application, cfg *config.Config, svc *config.
 }
 
 // popoverMotion is animations.menu as lys-ui's popover motion: each
-// direction's duration, none for a `none` transition, and growing out
-// of the anchor for any transition but a fade.
+// direction's duration, none for a `none` transition, and its visual.
 func popoverMotion(a config.AnimationsConfig) app.PopoverMotion {
-	duration := func(exiting bool) time.Duration {
-		if a.TransitionFor(config.AnimMenu, exiting) == config.AnimationNone {
-			return 0
+	direction := func(exiting bool) (time.Duration, anim.Visual) {
+		t := a.TransitionFor(config.AnimMenu, exiting)
+		if t == config.AnimationNone {
+			return 0, anim.VisualFade
 		}
-		return time.Duration(a.DurationFor(config.AnimMenu, exiting)) * time.Millisecond
+		return time.Duration(a.DurationFor(config.AnimMenu, exiting)) * time.Millisecond, popoverVisual(t)
 	}
-	enter := a.TransitionFor(config.AnimMenu, false)
-	return app.PopoverMotion{
-		Enter: duration(false),
-		Exit:  duration(true),
-		Grow:  enter != config.AnimationNone && enter != config.AnimationFade,
+	m := app.PopoverMotion{}
+	m.Enter, m.EnterVisual = direction(false)
+	m.Exit, m.ExitVisual = direction(true)
+	return m
+}
+
+// popoverVisual is how a popover draws a moving transition: a fade
+// fades, a lift lifts, and every other transition grows out of the
+// anchor and back into it.
+func popoverVisual(t config.AnimationType) anim.Visual {
+	switch t {
+	case config.AnimationFade:
+		return anim.VisualFade
+	case config.AnimationLift:
+		return anim.VisualLift
 	}
+	return anim.VisualGrow
 }
 
 // RunWith shows the bar from a prepared config: one layer surface per

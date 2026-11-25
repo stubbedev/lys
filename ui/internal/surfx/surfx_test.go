@@ -25,11 +25,11 @@ type recDriver struct {
 	frames    int
 	sealed    bool
 	destroyed int
-	morph     bool
+	visual    anim.Visual
 }
 
-func (d *recDriver) ApplyVisual(reveal float64, morph bool) {
-	d.morph = morph
+func (d *recDriver) ApplyVisual(reveal float64, visual anim.Visual) {
+	d.visual = visual
 	d.reveal = reveal
 	d.frames++
 	d.events = append(d.events, fmt.Sprintf("frame %.3f", reveal))
@@ -54,9 +54,9 @@ func (s Spec) moves() bool { return s.Duration > 0 || s.Spring != nil }
 // only whether each has one counts.
 func sameStyle(a, b Style) bool {
 	same := func(x, y Spec) bool {
-		return x.Duration == y.Duration && x.Spring == y.Spring && (x.Easing == nil) == (y.Easing == nil)
+		return x.Duration == y.Duration && x.Spring == y.Spring && (x.Easing == nil) == (y.Easing == nil) && x.Visual == y.Visual
 	}
-	return same(a.Enter, b.Enter) && same(a.Exit, b.Exit) && a.Morph == b.Morph && a.From == b.From
+	return same(a.Enter, b.Enter) && same(a.Exit, b.Exit) && a.From == b.From
 }
 
 // last, without the trailing element.
@@ -262,10 +262,12 @@ func TestPerKindDefaults(t *testing.T) {
 	menu, tooltip, dialog := Plan(KindMenu, true), Plan(KindTooltip, true), Plan(KindDialog, true)
 	// Menus and dialogs morph out of their anchor on springs; tooltips
 	// stay a quick fade.
-	if menu.Enter.Spring == nil || !menu.Morph || dialog.Enter.Spring == nil || !dialog.Morph {
-		t.Errorf("menu %+v / dialog %+v: want spring enters that morph", menu, dialog)
+	for _, st := range []Style{menu, dialog} {
+		if st.Enter.Spring == nil || st.Enter.Visual != anim.VisualGrow || st.Exit.Visual != anim.VisualGrow {
+			t.Errorf("menu %+v / dialog %+v: want spring enters that grow, and exits that shrink back", menu, dialog)
+		}
 	}
-	if tooltip.Enter.Spring != nil || tooltip.Enter.Duration <= 0 || tooltip.Morph {
+	if tooltip.Enter.Spring != nil || tooltip.Enter.Duration <= 0 || tooltip.Enter.Visual != anim.VisualFade || tooltip.Exit.Visual != anim.VisualFade {
 		t.Errorf("tooltip %+v: want a short tween fade", tooltip)
 	}
 	if menu.Exit.Duration <= 0 || menu.Exit.Spring != nil {
@@ -273,7 +275,7 @@ func TestPerKindDefaults(t *testing.T) {
 	}
 	// Reduced motion (the theme's switch) is a short fade, no movement;
 	// the package toggle and LYS_UI_NO_ANIM are instant.
-	if got := Plan(KindMenu, false); got.Morph || got.Enter.Spring != nil || got.Enter.Duration <= 0 || got.Enter.Duration > 100*time.Millisecond {
+	if got := Plan(KindMenu, false); got.Enter.Visual != anim.VisualFade || got.Exit.Visual != anim.VisualFade || got.Enter.Spring != nil || got.Enter.Duration <= 0 || got.Enter.Duration > 100*time.Millisecond {
 		t.Errorf("reduced-motion plan = %+v, want a short plain fade", got)
 	}
 	t.Cleanup(anim.SetInstant(true))
@@ -311,8 +313,8 @@ func TestSpringEnterOvershootsAndSettles(t *testing.T) {
 	fx.Enter()
 	peak := 0.0
 	driveClock(t, &clock, func() { peak = max(peak, d.reveal) })
-	if peak <= 1 || d.reveal != 1 || !d.morph {
-		t.Errorf("peak %v, rest %v, morph %v: want an overshoot settling at exactly 1, morphing", peak, d.reveal, d.morph)
+	if peak <= 1 || d.reveal != 1 || d.visual != anim.VisualGrow {
+		t.Errorf("peak %v, rest %v, visual %v: want an overshoot settling at exactly 1, growing", peak, d.reveal, d.visual)
 	}
 
 	var reduced anim.Clock
@@ -320,8 +322,8 @@ func TestSpringEnterOvershootsAndSettles(t *testing.T) {
 	fx = NewCoordinator(&reduced, KindMenu, d, func() bool { return false })
 	fx.Enter()
 	driveClock(t, &reduced, nil)
-	if d.reveal != 1 || d.morph || d.frames < 3 {
-		t.Errorf("reduced motion: rest %v, morph %v over %d frames; want a plain fade over a few frames", d.reveal, d.morph, d.frames)
+	if d.reveal != 1 || d.visual != anim.VisualFade || d.frames < 3 {
+		t.Errorf("reduced motion: rest %v, visual %v over %d frames; want a plain fade over a few frames", d.reveal, d.visual, d.frames)
 	}
 }
 
@@ -359,7 +361,7 @@ func TestDismissMidEnterReverses(t *testing.T) {
 // restoring brings the default back.
 func TestSetStyleOverridesAndRestores(t *testing.T) {
 	t.Cleanup(SetEnabled(true))
-	own := Style{Enter: Spec{Duration: 5 * time.Millisecond, Easing: anim.Linear}, Exit: Spec{Duration: 5 * time.Millisecond}, Morph: true, From: 0.4}
+	own := Style{Enter: Spec{Duration: 5 * time.Millisecond, Easing: anim.Linear}, Exit: Spec{Duration: 5 * time.Millisecond, Visual: anim.VisualLift}, From: 0.4}
 	restore := SetStyle(KindDialog, own)
 	if got := Plan(KindDialog, true); !sameStyle(got, own) {
 		t.Errorf("styled plan = %+v, want %+v", got, own)
@@ -386,13 +388,17 @@ func TestSetStyleOverridesAndRestores(t *testing.T) {
 	}
 }
 
-// Reduced motion keeps an app's durations and drops only the growth;
-// KindStill and LYS_UI_NO_ANIM never move, styled or not.
+// Reduced motion keeps an app's durations and fades both ways, a lift
+// or growth dropped; KindStill and LYS_UI_NO_ANIM never move, styled or
+// not.
 func TestStyledPlanUnderReducedMotionAndStill(t *testing.T) {
-	own := Style{Enter: Spec{Duration: 300 * time.Millisecond}, Exit: Spec{Duration: 200 * time.Millisecond}, Morph: true, From: 0.4}
+	own := Style{Enter: Spec{Duration: 300 * time.Millisecond, Visual: anim.VisualGrow}, Exit: Spec{Duration: 200 * time.Millisecond, Visual: anim.VisualLift}, From: 0.4}
 	t.Cleanup(SetStyle(KindMenu, own))
+	if got := Plan(KindMenu, true); got.Enter.Visual != anim.VisualGrow || got.Exit.Visual != anim.VisualLift {
+		t.Errorf("styled plan = %+v, want the app's grow in and lift out", got)
+	}
 	got := Plan(KindMenu, false)
-	if got.Morph || got.Enter.Duration != own.Enter.Duration || got.Exit.Duration != own.Exit.Duration || got.From != own.From {
+	if got.Enter.Visual != anim.VisualFade || got.Exit.Visual != anim.VisualFade || got.Enter.Duration != own.Enter.Duration || got.Exit.Duration != own.Exit.Duration || got.From != own.From {
 		t.Errorf("reduced styled plan = %+v, want the app's durations as a plain fade", got)
 	}
 	t.Cleanup(SetStyle(KindStill, own))
@@ -410,7 +416,7 @@ func TestStyledPlanUnderReducedMotionAndStill(t *testing.T) {
 // zero duration lands at rest before Enter returns.
 func TestStyledEnterStartsAtFrom(t *testing.T) {
 	t.Cleanup(animclock.SetClock(func() time.Time { return time.Unix(1750000000, 0) }))
-	t.Cleanup(SetStyle(KindMenu, Style{Enter: Spec{Duration: 400 * time.Millisecond, Easing: anim.Linear}, Morph: true, From: 0.4}))
+	t.Cleanup(SetStyle(KindMenu, Style{Enter: Spec{Duration: 400 * time.Millisecond, Easing: anim.Linear, Visual: anim.VisualGrow}, From: 0.4}))
 	var clock anim.Clock
 	d := &recDriver{}
 	fx := NewCoordinator(&clock, KindMenu, d, func() bool { return true })
@@ -435,5 +441,42 @@ func TestStyledEnterStartsAtFrom(t *testing.T) {
 	NewCoordinator(&instant, KindMenu, d, func() bool { return true }).Enter()
 	if d.reveal != 1 || instant.Active() {
 		t.Errorf("zero duration: reveal %v, clock active %v; want rest inside Enter", d.reveal, instant.Active())
+	}
+}
+
+// Each direction draws its own visual: a growing enter grows on every
+// frame, the lifting exit lifts on every frame from the first, and the
+// visual a driver reads back follows the direction running.
+func TestEachDirectionAppliesItsOwnVisual(t *testing.T) {
+	t.Cleanup(animclock.SetClock(func() time.Time { return time.Unix(1750000000, 0) }))
+	t.Cleanup(SetStyle(KindMenu, Style{
+		Enter: Spec{Duration: 100 * time.Millisecond, Easing: anim.Linear, Visual: anim.VisualGrow},
+		Exit:  Spec{Duration: 100 * time.Millisecond, Easing: anim.Linear, Visual: anim.VisualLift},
+	}))
+	var clock anim.Clock
+	d := &recDriver{}
+	fx := NewCoordinator(&clock, KindMenu, d, func() bool { return true })
+	fx.Enter()
+	driveClock(t, &clock, func() {
+		if d.visual != anim.VisualGrow {
+			t.Errorf("an enter frame drew %v, want the enter's growth", d.visual)
+		}
+	})
+	if _, v := fx.Visual(); v != anim.VisualGrow || d.reveal != 1 {
+		t.Fatalf("at rest: visual %v reveal %v, want the enter's growth at 1", v, d.reveal)
+	}
+	fx.Dismiss()
+	if _, v := fx.Visual(); v != anim.VisualLift {
+		t.Errorf("dismissed: visual %v, want the exit's lift", v)
+	}
+	exitFrames := 0
+	driveClock(t, &clock, func() {
+		exitFrames++
+		if d.visual != anim.VisualLift {
+			t.Errorf("an exit frame drew %v, want the exit's lift", d.visual)
+		}
+	})
+	if exitFrames == 0 || d.destroyed != 1 {
+		t.Errorf("exit ran %d frames, destroyed %d times; want a lifting exit, then one destroy", exitFrames, d.destroyed)
 	}
 }

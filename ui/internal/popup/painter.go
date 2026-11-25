@@ -107,8 +107,8 @@ func (p *Popup) NewPainter(sess *wlsession.Session, gpu Renderer, frac120 uint32
 		gutter:  p.gutter,
 	}
 	pc.pool = buffer.New(pc.create, 2)
-	reveal, morph := p.fx.Visual()
-	p.anim = newAnimView(root, reveal, morph, p.gravity, p.gutter, pc.paintPlate)
+	reveal, visual := p.fx.Visual()
+	p.anim = newAnimView(root, reveal, visual, p.gravity, p.gutter, pc.paintPlate)
 	p.anim.morph.SetPlateOpaque(!pc.noPlate && bg.A() == 0xff)
 	pc.visual = p.anim.morph
 	pc.unhost = widget.Host(pc.visual, pc.clock)

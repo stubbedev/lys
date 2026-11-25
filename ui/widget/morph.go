@@ -4,23 +4,25 @@ import (
 	"math"
 
 	"github.com/stubbedev/lys/lib/render"
+
+	"github.com/stubbedev/lys/ui/anim"
 )
 
 // Morph is a transient surface's enter and exit visual: it grows its
 // child out of an origin side - scaling up from 92% while a rounded
 // clip unrolls from that side and the subtree fades in - and shrinks
 // it back on the way out. A reveal past 1 (a spring's overshoot)
-// swells the child a touch past its size. Without morphing it only
-// fades. Layout and hit-testing pass straight through: the motion is
+// swells the child a touch past its size. Lifting, it scales the child
+// about its center from LiftScale as it fades, without a clip; fading,
+// it only fades. Layout and hit-testing pass straight through: the motion is
 // visual, and a surface mid-enter takes clicks like one at rest. The
 // paint never leaves the wrapper's bounds.
 type Morph struct {
 	node
 	child Widget
-	// reveal is 0 hidden through 1 at rest; morph picks growing over a
-	// plain fade.
+	// reveal is 0 hidden through 1 at rest, drawn as visual says.
 	reveal float64
-	morph  bool
+	visual anim.Visual
 	// originX and originY are the fractions of the bounds the motion
 	// grows from: (0.5, 0) the top edge's middle, (0.5, 0.5) the center.
 	originX, originY float64
@@ -52,20 +54,20 @@ func NewMorph(child Widget) *Morph {
 // Child returns the wrapped widget.
 func (m *Morph) Child() Widget { return m.child }
 
-// SetReveal applies one motion frame: the reveal fraction and whether
-// the child grows (true) or only fades.
-func (m *Morph) SetReveal(reveal float64, morph bool) {
-	if m.reveal == reveal && m.morph == morph {
+// SetReveal applies one motion frame: the reveal fraction and how the
+// child shows it, fading, growing or lifting.
+func (m *Morph) SetReveal(reveal float64, visual anim.Visual) {
+	if m.reveal == reveal && m.visual == visual {
 		return
 	}
-	m.reveal, m.morph = reveal, morph
+	m.reveal, m.visual = reveal, visual
 	m.Invalidate()
 }
 
 // Fade is the opacity of the surface at the current reveal.
 func (m *Morph) Fade() float64 {
 	r := math.Max(0, m.reveal)
-	if m.morph {
+	if m.visual == anim.VisualGrow {
 		r *= morphFade
 	}
 	return math.Min(1, r)
@@ -106,14 +108,13 @@ func (m *Morph) BackdropRegion() []render.Rect {
 	} else {
 		rest = BackdropRegion(m.child)
 	}
-	if !m.morph || m.reveal == 1 {
+	if m.visual == anim.VisualFade || m.reveal == 1 {
 		return rest
 	}
 	content := m.shownContent()
-	clip := m.clipAt(content, m.reveal)
-	s := morphScale + float64((1-morphScale)*m.reveal)
-	ox := float64(content.X) + float64(m.originX*float64(content.W))
-	oy := float64(content.Y) + float64(m.originY*float64(content.H))
+	clip, s, fx, fy := m.motionAt(content)
+	ox := float64(content.X) + float64(fx*float64(content.W))
+	oy := float64(content.Y) + float64(fy*float64(content.H))
 	at := func(v, o float64) int { return int(math.Round(o + float64((v-o)*s))) }
 	out := make([]render.Rect, 0, len(rest))
 	for _, r := range rest {
@@ -255,10 +256,10 @@ func (m *Morph) Paint(cv *render.Canvas) {
 	switch {
 	case r <= 0 || m.child == nil:
 		return
-	case !m.morph && r >= 1, m.morph && r == 1:
+	case m.visual == anim.VisualFade && r >= 1, m.visual != anim.VisualFade && r == 1:
 		m.paintAtRest(cv)
 		return
-	case !m.morph:
+	case m.visual == anim.VisualFade:
 		prev := cv.PushAlpha(m.paintedFade())
 		m.paintAtRest(cv)
 		cv.PopAlpha(prev)
@@ -272,9 +273,7 @@ func (m *Morph) Paint(cv *render.Canvas) {
 	l := cv.Layer(layer, dev)
 	m.layer = l
 	content := m.shownContent()
-	// The clip unrolls from the origin side; a centered origin has no
-	// side, so it only scales.
-	clip := m.clipAt(content, r)
+	clip, s, fx, fy := m.motionAt(content)
 	if clip == content {
 		m.paintAtRest(l.Canvas())
 	} else {
@@ -289,10 +288,9 @@ func (m *Morph) Paint(cv *render.Canvas) {
 		in.ApplyPathMask(p, dev)
 		l.Canvas().DrawLayer(in, dev, render.BlendNormal)
 	}
-	s := morphScale + float64((1-morphScale)*r)
 	devContent := cv.MapRect(content)
-	ox := float64(devContent.X) + float64(m.originX*float64(devContent.W))
-	oy := float64(devContent.Y) + float64(m.originY*float64(devContent.H))
+	ox := float64(devContent.X) + float64(fx*float64(devContent.W))
+	oy := float64(devContent.Y) + float64(fy*float64(devContent.H))
 	prev := cv.PushClip(b)
 	cv.Composite(l, dev, render.Scale(s, s).About(ox, oy), m.paintedFade())
 	cv.PopClip(prev)
@@ -307,6 +305,19 @@ func keepOrFree(taken *render.Layer, kept **render.Layer) {
 		return
 	}
 	taken.Free()
+}
+
+// motionAt is the moving frame of the content rect b at the current
+// reveal: the clip it shows, the scale it is drawn at, and the point
+// that scale is about, as fractions of b. A growing child unrolls its
+// clip from the origin side, a centered origin having no side, and
+// scales up from morphScale about the origin; a lifting one shows
+// whole and scales down from LiftScale about its center.
+func (m *Morph) motionAt(b render.Rect) (clip render.Rect, scale, fx, fy float64) {
+	if m.visual == anim.VisualLift {
+		return b, LiftScale + float64((1-LiftScale)*m.reveal), 0.5, 0.5
+	}
+	return m.clipAt(b, m.reveal), morphScale + float64((1-morphScale)*m.reveal), m.originX, m.originY
 }
 
 // clipAt is the unrolled clip of the content rect b at reveal r: cut
