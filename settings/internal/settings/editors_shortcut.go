@@ -255,7 +255,7 @@ func newAppShortcutsEditor(k *kit, binds slot) *appShortcutsEditor {
 	e.state = k.cardState()
 	e.rows = widget.NewItemGroup()
 	e.Append(e.rows, false)
-	e.reload = k.reloadButton("wm-app-shortcuts-reload", e.load)
+	e.reload, _ = k.contentButton(roleSecondary, "ld-refresh-cw-symbolic", locale.T().Get("wm-app-shortcuts-reload"), e.load)
 	e.reload.SetHAlign(widget.AlignStart)
 	e.Append(e.reload, false)
 	e.load()

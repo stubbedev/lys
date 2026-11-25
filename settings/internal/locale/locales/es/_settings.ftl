@@ -97,6 +97,7 @@ settings-icon-none = Sin icono
 settings-icon-clear = Quitar el icono
 settings-icon-search = Buscar iconos
 settings-list-add = Añadir
+settings-binds-add = Añadir un atajo
 settings-list-remove = Quitar
 settings-chip-remove = Quitar { $name }
 settings-list-removed = Quitado

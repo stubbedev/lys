@@ -97,6 +97,7 @@ settings-icon-none = Kein Symbol
 settings-icon-clear = Symbol entfernen
 settings-icon-search = Symbole suchen
 settings-list-add = Hinzufügen
+settings-binds-add = Tastenkürzel hinzufügen
 settings-list-remove = Entfernen
 settings-chip-remove = { $name } entfernen
 settings-list-removed = Entfernt

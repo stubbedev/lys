@@ -473,6 +473,7 @@ settings-inherit = Hériter (par défaut)
 settings-inherited = Hérité
 settings-icon-clear = Effacer l'icône
 settings-list-add = Ajouter
+settings-binds-add = Ajouter un raccourci
 settings-list-remove = Supprimer
 settings-chip-remove = Supprimer { $name }
 settings-list-removed = Supprimé

@@ -94,6 +94,7 @@ settings-icon-none = Geen pictogram
 settings-icon-clear = Pictogram wissen
 settings-icon-search = Pictogrammen zoeken
 settings-list-add = Toevoegen
+settings-binds-add = Sneltoets toevoegen
 settings-list-remove = Verwijderen
 settings-chip-remove = { $name } verwijderen
 settings-list-removed = Verwijderd
