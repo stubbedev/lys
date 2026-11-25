@@ -2,6 +2,7 @@ package answer
 
 import (
 	"context"
+	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -358,6 +359,32 @@ func TestParsersAllocateNothingOnOtherQueries(t *testing.T) {
 		})
 		if allocs != 0 {
 			t.Errorf("%q: %v allocations per query", q, allocs)
+		}
+	}
+}
+
+func TestAnAmountShowsCentsOrJustEnoughDecimalsToNotReadZero(t *testing.T) {
+	for _, c := range []struct {
+		amount   string
+		decimals int
+		plain    string
+	}{
+		{"92.4", 2, "92.40"},
+		{"0", 2, "0.00"},
+		{"0.005", 2, "0.01"},
+		{"0.000059", 6, "0.000059"},
+		{"0.00012", 5, "0.00012"},
+		{"0.0000001", 0, "0"},
+	} {
+		v, ok := new(big.Rat).SetString(c.amount)
+		if !ok {
+			t.Fatalf("%q is not a decimal", c.amount)
+		}
+		if got := AmountDecimals(v); got != c.decimals {
+			t.Errorf("AmountDecimals(%s) = %d, want %d", c.amount, got, c.decimals)
+		}
+		if got := FormatAmount(v); got != c.plain {
+			t.Errorf("FormatAmount(%s) = %q, want %q", c.amount, got, c.plain)
 		}
 	}
 }

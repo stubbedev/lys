@@ -7,6 +7,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/lib/third_party/gomath"
 
 	"github.com/stubbedev/lys/shell/service/launcher"
@@ -20,12 +21,21 @@ import (
 // a handful of functions and constants - and does no units; qalc
 // through a script mode is still the answer for those.
 type Calc struct {
-	// result is the last successfully evaluated result, as shown.
-	result *string
+	l *i18n.Loader
+	// result is the last successfully evaluated result.
+	result *calcResult
 }
 
-// NewCalc builds the mode.
-func NewCalc() *Calc { return &Calc{} }
+// calcResult is an answer as its row shows it, in the locale's digits,
+// and as it is copied and continued with, in the digits an expression
+// reads back.
+type calcResult struct{ value, shown string }
+
+// NewCalc builds the mode, showing results in the shell's locale.
+func NewCalc() *Calc { return newCalcIn(i18n.Shell()) }
+
+// newCalcIn builds the mode showing results in l's locale.
+func newCalcIn(l *i18n.Loader) *Calc { return &Calc{l: l} }
 
 // Name is "calc".
 func (*Calc) Name() string { return "calc" }
@@ -37,7 +47,7 @@ func (c *Calc) state() launcher.ModeState {
 		// PERMANENT: the result is not a row the query searches for but
 		// the answer to it; matching "3" against "1+2" would hide it the
 		// moment it appeared.
-		items = []launcher.Item{{Display: "= " + r, MatchText: r, Info: &r, Flags: launcher.FlagPermanent}}
+		items = []launcher.Item{{Display: "= " + r.shown, MatchText: r.shown, Info: &r.value, Flags: launcher.FlagPermanent}}
 	}
 	return launcher.ModeState{Items: items, Prompt: "calc"}
 }
@@ -48,10 +58,9 @@ func (c *Calc) Load(context.Context) launcher.ModeState { return c.state() }
 // Query evaluates the query; the list changes only when the answer
 // does, so an equivalent spelling does not fight the selection.
 func (c *Calc) Query(query string) (launcher.ModeState, bool) {
-	var result *string
+	var result *calcResult
 	if v, ok := Eval(query); ok {
-		s := FormatResult(v)
-		result = &s
+		result = &calcResult{value: FormatResult(v), shown: ShowResult(c.l, v)}
 	}
 	if (result == nil) == (c.result == nil) && (result == nil || *result == *c.result) {
 		return launcher.ModeState{}, false
@@ -61,28 +70,36 @@ func (c *Calc) Query(query string) (launcher.ModeState, bool) {
 }
 
 // Activate copies the result; the alternate accept continues with it.
+// Both take the digits an expression reads back, whatever the locale
+// shows.
 func (c *Calc) Activate(_ context.Context, _ launcher.Target, kind launcher.ActivateKind, _ string) launcher.Action {
 	if c.result == nil {
 		return launcher.ActionNothing{}
 	}
 	if _, alt := kind.(launcher.ActivateAlt); alt {
-		return launcher.ActionSetInput{Text: *c.result}
+		return launcher.ActionSetInput{Text: c.result.value}
 	}
-	return launcher.ActionCopy{Text: *c.result}
+	return launcher.ActionCopy{Text: c.result.value}
 }
 
 // AllowsCustom is false: typed text is never itself the answer.
 func (*Calc) AllowsCustom() bool { return false }
 
-// FormatResult writes a result the way a person would: no trailing
-// zeros, no ".0" on a whole number.
+// resultDecimals is how many decimals a result keeps.
+const resultDecimals = 10
+
+// FormatResult writes a result as an expression reads it back: "."
+// for the decimal point, no grouping, no trailing zeros and no ".0" on
+// a whole number.
 func FormatResult(v float64) string {
-	if v == math.Trunc(v) && math.Abs(v) < 1e15 {
-		return strconv.FormatFloat(v, 'f', 0, 64)
-	}
-	s := strconv.FormatFloat(v, 'f', 10, 64)
+	s := strconv.FormatFloat(v, 'f', resultDecimals, 64)
 	return strings.TrimRight(strings.TrimRight(s, "0"), ".")
 }
+
+// ShowResult writes a result the way a person in l's locale reads it:
+// FormatResult's digits in the locale's decimal and grouping
+// separators.
+func ShowResult(l *i18n.Loader, v float64) string { return l.Decimal(v, resultDecimals) }
 
 // Eval evaluates an expression, false when it is not one. Incomplete
 // input is not an error worth reporting: half of what is typed here is

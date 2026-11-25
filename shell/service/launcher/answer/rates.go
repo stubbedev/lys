@@ -102,16 +102,20 @@ func (t *RateTable) Convert(amount string, from, to Currency) (*big.Rat, bool) {
 	return v.Quo(v, fromRate), true
 }
 
-// FormatAmount writes an amount with two decimals, or with as many as it
-// takes (up to six) to show a non-zero amount below a cent.
-func FormatAmount(v *big.Rat) string {
-	s := v.FloatString(2)
-	if v.Sign() == 0 || strings.Trim(s, "-0.") != "" {
-		return s
+// AmountDecimals is how many decimals an amount shows: two, or as many
+// as it takes (up to six) to show a non-zero amount below a cent.
+func AmountDecimals(v *big.Rat) int {
+	const cents, finest = 2, 6
+	if v.Sign() == 0 || strings.Trim(v.FloatString(cents), "-0.") != "" {
+		return cents
 	}
-	s = v.FloatString(6)
-	return strings.TrimRight(s, "0")
+	_, fraction, _ := strings.Cut(strings.TrimRight(v.FloatString(finest), "0"), ".")
+	return len(fraction)
 }
+
+// FormatAmount writes an amount as a plain decimal a query reads back,
+// with AmountDecimals decimals.
+func FormatAmount(v *big.Rat) string { return v.FloatString(AmountDecimals(v)) }
 
 // Snapshot is the rates in use and when they were fetched.
 type Snapshot struct {

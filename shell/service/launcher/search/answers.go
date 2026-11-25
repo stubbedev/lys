@@ -78,10 +78,11 @@ func (c *Calculator) Answer(query string) []Entry {
 	if !ok {
 		return nil
 	}
-	s := modes.FormatResult(v)
-	return []Entry{calcEntry(q, s, s, q)}
+	return []Entry{calcEntry(q, modes.FormatResult(v), modes.ShowResult(c.l, v), q)}
 }
 
+// calcEntry is an answer row showing shown, which continues with value,
+// the plain digits, clock or ISO date a query reads back.
 func calcEntry(q, value, shown, subtitle string) Entry {
 	return Entry{ID: "calc", Title: shown, Subtitle: subtitle, Icon: iconCalc, Data: calcData{value: value, shown: shown, expr: q}}
 }
@@ -102,7 +103,7 @@ func (c *Calculator) answerCurrency(q string) (Entry, bool) {
 	if !ok {
 		return Entry{}, false
 	}
-	value := answer.FormatAmount(v)
+	value, shown := answer.FormatAmount(v), c.l.FixedDecimal(v, answer.AmountDecimals(v))
 	now := c.now()
 	source := c.l.Get("launcher-answer-currency-source",
 		i18n.Str("amount", cq.Amount), i18n.Str("from", cq.From.String()), i18n.Str("to", cq.To.String()),
@@ -110,7 +111,7 @@ func (c *Calculator) answerCurrency(q string) (Entry, bool) {
 	if !snap.Fresh(now) {
 		source = c.l.Get("launcher-answer-currency-stale", i18n.Str("source", source), i18n.Int("days", int64(snap.AgeDays(now))))
 	}
-	return calcEntry(q, value, value+" "+cq.To.String(), source), true
+	return calcEntry(q, value, shown+" "+cq.To.String(), source), true
 }
 
 // day is t's weekday and the locale's date, in t's location.

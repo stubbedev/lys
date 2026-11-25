@@ -895,3 +895,50 @@ func TestMangoWindows(t *testing.T) {
 		t.Errorf("others: %+v", got[1:])
 	}
 }
+
+func TestCalcModeShowsTheLocalesDigitsAndCopiesThePlainOnes(t *testing.T) {
+	for _, c := range []struct {
+		locale, shown string
+	}{
+		{"en-US", "= 1,234.5"},
+		{"de", "= 1.234,5"},
+		{"fr", "= 1\u202f234,5"},
+	} {
+		m := newCalcIn(loaderIn(t, c.locale))
+		st, changed := m.Query("2469/2")
+		if !changed || len(st.Items) != 1 || st.Items[0].Display != c.shown {
+			t.Fatalf("%s state = %+v, want %q", c.locale, st, c.shown)
+		}
+		if cp, ok := m.Activate(bg, launcher.RowTarget(0), launcher.ActivateDefault{}, "").(launcher.ActionCopy); !ok || cp.Text != "1234.5" {
+			t.Errorf("%s accept = %#v, want the plain digits whatever the locale shows", c.locale, cp)
+		}
+		in, ok := m.Activate(bg, launcher.RowTarget(0), launcher.ActivateAlt{}, "").(launcher.ActionSetInput)
+		if !ok || in.Text != "1234.5" {
+			t.Fatalf("%s alt accept = %#v, want the plain digits", c.locale, in)
+		}
+		if v, ok := Eval(in.Text + "*2"); !ok || v != 2469 {
+			t.Errorf("%s: the continued %q does not read back, got %v, %v", c.locale, in.Text, v, ok)
+		}
+	}
+}
+
+func TestCalcResultsKeepTenDecimalsShownAndPlain(t *testing.T) {
+	de := loaderIn(t, "de")
+	for _, c := range []struct {
+		v            float64
+		plain, shown string
+	}{
+		{1.0 / 3.0, "0.3333333333", "0,3333333333"},
+		{-7, "-7", "-7"},
+		{1e15, "1000000000000000", "1.000.000.000.000.000"},
+		{0, "0", "0"},
+		{2.5, "2.5", "2,5"},
+	} {
+		if got := FormatResult(c.v); got != c.plain {
+			t.Errorf("FormatResult(%v) = %q, want %q", c.v, got, c.plain)
+		}
+		if got := ShowResult(de, c.v); got != c.shown {
+			t.Errorf("de ShowResult(%v) = %q, want %q", c.v, got, c.shown)
+		}
+	}
+}

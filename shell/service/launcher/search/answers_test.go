@@ -243,3 +243,53 @@ func TestATimeRowSpeaksTheLocalesLanguage(t *testing.T) {
 		t.Errorf("de title = %q, want a 24-hour time and no English", title)
 	}
 }
+
+func TestACalcRowShowsTheLocalesDigitsAndContinuesWithThePlainOnes(t *testing.T) {
+	for _, c := range []struct {
+		locale, title string
+	}{
+		{"en-US", "1,234.5"},
+		{"de", "1.234,5"},
+		{"fr", "1\u202f234,5"},
+		{"es", "1234,5"},
+	} {
+		calc := calculatorIn(t, c.locale, nil)
+		got := calc.Answer("2469/2")
+		if len(got) != 1 || got[0].Title != c.title {
+			t.Fatalf("%s 2469/2 = %+v, want %q", c.locale, got, c.title)
+		}
+		d, ok := got[0].Data.(calcData)
+		if !ok || d.value != "1234.5" {
+			t.Errorf("%s value = %+v, want the plain digits whatever the locale shows", c.locale, got[0].Data)
+		}
+		if again := calc.Answer(d.value + "*2"); len(again) != 1 || stripIsolation(again[0].Title) != calc.l.Integer(2469) {
+			t.Errorf("%s: the continued %q reads back as %+v", c.locale, d.value, again)
+		}
+	}
+}
+
+func TestACurrencyRowShowsTheLocalesDigitsAndContinuesWithThePlainOnes(t *testing.T) {
+	srv, _ := ecbServer(t, true)
+	rates := answer.NewRates(srv.URL, filepath.Join(t.TempDir(), "fx.xml"), func() time.Time { return answerClock })
+	rates.Refresh(t.Context())
+	for _, c := range []struct {
+		locale, title string
+	}{
+		{"en-US", "9,237.88 EUR"},
+		{"de", "9.237,88 EUR"},
+		{"fr", "9\u202f237,88 EUR"},
+	} {
+		calc := calculatorIn(t, c.locale, rates)
+		got := calc.Answer("10000 usd in eur")
+		if len(got) != 1 || got[0].Title != c.title {
+			t.Fatalf("%s 10000 usd in eur = %+v, want %q", c.locale, got, c.title)
+		}
+		d, ok := got[0].Data.(calcData)
+		if !ok || d.value != "9237.88" {
+			t.Errorf("%s value = %+v, want the plain amount whatever the locale shows", c.locale, got[0].Data)
+		}
+	}
+	if got := calculatorIn(t, "de", rates).Answer("100 usd in eur"); len(got) != 1 || got[0].Title != "92,38 EUR" {
+		t.Errorf("de 100 usd in eur = %+v, want its cents kept", got)
+	}
+}

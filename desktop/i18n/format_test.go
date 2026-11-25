@@ -1,6 +1,7 @@
 package i18n
 
 import (
+	"math/big"
 	"strings"
 	"testing"
 	"time"
@@ -46,6 +47,86 @@ func TestIntegerGroupsDigitsByLocale(t *testing.T) {
 	} {
 		if got := shellLoader(t, c.locale).Integer(c.n); got != c.want {
 			t.Errorf("%s Integer(%d) = %q, want %q", c.locale, c.n, got, c.want)
+		}
+	}
+}
+
+func TestDecimalUsesTheLocalesSeparatorsAndDropsTrailingZeros(t *testing.T) {
+	for _, c := range []struct {
+		locale      string
+		x           float64
+		maxFraction int
+		want        string
+	}{
+		{"en-US", 1234.5, 10, "1,234.5"},
+		{"en-US", -1_234_567.125, 10, "-1,234,567.125"},
+		{"en-US", 1.0 / 3.0, 10, "0.3333333333"},
+		{"en-US", 2.5, 10, "2.5"},
+		{"en-US", 42, 10, "42"},
+		{"en-US", 1000, 10, "1,000"},
+		{"en-US", 0.1 + 0.2, 10, "0.3"},
+		{"en-US", 2.75, 1, "2.8"},
+		{"en-US", 2.75, 0, "3"},
+		{"de", 1234.5, 10, "1.234,5"},
+		{"de", 1.0 / 3.0, 10, "0,3333333333"},
+		{"fr", 1234.5, 10, "1\u202f234,5"},
+		{"fr", -1_234_567.125, 10, "-1\u202f234\u202f567,125"},
+		{"es", 1234.5, 10, "1234,5"},
+		{"es", 12345.5, 10, "12.345,5"},
+		{"it", 1234.5, 10, "1234,5"},
+		{"it", 12345.5, 10, "12.345,5"},
+		{"nl", 1234.5, 10, "1.234,5"},
+		{"pt", 1234.5, 10, "1234,5"},
+		{"pt", 12345.5, 10, "12\u00a0345,5"},
+	} {
+		got := shellLoader(t, c.locale).Decimal(c.x, c.maxFraction)
+		if got != c.want {
+			t.Errorf("%s Decimal(%v, %d) = %q, want %q", c.locale, c.x, c.maxFraction, got, c.want)
+		}
+		if c.locale != "en-US" && got == shellLoader(t, "en-US").Decimal(c.x, c.maxFraction) && strings.ContainsAny(got, ".,") {
+			t.Errorf("%s Decimal(%v, %d) = %q, the same as en-US's", c.locale, c.x, c.maxFraction, got)
+		}
+	}
+}
+
+func TestADecimalWholeNumberReadsAsTheIntegerDoes(t *testing.T) {
+	for _, locale := range parseLangs(t, shipped) {
+		l := shellLoader(t, locale.String())
+		for _, n := range []int64{0, 7, 1_000, 10_000, -1_234_567} {
+			if d, i := l.Decimal(float64(n), 10), l.Integer(n); d != i {
+				t.Errorf("%s Decimal(%d) = %q, Integer = %q", locale, n, d, i)
+			}
+		}
+	}
+}
+
+func TestFixedDecimalKeepsItsDigitsExactly(t *testing.T) {
+	rat := func(s string) *big.Rat {
+		t.Helper()
+		r, ok := new(big.Rat).SetString(s)
+		if !ok {
+			t.Fatalf("%q is not a decimal", s)
+		}
+		return r
+	}
+	for _, c := range []struct {
+		locale   string
+		x        string
+		fraction int
+		want     string
+	}{
+		{"en-US", "92.4", 2, "92.40"},
+		{"en-US", "162310001.62", 2, "162,310,001.62"},
+		{"en-US", "12345678901234567.89", 2, "12,345,678,901,234,567.89"},
+		{"en-US", "0.000059", 6, "0.000059"},
+		{"en-US", "7", 0, "7"},
+		{"de", "162310001.62", 2, "162.310.001,62"},
+		{"de", "92.4", 2, "92,40"},
+		{"fr", "1234.5", 2, "1\u202f234,50"},
+		{"es", "1234.5", 2, "1234,50"},
+	} {
+		if got := shellLoader(t, c.locale).FixedDecimal(rat(c.x), c.fraction); got != c.want {
+			t.Errorf("%s FixedDecimal(%s, %d) = %q, want %q", c.locale, c.x, c.fraction, got, c.want)
 		}
 	}
 }

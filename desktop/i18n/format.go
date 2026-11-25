@@ -3,6 +3,7 @@ package i18n
 import (
 	"fmt"
 	"math"
+	"math/big"
 	"strconv"
 	"strings"
 	"time"
@@ -202,6 +203,25 @@ func (l *Loader) formats() localeFormats { return l.bundles[0].formats }
 // "10.000" in de, "10 000" (narrow no-break space) in fr.
 func (l *Loader) Integer(n int64) string {
 	return l.formats().localize(strconv.FormatInt(n, 10))
+}
+
+// Decimal is x rounded to at most maxFraction decimals, trailing
+// zeros dropped, in the locale's decimal and grouping separators:
+// "1,234.5" in en-US, "1.234,5" in de, "1 234,5" (narrow no-break
+// space) in fr, "1234,5" in es, whose groups start at five digits.
+func (l *Loader) Decimal(x float64, maxFraction int) string {
+	s := strconv.FormatFloat(x, 'f', maxFraction, 64)
+	if strings.Contains(s, ".") {
+		s = strings.TrimRight(strings.TrimRight(s, "0"), ".")
+	}
+	return l.formats().localize(s)
+}
+
+// FixedDecimal is x exactly, rounded to fraction decimals and keeping
+// their trailing zeros, in the locale's separators: "1,234.50" in
+// en-US, "1.234,50" in de. Money is shown so.
+func (l *Loader) FixedDecimal(x *big.Rat, fraction int) string {
+	return l.formats().localize(x.FloatString(fraction))
 }
 
 // byteSize is n in powers of base named by units, with one decimal,
