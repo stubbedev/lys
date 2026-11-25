@@ -14,29 +14,6 @@ import (
 	"github.com/stubbedev/lys/desktop/styling"
 )
 
-func TestSignalIndexBuckets(t *testing.T) {
-	for _, tc := range []struct {
-		strength uint8
-		icons    int
-		want     int
-	}{
-		// bucket = 100/icons (integer division), idx =
-		// strength/bucket, clamped to icons-1. 33/(100/3=33) = 1;
-		// 100/(100/3=33) = 3 → clamped to 2.
-		{0, 3, 0},
-		{32, 3, 0},
-		{33, 3, 1},
-		{100, 3, 2},
-		{100, 4, 3},
-		{255, 5, 4},
-		{50, 0, 0},
-	} {
-		if got := network.SignalIndex(tc.strength, tc.icons); got != tc.want {
-			t.Errorf("SignalIndex(%d, %d) = %d, want %d", tc.strength, tc.icons, got, tc.want)
-		}
-	}
-}
-
 // fakeNetworkSource is a scripted network.Source, safe across a follow
 // goroutine and the test.
 type fakeNetworkSource struct {

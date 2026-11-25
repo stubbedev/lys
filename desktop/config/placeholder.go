@@ -59,10 +59,10 @@ var mailNotificationPlaceholders = jinjaFormat(
 )
 
 var formatFields = map[string]formatField{
-	"AudioConfig.Format":      jinjaFormat(ph("percent", "45"), ph("mic_percent", "80")),
-	"BatteryConfig.Format":    jinjaFormat(ph("percent", "45")),
-	"BitwardenConfig.Format":  jinjaFormat(ph("count", "142")),
-	"BrightnessConfig.Format": jinjaFormat(ph("percent", "65")),
+	"AudioConfig.Format":      jinjaFormat(ph("percent", itoa(sampleSpeakerPercent)), ph("mic_percent", "80")),
+	"BatteryConfig.Format":    jinjaFormat(ph("percent", itoa(sampleBatteryPercent))),
+	"BitwardenConfig.Format":  jinjaFormat(ph("count", itoa(sampleVaultItems))),
+	"BrightnessConfig.Format": jinjaFormat(ph("percent", itoa(sampleBrightnessPercent))),
 	"CpuConfig.Format": jinjaFormat(
 		ph("percent", "45"), ph("freq_ghz", "3.2"), ph("avg_freq_ghz", "2.8"), ph("max_freq_ghz", "4.1"),
 		ph("temp_c", "62"), ph("temp_f", "144"),

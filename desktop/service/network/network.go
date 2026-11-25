@@ -237,16 +237,6 @@ func managerRoutes(changed func()) []dbusx.Route {
 	}
 }
 
-// SignalIndex is the wifi strength bucketed over the icon list length. Exported for the module; pure.
-func SignalIndex(strength uint8, numIcons int) int {
-	if numIcons == 0 {
-		return 0
-	}
-	clamped := min(int(strength), 100)
-	bucket := max(100/numIcons, 1)
-	return min(clamped/bucket, numIcons-1)
-}
-
 // Link is a kind of network device a detail read asks about.
 type Link int
 

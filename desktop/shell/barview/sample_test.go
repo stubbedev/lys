@@ -51,8 +51,8 @@ func TestThePreviewDrawsEveryItemOfTheLayout(t *testing.T) {
 	if len(treetest.WithClass(bar, "mine")) != 1 {
 		t.Error("the clock's instance class is missing")
 	}
-	if b := sampleButton(t, bar, "battery"); b.Label().Text() != "45%" || b.Icon() == nil || b.Icon().Name() != cfg.Battery.Icon().Name {
-		t.Errorf("the battery shows %q beside %v, want its sample level beside its config icon", b.Label().Text(), b.Icon())
+	if b := sampleButton(t, bar, "battery"); b.Label().Text() != "45%" || b.Icon() == nil || b.Icon().Name() != cfg.Battery.LevelIcon(45) {
+		t.Errorf("the battery shows %q beside %v, want its sample level beside that level's icon", b.Label().Text(), b.Icon())
 	}
 	if len(treetest.All[*widget.BarSeparator](bar)) != 1 {
 		t.Error("the separator is not a rule")

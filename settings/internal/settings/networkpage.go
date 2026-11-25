@@ -34,7 +34,9 @@ const (
 	airplaneIcon = "ld-plane-symbolic"
 )
 
-var wifiSignalIcons = []string{"ld-wifi-zero-symbolic", "ld-wifi-low-symbolic", "ld-wifi-high-symbolic", wifiIcon}
+// defaultNetwork is the network module's default icons, whose signal
+// ladder the page's networks show their strength by.
+var defaultNetwork = config.DefaultsNetwork()
 
 var hiddenProblems = map[error]string{
 	network.ErrHiddenNameEmpty:      "settings-wifi-hidden-name-empty",
@@ -662,7 +664,7 @@ func activeAccessPoint(st netState) (network.AccessPoint, bool) {
 
 // signalIcon draws strength as bars, its percentage its name.
 func signalIcon(strength uint8) *widget.Icon {
-	ic := widget.NewThemeIcon(wifiSignalIcons[network.SignalIndex(strength, len(wifiSignalIcons))], appIconPx)
+	ic := widget.NewThemeIcon(defaultNetwork.WifiSignalIcon(strength), appIconPx)
 	ic.SetAccessibleName(locale.T().Get("settings-wifi-signal", i18n.Int("percent", int64(strength))))
 	return ic
 }

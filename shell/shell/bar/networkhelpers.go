@@ -23,15 +23,13 @@ type apSnapshot struct {
 	stale bool
 }
 
-// wifiSignalIcons are the dropdown's signal glyphs, weakest first: the
-// network module's default ladder.
-var wifiSignalIcons = config.DefaultsNetwork().WifiSignalIcons
+// defaultNetwork is the network module's default icons, the dropdown's
+// signal glyphs among them.
+var defaultNetwork = config.DefaultsNetwork()
 
-// signalStrengthIcon is the glyph for a signal percentage, on the
-// quarters the network module maps its icons onto.
-func signalStrengthIcon(strength uint8) string {
-	return wifiSignalIcons[network.SignalIndex(strength, len(wifiSignalIcons))]
-}
+// signalStrengthIcon is the glyph for a signal percentage, on the steps
+// the network module maps its icons onto.
+func signalStrengthIcon(strength uint8) string { return defaultNetwork.WifiSignalIcon(strength) }
 
 // frequencyBand is the band of mhz, "" when unknown.
 func frequencyBand(mhz uint32) string {

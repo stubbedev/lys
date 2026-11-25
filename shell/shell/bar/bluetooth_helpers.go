@@ -40,15 +40,13 @@ func btText(key string, args ...any) string {
 	return i18n.T(key, fluent...)
 }
 
-// batteryLevelIcons are a device battery's glyphs, emptiest first: the
-// battery module's default ladder.
-var batteryLevelIcons = config.DefaultsBattery().LevelIcons
+// defaultBattery is the battery module's default icons, a device
+// battery's glyphs among them.
+var defaultBattery = config.DefaultsBattery()
 
 // batteryLevelIcon is the glyph for a device's battery percentage, on
 // the steps the battery module maps its icons onto.
-func batteryLevelIcon(percent uint8) string {
-	return batteryLevelIcons[levelIndexFloor(float64(percent), len(batteryLevelIcons))]
-}
+func batteryLevelIcon(percent uint8) string { return defaultBattery.LevelIcon(float64(percent)) }
 
 // deviceTypeKey is the Fluent key naming the device's
 // kind.

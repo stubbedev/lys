@@ -104,7 +104,7 @@ func Sample(cfg *config.Config, font render.Font, item config.BarItem, on compos
 		return strip.Segments()
 	}
 	name := string(item.Module)
-	icon, hasIcon := cfg.ModuleIcon(item.Module)
+	icon, hasIcon := cfg.SampleIcon(item.Module)
 	label, failure := sampleLabel(cfg, item.Module, hasIcon)
 	state, live := stateOf(item.Module, states)
 	if live {

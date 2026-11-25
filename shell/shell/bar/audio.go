@@ -102,10 +102,7 @@ func audioVars(speaker pulse.Device, mic *pulse.Device) map[string]any {
 // level list spans 1..100 across icons 0..n-1 (0% takes the first),
 // over the rounded average.
 func speakerIconName(cfg config.AudioConfig, dev pulse.Device) string {
-	if dev.Muted || len(cfg.SpeakerIcons) == 0 {
-		return cfg.SpeakerIconMuted
-	}
-	return cfg.SpeakerIcons[levelIndexSpan(int(volumePercent(dev)), len(cfg.SpeakerIcons))]
+	return cfg.SpeakerIcon(int(volumePercent(dev)), dev.Muted)
 }
 
 // audioModule is the audio module: the speaker's level and mute, the

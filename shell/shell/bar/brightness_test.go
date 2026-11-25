@@ -30,21 +30,6 @@ func TestBrightnessLabel(t *testing.T) {
 	}
 }
 
-func TestBrightnessIconBands(t *testing.T) {
-	levels := []string{"low", "mid", "high"}
-	for _, tc := range []struct {
-		percent float64
-		want    string
-	}{{0, "low"}, {33, "low"}, {34, "mid"}, {66, "mid"}, {67, "high"}, {100, "high"}, {150, "high"}, {-5, "low"}} {
-		if got := brightnessIcon(levels, tc.percent); got != tc.want {
-			t.Errorf("%v%% = %q, want %q", tc.percent, got, tc.want)
-		}
-	}
-	if got := brightnessIcon(nil, 50); got != "" {
-		t.Errorf("no icons = %q", got)
-	}
-}
-
 // fakeBrightnessSource is a scripted brightness.Source, safe across
 // the follow goroutine and the test.
 type fakeBrightnessSource struct {

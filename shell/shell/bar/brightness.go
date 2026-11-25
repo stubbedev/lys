@@ -33,16 +33,6 @@ func percentVars(percent float64) map[string]any {
 	return map[string]any{"percent": int64(math.Round(percent))}
 }
 
-// brightnessIcon is select_icon: level-icons split 0-100% into equal
-// bands, the last one closing at 100%; no icons is "".
-func brightnessIcon(levels []string, percent float64) string {
-	if len(levels) == 0 {
-		return ""
-	}
-	i := int(math.Floor(percent / 100 * float64(len(levels))))
-	return levels[max(0, min(i, len(levels)-1))]
-}
-
 // autoBrightnessSource is lys-power's automatic brightness
 // (*brightness.Auto).
 type autoBrightnessSource interface {
@@ -157,7 +147,7 @@ func (m *brightnessModule) show() {
 	}
 	m.btn.SetLabel(label)
 	m.btn.SetDescription(brightnessDescription(m.control, label))
-	icon := brightnessIcon(cfg.LevelIcons, percent)
+	icon := cfg.LevelIcon(percent)
 	if m.control == brightness.ControlFollowing {
 		icon = brightnessAutoIcon
 	}

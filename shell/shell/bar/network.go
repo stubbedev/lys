@@ -82,10 +82,7 @@ func wifiIcon(cfg config.NetworkConfig, snap network.Snapshot) string {
 	case network.StatusDisconnected:
 		return cfg.WifiOfflineIcon
 	}
-	if len(cfg.WifiSignalIcons) == 0 {
-		return cfg.WifiConnectedIcon
-	}
-	return cfg.WifiSignalIcons[network.SignalIndex(snap.WifiStrength, len(cfg.WifiSignalIcons))]
+	return cfg.WifiSignalIcon(snap.WifiStrength)
 }
 
 // wifiLabel is the SSID (the _bar.ftl fallback when

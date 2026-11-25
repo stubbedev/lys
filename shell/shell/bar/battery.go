@@ -74,10 +74,8 @@ func (m *battery) setIcon(cfg config.BatteryConfig, dev powersupply.Device) {
 		name = cfg.AlertIcon
 	case batteryCharging(dev.State):
 		name = cfg.ChargingIcon
-	case len(cfg.LevelIcons) == 0:
-		name = cfg.AlertIcon
 	default:
-		name = cfg.LevelIcons[levelIndexFloor(dev.Percentage, len(cfg.LevelIcons))]
+		name = cfg.LevelIcon(dev.Percentage)
 	}
 	setter.SetThemeName(name)
 }
