@@ -1,6 +1,7 @@
 package settings
 
 import (
+	"cmp"
 	"log"
 	"slices"
 	"strings"
@@ -195,6 +196,9 @@ type pickerSpec struct {
 	// are plain gtk::Entry filtering per keystroke.
 	searchEntry bool
 	text        func(name string) string
+	// empty is the message saying there is nothing to pick, ""
+	// for the app's own.
+	empty string
 }
 
 // searchPicker is the list pickers' popover (the module picker, the
@@ -214,8 +218,12 @@ type searchPicker struct {
 	// rows holds a row per name of all, in its order.
 	rows *widget.FlowBox
 	all  []string
-	text func(name string) string
-	pick func(string)
+	// none says there is nothing to pick, or that nothing matches the
+	// query, while no row shows.
+	none  *widget.Label
+	empty string
+	text  func(name string) string
+	pick  func(string)
 }
 
 // openSearchPicker builds the picker and opens it beside anchor.
@@ -229,7 +237,7 @@ func openSearchPicker(k *kit, anchor widget.Widget, names []string, spec pickerS
 }
 
 func newSearchPicker(k *kit, names []string, spec pickerSpec, pick func(string)) *searchPicker {
-	p := &searchPicker{all: names, text: spec.text, pick: pick}
+	p := &searchPicker{all: names, text: spec.text, pick: pick, none: k.note(""), empty: cmp.Or(spec.empty, "settings-picker-empty")}
 	root, contents := pickerFrame(spec.class)
 	p.root = root
 	if spec.searchEntry {
@@ -260,6 +268,8 @@ func newSearchPicker(k *kit, names []string, spec pickerSpec, pick func(string))
 	p.scroll.PropagateNaturalWidth = true
 	p.scroll.SetMaxContentHeight(spec.maxH)
 	contents.Append(p.scroll, true)
+	contents.Append(p.none, false)
+	p.filter("")
 	return p
 }
 
@@ -281,15 +291,29 @@ func pickerRow(content widget.Widget) *widget.Box {
 	return row
 }
 
-// filter shows the rows of the names matching the query alone.
+// filter shows the rows of the names matching the query alone, and says
+// so when none does.
 func (p *searchPicker) filter(query string) {
 	match := matcher(query)
+	shown := 0
 	for i, name := range p.all {
 		if p.text != nil {
 			name = p.text(name)
 		}
-		p.rows.ChildAt(i).SetVisible(match(name))
+		ok := match(name)
+		p.rows.ChildAt(i).SetVisible(ok)
+		if ok {
+			shown++
+		}
 	}
+	t := locale.T()
+	switch {
+	case len(p.all) == 0:
+		p.none.SetText(t.Get(p.empty))
+	case shown == 0:
+		p.none.SetText(t.Get("settings-picker-no-match", i18n.Str("query", query)))
+	}
+	p.none.SetVisible(shown == 0)
 }
 
 // colorEditor is ColorControl: lys-ui's color button, its swatch
