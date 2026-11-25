@@ -21,6 +21,10 @@ const overviewID = "overview"
 const (
 	overviewColumns   = 3
 	overviewReadLimit = 5 * time.Second
+	// overviewTileChars is every tile's description width, in characters,
+	// so every tile asks one natural width and a line of tiles splits
+	// evenly, at the same place on every line.
+	overviewTileChars = 40
 )
 
 type tileStatus func(ctx context.Context, k *kit) (string, error)
@@ -61,6 +65,8 @@ func overviewTiles(k *kit) widget.Widget {
 		face.AppendAligned(k.icon(s.pages[0].icon, "settings-overview-icon"), false, widget.AlignStart)
 		face.Append(k.label(t.Get(s.key), "settings-overview-title", css.Heading), false)
 		desc := k.note(t.Attr(s.key, "description"), "settings-overview-description")
+		desc.SetWidthChars(overviewTileChars)
+		desc.SetMaxWidthChars(overviewTileChars)
 		face.Append(desc, false)
 		if status, ok := k.statuses[s.key]; ok {
 			showStatus(k, status, desc)
