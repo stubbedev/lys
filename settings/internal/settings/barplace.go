@@ -89,8 +89,9 @@ func (p *placementRow) refresh() {
 }
 
 // barItemHead is what a bar item opens with: whether its module is in
-// the bar, with Add to Bar, over its preview. A page's head follows the
-// config, and a custom module card's follows its card.
+// the bar, with Add to Bar, over its preview, and a note above both set
+// apart as a section is. A page's head follows the config, and a custom
+// module card's follows its card.
 type barItemHead struct {
 	*widget.Box
 	placement *placementRow
@@ -98,10 +99,18 @@ type barItemHead struct {
 }
 
 func newBarItemHead(k *kit, module barModuleOf, preview previewWidget) *barItemHead {
-	h := &barItemHead{Box: gapBox(widget.Column), placement: newPlacementRow(k, module), preview: preview}
+	h := &barItemHead{Box: sectionStack(), placement: newPlacementRow(k, module), preview: preview}
 	h.AddClass("settings-bar-item-head")
-	h.Append(h.placement, false)
-	h.Append(preview, false)
+	shown := gapBox(widget.Column)
+	shown.Append(h.placement, false)
+	shown.Append(preview, false)
+	h.Append(shown, false)
+	return h
+}
+
+// noted puts note above the head.
+func (h *barItemHead) noted(note widget.Widget) *barItemHead {
+	h.InsertAt(0, note, false)
 	return h
 }
 

@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/fakeclock"
@@ -412,6 +414,29 @@ func TestOnlyTheResourcePagesLinkToTheThresholds(t *testing.T) {
 		i := slices.IndexFunc(p.sections, func(s sectionSpec) bool { return s.title == "settings-section-thresholds" })
 		if i < 0 || !slices.Equal(p.sections[i].links, []pageLink{thresholdsLink}) {
 			t.Errorf("the %s page's Thresholds section does not link to the warning levels", id)
+		}
+	}
+}
+
+// Every page reads in Title Case, in its sidebar entry and its header,
+// the way its siblings read: no word past the first starts lower case
+// but the short joining words.
+func TestEveryPageTitleReadsInTitleCase(t *testing.T) {
+	tr := locale.T()
+	joining := map[string]bool{"a": true, "an": true, "and": true, "at": true, "by": true, "for": true, "in": true, "of": true, "on": true, "or": true, "the": true, "to": true, "with": true}
+	for _, s := range layout(config.Defaults(), bothParts) {
+		for _, p := range s.pages {
+			for _, key := range []string{p.navKey, p.header} {
+				if key == "" {
+					continue
+				}
+				words := strings.Fields(tr.Get(key))
+				for _, w := range words[1:] {
+					if first, _ := utf8.DecodeRuneInString(w); unicode.IsLower(first) && !joining[w] {
+						t.Errorf("page %s: %s reads %q, %q in lower case", p.id, key, tr.Get(key), w)
+					}
+				}
+			}
 		}
 	}
 }

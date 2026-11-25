@@ -50,8 +50,7 @@ func barItemPage(module config.BarModule, page pageSpec, parts barItemParts) pag
 		if parts.note == nil {
 			return head
 		}
-		head.InsertAt(0, parts.note(k), false)
-		return head
+		return head.noted(parts.note(k))
 	}
 	page.sections = slices.Clone(parts.sections)
 	if s, ok := iconsSection(parts.icons, parts.iconRows); ok {
