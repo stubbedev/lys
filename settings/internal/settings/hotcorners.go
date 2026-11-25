@@ -12,6 +12,8 @@ const (
 	cornerScreenW = 160
 	cornerScreenH = 100
 	cornerDotR    = 8
+	// cornerMarkR is the dot inside a corner that does something.
+	cornerMarkR = 3
 )
 
 var hotCornerKeys = []string{"top_left", "top_right", "bottom_left", "bottom_right"}
@@ -21,7 +23,7 @@ func hotCornersRow() rowSpec {
 	for i, c := range hotCornerKeys {
 		paths[i] = "hot_corners." + c
 	}
-	return wmField(paths[0], withKey("wm-section-hot-corners"), func(r *rowSpec) {
+	return wmField(paths[0], withKey("wm-hot-corners-corners"), func(r *rowSpec) {
 		r.fullWidth = true
 		r.also = paths[1:]
 		r.editor = func(k *kit, s slot, _ config.FieldMeta) control {
@@ -47,17 +49,18 @@ type hotCorners struct {
 	selected int
 }
 
+// newHotCorners is the screen whose corners pick which one the side
+// edits: the picked corner's name starts the side's first line and its
+// Inherit, Off and On end it on the control edge, the corner's fields
+// under them. The screen stands a section's gap off the side, so its
+// right-hand corners never touch the name.
 func newHotCorners(k *kit, paths []string, slots []slot) *hotCorners {
-	h := &hotCorners{Box: gapBox(widget.Row), k: k, paths: paths, slots: slots}
+	h := &hotCorners{Box: widget.NewBox(widget.Row, sectionGap(), 0), k: k, paths: paths, slots: slots}
 	h.AddClass("hot-corners")
 	h.screen = newCornerScreen(h)
-	h.title = k.label("")
 	h.editor = gapBox(widget.Column)
-	side := gapBox(widget.Column)
-	side.Append(h.title, false)
-	side.Append(h.editor, false)
 	h.AppendAligned(h.screen, false, widget.AlignStart)
-	h.AppendAligned(side, true, widget.AlignStart)
+	h.AppendAligned(h.editor, true, widget.AlignStart)
 	h.choose(0)
 	return h
 }
@@ -70,9 +73,9 @@ func (h *hotCorners) set(i int) bool {
 
 func (h *hotCorners) choose(i int) {
 	h.selected = i
-	h.title.SetText(locale.T().Get(wmKey(h.paths[i])))
+	h.title = h.k.label(locale.T().Get(wmKey(h.paths[i])))
 	h.editor.Clear()
-	h.current = newWMSwitch(h.k, h.slots[i], wmItemFields(h.k.wm, wmPath(h.paths[i]), nil, "hot_corners.corner"))
+	h.current = newHeadedWMSwitch(h.k, h.slots[i], wmItemFields(h.k.wm, wmPath(h.paths[i]), nil, "hot_corners.corner"), h.title)
 	h.editor.Append(h.current, false)
 	h.screen.Invalidate()
 }
@@ -136,19 +139,22 @@ func (s *cornerScreen) Paint(cv *render.Canvas) {
 	cv.RoundedRect(screen, tileRadius, th.MutedColor())
 	cv.RoundedBorder(screen, render.UniformCorners(tileRadius), render.UniformInsets(1), th.Border)
 	for i, d := range s.dots() {
-		fill := th.CardColor()
-		if s.h.set(i) {
-			fill = th.Accent
+		selected := i == s.h.selected
+		fill, mark := th.CardColor(), th.Accent
+		if selected {
+			fill, mark = th.Accent, th.OnAccent
 		}
 		cv.RoundedRect(d, cornerDotR, fill)
-		ring, width := spotRing(th), 1
-		if i == s.h.selected {
-			ring, width = th.Text, choiceRing
+		if s.h.set(i) {
+			m := render.Rect{X: d.X + cornerDotR - cornerMarkR, Y: d.Y + cornerDotR - cornerMarkR, W: 2 * cornerMarkR, H: 2 * cornerMarkR}
+			cv.RoundedRect(m, cornerMarkR, mark)
 		}
-		if widget.FocusVisible(s.handles[i]) {
-			ring, width = th.Text, focusRing
+		switch {
+		case widget.FocusVisible(s.handles[i]):
+			cv.RoundedBorder(d, render.UniformCorners(cornerDotR), render.UniformInsets(focusRing), th.Text)
+		case !selected:
+			cv.RoundedBorder(d, render.UniformCorners(cornerDotR), render.UniformInsets(1), spotRing(th))
 		}
-		cv.RoundedBorder(d, render.UniformCorners(cornerDotR), render.UniformInsets(width), ring)
 	}
 }
 

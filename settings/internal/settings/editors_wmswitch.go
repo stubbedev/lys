@@ -27,6 +27,13 @@ type wmSwitch struct {
 }
 
 func newWMSwitch(k *kit, s slot, fields []cardField) *wmSwitch {
+	return newHeadedWMSwitch(k, s, fields, nil)
+}
+
+// newHeadedWMSwitch is a wmSwitch whose choices end the line heading
+// starts, on the control edge, its fields under both; nil heading leaves
+// the choices alone on their line, at its start.
+func newHeadedWMSwitch(k *kit, s slot, fields []cardField, heading widget.Widget) *wmSwitch {
 	t := locale.T()
 	choices := []string{
 		t.Get("settings-inherited"),
@@ -42,7 +49,14 @@ func newWMSwitch(k *kit, s slot, fields []cardField) *wmSwitch {
 		c.fields = append(c.fields, ctl)
 		c.labels = append(c.labels, f.label)
 	}
-	c.AppendAligned(c.choice, false, widget.AlignStart)
+	if heading == nil {
+		c.AppendAligned(c.choice, false, widget.AlignStart)
+	} else {
+		line := gapBox(widget.Row)
+		line.AppendAligned(heading, true, widget.AlignCenter)
+		line.AppendAligned(c.choice, false, widget.AlignCenter)
+		c.Append(line, false)
+	}
 	c.Append(c.body, false)
 	c.refresh()
 	return c
