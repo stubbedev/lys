@@ -27,7 +27,9 @@ type levelScale struct{ icons, muted, floor string }
 
 // levelBands is a level scale as the threshold bar draws it: each
 // level icon above its share of 0–100 %, the muted icon at the left
-// end and the region under the floor greyed.
+// end and the region under the floor greyed; the bands' boundaries are
+// read under the track (marks), never drawn across it, so the bar's
+// track reads as every threshold slider's does.
 type levelBands struct {
 	k     *kit
 	scale levelScale
@@ -128,10 +130,6 @@ func (l *levelBands) paint(b *thresholdBar, cv *render.Canvas) {
 	if l.floor > 0 {
 		x := b.xOf(min(l.floor, levelPercent))
 		cv.RoundedRect(render.Rect{X: t.X, Y: t.Y, W: max(1, x-t.X), H: t.H}, t.H/2, th.DisabledSurface())
-	}
-	for i := 1; i < len(l.icons); i++ {
-		lo, _ := levelBand(i, len(l.icons))
-		cv.FillRect(render.Rect{X: b.xOf(lo), Y: t.Y - levelGap/2, W: 1, H: t.H + levelGap}, th.Text)
 	}
 	for _, w := range l.widgets() {
 		w.Paint(cv)

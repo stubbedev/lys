@@ -75,3 +75,27 @@ func TestAThresholdBarWithoutLevelsDrawsNoBands(t *testing.T) {
 		t.Errorf("a plain threshold bar is %d tall, want %d", got, e.bar.barH())
 	}
 }
+
+// The battery's bar alone drew a tick across its track at every boundary
+// between two level icons, one even inside the fill, unlike every other
+// threshold slider. The boundaries are read under the track only: no
+// pixel above the track at a boundary is drawn.
+func TestTheLevelBandsDrawNoTicksAcrossTheTrack(t *testing.T) {
+	const yaml = "modules:\n  audio:\n    speaker-icons: [low, mid, high]\n"
+	k, e := levelEditor(t, yaml, "audio", "modules.audio.thresholds")
+	themed(k, e.bar)
+	r := render.Rect{W: 320, H: e.bar.barH() + levelRowH}
+	e.bar.Arrange(r)
+	tr := e.bar.track()
+	lo, _ := levelBand(1, 3)
+	x, y := e.bar.xOf(lo), tr.Y-levelGap/2+1
+	if y >= tr.Y {
+		t.Fatalf("no room above the track at y=%d", tr.Y)
+	}
+	stride := render.Stride(r.W)
+	data := make([]byte, stride*r.H)
+	e.bar.Paint(render.New(data, stride, r.W, r.H))
+	if a := data[y*stride+4*x+3]; a != 0 {
+		t.Errorf("the bar paints at (%d, %d), above its track at a band boundary", x, y)
+	}
+}
