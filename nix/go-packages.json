@@ -1999,6 +1999,7 @@
       "lib/logtest"
     ],
     "testExternal": [
+      "golang.org/x/image/font/gofont/goregular",
       "path",
       "regexp",
       "slices",
@@ -7275,6 +7276,7 @@
       "desktop/service/powersupply/powersupplytest",
       "desktop/service/workspaces/workspacestest",
       "desktop/shell/treetest",
+      "lib/capture",
       "lib/dbustest",
       "lib/fdtest",
       "lib/glibclocale/glibclocaletest",
@@ -7284,6 +7286,7 @@
       "lib/shacrypt",
       "lib/sockdir",
       "lib/testhome",
+      "lib/vinput",
       "lib/waittest",
       "secrets/secretstest",
       "settings/internal/wmtest",
