@@ -160,13 +160,13 @@ func (s *SpinButton) stepBy(n int) {
 	s.set(s.value + float64(float64(n)*s.step))
 }
 
-// SetOptional lets the field hold no value, shown as placeholder, which
-// the field widens to fit: emptying it fires OnCleared, and a step from
+// SetOptional lets the field hold no value, read as placeholder in the
+// text's color as any value is, which the field widens to fit: emptying it fires OnCleared, and a step from
 // there starts at the last value. An empty placeholder makes the field
 // required again, filling an empty one with that value.
 func (s *SpinButton) SetOptional(placeholder string) {
 	s.optional = placeholder != ""
-	s.SetPlaceholder(placeholder)
+	s.setEmptyValue(placeholder)
 	s.fitRange()
 	if !s.optional && s.empty {
 		s.SetValue(s.value)

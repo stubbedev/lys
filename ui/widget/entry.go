@@ -20,6 +20,9 @@ type Entry struct {
 	color       render.Color
 	dir         Direction
 	placeholder string
+	// placeholderIsValue paints the placeholder in the text's color: the
+	// empty text is a value of its own, not a hint (setEmptyValue).
+	placeholderIsValue bool
 
 	// OnChanged fires after the contents change, whatever the
 	// source: typing, editing keys, clipboard, or SetText.
@@ -445,6 +448,15 @@ func (e *Entry) restingLine(disp string) (string, bool) {
 		return "", false
 	}
 	return render.EllipsizeText(e.font(), disp, e.ell, avail, e.fontPx()), true
+}
+
+// setEmptyValue makes the empty text a value of its own reading label:
+// shown as the placeholder, in the text's color as any value is. An
+// empty label takes it back.
+func (e *Entry) setEmptyValue(label string) {
+	e.placeholderIsValue = label != ""
+	e.SetPlaceholder(label)
+	e.Invalidate()
 }
 
 // SetPlaceholder sets the text shown when the entry is empty.
@@ -1203,7 +1215,7 @@ func (e *Entry) Paint(cv *render.Canvas) {
 	c := e.contentRect()
 	disp := e.displayText()
 	if len(e.runes) == 0 && !e.composing() && e.placeholder != "" {
-		e.paintPlaceholder(cv, c, enabled)
+		e.paintPlaceholder(cv, c, enabled, textCol)
 	}
 	// The highlight and the caret map through the display shape: in
 	// masked modes the band covers dots, never the runes behind them.
@@ -1283,14 +1295,18 @@ func (e *Entry) Paint(cv *render.Canvas) {
 }
 
 // paintPlaceholder draws the placeholder on the text's baseline at the
-// reading's start edge, unpanned, in the text > placeholder color.
-func (e *Entry) paintPlaceholder(cv *render.Canvas, c render.Rect, enabled bool) {
-	col := Current().DisabledText()
-	if pv := e.text.placeholder.style(&e.text.placeholder); pv.Declares(style.PropColor) {
-		col = pv.Color
-	}
-	if !enabled {
-		col = scaleAlpha(col, disabledFade)
+// reading's start edge, unpanned, in the text > placeholder color, or
+// in textCol, the text's, while it reads as a value.
+func (e *Entry) paintPlaceholder(cv *render.Canvas, c render.Rect, enabled bool, textCol render.Color) {
+	col := textCol
+	if !e.placeholderIsValue {
+		col = Current().DisabledText()
+		if pv := e.text.placeholder.style(&e.text.placeholder); pv.Declares(style.PropColor) {
+			col = pv.Color
+		}
+		if !enabled {
+			col = scaleAlpha(col, disabledFade)
+		}
 	}
 	ph := e.font().ShapeDir(e.placeholder, e.fontPx(), e.effDir())
 	x := c.X

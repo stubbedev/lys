@@ -3,6 +3,8 @@ package widget
 import (
 	"slices"
 	"testing"
+
+	"github.com/stubbedev/lys/lib/render"
 )
 
 type framework int
@@ -344,5 +346,24 @@ func TestComboboxEntryDisabledStaysClosed(t *testing.T) {
 	c.Open()
 	if len(host.popovers) != 0 {
 		t.Error("a disabled combobox opened its list")
+	}
+}
+
+func TestAComboboxEntrysEmptyValueReadsAsTextNotAsAHint(t *testing.T) {
+	loadCSS(t, `entry { background-color: #000000; } entry > text { color: #ff0000; } entry > text > placeholder { color: #00ff00; }`)
+	c := NewComboboxEntry(entryFace(t), 14)
+	c.SetEmpty("Default")
+	data, stride, sz := entryShot(t, c.Entry())
+	if _, n := inked(data, stride, sz, render.RGB(0xff, 0, 0)); n == 0 {
+		t.Error("the empty value is not in the text's color")
+	}
+	if _, n := inked(data, stride, sz, render.RGB(0, 0xff, 0)); n != 0 {
+		t.Errorf("the empty value painted %d px in the placeholder's color", n)
+	}
+	c.SetEmpty("")
+	c.Entry().SetPlaceholder("hint")
+	data, stride, sz = entryShot(t, c.Entry())
+	if _, n := inked(data, stride, sz, render.RGB(0, 0xff, 0)); n == 0 {
+		t.Error("a plain placeholder lost the placeholder's color")
 	}
 }

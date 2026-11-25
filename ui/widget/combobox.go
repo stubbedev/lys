@@ -277,11 +277,11 @@ func (c *ComboboxEntry) Options() []ComboboxOption[string] {
 }
 
 // SetEmpty makes the empty text a value of its own reading label: the
-// entry's placeholder, and the list's first option. An empty label
-// takes it back.
+// entry's placeholder, painted as text, and the list's first option. An
+// empty label takes it back.
 func (c *ComboboxEntry) SetEmpty(label string) {
 	c.empty = label
-	c.entry.SetPlaceholder(label)
+	c.entry.setEmptyValue(label)
 }
 
 // SetAction places w, a browse button, after the entry; nil removes the
