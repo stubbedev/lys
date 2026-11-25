@@ -227,3 +227,23 @@ func TestABarItemPreviewSpansTheColumnOfTheCardsUnderIt(t *testing.T) {
 		}
 	}
 }
+
+// A bar item's preview paints its Icon Background behind the icon under
+// the button variants that draw one, as lys-shell's bar does, and none
+// under the basic variant, which draws no icon background.
+func TestABarItemPreviewPaintsItsIconBackgroundWhereTheVariantDrawsOne(t *testing.T) {
+	iconBg := func(variant string) render.Color {
+		win := laidOutPage(t, "bar:\n  button-variant: "+variant+"\nmodules:\n  background-apps:\n    icon-bg-color: red\n", "background-apps", 1000)
+		icons := treetest.WithClass(previewedButton(t, previewedBar(t, win.page), "background-apps"), "bar-button-icon")
+		if len(icons) != 1 {
+			t.Fatalf("%s: %d button icons", variant, len(icons))
+		}
+		return widget.StyleBackground(icons[0])
+	}
+	if c := iconBg("block-prefix"); c.A() == 0 {
+		t.Error("under block-prefix the icon background is not painted")
+	}
+	if c := iconBg("basic"); c.A() != 0 {
+		t.Errorf("under basic the icon is painted %v behind", c)
+	}
+}
