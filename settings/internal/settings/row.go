@@ -599,10 +599,14 @@ func (k *kit) formGrid() formGrid {
 	return formGrid{k: k, labels: widget.NewSizeGroup(widget.SizeGroupHorizontal), controls: widget.NewSizeGroup(widget.SizeGroupHorizontal)}
 }
 
-// label is text in the grid's label column, with classes.
+// label is text in the grid's label column, with classes, styled as
+// the title of the row the form is in.
 func (g formGrid) label(text string, classes ...string) widget.Widget {
-	return g.labels.Add(g.k.label(text, append([]string{css.CaptionHeading, css.DimLabel}, classes...)...))
+	return g.labels.Add(g.k.label(text, append([]string{itemTitle}, classes...)...))
 }
+
+// itemTitle is the class lys-ui's Item styles its title by.
+const itemTitle = "title"
 
 // row is a field: label (from label) then ctl, which takes the spare
 // width with fill and otherwise sits at the row's end, in the field
