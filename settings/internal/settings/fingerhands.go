@@ -16,8 +16,6 @@ const (
 	handGapUnits = 0.3
 	fingerUnitW  = 0.16
 	tipRingWidth = 3
-
-	disabledHandsAlpha = 0.4
 )
 
 type unitRect struct{ x, y, w, h float64 }
@@ -129,13 +127,10 @@ func (h *fingerHands) Arrange(r render.Rect) {
 
 func (h *fingerHands) Paint(cv *render.Canvas) {
 	th := widget.Current()
-	if !widget.IsEnabled(h) {
-		prev := cv.PushAlpha(disabledHandsAlpha)
-		defer cv.PopAlpha(prev)
-	}
+	ink := handsInk(th)
 	for _, right := range []bool{false, true} {
 		palm := h.screen(palmUnit(right))
-		cv.RoundedRect(palm, palm.W/4, th.MutedColor())
+		cv.RoundedRect(palm, palm.W/4, ink.palm)
 	}
 	for i, f := range fingers {
 		r := h.screen(fingerUnit(i))
@@ -145,19 +140,29 @@ func (h *fingerHands) Paint(cv *render.Canvas) {
 		case slices.Contains(h.enrolled, f):
 			fill = th.Accent
 		case f == h.enrolling:
-			fill = th.MutedColor()
+			fill = ink.palm
 		}
 		cv.RoundedRect(r, radius, fill)
-		cv.RoundedBorder(r, render.UniformCorners(radius), render.UniformInsets(1), th.Border)
+		cv.RoundedBorder(r, render.UniformCorners(radius), render.UniformInsets(1), ink.outline)
 		if widget.FocusVisible(h.handles[i]) {
 			cv.RoundedBorder(r, render.UniformCorners(radius), render.UniformInsets(focusRing), th.Text)
 		}
 		if f == h.enrolling {
 			cx, cy, ring := float64(r.X+radius), float64(r.Y+radius), float64(radius+2*tipRingWidth)
-			cv.Arc(cx, cy, ring, tipRingWidth, 0, 2*math.Pi, th.MutedColor())
+			cv.Arc(cx, cy, ring, tipRingWidth, 0, 2*math.Pi, ink.palm)
 			cv.Arc(cx, cy, ring, tipRingWidth, -math.Pi/2, 2*math.Pi*h.progress, th.Accent)
 		}
 	}
+}
+
+// handsColors are what the hands picture is drawn in besides the
+// accent: the palms and the finger being enrolled in the fill of a field
+// on a card, and every finger's outline in the muted text color, so the
+// hands stand off the card they are drawn on.
+type handsColors struct{ palm, outline render.Color }
+
+func handsInk(th *widget.Theme) handsColors {
+	return handsColors{palm: th.InputColor(), outline: th.TextMuted}
 }
 
 func (h *fingerHands) HitTest(p widget.Point) widget.Widget { return h.HitLeaf(h, p) }

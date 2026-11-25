@@ -255,7 +255,7 @@ func unavailableStates(p widget.Widget) []*cardState {
 	return out
 }
 
-func unavailableFingerprint(t *testing.T, p widget.Widget) (*fingerHands, *cardState) {
+func unavailableFingerprint(t *testing.T, p widget.Widget) *cardState {
 	t.Helper()
 	var states []*cardState
 	for _, s := range unavailableStates(p) {
@@ -263,24 +263,22 @@ func unavailableFingerprint(t *testing.T, p widget.Widget) (*fingerHands, *cardS
 			states = append(states, s)
 		}
 	}
-	hands := treetest.All[*fingerHands](p)
-	if len(states) != 1 || len(hands) != 1 {
-		t.Fatalf("%d states and %d hands, want one of each", len(states), len(hands))
+	if hands := treetest.All[*fingerHands](p); len(states) != 1 || len(hands) != 0 {
+		t.Fatalf("%d states and %d hands, want one state and no hands, which would offer nothing", len(states), len(hands))
 	}
-	return hands[0], states[0]
+	return states[0]
 }
 
-func TestWithoutAReaderTheHandsAreGreyedOutOverWhyAndNothingIsClaimed(t *testing.T) {
+func TestWithoutAReaderTheSectionSaysWhyAndDrawsNoHands(t *testing.T) {
 	r := startFprint(t, false)
 	r.l.until("the reader asked for", func() bool { c, _ := r.manager.snapshot(); return len(c) == 1 })
-	r.l.until("the fingerprint section", func() bool { return len(treetest.All[*fingerHands](r.p)) == 1 })
+	r.l.until("the fingerprint section", func() bool {
+		return slices.ContainsFunc(unavailableStates(r.p), func(s *cardState) bool { return s.glyph.Name() == "ld-fingerprint-symbolic" })
+	})
 	if r.p.fingerprint != nil || len(r.methods()) != 0 {
 		t.Fatalf("section %v, device calls %v", r.p.fingerprint != nil, r.methods())
 	}
-	hands, state := unavailableFingerprint(t, r.p)
-	if widget.IsEnabled(hands) || slices.ContainsFunc(fingers, hands.offers) {
-		t.Error("the hands of a machine without a reader take a finger")
-	}
+	state := unavailableFingerprint(t, r.p)
 	if want := locale.T().Get("settings-fingerprint-no-reader"); state.Title() != want || state.reveal.button.Visible() {
 		t.Errorf("the section says %q, a detail offered %v; want %q and none", state.Title(), state.reveal.button.Visible(), want)
 	}
@@ -289,7 +287,7 @@ func TestWithoutAReaderTheHandsAreGreyedOutOverWhyAndNothingIsClaimed(t *testing
 func TestAFingerprintServiceThatCannotBeReachedSaysWhy(t *testing.T) {
 	p := usersFooter(testKit(t, "")).(*usersPanel)
 	t.Cleanup(p.close)
-	_, state := unavailableFingerprint(t, p)
+	state := unavailableFingerprint(t, p)
 	if state.Title() != locale.T().Get("settings-fingerprint-unavailable") || !strings.Contains(state.detail.Text(), "no system bus") {
 		t.Errorf("without a system bus the section says %q over %q, want the bus error behind its summary", state.Title(), state.detail.Text())
 	}

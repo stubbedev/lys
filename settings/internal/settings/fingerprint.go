@@ -170,19 +170,16 @@ func (p *usersPanel) loadFingerprint() {
 	})
 }
 
-// noFingerprint shows the hands greyed out over why no finger can be
-// enrolled: no reader, or what failed in reaching it.
+// noFingerprint says why no finger can be enrolled: no reader, or what
+// failed in reaching it. It draws no hands, which would offer nothing.
 func (p *usersPanel) noFingerprint(err error) {
-	hands := newFingerHands(p.k, nil)
-	hands.set(nil, "", 0, true)
-	hands.SetEnabled(false)
 	why := p.k.cardState()
 	if errors.Is(err, errNoReader) {
 		why.Unavailable("ld-fingerprint-symbolic", locale.T().Get("settings-fingerprint-no-reader"), nil)
 	} else {
 		why.Unavailable("ld-fingerprint-symbolic", locale.T().Get("settings-fingerprint-unavailable"), err)
 	}
-	p.Append(newSection(p.k, "settings-section-users-fingerprint", widget.NewItemGroup(newInsetRow(hands), why)), false)
+	p.Append(newSection(p.k, "settings-section-users-fingerprint", widget.NewItemGroup(why)), false)
 }
 
 func withTimeoutValue[T any](fn func(context.Context) T) T {
