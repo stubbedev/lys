@@ -237,3 +237,42 @@ func TestTheMotionEditorsWriteWhatLysWMAccepts(t *testing.T) {
 		t.Error("a zero duration was taken")
 	}
 }
+
+// eventTableWidth is the inside of the card the event table fills on a
+// page at its widest.
+const eventTableWidth = 680
+
+// widestChoice is how wide a combobox entry is when it hugs the longest
+// of items' values.
+func widestChoice(k *kit, items []choice) int {
+	w := 0
+	for _, it := range items {
+		probe := widget.NewComboboxEntry(k.face, k.textPx())
+		probe.Entry().SetText(it.value)
+		w = max(w, widget.SizeWithin(probe, widget.Size{W: 2000, H: 400}).W)
+	}
+	return w
+}
+
+// An event's name sits on a line above its cells, so the curve and style
+// pickers share the card's width and each shows its longest value whole;
+// the old one-line layout squeezed them to their chevron.
+func TestAnEventsPickersShowTheirLongestValue(t *testing.T) {
+	g, _, _ := eventTableOf(t, "")
+	g.Arrange(render.Rect{W: eventTableWidth, H: 4000})
+	g.Arrange(render.Rect{W: eventTableWidth, H: 4000})
+	for name, r := range g.rows {
+		if nb, cb := r.name.Bounds(), r.curve.Bounds(); nb.Y+nb.H > cb.Y {
+			t.Errorf("%s: its name ends at y=%d below its cells' top %d", name, nb.Y+nb.H, cb.Y)
+		}
+		pickers := map[string]*choiceEditor{"curve": r.curve, "style": r.style}
+		for kind, p := range pickers {
+			if p == nil {
+				continue
+			}
+			if got, want := p.combo.Bounds().W, widestChoice(g.k, p.items); got < want {
+				t.Errorf("%s: the %s picker is %dpx wide, under the %dpx its longest value takes", name, kind, got, want)
+			}
+		}
+	}
+}

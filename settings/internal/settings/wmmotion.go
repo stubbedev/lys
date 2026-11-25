@@ -390,9 +390,11 @@ func (c *bezierCanvas) PressEnd() {
 	c.set(c.points)
 }
 
-// wmEventsRow is lys-wm's animation events as a table: an event a row,
-// indented under the event it inherits from, with whether it animates,
-// its curve, its duration and its style, each inherited while unset.
+// wmEventsRow is lys-wm's animation events as a table: an event's name,
+// indented under the event it inherits from, over a line of its cells:
+// whether it animates, its curve, its duration and its style, each
+// inherited while unset. The name takes a line of its own so the cells
+// share the card's whole width and no picker is squeezed past its value.
 func wmEventsRow() rowSpec {
 	return wmField(eventsPath, func(r *rowSpec) {
 		r.fullWidth = true
@@ -400,7 +402,7 @@ func wmEventsRow() rowSpec {
 	})
 }
 
-var eventColumns = []string{"wm-anim-column-event", "wm-anim-column-enabled", "wm-anim-column-curve", "wm-anim-column-duration", "wm-anim-column-style"}
+var eventColumns = []string{"wm-anim-column-enabled", "wm-anim-column-curve", "wm-anim-column-duration", "wm-anim-column-style"}
 
 type eventTable struct {
 	*widget.Grid
@@ -410,6 +412,7 @@ type eventTable struct {
 
 // eventRow is one event's cells; style is nil for an event that takes none.
 type eventRow struct {
+	name         *widget.Box
 	on, duration control
 	curve, style *choiceEditor
 }
@@ -430,23 +433,23 @@ func newEventTable(k *kit, s slot) *eventTable {
 	depth := eventDepths(f.Events)
 	th := widget.Current()
 	for i, e := range f.Events {
-		row := i + 1
-		name := widget.NewBox(widget.Row, 0, 0)
-		name.SetPadding(render.Insets{Left: depth[e.Name] * 2 * th.Padding})
-		name.Append(k.label(eventLabel(e.Name)), true)
-		g.Attach(name, 0, row, 1, 1)
+		line := 1 + 2*i
 		key := func(field string) slot { return nestedSlot(s, []string{e.Name, field}) }
 		r := &eventRow{
+			name:     widget.NewBox(widget.Row, 0, 0),
 			on:       enabled(k, key("enabled")),
 			duration: duration(k, key("duration")),
 			curve:    newChoiceEditor(k, key("curve"), choiceSpec{list: fixedChoices(eventCurveChoices(k.wm)), optional: true}),
 		}
-		g.Attach(r.on, 1, row, 1, 1)
-		g.Attach(r.curve, 2, row, 1, 1)
-		g.Attach(r.duration, 3, row, 1, 1)
+		r.name.SetPadding(render.Insets{Left: depth[e.Name] * 2 * th.Padding})
+		r.name.Append(k.label(eventLabel(e.Name)), true)
+		g.Attach(r.name, 0, line, len(eventColumns), 1)
+		g.Attach(r.on, 0, line+1, 1, 1)
+		g.Attach(r.curve, 1, line+1, 1, 1)
+		g.Attach(r.duration, 2, line+1, 1, 1)
 		if len(e.Styles) > 0 {
 			r.style = newChoiceEditor(k, key("style"), choiceSpec{list: fixedChoices(styleChoices(e.Styles)), optional: true, known: styleListed(e.Styles)})
-			g.Attach(r.style, 4, row, 1, 1)
+			g.Attach(r.style, 3, line+1, 1, 1)
 		}
 		g.rows[e.Name] = r
 	}
