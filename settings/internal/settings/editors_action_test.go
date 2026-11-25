@@ -8,6 +8,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -204,6 +205,30 @@ func TestEveryDefaultClickIsANamedChoice(t *testing.T) {
 			if s := a.String(); s != "" && !slices.Contains(commands, s) {
 				t.Errorf("%s clicks %q by default, which is none of its choices %q", m, s, commands)
 			}
+		}
+	}
+}
+
+// Each power command's menu took its own presets' width, so Log Out's,
+// whose presets read longest, started 63px left of the others. The menus
+// of one card share its control column.
+func TestTheSessionCommandsShareTheControlColumn(t *testing.T) {
+	k := testKit(t, "")
+	group := widget.NewItemGroup()
+	var menus []*actionEditor
+	for _, a := range powerMenuActions {
+		path := "modules.power." + a + "-command"
+		c := fieldControl(k, k.store, field(path, sessionCommandRow(path))).(*actionEditor)
+		menus = append(menus, c)
+		group.Append(k.row(a, "").withControl(c))
+	}
+	box := widget.NewBox(widget.Column, 0, 0)
+	box.Append(group, false)
+	styledLayOut(k, box, 1000)
+	first := menus[0].Bounds()
+	for i, m := range menus {
+		if b := m.Bounds(); b.X != first.X || b.W != first.W {
+			t.Errorf("%s's menu spans %d..%d, %s's %d..%d", powerMenuActions[i], b.X, b.X+b.W, powerMenuActions[0], first.X, first.X+first.W)
 		}
 	}
 }

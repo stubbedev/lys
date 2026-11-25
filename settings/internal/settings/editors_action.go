@@ -82,6 +82,10 @@ func newCommandMenu(k *kit, s slot, choices []actionChoice, menu commandMenu) *a
 	return c
 }
 
+// columnField holds the menu in the card's control column (controlFit),
+// so the commands of one card line up however long their presets read.
+func (c *actionEditor) columnField() {}
+
 func (c *actionEditor) command() string {
 	s, _ := c.slot.get().(string)
 	return s
