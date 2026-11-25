@@ -152,8 +152,8 @@ func Run(page, setting string) error {
 	k.toast = func(text string, life time.Duration) (*widget.Toast, error) {
 		return application.ShowToast(text, life, &app.ToastConfig{Host: win})
 	}
-	k.overlays = func(output string, content widget.Widget, interactive bool) (func(), error) {
-		return outputOverlay(application, sess.Outputs(), theme, output, content, interactive)
+	k.overlays = func(output string, content widget.Widget, at overlayPlacement) (func(), error) {
+		return outputOverlay(application, sess.Outputs(), theme, output, content, at)
 	}
 	clip := func() (*app.Clipboard, error) {
 		if c := application.Clipboard(); c != nil {
@@ -313,25 +313,52 @@ func pickerPopoverConfig(anchor widget.Boundser, content, focus widget.Widget) a
 	return app.PopoverConfig{Anchor: anchor, Content: content, Focus: focus, Gap: widget.PopoverGap}
 }
 
-// outputOverlay opens content as an overlay layer centred on the output
-// named, styled by the window's stylesheet; the returned close may run
-// more than once.
-func outputOverlay(application *app.Application, outputs []*app.Output, theme *apptheme.Theme, name string, content widget.Widget, interactive bool) (func(), error) {
+// overlayCornerMargin is how far a corner overlay sits in from its
+// output's edges, in logical pixels.
+const overlayCornerMargin int32 = 32
+
+// overlayPlacement is where an overlay sits on its output and whether it
+// takes the keys.
+type overlayPlacement uint8
+
+const (
+	// overlayCorner is a label naming the output, in its top-left corner
+	// clear of the windows centred on it, taking no keys.
+	overlayCorner overlayPlacement = iota
+	// overlayCentred is a question asked on the output, centred, taking
+	// the keys when clicked.
+	overlayCentred
+)
+
+// layer is the anchor, the margins and the keyboard mode of an overlay
+// layer placed at p.
+func (p overlayPlacement) layer() (app.Anchor, app.Margins, app.KeyboardMode) {
+	switch p {
+	case overlayCorner:
+		return app.AnchorTop | app.AnchorLeft, app.Margins{Top: overlayCornerMargin, Left: overlayCornerMargin}, app.KeyboardNone
+	case overlayCentred:
+		return 0, app.Margins{}, app.KeyboardOnDemand
+	}
+	log.Panicf("settings: no overlay placement %d", p)
+	return 0, app.Margins{}, app.KeyboardNone
+}
+
+// outputOverlay opens content as an overlay layer on the output named,
+// placed at, styled by the window's stylesheet; the returned close may
+// run more than once.
+func outputOverlay(application *app.Application, outputs []*app.Output, theme *apptheme.Theme, name string, content widget.Widget, at overlayPlacement) (func(), error) {
 	i := slices.IndexFunc(outputs, func(o *app.Output) bool { return o.Name == name })
 	if i < 0 {
 		return nil, fmt.Errorf("no output %s", name)
 	}
+	anchor, margins, keys := at.layer()
 	root := widget.NewBox(widget.Column, 0, widget.Current().Padding*2)
 	root.AddClass("display-overlay")
 	root.Append(content, false)
 	theme.Attach(root)
-	keys := app.KeyboardNone
-	if interactive {
-		keys = app.KeyboardOnDemand
-	}
 	layer, err := application.NewLayer(app.LayerConfig{
 		Output: outputs[i], Layer: app.LayerOverlay, Namespace: "lys-settings-displays",
-		Keyboard: keys, Root: root, Background: theme.RenderPalette().Surface,
+		Anchor: anchor, Margin: margins, Keyboard: keys, Root: root, Background: theme.RenderPalette().Surface,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("open an overlay on %s: %w", name, err)

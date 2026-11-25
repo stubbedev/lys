@@ -15,6 +15,7 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/waittest"
+	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/settings/internal/displays"
@@ -41,8 +42,15 @@ type displaysRig struct {
 	k     *kit
 	l     *loop
 	p     *displaysPanel
-	shown []string
+	shown []shownOverlay
 	clock *fakeclock.Clock
+}
+
+// shownOverlay is an overlay the displays panel opened: on which output,
+// placed where.
+type shownOverlay struct {
+	output string
+	at     overlayPlacement
 }
 
 func twoOutputs(t *testing.T) (*wmtest.Session, *kit, *loop) {
@@ -69,8 +77,8 @@ func startDisplays(t *testing.T) *displaysRig {
 	clock := fakeclock.New()
 	k.clock = clock
 	r := &displaysRig{s: s, k: k, l: l, clock: clock}
-	k.overlays = func(output string, _ widget.Widget, _ bool) (func(), error) {
-		r.shown = append(r.shown, output)
+	k.overlays = func(output string, _ widget.Widget, at overlayPlacement) (func(), error) {
+		r.shown = append(r.shown, shownOverlay{output, at})
 		return func() {}, nil
 	}
 	r.p = displaysLead(k).(*displaysPanel)
@@ -170,6 +178,11 @@ func TestDraggingTheSecondOutputLeftAndKeepingWritesPositionsLysWMTakes(t *testi
 	}
 	if len(r.p.confirm.overlays) != 2 {
 		t.Fatalf("the confirmation shows on %d outputs, want both", len(r.p.confirm.overlays))
+	}
+	for _, o := range r.shown[len(r.shown)-2:] {
+		if o.at != overlayCentred {
+			t.Errorf("the confirmation on %s is placed %d, want centred", o.output, o.at)
+		}
 	}
 	confirmButton(t, r.p, "settings-displays-keep").OnClick()
 	if string(r.config(t)) == string(before) {
@@ -488,4 +501,40 @@ func extraButtons(p *displaysPanel, tooltip string) []*widget.Button {
 		out = append(out, buttonsTitled(row, tooltip)...)
 	}
 	return out
+}
+
+// Identify names each output in a label in its corner, clear of the
+// settings window centred on it; the labels take no keys.
+func TestIdentifyLabelsSitInTheOutputsCorner(t *testing.T) {
+	r := startDisplays(t)
+	r.shown = nil
+	r.p.identify.OnClick()
+	if len(r.shown) != 2 {
+		t.Fatalf("Identify named %v, want both outputs", r.shown)
+	}
+	for _, o := range r.shown {
+		if o.at != overlayCorner {
+			t.Errorf("%s's label is placed %d, want its corner", o.output, o.at)
+		}
+	}
+}
+
+// A corner overlay anchors to the top-left edges inset by a margin and
+// takes no keys; a centred one anchors to no edge, which centres it, and
+// takes the keys on demand; a placement outside the two is a bug.
+func TestAnOverlayPlacementIsItsLayersAnchorMarginAndKeys(t *testing.T) {
+	anchor, margins, keys := overlayCorner.layer()
+	if anchor != app.AnchorTop|app.AnchorLeft || margins.Top <= 0 || margins.Left <= 0 || margins.Right != 0 || margins.Bottom != 0 || keys != app.KeyboardNone {
+		t.Errorf("a corner overlay anchors %v inset %+v with keys %v", anchor, margins, keys)
+	}
+	anchor, margins, keys = overlayCentred.layer()
+	if anchor != 0 || margins != (app.Margins{}) || keys != app.KeyboardOnDemand {
+		t.Errorf("a centred overlay anchors %v inset %+v with keys %v", anchor, margins, keys)
+	}
+	defer func() {
+		if recover() == nil {
+			t.Error("an unknown placement gave a layer")
+		}
+	}()
+	overlayPlacement(9).layer()
 }
