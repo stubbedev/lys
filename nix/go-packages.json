@@ -133,6 +133,7 @@
     ],
     "testImports": [
       "desktop/config/internal/schemadoc",
+      "desktop/resources",
       "desktop/spawn",
       "lib/logind/logindtest",
       "lib/logtest",
@@ -140,6 +141,7 @@
       "lib/waittest"
     ],
     "testExternal": [
+      "path",
       "regexp",
       "testing"
     ]
