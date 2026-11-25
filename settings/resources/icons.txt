@@ -23,6 +23,7 @@ ld-disc-3-symbolic
 ld-droplet-symbolic
 ld-droplets-symbolic
 ld-ellipsis-symbolic
+ld-ethernet-port-symbolic
 ld-eye-off-symbolic
 ld-eye-symbolic
 ld-file-text-symbolic
@@ -63,6 +64,7 @@ ld-panel-top-open-symbolic
 ld-panel-top-symbolic
 ld-pause-symbolic
 ld-pencil-symbolic
+ld-plane-symbolic
 ld-play-symbolic
 ld-plug-zap-symbolic
 ld-plus-symbolic

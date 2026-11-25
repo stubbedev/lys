@@ -29,8 +29,8 @@ func TestEditingAVPNLoadsItsValuesAndKeepsWhatTheFormHasNoFieldFor(t *testing.T)
 	_, p := netPanel(t, f)
 	clickText(t, p.vpn, i18n.T("dropdown-network-vpn-edit"), 0)
 	form := p.vpnForm
-	if !form.Visible() || form.kindField.Visible() || form.name.Text() != "Work" {
-		t.Fatalf("Edit shows the form %v, the type picker %v, the name %q", form.Visible(), form.kindField.Visible(), form.name.Text())
+	if !form.row.Visible() || form.kindField.Visible() || form.name.Text() != "Work" {
+		t.Fatalf("Edit shows the form %v, the type picker %v, the name %q", form.row.Visible(), form.kindField.Visible(), form.name.Text())
 	}
 	if got := formEntry(t, form, "gateway").entry.Text(); got != "vpn.example.com" {
 		t.Errorf("the gateway reads %q", got)
@@ -53,8 +53,8 @@ func TestAVPNThatCannotBeReadOpensNoForm(t *testing.T) {
 	f.profiles = nil
 	_, p := netPanel(t, f)
 	clickText(t, p.vpn, i18n.T("dropdown-network-vpn-edit"), 0)
-	if p.vpnForm.Visible() || !p.problem.Visible() || p.problem.kind != stateError || rawError(p.problem.Text()) || !strings.Contains(p.problem.detail.Text(), "/p/1") {
-		t.Errorf("an unreadable profile opened the form %v, said %q over %q", p.vpnForm.Visible(), p.problem.Text(), p.problem.detail.Text())
+	if p.vpnForm.row.Visible() || !p.problem.Visible() || p.problem.kind != stateError || rawError(p.problem.Text()) || !strings.Contains(p.problem.detail.Text(), "/p/1") {
+		t.Errorf("an unreadable profile opened the form %v, said %q over %q", p.vpnForm.row.Visible(), p.problem.Text(), p.problem.detail.Text())
 	}
 }
 
@@ -66,8 +66,8 @@ func TestARefusedSaveKeepsTheFormAndSaysWhy(t *testing.T) {
 	fillWireGuard(t, form, network.GenerateKeyPair())
 	form.name.SetText("Office")
 	clickText(t, form, i18n.T("dropdown-network-vpn-save"), 0)
-	if len(f.added) != 1 || !form.Visible() || form.problem.Text() != locale.T().Get("settings-network-vpn-not-saved") || !strings.Contains(form.problem.detail.Text(), f.vpnErr.Error()) || form.problem.detail.Visible() || formEntry(t, form, "interface").entry.Text() != "wg9" {
-		t.Errorf("a refused save: written %d, form %v, says %q over %q", len(f.added), form.Visible(), form.problem.Text(), form.problem.detail.Text())
+	if len(f.added) != 1 || !form.row.Visible() || form.problem.Text() != locale.T().Get("settings-network-vpn-not-saved") || !strings.Contains(form.problem.detail.Text(), f.vpnErr.Error()) || form.problem.detail.Visible() || formEntry(t, form, "interface").entry.Text() != "wg9" {
+		t.Errorf("a refused save: written %d, form %v, says %q over %q", len(f.added), form.row.Visible(), form.problem.Text(), form.problem.detail.Text())
 	}
 }
 

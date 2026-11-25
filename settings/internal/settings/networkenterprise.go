@@ -47,6 +47,7 @@ type eapPhase2 struct {
 // server is checked against.
 type eapForm struct {
 	*widget.Box
+	row            *insetRow
 	p              *networkPanel
 	target         eapTarget
 	head           *widget.Label
@@ -69,6 +70,7 @@ type eapForm struct {
 func newEAPForm(p *networkPanel) *eapForm {
 	k := p.k
 	f := &eapForm{Box: gapBox(widget.Column), p: p}
+	f.row = newInsetRow(f)
 	f.AddClass("network-enterprise")
 	f.head = wrapped(k.label(""))
 	f.Append(f.head, false)

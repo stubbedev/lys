@@ -28,7 +28,13 @@ const (
 	networkCallWait = network.ConnectTimeout + 5*time.Second
 )
 
-var wifiSignalIcons = []string{"ld-wifi-zero-symbolic", "ld-wifi-low-symbolic", "ld-wifi-high-symbolic", "ld-wifi-symbolic"}
+const (
+	wifiIcon     = "ld-wifi-symbolic"
+	wiredIcon    = "ld-ethernet-port-symbolic"
+	airplaneIcon = "ld-plane-symbolic"
+)
+
+var wifiSignalIcons = []string{"ld-wifi-zero-symbolic", "ld-wifi-low-symbolic", "ld-wifi-high-symbolic", wifiIcon}
 
 var hiddenProblems = map[error]string{
 	network.ErrHiddenNameEmpty:      "settings-wifi-hidden-name-empty",
@@ -391,7 +397,7 @@ func newNetworkPanel(k *kit) *networkPanel {
 	vpnBody.Append(p.vpn, false)
 	addVPN, _ := k.contentButton(roleSecondary, "ld-plus-symbolic", locale.T().Get("settings-vpn-add"), func() { p.vpnForm.open("", "", vpnProfile{}) })
 	vpnBody.Append(newInsetAction(addVPN), false)
-	vpnBody.Append(p.vpnForm, false)
+	vpnBody.Append(p.vpnForm.row, false)
 	p.vpnSec = newSection(k, "settings-vpn-section", vpnBody)
 	p.vpnSec.SetVisible(false)
 	p.Append(p.vpnSec, false)
@@ -562,16 +568,22 @@ func (p *networkPanel) show() {
 	p.proxy.show(st.proxy)
 	p.showDetails()
 	if st.snap.HasWired {
-		status.Append(p.k.row(t.Get("settings-wifi-wired"), wiredDetail(st.snap)))
+		wired := p.k.row(t.Get("settings-wifi-wired"), wiredDetail(st.snap))
+		wired.SetMedia(widget.NewThemeIcon(wiredIcon, appIconPx), true)
+		status.Append(wired)
 	}
 	if st.radios {
 		plane := widget.NewSwitch(st.airplane)
 		plane.SetAccessibleName(t.Get("settings-wifi-airplane"))
 		plane.OnChanged = func(on bool) { p.run(func(ctx context.Context) error { return p.ctl.setAirplane(ctx, on) }) }
-		status.Append(p.k.row(t.Get("settings-wifi-airplane"), t.Get("settings-wifi-airplane-detail")).withControl(plane))
+		row := p.k.row(t.Get("settings-wifi-airplane"), t.Get("settings-wifi-airplane-detail")).withControl(plane)
+		row.SetMedia(widget.NewThemeIcon(airplaneIcon, appIconPx), true)
+		status.Append(row)
 	}
 	if !st.wifi {
-		status.Append(p.k.row(t.Get("settings-wifi-title"), t.Get("settings-wifi-no-device")))
+		none := p.k.row(t.Get("settings-wifi-title"), t.Get("settings-wifi-no-device"))
+		none.SetMedia(widget.NewThemeIcon(wifiIcon, appIconPx), true)
+		status.Append(none)
 		return
 	}
 	wifiOn := widget.NewSwitch(st.wifiOn)
@@ -584,20 +596,27 @@ func (p *networkPanel) show() {
 	wifiRow := p.k.row(t.Get("settings-wifi-title"), wifiDetail(st)).withActions(rescan).withControl(wifiOn)
 	if ap, ok := activeAccessPoint(st); ok {
 		wifiRow.SetMedia(signalIcon(ap.Strength), true)
+	} else {
+		wifiRow.SetMedia(widget.NewThemeIcon(wifiIcon, appIconPx), true)
 	}
 	status.Append(wifiRow)
 	if !st.wifiOn {
 		return
 	}
 	list := widget.NewItemGroup()
+	signIn := p.eap.target != nil
 	for _, ap := range visibleNetworks(st.aps) {
 		list.Append(p.networkRow(ap))
+		if t, ok := p.eap.target.(listedEAP); ok && t.ssid() == ap.Name() {
+			list.Append(p.eap.row)
+			signIn = false
+		}
+	}
+	list.Append(newInsetRow(p.hiddenForm()))
+	if signIn {
+		list.Append(p.eap.row)
 	}
 	p.nets.Append(list, false)
-	if p.eap.target != nil {
-		p.nets.Append(p.eap, false)
-	}
-	p.nets.Append(p.hiddenForm(), false)
 }
 
 func wiredDetail(s network.Snapshot) string {
@@ -817,7 +836,7 @@ func (p *networkPanel) hiddenForm() widget.Widget {
 	box := gapBox(widget.Column)
 	form := gapBox(widget.Column)
 	form.SetVisible(false)
-	open := p.k.linkButton(t.Get("settings-wifi-hidden"), func() { form.SetVisible(!form.Visible()) })
+	open := p.k.modeToggle(t.Get("settings-wifi-hidden"), t.Get("settings-wifi-hidden"), form.SetVisible)
 	name := p.k.entry()
 	name.SetPlaceholder(t.Get("settings-wifi-hidden-name"))
 	name.SetAccessibleName(t.Get("settings-wifi-hidden-name"))
@@ -888,7 +907,7 @@ func (p *networkPanel) showVPNs() {
 		list.Append(p.k.row(v.profile.ID, vpnDetail(v)).withActions(edit, remove).withControl(on))
 	}
 	p.vpn.Append(list, false)
-	p.vpn.Append(p.k.note(t.Get("settings-vpn-secrets")), false)
+	p.vpn.Append(newInsetRow(p.k.note(t.Get("settings-vpn-secrets"))), false)
 }
 
 func (p *networkPanel) editVPN(prof network.Profile) {

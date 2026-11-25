@@ -36,6 +36,7 @@ type vpnPicker struct {
 
 type vpnForm struct {
 	*widget.Box
+	row        *insetRow
 	p          *networkPanel
 	kinds      []network.VPNKind
 	selected   int
@@ -58,8 +59,9 @@ type vpnForm struct {
 func newVPNForm(p *networkPanel) *vpnForm {
 	k := p.k
 	f := &vpnForm{Box: gapBox(widget.Column), p: p}
+	f.row = newInsetRow(f)
 	f.AddClass("vpn-form")
-	f.SetVisible(false)
+	f.row.SetVisible(false)
 	f.name = k.entry()
 	f.name.SetAccessibleName(i18n.T("dropdown-network-vpn-name"))
 	f.name.OnActivate = func(string) { f.save() }
@@ -111,7 +113,7 @@ func (f *vpnForm) open(uuid, name string, prof vpnProfile) {
 	f.kindSlot.Append(picker, false)
 	f.kindField.SetVisible(uuid == "")
 	f.rebuild(prof.values)
-	f.SetVisible(true)
+	f.row.SetVisible(true)
 }
 
 func (f *vpnForm) kind() network.VPNKind {
@@ -299,6 +301,6 @@ func (f *vpnForm) imported(path string) {
 }
 
 func (f *vpnForm) close() {
-	f.SetVisible(false)
+	f.row.SetVisible(false)
 	f.editing = ""
 }

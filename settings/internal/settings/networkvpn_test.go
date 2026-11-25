@@ -40,11 +40,11 @@ func vpnNets() *fakeNet {
 func openVPNAdd(t *testing.T, f *fakeNet) (*kit, *networkPanel) {
 	t.Helper()
 	k, p := netPanel(t, f)
-	if p.vpnForm.Visible() {
+	if p.vpnForm.row.Visible() {
 		t.Fatal("the VPN form shows before Add VPN")
 	}
 	treetest.Button(t, p.vpnSec, locale.T().Get("settings-vpn-add")).OnClick()
-	if !p.vpnForm.Visible() {
+	if !p.vpnForm.row.Visible() {
 		t.Fatal("Add VPN opened no form")
 	}
 	return k, p
@@ -96,8 +96,8 @@ func TestAddVPNOffersEveryKindAndWireGuardFirst(t *testing.T) {
 		}
 	}
 	clickText(t, form, locale.T().Get("settings-cancel"), 0)
-	if form.Visible() || len(f.added) != 0 {
-		t.Errorf("Cancel left the form %v, wrote %v", form.Visible(), f.added)
+	if form.row.Visible() || len(f.added) != 0 {
+		t.Errorf("Cancel left the form %v, wrote %v", form.row.Visible(), f.added)
 	}
 }
 
@@ -140,7 +140,7 @@ func TestANewVPNIsRefusedFieldByFieldAndSavedWhenWhole(t *testing.T) {
 	if len(f.added) != 1 || f.added[0].kind != network.WireGuard || f.added[0].name != "Office" || f.added[0].values["private-key"] != pair.Private || f.added[0].values["interface"] != "wg9" {
 		t.Fatalf("saved %+v", f.added)
 	}
-	if form.Visible() {
+	if form.row.Visible() {
 		t.Error("the form stays open after a save")
 	}
 }
