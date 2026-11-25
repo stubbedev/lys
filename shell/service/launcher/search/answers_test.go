@@ -33,7 +33,9 @@ func calculatorIn(t *testing.T, locale string, rates *answer.Rates) *Calculator 
 	return NewCalculator(loaderIn(t, locale), rates, answer.NewCurrencyParser("en"), answer.NewZones(time.LoadLocation), func() time.Time { return answerClock })
 }
 
-func testCalculator(t *testing.T, rates *answer.Rates) *Calculator { return calculatorIn(t, "en-US", rates) }
+func testCalculator(t *testing.T, rates *answer.Rates) *Calculator {
+	return calculatorIn(t, "en-US", rates)
+}
 
 const ecbFixture = `<gesmes:Envelope xmlns:gesmes="http://www.gesmes.org/xml/2002-08-01" xmlns="http://www.ecb.int/vocabulary/2002-08-01/eurofxref">
 <Cube><Cube time='2026-11-06'><Cube currency='USD' rate='1.0825'/><Cube currency='DKK' rate='7.4593'/></Cube></Cube>

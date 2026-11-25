@@ -19,7 +19,7 @@ func loaderFor(t *testing.T, locale string) *i18n.Loader {
 }
 
 // unisolated drops the isolation marks Fluent wraps placeables in.
-var unisolated = strings.NewReplacer("⁨", "", "⁩", "")
+var unisolated = strings.NewReplacer("\u2068", "", "\u2069", "")
 
 func TestAnUnlabelledVolumeIsNamedBySizeInTheLocalesLanguageAndUnits(t *testing.T) {
 	plain := Volume{Size: 16_000_000_000}
