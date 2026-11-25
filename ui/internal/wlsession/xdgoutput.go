@@ -114,10 +114,13 @@ func (e *xdgOutputEvents) HandleZxdgOutputV1LogicalSize(ev wlr.ZxdgOutputV1Logic
 	e.out.LogicalW, e.out.LogicalH = ev.Width, ev.Height
 }
 
-// HandleZxdgOutputV1Done implements wlr.ZxdgOutputV1DoneHandler:
-// deprecated since version 3, where wl_output.done took over as the
-// atomicity barrier; the properties are applied as they arrive.
-func (e *xdgOutputEvents) HandleZxdgOutputV1Done(wlr.ZxdgOutputV1DoneEvent) {}
+// HandleZxdgOutputV1Done implements wlr.ZxdgOutputV1DoneHandler: the
+// barrier below version 3, where a logical size change arrives without
+// a wl_output.done, so change watchers hear it here; from version 3 on
+// the compositor sends wl_output.done instead.
+func (e *xdgOutputEvents) HandleZxdgOutputV1Done(wlr.ZxdgOutputV1DoneEvent) {
+	e.sess.outputDone(e.out)
+}
 
 // HandleZxdgOutputV1Name implements wlr.ZxdgOutputV1NameHandler: the
 // stable identity (DP-1, HDMI-A-1) landed; notify the host once it

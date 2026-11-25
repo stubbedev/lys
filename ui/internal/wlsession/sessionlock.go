@@ -33,10 +33,10 @@ func (s *Session) bindSessionLockManager(ev wl.RegistryGlobalEvent) {
 	debug.Log("shell", "ext-session-lock-v1 bound")
 }
 
-// outputWatcher is one WatchOutputs or WatchOutputIdentity
-// subscription.
+// outputWatcher is one WatchOutputs, WatchOutputIdentity or
+// WatchOutputChanges subscription.
 type outputWatcher struct {
-	added, removed, identity func(*Output)
+	added, removed, identity, changed func(*Output)
 }
 
 // WatchOutputs subscribes to output hotplug alongside the
@@ -54,6 +54,16 @@ func (s *Session) WatchOutputs(added, removed func(*Output)) (stop func()) {
 // idempotent. Watchers run on the event-loop goroutine, after the hook.
 func (s *Session) WatchOutputIdentity(fn func(*Output)) (stop func()) {
 	return s.watch(&outputWatcher{identity: fn})
+}
+
+// WatchOutputChanges subscribes to output reconfiguration: fn runs
+// once a done event leaves an output's mode, scale, transform or
+// logical size different from what the previous done left, the first
+// done included, so surfaces sized to the output can follow it. The
+// returned stop unsubscribes; it is idempotent. Watchers run on the
+// event-loop goroutine.
+func (s *Session) WatchOutputChanges(fn func(*Output)) (stop func()) {
+	return s.watch(&outputWatcher{changed: fn})
 }
 
 func (s *Session) watch(w *outputWatcher) (stop func()) {
@@ -104,6 +114,37 @@ func (s *Session) notifyOutputRemoved(out *Output) {
 	for _, w := range append([]*outputWatcher(nil), s.outputWatchers...) {
 		if w.removed != nil {
 			w.removed(out)
+		}
+	}
+}
+
+// outputShape is the part of an output's state that sizes a surface
+// covering it.
+type outputShape struct {
+	modeW, modeH, scale int
+	transform           int32
+	logicalW, logicalH  int32
+}
+
+// shapeOf is out's current outputShape.
+func shapeOf(out *Output) outputShape {
+	return outputShape{
+		modeW: out.ModeW, modeH: out.ModeH, scale: out.Scale,
+		transform: out.Transform, logicalW: out.LogicalW, logicalH: out.LogicalH,
+	}
+}
+
+// outputDone fans out to every change watcher when a done event left
+// out's shape different from the previous one's.
+func (s *Session) outputDone(out *Output) {
+	shape := shapeOf(out)
+	if shape == out.shape {
+		return
+	}
+	out.shape = shape
+	for _, w := range append([]*outputWatcher(nil), s.outputWatchers...) {
+		if w.changed != nil {
+			w.changed(out)
 		}
 	}
 }

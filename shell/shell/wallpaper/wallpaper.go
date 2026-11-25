@@ -142,16 +142,18 @@ func (s *Shell) shutdown() {
 	s.rasters.close()
 }
 
-// OutputWatcher is the session's output hotplug feed: the identity of
-// a monitor once its connector name is known, and its removal.
+// OutputWatcher is the session's output feed: the identity of a
+// monitor once its connector name is known, its reconfiguration (mode,
+// scale, transform or logical size), and its removal.
 type OutputWatcher interface {
 	WatchOutputIdentity(fn func(*app.Output)) (stop func())
+	WatchOutputChanges(fn func(*app.Output)) (stop func())
 	WatchOutputs(added, removed func(*app.Output)) (stop func())
 }
 
 // Launch is Start on the shell's session connection, following
-// hotplugged outputs through watch. A failure is logged and leaves the
-// shell without wallpapers (nil).
+// hotplugged and reconfigured outputs through watch. A failure is
+// logged and leaves the shell without wallpapers (nil).
 func Launch(application *app.Application, outputs []*app.Output, cfg *config.Config, conn *dbus.Conn, watch OutputWatcher) (*Shell, func()) {
 	if conn == nil {
 		log.Print("wallpaper: cannot initialize wallpaper service: no session bus")
@@ -163,9 +165,11 @@ func Launch(application *app.Application, outputs []*app.Output, cfg *config.Con
 		return nil, func() {}
 	}
 	stopIdentity := watch.WatchOutputIdentity(s.AddOutput)
+	stopChanges := watch.WatchOutputChanges(s.UpdateOutput)
 	stopRemoved := watch.WatchOutputs(nil, s.RemoveOutput)
 	return s, func() {
 		stopIdentity()
+		stopChanges()
 		stopRemoved()
 		stop()
 	}
@@ -263,6 +267,17 @@ func (s *Shell) RemoveOutput(out *app.Output) {
 	s.reconcile()
 }
 
+// UpdateOutput re-renders a known output's wallpaper once the
+// compositor has changed its mode, scale or transform, so it covers the
+// output at its new device size; an output whose size and scale stayed
+// keeps its raster. An output the shell does not track is ignored.
+func (s *Shell) UpdateOutput(out *app.Output) {
+	if out.Name == "" || s.outputs[out.Name] != out {
+		return
+	}
+	s.reconcile()
+}
+
 // resolve is the image and fit a monitor renders (reconcile): its own
 // state, else its [[wallpaper.monitors]] image, else the global one, else
 // the built-in one.
@@ -355,10 +370,12 @@ type surface struct {
 	// closeLayer closes the layer surface; nil until it opens.
 	closeLayer func()
 	view       *view
-	// path and fit are what was last asked for; gen invalidates a
-	// decode that a newer request overtook.
+	// path, fit, box and known are what was last asked for; gen
+	// invalidates a decode that a newer request overtook.
 	path     string
 	fit      wallpaper.FitMode
+	box      target
+	known    bool
 	gen      uint64
 	stopAnim func()
 	falling  bool
@@ -455,18 +472,19 @@ func outputTarget(out *app.Output) (target, bool) {
 	return target{w: size.X, h: size.Y, scale: scale}, true
 }
 
-// render asks for path's raster at fit for the output and swaps it in
-// once it is made. A repeat of the current request is a no-op; a fit
+// render asks for path's raster at fit for the output's current device
+// size and scale, and swaps it in once it is made. A repeat of the
+// current request on an unchanged output is a no-op; a fit or output
 // change alone re-renders without a transition.
 func (surf *surface) render(path string, fit wallpaper.FitMode) {
-	if path == surf.path && fit == surf.fit {
+	box, known := outputTarget(surf.out)
+	if path == surf.path && fit == surf.fit && box == surf.box && known == surf.known {
 		return
 	}
 	animate := path != surf.path
-	surf.path, surf.fit = path, fit
+	surf.path, surf.fit, surf.box, surf.known = path, fit, box, known
 	surf.gen++
 	gen := surf.gen
-	box, known := outputTarget(surf.out)
 	rs := surf.shell.rasters
 	rs.acquire(rasterKey{path: path, fit: fit, box: box, known: known}, func(r *raster) {
 		if gen != surf.gen {

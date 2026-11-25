@@ -77,6 +77,10 @@ type Output struct {
 	// xdg is the output's xdg_output object (see xdgoutput.go), nil
 	// until the manager is bound or the object is created.
 	xdg xdgOutputAPI
+
+	// shape is the geometry as of the last done event, which change
+	// watchers heard (sessionlock.go).
+	shape outputShape
 }
 
 // Mods is a bitmask of held keyboard modifiers, mirroring the low bits
@@ -723,8 +727,12 @@ func (e *outputEvents) HandleOutputMode(ev wl.OutputModeEvent) {
 	}
 }
 
-// HandleOutputDone implements wl.OutputDoneHandler.
-func (e *outputEvents) HandleOutputDone(wl.OutputDoneEvent) {}
+// HandleOutputDone implements wl.OutputDoneHandler: the atomicity
+// barrier after which the mode, scale, transform and (xdg_output v3)
+// logical size just sent apply together, so change watchers hear them.
+func (e *outputEvents) HandleOutputDone(wl.OutputDoneEvent) {
+	e.sess.outputDone(e.out)
+}
 
 // seat capability bits.
 const (
