@@ -270,11 +270,17 @@ func (k *kit) keyRow(key string) *settingRow { return k.row(locale.T().Get(key),
 
 // withControl places ctl as the row's control where controlFit holds it.
 func (r *settingRow) withControl(ctl widget.Widget) *settingRow {
-	r.SetControl(ctl, controlFit(ctl))
+	r.placeControl(ctl, controlFit(ctl))
+	return r
+}
+
+// placeControl places ctl as the row's control at fit, and the detail a
+// control that has one shows under the row's text.
+func (r *settingRow) placeControl(ctl widget.Widget, fit widget.ItemControlFit) {
+	r.SetControl(ctl, fit)
 	if d, ok := ctl.(interface{ detail() widget.Widget }); ok {
 		r.AddDetail(d.detail())
 	}
-	return r
 }
 
 // withActions adds ws ahead of the control.
@@ -541,7 +547,7 @@ func newSettingRow(k *kit, be backend, spec rowSpec, ctl control) *fieldRow {
 	if spec.fullWidth {
 		fit = widget.ItemControlWide
 	}
-	r.SetControl(ctl, fit)
+	r.placeControl(ctl, fit)
 	r.refreshSource()
 	return r
 }
