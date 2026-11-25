@@ -7283,6 +7283,7 @@
       "go/ast",
       "go/parser",
       "go/token",
+      "golang.org/x/image/font/gofont/gobold",
       "golang.org/x/image/font/gofont/goregular",
       "golang.org/x/sys/unix",
       "image/color",
