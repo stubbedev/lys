@@ -105,7 +105,7 @@ const (
 // shortcutRecorder is the window's key recorder, named and explained by
 // name.
 func (k *kit) shortcutRecorder(name string, unset recorderUnset) *widget.ShortcutRecorder {
-	r := widget.NewShortcutRecorder(k.face, "")
+	r := widget.NewShortcutRecorder(k.face, k.textPx(), "")
 	r.SetAccessibleName(name)
 	r.SetTooltip(name)
 	r.SetClearable(unset == unsetClears)

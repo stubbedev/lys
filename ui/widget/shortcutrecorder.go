@@ -10,9 +10,6 @@ import (
 	"github.com/stubbedev/lys/ui/widget/css"
 )
 
-// shortcutRecorderSize is the recorder's text size.
-const shortcutRecorderSize = 14
-
 // Tap is a modifier pressed and released alone, with other modifiers
 // held: Super tapped with Ctrl held reads "Ctrl+Super". No accelerator
 // writes one; a ShortcutRecorder that records taps records one. The
@@ -75,6 +72,7 @@ func (t Tap) String() string { return strings.Join(t.Labels(), "+") }
 type ShortcutRecorder struct {
 	composite
 	face      render.Font
+	sizePx    float64
 	box       *Box
 	row       *Box
 	button    *recorderButton
@@ -116,10 +114,11 @@ type recorderButton struct {
 }
 
 // NewShortcutRecorder returns a recorder at rest showing accel, in
-// the label form ("Ctrl+Alt+P"); empty shows it unassigned.
-func NewShortcutRecorder(face render.Font, accel string) *ShortcutRecorder {
+// the label form ("Ctrl+Alt+P"), its prompt and message painted with
+// face at sizePx; empty shows it unassigned.
+func NewShortcutRecorder(face render.Font, sizePx float64, accel string) *ShortcutRecorder {
 	face = requireFace("widget.NewShortcutRecorder", face)
-	r := &ShortcutRecorder{face: face, box: NewBox(Column, 4, 0), row: NewBox(Row, 6, 0), display: NewBox(Row, 0, 0), value: accel, clearable: true}
+	r := &ShortcutRecorder{face: face, sizePx: sizePx, box: NewBox(Column, 4, 0), row: NewBox(Row, 6, 0), display: NewBox(Row, 0, 0), value: accel, clearable: true}
 	r.SetElement("shortcutrecorder")
 	r.button = &recorderButton{Button: NewButton(r.display, 0, 0), r: r}
 	r.button.SetElement("button")
@@ -137,7 +136,7 @@ func NewShortcutRecorder(face render.Font, accel string) *ShortcutRecorder {
 		r.stop("")
 		r.commit("")
 	}
-	r.err = NewLabel(face, shortcutRecorderSize, "", 0)
+	r.err = NewLabel(face, sizePx, "", 0)
 	r.err.AddClass(css.Error)
 	r.err.SetWrap(true)
 	r.row.Append(r.button, true)
@@ -340,7 +339,7 @@ func (r *ShortcutRecorder) refresh() {
 // promptLabel is a prompt in place of keycaps, colored by class: dim
 // while unassigned, the accent while it listens.
 func (r *ShortcutRecorder) promptLabel(text, class string) *Label {
-	l := NewLabel(r.face, shortcutRecorderSize, text, 0)
+	l := NewLabel(r.face, r.sizePx, text, 0)
 	l.AddClass("prompt", class)
 	return l
 }

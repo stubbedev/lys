@@ -7361,7 +7361,9 @@ type ShortcutRecorderBuilder struct {
 // ShortcutRecorder builds a widget.ShortcutRecorder with widget.NewShortcutRecorder.
 func ShortcutRecorder(accel string) *ShortcutRecorderBuilder {
 	b := &ShortcutRecorderBuilder{}
-	b.init(b, func(s *Scope) *widget.ShortcutRecorder { return widget.NewShortcutRecorder(s.face(b.face), accel) })
+	b.init(b, func(s *Scope) *widget.ShortcutRecorder {
+		return widget.NewShortcutRecorder(s.face(b.face), s.size(b.size), accel)
+	})
 	return b
 }
 

@@ -31,7 +31,7 @@ func recorderPrompt(r *ShortcutRecorder) string {
 }
 
 func TestShortcutRecorderCommitsTheFirstKeyWithItsModifiers(t *testing.T) {
-	r := NewShortcutRecorder(chromeFace(t), "")
+	r := NewShortcutRecorder(chromeFace(t), 14, "")
 	var changes []string
 	r.OnChanged = func(a string) { changes = append(changes, a) }
 	if got := recorderPrompt(r); got != "Unassigned" {
@@ -65,7 +65,7 @@ func TestShortcutRecorderCommitsTheFirstKeyWithItsModifiers(t *testing.T) {
 }
 
 func TestShortcutRecorderEscapeKeepsTheOldValue(t *testing.T) {
-	r := NewShortcutRecorder(chromeFace(t), "Ctrl+Q")
+	r := NewShortcutRecorder(chromeFace(t), 14, "Ctrl+Q")
 	fired := 0
 	r.OnChanged = func(string) { fired++ }
 	r.button.KeyAction(KeyEnter, 0)
@@ -83,7 +83,7 @@ func TestShortcutRecorderEscapeKeepsTheOldValue(t *testing.T) {
 }
 
 func TestShortcutRecorderBackspaceAndClearUnassign(t *testing.T) {
-	r := NewShortcutRecorder(chromeFace(t), "Ctrl+Q")
+	r := NewShortcutRecorder(chromeFace(t), 14, "Ctrl+Q")
 	var changes []string
 	r.OnChanged = func(a string) { changes = append(changes, a) }
 	r.button.InsertRune(' ')
@@ -115,7 +115,7 @@ func TestShortcutRecorderBackspaceAndClearUnassign(t *testing.T) {
 }
 
 func TestShortcutRecorderPreviewsHeldModifiersWithoutCommitting(t *testing.T) {
-	r := NewShortcutRecorder(chromeFace(t), "")
+	r := NewShortcutRecorder(chromeFace(t), 14, "")
 	fired := 0
 	r.OnChanged = func(string) { fired++ }
 	r.StartRecording()
@@ -141,7 +141,7 @@ func TestShortcutRecorderPreviewsHeldModifiersWithoutCommitting(t *testing.T) {
 }
 
 func TestShortcutRecorderValidateKeepsRecording(t *testing.T) {
-	r := NewShortcutRecorder(chromeFace(t), "")
+	r := NewShortcutRecorder(chromeFace(t), 14, "")
 	var changes []string
 	r.OnChanged = func(a string) { changes = append(changes, a) }
 	r.Validate = func(a string) error {
@@ -168,7 +168,7 @@ func TestShortcutRecorderValidateKeepsRecording(t *testing.T) {
 }
 
 func TestShortcutRecorderLosingFocusCancels(t *testing.T) {
-	r := NewShortcutRecorder(chromeFace(t), "Ctrl+Q")
+	r := NewShortcutRecorder(chromeFace(t), 14, "Ctrl+Q")
 	other := NewButton(NewLabel(chromeFace(t), 14, "Other", 0), 0, 0)
 	root := NewBox(Column, 0, 0).Append(r, false).Append(other, false)
 	router := &Router{Root: root}
@@ -188,7 +188,7 @@ func TestShortcutRecorderLosingFocusCancels(t *testing.T) {
 }
 
 func TestShortcutRecorderAccessibility(t *testing.T) {
-	r := NewShortcutRecorder(chromeFace(t), "Ctrl+Alt+P")
+	r := NewShortcutRecorder(chromeFace(t), 14, "Ctrl+Alt+P")
 	r.SetAccessibleName("Screenshot")
 	st := Describe(r.button)
 	if st.Role != RoleButton || st.Name != "Screenshot" || st.Description != "Ctrl+Alt+P" || !st.Focusable {
@@ -213,7 +213,7 @@ func TestShortcutRecorderAccessibility(t *testing.T) {
 }
 
 func TestAnUnclearableRecorderHasNoClearButton(t *testing.T) {
-	r := NewShortcutRecorder(chromeFace(t), "Ctrl+Q")
+	r := NewShortcutRecorder(chromeFace(t), 14, "Ctrl+Q")
 	r.SetClearable(false)
 	if slices.Contains(r.row.Children(), Widget(r.clear)) {
 		t.Fatal("an unclearable recorder shows its clear button")
@@ -249,7 +249,7 @@ func TestAccelLabel(t *testing.T) {
 }
 
 func TestShortcutRecorderCancelKeepsTheCallersMessage(t *testing.T) {
-	r := NewShortcutRecorder(chromeFace(t), "Ctrl+Alt+P")
+	r := NewShortcutRecorder(chromeFace(t), 14, "Ctrl+Alt+P")
 	r.SetError("Another shortcut already uses Ctrl+Alt+P.")
 	r.Validate = func(a string) error {
 		if a == "P" {
@@ -275,7 +275,7 @@ func TestShortcutRecorderCancelKeepsTheCallersMessage(t *testing.T) {
 
 func tapRecorder(t *testing.T, accel string) (*ShortcutRecorder, *[]Tap, *[]string) {
 	t.Helper()
-	r := NewShortcutRecorder(chromeFace(t), accel)
+	r := NewShortcutRecorder(chromeFace(t), 14, accel)
 	r.SetRecordTaps(true)
 	var taps []Tap
 	var changes []string
@@ -368,7 +368,7 @@ func TestAnyPressBetweenAModifiersPressAndReleaseCancelsItsTap(t *testing.T) {
 }
 
 func TestARecorderRecordsNoTapUnlessAskedTo(t *testing.T) {
-	r := NewShortcutRecorder(chromeFace(t), "Ctrl+Q")
+	r := NewShortcutRecorder(chromeFace(t), 14, "Ctrl+Q")
 	var taps []Tap
 	r.OnTap = func(tap Tap) { taps = append(taps, tap) }
 	r.StartRecording()
@@ -432,7 +432,7 @@ func TestNewTapRefusesWhatIsNoTap(t *testing.T) {
 // (#282, #315).
 func TestShortcutRecorderLooksLikeAButtonAndRingsWhileListening(t *testing.T) {
 	face := chromeFace(t)
-	r := NewShortcutRecorder(face, "")
+	r := NewShortcutRecorder(face, 14, "")
 	r.SetClearable(false)
 	peer := NewButton(NewLabel(face, 14, "Add", 0), 0, 0)
 	peer.AddClass(css.Outline)
@@ -465,5 +465,23 @@ func TestShortcutRecorderLooksLikeAButtonAndRingsWhileListening(t *testing.T) {
 	})
 	if prompt == nil || prompt.hasClass(css.DimLabel) || !prompt.hasClass(css.Accent) {
 		t.Errorf("listening prompt %v, want it in the accent, not dim", prompt)
+	}
+}
+
+// A recorder reads in the size it is built at, as the controls beside
+// it do: its prompt and its message, not a fixed size of its own (#282).
+func TestShortcutRecorderReadsInItsSize(t *testing.T) {
+	for _, px := range []float64{12, 16} {
+		r := NewShortcutRecorder(chromeFace(t), px, "")
+		r.SetError("taken")
+		var sizes []float64
+		walkTree(r, func(w Widget, _ int) {
+			if l, ok := w.(*Label); ok && (l.Text() == "Unassigned" || l.Text() == "taken") {
+				sizes = append(sizes, l.SizePx())
+			}
+		})
+		if len(sizes) != 2 || sizes[0] != px || sizes[1] != px {
+			t.Errorf("a %vpx recorder reads at %v", px, sizes)
+		}
 	}
 }

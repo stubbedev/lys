@@ -352,7 +352,7 @@ func (h *Dialogs) BindShortcuts(c portaldialogs.Caller, r portaldialogs.Shortcut
 		recorders := make([]*widget.ShortcutRecorder, len(r.Rows))
 		rows := make([]widget.Widget, len(r.Rows))
 		for i, row := range r.Rows {
-			rec := widget.NewShortcutRecorder(h.d.Font, row.Trigger)
+			rec := widget.NewShortcutRecorder(h.d.Font, widgets.TextPx(styling.Body, 1), row.Trigger)
 			rec.AddClass("portal-dialog-shortcut")
 			rec.SetAccessibleName(row.Description)
 			rec.SetError(row.Refusal)

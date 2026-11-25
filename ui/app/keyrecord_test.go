@@ -32,7 +32,7 @@ func newRecordFixture(t *testing.T) *recordFixture {
 	}
 	f := &recordFixture{
 		app: idleBudgetApp(t),
-		rec: widget.NewShortcutRecorder(face, ""),
+		rec: widget.NewShortcutRecorder(face, 14, ""),
 		tr: &fakeTranslator{
 			syms: map[uint32]xkb.Keysym{recordCodeP: xkb.Keysym('P'), recordCodeCtrl: xkb.KeyControlL, recordCodeAlt: xkb.KeyAltL},
 			text: map[uint32]string{recordCodeP: "p"},
