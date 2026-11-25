@@ -275,10 +275,10 @@ const previewMonitorH = 1080
 type previewPaint struct {
 	data []byte
 	w, h int
-	root *widget.Box
+	root *widget.Revealer
 }
 
-func paintPreview(ctx ModuleContext, content widget.Widget, name string) ([]byte, int, int, *widget.Box) {
+func paintPreview(ctx ModuleContext, content widget.Widget, name string) ([]byte, int, int, *widget.Revealer) {
 	p := onLoopOf(ctx, func() previewPaint {
 		bar := widget.NewBox(widget.Row, 0, 0)
 		ctx.Theme.Attach(bar)
@@ -291,7 +291,8 @@ func paintPreview(ctx ModuleContext, content widget.Widget, name string) ([]byte
 			panel.clamp(previewMonitorH)
 		}
 		w, _, _ := dropdownDims(name, ctx.Config)
-		root, rev := dropdownTree(content, ctx.Config)
+		rev := dropdownTree(content, ctx.Config)
+		root := rev
 		rev.SetRevealed(true)
 		rev.Finish()
 		widget.SetStyleAnchor(root, anchor)

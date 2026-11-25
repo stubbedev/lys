@@ -44,9 +44,13 @@ type PopoverConfig struct {
 	// on whichever side the compositor places it.
 	Gap int
 	// Content is the popover's widget tree (a Menu is the common
-	// case). Content that sets no layout motion of its own gets a
-	// smooth one, so when it grows while open the popover springs to
-	// the new size: the surface grows at once, the visible box follows.
+	// case), the card the stylesheet's `popover` element styles. A
+	// Revealer around the card is the card's own motion (OwnMotion):
+	// its child is the card, so the card's whole look - fill, border
+	// and shadow - moves with the transition. A card that sets no
+	// layout motion of its own gets a smooth one, so when it grows
+	// while open the popover springs to the new size: the surface
+	// grows at once, the visible box follows.
 	Content widget.Widget
 	// OnClosed runs exactly once when the popover goes away, whatever
 	// the cause.
@@ -73,7 +77,8 @@ type PopoverConfig struct {
 	Exit func(done func())
 	// OwnMotion is a popover whose content plays its own enter and exit
 	// (Exit), so the toolkit adds none, whatever SetPopoverMotion says:
-	// the surface maps at rest and closes at once.
+	// the surface maps at rest and closes at once. Content must be a
+	// Revealer around the card, so the card moves whole.
 	OwnMotion bool
 	// MaxWidth and MaxHeight cap the content when measured, in place
 	// of the default ceiling, the largest output's size - a list held
@@ -427,9 +432,9 @@ func (r *popoverKeyRoot) Arrange(rect render.Rect) {
 
 func (r *popoverKeyRoot) Paint(cv *render.Canvas) { widget.PaintChild(cv, r.content) }
 
-// ShownRect reports the content's shown rect, so the popup's plate and
-// shadow follow the content through a layout motion.
-func (r *popoverKeyRoot) ShownRect() render.Rect { return widget.ShownRect(r.content) }
+// ShownRect reports the card's shown rect, so the popup's plate and
+// shadow follow the card through a layout motion.
+func (r *popoverKeyRoot) ShownRect() render.Rect { return widget.ShownRect(popoverCard(r.content)) }
 
 // BackdropRegion is the content's, the surface's blur shape at rest.
 func (r *popoverKeyRoot) BackdropRegion() []render.Rect { return widget.BackdropRegion(r.content) }
@@ -478,6 +483,16 @@ type LayerSurfacer interface {
 	LayerPopupSurface() *wlr.ZwlrLayerSurfaceV1
 }
 
+// popoverCard is the card of a popover's content: the child of a
+// Revealer the content plays its own motion through, else the content
+// itself.
+func popoverCard(content widget.Widget) widget.Widget {
+	if r, ok := content.(*widget.Revealer); ok && r.Child() != nil {
+		return r.Child()
+	}
+	return content
+}
+
 // popoverMotion is a popover's animation profile: the popover one,
 // unless its content plays its own.
 func popoverMotion(cfg PopoverConfig) surfx.Kind {
@@ -498,6 +513,9 @@ func (a *Application) OpenPopover(host Host, cfg PopoverConfig) (*Popover, error
 	if cfg.Anchor == nil || cfg.Content == nil {
 		return nil, errors.New("app: popover needs an anchor and content")
 	}
+	if _, ok := cfg.Content.(*widget.Revealer); cfg.OwnMotion && !ok {
+		return nil, fmt.Errorf("app: a popover with its own motion plays it through a *widget.Revealer around its card, not a %T", cfg.Content)
+	}
 	if cfg.Dismissal == PopoverPassive && cfg.Focus != nil {
 		return nil, errors.New("app: a passive popover never takes the keyboard, so it takes no Focus")
 	}
@@ -506,7 +524,8 @@ func (a *Application) OpenPopover(host Host, cfg PopoverConfig) (*Popover, error
 			return nil, err
 		}
 	}
-	if m, ok := cfg.Content.(layoutMover); ok && m.LayoutMotion() == widget.LayoutMotionNone {
+	card := popoverCard(cfg.Content)
+	if m, ok := card.(layoutMover); ok && m.LayoutMotion() == widget.LayoutMotionNone {
 		m.SetLayoutMotion(widget.LayoutMotionSmooth)
 	}
 	parent := cfg.Parent
@@ -521,14 +540,14 @@ func (a *Application) OpenPopover(host Host, cfg PopoverConfig) (*Popover, error
 	}
 
 	anchor := cfg.Anchor.Bounds()
-	// The popover's content styles as the `popover` element (css.md)
-	// with GtkPopover's .background class: whatever widget tree the app
-	// hands over IS the card, and as a child of the widget it opens
-	// from, like GTK's popover CSS node: it inherits that window's fonts
-	// and colors and its selectors see the anchor's ancestry. Anchored
-	// before the measure, which reads the inherited font.
-	nameSurfaceElement(cfg.Content, elemPopover)
-	if c, ok := cfg.Content.(interface{ AddClass(...string) }); ok {
+	// The popover's card styles as the `popover` element (css.md) with
+	// GtkPopover's .background class, and the content as a child of the
+	// widget it opens from, like GTK's popover CSS node: it inherits
+	// that window's fonts and colors and its selectors see the anchor's
+	// ancestry. Anchored before the measure, which reads the inherited
+	// font.
+	nameSurfaceElement(card, elemPopover)
+	if c, ok := card.(interface{ AddClass(...string) }); ok {
 		c.AddClass(popoverClass)
 	}
 	styleAnchor := widget.AnchorWidget(cfg.Anchor)
@@ -579,9 +598,9 @@ func (a *Application) OpenPopover(host Host, cfg PopoverConfig) (*Popover, error
 		NoGrab:  noGrab,
 		// The theme's plate yields to a stylesheet that styles the
 		// popover's background, as GTK leaves a popover's look to CSS.
-		NoPlate:        widget.StylesBackground(cfg.Content),
+		NoPlate:        widget.StylesBackground(card),
 		BackgroundBlur: cfg.BackgroundBlur,
-		BlurRoot:       cfg.Content,
+		BlurRoot:       card,
 	}
 	switch {
 	case parent != nil:
@@ -956,7 +975,7 @@ func (op *openPopover) fitContent(outputs []*wlsession.Output) {
 	sw, sh := dragSlack(op.keyRoot.grip.dragging())
 	w, h := size.W+2*g+sw, size.H+2*g+sh
 	rw, rh := op.pop.RequestedSize()
-	if shown, ok := widget.LayoutShownSize(op.keyRoot.content); ok && shown != size {
+	if shown, ok := widget.LayoutShownSize(popoverCard(op.keyRoot.content)); ok && shown != size {
 		w, h = max(w, rw), max(h, rh)
 	}
 	if rw != w || rh != h {

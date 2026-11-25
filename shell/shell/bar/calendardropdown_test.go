@@ -148,7 +148,7 @@ func TestCalendarFillsItsSection(t *testing.T) {
 	var section, cal render.Rect
 	var natural widget.Size
 	doOnLoopOf(ctx, func() {
-		card, _ := dropdownTree(dropdownPanel("calendar", ctx.Config, v), ctx.Config)
+		card := dropdownTree(dropdownPanel("calendar", ctx.Config, v), ctx.Config)
 		ctx.Theme.Attach(card)
 		sz := widget.SizeWithinAsChild(card, widget.Size{W: w, H: 4000})
 		card.Arrange(render.Rect{W: sz.W, H: sz.H})

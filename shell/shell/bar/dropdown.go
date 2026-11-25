@@ -540,10 +540,10 @@ func (r *dropdownRegistry) open(connector, name string, anchor widget.Widget, by
 		}
 	}
 	cfg.Focus = dropdownFocus(content, by.fromKeyboard(anchor))
-	card, rev := dropdownTree(content, r.cfg)
-	cfg.Content = card
+	rev := dropdownTree(content, r.cfg)
+	cfg.Content = rev
 	if sized {
-		cfg.Resize = dropdownResize(name, panel, card, mon, r.ctx)
+		cfg.Resize = dropdownResize(name, panel, rev, mon, r.ctx)
 	}
 	cfg.Exit = dropdownExit(rev, r.cfg.Animations)
 	reveal.Show(rev, r.cfg.Animations, config.AnimDropdown)
@@ -684,17 +684,18 @@ func (r *dropdownRegistry) setConfig(cfg *config.Config) {
 	r.reconfigure(ctx)
 }
 
-// dropdownTree is the popover's tree around content: the revealer the
-// card enters through inside the card (lys-ui's popover
-// surface in the dropdown's color). The theme reaches it through the
-// bar button it opens from: lys-ui styles a popover as a child of its
-// anchor, as GTK's popover CSS node is, so it inherits the bar window's
-// fonts and :root variables. The card is its content's size (a sized
-// dropdown's panelBox); the popover's gap and shadow gutter keep it off
-// the bar and the surface edges.
-func dropdownTree(content widget.Widget, cfg *config.Config) (*widget.Box, *widget.Revealer) {
-	rev := widget.NewRevealer(content)
+// dropdownTree is the popover's tree around content: lys-ui's popover
+// card in the dropdown's color, inside the revealer it enters and
+// leaves through, so the card's fill, border and shadow move with its
+// content. The theme reaches the card through the bar button it opens
+// from: lys-ui styles a popover as a child of its anchor, as GTK's
+// popover CSS node is, so it inherits the bar window's fonts and :root
+// variables. The card is its content's size (a sized dropdown's
+// panelBox); the popover's gap and shadow gutter keep it off the bar
+// and the surface edges.
+func dropdownTree(content widget.Widget, cfg *config.Config) *widget.Revealer {
+	rev := widget.NewRevealer(popoverCard(content, cfg.Bar.DropdownShadow))
 	rev.SetFadeFrom(reveal.FadeFrom)
 	rev.SetGenieEdge(dropdownGenieEdge(cfg.Bar.Location))
-	return popoverCard(rev, cfg.Bar.DropdownShadow), rev
+	return rev
 }

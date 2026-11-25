@@ -116,7 +116,7 @@ func TestDropdownCardIsItsContent(t *testing.T) {
 
 	s := widget.NewStack().Add("short", widget.NewSpacer(10, 100))
 	p := newPanelBox(s, 382, 512)
-	root, _ := dropdownTree(p, cfg)
+	root := dropdownTree(p, cfg)
 	apptheme.New(cfg).Attach(root)
 	sz := widget.SizeWithinAsChild(root, widget.Size{W: 382, H: 2000})
 	if sz != (widget.Size{W: 382, H: 100 + 2*popoverBorder}) {
@@ -126,13 +126,13 @@ func TestDropdownCardIsItsContent(t *testing.T) {
 	if got, want := p.child.(widget.Boundser).Bounds(), 382-2*popoverBorder; got.W != want || got.H != 100 {
 		t.Errorf("card content %+v, want %d wide (the width less the popover's border) and its 100px content tall", got, want)
 	}
-	if got := root.Margin(); got != (render.Insets{}) {
+	if got := root.Child().(*widget.Box).Margin(); got != (render.Insets{}) {
 		t.Errorf("card margins %+v, want none", got)
 	}
 
 	wide := widget.NewBox(widget.Row, 0, 0)
 	wide.Append(widget.NewSpacer(500, 20), false)
-	root, _ = dropdownTree(newPanelBox(wide, 382, 0), cfg)
+	root = dropdownTree(newPanelBox(wide, 382, 0), cfg)
 	apptheme.New(cfg).Attach(root)
 	if sz := widget.SizeWithinAsChild(root, widget.Size{W: 2000, H: 2000}); sz.W != 500+2*popoverBorder {
 		t.Errorf("card width %d, want the 500px content plus the popover's border", sz.W)
@@ -202,12 +202,12 @@ func TestGrowingDropdownScrollAsksForItsContent(t *testing.T) {
 	isolateConfigDir(t)
 	con := widget.Size{W: 2000, H: 2000}
 	list := func() widget.Widget { return widget.NewSpacer(10, 700) }
-	grown, _ := dropdownTree(newPanelBox(growingScroll(dropdownScroll(list(), "")), 380, 0), cfg)
+	grown := dropdownTree(newPanelBox(growingScroll(dropdownScroll(list(), "")), 380, 0), cfg)
 	apptheme.New(cfg).Attach(grown)
 	if sz := widget.SizeWithinAsChild(grown, con); sz.H < 700 {
 		t.Errorf("a growing dropdown over a 700px scroll is %dpx tall, want its content's height", sz.H)
 	}
-	plain, _ := dropdownTree(newPanelBox(dropdownScroll(list(), ""), 380, 0), cfg)
+	plain := dropdownTree(newPanelBox(dropdownScroll(list(), ""), 380, 0), cfg)
 	apptheme.New(cfg).Attach(plain)
 	if sz := widget.SizeWithinAsChild(plain, con); sz.H >= 700 {
 		t.Errorf("a plain dropdown scroll asked for %dpx, want none of its content's height", sz.H)

@@ -26,7 +26,7 @@ func recordingWrites(ctx *ModuleContext, fail error) *[]configWrite {
 
 // sizedCard is a dropdown card around a panel width wide over a list
 // that scrolls, laid out as the popover lays it out.
-func sizedCard(t *testing.T, width, height int) (*panelBox, *widget.Box) {
+func sizedCard(t *testing.T, width, height int) (*panelBox, *widget.Revealer) {
 	t.Helper()
 	cfg := config.Defaults()
 	isolateConfigDir(t)
@@ -35,7 +35,7 @@ func sizedCard(t *testing.T, width, height int) (*panelBox, *widget.Box) {
 	col.Append(dropdownScroll(widget.NewSpacer(10, 2000), ""), true)
 	panel := newPanelBox(col, width, height)
 	panel.clamp(1080)
-	card, _ := dropdownTree(panel, cfg)
+	card := dropdownTree(panel, cfg)
 	apptheme.New(cfg).Attach(card)
 	layoutCard(card, widget.Size{W: width, H: 1000})
 	return panel, card
@@ -43,7 +43,7 @@ func sizedCard(t *testing.T, width, height int) (*panelBox, *widget.Box) {
 
 // layoutCard measures and arranges card within ceiling, as the popover
 // does, returning its size.
-func layoutCard(card *widget.Box, ceiling widget.Size) widget.Size {
+func layoutCard(card widget.Widget, ceiling widget.Size) widget.Size {
 	sz := widget.SizeWithinAsChild(card, ceiling)
 	widget.ArrangeAsChild(card, render.Rect{W: sz.W, H: sz.H})
 	return sz

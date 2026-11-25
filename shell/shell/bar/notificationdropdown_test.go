@@ -536,7 +536,8 @@ func TestNotificationLongBodyStaysInItsItem(t *testing.T) {
 	v := openView(t, ctx, notificationDropdown).(*notificationView)
 	waitHeadless(t, "the item", func() bool { return v.scroll.Visible() })
 	checkOnLoopOf(t, ctx, func() error {
-		card, rev := dropdownTree(v, ctx.Config)
+		rev := dropdownTree(v, ctx.Config)
+		card := rev
 		rev.SetRevealed(true)
 		ctx.Theme.Attach(card)
 		widget.SizeWithinAsChild(card, widget.Size{W: 425, H: 400})

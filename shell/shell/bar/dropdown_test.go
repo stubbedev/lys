@@ -356,8 +356,8 @@ func TestDropdownTreeStylesThePanelText(t *testing.T) {
 	widget.SizeWithin(bar, widget.Size{W: 600, H: 40})
 	bar.Arrange(render.Rect{W: 600, H: 40})
 	content := openView(t, ctx, calendarDropdown)
-	root := onLoopOf(ctx, func() *widget.Box {
-		root, _ := dropdownTree(content, cfg)
+	root := onLoopOf(ctx, func() *widget.Revealer {
+		root := dropdownTree(content, cfg)
 		widget.SetStyleAnchor(root, anchor)
 		widget.SizeWithin(root, widget.Size{W: 600, H: 900})
 		root.Arrange(render.Rect{W: 600, H: 900})
@@ -477,7 +477,7 @@ func TestDropdownPopoverAsksForBlurWhenTranslucent(t *testing.T) {
 // still fades all the way out.
 func TestDropdownFadesInFromAReadableOpacity(t *testing.T) {
 	cfg := config.Defaults()
-	_, rev := dropdownTree(widget.NewBox(widget.Row, 0, 0), cfg)
+	rev := dropdownTree(widget.NewBox(widget.Row, 0, 0), cfg)
 	reveal.Show(rev, cfg.Animations, config.AnimDropdown)
 	if got := rev.Progress(); got != reveal.FadeFrom {
 		t.Errorf("the dropdown fade starts at %v, want %v", got, reveal.FadeFrom)
@@ -491,7 +491,7 @@ func TestDropdownFadesInFromAReadableOpacity(t *testing.T) {
 
 	enter := config.AnimationSlideDown
 	cfg.Animations.Dropdown.Enter = &enter
-	_, rev = dropdownTree(widget.NewBox(widget.Row, 0, 0), cfg)
+	rev = dropdownTree(widget.NewBox(widget.Row, 0, 0), cfg)
 	reveal.Show(rev, cfg.Animations, config.AnimDropdown)
 	if got := rev.Progress(); got != 0 {
 		t.Errorf("a sliding dropdown starts at %v, want hidden", got)

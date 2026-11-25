@@ -69,8 +69,8 @@ func (d *dashboardKeys) openHoldingKeys() {
 		pc := dropdownPopover(cfg, d.anchor, content, 900, width)
 		pc.OnClosed = d.view.dropdownHidden
 		pc.Focus = d.view.firstControl()
-		var rev *widget.Revealer
-		pc.Content, rev = dropdownTree(content, cfg)
+		rev := dropdownTree(content, cfg)
+		pc.Content = rev
 		rev.SetRevealed(true)
 		rev.Finish()
 		pop, err := d.a.OpenPopover(d.layer, pc)
@@ -383,7 +383,7 @@ func lookContext(t *testing.T) ModuleContext {
 	return ctx
 }
 
-func repaint(ctx ModuleContext, root *widget.Box) []byte {
+func repaint(ctx ModuleContext, root *widget.Revealer) []byte {
 	return onLoopOf(ctx, func() []byte {
 		widget.CollectDamage(root)
 		b := root.Bounds()

@@ -75,8 +75,9 @@ func shownExtent(root, skip widget.Widget, clip render.Rect) render.Rect {
 // header strip, or all of it on a page without one - shows from the
 // card's inner edges: from the header's foot on top, from the card's
 // border on the other sides.
-func contentInsets(t *testing.T, root *widget.Box) render.Insets {
+func contentInsets(t *testing.T, tree *widget.Revealer) render.Insets {
 	t.Helper()
+	root := tree.Child().(*widget.Box)
 	inner := root.Children()[0].(widget.Boundser).Bounds()
 	top := inner.Y
 	var header widget.Widget

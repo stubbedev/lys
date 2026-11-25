@@ -2,6 +2,7 @@ package app
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/stubbedev/lys/lib/render"
@@ -509,5 +510,26 @@ func TestPassivePopoverNeverTakesTheKeyboardNorAPress(t *testing.T) {
 	})
 	if err == nil {
 		t.Error("a passive popover opened with a Focus widget")
+	}
+}
+
+// A popover playing its own motion does so through a Revealer around its
+// card: the card inside it is the popover's card, and content of any
+// other kind is refused, since its look would paint outside the motion.
+// A popover without its own motion is its own card.
+func TestAPopoverWithItsOwnMotionRevealsItsWholeCard(t *testing.T) {
+	card := widget.NewBox(widget.Row, 0, 0)
+	if got := popoverCard(widget.NewRevealer(card)); got != widget.Widget(card) {
+		t.Errorf("the card of a revealer around a box is %T, want the box", got)
+	}
+	if got := popoverCard(card); got != widget.Widget(card) {
+		t.Errorf("the card of a plain box is %T, want the box itself", got)
+	}
+	a := &Application{}
+	_, err := a.OpenPopover(&fakeHost{w: 10, h: 10}, PopoverConfig{
+		Anchor: AnchorAt(0, 0), Content: card, Dismissal: PopoverSticky, OwnMotion: true,
+	})
+	if err == nil || !strings.Contains(err.Error(), "*widget.Box") {
+		t.Errorf("a box with its own motion opened with %v, want it refused naming the box", err)
 	}
 }

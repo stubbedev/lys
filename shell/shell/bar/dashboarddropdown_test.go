@@ -640,7 +640,7 @@ func TestDashboardGrowsToItsSections(t *testing.T) {
 	w, h, _ := dropdownDims("dashboard", ctx.Config)
 	var sz, sections widget.Size
 	doOnLoopOf(ctx, func() {
-		card, _ := dropdownTree(dropdownPanel("dashboard", ctx.Config, v), ctx.Config)
+		card := dropdownTree(dropdownPanel("dashboard", ctx.Config, v), ctx.Config)
 		ctx.Theme.Attach(card)
 		sz = widget.SizeWithinAsChild(card, widget.Size{W: 2000, H: 4000})
 		sections = widget.SizeWithinAsChild(treetest.WithClass(v, "dashboard-scroll")[0].(*widget.Scroll).Children()[0], widget.Size{W: w, H: 4000})

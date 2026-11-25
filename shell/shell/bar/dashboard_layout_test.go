@@ -94,7 +94,7 @@ func TestALongOutputNameNeverWidensTheDashboard(t *testing.T) {
 	width, _, _ := dropdownDims("dashboard", ctx.Config)
 	got := onLoopOf(ctx, func() int {
 		panel := dropdownPanel("dashboard", ctx.Config, v)
-		tree, _ := dropdownTree(panel, ctx.Config)
+		tree := dropdownTree(panel, ctx.Config)
 		ctx.Theme.Attach(tree)
 		widget.SizeWithinAsChild(tree, widget.Size{W: 2000, H: 4000})
 		return panel.Measure(widget.Row, widget.Unknown).Nat
@@ -118,7 +118,8 @@ func scrollRange(t *testing.T, ctx ModuleContext, monH int) int {
 	return onLoopOf(ctx, func() int {
 		panel := dropdownPanel("dashboard", ctx.Config, v).(*panelBox)
 		panel.clamp(monH)
-		tree, rev := dropdownTree(panel, ctx.Config)
+		rev := dropdownTree(panel, ctx.Config)
+		tree := rev
 		rev.SetRevealed(true)
 		rev.Finish()
 		ctx.Theme.Attach(tree)
