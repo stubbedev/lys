@@ -10,6 +10,7 @@ import (
 	"github.com/stubbedev/lys/desktop/compositor"
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	shelllocales "github.com/stubbedev/lys/desktop/i18n/locales/shell"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 )
 
@@ -283,6 +284,22 @@ func TestAStateShowsItsModulesRealStateInPlaceOfTheSamples(t *testing.T) {
 	}
 	if got := sampleButton(t, bar, "keyboard-input").Label().Text(); got != "French" {
 		t.Errorf("keyboard-input on a layout without an alias shows %q, want the layout's own name", got)
+	}
+}
+
+// Keybind Mode's format previews the mode the bar shows outside every
+// submap, so its format sample and its bar preview read the same word.
+func TestKeybindModesFormatSampleIsTheDefaultSubmapsWord(t *testing.T) {
+	en, err := i18n.Select(i18n.NewAssets(shelllocales.FS), []i18n.LangID{i18n.MustLangID("en-US")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := en.Get("bar-keybind-mode-default")
+	if got := config.PlaceholderSamples(formatPath(config.ModuleKeybindMode))["mode"]; got != want {
+		t.Errorf("keybind-mode's format sample is %q, want the en-US default submap's %q", got, want)
+	}
+	if got := KeybindModeVars("resize")["mode"]; got != "resize" {
+		t.Errorf("keybind-mode in the resize submap names %q, want resize", got)
 	}
 }
 

@@ -1585,6 +1585,7 @@
       "time"
     ],
     "testImports": [
+      "desktop/i18n/locales/shell",
       "desktop/shell/treetest"
     ],
     "testExternal": [

@@ -3696,7 +3696,7 @@
             {
               "description": "Current keybind mode name (default when none is active)",
               "name": "mode",
-              "sample": "resize",
+              "sample": "default",
               "token": "{{ mode }}"
             }
           ]

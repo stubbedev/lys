@@ -80,7 +80,7 @@ var formatFields = map[string]formatField{
 		ph("temp_c", "62"), ph("temp_f", "144"),
 	),
 	"IdleInhibitConfig.Format":   jinjaFormat(ph("state", "On"), ph("remaining", "44:59"), ph("duration", "60")),
-	"KeybindModeConfig.Format":   jinjaFormat(ph("mode", "resize")),
+	"KeybindModeConfig.Format":   jinjaFormat(ph("mode", "default")),
 	"KeyboardInputConfig.Format": jinjaFormat(ph("layout", "English (US)"), ph("alias", "EN")),
 	"MailConfig.Format":          jinjaFormat(ph("count", "3")),
 	"MailConfig.NotifySummary":   mailNotificationPlaceholders,
