@@ -292,9 +292,9 @@ func TestAnEmptySoundDeviceDropdownHoldsTheColumn(t *testing.T) {
 	}
 }
 
-// In the password dialog the entries with a reveal button after them
-// start and end at one x with the one without: the reveal sits outside
-// the control column.
+// In the password dialog the entries with a reveal button start and end
+// at one x with the one without: each reveal sits on its field's title
+// line, above its entry and clear of every entry.
 func TestPasswordEntriesLineUpWithAndWithoutTheirReveal(t *testing.T) {
 	k := testKit(t, "")
 	f := (&usersPanel{k: k}).newPasswordForm()
@@ -311,10 +311,16 @@ func TestPasswordEntriesLineUpWithAndWithoutTheirReveal(t *testing.T) {
 	if len(reveals) != 2 {
 		t.Fatalf("%d buttons shown in the form, want the two reveals", len(reveals))
 	}
-	end := f.confirm.Bounds().X + f.confirm.Bounds().W
+	entries := []*widget.Entry{f.current, f.next, f.confirm}
 	for i, b := range reveals {
-		if x := b.Bounds().X; x < end {
-			t.Errorf("reveal %d starts at x %d, inside the column ending at %d", i, x, end)
+		r := b.Bounds()
+		for _, e := range entries {
+			if !r.Intersect(e.Bounds()).Empty() {
+				t.Errorf("reveal %d at %+v overlaps the entry at %+v", i, r, e.Bounds())
+			}
+		}
+		if own := entries[i].Bounds(); r.Y+r.H > own.Y || r.X+r.W > own.X+own.W {
+			t.Errorf("reveal %d at %+v is not on the title line above its entry at %+v, within its width", i, r, own)
 		}
 	}
 }
