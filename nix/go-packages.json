@@ -11188,6 +11188,7 @@
       "go/ast",
       "go/parser",
       "go/token",
+      "golang.org/x/image/font/gofont/gomono",
       "golang.org/x/image/font/gofont/goregular",
       "image/color",
       "log",
