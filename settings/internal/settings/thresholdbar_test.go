@@ -71,25 +71,28 @@ func TestACardEditReachesTheBar(t *testing.T) {
 	}
 }
 
-// The brightness bar reads its values under the track: its ends, each
-// boundary between two level icons and the floor brightness never goes
-// below, none running into another.
+// The brightness bar reads its values under the track: its far end,
+// each boundary between two level icons and the floor brightness never
+// goes below, none closer to another than the theme's spacing. "0" and
+// "min 5" ran together as "0min 5": a band's mark wins over the end
+// beside it.
 func TestALevelBarReadsItsBoundariesAndFloor(t *testing.T) {
 	k := testKit(t, "")
 	e := fieldControl(k, k.store, pageRow(t, "brightness", "modules.brightness.thresholds")).(*thresholdEditor)
 	e.bar.Arrange(render.Rect{W: 640, H: e.bar.barH() + levelRowH})
 	var texts []string
 	marks := e.bar.marks()
+	gap := markGap()
 	for i, m := range marks {
 		texts = append(texts, unisolated(m.text))
 		for _, o := range marks[:i] {
-			if m.box.X < o.box.X+o.box.W && o.box.X < m.box.X+m.box.W {
-				t.Errorf("%q runs into %q", m.text, o.text)
+			if m.box.X < o.box.X+o.box.W+gap && o.box.X < m.box.X+m.box.W+gap {
+				t.Errorf("%q stands within %dpx of %q", m.text, gap, o.text)
 			}
 		}
 	}
 	floor := unisolated(locale.T().Get("settings-level-floor-mark", i18n.Str("n", "5")))
-	for _, want := range []string{"0", "100", "33", "67", floor} {
+	for _, want := range []string{"100", "33", "67", floor} {
 		if !slices.Contains(texts, want) {
 			t.Errorf("the bar reads %q, not %q", texts, want)
 		}
@@ -106,5 +109,27 @@ func TestAThresholdBarHoldsItsMarks(t *testing.T) {
 		if m.box.Y+m.box.H > h {
 			t.Errorf("%q ends at y %d, under the %dpx bar", m.text, m.box.Y+m.box.H, h)
 		}
+	}
+}
+
+// The region under the brightness floor was painted darker than the
+// track, so it read as a hole in it. It is filled in the muted text
+// colour, standing out from the track as a band out of reach.
+func TestTheBrightnessFloorReadsAsABandNotAHole(t *testing.T) {
+	k := testKit(t, "")
+	e := fieldControl(k, k.store, pageRow(t, "brightness", "modules.brightness.thresholds")).(*thresholdEditor)
+	themed(k, gapBox(widget.Column))
+	r := render.Rect{W: 640, H: e.bar.barH() + levelRowH}
+	e.bar.Arrange(r)
+	tr := e.bar.track()
+	floorX, troughX := (tr.X+e.bar.xOf(5))/2, e.bar.xOf(50)
+	floor := paintedAt(e.bar, r, floorX, tr.Y+tr.H/2)
+	trough := paintedAt(e.bar, r, troughX, tr.Y+tr.H/2)
+	if c := contrastOf(floor, trough); c < minUIContrast {
+		t.Errorf("the floor stands %.2f:1 off the track, want %d:1", c, minUIContrast)
+	}
+	text := relativeLuminance(widget.Current().Text)
+	if towardText := relativeLuminance(floor) > relativeLuminance(trough); towardText != (text > relativeLuminance(trough)) {
+		t.Errorf("the floor %v turns from the track %v away from the text: a hole", floor, trough)
 	}
 }

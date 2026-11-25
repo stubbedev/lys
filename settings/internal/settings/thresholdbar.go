@@ -220,20 +220,21 @@ type scaleMark struct {
 	box  render.Rect
 }
 
-// markGap is the least room between two marks under the track, markTop
-// the room between the track's stops and the marks.
-const (
-	markGap = 4
-	markTop = 2
-)
+// markTop is the room between the track's stops and the marks.
+const markTop = 2
+
+// markGap is the least room between two marks under the track, the
+// theme's spacing, so two marks never read as one ("0min 5").
+func markGap() int { return widget.Current().Spacing }
 
 func (b *thresholdBar) markPx() float64 { return b.k.textPx() * 0.85 }
 
 func (b *thresholdBar) markH() int { return int(b.markPx() * 1.4) }
 
-// marks are the values read under the track: its ends, then what the
-// level bands mark on it, each centred under its value, a mark that
-// would run into one already placed left out.
+// marks are the values read under the track: what the level bands mark
+// on it, each centred under its value, then its ends, a mark that would
+// run into one already placed left out, so an end gives way to the
+// floor or a boundary beside it.
 func (b *thresholdBar) marks() []scaleMark {
 	t := b.track()
 	px := b.markPx()
@@ -249,20 +250,21 @@ func (b *thresholdBar) marks() []scaleMark {
 		}
 		x = min(max(x, t.X), t.X+t.W-w)
 		box := render.Rect{X: x, Y: t.Y + t.H/2 + thresholdStopR + 1 + markTop, W: w, H: h}
+		gap := markGap()
 		for _, m := range placed {
-			if box.X < m.box.X+m.box.W+markGap && m.box.X < box.X+box.W+markGap {
+			if box.X < m.box.X+m.box.W+gap && m.box.X < box.X+box.W+gap {
 				return
 			}
 		}
 		placed = append(placed, scaleMark{text: text, box: box})
 	}
-	place("0", t.X, render.AlignStart)
-	place(fmt.Sprintf("%g", b.max), t.X+t.W, render.AlignEnd)
 	if b.levels != nil {
 		for _, m := range b.levels.marks() {
 			place(m.text, b.xOf(m.value), render.AlignCenter)
 		}
 	}
+	place("0", t.X, render.AlignStart)
+	place(fmt.Sprintf("%g", b.max), t.X+t.W, render.AlignEnd)
 	return placed
 }
 
