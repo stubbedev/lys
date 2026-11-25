@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
 )
@@ -32,7 +33,9 @@ func TestARelatedGroupTitleIsACaptionNotASectionHeading(t *testing.T) {
 // Power's and Lock's Related cards opened with a dim "Sleep & Lock" or
 // "Locking and Unlocking" row inside the card, read as one more link.
 // A titled group's title is a caption over its own card, outside every
-// card, the card under it holding the group's links.
+// card, the card under it holding the group's links. The caption stood
+// as far from the card above as from its own, attached to neither; it
+// is held to its own card.
 func TestARelatedGroupTitleIsACaptionOverItsCard(t *testing.T) {
 	for _, id := range []string{powerPageID, "lock"} {
 		win := laidOutPage(t, "", id, sweepW)
@@ -57,8 +60,19 @@ func TestARelatedGroupTitleIsACaptionOverItsCard(t *testing.T) {
 		if !ok || !card.HasClass(css.Card) || len(treetest.All[*pageLinkRow](card)) == 0 {
 			t.Errorf("the %s page's group title is not over a card of links", id)
 		}
-		if b, c := head.(widget.Boundser).Bounds(), kids[at+1].(widget.Boundser).Bounds(); b.Y+b.H > c.Y {
+		b, c := head.(widget.Boundser).Bounds(), kids[at+1].(widget.Boundser).Bounds()
+		if b.Y+b.H > c.Y {
 			t.Errorf("the %s page's group title at %+v runs into its card at %+v", id, b, c)
+		}
+		cards := treetest.WithClass(win.page, css.Card)
+		var above render.Rect
+		for _, w := range cards {
+			if r := w.(widget.Boundser).Bounds(); r.Y+r.H <= b.Y && r.Y+r.H > above.Y+above.H {
+				above = r
+			}
+		}
+		if under, over := c.Y-(b.Y+b.H), b.Y-(above.Y+above.H); over < 2*under {
+			t.Errorf("the %s page's group title sits %dpx under the card above and %dpx over its own; want it held to its own", id, over, under)
 		}
 	}
 }

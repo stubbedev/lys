@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
 
@@ -58,8 +59,8 @@ func (p pageSpec) relatedGroups() []linkGroup {
 // relatedSection is a page's one Related section: a card of rows per
 // group, a row per linked page the layout holds, the untitled group's
 // card first and each titled one's under its title, a caption over the
-// card rather than a row inside it. False while the layout holds none
-// of them.
+// card rather than a row inside it, held closer to its own card than to
+// the one above. False while the layout holds none of them.
 func relatedSection(k *kit, groups []linkGroup) (widget.Widget, bool) {
 	t := locale.T()
 	section := gapBox(widget.Column)
@@ -78,11 +79,17 @@ func relatedSection(k *kit, groups []linkGroup) (widget.Widget, bool) {
 		if !shown {
 			continue
 		}
-		if g.title != "" {
-			section.Append(k.label(t.Get(g.title), "settings-link-group", css.Caption, css.DimLabel), false)
-		}
-		section.Append(sectionGroup(rows), false)
 		linked = true
+		if g.title == "" {
+			section.Append(sectionGroup(rows), false)
+			continue
+		}
+		th := widget.Current()
+		titled := widget.NewBox(widget.Column, th.Spacing/2, 0)
+		titled.SetPadding(render.Insets{Top: th.Spacing})
+		titled.Append(k.label(t.Get(g.title), "settings-link-group", css.Caption, css.DimLabel), false)
+		titled.Append(sectionGroup(rows), false)
+		section.Append(titled, false)
 	}
 	if !linked {
 		return nil, false
