@@ -4,6 +4,8 @@ import (
 	"maps"
 	"slices"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/styling"
@@ -110,15 +112,49 @@ func shellColorNames(p styling.Palette) (keywords, named []swatchName) {
 	return keywords, named
 }
 
-// wmColorNames are lys-wm's palette names in name order, each in its
-// colour.
+// wmColorNames are lys-wm's palette names, each in its colour and read
+// as a name (wmColorLabel): the desktop accent, then lys-wm's built-in
+// names, then the palette's own, each group in name order under its
+// header, as lys-shell's colours are.
 func wmColorNames(k *kit) []swatchName {
+	t := locale.T()
 	palette := wmPalette(k)
-	out := make([]swatchName, 0, len(palette))
-	for _, name := range slices.Sorted(maps.Keys(palette)) {
-		out = append(out, swatchName{value: name, label: name, color: palette[name], swatch: true})
+	builtIn, _ := k.wm.defaultOf("palette")
+	groups := []struct {
+		key   string
+		holds func(name string) bool
+	}{
+		{"settings-wm-color-group-desktop", func(name string) bool { return name == wmAccent }},
+		{"settings-wm-color-group-built-in", func(name string) bool { _, ok := asMap(builtIn)[name]; return ok && name != wmAccent }},
+		{"settings-wm-color-group-own", func(name string) bool { _, ok := asMap(builtIn)[name]; return !ok && name != wmAccent }},
+	}
+	names := slices.Sorted(maps.Keys(palette))
+	out := make([]swatchName, 0, len(names))
+	for _, g := range groups {
+		group := t.Get(g.key)
+		for _, name := range names {
+			if g.holds(name) {
+				out = append(out, swatchName{value: name, label: wmColorLabel(name), group: group, color: palette[name], swatch: true})
+			}
+		}
 	}
 	return out
+}
+
+// wmColorLabel is a palette name as a colour's name reads: its first
+// letter upper case and a number it ends in set apart ("overlay0" reads
+// "Overlay 0").
+func wmColorLabel(name string) string {
+	stem := strings.TrimRightFunc(name, unicode.IsDigit)
+	if stem == "" {
+		return name
+	}
+	first, size := utf8.DecodeRuneInString(stem)
+	label := string(unicode.ToUpper(first)) + stem[size:]
+	if digits := name[len(stem):]; digits != "" {
+		label += " " + digits
+	}
+	return label
 }
 
 // rows are the dropdown's rows for the names and the stored value: the

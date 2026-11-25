@@ -928,7 +928,7 @@ func TestAWMColorTakesAHexOrAPaletteName(t *testing.T) {
 	if c.ids[c.drop.Selected()] != colorCustom || !c.swatch.Visible() {
 		t.Fatalf("a hex shows row %q, the colour button %v", c.ids[c.drop.Selected()], c.swatch.Visible())
 	}
-	if want := []string{colorCustom, "accent", "blue", "red"}; !slices.Equal(c.ids, want) {
+	if want := []string{colorCustom, "accent", "blue", "red"}; !slices.Equal(slices.DeleteFunc(slices.Clone(c.ids), func(id string) bool { return id == "" }), want) {
 		t.Fatalf("offered %q, want custom and the palette's names", c.ids)
 	}
 	if got := listedSwatches(t, c); len(got) != 3 || got[0] != render.RGBA(255, 0, 0, 255) {
