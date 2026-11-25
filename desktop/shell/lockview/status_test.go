@@ -19,12 +19,18 @@ func TestTheMediaRowShowsATrackAndHidesWithoutOne(t *testing.T) {
 	if m.Play.AccessibleName() != i18n.T("lock-media-pause") || m.Play.TooltipText() != i18n.T("lock-media-pause") {
 		t.Errorf("a playing track's button is named %q, tipped %q", m.Play.AccessibleName(), m.Play.TooltipText())
 	}
+	if got := m.playIcon.Name(); got != "ld-circle-pause-symbolic" {
+		t.Errorf("a playing track's button draws %s, want the circled pause, whose bars read as no 00", got)
+	}
 	if m.Next.TooltipText() != i18n.T("lock-media-next") {
 		t.Errorf("the next button is tipped %q", m.Next.TooltipText())
 	}
 	m.Set(Track{Title: "So What"}, true)
 	if m.Artist.Visible() || m.Next.Visible() || m.Play.AccessibleName() != i18n.T("lock-media-play") {
 		t.Errorf("a paused track without artist or next shows artist %v, next %v, button %q", m.Artist.Visible(), m.Next.Visible(), m.Play.AccessibleName())
+	}
+	if got := m.playIcon.Name(); got != "ld-circle-play-symbolic" {
+		t.Errorf("a paused track's button draws %s, want the circled play beside the circled pause", got)
 	}
 	m.Set(Track{Title: "So What"}, false)
 	if m.Root.Visible() {

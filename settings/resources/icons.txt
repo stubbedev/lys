@@ -13,6 +13,8 @@ ld-camera-symbolic
 ld-chevron-down-symbolic
 ld-chevron-right-symbolic
 ld-chevron-up-symbolic
+ld-circle-pause-symbolic
+ld-circle-play-symbolic
 ld-clock-symbolic
 ld-cloud-sun-symbolic
 ld-code-symbolic
@@ -62,7 +64,6 @@ ld-palette-symbolic
 ld-panel-bottom-symbolic
 ld-panel-top-open-symbolic
 ld-panel-top-symbolic
-ld-pause-symbolic
 ld-pencil-symbolic
 ld-plane-symbolic
 ld-play-symbolic

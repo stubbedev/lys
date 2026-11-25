@@ -16,8 +16,8 @@ const (
 	mediaArtPx     = 48
 	mediaControlPx = 20
 	batteryIconPx  = 16
-	playIcon       = "ld-play-symbolic"
-	pauseIcon      = "ld-pause-symbolic"
+	playIcon       = "ld-circle-play-symbolic"
+	pauseIcon      = "ld-circle-pause-symbolic"
 	nextIcon       = "ld-skip-forward-symbolic"
 )
 
