@@ -411,3 +411,31 @@ func TestAFieldSliderReadsByItsField(t *testing.T) {
 		t.Errorf("the field spans %v after a knob reaching to %d, want the spin %dpx wide %dpx after it", got, knobEnd+over, field.Bounds().W, widget.Current().Spacing)
 	}
 }
+
+// Sliders in different item groups each sized their reading to their
+// own group's widest, so the tracks of a page ended at different x. A
+// reading placed through a size group takes the group's widest width,
+// whatever reads it, and the knob ends where the reading begins; a
+// slider read by nothing refuses to place one.
+func TestAPlacedReadingTakesItsGroupsWidth(t *testing.T) {
+	font := testFont(t)
+	group := widget.NewSizeGroup(widget.SizeGroupHorizontal)
+	short := NewRangedSlider(0, 1, 0, font, 12, 0, func(fn func()) { fn() }, fakeclock.New())
+	short.SetFormat(func(v float64) string { return strconv.FormatFloat(v, 'f', 0, 64) })
+	wide := NewFieldSlider(0, 100, 0, widget.NewLabel(font, 12, "a wide field", 0), func(fn func()) { fn() }, fakeclock.New())
+	short.PlaceReading(group.Add)
+	wide.PlaceReading(group.Add)
+	got, knobEnd := reading(short)
+	if want := measured(font, "a wide field"); got.W != want {
+		t.Errorf("the short reading is %dpx wide, want the group's widest %dpx", got.W, want)
+	}
+	if got.X <= knobEnd {
+		t.Errorf("the reading starts at %d, not past the knob's end at %d", got.X, knobEnd)
+	}
+	defer func() {
+		if recover() == nil {
+			t.Error("a slider read by nothing placed a reading")
+		}
+	}()
+	NewUnlabeledSlider(0, func(fn func()) { fn() }, fakeclock.New()).PlaceReading(group.Add)
+}

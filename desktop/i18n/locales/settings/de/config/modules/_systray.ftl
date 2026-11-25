@@ -4,6 +4,7 @@
 
 settings-modules-systray-icon-scale = Symbolskalierung
     .description = Skalierungsfaktor für die Symbole der Leisteneinträge
+    .description-pixels = Größe der Symbole der Leisteneinträge in Pixeln
 
 settings-modules-systray-item-gap = Eintragsabstand
     .description = Abstand zwischen den Einträgen der Systemleiste

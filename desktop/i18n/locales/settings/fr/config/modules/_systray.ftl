@@ -4,6 +4,7 @@
 
 settings-modules-systray-icon-scale = Échelle des icônes
     .description = Multiplicateur d'échelle pour les icônes de la zone de notification
+    .description-pixels = Taille des icônes de la zone de notification en pixels
 
 settings-modules-systray-item-gap = Écart entre éléments
     .description = Espace entre les éléments de la zone de notification

@@ -45,9 +45,11 @@ settings-modules-workspaces-workspace-padding = Innenabstand der Arbeitsfläche
 
 settings-modules-workspaces-icon-size = Symbolgröße
     .description = Skalierungsfaktor für Arbeitsflächensymbole (0.25–3.0)
+    .description-pixels = Größe der Arbeitsflächensymbole in Pixeln
 
 settings-modules-workspaces-label-size = Beschriftungsgröße
     .description = Skalierungsfaktor für Arbeitsflächenbeschriftungen (0.25–3.0)
+    .description-pixels = Größe der Arbeitsflächenbeschriftungen in Pixeln
 
 settings-modules-workspaces-workspace-ignore = Arbeitsflächen ignorieren
     .description = Ausgelassene Arbeitsflächen, nach Name oder Nummer; ein * passt auf beliebigen Text

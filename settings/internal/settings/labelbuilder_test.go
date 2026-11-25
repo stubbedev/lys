@@ -243,11 +243,18 @@ func TestAFormatsTextChipsReadPlainWithTheirSpacesMarked(t *testing.T) {
 }
 
 // A format row's reset sits on its parts' line just ahead of their add
-// button, not on the title line above it.
+// button, not on the title line above it; hidden, it takes no room
+// there, so the chips wrap only where the line runs out.
 func TestAFormatRowsResetSitsBesideItsAdd(t *testing.T) {
 	k := testKit(t, "")
 	r := newFieldRow(k, k.store, field("modules.clock.format"))
-	r.reset.show(true)
+	if err := k.store.set("modules.clock.format", "%H"); err != nil {
+		t.Fatal(err)
+	}
+	r.refresh()
+	if !r.reset.shown() {
+		t.Fatal("an overridden format shows no reset")
+	}
 	root := widget.NewBox(widget.Column, 0, 0)
 	root.Append(r, false)
 	styledLayOut(k, root, 900)
@@ -261,4 +268,47 @@ func TestAFormatRowsResetSitsBesideItsAdd(t *testing.T) {
 	if reset.Y+reset.H/2 != add.Y+add.H/2 {
 		t.Errorf("the reset's middle is at y=%d, the add's at %d", reset.Y+reset.H/2, add.Y+add.H/2)
 	}
+	k.store.unset("modules.clock.format")
+	r.refresh()
+	styledLayOut(k, root, 900)
+	if body := b.body.(widget.Boundser).Bounds(); r.reset.shown() || body.X+body.W+widget.Current().Spacing != b.add.Bounds().X {
+		t.Errorf("with the reset hidden the parts end at %d, the add starts at %d", body.X+body.W, b.add.Bounds().X)
+	}
+}
+
+// The chips stood 17px over the preview on one line but 10px once they
+// wrapped, the add button's height pushing the one-line row taller. The
+// preview stands one gap under the chips' last line however many lines
+// they take, the first line still centred on the add button.
+func TestAFormatsPreviewStandsOneGapUnderItsChips(t *testing.T) {
+	const path = "modules.ram.format"
+	ps := config.Placeholders(path)
+	gap := func(format string) (int, int) {
+		_, b, _ := styledLabelBuilder(t, path, "modules:\n  ram:\n    format: \""+format+"\"\n")
+		chips, preview := b.chips.Bounds(), b.preview.Bounds()
+		return preview.Y - (chips.Y + chips.H), len(chipLines(b))
+	}
+	one, lines := gap(ps[0].Token)
+	if lines != 1 {
+		t.Fatalf("one part lies on %d lines", lines)
+	}
+	long := strings.Repeat(ps[0].Token+" — ", 12)
+	wrapped, lines := gap(long)
+	if lines < 2 {
+		t.Fatalf("twelve parts lie on %d line", lines)
+	}
+	if one != wrapped {
+		t.Errorf("the preview stands %dpx under one line of chips and %dpx under %d", one, wrapped, lines)
+	}
+}
+
+// chipLines are the distinct tops of b's chips, one a line.
+func chipLines(b *labelBuilder) []int {
+	var tops []int
+	for _, c := range b.chips.Chips() {
+		if y := c.Bounds().Y; !slices.Contains(tops, y) {
+			tops = append(tops, y)
+		}
+	}
+	return tops
 }

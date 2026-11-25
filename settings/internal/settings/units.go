@@ -72,10 +72,16 @@ func (k *kit) unitGroup(input widget.Widget, u unit, place func(*widget.Label) w
 	return g
 }
 
+// spinControl is a spin a field holds: a number, required or optional.
+type spinControl interface {
+	control
+	spinButton() *widget.SpinButton
+}
+
 // unitNumber is a number field with its unit as the trailing addon.
 type unitNumber struct {
 	*widget.InputGroup
-	number *number
+	number spinControl
 }
 
 func (c *unitNumber) refresh() { c.number.refresh() }
@@ -84,7 +90,7 @@ func (c *unitNumber) refresh() { c.number.refresh() }
 // (controlFit).
 func (c *unitNumber) spin() {}
 
-func (c *unitNumber) spinButton() *widget.SpinButton { return c.number.SpinButton }
+func (c *unitNumber) spinButton() *widget.SpinButton { return c.number.spinButton() }
 
 // numberField is n in u inside one border with the unit's addon after
 // it. While a page is being built the field joins the page's spin
@@ -92,14 +98,14 @@ func (c *unitNumber) spinButton() *widget.SpinButton { return c.number.SpinButto
 // theirs, and a bare count an empty addon as wide, so every number field
 // of the page, a row's or a slider's, starts and ends at one x with its
 // arrows on one x. Outside a page a bare count is n alone.
-func (k *kit) numberField(n *number, u unit) control {
+func (k *kit) numberField(n spinControl, u unit) control {
 	if k.spins == nil {
 		if u == bareCount {
 			return n
 		}
 		return &unitNumber{InputGroup: k.inUnit(n, u), number: n}
 	}
-	k.spins.addSpin(n.SpinButton)
+	k.spins.addSpin(n.spinButton())
 	g := widget.NewInputGroup(n)
 	g.Append(k.spins.unit(k.label(u.addon())))
 	return &unitNumber{InputGroup: g, number: n}

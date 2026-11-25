@@ -24,11 +24,11 @@ func autoEditor(k *kit, s slot, path string, meta config.FieldMeta) (control, er
 	case meta.Type == "Size":
 		return newSizeEditor(k, s, 1), nil
 	case meta.Type == "PixelLength" && meta.Optional:
-		return newOptionalNumber(k, pixelLength(s), 0, maxPixels, 1, pixelsFallback, 0), nil
+		return k.numberField(newOptionalNumber(k, pixelLength(s), 0, maxPixels, 1, pixelsFallback, 0), unitPixels), nil
 	case meta.Type == "PixelLength":
 		return k.numberField(newNumber(k, pixelLength(s), 0, maxPixels, 1, 0), unitPixels), nil
 	case meta.Type == "HexColor":
-		return newColorEditor(k, s), nil
+		return newHexColorEditor(k, s), nil
 	case meta.Type == "ColorValue":
 		return newColorValueEditor(k, s), nil
 	case meta.Optional && meta.Kind == config.FieldInt:
@@ -267,12 +267,12 @@ func (k *kit) valueSlider(lo, hi float64, format func(float64) string) *widgets.
 	d := widgets.NewRangedSlider(lo, hi, lo, k.face, k.textPx(), 0, k.invoke, k.clock)
 	d.ValueLabel().AddClass(css.Numeric)
 	d.SetFormat(format)
-	return d
+	return k.readOf(d)
 }
 
 // fieldSlider is the window's slider over [lo, hi], read by field.
 func (k *kit) fieldSlider(lo, hi float64, field widget.Widget) *widgets.DebouncedSlider {
-	return widgets.NewFieldSlider(lo, hi, lo, field, k.invoke, k.clock)
+	return k.readOf(widgets.NewFieldSlider(lo, hi, lo, field, k.invoke, k.clock))
 }
 
 // slider is SliderControl: a debounced slider writing what it commits

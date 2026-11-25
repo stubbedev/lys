@@ -573,12 +573,12 @@ func recorderPage(*config.Config) pageSpec {
 			{title: "settings-section-audio", rows: []rowSpec{
 				field(m + ".system-audio"),
 				field(m + ".microphone"),
-				field(m+".microphone-device", microphoneDevice),
+				field(m+".microphone-device", microphoneDevice, enabledBy(m+".microphone")),
 			}},
 			{title: "settings-section-webcam", rows: []rowSpec{
 				field(m + ".webcam-enabled"),
-				field(m+".webcam-device", webcamDevice),
-				field(webcamXPath, withKey("settings-recorder-webcam-place"), webcamPlacerRow),
+				field(m+".webcam-device", webcamDevice, enabledBy(m+".webcam-enabled")),
+				field(webcamXPath, withKey("settings-recorder-webcam-place"), webcamPlacerRow, enabledBy(m+".webcam-enabled")),
 			}},
 			{title: "settings-section-instant-replay", rows: []rowSpec{
 				field(m + ".replay.enable"),

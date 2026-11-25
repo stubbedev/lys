@@ -2,6 +2,7 @@ package settings
 
 import (
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/config"
@@ -67,5 +68,28 @@ func TestLysWMsPixelLengthsReadInPixels(t *testing.T) {
 		if groups != 1 {
 			t.Errorf("the outer gap's %q field carries the pixel unit %d times, want once", sb.AccessibleName(), groups)
 		}
+	}
+}
+
+// Opacity, Blur grain and Overview dimming said "From 0 to 1" while
+// their sliders read in percent. A slider reading in percent says
+// nothing of a 0-to-1 range.
+func TestAPercentSliderDescribesNoFraction(t *testing.T) {
+	checked := 0
+	for _, id := range []string{"wm-windows", "wm-effects", "motion"} {
+		win := laidOutPage(t, "", id, sweepW)
+		for _, r := range win.page.rows {
+			c, ok := r.ctl.(*slider)
+			if !ok || !strings.HasSuffix(c.ValueLabel().Text(), "%") {
+				continue
+			}
+			checked++
+			if d := r.Description(); strings.Contains(d, "0 to 1") {
+				t.Errorf("%s: %s reads %q and describes itself %q", id, r.path, c.ValueLabel().Text(), d)
+			}
+		}
+	}
+	if checked < 5 {
+		t.Fatalf("checked %d percent sliders", checked)
 	}
 }

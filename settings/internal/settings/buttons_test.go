@@ -128,6 +128,7 @@ func TestEveryButtonRolePaintsFromTheTheme(t *testing.T) {
 		roleReload:      {css.InputBorderColor, css.WindowFgColor},
 		roleIcon:        {none, css.WindowFgColor},
 		rolePickerIcon:  {css.InputBorderColor, css.WindowFgColor},
+		roleCopy:        {css.InputBorderColor, css.WindowFgColor},
 		roleHeader:      {none, css.WindowFgColor},
 	}
 	if len(looks) != len(buttonRoles) {
@@ -149,8 +150,9 @@ func TestEveryButtonRolePaintsFromTheTheme(t *testing.T) {
 		roleReset:       k.resetButton("settings-reset-setting", nil).Button,
 		roleClear:       k.clearButton("settings-icon-clear", nil),
 		roleReload:      k.reloadButton("settings-wifi-scan", nil),
-		roleIcon:        k.iconButton("ld-copy-symbolic", "settings-generator-sample-copy", nil),
+		roleIcon:        k.iconButton("ld-image-symbolic", "settings-icon-clear", nil),
 		rolePickerIcon:  k.pickerIconButton("ld-chevron-down-symbolic", "settings-format-presets", nil),
+		roleCopy:        k.copyButton("settings-generator-sample-copy", nil),
 		roleHeader:      k.headerDisclosure(k.label("Advanced"), false, func(bool) {}).button,
 	}
 	col := gapBox(widget.Column)

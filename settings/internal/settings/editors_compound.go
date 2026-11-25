@@ -104,6 +104,12 @@ type sizeEditor struct {
 	// as wide in either mode, so switching it moves nothing beside it.
 	field *widget.InputGroup
 	unit  *widget.Label
+	// hold gives the spin its width again once new digits refit it: the
+	// page's spins' width, or its own widest scale outside a page.
+	hold func()
+	// described hears the mode the size is shown in, pixels or not, for
+	// a row whose description follows it; nil while nothing listens.
+	described func(px bool)
 	// slide, nil for a size without one, is a slider over loPx to hiPx
 	// pixels, or the scales that make them, read by the spin, which
 	// takes a value past them.
@@ -150,8 +156,17 @@ func newSizeParts(k *kit, s slot, baseRem float64) *sizeEditor {
 	c.spin = widget.NewSpinButton(k.face, k.textPx(), 0, 0, maxPixels, 0.05, 2)
 	c.unit = k.label("")
 	c.unit.SetWidthChars(len([]rune(unitPixels.addon())))
+	c.spin.SetWidthChars(sizeChars, sizeChars)
 	c.field = widget.NewInputGroup(c.spin)
-	c.field.Append(c.unit)
+	c.hold = func() { c.spin.SetWidthChars(sizeChars, sizeChars) }
+	if k.spins == nil {
+		c.field.Append(c.unit)
+	} else {
+		spins := k.spins
+		spins.addSpin(c.spin)
+		c.hold = func() { spins.hold(c.spin) }
+		c.field.Append(spins.unit(c.unit))
+	}
 	c.mode.OnSelect = func(i int) {
 		if c.syncing {
 			return
@@ -191,10 +206,12 @@ func (c *sizeEditor) configure(px bool, v float64) {
 }
 
 // step sets the spin's step, digits and unit for a mode: whole pixels,
-// or a scale in hundredths, the spin as wide as the widest scale in
-// either.
+// or a scale in hundredths, the spin keeping its width in either.
 func (c *sizeEditor) step(px bool) {
-	defer c.spin.SetWidthChars(sizeChars, sizeChars)
+	defer c.hold()
+	if c.described != nil {
+		defer c.described(px)
+	}
 	if px {
 		c.spin.SetStep(1)
 		c.spin.SetDigits(0)
@@ -204,6 +221,13 @@ func (c *sizeEditor) step(px bool) {
 	c.spin.SetStep(0.05)
 	c.spin.SetDigits(2)
 	c.unit.SetText("")
+}
+
+// describeModes has describe hear the mode the size is shown in, now
+// and at every change.
+func (c *sizeEditor) describeModes(describe func(px bool)) {
+	c.described = describe
+	describe(c.mode.Selected() == sizePx)
 }
 
 // sizeChars is the widest a size reads: the largest scale, in hundredths.

@@ -7,6 +7,7 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
+	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -188,4 +189,57 @@ func TestATablesHeadingsAreCentredOverTheirColumns(t *testing.T) {
 		return
 	}
 	t.Fatal("the icon table has no VPN heading")
+}
+
+// Power Profiles' state headings were centred over their columns while
+// each icon picker sat at its column's left edge. A table cell narrower
+// than its column is centred in it, under its heading.
+func TestATablesNarrowCellsAreCentredUnderTheirHeadings(t *testing.T) {
+	win := laidOutPage(t, "", "power-profiles", sweepW)
+	headings, pickers := map[int]int{}, 0
+	for _, g := range treetest.All[*cellGrid](win.page) {
+		for _, l := range treetest.WithClass(g, css.Caption) {
+			b := l.(widget.Boundser).Bounds()
+			headings[b.X+b.W/2] = b.W
+		}
+		for _, b := range treetest.All[*widget.Button](g) {
+			r := b.Bounds()
+			if r.W > 60 {
+				continue
+			}
+			pickers++
+			if _, ok := headings[r.X+r.W/2]; !ok {
+				t.Errorf("an icon picker centred at %d stands under no heading's centre %v", r.X+r.W/2, headings)
+			}
+		}
+	}
+	if pickers == 0 {
+		t.Fatal("Power Profiles shows no icon picker in its table")
+	}
+}
+
+// Workspaces' two state icons stood half the card apart, as if on a grid
+// of four, while a colour strip packs its colours at the line's start. A
+// strip's columns are one width, the widest cell's or heading's, packed
+// at the start of the line.
+func TestAStripsColumnsArePackedAtTheLineStart(t *testing.T) {
+	win := laidOutPage(t, "", "workspaces", sweepW)
+	checked := 0
+	for _, g := range treetest.All[*cellGrid](win.page) {
+		heads := treetest.WithClass(g, css.Caption)
+		if len(heads) < 2 {
+			continue
+		}
+		first, second := heads[0].(widget.Boundser).Bounds(), heads[1].(widget.Boundser).Bounds()
+		if first.X != g.Bounds().X {
+			t.Errorf("the strip's first column starts at %d, the line at %d", first.X, g.Bounds().X)
+		}
+		if first.W != second.W || second.X != first.X+first.W+2*choiceCardGap {
+			t.Errorf("the strip's columns are %v and %v, want one width %dpx apart", first, second, 2*choiceCardGap)
+		}
+		checked++
+	}
+	if checked == 0 {
+		t.Fatal("Workspaces shows no strip of two or more columns")
+	}
 }

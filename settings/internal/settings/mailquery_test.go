@@ -149,3 +149,19 @@ func TestALateMailCountOfAnOldQueryIsDropped(t *testing.T) {
 		t.Fatalf("shows %q after the old query's count came late", e.count.Text())
 	}
 }
+
+// Mail's Query "+" stood at its line's top while a format's add centres
+// on its chips. Both centre on their chips' first line.
+func TestAMailQuerysAddCentresOnItsChipsFirstLine(t *testing.T) {
+	k := testKit(t, "modules:\n  mail:\n    query: \"tag:unread and not tag:spam\"\n")
+	e := newMailQueryEditor(k, pathSlot(k.store, "modules.mail.query"), false)
+	root := widget.NewBox(widget.Column, 0, 0)
+	root.Append(e, false)
+	styledLayOut(k, root, 700)
+	if e.chips.Len() == 0 {
+		t.Fatal("the query shows no chips")
+	}
+	if chip, add := centreY(e.chips.ChipAt(0).Bounds()), centreY(e.add.Bounds()); chip != add {
+		t.Errorf("the first chip centres at y %d, the add at %d", chip, add)
+	}
+}

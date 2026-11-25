@@ -53,6 +53,7 @@ settings-modules-cava-bar-gap = Bar Gap
 
 settings-modules-cava-internal-padding = Internal Padding
     .description = Padding at the ends of the visualizer in rem
+    .description-pixels = Padding at the ends of the visualizer in pixels
 
 settings-modules-cava-button-bg-color = Background Color
     .description = Module background color

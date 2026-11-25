@@ -45,9 +45,11 @@ settings-modules-workspaces-workspace-padding = Spaziatura dello spazio di lavor
 
 settings-modules-workspaces-icon-size = Dimensione dell'icona
     .description = Moltiplicatore di scala per le icone degli spazi di lavoro (0.25-3.0)
+    .description-pixels = Dimensione delle icone degli spazi di lavoro in pixel
 
 settings-modules-workspaces-label-size = Dimensione dell'etichetta
     .description = Moltiplicatore di scala per le etichette degli spazi di lavoro (0.25-3.0)
+    .description-pixels = Dimensione delle etichette degli spazi di lavoro in pixel
 
 settings-modules-workspaces-workspace-ignore = Ignora spazi di lavoro
     .description = Spazi di lavoro esclusi, per nome o numero; un * corrisponde a qualsiasi testo

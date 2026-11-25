@@ -141,7 +141,10 @@ type cardSpec struct {
 // kept, cleaned items; an outside change replaces them.
 type cardList struct {
 	*widget.Box
-	k     *kit
+	k *kit
+	// spins are the spin widths of the page the list was built on, which
+	// a card built later joins too.
+	spins *spinWidths
 	slot  slot
 	spec  cardSpec
 	list  *widget.Box
@@ -214,7 +217,7 @@ type card struct {
 type clashOwner struct{ value, owner string }
 
 func newCardList(k *kit, s slot, spec cardSpec) *cardList {
-	c := &cardList{Box: gapBox(widget.Column), k: k, slot: s, spec: spec}
+	c := &cardList{Box: gapBox(widget.Column), k: k, spins: k.spins, slot: s, spec: spec}
 	c.AddClass(append([]string{spec.look().editor}, spec.classes...)...)
 	switch {
 	case spec.filter != nil:
@@ -518,6 +521,7 @@ func itemText(v any) string {
 // field label of the card, the identity's too, sized alike so the
 // controls line up.
 func (c *cardList) appendCard(i int) {
+	defer c.k.buildingOn(c.spins)()
 	t := locale.T()
 	look := c.spec.look()
 	grid := c.k.formGrid()

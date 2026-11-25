@@ -18,7 +18,9 @@ const (
 // the object once one of them is set.
 type wmSwitch struct {
 	*widget.Box
-	slot   slot
+	slot slot
+	// headed marks a switch whose choices end a heading's line.
+	headed bool
 	choice *choicePick
 	body   *widget.Box
 	fields []control
@@ -40,7 +42,7 @@ func newHeadedWMSwitch(k *kit, s slot, fields []cardField, heading widget.Widget
 		t.Get(config.EnumLabelKey(wmToggleType, wmToggleOff)),
 		t.Get(config.EnumLabelKey(wmToggleType, wmToggleOn)),
 	}
-	c := &wmSwitch{Box: gapBox(widget.Column), slot: s, choice: newChoicePick(k, choices, switchInherit), body: gapBox(widget.Column)}
+	c := &wmSwitch{Box: gapBox(widget.Column), slot: s, headed: heading != nil, choice: newChoicePick(k, choices, switchInherit), body: gapBox(widget.Column)}
 	c.choice.OnSelect = c.choose
 	grid := k.formGrid()
 	for _, f := range fields {
@@ -66,6 +68,19 @@ func newHeadedWMSwitch(k *kit, s slot, fields []cardField, heading widget.Widget
 // choices are wider than a card's control column, and On opens the
 // object's fields under them.
 func (c *wmSwitch) stacked() {}
+
+// underRow hands a row the object's fields, to show under its text,
+// leaving the choices alone on the control edge of its title line, as
+// a heading's switch ends its line; a headed switch keeps both.
+func (c *wmSwitch) underRow() (widget.Widget, bool) {
+	if c.headed {
+		return nil, false
+	}
+	c.Remove(c.body)
+	c.Remove(c.choice)
+	c.AppendAligned(c.choice, false, widget.AlignEnd)
+	return c.body, true
+}
 
 func (c *wmSwitch) choose(i int) {
 	c.on = i == switchOn

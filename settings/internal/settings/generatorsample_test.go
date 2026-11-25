@@ -7,6 +7,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/ui/widget"
+	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -74,5 +75,17 @@ func TestAPresetWhoseRulesDoNotHoldShowsWhyInsteadOfASample(t *testing.T) {
 	g := newGeneratorSample(k, field, passwordRules)
 	if g.sample != "" || g.text.Text() != "" || widget.IsEnabled(g.copy) || g.problem.Text() != locale.T().Get("settings-generator-sample-failed") || !strings.Contains(g.problem.detail.Text(), "length") || g.problem.detail.Visible() {
 		t.Errorf("rules that do not hold sample %q, show %q, say %q over %q, copy enabled %v", g.sample, g.text.Text(), g.problem.Text(), g.problem.detail.Text(), widget.IsEnabled(g.copy))
+	}
+}
+
+// The sample's copy button was a bare glyph beside the framed draw-again
+// button. Both are framed alike.
+func TestASamplesCopyIsFramedAsItsRedraw(t *testing.T) {
+	k := testKit(t, "")
+	g := newGeneratorSample(k, func(string) slot { var v any; return memSlot(&v) }, passwordRules)
+	for _, b := range []*widget.Button{g.again, g.copy} {
+		if r, ok := roleOf(b); !ok || r.classes()[0] != css.Outline {
+			t.Errorf("a sample button wears %v, want the outline frame", b.Classes())
+		}
 	}
 }

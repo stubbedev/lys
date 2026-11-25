@@ -53,6 +53,7 @@ settings-modules-cava-bar-gap = Separación entre barras
 
 settings-modules-cava-internal-padding = Relleno interno
     .description = Relleno en los extremos del visualizador en rem
+    .description-pixels = Relleno en los extremos del visualizador en píxeles
 
 settings-modules-cava-button-bg-color = Color de fondo
     .description = Color de fondo del módulo

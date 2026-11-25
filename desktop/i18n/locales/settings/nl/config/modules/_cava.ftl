@@ -45,6 +45,7 @@ settings-modules-cava-bar-gap = Staafafstand
 
 settings-modules-cava-internal-padding = Interne opvulling
     .description = Opvulling aan de uiteinden van de visualisatie in rem
+    .description-pixels = Opvulling aan de uiteinden van de visualisatie in pixels
 
 settings-modules-cava-button-bg-color = Achtergrondkleur
     .description = Achtergrondkleur van de module

@@ -45,6 +45,7 @@ settings-modules-cava-bar-gap = Espaço entre barras
 
 settings-modules-cava-internal-padding = Preenchimento interno
     .description = Preenchimento nas extremidades do visualizador em rem
+    .description-pixels = Preenchimento nas extremidades do visualizador em píxeis
 
 settings-modules-cava-button-bg-color = Cor de fundo
     .description = Cor de fundo do módulo

@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	choiceCardW   = 104
+	choiceCardW   = 106
 	choicePicH    = 56
 	choiceCardGap = 8
 	choiceRing    = 2
@@ -76,16 +76,13 @@ func (c *choiceCards) perLine(width int) int {
 }
 
 // balancedColumns is how many of n cards a line holds when fit fit on
-// one: all of them where they fit, else the most that divide n, else the
-// most that leave a last line of two or more, else one a line.
+// one: all of them where they fit, else as many as fit unless that
+// leaves one card alone on the last line, then the most that leave it
+// two or more, else one a line. Full lines so end on the control edge,
+// and two grids of one page hold as many cards to a line.
 func balancedColumns(n, fit int) int {
 	if fit >= n {
 		return max(n, 1)
-	}
-	for cols := fit; cols >= 2; cols-- {
-		if n%cols == 0 {
-			return cols
-		}
 	}
 	for cols := fit; cols >= 2; cols-- {
 		if n%cols != 1 {

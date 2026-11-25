@@ -45,9 +45,11 @@ settings-modules-workspaces-workspace-padding = Relleno del área de trabajo
 
 settings-modules-workspaces-icon-size = Tamaño de los iconos
     .description = Multiplicador de escala de los iconos de las áreas de trabajo (0.25-3.0)
+    .description-pixels = Tamaño de los iconos de las áreas de trabajo en píxeles
 
 settings-modules-workspaces-label-size = Tamaño de las etiquetas
     .description = Multiplicador de escala de las etiquetas de las áreas de trabajo (0.25-3.0)
+    .description-pixels = Tamaño de las etiquetas de las áreas de trabajo en píxeles
 
 settings-modules-workspaces-workspace-ignore = Ignorar áreas de trabajo
     .description = Áreas de trabajo que se omiten, por nombre o número; un * coincide con cualquier texto

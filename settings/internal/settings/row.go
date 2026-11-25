@@ -281,14 +281,36 @@ func (r *settingRow) withControl(ctl widget.Widget) *settingRow {
 
 // placeControl places ctl as the row's control at fit, the actions a
 // control that has its own takes on the row's title line ahead of it,
-// and the detail a control that has one shows under the row's text.
+// and the detail a control that has one shows under the row's text. A
+// control that can hand its lower part to a row (underRow) keeps the
+// rest at its own width on the control edge, the part under the text.
 func (r *settingRow) placeControl(ctl widget.Widget, fit widget.ItemControlFit) {
+	r.placeActions(ctl)
+	r.setControl(ctl, fit)
+}
+
+// placeActions puts the actions ctl has of its own on the row's title
+// line, ahead of anything added after them.
+func (r *settingRow) placeActions(ctl widget.Widget) {
 	if a, ok := ctl.(interface{ rowActions() []widget.Widget }); ok {
 		r.withActions(a.rowActions()...)
+	}
+}
+
+// setControl is placeControl but for the control's own actions.
+func (r *settingRow) setControl(ctl widget.Widget, fit widget.ItemControlFit) {
+	var under widget.Widget
+	if u, ok := ctl.(interface{ underRow() (widget.Widget, bool) }); ok {
+		if w, split := u.underRow(); split {
+			under, fit = w, widget.ItemControlNatural
+		}
 	}
 	r.SetControl(ctl, fit)
 	if d, ok := ctl.(interface{ detail() widget.Widget }); ok {
 		r.AddDetail(d.detail())
+	}
+	if under != nil {
+		r.AddDetail(under)
 	}
 }
 
@@ -555,6 +577,7 @@ func newSettingRow(k *kit, be backend, spec rowSpec, ctl control) *fieldRow {
 		r.showProblem(rowProblem{})
 		be.reset(spec.path)
 	})
+	r.placeActions(ctl)
 	if h, ok := ctl.(interface{ holdReset(*widget.Button) }); ok {
 		h.holdReset(r.reset.Button)
 	} else {
@@ -564,8 +587,19 @@ func newSettingRow(k *kit, be backend, spec rowSpec, ctl control) *fieldRow {
 	if spec.fullWidth {
 		fit = widget.ItemControlWide
 	}
-	r.placeControl(ctl, fit)
+	r.setControl(ctl, fit)
 	k.spinOf(ctl)
+	if m, ok := ctl.(interface{ describeModes(func(px bool)) }); ok {
+		if key := spec.labelKey(); locale.T().HasAttr(key, pixelsDescription) {
+			m.describeModes(func(px bool) {
+				attr := "description"
+				if px {
+					attr = pixelsDescription
+				}
+				r.SetDescription(locale.T().Attr(key, attr))
+			})
+		}
+	}
 	r.refreshSource()
 	return r
 }
@@ -592,7 +626,15 @@ func (r *fieldRow) refreshSource() {
 		r.badge.AddClass(src.class)
 	}
 	r.reset.show(src.reset)
+	if h, ok := r.ctl.(interface{ showReset(on bool) }); ok {
+		h.showReset(src.reset)
+	}
 }
+
+// pixelsDescription is the attribute describing a size shown in pixels,
+// for a size whose description names its scale: the row reads it while
+// the size is in pixels and the description while it is a scale.
+const pixelsDescription = "description-pixels"
 
 // description is the help a message's description attribute gives, ""
 // for a message without one.

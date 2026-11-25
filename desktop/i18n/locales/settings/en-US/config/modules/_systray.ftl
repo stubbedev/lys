@@ -4,6 +4,7 @@
 
 settings-modules-systray-icon-scale = Icon Scale
     .description = Scale multiplier for tray item icons
+    .description-pixels = Size of tray item icons in pixels
 
 settings-modules-systray-item-gap = Item Gap
     .description = Gap between tray items

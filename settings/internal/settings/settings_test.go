@@ -836,7 +836,7 @@ func click(root widget.Widget, target widget.Boundser) {
 // refresh shows the stored color without writing it back.
 func TestColorEditorWritesThePickersPick(t *testing.T) {
 	k := testKit(t, "lock:\n  background-color: \"#336699\"\n")
-	c := newColorEditor(k, pathSlot(k.store, "login.background-color"))
+	c := newHexColorEditor(k, pathSlot(k.store, "login.background-color")).button
 	root, host := hosted(c)
 	if c.Color() != render.RGB(0x33, 0x66, 0x99) {
 		t.Fatalf("shows %#08x, want the stored #336699", uint32(c.Color()))
@@ -1301,7 +1301,7 @@ func TestOptionalSize(t *testing.T) {
 func TestADropdownHeightIsWholePixels(t *testing.T) {
 	k := testKit(t, "")
 	path := "dropdowns.audio.height"
-	c := fieldControl(k, k.store, dropdownSizeRows("dropdowns.audio")[1]).(*optionalNumber)
+	c := fieldControl(k, k.store, dropdownSizeRows("dropdowns.audio")[1]).(*unitNumber).number.(*optionalNumber)
 	if !c.Empty() || k.store.value(path) != nil {
 		t.Fatal("an unset height does not read as inherited")
 	}
@@ -2155,7 +2155,7 @@ func TestRowBadgeIsALysUIBadgeWithOneTint(t *testing.T) {
 // nothing, its rules written for GTK's colorbutton tree).
 func TestColorEditorShowsItsColor(t *testing.T) {
 	k := testKit(t, "lock:\n  background-color: \"#336699\"\n")
-	c := newColorEditor(k, pathSlot(k.store, "login.background-color"))
+	c := newHexColorEditor(k, pathSlot(k.store, "login.background-color")).button
 	slot := widget.NewBox(widget.Row, 0, 0)
 	slot.Append(c, false)
 	cfg := config.Defaults()
@@ -2516,4 +2516,32 @@ func TestASizeFieldReadsItsUnitAndKeepsItsWidthAcrossModes(t *testing.T) {
 	if pxW := c.field.Bounds().W; pxW != scaleW {
 		t.Errorf("the field is %dpx wide in pixels, %dpx as a scale", pxW, scaleW)
 	}
+}
+
+// Workspaces' Icon Size described a "Scale multiplier (0.25-3.0)" while
+// it was set in pixels. A size whose message describes its pixels reads
+// that description in Pixels and its own in Scale.
+func TestASizesDescriptionFollowsItsMode(t *testing.T) {
+	win := laidOutPage(t, "", "workspaces", sweepW)
+	tr := locale.T()
+	const key = "settings-modules-workspaces-icon-size"
+	for _, r := range win.page.rows {
+		if r.path != "modules.workspaces.icon-size" {
+			continue
+		}
+		c := r.ctl.(*sizeEditor)
+		if got, want := r.Description(), tr.Attr(key, "description"); c.mode.Selected() == sizeScale && got != want {
+			t.Errorf("as a scale Icon Size reads %q, want %q", got, want)
+		}
+		pickChoice(c.mode, sizePx)
+		if got, want := r.Description(), tr.Attr(key, pixelsDescription); got != want {
+			t.Errorf("in pixels Icon Size reads %q, want %q", got, want)
+		}
+		pickChoice(c.mode, sizeScale)
+		if got, want := r.Description(), tr.Attr(key, "description"); got != want {
+			t.Errorf("back to a scale Icon Size reads %q, want %q", got, want)
+		}
+		return
+	}
+	t.Fatal("the Workspaces page shows no Icon Size")
 }

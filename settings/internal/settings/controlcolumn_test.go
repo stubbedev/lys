@@ -5,6 +5,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/ui/widget"
+	"github.com/stubbedev/lys/ui/widget/css"
 )
 
 // A row nested in another row's control - the dock's All displays, a
@@ -43,4 +44,47 @@ func shownIn(root widget.Widget, w widget.Widget) bool {
 		}
 	})
 	return shown
+}
+
+// A frameless icon button ending a line (a list entry's trash, a
+// threshold card's) drew its glyph centred in its 36px box, 10px inside
+// the edge every field and switch of its card ends on. Its glyph ends on
+// that edge.
+func TestATrailingGlyphButtonEndsOnTheControlEdge(t *testing.T) {
+	glyphEnd := func(b *widget.Button) int {
+		ic := treetest.All[*widget.Icon](b)[0].Bounds()
+		return ic.X + ic.W/2 + appIconPx/2
+	}
+	trailing := func(root widget.Widget, icon string) []*widget.Button {
+		var out []*widget.Button
+		for _, b := range treetest.All[*widget.Button](root) {
+			ics := treetest.All[*widget.Icon](b)
+			if !shown(b) || !b.HasClass(css.Ghost) || len(ics) != 1 || ics[0].Name() != icon {
+				continue
+			}
+			if p, ok := b.Parent().(*widget.Box); ok && p.Children()[len(p.Children())-1] == widget.Widget(b) {
+				out = append(out, b)
+			}
+		}
+		return out
+	}
+	win := laidOutPage(t, "", "thresholds", sweepW)
+	checked := 0
+	for _, e := range treetest.All[*thresholdEditor](win.page) {
+		edge := 0
+		for _, n := range treetest.All[*optionalNumber](e) {
+			if shown(n) {
+				edge = n.Bounds().X + n.Bounds().W
+			}
+		}
+		for _, b := range trailing(e, "ld-trash-2-symbolic") {
+			checked++
+			if got := glyphEnd(b); got != edge {
+				t.Errorf("a threshold's trash glyph ends at %d, its fields at %d", got, edge)
+			}
+		}
+	}
+	if checked == 0 {
+		t.Fatal("the Thresholds page shows no trailing trash button")
+	}
 }

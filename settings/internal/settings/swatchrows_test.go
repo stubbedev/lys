@@ -4,6 +4,9 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/desktop/styling"
+
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
@@ -44,5 +47,26 @@ func TestOnlyAColourRowLeadsWithASwatch(t *testing.T) {
 		if has := row.Leading != nil; has != c.shown[i].swatch {
 			t.Errorf("the %q row leads with a swatch %v, has a colour %v", row.Label, has, c.shown[i].swatch)
 		}
+	}
+}
+
+// Theme's Elevated swatch was the colour of the card it sat on, so it
+// read as an empty square. A row's colour reads its hex before its
+// button, and the hex follows the colour.
+func TestARowsColourReadsItsHex(t *testing.T) {
+	win := laidOutPage(t, "", "theme", sweepW)
+	checked := 0
+	for _, r := range win.page.rows {
+		c, ok := r.ctl.(*hexColorEditor)
+		if !ok {
+			continue
+		}
+		checked++
+		if want := styling.HexRGBA(c.button.Color()); c.hex.Text() != want || !shown(c.hex) || !treetest.Contains(r, c.hex) {
+			t.Errorf("%s shows %q for %s", r.path, c.hex.Text(), want)
+		}
+	}
+	if checked == 0 {
+		t.Fatal("the Theme page shows no colour row")
 	}
 }

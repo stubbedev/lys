@@ -53,6 +53,7 @@ settings-modules-cava-bar-gap = Balkenabstand
 
 settings-modules-cava-internal-padding = Innenabstand
     .description = Abstand an den Enden der Visualisierung in rem
+    .description-pixels = Abstand an den Enden der Visualisierung in Pixeln
 
 settings-modules-cava-button-bg-color = Hintergrundfarbe
     .description = Hintergrundfarbe des Moduls

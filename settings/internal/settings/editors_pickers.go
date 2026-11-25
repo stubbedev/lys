@@ -13,6 +13,7 @@ import (
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
+	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -331,10 +332,26 @@ type colorEditor struct {
 	slot slot
 }
 
-func newColorEditor(k *kit, s slot) *colorEditor {
-	c := colorButton(k, s)
+// hexColorEditor is a row's color: its hex, then its button, so a
+// color the card itself is drawn in (Theme's Elevated) still reads,
+// not as an empty swatch.
+type hexColorEditor struct {
+	*widget.Box
+	button *colorEditor
+	hex    *widget.Label
+}
+
+func newHexColorEditor(k *kit, s slot) *hexColorEditor {
+	c := &hexColorEditor{Box: gapBox(widget.Row), button: colorButton(k, s), hex: k.label("", css.Monospace, css.DimLabel)}
+	c.AppendAligned(c.hex, false, widget.AlignCenter)
+	c.AppendAligned(c.button, false, widget.AlignCenter)
 	c.refresh()
 	return c
+}
+
+func (c *hexColorEditor) refresh() {
+	c.button.refresh()
+	c.hex.SetText(styling.HexRGBA(c.button.Color()))
 }
 
 // colorButton is the editor before it read its value: the color-value

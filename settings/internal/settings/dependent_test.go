@@ -245,8 +245,9 @@ func TestTheMotionRowsRestWhileAnimationsAreOff(t *testing.T) {
 }
 
 // With Show title bars off, Windows' title bar rows stayed at full
-// contrast, and Launcher's Sorting Method did while Sort Results was off,
-// though neither does anything then. Each follows the switch it depends
+// contrast, Launcher's Sorting Method did while Sort Results was off, and
+// Recorder's Microphone Device and webcam rows while their switches were
+// off, though none does anything then. Each follows the switch it depends
 // on: disabled while it is off, enabled while it is on.
 func TestRowsOfAnOffFeatureFollowItsSwitch(t *testing.T) {
 	for _, tc := range []struct {
@@ -257,6 +258,10 @@ func TestRowsOfAnOffFeatureFollowItsSwitch(t *testing.T) {
 			return strings.HasPrefix(path, "titlebars.") && path != "titlebars.floating"
 		}},
 		{"launcher", "launcher.sort", func(path string) bool { return path == "launcher.sorting-method" }},
+		{"recorder", "modules.recorder.microphone", func(path string) bool { return path == "modules.recorder.microphone-device" }},
+		{"recorder", "modules.recorder.webcam-enabled", func(path string) bool {
+			return path == "modules.recorder.webcam-device" || path == webcamXPath
+		}},
 	} {
 		p, ok := pageByID(layout(config.Defaults(), parts{shell: true, wm: true}), tc.page)
 		if !ok {

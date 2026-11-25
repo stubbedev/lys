@@ -45,9 +45,11 @@ settings-modules-workspaces-workspace-padding = Werkbladopvulling
 
 settings-modules-workspaces-icon-size = Pictogramgrootte
     .description = Schaalfactor voor werkbladpictogrammen (0.25-3.0)
+    .description-pixels = Grootte van werkbladpictogrammen in pixels
 
 settings-modules-workspaces-label-size = Labelgrootte
     .description = Schaalfactor voor werkbladlabels (0.25-3.0)
+    .description-pixels = Grootte van werkbladlabels in pixels
 
 settings-modules-workspaces-workspace-ignore = Werkbladen negeren
     .description = Weggelaten werkbladen, op naam of nummer; een * past op elke tekst

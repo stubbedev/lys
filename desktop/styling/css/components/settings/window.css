@@ -47,9 +47,13 @@ item.card-state .title {
 }
 
 item.card-state .media,
-.settings-page item .media,
-.settings-page avatar {
+.settings-page item .media {
   background-color: var(--border-default);
+}
+
+.settings-page avatar {
+  background-color: var(--fg-muted);
+  color: var(--bg-surface);
 }
 
 .settings-page item:disabled .title,
@@ -60,4 +64,8 @@ item.card-state .media,
 .settings-page item:disabled .format-preview,
 .settings-page item:disabled .inline-state-summary {
   color: var(--fg-subtle);
+}
+
+.settings-page button.ghost.icon:last-child {
+  margin-right: -10px;
 }

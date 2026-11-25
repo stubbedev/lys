@@ -56,6 +56,8 @@ const (
 	roleIcon
 	// rolePickerIcon opens a picker, an icon alone naming it.
 	rolePickerIcon
+	// roleCopy copies a value, framed as the reload beside it is.
+	roleCopy
 	// roleHeader is a header that folds and unfolds what it heads, a
 	// click anywhere on it, reading as the header it is.
 	roleHeader
@@ -88,6 +90,7 @@ var buttonRoles = [...]buttonLook{
 	roleReload:      {classes: []string{css.Outline, css.Icon}, icon: "ld-refresh-cw-symbolic"},
 	roleIcon:        {classes: []string{css.Ghost, css.Icon}},
 	rolePickerIcon:  {classes: []string{css.Outline, css.Icon}},
+	roleCopy:        {classes: []string{css.Outline, css.Icon}, icon: "ld-copy-symbolic"},
 	roleHeader:      {classes: []string{css.Flat}},
 }
 
@@ -210,6 +213,11 @@ func (e listEnd) show(items int) { e.empty.SetVisible(items == 0) }
 // removeButton removes an item: a list's entry, a file, a grant.
 func (k *kit) removeButton(tooltipKey string, onClick func()) *widget.Button {
 	return k.glyphButton(roleRemove, tooltipKey, onClick)
+}
+
+// copyButton copies a value to the clipboard.
+func (k *kit) copyButton(tooltipKey string, onClick func()) *widget.Button {
+	return k.glyphButton(roleCopy, tooltipKey, onClick)
 }
 
 // clearButton empties a value.

@@ -80,6 +80,7 @@ type generatorSample struct {
 	field   func(key string) slot
 	rules   presetRules
 	text    *widget.Label
+	again   *widget.Button
 	copy    *widget.Button
 	problem *inlineState
 	sample  string
@@ -91,11 +92,11 @@ func newGeneratorSample(k *kit, field func(key string) slot, rules presetRules) 
 	g.text = k.label("", "generator-sample-text", css.Monospace)
 	g.text.SetEllipsize(widget.EllipsizeMiddle)
 	g.text.SetMaxWidthChars(generatorSampleChars)
-	again := k.reloadButton("settings-generator-sample-again", g.refresh)
-	g.copy = k.iconButton("ld-copy-symbolic", "settings-generator-sample-copy", g.copySample)
+	g.again = k.reloadButton("settings-generator-sample-again", g.refresh)
+	g.copy = k.copyButton("settings-generator-sample-copy", g.copySample)
 	line := gapBox(widget.Row)
 	line.AppendAligned(g.text, true, widget.AlignCenter)
-	line.AppendAligned(again, false, widget.AlignCenter)
+	line.AppendAligned(g.again, false, widget.AlignCenter)
 	line.AppendAligned(g.copy, false, widget.AlignCenter)
 	g.Append(line, false)
 	g.Append(g.problem, false)

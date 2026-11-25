@@ -1,5 +1,6 @@
 settings-modules-systray-icon-scale = Pictogramschaal
     .description = Schaalfactor voor pictogrammen in het systeemvak
+    .description-pixels = Grootte van pictogrammen in het systeemvak in pixels
 
 settings-modules-systray-item-gap = Itemafstand
     .description = Ruimte tussen items in het systeemvak

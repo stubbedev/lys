@@ -157,8 +157,13 @@ func newMailQueryEditor(k *kit, s slot, optional bool) *mailQueryEditor {
 	e.AddClass("mail-query-editor")
 	e.chips = widget.NewChipBox()
 	e.add = k.addButton("settings-mail-query-add", e.pickTerm)
-	line := gapBox(widget.Row)
-	line.Append(e.chips, true)
+	line := &firstLineRow{Box: gapBox(widget.Row), body: e.chips, button: e.add, line: func() widget.Widget {
+		if e.chips.Len() > 0 {
+			return e.chips.ChipAt(0)
+		}
+		return e.chips
+	}}
+	line.AppendAligned(e.chips, true, widget.AlignStart)
 	line.AppendAligned(e.add, false, widget.AlignStart)
 	e.notice = k.note(t.Get("settings-mail-query-handwritten"))
 	e.raw = newText(k, s, optional)

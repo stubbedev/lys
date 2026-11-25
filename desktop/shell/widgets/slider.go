@@ -38,6 +38,10 @@ type DebouncedSlider struct {
 	Knob *pressSlider
 	// label is the value label, nil for a slider without one.
 	label *ValueText
+	// reading is what reads the value (the label's stack, the caller's
+	// field), held by value; both nil for a slider read by nothing.
+	reading widget.Widget
+	value   *widget.ItemValue
 	// format renders the value label (default: whole percent, "42%").
 	format func(float64) string
 	invoke func(func())
@@ -151,7 +155,23 @@ func newDebouncedSlider(min, max, value float64, invoke func(func()), clock Cloc
 // read places w, the slider's reading, after the knob and its gap.
 func (d *DebouncedSlider) read(w widget.Widget) {
 	d.Append(&knobGap{Spacer: widget.NewSpacer(0, 0), knob: d.Knob.Slider}, false)
-	d.AppendAligned(widget.NewItemValue(w), false, widget.AlignCenter)
+	d.reading = w
+	d.value = widget.NewItemValue(w)
+	d.AppendAligned(d.value, false, widget.AlignCenter)
+}
+
+// PlaceReading holds the reading in what place makes of it, a size
+// group's member for one: readings outside one widget.ItemGroup then
+// share a width, so the tracks of a whole page end at one x. place
+// returns the widget to hold in the reading's stead. A slider read by
+// nothing has no reading to place.
+func (d *DebouncedSlider) PlaceReading(place func(widget.Widget) widget.Widget) {
+	if d.value == nil {
+		panic("widgets: a slider read by nothing has no reading to place")
+	}
+	d.Remove(d.value)
+	d.value = widget.NewItemValue(place(d.reading))
+	d.AppendAligned(d.value, false, widget.AlignCenter)
 }
 
 // knobGap is the space between a slider and its reading: the theme's

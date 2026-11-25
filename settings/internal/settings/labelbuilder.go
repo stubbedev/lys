@@ -7,6 +7,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
 
@@ -74,7 +75,7 @@ func joinSegments(segs []segment) string {
 // empty in the chips' place. after, when set, runs once the chips show
 // the format anew.
 type formatParts struct {
-	*widget.Box
+	*firstLineRow
 	k      *kit
 	slot   slot
 	kind   formatKind
@@ -88,7 +89,7 @@ type formatParts struct {
 }
 
 func newFormatParts(k *kit, s slot, kind formatKind) *formatParts {
-	p := &formatParts{Box: gapBox(widget.Row), k: k, slot: s, kind: kind, names: map[string]string{}}
+	p := &formatParts{firstLineRow: &firstLineRow{Box: gapBox(widget.Row)}, k: k, slot: s, kind: kind, names: map[string]string{}}
 	p.AddClass("label-builder-parts")
 	for _, c := range kind.insert {
 		p.names[c.value] = c.label
@@ -114,6 +115,9 @@ func newFormatParts(k *kit, s slot, kind formatKind) *formatParts {
 type labelBuilder struct {
 	*widget.Box
 	*formatParts
+	// reset is the row's reset button on the parts' line, nil outside a
+	// row.
+	reset   *widget.Button
 	preview *formatPreview
 	raw     *formatEditor
 	toggle  *modeToggle
@@ -126,8 +130,17 @@ func newLabelBuilder(k *kit, s slot, optional bool, kind formatKind) *labelBuild
 	b.raw = newFormatEditor(k, s, optional, kind)
 	b.raw.SetVisible(false)
 	b.toggle = k.textModeToggle(b.raw.SetVisible)
+	b.formatParts.Remove(b.chips)
+	b.formatParts.Remove(b.empty)
+	body := widget.NewBox(widget.Column, widget.Current().Spacing/2, 0)
+	body.Append(b.chips, false)
+	body.Append(b.empty, false)
+	body.Append(b.preview, false)
+	b.body, b.button, b.line = body, b.add, b.firstLine
+	b.formatParts.InsertAligned(0, body, true, widget.AlignStart)
+	b.formatParts.Remove(b.add)
+	b.formatParts.AppendAligned(b.add, false, widget.AlignStart)
 	b.Append(b.formatParts, false)
-	b.Append(b.preview, false)
 	b.AppendAligned(b.toggle, false, widget.AlignStart)
 	b.Append(b.raw, false)
 	b.after = b.showFormat
@@ -137,11 +150,38 @@ func newLabelBuilder(k *kit, s slot, optional bool, kind formatKind) *labelBuild
 
 func (b *labelBuilder) stacked() {}
 
+// firstLine is the chips' first line, the empty line while there are
+// none.
+func (b *labelBuilder) firstLine() widget.Widget {
+	if b.chips.Visible() && b.chips.Len() > 0 {
+		return b.chips.ChipAt(0)
+	}
+	return b.empty
+}
+
+// Measure and Arrange are the builder's column's; its parts' row lays
+// itself out (firstLineRow).
+func (b *labelBuilder) Measure(axis widget.Axis, forSize int) widget.Sizes {
+	return b.Box.Measure(axis, forSize)
+}
+
+func (b *labelBuilder) Arrange(r render.Rect) { b.Box.Arrange(r) }
+
 // holdReset puts the row's reset button on the parts' line, just ahead
 // of their add button, where the row's control would have it, not on
 // the title line above.
 func (b *labelBuilder) holdReset(reset *widget.Button) {
+	b.reset = reset
 	b.formatParts.InsertAligned(slices.Index(b.formatParts.Children(), widget.Widget(b.add)), reset, false, widget.AlignCenter)
+}
+
+// showReset gives the hidden reset no room on the parts' line, so the
+// chips wrap only where the line runs out, not where an invisible button
+// would stand.
+func (b *labelBuilder) showReset(on bool) {
+	if b.reset != nil {
+		b.reset.SetVisible(on)
+	}
 }
 
 func (b *labelBuilder) dirtyBadge() *widget.Badge { return b.raw.dirtyBadge() }
@@ -298,4 +338,58 @@ func (b *formatParts) pickPart() {
 		}
 		b.write()
 	})
+}
+
+// firstLineRow is a row of chips beside a button (the add, a reset
+// before it): the body holding the chips, any line under them included,
+// sits lowered so its first line centres on the button, every other
+// child at the row's top, however many lines the chips take; the line
+// under them so stands one gap under their last line. Without a body it
+// is a plain row.
+type firstLineRow struct {
+	*widget.Box
+	body   widget.Widget
+	line   func() widget.Widget
+	button widget.Widget
+}
+
+// lift is how far the body sits under the row's top.
+func (r *firstLineRow) lift() int {
+	if r.body == nil {
+		return 0
+	}
+	return max(0, (r.button.Measure(widget.Column, -1).Nat-r.line().Measure(widget.Column, -1).Nat)/2)
+}
+
+// Measure is the row's request, its body lowered by lift.
+func (r *firstLineRow) Measure(axis widget.Axis, forSize int) widget.Sizes {
+	s := r.Box.Measure(axis, forSize)
+	if axis != widget.Column || r.body == nil {
+		return s
+	}
+	lowered := r.body.Measure(widget.Column, forSize).Nat + r.lift()
+	s.Nat, s.Min = max(s.Nat, lowered), max(s.Min, lowered)
+	return s
+}
+
+// Arrange lays the row out in rect, every child at its top but the
+// body, lowered by lift.
+func (r *firstLineRow) Arrange(rect render.Rect) {
+	r.Box.Arrange(rect)
+	if r.body == nil {
+		return
+	}
+	lift := r.lift()
+	for _, w := range r.Children() {
+		placed, ok := w.(widget.Boundser)
+		if !ok {
+			log.Panicf("settings: a %T on a chips' row has no bounds to place", w)
+		}
+		b := placed.Bounds()
+		y := rect.Y
+		if w == r.body {
+			y += lift
+		}
+		w.Arrange(render.Rect{X: b.X, Y: y, W: b.W, H: b.H})
+	}
 }

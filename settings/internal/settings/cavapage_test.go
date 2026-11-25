@@ -1,10 +1,12 @@
 package settings
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
@@ -76,5 +78,24 @@ func TestTheCavaPageDrawsItsLookAndFoldsItsSmoothing(t *testing.T) {
 	}
 	if got, want := chipLabels(fps)[1], locale.T().Get("settings-framerate", i18n.Int("n", 60)); got != want {
 		t.Errorf("the second framerate chip reads %q, want %q", got, want)
+	}
+}
+
+// Cava's Bar Width and Bar Gap, "in pixels", typed bare numbers. Each
+// carries the pixel unit.
+func TestCavasBarLengthsReadInPixels(t *testing.T) {
+	win := laidOutPage(t, "", "cava", sweepW)
+	checked := 0
+	for _, r := range win.page.rows {
+		if r.path != cavaPath+".bar-width" && r.path != cavaPath+".bar-gap" {
+			continue
+		}
+		if labels := treetest.Labels(r.ctl); !slices.Contains(labels, unitPixels.addon()) {
+			t.Errorf("%s reads %q beside its number, want the pixel unit", r.path, labels)
+		}
+		checked++
+	}
+	if checked != 2 {
+		t.Fatalf("checked %d of Cava's bar lengths", checked)
 	}
 }

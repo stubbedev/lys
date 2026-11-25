@@ -1,5 +1,6 @@
 settings-modules-systray-icon-scale = Escala dos ícones
     .description = Multiplicador de escala dos ícones dos itens da bandeja
+    .description-pixels = Tamanho dos ícones dos itens da bandeja em píxeis
 
 settings-modules-systray-item-gap = Espaço entre itens
     .description = Espaço entre itens da bandeja

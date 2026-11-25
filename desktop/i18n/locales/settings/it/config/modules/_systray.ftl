@@ -4,6 +4,7 @@
 
 settings-modules-systray-icon-scale = Scala delle icone
     .description = Moltiplicatore di scala per le icone degli elementi dell'area di notifica
+    .description-pixels = Dimensione delle icone degli elementi dell'area di notifica in pixel
 
 settings-modules-systray-item-gap = Distanza tra gli elementi
     .description = Distanza tra gli elementi dell'area di notifica

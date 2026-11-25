@@ -53,6 +53,7 @@ settings-modules-cava-bar-gap = Écart entre barres
 
 settings-modules-cava-internal-padding = Marge intérieure
     .description = Marge intérieure aux extrémités du visualiseur en rem
+    .description-pixels = Marge intérieure aux extrémités du visualiseur en pixels
 
 settings-modules-cava-button-bg-color = Couleur d'arrière-plan
     .description = Couleur d'arrière-plan du module

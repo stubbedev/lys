@@ -45,9 +45,11 @@ settings-modules-workspaces-workspace-padding = Marge intérieure de l'espace de
 
 settings-modules-workspaces-icon-size = Taille des icônes
     .description = Multiplicateur d'échelle pour les icônes d'espaces de travail (0.25-3.0)
+    .description-pixels = Taille des icônes d'espaces de travail en pixels
 
 settings-modules-workspaces-label-size = Taille des libellés
     .description = Multiplicateur d'échelle pour les libellés d'espaces de travail (0.25-3.0)
+    .description-pixels = Taille des libellés d'espaces de travail en pixels
 
 settings-modules-workspaces-workspace-ignore = Ignorer les espaces de travail
     .description = Espaces de travail laissés de côté, par nom ou numéro ; un * correspond à n'importe quel texte

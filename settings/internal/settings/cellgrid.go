@@ -56,16 +56,15 @@ func cellGridRow(key string, columns []string, rows ...gridRow) rowSpec {
 // many columns line up across pages. A table, rows headed by the kind
 // of thing each is, reads as rows do: the heading at the start, the
 // controls packed at the end, each column as wide as its widest cell.
-// Its spins are one width, capped as a page's are, so no value range
-// widens a column past what its values need.
+// Its spins join its page's, one width with the page's other number
+// fields, capped as theirs are.
 type cellGrid struct {
 	*widget.Box
 	cells []control
-	spins *spinWidths
 }
 
 func newCellGrid(k *kit, columns []string, rows []gridRow) *cellGrid {
-	g := &cellGrid{Box: widget.NewBox(widget.Column, choiceCardGap, 0), spins: newSpinWidths()}
+	g := &cellGrid{Box: widget.NewBox(widget.Column, choiceCardGap, 0)}
 	g.AddClass("cell-grid")
 	if slices.ContainsFunc(rows, gridRow.withHeader) {
 		g.table(k, columns, rows)
@@ -83,32 +82,46 @@ func columnHeading(k *kit, key string) *widget.Label {
 // control is the cell's control, refreshed with the grid.
 func (g *cellGrid) control(k *kit, spec rowSpec) control {
 	cell := fieldControl(k, k.store, spec)
-	if s, ok := cell.(spinField); ok {
-		g.spins.addSpin(s.spinButton())
-	}
+	k.spinOf(cell)
 	g.cells = append(g.cells, cell)
 	return cell
 }
 
-// strip lays the cells out in columns of one width.
+// stripHeadingChars caps a strip heading's line, so a long one
+// ("Spinning Disc Icon") breaks onto a second line within a picture
+// card's width instead of widening its strip's columns past every other
+// strip's.
+const stripHeadingChars = 12
+
+// strip lays the cells out in columns of one width, a picture card's or
+// the widest cell's or heading's past it, packed at the
+// start of the line: two icon pickers stand side by side as the colours
+// of a colour strip do, not spread over the card's width, and strips of
+// as many columns start them at one x on every page.
 func (g *cellGrid) strip(k *kit, columns []string, rows []gridRow) {
-	grid := widget.NewGrid(choiceCardGap*2, choiceCardGap).SetColumnHomogeneous(true)
+	grid := widget.NewGrid(choiceCardGap*2, choiceCardGap)
+	width := widget.NewSizeGroup(widget.SizeGroupHorizontal)
 	for c, key := range columns {
-		grid.Attach(columnHeading(k, key), c, 0, 1, 1)
+		heading := wrapped(columnHeading(k, key))
+		heading.SetMaxWidthChars(stripHeadingChars)
+		heading.SetSizeRequest(choiceCardW, 0)
+		grid.Attach(width.Add(heading), c, 0, 1, 1)
 	}
 	for i, r := range rows {
 		for c, spec := range r.cells {
 			if spec.path != "" {
-				grid.Attach(g.control(k, spec), c, i+1, 1, 1)
+				grid.Attach(width.Add(g.control(k, spec)), c, i+1, 1, 1)
 			}
 		}
 	}
-	g.Append(grid, false)
+	g.AppendAligned(grid, false, widget.AlignStart)
 }
 
 // table lays each row out as its heading, then its cells packed at the
-// end, each column as wide as its widest cell, its heading centred over
-// it.
+// end, each column as wide as its widest cell, its heading and a
+// narrower cell (an icon picker beside a column of dropdowns) centred in
+// it; a column of sizes ends its heading where their fields end, over
+// the field rather than the Scale or Pixels choice before it.
 func (g *cellGrid) table(k *kit, columns []string, rows []gridRow) {
 	widths := make([]*widget.SizeGroup, len(columns))
 	for c := range widths {
@@ -122,10 +135,11 @@ func (g *cellGrid) table(k *kit, columns []string, rows []gridRow) {
 		}
 		g.Append(row, false)
 	}
+	headings := make([]*widget.Label, len(columns))
 	line(widget.NewBox(widget.Row, 0, 0), func(c int) widget.Widget {
-		heading := columnHeading(k, columns[c])
-		heading.SetAlignment(render.AlignCenter)
-		return heading
+		headings[c] = columnHeading(k, columns[c])
+		headings[c].SetAlignment(render.AlignCenter)
+		return headings[c]
 	})
 	for _, r := range rows {
 		head := widget.Widget(widget.NewBox(widget.Row, 0, 0))
@@ -136,7 +150,14 @@ func (g *cellGrid) table(k *kit, columns []string, rows []gridRow) {
 			if r.cells[c].path == "" {
 				return widget.NewBox(widget.Row, 0, 0)
 			}
-			return g.control(k, r.cells[c])
+			cell := g.control(k, r.cells[c])
+			if a, ok := cell.(interface{ SetHAlign(widget.Align) }); ok {
+				a.SetHAlign(widget.AlignCenter)
+			}
+			if _, sized := cell.(*sizeEditor); sized {
+				headings[c].SetAlignment(render.AlignEnd)
+			}
+			return cell
 		})
 	}
 }

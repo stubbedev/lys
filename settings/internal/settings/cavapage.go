@@ -23,8 +23,8 @@ func cavaPage(*config.Config) pageSpec {
 			field(m+".style", pictureChoice(cavaStylePictures)),
 			field(m+".direction", pictureChoice(cavaDirectionPictures)),
 			field(m+".bars", spin(1.0, 256.0, 1.0, 0)),
-			field(m + ".bar-width"),
-			field(m + ".bar-gap"),
+			field(m+".bar-width", measuredIn(unitPixels)),
+			field(m+".bar-gap", measuredIn(unitPixels)),
 			field(m + ".internal-padding"),
 		}},
 		{title: "settings-section-cava-sound", rows: []rowSpec{

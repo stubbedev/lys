@@ -45,9 +45,11 @@ settings-modules-workspaces-workspace-padding = Workspace Padding
 
 settings-modules-workspaces-icon-size = Icon Size
     .description = Scale multiplier for workspace icons (0.25-3.0)
+    .description-pixels = Size of workspace icons in pixels
 
 settings-modules-workspaces-label-size = Label Size
     .description = Scale multiplier for workspace labels (0.25-3.0)
+    .description-pixels = Size of workspace labels in pixels
 
 settings-modules-workspaces-workspace-ignore = Ignore Workspaces
     .description = Workspaces left out, by name or number; a * matches any text

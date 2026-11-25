@@ -53,6 +53,7 @@ settings-modules-cava-bar-gap = Distanza tra le barre
 
 settings-modules-cava-internal-padding = Spaziatura interna
     .description = Spaziatura alle estremità del visualizzatore in rem
+    .description-pixels = Spaziatura alle estremità del visualizzatore in pixel
 
 settings-modules-cava-button-bg-color = Colore di sfondo
     .description = Colore di sfondo del modulo
