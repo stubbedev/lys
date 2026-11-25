@@ -7101,7 +7101,9 @@
     ],
     "testExternal": [
       "strings",
-      "testing"
+      "testing",
+      "unicode",
+      "unicode/utf8"
     ]
   },
   "settings/internal/proxyenv": {

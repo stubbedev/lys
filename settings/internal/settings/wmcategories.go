@@ -113,5 +113,5 @@ func (n bindNames) group(item map[string]any) cardGroupKey {
 // action as written and its chord, as typed and as it reads.
 func (n bindNames) searchText(item map[string]any) string {
 	chord, _ := item[chordKey].(string)
-	return strings.Join([]string{n.bindLabel(item, 0), n.category(item).label(), itemText(item), keys.WM.Text(chord)}, " ")
+	return strings.Join([]string{n.bindLabel(item), n.category(item).label(), itemText(item), keys.WM.Text(chord)}, " ")
 }

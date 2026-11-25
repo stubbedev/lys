@@ -359,6 +359,7 @@ wm-binds-chord = Combinación
 wm-binds-flags = Opciones
 wm-binds-cooldown = Tiempo de espera (ms)
 wm-binds-description = Descripción
+wm-binds-new = Nuevo atajo
 wm-binds-long-press = Pulsación larga (ms)
 wm-gestures-action = Acción
 wm-gestures-direction = Dirección

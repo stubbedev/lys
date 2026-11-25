@@ -359,6 +359,7 @@ wm-binds-chord = Accord
 wm-binds-flags = Options
 wm-binds-cooldown = Délai de répit (ms)
 wm-binds-description = Description
+wm-binds-new = Nouveau raccourci
 wm-binds-long-press = Appui long (ms)
 wm-gestures-action = Action
 wm-gestures-direction = Direction

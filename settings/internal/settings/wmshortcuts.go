@@ -224,7 +224,7 @@ func newShortcutTable(k *kit, binds slot) *shortcutTable {
 func (tb *shortcutTable) bindCards(names *bindNames, item []string, check func([]any) func() error, others func() []clashOwner) cardSpec {
 	return cardSpec{
 		check:       check,
-		title:       names.bindLabel,
+		title:       func(item map[string]any, _ int) string { return names.bindLabel(item) },
 		fields:      wmItemFields(tb.k.wm, item, nil, bindsKey),
 		blank:       func() map[string]any { return map[string]any{} },
 		search:      names.searchText,

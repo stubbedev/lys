@@ -78,8 +78,8 @@ func (n bindNames) actionLabel(text string) (string, bool) {
 }
 
 // bindLabel titles a bind: its own description, else what its action
-// does, else its number.
-func (n bindNames) bindLabel(item map[string]any, number int) string {
+// does, else that it is a new shortcut, nothing set yet.
+func (n bindNames) bindLabel(item map[string]any) string {
 	if d, _ := item[descriptionKey].(string); strings.TrimSpace(d) != "" {
 		return d
 	}
@@ -87,7 +87,7 @@ func (n bindNames) bindLabel(item map[string]any, number int) string {
 		label, _ := n.actionLabel(text)
 		return label
 	}
-	return locale.T().Get("wm-card-number", i18n.Int("number", int64(number)))
+	return locale.T().Get("wm-binds-new")
 }
 
 func (n bindNames) unknown(item map[string]any) bool {
@@ -105,13 +105,13 @@ const (
 func bindOwners(items any, names *bindNames, mode string) []clashOwner {
 	list, _ := items.([]any)
 	out := make([]clashOwner, 0, len(list))
-	for i, it := range list {
+	for _, it := range list {
 		m, _ := it.(map[string]any)
 		chord, _ := m[chordKey].(string)
 		if strings.TrimSpace(chord) == "" {
 			continue
 		}
-		owner := names.bindLabel(m, i+1)
+		owner := names.bindLabel(m)
 		if mode != "" {
 			owner = locale.T().Get("wm-binds-clash-mode", i18n.Str("label", owner), i18n.Str("mode", mode))
 		}

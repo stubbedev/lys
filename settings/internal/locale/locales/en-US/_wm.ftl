@@ -359,6 +359,7 @@ wm-binds-chord = Chord
 wm-binds-flags = Flags
 wm-binds-cooldown = Cooldown (ms)
 wm-binds-description = Description
+wm-binds-new = New shortcut
 wm-binds-long-press = Long press (ms)
 wm-gestures-action = Action
 wm-gestures-direction = Direction

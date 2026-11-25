@@ -359,6 +359,7 @@ wm-binds-chord = Combinazione
 wm-binds-flags = Flag
 wm-binds-cooldown = Intervallo minimo (ms)
 wm-binds-description = Descrizione
+wm-binds-new = Nuova scorciatoia
 wm-binds-long-press = Pressione prolungata (ms)
 wm-gestures-action = Azione
 wm-gestures-direction = Direzione

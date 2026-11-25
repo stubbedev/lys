@@ -7,6 +7,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 
+	"github.com/stubbedev/lys/settings/internal/locale"
 	"github.com/stubbedev/lys/settings/internal/wmconfig"
 )
 
@@ -60,11 +61,11 @@ func TestABindReadsAsItsActionWithTheArgumentsFilledIn(t *testing.T) {
 		t.Errorf("an action lys-wm lacks reads %q, known %v; want it as written and unknown", got, known)
 	}
 	described := map[string]any{"action": "switcher next", "description": "Alt-Tab"}
-	if got := names.bindLabel(described, 1); got != "Alt-Tab" {
+	if got := names.bindLabel(described); got != "Alt-Tab" {
 		t.Errorf("a described bind reads %q, want its description", got)
 	}
-	if got := names.bindLabel(map[string]any{}, 4); unisolated(got) != "Item 4" {
-		t.Errorf("a bind without an action reads %q, want its number", got)
+	if got := names.bindLabel(map[string]any{}); got != locale.T().Get("wm-binds-new") {
+		t.Errorf("a bind without an action reads %q, want a new shortcut", got)
 	}
 }
 

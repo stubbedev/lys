@@ -356,6 +356,7 @@ wm-binds-chord = Combinatie
 wm-binds-flags = Vlaggen
 wm-binds-cooldown = Afkoeltijd (ms)
 wm-binds-description = Beschrijving
+wm-binds-new = Nieuwe sneltoets
 wm-binds-long-press = Lang indrukken (ms)
 wm-gestures-action = Actie
 wm-gestures-direction = Richting
