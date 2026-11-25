@@ -213,7 +213,6 @@ settings-generator-sample-failed = No sample
 settings-generator-sample-copy-failed = The sample was not copied
 settings-size-scale = Scale
 settings-size-px = Pixels
-settings-size-scale-unit = ×
 settings-dropdown-width = Width
     .description = Panel width. Unset fits the built-in default
 settings-dropdown-height = Height

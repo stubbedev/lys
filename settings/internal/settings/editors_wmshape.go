@@ -28,6 +28,7 @@ type sidesEditor struct {
 	slot    slot
 	spins   [4]*widget.SpinButton
 	all     *widget.SpinButton
+	allIn   *widget.InputGroup
 	same    *widget.Switch
 	diagram *widget.Box
 	one     bool
@@ -58,7 +59,8 @@ func newSidesEditor(k *kit, s slot, one bool) *sidesEditor {
 	head := gapBox(widget.Row)
 	head.Append(k.label(t.Get("wm-side-same"), css.Caption), true)
 	head.AppendAligned(c.same, false, widget.AlignCenter)
-	head.AppendAligned(c.all, false, widget.AlignCenter)
+	c.allIn = k.inUnit(c.all, unitPixels)
+	head.AppendAligned(c.allIn, false, widget.AlignCenter)
 	head.SetVisible(one)
 	c.diagram = c.sideDiagram(k)
 	c.Append(head, false)
@@ -76,13 +78,13 @@ func (c *sidesEditor) sideDiagram(k *kit) *widget.Box {
 	window.AddClass(css.Card, "sides-editor-window")
 	window.AppendAligned(k.label(locale.T().Get("wm-side-window"), css.Caption, css.DimLabel), true, widget.AlignCenter)
 	middle := gapBox(widget.Row)
-	middle.AppendAligned(c.spins[3], false, widget.AlignCenter)
+	middle.AppendAligned(k.inUnit(c.spins[3], unitPixels), false, widget.AlignCenter)
 	middle.Append(window, true)
-	middle.AppendAligned(c.spins[1], false, widget.AlignCenter)
+	middle.AppendAligned(k.inUnit(c.spins[1], unitPixels), false, widget.AlignCenter)
 	d := gapBox(widget.Column)
-	d.AppendAligned(c.spins[0], false, widget.AlignCenter)
+	d.AppendAligned(k.inUnit(c.spins[0], unitPixels), false, widget.AlignCenter)
 	d.Append(middle, false)
-	d.AppendAligned(c.spins[2], false, widget.AlignCenter)
+	d.AppendAligned(k.inUnit(c.spins[2], unitPixels), false, widget.AlignCenter)
 	return d
 }
 
@@ -154,7 +156,7 @@ func (c *sidesEditor) show(same bool) {
 	c.same.SetOn(same)
 	c.syncing = false
 	c.diagram.SetVisible(!same)
-	c.all.SetVisible(same)
+	c.allIn.SetVisible(same)
 }
 
 // toFloat is a decoded YAML number as a float, 0 for anything else.
@@ -285,9 +287,9 @@ func (c *borderEditor) refresh() {
 	c.angle.refresh()
 }
 
-// wmSides is the gaps.outer row.
-func wmSides(path string) rowSpec {
-	return wmField(path, func(r *rowSpec) {
+// outerGaps is the gaps.outer row.
+func outerGaps() rowSpec {
+	return wmField("gaps.outer", func(r *rowSpec) {
 		r.fullWidth = true
 		r.editor = func(k *kit, s slot, _ config.FieldMeta) control { return newSidesEditor(k, s, true) }
 	})

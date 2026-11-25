@@ -213,7 +213,6 @@ settings-generator-sample-failed = Sin ejemplo
 settings-generator-sample-copy-failed = El ejemplo no se copió
 settings-size-scale = Escala
 settings-size-px = Píxeles
-settings-size-scale-unit = ×
 settings-dropdown-width = Anchura
     .description = Anchura del panel. Sin definir, se ajusta al valor predeterminado integrado
 settings-dropdown-height = Altura

@@ -149,7 +149,7 @@ func newSizeParts(k *kit, s slot, baseRem float64) *sizeEditor {
 	c.mode = newChoicePick(k, []string{t.Get("settings-size-scale"), t.Get("settings-size-px")}, sizeScale)
 	c.spin = widget.NewSpinButton(k.face, k.textPx(), 0, 0, maxPixels, 0.05, 2)
 	c.unit = k.label("")
-	c.unit.SetWidthChars(max(len([]rune(t.Get("settings-size-scale-unit"))), len([]rune(unitPixels.addon()))))
+	c.unit.SetWidthChars(len([]rune(unitPixels.addon())))
 	c.field = widget.NewInputGroup(c.spin)
 	c.field.Append(c.unit)
 	c.mode.OnSelect = func(i int) {
@@ -203,7 +203,7 @@ func (c *sizeEditor) step(px bool) {
 	}
 	c.spin.SetStep(0.05)
 	c.spin.SetDigits(2)
-	c.unit.SetText(locale.T().Get("settings-size-scale-unit"))
+	c.unit.SetText("")
 }
 
 // sizeChars is the widest a size reads: the largest scale, in hundredths.

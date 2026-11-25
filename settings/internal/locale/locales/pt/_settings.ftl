@@ -210,7 +210,6 @@ settings-generator-sample-failed = Sem exemplo
 settings-generator-sample-copy-failed = O exemplo não foi copiado
 settings-size-scale = Escala
 settings-size-px = Píxeis
-settings-size-scale-unit = ×
 settings-dropdown-width = Largura
     .description = Largura do painel. Se não estiver definida, usa a predefinição integrada
 settings-dropdown-height = Altura

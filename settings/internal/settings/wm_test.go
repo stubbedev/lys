@@ -857,7 +857,7 @@ func TestEveryPageIDIsUnique(t *testing.T) {
 
 func TestAWMPageBuildsItsRowsAndStatus(t *testing.T) {
 	k, _, _, _ := wmKit(t, "")
-	spec := wmPage("wm-test", "ld-monitor-symbolic", sectionSpec{title: "wm-section-gaps", rows: []rowSpec{wmField("gaps.inner"), wmSides("gaps.outer")}})
+	spec := wmPage("wm-test", "ld-monitor-symbolic", sectionSpec{title: "wm-section-gaps", rows: []rowSpec{wmField("gaps.inner"), outerGaps()}})
 	page := buildPage(k, spec)
 	if len(page.rows) != 2 || page.status == nil {
 		t.Fatalf("%d rows, status %v", len(page.rows), page.status)
@@ -1086,7 +1086,7 @@ func TestTheTitleBarSideIsPickedFromPictures(t *testing.T) {
 
 func TestOuterGapsWriteOneNumberOrFour(t *testing.T) {
 	k, w, _, files := wmKit(t, "")
-	c := fieldControl(k, w, wmSides("gaps.outer")).(*sidesEditor)
+	c := fieldControl(k, w, outerGaps()).(*sidesEditor)
 	if !c.all.Empty() || !c.same.On() || widget.IsEnabled(c.same) {
 		t.Fatal("an inherited gap shows a value or offers to split")
 	}

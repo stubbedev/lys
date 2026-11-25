@@ -529,6 +529,8 @@ var wmPresentation = map[string]rowOpt{
 	"cursor.hide_after":              measuredIn(unitMilliseconds),
 	"floating.step":                  measuredIn(unitPixels),
 	"drag_preview.drag_switch.width": measuredIn(unitPixels),
+	"decoration.blur.size":           measuredIn(unitPixels),
+	"decoration.blur.mica.size":      measuredIn(unitPixels),
 	"drag_preview.opacity":           fraction,
 	"overview.dim":                   fraction,
 	"hot_corners.pressure":           wholePixels,
@@ -624,7 +626,7 @@ func withWindowPreview(p pageSpec) pageSpec {
 
 func wmWindowsPage() pageSpec {
 	return withWindowPreview(wmPage("wm-windows", "ld-app-window-symbolic",
-		sectionSpec{title: "wm-section-gaps", rows: []rowSpec{wmField("gaps.inner", softPixels(0, 48)), wmSides("gaps.outer")}},
+		sectionSpec{title: "wm-section-gaps", rows: []rowSpec{wmField("gaps.inner", softPixels(0, 48)), outerGaps()}},
 		sectionSpec{title: "wm-section-borders", rows: []rowSpec{wmField("borders.width", softPixels(0, 12)), wmBorder("borders.active"), wmBorder("borders.inactive")}},
 		sectionSpec{title: "wm-section-shape", rows: []rowSpec{
 			wmField("decoration.rounding", softPixels(0, 24)),

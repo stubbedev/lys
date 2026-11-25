@@ -210,7 +210,6 @@ settings-generator-sample-failed = Geen voorbeeld
 settings-generator-sample-copy-failed = Het voorbeeld is niet gekopieerd
 settings-size-scale = Schaal
 settings-size-px = Pixels
-settings-size-scale-unit = ×
 settings-dropdown-width = Breedte
     .description = Paneelbreedte. Niet ingesteld gebruikt de ingebouwde standaard
 settings-dropdown-height = Hoogte

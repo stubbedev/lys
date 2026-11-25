@@ -6,6 +6,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // presented is the control lys-wm's path takes from wmPresentation over a
@@ -41,5 +42,30 @@ func TestLysWMsFractionsAndPushReadAsTheirUnits(t *testing.T) {
 	n := treetest.First[*number](t, push)
 	if n.Text() != "80" || !slices.Contains(labels, unitPixels.addon()) {
 		t.Errorf("Corner push at 80.0 reads %q beside %q", n.Text(), labels)
+	}
+}
+
+// Outer gap, Blur size and Mica blur size typed bare numbers beside
+// sibling spins reading "px", though each is a length in pixels. Every
+// one of their fields carries the pixel unit.
+func TestLysWMsPixelLengthsReadInPixels(t *testing.T) {
+	for _, path := range []string{"decoration.blur.size", "decoration.blur.mica.size"} {
+		c := presented(t, path, int64(6), config.FieldMeta{Kind: config.FieldInt, Min: 0, Max: 1e9})
+		if labels := treetest.Labels(c); !slices.Contains(labels, unitPixels.addon()) {
+			t.Errorf("%s reads %q beside its number, want the pixel unit", path, labels)
+		}
+	}
+	k, w, _, _ := wmKit(t, "")
+	gaps := fieldControl(k, w, outerGaps()).(*sidesEditor)
+	for _, sb := range append(gaps.spins[:], gaps.all) {
+		groups := 0
+		for _, g := range treetest.All[*widget.InputGroup](gaps) {
+			if treetest.Contains(g, sb) && slices.Contains(treetest.Labels(g), unitPixels.addon()) {
+				groups++
+			}
+		}
+		if groups != 1 {
+			t.Errorf("the outer gap's %q field carries the pixel unit %d times, want once", sb.AccessibleName(), groups)
+		}
 	}
 }
