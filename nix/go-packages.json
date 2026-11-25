@@ -318,7 +318,8 @@
     ],
     "testExternal": [
       "testing",
-      "testing/fstest"
+      "testing/fstest",
+      "unicode"
     ]
   },
   "desktop/i18n/i18ntest": {
