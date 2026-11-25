@@ -33,6 +33,9 @@ type surface struct {
 	view    vk.ImageView
 	fb      vk.Framebuffer
 	set     vk.DescriptorSet
+	// batched is the submission that carries the newest command using
+	// the surface recorded into the open batch.
+	batched uint64
 }
 
 // newSurface allocates a w x h device-local surface in surfaceFormat.

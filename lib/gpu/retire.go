@@ -1,12 +1,10 @@
 package gpu
 
-import (
-	"errors"
-	"fmt"
-	"math"
-)
+import "math"
 
 type destroyer interface{ destroy() }
+
+type batchUser interface{ batchedIn() uint64 }
 
 type grave struct {
 	after uint64
@@ -15,7 +13,7 @@ type grave struct {
 
 func (d *Device) retire(item destroyer) {
 	after := d.submitted
-	if d.batch != 0 || d.framing {
+	if d.framing || d.batchUses(item) {
 		after++
 	}
 	if after <= d.completed {
@@ -25,12 +23,19 @@ func (d *Device) retire(item destroyer) {
 	d.graves = append(d.graves, grave{after: after, item: item})
 }
 
+func (d *Device) batchUses(item destroyer) bool {
+	if d.batch == 0 {
+		return false
+	}
+	u, tracked := item.(batchUser)
+	return !tracked || u.batchedIn() > d.submitted
+}
+
+func (d *Device) nextSubmission() uint64 { return d.submitted + 1 }
+
 func (d *Device) discard(item destroyer) {
 	if !d.framing && d.active == nil {
 		d.reap(false)
-		if err := d.flushBatch(); err != nil {
-			d.waitErr = errors.Join(d.waitErr, fmt.Errorf("gpu: submit the work batched before a close: %w", err))
-		}
 	}
 	d.retire(item)
 }

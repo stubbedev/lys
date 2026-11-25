@@ -36,6 +36,9 @@ type Texture struct {
 	planeImages []vk.Image
 	planeViews  [3]vk.ImageView
 	surf        *surface
+	// batched is the submission that carries the newest command using
+	// the texture recorded into the open batch.
+	batched uint64
 	// sync is an imported texture's dmabufs, whose producer writes it.
 	sync implicitSync
 	// nearest marks a texture its driver filters no other way.
@@ -103,6 +106,7 @@ func (t *Texture) ready(cb vk.CommandBuffer) {
 		return
 	}
 	d := t.d
+	t.batched = d.nextSubmission()
 	fullBarrier(d, cb, t.image, vk.ImageLayoutUndefined, vk.ImageLayoutTransferDstOptimal, vk.QueueFamilyIgnored, vk.QueueFamilyIgnored)
 	var clear vk.ClearColorValue
 	d.cmds.CmdClearColorImage(cb, t.image, vk.ImageLayoutTransferDstOptimal, &clear, 1, &colorRange)
@@ -176,6 +180,7 @@ func (t *Texture) Update(r image.Rectangle, stride int, pix []byte) error {
 		return err
 	}
 	t.ready(cb)
+	t.batched = d.nextSubmission()
 	fullBarrier(d, cb, t.image, vk.ImageLayoutShaderReadOnlyOptimal, vk.ImageLayoutTransferDstOptimal, vk.QueueFamilyIgnored, vk.QueueFamilyIgnored)
 	region := &d.args.region
 	*region = vk.BufferImageCopy{
@@ -354,3 +359,5 @@ func (t *Texture) foreignBarrier(cb vk.CommandBuffer, layout vk.ImageLayout, src
 	}
 	t.d.setLayout(cb, &t.layout, layout)
 }
+
+func (t *Texture) batchedIn() uint64 { return t.batched }

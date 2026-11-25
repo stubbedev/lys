@@ -410,3 +410,5 @@ func (d *Device) readPixels(r image.Rectangle, vf vk.Format, opaque bool, record
 func (d *Device) Modifiers(format fourcc.Format) ([]fourcc.Modifier, error) {
 	return d.modifiers(format, renderUse)
 }
+
+func (t *Target) batchedIn() uint64 { return t.s.batched }

@@ -6,6 +6,7 @@ import (
 	"image"
 	"image/color"
 	"runtime"
+	"slices"
 	"testing"
 
 	"github.com/stubbedev/lys/lib/fourcc"
@@ -323,7 +324,7 @@ func awaitInflight(t *testing.T, d *Device) {
 	}
 }
 
-func TestResourcesClosedWhileNothingDrawsComeBackWithoutAFrame(t *testing.T) {
+func TestATextureTheOpenBatchDoesNotUseComesBackAtItsCloseWithoutAFrame(t *testing.T) {
 	d := openDevice(t)
 	cursor, err := d.NewTexture(fourcc.ARGB8888, 16, 16)
 	if err != nil {
@@ -332,9 +333,6 @@ func TestResourcesClosedWhileNothingDrawsComeBackWithoutAFrame(t *testing.T) {
 	defer cursor.Close()
 	pix := make([]byte, 64*64*4)
 	for i := range 200 {
-		if err := cursor.Update(image.Rect(0, 0, 16, 16), 16*4, pix); err != nil {
-			t.Fatal(err)
-		}
 		tex, err := d.NewTexture(fourcc.ARGB8888, 64, 64)
 		if err != nil {
 			t.Fatal(err)
@@ -342,16 +340,49 @@ func TestResourcesClosedWhileNothingDrawsComeBackWithoutAFrame(t *testing.T) {
 		if err := tex.Update(image.Rect(0, 0, 64, 64), 64*4, pix); err != nil {
 			t.Fatal(err)
 		}
-		tex.Close()
-		if n := len(d.graves); n > 1 {
-			t.Fatalf("after %d closes with no frame, %d closed resources still hold their memory, want at most the newest", i+1, n)
-		}
-		for _, g := range d.graves {
-			if g.after > d.submitted {
-				t.Fatalf("close %d left a resource waiting on uploads no submission carries", i+1)
-			}
+		if err := d.Flush(); err != nil {
+			t.Fatal(err)
 		}
 		awaitInflight(t, d)
+		if err := cursor.Update(image.Rect(0, 0, 16, 16), 16*4, pix); err != nil {
+			t.Fatal(err)
+		}
+		submitted := d.submitted
+		tex.Close()
+		if d.submitted != submitted {
+			t.Fatal("closing a texture submitted the open batch")
+		}
+		if n := len(d.graves); n != 0 {
+			t.Fatalf("close %d: a texture only finished submissions used waits with %d others for a frame", i+1, n-1)
+		}
+	}
+}
+
+func TestTexturesTheOpenBatchUsesWaitForItWithoutPilingUp(t *testing.T) {
+	d := openDevice(t)
+	pix := make([]byte, 64*64*4)
+	most := 0
+	for range 4 * maxBatchedUploads {
+		tex, err := d.NewTexture(fourcc.ARGB8888, 64, 64)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := tex.Update(image.Rect(0, 0, 64, 64), 64*4, pix); err != nil {
+			t.Fatal(err)
+		}
+		submitted := d.submitted
+		tex.Close()
+		if d.submitted != submitted {
+			t.Fatal("closing a texture submitted the open batch")
+		}
+		if !slices.ContainsFunc(d.graves, func(g grave) bool { return g.item == destroyer(tex) }) {
+			t.Fatal("a texture the open batch still updates was destroyed when it was closed")
+		}
+		most = max(most, len(d.graves))
+		awaitInflight(t, d)
+	}
+	if most > maxBatchedUploads {
+		t.Errorf("%d closed textures waited at once with no frame, want at most the %d uploads a batch holds", most, maxBatchedUploads)
 	}
 }
 
@@ -390,39 +421,5 @@ func TestATextureAnUnfinishedPassSampledOutlivesItsClose(t *testing.T) {
 	}
 	if held() {
 		t.Error("the texture outlived the pass that sampled it")
-	}
-}
-
-func TestABatchACloseCouldNotSubmitFailsTheNextSubmission(t *testing.T) {
-	d := openDevice(t)
-	tex, err := d.NewTexture(fourcc.ARGB8888, 8, 8)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := tex.Update(image.Rect(0, 0, 8, 8), 32, make([]byte, 8*8*4)); err != nil {
-		t.Fatal(err)
-	}
-	kept, err := d.NewTexture(fourcc.ARGB8888, 8, 8)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer kept.Close()
-	upload := func() error {
-		if err := kept.Update(image.Rect(0, 0, 8, 8), 32, make([]byte, 8*8*4)); err != nil {
-			return err
-		}
-		return d.Flush()
-	}
-	d.fault = vk.ErrorOutOfDeviceMemory
-	tex.Close()
-	if d.fault != vk.Success {
-		t.Fatal("closing a texture with uploads batched submitted nothing")
-	}
-	err = upload()
-	if !errors.Is(err, resultError(vk.ErrorOutOfDeviceMemory)) || !bytes.Contains([]byte(err.Error()), []byte("before a close")) {
-		t.Fatalf("the submission after a close whose batch failed: %v, want the close's failure", err)
-	}
-	if err := upload(); err != nil {
-		t.Errorf("the submission after the one that reported the failed close: %v", err)
 	}
 }

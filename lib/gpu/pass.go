@@ -605,6 +605,7 @@ func (p *Pass) submit() error {
 
 func (p *Pass) record(cb vk.CommandBuffer) {
 	d, s, ct := p.d, &p.t.s, p.ct
+	s.batched = d.nextSubmission()
 	p.t.acquire(cb, dmabuf.Write)
 	foreign := d.passForeign[:0]
 	var bounds image.Rectangle
@@ -634,8 +635,10 @@ func (p *Pass) record(cb vk.CommandBuffer) {
 			}
 			if t.surf != nil {
 				t.surf.to(cb, vk.ImageLayoutShaderReadOnlyOptimal)
+				t.surf.batched = d.nextSubmission()
 			}
 			t.ready(cb)
+			t.batched = d.nextSubmission()
 		}
 	}
 	s.to(cb, vk.ImageLayoutColorAttachmentOptimal)

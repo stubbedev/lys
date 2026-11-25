@@ -77,8 +77,7 @@ type timing struct {
 	timelineWaits   []timelineWait
 	timelineSignals []timelineWait
 	// waitErr is why a wait the next submission was to make could not
-	// be set up (awaitDmabuf), or why the batch a Close submitted
-	// failed: that submission fails with it instead.
+	// be set up (awaitDmabuf): that submission fails with it instead.
 	waitErr error
 	// fault is a result a test makes the device's next submission, on
 	// any of its queues, return in place of submitting (LoseForTesting);
