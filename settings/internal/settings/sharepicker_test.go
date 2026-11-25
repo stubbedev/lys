@@ -128,3 +128,30 @@ func TestAPreviewLysShellRefusesSaysWhy(t *testing.T) {
 		t.Errorf("a refused preview shows %q over %q (visible %v)", b.outcome.Text(), b.outcome.detail.Text(), b.outcome.Visible())
 	}
 }
+
+// The preview button floated between the section's heading and its card.
+// It is the card's first row, its title and description saying what it
+// opens, ahead of the picker's settings.
+func TestTheSharePickerPreviewIsItsCardsFirstRow(t *testing.T) {
+	win := laidOutPage(t, "", "privacy", 1664)
+	tries := treetest.All[*tryButton](win.page)
+	if len(tries) != 1 {
+		t.Fatalf("%d try buttons on the privacy page", len(tries))
+	}
+	var card *widget.ItemGroup
+	for _, g := range treetest.All[*widget.ItemGroup](win.page) {
+		if treetest.Contains(g, tries[0]) {
+			card = g
+		}
+	}
+	if card == nil {
+		t.Fatal("the preview sits in no card")
+	}
+	rows := treetest.All[*fieldRow](card)
+	if len(rows) == 0 {
+		t.Fatal("the preview's card holds no setting")
+	}
+	if try, first := tries[0].Bounds(), rows[0].Bounds(); try.Y >= first.Y {
+		t.Errorf("the preview at y=%d comes after the card's first setting at y=%d", try.Y, first.Y)
+	}
+}

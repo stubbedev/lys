@@ -33,7 +33,7 @@ func privacyPage(*config.Config) pageSpec {
 		header: "settings-page-privacy",
 		sections: []sectionSpec{
 			{title: "settings-section-screen-share", rows: []rowSpec{field("portal.screen-cast.reminder-days", durationChips(inDays, after(7*day), after(30*day), after(90*day), zeroAs(never)))}},
-			{title: "settings-section-share-picker", preview: sharePickerTry, rows: []rowSpec{
+			{title: "settings-section-share-picker", lead: sharePickerTry, rows: []rowSpec{
 				field("share-picker.default-page", pictureChoice(sharePickerPagePictures)),
 				field("share-picker.hide-token-restore", invertedSwitch("settings-share-picker-offer-restore")),
 			}},
@@ -65,8 +65,11 @@ func privacyPage(*config.Config) pageSpec {
 
 var sharePickerPreviewArgs = []string{"portal", "show", "screen-cast-preview"}
 
-func sharePickerTry(k *kit) widget.Widget {
-	return newTryButton(k, "settings-share-picker-preview", func() error { return k.shellCommand(sharePickerPreviewArgs...) })
+// sharePickerTry is the share picker card's first row, opening the
+// picker as an app sharing the screen would.
+func sharePickerTry(k *kit) rowWidget {
+	try := newTryButton(k, "settings-share-picker-open", func() error { return k.shellCommand(sharePickerPreviewArgs...) })
+	return k.keyRow("settings-share-picker-preview").withControl(try)
 }
 
 type grantStore interface {
