@@ -71,7 +71,7 @@ func openComboboxList[T comparable](l *comboboxList, from Widget, anchor Boundse
 	}
 	list := NewCommand(l.face, l.sizePx, l.search, groups...)
 	l.close = OpenPopover(from, anchor, list, PopoverOptions{
-		Focus: list.FocusTarget(), Gap: PopoverGap, Align: PopoverStart, MinWidth: max(comboboxWidth, width),
+		Focus: list.FocusTarget(), Gap: PopoverGap, Align: PopoverHang, MinWidth: max(comboboxWidth, width),
 		OnClosed: func() { l.close = nil },
 	})
 }

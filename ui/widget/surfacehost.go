@@ -90,9 +90,19 @@ const (
 	// PopoverCentered centres the popover on its anchor, GtkPopover's
 	// placement.
 	PopoverCentered PopoverAlign = iota
-	// PopoverStart lines the card's start edge up with the anchor's,
-	// as a dropdown's list hangs under its face.
+	// PopoverStart lines the card's start edge up with the anchor's:
+	// the left edge of one opening above or below, the top edge of one
+	// opening beside.
 	PopoverStart
+	// PopoverEnd lines the card's end edge up with the anchor's: the
+	// right edge, or the bottom one.
+	PopoverEnd
+	// PopoverHang hangs the card from its anchor as a dropdown's list
+	// hangs under its face: PopoverStart for an anchor in the start half
+	// of its surface, PopoverEnd for one in the end half, so a card
+	// wider than its anchor grows toward the surface's middle, never
+	// past the edge of the content the anchor ends.
+	PopoverHang
 )
 
 // PopoverSide is the side of its anchor a popover opens on; the
@@ -118,7 +128,33 @@ const PopoverGap = 4
 func OpenPopover(from Widget, anchor Boundser, content Widget, opts PopoverOptions) (close func()) {
 	card := NewBox(Column, 0, 0).Append(content, true)
 	card.SetSizeRequest(opts.MinWidth, 0)
+	if opts.Align == PopoverHang {
+		opts.Align = hangAlign(from, anchor.Bounds(), opts.Side)
+	}
 	return hostOf(from, "OpenPopover").OpenPopover(anchor, card, opts)
+}
+
+// hangAlign is the edge a PopoverHang card opening on side lines up
+// with anchor's: the start edge when anchor's middle lies in the start
+// half of the root of from's tree across side, the end edge otherwise.
+func hangAlign(from Widget, anchor render.Rect, side PopoverSide) PopoverAlign {
+	root := from
+	for p := parentOf(root); p != nil; p = parentOf(p) {
+		root = p
+	}
+	b, ok := root.(Boundser)
+	if !ok {
+		return PopoverStart
+	}
+	surface := b.Bounds()
+	at, span, extent := anchor.X-surface.X, anchor.W, surface.W
+	if side == PopoverLeft || side == PopoverRight {
+		at, span, extent = anchor.Y-surface.Y, anchor.H, surface.H
+	}
+	if 2*at+span > extent {
+		return PopoverEnd
+	}
+	return PopoverStart
 }
 
 // GrabFocus moves the keyboard focus of w's surface to w (GTK's

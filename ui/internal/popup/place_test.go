@@ -308,3 +308,28 @@ func TestAStartAlignedPopupHoldsItsEdge(t *testing.T) {
 		}
 	}
 }
+
+// An end-aligned popup's content, not its shadow gutter, ends on the
+// anchor's end edge whatever its width, the Gap away on the opening
+// side (#370).
+func TestAnEndAlignedPopupLinesItsContentEndUpWithTheAnchor(t *testing.T) {
+	rect := render.Rect{X: 400, Y: 300, W: 180, H: 36}
+	const g, gap = 10, 4
+	for _, tc := range []struct {
+		gravity        Gravity
+		w, h           int32
+		wantEnd, wantY int32
+	}{
+		{GravityBottom, 180 + 2*g, 120 + 2*g, 400 + 180, 300 + 36 + gap},
+		{GravityBottom, 390 + 2*g, 120 + 2*g, 400 + 180, 300 + 36 + gap},
+		{GravityTop, 390 + 2*g, 120 + 2*g, 400 + 180, 300 - gap - 120},
+		{GravityRight, 120 + 2*g, 260 + 2*g, 400 + 180 + gap + 120, 300 + 36 - 260},
+		{GravityLeft, 120 + 2*g, 260 + 2*g, 400 - gap, 300 + 36 - 260},
+	} {
+		cfg := Config{AnchorRect: rect, Gravity: tc.gravity, Gutter: g, Gap: gap, Align: AlignEnd, Width: int(tc.w), Height: int(tc.h)}
+		x, y := placedAt(placementFor(cfg), tc.w, tc.h)
+		if end := x + tc.w - g; end != tc.wantEnd || y+g != tc.wantY {
+			t.Errorf("gravity %d, %dx%d: content ends at x=%d, top y=%d, want %d, %d", tc.gravity, tc.w, tc.h, end, y+g, tc.wantEnd, tc.wantY)
+		}
+	}
+}

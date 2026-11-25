@@ -32,7 +32,7 @@ type placement struct {
 // hangs the popup from the anchor's start corner instead, growing away
 // from it along the other axis, its gutter offset on that axis too, so
 // the content's start edge, not the shadow's, lines up with the
-// anchor's.
+// anchor's; AlignEnd hangs it from the end corner, growing back.
 func placementFor(cfg Config) placement {
 	const (
 		slideX  = xdg.PositionerConstraintAdjustmentSlideX
@@ -73,8 +73,11 @@ func placementFor(cfg Config) placement {
 	default:
 		p.offsetY = -rest
 	}
-	if cfg.Align == AlignStart {
+	if cfg.Align != AlignCenter {
 		cross := intconv.Clamp[int32](-cfg.Gutter)
+		if cfg.Align == AlignEnd {
+			cross = -cross
+		}
 		if vertical {
 			p.offsetX = cross
 		} else {
@@ -124,13 +127,25 @@ const (
 	// the left edge of a popup opening up or down, the top edge of one
 	// opening sideways, as a combobox's list hangs under its face.
 	AlignStart
+	// AlignEnd lines the content's end edge up with the anchor's: the
+	// right edge of a popup opening up or down, the bottom edge of one
+	// opening sideways.
+	AlignEnd
 )
 
 // edges is the anchor point and the growth direction of a popup
 // opening along gravity, aligned by align across it.
 func edges(gravity Gravity, align Align) (anchor, grow uint32) {
-	start := align == AlignStart
+	start, end := align == AlignStart, align == AlignEnd
 	switch {
+	case gravity == GravityTop && end:
+		return xdg.PositionerAnchorTopRight, xdg.PositionerGravityTopLeft
+	case gravity == GravityRight && end:
+		return xdg.PositionerAnchorBottomRight, xdg.PositionerGravityTopRight
+	case gravity == GravityLeft && end:
+		return xdg.PositionerAnchorBottomLeft, xdg.PositionerGravityTopLeft
+	case end:
+		return xdg.PositionerAnchorBottomRight, xdg.PositionerGravityBottomLeft
 	case gravity == GravityTop && start:
 		return xdg.PositionerAnchorTopLeft, xdg.PositionerGravityTopRight
 	case gravity == GravityTop:
@@ -152,8 +167,11 @@ func edges(gravity Gravity, align Align) (anchor, grow uint32) {
 // crossStart is where a popup extent long starts along the cross axis
 // before any offset, hung from an anchor spanning at to at+span.
 func crossStart(align Align, at, span, extent int) int {
-	if align == AlignStart {
+	switch align {
+	case AlignStart:
 		return at
+	case AlignEnd:
+		return at + span - extent
 	}
 	return at + span/2 - extent/2
 }

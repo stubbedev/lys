@@ -43,6 +43,8 @@ const (
 	// PopoverStart lines the card's start edge up with the anchor's,
 	// as a dropdown's list hangs under its face.
 	PopoverStart = popup.AlignStart
+	// PopoverEnd lines the card's end edge up with the anchor's.
+	PopoverEnd = popup.AlignEnd
 )
 
 // PopoverConfig declares a popover anchored to a widget.

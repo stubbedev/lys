@@ -801,3 +801,36 @@ func TestADropdownAtItsSelectionWidthNeverEllipsizes(t *testing.T) {
 		}
 	}
 }
+
+// A dropdown's list hangs from the face's start edge in the start half
+// of its window and from its end edge in the end half, so a list wider
+// than a face at a row's end grows toward the window's middle instead of
+// past the edge of the card the face ends (#370).
+func TestADropdownsListHangsTowardTheMiddleOfItsWindow(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		atStart bool
+		want    PopoverAlign
+	}{
+		{"start", true, PopoverStart},
+		{"end", false, PopoverEnd},
+	} {
+		d := NewDropdown(entryFace(t), 14, []string{"Off", "Also turn the screen off sooner when nobody is there"}, 0)
+		row := NewBox(Row, 0, 0)
+		if tc.atStart {
+			row.Append(d, false).Append(NewSpacer(0, 0), true)
+		} else {
+			row.Append(NewSpacer(0, 0), true).Append(d, false)
+		}
+		host := &fakeSurfaceHost{}
+		SetSurfaceHost(row, host)
+		row.Arrange(render.Rect{W: 800, H: 40})
+		d.Open()
+		if len(host.opts) != 1 {
+			t.Fatalf("%s: opening the face opened %d popovers", tc.name, len(host.opts))
+		}
+		if got := host.opts[0].Align; got != tc.want {
+			t.Errorf("a face at the row's %s at %v hangs its list by %d, want %d", tc.name, d.Bounds(), got, tc.want)
+		}
+	}
+}

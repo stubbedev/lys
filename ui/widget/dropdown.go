@@ -275,13 +275,13 @@ func (d *Dropdown) newList() *Command {
 // focus in the list. A disabled dropdown and one with nothing to
 // select stay closed.
 func (d *Dropdown) Open() {
-	if d.list != nil || !d.Enabled() || d.selected < 0 {
+	if d.list != nil || !IsEnabled(d) || d.selected < 0 {
 		return
 	}
 	list := d.newList()
 	d.list = list
 	d.closeList = OpenPopover(d, d, list, PopoverOptions{
-		Focus: list, Gap: PopoverGap, Align: PopoverStart, MinWidth: d.bounds.W,
+		Focus: list, Gap: PopoverGap, Align: PopoverHang, MinWidth: d.bounds.W,
 		OnClosed: func() { d.listClosed(list) },
 	})
 	d.Invalidate()

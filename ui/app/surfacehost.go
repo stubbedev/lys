@@ -62,8 +62,11 @@ func GravityOf(s widget.PopoverSide) Gravity {
 
 // alignOf is the alignment a widget popover asks for.
 func alignOf(a widget.PopoverAlign) PopoverAlign {
-	if a == widget.PopoverStart {
+	switch a {
+	case widget.PopoverStart:
 		return PopoverStart
+	case widget.PopoverEnd:
+		return PopoverEnd
 	}
 	return PopoverCentered
 }
