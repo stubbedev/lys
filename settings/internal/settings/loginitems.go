@@ -355,9 +355,11 @@ type loginItems struct {
 	desktops      []string
 	apps          *widget.ItemGroup
 	appsState     *cardState
+	add           *insetRow
 	services      *widget.ItemGroup
 	servicesState *cardState
 	filter        *widget.SearchEntry
+	filterRow     *insetRow
 	listing       unitsListing
 	problem       *inlineState
 }
@@ -367,23 +369,23 @@ func loginItemsLead(k *kit) widget.Widget {
 	l.problem = k.inlineState()
 	l.Append(l.problem, false)
 	l.apps, l.appsState = widget.NewItemGroup(), k.cardState()
-	apps := newSection(k, "settings-section-login-apps", l.apps)
-	l.Append(apps, false)
+	l.Append(newSection(k, "settings-section-login-apps", l.apps), false)
 	l.filter = widget.NewSearchEntry(k.face, k.textPx(), locale.T().Get("settings-login-services-filter"))
 	l.filter.SetDelay(0)
 	l.filter.OnSearchChanged = func(string) { l.showServices(l.listing) }
-	l.filter.SetVisible(false)
+	l.filterRow = newInsetRow(l.filter)
+	l.filterRow.SetVisible(false)
 	l.services, l.servicesState = widget.NewItemGroup(), k.cardState()
 	services := gapBox(widget.Column)
-	services.Append(l.filter, false)
+	services.Append(l.filterRow, false)
 	services.Append(l.services, false)
 	l.Append(newSection(k, "settings-section-login-services", services), false)
-	l.openApps(apps)
+	l.openApps()
 	l.loadServices()
 	return l
 }
 
-func (l *loginItems) openApps(section *widget.Box) {
+func (l *loginItems) openApps() {
 	dirs, err := systemHost.autostartDirs()
 	if err != nil {
 		l.showApps(autostartListing{err: err})
@@ -391,9 +393,8 @@ func (l *loginItems) openApps(section *widget.Box) {
 	}
 	l.dirs = dirs
 	var add *widget.Button
-	add = l.k.addButton("settings-login-apps-add", func() { l.pickApp(add) })
-	add.SetAccessibleName(locale.T().Get("settings-login-apps-add"))
-	section.AppendAligned(add, false, widget.AlignStart)
+	add, _ = l.k.contentButton(roleSecondary, "ld-plus-symbolic", locale.T().Get("settings-login-apps-add"), func() { l.pickApp(add) })
+	l.add = newInsetAction(add)
 	l.loadApps()
 }
 
@@ -424,14 +425,16 @@ func (l *loginItems) showApps(r autostartListing) {
 	switch {
 	case r.err != nil:
 		l.appsState.Unavailable("ld-power-symbolic", t.Get("settings-login-apps-unreadable"), r.err)
-		return
 	case len(r.entries) == 0:
 		l.appsState.Empty("ld-power-symbolic", t.Get("settings-login-apps-none"))
-		return
+	default:
+		l.appsState.Clear()
+		for _, e := range r.entries {
+			l.apps.Append(l.appRow(e))
+		}
 	}
-	l.appsState.Clear()
-	for _, e := range r.entries {
-		l.apps.Append(l.appRow(e))
+	if l.add != nil {
+		l.apps.Append(l.add)
 	}
 }
 
@@ -503,7 +506,7 @@ func (l *loginItems) showServices(r unitsListing) {
 	l.listing = r
 	l.services.Clear()
 	l.services.Append(l.servicesState)
-	l.filter.SetVisible(r.err == nil && len(r.units) > 0)
+	l.filterRow.SetVisible(r.err == nil && len(r.units) > 0)
 	if r.err != nil {
 		l.servicesState.Unavailable("ld-settings-symbolic", t.Get("settings-login-services-unavailable"), r.err)
 		return

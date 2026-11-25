@@ -56,6 +56,7 @@ func newCaptureTiles(k *kit, module string) *captureTiles {
 	row := widget.NewWrapBox(choiceCardGap, choiceCardGap, widget.JustifyStart)
 	for i, tile := range audioCaptureTiles {
 		card := gapBox(widget.Column)
+		card.SetPadding(cardInsets())
 		card.AddClass(css.Card, "capture-tile")
 		card.Append(k.label(t.Get(tile.title)), false)
 		icons := gapBox(widget.Row)

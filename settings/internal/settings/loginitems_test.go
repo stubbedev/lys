@@ -626,7 +626,7 @@ func TestEachServiceShowsAStatusDotAndTheFilterNarrowsThemByNameOrDescription(t 
 	if got := serviceNames(page); !slices.Equal(got, []string{"Music Player Daemon=" + running, "Syncthing=" + failed, "PipeWire Multimedia Service=" + stopped}) {
 		t.Fatalf("the services read %q", got)
 	}
-	if !filter.Visible() {
+	if !page.(*loginItems).filterRow.Visible() {
 		t.Fatal("the filter is hidden with three services")
 	}
 	filter.SetText("SYNC")
@@ -647,8 +647,8 @@ func TestEachServiceShowsAStatusDotAndTheFilterNarrowsThemByNameOrDescription(t 
 }
 
 func TestWithoutServicesThereIsNothingToFilter(t *testing.T) {
-	page, filter := servicesPage(t, nil)
-	if filter.Visible() {
+	page, _ := servicesPage(t, nil)
+	if page.(*loginItems).filterRow.Visible() {
 		t.Error("the filter shows with no service")
 	}
 	if !slices.Contains(treetest.Labels(page), locale.T().Get("settings-login-services-none")) {

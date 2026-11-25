@@ -1,6 +1,7 @@
 package settings
 
 import (
+	"path/filepath"
 	"slices"
 	"testing"
 
@@ -111,4 +112,37 @@ func networkRowTitled(t *testing.T, p *networkPanel, name string) *settingRow {
 	}
 	t.Fatalf("no row for the network %q", name)
 	return nil
+}
+
+// The Microphone, Camera and Screen tiles held their titles and icons
+// against their own borders: each tile's content sits inset in it.
+func TestTheCaptureTilesHoldTheirContentInset(t *testing.T) {
+	k := testKit(t, "")
+	c := newCaptureTiles(k, "modules.audio")
+	themed(k, c)
+	for _, tile := range audioCaptureTiles {
+		insetInItsCard(t, c, treetest.LabelReading(t, c, locale.T().Get(tile.title)), "the "+tile.title+" title")
+	}
+	for i, ed := range c.icons {
+		insetInItsCard(t, c, ed, "capture icon "+string(rune('1'+i)))
+	}
+}
+
+// Login Items' Add app sat under the Apps card, outside it: it is the
+// card's last row, inset as its rows are, and the services filter is
+// inset in its card too.
+func TestLoginItemsAddAppAndFilterAreInsetInTheirCards(t *testing.T) {
+	d, root := autostartFixture(t)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Dir(d.user))
+	t.Setenv("XDG_CONFIG_DIRS", filepath.Join(root, "etc")+":"+filepath.Join(root, "vendor"))
+	before := openUserManager
+	openUserManager = func() (userManager, func(), error) {
+		return &staticManager{units_: []userUnit{{name: "mpd.service", active: "active", fileState: "enabled"}}}, func() {}, nil
+	}
+	t.Cleanup(func() { openUserManager = before })
+	win := laidOutPage(t, "", loginItemsID, windowWidth)
+	l := treetest.First[*loginItems](t, win.page)
+	add := treetest.Button(t, l.apps, locale.T().Get("settings-login-apps-add"))
+	insetInItsCard(t, win.page, add, "Add app")
+	insetInItsCard(t, win.page, l.filter, "the services filter")
 }
