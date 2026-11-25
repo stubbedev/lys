@@ -129,9 +129,12 @@ type cardSpec struct {
 	// reason and written once the cards make one the target takes.
 	check func(items []any) func() error
 	// addKey labels the add button's tooltip (settings-list-add).
-	addKey  string
-	pick    *cardPick
-	classes []string
+	addKey string
+	// addAtEnd ends the list with its add button in the control column, as
+	// the format editor it is part of ends its parts, not at the start.
+	addAtEnd bool
+	pick     *cardPick
+	classes  []string
 	// classed, when set, are the list's classes in place of
 	// cardFormClasses.
 	classed *cardClasses
@@ -234,9 +237,12 @@ func newCardList(k *kit, s slot, spec cardSpec) *cardList {
 		addKey = "settings-list-add"
 	}
 	add := k.addButton(addKey, func() { c.appendItem(spec.blank()) })
-	if spec.pick == nil {
+	switch {
+	case spec.pick == nil && spec.addAtEnd:
+		c.AppendAligned(add, false, widget.AlignEnd)
+	case spec.pick == nil:
 		c.AppendAligned(add, false, widget.AlignStart)
-	} else {
+	default:
 		actions := gapBox(widget.Row)
 		actions.AppendAligned(add, false, widget.AlignCenter)
 		actions.AppendAligned(c.pickButton(*spec.pick), false, widget.AlignCenter)

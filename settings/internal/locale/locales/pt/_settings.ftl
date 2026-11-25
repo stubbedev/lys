@@ -1536,6 +1536,7 @@ settings-location-not-saved = A localização não foi guardada
 settings-world-clock-zone = Fuso horário
 settings-world-clock-before = Texto antes
 settings-world-clock-time = Formato da hora
+settings-world-clock-zone-name = Abreviatura do fuso
 settings-world-clock-handwritten = Este formato contém mais do que relógios, por isso é editado como texto.
 settings-web-engine-custom = Personalizado
 settings-web-engine-pick = Motor de pesquisa

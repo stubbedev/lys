@@ -1535,6 +1535,7 @@ settings-location-not-saved = De locatie is niet opgeslagen
 settings-world-clock-zone = Tijdzone
 settings-world-clock-before = Tekst ervoor
 settings-world-clock-time = Tijdnotatie
+settings-world-clock-zone-name = Zoneafkorting
 settings-world-clock-handwritten = Deze notatie bevat meer dan klokken en wordt daarom als tekst bewerkt.
 settings-web-engine-custom = Aangepast
 settings-web-engine-pick = Zoekmachine

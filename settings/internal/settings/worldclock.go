@@ -143,6 +143,14 @@ func (h host) timeZones() []choice {
 	return timezoneChoices(zones)
 }
 
+// worldClockParts are a clock's time parts: a time's, and the zone's
+// abbreviation, which tells one clock from another.
+func worldClockParts() formatKind {
+	f := strftimeParts()
+	f.insert = append(f.insert, choice{value: "%Z", label: locale.T().Get("settings-world-clock-zone-name"), group: f.label("%Z")})
+	return f
+}
+
 type worldClockEditor struct {
 	*widget.Box
 	k       *kit
@@ -196,11 +204,12 @@ func newWorldClockEditor(k *kit, s slot, meta config.FieldMeta) *worldClockEdito
 				return newLiveText(k, s, "")
 			}},
 			{key: "format", label: "settings-world-clock-time", fill: true, editor: func(k *kit, s slot) control {
-				return newLabelBuilder(k, s, false, strftimeParts())
+				return newFormatParts(k, s, worldClockParts())
 			}},
 		},
-		blank: func() map[string]any { return map[string]any{"before": " ", "zone": "UTC", "format": "%H:%M"} },
-		keep:  func(item map[string]any) bool { zone, _ := item["zone"].(string); return zone != "" },
+		blank:    func() map[string]any { return map[string]any{"before": " ", "zone": "UTC", "format": "%H:%M"} },
+		keep:     func(item map[string]any) bool { zone, _ := item["zone"].(string); return zone != "" },
+		addAtEnd: true,
 	})
 	e.notice = k.note(t.Get("settings-world-clock-handwritten"))
 	e.preview = k.formatPreview()

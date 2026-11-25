@@ -1548,6 +1548,7 @@ settings-location-not-saved = L’emplacement n’a pas été enregistré
 settings-world-clock-zone = Fuseau horaire
 settings-world-clock-before = Texte avant
 settings-world-clock-time = Format de l’heure
+settings-world-clock-zone-name = Abréviation du fuseau
 settings-world-clock-handwritten = Ce format contient plus que des horloges, il se modifie donc comme texte.
 settings-web-engine-custom = Personnalisé
 settings-web-engine-pick = Moteur de recherche

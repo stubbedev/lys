@@ -1546,6 +1546,7 @@ settings-location-not-saved = No se guardó la ubicación
 settings-world-clock-zone = Zona horaria
 settings-world-clock-before = Texto anterior
 settings-world-clock-time = Formato de hora
+settings-world-clock-zone-name = Abreviatura de la zona
 settings-world-clock-handwritten = Este formato contiene más que relojes, así que se edita como texto.
 settings-web-engine-custom = Personalizado
 settings-web-engine-pick = Buscador

@@ -5,6 +5,10 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/stubbedev/lys/ui/widget"
+
+	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
 func TestAWorldClockFormatReadsAsClocksAndWritesBack(t *testing.T) {
@@ -85,5 +89,55 @@ func TestTheWorldClockIsEditedAsCards(t *testing.T) {
 	e.refresh()
 	if !e.notice.Visible() || e.cards.Visible() || !e.raw.Visible() {
 		t.Errorf("a template with more than clocks shows notice %v, cards %v, raw %v", e.notice.Visible(), e.cards.Visible(), e.raw.Visible())
+	}
+}
+
+// A clock's card holds its time as parts alone, the zone's abbreviation
+// among them by name: the one preview and Edit as text are the whole
+// format's, under the cards, and the add button ends the cards in the
+// control column, as a format editor's ends its parts.
+func TestAWorldClockCardHoldsItsTimeAsNamedPartsAlone(t *testing.T) {
+	k := testKit(t, "modules:\n  world-clock:\n    format: \"{{ tz('UTC', '%H:%M %Z') }}\"\n")
+	e := fieldControl(k, k.store, field(worldClockPath, worldClockRow)).(*worldClockEditor)
+	root := widget.NewBox(widget.Column, 0, 0)
+	root.Append(e, false)
+	styledLayOut(k, root, 900)
+	var previews, toggles int
+	walkOwn(e, func(w widget.Widget) {
+		if !shown(w) {
+			return
+		}
+		switch w.(type) {
+		case *formatPreview:
+			previews++
+		case *modeToggle:
+			toggles++
+		}
+	})
+	if previews != 1 || toggles != 1 {
+		t.Errorf("the world clock shows %d previews and %d Edit as text toggles, want one of each", previews, toggles)
+	}
+	parts, ok := e.cards.cards[0].controls[2].(*formatParts)
+	if !ok {
+		t.Fatalf("the time format is a %T, not parts", e.cards.cards[0].controls[2])
+	}
+	want := []segment{{token: "%H"}, {text: ":"}, {token: "%M"}, {text: " "}, {token: "%Z"}}
+	if !slices.Equal(parts.segs, want) {
+		t.Fatalf("%%H:%%M %%Z reads as %+v, want %+v", parts.segs, want)
+	}
+	if got := parts.chipText(parts.segs[4]); got != locale.T().Get("settings-world-clock-zone-name") {
+		t.Errorf("the zone abbreviation reads %q", got)
+	}
+	var add *widget.Button
+	for _, c := range e.cards.Children() {
+		if b, ok := c.(*widget.Button); ok {
+			add = b
+		}
+	}
+	if add == nil {
+		t.Fatal("no add button under the cards")
+	}
+	if card := e.cards.cards[0].root.Bounds(); add.Bounds().X+add.Bounds().W != card.X+card.W {
+		t.Errorf("the add button ends at x %d, the card at %d", add.Bounds().X+add.Bounds().W, card.X+card.W)
 	}
 }
