@@ -825,6 +825,9 @@ type popPainter interface {
 	Collect() bool
 	Pass() (bool, error)
 	TakeFrame() (ms uint32, arrived, pending bool)
+	// SetContentFade hands the compositor the content's own fade,
+	// false where it cannot fade the surface.
+	SetContentFade(alpha float64) bool
 	Close()
 }
 
@@ -852,6 +855,17 @@ type openPopover struct {
 	// is placed too (shared-element morphs cross surfaces through it).
 	origin widget.Point
 	placed bool
+}
+
+// popoverAt is the open popover whose content is root, nil when root
+// heads no popover.
+func (a *Application) popoverAt(root widget.Widget) *openPopover {
+	for _, op := range a.openPopovers {
+		if op.keyRoot.content == root {
+			return op
+		}
+	}
+	return nil
 }
 
 // originOf is where the open popover p's surface sits in its

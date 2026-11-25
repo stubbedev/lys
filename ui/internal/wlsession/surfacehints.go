@@ -85,6 +85,10 @@ func (s *Session) SetContentType(surf *wl.Surface, ct ContentType) error {
 	return obj.SetType(uint32(ct))
 }
 
+// SurfaceAlphaAvailable reports whether the compositor applies a
+// surface opacity (SetSurfaceAlpha).
+func (s *Session) SurfaceAlphaAvailable() bool { return s.alphaMgr != nil }
+
 // SetSurfaceAlpha sets the opacity the compositor applies to surf
 // (0..1) without the client repainting; it applies on the surface's
 // next commit.

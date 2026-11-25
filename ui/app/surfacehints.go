@@ -170,6 +170,9 @@ func (a *Application) ringFor(w widget.Widget) {
 }
 
 func (a *Application) fadeSurface(root widget.Widget, alpha float64) bool {
+	if op := a.popoverAt(root); op != nil {
+		return op.painter.SetContentFade(alpha)
+	}
 	hw := a.windowOf(root)
 	if hw == nil || hw.styleRoot != root {
 		return false

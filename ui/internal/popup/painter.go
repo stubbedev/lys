@@ -64,11 +64,15 @@ type Painter struct {
 	mapped       bool
 	dirty        atomic.Bool
 	// blur is the compositor blur behind the content; fade is the
-	// surface opacity last sent to go with it, fading set whether one
-	// went out.
-	blur   blursync.Sync
-	fade   float64
-	fading bool
+	// surface opacity last sent, fading set whether one went out, and
+	// fadeOwed set while it waits for a commit.
+	blur     blursync.Sync
+	fade     float64
+	fading   bool
+	fadeOwed bool
+	// contentFade is the fade the content hands the compositor
+	// (SetContentFade), 1 until it does.
+	contentFade float64
 }
 
 // blurSurface is the popup surface's wire half for blursync.
@@ -105,6 +109,8 @@ func (p *Popup) NewPainter(sess *wlsession.Session, gpu Renderer, frac120 uint32
 		bg:      bg,
 		noPlate: p.cfg.NoPlate,
 		gutter:  p.gutter,
+
+		contentFade: 1,
 	}
 	pc.pool = buffer.New(pc.create, 2)
 	reveal, visual := p.fx.Visual()
@@ -231,14 +237,17 @@ func (pc *Painter) frame() (committed, live bool, err error) {
 	w, h := p.Size()
 	_ = p.sc.Apply(pc.frac120, w, h)
 	pc.visual.Arrange(render.Rect{W: w, H: h})
-	pc.syncBlur()
+	pc.syncSurface()
 	bounds := render.Rect{W: w, H: h}
 	pc.collect(bounds)
 	if !pc.mapped {
 		pc.damage.Full(bounds)
 	}
 	if pc.damage.Empty() {
-		return false, true, nil
+		if !pc.fadeOwed {
+			return false, true, nil
+		}
+		return pc.commitState()
 	}
 
 	b, err := pc.pool.Acquire()
@@ -291,6 +300,7 @@ func (pc *Painter) frame() (committed, live bool, err error) {
 	if err := pc.surf.Commit(); err != nil {
 		return false, false, err
 	}
+	pc.fadeOwed = false
 	if err := pc.presented(b, changed, outcome); err != nil {
 		return false, false, err
 	}
@@ -317,32 +327,84 @@ func (pc *Painter) presented(b *buffer.Buffer, changed *buffer.Region, outcome b
 	return nil
 }
 
-// syncBlur publishes the blur for this frame, on the commit that shows
-// it, so the first paint and every motion frame carry their own region.
-// While the blur is on the surface fades through the compositor, which
-// fades the blur along, where the compositor can; elsewhere the paint
-// fades and the blur shows from the frame the shape does.
-func (pc *Painter) syncBlur() {
-	if !pc.p.cfg.BackgroundBlur {
-		return
-	}
+// syncSurface publishes the blur and the surface opacity for this
+// frame, on the commit that shows them, so the first paint and every
+// motion frame carry their own. The opacity is the content's own fade
+// (SetContentFade) and, while the blur is on, the motion's too: the
+// compositor then fades the blur along with the surface, where it can.
+// Elsewhere the paint fades and the blur shows from the frame the shape
+// does.
+func (pc *Painter) syncSurface() {
 	morph := pc.p.anim.morph
-	pc.blur.Update(blurSurface{pc.sess, pc.surf}, true, pc.p.cfg.BlurRoot, morph.BackdropRegion)
-	if !pc.sess.BlurAvailable() {
-		morph.SetCompositorFade(false)
-		return
+	blurred := pc.p.cfg.BackgroundBlur
+	if blurred {
+		pc.blur.Update(blurSurface{pc.sess, pc.surf}, true, pc.p.cfg.BlurRoot, morph.BackdropRegion)
 	}
-	fade := morph.Fade()
-	if pc.fading && fade == pc.fade {
-		return
+	motionFades := blurred && pc.sess.BlurAvailable()
+	if fade, send := surfaceFade(pc.contentFade, morph.Fade(), motionFades, pc.fade, pc.fading); send {
+		if err := pc.sess.SetSurfaceAlpha(pc.surf, fade); err != nil {
+			debug.Log("frame", "popup fade: %v", err)
+			morph.SetCompositorFade(false)
+			return
+		}
+		pc.fade, pc.fading, pc.fadeOwed = fade, true, true
 	}
-	if err := pc.sess.SetSurfaceAlpha(pc.surf, fade); err != nil {
-		debug.Log("frame", "popup fade: %v", err)
-		morph.SetCompositorFade(false)
-		return
+	morph.SetCompositorFade(motionFades)
+}
+
+// surfaceFade is the surface opacity a frame shows and whether it goes
+// on the wire: the content's own fade, times the motion's where the
+// motion fades through the compositor, sent when it differs from the
+// last one sent (sent, last) - and a surface the compositor never faded
+// that shows whole needs nothing sent, unless its motion fades through
+// the compositor and so starts the fade.
+func surfaceFade(content, motion float64, motionFades bool, last float64, sent bool) (fade float64, send bool) {
+	fade = content
+	if motionFades {
+		fade *= motion
 	}
-	morph.SetCompositorFade(true)
-	pc.fade, pc.fading = fade, true
+	switch {
+	case sent:
+		return fade, fade != last
+	case motionFades:
+		return fade, true
+	}
+	return fade, fade != 1
+}
+
+// SetContentFade hands the compositor the content's own fade, alpha 0
+// to 1 - a Revealer at the content's root - to apply to the whole
+// surface with the next frame, so a blur behind the popup fades along
+// with it. It reports false where the compositor cannot fade surfaces:
+// the content then paints its fade itself.
+func (pc *Painter) SetContentFade(alpha float64) bool {
+	if !pc.sess.SurfaceAlphaAvailable() {
+		return false
+	}
+	if pc.contentFade != alpha {
+		pc.contentFade = alpha
+		pc.dirty.Store(true)
+	}
+	return true
+}
+
+// commitState commits the surface state frame owes with no new
+// buffer: an opacity that changed while nothing repainted.
+func (pc *Painter) commitState() (committed, live bool, err error) {
+	if !pc.mapped {
+		return false, true, nil
+	}
+	cb, err := pc.surf.Frame()
+	if err != nil {
+		return false, false, err
+	}
+	wlclient.CallbackAddListener(cb, &pc.frameDone)
+	if err := pc.surf.Commit(); err != nil {
+		return false, false, err
+	}
+	pc.fadeOwed = false
+	pc.framePending = true
+	return true, true, nil
 }
 
 // paint draws the visual into b within the device region: through the

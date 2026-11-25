@@ -54,6 +54,10 @@ type fakePopPainter struct {
 	root           widget.Widget
 	passes, closes int
 	err            error
+	// canFade is whether the compositor takes a content fade, and fades
+	// what it was handed.
+	canFade bool
+	fades   []float64
 }
 
 func (f *fakePopPainter) Collect() bool {
@@ -63,6 +67,12 @@ func (f *fakePopPainter) Collect() bool {
 func (f *fakePopPainter) Pass() (bool, error)             { f.passes++; return true, f.err }
 func (f *fakePopPainter) TakeFrame() (uint32, bool, bool) { return 0, false, false }
 func (f *fakePopPainter) Close()                          { f.closes++ }
+func (f *fakePopPainter) SetContentFade(alpha float64) bool {
+	if f.canFade {
+		f.fades = append(f.fades, alpha)
+	}
+	return f.canFade
+}
 
 func newLoopPopover(content widget.Widget) (*openPopover, *fakePopSurface, *fakePopPainter, *int) {
 	surf := &fakePopSurface{}
@@ -517,5 +527,57 @@ func TestAllocBudgetDrivePopovers(t *testing.T) {
 		}
 	}); allocs != 0 {
 		t.Errorf("a popover pass allocates %v", allocs)
+	}
+}
+
+// A popover whose content is a revealer fades through its surface: each
+// frame of the revealer's fade out goes to the compositor, down to
+// hidden, so a blur behind the popover fades with it. Where the
+// compositor cannot fade the surface the revealer is told so and paints
+// its fade, and a revealer inside the content is no surface's root.
+func TestAPopoversRevealerFadesThroughItsSurface(t *testing.T) {
+	now := time.Unix(1750000000, 0)
+	t.Cleanup(animclock.SetClock(func() time.Time { return now }))
+	t.Cleanup(widget.SetAnimationsInstant(false))
+	var clock anim.Clock
+	card := widget.NewBox(widget.Column, 0, 0)
+	inner := widget.NewRevealer(widget.NewSpacer(50, 20))
+	card.Append(inner, false)
+	rev := widget.NewRevealer(card)
+	rev.SetDuration(100 * time.Millisecond)
+	op, _, painter, _ := newLoopPopover(rev)
+	painter.canFade = true
+	a := &Application{openPopovers: []*openPopover{op}}
+	t.Cleanup(widget.SetSurfaceFade(a.fadeSurface))
+	t.Cleanup(widget.Host(rev, &clock))
+	op.keyRoot.Arrange(render.Rect{W: 50, H: 20})
+	rev.SetRevealed(true)
+	rev.Finish()
+	painter.fades = nil
+
+	rev.SetRevealed(false)
+	for range 20 {
+		widget.AttachAnimations(&clock)
+		now = now.Add(anim.FrameInterval)
+		clock.Tick(now)
+	}
+	if len(painter.fades) < 3 {
+		t.Fatalf("the fade out handed the compositor %v, want a step per frame", painter.fades)
+	}
+	for i := 1; i < len(painter.fades); i++ {
+		if painter.fades[i] >= painter.fades[i-1] {
+			t.Fatalf("the fade out went %v, want it falling every frame", painter.fades)
+		}
+	}
+	if last := painter.fades[len(painter.fades)-1]; last != 0 {
+		t.Errorf("the fade out ended at %v, want hidden", last)
+	}
+
+	if a.fadeSurface(inner, 0.5) {
+		t.Error("a revealer inside the content faded the popover's surface")
+	}
+	painter.canFade = false
+	if a.fadeSurface(rev, 0.5) {
+		t.Error("a compositor that cannot fade the popover was reported fading it")
 	}
 }
