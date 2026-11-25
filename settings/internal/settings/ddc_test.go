@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
@@ -60,5 +61,34 @@ func TestTheExternalBrightnessSwitchSaysWhatItLacks(t *testing.T) {
 		if widget.IsEnabled(c.toggle) != tc.enabled {
 			t.Errorf("%+v, on %v: the switch is enabled %v", tc.access, tc.on, widget.IsEnabled(c.toggle))
 		}
+	}
+}
+
+// The sentence saying what the I2C buses allow sat under the switch in
+// the card's control column, as wide as it reads, so it squeezed the
+// descriptions of External Monitors and Minimum Brightness to a cut two
+// lines. It is the row's detail, under its text, and the control is a
+// switch as wide as the page's others.
+func TestTheI2CSentenceIsTheRowsDetail(t *testing.T) {
+	win := laidOutPage(t, "", displaysID, 1664)
+	ddc := treetest.All[*ddcSwitch](win.page)
+	if len(ddc) != 1 || !shown(ddc[0].status) {
+		t.Fatalf("%d external brightness switches on Displays, the status shown %v", len(ddc), len(ddc) == 1 && shown(ddc[0].status))
+	}
+	if treetest.Contains(ddc[0].toggle, ddc[0].status) {
+		t.Error("the status sits in the switch's control")
+	}
+	var other *widget.Switch
+	for _, sw := range treetest.All[*widget.Switch](win.page) {
+		if !treetest.Contains(ddc[0], sw) && shownIn(win.page, sw) {
+			other = sw
+			break
+		}
+	}
+	if other == nil {
+		t.Fatal("Displays shows no other switch")
+	}
+	if c, o := ddc[0].Bounds(), other.Bounds(); c.W != o.W || c.X != o.X {
+		t.Errorf("the external brightness control spans %d..%d, a switch %d..%d", c.X, c.X+c.W, o.X, o.X+o.W)
 	}
 }

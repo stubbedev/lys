@@ -105,6 +105,9 @@ func (c *displaysCanvas) Paint(cv *render.Canvas) {
 			fill, ink = th.Accent, th.OnAccent
 		}
 		cv.RoundedRect(tile, tileRadius, fill)
+		if !selected {
+			cv.RoundedBorder(tile, render.UniformCorners(tileRadius), render.UniformInsets(1), th.Border)
+		}
 		if widget.FocusVisible(c.handles[i]) {
 			cv.RoundedBorder(tile, render.UniformCorners(tileRadius), render.UniformInsets(focusRing), th.Text)
 		}

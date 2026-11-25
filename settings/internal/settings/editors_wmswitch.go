@@ -48,6 +48,11 @@ func newWMSwitch(k *kit, s slot, fields []cardField) *wmSwitch {
 	return c
 }
 
+// stacked takes the row's width under its text (controlFit): the three
+// choices are wider than a card's control column, and On opens the
+// object's fields under them.
+func (c *wmSwitch) stacked() {}
+
 func (c *wmSwitch) choose(i int) {
 	c.on = i == switchOn
 	switch i {

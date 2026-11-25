@@ -46,24 +46,21 @@ func (a i2cAccess) words() string {
 }
 
 // ddcRow is enable-external with what it needs: the I2C buses and the
-// right to open them, said beneath it, and switching on held back while
-// there is no bus to open.
+// right to open them, said under the row's text, and switching on held
+// back while there is no bus to open.
 var ddcRow = withEditor(func(k *kit, s slot, _ config.FieldMeta) control {
 	return newDDCSwitch(k, s, k.i2c)
 })
 
 type ddcSwitch struct {
-	*widget.Box
-	toggle *toggle
+	*toggle
 	status *widget.Label
 	access i2cAccess
 	known  bool
 }
 
 func newDDCSwitch(k *kit, s slot, scan func() i2cAccess) *ddcSwitch {
-	c := &ddcSwitch{Box: gapBox(widget.Column), toggle: newToggle(k, s), status: k.label("", css.Caption, css.DimLabel)}
-	c.AppendAligned(c.toggle, false, widget.AlignEnd)
-	c.AppendAligned(wrapped(c.status), false, widget.AlignEnd)
+	c := &ddcSwitch{toggle: newToggle(k, s), status: wrapped(k.label("", css.Caption, css.DimLabel))}
 	async(k, scan, func(a i2cAccess) {
 		c.access, c.known = a, true
 		c.fit()
@@ -72,13 +69,17 @@ func newDDCSwitch(k *kit, s slot, scan func() i2cAccess) *ddcSwitch {
 	return c
 }
 
+// detail is what the buses allow, under the row's text, so the sentence
+// never sets the width of the card's control column.
+func (c *ddcSwitch) detail() widget.Widget { return c.status }
+
 func (c *ddcSwitch) fit() {
 	c.status.SetVisible(c.known)
 	if !c.known {
 		return
 	}
 	c.status.SetText(c.access.words())
-	c.toggle.SetEnabled(c.access.usable > 0 || c.toggle.On())
+	c.SetEnabled(c.access.usable > 0 || c.On())
 }
 
 func (c *ddcSwitch) refresh() {

@@ -67,6 +67,10 @@ func newSidesEditor(k *kit, s slot, one bool) *sidesEditor {
 	return c
 }
 
+// stacked takes the row's width under its text (controlFit): the cross
+// of a spin per side is wider than a card's control column.
+func (c *sidesEditor) stacked() {}
+
 func (c *sidesEditor) sideDiagram(k *kit) *widget.Box {
 	window := widget.NewBox(widget.Column, 0, widget.Current().Padding)
 	window.AddClass(css.Card, "sides-editor-window")
@@ -393,14 +397,29 @@ func wmBorderEditor(k *kit, s slot, path []string) control {
 	return newBorderEditor(k, s, colors)
 }
 
+// wmDisplayEditor is a display's name, picked from the connected ones or
+// typed, empty for lys-wm's own choice.
+func wmDisplayEditor(k *kit, s slot, _ []string) control {
+	return newChoiceEditor(k, s, choiceSpec{list: systemLists["Monitor"], optional: true})
+}
+
+// wmPathText is a file's path lys-wm reads, empty for none, saying so
+// while empty.
+func wmPathText(k *kit, s slot, _ []string) control {
+	c := newText(k, s, true)
+	c.SetPlaceholder(locale.T().Get("settings-file-path-placeholder"))
+	return c
+}
+
 // wmItemEditors are the editors, by schema path, of the item keys whose
 // form the schema's types alone do not settle.
 var wmItemEditors = map[string]func(k *kit, s slot, path []string) control{
 	"outputs.[].reserved":      func(k *kit, s slot, _ []string) control { return newSidesEditor(k, s, false) },
 	"workspaces.[].gaps.outer": func(k *kit, s slot, _ []string) control { return newSidesEditor(k, s, true) },
-	"workspaces.[].output": func(k *kit, s slot, _ []string) control {
-		return newChoiceEditor(k, s, choiceSpec{list: systemLists["Monitor"], optional: true})
-	},
+	"workspaces.[].output":     wmDisplayEditor,
+	"outputs.[].mirror":        wmDisplayEditor,
+	"outputs.[].icc":           wmPathText,
+	"outputs.[].shader":        wmPathText,
 	"scratchpads.[].size":      newPercentSizeEditor,
 	"rules.[].border.active":   wmBorderEditor,
 	"rules.[].border.inactive": wmBorderEditor,
