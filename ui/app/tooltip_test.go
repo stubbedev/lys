@@ -443,3 +443,28 @@ func TestAPopoverTooltipWaitsForItsDwell(t *testing.T) {
 		t.Error("a press in the popover left its tooltip due")
 	}
 }
+
+// Clicking a button that opens a modal dialog left the button's
+// tooltip up beside the dialog: the press hid it, but the blocked
+// window's stale hover dwelled again and reopened it. A blocked window
+// shows no tooltip, and an unblocked one keeps its open tooltip.
+func TestAWindowAModalDialogBlocksShowsNoTooltip(t *testing.T) {
+	target := newTipTarget("hover text")
+	target.Arrange(render.Rect{W: 100, H: 20})
+	router := &widget.Router{Root: target}
+	router.Move(widget.Point{X: 5, Y: 5})
+	tip := &stub{}
+	hw := &hostWindow{router: router, input: &surfaceInput{}, tip: &tooltipCtl{open: tip, hover: target, text: "hover text"}}
+	a := &Application{windows: []*hostWindow{hw}}
+	a.updateTips(time.Now())
+	if tip.closed != 0 {
+		t.Fatalf("an unblocked window's tooltip closed %d times", tip.closed)
+	}
+	hw.blocked = true
+	at := time.Now()
+	a.updateTips(at)
+	a.updateTips(at.Add(10 * tooltipDelay))
+	if !tip.torn || hw.tip.open != nil {
+		t.Errorf("a blocked window kept its tooltip: torn %v, open %v", tip.torn, hw.tip.open)
+	}
+}

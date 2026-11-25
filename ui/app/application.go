@@ -1266,9 +1266,16 @@ func (a *Application) trimBuffers() {
 }
 
 // updateTips advances the tooltip state machine of every window and
-// of every popover still taking input.
+// of every popover still taking input. A window a modal dialog blocks
+// takes no pointer input, so it shows no tooltip either: its hover is
+// stale, and the dialog opening must not reopen the tooltip of the
+// button that opened it.
 func (a *Application) updateTips(now time.Time) {
 	for _, w := range a.windows {
+		if w.blocked {
+			w.tip.close()
+			continue
+		}
 		a.updateTip(w.tip, w.router, now, func() (tooltipParent, bool) { return hostTooltipParent(w.host) }, w.frac120, func() widget.Point {
 			return widget.Point{X: int(w.input.x), Y: int(w.input.y)}
 		})
