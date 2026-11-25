@@ -73,6 +73,7 @@ type Config struct {
 	Components   map[string]Component  `json:"components"`
 	GateRunners  map[Runner][]string   `json:"gate-runners"`
 	ShardedGates []string              `json:"sharded-gates"`
+	StaticGates  []string              `json:"static-gates"`
 	GoJobs       map[Runner][][]Target `json:"go-jobs"`
 }
 
@@ -195,6 +196,20 @@ func (cfg Config) suites(c Component, r Runner) []Suite {
 	return s
 }
 
+func (cfg Config) static(gate string) bool {
+	return slices.Contains(cfg.StaticGates, gate)
+}
+
+func (cfg Config) parts(c Component, s Suite, r Runner) int {
+	if len(c.Shards) == 0 {
+		return 0
+	}
+	if s == GoGates && slices.ContainsFunc(cfg.gates(c, r), cfg.static) {
+		return len(c.Shards) + 2
+	}
+	return len(c.Shards) + 1
+}
+
 func (c Component) vmChecks(r Runner) []string {
 	if r != vmRunner {
 		return nil
@@ -249,6 +264,7 @@ func validate(cfg Config) error {
 		errs = append(errs, validateShards(name, c, cfg.ShardedGates)...)
 	}
 	errs = append(errs, validateGateRunners(cfg)...)
+	errs = append(errs, validateStaticGates(cfg)...)
 	errs = append(errs, validateGoJobs(cfg)...)
 	return errors.Join(errs...)
 }
@@ -279,6 +295,19 @@ func validateGateRunners(cfg Config) []error {
 			if !slices.ContainsFunc(runners, func(r Runner) bool { return slices.Contains(cfg.gates(cfg.Components[name], r), g) }) {
 				errs = append(errs, fmt.Errorf("%s's gate %s runs on no runner", name, g))
 			}
+		}
+	}
+	return errs
+}
+
+func validateStaticGates(cfg Config) []error {
+	var errs []error
+	for _, g := range cfg.StaticGates {
+		if !slices.ContainsFunc(slices.Collect(maps.Values(cfg.Components)), func(c Component) bool { return slices.Contains(c.Gates, g) }) {
+			errs = append(errs, fmt.Errorf("static-gates names %q, which is no component's gate", g))
+		}
+		if slices.Contains(cfg.ShardedGates, g) {
+			errs = append(errs, fmt.Errorf("static-gates names %q, which sharded-gates splits by package, so it would run in every part and in the static one", g))
 		}
 	}
 	return errs
@@ -385,8 +414,8 @@ func validateGoJobs(cfg Config) []error {
 					errs = append(errs, fmt.Errorf("go-jobs on %s names %s, which is no component", r, t))
 					continue
 				}
-				if t.Part > len(c.Shards)+1 || t.Part > 0 && len(c.Shards) == 0 {
-					errs = append(errs, fmt.Errorf("go-jobs on %s names %s, but %s has %s", r, t, t.Component, partsOf(c)))
+				if t.Part > 0 && len(c.Shards) == 0 {
+					errs = append(errs, fmt.Errorf("go-jobs on %s names %s, but %s has no parts", r, t, t.Component))
 					continue
 				}
 				have := cfg.suites(c, r)
@@ -394,20 +423,24 @@ func validateGoJobs(cfg Config) []error {
 					errs = append(errs, fmt.Errorf("go-jobs on %s names %s, but %s runs no such suite on %s", r, t, t.Component, r))
 					continue
 				}
+				named := slices.DeleteFunc(slices.Clone(have), func(s Suite) bool { return t.Suite != "" && t.Suite != s })
+				runs := slices.DeleteFunc(slices.Clone(named), func(s Suite) bool { return t.Part > cfg.parts(c, s, r) })
+				if len(runs) == 0 {
+					errs = append(errs, fmt.Errorf("go-jobs on %s names %s, but %s", r, t, cfg.partsOfSuites(t.Component, c, named, r)))
+					continue
+				}
 				if t.Part > 0 {
 					split[t.Component] = true
 				}
-				for _, s := range have {
-					if t.Suite == "" || t.Suite == s {
-						covered[suiteOf{t.Component, s}] = append(covered[suiteOf{t.Component, s}], t)
-					}
+				for _, s := range runs {
+					covered[suiteOf{t.Component, s}] = append(covered[suiteOf{t.Component, s}], t)
 				}
 			}
 		}
 		for _, name := range slices.Sorted(maps.Keys(cfg.Components)) {
 			c := cfg.Components[name]
 			for _, s := range cfg.suites(c, r) {
-				if err := coverage(r, name, s, c, covered[suiteOf{name, s}]); err != nil {
+				if err := coverage(r, name, s, cfg.parts(c, s, r), covered[suiteOf{name, s}]); err != nil {
 					errs = append(errs, err)
 				}
 			}
@@ -421,18 +454,18 @@ func validateGoJobs(cfg Config) []error {
 	return errs
 }
 
-func coverage(r Runner, name string, s Suite, c Component, targets []Target) error {
+func coverage(r Runner, name string, s Suite, n int, targets []Target) error {
 	parts := make([]int, len(targets))
 	for i, t := range targets {
 		parts[i] = t.Part
 	}
 	slices.Sort(parts)
 	whole := []int{0}
-	every := make([]int, len(c.Shards)+1)
+	every := make([]int, n)
 	for i := range every {
 		every[i] = i + 1
 	}
-	if slices.Equal(parts, whole) || len(c.Shards) > 0 && slices.Equal(parts, every) {
+	if slices.Equal(parts, whole) || n > 0 && slices.Equal(parts, every) {
 		return nil
 	}
 	if len(targets) == 0 {
@@ -442,14 +475,22 @@ func coverage(r Runner, name string, s Suite, c Component, targets []Target) err
 	for i, t := range targets {
 		names[i] = t.String()
 	}
-	return fmt.Errorf("%s's %s suite runs on %s as %s, not once whole or once in each of its %s", name, s, r, strings.Join(names, ", "), partsOf(c))
+	return fmt.Errorf("%s's %s suite runs on %s as %s, not once whole or once in each of its %s", name, s, r, strings.Join(names, ", "), partsOf(n))
 }
 
-func partsOf(c Component) string {
-	if len(c.Shards) == 0 {
+func partsOf(n int) string {
+	if n == 0 {
 		return "no parts"
 	}
-	return fmt.Sprintf("parts 1 to %d", len(c.Shards)+1)
+	return fmt.Sprintf("parts 1 to %d", n)
+}
+
+func (cfg Config) partsOfSuites(name string, c Component, suites []Suite, r Runner) string {
+	described := make([]string, len(suites))
+	for i, s := range suites {
+		described[i] = fmt.Sprintf("%s's %s suite has %s on %s", name, s, partsOf(cfg.parts(c, s, r)), r)
+	}
+	return strings.Join(described, " and ")
 }
 
 func owns(name string, c Component, file string) bool {

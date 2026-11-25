@@ -24,7 +24,7 @@ Inside a shell, `just <component>::<recipe>` runs the same recipe:
 
 | Recipe | Effect |
 | --- | --- |
-| `just gates [target]...` | Every Go gate and race suite of the targets (default every component) in parallel, each recipe in its own process in its component's dev shell, as many at once as cores and memory allow, over one Go build cache; prints each result, the failures' logs and the wall clock. A target is a component or one part of a component with `shards` (`wm/2`), with `:gates` for its Go gates alone or `:race` for its race suite alone, as CI's Go jobs name them: `just gates wm/3:race lib`. A part that splits a package by test name runs that package in a process of its own beside the part's other packages. A target whose justfile `just --fmt --check` refuses fails before anything runs. |
+| `just gates [target]...` | Every Go gate and race suite of the targets (default every component) in parallel, each recipe in its own process in its component's dev shell, as many at once as cores and memory allow, over one Go build cache; prints each result, the failures' logs and the wall clock. A target is a component or one part of a component with `shards` (`wm/2`), with `:gates` for its Go gates alone or `:race` for its race suite alone, as CI's Go jobs name them: `just gates wm/3:race lib`. A component with `shards` has a last part for its static gates, the ones `static-gates` names (`ui/3` for ui's one shard). A part that splits a package by test name runs that package in a process of its own beside the part's other packages. A target whose justfile `just --fmt --check` refuses fails before anything runs. |
 | `just checks <name>...` | Build Nix checks for this machine, named `<component>-<check>`: `just checks login-vms-greeter wm-module`. |
 | `just vm-checks <name>...` | Run NixOS VM checks one after another on closures built first: the drivers, then each test alone. |
 | `just build-stage <component>... [vm]...` | A CI build job for this machine: every package and non-VM check of the components, and the named VM checks' closures, in one `nix build` that keeps going past a failure. Their dev shells are `just build-shells`' work. |
@@ -96,8 +96,8 @@ Every CI job, and every local gate run, finishes in under ten minutes of wall
 clock; a job that grows past that is split or made cheaper, never given a longer
 timeout. Every job's `timeout-minutes` is 10.
 
-`ci/components.json` holds `components`, `sharded-gates`, `gate-runners` and
-`go-jobs`. Per component it says which recipes of its justfile are its Go gates
+`ci/components.json` holds `components`, `sharded-gates`, `static-gates`,
+`gate-runners` and `go-jobs`. Per component it says which recipes of its justfile are its Go gates
 (`gates`), whether it has a race suite (`race`), how its race suite and the
 gates `sharded-gates` names split into parts (`shards`), its
 further jobs (each a `run` command on named runners, with `after-build` when it
@@ -213,8 +213,10 @@ first runners. The jobs on the builds:
      target as `<component>:gates` on aarch64. `ci/affected` refuses a
      `go-jobs` that does not run each component's Go gates on every runner and
      its race suite on x86_64 exactly once, either whole or in every one of its
-     parts, that names a suite or part a component lacks, or a component whose
-     `shards` no job uses. A push runs each Go job with only its affected
+     parts, that names a suite or part a component lacks (the race suite has
+     no static part), or a component whose `shards` no job uses, and a
+     `static-gates` entry that is no component's gate or that `sharded-gates`
+     also splits. A push runs each Go job with only its affected
      targets, and skips it when none is; the job keeps its id, and with it its
      Go build cache, whatever subset runs.
    - **Shards**: a component one of whose suites would not fit a job lists
@@ -224,12 +226,22 @@ first runners. The jobs on the builds:
      splits a package too slow for one job. Part *k* of its race suite, and of
      each gate the top-level `sharded-gates` names (`test` and
      `test-lysdebug`), tests only shard *k*'s packages, and its named tests
-     with `go test -run '^(TestA|TestB)$'`; the last part, `wm/4` for wm's
+     with `go test -run '^(TestA|TestB)$'`; the part after them, `wm/4` for wm's
      three shards, tests every package of `go list ./...` no shard names (with
      the recipe's build flags: `-race` for race, `-tags lysdebug` for
      test-lysdebug), every package split by test name with
-     `-skip` of every test the shards name, and runs every other gate, so no
-     test is dropped when a package or a test is added. `go test` takes one
+     `-skip` of every test the shards name, and runs every other gate but the
+     static ones, so no test is dropped when a package or a test is added. The
+     static gates, those the top-level `static-gates` names (`fmt-check`,
+     `vet`, `lint`, `no-fused`, `vuln`), read the whole tree rather than test
+     packages, so they run once, whole, in a last part of their own, part
+     *n*+2 of the Go gates of a component with *n* shards (`ui/3`, `shell/4`,
+     `wm/5`), on a runner that runs one of them; the race suite stops at part
+     *n*+1. A change to a package every one of a component's packages imports
+     leaves those checks nothing cached: ui's took vet 222 s, lint 369 s and
+     no-fused 224 s of one four-core job in run 45393011425, which with the
+     tests beside them came to 602 s, so they now run beside the tests in a
+     job of their own rather than after them. `go test` takes one
      `-run` for all its packages, so `just gates` runs a part's recipe once
      for its whole packages and once more for each package it splits, each in
      a process of its own, with the packages in `$LYS_TEST_PACKAGES` and the
@@ -238,13 +250,13 @@ first runners. The jobs on the builds:
      its race suite: the harness, about eight and a half minutes as one part,
      runs its 185 slowest tests in `wm/3` and the rest beside wm's other
      packages in `wm/4`. ui splits its test and lysdebug suites (`ui/1`, the
-     client and app tests, so the part with lint, vet and no-fused keeps a
-     margin under ten minutes), shell its test and race suites, and settings
+     client and app tests, `ui/2` the rest beside build and the at-spi gates,
+     `ui/3` its static gates), shell its test and race suites, and settings
      its race suite: `./internal/settings` runs one test at a time, since the
      UI's font shaper and preview state are not goroutine-safe, and took up
      to nine minutes under `-race`, so `settings/1` runs its five slowest
      tests and `settings/2` the rest and every other package. A new test
-     joins the last part, so when a part outgrows its job, regroup the named
+     joins the part after the shards, so when a part outgrows its job, regroup the named
      tests from `go test -json` times. `ci/affected` refuses a shard that names a directory
      without tests, a test its package does not declare, a name that is not
      a test function's or a test twice, a package both whole and by test

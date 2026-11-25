@@ -342,6 +342,7 @@
     }
   },
   "sharded-gates": ["test", "test-lysdebug"],
+  "static-gates": ["fmt-check", "vet", "lint", "no-fused", "vuln"],
   "gate-runners": {
     "aarch64": ["vet", "test", "build", "test-lysdebug", "atspi", "atspi-verify", "dist"]
   },
@@ -352,10 +353,12 @@
       ["lib:gates"],
       ["ui/1:gates"],
       ["ui/2:gates"],
+      ["ui/3:gates"],
       ["ui:race", "login:race"],
       ["settings:gates", "desktop"],
       ["wm:gates", "splash", "polkit"],
       ["shell/3:gates", "login:gates"],
+      ["shell/4:gates"],
       ["settings/1:race", "settings/2:race", "secrets"],
       ["shell/1:race", "shell/2:race", "shell/2:gates"],
       ["wm/1:race", "wm/2:race", "shell/3:race", "shell/1:gates"],

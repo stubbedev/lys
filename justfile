@@ -158,10 +158,12 @@ eval-jobs select *flags:
 # its race suite, as CI's Go jobs pick them. On a system `gate-runners` in
 # ci/components.json names, only the gates it lists there run. A component with `shards` in
 # ci/components.json splits its race suite and the gates `sharded-gates` names
-# into one part per shard and a last part for every other package; `wm/2` runs
-# only the second part's packages of those, and the last part, `wm/4` for wm's
-# three shards, runs the rest of them and every other gate:
-# `just gates wm/2:race wm:gates`. A shard entry that names tests of a package
+# into one part per shard and a part for every other package; `wm/2` runs only
+# the second part's packages of those, and the part after the shards, `wm/4`
+# for wm's three shards, runs the rest of them and every other gate but the
+# ones `static-gates` names, which run in a last part of their own, `wm/5`, so
+# they run beside the tests rather than after them: `just gates wm/2:race
+# wm:gates`. A shard entry that names tests of a package
 # splits that one package: its part runs only those tests, with `go test -run`,
 # and the last part runs the package with every test a shard names skipped. A
 # split recipe runs once per package it splits, beside the run of its whole
@@ -179,6 +181,7 @@ gates *targets:
     tasks=()
     compile=0
     declare -A pkgs=() runs=() skips=() rest=() selects=() dropped=() seen=() splits=([race]=1)
+    arch={{ quote(arch()) }}
     while read -r gate; do splits[$gate]=1; done < <(jq -r '.["sharded-gates"][]' ci/components.json)
     # shellcheck disable=SC2016
     units='
@@ -210,13 +213,19 @@ gates *targets:
             echo "gates: ${c} is no component of ci/components.json" >&2
             exit 1
         fi
-        shards=$(jq -r --arg c "$c" '.components[$c].shards // [] | length' ci/components.json)
+        read -r shards parts < <(jq -r --arg c "$c" --arg arch "$arch" '
+            .["gate-runners"][$arch] as $only
+            | (.["static-gates"] // []) as $static
+            | .components[$c] | (.shards // [] | length) as $n
+            | [$n, if $n == 0 then 0 elif any((.gates // [])[]; . as $g | ($only == null or ($only | index($g))) and ($static | index($g))) then $n + 2 else $n + 1 end]
+            | @tsv
+        ' ci/components.json)
         if [[ "$target" == */* ]] && ! (( shards > 0 )); then
             echo "gates: ${target} is no part of ${c}, which has no shards" >&2
             exit 1
         fi
-        if [[ "$target" == */* ]] && ! [[ "$part" =~ ^[1-9][0-9]*$ && "$part" -le $((shards + 1)) ]]; then
-            echo "gates: ${target} is no part of ${c}, which has parts 1 to $((shards + 1))" >&2
+        if [[ "$target" == */* ]] && ! [[ "$part" =~ ^[1-9][0-9]*$ && "$part" -le "$parts" ]]; then
+            echo "gates: ${target} is no part of ${c}, which has parts 1 to ${parts} on ${arch}" >&2
             exit 1
         fi
         count=${#tasks[@]}
@@ -242,12 +251,17 @@ gates *targets:
                     esac
                     tasks+=("$unit")
                 done < <(jq -r --arg c "$c" --argjson part "$part" "$units" ci/components.json)
-            done < <(jq -r --arg c "$c" --arg kind "$kind" --arg arch "{{ arch() }}" --argjson part "${part:-0}" '
+            done < <(jq -r --arg c "$c" --arg kind "$kind" --arg arch "$arch" --argjson part "${part:-0}" '
                 .["gate-runners"][$arch] as $only
                 | .["sharded-gates"] as $split
+                | (.["static-gates"] // []) as $static
                 | .components[$c] | (.shards // [] | length) as $n
                 | if $kind == "race" then (select(.race) | "race") else (.gates // [])[] | select(. as $g | $only == null or ($only | index($g))) end
-                | select(. as $g | $part == 0 or $part > $n or $g == "race" or ($split | index($g)))
+                | select(. as $g | ($static | index($g)) as $checks
+                    | $part == 0
+                    or $part <= $n and ($g == "race" or ($split | index($g)))
+                    or $part == $n + 1 and ($checks | not)
+                    or $part == $n + 2 and $checks)
             ' ci/components.json)
         done
         if (( ${#tasks[@]} == count )); then

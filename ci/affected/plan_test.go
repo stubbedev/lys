@@ -434,6 +434,95 @@ func TestValidateAcceptsAComponentRunWholeOnOneSuiteAndInPartsOnAnother(t *testi
 	}
 }
 
+var staticConfig = Config{
+	ShardedGates: []string{"test"},
+	StaticGates:  []string{"vet", "lint"},
+	GateRunners:  map[Runner][]string{AArch64: {"vet", "test", "build"}},
+	Components: map[string]Component{
+		"a": {Gates: []string{"vet", "lint", "test", "build"}, Race: true, Shards: [][]ShardEntry{packages("./x")}},
+		"b": {Gates: []string{"test", "build"}, Race: true, Shards: [][]ShardEntry{packages("./y")}},
+		"c": {Gates: []string{"vet", "lint", "test"}, Race: true},
+	},
+	GoJobs: map[Runner][][]Target{
+		X86_64:  {{target("a/1"), target("a/2")}, {target("a/3")}, {target("b/1"), target("b/2")}, {target("c")}},
+		AArch64: {{target("a/1"), target("a/2")}, {target("a/3")}, {target("b"), target("c")}},
+	},
+}
+
+func TestTheStaticGatesOfAComponentWithShardsRunInAPartOfTheirOwn(t *testing.T) {
+	if err := validate(staticConfig); err != nil {
+		t.Fatalf("validate refused static gates in a part of their own: %v", err)
+	}
+	a := staticConfig.Components["a"]
+	for _, tc := range []struct {
+		s    Suite
+		r    Runner
+		want int
+	}{{GoGates, X86_64, 3}, {Race, X86_64, 2}, {GoGates, AArch64, 3}} {
+		if got := staticConfig.parts(a, tc.s, tc.r); got != tc.want {
+			t.Errorf("a's %s suite on %s has %d parts, want %d", tc.s, tc.r, got, tc.want)
+		}
+	}
+	var runs []string
+	for _, m := range plan(staticConfig, []string{"a", "b", "c"}).Jobs {
+		runs = append(runs, m.Name+": "+m.Run)
+	}
+	want := []string{
+		"Go a/1 a/2 (x86_64): just gates a/1 a/2",
+		"Go a/3 (x86_64): just gates a/3",
+		"Go b/1 b/2 (x86_64): just gates b/1 b/2",
+		"Go c (x86_64): just gates c",
+		"Go a/1:gates a/2:gates (aarch64): just gates a/1:gates a/2:gates",
+		"Go a/3:gates (aarch64): just gates a/3:gates",
+		"Go b:gates c:gates (aarch64): just gates b:gates c:gates",
+	}
+	if !slices.Equal(runs, want) {
+		t.Fatalf("jobs\n%s\nwant\n%s", strings.Join(runs, "\n"), strings.Join(want, "\n"))
+	}
+}
+
+func TestAComponentWithoutStaticGatesOrWithoutShardsHasNoStaticPart(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		r    Runner
+		want int
+	}{{"b", X86_64, 2}, {"c", X86_64, 0}} {
+		if got := staticConfig.parts(staticConfig.Components[tc.name], GoGates, tc.r); got != tc.want {
+			t.Errorf("%s's gates suite on %s has %d parts, want %d", tc.name, tc.r, got, tc.want)
+		}
+	}
+	cfg := staticConfig
+	cfg.GateRunners = map[Runner][]string{AArch64: {"lint", "test", "build"}}
+	cfg.StaticGates = []string{"vet"}
+	if got := cfg.parts(cfg.Components["a"], GoGates, AArch64); got != 2 {
+		t.Errorf("a runs no static gate on aarch64, yet its gates suite has %d parts there, want 2", got)
+	}
+}
+
+func TestValidateRefusesAStaticPartTheComponentLacksOrGoJobsThatSkipIt(t *testing.T) {
+	cfg := staticConfig
+	cfg.GoJobs = map[Runner][][]Target{
+		X86_64:  {{target("a/1"), target("a/2"), target("a/3:race")}, {target("b/1"), target("b/2"), target("b/3")}, {target("c/2")}, {target("c")}},
+		AArch64: {{target("a/1"), target("a/2")}, {target("b"), target("c")}},
+	}
+	wantErrors(t, validate(cfg), []string{
+		"go-jobs on x86_64 names a/3:race, but a's race suite has parts 1 to 2 on x86_64",
+		"a's gates suite runs on x86_64 as a/1, a/2, not once whole or once in each of its parts 1 to 3",
+		"go-jobs on x86_64 names b/3, but b's gates suite has parts 1 to 2 on x86_64 and b's race suite has parts 1 to 2 on x86_64",
+		"go-jobs on x86_64 names c/2, but c has no parts",
+		"a's gates suite runs on aarch64 as a/1, a/2, not once whole or once in each of its parts 1 to 3",
+	})
+}
+
+func TestValidateRefusesAStaticGateNoComponentRunsOrOneShardsSplit(t *testing.T) {
+	cfg := staticConfig
+	cfg.StaticGates = []string{"vet", "lnit", "test"}
+	wantErrors(t, validate(cfg), []string{
+		`static-gates names "lnit", which is no component's gate`,
+		`static-gates names "test", which sharded-gates splits by package`,
+	})
+}
+
 func TestShardsNeedAGateListedToSplit(t *testing.T) {
 	cfg := Config{Components: map[string]Component{"a": {Gates: []string{"test"}, Shards: [][]ShardEntry{packages("./x")}}}}
 	wantErrors(t, errors.Join(validateShards("a", cfg.Components["a"], nil)...), []string{"a has shards, but sharded-gates names no gate a shard splits"})
