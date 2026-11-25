@@ -456,7 +456,7 @@ func newWindowPreview(k *kit) widget.Widget {
 	p.SetAccessibleName(locale.T().Get("wm-preview-windows"))
 	p.area = widget.NewDrawingArea(0, windowPreviewH)
 	p.area.OnDraw = func(cv *render.Canvas, r render.Rect) {
-		screenFrame(cv, r, func(s render.Rect) { paintWindows(cv, p.look, s) })
+		previewScreen(cv, r, func(cv *render.Canvas) { paintWindows(cv, p.look, r) })
 	}
 	p.state = k.note("", "settings-preview-state")
 	p.state.SetAlignment(render.AlignCenter)

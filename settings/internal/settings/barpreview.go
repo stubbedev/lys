@@ -5,6 +5,7 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
+	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -79,9 +80,44 @@ func drawBarOnScreen(k *kit, cfg *config.Config, font render.Font, monitor strin
 func wallpaperScreen(h int) *widget.Overlay {
 	screen := widget.NewDrawingArea(0, h)
 	screen.OnDraw = func(cv *render.Canvas, r render.Rect) {
-		screenFrame(cv, r, func(s render.Rect) { photo(cv, s) })
+		previewScreen(cv, r, func(cv *render.Canvas) { photo(cv, r) })
 	}
 	return widget.NewOverlay().Append(screen)
+}
+
+// offScreen is the wallpaper screen of a surface that is off, the
+// caption the message key gives saying so on a plate of the card's
+// color, so it reads whatever the wallpaper behind it.
+func offScreen(k *kit, h int, key string) *widget.Overlay {
+	caption := k.label(locale.T().Get(key), "settings-preview-state", css.Caption)
+	screen := widget.NewDrawingArea(0, h)
+	screen.OnDraw = func(cv *render.Canvas, r render.Rect) {
+		previewScreen(cv, r, func(cv *render.Canvas) { photo(cv, r) })
+		th := widget.Current()
+		plate := render.Insets{Top: th.Padding / 2, Right: th.Padding, Bottom: th.Padding / 2, Left: th.Padding}.Grow(caption.Bounds())
+		cv.RoundedRect(plate, th.Radius, th.CardColor())
+	}
+	return widget.NewOverlay().Append(screen).AppendAligned(caption, widget.AlignCenter, widget.AlignCenter)
+}
+
+// previewScreen paints a preview's screen into r: what paint draws,
+// clipped to r with the corners the theme rounds a card with, inside
+// its border, so a preview sits among the cards as one of them.
+func previewScreen(cv *render.Canvas, r render.Rect, paint func(cv *render.Canvas)) {
+	th := widget.Current()
+	radii := render.UniformCorners(th.Radius)
+	region := cv.MapRect(r).Intersect(cv.Rect())
+	if region.Empty() {
+		return
+	}
+	layer := cv.ScratchLayer(region)
+	defer layer.Release()
+	paint(layer.Canvas())
+	shape := &render.Path{}
+	render.RoundedRectPath(shape, r, radii)
+	layer.ApplyPathMask(shape, region)
+	cv.DrawLayer(layer, region, render.BlendNormal)
+	cv.RoundedBorder(r, radii, render.UniformInsets(1), th.Border)
 }
 
 func edgeAlign(edge widget.BarEdge) (h, v widget.Align) {

@@ -9,7 +9,6 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -24,11 +23,10 @@ func notificationPreview(k *kit) widget.Widget {
 }
 
 func drawNotificationOnScreen(k *kit, cfg *config.Config, font render.Font) widget.Widget {
-	shown := wallpaperScreen(notificationPreviewScreenH)
 	if !cfg.Notification.Enabled {
-		shown.AppendAligned(k.label(locale.T().Get("settings-notification-preview-off"), "settings-preview-state", css.Caption), widget.AlignCenter, widget.AlignCenter)
-		return shown
+		return offScreen(k, notificationPreviewScreenH, "settings-notification-preview-off")
 	}
+	shown := wallpaperScreen(notificationPreviewScreenH)
 	inset := widget.NewBox(widget.Column, 0, widget.Current().Padding)
 	inset.Append(notifyview.Preview(cfg, font, time.Time{}, testNotificationContent()), false)
 	h, v := widgets.Placement(cfg.Notification.PopupPosition)

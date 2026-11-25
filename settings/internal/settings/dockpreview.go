@@ -9,7 +9,6 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/dockview"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -39,11 +38,10 @@ func (p *dockPreview) draw(k *kit, cfg *config.Config, _ render.Font) widget.Wid
 	if cfg.Dock.Edge.IsVertical() {
 		screenH = dockPreviewVerticalScreenH
 	}
-	shown := wallpaperScreen(screenH)
 	if !cfg.Dock.Enabled {
-		shown.AppendAligned(k.label(locale.T().Get("settings-dock-preview-off"), "settings-preview-state", css.Caption), widget.AlignCenter, widget.AlignCenter)
-		return shown
+		return offScreen(k, screenH, "settings-dock-preview-off")
 	}
+	shown := wallpaperScreen(screenH)
 	dock := dockview.Preview(cfg, dockSampleApps(cfg.Dock, p.apps), k.invoke)
 	shown.AppendAligned(dock, dock.HAlign(), dock.VAlign())
 	return overflowing(shown)

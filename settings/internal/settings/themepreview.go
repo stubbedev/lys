@@ -33,6 +33,9 @@ func drawThemeDesktop(k *kit, cfg *config.Config, _ render.Font) widget.Widget {
 	}
 	d := &themeDesktop{DrawingArea: widget.NewDrawingArea(0, themePreviewH), colors: colors}
 	d.AddClass("settings-theme-preview")
-	d.OnDraw = miniDesktop(colors)
+	desktop := miniDesktop(colors)
+	d.OnDraw = func(cv *render.Canvas, r render.Rect) {
+		previewScreen(cv, r, func(cv *render.Canvas) { desktop(cv, r) })
+	}
 	return d
 }

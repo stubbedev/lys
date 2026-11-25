@@ -6,7 +6,6 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
-	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -23,11 +22,10 @@ func osdPreview(k *kit) widget.Widget {
 }
 
 func drawOsdOnScreen(k *kit, cfg *config.Config, font render.Font) widget.Widget {
-	shown := wallpaperScreen(osdPreviewScreenH)
 	if !cfg.Osd.Enabled {
-		shown.AppendAligned(k.label(locale.T().Get("settings-osd-preview-off"), "settings-preview-state", css.Caption), widget.AlignCenter, widget.AlignCenter)
-		return shown
+		return offScreen(k, osdPreviewScreenH, "settings-osd-preview-off")
 	}
+	shown := wallpaperScreen(osdPreviewScreenH)
 	t := osdSampleToast()
 	card := osdview.Preview(cfg, font, osdview.Toast(t.label, t.icon).WithPercent(float64(t.percentage)))
 	inset := widget.NewBox(widget.Column, 0, widget.Current().Padding)
