@@ -84,7 +84,7 @@ var formatFields = map[string]formatField{
 		ph("interface", "wlan0"),
 	),
 	"NightlightConfig.Format": jinjaFormat(
-		ph("status", "On"), ph("temp", "4500"), ph("gamma", "80"), ph("config_temp", "4500"), ph("config_gamma", "80"),
+		ph("status", "Off"), ph("temp", "--"), ph("gamma", "--"), ph("config_temp", "4500"), ph("config_gamma", "80"),
 	),
 	"PowerProfilesConfig.Format": jinjaFormat(ph("profile", "balanced")),
 	"RamConfig.Format": jinjaFormat(
