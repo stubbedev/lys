@@ -23,7 +23,8 @@ func TestNoSearchPlaceholderEndsInAnEllipsis(t *testing.T) {
 		}
 		for line := range strings.Lines(src) {
 			id, value, ok := strings.Cut(strings.TrimSpace(line), " = ")
-			if !ok || !strings.HasPrefix(id, "settings-") || !(strings.HasSuffix(id, "-search") || strings.HasSuffix(id, "-search-placeholder")) {
+			search := strings.HasSuffix(id, "-search") || strings.HasSuffix(id, "-search-placeholder")
+			if !ok || !search || !strings.HasPrefix(id, "settings-") {
 				continue
 			}
 			checked++
