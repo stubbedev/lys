@@ -25,7 +25,7 @@ type LevelOffset struct {
 // trough and one filled block (levelbar > trough > block.filled), the
 // node tree stylesheets target for gauges. Every part paints from its
 // cascade - there is no programmatic color; the theme layer gives the
-// trough the view color and the offsets their tints, and a stylesheet
+// trough a slider's trough color and the offsets their tints, and a stylesheet
 // overrides either. Offsets classify the value:
 // the block carries the name of the lowest offset at or above it, so
 // `levelbar block.low` restyles a nearly empty gauge.

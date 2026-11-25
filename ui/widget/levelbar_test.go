@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/lib/render"
+
+	"github.com/stubbedev/lys/ui/internal/style"
 )
 
 // A levelbar carries GTK's node tree - levelbar > trough > block.filled
@@ -152,3 +154,19 @@ func (r *hoverRow) Paint(cv *render.Canvas) {
 }
 
 func (r *hoverRow) HitTest(pt Point) Widget { return r.HitLeaf(r, pt) }
+
+// A level bar's trough is a slider's: the text color at the trough's
+// share, so it shows on a dialog or a card as a slider's does, not the
+// view color those surfaces nearly match (#362).
+func TestALevelBarsTroughIsASlidersTrough(t *testing.T) {
+	for _, th := range []*Theme{DarkTheme(), LightTheme()} {
+		SetTheme(th)
+		b := NewLevelBar(0.5)
+		arrangeTree(t, b, 100, 10)
+		got := pickc(0, b.trough.style(&b.trough), style.PropBackgroundColor, 0)
+		if want := scaleAlpha(th.Text, troughAlpha); got != want {
+			t.Errorf("dark %v: trough %08x, want the slider's %08x", th.IsDark(), uint32(got), uint32(want))
+		}
+	}
+	SetTheme(nil)
+}

@@ -421,11 +421,12 @@ var darkRules = [][2]string{
 	{"button." + css.DestructiveAction + ":hover, button." + css.DestructiveAction + ":active", "background-color: alpha(@destructive_bg_color, 0.5);"},
 }
 
-// partRules style widget parts: the level bar's trough and offset
-// classes, the Card's surface, the progress ring's status fills, and
-// the media controls' volume slider length.
+// partRules style widget parts: the level bar's trough, a slider's
+// unfilled trough so it shows on any surface, and its offset classes,
+// the Card's surface, the progress ring's status fills, and the media
+// controls' volume slider length.
 var partRules = [][2]string{
-	{"levelbar trough", "background-color: @view_bg_color;"},
+	{"levelbar trough", "background-color: alpha(@window_fg_color, " + strconv.FormatFloat(troughAlpha, 'g', -1, 64) + ");"},
 	{"levelbar block." + LevelBarOffsetLow, "background-color: @warning_bg_color;"},
 	{"levelbar block." + LevelBarOffsetHigh, "background-color: @accent_bg_color;"},
 	{"levelbar block." + LevelBarOffsetFull, "background-color: @success_bg_color;"},
