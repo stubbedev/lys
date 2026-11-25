@@ -286,7 +286,7 @@ func displayLightSections() []sectionSpec {
 	following := func(s config.NightlightSchedule) rowOpt { return shownWhen(m+".schedule", valueIn(string(s))) }
 	return []sectionSpec{
 		{title: "settings-section-displays-brightness", rows: []rowSpec{
-			field(brightnessPath+".min-brightness", percentage),
+			field(brightnessPath + ".min-brightness"),
 			field(brightnessPath+".enable-external", ddcRow),
 		}},
 		{title: "settings-section-nightlight-filter", lead: nightlightNow, rows: []rowSpec{field(m+".temperature", kelvin)}},

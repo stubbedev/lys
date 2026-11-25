@@ -50,9 +50,7 @@ func scalePicks(values []float64) []preset[float64] {
 	return out
 }
 
-func scalePercent(v float64) string {
-	return locale.T().Get("settings-scale-percent", i18n.Int("n", int64(math.Round(v*100))))
-}
+func scalePercent(v float64) string { return unitPercent.format(0)(math.Round(v * 100)) }
 
 // lockPage is pages/lock.
 func lockPage(*config.Config) pageSpec {

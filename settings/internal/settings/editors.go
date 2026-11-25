@@ -309,11 +309,6 @@ var signedNormalized = withEditor(func(k *kit, s slot, _ config.FieldMeta) contr
 	return newSlider(k, s, -1, 1, false, bareCount.format(2))
 })
 
-// percentage is a 0-100 slider labeled in whole percent.
-var percentage = withEditor(func(k *kit, s slot, _ config.FieldMeta) control {
-	return newSlider(k, s, 0, 100, true, unitPercent.format(0))
-})
-
 // fraction is a 0-1 value shown and set as a whole percent.
 var fraction = withEditor(func(k *kit, s slot, _ config.FieldMeta) control {
 	return newSlider(k, slot{
@@ -332,6 +327,12 @@ var fraction = withEditor(func(k *kit, s slot, _ config.FieldMeta) control {
 		},
 		unset: s.unset,
 	}, 0, 100, true, unitPercent.format(0))
+})
+
+// wholePixels is a pixel length lys-wm stores as a number with a
+// fraction, typed and shown in whole pixels with the unit as its addon.
+var wholePixels = withEditor(func(k *kit, s slot, meta config.FieldMeta) control {
+	return k.numberField(newNumber(k, s, meta.Min, meta.Max, 1, 0), unitPixels)
 })
 
 // softPixels is a slider over the pixel range nearly every setup sits

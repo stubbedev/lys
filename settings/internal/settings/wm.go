@@ -525,6 +525,9 @@ var wmPresentation = map[string]rowOpt{
 	"cursor.hide_after":              measuredIn(unitMilliseconds),
 	"floating.step":                  measuredIn(unitPixels),
 	"drag_preview.drag_switch.width": measuredIn(unitPixels),
+	"drag_preview.opacity":           fraction,
+	"overview.dim":                   fraction,
+	"hot_corners.pressure":           wholePixels,
 }
 
 func wmField(path string, opts ...rowOpt) rowSpec {

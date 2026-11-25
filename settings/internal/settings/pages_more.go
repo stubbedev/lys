@@ -20,7 +20,7 @@ func barPage(*config.Config) pageSpec {
 		}},
 		{title: "settings-section-appearance", rows: []rowSpec{
 			field("bar.bg"),
-			field("bar.background-opacity", percentage),
+			field("bar.background-opacity"),
 			field("bar.rounding", roundingChoice),
 			field("bar.shadow", pictureChoice(shadowPictures)),
 		}},
@@ -29,8 +29,8 @@ func barPage(*config.Config) pageSpec {
 
 		{title: "settings-section-buttons", rows: []rowSpec{
 			field("bar.button-variant", pictureChoice(buttonVariantPictures)),
-			field("bar.button-opacity", percentage),
-			field("bar.button-bg-opacity", percentage),
+			field("bar.button-opacity"),
+			field("bar.button-bg-opacity"),
 			field("bar.button-rounding", roundingChoice),
 			field("bar.button-gap"),
 			field("bar.button-icon-position", pictureChoice(iconPositionPictures)),
@@ -42,7 +42,7 @@ func barPage(*config.Config) pageSpec {
 		}},
 		{title: "settings-section-button-border", rows: bordered("bar.button-border-location", field("bar.button-border-width", borderWidth))},
 		{title: "settings-section-button-groups", advanced: true, rows: append([]rowSpec{
-			field("bar.button-group-opacity", percentage),
+			field("bar.button-group-opacity"),
 			field("bar.button-group-rounding", roundingChoice),
 			field("bar.button-group-padding"),
 			field("bar.button-group-module-gap"),
@@ -50,7 +50,7 @@ func barPage(*config.Config) pageSpec {
 		}, bordered("bar.button-group-border-location", field("bar.button-group-border-width", borderWidth), field("bar.button-group-border-color"))...)},
 		{title: "settings-section-dropdowns", rows: []rowSpec{
 			field("bar.dropdown-shadow"), field("bar.dropdown-autohide"), field("bar.dropdown-freeze-label"),
-			field("bar.dropdown-opacity", percentage),
+			field("bar.dropdown-opacity"),
 			dropdownSizeTable(),
 		}},
 	}, animates: "animations.dropdown"}
@@ -92,7 +92,7 @@ func notificationsPage(*config.Config) pageSpec {
 			field("modules.notifications.popup-stack", pictureChoice(popupStackPictures)),
 			field("modules.notifications.popup-stacking-order"),
 			field("modules.notifications.popup-shadow"),
-			field("modules.notifications.popup-opacity", percentage),
+			field("modules.notifications.popup-opacity"),
 			field("modules.notifications.popup-urgency-bar"),
 		}},
 		{title: "settings-section-filtering", rows: []rowSpec{
@@ -258,7 +258,7 @@ func themePage(*config.Config) pageSpec {
 		}},
 		{title: "settings-section-wallust", when: themeProviderIs(config.ThemeProviderWallust), rows: []rowSpec{
 			field("styling.wallust-palette"),
-			field("styling.wallust-saturation", percentage),
+			field("styling.wallust-saturation"),
 			field("styling.wallust-check-contrast"),
 			field("styling.wallust-backend"),
 			field("styling.wallust-colorspace"),

@@ -1389,7 +1389,6 @@ settings-unit-zoom = ×
     .value = { $n }×
 settings-sound-balance-left = L { $n }
 settings-sound-balance-right = R { $n }
-settings-scale-percent = { $n } %
 settings-unit-entries = Einträge
 settings-duration-until-off = Bis zum Ausschalten
 settings-duration-instant = Sofort

@@ -437,7 +437,7 @@ func TestTheScaleSnapsToStepsInPercent(t *testing.T) {
 		got[i] = pr.label()
 	}
 	want := []string{scalePercent(0.75), scalePercent(1), scalePercent(1.25), scalePercent(1.5), scalePercent(1.75), scalePercent(2)}
-	if !slices.Equal(got, want) || want[1] != locale.T().Get("settings-scale-percent", i18n.Int("n", 100)) {
+	if !slices.Equal(got, want) || want[1] != unitPercent.format(0)(100) {
 		t.Fatalf("steps %q, want %q", got, want)
 	}
 	if p.active() != 1 || p.typed.Visible() {
