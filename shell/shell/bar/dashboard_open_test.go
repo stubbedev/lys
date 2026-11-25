@@ -104,7 +104,7 @@ const dashboardRigOutput = "RIG-1"
 
 const (
 	dashboardFirstOpenMallocs = 7000
-	dashboardReopenMallocs    = 2000
+	dashboardReopenMallocs    = 2750
 	dashboardPollAllocs       = 30
 	dashboardPollReads        = 6
 )
@@ -173,7 +173,7 @@ func (r *dashboardRig) open() {
 	}
 }
 
-func (r *dashboardRig) measureOpen() (uint64, time.Duration) {
+func (r *dashboardRig) measureOpen(reads int64) (uint64, time.Duration) {
 	r.t.Helper()
 	var before, after runtime.MemStats
 	runtime.ReadMemStats(&before)
@@ -187,6 +187,9 @@ func (r *dashboardRig) measureOpen() (uint64, time.Duration) {
 		b, ok := findByClass(content, "quick-actions").(widget.Boundser)
 		return ok && b.Bounds().W > 0 && widget.TreeAssetsOwed(content) == 0
 	})
+	if reads > 0 {
+		r.awaitReads(reads)
+	}
 	elapsed := time.Since(start)
 	runtime.ReadMemStats(&after)
 	return after.Mallocs - before.Mallocs, elapsed
@@ -234,23 +237,20 @@ func (r *dashboardRig) assertReads(what string, n int64) {
 func warmProcessCaches(t *testing.T) {
 	t.Helper()
 	warm := newDashboardRig(t)
-	warm.measureOpen()
-	warm.awaitReads(1)
+	warm.measureOpen(1)
 	warm.close()
 }
 
 func TestDashboardOpenCounts(t *testing.T) {
 	warmProcessCaches(t)
 	rig := newDashboardRig(t)
-	firstMallocs, firstTime := rig.measureOpen()
-	rig.awaitReads(1)
+	firstMallocs, firstTime := rig.measureOpen(1)
 	rig.assertReads("the first open", 1)
 	rig.close()
 	if rig.reads() != 3 {
 		t.Errorf("closing read the services: %d reads, want the open's 3", rig.reads())
 	}
-	reopenMallocs, reopenTime := rig.measureOpen()
-	rig.awaitReads(2)
+	reopenMallocs, reopenTime := rig.measureOpen(2)
 	rig.assertReads("a reopen", 2)
 	rig.close()
 	t.Logf("first open: %d mallocs, %v; reopen: %d mallocs, %v", firstMallocs, firstTime, reopenMallocs, reopenTime)
@@ -275,7 +275,7 @@ func TestDashboardOpenDoesNotWaitForAService(t *testing.T) {
 			close(release)
 		}
 	})
-	rig.measureOpen()
+	rig.measureOpen(0)
 	select {
 	case <-release:
 		t.Fatal("the dashboard opened only after the stalled read gave up")
