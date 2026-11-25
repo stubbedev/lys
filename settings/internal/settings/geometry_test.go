@@ -255,8 +255,8 @@ func cardFieldsLineUp() pageCheck {
 	}}
 }
 
-// A custom color shows its color button beside the token dropdown at
-// the dropdown's height, on the row's centre line, the theme's spacing
+// A custom color shows its color button after the token dropdown at the
+// dropdown's height, on the row's centre line, the theme's spacing
 // apart: the button is lys-ui's outline icon button, not a bare swatch.
 func TestCustomColorButtonMatchesItsDropdown(t *testing.T) {
 	k := testKit(t, "modules:\n  clock:\n    icon-color: \"#123456\"\n")
@@ -274,8 +274,8 @@ func TestCustomColorButtonMatchesItsDropdown(t *testing.T) {
 	if b.Y+b.H/2 != d.Y+d.H/2 {
 		t.Errorf("the color button's centre y=%d is off the dropdown's y=%d", b.Y+b.H/2, d.Y+d.H/2)
 	}
-	if gap := d.X - (b.X + b.W); gap != widget.Current().Spacing {
-		t.Errorf("the dropdown sits %dpx after the color button, want the theme's %dpx", gap, widget.Current().Spacing)
+	if gap := b.X - (d.X + d.W); gap != widget.Current().Spacing {
+		t.Errorf("the color button sits %dpx after the dropdown, want the theme's %dpx", gap, widget.Current().Spacing)
 	}
 }
 

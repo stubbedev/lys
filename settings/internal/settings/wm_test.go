@@ -931,8 +931,8 @@ func TestAWMColorTakesAHexOrAPaletteName(t *testing.T) {
 	if want := []string{colorCustom, "accent", "blue", "red"}; !slices.Equal(slices.DeleteFunc(slices.Clone(c.ids), func(id string) bool { return id == "" }), want) {
 		t.Fatalf("offered %q, want custom and the palette's names", c.ids)
 	}
-	if got := listedSwatches(t, c); len(got) != 3 || got[0] != render.RGBA(255, 0, 0, 255) {
-		t.Fatalf("the names lead with swatches %x, want the accent's red first", got)
+	if got := listedSwatches(t, c); len(got) != 4 || got[0] != render.RGBA(0, 255, 0, 255) || got[1] != render.RGBA(255, 0, 0, 255) {
+		t.Fatalf("the rows lead with swatches %x, want the custom green, then the accent's red", got)
 	}
 	c.drop.SetSelected(slices.Index(c.ids, "accent"))
 	if got := w.value("decoration.shadow.color"); got != "accent" || c.swatch.Visible() {

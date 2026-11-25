@@ -31,10 +31,12 @@ type colorNames func() (keywords, named []swatchName)
 
 // swatchPicker is a colour of a config that names its own colours: a
 // dropdown of the config's keywords, the custom colour and its named
-// colours under their groups' headers, each led by a swatch of its colour,
-// beside the colour button that edits a custom colour, shown while one
-// is stored. A stored name the config does not list is listed with the
-// keywords as it is.
+// colours under their groups' headers, each led by a swatch of its colour
+// and Custom… by the stored custom colour's, so the dropdown starts on
+// the control column whatever is chosen; the colour button that edits a
+// custom colour follows it on its right, shown while one is stored. A
+// stored name the config does not list is listed with the keywords as
+// it is.
 type swatchPicker struct {
 	*widget.Box
 	k      *kit
@@ -66,8 +68,8 @@ func newSwatchPicker(k *kit, s slot, names colorNames, unsettable bool) *swatchP
 	c.drop = widget.NewDropdownRows(k.face, k.textPx(), nil, -1)
 	c.drop.OnSelect = c.picked
 	c.swatch = colorButton(k, s)
-	c.AppendAligned(c.swatch, false, widget.AlignCenter)
 	c.AppendAligned(c.drop, true, widget.AlignCenter)
+	c.AppendAligned(c.swatch, false, widget.AlignCenter)
 	c.refresh()
 	return c
 }
@@ -169,7 +171,11 @@ func (c *swatchPicker) rows(stored string) []swatchName {
 	if stored != "" && !strings.HasPrefix(stored, "#") && !slices.ContainsFunc(slices.Concat(keywords, named), func(n swatchName) bool { return n.value == stored }) {
 		out = append(out, swatchName{value: stored, label: stored})
 	}
-	out = append(out, swatchName{value: colorCustom, label: locale.T().Get("settings-color-custom")})
+	custom := swatchName{value: colorCustom, label: locale.T().Get("settings-color-custom")}
+	if col, ok := styling.ParseHex(stored); ok {
+		custom.color, custom.swatch = col, true
+	}
+	out = append(out, custom)
 	group := ""
 	for _, n := range named {
 		if n.group != group {
