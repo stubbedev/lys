@@ -662,11 +662,15 @@ func activeAccessPoint(st netState) (network.AccessPoint, bool) {
 	return visibleNetworks(st.aps)[i], true
 }
 
-// signalIcon draws strength as bars, its percentage its name.
-func signalIcon(strength uint8) *widget.Icon {
-	ic := widget.NewThemeIcon(defaultNetwork.WifiSignalIcon(strength), appIconPx)
-	ic.SetAccessibleName(locale.T().Get("settings-wifi-signal", i18n.Int("percent", int64(strength))))
-	return ic
+// signalIcon draws strength as the arcs it reaches over the dimmed full
+// Wi-Fi glyph, so a weak signal reads as a fan with one arc lit rather
+// than a lone dot; its percentage is its name.
+func signalIcon(strength uint8) *widget.Overlay {
+	full := widget.NewThemeIcon(wifiIcon, appIconPx)
+	full.AddClass(css.DimLabel)
+	level := widget.NewThemeIcon(defaultNetwork.WifiSignalIcon(strength), appIconPx)
+	level.SetAccessibleName(locale.T().Get("settings-wifi-signal", i18n.Int("percent", int64(strength))))
+	return widget.NewOverlay().Append(full).Append(level)
 }
 
 // showSaved lists the saved Wi-Fi networks, in range or not, each with

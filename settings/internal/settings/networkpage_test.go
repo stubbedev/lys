@@ -12,6 +12,7 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/ui/widget"
+	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -487,5 +488,25 @@ func TestAConnectionReadsItsAddressOnlyOnceItHasOne(t *testing.T) {
 	wired.WiredIP4 = "10.0.0.2"
 	if got := wiredDetail(wired); !strings.Contains(got, "· \u206810.0.0.2") {
 		t.Errorf("wired addressed: %q", got)
+	}
+}
+
+// A weak network's signal was the weak glyph alone, a dot and one arc a
+// few pixels across that read as a speck. Every signal draws the arcs it
+// reaches over the full Wi-Fi fan, dimmed, so the glyph keeps its shape.
+func TestAWeakSignalKeepsTheWiFiShape(t *testing.T) {
+	for _, strength := range []uint8{5, 30, 60, 100} {
+		sig := signalIcon(strength)
+		icons := treetest.All[*widget.Icon](sig)
+		if len(icons) != 2 {
+			t.Fatalf("a %d%% signal draws %d glyphs", strength, len(icons))
+		}
+		fan, level := icons[0], icons[1]
+		if fan.Name() != wifiIcon || !fan.HasClass(css.DimLabel) {
+			t.Errorf("a %d%% signal is drawn over %q (dimmed %v), want the dimmed %q", strength, fan.Name(), fan.HasClass(css.DimLabel), wifiIcon)
+		}
+		if want := defaultNetwork.WifiSignalIcon(strength); level.Name() != want {
+			t.Errorf("a %d%% signal lights %q, want %q", strength, level.Name(), want)
+		}
 	}
 }
