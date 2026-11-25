@@ -1212,7 +1212,6 @@ wm-curve-ease_in = Ease in
 wm-curve-ease_out = Ease out
 wm-curve-ease_in_out = Ease in and out
 wm-curve-spring = Spring
-wm-anim-column-event = Animation
 wm-anim-column-enabled = Plays
 wm-anim-column-curve = Curve
 wm-anim-column-duration = Length (ms)

@@ -1210,7 +1210,6 @@ wm-curve-ease_in = Weich hinein
 wm-curve-ease_out = Weich heraus
 wm-curve-ease_in_out = Weich hinein und heraus
 wm-curve-spring = Feder
-wm-anim-column-event = Animation
 wm-anim-column-enabled = Läuft
 wm-anim-column-curve = Kurve
 wm-anim-column-duration = Länge (ms)

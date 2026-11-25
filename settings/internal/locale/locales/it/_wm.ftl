@@ -1212,7 +1212,6 @@ wm-curve-ease_in = Morbida in entrata
 wm-curve-ease_out = Morbida in uscita
 wm-curve-ease_in_out = Morbida in entrata e in uscita
 wm-curve-spring = Molla
-wm-anim-column-event = Animazione
 wm-anim-column-enabled = Riprodotta
 wm-anim-column-curve = Curva
 wm-anim-column-duration = Durata (ms)

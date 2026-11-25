@@ -1208,7 +1208,6 @@ wm-curve-ease_in = Suave à entrada
 wm-curve-ease_out = Suave à saída
 wm-curve-ease_in_out = Suave à entrada e à saída
 wm-curve-spring = Mola
-wm-anim-column-event = Animação
 wm-anim-column-enabled = Reproduzida
 wm-anim-column-curve = Curva
 wm-anim-column-duration = Duração (ms)

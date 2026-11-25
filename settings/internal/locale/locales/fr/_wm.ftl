@@ -1212,7 +1212,6 @@ wm-curve-ease_in = Douce au départ
 wm-curve-ease_out = Douce à l’arrivée
 wm-curve-ease_in_out = Douce au départ et à l’arrivée
 wm-curve-spring = Ressort
-wm-anim-column-event = Animation
 wm-anim-column-enabled = Jouée
 wm-anim-column-curve = Courbe
 wm-anim-column-duration = Durée (ms)

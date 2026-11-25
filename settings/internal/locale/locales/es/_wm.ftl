@@ -1212,7 +1212,6 @@ wm-curve-ease_in = Suave al entrar
 wm-curve-ease_out = Suave al salir
 wm-curve-ease_in_out = Suave al entrar y salir
 wm-curve-spring = Muelle
-wm-anim-column-event = Animación
 wm-anim-column-enabled = Se reproduce
 wm-anim-column-curve = Curva
 wm-anim-column-duration = Duración (ms)

@@ -1207,7 +1207,6 @@ wm-curve-ease_in = Vloeiend in
 wm-curve-ease_out = Vloeiend uit
 wm-curve-ease_in_out = Vloeiend in en uit
 wm-curve-spring = Veer
-wm-anim-column-event = Animatie
 wm-anim-column-enabled = Speelt
 wm-anim-column-curve = Curve
 wm-anim-column-duration = Duur (ms)
