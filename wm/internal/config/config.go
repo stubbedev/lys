@@ -1403,7 +1403,7 @@ var (
 	closeFocuses     = map[string]wm.CloseFocus{"next": wm.CloseFocusesNext, "under_pointer": wm.CloseFocusesUnderPointer}
 	contentTypes     = byName(wm.ContentGame)
 	coverPolicies    = map[string]wm.CoverPolicy{"behind": wm.CoverBehind, "take_over": wm.CoverTakeOver, "exit": wm.CoverExit}
-	lidActions       = session.LidActions()
+	lidActions       = byString(session.LidActions())
 )
 
 func byName[E interface {

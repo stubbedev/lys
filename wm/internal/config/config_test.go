@@ -1660,17 +1660,17 @@ rules:
 }
 
 func TestTheLidActionIsTheConfiguredSleepAndAutoByDefault(t *testing.T) {
-	if got := session.DefaultLidAction; got != session.LidActions()["auto"] {
+	if got := session.DefaultLidAction; got != lidActions["auto"] {
 		t.Errorf("the default lid action is %s, want auto", got)
 	}
 	for src, want := range map[string]session.LidAction{
 		"":                                     session.DefaultLidAction,
-		"lid_action: auto\n":                   session.LidActions()["auto"],
-		"lid_action: suspend\n":                session.LidActions()["suspend"],
-		"lid_action: hibernate\n":              session.LidActions()["hibernate"],
-		"lid_action: hybrid-sleep\n":           session.LidActions()["hybrid-sleep"],
-		"lid_action: suspend-then-hibernate\n": session.LidActions()["suspend-then-hibernate"],
-		"lid_action: ignore\n":                 session.LidActions()["ignore"],
+		"lid_action: auto\n":                   lidActions["auto"],
+		"lid_action: suspend\n":                lidActions["suspend"],
+		"lid_action: hibernate\n":              lidActions["hibernate"],
+		"lid_action: hybrid-sleep\n":           lidActions["hybrid-sleep"],
+		"lid_action: suspend-then-hibernate\n": lidActions["suspend-then-hibernate"],
+		"lid_action: ignore\n":                 lidActions["ignore"],
 	} {
 		cfg, err := Parse("t.yaml", []byte(src))
 		if err != nil {

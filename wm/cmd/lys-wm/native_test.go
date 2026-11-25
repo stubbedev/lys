@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -129,7 +130,7 @@ func TestTheLidPolicySleepsThroughTheConfiguredAction(t *testing.T) {
 		"suspend-then-hibernate": logind.SuspendThenHibernate,
 	} {
 		r := &sleepRecorder{}
-		n := &native{logind: r, lidAction: session.LidActions()[name]}
+		n := &native{logind: r, lidAction: lidActionNamed(t, name)}
 		policy := n.lidPolicy()
 		if policy.Sleep == nil || policy.OnBattery == nil {
 			t.Fatalf("lid action %s: no lid policy", name)
@@ -144,8 +145,18 @@ func TestTheLidPolicySleepsThroughTheConfiguredAction(t *testing.T) {
 }
 
 func TestTheIgnoreLidActionHasNoLidPolicy(t *testing.T) {
-	n := &native{logind: &sleepRecorder{}, lidAction: session.LidActions()["ignore"]}
+	n := &native{logind: &sleepRecorder{}, lidAction: lidActionNamed(t, "ignore")}
 	if policy := n.lidPolicy(); policy.Sleep != nil || policy.OnBattery != nil {
 		t.Fatalf("ignore has a lid policy %+v", policy)
 	}
+}
+
+func lidActionNamed(t *testing.T, name string) session.LidAction {
+	t.Helper()
+	actions := session.LidActions()
+	i := slices.IndexFunc(actions, func(a session.LidAction) bool { return a.String() == name })
+	if i < 0 {
+		t.Fatalf("no lid action %q", name)
+	}
+	return actions[i]
 }

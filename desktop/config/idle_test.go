@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"reflect"
 	"slices"
 	"testing"
 	"time"
@@ -136,5 +137,24 @@ func TestAnUnknownSuspendActionIsTheConfigsError(t *testing.T) {
 	}
 	if cfg.Idle.SuspendAction != DefaultsIdle().SuspendAction || cfg.Idle.DimPercent.MarshalConfig() != int64(40) {
 		t.Errorf("suspend-action ignore: action %q dim %v, want the default kept and the valid sibling applied", cfg.Idle.SuspendAction, cfg.Idle.DimPercent.MarshalConfig())
+	}
+}
+
+// The idle Sleep choice lists logind's sleeps in logind's order, the
+// order lys-wm's lid_action lists them after "ignore", so both pickers
+// read alike; each names the logind sleep it is.
+func TestSleepActionsAreLogindsSleepsInItsOrder(t *testing.T) {
+	var want []string
+	for _, s := range logind.SleepActions() {
+		want = append(want, s.String())
+	}
+	got := enumVariants(reflect.TypeFor[SleepAction]())
+	if !slices.Equal(got, want) {
+		t.Errorf("sleep actions %v, want logind's %v", got, want)
+	}
+	for _, name := range got {
+		if a := SleepAction(name).PowerAction(); a.String() != name {
+			t.Errorf("sleep action %q names logind's %s", name, a)
+		}
 	}
 }

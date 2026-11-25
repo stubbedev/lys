@@ -293,7 +293,7 @@ var sleepMethods = map[string]string{
 func TestEachLidActionSleepsThroughItsLogindMethod(t *testing.T) {
 	for name, method := range sleepMethods {
 		t.Run(name, func(t *testing.T) {
-			action, ok := LidActions()[name].Sleep()
+			action, ok := lidActionNamed(t, name).Sleep()
 			if !ok {
 				t.Fatalf("lid action %q sleeps through nothing", name)
 			}
@@ -320,14 +320,32 @@ func TestEachLidActionSleepsThroughItsLogindMethod(t *testing.T) {
 }
 
 func TestTheIgnoreLidActionSleepsThroughNothingAndTheDefaultIsAuto(t *testing.T) {
-	if action, ok := LidActions()["ignore"].Sleep(); ok {
+	if action, ok := lidActionNamed(t, "ignore").Sleep(); ok {
 		t.Errorf("ignore sleeps through %s", action)
 	}
 	if action, ok := DefaultLidAction.Sleep(); !ok || action != logind.AutoSleep {
 		t.Errorf("the default lid action sleeps through %s %v, want auto", action, ok)
 	}
-	names := slices.Sorted(maps.Keys(LidActions()))
-	if want := []string{"auto", "hibernate", "hybrid-sleep", "ignore", "suspend", "suspend-then-hibernate"}; !slices.Equal(names, want) {
+}
+
+// The lid actions list ignoring the lid first, then logind's sleeps in
+// the order the idle Sleep choice lists them, so both pickers read alike.
+func TestTheLidActionsListIgnoreThenLogindsSleeps(t *testing.T) {
+	var names []string
+	for _, a := range LidActions() {
+		names = append(names, a.String())
+	}
+	if want := []string{"ignore", "auto", "suspend", "hibernate", "hybrid-sleep", "suspend-then-hibernate"}; !slices.Equal(names, want) {
 		t.Errorf("lid actions %v, want %v", names, want)
 	}
+}
+
+func lidActionNamed(t *testing.T, name string) LidAction {
+	t.Helper()
+	actions := LidActions()
+	i := slices.IndexFunc(actions, func(a LidAction) bool { return a.String() == name })
+	if i < 0 {
+		t.Fatalf("no lid action %q", name)
+	}
+	return actions[i]
 }

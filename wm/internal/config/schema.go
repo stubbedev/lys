@@ -202,6 +202,15 @@ func swipeDriveNames() []string {
 	return slices.DeleteFunc(names, func(name string) bool { return gestureDrives[name] == binds.DriveZoom })
 }
 
+func lidActionNames() []string {
+	actions := session.LidActions()
+	names := make([]string, len(actions))
+	for i, a := range actions {
+		names[i] = a.String()
+	}
+	return names
+}
+
 func columnWidths(widths []wm.ColumnWidth) []any {
 	out := make([]any, len(widths))
 	for i, w := range widths {
@@ -315,7 +324,7 @@ func annotations() map[string]annotation {
 		"power_saver_frame_rate":                 atLeastAnn(0, compositor.DefaultPowerSaverRate),
 		"hold_opening":                           {def: false},
 		"tearing":                                {def: false},
-		"lid_action":                             {enum: slices.Sorted(maps.Keys(lidActions)), def: session.DefaultLidAction.String()},
+		"lid_action":                             {enum: lidActionNames(), def: session.DefaultLidAction.String()},
 		"gpu":                                    formatAnn(drmDeviceFormat),
 		"tabs.font":                              formatAnn(fontFileFormat),
 		"tabs.icon_theme":                        formatAnn(iconThemeFormat),

@@ -15,19 +15,11 @@ type LidAction struct{ sleep logind.PowerAction }
 
 var DefaultLidAction = LidAction{sleep: logind.AutoSleep}
 
-func LidActions() map[string]LidAction {
-	actions := map[string]LidAction{}
-	for _, a := range append([]LidAction{{}}, sleepLidActions()...) {
-		actions[a.String()] = a
-	}
-	return actions
-}
-
-func sleepLidActions() []LidAction {
+func LidActions() []LidAction {
 	sleeps := logind.SleepActions()
-	out := make([]LidAction, len(sleeps))
-	for i, s := range sleeps {
-		out[i] = LidAction{sleep: s}
+	out := make([]LidAction, 1, len(sleeps)+1)
+	for _, s := range sleeps {
+		out = append(out, LidAction{sleep: s})
 	}
 	return out
 }

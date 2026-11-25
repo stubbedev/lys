@@ -4266,11 +4266,11 @@
     "lid_action": {
       "type": "string",
       "enum": [
+        "ignore",
         "auto",
+        "suspend",
         "hibernate",
         "hybrid-sleep",
-        "ignore",
-        "suspend",
         "suspend-then-hibernate"
       ],
       "default": "auto"
