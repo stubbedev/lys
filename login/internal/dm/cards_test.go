@@ -2,6 +2,7 @@ package dm
 
 import (
 	"errors"
+	"fmt"
 	"maps"
 	"os"
 	"path/filepath"
@@ -20,6 +21,26 @@ type fakeCard struct {
 	closed  bool
 	capErr  error
 	fbs     map[uint32]uint32
+	// cursors are the planes of fbs whose type is Cursor; every other
+	// plane is Primary.
+	cursors map[uint32]bool
+}
+
+const fakePlaneType = 7
+
+func (c *fakeCard) Properties(id, _ uint32) (map[string]drm.Property, error) {
+	kind := uint64(1)
+	if c.cursors[id] {
+		kind = 2
+	}
+	return map[string]drm.Property{"type": {ID: fakePlaneType, Value: kind}}, nil
+}
+
+func (c *fakeCard) PropertyInfo(id uint32) (drm.PropertyInfo, error) {
+	if id != fakePlaneType {
+		return drm.PropertyInfo{}, fmt.Errorf("no property %d", id)
+	}
+	return drm.PropertyInfo{Name: "type", Enums: map[string]uint64{"Overlay": 0, "Primary": 1, "Cursor": 2}}, nil
 }
 
 func (c *fakeCard) SetClientCap(uint64, uint64) error { return c.capErr }
@@ -133,6 +154,54 @@ func TestHeldCardsReadWhatEachPlaneScansOut(t *testing.T) {
 	}
 	if !left.replacedIn(now) {
 		t.Error("a plane turned off did not count as replacing the left frame")
+	}
+}
+
+// The greeter's lys-wm turns its cursor plane off as it exits, so only
+// the primary planes, which carry its last frame, are watched: a cursor
+// plane going dark is not a compositor replacing the frame, and the
+// console stays unbound until one does. A cursor plane is never part
+// of what the greeter left.
+func TestTheGreetersCursorGoingDarkIsNoTakeover(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "card0"), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	c := &fakeCard{dropErr: unix.EINVAL, fbs: map[uint32]uint32{31: 40, 35: 60}, cursors: map[uint32]bool{35: true}}
+	h := &heldCards{glob: filepath.Join(dir, "card[0-9]*"), cards: map[string]openCard{}, open: func(string) (openCard, error) { return c, nil }}
+	if err := h.holdAll(); err != nil {
+		t.Fatal(err)
+	}
+	read := h.scanouts()
+	left, err := read()
+	if err != nil {
+		t.Fatal(err)
+	}
+	card := filepath.Join(dir, "card0")
+	if want := (scanouts{card: {31: 40}}); !maps.EqualFunc(left, want, maps.Equal) {
+		t.Fatalf("read %v, want %v: the primary plane alone", left, want)
+	}
+	c.fbs[35] = 0
+	now, err := read()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if left.replacedIn(now) {
+		t.Error("the greeter's cursor plane going dark counted as replacing its last frame")
+	}
+	c.fbs[35] = 61
+	if now, err = read(); err != nil {
+		t.Fatal(err)
+	}
+	if left.replacedIn(now) {
+		t.Error("a new cursor counted as replacing the greeter's last frame")
+	}
+	c.fbs[31] = 41
+	if now, err = read(); err != nil {
+		t.Fatal(err)
+	}
+	if !left.replacedIn(now) {
+		t.Error("a flip on the primary plane did not count as replacing the greeter's last frame")
 	}
 }
 

@@ -74,6 +74,14 @@ func (fileCard) Plane(id uint32) (drm.Plane, error) {
 	return drm.Plane{}, fmt.Errorf("no plane %d on a plain file", id)
 }
 
+func (fileCard) Properties(id, _ uint32) (map[string]drm.Property, error) {
+	return nil, fmt.Errorf("no object %d on a plain file", id)
+}
+
+func (fileCard) PropertyInfo(id uint32) (drm.PropertyInfo, error) {
+	return drm.PropertyInfo{}, fmt.Errorf("no property %d on a plain file", id)
+}
+
 func fakeConsole(dir string) console {
 	return console{
 		activate: func(int) error {
