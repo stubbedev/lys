@@ -397,7 +397,7 @@ func newNetworkPanel(k *kit) *networkPanel {
 	p.vpnForm = newVPNForm(p)
 	vpnBody := gapBox(widget.Column)
 	vpnBody.Append(p.vpn, false)
-	addVPN, _ := k.contentButton(roleSecondary, "ld-plus-symbolic", locale.T().Get("settings-vpn-add"), func() { p.vpnForm.open("", "", vpnProfile{}) })
+	addVPN := k.listAddButton("settings-vpn-add", func() { p.vpnForm.open("", "", vpnProfile{}) })
 	vpnBody.Append(newInsetAction(addVPN), false)
 	vpnBody.Append(p.vpnForm.row, false)
 	p.vpnSec = newSection(k, "settings-vpn-section", vpnBody)
@@ -760,17 +760,18 @@ func (p *networkPanel) networkRow(ap network.AccessPoint) widget.Widget {
 		controls = append(controls, p.k.secondaryButton(t.Get("settings-wifi-disconnect"), func() {
 			p.run(func(ctx context.Context) error { return p.ctl.disconnect(ctx) })
 		}))
-	} else {
-		controls = append(controls, p.k.primaryButton(t.Get("settings-wifi-connect"), func() { p.join(ap, known) }))
 	}
 	row := p.k.row(name, detail)
 	row.SetMedia(signal, true)
-	if p.asking != name {
-		return row.withControls(controls...)
+	if p.asking == name {
+		row.withControls(controls...)
+		row.AddDetail(p.passwordRow(func(password string) { p.connect(ap, password) }))
+		return row
 	}
-	row.withActions(controls...)
-	row.SetControl(p.passwordRow(func(password string) { p.connect(ap, password) }), widget.ItemControlWide)
-	return row
+	if !connected {
+		controls = append(controls, p.k.primaryButton(t.Get("settings-wifi-connect"), func() { p.join(ap, known) }))
+	}
+	return row.withControls(controls...)
 }
 
 func (p *networkPanel) join(ap network.AccessPoint, known bool) {
