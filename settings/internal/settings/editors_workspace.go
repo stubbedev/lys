@@ -62,7 +62,7 @@ var workspaceStyleMap = listRow(func(config.FieldMeta) listSpec {
 			w.icon = newIconEditor(k, local(&style.icon))
 			w.color = optionalColor(k, local(&style.color))
 			w.Append(w.key, true)
-			w.Append(w.icon, true)
+			w.AppendAligned(w.icon, false, widget.AlignCenter)
 			w.Append(w.label, true)
 			w.AppendAligned(w.color, false, widget.AlignCenter)
 			return w

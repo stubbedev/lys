@@ -11,6 +11,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/service/workspaces/workspacestest"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -262,5 +263,47 @@ func TestTheWorkspaceWindowPreviewsRowWritesTheKey(t *testing.T) {
 	k2 := testKit(t, "modules:\n  workspaces:\n    window-previews: true\n")
 	if c := fieldControl(k2, k2.store, spec).(*toggle); !c.On() {
 		t.Error("with window-previews: true the switch is off")
+	}
+}
+
+// A Workspace Map entry spaces its key, icon, label and color by the one
+// gap: the icon button takes its own width, not a share of the spare.
+func TestAWorkspaceMapEntrySpacesItsFieldsEvenly(t *testing.T) {
+	k := testKit(t, "")
+	const path = "modules.workspaces.workspace-map"
+	_ = k.store.set(path, map[string]any{"1": map[string]any{"label": "one"}})
+	c := fieldControl(k, k.store, field(path, workspaceStyleMap)).(*listEditor)
+	root := widget.NewBox(widget.Column, 0, 0)
+	root.Append(c, false)
+	styledLayOut(k, root, 700)
+	row := c.items[0].(workspaceStyleItem)
+	kids := []widget.Widget{row.key, row.icon.btn, row.label, row.color}
+	var gaps []int
+	for i := 1; i < len(kids); i++ {
+		prev, next := kids[i-1].(widget.Boundser).Bounds(), kids[i].(widget.Boundser).Bounds()
+		gaps = append(gaps, next.X-(prev.X+prev.W))
+	}
+	for _, g := range gaps {
+		if g != gaps[0] {
+			t.Fatalf("the entry's gaps are %v, want one", gaps)
+		}
+	}
+}
+
+// The compositor note stands above In your bar as a section stands
+// below the one before it, not at the gap within a head.
+func TestTheCompositorNoteIsSetApartFromInYourBar(t *testing.T) {
+	runCompositor(t, "")
+	win := laidOutPage(t, "", "workspaces", 1000)
+	head := treetest.All[*barItemHead](win.page)
+	if len(head) != 1 {
+		t.Fatalf("%d heads on the workspaces page", len(head))
+	}
+	note := head[0].Children()[0].(*widget.Label)
+	if got := note.Text(); got != locale.T().Get("settings-workspaces-no-compositor") {
+		t.Fatalf("the head opens with %q", got)
+	}
+	if gap := head[0].placement.Bounds().Y - (note.Bounds().Y + note.Bounds().H); gap != sectionGap() {
+		t.Errorf("the note sits %dpx above In your bar, want the %dpx between sections", gap, sectionGap())
 	}
 }
