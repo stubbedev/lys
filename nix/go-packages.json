@@ -7275,6 +7275,7 @@
       "lib/waittest",
       "secrets/secretstest",
       "settings/internal/wmtest",
+      "ui/anim",
       "ui/transfer"
     ],
     "testExternal": [
