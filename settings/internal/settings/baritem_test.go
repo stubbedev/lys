@@ -96,8 +96,10 @@ func TestTheSystemMonitorsOpenTheDashboard(t *testing.T) {
 	}
 }
 
-// The chosen button's highlight keeps inside the body's outline, its
-// outer edge following the body's curve, and clear of the wheel.
+// The chosen button's highlight was a crescent reaching neither the
+// outline nor the divider. It fills the button up to the body's outline,
+// its outer edge following the body's curve, and up to the dividers,
+// clear of the wheel.
 func TestTheMouseHighlightKeepsInsideTheBody(t *testing.T) {
 	k := testKit(t, "")
 	m := fieldControl(k, k.store, barItemRow(t, config.ModuleBattery, "settings-bar-item-mouse")).(*mouseActions)
@@ -115,8 +117,14 @@ func TestTheMouseHighlightKeepsInsideTheBody(t *testing.T) {
 	if !at(left.X+left.W/2, left.Y+left.H*2/3) {
 		t.Fatal("the chosen left button is not highlighted")
 	}
-	if at(mouseGap+2, mouseGap+2) {
+	if at(mouseOutline+2, mouseOutline+2) {
 		t.Error("the highlight fills the corner outside the body's curve")
+	}
+	if !at(left.X+mouseOutline+1, left.Y+left.H*2/3) {
+		t.Error("the highlight stops short of the body's outline")
+	}
+	if !at(left.X+left.W-1, left.Y+left.H-2) || !at(left.X+left.W/3, left.Y+left.H-1) {
+		t.Error("the highlight stops short of the dividers")
 	}
 	wheel := m.mouse.parts()[3]
 	if at(wheel.X-1, wheel.Y+wheel.H) {
@@ -126,3 +134,26 @@ func TestTheMouseHighlightKeepsInsideTheBody(t *testing.T) {
 
 // closeByte is a channel within 8 of another.
 func closeByte(a, b uint8) bool { return int(a)-int(b) <= 8 && int(b)-int(a) <= 8 }
+
+// The wheel was a muted pill on the card's fill, near invisible. It is
+// ringed in the outline's colour, so it reads beside an unlit button.
+func TestTheMouseWheelIsOutlined(t *testing.T) {
+	k := testKit(t, "")
+	m := fieldControl(k, k.store, barItemRow(t, config.ModuleBattery, "settings-bar-item-mouse")).(*mouseActions)
+	m.mouse.Arrange(render.Rect{W: mouseW, H: mouseH})
+	m.choose(0)
+	buf := make([]byte, mouseW*mouseH*4)
+	m.mouse.Paint(render.New(buf, mouseW*4, mouseW, mouseH))
+	px := func(x, y int) [4]byte {
+		i := (y*mouseW + x) * 4
+		return [4]byte(buf[i : i+4])
+	}
+	up, middle := m.mouse.parts()[3], m.mouse.parts()[1]
+	y := middle.Y + middle.H/2
+	if ring, card := px(middle.X, y), px(middle.X-2, y); ring == card {
+		t.Errorf("the wheel's edge %v is the card's fill", ring)
+	}
+	if ring, inside := px(up.X+up.W/2, up.Y), px(up.X+up.W/2, up.Y+up.H/2); ring == inside {
+		t.Errorf("the wheel's top edge %v is its fill", ring)
+	}
+}
