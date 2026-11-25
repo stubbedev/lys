@@ -474,3 +474,33 @@ func TestTheKeyringActionsShowOnlyOverAShownCollection(t *testing.T) {
 	r := startPasswords(t, 1)
 	r.l.until("the collection shown", func() bool { return r.p.head.Visible() })
 }
+
+// With no collection to list, the empty sidebar kept its gap beside the
+// items, so the search field stood 26px into the card on the left and
+// 18px on the right, and the separator under it started 8px in. The
+// sidebar shows only while it lists a collection: the items then span
+// the card.
+func TestAKeyringWithoutCollectionsSpansItsItemsOverTheCard(t *testing.T) {
+	before := openKeyring
+	openKeyring = func(context.Context) (*client.Client, func(), error) {
+		return nil, nil, errors.New("no keyring daemon")
+	}
+	t.Cleanup(func() { openKeyring = before })
+	k := testKit(t, "")
+	p := passwordsKeyring(k).(*passwordsPanel)
+	t.Cleanup(p.close)
+	themed(k, p)
+	card := treetest.WithClass(p, css.Card)
+	if len(card) == 0 {
+		t.Fatal("the keyring is on no card")
+	}
+	c, search := card[0].(widget.Boundser).Bounds(), p.filter.Bounds()
+	if left, right := search.X-c.X, c.X+c.W-(search.X+search.W); left != right {
+		t.Errorf("the search field stands %dpx into the card on the left, %dpx on the right", left, right)
+	}
+	if p.sidebar.Visible() {
+		t.Error("the sidebar shows with no collection to list")
+	}
+	r := startPasswords(t, 1)
+	r.l.until("the collection listed", func() bool { return r.p.sidebar.Visible() })
+}

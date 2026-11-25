@@ -159,6 +159,7 @@ func passwordsKeyring(k *kit) widget.Widget {
 	p.sidebar = widget.NewItemGroup()
 	p.sidebar.AddClass("password-collections")
 	p.sidebar.SetAccessibleName(t.Get("settings-passwords-collections"))
+	p.sidebar.SetVisible(false)
 	p.collTitle = k.label("", "password-collection-title", css.H4)
 	p.collTitle.SetEllipsize(widget.EllipsizeEnd)
 	p.lock, p.lockFace = k.contentButton(roleSecondary, "ld-lock-symbolic", t.Get("settings-passwords-lock"), p.toggleLock)
@@ -269,6 +270,7 @@ func (p *passwordsPanel) setCollections(colls []client.Collection) {
 		p.sidebar.Append(row)
 		p.collRows[c.Path] = row
 	}
+	p.sidebar.SetVisible(len(colls) > 0)
 	p.refreshLock()
 }
 
