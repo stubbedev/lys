@@ -73,7 +73,14 @@ const (
 	weekendDayMin = 5
 )
 
-var weekStartRow = withEditor(func(k *kit, s slot, meta config.FieldMeta) control {
+// weekStartRow picks the week's first day from pictures of a month, set
+// under the row's text across the card as every picture choice is.
+var weekStartRow rowOpt = func(r *rowSpec) {
+	r.fullWidth = true
+	r.editor = weekStartPictures
+}
+
+func weekStartPictures(k *kit, s slot, meta config.FieldMeta) control {
 	values := slices.Clone(commonWeekStarts)
 	if current, _ := s.get().(string); !slices.Contains(values, current) && slices.Contains(meta.Variants, current) {
 		values = append(values, current)
@@ -91,7 +98,7 @@ var weekStartRow = withEditor(func(k *kit, s slot, meta config.FieldMeta) contro
 		pictures[v] = drawn(func(cv *render.Canvas, r render.Rect) { weekGrid(cv, r, day) })
 	}
 	return newCards(k, s, values, labels, pictures)
-})
+}
 
 func mondayFirst(d time.Weekday) int { return (int(d) + weekDays - 1) % weekDays }
 
