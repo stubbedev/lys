@@ -2,6 +2,7 @@ package app
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -9,6 +10,9 @@ import (
 	"golang.org/x/image/font/gofont/goregular"
 
 	"github.com/stubbedev/lys/ui/anim"
+	"github.com/stubbedev/lys/ui/internal/buffer"
+	"github.com/stubbedev/lys/ui/internal/repaint"
+	"github.com/stubbedev/lys/ui/internal/scale"
 	"github.com/stubbedev/lys/ui/internal/wlsession"
 	"github.com/stubbedev/lys/ui/widget"
 )
@@ -280,5 +284,52 @@ func TestAToastClosingOnPressGoesOnTheNextPressOutsideIt(t *testing.T) {
 	}
 	if plain.Closed() {
 		t.Error("a press closed a toast that does not close on one")
+	}
+}
+
+// A scrolled view beneath a toast repaints whole instead of copying its
+// pixels: a copy carried the toast along with the view's text and left
+// that text painted over the toast's place (#370). A view clear of the
+// toasts still copies, owing only the strip the scroll exposed.
+func TestAScrolledViewBeneathAToastRepaintsWhole(t *testing.T) {
+	const w, h, step = 400, 600, 30
+	owed := func(over bool) (strip, view int) {
+		col := widget.NewBox(widget.Column, 0, 0)
+		for i := range 200 {
+			col.Append(widget.NewLabel(testFace(t), 14, fmt.Sprintf("row %d", i), 0), false)
+		}
+		sc := widget.NewScroll(col)
+		sc.SetMaxContentHeight(300)
+		root := widget.NewBox(widget.Column, 0, 0).Append(sc, false)
+		l := &toastLayer{root: root, clock: new(anim.Clock), margin: toastMargin, max: toastMaxStack}
+		if over {
+			l.over = sc
+		}
+		l.add(widget.NewToast(testFace(t), "Removed", time.Minute), false)
+		win := render.Rect{W: w, H: h}
+		l.Arrange(win)
+		var r repaint.Region
+		b := &buffer.Buffer{Width: w, Height: h}
+		collectWindowDamage(&r, l, win)
+		r.Plan(b, scale.Denom, false)
+		sc.SetOffset(0, step)
+		l.Arrange(win)
+		collectWindowDamage(&r, l, win)
+		rects, _, _ := r.Plan(b, scale.Denom, false)
+		toast := l.slots[0].Bounds()
+		if over == toast.Intersect(sc.Bounds()).Empty() {
+			t.Fatalf("toast at %v, view at %v: the toast is over the view %v, want %v", toast, sc.Bounds(), !over, over)
+		}
+		v := sc.Bounds()
+		for _, d := range rects {
+			view += d.Intersect(v).W * d.Intersect(v).H
+		}
+		return v.W * step, view
+	}
+	if strip, got := owed(false); got != strip {
+		t.Errorf("a scroll clear of the toast owes %dpx of its view, want the %dpx strip", got, strip)
+	}
+	if strip, got := owed(true); got <= strip {
+		t.Errorf("a scroll beneath the toast owes %dpx of its view, want it whole, more than the %dpx strip", got, strip)
 	}
 }

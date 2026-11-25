@@ -1054,7 +1054,7 @@ func (w *hostWindow) draw() bool {
 	// Drain invalidations into the owed region, which is what lets a
 	// frame with nothing paintable skip the buffer entirely.
 	bufBounds := render.Rect{W: bw, H: bh}
-	if w.damage.Collect(w.router.Root, bufBounds) {
+	if collectWindowDamage(&w.damage, w.router.Root, bufBounds) {
 		if report := widget.DamageReport(); report != "" {
 			debug.Log("damage", "%dx%d window owes bounds: %s", bw, bh, report)
 		}

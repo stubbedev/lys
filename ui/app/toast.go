@@ -10,6 +10,7 @@ import (
 	"github.com/stubbedev/lys/lib/render"
 
 	"github.com/stubbedev/lys/ui/anim"
+	"github.com/stubbedev/lys/ui/internal/repaint"
 	"github.com/stubbedev/lys/ui/internal/sysfont"
 	"github.com/stubbedev/lys/ui/widget"
 )
@@ -269,6 +270,8 @@ type toastLayer struct {
 	// children is the cached Children() view over root and slots,
 	// rebuilt on add/remove so the damage walk borrows it for free.
 	children []widget.Widget
+	// inks is floating's storage, reused frame to frame.
+	inks []render.Rect
 }
 
 // Children exposes the wrapped root and the live toasts in paint
@@ -351,6 +354,28 @@ func (l *toastLayer) Paint(cv *render.Canvas) {
 	for _, t := range l.slots {
 		t.Paint(cv)
 	}
+}
+
+// collectWindowDamage drains root's invalidations into r, clipped to
+// bounds, as repaint.Region.Collect does, a scrolled view beneath a
+// toast owed whole rather than copied. It reports whether root owed
+// anything.
+func collectWindowDamage(r *repaint.Region, root widget.Widget, bounds render.Rect) bool {
+	owed := r.Collect(root, bounds)
+	if l, ok := root.(*toastLayer); ok {
+		r.Unmove(bounds, l.floating())
+	}
+	return owed
+}
+
+// floating is the rects the toasts paint over the wrapped root, whose
+// scrolled views must repaint rather than copy beneath them.
+func (l *toastLayer) floating() []render.Rect {
+	l.inks = l.inks[:0]
+	for _, t := range l.slots {
+		l.inks = append(l.inks, widget.InkRect(t))
+	}
+	return l.inks
 }
 
 // HitTest resolves toasts first (they float above the root), then the

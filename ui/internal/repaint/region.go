@@ -76,6 +76,30 @@ func (r *Region) Collect(root widget.Widget, bounds render.Rect) bool {
 	return damaged
 }
 
+// Unmove owes whole, clipped to bounds, every move whose view one of
+// over overlaps: what floats over a view outside its tree, a toast,
+// would be carried along with the copy and left behind at its place.
+func (r *Region) Unmove(bounds render.Rect, over []render.Rect) {
+	kept := r.moves[:0]
+	for _, m := range r.moves {
+		if !touches(over, m.View) {
+			kept = append(kept, m)
+			continue
+		}
+		r.Add(bounds, m.View)
+	}
+	r.moves = kept
+}
+
+func touches(rects []render.Rect, r render.Rect) bool {
+	for _, o := range rects {
+		if !o.Intersect(r).Empty() {
+			return true
+		}
+	}
+	return false
+}
+
 func (r *Region) demote(bounds render.Rect) {
 	for _, m := range r.moves {
 		r.Add(bounds, m.View)
