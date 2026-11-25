@@ -280,6 +280,7 @@ settings-divider-dash = Dash –
 settings-divider-none = None, icons right after the name
 settings-choice-search = Search
 settings-picker-empty = Nothing to choose from
+settings-apps-none-installed = No app is installed
 settings-picker-no-match = Nothing matches “{ $query }”
 settings-format-insert = Insert a placeholder
 settings-format-presets = Choose a preset

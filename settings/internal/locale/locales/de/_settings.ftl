@@ -280,6 +280,7 @@ settings-divider-dash = Gedankenstrich –
 settings-divider-none = Keiner, Symbole direkt nach dem Namen
 settings-choice-search = Suchen
 settings-picker-empty = Nichts zur Auswahl
+settings-apps-none-installed = Keine App ist installiert
 settings-picker-no-match = Nichts passt zu „{ $query }“
 settings-format-insert = Platzhalter einfügen
 settings-format-presets = Vorlage wählen

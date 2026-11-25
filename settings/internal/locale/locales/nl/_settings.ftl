@@ -277,6 +277,7 @@ settings-divider-dash = Streepje –
 settings-divider-none = Geen, pictogrammen direct na de naam
 settings-choice-search = Zoeken
 settings-picker-empty = Niets om uit te kiezen
+settings-apps-none-installed = Er is geen toepassing geïnstalleerd
 settings-picker-no-match = Niets komt overeen met ‘{ $query }’
 settings-format-insert = Een plaatshouder invoegen
 settings-format-presets = Een voorinstelling kiezen

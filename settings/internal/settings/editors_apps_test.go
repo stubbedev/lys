@@ -311,3 +311,14 @@ func TestARuleCardNamesTheAppItMatchesExactly(t *testing.T) {
 		t.Errorf("before the apps are read a rule reads %q", got)
 	}
 }
+
+// With no app installed, an app picker says so instead of showing a
+// search field over nothing.
+func TestAnAppPickerWithNoAppSaysNoneIsInstalled(t *testing.T) {
+	k := testKit(t, "")
+	k.pickers = &fakePickers{}
+	p := openAppPicker(k, k.entry(), nil, func(desktopentry.App) {})
+	if want := locale.T().Get("settings-apps-none-installed"); !p.none.Visible() || p.none.Text() != want {
+		t.Errorf("the empty app picker says %q (shown %v), want %q", p.none.Text(), p.none.Visible(), want)
+	}
+}

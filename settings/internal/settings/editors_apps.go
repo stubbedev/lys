@@ -64,15 +64,17 @@ func installedFace(k *kit, a desktopentry.App) *widget.Box {
 	return appFace(k, a.Icon(), cmp.Or(a.DisplayName(), a.AppID()), a.AppID())
 }
 
-func openAppPicker(k *kit, anchor widget.Widget, apps []desktopentry.App, onPick func(desktopentry.App)) {
+// openAppPicker opens the picker of apps under anchor, saying no app is
+// installed when there is none to pick.
+func openAppPicker(k *kit, anchor widget.Widget, apps []desktopentry.App, onPick func(desktopentry.App)) *searchPicker {
 	ids := make([]string, len(apps))
 	byID := make(map[string]desktopentry.App, len(apps))
 	for i, a := range apps {
 		ids[i] = a.ID
 		byID[a.ID] = a
 	}
-	openSearchPicker(k, anchor, ids, pickerSpec{
-		class: "choice-popover", placeholder: "settings-choice-search", maxH: choiceListPx,
+	return openSearchPicker(k, anchor, ids, pickerSpec{
+		class: "choice-popover", placeholder: "settings-choice-search", maxH: choiceListPx, empty: "settings-apps-none-installed",
 		row:  func(k *kit, id string) widget.Widget { return installedFace(k, byID[id]) },
 		text: func(id string) string { return byID[id].DisplayName() + "\n" + byID[id].AppID() },
 	}, func(id string) { onPick(byID[id]) })

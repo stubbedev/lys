@@ -277,6 +277,7 @@ settings-divider-dash = Travessão –
 settings-divider-none = Nenhum, ícones logo a seguir ao nome
 settings-choice-search = Pesquisar
 settings-picker-empty = Nada para escolher
+settings-apps-none-installed = Nenhuma aplicação está instalada
 settings-picker-no-match = Nada corresponde a «{ $query }»
 settings-format-insert = Inserir um marcador
 settings-format-presets = Escolher uma predefinição

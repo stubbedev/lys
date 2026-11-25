@@ -172,6 +172,7 @@ settings-divider-dash = Tiret –
 settings-divider-none = Aucun, icônes juste après le nom
 settings-choice-search = Rechercher
 settings-picker-empty = Rien à choisir
+settings-apps-none-installed = Aucune application n'est installée
 settings-picker-no-match = Rien ne correspond à « { $query } »
 settings-format-insert = Insérer une variable
 settings-format-presets = Choisir un modèle
