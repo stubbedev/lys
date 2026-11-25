@@ -674,7 +674,7 @@ func signalIcon(strength uint8) *widget.DrawingArea {
 	fan.OnDraw = func(cv *render.Canvas, r render.Rect) {
 		th := widget.Current()
 		unit := float64(r.W) / 24
-		cx, cy := float64(r.X)+12*unit, float64(r.Y)+20*unit
+		cx, cy := float64(r.X)+float64(12*unit), float64(r.Y)+float64(20*unit)
 		half := math.Asin(0.7)
 		cv.Arc(cx, cy, unit/2, unit, 0, 2*math.Pi, th.Text)
 		for arc := 1; arc <= signalArcs; arc++ {
