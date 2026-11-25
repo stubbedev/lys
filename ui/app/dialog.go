@@ -458,6 +458,12 @@ func (a *Application) FontChooserDialog(parent *Window, cfg FontChooserConfig) (
 	if err != nil {
 		return nil, fmt.Errorf("app: font chooser: %w", err)
 	}
+	return a.NewDialog(parent, fontChooserDialog(face, families, cfg))
+}
+
+// fontChooserDialog is the font picker FontChooserDialog opens over
+// families, painted with face.
+func fontChooserDialog(face render.Font, families []string, cfg FontChooserConfig) DialogConfig {
 	initialSize := cfg.Size
 	if initialSize <= 0 {
 		initialSize = 13
@@ -487,6 +493,7 @@ func (a *Application) FontChooserDialog(parent *Window, cfg FontChooserConfig) (
 	search := widget.NewEntry(face, 13, th.Text)
 	search.SetPlaceholder(widget.Tr("Search families"))
 	mono := widget.NewCheckButton(cfg.MonospaceOnly)
+	mono.SetChild(widget.NewLabel(face, 13, widget.Tr("Monospace"), 0))
 	mono.SetEnabled(!cfg.MonospaceOnly)
 	sizeEntry := widget.NewEntry(face, 13, th.Text)
 	sizeEntry.SetText(strconv.FormatFloat(initialSize, 'f', -1, 64))
@@ -528,14 +535,14 @@ func (a *Application) FontChooserDialog(parent *Window, cfg FontChooserConfig) (
 
 	controls := widget.NewBox(widget.Row, 8, 0)
 	controls.Append(search, true)
-	controls.Append(mono, false)
+	controls.AppendAligned(mono, false, widget.AlignCenter)
 	sizeRow := widget.NewBox(widget.Row, 8, 0)
 	sizeLabel := widget.NewLabel(face, 12, widget.Tr("Size"), 0)
 	sizeLabel.AddClass(css.DimLabel)
 	sizeRow.Append(sizeLabel, false)
 	sizeRow.Append(size, true)
 	sizeRow.Append(sizeEntry, false)
-	root := widget.NewBox(widget.Column, 8, 8)
+	root := widget.NewBox(widget.Column, 8, 0)
 	root.Append(controls, false)
 	root.Append(list, true)
 	if !cfg.FamilyOnly {
@@ -544,7 +551,7 @@ func (a *Application) FontChooserDialog(parent *Window, cfg FontChooserConfig) (
 	root.Append(preview, false)
 	refreshPreview()
 
-	return a.NewDialog(parent, DialogConfig{
+	return DialogConfig{
 		Title:   widget.Tr("Pick a font"),
 		Width:   380,
 		Height:  420,
@@ -566,7 +573,7 @@ func (a *Application) FontChooserDialog(parent *Window, cfg FontChooserConfig) (
 			}
 			cfg.OnFont(fam, chosenSize())
 		},
-	})
+	}
 }
 
 // CalendarDialog opens a modal calendar picker: a widget.Calendar
