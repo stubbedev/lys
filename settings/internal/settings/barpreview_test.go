@@ -10,6 +10,7 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
+	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -197,6 +198,32 @@ func TestTheBarPagePreviewsTheWorkspaceStrip(t *testing.T) {
 	for _, w := range treetest.WithClass(previewedBar(t, p), "workspaces") {
 		if _, ok := w.(*widget.SegmentIndicator); !ok || len(treetest.All[*barview.Button](w)) != 0 {
 			t.Errorf("the workspaces module previews as %T, want the strip alone", w)
+		}
+	}
+}
+
+// A bar item's preview strip stood 8px in from the column on each side,
+// the floating bar's insets from a screen's edges kept on a strip that
+// stands on no screen. The strip paints from edge to edge of the column
+// the cards under it span.
+func TestABarItemPreviewSpansTheColumnOfTheCardsUnderIt(t *testing.T) {
+	for _, id := range []string{"cpu", "keyboard-input"} {
+		win := laidOutPage(t, "", id, sweepW)
+		bars := treetest.All[*widget.Bar](treetest.All[*livePreview](win.page)[0])
+		cards := treetest.WithClass(win.page, css.Card)
+		if len(bars) != 1 || len(cards) == 0 {
+			t.Fatalf("%s: %d previewed bars and %d cards", id, len(bars), len(cards))
+		}
+		bar, card := bars[0].Bounds(), cards[0].(widget.Boundser).Bounds()
+		if bar.X != card.X || bar.W != card.W {
+			t.Fatalf("%s: the preview strip is laid out over x %d..%d, the cards over %d..%d", id, bar.X, bar.X+bar.W, card.X, card.X+card.W)
+		}
+		window, y := render.Rect{W: sweepW, H: windowHeight}, bar.Y+bar.H/2
+		page := paintedAt(win.root, window, bar.X-2, y)
+		for _, x := range []int{bar.X, bar.X + bar.W - 1} {
+			if got := paintedAt(win.root, window, x, y); got == page {
+				t.Errorf("%s: the preview strip leaves x=%d the page's color, inset from the cards' edge", id, x)
+			}
 		}
 	}
 }

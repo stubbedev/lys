@@ -139,9 +139,13 @@ func overflowing(w widget.Widget) *widget.Scroll {
 }
 
 // moduleSample is module's button alone on a strip of the bar under
-// cfg, in the first of states it is for.
+// cfg, in the first of states it is for. The strip stands on no screen,
+// so the bar's insets from a screen's edges leave it spanning the
+// column it sits in.
 func moduleSample(cfg *config.Config, font render.Font, module config.BarModule, states ...barview.State) widget.Widget {
-	return barview.SampleBar(cfg, font, config.BarLayout{Monitor: barview.AllMonitors, Show: true, Center: []config.BarItem{{Module: module}}}, sessionCompositor(), states...)
+	strip := *cfg
+	strip.Bar.InsetEdge, strip.Bar.InsetEnds = config.Scale(0), config.Scale(0)
+	return barview.SampleBar(&strip, font, config.BarLayout{Monitor: barview.AllMonitors, Show: true, Center: []config.BarItem{{Module: module}}}, sessionCompositor(), states...)
 }
 
 // barItemPreview is the button of the module that module names, on a
