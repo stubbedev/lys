@@ -28,9 +28,7 @@ func mailNotificationPreview(k *kit) widget.Widget {
 
 func drawMailNotification(k *kit, cfg *config.Config, font render.Font) widget.Widget {
 	if !cfg.Mail.Notify {
-		off := k.note(locale.T().Get("settings-mail-notification-preview-off"), "settings-preview-state")
-		off.SetAlignment(render.AlignCenter)
-		return off
+		return k.note(locale.T().Get("settings-mail-notification-preview-off"), "settings-preview-state")
 	}
 	box := widget.NewBox(widget.Column, 0, widget.Current().Padding)
 	box.AppendAligned(notifyview.Preview(cfg, font, time.Time{}, mailNotificationContent(cfg.Mail)), false, widget.AlignCenter)

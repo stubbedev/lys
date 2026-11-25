@@ -7,6 +7,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
@@ -68,5 +69,21 @@ func TestTheMailNotificationWearsTheFirstAccountsIcon(t *testing.T) {
 	m.Accounts = []config.MailAccount{{Name: "Work", Query: "tag:work", Icon: &icon}, {Name: "Home", Query: "tag:home"}}
 	if got := mailNotificationContent(m).Icon.Name; got != "ld-briefcase-symbolic" {
 		t.Errorf("with accounts the notification wears %q, want the first account's", got)
+	}
+}
+
+// With notifications off, the preview's line reads from the page's
+// label column, where the section's description starts, not centred
+// over the card.
+func TestMailNotificationsOffReadFromTheLabelColumn(t *testing.T) {
+	win := laidOutPage(t, "modules:\n  mail:\n    notify: false\n", "mail", 1000)
+	want := locale.T().Get("settings-mail-notification-preview-off")
+	off := treetest.LabelReading(t, win.page, want)
+	if off.Alignment() != render.AlignStart {
+		t.Errorf("%q is aligned %v, want the start", want, off.Alignment())
+	}
+	desc := treetest.LabelReading(t, win.page, description("settings-section-mail-notifications"))
+	if off.Bounds().X != desc.Bounds().X {
+		t.Errorf("%q starts at x %d, the section's description at %d", want, off.Bounds().X, desc.Bounds().X)
 	}
 }
