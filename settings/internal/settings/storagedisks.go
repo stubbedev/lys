@@ -23,7 +23,7 @@ var mountPoints = checklistRow(checklistSpec{
 		items := make([]checkItem, len(disks))
 		for i, d := range disks {
 			items[i] = checkItem{value: d.MountPoint, detail: t.Get("settings-storage-disk-usage",
-				i18n.Str("used", sysinfo.AutoBytes(d.UsedBytes)), i18n.Str("size", sysinfo.AutoBytes(d.TotalBytes)), i18n.Str("filesystem", d.Filesystem))}
+				i18n.Str("used", t.ByteSize(d.UsedBytes)), i18n.Str("size", t.ByteSize(d.TotalBytes)), i18n.Str("filesystem", d.Filesystem))}
 		}
 		return checkListing{items: items}
 	},

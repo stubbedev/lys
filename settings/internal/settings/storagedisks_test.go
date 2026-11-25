@@ -5,6 +5,7 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/shell/service/sysinfo"
 
@@ -53,5 +54,16 @@ func TestAChosenDiskThatIsNotMountedStaysListed(t *testing.T) {
 	}
 	if !slices.Contains(treetest.Labels(c), locale.T().Get("settings-storage-not-mounted")) {
 		t.Error("the unmounted disk does not say so")
+	}
+}
+
+// A disk's usage read its sizes through an English-only formatter. It
+// reads them in the language's own byte sizes.
+func TestADisksUsageReadsTheLanguagesByteSizes(t *testing.T) {
+	_, c := diskListWith(t, "", rootAndData...)
+	tr := locale.T()
+	want := tr.Get("settings-storage-disk-usage", i18n.Str("used", tr.ByteSize(1<<37)), i18n.Str("size", tr.ByteSize(1<<39)), i18n.Str("filesystem", "btrfs"))
+	if !slices.Contains(treetest.Labels(c), want) {
+		t.Errorf("no disk reads %q among %q", want, treetest.Labels(c))
 	}
 }
