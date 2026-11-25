@@ -48,14 +48,9 @@ var keyNames = map[xkb.Keysym]string{
 	xkb.KeyKPEnter:               "Enter",
 	xkb.KeyKPSpace:               "Space",
 	xkb.KeyGrave:                 "Backtick",
-	xkb.KeyDeadGrave:             "Backtick",
 	xkb.KeyApostrophe:            "Apostrophe",
 	xkb.KeyAcute:                 "Acute",
-	xkb.KeyDeadAcute:             "Acute",
-	xkb.KeyDeadCircumflex:        "^",
-	xkb.KeyDeadTilde:             "~",
 	xkb.KeyDiaeresis:             "Diaeresis",
-	xkb.KeyDeadDiaeresis:         "Diaeresis",
 	xkb.KeyXF86AudioMute:         "Mute",
 	xkb.KeyXF86AudioMicMute:      "Mute Microphone",
 	xkb.KeyXF86AudioRaiseVolume:  "Volume Up",
@@ -75,15 +70,32 @@ var keyNames = map[xkb.Keysym]string{
 // repeats: KP_Home is the keypad's Home.
 const keypadPrefix = "KP_"
 
+// deadPrefix is how xkb names a dead key after the mark it puts on the
+// next letter: dead_grave is the grave's.
+const deadPrefix = "dead_"
+
+// deadMarks are the marks of the dead keys whose name past deadPrefix
+// names no keysym: dead_circumflex puts the asciicircum's mark.
+var deadMarks = map[xkb.Keysym]xkb.Keysym{
+	xkb.KeyDeadCircumflex: xkb.KeyAsciicircum,
+	xkb.KeyDeadTilde:      xkb.KeyAsciitilde,
+}
+
 // KeyLabel is how a key reads on a keycap: a key that types a character
 // reads as that character, uppercased ("Q", "[", "-"), a keypad key as
-// its main key marked as the keypad's ("Enter (keypad)"), and a named
-// key by its name ("Backspace", "Page Up", "F5"). ok is false for a key
-// lys-ui has no name for; the label is then the keysym's own name.
+// its main key marked as the keypad's ("Enter (keypad)"), a dead key as
+// the key of its mark marked as dead ("Backtick (dead key)"), so a
+// binding of both reads as two keys, and a named key by its name
+// ("Backspace", "Page Up", "F5"). ok is false for a key lys-ui has no
+// name for; the label is then the keysym's own name.
 func KeyLabel(sym xkb.Keysym) (label string, ok bool) {
 	if xkb.KeysymIsKeypad(sym) {
 		main, ok := keypadMain(sym)
 		return fmt.Sprintf(Tr("%s (keypad)"), main), ok
+	}
+	if mark, ok := deadMark(sym); ok {
+		main, ok := KeyLabel(mark)
+		return fmt.Sprintf(Tr("%s (dead key)"), main), ok
 	}
 	if name, ok := keyNames[sym]; ok {
 		return Tr(name), true
@@ -96,6 +108,20 @@ func KeyLabel(sym xkb.Keysym) (label string, ok bool) {
 		return name, true
 	}
 	return name, false
+}
+
+// deadMark is the keysym of the mark dead key sym puts, false for a
+// key that is not dead or whose mark xkb has no keysym for.
+func deadMark(sym xkb.Keysym) (xkb.Keysym, bool) {
+	if mark, ok := deadMarks[sym]; ok {
+		return mark, true
+	}
+	name, ok := strings.CutPrefix(xkb.KeysymGetName(sym), deadPrefix)
+	if !ok {
+		return xkb.KeyNoSymbol, false
+	}
+	mark := xkb.KeysymFromName(name, xkb.KeysymNoFlags)
+	return mark, mark != xkb.KeyNoSymbol
 }
 
 // keypadMain is the label of the main key a keypad key repeats: its

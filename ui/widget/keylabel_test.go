@@ -27,8 +27,12 @@ func TestAKeyReadsAsItsCharacterOrItsName(t *testing.T) {
 		xkb.KeyKPPageDown:          "Page Down (keypad)",
 		xkb.KeyKP7:                 "7 (keypad)",
 		xkb.KeyKPAdd:               "+ (keypad)",
-		xkb.KeyDeadGrave:           "Backtick",
-		xkb.KeyDeadAcute:           "Acute",
+		xkb.KeyDeadGrave:           "Backtick (dead key)",
+		xkb.KeyDeadAcute:           "Acute (dead key)",
+		xkb.KeyDeadCircumflex:      "^ (dead key)",
+		xkb.KeyDeadTilde:           "~ (dead key)",
+		xkb.KeyDeadDiaeresis:       "Diaeresis (dead key)",
+		xkb.KeyDeadCedilla:         "¸ (dead key)",
 		xkb.KeyF5:                  "F5",
 		xkb.KeyXF86AudioMute:       "Mute",
 		xkb.KeySuperL:              "Super",
@@ -92,5 +96,18 @@ func TestAccelModifiersAreInLabelOrder(t *testing.T) {
 	}
 	if AccelKeyName(xkb.Keysym('k')) != "K" || AccelKeyName(xkb.KeyBracketleft) != "bracketleft" {
 		t.Errorf("key names %q %q", AccelKeyName(xkb.Keysym('k')), AccelKeyName(xkb.KeyBracketleft))
+	}
+}
+
+// Launcher's Match case binds grave and dead_grave, the backtick key
+// of a layout without dead keys and of one with them: two keys, which
+// read as two (#374).
+func TestAKeyAndItsDeadKeyReadApart(t *testing.T) {
+	for _, pair := range [][2]xkb.Keysym{{xkb.KeyGrave, xkb.KeyDeadGrave}, {xkb.KeyAcute, xkb.KeyDeadAcute}, {xkb.KeyAsciicircum, xkb.KeyDeadCircumflex}, {xkb.KeyDiaeresis, xkb.KeyDeadDiaeresis}} {
+		live, _ := KeyLabel(pair[0])
+		dead, _ := KeyLabel(pair[1])
+		if live == dead {
+			t.Errorf("%s and %s both read %q", xkb.KeysymGetName(pair[0]), xkb.KeysymGetName(pair[1]), live)
+		}
 	}
 }
