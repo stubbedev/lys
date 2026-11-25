@@ -4,8 +4,11 @@ import (
 	"log"
 	"slices"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/stubbedev/lys/ui/widget"
+	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -134,6 +137,13 @@ func newLabelBuilder(k *kit, s slot, optional bool, kind formatKind) *labelBuild
 
 func (b *labelBuilder) stacked() {}
 
+// holdReset puts the row's reset button on the parts' line, just ahead
+// of their add button, where the row's control would have it, not on
+// the title line above.
+func (b *labelBuilder) holdReset(reset *widget.Button) {
+	b.formatParts.InsertAligned(slices.Index(b.formatParts.Children(), widget.Widget(b.add)), reset, false, widget.AlignCenter)
+}
+
 func (b *labelBuilder) dirtyBadge() *widget.Badge { return b.raw.dirtyBadge() }
 
 func (b *formatParts) tokens() []string {
@@ -148,7 +158,66 @@ func (b *formatParts) chipText(s segment) string {
 	if s.token != "" {
 		return b.names[s.token]
 	}
-	return "“" + s.text + "”"
+	return visibleLiteral(s.text)
+}
+
+// spaceMark stands for one whitespace character of a format's text, so
+// a space reads as one instead of as nothing.
+const spaceMark = "␣"
+
+// literalRun is a run of a format's text: whitespace, or the rest.
+type literalRun struct {
+	text  string
+	space bool
+}
+
+// literalRuns splits text into its runs of whitespace and of the rest.
+func literalRuns(text string) []literalRun {
+	var out []literalRun
+	for _, r := range text {
+		space := unicode.IsSpace(r)
+		if n := len(out); n > 0 && out[n-1].space == space {
+			out[n-1].text += string(r)
+			continue
+		}
+		out = append(out, literalRun{text: string(r), space: space})
+	}
+	return out
+}
+
+// visibleLiteral is text as its chip reads it: plain, a mark for each
+// whitespace character.
+func visibleLiteral(text string) string {
+	var b strings.Builder
+	for _, run := range literalRuns(text) {
+		if run.space {
+			b.WriteString(strings.Repeat(spaceMark, utf8.RuneCountInString(run.text)))
+			continue
+		}
+		b.WriteString(run.text)
+	}
+	return b.String()
+}
+
+// literalChip is the chip of a format's text: the text plain, its
+// whitespace marks dimmed.
+func (b *formatParts) literalChip(text string) *widget.Chip {
+	chip := widget.NewChip(b.k.face, visibleLiteral(text))
+	chip.AddClass("label-builder-text")
+	runs := literalRuns(text)
+	if !slices.ContainsFunc(runs, func(r literalRun) bool { return r.space }) {
+		return chip
+	}
+	content := widget.NewBox(widget.Row, 0, 0)
+	for _, run := range runs {
+		if run.space {
+			content.AppendAligned(b.k.label(visibleLiteral(run.text), "label-builder-space", css.DimLabel), false, widget.AlignCenter)
+			continue
+		}
+		content.AppendAligned(b.k.label(run.text), false, widget.AlignCenter)
+	}
+	chip.SetContent(content)
+	return chip
 }
 
 func (b *formatParts) refresh() {
@@ -157,7 +226,7 @@ func (b *formatParts) refresh() {
 	for i, s := range b.segs {
 		chip := widget.NewChip(b.k.face, b.chipText(s))
 		if s.token == "" {
-			chip.AddClass("label-builder-text")
+			chip = b.literalChip(s.text)
 		}
 		chip.SetDismiss(chipRemoveName(locale.T()), func() { b.removeSegment(i) })
 		b.chips.Append(chip)
@@ -204,7 +273,7 @@ func (b *formatParts) options() []choice {
 	t := locale.T()
 	out := slices.Clone(b.kind.insert)
 	for _, sep := range b.kind.separators {
-		out = append(out, choice{value: sep, label: "“" + sep + "”", group: t.Get("settings-format-separators")})
+		out = append(out, choice{value: sep, label: visibleLiteral(sep), group: t.Get("settings-format-separators")})
 	}
 	for _, p := range b.kind.presets {
 		out = append(out, choice{value: p, label: b.kind.label(p), group: t.Get("settings-format-whole")})

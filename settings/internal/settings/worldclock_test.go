@@ -133,3 +133,17 @@ func TestAWorldClockCardHoldsItsTimeAsNamedPartsAlone(t *testing.T) {
 		t.Errorf("the add button starts at x %d, the card at %d", add.Bounds().X, card.X)
 	}
 }
+
+// An emptied World Clock says its list is empty, as an emptied format
+// says its parts are, and shows no preview of nothing.
+func TestAnEmptiedWorldClockSaysSoAndPreviewsNothing(t *testing.T) {
+	k := testKit(t, "modules:\n  world-clock:\n    format: \"{{ tz('UTC', '%H:%M') }}\"\n")
+	e := fieldControl(k, k.store, field(worldClockPath, worldClockRow)).(*worldClockEditor)
+	if !e.preview.Visible() || e.cards.end.empty.Visible() {
+		t.Fatalf("with a clock the preview shows %v and the empty line %v", e.preview.Visible(), e.cards.end.empty.Visible())
+	}
+	e.cards.removeItem(0)
+	if e.preview.Visible() || !e.cards.end.empty.Visible() {
+		t.Errorf("emptied, the preview shows %v and the empty line %v", e.preview.Visible(), e.cards.end.empty.Visible())
+	}
+}

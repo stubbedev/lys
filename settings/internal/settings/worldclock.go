@@ -243,9 +243,11 @@ func (e *worldClockEditor) refresh() {
 	e.showPreview()
 }
 
+// showPreview previews the clocks, unless the format is empty, as the
+// clocks' list then says, or not clocks alone.
 func (e *worldClockEditor) showPreview() {
 	w, ok := parseWorldClocks(e.slot.text())
-	e.preview.SetVisible(ok)
+	e.preview.SetVisible(ok && e.slot.text() != "")
 	if !ok {
 		return
 	}

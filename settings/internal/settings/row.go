@@ -555,7 +555,11 @@ func newSettingRow(k *kit, be backend, spec rowSpec, ctl control) *fieldRow {
 		r.showProblem(rowProblem{})
 		be.reset(spec.path)
 	})
-	r.AddAction(r.reset.Button)
+	if h, ok := ctl.(interface{ holdReset(*widget.Button) }); ok {
+		h.holdReset(r.reset.Button)
+	} else {
+		r.AddAction(r.reset.Button)
+	}
 	fit := controlFit(ctl)
 	if spec.fullWidth {
 		fit = widget.ItemControlWide

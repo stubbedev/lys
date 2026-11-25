@@ -7,8 +7,10 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
+	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -202,5 +204,61 @@ func TestAnEmptyFormatReadsAsEmptyWithoutABarePreview(t *testing.T) {
 	}
 	if centreY(b.empty.Bounds()) != centreY(b.add.Bounds()) {
 		t.Errorf("the empty line centres at y %d, the add button at %d", centreY(b.empty.Bounds()), centreY(b.add.Bounds()))
+	}
+}
+
+// A format's text reads plainly on its chip, each whitespace character
+// a dimmed mark, so a space never reads as an empty pair of quotes; the
+// picker offers separators the same way.
+func TestAFormatsTextChipsReadPlainWithTheirSpacesMarked(t *testing.T) {
+	k := testKit(t, "modules:\n  clock:\n    format: \"%H:%M - %S\"\n")
+	b := shellControl(t, k, "modules.clock.format").(*labelBuilder)
+	var texts []string
+	for _, chip := range b.chips.Chips() {
+		if chip.HasClass("label-builder-text") {
+			texts = append(texts, chip.Text())
+		}
+	}
+	if want := []string{":", spaceMark + "-" + spaceMark}; !slices.Equal(texts, want) {
+		t.Fatalf("the text chips read %q, want %q", texts, want)
+	}
+	dash := b.chips.ChipAt(3)
+	marks := treetest.WithClass(dash, "label-builder-space")
+	if len(marks) != 2 {
+		t.Fatalf("the dash's chip marks %d spaces", len(marks))
+	}
+	for _, m := range marks {
+		if !widget.HasClass(m, css.DimLabel) {
+			t.Error("a space mark is not dimmed")
+		}
+	}
+	if marks := treetest.WithClass(b.chips.ChipAt(1), "label-builder-space"); len(marks) != 0 {
+		t.Errorf("the colon's chip marks %d spaces", len(marks))
+	}
+	for _, o := range b.options() {
+		if strings.ContainsAny(o.label, "“”") {
+			t.Errorf("the picker offers %q in quotes", o.label)
+		}
+	}
+}
+
+// A format row's reset sits on its parts' line just ahead of their add
+// button, not on the title line above it.
+func TestAFormatRowsResetSitsBesideItsAdd(t *testing.T) {
+	k := testKit(t, "")
+	r := newFieldRow(k, k.store, field("modules.clock.format"))
+	r.reset.show(true)
+	root := widget.NewBox(widget.Column, 0, 0)
+	root.Append(r, false)
+	styledLayOut(k, root, 900)
+	b := r.ctl.(*labelBuilder)
+	kids := b.formatParts.Children()
+	at := slices.Index(kids, widget.Widget(b.add))
+	if at < 1 || kids[at-1] != widget.Widget(r.reset.Button) {
+		t.Fatal("the reset is not just ahead of the parts' add button")
+	}
+	reset, add := r.reset.Bounds(), b.add.Bounds()
+	if reset.Y+reset.H/2 != add.Y+add.H/2 {
+		t.Errorf("the reset's middle is at y=%d, the add's at %d", reset.Y+reset.H/2, add.Y+add.H/2)
 	}
 }
