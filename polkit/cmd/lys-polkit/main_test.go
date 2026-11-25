@@ -47,7 +47,7 @@ func startAgent(t *testing.T, auth *polkittest.Authority) (*exec.Cmd, *bytes.Buf
 	auth.Serve(t, system.Conn(t))
 	cmd := exec.Command(os.Args[0])
 	cmd.Env = append(os.Environ(), processEnv+"=1",
-		"DBUS_SYSTEM_BUS_ADDRESS="+system.Address, "DBUS_SESSION_BUS_ADDRESS="+session.Address, "LC_ALL=", "LC_MESSAGES=", "LANG=da_DK.UTF-8")
+		"DBUS_SYSTEM_BUS_ADDRESS="+system.Address, "DBUS_SESSION_BUS_ADDRESS="+session.Address, "LANGUAGE=", "LC_ALL=", "LC_MESSAGES=", "LANG=da_DK.UTF-8")
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	if err := cmd.Start(); err != nil {

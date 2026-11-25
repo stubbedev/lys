@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"github.com/stubbedev/lys/lib/dbusx"
+	"github.com/stubbedev/lys/lib/i18n"
 	"github.com/stubbedev/lys/lib/logind"
 	libpolkit "github.com/stubbedev/lys/lib/polkit"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
@@ -34,22 +35,18 @@ func CallerSubject(ctx context.Context, system *dbus.Conn) (libpolkit.UnixSessio
 	return libpolkit.UnixSession{ID: id}, nil
 }
 
-// localeVars are the variables naming the message locale, most
-// specific first (POSIX setlocale for LC_MESSAGES).
-var localeVars = [...]string{"LC_ALL", "LC_MESSAGES", "LANG"}
-
-// posixLocale is the locale POSIX defines when none of localeVars is
-// set.
+// posixLocale is the locale POSIX defines when the environment names
+// none.
 const posixLocale = "C"
 
 // Locale is the message locale polkitd should translate the action
-// messages into: the first of LC_ALL, LC_MESSAGES and LANG that is set,
-// else the POSIX locale.
+// messages into: the desktop's most preferred language (i18n.Languages)
+// as the environment spells it, else the POSIX locale. polkitd takes
+// one locale, matches an action's xml:lang messages by it and its
+// variants (de_DE.UTF-8, de_DE, de), and sets it for gettext.
 func Locale(getenv func(string) string) string {
-	for _, name := range localeVars {
-		if v := getenv(name); v != "" {
-			return v
-		}
+	if langs := i18n.Languages(getenv); len(langs) > 0 {
+		return langs[0]
 	}
 	return posixLocale
 }

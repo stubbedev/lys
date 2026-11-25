@@ -562,7 +562,7 @@ func TestEmojiSkinTones(t *testing.T) {
 }
 
 func TestTheEmbeddedTableTonesThumbsUp(t *testing.T) {
-	t.Setenv("LANG", "C")
+	englishLocale(t)
 	for _, e := range AvailableEmoji() {
 		switch e.Name {
 		case "thumbs up":
@@ -613,16 +613,49 @@ func TestEmojiNamesAndKeywords(t *testing.T) {
 func TestEmojiLanguagesWiden(t *testing.T) {
 	for locale, want := range map[string][]string{
 		"fr_CA.UTF-8": {"fr-ca", "fr", "en"}, "de_DE@euro": {"de-de", "de", "en"}, "fr": {"fr", "en"},
-		"C": {"en"}, "POSIX": {"en"}, "": {"en"}, "en_GB.UTF-8": {"en-gb", "en"},
+		"C": {"en"}, "C.UTF-8": {"en"}, "POSIX": {"en"}, "": {"en"}, "en_GB.UTF-8": {"en-gb", "en"},
 	} {
-		if got := languagesFor(locale); !reflect.DeepEqual(got, want) {
-			t.Errorf("%q = %q, want %q", locale, got, want)
+		if got := emojiLanguages(func(k string) string { return map[string]string{"LANG": locale}[k] }); !reflect.DeepEqual(got, want) {
+			t.Errorf("LANG=%q = %q, want %q", locale, got, want)
 		}
 	}
 }
 
-func TestTheEmbeddedEmojiTableLoads(t *testing.T) {
+func TestEmojiLanguagesPutLANGUAGEBeforeLANG(t *testing.T) {
+	env := map[string]string{"LANGUAGE": "de:pt_BR", "LANG": "en_US.UTF-8"}
+	want := []string{"de", "pt-br", "pt", "en-us", "en"}
+	if got := emojiLanguages(func(k string) string { return env[k] }); !reflect.DeepEqual(got, want) {
+		t.Errorf("%v = %q, want %q", env, got, want)
+	}
+}
+
+func TestEmojiLanguagesWithoutLANGUAGETakeTheFirstSetCategory(t *testing.T) {
+	for _, c := range []struct {
+		env  map[string]string
+		want []string
+	}{
+		{map[string]string{"LC_ALL": "fr_FR.UTF-8", "LC_MESSAGES": "de_DE.UTF-8", "LANG": "nl_NL.UTF-8"}, []string{"fr-fr", "fr", "en"}},
+		{map[string]string{"LC_ALL": "", "LC_MESSAGES": "de_DE.UTF-8", "LANG": "nl_NL.UTF-8"}, []string{"de-de", "de", "en"}},
+		{map[string]string{"LC_ALL": "C", "LANG": "de_DE.UTF-8"}, []string{"en"}},
+	} {
+		if got := emojiLanguages(func(k string) string { return c.env[k] }); !reflect.DeepEqual(got, c.want) {
+			t.Errorf("%v = %q, want %q", c.env, got, c.want)
+		}
+	}
+}
+
+// englishLocale names no language in any variable a table is chosen
+// by, so a host LANGUAGE, LC_ALL or LC_MESSAGES cannot override it.
+func englishLocale(t *testing.T) {
+	t.Helper()
+	for _, k := range []string{"LANGUAGE", "LC_ALL", "LC_MESSAGES"} {
+		t.Setenv(k, "")
+	}
 	t.Setenv("LANG", "C")
+}
+
+func TestTheEmbeddedEmojiTableLoads(t *testing.T) {
+	englishLocale(t)
 	emojis := AvailableEmoji()
 	if len(emojis) < 1000 {
 		t.Fatalf("only %d emoji", len(emojis))

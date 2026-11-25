@@ -14,9 +14,9 @@
 //   - the greeter domain: the login screen's labels. Greeter returns
 //     it.
 //
-// Each domain negotiates the desktop locale (LANGUAGE, LC_ALL,
-// LC_MESSAGES, LANG) against its embedded locales once, on first use,
-// with en-US as the always-loaded fallback. Lookups fall through the
+// Each domain negotiates the desktop locale (LANGUAGE, then the first
+// of LC_ALL, LC_MESSAGES and LANG) against its embedded locales once,
+// on first use, with en-US as the always-loaded fallback. Lookups fall through the
 // negotiated languages in order; a missing message yields i18n-embed's
 // "No localization for id" marker rather than an empty string.
 //

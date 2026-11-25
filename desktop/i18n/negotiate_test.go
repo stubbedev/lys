@@ -48,8 +48,11 @@ func TestRequestedLanguagesFromEnvironment(t *testing.T) {
 		{map[string]string{"LANG": "fr_FR.UTF-8"}, "fr-FR"},
 		{map[string]string{"LANG": "de_DE.UTF-8@euro"}, "de-DE"},
 		{map[string]string{"LANG": "C.UTF-8"}, ""},
-		{map[string]string{"LANG": "POSIX"}, "posix"}, // five letters is a valid language subtag
-		{map[string]string{"LC_ALL": "fr_FR", "LC_MESSAGES": "de_DE", "LANG": "en_US"}, "fr-FR,de-DE,en-US"},
+		{map[string]string{"LANG": "POSIX"}, ""},
+		{map[string]string{"LC_ALL": "fr_FR", "LC_MESSAGES": "de_DE", "LANG": "en_US"}, "fr-FR"},
+		{map[string]string{"LC_MESSAGES": "de_DE", "LANG": "en_US"}, "de-DE"},
+		{map[string]string{"LANGUAGE": "de:en", "LANG": "en_US.UTF-8"}, "de,en,en-US"},
+		{map[string]string{"LANGUAGE": "de_DE", "LANG": "de_DE.UTF-8"}, "de-DE"},
 		{map[string]string{"LANGUAGE": "fr:de_DE:fr", "LANG": "en_US.UTF-8"}, "fr,de-DE,en-US"},
 		{map[string]string{"LC_ALL": "en_US", "LANG": "en_US.UTF-8"}, "en-US"},
 		{map[string]string{"LANGUAGE": "fr::de", "LANG": ""}, "fr,de"},

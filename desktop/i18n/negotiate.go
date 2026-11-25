@@ -3,6 +3,8 @@ package i18n
 import (
 	"slices"
 	"strings"
+
+	libi18n "github.com/stubbedev/lys/lib/i18n"
 )
 
 // negotiate orders the available catalogues by the requested languages:
@@ -36,33 +38,17 @@ func negotiate(requested, available []LangID) []LangID {
 	return chosen
 }
 
-// requestedLanguages is the desktop locale's languages: every LANGUAGE
-// entry, then LC_ALL, LC_MESSAGES and LANG, each deduplicated as a
-// string, with the encoding and modifier cut and '_' turned into '-',
-// dropping any tag that is no language identifier ("C", empty entries).
+// requestedLanguages is the desktop locale's languages, libi18n's
+// Languages with the encoding and modifier cut and '_' turned into '-',
+// dropping a repeat and any tag that is no language identifier.
 func requestedLanguages(getenv func(string) string) []LangID {
-	var tags []string
-	add := func(raw string) {
-		tag := posixToBCP47(raw)
-		if !slices.Contains(tags, tag) {
-			tags = append(tags, tag)
-		}
-	}
-	if v := getenv("LANGUAGE"); v != "" {
-		for part := range strings.SplitSeq(v, ":") {
-			add(part)
-		}
-	}
-	for _, name := range []string{"LC_ALL", "LC_MESSAGES", "LANG"} {
-		if v := getenv(name); v != "" {
-			add(v)
-		}
-	}
 	var ids []LangID
-	for _, tag := range tags {
-		if id, err := ParseLangID(tag); err == nil {
-			ids = append(ids, id)
+	for _, locale := range libi18n.Languages(getenv) {
+		id, err := ParseLangID(posixToBCP47(locale))
+		if err != nil || slices.ContainsFunc(ids, id.Equal) {
+			continue
 		}
+		ids = append(ids, id)
 	}
 	return ids
 }

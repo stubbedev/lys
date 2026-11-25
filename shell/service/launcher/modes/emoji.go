@@ -13,6 +13,8 @@ import (
 	"sync"
 	"unicode/utf8"
 
+	libi18n "github.com/stubbedev/lys/lib/i18n"
+
 	"github.com/stubbedev/lys/shell/internal/gvariant"
 	"github.com/stubbedev/lys/shell/service/launcher"
 )
@@ -158,34 +160,29 @@ func rowToEmoji(codes []uint32, nameEn, name string, keywordsEn, keywords []stri
 	return e, true
 }
 
-// languagesFor is the tag widening GTK's chooser does: fr_CA.UTF-8 asks
-// for fr-ca, then fr, then English; C and POSIX name no language.
-func languagesFor(locale string) []string {
-	tag := locale
-	if i := strings.IndexAny(tag, ".@"); i >= 0 {
-		tag = tag[:i]
-	}
-	tag = strings.ToLower(strings.ReplaceAll(tag, "_", "-"))
+// emojiLanguages is the tables to try, in order: each of the desktop's
+// languages (libi18n.Languages) widened the way GTK's chooser widens its
+// locale, fr_CA.UTF-8 to fr-ca and then fr, and English last.
+func emojiLanguages(getenv func(string) string) []string {
 	var tags []string
-	if tag != "" && tag != "c" && tag != "posix" {
-		tags = append(tags, tag)
+	add := func(tag string) {
+		if !slices.Contains(tags, tag) {
+			tags = append(tags, tag)
+		}
+	}
+	for _, locale := range libi18n.Languages(getenv) {
+		tag := locale
+		if i := strings.IndexAny(tag, ".@"); i >= 0 {
+			tag = tag[:i]
+		}
+		tag = strings.ToLower(strings.ReplaceAll(tag, "_", "-"))
+		add(tag)
 		if base, _, ok := strings.Cut(tag, "-"); ok {
-			tags = append(tags, base)
+			add(base)
 		}
 	}
-	if !slices.Contains(tags, "en") {
-		tags = append(tags, "en")
-	}
+	add("en")
 	return tags
-}
-
-func currentLanguages() []string {
-	for _, key := range []string{"LC_ALL", "LC_MESSAGES", "LANG"} {
-		if v, ok := os.LookupEnv(key); ok {
-			return languagesFor(v)
-		}
-	}
-	return languagesFor("")
 }
 
 // parseEmojiTable reads every row of one table.
@@ -228,7 +225,7 @@ var (
 // English. It is parsed once per process.
 func AvailableEmoji() []Emoji {
 	emojiOnce.Do(func() {
-		for _, lang := range currentLanguages() {
+		for _, lang := range emojiLanguages(os.Getenv) {
 			f, err := emojiData.Open("emojidata/" + lang + ".data.gz")
 			if err != nil {
 				continue

@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
+
+	"github.com/stubbedev/lys/lib/i18n"
 )
 
 // DesktopGroup is the main group of a desktop entry.
@@ -30,7 +32,7 @@ var ErrMalformed = errors.New("desktopentry: malformed key file")
 // skipped; a key before any [group] or a line without '=' is
 // malformed, as GKeyFile refuses them.
 func ParseKeyFile(data []byte) (*KeyFile, error) {
-	kf := &KeyFile{groups: map[string]map[string]string{}, languages: Languages()}
+	kf := &KeyFile{groups: map[string]map[string]string{}, languages: i18n.Locales()}
 	var group map[string]string
 	line := 0
 	for raw := range strings.SplitSeq(string(data), "\n") {
@@ -189,43 +191,4 @@ func unescape(v string) string {
 		}
 	}
 	return b.String()
-}
-
-// Languages is g_get_language_names for the message locale:
-// LC_ALL, then LC_MESSAGES, then LANG, widened from lang_COUNTRY@MOD
-// to lang_COUNTRY, lang@MOD, and lang. C and POSIX name no language.
-func Languages() []string {
-	locale := ""
-	for _, key := range []string{"LC_ALL", "LC_MESSAGES", "LANG"} {
-		if v := os.Getenv(key); v != "" {
-			locale = v
-			break
-		}
-	}
-	return languagesFor(locale)
-}
-
-func languagesFor(locale string) []string {
-	if locale == "" || locale == "C" || locale == "POSIX" {
-		return nil
-	}
-	modifier := ""
-	if i := strings.IndexByte(locale, '@'); i >= 0 {
-		locale, modifier = locale[:i], locale[i:]
-	}
-	if i := strings.IndexByte(locale, '.'); i >= 0 {
-		locale = locale[:i]
-	}
-	lang, country, hasCountry := strings.Cut(locale, "_")
-	var out []string
-	if hasCountry {
-		if modifier != "" {
-			out = append(out, lang+"_"+country+modifier)
-		}
-		out = append(out, lang+"_"+country)
-	}
-	if modifier != "" {
-		out = append(out, lang+modifier)
-	}
-	return append(out, lang)
 }

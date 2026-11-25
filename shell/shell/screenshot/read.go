@@ -15,8 +15,8 @@ import (
 
 	"github.com/makiuchi-d/gozxing"
 	"github.com/makiuchi-d/gozxing/qrcode"
-	"github.com/stubbedev/lys/desktop/desktopentry"
 	"github.com/stubbedev/lys/desktop/i18n"
+	libi18n "github.com/stubbedev/lys/lib/i18n"
 	"github.com/stubbedev/lys/lib/portaldialogs"
 
 	"github.com/stubbedev/lys/shell/service/sharepreview"
@@ -78,7 +78,7 @@ func (h *Host) Read(c portaldialogs.Caller, kind ReadKind) (string, error) {
 			return "", ErrNoTesseract
 		}
 		var err error
-		if langs, err = ocrLanguages(h.Config().OcrLanguages, desktopentry.Languages()); err != nil {
+		if langs, err = ocrLanguages(h.Config().OcrLanguages, libi18n.Locales()); err != nil {
 			return "", err
 		}
 	}

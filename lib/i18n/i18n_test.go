@@ -88,6 +88,47 @@ func TestPluralExpressions(t *testing.T) {
 	}
 }
 
+func TestLanguagesPutLANGUAGEBeforeTheMessageLocale(t *testing.T) {
+	env := map[string]string{"LANGUAGE": "de:fr_CA::de", "LANG": "en_US.UTF-8"}
+	want := []string{"de", "fr_CA", "en_US.UTF-8"}
+	if got := Languages(func(k string) string { return env[k] }); !slices.Equal(got, want) {
+		t.Errorf("Languages(%v) = %v, want %v", env, got, want)
+	}
+}
+
+func TestLanguagesWithoutLANGUAGETakeTheFirstSetCategory(t *testing.T) {
+	for _, c := range []struct {
+		env  map[string]string
+		want []string
+	}{
+		{map[string]string{"LC_ALL": "fr_FR", "LC_MESSAGES": "de_DE", "LANG": "en_US"}, []string{"fr_FR"}},
+		{map[string]string{"LC_ALL": "", "LC_MESSAGES": "de_DE.UTF-8@euro", "LANG": "en_US"}, []string{"de_DE.UTF-8@euro"}},
+		{map[string]string{"LANG": "en_GB.UTF-8"}, []string{"en_GB.UTF-8"}},
+		{map[string]string{}, nil},
+	} {
+		if got := Languages(func(k string) string { return c.env[k] }); !slices.Equal(got, c.want) {
+			t.Errorf("Languages(%v) = %v, want %v", c.env, got, c.want)
+		}
+	}
+}
+
+func TestLanguagesDropTheLocalesNamingNoLanguage(t *testing.T) {
+	for _, c := range []struct {
+		env  map[string]string
+		want []string
+	}{
+		{map[string]string{"LANG": "C"}, nil},
+		{map[string]string{"LANG": "C.UTF-8"}, nil},
+		{map[string]string{"LANG": "POSIX"}, nil},
+		{map[string]string{"LC_ALL": "C", "LANG": "de_DE.UTF-8"}, nil},
+		{map[string]string{"LANGUAGE": "C:POSIX.UTF-8:nl", "LANG": "C.UTF-8"}, []string{"nl"}},
+	} {
+		if got := Languages(func(k string) string { return c.env[k] }); !slices.Equal(got, c.want) {
+			t.Errorf("Languages(%v) = %v, want %v", c.env, got, c.want)
+		}
+	}
+}
+
 func TestLocalesExpandFromTheEnvironment(t *testing.T) {
 	t.Setenv("LANGUAGE", "nb_NO:de")
 	t.Setenv("LC_ALL", "")

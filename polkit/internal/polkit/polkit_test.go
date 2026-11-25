@@ -62,9 +62,9 @@ func TestServeRegistersTheResolvedSession(t *testing.T) {
 		{
 			name:        "inside a session",
 			logind:      logindtest.Config{Own: "c2", Display: "3"},
-			env:         map[string]string{"LC_MESSAGES": "da_DK.UTF-8", "LANG": "en_US.UTF-8"},
+			env:         map[string]string{"LANGUAGE": "de_DE", "LC_MESSAGES": "da_DK.UTF-8", "LANG": "en_US.UTF-8"},
 			wantSubject: "unix-session c2",
-			wantLocale:  "da_DK.UTF-8",
+			wantLocale:  "de_DE",
 		},
 		{
 			name:        "outside any session",
@@ -172,11 +172,15 @@ func TestLocale(t *testing.T) {
 		env  map[string]string
 		want string
 	}{
+		{name: "LANGUAGE before LANG", env: map[string]string{"LANGUAGE": "de:en", "LANG": "en_US.UTF-8"}, want: "de"},
+		{name: "LANGUAGE before LC_ALL", env: map[string]string{"LANGUAGE": "pt_BR:pt", "LC_ALL": "da_DK.UTF-8"}, want: "pt_BR"},
+		{name: "LANGUAGE's C entries are skipped", env: map[string]string{"LANGUAGE": "C:nl", "LANG": "en_US.UTF-8"}, want: "nl"},
 		{name: "LC_ALL wins", env: map[string]string{"LC_ALL": "de_DE.UTF-8", "LC_MESSAGES": "da_DK.UTF-8", "LANG": "en_US.UTF-8"}, want: "de_DE.UTF-8"},
 		{name: "LC_MESSAGES before LANG", env: map[string]string{"LC_MESSAGES": "da_DK.UTF-8", "LANG": "en_US.UTF-8"}, want: "da_DK.UTF-8"},
 		{name: "LANG alone", env: map[string]string{"LANG": "en_US.UTF-8"}, want: "en_US.UTF-8"},
 		{name: "empty values are unset", env: map[string]string{"LC_ALL": "", "LANG": "en_US.UTF-8"}, want: "en_US.UTF-8"},
 		{name: "none set is POSIX", env: map[string]string{}, want: "C"},
+		{name: "a C locale is POSIX", env: map[string]string{"LC_ALL": "C.UTF-8", "LANG": "de_DE.UTF-8"}, want: "C"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

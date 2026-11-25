@@ -9,6 +9,7 @@ import (
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/fdtest"
+	"github.com/stubbedev/lys/lib/i18n"
 	"github.com/stubbedev/lys/lib/waittest"
 )
 
@@ -24,18 +25,34 @@ func write(t *testing.T, dir, rel, body string) string {
 	return path
 }
 
-func TestKeyFileStringsListsAndLocales(t *testing.T) {
-	kf, err := ParseKeyFile([]byte("# c\n[Desktop Entry]\nName=Files\nName[de]=Dateien\nComment=a\\sb\\nc\nKeywords=one;two\\;half;three;\nNoDisplay=true\n"))
+func setLocale(t *testing.T, env map[string]string) {
+	t.Helper()
+	for _, k := range []string{"LANGUAGE", "LC_ALL", "LC_MESSAGES", "LANG"} {
+		t.Setenv(k, env[k])
+	}
+}
+
+func localizedName(t *testing.T, env map[string]string, body string) string {
+	t.Helper()
+	setLocale(t, env)
+	kf, err := ParseKeyFile([]byte("[Desktop Entry]\nName=Files\n" + body))
 	if err != nil {
 		t.Fatal(err)
 	}
-	kf.languages = languagesFor("de_DE.UTF-8")
-	if v, _ := kf.LocaleString(DesktopGroup, "Name"); v != "Dateien" {
+	v, _ := kf.LocaleString(DesktopGroup, "Name")
+	return v
+}
+
+func TestKeyFileStringsListsAndLocales(t *testing.T) {
+	if v := localizedName(t, map[string]string{"LANG": "de_DE.UTF-8"}, "Name[de]=Dateien\n"); v != "Dateien" {
 		t.Errorf("localized name = %q", v)
 	}
-	kf.languages = languagesFor("fr_FR")
-	if v, _ := kf.LocaleString(DesktopGroup, "Name"); v != "Files" {
+	if v := localizedName(t, map[string]string{"LANG": "fr_FR"}, "Name[de]=Dateien\n"); v != "Files" {
 		t.Errorf("fallback name = %q", v)
+	}
+	kf, err := ParseKeyFile([]byte("# c\n[Desktop Entry]\nComment=a\\sb\\nc\nKeywords=one;two\\;half;three;\nNoDisplay=true\n"))
+	if err != nil {
+		t.Fatal(err)
 	}
 	if v, _ := kf.String(DesktopGroup, "Comment"); v != "a b\nc" {
 		t.Errorf("escapes = %q", v)
@@ -57,12 +74,45 @@ func TestMalformedKeyFilesAreRefused(t *testing.T) {
 }
 
 func TestLanguagesWiden(t *testing.T) {
-	if got := languagesFor("sr_RS.UTF-8@latin"); !reflect.DeepEqual(got, []string{"sr_RS@latin", "sr_RS", "sr@latin", "sr"}) {
+	setLocale(t, map[string]string{"LANG": "sr_RS.UTF-8@latin"})
+	if got := i18n.Locales(); !reflect.DeepEqual(got, []string{"sr_RS@latin", "sr_RS", "sr@latin", "sr"}) {
 		t.Errorf("got %q", got)
 	}
-	for _, l := range []string{"", "C", "POSIX"} {
-		if got := languagesFor(l); got != nil {
+	for _, l := range []string{"", "C", "C.UTF-8", "POSIX"} {
+		setLocale(t, map[string]string{"LANG": l})
+		if got := i18n.Locales(); got != nil {
 			t.Errorf("%q = %q, want none", l, got)
+		}
+	}
+}
+
+func TestEntryNamesFollowLANGUAGEBeforeLANG(t *testing.T) {
+	const names = "Name[de]=Dateien\nName[en_US]=Files (US)\nName[nl]=Bestanden\n"
+	if v := localizedName(t, map[string]string{"LANGUAGE": "de:en", "LANG": "en_US.UTF-8"}, names); v != "Dateien" {
+		t.Errorf("LANGUAGE=de:en, LANG=en_US: name = %q, want the German one", v)
+	}
+	if v := localizedName(t, map[string]string{"LANGUAGE": "ja:nl_BE", "LANG": "en_US.UTF-8"}, names); v != "Bestanden" {
+		t.Errorf("LANGUAGE=ja:nl_BE, LANG=en_US: name = %q, want the Dutch one", v)
+	}
+	if v := localizedName(t, map[string]string{"LANGUAGE": "ja", "LANG": "en_US.UTF-8"}, names); v != "Files (US)" {
+		t.Errorf("LANGUAGE=ja, LANG=en_US: name = %q, want LANG's after the untranslated ja", v)
+	}
+}
+
+func TestEntryNamesWithoutLANGUAGEFollowTheFirstSetCategory(t *testing.T) {
+	const names = "Name[de]=Dateien\nName[en_US]=Files (US)\nName[nl]=Bestanden\n"
+	for _, c := range []struct {
+		env  map[string]string
+		want string
+	}{
+		{map[string]string{"LC_ALL": "nl_NL.UTF-8", "LC_MESSAGES": "de_DE.UTF-8", "LANG": "en_US.UTF-8"}, "Bestanden"},
+		{map[string]string{"LC_MESSAGES": "de_DE.UTF-8", "LANG": "en_US.UTF-8"}, "Dateien"},
+		{map[string]string{"LANG": "en_US.UTF-8"}, "Files (US)"},
+		{map[string]string{"LC_ALL": "C", "LANG": "de_DE.UTF-8"}, "Files"},
+		{map[string]string{}, "Files"},
+	} {
+		if v := localizedName(t, c.env, names); v != c.want {
+			t.Errorf("%v: name = %q, want %q", c.env, v, c.want)
 		}
 	}
 }

@@ -16,6 +16,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -245,27 +246,45 @@ func unquotePO(s string) (string, error) {
 	return strconv.Unquote(s)
 }
 
-// Locales returns the locale candidates gettext would try, most
-// specific first, from LANGUAGE, LC_ALL, LC_MESSAGES and LANG: for
-// "nb_NO.UTF-8@euro" that is nb_NO@euro, nb_NO, nb@euro, nb. The C and
-// POSIX locales mean no translation.
-func Locales() []string {
-	var names []string
-	if lang := os.Getenv("LANGUAGE"); lang != "" {
-		names = strings.Split(lang, ":")
+// Languages is the message locales the environment asks for, most
+// preferred first, as g_get_language_names reads them: every LANGUAGE
+// entry, then the first of LC_ALL, LC_MESSAGES and LANG that is set.
+// An entry that names no language (empty, C or POSIX with any codeset
+// or modifier) and a repeat are dropped; the rest are spelled as the
+// environment spells them, such as "de_DE.UTF-8@euro".
+func Languages(getenv func(string) string) []string {
+	var out []string
+	add := func(name string) {
+		if namesLanguage(name) && !slices.Contains(out, name) {
+			out = append(out, name)
+		}
+	}
+	for name := range strings.SplitSeq(getenv("LANGUAGE"), ":") {
+		add(name)
 	}
 	for _, v := range []string{"LC_ALL", "LC_MESSAGES", "LANG"} {
-		if s := os.Getenv(v); s != "" {
-			names = append(names, s)
+		if s := getenv(v); s != "" {
+			add(s)
 			break
 		}
 	}
+	return out
+}
+
+func namesLanguage(name string) bool {
+	base, _, _ := strings.Cut(name, "@")
+	base, _, _ = strings.Cut(base, ".")
+	return base != "" && base != "C" && base != "POSIX"
+}
+
+// Locales returns the locale candidates gettext would try, most
+// specific first, for each of Languages in turn: for
+// "nb_NO.UTF-8@euro" that is nb_NO@euro, nb_NO, nb@euro, nb.
+func Locales() []string {
 	var out []string
-	seen := map[string]bool{}
-	for _, name := range names {
+	for _, name := range Languages(os.Getenv) {
 		for _, c := range expand(name) {
-			if !seen[c] {
-				seen[c] = true
+			if !slices.Contains(out, c) {
 				out = append(out, c)
 			}
 		}
@@ -274,9 +293,6 @@ func Locales() []string {
 }
 
 func expand(name string) []string {
-	if name == "" || name == "C" || name == "POSIX" || strings.HasPrefix(name, "C.") {
-		return nil
-	}
 	rest, modifier, _ := strings.Cut(name, "@")
 	rest, _, _ = strings.Cut(rest, ".")
 	lang, territory, hasTerritory := strings.Cut(rest, "_")
