@@ -117,7 +117,7 @@ func (p *positionPicker) Paint(cv *render.Canvas) {
 		r := p.cellRect(cellOf(h.key))
 		fill := th.CardColor()
 		if h.key == p.current {
-			fill = th.Accent
+			fill = accentOf(th, p)
 		}
 		cv.RoundedRect(r, tileRadius/2, fill)
 		switch {

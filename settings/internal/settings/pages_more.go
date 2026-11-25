@@ -181,7 +181,7 @@ func launcherPage(*config.Config) pageSpec {
 			field("launcher.negate-char", negateCharRow),
 			field("launcher.normalize-match"),
 			field("launcher.sort"),
-			field("launcher.sorting-method"),
+			field("launcher.sorting-method", enabledBy("launcher.sort")),
 			field("launcher.auto-select"),
 			field("launcher.hover-select"),
 		}},

@@ -193,15 +193,19 @@ func (c *choiceCard) Paint(cv *render.Canvas) {
 	selected := c.value == c.owner.current
 	switch {
 	case selected:
-		cv.RoundedBorder(b, corners, render.UniformInsets(choiceRing), th.Accent)
+		cv.RoundedBorder(b, corners, render.UniformInsets(choiceRing), accentOf(th, c))
 	case widget.FocusVisible(c):
 		cv.RoundedBorder(b, corners, render.UniformInsets(focusRing), th.Text)
 	default:
 		cv.RoundedBorder(b, corners, render.UniformInsets(1), th.Border)
 	}
 	px := c.k.textPx()
+	ink := th.Text
+	if !widget.IsEnabled(c) {
+		ink = c.k.disabledInk()
+	}
 	for _, line := range c.labelLines() {
-		c.k.face.DrawAligned(cv, line.text, line.box, px, th.Text, render.AlignCenter)
+		c.k.face.DrawAligned(cv, line.text, line.box, px, ink, render.AlignCenter)
 	}
 }
 

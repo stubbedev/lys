@@ -61,3 +61,104 @@ func TestADisabledRowsChipsAndPreviewDimWithItsTitle(t *testing.T) {
 		t.Fatalf("checked %d of Mail's notification formats", checked)
 	}
 }
+
+// With Show Dock off, Pinned Apps dimmed its title while its "No apps
+// are pinned" stayed brighter than it. A disabled row's empty-state line
+// is drawn no brighter than its disabled title.
+func TestADisabledRowsEmptyStateDimsWithItsTitle(t *testing.T) {
+	win := laidOutPage(t, "dock:\n  enabled: false\n  pinned: []\n", "dock", sweepW)
+	checked := 0
+	for _, r := range win.page.rows {
+		if r.path != "dock.pinned" {
+			continue
+		}
+		if widget.IsEnabled(r) {
+			t.Fatal("Pinned Apps is enabled with the dock off")
+		}
+		title := brightestIn(r, r.Bounds(), titleLabel(r).Bounds())
+		for _, s := range treetest.All[*inlineState](r) {
+			if !shown(s) {
+				continue
+			}
+			if got := brightestIn(r, r.Bounds(), s.summary.Bounds()); got > title*1.02 {
+				t.Errorf("%q paints %.3f, brighter than its disabled title's %.3f", s.Text(), got, title)
+			}
+			checked++
+		}
+	}
+	if checked == 0 {
+		t.Fatal("the Dock page shows no empty Pinned Apps")
+	}
+}
+
+// With Show Dock off, Edge's chosen cell stayed in the full accent while
+// its title dimmed. A disabled row's picture marks its choice in the
+// disabled accent, well under the accent's brightness.
+func TestADisabledRowsPictureMarksItsChoiceDimmed(t *testing.T) {
+	win := laidOutPage(t, "dock:\n  enabled: false\n", "dock", sweepW)
+	th := widget.Current()
+	pickers := 0
+	for _, r := range win.page.rows {
+		for _, p := range treetest.All[*positionPicker](r) {
+			if widget.IsEnabled(p) {
+				t.Fatalf("%s is enabled with the dock off", r.path)
+			}
+			for _, h := range p.handles {
+				if h.key != p.current {
+					continue
+				}
+				cell := p.cellRect(cellOf(h.key))
+				mid := render.Rect{X: cell.X + cell.W/2, Y: cell.Y + cell.H/2, W: 1, H: 1}
+				if got, accent := brightestIn(r, r.Bounds(), mid), relativeLuminance(th.Accent); got > accent/2 {
+					t.Errorf("%s's chosen cell paints %.3f, near the full accent's %.3f", r.path, got, accent)
+				}
+			}
+			pickers++
+		}
+	}
+	if pickers == 0 {
+		t.Fatal("the Dock page shows no edge picker")
+	}
+}
+
+// With Show title bars off, Button side's cards kept their names in the
+// full text colour and the chosen one's ring in the full accent. A
+// disabled row's cards set their names in the subtle ink its title takes
+// and ring their choice in the disabled accent.
+func TestADisabledRowsCardsDimWithItsTitle(t *testing.T) {
+	win := laidOutPage(t, "", "wm-windows", sweepW)
+	accent := relativeLuminance(widget.Current().Accent)
+	checked := 0
+	for _, r := range win.page.rows {
+		if r.path != "titlebars.side" {
+			continue
+		}
+		if widget.IsEnabled(r) {
+			t.Fatal("Button side is enabled with title bars off")
+		}
+		buf := make([]byte, 4)
+		swatch := render.New(buf, 4, 1, 1)
+		swatch.FillRect(render.Rect{W: 1, H: 1}, widget.Current().CardColor())
+		swatch.FillRect(render.Rect{W: 1, H: 1}, win.k.disabledInk())
+		subtle := relativeLuminance(render.RGB(buf[2], buf[1], buf[0]))
+		for _, c := range treetest.All[*choiceCards](r) {
+			for _, card := range c.cards {
+				for _, line := range card.labelLines() {
+					if got := brightestIn(r, r.Bounds(), line.box); got > subtle*1.05 {
+						t.Errorf("%q paints %.3f, brighter than the disabled title's ink at %.3f", line.text, got, subtle)
+					}
+				}
+				if card.value == c.current {
+					b := card.Bounds()
+					if got := brightestIn(r, r.Bounds(), render.Rect{X: b.X, Y: b.Y + b.H/2, W: choiceRing, H: 1}); got > accent/2 {
+						t.Errorf("the chosen %q is ringed at %.3f, near the full accent's %.3f", card.label, got, accent)
+					}
+				}
+				checked++
+			}
+		}
+	}
+	if checked == 0 {
+		t.Fatal("the Windows page shows no Button side cards")
+	}
+}

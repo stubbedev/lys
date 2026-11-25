@@ -636,9 +636,9 @@ func wmWindowsPage() pageSpec {
 		sectionSpec{title: "wm-section-focus", rows: wmFields("focus.follows_mouse", "focus.raise_on_hover", "focus.warp_pointer", "focus.on_close", "focus.on_activate")},
 		sectionSpec{title: "wm-section-window-behavior", rows: wmFields("fullscreen.new_window", "hold_opening", "floating.step")},
 		sectionSpec{title: "wm-section-swallow", rows: wmSwallowRows()},
-		sectionSpec{title: "wm-section-titlebars", rows: append(append([]rowSpec{wmField("titlebars.floating"), wmField("titlebars.height", softPixels(16, 48)), wmField("titlebars.side", pictureChoice(titlebarSidePictures)), wmField("titlebars.double_click")}, wmListRow("titlebars.buttons")),
+		sectionSpec{title: "wm-section-titlebars", rows: switchedBy("titlebars.floating", append([]rowSpec{wmField("titlebars.height", softPixels(16, 48)), wmField("titlebars.side", pictureChoice(titlebarSidePictures)), wmField("titlebars.double_click"), wmListRow("titlebars.buttons")},
 			wmFields("titlebars.active.background", "titlebars.active.text", "titlebars.inactive.background", "titlebars.inactive.text",
-				"titlebars.urgent.background", "titlebars.urgent.text", "titlebars.lights.close", "titlebars.lights.minimize", "titlebars.lights.maximize")...)},
+				"titlebars.urgent.background", "titlebars.urgent.text", "titlebars.lights.close", "titlebars.lights.minimize", "titlebars.lights.maximize")...)...)},
 	))
 }
 

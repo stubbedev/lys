@@ -243,3 +243,46 @@ func TestTheMotionRowsRestWhileAnimationsAreOff(t *testing.T) {
 		t.Error("turning animations on left their rows disabled")
 	}
 }
+
+// With Show title bars off, Windows' title bar rows stayed at full
+// contrast, and Launcher's Sorting Method did while Sort Results was off,
+// though neither does anything then. Each follows the switch it depends
+// on: disabled while it is off, enabled while it is on.
+func TestRowsOfAnOffFeatureFollowItsSwitch(t *testing.T) {
+	for _, tc := range []struct {
+		page, master string
+		dependent    func(path string) bool
+	}{
+		{"wm-windows", "titlebars.floating", func(path string) bool {
+			return strings.HasPrefix(path, "titlebars.") && path != "titlebars.floating"
+		}},
+		{"launcher", "launcher.sort", func(path string) bool { return path == "launcher.sorting-method" }},
+	} {
+		p, ok := pageByID(layout(config.Defaults(), parts{shell: true, wm: true}), tc.page)
+		if !ok {
+			t.Fatalf("no %s page", tc.page)
+		}
+		governed := 0
+		for _, s := range p.sections {
+			for _, r := range s.flatRows() {
+				path := r.path
+				if !tc.dependent(path) {
+					continue
+				}
+				governed++
+				if r.enabledWhen.path != tc.master || r.enabledWhen.holds(false) || !r.enabledWhen.holds(true) {
+					t.Errorf("%s: %s is enabled by %q, want by the switch %s", tc.page, path, r.enabledWhen.path, tc.master)
+				}
+			}
+		}
+		if governed == 0 {
+			t.Errorf("%s shows no row depending on %s", tc.page, tc.master)
+		}
+	}
+	win := laidOutPage(t, "launcher:\n  sort: false\n", "launcher", sweepW)
+	for _, r := range win.page.rows {
+		if r.path == "launcher.sorting-method" && widget.IsEnabled(r) {
+			t.Error("Sorting Method is enabled with Sort Results off")
+		}
+	}
+}

@@ -1,6 +1,9 @@
 package settings
 
 import (
+	"log"
+
+	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
 )
@@ -44,6 +47,28 @@ func (t *tile) HitTest(p widget.Point) widget.Widget {
 func (t *tile) PressAt(widget.Point) { t.activate() }
 
 func (t *tile) FocusMoved(_, _ widget.Widget) { t.Invalidate() }
+
+// accentOf is the accent w marks its choice in: the theme's accent, or
+// its disabled accent while w or a row holding it is disabled, so a
+// disabled row's picture dims with its title.
+func accentOf(th *widget.Theme, w widget.Widget) render.Color {
+	if widget.IsEnabled(w) {
+		return th.Accent
+	}
+	return th.DisabledAccent()
+}
+
+// disabledInk is the text colour a disabled row's title takes from the
+// stylesheet, the palette's subtle foreground, for text a picture sets
+// in a disabled row.
+func (k *kit) disabledInk() render.Color {
+	p := k.palette()
+	c, ok := p.Token(config.TokenFgSubtle)
+	if !ok {
+		log.Panicf("settings: the palette resolves no %s", config.TokenFgSubtle)
+	}
+	return c
+}
 
 // spot is the focus stand-in of one spot a picture draws and hit-tests
 // itself, a screen corner or a finger: it takes no room and no pointer,
