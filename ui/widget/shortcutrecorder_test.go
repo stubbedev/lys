@@ -23,7 +23,7 @@ func recorderKeycaps(r *ShortcutRecorder) []string {
 func recorderPrompt(r *ShortcutRecorder) string {
 	var out string
 	walkTree(r.display, func(w Widget, _ int) {
-		if l, ok := w.(*Label); ok && l.hasClass(css.DimLabel) {
+		if l, ok := w.(*Label); ok && l.hasClass("prompt") {
 			out = l.Text()
 		}
 	})
@@ -423,5 +423,47 @@ func TestNewTapRefusesWhatIsNoTap(t *testing.T) {
 			}()
 			NewTap(c.mod, c.held)
 		}()
+	}
+}
+
+// The recorder's face is an outline button, as tall and framed as one
+// beside it; listening, it rings as a focused entry does and its prompt
+// takes the accent, not the dim placeholder look of a disabled control
+// (#282, #315).
+func TestShortcutRecorderLooksLikeAButtonAndRingsWhileListening(t *testing.T) {
+	face := chromeFace(t)
+	r := NewShortcutRecorder(face, "")
+	r.SetClearable(false)
+	peer := NewButton(NewLabel(face, 14, "Add", 0), 0, 0)
+	peer.AddClass(css.Outline)
+	row := NewBox(Row, 8, 0)
+	row.AppendAligned(r, false, AlignCenter)
+	row.AppendAligned(peer, false, AlignCenter)
+	arrangeTree(t, row, 400, 60)
+	if got, want := r.button.Bounds().H, peer.Bounds().H; got != want {
+		t.Errorf("recorder face %dpx tall, the outline button beside it %dpx", got, want)
+	}
+	rest := r.button.style(r.button)
+	if borderOf(rest).Top == 0 {
+		t.Error("the resting face has no border")
+	}
+	ring := Current().RingColor()
+	if c := borderColors(rest)[0]; c == ring {
+		t.Error("the resting face already wears the ring color")
+	}
+	r.StartRecording()
+	CollectDamage(row)
+	rec := r.button.style(r.button)
+	if c := borderColors(rec)[0]; c != ring {
+		t.Errorf("listening border %08x, want the ring color %08x", uint32(c), uint32(ring))
+	}
+	var prompt *Label
+	walkTree(r.display, func(w Widget, _ int) {
+		if l, ok := w.(*Label); ok && l.hasClass("prompt") {
+			prompt = l
+		}
+	})
+	if prompt == nil || prompt.hasClass(css.DimLabel) || !prompt.hasClass(css.Accent) {
+		t.Errorf("listening prompt %v, want it in the accent, not dim", prompt)
 	}
 }

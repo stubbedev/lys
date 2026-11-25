@@ -68,8 +68,10 @@ func (t Tap) String() string { return strings.Join(t.Labels(), "+") }
 // of it with the other modifiers held. Escape cancels, keeping the old
 // value and the message shown under it, Backspace alone clears it, and
 // losing focus cancels. A Validate error shows under the control while
-// it keeps recording. It styles as the `shortcutrecorder` element, the
-// button .recording while it records, the message an .error label.
+// it keeps recording. It styles as the `shortcutrecorder` element, its
+// face an outline button, ringed as a focused entry is and its
+// .prompt in the accent while it records (.recording), the message an
+// .error label.
 type ShortcutRecorder struct {
 	composite
 	face      render.Font
@@ -106,7 +108,8 @@ type ShortcutRecorder struct {
 }
 
 // recorderButton is the recorder's focusable face: the widget that
-// holds focus, so the one the window hands its key stream to.
+// holds focus, so the one the window hands its key stream to. Its type
+// names no element, so it names itself a `button`.
 type recorderButton struct {
 	*Button
 	r *ShortcutRecorder
@@ -118,7 +121,9 @@ func NewShortcutRecorder(face render.Font, accel string) *ShortcutRecorder {
 	face = requireFace("widget.NewShortcutRecorder", face)
 	r := &ShortcutRecorder{face: face, box: NewBox(Column, 4, 0), row: NewBox(Row, 6, 0), display: NewBox(Row, 0, 0), value: accel, clearable: true}
 	r.SetElement("shortcutrecorder")
-	r.button = &recorderButton{Button: NewButton(r.display, 6, 4), r: r}
+	r.button = &recorderButton{Button: NewButton(r.display, 0, 0), r: r}
+	r.button.SetElement("button")
+	r.button.AddClass(css.Outline)
 	r.button.OnClick = r.StartRecording
 	r.button.SetAccessibleName(Tr("Shortcut"))
 	r.button.SetOnFocusChanged(func(focused bool) {
@@ -317,11 +322,11 @@ func (r *ShortcutRecorder) refresh() {
 	case r.recording && r.held != 0:
 		r.display.AppendAligned(NewShortcutLabel(r.face, strings.Join(modifierNames(r.held), "+")), false, AlignCenter)
 	case r.recording:
-		r.display.AppendAligned(r.dimLabel(Tr("Press a shortcut…")), false, AlignCenter)
+		r.display.AppendAligned(r.promptLabel(Tr("Press a shortcut…"), css.Accent), false, AlignCenter)
 	case r.shownValue() != "":
 		r.display.AppendAligned(NewShortcutLabel(r.face, r.shownValue()), false, AlignCenter)
 	default:
-		r.display.AppendAligned(r.dimLabel(Tr("Unassigned")), false, AlignCenter)
+		r.display.AppendAligned(r.promptLabel(Tr("Unassigned"), css.DimLabel), false, AlignCenter)
 	}
 	r.button.SetClass("recording", r.recording)
 	r.row.Remove(r.clear)
@@ -332,10 +337,11 @@ func (r *ShortcutRecorder) refresh() {
 	r.InvalidateLayout()
 }
 
-// dimLabel is a secondary-emphasis prompt.
-func (r *ShortcutRecorder) dimLabel(text string) *Label {
+// promptLabel is a prompt in place of keycaps, colored by class: dim
+// while unassigned, the accent while it listens.
+func (r *ShortcutRecorder) promptLabel(text, class string) *Label {
 	l := NewLabel(r.face, shortcutRecorderSize, text, 0)
-	l.AddClass(css.DimLabel)
+	l.AddClass("prompt", class)
 	return l
 }
 
