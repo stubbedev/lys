@@ -58,7 +58,8 @@ func themeTitle(name string) string {
 
 // miniDesktop draws a desktop in a theme's colors: its bar on the
 // surface with the primary in it, a window on the elevated color over
-// the background, and the four signal colors.
+// the background, and the four signal colors in a column centred in
+// the room under the bar.
 func miniDesktop(colors []render.Color) func(cv *render.Canvas, r render.Rect) {
 	bg, surface, elevated, fg, fgMuted, primary := colors[0], colors[1], colors[2], colors[3], colors[4], colors[5]
 	signals := colors[6:]
@@ -73,10 +74,12 @@ func miniDesktop(colors []render.Color) func(cv *render.Canvas, r render.Rect) {
 		cv.RoundedRect(win, tileRadius/2, elevated)
 		windowLines(cv, win, fgMuted)
 		size := max(3, r.H/8)
+		pitch := size + size/2
+		below := bar.Y + bar.H
+		top := below + (r.Y+r.H-below-(len(signals)*pitch-size/2))/2
 		for i, col := range signals {
 			x := r.X + r.W - size - r.W/16
-			y := win.Y + i*(size+size/2)
-			cv.RoundedRect(render.Rect{X: x, Y: y, W: size, H: size}, size/2, col)
+			cv.RoundedRect(render.Rect{X: x, Y: top + i*pitch, W: size, H: size}, size/2, col)
 		}
 	}
 }
