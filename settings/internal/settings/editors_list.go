@@ -55,6 +55,9 @@ type listEditor struct {
 	rows  *widget.Box
 	add   *widget.Button
 	items []listItem
+	// arrows are each row's move up and move down buttons, nil without
+	// reordering.
+	arrows [][2]*widget.Button
 }
 
 func newListEditor(k *kit, s slot, spec listSpec) *listEditor {
@@ -113,16 +116,21 @@ func (c *listEditor) commit() { _ = c.slot.set(c.encoded()) }
 
 func (c *listEditor) rebuild(values []any) {
 	c.rows.Clear()
-	c.items = nil
+	c.items, c.arrows = nil, nil
 	for _, v := range values {
 		c.appendRow(v)
 	}
 	c.fit()
 }
 
-// fit hides the add button once the list is full.
+// fit hides the add button once the list is full, and enables each
+// row's arrows only toward a row they can swap with.
 func (c *listEditor) fit() {
 	c.add.SetVisible(c.spec.full == nil || !c.spec.full(len(c.items)))
+	for i, a := range c.arrows {
+		a[0].SetEnabled(i > 0)
+		a[1].SetEnabled(i < len(c.arrows)-1)
+	}
 }
 
 // pickNew has the spec's pick choose a new item: its first choice adds
@@ -149,6 +157,7 @@ func (c *listEditor) appendRow(v any) {
 	row.Append(item, true)
 	if c.spec.reorder {
 		up, down := c.k.moveButtons(func(by int) { c.move(item, by) })
+		c.arrows = append(c.arrows, [2]*widget.Button{up, down})
 		row.AppendAligned(up, false, widget.AlignCenter)
 		row.AppendAligned(down, false, widget.AlignCenter)
 	}
