@@ -1,4 +1,4 @@
-Would install 65 icons:
+Would install 64 icons:
   cm-gone-symbolic (no auto-install: import manually)
   ld-activity-symbolic (from lucide)
   ld-alert-triangle-symbolic (from lucide)
@@ -61,6 +61,5 @@ Would install 65 icons:
   ld-wifi-off-symbolic (from lucide)
   ld-wifi-symbolic (from lucide)
   ld-wifi-sync-symbolic (from lucide)
-  ld-wifi-zero-symbolic (from lucide)
   md-home-symbolic (from material)
   si-github-symbolic (from simple-icons)
