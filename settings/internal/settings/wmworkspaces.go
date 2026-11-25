@@ -109,7 +109,7 @@ func wmNamedCards(path, nameKey string, body func(k *kit) namedCardBody) rowSpec
 					}
 					return check(named)
 				},
-				identity: &cardField{key: itemNameKey, label: nameKey, editor: func(k *kit, s slot) control {
+				identity: &cardField{key: itemNameKey, label: nameKey, fill: true, editor: func(k *kit, s slot) control {
 					return newLiveText(k, s, locale.T().Get(nameKey))
 				}},
 				fields: b.fields,

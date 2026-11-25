@@ -536,9 +536,8 @@ func (c *cardList) appendCard(i int) {
 	header.AddClass(look.header)
 	cd := &card{}
 	if id := c.spec.identity; id != nil {
-		header.AppendAligned(formLabel(id.label), false, widget.AlignCenter)
 		cd.identity = id.editor(c.k, c.fieldSlot(i, id.key))
-		header.AppendAligned(cd.identity, true, widget.AlignCenter)
+		header.Append(grid.row(formLabel(id.label), cd.identity, id.fill), true)
 	} else {
 		if c.spec.icon != nil {
 			cd.icon = widget.NewThemeIcon(c.spec.icon(c.local[i]), appIconPx)
@@ -926,7 +925,7 @@ func (c *liveText) refresh() {
 // preset without an id is not stored, an empty label or icon is none.
 var toastPresetList = cardRow(cardSpec{
 	unique:   "id",
-	identity: &cardField{key: "id", label: "settings-toast-preset-id", editor: func(k *kit, s slot) control { return newLiveText(k, s, "id") }},
+	identity: &cardField{key: "id", label: "settings-toast-preset-id", fill: true, editor: func(k *kit, s slot) control { return newLiveText(k, s, "id") }},
 	fields: []cardField{
 		{key: "label", label: "settings-toast-preset-label", editor: func(k *kit, s slot) control { return newLiveText(k, s, "label") }},
 		{key: "icon", label: "settings-toast-preset-icon", editor: func(k *kit, s slot) control { return newIconEditor(k, s) }},

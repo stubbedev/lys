@@ -13,7 +13,7 @@ import (
 // name or pattern in the header, the icon picked and the color chosen; a
 // nameless override is not written, and an empty icon is unset.
 var trayOverrideList = cardRow(cardSpec{
-	identity: &cardField{key: "name", label: "settings-tray-override-name", editor: func(k *kit, s slot) control {
+	identity: &cardField{key: "name", label: "settings-tray-override-name", fill: true, editor: func(k *kit, s slot) control {
 		return newLiveText(k, s, locale.T().Get("settings-tray-name-placeholder"))
 	}},
 	fields: []cardField{
@@ -40,7 +40,7 @@ var calendarList = cardRow(cardSpec{
 // mailAccountList edits the mail accounts: a card per account, its name in the header; a nameless account is not written,
 // an empty icon is unset (the provider's default).
 var mailAccountList = cardRow(cardSpec{
-	identity: &cardField{key: "name", label: "settings-mail-account-name", editor: func(k *kit, s slot) control {
+	identity: &cardField{key: "name", label: "settings-mail-account-name", fill: true, editor: func(k *kit, s slot) control {
 		return newLiveText(k, s, "name")
 	}},
 	fields: []cardField{
@@ -74,7 +74,7 @@ func presetBlank(preset any) func() map[string]any {
 func presetNamed(item map[string]any) bool { name, _ := item["name"].(string); return name != "" }
 
 func presetName() *cardField {
-	return &cardField{key: "name", label: "settings-generator-preset-name", editor: func(k *kit, s slot) control {
+	return &cardField{key: "name", label: "settings-generator-preset-name", fill: true, editor: func(k *kit, s slot) control {
 		return newLiveText(k, s, "name")
 	}}
 }

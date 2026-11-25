@@ -65,6 +65,7 @@ func (f itemForm[T]) field(key string) cardField {
 
 func (f itemForm[T]) identity(key string) *cardField {
 	c := f.with(key, func(k *kit, s slot, _ config.FieldMeta) control { return newLiveText(k, s, "") })
+	c.fill = true
 	return &c
 }
 
