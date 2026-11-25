@@ -8,11 +8,11 @@ import (
 	"github.com/stubbedev/lys/ui/widget"
 )
 
-// A dialog hosts its content outside the window's tree, where the app's
-// stylesheet did not reach: its setting rows took lys-ui's bare look,
-// larger than the page's and with their controls out of line. Styled as
-// a dialog's content, a row measures as it does on the page.
-func TestADialogsRowsReadLikeThePagesRows(t *testing.T) {
+// A popover hosts its content outside the window's tree, where the
+// app's stylesheet does not reach unless put there: unstyled, its setting
+// rows take lys-ui's bare look, unlike the page's. Styled as a picker's
+// content, a row measures as it does on the page.
+func TestAPickersRowsReadLikeThePagesRows(t *testing.T) {
 	k := testKit(t, "")
 	theme := apptheme.New(k.store.svc.Config())
 	measure := func(style func(widget.Widget)) widget.Sizes {
@@ -24,9 +24,9 @@ func TestADialogsRowsReadLikeThePagesRows(t *testing.T) {
 		return row.Measure(widget.Row, -1)
 	}
 	page := measure(func(w widget.Widget) { theme.Attach(w.(*widget.Box)) })
-	dialog := measure(windowPickers{theme: theme}.style)
-	if dialog != page {
-		t.Errorf("a dialog's row measures %+v, the page's %+v", dialog, page)
+	picker := measure(windowPickers{theme: theme}.style)
+	if picker != page {
+		t.Errorf("a picker's row measures %+v, the page's %+v", picker, page)
 	}
 	bare := measure(func(widget.Widget) {})
 	if bare == page {

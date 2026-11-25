@@ -326,3 +326,47 @@ func TestDialogTakesItsParentsAppID(t *testing.T) {
 		t.Errorf("a layer-parented dialog app id %q, want none", got)
 	}
 }
+
+// An app styling its window through an attached stylesheet left its
+// dialogs' header and buttons in lys-ui's bare look: the sheet scoped
+// to the window never reached the dialog's own tree. A dialog carries
+// its parent window's attached stylesheets.
+func TestADialogTakesItsParentWindowsStylesheets(t *testing.T) {
+	face, err := render.LoadFont(goregular.TTF)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := &Application{tooltipFace: face}
+	titleH := func(inherit bool) int {
+		frame, err := a.dialogRoot(DialogConfig{Title: "Change Password", Description: "Twice."}, func(string) {})
+		if err != nil {
+			t.Fatal(err)
+		}
+		parent := widget.NewBox(widget.Column, 0, 0)
+		sheet := widget.NewStylesheet("dialog .title { font-size: 40px; line-height: 48px; }", 0)
+		parent.AttachStylesheet(sheet)
+		if inherit {
+			inheritStylesheets(frame.root, parent)
+		}
+		root := frame.root
+		sz := widget.SizeWithin(root, widget.Size{W: 440, H: 600})
+		root.Arrange(render.Rect{W: 440, H: sz.H})
+		h := 0
+		var walk func(w widget.Widget)
+		walk = func(w widget.Widget) {
+			if l, ok := w.(*widget.Label); ok && l.Text() == "Change Password" {
+				h = l.Bounds().H
+			}
+			if c, ok := w.(interface{ Children() []widget.Widget }); ok {
+				for _, k := range c.Children() {
+					walk(k)
+				}
+			}
+		}
+		walk(root)
+		return h
+	}
+	if bare, styled := titleH(false), titleH(true); styled != 48 || bare == 48 {
+		t.Errorf("the title stands %dpx with the parent's sheet, %dpx without; want 48 only with it", styled, bare)
+	}
+}

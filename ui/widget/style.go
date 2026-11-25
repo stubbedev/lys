@@ -354,6 +354,15 @@ func publishCascade() (missing []*style.FontFace) {
 	return missing
 }
 
+// AttachedStylesheets is the stylesheets attached to w itself, in the
+// order they were attached.
+func AttachedStylesheets(w Widget) []*Stylesheet {
+	if n := nodeOf(w); n != nil {
+		return slices.Clone(n.sheets)
+	}
+	return nil
+}
+
 // AttachStylesheet applies s to this widget and its descendants, on top
 // of the installed stylesheets (a tie at equal priority and specificity
 // goes to the attached one). Attaching the same stylesheet twice is a

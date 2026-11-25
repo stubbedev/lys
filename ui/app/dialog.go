@@ -147,6 +147,20 @@ func (w *Window) dialogWindow() *Window { return w }
 
 // parentWindow is the xdg window a dialog parents to: none for a nil
 // parent or a layer surface.
+// inheritStylesheets attaches to a dialog's root the stylesheets its
+// parent window's root carries, so an app that styles its window
+// through an attached stylesheet styles its dialogs, header and buttons
+// included, the same way.
+func inheritStylesheets(root, parent widget.Widget) {
+	r, ok := root.(interface{ AttachStylesheet(*widget.Stylesheet) })
+	if !ok {
+		return
+	}
+	for _, s := range widget.AttachedStylesheets(parent) {
+		r.AttachStylesheet(s)
+	}
+}
+
 func parentWindow(parent DialogParent) *Window {
 	if parent == nil {
 		return nil
@@ -188,10 +202,13 @@ func (a *Application) NewDialog(parent DialogParent, cfg DialogConfig) (*Dialog,
 	if err != nil {
 		return nil, err
 	}
+	pw := parentWindow(parent)
+	if pw != nil {
+		inheritStylesheets(frame.root, pw.cfg.Root)
+	}
 	if cfg.Height == 0 {
 		cfg.Height = intconv.Clamp[uint32](frame.root.Measure(widget.Column, int(cfg.Width)).Within(dialogMaxHeight))
 	}
-	pw := parentWindow(parent)
 
 	winCfg := WindowConfig{
 		Title: cfg.Title, AppID: dialogAppID(pw), Width: cfg.Width, Height: cfg.Height,
