@@ -148,10 +148,14 @@ func (s *inlineState) Text() string { return s.summary.Text() }
 
 func (s *inlineState) showState(on bool) { s.SetVisible(on) }
 
+// setSummary shows text, the glyph beside it in its color: red for a
+// failure, dim otherwise.
 func (s *inlineState) setSummary(kind cardStateKind, text string) {
 	s.summary.SetText(text)
-	s.summary.SetClass(css.Error, kind == stateError)
-	s.summary.SetClass(css.DimLabel, kind != stateError)
+	for _, w := range []interface{ SetClass(string, bool) }{s.summary, s.glyph} {
+		w.SetClass(css.Error, kind == stateError)
+		w.SetClass(css.DimLabel, kind != stateError)
+	}
 }
 
 func (s *inlineState) setMedia(w widget.Widget) {
