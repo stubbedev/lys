@@ -156,3 +156,36 @@ func inkEnd(w widget.Widget) int {
 	})
 	return end
 }
+
+// A table's column headings started at their column's left edge, so
+// "Wi-Fi" over a wider icon tile sat 5-6px left of it. Each heading spans
+// its column and reads centred over it.
+func TestATablesHeadingsAreCentredOverTheirColumns(t *testing.T) {
+	win := laidOutPage(t, "", "network", 1664)
+	tr := locale.T()
+	var g *cellGrid
+	for _, c := range treetest.All[*cellGrid](win.page) {
+		if slices.Contains(treetest.Labels(c), tr.Get("settings-wifi-wired")) {
+			g = c
+		}
+	}
+	if g == nil {
+		t.Fatal("the network page has no icon table")
+	}
+	tile := g.cells[len(g.cells)-1].(widget.Boundser).Bounds()
+	for _, l := range treetest.All[*widget.Label](g) {
+		if l.Text() != tr.Get("settings-vpn-section") {
+			continue
+		}
+		b := l.Bounds()
+		text := widget.SizeWithin(l, widget.Size{W: 1 << 20, H: 1 << 20}).W
+		if b.X != tile.X || b.W != tile.W || l.Alignment() != render.AlignCenter {
+			t.Errorf("the VPN heading spans %d..%d aligned %v over its tiles at %d..%d", b.X, b.X+b.W, l.Alignment(), tile.X, tile.X+tile.W)
+		}
+		if text > b.W {
+			t.Errorf("the VPN heading's %dpx of text overflow its %dpx column", text, b.W)
+		}
+		return
+	}
+	t.Fatal("the icon table has no VPN heading")
+}

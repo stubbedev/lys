@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
 
@@ -75,7 +76,7 @@ func newCellGrid(k *kit, columns []string, rows []gridRow) *cellGrid {
 }
 
 // columnHeading is a column's heading.
-func columnHeading(k *kit, key string) widget.Widget {
+func columnHeading(k *kit, key string) *widget.Label {
 	return k.label(locale.T().Get(key), css.Caption, css.DimLabel)
 }
 
@@ -106,7 +107,8 @@ func (g *cellGrid) strip(k *kit, columns []string, rows []gridRow) {
 }
 
 // table lays each row out as its heading, then its cells packed at the
-// end, each column as wide as its widest cell.
+// end, each column as wide as its widest cell, its heading centred over
+// it.
 func (g *cellGrid) table(k *kit, columns []string, rows []gridRow) {
 	widths := make([]*widget.SizeGroup, len(columns))
 	for c := range widths {
@@ -120,7 +122,11 @@ func (g *cellGrid) table(k *kit, columns []string, rows []gridRow) {
 		}
 		g.Append(row, false)
 	}
-	line(widget.NewBox(widget.Row, 0, 0), func(c int) widget.Widget { return columnHeading(k, columns[c]) })
+	line(widget.NewBox(widget.Row, 0, 0), func(c int) widget.Widget {
+		heading := columnHeading(k, columns[c])
+		heading.SetAlignment(render.AlignCenter)
+		return heading
+	})
 	for _, r := range rows {
 		head := widget.Widget(widget.NewBox(widget.Row, 0, 0))
 		if r.withHeader() {
