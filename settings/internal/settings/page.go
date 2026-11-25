@@ -387,8 +387,10 @@ func buildPage(k *kit, spec pageSpec) *settingsPage {
 	}
 	p.k = k
 	conditional := p.edited
+	widths := widget.NewItemWidths()
 	for _, s := range spec.sections {
 		rows := widget.NewItemGroup()
+		rows.SetWidths(widths)
 		var section, group *widget.Box
 		var fold *disclosure
 		if s.advanced {
