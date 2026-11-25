@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/jinja"
 	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/lib/intconv"
@@ -14,20 +15,26 @@ import (
 )
 
 // netstatLabel renders format over one interface's rates (kib at no
-// decimals, mib at one, gib at two, and the scaled byte size).
+// decimals, mib at one, gib at two, and the shell locale's byte size
+// per second).
 func netstatLabel(format string, rate sysinfo.Rate) string {
 	return jinja.RenderOr(format, netstatVars(rate))
 }
 
 func netstatVars(rate sysinfo.Rate) map[string]any {
+	l := i18n.Shell()
 	return map[string]any{
 		"down_kib": bytesIn(rate.RxPerSec, kib, 0), "down_mib": bytesIn(rate.RxPerSec, mib, 1),
-		"down_gib": bytesIn(rate.RxPerSec, gib, 2), "down_auto": sysinfo.AutoBytes(rate.RxPerSec),
+		"down_gib": bytesIn(rate.RxPerSec, gib, 2), "down_auto": perSecond(l, rate.RxPerSec),
 		"up_kib": bytesIn(rate.TxPerSec, kib, 0), "up_mib": bytesIn(rate.TxPerSec, mib, 1),
-		"up_gib": bytesIn(rate.TxPerSec, gib, 2), "up_auto": sysinfo.AutoBytes(rate.TxPerSec),
+		"up_gib": bytesIn(rate.TxPerSec, gib, 2), "up_auto": perSecond(l, rate.TxPerSec),
 		"interface": rate.Interface,
 	}
 }
+
+// perSecond is a rate of n bytes a second in l's binary units, with
+// CLDR's "/s" per-second pattern, which every shipped locale shares.
+func perSecond(l *i18n.Loader, n uint64) string { return l.ByteSize(n) + "/s" }
 
 // netstat is the module: per-interface traffic rates.
 type netstatModule struct {

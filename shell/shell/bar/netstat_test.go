@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/i18n"
 
 	"github.com/stubbedev/lys/shell/service/sysinfo"
 )
@@ -15,7 +16,7 @@ func TestNetstatLabelPlaceholders(t *testing.T) {
 		TxPerSec:  10240, // 10.0 KiB
 	}
 	cfg := config.DefaultsNetstat()
-	if got := netstatLabel(cfg.Format, rate); got != "1.5 KiB 10.0 KiB" {
+	if got := netstatLabel(cfg.Format, rate); got != "1.5 KiB/s 10.0 KiB/s" {
 		t.Errorf("default = %q", got)
 	}
 	got := netstatLabel("{{ down_kib }}/{{ down_mib }}/{{ down_gib }} {{ interface }}", rate)
@@ -28,8 +29,28 @@ func TestNetstatLabelPlaceholders(t *testing.T) {
 		t.Errorf("up = %q", got)
 	}
 	// Zero traffic renders the auto units as plain bytes.
-	if got := netstatLabel("{{ down_auto }}", sysinfo.Rate{}); got != "0 B" {
+	if got := netstatLabel("{{ down_auto }}", sysinfo.Rate{}); got != "0 B/s" {
 		t.Errorf("zero = %q", got)
+	}
+}
+
+func TestNetstatAutoRatesAreTheShellLocalesByteSizePerSecond(t *testing.T) {
+	for _, c := range []struct {
+		perSec uint64
+		want   string
+	}{
+		{1023, "1,023 B/s"},
+		{1<<20 - 1, "1.0 MiB/s"},
+		{123456789, "117.7 MiB/s"},
+	} {
+		rate := sysinfo.Rate{RxPerSec: c.perSec, TxPerSec: c.perSec}
+		got := netstatLabel("{{ down_auto }}|{{ up_auto }}", rate)
+		if got != c.want+"|"+c.want {
+			t.Errorf("%d B/s = %q, want en-US's %q both ways", c.perSec, got, c.want)
+		}
+		if formatted := i18n.Shell().ByteSize(c.perSec) + "/s"; got != formatted+"|"+formatted {
+			t.Errorf("%d B/s = %q, want the shell formatter's %q", c.perSec, got, formatted)
+		}
 	}
 }
 
