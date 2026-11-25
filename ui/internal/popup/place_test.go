@@ -26,37 +26,85 @@ func TestPlacementForAPoint(t *testing.T) {
 // opens above, never over the bar) and slide along the other; the
 // gutter offset keeps the content edge on the anchor edge.
 func TestPlacementForARect(t *testing.T) {
-	rect := render.Rect{X: 400, Y: 6, W: 180, H: 42}
-	const g = 10
+	rect := render.Rect{X: 400, Y: 300, W: 180, H: 42}
+	const g, gap = 10, 4
 	flipY := uint32(xdg.PositionerConstraintAdjustmentSlideX | xdg.PositionerConstraintAdjustmentFlipY | xdg.PositionerConstraintAdjustmentResizeY)
 	flipX := uint32(xdg.PositionerConstraintAdjustmentSlideY | xdg.PositionerConstraintAdjustmentFlipX | xdg.PositionerConstraintAdjustmentResizeX)
+	const w, h = 120 + 2*g, 80 + 2*g
 	for _, tc := range []struct {
-		gravity         Gravity
-		anchor, grow    uint32
-		adjust          uint32
-		offsetX, offset int32
+		gravity      Gravity
+		anchor, grow uint32
+		adjust       uint32
+		// at is where the content's opening edge lands: its top below
+		// the anchor, its bottom above it, its left right of it, its
+		// right left of it.
+		at func(x, y int32) int32
+		// want is that edge, the gap off the anchor; flipped is the
+		// same edge once the compositor flips the popup across it.
+		want, flipped int32
 	}{
 		// Centered on the anchor across the opening axis, as GtkPopover
-		// places itself; the gutter offset only on the opening axis.
-		{GravityBottom, xdg.PositionerAnchorBottom, xdg.PositionerGravityBottom, flipY, 0, -g},
-		{GravityTop, xdg.PositionerAnchorTop, xdg.PositionerGravityTop, flipY, 0, g},
-		{GravityRight, xdg.PositionerAnchorRight, xdg.PositionerGravityRight, flipX, -g, 0},
-		{GravityLeft, xdg.PositionerAnchorLeft, xdg.PositionerGravityLeft, flipX, g, 0},
+		// places itself.
+		{GravityBottom, xdg.PositionerAnchorBottom, xdg.PositionerGravityBottom, flipY, func(_, y int32) int32 { return y + g }, 300 + 42 + gap, 300 - gap},
+		{GravityTop, xdg.PositionerAnchorTop, xdg.PositionerGravityTop, flipY, func(_, y int32) int32 { return y + h - g }, 300 - gap, 300 + 42 + gap},
+		{GravityRight, xdg.PositionerAnchorRight, xdg.PositionerGravityRight, flipX, func(x, _ int32) int32 { return x + g }, 400 + 180 + gap, 400 - gap},
+		{GravityLeft, xdg.PositionerAnchorLeft, xdg.PositionerGravityLeft, flipX, func(x, _ int32) int32 { return x + w - g }, 400 - gap, 400 + 180 + gap},
 	} {
-		p := placementFor(Config{AnchorRect: rect, Gravity: tc.gravity, Gutter: g, X: 999, Y: 999})
-		want := placement{rect: rect, anchor: tc.anchor, gravity: tc.grow, adjust: tc.adjust, offsetX: tc.offsetX, offsetY: tc.offset}
-		if p != want {
-			t.Errorf("gravity %d = %+v, want %+v", tc.gravity, p, want)
+		p := placementFor(Config{AnchorRect: rect, Gravity: tc.gravity, Gutter: g, Gap: gap, X: 999, Y: 999})
+		if p.anchor != tc.anchor || p.gravity != tc.grow || p.adjust != tc.adjust {
+			t.Errorf("gravity %d: anchor %d grow %d adjust %b, want %d %d %b", tc.gravity, p.anchor, p.gravity, p.adjust, tc.anchor, tc.grow, tc.adjust)
+		}
+		if got := tc.at(placedAt(p, w, h)); got != tc.want {
+			t.Errorf("gravity %d: content edge at %d, want %d, the gap off the anchor", tc.gravity, got, tc.want)
+		}
+		// A flipped popup's content edge facing the anchor is the other
+		// one: its bottom above, its top below.
+		fx, fy := placedAt(flipped(p), w, h)
+		var got int32
+		switch tc.gravity {
+		case GravityBottom:
+			got = fy + h - g
+		case GravityTop:
+			got = fy + g
+		case GravityRight:
+			got = fx + w - g
+		default:
+			got = fx + g
+		}
+		if got != tc.flipped {
+			t.Errorf("gravity %d flipped across the anchor: content edge at %d, want %d, the gap off its other side (#362)", tc.gravity, got, tc.flipped)
 		}
 	}
-	// A gap moves the content off the anchor on the opening axis.
-	if p := placementFor(Config{AnchorRect: rect, Gutter: g, Gap: 4}); p.offsetY != -g+4 {
-		t.Errorf("gap offset = %d, want %d", p.offsetY, -g+4)
+	// An anchor too short to take the gutter in keeps the content the
+	// gap off it, the rest of the gutter in the offset.
+	short := render.Rect{X: 400, Y: 300, W: 24, H: 12}
+	if _, y := placedAt(placementFor(Config{AnchorRect: short, Gutter: g, Gap: gap}), w, h); y+g != 300+12+gap {
+		t.Errorf("under a 12px anchor the content starts at %d, want %d", y+g, 300+12+gap)
 	}
 	// No gutter, no offset.
-	if p := placementFor(Config{AnchorRect: rect}); p.offsetX != 0 || p.offsetY != 0 {
-		t.Errorf("gutterless offset = %d,%d", p.offsetX, p.offsetY)
+	if p := placementFor(Config{AnchorRect: rect}); p.offsetX != 0 || p.offsetY != 0 || p.rect != rect {
+		t.Errorf("gutterless placement %+v, want the anchor as it is", p)
 	}
+}
+
+// flipped is p as a compositor flips it across its anchor on the
+// opening axis: the anchor point and the gravity inverted on that axis,
+// the offset as it is (xdg_positioner's flip_x and flip_y).
+func flipped(p placement) placement {
+	inv := map[uint32]uint32{
+		xdg.PositionerAnchorBottom: xdg.PositionerAnchorTop, xdg.PositionerAnchorTop: xdg.PositionerAnchorBottom,
+		xdg.PositionerAnchorLeft: xdg.PositionerAnchorRight, xdg.PositionerAnchorRight: xdg.PositionerAnchorLeft,
+		xdg.PositionerAnchorBottomLeft: xdg.PositionerAnchorTopLeft, xdg.PositionerAnchorTopLeft: xdg.PositionerAnchorBottomLeft,
+		xdg.PositionerAnchorTopRight: xdg.PositionerAnchorBottomRight, xdg.PositionerAnchorBottomRight: xdg.PositionerAnchorTopRight,
+	}
+	grav := map[uint32]uint32{
+		xdg.PositionerGravityBottom: xdg.PositionerGravityTop, xdg.PositionerGravityTop: xdg.PositionerGravityBottom,
+		xdg.PositionerGravityLeft: xdg.PositionerGravityRight, xdg.PositionerGravityRight: xdg.PositionerGravityLeft,
+		xdg.PositionerGravityBottomRight: xdg.PositionerGravityTopRight, xdg.PositionerGravityTopRight: xdg.PositionerGravityBottomRight,
+		xdg.PositionerGravityBottomLeft: xdg.PositionerGravityTopLeft, xdg.PositionerGravityTopLeft: xdg.PositionerGravityBottomLeft,
+	}
+	p.anchor, p.gravity = inv[p.anchor], grav[p.gravity]
+	return p
 }
 
 // A vertical popup the compositor shrank tries the anchor's other side
@@ -92,12 +140,9 @@ func TestPlacementIsFromTheParentsWindowInsideItsMargin(t *testing.T) {
 	}
 	rect := render.Rect{X: 400, Y: 60, W: 180, H: 42}
 	inside := placementFor(Config{AnchorRect: rect, Gutter: 10, ParentMargin: 16})
-	if inside.rect != (render.Rect{X: 384, Y: 44, W: 180, H: 42}) {
-		t.Errorf("rect = %+v, want it 16 up and left, at its size", inside.rect)
-	}
 	bare := placementFor(Config{AnchorRect: rect, Gutter: 10})
-	if bare.rect != rect {
-		t.Errorf("without a margin the rect = %+v, want it unmoved", bare.rect)
+	if want := (render.Rect{X: bare.rect.X - 16, Y: bare.rect.Y - 16, W: bare.rect.W, H: bare.rect.H}); inside.rect != want {
+		t.Errorf("rect = %+v, want the marginless %+v 16 up and left, at its size", inside.rect, bare.rect)
 	}
 	inside.rect = bare.rect
 	if inside != bare {
@@ -132,8 +177,8 @@ func TestAHeldEdgeStaysThroughAResize(t *testing.T) {
 	if y := rect.Y + rect.H/2 - 130 + int(p.offsetY); y+260 != 500 {
 		t.Errorf("a sideways popup's held bottom edge sits at %d, want 500", y+260)
 	}
-	if p.offsetX != -10 {
-		t.Errorf("a hold moved the opening axis: offsetX %d", p.offsetX)
+	if bare := placementFor(Config{AnchorRect: rect, Gravity: GravityRight, Gutter: 10}); p.offsetX != bare.offsetX || p.rect != bare.rect {
+		t.Errorf("a hold moved the opening axis: offsetX %d rect %v, want %d %v", p.offsetX, p.rect, bare.offsetX, bare.rect)
 	}
 	if p.adjust&xdg.PositionerConstraintAdjustmentSlideY != 0 {
 		t.Error("a sideways popup slides along its held edge")

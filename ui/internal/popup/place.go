@@ -50,21 +50,28 @@ func placementFor(cfg Config) placement {
 			adjust:  slideX | slideY | flipY,
 		}
 	}
-	g := intconv.Clamp[int32](cfg.Gutter - cfg.Gap)
 	p := placement{rect: cfg.AnchorRect}
 	p.rect.X -= cfg.ParentMargin
 	p.rect.Y -= cfg.ParentMargin
 	p.anchor, p.gravity = edges(cfg.Gravity, cfg.Align)
 	vertical := false
 	switch cfg.Gravity {
-	case GravityTop:
-		p.adjust, p.offsetY, vertical = slideX|flipY|resizeY, g, true
-	case GravityRight:
-		p.adjust, p.offsetX = slideY|flipX|resizeX, -g
-	case GravityLeft:
-		p.adjust, p.offsetX = slideY|flipX|resizeX, g
+	case GravityTop, GravityBottom:
+		p.adjust, vertical = slideX|flipY|resizeY, true
 	default:
-		p.adjust, p.offsetY, vertical = slideX|flipY|resizeY, -g, true
+		p.adjust = slideY | flipX | resizeX
+	}
+	var rest int32
+	p.rect, rest = gutterRect(p.rect, cfg.Gutter-cfg.Gap, vertical)
+	switch cfg.Gravity {
+	case GravityTop:
+		p.offsetY = rest
+	case GravityRight:
+		p.offsetX = -rest
+	case GravityLeft:
+		p.offsetX = rest
+	default:
+		p.offsetY = -rest
 	}
 	if cfg.Align == AlignStart {
 		cross := intconv.Clamp[int32](-cfg.Gutter)
@@ -85,6 +92,25 @@ func placementFor(cfg Config) placement {
 		p.adjust &^= slideY
 	}
 	return p
+}
+
+// gutterRect is the anchor rect r a popup's content opens the Gap off
+// once its shadow gutter rides outside it: r shrunk on the opening axis
+// by g, the gutter less the Gap, on both sides (grown where the Gap is
+// the larger), so a compositor flipping the popup across the anchor
+// keeps the content the Gap away on the other side too, which an
+// offset, which a flip leaves as it is, would not. An anchor too short
+// to shrink by g keeps a 1px rect at its middle, and rest is the part
+// of g left to the offset.
+func gutterRect(r render.Rect, g int, vertical bool) (render.Rect, int32) {
+	at, span := &r.X, &r.W
+	if vertical {
+		at, span = &r.Y, &r.H
+	}
+	shrink := min(g, (*span-1)/2)
+	*at += shrink
+	*span -= 2 * shrink
+	return r, intconv.Clamp[int32](g - shrink)
 }
 
 // Align is where a rect-anchored popup sits along its anchor across
