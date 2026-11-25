@@ -124,11 +124,34 @@ func (c *choiceCard) picRect() render.Rect {
 }
 
 // labelRect is where the card's name is set: under its picture, inset
-// half the picture's inset so a name broken onto two lines still has
-// room for a word pair.
+// half the picture's inset at the sides and the bottom, so a name broken
+// onto two lines still has room for a word pair and its descenders stay
+// clear of the selection ring.
 func (c *choiceCard) labelRect() render.Rect {
 	b := c.Bounds()
-	return render.Rect{X: b.X + choiceCardGap/2, Y: b.Y + choicePicH, W: b.W - choiceCardGap, H: b.H - choicePicH}
+	return render.Rect{X: b.X + choiceCardGap/2, Y: b.Y + choicePicH, W: b.W - choiceCardGap, H: b.H - choicePicH - choiceCardGap/2}
+}
+
+// cardLine is one line of a card's name and the box it is set in.
+type cardLine struct {
+	text string
+	box  render.Rect
+}
+
+// labelLines are the card's name set in labelRect: one line or two,
+// each at most a line's height, centred down the rect together.
+func (c *choiceCard) labelLines() []cardLine {
+	text := c.labelRect()
+	px := c.k.textPx()
+	lines := cardLabelLines(c.k.face, c.label, text.W, px)
+	lh := min(text.H/len(lines), int(math.Ceil(px*c.k.face.Metrics().LineHeight)))
+	y := text.Y + (text.H-lh*len(lines))/2
+	out := make([]cardLine, len(lines))
+	for i, line := range lines {
+		out[i] = cardLine{text: line, box: render.Rect{X: text.X, Y: y, W: text.W, H: lh}}
+		y += lh
+	}
+	return out
 }
 
 func (c *choiceCard) Children() []widget.Widget {
@@ -166,14 +189,9 @@ func (c *choiceCard) Paint(cv *render.Canvas) {
 	default:
 		cv.RoundedBorder(b, corners, render.UniformInsets(1), th.Border)
 	}
-	text := c.labelRect()
 	px := c.k.textPx()
-	lines := cardLabelLines(c.k.face, c.label, text.W, px)
-	lh := min(text.H/len(lines), int(math.Ceil(px*c.k.face.Metrics().LineHeight)))
-	y := text.Y + (text.H-lh*len(lines))/2
-	for _, line := range lines {
-		c.k.face.DrawAligned(cv, line, render.Rect{X: text.X, Y: y, W: text.W, H: lh}, px, th.Text, render.AlignCenter)
-		y += lh
+	for _, line := range c.labelLines() {
+		c.k.face.DrawAligned(cv, line.text, line.box, px, th.Text, render.AlignCenter)
 	}
 }
 

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
@@ -104,4 +105,30 @@ func TestAPictureChoiceMissingAPictureRefusesToBuild(t *testing.T) {
 		}
 	}()
 	fieldControl(k, k.store, field("styling.appearance", pictureChoice(map[string]picture{"light": {icon: "ld-sun-symbolic"}})))
+}
+
+// Media's "Application Mapped" broke onto two lines whose descenders
+// touched the selected card's ring. Every card's name ends half the
+// picture's inset above the card's bottom edge, clear of its ring.
+func TestACardsNameStaysClearOfItsRing(t *testing.T) {
+	win := laidOutPage(t, "", "media", sweepW)
+	twoLines := 0
+	for _, c := range treetest.All[*choiceCards](win.page) {
+		for _, card := range c.cards {
+			if card.Bounds().Empty() {
+				continue
+			}
+			lines := card.labelLines()
+			if len(lines) == 2 {
+				twoLines++
+			}
+			b, last := card.Bounds(), lines[len(lines)-1].box
+			if room := b.Y + b.H - (last.Y + last.H); room < choiceCardGap/2 {
+				t.Errorf("%q ends %dpx above its card's edge, want %d", card.label, room, choiceCardGap/2)
+			}
+		}
+	}
+	if twoLines == 0 {
+		t.Fatal("the Media page shows no card whose name takes two lines")
+	}
 }
