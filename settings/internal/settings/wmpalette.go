@@ -38,7 +38,7 @@ func newPaletteGrid(k *kit, s slot) *paletteGrid {
 	builtIn, _ := k.wm.defaultOf("palette")
 	p := &paletteGrid{Box: gapBox(widget.Column), k: k, own: wmOwnPalette(k.wm, s), builtIn: asMap(builtIn)}
 	p.AddClass("wm-palette")
-	p.grid = widget.NewWrapBox(choiceCardGap, choiceCardGap, widget.JustifyStart)
+	p.grid = widget.NewWrapBox(choiceCardGap, choiceCardGap, widget.JustifyEqual)
 	p.name = k.entry()
 	p.name.SetPlaceholder(t.Get("wm-palette-new-name"))
 	p.name.SetAccessibleName(t.Get("wm-palette-new-name"))

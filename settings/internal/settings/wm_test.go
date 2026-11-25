@@ -1245,3 +1245,27 @@ func TestThePaletteIsAGridOfSwatchesThatPinsOnlyWhatChanges(t *testing.T) {
 		t.Errorf("resetting red kept %q", got)
 	}
 }
+
+// Session's palette grid ended 56px short of the control edge, its
+// columns packed at the start. The colours share the grid's width in
+// equal columns, a full line ending on the grid's edge.
+func TestThePaletteGridEndsOnItsEdge(t *testing.T) {
+	k, w, _, _ := wmKit(t, "")
+	p := fieldControl(k, w, wmPaletteRow()).(*paletteGrid)
+	box := widget.NewBox(widget.Column, 0, 0)
+	box.Append(p, false)
+	styledLayOut(k, box, 700)
+	grid := p.grid.Bounds()
+	end, width := 0, -1
+	for _, tile := range p.grid.Children() {
+		b := tile.(widget.Boundser).Bounds()
+		end = max(end, b.X+b.W)
+		if width >= 0 && (b.W < width-1 || b.W > width+1) {
+			t.Errorf("a palette column is %dpx wide, another %dpx", b.W, width)
+		}
+		width = b.W
+	}
+	if end != grid.X+grid.W {
+		t.Errorf("the palette's columns end at %d, its grid at %d", end, grid.X+grid.W)
+	}
+}
