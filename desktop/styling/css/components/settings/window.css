@@ -10,11 +10,11 @@ window.settings-window paned > separator {
 }
 
 .disclosure-chevron {
-  transition: transform var(--duration-fast);
+  transition: -gtk-icon-transform var(--duration-fast);
 }
 
 .disclosure-chevron:checked {
-  transform: rotate(180deg);
+  -gtk-icon-transform: rotate(180deg);
 }
 
 button.link.mode-toggle {
@@ -25,4 +25,8 @@ button.link.mode-toggle {
 .settings-page .keycap {
   color: var(--fg-default);
   box-shadow: inset 0 0 0 1px var(--border-default);
+}
+
+.settings-section-header .disclosure-chevron {
+  margin-right: 18px;
 }
