@@ -144,25 +144,57 @@ func TestTheIdleTableWarnsWhenALaterStageComesFirst(t *testing.T) {
 // differently. A warning wraps inside the column the chips set, and
 // moves no chip.
 func TestAnIdleWarningMovesNoChip(t *testing.T) {
-	quiet := laidOutPage(t, "", "idle", windowWidth)
-	warned := laidOutPage(t, "idle:\n  screen-off:\n    ac: 1m\n    battery: 1m\n", "idle", windowWidth)
-	cells := func(win *window) []*idleCell { return treetest.All[*idleCell](win.page) }
-	q, w := cells(quiet), cells(warned)
-	if len(q) == 0 || len(q) != len(w) {
-		t.Fatalf("%d cells quiet, %d warned", len(q), len(w))
+	for name, c := range map[string]struct {
+		quiet, warned string
+		warns         int
+	}{
+		"both":       {"", "idle:\n  screen-off:\n    ac: 1m\n    battery: 1m\n", 2},
+		"plugged in": {"idle:\n  dim:\n    ac: 5m\n", "idle:\n  dim:\n    ac: 15m\n", 1},
+	} {
+		t.Run(name, func(t *testing.T) {
+			q, w := idleCellsOn(t, c.quiet), idleCellsOn(t, c.warned)
+			shown := 0
+			for i := range q {
+				if w[i].state.Visible() {
+					shown++
+				}
+				if qb, wb := q[i].chips.Bounds(), w[i].chips.Bounds(); qb.X != wb.X || qb.W != wb.W || qb.H != wb.H {
+					t.Errorf("%s %s: chips at %+v quiet, %+v beside a warning", q[i].stage, q[i].source, qb, wb)
+				}
+			}
+			if shown != c.warns {
+				t.Fatalf("%d cells warn, want %d", shown, c.warns)
+			}
+		})
 	}
-	shown := 0
-	for i := range q {
-		if w[i].state.Visible() {
-			shown++
+}
+
+// A custom time in one source's column, its minutes under the chips,
+// widened that column and narrowed the other, so its chips wrapped
+// three to a line where the other's wrapped two. Every source's column
+// is as wide as the others, whichever cells hold a custom time.
+func TestACustomIdleTimeMovesNoColumn(t *testing.T) {
+	base := idleCellsOn(t, "idle:\n  dim:\n    ac: 5m\n  lock:\n    battery: 5m\n")
+	for name, yaml := range map[string]string{
+		"plugged in": "idle:\n  dim:\n    ac: 4m\n  lock:\n    battery: 5m\n",
+		"on battery": "idle:\n  dim:\n    ac: 5m\n  lock:\n    battery: 3m\n",
+	} {
+		for i, c := range idleCellsOn(t, yaml) {
+			if b, own := base[i].chips.Bounds(), c.chips.Bounds(); b.X != own.X || b.W != own.W {
+				t.Errorf("custom %s: %s %s chips at x %d, %dpx wide; %d, %dpx with every time a chip", name, c.stage, c.source, own.X, own.W, b.X, b.W)
+			}
 		}
-		if qb, wb := q[i].chips.Bounds(), w[i].chips.Bounds(); qb.X != wb.X || qb.W != wb.W || qb.H != wb.H {
-			t.Errorf("%s %s: chips at %+v quiet, %+v beside a warning", q[i].stage, q[i].source, qb, wb)
-		}
 	}
-	if shown != 2 {
-		t.Fatalf("%d cells warn, want the two dim cells", shown)
+}
+
+// idleCellsOn is the idle page's cells laid out over yaml.
+func idleCellsOn(t *testing.T, yaml string) []*idleCell {
+	t.Helper()
+	cells := treetest.All[*idleCell](laidOutPage(t, yaml, "idle", windowWidth).page)
+	if len(cells) != len(idleStages)*len(idleSources) {
+		t.Fatalf("%d idle cells over %q", len(cells), yaml)
 	}
+	return cells
 }
 
 // One stage's chips followed the last stage's at the pitch of the chips

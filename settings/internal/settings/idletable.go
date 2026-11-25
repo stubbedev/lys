@@ -156,6 +156,7 @@ func newIdleChips(k *kit, s slot) *presetPicker[float64] {
 // widens the column, so a warning moves no chip.
 type idleCell struct {
 	*widget.Box
+	table  *idleTable
 	k      *kit
 	stage  idleStage
 	source idleSource
@@ -163,8 +164,8 @@ type idleCell struct {
 	state  *inlineState
 }
 
-func newIdleCell(k *kit, stage idleStage, source idleSource) *idleCell {
-	c := &idleCell{Box: gapBox(widget.Column), k: k, stage: stage, source: source}
+func newIdleCell(g *idleTable, k *kit, stage idleStage, source idleSource) *idleCell {
+	c := &idleCell{Box: gapBox(widget.Column), table: g, k: k, stage: stage, source: source}
 	c.chips = newIdleChips(k, k.store.slot(stage.path(source)))
 	c.chips.SetAccessibleName(locale.T().Get("settings-idle-cell", i18n.Str("stage", stage.name()), i18n.Str("source", source.name())))
 	c.state = k.inlineState()
@@ -173,6 +174,16 @@ func newIdleCell(k *kit, stage idleStage, source idleSource) *idleCell {
 	c.Append(c.state, false)
 	c.refresh()
 	return c
+}
+
+// Measure asks across for the widest cell's width, so every source's
+// column is as wide as the others whatever its chips show: a custom time
+// in one cell moves no column.
+func (c *idleCell) Measure(axis widget.Axis, forSize int) widget.Sizes {
+	if axis == widget.Row {
+		return c.table.cellWidth()
+	}
+	return c.Box.Measure(axis, forSize)
 }
 
 func (c *idleCell) refresh() {
@@ -222,7 +233,7 @@ func newIdleTable(k *kit) *idleTable {
 	for r, stage := range idleStages {
 		g.Attach(k.label(stage.name()), 0, r+1, 1, 1)
 		for c, source := range idleSources {
-			cell := newIdleCell(k, stage, source)
+			cell := newIdleCell(g, k, stage, source)
 			g.Attach(cell, c+1, r+1, 1, 1)
 			g.cells = append(g.cells, cell)
 			if source == idleOnBattery {
@@ -243,6 +254,17 @@ func (g *idleTable) showBattery(present bool) {
 	}
 	g.battery = nil
 	g.cells = slices.DeleteFunc(g.cells, func(c *idleCell) bool { return c.source == idleOnBattery })
+}
+
+// cellWidth is the width request of the table's widest cell.
+func (g *idleTable) cellWidth() widget.Sizes {
+	var widest widget.Sizes
+	for _, c := range g.cells {
+		own := c.Box.Measure(widget.Row, widget.Unknown)
+		widest.Min = max(widest.Min, own.Min)
+		widest.Nat = max(widest.Nat, own.Nat)
+	}
+	return widest
 }
 
 func (g *idleTable) refresh() {

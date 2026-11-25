@@ -20,6 +20,13 @@ const (
 	timelineDot   = 12
 )
 
+// hairline is the width of a card's border and of its rows' own.
+const hairline = 1
+
+// controlEdgeInset is how far in from a card's outer edge its rows'
+// controls end: the card's border, the row's border and its padding.
+func controlEdgeInset() int { return 2*hairline + cardInsets().Right }
+
 type idleMark struct {
 	stage idleStage
 	after time.Duration
@@ -36,6 +43,8 @@ func idleSequence(times map[idleStage]idleTime) []idleMark {
 	return marks
 }
 
+// idleSequenceText reads marks in order, each mark's words held
+// together so a line wraps only between marks.
 func idleSequenceText(marks []idleMark) string {
 	t := locale.T()
 	if len(marks) == 0 {
@@ -43,9 +52,22 @@ func idleSequenceText(marks []idleMark) string {
 	}
 	parts := make([]string, len(marks))
 	for i, m := range marks {
-		parts[i] = t.Get("settings-idle-timeline-mark", i18n.Str("stage", m.stage.name()), i18n.Str("after", durationWords(m.after)))
+		mark := t.Get("settings-idle-timeline-mark", i18n.Str("stage", m.stage.name()), i18n.Str("after", durationWords(m.after)))
+		parts[i] = strings.ReplaceAll(mark, " ", "\u00a0")
 	}
 	return strings.Join(parts, " → ")
+}
+
+// idleSpan is the time a timeline's track spans: the latest of marks'
+// last steps, at least a minute.
+func idleSpan(marks ...[]idleMark) time.Duration {
+	span := time.Minute
+	for _, m := range marks {
+		if len(m) > 0 {
+			span = max(span, m[len(m)-1].after)
+		}
+	}
+	return span
 }
 
 func stageColor(stage idleStage) render.Color {
@@ -55,6 +77,7 @@ func stageColor(stage idleStage) render.Color {
 type timelineBar struct {
 	widget.Base
 	marks []idleMark
+	span  time.Duration
 }
 
 func (b *timelineBar) Measure(axis widget.Axis, _ int) widget.Sizes {
@@ -74,11 +97,15 @@ func (b *timelineBar) Paint(cv *render.Canvas) {
 	if len(b.marks) == 0 {
 		return
 	}
-	span := max(b.marks[len(b.marks)-1].after, time.Minute)
 	for _, m := range b.marks {
-		x := inner.X + int(float64(inner.W)*float64(m.after)/float64(span))
+		x := inner.X + b.markX(m, inner.W)
 		cv.RoundedRect(render.Rect{X: x - timelineDot/2, Y: r.Y + (r.H-timelineDot)/2, W: timelineDot, H: timelineDot}, timelineDot/2, stageColor(m.stage))
 	}
+}
+
+// markX is how far along a track w wide m sits, on the bar's span.
+func (b *timelineBar) markX(m idleMark, w int) int {
+	return int(float64(w) * float64(m.after) / float64(max(b.span, m.after, time.Minute)))
 }
 
 type idleTimelineLine struct {
@@ -111,22 +138,30 @@ type idleTimeline struct {
 	battery bool
 }
 
+// idleTimelinePreview is a line per source, its icon beside its track
+// over the steps it reads, the caption starting where the track does.
+// Every track spans the same time, so one step sits at one place on
+// each, and ends on the page's control edge.
 func idleTimelinePreview(k *kit) widget.Widget {
 	t := locale.T()
 	tl := &idleTimeline{Box: widget.NewBox(widget.Column, widget.Current().Spacing/2, 0), k: k, battery: true}
+	tl.SetPadding(render.Insets{Right: controlEdgeInset()})
 	tl.SetAccessibleName(t.Get("settings-idle-timeline"))
 	tl.off = k.note(t.Get("settings-idle-timeline-off"), "settings-preview-state")
 	tl.Append(tl.off, false)
 	for _, source := range idleSources {
-		line := &idleTimelineLine{Box: widget.NewBox(widget.Column, 0, 0), source: source, bar: &timelineBar{Base: widget.NewBase()}}
+		line := &idleTimelineLine{Box: gapBox(widget.Row), source: source, bar: &timelineBar{Base: widget.NewBase()}}
 		line.text = k.inlineState()
-		head := gapBox(widget.Row)
+		caption := widget.NewBox(widget.Column, 0, 0)
+		caption.SetPadding(render.Insets{Left: timelineDot / 2})
+		caption.Append(line.text, false)
+		track := widget.NewBox(widget.Column, 0, 0)
+		track.Append(line.bar, false)
+		track.Append(caption, false)
 		ic := k.icon(source.icon())
 		ic.SetAccessibleName(source.name())
-		head.AppendAligned(ic, false, widget.AlignCenter)
-		head.Append(line.bar, true)
-		line.Append(head, false)
-		line.Append(line.text, false)
+		line.AppendAligned(ic, false, widget.AlignStart)
+		line.Append(track, true)
 		tl.lines = append(tl.lines, line)
 		tl.Append(line, false)
 	}
@@ -141,8 +176,16 @@ func idleTimelinePreview(k *kit) widget.Widget {
 func (tl *idleTimeline) configChanged() {
 	on := tl.k.store.svc.Config().Idle.Enable
 	tl.off.SetVisible(!on)
+	shown := make([][]idleMark, 0, len(tl.lines))
 	for _, line := range tl.lines {
 		line.SetVisible(on && (line.source == idleOnAC || tl.battery))
 		line.show(idleTimesOn(tl.k.store, line.source))
+		if line.Visible() {
+			shown = append(shown, line.bar.marks)
+		}
+	}
+	span := idleSpan(shown...)
+	for _, line := range tl.lines {
+		line.bar.span = span
 	}
 }

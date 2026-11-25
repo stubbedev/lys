@@ -9,6 +9,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -43,7 +44,7 @@ func TestTheIdleTimelineFollowsTheTimesOfEachSource(t *testing.T) {
 	tl := idleTimelineOf(t, k)
 	tr := locale.T()
 	mark := func(stage idleStage, d time.Duration) string {
-		return tr.Get("settings-idle-timeline-mark", i18n.Str("stage", tr.Get("settings-section-idle-"+string(stage))), i18n.Str("after", durationWords(d)))
+		return strings.ReplaceAll(tr.Get("settings-idle-timeline-mark", i18n.Str("stage", tr.Get("settings-section-idle-"+string(stage))), i18n.Str("after", durationWords(d))), " ", "\u00a0")
 	}
 	ac, battery := tl.lines[0], tl.lines[1]
 	if want := strings.Join([]string{mark(idleDim, 2*time.Minute), mark(idleLock, 5*time.Minute), mark(idleScreenOff, 10*time.Minute)}, " → "); ac.text.Text() != want {
@@ -92,5 +93,58 @@ func TestTheIdleTimelineStartsOnItsSectionsColumn(t *testing.T) {
 	header := treetest.LabelReading(t, win.page, locale.T().Get("settings-section-idle-when")).Bounds()
 	if x := tl.lines[0].Bounds().X; x != header.X {
 		t.Errorf("the timeline starts at x=%d, its section's header at %d", x, header.X)
+	}
+}
+
+// A caption broke inside a step, leaving "15 minutes" alone on its
+// line. A caption breaks only between its steps.
+func TestAnIdleCaptionBreaksOnlyBetweenSteps(t *testing.T) {
+	marks := []idleMark{{idleKeyboard, time.Minute}, {idleDim, 2 * time.Minute}, {idleSuspend, 15 * time.Minute}}
+	pieces := strings.Split(idleSequenceText(marks), " ")
+	if len(pieces) != 2*len(marks)-1 {
+		t.Fatalf("the caption breaks into %q, want %d steps between arrows", pieces, len(marks))
+	}
+	for i, p := range pieces {
+		if (i%2 == 1) != (p == "→") {
+			t.Errorf("piece %d of the caption is %q", i, p)
+		}
+	}
+}
+
+// The two timelines spanned their own last step each, so Dim after 4
+// minutes sat right of Screens Off after 5; their captions started under
+// the icon, left of the tracks; the tracks ran past the control edge.
+// Both tracks span the same time, a caption starts where its track
+// does, and the tracks end on the edge the page's controls end on.
+func TestTheIdleTimelinesShareOneScaleAndTheControlColumn(t *testing.T) {
+	win := laidOutPage(t, "idle:\n  dim: {ac: 4m, battery: 2m}\n  screen-off: {ac: 10m, battery: 5m}\n  suspend: {ac: never, battery: 15m}\n", "idle", sweepW)
+	tl := treetest.First[*idleTimeline](t, win.page)
+	ac, battery := tl.lines[0], tl.lines[1]
+	if ac.bar.span != battery.bar.span || ac.bar.span != 15*time.Minute {
+		t.Fatalf("the tracks span %v and %v, want both the latest step's 15m", ac.bar.span, battery.bar.span)
+	}
+	dim := ac.bar.markX(idleMark{idleDim, 4 * time.Minute}, ac.bar.Bounds().W)
+	off := battery.bar.markX(idleMark{idleScreenOff, 5 * time.Minute}, battery.bar.Bounds().W)
+	if dim >= off {
+		t.Errorf("Dim after 4 minutes sits at %d, Screens Off after 5 at %d", dim, off)
+	}
+	edge := -1
+	for _, r := range win.page.rows {
+		if shown(r) && shown(r.ctl) && r.ControlFit() != widget.ItemControlWide {
+			b := r.ctl.(widget.Boundser).Bounds()
+			edge = b.X + b.W
+		}
+	}
+	if edge < 0 {
+		t.Fatal("the idle page shows no control")
+	}
+	for _, line := range tl.lines {
+		bar, text := line.bar.Bounds(), line.text.Bounds()
+		if track := bar.X + timelineDot/2; text.X != track {
+			t.Errorf("%s: the caption starts at x=%d, the track at %d", line.source, text.X, track)
+		}
+		if end := bar.X + bar.W; end != edge {
+			t.Errorf("%s: the track ends at x=%d, the controls at %d", line.source, end, edge)
+		}
 	}
 }
