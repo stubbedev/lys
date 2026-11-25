@@ -37,3 +37,7 @@ button.link.mode-toggle {
 .settings-section-header .disclosure-chevron {
   margin-right: 18px;
 }
+
+.settings-page-scroll {
+  scrollbar-gutter: stable;
+}

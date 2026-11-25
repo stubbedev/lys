@@ -369,8 +369,7 @@ func buildPage(k *kit, spec pageSpec) *settingsPage {
 			card.AddClass(css.Card)
 			card.Append(widget.NewItemGroup(missing), false)
 			content.Append(card, false)
-			p.Scroll = widget.NewScroll(k.pageColumn(content))
-			p.VerticalOnly, p.ShowBars, p.FillY = true, true, true
+			p.Scroll = k.pageScroll(content)
 			return p
 		}
 		if spec.wm {
@@ -460,8 +459,7 @@ func buildPage(k *kit, spec pageSpec) *settingsPage {
 	if related, ok := relatedSection(k, spec.relatedGroups()); ok {
 		content.Append(related, false)
 	}
-	p.Scroll = widget.NewScroll(k.pageColumn(content))
-	p.VerticalOnly, p.ShowBars, p.FillY = true, true, true
+	p.Scroll = k.pageScroll(content)
 	return p
 }
 
@@ -556,6 +554,16 @@ func spin(lo, hi, step float64, digits int) rowOpt {
 // pageMaxWidth caps a page's column at the unscaled styling: wider
 // windows centre it instead of stretching rows apart from their controls.
 const pageMaxWidth = 760
+
+// pageScroll scrolls a page's content up and down in its column, the
+// scrollbar's gutter kept whether or not the page overflows, so the
+// column stands at one x on every page.
+func (k *kit) pageScroll(content widget.Widget) *widget.Scroll {
+	s := widget.NewScroll(k.pageColumn(content))
+	s.AddClass("settings-page-scroll")
+	s.VerticalOnly, s.ShowBars, s.FillY = true, true, true
+	return s
+}
 
 // pageColumn centres a page's content at its capped width.
 func (k *kit) pageColumn(content widget.Widget) widget.Widget {

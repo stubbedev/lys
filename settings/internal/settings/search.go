@@ -184,8 +184,7 @@ func newSearchResults(k *kit, open func(settingEntry)) *searchResults {
 	content.Append(k.label(locale.T().Get("settings-search-title"), "settings-page-title", css.H4), false)
 	content.Append(r.empty, false)
 	content.Append(r.list, false)
-	r.Scroll = widget.NewScroll(k.pageColumn(content))
-	r.VerticalOnly, r.ShowBars, r.FillY = true, true, true
+	r.Scroll = k.pageScroll(content)
 	return r
 }
 
