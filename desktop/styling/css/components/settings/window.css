@@ -41,3 +41,11 @@ button.link.mode-toggle {
 .settings-page-scroll {
   scrollbar-gutter: stable;
 }
+
+item.card-state .title {
+  font-weight: var(--weight-normal);
+}
+
+item.card-state .media {
+  background-color: var(--border-default);
+}
