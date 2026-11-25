@@ -35,7 +35,7 @@ settings-modules-notifications-popup-gap = Pop-upafstand
     .description = Ruimte tussen gestapelde meldingspop-ups
 
 settings-modules-notifications-popup-monitor = Pop-upmonitor
-    .description = Welke monitor pop-ups toont: "primary" of een connector zoals "DP-1"
+    .description = Welke monitor pop-ups toont: de hoofdmonitor, of een monitor via zijn connector, zoals DP-1
 
 settings-modules-notifications-popup-layer = Pop-uplaag
     .description = Layer-shell-laag waarop meldingspop-ups worden geplaatst. De tearingmodus degradeert overlay naar top.

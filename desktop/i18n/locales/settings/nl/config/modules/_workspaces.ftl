@@ -29,7 +29,7 @@ settings-modules-workspaces-app-icons-show = Toepassingspictogrammen tonen
     .description = Vensterpictogrammen per werkblad tonen
 
 settings-modules-workspaces-app-icons-dedupe = Dubbele pictogrammen samenvoegen
-    .description = Eén pictogram per app_id tonen in plaats van één per venster
+    .description = Eén pictogram per app tonen in plaats van één per venster
 
 settings-modules-workspaces-app-icons-fallback = Terugvalpictogram
     .description = Pictogram voor vensters die niet in app-icon-map voorkomen
@@ -77,7 +77,7 @@ settings-modules-workspaces-workspace-map = Werkbladtoewijzing
     .description = Overschrijvingen van pictogram en kleur per werkblad, op naam of ID
 
 settings-modules-workspaces-app-icon-map = Toewijzing toepassingspictogrammen
-    .description = Toewijzingen van venster-app_id of -titel aan pictogrammen
+    .description = Het pictogram dat een venster toont, gekozen op zijn app of zijn titel
 
 settings-modules-workspaces-left-click = Linksklik
     .description = Actie bij linksklik

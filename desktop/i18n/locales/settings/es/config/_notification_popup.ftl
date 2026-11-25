@@ -41,7 +41,7 @@ settings-modules-notifications-popup-gap = Separación entre ventanas emergentes
     .description = Espacio entre las notificaciones emergentes apiladas
 
 settings-modules-notifications-popup-monitor = Monitor de las ventanas emergentes
-    .description = Qué monitor muestra las ventanas emergentes: "primary" o un conector como "DP-1"
+    .description = Qué monitor muestra las ventanas emergentes: el monitor principal, o uno por su conector, como DP-1
 
 settings-modules-notifications-popup-layer = Capa de las ventanas emergentes
     .description = Capa de layer-shell en la que se colocan las notificaciones emergentes. El modo de tearing rebaja overlay a top.

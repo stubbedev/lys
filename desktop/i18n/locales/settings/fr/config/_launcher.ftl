@@ -23,7 +23,7 @@ settings-launcher-tokenize = Découper en mots
     .description = Faire correspondre chaque mot de la requête indépendamment
 
 settings-launcher-negate-char = Caractère de négation
-    .description = Préfixe de mot qui exclut les correspondances (rofi -matching-negate-char)
+    .description = Un mot tapé après ce caractère masque les correspondances qui le contiennent
 
 settings-launcher-normalize-match = Normaliser la correspondance
     .description = Ignorer les accents et les variantes Unicode lors de la correspondance
@@ -68,13 +68,13 @@ settings-launcher-keybindings = Raccourcis clavier
     .description = Raccourcis remplacés : action → touches séparées par des virgules (les actions non définies gardent les valeurs par défaut de rofi)
 
 settings-launcher-mouse-bindings = Raccourcis de souris
-    .description = Raccourcis de souris remplacés : action (boutons me-*, défilement ml-*) → boutons séparés par des virgules (ex. : « MouseDPrimary », « ScrollDown »)
+    .description = Quels boutons de souris et sens de défilement déclenchent chaque action du lanceur, à la place de ceux par défaut
 
 settings-launcher-font = Police
     .description = Police du lanceur sous forme de description Pango (ex. : « Inter 12 ») ; vide garde la police du shell
 
 settings-launcher-styles = Préréglages de style
-    .description = Apparences nommées à choisir à chaque lancement avec -style <nom> : nom → le CSS appliqué pour cette session
+    .description = Apparences nommées qu'un lancement peut demander par leur nom : chaque nom → le CSS appliqué tant que ce lancement s'affiche
 
 settings-launcher-preview-cmd = Commande d'aperçu
     .description = Commande qui crée la miniature d'une ligne : {"{"}input{"}"} le fichier, {"{"}output{"}"} l'image à écrire, {"{"}size{"}"} la taille en pixels ; vide utilise les générateurs de miniatures du système

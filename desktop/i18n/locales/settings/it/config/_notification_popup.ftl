@@ -41,7 +41,7 @@ settings-modules-notifications-popup-gap = Distanza tra i popup
     .description = Spaziatura tra i popup delle notifiche impilati
 
 settings-modules-notifications-popup-monitor = Monitor dei popup
-    .description = Quale monitor mostra i popup: "primary" o un connettore come "DP-1"
+    .description = Quale monitor mostra i popup: il monitor principale, o uno indicato dal suo connettore, come DP-1
 
 settings-modules-notifications-popup-layer = Livello dei popup
     .description = Livello layer-shell su cui vengono posti i popup delle notifiche. La modalità tearing declassa overlay a top.

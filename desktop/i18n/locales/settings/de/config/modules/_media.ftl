@@ -3,7 +3,7 @@
 ## Media Module Configuration
 
 settings-modules-media-icon-type = Symboltyp
-    .description = Anzeigemodus des Symbols (default, application, spinning-disc, application-mapped). spinning-disc benötigt wegen der Animation etwas mehr CPU
+    .description = Was das Mediensymbol zeigt: das Standardsymbol, das Symbol der spielenden App, eine drehende Scheibe oder das Symbol der App aus der Symbolzuordnung. Die drehende Scheibe benötigt wegen der Animation etwas mehr CPU
 
 settings-modules-media-player-icons = Player-Symbole
     .description = Eigene Zuordnung von Playern zu Symbolen (Glob-Muster zu Symbolname)
@@ -24,7 +24,7 @@ settings-modules-media-icon-name = Symbolname
     .description = Symbolischer Symbolname für den Standardmodus
 
 settings-modules-media-spinning-disc-icon = Symbol für drehende Scheibe
-    .description = Symbol für den Modus spinning-disc
+    .description = Symbol, das gezeigt wird, solange der Symboltyp die drehende Scheibe ist
 
 settings-modules-media-border-show = Rahmen anzeigen
     .description = Rahmen um die Schaltfläche anzeigen

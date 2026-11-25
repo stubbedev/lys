@@ -13,7 +13,7 @@ settings-osd-duration = Duration
     .description = How long the OSD stays visible before auto-dismissing
 
 settings-osd-monitor = Monitor
-    .description = Which monitor shows the OSD: "primary" or a connector like "DP-1"
+    .description = Which monitor shows the OSD: the primary monitor, or one by its connector, such as DP-1
 
 settings-osd-margin = Margin
     .description = Distance from the screen edge to the OSD

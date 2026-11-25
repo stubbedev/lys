@@ -25,7 +25,7 @@ settings-launcher-tokenize = Tokenize
     .description = Match each word of the query independently
 
 settings-launcher-negate-char = Negation Character
-    .description = Token prefix that excludes matches (rofi -matching-negate-char)
+    .description = A word typed after this character hides the matches that contain it
 
 settings-launcher-normalize-match = Normalize Match
     .description = Ignore accents and Unicode variants while matching
@@ -70,13 +70,13 @@ settings-launcher-keybindings = Keybindings
     .description = Keybinding overrides: action → comma-separated keys (unset actions keep rofi defaults)
 
 settings-launcher-mouse-bindings = Mouse Bindings
-    .description = Mouse binding overrides: action (me-* buttons, ml-* scroll) → comma-separated buttons (e.g. "MouseDPrimary", "ScrollDown")
+    .description = Which mouse buttons and scroll directions run each launcher action, in place of its defaults
 
 settings-launcher-font = Font
     .description = Launcher font as a Pango description (e.g. "Inter 12"); empty keeps the shell font
 
 settings-launcher-styles = Style Presets
-    .description = Named looks selectable per invocation with -style <name>: name → the CSS applied for that session
+    .description = Named looks a launch can ask for by name: each name → the CSS applied while that launch shows
 
 settings-launcher-preview-cmd = Preview Command
     .description = Command making a row thumbnail: {"{"}input{"}"} the file, {"{"}output{"}"} the image to write, {"{"}size{"}"} the pixel size; empty uses the system thumbnailers

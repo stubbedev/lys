@@ -3,7 +3,7 @@
 ## Media Module Configuration
 
 settings-modules-media-icon-type = Tipo de icono
-    .description = Modo de visualización del icono (default, application, spinning-disc, application-mapped). spinning-disc usa algo más de CPU por la animación
+    .description = Qué muestra el icono multimedia: el icono predeterminado, el de la aplicación que reproduce, un disco giratorio o el icono de la aplicación según la asignación de iconos. El disco giratorio usa algo más de CPU por la animación
 
 settings-modules-media-player-icons = Iconos de reproductores
     .description = Asignaciones personalizadas de reproductor a icono (patrón glob a nombre de icono)
@@ -24,7 +24,7 @@ settings-modules-media-icon-name = Nombre del icono
     .description = Nombre del icono simbólico para el modo predeterminado
 
 settings-modules-media-spinning-disc-icon = Icono de disco giratorio
-    .description = Icono que se muestra en el modo spinning-disc
+    .description = Icono que se muestra cuando el tipo de icono es el disco giratorio
 
 settings-modules-media-border-show = Mostrar el borde
     .description = Muestra un borde alrededor del botón

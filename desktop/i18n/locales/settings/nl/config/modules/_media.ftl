@@ -1,5 +1,5 @@
 settings-modules-media-icon-type = Pictogramtype
-    .description = Weergavemodus van het pictogram (default, application, spinning-disc, application-mapped). spinning-disc gebruikt door de animatie iets meer CPU
+    .description = Wat het mediapictogram toont: het standaardpictogram, het pictogram van de spelende app, een draaiende schijf of het pictogram van de app uit de pictogramtoewijzing. De draaiende schijf gebruikt door de animatie iets meer CPU
 
 settings-modules-media-player-icons = Spelerpictogrammen
     .description = Aangepaste toewijzingen van spelers aan pictogrammen (glob-patroon naar pictogramnaam)
@@ -20,7 +20,7 @@ settings-modules-media-icon-name = Pictogramnaam
     .description = Naam van het symbolische pictogram voor de standaardmodus
 
 settings-modules-media-spinning-disc-icon = Pictogram draaiende schijf
-    .description = Pictogram voor de modus spinning-disc
+    .description = Pictogram dat wordt getoond zolang het pictogramtype de draaiende schijf is
 
 settings-modules-media-border-show = Rand tonen
     .description = Rand rond de knop tonen

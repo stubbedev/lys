@@ -23,7 +23,7 @@ settings-launcher-tokenize = Separar en palabras
     .description = Busca coincidencias de cada palabra de la consulta por separado
 
 settings-launcher-negate-char = Carácter de negación
-    .description = Prefijo de palabra que excluye coincidencias (rofi -matching-negate-char)
+    .description = Una palabra escrita tras este carácter oculta las coincidencias que la contienen
 
 settings-launcher-normalize-match = Normalizar coincidencias
     .description = Ignora los acentos y las variantes Unicode al buscar coincidencias
@@ -68,13 +68,13 @@ settings-launcher-keybindings = Atajos de teclado
     .description = Atajos personalizados: acción → teclas separadas por comas (las acciones sin definir mantienen los valores predeterminados de rofi)
 
 settings-launcher-mouse-bindings = Asignaciones del ratón
-    .description = Asignaciones del ratón personalizadas: acción (botones me-*, desplazamiento ml-*) → botones separados por comas (p. ej. "MouseDPrimary", "ScrollDown")
+    .description = Qué botones del ratón y direcciones de desplazamiento ejecutan cada acción del lanzador, en lugar de las predeterminadas
 
 settings-launcher-font = Tipografía
     .description = Tipografía del lanzador como descripción de Pango (p. ej. "Inter 12"); vacío mantiene la tipografía del shell
 
 settings-launcher-styles = Estilos predefinidos
-    .description = Aspectos con nombre seleccionables en cada invocación con -style <name>: nombre → el CSS aplicado en esa sesión
+    .description = Aspectos con nombre que un lanzamiento puede pedir por su nombre: cada nombre → el CSS aplicado mientras se muestra ese lanzamiento
 
 settings-launcher-preview-cmd = Orden de vista previa
     .description = Orden que genera la miniatura de una fila: {"{"}input{"}"} el archivo, {"{"}output{"}"} la imagen que escribir, {"{"}size{"}"} el tamaño en píxeles; vacío usa los generadores de miniaturas del sistema

@@ -3,7 +3,7 @@
 ## Media Module Configuration
 
 settings-modules-media-icon-type = Icon Type
-    .description = Icon display mode (default, application, spinning-disc, application-mapped). spinning-disc uses slightly more CPU due to animation
+    .description = What the media icon shows: the default icon, the playing app's icon, a spinning disc, or the app's icon from the icon map. The spinning disc uses slightly more CPU for its animation
 
 settings-modules-media-player-icons = Player Icons
     .description = Custom player-to-icon mappings (glob pattern to icon name)
@@ -24,7 +24,7 @@ settings-modules-media-icon-name = Icon Name
     .description = Symbolic icon name for default mode
 
 settings-modules-media-spinning-disc-icon = Spinning Disc Icon
-    .description = Icon shown for spinning-disc mode
+    .description = Icon shown while the icon type is the spinning disc
 
 settings-modules-media-border-show = Show Border
     .description = Display border around button

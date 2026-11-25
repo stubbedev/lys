@@ -29,7 +29,7 @@ settings-modules-workspaces-app-icons-show = Show App Icons
     .description = Display window icons per workspace
 
 settings-modules-workspaces-app-icons-dedupe = Deduplicate Icons
-    .description = Show one icon per app_id instead of one per window
+    .description = Show one icon per app instead of one per window
 
 settings-modules-workspaces-app-icons-fallback = Fallback Icon
     .description = Icon for windows not matched by app-icon-map
@@ -77,7 +77,7 @@ settings-modules-workspaces-workspace-map = Workspace Map
     .description = Per-workspace icon and color overrides, keyed by name or id
 
 settings-modules-workspaces-app-icon-map = App Icon Map
-    .description = Window app_id or title to icon mappings
+    .description = The icon a window shows, matched by its app or its title
 
 settings-modules-workspaces-left-click = Left Click
     .description = Action on left click
@@ -104,7 +104,7 @@ settings-modules-workspaces-numbering = Numbering
     .description = How workspace numbers are displayed (absolute or relative)
 
 settings-modules-workspaces-highlight-active-on-other-monitor = Highlight Active on Other Monitor
-    .description = Use a different color for active workspaces on other monitors (only applies when { settings-modules-workspaces-monitor-specific } is false)
+    .description = Use a different color for active workspaces on other monitors (only applies while { settings-modules-workspaces-monitor-specific } is off)
 
 settings-modules-workspaces-active-on-other-monitor-color = Active on Other Monitor Color
     .description = Color for focused workspace icons and labels active on other monitors (only used when { settings-modules-workspaces-highlight-active-on-other-monitor } is true)

@@ -3,7 +3,7 @@
 ## Configuration du module Média
 
 settings-modules-media-icon-type = Type d'icône
-    .description = Mode d'affichage de l'icône (par défaut, application, disque tournant, application associée). Le disque tournant utilise légèrement plus de processeur en raison de l'animation
+    .description = Ce qu'affiche l'icône multimédia : l'icône par défaut, celle de l'application qui joue, un disque tournant ou l'icône de l'application selon les correspondances d'icônes. Le disque tournant utilise légèrement plus de processeur en raison de l'animation
 
 settings-modules-media-player-icons = Icônes de lecteur
     .description = Correspondances personnalisées lecteur-icône (motif glob vers nom d'icône)

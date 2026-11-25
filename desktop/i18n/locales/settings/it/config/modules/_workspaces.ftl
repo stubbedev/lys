@@ -29,7 +29,7 @@ settings-modules-workspaces-app-icons-show = Mostra le icone delle app
     .description = Mostra le icone delle finestre per spazio di lavoro
 
 settings-modules-workspaces-app-icons-dedupe = Deduplica le icone
-    .description = Mostra un'icona per app_id invece di una per finestra
+    .description = Mostra un'icona per applicazione invece di una per finestra
 
 settings-modules-workspaces-app-icons-fallback = Icona di riserva
     .description = Icona per le finestre non presenti in app-icon-map
@@ -77,7 +77,7 @@ settings-modules-workspaces-workspace-map = Mappa degli spazi di lavoro
     .description = Icone e colori specifici per spazio di lavoro, indicizzati per nome o id
 
 settings-modules-workspaces-app-icon-map = Mappa delle icone delle app
-    .description = Associazioni tra app_id o titolo della finestra e icona
+    .description = L'icona che mostra una finestra, in base alla sua applicazione o al suo titolo
 
 settings-modules-workspaces-left-click = Clic sinistro
     .description = Azione al clic sinistro

@@ -23,7 +23,7 @@ settings-launcher-tokenize = Opsplitsen
     .description = Elk woord van de zoekopdracht afzonderlijk vergelijken
 
 settings-launcher-negate-char = Negatieteken
-    .description = Voorvoegsel van een woord dat overeenkomsten uitsluit (rofi -matching-negate-char)
+    .description = Een woord dat na dit teken wordt getypt, verbergt de overeenkomsten die het bevatten
 
 settings-launcher-normalize-match = Normaliseren bij zoeken
     .description = Accenten en Unicode-varianten negeren bij het zoeken
@@ -68,13 +68,13 @@ settings-launcher-keybindings = Sneltoetsen
     .description = Overschrijvingen van sneltoetsen: actie → door komma's gescheiden toetsen (niet-ingestelde acties behouden de rofi-standaarden)
 
 settings-launcher-mouse-bindings = Muisbindingen
-    .description = Overschrijvingen van muisbindingen: actie (me-* knoppen, ml-* scrollen) → door komma's gescheiden knoppen (bijv. "MouseDPrimary", "ScrollDown")
+    .description = Welke muisknoppen en scrollrichtingen elke actie van de starter uitvoeren, in plaats van de standaard
 
 settings-launcher-font = Lettertype
     .description = Lettertype van de starter als Pango-beschrijving (bijv. "Inter 12"); leeg behoudt het shell-lettertype
 
 settings-launcher-styles = Stijlvoorinstellingen
-    .description = Benoemde stijlen die per aanroep te kiezen zijn met -style <name>: naam → de CSS die voor die sessie wordt toegepast
+    .description = Benoemde stijlen die een start bij naam kan opvragen: elke naam → de CSS die geldt zolang die start zichtbaar is
 
 settings-launcher-preview-cmd = Voorbeeldopdracht
     .description = Opdracht die een miniatuur voor een rij maakt: {"{"}input{"}"} het bestand, {"{"}output{"}"} de te schrijven afbeelding, {"{"}size{"}"} de grootte in pixels; leeg gebruikt de miniatuurgeneratoren van het systeem

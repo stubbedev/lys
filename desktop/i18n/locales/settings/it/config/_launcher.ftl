@@ -23,7 +23,7 @@ settings-launcher-tokenize = Suddividi in parole
     .description = Confronta ogni parola della ricerca in modo indipendente
 
 settings-launcher-negate-char = Carattere di negazione
-    .description = Prefisso che esclude le corrispondenze (rofi -matching-negate-char)
+    .description = Una parola digitata dopo questo carattere nasconde le corrispondenze che la contengono
 
 settings-launcher-normalize-match = Normalizza la corrispondenza
     .description = Ignora accenti e varianti Unicode durante il confronto
@@ -68,13 +68,13 @@ settings-launcher-keybindings = Scorciatoie da tastiera
     .description = Scorciatoie alternative: azione → tasti separati da virgole (le azioni non impostate mantengono i valori predefiniti di rofi)
 
 settings-launcher-mouse-bindings = Associazioni del mouse
-    .description = Associazioni del mouse alternative: azione (pulsanti me-*, scorrimento ml-*) → pulsanti separati da virgole (ad es. "MouseDPrimary", "ScrollDown")
+    .description = Quali pulsanti del mouse e direzioni di scorrimento eseguono ogni azione del launcher, al posto di quelli predefiniti
 
 settings-launcher-font = Carattere
     .description = Carattere dell'avviatore come descrizione Pango (ad es. "Inter 12"); vuoto mantiene il carattere della shell
 
 settings-launcher-styles = Stili predefiniti
-    .description = Aspetti con nome selezionabili a ogni invocazione con -style <name>: nome → il CSS applicato per quella sessione
+    .description = Aspetti con nome che un avvio può richiedere per nome: ogni nome → il CSS applicato finché quell'avvio è visibile
 
 settings-launcher-preview-cmd = Comando di anteprima
     .description = Comando che crea la miniatura di una riga: {"{"}input{"}"} il file, {"{"}output{"}"} l'immagine da scrivere, {"{"}size{"}"} la dimensione in pixel; vuoto usa i generatori di miniature di sistema

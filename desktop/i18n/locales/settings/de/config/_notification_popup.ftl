@@ -41,7 +41,7 @@ settings-modules-notifications-popup-gap = Popup-Abstand
     .description = Abstand zwischen gestapelten Benachrichtigungs-Popups
 
 settings-modules-notifications-popup-monitor = Popup-Monitor
-    .description = Welcher Monitor Popups zeigt: "primary" oder ein Anschluss wie "DP-1"
+    .description = Welcher Monitor Popups zeigt: der Hauptmonitor oder einer über seinen Anschluss, etwa DP-1
 
 settings-modules-notifications-popup-layer = Popup-Ebene
     .description = Layer-Shell-Ebene, auf der Benachrichtigungs-Popups liegen. Der Tearing-Modus stuft overlay auf top zurück.

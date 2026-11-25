@@ -12,7 +12,7 @@ settings-osd-duration = Dauer
     .description = Wie lange das OSD sichtbar bleibt, bevor es sich automatisch schließt
 
 settings-osd-monitor = Monitor
-    .description = Welcher Monitor das OSD zeigt: "primary" oder ein Anschluss wie "DP-1"
+    .description = Welcher Monitor das OSD zeigt: der Hauptmonitor oder einer über seinen Anschluss, etwa DP-1
 
 settings-osd-margin = Rand
     .description = Abstand vom Bildschirmrand zum OSD

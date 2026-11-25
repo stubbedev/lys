@@ -41,7 +41,7 @@ settings-modules-notifications-popup-gap = Popup Gap
     .description = Spacing between stacked notification popups
 
 settings-modules-notifications-popup-monitor = Popup Monitor
-    .description = Which monitor shows popups: "primary" or a connector like "DP-1"
+    .description = Which monitor shows popups: the primary monitor, or one by its connector, such as DP-1
 
 settings-modules-notifications-popup-layer = Popup Layer
     .description = Layer-shell layer popup notifications are placed on. Tearing mode demotes overlay to top.

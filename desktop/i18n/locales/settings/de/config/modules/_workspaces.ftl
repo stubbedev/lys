@@ -29,7 +29,7 @@ settings-modules-workspaces-app-icons-show = App-Symbole anzeigen
     .description = Fenstersymbole pro Arbeitsfläche anzeigen
 
 settings-modules-workspaces-app-icons-dedupe = Doppelte Symbole zusammenfassen
-    .description = Ein Symbol pro app_id statt eines pro Fenster anzeigen
+    .description = Ein Symbol pro App statt eines pro Fenster anzeigen
 
 settings-modules-workspaces-app-icons-fallback = Ersatzsymbol
     .description = Symbol für Fenster, die nicht in app-icon-map erfasst sind
@@ -77,7 +77,7 @@ settings-modules-workspaces-workspace-map = Arbeitsflächenzuordnung
     .description = Symbol- und Farbüberschreibungen pro Arbeitsfläche, nach Name oder ID
 
 settings-modules-workspaces-app-icon-map = App-Symbolzuordnung
-    .description = Zuordnung von Fenster-app_id oder -Titel zu Symbolen
+    .description = Das Symbol, das ein Fenster zeigt, zugeordnet nach seiner App oder seinem Titel
 
 settings-modules-workspaces-left-click = Linksklick
     .description = Aktion bei Linksklick

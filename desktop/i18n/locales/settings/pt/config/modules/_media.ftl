@@ -1,5 +1,5 @@
 settings-modules-media-icon-type = Tipo de ícone
-    .description = Modo de apresentação do ícone (default, application, spinning-disc, application-mapped). spinning-disc usa um pouco mais de CPU devido à animação
+    .description = O que o ícone multimédia mostra: o ícone predefinido, o da aplicação que está a tocar, um disco a girar ou o ícone da aplicação segundo o mapeamento de ícones. O disco a girar usa um pouco mais de CPU devido à animação
 
 settings-modules-media-player-icons = Ícones dos leitores
     .description = Mapeamentos personalizados de leitor para ícone (padrão glob para nome do ícone)
@@ -20,7 +20,7 @@ settings-modules-media-icon-name = Nome do ícone
     .description = Nome do ícone simbólico para o modo predefinido
 
 settings-modules-media-spinning-disc-icon = Ícone de disco a girar
-    .description = Ícone mostrado no modo spinning-disc
+    .description = Ícone mostrado quando o tipo de ícone é o disco a girar
 
 settings-modules-media-border-show = Mostrar contorno
     .description = Mostrar contorno à volta do botão

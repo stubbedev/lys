@@ -25,7 +25,7 @@ settings-launcher-tokenize = In Wörter zerlegen
     .description = Jedes Wort der Suche unabhängig abgleichen
 
 settings-launcher-negate-char = Negationszeichen
-    .description = Wortpräfix, das Treffer ausschließt (rofi -matching-negate-char)
+    .description = Ein nach diesem Zeichen getipptes Wort blendet die Treffer aus, die es enthalten
 
 settings-launcher-normalize-match = Abgleich normalisieren
     .description = Akzente und Unicode-Varianten beim Abgleich ignorieren
@@ -70,13 +70,13 @@ settings-launcher-keybindings = Tastenkürzel
     .description = Tastenkürzel überschreiben: Aktion → kommagetrennte Tasten (nicht gesetzte Aktionen behalten die rofi-Standards)
 
 settings-launcher-mouse-bindings = Maustasten
-    .description = Mausbelegungen überschreiben: Aktion (me-* Tasten, ml-* Scrollen) → kommagetrennte Tasten (z. B. "MouseDPrimary", "ScrollDown")
+    .description = Welche Maustasten und Scrollrichtungen jede Aktion des Starters auslösen, statt ihrer Standardbelegung
 
 settings-launcher-font = Schrift
     .description = Schrift des Starters als Pango-Beschreibung (z. B. "Inter 12"); leer behält die Shell-Schrift
 
 settings-launcher-styles = Stilvorlagen
-    .description = Benannte Erscheinungsbilder, pro Aufruf mit -style <name> wählbar: Name → das CSS für diese Sitzung
+    .description = Benannte Erscheinungsbilder, die ein Start beim Namen anfordern kann: jeder Name → das CSS, das während dieses Starts gilt
 
 settings-launcher-preview-cmd = Vorschaubefehl
     .description = Befehl, der ein Zeilen-Vorschaubild erzeugt: {"{"}input{"}"} die Datei, {"{"}output{"}"} das zu schreibende Bild, {"{"}size{"}"} die Pixelgröße; leer verwendet die Vorschaubildgeneratoren des Systems
