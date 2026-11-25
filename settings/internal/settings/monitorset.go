@@ -126,6 +126,7 @@ func (c *monitorSet) refresh() {
 		c.state.Clear()
 	}
 	c.away.Clear()
+	c.away.SetVisible(!all && len(away) > 0)
 	if all {
 		return
 	}

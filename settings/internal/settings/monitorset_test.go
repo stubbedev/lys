@@ -90,3 +90,28 @@ func TestWithoutDisplaysToReadTheDockSaysSo(t *testing.T) {
 		t.Errorf("with no display to read the tiles show %v and the state %v", c.picker.Visible(), c.state.Visible())
 	}
 }
+
+// With All displays on, the empty list of displays not connected still
+// took its place and a gap, so the Monitors row kept 44px under its last
+// line against 22px above. Nothing empty shows under the switch.
+func TestAMonitorSetEndsWithItsLastShownPart(t *testing.T) {
+	win := laidOutPage(t, "", "dock", 1664)
+	sets := treetest.All[*monitorSet](win.page)
+	if len(sets) != 1 {
+		t.Fatalf("%d monitor sets on the dock page", len(sets))
+	}
+	c := sets[0]
+	if c.away.Visible() {
+		t.Error("the empty list of displays not connected shows")
+	}
+	end := 0
+	for _, w := range c.Children() {
+		if shown(w) {
+			b := w.(widget.Boundser).Bounds()
+			end = max(end, b.Y+b.H)
+		}
+	}
+	if b := c.Bounds(); b.Y+b.H != end {
+		t.Errorf("the monitor set ends at %d, its last shown part at %d", b.Y+b.H, end)
+	}
+}
