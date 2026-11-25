@@ -14,7 +14,7 @@ func TestTheReplayStatusSpeaksTheLocalesLanguageAndByteSize(t *testing.T) {
 	}{
 		{"en-US", "Instant replay armed", "1.5 GiB", ""},
 		{"de", "Sofortwiederholung bereit", "1,5 GiB", "1.5 GiB"},
-		{"fr", "Relecture instantanée armée", "1,5\u00a0Gio", "GiB"},
+		{"fr", "Relecture instantanée armée", "1,5\u202fGio", "GiB"},
 	} {
 		l, err := i18n.Select(i18n.NewAssets(shelllocales.FS), []i18n.LangID{i18n.MustLangID(c.locale)})
 		if err != nil {

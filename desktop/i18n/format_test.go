@@ -148,9 +148,9 @@ func TestByteSizeLocalizesNumberAndUnit(t *testing.T) {
 		{"de", 1536, "1,5 KiB"},
 		{"de", 1023, "1.023 B"},
 		{"de", 1500 << 20, "1,5 GiB"},
-		{"fr", 512, "512 o"},
-		{"fr", 1536, "1,5 Kio"},
-		{"fr", 5 << 20, "5,0 Mio"},
+		{"fr", 512, "512 o"},
+		{"fr", 1536, "1,5 Kio"},
+		{"fr", 5 << 20, "5,0 Mio"},
 		{"es", 1023, "1023 B"},
 	} {
 		if got := shellLoader(t, c.locale).ByteSize(c.n); got != c.want {
@@ -192,9 +192,9 @@ func TestDecimalByteSizeCountsInThousandsAndLocalizes(t *testing.T) {
 		{"en-US", 1 << 63, "9.2 EB"},
 		{"de", 500_107_862_016, "500,1 GB"},
 		{"de", 999, "999 B"},
-		{"fr", 500_107_862_016, "500,1\u00a0Go"},
-		{"fr", 1500, "1,5\u00a0ko"},
-		{"fr", 512, "512\u00a0o"},
+		{"fr", 500_107_862_016, "500,1\u202fGo"},
+		{"fr", 1500, "1,5\u202fko"},
+		{"fr", 512, "512\u202fo"},
 		{"nl", 4_700_000_000, "4,7 GB"},
 	} {
 		if got := shellLoader(t, c.locale).DecimalByteSize(c.n); got != c.want {
@@ -219,7 +219,7 @@ func TestWithUnitSpacesTheUnitAsTheLocalesByteSizesDo(t *testing.T) {
 	}{
 		{"en-US", "3.5 mi"},
 		{"de", "3,5 mi"},
-		{"fr", "3,5\u00a0mi"},
+		{"fr", "3,5\u202fmi"},
 		{"pt", "3,5 mi"},
 	} {
 		l := shellLoader(t, c.locale)

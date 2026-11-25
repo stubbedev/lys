@@ -30,7 +30,7 @@ func TestAnUnlabelledVolumeIsNamedBySizeInTheLocalesLanguageAndUnits(t *testing.
 	}{
 		{"en-US", "16.0 GB Volume", "500.1 GB Encrypted Volume"},
 		{"de", "Datenträger mit 16,0 GB", "Verschlüsselter Datenträger mit 500,1 GB"},
-		{"fr", "Volume de 16,0 Go", "Volume chiffré de 500,1 Go"},
+		{"fr", "Volume de 16,0 Go", "Volume chiffré de 500,1 Go"},
 		{"nl", "Volume van 16,0 GB", "Versleuteld volume van 500,1 GB"},
 	} {
 		l := loaderFor(t, c.locale)

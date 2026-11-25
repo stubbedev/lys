@@ -132,7 +132,7 @@ func formatsFor(catalogue LangID) (localeFormats, error) {
 			separators: [2]string{" ", " "},
 		}
 		return localeFormats{
-			decimal: ",", group: narrowNBSP, minimumGrouping: 1, units: octetUnitSystems, unitSpace: nbsp,
+			decimal: ",", group: narrowNBSP, minimumGrouping: 1, units: octetUnitSystems, unitSpace: narrowNBSP,
 			order: dayMonthYear, dateSeparator: "/", padDate: true, padHour: true, dateTimeSeparator: " ",
 			medium: medium,
 			weekdayDate: weekdayDate{

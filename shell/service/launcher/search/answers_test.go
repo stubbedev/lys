@@ -302,8 +302,8 @@ func TestAConversionRowShowsTheLocalesDigitsAndContinuesWithThePlainOnes(t *test
 	}{
 		{"en-US", "5 km to mi", "3.1068559612 mi", "3.1068559612"},
 		{"de", "5 km to mi", "3,1068559612 mi", "3.1068559612"},
-		{"fr", "5 km to mi", "3,1068559612\u00a0mi", "3.1068559612"},
-		{"fr", "1 GB to MB", "1\u202f000\u00a0MB", "1000"},
+		{"fr", "5 km to mi", "3,1068559612\u202fmi", "3.1068559612"},
+		{"fr", "1 GB to MB", "1\u202f000\u202fMB", "1000"},
 		{"en-US", "2 km to m", "2,000 m", "2000"},
 		{"de", "2 km to m", "2.000 m", "2000"},
 		{"de", "100 f to c", "37,7777777778°C", "37.7777777778"},

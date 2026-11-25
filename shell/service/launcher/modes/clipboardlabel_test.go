@@ -51,7 +51,7 @@ func TestAClipboardRowIsLabelledInTheLocalesLanguageAndUnits(t *testing.T) {
 	for locale, want := range map[string][]string{
 		"en-US": {"first line second line", "notes.txt", "a.txt, b.txt (2 files)", "No files", "Image · image/png · 2.0 KiB", "application/pdf · 4 B"},
 		"de":    {"first line second line", "notes.txt", "a.txt, b.txt (2 Dateien)", "Keine Dateien", "Bild · image/png · 2,0 KiB", "application/pdf · 4 B"},
-		"fr":    {"first line second line", "notes.txt", "a.txt, b.txt (2 fichiers)", "Aucun fichier", "Image · image/png · 2,0\u00a0Kio", "application/pdf · 4\u00a0o"},
+		"fr":    {"first line second line", "notes.txt", "a.txt, b.txt (2 fichiers)", "Aucun fichier", "Image · image/png · 2,0\u202fKio", "application/pdf · 4\u202fo"},
 		"pt":    {"first line second line", "notes.txt", "a.txt, b.txt (2 ficheiros)", "Nenhum ficheiro", "Imagem · image/png · 2,0 KiB", "application/pdf · 4 B"},
 	} {
 		if got := labelsIn(t, locale, 160, everyKind...); !slices.Equal(got, want) {
