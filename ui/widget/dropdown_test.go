@@ -497,8 +497,10 @@ func TestDropdownRows(t *testing.T) {
 	if len(list.headings) != 2 || list.headings[0].Text() != "Colors" || list.headings[1].Text() != "Greys" {
 		t.Error("the headers do not head the list's groups")
 	}
-	if _, swatch := list.rows[1].item.Icon.(*ColorSwatch); list.rows[0].item.Icon == nil || !swatch || list.rows[2].item.Icon != nil {
-		t.Error("the list rows did not take their leading widgets")
+	_, swatch := list.rows[1].item.Icon.(*ColorSwatch)
+	_, empty := list.rows[2].item.Icon.(*Spacer)
+	if list.rows[0].item.Icon == nil || !swatch || !empty {
+		t.Error("the list rows did not take their leading widgets, the iconless one an empty column")
 	}
 	if got := highlightedLabel(list); got != "Blue" {
 		t.Errorf("the list opened on %q, want the selection", got)
@@ -717,5 +719,37 @@ func TestADropdownsListIsAsWideAsItsFace(t *testing.T) {
 	}
 	if host.opts[1].Align != PopoverStart {
 		t.Error("a list wider than its face opens centred")
+	}
+}
+
+// A dropdown whose rows have icons only in part lists every label in
+// one column, the iconless rows keeping the icon column empty, while
+// its face shows an iconless selection with no slot before it and sizes
+// to its widest row as that row shows (#352).
+func TestADropdownsIconlessRowsLineUpInTheListAndTakeNoSlotOnTheFace(t *testing.T) {
+	face := testFace(t)
+	swatch := func() Widget { return NewColorSwatch(render.RGB(0xff, 0, 0)) }
+	rows := []DropdownRow{{Label: "Auto"}, {Label: "Red", Leading: swatch}, {Label: "Custom..."}}
+	dd, host := hostDropdown(t, NewDropdownRows(face, 14, rows, 0))
+	dd.Open()
+	list := host.popovers[0]
+	arrangeTree(t, list, 300, 300)
+	var xs []int
+	walkTree(list, func(w Widget, _ int) {
+		if l, ok := w.(*Label); ok {
+			xs = append(xs, l.Bounds().X)
+		}
+	})
+	if len(xs) != 3 || xs[0] != xs[1] || xs[1] != xs[2] {
+		t.Errorf("list labels start at %v, want one x", xs)
+	}
+	dd.Close()
+
+	plain := NewDropdown(face, 14, []string{"Auto", "Red", "Custom..."}, 0)
+	if got, want := SizeWithin(dd, Size{W: 400, H: 100}).W, SizeWithin(plain, Size{W: 400, H: 100}).W; got != want {
+		t.Errorf("face %dpx wide, the same labels without icons %dpx: the iconless widest row took a slot", got, want)
+	}
+	if ic := dd.selectedIcon(); ic != nil {
+		t.Errorf("the iconless selection shows %T on the face", ic)
 	}
 }

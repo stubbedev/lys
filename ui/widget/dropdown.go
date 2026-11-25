@@ -44,10 +44,11 @@ type Dropdown struct {
 	entries  []DropdownRow
 	faceIcon Widget
 	faceFor  int
-	// slotIcons are the rows' icons the face's icon slot is measured
-	// over, built once per row set (nil until then): a factory's
-	// widget is fresh, and styling one each measure restyled the app.
-	slotIcons []Widget
+	// rowIcons are the rows' icons, by row, nil for a row without one,
+	// that the face and the list's leading column are measured over,
+	// built once per row set (nil until then): a factory's widget is
+	// fresh, and styling one each measure restyled the app.
+	rowIcons []Widget
 
 	// list is the open popover's item list and closeList what closes
 	// it; both are nil while the list is closed.
@@ -83,8 +84,11 @@ func NewDropdown(face render.Font, sizePx float64, items []string, selected int)
 // DropdownRow is one row of a dropdown built with NewDropdownRows,
 // GTK's DropDown with a row factory. Leading, when set, builds the
 // row's leading widget, an icon or a ColorSwatch: it is called for the
-// list row and for the face, so each owns its instance. A Header row is a group caption: listed,
-// never selected, stepped onto, or matched by type-ahead.
+// list row and for the face, so each owns its instance. Among rows
+// with one, a row without keeps the list's leading column empty, so
+// every label lines up, and its face shows its label with no empty
+// slot before it. A Header row is a group caption: listed, never
+// selected, stepped onto, or matched by type-ahead.
 type DropdownRow struct {
 	Label   string
 	Leading func() Widget
@@ -135,7 +139,7 @@ func (d *Dropdown) SetRows(rows []DropdownRow, selected int) {
 		d.items[i] = e.Label
 	}
 	d.faceIcon, d.faceFor = nil, -1
-	d.slotIcons = nil
+	d.rowIcons = nil
 	d.selected = -1
 	if len(rows) > 0 {
 		d.selected = d.selectableFrom(min(max(selected, 0), len(rows)-1))
@@ -237,6 +241,7 @@ func (d *Dropdown) SetEnabled(enabled bool) {
 func (d *Dropdown) newList() *Command {
 	var groups []CommandGroup
 	highlight, row := -1, 0
+	column := d.leadingColumn()
 	for i, e := range d.entries {
 		if e.Header {
 			groups = append(groups, CommandGroup{Heading: e.Label})
@@ -246,8 +251,11 @@ func (d *Dropdown) newList() *Command {
 			groups = append(groups, CommandGroup{})
 		}
 		it := CommandItem{Label: e.Label, Trailing: newCommandCheck(i == d.selected), OnSelect: func() { d.pick(i) }}
-		if e.Leading != nil {
+		switch {
+		case e.Leading != nil:
 			it.Icon = e.Leading()
+		case column > 0:
+			it.Icon = NewSpacer(column, 0)
 		}
 		g := &groups[len(groups)-1]
 		g.Items = append(g.Items, it)
@@ -324,8 +332,8 @@ var dropdownLabelX = entryPad.Left
 // dropdown's face paints.
 func newDropdownArrow() *Symbol { return NewSymbol(SymbolChevronDown, dropdownArrowSize) }
 
-// Measure wants the widest item plus arrow and padding, and one row
-// height; the closed face keeps its width whatever the selection, so a
+// Measure wants the widest item, its own icon before it if it has one,
+// plus arrow and padding, and one row height; the closed face keeps its width whatever the selection, so a
 // change never relayouts the surrounding tree. 80px is the width
 // floor. It needs the label start, the icon slot, an ellipsis and the
 // chevron, the selection ellipsizing into what is left.
@@ -341,8 +349,8 @@ func (d *Dropdown) Measure(axis Axis, forSize int) Sizes {
 	}
 	w := dropdownMinW
 	slot := d.iconSlot()
-	for _, label := range d.items {
-		if adv := dropdownLabelX + slot + int(d.face.Shape(label, d.sizePx).Advance()+0.5) + dropdownChevronW; adv > w {
+	for i, label := range d.items {
+		if adv := dropdownLabelX + d.iconWidth(i) + int(d.face.Shape(label, d.sizePx).Advance()+0.5) + dropdownChevronW; adv > w {
 			w = adv
 		}
 	}
@@ -537,22 +545,44 @@ func (d *Dropdown) selectedIcon() Widget {
 	return d.faceIcon
 }
 
-// iconSlot is the widest row icon plus the gap, 0 without icons: the
-// face reserves it so a selection change never relayouts.
-func (d *Dropdown) iconSlot() int {
-	if d.slotIcons == nil {
-		d.slotIcons = make([]Widget, 0, len(d.entries))
-		for _, e := range d.entries {
+// icons are the rows' icons by row, built on first use.
+func (d *Dropdown) icons() []Widget {
+	if d.rowIcons == nil {
+		d.rowIcons = make([]Widget, len(d.entries))
+		for i, e := range d.entries {
 			if e.Leading != nil {
-				d.slotIcons = append(d.slotIcons, e.Leading())
+				d.rowIcons[i] = e.Leading()
 			}
 		}
 	}
+	return d.rowIcons
+}
+
+// iconWidth is what row i's icon takes on the face before its label:
+// the icon and the gap, 0 for a row without one, whose label starts
+// where an icon would.
+func (d *Dropdown) iconWidth(i int) int {
+	if ic := d.icons()[i]; ic != nil {
+		return ic.Measure(Row, Unknown).Nat + dropdownIconGap
+	}
+	return 0
+}
+
+// iconSlot is the widest row icon plus the gap, 0 without icons: the
+// face's least width keeps room for it.
+func (d *Dropdown) iconSlot() int {
 	w := 0
-	for _, ic := range d.slotIcons {
-		w = max(w, ic.Measure(Row, Unknown).Nat+dropdownIconGap)
+	for i := range d.entries {
+		w = max(w, d.iconWidth(i))
 	}
 	return w
+}
+
+// leadingColumn is the widest row icon, 0 without icons: the list
+// reserves it on every row, so the labels of rows with and without an
+// icon line up.
+func (d *Dropdown) leadingColumn() int {
+	return max(d.iconSlot()-dropdownIconGap, 0)
 }
 
 // appendStyleKids is the button (its arrow below) and the face's icon
