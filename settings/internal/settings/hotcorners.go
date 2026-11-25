@@ -141,7 +141,7 @@ func (s *cornerScreen) Paint(cv *render.Canvas) {
 			fill = th.Accent
 		}
 		cv.RoundedRect(d, cornerDotR, fill)
-		ring, width := th.Border, 1
+		ring, width := spotRing(th), 1
 		if i == s.h.selected {
 			ring, width = th.Text, choiceRing
 		}

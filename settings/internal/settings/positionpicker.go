@@ -120,11 +120,19 @@ func (p *positionPicker) Paint(cv *render.Canvas) {
 			fill = th.Accent
 		}
 		cv.RoundedRect(r, tileRadius/2, fill)
-		if widget.FocusVisible(h) {
+		switch {
+		case widget.FocusVisible(h):
 			cv.RoundedBorder(r, render.UniformCorners(tileRadius/2), render.UniformInsets(focusRing), th.Text)
+		case h.key != p.current:
+			cv.RoundedBorder(r, render.UniformCorners(tileRadius/2), render.UniformInsets(1), spotRing(th))
 		}
 	}
 }
+
+// spotRing rings a picker's cell that is neither chosen nor focused, in
+// the muted text color, so it reads as a control against the screen and
+// the card behind it as the chosen one does.
+func spotRing(th *widget.Theme) render.Color { return th.DisabledText() }
 
 func (p *positionPicker) HitTest(pt widget.Point) widget.Widget { return p.HitLeaf(p, pt) }
 
