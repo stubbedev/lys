@@ -49,3 +49,9 @@ item.card-state .title {
 item.card-state .media {
   background-color: var(--border-default);
 }
+
+.settings-page item:disabled .title,
+.settings-page item:disabled .description,
+.settings-page item:disabled .numeric {
+  color: var(--fg-subtle);
+}
