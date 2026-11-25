@@ -685,7 +685,7 @@ func (p *usersPanel) openPasswordDialog() {
 	t := locale.T()
 	f := p.newPasswordForm()
 	_, err := p.k.openDialog("change the password", dialogSpec{
-		title:    t.Get("settings-users-password-change"),
+		title:    t.Get("settings-users-password-apply"),
 		width:    passwordDialogWidth,
 		content:  f,
 		focus:    f.current,

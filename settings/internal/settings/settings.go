@@ -236,9 +236,7 @@ func (p windowPickers) popover(anchor, content, focus widget.Widget) (closePopov
 	if !ok {
 		return func() {}
 	}
-	if root, ok := content.(interface{ AttachStylesheet(*widget.Stylesheet) }); ok {
-		p.theme.Attach(root)
-	}
+	p.style(content)
 	pop, err := p.app.OpenPopover(p.win, pickerPopoverConfig(bound, content, focus))
 	if err != nil {
 		log.Printf("settings: popover: %v", err)
@@ -247,7 +245,18 @@ func (p windowPickers) popover(anchor, content, focus widget.Widget) (closePopov
 	return pop.Dismiss
 }
 
+// style puts the app's stylesheet on content, which a popover or a
+// dialog hosts outside the window's tree.
+func (p windowPickers) style(content widget.Widget) {
+	if root, ok := content.(interface{ AttachStylesheet(*widget.Stylesheet) }); ok {
+		p.theme.Attach(root)
+	}
+}
+
 func (p windowPickers) dialog(cfg app.DialogConfig) (closeDialog func()) {
+	if cfg.Content != nil {
+		p.style(cfg.Content)
+	}
 	d, err := p.app.NewDialog(p.win, cfg)
 	if err != nil {
 		log.Printf("settings: dialog %q: %v", cfg.Title, err)
