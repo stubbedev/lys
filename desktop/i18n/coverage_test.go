@@ -268,8 +268,8 @@ func TestTheFrenchLauncherSettingsResolve(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, want := l.Attr("settings-launcher-window-format", "description"), `{w}`; !strings.Contains(got, want) {
-		t.Errorf("the window format's description %q lost %s", got, want)
+	if got, want := l.Attr("settings-launcher-search-web-url", "description"), `{query}`; !strings.Contains(got, want) {
+		t.Errorf("the web search URL's description %q lost its literal %s", got, want)
 	}
 	shell, err := Select(trees["lys-shell-core"], []LangID{MustLangID("fr-FR")})
 	if err != nil {

@@ -208,7 +208,18 @@ func TestFormatHelpNamesOnlyDeclaredPlaceholders(t *testing.T) {
 			}
 		})
 	}
-	if checked == 0 {
-		t.Error("no format help names a placeholder; the scan matched nothing")
+	t.Logf("%d placeholder names checked in format help", checked)
+}
+
+// The scan above reads a placeholder named in help through these
+// patterns, so each must read its syntax: a help text may name none at
+// all, now that it describes formats in words, and a pattern that
+// matched nothing would pass every help silently.
+func TestHelpPlaceholderPatternsReadTheirSyntax(t *testing.T) {
+	for syntax, sample := range map[placeholderSyntax]string{jinjaSyntax: "a {{ name }} b", braceSyntax: "a {name} b"} {
+		m := helpPlaceholder[syntax].FindStringSubmatch(sample)
+		if len(m) < 2 || m[1] != "name" {
+			t.Errorf("the pattern for syntax %v reads %q from %q, want name", syntax, m, sample)
+		}
 	}
 }
