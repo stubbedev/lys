@@ -5,10 +5,10 @@ import (
 	"slices"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
@@ -548,7 +548,9 @@ func strftimeParts() formatKind {
 	return f
 }
 
-var formatSampleTime = time.Date(2026, time.March, 14, 15, 9, 26, 0, time.Local)
+// formatSampleTime is the moment a format's preview renders: the bar
+// preview's, so the two never show different times.
+var formatSampleTime = barview.SampleTime
 
 type formatEditor struct {
 	*widget.Box

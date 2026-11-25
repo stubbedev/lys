@@ -44,7 +44,7 @@ func TestThePreviewDrawsEveryItemOfTheLayout(t *testing.T) {
 		t.Fatalf("zones hold %v items, want 2, 1 and 3", got)
 	}
 	clock := sampleButton(t, bar, "clock")
-	want := ClockLabel(cfg.Clock, sampleTime, ClockNames(i18n.Shell()), func() string { return "" })
+	want := ClockLabel(cfg.Clock, SampleTime, ClockNames(i18n.Shell()), func() string { return "" })
 	if clock.Label().Text() != want || want == "" {
 		t.Errorf("the clock shows %q, want the sample time in its format, %q", clock.Label().Text(), want)
 	}

@@ -179,7 +179,9 @@ func sampleHyprland(workspaces config.WorkspacesConfig, c config.CompositorWorks
 	return buttons
 }
 
-var sampleTime = time.Date(2026, time.March, 14, 9, 41, 0, 0, time.UTC)
+// SampleTime is the moment every sample the bar's previews show reads,
+// in UTC so a preview reads alike in every time zone.
+var SampleTime = time.Date(2026, time.March, 14, 9, 41, 0, 0, time.UTC)
 
 const sampleBackgroundApps = "2"
 
@@ -223,9 +225,9 @@ func sampleLabel(cfg *config.Config, m config.BarModule, hasIcon bool) (label, f
 		if cfg.Clock.Format.Layout() == nil {
 			return "", ""
 		}
-		return ClockLabel(cfg.Clock, sampleTime, ClockNames(i18n.Shell()), func() string { return "" }), ""
+		return ClockLabel(cfg.Clock, SampleTime, ClockNames(i18n.Shell()), func() string { return "" }), ""
 	case config.ModuleWorldClock:
-		text, err := NewWorldClock(cfg.WorldClock.Format, ClockNames(i18n.Shell()), time.LoadLocation).Render(sampleTime)
+		text, err := NewWorldClock(cfg.WorldClock.Format, ClockNames(i18n.Shell()), time.LoadLocation).Render(SampleTime)
 		if err != nil {
 			return "", WorldClockFailure(err)
 		}

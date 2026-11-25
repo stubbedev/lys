@@ -65,7 +65,7 @@ func TestTheFilenameFormWritesItsPartsAndPreviewsTheFullPath(t *testing.T) {
 	if v := k.store.value(screenshotNamePath); v != "Screenshot_%Y%m%d_%H-%M-%S.png" {
 		t.Fatalf("stored %v", v)
 	}
-	if want := tr.Get("settings-filename-path", i18n.Str("path", filepath.Join("/shots", "Screenshot_20260314_15-09-26.png"))); e.path.Text() != want {
+	if want := tr.Get("settings-filename-path", i18n.Str("path", filepath.Join("/shots", "Screenshot_20260314_09-41-00.png"))); e.path.Text() != want {
 		t.Fatalf("previews %q, want %q", e.path.Text(), want)
 	}
 	pickChoice(e.date, 0)
@@ -123,7 +123,7 @@ func TestTheFilenameFormCountsTheFilesWhenTheCounterIsPicked(t *testing.T) {
 	if v := k.store.value(screenshotNamePath); v != "Screenshot_%Y-%m-%d_%H-%M-%S_{counter}.png" {
 		t.Fatalf("stored %v", v)
 	}
-	if want := tr.Get("settings-filename-path-counted", i18n.Str("path", filepath.Join("/shots", "Screenshot_2026-03-14_15-09-26_1.png"))); e.path.Text() != want {
+	if want := tr.Get("settings-filename-path-counted", i18n.Str("path", filepath.Join("/shots", "Screenshot_2026-03-14_09-41-00_1.png"))); e.path.Text() != want {
 		t.Fatalf("previews %q, want %q", e.path.Text(), want)
 	}
 	pickChoice(e.date, 0)
