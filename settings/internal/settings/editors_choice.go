@@ -247,12 +247,37 @@ func specialLabel(v string) string {
 	return v
 }
 
+// specialsByLabel is s as a choice's field reads and types it: a special
+// value (auto, primary) by its label, which the field writes back as the
+// value.
+func specialsByLabel(s slot, specials []string) slot {
+	return slot{
+		get: func() any {
+			v, _ := s.get().(string)
+			if v != "" && slices.Contains(specials, v) {
+				return specialLabel(v)
+			}
+			return s.get()
+		},
+		set: func(v any) error {
+			text, _ := v.(string)
+			for _, sp := range specials {
+				if sp != "" && text == specialLabel(sp) {
+					return s.set(sp)
+				}
+			}
+			return s.set(v)
+		},
+		unset: s.unset,
+	}
+}
+
 func newChoiceEditor(k *kit, s slot, spec choiceSpec) *choiceEditor {
 	c := &choiceEditor{Box: gapBox(widget.Row), k: k, slot: s, spec: spec, combo: widget.NewComboboxEntry(k.face, k.textPx()), unknown: k.unknownBadge()}
 	c.combo.Entry().SetTextWidth(widget.GTKTextWidth)
 	c.combo.SetSearchPlaceholder(locale.T().Get("settings-choice-search"))
 	c.combo.OnPick = c.pick
-	c.entry = bindText(k, c.combo.Entry(), s, spec.optional)
+	c.entry = bindText(k, c.combo.Entry(), specialsByLabel(s, spec.special), spec.optional)
 	switch {
 	case slices.Contains(spec.special, ""):
 		c.combo.SetEmpty(specialLabel(""))
