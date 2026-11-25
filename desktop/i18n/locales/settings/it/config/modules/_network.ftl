@@ -84,6 +84,6 @@ settings-modules-network-scroll-up = Scorrimento in alto
 settings-modules-network-scroll-down = Scorrimento in basso
     .description = Comando della shell allo scorrimento in basso
 
-enum-vpn-show-auto = Se è configurata una VPN
+enum-vpn-show-auto = Se configurata
 enum-vpn-show-always = Sempre
 enum-vpn-show-never = Mai

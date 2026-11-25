@@ -84,6 +84,6 @@ settings-modules-network-scroll-up = Défilement vers le haut
 settings-modules-network-scroll-down = Défilement vers le bas
     .description = Commande à exécuter au défilement vers le bas
 
-enum-vpn-show-auto = Si un VPN est configuré
+enum-vpn-show-auto = Si configuré
 enum-vpn-show-always = Toujours
 enum-vpn-show-never = Jamais

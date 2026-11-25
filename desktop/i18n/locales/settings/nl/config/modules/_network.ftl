@@ -79,6 +79,6 @@ settings-modules-network-scroll-up = Omhoog scrollen
 settings-modules-network-scroll-down = Omlaag scrollen
     .description = Shell-opdracht bij omlaag scrollen
 
-enum-vpn-show-auto = Als er een VPN is ingesteld
+enum-vpn-show-auto = Indien ingesteld
 enum-vpn-show-always = Altijd
 enum-vpn-show-never = Nooit

@@ -84,6 +84,6 @@ settings-modules-network-scroll-up = Scroll Up
 settings-modules-network-scroll-down = Scroll Down
     .description = Shell command on scroll down
 
-enum-vpn-show-auto = When a VPN is set up
+enum-vpn-show-auto = When set up
 enum-vpn-show-always = Always
 enum-vpn-show-never = Never
