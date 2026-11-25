@@ -1,6 +1,7 @@
 package settings
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/shell/treetest"
@@ -25,5 +26,39 @@ func TestARelatedGroupTitleIsACaptionNotASectionHeading(t *testing.T) {
 	titles := treetest.WithClass(win.page, "settings-section-title")
 	if len(titles) == 0 || !titles[0].(*widget.Label).HasClass(css.CaptionHeading) {
 		t.Fatal("the page's section titles lost their heading style")
+	}
+}
+
+// Power's and Lock's Related cards opened with a dim "Sleep & Lock" or
+// "Locking and Unlocking" row inside the card, read as one more link.
+// A titled group's title is a caption over its own card, outside every
+// card, the card under it holding the group's links.
+func TestARelatedGroupTitleIsACaptionOverItsCard(t *testing.T) {
+	for _, id := range []string{powerPageID, "lock"} {
+		win := laidOutPage(t, "", id, sweepW)
+		heads := treetest.WithClass(win.page, "settings-link-group")
+		if len(heads) != 1 {
+			t.Fatalf("the %s page shows %d related group titles", id, len(heads))
+		}
+		head := heads[0]
+		for w := head.(interface{ Parent() widget.Widget }).Parent(); w != nil; w = w.(interface{ Parent() widget.Widget }).Parent() {
+			if c, ok := w.(interface{ HasClass(string) bool }); ok && c.HasClass(css.Card) {
+				t.Errorf("the %s page's group title sits inside a card", id)
+				break
+			}
+		}
+		section := head.(interface{ Parent() widget.Widget }).Parent().(*widget.Box)
+		kids := section.Children()
+		at := slices.Index(kids, head)
+		if at < 0 || at+1 >= len(kids) {
+			t.Fatalf("the %s page's group title ends its section", id)
+		}
+		card, ok := kids[at+1].(*widget.Box)
+		if !ok || !card.HasClass(css.Card) || len(treetest.All[*pageLinkRow](card)) == 0 {
+			t.Errorf("the %s page's group title is not over a card of links", id)
+		}
+		if b, c := head.(widget.Boundser).Bounds(), kids[at+1].(widget.Boundser).Bounds(); b.Y+b.H > c.Y {
+			t.Errorf("the %s page's group title at %+v runs into its card at %+v", id, b, c)
+		}
 	}
 }

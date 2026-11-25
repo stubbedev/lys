@@ -55,36 +55,39 @@ func (p pageSpec) relatedGroups() []linkGroup {
 	return groups
 }
 
-// relatedSection is a page's one Related section: a row per linked page
-// the layout holds, each titled group under its title, a caption of the
-// card rather than a heading of the page. False while the layout holds
-// none of them.
+// relatedSection is a page's one Related section: a card of rows per
+// group, a row per linked page the layout holds, the untitled group's
+// card first and each titled one's under its title, a caption over the
+// card rather than a row inside it. False while the layout holds none
+// of them.
 func relatedSection(k *kit, groups []linkGroup) (widget.Widget, bool) {
 	t := locale.T()
-	rows := widget.NewItemGroup()
+	section := gapBox(widget.Column)
+	section.AddClass("settings-section")
+	section.Append(sectionHead(k, "settings-section-related"), false)
 	linked := false
 	for _, g := range groups {
-		var head widget.Widget
-		if g.title != "" {
-			head = newInsetRow(k.label(t.Get(g.title), "settings-link-group", css.Caption, css.DimLabel))
-		}
+		rows := widget.NewItemGroup()
+		shown := false
 		for _, l := range g.links {
-			row, ok := k.pageLinkRow(l)
-			if !ok {
-				continue
+			if row, ok := k.pageLinkRow(l); ok {
+				rows.Append(row)
+				shown = true
 			}
-			if head != nil {
-				rows.Append(head)
-				head = nil
-			}
-			rows.Append(row)
-			linked = true
 		}
+		if !shown {
+			continue
+		}
+		if g.title != "" {
+			section.Append(k.label(t.Get(g.title), "settings-link-group", css.Caption, css.DimLabel), false)
+		}
+		section.Append(sectionGroup(rows), false)
+		linked = true
 	}
 	if !linked {
 		return nil, false
 	}
-	return newSection(k, "settings-section-related", rows), true
+	return section, true
 }
 
 // pageLinkRow is the row navigating to another page from within a page:
