@@ -25,7 +25,8 @@ const (
 var itemClasses = [...]string{ItemDefault: "", ItemOutline: css.Outline, ItemMuted: css.Muted}
 
 // Item is a content row: media - an icon on a muted
-// tile, an avatar - then a title over a description, then actions and
+// tile, an avatar - then a title over a description (wrapped pretty, no
+// lone word ending either), then actions and
 // the row's control, for lists and cards. Its text and media update in
 // place, so a live list reconciles rows instead of rebuilding them, and
 // SetOnActivate makes the whole row a control (click, Enter, Space).
@@ -104,10 +105,12 @@ func NewItem(face render.Font, title, description string) *Item {
 	it.title = NewLabel(face, 14, title, 0)
 	it.title.AddClass("title")
 	it.title.SetWrap(true)
+	it.title.SetPrettyWrap(true)
 	it.head.Append(it.title, false)
 	it.desc = NewLabel(face, 14, description, 0)
 	it.desc.AddClass("description")
 	it.desc.SetWrap(true)
+	it.desc.SetPrettyWrap(true)
 	it.desc.SetVisible(description != "")
 	it.head.Append(it.desc, false)
 	it.text.Append(it.head, false)

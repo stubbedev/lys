@@ -54,6 +54,9 @@ type Label struct {
 	dir    Direction
 	wrap   bool
 	ell    EllipsizeMode
+	// pretty keeps a wrapped paragraph from ending in a lone word
+	// (SetPrettyWrap).
+	pretty bool
 	// maxChars caps the natural width at that many approximate
 	// character widths (GTK max-width-chars); 0 is uncapped.
 	maxChars int
@@ -74,6 +77,7 @@ type wrapKey struct {
 	px       float64
 	width    float64
 	wrap     bool
+	pretty   bool
 	opts     render.WrapOptions
 	ell      EllipsizeMode
 	maxLines int
@@ -182,6 +186,19 @@ func (l *Label) SetWrap(on bool) {
 	}
 	l.wrap = on
 	l.InvalidateLayout()
+}
+
+// SetPrettyWrap wraps as CSS text-wrap: pretty does: when the last row
+// would hold one word alone, the rows break narrower, as wide as still
+// carries a word down to it in as many rows, so a paragraph never ends
+// in an orphan its width could avoid. The rows' count, and so the
+// label's height, stay what plain wrapping gives.
+func (l *Label) SetPrettyWrap(on bool) {
+	if l.pretty == on {
+		return
+	}
+	l.pretty = on
+	l.Invalidate()
 }
 
 // Wrap reports whether the label wraps at the width it is given.
@@ -614,7 +631,7 @@ func (l *Label) wrapped(width float64) []string {
 	face, px := l.effStyle()
 	v := l.style(l)
 	k := wrapKey{
-		face: face, text: l.shown(), px: px, width: width, wrap: l.wrapOf(v), opts: l.wrapOpts(v),
+		face: face, text: l.shown(), px: px, width: width, wrap: l.wrapOf(v), pretty: l.pretty, opts: l.wrapOpts(v),
 		ell: l.ellOf(v), maxLines: l.maxLinesOf(v), indent: l.indentOf(v),
 	}
 	if l.rows.lines != nil && l.rows.key == k {
@@ -630,6 +647,9 @@ func wrapRows(k wrapKey) []string {
 		breakAt = math.Inf(1)
 	}
 	lines := render.WrapTextOpts(k.face, k.text, breakAt, k.px, k.opts)
+	if k.wrap && k.pretty {
+		lines = prettyRows(k, lines)
+	}
 	if k.maxLines > 0 && k.ell != EllipsizeNone && len(lines) > k.maxLines {
 		lines = append(lines[:k.maxLines-1], strings.Join(lines[k.maxLines-1:], " "))
 	}
@@ -641,6 +661,40 @@ func wrapRows(k wrapKey) []string {
 		lines[last] = render.EllipsizeText(k.face, lines[last], k.ell, w, k.px)
 	}
 	return lines
+}
+
+// prettyRows rewraps lines, k's text at k's width, whose last row is
+// one word alone, at the widest narrower width that brings a second word
+// down to it without adding a row; lines as they are when none does.
+// It searches the width by halves, the rows of a narrower width holding
+// at least as many words on the last row and never fewer rows.
+func prettyRows(k wrapKey, lines []string) []string {
+	n := len(lines)
+	if n < 2 || strings.ContainsAny(strings.TrimSpace(lines[n-1]), " \t") || strings.Contains(k.text, "\n") {
+		return lines
+	}
+	wrap := func(w float64) []string { return render.WrapTextOpts(k.face, k.text, w, k.px, k.opts) }
+	pretty := func(rows []string) bool {
+		return len(rows) == n && strings.ContainsAny(strings.TrimSpace(rows[n-1]), " \t")
+	}
+	var best []string
+	lo, hi := k.width/2, k.width
+	for hi-lo > 1 {
+		mid := (lo + hi) / 2
+		rows := wrap(mid)
+		switch {
+		case len(rows) > n:
+			lo = mid
+		case pretty(rows):
+			best, lo = rows, mid
+		default:
+			hi = mid
+		}
+	}
+	if best == nil {
+		return lines
+	}
+	return best
 }
 
 // Arrange records the border box inside r, the margin box.

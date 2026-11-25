@@ -5467,6 +5467,18 @@ func (b *LabelBuilder) WatchMaxWidthChars(get func() int) *LabelBuilder {
 	return b
 }
 
+// PrettyWrap calls (*widget.Label).SetPrettyWrap.
+func (b *LabelBuilder) PrettyWrap(on bool) *LabelBuilder {
+	b.do(func(s *Scope, w *widget.Label) { w.SetPrettyWrap(on) })
+	return b
+}
+
+// WatchPrettyWrap re-applies SetPrettyWrap with get's value after every update.
+func (b *LabelBuilder) WatchPrettyWrap(get func() bool) *LabelBuilder {
+	b.watch(func(w *widget.Label) { w.SetPrettyWrap(get()) })
+	return b
+}
+
 // SizePx calls (*widget.Label).SetSizePx.
 func (b *LabelBuilder) SizePx(px float64) *LabelBuilder {
 	b.do(func(s *Scope, w *widget.Label) { w.SetSizePx(px) })

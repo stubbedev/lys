@@ -2,6 +2,7 @@ package widget
 
 import (
 	"math"
+	"slices"
 	"testing"
 
 	"github.com/stubbedev/lys/lib/render"
@@ -293,5 +294,30 @@ func TestLabelTabularFeature(t *testing.T) {
 	plain := NewLabel(face, 14, "0123456789", render.RGBA(0, 0, 0, 255))
 	if got, _ := plain.effStyle(); got != render.Font(face) {
 		t.Error("an unstyled label does not shape with its own face")
+	}
+}
+
+// A pretty-wrapped label never ends in a lone word its rows can avoid:
+// it breaks narrower to carry a word down, in as many rows; a plain one
+// keeps the orphan, and a pretty one whose last row already holds two
+// words breaks as a plain one does (#292).
+func TestAPrettyWrappedLabelEndsInNoLoneWord(t *testing.T) {
+	face := testFace(t)
+	const text = "aaa bbb ccc ddd eee"
+	width := face.Shape("aaa bbb ccc ddd", 14).Advance() + 2
+	plain := NewLabel(face, 14, text, 0)
+	plain.SetWrap(true)
+	if got := plain.wrapped(width); !slices.Equal(got, []string{"aaa bbb ccc ddd", "eee"}) {
+		t.Fatalf("plain rows %q, want the orphan the test is about", got)
+	}
+	pretty := NewLabel(face, 14, text, 0)
+	pretty.SetWrap(true)
+	pretty.SetPrettyWrap(true)
+	if got := pretty.wrapped(width); !slices.Equal(got, []string{"aaa bbb ccc", "ddd eee"}) {
+		t.Errorf("pretty rows %q, want two words carried to the last row", got)
+	}
+	even := face.Shape("aaa bbb ccc", 14).Advance() + 2
+	if got, want := pretty.wrapped(even), plain.wrapped(even); !slices.Equal(got, want) {
+		t.Errorf("pretty rows %q where the last row holds two words, want the plain %q", got, want)
 	}
 }

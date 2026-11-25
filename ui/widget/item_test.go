@@ -503,3 +503,12 @@ func TestAnItemsDetailLeavesItsMediaAndActionsBesideTheHead(t *testing.T) {
 		t.Fatalf("the detail did not open under the head (text %v)", it.text.Bounds())
 	}
 }
+
+// An Item's title and description wrap pretty: a description never
+// ends in a lone word its width can avoid (#292).
+func TestAnItemsTextWrapsPretty(t *testing.T) {
+	it := NewItem(testFace(t), "Title", "Description")
+	if !it.title.pretty || !it.desc.pretty {
+		t.Errorf("title pretty %v, description pretty %v; want both", it.title.pretty, it.desc.pretty)
+	}
+}
