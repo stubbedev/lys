@@ -78,7 +78,7 @@ var buttonRoles = [...]buttonLook{
 	roleRemove:      {classes: []string{css.Ghost, css.DestructiveAction, css.Icon}, icon: "ld-trash-2-symbolic"},
 	roleReset:       {classes: []string{css.Ghost, css.Icon}, icon: "ld-rotate-ccw-symbolic"},
 	roleClear:       {classes: []string{css.Ghost, css.Icon}, icon: "ld-x-circle-symbolic"},
-	roleReload:      {classes: []string{css.Ghost, css.Icon}, icon: "ld-refresh-cw-symbolic"},
+	roleReload:      {classes: []string{css.Outline, css.Icon}, icon: "ld-refresh-cw-symbolic"},
 	roleIcon:        {classes: []string{css.Ghost, css.Icon}},
 	rolePickerIcon:  {classes: []string{css.Outline, css.Icon}},
 	roleHeader:      {classes: []string{css.Flat}},

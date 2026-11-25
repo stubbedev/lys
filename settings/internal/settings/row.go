@@ -274,9 +274,13 @@ func (r *settingRow) withControl(ctl widget.Widget) *settingRow {
 	return r
 }
 
-// placeControl places ctl as the row's control at fit, and the detail a
-// control that has one shows under the row's text.
+// placeControl places ctl as the row's control at fit, the actions a
+// control that has its own takes on the row's title line ahead of it,
+// and the detail a control that has one shows under the row's text.
 func (r *settingRow) placeControl(ctl widget.Widget, fit widget.ItemControlFit) {
+	if a, ok := ctl.(interface{ rowActions() []widget.Widget }); ok {
+		r.withActions(a.rowActions()...)
+	}
 	r.SetControl(ctl, fit)
 	if d, ok := ctl.(interface{ detail() widget.Widget }); ok {
 		r.AddDetail(d.detail())

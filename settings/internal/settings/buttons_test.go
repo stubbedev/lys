@@ -124,7 +124,7 @@ func TestEveryButtonRolePaintsFromTheTheme(t *testing.T) {
 		roleRemove:      {none, css.ErrorColor},
 		roleReset:       {none, css.WindowFgColor},
 		roleClear:       {none, css.WindowFgColor},
-		roleReload:      {none, css.WindowFgColor},
+		roleReload:      {css.InputBorderColor, css.WindowFgColor},
 		roleIcon:        {none, css.WindowFgColor},
 		rolePickerIcon:  {css.InputBorderColor, css.WindowFgColor},
 		roleHeader:      {none, css.WindowFgColor},
