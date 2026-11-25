@@ -130,7 +130,7 @@ func (g *cellGrid) table(k *kit, columns []string, rows []gridRow) {
 	for _, r := range rows {
 		head := widget.Widget(widget.NewBox(widget.Row, 0, 0))
 		if r.withHeader() {
-			head = wrapped(k.label(locale.T().Get(r.key)))
+			head = rowHeading(k, locale.T().Get(r.key))
 		}
 		line(head, func(c int) widget.Widget {
 			if r.cells[c].path == "" {
@@ -139,6 +139,16 @@ func (g *cellGrid) table(k *kit, columns []string, rows []gridRow) {
 			return g.control(k, r.cells[c])
 		})
 	}
+}
+
+// rowHeading is a table row's heading: it wraps between words, and a
+// word wider than what the cells leave it ends in an ellipsis, the whole
+// heading in its tooltip, so the cells always show their values whole.
+func rowHeading(k *kit, text string) *widget.Label {
+	l := wrapped(k.label(text))
+	l.SetEllipsize(widget.EllipsizeEnd)
+	l.SetTooltip(text)
+	return l
 }
 
 func (g *cellGrid) refresh() {
