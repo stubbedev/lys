@@ -200,8 +200,9 @@ type sourceInfo struct {
 
 // sourceOf reads the row state for path. A runtime override is
 // "custom" without a config value under it and "override" with one;
-// a config value equal to the default shows no badge. A value struct's
-// field shows its struct's state while it is set, nothing while unset.
+// a config value equal to the default shows no badge, nor does a custom
+// value equal to it. A value struct's field shows its struct's state
+// while it is set, nothing while unset.
 func sourceOf(s store, path string) sourceInfo {
 	leaf, sub, ok := config.LeafPath(path)
 	if !ok {
@@ -227,6 +228,9 @@ func sourceOf(s store, path string) sourceInfo {
 		}
 		return sourceInfo{label: t.Get("settings-source-config"), tooltip: t.Attr("settings-source-config", "description"), class: "info", badge: true}
 	case config.SourceRuntime:
+		if !inConfig && s.isDefault(path) {
+			return sourceInfo{}
+		}
 		return runtimeSource(inConfig)
 	}
 	return sourceInfo{}

@@ -141,8 +141,8 @@ func TestSourceBadges(t *testing.T) {
 			t.Errorf("runtime over config = %+v, want the override badge with reset", got)
 		}
 		_ = k.store.set("bar.dropdown-freeze-label", true)
-		if got := k.store.source("bar.dropdown-freeze-label"); got.reset || !got.badge {
-			t.Errorf("an override holding the default = %+v, want its badge and no reset", got)
+		if got := k.store.source("bar.dropdown-freeze-label"); got.reset || got.badge {
+			t.Errorf("a custom value holding the default = %+v, want no badge and no reset", got)
 		}
 		k.store.reset("bar.dropdown-shadow")
 		if v := k.store.value("bar.dropdown-shadow"); v != true {

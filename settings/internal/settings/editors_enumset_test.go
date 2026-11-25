@@ -6,7 +6,10 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/ui/widget"
+
+	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
 func memorySlot(stored *any, refuse func(v any) bool) slot {
@@ -109,5 +112,31 @@ func TestEnumChipsHoldTheLastChoiceTheListNeeds(t *testing.T) {
 	pressChip(c.ChoiceChips, 2)
 	if !widget.IsEnabled(c.Chip(1)) {
 		t.Error("the chip stays held with two chosen again")
+	}
+}
+
+// Reordering the dashboard's session actions back to the default took
+// the reset away but left the custom badge, though nothing was custom
+// any more. The row badges a custom order and drops the badge once the
+// order is the default again.
+func TestSessionActionsBadgeACustomOrderOnlyWhileItDiffers(t *testing.T) {
+	const path = "modules.dashboard.user-session.actions"
+	k := testKit(t, "")
+	p := layoutPage(t, k, "dashboard")
+	r := rowOf(t, p, path)
+	c := treetest.All[*enumSet](r)[0]
+	first := c.order[0]
+	c.move(first, 1)
+	p.refresh()
+	if !r.badge.Visible() || r.badge.Text() != locale.T().Get("settings-source-custom") {
+		t.Fatalf("a custom order badges the row %q (shown %v)", r.badge.Text(), r.badge.Visible())
+	}
+	c.move(first, -1)
+	p.refresh()
+	if !k.store.isDefault(path) {
+		t.Fatalf("test premise: moving %s back left %v", first, k.store.value(path))
+	}
+	if r.badge.Visible() {
+		t.Errorf("the default order still badges the row %q", r.badge.Text())
 	}
 }
