@@ -3,3 +3,8 @@ window {
   color: var(--fg-default);
   font-family: var(--font-sans);
 }
+
+dialog,
+popover {
+  font-family: var(--font-sans);
+}
