@@ -43,6 +43,7 @@ buffers through `/dev/udmabuf`, which systemd grants the seat's sessions.
 
 With [lys-splash](/splash/) as boot splash, set
 `greeter.splashPackage`. The unit then conflicts with `lys-splash-quit.service`,
+which `multi-user.target` no longer wants, so a switch leaves the session alone,
 runs `lys-splash deactivate` before lys-wm starts, and the daemon runs
 `lys-splash quit --retain-splash` once the greeter's first frame is presented,
 so there is no blank frame: the greeter's first frame is the splash's last one,

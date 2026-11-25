@@ -56,13 +56,14 @@
           unit = splashPackage: (daemonSystem {inherit splashPackage;}).systemd.services.lys-login;
           handsOver = u:
             lib.elem "lys-splash-quit.service" u.conflicts
+            && lib.elem "lys-splash-quit.service" u.onFailure
             && lib.all (s: lib.elem s u.after) ["lys-splash-start.service" "lys-splash-quit.service"]
             && (u.serviceConfig.ExecStartPre or null) == "-${lib.getExe splash} deactivate"
             && lib.hasInfix (builtins.unsafeDiscardStringContext "--splash ${lib.getExe splash} ") (builtins.unsafeDiscardStringContext u.serviceConfig.ExecStart);
           touchesSplash = u:
-            lib.any (s: lib.hasInfix "lys-splash" (builtins.unsafeDiscardStringContext s)) (u.conflicts ++ u.after ++ [u.serviceConfig.ExecStart (u.serviceConfig.ExecStartPre or "")]);
-          withSplash = enable:
-            (greeterSystemWith {
+            lib.any (s: lib.hasInfix "lys-splash" (builtins.unsafeDiscardStringContext s)) (u.conflicts ++ u.after ++ u.onFailure ++ [u.serviceConfig.ExecStart (u.serviceConfig.ExecStartPre or "")]);
+          splashSystem = enable:
+            greeterSystemWith {
               imports = [self.nixosModules.lys-splash];
               boot.lys-splash = {
                 inherit enable;
@@ -71,13 +72,16 @@
             } {
               displayManager = "lys-login";
               compositorPackage = fakeLysWm;
-            }).systemd.services.lys-login;
+            };
+          withSplash = enable: (splashSystem enable).systemd.services.lys-login;
+          quitWantedBy = (splashSystem true).systemd.services.lys-splash-quit.wantedBy;
         in
           pkgs.runCommand "lys-login-splash-unit" {} ''
             ${lib.optionalString (!handsOver (unit splash)) ''echo "with splashPackage the unit does not take the screen from lys-splash" >&2; exit 1''}
             ${lib.optionalString (touchesSplash (unit null)) ''echo "without splashPackage the unit names lys-splash" >&2; exit 1''}
             ${lib.optionalString (!handsOver (withSplash true)) ''echo "with boot.lys-splash enabled and no splashPackage set, the unit does not take the screen from lys-splash" >&2; exit 1''}
             ${lib.optionalString (touchesSplash (withSplash false)) ''echo "with boot.lys-splash imported but off, the unit names lys-splash" >&2; exit 1''}
+            ${lib.optionalString (quitWantedBy != []) ''echo "lys-splash-quit.service, which stops the display manager, is wanted by ${toString quitWantedBy}: a switch starts it and ends the session" >&2; exit 1''}
             touch "$out"
           '';
         greeter-sessions-assertion = let

@@ -161,8 +161,12 @@ be the last one:
 A display manager implements this contract:
 
 - Its unit has `After=lys-splash-start.service getty@tty1.service
-  lys-splash-quit.service` and `Conflicts=lys-splash-quit.service
-  getty@tty1.service`.
+  lys-splash-quit.service`, `Conflicts=lys-splash-quit.service
+  getty@tty1.service` and `OnFailure=lys-splash-quit.service`.
+- No target wants `lys-splash-quit.service`. Otherwise starting that target
+  again, as every `nixos-rebuild switch` does with `multi-user.target`, starts
+  the quit unit and the conflict stops the display manager with the session on
+  it.
 - It runs `ExecStartPre=-lys-splash deactivate` before starting its compositor.
 - After its first frame is presented (`wp_presentation` feedback), it runs
   `lys-splash quit --retain-splash`.

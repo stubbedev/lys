@@ -54,6 +54,7 @@ in {
     isNormalUser = true;
     password = "lys-splash-vm";
   };
+  system.switch.enable = true;
   virtualisation.cores = 4;
   virtualisation.memorySize = 2048;
   environment.sessionVariables = {

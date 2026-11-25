@@ -260,7 +260,8 @@ in {
         description = ''
           lys-splash, when it is the boot splash: the `lys-login` display
           manager takes the screen from it without a blank frame. Its unit
-          conflicts with `lys-splash-quit.service`, deactivates the splash
+          conflicts with `lys-splash-quit.service`, which then no target
+          wants, so a switch does not stop the session; it deactivates the splash
           before lys-wm starts, and quits it with `--retain-splash` once the
           greeter's first frame is presented. It defaults to lys-splash's
           own package whenever `boot.lys-splash` is enabled; without it,
@@ -464,6 +465,9 @@ in {
         "d ${greeterStateDir} 0700 lys-greeter lys-greeter -"
       ];
       systemd.defaultUnit = "graphical.target";
+      systemd.services.lys-splash-quit = lib.mkIf (cfg.greeter.splashPackage != null && (config.boot.lys-splash.enable or false)) {
+        wantedBy = lib.mkForce [];
+      };
       systemd.services.lys-login = {
         description = "lys-login display manager";
         aliases = ["display-manager.service"];
@@ -481,6 +485,7 @@ in {
         conflicts =
           ["getty@tty${toString cfg.greeter.vt}.service"]
           ++ lib.optional (cfg.greeter.splashPackage != null) "lys-splash-quit.service";
+        onFailure = lib.optional (cfg.greeter.splashPackage != null) "lys-splash-quit.service";
         restartIfChanged = false;
         reloadIfChanged = true;
         serviceConfig = {

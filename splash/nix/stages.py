@@ -194,6 +194,19 @@ def log_in(m, size):
     print(f"the login: {flips} flips from the greeter's last frame to the desktop, {between} of them between the two")
 
 
+def survives_switch(m):
+    daemon = m.succeed("systemctl show -P MainPID lys-login").strip()
+    session = m.succeed("pgrep -u alice swaybg").strip()
+    m.succeed("/run/current-system/bin/switch-to-configuration test")
+    m.succeed("systemctl start multi-user.target")
+    state = m.succeed("systemctl show -P ActiveState lys-login").strip()
+    assert state == "active", f"lys-login is {state} after a switch"
+    after = m.succeed("systemctl show -P MainPID lys-login").strip()
+    assert after == daemon, f"a switch replaced lys-login's daemon {daemon} with {after}"
+    m.succeed(f"kill -0 {session}")
+    no_quit_unit(m, "after a switch")
+
+
 def reboot_shows_splash(m, splash, logo):
     m.execute("systemctl --no-block reboot", check_return=False, check_output=False)
     m.wait_for_console_text(r'msg="showing the splash" mode=reboot', timeout=seconds(30))
