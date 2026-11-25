@@ -15,9 +15,12 @@ type Still struct {
 	kids    [1]widget.Widget
 }
 
-// NewStill rests s's panel in the still.
+// NewStill rests s's panel in the still, its content clipped to it: a
+// still caps the panel to its place, where the shell's surface would cut
+// a list longer than it.
 func NewStill(s *Session) *Still {
 	st := &Still{session: s, panel: NewPanelBox()}
+	st.panel.SetInlineStyle("overflow: hidden;")
 	st.panel.Append(s.Content, true)
 	return st
 }
