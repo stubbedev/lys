@@ -270,12 +270,15 @@ func (d *seat) startGreeter(vt int) {
 }
 
 func (d *seat) handOff(g *greeterRun) {
+	g.release = d.c.fbcon.handOff()
+}
+
+func (d *seat) recordLeft(g *greeterRun) {
 	left, err := g.read()
 	if err != nil {
 		log.Printf("dm: %v; the framebuffer console is bound again %s after the greeter, whatever the screen shows", err, takeoverWait)
 	}
 	g.left = left
-	g.release = d.c.fbcon.handOff()
 }
 
 func (d *seat) awaitTakeover(g *greeterRun) {
@@ -326,6 +329,7 @@ func (d *seat) greeted(r greetResult) {
 			d.exec(a)
 		}
 	case r.g.login.existing != "":
+		d.recordLeft(g)
 		s := d.sessionOf(r.g.login.existing)
 		if s == nil {
 			log.Printf("dm: the session of %s ended before the switch to it", r.g.login.existing)
@@ -333,6 +337,7 @@ func (d *seat) greeted(r greetResult) {
 		d.leaveGreeterVT(g, s)
 		d.awaitTakeover(g)
 	default:
+		d.recordLeft(g)
 		if d.start(r.g.login, g.vt, g.held) {
 			d.awaitTakeover(g)
 		}

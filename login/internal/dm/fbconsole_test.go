@@ -1,7 +1,11 @@
 package dm
 
 import (
+	"context"
 	"errors"
+	"io"
+	"log"
+	"maps"
 	"slices"
 	"strings"
 	"sync"
@@ -145,5 +149,34 @@ func TestALaterHandOffOutlivesAnEarlierWait(t *testing.T) {
 	f.awaitTakeover(first, left, func() (scanouts, error) { return scanouts{"/dev/dri/card0": {31: 41}}, nil }, c.clock(), make(chan struct{}))
 	if got, want := calls.got(), []string{"unbind", "bind vtcon1", "unbind"}; !slices.Equal(got, want) {
 		t.Fatalf("calls %v, want the first login's wait to leave the second's unbind alone", got)
+	}
+}
+
+// What the greeter left on screen is read once its compositor has
+// exited, not when the hand-off starts: a frame it still flips on its
+// way out is the one that stays, so it is not taken for the session's
+// compositor replacing it, and the console stays unbound for it.
+func TestTheGreetersLastFrameIsReadOnceItHasExited(t *testing.T) {
+	d := testSeat(log.New(io.Discard, "", 0))
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	d.ctx = ctx
+	f, calls := recordedConsole(nil)
+	d.c.fbcon = f
+	card := "/dev/dri/card0"
+	shown := scanouts{card: {31: 40}}
+	g := &greeterRun{vt: d.o.VT, cancel: func() {}, read: func() (scanouts, error) { return shown, nil }}
+	d.greeter = g
+	d.handOff(g)
+	shown = scanouts{card: {31: 41}}
+	d.greeted(greetResult{g: greeted{login: &pendingLogin{existing: "stubbe"}}})
+	if want := (scanouts{card: {31: 41}}); !maps.EqualFunc(g.left, want, maps.Equal) {
+		t.Fatalf("the greeter left %v, want %v: the frame it flipped on its way out", g.left, want)
+	}
+	if g.left.replacedIn(shown) {
+		t.Error("the greeter's own last flip counted as a compositor replacing its frame")
+	}
+	if got := calls.got(); !slices.Equal(got, []string{"unbind"}) {
+		t.Errorf("calls %v, want the console unbound before the greeter let go and left unbound", got)
 	}
 }
