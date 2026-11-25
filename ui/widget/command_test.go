@@ -317,3 +317,54 @@ func TestAScrolledListShowsNoBlankPastItsEnd(t *testing.T) {
 		t.Errorf("a list that fits whole stays scrolled by %d", list.scroll.offY)
 	}
 }
+
+// An opening pick list first laid out at its natural height and then
+// held to the height the compositor gives it shows its highlight in
+// that viewport, however often it is arranged before it paints; once
+// it has painted, a resize leaves the scroll where it is (#370).
+func TestAnOpeningListRevealsTheHighlightInTheViewportItPaintsIn(t *testing.T) {
+	face := testFace(t)
+	settle := func(list *Command, h int) {
+		for range 3 {
+			arrangeTree(t, list, 300, h)
+			if !LayoutPending(list) {
+				break
+			}
+		}
+	}
+	list := NewCommandList(face, 14, manyGroups(6, 6)...)
+	list.highlightRow(30)
+	settle(list, SizeWithin(list, Size{W: 300, H: 4000}).H)
+	settle(list, 200)
+	view := list.scroll.view
+	row := list.shown[list.highlight].Bounds()
+	if row.Y < view.Y || row.Y+row.H > view.Y+list.scroll.viewH {
+		t.Fatalf("highlighted row %v outside the 200px viewport %v", row, view)
+	}
+	list.Paint(render.New(make([]byte, render.Stride(300)*200), render.Stride(300), 300, 200))
+	off := list.scroll.offY
+	settle(list, 150)
+	if list.scroll.offY != off {
+		t.Errorf("a painted list resized scrolled from %d to %d", off, list.scroll.offY)
+	}
+}
+
+// An opening list whose highlight is its first row starts at its top,
+// the list's padding above that row, not scrolled until the row touches
+// the viewport's edge (#370).
+func TestAListOpenedOnItsFirstRowKeepsItsTopPadding(t *testing.T) {
+	face := testFace(t)
+	groups := manyGroups(6, 6)
+	groups[0].Heading = ""
+	list := NewCommandList(face, 14, groups...)
+	list.highlightRow(0)
+	for range 3 {
+		arrangeTree(t, list, 300, 200)
+		if !LayoutPending(list) {
+			break
+		}
+	}
+	if list.scroll.offY != 0 {
+		t.Errorf("a list opened on its first row is scrolled by %d", list.scroll.offY)
+	}
+}

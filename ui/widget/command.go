@@ -88,8 +88,10 @@ type Command struct {
 	rows      []*commandRow
 	shown     []*commandRow
 	highlight int
-	// revealPending is a highlight set before the rows were laid out,
-	// revealed by the next Arrange.
+	// revealPending is a highlight set before the command first
+	// painted, revealed by every Arrange until then: an opening popover
+	// lays its list out at its natural height before the compositor
+	// gives it the height it shows at.
 	revealPending bool
 	typeAhead     typeAhead
 }
@@ -296,12 +298,11 @@ func (c *Command) moveHighlight(i int) {
 	}
 }
 
-// Arrange lays the command out and reveals a highlight set before its
-// rows had a place.
+// Arrange lays the command out and reveals a highlight set before it
+// first painted, in the viewport it is arranged with.
 func (c *Command) Arrange(r render.Rect) {
 	c.composite.Arrange(r)
 	if c.revealPending && c.highlight >= 0 && !c.shown[c.highlight].Bounds().Empty() {
-		c.revealPending = false
 		// Opening, the viewport starts at the highlight's group (its
 		// separator and heading) when the row shows below it, else at
 		// the row: no heading opens cut at the top.
@@ -314,9 +315,17 @@ func (c *Command) Arrange(r render.Rect) {
 	}
 }
 
+// Paint paints the command; from its first paint on, a resize keeps
+// the scroll where it is.
+func (c *Command) Paint(cv *render.Canvas) {
+	c.revealPending = false
+	c.composite.Paint(cv)
+}
+
 // highlightSpan is the highlighted row's bounds and those of its
 // group's start: the separator and heading above the group's first
-// row, or that row.
+// row, or that row, from the list's top for the list's first group, so
+// its first row keeps the padding above it.
 func (c *Command) highlightSpan() (row, start render.Rect) {
 	r := c.shown[c.highlight]
 	kids := c.list.Children()
@@ -327,7 +336,13 @@ func (c *Command) highlightSpan() (row, start render.Rect) {
 		}
 		at--
 	}
-	return r.Bounds(), boundsOf(kids[at])
+	start = boundsOf(kids[at])
+	if at == 0 {
+		top := boundsOf(c.list).Y
+		start.H += start.Y - top
+		start.Y = top
+	}
+	return r.Bounds(), start
 }
 
 // Highlighted returns the highlighted item and whether there is one.
