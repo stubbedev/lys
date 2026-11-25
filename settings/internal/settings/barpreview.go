@@ -1,6 +1,9 @@
 package settings
 
 import (
+	"fmt"
+	"math"
+
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/lib/render"
@@ -72,7 +75,51 @@ func drawBarOnScreen(k *kit, cfg *config.Config, font render.Font, monitor strin
 	}
 	h, v := edgeAlign(bar.Edge())
 	shown.AppendAligned(bar, h, v)
-	return overflowing(shown)
+	return newFitWidth(shown)
+}
+
+// fitWidth draws its child at the child's natural width, scaled down as
+// a whole to the width it is given where that is narrower, so a bar
+// wider than the column shows whole, smaller, instead of cut at the
+// column's edge.
+type fitWidth struct {
+	*widget.Box
+	child widget.Widget
+}
+
+func newFitWidth(child widget.Widget) *fitWidth {
+	f := &fitWidth{Box: widget.NewBox(widget.Column, 0, 0), child: child}
+	f.Append(child, true)
+	return f
+}
+
+// scaleFor is how far the child scales down to fit w.
+func (f *fitWidth) scaleFor(w int) float64 {
+	nat := f.child.Measure(widget.Row, -1).Nat
+	if w <= 0 || nat <= w {
+		return 1
+	}
+	return float64(w) / float64(nat)
+}
+
+// Measure asks for no width of its own, and the child's height at its
+// natural width scaled as the width given scales it.
+func (f *fitWidth) Measure(axis widget.Axis, forSize int) widget.Sizes {
+	if axis == widget.Row {
+		return widget.Sizes{Nat: f.child.Measure(widget.Row, -1).Nat}
+	}
+	nat := f.child.Measure(widget.Row, -1).Nat
+	h := f.child.Measure(widget.Column, nat).Nat
+	return widget.FixedSizes(int(math.Ceil(float64(h) * f.scaleFor(forSize))))
+}
+
+// Arrange lays itself and the child out at the child's natural width,
+// and scales the drawing down to r about its top left corner.
+func (f *fitWidth) Arrange(r render.Rect) {
+	s := f.scaleFor(r.W)
+	f.SetInlineStyle(fmt.Sprintf("transform-origin: 0 0; transform: scale(%.4f);", s))
+	w := max(r.W, f.child.Measure(widget.Row, -1).Nat)
+	f.Box.Arrange(render.Rect{X: r.X, Y: r.Y, W: w, H: int(math.Round(float64(r.H) / s))})
 }
 
 // wallpaperScreen is a small screen showing a wallpaper, h pixels tall,
