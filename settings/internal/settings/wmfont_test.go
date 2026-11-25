@@ -48,8 +48,8 @@ func tabFontKit(t *testing.T, config string) (*kit, *wmBackend, *fakePickers) {
 func TestTheTabFontIsPickedByFamilyAndWrittenAsItsFile(t *testing.T) {
 	k, w, f := tabFontKit(t, "")
 	c := fieldControl(k, w, wmField("tabs.font")).(*wmFontEditor)
-	if got := c.file.Text(); got != locale.T().Get("wm-tabs-font-built-in") {
-		t.Errorf("an unset tab font reads %q, want lys-wm's built-in font", got)
+	if got := c.picker.label.Text(); got != locale.T().Get("wm-tabs-font-built-in") || c.file.Visible() {
+		t.Errorf("an unset tab font's button reads %q, want lys-wm's built-in font, and its file note shows %v", got, c.file.Visible())
 	}
 	c.picker.open()
 	if f.fontFn == nil || f.fontMono {
@@ -60,7 +60,7 @@ func TestTheTabFontIsPickedByFamilyAndWrittenAsItsFile(t *testing.T) {
 		t.Fatalf("picking Inter wrote %v, want its regular face's file", got)
 	}
 	c.refresh()
-	if c.picker.label.Text() != "Inter" || c.file.Text() != "/fonts/Inter-Regular.ttf" || c.problem.Visible() {
+	if c.picker.label.Text() != "Inter" || c.file.Text() != "/fonts/Inter-Regular.ttf" || !c.file.Visible() || c.problem.Visible() {
 		t.Errorf("the picked font reads %q from %q, problem shown %v", c.picker.label.Text(), c.file.Text(), c.problem.Visible())
 	}
 }

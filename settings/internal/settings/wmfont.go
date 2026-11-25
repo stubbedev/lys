@@ -39,6 +39,7 @@ type wmFontEditor struct {
 func newWMFontEditor(k *kit, s slot) *wmFontEditor {
 	c := &wmFontEditor{Box: gapBox(widget.Column), k: k, slot: s}
 	c.picker = newFontEditor(k, slot{get: func() any { return c.family }, set: c.pick, unset: s.unset}, false)
+	c.picker.whenUnset(locale.T().Get("wm-tabs-font-built-in"))
 	head := gapBox(widget.Row)
 	head.AppendAligned(c.picker, true, widget.AlignStart)
 	c.browse = k.browseButton(func(path string) { _ = c.slot.set(path) })
@@ -56,11 +57,8 @@ func (c *wmFontEditor) stacked() {}
 
 func (c *wmFontEditor) refresh() {
 	path := c.slot.text()
-	t := locale.T()
 	c.file.SetText(path)
-	if path == "" {
-		c.file.SetText(t.Get("wm-tabs-font-built-in"))
-	}
+	c.file.SetVisible(path != "")
 	if path != c.read {
 		c.read, c.family = path, ""
 		c.problem.Clear()
