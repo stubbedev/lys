@@ -258,8 +258,9 @@ func TestDateIsTheLocalesMediumDate(t *testing.T) {
 		{"it", early, "4 mar 2026"},
 		{"it", time.Date(2026, 1, 4, 0, 0, 0, 0, time.UTC), "4 gen 2026"},
 		{"nl", early, "4 mrt 2026"},
-		{"pt", early, "4 de mar. de 2026"},
-		{"pt", time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC), "31 de dez. de 2026"},
+		{"pt", early, "04/03/2026"},
+		{"pt", time.Date(2026, 11, 7, 0, 0, 0, 0, time.UTC), "07/11/2026"},
+		{"pt", time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC), "31/12/2026"},
 	} {
 		if got := shellLoader(t, c.locale).Date(c.at); got != c.want {
 			t.Errorf("%s Date(%v) = %q, want %q", c.locale, c.at, got, c.want)

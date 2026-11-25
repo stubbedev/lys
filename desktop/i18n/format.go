@@ -130,8 +130,9 @@ func formatsFor(catalogue LangID) (localeFormats, error) {
 			order: dayMonthYear, dateSeparator: "/", padDate: true, padHour: true, dateTimeSeparator: ", ",
 			medium: mediumDate{
 				order:      dayMonthYear,
-				months:     [12]string{"jan.", "fev.", "mar.", "abr.", "mai.", "jun.", "jul.", "ago.", "set.", "out.", "nov.", "dez."},
-				separators: [2]string{" de ", " de "},
+				months:     [12]string{"01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"},
+				padDay:     true,
+				separators: [2]string{"/", "/"},
 			},
 		}, nil
 	}
@@ -262,7 +263,7 @@ func (l *Loader) Time(t time.Time) string { return l.formats().time(t) }
 // Date is t's day in t's location, in the locale's CLDR medium date
 // pattern, which names the month where the locale does so a day and a
 // month never read the wrong way round: "Nov 7, 2026" in en-US,
-// "07.11.2026" in de, "7 nov. 2026" in fr, "7 de nov. de 2026" in pt.
+// "07.11.2026" in de, "7 nov. 2026" in fr, "07/11/2026" in pt (pt-PT).
 func (l *Loader) Date(t time.Time) string { return l.formats().medium.format(t) }
 
 // DateTime is t's numeric date and its time, in t's location:
