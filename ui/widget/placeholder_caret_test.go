@@ -81,8 +81,8 @@ func assertPlaceholderCaret(t *testing.T, f placeholderCaretField) {
 	if got := pxAt(focused, w, caret.X, caret.Y+caret.H/2); got != placeholderCaretColor {
 		t.Errorf("caret %v painted %v, want the caret color %v", caret, got, placeholderCaretColor)
 	}
-	if ink(focused) == 0 {
-		t.Error("the caret hid the placeholder")
+	if got, want := ink(focused), ink(blurred); got != want {
+		t.Errorf("the focused placeholder inks %d px, the blurred one %d: the caret covers part of it (#362)", got, want)
 	}
 }
 
@@ -100,7 +100,7 @@ var placeholderCaretDirs = []struct {
 	dir  Direction
 }{{"ltr", DirectionLTR}, {"rtl", DirectionRTL}}
 
-func TestEntryPaintsCaretOverPlaceholder(t *testing.T) {
+func TestEntryPaintsCaretBeforePlaceholder(t *testing.T) {
 	for _, echo := range []struct {
 		name string
 		echo Echo
@@ -122,7 +122,7 @@ func TestEntryPaintsCaretOverPlaceholder(t *testing.T) {
 	}
 }
 
-func TestTextAreaPaintsCaretOverPlaceholder(t *testing.T) {
+func TestTextAreaPaintsCaretBeforePlaceholder(t *testing.T) {
 	for _, d := range placeholderCaretDirs {
 		t.Run(d.name, func(t *testing.T) {
 			ta := NewTextArea(testFace(t), 14, render.RGB(0xff, 0xff, 0xff))

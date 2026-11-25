@@ -1214,7 +1214,7 @@ func (e *Entry) Paint(cv *render.Canvas) {
 	paintBoxBehind(cv, v, e.bounds, radii, borderOf(v), bg)
 	c := e.contentRect()
 	disp := e.displayText()
-	if len(e.runes) == 0 && !e.composing() && e.placeholder != "" {
+	if e.placeholderShown() {
 		e.paintPlaceholder(cv, c, enabled, textCol)
 	}
 	// The highlight and the caret map through the display shape: in
@@ -1294,9 +1294,20 @@ func (e *Entry) Paint(cv *render.Canvas) {
 	e.paintCompletion(cv)
 }
 
+// placeholderShown reports whether the placeholder shows: the field
+// empty and not composing.
+func (e *Entry) placeholderShown() bool {
+	return len(e.runes) == 0 && !e.composing() && e.placeholder != ""
+}
+
+// placeholderCaretGap is the space between a caret at a field's start
+// edge and the placeholder beside it.
+const placeholderCaretGap = 1
+
 // paintPlaceholder draws the placeholder on the text's baseline at the
-// reading's start edge, unpanned, in the text > placeholder color, or
-// in textCol, the text's, while it reads as a value.
+// reading's start edge, past the caret while it shows so the caret
+// never covers its first letter, unpanned, in the text > placeholder
+// color, or in textCol, the text's, while it reads as a value.
 func (e *Entry) paintPlaceholder(cv *render.Canvas, c render.Rect, enabled bool, textCol render.Color) {
 	col := textCol
 	if !e.placeholderIsValue {
@@ -1309,9 +1320,13 @@ func (e *Entry) paintPlaceholder(cv *render.Canvas, c render.Rect, enabled bool,
 		}
 	}
 	ph := e.font().ShapeDir(e.placeholder, e.fontPx(), e.effDir())
-	x := c.X
+	clear := 0
+	if r, ok := e.caretRect(e.shape(e.displayText())); ok {
+		clear = r.W + placeholderCaretGap
+	}
+	x := c.X + clear
 	if text.RTL(e.placeholder, e.effDir()) {
-		x = c.X + c.W - int(ph.Advance()+0.5)
+		x = c.X + c.W - int(ph.Advance()+0.5) - clear
 	}
 	prev := cv.PushClip(e.innerRect())
 	ph.Draw(cv, x, e.baseline(ph, c), col)

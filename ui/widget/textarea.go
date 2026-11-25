@@ -1099,7 +1099,7 @@ func (t *TextArea) Paint(cv *render.Canvas) {
 	c := t.textRect()
 	t.paintGutter(cv, c, lineH, fade)
 
-	if len(t.lines) == 1 && len(t.lines[0]) == 0 && !t.composing() && t.placeholder != "" {
+	if t.placeholderShown() {
 		t.paintPlaceholder(cv, c, lineH, fade)
 	}
 	selFill, selFg := t.selectionStyle()
@@ -1192,17 +1192,28 @@ func (t *TextArea) Paint(cv *render.Canvas) {
 	cv.PopClip(prev)
 }
 
+// placeholderShown reports whether the placeholder shows: the area
+// empty and not composing.
+func (t *TextArea) placeholderShown() bool {
+	return len(t.lines) == 1 && len(t.lines[0]) == 0 && !t.composing() && t.placeholder != ""
+}
+
 // paintPlaceholder draws the placeholder on the first row at the
-// reading's start edge, unpanned, in the text > placeholder color.
+// reading's start edge, past the caret while it shows, unpanned, in
+// the text > placeholder color.
 func (t *TextArea) paintPlaceholder(cv *render.Canvas, c render.Rect, lineH int, fade func(render.Color) render.Color) {
 	col := Current().Border
 	if pv := t.text.placeholder.style(&t.text.placeholder); pv.Declares(style.PropColor) {
 		col = pv.Color
 	}
 	ph := t.font().ShapeDir(t.placeholder, t.px(), t.dir)
-	x := c.X
+	clear := 0
+	if r, ok := t.caretRect(); ok {
+		clear = r.W + placeholderCaretGap
+	}
+	x := c.X + clear
 	if text.RTL(t.placeholder, t.dir) {
-		x = c.X + c.W - int(ph.Advance()+0.5)
+		x = c.X + c.W - int(ph.Advance()+0.5) - clear
 	}
 	prev := cv.PushClip(render.Rect{X: c.X, Y: t.bounds.Y, W: c.W, H: t.bounds.H})
 	ph.Draw(cv, x, c.Y+int(math.Round(float64((float64(lineH)-float64(ph.LineHeight()))/2)+ph.Ascent())), fade(col))
