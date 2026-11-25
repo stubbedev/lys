@@ -36,8 +36,8 @@ func relatedOpens(k *kit, groups []linkGroup) []string {
 	if !ok {
 		return nil
 	}
-	for _, b := range treetest.All[*widget.Button](section) {
-		b.OnClick()
+	for _, l := range treetest.All[*pageLinkRow](section) {
+		l.ClickAt(widget.Point{})
 	}
 	return opened
 }

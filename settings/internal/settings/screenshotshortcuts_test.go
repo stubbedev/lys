@@ -54,11 +54,11 @@ func TestTheScreenshotShortcutsLinkToEveryShortcutOnlyWhereThatPageIs(t *testing
 	k.nav = layout(k.store.svc.Config(), bothParts)
 	var opened []string
 	k.openPage = func(id string) { opened = append(opened, id) }
-	buttons := treetest.All[*widget.Button](fieldControl(k, w, screenshotShortcutsRow()))
-	if len(buttons) != 1 {
-		t.Fatalf("%d buttons beside the captures, want the link", len(buttons))
+	links := treetest.All[*pageLinkRow](fieldControl(k, w, screenshotShortcutsRow()))
+	if len(links) != 1 {
+		t.Fatalf("%d links beside the captures, want one", len(links))
 	}
-	buttons[0].OnClick()
+	links[0].ClickAt(widget.Point{})
 	if !slices.Equal(opened, []string{wmBindsID}) {
 		t.Errorf("opened %q", opened)
 	}

@@ -117,10 +117,14 @@ func (k *kit) pageButton(text, id string) (*widget.Button, bool) {
 	return k.linkButton(text, func() { k.openPage(target.id) }), true
 }
 
-// chevronRow is a row titled title over detail whose chevron opens what
-// it names, which the tooltipKey message says.
+// chevronRow is a row titled title over detail that opens what it names,
+// which the tooltipKey message says: the whole row is the link, its
+// chevron on the control edge.
 func (k *kit) chevronRow(title, detail, tooltipKey string, open func()) *settingRow {
-	return k.row(title, detail).withControl(k.iconButton("ld-chevron-right-symbolic", tooltipKey, open))
+	r := k.row(title, detail)
+	r.SetTooltip(locale.T().Get(tooltipKey))
+	r.SetOnActivate(open)
+	return r.withControl(k.icon("ld-chevron-right-symbolic", "row-chevron"))
 }
 
 // linkTarget is the page a link to id opens. A registered page the

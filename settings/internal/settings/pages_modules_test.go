@@ -194,7 +194,7 @@ func TestThePrivacyPageLeadsToTheOnlineLyrics(t *testing.T) {
 	page := buildPage(k, spec)
 	t.Cleanup(page.close)
 	for _, row := range treetest.All[*pageLinkRow](page) {
-		treetest.All[*widget.Button](row)[0].OnClick()
+		row.ClickAt(widget.Point{})
 	}
 	if !slices.Contains(opened, "media") {
 		t.Errorf("the Privacy page's links opened %q, not the Media page", opened)
@@ -357,7 +357,7 @@ func TestTheResourcePagesAndTheDashboardLinkToTheirOneThresholdSet(t *testing.T)
 		k.openPage = func(id string) { opened = append(opened, id) }
 		for _, l := range pageLinks(p) {
 			if row, ok := k.pageLinkRow(l); ok {
-				treetest.All[*widget.Button](row)[0].OnClick()
+				row.ClickAt(widget.Point{})
 			}
 		}
 		if !slices.Contains(opened, thresholdsPageID) {

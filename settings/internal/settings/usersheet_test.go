@@ -7,6 +7,7 @@ import (
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/shacrypt"
+	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/settings/internal/accounts"
 	"github.com/stubbedev/lys/settings/internal/locale"
@@ -49,10 +50,10 @@ func userSheetFixture(t *testing.T) (*usersPanel, *loop, *fakePickers, *userShee
 	admin.kind = accounts.Admin
 	bus := dbustest.Start(t)
 	p, l, f := usersFixture(t, bus, admin, bob)
-	l.until("the admin section", func() bool { return len(buttonsTitled(p.admin, locale.T().Get("settings-users-edit"))) == 1 })
+	l.until("the admin section", func() bool { return len(linksTitled(p.admin, locale.T().Get("settings-users-edit"))) == 1 })
 	pickers := &fakePickers{}
 	p.k.pickers = pickers
-	buttonsTitled(p.admin, locale.T().Get("settings-users-edit"))[0].OnClick()
+	linksTitled(p.admin, locale.T().Get("settings-users-edit"))[0].ClickAt(widget.Point{})
 	if len(pickers.dialogs) != 1 {
 		t.Fatalf("the details button opened %d dialogs", len(pickers.dialogs))
 	}
