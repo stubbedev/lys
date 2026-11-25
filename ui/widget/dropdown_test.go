@@ -625,7 +625,7 @@ func TestDropdownShrinksAndEllipsizes(t *testing.T) {
 	it.AddAction(long)
 	h := SizeWithin(it, Size{W: 220, H: 200}).H
 	it.Arrange(render.Rect{W: 220, H: h})
-	content := it.row.Bounds()
+	content := it.line.Bounds()
 	db := long.Bounds()
 	solo := NewDropdown(face, 14, []string{"Creative Live! Cam Sync 4K Analog Stereo"}, 0)
 	natural := SizeWithin(solo, Size{W: 400, H: 100}).W
@@ -670,5 +670,52 @@ func TestADropdownsListReadsInItsSize(t *testing.T) {
 			t.Errorf("a %vpx dropdown lists its items at %v", px, sizes)
 		}
 		dd.Close()
+	}
+}
+
+// openedCard is the width of the card of the popover host opened
+// last, measured as the application measures it and styled as the
+// popover element it styles it as, and the width of the list inside.
+func openedCard(t *testing.T, anchor Widget, host *fakeSurfaceHost) (card, list int) {
+	t.Helper()
+	box := host.popovers[len(host.popovers)-1].(*Box)
+	box.SetElement("popover")
+	SetStyleAnchor(box, anchor)
+	sz := SizeWithinAsChild(box, Size{W: 2000, H: 2000})
+	arrangeTree(t, box, sz.W, sz.H)
+	return box.Bounds().W, boundsOf(box.Children()[0]).W
+}
+
+// A dropdown's list hangs from the face's left edge, its card, border
+// and all, as wide as the face, so the items read in line with the
+// face's text; an item longer than the face widens the card, still
+// from that edge, and never the face (#271).
+func TestADropdownsListIsAsWideAsItsFace(t *testing.T) {
+	dd := NewDropdown(testFace(t), 14, []string{"Always show", "Only while recording"}, 0)
+	host := &fakeSurfaceHost{}
+	SetSurfaceHost(dd, host)
+	dd.Arrange(render.Rect{X: 10, Y: 20, W: 300, H: 36})
+	dd.Open()
+	if got := host.opts[0].Align; got != PopoverStart {
+		t.Errorf("the list opens aligned %d, want PopoverStart", got)
+	}
+	card, list := openedCard(t, dd, host)
+	if card != 300 {
+		t.Errorf("the card is %dpx wide under a 300px face", card)
+	}
+	if list != card-2 {
+		t.Errorf("the list is %dpx inside a %dpx card, want its 1px border clear on each side", list, card)
+	}
+	dd.Close()
+
+	dd.Arrange(render.Rect{X: 10, Y: 20, W: 100, H: 36})
+	dd.Open()
+	card, _ = openedCard(t, dd, host)
+	need := SizeWithin(host.popovers[1].(*Box).Children()[0], Size{W: 2000, H: 2000}).W + 2
+	if card != need || card <= 100 {
+		t.Errorf("under a 100px face the card is %dpx, want the %dpx its longest item needs", card, need)
+	}
+	if host.opts[1].Align != PopoverStart {
+		t.Error("a list wider than its face opens centred")
 	}
 }

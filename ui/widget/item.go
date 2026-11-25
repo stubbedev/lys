@@ -42,9 +42,8 @@ var itemClasses = [...]string{ItemDefault: "", ItemOutline: css.Outline, ItemMut
 type Item struct {
 	composite
 	stack   *Box
-	row     *Box
-	text    *Box
-	head    *Box
+	line    *itemLine
+	details *Box
 	media   *Box
 	title   *Label
 	desc    *Label
@@ -96,27 +95,244 @@ const ItemColumnWidth = GTKTextWidth
 // itemGap is the gap between an item's line and its wide control.
 const itemGap = 8
 
+// itemLineGap is the gap between an item's media, text and actions, and
+// itemTextGap the one between its title, description and details.
+const (
+	itemLineGap = 16
+	itemTextGap = 4
+)
+
+// itemLine lays out an item's line: the media, the title over the
+// description and the details, then the actions. The media and the
+// actions stand centred on the head, the title and the description as
+// they wrap beside the actions, and the text centres on them when they
+// are the taller. The description runs around the actions: its rows
+// beside them break short of them, and the rows below them, and the
+// details once they start below them, take the line's width from the
+// text's start, under the actions column.
+type itemLine struct {
+	node
+	it *Item
+}
+
+// itemLineBoxes are the parts' rects in an itemLine of some width, from
+// its top left, the description's flow, and the line's height.
+type itemLineBoxes struct {
+	media, title, desc, details, actions render.Rect
+	flow                                 labelFlow
+	h                                    int
+}
+
+// titleWidget is the title, or the title's line once it has suffixes.
+func (it *Item) titleWidget() Widget {
+	if it.titleLine != nil {
+		return it.titleLine
+	}
+	return it.title
+}
+
+// shownWidth is w's natural width when it is shown and takes any, else 0.
+func (l *itemLine) shownWidth(w Widget) int {
+	if w == nil || !IsVisible(w) {
+		return 0
+	}
+	return measureChild(l, w, Row, Unknown).Nat
+}
+
+// lay computes the parts' boxes at width w.
+func (l *itemLine) lay(w int) itemLineBoxes {
+	it := l.it
+	var b itemLineBoxes
+	var media Widget
+	if it.media != nil {
+		media = it.media
+	}
+	x, end := 0, w
+	mediaH := 0
+	if mw := l.shownWidth(media); mw > 0 {
+		mediaH = measureChild(l, media, Column, mw).Nat
+		b.media = render.Rect{W: mw, H: mediaH}
+		x = mw + itemLineGap
+	}
+	actH := 0
+	if aw := l.actionsWidth(w - x); aw > 0 {
+		actH = measureChild(l, it.actions, Column, aw).Nat
+		b.actions = render.Rect{X: w - aw, W: aw, H: actH}
+		end = w - aw - itemLineGap
+	}
+	textW, fullW := max(0, end-x), max(0, w-x)
+	title := it.titleWidget()
+	titleH := measureChild(l, title, Column, textW).Nat
+	descOn := IsVisible(it.desc)
+	head := titleH
+	if descOn {
+		it.desc.setFlow(labelFlow{})
+		head += itemTextGap + measureChild(l, it.desc, Column, textW).Nat
+	}
+	rowH := max(head, actH, mediaH)
+	headY := (rowH - head) / 2
+	b.media.Y = (rowH - mediaH) / 2
+	b.actions.Y = (rowH - actH) / 2
+	actBottom := b.actions.Y + actH
+	b.title = render.Rect{X: x, Y: headY, W: textW, H: titleH}
+	y := headY + titleH
+	if descOn {
+		y += itemTextGap
+		if beside := actBottom - y; actH > 0 && beside > 0 {
+			lh := it.desc.lineBox(it.desc.style(it.desc))
+			b.flow = labelFlow{cut: fullW - textW, rows: (beside + lh - 1) / max(lh, 1)}
+		}
+		it.desc.setFlow(b.flow)
+		dh := measureChild(l, it.desc, Column, fullW).Nat
+		b.desc = render.Rect{X: x, Y: y, W: fullW, H: dh}
+		y += dh
+	}
+	if l.shownWidth(it.details) > 0 {
+		y += itemTextGap
+		dw := textW
+		if y >= actBottom {
+			dw = fullW
+		}
+		dh := measureChild(l, it.details, Column, dw).Nat
+		b.details = render.Rect{X: x, Y: y, W: dw, H: dh}
+		y += dh
+	}
+	b.h = max(y, actBottom, b.media.Y+mediaH)
+	return b
+}
+
+// actionsWidth is the width the actions take out of avail, the room
+// after the media: their natural width, given up down to their minimum
+// where the text's minimum and the gap would not fit beside it, as a
+// box shrinks its children; 0 without shown actions.
+func (l *itemLine) actionsWidth(avail int) int {
+	if !IsVisible(l.it.actions) {
+		return 0
+	}
+	s := measureChild(l, l.it.actions, Row, Unknown)
+	if s.Nat <= 0 {
+		return 0
+	}
+	return max(s.Min, min(s.Nat, avail-itemLineGap-l.textSizes().Min))
+}
+
+// textSizes is the widest request across of the shown text parts.
+func (l *itemLine) textSizes() Sizes {
+	var text Sizes
+	for _, w := range [...]Widget{l.it.titleWidget(), l.it.desc, l.it.details} {
+		if IsVisible(w) {
+			text = text.widest(measureChild(l, w, Row, Unknown))
+		}
+	}
+	return text
+}
+
+// kids are the line's parts, in paint and walk order.
+func (l *itemLine) kids() []Widget {
+	out := make([]Widget, 0, 5)
+	if l.it.media != nil {
+		out = append(out, l.it.media)
+	}
+	return append(out, l.it.titleWidget(), l.it.desc, l.it.details, l.it.actions)
+}
+
+// Children are the line's parts.
+func (l *itemLine) Children() []Widget { return l.kids() }
+
+// appendChildren appends the line's parts, matching Children.
+func (l *itemLine) appendChildren(buf []Widget) []Widget { return append(buf, l.kids()...) }
+
+// appendStyleKids is the line's parts (styleKids).
+func (l *itemLine) appendStyleKids(buf []Widget) []Widget { return append(buf, l.kids()...) }
+
+// Measure is the parts side by side across, the media, the widest of
+// the text's parts and the actions with the gaps between, and the laid
+// out line's height down.
+func (l *itemLine) Measure(axis Axis, forSize int) Sizes {
+	if sz, ok := l.measureHit(axis, forSize); ok {
+		return sz
+	}
+	if axis == Column {
+		w := forSize
+		if w == Unknown {
+			w = l.Measure(Row, Unknown).Nat
+		}
+		return l.measureStore(axis, forSize, FixedSizes(l.lay(w).h))
+	}
+	req := l.textSizes()
+	var media Widget
+	if l.it.media != nil {
+		media = l.it.media
+	}
+	for _, w := range [...]Widget{media, l.it.actions} {
+		if w == nil || !IsVisible(w) {
+			continue
+		}
+		if s := measureChild(l, w, Row, Unknown); s.Nat > 0 {
+			req = Sizes{Min: req.Min + s.Min + itemLineGap, Nat: req.Nat + s.Nat + itemLineGap}
+		}
+	}
+	return l.measureStore(axis, forSize, req)
+}
+
+// Arrange places the parts as lay computes them.
+func (l *itemLine) Arrange(r render.Rect) {
+	l.node.Arrange(r)
+	kids := l.kids()
+	setParents(l, kids...)
+	b := l.lay(r.W)
+	at := func(w Widget, box render.Rect) {
+		arrangeChild(w, render.Rect{X: r.X + box.X, Y: r.Y + box.Y, W: box.W, H: box.H})
+	}
+	if l.it.media != nil {
+		at(l.it.media, b.media)
+	}
+	at(l.it.titleWidget(), b.title)
+	at(l.it.desc, b.desc)
+	at(l.it.details, b.details)
+	at(l.it.actions, b.actions)
+}
+
+// Paint draws the shown parts.
+func (l *itemLine) Paint(cv *render.Canvas) {
+	for _, w := range l.kids() {
+		if IsVisible(w) {
+			PaintChild(cv, w)
+		}
+	}
+}
+
+// HitTest returns the topmost part under p, or the line inside its
+// bounds.
+func (l *itemLine) HitTest(p Point) Widget {
+	kids := l.kids()
+	for i := range slices.Backward(kids) {
+		if IsVisible(kids[i]) {
+			if hit := HitChild(kids[i], p); hit != nil {
+				return hit
+			}
+		}
+	}
+	return l.HitLeaf(l, p)
+}
+
 // NewItem returns a default item; an empty description shows the
 // title alone.
 func NewItem(face render.Font, title, description string) *Item {
 	face = requireFace("widget.NewItem", face)
-	it := &Item{stack: NewBox(Column, itemGap, 0), row: NewBox(Row, 16, 0), text: NewBox(Column, 4, 0), head: NewBox(Column, 4, 0), actions: NewBox(Row, 8, 0)}
+	it := &Item{stack: NewBox(Column, itemGap, 0), details: NewBox(Column, itemTextGap, 0), actions: NewBox(Row, 8, 0)}
 	it.SetElement("item")
 	it.title = NewLabel(face, 14, title, 0)
 	it.title.AddClass("title")
 	it.title.SetWrap(true)
 	it.title.SetPrettyWrap(true)
-	it.head.Append(it.title, false)
 	it.desc = NewLabel(face, 14, description, 0)
 	it.desc.AddClass("description")
 	it.desc.SetWrap(true)
 	it.desc.SetPrettyWrap(true)
 	it.desc.SetVisible(description != "")
-	it.head.Append(it.desc, false)
-	it.text.Append(it.head, false)
-	it.row.AppendAligned(it.text, true, AlignCenter)
-	it.row.AppendAligned(it.actions, false, AlignStart)
-	it.stack.Append(it.row, false)
+	it.line = &itemLine{it: it}
+	it.stack.Append(it.line, false)
 	it.initComposite(it, it.stack)
 	it.SetHExpand(true)
 	it.boxed = true
@@ -127,8 +343,9 @@ func NewItem(face render.Font, title, description string) *Item {
 // it is when bare (an avatar, an image); nil removes it.
 func (it *Item) SetMedia(w Widget, bare bool) {
 	if it.media != nil {
-		it.row.Remove(it.media)
+		clearParents(it.media)
 		it.media = nil
+		it.line.InvalidateLayout()
 	}
 	if w == nil {
 		return
@@ -139,24 +356,7 @@ func (it *Item) SetMedia(w Widget, bare bool) {
 		it.media.SetSizeRequest(32, 32)
 	}
 	it.media.Append(NewSpacer(0, 0), true).AppendAligned(w, false, AlignCenter).Append(NewSpacer(0, 0), true)
-	it.row.InsertAligned(0, it.media, false, AlignStart)
-}
-
-// Arrange lays the item out, then centres the media and the actions on
-// the title and the description, the row's head: a detail opening
-// under them leaves them where they stood (a row's start when they are
-// the taller).
-func (it *Item) Arrange(r render.Rect) {
-	it.composite.Arrange(r)
-	head, row := it.head.Bounds(), it.row.Bounds()
-	for _, w := range [...]*Box{it.media, it.actions} {
-		if w == nil || !IsVisible(w) {
-			continue
-		}
-		b := w.Bounds()
-		b.Y = max(row.Y, head.Y+(head.H-b.H)/2)
-		w.Arrange(b)
-	}
+	it.line.InvalidateLayout()
 }
 
 // SetTitle replaces the title.
@@ -216,16 +416,15 @@ func (it *Item) SetTitleClass(name string, on bool) { it.title.SetClass(name, on
 func (it *Item) AddTitleSuffix(w Widget) {
 	if it.titleLine == nil {
 		it.titleLine = NewBox(Row, 8, 0)
-		it.head.Remove(it.title)
 		it.titleLine.AppendAligned(it.title, false, AlignCenter)
-		it.head.InsertAligned(0, it.titleLine, false, AlignFill)
+		it.line.InvalidateLayout()
 	}
 	it.titleLine.AppendAligned(w, false, AlignCenter)
 }
 
 // AddDetail adds w (a problem line, a note) under the description,
 // outside the head the media and the actions centre on.
-func (it *Item) AddDetail(w Widget) { it.text.Append(w, false) }
+func (it *Item) AddDetail(w Widget) { it.details.Append(w, false) }
 
 // SetControl places the row's control by fit, after the actions and
 // before the trailing actions; nil removes it. A column control joins

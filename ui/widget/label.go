@@ -57,6 +57,8 @@ type Label struct {
 	// pretty keeps a wrapped paragraph from ending in a lone word
 	// (SetPrettyWrap).
 	pretty bool
+	// flow narrows the first rows for a float beside them (setFlow).
+	flow labelFlow
 	// maxChars caps the natural width at that many approximate
 	// character widths (GTK max-width-chars); 0 is uncapped.
 	maxChars int
@@ -78,10 +80,33 @@ type wrapKey struct {
 	width    float64
 	wrap     bool
 	pretty   bool
+	flow     labelFlow
 	opts     render.WrapOptions
 	ell      EllipsizeMode
 	maxLines int
 	indent   float64
+}
+
+// labelFlow is a float's room beside a wrapped label's first rows: the
+// first rows rows break cut pixels short of the width, the rest at the
+// whole width, as text runs around a float and then under it.
+type labelFlow struct{ cut, rows int }
+
+// setFlow lets the label's first rows rows break cut pixels short, the
+// rows after them at the whole width: the parent placing a float beside
+// those rows (an item's actions) sets it before it measures or arranges
+// the label at the whole width. It changes only this label's rows, so
+// it drops only this label's measures.
+func (l *Label) setFlow(f labelFlow) {
+	if f.cut <= 0 || f.rows <= 0 {
+		f = labelFlow{}
+	}
+	if l.flow == f {
+		return
+	}
+	l.flow = f
+	l.dropMeasureCache()
+	l.Invalidate()
 }
 
 type wrapMemo struct {
@@ -631,7 +656,7 @@ func (l *Label) wrapped(width float64) []string {
 	face, px := l.effStyle()
 	v := l.style(l)
 	k := wrapKey{
-		face: face, text: l.shown(), px: px, width: width, wrap: l.wrapOf(v), pretty: l.pretty, opts: l.wrapOpts(v),
+		face: face, text: l.shown(), px: px, width: width, wrap: l.wrapOf(v), pretty: l.pretty, flow: l.flow, opts: l.wrapOpts(v),
 		ell: l.ellOf(v), maxLines: l.maxLinesOf(v), indent: l.indentOf(v),
 	}
 	if l.rows.lines != nil && l.rows.key == k {
@@ -646,9 +671,15 @@ func wrapRows(k wrapKey) []string {
 	if !k.wrap {
 		breakAt = math.Inf(1)
 	}
-	lines := render.WrapTextOpts(k.face, k.text, breakAt, k.px, k.opts)
-	if k.wrap && k.pretty {
-		lines = prettyRows(k, lines)
+	var lines []string
+	switch {
+	case k.wrap && k.flow.rows > 0:
+		lines = flowRows(k)
+	default:
+		lines = render.WrapTextOpts(k.face, k.text, breakAt, k.px, k.opts)
+		if k.wrap && k.pretty {
+			lines = prettyRows(k, lines)
+		}
 	}
 	if k.maxLines > 0 && k.ell != EllipsizeNone && len(lines) > k.maxLines {
 		lines = append(lines[:k.maxLines-1], strings.Join(lines[k.maxLines-1:], " "))
@@ -658,9 +689,40 @@ func wrapRows(k wrapKey) []string {
 		if last == 0 {
 			w -= k.indent
 		}
+		if last < k.flow.rows {
+			w -= float64(k.flow.cut)
+		}
 		lines[last] = render.EllipsizeText(k.face, lines[last], k.ell, w, k.px)
 	}
 	return lines
+}
+
+// flowRows breaks k's text around its flow: its first rows short of the
+// float, then what is left at the whole width, wrapped pretty when k
+// is. Rows the text does not hold where the breaker put them (an
+// inserted hyphen) keep the whole text short of the float.
+func flowRows(k wrapKey) []string {
+	short := render.WrapTextOpts(k.face, k.text, k.width-float64(k.flow.cut), k.px, k.opts)
+	if len(short) <= k.flow.rows {
+		return short
+	}
+	at := 0
+	for _, row := range short[:k.flow.rows] {
+		row = strings.TrimSpace(row)
+		i := strings.Index(k.text[at:], row)
+		if i < 0 {
+			return short
+		}
+		at += i + len(row)
+	}
+	rest := k
+	rest.text, rest.flow = strings.TrimLeft(k.text[at:], " \t\n"), labelFlow{}
+	rest.opts.Indent = 0
+	under := render.WrapTextOpts(rest.face, rest.text, rest.width, rest.px, rest.opts)
+	if rest.pretty {
+		under = prettyRows(rest, under)
+	}
+	return append(short[:k.flow.rows:k.flow.rows], under...)
 }
 
 // prettyRows rewraps lines, k's text at k's width, whose last row is

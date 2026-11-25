@@ -295,7 +295,7 @@ func TestItemGroupControlsShareOneColumn(t *testing.T) {
 	if s := sw.Bounds(); s.X+s.W != ref.X+ref.W || s.W >= ref.W {
 		t.Errorf("the switch spans x %d..%d, want its own width ending at the column's %d", s.X, s.X+s.W, ref.X+ref.W)
 	}
-	line, w := items[5].row.Bounds(), wide.Bounds()
+	line, w := items[5].line.Bounds(), wide.Bounds()
 	if w.X != line.X || w.W != line.W || w.Y < line.Y+line.H {
 		t.Errorf("the wide entry is at %v, want the full width %d..%d under the line ending at y=%d", w, line.X, line.X+line.W, line.Y+line.H)
 	}
@@ -331,7 +331,7 @@ func TestItemTrailingActionsSitOutsideTheColumn(t *testing.T) {
 	if rv := reveal.Bounds(); rv.X < r.X+r.W {
 		t.Errorf("the trailing action at x %d starts inside the column ending at %d", rv.X, r.X+r.W)
 	}
-	line := a.row.Bounds()
+	line := a.line.Bounds()
 	if s, rv := sw.Bounds(), reveal.Bounds(); s.X+s.W != line.X+line.W || rv.X+rv.W != line.X+line.W {
 		t.Errorf("the switch ends at %d and the trailing action at %d, want both at the row's end %d", s.X+s.W, rv.X+rv.W, line.X+line.W)
 	}
@@ -490,7 +490,7 @@ func TestAnItemsDetailLeavesItsMediaAndActionsBesideTheHead(t *testing.T) {
 		return icon.Bounds(), action.Bounds()
 	}
 	media, act := lay()
-	head := it.head.Bounds()
+	head := it.title.Bounds().Union(it.desc.Bounds())
 	if c := head.Y + head.H/2; abs(act.Y+act.H/2-c) > 1 || abs(media.Y+media.H/2-c) > 1 {
 		t.Fatalf("collapsed: media %v, action %v, want both centred on the head %v", media, act, head)
 	}
@@ -499,8 +499,8 @@ func TestAnItemsDetailLeavesItsMediaAndActionsBesideTheHead(t *testing.T) {
 	if openMedia != media || openAct != act {
 		t.Errorf("with the detail shown the media moved %v -> %v and the action %v -> %v", media, openMedia, act, openAct)
 	}
-	if it.text.Bounds().H <= head.H+20 {
-		t.Fatalf("the detail did not open under the head (text %v)", it.text.Bounds())
+	if d := detail.Bounds(); d.H == 0 || d.Y < head.Y+head.H {
+		t.Fatalf("the detail %v did not open under the head %v", d, head)
 	}
 }
 
@@ -545,5 +545,71 @@ func TestItemGroupsSharingWidthsLineUpAcrossCards(t *testing.T) {
 	layOutItems(page, 700)
 	if short.Bounds().W == long.Bounds().W {
 		t.Errorf("a card that left the widths still reads %dpx wide, the other card's width", short.Bounds().W)
+	}
+}
+
+const itemLongDescription = "Applies to every window that asks for it and to the ones that never do, until a rule of its own says otherwise for that window alone"
+
+// A long description runs around an item's actions: its rows beside
+// them break short of them, the rows below them take the line's width
+// from the text's start, under the actions column, and the title and
+// the actions stay where they were; with no actions it wraps at that
+// width throughout (#292).
+func TestAnItemsDescriptionRunsUnderItsActions(t *testing.T) {
+	face := testFace(t)
+	it := NewItem(face, "Window rules", itemLongDescription)
+	action := NewSpacer(60, 36)
+	it.AddAction(action)
+	const w = 280
+	layOutItems(it, w)
+	title, desc, act := it.title.Bounds(), it.desc.Bounds(), action.Bounds()
+	full := it.line.Bounds().X + it.line.Bounds().W - title.X
+	if desc.X != title.X || desc.W != full {
+		t.Fatalf("description %v, want it from the title's x %d across the line's %dpx", desc, title.X, full)
+	}
+	rows := it.desc.wrapped(float64(desc.W))
+	lh := it.desc.lineBox(it.desc.style(it.desc))
+	under := 0
+	for i, row := range rows {
+		adv := int(face.Shape(row, 14).Advance())
+		top := desc.Y + i*lh
+		if top < act.Y+act.H {
+			if desc.X+adv > act.X {
+				t.Errorf("row %d %q beside the actions runs to x=%d, past their start %d", i, row, desc.X+adv, act.X)
+			}
+			continue
+		}
+		if desc.X+adv > act.X {
+			under++
+		}
+	}
+	if under == 0 {
+		t.Fatalf("no row of %q runs under the actions (x=%d, ending at y=%d)", rows, act.X, act.Y+act.H)
+	}
+	if title.X+title.W > act.X {
+		t.Errorf("title %v runs into the actions at x=%d", title, act.X)
+	}
+
+	bare := NewItem(face, "Window rules", itemLongDescription)
+	layOutItems(bare, w)
+	plain := NewLabel(face, 14, itemLongDescription, 0)
+	plain.SetWrap(true)
+	plain.SetPrettyWrap(true)
+	if got, want := bare.desc.wrapped(float64(bare.desc.Bounds().W)), plain.wrapped(float64(bare.desc.Bounds().W)); !slices.Equal(got, want) {
+		t.Errorf("without actions the rows are %q, want the plain %q", got, want)
+	}
+}
+
+func TestGoldenItemDescriptionUnderActions(t *testing.T) {
+	face := goldenFace(t)
+	for _, shot := range bothPalettes("item-flow") {
+		g := NewItemGroup()
+		for _, desc := range []string{"Short description", itemLongDescription} {
+			it := NewItem(face, "Window rules", desc)
+			sw := NewSwitch(true)
+			it.SetControl(sw, ItemControlNatural)
+			g.Append(it)
+		}
+		NewGolden(t, g, shot.name, goldenTheme(shot.th), goldenFrame(420, 230))
 	}
 }
