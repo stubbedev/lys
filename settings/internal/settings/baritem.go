@@ -246,23 +246,50 @@ func (d *mouseDrawing) Paint(cv *render.Canvas) {
 	parts := d.parts()
 	cv.FillRect(render.Rect{X: b.X + b.W/2, Y: b.Y, W: 1, H: parts[0].H}, th.Border)
 	cv.FillRect(render.Rect{X: b.X, Y: b.Y + parts[0].H, W: b.W, H: 1}, th.Border)
-	for i, p := range parts {
+	if s := d.m.selected; s == 0 || s == 2 {
+		d.paintButton(cv, parts[s], th.Accent)
+	}
+	wheel := render.Rect{X: parts[3].X, Y: parts[3].Y, W: parts[3].W, H: parts[4].Y + parts[4].H - parts[3].Y}
+	cv.RoundedRect(mouseInset(wheel, -mouseGap), wheel.W/2+mouseGap, th.CardColor())
+	for _, i := range []int{3, 1, 4} {
 		fill := th.MutedColor()
 		if i == d.m.selected {
 			fill = th.Accent
 		}
-		if i == 0 || i == 2 {
-			inset := render.Rect{X: p.X + 4, Y: p.Y + 4, W: p.W - 8, H: p.H - 8}
-			if i == d.m.selected {
-				cv.RoundedRect(inset, tileRadius, fill)
-			}
-		} else {
-			cv.RoundedRect(p, p.W/2, fill)
-		}
+		cv.RoundedRect(parts[i], parts[i].W/2, fill)
+	}
+	for i, p := range parts {
 		if widget.FocusVisible(d.handles[i]) {
 			cv.RoundedBorder(p, render.UniformCorners(tileRadius), render.UniformInsets(focusRing), th.Text)
 		}
 	}
+}
+
+// mouseGap is the room the highlight of a button leaves to the body's
+// outline, the dividers and the wheel.
+const mouseGap = 4
+
+func mouseInset(r render.Rect, by int) render.Rect {
+	return render.Rect{X: r.X + by, Y: r.Y + by, W: r.W - 2*by, H: r.H - 2*by}
+}
+
+// paintButton fills button p in fill, inside the body's outline: its
+// outer edge follows the body's curve at the gap, its inner corners
+// round off the dividers.
+func (d *mouseDrawing) paintButton(cv *render.Canvas, p render.Rect, fill render.Color) {
+	b := d.Bounds()
+	region := cv.MapRect(p).Intersect(cv.Rect())
+	if region.Empty() {
+		return
+	}
+	layer := cv.ScratchLayer(region)
+	defer layer.Release()
+	layer.Canvas().RoundedRect(mouseInset(p, mouseGap), tileRadius, fill)
+	body := &render.Path{}
+	inner := mouseInset(b, mouseGap)
+	render.RoundedRectPath(body, inner, render.UniformCorners(inner.W/2))
+	layer.ApplyPathMask(body, region)
+	cv.DrawLayer(layer, region, render.BlendNormal)
 }
 
 func (d *mouseDrawing) HitTest(p widget.Point) widget.Widget { return d.HitLeaf(d, p) }

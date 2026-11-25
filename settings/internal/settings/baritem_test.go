@@ -95,3 +95,34 @@ func TestTheSystemMonitorsOpenTheDashboard(t *testing.T) {
 		t.Error("the separator offers actions though it has none")
 	}
 }
+
+// The chosen button's highlight keeps inside the body's outline, its
+// outer edge following the body's curve, and clear of the wheel.
+func TestTheMouseHighlightKeepsInsideTheBody(t *testing.T) {
+	k := testKit(t, "")
+	m := fieldControl(k, k.store, barItemRow(t, config.ModuleBattery, "settings-bar-item-mouse")).(*mouseActions)
+	m.mouse.Arrange(render.Rect{W: mouseW, H: mouseH})
+	m.choose(0)
+	buf := make([]byte, mouseW*mouseH*4)
+	m.mouse.Paint(render.New(buf, mouseW*4, mouseW, mouseH))
+	accent := widget.Current().Accent
+	at := func(x, y int) bool {
+		i := (y*mouseW + x) * 4
+		px := buf[i : i+4]
+		return closeByte(px[0], accent.B()) && closeByte(px[1], accent.G()) && closeByte(px[2], accent.R())
+	}
+	left := m.mouse.parts()[0]
+	if !at(left.X+left.W/2, left.Y+left.H*2/3) {
+		t.Fatal("the chosen left button is not highlighted")
+	}
+	if at(mouseGap+2, mouseGap+2) {
+		t.Error("the highlight fills the corner outside the body's curve")
+	}
+	wheel := m.mouse.parts()[3]
+	if at(wheel.X-1, wheel.Y+wheel.H) {
+		t.Error("the highlight runs up to the wheel")
+	}
+}
+
+// closeByte is a channel within 8 of another.
+func closeByte(a, b uint8) bool { return int(a)-int(b) <= 8 && int(b)-int(a) <= 8 }

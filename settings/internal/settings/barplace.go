@@ -49,7 +49,7 @@ type placementRow struct {
 func newPlacementRow(k *kit, module barModuleOf) *placementRow {
 	p := &placementRow{Box: gapBox(widget.Column), k: k, module: module}
 	p.AddClass("settings-bar-placement")
-	p.status = k.label("", "settings-bar-placement-status", css.Caption)
+	p.status = k.label("", "settings-bar-placement-status", css.CaptionHeading, css.DimLabel)
 	p.add = k.addButton("settings-bar-placement-add", p.place)
 	p.problem = k.inlineState()
 	line := gapBox(widget.Row)

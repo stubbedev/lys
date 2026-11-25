@@ -7,6 +7,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/ui/widget"
+	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -73,4 +74,21 @@ func TestAModuleTheBarRefusesIsSaidNotAdded(t *testing.T) {
 
 func containsLabel(w widget.Widget, text string) bool {
 	return slices.Contains(treetest.Labels(w), text)
+}
+
+// "In your bar" heads the page's preview as a section's title heads its
+// section: the same size, weight and color.
+func TestThePlacementReadsAsASectionTitle(t *testing.T) {
+	weighted(t)
+	win := laidOutPage(t, "", "battery", 1000)
+	status := treetest.WithClass(win.page, "settings-bar-placement-status")[0].(*widget.Label)
+	section := treetest.WithClass(win.page, "settings-section-title")[0].(*widget.Label)
+	twin := win.k.label(status.Text(), "settings-section-title", css.CaptionHeading, css.DimLabel)
+	themed(win.k, twin)
+	if sw, tw := status.Measure(widget.Row, -1).Nat, twin.Measure(widget.Row, -1).Nat; sw != tw {
+		t.Errorf("%q is %dpx wide, as a section title %dpx", status.Text(), sw, tw)
+	}
+	if sc, tc := widget.CascadeColor(status), widget.CascadeColor(section); sc != tc {
+		t.Errorf("%q reads in %#08x, a section title in %#08x", status.Text(), uint32(sc), uint32(tc))
+	}
 }
