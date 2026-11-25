@@ -293,3 +293,35 @@ func TestACurrencyRowShowsTheLocalesDigitsAndContinuesWithThePlainOnes(t *testin
 		t.Errorf("de 100 usd in eur = %+v, want its cents kept", got)
 	}
 }
+
+func TestAConversionRowShowsTheLocalesDigitsAndContinuesWithThePlainOnes(t *testing.T) {
+	for _, c := range []struct {
+		locale, query, title, value string
+	}{
+		{"en-US", "5 km to mi", "3.1068559612 mi", "3.1068559612"},
+		{"de", "5 km to mi", "3,1068559612 mi", "3.1068559612"},
+		{"fr", "5 km to mi", "3,1068559612 mi", "3.1068559612"},
+		{"en-US", "2 km to m", "2,000 m", "2000"},
+		{"de", "2 km to m", "2.000 m", "2000"},
+		{"de", "100 f to c", "37,7777777778°C", "37.7777777778"},
+	} {
+		calc := calculatorIn(t, c.locale, nil)
+		got := calc.Answer(c.query)
+		if len(got) != 1 || got[0].Title != c.title {
+			t.Fatalf("%s %s = %+v, want %q", c.locale, c.query, got, c.title)
+		}
+		d, ok := got[0].Data.(calcData)
+		if !ok || d.value != c.value {
+			t.Errorf("%s %s value = %+v, want the plain %q whatever the locale shows", c.locale, c.query, got[0].Data, c.value)
+		}
+	}
+	calc := calculatorIn(t, "de", nil)
+	d := calc.Answer("5 km to mi")[0].Data.(calcData)
+	again := calc.Answer(d.value + " mi to km")
+	if len(again) != 1 || again[0].Title != "5 km" {
+		t.Errorf("de: the continued %q mi reads back as %+v, want 5 km", d.value, again)
+	}
+	if strings.Contains(d.shown, d.value) {
+		t.Errorf("de: the row shows %q, the plain %q's English digits", d.shown, d.value)
+	}
+}

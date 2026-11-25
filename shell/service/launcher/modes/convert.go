@@ -2,6 +2,8 @@ package modes
 
 import (
 	"strings"
+
+	"github.com/stubbedev/lys/desktop/i18n"
 )
 
 // unitKind keeps conversions between things that convert.
@@ -149,15 +151,17 @@ func lookupUnit(s string) (unit, bool) {
 // Conversion is an answered "5 km to mi".
 type Conversion struct {
 	// Value is the number alone, Unit its unit.
-	Value, Unit string
+	Value float64
+	Unit  string
 }
 
-// String is the result as shown.
-func (c Conversion) String() string {
+// Show is the result as a person in l's locale reads it: ShowResult's
+// digits, then the unit, a degree sign without a space before it.
+func (c Conversion) Show(l *i18n.Loader) string {
 	if strings.HasPrefix(c.Unit, "°") {
-		return c.Value + c.Unit
+		return ShowResult(l, c.Value) + c.Unit
 	}
-	return c.Value + " " + c.Unit
+	return ShowResult(l, c.Value) + " " + c.Unit
 }
 
 // conversionWords separate the quantity from the unit wanted.
@@ -183,7 +187,7 @@ func Convert(query string) (Conversion, bool) {
 			return Conversion{}, false
 		}
 		base := float64(value*source.factor) + source.offset
-		return Conversion{Value: FormatResult((base - target.offset) / target.factor), Unit: target.name}, true
+		return Conversion{Value: (base - target.offset) / target.factor, Unit: target.name}, true
 	}
 	return Conversion{}, false
 }

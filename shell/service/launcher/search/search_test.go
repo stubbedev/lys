@@ -587,22 +587,23 @@ func TestStopCancelsProvidersAndLeavesNothingRunning(t *testing.T) {
 }
 
 func TestConvert(t *testing.T) {
+	en := loaderIn(t, "en-US")
 	for in, want := range map[string]string{
 		"5 km to mi":      "3.1068559612 mi",
 		"100 f to c":      "37.7777777778°C",
 		"0 c in f":        "32°F",
-		"1 GB to MB":      "1000 MB",
-		"1 GiB to MiB":    "1024 MiB",
+		"1 GB to MB":      "1,000 MB",
+		"1 GiB to MiB":    "1,024 MiB",
 		"8 Mbit to MB":    "1 MB",
-		"2*(3+4)km to m":  "14000 m",
+		"2*(3+4)km to m":  "14,000 m",
 		"90 min to hours": "1.5 h",
 		"1 kg in lb":      "2.2046226218 lb",
 		"1 mph to km/h":   "1.609344 km/h",
 		"180 deg to rad":  "3.1415926536 rad",
 	} {
 		got, ok := modes.Convert(in)
-		if !ok || got.String() != want {
-			t.Errorf("%q = %q (%v), want %q", in, got.String(), ok, want)
+		if !ok || got.Show(en) != want {
+			t.Errorf("%q = %q (%v), want %q", in, got.Show(en), ok, want)
 		}
 	}
 	for _, in := range []string{"5 km to kg", "5 km to", "km to mi", "go to mi", "5 km", "hello in there"} {

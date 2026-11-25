@@ -72,7 +72,7 @@ func (c *Calculator) Answer(query string) []Entry {
 		return nil
 	}
 	if conv, ok := modes.Convert(q); ok {
-		return []Entry{calcEntry(q, conv.Value, conv.String(), q)}
+		return []Entry{calcEntry(q, modes.FormatResult(conv.Value), conv.Show(c.l), q)}
 	}
 	v, ok := modes.Eval(q)
 	if !ok {
