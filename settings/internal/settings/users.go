@@ -675,9 +675,11 @@ func (p *usersPanel) strengthRow(next *widget.Entry) widget.Widget {
 // dialogField is row as a field of a dialog's form: its control on a
 // line of its own under its title, the dialog's full width, so in a
 // dialog as narrow as passwordDialogWidth every field starts and ends
-// at one x and every title reads whole in every language.
+// at one x and every title reads whole in every language. It keeps no
+// inset of its own across, so its title starts under the dialog's.
 func dialogField(row *settingRow, ctl widget.Widget) *settingRow {
 	row.placeControl(ctl, widget.ItemControlWide)
+	row.SetInlineStyle("padding-left: 0px; padding-right: 0px; border-left-width: 0px; border-right-width: 0px;")
 	return row
 }
 

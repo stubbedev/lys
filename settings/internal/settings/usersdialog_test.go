@@ -113,3 +113,23 @@ func TestTheUsersDialogFormsLineUpAndReadWhole(t *testing.T) {
 		}
 	}
 }
+
+// A Users dialog's fields stood in their rows' 17px inset, so the title
+// lys-ui sets on the dialog's content edge sat 17px left of every field
+// title. A field's title and its control start on the content edge,
+// under the dialog's title.
+func TestAUsersDialogsFieldsStartUnderItsTitle(t *testing.T) {
+	k := testKit(t, "")
+	p := usersFooter(k).(*usersPanel)
+	t.Cleanup(p.close)
+	for name, d := range usersDialogForms(p) {
+		layOutDialogContent(k, d.form)
+		edge := d.form.(widget.Boundser).Bounds().X
+		tr := locale.T()
+		for _, key := range d.titles {
+			if x := treetest.LabelReading(t, d.form, tr.Get(key)).Bounds().X; x != edge {
+				t.Errorf("%s: %q starts at x=%d, the dialog's content at %d", name, tr.Get(key), x, edge)
+			}
+		}
+	}
+}
