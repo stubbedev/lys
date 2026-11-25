@@ -509,20 +509,20 @@ func (c *FileChooser) buildPlaces() {
 	} else {
 		c.places.Clear()
 	}
-	climb := NewButton(NewLabel(c.face, c.sizePx, Tr("Up"), th.OnAccent), 8, 4)
+	climb := NewButton(NewLabel(c.face, c.sizePx, Tr("Up"), th.Text), 8, 4)
 	climb.OnClick = c.climb
-	home := NewButton(NewLabel(c.face, c.sizePx, Tr("Home"), th.OnAccent), 8, 4)
+	home := NewButton(NewLabel(c.face, c.sizePx, Tr("Home"), th.Text), 8, 4)
 	home.OnClick = func() {
 		dir, _ := os.UserHomeDir()
 		c.navigate(dir)
 	}
-	root := NewButton(NewLabel(c.face, c.sizePx, Tr("Filesystem"), th.OnAccent), 8, 4)
+	root := NewButton(NewLabel(c.face, c.sizePx, Tr("Filesystem"), th.Text), 8, 4)
 	root.OnClick = func() { c.navigate("/") }
 	c.places.Append(climb, false)
 	c.places.Append(home, false)
 	c.places.Append(root, false)
 	if c.recents != nil {
-		recent := NewButton(NewLabel(c.face, c.sizePx, Tr("Recent"), th.OnAccent), 8, 4)
+		recent := NewButton(NewLabel(c.face, c.sizePx, Tr("Recent"), th.Text), 8, 4)
 		recent.OnClick = func() { c.navigate("") }
 		c.places.Append(recent, false)
 	}
@@ -562,7 +562,10 @@ func (m *chooserModel) Row(i int) Widget {
 			name += string(filepath.Separator)
 			color = th.TextMuted
 		}
-		m.rows[i] = NewLabel(m.face, m.sizePx, name, color)
+		row := NewBox(Row, 0, 0)
+		row.padding = render.Insets{Left: th.Padding, Right: th.Padding}
+		row.Append(NewLabel(m.face, m.sizePx, name, color), true)
+		m.rows[i] = row
 	}
 	return m.rows[i]
 }

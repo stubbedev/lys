@@ -475,3 +475,45 @@ func TestASaveOntoANewNameIsReportedMissing(t *testing.T) {
 		t.Errorf("%d stats, %d on the loop, want one off the loop", stats, onLoop)
 	}
 }
+
+// The places buttons drew their labels in the on-accent color, meant
+// for text on an accent fill, on buttons with no such fill: dark text
+// on a dark button. Each reads at WCAG AA against its own button.
+func TestFileChooserPlacesReadAgainstTheirButtons(t *testing.T) {
+	c := newChooser(t, FileModeOpen, nil)
+	for i, w := range c.places.Children() {
+		b := w.(*Button)
+		sz := SizeWithin(b, Size{W: 400, H: 100})
+		b.Arrange(render.Rect{W: sz.W, H: sz.H})
+		data := make([]byte, render.Stride(sz.W)*sz.H)
+		cv := render.New(data, render.Stride(sz.W), sz.W, sz.H)
+		cv.Clear(render.Rect{W: sz.W, H: sz.H}, Current().Bg)
+		b.Paint(cv)
+		at := func(x, y int) Color {
+			i := y*render.Stride(sz.W) + x*4
+			return render.RGBA(data[i], data[i+1], data[i+2], 255)
+		}
+		bg := at(2, sz.H/2)
+		best := 0.0
+		for y := range sz.H {
+			for x := range sz.W {
+				best = max(best, contrastRatio(at(x, y), bg))
+			}
+		}
+		if best < wcagAA {
+			t.Errorf("place %d reads at %.2f:1 against its button", i, best)
+		}
+	}
+}
+
+// A listing's names started on the list's very edge. Each row insets
+// its name by the theme's padding.
+func TestFileChooserRowsInsetTheirNames(t *testing.T) {
+	c := newChooser(t, FileModeOpen, nil)
+	row := c.model.Row(0).(*Box)
+	row.Arrange(render.Rect{W: 300, H: 28})
+	name := row.Children()[0].(*Label)
+	if got := name.Bounds().X - row.Bounds().X; got != Current().Padding {
+		t.Errorf("the name starts %dpx into its row, want %d", got, Current().Padding)
+	}
+}
