@@ -47,6 +47,17 @@ type localeFormats struct {
 	hour12            bool
 	padHour           bool
 	dateTimeSeparator string
+	medium            mediumDate
+}
+
+// mediumDate is CLDR's medium date pattern: day and month in order,
+// the month by its abbreviated name (or its two digits, where the
+// pattern is numeric), each followed by its separator, then the year.
+type mediumDate struct {
+	order      dateOrder
+	months     [12]string
+	padDay     bool
+	separators [2]string
 }
 
 func formatsFor(catalogue LangID) (localeFormats, error) {
@@ -55,36 +66,72 @@ func formatsFor(catalogue LangID) (localeFormats, error) {
 		return localeFormats{
 			decimal: ".", group: ",", minimumGrouping: 1, units: byteUnitSystems, unitSpace: " ",
 			order: monthDayYear, dateSeparator: "/", hour12: true, dateTimeSeparator: ", ",
+			medium: mediumDate{
+				order:      monthDayYear,
+				months:     [12]string{"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"},
+				separators: [2]string{" ", ", "},
+			},
 		}, nil
 	case "de":
 		return localeFormats{
 			decimal: ",", group: ".", minimumGrouping: 1, units: byteUnitSystems, unitSpace: " ",
 			order: dayMonthYear, dateSeparator: ".", padHour: true, dateTimeSeparator: ", ",
+			medium: mediumDate{
+				order:      dayMonthYear,
+				months:     [12]string{"01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"},
+				padDay:     true,
+				separators: [2]string{".", "."},
+			},
 		}, nil
 	case "es":
 		return localeFormats{
 			decimal: ",", group: ".", minimumGrouping: 2, units: byteUnitSystems, unitSpace: " ",
 			order: dayMonthYear, dateSeparator: "/", dateTimeSeparator: ", ",
+			medium: mediumDate{
+				order:      dayMonthYear,
+				months:     [12]string{"ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sept", "oct", "nov", "dic"},
+				separators: [2]string{" ", " "},
+			},
 		}, nil
 	case "fr":
 		return localeFormats{
 			decimal: ",", group: narrowNBSP, minimumGrouping: 1, units: octetUnitSystems, unitSpace: nbsp,
 			order: dayMonthYear, dateSeparator: "/", padDate: true, padHour: true, dateTimeSeparator: " ",
+			medium: mediumDate{
+				order:      dayMonthYear,
+				months:     [12]string{"janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."},
+				separators: [2]string{" ", " "},
+			},
 		}, nil
 	case "it":
 		return localeFormats{
 			decimal: ",", group: ".", minimumGrouping: 2, units: byteUnitSystems, unitSpace: " ",
 			order: dayMonthYear, dateSeparator: "/", padDate: true, padHour: true, dateTimeSeparator: ", ",
+			medium: mediumDate{
+				order:      dayMonthYear,
+				months:     [12]string{"gen", "feb", "mar", "apr", "mag", "giu", "lug", "ago", "set", "ott", "nov", "dic"},
+				separators: [2]string{" ", " "},
+			},
 		}, nil
 	case "nl":
 		return localeFormats{
 			decimal: ",", group: ".", minimumGrouping: 1, units: byteUnitSystems, unitSpace: " ",
 			order: dayMonthYear, dateSeparator: "-", padHour: true, dateTimeSeparator: ", ",
+			medium: mediumDate{
+				order:      dayMonthYear,
+				months:     [12]string{"jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug", "sep", "okt", "nov", "dec"},
+				separators: [2]string{" ", " "},
+			},
 		}, nil
 	case "pt":
 		return localeFormats{
 			decimal: ",", group: nbsp, minimumGrouping: 2, units: byteUnitSystems, unitSpace: " ",
 			order: dayMonthYear, dateSeparator: "/", padDate: true, padHour: true, dateTimeSeparator: ", ",
+			medium: mediumDate{
+				order:      dayMonthYear,
+				months:     [12]string{"jan.", "fev.", "mar.", "abr.", "mai.", "jun.", "jul.", "ago.", "set.", "out.", "nov.", "dez."},
+				separators: [2]string{" de ", " de "},
+			},
 		}, nil
 	}
 	return localeFormats{}, fmt.Errorf("i18n: catalogue %s has no number and date formats", catalogue)
@@ -119,13 +166,22 @@ func pad2(n int, pad bool) string {
 	return strconv.Itoa(n)
 }
 
-func (f localeFormats) date(t time.Time) string {
-	day, month := pad2(t.Day(), f.padDate), pad2(int(t.Month()), f.padDate)
-	first, second := day, month
-	if f.order == monthDayYear {
-		first, second = month, day
+// arrange puts a date's day and month in the order's sequence.
+func (o dateOrder) arrange(day, month string) (first, second string) {
+	if o == monthDayYear {
+		return month, day
 	}
+	return day, month
+}
+
+func (f localeFormats) date(t time.Time) string {
+	first, second := f.order.arrange(pad2(t.Day(), f.padDate), pad2(int(t.Month()), f.padDate))
 	return first + f.dateSeparator + second + f.dateSeparator + strconv.Itoa(t.Year())
+}
+
+func (m mediumDate) format(t time.Time) string {
+	first, second := m.order.arrange(pad2(t.Day(), m.padDay), m.months[t.Month()-time.January])
+	return first + m.separators[0] + second + m.separators[1] + strconv.Itoa(t.Year())
 }
 
 func (f localeFormats) time(t time.Time) string {
@@ -182,6 +238,12 @@ func (l *Loader) DecimalByteSize(n uint64) string {
 // Time is t's hour and minute in t's location, in the locale's hour
 // cycle: "5:06 AM" in en-US, "05:06" in de and fr.
 func (l *Loader) Time(t time.Time) string { return l.formats().time(t) }
+
+// Date is t's day in t's location, in the locale's CLDR medium date
+// pattern, which names the month where the locale does so a day and a
+// month never read the wrong way round: "Nov 7, 2026" in en-US,
+// "07.11.2026" in de, "7 nov. 2026" in fr, "7 de nov. de 2026" in pt.
+func (l *Loader) Date(t time.Time) string { return l.formats().medium.format(t) }
 
 // DateTime is t's numeric date and its time, in t's location:
 // "3/4/2026, 5:06 AM" in en-US, "4.3.2026, 05:06" in de, "04/03/2026

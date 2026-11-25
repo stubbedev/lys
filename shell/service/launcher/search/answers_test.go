@@ -71,7 +71,7 @@ func TestCurrencyRowAppearsOnceTheRatesLoad(t *testing.T) {
 		return len(rows) == 2 && rows[1].Entry.Title == "92.38 EUR"
 	}, "the currency row")
 
-	if sub := stripIsolation(s.last().Rows[1].Entry.Subtitle); !strings.Contains(sub, "ECB, 2026-11-06") || strings.Contains(sub, "old") {
+	if sub := stripIsolation(s.last().Rows[1].Entry.Subtitle); !strings.Contains(sub, "ECB, Nov 6, 2026") || strings.Contains(sub, "old") {
 		t.Errorf("subtitle = %q, want the fresh rate date", sub)
 	}
 	for range 20 {
@@ -122,7 +122,7 @@ func TestStaleRatesSayHowOld(t *testing.T) {
 	if len(got) != 1 {
 		t.Fatalf("answer = %+v", got)
 	}
-	if sub := stripIsolation(got[0].Subtitle); !strings.Contains(sub, "ECB, 2026-11-06") || !strings.Contains(sub, "4 days old") {
+	if sub := stripIsolation(got[0].Subtitle); !strings.Contains(sub, "ECB, Nov 6, 2026") || !strings.Contains(sub, "4 days old") {
 		t.Errorf("subtitle = %q", sub)
 	}
 }
@@ -132,7 +132,7 @@ func TestTimeAndDateRows(t *testing.T) {
 	for q, want := range map[string]string{
 		"15:00 PST in Copenhagen": "12:00\u202fAM CET (+1 day)",
 		"time in Tokyo":           "7:00\u202fPM JST",
-		"today + 90 days":         "Friday 2027-02-05",
+		"today + 90 days":         "Friday Feb 5, 2027",
 		"days until 2027-01-01":   "55 days",
 		"days until 2026-11-08":   "1 day",
 	} {
@@ -142,7 +142,7 @@ func TestTimeAndDateRows(t *testing.T) {
 		}
 	}
 	got := c.Answer("time in Tokyo")
-	if sub := stripIsolation(got[0].Subtitle); sub != "Saturday 2026-11-07 in Tokyo" {
+	if sub := stripIsolation(got[0].Subtitle); sub != "Saturday Nov 7, 2026 in Tokyo" {
 		t.Errorf("subtitle = %q", sub)
 	}
 	if acts := c.Actions(got[0]); len(acts) < 2 {
@@ -182,6 +182,55 @@ func TestATimeRowContinuesWithTheClockAQueryReads(t *testing.T) {
 		if !ok || d.value != "19:00" {
 			t.Errorf("%s value = %+v, want the 24-hour clock whatever the locale shows", locale, got[0].Data)
 		}
+	}
+}
+
+func TestADateRowShowsTheLocalesDateAndContinuesWithTheISODate(t *testing.T) {
+	for _, c := range []struct {
+		locale, title string
+	}{
+		{"en-US", "Friday Feb 5, 2027"},
+		{"de", "Freitag 05.02.2027"},
+		{"fr", "vendredi 5 févr. 2027"},
+	} {
+		calc := calculatorIn(t, c.locale, nil)
+		got := calc.Answer("today + 90 days")
+		if len(got) != 1 {
+			t.Fatalf("%s today + 90 days = %+v", c.locale, got)
+		}
+		if title := stripIsolation(got[0].Title); title != c.title {
+			t.Errorf("%s title = %q, want %q", c.locale, title, c.title)
+		}
+		d, ok := got[0].Data.(calcData)
+		if !ok || d.value != "2027-02-05" {
+			t.Errorf("%s value = %+v, want the ISO date whatever the locale shows", c.locale, got[0].Data)
+		}
+		if again := calc.Answer(d.value + " + 1 day"); len(again) != 1 {
+			t.Errorf("%s: the continued value %q does not read back as a date", c.locale, d.value)
+		}
+		if strings.Contains(got[0].Title, "2027-02-05") {
+			t.Errorf("%s title %q shows the ISO date", c.locale, got[0].Title)
+		}
+	}
+}
+
+func TestATimeRowsDayAndTheCurrencySourceSpeakTheLocalesDate(t *testing.T) {
+	got := calculatorIn(t, "de", nil).Answer("time in Tokyo")
+	if len(got) != 1 {
+		t.Fatalf("answer = %+v", got)
+	}
+	if sub := stripIsolation(got[0].Subtitle); !strings.HasPrefix(sub, "Samstag 07.11.2026") || strings.Contains(sub, "2026-11-07") {
+		t.Errorf("de subtitle = %q, want the German day and date", sub)
+	}
+	srv, _ := ecbServer(t, true)
+	rates := answer.NewRates(srv.URL, filepath.Join(t.TempDir(), "fx.xml"), func() time.Time { return answerClock })
+	rates.Refresh(t.Context())
+	got = calculatorIn(t, "fr", rates).Answer("$100 to €")
+	if len(got) != 1 {
+		t.Fatalf("currency answer = %+v", got)
+	}
+	if sub := stripIsolation(got[0].Subtitle); !strings.Contains(sub, "6 nov. 2026") || strings.Contains(sub, "2026-11-06") {
+		t.Errorf("fr currency source = %q, want the French date", sub)
 	}
 }
 

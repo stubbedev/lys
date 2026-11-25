@@ -106,15 +106,16 @@ func (c *Calculator) answerCurrency(q string) (Entry, bool) {
 	now := c.now()
 	source := c.l.Get("launcher-answer-currency-source",
 		i18n.Str("amount", cq.Amount), i18n.Str("from", cq.From.String()), i18n.Str("to", cq.To.String()),
-		i18n.Str("date", snap.Table.Date.Format(time.DateOnly)))
+		i18n.Str("date", c.l.Date(snap.Table.Date)))
 	if !snap.Fresh(now) {
 		source = c.l.Get("launcher-answer-currency-stale", i18n.Str("source", source), i18n.Int("days", int64(snap.AgeDays(now))))
 	}
 	return calcEntry(q, value, value+" "+cq.To.String(), source), true
 }
 
-func (c *Calculator) weekdayName(d time.Weekday) string {
-	return c.l.Get("cal-day-" + strings.ToLower(d.String()))
+// day is t's weekday and the locale's date, in t's location.
+func (c *Calculator) day(t time.Time) string {
+	return c.l.Get("cal-day-"+strings.ToLower(t.Weekday().String())) + " " + c.l.Date(t)
 }
 
 // timeEntry shows the time in the locale's hour cycle with its zone's
@@ -130,7 +131,7 @@ func (c *Calculator) timeEntry(q string, t answer.TimeAnswer) Entry {
 		}
 		shown = c.l.Get("launcher-answer-day-offset", i18n.Str("time", shown), i18n.Str("sign", sign), i18n.Int("days", int64(days)))
 	}
-	day := c.weekdayName(t.At.Weekday()) + " " + t.At.Format(time.DateOnly)
+	day := c.day(t.At)
 	subtitle := day
 	if t.Place != "" {
 		subtitle = c.l.Get("launcher-answer-time-place", i18n.Str("day", day), i18n.Str("place", t.Place))
@@ -138,13 +139,14 @@ func (c *Calculator) timeEntry(q string, t answer.TimeAnswer) Entry {
 	return calcEntry(q, clock, shown, subtitle)
 }
 
+// dateEntry shows a day in the locale's words; the value a row copies
+// and continues with stays the ISO date a query reads back.
 func (c *Calculator) dateEntry(q string, d answer.DateAnswer) Entry {
 	if d.Kind == answer.DateIsSpan {
 		days := strconv.Itoa(d.Days)
 		return calcEntry(q, days, c.l.Get("launcher-answer-days", i18n.Int("days", int64(d.Days))), q)
 	}
-	iso := d.Day.Format(time.DateOnly)
-	return calcEntry(q, iso, c.weekdayName(d.Day.Weekday())+" "+iso, q)
+	return calcEntry(q, d.Day.Format(time.DateOnly), c.day(d.Day), q)
 }
 
 type calcData struct{ value, shown, expr string }

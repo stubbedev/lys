@@ -158,6 +158,56 @@ func TestDateTimeFollowsTheLocalePatterns(t *testing.T) {
 	}
 }
 
+func TestDateIsTheLocalesMediumDate(t *testing.T) {
+	early := time.Date(2026, 3, 4, 5, 6, 7, 0, time.UTC)
+	late := time.Date(2026, 11, 24, 23, 0, 0, 0, time.UTC)
+	for _, c := range []struct {
+		locale string
+		at     time.Time
+		want   string
+	}{
+		{"en-US", early, "Mar 4, 2026"},
+		{"en-US", late, "Nov 24, 2026"},
+		{"de", early, "04.03.2026"},
+		{"de", late, "24.11.2026"},
+		{"es", early, "4 mar 2026"},
+		{"es", time.Date(2026, 9, 4, 0, 0, 0, 0, time.UTC), "4 sept 2026"},
+		{"fr", early, "4 mars 2026"},
+		{"fr", late, "24 nov. 2026"},
+		{"it", early, "4 mar 2026"},
+		{"it", time.Date(2026, 1, 4, 0, 0, 0, 0, time.UTC), "4 gen 2026"},
+		{"nl", early, "4 mrt 2026"},
+		{"pt", early, "4 de mar. de 2026"},
+		{"pt", time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC), "31 de dez. de 2026"},
+	} {
+		if got := shellLoader(t, c.locale).Date(c.at); got != c.want {
+			t.Errorf("%s Date(%v) = %q, want %q", c.locale, c.at, got, c.want)
+		}
+	}
+}
+
+func TestDateNamesEveryMonthApartAndKeepsTheTimesDay(t *testing.T) {
+	for _, locale := range parseLangs(t, shipped) {
+		l := shellLoader(t, locale.String())
+		seen := map[string]time.Month{}
+		for m := time.January; m <= time.December; m++ {
+			got := l.Date(time.Date(2026, m, 15, 12, 0, 0, 0, time.UTC))
+			if prev, dup := seen[got]; dup {
+				t.Errorf("%s: %s and %s both read %q", locale, prev, m, got)
+			}
+			seen[got] = m
+			if !strings.Contains(got, "15") || !strings.Contains(got, "2026") {
+				t.Errorf("%s: %s 15 reads %q, want its day and year", locale, m, got)
+			}
+		}
+	}
+	zone := time.FixedZone("UTC+9", 9*60*60)
+	at := time.Date(2026, 3, 4, 20, 0, 0, 0, time.UTC).In(zone)
+	if got := shellLoader(t, "en-US").Date(at); got != "Mar 5, 2026" {
+		t.Errorf("Date in UTC+9 = %q, want the zone's own day", got)
+	}
+}
+
 func TestTimeFollowsTheLocaleHourCycle(t *testing.T) {
 	at := time.Date(2026, 3, 4, 17, 6, 0, 0, time.UTC)
 	for locale, want := range map[string]string{"en-US": "5:06 PM", "de": "17:06", "fr": "17:06"} {
