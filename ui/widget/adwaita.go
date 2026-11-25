@@ -210,8 +210,8 @@ var classRules = [][2]string{
 
 // tabLists and tabTriggers are the three tab strips' lists and tabs -
 // StackSwitcher and ViewSwitcher (a togglegroup), TabBar, Notebook -
-// styled as tabs: a muted list of muted tabs, the active one
-// raised on the background fill.
+// styled as tabs: a muted list of muted tabs, the active one marked as
+// a checked choice chip is, ringed and tinted in the accent.
 const (
 	tabLists    = "togglegroup, viewswitcher, tabbar, notebook > header > tabs"
 	tabTriggers = "togglegroup button, viewswitcher button, tabbar tab, notebook tab"
@@ -388,7 +388,7 @@ func controlRules() [][2]string {
 		{"buttongroup > box > *:only-child", "border-radius: {r};"},
 		{tabLists, "background-color: @muted_bg_color; border-radius: {r+2}; padding: 3px;"},
 		{tabTriggers, "background-color: transparent; border-radius: {r}; min-height: 28px; padding: 0px 12px; font-weight: 500; color: @muted_fg_color;"},
-		{activeTabs, "background-color: @window_bg_color; color: @window_fg_color; box-shadow: 0px 1px 3px alpha(black, 0.1);"},
+		{activeTabs, "background-color: alpha(@accent_bg_color, 0.15); color: @accent_color; box-shadow: inset 0px 0px 0px 1px @accent_bg_color;"},
 		{"carousel button.nav", "min-width: 32px; min-height: 32px; padding: 0px; border-radius: 9999px;"},
 		{"notebook", "background-color: transparent;"},
 		{"notebook > header", "margin-bottom: 8px;"},
@@ -419,7 +419,6 @@ var darkRules = [][2]string{
 	{"button." + css.Outline + ":hover, dropdown > button:hover", "background-color: alpha(@input_border_color, 0.5);"},
 	{"button." + css.DestructiveAction + ", badge." + css.Destructive, "background-color: alpha(@destructive_bg_color, 0.6);"},
 	{"button." + css.DestructiveAction + ":hover, button." + css.DestructiveAction + ":active", "background-color: alpha(@destructive_bg_color, 0.5);"},
-	{activeTabs, "background-color: alpha(@input_border_color, 0.3); box-shadow: inset 0px 0px 0px 1px @input_border_color;"},
 }
 
 // partRules style widget parts: the level bar's trough and offset

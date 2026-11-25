@@ -10,6 +10,7 @@ import (
 	"github.com/stubbedev/lys/lib/render"
 
 	"github.com/stubbedev/lys/ui/anim"
+	"github.com/stubbedev/lys/ui/internal/style"
 )
 
 // The swipeable widgets settle on the router's gesture interfaces; a
@@ -532,4 +533,32 @@ func TestStatusPageFillsItsWidth(t *testing.T) {
 	if got := p.Bounds().W; got != 350 {
 		t.Errorf("centered status page is %d wide in a 350px column, want all of it", got)
 	}
+}
+
+// A toggle group's active segment reads at a glance on either palette:
+// ringed in the accent, which stands 3:1 off the group's fill as a
+// non-text cue must, as a checked choice chip is marked (#289).
+func TestAToggleGroupsActiveSegmentStandsOut(t *testing.T) {
+	for _, th := range []*Theme{DarkTheme(), LightTheme()} {
+		SetTheme(th)
+		face := goldenFace(t)
+		g := NewToggleGroup(NewLabel(face, 14, "By permission", 0), NewLabel(face, 14, "By app", 0))
+		arrangeTree(t, g, 300, 40)
+		list := pickc(0, g.style(g), style.PropBackgroundColor, 0)
+		on := g.buttons[0].style(g.buttons[0])
+		shadows := on.Shadow.List()
+		if len(shadows) == 0 || !shadows[0].Inset {
+			t.Errorf("dark %v: the active segment has no ring", th.IsDark())
+			continue
+		}
+		ring := toRenderShadow(shadows[0]).Color
+		if r := contrastRatio(ring, list); r < 3 {
+			t.Errorf("dark %v: the ring stands %.2f:1 off the group's fill, want 3:1", th.IsDark(), r)
+		}
+		off := g.buttons[1].style(g.buttons[1])
+		if len(off.Shadow.List()) != 0 {
+			t.Errorf("dark %v: an inactive segment is ringed too", th.IsDark())
+		}
+	}
+	SetTheme(nil)
 }
