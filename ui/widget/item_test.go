@@ -620,3 +620,28 @@ func TestGoldenItemDescriptionUnderActions(t *testing.T) {
 		NewGolden(t, g, shot.name, goldenTheme(shot.th), goldenFrame(420, 230))
 	}
 }
+
+// A badge a little taller than the title's row of text, appearing on
+// the title's line, leaves the item as tall as before, the badge
+// standing over the gaps around the line (#362).
+func TestATitleBadgeDoesNotGrowItsItem(t *testing.T) {
+	face := testFace(t)
+	it := NewItem(face, "Icon size", "Size of each app's icon")
+	badge := NewBadge(face, "custom")
+	it.AddTitleSuffix(badge)
+	badge.SetVisible(false)
+	height := func() int { return SizeWithin(it, Size{W: 500, H: 1000}).H }
+	before := height()
+	badge.SetVisible(true)
+	if after := height(); after != before {
+		t.Errorf("the item grew from %d to %dpx when its badge appeared", before, after)
+	}
+	layOutItems(it, 500)
+	title, b := it.title.Bounds(), badge.Bounds()
+	if c, bc := title.Y+title.H/2, b.Y+b.H/2; c-bc > 1 || bc-c > 1 {
+		t.Errorf("badge centred at y=%d, the title at %d", bc, c)
+	}
+	if b.H <= title.H {
+		t.Fatalf("badge %dpx, title %dpx: the case under test needs the badge taller", b.H, title.H)
+	}
+}

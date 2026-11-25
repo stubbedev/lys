@@ -162,7 +162,8 @@ func (l *itemLine) lay(w int) itemLineBoxes {
 	}
 	textW, fullW := max(0, end-x), max(0, w-x)
 	title := it.titleWidget()
-	titleH := measureChild(l, title, Column, textW).Nat
+	lineH := measureChild(l, title, Column, textW).Nat
+	titleH := l.titleHeight(textW, lineH)
 	descOn := IsVisible(it.desc)
 	head := titleH
 	if descOn {
@@ -174,7 +175,7 @@ func (l *itemLine) lay(w int) itemLineBoxes {
 	b.media.Y = (rowH - mediaH) / 2
 	b.actions.Y = (rowH - actH) / 2
 	actBottom := b.actions.Y + actH
-	b.title = render.Rect{X: x, Y: headY, W: textW, H: titleH}
+	b.title = render.Rect{X: x, Y: headY - (lineH-titleH)/2, W: textW, H: lineH}
 	y := headY + titleH
 	if descOn {
 		y += itemTextGap
@@ -199,6 +200,26 @@ func (l *itemLine) lay(w int) itemLineBoxes {
 	}
 	b.h = max(y, actBottom, b.media.Y+mediaH)
 	return b
+}
+
+// titleHeight is the height the title's line takes in the line's
+// layout at width w, lineH the line's own height: the title's rows,
+// its suffixes (a badge a little taller than a row of text) standing
+// over the gaps around it rather than growing the item when they
+// appear.
+func (l *itemLine) titleHeight(w, lineH int) int {
+	line := l.it.titleLine
+	if line == nil {
+		return lineH
+	}
+	room := w
+	gap := line.gap(line.style(line))
+	for _, k := range line.Children() {
+		if k != Widget(l.it.title) && IsVisible(k) {
+			room -= measureChild(line, k, Row, Unknown).Nat + gap
+		}
+	}
+	return min(lineH, measureChild(line, l.it.title, Column, max(room, 0)).Nat)
 }
 
 // actionsWidth is the width the actions take out of avail, the room
