@@ -11,7 +11,7 @@ func levelEditor(t *testing.T, yaml, page, path string) (*kit, *thresholdEditor)
 	t.Helper()
 	k := testKit(t, yaml)
 	e := fieldControl(k, k.store, pageRow(t, page, path)).(*thresholdEditor)
-	e.bar.Arrange(render.Rect{W: 320, H: thresholdBarH + levelRowH})
+	e.bar.Arrange(render.Rect{W: 320, H: e.bar.barH() + levelRowH})
 	return k, e
 }
 
@@ -71,7 +71,7 @@ func TestAThresholdBarWithoutLevelsDrawsNoBands(t *testing.T) {
 	if e.bar.levels != nil {
 		t.Fatal("the CPU threshold bar draws level icons")
 	}
-	if got := e.bar.Measure(widget.Column, 0).Nat; got != thresholdBarH {
-		t.Errorf("a plain threshold bar is %d tall, want %d", got, thresholdBarH)
+	if got := e.bar.Measure(widget.Column, 0).Nat; got != e.bar.barH() {
+		t.Errorf("a plain threshold bar is %d tall, want %d", got, e.bar.barH())
 	}
 }

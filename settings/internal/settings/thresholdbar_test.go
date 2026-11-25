@@ -1,17 +1,21 @@
 package settings
 
 import (
+	"slices"
 	"testing"
 
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
+
+	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
 func thresholdKit(t *testing.T) (*kit, *thresholdEditor) {
 	t.Helper()
 	k := testKit(t, "thresholds:\n  cpu:\n    - {above: 70, icon-color: \"#ff0000\"}\n    - {below: 10}\n")
 	e := fieldControl(k, k.store, field("thresholds.cpu", thresholdList)).(*thresholdEditor)
-	e.bar.Arrange(render.Rect{W: 320, H: thresholdBarH})
+	e.bar.Arrange(render.Rect{W: 320, H: e.bar.barH()})
 	return k, e
 }
 
@@ -64,5 +68,43 @@ func TestACardEditReachesTheBar(t *testing.T) {
 	e.cards.commit()
 	if len(e.bar.stops) != 3 {
 		t.Errorf("after a card added a threshold the bar holds %d stops", len(e.bar.stops))
+	}
+}
+
+// The brightness bar reads its values under the track: its ends, each
+// boundary between two level icons and the floor brightness never goes
+// below, none running into another.
+func TestALevelBarReadsItsBoundariesAndFloor(t *testing.T) {
+	k := testKit(t, "")
+	e := fieldControl(k, k.store, pageRow(t, "brightness", "modules.brightness.thresholds")).(*thresholdEditor)
+	e.bar.Arrange(render.Rect{W: 640, H: e.bar.barH() + levelRowH})
+	var texts []string
+	marks := e.bar.marks()
+	for i, m := range marks {
+		texts = append(texts, unisolated(m.text))
+		for _, o := range marks[:i] {
+			if m.box.X < o.box.X+o.box.W && o.box.X < m.box.X+m.box.W {
+				t.Errorf("%q runs into %q", m.text, o.text)
+			}
+		}
+	}
+	floor := unisolated(locale.T().Get("settings-level-floor-mark", i18n.Str("n", "5")))
+	for _, want := range []string{"0", "100", "33", "67", floor} {
+		if !slices.Contains(texts, want) {
+			t.Errorf("the bar reads %q, not %q", texts, want)
+		}
+	}
+}
+
+// The values under the track are drawn inside the bar, not over what
+// follows it.
+func TestAThresholdBarHoldsItsMarks(t *testing.T) {
+	_, e := thresholdKit(t)
+	h := e.bar.Measure(widget.Column, 0).Nat
+	e.bar.Arrange(render.Rect{W: 320, H: h})
+	for _, m := range e.bar.marks() {
+		if m.box.Y+m.box.H > h {
+			t.Errorf("%q ends at y %d, under the %dpx bar", m.text, m.box.Y+m.box.H, h)
+		}
 	}
 }

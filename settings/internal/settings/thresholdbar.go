@@ -14,7 +14,6 @@ import (
 )
 
 const (
-	thresholdBarH     = 44
 	thresholdTrackH   = 10
 	thresholdStopR    = 7
 	thresholdScaleMax = 100.0
@@ -99,11 +98,14 @@ func (b *thresholdBar) track() render.Rect {
 	left := pad
 	if b.levels != nil {
 		r.Y += levelRowH
-		r.H -= levelRowH
 		left += b.levels.leftPad()
 	}
-	return render.Rect{X: r.X + left, Y: r.Y + (r.H-thresholdTrackH)/2, W: max(1, r.W-left-pad), H: thresholdTrackH}
+	return render.Rect{X: r.X + left, Y: r.Y + thresholdStopR + 1 - thresholdTrackH/2, W: max(1, r.W-left-pad), H: thresholdTrackH}
 }
+
+// barH is the bar's height below its level icons: the track with room
+// for its stops, then its marks.
+func (b *thresholdBar) barH() int { return 2*(thresholdStopR+1) + markTop + b.markH() }
 
 func (b *thresholdBar) xOf(v float64) int {
 	t := b.track()
@@ -155,9 +157,9 @@ func (b *thresholdBar) Measure(axis widget.Axis, _ int) widget.Sizes {
 		return widget.Sizes{Min: 160, Nat: 320}
 	}
 	if b.levels != nil {
-		return widget.FixedSizes(thresholdBarH + levelRowH)
+		return widget.FixedSizes(b.barH() + levelRowH)
 	}
-	return widget.FixedSizes(thresholdBarH)
+	return widget.FixedSizes(b.barH())
 }
 
 func (b *thresholdBar) stopValue(s *thresholdStop) float64 {
@@ -207,9 +209,63 @@ func (b *thresholdBar) Paint(cv *render.Canvas) {
 			cv.RoundedBorder(r, render.UniformCorners(thresholdStopR), render.UniformInsets(focusRing), th.Text)
 		}
 	}
-	px := b.k.textPx() * 0.85
-	b.k.face.DrawAligned(cv, "0", render.Rect{X: t.X, Y: t.Y + t.H + 2, W: t.W, H: int(px * 1.4)}, px, th.Text, render.AlignStart)
-	b.k.face.DrawAligned(cv, fmt.Sprintf("%g", b.max), render.Rect{X: t.X, Y: t.Y + t.H + 2, W: t.W, H: int(px * 1.4)}, px, th.Text, render.AlignEnd)
+	px := b.markPx()
+	for _, m := range b.marks() {
+		b.k.face.DrawAligned(cv, m.text, m.box, px, th.Text, render.AlignStart)
+	}
+}
+
+// scaleMark is a value read under the track: its text and where it is
+// drawn.
+type scaleMark struct {
+	text string
+	box  render.Rect
+}
+
+// markGap is the least room between two marks under the track, markTop
+// the room between the track's stops and the marks.
+const (
+	markGap = 4
+	markTop = 2
+)
+
+func (b *thresholdBar) markPx() float64 { return b.k.textPx() * 0.85 }
+
+func (b *thresholdBar) markH() int { return int(b.markPx() * 1.4) }
+
+// marks are the values read under the track: its ends, then what the
+// level bands mark on it, each centred under its value, a mark that
+// would run into one already placed left out.
+func (b *thresholdBar) marks() []scaleMark {
+	t := b.track()
+	px := b.markPx()
+	h := b.markH()
+	var placed []scaleMark
+	place := func(text string, x int, anchor render.Alignment) {
+		w := int(math.Ceil(b.k.face.Shape(text, px).Advance()))
+		switch anchor {
+		case render.AlignCenter:
+			x -= w / 2
+		case render.AlignEnd:
+			x -= w
+		}
+		x = min(max(x, t.X), t.X+t.W-w)
+		box := render.Rect{X: x, Y: t.Y + t.H/2 + thresholdStopR + 1 + markTop, W: w, H: h}
+		for _, m := range placed {
+			if box.X < m.box.X+m.box.W+markGap && m.box.X < box.X+box.W+markGap {
+				return
+			}
+		}
+		placed = append(placed, scaleMark{text: text, box: box})
+	}
+	place("0", t.X, render.AlignStart)
+	place(fmt.Sprintf("%g", b.max), t.X+t.W, render.AlignEnd)
+	if b.levels != nil {
+		for _, m := range b.levels.marks() {
+			place(m.text, b.xOf(m.value), render.AlignCenter)
+		}
+	}
+	return placed
 }
 
 func (b *thresholdBar) HitTest(p widget.Point) widget.Widget { return b.HitLeaf(b, p) }

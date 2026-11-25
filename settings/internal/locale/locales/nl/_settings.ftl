@@ -1426,6 +1426,7 @@ settings-level-band = { $to ->
    *[other] Getoond van { $from } tot { $to } %
 }
 settings-level-muted = Getoond zolang het gedempt is
+settings-level-floor-mark = min. { $n }
 settings-level-unit-celsius = { $n ->
    *[other] { $n } °C
 }

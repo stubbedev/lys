@@ -2,6 +2,7 @@ package settings
 
 import (
 	"math"
+	"strconv"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
@@ -99,6 +100,26 @@ func (l *levelBands) arrange(b *thresholdBar) {
 		mid := (b.xOf(lo) + b.xOf(hi)) / 2
 		icon.Arrange(render.Rect{X: mid - levelIconPx/2, Y: top, W: levelIconPx, H: levelIconPx})
 	}
+}
+
+// levelMark is a value the bands mark under the track, and its text.
+type levelMark struct {
+	value float64
+	text  string
+}
+
+// marks are the values the bands mark: the floor, then each boundary
+// between two levels.
+func (l *levelBands) marks() []levelMark {
+	var out []levelMark
+	if l.floor > 0 {
+		out = append(out, levelMark{l.floor, locale.T().Get("settings-level-floor-mark", i18n.Str("n", strconv.FormatFloat(l.floor, 'f', -1, 64)))})
+	}
+	for i := 1; i < len(l.icons); i++ {
+		lo, _ := levelBand(i, len(l.icons))
+		out = append(out, levelMark{lo, strconv.FormatFloat(math.Round(lo), 'f', -1, 64)})
+	}
+	return out
 }
 
 func (l *levelBands) paint(b *thresholdBar, cv *render.Canvas) {

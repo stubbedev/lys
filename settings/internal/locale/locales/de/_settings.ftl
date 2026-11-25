@@ -1436,6 +1436,7 @@ settings-level-band = { $to ->
    *[other] Gezeigt von { $from } bis { $to } %
 }
 settings-level-muted = Gezeigt, solange stummgeschaltet
+settings-level-floor-mark = min. { $n }
 settings-level-unit-celsius = { $n ->
    *[other] { $n } °C
 }
