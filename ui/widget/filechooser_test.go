@@ -12,6 +12,8 @@ import (
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/waittest"
 	"golang.org/x/image/font/gofont/goregular"
+
+	"github.com/stubbedev/lys/ui/widget/css"
 )
 
 // chooserFace builds the test font.
@@ -506,14 +508,51 @@ func TestFileChooserPlacesReadAgainstTheirButtons(t *testing.T) {
 	}
 }
 
-// A listing's names started on the list's very edge. Each row insets
-// its name by the theme's padding.
-func TestFileChooserRowsInsetTheirNames(t *testing.T) {
+// A listing's names started on the list's very edge, directories dim
+// as if disabled and nothing told a folder from a file. Each row insets
+// a folder or file symbol by the theme's padding, its name after it in
+// the text color, directory or not (#362).
+func TestFileChooserRowsInsetTheirKindAndName(t *testing.T) {
 	c := newChooser(t, FileModeOpen, nil)
-	row := c.model.Row(0).(*Box)
-	row.Arrange(render.Rect{W: 300, H: 28})
-	name := row.Children()[0].(*Label)
-	if got := name.Bounds().X - row.Bounds().X; got != Current().Padding {
-		t.Errorf("the name starts %dpx into its row, want %d", got, Current().Padding)
+	for i, e := range c.model.entries {
+		row := c.model.Row(i).(*Box)
+		row.Arrange(render.Rect{W: 300, H: 28})
+		kids := row.Children()
+		sym, name := kids[0].(*Symbol), kids[1].(*Label)
+		if got := sym.Bounds().X - row.Bounds().X; got != Current().Padding {
+			t.Errorf("%s: the symbol starts %dpx into its row, want %d", e.Name, got, Current().Padding)
+		}
+		want := SymbolFile
+		if e.Dir {
+			want = SymbolFolder
+		}
+		if sym.Kind() != want || name.Bounds().X <= sym.Bounds().X+sym.Bounds().W {
+			t.Errorf("%s: symbol %v at %v, name at %v; want the %v before the name", e.Name, sym.Kind(), sym.Bounds(), name.Bounds(), want)
+		}
+		if name.color != Current().Text {
+			t.Errorf("%s: name in %08x, want the text color", e.Name, uint32(name.color))
+		}
+	}
+}
+
+// The place buttons are framed outline buttons, and an empty status
+// line takes no room in the column (#362).
+func TestFileChooserPlacesAreFramedAndAnEmptyStatusTakesNoRoom(t *testing.T) {
+	c := newChooser(t, FileModeOpen, nil)
+	for i, w := range c.places.Children() {
+		if !HasClass(w, css.Outline) {
+			t.Errorf("place %d is not an outline button", i)
+		}
+	}
+	if IsVisible(c.status) {
+		t.Error("an empty status line is shown")
+	}
+	c.SetStatus("No such folder")
+	if !IsVisible(c.status) {
+		t.Error("a status line with text is hidden")
+	}
+	c.SetStatus("")
+	if IsVisible(c.status) {
+		t.Error("a cleared status line is still shown")
 	}
 }

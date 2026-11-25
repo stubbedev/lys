@@ -57,6 +57,8 @@ const (
 	SymbolUser
 	// SymbolFolder is a folder with its tab (a project, a directory).
 	SymbolFolder
+	// SymbolFile is a page with its corner folded (a document, a file).
+	SymbolFile
 )
 
 // chevronAngle is each chevron kind's rotation from right-pointing.
@@ -162,6 +164,15 @@ func paintSymbol(cv *render.Canvas, kind SymbolKind, b render.Rect, size int, co
 		cv.Line(cx-r, cy, cx+r, cy, 1, col)
 		cv.Line(tip, cy, tip+back*2*r/3, cy-2*r/3, 1, col)
 		cv.Line(tip, cy, tip+back*2*r/3, cy+2*r/3, 1, col)
+	case SymbolFile:
+		left, right, top, bottom, fold := cx-2*r/3-1, cx+2*r/3+1, cy-r, cy+r, r/2+1
+		cv.Line(left, top, right-fold, top, 1, col)
+		cv.Line(right-fold, top, right, top+fold, 1, col)
+		cv.Line(right, top+fold, right, bottom, 1, col)
+		cv.Line(right, bottom, left, bottom, 1, col)
+		cv.Line(left, bottom, left, top, 1, col)
+		cv.Line(right-fold, top, right-fold, top+fold, 1, col)
+		cv.Line(right-fold, top+fold, right, top+fold, 1, col)
 	case SymbolFolder:
 		top := cy - r/2
 		cv.RoundedBorder(render.Rect{X: cx - r, Y: top, W: 2 * r, H: r + r/2 + 1}, render.UniformCorners(2), render.UniformInsets(1), col)

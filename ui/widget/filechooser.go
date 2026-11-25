@@ -186,6 +186,7 @@ func NewFileChooser(face render.Font, sizePx float64, mode FileMode, startDir st
 	c.path.AddClass(css.DimLabel)
 	c.status = NewLabel(face, sizePx-2, "", 0)
 	c.status.AddClass(css.Accent)
+	c.status.SetVisible(false)
 	c.buildPlaces()
 	c.column = NewBox(Column, 10, 0)
 	c.column.Append(c.places, false)
@@ -196,7 +197,7 @@ func NewFileChooser(face render.Font, sizePx float64, mode FileMode, startDir st
 		nameRow := NewBox(Row, 8, 0)
 		nameRow.Append(NewLabel(face, sizePx, Tr("Name:"), th.Text), false)
 		nameRow.Append(c.name, true)
-		c.column.Append(nameRow, true)
+		c.column.Append(nameRow, false)
 	}
 	if len(filters) > 1 {
 		names := make([]string, len(filters))
@@ -496,42 +497,45 @@ func (c *FileChooser) dirLabel() string {
 	return c.dir
 }
 
-// SetStatus shows or clears the status line.
+// SetStatus shows the status line, or clears it, taking no room while
+// it is empty.
 func (c *FileChooser) SetStatus(text string) {
 	c.status.SetText(text)
+	c.status.SetVisible(text != "")
 }
 
 // buildPlaces rebuilds the place buttons for the wired sources into
 // the places row, keeping the row's slot in the layout.
 func (c *FileChooser) buildPlaces() {
-	th := Current()
 	if c.places == nil {
 		c.places = NewBox(Row, 6, 0)
 	} else {
 		c.places.Clear()
 	}
-	climb := NewButton(NewLabel(c.face, c.sizePx, Tr("Up"), th.Text), 8, 4)
-	climb.OnClick = c.climb
-	home := NewButton(NewLabel(c.face, c.sizePx, Tr("Home"), th.Text), 8, 4)
-	home.OnClick = func() {
+	home := func() {
 		dir, _ := os.UserHomeDir()
 		c.navigate(dir)
 	}
-	root := NewButton(NewLabel(c.face, c.sizePx, Tr("Filesystem"), th.Text), 8, 4)
-	root.OnClick = func() { c.navigate("/") }
-	c.places.Append(climb, false)
-	c.places.Append(home, false)
-	c.places.Append(root, false)
+	c.places.Append(c.placeButton(Tr("Up"), c.climb), false)
+	c.places.Append(c.placeButton(Tr("Home"), home), false)
+	c.places.Append(c.placeButton(Tr("Filesystem"), func() { c.navigate("/") }), false)
 	if c.recents != nil {
-		recent := NewButton(NewLabel(c.face, c.sizePx, Tr("Recent"), th.Text), 8, 4)
-		recent.OnClick = func() { c.navigate("") }
-		c.places.Append(recent, false)
+		c.places.Append(c.placeButton(Tr("Recent"), func() { c.navigate("") }), false)
 	}
 }
 
+// placeButton is a place button reading text, an outline button framed
+// as the dialog's own buttons are, its frame on the column's edge.
+func (c *FileChooser) placeButton(text string, onClick func()) *Button {
+	b := NewButton(NewLabel(c.face, c.sizePx, text, Current().Text), 0, 0)
+	b.AddClass(css.Outline, css.Small)
+	b.OnClick = onClick
+	return b
+}
+
 // chooserModel is the List model over the current listing; rows are
-// labels built once per listing, directories marked with a trailing
-// separator and dimmed.
+// a kind symbol, a folder or a file, then the name, built once per
+// listing, directories marked with a trailing separator.
 type chooserModel struct {
 	face    render.Font
 	sizePx  float64
@@ -557,15 +561,14 @@ func (m *chooserModel) Row(i int) Widget {
 	}
 	if m.rows[i] == nil {
 		th := Current()
-		name := m.entries[i].Name
-		color := th.Text
+		name, kind := m.entries[i].Name, SymbolFile
 		if m.entries[i].Dir {
-			name += string(filepath.Separator)
-			color = th.TextMuted
+			name, kind = name+string(filepath.Separator), SymbolFolder
 		}
-		row := NewBox(Row, 0, 0)
+		row := NewBox(Row, 8, 0)
 		row.padding = render.Insets{Left: th.Padding, Right: th.Padding}
-		row.Append(NewLabel(m.face, m.sizePx, name, color), true)
+		row.AppendAligned(NewSymbol(kind, 16), false, AlignCenter)
+		row.AppendAligned(NewLabel(m.face, m.sizePx, name, th.Text), true, AlignCenter)
 		m.rows[i] = row
 	}
 	return m.rows[i]
