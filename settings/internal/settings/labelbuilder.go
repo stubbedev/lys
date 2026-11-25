@@ -66,46 +66,68 @@ func joinSegments(segs []segment) string {
 	return b.String()
 }
 
+// formatParts is a format as a row of chips, one per placeholder or
+// text, with an add button at the row's end; an empty format reads as
+// empty in the chips' place. after, when set, runs once the chips show
+// the format anew.
+type formatParts struct {
+	*widget.Box
+	k      *kit
+	slot   slot
+	kind   formatKind
+	names  map[string]string
+	segs   []segment
+	chips  *widget.ChipBox
+	empty  *widget.Label
+	add    *widget.Button
+	picker *searchPicker
+	after  func()
+}
+
+func newFormatParts(k *kit, s slot, kind formatKind) *formatParts {
+	p := &formatParts{Box: gapBox(widget.Row), k: k, slot: s, kind: kind, names: map[string]string{}}
+	p.AddClass("label-builder-parts")
+	for _, c := range kind.insert {
+		p.names[c.value] = c.label
+	}
+	p.chips = widget.NewChipBox()
+	p.chips.AddClass("label-builder-chips")
+	p.chips.OnMoved = func(_ *widget.ChipBox, from, to int) {
+		seg := p.segs[from]
+		p.segs = slices.Insert(slices.Delete(p.segs, from, from+1), to, seg)
+		p.write()
+	}
+	p.empty = k.note(locale.T().Get("settings-format-empty"))
+	p.add = k.addButton("settings-format-insert", p.pickPart)
+	p.AppendAligned(p.chips, true, widget.AlignCenter)
+	p.AppendAligned(p.empty, true, widget.AlignCenter)
+	p.AppendAligned(p.add, false, widget.AlignCenter)
+	p.refresh()
+	return p
+}
+
+// labelBuilder is a format's parts, its preview and its raw text behind
+// Edit as text.
 type labelBuilder struct {
 	*widget.Box
-	k       *kit
-	slot    slot
-	kind    formatKind
-	names   map[string]string
-	segs    []segment
-	chips   *widget.ChipBox
-	add     *widget.Button
+	*formatParts
 	preview *formatPreview
 	raw     *formatEditor
 	toggle  *modeToggle
-	picker  *searchPicker
 }
 
 func newLabelBuilder(k *kit, s slot, optional bool, kind formatKind) *labelBuilder {
-	b := &labelBuilder{Box: widget.NewBox(widget.Column, widget.Current().Spacing/2, 0), k: k, slot: s, kind: kind, names: map[string]string{}}
+	b := &labelBuilder{Box: widget.NewBox(widget.Column, widget.Current().Spacing/2, 0), formatParts: newFormatParts(k, s, kind)}
 	b.AddClass("label-builder")
-	for _, c := range kind.insert {
-		b.names[c.value] = c.label
-	}
-	b.chips = widget.NewChipBox()
-	b.chips.AddClass("label-builder-chips")
-	b.chips.OnMoved = func(_ *widget.ChipBox, from, to int) {
-		seg := b.segs[from]
-		b.segs = slices.Insert(slices.Delete(b.segs, from, from+1), to, seg)
-		b.write()
-	}
-	b.add = k.addButton("settings-format-insert", b.pickPart)
-	line := gapBox(widget.Row)
-	line.Append(b.chips, true)
-	line.AppendAligned(b.add, false, widget.AlignStart)
 	b.preview = k.formatPreview()
 	b.raw = newFormatEditor(k, s, optional, kind)
 	b.raw.SetVisible(false)
 	b.toggle = k.textModeToggle(b.raw.SetVisible)
-	b.Append(line, false)
+	b.Append(b.formatParts, false)
 	b.Append(b.preview, false)
 	b.AppendAligned(b.toggle, false, widget.AlignStart)
 	b.Append(b.raw, false)
+	b.after = b.showFormat
 	b.refresh()
 	return b
 }
@@ -114,7 +136,7 @@ func (b *labelBuilder) stacked() {}
 
 func (b *labelBuilder) dirtyBadge() *widget.Badge { return b.raw.dirtyBadge() }
 
-func (b *labelBuilder) tokens() []string {
+func (b *formatParts) tokens() []string {
 	out := make([]string, 0, len(b.kind.insert))
 	for _, c := range b.kind.insert {
 		out = append(out, c.value)
@@ -122,14 +144,14 @@ func (b *labelBuilder) tokens() []string {
 	return out
 }
 
-func (b *labelBuilder) chipText(s segment) string {
+func (b *formatParts) chipText(s segment) string {
 	if s.token != "" {
 		return b.names[s.token]
 	}
 	return "“" + s.text + "”"
 }
 
-func (b *labelBuilder) refresh() {
+func (b *formatParts) refresh() {
 	b.segs = parseTemplate(b.slot.text(), b.tokens(), b.kind.escapes)
 	b.chips.Clear()
 	for i, s := range b.segs {
@@ -140,6 +162,17 @@ func (b *labelBuilder) refresh() {
 		chip.SetDismiss(chipRemoveName(locale.T()), func() { b.removeSegment(i) })
 		b.chips.Append(chip)
 	}
+	b.chips.SetVisible(len(b.segs) > 0)
+	b.empty.SetVisible(len(b.segs) == 0)
+	if b.after != nil {
+		b.after()
+	}
+}
+
+// showFormat shows the format the parts hold: its preview, unless it is
+// empty, as the parts then say, and its raw text.
+func (b *labelBuilder) showFormat() {
+	b.preview.SetVisible(len(b.segs) > 0)
 	b.preview.show(b.kind.render(b.slot.text()))
 	b.raw.refresh()
 }
@@ -147,7 +180,7 @@ func (b *labelBuilder) refresh() {
 // removeSegment takes segment i out of the label, its Undo putting the
 // label back as it was while nothing changed it since: the text around a
 // removed part merges, so only the whole label says where it stood.
-func (b *labelBuilder) removeSegment(i int) {
+func (b *formatParts) removeSegment(i int) {
 	before, name := b.slot.text(), b.chipText(b.segs[i])
 	b.segs = slices.Delete(b.segs, i, i+1)
 	b.write()
@@ -162,12 +195,12 @@ func (b *labelBuilder) removeSegment(i int) {
 	})
 }
 
-func (b *labelBuilder) write() {
+func (b *formatParts) write() {
 	_ = b.slot.set(joinSegments(b.segs))
 	b.refresh()
 }
 
-func (b *labelBuilder) options() []choice {
+func (b *formatParts) options() []choice {
 	t := locale.T()
 	out := slices.Clone(b.kind.insert)
 	for _, sep := range b.kind.separators {
@@ -179,7 +212,7 @@ func (b *labelBuilder) options() []choice {
 	return out
 }
 
-func (b *labelBuilder) pickPart() {
+func (b *formatParts) pickPart() {
 	if b.k.pickers == nil {
 		return
 	}

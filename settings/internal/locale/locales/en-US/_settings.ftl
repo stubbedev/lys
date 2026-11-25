@@ -279,6 +279,7 @@ settings-format-insert = Insert a placeholder
 settings-format-presets = Choose a preset
 settings-format-preview = Preview: { $text }
 settings-format-invalid = Not a valid format
+settings-format-empty = Empty: add a part with +
 settings-secret-placeholder = Hidden; $NAME reads it from the environment
 settings-layout-monitor-placeholder = DP-1
 settings-layout-zone-left = LEFT

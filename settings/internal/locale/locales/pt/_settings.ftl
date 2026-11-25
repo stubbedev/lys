@@ -276,6 +276,7 @@ settings-format-insert = Inserir um marcador
 settings-format-presets = Escolher uma predefinição
 settings-format-preview = Pré-visualização: { $text }
 settings-format-invalid = Formato inválido
+settings-format-empty = Vazio: adicione uma parte com +
 settings-secret-placeholder = Oculto; $NAME lê-o do ambiente
 settings-layout-monitor-placeholder = DP-1
 settings-layout-zone-left = ESQUERDA

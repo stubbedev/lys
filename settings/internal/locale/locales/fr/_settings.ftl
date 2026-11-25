@@ -172,6 +172,7 @@ settings-format-insert = Insérer une variable
 settings-format-presets = Choisir un modèle
 settings-format-preview = Aperçu : { $text }
 settings-format-invalid = Format non valide
+settings-format-empty = Vide : ajoutez une partie avec +
 settings-secret-placeholder = Masqué ; $NAME le lit dans l’environnement
 settings-layout-monitor-placeholder = DP-1
 settings-layout-zone-left = GAUCHE

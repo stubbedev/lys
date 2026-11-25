@@ -276,6 +276,7 @@ settings-format-insert = Een plaatshouder invoegen
 settings-format-presets = Een voorinstelling kiezen
 settings-format-preview = Voorbeeld: { $text }
 settings-format-invalid = Geen geldig formaat
+settings-format-empty = Leeg: voeg een deel toe met +
 settings-secret-placeholder = Verborgen; $NAME leest het uit de omgeving
 settings-layout-monitor-placeholder = DP-1
 settings-layout-zone-left = LINKS

@@ -279,6 +279,7 @@ settings-format-insert = Platzhalter einfügen
 settings-format-presets = Vorlage wählen
 settings-format-preview = Vorschau: { $text }
 settings-format-invalid = Kein gültiges Format
+settings-format-empty = Leer: mit + einen Teil hinzufügen
 settings-secret-placeholder = Verborgen; $NAME liest es aus der Umgebung
 settings-layout-monitor-placeholder = DP-1
 settings-layout-zone-left = LINKS

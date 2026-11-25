@@ -7,6 +7,8 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -143,5 +145,62 @@ func TestATemplatedCommandIsBuiltFromItsPlaceholders(t *testing.T) {
 	}
 	if _, ok := shellControl(t, k, "modules.power.lock-command").(*choiceEditor); !ok {
 		t.Error("a command without placeholders left the command picker")
+	}
+}
+
+// styledLabelBuilder is path's label builder over configYAML, laid out
+// by relayOut, which it has run once.
+func styledLabelBuilder(t *testing.T, path, configYAML string) (k *kit, b *labelBuilder, relayOut func()) {
+	t.Helper()
+	k = testKit(t, configYAML)
+	b = shellControl(t, k, path).(*labelBuilder)
+	root := widget.NewBox(widget.Column, 0, 0)
+	root.Append(b, false)
+	relayOut = func() { styledLayOut(k, root, 700) }
+	relayOut()
+	return k, b, relayOut
+}
+
+func centreY(r render.Rect) int { return r.Y + r.H/2 }
+
+// The add button is centred on the chip row it ends, not on the chips,
+// preview and toggle below it.
+func TestAFormatsAddButtonCentresOnItsChipRow(t *testing.T) {
+	const path = "modules.ram.format"
+	ps := config.Placeholders(path)
+	_, b, _ := styledLabelBuilder(t, path, "modules:\n  ram:\n    format: \""+ps[0].Token+"%\"\n")
+	if b.chips.Len() == 0 {
+		t.Fatal("no chips")
+	}
+	if chips, add := centreY(b.chips.ChipAt(0).Bounds()), centreY(b.add.Bounds()); chips != add {
+		t.Errorf("the chips centre at y %d, the add button at %d", chips, add)
+	}
+}
+
+// A format emptied of its parts says it is empty in the chips' place,
+// in a row no taller than its add button, and shows no bare preview.
+func TestAnEmptyFormatReadsAsEmptyWithoutABarePreview(t *testing.T) {
+	const path = "modules.ram.format"
+	ps := config.Placeholders(path)
+	k, b, relayOut := styledLabelBuilder(t, path, "modules:\n  ram:\n    format: \""+ps[0].Token+"\"\n")
+	if !b.chips.Visible() || b.empty.Visible() || !b.preview.Visible() {
+		t.Fatalf("with a part: chips %v, empty %v, preview %v", b.chips.Visible(), b.empty.Visible(), b.preview.Visible())
+	}
+	b.removeSegment(0)
+	if v := k.store.value(path); v != "" {
+		t.Fatalf("removing the only part stored %v", v)
+	}
+	if b.chips.Visible() || !b.empty.Visible() || b.preview.Visible() {
+		t.Fatalf("emptied: chips %v, empty %v, preview %v", b.chips.Visible(), b.empty.Visible(), b.preview.Visible())
+	}
+	if got, want := b.empty.Text(), locale.T().Get("settings-format-empty"); got != want {
+		t.Errorf("the empty format reads %q, want %q", got, want)
+	}
+	relayOut()
+	if row, add := b.formatParts.Bounds().H, b.add.Bounds().H; row != add {
+		t.Errorf("the emptied parts row is %dpx tall, its add button %dpx", row, add)
+	}
+	if centreY(b.empty.Bounds()) != centreY(b.add.Bounds()) {
+		t.Errorf("the empty line centres at y %d, the add button at %d", centreY(b.empty.Bounds()), centreY(b.add.Bounds()))
 	}
 }

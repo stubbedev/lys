@@ -279,6 +279,7 @@ settings-format-insert = Inserisci un segnaposto
 settings-format-presets = Scegli un preset
 settings-format-preview = Anteprima: { $text }
 settings-format-invalid = Formato non valido
+settings-format-empty = Vuoto: aggiungi una parte con +
 settings-secret-placeholder = Nascosto; $NAME lo legge dall'ambiente
 settings-layout-monitor-placeholder = DP-1
 settings-layout-zone-left = SINISTRA
