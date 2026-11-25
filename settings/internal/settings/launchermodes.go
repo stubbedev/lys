@@ -84,7 +84,7 @@ type launcherModeList struct {
 	names    slot
 	selected string
 	list     *widget.ItemGroup
-	title    *widget.Label
+	title    *settingRow
 	name     *widget.Entry
 	state    *cardState
 	groups   [][]*fieldRow
@@ -102,7 +102,8 @@ func newLauncherModeList(k *kit, modes, names slot) *launcherModeList {
 
 	pane := gapBox(widget.Column)
 	pane.AddClass("launcher-mode-pane")
-	c.title = k.label("", css.H4)
+	c.title = k.row("", "")
+	c.title.SetTitleClass(css.H4, true)
 	c.name = k.entry()
 	c.name.SetAccessibleName(t.Get("settings-launcher-mode-display-name"))
 	c.name.OnChanged = func(text string) {
@@ -110,9 +111,7 @@ func newLauncherModeList(k *kit, modes, names slot) *launcherModeList {
 			c.rename(text)
 		}
 	}
-	nameRow := gapBox(widget.Row)
-	nameRow.AppendAligned(k.label(t.Get("settings-launcher-mode-display-name")), false, widget.AlignCenter)
-	nameRow.AppendAligned(c.name, true, widget.AlignCenter)
+	nameRow := k.row(t.Get("settings-launcher-mode-display-name"), "").withControl(c.name)
 	c.state = k.cardState()
 	pane.Append(c.title, false)
 	pane.Append(nameRow, false)
@@ -184,7 +183,7 @@ func (c *launcherModeList) refresh() {
 		at, c.selected = 0, entries[0].value
 		entries = c.refreshList()
 	}
-	c.title.SetText(entries[at].label)
+	c.title.SetTitle(entries[at].label)
 	c.syncing = true
 	name, _ := c.displayNames()[c.selected].(string)
 	if c.name.Text() != name {
@@ -226,20 +225,16 @@ func (c *launcherModeList) modeRow(e launcherModeEntry, names map[string]any, on
 		c.selected = e.value
 		c.refresh()
 	})
-	if e.on {
-		at := slices.Index(on, e.value)
-		up, down := c.k.moveButtons(func(by int) { c.move(e.value, by) })
-		up.SetEnabled(at > 0)
-		down.SetEnabled(at < len(on)-1)
-		row.AddAction(up)
-		row.AddAction(down)
-	}
 	sw := widget.NewSwitch(e.on)
 	sw.SetAccessibleName(e.label)
 	sw.SetEnabled(!e.on || len(on) > 1)
 	sw.OnChanged = func(turnOn bool) { c.turn(e.value, turnOn) }
-	row.withControl(sw)
-	return row
+	row.SetMedia(sw, true)
+	at := slices.Index(on, e.value)
+	up, down := c.k.moveButtons(func(by int) { c.move(e.value, by) })
+	up.SetEnabled(e.on && at > 0)
+	down.SetEnabled(e.on && at < len(on)-1)
+	return row.withActions(up, down)
 }
 
 func (c *launcherModeList) writeModes(modes []string) {

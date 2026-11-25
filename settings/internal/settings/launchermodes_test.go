@@ -106,8 +106,32 @@ func TestATabMovesUpAndDownButNotPastTheEnds(t *testing.T) {
 	if buttons := treetest.All[*widget.Button](modeItem(t, c, "window")); buttons[1].Enabled() {
 		t.Error("the last tab offers to move down")
 	}
-	if buttons := treetest.All[*widget.Button](modeItem(t, c, "calc")); len(buttons) != 0 {
+	if buttons := treetest.All[*widget.Button](modeItem(t, c, "calc")); len(buttons) != 2 || buttons[0].Enabled() || buttons[1].Enabled() {
 		t.Error("a mode off the tabs offers to move")
+	}
+}
+
+// Every mode row is one height and runs as the app's other ordered
+// lists do: its switch, its name, then up and down, a mode off the tabs
+// holding its move buttons disabled rather than leaving them out.
+func TestModeRowsShareOneHeightAndRunSwitchNameMoves(t *testing.T) {
+	k := testKit(t, "")
+	c := modeList(t, k)
+	laidOut(c.list)
+	rows := treetest.All[*settingRow](c.list)
+	for _, row := range rows {
+		if h, want := row.Bounds().H, rows[0].Bounds().H; h != want {
+			t.Errorf("%s is %dpx tall, the first mode %dpx", row.Title(), h, want)
+		}
+		sw := treetest.First[*widget.Switch](t, row).Bounds()
+		buttons := treetest.All[*widget.Button](row)
+		if len(buttons) != 2 {
+			t.Fatalf("%s holds %d buttons, want up and down", row.Title(), len(buttons))
+		}
+		title := treetest.First[*widget.Label](t, row).Bounds()
+		if sw.X+sw.W > title.X || title.X >= buttons[0].Bounds().X || buttons[0].Bounds().X >= buttons[1].Bounds().X {
+			t.Errorf("%s runs switch at %d, name at %d, up at %d, down at %d", row.Title(), sw.X, title.X, buttons[0].Bounds().X, buttons[1].Bounds().X)
+		}
 	}
 }
 
@@ -130,8 +154,8 @@ func TestTheSelectedModeIsNamedInThePane(t *testing.T) {
 		t.Fatalf("the first mode shows the name %q, want apps", c.name.Text())
 	}
 	modeItem(t, c, "window").ClickAt(widget.Point{})
-	if c.title.Text() != locale.T().Get("settings-launcher-mode-window") || c.name.Text() != "" {
-		t.Fatalf("selecting window shows %q named %q", c.title.Text(), c.name.Text())
+	if c.title.Title() != locale.T().Get("settings-launcher-mode-window") || c.name.Text() != "" {
+		t.Fatalf("selecting window shows %q named %q", c.title.Title(), c.name.Text())
 	}
 	field := c.name
 	field.SetText("wins")
