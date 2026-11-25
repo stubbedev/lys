@@ -117,6 +117,7 @@ type rangeSlider struct {
 	spec   rangeSpec
 	thumbs [2]*rangeThumb
 	drag   *rangeThumb
+	look   *widget.SliderLook
 }
 
 type rangeThumb struct {
@@ -131,6 +132,7 @@ func newRangeSlider(k *kit, slots [2]slot, spec rangeSpec) *rangeSlider {
 		spec.bands = betweenThumbs
 	}
 	s := &rangeSlider{Base: widget.NewBase(), k: k, slots: slots, spec: spec}
+	s.look = widget.NewSliderLook(s)
 	s.AddClass("range-slider")
 	for i := range s.thumbs {
 		s.thumbs[i] = &rangeThumb{Base: widget.NewBase(), slider: s, at: i, name: locale.T().Get(spec.names[i])}
@@ -236,19 +238,20 @@ func toneColor(th *widget.Theme, tone rangeTone) render.Color {
 func (s *rangeSlider) Paint(cv *render.Canvas) {
 	th := widget.Current()
 	t := s.track()
-	cv.RoundedRect(t, t.H/2, th.MutedColor())
+	trough := sliderTrough(s.look, t)
+	s.look.PaintTrough(cv, trough)
 	for _, b := range s.bandsNow() {
 		x0, x1 := s.xOf(b.from), s.xOf(b.to)
-		cv.RoundedRect(render.Rect{X: x0, Y: t.Y, W: max(1, x1-x0), H: t.H}, t.H/2, toneColor(th, b.tone))
+		span := render.Rect{X: x0, Y: trough.Y, W: max(1, x1-x0), H: trough.H}
+		if b.tone == toneAccent {
+			s.look.PaintFill(cv, span)
+			continue
+		}
+		cv.RoundedRect(span, span.H/2, toneColor(th, b.tone))
 	}
 	px, lineH := s.labelPx()
 	for _, thumb := range s.thumbs {
-		r := thumb.Bounds()
-		cv.RoundedRect(r, thresholdStopR, th.CardColor())
-		cv.RoundedBorder(r, render.UniformCorners(thresholdStopR), render.UniformInsets(2), th.Text)
-		if widget.FocusVisible(thumb) {
-			cv.RoundedBorder(r, render.UniformCorners(thresholdStopR), render.UniformInsets(focusRing), th.Text)
-		}
+		paintSliderKnob(cv, s.look, thumb.Bounds(), widget.FocusVisible(thumb))
 	}
 	for i, label := range s.labelRects() {
 		s.k.face.DrawAligned(cv, s.reading(s.value(i)), label, px, th.Text, render.AlignCenter)
@@ -293,6 +296,25 @@ func (s *rangeSlider) labelRects() [2]render.Rect {
 		out[1].X -= shift
 	}
 	return out
+}
+
+// sliderTrough is lys-ui's slider trough across track, at the trough's
+// own thickness, centred in it.
+func sliderTrough(look *widget.SliderLook, track render.Rect) render.Rect {
+	h := look.TroughThickness()
+	return render.Rect{X: track.X, Y: track.Y + (track.H-h)/2, W: track.W, H: h}
+}
+
+// paintSliderKnob paints lys-ui's slider knob centred on c, a thumb's
+// bounds, and the focus ring around it while the keys reach it.
+func paintSliderKnob(cv *render.Canvas, look *widget.SliderLook, c render.Rect, focused bool) {
+	size := look.KnobSize()
+	knob := render.Rect{X: c.X + c.W/2 - size.W/2, Y: c.Y + c.H/2 - size.H/2, W: size.W, H: size.H}
+	look.PaintKnob(cv, knob)
+	if focused {
+		r := min(knob.W, knob.H) / 2
+		cv.RoundedBorder(knob, render.UniformCorners(r), render.UniformInsets(focusRing), widget.Current().Text)
+	}
 }
 
 func (s *rangeSlider) HitTest(pt widget.Point) widget.Widget { return s.HitLeaf(s, pt) }

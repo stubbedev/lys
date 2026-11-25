@@ -51,10 +51,12 @@ type thresholdBar struct {
 	max    float64
 	drag   *thresholdStop
 	levels *levelBands
+	look   *widget.SliderLook
 }
 
 func newThresholdBar(k *kit, s slot, levels *levelBands) *thresholdBar {
 	b := &thresholdBar{Base: widget.NewBase(), k: k, slot: s, max: thresholdScaleMax, levels: levels}
+	b.look = widget.NewSliderLook(b)
 	b.AddClass("threshold-bar")
 	b.refresh()
 	return b
@@ -182,7 +184,8 @@ func (b *thresholdBar) Arrange(r render.Rect) {
 func (b *thresholdBar) Paint(cv *render.Canvas) {
 	th := widget.Current()
 	t := b.track()
-	cv.RoundedRect(t, t.H/2, thresholdTrackColor(th))
+	trough := sliderTrough(b.look, t)
+	b.look.PaintTrough(cv, trough)
 	for _, m := range b.items {
 		lo, hasLo := numeric(m["above"])
 		hi, hasHi := numeric(m["below"])
@@ -196,18 +199,13 @@ func (b *thresholdBar) Paint(cv *render.Canvas) {
 			continue
 		}
 		x0, x1 := b.xOf(lo), b.xOf(hi)
-		cv.RoundedRect(render.Rect{X: x0, Y: t.Y, W: max(1, x1-x0), H: t.H}, t.H/2, b.colorOf(m))
+		cv.RoundedRect(render.Rect{X: x0, Y: trough.Y, W: max(1, x1-x0), H: trough.H}, trough.H/2, b.colorOf(m))
 	}
 	if b.levels != nil {
 		b.levels.paint(b, cv)
 	}
 	for _, s := range b.stops {
-		r := s.Bounds()
-		cv.RoundedRect(r, thresholdStopR, th.CardColor())
-		cv.RoundedBorder(r, render.UniformCorners(thresholdStopR), render.UniformInsets(2), b.colorOf(b.items[s.entry]))
-		if widget.FocusVisible(s) {
-			cv.RoundedBorder(r, render.UniformCorners(thresholdStopR), render.UniformInsets(focusRing), th.Text)
-		}
+		paintSliderKnob(cv, b.look, s.Bounds(), widget.FocusVisible(s))
 	}
 	px := b.markPx()
 	for _, m := range b.marks() {
@@ -336,7 +334,3 @@ func (s *thresholdStop) KeyAction(a widget.KeyAction, mods widget.Mods) {
 		s.bar.move(s, min(s.bar.max, s.bar.stopValue(s)+step))
 	}
 }
-
-// thresholdTrackColor is the bar's track: the fill of a field on a
-// card, which stands off the card as the card's muted fill does not.
-func thresholdTrackColor(th *widget.Theme) render.Color { return th.InputColor() }
