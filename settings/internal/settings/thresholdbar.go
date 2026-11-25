@@ -180,7 +180,7 @@ func (b *thresholdBar) Arrange(r render.Rect) {
 func (b *thresholdBar) Paint(cv *render.Canvas) {
 	th := widget.Current()
 	t := b.track()
-	cv.RoundedRect(t, t.H/2, th.MutedColor())
+	cv.RoundedRect(t, t.H/2, thresholdTrackColor(th))
 	for _, m := range b.items {
 		lo, hasLo := numeric(m["above"])
 		hi, hasHi := numeric(m["below"])
@@ -280,3 +280,7 @@ func (s *thresholdStop) KeyAction(a widget.KeyAction, mods widget.Mods) {
 		s.bar.move(s, min(s.bar.max, s.bar.stopValue(s)+step))
 	}
 }
+
+// thresholdTrackColor is the bar's track: the fill of a field on a
+// card, which stands off the card as the card's muted fill does not.
+func thresholdTrackColor(th *widget.Theme) render.Color { return th.InputColor() }
