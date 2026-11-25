@@ -168,7 +168,7 @@ func TestARefusedPairingSaysSo(t *testing.T) {
 	if p.problem.Visible() {
 		t.Fatal("a problem shows before pairing")
 	}
-	clickText(t, p.nearby, locale.T().Get("settings-bluetooth-pair"), 0)
+	clickText(t, p.found, locale.T().Get("settings-bluetooth-pair"), 0)
 	if !slices.Equal(f.paired, []dbus.ObjectPath{btSpeaker}) {
 		t.Fatalf("paired %q, want the speaker", f.paired)
 	}
@@ -176,7 +176,7 @@ func TestARefusedPairingSaysSo(t *testing.T) {
 		t.Errorf("a refused pairing reads %q", p.problem.Text())
 	}
 	f.pairErr = errors.New("bluetooth: cannot pair: something new")
-	clickText(t, p.nearby, locale.T().Get("settings-bluetooth-pair"), 0)
+	clickText(t, p.found, locale.T().Get("settings-bluetooth-pair"), 0)
 	if p.problem.Text() != locale.T().Get("settings-bluetooth-failed") || p.problem.detail.Text() != f.pairErr.Error() {
 		t.Errorf("an unknown failure reads %q over %q, want the app's sentence over BlueZ's own words", p.problem.Text(), p.problem.detail.Text())
 	}
@@ -237,8 +237,8 @@ func TestPairedDevicesConnectDisconnectForgetAndRename(t *testing.T) {
 	if !strings.Contains(labels, "Headset") || !strings.Contains(labels, battery) || strings.Contains(labels, "Speaker") {
 		t.Fatalf("my devices read %q", labels)
 	}
-	if !strings.Contains(btLabels(p.nearby), "Speaker") || strings.Contains(btLabels(p.nearby), "Mouse") {
-		t.Fatalf("nearby reads %q", btLabels(p.nearby))
+	if !strings.Contains(btLabels(p.found), "Speaker") || strings.Contains(btLabels(p.found), "Mouse") {
+		t.Fatalf("nearby reads %q", btLabels(p.found))
 	}
 	clickText(t, p.devices, locale.T().Get("settings-bluetooth-disconnect"), 0)
 	clickText(t, p.devices, locale.T().Get("settings-bluetooth-connect"), 0)
@@ -272,7 +272,7 @@ func TestThePowerSwitchSearchAndTheAdapterName(t *testing.T) {
 	if !slices.Equal(f.powered, []bool{false}) {
 		t.Fatalf("powered %v", f.powered)
 	}
-	clickText(t, p.nearby, locale.T().Get("settings-bluetooth-search"), 0)
+	clickText(t, p.found, locale.T().Get("settings-bluetooth-search"), 0)
 	if f.searches != 1 {
 		t.Errorf("searched %d times", f.searches)
 	}
@@ -366,5 +366,51 @@ func TestAConnectedHeadsetOpensItsSoundSettings(t *testing.T) {
 	})
 	if buttons := soundButtons(); len(buttons) != 0 {
 		t.Errorf("without the Sound page the headset still offers %d Sound buttons", len(buttons))
+	}
+}
+
+// Find a device and the devices found sat in one card with no divider
+// between them, unlike every other pair of rows. They are rows of one
+// group, a divider between.
+func TestTheSearchRowIsDividedFromTheDevicesFound(t *testing.T) {
+	p := btPanel(t, homeBT())
+	box := widget.NewBox(widget.Column, 0, 0)
+	box.Append(p, false)
+	styledLayOut(p.k, box, 1000)
+	if !strings.Contains(btLabels(p.found), locale.T().Get("settings-bluetooth-search-title")) || !strings.Contains(btLabels(p.found), "Speaker") {
+		t.Fatalf("the nearby card reads %q", btLabels(p.found))
+	}
+	divided := false
+	for _, sep := range treetest.All[*widget.Separator](p.found) {
+		divided = divided || shown(sep)
+	}
+	if !divided {
+		t.Error("no divider parts Find a device from the devices found")
+	}
+}
+
+// The rename field started under the device's icon, left of the title it
+// renames. It starts where the row's title does.
+func TestTheRenameFieldStartsUnderTheTitle(t *testing.T) {
+	p := btPanel(t, homeBT())
+	clickText(t, p.devices, locale.T().Get("settings-bluetooth-rename"), 0)
+	box := widget.NewBox(widget.Column, 0, 0)
+	box.Append(p, false)
+	styledLayOut(p.k, box, 1000)
+	entries := treetest.All[*widget.Entry](p.devices)
+	if len(entries) != 1 {
+		t.Fatalf("%d rename fields", len(entries))
+	}
+	var title *widget.Label
+	for _, l := range treetest.WithClass(p.devices, "title") {
+		if l.(*widget.Label).Text() == "Headset" {
+			title = l.(*widget.Label)
+		}
+	}
+	if title == nil {
+		t.Fatal("no Headset row")
+	}
+	if e, ti := entries[0].Bounds(), title.Bounds(); e.X != ti.X {
+		t.Errorf("the rename field starts at %d, the title at %d", e.X, ti.X)
 	}
 }

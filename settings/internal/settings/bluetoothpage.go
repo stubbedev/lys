@@ -263,8 +263,6 @@ type bluetoothPanel struct {
 	devices     *widget.ItemGroup
 	pairedState *cardState
 	devicesSec  *widget.Box
-	nearby      *widget.Box
-	search      *widget.Box
 	found       *widget.ItemGroup
 	foundState  *cardState
 	nearbySec   *widget.Box
@@ -279,11 +277,9 @@ func newBluetoothPanel(k *kit) *bluetoothPanel {
 	p := &bluetoothPanel{
 		Box: sectionStack(), k: k, busy: map[dbus.ObjectPath]btBusy{},
 		status: k.stateBox(), request: gapBox(widget.Column),
-		devices: widget.NewItemGroup(), pairedState: k.cardState(), nearby: gapBox(widget.Column), search: gapBox(widget.Column),
+		devices: widget.NewItemGroup(), pairedState: k.cardState(),
 		found: widget.NewItemGroup(), foundState: k.cardState(),
 	}
-	p.nearby.Append(p.search, false)
-	p.nearby.Append(p.found, false)
 	p.AddClass("bluetooth-panel")
 	p.problem = k.inlineState()
 	p.Append(p.problem, false)
@@ -292,7 +288,7 @@ func newBluetoothPanel(k *kit) *bluetoothPanel {
 	p.Append(newSection(k, "settings-bluetooth-section-adapter", p.status), false)
 	p.devicesSec = newSection(k, "settings-bluetooth-section-devices", p.devices)
 	p.Append(p.devicesSec, false)
-	p.nearbySec = newSection(k, "settings-bluetooth-section-nearby", p.nearby)
+	p.nearbySec = newSection(k, "settings-bluetooth-section-nearby", p.found)
 	p.Append(p.nearbySec, false)
 	p.showSections(false, false)
 	p.status.state.Loading(locale.T().Get("settings-bluetooth-loading"))
@@ -425,7 +421,6 @@ func (p *bluetoothPanel) show() {
 	v := p.view
 	p.status.content.Clear()
 	p.request.Clear()
-	p.search.Clear()
 	p.showSections(v.pairing != nil, v.available && v.powered)
 	if !v.available {
 		p.status.state.Empty("ld-bluetooth-symbolic", t.Get("settings-bluetooth-no-adapter"))
@@ -452,8 +447,7 @@ func (p *bluetoothPanel) show() {
 		return
 	}
 	p.deviceList(p.devices, p.pairedState, v.paired, "settings-bluetooth-no-devices")
-	p.search.Append(p.searchRow(v.discovering), false)
-	p.deviceList(p.found, p.foundState, v.nearby, "settings-bluetooth-no-nearby")
+	p.deviceList(p.found, p.foundState, v.nearby, "settings-bluetooth-no-nearby", p.searchRow(v.discovering))
 }
 
 func (p *bluetoothPanel) adapterNameRow(alias string) widget.Widget {
@@ -490,15 +484,17 @@ func (p *bluetoothPanel) searchRow(discovering bool) widget.Widget {
 		p.run("", btIdle, btCallWait, func(ctx context.Context) error { return p.ctl.search(ctx) })
 	})
 	search.SetEnabled(!discovering)
-	row := widget.NewItemGroup()
-	row.Append(p.k.row(t.Get("settings-bluetooth-search-title"), detail).withControl(search))
-	return row
+	return p.k.row(t.Get("settings-bluetooth-search-title"), detail).withControl(search)
 }
 
-// deviceList shows rows in list, or state saying the emptyKey message
+// deviceList shows rows in list after head, a row of the same card
+// parted from them by its divider, or state saying the emptyKey message
 // when there are none.
-func (p *bluetoothPanel) deviceList(list *widget.ItemGroup, state *cardState, rows []btRow, emptyKey string) {
+func (p *bluetoothPanel) deviceList(list *widget.ItemGroup, state *cardState, rows []btRow, emptyKey string, head ...widget.Widget) {
 	list.Clear()
+	for _, h := range head {
+		list.Append(h)
+	}
 	list.Append(state)
 	if len(rows) == 0 {
 		state.Empty("ld-bluetooth-symbolic", locale.T().Get(emptyKey))
@@ -564,7 +560,7 @@ func (p *bluetoothPanel) deviceRow(r btRow) widget.Widget {
 	line.Append(entry, true)
 	line.AppendAligned(p.k.cancelButton(p.endRename), false, widget.AlignCenter)
 	line.AppendAligned(p.k.primaryButton(t.Get("settings-bluetooth-save"), save), false, widget.AlignCenter)
-	row.SetControl(line, widget.ItemControlWide)
+	row.AddDetail(line)
 	return row
 }
 
