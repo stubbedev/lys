@@ -18,7 +18,7 @@ const (
 	batteryIconPx  = 16
 	playIcon       = "ld-circle-play-symbolic"
 	pauseIcon      = "ld-circle-pause-symbolic"
-	nextIcon       = "ld-skip-forward-symbolic"
+	nextIcon       = "ld-circle-skip-forward-symbolic"
 )
 
 // MediaIcons are the theme icons the media row draws.

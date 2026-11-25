@@ -3,6 +3,8 @@ package lockview
 import (
 	"testing"
 
+	"github.com/stubbedev/lys/ui/widget"
+
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 )
@@ -21,6 +23,9 @@ func TestTheMediaRowShowsATrackAndHidesWithoutOne(t *testing.T) {
 	}
 	if got := m.playIcon.Name(); got != "ld-circle-pause-symbolic" {
 		t.Errorf("a playing track's button draws %s, want the circled pause, whose bars read as no 00", got)
+	}
+	if got := m.Next.Children()[0].(*widget.Icon).Name(); got != "ld-circle-skip-forward-symbolic" {
+		t.Errorf("the next button draws %s, want the circled skip of the circled play and pause (#375)", got)
 	}
 	if m.Next.TooltipText() != i18n.T("lock-media-next") {
 		t.Errorf("the next button is tipped %q", m.Next.TooltipText())

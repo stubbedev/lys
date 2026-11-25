@@ -15,6 +15,7 @@ ld-chevron-right-symbolic
 ld-chevron-up-symbolic
 ld-circle-pause-symbolic
 ld-circle-play-symbolic
+ld-circle-skip-forward-symbolic
 ld-clock-symbolic
 ld-cloud-sun-symbolic
 ld-code-symbolic
