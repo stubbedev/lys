@@ -177,6 +177,8 @@ func actionChoices(module config.BarModule) []actionChoice {
 			out[i] = shell(c.key, c.command())
 		}
 		return out
+	case "background-apps":
+		return []actionChoice{dropdown("settings-action-open-background-apps", "background-apps")}
 	case "battery":
 		return []actionChoice{dropdown("settings-action-open-battery", "battery")}
 	case "bitwarden":

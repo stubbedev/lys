@@ -186,3 +186,24 @@ func TestTheMemoryModuleOffersToOpenEachSystemMonitor(t *testing.T) {
 		t.Errorf("the RAM page's click presets %+v miss %q", m.choices, want)
 	}
 }
+
+// Every click a bar item does by default is one of its choices, read by
+// name: a default never reads as a custom command.
+func TestEveryDefaultClickIsANamedChoice(t *testing.T) {
+	modules := config.DefaultsModules()
+	for _, m := range config.BuiltinModules {
+		clicks, ok := modules.ModuleClicks(string(m))
+		if !ok {
+			continue
+		}
+		var commands []string
+		for _, c := range actionChoices(m) {
+			commands = append(commands, c.command)
+		}
+		for _, a := range []config.ClickAction{clicks.LeftClick, clicks.RightClick, clicks.MiddleClick, clicks.ScrollUp, clicks.ScrollDown} {
+			if s := a.String(); s != "" && !slices.Contains(commands, s) {
+				t.Errorf("%s clicks %q by default, which is none of its choices %q", m, s, commands)
+			}
+		}
+	}
+}

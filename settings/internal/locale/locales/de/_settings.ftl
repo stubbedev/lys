@@ -1470,6 +1470,7 @@ settings-action-capture-output = Bildschirm aufnehmen
 settings-action-capture-window = Fenster aufnehmen
 settings-action-capture-text = Text in einem Bereich lesen
 settings-action-capture-qr = QR-Code lesen
+settings-action-open-background-apps = Hintergrund-Apps-Panel öffnen
 settings-action-open-battery = Akku-Panel öffnen
 settings-action-open-vault = Tresor-Panel öffnen
 settings-action-open-bluetooth = Bluetooth-Panel öffnen

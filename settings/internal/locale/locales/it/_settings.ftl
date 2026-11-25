@@ -1471,6 +1471,7 @@ settings-action-capture-output = Cattura uno schermo
 settings-action-capture-window = Cattura una finestra
 settings-action-capture-text = Leggi il testo di un'area
 settings-action-capture-qr = Leggi un codice QR
+settings-action-open-background-apps = Apri il pannello delle app in background
 settings-action-open-battery = Apri il pannello della batteria
 settings-action-open-vault = Apri il pannello della cassaforte
 settings-action-open-bluetooth = Apri il pannello Bluetooth

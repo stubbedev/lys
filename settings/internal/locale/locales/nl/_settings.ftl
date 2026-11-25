@@ -1460,6 +1460,7 @@ settings-action-capture-output = Scherm vastleggen
 settings-action-capture-window = Venster vastleggen
 settings-action-capture-text = De tekst in een gebied lezen
 settings-action-capture-qr = Een QR-code lezen
+settings-action-open-background-apps = Paneel met achtergrondapps openen
 settings-action-open-battery = Accupaneel openen
 settings-action-open-vault = Kluispaneel openen
 settings-action-open-bluetooth = Bluetoothpaneel openen
