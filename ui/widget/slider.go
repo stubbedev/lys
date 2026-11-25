@@ -155,14 +155,36 @@ func (s *Slider) troughRect() render.Rect {
 	tv := s.trough.style(&s.trough)
 	_, thickProp := s.troughProps()
 	th := picki(tv, thickProp, 6)
-	pad := sliderPad
-	if tv.Has(thickProp) || tv.Has(style.PropBackgroundColor) {
-		pad = 0
-	}
+	pad := s.troughPad()
 	if s.axis == Column {
 		return render.Rect{X: c.X + (c.W-th)/2, Y: c.Y + pad, W: th, H: max(c.H-2*pad, 0)}
 	}
 	return render.Rect{X: c.X + pad, Y: c.Y + (c.H-th)/2, W: max(c.W-2*pad, 0), H: th}
+}
+
+// troughPad is the trough's inset each end inside the content box:
+// sliderPad unstyled, none once the stylesheet sizes or fills it.
+func (s *Slider) troughPad() int {
+	tv := s.trough.style(&s.trough)
+	if _, thickProp := s.troughProps(); tv.Has(thickProp) || tv.Has(style.PropBackgroundColor) {
+		return 0
+	}
+	return sliderPad
+}
+
+// Overhang is how far the knob reaches past the slider's end edge at
+// the maximum (and past its start at the minimum): half the knob, less
+// the trough's inset and the slider's own box. A neighbour keeps its
+// spacing clear of the knob by adding it.
+func (s *Slider) Overhang() int {
+	const probe = 1 << 16
+	_, c := boxRects(boxOf(s.style(s), render.Insets{}), render.Rect{W: probe, H: probe})
+	kw, kh := s.knobSize()
+	half, inset := kw/2, probe-c.X-c.W
+	if s.axis == Column {
+		half, inset = kh/2, probe-c.Y-c.H
+	}
+	return max(half-s.troughPad()-inset, 0)
 }
 
 // along maps the trough onto the value axis: the pixel the minimum

@@ -29,9 +29,9 @@ type Clock interface {
 // caller's, or by nothing, that commits (backend writes) at most every
 // 100ms while dragged, with a trailing commit of the last value and one
 // on release, and ignores external values while held and for 150ms
-// after. The reading sits the theme's spacing after the knob, in the
-// width the readings of its widget.ItemGroup share (widget.ItemValue),
-// so the knobs of one group end at one x.
+// after. The reading sits the theme's spacing clear of the knob at its
+// maximum (knobGap), in the width the readings of its widget.ItemGroup
+// share (widget.ItemValue), so the knobs of one group end at one x.
 type DebouncedSlider struct {
 	*widget.Box
 	// Knob is the slider itself (class it, read it).
@@ -141,16 +141,33 @@ func newDebouncedSlider(min, max, value float64, invoke func(func()), clock Cloc
 	if clock == nil {
 		panic("widgets: a slider needs a clock")
 	}
-	d := &DebouncedSlider{Box: widget.NewBox(widget.Row, widget.Current().Spacing, 0), invoke: invoke, clock: clock}
+	d := &DebouncedSlider{Box: widget.NewBox(widget.Row, 0, 0), invoke: invoke, clock: clock}
 	d.Knob = &pressSlider{Slider: widget.NewSlider(min, max, 0, value), owner: d}
 	d.Knob.OnChanged = d.changed
 	d.Append(d.Knob, true)
 	return d
 }
 
-// read places w, the slider's reading, after the knob.
+// read places w, the slider's reading, after the knob and its gap.
 func (d *DebouncedSlider) read(w widget.Widget) {
+	d.Append(&knobGap{Spacer: widget.NewSpacer(0, 0), knob: d.Knob.Slider}, false)
 	d.AppendAligned(widget.NewItemValue(w), false, widget.AlignCenter)
+}
+
+// knobGap is the space between a slider and its reading: the theme's
+// spacing past the knob's overhang, so the knob at the maximum keeps
+// the whole spacing clear of the reading instead of reaching into it.
+type knobGap struct {
+	*widget.Spacer
+	knob *widget.Slider
+}
+
+// Measure wants the spacing and the overhang across, nothing down.
+func (g *knobGap) Measure(axis widget.Axis, _ int) widget.Sizes {
+	if axis == widget.Column {
+		return widget.FixedSizes(0)
+	}
+	return widget.FixedSizes(widget.Current().Spacing + g.knob.Overhang())
 }
 
 // ends are the range's ends as the value label renders them.

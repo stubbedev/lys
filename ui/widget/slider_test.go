@@ -165,3 +165,38 @@ func TestASlidersTroughShowsOnItsCardAndFadesWhenDisabled(t *testing.T) {
 		t.Errorf("a disabled trough reads at %.2f:1, the enabled one at %.2f:1; want fainter but seen", off, on)
 	}
 }
+
+// Overhang is how far the painted knob reaches past the slider's end at
+// the maximum, unstyled and with a stylesheet's flush trough alike.
+func TestASlidersOverhangIsWhereItsKnobEnds(t *testing.T) {
+	bareTheme(t)
+	knobEnd := func(s *Slider) int {
+		const w, h, x, sw = 200, 30, 50, 100
+		SizeWithin(s, Size{W: sw, H: h})
+		s.Arrange(render.Rect{X: x, W: sw, H: h})
+		data := paintTree(s, w, h)
+		last := -1
+		for px := range w {
+			for y := range h {
+				if render.ColorFromBytes(data[y*render.Stride(w)+px*4:])>>24 != 0 {
+					last = px
+					break
+				}
+			}
+		}
+		return last + 1 - (x + sw)
+	}
+	plain := NewSlider(0, 100, 0, 100)
+	if got, want := knobEnd(plain), plain.Overhang(); got != want || want != 16/2-sliderPad {
+		t.Errorf("unstyled knob ends %dpx past the slider, Overhang %d, want %d", got, want, 16/2-sliderPad)
+	}
+	loadCSS(t, `scale trough { background-color: #333333; } scale trough slider { min-width: 20px; min-height: 20px; background-color: #ffffff; }`)
+	styled := NewSlider(0, 100, 0, 100)
+	if got, want := knobEnd(styled), styled.Overhang(); got != want || want != 10 {
+		t.Errorf("styled knob ends %dpx past the slider, Overhang %d, want 10", got, want)
+	}
+	styled.SetValue(50)
+	if knobEnd(styled) > 0 {
+		t.Error("a knob mid-trough reaches past the slider")
+	}
+}

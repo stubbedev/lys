@@ -396,13 +396,18 @@ func TestTheValueColumnHoldsStillAsTheValueChanges(t *testing.T) {
 	}
 }
 
-// A field slider reads by the caller's field, the theme's spacing after
-// the knob, where a value label would sit.
+// A field slider reads by the caller's field, where a value label would
+// sit: the theme's spacing clear of the knob at its maximum, which
+// reaches past the slider's end, not of the slider's bounds (#262).
 func TestAFieldSliderReadsByItsField(t *testing.T) {
 	field := widget.NewSpinButton(testFont(t), 12, 0, 0, 5000, 1, 0)
 	d := NewFieldSlider(0, 1000, 300, field, func(fn func()) { fn() }, fakeclock.New())
 	got, knobEnd := reading(d)
-	if d.ValueLabel() != nil || got.W != field.Bounds().W || got.X-knobEnd != widget.Current().Spacing {
-		t.Errorf("the field spans %v after a knob ending at %d, want the spin %dpx wide %dpx after it", got, knobEnd, field.Bounds().W, widget.Current().Spacing)
+	over := d.Knob.Overhang()
+	if over <= 0 {
+		t.Fatalf("the knob reaches %dpx past the slider, want the theme's knob to reach past it", over)
+	}
+	if d.ValueLabel() != nil || got.W != field.Bounds().W || got.X-(knobEnd+over) != widget.Current().Spacing {
+		t.Errorf("the field spans %v after a knob reaching to %d, want the spin %dpx wide %dpx after it", got, knobEnd+over, field.Bounds().W, widget.Current().Spacing)
 	}
 }
