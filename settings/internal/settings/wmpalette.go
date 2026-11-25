@@ -115,13 +115,28 @@ func (p *paletteGrid) rebuild(names []string) {
 	for i, name := range names {
 		p.tiles[i] = colorButton(p.k, p.colorSlot(name))
 		p.resets[i] = p.k.resetButton("wm-palette-reset", func() { p.reset(name) })
-		head := gapBox(widget.Row)
-		head.Append(p.k.label(name, css.Caption), true)
-		head.AppendAligned(p.resets[i].Button, false, widget.AlignCenter)
-		tile := captionTile(head, p.tiles[i])
+		caption := p.k.label(name, css.Caption)
+		caption.SetEllipsize(widget.EllipsizeEnd)
+		caption.SetTooltip(name)
+		swatch := gapBox(widget.Row)
+		swatch.AppendAligned(p.tiles[i], true, widget.AlignCenter)
+		swatch.AppendAligned(p.resets[i].Button, false, widget.AlignCenter)
+		tile := &paletteTile{captionTile(caption, swatch)}
 		tile.AddClass("wm-palette-tile")
 		p.grid.Append(tile)
 	}
+}
+
+// paletteTile is one color of the palette: its name over its button and
+// reset, as wide as a choice card whatever the name, so the tiles stand
+// in columns.
+type paletteTile struct{ *widget.Box }
+
+func (t *paletteTile) Measure(axis widget.Axis, forSize int) widget.Sizes {
+	if axis == widget.Row {
+		return widget.FixedSizes(choiceCardW)
+	}
+	return t.Box.Measure(axis, forSize)
 }
 
 func (p *paletteGrid) add() {

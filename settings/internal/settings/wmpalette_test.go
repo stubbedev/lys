@@ -6,7 +6,9 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -112,5 +114,33 @@ func TestAPaletteChangeThatCannotBeWrittenSaysSoInTheAppsWords(t *testing.T) {
 	p.add()
 	if p.problem.Text() != tr.Get("wm-palette-taken", i18n.Str("name", "red")) || p.problem.reveal.button.Visible() {
 		t.Errorf("a taken name says %q, offers a detail %v", p.problem.Text(), p.problem.reveal.button.Visible())
+	}
+}
+
+// The palette's tiles were as wide as their names, so the grid stood in
+// no columns, and the reset kept its height beside the name, leaving air
+// between each name and its button. Every tile is one width, so the
+// tiles of a line start at even steps, and the button sits right under
+// its name.
+func TestThePaletteTilesStandInColumnsWithTheirButtonUnderTheirName(t *testing.T) {
+	k, w, _, _ := wmKit(t, "palette:\n  a: '#000000'\n  rosewater: '#f5e0dc'\n")
+	p := fieldControl(k, w, wmPaletteRow()).(*paletteGrid)
+	themed(k, p)
+	tiles := treetest.WithClass(p, "wm-palette-tile")
+	if len(tiles) < 3 {
+		t.Fatalf("the palette shows %d tiles", len(tiles))
+	}
+	bounds := func(w widget.Widget) render.Rect { return w.(widget.Boundser).Bounds() }
+	first, second, third := bounds(tiles[0]), bounds(tiles[1]), bounds(tiles[2])
+	if first.W != second.W || second.W != third.W || second.X-first.X != third.X-second.X {
+		t.Errorf("the first tiles span %+v, %+v, %+v: not one width at even steps", first, second, third)
+	}
+	for i, tile := range tiles {
+		label := treetest.All[*widget.Label](tile)[0]
+		caption := label.Bounds()
+		button := p.tiles[i].(*colorEditor).Bounds()
+		if gap := button.Y - caption.Y - label.Measure(widget.Column, caption.W).Nat; gap > choiceCardGap/2 {
+			t.Errorf("%s's button stands %dpx under its name", p.shown[i], gap)
+		}
 	}
 }
