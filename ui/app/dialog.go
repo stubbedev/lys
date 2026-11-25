@@ -479,6 +479,7 @@ func (a *Application) FontChooserDialog(parent *Window, cfg FontChooserConfig) (
 
 	model := &fontRowModel{face: face, fams: fontFilter(families, "", cfg.MonospaceOnly, isMono)}
 	list := widget.NewList(model, 26)
+	list.AddClass(css.Card)
 	if idx := slices.Index(model.fams, sysfont.FamilyKey(strings.TrimSpace(cfg.Family))); idx >= 0 {
 		list.Select(idx)
 	}

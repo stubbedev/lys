@@ -633,14 +633,14 @@ func findCheckButton(w Widget) *CheckButton {
 	return nil
 }
 
-// Paint draws the viewport background, the cursor ring, and exactly
-// the visible rows; the rows paint their own hover and selection fills
+// Paint draws the list's CSS box (its background, the theme's surface
+// where none is declared, inside its rounded border), the cursor ring,
+// and exactly the visible rows; the rows paint their own hover and selection fills
 // (the `row` node's CSS box).
 func (l *List) Paint(cv *render.Canvas) {
 	th := Current()
-	if bg := pickc(0, l.style(l), style.PropBackgroundColor, th.Surface); bg != 0 {
-		cv.FillRect(l.bounds, bg)
-	}
+	v := l.style(l)
+	paintBoxBehind(cv, v, l.bounds, radiusOr(v, 0), borderOf(v), pickc(0, v, style.PropBackgroundColor, th.Surface))
 	prev := cv.PushClip(l.view)
 
 	for _, r := range l.realized() {

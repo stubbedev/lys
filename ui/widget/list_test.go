@@ -613,3 +613,31 @@ func TestListChildrenAndTabStop(t *testing.T) {
 		t.Errorf("Tab from a focused row went to %T, want past its list", r.Focused())
 	}
 }
+
+// A list paints its CSS box: the background inside the declared border,
+// both cut to the radius, so a styled list frames like a card (#274).
+func TestAListPaintsItsRoundedBorderedBox(t *testing.T) {
+	loadCSS(t, `listview { background-color: #ff0000; border: 2px solid #00ff00; border-radius: 12px; }`)
+	const w, h = 120, 80
+	l := NewList(newCountingModel(0), 20)
+	SizeWithin(l, Size{W: w, H: h})
+	l.Arrange(render.Rect{W: w, H: h})
+	data := paintTree(l, w, h)
+	at := func(x, y int) render.Color { return render.ColorFromBytes(data[y*render.Stride(w)+x*4:]) & 0xffffff }
+	if c := at(0, 0); c != 0 {
+		t.Errorf("corner pixel %#06x, want it outside the 12px radius, unpainted", uint32(c))
+	}
+	if c := at(0, h/2); c != 0x00ff00 {
+		t.Errorf("left edge %#06x, want the green border", uint32(c))
+	}
+	if c := at(w/2, h/2); c != 0xff0000 {
+		t.Errorf("middle %#06x, want the red background", uint32(c))
+	}
+
+	loadCSS(t, `listview { background-color: #ff0000; }`)
+	l.Arrange(render.Rect{W: w, H: h})
+	data = paintTree(l, w, h)
+	if c := at(0, 0); c != 0xff0000 {
+		t.Errorf("unrounded corner %#06x, want the red background", uint32(c))
+	}
+}

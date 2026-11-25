@@ -367,6 +367,8 @@ func controlRules() [][2]string {
 		{"columnview row." + listRowLast, "border-bottom: none;"},
 		{"columnview row:hover", "background-color: alpha(@muted_bg_color, 0.5);"},
 		{"columnview row:selected", "background-color: @muted_bg_color;"},
+		{"listview." + css.Card, "padding: 6px;"},
+		{"listview." + css.Card + " row", "border-radius: {r};"},
 		{"item", "padding: 16px; border: 1px solid transparent; border-radius: {r};"},
 		{"item." + css.Small, "padding: 12px 16px;"},
 		{"item." + css.Outline, "border-color: @borders;"},

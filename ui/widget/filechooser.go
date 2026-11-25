@@ -173,6 +173,7 @@ func NewFileChooser(face render.Font, sizePx float64, mode FileMode, startDir st
 	th := Current()
 	c.model = &chooserModel{face: face, sizePx: sizePx}
 	c.list = NewList(c.model, int(sizePx)+14)
+	c.list.AddClass(css.Card)
 	switch mode {
 	case FileModeOpenMultiple:
 		c.list.SetSelectionMode(SelectionMultiple)
