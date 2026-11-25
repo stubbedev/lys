@@ -200,7 +200,7 @@ func (d *defaultApps) write(change func() error) {
 func (d *defaultApps) show(ix appIndex) {
 	d.ix = ix
 	d.cats.Clear()
-	tiles := widget.NewWrapBox(choiceCardGap, choiceCardGap, widget.JustifyStart)
+	tiles := widget.NewWrapBox(choiceCardGap, choiceCardGap, widget.JustifyEqual)
 	tiles.AddClass("default-app-tiles")
 	t := locale.T()
 	for _, c := range appCategories {

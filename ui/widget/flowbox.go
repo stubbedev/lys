@@ -381,6 +381,35 @@ func (f *FlowBox) sizeKids(width int) {
 			c.nat = childWithin(f, c, Size{W: width, H: math.MaxInt})
 		}
 	}
+	if f.justify == JustifyEqual {
+		f.equalKids(width)
+	}
+}
+
+// equalKids gives every visible child one width, JustifyEqual's: as many
+// columns of the widest child as fit within width, the line's width
+// shared out between them, or the widest child's own width when width
+// is unbounded; each child is as tall as that width makes it.
+func (f *FlowBox) equalKids(width int) {
+	widest, shown := 0, 0
+	for _, c := range f.kids {
+		if c.shown() {
+			widest, shown = max(widest, c.nat.W), shown+1
+		}
+	}
+	if shown == 0 {
+		return
+	}
+	cell := widest
+	if width != math.MaxInt {
+		cols := min(max((width+f.colSpacing)/(widest+f.colSpacing), 1), max(f.lineCap(width), 1), shown)
+		cell = max((width-(cols-1)*f.colSpacing)/cols, min(widest, width))
+	}
+	for _, c := range f.kids {
+		if c.shown() {
+			c.nat = Size{W: cell, H: childWithin(f, c, Size{W: cell, H: math.MaxInt}).H}
+		}
+	}
 }
 
 // flowSize is the lines' extent laid out within width: the widest
@@ -414,7 +443,7 @@ func (f *FlowBox) Arrange(r render.Rect) {
 		for k, i := range line {
 			c := f.kids[i]
 			cw := c.nat.W + grow
-			if last := k == len(line)-1; last && f.justify == JustifyFill {
+			if last := k == len(line)-1; last && (f.justify == JustifyFill || f.justify == JustifyEqual && len(line) == len(f.arranged[0])) {
 				cw = inner.X + inner.W - x // the fill's rounding remainder
 			} else if last && k > 0 && f.justify == JustifySpread {
 				x = inner.X + inner.W - cw // the spread's rounding remainder
@@ -578,6 +607,10 @@ const (
 	JustifyFill
 	// JustifySpread widens the gaps between a line's children.
 	JustifySpread
+	// JustifyEqual gives every child one width: as many columns of the
+	// widest child as fit, sharing the line's width, the last line's
+	// children in the same columns.
+	JustifyEqual
 )
 
 // distribute turns a line's leftover width into its start x, the

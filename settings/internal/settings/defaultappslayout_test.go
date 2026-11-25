@@ -88,3 +88,29 @@ func TestACategoryTileHoldsItsContentOffItsEdges(t *testing.T) {
 		}
 	}
 }
+
+// Three category tiles a line left 156px of the card empty after them.
+// The tiles share the line's width: one width each, a full line ending
+// where the tiles' box ends, at every width.
+func TestTheCategoryTilesShareTheLinesWidth(t *testing.T) {
+	defaultAppsFixture(t)
+	for _, width := range []int{1000, sweepW} {
+		w := laidOutPage(t, "", defaultAppsID, width)
+		tiles := treetest.All[*appTile](w.page)
+		if len(tiles) < 2 {
+			t.Fatalf("%d category tiles", len(tiles))
+		}
+		box := treetest.First[*widget.FlowBox](t, w.page).Bounds()
+		size, end := tiles[0].Bounds().W, 0
+		for _, tile := range tiles {
+			b := tile.Bounds()
+			if b.W < size-1 || b.W > size+1 {
+				t.Errorf("at %dpx the %s tile is %dpx wide, the first %dpx", width, tileName(tile), b.W, size)
+			}
+			end = max(end, b.X+b.W)
+		}
+		if end != box.X+box.W {
+			t.Errorf("at %dpx the tiles end at %d, their box at %d", width, end, box.X+box.W)
+		}
+	}
+}

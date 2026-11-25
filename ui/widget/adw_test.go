@@ -411,6 +411,42 @@ func TestWrapBoxJustify(t *testing.T) {
 	}
 }
 
+// TestWrapBoxJustifyEqual pins JustifyEqual: children of unequal
+// widths take one width, as many columns of the widest as fit sharing
+// the line's width, a full line ending on the edge, the short last line
+// in the same columns; unbounded, each is the widest's width.
+func TestWrapBoxJustifyEqual(t *testing.T) {
+	lay := func(width int) []render.Rect {
+		f := NewWrapBox(10, 5, JustifyEqual)
+		for _, w := range []int{50, 80, 60, 70, 40} {
+			f.Append(NewSpacer(w, 10))
+		}
+		if nat := f.Measure(Row, Unknown).Nat; nat != 5*80+4*10 {
+			t.Errorf("the box wants %dpx unwrapped, want five 80px columns", nat)
+		}
+		SizeWithin(f, Size{W: width, H: 200})
+		f.Arrange(render.Rect{W: width, H: 200})
+		var out []render.Rect
+		for _, c := range f.Children() {
+			out = append(out, c.(Boundser).Bounds())
+		}
+		return out
+	}
+	r := lay(300)
+	for i, b := range r {
+		if b.W < 93 || b.W > 94 {
+			t.Errorf("child %d is %dpx wide in 300px, want a third of the line", i, b.W)
+		}
+	}
+	if r[2].X+r[2].W != 300 || r[3].X != r[0].X || r[4].X != r[1].X || r[3].Y == r[0].Y {
+		t.Errorf("three columns of 300px: %v", r)
+	}
+	r = lay(170)
+	if r[0].W != 80 || r[1].X != 90 || r[1].X+r[1].W != 170 || r[2].Y == r[0].Y {
+		t.Errorf("two columns of 170px: %v", r)
+	}
+}
+
 // TestBottomSheet pins the sheet's lifecycle on the instant clock:
 // open shows it over a hit-tested backdrop, a short handle drag
 // springs back, a long one dismisses (OnClosed fires), and a backdrop
