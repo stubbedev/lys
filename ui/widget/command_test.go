@@ -281,3 +281,39 @@ func TestCommandListRevealsTheHighlightWithItsHeading(t *testing.T) {
 		}
 	}
 }
+
+// A pick list opened scrolled to a row near its end and then given a
+// taller viewport, as a popover the compositor first shrank and then
+// placed on the anchor's roomier side, shows no blank past its last
+// row: the list scrolls back so its end meets the viewport's, and one
+// that now fits whole starts at its first row (#324).
+func TestAScrolledListShowsNoBlankPastItsEnd(t *testing.T) {
+	face := testFace(t)
+	settle := func(list *Command, h int) {
+		for range 3 {
+			arrangeTree(t, list, 300, h)
+			if !LayoutPending(list) {
+				break
+			}
+		}
+	}
+	list := NewCommandList(face, 14, manyGroups(6, 6)...)
+	list.highlightRow(34)
+	settle(list, 150)
+	if list.scroll.offY == 0 {
+		t.Fatal("a list opened on its last rows did not scroll")
+	}
+	settle(list, 300)
+	viewBottom := list.scroll.view.Y + list.scroll.viewH
+	if end := list.list.Bounds(); end.Y+end.H < viewBottom {
+		t.Errorf("the rows end at %d, %dpx above the viewport's end", end.Y+end.H, viewBottom-(end.Y+end.H))
+	}
+	if row := list.shown[34].Bounds(); row.Y < list.scroll.view.Y || row.Y+row.H > viewBottom {
+		t.Errorf("the highlighted row %v left the viewport", row)
+	}
+	whole := list.scroll.nat.H
+	settle(list, whole+40)
+	if list.scroll.offY != 0 {
+		t.Errorf("a list that fits whole stays scrolled by %d", list.scroll.offY)
+	}
+}

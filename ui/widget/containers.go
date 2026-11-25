@@ -872,15 +872,19 @@ func (s *Scroll) Arrange(r render.Rect) {
 		s.viewW -= gutter
 	}
 	s.viewH = r.H - gutterH
-	// Mandatory snapping re-settles through a relayout or resize: the
+	// A viewport that grew or content that shrank brings the offset
+	// back within the content, so no blank shows past its end, and
+	// mandatory snapping re-settles through a relayout or resize: the
 	// offset a viewport change invalidated lands back on its snap
 	// position before the frame paints.
+	x, y := s.offX, s.offY
 	if st := s.snapStyle(); st.Mandatory {
-		if x, y := s.snapTarget(s.offX, s.offY); x != s.offX || y != s.offY {
-			maxX, maxY := s.scrollMax()
-			s.offX, s.offY = min(max(0, x), maxX), min(max(0, y), maxY)
-			s.Invalidate()
-		}
+		x, y = s.snapTarget(x, y)
+	}
+	maxX, maxY := s.scrollMax()
+	if x, y = min(max(0, x), maxX), min(max(0, y), maxY); x != s.offX || y != s.offY {
+		s.offX, s.offY = x, y
+		s.Invalidate()
 	}
 
 	childW, childH := s.nat.W, s.nat.H
