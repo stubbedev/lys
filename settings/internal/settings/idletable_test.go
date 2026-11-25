@@ -118,27 +118,68 @@ func TestTheIdleTableWarnsWhenALaterStageComesFirst(t *testing.T) {
 	g := idleTableOf(t, k)
 	ac, battery := g.cell(t, idleDim, idleOnAC), g.cell(t, idleDim, idleOnBattery)
 	want := locale.T().Get("settings-idle-overtaken", i18n.Str("source", "ac"), i18n.Str("then", "screen-off"))
-	if !ac.warning.Visible() || ac.warning.Text() != want {
-		t.Fatalf("plugged in the dim cell warns %v: %q", ac.warning.Visible(), ac.warning.Text())
+	if !ac.state.Visible() || ac.state.Text() != want || ac.state.kind != stateError {
+		t.Fatalf("plugged in the dim cell warns %v (%v): %q", ac.state.Visible(), ac.state.kind, ac.state.Text())
 	}
-	if battery.warning.Visible() {
+	if battery.state.Visible() {
 		t.Error("on battery, dimming before the screens turn off is warned about")
 	}
 	if err := k.store.set("idle.dim.ac", "2m"); err != nil {
 		t.Fatal(err)
 	}
 	g.refresh()
-	if ac.warning.Visible() {
+	if ac.state.Visible() {
 		t.Error("the warning stays once the order is fixed")
 	}
 	ac.showTimes(nil, errors.New("read idle.dim.ac: not a duration"))
-	wantClosedFailure(t, "a cell over unreadable times", ac.unread.stateParts, ac.unread.Text(), locale.T().Get("settings-idle-times-unreadable"), "not a duration")
-	if ac.warning.Visible() {
-		t.Error("a cell over unreadable times warns of their order")
-	}
+	wantClosedFailure(t, "a cell over unreadable times", ac.state.stateParts, ac.state.Text(), locale.T().Get("settings-idle-times-unreadable"), "not a duration")
 	g.refresh()
-	if ac.unread.Visible() {
-		t.Errorf("read again, the cell still says %q", ac.unread.Text())
+	if ac.state.Visible() {
+		t.Errorf("read again, the cell still says %q", ac.state.Text())
+	}
+}
+
+// The warning that a stage never comes widened its column to the
+// sentence's width, so the battery column moved and its chips wrapped
+// differently. A warning wraps inside the column the chips set, and
+// moves no chip.
+func TestAnIdleWarningMovesNoChip(t *testing.T) {
+	quiet := laidOutPage(t, "", "idle", windowWidth)
+	warned := laidOutPage(t, "idle:\n  screen-off:\n    ac: 1m\n    battery: 1m\n", "idle", windowWidth)
+	cells := func(win *window) []*idleCell { return treetest.All[*idleCell](win.page) }
+	q, w := cells(quiet), cells(warned)
+	if len(q) == 0 || len(q) != len(w) {
+		t.Fatalf("%d cells quiet, %d warned", len(q), len(w))
+	}
+	shown := 0
+	for i := range q {
+		if w[i].state.Visible() {
+			shown++
+		}
+		if qb, wb := q[i].chips.Bounds(), w[i].chips.Bounds(); qb.X != wb.X || qb.W != wb.W || qb.H != wb.H {
+			t.Errorf("%s %s: chips at %+v quiet, %+v beside a warning", q[i].stage, q[i].source, qb, wb)
+		}
+	}
+	if shown != 2 {
+		t.Fatalf("%d cells warn, want the two dim cells", shown)
+	}
+}
+
+// One stage's chips followed the last stage's at the pitch of the chips
+// inside a stage, so the stages ran together. The gap between stages is
+// wider than the chips' own.
+func TestIdleStagesArePartedWiderThanTheirChips(t *testing.T) {
+	win := laidOutPage(t, "", "idle", windowWidth)
+	cells := treetest.All[*idleCell](win.page)
+	pitch := widget.Current().Spacing
+	for i, c := range cells {
+		if c.stage == idleKeyboard {
+			continue
+		}
+		above := cells[i-len(idleSources)].Bounds()
+		if gap := c.Bounds().Y - (above.Y + above.H); gap <= pitch {
+			t.Errorf("%s %s sits %dpx under the stage above, the chips inside one %dpx apart", c.stage, c.source, gap, pitch)
+		}
 	}
 }
 

@@ -64,15 +64,17 @@ func queryLogind(k *kit, variants []string) sleepAvailability {
 
 // sleepAction is the sleep action's closed choice, an action logind
 // says the system cannot take marked in its label and refused when
-// picked, over the line describing what the stored action does and the
-// line saying why an action cannot be taken.
+// picked. The line describing what the stored action does and the line
+// saying why an action cannot be taken are its row's detail, under the
+// row's text, so the choice sits in the card's control column.
 type sleepAction struct {
 	*widget.Box
+	pick     *choiceControl
 	slot     slot
 	variants []string
 	labels   []string
-	pick     *choiceControl
-	detail   *inlineState
+	below    *widget.Box
+	does     *inlineState
 	problem  *inlineState
 	can      map[string]logind.Availability
 	unknown  error
@@ -84,24 +86,26 @@ type sleepAction struct {
 var errSleepRefused = errors.New("settings: the system cannot take this sleep action")
 
 func newSleepAction(k *kit, s slot, meta config.FieldMeta) *sleepAction {
-	c := &sleepAction{Box: widget.NewBox(widget.Column, widget.Current().Spacing/2, 0), slot: s, variants: meta.Variants, labels: enumLabels(meta)}
+	c := &sleepAction{Box: gapBox(widget.Column), below: widget.NewBox(widget.Column, widget.Current().Spacing/2, 0), slot: s, variants: meta.Variants, labels: enumLabels(meta)}
 	c.pick = newChoiceControl(k, slot{get: s.get, set: c.write, unset: s.unset}, closedChoice{options: c.options()})
 	c.pick.SetAccessibleName(locale.T().Get("settings-sleep-action"))
-	c.detail = k.inlineState()
-	c.problem = k.inlineState()
 	c.Append(c.pick, false)
-	c.Append(c.detail, false)
-	c.Append(c.problem, false)
+	c.does = k.inlineState()
+	c.problem = k.inlineState()
+	c.below.Append(c.does, false)
+	c.below.Append(c.problem, false)
 	c.refresh()
 	async(k, func() sleepAvailability { return querySleepActions(k, c.variants) }, c.know)
 	return c
 }
 
-// fit keeps the sleep action at its own width (controlFit): under its
-// choice are the lines saying what the action does and why one cannot
-// be taken, text as wide as it reads, which in the card's control column
-// would set the width of every field of the card.
-func (c *sleepAction) fit() widget.ItemControlFit { return widget.ItemControlNatural }
+// fit holds the choice in the card's control column, beside the page's
+// other choices.
+func (c *sleepAction) fit() widget.ItemControlFit { return widget.ItemControlColumn }
+
+// detail is the lines saying what the stored action does and why one
+// cannot be taken, under the row's text.
+func (c *sleepAction) detail() widget.Widget { return c.below }
 
 func (c *sleepAction) know(a sleepAvailability) {
 	c.can, c.unknown, c.blockers = a.can, a.err, a.blockers
@@ -151,11 +155,11 @@ func (c *sleepAction) refresh() {
 	known := slices.Contains(c.variants, current)
 	switch text, err := c.describe(current); {
 	case !known:
-		c.detail.Clear()
+		c.does.Clear()
 	case err != nil:
-		c.detail.Unavailable("", text, err)
+		c.does.Unavailable("", text, err)
 	default:
-		c.detail.Empty("", text)
+		c.does.Empty("", text)
 	}
 	switch {
 	case c.unknown != nil:

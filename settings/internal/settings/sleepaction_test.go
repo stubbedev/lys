@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/hibernate"
 	"github.com/stubbedev/lys/lib/logind/logindtest"
@@ -48,8 +49,8 @@ func TestASleepModeTheSystemCannotDoIsOfferedAsUnavailable(t *testing.T) {
 	if got := c.pick.pick.Items()[slices.Index(c.variants, "suspend")]; got != c.labels[slices.Index(c.variants, "suspend")] {
 		t.Fatalf("suspend reads %q", got)
 	}
-	if c.problem.Visible() || c.detail.Text() != tr.Get("settings-sleep-detail-auto-hibernates") {
-		t.Fatalf("the default auto shows problem %v, detail %q", c.problem.Visible(), c.detail.Text())
+	if c.problem.Visible() || c.does.Text() != tr.Get("settings-sleep-detail-auto-hibernates") {
+		t.Fatalf("the default auto shows problem %v, detail %q", c.problem.Visible(), c.does.Text())
 	}
 	pickChoice(c.pick.pick, hibernate)
 	if v := k.store.value("idle.suspend-action"); v != "auto" {
@@ -94,8 +95,8 @@ func TestAutoSaysWhyItOnlySuspendsWhereHibernationIsBlocked(t *testing.T) {
 	_, c, _ := sleepSelectBlocked(t, "", map[string]string{"CanSuspendThenHibernate": "na"}, blocked)
 	tr := locale.T()
 	reason := tr.Get("settings-hibernate-blocker-no-swap") + "; " + tr.Get("settings-hibernate-blocker-no-resume-device")
-	if want := tr.Get("settings-sleep-detail-auto-suspends", i18n.Str("reason", reason)); c.detail.Text() != want {
-		t.Fatalf("auto without hibernation says %q, want %q", c.detail.Text(), want)
+	if want := tr.Get("settings-sleep-detail-auto-suspends", i18n.Str("reason", reason)); c.does.Text() != want {
+		t.Fatalf("auto without hibernation says %q, want %q", c.does.Text(), want)
 	}
 	if c.problem.Visible() {
 		t.Errorf("auto, which still suspends, shows the problem %q", c.problem.Text())
@@ -111,8 +112,8 @@ func TestAutoFallsBackToLogindsRefusalWhenNoBlockerIsKnown(t *testing.T) {
 	tr := locale.T()
 	deep := slices.Index(c.variants, "suspend-then-hibernate")
 	refusal := tr.Get("settings-sleep-reason-denied", i18n.Str("action", c.labels[deep]))
-	if want := tr.Get("settings-sleep-detail-auto-suspends", i18n.Str("reason", refusal)); c.detail.Text() != want {
-		t.Fatalf("auto with hibernation denied says %q, want %q", c.detail.Text(), want)
+	if want := tr.Get("settings-sleep-detail-auto-suspends", i18n.Str("reason", refusal)); c.does.Text() != want {
+		t.Fatalf("auto with hibernation denied says %q, want %q", c.does.Text(), want)
 	}
 }
 
@@ -123,11 +124,42 @@ func TestAutoReportsAProbeItCouldNotRun(t *testing.T) {
 	_, c, _ := sleepSelectBlocked(t, "", map[string]string{"CanSuspendThenHibernate": "na"}, failing)
 	tr := locale.T()
 	want := tr.Get("settings-sleep-detail-auto-suspends", i18n.Str("reason", tr.Get("settings-hibernate-blockers-unknown")))
-	if c.detail.Text() != want || strings.Contains(c.detail.Text(), "permission denied") || !strings.Contains(c.detail.detail.Text(), "permission denied") {
-		t.Fatalf("a failed probe reads %q over %q, want %q over the probe's error", c.detail.Text(), c.detail.detail.Text(), want)
+	if c.does.Text() != want || strings.Contains(c.does.Text(), "permission denied") || !strings.Contains(c.does.detail.Text(), "permission denied") {
+		t.Fatalf("a failed probe reads %q over %q, want %q over the probe's error", c.does.Text(), c.does.detail.Text(), want)
 	}
 	_, c, _ = sleepSelectBlocked(t, "", nil, failing)
-	if want := tr.Get("settings-sleep-detail-auto-hibernates"); c.detail.Text() != want || c.detail.detail.Text() != "" {
-		t.Fatalf("auto where hibernation works says %q, want %q: the probe matters only when it is blocked", c.detail.Text(), want)
+	if want := tr.Get("settings-sleep-detail-auto-hibernates"); c.does.Text() != want || c.does.detail.Text() != "" {
+		t.Fatalf("auto where hibernation works says %q, want %q: the probe matters only when it is blocked", c.does.Text(), want)
+	}
+}
+
+// The lines under the sleep action's choice set the width of its
+// control, so the choice started far left of the page's other choices
+// and squeezed the row's description to a few words. The lines are the
+// row's detail, under its text, and the choice sits in the control
+// column the page's other choices share.
+func TestTheSleepActionsChoiceSharesThePagesControlColumn(t *testing.T) {
+	win := laidOutPage(t, "", "idle", windowWidth)
+	sleep := treetest.All[*sleepAction](win.page)
+	if len(sleep) != 1 {
+		t.Fatalf("%d sleep actions on the idle page", len(sleep))
+	}
+	if treetest.Contains(sleep[0].pick, sleep[0].does) || !treetest.Contains(win.page, sleep[0].does) {
+		t.Fatal("the sleep action's lines are not its row's detail")
+	}
+	var others []*choiceControl
+	for _, c := range treetest.All[*choiceControl](win.page) {
+		if c != sleep[0].pick && shownIn(win.page, c) {
+			others = append(others, c)
+		}
+	}
+	if len(others) == 0 {
+		t.Fatal("the idle page shows no other choice")
+	}
+	b := sleep[0].Bounds()
+	for _, o := range others {
+		if ob := o.Bounds(); ob.X != b.X || ob.X+ob.W != b.X+b.W {
+			t.Errorf("a choice spans %d..%d, the sleep action %d..%d", ob.X, ob.X+ob.W, b.X, b.X+b.W)
+		}
 	}
 }

@@ -150,25 +150,27 @@ func newIdleChips(k *kit, s slot) *presetPicker[float64] {
 	return newPresetPicker(k, idleMinutes(s), bounds, unit, presets)
 }
 
+// idleCell is one stage's time from one source: its chips over the
+// line saying the stage never comes, a later one coming first, or that
+// the times cannot be read. The line wraps at the chips' width and never
+// widens the column, so a warning moves no chip.
 type idleCell struct {
 	*widget.Box
-	k       *kit
-	stage   idleStage
-	source  idleSource
-	chips   *presetPicker[float64]
-	warning *widget.Label
-	unread  *inlineState
+	k      *kit
+	stage  idleStage
+	source idleSource
+	chips  *presetPicker[float64]
+	state  *inlineState
 }
 
 func newIdleCell(k *kit, stage idleStage, source idleSource) *idleCell {
 	c := &idleCell{Box: gapBox(widget.Column), k: k, stage: stage, source: source}
 	c.chips = newIdleChips(k, k.store.slot(stage.path(source)))
 	c.chips.SetAccessibleName(locale.T().Get("settings-idle-cell", i18n.Str("stage", stage.name()), i18n.Str("source", source.name())))
-	c.warning = wrapped(k.label("", css.Caption, css.Warning))
-	c.unread = k.inlineState()
+	c.state = k.inlineState()
+	c.state.summary.SetMaxWidthChars(1)
 	c.Append(c.chips, false)
-	c.Append(c.warning, false)
-	c.Append(c.unread, false)
+	c.Append(c.state, false)
 	c.refresh()
 	return c
 }
@@ -181,17 +183,23 @@ func (c *idleCell) refresh() {
 // showTimes warns when the cell's stage comes after a later one in
 // times, or says times could not be read, err why.
 func (c *idleCell) showTimes(times map[idleStage]idleTime, err error) {
-	c.unread.Result(locale.T().Get("settings-idle-times-unreadable"), err)
+	t := locale.T()
 	if err != nil {
-		c.warning.SetVisible(false)
+		c.state.Error(t.Get("settings-idle-times-unreadable"), err, nil)
 		return
 	}
 	then, overtaken := idleOvertaken(times, c.stage)
-	c.warning.SetVisible(overtaken)
-	if overtaken {
-		c.warning.SetText(locale.T().Get("settings-idle-overtaken", i18n.Str("source", string(c.source)), i18n.Str("then", string(then))))
+	if !overtaken {
+		c.state.Clear()
+		return
 	}
+	c.state.Error(t.Get("settings-idle-overtaken", i18n.Str("source", string(c.source)), i18n.Str("then", string(then))), nil, nil)
 }
+
+// idleStageGap parts one stage's chips from the next stage's, three
+// times the pitch of the chips inside a stage, so each stage's block
+// reads as one.
+const idleStageGap = choiceCardGap * 3
 
 type idleTable struct {
 	*widget.Grid
@@ -200,7 +208,7 @@ type idleTable struct {
 }
 
 func newIdleTable(k *kit) *idleTable {
-	g := &idleTable{Grid: widget.NewGrid(choiceCardGap*2, choiceCardGap)}
+	g := &idleTable{Grid: widget.NewGrid(choiceCardGap*2, idleStageGap)}
 	g.AddClass("cell-grid")
 	for c, source := range idleSources {
 		head := gapBox(widget.Row)

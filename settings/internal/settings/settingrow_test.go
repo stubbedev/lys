@@ -424,8 +424,8 @@ func TestALevelledDevicesFailureLeavesTheControlColumnItsWidth(t *testing.T) {
 // The composite editors outside the control column keep their own width
 // at the row's end beside a card's column, however wide the column: a
 // path field and its browse button, a button choice with its code spin, a
-// size's mode and spin with or without a slider, the sleep action over
-// its lines, a soft range's slider and an offset's two.
+// size's mode and spin with or without a slider, a soft range's slider
+// and an offset's two.
 func TestCompositeEditorsKeepTheirOwnWidth(t *testing.T) {
 	k := testKit(t, "")
 	stored := func(v any) slot { return memSlot(&v) }
@@ -438,7 +438,6 @@ func TestCompositeEditorsKeepTheirOwnWidth(t *testing.T) {
 		{"button", newNamedOrWhole(k, stored(int64(275)), config.FieldMeta{Variants: []string{"left", "right", "middle"}, Min: 0, Max: 1000})},
 		{"size", newSizeEditor(k, stored(1.0), 1)},
 		{"size slider", newSizeSliderEditor(k, stored(1.0), 1, 100, 800)},
-		{"sleep action", fieldControl(k, k.store, field("idle.suspend-action", sleepActionRow))},
 		{"soft range", newSoftRange(k, stored(int64(10)), whole, 0, 100, 1, unitPixels)},
 		{"offset", newOffsetEditor(k, stored([]any{int64(0), int64(4)}), "decoration.shadow.offset", -32, 32)},
 	}
