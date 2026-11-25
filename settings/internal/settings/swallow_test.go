@@ -146,3 +146,25 @@ func TestOnlyAnExactMatchOfAppIDsReadsAsAList(t *testing.T) {
 		t.Errorf("the pattern for two apps is %q", got)
 	}
 }
+
+// With no terminals, the empty note stood 180px into its row, beside the
+// width an empty strip of chips kept, and read as centred. The note
+// starts where the row does, and the chips take that place once a
+// terminal is listed.
+func TestAnEmptyTerminalListSaysSoFromTheRowsStart(t *testing.T) {
+	terminalAppsFixture(t)
+	k := lysWMKit(t, "")
+	c := swallowOf(t, layoutPage(t, k, "wm-windows"))
+	themed(k, c)
+	if c.strip.chips.Visible() || !c.strip.none.Visible() {
+		t.Fatal("with no terminals the row is not its empty note")
+	}
+	if note, row := c.strip.none.Bounds().X, c.strip.Bounds().X; note != row {
+		t.Errorf("the empty note starts %dpx into its row", note-row)
+	}
+	pickTerminal(t, k, c, "Foot")
+	acceptedByLysWM(t, k)
+	if !c.strip.chips.Visible() || c.strip.none.Visible() {
+		t.Error("with Foot listed the row does not show its chips alone")
+	}
+}

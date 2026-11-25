@@ -71,6 +71,7 @@ func (c *appStrip) rebuild() {
 	for _, id := range c.ids {
 		c.chips.Append(c.chip(id))
 	}
+	c.chips.SetVisible(len(c.ids) > 0)
 	if len(c.ids) > 0 {
 		c.none.Clear()
 		return
