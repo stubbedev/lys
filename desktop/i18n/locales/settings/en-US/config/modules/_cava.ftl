@@ -30,7 +30,7 @@ settings-modules-cava-input = Input Method
     .description = Audio capture backend
 
 settings-modules-cava-source = Source
-    .description = Audio source identifier (use "auto" for automatic selection)
+    .description = The sound the bars follow: picked automatically, or one source by name
 
 ## Visualization
 

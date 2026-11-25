@@ -26,7 +26,7 @@ settings-modules-cava-input = Invoermethode
     .description = Backend voor audio-opname
 
 settings-modules-cava-source = Bron
-    .description = Identificatie van de audiobron (gebruik "auto" voor automatische keuze)
+    .description = Het geluid dat de balken volgen: automatisch gekozen, of één bron op naam
 
 settings-modules-cava-style = Stijl
     .description = Weergavestijl van de visualisatie (bars, wave of peaks)

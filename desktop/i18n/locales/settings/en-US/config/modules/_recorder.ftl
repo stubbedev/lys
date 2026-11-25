@@ -115,7 +115,7 @@ settings-modules-recorder-replay-seconds = Replay Length
     .description = Seconds of footage a replay save writes (5-600)
 
 settings-modules-recorder-replay-output = Replay Output
-    .description = The output captured: focused, or an output name such as DP-1
+    .description = The display captured: the focused monitor when the replay is armed, or one by its connector, such as DP-1
 
 ## Format placeholders
 

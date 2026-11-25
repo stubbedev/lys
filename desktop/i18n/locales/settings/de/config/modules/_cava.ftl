@@ -30,7 +30,7 @@ settings-modules-cava-input = Eingabemethode
     .description = Backend für die Audioaufnahme
 
 settings-modules-cava-source = Quelle
-    .description = Kennung der Audioquelle ("auto" für automatische Auswahl)
+    .description = Der Ton, dem die Balken folgen: automatisch gewählt oder eine Quelle nach Namen
 
 ## Visualization
 

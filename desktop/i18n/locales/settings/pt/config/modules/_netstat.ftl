@@ -2,7 +2,7 @@ settings-modules-netstat-poll-interval-ms = Intervalo de consulta
     .description = Intervalo de consulta em milissegundos
 
 settings-modules-netstat-interface = Interface
-    .description = Interface de rede a monitorizar ("auto" para a interface ativa)
+    .description = A interface de rede a monitorizar: a ativa, escolhida automaticamente, ou uma pelo nome
 
 settings-modules-netstat-format = Formato de apresentação
     .description = Cadeia de formato com marcadores: {"{{ down_kib }}"}, {"{{ down_mib }}"}, {"{{ down_gib }}"}, {"{{ down_auto }}"}, {"{{ up_kib }}"}, {"{{ up_mib }}"}, {"{{ up_gib }}"}, {"{{ up_auto }}"}, {"{{ interface }}"}

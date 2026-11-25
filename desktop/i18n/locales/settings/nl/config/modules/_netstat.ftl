@@ -2,7 +2,7 @@ settings-modules-netstat-poll-interval-ms = Pollinginterval
     .description = Pollinginterval in milliseconden
 
 settings-modules-netstat-interface = Interface
-    .description = Te bewaken netwerkinterface ("auto" voor de actieve interface)
+    .description = De te bewaken netwerkinterface: de actieve, automatisch gekozen, of één op naam
 
 settings-modules-netstat-format = Weergaveformaat
     .description = Formaattekenreeks met plaatshouders: {"{{ down_kib }}"}, {"{{ down_mib }}"}, {"{{ down_gib }}"}, {"{{ down_auto }}"}, {"{{ up_kib }}"}, {"{{ up_mib }}"}, {"{{ up_gib }}"}, {"{{ up_auto }}"}, {"{{ interface }}"}

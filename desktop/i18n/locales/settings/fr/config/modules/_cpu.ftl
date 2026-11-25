@@ -6,7 +6,7 @@ settings-modules-cpu-poll-interval-ms = Intervalle d'interrogation
     .description = Intervalle d'interrogation en millisecondes
 
 settings-modules-cpu-temp-sensor = Capteur de température
-    .description = Libellé du capteur pour les relevés de température (ex. : « Tctl », « auto »)
+    .description = Le capteur dont la température est lue : choisi automatiquement, ou un capteur par son libellé, comme Tctl
 
 settings-modules-cpu-format = Format d'affichage
     .description = Chaîne de format avec espaces réservés : {"{{ percent }}"}, {"{{ freq_ghz }}"}, {"{{ avg_freq_ghz }}"}, {"{{ max_freq_ghz }}"}, {"{{ temp_c }}"}, {"{{ temp_f }}"}

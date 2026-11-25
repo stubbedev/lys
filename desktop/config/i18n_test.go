@@ -75,7 +75,7 @@ func TestI18nKey(t *testing.T) {
 // config's or rofi's own syntax: no app_id, no "primary" in quotes, no
 // rofi flag or me-*/ml-* action glob, no raw enum values.
 func TestNoFieldDescriptionReadsAsRawSyntax(t *testing.T) {
-	raw := []string{"app_id", `"primary"`, "« primary »", "-matching-negate-char", "-style <", "me-*", "ml-*", "MouseDPrimary", "spinning-disc", "application-mapped", "is false"}
+	raw := []string{"app_id", `"primary"`, "« primary »", `"auto"`, "« auto »", ": focused", "-matching-negate-char", "-style <", "me-*", "ml-*", "MouseDPrimary", "spinning-disc", "application-mapped", "is false"}
 	for _, lang := range []string{"en-US", "de", "es", "fr", "it", "nl", "pt"} {
 		loader, err := i18n.Select(i18n.ConfigAssets(), []i18n.LangID{i18n.MustLangID(lang)})
 		if err != nil {

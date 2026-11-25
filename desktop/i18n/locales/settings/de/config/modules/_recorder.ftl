@@ -115,7 +115,7 @@ settings-modules-recorder-replay-seconds = Wiederholungslänge
     .description = Sekunden an Material, die beim Speichern einer Wiederholung geschrieben werden (5–600)
 
 settings-modules-recorder-replay-output = Wiederholungsausgabe
-    .description = Die aufgenommene Ausgabe: focused oder ein Ausgabename wie DP-1
+    .description = Der aufgenommene Bildschirm: der fokussierte Monitor beim Scharfschalten der Wiederholung oder einer über seinen Anschluss, etwa DP-1
 
 ## Format placeholders
 

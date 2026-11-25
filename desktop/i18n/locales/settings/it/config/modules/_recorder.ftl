@@ -115,7 +115,7 @@ settings-modules-recorder-replay-seconds = Durata del replay
     .description = Secondi di filmato scritti al salvataggio di un replay (5-600)
 
 settings-modules-recorder-replay-output = Uscita del replay
-    .description = L'uscita acquisita: focused, oppure il nome di un'uscita come DP-1
+    .description = Lo schermo acquisito: il monitor attivo quando il replay viene armato, o uno indicato dal suo connettore, come DP-1
 
 ## Format placeholders
 

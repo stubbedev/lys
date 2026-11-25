@@ -2,7 +2,7 @@ settings-modules-cpu-poll-interval-ms = Pollinginterval
     .description = Pollinginterval in milliseconden
 
 settings-modules-cpu-temp-sensor = Temperatuursensor
-    .description = Sensorlabel voor temperatuurmetingen (bijv. "Tctl", "auto")
+    .description = De sensor waarvan de temperatuur wordt gelezen: automatisch gekozen, of één op zijn label, zoals Tctl
 
 settings-modules-cpu-format = Weergaveformaat
     .description = Formaattekenreeks met plaatshouders: {"{{ percent }}"}, {"{{ freq_ghz }}"}, {"{{ avg_freq_ghz }}"}, {"{{ max_freq_ghz }}"}, {"{{ temp_c }}"}, {"{{ temp_f }}"}

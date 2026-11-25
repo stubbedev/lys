@@ -478,7 +478,7 @@ func TestAnOptionalToggleWritesABoolAndUnsets(t *testing.T) {
 func TestAnEnumOfBooleansAndWordsWritesEachAsItsOwnType(t *testing.T) {
 	k, w, _, files := wmKit(t, "binds: []\n")
 	c := fieldControl(k, w, wmField("hdr")).(*choiceControl)
-	if got, want := c.pick.Items(), []string{locale.T().Get("settings-inherited"), "Off", "fullscreen", "On"}; !slices.Equal(got, want) {
+	if got, want := c.pick.Items(), []string{locale.T().Get("settings-inherited"), "Off", locale.T().Get("enum-wm-toggle-fullscreen"), "On"}; !slices.Equal(got, want) {
 		t.Fatalf("choices %q, want %q", got, want)
 	}
 	for i, want := range []string{"hdr: false\n", "hdr: fullscreen\n", "hdr: true\n"} {

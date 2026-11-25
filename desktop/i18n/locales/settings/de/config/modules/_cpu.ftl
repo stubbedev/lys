@@ -6,7 +6,7 @@ settings-modules-cpu-poll-interval-ms = Abfrageintervall
     .description = Abfrageintervall in Millisekunden
 
 settings-modules-cpu-temp-sensor = Temperatursensor
-    .description = Sensorbezeichnung für Temperaturwerte (z. B. "Tctl", "auto")
+    .description = Der Sensor, von dem die Temperatur gelesen wird: automatisch gewählt oder einer nach seiner Bezeichnung, etwa Tctl
 
 settings-modules-cpu-format = Anzeigeformat
     .description = Formatzeichenkette mit Platzhaltern: {"{{ percent }}"}, {"{{ freq_ghz }}"}, {"{{ avg_freq_ghz }}"}, {"{{ max_freq_ghz }}"}, {"{{ temp_c }}"}, {"{{ temp_f }}"}

@@ -30,7 +30,7 @@ settings-modules-cava-input = Método de entrada
     .description = Motor de captura de audio
 
 settings-modules-cava-source = Fuente
-    .description = Identificador de la fuente de audio (use "auto" para la selección automática)
+    .description = El sonido que siguen las barras: elegido automáticamente, o una fuente por su nombre
 
 ## Visualization
 

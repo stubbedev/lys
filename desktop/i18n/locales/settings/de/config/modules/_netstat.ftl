@@ -6,7 +6,7 @@ settings-modules-netstat-poll-interval-ms = Abfrageintervall
     .description = Abfrageintervall in Millisekunden
 
 settings-modules-netstat-interface = Schnittstelle
-    .description = Zu überwachende Netzwerkschnittstelle ("auto" für die aktive Schnittstelle)
+    .description = Die zu überwachende Netzwerkschnittstelle: die aktive, automatisch gewählt, oder eine nach Namen
 
 settings-modules-netstat-format = Anzeigeformat
     .description = Formatzeichenkette mit Platzhaltern: {"{{ down_kib }}"}, {"{{ down_mib }}"}, {"{{ down_gib }}"}, {"{{ down_auto }}"}, {"{{ up_kib }}"}, {"{{ up_mib }}"}, {"{{ up_gib }}"}, {"{{ up_auto }}"}, {"{{ interface }}"}

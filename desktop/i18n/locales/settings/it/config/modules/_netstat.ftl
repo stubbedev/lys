@@ -6,7 +6,7 @@ settings-modules-netstat-poll-interval-ms = Intervallo di aggiornamento
     .description = Intervallo di aggiornamento in millisecondi
 
 settings-modules-netstat-interface = Interfaccia
-    .description = Interfaccia di rete da monitorare ("auto" per l'interfaccia attiva)
+    .description = L'interfaccia di rete da monitorare: quella attiva, scelta automaticamente, o una per nome
 
 settings-modules-netstat-format = Formato di visualizzazione
     .description = Stringa di formato con i segnaposto: {"{{ down_kib }}"}, {"{{ down_mib }}"}, {"{{ down_gib }}"}, {"{{ down_auto }}"}, {"{{ up_kib }}"}, {"{{ up_mib }}"}, {"{{ up_gib }}"}, {"{{ up_auto }}"}, {"{{ interface }}"}

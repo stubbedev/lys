@@ -233,6 +233,7 @@ settings-folder-path-placeholder = Standaardmap
 settings-choice-default = Standaard
 settings-choice-auto = Automatisch
 settings-choice-primary = Primaire monitor
+settings-choice-focused = Monitor met focus
 settings-choice-unknown = niet gevonden
     .description = Deze waarde hoort niet bij de keuzes die hier worden aangeboden. Ze blijft behouden zoals ze is.
 settings-filename-prefix = Naam

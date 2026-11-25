@@ -236,6 +236,7 @@ settings-folder-path-placeholder = Standardordner
 settings-choice-default = Standard
 settings-choice-auto = Automatisch
 settings-choice-primary = Hauptmonitor
+settings-choice-focused = Fokussierter Monitor
 settings-choice-unknown = nicht gefunden
     .description = Dieser Wert gehört nicht zu den hier angebotenen Auswahlmöglichkeiten. Er wird unverändert beibehalten.
 settings-filename-prefix = Name

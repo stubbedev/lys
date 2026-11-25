@@ -129,6 +129,7 @@ settings-folder-path-placeholder = Dossier par défaut
 settings-choice-default = Par défaut
 settings-choice-auto = Automatique
 settings-choice-primary = Écran principal
+settings-choice-focused = Écran actif
 settings-choice-unknown = introuvable
     .description = Cette valeur ne fait pas partie des choix proposés ici. Elle est conservée telle quelle.
 settings-filename-prefix = Nom

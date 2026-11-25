@@ -313,9 +313,6 @@ func TestSpecialValuesComeFirstWithTheirLabels(t *testing.T) {
 	if specialLabel("primary") != locale.T().Get("settings-choice-primary") || specialLabel("auto") != locale.T().Get("settings-choice-auto") {
 		t.Error("the special values are not labeled")
 	}
-	if specialLabel("DP-1") != "DP-1" {
-		t.Error("an ordinary value is relabeled")
-	}
 }
 
 func TestAProgramIsAListedNameOrAPath(t *testing.T) {

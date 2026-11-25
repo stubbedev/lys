@@ -3,6 +3,8 @@ package settings
 import (
 	"testing"
 
+	"github.com/stubbedev/lys/desktop/config"
+
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
@@ -32,4 +34,32 @@ func TestAChoicesFieldReadsASpecialValueByItsLabel(t *testing.T) {
 	if v := k.store.value("modules.cpu.temp-sensor"); v != "auto" {
 		t.Errorf("typing %q stored %v, want auto", auto, v)
 	}
+}
+
+// Replay Output read "focused", the raw value: every special value a
+// text field of lys-shell's config takes reads as its label, never as
+// itself, and a value with no label is refused loudly.
+func TestEverySpecialValueReadsAsItsLabel(t *testing.T) {
+	seen := 0
+	for _, path := range config.LeafPaths() {
+		meta, ok := config.Field(path)
+		if !ok || meta.Kind != config.FieldText {
+			continue
+		}
+		for _, v := range meta.Variants {
+			seen++
+			if got := specialLabel(v); got == v || got == "" || !locale.T().Has(specialKeys[v]) {
+				t.Errorf("%s: the special value %q reads %q", path, v, got)
+			}
+		}
+	}
+	if seen == 0 {
+		t.Fatal("no text field takes a special value, so the walk is wrong")
+	}
+	defer func() {
+		if recover() == nil {
+			t.Error("a special value with no label read as something")
+		}
+	}()
+	specialLabel("no-such-special")
 }

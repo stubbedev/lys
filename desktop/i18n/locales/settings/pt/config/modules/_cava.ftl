@@ -26,7 +26,7 @@ settings-modules-cava-input = Método de entrada
     .description = Backend de captura de áudio
 
 settings-modules-cava-source = Fonte
-    .description = Identificador da fonte de áudio (use "auto" para seleção automática)
+    .description = O som que as barras seguem: escolhido automaticamente, ou uma fonte pelo nome
 
 settings-modules-cava-style = Estilo
     .description = Estilo de desenho da visualização (barras, onda ou picos)

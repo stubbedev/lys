@@ -115,7 +115,7 @@ settings-modules-recorder-replay-seconds = Duración de la repetición
     .description = Segundos de vídeo que escribe al guardar una repetición (5-600)
 
 settings-modules-recorder-replay-output = Salida de la repetición
-    .description = La salida capturada: focused, o un nombre de salida como DP-1
+    .description = La pantalla capturada: el monitor con el foco al activar la repetición, o uno por su conector, como DP-1
 
 ## Format placeholders
 

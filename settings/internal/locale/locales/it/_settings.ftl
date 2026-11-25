@@ -236,6 +236,7 @@ settings-folder-path-placeholder = Cartella predefinita
 settings-choice-default = Predefinito
 settings-choice-auto = Automatico
 settings-choice-primary = Monitor principale
+settings-choice-focused = Monitor attivo
 settings-choice-unknown = non trovato
     .description = Questo valore non è tra le scelte offerte qui. Viene mantenuto così com'è.
 settings-filename-prefix = Nome

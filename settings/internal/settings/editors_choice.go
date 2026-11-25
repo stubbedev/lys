@@ -3,6 +3,7 @@ package settings
 import (
 	"cmp"
 	"fmt"
+	"log"
 	"slices"
 	"strings"
 	"sync"
@@ -268,17 +269,23 @@ type choiceEditor struct {
 	listed  bool
 }
 
+// specialKeys are the messages naming the special values a text type
+// takes besides its open set, each one config's semantic types declare.
+var specialKeys = map[string]string{
+	"":                         "settings-choice-default",
+	"auto":                     "settings-choice-auto",
+	"primary":                  "settings-choice-primary",
+	config.ReplayOutputFocused: "settings-choice-focused",
+}
+
+// specialLabel is how special value v reads; a value with no message is
+// a bug in specialKeys, never shown raw.
 func specialLabel(v string) string {
-	t := locale.T()
-	switch v {
-	case "":
-		return t.Get("settings-choice-default")
-	case "auto":
-		return t.Get("settings-choice-auto")
-	case "primary":
-		return t.Get("settings-choice-primary")
+	key, ok := specialKeys[v]
+	if !ok {
+		log.Panicf("settings: the special value %q has no label", v)
 	}
-	return v
+	return locale.T().Get(key)
 }
 
 // specialsByLabel is s as a choice's field reads and types it: a special

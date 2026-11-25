@@ -6,7 +6,7 @@ settings-modules-netstat-poll-interval-ms = Poll Interval
     .description = Polling interval in milliseconds
 
 settings-modules-netstat-interface = Interface
-    .description = Network interface to monitor ("auto" for active interface)
+    .description = The network interface to watch: the active one, picked automatically, or one by name
 
 settings-modules-netstat-format = Display Format
     .description = Format string with placeholders: {"{{ down_kib }}"}, {"{{ down_mib }}"}, {"{{ down_gib }}"}, {"{{ down_auto }}"}, {"{{ up_kib }}"}, {"{{ up_mib }}"}, {"{{ up_gib }}"}, {"{{ up_auto }}"}, {"{{ interface }}"}

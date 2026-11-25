@@ -233,6 +233,7 @@ settings-folder-path-placeholder = Pasta predefinida
 settings-choice-default = Predefinido
 settings-choice-auto = Automático
 settings-choice-primary = Monitor principal
+settings-choice-focused = Monitor com o foco
 settings-choice-unknown = não encontrado
     .description = Este valor não está entre as opções aqui oferecidas. É mantido tal como está.
 settings-filename-prefix = Nome

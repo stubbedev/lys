@@ -107,7 +107,7 @@ settings-modules-recorder-replay-seconds = Replayduur
     .description = Seconden beeldmateriaal die het opslaan van een replay wegschrijft (5-600)
 
 settings-modules-recorder-replay-output = Replayscherm
-    .description = Het vastgelegde scherm: focused, of een schermnaam zoals DP-1
+    .description = Het vastgelegde scherm: de monitor met focus wanneer de herhaling wordt ingeschakeld, of een monitor via zijn connector, zoals DP-1
 
 settings-modules-recorder-format-placeholder-state = Recorderstatus (Inactief, Replay paraat, Opnemen, Gepauzeerd)
 
