@@ -51,6 +51,7 @@ type timing struct {
 	submitted      uint64
 	completed      uint64
 	graves         []grave
+	layoutChanges  []layoutChange
 	blockingWaits  uint64
 	opaqueRuns     uint64
 	framing        bool
@@ -706,6 +707,7 @@ func (d *Device) submit1(cb vk.CommandBuffer, signal vk.Semaphore, sub submissio
 		return err
 	}
 	d.submitted++
+	d.settleLayouts(cb, true)
 	f := inflight{seq: d.submitted, fence: fence, cb: cb, sems: len(d.waits), query: -1}
 	if pass {
 		d.passes++
@@ -861,6 +863,7 @@ func (d *Device) Flush() error { return d.flushBatch() }
 // carried, their staging bytes free again, and what the submission was
 // to wait for and signal.
 func (d *Device) dropBatch(cb vk.CommandBuffer) {
+	d.settleLayouts(cb, false)
 	d.dropWaits()
 	d.spareBuffers = append(d.spareBuffers, cb)
 	d.batchOps, d.batchPass = 0, false

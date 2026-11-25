@@ -92,11 +92,22 @@ func (t *Texture) create() error {
 	if err != nil {
 		return err
 	}
+	t.ready(cb)
+	return d.endBatchOp()
+}
+
+// ready records clearing a texture NewTexture made, in cb, unless a
+// command buffer that holds its clear was recorded and not dropped.
+func (t *Texture) ready(cb vk.CommandBuffer) {
+	if t.surf != nil || t.layout != vk.ImageLayoutUndefined {
+		return
+	}
+	d := t.d
 	fullBarrier(d, cb, t.image, vk.ImageLayoutUndefined, vk.ImageLayoutTransferDstOptimal, vk.QueueFamilyIgnored, vk.QueueFamilyIgnored)
 	var clear vk.ClearColorValue
 	d.cmds.CmdClearColorImage(cb, t.image, vk.ImageLayoutTransferDstOptimal, &clear, 1, &colorRange)
 	fullBarrier(d, cb, t.image, vk.ImageLayoutTransferDstOptimal, vk.ImageLayoutShaderReadOnlyOptimal, vk.QueueFamilyIgnored, vk.QueueFamilyIgnored)
-	return d.endBatchOp()
+	d.setLayout(cb, &t.layout, vk.ImageLayoutShaderReadOnlyOptimal)
 }
 
 func (t *Texture) createView() error {
@@ -164,6 +175,7 @@ func (t *Texture) Update(r image.Rectangle, stride int, pix []byte) error {
 	if err != nil {
 		return err
 	}
+	t.ready(cb)
 	fullBarrier(d, cb, t.image, vk.ImageLayoutShaderReadOnlyOptimal, vk.ImageLayoutTransferDstOptimal, vk.QueueFamilyIgnored, vk.QueueFamilyIgnored)
 	region := &d.args.region
 	*region = vk.BufferImageCopy{
@@ -340,5 +352,5 @@ func (t *Texture) foreignBarrier(cb vk.CommandBuffer, layout vk.ImageLayout, src
 	for _, img := range t.planeImages {
 		fullBarrier(t.d, cb, img, t.layout, layout, src, dst)
 	}
-	t.layout = layout
+	t.d.setLayout(cb, &t.layout, layout)
 }

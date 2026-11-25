@@ -635,6 +635,7 @@ func (p *Pass) record(cb vk.CommandBuffer) {
 			if t.surf != nil {
 				t.surf.to(cb, vk.ImageLayoutShaderReadOnlyOptimal)
 			}
+			t.ready(cb)
 		}
 	}
 	s.to(cb, vk.ImageLayoutColorAttachmentOptimal)

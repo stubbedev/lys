@@ -164,7 +164,7 @@ func (s *surface) to(cb vk.CommandBuffer, layout vk.ImageLayout) {
 // src to dst (both ignored for none).
 func (s *surface) barrier(cb vk.CommandBuffer, layout vk.ImageLayout, src, dst uint32) {
 	fullBarrier(s.d, cb, s.image, s.layout, layout, src, dst)
-	s.layout = layout
+	s.d.setLayout(cb, &s.layout, layout)
 }
 
 // fullBarrier records moving img's color from one layout to another

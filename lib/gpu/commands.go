@@ -48,6 +48,7 @@ func resetFence(d *Device, f vk.Fence) error {
 
 // begin starts recording cb, once, over whatever it held.
 func begin(d *Device, cb vk.CommandBuffer) error {
+	d.settleLayouts(cb, true)
 	d.args.begin = vk.CommandBufferBeginInfo{SType: vk.StructureTypeCommandBufferBeginInfo, Flags: vk.CommandBufferUsageFlags(vk.CommandBufferUsageOneTimeSubmitBit)}
 	if r := d.cmds.BeginCommandBuffer(cb, &d.args.begin); r != vk.Success {
 		return fmt.Errorf("gpu: vkBeginCommandBuffer: %w", resultError(r))
