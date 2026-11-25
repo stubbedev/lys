@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/desktop/config"
@@ -57,11 +58,45 @@ func TestAPreviewFollowsItsConfig(t *testing.T) {
 	if card.HasClass("shadow") || card.HasClass("urgency-bar") {
 		t.Errorf("no shadow and a critical-only bar preview a normal card as %v", card.Classes())
 	}
-	if closers := treetest.All[*widget.Button](card); len(closers) != 1 || closers[0].TooltipText() != i18n.T("notification-popup-close") {
-		t.Error("the close button is not named by its tooltip")
-	}
 	if widget.CursorNameOf(card) != "" {
 		t.Error("a preview takes clicks like a card with a default action")
+	}
+	k := NewCard(cfg, treetest.Font(t), cardNow, sampleContent(), Handlers{Close: func() {}, Post: func(fn func()) { fn() }})
+	if k.Close.TooltipText() != i18n.T("notification-popup-close") {
+		t.Error("the close button is not named by its tooltip")
+	}
+}
+
+// itemBorder is the head row's own border, inside which its age ends.
+const itemBorder = 1
+
+// The settings preview's "Just now" ended 38px short of the body's right
+// edge, the room of a close button that shows only under the pointer. A
+// preview shows no close button, and its age ends where its body does.
+func TestAPreviewsAgeEndsWhereItsBodyDoes(t *testing.T) {
+	cfg := config.Defaults()
+	preview := Preview(cfg, treetest.Font(t), cardNow, Content{
+		App: "mail", Icon: Icon{Name: FallbackIcon}, Added: cardNow, Summary: "Hello",
+		Body: "This is how notifications look with your settings, long enough to fill the line",
+	})
+	card := onlyCard(t, preview)
+	sz := widget.SizeWithinAsChild(preview, widget.Size{W: 1920, H: 1080})
+	preview.Arrange(render.Rect{W: sz.W, H: sz.H})
+	if buttons := treetest.All[*widget.Button](card); len(buttons) != 1 || buttons[0].Visible() {
+		t.Error("a preview shows its close button")
+	}
+	age, body := treetest.First[*widget.Label](t, card), treetest.WithClass(card, "notification-popup-body")
+	for _, l := range treetest.All[*widget.Label](card) {
+		if l.HasClass("notification-popup-time") {
+			age = l
+		}
+	}
+	if len(body) != 1 {
+		t.Fatalf("%d bodies", len(body))
+	}
+	a, b := age.Bounds(), body[0].(widget.Boundser).Bounds()
+	if gap := b.X + b.W - (a.X + a.W); gap < 0 || gap > itemBorder {
+		t.Errorf("the age ends at x %d, the body at %d", a.X+a.W, b.X+b.W)
 	}
 }
 
