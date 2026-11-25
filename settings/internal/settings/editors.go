@@ -372,8 +372,9 @@ func softIn(lo, hi, step float64, u unit) rowOpt {
 	})
 }
 
-// softRange is a whole number on a slider over [lo, hi], read by a field
-// as wide as the slider's values and typing any value of the field's
+// softRange is a whole number on a slider over [lo, hi], read by a
+// number field as wide as its page's others (numberField) typing any
+// value of the field's
 // range in steps of step, its unit the field's trailing addon: the value
 // shows once, in the field.
 type softRange struct {
@@ -384,7 +385,7 @@ type softRange struct {
 func newSoftRange(k *kit, s slot, meta config.FieldMeta, lo, hi, step float64, u unit) *softRange {
 	n := newNumber(k, s, meta.Min, meta.Max, step, 0)
 	n.SetFitRange(lo, hi)
-	c := &softRange{slider: bindSlider(k.fieldSlider(lo, hi, k.sliderField(n, u)), s, true), number: n}
+	c := &softRange{slider: bindSlider(k.fieldSlider(lo, hi, k.numberField(n, u)), s, true), number: n}
 	c.OnValue = n.SetValue
 	n.refresh()
 	return c

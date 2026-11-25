@@ -86,25 +86,21 @@ func (c *unitNumber) spin() {}
 
 func (c *unitNumber) spinButton() *widget.SpinButton { return c.number.SpinButton }
 
-// numberField is n in u: inside one border with the unit's addon after
-// it, as wide as the units of the page's other spins, or n alone for a
-// bare count.
+// numberField is n in u inside one border with the unit's addon after
+// it. While a page is being built the field joins the page's spin
+// widths: n as wide as the page's other spins, its unit as wide as
+// theirs, and a bare count an empty addon as wide, so every number field
+// of the page, a row's or a slider's, starts and ends at one x with its
+// arrows on one x. Outside a page a bare count is n alone.
 func (k *kit) numberField(n *number, u unit) control {
-	if u == bareCount {
-		return n
+	if k.spins == nil {
+		if u == bareCount {
+			return n
+		}
+		return &unitNumber{InputGroup: k.inUnit(n, u), number: n}
 	}
-	place := func(l *widget.Label) widget.Widget { return l }
-	if k.spins != nil {
-		place = k.spins.unit
-	}
-	return &unitNumber{InputGroup: k.unitGroup(n, u, place), number: n}
-}
-
-// sliderField is n in u read beside a slider: its unit at its own width,
-// the field as wide as its slider's values, not the page's spins.
-func (k *kit) sliderField(n *number, u unit) control {
-	if u == bareCount {
-		return n
-	}
-	return &unitNumber{InputGroup: k.inUnit(n, u), number: n}
+	k.spins.addSpin(n.SpinButton)
+	g := widget.NewInputGroup(n)
+	g.Append(k.spins.unit(k.label(u.addon())))
+	return &unitNumber{InputGroup: g, number: n}
 }
