@@ -223,7 +223,7 @@ type appTile struct {
 func (d *defaultApps) tile(title, icon, app string, pick func(anchor widget.Widget), reset func()) *appTile {
 	th := widget.Current()
 	face := widget.NewBox(widget.Column, th.Spacing/2, 0)
-	face.SetPadding(render.Insets{Left: th.Padding, Right: th.Padding})
+	face.SetPadding(render.Insets{Top: th.Spacing, Bottom: th.Spacing, Left: th.Padding, Right: th.Padding})
 	face.AppendAligned(widget.NewThemeIcon(cmp.Or(icon, appFallbackIcon), appTileIconPx), false, widget.AlignCenter)
 	tile := &appTile{Box: widget.NewBox(widget.Column, th.Spacing/2, 0), title: d.k.label(title), app: d.k.label(app, css.Caption, css.DimLabel)}
 	for _, l := range []*widget.Label{tile.title, tile.app} {

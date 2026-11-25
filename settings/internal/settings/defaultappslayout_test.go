@@ -70,3 +70,21 @@ func TestTheFileTypesCardEndsInNoSeparator(t *testing.T) {
 		t.Errorf("%d separators between the filter and %d types, want %d", seps, len(d.shown), want)
 	}
 }
+
+// A tile's status line sat 3px from its bottom border, its icon 5px from
+// the top. Both stand a gap's width inside the tile, the same at the top
+// and the bottom.
+func TestACategoryTileHoldsItsContentOffItsEdges(t *testing.T) {
+	defaultAppsFixture(t)
+	w := laidOutPage(t, "", defaultAppsID, 1000)
+	gap := widget.Current().Spacing
+	for _, tile := range treetest.All[*appTile](w.page) {
+		b := tile.button.Bounds()
+		icon := treetest.All[*widget.Icon](tile.button)[0].Bounds()
+		s := tile.app.Bounds()
+		top, bottom := icon.Y-b.Y, b.Y+b.H-(s.Y+s.H)
+		if top < gap || bottom < gap || top-bottom > 2 || bottom-top > 2 {
+			t.Errorf("%s: the content stands %dpx from the top and %dpx from the bottom, want %d or more alike", tileName(tile), top, bottom, gap)
+		}
+	}
+}
