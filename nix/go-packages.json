@@ -186,6 +186,7 @@
       "desktop/shlex",
       "desktop/spawn",
       "lib/atomicfile",
+      "lib/i18n",
       "lib/third_party/godbus",
       "lib/xdg"
     ],
@@ -298,6 +299,7 @@
       "desktop/i18n/locales/greeter",
       "desktop/i18n/locales/settings",
       "desktop/i18n/locales/shell",
+      "lib/i18n",
       "lib/intconv"
     ],
     "external": [
@@ -306,6 +308,7 @@
       "io/fs",
       "maps",
       "math",
+      "math/big",
       "os",
       "slices",
       "strconv",
@@ -2781,6 +2784,7 @@
       "io/fs",
       "os",
       "path/filepath",
+      "slices",
       "strconv",
       "strings"
     ],
@@ -2788,7 +2792,6 @@
       "lib/testbuild"
     ],
     "testExternal": [
-      "slices",
       "testing",
       "testing/fstest"
     ]
@@ -5558,6 +5561,7 @@
   "polkit/internal/polkit": {
     "imports": [
       "lib/dbusx",
+      "lib/i18n",
       "lib/logind",
       "lib/polkit",
       "lib/third_party/godbus",
@@ -7451,6 +7455,7 @@
   "shell/cmd/lys-shell": {
     "imports": [
       "desktop/config",
+      "desktop/i18n",
       "desktop/icons",
       "desktop/identity",
       "desktop/logging",
@@ -7485,7 +7490,6 @@
       "shell/service/recorder",
       "shell/service/shellipc",
       "shell/service/sni",
-      "shell/service/sysinfo",
       "shell/service/wallpaper",
       "shell/shell/bar",
       "shell/shell/filechooser",
@@ -7516,6 +7520,7 @@
     ],
     "testImports": [
       "desktop/fileuri",
+      "desktop/i18n/locales/shell",
       "desktop/icons/icontest",
       "desktop/opener/openertest",
       "desktop/portal/permissions/permstoretest",
@@ -8785,6 +8790,7 @@
       "desktop/service/niri",
       "desktop/service/sway",
       "desktop/shlex",
+      "lib/i18n",
       "lib/intconv",
       "lib/third_party/gomath",
       "lib/wmipc",
@@ -9460,9 +9466,6 @@
     ]
   },
   "shell/service/sysinfo": {
-    "imports": [
-      "lib/third_party/gomath"
-    ],
     "external": [
       "bytes",
       "errors",
@@ -10491,7 +10494,6 @@
   "shell/shell/screenshot": {
     "imports": [
       "desktop/config",
-      "desktop/desktopentry",
       "desktop/i18n",
       "desktop/identity",
       "desktop/offheap",
@@ -10501,6 +10503,7 @@
       "desktop/service/sway",
       "lib/atomicfile",
       "lib/capture",
+      "lib/i18n",
       "lib/portaldialogs",
       "lib/render",
       "lib/third_party/godbus",
