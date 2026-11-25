@@ -356,9 +356,10 @@ func (d *Dropdown) Measure(axis Axis, forSize int) Sizes {
 }
 
 // itemWidth is the face's width showing item i whole: the label start,
-// its icon, its label and the chevron.
+// its icon, its label's advance rounded up, so the face's label span
+// holds it unellipsized, and the chevron.
 func (d *Dropdown) itemWidth(i int) int {
-	return dropdownLabelX + d.iconWidth(i) + int(d.face.Shape(d.items[i], d.sizePx).Advance()+0.5) + dropdownChevronW
+	return dropdownLabelX + d.iconWidth(i) + int(math.Ceil(d.face.Shape(d.items[i], d.sizePx).Advance())) + dropdownChevronW
 }
 
 // leastWidth is the face's least width: the label start, the icon slot,
@@ -407,18 +408,10 @@ func (d *Dropdown) Paint(cv *render.Canvas) {
 	}
 	lineH := d.face.Shape("lg", d.sizePx).LineHeight()
 	baseline := d.bounds.Y + (d.bounds.H-lineH)/2 + int(d.face.Shape("lg", d.sizePx).Ascent()+0.5)
-	lx := d.bounds.X + dropdownLabelX
-	if ic := d.selectedIcon(); ic != nil {
-		setParents(d, ic)
-		sz := SizeWithin(ic, Size{W: d.bounds.W, H: d.bounds.H})
-		ic.Arrange(render.Rect{X: lx, Y: d.bounds.Y + (d.bounds.H-sz.H)/2, W: sz.W, H: sz.H})
+	ic, lx, end, label := d.faceLayout()
+	if ic != nil {
 		PaintChild(cv, ic)
-		lx += sz.W + dropdownIconGap
 	}
-	// The selection ellipsizes into the span before the chevron, which
-	// always shows whole.
-	end := d.bounds.X + d.bounds.W - dropdownChevronW
-	label := render.EllipsizeText(d.face, d.Selection(), render.EllipsizeEnd, float64(end-lx), d.sizePx)
 	sh := d.face.ShapeDir(label, d.sizePx, d.dir)
 	if text.RTL(label, d.dir) {
 		// A right-to-left selection reads from the right edge; keep
@@ -435,6 +428,22 @@ func (d *Dropdown) Paint(cv *render.Canvas) {
 	chev = pickc(0, d.faceArrow.style(&d.faceArrow), style.PropColor, chev)
 	slot := d.bounds.X + d.bounds.W - (dropdownChevronW - entryTrailingGap)
 	paintSymbol(cv, SymbolChevronDown, render.Rect{X: slot, Y: d.bounds.Y, W: dropdownArrowSize, H: d.bounds.H}, dropdownArrowSize, chev)
+}
+
+// faceLayout arranges the face's icon, nil without one, and returns
+// it with the label's start and end and the selection ellipsized into
+// the span between them, before the chevron, which always shows whole.
+func (d *Dropdown) faceLayout() (ic Widget, lx, end int, label string) {
+	lx = d.bounds.X + dropdownLabelX
+	if ic = d.selectedIcon(); ic != nil {
+		setParents(d, ic)
+		sz := SizeWithin(ic, Size{W: d.bounds.W, H: d.bounds.H})
+		ic.Arrange(render.Rect{X: lx, Y: d.bounds.Y + (d.bounds.H-sz.H)/2, W: sz.W, H: sz.H})
+		lx += sz.W + dropdownIconGap
+	}
+	end = d.bounds.X + d.bounds.W - dropdownChevronW
+	label = render.EllipsizeText(d.face, d.Selection(), render.EllipsizeEnd, float64(end-lx), d.sizePx)
+	return ic, lx, end, label
 }
 
 // Role implements Roleer.

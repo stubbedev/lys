@@ -774,3 +774,30 @@ func TestDropdownSelectionWidthFollowsTheSelection(t *testing.T) {
 		t.Errorf("the face with nothing selected asks for %dpx, want its least %d", got, least)
 	}
 }
+
+// A dropdown arranged at its selection's width shows its selection
+// whole, whatever fraction of a pixel its label's advance ends on, with
+// or without a leading swatch; a pixel narrower, it ellipsizes.
+func TestADropdownAtItsSelectionWidthNeverEllipsizes(t *testing.T) {
+	swatch := func() Widget { return NewColorSwatch(render.RGB(0xff, 0, 0)) }
+	labels := []string{"Off", "Normal", "Open-Meteo", "Default", "Minimize", "Maximize", "Name or Index", "All displays", "Surface Elevated", "Same as the language", "Open the network panel", "The next window"}
+	for _, size := range []float64{12, 13, 14, 15.5} {
+		for _, leading := range []func() Widget{nil, swatch} {
+			for _, label := range labels {
+				d := NewDropdownRows(entryFace(t), size, []DropdownRow{{Label: label, Leading: leading}}, 0)
+				w := d.SelectionWidth()
+				d.Arrange(render.Rect{W: w, H: 36})
+				if _, _, _, shown := d.faceLayout(); shown != label {
+					t.Errorf("%q at %vpx (swatch %v) at its selection width %dpx shows %q", label, size, leading != nil, w, shown)
+				}
+				if w <= dropdownMinW {
+					continue
+				}
+				d.Arrange(render.Rect{W: w - 1, H: 36})
+				if _, _, _, shown := d.faceLayout(); shown == label {
+					t.Errorf("%q at %vpx (swatch %v) a pixel under its selection width %dpx still shows whole", label, size, leading != nil, w)
+				}
+			}
+		}
+	}
+}
