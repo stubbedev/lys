@@ -54,6 +54,9 @@ item.card-state .media,
 
 .settings-page item:disabled .title,
 .settings-page item:disabled .description,
-.settings-page item:disabled .numeric {
+.settings-page item:disabled .numeric,
+.settings-page item:disabled chip label,
+.settings-page item:disabled chip .dismiss,
+.settings-page item:disabled .format-preview {
   color: var(--fg-subtle);
 }
