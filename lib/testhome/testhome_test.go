@@ -26,7 +26,7 @@ var isolatedKeys = []string{"HOME", "XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_STA
 
 func restoreAfter(t *testing.T) {
 	t.Helper()
-	for _, k := range slices.Concat(isolatedKeys, sessionEnv[:], toolchainEnv[:], []string{wltest.HeadlessEnv, SessionEnv, tmpEnv, goTmpEnv}) {
+	for _, k := range slices.Concat(isolatedKeys, sessionEnv[:], toolchainEnv[:], []string{wltest.HeadlessEnv, SessionEnv, tmpEnv, goTmpEnv, languageEnv}) {
 		v, set := os.LookupEnv(k)
 		t.Setenv(k, v)
 		if !set {
@@ -357,6 +357,39 @@ func TestMainRunsTheChildOfAnIsolatedTestAsItIs(t *testing.T) {
 	}
 	if _, err := os.Stat(parent); err != nil {
 		t.Errorf("the parent's home after the child ran: %v", err)
+	}
+}
+
+func TestMainReadsEnglishWhateverTheHostSpeaks(t *testing.T) {
+	restoreAfter(t)
+	t.Setenv(isolatedEnv, "")
+	t.Setenv(wltest.HeadlessEnv, "")
+	t.Setenv(languageEnv, "de_DE:fr")
+	var during string
+	if code := Main(func() int { during = os.Getenv(languageEnv); return 0 }); code != 0 {
+		t.Fatalf("Main = %d, want the run's 0", code)
+	}
+	if during != testLanguage {
+		t.Errorf("%s = %q during the run on a German host, want %q", languageEnv, during, testLanguage)
+	}
+}
+
+func TestMainKeepsTheLanguageAnIsolatedParentChose(t *testing.T) {
+	restoreAfter(t)
+	t.Setenv(isolatedEnv, t.TempDir())
+	t.Setenv(languageEnv, "fr")
+	var during string
+	if code := Main(func() int { during = os.Getenv(languageEnv); return 0 }); code != 0 {
+		t.Fatalf("Main = %d, want the run's 0", code)
+	}
+	if during != "fr" {
+		t.Errorf("%s = %q in the child of an isolated test, want the parent's fr", languageEnv, during)
+	}
+}
+
+func TestTheIsolatedTestBinaryReadsEnglish(t *testing.T) {
+	if got := os.Getenv(languageEnv); got != testLanguage {
+		t.Errorf("%s = %q in an isolated test binary, want %q", languageEnv, got, testLanguage)
 	}
 }
 

@@ -2,9 +2,11 @@
 // session but its own, so no test, and no application or daemon it
 // starts, reads or writes the real user's files or reaches the session
 // of whoever runs it: the session bus, the system bus, the compositor,
-// the sound server. A TestMain calls Run (or Main, around work of its
-// own), and one test of the package calls RequireNoHostSession, which
-// fails where a host endpoint is still within reach.
+// the sound server. Nor does it read the language of whoever runs it:
+// its messages are in the fallback language, en-US. A TestMain calls
+// Run (or Main, around work of its own), and one test of the package
+// calls RequireNoHostSession, which fails where a host endpoint is
+// still within reach.
 package testhome
 
 import (
@@ -48,6 +50,7 @@ const (
 	displayEnv    = "WAYLAND_DISPLAY"
 	tmpEnv        = "TMPDIR"
 	goTmpEnv      = "GOTMPDIR"
+	languageEnv   = "LANGUAGE"
 
 	probeTimeout     = 2 * time.Second
 	toolchainTimeout = 30 * time.Second
@@ -72,6 +75,11 @@ var sessionEnv = [...]string{
 	"PULSE_RUNTIME_PATH",
 	"PULSE_COOKIE",
 }
+
+// testLanguage is the language every isolated test binary reads its
+// messages in: en-US, the one every catalogue falls back to and the one
+// tests compare their text against.
+const testLanguage = "en_US"
 
 // toolchainEnv are the go command's settings whose defaults lie under
 // the user's home and configuration directory.
@@ -109,9 +117,15 @@ const scratchFS = "/dev/shm"
 // that moved, stay where they were, so a go build a test runs starts
 // warm.
 //
+// Isolating also sets LANGUAGE, which a message catalogue reads before
+// LC_ALL, LC_MESSAGES and LANG, to en-US, so a test's text reads the
+// same on any host, and leaves the categories that format times,
+// numbers and units as they are. A test that wants another language
+// sets its own.
+//
 // A test binary started by an isolated test (a helper process, the
 // binary run again as the program under test) runs as it is: its
-// environment is the one its parent made for it.
+// environment, its language too, is the one its parent made for it.
 func Main(run func() int) int { return mainOn(scratchFS, run) }
 
 func mainOn(fsDir string, run func() int) int {
@@ -189,6 +203,7 @@ func isolate(home string) error {
 		[2]string{"XDG_CACHE_HOME", filepath.Join(home, "cache")},
 		[2]string{systemBusEnv, busAddress(filepath.Join(home, "system-bus"))},
 		[2]string{isolatedEnv, home},
+		[2]string{languageEnv, testLanguage},
 	)
 	runtime := os.Getenv(runtimeEnv)
 	switch {
