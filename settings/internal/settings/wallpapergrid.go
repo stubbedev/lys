@@ -25,7 +25,6 @@ const (
 var picturesDir = wallpaper.PicturesDir
 
 var wallpaperGridRow rowOpt = func(r *rowSpec) {
-	r.fullWidth = true
 	r.editor = func(k *kit, s slot, _ config.FieldMeta) control { return newWallpaperGrid(k, s) }
 }
 
@@ -47,11 +46,15 @@ type pictureListing struct {
 	err    error
 }
 
+// wallpaperGrid is the wallpaper's path in the card's control column, as
+// every path row has it, over the pictures of the picker directories as
+// a grid of tiles under the row's text.
 type wallpaperGrid struct {
 	*widget.Box
 	k        *kit
 	slot     slot
 	path     *fileEditor
+	below    *widget.Box
 	grid     *widget.FlowBox
 	note     *widget.Label
 	problem  *inlineState
@@ -64,7 +67,7 @@ type wallpaperGrid struct {
 }
 
 func newWallpaperGrid(k *kit, s slot) *wallpaperGrid {
-	g := &wallpaperGrid{Box: gapBox(widget.Column), k: k, slot: s, pictures: picturesDir()}
+	g := &wallpaperGrid{Box: widget.NewBox(widget.Row, 0, 0), k: k, slot: s, pictures: picturesDir()}
 	g.AddClass("wallpaper-grid")
 	g.thumbs = newThumbCache(k, cachedThumb(launcher.ImageThumbnails{Dir: launcher.LargeThumbnailDir(), Decode: imagedecode.Open}), g.paintThumbs)
 	g.path = newFileEditor(k, s)
@@ -72,13 +75,18 @@ func newWallpaperGrid(k *kit, s slot) *wallpaperGrid {
 	g.grid.SetAccessibleName(locale.T().Get("settings-wallpaper-grid"))
 	g.note = k.note("")
 	g.problem = k.inlineState()
-	g.AppendAligned(g.path, false, widget.AlignStart)
-	g.Append(g.grid, false)
-	g.Append(g.note, false)
-	g.Append(g.problem, false)
+	g.Append(g.path, false)
+	g.below = gapBox(widget.Column)
+	g.below.Append(g.grid, false)
+	g.below.Append(g.note, false)
+	g.below.Append(g.problem, false)
 	g.refresh()
 	return g
 }
+
+func (g *wallpaperGrid) fit() widget.ItemControlFit { return g.path.fit() }
+
+func (g *wallpaperGrid) detail() widget.Widget { return g.below }
 
 func (g *wallpaperGrid) close() {
 	g.closed = true

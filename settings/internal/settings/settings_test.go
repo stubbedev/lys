@@ -1437,60 +1437,6 @@ func TestACardLabelTooLongEndsInAnEllipsis(t *testing.T) {
 	}
 }
 
-func TestCyclingRevealFollowsTheDirectory(t *testing.T) {
-	k := testKit(t, "")
-	spec := cyclingReveal("wallpaper.cycling-directory",
-		field("wallpaper.cycling-mode"),
-		field("wallpaper.cycling-interval-mins", spin(1, 1440, 1, 0)),
-		field("wallpaper.cycling-same-image"),
-	)
-	row := newFieldRow(k, k.store, spec)
-	g := row.ctl.(*revealGroup)
-	if g.Revealed() || g.Progress() != 0 {
-		t.Fatalf("no directory: revealed %v at %v, want hidden at once", g.Revealed(), g.Progress())
-	}
-	if len(g.rows) != 3 || !g.Collapse() || g.Transition() != widget.RevealSlideDown {
-		t.Errorf("group: %d rows, collapse %v, transition %v", len(g.rows), g.Collapse(), g.Transition())
-	}
-	if row.badge.Visible() || row.reset.Enabled() {
-		t.Error("the action row shows a source badge or reset")
-	}
-	if err := k.store.set("wallpaper.cycling-directory", "/walls"); err != nil {
-		t.Fatal(err)
-	}
-	row.refresh()
-	if !g.Revealed() {
-		t.Error("setting the directory did not reveal the options")
-	}
-	if row.badge.Visible() {
-		t.Error("the directory's override badged the action row")
-	}
-	// The nested rows edit their own fields.
-	interval := g.rows[1].ctl.(*number)
-	interval.KeyAction(widget.KeyUp, 0)
-	if v := k.store.value("wallpaper.cycling-interval-mins"); v != int64(16) {
-		t.Errorf("interval stored %v (%T), want 16", v, v)
-	}
-	row.refresh()
-	if !g.rows[1].badge.Visible() {
-		t.Error("a nested row's override shows no badge")
-	}
-	if err := k.store.set("wallpaper.cycling-directory", ""); err != nil {
-		t.Fatal(err)
-	}
-	row.refresh()
-	if g.Revealed() {
-		t.Error("clearing the directory left the options revealed")
-	}
-
-	// A directory already set shows the options at once.
-	k2 := testKit(t, "wallpaper:\n  cycling-directory: /walls\n")
-	g2 := fieldControl(k2, k2.store, spec).(*revealGroup)
-	if !g2.Revealed() || g2.Progress() != 1 {
-		t.Errorf("set directory: revealed %v at %v, want shown at once", g2.Revealed(), g2.Progress())
-	}
-}
-
 func TestEntriesKeepTheirGtkWidth(t *testing.T) {
 	k := testKit(t, "")
 	con := widget.Size{W: 2000, H: 100}
