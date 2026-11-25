@@ -225,3 +225,40 @@ func TestTheLauncherPageLinksToItsModes(t *testing.T) {
 		t.Error("the Launcher page still edits launcher.modes as well")
 	}
 }
+
+// laidOutModes is the mode list laid out width pixels wide.
+func laidOutModes(t *testing.T, width int) *launcherModeList {
+	t.Helper()
+	k := testKit(t, "")
+	c := modeList(t, k)
+	root := widget.NewBox(widget.Column, 0, 0)
+	root.Append(c, false)
+	styledLayOut(k, root, width)
+	return c
+}
+
+// Where the width holds the modes whole beside the options, the two sit
+// side by side; where it does not, the options sit under the modes,
+// every mode's name whole either way.
+func TestTheModesSitBesideTheirOptionsOnlyWhereTheyFit(t *testing.T) {
+	wide := laidOutModes(t, 1400)
+	if l, o := wide.modePanes.list.Bounds(), wide.options.Bounds(); o.X < l.X+l.W || o.Y != l.Y {
+		t.Errorf("at 1400px the options at %v do not sit beside the modes at %v", o, l)
+	}
+	narrow := laidOutModes(t, 600)
+	if l, o := narrow.modePanes.list.Bounds(), narrow.options.Bounds(); o.Y < l.Y+l.H || o.X != l.X {
+		t.Errorf("at 600px the options at %v do not sit under the modes at %v", o, l)
+	}
+	for _, c := range []*launcherModeList{wide, narrow} {
+		for _, r := range treetest.WithClass(c, "launcher-mode") {
+			title := r.(*settingRow).Title()
+			l := treetest.LabelReading(t, r, title)
+			if l.MaxLines() != 0 {
+				t.Errorf("%q is capped at %d lines", title, l.MaxLines())
+			}
+			if l.Bounds().W > c.modePanes.list.Bounds().W {
+				t.Errorf("%q runs %dpx wide past its %dpx pane", title, l.Bounds().W, c.modePanes.list.Bounds().W)
+			}
+		}
+	}
+}

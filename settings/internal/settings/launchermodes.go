@@ -6,6 +6,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
 
@@ -78,7 +79,7 @@ func launcherModeListRow() rowSpec {
 // launcherModeList is the two panes: the modes, and the selected one's
 // name and options.
 type launcherModeList struct {
-	*widget.Box
+	*modePanes
 	k        *kit
 	modes    slot
 	names    slot
@@ -94,7 +95,7 @@ type launcherModeList struct {
 
 func newLauncherModeList(k *kit, modes, names slot) *launcherModeList {
 	t := locale.T()
-	c := &launcherModeList{Box: gapBox(widget.Row), k: k, modes: modes, names: names}
+	c := &launcherModeList{k: k, modes: modes, names: names}
 	c.list = widget.NewItemGroup()
 	left := gapBox(widget.Column)
 	left.AddClass("launcher-mode-list")
@@ -126,10 +127,55 @@ func newLauncherModeList(k *kit, modes, names slot) *launcherModeList {
 		c.groups = append(c.groups, group)
 		c.rows = append(c.rows, group...)
 	}
-	c.Append(left, false)
-	c.Append(pane, true)
+	c.modePanes = newModePanes(left, pane)
 	c.refresh()
 	return c
+}
+
+// modePanes lays the modes list and the selected mode's options side by
+// side where the width holds the list whole beside the options at their
+// narrowest, and the options under the list where it does not.
+type modePanes struct {
+	*widget.Box
+	list, options *widget.Box
+}
+
+func newModePanes(list, options *widget.Box) *modePanes {
+	p := &modePanes{Box: gapBox(widget.Row), list: list, options: options}
+	p.Append(list, false)
+	p.Append(options, true)
+	return p
+}
+
+// sideBySide reports whether width holds the list at its natural width
+// beside the options at their minimum.
+func (p *modePanes) sideBySide(width int) bool {
+	return width >= p.list.Measure(widget.Row, widget.Unknown).Nat+widget.Current().Spacing+p.options.Measure(widget.Row, widget.Unknown).Min
+}
+
+// lay turns the panes for width: along a row side by side, else stacked.
+func (p *modePanes) lay(width int) {
+	if width == widget.Unknown || p.sideBySide(width) {
+		p.SetAxis(widget.Row)
+		return
+	}
+	p.SetAxis(widget.Column)
+}
+
+// Measure asks no more width than the panes stacked, and wants them side
+// by side; across a width, it is as tall as the panes laid out there.
+func (p *modePanes) Measure(axis widget.Axis, forSize int) widget.Sizes {
+	if axis == widget.Row {
+		l, o := p.list.Measure(widget.Row, widget.Unknown), p.options.Measure(widget.Row, widget.Unknown)
+		return widget.Sizes{Min: max(l.Min, o.Min), Nat: l.Nat + widget.Current().Spacing + o.Nat}
+	}
+	p.lay(forSize)
+	return p.Box.Measure(axis, forSize)
+}
+
+func (p *modePanes) Arrange(r render.Rect) {
+	p.lay(r.W)
+	p.Box.Arrange(r)
 }
 
 func (c *launcherModeList) nestedRows() []*fieldRow { return c.rows }
@@ -218,6 +264,7 @@ func (c *launcherModeList) modeRow(e launcherModeEntry, names map[string]any, on
 	}
 	row := c.k.row(e.label, detail)
 	row.AddClass("launcher-mode")
+	row.SetLines(0, rowDescriptionLines)
 	if e.value == c.selected {
 		row.SetVariant(widget.ItemMuted)
 	}
