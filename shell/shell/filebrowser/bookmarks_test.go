@@ -10,6 +10,7 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/xdg"
 	"github.com/stubbedev/lys/ui/app"
+	"github.com/stubbedev/lys/ui/transfer"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/shell/shell/filebrowser/browsertest"
@@ -101,7 +102,7 @@ func TestBookmarksAreEditable(t *testing.T) {
 		t.Errorf("a second Ctrl+D made %q", got)
 	}
 	pics := filepath.Join(hs.root, "pics")
-	hs.do(func() { hs.c.droppedOnSidebar(pics) })
+	hs.do(func() { hs.c.droppedOnSidebar([]string{pics}, transfer.ActionCopy) })
 	hs.flush()
 	if got := read(); got != want+fileuri.FromPath(pics)+"\n" {
 		t.Errorf("a folder dropped on the sidebar left %q", got)

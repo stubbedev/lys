@@ -639,8 +639,8 @@ func Crumbs(dir, home string) []Crumb {
 	switch dir {
 	case recentLocation:
 		return []Crumb{{i18n.T("file-chooser-place-recent"), recentLocation, true}}
-	case trashLocation:
-		return []Crumb{{i18n.T("file-chooser-place-trash"), trashLocation, true}}
+	case TrashLocation:
+		return []Crumb{{i18n.T("file-chooser-place-trash"), TrashLocation, true}}
 	}
 	base, baseLabel := "/", "/"
 	rest := strings.TrimPrefix(dir, "/")

@@ -50,7 +50,7 @@ func (c *Browser) completeLocation(text string) {
 		typedDir, segment = text[:i+1], text[i+1:]
 	}
 	base := c.s.dir
-	if virtualLocation(base) {
+	if VirtualLocation(base) {
 		base = c.d.Home
 	}
 	dir := base

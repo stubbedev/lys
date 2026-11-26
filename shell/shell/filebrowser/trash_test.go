@@ -102,7 +102,7 @@ func TestNetworkLocations(t *testing.T) {
 }
 
 func TestTrashCrumb(t *testing.T) {
-	if crumbs := Crumbs(trashLocation, "/home/u"); len(crumbs) != 1 || crumbs[0] != (Crumb{"Trash", trashLocation, true}) {
+	if crumbs := Crumbs(TrashLocation, "/home/u"); len(crumbs) != 1 || crumbs[0] != (Crumb{"Trash", TrashLocation, true}) {
 		t.Errorf("trash crumbs = %v", crumbs)
 	}
 }

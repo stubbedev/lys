@@ -12,6 +12,7 @@ import (
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/lib/atomicfile"
 	"github.com/stubbedev/lys/lib/xdg"
+	"github.com/stubbedev/lys/ui/transfer"
 )
 
 // BookmarksFile is GTK 3's bookmarks file, which GTK 4 reads too; ""
@@ -100,7 +101,7 @@ func writeBookmarks(file string, lines []string, mode os.FileMode) error {
 // it under Favorites.
 func (c *Browser) bookmark(dir string) {
 	file := c.d.BookmarksFile
-	if file == "" || virtualLocation(dir) {
+	if file == "" || VirtualLocation(dir) {
 		return
 	}
 	OffLoop(c, func() error {
@@ -128,9 +129,10 @@ func (c *Browser) bookmarksChanged(err error) {
 	OffLoop(c, c.d.Places, func(places []Place) { c.fillPlaces(c.ui.favorites, c.favorites(places)) })
 }
 
-// droppedOnSidebar bookmarks a folder dropped on the sidebar; a file
-// dropped there opens its folder, as a drop on the files does.
-func (c *Browser) droppedOnSidebar(path string) {
+// droppedOnSidebar bookmarks the first of the folders dropped on the
+// sidebar; a file dropped there opens its folder.
+func (c *Browser) droppedOnSidebar(paths []string, _ transfer.Action) {
+	path := paths[0]
 	OffLoop(c, statPath(path), func(st pathStat) {
 		if st.err == nil && st.info.IsDir() {
 			c.bookmark(path)

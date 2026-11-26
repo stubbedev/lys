@@ -311,16 +311,15 @@ func TestColumnGripKeepsTheNameFloor(t *testing.T) {
 	}
 }
 
-func TestDroppedPath(t *testing.T) {
-	for in, want := range map[string]string{
-		"file:///a/b%20c\r\nfile:///d": "/a/b c",
-		"#c\nfile:///x":                "/x",
-		"https://e.com/x":              "",
-		"":                             "",
+func TestDroppedPaths(t *testing.T) {
+	for in, want := range map[string][]string{
+		"file:///a/b%20c\r\nfile:///d":              {"/a/b c", "/d"},
+		"#c\nfile:///x\nhttps://e.com/y\nfile:///z": {"/x", "/z"},
+		"https://e.com/x":                           nil,
+		"":                                          nil,
 	} {
-		got, ok := droppedPath([]byte(in))
-		if got != want || ok != (want != "") {
-			t.Errorf("droppedPath(%q) = %q %v", in, got, ok)
+		if got := droppedPaths([]byte(in)); !slices.Equal(got, want) {
+			t.Errorf("droppedPaths(%q) = %q, want %q", in, got, want)
 		}
 	}
 }
@@ -581,7 +580,7 @@ func TestDragFilesOut(t *testing.T) {
 	if list := dragRead(t, drag, transfer.MimeURIList); list != hs.uri("a.png")+"\r\n"+hs.uri("b.txt")+"\r\n" {
 		t.Errorf("uri list = %q", list)
 	}
-	if gnome := dragRead(t, drag, gnomeCopiedFiles); gnome != "copy\n"+hs.uri("a.png")+"\n"+hs.uri("b.txt") {
+	if gnome := dragRead(t, drag, GnomeCopiedFiles); gnome != "copy\n"+hs.uri("a.png")+"\n"+hs.uri("b.txt") {
 		t.Errorf("gnome copied files = %q", gnome)
 	}
 	hs.do(func() {
@@ -609,7 +608,7 @@ func TestDragFilesOut(t *testing.T) {
 	trashed := browsertest.Trashed(t, trash, "notes.txt.2", browsertest.TrashInfo("/home/u/notes.txt"))
 	hs.c.d.TrashDirs = func() []string { return []string{trash} }
 	hs.open(t, openFile)
-	hs.do(func() { hs.c.goTo(trashLocation) })
+	hs.do(func() { hs.c.goTo(TrashLocation) })
 	hs.do(func() {
 		d := hs.c.ui.list.DragContent([]int{0})
 		if d == nil || dragRead(t, d, transfer.MimeURIList) != transfer.FileURI(trashed)+"\r\n" {
@@ -1100,7 +1099,7 @@ func TestTrashPlace(t *testing.T) {
 	if !hs.hasButton("Trash") {
 		t.Fatal("no Trash place")
 	}
-	hs.do(func() { hs.c.goTo(trashLocation) })
+	hs.do(func() { hs.c.goTo(TrashLocation) })
 	if shown := hs.shown(); !slices.Equal(shown, []string{"notes.txt"}) {
 		t.Errorf("Trash shows %v", shown)
 	}

@@ -124,7 +124,7 @@ func (s *session) read(dir string) listing {
 	case recentLocation:
 		entries, err := ListRecent(s.recentFile, s.kinds)
 		return listing{entries: entries, err: err}
-	case trashLocation:
+	case TrashLocation:
 		entries, err := ListTrash(s.trashDirs(), s.kinds)
 		return listing{entries: entries, err: err}
 	}
@@ -175,7 +175,7 @@ func statChanges(dir string, names []string, kinds Kinds) []dirChange {
 // is read wait for it: each was stated after its event, so applied
 // after the listing in order they leave every name as it last was.
 func (s *session) applyChanges(dir string, changes []dirChange) bool {
-	if dir != s.listed || virtualLocation(dir) {
+	if dir != s.listed || VirtualLocation(dir) {
 		return false
 	}
 	if s.loading {
@@ -299,7 +299,7 @@ func (s *session) step(back bool) bool {
 // up goes to the parent; false at the root, and in Recent or Trash.
 func (s *session) up() bool {
 	parent := filepath.Dir(s.dir)
-	if parent == s.dir || virtualLocation(s.dir) {
+	if parent == s.dir || VirtualLocation(s.dir) {
 		return false
 	}
 	s.goTo(parent)

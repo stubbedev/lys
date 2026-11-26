@@ -6,14 +6,14 @@ import (
 	"github.com/stubbedev/lys/desktop/fileops"
 )
 
-// trashLocation is the Trash place's directory: not a path, the
-// listing of the trashed files.
-const trashLocation = "trash:"
+// TrashLocation is the Trash place's directory (Browser.Dir): not a
+// path, the listing of the trashed files.
+const TrashLocation = "trash:"
 
-// virtualLocation reports a place that lists files gathered from
+// VirtualLocation reports a place (Browser.Dir) that lists files gathered from
 // elsewhere (Recent, Trash) instead of a folder: it has no parent, is
 // not followed on disk, and nothing is created in it.
-func virtualLocation(dir string) bool { return dir == recentLocation || dir == trashLocation }
+func VirtualLocation(dir string) bool { return dir == recentLocation || dir == TrashLocation }
 
 // ListTrash lists the trashed files of the trash directories
 // (fileops.List), each named by the original basename its info

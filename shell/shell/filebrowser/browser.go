@@ -167,6 +167,21 @@ type Options struct {
 	OnTypedPath func(path string, exists bool) bool
 	// OnEscape hears Escape while Quick Look is closed; nil ignores it.
 	OnEscape func()
+	// ContextMenu builds the menu a right click on the file views, or
+	// the Menu key, opens for the selection: a right click on a row
+	// outside the selection selects that row alone first, and one below
+	// the rows clears the selection. nil, or no items, opens none.
+	ContextMenu func(selected []Entry) []widget.MenuItem
+	// OnDrop takes the local files dropped on the browse, with the
+	// actions their drag offers, in place of opening the folder of the
+	// first; nil opens it.
+	OnDrop func(paths []string, offered transfer.Action)
+	// DragActions are what dragging rows out offers another app; zero
+	// offers copy alone, so a drop cannot take the files away.
+	DragActions transfer.Action
+	// OnDir hears the folder the browse shows (Dir) as it starts and
+	// each time it moves to another; nil ignores it.
+	OnDir func(dir string)
 }
 
 // Browser is the file browser: one browse at a time, Begin to End, on
@@ -200,9 +215,12 @@ type Browser struct {
 	stopMounts func()
 	reloading  bool
 	// reloadKeep is the path selected when the reload started, and
-	// selectNext the path to select once the coming listing lands (a
-	// dropped file).
-	reloadKeep, selectNext string
+	// selectNext the paths to select once the coming listing lands (a
+	// dropped file, the files Reveal shows).
+	reloadKeep string
+	selectNext []string
+	// renaming is the inline rename showing, nil for none.
+	renaming *rename
 	// navigating is set while one gesture's activations are being
 	// applied: after the first descended, the rest index a listing
 	// that is gone.
@@ -272,6 +290,14 @@ func (c *Browser) Begin(o Options) {
 	c.s.refresh()
 	c.relist()
 	c.stopMounts = c.watchLocations()
+	c.shownDir()
+}
+
+// shownDir tells the host the folder shown (OnDir).
+func (c *Browser) shownDir() {
+	if c.o.OnDir != nil {
+		c.o.OnDir(c.s.dir)
+	}
 }
 
 // End ends the browse: its search, its thumbnail lookups, its folder
@@ -334,6 +360,33 @@ func (c *Browser) Selected() []Entry {
 
 // GoTo shows dir.
 func (c *Browser) GoTo(dir string) { c.goTo(dir) }
+
+// Reveal shows dir with paths selected, those of them it lists, once
+// its listing lands; the folder shown is read again, so what was just
+// made in it is listed.
+func (c *Browser) Reveal(dir string, paths []string) {
+	c.selectNext = slices.Clone(paths)
+	if dir == c.s.dir && !c.s.searching() && !VirtualLocation(dir) {
+		if !c.s.loading {
+			c.s.reload()
+		}
+		return
+	}
+	c.goTo(dir)
+	if !c.s.loading {
+		c.applySelectNext()
+	}
+}
+
+// Typing reports whether the widget r has focused takes text: a key
+// there is the field's, not the browse's.
+func (c *Browser) Typing(r *widget.Router) bool {
+	switch r.Focused().(type) {
+	case *widget.Entry, *widget.SearchEntry, *locationEntry:
+		return true
+	}
+	return false
+}
 
 // SetFiles makes files the type filter (Options.Files).
 func (c *Browser) SetFiles(files func(name string) bool) {
@@ -507,7 +560,7 @@ func (c *Browser) build() {
 	u.newFolder.Append(create, false)
 	u.newFolder.SetVisible(false)
 
-	main := &dropZone{Box: widget.NewBox(widget.Column, 0, 0), onDrop: c.dropped}
+	main := &dropZone{Box: widget.NewBox(widget.Column, 0, 0), onDrop: c.droppedOnMain}
 	main.Append(widget.NewSeparator(widget.Horizontal), false)
 	main.Append(crumbBar, false)
 	main.Append(u.newFolder, false)
@@ -537,11 +590,7 @@ func (c *Browser) Key(r *widget.Router, sym xkb.Keysym, mods app.Mods) {
 	if !c.active {
 		return
 	}
-	typing := false
-	switch r.Focused().(type) {
-	case *widget.Entry, *widget.SearchEntry, *locationEntry:
-		typing = true
-	}
+	typing := c.Typing(r)
 	ctrl, alt := mods&app.ModCtrl != 0, mods&app.ModAlt != 0
 	plain := mods&(app.ModCtrl|app.ModAlt|app.ModSuper|app.ModShift) == 0
 	switch {
@@ -615,7 +664,7 @@ func (c *Browser) activate(i int) {
 // takes nothing.
 func (c *Browser) goToLocation(text string) {
 	base := c.s.dir
-	if virtualLocation(base) {
+	if VirtualLocation(base) {
 		base = c.d.Home
 	}
 	path := ResolvePath(strings.TrimSpace(text), base, c.d.Home)
@@ -662,6 +711,7 @@ func (c *Browser) requestListing(dir string) {
 			if c.reloading {
 				c.reloading = false
 				c.relistKeeping(c.reloadKeep)
+				c.applySelectNext()
 				return
 			}
 			c.relist()
@@ -676,7 +726,7 @@ func (c *Browser) requestListing(dir string) {
 // Trash and a folder that cannot be watched are not followed.
 func (c *Browser) watch(dir string) {
 	c.unwatch()
-	if virtualLocation(dir) {
+	if VirtualLocation(dir) {
 		return
 	}
 	w, err := fswatch.NewNamed(fswatch.Changes)
@@ -886,7 +936,7 @@ func (c *Browser) favorites(places []Place) []Place {
 	}
 	favorites = append(favorites, places...)
 	if c.d.TrashDirs != nil && c.o.Gathered {
-		favorites = append(favorites, Place{Label: i18n.T("file-chooser-place-trash"), Path: trashLocation, Icon: "ld-trash-2-symbolic"})
+		favorites = append(favorites, Place{Label: i18n.T("file-chooser-place-trash"), Path: TrashLocation, Icon: "ld-trash-2-symbolic"})
 	}
 	return favorites
 }
@@ -949,6 +999,9 @@ func (c *Browser) views(u *ui) widget.Widget {
 		l.SetSelectionMode(c.o.Selection)
 		l.OnActivate = c.activate
 		l.OnSelectionChanged = func([]int) { c.refreshPreview() }
+		if c.o.ContextMenu != nil {
+			l.OnPointer = menuPress(l)
+		}
 	}
 
 	u.empty = c.Label(i18n.T("file-chooser-empty-folder"), "file-chooser-empty", css.DimLabel)
@@ -971,7 +1024,36 @@ func (c *Browser) views(u *ui) widget.Widget {
 	col := widget.NewBox(widget.Column, 0, 0)
 	col.Append(u.colHeader, false)
 	col.Append(inset, true)
-	return col
+	if c.o.ContextMenu == nil {
+		return col
+	}
+	zone := &menuZone{Box: widget.NewBox(widget.Column, 0, 0), open: c.openContextMenu}
+	zone.Append(col, true)
+	return zone
+}
+
+// menuPress selects the row a right click lands on, alone, unless it
+// is selected already; a right click below the rows clears the
+// selection. The press goes on to open the context menu.
+func menuPress(l *widget.List) func(int, widget.PointerEvent) bool {
+	return func(row int, e widget.PointerEvent) bool {
+		if e.Button == widget.BTNRight && !slices.Contains(l.Selection(), row) {
+			l.Select(row)
+		}
+		return false
+	}
+}
+
+// openContextMenu opens the host's menu for the selection at at.
+func (c *Browser) openContextMenu(from widget.Widget, at widget.Point) {
+	if !c.active {
+		return
+	}
+	items := c.o.ContextMenu(c.Selected())
+	if len(items) == 0 {
+		return
+	}
+	widget.OpenMenu(from, pointAnchor{X: at.X, Y: at.Y, W: 1, H: 1}, c.d.Font, widgets.TextPx(styling.Body, 1), items, widget.MenuOptions{})
 }
 
 // viewsInset is the list's and the grid's inset from the sidebar, the
@@ -1058,14 +1140,18 @@ func (c *Browser) fileRow(e Entry) widget.Widget {
 	th := widget.Current()
 	lead := widget.NewBox(widget.Row, th.Spacing, 0)
 	lead.Append(c.entryIcon(e, rowIconPx), false)
-	name := c.Label(c.s.displayName(e))
-	// A recursive match is a relative path: keep both ends in view.
-	if c.s.searching() {
-		name.SetEllipsize(widget.EllipsizeMiddle)
+	if r := c.renaming; r != nil && r.path == e.Path {
+		lead.AppendAligned(r.entry, true, widget.AlignCenter)
 	} else {
-		name.SetEllipsize(widget.EllipsizeEnd)
+		name := c.Label(c.s.displayName(e))
+		// A recursive match is a relative path: keep both ends in view.
+		if c.s.searching() {
+			name.SetEllipsize(widget.EllipsizeMiddle)
+		} else {
+			name.SetEllipsize(widget.EllipsizeEnd)
+		}
+		lead.Append(name, true)
 	}
-	lead.Append(name, true)
 	size := "--"
 	if !e.IsDir {
 		size = HumanSize(e.Size)
@@ -1089,6 +1175,10 @@ func (c *Browser) gridCell(e Entry) widget.Widget {
 	cell := widget.NewBox(widget.Column, th.Spacing/2, th.Padding/2)
 	cell.AddClass("file-chooser-grid-cell")
 	cell.Append(widgets.Center(c.entryIcon(e, gridIconPx)), false)
+	if r := c.renaming; r != nil && r.path == e.Path {
+		cell.Append(r.entry, false)
+		return cell
+	}
 	name := c.Label(c.s.displayName(e), "file-chooser-grid-name")
 	name.SetAlignment(render.AlignCenter)
 	name.SetWrap(true)
@@ -1241,9 +1331,14 @@ func (c *Browser) focusView() widget.Widget {
 }
 
 // relist repaints after the entries changed: the breadcrumbs, both
-// views from the top, the empty label, the preview.
+// views from the top, the empty label, the preview; an inline rename
+// ends.
 func (c *Browser) relist() {
 	u := c.ui
+	if c.renaming != nil {
+		c.renaming = nil
+		defer c.Focus(c.focusView())
+	}
 	u.crumbs.Clear()
 	for i, cr := range Crumbs(c.s.dir, c.d.Home) {
 		if i > 0 {
@@ -1282,10 +1377,15 @@ func (c *Browser) relist() {
 // relistKeeping repaints a listing read again where it stands: the
 // scroll stays, and the entry selected (the first, in a multiple
 // pick: the list sets one at a time) stays selected where it still
-// is. kept is the path selected before the listing changed.
+// is. kept is the path selected before the listing changed. An inline
+// rename of a path no longer listed ends.
 func (c *Browser) relistKeeping(kept string) {
 	view := c.activeView()
 	u := c.ui
+	if r := c.renaming; r != nil && !slices.ContainsFunc(c.s.entries, func(e Entry) bool { return e.Path == r.path }) {
+		c.renaming = nil
+		defer c.Focus(c.focusView())
+	}
 	u.list.Refresh()
 	u.grid.Refresh()
 	u.empty.SetVisible(len(c.s.entries) == 0)
@@ -1318,11 +1418,21 @@ func (c *Browser) step(back bool) {
 	}
 }
 
+// droppedOnMain hands files dropped on the browse to its host
+// (OnDrop), or opens the first.
+func (c *Browser) droppedOnMain(paths []string, offered transfer.Action) {
+	if c.o.OnDrop != nil {
+		c.o.OnDrop(paths, offered)
+		return
+	}
+	c.dropped(paths[0])
+}
+
 // dropped opens a dropped folder, or the folder of a dropped file with
 // the file selected.
 func (c *Browser) dropped(path string) {
 	OffLoop(c, statPath(path), func(st pathStat) {
-		c.selectNext = path
+		c.selectNext = []string{path}
 		c.s.dropped(path, st.err == nil && st.info.IsDir())
 		c.afterNavigate()
 		if !c.s.loading {
@@ -1333,11 +1443,25 @@ func (c *Browser) dropped(path string) {
 
 // applySelectNext selects the entry waiting to be, once listed.
 func (c *Browser) applySelectNext() {
-	if c.selectNext == "" {
+	if c.selectNext == nil {
 		return
 	}
-	c.activeView().Select(slices.IndexFunc(c.s.entries, func(e Entry) bool { return e.Path == c.selectNext }))
-	c.selectNext = ""
+	var rows []int
+	for i, e := range c.s.entries {
+		if slices.Contains(c.selectNext, e.Path) {
+			rows = append(rows, i)
+		}
+	}
+	c.selectNext = nil
+	view := c.activeView()
+	switch {
+	case len(rows) == 0:
+		view.Select(-1)
+	case len(rows) > 1 && view.SelectionMode() == widget.SelectionMultiple:
+		view.SelectRows(rows...)
+	default:
+		view.Select(rows[0])
+	}
 	c.refreshPreview()
 }
 
@@ -1387,7 +1511,7 @@ func (c *Browser) showNewFolder() {
 // it; a name that is taken or cannot be made warns.
 func (c *Browser) createFolder() {
 	name := strings.TrimSpace(c.ui.newFolderName.Text())
-	if name == "" || virtualLocation(c.s.dir) {
+	if name == "" || VirtualLocation(c.s.dir) {
 		return
 	}
 	if name == "." || name == ".." || strings.Contains(name, "/") {
@@ -1405,11 +1529,12 @@ func (c *Browser) createFolder() {
 }
 
 // afterNavigate empties the search box (the session already dropped
-// the query) and repaints the new folder.
+// the query), repaints the new folder and tells the host of it.
 func (c *Browser) afterNavigate() {
 	c.cancelWalk()
 	c.ui.search.SetText("")
 	c.relist()
+	c.shownDir()
 }
 
 func (c *Browser) cancelWalk() {
@@ -1560,13 +1685,13 @@ func (c *Browser) refreshPreview() {
 
 // --- system defaults ------------------------------------------------
 
-// gnomeCopiedFiles is the clipboard and drag format GNOME's file
+// GnomeCopiedFiles is the clipboard and drag format GNOME's file
 // managers read: the operation on the first line, then one URI a line.
-const gnomeCopiedFiles = "x-special/gnome-copied-files"
+const GnomeCopiedFiles = "x-special/gnome-copied-files"
 
 // dragOut is what dragging rows of the listing shown offers another
 // app: their files as a uri list (and the GNOME file managers' form),
-// to copy, never to move, so a drop cannot take the files away. A
+// with the actions the host lets them go with (DragActions). A
 // listing still loading shows stale rows and offers nothing.
 func (c *Browser) dragOut(rows []int) *widget.DragContent {
 	if c.s == nil || c.s.loading {
@@ -1581,31 +1706,37 @@ func (c *Browser) dragOut(rows []int) *widget.DragContent {
 	if len(paths) == 0 {
 		return nil
 	}
-	return &widget.DragContent{Content: filesContent(paths), Actions: transfer.ActionCopy}
+	actions := c.o.DragActions
+	if actions == transfer.ActionNone {
+		actions = transfer.ActionCopy
+	}
+	return &widget.DragContent{Content: FilesContent(paths, false), Actions: actions}
 }
 
-// filesContent offers paths as a uri list and GNOME's copied-files
-// form.
-func filesContent(paths []string) transfer.Content {
-	copied := []string{"copy"}
+// FilesContent offers paths as a uri list and GNOME's copied-files
+// form, which says whether they were cut (to move where they are
+// pasted) or copied.
+func FilesContent(paths []string, cut bool) transfer.Content {
+	op := "copy"
+	if cut {
+		op = "cut"
+	}
+	copied := []string{op}
 	for _, p := range paths {
 		copied = append(copied, transfer.FileURI(p))
 	}
-	return transfer.Merge(transfer.Files(paths...), transfer.Bytes(gnomeCopiedFiles, []byte(strings.Join(copied, "\n"))))
+	return transfer.Merge(transfer.Files(paths...), transfer.Bytes(GnomeCopiedFiles, []byte(strings.Join(copied, "\n"))))
 }
 
-// droppedPath is the first local path in a text/uri-list payload.
-func droppedPath(data []byte) (string, bool) {
-	for line := range strings.SplitSeq(string(data), "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		if p, ok := fileuri.Path(line); ok {
-			return p, true
+// droppedPaths are the local paths in a text/uri-list payload.
+func droppedPaths(data []byte) []string {
+	var paths []string
+	for _, uri := range transfer.ParseURIList(data) {
+		if p, ok := fileuri.Path(uri); ok {
+			paths = append(paths, p)
 		}
 	}
-	return "", false
+	return paths
 }
 
 // typeAhead is a file view that hands characters typed into it to

@@ -4,31 +4,58 @@ import (
 	"slices"
 
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/ui/transfer"
 	"github.com/stubbedev/lys/ui/widget"
 )
 
-// dropZone is a box that takes a file dropped anywhere on it: onDrop
-// receives the first dropped path. Embedding the box keeps it the
-// parent its children's drop walk reaches.
+// dropZone is a box that takes files dropped anywhere on it: onDrop
+// receives the dropped local paths and the actions their drag offers.
+// Embedding the box keeps it the parent its children's drop walk
+// reaches.
 type dropZone struct {
 	*widget.Box
-	onDrop func(path string)
+	onDrop  func(paths []string, offered transfer.Action)
+	offered transfer.Action
 }
 
 // DragEnter accepts a file drag.
 func (z *dropZone) DragEnter(mimes []string, _ widget.Point) string {
+	z.offered = transfer.ActionNone
 	if slices.Contains(mimes, uriListMime) {
 		return uriListMime
 	}
 	return ""
 }
 
-// Drop hands on the first dropped path.
+// DropAction implements widget.DropActionChooser: it notes what the
+// drag offers and leaves the pick to the default.
+func (z *dropZone) DropAction(offered transfer.Action) transfer.Action {
+	z.offered = offered
+	return transfer.ActionNone
+}
+
+// Drop hands on the dropped paths; a drop naming no local file does
+// nothing.
 func (z *dropZone) Drop(_ string, data []byte, _ widget.Point) {
-	if p, ok := droppedPath(data); ok {
-		z.onDrop(p)
+	if paths := droppedPaths(data); len(paths) > 0 {
+		z.onDrop(paths, transfer.Drag{Actions: z.offered}.Offered())
 	}
 }
+
+// menuZone is a box whose context menu open builds when it opens.
+type menuZone struct {
+	*widget.Box
+	open func(from widget.Widget, at widget.Point)
+}
+
+// OpenContextMenu implements widget.ContextMenuOpener.
+func (z *menuZone) OpenContextMenu(at widget.Point) { z.open(z, at) }
+
+// pointAnchor is the pointer's pixel, which a context menu opens at.
+type pointAnchor render.Rect
+
+// Bounds implements widget.Boundser.
+func (a pointAnchor) Bounds() render.Rect { return render.Rect(a) }
 
 // columnGrip is the column header's resize handle, filling the gap
 // before its column:
