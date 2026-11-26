@@ -667,6 +667,7 @@ func (p *settingsPage) reveal(i int, focus func(widget.Widget)) *fieldRow {
 		return row
 	}
 	widget.RevealRect(row, row.Bounds())
+	p.focusing = nil
 	give()
 	return row
 }

@@ -52,6 +52,30 @@ func TestASettingLaunchOpensItsPageFocusedAndHighlighted(t *testing.T) {
 	}
 }
 
+func TestASettingLinkToTheShownPageKeepsItsControlFocusedThroughTheNextLayout(t *testing.T) {
+	k := testKit(t, "")
+	w := newWindow(k, k.store.svc.Config(), (&fakeAfter{}).after)
+	var focused widget.Widget
+	w.focus = func(x widget.Widget) { focused = x }
+	arrange := func() { w.root.Arrange(render.Rect{W: windowWidth, H: windowHeight}) }
+	w.open(launch{setting: "bar.location"})
+	arrange()
+	row := w.page.rows[slices.IndexFunc(w.page.rows, func(r *fieldRow) bool { return r.path == "bar.location" })]
+	control := widget.FirstFocusable(row.ctl)
+	for _, l := range []launch{{setting: "bar.location"}, {page: "bar"}, {setting: "bar.location"}} {
+		focused = nil
+		w.open(l)
+		arrange()
+		want := widget.Widget(w.page)
+		if l.setting != "" {
+			want = control
+		}
+		if focused != want {
+			t.Fatalf("after %+v on the laid-out page and a layout: focused %T, want %T", l, focused, want)
+		}
+	}
+}
+
 func TestAWMSettingResolvesWithAndWithoutItsPrefix(t *testing.T) {
 	index := []settingEntry{
 		{page: "animations", path: "animations.enabled"},

@@ -160,6 +160,7 @@ func openSettingsWindow(application *app.Application, outputs func() []*app.Outp
 	}
 	w.onClose = win.Close
 	w.focus = func(target widget.Widget) {
+		app.Trace("settings", "focus %T", target)
 		if err := win.SetFocus(target); err != nil {
 			log.Printf("settings: focus %T: %v", target, err)
 		}
