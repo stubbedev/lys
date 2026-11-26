@@ -58,6 +58,15 @@ type Config struct {
 	// Open opens a file in its default app, from the Open button; nil
 	// shows no button.
 	Open func(path string)
+	// Fill shows pictures, videos and text over all the space the view
+	// is given rather than fitted into the Image and Text boxes, as a
+	// window-sized viewer does; Image is then the box thumbnails are
+	// made for.
+	Fill bool
+	// OnRender runs on the loop with what the view shows a file as,
+	// once its load lands and again when its video fails as it plays;
+	// nil tells nobody.
+	OnRender func(Renderer)
 }
 
 // View shows one file at a time, as its renderer says: its picture, its
@@ -116,7 +125,11 @@ func New(cfg Config) *View {
 	v.picture.AddClass("preview-picture")
 	v.video = widget.NewVideo(cfg.Font, small, nil)
 	v.video.SetAutoplay(cfg.Autoplay)
-	v.root.Append(widgets.Center(v.visual), false)
+	if cfg.Fill {
+		v.root.Append(v.visual, true)
+	} else {
+		v.root.Append(widgets.Center(v.visual), false)
+	}
 	v.root.Append(v.name, false)
 	v.root.Append(v.info, false)
 	if cfg.Open != nil {
@@ -144,6 +157,14 @@ func (v *View) Path() string { return v.path }
 // Renderer is what the view shows: Empty, Loading while the file
 // loads, then what it shows the file as.
 func (v *View) Renderer() Renderer { return v.renderer }
+
+// Picture is the zoomable view a picture and a thumbnail show in, for
+// a host's zoom and pan keys; it shows nothing under another renderer.
+func (v *View) Picture() *widget.ImageView { return v.picture }
+
+// Stream is the video playing, for a host's playback keys; nil while
+// no video plays.
+func (v *View) Stream() *media.Stream { return v.stream }
 
 // Show shows the file at path: its name and the icon its name suggests
 // at once, its contents once a load the loop starts on its next pass
@@ -251,16 +272,16 @@ func (v *View) apply(c Content) {
 		v.picture.SetImage(c.picture.img, c.picture.orient)
 		b := c.picture.img.Bounds()
 		w, h := c.picture.orient.Size(b.Dx(), b.Dy())
-		size := thumbnail.FitSize(image.Rect(0, 0, w, h), v.cfg.Image.X, v.cfg.Image.Y)
-		v.showContent(widgets.Pin(v.picture, size.X, size.Y))
+		v.fit(v.picture, thumbnail.FitSize(image.Rect(0, 0, w, h), v.cfg.Image.X, v.cfg.Image.Y))
 	case Video:
 		v.playVideo(c, name)
+		v.rendered()
 		return
 	case Text:
 		if v.code.Text() != c.text || v.code.Name() != name {
 			v.code.SetText(c.text, name)
 		}
-		v.showContent(widgets.Pin(v.code, v.cfg.Text.X, v.cfg.Text.Y))
+		v.fit(v.code, v.cfg.Text)
 	case Folder:
 		v.showIcon(folderIcon)
 	case Icon:
@@ -271,6 +292,14 @@ func (v *View) apply(c Content) {
 		panic(fmt.Sprintf("preview: a load landed as %v", c.renderer))
 	}
 	v.info.SetText(detail(name, c))
+	v.rendered()
+}
+
+// rendered tells the host what the view now shows the file as.
+func (v *View) rendered() {
+	if v.cfg.OnRender != nil {
+		v.cfg.OnRender(v.renderer)
+	}
 }
 
 // playVideo shows c's video, which the stream now owns.
@@ -279,8 +308,7 @@ func (v *View) playVideo(c Content, name string) {
 	v.shown.video = nil
 	v.video.SetStream(v.stream)
 	w, h := v.stream.Size()
-	size := thumbnail.FitSize(image.Rect(0, 0, w, h), v.cfg.Image.X, v.cfg.Image.Y)
-	v.showContent(widgets.Pin(v.video, size.X, size.Y))
+	v.fit(v.video, thumbnail.FitSize(image.Rect(0, 0, w, h), v.cfg.Image.X, v.cfg.Image.Y))
 	v.info.SetText(detail(name, c))
 	stream := v.stream
 	v.unsub = stream.Subscribe(func() {
@@ -288,6 +316,7 @@ func (v *View) playVideo(c Content, name string) {
 			v.stopVideo()
 			v.renderer = Failed
 			v.fail(Unsupported, err)
+			v.rendered()
 		}
 	})
 }
@@ -298,6 +327,7 @@ func (v *View) fail(f Failure, err error) {
 	v.renderer = Failed
 	v.message.SetText(message(f))
 	v.visual.Clear()
+	v.fillAs(widget.AlignCenter)
 	v.visual.Append(widgets.Center(widget.NewThemeIcon(v.iconOf(v.shown.info), v.cfg.IconPx)), false)
 	v.visual.Append(v.message, false)
 }
@@ -333,7 +363,28 @@ func (v *View) showIcon(name string) {
 
 func (v *View) showContent(w widget.Widget) {
 	v.visual.Clear()
+	v.fillAs(widget.AlignCenter)
 	v.visual.Append(widgets.Center(w), false)
+}
+
+// fit shows w, a picture, video or text, size big, or over the whole
+// view when it fills.
+func (v *View) fit(w widget.Widget, size image.Point) {
+	if !v.cfg.Fill {
+		v.showContent(widgets.Pin(w, size.X, size.Y))
+		return
+	}
+	v.visual.Clear()
+	v.fillAs(widget.AlignFill)
+	v.visual.Append(w, true)
+}
+
+// fillAs sets how what a filling view shows sits in it: a picture,
+// video or text over all of it, an icon and a message in its middle.
+func (v *View) fillAs(a widget.Align) {
+	if v.cfg.Fill {
+		v.visual.SetVAlign(a)
+	}
 }
 
 // drop gives up the load running and lets go of what was shown.

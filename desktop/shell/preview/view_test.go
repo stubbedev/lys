@@ -6,6 +6,7 @@ import (
 	"errors"
 	"image"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -409,5 +410,93 @@ func TestTheOpenButtonOpensTheFileShown(t *testing.T) {
 	}
 	if bare := h.view(nil); len(treetest.All[*widget.Button](bare.Root())) != 0 {
 		t.Error("a host that opens nothing got a button")
+	}
+}
+
+// A filling view gives a picture, a video and text all the space it is
+// given, past its boxes, and keeps an icon and a message in its middle.
+func TestAFillingViewGivesWhatItShowsAllItsSpace(t *testing.T) {
+	h := newHarness(t)
+	dir := t.TempDir()
+	v := h.view(func(c *Config) { c.Fill = true })
+	whole := func() { v.Root().Arrange(render.Rect{W: 1200, H: 900}) }
+	for _, c := range []struct {
+		path   string
+		widget func() widget.Boundser
+	}{
+		{writeFile(t, filepath.Join(dir, "pano.png"), pngData(t, gradient(800, 200))), func() widget.Boundser { return v.Picture() }},
+		{writeFile(t, filepath.Join(dir, "clip.y4m"), y4mClip(64, 32, 2)), func() widget.Boundser { return v.video }},
+		{writeFile(t, filepath.Join(dir, "note.txt"), []byte("note")), func() widget.Boundser { return v.code }},
+	} {
+		h.show(v, c.path)
+		whole()
+		got, room := c.widget().Bounds(), v.visual.Bounds()
+		if got != room || room.W < 1000 || room.H < 600 {
+			t.Errorf("%s shows at %+v in a view of %+v, want all of a view filling most of 1200x900", filepath.Base(c.path), got, room)
+		}
+	}
+	h.show(v, writeFile(t, filepath.Join(dir, "bad.png"), []byte("\x89PNG\r\n\x1a\n")))
+	whole()
+	if v.Renderer() != Failed {
+		t.Fatalf("bad.png shows as %v", v.Renderer())
+	}
+	if b := v.visual.Bounds(); b.H > 300 || b.Y < 200 {
+		t.Errorf("the failure's icon and message sit at %+v, want them in the middle of 1200x900", b)
+	}
+}
+
+// The host hears what a file shows as once its load lands, and again
+// when its video fails as it plays; it reaches the picture and the
+// stream shown, and neither once another file shows.
+func TestTheHostHearsWhatAFileShowsAsAndReachesIt(t *testing.T) {
+	h := newHarness(t)
+	dir := t.TempDir()
+	note := writeFile(t, filepath.Join(dir, "note.txt"), []byte("note"))
+	clip := writeFile(t, filepath.Join(dir, "clip.y4m"), y4mClip(64, 32, 2))
+	pic := writeFile(t, filepath.Join(dir, "pic.png"), pngData(t, gradient(40, 30)))
+	var heard []Renderer
+	v := h.view(func(c *Config) { c.OnRender = func(r Renderer) { heard = append(heard, r) } })
+	h.show(v, note)
+	if v.Stream() != nil {
+		t.Error("text has a stream")
+	}
+	h.show(v, clip)
+	stream := v.Stream()
+	if stream == nil || stream != v.video.Stream() {
+		t.Fatalf("the video plays %v, the host reaches %v", v.video.Stream(), stream)
+	}
+	stream.Fail(errors.New("no decoder for this codec"))
+	h.until("the failed video", func() bool { return v.Renderer() == Failed })
+	if v.Stream() != nil {
+		t.Error("the host still reaches the failed video's stream")
+	}
+	h.show(v, pic)
+	lay(v.Root())
+	if views := treetest.All[*widget.ImageView](v.Root()); len(views) != 1 || views[0] != v.Picture() || v.Picture().Bounds().Empty() {
+		t.Errorf("the host reaches %p, the picture shows in %v", v.Picture(), views)
+	}
+	want := []Renderer{Text, Video, Failed, Image}
+	if !slices.Equal(heard, want) {
+		t.Errorf("the host heard %v, want %v", heard, want)
+	}
+	h.show(v, note)
+	if heard[len(heard)-1] != Text || len(heard) != len(want)+1 {
+		t.Errorf("the host heard %v after the note", heard)
+	}
+}
+
+// The picture types are the types shown as a picture, and a caller
+// changing its copy changes nothing.
+func TestThePictureTypesAreTheTypesShownAsAPicture(t *testing.T) {
+	db := testDB(t)
+	types := PictureTypes()
+	for _, mimeType := range types {
+		if got := RendererFor(db, mimeType); got != Image {
+			t.Errorf("RendererFor(%s) = %v, want image", mimeType, got)
+		}
+	}
+	types[0] = "application/x-thing"
+	if PictureTypes()[0] == "application/x-thing" || RendererFor(db, "application/x-thing") == Image {
+		t.Error("changing the copy changed the picture types")
 	}
 }

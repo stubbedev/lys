@@ -205,7 +205,7 @@ func loadPicture(ctx context.Context, p *Pictures, path string, info Info) Conte
 		release()
 		return failed(info, Undecodable, err)
 	}
-	orient := orientation(path)
+	orient := Orientation(path)
 	w, h := dec.Image.Bounds().Dx(), dec.Image.Bounds().Dy()
 	w, h = orient.Size(w, h)
 	free := func() {
@@ -217,9 +217,10 @@ func loadPicture(ctx context.Context, p *Pictures, path string, info Info) Conte
 	return Content{info: info, renderer: Image, picture: picture{img: dec.Image, orient: orient, size: image.Pt(w, h), free: free}}
 }
 
-// orientation is the orientation path's EXIF block records; a block
-// that does not parse is logged, and the picture shows as stored.
-func orientation(path string) exif.Orientation {
+// Orientation is the orientation path's EXIF block records, as a
+// picture shows; a block that does not parse is logged, and the
+// picture shows as stored.
+func Orientation(path string) exif.Orientation {
 	f, err := os.Open(path) //nolint:gosec // the file being previewed
 	if err != nil {
 		log.Printf("preview: reading the orientation of %s: %v", path, err)

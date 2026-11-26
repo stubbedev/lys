@@ -9,6 +9,7 @@
 package preview
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 
@@ -63,6 +64,10 @@ var pictureTypes = []string{
 	"image/png", "image/jpeg", "image/gif", "image/webp", "image/bmp", "image/tiff",
 	"image/x-tga", "image/x-portable-anymap", "image/x-farbfeld",
 }
+
+// PictureTypes are the image types a view shows as a picture, each
+// with the subtypes the MIME database classes under it.
+func PictureTypes() []string { return slices.Clone(pictureTypes) }
 
 // RendererFor is the renderer a file of mimeType is shown with first:
 // Image for a picture imagedecode decodes, Video for a video and for an
