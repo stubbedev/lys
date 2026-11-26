@@ -62,6 +62,10 @@ What runs in a terminal (a `Terminal=true` app, a file or link whose default app
 | `Esc` | Back one level, then close |
 | `Backspace` | In an empty field, back one level |
 | `Ctrl+Backspace` | Forget a clipboard row |
+| `Shift+Space` | Quick Look the selected file or copied picture (the `quick-look` action in `launcher.keybindings`) |
+| `Space`, in an empty field | Quick Look, as `Shift+Space` |
+
+While Quick Look shows, `Space`, `Esc` or a second `Shift+Space` close it and the arrows move the rows beneath it; its Open button opens the file in its default app. It needs `launcher.search.previews` on. Rofi-style modes keep `Space` for `select-element` and open Quick Look on `Shift+Space` alone.
 
 The footer shows what `Enter` and `Ctrl+Enter` do. Right-click a row for its actions; click outside to close.
 

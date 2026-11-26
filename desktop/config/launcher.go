@@ -55,9 +55,10 @@ type LauncherConfig struct {
 	// Custom script modes: name → executable (rofi `name:script`).
 	Scripts map[string]string `cfg:"scripts"`
 	// Keybinding overrides: action (rofi `kb-` name without the prefix,
-	// e.g. `accept`, `cancel`, `mode-next`, `custom-1`) → comma-separated
-	// key list (e.g. `"Control+Tab,F3"`). Unset actions keep rofi's
-	// defaults.
+	// e.g. `accept`, `cancel`, `mode-next`, `custom-1`, or lys's own
+	// `quick-look`, Shift+Space by default, which previews the selected
+	// row) → comma-separated key list (e.g. `"Control+Tab,F3"`). Unset
+	// actions keep rofi's defaults.
 	Keybindings map[string]string `cfg:"keybindings"`
 	// Mouse binding overrides: action (rofi's `me-`/`ml-` name, prefix
 	// included, e.g. `me-accept-entry`, `ml-row-down`) → comma-separated

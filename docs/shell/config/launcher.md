@@ -35,7 +35,7 @@ Application launcher / dmenu (rofi replacement).
 | `fixed-num-lines` | bool | `false` | Keep the list height fixed at `lines` rows. |
 | `display-names` | map of string | `{}` | Per-mode display-name overrides (rofi `display-{mode}`), e.g. `drun: apps`. |
 | `scripts` | map of string | `{}` | Custom script modes: name → executable (rofi `name:script`). |
-| `keybindings` | map of string | `{}` | Keybinding overrides: action (rofi `kb-` name without the prefix, e.g. `accept`, `cancel`, `mode-next`, `custom-1`) → comma-separated key list (e.g. `"Control+Tab,F3"`). Unset actions keep rofi's defaults. |
+| `keybindings` | map of string | `{}` | Keybinding overrides: action (rofi `kb-` name without the prefix, e.g. `accept`, `cancel`, `mode-next`, `custom-1`, or lys's own `quick-look`, Shift+Space by default, which previews the selected row) → comma-separated key list (e.g. `"Control+Tab,F3"`). Unset actions keep rofi's defaults. |
 | `mouse-bindings` | map of string | `{}` | Mouse binding overrides: action (rofi's `me-`/`ml-` name, prefix included, e.g. `me-accept-entry`, `ml-row-down`) → comma-separated button list (e.g. `"MouseDPrimary"`, `"ScrollDown"`). Unset actions keep their defaults. |
 | `font` | string | `""` | Launcher font, as a Pango description (`"Inter 12"`). Empty keeps the shell's font. rofi's `-font` overrides it per invocation. |
 | `styles` | map of string | `{}` | Named looks selectable per invocation with `-style <name>`: name → the CSS applied for that session, on top of `[styling]`. |

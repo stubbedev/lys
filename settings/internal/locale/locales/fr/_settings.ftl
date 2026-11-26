@@ -1935,6 +1935,7 @@ settings-launcher-kb-remove-to-sol = Supprimer jusqu’au début
 settings-launcher-kb-paste-primary = Coller la sélection
 settings-launcher-kb-paste-secondary = Coller le presse-papiers
 settings-launcher-kb-select-element = Sélectionner l’élément
+settings-launcher-kb-quick-look = Aperçu rapide de la ligne
 settings-launcher-kb-me-select-entry = Sélectionner une entrée
 settings-launcher-kb-me-accept-entry = Ouvrir une entrée
 settings-launcher-kb-me-accept-custom = Lancer ce qui est saisi

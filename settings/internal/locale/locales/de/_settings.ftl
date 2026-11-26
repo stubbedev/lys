@@ -1932,6 +1932,7 @@ settings-launcher-kb-remove-to-sol = Bis zum Anfang löschen
 settings-launcher-kb-paste-primary = Auswahl einfügen
 settings-launcher-kb-paste-secondary = Zwischenablage einfügen
 settings-launcher-kb-select-element = Element auswählen
+settings-launcher-kb-quick-look = Schnellansicht der Zeile
 settings-launcher-kb-me-select-entry = Eintrag auswählen
 settings-launcher-kb-me-accept-entry = Eintrag öffnen
 settings-launcher-kb-me-accept-custom = Eingegebenes ausführen

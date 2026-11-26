@@ -1933,6 +1933,7 @@ settings-launcher-kb-remove-to-sol = Borrar hasta el principio
 settings-launcher-kb-paste-primary = Pegar la selección
 settings-launcher-kb-paste-secondary = Pegar el portapapeles
 settings-launcher-kb-select-element = Seleccionar el elemento
+settings-launcher-kb-quick-look = Vista rápida de la fila
 settings-launcher-kb-me-select-entry = Seleccionar una entrada
 settings-launcher-kb-me-accept-entry = Abrir una entrada
 settings-launcher-kb-me-accept-custom = Ejecutar lo escrito

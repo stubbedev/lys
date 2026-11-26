@@ -1922,6 +1922,7 @@ settings-launcher-kb-remove-to-sol = Wissen tot het begin
 settings-launcher-kb-paste-primary = Selectie plakken
 settings-launcher-kb-paste-secondary = Klembord plakken
 settings-launcher-kb-select-element = Element selecteren
+settings-launcher-kb-quick-look = Snelle weergave van de rij
 settings-launcher-kb-me-select-entry = Item selecteren
 settings-launcher-kb-me-accept-entry = Item openen
 settings-launcher-kb-me-accept-custom = Getypte uitvoeren

@@ -687,7 +687,7 @@ var schemaDocs = map[string]string{
 	"LauncherConfig.History":                         "Launch history / frecency.",
 	"LauncherConfig.HoverSelect":                     "Select the row under the mouse cursor.",
 	"LauncherConfig.IconTheme":                       "Icon theme override (\"\" = system theme).",
-	"LauncherConfig.Keybindings":                     "Keybinding overrides: action (rofi `kb-` name without the prefix,\ne.g. `accept`, `cancel`, `mode-next`, `custom-1`) → comma-separated\nkey list (e.g. `\"Control+Tab,F3\"`). Unset actions keep rofi's\ndefaults.",
+	"LauncherConfig.Keybindings":                     "Keybinding overrides: action (rofi `kb-` name without the prefix,\ne.g. `accept`, `cancel`, `mode-next`, `custom-1`, or lys's own\n`quick-look`, Shift+Space by default, which previews the selected\nrow) → comma-separated key list (e.g. `\"Control+Tab,F3\"`). Unset\nactions keep rofi's defaults.",
 	"LauncherConfig.Lines":                           "Visible result lines.",
 	"LauncherConfig.Location":                        "Surface position on screen.",
 	"LauncherConfig.Matching":                        "Matching method.",

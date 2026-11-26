@@ -1933,6 +1933,7 @@ settings-launcher-kb-remove-to-sol = Elimina fino all’inizio
 settings-launcher-kb-paste-primary = Incolla la selezione
 settings-launcher-kb-paste-secondary = Incolla gli appunti
 settings-launcher-kb-select-element = Seleziona l’elemento
+settings-launcher-kb-quick-look = Anteprima rapida della riga
 settings-launcher-kb-me-select-entry = Seleziona una voce
 settings-launcher-kb-me-accept-entry = Apri una voce
 settings-launcher-kb-me-accept-custom = Esegui ciò che è scritto

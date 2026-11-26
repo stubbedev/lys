@@ -1923,6 +1923,7 @@ settings-launcher-kb-remove-to-sol = Apagar até ao início
 settings-launcher-kb-paste-primary = Colar a seleção
 settings-launcher-kb-paste-secondary = Colar a área de transferência
 settings-launcher-kb-select-element = Selecionar o elemento
+settings-launcher-kb-quick-look = Vista rápida da linha
 settings-launcher-kb-me-select-entry = Selecionar uma entrada
 settings-launcher-kb-me-accept-entry = Abrir uma entrada
 settings-launcher-kb-me-accept-custom = Executar o que foi escrito

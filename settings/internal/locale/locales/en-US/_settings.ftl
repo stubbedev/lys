@@ -1932,6 +1932,7 @@ settings-launcher-kb-remove-to-sol = Delete to the start
 settings-launcher-kb-paste-primary = Paste the selection
 settings-launcher-kb-paste-secondary = Paste the clipboard
 settings-launcher-kb-select-element = Select the element
+settings-launcher-kb-quick-look = Quick Look the row
 settings-launcher-kb-me-select-entry = Select an entry
 settings-launcher-kb-me-accept-entry = Open an entry
 settings-launcher-kb-me-accept-custom = Run what is typed
