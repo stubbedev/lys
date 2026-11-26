@@ -18,9 +18,10 @@ highlighter, numbered markers and pixelation, with undo and redo; Enter
 saves over the file and copies it, Ctrl+S saves a copy elsewhere), drag
 it into an app, or delete the capture with its close button.
 
-`lys-shell screenshot text` copies the text in a dragged region (through
-tesseract, which must be installed) and `lys-shell screenshot qr` decodes
-the QR code in one; neither saves a file.
+`lys-shell screenshot text` copies the text in a dragged region (Latin
+script, drawn in the UI's fonts or the installed default ones) and
+`lys-shell screenshot qr` decodes the QR code in one; neither saves a
+file.
 
 Add it to your layout with `screenshot`:
 
@@ -42,7 +43,6 @@ bar:
 | `notify` | bool | `true` | Show a desktop notification after capturing. With the thumbnail disabled it carries Edit, Open folder and Delete buttons. |
 | `thumbnail-ms` | u32 | `5000` | How long, in milliseconds, the floating thumbnail stays after a capture; hovering it pauses the countdown. Click it to annotate, drag it into an app, or delete the capture from it. Set to 0 to disable. |
 | `thumbnail-position` | [`ScreenshotCorner`](/shell/config/types#screenshot-corner) | `"bottom-right"` | Screen corner the floating thumbnail sits in. |
-| `ocr-languages` | array of string | `[]` | Tesseract language codes `lys-shell screenshot text` reads with (e.g. `[eng, deu]`). Empty follows the session language. |
 | `border-show` | bool | `false` | Display border around button. |
 | `icon-show` | bool | `true` | Display module icon. |
 | `tooltip` | bool | `true` | Show the module's state in a tooltip on hover. |
@@ -82,7 +82,6 @@ modules:
     notify: true
     thumbnail-ms: 5000
     thumbnail-position: bottom-right
-    ocr-languages: []
     border-show: false
     border-color: accent
     icon-show: true

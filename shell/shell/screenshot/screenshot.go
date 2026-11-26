@@ -97,7 +97,11 @@ type Host struct {
 	// decoded link in the browser.
 	Toast   func(text, icon string)
 	OpenURL func(string)
-	// Working shows that tesseract is reading, with a way for the user
+	// Faces are the typefaces Read recognises text in, fresh for each
+	// reading and shared with nothing else: a reading runs off the UI
+	// loop, on the caller's goroutine.
+	Faces func() ([]*render.Typeface, error)
+	// Working shows that text is being read, with a way for the user
 	// to cancel it; finished takes that down.
 	Working func(cancel func()) (finished func())
 	// Forget drops the GPU textures of the frozen frames with these

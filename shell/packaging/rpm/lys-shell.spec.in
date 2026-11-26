@@ -28,7 +28,6 @@ Suggests:       pipewire-pulseaudio
 Suggests:       wireplumber
 Suggests:       NetworkManager
 Suggests:       bluez
-Suggests:       tesseract
 Suggests:       lys-power
 
 %description

@@ -115,10 +115,10 @@ The instant replay keeps the last `modules.recorder.replay.seconds` (default 30)
 | `screenshot region` | Drag a region or click a window, adjust, Enter |
 | `screenshot output [NAME]` | A whole output; the focused one when omitted |
 | `screenshot window` | The active window |
-| `screenshot text` | Copy the text in a dragged region (OCR with tesseract) |
+| `screenshot text` | Copy the text in a dragged region |
 | `screenshot qr` | Decode the QR code in a dragged region |
 
-`text` and `qr` save no image and print what they read. `text` uses the languages in `modules.screenshot.ocr-languages` (the session language when empty), copies the text and shows its first line in a toast; Esc stops it. It fails if tesseract is missing. `qr` offers Copy, and Open for a link; with no code found nothing is copied.
+`text` and `qr` save no image and print what they read. `text` reads Latin script drawn in the UI's fonts (Geist, Geist Mono) or the installed sans-serif, serif and monospace ones, copies the text and shows its first line in a toast; Esc stops it. A blank region, or one with nothing that reads as text, copies nothing. `qr` offers Copy, and Open for a link; with no code found nothing is copied.
 
 ## colorpicker
 

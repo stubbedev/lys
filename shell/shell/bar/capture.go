@@ -9,6 +9,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/ocr"
 	"github.com/stubbedev/lys/desktop/service/clipboard"
 	"github.com/stubbedev/lys/desktop/service/hyprland"
 	"github.com/stubbedev/lys/lib/portaldialogs"
@@ -81,6 +82,7 @@ func newCaptureServices(application *app.Application, outputs func() []*app.Outp
 		Toast:    toast,
 		Copy:     awaitLoop(application, copyImage),
 		CopyText: copyTextOffLoop(application, clip),
+		Faces:    app.UnsharedFonts,
 		Now:      clk.Now,
 		Forget: func(ids []render.ImageID) {
 			application.Invoke(func() {
@@ -226,9 +228,9 @@ func putOnClipboard(application *app.Application, clip *clipboard.Clipboard, con
 // readFailure is what a toast says of a screen reading that failed.
 func readFailure(err error) string {
 	switch {
-	case errors.Is(err, screenshot.ErrNoTesseract):
-		return i18n.T("screenshot-read-no-tesseract")
-	case errors.Is(err, screenshot.ErrNoText):
+	case errors.Is(err, ocr.ErrBlank):
+		return i18n.T("screenshot-read-blank")
+	case errors.Is(err, ocr.ErrNotText):
 		return i18n.T("screenshot-read-no-text")
 	case errors.Is(err, screenshot.ErrNoCode):
 		return i18n.T("screenshot-read-no-code")

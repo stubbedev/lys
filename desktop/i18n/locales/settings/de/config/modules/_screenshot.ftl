@@ -75,6 +75,3 @@ enum-screenshot-corner-top-left = Oben links
 enum-screenshot-corner-top-right = Oben rechts
 enum-screenshot-corner-bottom-right = Unten rechts
 enum-screenshot-corner-bottom-left = Unten links
-
-settings-modules-screenshot-ocr-languages = Sprachen der Texterkennung
-    .description = Die installierten Sprachen, in denen Text vom Bildschirm gelesen wird; ohne Auswahl folgt sie der Sitzungssprache

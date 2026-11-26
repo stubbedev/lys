@@ -22,6 +22,9 @@ const sharedThresholds = "one threshold set per resource serves its bar module a
 // previewsAreLys is why the launcher's thumbnail command left.
 const previewsAreLys = "removed: lys renders previews and thumbnails itself and runs no thumbnail command"
 
+// textReadingIsLys is why the screenshot's OCR languages left.
+const textReadingIsLys = "removed: lys reads screen text itself, matching the fonts it is drawn in, and takes no language list"
+
 // removedKeys are, by section path, the keys the section no longer
 // reads. Setting one is an error diagnostic naming where it went, so a
 // setting is never dropped without a word.
@@ -46,6 +49,7 @@ var removedKeys = map[string][]removedKey{
 		{"lock-after", vaultMoved, "lys-secrets --vault-lock-after (services.lys-secrets.vault.lockAfter)"},
 		{"sync-interval", vaultMoved, "lys-secrets --vault-sync-interval (services.lys-secrets.vault.syncInterval)"},
 	},
+	"modules.screenshot": {{"ocr-languages", textReadingIsLys, "delete modules.screenshot.ocr-languages: `lys-shell screenshot text` reads Latin script in the UI's fonts and the installed sans-serif, serif and monospace ones"}},
 }
 
 // removedModuleSections are the modules sections of the removed bar

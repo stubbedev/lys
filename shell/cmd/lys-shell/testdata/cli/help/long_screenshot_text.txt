@@ -1,4 +1,4 @@
-Copy the text in a dragged region to the clipboard (OCR through tesseract)
+Copy the text in a dragged region to the clipboard
 
 Usage: lys-shell screenshot text
 

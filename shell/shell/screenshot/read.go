@@ -1,14 +1,12 @@
 package screenshot
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"image"
 	"log"
 	"net/url"
-	"os/exec"
 	"slices"
 	"strings"
 	"time"
@@ -16,10 +14,8 @@ import (
 	"github.com/makiuchi-d/gozxing"
 	"github.com/makiuchi-d/gozxing/qrcode"
 	"github.com/stubbedev/lys/desktop/i18n"
-	libi18n "github.com/stubbedev/lys/lib/i18n"
+	"github.com/stubbedev/lys/desktop/ocr"
 	"github.com/stubbedev/lys/lib/portaldialogs"
-
-	"github.com/stubbedev/lys/shell/service/sharepreview"
 )
 
 // ReadKind is what Read looks for in a region of the screen.
@@ -40,62 +36,36 @@ func ParseReadKind(s string) (ReadKind, error) {
 	return "", fmt.Errorf("unknown screen reading %q: want %s or %s", s, ReadText, ReadQR)
 }
 
-// Tesseract is the OCR engine's binary.
-const Tesseract = "tesseract"
-
-const (
-	ocrTimeout   = 30 * time.Second
-	upscaleBelow = 1000
-)
+const ocrTimeout = 30 * time.Second
 
 var (
-	// ErrNoTesseract answers a text reading on a system without tesseract.
-	ErrNoTesseract = fmt.Errorf("%s is not installed, so text cannot be read from the screen: %w", Tesseract, exec.ErrNotFound)
 	// ErrNoCode answers a QR reading of a region that holds no code.
 	ErrNoCode = errors.New("no code found")
-	// ErrNoText answers a text reading of a region tesseract found no text in.
-	ErrNoText = errors.New("no text found")
 
-	errOCRTimeout = fmt.Errorf("%s did not finish within %s", Tesseract, ocrTimeout)
+	errOCRTimeout = fmt.Errorf("reading the text did not finish within %s", ocrTimeout)
 )
 
-// OCRAvailable reports whether tesseract is on PATH.
-func OCRAvailable() bool {
-	_, err := exec.LookPath(Tesseract)
-	return err == nil
-}
-
-// Read lets the user drag a region and reads it: its text through
-// tesseract, or the QR code in it. Nothing is saved. Text lands on the
-// clipboard and in a toast; a code is announced with buttons to copy it
-// or, for a URL, open it. "" is a cancelled selection. A text reading
-// without tesseract fails with ErrNoTesseract before anything opens, and
-// Dismiss with the caller's handle stops a running tesseract.
+// Read lets the user drag a region and reads it: its text, or the QR
+// code in it. Nothing is saved. Text lands on the clipboard and in a
+// toast; a code is announced with buttons to copy it or, for a URL, open
+// it. "" is a cancelled selection. A region with no text in it fails
+// with ocr.ErrNoText, and Dismiss with the caller's handle stops a
+// running text reading.
 func (h *Host) Read(c portaldialogs.Caller, kind ReadKind) (string, error) {
-	var langs []string
-	if kind == ReadText {
-		if !OCRAvailable() {
-			return "", ErrNoTesseract
-		}
-		var err error
-		if langs, err = ocrLanguages(h.Config().OcrLanguages, libi18n.Locales()); err != nil {
-			return "", err
-		}
-	}
 	img, ok, err := h.captureRegion(c, false)
 	if err != nil || !ok {
 		return "", err
 	}
 	switch kind {
 	case ReadText:
-		return h.readText(c, img, langs)
+		return h.readText(c, img)
 	case ReadQR:
 		return h.readCode(img)
 	}
 	return "", fmt.Errorf("unknown screen reading %q", kind)
 }
 
-func (h *Host) readText(c portaldialogs.Caller, img *image.RGBA, langs []string) (string, error) {
+func (h *Host) readText(c portaldialogs.Caller, img *image.RGBA) (string, error) {
 	ctx, done := h.dismissable(c.Handle)
 	defer done()
 	ctx, cancel := context.WithTimeoutCause(ctx, ocrTimeout, errOCRTimeout)
@@ -104,7 +74,7 @@ func (h *Host) readText(c portaldialogs.Caller, img *image.RGBA, langs []string)
 		finished := h.Working(done)
 		defer finished()
 	}
-	text, err := recognize(ctx, img, langs)
+	text, err := h.recognize(ctx, img)
 	if err != nil {
 		return "", err
 	}
@@ -114,6 +84,18 @@ func (h *Host) readText(c portaldialogs.Caller, img *image.RGBA, langs []string)
 	first, _, _ := strings.Cut(text, "\n")
 	h.Toast(first, "ld-scan-text-symbolic")
 	return text, nil
+}
+
+func (h *Host) recognize(ctx context.Context, img *image.RGBA) (string, error) {
+	faces, err := h.Faces()
+	if err != nil {
+		return "", fmt.Errorf("cannot load the fonts to read the text in: %w", err)
+	}
+	r, err := ocr.New(faces...)
+	if err != nil {
+		return "", err
+	}
+	return r.Read(ctx, img)
 }
 
 func (h *Host) readCode(img *image.RGBA) (string, error) {
@@ -184,65 +166,4 @@ func luminance(img *image.RGBA) []byte {
 		}
 	}
 	return out
-}
-
-func recognize(ctx context.Context, img *image.RGBA, langs []string) (string, error) {
-	bin, err := exec.LookPath(Tesseract)
-	if err != nil {
-		return "", ErrNoTesseract
-	}
-	var in bytes.Buffer
-	if err := encodePNG(&in, ocrImage(img)); err != nil {
-		return "", fmt.Errorf("cannot hand the region to %s: %w", Tesseract, err)
-	}
-	cmd := exec.CommandContext(ctx, bin, "stdin", "stdout", "-l", strings.Join(langs, "+")) //nolint:gosec // tesseract from PATH, languages from the config
-	cmd.Stdin = &in
-	var out, stderr bytes.Buffer
-	cmd.Stdout, cmd.Stderr = &out, &stderr
-	cmd.WaitDelay = time.Second
-	err = cmd.Run()
-	switch {
-	case ctx.Err() != nil:
-		return "", context.Cause(ctx)
-	case err != nil:
-		return "", fmt.Errorf("%s -l %s: %w: %s", Tesseract, strings.Join(langs, "+"), err, strings.TrimSpace(stderr.String()))
-	}
-	text := strings.TrimSpace(strings.ReplaceAll(out.String(), "\f", ""))
-	if text == "" {
-		return "", ErrNoText
-	}
-	return text, nil
-}
-
-func ocrImage(img *image.RGBA) *image.RGBA {
-	b := img.Bounds()
-	if max(b.Dx(), b.Dy()) >= upscaleBelow {
-		return img
-	}
-	return sharepreview.Resize(img, 2*b.Dx(), 2*b.Dy())
-}
-
-var tesseractLanguages = map[string]string{
-	"ar": "ara", "bg": "bul", "ca": "cat", "cs": "ces", "da": "dan", "de": "deu", "el": "ell",
-	"en": "eng", "es": "spa", "et": "est", "fa": "fas", "fi": "fin", "fr": "fra", "he": "heb",
-	"hi": "hin", "hr": "hrv", "hu": "hun", "id": "ind", "is": "isl", "it": "ita", "ja": "jpn",
-	"ko": "kor", "lt": "lit", "lv": "lav", "nb": "nor", "nl": "nld", "nn": "nor", "no": "nor",
-	"pl": "pol", "pt": "por", "ro": "ron", "ru": "rus", "sk": "slk", "sl": "slv", "sr": "srp",
-	"sv": "swe", "th": "tha", "tr": "tur", "uk": "ukr", "vi": "vie",
-	"zh_CN": "chi_sim", "zh_SG": "chi_sim", "zh_TW": "chi_tra", "zh_HK": "chi_tra", "zh": "chi_sim",
-}
-
-func ocrLanguages(configured, locale []string) ([]string, error) {
-	if len(configured) > 0 {
-		return configured, nil
-	}
-	if len(locale) == 0 {
-		return []string{"eng"}, nil
-	}
-	for _, l := range locale {
-		if code, ok := tesseractLanguages[l]; ok {
-			return []string{code}, nil
-		}
-	}
-	return nil, fmt.Errorf("the session language %s has no known tesseract language: set screenshot.ocr-languages", locale[len(locale)-1])
 }

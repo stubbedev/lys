@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"maps"
+	"strings"
 	"testing"
 )
 
@@ -115,5 +116,28 @@ func TestTheFormerPerModuleAndDashboardThresholdsNameTheSharedSet(t *testing.T) 
 	}
 	if len(cfg.Thresholds.CPU) != len(DefaultsThresholds().CPU) {
 		t.Errorf("a removed key reached the shared set: %+v", cfg.Thresholds.CPU)
+	}
+}
+
+func TestTheRemovedOCRLanguagesAreRefusedAndTheSectionStillApplies(t *testing.T) {
+	cfg, err := LoadFile(writeFile(t, t.TempDir(), "config.yaml", "modules:\n  screenshot:\n    ocr-languages: [eng, deu]\n    thumbnail-ms: 1200\n"))
+	var diags []Diagnostic
+	for _, e := range unwrapJoined(err) {
+		if d, ok := errors.AsType[Diagnostic](e); ok && d.Title == "removed config key" {
+			diags = append(diags, d)
+		}
+	}
+	if len(diags) != 1 {
+		t.Fatalf("removed-key diagnostics %+v from %v", diags, err)
+	}
+	d := diags[0]
+	if d.Kind != DiagnosticError || d.Field("Field") != "modules.screenshot.ocr-languages" || d.Field("Reason") != textReadingIsLys || !strings.HasPrefix(d.Hint, "delete modules.screenshot.ocr-languages: ") {
+		t.Errorf("diagnostic = %+v", d)
+	}
+	if cfg.Screenshot.ThumbnailMs != 1200 {
+		t.Errorf("the section's other keys did not apply: thumbnail-ms %v", cfg.Screenshot.ThumbnailMs)
+	}
+	if _, err := LoadFile(writeFile(t, t.TempDir(), "config.yaml", "modules:\n  screenshot:\n    thumbnail-ms: 1200\n")); err != nil {
+		t.Errorf("a screenshot section without removed keys = %v", err)
 	}
 }

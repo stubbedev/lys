@@ -30,7 +30,7 @@ func screenshotCommand() *cli.Command {
 				Run: captureScreenshot(screenshot.ModeOutput),
 			},
 			{Name: "window", About: "Capture the active window", Run: captureScreenshot(screenshot.ModeWindow)},
-			{Name: "text", About: "Copy the text in a dragged region to the clipboard (OCR through tesseract)", Run: readScreen(screenshot.ReadText)},
+			{Name: "text", About: "Copy the text in a dragged region to the clipboard", Run: readScreen(screenshot.ReadText)},
 			{Name: "qr", About: "Decode the QR code in a dragged region", Run: readScreen(screenshot.ReadQR)},
 		},
 	}

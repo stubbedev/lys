@@ -71,6 +71,3 @@ enum-screenshot-corner-top-left = Linksboven
 enum-screenshot-corner-top-right = Rechtsboven
 enum-screenshot-corner-bottom-right = Rechtsonder
 enum-screenshot-corner-bottom-left = Linksonder
-
-settings-modules-screenshot-ocr-languages = Talen voor tekstherkenning
-    .description = De geïnstalleerde talen waarin tekst van het scherm wordt gelezen; zonder keuze volgt het de sessietaal

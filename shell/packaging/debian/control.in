@@ -30,8 +30,7 @@ Suggests:
  network-manager,
  lys-power,
  pipewire-pulse,
- wireplumber,
- tesseract-ocr
+ wireplumber
 Description: Wayland desktop shell
  lys-shell is a compositor-agnostic Wayland desktop shell: bar, dropdowns,
  launcher, notifications, OSD, and an xdg-desktop-portal

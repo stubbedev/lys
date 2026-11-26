@@ -7,22 +7,17 @@ import (
 	"image/color"
 	"image/draw"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"slices"
-	"strconv"
 	"strings"
-	"syscall"
 	"testing"
-	"time"
 
 	"github.com/makiuchi-d/gozxing"
 	"github.com/makiuchi-d/gozxing/qrcode"
 	"github.com/stubbedev/lys/desktop/i18n"
-	"github.com/stubbedev/lys/lib/fdtest"
+	"github.com/stubbedev/lys/desktop/ocr"
 	"github.com/stubbedev/lys/lib/portaldialogs"
 	"github.com/stubbedev/lys/lib/render"
-	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/shell/shell/regionoverlay"
 )
@@ -76,31 +71,6 @@ func TestIsURL(t *testing.T) {
 	}
 }
 
-func TestOCRLanguages(t *testing.T) {
-	for _, c := range []struct {
-		configured, locale, want []string
-		fails                    bool
-	}{
-		{configured: []string{"deu", "eng"}, locale: []string{"fr_FR", "fr"}, want: []string{"deu", "eng"}},
-		{locale: nil, want: []string{"eng"}},
-		{locale: []string{"de_DE", "de"}, want: []string{"deu"}},
-		{locale: []string{"zh_TW", "zh"}, want: []string{"chi_tra"}},
-		{locale: []string{"zh_CN", "zh"}, want: []string{"chi_sim"}},
-		{locale: []string{"tlh_QO", "tlh"}, fails: true},
-	} {
-		got, err := ocrLanguages(c.configured, c.locale)
-		if c.fails {
-			if err == nil || !strings.Contains(err.Error(), "screenshot.ocr-languages") {
-				t.Errorf("%v: %v, %v; want an error naming the setting", c.locale, got, err)
-			}
-			continue
-		}
-		if err != nil || !slices.Equal(got, c.want) {
-			t.Errorf("%v %v = %v, %v; want %v", c.configured, c.locale, got, err, c.want)
-		}
-	}
-}
-
 type readRecord struct {
 	copied  []string
 	toasts  []string
@@ -118,8 +88,11 @@ func readHost(t *testing.T, frame *image.RGBA) (*Host, *readRecord, *[]Notice, *
 	}
 	cfg := h.Config()
 	cfg.OutputDirectory = out
-	cfg.OcrLanguages = []string{"eng"}
 	h.Config = fixed(cfg)
+	h.Faces = func() ([]*render.Typeface, error) {
+		face, err := render.NewFixtureTypeface()
+		return []*render.Typeface{face}, err
+	}
 	h.frozen = func(bool) ([]frozenOutput, error) { return []frozenOutput{offHeap(t, h, "DP-1", frame)}, nil }
 	rec := &readRecord{}
 	h.CopyText = func(s string) error { rec.copied = append(rec.copied, s); return nil }
@@ -195,43 +168,32 @@ func TestReadQRWithoutACodeCopiesNothing(t *testing.T) {
 	}
 }
 
-func fakeTesseract(t *testing.T, script string) string {
+func textImage(t *testing.T, w, h int, px float64, lines ...string) *image.RGBA {
 	t.Helper()
-	dir := t.TempDir()
-	calls := filepath.Join(dir, "calls")
-	tools := map[string]string{}
-	for _, name := range []string{"sh", "cat", "sleep"} {
-		p, err := exec.LookPath(name)
-		if err != nil {
-			t.Fatal(err)
-		}
-		tools[name] = p
-	}
-	body := "#!" + tools["sh"] + "\necho \"$$ $*\" >> " + calls + "\n" + tools["cat"] + " > /dev/null\n" + strings.ReplaceAll(script, "sleep", tools["sleep"])
-	fdtest.WriteExecutable(t, filepath.Join(dir, Tesseract), []byte(body))
-	t.Setenv("PATH", dir)
-	return calls
-}
-
-func spawns(t *testing.T, calls string) []string {
-	t.Helper()
-	data, err := os.ReadFile(calls)
-	if errors.Is(err, os.ErrNotExist) {
-		return nil
-	}
+	face, err := render.NewFixtureTypeface()
 	if err != nil {
 		t.Fatal(err)
 	}
-	text := strings.TrimSpace(string(data))
-	if text == "" {
-		return nil
+	data := make([]byte, render.Stride(w)*h)
+	cv := render.New(data, render.Stride(w), w, h)
+	cv.FillRect(render.Rect{W: w, H: h}, render.RGB(255, 255, 255))
+	for i, l := range lines {
+		face.Draw(cv, face.Shape(l, px), 10, int(px*(1.5+1.6*float64(i))), render.RGB(0, 0, 0))
 	}
-	return strings.Split(text, "\n")
+	img := image.NewRGBA(image.Rect(0, 0, w, h))
+	for i := 0; i < len(data); i += 4 {
+		img.Pix[i], img.Pix[i+1], img.Pix[i+2], img.Pix[i+3] = data[i+2], data[i+1], data[i], data[i+3]
+	}
+	return img
 }
 
-func TestReadTextCopiesWhatTesseractReadOnceAndToastsTheFirstLine(t *testing.T) {
-	calls := fakeTesseract(t, "printf 'Error 42\\nDisk full\\n\\f'\n")
-	h, rec, _, _ := readHost(t, solid(200, 100, color.RGBA{255, 255, 255, 255}))
+func textFrame(t *testing.T, lines ...string) *image.RGBA {
+	t.Helper()
+	return textImage(t, 200, 100, 24, lines...)
+}
+
+func TestReadTextCopiesWhatItReadOnceAndToastsTheFirstLine(t *testing.T) {
+	h, rec, _, _ := readHost(t, textFrame(t, "Error 42", "Disk full"))
 	got, err := h.Read(portaldialogs.Caller{}, ReadText)
 	if err != nil || got != "Error 42\nDisk full" {
 		t.Fatalf("Read = %q, %v", got, err)
@@ -239,121 +201,100 @@ func TestReadTextCopiesWhatTesseractReadOnceAndToastsTheFirstLine(t *testing.T) 
 	if !slices.Equal(rec.copied, []string{got}) || !slices.Equal(rec.toasts, []string{"Error 42"}) {
 		t.Fatalf("copied %q toasts %q", rec.copied, rec.toasts)
 	}
-	if s := spawns(t, calls); len(s) != 1 || !strings.HasSuffix(s[0], " stdin stdout -l eng") {
-		t.Fatalf("tesseract ran %q, want once on stdin with -l eng", s)
-	}
 }
 
-func TestReadTextWithoutTesseractFailsBeforeTheOverlay(t *testing.T) {
-	t.Setenv("PATH", t.TempDir())
-	h, rec, _, region := readHost(t, solid(200, 100, color.RGBA{255, 255, 255, 255}))
-	_, err := h.Read(portaldialogs.Caller{}, ReadText)
-	if !errors.Is(err, ErrNoTesseract) || !strings.Contains(err.Error(), "tesseract is not installed") {
-		t.Fatalf("Read = %v, want the missing binary named", err)
-	}
-	if region.frames != nil || len(rec.copied) != 0 {
-		t.Fatal("the overlay opened or something was copied without tesseract")
-	}
-}
-
-func TestReadTextFindingNothingCopiesNothing(t *testing.T) {
-	fakeTesseract(t, "printf '\\f'\n")
+func TestReadTextOfABlankRegionCopiesNothing(t *testing.T) {
 	h, rec, _, _ := readHost(t, solid(200, 100, color.RGBA{255, 255, 255, 255}))
-	if _, err := h.Read(portaldialogs.Caller{}, ReadText); !errors.Is(err, ErrNoText) {
-		t.Fatalf("Read = %v, want ErrNoText", err)
+	if _, err := h.Read(portaldialogs.Caller{}, ReadText); !errors.Is(err, ocr.ErrBlank) {
+		t.Fatalf("Read = %v, want ErrBlank", err)
+	}
+	if len(rec.copied)+len(rec.toasts) != 0 {
+		t.Fatalf("copied %v toasted %v", rec.copied, rec.toasts)
+	}
+}
+
+func TestReadTextOfACodeIsNotText(t *testing.T) {
+	h, rec, _, _ := readHost(t, onWhite(200, 100, qrImage(t, "https://example.org/qr", 96), image.Pt(52, 2)))
+	if _, err := h.Read(portaldialogs.Caller{}, ReadText); !errors.Is(err, ocr.ErrNotText) {
+		t.Fatalf("Read = %v, want ErrNotText", err)
+	}
+	if len(rec.copied)+len(rec.toasts) != 0 {
+		t.Fatalf("copied %v toasted %v", rec.copied, rec.toasts)
+	}
+}
+
+func TestReadTextWithoutItsFontsNamesThem(t *testing.T) {
+	h, rec, _, _ := readHost(t, textFrame(t, "Error 42"))
+	missing := errors.New("no sans-serif face found")
+	h.Faces = func() ([]*render.Typeface, error) { return nil, missing }
+	_, err := h.Read(portaldialogs.Caller{}, ReadText)
+	if !errors.Is(err, missing) || !strings.Contains(err.Error(), "cannot load the fonts to read the text in") {
+		t.Fatalf("Read = %v, want the fonts named", err)
 	}
 	if len(rec.copied) != 0 {
 		t.Fatalf("copied %v", rec.copied)
 	}
 }
 
-func TestCancellingTheReadingKillsTesseract(t *testing.T) {
-	calls := fakeTesseract(t, "exec sleep 30\n")
-	h, rec, _, _ := readHost(t, solid(200, 100, color.RGBA{255, 255, 255, 255}))
-	cancels := make(chan func(), 1)
+func TestCancellingTheReadingStopsIt(t *testing.T) {
+	h, rec, _, _ := readHost(t, textFrame(t, "Error 42"))
 	h.Working = func(cancel func()) func() {
 		rec.working++
-		cancels <- cancel
+		cancel()
 		return func() { rec.working-- }
 	}
-	start := time.Now()
-	read := make(chan error, 1)
-	go func() {
-		_, err := h.Read(portaldialogs.Caller{Handle: "/req/1"}, ReadText)
-		read <- err
-	}()
-	cancel := waittest.For(t, cancels, "the reading to show that it works")
-	waittest.Until(t, func() bool { return len(spawns(t, calls)) > 0 }, "tesseract to start")
-	cancel()
-	if err := waittest.For(t, read, "the cancelled reading to end"); !errors.Is(err, context.Canceled) {
+	if _, err := h.Read(portaldialogs.Caller{Handle: "/req/1"}, ReadText); !errors.Is(err, context.Canceled) {
 		t.Fatalf("Read = %v, want cancelled", err)
 	}
-	if time.Since(start) > 20*time.Second {
-		t.Fatal("cancelling waited for tesseract to finish")
-	}
-	s := spawns(t, calls)
-	if len(s) != 1 || rec.working != 0 || len(rec.copied) != 0 {
-		t.Fatalf("spawns %q, indicator %d, copied %v", s, rec.working, rec.copied)
-	}
-	pid, err := strconv.Atoi(strings.Fields(s[0])[0])
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := syscall.Kill(pid, 0); !errors.Is(err, syscall.ESRCH) {
-		t.Fatalf("tesseract %d still runs: %v", pid, err)
+	if rec.working != 0 || len(rec.copied) != 0 {
+		t.Fatalf("indicator %d, copied %v", rec.working, rec.copied)
 	}
 }
 
-func TestDismissStopsTesseract(t *testing.T) {
-	calls := fakeTesseract(t, "exec sleep 30\n")
-	h, _, _, _ := readHost(t, solid(200, 100, color.RGBA{255, 255, 255, 255}))
-	read := make(chan error, 1)
-	go func() {
-		_, err := h.Read(portaldialogs.Caller{Handle: "/req/2"}, ReadText)
-		read <- err
-	}()
-	waittest.Until(t, func() bool { return len(spawns(t, calls)) > 0 }, "tesseract to start")
-	h.Dismiss("/req/2")
-	if err := waittest.For(t, read, "the dismissed reading to end"); !errors.Is(err, context.Canceled) {
+func TestDismissStopsTheReading(t *testing.T) {
+	h, rec, _, _ := readHost(t, textFrame(t, "Error 42"))
+	h.Working = func(func()) func() {
+		h.Dismiss("/req/3")
+		h.Dismiss("/req/2")
+		return func() {}
+	}
+	if _, err := h.Read(portaldialogs.Caller{Handle: "/req/2"}, ReadText); !errors.Is(err, context.Canceled) {
 		t.Fatalf("Read = %v, want cancelled", err)
+	}
+	if len(rec.copied) != 0 {
+		t.Fatalf("copied %v", rec.copied)
+	}
+}
+
+func TestDismissingAnotherRequestLeavesTheReading(t *testing.T) {
+	h, rec, _, _ := readHost(t, textFrame(t, "Error 42"))
+	h.Working = func(func()) func() {
+		h.Dismiss("/req/3")
+		return func() {}
+	}
+	if got, err := h.Read(portaldialogs.Caller{Handle: "/req/2"}, ReadText); err != nil || got != "Error 42" {
+		t.Fatalf("Read = %q, %v", got, err)
+	}
+	if !slices.Equal(rec.copied, []string{"Error 42"}) {
+		t.Fatalf("copied %v", rec.copied)
 	}
 }
 
 func TestRecognizeEndsWithTheCauseItsContextWasStoppedWith(t *testing.T) {
-	calls := fakeTesseract(t, "exec sleep 30\n")
+	h, _, _, _ := readHost(t, textFrame(t, "Error 42"))
 	ctx, stop := context.WithCancelCause(t.Context())
-	read := make(chan error, 1)
-	go func() {
-		_, err := recognize(ctx, solid(200, 100, color.RGBA{255, 255, 255, 255}), []string{"eng"})
-		read <- err
-	}()
-	waittest.Until(t, func() bool { return len(spawns(t, calls)) > 0 }, "tesseract to start")
 	stop(errOCRTimeout)
-	if err := waittest.For(t, read, "the stopped recognition to end"); !errors.Is(err, errOCRTimeout) || err.Error() != "tesseract did not finish within 30s" {
+	_, err := h.recognize(ctx, textFrame(t, "Error 42"))
+	if !errors.Is(err, errOCRTimeout) || err.Error() != "reading the text did not finish within 30s" {
 		t.Fatalf("recognize = %v, want the timeout named", err)
 	}
 }
 
-func TestTesseractReadsAFixtureLine(t *testing.T) {
-	if !OCRAvailable() {
-		t.Skip("tesseract is not installed (the nix dev shell carries it)")
-	}
-	face, err := render.NewFixtureTypeface()
-	if err != nil {
-		t.Fatal(err)
-	}
-	w, h := 360, 60
-	data := make([]byte, render.Stride(w)*h)
-	cv := render.New(data, render.Stride(w), w, h)
-	cv.FillRect(render.Rect{W: w, H: h}, render.RGB(255, 255, 255))
-	face.Draw(cv, face.Shape("Disk quota exceeded", 28), 10, 40, render.RGB(0, 0, 0))
-	img := image.NewRGBA(image.Rect(0, 0, w, h))
-	for i := 0; i < len(data); i += 4 {
-		img.Pix[i], img.Pix[i+1], img.Pix[i+2], img.Pix[i+3] = data[i+2], data[i+1], data[i], data[i+3]
-	}
-	got, err := recognize(t.Context(), img, []string{"eng"})
+func TestRecognizeReadsTheFixtureLine(t *testing.T) {
+	h, _, _, _ := readHost(t, textFrame(t))
+	got, err := h.recognize(t.Context(), textImage(t, 360, 60, 28, "Disk quota exceeded"))
 	if err != nil || got != "Disk quota exceeded" {
-		t.Fatalf("tesseract read %q, %v", got, err)
+		t.Fatalf("recognize read %q, %v", got, err)
 	}
 }
 

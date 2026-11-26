@@ -48,7 +48,6 @@ Modules talk to these services. Install the ones you use:
 | BlueZ | `bluetooth` |
 | [lys-power](/power/) | `power-profiles` |
 | tzdata (`zone.tab`, `tzdata.zi`) | `nightlight` auto-schedule without a pinned place: it follows the time zone's city |
-| tesseract | `lys-shell screenshot text` |
 
 ::: code-group
 

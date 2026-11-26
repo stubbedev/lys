@@ -3613,7 +3613,7 @@ _lys-shell__help__screenshot_commands() {
 'region:Capture a dragged region or a clicked window' \
 'output:Capture a whole output (the focused output when NAME is omitted)' \
 'window:Capture the active window' \
-'text:Copy the text in a dragged region to the clipboard (OCR through tesseract)' \
+'text:Copy the text in a dragged region to the clipboard' \
 'qr:Decode the QR code in a dragged region' \
     )
     _describe -t commands 'lys-shell help screenshot commands' commands "$@"
@@ -4945,7 +4945,7 @@ _lys-shell__screenshot_commands() {
 'region:Capture a dragged region or a clicked window' \
 'output:Capture a whole output (the focused output when NAME is omitted)' \
 'window:Capture the active window' \
-'text:Copy the text in a dragged region to the clipboard (OCR through tesseract)' \
+'text:Copy the text in a dragged region to the clipboard' \
 'qr:Decode the QR code in a dragged region' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
@@ -4957,7 +4957,7 @@ _lys-shell__screenshot__help_commands() {
 'region:Capture a dragged region or a clicked window' \
 'output:Capture a whole output (the focused output when NAME is omitted)' \
 'window:Capture the active window' \
-'text:Copy the text in a dragged region to the clipboard (OCR through tesseract)' \
+'text:Copy the text in a dragged region to the clipboard' \
 'qr:Decode the QR code in a dragged region' \
 'help:Print this message or the help of the given subcommand(s)' \
     )

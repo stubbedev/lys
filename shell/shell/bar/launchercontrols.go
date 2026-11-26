@@ -43,7 +43,6 @@ type controlSources struct {
 	media      mpris.Source
 	screenshot func(mode, target string)
 	readScreen func(kind screenshot.ReadKind)
-	ocr        func() bool
 	recorder   recorderSwitch
 	pickColor  func()
 	// wallpaper opens the wallpaper picker; nil without one.
@@ -55,7 +54,7 @@ func controlSourcesOf(ctx ModuleContext) controlSources {
 	s := controlSources{
 		bluetooth: ctx.Bluetooth, audio: ctx.Pulse, media: ctx.Media,
 		screenshot: ctx.Screenshot, pickColor: ctx.PickColor,
-		readScreen: ctx.ReadScreen, ocr: screenshot.OCRAvailable,
+		readScreen: ctx.ReadScreen,
 	}
 	if ctx.Notifications != nil {
 		s.dnd = ctx.Notifications
@@ -216,13 +215,10 @@ func (s controlSources) captureControls(context.Context) []search.Control {
 		)
 	}
 	if s.readScreen != nil {
-		if s.ocr() {
-			out = append(out, search.Control{
-				ID: "screenshot-text", Title: i18n.T("launcher-control-screenshot-text"), Keywords: "ocr copy text recognize capture screen", Icon: "ld-scan-text-symbolic",
-				Effect: search.RunOnceClosed(func() { s.readScreen(screenshot.ReadText) }),
-			})
-		}
 		out = append(out, search.Control{
+			ID: "screenshot-text", Title: i18n.T("launcher-control-screenshot-text"), Keywords: "ocr copy text recognize capture screen", Icon: "ld-scan-text-symbolic",
+			Effect: search.RunOnceClosed(func() { s.readScreen(screenshot.ReadText) }),
+		}, search.Control{
 			ID: "screenshot-qr", Title: i18n.T("launcher-control-screenshot-qr"), Keywords: "qr code scan barcode capture screen", Icon: "ld-scan-qr-code-symbolic",
 			Effect: search.RunOnceClosed(func() { s.readScreen(screenshot.ReadQR) }),
 		})

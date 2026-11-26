@@ -83,7 +83,6 @@ func TestTheScreenshotPageGroupsWhatHappensAfterACapture(t *testing.T) {
 			"modules.screenshot.copy-to-clipboard", "modules.screenshot.notify",
 			"modules.screenshot.thumbnail-ms", "modules.screenshot.thumbnail-position",
 		},
-		"settings-section-screenshot-text": {"modules.screenshot.ocr-languages"},
 	}
 	for _, s := range p.sections {
 		paths, ok := want[s.title]

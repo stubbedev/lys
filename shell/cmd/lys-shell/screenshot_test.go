@@ -63,21 +63,13 @@ func TestScreenshotRejectsBadArguments(t *testing.T) {
 	}
 }
 
-func TestScreenshotTextWithoutTesseractNamesIt(t *testing.T) {
-	dbustest.Session(t)
-	t.Setenv("PATH", t.TempDir())
-	export(t, screenshot.NewDaemon(&screenshot.Host{Region: stubRegion{}}).Export)
-	stdout, stderr, code := runCaptured(t, false, "screenshot", "text")
-	if code != 1 || stdout != "" || !strings.Contains(stderr, "tesseract is not installed") {
-		t.Fatalf("code %d stdout %q stderr %q", code, stdout, stderr)
-	}
-}
-
-func TestScreenshotQRCancelledStaysACancel(t *testing.T) {
+func TestScreenshotReadingsCancelledStayACancel(t *testing.T) {
 	dbustest.Session(t)
 	export(t, screenshot.NewDaemon(&screenshot.Host{Region: stubRegion{}}).Export)
-	stdout, stderr, code := runCaptured(t, false, "screenshot", "qr")
-	if code != 0 || stdout != "Screen reading cancelled\n" || stderr != "" {
-		t.Fatalf("code %d stdout %q stderr %q", code, stdout, stderr)
+	for _, kind := range []string{"text", "qr"} {
+		stdout, stderr, code := runCaptured(t, false, "screenshot", kind)
+		if code != 0 || stdout != "Screen reading cancelled\n" || stderr != "" {
+			t.Fatalf("screenshot %s: code %d stdout %q stderr %q", kind, code, stdout, stderr)
+		}
 	}
 }

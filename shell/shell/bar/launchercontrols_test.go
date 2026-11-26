@@ -349,13 +349,9 @@ func TestAToneTypedFromTheActionsBecomesTheConfiguredDefault(t *testing.T) {
 	}
 }
 
-func TestReadingRowsFollowTesseract(t *testing.T) {
+func TestReadingRowsReadTextAndCodes(t *testing.T) {
 	var reads []screenshot.ReadKind
-	tesseract := true
-	s := controlSources{
-		readScreen: func(k screenshot.ReadKind) { reads = append(reads, k) },
-		ocr:        func() bool { return tesseract },
-	}
+	s := controlSources{readScreen: func(k screenshot.ReadKind) { reads = append(reads, k) }}
 	rows := s.captureControls(context.Background())
 	if got, want := titlesOf(rows), []string{"Copy Text from Screen", "Scan QR Code"}; !slices.Equal(got, want) {
 		t.Fatalf("rows %q, want %q", got, want)
@@ -374,9 +370,8 @@ func TestReadingRowsFollowTesseract(t *testing.T) {
 		t.Fatalf("reads %v", reads)
 	}
 
-	tesseract = false
-	if got, want := titlesOf(s.captureControls(context.Background())), []string{"Scan QR Code"}; !slices.Equal(got, want) {
-		t.Fatalf("without tesseract rows %q, want %q", got, want)
+	if rows := (controlSources{}).captureControls(context.Background()); len(rows) != 0 {
+		t.Fatalf("without a reader rows %q, want none", titlesOf(rows))
 	}
 }
 

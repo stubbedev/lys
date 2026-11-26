@@ -473,7 +473,6 @@ func screenshotPage(*config.Config) pageSpec {
 				field(m+".thumbnail-ms", durationChips(inMilliseconds, after(3*time.Second), after(5*time.Second), after(10*time.Second), zeroAs(off))),
 				field(m+".thumbnail-position", screenPosition),
 			}},
-			{title: "settings-section-screenshot-text", rows: []rowSpec{field(m+".ocr-languages", ocrLanguagesRow)}},
 			{title: "settings-section-screenshot-shortcuts", rows: []rowSpec{screenshotShortcutsRow()}},
 			{title: "settings-section-colorpicker", rows: fields("colorpicker.format")},
 		},
