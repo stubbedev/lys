@@ -43,10 +43,14 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Disk space before setup
+        run: df -BM --output=target,size,used,avail /
       - uses: ./.github/actions/setup
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           free-disk: ${{ matrix.free-disk }}
+      - name: Disk space after setup
+        run: df -BM --output=target,size,used,avail /
       - uses: stubbedev/xilo@b48c60917a4472a527f463995ad62e9ea0addf18 # v2.0.0
         with:
           url: https://xilos.dev
@@ -56,3 +60,5 @@ jobs:
       - name: The entry's Nix outputs
         timeout-minutes: 6
         run: ${{ matrix.run }}
+      - name: Disk space after the build
+        run: df -BM --output=target,size,used,avail /
