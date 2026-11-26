@@ -11603,10 +11603,12 @@
     "imports": [
       "lib/render",
       "ui/app",
-      "ui/widget"
+      "ui/widget",
+      "ui/widget/css"
     ],
     "external": [
       "errors",
+      "flag",
       "log",
       "os",
       "strconv",
@@ -12968,6 +12970,7 @@
   },
   "wm/internal/backend/headless": {
     "imports": [
+      "lib/dmabuf",
       "lib/drm",
       "lib/edid",
       "lib/fourcc",
@@ -12987,6 +12990,7 @@
       "golang.org/x/sys/unix",
       "image",
       "image/color",
+      "math",
       "os",
       "slices",
       "time"
