@@ -5,7 +5,9 @@
 
 .portal-dialog-surface,
 .print-surface,
-.file-chooser-quicklook {
+.file-chooser-quicklook,
+.launcher-quicklook,
+.quicklook-card {
   box-shadow: var(--shadow);
 }
 
