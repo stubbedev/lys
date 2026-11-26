@@ -27,7 +27,7 @@ features:
     details: Screen and window capture, virtual input, protocol bindings.
     link: /lib/wayland
   - title: Media
-    details: Hardware H.264/H.265, MP4 and Matroska, Opus, Vorbis, PCM mixing, V4L2.
+    details: Hardware H.264/H.265, MP4, Matroska, Ogg, FLAC and MP3 files, AAC, Opus, Vorbis, FLAC and MP3 decoding, PCM mixing, V4L2.
     link: /lib/media
   - title: System services
     details: PipeWire video producer, EIS server, D-Bus, PAM.

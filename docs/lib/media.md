@@ -482,18 +482,20 @@ track's `Config` is the body of its STREAMINFO block in every container.
   timed by its last frame, and an ID3v1 tag at its end is skipped.
 - **MPEG audio**: ID3v2 tags before the frames and APEv2 and ID3v1 tags after
   them are skipped; Layer III is `MP3`, Layers I and II are `Unknown`, named
-  in `CodecName`. A Xing, Info or VBRI header gives the frame count, and a LAME
+  in `CodecName`. A Xing, Info or VBRI header (after the side information as
+  if the frame had no CRC, where LAME writes it) gives the frame count, and a LAME
   tag the encoder's delay and padding: the delay (with the 529 samples the
   synthesis adds) is the track's `CodecDelay`, and both come off its duration.
   A file without such a header is counted frame by frame on opening; the first
-  seek indexes the frames, so it lands on the frame holding the target. There
-  is no MP3 decoder yet.
+  seek indexes the frames, so it lands on the frame holding the target.
+  [`mp3`](#media-mp3) decodes the frames.
 
 `File.Cover` returns the picture a file embeds as its cover art, as stored:
 an MP4's `covr` item, a FLAC `PICTURE` block, an Ogg stream's
-`METADATA_BLOCK_PICTURE` comment or an ID3v2 `APIC` frame, the front cover
-where the file marks one. A
-Matroska file's attachments are not read.
+`METADATA_BLOCK_PICTURE` comment, an ID3v2 `APIC` frame or a Matroska image
+attachment, the front cover where the file marks one. A Matroska file's front
+cover is the attachment named `cover.jpg` or `cover.png`, else its first
+image; of the other attachments only the headers are read.
 
 ## media/flac
 
@@ -513,6 +515,45 @@ or MP4 file; `Decode` turns one frame into interleaved signed 16-bit samples.
 
 ```go
 dec, err := flac.NewDecoder(track.Config)
+if err != nil {
+	return err
+}
+pcm, err := dec.Decode(nil, packet.Data)
+```
+
+## media/mp3
+
+`mp3` is a pure-Go MP3 decoder: MPEG-1, MPEG-2 and MPEG-2.5 Layer III.
+`NewDecoder` takes the sample rate and channel count that `demux` reports for
+an MP3 track of an MPEG audio, Matroska or MP4 file; `Decode` turns a packet
+of one or more whole frames into interleaved signed 16-bit samples, 1152 per
+channel a frame in MPEG-1 and 576 in MPEG-2 and 2.5.
+
+- Mono, stereo, dual channel and joint stereo (mid/side and intensity), long,
+  short and mixed blocks, frames with a CRC (not checked) and the bit
+  reservoir. Layers I and II are `ErrUnsupported`; a frame that breaks the
+  format or the stream's rate or channel count wraps `ErrInvalidFrame`.
+  Free-format streams do not demux.
+- Within an LSB of FFmpeg's decoder, about 100 dB SNR, on LAME's MPEG-1, 2
+  and 2.5 streams and on synthetic ones of mixed blocks and intensity stereo.
+  Where FFmpeg departs from the standard, the decoder follows the standard:
+  an MPEG-2 intensity position at its scale factor's largest value codes
+  none, and a block overlaps the whole of the last one's second half
+  whatever their types. Mixed blocks at 8 kHz split at 72 values, where
+  their transform does; no other decoder was compared on them.
+- The output keeps the 529 samples the standard's synthesis delays it by,
+  which the demuxer's `CodecDelay` and an MP4 edit list count; Matroska
+  names no delay for MP3. After `Reset` a frame whose data begins in the
+  frames before it decodes as silence, and the output joins the one decoding
+  from the start gives once the bit reservoir and the overlap have filled
+  again.
+- The Huffman trees, band widths and synthesis constants are minimp3's
+  (public domain under CC0), copied by `mp3/internal/genminimp3` from a pinned
+  commit. Importing the package runs nothing: |q|^(4/3), the gains and the
+  windows are computed by the first `NewDecoder`; no allocation per frame.
+
+```go
+dec, err := mp3.NewDecoder(track.SampleRate, track.Channels)
 if err != nil {
 	return err
 }
