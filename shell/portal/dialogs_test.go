@@ -1,7 +1,6 @@
 package portal
 
 import (
-	"context"
 	"errors"
 	"io/fs"
 	"os"
@@ -11,11 +10,9 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/resources"
-	"github.com/stubbedev/lys/desktop/useraccount"
 	"github.com/stubbedev/lys/lib/portaldialogs"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/userdb"
-	"github.com/stubbedev/lys/lib/userdb/userdbtest"
 )
 
 const (
@@ -110,11 +107,8 @@ func TestAccessDialogChoicesRoundTrip(t *testing.T) {
 func TestAccountSharesTheUser(t *testing.T) {
 	uid := userdb.UID(os.Getuid()) //nolint:gosec // a uid is never negative
 	want := userdb.User{Name: "ada", UID: uid, GID: userdb.GID(uid), RealName: "Ada Lovelace", Home: t.TempDir()}
-	socket := userdbtest.Serve(t, userdbtest.DB{Users: []userdb.User{want}})
 	t.Setenv("USER", "mallory")
-	r := newRig(t, func(b *Backend) {
-		b.account = func() (useraccount.Account, error) { return useraccount.Lookup(context.Background(), socket, uid) }
-	})
+	r := newRig(t, func(b *Backend) { b.account = userdbAccount(t, want) })
 	d := serveDialogs(t, r, true)
 	_, res := r.interactive(t, userInfoCall, handle, "org.app", "", Vardict{"reason": dbus.MakeVariant("to greet you")})
 	asked := d.asked.Load()
