@@ -36,9 +36,17 @@ type memory interface {
 	linear(size image.Point, format fourcc.Format) (*gpu.Buffer, error)
 }
 
+type drawer uint8
+
+const (
+	gbmDeviceDraws drawer = iota
+	cpuDraws
+)
+
 type gbmMemory struct {
-	gbm bufferMaker
-	gpu gpuRenderer
+	gbm    bufferMaker
+	gpu    gpuRenderer
+	drawer drawer
 }
 
 func (m gbmMemory) modifiers(format fourcc.Format) ([]fourcc.Modifier, error) {
@@ -46,7 +54,10 @@ func (m gbmMemory) modifiers(format fourcc.Format) ([]fourcc.Modifier, error) {
 }
 
 func (m gbmMemory) drawable(size image.Point, format fourcc.Format, modifiers []fourcc.Modifier, use bufferUse) (drawable, error) {
-	usage := gpu.UseRendering
+	var usage gpu.Usage
+	if m.drawer == gbmDeviceDraws {
+		usage |= gpu.UseRendering
+	}
 	if use == scannedOut {
 		usage |= gpu.UseScanout
 	}

@@ -25,9 +25,10 @@ func openVulkan(dev *kdrm.Device) (*gpuAllocator, error) {
 }
 
 var gpuStacks = []struct {
-	name string
-	open openStack
-}{{"vulkan", openVulkan}, {"lavapipe", openLavapipe}}
+	name       string
+	open       openStack
+	timedBlits int
+}{{"vulkan", openVulkan, 60}, {"lavapipe", openLavapipe, 3}}
 
 func cardNodes(t *testing.T) []string {
 	t.Helper()
@@ -129,11 +130,11 @@ func blitPair(t *testing.T, a *blitAllocator, size image.Point) (*scanout, *shar
 
 func TestABlitThroughAVulkanLinearCopyShowsTheFrameOnHardware(t *testing.T) {
 	for _, stack := range gpuStacks {
-		t.Run(stack.name, func(t *testing.T) { blitThroughACopy(t, stack.open) })
+		t.Run(stack.name, func(t *testing.T) { blitThroughACopy(t, stack.open, stack.timedBlits) })
 	}
 }
 
-func blitThroughACopy(t *testing.T, open openStack) {
+func blitThroughACopy(t *testing.T, open openStack, frames int) {
 	cards := cardNodes(t)
 	defer gpu.PinThread()()
 	primary, local := stackOn(t, cards[0], open), stackOn(t, cards[0], open)
@@ -175,7 +176,6 @@ func blitThroughACopy(t *testing.T, open openStack) {
 	big := image.Pt(2560, 1440)
 	out, s = blitPair(t, a, big)
 	drawQuadrants(t, primary.gpu, s.target)
-	const frames = 60
 	start = time.Now()
 	for range frames {
 		if err := a.blit(s, out.target, big); err != nil {
@@ -185,7 +185,7 @@ func blitThroughACopy(t *testing.T, open openStack) {
 			t.Fatal(err)
 		}
 	}
-	per := time.Since(start) / frames
+	per := time.Since(start) / time.Duration(frames)
 	t.Logf("a %v frame copied and blitted in %v", big, per)
 }
 

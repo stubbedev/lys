@@ -80,7 +80,7 @@ func addFB2Modifiers(dev device) (bool, error) {
 }
 
 func newVulkanAllocator(dev device, paths gpu.Paths) (*gpuAllocator, error) {
-	return newGBMAllocator(dev, paths, renderFiles, func(card uint64) (*vulkan.Renderer, error) {
+	return newGBMAllocator(dev, paths, renderFiles, gbmDeviceDraws, func(card uint64) (*vulkan.Renderer, error) {
 		r, err := vulkan.Open(card)
 		if err != nil {
 			return nil, vulkanOpenError(dev.Path(), err)
@@ -90,7 +90,7 @@ func newVulkanAllocator(dev device, paths gpu.Paths) (*gpuAllocator, error) {
 }
 
 func newLavapipeAllocator(dev device, paths gpu.Paths) (*gpuAllocator, error) {
-	return newGBMAllocator(dev, paths, cardFilesFirst, func(card uint64) (*vulkan.Renderer, error) {
+	return newGBMAllocator(dev, paths, cardFilesFirst, cpuDraws, func(card uint64) (*vulkan.Renderer, error) {
 		r, err := vulkan.OpenCPU(card)
 		if err != nil {
 			return nil, lavapipeOpenError(dev.Path(), err)
@@ -99,7 +99,7 @@ func newLavapipeAllocator(dev device, paths gpu.Paths) (*gpuAllocator, error) {
 	})
 }
 
-func newGBMAllocator(dev device, paths gpu.Paths, filesOf func(device) ([]func() (*kdrm.Device, error), error), open func(card uint64) (*vulkan.Renderer, error)) (*gpuAllocator, error) {
+func newGBMAllocator(dev device, paths gpu.Paths, filesOf func(device) ([]func() (*kdrm.Device, error), error), drawer drawer, open func(card uint64) (*vulkan.Renderer, error)) (*gpuAllocator, error) {
 	modifiers, err := addFB2Modifiers(dev)
 	if err != nil {
 		return nil, err
@@ -117,7 +117,7 @@ func newGBMAllocator(dev device, paths gpu.Paths, filesOf func(device) ([]func()
 		return nil, err
 	}
 	allocator := func(s gbmFile) *gpuAllocator {
-		return &gpuAllocator{dev: dev, path: dev.Path(), modifiers: modifiers, mem: gbmMemory{gbm: s.gbm, gpu: r}, gpu: r, closeGPU: func() error { return errors.Join(r.Close(), s.close()) }}
+		return &gpuAllocator{dev: dev, path: dev.Path(), modifiers: modifiers, mem: gbmMemory{gbm: s.gbm, gpu: r, drawer: drawer}, gpu: r, closeGPU: func() error { return errors.Join(r.Close(), s.close()) }}
 	}
 	s, err := openGBMOnFile(files, func(fd int) (gbmFile, error) { return gbmOn(fd, paths) }, func(s gbmFile) error { return allocator(s).probe() })
 	if err != nil {
