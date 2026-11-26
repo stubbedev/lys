@@ -354,7 +354,8 @@
       ["ui/1:gates", "ui/2:gates"],
       ["ui/3:gates"],
       ["ui:race", "login:race"],
-      ["settings:gates", "desktop"],
+      ["settings/1:gates", "settings/3:gates"],
+      ["settings/2:gates", "desktop"],
       ["wm:gates", "splash", "polkit"],
       ["shell/3:gates", "login:gates"],
       ["shell/4:gates"],
@@ -367,7 +368,8 @@
     ],
     "aarch64": [
       ["shell", "ui"],
-      ["lib", "settings", "login", "secrets", "wm", "polkit", "power", "splash", "desktop"]
+      ["lib", "wm", "polkit", "splash"],
+      ["settings", "login", "secrets", "power", "desktop"]
     ]
   }
 }
