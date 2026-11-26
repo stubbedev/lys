@@ -1,19 +1,19 @@
 package main
 
 import (
-	"bytes"
+	"bufio"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"io/fs"
 	"os"
-	"os/exec"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/stubbedev/lys/desktop/icons"
+	"github.com/stubbedev/lys/desktop/launchermatch"
 	"github.com/stubbedev/lys/desktop/resources"
 
 	"github.com/stubbedev/lys/shell/internal/cli"
@@ -179,7 +179,7 @@ func iconsList(m *cli.Matches) error {
 		return nil
 	}
 	if m.Flag("interactive") {
-		return runFzf(out, names)
+		return pickIcon(os.Stdin, out, names, copyIcon(out))
 	}
 	fmt.Fprintf(out, "\nInstalled icons (%d):\n\n", len(names))
 	for _, n := range names {
@@ -189,38 +189,82 @@ func iconsList(m *cli.Matches) error {
 	return nil
 }
 
-// runFzf picks one name and copies it through the running shell.
-func runFzf(out io.Writer, names []string) error {
-	cmd := exec.Command("fzf", "--prompt", "Search icons: ")
-	var stdout bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = os.Stderr
-	stdin, err := cmd.StdinPipe()
-	if err != nil {
-		return cliError(err.Error())
+// iconPickLimit is how many of the best matches the picker lists.
+const iconPickLimit = 20
+
+// iconMatcher ranks icon names the way the launcher's fuzzy mode does,
+// best match first, case-sensitive only for a query with a capital.
+func iconMatcher(names []string) *launchermatch.Engine {
+	opts := launchermatch.DefaultOptions()
+	opts.Method, opts.Case, opts.Sort = launchermatch.MatchFuzzy, launchermatch.CaseModeSmart, true
+	e := launchermatch.NewEngine(opts)
+	e.SetTexts(names, nil)
+	return e
+}
+
+// rankIcons is the names query matches, best first.
+func rankIcons(e *launchermatch.Engine, names []string, query string) []string {
+	e.SetQuery(query)
+	matched := e.Matched()
+	out := make([]string, len(matched))
+	for i, idx := range matched {
+		out[i] = names[idx]
 	}
-	if err := cmd.Start(); err != nil {
-		return cliError("fzf not found. Install fzf or use without -i flag.")
-	}
-	for _, n := range names {
-		_, _ = fmt.Fprintln(stdin, n)
-	}
-	_ = stdin.Close()
-	if err := cmd.Wait(); err != nil {
-		if _, ok := errors.AsType[*exec.ExitError](err); ok {
+	return out
+}
+
+// pickIcon asks on in for a search, lists the best matches on out by
+// number and hands the one picked by its number to pick. Any other line
+// searches again; an empty line or the end of in picks nothing.
+func pickIcon(in io.Reader, out io.Writer, names []string, pick func(string) error) error {
+	e := iconMatcher(names)
+	lines := bufio.NewScanner(in)
+	var shown []string
+	for {
+		if len(shown) == 0 {
+			fmt.Fprint(out, "Search icons: ")
+		} else {
+			fmt.Fprintf(out, "Pick 1-%d, or search again (empty quits): ", len(shown))
+		}
+		if !lines.Scan() {
+			fmt.Fprintln(out)
+			if err := lines.Err(); err != nil {
+				return cliError("Failed to read the search: " + err.Error())
+			}
 			return nil
 		}
-		return cliError(err.Error())
+		line := strings.TrimSpace(lines.Text())
+		if line == "" {
+			return nil
+		}
+		if n, err := strconv.Atoi(line); err == nil && n >= 1 && n <= len(shown) {
+			return pick(shown[n-1])
+		}
+		ranked := rankIcons(e, names, line)
+		if len(ranked) == 0 {
+			fmt.Fprintf(out, "No icons match '%s'\n", line)
+			shown = nil
+			continue
+		}
+		shown = ranked[:min(len(ranked), iconPickLimit)]
+		for i, n := range shown {
+			fmt.Fprintf(out, "%3d  %s\n", i+1, n)
+		}
+		if more := len(ranked) - len(shown); more > 0 {
+			fmt.Fprintf(out, "     ... %d more\n", more)
+		}
 	}
-	selected := strings.TrimSpace(stdout.String())
-	if selected == "" {
+}
+
+// copyIcon copies name through the running shell and says so.
+func copyIcon(out io.Writer) func(string) error {
+	return func(name string) error {
+		if err := copyToClipboard(name); err != nil {
+			return err
+		}
+		fmt.Fprintf(out, "Copied to clipboard: %s\n", name)
 		return nil
 	}
-	if err := copyToClipboard(selected); err != nil {
-		return err
-	}
-	fmt.Fprintf(out, "Copied to clipboard: %s\n", selected)
-	return nil
 }
 
 // iconsOpen sets the directory up and opens it with the default app

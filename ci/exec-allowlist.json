@@ -32,7 +32,6 @@
     {"package": "settings/internal/usershelper", "function": "system.run", "program": "dynamic", "class": "replace", "reason": "The root helper runs useradd, usermod, userdel, chpasswd and gpasswd for account edits.", "issue": 412},
     {"package": "settings/internal/wmconfig", "function": "Installed", "program": "lys-wm", "class": "own", "reason": "Checks that lys-wm is installed before validating its config."},
     {"package": "settings/internal/wmconfig", "function": "Exec", "program": "dynamic", "class": "own", "reason": "Runs lys-wm and lys-wmctl to validate and reload the wm config."},
-    {"package": "shell/cmd/lys-shell", "function": "runFzf", "program": "fzf", "class": "replace", "reason": "lys-shell icons picks a name with fzf; launchermatch replaces it.", "issue": 414},
     {"package": "shell/cmd/lys-shell", "function": "panelStart", "program": "dynamic", "class": "own", "reason": "lys-shell panel start runs lys-shell shell."},
     {"package": "shell/cmd/lys-shell", "function": "panelSettings", "program": "lys-settings", "class": "own", "reason": "lys-shell panel settings opens lys-settings."},
     {"package": "shell/portal", "function": "detach", "program": "dynamic", "class": "own", "reason": "Starts lys-settings --page privacy for the screencast reminder."},

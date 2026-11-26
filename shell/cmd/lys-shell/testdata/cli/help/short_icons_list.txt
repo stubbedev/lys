@@ -4,5 +4,5 @@ Usage: lys-shell icons list [OPTIONS]
 
 Options:
   -s, --source <SOURCE>  Filter by source prefix (e.g., tb, si, md)
-  -i, --interactive      Interactive fuzzy search (requires fzf)
+  -i, --interactive      Interactive fuzzy search
   -h, --help             Print help

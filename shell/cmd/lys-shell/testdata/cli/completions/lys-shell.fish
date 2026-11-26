@@ -118,7 +118,7 @@ complete -c lys-shell -n "__fish_lys_shell_using_subcommand icons; and __fish_se
 complete -c lys-shell -n "__fish_lys_shell_using_subcommand icons; and __fish_seen_subcommand_from remove" -s h -l help -d 'Print help'
 complete -c lys-shell -n "__fish_lys_shell_using_subcommand icons; and __fish_seen_subcommand_from sources" -s h -l help -d 'Print help'
 complete -c lys-shell -n "__fish_lys_shell_using_subcommand icons; and __fish_seen_subcommand_from list" -s s -l source -d 'Filter by source prefix (e.g., tb, si, md)' -r
-complete -c lys-shell -n "__fish_lys_shell_using_subcommand icons; and __fish_seen_subcommand_from list" -s i -l interactive -d 'Interactive fuzzy search (requires fzf)'
+complete -c lys-shell -n "__fish_lys_shell_using_subcommand icons; and __fish_seen_subcommand_from list" -s i -l interactive -d 'Interactive fuzzy search'
 complete -c lys-shell -n "__fish_lys_shell_using_subcommand icons; and __fish_seen_subcommand_from list" -s h -l help -d 'Print help'
 complete -c lys-shell -n "__fish_lys_shell_using_subcommand icons; and __fish_seen_subcommand_from open" -s h -l help -d 'Print help'
 complete -c lys-shell -n "__fish_lys_shell_using_subcommand icons; and __fish_seen_subcommand_from export" -s h -l help -d 'Print help'

@@ -218,8 +218,8 @@ set edit:completion:arg-completer[lys-shell] = {|@words|
         &'lys-shell;icons;list'= {
             cand -s 'Filter by source prefix (e.g., tb, si, md)'
             cand --source 'Filter by source prefix (e.g., tb, si, md)'
-            cand -i 'Interactive fuzzy search (requires fzf)'
-            cand --interactive 'Interactive fuzzy search (requires fzf)'
+            cand -i 'Interactive fuzzy search'
+            cand --interactive 'Interactive fuzzy search'
             cand -h 'Print help'
             cand --help 'Print help'
         }

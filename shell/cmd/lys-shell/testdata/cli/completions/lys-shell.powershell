@@ -261,8 +261,8 @@ Register-ArgumentCompleter -Native -CommandName 'lys-shell' -ScriptBlock {
         'lys-shell;icons;list' {
             [CompletionResult]::new('-s', '-s', [CompletionResultType]::ParameterName, 'Filter by source prefix (e.g., tb, si, md)')
             [CompletionResult]::new('--source', '--source', [CompletionResultType]::ParameterName, 'Filter by source prefix (e.g., tb, si, md)')
-            [CompletionResult]::new('-i', '-i', [CompletionResultType]::ParameterName, 'Interactive fuzzy search (requires fzf)')
-            [CompletionResult]::new('--interactive', '--interactive', [CompletionResultType]::ParameterName, 'Interactive fuzzy search (requires fzf)')
+            [CompletionResult]::new('-i', '-i', [CompletionResultType]::ParameterName, 'Interactive fuzzy search')
+            [CompletionResult]::new('--interactive', '--interactive', [CompletionResultType]::ParameterName, 'Interactive fuzzy search')
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
             break

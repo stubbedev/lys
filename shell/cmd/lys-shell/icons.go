@@ -75,7 +75,7 @@ func iconsCommand() *cli.Command {
 				About: "List installed icons",
 				Args: []*cli.Arg{
 					{ID: "source", Short: 's', Long: "source", Value: cli.String, Help: "Filter by source prefix (e.g., tb, si, md)"},
-					{ID: "interactive", Short: 'i', Long: "interactive", Help: "Interactive fuzzy search (requires fzf)"},
+					{ID: "interactive", Short: 'i', Long: "interactive", Help: "Interactive fuzzy search"},
 				},
 				Run: iconsList,
 			},

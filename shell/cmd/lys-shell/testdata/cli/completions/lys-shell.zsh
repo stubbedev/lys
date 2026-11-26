@@ -306,8 +306,8 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 '-s+[Filter by source prefix (e.g., tb, si, md)]:SOURCE:_default' \
 '--source=[Filter by source prefix (e.g., tb, si, md)]:SOURCE:_default' \
-'-i[Interactive fuzzy search (requires fzf)]' \
-'--interactive[Interactive fuzzy search (requires fzf)]' \
+'-i[Interactive fuzzy search]' \
+'--interactive[Interactive fuzzy search]' \
 '-h[Print help]' \
 '--help[Print help]' \
 && ret=0

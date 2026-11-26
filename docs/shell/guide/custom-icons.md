@@ -36,7 +36,7 @@ A single file needs a name and gets the `cm-` prefix. In a folder, files already
 
 | Command | Does |
 | --- | --- |
-| `icons list [--source tb] [--interactive]` | List installed icons, by prefix; `--interactive` searches with `fzf` |
+| `icons list [--source tb] [--interactive]` | List installed icons, by prefix; `--interactive` searches them in the terminal and copies the picked name |
 | `icons remove tb-home-symbolic ...` | Remove icons by full name |
 | `icons sync [--dry-run]` | Install every CDN icon the config names that is missing |
 | `icons export <dir>` | Copy all installed icons to a folder |
