@@ -52,9 +52,6 @@ type Config struct {
 	// OnClose closes the preview, for Space and Escape; nil leaves them
 	// to the host.
 	OnClose func()
-	// OnStep moves the preview to the hosting list's next (1) or previous
-	// (-1) item, for the arrows; nil leaves them to the host.
-	OnStep func(delta int)
 	// Open opens a file in its default app, from the Open button; nil
 	// shows no button.
 	Open func(path string)
@@ -255,21 +252,9 @@ func (v *View) Key(sym xkb.Keysym) bool {
 			return false
 		}
 		v.cfg.OnClose()
-	case xkb.KeyLeft, xkb.KeyUp:
-		return v.step(-1)
-	case xkb.KeyRight, xkb.KeyDown:
-		return v.step(1)
 	default:
 		return false
 	}
-	return true
-}
-
-func (v *View) step(delta int) bool {
-	if v.cfg.OnStep == nil {
-		return false
-	}
-	v.cfg.OnStep(delta)
 	return true
 }
 

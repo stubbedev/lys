@@ -587,10 +587,11 @@ func (c *Browser) build() {
 }
 
 // Key binds GTK's chooser keys: Escape closes Quick Look, then goes to
-// the host (OnEscape); plain Space toggles Quick Look, Backspace and
-// Alt+Up go up, Alt+Left and Alt+Right walk the history (none of these
-// while a text field has the key); Ctrl+H shows hidden files, Ctrl+L
-// the location entry, Ctrl+F the search, Ctrl+D bookmarks the folder.
+// the host (OnEscape); plain Space toggles Quick Look, whose arrows step
+// through the view (quicklookArrow); Backspace and Alt+Up go up,
+// Alt+Left and Alt+Right walk the history (none of these while a text
+// field has the key); Ctrl+H shows hidden files, Ctrl+L the location
+// entry, Ctrl+F the search, Ctrl+D bookmarks the folder.
 func (c *Browser) Key(r *widget.Router, sym xkb.Keysym, mods app.Mods) {
 	if !c.active {
 		return
@@ -599,7 +600,7 @@ func (c *Browser) Key(r *widget.Router, sym xkb.Keysym, mods app.Mods) {
 	ctrl, alt := mods&app.ModCtrl != 0, mods&app.ModAlt != 0
 	plain := mods&(app.ModCtrl|app.ModAlt|app.ModSuper|app.ModShift) == 0
 	switch {
-	case plain && !typing && c.ui.quicklook.Visible() && c.ui.ql.Key(sym):
+	case plain && !typing && c.ui.quicklook.Visible() && (c.ui.ql.Key(sym) || c.quicklookArrow(r, sym)):
 	case sym == xkb.KeyEscape:
 		c.escape()
 	case sym == xkb.KeySpace && plain && !typing:

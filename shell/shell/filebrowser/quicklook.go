@@ -6,6 +6,8 @@ import (
 
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/preview"
+	"github.com/stubbedev/lys/lib/xkb"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // The previews' boxes in logical pixels: Quick Look's picture and text,
@@ -18,13 +20,13 @@ const (
 
 // newQuicklook is Quick Look's card: a preview of the selection over
 // the file views, closed by Space and Escape, stepped through the view
-// by the arrows, playing a video at once, opening the file in its
-// default app from its Open button.
+// by the arrows (quicklookArrow), playing a video at once, opening the
+// file in its default app from its Open button.
 func (c *Browser) newQuicklook() *preview.View {
 	return preview.New(c.previewConfig(preview.Config{
 		Class: "file-chooser-quicklook", NameChars: 32, Autoplay: true,
 		Image: image.Pt(quicklookImageW, quicklookImageH), Text: image.Pt(quicklookTextW, quicklookTextH),
-		OnClose: c.closeQuicklook, OnStep: c.stepSelection, Open: c.d.OpenFile,
+		OnClose: c.closeQuicklook, Open: c.d.OpenFile,
 	}))
 }
 
@@ -72,13 +74,32 @@ func (c *Browser) closePreviews() {
 	c.ui.pv.Close()
 }
 
-// stepSelection moves the selection of the view showing by delta.
-func (c *Browser) stepSelection(delta int) {
-	sel := c.activeView().Selection()
-	if len(sel) == 0 {
-		return
+// quicklookArrow steps Quick Look through the active view on an arrow
+// key, as the view's own arrows move: a row of the grid for Up and Down
+// and one item for Left and Right, one item of the list for every
+// arrow. The view takes the arrows it navigates itself while it holds
+// r's focus, so only the rest move it here. It reports whether sym is
+// an arrow.
+func (c *Browser) quicklookArrow(r *widget.Router, sym xkb.Keysym) bool {
+	var grid, list widget.KeyAction
+	switch sym {
+	case xkb.KeyUp:
+		grid, list = widget.KeyUp, widget.KeyUp
+	case xkb.KeyDown:
+		grid, list = widget.KeyDown, widget.KeyDown
+	case xkb.KeyLeft:
+		grid, list = widget.KeyLeft, widget.KeyUp
+	case xkb.KeyRight:
+		grid, list = widget.KeyRight, widget.KeyDown
+	default:
+		return false
 	}
-	if next := sel[0] + delta; next >= 0 && next < len(c.s.entries) {
-		c.activeView().Select(next)
+	if r.Focused() == c.focusView() && (c.s.view.grid || grid == list) {
+		return true
 	}
+	if !c.s.view.grid {
+		grid = list
+	}
+	c.activeView().KeyAction(grid, 0)
+	return true
 }

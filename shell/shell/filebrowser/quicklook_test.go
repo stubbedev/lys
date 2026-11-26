@@ -2,10 +2,12 @@ package filebrowser
 
 import (
 	"context"
+	"fmt"
 	"image"
 	"image/png"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -315,6 +317,96 @@ func TestQuicklookShowsAThumbnailerPage(t *testing.T) {
 	}
 	if b := views[0].Bounds(); 3*b.W != 2*b.H {
 		t.Errorf("the 200x300 page shows at %dx%d, want 2:3", b.W, b.H)
+	}
+	hs.hide()
+}
+
+// press routes a plain key as the window does: to the focused file
+// view first, then to the browser's key hook.
+func (hs *harness) press(sym xkb.Keysym) {
+	hs.do(func() {
+		r := &widget.Router{Root: hs.cfg.Root}
+		if err := r.SetFocus(hs.c.FileView()); err != nil {
+			hs.t.Fatal(err)
+		}
+		if a, ok := widget.KeyActionForSym(sym); ok {
+			r.KeyAction(a, 0)
+		}
+		hs.cfg.OnKey(r, treetest.Code(sym), 0)
+	})
+}
+
+// quicklookIndex is the entry Quick Look shows once its load lands.
+func (hs *harness) quicklookIndex(t *testing.T) int {
+	t.Helper()
+	var i int
+	waittest.Until(t, func() bool {
+		var ready bool
+		hs.do(func() {
+			ready = hs.c.ui.ql.Renderer() != preview.Loading
+			i = slices.Index(names(hs.c.s.entries), filepath.Base(hs.c.ui.ql.Path()))
+		})
+		return ready
+	}, "Quick Look to show its file")
+	return i
+}
+
+// In grid view Quick Look's Up and Down step a whole row of the grid
+// and Left and Right one item, as the grid's own arrows do; in list
+// view every arrow steps one item. Each press moves once, whether the
+// view has the focus and navigates itself or not.
+func TestQuicklookArrowsFollowTheView(t *testing.T) {
+	hs := newHarness(t, "")
+	dir := filepath.Join(hs.root, "docs")
+	for i := range 30 {
+		writeFile(t, filepath.Join(dir, fmt.Sprintf("note%02d.txt", i)), []byte("note"))
+	}
+	hs.open(t, in(openFile, dir))
+	hs.pick(t, "note05.txt")
+	hs.key(xkb.KeySpace, 0, nil)
+	steps := []struct {
+		sym  xkb.Keysym
+		name string
+	}{{xkb.KeyDown, "Down"}, {xkb.KeyRight, "Right"}, {xkb.KeyUp, "Up"}, {xkb.KeyLeft, "Left"}}
+	walk := func(line, item int) {
+		t.Helper()
+		at := hs.quicklookIndex(t)
+		for _, s := range steps {
+			want := at
+			switch s.sym {
+			case xkb.KeyDown:
+				want += line
+			case xkb.KeyUp:
+				want -= line
+			case xkb.KeyRight:
+				want += item
+			case xkb.KeyLeft:
+				want -= item
+			}
+			hs.press(s.sym)
+			if got := hs.quicklookIndex(t); got != want {
+				t.Errorf("%s from %d shows %d, want %d", s.name, at, got, want)
+			}
+			at = want
+		}
+	}
+	walk(1, 1)
+	hs.key(xkb.KeySpace, 0, nil)
+	hs.click(t, "Toggle grid view")
+	var cols int
+	hs.run(func() {
+		lay(hs.cfg.Root, 1400, 1000)
+		cols = hs.c.ui.grid.Columns()
+	})
+	if cols < 2 {
+		t.Fatalf("the grid lays out %d columns, want a row of several", cols)
+	}
+	hs.pick(t, "note00.txt")
+	hs.key(xkb.KeySpace, 0, nil)
+	walk(cols, 1)
+	hs.key(xkb.KeyDown, 0, nil)
+	if got := hs.quicklookIndex(t); got != cols {
+		t.Errorf("Down with the grid unfocused shows %d, want %d", got, cols)
 	}
 	hs.hide()
 }

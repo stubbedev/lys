@@ -18,6 +18,7 @@ import (
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/imagedecode/imagedecodetest"
 	"github.com/stubbedev/lys/desktop/mime"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
@@ -56,7 +57,7 @@ func TestAPictureShowsWholeAndTurnedAsItsFileRecords(t *testing.T) {
 	h := newHarness(t)
 	dir := t.TempDir()
 	wide := writeFile(t, filepath.Join(dir, "pano.png"), pngData(t, gradient(800, 200)))
-	turned := writeFile(t, filepath.Join(dir, "phone.jpg"), jpegWithOrientation(t, gradient(60, 20), 6))
+	turned := writeFile(t, filepath.Join(dir, "phone.jpg"), imagedecodetest.OrientedJPEG(t, gradient(60, 20), 6))
 	v := h.view(nil)
 	h.show(v, wide)
 	lay(v.Root())
@@ -354,32 +355,32 @@ func TestAPictureLetsItsPixelsGo(t *testing.T) {
 	}
 }
 
-// Space and Escape close the preview, the arrows step through the
-// host's list, each through the host's callback; a view showing
+// Space and Escape close the preview through the host's callback; the
+// arrows are the host's, which drives its own list; a view showing
 // nothing, or a host without the callback, leaves the key alone.
-func TestTheKeysCloseAndStep(t *testing.T) {
+func TestTheKeysCloseAndLeaveTheArrowsToTheHost(t *testing.T) {
 	h := newHarness(t)
 	note := writeFile(t, filepath.Join(t.TempDir(), "a.txt"), []byte("a"))
 	var closed int
-	var steps []int
 	v := h.view(func(c *Config) {
 		c.OnClose = func() { closed++ }
-		c.OnStep = func(d int) { steps = append(steps, d) }
 	})
 	if v.Key(xkb.KeySpace) {
 		t.Error("a view showing nothing took Space")
 	}
 	h.show(v, note)
-	for _, k := range []xkb.Keysym{xkb.KeySpace, xkb.KeyEscape, xkb.KeyLeft, xkb.KeyUp, xkb.KeyRight, xkb.KeyDown} {
+	for _, k := range []xkb.Keysym{xkb.KeySpace, xkb.KeyEscape} {
 		if !v.Key(k) {
 			t.Errorf("the view left key %#x alone", k)
 		}
 	}
-	if v.Key(xkb.Keya) {
-		t.Error("the view took a")
+	for _, k := range []xkb.Keysym{xkb.KeyLeft, xkb.KeyUp, xkb.KeyRight, xkb.KeyDown, xkb.Keya} {
+		if v.Key(k) {
+			t.Errorf("the view took key %#x, which is the host's", k)
+		}
 	}
-	if closed != 2 || len(steps) != 4 || steps[0] != -1 || steps[1] != -1 || steps[2] != 1 || steps[3] != 1 {
-		t.Errorf("closed %d times, stepped %v; want 2 closes and -1 -1 1 1", closed, steps)
+	if closed != 2 {
+		t.Errorf("closed %d times, want 2", closed)
 	}
 	bare := h.view(nil)
 	h.show(bare, note)
