@@ -280,6 +280,7 @@ func TestAYUVTextureImportedAfterPrepareDrawsCompleteOnceItSettles(t *testing.T)
 
 func TestAPassBeforeItsPipelineExistsSkipsTheDrawAndSaysSo(t *testing.T) {
 	d := openDevice(t)
+	release := d.HoldBuilds()
 	if err := d.Prepare(); err != nil {
 		t.Fatal(err)
 	}
@@ -299,9 +300,18 @@ func TestAPassBeforeItsPipelineExistsSkipsTheDrawAndSaysSo(t *testing.T) {
 		return incomplete
 	}
 	builds := d.PipelineBuilds()
-	if !draw() && d.PipelineBuilds() == builds {
-		t.Log("the worker beat the first draw")
+	for range 2 {
+		if !draw() {
+			t.Fatal("a pass while its pipeline was held on the worker did not skip the draw")
+		}
 	}
+	if ok, err := d.Prepared(); ok || err != nil {
+		t.Fatalf("Prepared while the worker was held: %v, %v", ok, err)
+	}
+	if n := d.PipelineBuilds() - builds; n != 0 {
+		t.Fatalf("%d pipelines built while the worker was held", n)
+	}
+	release()
 	awaitPrepared(t, d)
 	if draw() {
 		t.Fatal("a pass after the worker finished skipped a draw")

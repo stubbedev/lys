@@ -29,7 +29,7 @@ var overlaidBarColor = [3]byte{0x30, 0x80, 0x50}
 
 func blurredDropdowns(cfg *compositor.Config) {
 	on := true
-	cfg.Decor.Blur = compositor.Blur{Enabled: true, Size: 2, Passes: 1}
+	cfg.Decor.Blur = compositor.Blur{Enabled: true, Size: 2, Passes: 1, Look: compositor.DefaultDecor(compositor.DefaultAccent).Blur.Look}
 	cfg.LayerRules = []wm.LayerRule{layerRule(dropdownNamespace, wm.LayerProps{Blur: &on})}
 }
 

@@ -61,7 +61,9 @@ type preparer struct {
 	built   []builtPipeline
 	running bool
 	stop    bool
+	held    bool
 	idle    sync.Cond
+	resumed sync.Cond
 }
 
 // lazyPipeline is the pipeline have, or else one build makes: at once on a
@@ -106,6 +108,9 @@ func (d *Device) buildPipelines() {
 	pr := &d.prep
 	for {
 		pr.mu.Lock()
+		for pr.held && !pr.stop {
+			pr.resumed.Wait()
+		}
 		if len(pr.jobs) == 0 || pr.stop {
 			pr.mu.Unlock()
 			if err := d.savePipelineCache(); err != nil {
@@ -268,10 +273,32 @@ func (d *Device) Prepared() (bool, error) {
 	return len(pr.jobs) == 0 && !pr.running && len(pr.built) == 0, nil
 }
 
+// HoldBuilds keeps the worker Prepare starts from beginning another build
+// until release is called, so every pipeline queued meanwhile stays still
+// being built: a pass needing one skips its draw, as on a driver slow to
+// compile. A device that never called Prepare builds at the draw and is not
+// held.
+func (d *Device) HoldBuilds() (release func()) {
+	pr := &d.prep
+	pr.mu.Lock()
+	defer pr.mu.Unlock()
+	pr.held = true
+	pr.resumed.L = &pr.mu
+	return sync.OnceFunc(func() {
+		pr.mu.Lock()
+		defer pr.mu.Unlock()
+		pr.held = false
+		pr.resumed.Broadcast()
+	})
+}
+
 func (d *Device) stopPipelines() {
 	pr := &d.prep
 	pr.mu.Lock()
 	pr.stop = true
+	if pr.resumed.L != nil {
+		pr.resumed.Broadcast()
+	}
 	if pr.idle.L == nil {
 		pr.idle.L = &pr.mu
 	}

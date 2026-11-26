@@ -91,6 +91,10 @@ func (r *Renderer) BuildOffThread() error {
 	return r.prepareWithOffscreen(ts)
 }
 
+func (r *Renderer) HoldPipelineBuilds() (release func()) {
+	return r.d.HoldBuilds()
+}
+
 func (r *Renderer) prepareWithOffscreen(ts []*lgpu.Target) error {
 	offscreen, err := r.d.NewOffscreen(1, 1)
 	if err != nil {
