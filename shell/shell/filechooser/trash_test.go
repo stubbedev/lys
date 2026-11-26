@@ -35,37 +35,6 @@ func trashInfo(path string) string {
 	return "[Trash Info]\nPath=" + path + "\nDeletionDate=2026-10-01T12:00:00\n"
 }
 
-// The home trash comes first; a mount adds its .Trash-$uid, and its
-// .Trash/$uid only when .Trash is a real, sticky directory.
-func TestTrashDirs(t *testing.T) {
-	sticky, plain, linked := t.TempDir(), t.TempDir(), t.TempDir()
-	if err := os.Mkdir(filepath.Join(sticky, ".Trash"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Chmod(filepath.Join(sticky, ".Trash"), 0o700|os.ModeSticky); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Mkdir(filepath.Join(plain, ".Trash"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Symlink(filepath.Join(sticky, ".Trash"), filepath.Join(linked, ".Trash")); err != nil {
-		t.Fatal(err)
-	}
-	got := TrashDirs("/home/u/.local/share", []string{sticky, plain, linked}, 1000)
-	want := []string{
-		"/home/u/.local/share/Trash",
-		filepath.Join(sticky, ".Trash", "1000"), filepath.Join(sticky, ".Trash-1000"),
-		filepath.Join(plain, ".Trash-1000"),
-		filepath.Join(linked, ".Trash-1000"),
-	}
-	if !slices.Equal(got, want) {
-		t.Errorf("TrashDirs =\n%q\nwant\n%q", got, want)
-	}
-	if got := TrashDirs("", nil, 1000); len(got) != 0 {
-		t.Errorf("no data home, no mounts = %q", got)
-	}
-}
-
 // Trashed files list under their original names, typed by them; an
 // orphan or malformed info leaves its file out, a trash that does not
 // exist lists nothing, and folder modes list only folders.
@@ -109,24 +78,6 @@ func TestListTrash(t *testing.T) {
 		t.Cleanup(func() { _ = os.Chmod(filepath.Join(home, "files"), 0o700) })
 		if _, err := ListTrash([]string{home}, ModeOpenFile); err == nil || !strings.Contains(err.Error(), filepath.Join(home, "files")) {
 			t.Errorf("an unreadable trash = %v, want an error naming it", err)
-		}
-	}
-}
-
-func TestTrashedName(t *testing.T) {
-	for info, want := range map[string]string{
-		trashInfo("/home/u/a%20b.txt"):                       "a b.txt",
-		trashInfo("relative/dir/c.txt"):                      "c.txt",
-		"# comment\n\n[Trash Info]\nPath = /x/d.txt\n":       "d.txt",
-		"[Trash Info]\nDeletionDate=x\n[Other]\nPath=/x/e\n": "",
-		"[Other]\n[Trash Info]\nPath=/x/f\n":                 "",
-		trashInfo("/"):                                       "",
-		trashInfo("%zz"):                                     "",
-		"":                                                   "",
-	} {
-		got, ok := trashedName([]byte(info))
-		if got != want || ok != (want != "") {
-			t.Errorf("trashedName(%q) = %q, %v; want %q", info, got, ok, want)
 		}
 	}
 }

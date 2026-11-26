@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/stubbedev/lys/desktop/fileops"
 	"github.com/stubbedev/lys/desktop/fswatch"
 	"github.com/stubbedev/lys/lib/intconv"
 	"github.com/stubbedev/lys/lib/xdg"
@@ -86,11 +87,11 @@ func SystemLocations(home string) func() []Place {
 }
 
 // SystemTrashDirs reads the data home and the mount table for
-// TrashDirs: the home trash, then the user-visible mounts' trashes.
+// fileops.Dirs: the home trash, then the user-visible mounts' trashes.
 func SystemTrashDirs(home string) func() []string {
 	return func() []string {
 		data, _ := xdg.OS.DataHome()
-		return TrashDirs(data, VisibleMounts(readMounts(), home, os.Getenv("USER")), os.Getuid())
+		return fileops.Dirs(data, VisibleMounts(readMounts(), home, os.Getenv("USER")), os.Getuid())
 	}
 }
 
