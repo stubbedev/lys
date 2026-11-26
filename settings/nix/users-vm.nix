@@ -98,7 +98,7 @@ in {
     users_change("ursula", "edit", {"login": "victor", "hash": victor_hash})
     assert users_field("shadow", "victor", 2) == victor_hash
 
-    machine.succeed("/run/current-system/bin/switch-to-configuration test")
+    machine.succeed("/run/current-system/activate")
     assert users_field("passwd", "zoe", 5) == "Zoë Washburne", "activation dropped the account lys-users made"
     assert users_field("shadow", "victor", 2) == victor_hash, "activation reset the password lys-users set"
 
