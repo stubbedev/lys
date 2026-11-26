@@ -18,6 +18,7 @@ import (
 	timeclock "github.com/stubbedev/lys/shell/internal/clock"
 	"github.com/stubbedev/lys/shell/shell/keys"
 	"github.com/stubbedev/lys/shell/shell/markup"
+	"github.com/stubbedev/lys/shell/shell/quicklook"
 	"github.com/stubbedev/lys/shell/shell/screenshot"
 	"github.com/stubbedev/lys/shell/shell/shotthumb"
 )
@@ -58,7 +59,7 @@ type shotUI struct {
 
 // newShotUI shows saved captures; copyOnLoop puts content on the
 // clipboard and is called on the loop, and toast shows what failed.
-func newShotUI(application *app.Application, outputs func() []*app.Output, current func() *config.Config, focused func() (string, bool), font render.Font, copyOnLoop func(transfer.Content) (func(), error), toast func(label, icon string), clk *timeclock.Wall) *shotUI {
+func newShotUI(application *app.Application, outputs func() []*app.Output, current func() *config.Config, focused func() (string, bool), font render.Font, sheet *widget.Stylesheet, copyOnLoop func(transfer.Content) (func(), error), toast func(label, icon string), clk *timeclock.Wall) *shotUI {
 	u := &shotUI{
 		app: application, outputs: outputs, current: current, focused: focused, font: font, copy: copyOnLoop, toast: toast,
 		holders: map[render.ImageID]int{}, saved: map[render.ImageID]screenshot.Saved{},
@@ -77,6 +78,7 @@ func newShotUI(application *app.Application, outputs func() []*app.Output, curre
 		Edit:   u.edit,
 		Delete: u.discard,
 		Done:   u.release,
+		Look:   quicklook.ForApp(application, font, sheet, func() float64 { return float64(current().Styling.Scale) }, layers.ScreenshotThumbnail).Look,
 	})
 	return u
 }

@@ -14,6 +14,7 @@ import (
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
 	"github.com/stubbedev/lys/lib/vinput"
+	"github.com/stubbedev/lys/lib/xkb"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/transfer"
 	"github.com/stubbedev/lys/ui/widget"
@@ -24,13 +25,17 @@ import (
 const btnLeft = 0x110
 
 type harness struct {
-	t       *testing.T
-	a       *app.Application
-	clock   *fakeclock.Clock
-	thumb   *Thumbnail
-	ptr     *vinput.Device
-	layer   *app.LayerWindow
-	edited  []Shot
+	t      *testing.T
+	a      *app.Application
+	clock  *fakeclock.Clock
+	thumb  *Thumbnail
+	ptr    *vinput.Device
+	layer  *app.LayerWindow
+	lc     app.LayerConfig
+	edited []Shot
+	looked []string
+	// unlook is the closed of the last look.
+	unlook  func()
 	deleted []Shot
 	done    []Shot
 }
@@ -45,7 +50,7 @@ func newHarness(t *testing.T) *harness {
 			if err != nil {
 				return nil, err
 			}
-			h.layer = w
+			h.layer, h.lc = w, lc
 			return w, nil
 		},
 		KeySym: a.KeySym,
@@ -54,6 +59,11 @@ func newHarness(t *testing.T) *harness {
 		Edit:   func(s Shot) { h.edited = append(h.edited, s) },
 		Delete: func(s Shot) { h.deleted = append(h.deleted, s) },
 		Done:   func(s Shot) { h.done = append(h.done, s) },
+		Look: func(path string, closed func()) error {
+			h.looked = append(h.looked, path)
+			h.unlook = closed
+			return nil
+		},
 	})
 	ptr, err := vinput.Dial("", vinput.Options{})
 	if err != nil {
@@ -317,5 +327,79 @@ func TestSizeFitsWithoutEnlarging(t *testing.T) {
 		if w, h := Size(c.w, c.h); w != c.ww || h != c.wh {
 			t.Errorf("Size(%d, %d) = %d, %d; want %d, %d", c.w, c.h, w, h, c.ww, c.wh)
 		}
+	}
+}
+
+// at moves the pointer to the middle of r, a rect of the thumbnail's.
+func (h *harness) at(r func(*view) render.Rect) {
+	h.t.Helper()
+	c := apptest.On(h.a, func() render.Rect { return r(h.thumb.cur.view) })
+	b := apptest.On(h.a, func() render.Rect { return h.thumb.cur.view.Bounds() })
+	w, hh := h.ptr.OutputSize()
+	h.moveTo(uint32(int(w)-margin-b.W+c.X-b.X+c.W/2), uint32(int(hh)-margin-b.H+c.Y-b.Y+c.H/2))
+}
+
+// The look button previews the capture in Quick Look without opening
+// the editor, and the countdown holds while Quick Look shows it, going
+// on with what was left once it closes.
+func TestTheLookButtonPreviewsTheShotAndHoldsTheCountdown(t *testing.T) {
+	h := newHarness(t)
+	s := shot(t, 400, 300)
+	h.show(s, thumbConfig(5000))
+	h.advance(1000 * time.Millisecond)
+	h.at((*view).lookRect)
+	h.button(true)
+	h.button(false)
+	if !slices.Equal(h.looked, []string{s.Path}) || len(h.edited) != 0 || !h.shown() {
+		t.Fatalf("look button: looked %v edited %v shown %v", h.looked, h.edited, h.shown())
+	}
+	h.moveTo(5, 5)
+	h.advance(time.Minute)
+	if !h.shown() {
+		t.Fatal("the thumbnail left while Quick Look showed the shot")
+	}
+	apptest.On(h.a, func() bool { h.unlook(); return true })
+	h.advance(3999 * time.Millisecond)
+	if !h.shown() {
+		t.Fatal("closing Quick Look restarted less than the remaining 4 s")
+	}
+	h.advance(time.Millisecond)
+	if h.shown() {
+		t.Fatal("the remaining time ran out and the thumbnail stayed")
+	}
+}
+
+// Space, while the thumbnail holds the keyboard, previews the capture
+// too; any other key but Escape does nothing.
+func TestSpacePreviewsTheShot(t *testing.T) {
+	h := newHarness(t)
+	const keyA, keySpace = 30, 57
+	h.thumb.d.KeySym = func(code uint32) xkb.Keysym {
+		return map[uint32]xkb.Keysym{keyA: 'a', keySpace: xkb.KeySpace}[code]
+	}
+	s := shot(t, 400, 300)
+	h.show(s, thumbConfig(5000))
+	apptest.On(h.a, func() bool { h.lc.OnKey(nil, keyA, 0); return true })
+	if len(h.looked) != 0 || !h.shown() {
+		t.Fatalf("a: looked %v shown %v", h.looked, h.shown())
+	}
+	apptest.On(h.a, func() bool { h.lc.OnKey(nil, keySpace, 0); return true })
+	if !slices.Equal(h.looked, []string{s.Path}) || len(h.edited) != 0 {
+		t.Fatalf("Space: looked %v edited %v", h.looked, h.edited)
+	}
+}
+
+// Without Quick Look there is no look button: its corner edits as the
+// rest of the thumbnail does, and Space does nothing.
+func TestWithoutQuickLookTheCornerEdits(t *testing.T) {
+	h := newHarness(t)
+	h.thumb.d.Look = nil
+	s := shot(t, 400, 300)
+	h.show(s, thumbConfig(5000))
+	h.at((*view).lookRect)
+	h.button(true)
+	h.button(false)
+	if len(h.edited) != 1 || len(h.looked) != 0 {
+		t.Fatalf("edited %v looked %v", h.edited, h.looked)
 	}
 }
