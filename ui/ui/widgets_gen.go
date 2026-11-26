@@ -7570,8 +7570,8 @@ func (b *SidebarBuilder) Font(face render.Font, sizePx float64) *SidebarBuilder 
 }
 
 // AddCollapsibleGroup calls (*widget.Sidebar).AddCollapsibleGroup.
-func (b *SidebarBuilder) AddCollapsibleGroup(label string, open bool, items ...widget.SidebarItem) *SidebarBuilder {
-	b.do(func(s *Scope, w *widget.Sidebar) { w.AddCollapsibleGroup(label, open, items...) })
+func (b *SidebarBuilder) AddCollapsibleGroup(label string, icon Node, open bool, items ...widget.SidebarItem) *SidebarBuilder {
+	b.do(func(s *Scope, w *widget.Sidebar) { w.AddCollapsibleGroup(label, build(s, icon), open, items...) })
 	return b
 }
 

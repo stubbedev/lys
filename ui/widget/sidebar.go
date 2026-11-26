@@ -122,7 +122,8 @@ func NewSidebar(face render.Font, content Widget) *Sidebar {
 	s.groups = NewBox(Column, 8, 0)
 	s.footer = NewBox(Column, 8, 0)
 	scroll := NewScroll(s.groups)
-	scroll.FillX = true
+	scroll.VerticalOnly = true
+	scroll.FillY = true
 	s.panel = NewBox(Column, 8, 8)
 	s.panel.AddClass("panel")
 	s.panel.Append(s.header, false).Append(scroll, true).Append(s.footer, false)
@@ -168,8 +169,9 @@ func (s *Sidebar) AddGroup(label string, items ...SidebarItem) {
 
 // AddCollapsibleGroup appends a group whose label folds its items
 // (a collapsible group): clicking the label, or its
-// chevron, shows and hides them, open to start with when open.
-func (s *Sidebar) AddCollapsibleGroup(label string, open bool, items ...SidebarItem) {
+// chevron, shows and hides them, open to start with when open. icon
+// leads the label; nil shows none.
+func (s *Sidebar) AddCollapsibleGroup(label string, icon Widget, open bool, items ...SidebarItem) {
 	body := NewBox(Column, 2, 0)
 	first := len(s.rows)
 	for _, it := range items {
@@ -183,7 +185,10 @@ func (s *Sidebar) AddCollapsibleGroup(label string, open bool, items ...SidebarI
 	if open {
 		chevron.SetKind(SymbolChevronDown)
 	}
-	line := NewBox(Row, 4, 0)
+	line := NewBox(Row, 8, 0)
+	if icon != nil {
+		line.AppendAligned(icon, false, AlignCenter)
+	}
 	line.AppendAligned(NewLabel(s.face, 12, label, 0), true, AlignCenter)
 	line.AppendAligned(chevron, false, AlignCenter)
 	head := NewButton(line, 0, 0)

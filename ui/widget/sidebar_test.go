@@ -123,7 +123,7 @@ func TestGoldenSidebar(t *testing.T) {
 // and the width sets and drags within its bounds (#272).
 func TestSidebarSettingsApp(t *testing.T) {
 	s, _ := newTestSidebar(t, 900)
-	s.AddCollapsibleGroup("Advanced", false,
+	s.AddCollapsibleGroup("Advanced", nil, false,
 		SidebarItem{Label: "Developer", ID: "dev"},
 		SidebarItem{Label: "Experimental", Items: []SidebarItem{{Label: "Flags", ID: "flags"}}},
 	)
@@ -171,5 +171,88 @@ func TestSidebarSettingsApp(t *testing.T) {
 	s.PressEnd()
 	if s.Width() != 400 || reported != 400 {
 		t.Errorf("dragged past the bound: width %d reported %d, want 400", s.Width(), reported)
+	}
+}
+
+// sidebarScroll is the scroll holding a sidebar's groups.
+func sidebarScroll(t *testing.T, s *Sidebar) *Scroll {
+	t.Helper()
+	for _, c := range s.panel.Children() {
+		if sc, ok := c.(*Scroll); ok {
+			return sc
+		}
+	}
+	t.Fatal("the sidebar's panel holds no scroll")
+	return nil
+}
+
+// newGroupedSidebar is a sidebar of n collapsible groups of three items,
+// each open when open, laid out width by height.
+func newGroupedSidebar(t *testing.T, n int, open bool, width, height int) (*Sidebar, []*Button) {
+	t.Helper()
+	t.Cleanup(anim.SetInstant(true))
+	face := goldenFace(t)
+	s := NewSidebar(face, NewLabel(face, 14, "Content", 0))
+	s.SetCollapse(SidebarNone)
+	heads := make([]*Button, 0, n)
+	for range n {
+		s.AddCollapsibleGroup("Bar Items: Workspaces & Windows", NewSymbol(SymbolSearch, 16), open,
+			SidebarItem{Label: "One"}, SidebarItem{Label: "Two"}, SidebarItem{Label: "Three"})
+		heads = append(heads, s.labels[len(s.labels)-1].(*Button))
+	}
+	arrangeTree(t, s, width, height)
+	arrangeTree(t, s, width, height)
+	return s, heads
+}
+
+// Groups that overflow the panel keep their headers, chevrons included,
+// inside the viewport beside the scrollbar's gutter, not cut off under it.
+func TestSidebarGroupsThatOverflowStayInsideTheViewport(t *testing.T) {
+	s, heads := newGroupedSidebar(t, 12, true, 900, 400)
+	sc := sidebarScroll(t, s)
+	if sc.nat.H <= sc.viewH {
+		t.Fatalf("the groups (%d px) do not overflow the %d px viewport", sc.nat.H, sc.viewH)
+	}
+	right := sc.view.X + sc.viewW
+	for i, h := range heads {
+		if b := h.Bounds(); b.X+b.W > right {
+			t.Errorf("header %d ends at x=%d, past the viewport's %d", i, b.X+b.W, right)
+		}
+	}
+}
+
+// Groups shorter than the panel, every one folded, sit at its top rather
+// than centred in it.
+func TestSidebarFoldedGroupsSitAtTheTop(t *testing.T) {
+	s, heads := newGroupedSidebar(t, 4, false, 900, 600)
+	sc := sidebarScroll(t, s)
+	if sc.nat.H >= sc.viewH {
+		t.Fatalf("the folded groups (%d px) fill the %d px viewport", sc.nat.H, sc.viewH)
+	}
+	if got, want := heads[0].Bounds().Y, sc.view.Y; got != want {
+		t.Errorf("the first header is at y=%d, want the viewport's top %d", got, want)
+	}
+	heads[0].OnClick()
+	arrangeTree(t, s, 900, 600)
+	if got, want := heads[0].Bounds().Y, sc.view.Y; got != want {
+		t.Errorf("after opening a group the first header is at y=%d, want %d", got, want)
+	}
+}
+
+// A collapsible group's icon leads its header; without one the header
+// is its label and chevron alone.
+func TestSidebarGroupIconLeadsItsHeader(t *testing.T) {
+	t.Cleanup(anim.SetInstant(true))
+	face := goldenFace(t)
+	s := NewSidebar(face, NewLabel(face, 14, "Content", 0))
+	icon := NewSymbol(SymbolSearch, 16)
+	s.AddCollapsibleGroup("With", icon, true, SidebarItem{Label: "One"})
+	s.AddCollapsibleGroup("Without", nil, true, SidebarItem{Label: "Two"})
+	with := s.labels[0].(*Button).child.(*Box).Children()
+	if len(with) != 3 || with[0] != Widget(icon) {
+		t.Errorf("the header with an icon holds %d parts, first %T; want the icon, the label and the chevron", len(with), with[0])
+	}
+	if without := s.labels[1].(*Button).child.(*Box).Children(); len(without) != 2 {
+		t.Errorf("the header without an icon holds %d parts, want the label and the chevron", len(without))
 	}
 }
