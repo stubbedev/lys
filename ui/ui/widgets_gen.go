@@ -4728,6 +4728,18 @@ func (b *GridViewBuilder) WatchCellWidth(get func() int) *GridViewBuilder {
 	return b
 }
 
+// DropRow calls (*widget.GridView).SetDropRow.
+func (b *GridViewBuilder) DropRow(i int) *GridViewBuilder {
+	b.do(func(s *Scope, w *widget.GridView) { w.SetDropRow(i) })
+	return b
+}
+
+// WatchDropRow re-applies SetDropRow with get's value after every update.
+func (b *GridViewBuilder) WatchDropRow(get func() int) *GridViewBuilder {
+	b.watch(func(w *widget.GridView) { w.SetDropRow(get()) })
+	return b
+}
+
 // MaxHeight calls (*widget.GridView).SetMaxHeight.
 func (b *GridViewBuilder) MaxHeight(h int) *GridViewBuilder {
 	b.do(func(s *Scope, w *widget.GridView) { w.SetMaxHeight(h) })
@@ -5673,6 +5685,18 @@ func (b *ListBuilder) CellWidth(arg int) *ListBuilder {
 // WatchCellWidth re-applies SetCellWidth with get's value after every update.
 func (b *ListBuilder) WatchCellWidth(get func() int) *ListBuilder {
 	b.watch(func(w *widget.List) { w.SetCellWidth(get()) })
+	return b
+}
+
+// DropRow calls (*widget.List).SetDropRow.
+func (b *ListBuilder) DropRow(i int) *ListBuilder {
+	b.do(func(s *Scope, w *widget.List) { w.SetDropRow(i) })
+	return b
+}
+
+// WatchDropRow re-applies SetDropRow with get's value after every update.
+func (b *ListBuilder) WatchDropRow(get func() int) *ListBuilder {
+	b.watch(func(w *widget.List) { w.SetDropRow(get()) })
 	return b
 }
 
@@ -9384,6 +9408,18 @@ func (b *TypedGridBuilder[T]) WatchCellWidth(get func() int) *TypedGridBuilder[T
 	return b
 }
 
+// DropRow calls (*widget.TypedGrid).SetDropRow.
+func (b *TypedGridBuilder[T]) DropRow(i int) *TypedGridBuilder[T] {
+	b.do(func(s *Scope, w *widget.TypedGrid[T]) { w.SetDropRow(i) })
+	return b
+}
+
+// WatchDropRow re-applies SetDropRow with get's value after every update.
+func (b *TypedGridBuilder[T]) WatchDropRow(get func() int) *TypedGridBuilder[T] {
+	b.watch(func(w *widget.TypedGrid[T]) { w.SetDropRow(get()) })
+	return b
+}
+
 // MaxHeight calls (*widget.TypedGrid).SetMaxHeight.
 func (b *TypedGridBuilder[T]) MaxHeight(h int) *TypedGridBuilder[T] {
 	b.do(func(s *Scope, w *widget.TypedGrid[T]) { w.SetMaxHeight(h) })
@@ -9495,6 +9531,18 @@ func (b *TypedListBuilder[T]) CellWidth(arg int) *TypedListBuilder[T] {
 // WatchCellWidth re-applies SetCellWidth with get's value after every update.
 func (b *TypedListBuilder[T]) WatchCellWidth(get func() int) *TypedListBuilder[T] {
 	b.watch(func(w *widget.TypedList[T]) { w.SetCellWidth(get()) })
+	return b
+}
+
+// DropRow calls (*widget.TypedList).SetDropRow.
+func (b *TypedListBuilder[T]) DropRow(i int) *TypedListBuilder[T] {
+	b.do(func(s *Scope, w *widget.TypedList[T]) { w.SetDropRow(i) })
+	return b
+}
+
+// WatchDropRow re-applies SetDropRow with get's value after every update.
+func (b *TypedListBuilder[T]) WatchDropRow(get func() int) *TypedListBuilder[T] {
+	b.watch(func(w *widget.TypedList[T]) { w.SetDropRow(get()) })
 	return b
 }
 

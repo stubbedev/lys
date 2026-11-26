@@ -67,7 +67,7 @@ func New(conn *dbus.Conn, cfg *config.Service) *Backend {
 		conn: conn, cfg: cfg, sessions: newSessions(conn),
 		settings: newSettings(cfg, xdg.OS),
 		spawn:    detach, logind: &logind{}, notifier: newNotifier(conn),
-		account:  useraccount.Current,
+		account: useraccount.Current,
 	}
 	b.inhibitor = newInhibitor(conn, b.sessions, b.logind)
 	if dir, ok := xdg.OS.DataDir(identity.Name); ok {
