@@ -101,13 +101,8 @@ func xDragSetup(t *testing.T) *xDragRig {
 	src := &xDragSource{xclient: xc, t: t, win: win, text: []byte("dragged out of X"), msgs: make(chan xproto.ClientMessageEvent, 64)}
 	r := &inputRig{t: t, h: h, c: zone.c, in: zone.in, w: zone.w}
 	r.moveOn(0, 130, 50)
-	h.Eventually("the pointer on the X window", func(_ *headless.Backend, c *compositor.Compositor) bool {
-		f := c.Seat().PointerFocus()
-		return f != nil && h.xwayland.IsClient(f.Client())
-	})
-	h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
-		return errors.Join(b.Pointer().Button(272, true), b.Pointer().Frame())
-	})
+	h.Eventually("the pointer on the X window", func(_ *headless.Backend, c *compositor.Compositor) bool { return h.pointerOnX(c) })
+	h.Do(func(b *headless.Backend, _ *compositor.Compositor) error { return leftButton(b, true) })
 	if err := xproto.SetSelectionOwnerChecked(xc.x, win, xc.atoms["XdndSelection"], xproto.TimeCurrentTime).Check(); err != nil {
 		t.Fatal(err)
 	}

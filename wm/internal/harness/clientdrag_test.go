@@ -37,9 +37,28 @@ func (h *Harness) movePointer(at image.Point) {
 
 func (h *Harness) button(pressed bool) {
 	h.t.Helper()
-	h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
-		p := b.Pointer()
-		return errors.Join(p.Button(btnLeft, pressed), p.Frame())
+	h.Do(func(b *headless.Backend, _ *compositor.Compositor) error { return leftButton(b, pressed) })
+}
+
+func leftButton(b *headless.Backend, pressed bool) error {
+	p := b.Pointer()
+	return errors.Join(p.Button(btnLeft, pressed), p.Frame())
+}
+
+func (h *Harness) pointerOnX(c *compositor.Compositor) bool {
+	f := c.Seat().PointerFocus()
+	return f != nil && h.xwayland.IsClient(f.Client())
+}
+
+func (h *Harness) pressOnX(at image.Point) {
+	h.t.Helper()
+	h.movePointer(at)
+	h.Eventually("the pointer on the X window", func(_ *headless.Backend, c *compositor.Compositor) bool { return h.pointerOnX(c) })
+	h.Do(func(b *headless.Backend, c *compositor.Compositor) error {
+		if !h.pointerOnX(c) {
+			return fmt.Errorf("the pointer left the X window at %v before the press", at)
+		}
+		return leftButton(b, true)
 	})
 }
 
@@ -402,8 +421,7 @@ func TestAnXClientMovesAndResizesThroughNetWMMoveResize(t *testing.T) {
 	from := onlyWindowRect(h)
 	at := from.Min.Add(from.Size().Div(2))
 
-	h.movePointer(at)
-	h.button(true)
+	h.pressOnX(at)
 	xc.moveResize(win, 8, 0)
 	h.Eventually("the move drag", func(_ *headless.Backend, c *compositor.Compositor) bool { return c.Dragging() })
 	h.movePointer(at.Add(image.Pt(15, 10)))
@@ -412,8 +430,7 @@ func TestAnXClientMovesAndResizesThroughNetWMMoveResize(t *testing.T) {
 	h.Eventually("the dialog moved", onlyAt(moved))
 
 	at = at.Add(image.Pt(15, 10))
-	h.movePointer(at)
-	h.button(true)
+	h.pressOnX(at)
 	xc.moveResize(win, 4, 1)
 	h.Eventually("the resize drag", func(_ *headless.Backend, c *compositor.Compositor) bool { return c.Dragging() })
 	h.movePointer(at.Add(image.Pt(10, 8)))
