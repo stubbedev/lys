@@ -200,10 +200,11 @@ func NewCard(cfg *config.Config, font render.Font, now time.Time, c Content, h H
 }
 
 // Preview is the card showing c under cfg, its age read at now, at the
-// card's width; its buttons do nothing. It shows no close button: that
-// shows only while the pointer is over a card, which a preview never
-// has, and the room it keeps would end the age short of the body.
-func Preview(cfg *config.Config, font render.Font, now time.Time, c Content) *widget.Box {
+// card's width; its buttons do nothing, and post hands a file icon
+// decoded off the loop back to it. It shows no close button: that shows
+// only while the pointer is over a card, which a preview never has, and
+// the room it keeps would end the age short of the body.
+func Preview(cfg *config.Config, font render.Font, now time.Time, c Content, post func(func())) *widget.Box {
 	none := func() {}
 	k := NewCard(cfg, font, now, c, Handlers{
 		Close:      none,
@@ -211,7 +212,7 @@ func Preview(cfg *config.Config, font render.Font, now time.Time, c Content) *wi
 		Reply:      func(string) {},
 		ReplyFocus: func(bool) {},
 		Link:       func(string) {},
-		Post:       func(fn func()) { fn() },
+		Post:       post,
 	})
 	k.Close.SetVisible(false)
 	sized := widget.NewBox(widget.Column, 0, 0)

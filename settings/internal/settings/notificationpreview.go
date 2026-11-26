@@ -28,7 +28,7 @@ func drawNotificationOnScreen(k *kit, cfg *config.Config, font render.Font) widg
 	}
 	shown := wallpaperScreen(k, notificationPreviewScreenH)
 	inset := widget.NewBox(widget.Column, 0, widget.Current().Padding)
-	inset.Append(notifyview.Preview(cfg, font, time.Time{}, testNotificationContent()), false)
+	inset.Append(notifyview.Preview(cfg, font, time.Time{}, testNotificationContent(), k.invoke), false)
 	h, v := widgets.Placement(cfg.Notification.PopupPosition)
 	shown.AppendAligned(inset, h, v)
 	return overflowing(shown)

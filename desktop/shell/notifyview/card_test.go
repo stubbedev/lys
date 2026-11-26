@@ -37,7 +37,7 @@ func TestAPreviewFollowsItsConfig(t *testing.T) {
 	cfg := config.Defaults()
 	cfg.Notification.PopupShadow = true
 	cfg.Notification.PopupUrgencyBar = config.UrgencyBarThresholdNormal
-	preview := Preview(cfg, treetest.Font(t), cardNow, sampleContent())
+	preview := Preview(cfg, treetest.Font(t), cardNow, sampleContent(), func(func()) {})
 	card := onlyCard(t, preview)
 	if !card.HasClass("shadow") || !card.HasClass("urgency-bar") || !card.HasClass("normal") {
 		t.Errorf("a shadowed card whose urgency reaches the bar previews as %v", card.Classes())
@@ -54,7 +54,7 @@ func TestAPreviewFollowsItsConfig(t *testing.T) {
 
 	cfg.Notification.PopupShadow = false
 	cfg.Notification.PopupUrgencyBar = config.UrgencyBarThresholdCritical
-	card = onlyCard(t, Preview(cfg, treetest.Font(t), cardNow, sampleContent()))
+	card = onlyCard(t, Preview(cfg, treetest.Font(t), cardNow, sampleContent(), func(func()) {}))
 	if card.HasClass("shadow") || card.HasClass("urgency-bar") {
 		t.Errorf("no shadow and a critical-only bar preview a normal card as %v", card.Classes())
 	}
@@ -78,7 +78,7 @@ func TestAPreviewsAgeEndsWhereItsBodyDoes(t *testing.T) {
 	preview := Preview(cfg, treetest.Font(t), cardNow, Content{
 		App: "mail", Icon: Icon{Name: FallbackIcon}, Added: cardNow, Summary: "Hello",
 		Body: "This is how notifications look with your settings, long enough to fill the line",
-	})
+	}, func(func()) {})
 	card := onlyCard(t, preview)
 	sz := widget.SizeWithinAsChild(preview, widget.Size{W: 1920, H: 1080})
 	preview.Arrange(render.Rect{W: sz.W, H: sz.H})
