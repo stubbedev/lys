@@ -1,6 +1,6 @@
 // Package shacrypt is SHA-512 crypt(3), the "$6$" scheme of Ulrich
 // Drepper's "Unix crypt using SHA-256 and SHA-512", as glibc implements it
-// and as /etc/shadow and chpasswd -e take it.
+// and as /etc/shadow takes it.
 package shacrypt
 
 import (

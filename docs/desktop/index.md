@@ -31,6 +31,9 @@ go get github.com/stubbedev/lys
 | `spawn`, `shlex`, `strftime`, `glob`, `jinja`, `pango` | Running configured commands, splitting command lines, time formats, blocklist matching, the label templates module formats are written in, Pango markup read into lys-ui's rich labels |
 | `thumbnail` | Thumbnails for every surface, all from lys's own decoders: the freedesktop cache, pictures decoded in process, documents drawn by `lys-docthumb` and videos' frames |
 | `dochelper`, `docrender` | The contract of `lys-docthumb` (its command line, exit statuses and document types), and the renderer only it links |
+| `fileops` | The file manager's operations: copy, move, rename, delete, new files and folders and the freedesktop trash, as cancellable jobs that report progress, ask how to resolve conflicts and can be undone |
+| `argpaths` | The files a desktop app's command line names: paths, relative or not, and `file://` URIs, as a file manager and a desktop entry's `%f` and `%u` hand them over |
+| `ocr` | Reading the text in a screen image by matching it against glyphs `render` draws in the fonts it is given, with no language model or external program |
 
 The package documentation is on
 [pkg.go.dev](https://pkg.go.dev/github.com/stubbedev/lys/desktop).

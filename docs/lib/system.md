@@ -340,10 +340,29 @@ lys-wm's tests hold those views to its own JSON.
   returns a copy of `PAM_AUTHTOK`.
 - `CheckLibrary` reports whether libpam and libc load.
 
+## userdb
+
+`userdb` resolves users and groups through systemd's
+`io.systemd.UserDatabase` Varlink interface on the multiplexer socket
+(`SocketPath`, `/run/systemd/userdb/io.systemd.Multiplexer`), so every source
+systemd-userdbd knows answers: the NSS bridge (and with it every
+`nsswitch.conf` source), drop-in records and systemd-homed. It speaks Varlink in
+pure Go.
+
+- `Dial(ctx, path)` opens a `Conn`; `UserByName`, `UserByUID`, `GroupByName`
+  and `Memberships` (the groups besides the primary one, in the database's
+  order) are its calls, and `LookupUID` is one lookup on a connection of its
+  own.
+- Every call is bounded by `CallTimeout` (10 seconds) whatever the caller's
+  context allows, and a reply is at most `MaxMessage` bytes.
+- A missing socket is an error naming it, never a fallback to `/etc/passwd`. A
+  Varlink error carries its name, so `errors.Is(err, userdb.NoRecordFound)`
+  tells an unknown user from a failed call.
+- `userdbtest` serves a fake database on a socket of the test's own.
+
 ## shacrypt
 
-`shacrypt` is SHA-512 crypt(3), the `$6$` hash `/etc/shadow` and
-`chpasswd -e` take, in pure Go and held to the reference vectors of Ulrich
+`shacrypt` is SHA-512 crypt(3), the `$6$` hash `/etc/shadow` takes, in pure Go and held to the reference vectors of Ulrich
 Drepper's specification.
 
 - `Hash(password)` hashes with `NewSetting()`: a 16-character salt from
@@ -355,7 +374,7 @@ Drepper's specification.
 - `Setting.Hash` hashes with that setting; `Verify` checks a password against
   a stored hash in constant time.
 - `CheckHash` accepts only a whole hash as `Setting.Hash` writes it, so a
-  value handed to `chpasswd -e` cannot carry another field or line; anything
+  value written to `/etc/shadow` cannot carry another field or line; anything
   else is one of the setting's errors or `ErrDigest`, and never quoted.
 
 ## appearance, portalsettings
