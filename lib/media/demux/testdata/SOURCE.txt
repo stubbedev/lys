@@ -12,6 +12,13 @@ flac.mp4:   ffmpeg -f lavfi -i "$T" -c:a flac -frame_size 1024 flac.mp4
 flac.mka:   ffmpeg -f lavfi -i "$T" -c:a flac -frame_size 1024 flac.mka
 tone.mp3:   ffmpeg -f lavfi -i "$T" -i cover.png -map 0 -map 1 -c:a libmp3lame -b:a 16k -c:v png -disposition:v attached_pic -id3v2_version 3 tone.mp3
 cbr.mp3:    ffmpeg -f lavfi -i "$T" -c:a libmp3lame -b:a 16k -write_xing 0 -id3v2_version 0 cbr.mp3
+back.png:   ffmpeg -f lavfi -i 'color=c=0xa03060:s=16x16:d=1' -frames:v 1 back.png
+covers.mka: ffmpeg -i flac.mka -t 0.2 -attach notes.txt -metadata:s:t:0 mimetype=text/plain \
+                   -attach back.png -metadata:s:t:1 mimetype=image/png \
+                   -attach cover.png -metadata:s:t:2 mimetype=image/png -c copy covers.mka
+back-cover.mka: the same without cover.png
+
+notes.txt is the 12 bytes "liner notes\n".
 
 $P is the base64 of a FLAC PICTURE block (front cover, image/png, 16x16x24)
 holding cover.png. tone.flac had FFmpeg's 8 KiB PADDING block removed and the

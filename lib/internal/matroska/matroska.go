@@ -67,6 +67,10 @@ const (
 	Chapters             ID = 0x1043a770
 	Tags                 ID = 0x1254c367
 	Attachments          ID = 0x1941a469
+	AttachedFile         ID = 0x61a7
+	FileName             ID = 0x466e
+	FileMimeType         ID = 0x4660
+	FileData             ID = 0x465c
 	Void                 ID = 0xec
 )
 

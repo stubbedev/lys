@@ -24,8 +24,12 @@ type cover struct {
 	front bool
 }
 
+// wants reports whether a picture, the front cover or not, would
+// replace the one taken so far.
+func (c *cover) wants(front bool) bool { return c.data == nil || front && !c.front }
+
 func (c *cover) offer(data []byte, front bool) {
-	if len(data) == 0 || c.data != nil && (c.front || !front) {
+	if len(data) == 0 || !c.wants(front) {
 		return
 	}
 	c.data, c.front = bytes.Clone(data), front

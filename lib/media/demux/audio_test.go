@@ -114,6 +114,40 @@ func TestReadsAudioFiles(t *testing.T) {
 	}
 }
 
+// A Matroska file's cover is the image it attaches as cover.png or
+// cover.jpg, else the first image it attaches; other files it attaches
+// are no cover.
+func TestMatroskaCoversAreAttachedImages(t *testing.T) {
+	cover, back := audioFixture(t, "cover.png"), audioFixture(t, "back.png")
+	for _, c := range []struct {
+		file    string
+		want    []byte
+		packets int
+	}{
+		{"covers.mka", cover, 2},
+		{"back-cover.mka", back, 2},
+		{"flac.mka", nil, 8},
+	} {
+		f := openBytes(t, audioFixture(t, c.file), c.file)
+		if got := f.Cover(); !bytes.Equal(got, c.want) {
+			t.Errorf("%s: cover of %d bytes, want %d", c.file, len(got), len(c.want))
+		}
+		if n := len(readPackets(t, f)); n != c.packets {
+			t.Errorf("%s: %d packets, want %d", c.file, n, c.packets)
+		}
+	}
+	b := audioFixture(t, "covers.mka")
+	at := bytes.Index(b, []byte{0x46, 0x5c, 0x80 | byte(len(back))})
+	if at < 0 {
+		t.Fatal("covers.mka holds no FileData of back.png's size")
+	}
+	b = bytes.Clone(b)
+	b[at+2] = 0xfe
+	if _, err := Open(bytes.NewReader(b), int64(len(b)), "overrun"); !errors.Is(err, ErrMalformed) {
+		t.Errorf("an attached file's data running past it: %v, want ErrMalformed", err)
+	}
+}
+
 // After a seek the packets are the file's own from the last that
 // starts at or before the target, a Vorbis stream's first of them
 // timed as the decoder outputs it: nothing, at its end.

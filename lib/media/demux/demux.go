@@ -373,9 +373,10 @@ func (f *File) Seek(t time.Duration) (time.Duration, error) {
 
 // Cover is the picture the file embeds as its cover art, as stored
 // (JPEG or PNG mostly): an MP4's covr item, a FLAC PICTURE block, an
-// Ogg stream's METADATA_BLOCK_PICTURE comment or an ID3v2 APIC frame,
-// the front cover where the file marks one. It is nil when the file
-// holds none.
+// Ogg stream's METADATA_BLOCK_PICTURE comment, an ID3v2 APIC frame or
+// a Matroska image attachment, the front cover where the file marks
+// one (a Matroska attachment named cover.jpg or cover.png). It is nil
+// when the file holds none.
 func (f *File) Cover() []byte {
 	if c, ok := f.c.(coverHolder); ok {
 		return c.coverArt()

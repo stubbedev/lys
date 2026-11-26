@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -204,6 +205,7 @@ type mkvFile struct {
 	trs          []*mkvTrack
 	infos        []Track
 	firstCluster int64
+	cover        cover
 
 	cur       mkvCursor
 	blk       mkvBlock
@@ -266,11 +268,15 @@ func openMKV(src *source) (*mkvFile, bool, error) {
 
 func (m *mkvFile) readMetadata() error {
 	seeks := map[matroska.ID]int64{}
-	var info, tracks, cues bool
+	var info, tracks, cues, attachments bool
 	m.firstCluster = m.segEnd
 	parse := func(e element) error {
 		if e.size == unknownSize {
 			return fmt.Errorf("element %x at offset %d of unknown size: %w", uint32(e.id), e.off, ErrMalformed)
+		}
+		if e.id == matroska.Attachments {
+			attachments = true
+			return m.readAttachments(e)
 		}
 		b, err := m.src.load(e.data, e.size, fmt.Sprintf("element %x at offset %d", uint32(e.id), e.off))
 		if err != nil {
@@ -304,7 +310,7 @@ func (m *mkvFile) readMetadata() error {
 			return fmt.Errorf("element %x at offset %d of unknown size: %w", uint32(e.id), off, ErrMalformed)
 		}
 		switch e.id {
-		case matroska.SeekHead, matroska.Info, matroska.Tracks, matroska.Cues:
+		case matroska.SeekHead, matroska.Info, matroska.Tracks, matroska.Cues, matroska.Attachments:
 			if err := parse(e); err != nil {
 				return err
 			}
@@ -314,7 +320,7 @@ func (m *mkvFile) readMetadata() error {
 	for _, want := range []struct {
 		id   matroska.ID
 		done *bool
-	}{{matroska.Info, &info}, {matroska.Tracks, &tracks}, {matroska.Cues, &cues}} {
+	}{{matroska.Info, &info}, {matroska.Tracks, &tracks}, {matroska.Cues, &cues}, {matroska.Attachments, &attachments}} {
 		pos, ok := seeks[want.id]
 		if *want.done || !ok {
 			continue
@@ -341,6 +347,79 @@ func (m *mkvFile) readMetadata() error {
 	}
 	return nil
 }
+
+// coverNames are the names Matroska gives an attachment that is the
+// front cover.
+var coverNames = [...]string{"cover.jpg", "cover.png"}
+
+// readAttachments takes the cover among the files attached at e: the
+// image named as the front cover, else the first image. Only the
+// image taken is read; other files, fonts of subtitles say, are
+// skipped by their headers.
+func (m *mkvFile) readAttachments(e element) error {
+	return m.eachChild(e, func(f element) error {
+		if f.id != matroska.AttachedFile {
+			return nil
+		}
+		var name, mime string
+		var data element
+		err := m.eachChild(f, func(c element) error {
+			var err error
+			switch c.id {
+			case matroska.FileName:
+				name, err = m.text(c)
+			case matroska.FileMimeType:
+				mime, err = m.text(c)
+			case matroska.FileData:
+				data = c
+			}
+			return err
+		})
+		if err != nil {
+			return fmt.Errorf("attached file at offset %d: %w", f.off, err)
+		}
+		front := slices.ContainsFunc(coverNames[:], func(n string) bool { return strings.EqualFold(n, name) })
+		if !strings.HasPrefix(mime, "image/") || data.size <= 0 || !m.cover.wants(front) {
+			return nil
+		}
+		b, err := m.src.load(data.data, data.size, fmt.Sprintf("attached file %q", name))
+		if err != nil {
+			return err
+		}
+		m.cover.offer(b, front)
+		return nil
+	})
+}
+
+// eachChild calls fn with each element in the payload of e, read by
+// their headers alone.
+func (m *mkvFile) eachChild(e element, fn func(element) error) error {
+	for off := e.data; off < e.end(); {
+		c, err := m.header(off)
+		if err != nil {
+			return err
+		}
+		if c.size == unknownSize || c.size > e.end()-c.data {
+			return fmt.Errorf("element %x of %d bytes at offset %d in element %x ending at %d: %w", uint32(c.id), c.size, off, uint32(e.id), e.end(), ErrMalformed)
+		}
+		if err := fn(c); err != nil {
+			return err
+		}
+		off = c.end()
+	}
+	return nil
+}
+
+// text is the string a short element holds.
+func (m *mkvFile) text(e element) (string, error) {
+	b, err := m.src.load(e.data, e.size, fmt.Sprintf("string element %x at offset %d", uint32(e.id), e.off))
+	if err != nil {
+		return "", err
+	}
+	return string(bytes.TrimRight(b, "\x00")), nil
+}
+
+func (m *mkvFile) coverArt() []byte { return m.cover.data }
 
 func parseSeekHead(b []byte, segData int64, seeks map[matroska.ID]int64) error {
 	return eachElement(b, func(id matroska.ID, p []byte) error {
