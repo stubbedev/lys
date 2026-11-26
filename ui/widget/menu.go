@@ -185,6 +185,41 @@ type Menu struct {
 // menuDisabledAlpha fades a disabled row's text.
 const menuDisabledAlpha = 0.5
 
+// menuIndicatorPx is a check or radio row's indicator, at the start of
+// the 18px column those rows keep.
+const menuIndicatorPx = 14
+
+// paintMenuIndicator draws a check or radio row's indicator in box: a
+// ring of the muted ink around the surface while off, so an unchecked
+// row still reads as a checkbox (the theme's Border, a translucent
+// hairline, all but vanishes at this size), and accent-filled with its
+// tick or dot while on; faded when the row is disabled.
+func paintMenuIndicator(cv *render.Canvas, kind ItemKind, on, enabled bool, box render.Rect) {
+	t := Current()
+	radius := 3
+	if kind == ItemRadio {
+		radius = box.W / 2
+	}
+	fill, ring, mark := t.Bg, t.DisabledText(), t.OnAccent
+	if on {
+		fill, ring = t.Accent, t.Accent
+	}
+	if !enabled {
+		fill, ring, mark = scaleAlpha(fill, menuDisabledAlpha), scaleAlpha(ring, menuDisabledAlpha), scaleAlpha(mark, menuDisabledAlpha)
+	}
+	cv.RoundedRect(box, radius, fill)
+	cv.RoundedBorder(box, render.UniformCorners(radius), render.UniformInsets(checkRing), ring)
+	if !on {
+		return
+	}
+	if kind == ItemRadio {
+		d := max(box.W/2-2, 2)
+		cv.RoundedRect(render.Rect{X: box.X + (box.W-d)/2, Y: box.Y + (box.H-d)/2, W: d, H: d}, d/2, mark)
+		return
+	}
+	drawCheckMark(cv, box, false, mark)
+}
+
 // SetMnemonicsVisible underlines the rows' Alt-letters, as a menu the
 // keyboard opened shows them; a menu the pointer opened hides them
 // until Alt is pressed.
@@ -506,17 +541,8 @@ func (m *Menu) Paint(cv *render.Canvas) {
 			continue
 		}
 		x := rowContent.X
-		indicator := pickc(0, rv, style.PropColor, t.Text)
-		switch it.Kind {
-		case ItemCheck:
-			if it.IsChecked() {
-				strokeCheck(cv, x+6, row.Y+row.H/2, 5, indicator)
-			}
-			x += 18
-		case ItemRadio:
-			if it.IsChecked() {
-				cv.RoundedRect(render.Rect{X: x + 3, Y: row.Y + row.H/2 - 3, W: 6, H: 6}, 3, indicator)
-			}
+		if it.Kind == ItemCheck || it.Kind == ItemRadio {
+			paintMenuIndicator(cv, it.Kind, it.IsChecked(), !it.inert() && IsEnabled(m), render.Rect{X: x, Y: row.Y + (row.H-menuIndicatorPx)/2, W: menuIndicatorPx, H: menuIndicatorPx})
 			x += 18
 		}
 		if it.Icon != nil {

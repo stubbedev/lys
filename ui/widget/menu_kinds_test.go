@@ -1,6 +1,7 @@
 package widget
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/stubbedev/lys/lib/render"
@@ -125,4 +126,44 @@ func TestMenuSubmenu(t *testing.T) {
 			t.Error("Right did not open the hovered submenu")
 		}
 	})
+}
+
+// A check or radio row's indicator shows in both states: unchecked, a
+// ring of the muted ink around the surface, so the row reads as a
+// checkbox; checked, filled with the accent around its mark.
+func TestAMenuIndicatorShowsWhetherCheckedOrNot(t *testing.T) {
+	t.Cleanup(func() { SetTheme(nil) })
+	SetTheme(nil)
+	th := Current()
+	const size = 20
+	box := render.Rect{X: 3, Y: 3, W: menuIndicatorPx, H: menuIndicatorPx}
+	paint := func(kind ItemKind, on, enabled bool) []byte {
+		data := make([]byte, render.Stride(size)*size)
+		paintMenuIndicator(render.New(data, render.Stride(size), size, size), kind, on, enabled, box)
+		return data
+	}
+	edge := func(data []byte) render.Color { return pxAt(data, size, box.X+box.W/2, box.Y) }
+	centre := func(data []byte) render.Color { return pxAt(data, size, box.X+box.W/2, box.Y+box.H/2) }
+	corner := func(data []byte) render.Color { return pxAt(data, size, box.X, box.Y) }
+
+	off := paint(ItemCheck, false, true)
+	if got := edge(off); got != th.DisabledText() {
+		t.Errorf("an unchecked box's top edge is %v, want the muted ink %v", got, th.DisabledText())
+	}
+	if got := centre(off); got != th.Bg {
+		t.Errorf("an unchecked box's centre is %v, want the surface %v, no mark", got, th.Bg)
+	}
+	on := paint(ItemCheck, true, true)
+	if got := edge(on); got != th.Accent {
+		t.Errorf("a checked box's edge is %v, want the accent %v", got, th.Accent)
+	}
+	if bytes.Equal(on, paint(ItemCheck, true, false)) {
+		t.Error("a disabled checked box paints as an enabled one")
+	}
+	if got := corner(paint(ItemRadio, false, true)); got.A() != 0 {
+		t.Errorf("an unchecked radio's corner is painted %v; a radio is round", got)
+	}
+	if got := centre(paint(ItemRadio, true, true)); got != th.OnAccent {
+		t.Errorf("a checked radio's centre is %v, want its dot in %v", got, th.OnAccent)
+	}
 }
