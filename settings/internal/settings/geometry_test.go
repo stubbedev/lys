@@ -459,13 +459,14 @@ func TestPathFieldIsTheNarrowestThatReads(t *testing.T) {
 	}
 }
 
-// A row title gives way, ellipsized, once the window is too narrow for
-// it: the row stays inside the window instead.
-func TestRowTitlesGiveWayLast(t *testing.T) {
+// In a window too narrow for a row's title beside its control, the
+// control wraps under the title: no title is cut and the row stays
+// inside the window.
+func TestNarrowRowsWrapTheirControlRatherThanCutTheirTitle(t *testing.T) {
 	const tooNarrow = 640
 	win := laidOutPageOn(t, narrowDesktops[1], pathPagesYAML, "lock", tooNarrow)
-	if len(cutTitles(win.page)) == 0 {
-		t.Fatalf("no row title gave way at %dpx", tooNarrow)
+	if cut := cutTitles(win.page); len(cut) != 0 {
+		t.Errorf("%d row titles cut at %dpx; their controls should wrap under them", len(cut), tooNarrow)
 	}
 	walkOwn(win.page, func(x widget.Widget) {
 		if _, ok := x.(*fieldRow); ok && shown(x) {

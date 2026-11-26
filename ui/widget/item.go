@@ -109,7 +109,9 @@ const (
 // are the taller. The description runs around the actions: its rows
 // beside them break short of them, and the rows below them, and the
 // details once they start below them, take the line's width from the
-// text's start, under the actions column.
+// text's start, under the actions column. Actions that do not fit
+// beside the text's minimum, even at their own, wrap under the text,
+// from its start, so the title is never cut beside them.
 type itemLine struct {
 	node
 	it *Item
@@ -154,11 +156,16 @@ func (l *itemLine) lay(w int) itemLineBoxes {
 		b.media = render.Rect{W: mw, H: mediaH}
 		x = mw + itemLineGap
 	}
+	aw, under := l.actionsWidth(w - x)
 	actH := 0
-	if aw := l.actionsWidth(w - x); aw > 0 {
+	if aw > 0 {
 		actH = measureChild(l, it.actions, Column, aw).Nat
+	}
+	besideH := 0
+	if aw > 0 && !under {
 		b.actions = render.Rect{X: w - aw, W: aw, H: actH}
 		end = w - aw - itemLineGap
+		besideH = actH
 	}
 	textW, fullW := max(0, end-x), max(0, w-x)
 	title := it.titleWidget()
@@ -170,16 +177,16 @@ func (l *itemLine) lay(w int) itemLineBoxes {
 		it.desc.setFlow(labelFlow{})
 		head += itemTextGap + measureChild(l, it.desc, Column, textW).Nat
 	}
-	rowH := max(head, actH, mediaH)
+	rowH := max(head, besideH, mediaH)
 	headY := (rowH - head) / 2
 	b.media.Y = (rowH - mediaH) / 2
-	b.actions.Y = (rowH - actH) / 2
-	actBottom := b.actions.Y + actH
+	b.actions.Y = (rowH - besideH) / 2
+	actBottom := b.actions.Y + besideH
 	b.title = render.Rect{X: x, Y: headY - (lineH-titleH)/2, W: textW, H: lineH}
 	y := headY + titleH
 	if descOn {
 		y += itemTextGap
-		if beside := actBottom - y; actH > 0 && beside > 0 {
+		if beside := actBottom - y; besideH > 0 && beside > 0 {
 			lh := it.desc.lineBox(it.desc.style(it.desc))
 			b.flow = labelFlow{cut: fullW - textW, rows: (beside + lh - 1) / max(lh, 1)}
 		}
@@ -197,6 +204,11 @@ func (l *itemLine) lay(w int) itemLineBoxes {
 		dh := measureChild(l, it.details, Column, dw).Nat
 		b.details = render.Rect{X: x, Y: y, W: dw, H: dh}
 		y += dh
+	}
+	if under {
+		y += itemGap
+		b.actions = render.Rect{X: x, Y: y, W: aw, H: actH}
+		y += actH
 	}
 	b.h = max(y, actBottom, b.media.Y+mediaH)
 	return b
@@ -223,18 +235,36 @@ func (l *itemLine) titleHeight(w, lineH int) int {
 }
 
 // actionsWidth is the width the actions take out of avail, the room
-// after the media: their natural width, given up down to their minimum
-// where the text's minimum and the gap would not fit beside it, as a
-// box shrinks its children; 0 without shown actions.
-func (l *itemLine) actionsWidth(avail int) int {
+// after the media, and whether they wrap under the text: beside it,
+// their natural width, given up down to their minimum where the text's
+// minimum, the whole title, and the gap would not fit beside it, as a
+// box shrinks its children; under it, where even their minimum would
+// cut the text, their natural width up to avail, never below their
+// minimum; 0 without shown actions.
+func (l *itemLine) actionsWidth(avail int) (int, bool) {
 	if !IsVisible(l.it.actions) {
-		return 0
+		return 0, false
 	}
 	s := measureChild(l, l.it.actions, Row, Unknown)
 	if s.Nat <= 0 {
-		return 0
+		return 0, false
 	}
-	return max(s.Min, min(s.Nat, avail-itemLineGap-l.textSizes().Min))
+	beside := avail - itemLineGap - max(l.textSizes().Min, l.titleWhole())
+	if s.Min > beside {
+		return max(s.Min, min(s.Nat, avail)), true
+	}
+	return min(s.Nat, beside), false
+}
+
+// titleWhole is the narrowest width the title's line shows the whole
+// title in: its minimum while the title wraps, its natural width while
+// it ends in an ellipsis instead (SetEllipsize, a capped title).
+func (l *itemLine) titleWhole() int {
+	s := measureChild(l, l.it.titleWidget(), Row, Unknown)
+	if l.it.title.ellOf(l.it.title.style(l.it.title)) == EllipsizeNone {
+		return s.Min
+	}
+	return s.Nat
 }
 
 // textSizes is the widest request across of the shown text parts.
@@ -267,8 +297,9 @@ func (l *itemLine) appendChildren(buf []Widget) []Widget { return append(buf, l.
 func (l *itemLine) appendStyleKids(buf []Widget) []Widget { return append(buf, l.kids()...) }
 
 // Measure is the parts side by side across, the media, the widest of
-// the text's parts and the actions with the gaps between, and the laid
-// out line's height down.
+// the text's parts and the actions with the gaps between, at the least
+// the media beside the wider of the text's minimum and the actions',
+// which then wrap under the text, and the laid out line's height down.
 func (l *itemLine) Measure(axis Axis, forSize int) Sizes {
 	if sz, ok := l.measureHit(axis, forSize); ok {
 		return sz
@@ -281,15 +312,13 @@ func (l *itemLine) Measure(axis Axis, forSize int) Sizes {
 		return l.measureStore(axis, forSize, FixedSizes(l.lay(w).h))
 	}
 	req := l.textSizes()
-	var media Widget
-	if l.it.media != nil {
-		media = l.it.media
-	}
-	for _, w := range [...]Widget{media, l.it.actions} {
-		if w == nil || !IsVisible(w) {
-			continue
+	if IsVisible(l.it.actions) {
+		if s := measureChild(l, l.it.actions, Row, Unknown); s.Nat > 0 {
+			req = Sizes{Min: max(req.Min, s.Min), Nat: req.Nat + s.Nat + itemLineGap}
 		}
-		if s := measureChild(l, w, Row, Unknown); s.Nat > 0 {
+	}
+	if l.it.media != nil && IsVisible(l.it.media) {
+		if s := measureChild(l, l.it.media, Row, Unknown); s.Nat > 0 {
 			req = Sizes{Min: req.Min + s.Min + itemLineGap, Nat: req.Nat + s.Nat + itemLineGap}
 		}
 	}

@@ -645,3 +645,51 @@ func TestATitleBadgeDoesNotGrowItsItem(t *testing.T) {
 		t.Fatalf("badge %dpx, title %dpx: the case under test needs the badge taller", b.H, title.H)
 	}
 }
+
+// A title and a four-segment control that do not fit side by side in a
+// 760 px window wrap the control under the title, from its start,
+// instead of cutting the title, whether the title wraps or is capped at
+// one row; with the room for both, the control stays beside it at the
+// row's end (#403).
+func TestAnItemWrapsAControlThatWouldCutItsTitle(t *testing.T) {
+	face := testFace(t)
+	segment := func(text string) Widget { return NewLabel(face, 14, text, 0) }
+	whole := func(l *Label) int { return SizeWithin(l, Size{W: 1 << 20, H: 1 << 20}).W }
+	for _, titleRows := range []int{0, 1} {
+		lay := func(width int) (*Item, *ToggleGroup) {
+			it := NewItem(face, "Sorting", "")
+			it.SetLines(titleRows, 0)
+			control := NewToggleGroup(segment("Name"), segment("Modified"), segment("Accessed"), segment("Size"))
+			it.SetControl(control, ItemControlNatural)
+			win := NewBox(Row, 0, 0)
+			win.Append(NewSpacer(itemWrapSidebar, 1), false)
+			win.Append(NewItemGroup(it), true)
+			layOutItems(win, width)
+			return it, control
+		}
+
+		const width = 760
+		it, control := lay(width)
+		title, seg, line := it.title.Bounds(), control.Bounds(), it.line.Bounds()
+		if need := measureChild(it.line, control, Row, Unknown).Min + itemLineGap + whole(it.title); need <= width-itemWrapSidebar {
+			t.Fatalf("the window leaves the item %dpx, room for the title and the control's %dpx: the case under test needs less", width-itemWrapSidebar, need)
+		}
+		if title.W < whole(it.title) {
+			t.Errorf("title capped at %d rows: cut to %dpx of %dpx beside the control", titleRows, title.W, whole(it.title))
+		}
+		if seg.Y < title.Y+title.H || seg.X != title.X {
+			t.Errorf("title capped at %d rows: the control %v does not wrap under the title %v from its start", titleRows, seg, title)
+		}
+		if line.X+line.W > width || seg.X+seg.W > line.X+line.W || seg.Y+seg.H > line.Y+line.H {
+			t.Errorf("title capped at %d rows: the wrapped control %v runs out of the line %v or the line out of the %dpx window", titleRows, seg, line, width)
+		}
+
+		it, control = lay(1400)
+		title, seg, line = it.title.Bounds(), control.Bounds(), it.line.Bounds()
+		if seg.Y >= title.Y+title.H || seg.X+seg.W != line.X+line.W || title.X+title.W > seg.X {
+			t.Errorf("title capped at %d rows: with room for both the control %v does not stand beside the title %v at the line's end %d", titleRows, seg, title, line.X+line.W)
+		}
+	}
+}
+
+const itemWrapSidebar = 460

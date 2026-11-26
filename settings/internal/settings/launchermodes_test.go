@@ -306,7 +306,7 @@ func TestTabLeavesTheModeListBeforeReachingTheSelectedModesOptions(t *testing.T)
 }
 
 func TestTheModeOptionsRowsReadTheirTitlesWhole(t *testing.T) {
-	for _, width := range []int{windowWidth, sweepW} {
+	for _, width := range []int{windowWidth, narrowWindowWidth, sweepW} {
 		for _, mode := range []string{"drun", "window", "ssh", "filebrowser", "combi"} {
 			t.Run(mode, func(t *testing.T) {
 				win := laidOutPage(t, "", "launcher-modes", width)
