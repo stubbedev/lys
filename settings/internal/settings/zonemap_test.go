@@ -1,7 +1,9 @@
 package settings
 
 import (
+	"bytes"
 	"errors"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -10,6 +12,7 @@ import (
 	"github.com/stubbedev/lys/desktop/geo"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/desktop/tzdb"
+	"github.com/stubbedev/lys/lib/golden"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
 
@@ -221,5 +224,69 @@ func TestTheZoneSearchFindsACityCountryOrAbbreviationAndPicksIt(t *testing.T) {
 	pickName(t, c.picker, "Asia/Tokyo")
 	if !slices.Equal(chosen, []string{"Asia/Tokyo"}) || !slices.Contains(treetest.Labels(c.button), "Tokyo · Japan · JST · UTC+09:00") || c.worldMap.current != "Asia/Tokyo" {
 		t.Errorf("chose %q, the button reads %q, the map marks %q", chosen, treetest.Labels(c.button), c.worldMap.current)
+	}
+}
+
+func TestTheMapsLandHoldsItsCitiesPinsAndNotTheOpenSea(t *testing.T) {
+	r := render.Rect{X: 5, Y: 7, W: 3600, H: 1800}
+	shore := landPath(r)
+	onLand := func(c geo.Coordinates) bool {
+		p := mapPoint(c, r)
+		return shore.Contains(float64(p.X)+0.5, float64(p.Y)+0.5)
+	}
+	for city, c := range map[string]geo.Coordinates{
+		"Europe/Copenhagen": at(t, 55+40.0/60, 12+35.0/60),
+		"America/Sao_Paulo": at(t, -(23 + 32.0/60), -(46 + 37.0/60)),
+		"Australia/Sydney":  at(t, -(33 + 52.0/60), 151+13.0/60),
+		"Asia/Tokyo":        at(t, 35+39.0/60, 139+44.0/60),
+	} {
+		if !onLand(c) {
+			t.Errorf("%s's pin is off the land", city)
+		}
+	}
+	for sea, c := range map[string]geo.Coordinates{
+		"the mid Pacific":  at(t, 0, -140),
+		"the mid Atlantic": at(t, 30, -40),
+		"the Indian Ocean": at(t, -30, 80),
+		"the Caspian Sea":  at(t, 42, 50.5),
+		"the Southern Sea": at(t, -60, 0),
+	} {
+		if onLand(c) {
+			t.Errorf("%s is drawn as land", sea)
+		}
+	}
+}
+
+func TestTheMapDrawsItsLandBandAndPinsInEitherTheme(t *testing.T) {
+	const pad = 4
+	for _, shot := range []struct {
+		name string
+		th   *widget.Theme
+	}{{"zonemap-dark", widget.DarkTheme()}, {"zonemap-light", widget.LightTheme()}} {
+		name, th := shot.name, shot.th
+		t.Run(name, func(t *testing.T) {
+			prev := widget.Current()
+			widget.SetTheme(th)
+			t.Cleanup(func() { widget.SetTheme(prev) })
+			m := newZoneMap(testCatalog(t, winter), func(string) {})
+			m.show("Europe/Copenhagen")
+			m.Arrange(render.Rect{X: pad, Y: pad, W: mapDegreesWide, H: mapDegreesHigh})
+			w, h := mapDegreesWide+2*pad, mapDegreesHigh+2*pad
+			stride := render.Stride(w)
+			draw := func(cv *render.Canvas) {
+				cv.Clear(cv.Rect(), th.Bg)
+				m.Paint(cv)
+			}
+			direct := make([]byte, stride*h)
+			draw(render.New(direct, stride, w, h))
+			rec := render.NewRecorder(w, h, 1, 1)
+			draw(rec)
+			replayed := make([]byte, stride*h)
+			rec.Recording().Paint(render.New(replayed, stride, w, h))
+			if !bytes.Equal(direct, replayed) {
+				t.Fatal("the recorded map, replayed, differs from painting it directly")
+			}
+			golden.Check(t, filepath.Join("testdata", "golden"), name, render.NRGBA(direct, stride, w, h), golden.Tolerance{})
+		})
 	}
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
 
+	"github.com/stubbedev/lys/settings/internal/land"
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
@@ -22,6 +23,7 @@ const (
 	bandDegrees      = 15
 	secondsPerDegree = 3600 / bandDegrees
 	bandAlpha        = 0.25
+	landAlpha        = 0.2
 	pinsAcross       = 240
 	minPinPx         = 2
 	zoneDetailSep    = " · "
@@ -146,10 +148,20 @@ func nearestPin(pins []zonePin, latitude, longitude float64) (zonePin, bool) {
 	}), true
 }
 
+func mapOffset(latitude, longitude float64, r render.Rect) (x, y float64) {
+	return (longitude + mapDegreesWide/2) / mapDegreesWide * float64(r.W), (mapDegreesHigh/2 - latitude) / mapDegreesHigh * float64(r.H)
+}
+
 func mapPoint(at geo.Coordinates, r render.Rect) widget.Point {
-	x := (at.Longitude() + mapDegreesWide/2) / mapDegreesWide * float64(r.W)
-	y := (mapDegreesHigh/2 - at.Latitude()) / mapDegreesHigh * float64(r.H)
+	x, y := mapOffset(at.Latitude(), at.Longitude(), r)
 	return widget.Point{X: r.X + int(x), Y: r.Y + int(y)}
+}
+
+func landPath(r render.Rect) *render.Path {
+	return land.Path(func(latitude, longitude float64) (x, y float64) {
+		x, y = mapOffset(latitude, longitude, r)
+		return float64(r.X) + x, float64(r.Y) + y
+	})
 }
 
 func mapDegrees(p widget.Point, r render.Rect) (latitude, longitude float64) {
@@ -172,9 +184,11 @@ func bandRects(seconds int, r render.Rect) []render.Rect {
 
 type zoneMap struct {
 	widget.Base
-	cat     zoneCatalog
-	current string
-	pick    func(string)
+	cat      zoneCatalog
+	current  string
+	pick     func(string)
+	land     *render.Path
+	landArea render.Rect
 }
 
 func newZoneMap(cat zoneCatalog, pick func(string)) *zoneMap {
@@ -207,7 +221,30 @@ func (m *zoneMap) Paint(cv *render.Canvas) {
 		return
 	}
 	cv.RoundedRect(r, tileRadius, th.MutedColor())
-	clip := cv.PushClip(r)
+	region := cv.MapRect(r).Intersect(cv.Rect())
+	if !region.Empty() {
+		face := cv.ScratchLayer(region)
+		m.paintFace(face.Canvas(), r, th)
+		tile := &render.Path{}
+		render.RoundedRectPath(tile, r, render.UniformCorners(tileRadius))
+		face.ApplyPathMask(tile, region)
+		cv.DrawLayer(face, region, render.BlendNormal)
+		face.Release()
+	}
+	ring, width := th.Border, 1
+	if widget.FocusVisible(m) {
+		ring, width = th.Text, focusRing
+	}
+	cv.RoundedBorder(r, render.UniformCorners(tileRadius), render.UniformInsets(width), ring)
+}
+
+func (m *zoneMap) paintFace(cv *render.Canvas, r render.Rect, th *widget.Theme) {
+	if m.land == nil || m.landArea != r {
+		m.land, m.landArea = landPath(r), r
+	}
+	alpha := cv.PushAlpha(landAlpha)
+	cv.FillPath(m.land, th.TextMuted)
+	cv.PopAlpha(alpha)
 	current, known := m.cat.zone(m.current)
 	if known {
 		alpha := cv.PushAlpha(bandAlpha)
@@ -236,12 +273,6 @@ func (m *zoneMap) Paint(cv *render.Canvas) {
 		cv.RoundedRect(mark, side/2, th.Accent)
 		cv.RoundedBorder(mark, render.UniformCorners(side/2), render.UniformInsets(1), th.Text)
 	}
-	cv.PopClip(clip)
-	ring, width := th.Border, 1
-	if widget.FocusVisible(m) {
-		ring, width = th.Text, focusRing
-	}
-	cv.RoundedBorder(r, render.UniformCorners(tileRadius), render.UniformInsets(width), ring)
 }
 
 func (m *zoneMap) HitTest(pt widget.Point) widget.Widget { return m.HitLeaf(m, pt) }
