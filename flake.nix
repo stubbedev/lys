@@ -39,7 +39,6 @@
         ./nix/overlay.nix
         (checks "lib" ./lib/nix/checks.nix)
         ./lib/nix/shell.nix
-        ./ui/nix/package.nix
         (checks "ui" ./ui/nix/checks.nix)
         ./ui/nix/shell.nix
         ./desktop/nix/shell.nix

@@ -1,7 +1,8 @@
 # Demos
 
 Each demo is a command under `cmd/`. Run one from the dev shell with
-`go run ./cmd/<name>`.
+`go run ./cmd/<name>`. They ship in no package: `just demos-package` builds
+them all as Nix does, a check CI builds with the rest of the ui component.
 
 | Command | What it shows |
 | --- | --- |

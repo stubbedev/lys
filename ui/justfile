@@ -21,10 +21,10 @@ check: vet lint no-fused test build
 atspi:
     go test ./internal/atspi/
 
-# Build the Nix package with its sandboxed tests: a go.mod or go.sum
-# change without the matching vendorHash in nix/package.nix fails here.
-package:
-    nix build -L --no-link .#checks.{{ arch() }}-{{ os() }}.ui-package
+# Build the demos and the headless suite's clients as Nix builds them: a
+# go.mod or go.sum change without the matching vendorHash fails here.
+demos-package:
+    nix build -L --no-link .#checks.{{ arch() }}-{{ os() }}.ui-demos
 
 # The GPU renderer's lys-ui tests on lavapipe, Mesa's CPU Vulkan
 # driver, so they gate without a GPU: every widget golden rendered on

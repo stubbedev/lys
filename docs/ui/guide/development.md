@@ -16,7 +16,7 @@ just gpu           # the GPU renderer's tests on lavapipe
 just headless      # the compositor-in-the-loop suite on a private headless sway
 just atspi         # the AT-SPI bridge on a private accessibility bus
 just atspi-verify  # the bridge against real at-spi2-core
-just package       # the Nix package with its sandboxed tests
+just demos-package # the demos and the headless clients as Nix builds them
 ```
 
 The same compositor-in-the-loop suite runs against Hyprland in
