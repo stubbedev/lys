@@ -248,6 +248,40 @@ func TestLaunchRunsTheExecDetached(t *testing.T) {
 	}, "the launched app to record its desktop file")
 }
 
+// LaunchArgs runs the Exec with its file codes dropped and the caller's
+// arguments after it, raised by the token, each argument one word; a
+// terminal entry with no terminal to run in is refused, never run bare.
+func TestLaunchArgsAppendsArgumentsToTheExec(t *testing.T) {
+	dbustest.Session(t)
+	bin := t.TempDir()
+	marker := filepath.Join(t.TempDir(), "ran")
+	fdtest.WriteExecutable(t, filepath.Join(bin, "argtool"), []byte("#!/bin/sh\nfor a; do printf '[%s]' \"$a\"; done > \""+marker+"\"\necho \"|$XDG_ACTIVATION_TOKEN\" >> \""+marker+"\"\n"))
+	t.Setenv("PATH", bin+":/bin:/usr/bin:"+os.Getenv("PATH"))
+	dir := t.TempDir()
+	write(t, dir, "arg.desktop", "[Desktop Entry]\nType=Application\nName=Arg\nExec=argtool --name x %U\n")
+	write(t, dir, "argterm.desktop", "[Desktop Entry]\nType=Application\nName=ArgTerm\nTerminal=true\nExec=argtool %u\n")
+	a, ok := FindApp([]string{dir}, "arg.desktop")
+	if !ok {
+		t.Fatal("fixture app not found")
+	}
+	if err := a.LaunchArgs([]string{"-compose", "to='a b',x=1"}, LaunchContext{ActivationToken: "tok"}); err != nil {
+		t.Fatal(err)
+	}
+	want := "[--name][x][-compose][to='a b',x=1]|tok\n"
+	waittest.Until(t, func() bool {
+		data, err := os.ReadFile(marker)
+		return err == nil && string(data) == want
+	}, "the launched app to record its arguments")
+
+	term, ok := FindApp([]string{dir}, "argterm.desktop")
+	if !ok {
+		t.Fatal("terminal fixture app not found")
+	}
+	if err := term.LaunchArgs([]string{"-x"}, LaunchContext{}); err == nil {
+		t.Error("a terminal entry ran with no terminal to run in")
+	}
+}
+
 // A portal request names its app by the entry's name and icon; an
 // unknown id stands for itself, and no id is a host app.
 func TestDescribe(t *testing.T) {

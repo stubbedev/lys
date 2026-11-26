@@ -36,21 +36,9 @@ func (r *rig) interactive(t *testing.T, method string, args ...any) (uint32, map
 // spawned records the programs the backend hands off to and the
 // environment they get; fail makes the named program fail to start.
 type spawned struct {
-	argv   dbustest.Var[[][]string]
-	env    dbustest.Var[[][]string]
-	opened dbustest.Var[[]string]
-	fail   dbustest.Var[map[string]bool]
-}
-
-// openFails is the name failOn takes to make every open fail.
-const openFails = "open"
-
-func (s *spawned) open(uri, token string) error {
-	s.opened.Update(func(all []string) []string { return append(all, uri+"|"+token) })
-	if s.fail.Load()[openFails] {
-		return os.ErrNotExist
-	}
-	return nil
+	argv dbustest.Var[[][]string]
+	env  dbustest.Var[[][]string]
+	fail dbustest.Var[map[string]bool]
 }
 
 func (s *spawned) spawn(argv, env []string) error {
@@ -73,12 +61,6 @@ func (s *spawned) failOn(names ...string) {
 		}
 		return next
 	})
-}
-
-func spawnRig(t *testing.T, fail ...string) (*rig, *spawned) {
-	s := &spawned{}
-	s.failOn(fail...)
-	return newRig(t, func(b *Backend) { b.spawn, b.open = s.spawn, s.open }), s
 }
 
 const handle = dbus.ObjectPath("/org/freedesktop/portal/desktop/request/1_2/t")
@@ -172,103 +154,6 @@ func TestUsbDeviceName(t *testing.T) {
 		if got := usbDeviceName("dev7", tc.info); got != tc.want {
 			t.Errorf("usbDeviceName(%v) = %q, want %q", tc.info, got, tc.want)
 		}
-	}
-}
-
-const emailIfaceName = "org.freedesktop.impl.portal.Email.ComposeEmail"
-
-func TestEmailOpensAMailtoURI(t *testing.T) {
-	r, s := spawnRig(t)
-	opts := Vardict{
-		"addresses": dbus.MakeVariant([]string{"x@y.com", "z@w.com"}),
-		"address":   dbus.MakeVariant("a@b.com"),
-		"cc":        dbus.MakeVariant([]string{"c@d.com"}),
-		"subject":   dbus.MakeVariant("Hi there"),
-		"body":      dbus.MakeVariant("Line & stuff~"),
-	}
-	if code, _ := r.interactive(t, emailIfaceName, handle, "org.app", "", opts); code != ResponseSuccess {
-		t.Errorf("code = %d", code)
-	}
-	want := []string{"mailto:x@y.com,z@w.com,a@b.com?cc=c%40d.com&subject=Hi%20there&body=Line%20%26%20stuff~|"}
-	if got := s.opened.Load(); !slices.Equal(got, want) || len(s.argv.Load()) != 0 {
-		t.Errorf("opened %q, spawned %q, want only %q opened", got, s.argv.Load(), want)
-	}
-	if mailto(Vardict{}) != "mailto:" {
-		t.Errorf("empty mailto = %q", mailto(Vardict{}))
-	}
-}
-
-// The frontend hands the backend the attachments as a list of paths
-// (it resolves the app's attachment_fds itself and filters them out),
-// which reach xdg-email as --attach arguments.
-func TestEmailAttachesThroughXdgEmail(t *testing.T) {
-	opts := Vardict{
-		"address":     dbus.MakeVariant("a@b.com"),
-		"subject":     dbus.MakeVariant("S"),
-		"bcc":         dbus.MakeVariant([]string{"h@i.com"}),
-		"attachments": dbus.MakeVariant([]string{"/doc/a.txt", "file:///doc/b%20c.pdf"}),
-	}
-	r, s := spawnRig(t)
-	if code, _ := r.interactive(t, emailIfaceName, handle, "org.app", "", opts); code != ResponseSuccess {
-		t.Errorf("code = %d", code)
-	}
-	got := s.argv.Load()
-	want := []string{"xdg-email", "--utf8", "--subject", "S", "--bcc", "h@i.com", "--attach", "/doc/a.txt", "--attach", "/doc/b c.pdf", "a@b.com"}
-	if len(got) != 1 || !slices.Equal(got[0], want) {
-		t.Errorf("spawned %q, want %q", got, want)
-	}
-
-	// No xdg-email: a failure, not a compose window without the files.
-	r, s = spawnRig(t, "xdg-email")
-	if code, _ := r.interactive(t, emailIfaceName, handle, "org.app", "", opts); code != ResponseOther {
-		t.Errorf("xdg-email missing: code %d, want other", code)
-	}
-	if got := s.argv.Load(); len(got) != 1 {
-		t.Errorf("a fallback ran after xdg-email failed: %q", got)
-	}
-}
-
-// attachment_fds never reaches a backend through the frontend; on its
-// own it attaches nothing and writes no copies anywhere.
-func TestEmailIgnoresAttachmentFds(t *testing.T) {
-	f, err := os.Open(os.DevNull)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer f.Close()
-	r, s := spawnRig(t)
-	opts := Vardict{
-		"address":        dbus.MakeVariant("a@b.com"),
-		"attachment_fds": dbus.MakeVariant([]dbus.UnixFD{dbus.UnixFD(f.Fd())}),
-	}
-	r.interactive(t, emailIfaceName, handle, "org.app", "", opts)
-	if got := s.opened.Load(); !slices.Equal(got, []string{"mailto:a@b.com|"}) || len(s.argv.Load()) != 0 {
-		t.Errorf("opened %q, spawned %q, want the plain mailto", got, s.argv.Load())
-	}
-}
-
-// The activation token reaches the mail client, so it can raise its
-// window: handed to the opener, or as XDG_ACTIVATION_TOKEN to
-// xdg-email; without one nothing is added.
-func TestEmailPassesTheActivationToken(t *testing.T) {
-	r, s := spawnRig(t)
-	r.interactive(t, emailIfaceName, handle, "org.app", "", Vardict{"activation_token": dbus.MakeVariant("tok-1")})
-	r.interactive(t, emailIfaceName, handle, "org.app", "", Vardict{})
-	if got := s.opened.Load(); !slices.Equal(got, []string{"mailto:|tok-1", "mailto:|"}) {
-		t.Errorf("opened %q", got)
-	}
-	attach := dbus.MakeVariant([]string{"/doc/a.txt"})
-	r.interactive(t, emailIfaceName, handle, "org.app", "", Vardict{"activation_token": dbus.MakeVariant("tok-2"), "attachments": attach})
-	r.interactive(t, emailIfaceName, handle, "org.app", "", Vardict{"attachments": attach})
-	if got := s.env.Load(); len(got) != 2 || !slices.Equal(got[0], []string{"XDG_ACTIVATION_TOKEN=tok-2"}) || len(got[1]) != 0 {
-		t.Errorf("env = %q", got)
-	}
-}
-
-func TestEmailFailsWithoutAHandler(t *testing.T) {
-	r, _ := spawnRig(t, openFails)
-	if code, _ := r.interactive(t, emailIfaceName, handle, "org.app", "", Vardict{}); code != ResponseOther {
-		t.Errorf("code = %d, want other", code)
 	}
 }
 

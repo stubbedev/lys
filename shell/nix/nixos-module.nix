@@ -39,9 +39,9 @@ in
       default = false;
       description = ''
         Enable the backing system services lys-shell integrates with: BlueZ
-        (bluetooth), plus xdg-utils. Set with `mkDefault` so
-        your own settings win. Networking (NetworkManager),
-        lys-power (the power profile), and PipeWire are intentionally left out — enable
+        (bluetooth). Set with `mkDefault` so your own settings win.
+        Networking (NetworkManager), lys-power (the power profile), and
+        PipeWire are intentionally left out — enable
         those deliberately to avoid clashing with your setup.
       '';
     };
@@ -101,6 +101,7 @@ in
     lib.mkMerge [
       {
         environment.systemPackages = [ cfg.package ] ++ lib.optional cfg.settingsApp.enable cfg.settingsApp.package;
+        services.userdbd.enable = true;
 
         systemd.user.services.lys-shell = lib.mkIf cfg.systemd.enable {
           description = "lys-shell desktop shell";
@@ -168,9 +169,6 @@ in
 
       (lib.mkIf cfg.autoInstallDependencies {
         hardware.bluetooth.enable = lib.mkDefault true;
-
-        environment.systemPackages =
-          lib.optional (pkgs ? xdg-utils) pkgs.xdg-utils;
       })
     ]
   );

@@ -29,12 +29,17 @@ const (
 
 // dialogs carries the D-Bus methods of all four; their names do not
 // collide, and each interface exports only its own.
-type dialogs struct{ conn *dbus.Conn }
+type dialogs struct {
+	conn *dbus.Conn
+	// account is the user the Account portal offers (useraccount.Current;
+	// a fake user database in tests).
+	account func() (useraccount.Account, error)
+}
 
 func (d dialogs) client() *portaldialogs.Client { return portaldialogs.NewClient(d.conn) }
 
-func dialogIfaces(conn *dbus.Conn, cfg *config.Service) []dbusx.Interface {
-	d := dialogs{conn}
+func dialogIfaces(conn *dbus.Conn, cfg *config.Service, account func() (useraccount.Account, error)) []dbusx.Interface {
+	d := dialogs{conn: conn, account: account}
 	// Of the four, only DynamicLauncher's spec has a version.
 	launcher := dbusx.Getters{
 		"version":                func() any { return uint32(1) },
@@ -89,7 +94,7 @@ type accountMethods struct{ dialogs }
 // avatar for sharing; the user may edit the name and the picture
 // first. The id is always the passwd login name.
 func (a accountMethods) GetUserInformation(handle dbus.ObjectPath, appID, parent string, options Vardict) (uint32, Vardict, *dbus.Error) {
-	acct, err := useraccount.Current()
+	acct, err := a.account()
 	if err != nil {
 		warnf("account: %v", err)
 		return ResponseOther, Vardict{}, nil

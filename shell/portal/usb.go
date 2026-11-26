@@ -20,7 +20,7 @@ type usb struct{ dialogs }
 func usbIface(conn *dbus.Conn) dbusx.Interface {
 	return dbusx.Interface{
 		Name:       "org.freedesktop.impl.portal.Usb",
-		Methods:    usb{dialogs{conn}},
+		Methods:    usb{dialogs{conn: conn}},
 		Properties: dbusx.Getters{"version": func() any { return uint32(1) }},
 	}
 }

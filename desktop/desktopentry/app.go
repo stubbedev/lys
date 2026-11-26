@@ -476,13 +476,35 @@ func (a App) Open(uri string, ctx LaunchContext) error {
 	if err != nil {
 		return err
 	}
+	return a.runIn(argv, ctx, "open "+uri)
+}
+
+// LaunchArgs starts the application on a command line of its own: its
+// Exec expanded as Launch expands it, with no files, then args, for a
+// program driven by options of its own rather than one file field code
+// (a mail composer handed its recipients and attachments). It runs
+// detached inside ctx's terminal for a Terminal=true entry, raised by
+// ctx's activation token; a DBusActivatable entry runs its Exec too,
+// since org.freedesktop.Application carries no arguments.
+func (a App) LaunchArgs(args []string, ctx LaunchContext) error {
+	argv, err := a.ExpandExec(a.Exec())
+	if err != nil {
+		return err
+	}
+	return a.runIn(append(argv, args...), ctx, "run "+strings.Join(args, " "))
+}
+
+// runIn runs argv inside ctx's terminal for a Terminal=true entry, then
+// as run does; purpose names what the entry was started for in an
+// error.
+func (a App) runIn(argv []string, ctx LaunchContext, purpose string) error {
 	if a.Terminal() {
 		if ctx.Terminal == nil {
-			return fmt.Errorf("desktopentry: %s runs in a terminal and none was given to open %s in", a.ID, uri)
+			return fmt.Errorf("desktopentry: %s runs in a terminal and none was given to %s in", a.ID, purpose)
 		}
 		terminal, err := ctx.Terminal()
 		if err != nil {
-			return fmt.Errorf("desktopentry: %s needs a terminal to open %s in: %w", a.ID, uri, err)
+			return fmt.Errorf("desktopentry: %s needs a terminal to %s in: %w", a.ID, purpose, err)
 		}
 		argv = append([]string{terminal, "-e"}, argv...)
 	}

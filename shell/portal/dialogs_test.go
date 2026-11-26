@@ -1,18 +1,20 @@
 package portal
 
 import (
+	"context"
 	"errors"
 	"io/fs"
 	"os"
-	"os/user"
 	"path"
 	"reflect"
 	"slices"
-	"strconv"
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/resources"
+	"github.com/stubbedev/lys/desktop/useraccount"
 	"github.com/stubbedev/lys/lib/portaldialogs"
+	"github.com/stubbedev/lys/lib/userdb"
+	"github.com/stubbedev/lys/lib/userdb/userdbtest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
@@ -106,12 +108,13 @@ func TestAccessDialogChoicesRoundTrip(t *testing.T) {
 // is shared is what the user left after editing, with the picture as a
 // file:// URI, and none when they removed it.
 func TestAccountSharesTheUser(t *testing.T) {
-	want, err := user.LookupId(strconv.Itoa(os.Getuid()))
-	if err != nil {
-		t.Skipf("uid not in the passwd file: %v", err)
-	}
+	uid := userdb.UID(os.Getuid()) //nolint:gosec // a uid is never negative
+	want := userdb.User{Name: "ada", UID: uid, GID: userdb.GID(uid), RealName: "Ada Lovelace", Home: t.TempDir()}
+	socket := userdbtest.Serve(t, userdbtest.DB{Users: []userdb.User{want}})
 	t.Setenv("USER", "mallory")
-	r := newRig(t, nil)
+	r := newRig(t, func(b *Backend) {
+		b.account = func() (useraccount.Account, error) { return useraccount.Lookup(context.Background(), socket, uid) }
+	})
 	d := serveDialogs(t, r, true)
 	_, res := r.interactive(t, userInfoCall, handle, "org.app", "", Vardict{"reason": dbus.MakeVariant("to greet you")})
 	asked := d.asked.Load()
@@ -121,8 +124,8 @@ func TestAccountSharesTheUser(t *testing.T) {
 	if offered := asked[1].(portaldialogs.AccountInfo); offered.Name == "" {
 		t.Errorf("offered %+v, want the real name", offered)
 	}
-	if res["id"].Value() != want.Username {
-		t.Errorf("id = %v, want the passwd login %s", res["id"], want.Username)
+	if res["id"].Value() != want.Name {
+		t.Errorf("id = %v, want the userdb login %s", res["id"], want.Name)
 	}
 	d.edit.Store(&portaldialogs.AccountInfo{Name: "Ada", Image: "/pics/a b.png"})
 	_, res = r.interactive(t, userInfoCall, handle, "org.app", "", Vardict{})

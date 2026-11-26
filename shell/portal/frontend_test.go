@@ -12,6 +12,8 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/stubbedev/lys/desktop/fileuri"
+	"github.com/stubbedev/lys/desktop/opener/openertest"
 	"github.com/stubbedev/lys/lib/capture"
 	"github.com/stubbedev/lys/lib/dbusx/dbusxtest"
 	"github.com/stubbedev/lys/lib/fdtest"
@@ -152,9 +154,11 @@ func (f *frontend) session(t *testing.T, iface string) dbus.ObjectPath {
 }
 
 // An app's attachment_fds reach the backend as the paths the frontend
-// resolves, and from there xdg-email; a mail client missing fails the
-// request instead of composing without the files.
+// resolves, and from there the default mail client's command line; a
+// client that takes no attachments fails the request instead of
+// composing without the files.
 func TestFrontendHandsEmailAttachmentsOver(t *testing.T) {
+	desktop := openertest.New(t)
 	doc := filepath.Join(t.TempDir(), "report.pdf")
 	if err := os.WriteFile(doc, []byte("%PDF"), 0o600); err != nil {
 		t.Fatal(err)
@@ -176,18 +180,24 @@ func TestFrontendHandsEmailAttachmentsOver(t *testing.T) {
 		return code
 	}
 
-	r, s := spawnRig(t)
+	thunderbird := desktop.Handler(t, "thunderbird", mailtoType)
+	r := newRig(t, nil)
 	if code := compose(startFrontend(t, r, t.TempDir())); code != ResponseSuccess {
 		t.Errorf("ComposeEmail = %d", code)
 	}
-	want := []string{"xdg-email", "--utf8", "--attach", doc, "a@b.com"}
-	if got := s.argv.Load(); len(got) != 1 || !slices.Equal(got[0], want) {
-		t.Errorf("spawned %q, want %q", got, want)
+	want := "-compose to='a@b.com',attachment='file://" + fileuri.Encode(doc, "/") + "'|"
+	if got := thunderbird.Ran(t); got != want {
+		t.Errorf("thunderbird ran with %q, want %q", got, want)
 	}
 
-	r, _ = spawnRig(t, "xdg-email")
+	mail := desktop.Handler(t, "mail", mailtoType)
+	desktop.Write(t, "config/mimeapps.list", "[Default Applications]\n"+mailtoType+"=mail.desktop;\n")
+	r = newRig(t, nil)
 	if code := compose(startFrontend(t, r, t.TempDir())); code != ResponseOther {
-		t.Errorf("ComposeEmail without xdg-email = %d, want other", code)
+		t.Errorf("ComposeEmail with a client taking no attachments = %d, want other", code)
+	}
+	if mail.HasRun() {
+		t.Error("the client composed without the attachments")
 	}
 }
 
