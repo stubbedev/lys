@@ -62,6 +62,9 @@ type Content struct {
 	Actions []Action
 	// Reply is the inline-reply field; nil draws none.
 	Reply *Reply
+	// Attachment is the picture the notification attaches that Icon
+	// shows (Attachment), "" for none.
+	Attachment string
 }
 
 // Handlers are what a card's parts do.
@@ -81,6 +84,9 @@ type Handlers struct {
 	Link func(href string)
 	// Post delivers a decoded file icon on the UI loop.
 	Post func(func())
+	// Look previews the attachment in Quick Look, from the look button
+	// beside the close button; nil draws no look button.
+	Look func(path string)
 }
 
 // Card is one popup on lys-ui's card: the top row as an Item (the app
@@ -144,6 +150,9 @@ func NewCard(cfg *config.Config, font render.Font, now time.Time, c Content, h H
 	k.Time = widget.NewLabel(font, k.px, TimeLabel(RelativeTime(now, c.Added), "notification-popup"), 0)
 	k.Time.AddClass("notification-popup-time", css.Caption, css.DimLabel)
 	k.Head.AddAction(k.Time)
+	if look := LookButton(c.Attachment, h.Look, cardGlyphPx); look != nil {
+		k.Head.AddAction(look)
+	}
 	k.Close = widget.NewButton(widget.NewThemeIcon("ld-x-symbolic", cardGlyphPx), 0, 0)
 	k.Close.AddClass("notification-popup-close", css.Ghost, css.Icon, css.Small)
 	k.Close.SetTooltip(i18n.T("notification-popup-close"))

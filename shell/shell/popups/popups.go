@@ -55,6 +55,9 @@ type Popups struct {
 	minter notifyui.TokenMinter
 	// launch opens a link with an activation token.
 	launch func(uri, token string) error
+	// look previews a notification's attachment in Quick Look, running
+	// closed once it no longer shows it; nil offers no look button.
+	look func(path string, closed func()) error
 	// open maps a layer surface; nil maps none (headless).
 	open func(app.LayerConfig) (window, error)
 	win  window
@@ -107,8 +110,9 @@ type card struct {
 // New builds the popup host; it maps on popup-monitor among outputs
 // when the first popup arrives. The service's popup countdowns take the
 // configured popup-duration; sheet is the shell's stylesheet, which
-// styles the cards (nil leaves them unstyled).
-func New(application *app.Application, svc *notifications.Service, cfg *config.Config, font render.Font, sheet *widget.Stylesheet, outputs func() []*app.Output) *Popups {
+// styles the cards (nil leaves them unstyled); look previews a card's
+// attachment in Quick Look (nil offers no look button).
+func New(application *app.Application, svc *notifications.Service, cfg *config.Config, font render.Font, sheet *widget.Stylesheet, outputs func() []*app.Output, look func(path string, closed func()) error) *Popups {
 	svc.SetPopupDuration(time.Duration(cfg.Notification.PopupDuration) * time.Millisecond)
 	p := &Popups{
 		app:     application,
@@ -120,6 +124,7 @@ func New(application *app.Application, svc *notifications.Service, cfg *config.C
 		now:     time.Now,
 		minter:  notifyui.Minter(application),
 		launch:  notifyui.OpenLink,
+		look:    look,
 		cards:   make(map[uint32]*card),
 	}
 	if application != nil {
@@ -491,6 +496,7 @@ func (p *Popups) newCard(n *notifications.Notification) *card {
 		},
 		Link: p.openLink,
 		Post: p.onLoop,
+		Look: notifyview.Looker("notification popups", p.look),
 	}
 	if _, ok := n.DefaultAction(); ok {
 		h.Open = func() { p.invokeDefault(id) }
@@ -515,16 +521,18 @@ func (p *Popups) content(n *notifications.Notification) notifyview.Content {
 	if _, ok := n.InlineReply(); ok {
 		reply = &notifyview.Reply{Placeholder: n.ReplyPlaceholder}
 	}
+	icon := notifyui.ResolveIcon(p.cfg.Notification.IconSource, n)
 	return notifyview.Content{
-		App:      n.AppName,
-		Icon:     notifyui.ResolveIcon(p.cfg.Notification.IconSource, n),
-		Urgency:  n.Urgency,
-		Added:    n.Added,
-		Summary:  n.Summary,
-		Body:     n.Body,
-		Progress: n.Progress,
-		Actions:  buttons,
-		Reply:    reply,
+		App:        n.AppName,
+		Icon:       icon,
+		Urgency:    n.Urgency,
+		Added:      n.Added,
+		Summary:    n.Summary,
+		Body:       n.Body,
+		Progress:   n.Progress,
+		Actions:    buttons,
+		Reply:      reply,
+		Attachment: notifyview.Attachment(icon, n.ImagePath),
 	}
 }
 

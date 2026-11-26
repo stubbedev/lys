@@ -112,6 +112,10 @@ type ModuleContext struct {
 	SetConfig func(path string, value any, done func(error))
 	// Toast shows an OSD toast; nil without an OSD.
 	Toast func(label, icon string)
+	// NotificationLook previews a notification's attachment in Quick
+	// Look, the popups' and the dropdown's one; nil in headless
+	// construction.
+	NotificationLook func(path string, closed func()) error
 	// Clipboard is the session clipboard history, nil when the
 	// compositor has no data-control protocol (the launcher's
 	// clipboard mode reads it).

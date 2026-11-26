@@ -47,7 +47,7 @@ func newClockedPopups(t *testing.T, ncfg config.NotificationConfig) (*Popups, *n
 	svc.UseClock(clock)
 	cfg := config.Defaults()
 	cfg.Notification = ncfg
-	p := New(nil, svc, cfg, testFont(t), nil, nil)
+	p := New(nil, svc, cfg, testFont(t), nil, nil, nil)
 	p.now = clock.Now
 	return p, svc, clock
 }

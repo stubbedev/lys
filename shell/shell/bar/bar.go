@@ -67,6 +67,7 @@ import (
 	"github.com/stubbedev/lys/shell/shell/osd"
 	"github.com/stubbedev/lys/shell/shell/popups"
 	"github.com/stubbedev/lys/shell/shell/powermenu"
+	"github.com/stubbedev/lys/shell/shell/quicklook"
 	"github.com/stubbedev/lys/shell/shell/screenshot"
 	"github.com/stubbedev/lys/shell/shell/sharepicker"
 	wallpapershell "github.com/stubbedev/lys/shell/shell/wallpaper"
@@ -722,13 +723,15 @@ func (s *shellStart) mount() {
 			return release
 		})
 	}
+	notifyLook := quicklook.ForApp(application, font, theme.Sheet, func() float64 { return float64(current.Load().Styling.Scale) }, layers.NotificationPopup)
+	baseCtx.NotificationLook = notifyLook.Look
 	rt.ctx = baseCtx
 	rt.mount(application, cfg)
 	rt.ctx.Dropdowns.whenBuilt(func() { s.starting.done(startupDropdowns) })
 	// Notification popups render on one monitor, bar or not.
 	var popupHost *popups.Popups
 	if s.notifSvc != nil {
-		popupHost = popups.New(application, s.notifSvc, cfg, font, theme.Sheet, primaryFirst)
+		popupHost = popups.New(application, s.notifSvc, cfg, font, theme.Sheet, primaryFirst, notifyLook.Look)
 		s.ctx.Go(func() { popupHost.Run(s.ctx.Life()) })
 		s.down.add(followFocusInputs(application, s.ctx.Clock, s.notifSvc, s.ctx.ScreenShares, s.ctx.Recorder))
 	}

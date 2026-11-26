@@ -531,6 +531,9 @@ func newNotifItem(v *notificationView, n *notifications.Notification) *notifItem
 	it.time = widget.NewLabel(v.font, v.px, "", 0)
 	it.time.AddClass("notification-dropdown-item-time", css.Caption, css.DimLabel)
 	it.main.AddAction(it.time)
+	if look := notifyview.LookButton(notifyview.Attachment(icon, n.ImagePath), notifyview.Looker("notification dropdown", v.ctx.NotificationLook), itemIconPx); look != nil {
+		it.main.AddAction(look)
+	}
 	id := n.ID
 	dismiss := ghostIconButton("ld-x-symbolic", itemIconPx, i18n.T("notification-dropdown-item-dismiss"), func() { v.dismiss(id) }, "notification-dropdown-item-dismiss")
 	it.main.AddAction(dismiss)
