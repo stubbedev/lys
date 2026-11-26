@@ -24,6 +24,13 @@ files-empty-trash = Vider la corbeille
 files-undo = Annuler
 files-cancel = Annuler
 files-close = Fermer
+files-close-running-title = { $count ->
+    [one] Une opération est encore en cours
+   *[other] { $count } opérations sont encore en cours
+}
+files-close-running-body = Fermer la fenêtre annule ce qui n’est pas terminé.
+files-keep-open = Garder ouverte
+files-stop-and-close = Annuler et fermer
 files-skip = Ignorer
 files-keep-both = Garder les deux
 files-replace = Remplacer
@@ -58,6 +65,10 @@ files-paste-empty = Il n’y a aucun fichier à coller
 files-nothing-to-undo = Il n’y a rien à annuler
 files-missing = { $path } n’existe pas
 files-open-failed = { $name } n’a pas pu être ouvert
+files-open-with-failed = { $count ->
+    [one] { $app } n’a pas pu ouvrir { $name }
+   *[other] { $app } n’a pas pu ouvrir les { $count } éléments
+}
 files-terminal-failed = Aucun terminal n’a pu être ouvert
 files-properties-failed = Les propriétés n’ont pas pu être lues
 files-trashed = { $count ->

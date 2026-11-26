@@ -24,6 +24,13 @@ files-empty-trash = Prullenbak legen
 files-undo = Ongedaan maken
 files-cancel = Annuleren
 files-close = Sluiten
+files-close-running-title = { $count ->
+    [one] Er loopt nog een bewerking
+   *[other] Er lopen nog { $count } bewerkingen
+}
+files-close-running-body = Als je het venster sluit, wordt afgebroken wat nog niet klaar is.
+files-keep-open = Open laten
+files-stop-and-close = Annuleren en sluiten
 files-skip = Overslaan
 files-keep-both = Beide houden
 files-replace = Vervangen
@@ -58,6 +65,10 @@ files-paste-empty = Er zijn geen bestanden om te plakken
 files-nothing-to-undo = Er is niets om ongedaan te maken
 files-missing = { $path } bestaat niet
 files-open-failed = { $name } kon niet worden geopend
+files-open-with-failed = { $count ->
+    [one] { $app } kon { $name } niet openen
+   *[other] { $app } kon de { $count } items niet openen
+}
 files-terminal-failed = Er kon geen terminal worden geopend
 files-properties-failed = De eigenschappen konden niet worden gelezen
 files-trashed = { $count ->

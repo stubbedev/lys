@@ -24,6 +24,13 @@ files-empty-trash = Svuota cestino
 files-undo = Annulla
 files-cancel = Annulla
 files-close = Chiudi
+files-close-running-title = { $count ->
+    [one] Un’operazione è ancora in corso
+   *[other] { $count } operazioni sono ancora in corso
+}
+files-close-running-body = Chiudendo la finestra si annulla ciò che non è finito.
+files-keep-open = Tieni aperta
+files-stop-and-close = Annulla e chiudi
 files-skip = Salta
 files-keep-both = Mantieni entrambi
 files-replace = Sostituisci
@@ -58,6 +65,10 @@ files-paste-empty = Non ci sono file da incollare
 files-nothing-to-undo = Non c’è nulla da annullare
 files-missing = { $path } non esiste
 files-open-failed = Non è stato possibile aprire { $name }
+files-open-with-failed = { $count ->
+    [one] { $app } non è riuscito ad aprire { $name }
+   *[other] { $app } non è riuscito ad aprire i { $count } elementi
+}
 files-terminal-failed = Non è stato possibile aprire un terminale
 files-properties-failed = Non è stato possibile leggere le proprietà
 files-trashed = { $count ->

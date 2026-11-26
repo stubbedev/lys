@@ -179,6 +179,7 @@ func (w *window) show(do func(*Files), token string) error {
 		if err != nil {
 			return fmt.Errorf("files: window: %w", err)
 		}
+		win.SetCloseRequest(f.CloseRequest)
 		w.host.win, w.files = win, f
 		if w.release != nil {
 			w.release()
@@ -367,14 +368,16 @@ func (h *host) Launch(a desktopentry.App, paths []string) {
 		}
 		terminal := h.svc.Config().Launcher.Terminal
 		ctx := desktopentry.LaunchContext{ActivationToken: token, Terminal: func() (string, error) { return launcher.DetectTerminal(terminal) }}
+		uris := make([]string, len(paths))
+		for i, p := range paths {
+			uris[i] = fileuri.FromPath(p)
+		}
 		h.Spawn(func() {
-			for _, p := range paths {
-				if err := a.Open(fileuri.FromPath(p), ctx); err != nil {
-					log.Printf("files: %v", err)
-					h.Invoke(func() {
-						h.Toast(locale.T().Get("files-open-failed", i18n.Str("name", filepath.Base(p))), nil)
-					})
-				}
+			if err := a.OpenAll(uris, ctx); err != nil {
+				log.Printf("files: %v", err)
+				h.Invoke(func() {
+					h.Toast(locale.T().Get("files-open-with-failed", i18n.Str("app", a.DisplayName()), i18n.Int("count", int64(len(paths))), i18n.Str("name", filepath.Base(paths[0]))), nil)
+				})
 			}
 		})
 	})

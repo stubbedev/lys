@@ -24,6 +24,13 @@ files-empty-trash = Papierkorb leeren
 files-undo = Rückgängig
 files-cancel = Abbrechen
 files-close = Schließen
+files-close-running-title = { $count ->
+    [one] Ein Vorgang läuft noch
+   *[other] { $count } Vorgänge laufen noch
+}
+files-close-running-body = Wenn das Fenster geschlossen wird, wird abgebrochen, was noch nicht fertig ist.
+files-keep-open = Geöffnet lassen
+files-stop-and-close = Abbrechen und schließen
 files-skip = Überspringen
 files-keep-both = Beide behalten
 files-replace = Ersetzen
@@ -58,6 +65,10 @@ files-paste-empty = Es gibt keine Dateien zum Einfügen
 files-nothing-to-undo = Es gibt nichts rückgängig zu machen
 files-missing = { $path } ist nicht vorhanden
 files-open-failed = { $name } konnte nicht geöffnet werden
+files-open-with-failed = { $count ->
+    [one] { $app } konnte { $name } nicht öffnen
+   *[other] { $app } konnte die { $count } Elemente nicht öffnen
+}
 files-terminal-failed = Es konnte kein Terminal geöffnet werden
 files-properties-failed = Die Eigenschaften konnten nicht gelesen werden
 files-trashed = { $count ->

@@ -97,6 +97,9 @@ type Files struct {
 	closed []*filebrowser.Browser
 	jobs   *jobs
 	undos  []*fileops.Undo
+	// asking is set while the dialog asking to close over the
+	// operations running shows.
+	asking bool
 	// work is what runs off the loop for the file manager itself.
 	work sync.WaitGroup
 }
@@ -200,19 +203,65 @@ func (f *Files) selected() {
 }
 
 // detached ends a closed tab's browse; the last tab gone closes the
-// window.
+// window, as CloseRequest does, a tab coming back on its folder when
+// the window stays open.
 func (f *Files) detached(p *widget.TabPage) {
 	t, ok := f.tabs[p]
 	if !ok {
 		return
 	}
 	delete(f.tabs, p)
+	dir := t.b.Dir()
 	t.b.End()
 	t.b.Release()
 	f.closed = append(f.closed, t.b)
-	if f.view.NPages() == 0 {
-		f.cfg.Host.Close()
+	if f.view.NPages() > 0 {
+		return
 	}
+	if f.CloseRequest() {
+		f.cfg.Host.Close()
+		return
+	}
+	f.newTab(dir, nil)
+}
+
+// The responses of the dialog asking to close over the operations
+// running.
+const (
+	answerKeepOpen = "keep-open"
+	answerStop     = "stop"
+)
+
+// CloseRequest answers a request to close the window: true with no
+// operation running; with some it asks whether to cancel them, keeping
+// the window open unless told to, and says false.
+func (f *Files) CloseRequest() bool {
+	running := len(f.jobs.running)
+	if running == 0 {
+		return true
+	}
+	if f.asking {
+		return false
+	}
+	f.asking = true
+	tr := locale.T()
+	f.cfg.Host.Ask(Question{
+		Title: tr.Get("files-close-running-title", i18n.Int("count", int64(running))),
+		Body:  tr.Get("files-close-running-body"),
+		Buttons: []app.DialogButton{
+			{Label: tr.Get("files-keep-open"), Response: answerKeepOpen, Role: app.ButtonRoleCancel},
+			{Label: tr.Get("files-stop-and-close"), Response: answerStop, Role: app.ButtonRoleDefault, Appearance: app.AppearanceDestructive},
+		},
+		Default: answerKeepOpen, Cancel: answerKeepOpen,
+		Answer: func(response string) {
+			f.asking = false
+			if response == answerStop {
+				f.jobs.cancelAll()
+				f.cfg.Host.Close()
+			}
+		},
+	})
+	return false
 }
 
 // key binds the window's keys: Ctrl+T, Ctrl+W and Ctrl+(Shift+)Tab or

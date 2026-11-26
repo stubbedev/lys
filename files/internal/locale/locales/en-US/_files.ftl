@@ -24,6 +24,13 @@ files-empty-trash = Empty Trash
 files-undo = Undo
 files-cancel = Cancel
 files-close = Close
+files-close-running-title = { $count ->
+    [one] An operation is still running
+   *[other] { $count } operations are still running
+}
+files-close-running-body = Closing the window cancels what has not finished.
+files-keep-open = Keep Open
+files-stop-and-close = Cancel and Close
 files-skip = Skip
 files-keep-both = Keep Both
 files-replace = Replace
@@ -58,6 +65,10 @@ files-paste-empty = There are no files to paste
 files-nothing-to-undo = There is nothing to undo
 files-missing = { $path } is not there
 files-open-failed = { $name } could not be opened
+files-open-with-failed = { $count ->
+    [one] { $app } could not open { $name }
+   *[other] { $app } could not open the { $count } items
+}
 files-terminal-failed = No terminal could be opened
 files-properties-failed = The properties could not be read
 files-trashed = { $count ->

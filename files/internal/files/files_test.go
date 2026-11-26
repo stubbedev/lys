@@ -12,6 +12,7 @@ import (
 	"github.com/stubbedev/lys/desktop/desktopentry"
 	"github.com/stubbedev/lys/desktop/fileops"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/xkb"
 	"github.com/stubbedev/lys/shell/shell/filebrowser"
 	"github.com/stubbedev/lys/ui/app"
@@ -41,7 +42,8 @@ func TestOpenOpensFilesAndFolders(t *testing.T) {
 }
 
 // Open With lists the apps for the selection's type and opens the
-// files in the one picked; files of different types share none.
+// files in the one picked, all of them in one launch; files of
+// different types share none.
 func TestOpenWithOpensTheFilesInTheAppPicked(t *testing.T) {
 	hs := newHarness(t)
 	entry := filepath.Join(t.TempDir(), "viewer.desktop")
@@ -58,6 +60,13 @@ func TestOpenWithOpensTheFilesInTheAppPicked(t *testing.T) {
 	hs.menu(t, msg("files-open-with"), app.DisplayName())
 	if !slices.EqualFunc(hs.launched, [][]string{{hs.path("a.png")}}, slices.Equal) {
 		t.Errorf("Open With launched %v", hs.launched)
+	}
+	hs.write(t, "c.png", "")
+	hs.open(hs.root)
+	hs.pick(t, "a.png", "c.png")
+	hs.menu(t, msg("files-open-with"), app.DisplayName())
+	if !slices.EqualFunc(hs.launched[1:], [][]string{{hs.path("a.png"), hs.path("c.png")}}, slices.Equal) {
+		t.Errorf("Open With on two files launched %v, want them in one launch", hs.launched)
 	}
 	hs.pick(t, "a.png", "b.txt")
 	var items []widget.MenuItem
@@ -151,52 +160,76 @@ func TestPasteCopiesOrMovesWhatTheClipboardHolds(t *testing.T) {
 	}
 }
 
-// A drop moves with Shift and copies with Ctrl; with neither it moves
-// within a filesystem and copies across; a drag offering copy alone
-// copies whatever is held.
+// Ctrl+Z after a paste that copied removes the copies it made, and
+// nothing that was in the folder before; a paste that replaced a file
+// leaves nothing to undo.
+func TestCtrlZUndoesACopy(t *testing.T) {
+	hs := newHarness(t)
+	hs.write(t, "docs/kept.txt", "kept")
+	hs.write(t, "docs/b.txt", "old")
+	hs.open(hs.path("docs"))
+	hs.clip.content = filebrowser.FilesContent([]string{hs.path("b.txt"), hs.path("pics")}, false)
+	hs.backgroundMenu(t, msg("files-paste"))
+	hs.answer(t, answerKeepBoth)
+	if !hs.exists("docs/b (2).txt") || !hs.exists("docs/pics/a.png") {
+		t.Fatal("the paste did not copy")
+	}
+	hs.key('z', app.ModCtrl, nil)
+	if hs.exists("docs/b (2).txt") || hs.exists("docs/pics") || hs.read(t, "docs/b.txt") != "old" || hs.read(t, "docs/kept.txt") != "kept" || !hs.exists("b.txt") || !hs.exists("pics/a.png") {
+		t.Error("Ctrl+Z did not remove exactly the copies")
+	}
+	hs.clip.content = filebrowser.FilesContent([]string{hs.path("b.txt")}, false)
+	hs.backgroundMenu(t, msg("files-paste"))
+	hs.answer(t, answerReplace)
+	hs.key('z', app.ModCtrl, nil)
+	if hs.toasts[len(hs.toasts)-1] != msg("files-nothing-to-undo") || hs.read(t, "docs/b.txt") == "old" {
+		t.Errorf("a paste that replaced a file was undone: toasts %v", hs.toasts)
+	}
+}
+
+// A drop of the file manager's own rows moves with Shift and copies
+// with Ctrl; with neither it moves within a filesystem and copies
+// across.
 func TestDropAction(t *testing.T) {
-	both := transfer.ActionCopy | transfer.ActionMove
 	for _, tc := range []struct {
-		mods    app.Mods
-		offered transfer.Action
-		same    bool
-		want    transfer.Action
+		mods app.Mods
+		same bool
+		want transfer.Action
 	}{
-		{app.ModShift, both, false, transfer.ActionMove},
-		{app.ModCtrl, both, true, transfer.ActionCopy},
-		{app.ModCtrl | app.ModShift, both, true, transfer.ActionCopy},
-		{0, both, true, transfer.ActionMove},
-		{0, both, false, transfer.ActionCopy},
-		{app.ModShift, transfer.ActionCopy, true, transfer.ActionCopy},
-		{0, transfer.ActionMove, false, transfer.ActionMove},
+		{app.ModShift, false, transfer.ActionMove},
+		{app.ModCtrl, true, transfer.ActionCopy},
+		{app.ModCtrl | app.ModShift, true, transfer.ActionCopy},
+		{0, true, transfer.ActionMove},
+		{0, false, transfer.ActionCopy},
 	} {
-		if got := dropAction(tc.mods, tc.offered, tc.same); got != tc.want {
-			t.Errorf("dropAction(%v, %v, same %v) = %v, want %v", tc.mods, tc.offered, tc.same, got, tc.want)
+		if got := dropAction(tc.mods, tc.same); got != tc.want {
+			t.Errorf("dropAction(%v, same %v) = %v, want %v", tc.mods, tc.same, got, tc.want)
 		}
 	}
 }
 
-// Files dropped on a tab land in its folder as the modifiers say: on
-// one filesystem a plain drop moves, Ctrl copies, Shift moves; nothing
-// lands in the trash.
-func TestDropsCopyOrMoveIntoTheFolderShown(t *testing.T) {
+// The file manager's own rows dropped on a tab land in the folder they
+// drop into as the modifiers say: on one filesystem a plain drop
+// moves, Ctrl copies, Shift moves; nothing lands in the trash.
+func TestOwnDropsCopyOrMoveAsTheModifiersSay(t *testing.T) {
 	hs := newHarness(t)
 	hs.open(hs.path("docs"))
-	both := transfer.ActionCopy | transfer.ActionMove
-	drop := func(mods app.Mods, rel string) {
+	drop := func(mods app.Mods, rel, into string) {
 		t.Helper()
 		hs.mods = mods
-		hs.do(func() { hs.f.drop(hs.f.active(), []string{hs.path(rel)}, both) })
+		hs.do(func() {
+			hs.f.drop([]string{hs.path(rel)}, into, widget.Dropped{Action: transfer.ActionCopy, Own: true})
+		})
 	}
-	drop(0, "b.txt")
+	drop(0, "b.txt", hs.path("docs"))
 	if !hs.exists("docs/b.txt") || hs.exists("b.txt") {
 		t.Error("a plain drop on one filesystem did not move")
 	}
-	drop(app.ModCtrl, "a.png")
+	drop(app.ModCtrl, "a.png", hs.path("docs"))
 	if !hs.exists("docs/a.png") || !hs.exists("a.png") {
 		t.Error("a Ctrl drop did not copy")
 	}
-	drop(app.ModShift, "pics/a.png")
+	drop(app.ModShift, "pics/a.png", hs.path("docs"))
 	hs.answer(t, answerKeepBoth)
 	if !hs.exists("docs/a (2).png") || hs.exists("pics/a.png") {
 		t.Error("a Shift drop did not move")
@@ -204,10 +237,35 @@ func TestDropsCopyOrMoveIntoTheFolderShown(t *testing.T) {
 	if !sameFilesystem(hs.root, []string{hs.path("a.png")}) || sameFilesystem(hs.root, []string{hs.path("gone")}) {
 		t.Error("sameFilesystem misreads the fixture")
 	}
-	hs.do(func() { hs.f.active().b.GoTo(filebrowser.TrashLocation) })
-	drop(0, "a.png")
+	drop(0, "a.png", filebrowser.TrashLocation)
 	if !hs.exists("a.png") {
 		t.Error("a drop on the trash listing moved the file")
+	}
+}
+
+// A drag from another app goes as its drop finished, whatever is held
+// here, into the folder it drops into: a folder row's, not only the
+// folder shown.
+func TestOtherAppsDropsGoAsTheirDropFinished(t *testing.T) {
+	hs := newHarness(t)
+	hs.open(hs.root)
+	hs.mods = app.ModCtrl
+	hs.do(func() {
+		hs.f.drop([]string{hs.path("b.txt")}, hs.path("docs"), widget.Dropped{Action: transfer.ActionMove})
+	})
+	if !hs.exists("docs/b.txt") || hs.exists("b.txt") {
+		t.Error("a drop that finished as a move did not move, Ctrl held here")
+	}
+	hs.mods = app.ModShift
+	hs.do(func() {
+		hs.f.drop([]string{hs.path("a.png")}, hs.path("pics"), widget.Dropped{Action: transfer.ActionCopy})
+	})
+	hs.answer(t, answerKeepBoth)
+	if !hs.exists("pics/a (2).png") || !hs.exists("a.png") {
+		t.Error("a drop that finished as a copy did not copy, Shift held here")
+	}
+	if got := hs.tabs(); !slices.Equal(got, []string{hs.root}) {
+		t.Errorf("a drop into a folder row moved the tab to %v", got)
 	}
 }
 
@@ -293,6 +351,65 @@ func TestCancelStopsAnOperation(t *testing.T) {
 	}
 	if slices.Contains(hs.toasts, msg("files-copy-failed")) {
 		t.Error("a cancel was reported as a failure")
+	}
+}
+
+// Closing the window with an operation running asks first: Keep Open
+// keeps the window and the operation, Cancel and Close cancels it and
+// closes; with none running it closes at once. Closing the last tab
+// asks the same, and a window kept open gets the tab back.
+func TestClosingWithAnOperationRunningAsks(t *testing.T) {
+	hs := newHarness(t)
+	hs.write(t, "from/x.txt", "new")
+	hs.write(t, "x.txt", "old")
+	hs.open(hs.root)
+	var closes bool
+	hs.run(func() { closes = hs.f.CloseRequest() })
+	if !closes || len(hs.questions) != 0 {
+		t.Fatalf("with nothing running the close request = %v and asked %d questions", closes, len(hs.questions))
+	}
+	hs.clip.content = filebrowser.FilesContent([]string{hs.path("from/x.txt")}, false)
+	hs.backgroundMenu(t, msg("files-paste"))
+	conflict := hs.asking()
+	if conflict == nil {
+		t.Fatal("the paste asked nothing")
+	}
+	request := func() bool {
+		t.Helper()
+		var closes bool
+		hs.do(func() { closes = hs.f.CloseRequest() })
+		return closes
+	}
+	title := locale.T().Get("files-close-running-title", i18n.Int("count", 1))
+	if request() || hs.asking() == conflict || hs.asking().Title != title {
+		t.Fatalf("a close request over a running paste closed or asked %v", hs.asking())
+	}
+	if asked := len(hs.questions); request() || len(hs.questions) != asked {
+		t.Error("a second close request while asking asked again or closed")
+	}
+	hs.answer(t, answerKeepOpen)
+	var running int
+	hs.run(func() { running = len(hs.f.jobs.running) })
+	if hs.closed || running != 1 || !conflict.open {
+		t.Errorf("Keep Open closed %v, left %d operations running and the conflict showing %v", hs.closed, running, conflict.open)
+	}
+	hs.key('w', app.ModCtrl, nil)
+	if hs.closed || hs.asking().Title != title {
+		t.Fatalf("closing the last tab over a running paste closed %v", hs.closed)
+	}
+	hs.answer(t, answerKeepOpen)
+	if got := hs.tabs(); !slices.Equal(got, []string{hs.root}) || hs.closed {
+		t.Errorf("a window kept open has tabs %v, closed %v", got, hs.closed)
+	}
+	request()
+	hs.answer(t, answerStop)
+	waittest.Until(t, func() bool {
+		hs.flush()
+		hs.run(func() { running = len(hs.f.jobs.running) })
+		return running == 0
+	}, "the cancelled paste to end")
+	if !hs.closed || conflict.open || hs.read(t, "x.txt") != "old" {
+		t.Errorf("Cancel and Close closed %v, left the conflict showing %v, x.txt %q", hs.closed, conflict.open, hs.read(t, "x.txt"))
 	}
 }
 

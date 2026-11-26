@@ -267,8 +267,8 @@ func (f *Files) pushUndo(u *fileops.Undo) {
 	}
 }
 
-// undo reverses the last move, rename or trash (Ctrl+Z); with none it
-// says so.
+// undo reverses the last copy, move, rename or trash (Ctrl+Z); with
+// none it says so.
 func (f *Files) undo() {
 	if len(f.undos) == 0 {
 		f.cfg.Host.Toast(locale.T().Get("files-nothing-to-undo"), nil)

@@ -5,7 +5,6 @@ import (
 	"os"
 
 	"github.com/stubbedev/lys/shell/shell/filebrowser"
-	"github.com/stubbedev/lys/ui/transfer"
 	"github.com/stubbedev/lys/ui/widget"
 )
 
@@ -39,8 +38,8 @@ func (f *Files) newTab(dir string, selected []string) {
 		Above:       []widget.Widget{t.prompt.row},
 		OnFile:      func(e filebrowser.Entry) { f.cfg.Host.OpenFile(e.Path) },
 		ContextMenu: func(sel []filebrowser.Entry) []widget.MenuItem { return f.menu(t, sel) },
-		OnDrop:      func(paths []string, offered transfer.Action) { f.drop(t, paths, offered) },
-		DragActions: transfer.ActionCopy | transfer.ActionMove,
+		OnDrop:      f.drop,
+		DragActions: dragActions,
 		OnDir:       func(string) { f.dirShown(t) },
 	})
 	content := widget.NewBox(widget.Column, 0, 0)

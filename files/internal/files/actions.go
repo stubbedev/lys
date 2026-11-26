@@ -242,35 +242,45 @@ func (f *Files) transfer(paths []string, dir string, move bool) {
 		f.jobs.start(moving, fileops.Move{Sources: paths, Dest: dir}, f.pushUndo)
 		return
 	}
-	f.jobs.start(copying, fileops.Copy{Sources: paths, Dest: dir}, nil)
+	f.jobs.start(copying, fileops.Copy{Sources: paths, Dest: dir}, f.pushUndo)
 }
 
-// drop copies or moves files dropped on t into the folder it shows, as
-// dropAction decides.
-func (f *Files) drop(t *tab, paths []string, offered transfer.Action) {
-	if t.virtual() {
+// dragActions are what rows dragged out of a tab offer: to be copied
+// or moved.
+const dragActions = transfer.ActionCopy | transfer.ActionMove
+
+// drop copies or moves files dropped into the folder into. A drag from
+// another app goes as the drop finished: its modifiers reach that app,
+// and through it the compositor's negotiation. A drag of the file
+// manager's own rows, whose modifiers it holds itself, goes as
+// dropAction picks from them.
+func (f *Files) drop(paths []string, into string, how widget.Dropped) {
+	if filebrowser.VirtualLocation(into) {
 		return
 	}
-	dir, mods := t.b.Dir(), f.cfg.Host.HeldMods()
-	offLoop(f, func() bool { return sameFilesystem(dir, paths) }, func(same bool) {
-		f.transfer(paths, dir, dropAction(mods, offered, same) == transfer.ActionMove)
+	if !how.Own {
+		f.transfer(paths, into, how.Action == transfer.ActionMove)
+		return
+	}
+	mods := f.cfg.Host.HeldMods()
+	offLoop(f, func() bool { return sameFilesystem(into, paths) }, func(same bool) {
+		f.transfer(paths, into, dropAction(mods, same) == transfer.ActionMove)
 	})
 }
 
-// dropAction is what a drop does: Shift moves and Ctrl copies, as GTK
-// file managers do, and with neither the files move within one
-// filesystem and copy across; a drag that offers only one of them
-// takes that one.
-func dropAction(mods app.Mods, offered transfer.Action, same bool) transfer.Action {
-	want := transfer.ActionCopy
+// dropAction is what a drop of the file manager's own rows does: Shift
+// moves and Ctrl copies, as GTK file managers do, and with neither the
+// files move within one filesystem and copy across.
+func dropAction(mods app.Mods, same bool) transfer.Action {
 	switch {
 	case mods&app.ModShift != 0 && mods&app.ModCtrl == 0:
-		want = transfer.ActionMove
+		return transfer.ActionMove
 	case mods&app.ModCtrl != 0:
+		return transfer.ActionCopy
 	case same:
-		want = transfer.ActionMove
+		return transfer.ActionMove
 	}
-	return transfer.Prefer(offered, want)
+	return transfer.ActionCopy
 }
 
 // rename edits the name of the one file selected in t in its row.
