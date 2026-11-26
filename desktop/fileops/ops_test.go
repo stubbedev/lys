@@ -158,8 +158,8 @@ func TestCopy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if undo != nil {
-		t.Errorf("a copy offers an undo: %+v", undo)
+	if undo == nil {
+		t.Fatal("a copy offers no undo")
 	}
 	checkTree(t, dst)
 	checkTree(t, src)
@@ -171,6 +171,95 @@ func TestCopy(t *testing.T) {
 	}
 	if len(w.asked) != 0 {
 		t.Errorf("a copy without conflicts asked %+v", w.asked)
+	}
+}
+
+// A copy's undo removes the copies it put at free names, Keep Both's
+// and a copy into its own folder's among them, and leaves what was
+// there before it.
+func TestCopyUndoRemovesWhatTheCopyMade(t *testing.T) {
+	src, dst := tree(t), t.TempDir()
+	writeFile(t, filepath.Join(dst, "doc.txt"), "old", 0o600)
+	writeFile(t, filepath.Join(dst, "pre.txt"), "pre", 0o600)
+	w := &watcher{answers: []Resolution{{Action: KeepBoth}}}
+	undo, err := run(Copy{Sources: []string{filepath.Join(src, "doc.txt"), filepath.Join(src, "dir")}, Dest: dst}, w)
+	if err != nil || undo == nil {
+		t.Fatalf("the copy = %v, %v", undo, err)
+	}
+	if got := names(t, dst); !slices.Equal(got, []string{"dir", "doc (2).txt", "doc.txt", "pre.txt"}) {
+		t.Fatalf("the copy left %q", got)
+	}
+	uw := &watcher{}
+	if _, err := run(undo, uw); err != nil {
+		t.Fatal(err)
+	}
+	if got := names(t, dst); !slices.Equal(got, []string{"doc.txt", "pre.txt"}) || content(t, filepath.Join(dst, "doc.txt")) != "old" {
+		t.Errorf("undoing the copy left %q, doc.txt %q", got, content(t, filepath.Join(dst, "doc.txt")))
+	}
+	if uw.last.Files != 4 || uw.last.TotalFiles != 4 {
+		t.Errorf("the undo ended at %+v, want 4 of 4", uw.last)
+	}
+	checkTree(t, src)
+
+	self, err := run(Copy{Sources: []string{filepath.Join(src, "doc.txt")}, Dest: src}, &watcher{})
+	if err != nil || self == nil {
+		t.Fatalf("a copy into its own folder = %v, %v", self, err)
+	}
+	if _, err := run(self, &watcher{}); err != nil {
+		t.Fatal(err)
+	}
+	if got := names(t, src); !slices.Equal(got, []string{"dir", "doc.txt"}) {
+		t.Errorf("undoing a copy into its own folder left %q", got)
+	}
+}
+
+// A copy that replaced what was there is not undone: what it replaced
+// is gone, and the copy stays in its place.
+func TestCopyUndoLeavesWhatReplaced(t *testing.T) {
+	src, dst := tree(t), t.TempDir()
+	writeFile(t, filepath.Join(dst, "doc.txt"), "old", 0o600)
+	undo, err := run(Copy{Sources: []string{filepath.Join(src, "doc.txt")}, Dest: dst}, &watcher{answers: []Resolution{{Action: Replace}}})
+	if err != nil || undo != nil {
+		t.Errorf("a copy that only replaced = %+v, %v, want no undo", undo, err)
+	}
+	writeFile(t, filepath.Join(dst, "dir", "x"), "old", 0o600)
+	undo, err = run(Copy{Sources: []string{filepath.Join(src, "doc.txt"), filepath.Join(src, "dir")}, Dest: dst}, &watcher{answers: []Resolution{{Action: Replace}, {Action: Skip}}})
+	if err != nil || undo != nil {
+		t.Errorf("a copy that replaced one and skipped one = %+v, %v, want no undo", undo, err)
+	}
+	if _, err := os.Lstat(filepath.Join(dst, "dir", "x")); err != nil {
+		t.Errorf("a skipped folder lost what it held: %v", err)
+	}
+}
+
+// A copy's undo touches nothing the copy did not make: a copy removed
+// since is nothing to undo, a name holding something else stays, and
+// so does a copied folder holding files put there since, each an
+// error naming it, while the rest is removed.
+func TestCopyUndoRemovesNothingElse(t *testing.T) {
+	src, dst := tree(t), t.TempDir()
+	writeFile(t, filepath.Join(src, "gone.txt"), "gone", 0o600)
+	undo, err := run(Copy{Sources: []string{filepath.Join(src, "doc.txt"), filepath.Join(src, "dir"), filepath.Join(src, "gone.txt")}, Dest: dst}, &watcher{})
+	if err != nil || undo == nil {
+		t.Fatalf("the copy = %v, %v", undo, err)
+	}
+	if err := os.Remove(filepath.Join(dst, "gone.txt")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(filepath.Join(dst, "doc.txt")); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(dst, "doc.txt"), "mine", 0o600)
+	writeFile(t, filepath.Join(dst, "dir", "added"), "mine", 0o600)
+	_, err = run(undo, &watcher{})
+	if err == nil || !strings.Contains(err.Error(), filepath.Join(dst, "doc.txt")) || !strings.Contains(err.Error(), filepath.Join(dst, "dir")) || strings.Contains(err.Error(), "gone.txt") {
+		t.Errorf("the undo = %v, want errors naming doc.txt and dir alone", err)
+	}
+	if got := content(t, filepath.Join(dst, "doc.txt")); got != "mine" {
+		t.Errorf("the undo touched the file put in the copy's place: %q", got)
+	}
+	if got := names(t, filepath.Join(dst, "dir")); !slices.Equal(got, []string{"added"}) {
+		t.Errorf("the copied folder holds %q after the undo, want only what was added", got)
 	}
 }
 
@@ -442,7 +531,7 @@ func TestMoveAcrossFilesystems(t *testing.T) {
 	if w.last.Bytes != 5 || w.last.Files != 3 {
 		t.Errorf("the move ended at %+v, want its 3 files and 5 bytes copied", w.last)
 	}
-	if !slices.Equal(moved, []move{{from: filepath.Join(src, "dir"), to: filepath.Join(dst, "dir")}}) {
+	if len(moved) != 1 || moved[0].src != filepath.Join(src, "dir") || moved[0].dst != filepath.Join(dst, "dir") || moved[0].replaced {
 		t.Errorf("the move records %+v", moved)
 	}
 }

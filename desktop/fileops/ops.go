@@ -3,6 +3,7 @@ package fileops
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
@@ -35,11 +36,31 @@ type Delete struct {
 
 type move struct{ from, to string }
 
-// Undo reverses the last move, rename or trash: run as an [Op], it
-// moves each thing back or restores it from the trash.
+// copied is a copy put at a name that was free: the tree built there,
+// and what its top was when it was put there.
+type copied struct {
+	path string
+	id   inode
+	tree node
+}
+
+// Undo reverses the last move, rename, trash or copy: run as an [Op],
+// it moves each thing back, restores it from the trash, or removes
+// what the copy made.
+//
+// A copy's undo removes exactly what the copy created: every copy it
+// put at a free name (a plain copy, Keep Both, or a copy into its own
+// folder), file by file and folder by folder as the copy built it, and
+// a copy's folder only once it is empty. A copy that replaced what was
+// there is not undone, since what it replaced is gone; nothing that
+// was there before the copy is touched. A copy already removed is
+// nothing to undo; a name that now holds something else than the copy
+// made, or a copied folder that holds files put there since, is left
+// as it is and is an error.
 type Undo struct {
 	moves   []move
 	trashed []Item
+	copies  []copied
 }
 
 func undoMoves(moves []move) *Undo {
@@ -49,13 +70,26 @@ func undoMoves(moves []move) *Undo {
 	return &Undo{moves: moves}
 }
 
+func undoCopies(done []placed) *Undo {
+	var copies []copied
+	for _, p := range done {
+		if !p.replaced {
+			copies = append(copies, copied{path: p.dst, id: p.id, tree: p.node})
+		}
+	}
+	if len(copies) == 0 {
+		return nil
+	}
+	return &Undo{copies: copies}
+}
+
 func (c Copy) run(r *runner) (*Undo, error) {
 	reqs := make([]request, 0, len(c.Sources))
 	for _, src := range c.Sources {
 		reqs = append(reqs, request{src: src, target: filepath.Join(c.Dest, filepath.Base(src))})
 	}
-	_, err := r.transferAll(copying, reqs, c.FollowLinks)
-	return nil, err
+	done, err := r.transferAll(copying, reqs, c.FollowLinks)
+	return undoCopies(done), err
 }
 
 func (m Move) run(r *runner) (*Undo, error) {
@@ -63,18 +97,25 @@ func (m Move) run(r *runner) (*Undo, error) {
 	for _, src := range m.Sources {
 		reqs = append(reqs, request{src: src, target: filepath.Join(m.Dest, filepath.Base(src))})
 	}
-	moved, err := r.transferAll(moving, reqs, false)
-	return undoMoves(moved), err
+	done, err := r.transferAll(moving, reqs, false)
+	moves := make([]move, 0, len(done))
+	for _, p := range done {
+		moves = append(moves, move{from: p.src, to: p.dst})
+	}
+	return undoMoves(moves), err
 }
 
 func (u *Undo) run(r *runner) (*Undo, error) {
-	if len(u.moves) > 0 {
+	switch {
+	case len(u.moves) > 0:
 		reqs := make([]request, 0, len(u.moves))
 		for _, m := range slices.Backward(u.moves) {
 			reqs = append(reqs, request{src: m.to, target: m.from})
 		}
 		_, err := r.transferAll(moving, reqs, false)
 		return nil, err
+	case len(u.copies) > 0:
+		return nil, r.removeCopies(u.copies)
 	}
 	r.begin(int64(len(u.trashed)), 0)
 	for _, it := range slices.Backward(u.trashed) {
@@ -89,9 +130,77 @@ func (u *Undo) run(r *runner) (*Undo, error) {
 	return nil, nil
 }
 
+// removeCopies removes what each copy made, going on past one that
+// cannot be removed and reporting every one that was not.
+func (r *runner) removeCopies(copies []copied) error {
+	var files int64
+	for _, c := range copies {
+		f, _ := c.tree.count()
+		files += f
+	}
+	r.begin(files, 0)
+	var errs []error
+	for _, c := range slices.Backward(copies) {
+		if err := r.ctx.Err(); err != nil {
+			return errors.Join(append(errs, fmt.Errorf("undo the copy %s: %w", c.path, err))...)
+		}
+		id, err := identify(c.path)
+		switch {
+		case errors.Is(err, fs.ErrNotExist):
+			f, _ := c.tree.count()
+			r.advance(c.path, f, 0)
+			continue
+		case err != nil:
+			errs = append(errs, fmt.Errorf("undo the copy %s: %w", c.path, err))
+			continue
+		case id != c.id:
+			errs = append(errs, fmt.Errorf("undo the copy %s: it holds something else than the copy now", c.path))
+			continue
+		}
+		if err := r.removeBuilt(c.path, c.tree); err != nil {
+			errs = append(errs, fmt.Errorf("undo the copy %s: %w", c.path, err))
+		}
+	}
+	return errors.Join(errs...)
+}
+
+// removeBuilt removes the tree a copy built at path: what is gone
+// since is nothing to remove, and a folder that holds more than the
+// copy put in it stays, as an error.
+func (r *runner) removeBuilt(path string, n node) error {
+	if err := r.ctx.Err(); err != nil {
+		return err
+	}
+	var err error
+	if n.isDir() {
+		for _, c := range n.children {
+			if err := r.removeBuilt(filepath.Join(path, c.name), c); err != nil {
+				return err
+			}
+		}
+		err = unix.Rmdir(path)
+	} else {
+		err = unix.Unlink(path)
+	}
+	if err != nil && !errors.Is(err, unix.ENOENT) {
+		return &os.PathError{Op: "remove", Path: path, Err: err}
+	}
+	r.advance(path, 1, 0)
+	return nil
+}
+
+// identify is what is at path, its link if it is one.
+func identify(path string) (inode, error) {
+	var st unix.Stat_t
+	if err := unix.Lstat(path, &st); err != nil {
+		return inode{}, &os.PathError{Op: "stat", Path: path, Err: err}
+	}
+	return inode{dev: st.Dev, ino: st.Ino}, nil
+}
+
 // transferAll scans each request's source and its target's folder,
 // plans the transfer and carries it out.
-func (r *runner) transferAll(op transfer, reqs []request, follow bool) ([]move, error) {
+func (r *runner) transferAll(op transfer, reqs []request, follow bool) ([]placed, error) {
 	dirs := make(map[string]listing)
 	for i := range reqs {
 		n, err := scan(reqs[i].src, follow)

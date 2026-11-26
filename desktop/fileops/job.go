@@ -132,27 +132,39 @@ func (r *runner) decide(c Conflict) (Action, error) {
 	return res.Action, nil
 }
 
-// execute carries out a transfer plan item by item, returning the
-// moves it finished, even when it stops at an error.
-func (r *runner) execute(p plan) ([]move, error) {
-	r.begin(p.files, p.bytes)
-	var moved []move
-	for _, it := range p.items {
-		if err := r.ctx.Err(); err != nil {
-			return moved, fmt.Errorf("%s %s: %w", p.op.verb(), it.src, err)
-		}
-		placed, err := r.transfer(p, it)
-		if err != nil {
-			return moved, fmt.Errorf("%s %s to %s: %w", p.op.verb(), it.src, it.dst, err)
-		}
-		if placed != "" && p.op == moving {
-			moved = append(moved, move{from: it.src, to: placed})
-		}
-	}
-	return moved, nil
+// placed is one item a transfer put in place: from where, to where,
+// and whether it took the place of what was there.
+type placed struct {
+	src, dst string
+	node     node
+	replaced bool
+	// id is what a copy put at dst, as it was put there.
+	id inode
 }
 
-func (r *runner) transfer(p plan, it item) (string, error) {
+// execute carries out a transfer plan item by item, returning what it
+// put in place, even when it stops at an error.
+func (r *runner) execute(p plan) ([]placed, error) {
+	r.begin(p.files, p.bytes)
+	var done []placed
+	for _, it := range p.items {
+		if err := r.ctx.Err(); err != nil {
+			return done, fmt.Errorf("%s %s: %w", p.op.verb(), it.src, err)
+		}
+		pl, ok, err := r.transfer(p, it)
+		if ok {
+			done = append(done, pl)
+		}
+		if err != nil {
+			return done, fmt.Errorf("%s %s to %s: %w", p.op.verb(), it.src, it.dst, err)
+		}
+	}
+	return done, nil
+}
+
+// transfer carries out one item: false when it was skipped or failed
+// before anything was put in place.
+func (r *runner) transfer(p plan, it item) (placed, bool, error) {
 	files, bytes := it.node.count()
 	if it.rename {
 		bytes = 0
@@ -160,36 +172,44 @@ func (r *runner) transfer(p plan, it item) (string, error) {
 	if it.conflict {
 		a, err := r.decide(Conflict{Source: it.src, Target: it.dst, SourceIsDir: it.node.isDir(), TargetIsDir: it.targetIsDir})
 		if err != nil {
-			return "", err
+			return placed{}, false, err
 		}
 		taken := p.taken[filepath.Dir(it.dst)]
 		resolved, ok, err := resolve(it, a, taken)
 		if err != nil {
-			return "", err
+			return placed{}, false, err
 		}
 		if !ok {
 			r.advance(it.src, files, bytes)
-			return "", nil
+			return placed{}, false, nil
 		}
 		it = resolved
 		taken[filepath.Base(it.dst)] = it.node.isDir()
 	}
+	done := placed{src: it.src, dst: it.dst, node: it.node, replaced: it.replace}
 	if it.rename {
 		if err := place(it.src, it.dst, it.replace, it.node.isDir() || it.targetIsDir); err != nil {
-			return "", err
+			return placed{}, false, err
 		}
 		r.advance(it.dst, files, 0)
-		return it.dst, nil
+		return done, true, nil
 	}
 	if err := r.copyInto(it); err != nil {
-		return "", err
+		return placed{}, false, err
+	}
+	if p.op == copying {
+		id, err := identify(it.dst)
+		if err != nil {
+			return placed{}, false, err
+		}
+		done.id = id
 	}
 	if p.op == moving {
 		if err := os.RemoveAll(it.src); err != nil {
-			return it.dst, fmt.Errorf("remove the source once copied: %w", err)
+			return done, true, fmt.Errorf("remove the source once copied: %w", err)
 		}
 	}
-	return it.dst, nil
+	return done, true, nil
 }
 
 // copyInto builds the item's tree in a private folder beside its
