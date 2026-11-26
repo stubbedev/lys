@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-	"strings"
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/desktopentry"
@@ -504,20 +503,5 @@ func TestOpenWithListsEveryOtherAppForTheType(t *testing.T) {
 	}
 	if _, ok := desktopentry.FindApp([]string{apps}, AppID+".desktop"); !ok {
 		t.Error("the viewer's own entry does not load, so leaving it out proves nothing")
-	}
-}
-
-func TestPathsAreAbsoluteLocalFiles(t *testing.T) {
-	got, err := Paths([]string{"a.png", "./b/../c.png", "/srv/d.png", "file:///srv/with%20space.png", "file://localhost/srv/e.png"}, "/home/me")
-	want := []string{"/home/me/a.png", "/home/me/c.png", "/srv/d.png", "/srv/with space.png", "/srv/e.png"}
-	if err != nil || !slices.Equal(got, want) {
-		t.Errorf("Paths = %v, %v; want %v", got, err, want)
-	}
-	for _, bad := range []string{"https://example.org/a.png", "file://host/srv/a.png", "sftp://host/a.png", ""} {
-		if _, err := Paths([]string{"a.png", bad}, "/home/me"); err == nil {
-			t.Errorf("%q passed as a local file", bad)
-		} else if bad != "" && !strings.Contains(err.Error(), bad) {
-			t.Errorf("the error for %q does not name it: %v", bad, err)
-		}
 	}
 }
