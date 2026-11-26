@@ -72,13 +72,3 @@ func (m *notificationModule) refresh() {
 }
 
 func (m *notificationModule) Root() widget.Widget { return m.btn }
-
-// RunAction handles the dnd toggle exposed through `lys-shell notify
-// dnd`; the shell command path routes here.
-func (m *notificationModule) RunAction(action config.ClickAction) {
-	if action.Command == "toggle-dnd" {
-		m.src.ToggleDND()
-		return
-	}
-	runClickAction(m.ctx, action)
-}
