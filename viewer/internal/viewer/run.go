@@ -110,7 +110,7 @@ func Run(paths []string) error {
 		}
 		ins.Bind(application)
 	}
-	return application.Run()
+	return app.Ended(application.Run())
 }
 
 func shipIcons() {

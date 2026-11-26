@@ -2,7 +2,6 @@ package files
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -154,10 +153,7 @@ func Run(paths []string, service bool) error {
 		}
 		ins.Bind(application)
 	}
-	if err := application.Run(); err != nil && !errors.Is(err, app.ErrClosed) {
-		return err
-	}
-	return nil
+	return app.Ended(application.Run())
 }
 
 // window is the one window a run shows, mapped once asked to.

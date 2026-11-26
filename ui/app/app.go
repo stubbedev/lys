@@ -30,6 +30,16 @@ import (
 // that treat a plain close as success can match it with errors.Is.
 var ErrClosed = errors.New("app: surface closed")
 
+// Ended is Run's outcome for an app process: nil when the application
+// ended as it should (ErrClosed: the last window closed or Quit), else
+// the error that stopped it.
+func Ended(err error) error {
+	if errors.Is(err, ErrClosed) {
+		return nil
+	}
+	return err
+}
+
 // Host is the piece of the shell a widget tree is hosted on: a layer
 // surface or a toplevel window. Both types implement it.
 type Host interface {

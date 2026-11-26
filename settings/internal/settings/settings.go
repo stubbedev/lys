@@ -132,7 +132,7 @@ func Run(page, setting string) error {
 		}
 		ins.Bind(application)
 	}
-	return application.Run()
+	return app.Ended(application.Run())
 }
 
 // openSettingsWindow builds the settings window over application for k,
