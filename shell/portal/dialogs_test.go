@@ -105,7 +105,7 @@ func TestAccessDialogChoicesRoundTrip(t *testing.T) {
 // is shared is what the user left after editing, with the picture as a
 // file:// URI, and none when they removed it.
 func TestAccountSharesTheUser(t *testing.T) {
-	uid := userdb.UID(os.Getuid()) //nolint:gosec // a uid is never negative
+	uid := userdb.UID(os.Getuid())
 	want := userdb.User{Name: "ada", UID: uid, GID: userdb.GID(uid), RealName: "Ada Lovelace", Home: t.TempDir()}
 	t.Setenv("USER", "mallory")
 	r := newRig(t, func(b *Backend) { b.account = userdbAccount(t, want) })

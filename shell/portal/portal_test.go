@@ -80,7 +80,7 @@ func newRig(t *testing.T, edit func(*Backend)) *rig {
 // testUser is the account the test process runs as, by its own uid.
 func testUser(t *testing.T) userdb.User {
 	t.Helper()
-	uid := userdb.UID(os.Getuid()) //nolint:gosec // a uid is never negative
+	uid := userdb.UID(os.Getuid())
 	return userdb.User{Name: "tester", UID: uid, GID: userdb.GID(uid), RealName: "Test User", Home: t.TempDir()}
 }
 
