@@ -12,6 +12,12 @@
   sessionConfig = pkgs.writeText "lys-splash-vm-session.yaml" ''
     autostart:
       - ${pkgs.swaybg}/bin/swaybg -c '#3050a0'
+    animations:
+      enabled: true
+      events:
+        fade_in:
+          curve: linear
+          duration: 1500
   '';
 in {
   imports = [self.nixosModules.lys-login self.nixosModules.lys-wm];
