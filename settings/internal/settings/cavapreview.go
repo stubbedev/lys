@@ -22,7 +22,7 @@ func cavaPreview(k *kit) previewWidget {
 }
 
 func drawCavaOnScreen(k *kit, cfg *config.Config, _ render.Font) widget.Widget {
-	shown := wallpaperScreen(cavaPreviewScreenH)
+	shown := wallpaperScreen(k, cavaPreviewScreenH)
 	spectrum, err := cavaSampleSpectrum(cfg, k.palette())
 	if err != nil {
 		shown.AppendAligned(previewFailed(k, err), widget.AlignCenter, widget.AlignCenter)

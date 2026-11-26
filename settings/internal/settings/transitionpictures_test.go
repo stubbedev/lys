@@ -40,8 +40,8 @@ func TestEveryTransitionEndsSettledAndStartsWhereItsNameSays(t *testing.T) {
 
 func TestATransitionPictureDrawsNothingWhereTheSurfaceIsNotYet(t *testing.T) {
 	const w, h = choiceCardW, choicePicH
-	empty := paintPicture(transitionPicture(func(float64) pose { return pose{} }))
-	none := paintPicture(transitionPictures[string(config.AnimationNone)])
+	empty := paintPicture(t, transitionPicture(func(float64) pose { return pose{} }))
+	none := paintPicture(t, transitionPictures[string(config.AnimationNone)])
 	inked := func(x, y int) bool {
 		i := y*render.Stride(w) + x*4
 		return string(none[i:i+4]) != string(empty[i:i+4])

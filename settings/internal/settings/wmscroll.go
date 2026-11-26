@@ -102,10 +102,9 @@ func columnWidthValues(widths []columnWidth) []any {
 	return out
 }
 
-func drawColumn(cv *render.Canvas, r render.Rect, w columnWidth) {
+func drawColumn(cv *render.Canvas, r render.Rect, w columnWidth, bd screenBackdrop) {
 	th := widget.Current()
-	screenFrame(cv, r, func(s render.Rect) {
-		photo(cv, s)
+	backdropScreen(cv, r, bd, func(cv *render.Canvas, s render.Rect) {
 		gap := max(2, s.H/10)
 		width := max(gap, int(math.Round(float64(s.W-2*gap)*w.onScreen())))
 		col := render.Rect{X: s.X + (s.W-width)/2, Y: s.Y + gap, W: width, H: s.H - 2*gap}
@@ -116,10 +115,9 @@ func drawColumn(cv *render.Canvas, r render.Rect, w columnWidth) {
 }
 
 var layoutPictures = map[string]picture{
-	"tree": drawn(func(cv *render.Canvas, r render.Rect) {
+	"tree": onBackdrop(func(cv *render.Canvas, r render.Rect, bd screenBackdrop) {
 		th := widget.Current()
-		screenFrame(cv, r, func(s render.Rect) {
-			photo(cv, s)
+		backdropScreen(cv, r, bd, func(cv *render.Canvas, s render.Rect) {
 			gap := max(2, s.H/10)
 			w, h := (s.W-3*gap)/2, (s.H-3*gap)/2
 			miniWindow(cv, render.Rect{X: s.X + gap, Y: s.Y + gap, W: w, H: s.H - 2*gap}, th.CardColor(), th.Border)
@@ -127,7 +125,7 @@ var layoutPictures = map[string]picture{
 			miniWindow(cv, render.Rect{X: s.X + 2*gap + w, Y: s.Y + 2*gap + h, W: w, H: h}, th.CardColor(), th.Border)
 		})
 	}),
-	"scroll": drawn(func(cv *render.Canvas, r render.Rect) { drawColumn(cv, r, shareWidth(0.5)) }),
+	"scroll": onBackdrop(func(cv *render.Canvas, r render.Rect, bd screenBackdrop) { drawColumn(cv, r, shareWidth(0.5), bd) }),
 }
 
 type columnPresets struct {
@@ -196,7 +194,8 @@ func (c *columnPresets) card(i int, w columnWidth) widget.Widget {
 	card := widget.NewBox(widget.Column, th.Spacing/2, choiceCardGap)
 	card.AddClass(css.Card, "column-preset")
 	pic := widget.NewDrawingArea(presetCardW, presetPicH)
-	pic.OnDraw = func(cv *render.Canvas, r render.Rect) { drawColumn(cv, r, w) }
+	bd := c.k.backdropFor(pic)
+	pic.OnDraw = func(cv *render.Canvas, r render.Rect) { drawColumn(cv, r, w, bd) }
 	card.SetAccessibleName(w.label())
 	row := gapBox(widget.Row)
 	row.AppendAligned(c.k.label(w.label(), "column-preset-label"), true, widget.AlignCenter)

@@ -15,7 +15,7 @@ func twoDisplays(cv *render.Canvas, r render.Rect, everywhere bool) {
 	for i := range 2 {
 		screen := render.Rect{X: r.X + i*(w+gap), Y: y, W: w, H: h}
 		listed := everywhere || i == 0
-		screenFrame(cv, screen, func(s render.Rect) {
+		screenFrame(cv, screen, func(cv *render.Canvas, s render.Rect) {
 			bar := render.Rect{X: s.X, Y: s.Y, W: s.W, H: max(3, s.H/6)}
 			ink := th.Border
 			if i == 0 {

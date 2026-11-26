@@ -62,10 +62,16 @@ func TestAPictureChoiceWritesTheCardChosen(t *testing.T) {
 	}
 }
 
-func paintPicture(p picture) []byte {
+func testBackdrop(t *testing.T) screenBackdrop {
+	t.Helper()
+	return testKit(t, "").backdropFor(widget.NewDrawingArea(1, 1))
+}
+
+func paintPicture(t *testing.T, p picture) []byte {
+	t.Helper()
 	const w, h = choiceCardW, choicePicH
 	data := make([]byte, render.Stride(w)*h)
-	p.draw(render.New(data, render.Stride(w), w, h), render.Rect{W: w, H: h})
+	p.draw(render.New(data, render.Stride(w), w, h), render.Rect{W: w, H: h}, testBackdrop(t))
 	return data
 }
 
@@ -73,7 +79,7 @@ func TestEachRoundingAndShadowDrawsItsOwnPicture(t *testing.T) {
 	for name, pictures := range map[string]map[string]picture{"rounding": roundingPictures, "shadow": shadowPictures, "button": buttonVariantPictures, "icon position": iconPositionPictures, "transition": transitionPictures} {
 		seen := map[string]string{}
 		for value, p := range pictures {
-			px := string(paintPicture(p))
+			px := string(paintPicture(t, p))
 			if other, ok := seen[px]; ok && !(name == "rounding" && styling.RoundingRadiusPx(config.RoundingLevel(value), 1) == styling.RoundingRadiusPx(config.RoundingLevel(other), 1)) {
 				t.Errorf("%s: %s and %s draw the same picture", name, value, other)
 			}

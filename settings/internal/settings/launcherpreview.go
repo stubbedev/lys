@@ -119,7 +119,7 @@ func drawLauncherOnScreen(k *kit, cfg *config.Config, font render.Font, state *l
 	if sheet, ok := look.Stylesheet(apptheme.Priority); ok {
 		still.AttachStylesheet(sheet)
 	}
-	screen := wallpaperScreen(launcherPreviewScreenH)
+	screen := wallpaperScreen(k, launcherPreviewScreenH)
 	screen.Append(still)
 	if len(presets) > 0 {
 		column.Append(launcherStyleChooser(k, presets, state), false)

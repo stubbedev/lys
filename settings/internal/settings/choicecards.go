@@ -19,11 +19,17 @@ const (
 )
 
 type picture struct {
-	draw func(cv *render.Canvas, r render.Rect)
+	draw func(cv *render.Canvas, r render.Rect, bd screenBackdrop)
 	icon string
 }
 
-func drawn(f func(cv *render.Canvas, r render.Rect)) picture { return picture{draw: f} }
+func drawn(f func(cv *render.Canvas, r render.Rect)) picture {
+	return picture{draw: func(cv *render.Canvas, r render.Rect, _ screenBackdrop) { f(cv, r) }}
+}
+
+func onBackdrop(f func(cv *render.Canvas, r render.Rect, bd screenBackdrop)) picture {
+	return picture{draw: f}
+}
 
 type choiceCards struct {
 	*widget.FlowBox
@@ -182,7 +188,7 @@ func (c *choiceCard) Paint(cv *render.Canvas) {
 	corners := render.UniformCorners(tileRadius)
 	cv.RoundedRect(b, tileRadius, th.CardColor())
 	if c.pic.draw != nil {
-		c.pic.draw(cv, c.picRect())
+		c.pic.draw(cv, c.picRect(), c.k.backdropFor(c))
 	}
 	if c.icon != nil {
 		c.icon.Paint(cv)
@@ -243,12 +249,10 @@ func pictureChoice(pictures map[string]picture) rowOpt {
 }
 
 var (
-	previewLight      = render.RGB(0xf4, 0xf4, 0xf6)
-	previewLightInk   = render.RGB(0xc8, 0xc8, 0xd2)
-	previewDark       = render.RGB(0x22, 0x22, 0x2a)
-	previewDarkInk    = render.RGB(0x4a, 0x4a, 0x56)
-	previewImageTop   = render.RGB(0x6c, 0x8e, 0xd8)
-	previewImageFloor = render.RGB(0x5a, 0xa0, 0x6e)
+	previewLight    = render.RGB(0xf4, 0xf4, 0xf6)
+	previewLightInk = render.RGB(0xc8, 0xc8, 0xd2)
+	previewDark     = render.RGB(0x22, 0x22, 0x2a)
+	previewDarkInk  = render.RGB(0x4a, 0x4a, 0x56)
 )
 
 func miniWindow(cv *render.Canvas, r render.Rect, bg, ink render.Color) {
@@ -281,39 +285,35 @@ var appearancePictures = map[string]picture{
 	}),
 }
 
-func photo(cv *render.Canvas, r render.Rect) {
-	sky := render.Rect{X: r.X, Y: r.Y, W: r.W, H: r.H * 2 / 3}
-	cv.FillRect(sky, previewImageTop)
-	cv.FillRect(render.Rect{X: r.X, Y: sky.Y + sky.H, W: r.W, H: r.H - sky.H}, previewImageFloor)
+// screenFrame is a small screen in r, its muted face under what inner
+// paints, masked to its rounded corners.
+func screenFrame(cv *render.Canvas, r render.Rect, inner func(cv *render.Canvas, screen render.Rect)) {
+	maskedScreen(cv, r, render.UniformCorners(tileRadius/2), func(cv *render.Canvas) {
+		cv.FillRect(r, widget.Current().MutedColor())
+		inner(cv, r)
+	})
 }
 
-func screenFrame(cv *render.Canvas, r render.Rect, inner func(screen render.Rect)) {
-	th := widget.Current()
-	cv.RoundedRect(r, tileRadius/2, th.MutedColor())
-	prev := cv.PushClip(r)
-	inner(r)
-	cv.PopClip(prev)
-	cv.RoundedBorder(r, render.UniformCorners(tileRadius/2), render.UniformInsets(1), th.Border)
+// backdropScreen is screenFrame with the backdrop filling the screen
+// under what inner paints.
+func backdropScreen(cv *render.Canvas, r render.Rect, bd screenBackdrop, inner func(cv *render.Canvas, screen render.Rect)) {
+	screenFrame(cv, r, func(cv *render.Canvas, s render.Rect) {
+		bd.paint(cv, s)
+		inner(cv, s)
+	})
+}
+
+func fitPicture(fit config.FitMode) picture {
+	return onBackdrop(func(cv *render.Canvas, r render.Rect, bd screenBackdrop) {
+		screenFrame(cv, r, func(cv *render.Canvas, s render.Rect) { bd.paintFit(cv, s, fit) })
+	})
 }
 
 var fitPictures = map[string]picture{
-	string(config.FitFill): drawn(func(cv *render.Canvas, r render.Rect) {
-		screenFrame(cv, r, func(s render.Rect) { photo(cv, render.Rect{X: s.X - s.W/6, Y: s.Y, W: s.W + s.W/3, H: s.H}) })
-	}),
-	string(config.FitFit): drawn(func(cv *render.Canvas, r render.Rect) {
-		screenFrame(cv, r, func(s render.Rect) {
-			w := s.H * 4 / 3
-			photo(cv, render.Rect{X: s.X + (s.W-w)/2, Y: s.Y, W: w, H: s.H})
-		})
-	}),
-	string(config.FitCenter): drawn(func(cv *render.Canvas, r render.Rect) {
-		screenFrame(cv, r, func(s render.Rect) {
-			photo(cv, render.Rect{X: s.X + s.W/4, Y: s.Y + s.H/4, W: s.W / 2, H: s.H / 2})
-		})
-	}),
-	string(config.FitStretch): drawn(func(cv *render.Canvas, r render.Rect) {
-		screenFrame(cv, r, func(s render.Rect) { photo(cv, s) })
-	}),
+	string(config.FitFill):    fitPicture(config.FitFill),
+	string(config.FitFit):     fitPicture(config.FitFit),
+	string(config.FitCenter):  fitPicture(config.FitCenter),
+	string(config.FitStretch): fitPicture(config.FitStretch),
 }
 
 var themeProviderPictures = map[string]picture{
@@ -402,19 +402,18 @@ func windowGrid(cv *render.Canvas, r render.Rect) {
 	}
 }
 
-func twoScreens(cv *render.Canvas, r render.Rect) {
+func twoScreens(cv *render.Canvas, r render.Rect, bd screenBackdrop) {
 	gap := max(2, r.W/12)
 	w := (r.W - gap) / 2
 	h := w * 2 / 3
 	y := r.Y + (r.H-h)/2
 	for i := range 2 {
-		screenFrame(cv, render.Rect{X: r.X + i*(w+gap), Y: y, W: w, H: h}, func(s render.Rect) { photo(cv, s) })
+		backdropScreen(cv, render.Rect{X: r.X + i*(w+gap), Y: y, W: w, H: h}, bd, func(*render.Canvas, render.Rect) {})
 	}
 }
 
-func screenRegion(cv *render.Canvas, r render.Rect) {
-	screenFrame(cv, r, func(s render.Rect) {
-		photo(cv, s)
+func screenRegion(cv *render.Canvas, r render.Rect, bd screenBackdrop) {
+	backdropScreen(cv, r, bd, func(cv *render.Canvas, s render.Rect) {
 		region := render.Rect{X: s.X + s.W/4, Y: s.Y + s.H/4, W: s.W / 2, H: s.H / 2}
 		cv.RoundedBorder(region, render.UniformCorners(tileRadius/4), render.UniformInsets(max(1, r.H/40)), widget.Current().Accent)
 	})
@@ -422,8 +421,8 @@ func screenRegion(cv *render.Canvas, r render.Rect) {
 
 var sharePickerPagePictures = map[string]picture{
 	string(config.SharePickerWindows): drawn(windowGrid),
-	string(config.SharePickerOutputs): drawn(twoScreens),
-	string(config.SharePickerRegion):  drawn(screenRegion),
+	string(config.SharePickerOutputs): onBackdrop(twoScreens),
+	string(config.SharePickerRegion):  onBackdrop(screenRegion),
 }
 
 var textAlignPictures = map[string]picture{

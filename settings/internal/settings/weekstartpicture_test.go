@@ -23,7 +23,7 @@ func weekPicture(t *testing.T, c *choiceCards, value string) []byte {
 		}
 		const w, h = 70, 30
 		buf := make([]byte, w*h*4)
-		card.pic.draw(render.New(buf, w*4, w, h), render.Rect{W: w, H: h})
+		card.pic.draw(render.New(buf, w*4, w, h), render.Rect{W: w, H: h}, testBackdrop(t))
 		return buf
 	}
 	t.Fatalf("no %s card", value)

@@ -44,7 +44,7 @@ func cavaPage(*config.Config) pageSpec {
 
 func cavaSample(style config.CavaStyle, dir config.CavaDirection) picture {
 	return drawn(func(cv *render.Canvas, r render.Rect) {
-		screenFrame(cv, r, func(s render.Rect) {
+		screenFrame(cv, r, func(cv *render.Canvas, s render.Rect) {
 			ink := widget.Current().Accent
 			n := len(cavaSampleLevels)
 			pad := s.W / 10

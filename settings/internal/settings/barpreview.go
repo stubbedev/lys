@@ -65,7 +65,7 @@ func drawBarOnScreen(k *kit, cfg *config.Config, font render.Font, monitor strin
 	if cfg.Bar.Location.IsVertical() {
 		screenH = barPreviewVerticalScreenH
 	}
-	shown := wallpaperScreen(screenH)
+	shown := wallpaperScreen(k, screenH)
 	bar, ok := barview.Preview(cfg, font, monitor, sessionCompositor())
 	if !ok {
 		none := previewState(k)
@@ -122,12 +122,13 @@ func (f *fitWidth) Arrange(r render.Rect) {
 	f.Box.Arrange(render.Rect{X: r.X, Y: r.Y, W: w, H: int(math.Round(float64(r.H) / s))})
 }
 
-// wallpaperScreen is a small screen showing a wallpaper, h pixels tall,
-// for a surface to be placed over.
-func wallpaperScreen(h int) *widget.Overlay {
+// wallpaperScreen is a small screen showing the backdrop, h pixels
+// tall, for a surface to be placed over.
+func wallpaperScreen(k *kit, h int) *widget.Overlay {
 	screen := widget.NewDrawingArea(0, h)
+	bd := k.backdropFor(screen)
 	screen.OnDraw = func(cv *render.Canvas, r render.Rect) {
-		previewScreen(cv, r, func(cv *render.Canvas) { photo(cv, r) })
+		previewScreen(cv, r, func(cv *render.Canvas) { bd.paint(cv, r) })
 	}
 	return widget.NewOverlay().Append(screen)
 }
@@ -138,8 +139,9 @@ func wallpaperScreen(h int) *widget.Overlay {
 func offScreen(k *kit, h int, key string) *widget.Overlay {
 	caption := k.label(locale.T().Get(key), "settings-preview-state", css.Caption)
 	screen := widget.NewDrawingArea(0, h)
+	bd := k.backdropFor(screen)
 	screen.OnDraw = func(cv *render.Canvas, r render.Rect) {
-		previewScreen(cv, r, func(cv *render.Canvas) { photo(cv, r) })
+		previewScreen(cv, r, func(cv *render.Canvas) { bd.paint(cv, r) })
 		th := widget.Current()
 		plate := render.Insets{Top: th.Padding / 2, Right: th.Padding, Bottom: th.Padding / 2, Left: th.Padding}.Grow(caption.Bounds())
 		cv.RoundedRect(plate, th.Radius, th.CardColor())
@@ -151,20 +153,7 @@ func offScreen(k *kit, h int, key string) *widget.Overlay {
 // clipped to r with the corners the theme rounds a card with, inside
 // its border, so a preview sits among the cards as one of them.
 func previewScreen(cv *render.Canvas, r render.Rect, paint func(cv *render.Canvas)) {
-	th := widget.Current()
-	radii := render.UniformCorners(th.Radius)
-	region := cv.MapRect(r).Intersect(cv.Rect())
-	if region.Empty() {
-		return
-	}
-	layer := cv.ScratchLayer(region)
-	defer layer.Release()
-	paint(layer.Canvas())
-	shape := &render.Path{}
-	render.RoundedRectPath(shape, r, radii)
-	layer.ApplyPathMask(shape, region)
-	cv.DrawLayer(layer, region, render.BlendNormal)
-	cv.RoundedBorder(r, radii, render.UniformInsets(1), th.Border)
+	maskedScreen(cv, r, render.UniformCorners(widget.Current().Radius), paint)
 }
 
 func edgeAlign(edge widget.BarEdge) (h, v widget.Align) {

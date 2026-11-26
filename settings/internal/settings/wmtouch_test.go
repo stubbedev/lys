@@ -121,8 +121,9 @@ func TestEveryTouchSwipeChoiceHasAPicture(t *testing.T) {
 
 func TestTheTouchPictureDrawsTheGestureItShows(t *testing.T) {
 	const w, h = touchPictureW, touchPictureH
+	k := testKit(t, "")
 	paint := func(item map[string]any) []byte {
-		p := newTouchPicture()
+		p := newTouchPicture(k)
 		p.show(item)
 		data := make([]byte, render.Stride(w)*h)
 		p.OnDraw(render.New(data, render.Stride(w), w, h), render.Rect{W: w, H: h})

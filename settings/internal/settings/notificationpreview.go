@@ -26,7 +26,7 @@ func drawNotificationOnScreen(k *kit, cfg *config.Config, font render.Font) widg
 	if !cfg.Notification.Enabled {
 		return offScreen(k, notificationPreviewScreenH, "settings-notification-preview-off")
 	}
-	shown := wallpaperScreen(notificationPreviewScreenH)
+	shown := wallpaperScreen(k, notificationPreviewScreenH)
 	inset := widget.NewBox(widget.Column, 0, widget.Current().Padding)
 	inset.Append(notifyview.Preview(cfg, font, time.Time{}, testNotificationContent()), false)
 	h, v := widgets.Placement(cfg.Notification.PopupPosition)

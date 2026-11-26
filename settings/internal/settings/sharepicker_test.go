@@ -20,7 +20,7 @@ func TestTheSharePickerOpensOnAPagePickedFromPictures(t *testing.T) {
 	}
 	seen := map[string]string{}
 	for value, p := range sharePickerPagePictures {
-		px := string(paintPicture(p))
+		px := string(paintPicture(t, p))
 		if other, dup := seen[px]; dup {
 			t.Errorf("%s and %s draw the same picture", value, other)
 		}

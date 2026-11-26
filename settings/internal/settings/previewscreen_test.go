@@ -28,7 +28,7 @@ func TestAPreviewScreenRoundsItsCornersLikeACard(t *testing.T) {
 	if widget.Current().Radius < 2 {
 		t.Fatalf("the test theme rounds cards by %dpx", widget.Current().Radius)
 	}
-	data := paintedPreview(wallpaperScreen(previewTestH))
+	data := paintedPreview(wallpaperScreen(testKit(t, ""), previewTestH))
 	if a := pixelAt(data, 0, 0)[3]; a != 0 {
 		t.Errorf("the screen's corner pixel has alpha %d, want the rounded corner left empty", a)
 	}

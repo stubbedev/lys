@@ -341,7 +341,6 @@ func windowFrames(l windowLook, screen render.Rect) [windowFocusStates]render.Re
 }
 
 func paintWindows(cv *render.Canvas, l windowLook, screen render.Rect) {
-	photo(cv, screen)
 	frames := windowFrames(l, screen)
 	for _, f := range []windowFocus{windowUnfocused, windowFocused} {
 		paintWindow(cv, l, f, frames[f], screen)
@@ -455,8 +454,12 @@ func newWindowPreview(k *kit) widget.Widget {
 	p.AddClass("settings-live-preview")
 	p.SetAccessibleName(locale.T().Get("wm-preview-windows"))
 	p.area = widget.NewDrawingArea(0, windowPreviewH)
+	bd := k.backdropFor(p.area)
 	p.area.OnDraw = func(cv *render.Canvas, r render.Rect) {
-		previewScreen(cv, r, func(cv *render.Canvas) { paintWindows(cv, p.look, r) })
+		previewScreen(cv, r, func(cv *render.Canvas) {
+			bd.paint(cv, r)
+			paintWindows(cv, p.look, r)
+		})
 	}
 	p.state = k.note("", "settings-preview-state")
 	p.state.SetAlignment(render.AlignCenter)

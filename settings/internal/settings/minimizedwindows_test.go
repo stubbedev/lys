@@ -9,9 +9,10 @@ import (
 	"github.com/stubbedev/lys/ui/widget"
 )
 
-func paintedPicture(p picture, w, h int) []byte {
+func paintedPicture(t *testing.T, p picture, w, h int) []byte {
+	t.Helper()
 	data := make([]byte, render.Stride(w)*h)
-	p.draw(render.NewScaled(data, render.Stride(w), w, h, 1, 1), render.Rect{W: w, H: h})
+	p.draw(render.NewScaled(data, render.Stride(w), w, h, 1, 1), render.Rect{W: w, H: h}, testBackdrop(t))
 	return data
 }
 
@@ -36,8 +37,8 @@ func TestTheWindowScopeIsChosenOnAPictureOfTwoDisplays(t *testing.T) {
 
 func TestOnlyAllDisplaysListsTheOtherDisplaysWindows(t *testing.T) {
 	const w, h = 96, 48
-	here := paintedPicture(windowScopePictures[string(config.WindowScopeOutput)], w, h)
-	all := paintedPicture(windowScopePictures[string(config.WindowScopeAll)], w, h)
+	here := paintedPicture(t, windowScopePictures[string(config.WindowScopeOutput)], w, h)
+	all := paintedPicture(t, windowScopePictures[string(config.WindowScopeAll)], w, h)
 	stride := render.Stride(w)
 	half := stride / 2
 	for y := range h {

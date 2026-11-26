@@ -111,14 +111,13 @@ var pamServiceRow rowOpt = func(r *rowSpec) {
 
 var lockBackgroundPictures = map[string]picture{
 	string(config.BackgroundColor): drawn(func(cv *render.Canvas, r render.Rect) {
-		screenFrame(cv, r, func(s render.Rect) { cv.FillRect(s, previewImageTop) })
+		screenFrame(cv, r, func(cv *render.Canvas, s render.Rect) { cv.FillRect(s, widget.Current().Accent) })
 	}),
-	string(config.BackgroundImage): drawn(func(cv *render.Canvas, r render.Rect) {
-		screenFrame(cv, r, func(s render.Rect) { photo(cv, s) })
+	string(config.BackgroundImage): onBackdrop(func(cv *render.Canvas, r render.Rect, bd screenBackdrop) {
+		backdropScreen(cv, r, bd, func(*render.Canvas, render.Rect) {})
 	}),
-	string(config.BackgroundWallpaper): drawn(func(cv *render.Canvas, r render.Rect) {
-		screenFrame(cv, r, func(s render.Rect) {
-			photo(cv, s)
+	string(config.BackgroundWallpaper): onBackdrop(func(cv *render.Canvas, r render.Rect, bd screenBackdrop) {
+		backdropScreen(cv, r, bd, func(cv *render.Canvas, s render.Rect) {
 			cv.FillRect(render.Rect{X: s.X, Y: s.Y, W: s.W, H: max(3, s.H/8)}, previewDarkInk)
 		})
 	}),

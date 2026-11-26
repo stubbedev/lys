@@ -62,7 +62,6 @@ func tabStrip(screen render.Rect, l tabLook) (strip render.Rect, tabs [tabStates
 
 func paintTabs(cv *render.Canvas, face render.Font, l tabLook, screen render.Rect, titles [tabStates]string) {
 	th := widget.Current()
-	photo(cv, screen)
 	_, tabs, body := tabStrip(screen, l)
 	for i, r := range tabs {
 		c := l.colors[i]
@@ -98,8 +97,9 @@ func newTabPreview(k *kit) widget.Widget {
 		p.titles[i] = t.Get("wm-preview-tab-" + key)
 	}
 	p.area = widget.NewDrawingArea(0, tabPreviewH)
+	bd := k.backdropFor(p.area)
 	p.area.OnDraw = func(cv *render.Canvas, r render.Rect) {
-		screenFrame(cv, r, func(s render.Rect) { paintTabs(cv, p.k.face, p.look, s, p.titles) })
+		backdropScreen(cv, r, bd, func(cv *render.Canvas, s render.Rect) { paintTabs(cv, p.k.face, p.look, s, p.titles) })
 	}
 	p.state = k.note("", "settings-preview-state")
 	p.state.SetAlignment(render.AlignCenter)

@@ -17,7 +17,7 @@ func TestTheLockBackgroundsColorCardShowsItsScreen(t *testing.T) {
 	r := render.Rect{W: 88, H: 48}
 	stride := render.Stride(r.W)
 	data := make([]byte, stride*r.H)
-	lockBackgroundPictures[string(config.BackgroundColor)].draw(render.New(data, stride, r.W, r.H), r)
+	lockBackgroundPictures[string(config.BackgroundColor)].draw(render.New(data, stride, r.W, r.H), r, k.backdropFor(widget.NewDrawingArea(1, 1)))
 	i := (r.H/2)*stride + 4*(r.W/2)
 	screen := render.RGB(data[i+2], data[i+1], data[i])
 	if c := contrastOf(screen, widget.Current().CardColor()); c < minUIContrast {

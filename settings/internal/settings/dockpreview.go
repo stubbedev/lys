@@ -41,7 +41,7 @@ func (p *dockPreview) draw(k *kit, cfg *config.Config, _ render.Font) widget.Wid
 	if !cfg.Dock.Enabled {
 		return offScreen(k, screenH, "settings-dock-preview-off")
 	}
-	shown := wallpaperScreen(screenH)
+	shown := wallpaperScreen(k, screenH)
 	dock := dockview.Preview(cfg, dockSampleApps(cfg.Dock, p.apps), k.invoke)
 	shown.AppendAligned(dock, dock.HAlign(), dock.VAlign())
 	return overflowing(shown)

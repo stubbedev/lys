@@ -111,6 +111,7 @@ type kit struct {
 	// forgetImage drops a raster's GPU copy before its pixels are freed.
 	forgetImage func(render.ImageID)
 	lockBg      *lockBackdrop
+	backdrop    *previewBackdrop
 }
 
 // async runs work off the loop and hands its result to done on it.

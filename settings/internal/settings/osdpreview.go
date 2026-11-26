@@ -25,7 +25,7 @@ func drawOsdOnScreen(k *kit, cfg *config.Config, font render.Font) widget.Widget
 	if !cfg.Osd.Enabled {
 		return offScreen(k, osdPreviewScreenH, "settings-osd-preview-off")
 	}
-	shown := wallpaperScreen(osdPreviewScreenH)
+	shown := wallpaperScreen(k, osdPreviewScreenH)
 	t := osdSampleToast()
 	card := osdview.Preview(cfg, font, osdview.Toast(t.label, t.icon).WithPercent(float64(t.percentage)))
 	inset := widget.NewBox(widget.Column, 0, widget.Current().Padding)

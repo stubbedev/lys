@@ -19,12 +19,7 @@ func pictureBar(screen render.Rect, inset int) render.Rect {
 }
 
 func barOnScreen(paint func(cv *render.Canvas, screen render.Rect)) picture {
-	return drawn(func(cv *render.Canvas, r render.Rect) {
-		screenFrame(cv, r, func(s render.Rect) {
-			photo(cv, s)
-			paint(cv, s)
-		})
-	})
+	return onBackdrop(func(cv *render.Canvas, r render.Rect, bd screenBackdrop) { backdropScreen(cv, r, bd, paint) })
 }
 
 var shadowPictures = map[string]picture{

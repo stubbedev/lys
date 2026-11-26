@@ -129,12 +129,7 @@ func drawEdgeSwipe(cv *render.Canvas, s render.Rect, edge string) {
 }
 
 func onScreen(draw func(cv *render.Canvas, s render.Rect)) picture {
-	return drawn(func(cv *render.Canvas, r render.Rect) {
-		screenFrame(cv, r, func(s render.Rect) {
-			photo(cv, s)
-			draw(cv, s)
-		})
-	})
+	return onBackdrop(func(cv *render.Canvas, r render.Rect, bd screenBackdrop) { backdropScreen(cv, r, bd, draw) })
 }
 
 func touchPictures(values []string, draw func(cv *render.Canvas, s render.Rect, value string), known func(string) bool) map[string]picture {
@@ -155,16 +150,12 @@ func movedWindow(cv *render.Canvas, s render.Rect, arrows []vector) {
 	drawArrows(cv, s, arrows)
 }
 
-var drivePictures = map[string]func(cv *render.Canvas, r render.Rect){
-	"workspaces": twoScreens,
-	"overview":   windowGrid,
-	"view":       func(cv *render.Canvas, r render.Rect) { drawColumn(cv, r, shareWidth(0.5)) },
-	"move": func(cv *render.Canvas, r render.Rect) {
-		screenFrame(cv, r, func(s render.Rect) { photo(cv, s); movedWindow(cv, s, directionArrows["any"]) })
-	},
-	"resize": func(cv *render.Canvas, r render.Rect) {
-		screenFrame(cv, r, func(s render.Rect) { photo(cv, s); movedWindow(cv, s, []vector{{1, 1}}) })
-	},
+var drivePictures = map[string]picture{
+	"workspaces": onBackdrop(twoScreens),
+	"overview":   drawn(windowGrid),
+	"view":       onBackdrop(func(cv *render.Canvas, r render.Rect, bd screenBackdrop) { drawColumn(cv, r, shareWidth(0.5), bd) }),
+	"move":       onScreen(func(cv *render.Canvas, s render.Rect) { movedWindow(cv, s, directionArrows["any"]) }),
+	"resize":     onScreen(func(cv *render.Canvas, s render.Rect) { movedWindow(cv, s, []vector{{1, 1}}) }),
 }
 
 func touchGesturesRow() rowSpec {
@@ -186,11 +177,11 @@ func newTouchGestures(k *kit, s slot, check func(items []any) func() error) *car
 		func(v string) bool { _, ok := directionArrows[v]; return ok })
 	driveCards := make(map[string]picture, len(drives))
 	for _, d := range drives {
-		draw, ok := drivePictures[d]
+		pic, ok := drivePictures[d]
 		if !ok {
 			log.Panicf("settings: lys-wm's touch swipe drive %q has no picture", d)
 		}
-		driveCards[d] = drawn(draw)
+		driveCards[d] = pic
 	}
 	fingers := touchField(w, "fingers")
 	actions := touchField(w, "action").Actions
@@ -204,7 +195,7 @@ func newTouchGestures(k *kit, s slot, check func(items []any) func() error) *car
 	return newCardList(k, s, cardSpec{
 		check: check,
 		title: touchTitle,
-		aside: func(*kit) cardAside { return newTouchPicture() },
+		aside: func(k *kit) cardAside { return newTouchPicture(k) },
 		fields: []cardField{
 			{label: "wm-gestures-touch-start", keys: []string{"edge", "fingers", "direction"}, fill: true, item: func(k *kit, field func(key string) slot) control {
 				return newTouchStart(k, field, start)
@@ -235,11 +226,11 @@ type touchPicture struct {
 	item map[string]any
 }
 
-func newTouchPicture() *touchPicture {
+func newTouchPicture(k *kit) *touchPicture {
 	p := &touchPicture{DrawingArea: widget.NewDrawingArea(touchPictureW, touchPictureH)}
+	bd := k.backdropFor(p)
 	p.OnDraw = func(cv *render.Canvas, r render.Rect) {
-		screenFrame(cv, r, func(s render.Rect) {
-			photo(cv, s)
+		backdropScreen(cv, r, bd, func(cv *render.Canvas, s render.Rect) {
 			if edge, ok := p.item["edge"].(string); ok {
 				drawEdgeSwipe(cv, s, edge)
 				return
