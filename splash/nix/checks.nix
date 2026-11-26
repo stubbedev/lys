@@ -63,16 +63,42 @@
       virtualisation.graphics = false;
       virtualisation.qemu.options = ["-vga none"];
     };
+    hostLoader = {config, ...}: let
+      entry = "/tmp/xchg/boot-entry";
+      system = config.virtualisation.host.pkgs.writeShellScript "lys-splash-vm-boot-entry" ''
+        set -euo pipefail
+        entry="$TMPDIR/xchg/boot-entry"
+        if [[ -e $entry ]]; then
+          cat "$entry"
+        else
+          echo ${config.system.build.toplevel}
+        fi
+      '';
+    in {
+      boot.loader.external = {
+        enable = true;
+        installHook = pkgs.writeShellScript "lys-splash-vm-install-boot-entry" ''
+          set -euo pipefail
+          printf '%s\n' "$1" > ${entry}.new
+          mv ${entry}.new ${entry}
+        '';
+      };
+      virtualisation = {
+        directBoot.enable = false;
+        qemu.options = [
+          ''-kernel "$(${system})/kernel"''
+          ''-initrd "$(${system})/initrd"''
+          ''-append "init=$(${system})/init $(cat "$(${system})/kernel-params")"''
+        ];
+      };
+    };
     luks = disks: {
-      imports = [bootSplash];
+      imports = [bootSplash hostLoader];
       virtualisation = {
         emptyDiskImages = map (_: 512) disks;
-        useBootLoader = true;
         useEFIBoot = true;
-        mountHostNixStore = true;
         qemu.virtioKeyboard = false;
       };
-      boot.loader.systemd-boot.enable = true;
       environment.systemPackages = [pkgs.cryptsetup];
       specialisation.luks.configuration = {
         boot.kernelParams = ["systemd.journald.forward_to_console=1"];

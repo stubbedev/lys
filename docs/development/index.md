@@ -152,12 +152,22 @@ another lane's build:
    preinstalled toolchains only when the component sets `free-disk`, and its
    VM jobs and the further jobs it marks `after-build` start as soon as that
    build is done, not after the other components' builds: wm's VM jobs no
-   longer wait for splash's disk images. Only the build removes them: it
-   fetches the closures and writes two disk images at once, while a VM job
-   only substitutes its closure, at most 5 GiB for splash's against the
-   6.3 GiB wm-vms-share fits on a runner as it comes, and boots on a
-   copy-on-write overlay of the image, so the 113 s the removal takes would
-   buy a VM job nothing.
+   longer wait for splash's build. Only the build removes them: it fetches
+   every closure of the lane at once, 5 GiB for splash's, while a VM job
+   only substitutes its own closure, at most the 6.3 GiB wm-vms-share fits
+   on a runner as it comes, so the 113 s the removal takes would buy a VM
+   job nothing.
+
+   No VM check builds a disk image of its system. `useBootLoader` copies the
+   whole system closure, 1.4 to 3.8 GiB, into a qcow2 image that every change
+   to a package in it rebuilds and the build job pushes whole: two of them
+   made a splash Go change push 5.5 GiB, past the build job's push limit
+   (#382), where the same change now pushes 294 MiB. splash's LUKS checks,
+   which boot a specialisation that `switch-to-configuration boot`
+   installs, boot directly instead: the host is their boot loader, the
+   guest's `boot.loader.external` hook writes the toplevel it installs to
+   the machine's `xchg` directory, and the run script boots that toplevel's
+   kernel, initrd and `init`, as systemd-boot's entry would, under OVMF.
 2. **Shared build**, per architecture: every other component with Go suites
    builds in one job, `just build-stage lib ui ...`, its packages and non-VM
    checks. A component with neither (`repository`, `packaging`)
