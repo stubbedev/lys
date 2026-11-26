@@ -6,6 +6,7 @@ import (
 	"image"
 	"time"
 
+	"github.com/stubbedev/lys/lib/exif"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/anim"
 	"github.com/stubbedev/lys/ui/media"
@@ -5027,6 +5028,48 @@ func (b *ImageBuilder) OnLoaded(fn func(img *widget.Image)) *ImageBuilder {
 // OnPasteImage sets the widget's OnPasteImage field.
 func (b *ImageBuilder) OnPasteImage(fn func(img image.Image)) *ImageBuilder {
 	b.do(func(_ *Scope, w *widget.Image) { w.OnPasteImage = fn })
+	return b
+}
+
+// ImageViewBuilder builds a widget.ImageView.
+type ImageViewBuilder struct {
+	base[*widget.ImageView, *ImageViewBuilder]
+}
+
+// ImageView builds a widget.ImageView with widget.NewImageView.
+func ImageView(img image.Image, o exif.Orientation) *ImageViewBuilder {
+	b := &ImageViewBuilder{}
+	b.init(b, func(s *Scope) *widget.ImageView { return widget.NewImageView(img, o) })
+	return b
+}
+
+// Budget calls (*widget.ImageView).SetBudget.
+func (b *ImageViewBuilder) Budget(bytes int) *ImageViewBuilder {
+	b.do(func(s *Scope, w *widget.ImageView) { w.SetBudget(bytes) })
+	return b
+}
+
+// WatchBudget re-applies SetBudget with get's value after every update.
+func (b *ImageViewBuilder) WatchBudget(get func() int) *ImageViewBuilder {
+	b.watch(func(w *widget.ImageView) { w.SetBudget(get()) })
+	return b
+}
+
+// Image calls (*widget.ImageView).SetImage.
+func (b *ImageViewBuilder) Image(img image.Image, o exif.Orientation) *ImageViewBuilder {
+	b.do(func(s *Scope, w *widget.ImageView) { w.SetImage(img, o) })
+	return b
+}
+
+// Zoom calls (*widget.ImageView).SetZoom.
+func (b *ImageViewBuilder) Zoom(zoom float64) *ImageViewBuilder {
+	b.do(func(s *Scope, w *widget.ImageView) { w.SetZoom(zoom) })
+	return b
+}
+
+// WatchZoom re-applies SetZoom with get's value after every update.
+func (b *ImageViewBuilder) WatchZoom(get func() float64) *ImageViewBuilder {
+	b.watch(func(w *widget.ImageView) { w.SetZoom(get()) })
 	return b
 }
 

@@ -11,30 +11,76 @@ import (
 // imagePlayback steps an animated source (a GIF or APNG decoded to a
 // render.Animation) on the animation clock: each frame holds for its
 // delay - a scheduled deadline, no goroutine or timer - and repaints
-// only the image's rect. It plays only while the image is arranged on
+// only its widget's rect. It plays only while the widget is arranged on
 // screen, stops after the animation's loop count on its last frame,
-// and under reduced motion shows the first frame still.
+// and under reduced motion shows the first frame still. Image and
+// ImageView both step their animations through it.
 type imagePlayback struct {
 	frame  int
 	plays  int
 	cancel anim.Cancel
 }
 
-// animation is the source's animation when it has more than one frame.
-func (im *Image) animation() *render.Animation {
-	if a, ok := im.img.(*render.Animation); ok && len(a.Frames) > 1 {
+func (p *imagePlayback) restart(w Widget, a *render.Animation, live func() bool) {
+	p.stop()
+	p.frame, p.plays = 0, 0
+	p.sync(w, a, live)
+}
+
+func (p *imagePlayback) stop() {
+	if p.cancel != nil {
+		p.cancel()
+		p.cancel = nil
+	}
+}
+
+func (p *imagePlayback) sync(w Widget, a *render.Animation, live func() bool) {
+	done := a != nil && a.Loops > 0 && p.plays >= a.Loops
+	if a == nil || !onScreen(w) || anim.Instant() || done {
+		p.stop()
+		return
+	}
+	if p.cancel != nil {
+		return
+	}
+	p.cancel = anim.Play(nodeOf(w), anim.Delay(a.Delays[p.frame]), anim.Animate(0, func(float64) {
+		p.cancel = nil
+		if !live() || !onScreen(w) {
+			return
+		}
+		next := p.frame + 1
+		if next == len(a.Frames) {
+			p.plays++
+			if a.Loops > 0 && p.plays >= a.Loops {
+				return
+			}
+			next = 0
+		}
+		p.frame = next
+		nodeOf(w).Invalidate()
+		p.sync(w, a, live)
+	}))
+}
+
+func frameOf(img image.Image, i int) (image.Image, int) {
+	if a := animationOf(img); a != nil {
+		return a.Frames[i], i
+	}
+	return img, 0
+}
+
+func animationOf(img image.Image) *render.Animation {
+	if a, ok := img.(*render.Animation); ok && len(a.Frames) > 1 {
 		return a
 	}
 	return nil
 }
 
+// animation is the source's animation when it has more than one frame.
+func (im *Image) animation() *render.Animation { return animationOf(im.img) }
+
 // currentFrame is the image to paint and its frame index.
-func (im *Image) currentFrame() (image.Image, int) {
-	if a := im.animation(); a != nil {
-		return a.Frames[im.play.frame], im.play.frame
-	}
-	return im.img, 0
-}
+func (im *Image) currentFrame() (image.Image, int) { return frameOf(im.img, im.play.frame) }
 
 // Frame reports the frame an animated source shows (0 for a still).
 func (im *Image) Frame() int { return im.play.frame }
@@ -50,48 +96,13 @@ func (im *Image) Arrange(r render.Rect) {
 }
 
 // restartPlayback rewinds for a new source.
-func (im *Image) restartPlayback() {
-	im.stopPlayback()
-	im.play.frame, im.play.plays = 0, 0
-	im.syncPlayback()
-}
-
-// stopPlayback cancels the pending frame deadline.
-func (im *Image) stopPlayback() {
-	if im.play.cancel != nil {
-		im.play.cancel()
-		im.play.cancel = nil
-	}
-}
+func (im *Image) restartPlayback() { im.play.restart(im, im.animation(), im.live()) }
 
 // syncPlayback schedules the next frame when the image should be
 // playing, and stops it otherwise.
-func (im *Image) syncPlayback() {
-	a := im.animation()
-	done := a != nil && a.Loops > 0 && im.play.plays >= a.Loops
-	if a == nil || !onScreen(im) || anim.Instant() || done {
-		im.stopPlayback()
-		return
-	}
-	if im.play.cancel != nil {
-		return
-	}
+func (im *Image) syncPlayback() { im.play.sync(im, im.animation(), im.live()) }
+
+func (im *Image) live() func() bool {
 	gen := im.gen
-	im.play.cancel = anim.Play(im, anim.Delay(a.Delays[im.play.frame]), anim.Animate(0, func(float64) {
-		im.play.cancel = nil
-		if gen != im.gen || !onScreen(im) {
-			return
-		}
-		next := im.play.frame + 1
-		if next == len(a.Frames) {
-			im.play.plays++
-			if a.Loops > 0 && im.play.plays >= a.Loops {
-				return // rest on the last frame
-			}
-			next = 0
-		}
-		im.play.frame = next
-		im.Invalidate()
-		im.syncPlayback()
-	}))
+	return func() bool { return gen == im.gen }
 }
