@@ -13,6 +13,7 @@ import (
 	"github.com/stubbedev/lys/lib/dbusx"
 	"github.com/stubbedev/lys/lib/render"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/userdb/userdbtest"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
@@ -290,6 +291,27 @@ func TestAFingerprintServiceThatCannotBeReachedSaysWhy(t *testing.T) {
 	state := unavailableFingerprint(t, p)
 	if state.Title() != locale.T().Get("settings-fingerprint-unavailable") || !strings.Contains(state.detail.Text(), "no system bus") {
 		t.Errorf("without a system bus the section says %q over %q, want the bus error behind its summary", state.Title(), state.detail.Text())
+	}
+}
+
+func TestAnAccountTheUserDatabaseCannotGiveKeepsTheReaderUnclaimedAndSaysWhy(t *testing.T) {
+	bus := dbustest.Start(t)
+	enrolled := []string{"right-index-finger"}
+	manager, device := serveFprint(t, bus, true, &enrolled, &atomic.Bool{})
+	k := testKit(t, "")
+	k.systemBus = func() (*dbus.Conn, error) { return dbus.Connect(bus.Address) }
+	socket := userdbtest.Missing(t)
+	k.currentAccount = currentAccountAt(socket)
+	p := usersFooter(k).(*usersPanel)
+	t.Cleanup(p.close)
+	state := unavailableFingerprint(t, p)
+	if state.Title() != locale.T().Get("settings-fingerprint-unavailable") || !strings.Contains(state.detail.Text(), socket) {
+		t.Errorf("without the account the section says %q over %q, want the user database's error behind its summary", state.Title(), state.detail.Text())
+	}
+	managerCalls, _ := manager.snapshot()
+	deviceCalls, _ := device.snapshot()
+	if len(managerCalls) != 0 || len(deviceCalls) != 0 {
+		t.Errorf("without the account fprintd was asked %v and %v", managerCalls, deviceCalls)
 	}
 }
 

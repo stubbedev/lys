@@ -24,11 +24,15 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/desktop/tzdb"
+	"github.com/stubbedev/lys/desktop/useraccount"
 	"github.com/stubbedev/lys/lib/hibernate"
+	"github.com/stubbedev/lys/lib/intconv"
 	"github.com/stubbedev/lys/lib/logtest"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/sockdir"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/userdb"
+	"github.com/stubbedev/lys/lib/userdb/userdbtest"
 	"github.com/stubbedev/lys/shell/service/sysinfo"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/transfer"
@@ -60,9 +64,24 @@ func testKit(t *testing.T, configYAML string) *kit {
 	disks := mountedDisks
 	mountedDisks = func() []sysinfo.Disk { return slices.Clone(rootAndData) }
 	t.Cleanup(func() { mountedDisks = disks })
-	return &kit{face: face, mono: face, store: s, parts: bothParts, invoke: func(fn func()) { fn() }, systemBus: func() (*dbus.Conn, error) { return nil, errors.New("no system bus in the tests") }, network: func() (netControl, error) { return nil, errors.New("no NetworkManager in the tests") }, power: func() (powerControl, error) { return nil, errors.New("no UPower in the tests") }, pausing: func() (pauseControl, error) { return nil, errors.New("no lys-power in the tests") }, bluetooth: func() (btControl, error) { return nil, errors.New("no BlueZ in the tests") }, notify: func(string, string) error { return errors.New("no notification daemon in the tests") }, shellCommand: func(...string) error { return errors.New("no lys-shell in the tests") }, checkPAM: func(context.Context, string) error { return errors.New("no lys-login in the tests") }, readAccounts: func() (accounts.Database, error) { return accounts.Database{}, errors.New("no accounts in the tests") }, changeAccount: func(context.Context, accounts.Request) error { return errors.New("no lys-users in the tests") }, openURI: func(string) error { return errors.New("no default apps in the tests") }, i2c: func() i2cAccess { return i2cAccess{} }, hibernation: func() ([]hibernate.Blocker, error) { return nil, errors.New("no hibernation probe in the tests") }, mailCount: func(string) (uint32, error) { return 0, errors.New("no notmuch in the tests") }, copySecret: func(string) error { return errors.New("no clipboard in the tests") }, copyText: func(string) error { return errors.New("no clipboard in the tests") }, barFont: barview.Font, familyFont: func(string) (render.Font, error) { return face, nil }, fontFile: func(string) (string, error) { return "", errors.New("no font store in the tests") }, fileFamily: func(string) (string, error) { return "", errors.New("no font files in the tests") }, forgetImage: func(render.ImageID) {}, clock: fakeclock.New(), dnd: func() (dndControl, error) { return nil, errors.New("no lys-shell in the tests") }, nightlight: func() (nightlightControl, error) { return nil, errors.New("no lys-shell in the tests") }, nightLocation: func() (geo.Coordinates, error) { return geo.Coordinates{}, tzdb.ErrNoCoordinates }, brightness: func() (brightnessControl, error) { return nil, errors.New("no lys-shell in the tests") }, vault: func() (vaultControl, error) { return nil, errors.New("no lys-secrets in the tests") }, cameras: func() (cameraSource, func(), error) { return nil, nil, errors.New("no cameras in the tests") }, screenShares: func() (shareSource, func(), error) { return nil, nil, errors.New("no portal in the tests") }, region: func() (region.Prefs, error) { return region.Prefs{WeekStart: time.Monday}, nil }, toast: func(text string, life time.Duration) (*widget.Toast, error) {
+	return &kit{face: face, mono: face, store: s, parts: bothParts, invoke: func(fn func()) { fn() }, systemBus: func() (*dbus.Conn, error) { return nil, errors.New("no system bus in the tests") }, network: func() (netControl, error) { return nil, errors.New("no NetworkManager in the tests") }, power: func() (powerControl, error) { return nil, errors.New("no UPower in the tests") }, pausing: func() (pauseControl, error) { return nil, errors.New("no lys-power in the tests") }, bluetooth: func() (btControl, error) { return nil, errors.New("no BlueZ in the tests") }, notify: func(string, string) error { return errors.New("no notification daemon in the tests") }, shellCommand: func(...string) error { return errors.New("no lys-shell in the tests") }, checkPAM: func(context.Context, string) error { return errors.New("no lys-login in the tests") }, readAccounts: func() (accounts.Database, error) { return accounts.Database{}, errors.New("no accounts in the tests") }, currentAccount: fakeCurrentAccount(t), changeAccount: func(context.Context, accounts.Request) error { return errors.New("no lys-users in the tests") }, openURI: func(string) error { return errors.New("no default apps in the tests") }, i2c: func() i2cAccess { return i2cAccess{} }, hibernation: func() ([]hibernate.Blocker, error) { return nil, errors.New("no hibernation probe in the tests") }, mailCount: func(string) (uint32, error) { return 0, errors.New("no notmuch in the tests") }, copySecret: func(string) error { return errors.New("no clipboard in the tests") }, copyText: func(string) error { return errors.New("no clipboard in the tests") }, barFont: barview.Font, familyFont: func(string) (render.Font, error) { return face, nil }, fontFile: func(string) (string, error) { return "", errors.New("no font store in the tests") }, fileFamily: func(string) (string, error) { return "", errors.New("no font files in the tests") }, forgetImage: func(render.ImageID) {}, clock: fakeclock.New(), dnd: func() (dndControl, error) { return nil, errors.New("no lys-shell in the tests") }, nightlight: func() (nightlightControl, error) { return nil, errors.New("no lys-shell in the tests") }, nightLocation: func() (geo.Coordinates, error) { return geo.Coordinates{}, tzdb.ErrNoCoordinates }, brightness: func() (brightnessControl, error) { return nil, errors.New("no lys-shell in the tests") }, vault: func() (vaultControl, error) { return nil, errors.New("no lys-secrets in the tests") }, cameras: func() (cameraSource, func(), error) { return nil, nil, errors.New("no cameras in the tests") }, screenShares: func() (shareSource, func(), error) { return nil, nil, errors.New("no portal in the tests") }, region: func() (region.Prefs, error) { return region.Prefs{WeekStart: time.Monday}, nil }, toast: func(text string, life time.Duration) (*widget.Toast, error) {
 		return widget.NewToast(face, text, life), nil
 	}}
+}
+
+var testUID = userdb.UID(intconv.Must[uint32](os.Getuid()))
+
+// fakeCurrentAccount is the test's own account, "tester", as a fake
+// user database of the test's serves it by the process's uid.
+func fakeCurrentAccount(t *testing.T) func() (useraccount.Account, error) {
+	t.Helper()
+	return currentAccountAt(userdbtest.Serve(t, userdbtest.DB{Users: []userdb.User{{Name: "tester", UID: testUID, GID: userdb.GID(testUID), Home: t.TempDir()}}}))
+}
+
+// currentAccountAt looks the process's uid up in the user database at
+// socket.
+func currentAccountAt(socket string) func() (useraccount.Account, error) {
+	return func() (useraccount.Account, error) { return useraccount.Lookup(context.Background(), socket, testUID) }
 }
 
 func testStore(t *testing.T, configYAML string) store {

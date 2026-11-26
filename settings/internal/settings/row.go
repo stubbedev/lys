@@ -12,6 +12,7 @@ import (
 	"github.com/stubbedev/lys/desktop/region"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/desktop/styling"
+	"github.com/stubbedev/lys/desktop/useraccount"
 	"github.com/stubbedev/lys/lib/hibernate"
 	"github.com/stubbedev/lys/lib/render"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
@@ -94,6 +95,9 @@ type kit struct {
 	// to them through lys-users.
 	readAccounts  func() (accounts.Database, error)
 	changeAccount func(ctx context.Context, r accounts.Request) error
+	// currentAccount is the account lys-settings runs as, from the
+	// user database.
+	currentAccount func() (useraccount.Account, error)
 	// openURI opens a URI with the user's default app for it.
 	openURI func(uri string) error
 	// overlays shows content on the output named on top of everything,

@@ -290,6 +290,8 @@ type accountsOpened struct {
 	icon    image.Image
 	iconErr error
 	err     error
+	user    useraccount.Account
+	userErr error
 }
 
 func readSelf(db accounts.Database) (accounts.Account, error) {
@@ -311,6 +313,7 @@ func (p *usersPanel) load() {
 		}
 		if err != nil {
 			o.err = err
+			o.user, o.userErr = p.k.currentAccount()
 			return o
 		}
 		o.icon, o.iconErr = loadIcon(useraccount.FindAvatar(o.self.Name, o.self.Home))
@@ -320,12 +323,11 @@ func (p *usersPanel) load() {
 		if o.err != nil {
 			log.Printf("settings: users: %v", o.err)
 			p.accounts.Unavailable("ld-user-symbolic", locale.T().Get("settings-users-unavailable"), o.err)
-			name, err := currentAccount()
-			if err != nil {
-				p.noFingerprint(err)
+			if o.userErr != nil {
+				p.noFingerprint(o.userErr)
 				return
 			}
-			p.user = name
+			p.user = o.user.Name
 		} else {
 			p.self = &o.self
 			p.showIdentity(o.self)
@@ -341,11 +343,6 @@ func (p *usersPanel) load() {
 		}
 		p.loadFingerprint()
 	})
-}
-
-var currentAccount = func() (string, error) {
-	a, err := useraccount.Current()
-	return a.Name, err
 }
 
 func (p *usersPanel) close() {
