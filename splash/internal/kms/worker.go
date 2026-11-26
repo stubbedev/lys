@@ -30,6 +30,12 @@ type clock struct {
 
 var systemClock = clock{now: time.Now, after: time.After}
 
+// unlitCard is a card its worker gave up lighting.
+type unlitCard struct {
+	name string
+	gen  uint64
+}
+
 // litCard is a card its worker opened, for the loop to take up, with the outputs
 // lit on it unless it was opened deactivated.
 type litCard struct {
@@ -171,9 +177,13 @@ func (w *cardWorker) work(jobs cardJobs, paused bool, gen uint64, attempt bool) 
 		w.lighting, w.until, w.wait, attempt = true, jobs.until, firstBusyRetry, true
 	}
 	if w.lighting && attempt {
-		if lit := w.attempt(paused, gen); lit != nil {
+		lit, gaveUp := w.attempt(paused, gen)
+		if lit != nil {
 			w.d.send(Event{lit: lit})
 			return
+		}
+		if gaveUp {
+			w.d.send(Event{unlit: &unlitCard{name: w.name, gen: gen}})
 		}
 	}
 	if jobs.rescan && w.card != nil && !paused {
@@ -195,13 +205,13 @@ func (w *cardWorker) stopLighting() {
 	}
 }
 
-// attempt tries the card once and returns it if it lit. A card another master
-// holds is tried again later, unless the display is deactivated or it has been
-// held for too long; anything else gives up on it.
-func (w *cardWorker) attempt(paused bool, gen uint64) *litCard {
+// attempt tries the card once and returns it if it lit, or says it gave up on
+// it. A card another master holds is tried again later, unless the display is
+// deactivated or it has been held for too long; anything else gives up on it.
+func (w *cardWorker) attempt(paused bool, gen uint64) (*litCard, bool) {
 	if w.card != nil {
 		w.stopLighting()
-		return nil
+		return nil, false
 	}
 	c, r, err := w.openNode()
 	if err == nil {
@@ -212,17 +222,17 @@ func (w *cardWorker) attempt(paused bool, gen uint64) *litCard {
 		if !paused {
 			lit.scan = c.probe()
 		}
-		return lit
+		return lit, false
 	}
 	if !errors.Is(err, unix.EBUSY) || paused || !w.d.clock.now().Before(w.until) {
 		w.stopLighting()
 		w.d.log.Warn("lighting a card", "card", w.name, "err", err)
-		return nil
+		return nil, true
 	}
 	w.watchCloses()
 	w.retry = w.d.clock.after(w.wait)
 	w.wait = min(2*w.wait, lastBusyRetry)
-	return nil
+	return nil, false
 }
 
 func (w *cardWorker) watchCloses() {

@@ -76,6 +76,7 @@ type fakeDisplay struct {
 	onDeactive  func()
 	removals    chan kms.Event
 	removed     atomic.Int32
+	awaiting    bool
 }
 
 func (d *fakeDisplay) Events() <-chan kms.Event { return d.removals }
@@ -92,6 +93,18 @@ func (d *fakeDisplay) Screens() []Screen {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	return d.screens
+}
+
+func (d *fakeDisplay) AwaitingNative() bool {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.awaiting
+}
+
+func (d *fakeDisplay) await(native bool) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.awaiting = native
 }
 
 func (d *fakeDisplay) Deactivate() error {
@@ -575,6 +588,36 @@ func TestTextFallback(t *testing.T) {
 	r.vt.mu.Unlock()
 	if !strings.Contains(out, "Starting\r\n") || !strings.Contains(out, "Disk: ") || strings.Contains(out, "pw") {
 		t.Errorf("the text splash wrote %q", out)
+	}
+}
+
+func TestTheVTStaysInGraphicsUntilTheNativeDriversCardReplacesTheFirmwares(t *testing.T) {
+	t.Parallel()
+	r := start(t, setup{screens: 1})
+	r.call(t, protocol.ShowMessage{Text: "Starting"}, protocol.Ack{})
+	r.vtSettled(t)
+	if _, graphics := r.vt.reclaimed(); !graphics {
+		t.Fatal("the VT is in text with a screen to draw on")
+	}
+	r.display.await(true)
+	r.display.removals <- kms.Event{}
+	r.awaitRemovals(t, 1)
+	r.vtSettled(t)
+	r.vt.mu.Lock()
+	out := r.vt.out.String()
+	r.vt.mu.Unlock()
+	if _, graphics := r.vt.reclaimed(); !graphics || out != "" {
+		t.Errorf("awaiting the native driver's card: graphics %v and the VT got %q, want graphics and nothing written", graphics, out)
+	}
+	r.display.await(false)
+	r.display.removals <- kms.Event{}
+	r.awaitRemovals(t, 2)
+	r.vtSettled(t)
+	r.vt.mu.Lock()
+	out = r.vt.out.String()
+	r.vt.mu.Unlock()
+	if _, graphics := r.vt.reclaimed(); graphics || !strings.Contains(out, "Starting") {
+		t.Errorf("once no native card came: graphics %v and the VT got %q, want the text splash", graphics, out)
 	}
 }
 

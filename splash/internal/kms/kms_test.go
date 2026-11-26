@@ -721,14 +721,35 @@ func switchDrivers(t *testing.T, simple, native *fakeDevice, firmwareScale int) 
 	if len(outs) != 1 || outs[0].Scale() != firmwareScale || !outs[0].card.firmware {
 		t.Fatalf("outputs on simpledrm: %v, want one at scale %d", outs, firmwareScale)
 	}
+	removeCard0(t, disp)
+	if len(disp.Outputs()) != 0 {
+		t.Fatal("the removed simpledrm card still has outputs")
+	}
+	if !disp.AwaitingNative() {
+		t.Fatal("the display does not await the native driver's card once simpledrm's went")
+	}
+	pump(t, disp, simple.isClosed)
+	addNative(t, disp, paths, devs, native)
+	if !disp.AwaitingNative() {
+		t.Fatal("the display stopped awaiting the native driver's card before it lit")
+	}
+	pump(t, disp, outputsAre(disp, 1))
+	if disp.AwaitingNative() {
+		t.Error("the display still awaits the native driver's card once it lit")
+	}
+	return disp
+}
+
+func removeCard0(t *testing.T, disp *Display) {
+	t.Helper()
 	remove := []string{"ACTION=remove", "DEVPATH=/devices/platform/simple-framebuffer.0/drm/card0", "SUBSYSTEM=drm", "DEVNAME=/dev/dri/card0"}
 	if _, err := disp.Handle(udevEvent(t, remove...)); err != nil {
 		t.Fatal(err)
 	}
-	if len(disp.Outputs()) != 0 {
-		t.Fatal("the removed simpledrm card still has outputs")
-	}
-	pump(t, disp, simple.isClosed)
+}
+
+func addNative(t *testing.T, disp *Display, paths Paths, devs map[string]*fakeDevice, native *fakeDevice) {
+	t.Helper()
 	devs["card1"] = native
 	if err := os.WriteFile(filepath.Join(paths.Dev, "card1"), nil, 0o600); err != nil {
 		t.Fatal(err)
@@ -737,8 +758,72 @@ func switchDrivers(t *testing.T, simple, native *fakeDevice, firmwareScale int) 
 	if _, err := disp.Handle(udevEvent(t, add...)); err != nil {
 		t.Fatal(err)
 	}
-	pump(t, disp, outputsAre(disp, 1))
-	return disp
+}
+
+func TestANativeCardThatFailsToLightEndsTheWaitForIt(t *testing.T) {
+	t.Parallel()
+	simple := newFakeDevice("/dev/dri/card0", 1)
+	simple.connect(40, [2]uint32{339, 212}, mode(1280, 800, true))
+	devs := map[string]*fakeDevice{"card0": simple}
+	disp, paths := fakeDisplay(t, devs, map[string]string{"card0": "simple-framebuffer"})
+	removeCard0(t, disp)
+	native := newFakeDevice("/dev/dri/card1", 1)
+	native.connect(41, [2]uint32{339, 212}, mode(1280, 800, true))
+	native.masterErr = unix.EPERM
+	addNative(t, disp, paths, devs, native)
+	changed := false
+	waittest.Until(t, func() bool {
+		select {
+		case e := <-disp.Events():
+			c, err := disp.Handle(e)
+			if err != nil {
+				t.Fatal(err)
+			}
+			changed = changed || c
+		default:
+		}
+		return !disp.AwaitingNative()
+	}, "the display to stop awaiting the native driver's card that failed")
+	if !changed {
+		t.Error("ending the wait for the native driver's card reported no change")
+	}
+	if got := len(disp.Outputs()); got != 0 {
+		t.Errorf("%d outputs after the native driver's card failed to light", got)
+	}
+	if err := disp.Close(false); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestOnlyTheFirmwaresLastOutputGoingAwaitsANativeCard(t *testing.T) {
+	t.Parallel()
+	for name, tc := range map[string]struct {
+		drivers map[string]string
+		other   bool
+	}{
+		"a native card's":                      {drivers: map[string]string{"card0": "virtio_gpu"}},
+		"the firmware's beside another output": {drivers: map[string]string{"card0": "simple-framebuffer"}, other: true},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			first := newFakeDevice("/dev/dri/card0", 1)
+			first.connect(40, [2]uint32{339, 212}, mode(1280, 800, true))
+			devs := map[string]*fakeDevice{"card0": first}
+			if tc.other {
+				second := newFakeDevice("/dev/dri/card2", 1)
+				second.connect(50, [2]uint32{339, 212}, mode(1280, 800, true))
+				devs["card2"] = second
+			}
+			disp, _ := fakeDisplay(t, devs, tc.drivers)
+			removeCard0(t, disp)
+			if disp.AwaitingNative() {
+				t.Errorf("the display awaits a native card with %d outputs left", len(disp.Outputs()))
+			}
+			if err := disp.Close(false); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
 }
 
 func TestDisplayFollowsTheDriverSwitch(t *testing.T) {

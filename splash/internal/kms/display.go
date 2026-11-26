@@ -45,6 +45,7 @@ type Event struct {
 	uevent *udevmonitor.Event
 	err    error
 	lit    *litCard
+	unlit  *unlitCard
 	scan   *scanResult
 	lost   bool
 }
@@ -67,6 +68,10 @@ type Display struct {
 	uevents     *udevmonitor.Listener
 	paused      bool
 	outs        []*Output
+	// awaiting says the last output went with a firmware framebuffer's card,
+	// whose native driver's card is on its way: no card has been lit, or
+	// failed to light, since.
+	awaiting bool
 }
 
 // Open opens every card under paths and lights its outputs, then follows
@@ -156,7 +161,7 @@ func (p Paths) ClientsMustCloseBeforeRemoval() (bool, error) {
 func (d *Display) lightNow(name string) {
 	w := d.newWorker(name)
 	w.lighting, w.until, w.wait = true, d.clock.now().Add(busyRetryFor), firstBusyRetry
-	lit := w.attempt(false, 0)
+	lit, _ := w.attempt(false, 0)
 	d.workersDone.Go(w.run)
 	if lit == nil {
 		return
@@ -170,6 +175,7 @@ func (d *Display) lightNow(name string) {
 func (d *Display) take(lit *litCard) error {
 	c := lit.card
 	d.cards[c.name] = c
+	d.awaiting = false
 	d.wg.Go(func() { d.readFlips(c, lit.reader) })
 	c.apply(lit.scan)
 	d.outs = nil
@@ -249,10 +255,10 @@ func (d *Display) Events() <-chan Event {
 	return d.events
 }
 
-// Handle applies e and says whether Outputs changed: a flip lets its output
-// show the next frame, a card that disappears is dropped at once, and what takes
-// time, a card appearing or a hotplug, goes to the card's worker, whose result
-// is another Event.
+// Handle applies e and says whether Outputs or AwaitingNative changed: a flip
+// lets its output show the next frame, a card that disappears is dropped at
+// once, and what takes time, a card appearing or a hotplug, goes to the card's
+// worker, whose result is another Event.
 func (d *Display) Handle(e Event) (bool, error) {
 	switch {
 	case e.err != nil:
@@ -266,6 +272,12 @@ func (d *Display) Handle(e Event) (bool, error) {
 			return false, nil
 		}
 		return true, d.take(e.lit)
+	case e.unlit != nil:
+		if e.unlit.gen != d.workers[e.unlit.name].gen || !d.awaiting {
+			return false, nil
+		}
+		d.awaiting = false
+		return true, nil
 	case e.scan != nil:
 		return d.scanned(e.scan)
 	case e.card != nil:
@@ -283,6 +295,9 @@ func (d *Display) scanned(r *scanResult) (bool, error) {
 	}
 	r.card.apply(*r)
 	d.outs = nil
+	if len(r.added) > 0 {
+		d.awaiting = false
+	}
 	if len(r.dropped) > 0 {
 		dropped := r.dropped
 		d.workers[r.card.name].ask(func(j *cardJobs) { j.retired = append(j.retired, dropped...) })
@@ -345,13 +360,27 @@ func (d *Display) resync() (bool, error) {
 // worker to free it. A card still being lit is told apart by the generation.
 func (d *Display) remove(name string) bool {
 	d.worker(name).removed()
-	if _, ok := d.cards[name]; !ok {
+	c, ok := d.cards[name]
+	if !ok {
 		return false
 	}
 	delete(d.cards, name)
 	d.outs = nil
 	d.log.Info("a card went away", "card", name)
+	if c.firmware && len(d.Outputs()) == 0 {
+		d.awaiting = true
+		d.log.Info("waiting for the native driver's card, which takes the firmware framebuffer's place", "card", name)
+	}
 	return true
+}
+
+// AwaitingNative says the display has no outputs because a firmware
+// framebuffer's card went away for its native driver's, which has not been lit
+// yet nor failed to light. The kernel's console takes the native driver's
+// framebuffer as it registers, and a VT in text mode would show it until the
+// card lit.
+func (d *Display) AwaitingNative() bool {
+	return d.awaiting
 }
 
 // Outputs are every lit output, ordered by card and connector. The list is

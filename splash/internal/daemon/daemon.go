@@ -51,12 +51,18 @@ type Screen interface {
 }
 
 // Display is every graphical output; with no Screens the splash is text on
-// the VT.
+// the VT, unless the display is AwaitingNative.
 type Display interface {
 	Events() <-chan kms.Event
-	// Handle applies e and says whether the set of screens changed.
+	// Handle applies e and says whether the set of screens or AwaitingNative
+	// changed.
 	Handle(e kms.Event) (bool, error)
 	Screens() []Screen
+	// AwaitingNative says a native driver's card is about to replace the
+	// firmware framebuffer's that showed the last screen. The VT stays in
+	// graphics mode meanwhile: the kernel's console sets its mode on the new
+	// framebuffer and draws only on a VT in text mode.
+	AwaitingNative() bool
 	Deactivate() error
 	Reactivate() error
 	Close(retain bool) error
@@ -1019,7 +1025,7 @@ func (d *daemon) themeLoaded(l *themeLoad) (func() error, error) {
 // at the state it shows, so the next redraw takes it the whole way.
 func (d *daemon) redraw() error {
 	screens := d.display.Screens()
-	if len(screens) == 0 || d.details {
+	if d.details || len(screens) == 0 && !d.display.AwaitingNative() {
 		d.stale, d.settled = false, d.state
 		return d.redrawText()
 	}
