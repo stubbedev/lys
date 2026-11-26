@@ -58,6 +58,7 @@ in {
       password = "hunter2";
       extraGroups = ["wheel"];
     };
+    services.userdbd.enable = true;
     environment.etc."userdb/carol.user".text = directoryUser;
     environment.etc."userdb/${toString directoryUID}.user".text = directoryUser;
     services.getty.autologinUser = "alice";
@@ -90,7 +91,7 @@ in {
 
     with subtest("a user only the name service knows is offered by name"):
         machine.fail("grep -q '^carol:' /etc/passwd")
-        machine.succeed("getent passwd ${toString directoryUID} | grep -q '^carol:'")
+        machine.succeed("userdbctl user ${toString directoryUID} | grep -q 'carol'")
         machine.succeed("grep -q 'identities=[^ ]*carol' /tmp/vm/log")
 
     with subtest("a wrong password, then the right one, authorizes"):

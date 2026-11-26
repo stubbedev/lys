@@ -7,15 +7,14 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/user"
 	"slices"
-	"strconv"
 	"sync"
 	"time"
 
 	"github.com/stubbedev/lys/lib/dbusx"
 	"github.com/stubbedev/lys/lib/logind"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/userdb"
 
 	"github.com/stubbedev/lys/desktop/feed"
 )
@@ -664,21 +663,23 @@ func mergeDetail(existing, incoming string) string {
 	return incoming
 }
 
+var userDB = userdb.SocketPath
+
 // ownerName is this process's login name as NM will read it: the
-// passwd name of the effective user, who the bus tells NM every call
-// comes from. $USER is only probably right, and NM refuses a profile
-// whose permissions leave its caller out.
-func ownerName() string {
-	u, err := user.LookupId(strconv.Itoa(os.Geteuid()))
-	if err != nil {
-		if _, unknown := errors.AsType[user.UnknownUserIdError](err); unknown {
-			log.Printf("network: this user has no passwd entry; new VPN profiles will be system-wide")
-		} else {
-			log.Printf("network: cannot look up this user; new VPN profiles will be system-wide: %v", err)
-		}
+// user database's name of the effective user, who the bus tells NM
+// every call comes from. $USER is only probably right, and NM refuses a
+// profile whose permissions leave its caller out.
+func ownerName(ctx context.Context) string {
+	u, err := userdb.LookupUID(ctx, userDB, userdb.UID(os.Geteuid())) //nolint:gosec // a uid is never negative
+	if errors.Is(err, userdb.NoRecordFound) {
+		log.Printf("network: this user has no user record; new VPN profiles will be system-wide")
 		return ""
 	}
-	return u.Username
+	if err != nil {
+		log.Printf("network: cannot look up this user; new VPN profiles will be system-wide: %v", err)
+		return ""
+	}
+	return u.Name
 }
 
 // newUUID is a random RFC 4122 version-4 UUID in the form NM stores.

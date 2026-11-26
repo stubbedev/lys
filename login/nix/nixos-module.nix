@@ -396,6 +396,7 @@ in {
   config = lib.mkMerge [
     (lib.mkIf (cfg.enable || cfg.greeter.enable) {
       environment.systemPackages = [cfg.package];
+      services.userdbd.enable = true;
     })
 
     (lib.mkIf cfg.lock.enable {

@@ -1,19 +1,29 @@
 package dm
 
 import (
-	"errors"
-	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strconv"
 	"strings"
 	"syscall"
 	"testing"
 
+	"github.com/stubbedev/lys/lib/userdb"
+	"github.com/stubbedev/lys/lib/userdb/userdbtest"
 	"github.com/stubbedev/lys/lib/waittest"
 )
+
+// useUserDB looks accounts up in the user database at path until the
+// test ends.
+func useUserDB(t *testing.T, path string) {
+	t.Helper()
+	prev := userDB
+	userDB = path
+	t.Cleanup(func() { userDB = prev })
+}
 
 func TestStopGroupStopsTheCompositorBeforeItsClients(t *testing.T) {
 	dir := t.TempDir()
@@ -72,25 +82,44 @@ func TestAStartRequestWithoutASessionTypeIsRefused(t *testing.T) {
 	}
 }
 
-func TestParseIDTakesEveryIDASignedConsumerCanHold(t *testing.T) {
-	for s, want := range map[string]uint32{"0": 0, "1000": 1000, "65534": 65534, "2147483647": math.MaxInt32} {
-		if got, err := parseID(s); err != nil || got != want {
-			t.Errorf("parseID(%q) = %d, %v; want %d", s, got, err, want)
+func TestAnAccountIsItsUserRecordWithItsGroups(t *testing.T) {
+	useUserDB(t, userdbtest.Serve(t, userdbtest.DB{
+		Users:       []userdb.User{{Name: "carol", UID: 70001, GID: 100, Home: "/home/carol", Shell: "/bin/zsh"}, {Name: "dave", UID: 70002, GID: 70002, Home: "/home/dave"}},
+		Groups:      []userdb.Group{{Name: "users", GID: 100}, {Name: "wheel", GID: 1}, {Name: "video", GID: 26}},
+		Memberships: map[string][]string{"carol": {"wheel", "users", "video"}},
+	}))
+	a, err := lookupAccount("carol")
+	want := account{name: "carol", home: "/home/carol", shell: "/bin/zsh", uid: 70001, gid: 100, groups: []uint32{100, 1, 26}}
+	if err != nil || !reflect.DeepEqual(a, want) {
+		t.Errorf("carol = %+v, %v; want %+v", a, err, want)
+	}
+	a, err = lookupAccount("dave")
+	want = account{name: "dave", home: "/home/dave", shell: defaultShell, uid: 70002, gid: 70002, groups: []uint32{70002}}
+	if err != nil || !reflect.DeepEqual(a, want) {
+		t.Errorf("dave = %+v, %v; want %+v, the default shell and only his primary group", a, err, want)
+	}
+}
+
+func TestAnAccountThatCannotBeResolvedIsRefused(t *testing.T) {
+	useUserDB(t, userdbtest.Serve(t, userdbtest.DB{
+		Users:       []userdb.User{{Name: "carol", UID: 70001, GID: 70001, Home: "/home/carol"}, {Name: "homeless", UID: 70003, GID: 70003}},
+		Memberships: map[string][]string{"carol": {"gone"}},
+	}))
+	for name, want := range map[string]string{
+		"mallory":  string(userdb.NoRecordFound),
+		"homeless": "no home directory",
+		"carol":    "carol's group gone",
+	} {
+		if a, err := lookupAccount(name); err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("%s = %+v, %v; want an error with %q", name, a, err, want)
 		}
 	}
 }
 
-func TestParseIDRefusesWhatAnIntCannotHold(t *testing.T) {
-	for s, want := range map[string]error{
-		"2147483648":           strconv.ErrRange,
-		"4294967294":           strconv.ErrRange,
-		"18446744073709551616": strconv.ErrRange,
-		"-1":                   errNegativeID,
-		"1000x":                strconv.ErrSyntax,
-		"":                     strconv.ErrSyntax,
-	} {
-		if got, err := parseID(s); !errors.Is(err, want) {
-			t.Errorf("parseID(%q) = %d, %v; want %v", s, got, err, want)
-		}
+func TestAnAccountWithoutTheUserDatabaseIsRefused(t *testing.T) {
+	path := userdbtest.Missing(t)
+	useUserDB(t, path)
+	if a, err := lookupAccount("carol"); err == nil || !strings.Contains(err.Error(), path) {
+		t.Errorf("lookupAccount = %+v, %v; want an error naming %s", a, err, path)
 	}
 }

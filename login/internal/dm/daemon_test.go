@@ -416,15 +416,6 @@ func TestKioskConfigCarriesTheCursor(t *testing.T) {
 	}
 }
 
-func TestShellOf(t *testing.T) {
-	passwd := "root:x:0:0::/root:/run/current-system/sw/bin/bash\nalice:x:1000:100::/home/alice:/bin/zsh\nnoshell:x:1001:100::/home/n:\n"
-	for name, want := range map[string]string{"alice": "/bin/zsh", "noshell": "/bin/sh", "ghost": "/bin/sh"} {
-		if got := shellOf(passwd, name); got != want {
-			t.Errorf("%s: %q, want %q", name, got, want)
-		}
-	}
-}
-
 func asString(v any) string {
 	s, _ := v.(string)
 	return s

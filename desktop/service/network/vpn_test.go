@@ -3,15 +3,16 @@ package network
 import (
 	"context"
 	"os"
-	"os/user"
 	"slices"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/stubbedev/lys/lib/logind/logindtest"
+	"github.com/stubbedev/lys/lib/logtest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/userdb"
+	"github.com/stubbedev/lys/lib/userdb/userdbtest"
 	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/desktop/service/network/openconnect"
@@ -301,13 +302,16 @@ func TestAnUnrelatedProfileChangeLeavesAConnectedRowAlone(t *testing.T) {
 	})
 }
 
+const testOwner = "lys-vpn-owner"
+
+// currentUser serves the effective user's record, named testOwner, until
+// the test ends, and is its name.
 func currentUser(t *testing.T) string {
 	t.Helper()
-	u, err := user.LookupId(strconv.Itoa(os.Geteuid()))
-	if err != nil {
-		t.Skipf("the test user has no passwd entry: %v", err)
-	}
-	return u.Username
+	prev := userDB
+	userDB = userdbtest.Serve(t, userdbtest.DB{Users: []userdb.User{{Name: testOwner, UID: userdb.UID(os.Geteuid()), GID: userdb.GID(os.Getegid())}}})
+	t.Cleanup(func() { userDB = prev })
+	return testOwner
 }
 
 func (fx *serviceFixture) lastAdded(t *testing.T) ConnectionDict {
@@ -688,5 +692,23 @@ func TestResumePureHelpers(t *testing.T) {
 		if isNetworkBack(s) {
 			t.Errorf("%v counted as back", s)
 		}
+	}
+}
+
+func TestAnOwnerTheUserDatabaseCannotNameMakesProfilesSystemWide(t *testing.T) {
+	prev := userDB
+	t.Cleanup(func() { userDB = prev })
+	for _, c := range []struct{ what, path string }{{"no record", userdbtest.Serve(t, userdbtest.DB{})}, {"no database", userdbtest.Missing(t)}} {
+		userDB = c.path
+		logs := logtest.Capture(t)
+		if got := ownerName(t.Context()); got != "" {
+			t.Errorf("%s: owner = %q, want none", c.what, got)
+		}
+		if !strings.Contains(logs.String(), "system-wide") {
+			t.Errorf("%s: log = %q, want the system-wide profiles said", c.what, logs.String())
+		}
+	}
+	if got := currentUser(t); ownerName(t.Context()) != got {
+		t.Errorf("owner = %q, want %q", ownerName(t.Context()), got)
 	}
 }

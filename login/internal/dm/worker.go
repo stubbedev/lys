@@ -1,15 +1,14 @@
 package dm
 
 import (
+	"cmp"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"log"
 	"os"
 	"os/exec"
 	"os/signal"
-	"os/user"
 	"runtime"
 	"slices"
 	"strconv"
@@ -20,6 +19,7 @@ import (
 	"unsafe"
 
 	"github.com/stubbedev/lys/lib/dbusx"
+	"github.com/stubbedev/lys/lib/userdb"
 	"github.com/stubbedev/lys/lib/xdg"
 	"golang.org/x/sys/unix"
 
@@ -86,74 +86,43 @@ type account struct {
 	groups            []uint32
 }
 
+var userDB = userdb.SocketPath
+
+// defaultShell is the shell of an account whose record names none.
+const defaultShell = "/bin/sh"
+
+// lookupAccount is name's account in systemd's user database: its
+// record, then the groups it is a member of besides its primary one.
 func lookupAccount(name string) (account, error) {
-	u, err := user.Lookup(name)
+	ctx := context.Background()
+	c, err := userdb.Dial(ctx, userDB)
 	if err != nil {
 		return account{}, fmt.Errorf("look up %s: %w", name, err)
 	}
-	uid, err := parseID(u.Uid)
+	defer func() { _ = c.Close() }()
+	u, err := c.UserByName(ctx, name)
 	if err != nil {
-		return account{}, fmt.Errorf("%s's uid %q: %w", name, u.Uid, err)
+		return account{}, fmt.Errorf("look up %s: %w", name, err)
 	}
-	gid, err := parseID(u.Gid)
-	if err != nil {
-		return account{}, fmt.Errorf("%s's gid %q: %w", name, u.Gid, err)
+	if u.Home == "" {
+		return account{}, fmt.Errorf("%s's user record names no home directory", name)
 	}
-	ids, err := u.GroupIds()
+	memberships, err := c.Memberships(ctx, name)
 	if err != nil {
 		return account{}, fmt.Errorf("%s's groups: %w", name, err)
 	}
-	groups := make([]uint32, 0, len(ids))
-	for _, id := range ids {
-		g, err := parseID(id)
+	groups := make([]uint32, 1, 1+len(memberships))
+	groups[0] = uint32(u.GID)
+	for _, group := range memberships {
+		g, err := c.GroupByName(ctx, group)
 		if err != nil {
-			return account{}, fmt.Errorf("%s's group %q: %w", name, id, err)
+			return account{}, fmt.Errorf("%s's group %s: %w", name, group, err)
 		}
-		groups = append(groups, g)
-	}
-	shell, err := loginShell(name)
-	if err != nil {
-		return account{}, err
-	}
-	return account{name: name, home: u.HomeDir, shell: shell, uid: uid, gid: gid, groups: groups}, nil
-}
-
-var errNegativeID = errors.New("an account id is never negative")
-
-func parseID(s string) (uint32, error) {
-	id, err := strconv.ParseInt(s, 10, 32)
-	if err != nil {
-		return 0, err
-	}
-	if id < 0 {
-		return 0, errNegativeID
-	}
-	return uint32(id), nil
-}
-
-// passwdFile is the account database the shell is read from, as
-// os/user reads the rest of the account.
-const passwdFile = "/etc/passwd"
-
-// loginShell is name's shell in the account database, /bin/sh when it
-// names none.
-func loginShell(name string) (string, error) {
-	data, err := os.ReadFile(passwdFile)
-	if err != nil {
-		return "", fmt.Errorf("look up %s's shell: %w", name, err)
-	}
-	return shellOf(string(data), name), nil
-}
-
-// shellOf is name's shell in a passwd file's text, /bin/sh without one.
-func shellOf(passwd, name string) string {
-	for line := range strings.SplitSeq(passwd, "\n") {
-		fields := strings.Split(line, ":")
-		if len(fields) >= 7 && fields[0] == name && fields[6] != "" {
-			return fields[6]
+		if !slices.Contains(groups, uint32(g.GID)) {
+			groups = append(groups, uint32(g.GID))
 		}
 	}
-	return "/bin/sh"
+	return account{name: name, home: u.Home, shell: cmp.Or(u.Shell, defaultShell), uid: uint32(u.UID), gid: uint32(u.GID), groups: groups}, nil
 }
 
 // environ is a session's environment: PAM's, then the account's

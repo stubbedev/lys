@@ -1,12 +1,15 @@
 package useraccount
 
 import (
+	"errors"
 	"os"
-	"os/user"
 	"path/filepath"
 	"slices"
-	"strconv"
+	"strings"
 	"testing"
+
+	"github.com/stubbedev/lys/lib/userdb"
+	"github.com/stubbedev/lys/lib/userdb/userdbtest"
 )
 
 // lys's avatar wins over the one AccountsService left, which wins over
@@ -53,21 +56,39 @@ func TestAvatarsAreLookedForInLysThenAccountsServiceThenHome(t *testing.T) {
 	}
 }
 
-// The account comes from the passwd entry for the uid: an empty or
-// spoofed $USER does not change it.
-func TestCurrentIgnoresTheEnvironment(t *testing.T) {
-	want, err := user.LookupId(strconv.Itoa(os.Getuid()))
-	if err != nil {
-		t.Skipf("uid not in the passwd file: %v", err)
-	}
+// The account comes from the user database's record for the uid, an
+// account outside /etc/passwd among them: an empty or spoofed $USER does
+// not change it.
+func TestLookupResolvesTheUIDsRecord(t *testing.T) {
+	socket := userdbtest.Serve(t, userdbtest.DB{Users: []userdb.User{
+		{Name: "carol", UID: 70001, GID: 70001, RealName: "Carol Directory,Room 4", Home: "/home/carol"},
+		{Name: "dave", UID: 70002, GID: 70002, Home: "/home/dave"},
+	}})
+	prev := avatarCandidates
+	avatarCandidates = func(string, string) []string { return nil }
+	t.Cleanup(func() { avatarCandidates = prev })
 	for _, env := range []string{"", "mallory"} {
 		t.Setenv("USER", env)
-		acct, err := Current()
-		if err != nil || acct.Name != want.Username || acct.Home != want.HomeDir {
-			t.Errorf("$USER=%q: %+v, %v; want %s", env, acct, err, want.Username)
+		acct, err := Lookup(t.Context(), socket, 70001)
+		if want := (Account{Name: "carol", RealName: "Carol Directory", Home: "/home/carol"}); err != nil || acct != want {
+			t.Errorf("$USER=%q: %+v, %v; want %+v", env, acct, err, want)
 		}
-		if acct.RealName == "" {
-			t.Error("no real name, not even the login name")
-		}
+	}
+	if acct, err := Lookup(t.Context(), socket, 70002); err != nil || acct.RealName != "dave" {
+		t.Errorf("no real name: %+v, %v; want the login name", acct, err)
+	}
+}
+
+func TestLookupOfAnUnknownUIDFails(t *testing.T) {
+	socket := userdbtest.Serve(t, userdbtest.DB{})
+	if acct, err := Lookup(t.Context(), socket, 70001); !errors.Is(err, userdb.NoRecordFound) || !strings.Contains(err.Error(), "uid 70001") {
+		t.Errorf("Lookup = %+v, %v; want NoRecordFound for uid 70001", acct, err)
+	}
+}
+
+func TestLookupWithoutTheUserDatabaseFails(t *testing.T) {
+	socket := userdbtest.Missing(t)
+	if acct, err := Lookup(t.Context(), socket, 70001); err == nil || !strings.Contains(err.Error(), socket) {
+		t.Errorf("Lookup = %+v, %v; want an error naming %s", acct, err, socket)
 	}
 }

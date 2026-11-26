@@ -66,7 +66,7 @@ var (
 // ctx ends; stop takes its watch off the connection. An announcement
 // the watch hears while the first read runs is applied after it.
 func newSettings(ctx context.Context, n nm) (*Settings, func() error, error) {
-	s := &Settings{nm: n, owner: ownerName(), pluginDirs: pluginDirectories}
+	s := &Settings{nm: n, owner: ownerName(ctx), pluginDirs: pluginDirectories}
 	loaded := make(chan struct{})
 	watch, err := dbusx.WatchSignals(ctx, n.conn, dbusx.FromOwner(BusName),
 		func(err error) { log.Printf("network: settings: %v", err) },

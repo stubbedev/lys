@@ -4,12 +4,12 @@ package useraccount
 
 import (
 	"cmp"
+	"context"
 	"fmt"
-	"log"
 	"os"
-	"os/user"
 	"path/filepath"
-	"strconv"
+
+	"github.com/stubbedev/lys/lib/userdb"
 )
 
 // AvatarsDir is where lys keeps avatars, one file per login name,
@@ -30,19 +30,20 @@ type Account struct {
 	Avatar string
 }
 
-// Current is the account the process runs as, from its passwd entry by
-// uid, so an empty or spoofed $USER changes nothing. An account the
-// passwd file does not list (userdb, LDAP) falls back to what the
-// environment says, with a warning.
+// Current is the account the process runs as, from systemd's user
+// database by uid, so an empty or spoofed $USER changes nothing and an
+// account outside /etc/passwd (LDAP, systemd-homed) resolves too.
 func Current() (Account, error) {
-	u, err := user.LookupId(strconv.Itoa(os.Getuid()))
+	return Lookup(context.Background(), userdb.SocketPath, userdb.UID(os.Getuid())) //nolint:gosec // a uid is never negative
+}
+
+// Lookup is uid's account, from the user database at socket.
+func Lookup(ctx context.Context, socket string, uid userdb.UID) (Account, error) {
+	u, err := userdb.LookupUID(ctx, socket, uid)
 	if err != nil {
-		log.Printf("useraccount: uid %d is not in the passwd file (%v); using the environment's account", os.Getuid(), err)
-		if u, err = user.Current(); err != nil {
-			return Account{}, fmt.Errorf("look up the current user: %w", err)
-		}
+		return Account{}, fmt.Errorf("look up the account of uid %d: %w", uid, err)
 	}
-	return Account{Name: u.Username, RealName: cmp.Or(fullName(u.Name), u.Username), Home: u.HomeDir, Avatar: FindAvatar(u.Username, u.HomeDir)}, nil
+	return Account{Name: u.Name, RealName: cmp.Or(fullName(u.RealName), u.Name), Home: u.Home, Avatar: FindAvatar(u.Name, u.Home)}, nil
 }
 
 // FindAvatar is the first readable avatar for a login: lys's own, the

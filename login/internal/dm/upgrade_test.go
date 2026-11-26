@@ -11,7 +11,6 @@ import (
 	"net"
 	"os"
 	"os/signal"
-	"os/user"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -23,6 +22,8 @@ import (
 	"github.com/stubbedev/lys/lib/drm"
 	"github.com/stubbedev/lys/lib/fdtest"
 	"github.com/stubbedev/lys/lib/sockdir"
+	"github.com/stubbedev/lys/lib/userdb"
+	"github.com/stubbedev/lys/lib/userdb/userdbtest"
 	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/login/internal/auth"
@@ -38,6 +39,8 @@ const (
 	fakePanicEnv       = "LYS_FAKE_PANIC_RESUME"
 	fakeRootOnlyEnv    = "LYS_FAKE_ROOT_ONLY"
 	fakeGreeterFailEnv = "LYS_FAKE_GREETER_FAILS"
+	fakeUserDBEnv      = "LYS_FAKE_USERDB"
+	fakeGreeterUser    = "lys-fake-greeter"
 	fakeDaemonMode     = "fake-daemon"
 	burstSize          = 3000
 )
@@ -132,15 +135,11 @@ func fakeOptions(dir, runtime string) Options {
 	if err != nil {
 		panic(err)
 	}
-	u, err := user.Current()
-	if err != nil {
-		panic(err)
-	}
 	return Options{
 		Service:     "lys-login",
 		VT:          7,
 		Self:        self,
-		GreeterUser: u.Username,
+		GreeterUser: fakeGreeterUser,
 		Compositor:  []string{"sh"},
 		RuntimeDir:  runtime,
 		Greeter:     greeter.Options{ConfigPath: filepath.Join(dir, "config.yaml"), StatePath: filepath.Join(dir, "last-session")},
@@ -149,8 +148,18 @@ func fakeOptions(dir, runtime string) Options {
 	}
 }
 
+// useFakeGreeterAccount serves the fake greeter's account, the test's own
+// uid and gid, until the test ends, and is its user database's socket.
+func useFakeGreeterAccount(t *testing.T) string {
+	t.Helper()
+	path := userdbtest.Serve(t, userdbtest.DB{Users: []userdb.User{{Name: fakeGreeterUser, UID: userdb.UID(os.Getuid()), GID: userdb.GID(os.Getgid()), Home: os.TempDir()}}})
+	useUserDB(t, path)
+	return path
+}
+
 func fakeDaemon() int {
 	dir, runtime := os.Getenv(fakeDirEnv), os.Getenv(fakeRuntimeEnv)
+	userDB = os.Getenv(fakeUserDBEnv)
 	o := fakeOptions(dir, runtime)
 	may := func(uint32) bool { return true }
 	if os.Getenv(fakeRootOnlyEnv) != "" {
@@ -305,6 +314,7 @@ type fakeDM struct {
 
 func startFakeDM(t *testing.T, env ...string) *fakeDM {
 	t.Helper()
+	userDBPath := useFakeGreeterAccount(t)
 	runtime := sockdir.Dir(t)
 	dir, err := os.MkdirTemp("", "lys-fake-dm-")
 	if err != nil {
@@ -323,7 +333,7 @@ func startFakeDM(t *testing.T, env ...string) *fakeDM {
 	}
 	defer log.Close()
 	attr := &os.ProcAttr{
-		Env:   append(os.Environ(), fakeDirEnv+"="+dir, fakeRuntimeEnv+"="+runtime, fakeGenerationEnv+"=1"),
+		Env:   append(os.Environ(), fakeDirEnv+"="+dir, fakeRuntimeEnv+"="+runtime, fakeGenerationEnv+"=1", fakeUserDBEnv+"="+userDBPath),
 		Files: []*os.File{nil, log, log},
 	}
 	attr.Env = append(attr.Env, env...)
