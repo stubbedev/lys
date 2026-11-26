@@ -189,7 +189,7 @@ func TestARefusedRenameOrPictureLeavesTheAccountAndSaysWhy(t *testing.T) {
 	p.realName.SetText("Mallory")
 	p.realName.OnActivate("Mallory")
 	l.until("the refusal", func() bool { return p.problem.Visible() })
-	if p.problem.Text() != locale.T().Get("settings-users-failed") || !strings.Contains(p.problem.detail.Text(), "Not authorized") {
+	if p.problem.Text() != locale.T().Get("settings-users-failed") || p.problem.detail.Text() != errNotAuthorized.Error() {
 		t.Fatalf("the page reads %q over %q", p.problem.Text(), p.problem.detail.Text())
 	}
 	if got := f.named("alice").full; got != "Alice" || p.realName.Text() != "Alice" || p.face.Initials() != "A" {
@@ -198,7 +198,7 @@ func TestARefusedRenameOrPictureLeavesTheAccountAndSaysWhy(t *testing.T) {
 	p.problem.Clear()
 	stockAvatarChoice(t, p, 1).OnClick()
 	l.until("the second refusal", func() bool { return p.problem.Visible() })
-	if _, ok := f.made()[1].(accounts.SetPicture); !ok || !strings.Contains(p.problem.detail.Text(), "Not authorized") {
+	if _, ok := f.made()[1].(accounts.SetPicture); !ok || p.problem.detail.Text() != errNotAuthorized.Error() {
 		t.Fatalf("asked %#v, the page reads %q", f.made(), p.problem.detail.Text())
 	}
 }
