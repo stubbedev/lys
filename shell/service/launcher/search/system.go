@@ -15,8 +15,8 @@ import (
 	"github.com/stubbedev/lys/shell/service/launcher"
 )
 
-// System offers the session commands, through the commands the power
-// menu runs. Those that end what you are doing ask first: a fuzzy search
+// System offers the session commands, running what the power menu's
+// buttons run. Those that end what you are doing ask first: a fuzzy search
 // and an Enter should not be enough to reboot.
 type System struct {
 	env   Env
@@ -31,7 +31,7 @@ func (*System) Spec() Spec { return Spec{Section: SectionCommands, MinQuery: 2} 
 
 type systemCommand struct {
 	id, titleKey, keywords, icon string
-	command                      string
+	command                      config.PowerCommand
 	shown                        bool
 	confirm                      bool
 }
@@ -51,7 +51,7 @@ func (s *System) commands() []systemCommand {
 func (s *System) Load(_ context.Context, publish func([]Entry)) {
 	var entries []Entry
 	for _, c := range s.commands() {
-		if !c.shown || c.command == "" {
+		if !c.shown || c.command.IsNone() {
 			continue
 		}
 		id := "system:" + c.id
@@ -69,14 +69,37 @@ func (s *System) Actions(e Entry) []Action {
 	if !ok {
 		return nil
 	}
-	run := Action{Title: e.Title, Icon: c.icon, Run: func(context.Context) Outcome {
-		s.env.SpawnShell(c.command)
-		return Close{}
+	run := Action{Title: e.Title, Icon: c.icon, Run: func(ctx context.Context) Outcome {
+		return s.run(ctx, e.Title, c.command)
 	}}
 	if !c.confirm {
 		return []Action{run}
 	}
 	return []Action{confirmed(run)}
+}
+
+// errNoPowerRunner is a built-in asked of a launcher that has no way to
+// run one.
+var errNoPowerRunner = errors.New("no runner for the session's built-in actions")
+
+// run runs cmd: a user's command line through the shell, a built-in in
+// process, whose failure the panel says.
+func (s *System) run(ctx context.Context, title string, cmd config.PowerCommand) Outcome {
+	if line, ok := cmd.Shell(); ok {
+		s.env.SpawnShell(line)
+		return Close{}
+	}
+	b, ok := cmd.Builtin()
+	if !ok {
+		return Close{}
+	}
+	if s.env.RunPower == nil {
+		return failed(title, errNoPowerRunner)
+	}
+	if err := s.env.RunPower(ctx, b); err != nil {
+		return failed(title, err)
+	}
+	return Close{}
 }
 
 // confirmed is run behind a level that asks first.

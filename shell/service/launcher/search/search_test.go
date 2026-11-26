@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/launchermatch"
 	"github.com/stubbedev/lys/desktop/pango"
 	"github.com/stubbedev/lys/lib/fdtest"
@@ -904,7 +905,7 @@ func TestSystemConfirmsWhatEndsTheSession(t *testing.T) {
 	var ran []string
 	env := Env{SpawnShell: func(l string) { ran = append(ran, l) }}
 	p := config.DefaultsPower()
-	p.ShowLock, p.ShowReboot, p.LockCommand, p.RebootCommand = true, true, "lockit", "rebootit"
+	p.ShowLock, p.ShowReboot, p.LockCommand, p.RebootCommand = true, true, config.ShellPowerCommand("lockit"), config.ShellPowerCommand("rebootit")
 	sys := NewSystem(env, p)
 	var entries []Entry
 	sys.Load(context.Background(), func(e []Entry) { entries = e })
@@ -931,6 +932,44 @@ func TestSystemConfirmsWhatEndsTheSession(t *testing.T) {
 	prov.Actions(confirm[0])[0].Run(context.Background())
 	if !slices.Equal(ran, []string{"rebootit"}) {
 		t.Errorf("confirmed ran %v", ran)
+	}
+}
+
+// The default session commands are built-ins: they run in process
+// through RunPower and start nothing; a refusal stays in the panel,
+// said as the action's failure.
+func TestSystemRunsTheBuiltinsInProcess(t *testing.T) {
+	var spawned []string
+	var asked []config.PowerBuiltin
+	var refusal error
+	env := Env{
+		SpawnShell: func(l string) { spawned = append(spawned, l) },
+		RunPower: func(_ context.Context, b config.PowerBuiltin) error {
+			asked = append(asked, b)
+			return refusal
+		},
+	}
+	sys := NewSystem(env, config.DefaultsPower())
+	var entries []Entry
+	sys.Load(context.Background(), func(e []Entry) { entries = e })
+	lock := slices.IndexFunc(entries, func(e Entry) bool { return e.ID == "system:lock" })
+	if lock < 0 {
+		t.Fatalf("no lock in %+v", entries)
+	}
+	if _, ok := sys.Actions(entries[lock])[0].Run(context.Background()).(Close); !ok || !slices.Equal(asked, []config.PowerBuiltin{config.PowerBuiltinLock}) {
+		t.Errorf("lock asked %v", asked)
+	}
+	refusal = errors.New("access denied")
+	out, ok := sys.Actions(entries[lock])[0].Run(context.Background()).(Failed)
+	if !ok || !errors.Is(out.Err, refusal) || out.Summary != i18n.T("launcher-failed", i18n.Str("what", entries[lock].Title)) {
+		t.Errorf("a refused lock answered %#v", out)
+	}
+	if len(spawned) != 0 {
+		t.Errorf("the built-ins started %v", spawned)
+	}
+	sys = NewSystem(Env{SpawnShell: env.SpawnShell}, config.DefaultsPower())
+	if out, ok := sys.Actions(entries[lock])[0].Run(context.Background()).(Failed); !ok || !errors.Is(out.Err, errNoPowerRunner) {
+		t.Errorf("with no runner the lock answered %#v", out)
 	}
 }
 

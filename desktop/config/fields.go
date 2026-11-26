@@ -155,7 +155,7 @@ func collectFields(t reflect.Type, prefix []int) []fieldInfo {
 			case "deprecated":
 				info.deprecated = append(info.deprecated, value)
 			case "type":
-				if _, ok := semanticStrings[value]; !ok || !isPlainString(sf.Type) {
+				if _, ok := semanticStrings[value]; !ok || !isPlainString(sf.Type) && !encodesAsString(sf.Type) {
 					panic(fmt.Sprintf("config: %s.%s: type=%s needs a declared semantic string type on a string field", t.Name(), sf.Name, value))
 				}
 				info.semantic = value

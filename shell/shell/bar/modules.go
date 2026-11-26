@@ -127,6 +127,9 @@ type ModuleContext struct {
 	// opens and the dashboard's session buttons request; nil without
 	// one, and then the dashboard has no session card.
 	PowerMenu *powermenu.Menu
+	// RunPower runs a built-in session action, as the power menu's
+	// buttons do; nil in headless construction.
+	RunPower func(context.Context, config.PowerBuiltin) error
 	// Dropdowns opens the dropdown:<name> popovers; RunWith owns one
 	// registry across outputs.
 	Dropdowns *dropdownRegistry

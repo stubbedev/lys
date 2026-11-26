@@ -1,6 +1,10 @@
 package search
 
 import (
+	"context"
+
+	"github.com/stubbedev/lys/desktop/config"
+
 	"github.com/stubbedev/lys/shell/service/launcher"
 	"github.com/stubbedev/lys/shell/service/launcher/modes"
 )
@@ -16,11 +20,16 @@ type Env struct {
 	Open func(target string) error
 	// Terminal is the terminal emulator command ("" autodetects).
 	Terminal string
+	// RunPower runs a built-in session action in process; nil has none
+	// to run.
+	RunPower func(context.Context, config.PowerBuiltin) error
 }
 
-// RealEnv spawns and opens for real.
-func RealEnv(terminal string) Env {
+// RealEnv spawns and opens for real, and runs the session's built-ins
+// through runPower.
+func RealEnv(terminal string, runPower func(context.Context, config.PowerBuiltin) error) Env {
 	return Env{
+		RunPower:   runPower,
 		Spawn:      launcher.RunArgv,
 		SpawnShell: launcher.RunShell,
 		Open:       func(target string) error { return launcher.Open(target, terminal, "") },

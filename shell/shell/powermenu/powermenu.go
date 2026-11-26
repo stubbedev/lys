@@ -60,16 +60,16 @@ var actions = [...]Action{Lock, LogOut, Suspend, Reboot, ShutDown}
 type spec struct {
 	icon, labelID string
 	danger        bool
-	command       func(config.PowerConfig) string
+	command       func(config.PowerConfig) config.PowerCommand
 	visible       func(config.PowerConfig) bool
 }
 
 var specs = [...]spec{
-	Lock:     {"ld-lock-symbolic", "power-menu-lock", false, func(c config.PowerConfig) string { return c.LockCommand }, func(c config.PowerConfig) bool { return c.ShowLock }},
-	LogOut:   {"ld-log-out-symbolic", "power-menu-log-out", true, func(c config.PowerConfig) string { return c.LogoutCommand }, func(c config.PowerConfig) bool { return c.ShowLogout }},
-	Suspend:  {"ld-moon-symbolic", "power-menu-suspend", false, func(c config.PowerConfig) string { return c.SuspendCommand }, func(c config.PowerConfig) bool { return c.ShowSuspend }},
-	Reboot:   {"ld-rotate-ccw-symbolic", "power-menu-reboot", true, func(c config.PowerConfig) string { return c.RebootCommand }, func(c config.PowerConfig) bool { return c.ShowReboot }},
-	ShutDown: {"ld-power-symbolic", "power-menu-shut-down", true, func(c config.PowerConfig) string { return c.ShutdownCommand }, func(c config.PowerConfig) bool { return c.ShowShutdown }},
+	Lock:     {"ld-lock-symbolic", "power-menu-lock", false, func(c config.PowerConfig) config.PowerCommand { return c.LockCommand }, func(c config.PowerConfig) bool { return c.ShowLock }},
+	LogOut:   {"ld-log-out-symbolic", "power-menu-log-out", true, func(c config.PowerConfig) config.PowerCommand { return c.LogoutCommand }, func(c config.PowerConfig) bool { return c.ShowLogout }},
+	Suspend:  {"ld-moon-symbolic", "power-menu-suspend", false, func(c config.PowerConfig) config.PowerCommand { return c.SuspendCommand }, func(c config.PowerConfig) bool { return c.ShowSuspend }},
+	Reboot:   {"ld-rotate-ccw-symbolic", "power-menu-reboot", true, func(c config.PowerConfig) config.PowerCommand { return c.RebootCommand }, func(c config.PowerConfig) bool { return c.ShowReboot }},
+	ShutDown: {"ld-power-symbolic", "power-menu-shut-down", true, func(c config.PowerConfig) config.PowerCommand { return c.ShutdownCommand }, func(c config.PowerConfig) bool { return c.ShowShutdown }},
 }
 
 // Icon is the action's glyph.
@@ -82,7 +82,7 @@ func (a Action) Label() string { return i18n.T(specs[a].labelID) }
 func (a Action) Danger() bool { return specs[a].danger }
 
 // Command is the action's [modules.power] command.
-func (a Action) Command(c config.PowerConfig) string { return specs[a].command(c) }
+func (a Action) Command(c config.PowerConfig) config.PowerCommand { return specs[a].command(c) }
 
 // shownActions are the actions c shows, in order, with also among
 // them wherever c hides it.
@@ -108,8 +108,8 @@ type Deps struct {
 	Config func() *config.Config
 	// Open maps the overlay.
 	Open func(cfg app.LayerConfig) (Window, error)
-	// Run runs a command without waiting for it (spawn.Quiet).
-	Run func(cmd string)
+	// Run runs action a's command, never none, without waiting for it.
+	Run func(a Action, cmd config.PowerCommand)
 	// Font shapes the labels; Sheet (the power-menu-* rules) styles
 	// the overlay.
 	Font  render.Font
@@ -142,7 +142,7 @@ func (m *Menu) Show() {
 func (m *Menu) Request(a Action) {
 	cfg := m.d.Config()
 	if !a.Danger() {
-		m.run(a.Command(cfg.Power))
+		m.run(a, a.Command(cfg.Power))
 		return
 	}
 	shown := shownActions(cfg.Power, a)
@@ -243,14 +243,17 @@ func (m *Menu) button(a Action, scale float64) *widget.Button {
 	}
 	b.SetTooltip(a.Label())
 	widgets.Pin(b, scaled(buttonPx, scale), scaled(buttonPx, scale))
-	b.OnClick = func() { m.hide(a.Command(m.d.Config().Power)) }
+	b.OnClick = func() {
+		cmd := a.Command(m.d.Config().Power)
+		m.hide(func() { m.run(a, cmd) })
+	}
 	return b
 }
 
 // Cancel plays the exit and closes the menu.
-func (m *Menu) Cancel() { m.hide("") }
+func (m *Menu) Cancel() { m.hide(func() {}) }
 
-func (m *Menu) hide(then string) {
+func (m *Menu) hide(then func()) {
 	if m.win == nil || m.closing {
 		return
 	}
@@ -261,14 +264,14 @@ func (m *Menu) hide(then string) {
 		if m.win == win {
 			m.win, m.rev, m.closing = nil, nil, false
 		}
-		m.run(then)
+		then()
 	})
 }
 
-// run runs cmd; an empty one runs nothing.
-func (m *Menu) run(cmd string) {
-	if cmd != "" {
-		m.d.Run(cmd)
+// run runs a's cmd; none runs nothing.
+func (m *Menu) run(a Action, cmd config.PowerCommand) {
+	if !cmd.IsNone() {
+		m.d.Run(a, cmd)
 	}
 }
 

@@ -2,44 +2,33 @@ package main
 
 import (
 	"context"
-	"fmt"
 
-	"github.com/stubbedev/lys/desktop/service/lyswm"
 	"github.com/stubbedev/lys/lib/logind"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
 	"github.com/stubbedev/lys/shell/internal/cli"
+	"github.com/stubbedev/lys/shell/service/sessionctl"
 )
 
-// logoutCommand ends the user's session: lys-wm's exit action while
-// lys-wm runs, else logind's Terminate of the session "auto" resolves to.
+// logoutCommand ends the user's session as the power menu's built-in
+// Log out does, dialling the system bus only when logind ends it.
 func logoutCommand() *cli.Command {
 	return &cli.Command{
 		Name:  "logout",
 		About: "Log out of the session through lys-wm or logind",
 		Run: func(*cli.Matches) error {
-			if lyswm.IsRunning() {
-				if err := lyswm.Dispatch("exit"); err != nil {
-					return fmt.Errorf("log out: %w", err)
+			ctx := context.Background()
+			var conn *dbus.Conn
+			defer func() {
+				if conn != nil {
+					_ = conn.Close()
 				}
-				return nil
-			}
-			return logout(context.Background())
+			}()
+			return sessionctl.Logout(ctx, func() (*dbus.Conn, error) {
+				c, err := logind.Dial(ctx)
+				conn = c
+				return c, err
+			})
 		},
 	}
-}
-
-func logout(ctx context.Context) error {
-	conn, err := logind.Dial(ctx)
-	if err != nil {
-		return fmt.Errorf("log out: %w", err)
-	}
-	defer func() { _ = conn.Close() }()
-	session, err := logind.NewManager(conn).GetSession(ctx, logind.AutoSession)
-	if err != nil {
-		return fmt.Errorf("log out: %w", err)
-	}
-	if err := session.Terminate(ctx); err != nil {
-		return fmt.Errorf("log out: %w", err)
-	}
-	return nil
 }

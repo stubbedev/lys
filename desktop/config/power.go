@@ -24,16 +24,23 @@ type PowerConfig struct {
 	ScrollDown ClickAction `cfg:"scroll-down"`
 	// Action on left click. Default opens lys-shell's native power menu (`:menu`).
 	LeftClick ClickAction `cfg:"left-click"`
-	// Command run by the power menu's Lock button.
-	LockCommand string `cfg:"lock-command,type=Command"`
-	// Command run by the power menu's Log out button.
-	LogoutCommand string `cfg:"logout-command,type=Command"`
-	// Command run by the power menu's Suspend button.
-	SuspendCommand string `cfg:"suspend-command,type=Command"`
-	// Command run by the power menu's Reboot button.
-	RebootCommand string `cfg:"reboot-command,type=Command"`
-	// Command run by the power menu's Shut down button.
-	ShutdownCommand string `cfg:"shutdown-command,type=Command"`
+	// What the power menu's Lock button runs. The default `:lock` asks logind
+	// to lock the session, which the lock screen answers; any other string
+	// is a shell command line.
+	LockCommand PowerCommand `cfg:"lock-command,type=Command"`
+	// What the power menu's Log out button runs. The default `:logout` ends
+	// the session through lys-wm, else logind; any other string is a shell
+	// command line.
+	LogoutCommand PowerCommand `cfg:"logout-command,type=Command"`
+	// What the power menu's Suspend button runs. The default `:suspend`
+	// asks logind to suspend; any other string is a shell command line.
+	SuspendCommand PowerCommand `cfg:"suspend-command,type=Command"`
+	// What the power menu's Reboot button runs. The default `:reboot` asks
+	// logind to reboot; any other string is a shell command line.
+	RebootCommand PowerCommand `cfg:"reboot-command,type=Command"`
+	// What the power menu's Shut down button runs. The default `:poweroff`
+	// asks logind to power off; any other string is a shell command line.
+	ShutdownCommand PowerCommand `cfg:"shutdown-command,type=Command"`
 	// Show the Lock button in the power menu.
 	ShowLock bool `cfg:"show-lock"`
 	// Show the Log out button in the power menu.
@@ -45,16 +52,6 @@ type PowerConfig struct {
 	// Show the Shut down button in the power menu.
 	ShowShutdown bool `cfg:"show-shutdown"`
 }
-
-// DefaultLockCommand is the default command of the power menu's and the
-// dashboard's Lock buttons. With no session argument loginctl locks
-// logind's "auto" session, which for the systemd user unit, outside any
-// session, is the user's display session.
-const DefaultLockCommand = "loginctl lock-session"
-
-// DefaultLogoutCommand is the default command of the power menu's and
-// the dashboard's Log out buttons.
-const DefaultLogoutCommand = "lys-shell logout"
 
 // DefaultsPower returns the schema defaults.
 func DefaultsPower() PowerConfig {
@@ -69,11 +66,11 @@ func DefaultsPower() PowerConfig {
 		ScrollUp:        ClickAction{},
 		ScrollDown:      ClickAction{},
 		LeftClick:       ParseClickAction(":menu"),
-		LockCommand:     DefaultLockCommand,
-		LogoutCommand:   DefaultLogoutCommand,
-		SuspendCommand:  "systemctl suspend",
-		RebootCommand:   "systemctl reboot",
-		ShutdownCommand: "systemctl poweroff",
+		LockCommand:     BuiltinPowerCommand(PowerBuiltinLock),
+		LogoutCommand:   BuiltinPowerCommand(PowerBuiltinLogout),
+		SuspendCommand:  BuiltinPowerCommand(PowerBuiltinSuspend),
+		RebootCommand:   BuiltinPowerCommand(PowerBuiltinReboot),
+		ShutdownCommand: BuiltinPowerCommand(PowerBuiltinPowerOff),
 		ShowLock:        true,
 		ShowLogout:      true,
 		ShowSuspend:     true,

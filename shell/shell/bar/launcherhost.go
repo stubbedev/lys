@@ -142,7 +142,7 @@ func panelDeps(current func() *config.Config, live func() ModuleContext, browser
 			controls.wallpaper = openPicker
 		}
 		d := search.Deps{
-			Env:           search.RealEnv(cfg.Launcher.Terminal),
+			Env:           search.RealEnv(cfg.Launcher.Terminal, ctx.RunPower),
 			Windows:       modes.DetectWindows(),
 			Browser:       browser,
 			Toggles:       controls.toggles,

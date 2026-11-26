@@ -2,10 +2,8 @@ package main
 
 import (
 	"slices"
-	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/service/lyswm/lyswmtest"
 	"github.com/stubbedev/lys/lib/logind"
 	"github.com/stubbedev/lys/lib/logind/logindtest"
@@ -13,38 +11,18 @@ import (
 	"github.com/stubbedev/lys/lib/wmipc"
 )
 
-func defaultLogoutCommands() []struct{ name, command string } {
-	return []struct{ name, command string }{
-		{"power", config.DefaultsPower().LogoutCommand},
-	}
-}
-
-func runLysShellCommand(t *testing.T, command string) (stdout, stderr string, code int) {
-	t.Helper()
-	argv := strings.Fields(command)
-	if len(argv) == 0 || argv[0] != "lys-shell" {
-		t.Fatalf("default logout command %q is not a lys-shell command", command)
-	}
-	return runCaptured(t, false, argv[1:]...)
-}
-
-// The power menu's and the dashboard's default Log out commands end
-// the user's display session with no XDG_SESSION_ID to go on.
-func TestDefaultLogoutCommandsEndTheDisplaySession(t *testing.T) {
+// `lys-shell logout` ends the user's display session with no
+// XDG_SESSION_ID to go on.
+func TestLogoutEndsTheDisplaySession(t *testing.T) {
 	const display logind.SessionID = "2"
-	for _, c := range defaultLogoutCommands() {
-		command := c.command
-		t.Run(c.name, func(t *testing.T) {
-			t.Setenv(wmipc.SocketEnv, "")
-			fake := logindtest.StartUnit(t, logindtest.Config{Display: display})
-			stdout, stderr, code := runLysShellCommand(t, command)
-			if code != 0 || stdout != "" || stderr != "" {
-				t.Fatalf("%s: code %d stdout %q stderr %q", command, code, stdout, stderr)
-			}
-			if got := terminated(fake); !slices.Equal(got, []dbus.ObjectPath{logind.SessionPath(display)}) {
-				t.Errorf("terminated %v, want [%s]", got, logind.SessionPath(display))
-			}
-		})
+	t.Setenv(wmipc.SocketEnv, "")
+	fake := logindtest.StartUnit(t, logindtest.Config{Display: display})
+	stdout, stderr, code := runCaptured(t, false, "logout")
+	if code != 0 || stdout != "" || stderr != "" {
+		t.Fatalf("logout: code %d stdout %q stderr %q", code, stdout, stderr)
+	}
+	if got := terminated(fake); !slices.Equal(got, []dbus.ObjectPath{logind.SessionPath(display)}) {
+		t.Errorf("terminated %v, want [%s]", got, logind.SessionPath(display))
 	}
 }
 
@@ -62,22 +40,16 @@ func TestLogoutWithoutASessionIsAnError(t *testing.T) {
 	}
 }
 
-func TestDefaultLogoutCommandsExitLysWM(t *testing.T) {
-	const display logind.SessionID = "2"
-	for _, c := range defaultLogoutCommands() {
-		command := c.command
-		t.Run(c.name, func(t *testing.T) {
-			fake := logindtest.StartUnit(t, logindtest.Config{Display: display})
-			wm := lyswmtest.Start(t)
-			stdout, stderr, code := runLysShellCommand(t, command)
-			if code != 0 || stdout != "" || stderr != "" {
-				t.Fatalf("%s: code %d stdout %q stderr %q", command, code, stdout, stderr)
-			}
-			wm.ExpectDispatch(t, "exit")
-			if got := terminated(fake); len(got) != 0 {
-				t.Errorf("logind terminated %v while lys-wm runs", got)
-			}
-		})
+func TestLogoutExitsLysWM(t *testing.T) {
+	fake := logindtest.StartUnit(t, logindtest.Config{Display: "2"})
+	wm := lyswmtest.Start(t)
+	stdout, stderr, code := runCaptured(t, false, "logout")
+	if code != 0 || stdout != "" || stderr != "" {
+		t.Fatalf("logout: code %d stdout %q stderr %q", code, stdout, stderr)
+	}
+	wm.ExpectDispatch(t, "exit")
+	if got := terminated(fake); len(got) != 0 {
+		t.Errorf("logind terminated %v while lys-wm runs", got)
 	}
 }
 

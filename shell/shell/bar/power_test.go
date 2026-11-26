@@ -22,7 +22,7 @@ func TestLoadFileAppliesPower(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadFile: %v", err)
 	}
-	if c.Power.LockCommand != "swaylock" || c.Power.ShutdownCommand != "" || c.Power.LogoutCommand != "loginctl kill-session" {
+	if c.Power.LockCommand != config.ShellPowerCommand("swaylock") || !c.Power.ShutdownCommand.IsNone() || c.Power.LogoutCommand != config.ShellPowerCommand("loginctl kill-session") {
 		t.Errorf("power = %+v", c.Power)
 	}
 	if c.Power.Icon().Name != "ld-power-symbolic" || !c.Power.Icon().Show {
@@ -55,7 +55,7 @@ func TestPowerMenuVerbOpensTheMenu(t *testing.T) {
 			opened++
 			return treetest.NewLayer(cfg, render.Rect{W: 1600, H: 1000}), nil
 		},
-		Run:  func(string) {},
+		Run:  func(powermenu.Action, config.PowerCommand) {},
 		Font: ctx.Font,
 	})
 	mod, err := createOnHeadlessLoop("power", ctx)

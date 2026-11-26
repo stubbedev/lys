@@ -1,13 +1,15 @@
 package config
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 )
 
 // ClickAction is one module input binding, parsed from the schema's
 // ClickAction strings: "dropdown:<name>", "brightness:<delta>" or
-// "brightness:toggle", an empty string for no action, and anything
+// "brightness:toggle", a running shell's own action by its CLI
+// spelling (ShellBuiltin), an empty string for no action, and anything
 // else runs as a shell command. Every string parses: a brightness
 // delta that is not an int32 is no action.
 type ClickAction struct {
@@ -15,6 +17,7 @@ type ClickAction struct {
 	Dropdown   string
 	Command    string
 	Brightness int32
+	Builtin    ShellBuiltin
 }
 
 // ClickKind discriminates the action.
@@ -27,7 +30,52 @@ const (
 	ClickShell
 	ClickBrightness
 	ClickBrightnessToggle
+	ClickShellBuiltin
 )
+
+// ShellBuiltin is an action of the running shell's own state a binding
+// names by the `lys-shell` command line that does the same from outside.
+type ShellBuiltin uint8
+
+// The shell's built-in binding actions.
+const (
+	ShellBuiltinIdleToggle ShellBuiltin = iota + 1
+	ShellBuiltinIdleToggleIndefinite
+	ShellBuiltinDndToggle
+	ShellBuiltinRecorderToggle
+	ShellBuiltinRecorderStart
+	ShellBuiltinRecorderStop
+	ShellBuiltinRecorderPause
+	ShellBuiltinRecorderResume
+)
+
+var shellBuiltinCommands = [...]string{
+	ShellBuiltinIdleToggle:           "lys-shell idle toggle",
+	ShellBuiltinIdleToggleIndefinite: "lys-shell idle toggle --indefinite",
+	ShellBuiltinDndToggle:            "lys-shell notify dnd",
+	ShellBuiltinRecorderToggle:       "lys-shell recorder toggle",
+	ShellBuiltinRecorderStart:        "lys-shell recorder start",
+	ShellBuiltinRecorderStop:         "lys-shell recorder stop",
+	ShellBuiltinRecorderPause:        "lys-shell recorder pause",
+	ShellBuiltinRecorderResume:       "lys-shell recorder resume",
+}
+
+// ShellBuiltins are every ShellBuiltin.
+func ShellBuiltins() []ShellBuiltin {
+	out := make([]ShellBuiltin, 0, len(shellBuiltinCommands)-1)
+	for b := ShellBuiltinIdleToggle; int(b) < len(shellBuiltinCommands); b++ {
+		out = append(out, b)
+	}
+	return out
+}
+
+// String is the builtin's `lys-shell` command line.
+func (b ShellBuiltin) String() string {
+	if b < ShellBuiltinIdleToggle || int(b) >= len(shellBuiltinCommands) {
+		return fmt.Sprintf("ShellBuiltin(%d)", uint8(b))
+	}
+	return shellBuiltinCommands[b]
+}
 
 // ParseClickAction parses one schema string.
 func ParseClickAction(s string) ClickAction {
@@ -47,6 +95,11 @@ func ParseClickAction(s string) ClickAction {
 	if name, ok := strings.CutPrefix(s, "dropdown:"); ok {
 		return ClickAction{Kind: ClickDropdown, Dropdown: name}
 	}
+	for _, b := range ShellBuiltins() {
+		if b.String() == s {
+			return ClickAction{Kind: ClickShellBuiltin, Builtin: b}
+		}
+	}
 	return ClickAction{Kind: ClickShell, Command: s}
 }
 
@@ -61,6 +114,8 @@ func (a ClickAction) String() string {
 		return "brightness:toggle"
 	case ClickShell:
 		return a.Command
+	case ClickShellBuiltin:
+		return a.Builtin.String()
 	}
 	return ""
 }

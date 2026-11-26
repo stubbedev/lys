@@ -33,7 +33,6 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/dockview"
 	"github.com/stubbedev/lys/desktop/shell/layers"
 	"github.com/stubbedev/lys/desktop/shell/lockclient"
-	"github.com/stubbedev/lys/desktop/spawn"
 	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/lib/dbusx"
 	"github.com/stubbedev/lys/lib/glibclocale"
@@ -57,6 +56,7 @@ import (
 	"github.com/stubbedev/lys/shell/service/privacy"
 	"github.com/stubbedev/lys/shell/service/recorder"
 	"github.com/stubbedev/lys/shell/service/screenshare"
+	"github.com/stubbedev/lys/shell/service/sessionctl"
 	"github.com/stubbedev/lys/shell/service/shellipc"
 	"github.com/stubbedev/lys/shell/service/sni"
 	"github.com/stubbedev/lys/shell/service/sounds"
@@ -611,6 +611,8 @@ func (s *shellStart) mount() {
 			o.ShowToast(widgetipc.ToastRequest{Label: &label, Icon: &icon})
 		}
 	}
+	power := powerRunner{system: sessionctl.On(s.system), invoke: application.Invoke, toast: baseCtx.Toast}
+	baseCtx.RunPower = power.builtin
 	baseCtx.PowerMenu = powermenu.New(powermenu.Deps{
 		Config: current.Load,
 		Open: func(cfg app.LayerConfig) (powermenu.Window, error) {
@@ -620,7 +622,7 @@ func (s *shellStart) mount() {
 			}
 			return w, nil
 		},
-		Run:   spawn.Quiet,
+		Run:   power.run,
 		Font:  font,
 		Sheet: theme.Sheet,
 	})

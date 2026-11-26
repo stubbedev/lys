@@ -215,7 +215,7 @@ func newSessionHarness(t *testing.T, actions ...config.SessionAction) *sessionHa
 			h.opened = append(h.opened, w)
 			return w, nil
 		},
-		Run:  func(cmd string) { h.ran = append(h.ran, cmd) },
+		Run:  func(_ powermenu.Action, cmd config.PowerCommand) { h.ran = append(h.ran, cmd.String()) },
 		Font: ctx.Font,
 	})
 	_, _, h.btns = sessionCardTree(t, userSessionSection(ctx))
@@ -244,7 +244,7 @@ func TestOneClickOnASessionEndingActionRunsNothing(t *testing.T) {
 
 func TestConfirmingRebootRunsThePowerModulesCommand(t *testing.T) {
 	h := newSessionHarness(t, config.SessionActionReboot)
-	h.cfg.Power.RebootCommand = "power-reboot"
+	h.cfg.Power.RebootCommand = config.ShellPowerCommand("power-reboot")
 	h.btns[0].OnClick()
 	h.key(t, "Return")
 	if len(h.ran) != 1 || h.ran[0] != "power-reboot" {
@@ -263,7 +263,7 @@ func TestDismissingTheConfirmationRunsNothing(t *testing.T) {
 
 func TestLockRunsThePowerModulesCommandAtOnce(t *testing.T) {
 	h := newSessionHarness(t, config.SessionActionLock)
-	h.cfg.Power.LockCommand = "power-lock"
+	h.cfg.Power.LockCommand = config.ShellPowerCommand("power-lock")
 	h.btns[0].OnClick()
 	if len(h.opened) != 0 || len(h.ran) != 1 || h.ran[0] != "power-lock" {
 		t.Errorf("lock: opened %d menus, ran %v; want modules.power.lock-command at once", len(h.opened), h.ran)
@@ -272,7 +272,7 @@ func TestLockRunsThePowerModulesCommandAtOnce(t *testing.T) {
 
 func TestSuspendRunsThePowerModulesCommandAtOnce(t *testing.T) {
 	h := newSessionHarness(t, config.SessionActionSuspend)
-	h.cfg.Power.SuspendCommand = "power-suspend"
+	h.cfg.Power.SuspendCommand = config.ShellPowerCommand("power-suspend")
 	h.btns[0].OnClick()
 	if len(h.opened) != 0 || len(h.ran) != 1 || h.ran[0] != "power-suspend" {
 		t.Errorf("suspend: opened %d menus, ran %v; want modules.power.suspend-command at once", len(h.opened), h.ran)

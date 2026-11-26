@@ -38,7 +38,7 @@ func newHarness(t *testing.T) *harness {
 			h.windows = append(h.windows, w)
 			return w, nil
 		},
-		Run:  func(cmd string) { h.ran = append(h.ran, cmd) },
+		Run:  func(_ Action, cmd config.PowerCommand) { h.ran = append(h.ran, cmd.String()) },
 		Font: face,
 	})
 	return h
@@ -168,7 +168,7 @@ func TestHiddenActionsAreLeftOut(t *testing.T) {
 
 func TestButtonRunsItsCommandAfterTheExit(t *testing.T) {
 	h := newHarness(t)
-	h.cfg.Power.SuspendCommand = "systemctl suspend"
+	h.cfg.Power.SuspendCommand = config.ShellPowerCommand("systemctl suspend")
 	h.m.Show()
 	h.m.rev.Finish()
 	h.buttons(t)[2].OnClick() // lock, log out, suspend
@@ -271,7 +271,7 @@ func (h *harness) press(t *testing.T, name string) bool {
 func TestReturnRunsTheButtonTabReached(t *testing.T) {
 	h := newHarness(t)
 	h.cfg.Animations.Enabled = false
-	h.cfg.Power.SuspendCommand = "suspend-now"
+	h.cfg.Power.SuspendCommand = config.ShellPowerCommand("suspend-now")
 	h.m.Show()
 	h.press(t, "Tab")
 	h.press(t, "Tab")
@@ -287,7 +287,7 @@ func TestReturnRunsTheButtonTabReached(t *testing.T) {
 func TestKPEnterRunsTheButtonShiftTabReached(t *testing.T) {
 	h := newHarness(t)
 	h.cfg.Animations.Enabled = false
-	h.cfg.Power.ShutdownCommand = "power-off-now"
+	h.cfg.Power.ShutdownCommand = config.ShellPowerCommand("power-off-now")
 	h.m.Show()
 	h.press(t, "Shift+Tab")
 	buttons := h.buttons(t)
@@ -303,7 +303,7 @@ func TestKPEnterRunsTheButtonShiftTabReached(t *testing.T) {
 func TestArrowsContinueFromTheButtonTabReached(t *testing.T) {
 	h := newHarness(t)
 	h.cfg.Animations.Enabled = false
-	h.cfg.Power.RebootCommand = "reboot-now"
+	h.cfg.Power.RebootCommand = config.ShellPowerCommand("reboot-now")
 	h.m.Show()
 	buttons := h.buttons(t)
 	h.press(t, "Tab")
@@ -341,7 +341,7 @@ func TestReturnRunsTheButtonThePointerFocused(t *testing.T) {
 		t.Fatalf("a cancelled press ran %v and focused %v, want nothing run and the suspend button focused", h.ran, router.Focused())
 	}
 	h.press(t, "Return")
-	if len(h.ran) != 1 || h.ran[0] != h.cfg.Power.SuspendCommand {
+	if len(h.ran) != 1 || h.ran[0] != h.cfg.Power.SuspendCommand.String() {
 		t.Errorf("ran %v, want the suspend command alone", h.ran)
 	}
 }
@@ -362,7 +362,7 @@ func TestReturnRightAfterShowRunsTheFirstAction(t *testing.T) {
 		if !h.press(t, key) {
 			t.Fatalf("%s was not taken", key)
 		}
-		if len(h.ran) != 1 || h.ran[0] != h.cfg.Power.LockCommand {
+		if len(h.ran) != 1 || h.ran[0] != h.cfg.Power.LockCommand.String() {
 			t.Errorf("%s ran %v, want the lock command alone", key, h.ran)
 		}
 	}
@@ -374,7 +374,7 @@ func TestReturnRunsTheButtonTheArrowsReached(t *testing.T) {
 	h.m.Show()
 	h.press(t, "Left")
 	h.press(t, "Return")
-	if len(h.ran) != 1 || h.ran[0] != h.cfg.Power.ShutdownCommand {
+	if len(h.ran) != 1 || h.ran[0] != h.cfg.Power.ShutdownCommand.String() {
 		t.Errorf("ran %v, want the shut-down command", h.ran)
 	}
 }
@@ -485,10 +485,10 @@ func TestARequestForASafeActionRunsAtOnce(t *testing.T) {
 	if len(h.opened) != 0 {
 		t.Error("a safe request opened the menu")
 	}
-	if want := []string{h.cfg.Power.LockCommand, h.cfg.Power.SuspendCommand}; !slices.Equal(h.ran, want) {
+	if want := []string{h.cfg.Power.LockCommand.String(), h.cfg.Power.SuspendCommand.String()}; !slices.Equal(h.ran, want) {
 		t.Errorf("ran %v, want %v", h.ran, want)
 	}
-	h.cfg.Power.LockCommand = ""
+	h.cfg.Power.LockCommand = config.PowerCommand{}
 	h.m.Request(Lock)
 	if len(h.ran) != 2 {
 		t.Errorf("an empty command ran: %v", h.ran)
@@ -510,7 +510,7 @@ func TestARequestToEndTheSessionWaitsForConfirmation(t *testing.T) {
 			t.Errorf("action %d: the menu opened on another button", a)
 		}
 		h.press(t, "Return")
-		if want := a.Command(h.cfg.Power); len(h.ran) != 1 || h.ran[0] != want {
+		if want := a.Command(h.cfg.Power).String(); len(h.ran) != 1 || h.ran[0] != want {
 			t.Errorf("action %d confirmed ran %v, want %q", a, h.ran, want)
 		}
 	}
@@ -530,7 +530,7 @@ func TestARequestShowsTheActionTheConfigHides(t *testing.T) {
 	h := newHarness(t)
 	h.cfg.Animations.Enabled = false
 	h.cfg.Power.ShowReboot = false
-	h.cfg.Power.RebootCommand = "reboot-now"
+	h.cfg.Power.RebootCommand = config.ShellPowerCommand("reboot-now")
 	h.m.Request(Reboot)
 	buttons := h.buttons(t)
 	if len(buttons) != 5 || h.windows[0].Focused() != widget.Widget(buttons[3]) {
@@ -549,7 +549,7 @@ func TestARequestShowsTheActionTheConfigHides(t *testing.T) {
 func TestReturnRightAfterOpeningRunsTheFirstShownActionWithTheKeyboardOnIt(t *testing.T) {
 	h := newHarness(t)
 	h.cfg.Power.ShowLock = false
-	h.cfg.Power.LogoutCommand = "log-out-now"
+	h.cfg.Power.LogoutCommand = config.ShellPowerCommand("log-out-now")
 	h.m.Show()
 	if got, want := h.windows[0].Focused(), widget.Widget(h.buttons(t)[0]); got != want {
 		t.Fatalf("focused %v on open, want the first shown button, log out", got)
@@ -563,7 +563,7 @@ func TestReturnRightAfterOpeningRunsTheFirstShownActionWithTheKeyboardOnIt(t *te
 
 func TestARequestToEndTheSessionOpensWithTheKeyboardOnIt(t *testing.T) {
 	h := newHarness(t)
-	h.cfg.Power.ShutdownCommand = "power-off-now"
+	h.cfg.Power.ShutdownCommand = config.ShellPowerCommand("power-off-now")
 	h.m.Request(ShutDown)
 	buttons := h.buttons(t)
 	if got, want := h.windows[0].Focused(), widget.Widget(buttons[len(buttons)-1]); got != want {

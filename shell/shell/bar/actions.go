@@ -6,15 +6,22 @@ import (
 	"strings"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/pulse"
 	"github.com/stubbedev/lys/desktop/spawn"
 
 	"github.com/stubbedev/lys/shell/internal/audiolevel"
 	"github.com/stubbedev/lys/shell/service/brightness"
+	"github.com/stubbedev/lys/shell/service/recorder"
+	"github.com/stubbedev/lys/shell/service/sessionctl"
+	"github.com/stubbedev/lys/shell/shell/powermenu"
 )
 
+// spawnQuiet runs a user's shell command line (a seam for tests).
+var spawnQuiet = spawn.Quiet
+
 // runClickAction dispatches one binding: brightness steps and toggles
-// drive every backlight natively, lys-shell builtins run in-process,
+// drive every backlight natively, the shell's builtins run in-process,
 // and everything else shells out.
 func runClickAction(ctx ModuleContext, action config.ClickAction) {
 	switch action.Kind {
@@ -27,11 +34,94 @@ func runClickAction(ctx ModuleContext, action config.ClickAction) {
 		stepBrightness(ctx, action.Brightness)
 	case config.ClickBrightnessToggle:
 		toggleBrightness(ctx)
+	case config.ClickShellBuiltin:
+		runBuiltin(ctx, action.Builtin)
 	}
 }
 
-// runShellBuiltin handles the `lys-shell …` verbs in-process, falling
-// back to a real subprocess for anything else.
+// runBuiltin applies b to the running shell's own state; a service the
+// shell runs without leaves it undone, and says so.
+func runBuiltin(ctx ModuleContext, b config.ShellBuiltin) {
+	switch b {
+	case config.ShellBuiltinIdleToggle, config.ShellBuiltinIdleToggleIndefinite:
+		if ctx.IdleInhibit == nil {
+			log.Printf("click: %s: no idle inhibitor", b)
+			return
+		}
+		if ctx.IdleInhibit.Active() {
+			ctx.IdleInhibit.Disable()
+			return
+		}
+		ctx.IdleInhibit.Enable(b == config.ShellBuiltinIdleToggleIndefinite)
+	case config.ShellBuiltinDndToggle:
+		if ctx.Notifications == nil {
+			log.Printf("click: %s: no notification service", b)
+			return
+		}
+		ctx.Notifications.ToggleDND()
+	case config.ShellBuiltinRecorderToggle, config.ShellBuiltinRecorderStart, config.ShellBuiltinRecorderStop,
+		config.ShellBuiltinRecorderPause, config.ShellBuiltinRecorderResume:
+		if ctx.Recorder == nil {
+			log.Printf("click: %s: no recorder", b)
+			return
+		}
+		runRecorderBuiltin(ctx.Recorder, b)
+	default:
+		log.Printf("click: unknown builtin %s", b)
+	}
+}
+
+func runRecorderBuiltin(r *recorder.State, b config.ShellBuiltin) {
+	switch b {
+	case config.ShellBuiltinRecorderToggle:
+		r.Toggle()
+	case config.ShellBuiltinRecorderStart:
+		r.Start()
+	case config.ShellBuiltinRecorderStop:
+		r.Stop()
+	case config.ShellBuiltinRecorderPause:
+		r.SetPaused(true)
+	case config.ShellBuiltinRecorderResume:
+		r.SetPaused(false)
+	}
+}
+
+// powerRunner runs the power menu's commands: a built-in in process,
+// off the loop, with a failure toasted on it; a user's command through
+// the shell.
+type powerRunner struct {
+	system sessionctl.SystemBus
+	invoke func(func())
+	toast  func(label, icon string)
+}
+
+func (r powerRunner) run(a powermenu.Action, cmd config.PowerCommand) {
+	if line, ok := cmd.Shell(); ok {
+		spawnQuiet(line)
+		return
+	}
+	b, ok := cmd.Builtin()
+	if !ok {
+		return
+	}
+	go func() {
+		err := r.builtin(context.Background(), b)
+		if err == nil {
+			return
+		}
+		log.Printf("power menu: %v", err)
+		if r.toast != nil {
+			r.invoke(func() { r.toast(i18n.T("launcher-failed", i18n.Str("what", a.Label())), a.Icon()) })
+		}
+	}()
+}
+
+func (r powerRunner) builtin(ctx context.Context, b config.PowerBuiltin) error {
+	return sessionctl.Run(ctx, r.system, b)
+}
+
+// runShellBuiltin handles the `lys-shell` screenshot and audio verbs
+// in-process, and runs any other command line through the shell.
 func runShellBuiltin(ctx ModuleContext, cmd string) {
 	verb, _ := splitBuiltin(cmd)
 	if mode, target, ok := screenshotBuiltin(verb); ok && ctx.Screenshot != nil {
@@ -46,10 +136,7 @@ func runShellBuiltin(ctx ModuleContext, cmd string) {
 		runAudioBuiltin(ctx, cmd, b)
 		return
 	}
-	if verb != "" {
-		log.Printf("click: builtin %q not available yet, shelling out", verb)
-	}
-	spawn.Quiet(cmd)
+	spawnQuiet(cmd)
 }
 
 // splitBuiltin reports the verb of a `lys-shell <area> <verb> …` command,
