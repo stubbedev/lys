@@ -44,6 +44,7 @@ type Backend struct {
 	switches      *Switches
 	plugged       []backend.Device
 	cursorSize    image.Point
+	swapchain     int
 	overlayPlanes int
 	refuseOverlay bool
 	overlayTarget gpu.ScanoutTarget
@@ -75,7 +76,7 @@ func timingOf(l *loop.Loop) frameTiming {
 }
 
 func New(l *loop.Loop) *Backend {
-	b := &Backend{loop: l, renderer: soft.New(), fenceTime: kdrm.SyncFileSignalTime, report: func(err error) { fmt.Fprintln(os.Stderr, "lys-wm:", err) }}
+	b := &Backend{loop: l, renderer: soft.New(), swapchain: 1, fenceTime: kdrm.SyncFileSignalTime, report: func(err error) { fmt.Fprintln(os.Stderr, "lys-wm:", err) }}
 	b.keyboard = &Keyboard{device: device{b, "headless-keyboard", backend.Keyboard}}
 	b.pointer = &Pointer{device: device{b, "headless-pointer", backend.Pointer}}
 	b.touch = &Touch{device{b, "headless-touch", backend.Touch}}
@@ -91,38 +92,6 @@ func NewVulkan(l *loop.Loop) (*Backend, error) {
 	b := New(l)
 	b.renderer, b.closeGPU = r, r.Close
 	return b, nil
-}
-
-func (o *Output) resize(size image.Point) error {
-	if err := o.freeTarget(); err != nil {
-		return err
-	}
-	o.buffer = soft.NewBuffer(size.X, size.Y)
-	o.drawn, o.unread = false, false
-	if o.backend.closeGPU == nil {
-		o.target = o.buffer
-		return nil
-	}
-	t, err := o.backend.renderer.NewTarget(size)
-	if err != nil {
-		return fmt.Errorf("headless: %s: %w", o.name, err)
-	}
-	o.target = t
-	return nil
-}
-
-func (o *Output) gpuTarget() (render.ReadTarget, bool) {
-	t, ok := o.target.(render.ReadTarget)
-	return t, ok && o.backend.closeGPU != nil
-}
-
-func (o *Output) freeTarget() error {
-	t, ok := o.gpuTarget()
-	o.target = nil
-	if !ok {
-		return nil
-	}
-	return t.Destroy()
 }
 
 func (b *Backend) Start(h backend.Handler) error {
@@ -230,10 +199,10 @@ func (b *Backend) AddNamedOutput(name string, modes ...backend.Mode) (*Output, e
 	}
 	var err error
 	if o.timer, err = b.loop.AddTimer(o.vblank); err != nil {
-		return nil, errors.Join(err, o.freeTarget())
+		return nil, errors.Join(err, o.freeSlots())
 	}
 	if o.latch, err = b.loop.AddTimer(o.clock.Woke); err != nil {
-		return nil, errors.Join(err, o.timer.Remove(), o.freeTarget())
+		return nil, errors.Join(err, o.timer.Remove(), o.freeSlots())
 	}
 	b.outputs = append(b.outputs, o)
 	if b.handler != nil {
@@ -255,7 +224,7 @@ func (b *Backend) RemoveOutput(o *Output) error {
 	if b.handler != nil {
 		errs = append(errs, b.handler.OutputRemoved(o))
 	}
-	errs = append(errs, o.releaseClientBuffers(), o.timer.Remove(), o.latch.Remove(), o.dropFence(), o.freeTarget())
+	errs = append(errs, o.releaseClientBuffers(), o.timer.Remove(), o.latch.Remove(), o.dropFence(), o.freeSlots())
 	if o.cursor != nil {
 		errs = append(errs, o.cursor.destroy())
 	}
@@ -276,10 +245,10 @@ type Output struct {
 	name           string
 	modes          []backend.Mode
 	state          backend.OutputState
-	buffer         *soft.Buffer
-	target         render.Target
-	drawn          bool
-	unread         bool
+	slots          []slot
+	drawing        int
+	latest         int
+	renders        uint64
 	timer          *loop.Timer
 	latch          *loop.Timer
 	budget         backend.RenderBudget
@@ -337,6 +306,8 @@ type Output struct {
 	inherited      bool
 	takeover       *soft.Buffer
 	panel          render.Transform
+	recordShown    bool
+	shownFrames    []ShownFrame
 }
 
 func (o *Output) PanelTransform() render.Transform {
@@ -525,7 +496,7 @@ func (o *Output) Commit(s backend.OutputState) error {
 		if err := s.Mode.Valid(); err != nil {
 			return fmt.Errorf("headless: %s: %w", o.name, err)
 		}
-		if s.Mode.Size != o.buffer.Size() {
+		if s.Mode.Size != o.slots[0].buffer.Size() {
 			if err := o.resize(s.Mode.Size); err != nil {
 				return err
 			}
@@ -598,15 +569,13 @@ func (o *Output) BeginFrame() (backend.Frame, error) {
 		o.loseInFrame = false
 		o.backend.renderer.LoseDevice()
 	}
-	age := 0
-	if o.drawn {
-		age = 1
-	}
-	return backend.Frame{Renderer: o.backend.renderer, Target: o.target, Age: age}, nil
+	o.drawing = o.nextSlot()
+	return backend.Frame{Renderer: o.backend.renderer, Target: o.slots[o.drawing].target, Age: o.age(o.drawing)}, nil
 }
 
 func (o *Output) AbortFrame() {
 	o.inFrame = false
+	o.slots[o.drawing].presented = 0
 }
 
 func (o *Output) ExpectFrameWork(pixels int) {
@@ -620,14 +589,14 @@ func (o *Output) Present(damage render.Region) error {
 	}
 	o.inFrame = false
 	if o.failPresents != nil && o.takePresents == 0 {
+		o.slots[o.drawing].presented = 0
 		o.commitFailed(o.failPresents)
 		return o.failPresents
 	}
 	o.takePresents = max(o.takePresents-1, 0)
 	o.commitTook()
-	o.drawn = true
+	o.drawn()
 	o.damage = append(o.damage[:0], damage...)
-	_, o.unread = o.gpuTarget()
 	if o.inherited {
 		snap, err := o.Primary()
 		if err != nil {
@@ -767,7 +736,8 @@ func (o *Output) Scanout(_ backend.ScanoutKey, d gpu.DMABUF, at backend.Placemen
 	if o.scanout == nil || !slices.Contains(o.scanout.Formats, gpu.FormatModifier{Format: d.Format, Modifier: d.Modifier}) || o.removed || !o.state.Lit() || o.inFrame || o.presentPending || !at.Valid(d.Size, o.state.Mode.Size) {
 		return false, nil
 	}
-	o.queuedRelease, o.presentPending, o.drawn, o.queuedTorn, o.inherited = release, true, false, tear, false
+	o.queuedRelease, o.presentPending, o.queuedTorn, o.inherited = release, true, tear, false
+	o.forgetSlots()
 	o.presents++
 	o.scanouts++
 	o.scannedAt = at
@@ -883,13 +853,14 @@ func (o *Output) LastDamage() render.Region {
 }
 
 func (o *Output) Primary() (*soft.Buffer, error) {
-	if t, ok := o.gpuTarget(); ok && o.unread {
-		if err := t.Read(o.buffer.Pix, o.buffer.Stride); err != nil {
+	s := &o.slots[o.latest]
+	if t, ok := o.readTarget(s); ok && s.unread {
+		if err := t.Read(s.buffer.Pix, s.buffer.Stride); err != nil {
 			return nil, fmt.Errorf("headless: read back %s: %w", o.name, err)
 		}
-		o.unread = false
+		s.unread = false
 	}
-	return &soft.Buffer{Pix: slices.Clone(o.buffer.Pix), Stride: o.buffer.Stride, W: o.buffer.W, H: o.buffer.H}, nil
+	return &soft.Buffer{Pix: slices.Clone(s.buffer.Pix), Stride: s.buffer.Stride, W: s.buffer.W, H: s.buffer.H}, nil
 }
 
 func (o *Output) Snapshot() (*soft.Buffer, error) {
@@ -956,6 +927,9 @@ func (o *Output) present() error {
 		if err := left(); err != nil {
 			return err
 		}
+	}
+	if err := o.noteShown(); err != nil {
+		return err
 	}
 	torn := o.queuedTorn
 	o.queuedTorn = false
