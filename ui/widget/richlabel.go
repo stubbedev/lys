@@ -1095,6 +1095,17 @@ func caretIndex(runs []*richRun, lineX float64, px int) int {
 	return 0
 }
 
+// TakesClickAt takes a click on a link run something opens, and every
+// click of a selectable label, which drops its selection; any other
+// click goes on to the SetOnClickWithin hook above, as a notification
+// card's open does.
+func (l *RichLabel) TakesClickAt(p Point) bool {
+	if _, ok := l.linkAt(p); ok && l.OnLinkClick != nil {
+		return true
+	}
+	return l.selectable
+}
+
 // ClickAt fires OnLinkClick when the click lands on a link run; a
 // selectable label's plain click drops the selection.
 func (l *RichLabel) ClickAt(p Point) {

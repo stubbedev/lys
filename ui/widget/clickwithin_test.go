@@ -72,3 +72,52 @@ func TestClickWithin(t *testing.T) {
 		t.Error("an unregistered hook still fired")
 	}
 }
+
+// TestARichLabelPassesItsPlainClicksToTheHookAbove pins a notification
+// body: a click on its plain text reaches the card around it, a click
+// on its link opens the link alone, and a selectable label keeps every
+// click, since a click drops its selection.
+func TestARichLabelPassesItsPlainClicksToTheHookAbove(t *testing.T) {
+	face := testFace(t)
+	body := NewRichLabel(face, richPx, `see <a href="https://example.com">here</a>!`, render.RGB(255, 255, 255))
+	var links []string
+	body.OnLinkClick = func(href string) { links = append(links, href) }
+	cards := 0
+	card := NewBox(Column, 0, 0)
+	card.Append(body, false)
+	card.SetOnClickWithin(func() { cards++ })
+	size := SizeWithin(card, Size{W: 500, H: 100})
+	card.Arrange(render.Rect{W: size.W, H: size.H})
+	r := &Router{Root: card}
+	_, baseline, ok := body.lineGeom()
+	if !ok {
+		t.Fatal("the body does not fit its own natural box")
+	}
+	b := body.Bounds()
+	plain := Point{X: b.X + 2, Y: baseline - 2}
+	link := Point{X: b.X + int(body.shaped[0].sh.Advance()+body.shaped[1].sh.Advance()/2+0.5), Y: baseline - 2}
+	click := func(p Point) {
+		r.Move(p)
+		r.Press(BTNLeft, p, 0)
+		r.Release(BTNLeft, p)
+	}
+
+	click(plain)
+	if cards != 1 || len(links) != 0 {
+		t.Errorf("a click on the body's plain text: card heard %d, links %q; want the card alone", cards, links)
+	}
+	click(link)
+	if cards != 1 || len(links) != 1 || links[0] != "https://example.com" {
+		t.Errorf("a click on the body's link: card heard %d, links %q; want the link alone", cards, links)
+	}
+	body.OnLinkClick = nil
+	click(link)
+	if cards != 2 {
+		t.Errorf("a click on a link nothing opens: card heard %d, want 2", cards)
+	}
+	body.SetSelectable(true)
+	click(plain)
+	if cards != 2 {
+		t.Errorf("a click on a selectable body reached the card: heard %d, want 2", cards)
+	}
+}

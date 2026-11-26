@@ -66,6 +66,13 @@ type Clicker interface {
 	ClickAt(p Point)
 }
 
+// ClickDecliner is a Clicker that takes only some of its clicks: one it
+// declines goes on to the nearest SetOnClickWithin hook above it, as if
+// it were no Clicker there.
+type ClickDecliner interface {
+	TakesClickAt(p Point) bool
+}
+
 // DragMover receives pointer motion while the widget is pressed.
 type DragMover interface {
 	DragMove(p Point)
@@ -823,11 +830,7 @@ func (r *Router) Release(button uint32, p Point) {
 			}
 		}
 		if !handled {
-			if c, ok := hit.(Clicker); ok {
-				c.ClickAt(p)
-			} else if fn := clickWithinOf(hit); fn != nil {
-				fn()
-			}
+			click(hit, p)
 		}
 		r.lastClick = time.Now()
 		r.lastClickWidget = hit
@@ -1459,6 +1462,24 @@ func (r *Router) keyboardTarget() Widget {
 // ring around whatever widget.Boundser the router focuses.
 type Boundser interface {
 	Bounds() render.Rect
+}
+
+// click routes a release that clicks hit at p: to hit's own click when
+// it is a Clicker that takes it, else to the nearest SetOnClickWithin
+// hook above it.
+func click(hit Widget, p Point) {
+	if c, ok := hit.(Clicker); ok && takesClickAt(hit, p) {
+		c.ClickAt(p)
+		return
+	}
+	if fn := clickWithinOf(hit); fn != nil {
+		fn()
+	}
+}
+
+func takesClickAt(w Widget, p Point) bool {
+	d, ok := w.(ClickDecliner)
+	return !ok || d.TakesClickAt(p)
 }
 
 // clickWithinOf is the nearest SetOnClickWithin hook at or above w, nil
