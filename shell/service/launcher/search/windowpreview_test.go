@@ -47,7 +47,7 @@ func TestAModeThatPicturesItsRowsGivesThemAnImagePreview(t *testing.T) {
 		t.Error("a row the mode does not picture has a preview")
 	}
 	for _, i := range []int{0, 2} {
-		content, err := launcher.LoadPreview(context.Background(), got[i].Preview, nil)
+		content, err := launcher.LoadPreview(context.Background(), got[i].Preview)
 		if err != nil || content.Image == nil || content.Image.Bounds().Dx() != i+1 {
 			t.Errorf("row %d previewed %+v, %v; want its own picture", i, content, err)
 		}

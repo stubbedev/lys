@@ -70,8 +70,9 @@ func clipboardPNG(t *testing.T) []byte {
 }
 
 // Each kind of clipboard entry previews in full: text read whole, an
-// image decoded with its type and size, one file as that file, several
-// as their paths, and anything else as its type and size.
+// image decoded with its type and size, one file as that file for the
+// pane to show, several as their paths, and anything else as its type
+// and size.
 func TestClipboardRowsPreviewEachKindInFull(t *testing.T) {
 	file := filepath.Join(t.TempDir(), "a.go")
 	if err := os.WriteFile(file, []byte("package a\n"), 0o600); err != nil {
@@ -93,7 +94,7 @@ func TestClipboardRowsPreviewEachKindInFull(t *testing.T) {
 		if !ok {
 			t.Fatalf("row %d has no preview", row)
 		}
-		c, err := launcher.LoadPreview(bg, p, nil)
+		c, err := launcher.LoadPreview(bg, p)
 		return p, c, err
 	}
 	if p, c, err := load(0); err != nil || c.Text != "line one\nline two" || len(p.Facts) != 0 {
@@ -106,8 +107,8 @@ func TestClipboardRowsPreviewEachKindInFull(t *testing.T) {
 	if got := factValues(p); got[i18n.T("launcher-preview-type")] != "image/png" || got[i18n.T("launcher-preview-size")] != i18n.Shell().ByteSize(uint64(len(pngData))) {
 		t.Errorf("image facts %v", got)
 	}
-	if _, c, err := load(2); err != nil || c.Text != "package a\n" || c.Name != file {
-		t.Errorf("one file: %+v %v", c, err)
+	if p, _, err := load(2); p.Path != file || !errors.Is(err, launcher.ErrNoPreview) {
+		t.Errorf("one file: previews %q and loads %v, want the file itself, shown by package preview", p.Path, err)
 	}
 	if _, c, err := load(3); err != nil || c.Text != "/x/one\n/y/two" {
 		t.Errorf("several files: %q %v", c.Text, err)
@@ -132,7 +133,7 @@ func TestAClipboardEntryGoneHasNoPreview(t *testing.T) {
 		t.Fatal("no preview")
 	}
 	f.Forget(ids[1])
-	if _, err := launcher.LoadPreview(bg, p, nil); !errors.Is(err, clipboard.ErrEntryGone) {
+	if _, err := launcher.LoadPreview(bg, p); !errors.Is(err, clipboard.ErrEntryGone) {
 		t.Errorf("loading a forgotten entry: %v", err)
 	}
 	if _, ok := m.RowPreview(0); ok {

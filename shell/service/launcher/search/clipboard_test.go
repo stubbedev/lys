@@ -73,7 +73,7 @@ func TestClipboardRowsAreTheHistoryNewestFirst(t *testing.T) {
 	if len(got) != 2 || got[0].Title != "first line second line" || got[1].Title != "older" {
 		t.Fatalf("rows %+v", got)
 	}
-	content, err := launcher.LoadPreview(ctx, got[0].Preview, nil)
+	content, err := launcher.LoadPreview(ctx, got[0].Preview)
 	if err != nil || content.Text != "first line\nsecond line" {
 		t.Errorf("the pane keeps the lines: %q, %v", content.Text, err)
 	}
@@ -112,12 +112,12 @@ func TestClipboardImagePreviewReadsTheEntryWhenAsked(t *testing.T) {
 	if got[0].Preview.Load == nil {
 		t.Fatalf("preview %+v", got[0].Preview)
 	}
-	content, err := launcher.LoadPreview(ctx, got[0].Preview, nil)
+	content, err := launcher.LoadPreview(ctx, got[0].Preview)
 	if err != nil || content.Image == nil {
 		t.Fatalf("content %+v, %v", content, err)
 	}
 	h.history.Clear()
-	if _, err := launcher.LoadPreview(ctx, got[0].Preview, nil); err == nil {
+	if _, err := launcher.LoadPreview(ctx, got[0].Preview); err == nil {
 		t.Error("an entry gone since the row was drawn is an error")
 	}
 }
