@@ -2,6 +2,7 @@ package imagedecode
 
 import (
 	"bytes"
+	"io"
 	"log"
 	"os"
 
@@ -18,18 +19,20 @@ func Orientation(path string) exif.Orientation {
 		return exif.TopLeft
 	}
 	defer f.Close()
-	o, err := exif.Read(f)
-	if err != nil {
-		log.Printf("imagedecode: the orientation of %s: %v", path, err)
-		return exif.TopLeft
-	}
-	return o
+	return readOrientation(f, path)
 }
 
 // OrientationOf is the orientation the encoded picture data records,
 // as Orientation reads a file's; name says which picture in the log.
 func OrientationOf(data []byte, name string) exif.Orientation {
-	o, err := exif.Read(bytes.NewReader(data))
+	return readOrientation(bytes.NewReader(data), name)
+}
+
+// readOrientation is the orientation the picture r holds records, as
+// it shows; a block that does not parse is logged under name, and the
+// picture shows as stored.
+func readOrientation(r io.ReaderAt, name string) exif.Orientation {
+	o, err := exif.Read(r)
 	if err != nil {
 		log.Printf("imagedecode: the orientation of %s: %v", name, err)
 		return exif.TopLeft

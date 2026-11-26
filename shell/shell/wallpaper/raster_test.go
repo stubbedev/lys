@@ -16,6 +16,8 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/imagedecode"
+	"github.com/stubbedev/lys/desktop/imagedecode/imagedecodetest"
+	"github.com/stubbedev/lys/lib/exif"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/ui/app"
@@ -99,7 +101,8 @@ func TestRasterUnknownOutputKeepsTheSourceSize(t *testing.T) {
 }
 
 // harness runs a shell on fake surfaces: work off the loop waits in a
-// queue until run, decodes read JPEG files into the rasters' memory
+// queue until run, decodes read JPEG files into the rasters' memory as
+// Start's do, turned as their EXIF orientation shows them,
 // unless made undecodable, every renderer forget is
 // recorded and checked, and once the loop has ended an invoke is
 // dropped, as lys-ui drops it.
@@ -177,7 +180,7 @@ func newHarness(t *testing.T, kind config.AnimationType, monitors ...string) *ha
 			if !h.decodable[path] {
 				return imagedecode.Decoded{}, errors.New("no such image")
 			}
-			return imagedecode.OpenOffHeap(mem, path)
+			return imagedecode.OpenOffHeapOriented(mem, path)
 		},
 		spawn: func(fn func()) { h.queued = append(h.queued, fn) },
 		invoke: func(fn func()) {
@@ -536,6 +539,27 @@ func TestSharedRasterLivesUntilItsLastUser(t *testing.T) {
 	h.s.RemoveOutput(two)
 	h.wantLive(1, "the last user is gone")
 	h.wantForgotten("the last user is gone", shared)
+}
+
+// A phone photo stored turned shows upright: an output whose size is
+// not reported yet shows it at its shown size, portrait, not as stored.
+func TestTurnedPhotoShowsUpright(t *testing.T) {
+	h := newHarness(t, config.AnimationNone, "DP-1")
+	if err := os.WriteFile(h.path("b.png"), imagedecodetest.OrientedJPEG(t, photo(120, 80), uint16(exif.RightTop)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	h.s.AddOutput(testOutput("DP-1", 0, 0))
+	h.settle()
+	h.show("b.png")
+	surf := h.s.surfaces["DP-1"]
+	box, known := outputTarget(surf.out)
+	r, ok := h.s.rasters.live[rasterKey{path: h.path("b.png"), fit: surf.fit, box: box, known: known}]
+	if !ok {
+		t.Fatal("the turned photo has no live raster")
+	}
+	if got := r.size(); got != image.Pt(80, 120) {
+		t.Errorf("the 120x80 photo stored turned shows at %v, want 80x120", got)
+	}
 }
 
 // A later output asking for a live raster gets it without a decode.

@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	rasterCacheMagic  = "LYSWALL1"
+	rasterCacheMagic  = "LYSWALL2"
 	rasterHeaderBytes = len(rasterCacheMagic) + 4 + 4 + 8 + 8
 	rasterCacheBudget = 256 << 20
 )

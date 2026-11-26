@@ -232,7 +232,7 @@ func (b *lockBackdrop) show(key lockBackdropKey) lockBackdropShowing {
 	b.showing = lockBackdropShowing{state: lockBackdropLoading, path: key.path}
 	b.drawing = true
 	async(b.k, func() loadedLockBackdrop {
-		bg, err := lockview.LoadBackdrop(&b.mem, imagedecode.OpenOffHeap, key.path, key.sigma, []image.Point{{X: lockPreviewScreenW, Y: lockPreviewScreenH}})
+		bg, err := lockview.LoadBackdrop(&b.mem, imagedecode.OpenOffHeapOriented, key.path, key.sigma, []image.Point{{X: lockPreviewScreenW, Y: lockPreviewScreenH}})
 		return loadedLockBackdrop{key: key, backdrop: bg, err: err}
 	}, b.loaded)
 	b.drawing = false

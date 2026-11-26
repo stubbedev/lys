@@ -112,7 +112,7 @@ func Run(cfg *config.Config, stdout io.Writer, vaultHelper []string) error {
 		Auth: func(service string, onEvent func(auth.Event)) authHandle {
 			return auth.Spawn(auth.NewPAM(service, verified), auth.CurrentUsername(), onEvent)
 		},
-		Decode:   imagedecode.OpenOffHeap,
+		Decode:   imagedecode.OpenOffHeapOriented,
 		Outputs:  func() []image.Point { return outputsize.Devices(sess.Outputs()) },
 		Forget:   a.ForgetImage,
 		OnLocked: lockedLine.set,

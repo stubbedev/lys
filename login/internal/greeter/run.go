@@ -113,7 +113,7 @@ func Run(init Init) error {
 		now:          wall.Now,
 		saveLast:     SaveLast,
 		power:        power.press,
-		loadImage:    imagedecode.OpenOffHeap,
+		loadImage:    imagedecode.OpenOffHeapOriented,
 		outputs:      func() []image.Point { return outputsize.Devices(sess.Outputs()) },
 		forget:       a.ForgetImage,
 		loadAvatar:   imagedecode.Open,

@@ -5,6 +5,8 @@ import (
 	"image"
 	"image/color"
 	"image/draw"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -13,8 +15,10 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/imagedecode"
+	"github.com/stubbedev/lys/desktop/imagedecode/imagedecodetest"
 	"github.com/stubbedev/lys/desktop/shell/apptheme"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/lib/exif"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
@@ -603,6 +607,29 @@ func TestLockBackgroundIsSizedForTheOutputs(t *testing.T) {
 	}
 	if live := h.s.mem.Stats().Live; live != 1 {
 		t.Errorf("%d off-heap allocations while locked, want the background alone", live)
+	}
+}
+
+// A phone photo stored turned shows upright, decoded as the lock's run
+// decodes it: with no output known it keeps its shown size, portrait,
+// not the stored landscape.
+func TestLockBackgroundShowsATurnedPhotoUpright(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "lock.jpg")
+	if err := os.WriteFile(path, imagedecodetest.OrientedJPEG(t, image.NewGray(image.Rect(0, 0, 120, 80)), uint16(exif.RightTop)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	h := newHarness(t, func(l *config.LoginConfig) {
+		l.Background.Mode = config.BackgroundImage
+		l.Background.Image = path
+	})
+	h.s.d.Decode = imagedecode.OpenOffHeapOriented
+	h.s.d.Outputs = func() []image.Point { return nil }
+	h.lock(t)
+	if h.s.bg == nil {
+		t.Fatal("image mode made no background")
+	}
+	if got := h.s.bg.Image.Bounds().Size(); got != image.Pt(80, 120) {
+		t.Errorf("the 120x80 photo stored turned shows at %v, want 80x120", got)
 	}
 }
 

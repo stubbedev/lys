@@ -4,13 +4,17 @@ import (
 	"bytes"
 	"image"
 	"image/color"
+	"image/draw"
 	"image/jpeg"
 	"image/png"
 	"path/filepath"
 	"reflect"
 	"testing"
 
+	"github.com/stubbedev/lys/lib/exif"
 	"github.com/stubbedev/memory-go"
+
+	"github.com/stubbedev/lys/desktop/imagedecode/imagedecodetest"
 )
 
 func photoJPEG(t *testing.T, w, h int) []byte {
@@ -106,4 +110,69 @@ func TestOpenOffHeapRefusesWhatIsNoImageAndHoldsNothing(t *testing.T) {
 		}
 		wantNothingHeld(t, &mem)
 	}
+}
+
+// asShown is img turned whole as o shows it, on the heap.
+func asShown(t *testing.T, img image.Image, o exif.Orientation) *image.RGBA {
+	t.Helper()
+	b := img.Bounds()
+	src := image.NewRGBA(image.Rect(0, 0, b.Dx(), b.Dy()))
+	draw.Draw(src, src.Rect, img, b.Min, draw.Src)
+	w, h := o.Size(b.Dx(), b.Dy())
+	dst := image.NewRGBA(image.Rect(0, 0, w, h))
+	if err := o.Draw(dst, src); err != nil {
+		t.Fatal(err)
+	}
+	return dst
+}
+
+// A picture whose EXIF block records a turn or a mirror decodes upright,
+// pixel for pixel as turning the whole stored picture shows it, over
+// more rows than one band; only the shown raster stays held, and Free
+// lets it go. A picture stored as it shows decodes as OpenOffHeap does.
+func TestOpenOffHeapOrientedTurnsThePictureAsItShows(t *testing.T) {
+	const w, h = 150, 97
+	plain := image.NewRGBA(image.Rect(0, 0, w, h))
+	for y := range h {
+		for x := range w {
+			plain.Set(x, y, color.RGBA{uint8(x), uint8(y), uint8(x ^ y), 255})
+		}
+	}
+	for o := exif.TopLeft; o <= exif.LeftBottom; o++ {
+		path := write(t, "photo.jpg", imagedecodetest.OrientedJPEG(t, plain, uint16(o)))
+		stored, err := Open(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var mem memory.Shared
+		got, err := OpenOffHeapOriented(&mem, path)
+		if err != nil {
+			t.Fatalf("orientation %d: %v", o, err)
+		}
+		if st := mem.Stats(); st.Live != 1 {
+			t.Errorf("orientation %d: %d allocations held, want the shown raster's", o, st.Live)
+		}
+		if o == exif.TopLeft {
+			if !reflect.DeepEqual(got.Image, stored) {
+				t.Error("a picture stored as it shows decodes other pixels than OpenOffHeap")
+			}
+		} else if want := asShown(t, stored, o); !reflect.DeepEqual(got.Image, want) {
+			t.Errorf("orientation %d shows a %v raster unlike the stored picture turned whole, %v", o, got.Image.Bounds(), want.Rect)
+		}
+		if err := got.Free(); err != nil {
+			t.Fatal(err)
+		}
+		wantNothingHeld(t, &mem)
+	}
+}
+
+// A turned picture that does not decode is an error, and holds nothing.
+func TestOpenOffHeapOrientedRefusesWhatIsNoImage(t *testing.T) {
+	data := imagedecodetest.OrientedJPEG(t, sample(), uint16(exif.RightTop))
+	var mem memory.Shared
+	got, err := OpenOffHeapOriented(&mem, write(t, "cut.jpg", data[:len(data)/2]))
+	if err == nil || got.Image != nil {
+		t.Errorf("a truncated turned JPEG decoded to %v, error %v", got.Image, err)
+	}
+	wantNothingHeld(t, &mem)
 }

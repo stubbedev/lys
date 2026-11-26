@@ -83,6 +83,9 @@ type rig struct {
 	// background is what the background image decodes to; nil fails
 	// the decode.
 	background image.Image
+	// decode, when set, decodes the background image file in place of
+	// background.
+	decode func(*memory.Shared, string) (imagedecode.Decoded, error)
 	// outputs are the device sizes the greeter shows on.
 	outputs []image.Point
 	// forgotten are the rasters the renderer was told to drop.
@@ -180,7 +183,10 @@ func buildRig(t *testing.T, edit func(*Init), r *rig) *rig {
 			defer r.powerMu.Unlock()
 			r.power = append(r.power, action)
 		},
-		loadImage: func(*memory.Shared, string) (imagedecode.Decoded, error) {
+		loadImage: func(mem *memory.Shared, path string) (imagedecode.Decoded, error) {
+			if r.decode != nil {
+				return r.decode(mem, path)
+			}
 			if r.background == nil {
 				return imagedecode.Decoded{}, errors.New("none")
 			}

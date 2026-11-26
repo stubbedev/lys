@@ -94,7 +94,7 @@ func Start(application *app.Application, outputs []*app.Output, cfg *config.Conf
 		return nil, nil, err
 	}
 	s = newShell(appLoop(application), svc, cfg, rasterDeps{
-		decode: imagedecode.OpenOffHeap,
+		decode: imagedecode.OpenOffHeapOriented,
 		spawn:  func(fn func()) { go fn() },
 		invoke: application.Invoke,
 		forget: application.ForgetImage,

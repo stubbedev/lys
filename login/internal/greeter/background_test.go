@@ -3,11 +3,16 @@ package greeter
 import (
 	"image"
 	"math"
+	"os"
+	"path/filepath"
 	"slices"
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/imagedecode"
+	"github.com/stubbedev/lys/desktop/imagedecode/imagedecodetest"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/lib/exif"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
 
@@ -85,6 +90,26 @@ func TestGreeterBackgroundAllocationIsBoundedByTheOutput(t *testing.T) {
 	if st := r.s.mem.Stats(); st.Live != 1 || st.Bytes < raster || st.Bytes >= 2*raster {
 		t.Errorf("off the heap: %d allocations of %d bytes, want the %d-byte output raster alone, its mapping rounded up",
 			st.Live, st.Bytes, raster)
+	}
+}
+
+// A phone photo stored turned shows upright, decoded as the greeter's
+// run decodes it: with no output known it keeps its shown size,
+// portrait, not the stored landscape.
+func TestGreeterBackgroundShowsATurnedPhotoUpright(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "greeter.jpg")
+	if err := os.WriteFile(path, imagedecodetest.OrientedJPEG(t, jpegPhoto(120, 80), uint16(exif.RightTop)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	r := buildRig(t, func(i *Init) {
+		i.Config.Login.Background.Mode = config.BackgroundImage
+		i.Config.Login.Background.Image = path
+	}, &rig{decode: imagedecode.OpenOffHeapOriented})
+	if r.s.bg == nil {
+		t.Fatal("image mode made no background")
+	}
+	if got := r.s.bg.Image.Bounds().Size(); got != image.Pt(80, 120) {
+		t.Errorf("the 120x80 photo stored turned shows at %v, want 80x120", got)
 	}
 }
 
