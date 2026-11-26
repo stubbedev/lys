@@ -571,23 +571,6 @@ func FormatTime(t time.Time) string {
 	return i18n.Shell().DateTime(t.Local())
 }
 
-// previewInfo is the preview card's detail line.
-func previewInfo(e Entry) string {
-	if e.IsDir {
-		return i18n.T("file-chooser-kind-folder") + " · " + FormatTime(e.Modified)
-	}
-	return fileKind(e) + " · " + HumanSize(e.Size) + " · " + FormatTime(e.Modified)
-}
-
-// fileKind names a file's type by its extension: "PNG file", or "File"
-// without one.
-func fileKind(e Entry) string {
-	if ext := e.ext(); ext != "" {
-		return i18n.T("file-chooser-kind-typed", i18n.Str("type", strings.ToUpper(ext)))
-	}
-	return i18n.T("file-chooser-kind-file")
-}
-
 // Place is a sidebar shortcut; Bookmark marks one from the GTK
 // bookmarks file, which the sidebar can remove.
 type Place struct {

@@ -40,7 +40,7 @@ type panelViews struct {
 	withPreview bool
 }
 
-func newPanelViews(d Deps, cfg *config.Config) *panelViews {
+func newPanelViews(d Deps, cfg *config.Config, spawn func(func())) *panelViews {
 	scale := float64(cfg.Styling.Scale)
 	px := launcherview.ScaledPx(cfg)
 	v := &panelViews{
@@ -56,7 +56,7 @@ func newPanelViews(d Deps, cfg *config.Config) *panelViews {
 
 	v.list = newSearchList(v, cfg, d.Font, d.Variants, px(launcherview.SearchRowHeight), px(launcherview.HeaderRowHeight), px(launcherview.SearchIconSize))
 	v.list.bindAsync(v.SearchIcon, launcherview.SearchIconName)
-	v.pane = newPreviewPane(d.Font, px, 0)
+	v.pane = newPreviewPane(d.Font, px, 0, d.Invoke, spawn)
 	v.body = widget.NewBox(widget.Row, 0, 0)
 	v.body.Append(v.list, true)
 	v.body.Append(v.pane.box, false)

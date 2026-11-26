@@ -11,6 +11,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/mime"
 	"github.com/stubbedev/lys/desktop/shell/launcherview"
+	"github.com/stubbedev/lys/desktop/shell/preview"
 	"github.com/stubbedev/lys/desktop/thumbnail"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/app"
@@ -174,8 +175,10 @@ type Surface struct {
 	work sync.WaitGroup
 	// spawn runs the picker's thumbnail work, in work.
 	spawn func(func())
-	// thumbs makes the rows' and previews' thumbnails for every session.
-	thumbs *thumbnail.Thumbnailer
+	// thumbs makes the rows' and previews' thumbnails for every session,
+	// and pictures holds the pictures the previews decode.
+	thumbs   *thumbnail.Thumbnailer
+	pictures *preview.Pictures
 }
 
 // New builds the surface over its collaborators.
@@ -186,10 +189,16 @@ func New(d Deps) *Surface {
 	if d.Emoji == nil {
 		d.Emoji = modes.AvailableEmoji
 	}
-	s := &Surface{d: d, sel: -1, sources: search.NewSources(d.WatchFiles, time.Now), thumbs: thumbnail.New(thumbnail.Config{})}
+	s := &Surface{d: d, sel: -1, sources: search.NewSources(d.WatchFiles, time.Now), thumbs: thumbnail.New(thumbnail.Config{}), pictures: preview.NewPictures(preview.PictureBudget)}
 	s.spawn = s.work.Go
 	s.openFrecency = s.sources.Frecency(func() (*search.Frecency, error) { return s.d.OpenFrecency() })
 	return s
+}
+
+// previewSources are what a session's file previews load through: its
+// thumbnailer, and the surface's pictures.
+func (s *Surface) previewSources(thumbs engine.Thumbnailer) preview.Sources {
+	return preview.Sources{MIME: mime.System(), Thumbnails: thumbs.Previews(), Pictures: s.pictures}
 }
 
 // Open implements launcheripc.Handler: the session moves onto the loop.
@@ -294,7 +303,7 @@ func (s *Surface) openSession(sess *launcheripc.Session) {
 		thumbs: engine.NewThumbnailer(s.thumbs, mime.System(), setup.ui.previewCmd), ctx: ctx, cancel: cancel,
 		keys: compileKeys(setup.ui.keybindings), mouse: compileMouse(setup.ui.mouseBindings),
 	}
-	a.preview = newPreviewLoader(s.d, s.work.Go, a.thumbs)
+	a.preview = newPreviewLoader(s.d, s.work.Go, s.previewSources(a.thumbs))
 	s.multi = multiSelect{picked: map[uint32]bool{}, ballotSelected: setup.ui.ballotSelected, ballotUnselected: setup.ui.ballotUnselected}
 	s.model.update(nil, nil)
 	s.sel = -1
@@ -526,7 +535,7 @@ func (s *Surface) onPreview(p enginePreview) {
 		a.views.pane.show(nil, engine.PreviewContent{}, nil)
 		return
 	}
-	a.preview.fetch(req.ctx, p.preview, func(c engine.PreviewContent, err error) {
+	a.preview.fetch(req.ctx, a.views.pane, p.preview, func(c engine.PreviewContent, err error) {
 		a.views.pane.show(p.preview.Facts, c, err)
 		s.resize()
 	})
@@ -797,7 +806,7 @@ func (s *Surface) end(frame *launcheripc.ServerFrame) {
 	if a.dumpStop != nil {
 		a.dumpStop()
 	}
-	a.preview.stop()
+	a.preview.close()
 	a.cancel()
 	if frame != nil {
 		a.sess.Reply(*frame)

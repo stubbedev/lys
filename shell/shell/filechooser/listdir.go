@@ -91,20 +91,6 @@ func (r *dirReader) List(dir string, mode Mode) ([]Entry, dirCounts, error) {
 	return entries, counts, nil
 }
 
-// Count counts dir's entries in one getdents64 pass, stopping at
-// limit; more reports that it stopped there.
-func (r *dirReader) Count(dir string, limit int) (n int, more bool, err error) {
-	_, err = r.scan(dir, func(int, []byte, *byte) bool {
-		if n == limit {
-			more = true
-			return false
-		}
-		n++
-		return true
-	})
-	return n, more, err
-}
-
 // scan opens dir and hands visit each entry but . and ..: the
 // directory fd, the name, and the name NUL-terminated in the dirent
 // buffer, which stays valid only during the call. A false from visit

@@ -3,6 +3,8 @@ package launcher
 import (
 	"context"
 	"image"
+	"os"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"sync/atomic"
@@ -11,7 +13,9 @@ import (
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/clipboard"
 	"github.com/stubbedev/lys/desktop/service/clipboard/historybudget"
+	"github.com/stubbedev/lys/desktop/shell/preview"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/shell/internal/launcheripc"
@@ -247,5 +251,61 @@ func TestTheClipboardModePreviewsItsEntries(t *testing.T) {
 		if r := v.pane.rows[i]; r.label.Text() != w[0] || r.value.Text() != w[1] {
 			t.Errorf("fact %d is %q %q, want %q %q", i, r.label.Text(), r.value.Text(), w[0], w[1])
 		}
+	}
+}
+
+// filedMode lists one row previewing a file, then one previewing facts
+// alone.
+type filedMode struct{ path string }
+
+func (*filedMode) Name() string { return VaultModeName }
+
+func (*filedMode) Load(context.Context) engine.ModeState {
+	return engine.ModeState{Items: []engine.Item{engine.NewItem("file"), engine.NewItem("facts")}, Prompt: "files"}
+}
+
+func (*filedMode) Activate(context.Context, engine.Target, engine.ActivateKind, string) engine.Action {
+	return engine.ActionNothing{}
+}
+
+func (m *filedMode) RowPreview(index uint32) (engine.Preview, bool) {
+	if index == 0 {
+		return engine.Preview{Path: m.path}, true
+	}
+	return engine.Preview{Facts: []engine.PreviewFact{{Label: "Row", Value: "facts"}}}, true
+}
+
+// A row previewing a file shows it as Quick Look does, its text in the
+// shared preview's code view; moving to a row that is not a file closes
+// that preview, and so does ending the session.
+func TestAFileRowShowsTheSharedPreview(t *testing.T) {
+	h := newHarness(t)
+	path := filepath.Join(t.TempDir(), "notes.txt")
+	if err := os.WriteFile(path, []byte("first line\nsecond line\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	h.s.d.Vault = func() engine.Mode { return &filedMode{path: path} }
+	h.open(launcheripc.SessionOptions{Modes: []string{VaultModeName}}, false)
+	h.until("the rows", func() bool { return h.s.cur != nil && h.s.model.len() == 2 })
+	v := h.s.cur.views
+	h.rest("the file", func() bool { return v.pane.file.Renderer() == preview.Text })
+	code := treetest.All[*widgets.CodeView](v.pane.file.Root())
+	if len(code) != 1 || code[0].Text() != "first line\nsecond line\n" || !treetest.Contains(v.pane.box, v.pane.file.Root()) {
+		t.Fatalf("the file row shows %d code views, in the pane %v", len(code), treetest.Contains(v.pane.box, v.pane.file.Root()))
+	}
+	if v.pane.code.Visible() || v.pane.image.Visible() {
+		t.Error("the pane's own text or picture shows beside the file")
+	}
+	h.key("Down")
+	h.rest("the facts", func() bool { return v.pane.facts.Visible() })
+	if v.pane.file.Renderer() != preview.Empty || treetest.Contains(v.pane.box, v.pane.file.Root()) {
+		t.Errorf("a facts row left the file's preview %v in the pane", v.pane.file.Renderer())
+	}
+	h.key("Up")
+	h.rest("the file again", func() bool { return v.pane.file.Renderer() == preview.Text })
+	h.key("Escape")
+	h.until("the session to end", func() bool { return h.s.cur == nil })
+	if v.pane.file.Renderer() != preview.Empty {
+		t.Errorf("the ended session's preview still shows %v", v.pane.file.Renderer())
 	}
 }

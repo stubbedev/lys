@@ -16,6 +16,7 @@ import (
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/mime"
 	"github.com/stubbedev/lys/desktop/shell/layers"
+	"github.com/stubbedev/lys/desktop/shell/preview"
 	"github.com/stubbedev/lys/desktop/shell/reveal"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/desktop/styling"
@@ -196,10 +197,10 @@ type Chooser struct {
 	// in.
 	viewFile statefile.File
 	folders  *folderMemory
-	// pv is the preview shown or loading, and previewLoader what loads
-	// one off the loop.
-	pv            previewState
-	previewLoader func(context.Context, previewRequest) (preview, error)
+	// previewLoader is what the previews load a file with off the loop,
+	// and pictures holds the pictures they decode.
+	previewLoader func(context.Context, preview.Request) preview.Content
+	pictures      *preview.Pictures
 	// thumbnailer makes the thumbnails; thumbs are the request's, and
 	// thumbWork the lookups running and the thumbnails they made that
 	// the loop has not taken yet.
@@ -237,7 +238,7 @@ func New(d Deps) *Chooser {
 	c := &Chooser{
 		d: d, view: defaultView, columns: [3]int{90, 150, 90}, thumbnailer: thumbnail.New(thumbnail.Config{}), thumbs: newThumbSet(),
 		reader: newDirReader(), viewFile: statefile.File{Path: d.ViewFile}, folders: loadFolderMemory(foldersFile(d.ViewFile)),
-		size: panelSize,
+		size: panelSize, pictures: preview.NewPictures(preview.PictureBudget),
 	}
 	c.previewLoader = c.loadPreview
 	if d.ViewFile != "" {
@@ -503,7 +504,7 @@ type ui struct {
 	// quicklook and preview are Quick Look's card and the preview
 	// pane, ql and pv what shows in them.
 	quicklook, preview      *widget.Box
-	ql, pv                  *previewView
+	ql, pv                  *preview.View
 	filter                  *widget.Dropdown
 	viewToggle              *widget.Button
 	viewIcon                *widget.Box
@@ -648,12 +649,11 @@ func (c *Chooser) build(r request) {
 	body.AddClass("file-chooser-body")
 	body.Append(c.sidebar(u), false)
 	body.Append(c.views(u), true)
-	paneW := previewW - 4*th.Padding
-	u.pv = c.newPreviewView("file-chooser-preview", 22, paneW, paneImageH, paneW, paneTextH)
+	u.pv = c.newPreviewPane(previewW - 4*th.Padding)
 	// The pane, not just its card, hides: a hidden card would still
 	// hold its width in the row.
-	u.pv.card.SetSizeRequest(previewW, 0)
-	u.preview = u.pv.card
+	u.preview = u.pv.Root()
+	u.preview.SetSizeRequest(previewW, 0)
 	u.preview.SetVisible(false)
 	body.Append(u.preview, false)
 
@@ -864,8 +864,8 @@ func (c *Chooser) views(u *ui) widget.Widget {
 	}
 
 	u.empty = c.label(i18n.T("file-chooser-empty-folder"), "file-chooser-empty", css.DimLabel)
-	u.ql = c.newPreviewView("file-chooser-quicklook", 32, quicklookImageW, quicklookImageH, quicklookTextW, quicklookTextH)
-	u.quicklook = u.ql.card
+	u.ql = c.newQuicklook()
+	u.quicklook = u.ql.Root()
 	u.quicklook.AddClass(css.Card)
 	u.quicklook.SetVisible(false)
 
@@ -1098,7 +1098,7 @@ func (c *Chooser) landThumb(set *thumbSet, key thumbKey, done thumbnail.Raster, 
 // forgets their textures, and their pixels go once every List recorded
 // until now has ended.
 func (c *Chooser) freeThumbs() {
-	c.dropPreview()
+	c.closePreviews()
 	set := c.thumbs
 	set.cancel()
 	rasters := make([]thumbnail.Raster, 0, len(set.found))
@@ -1132,9 +1132,6 @@ func (c *Chooser) Close() {
 	if c.stopMounts != nil {
 		c.stopMounts()
 		c.stopMounts = nil
-	}
-	if c.pv.cancel != nil {
-		c.pv.cancel()
 	}
 	if c.reply != nil {
 		c.reply(Result{})
@@ -1293,6 +1290,7 @@ func (c *Chooser) key(r *widget.Router, sym xkb.Keysym, mods app.Mods) {
 	ctrl, alt := mods&app.ModCtrl != 0, mods&app.ModAlt != 0
 	plain := mods&(app.ModCtrl|app.ModAlt|app.ModSuper|app.ModShift) == 0
 	switch {
+	case plain && !typing && c.ui.quicklook.Visible() && c.ui.ql.Key(sym):
 	case sym == xkb.KeyEscape:
 		c.escape()
 	case sym == xkb.KeySpace && plain && !typing:
@@ -1645,19 +1643,16 @@ func (c *Chooser) toggleView() {
 
 func (c *Chooser) togglePreview(on bool) {
 	c.ui.preview.SetVisible(on)
-	if !on && !c.ui.quicklook.Visible() {
-		c.dropPreview()
+	if !on {
+		c.ui.pv.Close()
 	}
 	c.refreshPreview()
 }
 
-// closeQuicklook hides Quick Look, and lets the preview go when the
-// pane is hidden too.
+// closeQuicklook hides Quick Look and lets go of what it showed.
 func (c *Chooser) closeQuicklook() {
 	c.ui.quicklook.SetVisible(false)
-	if !c.ui.preview.Visible() {
-		c.dropPreview()
-	}
+	c.ui.ql.Close()
 }
 
 func (c *Chooser) sortBy(col SortColumn) {
@@ -1827,19 +1822,18 @@ func (c *Chooser) toggleQuicklook() {
 // refreshPreview shows the selected entry in the previews showing, or
 // says nothing is selected.
 func (c *Chooser) refreshPreview() {
-	u := c.ui
-	if u == nil || len(c.openPreviews()) == 0 {
+	if c.ui == nil || len(c.openPreviews()) == 0 {
 		return
 	}
-	if e, ok := c.selected(); ok {
-		c.showPreview(e)
+	e, ok := c.selected()
+	if !ok {
+		c.closeQuicklook()
+		c.ui.pv.Close()
 		return
 	}
-	c.dropPreview()
-	u.quicklook.SetVisible(false)
-	u.pv.visual.Clear()
-	u.pv.name.SetText(i18n.T("file-chooser-no-selection"))
-	u.pv.info.SetText("")
+	for _, v := range c.openPreviews() {
+		v.Show(e.Path)
+	}
 }
 
 // --- system defaults ------------------------------------------------

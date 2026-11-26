@@ -49,12 +49,6 @@ file-chooser-filter-all = Alle Dateien
 ## Arten und Vorschau
 file-chooser-kind-folder = Ordner
 file-chooser-kind-file = Datei
-file-chooser-kind-typed = { $type }-Datei
-file-chooser-folder-items = { $count ->
-    [one] { $shown } Eintrag
-   *[other] { $shown } Einträge
-}
-file-chooser-folder-items-capped = { $shown }+ Einträge
 file-chooser-no-selection = Keine Auswahl
 
 ## Hinweise

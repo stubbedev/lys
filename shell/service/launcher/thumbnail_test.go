@@ -132,8 +132,8 @@ func TestAThumbnailerThatWritesNothingProducesNothing(t *testing.T) {
 	}
 }
 
-// A launcher file preview runs the thumbnailer installed for its type,
-// and -preview-cmd in its place, in the sandbox: neither reads $HOME,
+// A launcher file preview's thumbnail (Previews) runs the thumbnailer
+// installed for its type, and -preview-cmd in its place, in the sandbox: neither reads $HOME,
 // reaches the network, opens an IPv4 socket, makes a denied call or
 // writes its input.
 func TestAFilePreviewRunsItsThumbnailerSandboxed(t *testing.T) {
@@ -146,13 +146,16 @@ func TestAFilePreviewRunsItsThumbnailerSandboxed(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Setenv("XDG_CACHE_HOME", t.TempDir())
 			doc := writeTemp(t, "paper.pdf", []byte("%PDF-1.4\x00\x01"))
-			thumbs := NewThumbnailer(thumbnail.New(thumbnail.Config{}), testTypes(t), previewCmd)
-			got, err := LoadPreview(ctx, Preview{Path: doc}, thumbs)
-			if err != nil || got.Image == nil {
-				t.Fatalf("the PDF's preview = %+v, %v", got, err)
+			previews := NewThumbnailer(thumbnail.New(thumbnail.Config{}), testTypes(t), previewCmd).Previews()
+			got, _, err := previews.Fit(ctx, doc, "application/pdf", 512, 512)
+			if err != nil {
+				t.Fatalf("the PDF's preview: %v", err)
 			}
 			if leaks := thumbnailtest.Leaks(t, got.Image); len(leaks) != 0 {
 				t.Errorf("the thumbnailer %s", strings.Join(leaks, ", "))
+			}
+			if err := previews.Free(got); err != nil {
+				t.Error(err)
 			}
 		})
 	}

@@ -6,9 +6,12 @@ import (
 	"image"
 	"log"
 	"math"
+	"sync/atomic"
 	"time"
 
+	"github.com/stubbedev/lys/desktop/mime"
 	"github.com/stubbedev/lys/desktop/shell/launcherview"
+	"github.com/stubbedev/lys/desktop/shell/preview"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/lib/render"
@@ -26,6 +29,10 @@ const (
 	previewMinRows = 7
 	// heroIconSize is the summary's picture, in logical pixels at scale 1.
 	heroIconSize = 72
+	// previewPad is the pane's padding, and previewTextH the height a
+	// file's text shows in, in logical pixels at scale 1.
+	previewPad   = 12
+	previewTextH = 260
 )
 
 // previewSettle is how long the selection must rest before its preview
@@ -33,17 +40,23 @@ const (
 const previewSettle = 40 * time.Millisecond
 
 // previewPane is the side pane every kind of session shows its selected
-// row in: a picture, text, the facts that describe the row, or, with
-// nothing to load, the row's own summary. It is built once; showing
-// another row rebinds its widgets.
+// row in: a file as Quick Look shows it, a picture, text, the facts that
+// describe the row, or, with nothing to load, the row's own summary. It
+// is built once; showing another row rebinds its widgets.
 type previewPane struct {
 	box     *paneBox
+	file    *preview.View
 	image   *widget.Image
 	code    *widgets.CodeView
 	facts   *widget.Box
 	rows    []factRow
 	summary *rowSummary
 	font    render.Font
+	// sources are what the file shown loads through: the session's.
+	// fileShown is the file's preview in the pane, which holds it only
+	// while it shows: a hidden subtree still costs every frame.
+	sources   atomic.Pointer[preview.Sources]
+	fileShown bool
 	// shown is the picture the image widget holds.
 	shown image.Image
 	// width is the pane's width in pixels at the session's scale.
@@ -72,10 +85,18 @@ type factRow struct {
 	value *widget.Label
 }
 
-func newPreviewPane(font render.Font, px func(int) int, height int) *previewPane {
-	p := &previewPane{box: &paneBox{Box: widget.NewBox(widget.Column, 0, px(12)), height: height}, font: font, width: px(previewWidth)}
+func newPreviewPane(font render.Font, px func(int) int, height int, invoke, spawn func(func())) *previewPane {
+	p := &previewPane{box: &paneBox{Box: widget.NewBox(widget.Column, 0, px(previewPad)), height: height}, font: font, width: px(previewWidth)}
 	p.box.AddClass("launcher-preview")
 	p.box.SetInlineStyle(styling.WidthStyle(p.width))
+	inner := p.width - 2*px(previewPad) - 4*widget.Current().Padding
+	p.file = preview.New(preview.Config{
+		Font: font, Class: "launcher-preview-file", Image: image.Pt(inner, inner*3/4), Text: image.Pt(inner, px(previewTextH)),
+		IconPx: px(heroIconSize), NameChars: 28, MIME: mime.System(), Invoke: invoke, Spawn: spawn,
+		Load: func(ctx context.Context, req preview.Request) preview.Content {
+			return preview.Load(ctx, *p.sources.Load(), req)
+		},
+	})
 	p.image = widget.NewImage(nil)
 	p.image.SetScale(widget.ImageFit)
 	p.image.AddClass("launcher-preview-image")
@@ -92,10 +113,30 @@ func newPreviewPane(font render.Font, px func(int) int, height int) *previewPane
 	return p
 }
 
+// showFile shows the file at path as Quick Look does, loaded through
+// sources.
+func (p *previewPane) showFile(path string, sources preview.Sources) {
+	p.sources.Store(&sources)
+	p.image.SetVisible(false)
+	p.code.SetVisible(false)
+	p.showFacts(nil)
+	p.summary.box.SetVisible(false)
+	if !p.fileShown {
+		p.box.InsertAt(0, p.file.Root(), false)
+		p.fileShown = true
+	}
+	p.file.Show(path)
+}
+
 // show binds a row's facts and loaded content; err shows the facts
 // alone. It reports whether the pane shows anything, so the caller can
 // fall back to the row's summary.
 func (p *previewPane) show(facts []engine.PreviewFact, c engine.PreviewContent, err error) bool {
+	if p.fileShown {
+		p.file.Close()
+		p.box.Remove(p.file.Root())
+		p.fileShown = false
+	}
 	var img image.Image
 	text := ""
 	if err == nil {
@@ -107,8 +148,8 @@ func (p *previewPane) show(facts []engine.PreviewFact, c engine.PreviewContent, 
 		p.image.SetImage(img)
 	}
 	p.code.SetVisible(text != "")
-	if text != "" && (text != p.code.Text() || c.Name != p.code.Name()) {
-		p.code.SetText(text, c.Name)
+	if text != "" && text != p.code.Text() {
+		p.code.SetText(text, "")
 	}
 	p.showFacts(facts)
 	p.summary.box.SetVisible(false)
@@ -194,19 +235,23 @@ func (s *rowSummary) show(bind func(*launcherview.AsyncIcon, string), icon, glyp
 // row's preview off the UI loop. Starting another row drops the last
 // one's wait and load, so only the row the selection rests on loads.
 type previewLoader struct {
-	after  func(time.Duration, func()) func()
-	spawn  func(func())
-	invoke func(func())
-	thumbs engine.Thumbnailing
+	after   func(time.Duration, func()) func()
+	spawn   func(func())
+	invoke  func(func())
+	sources preview.Sources
 	// stopWait and stopLoad end the current row's wait and load.
 	stopWait func()
 	stopLoad context.CancelFunc
 	// loads counts the previews loaded: the reads and captures asked for.
 	loads int
+	// shown is the pane a file was last shown in.
+	shown *previewPane
 }
 
-func newPreviewLoader(d Deps, spawn func(func()), thumbs engine.Thumbnailing) *previewLoader {
-	return &previewLoader{after: d.After, spawn: spawn, invoke: d.Invoke, thumbs: thumbs}
+// newPreviewLoader loads previews on goroutines spawn starts, a file
+// through sources.
+func newPreviewLoader(d Deps, spawn func(func()), sources preview.Sources) *previewLoader {
+	return &previewLoader{after: d.After, spawn: spawn, invoke: d.Invoke, sources: sources}
 }
 
 // start drops the last row's wait and load, and returns the context the
@@ -230,16 +275,33 @@ func (l *previewLoader) stop() {
 	}
 }
 
+// close drops the current row's wait and load, and closes the file
+// shown, which lets go of what it holds: the session is over.
+func (l *previewLoader) close() {
+	l.stop()
+	if l.shown != nil {
+		l.shown.file.Close()
+		l.shown = nil
+	}
+}
+
 // settle runs fn once the selection has rested.
 func (l *previewLoader) settle(fn func()) { l.stopWait = l.after(previewSettle, fn) }
 
-// fetch loads p off the loop, on a goroutine spawn starts, and hands it
-// to done on the loop, unless ctx ended first. Nothing to load is no failure; anything else is logged
-// and handed on, so the pane shows what it still can.
-func (l *previewLoader) fetch(ctx context.Context, p engine.Preview, done func(engine.PreviewContent, error)) {
+// fetch shows p in pane: a file at once, as Quick Look does, which
+// loads itself; anything else loaded off the loop, on a goroutine spawn
+// starts, and handed to done on the loop, unless ctx ended first.
+// Nothing to load is no failure; anything else is logged and handed on,
+// so the pane shows what it still can.
+func (l *previewLoader) fetch(ctx context.Context, pane *previewPane, p engine.Preview, done func(engine.PreviewContent, error)) {
 	l.loads++
+	if p.Path != "" {
+		l.shown = pane
+		pane.showFile(p.Path, l.sources)
+		return
+	}
 	l.spawn(func() {
-		content, err := engine.LoadPreview(ctx, p, l.thumbs)
+		content, err := engine.LoadPreview(ctx, p)
 		l.invoke(func() {
 			if ctx.Err() != nil {
 				return

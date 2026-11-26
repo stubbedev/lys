@@ -6,13 +6,13 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
-	"slices"
 	"strconv"
 	"strings"
 	"sync"
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/shell/preview"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/desktop/thumbnail/thumbnailtest"
@@ -21,13 +21,12 @@ import (
 	"github.com/stubbedev/lys/ui/widget"
 )
 
-// loadWatch counts the preview loads started, the goroutines they ran
-// on, what each read and the context of each entry's last load, and
-// can hold every load until released.
+// loadWatch counts the preview loads started, those that ran on the
+// loop, and the context of each file's last load, and can hold every
+// load until released.
 type loadWatch struct {
 	mu      sync.Mutex
 	started int
-	reads   []int
 	onLoop  int
 	loop    map[int64]bool
 	hold    chan struct{}
@@ -41,10 +40,10 @@ func watchLoads(t *testing.T, hs *harness) *loadWatch {
 	hs.invoke(func() { queue <- goroutineID() })
 	w.loop[<-queue] = true
 	load := hs.c.previewLoader
-	hs.c.previewLoader = func(ctx context.Context, req previewRequest) (preview, error) {
+	hs.c.previewLoader = func(ctx context.Context, req preview.Request) preview.Content {
 		w.mu.Lock()
 		w.started++
-		w.ctxs[req.entry.Name()] = ctx
+		w.ctxs[filepath.Base(req.Path)] = ctx
 		if w.loop[goroutineID()] {
 			w.onLoop++
 		}
@@ -56,11 +55,7 @@ func watchLoads(t *testing.T, hs *harness) *loadWatch {
 			case <-ctx.Done():
 			}
 		}
-		p, err := load(ctx, req)
-		w.mu.Lock()
-		w.reads = append(w.reads, p.read)
-		w.mu.Unlock()
-		return p, err
+		return load(ctx, req)
 	}
 	return w
 }
@@ -71,12 +66,17 @@ func (w *loadWatch) count() int {
 	return w.started
 }
 
-// waitPreview waits until the preview of the entry named name landed.
+// waitPreview waits until a preview showing has loaded the entry named
+// name.
 func (hs *harness) waitPreview(t *testing.T, name string) {
 	t.Helper()
 	waittest.Until(t, func() bool {
 		var done bool
-		hs.do(func() { done = hs.c.pv.shown != nil && hs.c.pv.entry.Name() == name })
+		hs.do(func() {
+			for _, v := range hs.c.openPreviews() {
+				done = done || filepath.Base(v.Path()) == name && v.Renderer() != preview.Loading
+			}
+		})
 		return done
 	}, "the preview of "+name+" to land")
 }
@@ -91,6 +91,17 @@ func (hs *harness) quicklookOn(t *testing.T, folder, name string) chan []string 
 	return got
 }
 
+// detailOf is the label of root reading like a detail line: one with a
+// separator in it.
+func detailOf(root widget.Widget) string {
+	for _, l := range treetest.Labels(root) {
+		if strings.Contains(l, " · ") {
+			return l
+		}
+	}
+	return ""
+}
+
 func writeFile(t *testing.T, path string, data []byte) {
 	t.Helper()
 	if err := os.WriteFile(path, data, 0o600); err != nil {
@@ -98,8 +109,8 @@ func writeFile(t *testing.T, path string, data []byte) {
 	}
 }
 
-// Space on source shows its first lines highlighted under its type's
-// description; on a binary file it shows the card alone.
+// Space on source shows its first lines highlighted; on a binary file
+// it shows the card alone, with the file's size.
 func TestQuicklookShowsTextHighlighted(t *testing.T) {
 	hs := newHarness(t, "")
 	dir := filepath.Join(hs.root, "docs")
@@ -110,8 +121,8 @@ func TestQuicklookShowsTextHighlighted(t *testing.T) {
 	var markup string
 	hs.run(func() {
 		lay(hs.cfg.Root, 1400, 1000)
-		code = treetest.All[*widgets.CodeView](hs.c.ui.ql.visual)
-		if lines := treetest.All[*widget.RichLabel](hs.c.ui.ql.visual); len(lines) > 2 {
+		code = treetest.All[*widgets.CodeView](hs.c.ui.ql.Root())
+		if lines := treetest.All[*widget.RichLabel](hs.c.ui.ql.Root()); len(lines) > 2 {
 			markup = lines[2].Markup()
 		}
 	})
@@ -126,19 +137,21 @@ func TestQuicklookShowsTextHighlighted(t *testing.T) {
 	hs.key(xkb.KeySpace, 0, nil)
 	hs.waitPreview(t, "blob.txt")
 	var info string
+	var shown preview.Renderer
 	hs.run(func() {
-		code = treetest.All[*widgets.CodeView](hs.c.ui.ql.visual)
-		info = hs.c.ui.ql.info.Text()
+		code = treetest.All[*widgets.CodeView](hs.c.ui.ql.Root())
+		info, shown = detailOf(hs.c.ui.ql.Root()), hs.c.ui.ql.Renderer()
 	})
-	if len(code) != 0 || !strings.Contains(info, "B ·") {
-		t.Errorf("a binary file shows %d code views, detail %q", len(code), info)
+	if len(code) != 0 || shown != preview.Icon || !strings.Contains(info, "B ·") {
+		t.Errorf("a binary file shows as %v with %d code views, detail %q", shown, len(code), info)
 	}
 	hs.click(t, "Cancel")
 	answer(t, got)
 }
 
-// A wide image previews whole at its aspect ratio with its pixel size
-// in the detail line, never cropped square.
+// A wide picture previews whole at its aspect ratio with its pixel size
+// in the detail line, never cropped square, and closing the dialog
+// lets its pixels go.
 func TestQuicklookShowsTheWholeImage(t *testing.T) {
 	hs := newHarness(t, "")
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
@@ -152,17 +165,17 @@ func TestQuicklookShowsTheWholeImage(t *testing.T) {
 	}
 	_ = f.Close()
 	got := hs.quicklookOn(t, dir, "pano.png")
-	var imgs []*widget.Image
+	var views []*widget.ImageView
 	var info string
 	hs.run(func() {
 		lay(hs.cfg.Root, 1400, 1000)
-		imgs = treetest.All[*widget.Image](hs.c.ui.ql.visual)
-		info = hs.c.ui.ql.info.Text()
+		views = treetest.All[*widget.ImageView](hs.c.ui.ql.Root())
+		info = detailOf(hs.c.ui.ql.Root())
 	})
-	if len(imgs) != 1 {
-		t.Fatalf("Quick Look on an image shows %d images", len(imgs))
+	if len(views) != 1 {
+		t.Fatalf("Quick Look on an image shows %d image views", len(views))
 	}
-	if b := imgs[0].Bounds(); b.W != 4*b.H || b.W == 0 {
+	if b := views[0].Bounds(); b.W != 4*b.H || b.W == 0 {
 		t.Errorf("the 4000x1000 image shows at %dx%d, want 4:1", b.W, b.H)
 	}
 	if !strings.Contains(info, "4000 × 1000") {
@@ -171,31 +184,33 @@ func TestQuicklookShowsTheWholeImage(t *testing.T) {
 	hs.click(t, "Cancel")
 	answer(t, got)
 	waittest.Until(t, func() bool {
-		var live int
-		var shown *preview
-		hs.do(func() { live, shown = hs.c.thumbnailer.Live(), hs.c.pv.shown })
-		if shown != nil {
-			t.Fatal("the closed dialog still holds its preview")
+		var held int64
+		var path string
+		hs.do(func() { held, path = hs.c.pictures.Held(), hs.c.ui.ql.Path() })
+		if path != "" {
+			t.Fatal("the closed dialog still shows its preview")
 		}
-		return live == 0
-	}, "every raster to be freed after the dialog closed")
+		return held == 0
+	}, "every picture to be freed after the dialog closed")
 }
 
 // A 2 GB text file previews from its first 64 KiB, read off the loop.
 func TestQuicklookReadsAtMost64KiB(t *testing.T) {
 	hs := newHarness(t, "")
 	path := filepath.Join(hs.root, "docs", "huge.txt")
-	writeFile(t, path, []byte(strings.Repeat("line of text\n", previewTextBytes/13+1)))
+	writeFile(t, path, []byte(strings.Repeat("line of text\n", preview.TextBytes/13+1)))
 	if err := os.Truncate(path, 2<<30); err != nil {
 		t.Fatal(err)
 	}
 	w := watchLoads(t, hs)
 	got := hs.quicklookOn(t, filepath.Dir(path), "huge.txt")
+	var text int
+	hs.run(func() { text = len(treetest.All[*widgets.CodeView](hs.c.ui.ql.Root())[0].Text()) })
 	w.mu.Lock()
-	reads, onLoop := slices.Clone(w.reads), w.onLoop
+	started, onLoop := w.started, w.onLoop
 	w.mu.Unlock()
-	if len(reads) != 1 || reads[0] > previewTextBytes || reads[0] == 0 || onLoop != 0 {
-		t.Errorf("previewing 2 GB read %v bytes, %d loads on the loop; want one read of at most %d off it", reads, onLoop, previewTextBytes)
+	if started != 1 || text > preview.TextBytes || text == 0 || onLoop != 0 {
+		t.Errorf("previewing 2 GB showed %d bytes in %d loads, %d on the loop; want one load of at most %d off it", text, started, onLoop, preview.TextBytes)
 	}
 	hs.click(t, "Cancel")
 	answer(t, got)
@@ -225,7 +240,7 @@ func TestPreviewLoadsOncePerRest(t *testing.T) {
 		t.Errorf("50 moves in one rest started %d loads, want 1", loads)
 	}
 	var text string
-	hs.run(func() { text = treetest.All[*widgets.CodeView](hs.c.ui.pv.visual)[0].Text() })
+	hs.run(func() { text = treetest.All[*widgets.CodeView](hs.c.ui.pv.Root())[0].Text() })
 	if text != "note 9" {
 		t.Errorf("the pane shows %q, want the last selection's text", text)
 	}
@@ -254,48 +269,58 @@ func TestPreviewLoadsOncePerRest(t *testing.T) {
 	answer(t, got)
 }
 
-// A folder previews its item count, capped.
+// The arrows step Quick Look through the files; Space closes it, and
+// with no preview open they are left to the views.
+func TestQuicklookStepsThroughTheFiles(t *testing.T) {
+	hs := newHarness(t, "")
+	dir := filepath.Join(hs.root, "docs")
+	for i := range 3 {
+		writeFile(t, filepath.Join(dir, "note"+strconv.Itoa(i)+".txt"), []byte("note "+strconv.Itoa(i)))
+	}
+	got := hs.quicklookOn(t, dir, "note0.txt")
+	hs.key(xkb.KeyRight, 0, nil)
+	hs.waitPreview(t, "note1.txt")
+	hs.key(xkb.KeyLeft, 0, nil)
+	hs.waitPreview(t, "note0.txt")
+	hs.key(xkb.KeySpace, 0, nil)
+	var open bool
+	var path string
+	hs.do(func() { open, path = hs.c.ui.quicklook.Visible(), hs.c.ui.ql.Path() })
+	if open || path != "" {
+		t.Errorf("Space left Quick Look open %v, showing %q", open, path)
+	}
+	hs.click(t, "Cancel")
+	answer(t, got)
+}
+
+// A folder previews its item count.
 func TestFolderPreviewCountsItems(t *testing.T) {
 	hs := newHarness(t, "")
 	got := hs.quicklookOn(t, hs.root, "docs")
 	var info string
-	hs.run(func() { info = hs.c.ui.ql.info.Text() })
-	if !strings.HasPrefix(info, i18n.T("file-chooser-kind-folder")+" · "+i18n.T("file-chooser-folder-items", i18n.Int("count", 0), i18n.Str("shown", "0"))) {
+	hs.run(func() { info = detailOf(hs.c.ui.ql.Root()) })
+	if !strings.HasPrefix(info, i18n.T("preview-kind-folder")+" · "+i18n.T("preview-folder-items", i18n.Int("count", 0), i18n.Str("shown", "0"))) {
 		t.Errorf("an empty folder's detail line is %q", info)
 	}
 	hs.click(t, "Cancel")
 	answer(t, got)
-	dir := t.TempDir()
-	for i := range 12 {
-		writeFile(t, filepath.Join(dir, strconv.Itoa(i)), nil)
-	}
-	if n, more, err := testReader.Count(dir, 10); n != 10 || !more || err != nil {
-		t.Errorf("counting 12 to 10 = %d, %v, %v", n, more, err)
-	}
-	if n, more, err := testReader.Count(dir, 12); n != 12 || more || err != nil {
-		t.Errorf("counting 12 to 12 = %d, %v, %v", n, more, err)
-	}
-	if got := previewDetail(Entry{IsDir: true}, preview{kind: previewFolder, items: folderCountCap, more: true}); !strings.HasPrefix(got, i18n.T("file-chooser-kind-folder")+" · "+i18n.T("file-chooser-folder-items-capped", i18n.Str("shown", i18n.Shell().Integer(folderCountCap)))) {
-		t.Errorf("a capped count reads %q", got)
-	}
 }
 
-// A PDF previews its large thumbnail, made by its thumbnailer, under
-// its type's description.
+// A PDF previews its large thumbnail, made by its thumbnailer.
 func TestQuicklookShowsAThumbnailerPage(t *testing.T) {
 	hs := newHarness(t, "")
 	doc := pdfFile(t, hs)
 	installThumbnailer(t, hs, thumbnailtest.Page)
 	got := hs.quicklookOn(t, filepath.Dir(doc), "paper.pdf")
-	var imgs []*widget.Image
+	var views []*widget.ImageView
 	hs.run(func() {
 		lay(hs.cfg.Root, 1400, 1000)
-		imgs = treetest.All[*widget.Image](hs.c.ui.ql.visual)
+		views = treetest.All[*widget.ImageView](hs.c.ui.ql.Root())
 	})
-	if len(imgs) != 1 {
-		t.Fatalf("Quick Look on a PDF shows %d images", len(imgs))
+	if len(views) != 1 {
+		t.Fatalf("Quick Look on a PDF shows %d image views", len(views))
 	}
-	if b := imgs[0].Bounds(); 3*b.W != 2*b.H {
+	if b := views[0].Bounds(); 3*b.W != 2*b.H {
 		t.Errorf("the 200x300 page shows at %dx%d, want 2:3", b.W, b.H)
 	}
 	hs.click(t, "Cancel")

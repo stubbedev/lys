@@ -81,7 +81,7 @@ type panel struct {
 func (s *Surface) openPanel(sess *launcheripc.Session) {
 	cfg := s.d.Config()
 	ctx, cancel := context.WithCancel(context.Background())
-	p := &panel{s: s, sess: sess, ctx: ctx, cancel: cancel, sel: -1, preview: newPreviewLoader(s.d, s.work.Go, engine.NewThumbnailer(s.thumbs, mime.System(), previewCmd(sess.Options, cfg.Launcher)))}
+	p := &panel{s: s, sess: sess, ctx: ctx, cancel: cancel, sel: -1, preview: newPreviewLoader(s.d, s.work.Go, s.previewSources(engine.NewThumbnailer(s.thumbs, mime.System(), previewCmd(sess.Options, cfg.Launcher))))}
 	s.panel = p
 	p.v = s.panelViewsFor(p, cfg)
 	win, err := s.d.Open(panelLayer(cfg.Styling.Translucent(), s.outputFor(cfg.Launcher.Monitor), p.v.panelFrame, p.keyCaptured,
@@ -133,7 +133,7 @@ func (s *Surface) openPanel(sess *launcheripc.Session) {
 // changed since or that panel's surface is still leaving.
 func (s *Surface) panelViewsFor(p *panel, cfg *config.Config) *panelViews {
 	if s.views == nil || s.views.cfg != cfg || s.views.p != nil {
-		s.views = newPanelViews(s.d, cfg)
+		s.views = newPanelViews(s.d, cfg, s.work.Go)
 	}
 	s.views.bind(p, s.work.Go, s.d.Invoke)
 	return s.views
@@ -473,7 +473,7 @@ func (p *panel) schedulePreview() {
 	p.previewFor = id
 	preview := entry.Preview
 	p.preview.settle(func() {
-		p.preview.fetch(ctx, preview, func(c engine.PreviewContent, err error) { p.v.showPreview(c, err, entry) })
+		p.preview.fetch(ctx, p.v.pane, preview, func(c engine.PreviewContent, err error) { p.v.showPreview(c, err, entry) })
 	})
 }
 
@@ -517,7 +517,7 @@ func (p *panel) teardown() {
 	if p.s.panel == p {
 		p.s.panel = nil
 	}
-	p.preview.stop()
+	p.preview.close()
 	p.cancel()
 	if p.eng != nil {
 		p.eng.Stop()

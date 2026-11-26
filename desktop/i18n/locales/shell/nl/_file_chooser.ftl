@@ -49,12 +49,6 @@ file-chooser-filter-all = Alle bestanden
 ## Soorten en voorbeeld
 file-chooser-kind-folder = Map
 file-chooser-kind-file = Bestand
-file-chooser-kind-typed = { $type }-bestand
-file-chooser-folder-items = { $count ->
-    [one] { $shown } item
-   *[other] { $shown } items
-}
-file-chooser-folder-items-capped = { $shown }+ items
 file-chooser-no-selection = Geen selectie
 
 ## Meldingen

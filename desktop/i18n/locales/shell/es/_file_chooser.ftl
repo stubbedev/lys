@@ -49,12 +49,6 @@ file-chooser-filter-all = Todos los archivos
 ## Tipos y vista previa
 file-chooser-kind-folder = Carpeta
 file-chooser-kind-file = Archivo
-file-chooser-kind-typed = Archivo { $type }
-file-chooser-folder-items = { $count ->
-    [one] { $shown } elemento
-   *[other] { $shown } elementos
-}
-file-chooser-folder-items-capped = Más de { $shown } elementos
 file-chooser-no-selection = Sin selección
 
 ## Avisos

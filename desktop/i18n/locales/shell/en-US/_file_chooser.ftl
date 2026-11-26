@@ -49,12 +49,6 @@ file-chooser-filter-all = All Files
 ## Kinds and preview
 file-chooser-kind-folder = Folder
 file-chooser-kind-file = File
-file-chooser-kind-typed = { $type } file
-file-chooser-folder-items = { $count ->
-    [one] { $shown } item
-   *[other] { $shown } items
-}
-file-chooser-folder-items-capped = { $shown }+ items
 file-chooser-no-selection = No selection
 
 ## Notices

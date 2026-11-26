@@ -9,6 +9,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/shell/apptheme"
+	"github.com/stubbedev/lys/desktop/shell/preview"
 	"github.com/stubbedev/lys/lib/capture"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/app"
@@ -184,7 +185,7 @@ func TestHeadlessEveryModePreviewsItsSelectedRow(t *testing.T) {
 
 	mode, query := SearchMode, "~/greet"
 	reply = h.open(t, 3, launcheripc.SessionOptions{Mode: &mode, Filter: &query})
-	apptest.Until(t, a, "the file's text", func() bool { return s.panel != nil && s.panel.v.pane.code.Visible() })
+	apptest.Until(t, a, "the file's text", func() bool { return s.panel != nil && s.panel.v.pane.file.Renderer() == preview.Text })
 	h.shoot(t, "search-mode", func() { s.panel.v.root.Invalidate() })
 	h.kb.Tap(keytest.Escape)
 	apptest.Answer(t, "the search session's reply", reply)

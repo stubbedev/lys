@@ -49,12 +49,6 @@ file-chooser-filter-all = Todos os ficheiros
 ## Tipos e pré-visualização
 file-chooser-kind-folder = Pasta
 file-chooser-kind-file = Ficheiro
-file-chooser-kind-typed = Ficheiro { $type }
-file-chooser-folder-items = { $count ->
-    [one] { $shown } item
-   *[other] { $shown } itens
-}
-file-chooser-folder-items-capped = Mais de { $shown } itens
 file-chooser-no-selection = Nenhuma seleção
 
 ## Avisos

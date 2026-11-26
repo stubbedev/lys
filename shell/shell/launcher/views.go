@@ -25,7 +25,7 @@ func (s *Surface) buildViews(a *active) *views {
 		Post: s.d.Invoke, Font: s.d.Font, Variants: s.d.Variants,
 		IconPx: px(launcherview.SearchIconSize), ShowIcons: look.ShowIcons, Display: ui.display,
 	}
-	v := &views{pane: newPreviewPane(s.d.Font, px, 0)}
+	v := &views{pane: newPreviewPane(s.d.Font, px, 0, s.d.Invoke, s.work.Go)}
 	v.Session = launcherview.NewSession(launcherview.Spec{
 		Font: s.d.Font, Variants: s.d.Variants, Config: cfg, Look: look, Side: v.pane.box,
 		Row: func(pos int) widget.Widget { return s.makeRow(a, pos, st) },
