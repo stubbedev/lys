@@ -1,4 +1,4 @@
-package filechooser
+package filebrowser
 
 import (
 	"path/filepath"
@@ -18,14 +18,14 @@ func virtualLocation(dir string) bool { return dir == recentLocation || dir == t
 // ListTrash lists the trashed files of the trash directories
 // (fileops.List), each named by the original basename its info
 // records.
-func ListTrash(dirs []string, mode Mode) ([]Entry, error) {
+func ListTrash(dirs []string, kinds Kinds) ([]Entry, error) {
 	items, err := fileops.List(dirs)
 	if err != nil {
 		return nil, err
 	}
 	entries := make([]Entry, 0, len(items))
 	for _, it := range items {
-		if e, ok := statEntry(it.Path(), mode); ok {
+		if e, ok := statEntry(it.Path(), kinds); ok {
 			e.Label = filepath.Base(it.Original)
 			entries = append(entries, e)
 		}

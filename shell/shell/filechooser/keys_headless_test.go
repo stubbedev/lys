@@ -7,10 +7,13 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/portaldialogs"
 	"github.com/stubbedev/lys/ui/app"
+	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/shell/internal/apptest"
 	"github.com/stubbedev/lys/shell/internal/keytest"
 	"github.com/stubbedev/lys/shell/shell/dialogsurface"
+	"github.com/stubbedev/lys/shell/shell/filebrowser"
+	"github.com/stubbedev/lys/shell/shell/filebrowser/browsertest"
 )
 
 // The chooser's keys on a real compositor, read through the keymap the
@@ -42,13 +45,23 @@ func TestHeadlessKeysFollowTheKeymap(t *testing.T) {
 	kb.Tap(keytest.Return)
 	apptest.Never(t, "Return on a physical keyboard's Escape code", answers)
 
+	hidden := func() bool {
+		on := false
+		treetest.Walk(c.b.Header(), func(w widget.Widget) {
+			if tb, ok := w.(*widget.ToggleButton); ok && widget.Describe(tb).Name == "Show hidden files" {
+				on = tb.Active()
+			}
+		})
+		return on
+	}
+	locating := func() bool { return widget.IsVisible(classed(t, c.b.Main(), "file-chooser-location").(widget.Widget)) }
 	kb.CtrlTap(keytest.H)
-	apptest.Until(t, a, "Ctrl+H showed hidden files", func() bool { return c.hidden })
-	if apptest.On(a, c.ui.location.Visible) {
+	apptest.Until(t, a, "Ctrl+H showed hidden files", hidden)
+	if apptest.On(a, locating) {
 		t.Fatal("Ctrl+H, on a physical keyboard's L, opened the location entry")
 	}
 	kb.CtrlTap(keytest.L)
-	apptest.Until(t, a, "Ctrl+L opened the location entry", func() bool { return c.ui.location.Visible() })
+	apptest.Until(t, a, "Ctrl+L opened the location entry", locating)
 
 	kb.Tap(keytest.Escape)
 	if r := apptest.Answer(t, "the chooser after Escape", answers); r.URIs != nil {
@@ -63,14 +76,18 @@ func headlessChooser(t *testing.T, a *app.Application, home string) *Chooser {
 	cfg := config.Defaults()
 	cfg.Animations.Enabled = false
 	return New(Deps{
-		Config:    func() *config.Config { return cfg },
-		Open:      func(s dialogsurface.Spec) (Window, error) { return dialogsurface.Open(a, s) },
-		Invoke:    a.Invoke,
-		KeySym:    a.KeySym,
-		Font:      treetest.Font(t),
-		MIME:      testDB(t),
-		Home:      home,
-		Places:    func() []Place { return []Place{{Label: "Home", Path: home, Icon: "user-home-symbolic"}} },
-		Locations: func() []Place { return nil },
+		Config: func() *config.Config { return cfg },
+		Open:   func(s dialogsurface.Spec) (Window, error) { return dialogsurface.Open(a, s) },
+		KeySym: a.KeySym,
+		Browser: filebrowser.Deps{
+			Invoke: a.Invoke,
+			Font:   treetest.Font(t),
+			MIME:   browsertest.MIME(t),
+			Home:   home,
+			Places: func() []filebrowser.Place {
+				return []filebrowser.Place{{Label: "Home", Path: home, Icon: "user-home-symbolic"}}
+			},
+			Locations: func() []filebrowser.Place { return nil },
+		},
 	})
 }

@@ -1,4 +1,4 @@
-package filechooser
+package filebrowser
 
 import (
 	"bytes"
@@ -46,7 +46,7 @@ func newDirReader() *dirReader {
 	r := &dirReader{}
 	bufs, err := bufpool.New(&r.mem, 4*dirBufSize)
 	if err != nil {
-		panic(fmt.Sprintf("filechooser: a dirent pool retaining %d bytes: %v", 4*dirBufSize, err))
+		panic(fmt.Sprintf("filebrowser: a dirent pool retaining %d bytes: %v", 4*dirBufSize, err))
 	}
 	r.bufs = bufs
 	return r
@@ -57,13 +57,13 @@ type dirCounts struct {
 	getdents, stats int
 }
 
-// List lists dir in full, sorted by path. Only the mode rule applies
+// List lists dir in full, sorted by path. Only the kinds rule applies
 // here, because it cannot change while the listing is cached; the
 // hidden toggle, the type filter and the search text partition the
 // cached listing. A directory that cannot be read is an error; an
 // entry that cannot be stated (a dangling link) is listed as a file
 // with nothing known about it.
-func (r *dirReader) List(dir string, mode Mode) ([]Entry, dirCounts, error) {
+func (r *dirReader) List(dir string, kinds Kinds) ([]Entry, dirCounts, error) {
 	var counts dirCounts
 	paths := pathArena{prefix: dirPrefix(dir)}
 	var entries []Entry
@@ -74,7 +74,7 @@ func (r *dirReader) List(dir string, mode Mode) ([]Entry, dirCounts, error) {
 		if statAt(fd, cname, &st) == nil {
 			e = entryOf(e.Path, &st)
 		}
-		if !e.IsDir && mode.folders() {
+		if !e.IsDir && kinds == FoldersOnly {
 			return true
 		}
 		if len(entries) == cap(entries) {
@@ -176,9 +176,9 @@ func (a *pathArena) join(name []byte) string {
 }
 
 // statEntry stats path, following a link, into an Entry: false when
-// nothing is there or the mode does not list it. A dangling link is a
+// nothing is there or kinds does not list it. A dangling link is a
 // file with nothing known about it.
-func statEntry(path string, mode Mode) (Entry, bool) {
+func statEntry(path string, kinds Kinds) (Entry, bool) {
 	var st unix.Stat_t
 	e := Entry{Path: path}
 	switch {
@@ -187,7 +187,7 @@ func statEntry(path string, mode Mode) (Entry, bool) {
 	case unix.Lstat(path, &st) != nil:
 		return Entry{}, false
 	}
-	if !e.IsDir && mode.folders() {
+	if !e.IsDir && kinds == FoldersOnly {
 		return Entry{}, false
 	}
 	return e, true

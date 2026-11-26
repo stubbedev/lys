@@ -3,17 +3,18 @@ package filechooser
 import (
 	"fmt"
 	"path/filepath"
-	"slices"
 	"strconv"
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/portaldialogs"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
+
+	"github.com/stubbedev/lys/shell/shell/filebrowser"
+	"github.com/stubbedev/lys/shell/shell/filebrowser/browsertest"
 )
 
 // The output the layout tests lay the overlay out on.
@@ -80,7 +81,7 @@ func crowded(t *testing.T, root string, n int) string {
 	for i := range names {
 		names[i] = fmt.Sprintf("crowded/file-%02d.txt", i)
 	}
-	touch(t, root, names...)
+	browsertest.Touch(t, root, names...)
 	return dir
 }
 
@@ -96,9 +97,9 @@ func TestFooterStaysInThePanel(t *testing.T) {
 	}{
 		{name: "few files", files: 0},
 		{name: "fifty files", files: 50},
-		{name: "new folder row", files: 14, show: func(hs *harness) { hs.do(hs.c.showNewFolder) }},
+		{name: "new folder row", files: 14, show: func(hs *harness) { hs.click(hs.t, "Create Folder") }},
 		{name: "replace notice", files: 14, show: func(hs *harness) {
-			hs.do(func() { hs.c.ui.name.SetText("file-00.txt") })
+			hs.do(func() { hs.c.name.SetText("file-00.txt") })
 			hs.do(hs.c.confirm)
 		}},
 	}
@@ -126,12 +127,12 @@ func TestFooterStaysInThePanel(t *testing.T) {
 						t.Errorf("%s at %v, outside the footer %v", class, b, footer)
 					}
 				}
-				list := hs.c.ui.list.Bounds()
+				list := classed(t, hs.cfg.Root, "file-chooser-list").Bounds()
 				if list.Y+list.H > footer.Y {
 					t.Errorf("the file list at %v runs into the footer at %v", list, footer)
 				}
-				rows := len(hs.c.s.entries)
-				if fits := list.H/listRowH >= rows; tc.files >= 50 && fits {
+				rows := len(hs.c.b.Entries())
+				if fits := list.H/filebrowser.ListRowH >= rows; tc.files >= 50 && fits {
 					t.Errorf("the list is %dpx, tall enough for all %d rows: it was never short of room", list.H, rows)
 				}
 			})
@@ -154,7 +155,7 @@ func TestFilterOpensAPopoverOfReadableRows(t *testing.T) {
 	}
 	hs.do(func() {
 		hs.laidOut(t)
-		r, p := treetest.Pointer(hs.cfg.Root, hs.c.ui.filter, outW, outH)
+		r, p := treetest.Pointer(hs.cfg.Root, hs.c.filter, outW, outH)
 		r.Press(widget.BTNLeft, p, 0)
 		r.Release(widget.BTNLeft, p)
 	})
@@ -178,7 +179,7 @@ func TestFilterOpensAPopoverOfReadableRows(t *testing.T) {
 				text = l
 			}
 		}
-		if b := content.(widget.Boundser).Bounds(); b.H <= 2*listRowH {
+		if b := content.(widget.Boundser).Bounds(); b.H <= 2*filebrowser.ListRowH {
 			t.Errorf("the open filter list is %v, too short for its %d filters", b, len(filters)+1)
 		}
 	})
@@ -202,41 +203,8 @@ func TestFilterOpensAPopoverOfReadableRows(t *testing.T) {
 func TestNoFiltersNoFilterDropdown(t *testing.T) {
 	hs := newHarness(t, "")
 	hs.open(t, OpenRequest{})
-	if widget.IsVisible(hs.c.ui.filter) {
+	if widget.IsVisible(hs.c.filter) {
 		t.Error("a request without filters shows the filter dropdown")
-	}
-}
-
-// The sidebar keeps its width: a long place name ellipsizes inside it
-// instead of widening it, and a short one is neither cut nor narrows
-// it.
-func TestSidebarKeepsItsWidth(t *testing.T) {
-	for _, tc := range []struct{ name, label string }{
-		{"short", "Projects"},
-		{"long", strings.Repeat("a long bookmark name ", 10)},
-	} {
-		label := tc.label
-		t.Run(tc.name, func(t *testing.T) {
-			hs := newHarness(t, "")
-			hs.c.d.Places = func() []Place { return []Place{{Label: label, Path: hs.root, Icon: "folder-symbolic"}} }
-			hs.open(t, OpenRequest{})
-			hs.run(func() {
-				hs.laidOut(t)
-				scroll := classed(t, hs.cfg.Root, "file-chooser-sidebar-scroll").Bounds()
-				if scroll.W != sidebarW {
-					t.Errorf("sidebar is %dpx wide, want %d", scroll.W, sidebarW)
-				}
-				place := treetest.Button(t, hs.cfg.Root, label)
-				b := place.Bounds()
-				if b.X+b.W > scroll.X+scroll.W {
-					t.Errorf("place %v runs out of the sidebar %v", b, scroll)
-				}
-				natural := widget.SizeWithin(place, widget.Size{W: 1 << 20, H: 1 << 20}).W
-				if cut := b.W < natural; cut != (natural > sidebarW) {
-					t.Errorf("%q is %dpx of its natural %d: cut %v", label, b.W, natural, cut)
-				}
-			})
-		})
 	}
 }
 
@@ -249,26 +217,27 @@ func TestReplaceNoticeWrapsInsideThePanel(t *testing.T) {
 		name := tc.name
 		t.Run(tc.case_, func(t *testing.T) {
 			hs := newHarness(t, "")
-			touch(t, hs.root, name)
+			browsertest.Touch(t, hs.root, name)
 			hs.ask(t, func() []string {
 				return hs.c.Save(testCaller, SaveRequest{CurrentFolder: hs.root, CurrentName: name}).URIs
 			})
 			hs.do(hs.c.confirm)
 			hs.run(func() {
 				want := i18n.T("file-chooser-save-exists", i18n.Str("name", name), i18n.Str("folder", filepath.Base(hs.root)))
-				if got := hs.c.ui.noticeLabel.Text(); got != want {
+				msg := classed(t, hs.cfg.Root, "file-chooser-notice-label").(*widget.Label)
+				replace := classed(t, hs.cfg.Root, "file-chooser-replace")
+				if got := msg.Text(); got != want {
 					t.Errorf("notice %q, want %q", got, want)
 				}
 				panel := hs.laidOut(t)
-				notice := hs.c.ui.notice.Bounds()
-				for what, b := range map[string]render.Rect{"notice": notice, "message": hs.c.ui.noticeLabel.Bounds(), "Replace": hs.c.ui.replace.Bounds()} {
+				notice := classed(t, hs.cfg.Root, "file-chooser-notice").Bounds()
+				for what, b := range map[string]render.Rect{"notice": notice, "message": msg.Bounds(), "Replace": replace.Bounds()} {
 					if !inside(b, panel) {
 						t.Errorf("%s at %v, outside the panel %v", what, b, panel)
 					}
 				}
-				msg := hs.c.ui.noticeLabel
 				at := msg.Bounds()
-				if rb := hs.c.ui.replace.Bounds(); rb.X < at.X+at.W || rb.Y >= at.Y+at.H || rb.Y+rb.H <= at.Y {
+				if rb := replace.Bounds(); rb.X < at.X+at.W || rb.Y >= at.Y+at.H || rb.Y+rb.H <= at.Y {
 					t.Errorf("Replace at %v, not beside the message %v", rb, at)
 				}
 				line := widget.SizeWithin(msg, widget.Size{W: 1 << 20, H: 1 << 20})
@@ -301,7 +270,7 @@ func TestSaveNameIsPaddedFromTheSeparator(t *testing.T) {
 				pad := widget.Current().Padding
 				body := classed(t, hs.cfg.Root, "file-chooser-body").Bounds()
 				footer := classed(t, hs.cfg.Root, "file-chooser-footer").Bounds()
-				name := hs.c.ui.name.Bounds()
+				name := hs.c.name.Bounds()
 				if save {
 					if gap := name.Y - (body.Y + body.H); gap <= pad {
 						t.Errorf("name entry %dpx below the body, want it clear of the separator by more than %d", gap, pad)
@@ -320,161 +289,5 @@ func TestSaveNameIsPaddedFromTheSeparator(t *testing.T) {
 				})
 			})
 		})
-	}
-}
-
-// longName is a file name with no break the grid's cell width fits.
-const longName = "screenshot-2026-10-26-at-14.32.05-from-the-second-display.png"
-
-// gridded opens a chooser on the tree and a long-named file, switched
-// to the grid.
-func gridded(t *testing.T) *harness {
-	t.Helper()
-	hs := newHarness(t, "")
-	touch(t, hs.root, longName)
-	hs.open(t, OpenRequest{})
-	hs.click(t, "Toggle grid view")
-	return hs
-}
-
-// gridCells paints the surface on the test output and returns the
-// grid's realized cells' rects in model order, and the frame's pixels.
-func (hs *harness) gridCells(t *testing.T) ([]render.Rect, func(x, y int) render.Color) {
-	t.Helper()
-	at := hs.frame(outW, outH)
-	var cells []render.Rect
-	var entries int
-	hs.run(func() {
-		entries = len(hs.c.s.entries)
-		for _, cell := range hs.c.ui.grid.Children() {
-			cells = append(cells, cell.(widget.Boundser).Bounds())
-		}
-	})
-	if len(cells) != entries {
-		t.Fatalf("%d grid cells in view, want all %d entries", len(cells), entries)
-	}
-	return cells, at
-}
-
-// The grid's cells sit a gap apart in both directions, and a point in
-// a gap hits no cell; the grid sits the views' one inset in from the
-// sidebar, the separators above and below and the panel's edge.
-func TestGridCellsAreGappedAndInset(t *testing.T) {
-	hs := gridded(t)
-	cells, _ := hs.gridCells(t)
-	hs.run(func() {
-		gap, pad := widget.Current().Spacing, viewsInset()
-		cols := hs.c.ui.grid.Columns()
-		if cols < 2 || len(cells) <= cols {
-			t.Fatalf("%d columns over %d cells, want at least two of each axis", cols, len(cells))
-		}
-		first, next, below := cells[0], cells[1], cells[cols]
-		if got := next.X - (first.X + first.W); got != gap || next.Y != first.Y {
-			t.Errorf("cells %v and %v are %dpx apart in a line, want %d", first, next, got, gap)
-		}
-		if got := below.Y - (first.Y + first.H); got != gap || below.X != first.X {
-			t.Errorf("cell %v and the cell below %v are %dpx apart, want %d", first, below, got, gap)
-		}
-		grid := &hs.c.ui.grid.List
-		for _, gp := range []widget.Point{
-			{X: first.X + first.W + gap/2, Y: first.Y + first.H/2},
-			{X: first.X + first.W/2, Y: first.Y + first.H + gap/2},
-		} {
-			if hit := grid.HitTest(gp); hit != widget.Widget(grid) {
-				t.Errorf("the gap at %v hits %T, want no cell", gp, hit)
-			}
-		}
-		sidebar := classed(t, hs.cfg.Root, "file-chooser-sidebar-scroll").Bounds()
-		body := classed(t, hs.cfg.Root, "file-chooser-body").Bounds()
-		g := grid.Bounds()
-		if first.X-(sidebar.X+sidebar.W) != pad || first.Y-body.Y != pad {
-			t.Errorf("first cell %v beside the sidebar %v under the body's top %d, want it inset %d", first, sidebar, body.Y, pad)
-		}
-		if g.X+g.W != body.X+body.W-pad || g.Y+g.H != body.Y+body.H-pad {
-			t.Errorf("grid %v in the body %v, want it inset %d from its right and bottom", g, body, pad)
-		}
-	})
-}
-
-// The grid's cells paint the list's fills with its rounding: the
-// accent behind the selected cell, the hover tint under the pointer,
-// neither in a cell's corner nor on the cells between.
-func TestGridCellsPaintRoundedFills(t *testing.T) {
-	hs := gridded(t)
-	hs.pick(t, "pics")
-	cells, at := hs.gridCells(t)
-	var blank render.Color
-	var sel, hov, plain render.Rect
-	hs.run(func() {
-		g := hs.c.ui.grid.Bounds()
-		blank = at(g.X+g.W-2, g.Y+g.H-2)
-		ns := names(hs.c.s.entries)
-		sel, hov, plain = cells[slices.Index(ns, "pics")], cells[slices.Index(ns, "a.png")], cells[slices.Index(ns, "docs")]
-	})
-	edge := func(r render.Rect) (int, int) { return r.X + 2, r.Y + r.H/2 }
-	accent, hover := hs.token(t, config.TokenAccent), hs.token(t, config.TokenBgHover)
-	if got := at(edge(sel)); got != accent {
-		t.Errorf("selected cell paints %v, want the accent %v", got, accent)
-	}
-	if got := at(sel.X, sel.Y); got != blank {
-		t.Errorf("selected cell's corner paints %v, want it rounded off to the view's %v", got, blank)
-	}
-	hs.run(func() {
-		r := &widget.Router{Root: hs.cfg.Root}
-		r.Move(widget.Point{X: hov.X + hov.W/2, Y: hov.Y + hov.H/2})
-	})
-	at = hs.frame(outW, outH)
-	if got := at(edge(hov)); got != hover {
-		t.Errorf("hovered cell paints %v, want the hover tint %v", got, hover)
-	}
-	if got := at(hov.X, hov.Y+hov.H-1); got != blank {
-		t.Errorf("hovered cell's corner paints %v, want it rounded off to the view's %v", got, blank)
-	}
-	if got := at(edge(sel)); got != accent {
-		t.Errorf("selected cell paints %v with the pointer elsewhere, want the accent %v", got, accent)
-	}
-	if got := at(edge(plain)); got != blank {
-		t.Errorf("a cell neither selected nor hovered paints %v, want the view's %v", got, blank)
-	}
-}
-
-// A name too long for a cell breaks inside its words onto lines inside
-// the cell, the gaps beside and below it left blank; a short name sits
-// centred under the icon.
-func TestGridNamesStayInTheirCells(t *testing.T) {
-	hs := gridded(t)
-	cells, at := hs.gridCells(t)
-	var blank render.Color
-	var long, short render.Rect
-	var gap, nameTop int
-	hs.run(func() {
-		g := hs.c.ui.grid.Bounds()
-		blank = at(g.X+g.W-2, g.Y+g.H-2)
-		ns := names(hs.c.s.entries)
-		long, short = cells[slices.Index(ns, longName)], cells[slices.Index(ns, "b.txt")]
-		th := widget.Current()
-		gap, nameTop = th.Spacing, th.Padding/2+gridIconPx
-	})
-	spill := 0
-	for y := long.Y; y < long.Y+long.H+gap; y++ {
-		for x := long.X; x < long.X+long.W+gap; x++ {
-			if (x >= long.X+long.W || y >= long.Y+long.H) && at(x, y) != blank {
-				spill++
-			}
-		}
-	}
-	if spill > 0 {
-		t.Errorf("the long name paints %d pixels in the gaps beside and below its cell %v", spill, long)
-	}
-	lo, hi := short.X+short.W, short.X
-	for y := short.Y + nameTop; y < short.Y+short.H; y++ {
-		for x := short.X; x < short.X+short.W; x++ {
-			if at(x, y) != blank {
-				lo, hi = min(lo, x), max(hi, x)
-			}
-		}
-	}
-	if mid, want := (lo+hi)/2, short.X+short.W/2; hi < lo || mid < want-2 || mid > want+2 {
-		t.Errorf("the short name spans %d..%d, want it centred on %d", lo, hi, want)
 	}
 }

@@ -1,59 +1,48 @@
-package filechooser
+package filebrowser
 
 import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
+
+	"github.com/stubbedev/lys/shell/shell/filebrowser/browsertest"
 )
 
-// tree is a chooser fixture: root/{docs/, pics/a.png, b.txt, a.png,
-// .dot.txt}.
-func tree(t *testing.T) string {
-	t.Helper()
-	root := t.TempDir()
-	touch(t, root, "docs/", "pics/a.png", "b.txt", "a.png", ".dot.txt")
-	return root
-}
+// pngs is the type filter of an app asking for PNG images.
+func pngs(name string) bool { return strings.HasSuffix(name, ".png") }
 
-func open(t *testing.T, mode Mode, folder string, filters []Filter) *session {
+func open(t *testing.T, kinds Kinds, folder string, files func(string) bool) *session {
 	t.Helper()
-	s := newSession(testReader, mode, folder, filters, testDB(t), "/nonexistent-home", defaultView)
+	s := newSession(testReader, kinds, folder, files, "/nonexistent-home", defaultView)
 	s.refresh()
 	return s
 }
 
 func TestSessionStartsInTheRequestedFolderElseHome(t *testing.T) {
-	root := tree(t)
-	if s := open(t, ModeOpenFile, usableFolder(root), nil); s.dir != root {
+	root := browsertest.Tree(t)
+	if s := open(t, FilesAndFolders, UsableFolder(root), nil); s.dir != root {
 		t.Errorf("dir = %s, want the requested %s", s.dir, root)
 	}
-	if s := open(t, ModeOpenFile, usableFolder(filepath.Join(root, "b.txt")), nil); s.dir != "/nonexistent-home" {
+	if s := open(t, FilesAndFolders, UsableFolder(filepath.Join(root, "b.txt")), nil); s.dir != "/nonexistent-home" {
 		t.Errorf("a file as the folder = %s, want home", s.dir)
 	}
-	if s := newSession(testReader, ModeOpenFile, "", nil, testDB(t), "", defaultView); s.dir != "/" {
+	if s := newSession(testReader, FilesAndFolders, "", nil, "", defaultView); s.dir != "/" {
 		t.Errorf("no folder and no home = %s, want /", s.dir)
 	}
 }
 
 func TestSessionPartitionsTheListing(t *testing.T) {
-	root := tree(t)
-	s := open(t, ModeOpenFile, root, []Filter{{"Images", []Rule{{RuleGlob, "*.png"}}}})
-	// Folders pass the type filter; dot files hide; the filter list
-	// gained All Files.
+	root := browsertest.Tree(t)
+	s := open(t, FilesAndFolders, root, pngs)
+	// Folders pass the type filter; dot files hide.
 	if got := names(s.entries); !slices.Equal(got, []string{"docs", "pics", "a.png"}) {
 		t.Errorf("filtered = %v", got)
 	}
-	if len(s.filters) != 2 {
-		t.Fatalf("filters = %+v, want All Files appended", s.filters)
-	}
-	s.selectFilter(1)
+	s.setFiles(nil)
 	if got := names(s.entries); !slices.Equal(got, []string{"docs", "pics", "a.png", "b.txt"}) {
 		t.Errorf("all files = %v", got)
-	}
-	s.selectFilter(7)
-	if s.active != 1 {
-		t.Errorf("an out-of-range filter changed the active one to %d", s.active)
 	}
 	s.hidden = true
 	s.refresh()
@@ -67,9 +56,9 @@ func TestSessionPartitionsTheListing(t *testing.T) {
 }
 
 func TestSessionListsOnlyOnADirectoryChange(t *testing.T) {
-	root := tree(t)
-	s := open(t, ModeOpenFile, root, nil)
-	touch(t, root, "late.txt")
+	root := browsertest.Tree(t)
+	s := open(t, FilesAndFolders, root, nil)
+	browsertest.Touch(t, root, "late.txt")
 	s.setSearch("")
 	s.sortBy(SortSize)
 	if slices.Contains(names(s.entries), "late.txt") {
@@ -83,9 +72,9 @@ func TestSessionListsOnlyOnADirectoryChange(t *testing.T) {
 }
 
 func TestSessionHistoryForksOnFreshNavigation(t *testing.T) {
-	root := tree(t)
+	root := browsertest.Tree(t)
 	docs, pics := filepath.Join(root, "docs"), filepath.Join(root, "pics")
-	s := open(t, ModeOpenFile, root, nil)
+	s := open(t, FilesAndFolders, root, nil)
 	s.goTo(docs)
 	s.goTo(pics)
 	if !s.step(true) || s.dir != docs {
@@ -112,8 +101,8 @@ func TestSessionHistoryForksOnFreshNavigation(t *testing.T) {
 }
 
 func TestSessionNavigationClearsTheSearch(t *testing.T) {
-	root := tree(t)
-	s := open(t, ModeOpenFile, root, nil)
+	root := browsertest.Tree(t)
+	s := open(t, FilesAndFolders, root, nil)
 	s.recursive = true
 	s.setSearch("a")
 	s.addFound("a", []Entry{entry(filepath.Join(root, "pics", "a.png"), false, 0)})
@@ -131,8 +120,8 @@ func TestSessionNavigationClearsTheSearch(t *testing.T) {
 }
 
 func TestSessionRecursiveResultsAreForTheCurrentQueryOnly(t *testing.T) {
-	root := tree(t)
-	s := open(t, ModeOpenFile, root, []Filter{{"Images", []Rule{{RuleGlob, "*.png"}}}})
+	root := browsertest.Tree(t)
+	s := open(t, FilesAndFolders, root, pngs)
 	s.recursive = true
 	s.setSearch("a")
 	deep := entry(filepath.Join(root, "pics", "a.png"), false, 0)
@@ -159,8 +148,8 @@ func TestSessionRecursiveResultsAreForTheCurrentQueryOnly(t *testing.T) {
 }
 
 func TestSessionDroppedRevealsFilesAndEntersFolders(t *testing.T) {
-	root := tree(t)
-	s := open(t, ModeOpenFile, root, nil)
+	root := browsertest.Tree(t)
+	s := open(t, FilesAndFolders, root, nil)
 	s.dropped(filepath.Join(root, "pics", "a.png"), false)
 	if s.dir != filepath.Join(root, "pics") {
 		t.Errorf("a dropped file = %s, want its folder", s.dir)
@@ -172,7 +161,7 @@ func TestSessionDroppedRevealsFilesAndEntersFolders(t *testing.T) {
 }
 
 func TestSessionSortToggles(t *testing.T) {
-	s := open(t, ModeOpenFile, tree(t), nil)
+	s := open(t, FilesAndFolders, browsertest.Tree(t), nil)
 	s.sortBy(SortName)
 	if s.view.asc {
 		t.Error("sorting by the sort column did not flip the direction")
@@ -183,115 +172,15 @@ func TestSessionSortToggles(t *testing.T) {
 	}
 }
 
-func index(t *testing.T, s *session, name string) int {
-	t.Helper()
-	i := slices.Index(names(s.entries), name)
-	if i < 0 {
-		t.Fatalf("no %s in %v", name, names(s.entries))
-	}
-	return i
-}
-
-func TestSessionActivate(t *testing.T) {
-	root := tree(t)
-	s := open(t, ModeOpenFile, root, nil)
-	if got := s.activate(index(t, s, "a.png")); got != activateConfirm {
-		t.Errorf("a file in open mode = %v, want confirm", got)
-	}
-	if got := s.activate(index(t, s, "docs")); got != activateDescend || s.dir != filepath.Join(root, "docs") {
-		t.Errorf("a folder = %v at %s, want descend", got, s.dir)
-	}
-	if got := s.activate(42); got != activateNone {
-		t.Errorf("a missing row = %v", got)
-	}
-	save := open(t, ModeSave, root, nil)
-	if got := save.activate(index(t, save, "b.txt")); got != activateName {
-		t.Errorf("a file in save mode = %v, want the name taken", got)
-	}
-}
-
-func TestSessionResult(t *testing.T) {
-	root := tree(t)
-	uri := func(rel string) string { return "file://" + filepath.Join(root, rel) }
-
-	o := open(t, ModeOpenMultiple, root, nil)
-	got, ok := o.result([]int{index(t, o, "a.png"), index(t, o, "docs"), index(t, o, "b.txt"), 99})
-	if !ok || !slices.Equal(got, []string{uri("a.png"), uri("b.txt")}) {
-		t.Errorf("open = %v %v, want the files only", got, ok)
-	}
-	if got, ok := o.result([]int{index(t, o, "docs")}); ok {
-		t.Errorf("only a folder selected answered %v, want the dialog kept", got)
-	}
-	if _, ok := o.result(nil); ok {
-		t.Error("nothing selected answered")
-	}
-
-	f := open(t, ModeFolder, root, nil)
-	if got := names(f.entries); !slices.Equal(got, []string{"docs", "pics"}) {
-		t.Errorf("folder mode lists %v, want folders only", got)
-	}
-	if got, ok := f.result(nil); !ok || !slices.Equal(got, []string{"file://" + root}) {
-		t.Errorf("folder with none selected = %v, want the folder shown", got)
-	}
-	if got, _ := f.result([]int{index(t, f, "pics"), index(t, f, "docs")}); !slices.Equal(got, []string{uri("pics")}) {
-		t.Errorf("a single-folder pick with two selected = %v, want the first", got)
-	}
-	fs := open(t, ModeFolders, root, nil)
-	if got, _ := fs.result([]int{index(t, fs, "pics"), index(t, fs, "docs")}); !slices.Equal(got, []string{uri("pics"), uri("docs")}) {
-		t.Errorf("a multiple-folder pick = %v, want both", got)
-	}
-}
-
-// The save entry names a path: absolute, under ~, or relative to the
-// folder shown, . and .. resolved.
-func TestSessionSavePath(t *testing.T) {
-	root := tree(t)
-	sv := open(t, ModeSave, root, nil)
-	for name, want := range map[string]string{
-		"new file.txt":  filepath.Join(root, "new file.txt"),
-		"docs/out.txt":  filepath.Join(root, "docs", "out.txt"),
-		"../up.txt":     filepath.Join(filepath.Dir(root), "up.txt"),
-		"/tmp/x":        "/tmp/x",
-		"~/notes.md":    "/home/u/notes.md",
-		"~":             "/home/u",
-		"docs/./a/../b": filepath.Join(root, "docs", "b"),
-		"":              "",
-	} {
-		if got := sv.savePath(name, "/home/u"); got != want {
-			t.Errorf("savePath(%q) = %q, want %q", name, got, want)
-		}
-	}
-}
-
-func TestOpenModeAndConfirmLabel(t *testing.T) {
-	for _, c := range []struct {
-		r     OpenRequest
-		mode  Mode
-		label string
-	}{
-		{OpenRequest{}, ModeOpenFile, "Open"},
-		{OpenRequest{Multiple: true}, ModeOpenMultiple, "Open"},
-		{OpenRequest{Directory: true}, ModeFolder, "Select"},
-		{OpenRequest{Multiple: true, Directory: true}, ModeFolders, "Select"},
-	} {
-		if got := openMode(c.r); got != c.mode || got.confirmLabel() != c.label {
-			t.Errorf("openMode(%+v) = %v %q, want %v %q", c.r, got, got.confirmLabel(), c.mode, c.label)
-		}
-	}
-	if ModeSave.confirmLabel() != "Save" {
-		t.Error("save label")
-	}
-}
-
 // Hidden is GTK's rule: dot names, ~ backups, and the names the
 // folder's .hidden lists; the toggle shows them all.
 func TestSessionHiddenRules(t *testing.T) {
 	root := t.TempDir()
-	touch(t, root, "keep.txt", "notes.txt~", ".dot", "secret.txt", "build/")
+	browsertest.Touch(t, root, "keep.txt", "notes.txt~", ".dot", "secret.txt", "build/")
 	if err := os.WriteFile(filepath.Join(root, ".hidden"), []byte("secret.txt\nbuild\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	s := open(t, ModeOpenFile, root, nil)
+	s := open(t, FilesAndFolders, root, nil)
 	if got := names(s.entries); !slices.Equal(got, []string{"keep.txt"}) {
 		t.Errorf("shown %v, want only keep.txt", got)
 	}
@@ -305,8 +194,8 @@ func TestSessionHiddenRules(t *testing.T) {
 // A listing handed over late lands only for the folder still awaited;
 // a reload keeps showing the old listing until the new one lands.
 func TestSessionListingArrivesLate(t *testing.T) {
-	root := tree(t)
-	s := newSession(testReader, ModeOpenFile, root, nil, testDB(t), "/nonexistent-home", defaultView)
+	root := browsertest.Tree(t)
+	s := newSession(testReader, FilesAndFolders, root, nil, "/nonexistent-home", defaultView)
 	var asked []string
 	s.request = func(dir string) { asked = append(asked, dir) }
 	s.refresh()
@@ -327,5 +216,25 @@ func TestSessionListingArrivesLate(t *testing.T) {
 	s.reload()
 	if !s.loading || !slices.Equal(names(s.entries), before) {
 		t.Errorf("a reload showed %v while reading, want %v", names(s.entries), before)
+	}
+}
+
+// Typed text names a path: absolute, under ~, or relative to the
+// folder shown, . and .. resolved.
+func TestResolvePath(t *testing.T) {
+	root := browsertest.Tree(t)
+	for name, want := range map[string]string{
+		"new file.txt":  filepath.Join(root, "new file.txt"),
+		"docs/out.txt":  filepath.Join(root, "docs", "out.txt"),
+		"../up.txt":     filepath.Join(filepath.Dir(root), "up.txt"),
+		"/tmp/x":        "/tmp/x",
+		"~/notes.md":    "/home/u/notes.md",
+		"~":             "/home/u",
+		"docs/./a/../b": filepath.Join(root, "docs", "b"),
+		"":              "",
+	} {
+		if got := ResolvePath(name, root, "/home/u"); got != want {
+			t.Errorf("ResolvePath(%q) = %q, want %q", name, got, want)
+		}
 	}
 }

@@ -1,4 +1,4 @@
-package filechooser
+package filebrowser
 
 import (
 	"bytes"
@@ -71,7 +71,7 @@ func TestClosingFreesEveryThumbnailAndReopeningMakesThemAgain(t *testing.T) {
 	hs := newHarness(t, "")
 	dir, paths := photoFolder(t, hs, 3)
 	open := func() []render.ImageID {
-		hs.open(t, OpenRequest{CurrentFolder: dir})
+		hs.open(t, in(openFile, dir))
 		hs.scrollGrid()
 		for _, p := range paths {
 			hs.waitThumb(t, p, gridIconPx)
@@ -89,7 +89,7 @@ func TestClosingFreesEveryThumbnailAndReopeningMakesThemAgain(t *testing.T) {
 		return ids
 	}
 	closeDialog := func(ids []render.ImageID) {
-		hs.do(func() { hs.c.finish(nil) })
+		hs.hide()
 		hs.run(func() {
 			if live := hs.c.thumbnailer.Live(); live != 0 {
 				t.Errorf("%d thumbnails still allocated after the dialog closed", live)
@@ -134,10 +134,10 @@ func TestClosingCancelsThumbnailsInFlight(t *testing.T) {
 	dir, paths := photoFolder(t, hs, 3)
 	budget, release := holdBudget(t, hs)
 	th := hs.c.thumbnailer
-	hs.open(t, OpenRequest{CurrentFolder: dir})
+	hs.open(t, in(openFile, dir))
 	hs.scrollGrid()
 	waittest.Until(t, func() bool { return budget.Waiting() == len(paths) }, "every lookup to wait for the budget")
-	hs.do(func() { hs.c.finish(nil) })
+	hs.hide()
 	waittest.Until(t, func() bool { return budget.Waiting() == 0 }, "the lookups to stop waiting")
 	release()
 	waittest.Until(t, func() bool { return budget.Waiting() == 0 && budget.Held() == 0 }, "the lookups to end")
@@ -173,7 +173,7 @@ func TestCloseFreesThumbnailsMadeAfterTheLoopEnded(t *testing.T) {
 	dir, paths := photoFolder(t, hs, 3)
 	budget, release := holdBudget(t, hs)
 	th := hs.c.thumbnailer
-	hs.open(t, OpenRequest{CurrentFolder: dir})
+	hs.open(t, in(openFile, dir))
 	hs.scrollGrid()
 	waittest.Until(t, func() bool { return budget.Waiting() == len(paths) }, "every lookup to wait for the budget")
 	hs.endLoop()

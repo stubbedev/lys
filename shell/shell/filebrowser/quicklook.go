@@ -1,4 +1,4 @@
-package filechooser
+package filebrowser
 
 import (
 	"context"
@@ -19,7 +19,7 @@ const (
 // newQuicklook is Quick Look's card: a preview of the selection over
 // the file views, closed by Space and Escape, stepped through the view
 // by the arrows, playing a video at once.
-func (c *Chooser) newQuicklook() *preview.View {
+func (c *Browser) newQuicklook() *preview.View {
 	return preview.New(c.previewConfig(preview.Config{
 		Class: "file-chooser-quicklook", NameChars: 32, Autoplay: true,
 		Image: image.Pt(quicklookImageW, quicklookImageH), Text: image.Pt(quicklookTextW, quicklookTextH),
@@ -29,7 +29,7 @@ func (c *Chooser) newQuicklook() *preview.View {
 
 // newPreviewPane is the preview pane beside the file views, w wide,
 // saying so while nothing is selected.
-func (c *Chooser) newPreviewPane(w int) *preview.View {
+func (c *Browser) newPreviewPane(w int) *preview.View {
 	return preview.New(c.previewConfig(preview.Config{
 		Class: "file-chooser-preview", NameChars: 22, Placeholder: i18n.T("file-chooser-no-selection"),
 		Image: image.Pt(w, paneImageH), Text: image.Pt(w, paneTextH),
@@ -37,7 +37,7 @@ func (c *Chooser) newPreviewPane(w int) *preview.View {
 }
 
 // previewConfig is cfg with what every preview of the chooser shares.
-func (c *Chooser) previewConfig(cfg preview.Config) preview.Config {
+func (c *Browser) previewConfig(cfg preview.Config) preview.Config {
 	cfg.Font, cfg.MIME, cfg.IconPx = c.d.Font, c.d.MIME, previewIconPx
 	cfg.Invoke, cfg.Spawn = c.d.Invoke, c.offLoop.Go
 	cfg.Load = func(ctx context.Context, req preview.Request) preview.Content { return c.previewLoader(ctx, req) }
@@ -46,12 +46,12 @@ func (c *Chooser) previewConfig(cfg preview.Config) preview.Config {
 
 // loadPreview finds out what to show of a file through the chooser's
 // thumbnailer and pictures; safe off the loop.
-func (c *Chooser) loadPreview(ctx context.Context, req preview.Request) preview.Content {
+func (c *Browser) loadPreview(ctx context.Context, req preview.Request) preview.Content {
 	return preview.Load(ctx, preview.Sources{MIME: c.d.MIME, Thumbnails: c.thumbnailer, Pictures: c.pictures}, req)
 }
 
 // openPreviews are the previews showing.
-func (c *Chooser) openPreviews() []*preview.View {
+func (c *Browser) openPreviews() []*preview.View {
 	var open []*preview.View
 	if c.ui.quicklook.Visible() {
 		open = append(open, c.ui.ql)
@@ -63,7 +63,7 @@ func (c *Chooser) openPreviews() []*preview.View {
 }
 
 // closePreviews closes both previews, which lets go of what they show.
-func (c *Chooser) closePreviews() {
+func (c *Browser) closePreviews() {
 	if c.ui == nil {
 		return
 	}
@@ -72,7 +72,7 @@ func (c *Chooser) closePreviews() {
 }
 
 // stepSelection moves the selection of the view showing by delta.
-func (c *Chooser) stepSelection(delta int) {
+func (c *Browser) stepSelection(delta int) {
 	sel := c.activeView().Selection()
 	if len(sel) == 0 {
 		return

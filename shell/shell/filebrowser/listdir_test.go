@@ -1,4 +1,4 @@
-package filechooser
+package filebrowser
 
 import (
 	"fmt"
@@ -11,6 +11,8 @@ import (
 	"github.com/stubbedev/lys/desktop/fswatch"
 	"github.com/stubbedev/lys/lib/waittest"
 	"golang.org/x/sys/unix"
+
+	"github.com/stubbedev/lys/shell/shell/filebrowser/browsertest"
 )
 
 // bigDirEntries is the folder size the listing is gated on.
@@ -45,7 +47,7 @@ func bigDir(t testing.TB) string {
 // nothing.
 func TestListingABigFolderIsCounted(t *testing.T) {
 	root := bigDir(t)
-	entries, counts, err := testReader.List(root, ModeOpenFile)
+	entries, counts, err := testReader.List(root, FilesAndFolders)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,19 +70,19 @@ func TestListingABigFolderIsCounted(t *testing.T) {
 		t.Errorf("%d folders listed, want %d", dirs, bigDirEntries/10)
 	}
 	allocs := testing.AllocsPerRun(3, func() {
-		if _, _, err := testReader.List(root, ModeOpenFile); err != nil {
+		if _, _, err := testReader.List(root, FilesAndFolders); err != nil {
 			t.Fatal(err)
 		}
 	})
 	if allocs > 2000 {
 		t.Errorf("listing %d entries made %.0f allocations, want at most 2000", bigDirEntries, allocs)
 	}
-	folders, _, _ := testReader.List(root, ModeFolder)
+	folders, _, _ := testReader.List(root, FoldersOnly)
 	if len(folders) != bigDirEntries/10 {
 		t.Errorf("a folder pick listed %d, want the %d folders", len(folders), bigDirEntries/10)
 	}
 
-	s := newSession(testReader, ModeOpenFile, root, nil, testDB(t), "/nonexistent-home", defaultView)
+	s := newSession(testReader, FilesAndFolders, root, nil, "/nonexistent-home", defaultView)
 	s.refresh()
 	queries := []string{"f", "fi", "fil", "file-0", "file-00", "file-000", "FILE-0001"}
 	i := 0
@@ -104,7 +106,7 @@ func BenchmarkListDir(b *testing.B) {
 	root := bigDir(b)
 	b.ReportAllocs()
 	for b.Loop() {
-		if _, _, err := testReader.List(root, ModeOpenFile); err != nil {
+		if _, _, err := testReader.List(root, FilesAndFolders); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -128,7 +130,7 @@ func follow(t *testing.T, dir string) followCount {
 	f := followCount{updates: make(chan dirUpdate, 1024)}
 	done := make(chan struct{})
 	go func() {
-		followDir(w, dir, ModeOpenFile, func(u dirUpdate) { f.updates <- u })
+		followDir(w, dir, FilesAndFolders, func(u dirUpdate) { f.updates <- u })
 		close(done)
 	}()
 	t.Cleanup(func() {
@@ -158,8 +160,8 @@ func (f followCount) until(t *testing.T, done func([]dirChange) bool) ([]dirChan
 // most once a write and never reads the folder again; a file created
 // and removed changes its one row.
 func TestChangesAreAppliedRowByRow(t *testing.T) {
-	root := tree(t)
-	s := open(t, ModeOpenFile, root, nil)
+	root := browsertest.Tree(t)
+	s := open(t, FilesAndFolders, root, nil)
 	f := follow(t, root)
 	path := filepath.Join(root, "download.part")
 	file, err := os.Create(path)
@@ -209,12 +211,12 @@ func TestChangesAreAppliedRowByRow(t *testing.T) {
 // Changes coming while the listing is read apply once it lands, and
 // the .hidden list follows its file.
 func TestChangesWaitForTheListing(t *testing.T) {
-	root := tree(t)
-	s := open(t, ModeOpenFile, root, nil)
+	root := browsertest.Tree(t)
+	s := open(t, FilesAndFolders, root, nil)
 	s.request = func(string) {}
 	s.reload()
-	touch(t, root, "late.txt")
-	if s.applyChanges(root, statChanges(root, []string{"late.txt"}, s.mode)) {
+	browsertest.Touch(t, root, "late.txt")
+	if s.applyChanges(root, statChanges(root, []string{"late.txt"}, s.kinds)) {
 		t.Error("a change applied while the listing was read")
 	}
 	if !s.setListing(root, listing{entries: slices.Clone(s.all), hidden: s.hiddenNames}) {
@@ -226,7 +228,7 @@ func TestChangesWaitForTheListing(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, ".hidden"), []byte("late.txt\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	s.applyChanges(root, statChanges(root, []string{".hidden"}, s.mode))
+	s.applyChanges(root, statChanges(root, []string{".hidden"}, s.kinds))
 	if slices.Contains(names(s.entries), "late.txt") {
 		t.Errorf("a name .hidden lists is shown: %v", names(s.entries))
 	}
@@ -253,7 +255,7 @@ func TestLostChangesRescanOnce(t *testing.T) {
 	}
 	close(src.ticks)
 	var updates []dirUpdate
-	followDir(src, tree(t), ModeOpenFile, func(u dirUpdate) { updates = append(updates, u) })
+	followDir(src, browsertest.Tree(t), FilesAndFolders, func(u dirUpdate) { updates = append(updates, u) })
 	if len(updates) != 2 || !updates[0].rescan || updates[1].rescan || len(updates[1].changes) != 1 {
 		t.Errorf("updates %+v, want one rescan then one change", updates)
 	}

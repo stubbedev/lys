@@ -3,15 +3,11 @@ package filechooser
 import (
 	"os"
 	"path/filepath"
-	"slices"
 	"testing"
 
-	"github.com/stubbedev/lys/desktop/fileuri"
-	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/portaldialogs"
-	"github.com/stubbedev/lys/lib/xdg"
-	"github.com/stubbedev/lys/ui/app"
-	"github.com/stubbedev/lys/ui/widget"
+
+	"github.com/stubbedev/lys/shell/shell/filebrowser/browsertest"
 )
 
 // A save dialog selects its name's stem, so typing keeps the
@@ -29,8 +25,8 @@ func TestSaveNameSelectsTheStem(t *testing.T) {
 		})
 		var text string
 		hs.do(func() {
-			hs.c.ui.name.InsertRune('x')
-			text = hs.c.ui.name.Text()
+			hs.c.name.InsertRune('x')
+			text = hs.c.name.Text()
 		})
 		if text != c.want {
 			t.Errorf("typing x over %q gives %q, want %q", c.name, text, c.want)
@@ -38,57 +34,6 @@ func TestSaveNameSelectsTheStem(t *testing.T) {
 		hs.click(t, "Cancel")
 		answer(t, got)
 	}
-}
-
-// The location entry completes the segment typed from its folder: Tab
-// takes a single match whole and two matches' common prefix; hidden
-// names stay out unless typed.
-func TestLocationCompletes(t *testing.T) {
-	hs := newHarness(t, "")
-	touch(t, hs.root, "Documents/", ".Dotfolder/")
-	got := hs.open(t, OpenRequest{})
-	typeLocation := func(text string) []string {
-		hs.do(func() { hs.c.showLocation(text) })
-		var items []string
-		hs.do(func() { items = slices.Clone(hs.c.pc.items) })
-		return items
-	}
-	tab := func() (bool, string) {
-		var handled bool
-		var text string
-		hs.do(func() {
-			handled = hs.c.ui.location.TrapTab(false)
-			text = hs.c.ui.location.Text()
-		})
-		return handled, text
-	}
-	if items := typeLocation("~/Doc"); !slices.Equal(items, []string{"~/Documents/"}) {
-		t.Errorf("~/Doc offers %v", items)
-	}
-	if handled, text := tab(); !handled || text != "~/Documents/" {
-		t.Errorf("Tab on one match: %v %q", handled, text)
-	}
-	touch(t, hs.root, "Downloads/")
-	if items := typeLocation("~/D"); !slices.Equal(items, []string{"~/Documents/", "~/Downloads/"}) {
-		t.Errorf("~/D offers %v", items)
-	}
-	if handled, text := tab(); !handled || text != "~/Do" {
-		t.Errorf("Tab on two matches: %v %q", handled, text)
-	}
-	if items := typeLocation("~/"); slices.Contains(items, "~/.Dotfolder/") {
-		t.Errorf("a hidden folder is offered: %v", items)
-	}
-	if items := typeLocation("~/.D"); !slices.Equal(items, []string{"~/.Dotfolder/"}) {
-		t.Errorf("~/.D offers %v", items)
-	}
-	if items := typeLocation("~/zzz"); len(items) != 0 {
-		t.Errorf("~/zzz offers %v", items)
-	}
-	if handled, _ := tab(); handled {
-		t.Error("Tab without matches did not move on")
-	}
-	hs.click(t, "Cancel")
-	answer(t, got)
 }
 
 // An app's request without a folder starts where its last pick was,
@@ -102,7 +47,7 @@ func TestFolderIsKeptPerApp(t *testing.T) {
 	}
 	app, other := testCaller, portaldialogs.Caller{Handle: "/r/other", AppID: "org.other", Modal: true}
 	docs := filepath.Join(hs.root, "docs")
-	touch(t, docs, "letter.txt")
+	browsertest.Touch(t, docs, "letter.txt")
 	got := ask(app, docs)
 	hs.pick(t, "letter.txt")
 	hs.click(t, "Open")
@@ -142,65 +87,4 @@ func TestFolderMemoryIsCapped(t *testing.T) {
 	if len(m.apps) != maxAppFolders || m.folder("appA") != "" || m.folder("app"+string(rune('A'+maxAppFolders+9))) != "/d" {
 		t.Errorf("%d apps kept, oldest %q", len(m.apps), m.folder("appA"))
 	}
-}
-
-// Ctrl+D bookmarks the folder shown once, a folder dropped on the
-// sidebar too, and its menu removes it again, every other line of the
-// bookmarks file left as it was.
-func TestBookmarksAreEditable(t *testing.T) {
-	config := t.TempDir()
-	t.Setenv("XDG_CONFIG_HOME", config)
-	file := BookmarksFile(xdg.OS)
-	original := "# kept as is\nsftp://host/srv  Server  \nfile:///nonexistent%20dir odd\n"
-	if err := os.MkdirAll(filepath.Dir(file), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(file, []byte(original), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	hs := newHarness(t, "")
-	hs.c.d.BookmarksFile = file
-	hs.c.d.Places = func() []Place { p, _ := UserPlaces(xdg.OS, hs.root); return p }
-	docs := filepath.Join(hs.root, "docs")
-	got := hs.open(t, OpenRequest{CurrentFolder: docs})
-	read := func() string {
-		b, err := os.ReadFile(file)
-		if err != nil {
-			t.Fatal(err)
-		}
-		return string(b)
-	}
-	hs.key('d', app.ModCtrl, nil)
-	want := original + fileuri.FromPath(docs) + "\n"
-	if got := read(); got != want {
-		t.Errorf("after Ctrl+D the file reads %q, want %q", got, want)
-	}
-	hs.key('d', app.ModCtrl, nil)
-	if got := read(); got != want {
-		t.Errorf("a second Ctrl+D made %q", got)
-	}
-	pics := filepath.Join(hs.root, "pics")
-	hs.do(func() { hs.c.droppedOnSidebar(pics) })
-	hs.flush()
-	if got := read(); got != want+fileuri.FromPath(pics)+"\n" {
-		t.Errorf("a folder dropped on the sidebar left %q", got)
-	}
-	var menus []*widget.ContextMenu
-	hs.run(func() { menus = treetest.All[*widget.ContextMenu](hs.c.ui.favorites) })
-	if len(menus) != 2 {
-		t.Fatalf("%d bookmark rows have a menu, want 2", len(menus))
-	}
-	for _, m := range menus {
-		hs.do(m.Items()[0].OnClick)
-	}
-	if got := read(); got != original {
-		t.Errorf("after removing both the file reads %q, want %q", got, original)
-	}
-	hs.flush()
-	hs.run(func() { menus = treetest.All[*widget.ContextMenu](hs.c.ui.favorites) })
-	if len(menus) != 0 {
-		t.Errorf("%d bookmark rows left after removing them", len(menus))
-	}
-	hs.click(t, "Cancel")
-	answer(t, got)
 }

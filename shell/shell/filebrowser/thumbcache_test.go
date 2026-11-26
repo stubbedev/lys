@@ -1,4 +1,4 @@
-package filechooser
+package filebrowser
 
 import (
 	"bytes"
@@ -61,11 +61,10 @@ func (hs *harness) countFound(t *testing.T, paths []string) int {
 // paths to end, then cancels; it reports how many found a thumbnail.
 func (hs *harness) openRows(t *testing.T, dir string, paths []string) int {
 	t.Helper()
-	got := hs.open(t, OpenRequest{CurrentFolder: dir})
+	hs.open(t, in(openFile, dir))
 	hs.buildRows()
 	found := hs.countFound(t, paths)
-	hs.click(t, "Cancel")
-	answer(t, got)
+	hs.hide()
 	return found
 }
 
@@ -99,7 +98,7 @@ func TestDecodedThumbnailsAreCached(t *testing.T) {
 		}
 	}
 	budget, release := holdBudget(t, hs)
-	got := hs.open(t, OpenRequest{CurrentFolder: dir})
+	hs.open(t, in(openFile, dir))
 	hs.buildRows()
 	waittest.Until(t, func() bool { return budget.Waiting() == thumbnail.Workers }, "the workers to wait for the budget")
 	if _, err := os.Stat(filepath.Join(cache, "thumbnails")); err == nil {
@@ -109,8 +108,7 @@ func TestDecodedThumbnailsAreCached(t *testing.T) {
 	if found := hs.countFound(t, paths); found != 20 {
 		t.Errorf("%d photos got a thumbnail, want 20", found)
 	}
-	hs.click(t, "Cancel")
-	answer(t, got)
+	hs.hide()
 	normal := filepath.Join(cache, "thumbnails", "normal")
 	first := thumbnailtest.Cached(t, cache, "normal")
 	if len(first) != 20 {

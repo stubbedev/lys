@@ -24,6 +24,7 @@ import (
 	"github.com/stubbedev/lys/shell/service/dnssd"
 	"github.com/stubbedev/lys/shell/service/udisks"
 	"github.com/stubbedev/lys/shell/shell/dialogsurface"
+	"github.com/stubbedev/lys/shell/shell/filebrowser"
 	"github.com/stubbedev/lys/shell/shell/filechooser"
 	"github.com/stubbedev/lys/shell/shell/portaldialogs/dialoghost"
 	"github.com/stubbedev/lys/shell/shell/printdialog"
@@ -31,8 +32,8 @@ import (
 
 // userPlaces are the file chooser's favorite places in home, logging a
 // user directory or bookmarks file that could not be read.
-func userPlaces(home string) []filechooser.Place {
-	places, err := filechooser.UserPlaces(xdg.OS, home)
+func userPlaces(home string) []filebrowser.Place {
+	places, err := filebrowser.UserPlaces(xdg.OS, home)
 	if err != nil {
 		log.Printf("file chooser: places: %v", err)
 	}
@@ -75,29 +76,31 @@ func servePortalHosts(conn *dbus.Conn, application *app.Application, outputs fun
 		log.Print("print: no state directory; network printers' capabilities are not read")
 	}
 	chooser := filechooser.New(filechooser.Deps{
-		Config:         current,
-		Open:           dialogOpener[filechooser.Window](application),
-		Invoke:         application.Invoke,
-		KeySym:         application.KeySym,
-		Font:           font,
-		Sheet:          sheet,
-		MIME:           mime.System(),
-		Home:           home,
-		Places:         func() []filechooser.Place { return userPlaces(home) },
-		Locations:      filechooser.SystemLocations(home),
-		WatchLocations: filechooser.WatchSystemLocations,
-		Drives: func() *udisks.Client {
-			if conn := system(); conn != nil {
-				return udisks.New(conn)
-			}
-			return nil
+		Config: current,
+		Open:   dialogOpener[filechooser.Window](application),
+		KeySym: application.KeySym,
+		Sheet:  sheet,
+		Target: func() *app.Output { return dialogOutput(outputs(), focused) },
+		Browser: filebrowser.Deps{
+			Invoke:         application.Invoke,
+			Font:           font,
+			MIME:           mime.System(),
+			Home:           home,
+			Places:         func() []filebrowser.Place { return userPlaces(home) },
+			Locations:      filebrowser.SystemLocations(home),
+			WatchLocations: filebrowser.WatchSystemLocations,
+			Drives: func() *udisks.Client {
+				if conn := system(); conn != nil {
+					return udisks.New(conn)
+				}
+				return nil
+			},
+			ViewFile:      viewFile,
+			BookmarksFile: filebrowser.BookmarksFile(xdg.OS),
+			RecentFile:    filebrowser.RecentFile(),
+			TrashDirs:     filebrowser.SystemTrashDirs(home),
+			ForgetImage:   application.ForgetImage,
 		},
-		ViewFile:      viewFile,
-		BookmarksFile: filechooser.BookmarksFile(xdg.OS),
-		RecentFile:    filechooser.RecentFile(),
-		TrashDirs:     filechooser.SystemTrashDirs(home),
-		Target:        func() *app.Output { return dialogOutput(outputs(), focused) },
-		ForgetImage:   application.ForgetImage,
 	})
 	if _, err := filechooser.NewDaemon(chooser).Export(conn); err != nil {
 		log.Printf("file chooser: daemon: %v", err)

@@ -1,4 +1,4 @@
-package filechooser
+package filebrowser
 
 import (
 	"slices"

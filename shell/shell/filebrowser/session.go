@@ -1,24 +1,21 @@
-package filechooser
+package filebrowser
 
 import (
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
-
-	"github.com/stubbedev/lys/desktop/fileuri"
-	"github.com/stubbedev/lys/desktop/mime"
 )
 
-// session is one open request's state, free of widgets: where it is,
-// how the listing is filtered and sorted, the history, and what a
-// confirm answers. The host renders entries and feeds gestures in.
+// session is one browse's state, free of widgets: where it is, how
+// the listing is filtered and sorted, and the history. The browser
+// renders entries and feeds gestures in.
 type session struct {
-	mode    Mode
-	db      *mime.Database
-	dir     string
-	filters []Filter
-	active  int
+	kinds Kinds
+	dir   string
+	// files is the type filter a file must pass to show; nil passes
+	// every file.
+	files func(name string) bool
 
 	// all is the unfiltered listing of listed, re-read only when the
 	// directory changes (or changed on disk): every other repaint
@@ -55,18 +52,19 @@ type session struct {
 	back, forward []string
 }
 
-// newSession starts at folder when it is a directory, else home, else
-// /. Nothing is listed until the first refresh; listings are read at
-// once until request is replaced.
-func newSession(reader *dirReader, mode Mode, folder string, filters []Filter, db *mime.Database, home string, v view) *session {
-	s := &session{reader: reader, mode: mode, db: db, filters: withAllFiles(filters), view: v}
+// newSession starts at folder, else home, else /. Nothing is listed
+// until the first refresh; listings are read at once until request is
+// replaced.
+func newSession(reader *dirReader, kinds Kinds, folder string, files func(string) bool, home string, v view) *session {
+	s := &session{reader: reader, kinds: kinds, files: files, view: v}
 	s.request = func(dir string) { s.setListing(dir, s.read(dir)) }
 	s.dir = startDir(folder, home)
 	return s
 }
 
-// usableFolder is folder when it is one, else "": a stat, for off the loop.
-func usableFolder(folder string) string {
+// UsableFolder is folder when it is one, else "": a stat, for off the
+// loop, which a folder to start in passes first.
+func UsableFolder(folder string) string {
 	if folder == "" {
 		return ""
 	}
@@ -124,13 +122,13 @@ type listing struct {
 func (s *session) read(dir string) listing {
 	switch dir {
 	case recentLocation:
-		entries, err := ListRecent(s.recentFile, s.mode)
+		entries, err := ListRecent(s.recentFile, s.kinds)
 		return listing{entries: entries, err: err}
 	case trashLocation:
-		entries, err := ListTrash(s.trashDirs(), s.mode)
+		entries, err := ListTrash(s.trashDirs(), s.kinds)
 		return listing{entries: entries, err: err}
 	}
-	entries, _, err := s.reader.List(dir, s.mode)
+	entries, _, err := s.reader.List(dir, s.kinds)
 	return listing{entries: entries, hidden: hiddenNames(dir), err: err}
 }
 
@@ -160,10 +158,10 @@ type dirChange struct {
 
 // statChanges states the names of a change batch in dir; safe off the
 // loop.
-func statChanges(dir string, names []string, mode Mode) []dirChange {
+func statChanges(dir string, names []string, kinds Kinds) []dirChange {
 	changes := make([]dirChange, len(names))
 	for i, name := range names {
-		e, ok := statEntry(filepath.Join(dir, name), mode)
+		e, ok := statEntry(filepath.Join(dir, name), kinds)
 		changes[i] = dirChange{name: name, entry: e, present: ok}
 		if name == ".hidden" {
 			changes[i].hidden = hiddenNames(dir)
@@ -223,7 +221,7 @@ func (s *session) partition() {
 		if !s.hidden && hiddenName(name, s.hiddenNames) {
 			continue
 		}
-		if !e.IsDir && !MatchesFilter(s.db, name, s.filters, s.active) {
+		if !e.IsDir && s.files != nil && !s.files(name) {
 			continue
 		}
 		// Recursive matches already matched the query on the walk.
@@ -318,12 +316,10 @@ func (s *session) dropped(path string, isDir bool) {
 	s.goTo(filepath.Dir(path))
 }
 
-// selectFilter makes filter i the active one.
-func (s *session) selectFilter(i int) {
-	if i >= 0 && i < len(s.filters) {
-		s.active = i
-		s.refresh()
-	}
+// setFiles makes files the type filter.
+func (s *session) setFiles(files func(string) bool) {
+	s.files = files
+	s.refresh()
 }
 
 // sortBy sorts by column, flipping the direction when it already is.
@@ -336,75 +332,17 @@ func (s *session) sortBy(column SortColumn) {
 	s.refresh()
 }
 
-// activation is what activating a row does.
-type activation uint8
-
-const (
-	activateNone activation = iota
-	// activateDescend entered the folder.
-	activateDescend
-	// activateName put the file's name in the save entry.
-	activateName
-	// activateConfirm opens: the row is selected, confirm picks it up.
-	activateConfirm
-)
-
-// activate handles a double-click or Enter on row i.
-func (s *session) activate(i int) activation {
-	if i < 0 || i >= len(s.entries) {
-		return activateNone
-	}
-	e := s.entries[i]
+// ResolvePath resolves typed text to the path it names: an absolute
+// path, one under ~ (home), or one relative to dir, its . and ..
+// resolved; "" for no text.
+func ResolvePath(text, dir, home string) string {
 	switch {
-	case e.IsDir:
-		s.goTo(e.Path)
-		return activateDescend
-	case s.mode == ModeSave:
-		return activateName
-	}
-	return activateConfirm
-}
-
-// savePath resolves the save entry's text to the path it names: an
-// absolute path, one under ~, or one relative to the folder shown, its
-// . and .. resolved; "" for no text.
-func (s *session) savePath(name, home string) string {
-	switch {
-	case name == "":
+	case text == "":
 		return ""
-	case name == "~" || strings.HasPrefix(name, "~/"):
-		name = filepath.Join(home, strings.TrimPrefix(name, "~"))
-	case !filepath.IsAbs(name):
-		name = filepath.Join(s.dir, name)
+	case text == "~" || strings.HasPrefix(text, "~/"):
+		text = filepath.Join(home, strings.TrimPrefix(text, "~"))
+	case !filepath.IsAbs(text):
+		text = filepath.Join(dir, text)
 	}
-	return filepath.Clean(name)
-}
-
-// result is what confirming an open answers given the selected rows;
-// false keeps the dialog open (nothing to answer yet). A folder pick
-// answers the selected folders, else the one shown, as GTK's chooser
-// does; an open answers the selected files, never folders.
-func (s *session) result(selected []int) ([]string, bool) {
-	if s.mode.folders() {
-		var uris []string
-		for _, i := range selected {
-			if i >= 0 && i < len(s.entries) && s.entries[i].IsDir {
-				uris = append(uris, fileuri.FromPath(s.entries[i].Path))
-				if !s.mode.multiple() {
-					break
-				}
-			}
-		}
-		if len(uris) == 0 {
-			uris = []string{fileuri.FromPath(s.dir)}
-		}
-		return uris, true
-	}
-	var uris []string
-	for _, i := range selected {
-		if i >= 0 && i < len(s.entries) && !s.entries[i].IsDir {
-			uris = append(uris, fileuri.FromPath(s.entries[i].Path))
-		}
-	}
-	return uris, len(uris) > 0
+	return filepath.Clean(text)
 }

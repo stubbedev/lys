@@ -1,4 +1,4 @@
-package filechooser
+package filebrowser
 
 import (
 	"os"
@@ -8,52 +8,29 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/i18n"
+
+	"github.com/stubbedev/lys/shell/shell/filebrowser/browsertest"
 )
-
-// writeTrashed puts a file in trash/files under name with the info
-// text given ("" writes none: an orphan).
-func writeTrashed(t *testing.T, trash, name, info string) string {
-	t.Helper()
-	for _, d := range []string{"files", "info"} {
-		if err := os.MkdirAll(filepath.Join(trash, d), 0o700); err != nil {
-			t.Fatal(err)
-		}
-	}
-	path := filepath.Join(trash, "files", name)
-	if err := os.WriteFile(path, []byte("x"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if info != "" {
-		if err := os.WriteFile(filepath.Join(trash, "info", name+".trashinfo"), []byte(info), 0o600); err != nil {
-			t.Fatal(err)
-		}
-	}
-	return path
-}
-
-func trashInfo(path string) string {
-	return "[Trash Info]\nPath=" + path + "\nDeletionDate=2026-10-01T12:00:00\n"
-}
 
 // Trashed files list under their original names, typed by them; an
 // orphan or malformed info leaves its file out, a trash that does not
 // exist lists nothing, and folder modes list only folders.
 func TestListTrash(t *testing.T) {
 	home, mount := filepath.Join(t.TempDir(), "Trash"), filepath.Join(t.TempDir(), ".Trash-1000")
-	report := writeTrashed(t, home, "report.2", trashInfo("/home/u/My%20Report.pdf"))
-	writeTrashed(t, mount, "photo.png", trashInfo("pics/photo.png"))
-	writeTrashed(t, home, "orphan.txt", "")
-	writeTrashed(t, home, "badgroup", "[Desktop Entry]\nPath=/x\n")
-	writeTrashed(t, home, "nopath", "[Trash Info]\nDeletionDate=2026-10-01T12:00:00\n")
-	writeTrashed(t, home, "badescape", trashInfo("/home/u/%zz"))
+	report := browsertest.Trashed(t, home, "report.2", browsertest.TrashInfo("/home/u/My%20Report.pdf"))
+	browsertest.Trashed(t, mount, "photo.png", browsertest.TrashInfo("pics/photo.png"))
+	browsertest.Trashed(t, home, "orphan.txt", "")
+	browsertest.Trashed(t, home, "badgroup", "[Desktop Entry]\nPath=/x\n")
+	browsertest.Trashed(t, home, "nopath", "[Trash Info]\nDeletionDate=2026-10-01T12:00:00\n")
+	browsertest.Trashed(t, home, "badescape", browsertest.TrashInfo("/home/u/%zz"))
 	if err := os.MkdirAll(filepath.Join(home, "files", "folder"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(home, "info", "folder.trashinfo"), []byte(trashInfo("/home/u/Old%20Folder")), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(home, "info", "folder.trashinfo"), []byte(browsertest.TrashInfo("/home/u/Old%20Folder")), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
-	entries, err := ListTrash([]string{home, filepath.Join(t.TempDir(), "none"), mount}, ModeOpenFile)
+	entries, err := ListTrash([]string{home, filepath.Join(t.TempDir(), "none"), mount}, FilesAndFolders)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,7 +44,7 @@ func TestListTrash(t *testing.T) {
 		t.Errorf("the report is %+v, want the trashed file typed by its original name", entries)
 	}
 
-	folders, err := ListTrash([]string{home}, ModeFolders)
+	folders, err := ListTrash([]string{home}, FoldersOnly)
 	if err != nil || !slices.Equal(names(folders), []string{"Old Folder"}) {
 		t.Errorf("folder mode lists %q, %v", names(folders), err)
 	}
@@ -76,7 +53,7 @@ func TestListTrash(t *testing.T) {
 			t.Fatal(err)
 		}
 		t.Cleanup(func() { _ = os.Chmod(filepath.Join(home, "files"), 0o700) })
-		if _, err := ListTrash([]string{home}, ModeOpenFile); err == nil || !strings.Contains(err.Error(), filepath.Join(home, "files")) {
+		if _, err := ListTrash([]string{home}, FilesAndFolders); err == nil || !strings.Contains(err.Error(), filepath.Join(home, "files")) {
 			t.Errorf("an unreadable trash = %v, want an error naming it", err)
 		}
 	}

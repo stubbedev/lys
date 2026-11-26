@@ -1,4 +1,4 @@
-package filechooser
+package filebrowser
 
 import (
 	"bytes"
@@ -22,13 +22,13 @@ import (
 func WatchMounts(changed func()) (stop func()) {
 	table, err := os.Open("/proc/self/mounts")
 	if err != nil {
-		log.Printf("file chooser: cannot follow the mounts: %v", err)
+		log.Printf("file browser: cannot follow the mounts: %v", err)
 		return func() {}
 	}
 	quitR, quitW, err := os.Pipe()
 	if err != nil {
 		_ = table.Close()
-		log.Printf("file chooser: cannot follow the mounts: %v", err)
+		log.Printf("file browser: cannot follow the mounts: %v", err)
 		return func() {}
 	}
 	tableFd, errT := intconv.Exact[int32](table.Fd())
@@ -37,7 +37,7 @@ func WatchMounts(changed func()) (stop func()) {
 		_ = table.Close()
 		_ = quitR.Close()
 		_ = quitW.Close()
-		log.Printf("file chooser: cannot follow the mounts: %v", err)
+		log.Printf("file browser: cannot follow the mounts: %v", err)
 		return func() {}
 	}
 	done := make(chan struct{})
@@ -53,7 +53,7 @@ func WatchMounts(changed func()) (stop func()) {
 				if errors.Is(err, unix.EINTR) {
 					continue
 				}
-				log.Printf("file chooser: following the mounts: %v", err)
+				log.Printf("file browser: following the mounts: %v", err)
 				return
 			}
 			if fds[1].Revents != 0 {
@@ -61,7 +61,7 @@ func WatchMounts(changed func()) (stop func()) {
 			}
 			if fds[0].Revents&(unix.POLLPRI|unix.POLLERR) != 0 {
 				if _, err := table.Seek(0, io.SeekStart); err != nil {
-					log.Printf("file chooser: following the mounts: %v", err)
+					log.Printf("file browser: following the mounts: %v", err)
 					return
 				}
 				_, _ = io.Copy(io.Discard, table)
@@ -99,7 +99,7 @@ func SystemTrashDirs(home string) func() []string {
 func readMounts() io.Reader {
 	data, err := os.ReadFile("/proc/self/mounts")
 	if err != nil {
-		log.Printf("file chooser: cannot read the mounts: %v", err)
+		log.Printf("file browser: cannot read the mounts: %v", err)
 		return nil
 	}
 	return bytes.NewReader(data)
@@ -117,7 +117,7 @@ func WatchSystemLocations(changed func()) (stop func()) {
 	}
 	w, err := fswatch.New(fswatch.Changes, false)
 	if err != nil {
-		log.Printf("file chooser: cannot follow the network shares: %v", err)
+		log.Printf("file browser: cannot follow the network shares: %v", err)
 		return stopMounts
 	}
 	if err := w.Add(filepath.Join(runtime, "gvfs")); err != nil {

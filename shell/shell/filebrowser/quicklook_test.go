@@ -1,4 +1,4 @@
-package filechooser
+package filebrowser
 
 import (
 	"context"
@@ -82,13 +82,12 @@ func (hs *harness) waitPreview(t *testing.T, name string) {
 }
 
 // quicklookOn opens folder, selects name and presses Space.
-func (hs *harness) quicklookOn(t *testing.T, folder, name string) chan []string {
+func (hs *harness) quicklookOn(t *testing.T, folder, name string) {
 	t.Helper()
-	got := hs.open(t, OpenRequest{CurrentFolder: folder})
+	hs.open(t, in(openFile, folder))
 	hs.pick(t, name)
 	hs.key(xkb.KeySpace, 0, nil)
 	hs.waitPreview(t, name)
-	return got
 }
 
 // detailOf is the label of root reading like a detail line: one with a
@@ -116,7 +115,7 @@ func TestQuicklookShowsTextHighlighted(t *testing.T) {
 	dir := filepath.Join(hs.root, "docs")
 	writeFile(t, filepath.Join(dir, "main.go"), []byte("package main\n\nfunc main() {}\n"))
 	writeFile(t, filepath.Join(dir, "blob.txt"), []byte("ELF\x00\x01\x02binary"))
-	got := hs.quicklookOn(t, dir, "main.go")
+	hs.quicklookOn(t, dir, "main.go")
 	var code []*widgets.CodeView
 	var markup string
 	hs.run(func() {
@@ -145,8 +144,7 @@ func TestQuicklookShowsTextHighlighted(t *testing.T) {
 	if len(code) != 0 || shown != preview.Icon || !strings.Contains(info, "B ·") {
 		t.Errorf("a binary file shows as %v with %d code views, detail %q", shown, len(code), info)
 	}
-	hs.click(t, "Cancel")
-	answer(t, got)
+	hs.hide()
 }
 
 // A wide picture previews whole at its aspect ratio with its pixel size
@@ -164,7 +162,7 @@ func TestQuicklookShowsTheWholeImage(t *testing.T) {
 		t.Fatal(err)
 	}
 	_ = f.Close()
-	got := hs.quicklookOn(t, dir, "pano.png")
+	hs.quicklookOn(t, dir, "pano.png")
 	var views []*widget.ImageView
 	var info string
 	hs.run(func() {
@@ -181,8 +179,7 @@ func TestQuicklookShowsTheWholeImage(t *testing.T) {
 	if !strings.Contains(info, "4000 × 1000") {
 		t.Errorf("the detail line %q has no pixel size", info)
 	}
-	hs.click(t, "Cancel")
-	answer(t, got)
+	hs.hide()
 	waittest.Until(t, func() bool {
 		var held int64
 		var path string
@@ -203,7 +200,7 @@ func TestQuicklookReadsAtMost64KiB(t *testing.T) {
 		t.Fatal(err)
 	}
 	w := watchLoads(t, hs)
-	got := hs.quicklookOn(t, filepath.Dir(path), "huge.txt")
+	hs.quicklookOn(t, filepath.Dir(path), "huge.txt")
 	var text int
 	hs.run(func() { text = len(treetest.All[*widgets.CodeView](hs.c.ui.ql.Root())[0].Text()) })
 	w.mu.Lock()
@@ -212,8 +209,7 @@ func TestQuicklookReadsAtMost64KiB(t *testing.T) {
 	if started != 1 || text > preview.TextBytes || text == 0 || onLoop != 0 {
 		t.Errorf("previewing 2 GB showed %d bytes in %d loads, %d on the loop; want one load of at most %d off it", text, started, onLoop, preview.TextBytes)
 	}
-	hs.click(t, "Cancel")
-	answer(t, got)
+	hs.hide()
 }
 
 // Moving the selection 50 times before the loop rests starts one load;
@@ -225,7 +221,7 @@ func TestPreviewLoadsOncePerRest(t *testing.T) {
 		writeFile(t, filepath.Join(dir, "note"+strconv.Itoa(i)+".txt"), []byte("note "+strconv.Itoa(i)))
 	}
 	w := watchLoads(t, hs)
-	got := hs.open(t, OpenRequest{CurrentFolder: dir})
+	hs.open(t, in(openFile, dir))
 	hs.pick(t, "note0.txt")
 	hs.do(func() { hs.c.ui.previewToggle.SetActive(true) })
 	hs.waitPreview(t, "note0.txt")
@@ -265,8 +261,7 @@ func TestPreviewLoadsOncePerRest(t *testing.T) {
 		t.Error("the superseded load was not cancelled")
 	}
 	hs.waitPreview(t, "note4.txt")
-	hs.click(t, "Cancel")
-	answer(t, got)
+	hs.hide()
 }
 
 // The arrows step Quick Look through the files; Space closes it, and
@@ -277,7 +272,7 @@ func TestQuicklookStepsThroughTheFiles(t *testing.T) {
 	for i := range 3 {
 		writeFile(t, filepath.Join(dir, "note"+strconv.Itoa(i)+".txt"), []byte("note "+strconv.Itoa(i)))
 	}
-	got := hs.quicklookOn(t, dir, "note0.txt")
+	hs.quicklookOn(t, dir, "note0.txt")
 	hs.key(xkb.KeyRight, 0, nil)
 	hs.waitPreview(t, "note1.txt")
 	hs.key(xkb.KeyLeft, 0, nil)
@@ -289,21 +284,19 @@ func TestQuicklookStepsThroughTheFiles(t *testing.T) {
 	if open || path != "" {
 		t.Errorf("Space left Quick Look open %v, showing %q", open, path)
 	}
-	hs.click(t, "Cancel")
-	answer(t, got)
+	hs.hide()
 }
 
 // A folder previews its item count.
 func TestFolderPreviewCountsItems(t *testing.T) {
 	hs := newHarness(t, "")
-	got := hs.quicklookOn(t, hs.root, "docs")
+	hs.quicklookOn(t, hs.root, "docs")
 	var info string
 	hs.run(func() { info = detailOf(hs.c.ui.ql.Root()) })
 	if !strings.HasPrefix(info, i18n.T("preview-kind-folder")+" · "+i18n.T("preview-folder-items", i18n.Int("count", 0), i18n.Str("shown", "0"))) {
 		t.Errorf("an empty folder's detail line is %q", info)
 	}
-	hs.click(t, "Cancel")
-	answer(t, got)
+	hs.hide()
 }
 
 // A PDF previews its large thumbnail, made by its thumbnailer.
@@ -311,7 +304,7 @@ func TestQuicklookShowsAThumbnailerPage(t *testing.T) {
 	hs := newHarness(t, "")
 	doc := pdfFile(t, hs)
 	installThumbnailer(t, hs, thumbnailtest.Page)
-	got := hs.quicklookOn(t, filepath.Dir(doc), "paper.pdf")
+	hs.quicklookOn(t, filepath.Dir(doc), "paper.pdf")
 	var views []*widget.ImageView
 	hs.run(func() {
 		lay(hs.cfg.Root, 1400, 1000)
@@ -323,6 +316,5 @@ func TestQuicklookShowsAThumbnailerPage(t *testing.T) {
 	if b := views[0].Bounds(); 3*b.W != 2*b.H {
 		t.Errorf("the 200x300 page shows at %dx%d, want 2:3", b.W, b.H)
 	}
-	hs.click(t, "Cancel")
-	answer(t, got)
+	hs.hide()
 }

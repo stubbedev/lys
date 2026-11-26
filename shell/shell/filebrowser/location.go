@@ -1,9 +1,8 @@
-package filechooser
+package filebrowser
 
 import (
 	"strings"
 
-	"github.com/rivo/uniseg"
 	"github.com/stubbedev/lys/ui/widget"
 )
 
@@ -45,7 +44,7 @@ type pathCompletion struct {
 // names start with its last segment, folders first, at most
 // maxCompletions, in the form typed; the folder is listed off the loop
 // the first time.
-func (c *Chooser) completeLocation(text string) {
+func (c *Browser) completeLocation(text string) {
 	typedDir, segment := "", text
 	if i := strings.LastIndexByte(text, '/'); i >= 0 {
 		typedDir, segment = text[:i+1], text[i+1:]
@@ -56,7 +55,7 @@ func (c *Chooser) completeLocation(text string) {
 	}
 	dir := base
 	if typedDir != "" {
-		dir = (&session{dir: base}).savePath(typedDir, c.d.Home)
+		dir = ResolvePath(typedDir, base, c.d.Home)
 	}
 	pc := &c.pc
 	if dir != pc.dir {
@@ -66,9 +65,9 @@ func (c *Chooser) completeLocation(text string) {
 			return
 		}
 		pc.loading = dir
-		reader, mode := c.reader, c.s.mode
-		offLoopFor(c, func() []Entry {
-			entries, _, err := reader.List(dir, mode)
+		reader, kinds := c.reader, c.s.kinds
+		OffLoop(c, func() []Entry {
+			entries, _, err := reader.List(dir, kinds)
 			if err != nil {
 				return nil
 			}
@@ -104,7 +103,7 @@ func (c *Chooser) completeLocation(text string) {
 
 // tabLocation completes the location entry to the longest prefix its
 // matches share; false without matches, so Tab moves on.
-func (c *Chooser) tabLocation() bool {
+func (c *Browser) tabLocation() bool {
 	items := c.pc.items
 	if len(items) == 0 {
 		return false
@@ -121,28 +120,4 @@ func (c *Chooser) tabLocation() bool {
 		c.ui.location.SetText(prefix)
 	}
 	return true
-}
-
-// selectStem selects a save name's stem, so typing replaces the name
-// and keeps its extension; a name without one, or a dot file, is
-// selected whole.
-func selectStem(e *widget.Entry) {
-	name := e.Text()
-	stem := strings.TrimSuffix(name, extOf(name))
-	if stem == "" || stem == name {
-		e.SelectAll()
-		return
-	}
-	e.MoveHome()
-	e.MoveCursorExtending(uniseg.GraphemeClusterCount(stem))
-}
-
-// extOf is name's last extension with its dot, "" for none; a dot
-// file's leading dot starts no extension.
-func extOf(name string) string {
-	i := strings.LastIndexByte(name, '.')
-	if i <= 0 {
-		return ""
-	}
-	return name[i:]
 }

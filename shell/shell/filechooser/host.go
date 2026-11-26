@@ -1,42 +1,30 @@
 package filechooser
 
 import (
-	"context"
+	"errors"
 	"log"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
-	"sync"
-	"time"
 
+	"github.com/rivo/uniseg"
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/fileuri"
-	"github.com/stubbedev/lys/desktop/fswatch"
 	"github.com/stubbedev/lys/desktop/i18n"
-	"github.com/stubbedev/lys/desktop/mime"
 	"github.com/stubbedev/lys/desktop/shell/layers"
-	"github.com/stubbedev/lys/desktop/shell/preview"
 	"github.com/stubbedev/lys/desktop/shell/reveal"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/desktop/styling"
-	"github.com/stubbedev/lys/desktop/thumbnail"
-	"github.com/stubbedev/lys/lib/intconv"
 	"github.com/stubbedev/lys/lib/portaldialogs"
 	"github.com/stubbedev/lys/lib/render"
-	"github.com/stubbedev/lys/lib/text"
-	"github.com/stubbedev/lys/lib/xkb"
 	"github.com/stubbedev/lys/ui/app"
-	"github.com/stubbedev/lys/ui/transfer"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys/shell/internal/handoff"
-	"github.com/stubbedev/lys/shell/internal/statefile"
-	"github.com/stubbedev/lys/shell/service/udisks"
 	"github.com/stubbedev/lys/shell/shell/dialogqueue"
 	"github.com/stubbedev/lys/shell/shell/dialogsurface"
+	"github.com/stubbedev/lys/shell/shell/filebrowser"
 	"github.com/stubbedev/lys/shell/shell/keys"
 )
 
@@ -50,34 +38,6 @@ var (
 	panelMax  = widget.Size{W: 1600, H: 1100}
 )
 
-// The panel's geometry (shell/file_chooser: column widths, icon
-// sizes).
-const (
-	sidebarW      = 180
-	searchW       = 150
-	previewW      = 220
-	listRowH      = 34
-	gridCellW     = 112
-	gridCellH     = 104
-	rowIconPx     = 24
-	gridIconPx    = 48
-	previewIconPx = 96
-	navIconPx     = 16
-	minColumnW    = 50
-	nameMinW      = 160
-	maxColumnW    = 400
-	crumbMaxChars = 16
-)
-
-// The mouse's thumb buttons, which walk the history.
-const (
-	btnBack    = 0x113 // BTN_SIDE
-	btnForward = 0x114 // BTN_EXTRA
-)
-
-// uriListMime is what a file drag offers.
-const uriListMime = "text/uri-list"
-
 // Window is the overlay surface the chooser maps (app.LayerWindow).
 type Window interface {
 	Close()
@@ -88,49 +48,18 @@ type Window interface {
 type Deps struct {
 	// Config is the live config (the chooser's reveal animation).
 	Config func() *config.Config
-	// Open maps the dialog; Invoke runs on the UI loop; KeySym reads
-	// its keys through the seat's keymap.
+	// Open maps the dialog; KeySym reads its keys through the seat's
+	// keymap.
 	Open   func(dialogsurface.Spec) (Window, error)
-	Invoke func(func())
 	KeySym keys.Translator
-	// Font shapes the text; Sheet styles the surface, the labels'
-	// and entries' ink included.
-	Font  render.Font
+	// Sheet styles the surface, the labels' and entries' ink included.
 	Sheet *widget.Stylesheet
-	// MIME guesses types for filters and icons.
-	MIME *mime.Database
-	// Home is where a request without a folder starts and what the
-	// breadcrumbs shorten to Home.
-	Home string
-	// Places and Locations fill the sidebar for each request;
-	// WatchLocations calls changed (off the loop) whenever the
-	// locations may have changed (a mount came or went) until its stop
-	// is called; nil watches nothing.
-	Places, Locations func() []Place
-	WatchLocations    func(changed func()) (stop func())
-	// Drives is the UDisks2 client the Locations list the volumes of,
-	// mounted or not, through; nil, or a nil client while the system
-	// bus is not up, lists the mounts alone.
-	Drives func() *udisks.Client
-	// ViewFile persists the sort and layout, and beside it the folder
-	// each app last picked in; "" keeps them in memory.
-	ViewFile string
-	// BookmarksFile is the GTK bookmarks file Ctrl+D and a folder
-	// dropped on the sidebar add to, and a bookmark's menu removes
-	// from (BookmarksFile); "" offers no editing.
-	BookmarksFile string
-	// RecentFile is the recently-used list the Recent place lists
-	// (RecentFile()); "" offers no Recent.
-	RecentFile string
-	// TrashDirs are the trash directories the Trash place lists
-	// (SystemTrashDirs); nil offers no Trash.
-	TrashDirs func() []string
 	// Target is the output a dialog maps on (the focused one, else the
 	// first); nil while none is known, when the compositor picks one.
 	Target func() *app.Output
-	// ForgetImage drops the renderer's copy of a thumbnail nothing
-	// draws any more (app.Application.ForgetImage).
-	ForgetImage func(render.ImageID)
+	// Browser is what the dialog browses with. Its ViewFile keeps,
+	// beside the view, the folder each app last picked in.
+	Browser filebrowser.Deps
 }
 
 // Chooser is the dev.stubbe.lys.FileChooser1 host: one overlay showing one
@@ -138,10 +67,9 @@ type Deps struct {
 // a request answers it with nothing, showing or waiting. Open and Save
 // may be called from any goroutine; the rest runs on the loop.
 type Chooser struct {
-	// checking counts the disk checks out off the loop.
-	checking int
-	d        Deps
-	win      Window
+	d   Deps
+	b   *filebrowser.Browser
+	win Window
 	// rev reveals the panel on the overlay; closing is set while it
 	// hides before the overlay closes.
 	rev     *widget.Revealer
@@ -150,37 +78,19 @@ type Chooser struct {
 	queue   dialogqueue.Queue
 	// readChoices reads the request's choices as the user left them.
 	readChoices func() []portaldialogs.Selection
-	// replacing is the existing file a save asked to replace, which a
-	// second confirm of the same name replaces.
-	replacing string
 	// caller and title are the request showing's: whose window the
 	// dialog is for, whether it is modal, and what it is called.
 	caller portaldialogs.Caller
 	title  string
-	s      *session
-	ui     *ui
+	// mode is the request's, filters its type filters, the last All
+	// Files, and active the one picked.
+	mode    Mode
+	filters []Filter
+	active  int
+	// name is the save name entry, filter the type filter dropdown.
+	name   *widget.Entry
+	filter *widget.Dropdown
 
-	// view, hidden and recursive stick across requests.
-	view              view
-	hidden, recursive bool
-	// columns are the size, modified and kind widths.
-	columns [3]int
-
-	stopWalk context.CancelFunc
-	// watcher follows the folder shown on disk, stopMounts the
-	// locations; reloading marks a listing read again for a change, which
-	// keeps the scroll and the selection.
-	watcher    *fswatch.Watcher
-	stopMounts func()
-	reloading  bool
-	// reloadKeep is the path selected when the reload started, and
-	// selectNext the path to select once the coming listing lands (a
-	// dropped file).
-	reloadKeep, selectNext string
-	// navigating is set while one gesture's activations are being
-	// applied: after the first descended, the rest index a listing
-	// that is gone.
-	navigating bool
 	// size is the panel's size as the user left it, kept across
 	// requests. at is where it was moved to on the output placedOn,
 	// which sticks across requests there; moved is false while it
@@ -190,63 +100,25 @@ type Chooser struct {
 	moved    bool
 	placedOn string
 
-	// reader lists the folders shown; pc completes the location entry.
-	reader *dirReader
-	pc     pathCompletion
-	// viewFile keeps the view, folders the folder each app last picked
-	// in.
-	viewFile statefile.File
-	folders  *folderMemory
-	// previewLoader is what the previews load a file with off the loop,
-	// and pictures holds the pictures they decode.
-	previewLoader func(context.Context, preview.Request) preview.Content
-	pictures      *preview.Pictures
-	// thumbnailer makes the thumbnails; thumbs are the request's, and
-	// thumbWork the lookups running and the thumbnails they made that
-	// the loop has not taken yet.
-	thumbnailer *thumbnail.Thumbnailer
-	thumbs      *thumbSet
-	thumbWork   handoff.Handoffs
-	offLoop     sync.WaitGroup
-}
-
-type thumbKey struct {
-	path string
-	px   int
-}
-
-// thumbSet is one request's thumbnails: found (nil for a file without
-// one), waiting the slots each lookup in flight fills, and the context
-// the lookups run under, cancelled when the request ends.
-type thumbSet struct {
-	found   map[thumbKey]*thumbnail.Raster
-	waiting map[thumbKey][]func(render.StillImage)
-	ctx     context.Context
-	cancel  context.CancelFunc
-}
-
-func newThumbSet() *thumbSet {
-	ctx, cancel := context.WithCancel(context.Background())
-	return &thumbSet{
-		found: map[thumbKey]*thumbnail.Raster{}, waiting: map[thumbKey][]func(render.StillImage){},
-		ctx: ctx, cancel: cancel,
-	}
+	// folders is the folder each app last picked in.
+	folders *folderMemory
 }
 
 // New builds the host; nothing maps until a request.
 func New(d Deps) *Chooser {
-	c := &Chooser{
-		d: d, view: defaultView, columns: [3]int{90, 150, 90}, thumbnailer: thumbnail.New(thumbnail.Config{}), thumbs: newThumbSet(),
-		reader: newDirReader(), viewFile: statefile.File{Path: d.ViewFile}, folders: loadFolderMemory(foldersFile(d.ViewFile)),
-		size: panelSize, pictures: preview.NewPictures(preview.PictureBudget),
-	}
-	c.previewLoader = c.loadPreview
-	if d.ViewFile != "" {
-		if b, err := os.ReadFile(d.ViewFile); err == nil {
-			c.view = parseView(string(b))
-		}
-	}
+	c := &Chooser{d: d, size: panelSize, folders: loadFolderMemory(foldersFile(d.Browser.ViewFile))}
+	c.b = filebrowser.New(d.Browser, c.setFocus)
 	return c
+}
+
+// errNoDialog is a focus asked for while no dialog is mapped.
+var errNoDialog = errors.New("no file chooser is mapped")
+
+func (c *Chooser) setFocus(w widget.Widget) error {
+	if c.win == nil {
+		return errNoDialog
+	}
+	return c.win.SetFocus(w)
 }
 
 // request is one dialog, open or save.
@@ -278,7 +150,7 @@ func (c *Chooser) Save(caller portaldialogs.Caller, r SaveRequest) Result {
 // showing for it is taken down, a waiting one never shows. Another
 // request's dialog stays.
 func (c *Chooser) Dismiss(handle string) {
-	c.d.Invoke(func() {
+	c.d.Browser.Invoke(func() {
 		if c.queue.Dismiss(handle) {
 			c.finish(nil)
 		}
@@ -286,41 +158,13 @@ func (c *Chooser) Dismiss(handle string) {
 }
 
 // ask queues a request on the loop and waits for its answer.
-// offLoopFor runs check off the loop and then on the dialog showing when it
-// started, for what a dead mount could hang.
-func offLoopFor[T any](c *Chooser, check func() T, then func(T)) {
-	u := c.ui
-	c.checking++
-	c.offLoop.Go(func() {
-		v := check()
-		c.d.Invoke(func() {
-			c.checking--
-			if c.ui == u && c.reply != nil {
-				then(v)
-			}
-		})
-	})
-}
-
-type pathStat struct {
-	info os.FileInfo
-	err  error
-}
-
-func statPath(path string) func() pathStat {
-	return func() pathStat {
-		info, err := os.Stat(path)
-		return pathStat{info, err}
-	}
-}
-
 func (c *Chooser) ask(caller portaldialogs.Caller, r request) Result {
 	if r.folder == "" && caller.AppID != "" {
 		r.folder = c.folders.folder(caller.AppID)
 	}
-	r.folder = usableFolder(r.folder)
+	r.folder = filebrowser.UsableFolder(r.folder)
 	ch := make(chan Result, 1)
-	c.d.Invoke(func() {
+	c.d.Browser.Invoke(func() {
 		c.queue.Enqueue(caller.Handle, func() {
 			c.reply = func(res Result) { ch <- res }
 			c.caller, c.title = caller, r.title
@@ -331,24 +175,18 @@ func (c *Chooser) ask(caller portaldialogs.Caller, r request) Result {
 }
 
 // finish answers the request showing with uris (none for a cancel),
-// the filter active and the choices made, stops its search, plays the
+// the filter active and the choices made, ends its browse, plays the
 // exit, and shows the next request waiting.
 func (c *Chooser) finish(uris []string) {
-	c.cancelWalk()
-	c.thumbs.cancel()
-	c.unwatch()
-	if c.stopMounts != nil {
-		c.stopMounts()
-		c.stopMounts = nil
-	}
+	c.b.End()
 	if c.reply == nil {
 		return
 	}
 	res := Result{URIs: uris}
 	if len(uris) > 0 {
 		c.rememberFolder(uris[0])
-		if c.s.active >= 0 && c.s.active < len(c.s.filters) {
-			res.Filter = c.s.filters[c.s.active]
+		if c.active >= 0 && c.active < len(c.filters) {
+			res.Filter = c.filters[c.active]
 		}
 		res.Choices = c.readChoices()
 	}
@@ -363,801 +201,85 @@ func (c *Chooser) begin(r request) {
 	if c.win != nil {
 		c.closeWindow()
 	}
-	c.thumbs = newThumbSet()
-	c.replacing = ""
-	c.s = newSession(c.reader, r.mode, r.folder, r.filters, c.d.MIME, c.d.Home, c.view)
-	c.s.hidden, c.s.recursive, c.s.recentFile, c.s.trashDirs = c.hidden, c.recursive, c.d.RecentFile, c.d.TrashDirs
-	c.s.request = c.requestListing
-	if r.currentFilter > 0 && int(r.currentFilter) < len(c.s.filters) {
-		c.s.active = int(r.currentFilter)
+	c.mode, c.filters, c.active = r.mode, withAllFiles(r.filters), 0
+	if r.currentFilter > 0 && int(r.currentFilter) < len(c.filters) {
+		c.active = int(r.currentFilter)
 	}
-	c.build(r)
-	c.s.refresh()
-	c.relist()
+	nameRow, footer, replace := c.build(r)
+	c.b.Begin(filebrowser.Options{
+		Title: r.title, Folder: r.folder,
+		Kinds: c.mode.kinds(), Selection: c.mode.selection(),
+		Gathered: c.mode.opening(), NewFolder: c.mode == ModeSave || c.mode.folders(),
+		Files: c.matches(),
+		Above: []widget.Widget{nameRow}, Below: []widget.Widget{footer}, Action: replace,
+		OnFile: c.activated, OnTypedPath: c.typedPath, OnEscape: func() { c.finish(nil) },
+	})
 	c.show()
-	c.stopMounts = c.watchLocations()
 }
 
-// requestListing reads dir off the loop and lists it once read, unless
-// the dialog moved on; it starts following dir on disk.
-func (c *Chooser) requestListing(dir string) {
-	s := c.s
-	c.offLoop.Go(func() {
-		l := s.read(dir)
-		c.d.Invoke(func() {
-			if c.s != s || !s.setListing(dir, l) {
-				return
-			}
-			if l.err != nil {
-				log.Printf("file chooser: read %s: %v", dir, l.err)
-			}
-			if c.reloading {
-				c.reloading = false
-				c.relistKeeping(c.reloadKeep)
-				return
-			}
-			c.relist()
-			c.applySelectNext()
-		})
-	})
-	c.watch(dir)
+// matches is the type filter active as the browser's file filter.
+func (c *Chooser) matches() func(string) bool {
+	db, filters, active := c.d.Browser.MIME, c.filters, c.active
+	return func(name string) bool { return MatchesFilter(db, name, filters, active) }
 }
 
-// watch follows dir on disk, applying each change to its listing row
-// by row, and reading it again only when changes were lost; Recent,
-// Trash and a folder that cannot be watched are not followed.
-func (c *Chooser) watch(dir string) {
-	c.unwatch()
-	if virtualLocation(dir) {
-		return
-	}
-	w, err := fswatch.NewNamed(fswatch.Changes)
-	if err != nil {
-		log.Printf("file chooser: cannot follow %s: %v", dir, err)
-		return
-	}
-	if err := w.Add(dir); err != nil {
-		_ = w.Close()
-		return
-	}
-	c.watcher = w
-	s := c.s
-	c.offLoop.Go(func() { c.followWatched(w, dir, s) })
-}
+// build makes the request's own rows: the save name, and the footer
+// with the type filter, the choices, cancel and confirm; and the
+// notice's Replace.
+func (c *Chooser) build(r request) (nameRow, footer widget.Widget, replace *widget.Button) {
+	font := c.d.Browser.Font
+	row := filebrowser.Section(widget.Row, "file-chooser-name-row")
+	c.name = widget.NewEntry(font, widgets.TextPx(styling.Body, 1), 0)
+	c.name.AddClass("file-chooser-name")
+	c.name.SetPlaceholder(i18n.T("file-chooser-placeholder-name"))
+	c.name.SetText(r.name)
+	c.name.OnActivate = func(string) { c.confirm() }
+	c.name.OnChanged = func(string) { c.b.ClearNotice() }
+	row.Append(c.name, true)
+	row.SetVisible(c.mode == ModeSave)
 
-func (c *Chooser) followWatched(w *fswatch.Watcher, dir string, s *session) {
-	followDir(w, dir, s.mode, func(u dirUpdate) {
-		c.d.Invoke(func() {
-			if c.s != s || c.watcher != w || s.dir != dir {
-				return
-			}
-			if u.rescan {
-				if !s.loading {
-					c.reloading, c.reloadKeep = true, c.selectedPath()
-					s.reload()
-				}
-				return
-			}
-			keep := c.selectedPath()
-			if s.applyChanges(dir, u.changes) {
-				c.relistKeeping(keep)
-			}
-		})
-	})
-}
+	replace, _ = c.b.TextButton(i18n.T("file-chooser-button-replace"), "file-chooser-replace", css.DestructiveAction, c.confirm)
 
-// changeSource is a named watch: a tick per burst, and what changed.
-type changeSource interface {
-	Changed() <-chan struct{}
-	Take() fswatch.Batch
-}
-
-// dirUpdate is one burst of changes to a folder, stated; rescan when
-// they cannot be applied name by name.
-type dirUpdate struct {
-	changes []dirChange
-	rescan  bool
-}
-
-// followDir states every burst of changes src reports in dir, off the
-// loop, and hands it to apply, until src closes.
-func followDir(src changeSource, dir string, mode Mode, apply func(dirUpdate)) {
-	for range src.Changed() {
-		b := src.Take()
-		switch {
-		case b.Rescan:
-			apply(dirUpdate{rescan: true})
-		case len(b.Events) > 0:
-			names := make([]string, len(b.Events))
-			for i, e := range b.Events {
-				names[i] = e.Name
-			}
-			apply(dirUpdate{changes: statChanges(dir, names, mode)})
-		}
-	}
-}
-
-func (c *Chooser) unwatch() {
-	if c.watcher != nil {
-		_ = c.watcher.Close()
-		c.watcher = nil
-	}
-}
-
-// --- the tree -------------------------------------------------------
-
-// ui holds the widgets a request updates.
-type ui struct {
-	header, main       widget.Widget
-	crumbs             *widget.Box
-	search             *widget.SearchEntry
-	name               *widget.Entry
-	list               *widget.List
-	grid               *widget.GridView
-	listView, gridView *typeAhead
-	colHeader          *widget.Box
-	colRow             *columnRow
-	sortButtons        [4]*widget.Button
-	sortLabels         [4]*widget.Label
-	columns            [3]widget.Widget
-	empty              *widget.Label
-	// quicklook and preview are Quick Look's card and the preview
-	// pane, ql and pv what shows in them.
-	quicklook, preview      *widget.Box
-	ql, pv                  *preview.View
-	filter                  *widget.Dropdown
-	viewToggle              *widget.Button
-	viewIcon                *widget.Box
-	previewToggle, hiddenTg *widget.ToggleButton
-	recursiveToggle         *widget.ToggleButton
-	// notice is a warning or the replace prompt over the footer.
-	notice      *widget.Box
-	noticeLabel *widget.Label
-	replace     *widget.Button
-	// location is the typed path entry (Ctrl+L) the crumbs give way to.
-	location *locationEntry
-	// newFolder is the row naming a folder to create.
-	newFolder     *widget.Box
-	newFolderName *widget.Entry
-	// favorites is the sidebar's Favorites list.
-	favorites *widget.Box
-	// locations is the sidebar's Locations list, unlock the passphrase
-	// prompt of a locked volume under it.
-	locations *widget.Box
-	unlock    *unlockRow
-}
-
-// label is a one-line label at the body size.
-func (c *Chooser) label(text string, classes ...string) *widget.Label {
-	l := widget.NewLabel(c.d.Font, widgets.TextPx(styling.Body, 1), text, 0)
-	l.AddClass(classes...)
-	return l
-}
-
-// textButton is a text button in lys-ui's variant (css.Ghost,
-// css.Outline), carrying class and its label class+"-label".
-func (c *Chooser) textButton(text, class, variant string, onClick func()) (*widget.Button, *widget.Label) {
-	l := c.label(text, class+"-label")
-	l.SetAlignment(render.AlignCenter)
-	b := widget.NewButton(l, 0, 0)
-	b.AddClass(class, variant)
-	b.OnClick = onClick
-	return b, l
-}
-
-// section is a band of the panel padded by the theme: a bar of
-// controls between the separators.
-func section(dir widget.Axis, class string) *widget.Box {
-	th := widget.Current()
-	b := widget.NewBox(dir, th.Spacing, 0)
-	b.SetPadding(render.Insets{Top: th.Padding, Right: 2 * th.Padding, Bottom: th.Padding, Left: 2 * th.Padding})
-	b.AddClass(class)
-	return b
-}
-
-// iconToggle is a toggle button with an icon: on starts it
-// active, and onToggled hears every later change.
-func (c *Chooser) iconToggle(icon, tooltip string, on bool, onToggled func(bool)) *widget.ToggleButton {
-	holder := widget.NewBox(widget.Row, 0, 0)
-	setIcon(holder, icon)
-	b := widget.NewToggleButton(widgets.Center(holder), 0, 0)
-	b.AddClass("toggle", "file-chooser-nav", css.Ghost, css.Icon, css.Small)
-	b.SetTooltip(tooltip)
-	b.SetActive(on)
-	b.OnToggled = onToggled
-	return b
-}
-
-func (c *Chooser) iconButton(icon, tooltip string, onClick func()) *widget.Button {
-	b, _ := c.swappableIconButton(icon, tooltip, onClick)
-	return b
-}
-
-// swappableIconButton is an icon button whose icon setIcon can swap.
-func (c *Chooser) swappableIconButton(icon, tooltip string, onClick func()) (*widget.Button, *widget.Box) {
-	holder := widget.NewBox(widget.Row, 0, 0)
-	setIcon(holder, icon)
-	b := widget.NewButton(widgets.Center(holder), 0, 0)
-	b.AddClass("file-chooser-nav", css.Ghost, css.Icon, css.Small)
-	b.SetTooltip(tooltip)
-	b.OnClick = onClick
-	return b, holder
-}
-
-func setIcon(holder *widget.Box, icon string) {
-	holder.Clear()
-	holder.Append(widget.NewThemeIcon(icon, navIconPx), false)
-}
-
-func (c *Chooser) build(r request) {
-	u := &ui{}
-	s := c.s
-	title, name := r.title, r.name
-
-	// Header: up, the title, the view toggles. The bar is the panel's
-	// drag handle.
-	th := widget.Current()
-	headerRow := widget.NewBox(widget.Row, th.Spacing/4, 0)
-	headerRow.Append(c.iconButton("ld-arrow-up-symbolic", i18n.T("file-chooser-nav-up"), c.goUp), false)
-	if s.mode == ModeSave || s.mode.folders() {
-		headerRow.Append(c.iconButton("ld-folder-plus-symbolic", i18n.T("file-chooser-nav-new-folder"), c.showNewFolder), false)
-	}
-	titleLabel := widget.NewLabel(c.d.Font, widgets.TextPx(styling.Subtitle, 1), title, 0)
-	titleLabel.AddClass("file-chooser-title", css.Heading)
-	titleLabel.SetAlignment(render.AlignCenter)
-	titleLabel.SetEllipsize(widget.EllipsizeEnd)
-	headerRow.AppendAligned(titleLabel, true, widget.AlignCenter)
-	u.viewToggle, u.viewIcon = c.swappableIconButton(viewIcon(c.view.grid), i18n.T("file-chooser-nav-grid"), c.toggleView)
-	u.previewToggle = c.iconToggle("ld-panel-right-symbolic", i18n.T("file-chooser-nav-preview"), false, c.togglePreview)
-	u.hiddenTg = c.iconToggle("ld-eye-symbolic", i18n.T("file-chooser-nav-hidden"), c.hidden, c.toggleHidden)
-	u.recursiveToggle = c.iconToggle("ld-folder-search-symbolic", i18n.T("file-chooser-nav-recursive"), c.recursive, c.toggleRecursive)
-	headerRow.Append(u.viewToggle, false)
-	for _, b := range []*widget.ToggleButton{u.previewToggle, u.hiddenTg, u.recursiveToggle} {
-		headerRow.Append(b, false)
-	}
-	header := section(widget.Column, "file-chooser-header")
-	header.Append(headerRow, false)
-
-	// Path bar: breadcrumbs and the search box.
-	crumbBar := section(widget.Row, "file-chooser-crumbbar")
-	u.crumbs = widget.NewBox(widget.Row, th.Spacing/4, 0)
-	u.crumbs.AddClass("file-chooser-crumbs")
-	crumbBar.Append(u.crumbs, true)
-	combo := widget.NewComboEntry(c.d.Font, widgets.TextPx(styling.Body, 1), nil, "")
-	combo.SetTrailingIcon("", 0, nil)
-	u.location = &locationEntry{ComboEntry: combo, tab: c.tabLocation}
-	u.location.OnChanged = c.completeLocation
-	u.location.AddClass("file-chooser-location")
-	u.location.SetPlaceholder(i18n.T("file-chooser-placeholder-location"))
-	u.location.OnActivate = c.goToLocation
-	u.location.OnEscape = func() bool { c.hideLocation(); return true }
-	u.location.SetVisible(false)
-	crumbBar.Append(u.location, true)
-	// No debounce: filtering the cached listing
-	// is an in-memory scan, and a recursive walk is cancelled by its
-	// generation instead.
-	u.search = widget.NewSearchEntry(c.d.Font, widgets.TextPx(styling.Body, 1), i18n.T("file-chooser-placeholder-search"))
-	u.search.AddClass("file-chooser-search")
-	u.search.SetDelay(0)
-	u.search.OnSearchChanged = c.setSearch
-	u.search.SetSizeRequest(searchW, 0)
-	u.search.SetVAlign(widget.AlignCenter)
-	crumbBar.Append(u.search, false)
-
-	// Body: sidebar, the file views, the preview pane.
-	body := widget.NewBox(widget.Row, 0, 0)
-	body.AddClass("file-chooser-body")
-	body.Append(c.sidebar(u), false)
-	body.Append(c.views(u), true)
-	u.pv = c.newPreviewPane(previewW - 4*th.Padding)
-	// The pane, not just its card, hides: a hidden card would still
-	// hold its width in the row.
-	u.preview = u.pv.Root()
-	u.preview.SetSizeRequest(previewW, 0)
-	u.preview.SetVisible(false)
-	body.Append(u.preview, false)
-
-	nameRow := section(widget.Row, "file-chooser-name-row")
-	u.name = widget.NewEntry(c.d.Font, widgets.TextPx(styling.Body, 1), 0)
-	u.name.AddClass("file-chooser-name")
-	u.name.SetPlaceholder(i18n.T("file-chooser-placeholder-name"))
-	u.name.SetText(name)
-	u.name.OnActivate = func(string) { c.confirm() }
-	u.name.OnChanged = func(string) { c.clearNotice() }
-	nameRow.Append(u.name, true)
-	nameRow.SetVisible(s.mode == ModeSave)
-
-	// The notice: a warning, or the replace prompt with its button.
-	u.notice = section(widget.Row, "file-chooser-notice")
-	u.noticeLabel = c.label("", "file-chooser-notice-label", css.Warning)
-	u.noticeLabel.SetWrap(true)
-	u.notice.AppendAligned(u.noticeLabel, true, widget.AlignCenter)
-	u.replace, _ = c.textButton(i18n.T("file-chooser-button-replace"), "file-chooser-replace", css.DestructiveAction, c.confirm)
-	u.notice.AppendAligned(u.replace, false, widget.AlignCenter)
-	u.notice.SetVisible(false)
-
-	// The new folder row: a name and Create.
-	u.newFolder = section(widget.Row, "file-chooser-new-folder")
-	u.newFolderName = widget.NewEntry(c.d.Font, widgets.TextPx(styling.Body, 1), 0)
-	u.newFolderName.SetPlaceholder(i18n.T("file-chooser-placeholder-folder-name"))
-	u.newFolderName.OnActivate = func(string) { c.createFolder() }
-	u.newFolderName.OnEscape = func() bool { c.ui.newFolder.SetVisible(false); return true }
-	u.newFolder.Append(u.newFolderName, true)
-	create, _ := c.textButton(i18n.T("file-chooser-button-create"), "file-chooser-create-folder", css.SuggestedAction, c.createFolder)
-	u.newFolder.Append(create, false)
-	u.newFolder.SetVisible(false)
-
-	choiceRows, readChoices := widgets.ChoiceRows(c.d.Font, r.choices, "file-chooser-choice")
+	choiceRows, readChoices := widgets.ChoiceRows(font, r.choices, "file-chooser-choice")
 	c.readChoices = readChoices
 
-	// Footer: the type filter, cancel, confirm.
-	footer := section(widget.Row, "file-chooser-footer")
-	labels := make([]string, len(s.filters))
-	for i, f := range s.filters {
+	bar := filebrowser.Section(widget.Row, "file-chooser-footer")
+	labels := make([]string, len(c.filters))
+	for i, f := range c.filters {
 		labels[i] = FilterLabel(f)
 	}
-	u.filter = widget.NewDropdown(c.d.Font, widgets.TextPx(styling.Body, 1), labels, s.active)
-	u.filter.AddClass("file-chooser-filter")
-	u.filter.OnSelect = c.selectFilter
-	u.filter.SetVisible(len(s.filters) > 0)
-	footer.Append(u.filter, false)
+	c.filter = widget.NewDropdown(font, widgets.TextPx(styling.Body, 1), labels, c.active)
+	c.filter.AddClass("file-chooser-filter")
+	c.filter.OnSelect = c.selectFilter
+	c.filter.SetVisible(len(c.filters) > 0)
+	bar.Append(c.filter, false)
 	for _, row := range choiceRows {
-		footer.Append(row, false)
+		bar.Append(row, false)
 	}
-	footer.Append(widget.NewSpacer(0, 0), true)
-	cancel, _ := c.textButton(i18n.T("file-chooser-button-cancel"), "file-chooser-cancel", css.Outline, func() { c.finish(nil) })
+	bar.Append(widget.NewSpacer(0, 0), true)
+	cancel, _ := c.b.TextButton(i18n.T("file-chooser-button-cancel"), "file-chooser-cancel", css.Outline, func() { c.finish(nil) })
 	accept := r.acceptLabel
 	if accept == "" {
-		accept = s.mode.confirmLabel()
+		accept = c.mode.confirmLabel()
 	}
-	confirm, _ := c.textButton(accept, "file-chooser-confirm", css.SuggestedAction, c.confirm)
-	footer.Append(cancel, false)
-	footer.Append(confirm, false)
-
-	main := &dropZone{Box: widget.NewBox(widget.Column, 0, 0), onDrop: c.dropped}
-	main.Append(widget.NewSeparator(widget.Horizontal), false)
-	main.Append(crumbBar, false)
-	main.Append(u.newFolder, false)
-	main.Append(widget.NewSeparator(widget.Horizontal), false)
-	main.Append(body, true)
-	main.Append(widget.NewSeparator(widget.Horizontal), false)
-	main.Append(nameRow, false)
-	main.Append(u.notice, false)
-	main.Append(footer, false)
-
-	u.header, u.main = header, main
-
-	c.ui = u
-	c.updateSortLabels()
-	c.relist()
-}
-
-func viewIcon(grid bool) string {
-	if grid {
-		return "ld-list-symbolic"
-	}
-	return "ld-layout-grid-symbolic"
-}
-
-// sidebar is Favorites (the user's places) and Locations (/ and the
-// mounts, which refreshLocations rebuilds).
-func (c *Chooser) sidebar(u *ui) widget.Widget {
-	th := widget.Current()
-	box := &dropZone{Box: widget.NewBox(widget.Column, th.Spacing/4, th.Padding), onDrop: c.droppedOnSidebar}
-	box.AddClass("file-chooser-sidebar")
-	section := func(title string, places []Place) *widget.Box {
-		header := widget.NewBox(widget.Row, 0, 0)
-		header.SetPadding(render.Insets{Top: th.Padding / 2, Right: th.Padding, Bottom: th.Padding / 2, Left: th.Padding})
-		header.Append(c.label(title, "file-chooser-sidebar-header", css.CaptionHeading, css.DimLabel), true)
-		box.Append(header, false)
-		list := widget.NewBox(widget.Column, 0, 0)
-		list.AddClass("file-chooser-places")
-		c.fillPlaces(list, places)
-		box.Append(list, false)
-		return list
-	}
-	opening := c.opening()
-	favorites := c.favorites(nil, opening)
-	u.favorites = section(i18n.T("file-chooser-section-favorites"), favorites)
-	u.locations = section(i18n.T("file-chooser-section-locations"), nil)
-	u.unlock = c.newUnlockRow()
-	box.Append(u.unlock.box, false)
-	c.offLoop.Go(func() {
-		places, locations := c.d.Places(), c.readLocations()
-		c.d.Invoke(func() {
-			if c.ui != u {
-				return
-			}
-			c.fillPlaces(u.favorites, c.favorites(places, opening))
-			c.fillLocations(locations)
-		})
-	})
-	box.Append(widget.NewSpacer(0, 0), true)
-	scroll := widget.NewScroll(box)
-	// Filled, so the sections pack at the top instead of floating mid-view.
-	scroll.FillX, scroll.FillY = true, true
-	scroll.VerticalOnly = true
-	scroll.AddClass("file-chooser-sidebar-scroll")
-	scroll.SetSizeRequest(sidebarW, 0)
-	return scroll
-}
-
-// opening reports a pick of files to open: Recent and Trash list
-// files to open, never a folder to save in.
-func (c *Chooser) opening() bool { return c.s.mode == ModeOpenFile || c.s.mode == ModeOpenMultiple }
-
-// favorites is the Favorites list around the user's places.
-func (c *Chooser) favorites(places []Place, opening bool) []Place {
-	var favorites []Place
-	if c.d.RecentFile != "" && opening {
-		favorites = append(favorites, Place{Label: i18n.T("file-chooser-place-recent"), Path: recentLocation, Icon: "ld-history-symbolic"})
-	}
-	favorites = append(favorites, places...)
-	if c.d.TrashDirs != nil && opening {
-		favorites = append(favorites, Place{Label: i18n.T("file-chooser-place-trash"), Path: trashLocation, Icon: "ld-trash-2-symbolic"})
-	}
-	return favorites
-}
-
-// placeIcon is a place's icon, through GTK's dash fallbacks as the GTK
-// sidebar's GThemedIcon resolves it.
-func placeIcon(p Place) *widget.Icon {
-	icon := widget.NewThemeIconFallback(p.Icon, navIconPx)
-	icon.AddClass("file-chooser-place-icon")
-	return icon
-}
-
-// fillPlaces lists places in list, a button each.
-func (c *Chooser) fillPlaces(list *widget.Box, places []Place) {
-	list.Clear()
-	for _, p := range places {
-		b := c.placeButton(p, func() { c.goTo(p.Path) })
-		if !p.Bookmark || c.d.BookmarksFile == "" {
-			list.Append(b, false)
-			continue
-		}
-		list.Append(widget.NewContextMenu(c.d.Font, b, widget.MenuItem{Label: i18n.T("file-chooser-remove-bookmark"), OnClick: func() { c.unbookmark(p.Path) }}), false)
-	}
-}
-
-// placeButton is a sidebar row: the place's icon and label, open on a
-// click.
-func (c *Chooser) placeButton(p Place, open func()) *widget.Button {
-	row := widget.NewBox(widget.Row, widget.Current().Spacing, 0)
-	row.AppendAligned(placeIcon(p), false, widget.AlignCenter)
-	l := c.label(p.Label)
-	l.SetEllipsize(widget.EllipsizeEnd)
-	row.AppendAligned(l, true, widget.AlignCenter)
-	b := widget.NewButton(row, 0, 0)
-	b.AddClass("file-chooser-place", css.Ghost)
-	b.OnClick = open
-	return b
-}
-
-// views is the column header over the list and grid, with the empty
-// label and the quick look card over them.
-func (c *Chooser) views(u *ui) widget.Widget {
-	th := widget.Current()
-	lead := c.sortButton(u, SortName)
-	var cols, grips [3]widget.Widget
-	for i := range cols {
-		grips[i], cols[i] = c.columnGrip(i), c.sortButton(u, intconv.Clamp[SortColumn](i+1))
-	}
-	u.columns = cols
-	u.colRow = newColumnRow(lead, cols, grips, c.columns, th.Spacing)
-	u.colHeader = rowBox("file-chooser-colheader", viewsInset()+th.Padding)
-	u.colHeader.Append(u.colRow, true)
-
-	u.list = widget.NewList[widget.Widget](rows{c, false}, listRowH)
-	u.list.AddClass("file-chooser-list")
-	u.list.DragContent = c.dragOut
-	u.grid = c.newGrid()
-	u.listView, u.gridView = &typeAhead{List: u.list, typed: c.typeAhead}, &typeAhead{List: &u.grid.List, typed: c.typeAhead}
-	mode := widget.SelectionSingle
-	if c.s.mode.multiple() {
-		mode = widget.SelectionMultiple
-	}
-	for _, l := range []*widget.List{u.list, &u.grid.List} {
-		l.SetSelectionMode(mode)
-		l.OnActivate = c.activate
-		l.OnSelectionChanged = func([]int) { c.refreshPreview() }
-	}
-
-	u.empty = c.label(i18n.T("file-chooser-empty-folder"), "file-chooser-empty", css.DimLabel)
-	u.ql = c.newQuicklook()
-	u.quicklook = u.ql.Root()
-	u.quicklook.AddClass(css.Card)
-	u.quicklook.SetVisible(false)
-
-	stack := widget.NewOverlay()
-	stack.Append(u.listView)
-	stack.Append(u.gridView)
-	stack.AppendAligned(u.empty, widget.AlignCenter, widget.AlignCenter)
-	stack.AppendAligned(u.quicklook, widget.AlignCenter, widget.AlignCenter)
-
-	inset := widget.NewBox(widget.Column, 0, 0)
-	pad := viewsInset()
-	inset.SetPadding(render.Insets{Top: pad, Right: pad, Bottom: pad, Left: pad})
-	inset.Append(stack, true)
-
-	col := widget.NewBox(widget.Column, 0, 0)
-	col.Append(u.colHeader, false)
-	col.Append(inset, true)
-	return col
-}
-
-// viewsInset is the list's and the grid's inset from the sidebar, the
-// separators and the panel's edge: half the theme's padding.
-func viewsInset() int { return widget.Current().Padding / 2 }
-
-// sortButton is col's header: its title, sorting by it on a click.
-func (c *Chooser) sortButton(u *ui, col SortColumn) *widget.Button {
-	b, l := c.textButton("", "file-chooser-col", css.Ghost, func() { c.sortBy(col) })
-	b.AddClass(css.Small)
-	l.AddClass(css.Caption, css.DimLabel)
-	l.SetAlignment(cellAlignment(col))
-	u.sortButtons[col], u.sortLabels[col] = b, l
-	return b
-}
-
-// rowBox is a row of the list view, or the header over them, inset by
-// pad on both sides: the header's pad adds the views' inset to the
-// rows', so both start their columns at one x.
-func rowBox(class string, pad int) *widget.Box {
-	b := widget.NewBox(widget.Row, 0, 0)
-	b.AddClass(class)
-	b.SetPadding(render.Insets{Left: pad, Right: pad})
-	return b
-}
-
-// cellAlignment aligns a column's header and cells: the numbers (size
-// and modified) to the end, the text to the start.
-func cellAlignment(col SortColumn) render.Alignment {
-	if col == SortSize || col == SortModified {
-		return render.AlignEnd
-	}
-	return render.AlignStart
-}
-
-// newGrid is the virtualized grid of cells over the entries, a gap
-// apart and as many columns as the width fits.
-func (c *Chooser) newGrid() *widget.GridView {
-	gap := widget.Current().Spacing
-	g := widget.NewGridView[widget.Widget](rows{c, true}, gridCellW, gridCellH)
-	g.AddClass("file-chooser-grid")
-	g.DragContent = c.dragOut
-	g.SetColumnSpacing(gap)
-	g.SetRowSpacing(gap)
-	g.SetMaxColumns(0)
-	return g
-}
-
-// columnGrip resizes column i (size, modified, kind) by dragging its
-// left edge: left grows it, as far as the name column keeps its floor.
-func (c *Chooser) columnGrip(i int) widget.Widget {
-	var base int
-	g := newColumnGrip()
-	g.AddClass("file-chooser-col-grip")
-	g.onStart = func() { base = c.columns[i] }
-	g.onDrag = func(dx int) {
-		c.columns[i] = max(min(base-dx, maxColumnW, c.ui.colRow.room(i)), minColumnW)
-		c.ui.colRow.setWidths(c.columns)
-	}
-	g.onEnd = func() { c.ui.list.Refresh() }
-	return g
-}
-
-// rows is a List model over the session's entries: list rows, or grid
-// cells.
-type rows struct {
-	c    *Chooser
-	grid bool
-}
-
-func (m rows) Len() int { return len(m.c.s.entries) }
-
-func (m rows) Row(i int) widget.Widget {
-	e := m.c.s.entries[i]
-	if m.grid {
-		return m.c.gridCell(e)
-	}
-	return m.c.fileRow(e)
-}
-
-// fileRow is the name (icon and label) with the size, modified and
-// kind cells under their column headers.
-func (c *Chooser) fileRow(e Entry) widget.Widget {
-	th := widget.Current()
-	lead := widget.NewBox(widget.Row, th.Spacing, 0)
-	lead.Append(c.entryIcon(e, rowIconPx), false)
-	name := c.label(c.s.displayName(e))
-	// A recursive match is a relative path: keep both ends in view.
-	if c.s.searching() {
-		name.SetEllipsize(widget.EllipsizeMiddle)
-	} else {
-		name.SetEllipsize(widget.EllipsizeEnd)
-	}
-	lead.Append(name, true)
-	size := "--"
-	if !e.IsDir {
-		size = HumanSize(e.Size)
-	}
-	var cells [3]widget.Widget
-	for i, text := range []string{size, FormatTime(e.Modified), e.Kind()} {
-		cell := c.label(text, "file-chooser-cell", css.DimLabel)
-		cell.SetEllipsize(widget.EllipsizeEnd)
-		cell.SetAlignment(cellAlignment(intconv.Clamp[SortColumn](i + 1)))
-		cells[i] = cell
-	}
-	row := rowBox("file-chooser-row", th.Padding)
-	row.Append(newColumnRow(lead, cells, [3]widget.Widget{}, c.columns, th.Spacing), true)
-	return row
-}
-
-// gridCell is a large icon over a centred name of at most two lines,
-// broken inside a word too long for the cell.
-func (c *Chooser) gridCell(e Entry) widget.Widget {
-	th := widget.Current()
-	cell := widget.NewBox(widget.Column, th.Spacing/2, th.Padding/2)
-	cell.AddClass("file-chooser-grid-cell")
-	cell.Append(widgets.Center(c.entryIcon(e, gridIconPx)), false)
-	name := c.label(c.s.displayName(e), "file-chooser-grid-name")
-	name.SetAlignment(render.AlignCenter)
-	name.SetWrap(true)
-	name.SetMaxLines(2)
-	name.SetEllipsize(widget.EllipsizeEnd)
-	cell.Append(name, false)
-	return cell
-}
-
-// entryIcon is the folder glyph, or a file's thumbnail (the cached
-// one any app made, or a raster image decoded) over its type's themed
-// icon until one is ready, or for good when there is none.
-func (c *Chooser) entryIcon(e Entry, px int) widget.Widget {
-	if e.IsDir {
-		return widget.NewThemeIcon("ld-folder-symbolic", px)
-	}
-	mimeType := c.d.MIME.TypeByName(e.Name())
-	return c.thumb(e.Path, mimeType, px, widget.NewThemeIcon(c.d.MIME.FileIcon(mimeType), px))
-}
-
-// thumb is a px square showing fallback until one of the bounded
-// workers found the file's thumbnail (at twice the size, for HiDPI);
-// each file is looked up once per request however often its row is
-// rebuilt, and every row draws the one raster. A lookup that ends
-// after its request did lands nowhere: its raster is freed at once.
-func (c *Chooser) thumb(path, mimeType string, px int, fallback widget.Widget) widget.Widget {
-	slot := widget.NewBox(widget.Row, 0, 0)
-	slot.SetHAlign(widget.AlignCenter)
-	slot.SetVAlign(widget.AlignCenter)
-	show := func(done render.StillImage) {
-		img := widget.NewImage(done)
-		img.SetScale(widget.ImageCover)
-		img.AddClass("file-chooser-thumb")
-		slot.Clear()
-		slot.Append(widgets.Pin(img, px, px), false)
-	}
-	set, key := c.thumbs, thumbKey{path, px}
-	if done, ok := set.found[key]; ok {
-		if done != nil {
-			show(done.Image)
-		} else {
-			slot.Append(fallback, false)
-		}
-		return slot
-	}
-	slot.Append(fallback, false)
-	if set.ctx.Err() != nil {
-		return slot
-	}
-	if _, pending := set.waiting[key]; !pending {
-		th := c.thumbnailer
-		c.thumbWork.Go(c.offLoop.Go, func() {
-			done, err := th.Square(set.ctx, path, mimeType, 2*px)
-			if err != nil {
-				c.d.Invoke(func() { c.landThumb(set, key, thumbnail.Raster{}, err) })
-				return
-			}
-			c.thumbWork.Deliver(c.d.Invoke, func() { c.landThumb(set, key, done, nil) }, func() {
-				if err := th.Free(done); err != nil {
-					log.Printf("file chooser: freeing the thumbnail of %s that landed after shutdown: %v", key.path, err)
-				}
-			})
-		})
-	}
-	set.waiting[key] = append(set.waiting[key], show)
-	return slot
-}
-
-// landThumb fills the slots waiting for key with the thumbnail done,
-// or with nothing when err, unless set's request ended.
-func (c *Chooser) landThumb(set *thumbSet, key thumbKey, done thumbnail.Raster, err error) {
-	if err != nil {
-		if set.ctx.Err() == nil {
-			set.found[key] = nil
-			delete(set.waiting, key)
-		}
-		return
-	}
-	if set.ctx.Err() != nil {
-		if err := c.thumbnailer.Free(done); err != nil {
-			log.Printf("file chooser: freeing the thumbnail of %s that landed after its dialog: %v", key.path, err)
-		}
-		return
-	}
-	set.found[key] = &done
-	shows := set.waiting[key]
-	delete(set.waiting, key)
-	for _, show := range shows {
-		show(done.Image)
-	}
-}
-
-// freeThumbs ends the request's thumbnail lookups and frees the
-// thumbnails it found, which nothing draws any more: the renderer
-// forgets their textures, and their pixels go once every List recorded
-// until now has ended.
-func (c *Chooser) freeThumbs() {
-	c.closePreviews()
-	set := c.thumbs
-	set.cancel()
-	rasters := make([]thumbnail.Raster, 0, len(set.found))
-	for _, r := range set.found {
-		if r != nil {
-			c.d.ForgetImage(r.Image.ID)
-			rasters = append(rasters, *r)
-		}
-	}
-	set.found, set.waiting = map[thumbKey]*thumbnail.Raster{}, map[thumbKey][]func(render.StillImage){}
-	if len(rasters) == 0 {
-		return
-	}
-	th := c.thumbnailer
-	render.Retire(func() {
-		if err := th.Free(rasters...); err != nil {
-			log.Printf("file chooser: freeing %d thumbnails: %v", len(rasters), err)
-		}
-	})
+	confirm, _ := c.b.TextButton(accept, "file-chooser-confirm", css.SuggestedAction, c.confirm)
+	bar.Append(cancel, false)
+	bar.Append(confirm, false)
+	return row, bar, replace
 }
 
 // Close ends the host once the loop has ended: the request showing and
-// every one waiting are answered with nothing, the search, the folder
-// watch, the mount watch and the lookups give up, the thumbnails found
-// are freed, and so is every one a lookup still running makes. It
-// returns once the work it ran off the loop has, or, for a check a hung
-// mount holds, after closeTimeout.
+// every one waiting are answered with nothing, and the browser closes
+// (filebrowser.Browser.Close).
 func (c *Chooser) Close() {
-	c.cancelWalk()
-	c.unwatch()
-	if c.stopMounts != nil {
-		c.stopMounts()
-		c.stopMounts = nil
-	}
+	c.b.End()
 	if c.reply != nil {
 		c.reply(Result{})
 		c.reply = nil
 	}
 	c.queue.CancelWaiting()
-	c.freeThumbs()
-	c.thumbWork.Close()
-	c.awaitOffLoop()
-	c.viewFile.Wait()
+	c.b.Close()
 	c.folders.file.Wait()
-}
-
-const closeTimeout = 5 * time.Second
-
-func (c *Chooser) awaitOffLoop() {
-	done := make(chan struct{})
-	go func() {
-		c.offLoop.Wait()
-		close(done)
-	}()
-	select {
-	case <-done:
-	case <-time.After(closeTimeout):
-		log.Printf("file chooser: work off the loop outlived the chooser by %v", closeTimeout)
-	}
 }
 
 // --- surface --------------------------------------------------------
@@ -1186,8 +308,8 @@ func (c *Chooser) show() {
 			ExclusiveZone: -1,
 			Keyboard:      keyboard,
 			Namespace:     layers.FileChooser.Name(),
-			OnKey:         keys.OnKey(c.d.KeySym, c.key),
-			OnPress:       func(button uint32, _ widget.Widget) { c.press(button) },
+			OnKey:         keys.OnKey(c.d.KeySym, c.b.Key),
+			OnPress:       func(button uint32, _ widget.Widget) { c.b.Press(button) },
 		},
 		Window: dialogsurface.WindowSize{Initial: c.size, Min: panelMin, Max: panelMax, OnResize: c.resized},
 		Failed: func() { c.finish(nil) },
@@ -1198,17 +320,17 @@ func (c *Chooser) show() {
 		return
 	}
 	c.win = win
-	first := c.focusView()
-	if c.s.mode == ModeSave {
-		first = c.ui.name
+	first := c.b.FileView()
+	if c.mode == ModeSave {
+		first = c.name
 	}
 	if err := win.SetFocus(first); err != nil {
 		log.Printf("file chooser: cannot focus %T: %v", first, err)
 		c.finish(nil)
 		return
 	}
-	if c.s.mode == ModeSave {
-		selectStem(c.ui.name)
+	if c.mode == ModeSave {
+		selectStem(c.name)
 	}
 }
 
@@ -1225,11 +347,11 @@ func (c *Chooser) frame(s dialogsurface.Surface) widget.Widget {
 	if s == dialogsurface.OnWindow {
 		w := widget.NewBox(widget.Column, 0, 0)
 		w.SetElement("window")
-		w.Append(c.ui.header, false)
-		w.Append(c.ui.main, true)
+		w.Append(c.b.Header(), false)
+		w.Append(c.b.Main(), true)
 		return w
 	}
-	p := widget.NewFloatingPanel(c.ui.header, c.ui.main)
+	p := widget.NewFloatingPanel(c.b.Header(), c.b.Main())
 	p.SetSizeLimits(panelMin, panelMax)
 	p.SetPanelSize(c.size.W, c.size.H)
 	if c.moved {
@@ -1254,7 +376,7 @@ func (c *Chooser) hide() {
 		return
 	}
 	if c.win == nil {
-		c.freeThumbs()
+		c.b.Release()
 		return
 	}
 	c.closing = true
@@ -1270,68 +392,7 @@ func (c *Chooser) hide() {
 func (c *Chooser) closeWindow() {
 	c.win.Close()
 	c.win, c.rev, c.closing = nil, nil, false
-	c.freeThumbs()
-}
-
-// key binds GTK's chooser keys: Escape closes quick look, then
-// cancels; plain Space toggles quick look, Backspace
-// and Alt+Up go up, Alt+Left and Alt+Right walk the history (none of
-// these while a text field has the key); Ctrl+H shows hidden files,
-// Ctrl+L the location entry, Ctrl+F the search.
-func (c *Chooser) key(r *widget.Router, sym xkb.Keysym, mods app.Mods) {
-	if c.reply == nil {
-		return
-	}
-	typing := false
-	switch r.Focused().(type) {
-	case *widget.Entry, *widget.SearchEntry, *locationEntry:
-		typing = true
-	}
-	ctrl, alt := mods&app.ModCtrl != 0, mods&app.ModAlt != 0
-	plain := mods&(app.ModCtrl|app.ModAlt|app.ModSuper|app.ModShift) == 0
-	switch {
-	case plain && !typing && c.ui.quicklook.Visible() && c.ui.ql.Key(sym):
-	case sym == xkb.KeyEscape:
-		c.escape()
-	case sym == xkb.KeySpace && plain && !typing:
-		c.toggleQuicklook()
-	case sym == xkb.KeyBackSpace && plain && !typing, sym == xkb.KeyUp && alt:
-		c.goUp()
-	case sym == xkb.KeyLeft && alt:
-		c.step(true)
-	case sym == xkb.KeyRight && alt:
-		c.step(false)
-	case sym == 'h' && ctrl:
-		// The toggle's handler applies it.
-		c.ui.hiddenTg.SetActive(!c.hidden)
-	case sym == 'l' && ctrl:
-		c.showLocation("")
-	case sym == 'f' && ctrl:
-		c.focus(c.ui.search)
-	case sym == 'd' && ctrl:
-		c.bookmark(c.s.dir)
-	}
-}
-
-func (c *Chooser) escape() {
-	if c.ui.quicklook.Visible() {
-		c.closeQuicklook()
-		return
-	}
-	c.finish(nil)
-}
-
-// press walks the history on the mouse's thumb buttons.
-func (c *Chooser) press(button uint32) {
-	if c.reply == nil {
-		return
-	}
-	switch button {
-	case btnBack:
-		c.step(true)
-	case btnForward:
-		c.step(false)
-	}
+	c.b.Release()
 }
 
 // placedAt keeps the panel's place, and the size the user chose, as a
@@ -1354,379 +415,81 @@ func (c *Chooser) resized(sz widget.Size) {
 	c.size = widget.Size{W: min(max(sz.W, panelMin.W), panelMax.W), H: min(max(sz.H, panelMin.H), panelMax.H)}
 }
 
-// --- state changes --------------------------------------------------
-
-func (c *Chooser) activeView() *widget.List {
-	if c.s.view.grid {
-		return &c.ui.grid.List
-	}
-	return c.ui.list
-}
-
-// focus moves the overlay's keyboard focus to w; a refusal is logged.
-func (c *Chooser) focus(w widget.Widget) {
-	if err := c.win.SetFocus(w); err != nil {
-		log.Printf("file chooser: cannot focus %T: %v", w, err)
-	}
-}
-
-// focusView is the active view's focus target, which takes typing.
-func (c *Chooser) focusView() widget.Widget {
-	if c.s.view.grid {
-		return c.ui.gridView
-	}
-	return c.ui.listView
-}
-
-// relist repaints after the entries changed: the breadcrumbs, both
-// views from the top, the empty label, the preview.
-func (c *Chooser) relist() {
-	u := c.ui
-	u.crumbs.Clear()
-	for i, cr := range Crumbs(c.s.dir, c.d.Home) {
-		if i > 0 {
-			u.crumbs.AppendAligned(c.label("›", "file-chooser-crumb-sep", css.DimLabel), false, widget.AlignCenter)
-		}
-		b, l := c.textButton(text.Ellipsize(cr.Label, crumbMaxChars), "file-chooser-crumb", css.Ghost, nil)
-		b.AddClass(css.Small)
-		if cr.Current {
-			b.AddClass("current")
-		} else {
-			l.AddClass(css.DimLabel)
-		}
-		path := cr.Path
-		b.OnClick = func() { c.goTo(path) }
-		u.crumbs.Append(b, false)
-	}
-	grid := c.s.view.grid
-	u.colHeader.SetVisible(!grid)
-	u.list.SetVisible(!grid)
-	u.grid.SetVisible(grid)
-	u.list.Reset()
-	u.grid.Reset()
-	empty := i18n.T("file-chooser-empty-folder")
-	switch {
-	case c.s.loading:
-		empty = i18n.T("file-chooser-loading")
-	case c.s.listErr != nil && !c.s.searching():
-		empty = i18n.T("file-chooser-unreadable")
-	}
-	u.empty.SetText(empty)
-	u.empty.SetVisible(len(c.s.entries) == 0)
-	c.closeQuicklook()
-	c.refreshPreview()
-}
-
-// relistKeeping repaints a listing read again where it stands: the
-// scroll stays, and the entry selected (the first, in a multiple
-// pick: the list sets one at a time) stays selected where it still
-// is. kept is the path selected before the listing changed.
-func (c *Chooser) relistKeeping(kept string) {
-	view := c.activeView()
-	u := c.ui
-	u.list.Refresh()
-	u.grid.Refresh()
-	u.empty.SetVisible(len(c.s.entries) == 0)
-	view.Select(slices.IndexFunc(c.s.entries, func(e Entry) bool { return e.Path == kept }))
-	c.refreshPreview()
-}
-
-// selectedPath is the path of the first entry selected, "" for none.
-func (c *Chooser) selectedPath() string {
-	if e, ok := c.selected(); ok {
-		return e.Path
-	}
-	return ""
-}
-
-func (c *Chooser) goTo(dir string) {
-	c.s.goTo(dir)
-	c.afterNavigate()
-}
-
-func (c *Chooser) goUp() {
-	if c.s.up() {
-		c.afterNavigate()
-	}
-}
-
-func (c *Chooser) step(back bool) {
-	if c.s.step(back) {
-		c.afterNavigate()
-	}
-}
-
-// dropped opens a dropped folder, or the folder of a dropped file with
-// the file selected.
-func (c *Chooser) dropped(path string) {
-	offLoopFor(c, statPath(path), func(st pathStat) {
-		c.selectNext = path
-		c.s.dropped(path, st.err == nil && st.info.IsDir())
-		c.afterNavigate()
-		if !c.s.loading {
-			c.applySelectNext()
-		}
-	})
-}
-
-// applySelectNext selects the entry waiting to be, once listed.
-func (c *Chooser) applySelectNext() {
-	if c.selectNext == "" {
-		return
-	}
-	c.activeView().Select(slices.IndexFunc(c.s.entries, func(e Entry) bool { return e.Path == c.selectNext }))
-	c.selectNext = ""
-	c.refreshPreview()
-}
-
-// typeAhead is the type-ahead of the file views: / or ~ typed with a
-// view focused starts a path in the location entry, any other
-// character a search for it.
-func (c *Chooser) typeAhead(r rune) {
-	if c.reply == nil {
-		return
-	}
-	if r == '/' || r == '~' {
-		c.showLocation(string(r))
-		return
-	}
-	c.focus(c.ui.search)
-	c.ui.search.SetText(c.ui.search.Text() + string(r))
-}
-
-// showLocation swaps the crumbs for the location entry, seeded with
-// text (GTK opens it on Ctrl+L, and on typing / or ~).
-func (c *Chooser) showLocation(text string) {
-	u := c.ui
-	c.pc = pathCompletion{}
-	u.crumbs.SetVisible(false)
-	u.location.SetVisible(true)
-	u.location.SetText(text)
-	c.focus(u.location)
-}
-
-func (c *Chooser) hideLocation() {
-	c.ui.location.SetVisible(false)
-	c.ui.crumbs.SetVisible(true)
-	c.focus(c.focusView())
-}
-
-// goToLocation goes where the location entry names: a folder opens; a
-// file opens (or, saving, becomes the name in its folder); anything
-// else warns.
-func (c *Chooser) goToLocation(text string) {
-	base := c.s.dir
-	if virtualLocation(base) {
-		base = c.d.Home
-	}
-	path := (&session{dir: base}).savePath(strings.TrimSpace(text), c.d.Home)
-	if path == "" {
-		return
-	}
-	offLoopFor(c, statPath(path), func(st pathStat) {
-		switch {
-		case st.err == nil && st.info.IsDir():
-			c.hideLocation()
-			c.goTo(path)
-		case c.s.mode == ModeSave:
-			c.hideLocation()
-			c.goTo(filepath.Dir(path))
-			c.ui.name.SetText(filepath.Base(path))
-			c.focus(c.ui.name)
-		case st.err == nil && !c.s.mode.folders():
-			c.finish([]string{fileuri.FromPath(path)})
-		default:
-			c.warn(i18n.T("file-chooser-location-missing", i18n.Str("path", path)))
-		}
-	})
-}
-
-// showNewFolder opens the row naming a folder to create.
-func (c *Chooser) showNewFolder() {
-	u := c.ui
-	u.newFolderName.SetText("")
-	u.newFolder.SetVisible(true)
-	c.focus(u.newFolderName)
-}
-
-// createFolder creates the named folder in the one shown and opens
-// it; a name that is taken or cannot be made warns.
-func (c *Chooser) createFolder() {
-	name := strings.TrimSpace(c.ui.newFolderName.Text())
-	if name == "" || virtualLocation(c.s.dir) {
-		return
-	}
-	if name == "." || name == ".." || strings.Contains(name, "/") {
-		c.warn(i18n.T("file-chooser-folder-name-invalid", i18n.Str("name", name)))
-		return
-	}
-	path := filepath.Join(c.s.dir, name)
-	if err := os.Mkdir(path, 0o755); err != nil { //nolint:gosec // a folder the user creates, as any file manager does
-		c.failed(i18n.T("file-chooser-create-failed", i18n.Str("name", name)), err)
-		return
-	}
-	c.ui.newFolder.SetVisible(false)
-	c.clearNotice()
-	c.goTo(path)
-}
-
-// afterNavigate empties the search box (the session already dropped
-// the query) and repaints the new folder.
-func (c *Chooser) afterNavigate() {
-	c.cancelWalk()
-	c.ui.search.SetText("")
-	c.relist()
-}
-
-func (c *Chooser) cancelWalk() {
-	if c.stopWalk != nil {
-		c.stopWalk()
-		c.stopWalk = nil
-	}
-}
-
-// setSearch filters the cached listing in memory, or, searching
-// subfolders, starts a walk that streams its matches in; a newer query
-// cancels it.
-func (c *Chooser) setSearch(query string) {
-	c.cancelWalk()
-	c.s.setSearch(query)
-	c.relist()
-	if !c.s.searching() {
-		return
-	}
-	ctx, cancel := context.WithCancel(context.Background())
-	c.stopWalk = cancel
-	s, root, hidden := c.s, c.s.dir, c.s.hidden
-	c.offLoop.Go(func() {
-		WalkSearch(ctx, root, query, hidden, func(batch []string) {
-			found := searchEntries(batch, s.mode)
-			c.d.Invoke(func() {
-				if ctx.Err() == nil && c.s == s && s.addFound(query, found) {
-					c.relist()
-				}
-			})
-		})
-	})
-}
-
-// restartSearch re-runs the query: a walk depends on the hidden and
-// subfolder toggles.
-func (c *Chooser) restartSearch() { c.setSearch(c.s.search) }
-
-func (c *Chooser) toggleHidden(on bool) {
-	c.hidden = on
-	c.s.hidden = on
-	if c.s.searching() {
-		c.restartSearch()
-		return
-	}
-	c.s.refresh()
-	c.relist()
-}
-
-func (c *Chooser) toggleRecursive(on bool) {
-	c.recursive = on
-	c.s.recursive = on
-	c.restartSearch()
-}
-
-func (c *Chooser) toggleView() {
-	c.s.view.grid = !c.s.view.grid
-	c.saveView()
-	setIcon(c.ui.viewIcon, viewIcon(c.s.view.grid))
-	c.relist()
-	if c.win != nil {
-		c.focus(c.focusView())
-	}
-}
-
-func (c *Chooser) togglePreview(on bool) {
-	c.ui.preview.SetVisible(on)
-	if !on {
-		c.ui.pv.Close()
-	}
-	c.refreshPreview()
-}
-
-// closeQuicklook hides Quick Look and lets go of what it showed.
-func (c *Chooser) closeQuicklook() {
-	c.ui.quicklook.SetVisible(false)
-	c.ui.ql.Close()
-}
-
-func (c *Chooser) sortBy(col SortColumn) {
-	c.s.sortBy(col)
-	c.saveView()
-	c.updateSortLabels()
-	c.relist()
-}
-
-// saveView keeps the sort and layout for the next request and, with a
-// file, across restarts (best effort).
-func (c *Chooser) saveView() {
-	c.view = c.s.view
-	c.viewFile.Write([]byte(c.view.String()))
-}
-
-// columnTitles are the messages titling the columns, in SortColumn
-// order.
-var columnTitles = [...]string{"file-chooser-column-name", "file-chooser-column-size", "file-chooser-column-modified", "file-chooser-column-kind"}
-
-// updateSortLabels marks the sort column with its direction.
-func (c *Chooser) updateSortLabels() {
-	for col, l := range c.ui.sortLabels {
-		text := i18n.T(columnTitles[col])
-		if SortColumn(col) == c.s.view.sort {
-			if c.s.view.asc {
-				text += " ↑"
-			} else {
-				text += " ↓"
-			}
-		}
-		l.SetText(text)
-	}
-}
+// --- the request ----------------------------------------------------
 
 // selectFilter makes filter i, picked in the filter dropdown, the
 // active one; a save name takes its extension.
 func (c *Chooser) selectFilter(i int) {
-	c.s.selectFilter(i)
-	if c.s.mode == ModeSave {
-		c.ui.name.SetText(withExtension(c.ui.name.Text(), c.s.filters[c.s.active]))
-	}
-	c.relist()
-}
-
-// activate is a double-click or Enter on row i.
-func (c *Chooser) activate(i int) {
-	if c.reply == nil || c.navigating || i < 0 || i >= len(c.s.entries) {
+	if i < 0 || i >= len(c.filters) {
 		return
 	}
-	name := c.s.entries[i].Name()
-	switch c.s.activate(i) {
-	case activateDescend:
-		c.afterNavigate()
-		c.navigating = true
-		c.d.Invoke(func() { c.navigating = false })
-	case activateName:
-		c.ui.name.SetText(name)
-	case activateConfirm:
-		c.confirm()
+	c.active = i
+	c.b.SetFiles(c.matches())
+	if c.mode == ModeSave {
+		c.name.SetText(withExtension(c.name.Text(), c.filters[c.active]))
 	}
+}
+
+// activated is a file activated in the browser: saving, it names the
+// file; opening, it confirms.
+func (c *Chooser) activated(e filebrowser.Entry) {
+	if c.mode == ModeSave {
+		c.name.SetText(e.Name())
+		return
+	}
+	c.confirm()
+}
+
+// typedPath is a path typed into the location entry that names no
+// folder: saving, it is the folder and the name; opening files, a file
+// there answers; anything else is the browser's warning.
+func (c *Chooser) typedPath(path string, exists bool) bool {
+	switch {
+	case c.mode == ModeSave:
+		c.b.HideLocation()
+		c.b.GoTo(filepath.Dir(path))
+		c.name.SetText(filepath.Base(path))
+		c.b.Focus(c.name)
+	case exists && !c.mode.folders():
+		c.finish([]string{fileuri.FromPath(path)})
+	default:
+		return false
+	}
+	return true
 }
 
 func (c *Chooser) confirm() {
 	if c.reply == nil {
 		return
 	}
-	if c.s.mode == ModeSave {
+	if c.mode == ModeSave {
 		c.confirmSave()
 		return
 	}
-	if uris, ok := c.s.result(c.activeView().Selection()); ok {
+	if uris, ok := result(c.mode, c.b.Dir(), c.b.Selected()); ok {
 		c.finish(uris)
 	}
+}
+
+// result is what confirming an open in mode answers given the selected
+// rows in dir; false keeps the dialog open (nothing to answer yet). A
+// folder pick answers the selected folders, else dir, as GTK's chooser
+// does; an open answers the selected files, never folders.
+func result(mode Mode, dir string, selected []filebrowser.Entry) ([]string, bool) {
+	var uris []string
+	for _, e := range selected {
+		if e.IsDir != mode.folders() {
+			continue
+		}
+		uris = append(uris, fileuri.FromPath(e.Path))
+		if mode.folders() && !mode.multiple() {
+			break
+		}
+	}
+	if mode.folders() && len(uris) == 0 {
+		uris = []string{fileuri.FromPath(dir)}
+	}
+	return uris, len(uris) > 0
 }
 
 // confirmSave answers the path the name entry names, once it can be
@@ -1734,25 +497,22 @@ func (c *Chooser) confirm() {
 // writable is a warning, and an existing file is replaced only once the
 // user confirms it in the notice.
 func (c *Chooser) confirmSave() {
-	path := c.s.savePath(strings.TrimSpace(c.ui.name.Text()), c.d.Home)
+	path := filebrowser.ResolvePath(strings.TrimSpace(c.name.Text()), c.b.Dir(), c.d.Browser.Home)
 	if path == "" {
 		return
 	}
 	dir := filepath.Dir(path)
-	offLoopFor(c, func() saveCheck { return checkSave(path, dir) }, func(check saveCheck) {
+	filebrowser.OffLoop(c.b, func() saveCheck { return checkSave(path, dir) }, func(check saveCheck) {
 		switch {
 		case check.isDir:
-			c.ui.name.SetText("")
-			c.goTo(path)
+			c.name.SetText("")
+			c.b.GoTo(path)
 		case check.noFolder:
-			c.warn(i18n.T("file-chooser-save-no-folder", i18n.Str("folder", dir)))
+			c.b.Warn(i18n.T("file-chooser-save-no-folder", i18n.Str("folder", dir)))
 		case check.notWritable:
-			c.warn(i18n.T("file-chooser-save-not-writable", i18n.Str("folder", dir)))
-		case check.exists && c.replacing != path:
-			c.replacing = path
-			c.ui.noticeLabel.SetText(i18n.T("file-chooser-save-exists", i18n.Str("name", filepath.Base(path)), i18n.Str("folder", filepath.Base(dir))))
-			c.ui.replace.SetVisible(true)
-			c.ui.notice.SetVisible(true)
+			c.b.Warn(i18n.T("file-chooser-save-not-writable", i18n.Str("folder", dir)))
+		case check.exists && c.b.Asking() != path:
+			c.b.Ask(i18n.T("file-chooser-save-exists", i18n.Str("name", filepath.Base(path)), i18n.Str("folder", filepath.Base(dir))), path)
 		default:
 			c.finish([]string{fileuri.FromPath(path)})
 		}
@@ -1776,133 +536,26 @@ func checkSave(path, dir string) saveCheck {
 	return saveCheck{exists: err == nil}
 }
 
-// failed shows summary, what failed in the dialog's words, in the
-// notice; the notice is one line with no room for a detail, so err goes
-// to the log.
-func (c *Chooser) failed(summary string, err error) {
-	log.Printf("file chooser: %s %v", summary, err)
-	c.warn(summary)
-}
-
-// warn shows a warning in the notice.
-func (c *Chooser) warn(text string) {
-	c.replacing = ""
-	c.ui.noticeLabel.SetText(text)
-	c.ui.replace.SetVisible(false)
-	c.ui.notice.SetVisible(true)
-}
-
-// clearNotice takes the notice down: the name changed.
-func (c *Chooser) clearNotice() {
-	c.replacing = ""
-	c.ui.notice.SetVisible(false)
-}
-
-// selected is the first selected entry of the active view.
-func (c *Chooser) selected() (Entry, bool) {
-	sel := c.activeView().Selection()
-	if len(sel) == 0 || sel[0] >= len(c.s.entries) {
-		return Entry{}, false
-	}
-	return c.s.entries[sel[0]], true
-}
-
-func (c *Chooser) toggleQuicklook() {
-	u := c.ui
-	if u.quicklook.Visible() {
-		c.closeQuicklook()
+// selectStem selects a save name's stem, so typing replaces the name
+// and keeps its extension; a name without one, or a dot file, is
+// selected whole.
+func selectStem(e *widget.Entry) {
+	name := e.Text()
+	stem := strings.TrimSuffix(name, extOf(name))
+	if stem == "" || stem == name {
+		e.SelectAll()
 		return
 	}
-	if _, ok := c.selected(); ok {
-		u.quicklook.SetVisible(true)
-		c.refreshPreview()
-	}
+	e.MoveHome()
+	e.MoveCursorExtending(uniseg.GraphemeClusterCount(stem))
 }
 
-// refreshPreview shows the selected entry in the previews showing, or
-// says nothing is selected.
-func (c *Chooser) refreshPreview() {
-	if c.ui == nil || len(c.openPreviews()) == 0 {
-		return
+// extOf is name's last extension with its dot, "" for none; a dot
+// file's leading dot starts no extension.
+func extOf(name string) string {
+	i := strings.LastIndexByte(name, '.')
+	if i <= 0 {
+		return ""
 	}
-	e, ok := c.selected()
-	if !ok {
-		c.closeQuicklook()
-		c.ui.pv.Close()
-		return
-	}
-	for _, v := range c.openPreviews() {
-		v.Show(e.Path)
-	}
-}
-
-// --- system defaults ------------------------------------------------
-
-// gnomeCopiedFiles is the clipboard and drag format GNOME's file
-// managers read: the operation on the first line, then one URI a line.
-const gnomeCopiedFiles = "x-special/gnome-copied-files"
-
-// dragOut is what dragging rows of the listing shown offers another
-// app: their files as a uri list (and the GNOME file managers' form),
-// to copy, never to move, so a drop cannot take the files away. A
-// listing still loading shows stale rows and offers nothing.
-func (c *Chooser) dragOut(rows []int) *widget.DragContent {
-	if c.s == nil || c.s.loading {
-		return nil
-	}
-	var paths []string
-	for _, i := range rows {
-		if i >= 0 && i < len(c.s.entries) {
-			paths = append(paths, c.s.entries[i].Path)
-		}
-	}
-	if len(paths) == 0 {
-		return nil
-	}
-	return &widget.DragContent{Content: filesContent(paths), Actions: transfer.ActionCopy}
-}
-
-// filesContent offers paths as a uri list and GNOME's copied-files
-// form.
-func filesContent(paths []string) transfer.Content {
-	copied := []string{"copy"}
-	for _, p := range paths {
-		copied = append(copied, transfer.FileURI(p))
-	}
-	return transfer.Merge(transfer.Files(paths...), transfer.Bytes(gnomeCopiedFiles, []byte(strings.Join(copied, "\n"))))
-}
-
-// droppedPath is the first local path in a text/uri-list payload.
-func droppedPath(data []byte) (string, bool) {
-	for line := range strings.SplitSeq(string(data), "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		if p, ok := fileuri.Path(line); ok {
-			return p, true
-		}
-	}
-	return "", false
-}
-
-// typeAhead is a file view that hands characters typed into it to
-// typed: the view keeps every other key.
-type typeAhead struct {
-	*widget.List
-	typed func(rune)
-}
-
-// InsertRune implements widget.RuneHandler: / or ~ starts a typed
-// path, any other character a search.
-func (t *typeAhead) InsertRune(r rune) { t.typed(r) }
-
-// HitTest answers the view itself as the wrapper, so a click focuses
-// what takes the typing.
-func (t *typeAhead) HitTest(p widget.Point) widget.Widget {
-	w := t.List.HitTest(p)
-	if w == widget.Widget(t.List) {
-		return t
-	}
-	return w
+	return name[i:]
 }

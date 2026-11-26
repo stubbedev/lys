@@ -16,6 +16,3 @@ func TestMain(m *testing.M) {
 }
 
 func TestTheTestsReachNoHostSession(t *testing.T) { testhome.RequireNoHostSession(t) }
-
-// testReader lists folders for the tests, as the host's reader does.
-var testReader = newDirReader()

@@ -1,4 +1,4 @@
-package filechooser
+package filebrowser
 
 import (
 	"fmt"
@@ -52,7 +52,7 @@ func (hs *harness) waitButton(t *testing.T, name string, there bool) {
 // goes.
 func TestDrivesMountOnActivation(t *testing.T) {
 	hs, u := drivesHarness(t)
-	got := hs.open(t, OpenRequest{})
+	hs.open(t, openFile)
 	hs.waitButton(t, "STICK", true)
 	for _, name := range []string{"root", "swap"} {
 		if hs.hasButton(name) {
@@ -68,8 +68,7 @@ func TestDrivesMountOnActivation(t *testing.T) {
 	}
 	u.Remove(t, stickFS)
 	hs.waitButton(t, "STICK", false)
-	hs.click(t, "Cancel")
-	answer(t, got)
+	hs.hide()
 }
 
 // A locked volume asks for its passphrase: a wrong one shows UDisks2's
@@ -77,7 +76,7 @@ func TestDrivesMountOnActivation(t *testing.T) {
 // opens it.
 func TestDrivesUnlockWithAPassphrase(t *testing.T) {
 	hs, u := drivesHarness(t)
-	got := hs.open(t, OpenRequest{})
+	hs.open(t, openFile)
 	hs.waitButton(t, "Vault", true)
 	hs.click(t, "Vault")
 	var prompt bool
@@ -96,7 +95,9 @@ func TestDrivesUnlockWithAPassphrase(t *testing.T) {
 	if errText != i18n.T("file-chooser-unlock-failed", i18n.Str("volume", "Vault")) || strings.Contains(errText, "Operation not permitted") || !open {
 		t.Errorf("a wrong passphrase: error %q, prompt open and emptied %v", errText, open)
 	}
-	pending(t, got)
+	if hs.c.Busy() || !hs.c.active {
+		t.Error("a wrong passphrase ended the browse")
+	}
 	hs.do(func() { hs.c.ui.unlock.entry.SetText(u.Passphrase) })
 	hs.click(t, "Unlock")
 	want := []string{udiskstest.CallUnlock + " " + string(vaultFS), udiskstest.CallUnlock + " " + string(vaultFS), udiskstest.CallMount + " " + string(vaultFS) + "_clear"}
@@ -106,15 +107,14 @@ func TestDrivesUnlockWithAPassphrase(t *testing.T) {
 	if dir := hs.dir(); !strings.HasPrefix(dir, u.MountRoot) {
 		t.Errorf("after unlocking the chooser shows %s", dir)
 	}
-	hs.click(t, "Cancel")
-	answer(t, got)
+	hs.hide()
 }
 
 // Eject unmounts and powers the drive off, leaving the folder it
 // showed; a busy volume says so and stays powered.
 func TestDrivesEject(t *testing.T) {
 	hs, u := drivesHarness(t)
-	got := hs.open(t, OpenRequest{})
+	hs.open(t, openFile)
 	hs.waitButton(t, "STICK", true)
 	hs.click(t, "STICK")
 	eject := i18n.T("file-chooser-eject", i18n.Str("volume", "STICK"))
@@ -138,6 +138,5 @@ func TestDrivesEject(t *testing.T) {
 		t.Errorf("after ejecting the chooser shows %s, want home", dir)
 	}
 	hs.waitButton(t, eject, false)
-	hs.click(t, "Cancel")
-	answer(t, got)
+	hs.hide()
 }

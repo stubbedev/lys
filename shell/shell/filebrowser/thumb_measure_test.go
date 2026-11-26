@@ -1,4 +1,4 @@
-package filechooser
+package filebrowser
 
 import (
 	"bufio"
@@ -41,7 +41,7 @@ func TestMeasureThumbnailScroll(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	hs.open(t, OpenRequest{CurrentFolder: dir})
+	hs.open(t, in(openFile, dir))
 	settleHeap()
 	base := heapBytes()
 
@@ -73,7 +73,7 @@ func TestMeasureThumbnailScroll(t *testing.T) {
 	took := time.Since(start)
 	close(stop)
 	<-sampled
-	hs.do(func() { hs.c.finish(nil) })
+	hs.hide()
 	settleHeap()
 	t.Logf("%d thumbnails in %v: peak heap %s over a %s base; after close heap %s, RSS %s",
 		count, took.Round(time.Millisecond), mib(max(peak.Load(), base)-base), mib(base), mib(heapBytes()), mib(rssBytes(t)))

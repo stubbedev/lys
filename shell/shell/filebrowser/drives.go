@@ -1,4 +1,4 @@
-package filechooser
+package filebrowser
 
 import (
 	"context"
@@ -33,7 +33,7 @@ type locations struct {
 }
 
 // drives is the drives' client, nil without one (no system bus yet).
-func (c *Chooser) drives() *udisks.Client {
+func (c *Browser) drives() *udisks.Client {
 	if c.d.Drives == nil {
 		return nil
 	}
@@ -42,7 +42,7 @@ func (c *Chooser) drives() *udisks.Client {
 
 // readLocations reads the places and the volumes; safe off the loop. A
 // listing UDisks2 refuses lists the places alone.
-func (c *Chooser) readLocations() locations {
+func (c *Browser) readLocations() locations {
 	l := locations{places: c.d.Locations()}
 	drives := c.drives()
 	if drives == nil {
@@ -52,7 +52,7 @@ func (c *Chooser) readLocations() locations {
 	defer cancel()
 	vols, err := drives.Volumes(ctx)
 	if err != nil {
-		log.Printf("file chooser: drives: %v", err)
+		log.Printf("file browser: drives: %v", err)
 	}
 	l.volumes = vols
 	return l
@@ -60,7 +60,7 @@ func (c *Chooser) readLocations() locations {
 
 // watchLocations rereads Locations whenever a mount or a drive comes,
 // goes or changes, until the returned stop.
-func (c *Chooser) watchLocations() (stop func()) {
+func (c *Browser) watchLocations() (stop func()) {
 	var stops []func()
 	changed := func() {
 		l := c.readLocations()
@@ -72,7 +72,7 @@ func (c *Chooser) watchLocations() (stop func()) {
 	if drives := c.drives(); drives != nil {
 		stop, err := drives.Watch(changed)
 		if err != nil {
-			log.Printf("file chooser: %v", err)
+			log.Printf("file browser: %v", err)
 		} else {
 			stops = append(stops, stop)
 		}
@@ -85,15 +85,15 @@ func (c *Chooser) watchLocations() (stop func()) {
 }
 
 // refreshLocations rebuilds Locations: a mount or a drive came or went.
-func (c *Chooser) refreshLocations(l locations) {
-	if c.reply != nil && c.ui != nil {
+func (c *Browser) refreshLocations(l locations) {
+	if c.active && c.ui != nil {
 		c.fillLocations(l)
 	}
 }
 
 // fillLocations lists the places, a mounted volume in place of the
 // mount it is, and then the volumes not mounted, to mount on a click.
-func (c *Chooser) fillLocations(l locations) {
+func (c *Browser) fillLocations(l locations) {
 	list := c.ui.locations
 	list.Clear()
 	byMount := map[string]udisks.Volume{}
@@ -140,7 +140,7 @@ func volumeIcon(v udisks.Volume) string {
 // volumeRow is a volume's sidebar row: mounted, it opens where and, on
 // a removable drive, has an eject button; not mounted, it mounts it,
 // asking for the passphrase of a locked one first.
-func (c *Chooser) volumeRow(v udisks.Volume, p Place) widget.Widget {
+func (c *Browser) volumeRow(v udisks.Volume, p Place) widget.Widget {
 	var open func()
 	switch {
 	case v.Mounted():
@@ -162,7 +162,7 @@ func (c *Chooser) volumeRow(v udisks.Volume, p Place) widget.Widget {
 
 // mountVolume mounts the filesystem on object off the loop and opens
 // where it was mounted; a refusal is a warning.
-func (c *Chooser) mountVolume(object dbus.ObjectPath, label string) {
+func (c *Browser) mountVolume(object dbus.ObjectPath, label string) {
 	drives := c.drives()
 	if drives == nil {
 		return
@@ -171,7 +171,7 @@ func (c *Chooser) mountVolume(object dbus.ObjectPath, label string) {
 		at  string
 		err error
 	}
-	offLoopFor(c, func() mounted {
+	OffLoop(c, func() mounted {
 		ctx, cancel := context.WithTimeout(context.Background(), drivesActionTimeout)
 		defer cancel()
 		at, err := drives.Mount(ctx, object)
@@ -181,30 +181,30 @@ func (c *Chooser) mountVolume(object dbus.ObjectPath, label string) {
 			c.failed(i18n.T("file-chooser-mount-failed", i18n.Str("volume", label)), m.err)
 			return
 		}
-		c.clearNotice()
+		c.ClearNotice()
 		c.goTo(m.at)
 	})
 }
 
 // ejectVolume ejects v off the loop, leaving its folder first when it
 // is shown; a volume in use says so.
-func (c *Chooser) ejectVolume(v udisks.Volume, label string) {
+func (c *Browser) ejectVolume(v udisks.Volume, label string) {
 	drives := c.drives()
 	if drives == nil {
 		return
 	}
-	offLoopFor(c, func() error {
+	OffLoop(c, func() error {
 		ctx, cancel := context.WithTimeout(context.Background(), drivesActionTimeout)
 		defer cancel()
 		return drives.Eject(ctx, v)
 	}, func(err error) {
 		switch {
 		case errors.Is(err, udisks.ErrBusy):
-			c.warn(i18n.T("file-chooser-eject-busy", i18n.Str("volume", label)))
+			c.Warn(i18n.T("file-chooser-eject-busy", i18n.Str("volume", label)))
 		case err != nil:
 			c.failed(i18n.T("file-chooser-eject-failed", i18n.Str("volume", label)), err)
 		default:
-			c.clearNotice()
+			c.ClearNotice()
 			if slices.ContainsFunc(v.MountPoints, func(mp string) bool { return underRoot(c.s.dir, mp) }) {
 				c.goTo(c.d.Home)
 			}
@@ -227,11 +227,11 @@ type unlockRow struct {
 	volume udisks.Volume
 }
 
-func (c *Chooser) newUnlockRow() *unlockRow {
+func (c *Browser) newUnlockRow() *unlockRow {
 	th := widget.Current()
 	u := &unlockRow{box: widget.NewBox(widget.Column, th.Spacing/2, th.Padding/2)}
 	u.box.AddClass("file-chooser-unlock")
-	u.title = c.label("", "file-chooser-unlock-title", css.Caption)
+	u.title = c.Label("", "file-chooser-unlock-title", css.Caption)
 	u.title.SetWrap(true)
 	u.entry = widget.NewEntry(c.d.Font, widgets.TextPx(styling.Body, 1), 0)
 	u.entry.AddClass("file-chooser-passphrase")
@@ -239,10 +239,10 @@ func (c *Chooser) newUnlockRow() *unlockRow {
 	u.entry.SetPlaceholder(i18n.T("file-chooser-placeholder-passphrase"))
 	u.entry.OnActivate = func(string) { c.unlockVolume() }
 	u.entry.OnEscape = func() bool { c.closeUnlock(); return true }
-	u.err = c.label("", "file-chooser-unlock-error", css.Caption, css.Warning)
+	u.err = c.Label("", "file-chooser-unlock-error", css.Caption, css.Warning)
 	u.err.SetWrap(true)
 	u.err.SetVisible(false)
-	unlock, _ := c.textButton(i18n.T("file-chooser-button-unlock"), "file-chooser-unlock-button", css.SuggestedAction, c.unlockVolume)
+	unlock, _ := c.TextButton(i18n.T("file-chooser-button-unlock"), "file-chooser-unlock-button", css.SuggestedAction, c.unlockVolume)
 	u.box.Append(u.title, false)
 	u.box.Append(u.entry, false)
 	u.box.Append(u.err, false)
@@ -252,27 +252,27 @@ func (c *Chooser) newUnlockRow() *unlockRow {
 }
 
 // askPassphrase opens the passphrase prompt for a locked volume.
-func (c *Chooser) askPassphrase(v udisks.Volume) {
+func (c *Browser) askPassphrase(v udisks.Volume) {
 	u := c.ui.unlock
 	u.volume = v
 	u.title.SetText(i18n.T("file-chooser-unlock-volume", i18n.Str("volume", v.Label)))
 	u.entry.SetText("")
 	u.err.SetVisible(false)
 	u.box.SetVisible(true)
-	c.focus(u.entry)
+	c.Focus(u.entry)
 }
 
-func (c *Chooser) closeUnlock() {
+func (c *Browser) closeUnlock() {
 	c.ui.unlock.entry.SetText("")
 	c.ui.unlock.box.SetVisible(false)
-	c.focus(c.focusView())
+	c.Focus(c.focusView())
 }
 
 // unlockVolume unlocks the volume asked about with the passphrase
 // typed, off the loop, then mounts it and opens it. The passphrase
 // leaves the entry at once and lives in a slice zeroed after the call;
 // a wrong one keeps the prompt open saying so.
-func (c *Chooser) unlockVolume() {
+func (c *Browser) unlockVolume() {
 	u, drives := c.ui.unlock, c.drives()
 	if drives == nil || u.entry.Text() == "" {
 		return
@@ -284,17 +284,17 @@ func (c *Chooser) unlockVolume() {
 		object dbus.ObjectPath
 		err    error
 	}
-	offLoopFor(c, func() unlocked {
+	OffLoop(c, func() unlocked {
 		ctx, cancel := context.WithTimeout(context.Background(), drivesActionTimeout)
 		defer cancel()
 		object, err := drives.Unlock(ctx, v.Object, passphrase)
 		return unlocked{object, err}
 	}, func(r unlocked) {
 		if r.err != nil {
-			log.Printf("file chooser: unlock %s: %v", v.Label, r.err)
+			log.Printf("file browser: unlock %s: %v", v.Label, r.err)
 			u.err.SetText(i18n.T("file-chooser-unlock-failed", i18n.Str("volume", v.Label)))
 			u.err.SetVisible(true)
-			c.focus(u.entry)
+			c.Focus(u.entry)
 			return
 		}
 		c.closeUnlock()
