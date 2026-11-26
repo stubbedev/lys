@@ -290,16 +290,16 @@ func TestAFileRowShowsTheSharedPreview(t *testing.T) {
 	v := h.s.cur.views
 	h.rest("the file", func() bool { return v.pane.file.Renderer() == preview.Text })
 	code := treetest.All[*widgets.CodeView](v.pane.file.Root())
-	if len(code) != 1 || code[0].Text() != "first line\nsecond line\n" || !treetest.Contains(v.pane.box, v.pane.file.Root()) {
-		t.Fatalf("the file row shows %d code views, in the pane %v", len(code), treetest.Contains(v.pane.box, v.pane.file.Root()))
+	if len(code) != 1 || code[0].Text() != "first line\nsecond line\n" || !treetest.Contains(v.pane.box, v.pane.file.Root()) || !v.pane.file.Root().Visible() {
+		t.Fatalf("the file row shows %d code views, in the pane %v, visible %v", len(code), treetest.Contains(v.pane.box, v.pane.file.Root()), v.pane.file.Root().Visible())
 	}
 	if v.pane.code.Visible() || v.pane.image.Visible() {
 		t.Error("the pane's own text or picture shows beside the file")
 	}
 	h.key("Down")
 	h.rest("the facts", func() bool { return v.pane.facts.Visible() })
-	if v.pane.file.Renderer() != preview.Empty || treetest.Contains(v.pane.box, v.pane.file.Root()) {
-		t.Errorf("a facts row left the file's preview %v in the pane", v.pane.file.Renderer())
+	if v.pane.file.Renderer() != preview.Empty || v.pane.file.Root().Visible() {
+		t.Errorf("a facts row left the file's preview %v showing in the pane", v.pane.file.Renderer())
 	}
 	h.key("Up")
 	h.rest("the file again", func() bool { return v.pane.file.Renderer() == preview.Text })

@@ -53,10 +53,7 @@ type previewPane struct {
 	summary *rowSummary
 	font    render.Font
 	// sources are what the file shown loads through: the session's.
-	// fileShown is the file's preview in the pane, which holds it only
-	// while it shows: a hidden subtree still costs every frame.
-	sources   atomic.Pointer[preview.Sources]
-	fileShown bool
+	sources atomic.Pointer[preview.Sources]
 	// shown is the picture the image widget holds.
 	shown image.Image
 	// width is the pane's width in pixels at the session's scale.
@@ -104,6 +101,7 @@ func newPreviewPane(font render.Font, px func(int) int, height int, invoke, spaw
 	p.facts = widget.NewBox(widget.Column, px(4), 0)
 	p.facts.AddClass("launcher-preview-facts")
 	p.summary = newRowSummary(font, px)
+	p.box.Append(p.file.Root(), false)
 	p.box.Append(p.image, true)
 	p.box.Append(p.code, true)
 	p.box.Append(p.facts, false)
@@ -121,10 +119,7 @@ func (p *previewPane) showFile(path string, sources preview.Sources) {
 	p.code.SetVisible(false)
 	p.showFacts(nil)
 	p.summary.box.SetVisible(false)
-	if !p.fileShown {
-		p.box.InsertAt(0, p.file.Root(), false)
-		p.fileShown = true
-	}
+	p.file.Root().SetVisible(true)
 	p.file.Show(path)
 }
 
@@ -132,10 +127,9 @@ func (p *previewPane) showFile(path string, sources preview.Sources) {
 // alone. It reports whether the pane shows anything, so the caller can
 // fall back to the row's summary.
 func (p *previewPane) show(facts []engine.PreviewFact, c engine.PreviewContent, err error) bool {
-	if p.fileShown {
+	if p.file.Root().Visible() {
 		p.file.Close()
-		p.box.Remove(p.file.Root())
-		p.fileShown = false
+		p.file.Root().SetVisible(false)
 	}
 	var img image.Image
 	text := ""
