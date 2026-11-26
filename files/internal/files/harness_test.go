@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -263,18 +264,41 @@ func (hs *harness) tab() *tab {
 	return t
 }
 
-// pick selects the named entries of the tab showing.
+// pick selects the named entries of the tab showing, once its listing,
+// which follows the disk through a watch, holds them all.
 func (hs *harness) pick(t *testing.T, names ...string) {
 	t.Helper()
-	hs.do(func() {
+	var rows []int
+	listed := func() bool {
+		rows = rows[:0]
 		tb := hs.f.active()
-		var rows []int
 		for _, n := range names {
 			i := slices.IndexFunc(tb.b.Entries(), func(e filebrowser.Entry) bool { return e.Name() == n })
 			if i < 0 {
-				t.Fatalf("no %s in %s", n, tb.b.Dir())
+				return false
 			}
 			rows = append(rows, i)
+		}
+		return true
+	}
+	waittest.UntilShowing(t, func() bool {
+		hs.flush()
+		ok := false
+		hs.run(func() { ok = listed() })
+		return ok
+	}, "the listing to hold "+strings.Join(names, ", "), func() string {
+		var shown []string
+		hs.run(func() {
+			for _, e := range hs.f.active().b.Entries() {
+				shown = append(shown, e.Name())
+			}
+		})
+		return "the listing holds " + strings.Join(shown, ", ")
+	})
+	hs.do(func() {
+		tb := hs.f.active()
+		if !listed() {
+			t.Fatalf("the listing of %s lost one of %v", tb.b.Dir(), names)
 		}
 		view, ok := tb.b.FileView().(interface{ SelectRows(...int) })
 		if !ok {
