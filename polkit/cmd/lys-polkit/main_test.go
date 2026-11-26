@@ -14,6 +14,8 @@ import (
 	"github.com/stubbedev/lys/lib/logind/logindtest"
 	libpolkit "github.com/stubbedev/lys/lib/polkit"
 	"github.com/stubbedev/lys/lib/polkit/polkittest"
+	"github.com/stubbedev/lys/lib/userdb"
+	"github.com/stubbedev/lys/lib/userdb/userdbtest"
 	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/polkit/internal/polkit"
@@ -107,11 +109,20 @@ func TestExitsNonZeroWhenRefused(t *testing.T) {
 func TestUserName(t *testing.T) {
 	t.Parallel()
 
+	const ldapUID = 70001
+	userName := userNameAt(userdbtest.Serve(t, userdbtest.DB{Users: []userdb.User{{Name: "root"}, {Name: "carol", UID: ldapUID, GID: ldapUID}}}))
 	if name, err := userName(t.Context(), 0); err != nil || name != "root" {
 		t.Errorf("userName(0) = %q, %v; want root", name, err)
 	}
-	if _, err := userName(t.Context(), 4294967294); err == nil {
-		t.Error("userName found a user for uid 4294967294")
+	if name, err := userName(t.Context(), ldapUID); err != nil || name != "carol" {
+		t.Errorf("userName(%d) = %q, %v; want carol, a user outside /etc/passwd", ldapUID, name, err)
+	}
+	if _, err := userName(t.Context(), 4294967294); !errors.Is(err, userdb.NoRecordFound) || !strings.Contains(err.Error(), "uid=4294967294") {
+		t.Errorf("userName(4294967294) = %v, want NoRecordFound naming the uid", err)
+	}
+	missing := userdbtest.Missing(t)
+	if name, err := userNameAt(missing)(t.Context(), 0); err == nil || !strings.Contains(err.Error(), missing) {
+		t.Errorf("userName without a user database = %q, %v; want an error naming %s", name, err, missing)
 	}
 }
 

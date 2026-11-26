@@ -2394,6 +2394,7 @@
     "testImports": [
       "desktop/thumbnail/thumbnailtest",
       "lib/logtest",
+      "lib/testbuild",
       "lib/testhome",
       "lib/waittest"
     ],
@@ -6100,10 +6101,10 @@
       "lib/polkit",
       "lib/portaldialogs",
       "lib/third_party/godbus",
+      "lib/userdb",
       "polkit/internal/agent",
       "polkit/internal/helper",
       "polkit/internal/locale",
-      "polkit/internal/passwd",
       "polkit/internal/polkit",
       "polkit/internal/proc",
       "polkit/internal/tracker",
@@ -6127,6 +6128,7 @@
       "lib/logind",
       "lib/logind/logindtest",
       "lib/polkit/polkittest",
+      "lib/userdb/userdbtest",
       "lib/waittest"
     ],
     "testExternal": [
@@ -6232,22 +6234,6 @@
     "testExternal": [
       "testing",
       "testing/fstest"
-    ]
-  },
-  "polkit/internal/passwd": {
-    "imports": [
-      "lib/userdb"
-    ],
-    "external": [
-      "context"
-    ],
-    "testImports": [
-      "lib/userdb/userdbtest"
-    ],
-    "testExternal": [
-      "errors",
-      "strings",
-      "testing"
     ]
   },
   "polkit/internal/polkit": {
@@ -8037,6 +8023,8 @@
       "lib/shacrypt",
       "lib/sockdir",
       "lib/testhome",
+      "lib/userdb",
+      "lib/userdb/userdbtest",
       "lib/vinput",
       "lib/waittest",
       "secrets/secretstest",

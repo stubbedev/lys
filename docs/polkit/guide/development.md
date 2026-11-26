@@ -1,7 +1,7 @@
 # Development
 
 The flake's dev shell provides Go (the `go.mod` version), gopls,
-golangci-lint, delve, just, git, gh, dbus and getent, with `CGO_ENABLED=0` and
+golangci-lint, delve, just, git, gh and dbus, with `CGO_ENABLED=0` and
 `GOTOOLCHAIN=local`. Enter it with `nix develop .#polkit`.
 
 D-Bus goes through [lys-lib](/lib/)'s godbus fork and `dbusx`; the dialog

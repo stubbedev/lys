@@ -44,9 +44,11 @@ Requests run one at a time, first in first out. For each:
   preselected if offered, else the first one; the dialog can switch.
 - Only `unix-user` identities are accepted. polkit 127 expands admin groups
   into users before asking the agent.
-- Login names are resolved with `getent passwd` before the dialog opens, so
-  any `nsswitch.conf` source (LDAP, SSSD, systemd userdb) works in the cgo-free
-  binary. An unknown user, or a lookup over 10 seconds, fails the request.
+- Login names are resolved through systemd's user database
+  (`/run/systemd/userdb/io.systemd.Multiplexer`) before the dialog opens, so
+  every source systemd-userdbd knows (`nsswitch.conf`'s LDAP or SSSD, drop-in
+  records, systemd-homed) works in the cgo-free binary. An unknown user, or a
+  lookup over 10 seconds, fails the request.
 
 ## Retained admin authorizations
 

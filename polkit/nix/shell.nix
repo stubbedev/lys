@@ -15,7 +15,6 @@
         git
         gh
         dbus
-        getent
       ];
 
       env = {

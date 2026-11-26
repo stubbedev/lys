@@ -38,6 +38,7 @@ systemctl --user daemon-reload
 systemctl --user enable --now lys-polkit.service
 ```
 
-`getent` must be on the service's `PATH` (see [identities](./how-it-works#identities)).
+`systemd-userdbd.socket` must be running for login names to resolve (see
+[identities](./how-it-works#identities)).
 
 Then [check that it works](./getting-started#check).

@@ -19,11 +19,11 @@ import (
 	libpolkit "github.com/stubbedev/lys/lib/polkit"
 	"github.com/stubbedev/lys/lib/portaldialogs"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/userdb"
 
 	"github.com/stubbedev/lys/polkit/internal/agent"
 	"github.com/stubbedev/lys/polkit/internal/helper"
 	"github.com/stubbedev/lys/polkit/internal/locale"
-	"github.com/stubbedev/lys/polkit/internal/passwd"
 	"github.com/stubbedev/lys/polkit/internal/polkit"
 	"github.com/stubbedev/lys/polkit/internal/proc"
 	"github.com/stubbedev/lys/polkit/internal/tracker"
@@ -170,7 +170,7 @@ func run(ctx context.Context) error {
 	a := agent.New(agent.Config{
 		Dialogs:     portaldialogs.NewClient(session),
 		Transport:   helper.Transport{Socket: helper.SocketPath, Programs: strings.Split(helperPrograms, ":")},
-		UserName:    userName,
+		UserName:    userNameAt(userdb.SocketPath),
 		SessionUser: polkit.UID(uid),
 		Actions:     actions,
 		ProcessName: proc.System.Name,
@@ -197,6 +197,13 @@ func revokeAll(ctx context.Context) error {
 	return retained.NewClient(session).RevokeAll(ctx)
 }
 
-func userName(ctx context.Context, uid polkit.UID) (string, error) {
-	return passwd.Name(ctx, uint32(uid))
+// userNameAt names the users polkit asks to authenticate as from the
+// systemd user database at socket, so every account source
+// systemd-userdbd knows answers: nsswitch.conf's, drop-in records and
+// systemd-homed.
+func userNameAt(socket string) func(context.Context, polkit.UID) (string, error) {
+	return func(ctx context.Context, uid polkit.UID) (string, error) {
+		u, err := userdb.LookupUID(ctx, socket, userdb.UID(uid))
+		return u.Name, err
+	}
 }
