@@ -167,12 +167,15 @@ func markUnlinked(w, kid Widget) {
 // walk.
 func (c *DamageCollector) collectInto(w Widget) render.Rect {
 	if n := nodeOf(w); n != nil {
-		if !n.damageStale && !n.damageVolatile && !n.styleDirty && n.themeSeen == themeGen.Load() && n.styleDmg == styleGen.Load() && n.damageIcons == c.icons {
+		if !n.damageStale && !n.damageVolatile && (!n.styleDirty || n.hidden) && n.themeSeen == themeGen.Load() && n.styleDmg == styleGen.Load() && n.damageIcons == c.icons {
 			return render.Rect{}
 		}
 		n.damageStale, n.damageIcons = false, c.icons
 		reach := len(c.backdrop)
 		defer func() { n.damageVolatile = len(c.backdrop) != reach }()
+	}
+	if !ownVisible(w) {
+		return c.drainGone(w)
 	}
 	// A style-marked widget recomputes before it drains: pre-order, so
 	// a parent's inherited change marks and damages its subtree within
@@ -201,22 +204,7 @@ func (c *DamageCollector) collectInto(w Widget) render.Rect {
 	if sd, ok := w.(scrollDrainer); ok {
 		sd.drainScroll(c)
 	}
-	if dn, ok := w.(damageNoder); ok {
-		var why string
-		if debug.Enabled {
-			why = damageReasons(nodeOf(w))
-		}
-		bounds, extras, dirty := dn.takeDamage()
-		if debug.Enabled && dirty && !bounds.Empty() {
-			noteDamage(w, bounds, why)
-		}
-		if dirty {
-			bbox = bbox.Union(c.emit(bounds, clip))
-			for _, r := range extras {
-				bbox = bbox.Union(c.emit(r, clip))
-			}
-		}
-	}
+	bbox = bbox.Union(c.drain(w, clip))
 	if c.shiftNext.moved() {
 		c.shift.dx += c.shiftNext.dx
 		c.shift.dy += c.shiftNext.dy
@@ -238,6 +226,46 @@ func (c *DamageCollector) collectInto(w Widget) render.Rect {
 			markUnlinked(w, k)
 			bbox = bbox.Union(c.collectInto(k))
 		}
+	})
+	return bbox
+}
+
+func (c *DamageCollector) drain(w Widget, clip bool) render.Rect {
+	dn, ok := w.(damageNoder)
+	if !ok {
+		return render.Rect{}
+	}
+	var why string
+	if debug.Enabled {
+		why = damageReasons(nodeOf(w))
+	}
+	bounds, extras, dirty := dn.takeDamage()
+	if !dirty {
+		return render.Rect{}
+	}
+	if debug.Enabled && !bounds.Empty() {
+		noteDamage(w, bounds, why)
+	}
+	bbox := c.emit(bounds, clip)
+	for _, r := range extras {
+		bbox = bbox.Union(c.emit(r, clip))
+	}
+	return bbox
+}
+
+func (c *DamageCollector) drainGone(w Widget) render.Rect {
+	bbox := c.drain(w, false)
+	c.kids.each(func(kids []Widget) []Widget { return appendKids(w, kids) }, func(k Widget) {
+		if k == nil {
+			return
+		}
+		if n := nodeOf(k); n != nil {
+			if !n.damageStale {
+				return
+			}
+			n.damageStale = false
+		}
+		bbox = bbox.Union(c.drainGone(k))
 	})
 	return bbox
 }

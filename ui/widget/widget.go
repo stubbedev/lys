@@ -148,6 +148,8 @@ type node struct {
 	measureMisses  int
 	measureGen     uint64
 	arranges       int
+	gone           bool
+	styleOwed      bool
 	arrangeStale   bool
 	damageStale    bool
 	subDamaged     bool
@@ -443,6 +445,10 @@ func (n *node) SetVisible(visible bool) {
 	if n.parent != nil {
 		restyleChildren(n.parent)
 	}
+	if visible && n.styleOwed {
+		n.styleOwed = false
+		restyleSubtree(n.self)
+	}
 }
 
 // Visible reports the widget's own visibility flag, not the effective
@@ -724,6 +730,7 @@ func (n *node) takeDamage() (bounds render.Rect, extra []render.Rect, dirty bool
 // damage does not leave the widget's old paint behind.
 func (n *node) Arrange(r render.Rect) {
 	n.arranges++
+	n.gone = false
 	t := n.scratch()
 	if n.culled {
 		n.culled = false

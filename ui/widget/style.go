@@ -2497,7 +2497,8 @@ func inkOf(v *style.Values) render.Insets {
 // something above them changed what they match or inherit, so each
 // recomputes on its next read — the damage walk reaches them
 // pre-order — and repaints only if its values actually moved (the
-// restyle diff invalidates).
+// restyle diff invalidates). A widget SetVisible hides is marked, and
+// what it holds only once it shows again.
 func restyleSubtree(w Widget) {
 	withKidStack(func(s *kidStack) { restyleBelow(s, w) })
 }
@@ -2510,10 +2511,20 @@ func restyleBelow(s *kidStack, w Widget) {
 		}
 		return kids
 	}, func(k Widget) {
-		if n := nodeOf(k); n != nil {
-			n.markStyleDirty()
+		n := nodeOf(k)
+		if n == nil {
+			restyleBelow(s, k)
+			return
 		}
-		restyleBelow(s, k)
+		n.markStyleDirty()
+		if !n.hidden {
+			restyleBelow(s, k)
+			return
+		}
+		if n.self == nil {
+			n.self = k
+		}
+		n.styleOwed = true
 	})
 	markDamage()
 }

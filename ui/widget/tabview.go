@@ -363,7 +363,7 @@ func (v *TabView) Arrange(r render.Rect) {
 		if p == v.selected {
 			arrangeChild(p.child, r)
 		} else {
-			p.child.Arrange(render.Rect{})
+			arrangeGone(p.child)
 		}
 	}
 }

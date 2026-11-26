@@ -188,11 +188,11 @@ func layoutMarginOf(w Widget) render.Insets {
 
 // measureWithMargin measures a container's child as a flow participant
 // along axis at forSize, its margin-box extent across: its margin box,
-// CSS sizing included, and nothing for an absolutely or fixed
-// positioned child, which leaves the flow (csspos.go). A plain measure
+// CSS sizing included, and nothing for a hidden child, or an absolutely
+// or fixed positioned one, which leaves the flow (csspos.go). A plain measure
 // knows no containing block, so percentage sizes read as auto.
 func measureWithMargin(w Widget, axis Axis, forSize int) Sizes {
-	if outOfFlow(w) {
+	if !ownVisible(w) || outOfFlow(w) {
 		return Sizes{}
 	}
 	return measureOuter(w, axis, forSize, indefiniteSize)
@@ -255,14 +255,30 @@ func insetsAlong(m render.Insets, axis Axis) int {
 	return m.Top + m.Bottom
 }
 
+func arrangeGone(w Widget) {
+	n := nodeOf(w)
+	if n != nil && n.gone {
+		return
+	}
+	w.Arrange(render.Rect{})
+	if n != nil {
+		n.gone = true
+	}
+}
+
 // arrangeChild arranges a container's child inside r with its margin
 // and alignment: the margin shrinks r, and a non-fill alignment keeps
 // the child's natural size, never more than r, at the start, center or
 // end of what is left. CSS applies around it: an out-of-flow child is
 // placed against its containing block from r's corner (its static
 // position), a sized one holds r to its sizes against the parent's
-// content box, and a relative or sticky one shifts by its offsets.
+// content box, and a relative or sticky one shifts by its offsets. A
+// hidden child is arranged empty, once, its subtree left as it was.
 func arrangeChild(w Widget, r render.Rect) {
+	if !ownVisible(w) {
+		arrangeGone(w)
+		return
+	}
 	n := nodeOf(w)
 	var v *style.Values
 	if n != nil {

@@ -205,7 +205,7 @@ func (e *Expander) arrangeChild(r render.Rect) {
 	}
 	h := e.bodyH(r)
 	if h <= 0 {
-		e.child.Arrange(render.Rect{})
+		arrangeGone(e.child)
 		e.childRect = render.Rect{}
 		return
 	}

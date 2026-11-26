@@ -618,9 +618,12 @@ func (b *Box) Arrange(r render.Rect) {
 		// takes its place against its containing block.
 		for _, c := range b.child {
 			setParents(b, c.w)
-			if flowOf(c.w) == flowOut {
+			switch flowOf(c.w) {
+			case flowOut:
 				arrangeChild(c.w, render.Rect{X: inner.X, Y: inner.Y})
-			} else {
+			case flowGone:
+				arrangeGone(c.w)
+			default:
 				c.w.Arrange(render.Rect{})
 			}
 		}
@@ -675,7 +678,7 @@ func (b *Box) arrangeBox(v *style.Values, inner render.Rect) {
 				}
 				arrangeChild(c.w, render.Rect{X: at.X, Y: at.Y})
 			} else {
-				c.w.Arrange(render.Rect{})
+				arrangeGone(c.w)
 			}
 			continue
 		}

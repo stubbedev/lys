@@ -588,6 +588,7 @@ func TestOverlayHiddenChildTakesNoPart(t *testing.T) {
 		t.Errorf("hit = %v, want the visible bottom child", got)
 	}
 	top.SetVisible(true)
+	ov.Arrange(render.Rect{W: 30, H: 30})
 	ov.Paint(render.New(make([]uint8, 30*30*4), 30*4, 30, 30))
 	if top.paints != 1 || ov.HitTest(Point{X: 5, Y: 5}) != top {
 		t.Error("a shown child did not paint and hit on top again")

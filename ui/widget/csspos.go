@@ -233,10 +233,11 @@ type stackKey struct {
 	layer, z, order int
 }
 
-// stackKeyOf computes w's key inside a container laying out in mode.
+// stackKeyOf computes w's key inside a container laying out in mode; a
+// hidden w paints nothing and keeps tree order.
 func stackKeyOf(w Widget, mode layoutMode) stackKey {
 	n := nodeOf(w)
-	if n == nil {
+	if n == nil || !ownVisible(w) {
 		return stackKey{}
 	}
 	v := n.style(w)

@@ -309,7 +309,7 @@ func (p *cssPass) arrange(origin Point) {
 		it := &p.items[i]
 		switch it.kind {
 		case itemGone:
-			it.w.Arrange(render.Rect{})
+			arrangeGone(it.w)
 		case itemFlow:
 			r := it.rect
 			r.X += origin.X
