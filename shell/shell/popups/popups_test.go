@@ -1111,6 +1111,27 @@ func TestCardActionsAndDefault(t *testing.T) {
 	}
 }
 
+// A click on a card's body opens it as a click on its title does; with
+// no default action it opens nothing.
+func TestACardOpensFromAClickOnItsBody(t *testing.T) {
+	p, svc := newTestPopups(t, config.DefaultsNotification())
+	id := svc.Notify("chat", 0, "", "Ping", "are you there?", []string{"default", "Open"}, 0)
+	plain := svc.Notify("chat", 0, "", "No default", "nothing to open", nil, 0)
+	var sig signals
+	svc.SetEmitter(sig.emit)
+	p.sync()
+	c := cardOf(t, p, id)
+	click(c, c.Body)
+	if got := sig.count("ActionInvoked" + fmt.Sprint(id, notifications.DefaultActionID)); got != 1 {
+		t.Errorf("a click on the body invoked the default action %d times, want 1: %v", got, sig.seen)
+	}
+	pc := cardOf(t, p, plain)
+	click(pc, pc.Body)
+	if got := sig.count("ActionInvoked" + strconv.FormatUint(uint64(plain), 10)); got != 0 {
+		t.Errorf("a click on the body of a card without a default action invoked %d actions", got)
+	}
+}
+
 // tokenMinter answers every token request with token and err.
 type tokenMinter struct {
 	token string

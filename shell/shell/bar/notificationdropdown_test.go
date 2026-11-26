@@ -478,6 +478,54 @@ func TestNotificationItemDismissInsideADefaultActionRow(t *testing.T) {
 	}
 }
 
+// TestANotificationItemOpensFromAClickOnItsBody pins the dropdown
+// item's click target: a click on its body invokes the default action
+// and closes the dropdown, as a click on its title row does; an item
+// without a default action opens nothing from its body.
+func TestANotificationItemOpensFromAClickOnItsBody(t *testing.T) {
+	svc := newNotifTestService(t)
+	svc.Notify("plain", 0, "", "No default", "nothing to open", nil, 0)
+	open := svc.Notify("chat", 0, "", "Ping", "are you there?", []string{"default", "Open"}, 0)
+	var invoked []string
+	svc.SetEmitter(func(member string, args ...any) {
+		if strings.HasSuffix(member, ".ActionInvoked") {
+			invoked = append(invoked, fmt.Sprint(args...))
+		}
+	})
+	ctx := newTestContext(t, config.Defaults())
+	ctx.Notifications = svc
+	v := openView(t, ctx, notificationDropdown).(*notificationView)
+	pop := &fakePopover{}
+	items := map[uint32]*notifItem{}
+	for _, g := range v.groups {
+		for _, it := range g.items {
+			items[it.n.ID] = it
+		}
+	}
+	click := func(it *notifItem) {
+		doOnLoopOf(ctx, func() {
+			widget.SizeWithin(it, widget.Size{W: 360, H: 400})
+			it.Arrange(render.Rect{W: 360, H: 400})
+			routeClick(it, findByClass(it, "notification-dropdown-item-body"))
+		})
+	}
+	doOnLoopOf(ctx, func() { v.attachPopover(pop) })
+	for id, it := range items {
+		if id != open {
+			click(it)
+		}
+	}
+	if len(invoked) != 0 || pop.dismissed != 0 {
+		t.Fatalf("a click on the body of an item without a default action invoked %v or closed the dropdown %d times", invoked, pop.dismissed)
+	}
+	click(items[open])
+	want := fmt.Sprint(open, notifications.DefaultActionID)
+	waittest.Until(t, func() bool { return slices.Contains(invoked, want) }, "the default action from a click on the body")
+	if pop.dismissed != 1 {
+		t.Errorf("a click on the body closed the dropdown %d times, want 1", pop.dismissed)
+	}
+}
+
 // barMinter answers every token request with token and err.
 type barMinter struct {
 	token string

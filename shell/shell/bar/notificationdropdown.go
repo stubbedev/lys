@@ -534,12 +534,14 @@ func newNotifItem(v *notificationView, n *notifications.Notification) *notifItem
 	id := n.ID
 	dismiss := ghostIconButton("ld-x-symbolic", itemIconPx, i18n.T("notification-dropdown-item-dismiss"), func() { v.dismiss(id) }, "notification-dropdown-item-dismiss")
 	it.main.AddAction(dismiss)
-	// A default action makes the item open on a click anywhere the
-	// dismiss button does not take.
+	// A default action makes the item open on a click anywhere its
+	// buttons and body links do not take, and on the title row's
+	// keyboard activation.
 	if _, ok := n.DefaultAction(); ok {
 		it.main.AddClass("notification-dropdown-item-default")
-		it.main.SetCursorName("pointer")
+		it.SetCursorName("pointer")
 		it.main.SetOnActivate(it.invokeDefault)
+		it.SetOnClickWithin(it.invokeDefault)
 	}
 	it.Append(it.main, false)
 
