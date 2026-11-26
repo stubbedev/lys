@@ -53,6 +53,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends build-essential debhelper desktop-file-utils dpkg-dev
           just packaging::build "${COMPONENT}" "${PWD}/${COMPONENT}/lys-${COMPONENT}-${VERSION}-$(uname -m)-linux.tar.gz" "${VERSION}" deb
+      - name: No file of the archive or the Debian package names a /nix/store path
+        run: |
+          just packaging::store-check-test
+          just packaging::store-check "${PWD}/${COMPONENT}/lys-${COMPONENT}-${VERSION}-$(uname -m)-linux.tar.gz" "${PWD}/${COMPONENT}/debbuild/DEBS/${DEB_ARCH}/"*.deb
       - name: Install and run the Debian package
         run: |
           if just --justfile "${COMPONENT}/justfile" --show smoke-test >/dev/null 2>&1; then
@@ -103,6 +107,8 @@ jobs:
         run: |
           dnf -y --setopt=install_weak_deps=False install just rpm-build systemd-rpm-macros desktop-file-utils
           just --justfile packaging/justfile build "${COMPONENT}" "${PWD}/${COMPONENT}/lys-${COMPONENT}-${VERSION}-${ARCH}-linux.tar.gz" "${VERSION}" rpm
+      - name: No file of the RPM package names a /nix/store path
+        run: just --justfile packaging/justfile store-check "${PWD}/${COMPONENT}/rpmbuild/RPMS/${ARCH}/"*.rpm
       - name: Install and run the RPM package
         run: |
           if just --justfile "${COMPONENT}/justfile" --show smoke-test >/dev/null 2>&1; then

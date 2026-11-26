@@ -5,6 +5,117 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 
 maintainer := env("DEBFULLNAME", "Alexander Bugge Stage") + " <" + env("DEBEMAIL", "abs@stubbe.dev") + ">"
 
+# Build Go packages into out, relative to the working directory, as the release
+# archives ship them: pure Go, stripped, with go.dev's release of the Go version
+# the dev shells pin. nixpkgs' Go reads /etc/services and /etc/protocols from a
+# /nix/store path, looks for the zoneinfo and the mime types there first, and
+# links for a /nix/store loader; go.dev's reads /etc and requests the
+# distribution's loader. From a component:
+# `just --justfile ../packaging/justfile --working-directory . go-build dist ./cmd/lys-power`.
+[positional-arguments]
+[script("bash")]
+go-build out +packages:
+    set -euo pipefail
+    go="${LYS_DIST_GO:?go-build: LYS_DIST_GO names no Go; run it in a packaged component's dev shell, which sets it to the flake's dist-go}"
+    out="$1"
+    shift
+    CGO_ENABLED=0 "${go}" build -trimpath -ldflags "-s -w" -o "${out}/" "$@"
+
+# Fail when a release archive, .deb or .rpm holds no ELF file, or holds a file
+# naming a /nix/store path, which exists only on NixOS: print each such file
+# with the store paths it names.
+[positional-arguments]
+[script("bash")]
+store-check +packages:
+    set -euo pipefail
+    cd "{{ invocation_directory() }}"
+    work="$(mktemp -d)"
+    trap 'rm -rf "${work}"' EXIT
+    failed=0
+    index=0
+    for package in "$@"; do
+        index=$((index + 1))
+        tree="${work}/${index}"
+        mkdir "${tree}"
+        case "${package}" in
+        *.tar.gz) tar -xzf "${package}" -C "${tree}" ;;
+        *.deb) dpkg-deb -x "${package}" "${tree}" ;;
+        *.rpm) rpm2archive -n <"${package}" | tar -x -C "${tree}" ;;
+        *) echo "store-check: ${package} is not a .tar.gz, .deb or .rpm" >&2; exit 1 ;;
+        esac
+        elves=0
+        while IFS= read -r -d '' file; do
+            if LC_ALL=C IFS= read -r -N 4 magic <"${file}" && [[ ${magic} == $'\x7fELF' ]]; then
+                elves=$((elves + 1))
+            fi
+            status=0
+            paths="$(LC_ALL=C grep -aoE '/nix/store/[0-9a-z]{32}-[-_.+=/[:alnum:]]*' "${file}" | sort -u)" || status=$?
+            case "${status}" in
+            0)
+                printf 'store-check: %s: %s names %s\n' "${package}" "${file#"${tree}"/}" "${paths//$'\n'/, }" >&2
+                failed=1
+                ;;
+            1) ;;
+            *) echo "store-check: reading ${file#"${tree}"/} of ${package} failed" >&2; exit 1 ;;
+            esac
+        done < <(find "${tree}" -type f -print0)
+        if ((elves == 0)); then
+            echo "store-check: ${package} holds no ELF file" >&2
+            failed=1
+        fi
+    done
+    exit "${failed}"
+
+# The store check's own test: an archive of clean files passes; one whose
+# binary or text file names a /nix/store path, one without an ELF file and a
+# file of an unknown format fail, each with its own message.
+[script("bash")]
+store-check-test:
+    set -euo pipefail
+    work="$(mktemp -d)"
+    trap 'rm -rf "${work}"' EXIT
+    fail() {
+        echo "store-check-test: $*" >&2
+        exit 1
+    }
+    elf() { printf '\177ELF\002\001\001\000%s\000' "$2" >"$1"; }
+    pack() {
+        mkdir -p "${work}/$1/bin"
+        (cd "${work}/$1" && "$1")
+        tar -czf "${work}/$1.tar.gz" -C "${work}" "$1"
+    }
+    store="/nix/store/0123456789abcdfghijklmnpqrsvwxyz-iana-etc-20251215/etc/services"
+    expect() {
+        local want="$1" archive="$2" out status=0
+        out="$(just --justfile "{{ justfile() }}" store-check "${archive}" 2>&1)" || status=$?
+        if [[ -z ${want} ]]; then
+            [[ ${status} -eq 0 ]] || fail "${archive} failed the check: ${out}"
+            return
+        fi
+        [[ ${status} -ne 0 ]] || fail "${archive} passed the check, want ${want@Q}"
+        [[ ${out} == *"${want}"* ]] || fail "${archive} printed ${out@Q}, want ${want@Q}"
+    }
+    clean() {
+        elf bin/tool /etc/services
+        echo /usr/lib/tool >README
+    }
+    binary() { elf bin/tool "${store}"; }
+    text() {
+        elf bin/tool /etc/services
+        echo "ExecStart=${store}" >tool.service
+    }
+    noelf() { echo text >README; }
+    for archive in clean binary text noelf; do pack "${archive}"; done
+    touch "${work}/tool.zip"
+
+    expect "" "${work}/clean.tar.gz"
+    expect "binary/bin/tool names ${store}" "${work}/binary.tar.gz"
+    expect "text/tool.service names ${store}" "${work}/text.tar.gz"
+    expect "noelf.tar.gz holds no ELF file" "${work}/noelf.tar.gz"
+    expect "tool.zip is not a .tar.gz, .deb or .rpm" "${work}/tool.zip"
+
+    echo "store-check-test: the store check passes clean archives and fails the others"
+
 # Build component's .deb, .rpm or both from its release archive.
 [script("bash")]
 build component archive version format="":

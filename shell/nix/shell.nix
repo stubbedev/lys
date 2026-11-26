@@ -92,6 +92,7 @@
         # re-enables it per invocation).
         CGO_ENABLED = "0";
         GOTOOLCHAIN = "local";
+        LYS_DIST_GO = "${self'.packages.dist-go}/bin/go";
 
         shellHook =
           let

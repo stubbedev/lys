@@ -22,6 +22,7 @@
       LD_LIBRARY_PATH = lib.makeLibraryPath (lib.unique (gpuDrivers.libraries ++ self'.packages.lys-login.libs));
       CGO_ENABLED = "0";
       GOTOOLCHAIN = "local";
+      LYS_DIST_GO = "${self'.packages.dist-go}/bin/go";
     };
 
   };

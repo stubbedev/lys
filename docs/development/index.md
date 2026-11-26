@@ -277,7 +277,16 @@ first runners. The jobs on the builds:
      rather than taking them from the Nix packages: those are linked for the
      Nix store, the archives for the distributions' loader, and the measured
      `dist` and `archive` step takes 15 to 75 seconds of a two to four
-     minute job. `packaging::build` runs `debian/rules binary` under
+     minute job. Every `dist` compiles through `packaging::go-build`, with
+     the flake's `dist-go`: go.dev's release of the Go version the dev
+     shells pin, not nixpkgs' Go, whose standard library reads
+     `/etc/services` and `/etc/protocols` from a `/nix/store` path instead
+     of `/etc` and whose linker names a `/nix/store` loader. After the
+     archive, the `.deb` and the `.rpm` are built, `packaging::store-check`
+     fails the job when one of them holds no ELF file or any file naming a
+     `/nix/store` path, and prints each such file with the paths it names;
+     `packaging::store-check-test`, run before it, checks the check.
+     `packaging::build` runs `debian/rules binary` under
      `dpkg-architecture` rather than `dpkg-buildpackage`, which builds the
      same `.deb` and then spent 35 to 88 seconds of each job in
      `dpkg-genbuildinfo` over the runner's thousands of installed packages,

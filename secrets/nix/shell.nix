@@ -34,6 +34,7 @@
       env = {
         CGO_ENABLED = 0;
         GOTOOLCHAIN = "local";
+        LYS_DIST_GO = "${self'.packages.dist-go}/bin/go";
         GIT_CREDENTIAL_LIBSECRET = "${pkgs.gitFull}/libexec/git-core/git-credential-libsecret";
       };
     };

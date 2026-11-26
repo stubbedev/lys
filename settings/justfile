@@ -2,11 +2,6 @@
 
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
-# The program interpreter the dist/ binary requests: the distro's loader. purego
-# links it dynamically, and a Go toolchain from Nix would otherwise name its own
-# /nix/store loader, which exists only on NixOS.
-fhs_interpreter := if arch() == "aarch64" { "/lib/ld-linux-aarch64.so.1" } else { "/lib64/ld-linux-x86-64.so.2" }
-
 # List all recipes with their descriptions.
 default:
     @just --list
@@ -46,7 +41,7 @@ build:
 
 # Build the release binary into dist/, as the archive and the packages ship it.
 dist:
-    CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -I {{ fhs_interpreter }}" -o dist/ ./cmd/lys-settings ./cmd/lys-users-helper
+    just --justfile ../packaging/justfile --working-directory "{{ justfile_directory() }}" go-build dist ./cmd/lys-settings ./cmd/lys-users-helper
     go tool install-icons dist/icons/hicolor/scalable/actions $(cat resources/icons.txt)
 
 # Run the settings app.

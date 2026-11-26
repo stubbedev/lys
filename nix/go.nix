@@ -104,10 +104,37 @@ in {
   perSystem = {
     inputs',
     pkgs,
+    system,
     ...
   }: let
     go = inputs'.devtools.packages.go;
     buildGoModule = pkgs.buildGoModule.override {inherit go;};
+    distGo = let
+      release = {
+        version = "1.27.4";
+        x86_64-linux = {
+          platform = "linux-amd64";
+          hash = "sha256-ciZzbCM5cZzaKPvzpU1xqmO87+N26YzvAANCaNqySEA=";
+        };
+        aarch64-linux = {
+          platform = "linux-arm64";
+          hash = "sha256-M5JYKYiic6h6tQQ+4bLJwXosPABYC/kybEei4KqurJI=";
+        };
+      };
+      inherit (release.${system}) platform hash;
+    in
+      if release.version != go.version
+      then throw "dist-go: nix/go.nix pins go.dev's Go ${release.version}, but the dev shells' Go is ${go.version}; set its version and the hashes go.dev/dl/?mode=json lists for go${go.version}.linux-amd64.tar.gz and go${go.version}.linux-arm64.tar.gz"
+      else
+        pkgs.runCommandLocal "go-${release.version}-${platform}" {
+          src = pkgs.fetchurl {
+            url = "https://go.dev/dl/go${release.version}.${platform}.tar.gz";
+            inherit hash;
+          };
+        } ''
+          mkdir "$out"
+          tar -xzf "$src" -C "$out" --strip-components=1
+        '';
     modules = {
       vendorHash = "sha256-uo4p97UD2RgrzAYnAW4OunOamjWkCxmwIU50nIZ3neg=";
       proxyVendor = true;
@@ -143,6 +170,7 @@ in {
         }))
       .overrideAttrs {disallowedReferences = [];};
   in {
+    packages.dist-go = distGo;
     _module.args = {
       inherit go buildGoModule;
       testFontsConf = pkgs.makeFontsConf {
