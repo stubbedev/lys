@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"slices"
+	"strconv"
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/i18n"
@@ -357,7 +358,7 @@ func checkCardGolden(t *testing.T, win *window, holding widget.Widget, width int
 
 func TestTheModesCardMatchesItsGoldenAtTheDefaultAndANarrowWidth(t *testing.T) {
 	for _, width := range []int{windowWidth, narrowWindowWidth} {
-		t.Run(fmt.Sprint(width), func(t *testing.T) {
+		t.Run(strconv.Itoa(width), func(t *testing.T) {
 			win := laidOutPage(t, "", "launcher-modes", width)
 			checkCardGolden(t, win, treetest.First[*launcherModeList](t, win.page), width, fmt.Sprintf("launcher-modes-card-%d", width))
 		})
