@@ -87,7 +87,7 @@ store-check-test:
     store="/nix/store/0123456789abcdfghijklmnpqrsvwxyz-iana-etc-20251215/etc/services"
     expect() {
         local want="$1" archive="$2" out status=0
-        out="$(just --justfile "{{ justfile() }}" store-check "${archive}" 2>&1)" || status=$?
+        out="$(just --justfile "{{ source_file() }}" store-check "${archive}" 2>&1)" || status=$?
         if [[ -z ${want} ]]; then
             [[ ${status} -eq 0 ]] || fail "${archive} failed the check: ${out}"
             return
