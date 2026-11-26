@@ -136,7 +136,7 @@ in {
           tar -xzf "$src" -C "$out" --strip-components=1
         '';
     modules = {
-      vendorHash = "sha256-uo4p97UD2RgrzAYnAW4OunOamjWkCxmwIU50nIZ3neg=";
+      vendorHash = "sha256-mGgLegiYmioXOXlky186iQTd6Xi97jE2KHhQ7GPuDVE=";
       proxyVendor = true;
       overrideModAttrs = _: {
         name = "lys-go-modules";

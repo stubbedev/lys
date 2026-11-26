@@ -28,6 +28,35 @@
       "testing"
     ]
   },
+  "ci/execsites": {
+    "imports": [
+      "lib/srcroot"
+    ],
+    "external": [
+      "bytes",
+      "cmp",
+      "encoding/json",
+      "errors",
+      "fmt",
+      "go/ast",
+      "go/build",
+      "go/parser",
+      "go/token",
+      "io",
+      "io/fs",
+      "os",
+      "path",
+      "regexp",
+      "slices",
+      "strconv",
+      "strings"
+    ],
+    "testExternal": [
+      "reflect",
+      "testing",
+      "testing/fstest"
+    ]
+  },
   "ci/gopackages": {
     "imports": [
       "lib/atomicfile",
@@ -57,6 +86,21 @@
       "testing/fstest"
     ]
   },
+  "desktop/argpaths": {
+    "imports": [
+      "ui/transfer"
+    ],
+    "external": [
+      "errors",
+      "fmt",
+      "path/filepath",
+      "strings"
+    ],
+    "testExternal": [
+      "slices",
+      "testing"
+    ]
+  },
   "desktop/cmd/install-icons": {
     "imports": [
       "desktop/resources",
@@ -71,6 +115,34 @@
       "strings"
     ],
     "testExternal": [
+      "testing"
+    ]
+  },
+  "desktop/cmd/lys-docthumb": {
+    "imports": [
+      "desktop/dochelper",
+      "desktop/docrender"
+    ],
+    "external": [
+      "bufio",
+      "errors",
+      "fmt",
+      "image",
+      "image/png",
+      "io",
+      "os"
+    ],
+    "testImports": [
+      "desktop/thumbnail",
+      "lib/testbuild",
+      "lib/testhome"
+    ],
+    "testExternal": [
+      "bytes",
+      "context",
+      "os/exec",
+      "path/filepath",
+      "runtime/debug",
       "testing"
     ]
   },
@@ -134,8 +206,6 @@
     "testImports": [
       "desktop/config/internal/schemadoc",
       "desktop/resources",
-      "desktop/spawn",
-      "lib/logind/logindtest",
       "lib/logtest",
       "lib/testhome",
       "lib/waittest"
@@ -215,6 +285,74 @@
       "testing"
     ]
   },
+  "desktop/dochelper": {
+    "imports": [
+      "lib/intconv",
+      "lib/third_party/typesetting/fontscan"
+    ],
+    "external": [
+      "bufio",
+      "bytes",
+      "context",
+      "encoding/binary",
+      "encoding/json",
+      "errors",
+      "flag",
+      "fmt",
+      "golang.org/x/sys/unix",
+      "image",
+      "io",
+      "log",
+      "math",
+      "os",
+      "os/exec",
+      "path/filepath",
+      "runtime/debug",
+      "slices",
+      "strconv",
+      "sync",
+      "sync/atomic",
+      "syscall",
+      "time",
+      "unicode/utf8"
+    ],
+    "testImports": [
+      "lib/testbuild",
+      "lib/testhome"
+    ],
+    "testExternal": [
+      "image/color",
+      "reflect",
+      "strings",
+      "testing"
+    ]
+  },
+  "desktop/docrender": {
+    "imports": [
+      "desktop/dochelper"
+    ],
+    "external": [
+      "errors",
+      "fmt",
+      "github.com/gen2brain/folio/doc",
+      "github.com/gen2brain/folio/font",
+      "github.com/gen2brain/folio/gfx",
+      "github.com/gen2brain/folio/html",
+      "github.com/gen2brain/folio/pdf",
+      "github.com/gen2brain/folio/raster",
+      "github.com/gen2brain/folio/svg",
+      "image",
+      "math"
+    ],
+    "testExternal": [
+      "image/png",
+      "os",
+      "path/filepath",
+      "reflect",
+      "strings",
+      "testing"
+    ]
+  },
   "desktop/drmconn": {
     "external": [
       "path/filepath",
@@ -238,6 +376,33 @@
     "external": [
       "context",
       "sync"
+    ],
+    "testExternal": [
+      "testing"
+    ]
+  },
+  "desktop/fileops": {
+    "imports": [
+      "desktop/fileuri",
+      "lib/xdg"
+    ],
+    "external": [
+      "bufio",
+      "bytes",
+      "context",
+      "errors",
+      "fmt",
+      "golang.org/x/sys/unix",
+      "io",
+      "io/fs",
+      "maps",
+      "net/url",
+      "os",
+      "path/filepath",
+      "slices",
+      "strconv",
+      "strings",
+      "time"
     ],
     "testExternal": [
       "testing"
@@ -450,6 +615,7 @@
     "imports": [
       "desktop/offheap",
       "desktop/third_party/jpeg",
+      "lib/exif",
       "lib/intconv"
     ],
     "external": [
@@ -465,17 +631,36 @@
       "golang.org/x/image/webp",
       "image",
       "image/color",
+      "image/draw",
       "image/gif",
       "image/jpeg",
       "image/png",
       "io",
+      "log",
+      "math",
+      "math/bits",
       "os",
+      "slices",
       "strconv"
     ],
+    "testImports": [
+      "desktop/imagedecode/imagedecodetest",
+      "lib/render"
+    ],
     "testExternal": [
+      "github.com/kettek/apng",
       "path/filepath",
       "reflect",
       "runtime",
+      "testing"
+    ]
+  },
+  "desktop/imagedecode/imagedecodetest": {
+    "external": [
+      "bytes",
+      "encoding/binary",
+      "image",
+      "image/jpeg",
       "testing"
     ]
   },
@@ -609,6 +794,38 @@
     ],
     "testExternal": [
       "syscall",
+      "testing"
+    ]
+  },
+  "desktop/ocr": {
+    "imports": [
+      "lib/render",
+      "lib/third_party/typesetting/font"
+    ],
+    "external": [
+      "cmp",
+      "context",
+      "errors",
+      "fmt",
+      "image",
+      "math",
+      "slices",
+      "strings",
+      "unicode",
+      "unicode/utf8"
+    ],
+    "testImports": [
+      "lib/inter",
+      "lib/srcroot"
+    ],
+    "testExternal": [
+      "github.com/makiuchi-d/gozxing",
+      "github.com/makiuchi-d/gozxing/qrcode",
+      "image/color",
+      "image/draw",
+      "image/png",
+      "os",
+      "path/filepath",
       "testing"
     ]
   },
@@ -1063,7 +1280,8 @@
       "desktop/service/network/secrets",
       "lib/dbusx",
       "lib/logind",
-      "lib/third_party/godbus"
+      "lib/third_party/godbus",
+      "lib/userdb"
     ],
     "external": [
       "bytes",
@@ -1078,7 +1296,6 @@
       "net/netip",
       "net/url",
       "os",
-      "os/user",
       "path/filepath",
       "slices",
       "strconv",
@@ -1093,8 +1310,10 @@
       "lib/dbustest",
       "lib/dbusx/dbusxtest",
       "lib/logind/logindtest",
+      "lib/logtest",
       "lib/testhome",
       "lib/third_party/godbus/prop",
+      "lib/userdb/userdbtest",
       "lib/waittest"
     ],
     "testExternal": [
@@ -1766,6 +1985,8 @@
     ],
     "external": [
       "fmt",
+      "log",
+      "path/filepath",
       "slices",
       "strconv",
       "strings",
@@ -1801,6 +2022,60 @@
     ],
     "testExternal": [
       "slices",
+      "testing"
+    ]
+  },
+  "desktop/shell/preview": {
+    "imports": [
+      "desktop/i18n",
+      "desktop/imagedecode",
+      "desktop/mime",
+      "desktop/shell/widgets",
+      "desktop/styling",
+      "desktop/thumbnail",
+      "lib/exif",
+      "lib/intconv",
+      "lib/render",
+      "lib/xkb",
+      "ui/media",
+      "ui/widget",
+      "ui/widget/css"
+    ],
+    "external": [
+      "bytes",
+      "context",
+      "errors",
+      "fmt",
+      "github.com/stubbedev/memory-go",
+      "image",
+      "io",
+      "io/fs",
+      "log",
+      "os",
+      "path/filepath",
+      "slices",
+      "strconv",
+      "strings",
+      "time",
+      "unicode/utf8"
+    ],
+    "testImports": [
+      "desktop/config",
+      "desktop/imagedecode/imagedecodetest",
+      "desktop/shell/apptheme",
+      "desktop/shell/treetest",
+      "desktop/thumbnail/thumbnailtest",
+      "lib/golden",
+      "lib/testhome",
+      "lib/waittest",
+      "ui/anim"
+    ],
+    "testExternal": [
+      "github.com/kettek/apng",
+      "image/color",
+      "image/gif",
+      "image/png",
+      "sync",
       "testing"
     ]
   },
@@ -1996,7 +2271,8 @@
     "testImports": [
       "desktop/compositor",
       "desktop/styling/material",
-      "lib/logtest"
+      "lib/logtest",
+      "ui/widget/css"
     ],
     "testExternal": [
       "golang.org/x/image/font/gofont/goregular",
@@ -2079,6 +2355,79 @@
       "testing"
     ]
   },
+  "desktop/thumbnail": {
+    "imports": [
+      "desktop/dochelper",
+      "desktop/fileuri",
+      "desktop/imagedecode",
+      "desktop/offheap",
+      "lib/atomicfile",
+      "lib/exif",
+      "lib/gpu",
+      "lib/render",
+      "lib/xdg",
+      "ui/media"
+    ],
+    "external": [
+      "bytes",
+      "context",
+      "crypto/md5",
+      "encoding/binary",
+      "encoding/hex",
+      "errors",
+      "fmt",
+      "github.com/stubbedev/memory-go",
+      "golang.org/x/image/draw",
+      "hash/crc32",
+      "image",
+      "image/png",
+      "log",
+      "os",
+      "os/exec",
+      "path/filepath",
+      "slices",
+      "strconv",
+      "strings",
+      "sync",
+      "time"
+    ],
+    "testImports": [
+      "desktop/thumbnail/thumbnailtest",
+      "lib/logtest",
+      "lib/testhome",
+      "lib/waittest"
+    ],
+    "testExternal": [
+      "go/ast",
+      "go/parser",
+      "go/token",
+      "image/color",
+      "image/jpeg",
+      "runtime/debug",
+      "sync/atomic",
+      "syscall",
+      "testing"
+    ]
+  },
+  "desktop/thumbnail/thumbnailtest": {
+    "imports": [
+      "desktop/dochelper"
+    ],
+    "external": [
+      "bytes",
+      "fmt",
+      "image",
+      "image/png",
+      "os",
+      "os/exec",
+      "path/filepath",
+      "strconv",
+      "strings",
+      "syscall",
+      "testing",
+      "time"
+    ]
+  },
   "desktop/tokens": {},
   "desktop/tzdb": {
     "imports": [
@@ -2100,24 +2449,150 @@
     ]
   },
   "desktop/useraccount": {
+    "imports": [
+      "lib/userdb"
+    ],
     "external": [
       "bufio",
       "cmp",
+      "context",
       "errors",
       "fmt",
       "io/fs",
       "log",
       "os",
-      "os/user",
       "path/filepath",
       "strconv",
       "strings"
     ],
     "testImports": [
-      "lib/logtest"
+      "lib/logtest",
+      "lib/userdb/userdbtest"
     ],
     "testExternal": [
       "slices",
+      "testing"
+    ]
+  },
+  "files/cmd/lys-files": {
+    "imports": [
+      "desktop/argpaths",
+      "files/internal/files",
+      "lib/buildinfo"
+    ],
+    "external": [
+      "errors",
+      "flag",
+      "fmt",
+      "io",
+      "os"
+    ],
+    "testImports": [
+      "lib/testhome"
+    ],
+    "testExternal": [
+      "bytes",
+      "path/filepath",
+      "slices",
+      "strings",
+      "testing"
+    ]
+  },
+  "files/internal/filemanager1": {
+    "imports": [
+      "lib/dbusx",
+      "lib/third_party/godbus",
+      "ui/transfer"
+    ],
+    "external": [
+      "fmt",
+      "path/filepath"
+    ],
+    "testImports": [
+      "lib/testhome"
+    ],
+    "testExternal": [
+      "slices",
+      "testing"
+    ]
+  },
+  "files/internal/files": {
+    "imports": [
+      "desktop/config",
+      "desktop/desktopentry",
+      "desktop/fileops",
+      "desktop/fileuri",
+      "desktop/i18n",
+      "desktop/logging",
+      "desktop/mime",
+      "desktop/shell/apptheme",
+      "desktop/shell/widgets",
+      "desktop/spawn",
+      "desktop/styling",
+      "files/internal/filemanager1",
+      "files/internal/locale",
+      "lib/dbusx",
+      "lib/third_party/godbus",
+      "lib/xdg",
+      "lib/xkb",
+      "shell/service/launcher",
+      "shell/service/udisks",
+      "shell/shell/filebrowser",
+      "shell/shell/keys",
+      "ui/app",
+      "ui/transfer",
+      "ui/widget",
+      "ui/widget/css"
+    ],
+    "external": [
+      "cmp",
+      "context",
+      "errors",
+      "fmt",
+      "golang.org/x/sys/unix",
+      "io/fs",
+      "log",
+      "os",
+      "os/exec",
+      "path/filepath",
+      "slices",
+      "strings",
+      "sync",
+      "time"
+    ],
+    "testImports": [
+      "desktop/resources",
+      "desktop/shell/treetest",
+      "lib/dbustest",
+      "lib/render",
+      "lib/testhome",
+      "lib/waittest",
+      "shell/shell/filebrowser/browsertest"
+    ],
+    "testExternal": [
+      "path",
+      "regexp",
+      "sync/atomic",
+      "testing"
+    ]
+  },
+  "files/internal/locale": {
+    "imports": [
+      "desktop/i18n"
+    ],
+    "external": [
+      "embed",
+      "io/fs",
+      "sync"
+    ],
+    "embeds": [
+      "files/internal/locale/locales"
+    ],
+    "testImports": [
+      "desktop/i18n/i18ntest"
+    ],
+    "testExternal": [
+      "strings",
       "testing"
     ]
   },
@@ -2554,6 +3029,26 @@
       "testing",
       "time",
       "unsafe"
+    ]
+  },
+  "lib/exif": {
+    "external": [
+      "encoding/binary",
+      "errors",
+      "fmt",
+      "image",
+      "io",
+      "strings"
+    ],
+    "testImports": [
+      "lib/testbuild"
+    ],
+    "testExternal": [
+      "bytes",
+      "image/color",
+      "image/jpeg",
+      "image/png",
+      "testing"
     ]
   },
   "lib/fdtest": {
@@ -3176,11 +3671,16 @@
       "lib/intconv",
       "lib/internal/isobmff",
       "lib/internal/matroska",
-      "lib/media/internal/mp4audio"
+      "lib/media/internal/flacstream",
+      "lib/media/internal/mp4audio",
+      "lib/media/internal/mpa",
+      "lib/media/internal/ogg",
+      "lib/media/internal/opustoc"
     ],
     "external": [
       "bytes",
       "compress/zlib",
+      "encoding/base64",
       "encoding/binary",
       "errors",
       "fmt",
@@ -3208,10 +3708,75 @@
       "testing"
     ]
   },
+  "lib/media/flac": {
+    "imports": [
+      "lib/media/internal/flacstream"
+    ],
+    "external": [
+      "errors",
+      "fmt",
+      "math/bits",
+      "slices"
+    ],
+    "testImports": [
+      "lib/media/demux",
+      "lib/testbuild"
+    ],
+    "testExternal": [
+      "bytes",
+      "crypto/md5",
+      "encoding/binary",
+      "encoding/hex",
+      "io",
+      "path/filepath",
+      "testing"
+    ]
+  },
+  "lib/media/internal/flacstream": {
+    "external": [
+      "encoding/binary",
+      "errors",
+      "fmt"
+    ],
+    "testImports": [
+      "lib/testbuild"
+    ],
+    "testExternal": [
+      "testing"
+    ]
+  },
   "lib/media/internal/mp4audio": {
     "external": [
       "slices"
     ],
+    "testImports": [
+      "lib/testbuild"
+    ],
+    "testExternal": [
+      "testing"
+    ]
+  },
+  "lib/media/internal/mpa": {
+    "external": [
+      "errors",
+      "fmt"
+    ],
+    "testImports": [
+      "lib/testbuild"
+    ],
+    "testExternal": [
+      "testing"
+    ]
+  },
+  "lib/media/internal/ogg": {
+    "testImports": [
+      "lib/testbuild"
+    ],
+    "testExternal": [
+      "testing"
+    ]
+  },
+  "lib/media/internal/opustoc": {
     "testImports": [
       "lib/testbuild"
     ],
@@ -3225,6 +3790,54 @@
     ],
     "testExternal": [
       "math",
+      "testing"
+    ]
+  },
+  "lib/media/mp3": {
+    "imports": [
+      "lib/media/internal/mpa",
+      "lib/media/internal/pcm",
+      "lib/third_party/gomath"
+    ],
+    "external": [
+      "errors",
+      "fmt",
+      "math",
+      "slices",
+      "sync"
+    ],
+    "testImports": [
+      "lib/media/demux",
+      "lib/testbuild"
+    ],
+    "testExternal": [
+      "bytes",
+      "encoding/binary",
+      "io",
+      "math/rand/v2",
+      "os",
+      "path/filepath",
+      "testing",
+      "time"
+    ]
+  },
+  "lib/media/mp3/internal/genminimp3": {
+    "imports": [
+      "lib/atomicfile"
+    ],
+    "external": [
+      "bytes",
+      "crypto/sha256",
+      "encoding/hex",
+      "flag",
+      "fmt",
+      "go/format",
+      "log",
+      "os",
+      "regexp",
+      "strings"
+    ],
+    "testExternal": [
       "testing"
     ]
   },
@@ -3263,6 +3876,7 @@
   "lib/media/opus": {
     "imports": [
       "lib/intconv",
+      "lib/media/internal/opustoc",
       "lib/media/internal/pcm",
       "lib/third_party/gomath"
     ],
@@ -3297,6 +3911,7 @@
   "lib/media/vorbis": {
     "imports": [
       "lib/intconv",
+      "lib/media/internal/ogg",
       "lib/media/internal/pcm",
       "lib/third_party/gomath"
     ],
@@ -3319,7 +3934,8 @@
       "os/exec",
       "path/filepath",
       "strconv",
-      "testing"
+      "testing",
+      "time"
     ]
   },
   "lib/motion": {
@@ -4573,6 +5189,44 @@
       "testing"
     ]
   },
+  "lib/userdb": {
+    "external": [
+      "bufio",
+      "context",
+      "encoding/json",
+      "errors",
+      "fmt",
+      "io",
+      "math",
+      "net",
+      "strconv",
+      "time"
+    ],
+    "testImports": [
+      "lib/testbuild",
+      "lib/userdb/userdbtest"
+    ],
+    "testExternal": [
+      "io/fs",
+      "slices",
+      "strings",
+      "testing"
+    ]
+  },
+  "lib/userdb/userdbtest": {
+    "imports": [
+      "lib/sockdir",
+      "lib/userdb"
+    ],
+    "external": [
+      "bufio",
+      "encoding/json",
+      "net",
+      "path/filepath",
+      "sync",
+      "testing"
+    ]
+  },
   "lib/v4l2": {
     "imports": [
       "lib/intconv"
@@ -4931,6 +5585,7 @@
       "login/internal/dm",
       "login/internal/greeter",
       "login/internal/keyboard",
+      "login/internal/kiosk",
       "login/internal/lock"
     ],
     "external": [
@@ -4955,6 +5610,7 @@
     "testExternal": [
       "bufio",
       "bytes",
+      "go.yaml.in/yaml/v3",
       "golang.org/x/sys/unix",
       "io",
       "os/exec",
@@ -5077,26 +5733,27 @@
   "login/internal/dm": {
     "imports": [
       "desktop/config",
-      "desktop/shlex",
       "lib/dbusx",
       "lib/drm",
       "lib/logind",
       "lib/peercred",
       "lib/polkit",
+      "lib/userdb",
       "lib/vtconsole",
       "lib/xdg",
-      "lib/xkb",
       "login/dmsocket",
       "login/greeterconfig",
       "login/internal/auth",
       "login/internal/cursorrecord",
       "login/internal/fprint",
       "login/internal/greeter",
-      "login/internal/keyboard"
+      "login/internal/keyboard",
+      "login/internal/kiosk"
     ],
     "external": [
       "bufio",
       "bytes",
+      "cmp",
       "context",
       "encoding/json",
       "errors",
@@ -5110,7 +5767,6 @@
       "os",
       "os/exec",
       "os/signal",
-      "os/user",
       "path/filepath",
       "runtime",
       "slices",
@@ -5126,18 +5782,16 @@
       "lib/dbustest",
       "lib/fdtest",
       "lib/logind/logindtest",
-      "lib/logtest",
       "lib/polkit/polkittest",
       "lib/sockdir",
       "lib/testhome",
+      "lib/userdb/userdbtest",
       "lib/waittest",
       "login/internal/keyboard/keyboardtest"
     ],
     "testExternal": [
       "crypto/rand",
       "encoding/binary",
-      "go.yaml.in/yaml/v3",
-      "math",
       "reflect",
       "sync/atomic",
       "testing"
@@ -5233,7 +5887,9 @@
     ],
     "testImports": [
       "desktop/i18n/i18ntest",
+      "desktop/imagedecode/imagedecodetest",
       "desktop/shell/treetest",
+      "lib/exif",
       "lib/logind/logindtest",
       "lib/logtest",
       "lib/testbuild",
@@ -5282,6 +5938,38 @@
     "external": [
       "os",
       "path/filepath",
+      "testing"
+    ]
+  },
+  "login/internal/kiosk": {
+    "imports": [
+      "desktop/config",
+      "desktop/shlex",
+      "lib/atomicfile",
+      "lib/xdg",
+      "lib/xkb",
+      "login/internal/greeter",
+      "login/internal/keyboard"
+    ],
+    "external": [
+      "errors",
+      "fmt",
+      "log",
+      "os",
+      "os/exec",
+      "path/filepath",
+      "strconv",
+      "strings",
+      "syscall"
+    ],
+    "testImports": [
+      "lib/logtest",
+      "lib/testhome",
+      "login/internal/keyboard/keyboardtest"
+    ],
+    "testExternal": [
+      "go.yaml.in/yaml/v3",
+      "reflect",
       "testing"
     ]
   },
@@ -5359,9 +6047,11 @@
       "time"
     ],
     "testImports": [
+      "desktop/imagedecode/imagedecodetest",
       "desktop/service/powersupply/powersupplytest",
       "desktop/shell/treetest",
       "lib/dbustest",
+      "lib/exif",
       "lib/logtest",
       "lib/sockdir",
       "lib/testbuild",
@@ -5545,20 +6235,18 @@
     ]
   },
   "polkit/internal/passwd": {
+    "imports": [
+      "lib/userdb"
+    ],
     "external": [
-      "context",
-      "errors",
-      "fmt",
-      "os/exec",
-      "strconv",
-      "strings",
-      "time"
+      "context"
     ],
     "testImports": [
-      "lib/fdtest"
+      "lib/userdb/userdbtest"
     ],
     "testExternal": [
-      "path/filepath",
+      "errors",
+      "strings",
       "testing"
     ]
   },
@@ -6992,7 +7680,7 @@
       "testing"
     ]
   },
-  "settings/cmd/lys-users-helper": {
+  "settings/cmd/lys-users": {
     "imports": [
       "settings/internal/usershelper"
     ],
@@ -7014,6 +7702,7 @@
       "context",
       "encoding/json",
       "errors",
+      "fmt",
       "os",
       "os/exec",
       "path/filepath",
@@ -7026,11 +7715,13 @@
   "settings/internal/accounts": {
     "imports": [
       "desktop/useraccount",
-      "lib/shacrypt"
+      "lib/shacrypt",
+      "lib/third_party/godbus"
     ],
     "external": [
       "bytes",
       "cmp",
+      "context",
       "encoding/json",
       "errors",
       "fmt",
@@ -7088,6 +7779,44 @@
       "testing"
     ]
   },
+  "settings/internal/land": {
+    "imports": [
+      "lib/render"
+    ],
+    "external": [
+      "crypto/sha256",
+      "embed",
+      "encoding/binary",
+      "encoding/hex",
+      "encoding/json",
+      "errors",
+      "fmt",
+      "math",
+      "slices",
+      "sync"
+    ],
+    "embeds": [
+      "settings/internal/land/land.bin"
+    ],
+    "testExternal": [
+      "bytes",
+      "os",
+      "path/filepath",
+      "strings",
+      "testing"
+    ]
+  },
+  "settings/internal/land/internal/genland": {
+    "imports": [
+      "lib/atomicfile",
+      "settings/internal/land"
+    ],
+    "external": [
+      "flag",
+      "log",
+      "os"
+    ]
+  },
   "settings/internal/locale": {
     "imports": [
       "desktop/i18n"
@@ -7121,6 +7850,25 @@
       "slices",
       "strconv",
       "strings"
+    ],
+    "testExternal": [
+      "testing"
+    ]
+  },
+  "settings/internal/pwfiles": {
+    "external": [
+      "context",
+      "errors",
+      "fmt",
+      "golang.org/x/sys/unix",
+      "io",
+      "io/fs",
+      "os",
+      "path/filepath",
+      "slices",
+      "strconv",
+      "strings",
+      "time"
     ],
     "testExternal": [
       "testing"
@@ -7177,6 +7925,7 @@
       "desktop/strftime",
       "desktop/styling",
       "desktop/styling/material",
+      "desktop/thumbnail",
       "desktop/tzdb",
       "desktop/useraccount",
       "lib/atomicfile",
@@ -7204,6 +7953,7 @@
       "settings/internal/accounts",
       "settings/internal/displays",
       "settings/internal/keys",
+      "settings/internal/land",
       "settings/internal/locale",
       "settings/internal/proxyenv",
       "settings/internal/wmconfig",
@@ -7280,6 +8030,7 @@
       "lib/dbustest",
       "lib/fdtest",
       "lib/glibclocale/glibclocaletest",
+      "lib/golden",
       "lib/logind/logindtest",
       "lib/logtest",
       "lib/pulse/pulsetest",
@@ -7314,22 +8065,35 @@
     "imports": [
       "desktop/useraccount",
       "lib/atomicfile",
-      "settings/internal/accounts"
+      "lib/dbusx",
+      "lib/intconv",
+      "lib/peercred",
+      "lib/polkit",
+      "lib/third_party/godbus",
+      "lib/userdb",
+      "settings/internal/accounts",
+      "settings/internal/pwfiles"
     ],
     "external": [
       "bytes",
       "context",
       "encoding/json",
       "errors",
+      "flag",
       "fmt",
       "io",
       "io/fs",
+      "log",
       "os",
-      "os/exec",
+      "os/signal",
       "path/filepath",
       "strconv",
       "strings",
+      "syscall",
       "time"
+    ],
+    "testImports": [
+      "lib/polkit/polkittest"
     ],
     "testExternal": [
       "encoding/xml",
@@ -7467,6 +8231,7 @@
       "desktop/i18n/locales/shell",
       "desktop/icons",
       "desktop/identity",
+      "desktop/launchermatch",
       "desktop/logging",
       "desktop/portal/permissions",
       "desktop/resources",
@@ -7497,6 +8262,7 @@
       "shell/service/launcher/modes",
       "shell/service/notifications",
       "shell/service/recorder",
+      "shell/service/sessionctl",
       "shell/service/shellipc",
       "shell/service/sni",
       "shell/service/wallpaper",
@@ -7507,7 +8273,7 @@
       "shell/shell/sharepicker"
     ],
     "external": [
-      "bytes",
+      "bufio",
       "context",
       "errors",
       "fmt",
@@ -7561,7 +8327,7 @@
       "ui/widget"
     ],
     "testExternal": [
-      "bufio",
+      "bytes",
       "encoding/json",
       "flag",
       "image",
@@ -8152,6 +8918,7 @@
   "shell/portal": {
     "imports": [
       "desktop/config",
+      "desktop/desktopentry",
       "desktop/drmconn",
       "desktop/fileuri",
       "desktop/fswatch",
@@ -8231,6 +8998,7 @@
     ],
     "testImports": [
       "desktop/fakeclock",
+      "desktop/opener/openertest",
       "desktop/portal/permissions/permstoretest",
       "desktop/resources",
       "desktop/service/lyswm/lyswmtest",
@@ -8245,6 +9013,8 @@
       "lib/logtest",
       "lib/pipewire/pwtest",
       "lib/testhome",
+      "lib/userdb",
+      "lib/userdb/userdbtest",
       "lib/waittest",
       "lib/wltest",
       "secrets/secretstest",
@@ -8264,7 +9034,6 @@
       "image/color",
       "image/png",
       "maps",
-      "os/user",
       "path",
       "regexp",
       "syscall",
@@ -8663,7 +9432,6 @@
     "imports": [
       "desktop/config",
       "desktop/desktopentry",
-      "desktop/fileuri",
       "desktop/identity",
       "desktop/imagedecode",
       "desktop/launchermatch",
@@ -8671,28 +9439,19 @@
       "desktop/opener",
       "desktop/shlex",
       "desktop/spawn",
-      "lib/atomicfile",
-      "lib/intconv",
-      "lib/render",
+      "desktop/thumbnail",
       "lib/xdg"
     ],
     "external": [
       "bytes",
       "context",
-      "crypto/md5",
       "database/sql",
-      "encoding/binary",
-      "encoding/hex",
       "errors",
       "fmt",
-      "hash/crc32",
       "image",
-      "image/png",
-      "io",
       "log",
       "maps",
       "modernc.org/sqlite",
-      "net/http",
       "os",
       "os/exec",
       "path/filepath",
@@ -8706,11 +9465,14 @@
     ],
     "testImports": [
       "desktop/opener/openertest",
+      "desktop/thumbnail/thumbnailtest",
+      "lib/testhome",
       "lib/waittest",
       "shell/service/launcher/launchertest"
     ],
     "testExternal": [
       "image/color",
+      "image/png",
       "math",
       "reflect",
       "testing"
@@ -9328,6 +10090,30 @@
       "testing"
     ]
   },
+  "shell/service/sessionctl": {
+    "imports": [
+      "desktop/config",
+      "desktop/service/lyswm",
+      "lib/logind",
+      "lib/third_party/godbus"
+    ],
+    "external": [
+      "context",
+      "errors",
+      "fmt"
+    ],
+    "testImports": [
+      "desktop/service/lyswm/lyswmtest",
+      "lib/logind/logindtest",
+      "lib/testhome",
+      "lib/waittest",
+      "lib/wmipc"
+    ],
+    "testExternal": [
+      "slices",
+      "testing"
+    ]
+  },
   "shell/service/sharepreview": {
     "imports": [
       "lib/capture"
@@ -9659,6 +10445,7 @@
       "desktop/jinja",
       "desktop/logging",
       "desktop/mime",
+      "desktop/ocr",
       "desktop/pango",
       "desktop/region",
       "desktop/service/bitwarden/generator",
@@ -9754,6 +10541,7 @@
       "shell/service/privacy",
       "shell/service/recorder",
       "shell/service/screenshare",
+      "shell/service/sessionctl",
       "shell/service/sharepreview",
       "shell/service/shellipc",
       "shell/service/sleepreport",
@@ -9765,6 +10553,7 @@
       "shell/service/weather",
       "shell/shell/colorpicker",
       "shell/shell/dialogsurface",
+      "shell/shell/filebrowser",
       "shell/shell/filechooser",
       "shell/shell/keys",
       "shell/shell/launcher",
@@ -9776,6 +10565,7 @@
       "shell/shell/portaldialogs/dialoghost",
       "shell/shell/powermenu",
       "shell/shell/printdialog",
+      "shell/shell/quicklook",
       "shell/shell/regionoverlay",
       "shell/shell/screenshot",
       "shell/shell/sharepicker",
@@ -9831,6 +10621,7 @@
       "lib/dbustest",
       "lib/dbusx/dbusxtest",
       "lib/fdtest",
+      "lib/logind/logindtest",
       "lib/logtest",
       "lib/pulse/native",
       "lib/pulse/pulsetest",
@@ -9982,26 +10773,20 @@
       "time"
     ]
   },
-  "shell/shell/filechooser": {
+  "shell/shell/filebrowser": {
     "imports": [
-      "desktop/config",
-      "desktop/desktopentry",
+      "desktop/fileops",
       "desktop/fileuri",
       "desktop/fswatch",
       "desktop/glob",
       "desktop/i18n",
-      "desktop/imagedecode",
       "desktop/mime",
-      "desktop/offheap",
-      "desktop/shell/layers",
-      "desktop/shell/reveal",
+      "desktop/shell/preview",
       "desktop/shell/widgets",
-      "desktop/shlex",
       "desktop/styling",
+      "desktop/thumbnail",
       "lib/atomicfile",
-      "lib/dbusx",
       "lib/intconv",
-      "lib/portaldialogs",
       "lib/render",
       "lib/text",
       "lib/third_party/godbus",
@@ -10010,8 +10795,6 @@
       "shell/internal/handoff",
       "shell/internal/statefile",
       "shell/service/udisks",
-      "shell/shell/dialogqueue",
-      "shell/shell/dialogsurface",
       "shell/shell/keys",
       "ui/app",
       "ui/transfer",
@@ -10023,58 +10806,117 @@
       "bytes",
       "cmp",
       "context",
-      "crypto/md5",
       "encoding/binary",
-      "encoding/hex",
       "encoding/xml",
       "errors",
       "fmt",
-      "github.com/rivo/uniseg",
       "github.com/stubbedev/memory-go",
       "github.com/stubbedev/memory-go/bufpool",
-      "golang.org/x/image/draw",
       "golang.org/x/sys/unix",
-      "hash/crc32",
       "image",
-      "image/png",
       "io",
       "io/fs",
       "log",
       "net/url",
       "os",
-      "os/exec",
-      "path",
       "path/filepath",
       "slices",
-      "strconv",
       "strings",
       "sync",
-      "syscall",
       "time",
       "unicode",
       "unicode/utf8",
       "unsafe"
     ],
     "testImports": [
+      "desktop/config",
       "desktop/shell/apptheme",
       "desktop/shell/treetest",
+      "desktop/thumbnail/thumbnailtest",
       "lib/logtest",
       "lib/testhome",
       "lib/waittest",
-      "shell/internal/apptest",
-      "shell/internal/keytest",
       "shell/service/udisks/udiskstest",
-      "shell/shell/dialogsurface/surfacetest"
+      "shell/shell/filebrowser/browsertest"
     ],
     "testExternal": [
       "image/color",
       "image/jpeg",
-      "net",
+      "image/png",
       "runtime",
       "runtime/debug",
       "runtime/metrics",
+      "strconv",
       "sync/atomic",
       "testing"
+    ]
+  },
+  "shell/shell/filebrowser/browsertest": {
+    "imports": [
+      "desktop/mime"
+    ],
+    "external": [
+      "os",
+      "path/filepath",
+      "strings",
+      "testing"
+    ]
+  },
+  "shell/shell/filechooser": {
+    "imports": [
+      "desktop/config",
+      "desktop/fileuri",
+      "desktop/glob",
+      "desktop/i18n",
+      "desktop/mime",
+      "desktop/shell/layers",
+      "desktop/shell/reveal",
+      "desktop/shell/widgets",
+      "desktop/styling",
+      "lib/dbusx",
+      "lib/portaldialogs",
+      "lib/render",
+      "lib/third_party/godbus",
+      "shell/internal/statefile",
+      "shell/shell/dialogqueue",
+      "shell/shell/dialogsurface",
+      "shell/shell/filebrowser",
+      "shell/shell/keys",
+      "ui/app",
+      "ui/widget",
+      "ui/widget/css"
+    ],
+    "external": [
+      "bufio",
+      "bytes",
+      "context",
+      "errors",
+      "github.com/rivo/uniseg",
+      "golang.org/x/sys/unix",
+      "io/fs",
+      "log",
+      "os",
+      "path/filepath",
+      "slices",
+      "strings",
+      "sync"
+    ],
+    "testImports": [
+      "desktop/shell/apptheme",
+      "desktop/shell/treetest",
+      "lib/testhome",
+      "lib/waittest",
+      "lib/xkb",
+      "shell/internal/apptest",
+      "shell/internal/keytest",
+      "shell/shell/dialogsurface/surfacetest",
+      "shell/shell/filebrowser/browsertest"
+    ],
+    "testExternal": [
+      "fmt",
+      "strconv",
+      "testing",
+      "time"
     ]
   },
   "shell/shell/keys": {
@@ -10092,18 +10934,23 @@
       "desktop/config",
       "desktop/i18n",
       "desktop/launchermatch",
+      "desktop/mime",
       "desktop/pango",
       "desktop/shell/launcherview",
       "desktop/shell/layers",
+      "desktop/shell/preview",
       "desktop/shell/reveal",
       "desktop/shell/widgets",
       "desktop/styling",
+      "desktop/thumbnail",
       "lib/render",
+      "lib/xkb",
       "shell/internal/launcheripc",
       "shell/service/launcher",
       "shell/service/launcher/charnames",
       "shell/service/launcher/modes",
       "shell/service/launcher/search",
+      "shell/shell/quicklook",
       "ui/anim",
       "ui/app",
       "ui/widget",
@@ -10122,17 +10969,18 @@
       "strconv",
       "strings",
       "sync",
+      "sync/atomic",
       "time"
     ],
     "testImports": [
       "desktop/desktopentry",
       "desktop/icons",
-      "desktop/imagedecode",
       "desktop/resources",
       "desktop/service/clipboard",
       "desktop/service/clipboard/historybudget",
       "desktop/shell/apptheme",
       "desktop/shell/treetest",
+      "desktop/thumbnail/thumbnailtest",
       "lib/capture",
       "lib/logtest",
       "lib/motion",
@@ -10142,11 +10990,13 @@
       "shell/internal/keytest"
     ],
     "testExternal": [
+      "bytes",
       "fmt",
       "image/color",
       "image/png",
+      "maps",
+      "net/url",
       "runtime",
-      "sync/atomic",
       "testing"
     ]
   },
@@ -10460,6 +11310,37 @@
       "testing/iotest"
     ]
   },
+  "shell/shell/quicklook": {
+    "imports": [
+      "desktop/mime",
+      "desktop/shell/layers",
+      "desktop/shell/preview",
+      "desktop/thumbnail",
+      "lib/render",
+      "lib/xkb",
+      "shell/shell/keys",
+      "ui/app",
+      "ui/widget",
+      "ui/widget/css"
+    ],
+    "external": [
+      "context",
+      "image",
+      "log",
+      "math"
+    ],
+    "testImports": [
+      "desktop/shell/treetest",
+      "lib/waittest"
+    ],
+    "testExternal": [
+      "os",
+      "path/filepath",
+      "slices",
+      "sync",
+      "testing"
+    ]
+  },
   "shell/shell/regionoverlay": {
     "imports": [
       "desktop/i18n",
@@ -10504,6 +11385,7 @@
       "desktop/config",
       "desktop/i18n",
       "desktop/identity",
+      "desktop/ocr",
       "desktop/offheap",
       "desktop/service/hyprland",
       "desktop/service/lyswm",
@@ -10511,7 +11393,6 @@
       "desktop/service/sway",
       "lib/atomicfile",
       "lib/capture",
-      "lib/i18n",
       "lib/portaldialogs",
       "lib/render",
       "lib/third_party/godbus",
@@ -10519,13 +11400,13 @@
       "lib/xdg",
       "shell/internal/desktopnotify",
       "shell/service/mango",
+      "shell/service/notifications",
       "shell/service/sharepreview",
       "shell/shell/colorpicker",
       "shell/shell/regionoverlay"
     ],
     "external": [
       "bufio",
-      "bytes",
       "cmp",
       "context",
       "encoding/json",
@@ -10543,7 +11424,6 @@
       "math",
       "net/url",
       "os",
-      "os/exec",
       "path/filepath",
       "slices",
       "strconv",
@@ -10554,18 +11434,17 @@
     "testImports": [
       "desktop/i18n/locales/shell",
       "lib/dbustest",
-      "lib/fdtest",
       "lib/testhome",
-      "lib/waittest",
       "shell/internal/apptest",
       "shell/internal/keytest",
       "shell/portal",
       "ui/app"
     ],
     "testExternal": [
+      "bytes",
       "image/color",
+      "os/exec",
       "sync/atomic",
-      "syscall",
       "testing"
     ]
   },
@@ -10628,6 +11507,7 @@
       "desktop/config",
       "desktop/shell/layers",
       "lib/render",
+      "lib/xkb",
       "shell/internal/clock",
       "shell/shell/keys",
       "ui/app",
@@ -10636,6 +11516,7 @@
     ],
     "external": [
       "io",
+      "log",
       "math",
       "os",
       "time"
@@ -10660,11 +11541,13 @@
       "desktop/config",
       "desktop/identity",
       "desktop/imagedecode",
+      "desktop/mime",
       "desktop/offheap",
       "desktop/outputsize",
       "desktop/service/wallpaper/extract",
       "desktop/shell/layers",
       "desktop/styling/material",
+      "desktop/thumbnail",
       "lib/atomicfile",
       "lib/intconv",
       "lib/render",
@@ -10672,7 +11555,6 @@
       "lib/third_party/gomath",
       "lib/xdg",
       "shell/internal/handoff",
-      "shell/service/launcher",
       "shell/service/wallpaper",
       "ui/app",
       "ui/widget"
@@ -10700,6 +11582,8 @@
       "time"
     ],
     "testImports": [
+      "desktop/imagedecode/imagedecodetest",
+      "lib/exif",
       "lib/logtest",
       "lib/waittest"
     ],
@@ -11090,6 +11974,7 @@
   "ui/app": {
     "imports": [
       "lib/appearance",
+      "lib/assetfile",
       "lib/atomicfile",
       "lib/capture",
       "lib/dbusx",
@@ -11105,6 +11990,9 @@
       "lib/portalsettings",
       "lib/render",
       "lib/third_party/godbus",
+      "lib/third_party/typesetting/font",
+      "lib/third_party/typesetting/font/opentype",
+      "lib/third_party/typesetting/fontscan",
       "lib/third_party/wayland/wl",
       "lib/third_party/wayland/wlclient",
       "lib/third_party/wayland/xdg",
@@ -11136,6 +12024,7 @@
       "ui/internal/surfx",
       "ui/internal/sysfont",
       "ui/internal/touchinput",
+      "ui/internal/uifont",
       "ui/internal/window",
       "ui/internal/wlsession",
       "ui/internal/worker",
@@ -11807,6 +12696,7 @@
     ],
     "testImports": [
       "lib/dbustest",
+      "lib/exif",
       "lib/fdtest",
       "lib/testbuild",
       "lib/testhome",
@@ -11815,6 +12705,7 @@
     ],
     "testExternal": [
       "golang.org/x/image/font/gofont/goregular",
+      "image",
       "runtime",
       "testing"
     ]
@@ -12498,6 +13389,8 @@
       "lib/intconv",
       "lib/media/aac",
       "lib/media/demux",
+      "lib/media/flac",
+      "lib/media/mp3",
       "lib/media/opus",
       "lib/media/vorbis",
       "lib/pulse/native",
@@ -12516,9 +13409,12 @@
       "fmt",
       "github.com/stubbedev/memory-go",
       "image",
+      "image/color",
+      "image/draw",
       "io",
       "math",
       "math/bits",
+      "os",
       "slices",
       "sort",
       "strconv",
@@ -12535,9 +13431,7 @@
       "lib/waittest"
     ],
     "testExternal": [
-      "image/color",
       "math/big",
-      "os",
       "path/filepath",
       "runtime",
       "runtime/debug",
@@ -12590,6 +13484,7 @@
   },
   "ui/ui": {
     "imports": [
+      "lib/exif",
       "lib/render",
       "ui/anim",
       "ui/component",
@@ -12621,6 +13516,7 @@
       "lib/assetfile",
       "lib/debug",
       "lib/dmabuf",
+      "lib/exif",
       "lib/gpu",
       "lib/icons",
       "lib/intconv",
@@ -12648,6 +13544,7 @@
       "encoding/hex",
       "errors",
       "fmt",
+      "github.com/stubbedev/memory-go",
       "hash/maphash",
       "image",
       "image/color",
@@ -12700,6 +13597,117 @@
     ]
   },
   "ui/widget/css": {},
+  "viewer/cmd/lys-viewer": {
+    "imports": [
+      "desktop/argpaths",
+      "lib/buildinfo",
+      "viewer/internal/viewer"
+    ],
+    "external": [
+      "errors",
+      "flag",
+      "fmt",
+      "io",
+      "os"
+    ],
+    "testImports": [
+      "lib/testhome"
+    ],
+    "testExternal": [
+      "bytes",
+      "path/filepath",
+      "runtime/debug",
+      "slices",
+      "strings",
+      "testing"
+    ]
+  },
+  "viewer/internal/locale": {
+    "imports": [
+      "desktop/i18n"
+    ],
+    "external": [
+      "embed",
+      "io/fs",
+      "sync"
+    ],
+    "embeds": [
+      "viewer/internal/locale/locales"
+    ],
+    "testImports": [
+      "desktop/i18n/i18ntest"
+    ],
+    "testExternal": [
+      "strings",
+      "testing"
+    ]
+  },
+  "viewer/internal/viewer": {
+    "imports": [
+      "desktop/config",
+      "desktop/desktopentry",
+      "desktop/dochelper",
+      "desktop/fileops",
+      "desktop/fileuri",
+      "desktop/i18n",
+      "desktop/imagedecode",
+      "desktop/logging",
+      "desktop/mime",
+      "desktop/opener",
+      "desktop/shell/apptheme",
+      "desktop/shell/preview",
+      "desktop/shell/widgets",
+      "desktop/styling",
+      "desktop/thumbnail",
+      "lib/exif",
+      "lib/media/demux",
+      "lib/render",
+      "shell/shell/filebrowser",
+      "ui/app",
+      "ui/media",
+      "ui/transfer",
+      "ui/widget",
+      "ui/widget/css",
+      "viewer/internal/locale"
+    ],
+    "external": [
+      "context",
+      "errors",
+      "fmt",
+      "image",
+      "image/draw",
+      "log",
+      "math",
+      "os",
+      "path/filepath",
+      "slices",
+      "strconv",
+      "strings",
+      "sync",
+      "sync/atomic",
+      "time",
+      "unicode"
+    ],
+    "testImports": [
+      "desktop/docrender",
+      "desktop/resources",
+      "desktop/shell/treetest",
+      "lib/fdtest",
+      "lib/testhome",
+      "lib/waittest"
+    ],
+    "testExternal": [
+      "bytes",
+      "image/color",
+      "image/color/palette",
+      "image/gif",
+      "image/png",
+      "io/fs",
+      "path",
+      "regexp",
+      "testing"
+    ]
+  },
   "wm/cmd/lys-wm": {
     "imports": [
       "lib/appearance",
@@ -13716,6 +14724,7 @@
       "wm/internal/protocol/client/xxhotkey",
       "wm/internal/region",
       "wm/internal/render",
+      "wm/internal/render/vulkan",
       "wm/internal/seat",
       "wm/internal/shell",
       "wm/internal/surface",
