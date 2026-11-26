@@ -145,7 +145,7 @@ func TestDragAndDropBetweenClients(t *testing.T) {
 	r.moveOn(0, 20, 50)
 	a.seen(t, "the pointer over a", func() bool { return slices.Contains(a.in.Log, "motion 20,50") })
 	h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
-		return errors.Join(b.Pointer().Button(272, true), b.Pointer().Frame())
+		return leftButton(b, true)
 	})
 	a.seen(t, "the press", func() bool { return a.in.Press != 0 })
 	dragged := a.c.DataSource(map[string]string{"text/uri-list": "file:///tmp/x"})
@@ -178,7 +178,7 @@ func TestDragAndDropBetweenClients(t *testing.T) {
 		return slices.Contains(dragged.Log, "target text/uri-list") && slices.Contains(dragged.Log, "action 2")
 	})
 	h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
-		return errors.Join(b.Pointer().Button(272, false), b.Pointer().Frame())
+		return leftButton(b, false)
 	})
 	zone.seen(t, "the drop", func() bool { return slices.Contains(zone.cb.Log, "drop") })
 	if zone.cb.Log[len(zone.cb.Log)-1] != "leave" {
@@ -271,7 +271,7 @@ func TestACancelledTouchCancelsItsDrag(t *testing.T) {
 	}
 	a.seen(t, "the drag entering a", func() bool { return a.cb.Drag != nil })
 	h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
-		return errors.Join(b.Pointer().Button(272, true), b.Pointer().Frame(), b.Pointer().Button(272, false), b.Pointer().Frame())
+		return errors.Join(leftButton(b, true), leftButton(b, false))
 	})
 	a.c.Sync()
 	if slices.Contains(dragged.Log, "cancelled") || slices.Contains(dragged.Log, "dropped") {
@@ -286,7 +286,7 @@ func TestDragWithoutATakerIsCancelled(t *testing.T) {
 	h := Start(t, small)
 	a := join(t, h, "a")
 	h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
-		return errors.Join(b.Pointer().Button(272, true), b.Pointer().Frame())
+		return leftButton(b, true)
 	})
 	a.seen(t, "the press", func() bool { return a.in.Press != 0 })
 	dragged := a.c.DataSource(map[string]string{"text/plain": "x"})
@@ -295,7 +295,7 @@ func TestDragWithoutATakerIsCancelled(t *testing.T) {
 	}
 	a.seen(t, "the drag entering a", func() bool { return a.cb.Drag != nil })
 	h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
-		return errors.Join(b.Pointer().Button(272, false), b.Pointer().Frame())
+		return leftButton(b, false)
 	})
 	a.seen(t, "the drag cancelled", func() bool { return slices.Contains(dragged.Log, "cancelled") })
 	unheld := a.c.DataSource(map[string]string{"text/plain": "y"})
@@ -351,7 +351,7 @@ func TestDataDeviceProtocolErrors(t *testing.T) {
 			p.seen(t, "focus", func() bool { return slices.Contains(p.in.Log, "kb_enter a") })
 			if tc.press {
 				h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
-					return errors.Join(b.Pointer().Button(272, true), b.Pointer().Frame())
+					return leftButton(b, true)
 				})
 				p.seen(t, "the press", func() bool { return p.in.Press != 0 })
 			}

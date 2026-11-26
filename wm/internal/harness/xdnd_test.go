@@ -63,7 +63,7 @@ func xdndSetup(t *testing.T, aware bool, report func(error)) *xdndRig {
 		return slices.ContainsFunc(a.in.Log, func(l string) bool { return l == "motion 20,50" || l == "enter a 20,50" })
 	})
 	h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
-		return errors.Join(b.Pointer().Button(272, true), b.Pointer().Frame())
+		return leftButton(b, true)
 	})
 	a.seen(t, "the press", func() bool { return a.in.Press != 0 })
 	src := a.c.DataSource(map[string]string{"text/plain;charset=utf-8": "dropped into X", "text/uri-list": "file:///tmp/x"})
@@ -76,7 +76,7 @@ func xdndSetup(t *testing.T, aware bool, report func(error)) *xdndRig {
 
 func (x *xdndRig) release() {
 	x.h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
-		return errors.Join(b.Pointer().Button(272, false), b.Pointer().Frame())
+		return leftButton(b, false)
 	})
 }
 

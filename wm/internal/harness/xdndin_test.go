@@ -127,7 +127,7 @@ func (x *xDragRig) enterZone(at image.Point) xproto.Window {
 
 func (x *xDragRig) release() {
 	x.h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
-		return errors.Join(b.Pointer().Button(272, false), b.Pointer().Frame())
+		return leftButton(b, false)
 	})
 }
 

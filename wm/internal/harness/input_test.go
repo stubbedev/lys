@@ -88,7 +88,7 @@ func TestPointerEntersMovesClicksAndScrolls(t *testing.T) {
 	})
 	r.expect("motion 50,55", "frame")
 	r.inject(func(b *headless.Backend, _ *headless.Output) error {
-		return errors.Join(b.Pointer().Button(272, true), b.Pointer().Frame(), b.Pointer().Button(272, false), b.Pointer().Frame())
+		return errors.Join(leftButton(b, true), leftButton(b, false))
 	})
 	r.expect("button 272 1", "frame", "button 272 0", "frame")
 	r.inject(func(b *headless.Backend, _ *headless.Output) error {
@@ -125,13 +125,13 @@ func TestSubsurfacesGrabsAndInputRegions(t *testing.T) {
 	r.moveTo(40, 50)
 	r.expect("leave child", "enter win 40,50", "frame")
 	r.inject(func(b *headless.Backend, _ *headless.Output) error {
-		return errors.Join(b.Pointer().Button(272, true), b.Pointer().Frame())
+		return leftButton(b, true)
 	})
 	r.expect("button 272 1", "frame")
 	r.moveTo(120, 50)
 	r.expect("motion 120,50", "frame")
 	r.inject(func(b *headless.Backend, _ *headless.Output) error {
-		return errors.Join(b.Pointer().Button(272, false), b.Pointer().Frame())
+		return leftButton(b, false)
 	})
 	r.expect("button 272 0", "frame")
 	r.moveTo(121, 50)

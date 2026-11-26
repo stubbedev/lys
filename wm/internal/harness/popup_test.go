@@ -25,8 +25,7 @@ func menuAt(anchor image.Point, size image.Point) testclient.Placement {
 
 func (r *inputRig) click() {
 	r.h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
-		p := b.Pointer()
-		return errors.Join(p.Button(272, true), p.Frame(), p.Button(272, false), p.Frame())
+		return errors.Join(leftButton(b, true), leftButton(b, false))
 	})
 }
 
@@ -116,7 +115,7 @@ func TestPopupsAreClickableWithoutAGrab(t *testing.T) {
 	r.moveTo(130, 80)
 	r.expect("leave win", "enter tip 10,10", "frame")
 	r.inject(func(b *headless.Backend, _ *headless.Output) error {
-		return errors.Join(b.Pointer().Button(272, true), b.Pointer().Frame())
+		return leftButton(b, true)
 	})
 	r.expect("button 272 1", "frame")
 }
