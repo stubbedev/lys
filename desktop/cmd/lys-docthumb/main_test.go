@@ -83,8 +83,8 @@ func TestTheHelperWritesPageOne(t *testing.T) {
 	}
 }
 
-// A damaged document, an encrypted one and a page past the helper's
-// memory exit with the status that tells their error, and write nothing.
+// A damaged document and an encrypted one exit with the status that
+// tells their error, and write nothing.
 func TestTheHelperExitsWithWhatWentWrong(t *testing.T) {
 	data, err := os.ReadFile(fixture("cairo.pdf"))
 	if err != nil {
@@ -101,21 +101,34 @@ func TestTheHelperExitsWithWhatWentWrong(t *testing.T) {
 	}{
 		{"truncated", request(t, cut, 128, thumbnail.DocumentMemory), dochelper.ErrDamaged},
 		{"encrypted", request(t, fixture("encrypted.pdf"), 128, thumbnail.DocumentMemory), dochelper.ErrEncrypted},
-		{"past its memory", request(t, fixture("cairo.pdf"), dochelper.MaxSize, 48<<20), dochelper.ErrTooLarge},
 	} {
-		t.Run(c.name, func(t *testing.T) {
-			code, out := helper(t, c.req)
-			if err := dochelper.ExitError(code, out); !errors.Is(err, c.want) {
-				t.Errorf("the helper exited %d (%v), want %v: %s", code, err, c.want, out)
-			}
-			if _, err := os.Stat(c.req.Output); !errors.Is(err, os.ErrNotExist) {
-				t.Errorf("the failed helper left %s: %v", c.req.Output, err)
-			}
-		})
+		t.Run(c.name, func(t *testing.T) { requireHelperFails(t, c.req, c.want) })
 	}
+}
+
+// A page past the helper's memory exits with ErrTooLarge and writes
+// nothing; the same page within DocumentMemory renders.
+func TestAPagePastTheHelpersMemoryIsTooLarge(t *testing.T) {
+	if testbuild.Race {
+		t.Skip("the race detector's allocator does not fit the 48 MiB and DocumentMemory the helper is held to")
+	}
+	requireHelperFails(t, request(t, fixture("cairo.pdf"), dochelper.MaxSize, 48<<20), dochelper.ErrTooLarge)
 	code, out := helper(t, request(t, fixture("cairo.pdf"), dochelper.MaxSize, thumbnail.DocumentMemory))
 	if code != 0 {
 		t.Errorf("the page that ran out of 48 MiB, within DocumentMemory: exited %d: %s", code, out)
+	}
+}
+
+// requireHelperFails runs the helper on req and fails the test unless
+// it exits with want and leaves no output.
+func requireHelperFails(t *testing.T, req dochelper.Request, want error) {
+	t.Helper()
+	code, out := helper(t, req)
+	if err := dochelper.ExitError(code, out); !errors.Is(err, want) {
+		t.Errorf("the helper exited %d (%v), want %v: %s", code, err, want, out)
+	}
+	if _, err := os.Stat(req.Output); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("the failed helper left %s: %v", req.Output, err)
 	}
 }
 
