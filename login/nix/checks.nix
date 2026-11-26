@@ -1,7 +1,4 @@
-{
-  self,
-  ...
-}: {
+{self, ...}: {
   perSystem = {
     lib,
     pkgs,
@@ -9,6 +6,14 @@
   }: let
     pkg = self.packages.${pkgs.stdenv.hostPlatform.system}.lys-login;
     fakeLysWm = pkgs.writeShellScriptBin "lys-wm" "";
+    envLysWm = pkgs.writeShellScriptBin "lys-wm" ''echo "LYS_WM_RENDERER=''${LYS_WM_RENDERER-} LYS_UI_RENDERER=''${LYS_UI_RENDERER-}"'';
+    compositorIn = command: lib.head (lib.splitString " " (lib.last (lib.splitString " --compositor " command)));
+    softwareRenders = what: compositor: ''
+      [ "$(${compositor "software"})" = "LYS_WM_RENDERER=lavapipe LYS_UI_RENDERER=cpu" ] || { echo "renderer = software leaves ${what}'s lys-wm on Vulkan or the greeter on the GPU" >&2; exit 1; }
+      [ "$(${compositor "auto"})" = "LYS_WM_RENDERER= LYS_UI_RENDERER=" ] || { echo "renderer = auto forces a software path on ${what}'s lys-wm" >&2; exit 1; }
+    '';
+    greetdSystem = greeter: greeterSystem ({displayManager = "greetd";} // greeter);
+    greetdCommand = greeter: (greetdSystem greeter).services.greetd.settings.default_session.command;
     greeterSystemWith = extra: greeter:
       (pkgs.nixos {
         imports = [self.nixosModules.lys-login extra];
@@ -105,32 +110,29 @@
             touch "$out"
           '';
         greetd-software-render = let
-          command = renderer:
-            (greeterSystem {
-              displayManager = "greetd";
+          compositor = renderer:
+            compositorIn (greetdCommand {
               inherit renderer;
-            }).services.greetd.settings.default_session.command;
-          has = needle: renderer: lib.hasInfix needle (builtins.unsafeDiscardStringContext (command renderer));
+              compositorPackage = envLysWm;
+            });
         in
           pkgs.runCommand "lys-login-greetd-software-render" {} ''
-            ${lib.optionalString (!(has "LYS_UI_RENDERER=cpu" "software") || !(has "WLR_RENDERER=pixman" "software")) ''echo "renderer = software leaves cage or the greeter on the GPU" >&2; exit 1''}
-            ${lib.optionalString (has "LYS_UI_RENDERER" "auto" || has "WLR_RENDERER" "auto") ''echo "renderer = auto forces a software path" >&2; exit 1''}
+            ${lib.optionalString (failedAssertions (greetdSystem {renderer = "software";}) != []) ''echo "renderer = software failed evaluation under greetd" >&2; exit 1''}
+            ${softwareRenders "greetd" compositor}
             touch "$out"
           '';
         daemon-software-render = let
-          envLysWm = pkgs.writeShellScriptBin "lys-wm" ''echo "LYS_WM_RENDERER=''${LYS_WM_RENDERER-} LYS_UI_RENDERER=''${LYS_UI_RENDERER-}"'';
           system = renderer:
             daemonSystem {
               inherit renderer;
               compositorPackage = envLysWm;
             };
-          compositor = renderer: lib.head (lib.splitString " " (lib.last (lib.splitString " --compositor " (system renderer).systemd.services.lys-login.serviceConfig.ExecStart)));
+          compositor = renderer: compositorIn (system renderer).systemd.services.lys-login.serviceConfig.ExecStart;
           rejects = greeter: needle: lib.any (lib.hasInfix needle) (failedAssertions (daemonSystem greeter));
         in
           pkgs.runCommand "lys-login-daemon-software-render" {} ''
             ${lib.optionalString (failedAssertions (system "software") != []) ''echo "renderer = software failed evaluation under the lys-login display manager" >&2; exit 1''}
-            [ "$(${compositor "software"})" = "LYS_WM_RENDERER=lavapipe LYS_UI_RENDERER=cpu" ] || { echo "renderer = software leaves the daemon's lys-wm on Vulkan or the greeter on the GPU" >&2; exit 1; }
-            [ "$(${compositor "auto"})" = "LYS_WM_RENDERER= LYS_UI_RENDERER=" ] || { echo "renderer = auto forces a software path on the daemon's lys-wm" >&2; exit 1; }
+            ${softwareRenders "the daemon" compositor}
             ${lib.optionalString (!rejects {graphicsWrapper = ["nixGL"];} "greeter.graphicsWrapper") ''echo "a graphicsWrapper passed evaluation under the lys-login display manager" >&2; exit 1''}
             ${lib.optionalString (rejects {} "greeter.graphicsWrapper") ''echo "the default graphicsWrapper was rejected" >&2; exit 1''}
             touch "$out"
@@ -158,7 +160,11 @@
           '';
         default-display-manager = let
           system = greeterSystem {};
-          greetd = greeterSystem {displayManager = "greetd";};
+          greetd = greetdSystem {};
+          greetdRunsKioskIn = compositor: greeter:
+            lib.hasInfix
+            (builtins.unsafeDiscardStringContext "/bin/lys-login kiosk --compositor ${lib.getExe' compositor "lys-wm"} -- ")
+            (builtins.unsafeDiscardStringContext (greetdCommand greeter));
           runsDaemonIn = compositor: sys:
             lib.hasInfix
             (builtins.unsafeDiscardStringContext " daemon --vt 1 --service lys-login --greeter-user lys-greeter --compositor ${lib.getExe' compositor "lys-wm"} ")
@@ -171,6 +177,8 @@
             ${lib.optionalString system.services.greetd.enable ''echo "greeter.enable alone enabled greetd" >&2; exit 1''}
             ${lib.optionalString (!(runsDaemonIn fakeLysWm (daemonSystem {}))) ''echo "compositorPackage does not reach the daemon" >&2; exit 1''}
             ${lib.optionalString (!greetd.services.greetd.enable || greetd.systemd.services ? lys-login) ''echo "displayManager = greetd does not run greetd instead of the daemon" >&2; exit 1''}
+            ${lib.optionalString (!(greetdRunsKioskIn defaultCompositor {})) ''echo "greetd does not run lys-login kiosk in the flake's lys-wm" >&2; exit 1''}
+            ${lib.optionalString (!(greetdRunsKioskIn fakeLysWm {compositorPackage = fakeLysWm;})) ''echo "compositorPackage does not reach greetd's kiosk" >&2; exit 1''}
             ${lib.optionalString (!system.security.polkit.enable) ''echo "the lys-login daemon runs without polkit, which authorizes apply-config" >&2; exit 1''}
             touch "$out"
           '';

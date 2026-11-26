@@ -64,9 +64,8 @@ in {
 
     machine.wait_for_unit("lys-login.service")
     machine.wait_until_succeeds("pgrep -u lys-greeter -f 'lys-login greet'", timeout=90)
-    for absent in ("greetd", "cage"):
-        if machine.execute(f"pgrep -x {absent}")[0] == 0:
-            raise Exception(f"{absent} runs")
+    if machine.execute("pgrep -x greetd")[0] == 0:
+        raise Exception("greetd runs")
     machine.wait_until_succeeds("loginctl list-sessions --no-legend | grep -q lys-greeter", timeout=30)
     machine.wait_for_unit("graphical.target")
     for cmd, want in (

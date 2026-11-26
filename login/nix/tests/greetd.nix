@@ -1,9 +1,10 @@
 {
   pkgs,
-  lib,
   self,
   vm,
+  ...
 }: let
+  lysWm = self.packages.${pkgs.stdenv.hostPlatform.system}.lys-wm;
   password = "lys-login-vm";
   journald = ["${pkgs.systemd}/bin/systemd-cat" "--identifier=lys-greeter"];
 
@@ -66,20 +67,20 @@
     };
   };
 
-  wrapper = specialisation: renderer: env: {
-    specialisation.${specialisation}.configuration.programs.lys-login.greeter = {
-      renderer = lib.mkForce renderer;
-      graphicsWrapper = lib.mkForce (journald ++ ["env"] ++ env);
-    };
-  };
-
   scenarios = [
     {
-      name = "pixman";
+      name = "lavapipe";
       module = user "pia";
       script = _: ''
-        login_through(machine, "pixman", "pia")
+        login_through(machine, "lavapipe", "pia")
         no_xkb_errors(machine)
+        kiosk = machine.succeed("for p in $(pgrep -u greeter); do printf '%s %s\\n' $p $(readlink /proc/$p/exe); done").splitlines()
+        lys_wm = [fields[0] for fields in map(str.split, kiosk) if len(fields) == 2 and fields[1].startswith("${lysWm}/")]
+        if not lys_wm:
+            raise Exception(f"the greeter does not run in lys-wm: {kiosk}")
+        env = machine.succeed(f"tr '\\0' '\\n' < /proc/{lys_wm[0]}/environ").split()
+        if "LYS_WM_RENDERER=lavapipe" not in env:
+            raise Exception(f"greetd's lys-wm does not render on lavapipe: {env}")
       '';
     }
     {
@@ -105,18 +106,17 @@
       '';
     }
     {
-      name = "gles";
-      specialisation = "gles";
-      module.imports = [(user "gail") (wrapper "gles" "auto" ["WLR_RENDERER_ALLOW_SOFTWARE=1"])];
-      script = _: ''
-        login_through(machine, "gles", "gail")
-        no_xkb_errors(machine)
-      '';
-    }
-    {
       name = "deadkey";
       specialisation = "deadkey";
-      module.imports = [(user "dora") (wrapper "deadkey" "software" ["XKB_DEFAULT_LAYOUT=us" "XKB_DEFAULT_VARIANT=intl"])];
+      module.imports = [
+        (user "dora")
+        {
+          specialisation.deadkey.configuration.services.xserver.xkb = {
+            layout = "us";
+            variant = "intl";
+          };
+        }
+      ];
       script = _: ''
         machine.wait_for_unit("greetd.service")
         machine.succeed("printf 'dora:caf\\303\\251\\n' | chpasswd")

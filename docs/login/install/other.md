@@ -1,6 +1,6 @@
 # Other systems
 
-Run the display manager from the release archive, or only the greeter under greetd.
+Run the display manager from the release archive, or only the greeter, in the same lys-wm kiosk, under greetd.
 
 ## Display manager from the archive
 
@@ -37,13 +37,19 @@ sudo systemctl enable lys-login
 ```toml
 # /etc/greetd/config.toml
 [default_session]
-command = "cage -s -- lys-login greet --config /etc/lys-shell/config.yaml --state /var/lib/lys-greeter/last-session"
+command = "lys-login kiosk -- --config /etc/lys-shell/config.yaml --state /var/lib/lys-greeter/last-session"
 user = "greeter"
 ```
 
 ```text
-greetd → cage -s → lys-login greet → (login) → your session
+greetd → lys-login kiosk → lys-wm → lys-login greet → (login) → your session
 ```
+
+`lys-login kiosk` writes the display manager's lys-wm kiosk config (no binds,
+no borders or animations, the system keyboard layout, the greeter's cursor) to
+`$XDG_RUNTIME_DIR/kiosk.yaml` and becomes lys-wm with it, the greeter as its
+one program. The arguments after `--` are `lys-login greet`'s.
+`--compositor PATH` names lys-wm when it is not `lys-wm` on the `PATH`.
 
 - Create the state directory:
   `install -d -o greeter -g greeter -m 0700 /var/lib/lys-greeter`.
@@ -65,13 +71,13 @@ greetd → cage -s → lys-login greet → (login) → your session
 | `package` | package | the flake's lys-login | The lys-login package. |
 | `lock.enable` | bool | `false` | Warn with the steps to create the lock screen's PAM service. |
 | `lock.pamService` | string | `"lys-shell"` | The service name used in that warning. |
-| `greeter.enable` | bool | `false` | Install cage and the `lys-greeter-session` wrapper, and warn with the greetd setup left to do. |
-| `greeter.cagePackage` | package | `pkgs.cage` | The kiosk compositor. |
-| `greeter.renderer` | `"auto"` or `"software"` | `"auto"` | `software` bakes the CPU/pixman variables into the wrapper. |
+| `greeter.enable` | bool | `false` | Install the `lys-greeter-session` wrapper, and warn with the greetd setup left to do. |
+| `greeter.compositorPackage` | package | the flake's lys-wm | lys-wm for the greeter kiosk. |
+| `greeter.renderer` | `"auto"` or `"software"` | `"auto"` | `software` bakes the CPU and lavapipe variables into the wrapper's lys-wm. |
 | `greeter.settings` | YAML | `{}` | Written to `$XDG_CONFIG_HOME/lys-shell/greeter.yaml`; copy it where the greetd user can read it. |
 
-`lys-greeter-session` runs cage and the greeter, passing its arguments to
-`lys-login greet`:
+`lys-greeter-session` runs `lys-login kiosk` with that lys-wm, passing its
+arguments to `lys-login greet`:
 
 ```text
 lys-greeter-session --config /etc/lys-shell/config.yaml --state /var/lib/lys-greeter/last-session
@@ -80,15 +86,16 @@ lys-greeter-session --config /etc/lys-shell/config.yaml --state /var/lib/lys-gre
 ### Rendering without a GPU
 
 The greeter draws on the CPU when Vulkan is unavailable; `LYS_UI_RENDERER=cpu`
-forces it. The display manager's lys-wm renders with Vulkan and stops on a card
+forces it. The greeter's lys-wm renders with Vulkan and stops on a card
 without a Vulkan driver, such as a VM's virtio-gpu; `LYS_WM_RENDERER=lavapipe`
 makes it render with Vulkan on lavapipe, Mesa's CPU driver, which needs
 `/dev/udmabuf` (systemd grants it to the seat's sessions). The greeter's
 lys-wm gets its environment from PAM, not from the unit, so put the line in
 `/etc/environment` (read by `pam_env`), where lys-wm sessions find it too.
-For cage set `WLR_RENDERER=pixman` and `WLR_DRM_NO_MODIFIERS=1`.
-The home-manager `greeter.renderer = "software"` sets the cage and greeter
-variables. On a non-NixOS host, run the
+Under greetd it can go in the greetd command instead
+(`env LYS_WM_RENDERER=lavapipe lys-login kiosk -- …`).
+The home-manager `greeter.renderer = "software"` sets both variables for the
+wrapper's lys-wm and greeter. On a non-NixOS host, run the
 nix-built package under [nixGL](https://github.com/nix-community/nixGL) for GPU
 rendering:
 

@@ -114,19 +114,20 @@ wins:
    `environment.d` then yields nothing.
 3. **`XCURSOR_THEME` and `XCURSOR_SIZE`** in the environment, then `cursor-theme` and `cursor-size`.
 
-Under the daemon the cursor goes into the greeter's lys-wm kiosk config. The theme
+The cursor goes into the greeter's lys-wm kiosk config, under the daemon and
+under greetd's `lys-login kiosk` alike. The theme
 must be installed system-wide, where the greeter account can read it; otherwise
 lys-wm draws its built-in arrow.
 
 Under `displayManager = "greetd"` the NixOS module passes the system's
 `XCURSOR_THEME` and `XCURSOR_SIZE` (`environment.sessionVariables`, then
 `environment.variables`) with `XCURSOR_PATH=/run/current-system/sw/share/icons`
-to cage and the greeter. On other greetd setups set these in the greetd command.
+to `lys-login kiosk`. On other greetd setups set these in the greetd command.
 
 ## Keyboard layout
 
-Under the daemon the greeter uses the system layout. On each greeter start the
-daemon reads `X11Layout`, `X11Model`, `X11Variant` and `X11Options` from
+The greeter uses the system layout. On each greeter start the daemon, or
+`lys-login kiosk` under greetd, reads `X11Layout`, `X11Model`, `X11Variant` and `X11Options` from
 systemd-localed (2 s timeout), else `/etc/X11/xorg.conf.d/00-keyboard.conf`, else
 `XKBLAYOUT`, `XKBMODEL`, `XKBVARIANT`, `XKBOPTIONS` in `/etc/vconsole.conf`, and
 writes it to the kiosk config as `input.keyboard`. Set it with
@@ -136,8 +137,7 @@ layout lys-wm cannot compile is logged and lys-wm's US default is used.
 With several layouts (`localectl set-x11-keymap de,us`) a chip in the top right
 shows the active one. Clicking it or the XKB switch option (`grp:caps_toggle`,
 `grp:alt_shift_toggle`, …) cycles layouts. The greeter remembers each user's
-layout and switches to it when that user is chosen. Under greetd the chip only
-displays the layout.
+layout and switches to it when that user is chosen.
 
 ## Accessibility
 

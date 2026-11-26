@@ -4,7 +4,7 @@ layout: home
 hero:
   name: lys-login
   text: Log in and lock, one screen
-  tagline: The lys desktop's display manager, greeter and lock screen in pure Go. Needs PAM and lys-wm; no greetd, cage or polkit.
+  tagline: The lys desktop's display manager, greeter and lock screen in pure Go. Needs PAM and lys-wm; no greetd or polkit.
   image:
     src: /lys-login.svg
     alt: lys-login

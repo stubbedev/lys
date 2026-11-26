@@ -65,8 +65,9 @@ the [PAM service](/login/guide/pam#the-lock-screen-s-service). Set
 
 ## Under greetd
 
-`greeter.displayManager = "greetd"` runs the greeter under greetd in a cage kiosk,
-with state owned by greetd's `greeter` user.
+`greeter.displayManager = "greetd"` runs the greeter under greetd in the same
+lys-wm kiosk the daemon uses, started by `lys-login kiosk`, with state owned by
+greetd's `greeter` user.
 
 ## Options
 
@@ -81,8 +82,8 @@ All under `programs.lys-login`.
 | `lock.enable` | bool | `false` | Declare the lock screen's PAM service. |
 | `lock.pamService` | string | `"lys-shell"` | Its name. |
 | `greeter.enable` | bool | `false` | Run the greeter via `greeter.displayManager`. |
-| `greeter.displayManager` | `"lys-login"` or `"greetd"` | `"lys-login"` | `lys-login`: the daemon on `greeter.vt`. `greetd`: greetd with cage. |
-| `greeter.compositorPackage` | package | the flake's lys-wm | lys-wm for the greeter kiosk. |
+| `greeter.displayManager` | `"lys-login"` or `"greetd"` | `"lys-login"` | `lys-login`: the daemon on `greeter.vt`. `greetd`: greetd running `lys-login kiosk`. Both show the greeter in the lys-wm kiosk. |
+| `greeter.compositorPackage` | package | the flake's lys-wm | lys-wm for the greeter kiosk, under either display manager. |
 | `greeter.splashPackage` | null or package | `null` | lys-splash, when it is the boot splash. |
 | `greeter.vt` | positive int | `1` | VT the daemon runs on. |
 | `greeter.settings` | YAML | `{}` | Written to `/etc/lys-shell/config.yaml` when non-empty. |
@@ -90,8 +91,7 @@ All under `programs.lys-login`.
 | `greeter.session.x11Dirs` | list of strings | NixOS `xsessions` | X11 session files, started through `startx` (needs it on the PATH, e.g. `services.xserver.enable`). `[]` disables X11. |
 | `greeter.session.command` | string | `""` | Fallback session offered as "Custom"; the only entry when no session files exist. |
 | `greeter.session.environment` | list of strings | `[]` | Extra `KEY=value` for every session. |
-| `greeter.cagePackage` | package | `pkgs.cage` | greetd only: the kiosk compositor. |
-| `greeter.renderer` | `"auto"` or `"software"` | `"auto"` | `software` needs no GPU driver: the greeter draws on the CPU, lys-wm renders with Vulkan on lavapipe (`LYS_WM_RENDERER=lavapipe`) under the daemon, cage with pixman under greetd. Sessions are not affected. |
+| `greeter.renderer` | `"auto"` or `"software"` | `"auto"` | `software` needs no GPU driver: the greeter draws on the CPU, lys-wm renders with Vulkan on lavapipe (`LYS_WM_RENDERER=lavapipe`). Sessions are not affected. |
 | `greeter.graphicsWrapper` | list of strings | `[]` | greetd only: command prefix around the launch, e.g. nixGL. |
 
 Evaluation fails when no session can be offered, when `autologin.user` is set

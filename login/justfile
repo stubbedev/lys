@@ -59,8 +59,8 @@ vms-greeter:
 vms-sessions:
     nix build -L .#checks.{{ arch() }}-{{ os() }}.login-vms-sessions
 
-# The greeter under greetd in a cage kiosk in one NixOS VM (needs KVM): pixman
-# and GLES2 over llvmpipe, hidden system accounts, a dead key, and setting the
+# The greeter under greetd in a lys-wm kiosk in one NixOS VM (needs KVM): the
+# lavapipe render path, hidden system accounts, a dead key, and setting the
 # wall clock waking the login screen's clock.
 vms-greetd:
     nix build -L .#checks.{{ arch() }}-{{ os() }}.login-vms-greetd

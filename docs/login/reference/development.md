@@ -24,7 +24,7 @@ names its scenario.
 | --- | --- |
 | `vms-greeter` | `login`: daemon, greeter in lys-wm, wrong and right password, logind session, lys-secrets unlock, greeter returns. `accessibility`: accessibility menu, Super+Alt+S with Orca, persistence. `x11_session`: X11 session registered as `x11`, greeter as `wayland`. `keyboard_german`, `keyboard_switching`: system layout, layout switching, per-user layout. `keyring`, `no_keyring`: gnome-keyring started and unlocked without its PAM module; warnings for a rejected password and no keyring. |
 | `vms-sessions` | `lock`: lock screen status row, layout switch, fprintd match and mismatch. `rekey`: a changed password re-keys the login collection. `switch`: fast user switching, upgrade with two sessions, logout, stop. `upgrade`: in-place upgrade with a session and lock screen; refused and failed upgrades. |
-| `vms-greetd` | `pixman`, `gles`: greeter under greetd and cage, on pixman and on GLES2/llvmpipe. `hidden`: a system account left out of the list but typed in. `deadkey`: a dead key in the password. `wallclock`: setting the wall clock updates the login clock. |
+| `vms-greetd` | `lavapipe`: greeter under greetd in the lys-wm kiosk of `lys-login kiosk`, on lavapipe. `hidden`: a system account left out of the list but typed in. `deadkey`: a dead key in the password. `wallclock`: setting the wall clock updates the login clock. |
 | `vms-autologin` | `autologin`: autologin, greeter after logout, LUKS passphrase opening the keyring. |
 
 Each check is also `just checks login-<name>` from the repository root. Repository-wide recipes, the Nix layout, CI and releases are in [Developing lys](/development/).

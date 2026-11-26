@@ -7,29 +7,24 @@ self: {
   cfg = config.programs.lys-login;
   yamlFormat = pkgs.formats.yaml {};
 
-  # A self-contained launch wrapper for the greeter: `cage -s -- lys-login greet`
-  # with the render env baked in, passing any extra args straight through. Point
-  # your (non-NixOS) greetd at this one path — or, for GPU acceleration, wrap it
-  # with nixGL: `nixGLIntel lys-greeter-session --config /etc/lys-shell/config.yaml
-  # --state /var/lib/lys-greeter/last-session`. `renderer = "software"` bakes
-  # the driver-free pixman and CPU path so it runs without nixGL at all.
-  # cage's own cursor (shown until the greeter maps) follows XCURSOR_*; mirror
-  # the greeter's cursor config so both cursors match.
-  # The former `greeter.*` cursor keys are read too, as the greeter still
-  # reads them.
+  # A self-contained launch wrapper for greetd's greeter command: `lys-login
+  # kiosk`, which starts the greeter in the display manager's lys-wm kiosk, with
+  # the render path baked into lys-wm and any extra args passed to the greeter.
+  # Point your (non-NixOS) greetd at this one path, or, for GPU acceleration,
+  # wrap it with nixGL. The former `greeter.*` cursor keys are read too, as the
+  # greeter still reads them.
   greeterCursor = (cfg.greeter.settings.greeter or {}) // (cfg.greeter.settings.login.greeter or {});
   greeterCursorEnv =
-    "XCURSOR_SIZE=${toString (greeterCursor.cursor-size or 24)}"
-    + lib.optionalString (
-      (greeterCursor.cursor-theme or "") != ""
-    ) " XCURSOR_THEME=${greeterCursor.cursor-theme}";
+    ["XCURSOR_SIZE=${toString (greeterCursor.cursor-size or 24)}"]
+    ++ lib.optional ((greeterCursor.cursor-theme or "") != "") "XCURSOR_THEME=${greeterCursor.cursor-theme}";
+
+  greeterCompositor = import ./greeter-compositor.nix {inherit lib pkgs;} {
+    package = cfg.greeter.compositorPackage;
+    inherit (cfg.greeter) renderer;
+  };
 
   greeterSession = pkgs.writeShellScriptBin "lys-greeter-session" ''
-    exec env ${greeterCursorEnv} ${
-      lib.optionalString (cfg.greeter.renderer == "software")
-      (lib.concatStrings (lib.mapAttrsToList (k: v: "${k}=${v} ") (import ./software-render-env.nix).cage))
-    }${lib.getExe cfg.greeter.cagePackage} -s -- \
-      ${lib.getExe cfg.package} greet "$@"
+    exec ${lib.escapeShellArgs (["env"] ++ greeterCursorEnv ++ [(lib.getExe' cfg.package "lys-login") "kiosk" "--compositor" (lib.getExe' greeterCompositor "lys-wm") "--"])} "$@"
   '';
 in {
   options.programs.lys-login = {
@@ -67,16 +62,16 @@ in {
 
     greeter = {
       enable = lib.mkEnableOption ''
-        lys-login greeter tooling: installs the kiosk compositor (cage) and writes a
-        themed greeter config. NOTE: greetd is a system service home-manager
+        lys-login greeter tooling: installs the `lys-greeter-session` launch
+        wrapper for greetd and writes a themed greeter config. NOTE: greetd is a system service home-manager
         cannot manage — on NixOS use the system module's
         `programs.lys-login.greeter`; elsewhere configure greetd yourself'';
 
-      cagePackage = lib.mkOption {
+      compositorPackage = lib.mkOption {
         type = lib.types.package;
-        default = pkgs.cage;
-        defaultText = lib.literalExpression "pkgs.cage";
-        description = "Kiosk compositor that hosts the greeter under greetd.";
+        default = self.packages.${pkgs.stdenv.hostPlatform.system}.lys-wm;
+        defaultText = lib.literalExpression "lys.packages.\${system}.lys-wm";
+        description = "lys-wm, the kiosk compositor `lys-greeter-session` shows the greeter in.";
       };
 
       renderer = lib.mkOption {
@@ -87,9 +82,10 @@ in {
         default = "auto";
         description = ''
           Render path baked into the {command}`lys-greeter-session` wrapper.
-          `auto` sets nothing (cage's GLES2 and the greeter's Vulkan each fall back
-          to software on their own); `software` forces the driver-free pixman and
-          CPU path, so the wrapper runs without nixGL on a non-NixOS host. Use
+          `auto` sets nothing: lys-wm renders with Vulkan and stops on a card
+          without a Vulkan driver. `software` forces the driver-free path (the
+          greeter on the CPU, lys-wm on lavapipe), so the wrapper runs without
+          nixGL on a non-NixOS host. Use
           `auto` together with a nixGL wrapper when you want GPU acceleration.
         '';
       };
@@ -109,7 +105,7 @@ in {
           {file}`$XDG_CONFIG_HOME/lys-shell/greeter.yaml`. The greeter runs as the
           greetd user, so copy this somewhere that user can read (e.g.
           {file}`/etc/lys-shell/config.yaml`) and point greetd's command at it:
-          {command}`cage -s -- lys-login greet --config /etc/lys-shell/config.yaml --state /var/lib/lys-greeter/last-session`.
+          {command}`lys-greeter-session --config /etc/lys-shell/config.yaml --state /var/lib/lys-greeter/last-session`.
           The greeter discovers Wayland sessions from the standard
           {file}`wayland-sessions` dirs; add `--sessions DIR` to override.
         '';
@@ -120,14 +116,11 @@ in {
   config = {
     home.packages =
       lib.optional (cfg.enable || cfg.greeter.enable) cfg.package
-      ++ lib.optionals cfg.greeter.enable [
-        cfg.greeter.cagePackage
-        greeterSession
-      ];
+      ++ lib.optional cfg.greeter.enable greeterSession;
 
     warnings =
       lib.optional cfg.greeter.enable ''
-        programs.lys-login.greeter (home-manager) installs cage + the
+        programs.lys-login.greeter (home-manager) installs the
         `lys-greeter-session` wrapper, but cannot configure greetd (a system
         service). On NixOS use programs.lys-login.greeter in the system module;
         otherwise enable greetd yourself and point its command at the wrapper:

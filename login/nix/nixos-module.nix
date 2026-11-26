@@ -11,21 +11,14 @@ self: {
   # writable by the greeter's user; the tmpfiles rules below create it.
   greeterStateDir = "/var/lib/lys-greeter";
 
-  softwareRenderEnv = import ./software-render-env.nix;
+  greeterCompositor = import ./greeter-compositor.nix {inherit lib pkgs;} {
+    package = cfg.greeter.compositorPackage;
+    inherit (cfg.greeter) renderer;
+  };
+  greeterCompositorExe = lib.getExe' greeterCompositor "lys-wm";
 
-  greeterCompositor =
-    if cfg.greeter.renderer == "software"
-    then
-      pkgs.runCommand "lys-wm-software" {nativeBuildInputs = [pkgs.makeBinaryWrapper];} ''
-        makeBinaryWrapper ${lib.getExe' cfg.greeter.compositorPackage "lys-wm"} $out/bin/lys-wm ${
-          lib.concatStringsSep " " (lib.mapAttrsToList (k: v: "--set ${k} ${lib.escapeShellArg v}") softwareRenderEnv.lys-wm)
-        }
-      ''
-    else cfg.greeter.compositorPackage;
-
-  # cage draws its own cursor until the greeter window maps (and wlroots scales
-  # it per output). Give both cage and the greeter the same cursor as the
-  # rest of the system.
+  # lys-wm draws the greeter's cursor, from the kiosk config's environment,
+  # which falls back to XCURSOR_* when the greeter's config names none.
   #
   # The greeter runs as the unprivileged `greeter` user (home /var/empty) and
   # cannot read a normal user's often-0700 home, so a cursor theme installed only
@@ -71,60 +64,32 @@ self: {
     sessionDirFlags "--sessions" "--no-sessions" cfg.greeter.session.dirs
     ++ sessionDirFlags "--xsessions" "--no-xsessions" cfg.greeter.session.x11Dirs;
 
-  # The greetd `default_session` command: a kiosk compositor (cage) hosting the
-  # lys-login greeter. The greeter discovers Wayland sessions from `session.dirs`,
-  # lets the user pick one, and remembers the choice under `greeterStateDir`.
-  # cage's `-s` allows VT switching. The greeter reads its theme from
-  # /etc/lys-shell/config.yaml (written below from `greeter.settings`).
-  #
-  # Layering, outermost first: [graphicsWrapper] env[software vars] cage → greeter.
-  # The graphicsWrapper (e.g. nixGL) must wrap the whole thing so it injects the
-  # host GPU driver into cage *and* the greeter it spawns.
+  # The greetd `default_session` command: `lys-login kiosk` writes the
+  # daemon's lys-wm kiosk config into the greeter's runtime directory and
+  # becomes lys-wm with the greeter as its one program. The graphicsWrapper
+  # (e.g. nixGL) wraps the whole launch, so lys-wm and the greeter both find
+  # the host's GPU driver.
   greeterCommand = let
-    cageExe = lib.getExe cfg.greeter.cagePackage;
-    greeterExe = lib.getExe' cfg.package "lys-login";
-    envArgs =
-      lib.concatMapStringsSep " " (
-        e: "--env ${lib.escapeShellArg e}"
-      )
-      cfg.greeter.session.environment;
-    # Optional explicit fallback session, appended as a "Custom" entry.
-    fallback = lib.optionalString (
-      cfg.greeter.session.command != ""
-    ) "-- ${cfg.greeter.session.command}";
     wrapperPrefix = lib.optionalString (
       cfg.greeter.graphicsWrapper != []
     ) (lib.concatStringsSep " " cfg.greeter.graphicsWrapper + " ");
-    envPrefix =
-      "env "
-      + lib.concatStringsSep " " (
-        cursorEnv ++ lib.optionals (cfg.greeter.renderer == "software") (lib.mapAttrsToList (k: v: "${k}=${v}") softwareRenderEnv.cage)
-      )
-      + " ";
   in
-    "${wrapperPrefix}${envPrefix}${cageExe} -s -- "
-    + "${greeterExe} greet --config /etc/lys-shell/config.yaml "
-    + "--state ${greeterStateDir}/last-session ${lib.escapeShellArgs sessionDirArgs} ${envArgs} ${fallback}";
+    wrapperPrefix
+    + lib.escapeShellArgs (
+      ["env"]
+      ++ cursorEnv
+      ++ [
+        (lib.getExe' cfg.package "lys-login")
+        "kiosk"
+        "--compositor"
+        greeterCompositorExe
+        "--"
+      ]
+      ++ greetArgs
+    );
 
-  daemonArgs =
+  greetArgs =
     [
-      "--vt"
-      (toString cfg.greeter.vt)
-      "--service"
-      "lys-login"
-      "--greeter-user"
-      "lys-greeter"
-      "--compositor"
-      (lib.getExe' greeterCompositor "lys-wm")
-    ]
-    ++ lib.optionals (cfg.greeter.splashPackage != null) [
-      "--splash"
-      (lib.getExe' cfg.greeter.splashPackage "lys-splash")
-    ]
-    ++ lib.optionals (cfg.autologin.user != null) ["--autologin" cfg.autologin.user]
-    ++ lib.optionals (cfg.autologin.session != null) ["--autologin-session" cfg.autologin.session]
-    ++ [
-      "--"
       "--config"
       "/etc/lys-shell/config.yaml"
       "--state"
@@ -142,6 +107,26 @@ self: {
       "-c"
       cfg.greeter.session.command
     ];
+
+  daemonArgs =
+    [
+      "--vt"
+      (toString cfg.greeter.vt)
+      "--service"
+      "lys-login"
+      "--greeter-user"
+      "lys-greeter"
+      "--compositor"
+      greeterCompositorExe
+    ]
+    ++ lib.optionals (cfg.greeter.splashPackage != null) [
+      "--splash"
+      (lib.getExe' cfg.greeter.splashPackage "lys-splash")
+    ]
+    ++ lib.optionals (cfg.autologin.user != null) ["--autologin" cfg.autologin.user]
+    ++ lib.optionals (cfg.autologin.session != null) ["--autologin-session" cfg.autologin.session]
+    ++ ["--"]
+    ++ greetArgs;
 
   passwordlessStack = ''
     auth     requisite pam_nologin.so
@@ -233,11 +218,12 @@ in {
         ];
         default = "lys-login";
         description = ''
-          What runs the greeter. `lys-login` is lys-login's own display
-          manager: a root daemon on `vt` that shows the greeter in a lys-wm kiosk (`compositorPackage`)
-          and starts the session a user logs in to through PAM (the
-          `lys-login` service), with neither greetd nor cage. `greetd` runs
-          it under greetd in a cage kiosk.
+          What runs the greeter. Both show it in the same lys-wm kiosk
+          (`compositorPackage`). `lys-login` is lys-login's own display
+          manager: a root daemon on `vt` that starts the session a user logs
+          in to through PAM (the `lys-login` service), without greetd.
+          `greetd` runs the kiosk as greetd's greeter, through
+          {command}`lys-login kiosk`.
         '';
       };
 
@@ -246,7 +232,7 @@ in {
         default = self.packages.${pkgs.stdenv.hostPlatform.system}.lys-wm;
         defaultText = lib.literalExpression "lys.packages.\${system}.lys-wm";
         example = lib.literalExpression "config.programs.lys-wm.package";
-        description = "lys-wm, the kiosk compositor the `lys-login` display manager shows the greeter in.";
+        description = "lys-wm, the kiosk compositor the greeter is shown in under either `displayManager`.";
       };
 
       splashPackage = lib.mkOption {
@@ -277,13 +263,6 @@ in {
         description = "Virtual terminal the `lys-login` display manager runs on.";
       };
 
-      cagePackage = lib.mkOption {
-        type = lib.types.package;
-        default = pkgs.cage;
-        defaultText = lib.literalExpression "pkgs.cage";
-        description = "Kiosk compositor that hosts the greeter under greetd.";
-      };
-
       renderer = lib.mkOption {
         type = lib.types.enum [
           "auto"
@@ -293,19 +272,14 @@ in {
         description = ''
           Render path for the greeter and its compositor.
 
-          `auto` sets nothing. Under the `lys-login` display manager lys-wm
-          renders with Vulkan, so on a card without a Vulkan driver (a VM's
-          virtio-gpu, say) it stops. Under greetd wlroots (cage) uses its GLES2
-          renderer, which needs a GPU driver. It refuses Mesa's software driver,
-          so on a host without one cage exits and greetd keeps restarting it.
+          `auto` sets nothing: lys-wm renders with Vulkan, so on a card
+          without a Vulkan driver (a VM's virtio-gpu, say) it stops.
           `software` needs no GPU vendor driver at all: the greeter draws on
-          the CPU (`LYS_UI_RENDERER=cpu`), and its compositor renders with
-          Vulkan on the CPU into the card's buffers under the daemon
-          (`LYS_WM_RENDERER=lavapipe`, set by wrapping `compositorPackage`;
-          lavapipe shares them through {file}`/dev/udmabuf`, which systemd
-          grants the seat's sessions) or with pixman under greetd
-          (`WLR_RENDERER=pixman`). It reaches the greeter's compositor only, not
-          the sessions it starts. Use `software` on VMs, headless-ish boxes, or
+          the CPU (`LYS_UI_RENDERER=cpu`), and lys-wm renders with Vulkan on
+          the CPU into the card's buffers (`LYS_WM_RENDERER=lavapipe`, set by
+          wrapping `compositorPackage`; lavapipe shares them through
+          {file}`/dev/udmabuf`, which systemd grants the seat's sessions). It
+          reaches the greeter's compositor only, not the sessions it starts. Use `software` on VMs, headless-ish boxes, or
           any host where GPU init is unreliable and you would rather guarantee
           the login screen renders.
         '';
@@ -316,13 +290,13 @@ in {
         default = [];
         example = lib.literalExpression ''[ "''${pkgs.nixgl.nixGLIntel}/bin/nixGLIntel" ]'';
         description = ''
-          Command prefix wrapping the whole greeter launch (cage + greeter)
+          Command prefix wrapping the whole greeter launch (lys-wm + greeter)
           under greetd; the `lys-login` display manager takes none. Unused on
           NixOS, where drivers come from {file}`/run/opengl-driver`.
           Its purpose is nixGL on non-NixOS hosts: set this to a nixGL wrapper so
-          cage — and the greeter it spawns — find the host's GPU driver and run
-          accelerated. Leave empty (with `renderer = "software"`) to skip GL
-          entirely instead.
+          lys-wm and the greeter it starts find the host's GPU driver and run
+          accelerated. Leave empty (with `renderer = "software"`) to skip the
+          GPU entirely instead.
         '';
       };
 
@@ -421,8 +395,8 @@ in {
     })
 
     (lib.mkIf (cfg.greeter.enable && cfg.greeter.displayManager == "greetd") {
-      # greetd runs the kiosk compositor + greeter as the unprivileged greeter
-      # user. mkDefault so an explicit greetd config wins.
+      # greetd runs the kiosk as the unprivileged greeter user. mkDefault so an
+      # explicit greetd config wins.
       services.greetd = {
         enable = true;
         settings.default_session.command = lib.mkDefault greeterCommand;
@@ -433,15 +407,13 @@ in {
       systemd.tmpfiles.rules = [
         "d ${greeterStateDir} 0700 greeter greeter -"
       ];
-
-      environment.systemPackages = [cfg.greeter.cagePackage];
     })
 
     (lib.mkIf (cfg.greeter.enable && cfg.greeter.displayManager == "lys-login") {
       assertions = [
         {
           assertion = cfg.greeter.graphicsWrapper == [];
-          message = ''programs.lys-login.greeter.graphicsWrapper wraps the greetd launch of cage; the "lys-login" display manager does not run it. Leave graphicsWrapper empty.'';
+          message = ''programs.lys-login.greeter.graphicsWrapper wraps the greetd launch of the kiosk; the "lys-login" display manager does not run it. Leave graphicsWrapper empty.'';
         }
       ];
       services.displayManager.enable = true;
@@ -474,15 +446,16 @@ in {
         aliases = ["display-manager.service"];
         wantedBy = ["graphical.target"];
         wants = ["systemd-user-sessions.service"];
-        after = [
-          "systemd-user-sessions.service"
-          "plymouth-quit-wait.service"
-          "getty@tty${toString cfg.greeter.vt}.service"
-        ]
-        ++ lib.optionals (cfg.greeter.splashPackage != null) [
-          "lys-splash-start.service"
-          "lys-splash-quit.service"
-        ];
+        after =
+          [
+            "systemd-user-sessions.service"
+            "plymouth-quit-wait.service"
+            "getty@tty${toString cfg.greeter.vt}.service"
+          ]
+          ++ lib.optionals (cfg.greeter.splashPackage != null) [
+            "lys-splash-start.service"
+            "lys-splash-quit.service"
+          ];
         conflicts =
           ["getty@tty${toString cfg.greeter.vt}.service"]
           ++ lib.optional (cfg.greeter.splashPackage != null) "lys-splash-quit.service";
