@@ -9,6 +9,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -26,8 +27,9 @@ import (
 )
 
 const (
-	bound = wmtest.Bound
-	poll  = 50 * time.Millisecond
+	bound       = wmtest.Bound
+	poll        = 50 * time.Millisecond
+	settingsApp = "dev.stubbe.lys.settings"
 )
 
 type session struct {
@@ -309,7 +311,7 @@ func TestTheBuiltInConfigAndSchemaAreWhatThisAppExpects(t *testing.T) {
 func buildApp(t *testing.T) string {
 	t.Helper()
 	bin := filepath.Join(t.TempDir(), "lys-settings")
-	out, err := exec.Command("go", "build", "-o", bin, "github.com/stubbedev/lys/settings/cmd/lys-settings").CombinedOutput()
+	out, err := exec.Command("go", "build", "-tags", "lysdebug", "-o", bin, "github.com/stubbedev/lys/settings/cmd/lys-settings").CombinedOutput()
 	if err != nil {
 		t.Fatalf("%v\n%s", err, out)
 	}
@@ -357,7 +359,7 @@ func TestTheAppOpensOnALysWMPageAsAClientOfLysWM(t *testing.T) {
 	})
 	waittest.UntilSlow(t, func() bool {
 		windows, err := s.Ctl("windows")
-		return err == nil && strings.Contains(windows, "dev.stubbe.lys.settings")
+		return err == nil && strings.Contains(windows, settingsApp)
 	}, "settings window")
 }
 
@@ -367,13 +369,14 @@ func (s *session) settingsWindows() int {
 	if err != nil {
 		s.t.Fatal(err)
 	}
-	return strings.Count(out, "dev.stubbe.lys.settings")
+	return strings.Count(out, settingsApp)
 }
 
 func (s *session) launch(t *testing.T, bin string, args ...string) {
 	t.Helper()
 	var appLog bytes.Buffer
 	app := exec.Command(bin, args...)
+	app.Env = append(os.Environ(), "LYS_DEBUG=input,settings")
 	app.Stdout, app.Stderr = &appLog, &appLog
 	if err := app.Start(); err != nil {
 		t.Fatal(err)
@@ -448,16 +451,29 @@ func forward(t *testing.T, bin, setting string) {
 
 // chooseOn picks On in the segments of an on/off setting with no
 // default, which read Inherit, On, Off with Inherit picked: the setting's
-// link focuses the segments and Right picks On. The link is followed
-// again before each try, so a try lost before the window took the keys
-// starts over from the same focus.
+// link focuses the segments and Right picks On. Each try waits for lys-wm
+// to give the settings window the keys, then follows the link again, so a
+// Right that reached the window before the forwarded link did starts over
+// from the same focus. A failure names the window lys-wm last had focused
+// and the file's last content; the app's log shows what it focused.
 func (s *session) chooseOn(t *testing.T, bin, setting, want string) {
 	t.Helper()
+	var saw string
+	defer func() {
+		if t.Failed() {
+			t.Logf("the last try saw: %s", saw)
+		}
+	}()
 	written := func() bool {
 		data, err := os.ReadFile(s.file.Runtime())
+		saw = fmt.Sprintf("active window %+v, %s holding %q (%v)", s.active(), s.file.Runtime(), data, err)
 		return err == nil && strings.Contains(string(data), want)
 	}
 	waittest.UntilSlow(t, func() bool {
+		if !within(s.keyed) {
+			saw = fmt.Sprintf("active window %+v", s.active())
+			return false
+		}
 		press(t, "Escape")
 		forward(t, bin, setting)
 		press(t, "Right")
@@ -465,17 +481,33 @@ func (s *session) chooseOn(t *testing.T, bin, setting, want string) {
 	}, "the focused control's segments choosing On, writing "+want)
 }
 
-func (s *session) inhibiting() bool {
-	s.t.Helper()
+type activeWindow struct {
+	AppID    string `json:"app_id"`
+	Focused  bool   `json:"focused"`
+	Inhibits bool   `json:"inhibits_shortcuts"`
+	Err      error  `json:"-"`
+}
+
+func (s *session) active() activeWindow {
 	out, err := s.Ctl("activewindow")
 	if err != nil {
-		return false
+		return activeWindow{Err: err}
 	}
-	var w struct {
-		AppID    string `json:"app_id"`
-		Inhibits bool   `json:"inhibits_shortcuts"`
+	var w activeWindow
+	if err := json.Unmarshal([]byte(out), &w); err != nil {
+		return activeWindow{Err: fmt.Errorf("lys-wmctl activewindow answered %q: %w", out, err)}
 	}
-	return json.Unmarshal([]byte(out), &w) == nil && w.AppID == "dev.stubbe.lys.settings" && w.Inhibits
+	return w
+}
+
+func (s *session) keyed() bool {
+	w := s.active()
+	return w.AppID == settingsApp && w.Focused
+}
+
+func (s *session) inhibiting() bool {
+	w := s.active()
+	return w.AppID == settingsApp && w.Inhibits
 }
 
 func within(ok func() bool) bool {
