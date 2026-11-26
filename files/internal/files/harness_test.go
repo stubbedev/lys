@@ -214,8 +214,9 @@ func (hs *harness) do(fn func()) {
 func (hs *harness) settle() {
 	hs.t.Helper()
 	waittest.Until(hs.t, func() bool {
+		idle := hs.spawned.Load() == 0
 		hs.flush()
-		quiet := hs.spawned.Load() == 0
+		quiet := idle && hs.spawned.Load() == 0
 		hs.run(func() {
 			for _, t := range hs.f.tabs {
 				quiet = quiet && !t.b.Busy()
