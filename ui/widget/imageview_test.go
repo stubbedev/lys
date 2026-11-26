@@ -274,7 +274,7 @@ func TestImageViewAccessibility(t *testing.T) {
 	v.SetAccessibleName("Holiday photo")
 	v.Arrange(render.Rect{W: 200, H: 150})
 	st := Describe(v)
-	if st.Role != RoleScrollArea || st.Name != "Holiday photo" || !st.Focusable || st.Description != "Fitted at 50%" {
+	if st.Role != RoleImage || st.Name != "Holiday photo" || !st.Focusable || st.Description != "Fitted at 50%" {
 		t.Errorf("a fitted view describes as %+v", st)
 	}
 	v.ZoomActualSize()

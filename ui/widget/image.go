@@ -381,6 +381,15 @@ func (im *Image) HitTest(p Point) Widget {
 	return im.HitLeaf(im, p)
 }
 
+// Role is RoleImage while the image is named, by SetAccessibleName or
+// a tooltip, as content; an unnamed one is decoration, RoleNone.
+func (im *Image) Role() Role {
+	if im.accName == "" && im.tooltip == "" {
+		return RoleNone
+	}
+	return RoleImage
+}
+
 // PasteMimes implements ContentPaster: the image types, best first.
 func (im *Image) PasteMimes() []string { return transfer.ImageMimes }
 

@@ -1,9 +1,11 @@
 package atspi
 
 import (
+	"image"
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/lib/exif"
 	"github.com/stubbedev/lys/lib/render"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/waittest"
@@ -42,8 +44,11 @@ func TestRealAtSpi2Core(t *testing.T) {
 	face := faceOf(t)
 	entry := widget.NewEntry(face, 13, render.RGB(0, 0, 0))
 	entry.SetText("hello")
+	picture := widget.NewImageView(image.NewRGBA(image.Rect(0, 0, 40, 20)), exif.TopLeft)
+	picture.SetAccessibleName("Holiday photo")
 	root := widget.NewBox(widget.Column, 0, 0)
 	root.Append(entry, false)
+	root.Append(picture, true)
 	arrange(t, root, 300, 100)
 	scene := &testScene{roots: []widget.Widget{root}}
 	br, err := Serve(scene, Options{Poll: -1})
@@ -76,14 +81,27 @@ func TestRealAtSpi2Core(t *testing.T) {
 	if err := at.Object(owner, CachePath).Call(ifaceCache+".GetItems", 0).Store(&items); err != nil {
 		t.Fatalf("Cache.GetItems: %v", err)
 	}
-	var entryPath dbus.ObjectPath
+	var entryPath, picturePath dbus.ObjectPath
 	for _, it := range items {
-		if it.Role == roleEntry {
+		switch it.Role {
+		case roleEntry:
 			entryPath = it.Path.Path
+		case roleImage:
+			picturePath = it.Path.Path
+			if it.Name != "Holiday photo" || it.Description == "" {
+				t.Errorf("the picture is cached as %q, %q, want its name and its zoom", it.Name, it.Description)
+			}
 		}
 	}
 	if entryPath == "" {
 		t.Fatalf("no entry among %d cache items", len(items))
+	}
+	if picturePath == "" {
+		t.Fatalf("no image among %d cache items", len(items))
+	}
+	var roleName string
+	if err := at.Object(owner, picturePath).Call(proto.IfaceAccessible+".GetRoleName", 0).Store(&roleName); err != nil || roleName != "image" {
+		t.Errorf("the picture's GetRoleName = %q, %v, want image", roleName, err)
 	}
 	obj := at.Object(owner, entryPath)
 	var text string

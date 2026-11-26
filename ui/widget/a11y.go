@@ -49,6 +49,8 @@ const (
 	// RoleRadio is one choice of a group that checks at most one (a
 	// radio button); A11yState.Checked carries its state.
 	RoleRadio
+	// RoleImage is a picture that shows content, named by what it shows.
+	RoleImage
 )
 
 // String returns the lowercase role name.
@@ -98,6 +100,8 @@ func (r Role) String() string {
 		return "chart"
 	case RoleRadio:
 		return "radio-button"
+	case RoleImage:
+		return "image"
 	default:
 		return "none"
 	}

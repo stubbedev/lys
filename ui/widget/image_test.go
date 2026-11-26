@@ -767,3 +767,23 @@ func TestImageTakesFocusOnlyAsAPasteTarget(t *testing.T) {
 		t.Errorf("Tab from the button went to %T, want the paste target", r.Focused())
 	}
 }
+
+func TestImageIsAnImageOnlyWhileNamed(t *testing.T) {
+	im := NewImage(quadImage())
+	if st := Describe(im); st.Role != RoleNone {
+		t.Errorf("an unnamed image is %v, want decoration (none)", st.Role)
+	}
+	im.SetAccessibleName("Album cover")
+	if st := Describe(im); st.Role != RoleImage || st.Name != "Album cover" {
+		t.Errorf("a named image describes as %v %q, want image \"Album cover\"", st.Role, st.Name)
+	}
+	im.SetAccessibleName("")
+	im.SetTooltip("Avatar")
+	if st := Describe(im); st.Role != RoleImage || st.Name != "Avatar" {
+		t.Errorf("a tooltipped image describes as %v %q, want image \"Avatar\"", st.Role, st.Name)
+	}
+	im.SetTooltip("")
+	if RoleOf(im) != RoleNone {
+		t.Error("an image whose name was cleared is still an image")
+	}
+}

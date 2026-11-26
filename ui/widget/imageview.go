@@ -342,8 +342,8 @@ func (v *ImageView) Arrange(r render.Rect) {
 // HitTest makes the whole box the target.
 func (v *ImageView) HitTest(p Point) Widget { return v.HitLeaf(v, p) }
 
-// Role is RoleScrollArea: a viewport onto a picture larger than it.
-func (v *ImageView) Role() Role { return RoleScrollArea }
+// Role is RoleImage: the picture it shows, described by its zoom.
+func (v *ImageView) Role() Role { return RoleImage }
 
 func (v *ImageView) a11yDescription() string {
 	if v.src == nil {

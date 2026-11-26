@@ -51,6 +51,7 @@ const (
 	roleComboBox     uint32 = 11
 	roleEntry        uint32 = 79
 	roleFiller       uint32 = 20
+	roleImage        uint32 = 27
 	roleLabel        uint32 = 29
 	roleLevelBar     uint32 = 103
 	roleList         uint32 = 31
@@ -120,6 +121,7 @@ var atspiRoles = [...]atspiRoleInfo{
 	widget.RoleAlert:        {roleNotification, "notification"},
 	widget.RoleChart:        {roleChart, "chart"},
 	widget.RoleRadio:        {roleRadioButton, "radio button"},
+	widget.RoleImage:        {roleImage, "image"},
 }
 
 // atspiRoleOf is r's AT-SPI role: its table entry, FILLER for RoleNone.

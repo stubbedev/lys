@@ -61,3 +61,9 @@ func TestRadioButtonRoleAndCheckedState(t *testing.T) {
 		t.Error("an unchecked radio serves checked")
 	}
 }
+
+func TestImageServesTheAtspiImageRole(t *testing.T) {
+	if got := atspiRoleOf(widget.RoleImage); got.id != roleImage || roleImage != 27 || got.name != "image" {
+		t.Errorf("image serves %+v, want ATSPI_ROLE_IMAGE (27) \"image\"", got)
+	}
+}
