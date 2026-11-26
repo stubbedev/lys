@@ -10,6 +10,7 @@ tool (
 require (
 	filippo.io/edwards25519 v1.2.0
 	github.com/ebitengine/purego v0.11.3
+	github.com/gen2brain/folio v0.3.1
 	github.com/kettek/apng v0.0.0-20250827064933-2bb5f5fcf253
 	github.com/makiuchi-d/gozxing v0.1.1
 	github.com/rivo/uniseg v0.4.7

@@ -12,6 +12,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"syscall"
@@ -27,15 +28,17 @@ const Arg = "lys-fake-thumbnailer"
 
 // The modes the fake thumbnailer runs in: Page writes a PageW x PageH
 // PNG to its last argument, Fail exits 1, Hang never ends, Hostile
-// probes its sandbox (Probe), and Named (name, output) writes the page
+// probes its sandbox (Probe), Named (name, output) writes the page
 // only when it was run by a path called name, as a multi-call binary
-// tells its command.
+// tells its command, and Exit (status, message) prints message and
+// exits with status.
 const (
 	Page    = "png"
 	Fail    = "fail"
 	Hang    = "hang"
 	Hostile = "hostile"
 	Named   = "named"
+	Exit    = "exit"
 )
 
 // The size of the page Page writes.
@@ -202,6 +205,14 @@ func fake(args []string) int {
 			return 1
 		}
 		return writePNG(out, PageW, PageH)
+	case Exit:
+		status, err := strconv.Atoi(args[1])
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "fake thumbnailer:", err)
+			return 1
+		}
+		fmt.Fprintln(os.Stderr, args[2])
+		return status
 	}
 	fmt.Fprintln(os.Stderr, "fake thumbnailer: no mode", args[0])
 	return 2

@@ -1,0 +1,48 @@
+The documents docrender, lys-docthumb and the thumbnailer are tested on.
+They are the small, freely licensed files of the #392 renderer evaluation
+corpus (docs/desktop/index.md, "Document thumbnails", says where the whole
+corpus lives and how to run it as a regression suite), plus two files made
+for these tests.
+
+cairo.pdf (36333 bytes, 1 page)
+  sha256 26b084a3b4dddd686a1ad687386f8327093fa6a70581beca895a89c705c2dca0
+  Made for lys: an A4 SVG drawing (a linear-gradient rounded rectangle, a
+  radial-gradient circle, a dashed translucent path and DejaVu Serif, Sans
+  and Mono text, part of it gradient filled) converted with librsvg 2.63's
+  `rsvg-convert -f pdf` (cairo 1.18.6). It exercises simple TrueType fonts,
+  axial and radial shadings, alpha and dashes. The embedded DejaVu subsets
+  are under the Bitstream Vera Fonts licence, which allows embedding and
+  redistribution; the drawing is the lys project's, under its MIT licence.
+
+jbig2.pdf (22519 bytes, 3 pages)
+  sha256 4ad6be4238fbabb0bf57578bb8ddfe428ce62901d163196cf496007053c933d7
+  Pages 3 to 5 of "LVRR 1874 Report", https://archive.org/details/LVRR_1874_Report
+  (Public Domain Mark 1.0), rendered to bilevel PNGs and re-encoded with
+  nixpkgs jbig2enc 0.32 (`jbig2 -s -p`, then `jbig2topdf.py`): JBIG2 symbol
+  mode with JBIG2Globals, 1 bit per component. Public domain.
+
+encrypted.pdf (1080 bytes, 1 page)
+  sha256 2b55e25432329d962931ea207904cd6c3464d37b3767ddf22906ef56d8f11f38
+  Made for lys: a hand-written 200x200 pt page filling one blue square,
+  encrypted with MuPDF 1.28.5's
+  `mutool clean -E aes-256 -U lys-user -O lys-owner`, so it opens only with
+  the user password lys-user. MIT, as the rest of lys.
+
+blocks.epub (1908 bytes, 2 spine items)
+  sha256 3359d70454e3737c6e8c4d03d2e4f8ede884f8cbf274df48dbf55e83da4001e3
+  Made for lys: an EPUB 3 whose two chapters each hold a heading, a red
+  block, a line of text and an inset blue block, zipped with `zip -X`
+  (mimetype stored first). MIT, as the rest of lys.
+
+reference/cairo.png, reference/jbig2.png
+  Page 1 of the PDF above as MuPDF 1.28.5 draws it fitted into a 128 px
+  square: `mutool draw -q -c rgb -w 128 -h 128 -o <png> <pdf> 1`. They are
+  the independent truth folio's render is compared with, block by block.
+
+reference/blocks.png
+  Page 1 of blocks.epub as folio v0.3.1 lays it out and draws it fitted
+  into a 128 px square (lys-docthumb -size 128). MuPDF lays EPUBs out at
+  another page size and margins, so this one is a regression reference of
+  folio's own output rather than an independent one; it is compared with
+  the same block tolerance, which absorbs the substitute font a machine
+  with system fonts may draw its text in.

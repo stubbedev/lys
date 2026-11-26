@@ -13,7 +13,7 @@ in
   lysGo.build {
     pname = "lys-viewer";
 
-    subPackages = ["viewer/cmd/lys-viewer"];
+    subPackages = ["viewer/cmd/lys-viewer" "desktop/cmd/lys-docthumb"];
 
     goPackages = ["desktop/cmd/install-icons"];
 

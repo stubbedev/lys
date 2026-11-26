@@ -2,6 +2,7 @@ package thumbnail
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"image"
 	"os"
@@ -37,11 +38,30 @@ const outputName = "thumbnail.png"
 type Command func(input, output string, size int) []string
 
 // maker is what runs to make a thumbnail: its command line for the
-// sandbox's input path and URI, output path and size, and what it is
-// called in errors (the .thumbnailer file, or the command's source).
+// sandbox's input path and URI, output path and size, what it is called
+// in errors (the .thumbnailer file, or the command's source), the
+// directories it reads besides its input, and, for a program whose exit
+// statuses say why it failed, the error a status and the output tell
+// (nil for none).
 type maker struct {
-	name string
-	argv func(input, uri, output string, size int) []string
+	name  string
+	argv  func(input, uri, output string, size int) []string
+	binds []bind
+	exit  func(code int, output []byte) error
+}
+
+// failure is the sandbox's err running m, wrapped in the error m's exit
+// status tells where it tells one.
+func (m maker) failure(err error) error {
+	var run *runError
+	var exit *exec.ExitError
+	if m.exit == nil || !errors.As(err, &run) || !errors.As(run.err, &exit) {
+		return err
+	}
+	if told := m.exit(exit.ExitCode(), run.output); told != nil {
+		return fmt.Errorf("%w: %w", told, err)
+	}
+	return err
 }
 
 // commandMaker is cmd as a maker named name.
@@ -125,8 +145,8 @@ func (c *core) run(ctx context.Context, sb sandbox, m maker, input string, size 
 		return nil, fmt.Errorf("thumbnailer %s: %w", m.name, err)
 	}
 	defer func() { _ = os.RemoveAll(dir) }()
-	if err := sb.run(ctx, input, dir, argv, c.runTimeout); err != nil {
-		return nil, fmt.Errorf("thumbnailer %s on %s: %w", m.name, input, err)
+	if err := sb.run(ctx, input, dir, m.binds, argv, c.runTimeout); err != nil {
+		return nil, fmt.Errorf("thumbnailer %s on %s: %w", m.name, input, m.failure(err))
 	}
 	output := filepath.Join(dir, outputName)
 	info, err := os.Stat(output)

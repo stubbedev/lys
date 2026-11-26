@@ -35,6 +35,7 @@ lysGo.build {
   subPackages = [
     "shell/cmd/lys-shell"
     "shell/cmd/lys-lock"
+    "desktop/cmd/lys-docthumb"
   ];
 
   goPackages = [ "desktop/cmd/install-icons" ];

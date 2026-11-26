@@ -1,9 +1,9 @@
 // Package thumbnail makes and reads the thumbnails of files for every
 // surface that shows them: the freedesktop thumbnail cache, raster
-// images decoded in process within a decode budget, and installed
-// .thumbnailer programs (or a surface's own command) run in a
-// bubblewrap and seccomp sandbox, at most Workers at once, into rasters
-// held off the Go heap.
+// images decoded in process within a decode budget, and lys-docthumb
+// for documents, installed .thumbnailer programs for other types (or a
+// surface's own command) run in a bubblewrap and seccomp sandbox, at
+// most Workers at once, into rasters held off the Go heap.
 package thumbnail
 
 import (
@@ -22,6 +22,7 @@ import (
 	"github.com/stubbedev/memory-go"
 	"golang.org/x/image/draw"
 
+	"github.com/stubbedev/lys/desktop/dochelper"
 	"github.com/stubbedev/lys/desktop/imagedecode"
 	"github.com/stubbedev/lys/desktop/mime"
 	"github.com/stubbedev/lys/desktop/offheap"
@@ -63,12 +64,15 @@ type Raster struct {
 	pix   memory.Slice[byte]
 }
 
-// Config is what a Thumbnailer shares and how long its thumbnailers
-// run. A nil Budget is one of DecodeBudget bytes of its own, a zero
-// RunTimeout DefaultRunTimeout.
+// Config is what a Thumbnailer shares, how long its thumbnailers run
+// and the command line lys-docthumb runs by, before its request. A nil
+// Budget is one of DecodeBudget bytes of its own, a zero RunTimeout
+// DefaultRunTimeout, and an empty DocumentHelper the lys-docthumb next
+// to the running program.
 type Config struct {
-	Budget     *Budget
-	RunTimeout time.Duration
+	Budget         *Budget
+	RunTimeout     time.Duration
+	DocumentHelper []string
 }
 
 // Thumbnailer makes thumbnails off the loop: at most Workers at once,
@@ -84,9 +88,9 @@ type Thumbnailer struct {
 }
 
 // core is what a Thumbnailer's views share. decode opens a raster
-// image, store writes a cache file whole, and the installed
-// thumbnailers and the sandbox (loaded on first use) run for at most
-// runTimeout each.
+// image, store writes a cache file whole, and the document helper, the
+// installed thumbnailers and the sandbox (loaded on first use) run for
+// at most runTimeout each.
 type core struct {
 	mem        memory.Shared
 	workers    chan struct{}
@@ -95,6 +99,7 @@ type core struct {
 	store      func(path string, data []byte) error
 	runTimeout time.Duration
 	installed  func() installedThumbnailers
+	documents  func() (documentHelper, bool)
 	sandbox    func() (sandbox, error)
 }
 
@@ -106,7 +111,9 @@ type installedThumbnailers struct {
 }
 
 // New is a Thumbnailer as cfg says, finding the installed thumbnailers
-// in the XDG data directories on first use.
+// in the XDG data directories and lys-docthumb on first use. Without
+// lys-docthumb, the installed thumbnailers make documents' thumbnails
+// too, and why is logged once.
 func New(cfg Config) *Thumbnailer {
 	if cfg.Budget == nil {
 		cfg.Budget = NewBudget(DecodeBudget)
@@ -131,6 +138,18 @@ func New(cfg Config) *Thumbnailer {
 			return installedThumbnailers{}
 		}
 		return installedThumbnailers{sandbox: sb, byType: loadThumbnailers(mime.DataDirs())}
+	})
+	c.documents = sync.OnceValues(func() (documentHelper, bool) {
+		sb, err := c.sandbox()
+		if err != nil {
+			return documentHelper{}, false
+		}
+		h, err := loadDocumentHelper(sb, cfg.DocumentHelper)
+		if err != nil {
+			log.Printf("thumbnail: the installed thumbnailers make documents' thumbnails, as %s is not run: %v", dochelper.Program, err)
+			return documentHelper{}, false
+		}
+		return h, true
 	})
 	return &Thumbnailer{core: c, failApp: software}
 }
@@ -263,9 +282,9 @@ type source struct {
 
 // source is the image a thumbnail of px is made from: the one the
 // cache holds, else, unless a fresh fail entry says making one failed
-// before, the command's output, a raster image decoded or the output of
-// the thumbnailer installed for mimeType, written to the cache fitted to
-// px's size.
+// before, the command's output, a raster image decoded, lys-docthumb's
+// output for a document or the output of the thumbnailer installed for
+// mimeType, written to the cache fitted to px's size.
 func (th *Thumbnailer) source(ctx context.Context, path, mimeType string, px int) (source, error) {
 	info, err := os.Stat(path)
 	if err != nil {
@@ -300,8 +319,10 @@ func (th *Thumbnailer) source(ctx context.Context, path, mimeType string, px int
 }
 
 // make makes the file's thumbnail at size: with the command when there
-// is one, else decoded when it is a raster image, else with the
-// thumbnailer installed for mimeType. With none of them it is ErrNone.
+// is one, else decoded when it is a raster image, else with
+// lys-docthumb when it thumbnails mimeType and is installed, else with
+// the thumbnailer installed for mimeType. With none of them it is
+// ErrNone.
 func (th *Thumbnailer) make(ctx context.Context, path string, info os.FileInfo, mimeType string, size int) (image.Image, error) {
 	if th.command != nil {
 		sb, err := th.core.sandbox()
@@ -312,6 +333,11 @@ func (th *Thumbnailer) make(ctx context.Context, path string, info os.FileInfo, 
 	}
 	if isRaster(path) {
 		return th.decodeRaster(ctx, path, info)
+	}
+	if dochelper.Thumbnails(mimeType) {
+		if h, ok := th.core.documents(); ok {
+			return th.core.run(ctx, h.sandbox, h.maker, path, size)
+		}
 	}
 	installed := th.core.installed()
 	entry, ok := installed.byType[mimeType]

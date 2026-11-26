@@ -96,7 +96,7 @@ func newSandbox(ctx context.Context) (sandbox, error) {
 		return sandbox{}, fmt.Errorf("sandbox: %w", err)
 	}
 	defer func() { _ = os.RemoveAll(dir) }()
-	if err := s.run(ctx, "", dir, []string{bwrap, "--version"}, sandboxProbeTimeout); err != nil {
+	if err := s.run(ctx, "", dir, nil, []string{bwrap, "--version"}, sandboxProbeTimeout); err != nil {
 		return sandbox{}, fmt.Errorf("bubblewrap cannot make a sandbox here: %w", err)
 	}
 	return s, nil
@@ -123,20 +123,37 @@ func sandboxPath(input string) string {
 // sandboxURI is the URI input is read under in the sandbox.
 func sandboxURI(input string) string { return fileuri.FromPath(sandboxPath(input)) }
 
+// bind is a host directory a sandboxed command reads at another path.
+type bind struct{ host, at string }
+
+// runError is a sandboxed command's failure and the start of what it
+// printed.
+type runError struct {
+	err    error
+	output []byte
+}
+
+func (e *runError) Error() string {
+	return fmt.Sprintf("%v: %s", e.err, strings.TrimSpace(string(e.output)))
+}
+
+func (e *runError) Unwrap() error { return e.err }
+
 // run runs argv in the sandbox, with input readable at sandboxPath(input)
-// ("" for none) and dir writable at sandboxDir. argv's program is run
+// ("" for none), binds readable where they say and dir writable at
+// sandboxDir. argv's program is run
 // by the path it is found at on the host, which a multi-call binary
 // (coreutils, busybox) tells its command by; the file that path
 // resolves to is bound there when the system does not hold the path,
 // else where it lies when the system does not hold that. bwrap runs in
-// its own process group, killed whole at timeout or when ctx ends. The
-// error carries the start of what the command printed.
-func (s sandbox) run(ctx context.Context, input, dir string, argv []string, timeout time.Duration) error {
+// its own process group, killed whole at timeout or when ctx ends. Its
+// failure is a *runError.
+func (s sandbox) run(ctx context.Context, input, dir string, binds []bind, argv []string, timeout time.Duration) error {
 	program, target, err := resolveProgram(argv[0])
 	if err != nil {
 		return err
 	}
-	args := make([]string, 0, len(s.system)+len(argv)+24)
+	args := make([]string, 0, len(s.system)+3*len(binds)+len(argv)+24)
 	args = append(args, s.system...)
 	args = append(args,
 		"--proc", "/proc", "--dev", "/dev", "--chdir", "/",
@@ -146,6 +163,9 @@ func (s sandbox) run(ctx context.Context, input, dir string, argv []string, time
 	)
 	if input != "" {
 		args = append(args, "--ro-bind", input, sandboxPath(input))
+	}
+	for _, b := range binds {
+		args = append(args, "--ro-bind", b.host, b.at)
 	}
 	switch {
 	case !s.visible(program):
@@ -173,7 +193,7 @@ func (s sandbox) run(ctx context.Context, input, dir string, argv []string, time
 		if ctx.Err() != nil {
 			err = fmt.Errorf("%w (%w)", err, ctx.Err())
 		}
-		return fmt.Errorf("%w: %s", err, strings.TrimSpace(string(out.b)))
+		return &runError{err: err, output: out.b}
 	}
 	return nil
 }
