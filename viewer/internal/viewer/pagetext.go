@@ -68,7 +68,7 @@ func (p pageText) charAt(x, y float64) int {
 		b := c.Box
 		dx := max(b.X0-x, 0, x-b.X1)
 		dy := max(b.Y0-y, 0, y-b.Y1)
-		if d := dy*1e6 + dx; d < bestDist {
+		if d := float64(dy*1e6) + dx; d < bestDist {
 			best, bestDist = i, d
 		}
 	}

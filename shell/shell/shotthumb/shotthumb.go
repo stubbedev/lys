@@ -334,7 +334,7 @@ func (v *view) Paint(cv *render.Canvas) {
 func paintLook(cv *render.Canvas, r render.Rect) {
 	cv.RoundedRect(r, r.W/2, closeFill)
 	lens := float64(r.W) / 5
-	cx, cy := float64(r.X)+float64(r.W)*0.44, float64(r.Y)+float64(r.H)*0.44
+	cx, cy := float64(r.X)+float64(float64(r.W)*0.44), float64(r.Y)+float64(float64(r.H)*0.44)
 	cv.Arc(cx, cy, lens, 2, 0, 2*math.Pi, closeInk)
 	reach := int(math.Round(lens * math.Sqrt2 / 2))
 	cv.Line(int(cx)+reach, int(cy)+reach, r.X+r.W*3/4, r.Y+r.H*3/4, 2, closeInk)

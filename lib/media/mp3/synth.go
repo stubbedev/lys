@@ -18,8 +18,8 @@ func dctII(spec []float32, n int) {
 			x0, x1 := y[i*18], y[(15-i)*18]
 			x2, x3 := y[(16+i)*18], y[(31-i)*18]
 			t0, t1 := x0+x3, x1+x2
-			t2 := (x1 - x2) * dctSecant[3*i]
-			t3 := (x0 - x3) * dctSecant[3*i+1]
+			t2 := float32((x1 - x2) * dctSecant[3*i])
+			t3 := float32((x0 - x3) * dctSecant[3*i+1])
 			t[0][i] = t0 + t1
 			t[1][i] = (t0 - t1) * dctSecant[3*i+2]
 			t[2][i] = t3 + t2
@@ -43,12 +43,12 @@ func dctII(spec []float32, n int) {
 			x[0] = x0 + x1
 			x[4] = (x0 - x1) * 0.70710677
 			x5 += x6
-			x6 = (x6 + x7) * 0.70710677
+			x6 = float32((x6 + x7) * 0.70710677)
 			x7 += xt
-			x3 = (x3 + x4) * 0.70710677
-			x5 -= x7 * 0.198912367
-			x7 += x5 * 0.382683432
-			x5 -= x7 * 0.198912367
+			x3 = float32((x3 + x4) * 0.70710677)
+			x5 -= float32(x7 * 0.198912367)
+			x7 += float32(x5 * 0.382683432)
+			x5 -= float32(x7 * 0.198912367)
 			x0 = xt - x6
 			xt += x6
 			x[1] = (xt + x7) * 0.50979561
@@ -93,25 +93,25 @@ func (d *Decoder) synthesize(out []int16) {
 // part in the slot's butterflies.
 func synthPair(out []int16, at, nch int, z []float32) {
 	const s = 64
-	a := (z[14*s] - z[0]) * 29
-	a += (z[1*s] + z[13*s]) * 213
-	a += (z[12*s] - z[2*s]) * 459
-	a += (z[3*s] + z[11*s]) * 2037
-	a += (z[10*s] - z[4*s]) * 5153
-	a += (z[5*s] + z[9*s]) * 6574
-	a += (z[8*s] - z[6*s]) * 37489
-	a += z[7*s] * 75038
+	a := float32((z[14*s] - z[0]) * 29)
+	a += float32((z[1*s] + z[13*s]) * 213)
+	a += float32((z[12*s] - z[2*s]) * 459)
+	a += float32((z[3*s] + z[11*s]) * 2037)
+	a += float32((z[10*s] - z[4*s]) * 5153)
+	a += float32((z[5*s] + z[9*s]) * 6574)
+	a += float32((z[8*s] - z[6*s]) * 37489)
+	a += float32(z[7*s] * 75038)
 	out[at] = pcm.Int16(a)
 
 	z = z[2:]
-	a = z[14*s] * 104
-	a += z[12*s] * 1567
-	a += z[10*s] * 9727
-	a += z[8*s] * 64019
-	a += z[6*s] * -9975
-	a += z[4*s] * -45
-	a += z[2*s] * 146
-	a += z[0*s] * -5
+	a = float32(z[14*s] * 104)
+	a += float32(z[12*s] * 1567)
+	a += float32(z[10*s] * 9727)
+	a += float32(z[8*s] * 64019)
+	a += float32(z[6*s] * -9975)
+	a += float32(z[4*s] * -45)
+	a += float32(z[2*s] * 146)
+	a += float32(z[0*s] * -5)
 	out[at+16*nch] = pcm.Int16(a)
 }
 
@@ -154,11 +154,11 @@ func synth(xl, xr []float32, out []int16, nch int, lins []float32) {
 			vz := lins[z+4*i-k*s:]
 			vy := lins[z+4*i-(15-k)*s:]
 			for j := range a {
-				b[j] += vz[j]*w1 + vy[j]*w0
+				b[j] += float32(vz[j]*w1) + float32(vy[j]*w0)
 				if k&1 == 0 {
-					a[j] += vz[j]*w0 - vy[j]*w1
+					a[j] += float32(vz[j]*w0) - float32(vy[j]*w1)
 				} else {
-					a[j] += vy[j]*w1 - vz[j]*w0
+					a[j] += float32(vy[j]*w1) - float32(vz[j]*w0)
 				}
 			}
 		}

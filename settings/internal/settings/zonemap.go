@@ -149,7 +149,7 @@ func nearestPin(pins []zonePin, latitude, longitude float64) (zonePin, bool) {
 }
 
 func mapOffset(latitude, longitude float64, r render.Rect) (x, y float64) {
-	return (longitude + mapDegreesWide/2) / mapDegreesWide * float64(r.W), (mapDegreesHigh/2 - latitude) / mapDegreesHigh * float64(r.H)
+	return float64((longitude + mapDegreesWide/2) / mapDegreesWide * float64(r.W)), float64((mapDegreesHigh/2 - latitude) / mapDegreesHigh * float64(r.H))
 }
 
 func mapPoint(at geo.Coordinates, r render.Rect) widget.Point {

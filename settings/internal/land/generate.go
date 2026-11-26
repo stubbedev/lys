@@ -152,10 +152,10 @@ func simplify(pts []degrees, tolerance float64) []degrees {
 func segmentDistance(p, a, b degrees) float64 {
 	dx, dy := b.longitude-a.longitude, b.latitude-a.latitude
 	t := 0.0
-	if span := dx*dx + dy*dy; span > 0 {
-		t = math.Max(0, math.Min(1, ((p.longitude-a.longitude)*dx+(p.latitude-a.latitude)*dy)/span))
+	if span := float64(dx*dx) + float64(dy*dy); span > 0 {
+		t = math.Max(0, math.Min(1, (float64((p.longitude-a.longitude)*dx)+float64((p.latitude-a.latitude)*dy))/span))
 	}
-	return math.Hypot(p.longitude-a.longitude-t*dx, p.latitude-a.latitude-t*dy)
+	return math.Hypot(p.longitude-a.longitude-float64(t*dx), p.latitude-a.latitude-float64(t*dy))
 }
 
 func quantise(pts []degrees) ring {

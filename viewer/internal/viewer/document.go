@@ -526,6 +526,12 @@ func (d *document) enterPage(text string) {
 	d.host.Toast(locale.T().Get("viewer-no-such-page", i18n.Str("page", text)), nil)
 }
 
+// viewAt is where the page point (x, y) of the shown tile is in the
+// view, the inverse of pagePoint.
+func (d *document) viewAt(x, y float64) (float64, float64) {
+	return d.area.picture.ViewAt(float64(x*d.shown.Scale)-float64(d.shown.Rect.Min.X), float64(y*d.shown.Scale)-float64(d.shown.Rect.Min.Y))
+}
+
 func (d *document) pagePoint(p widget.Point) (float64, float64, bool) {
 	if !d.hasShown || d.shown.Page != d.page {
 		return 0, 0, false
@@ -764,8 +770,8 @@ func (d *document) paintMarks(cv *render.Canvas) {
 	num, denom := cv.DeviceScale()
 	s := float64(num) / float64(denom)
 	for _, m := range d.marks() {
-		x0, y0 := d.area.picture.ViewAt(m.box.X0*d.shown.Scale-float64(d.shown.Rect.Min.X), m.box.Y0*d.shown.Scale-float64(d.shown.Rect.Min.Y))
-		x1, y1 := d.area.picture.ViewAt(m.box.X1*d.shown.Scale-float64(d.shown.Rect.Min.X), m.box.Y1*d.shown.Scale-float64(d.shown.Rect.Min.Y))
+		x0, y0 := d.viewAt(m.box.X0, m.box.Y0)
+		x1, y1 := d.viewAt(m.box.X1, m.box.Y1)
 		r := render.Rect{X: int(math.Floor(x0 * s)), Y: int(math.Floor(y0 * s))}
 		r.W, r.H = int(math.Ceil(x1*s))-r.X, int(math.Ceil(y1*s))-r.Y
 		cv.FillRectDevice(r, m.color)

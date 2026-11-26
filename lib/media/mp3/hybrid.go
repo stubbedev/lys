@@ -167,8 +167,8 @@ func reduceAliasing(spec []float32, n int) {
 		s := spec[b*18:]
 		for i := range 8 {
 			u, dn := s[18+i], s[17-i]
-			s[18+i] = u*antialias[0][i] - dn*antialias[1][i]
-			s[17-i] = u*antialias[1][i] + dn*antialias[0][i]
+			s[18+i] = float32(u*antialias[0][i]) - float32(dn*antialias[1][i])
+			s[17-i] = float32(u*antialias[1][i]) + float32(dn*antialias[0][i])
 		}
 	}
 }
@@ -176,25 +176,25 @@ func reduceAliasing(spec []float32, n int) {
 // dct3x9 is the 9-point DCT-III of y in place.
 func dct3x9(y *[9]float32) {
 	s0, s2, s4, s6, s8 := y[0], y[2], y[4], y[6], y[8]
-	t0 := s0 + s6*0.5
+	t0 := s0 + float32(s6*0.5)
 	s0 -= s6
-	t4 := (s4 + s2) * 0.93969262
-	t2 := (s8 + s2) * 0.76604444
-	s6 = (s4 - s8) * 0.17364818
+	t4 := float32((s4 + s2) * 0.93969262)
+	t2 := float32((s8 + s2) * 0.76604444)
+	s6 = float32((s4 - s8) * 0.17364818)
 	s4 += s8 - s2
 
-	s2 = s0 - s4*0.5
+	s2 = s0 - float32(s4*0.5)
 	y[4] = s4 + s0
 	s8 = t0 - t2 + s6
 	s0 = t0 - t4 + t2
 	s4 = t0 + t4 - s6
 
 	s1, s3, s5, s7 := y[1], y[3], y[5], y[7]
-	s3 *= 0.86602540
-	t0 = (s5 + s1) * 0.98480775
-	t4 = (s5 - s7) * 0.34202014
-	t2 = (s1 + s7) * 0.64278761
-	s1 = (s1 - s5 - s7) * 0.86602540
+	s3 = float32(s3 * 0.86602540)
+	t0 = float32((s5 + s1) * 0.98480775)
+	t4 = float32((s5 - s7) * 0.34202014)
+	t2 = float32((s1 + s7) * 0.64278761)
+	s1 = float32((s1 - s5 - s7) * 0.86602540)
 
 	s5 = t0 - s3 - t2
 	s7 = t4 - s3 - t0
@@ -228,8 +228,8 @@ func imdct36(x []float32) (a, b [9]float32) {
 	dct3x9(&si)
 	si[1], si[3], si[5], si[7] = -si[1], -si[3], -si[5], -si[7]
 	for i := range 9 {
-		a[i] = -(co[i]*twiddle9[9+i] + si[i]*twiddle9[i])
-		b[i] = co[i]*twiddle9[i] - si[i]*twiddle9[9+i]
+		a[i] = -(float32(co[i]*twiddle9[9+i]) + float32(si[i]*twiddle9[i]))
+		b[i] = float32(co[i]*twiddle9[i]) - float32(si[i]*twiddle9[9+i])
 	}
 	return a, b
 }
@@ -240,16 +240,16 @@ func imdct36(x []float32) (a, b [9]float32) {
 func inverseLong(x []float32, overlap *[18]float32, window *[36]float32) {
 	a, b := imdct36(x)
 	for i := range 9 {
-		x[i] = overlap[i] + a[i]*window[i]
-		x[17-i] = overlap[17-i] - a[i]*window[17-i]
+		x[i] = overlap[i] + float32(a[i]*window[i])
+		x[17-i] = overlap[17-i] - float32(a[i]*window[17-i])
 		overlap[i] = b[i] * window[18+i]
 		overlap[17-i] = b[i] * window[35-i]
 	}
 }
 
 func idct3(x0, x1, x2 float32, dst *[3]float32) {
-	m1 := x1 * 0.86602540
-	a1 := x0 - x2*0.5
+	m1 := float32(x1 * 0.86602540)
+	a1 := x0 - float32(x2*0.5)
 	dst[1] = x0 + x2
 	dst[0] = a1 + m1
 	dst[2] = a1 - m1
@@ -263,8 +263,8 @@ func imdct12(x []float32) (a, b [3]float32) {
 	idct3(x[15], x[12]-x[9], x[6]-x[3], &si)
 	si[1] = -si[1]
 	for i := range 3 {
-		a[i] = -(co[i]*twiddle3[3+i] + si[i]*twiddle3[i])
-		b[i] = co[i]*twiddle3[i] - si[i]*twiddle3[3+i]
+		a[i] = -(float32(co[i]*twiddle3[3+i]) + float32(si[i]*twiddle3[i]))
+		b[i] = float32(co[i]*twiddle3[i]) - float32(si[i]*twiddle3[3+i])
 	}
 	return a, b
 }
@@ -277,10 +277,10 @@ func inverseShort(x []float32, overlap *[18]float32, window *[12]float32) {
 		a, b := imdct12(x[w:])
 		z := block[6+6*w:]
 		for i := range 3 {
-			z[i] += a[i] * window[i]
-			z[5-i] -= a[i] * window[5-i]
-			z[6+i] += b[i] * window[6+i]
-			z[11-i] += b[i] * window[11-i]
+			z[i] += float32(a[i] * window[i])
+			z[5-i] -= float32(a[i] * window[5-i])
+			z[6+i] += float32(b[i] * window[6+i])
+			z[11-i] += float32(b[i] * window[11-i])
 		}
 	}
 	for i := range 18 {

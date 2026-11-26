@@ -20,8 +20,8 @@ func placeholder(side int) *image.RGBA {
 			hits := 0
 			for sy := range placeholderSamples {
 				for sx := range placeholderSamples {
-					u := (float64(x) + (float64(sx)+0.5)/placeholderSamples) * scale
-					v := (float64(y) + (float64(sy)+0.5)/placeholderSamples) * scale
+					u := float64((float64(x) + float64((float64(sx)+0.5)/placeholderSamples)) * scale)
+					v := float64((float64(y) + float64((float64(sy)+0.5)/placeholderSamples)) * scale)
 					if inQuaver(u, v) {
 						hits++
 					}
@@ -45,7 +45,7 @@ func inQuaver(u, v float64) bool {
 		stemTop      = 0.22
 	)
 	dx, dy := u-headX, v-headY
-	rx, ry := dx*tiltC+dy*tiltS, -dx*tiltS+dy*tiltC
+	rx, ry := float64(dx*tiltC)+float64(dy*tiltS), float64(-dx*tiltS)+float64(dy*tiltC)
 	if rx*rx/(headA*headA)+ry*ry/(headB*headB) <= 1 {
 		return true
 	}
@@ -56,8 +56,8 @@ func inQuaver(u, v float64) bool {
 		return false
 	}
 	t := (u - stemR) / 0.17
-	top := stemTop + 0.12*t*t + 0.10*t
-	return v >= top && v <= top+0.10*(1-t)+0.02
+	top := stemTop + float64(0.12*t*t) + float64(0.10*t)
+	return v >= top && v <= top+float64(0.10*(1-t))+0.02
 }
 
 func mix(a, b color.RGBA, n, of int) color.RGBA {
