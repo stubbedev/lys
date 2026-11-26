@@ -5,7 +5,6 @@
 # use the splash first and read the DRM log from the hand-over on.
 {
   pkgs,
-  splash,
   self,
   wmPackage,
   drmTools,
@@ -25,7 +24,6 @@ in {
     enable = true;
     displayManager = "lys-login";
     compositorPackage = config.programs.lys-wm.package;
-    splashPackage = splash;
     settings.login = {
       show-clock = false;
       background-mode = "color";

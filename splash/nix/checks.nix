@@ -32,7 +32,7 @@
       lys-splash = "cmd/lys-splash";
     };
     drmTools = pkgs.callPackage ./drm-tools.nix {};
-    greeter = import ./greeter.nix {inherit pkgs splash self wmPackage drmTools;};
+    greeter = import ./greeter.nix {inherit pkgs self wmPackage drmTools;};
     plymouthLink = pkgs.runCommand "lys-splash-plymouth-link" {} ''
       mkdir -p $out/bin
       ln -s ${lib.getExe splash} $out/bin/plymouth
@@ -127,6 +127,7 @@
         boot.extraModprobeConfig = "options vkms create_default_dev=0";
         boot.kernelParams = ["video=Virtual-2:panel_orientation=right_side_up"];
         environment.systemPackages = [splash];
+        programs.lys-login.greeter.splashPackage = splash;
         systemd.services.vkms-outputs = {
           wantedBy = ["multi-user.target"];
           after = ["systemd-modules-load.service" "sys-kernel-config.mount"];

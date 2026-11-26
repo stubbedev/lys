@@ -20,10 +20,6 @@ def dump(m, i):
 background = (0, 0, 0)
 
 
-def black(img):
-    return all(high < 16 for _, high in img.getextrema())
-
-
 taken_over = re.compile(r"greeter: the first frame on \S+ takes over the splash's: the logo at \((\d+),(\d+)\)-\((\d+),(\d+)\) on (\d+)x(\d+)")
 
 
@@ -301,9 +297,13 @@ def encrypt(m, disks):
     m.start()
 
 
-def type_passphrase(m):
+def await_passphrase_prompt(m):
     m.wait_for_console_text(r"Cryptography Setup for ", timeout=seconds(120))
     time.sleep(3)
+
+
+def type_passphrase(m):
+    await_passphrase_prompt(m)
     m.send_chars(passphrase + "\n")
 
 

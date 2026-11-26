@@ -1,5 +1,6 @@
 import contextlib
 import re
+import threading
 import time
 from datetime import timedelta
 
@@ -70,6 +71,71 @@ def content(img, background):
     box = ImageChops.difference(img, Image.new("RGB", img.size, background)).getbbox()
     assert box is not None, f"a {img.size} frame shows nothing but the background {background}"
     return box
+
+
+def black(img):
+    return all(high < 16 for _, high in img.getextrema())
+
+
+def console_text(img):
+    strip = img.crop((0, 0, max(1, img.width // 10), img.height))
+    return ImageChops.difference(strip, Image.new("RGB", strip.size, strip.getpixel((0, 0)))).getbbox()
+
+
+def unshown(img):
+    if black(img):
+        return "black"
+    return None if console_text(img) is None else "console text"
+
+
+@contextlib.contextmanager
+def screen_recorded(m, what, keep=8):
+    path = m.out_dir / f"{m.name}-recording.ppm"
+    stop = threading.Event()
+    timeline, wrong, failed = [], [], []
+    dumps, gap, gap_at, size = 0, 0.0, 0.0, None
+    started = time.monotonic()
+
+    def record():
+        nonlocal dumps, gap, gap_at, size
+        last = started
+        try:
+            while not stop.is_set():
+                answer = m.qmp_client.send("screendump", {"filename": str(path)})
+                assert "return" in answer, f"QMP's screendump answered {answer}"
+                img = load(path)
+                now = time.monotonic()
+                if now - last > gap:
+                    gap, gap_at = now - last, last - started
+                last = now
+                size = size or img.size
+                problem = unshown(img) or (None if img.size == size else f"not the first dump's {size[0]}x{size[1]}")
+                kind = f"{img.width}x{img.height} {problem or 'shown'}"
+                if timeline and timeline[-1][0] == kind:
+                    timeline[-1][2] += 1
+                else:
+                    timeline.append([kind, dumps, 1])
+                if problem is not None:
+                    if len(wrong) < keep:
+                        img.save(m.out_dir / f"{m.name}-recording-{dumps:05d}.png")
+                    wrong.append(f"dump {dumps}: {problem}")
+                dumps += 1
+        except BaseException as e:
+            failed.append(e)
+
+    thread = threading.Thread(target=record, name=f"{m.name}-screen-recording", daemon=True)
+    thread.start()
+    try:
+        yield
+    finally:
+        stop.set()
+        thread.join(timeout=60)
+        assert not thread.is_alive(), f"{what}: the screen recording did not stop within 60s"
+        assert not failed, f"{what}: the screen recording failed: {failed[0]!r}"
+        assert dumps, f"{what}: the screen recording took no dump"
+        path.unlink()
+        print(f"{what}: {dumps} dumps in {time.monotonic() - started:.1f}s, at most {gap:.3f}s apart, from {gap_at:.1f}s in: " + "; ".join(f"{kind} from dump {i} for {n}" for kind, i, n in timeline))
+        assert not wrong, f"{what}: {len(wrong)} of {dumps} dumps show the console or nothing: {wrong[:keep]}"
 
 
 def await_until(seconds, attempt):
