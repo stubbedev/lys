@@ -21,15 +21,23 @@ func fakeSysfs(t *testing.T, driver string) string {
 	return root
 }
 
-// The process instance loads only the Vulkan drivers for the named
-// node's kernel driver, unless the environment already chooses them.
+// An open loads only the Vulkan drivers for the named node's kernel
+// driver, or lavapipe's for the CPU, unless the environment already
+// chooses them; the CPU never loads a card's driver (#380).
 func TestDriverGlob(t *testing.T) {
-	node := &drmNode{major: 226, minor: 128}
+	node := selection{node: &drmNode{major: 226, minor: 128}}
+	cpu := selection{cpu: true}
 	unset := func(string) string { return "" }
+	chosen := func(k string) string {
+		if k == "VK_DRIVER_FILES" {
+			return "/lvp_icd.json"
+		}
+		return ""
+	}
 	tests := []struct {
 		name   string
 		driver string
-		node   *drmNode
+		sel    selection
 		getenv func(string) string
 		want   string
 	}{
@@ -37,17 +45,14 @@ func TestDriverGlob(t *testing.T) {
 		{"intel xe", "xe", node, unset, "intel_*"},
 		{"amdgpu", "amdgpu", node, unset, "radeon_*,amd_*"},
 		{"an unmapped driver loads them all", "simpledrm", node, unset, ""},
-		{"no node named loads them all", "nvidia", nil, unset, ""},
-		{"a chosen driver file wins", "nvidia", node, func(k string) string {
-			if k == "VK_DRIVER_FILES" {
-				return "/lvp_icd.json"
-			}
-			return ""
-		}, ""},
+		{"no node named loads them all", "nvidia", selection{}, unset, ""},
+		{"the CPU loads only lavapipe beside an nvidia card", "nvidia", cpu, unset, "lvp_*"},
+		{"a chosen driver file wins", "nvidia", node, chosen, ""},
+		{"a chosen driver file wins for the CPU", "nvidia", cpu, chosen, ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := driverGlob(fakeSysfs(t, tt.driver), tt.node, tt.getenv); got != tt.want {
+			if got := driverGlob(fakeSysfs(t, tt.driver), tt.sel, tt.getenv); got != tt.want {
 				t.Errorf("driverGlob = %q, want %q", got, tt.want)
 			}
 		})

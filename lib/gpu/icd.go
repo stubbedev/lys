@@ -66,11 +66,16 @@ func kernelDriver(root string, node drmNode) (string, error) {
 	return filepath.Base(link), nil
 }
 
+// cpuManifests are the manifests of the Vulkan drivers that run on the
+// CPU, as a driversSelect glob: lavapipe's.
+const cpuManifests = "lvp_*"
+
 // driverGlob is the driversSelect value that loads only the Vulkan
-// drivers for node, "" to load them all: no node named, a choice
-// already in the environment, or a kernel driver not mapped.
-func driverGlob(root string, node *drmNode, getenv func(string) string) string {
-	if node == nil {
+// drivers sel can open, "" to load them all: neither a node nor the
+// CPU named, a choice already in the environment, or a node whose
+// kernel driver is not mapped.
+func driverGlob(root string, sel selection, getenv func(string) string) string {
+	if !sel.named() {
 		return ""
 	}
 	for _, v := range driverChoices {
@@ -78,7 +83,10 @@ func driverGlob(root string, node *drmNode, getenv func(string) string) string {
 			return ""
 		}
 	}
-	driver, err := kernelDriver(root, *node)
+	if sel.cpu {
+		return cpuManifests
+	}
+	driver, err := kernelDriver(root, *sel.node)
 	if err != nil {
 		debug.Log("gpu", "loading every Vulkan driver: %v", err)
 		return ""

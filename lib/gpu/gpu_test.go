@@ -377,6 +377,45 @@ func TestDevicesShareTheProcessInstance(t *testing.T) {
 	}
 }
 
+// Each set of drivers an open asks for has its own process instance,
+// kept as the first one is: one loading only lavapipe beside the one
+// loading every driver, so a card's driver loaded first never hides
+// lavapipe from a later CPU open (#380).
+func TestEachDriverSetHasItsOwnProcessInstance(t *testing.T) {
+	cpuDevice, err := OpenCPU()
+	if errors.Is(err, ErrNoDevice) && os.Getenv("LYS_TEST_GPU") != "lavapipe" {
+		t.Skipf("no Vulkan device on the CPU exports dmabufs here: %v", err)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	cpuDevice.Close()
+	every, _, err := processInstance("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cpu, cmds, err := processInstance(cpuManifests)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cpu == every {
+		t.Fatalf("the instance for %s is the one loading every driver", cpuManifests)
+	}
+	if again, _, err := processInstance(cpuManifests); err != nil || again != cpu {
+		t.Fatalf("a second open for %s got instance %v (%v), want %v", cpuManifests, again, err, cpu)
+	}
+	n := physicalDeviceCount(cmds, cpu)
+	phys := make([]vk.PhysicalDevice, n)
+	cmds.EnumeratePhysicalDevices(cpu, &n, &phys[0])
+	for _, p := range phys {
+		var props vk.PhysicalDeviceProperties
+		cmds.GetPhysicalDeviceProperties(p, &props)
+		if props.DeviceType != vk.PhysicalDeviceTypeCpu {
+			t.Errorf("the instance for %s enumerates %s, a device of type %d", cpuManifests, cname(props.DeviceName[:]), props.DeviceType)
+		}
+	}
+}
+
 func TestOpenCPUOpensOnlyADeviceOnTheCPU(t *testing.T) {
 	d, err := OpenCPU()
 	if errors.Is(err, ErrNoDevice) && os.Getenv("LYS_TEST_GPU") != "lavapipe" {

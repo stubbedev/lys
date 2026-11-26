@@ -149,51 +149,72 @@ type selection struct {
 
 func (s selection) named() bool { return s.node != nil || s.cpu }
 
-// vulkan is the process's Vulkan instance, made by the first Open that
-// succeeds in making one and held for the process's life: devices come
-// and go on it, so the driver stays loaded between them. Reloading an
-// ICD per device strands a static TLS block each time in some drivers
-// (NVIDIA's libnvidia-tls), which runs out after a few dozen cycles.
-// cmds holds the global and instance commands; each device loads its
-// own commands into a copy.
+// vulkan holds the process's Vulkan instances, one per set of drivers
+// an open asks for (driverGlob, "" for every driver), each made by the
+// first open that asks for that set and held for the process's life:
+// devices come and go on them, so the drivers stay loaded between
+// them. Reloading an ICD per device strands a static TLS block each
+// time in some drivers (NVIDIA's libnvidia-tls), which runs out after a
+// few dozen cycles. An open asking for other drivers than an earlier
+// one gets its own instance, so a card's driver loaded first never
+// hides lavapipe or another card's driver. Each instance's commands
+// hold the global and instance commands; each device loads its own
+// commands into a copy.
 var vulkan struct {
-	mu       sync.Mutex
+	mu        sync.Mutex
+	instances map[string]processVulkan
+}
+
+// processVulkan is one of the process's instances and its commands.
+type processVulkan struct {
 	instance vk.Instance
 	cmds     vk.Commands
 }
 
-// processInstance returns the process's instance and a copy of its
-// commands, making the instance on first use. A first use naming node
-// loads only the Vulkan drivers for its kernel driver (driverGlob);
-// one that then finds no device loads them all instead. A failure is
-// not kept: a later Open tries again.
-func processInstance(node *drmNode) (vk.Instance, *vk.Commands, error) {
+// processInstance returns the process's instance that loads glob's
+// drivers and a copy of its commands, making it on first use. One
+// whose glob finds no device loads every driver instead. A failure is
+// not kept: a later open tries again.
+func processInstance(glob string) (vk.Instance, *vk.Commands, error) {
 	vulkan.mu.Lock()
 	defer vulkan.mu.Unlock()
-	if vulkan.instance == 0 {
-		if err := vk.Init(); err != nil {
-			return 0, nil, fmt.Errorf("%w: %w", ErrNoVulkan, err)
-		}
-		cmds := vk.NewCommands()
-		if err := cmds.LoadGlobal(); err != nil {
-			return 0, nil, fmt.Errorf("%w: %w", ErrNoVulkan, err)
-		}
-		glob := driverGlob(sysDevChar, node, os.Getenv)
-		instance, err := createSelected(cmds, glob)
-		if err != nil {
-			return 0, nil, err
-		}
-		if glob != "" && physicalDeviceCount(cmds, instance) == 0 {
-			debug.Log("gpu", "no Vulkan device under %s=%s: loading every driver", driversSelect, glob)
-			cmds.DestroyInstance(instance, nil)
-			if instance, err = createInstance(cmds); err != nil {
-				return 0, nil, err
-			}
-		}
-		vulkan.instance, vulkan.cmds = instance, *cmds
+	p, err := heldInstance(glob)
+	if err != nil {
+		return 0, nil, err
 	}
-	cmds := vulkan.cmds
-	return vulkan.instance, &cmds, nil
+	cmds := p.cmds
+	return p.instance, &cmds, nil
+}
+
+// heldInstance is processInstance's instance for glob, under vulkan.mu.
+func heldInstance(glob string) (processVulkan, error) {
+	if p, ok := vulkan.instances[glob]; ok {
+		return p, nil
+	}
+	if err := vk.Init(); err != nil {
+		return processVulkan{}, fmt.Errorf("%w: %w", ErrNoVulkan, err)
+	}
+	cmds := vk.NewCommands()
+	if err := cmds.LoadGlobal(); err != nil {
+		return processVulkan{}, fmt.Errorf("%w: %w", ErrNoVulkan, err)
+	}
+	instance, err := createSelected(cmds, glob)
+	if err != nil {
+		return processVulkan{}, err
+	}
+	p := processVulkan{instance: instance, cmds: *cmds}
+	if glob != "" && physicalDeviceCount(cmds, instance) == 0 {
+		debug.Log("gpu", "no Vulkan device under %s=%s: loading every driver", driversSelect, glob)
+		cmds.DestroyInstance(instance, nil)
+		if p, err = heldInstance(""); err != nil {
+			return processVulkan{}, err
+		}
+	}
+	if vulkan.instances == nil {
+		vulkan.instances = map[string]processVulkan{}
+	}
+	vulkan.instances[glob] = p
+	return p, nil
 }
 
 // createSelected makes an instance loading only glob's drivers, all
@@ -219,7 +240,7 @@ func physicalDeviceCount(cmds *vk.Commands, instance vk.Instance) uint32 {
 // exports dmabufs, else, with none named, the first with a graphics
 // queue.
 func open(sel selection) (*Device, error) {
-	instance, cmds, err := processInstance(sel.node)
+	instance, cmds, err := processInstance(driverGlob(sysDevChar, sel, os.Getenv))
 	if err != nil {
 		return nil, err
 	}
