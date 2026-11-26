@@ -72,7 +72,6 @@ func newCommandMenu(k *kit, s slot, choices []actionChoice, menu commandMenu) *a
 	c.pick = newCustomDropdown(k, labels, t.Get("settings-action-custom"), c.entry)
 	c.pick.OnSelect = c.selected
 	c.Append(c.pick, false)
-	c.SetHAlign(widget.AlignEnd)
 	if menu == clickMenu {
 		c.run = newCommandRun(k, s, "settings-command-run-empty")
 		c.Append(c.run, false)
@@ -82,6 +81,10 @@ func newCommandMenu(k *kit, s slot, choices []actionChoice, menu commandMenu) *a
 	c.refresh()
 	return c
 }
+
+// fit stretches the menu over the card's control column, so the menus
+// of one card start and end at one x whatever each shows.
+func (c *actionEditor) fit() widget.ItemControlFit { return widget.ItemControlColumn }
 
 func (c *actionEditor) command() string {
 	s, _ := c.slot.get().(string)

@@ -100,25 +100,66 @@ func powerCommand(t *testing.T, k *kit, path string) *actionEditor {
 	return c
 }
 
-func TestAPowerButtonsCommandIsPickedFromTheSessionActions(t *testing.T) {
-	k := testKit(t, "")
-	const path = "modules.power.logout-command"
-	c := powerCommand(t, k, path)
+var powerCommandBuiltins = map[string]config.PowerBuiltin{
+	"lock":     config.PowerBuiltinLock,
+	"logout":   config.PowerBuiltinLogout,
+	"suspend":  config.PowerBuiltinSuspend,
+	"reboot":   config.PowerBuiltinReboot,
+	"shutdown": config.PowerBuiltinPowerOff,
+}
+
+func TestAPowerButtonsCommandOffersItsBuiltinByName(t *testing.T) {
 	tr := locale.T()
-	want := []string{tr.Get("settings-command-default"), tr.Get("settings-command-end-session"), tr.Get("settings-command-end-user"), tr.Get("settings-action-custom")}
-	if items := c.pick.pick.Items(); !slices.Equal(items, want) {
-		t.Fatalf("offers %q, want %q", items, want)
+	for _, a := range powerMenuActions {
+		b := powerCommandBuiltins[a]
+		path := "modules.power." + a + "-command"
+		c := powerCommand(t, testKit(t, ""), path)
+		want := []string{tr.Get("settings-command-builtin-" + b.String()), tr.Get("settings-action-custom")}
+		if items := c.pick.pick.Items(); !slices.Equal(items, want) {
+			t.Errorf("%s offers %q, want %q", path, items, want)
+		}
+		if c.pick.pick.Selected() != 0 || c.entry.Visible() {
+			t.Errorf("%s's default %s shows as %d, custom %v", path, b, c.pick.pick.Selected(), c.entry.Visible())
+		}
+		for _, item := range c.pick.pick.Items() {
+			if strings.HasPrefix(item, ":") || strings.Contains(item, "loginctl") || strings.Contains(item, "systemctl") {
+				t.Errorf("%s offers %q, not a name", path, item)
+			}
+		}
 	}
-	if c.pick.pick.Selected() != 0 || c.entry.Visible() {
-		t.Fatalf("the default shows as %d, custom %v", c.pick.pick.Selected(), c.entry.Visible())
+}
+
+func TestChoosingAPowerBuiltinStoresItsToken(t *testing.T) {
+	for _, a := range powerMenuActions {
+		b := powerCommandBuiltins[a]
+		path := "modules.power." + a + "-command"
+		k := testKit(t, "modules:\n  power:\n    "+a+"-command: my-"+a+"\n")
+		c := powerCommand(t, k, path)
+		c.pick.pick.OnSelect(0)
+		want := config.BuiltinPowerCommand(b).String()
+		if v := k.store.value(path); v != want {
+			t.Errorf("%s stored %v, want %q", path, v, want)
+		}
+		if got, err := config.ParsePowerCommand(want); err != nil || got != config.BuiltinPowerCommand(b) {
+			t.Errorf("%s's token %q reads back as %v, %v", path, want, got, err)
+		}
 	}
-	c.pick.pick.OnSelect(1)
-	if v := k.store.value(path); v != "loginctl terminate-session self" {
-		t.Fatalf("stored %v", v)
+}
+
+func TestAUserPowerCommandRoundTrips(t *testing.T) {
+	const path = "modules.power.logout-command"
+	k := testKit(t, "modules:\n  power:\n    logout-command: my-logout --now\n")
+	c := powerCommand(t, k, path)
+	if c.pick.pick.Selected() != c.customIndex() || c.entry.Text() != "my-logout --now" {
+		t.Fatalf("a user's command shows as %d with %q", c.pick.pick.Selected(), c.entry.Text())
+	}
+	c.pick.pick.OnSelect(0)
+	if v := k.store.value(path); v != ":logout" {
+		t.Fatalf("the built-in stored %v", v)
 	}
 	c.pick.pick.OnSelect(c.customIndex())
-	c.entry.SetText("my-logout")
-	if v := k.store.value(path); v != "my-logout" || !c.entry.Visible() {
+	c.entry.SetText("my-logout --again")
+	if v := k.store.value(path); v != "my-logout --again" || !c.entry.Visible() {
 		t.Fatalf("custom stored %v, shown %v", v, c.entry.Visible())
 	}
 }
@@ -135,7 +176,7 @@ func TestAPowerButtonsCommandOffersNoNoneAndNoTryingIt(t *testing.T) {
 	if c.pick.pick.Selected() != c.customIndex() || c.entry.Text() != "my-poweroff" {
 		t.Fatalf("a custom command shows as %d with %q", c.pick.pick.Selected(), c.entry.Text())
 	}
-	if slices.Contains(c.pick.pick.Items(), locale.T().Get("settings-command-reboot")) {
+	if slices.Contains(c.pick.pick.Items(), locale.T().Get("settings-command-builtin-reboot")) {
 		t.Fatalf("shut down offers a reboot: %q", c.pick.pick.Items())
 	}
 }

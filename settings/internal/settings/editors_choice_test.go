@@ -359,19 +359,19 @@ func TestTheLauncherCommandsOfferWhatIsInstalledForThem(t *testing.T) {
 	}
 }
 
-func TestACommandOffersPresetsAndAcceptsAnyCommand(t *testing.T) {
+func TestACommandOffersItsDefaultAndAcceptsAnyCommand(t *testing.T) {
 	k := testKit(t, "")
 	const path = "modules.power.suspend-command"
 	c := shellControl(t, k, path).(*choiceEditor)
 	p := openChoices(t, k, c)
-	if !slices.Contains(p.all, "systemctl suspend") || !slices.Contains(p.all, shellDefault(path)) {
-		t.Fatalf("offered %q", p.all)
+	if !slices.Equal(p.all, []string{":suspend"}) {
+		t.Fatalf("offered %q, want the built-in alone", p.all)
 	}
-	if slices.Contains(p.all, "systemctl reboot") {
-		t.Fatalf("a suspend command offers a reboot: %q", p.all)
+	if got := commandsFor(path); len(got) != 1 || got[0].label != locale.T().Get("settings-command-builtin-suspend") {
+		t.Fatalf("the built-in default is offered as %+v, want it by name", got)
 	}
-	p.pick(t, "systemctl suspend")
-	if v := k.store.value(path); v != "systemctl suspend" {
+	p.pick(t, ":suspend")
+	if v := k.store.value(path); v != ":suspend" {
 		t.Fatalf("%v", v)
 	}
 	c.entry.SelectAll()
@@ -384,9 +384,13 @@ func TestACommandOffersPresetsAndAcceptsAnyCommand(t *testing.T) {
 	if got := commandsFor(run); len(got) != 1 || got[0].value != shellDefault(run) || got[0].label != locale.T().Get("settings-command-default") {
 		t.Fatalf("a run command offers %+v", got)
 	}
-	for _, o := range commandsFor(path) {
-		if o.label == o.value || o.group != o.value {
-			t.Errorf("the preset %q is not named, with its command beside the name: %+v", o.value, o)
+}
+
+func TestEveryPowerBuiltinIsAMessage(t *testing.T) {
+	tr := locale.T()
+	for _, b := range config.PowerBuiltins() {
+		if key := powerBuiltinKey(b); !tr.Has(key) {
+			t.Errorf("the built-in %s has no message %q", b, key)
 		}
 	}
 }

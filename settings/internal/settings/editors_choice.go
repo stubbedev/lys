@@ -75,17 +75,6 @@ func hostLists(h host) map[string]lister {
 
 var systemLists = hostLists(systemHost)
 
-var commandPresets = []struct{ keyword, command, key string }{
-	{"lock", "loginctl lock-session", "settings-command-lock-session"},
-	{"logout", "loginctl terminate-session self", "settings-command-end-session"},
-	{"logout", "loginctl terminate-user $USER", "settings-command-end-user"},
-	{"suspend", "systemctl suspend", "settings-command-suspend"},
-	{"suspend", "systemctl hybrid-sleep", "settings-command-hybrid-sleep"},
-	{"reboot", "systemctl reboot", "settings-command-reboot"},
-	{"shutdown", "systemctl poweroff", "settings-command-poweroff"},
-	{"poweroff", "systemctl poweroff", "settings-command-poweroff"},
-}
-
 var bitwardenServers = []string{"bitwarden.com", "bitwarden.eu"}
 
 var strftimePresets = []string{"%H:%M", "%H:%M:%S", "%I:%M %p", "%a %d %b", "%A, %B %d", "%Y-%m-%d", "%d/%m/%Y", "%Y-%m-%d_%H-%M-%S"}
@@ -109,20 +98,27 @@ func shellDefault(path string) string {
 	return s
 }
 
+// commandChoices are what a command field offers besides a command of
+// the user's: its default, named by the built-in power action it runs,
+// or as lys's default when it runs a command line.
 func commandChoices(path string) []actionChoice {
-	keys := strings.Split(path, ".")
-	last := keys[len(keys)-1]
-	var out []actionChoice
-	if d := shellDefault(path); d != "" {
-		out = append(out, actionChoice{key: "settings-command-default", command: d})
+	d := shellDefault(path)
+	if d == "" {
+		return nil
 	}
-	for _, p := range commandPresets {
-		if strings.Contains(last, p.keyword) && !slices.ContainsFunc(out, func(c actionChoice) bool { return c.command == p.command }) {
-			out = append(out, actionChoice{key: p.key, command: p.command})
+	return []actionChoice{{key: defaultCommandKey(d), command: d}}
+}
+
+func defaultCommandKey(command string) string {
+	if c, err := config.ParsePowerCommand(command); err == nil {
+		if b, ok := c.Builtin(); ok {
+			return powerBuiltinKey(b)
 		}
 	}
-	return out
+	return "settings-command-default"
 }
+
+func powerBuiltinKey(b config.PowerBuiltin) string { return "settings-command-builtin-" + b.String() }
 
 func commandsFor(path string) []choice {
 	presets := commandChoices(path)
