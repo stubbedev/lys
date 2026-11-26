@@ -1,0 +1,8 @@
+/lys-files
+/dist
+/result
+*.test
+/.direnv
+/debbuild
+/rpmbuild
+/lys-files-*

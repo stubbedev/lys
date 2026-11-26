@@ -1,0 +1,594 @@
+package files
+
+import (
+	"errors"
+	"os"
+	"path/filepath"
+	"regexp"
+	"slices"
+	"strings"
+	"testing"
+
+	"github.com/stubbedev/lys/desktop/desktopentry"
+	"github.com/stubbedev/lys/desktop/fileops"
+	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/lib/xkb"
+	"github.com/stubbedev/lys/shell/shell/filebrowser"
+	"github.com/stubbedev/lys/ui/app"
+	"github.com/stubbedev/lys/ui/transfer"
+	"github.com/stubbedev/lys/ui/widget"
+
+	"github.com/stubbedev/lys/files/internal/locale"
+)
+
+func msg(id string) string { return locale.T().Get(id) }
+
+// Open on a file opens it in its default app; on a folder the tab goes
+// there, and a second folder gets a tab of its own.
+func TestOpenOpensFilesAndFolders(t *testing.T) {
+	hs := newHarness(t)
+	hs.open(hs.root)
+	hs.pick(t, "a.png")
+	hs.menu(t, msg("files-open"))
+	if !slices.Equal(hs.opened, []string{hs.path("a.png")}) {
+		t.Errorf("Open on a.png opened %v", hs.opened)
+	}
+	hs.pick(t, "docs", "pics")
+	hs.menu(t, msg("files-open"))
+	if got := hs.tabs(); !slices.Equal(got, []string{hs.path("docs"), hs.path("pics")}) {
+		t.Errorf("Open on two folders left the tabs on %v", got)
+	}
+}
+
+// Open With lists the apps for the selection's type and opens the
+// files in the one picked; files of different types share none.
+func TestOpenWithOpensTheFilesInTheAppPicked(t *testing.T) {
+	hs := newHarness(t)
+	entry := filepath.Join(t.TempDir(), "viewer.desktop")
+	if err := os.WriteFile(entry, []byte("[Desktop Entry]\nType=Application\nName=Viewer\nExec=sh %F\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	app, ok := desktopentry.LoadApp("viewer.desktop", entry)
+	if !ok {
+		t.Fatal("the fixture app does not load")
+	}
+	hs.apps = []desktopentry.App{app}
+	hs.open(hs.root)
+	hs.pick(t, "a.png")
+	hs.menu(t, msg("files-open-with"), app.DisplayName())
+	if !slices.EqualFunc(hs.launched, [][]string{{hs.path("a.png")}}, slices.Equal) {
+		t.Errorf("Open With launched %v", hs.launched)
+	}
+	hs.pick(t, "a.png", "b.txt")
+	var items []widget.MenuItem
+	hs.run(func() { items = hs.f.menu(hs.f.active(), hs.f.active().b.Selected()) })
+	sub := items[slices.IndexFunc(items, func(it widget.MenuItem) bool { return it.Label == msg("files-open-with") })].Items
+	if len(sub) != 1 || !sub[0].Disabled || sub[0].Label != msg("files-no-apps") {
+		t.Errorf("files of two types offer %v", labels(sub))
+	}
+}
+
+// Copy and Cut put the files on the clipboard in GNOME's form, saying
+// which, and as a uri list; Copy Path puts their paths as text.
+func TestCopyCutAndCopyPathFillTheClipboard(t *testing.T) {
+	hs := newHarness(t)
+	hs.open(hs.root)
+	hs.pick(t, "a.png", "b.txt")
+	for label, op := range map[string]string{msg("files-copy"): "copy", msg("files-cut"): "cut"} {
+		hs.menu(t, label)
+		gnome, err := hs.clip.content.Bytes(filebrowser.GnomeCopiedFiles)
+		if want := op + "\n" + transfer.FileURI(hs.path("a.png")) + "\n" + transfer.FileURI(hs.path("b.txt")); err != nil || string(gnome) != want {
+			t.Errorf("%s put %q, want %q", label, gnome, want)
+		}
+		if !hs.clip.content.Has(transfer.MimeURIList) {
+			t.Errorf("%s offers no uri list", label)
+		}
+	}
+	hs.menu(t, msg("files-copy-path"))
+	if text, _ := hs.clip.content.Bytes(transfer.MimeText); string(text) != hs.path("a.png")+"\n"+hs.path("b.txt") {
+		t.Errorf("Copy Path put %q", text)
+	}
+	hs.clip.err = errors.New("no seat")
+	hs.menu(t, msg("files-copy"))
+	if !slices.Contains(hs.toasts, msg("files-clipboard-failed")) {
+		t.Errorf("a clipboard that refused said %v", hs.toasts)
+	}
+}
+
+// What a paste reads: GNOME's form says cut or copy, a uri list is a
+// copy; neither naming a local file, or an unknown operation, is
+// refused.
+func TestParseClipped(t *testing.T) {
+	for _, tc := range []struct {
+		mime, data string
+		want       clipped
+		err        bool
+	}{
+		{filebrowser.GnomeCopiedFiles, "copy\nfile:///a\nfile:///b%20c", clipped{paths: []string{"/a", "/b c"}}, false},
+		{filebrowser.GnomeCopiedFiles, "cut\nfile:///a", clipped{paths: []string{"/a"}, cut: true}, false},
+		{filebrowser.GnomeCopiedFiles, "link\nfile:///a", clipped{}, true},
+		{filebrowser.GnomeCopiedFiles, "copy\nhttps://example.org/a", clipped{}, true},
+		{transfer.MimeURIList, "# c\r\nfile:///a\r\nhttps://e.org/b\r\n", clipped{paths: []string{"/a"}}, false},
+		{transfer.MimeURIList, "https://e.org/b\r\n", clipped{}, true},
+		{transfer.MimeText, "/a", clipped{}, true},
+	} {
+		got, err := parseClipped(tc.mime, []byte(tc.data))
+		if (err != nil) != tc.err || !slices.Equal(got.paths, tc.want.paths) || got.cut != tc.want.cut {
+			t.Errorf("parseClipped(%s, %q) = %+v %v", tc.mime, tc.data, got, err)
+		}
+	}
+}
+
+// Paste copies what another app copied as a uri list, copies what
+// GNOME's form says was copied and moves what it says was cut; a
+// clipboard with no file says so.
+func TestPasteCopiesOrMovesWhatTheClipboardHolds(t *testing.T) {
+	hs := newHarness(t)
+	hs.open(hs.path("docs"))
+	hs.clip.content = transfer.Files(hs.path("b.txt"))
+	hs.backgroundMenu(t, msg("files-paste"))
+	if !hs.exists("docs/b.txt") || !hs.exists("b.txt") {
+		t.Errorf("pasting a uri list left docs/b.txt %v and b.txt %v, want a copy", hs.exists("docs/b.txt"), hs.exists("b.txt"))
+	}
+	hs.clip.content = filebrowser.FilesContent([]string{hs.path("pics/a.png")}, false)
+	hs.backgroundMenu(t, msg("files-paste"))
+	if !hs.exists("docs/a.png") || !hs.exists("pics/a.png") {
+		t.Error("pasting what was copied did not copy it")
+	}
+	hs.clip.content = filebrowser.FilesContent([]string{hs.path("a.png")}, true)
+	hs.key('v', app.ModCtrl, nil)
+	if hs.asking() == nil {
+		t.Fatal("pasting what was cut onto a taken name asked nothing")
+	}
+	hs.answer(t, answerKeepBoth)
+	if !hs.exists("docs/a (2).png") || hs.exists("a.png") {
+		t.Errorf("pasting what was cut left docs/a (2).png %v and a.png %v, want it moved", hs.exists("docs/a (2).png"), hs.exists("a.png"))
+	}
+	hs.clip.content = transfer.Text("not files")
+	hs.backgroundMenu(t, msg("files-paste"))
+	if !slices.Contains(hs.toasts, msg("files-paste-empty")) {
+		t.Errorf("pasting text said %v", hs.toasts)
+	}
+}
+
+// A drop moves with Shift and copies with Ctrl; with neither it moves
+// within a filesystem and copies across; a drag offering copy alone
+// copies whatever is held.
+func TestDropAction(t *testing.T) {
+	both := transfer.ActionCopy | transfer.ActionMove
+	for _, tc := range []struct {
+		mods    app.Mods
+		offered transfer.Action
+		same    bool
+		want    transfer.Action
+	}{
+		{app.ModShift, both, false, transfer.ActionMove},
+		{app.ModCtrl, both, true, transfer.ActionCopy},
+		{app.ModCtrl | app.ModShift, both, true, transfer.ActionCopy},
+		{0, both, true, transfer.ActionMove},
+		{0, both, false, transfer.ActionCopy},
+		{app.ModShift, transfer.ActionCopy, true, transfer.ActionCopy},
+		{0, transfer.ActionMove, false, transfer.ActionMove},
+	} {
+		if got := dropAction(tc.mods, tc.offered, tc.same); got != tc.want {
+			t.Errorf("dropAction(%v, %v, same %v) = %v, want %v", tc.mods, tc.offered, tc.same, got, tc.want)
+		}
+	}
+}
+
+// Files dropped on a tab land in its folder as the modifiers say: on
+// one filesystem a plain drop moves, Ctrl copies, Shift moves; nothing
+// lands in the trash.
+func TestDropsCopyOrMoveIntoTheFolderShown(t *testing.T) {
+	hs := newHarness(t)
+	hs.open(hs.path("docs"))
+	both := transfer.ActionCopy | transfer.ActionMove
+	drop := func(mods app.Mods, rel string) {
+		t.Helper()
+		hs.mods = mods
+		hs.do(func() { hs.f.drop(hs.f.active(), []string{hs.path(rel)}, both) })
+	}
+	drop(0, "b.txt")
+	if !hs.exists("docs/b.txt") || hs.exists("b.txt") {
+		t.Error("a plain drop on one filesystem did not move")
+	}
+	drop(app.ModCtrl, "a.png")
+	if !hs.exists("docs/a.png") || !hs.exists("a.png") {
+		t.Error("a Ctrl drop did not copy")
+	}
+	drop(app.ModShift, "pics/a.png")
+	hs.answer(t, answerKeepBoth)
+	if !hs.exists("docs/a (2).png") || hs.exists("pics/a.png") {
+		t.Error("a Shift drop did not move")
+	}
+	if !sameFilesystem(hs.root, []string{hs.path("a.png")}) || sameFilesystem(hs.root, []string{hs.path("gone")}) {
+		t.Error("sameFilesystem misreads the fixture")
+	}
+	hs.do(func() { hs.f.active().b.GoTo(filebrowser.TrashLocation) })
+	drop(0, "a.png")
+	if !hs.exists("a.png") {
+		t.Error("a drop on the trash listing moved the file")
+	}
+}
+
+// A conflict asks: Skip leaves what is there, Replace puts the source
+// in its place, Keep Both puts it beside under a free name, Apply to
+// all answers every later conflict at once, and Cancel stops.
+func TestTheConflictDialogsChoices(t *testing.T) {
+	hs := newHarness(t)
+	for _, rel := range []string{"from/x.txt", "from/y.txt", "to/x.txt", "to/y.txt"} {
+		hs.write(t, rel, rel)
+	}
+	hs.open(hs.path("to"))
+	paste := func(names ...string) {
+		t.Helper()
+		var paths []string
+		for _, n := range names {
+			paths = append(paths, hs.path("from/"+n))
+		}
+		hs.clip.content = filebrowser.FilesContent(paths, false)
+		hs.backgroundMenu(t, msg("files-paste"))
+		if hs.asking() == nil {
+			t.Fatal("a paste onto taken names asked nothing")
+		}
+	}
+	paste("x.txt")
+	if q := hs.asking(); q.Title != locale.T().Get("files-conflict-title", i18n.Str("name", "x.txt"), i18n.Str("folder", "to")) {
+		t.Errorf("the conflict is titled %q", q.Title)
+	}
+	hs.answer(t, answerSkip)
+	if hs.read(t, "to/x.txt") != "to/x.txt" {
+		t.Error("Skip replaced the file")
+	}
+	paste("x.txt")
+	hs.answer(t, answerReplace)
+	if hs.read(t, "to/x.txt") != "from/x.txt" {
+		t.Error("Replace left the file there")
+	}
+	paste("y.txt")
+	hs.answer(t, answerKeepBoth)
+	if hs.read(t, "to/y.txt") != "to/y.txt" || hs.read(t, "to/y (2).txt") != "from/y.txt" {
+		t.Error("Keep Both did not keep both")
+	}
+	paste("x.txt", "y.txt")
+	asked := len(hs.questions)
+	hs.run(func() { hs.asking().Content.(*widget.CheckButton).SetChecked(true) })
+	hs.answer(t, answerKeepBoth)
+	if len(hs.questions) != asked || !hs.exists("to/x (2).txt") || !hs.exists("to/y (3).txt") {
+		t.Errorf("Apply to all asked %d more times, kept x (2) %v, y (3) %v", len(hs.questions)-asked, hs.exists("to/x (2).txt"), hs.exists("to/y (3).txt"))
+	}
+	paste("x.txt", "y.txt")
+	hs.answer(t, answerCancel)
+	if hs.exists("to/x (3).txt") || hs.exists("to/y (4).txt") || len(hs.f.jobs.running) != 0 {
+		t.Error("Cancel went on copying")
+	}
+}
+
+// Cancel on a running operation's row stops it and takes the row down;
+// the panel shows while one runs.
+func TestCancelStopsAnOperation(t *testing.T) {
+	hs := newHarness(t)
+	hs.write(t, "from/x.txt", "new")
+	hs.write(t, "x.txt", "old")
+	hs.open(hs.root)
+	hs.clip.content = filebrowser.FilesContent([]string{hs.path("from/x.txt")}, false)
+	hs.backgroundMenu(t, msg("files-paste"))
+	var shown bool
+	var cancel *widget.Button
+	hs.run(func() {
+		shown = hs.f.jobs.panel.Visible()
+		for _, w := range hs.f.jobs.running[0].row.Children() {
+			if b, ok := w.(*widget.Button); ok {
+				cancel = b
+			}
+		}
+	})
+	if !shown || cancel == nil {
+		t.Fatalf("a running paste shows the panel %v with a cancel %v", shown, cancel != nil)
+	}
+	hs.do(cancel.OnClick)
+	hs.run(func() { shown = hs.f.jobs.panel.Visible() })
+	if hs.read(t, "x.txt") != "old" || shown || hs.asking() != nil {
+		t.Errorf("a cancelled paste left x.txt %q, the panel %v, a question %v", hs.read(t, "x.txt"), shown, hs.asking() != nil)
+	}
+	if slices.Contains(hs.toasts, msg("files-copy-failed")) {
+		t.Error("a cancel was reported as a failure")
+	}
+}
+
+// Rename edits the name in its row and renames the file once typed;
+// Ctrl+Z puts the old name back. Two files selected rename neither.
+func TestRenameAndItsUndo(t *testing.T) {
+	hs := newHarness(t)
+	hs.open(hs.root)
+	hs.pick(t, "b.txt")
+	hs.menu(t, msg("files-rename"))
+	entry, ok := hs.focus.(*widget.Entry)
+	if !ok || hs.tab().b.Renaming() != hs.path("b.txt") {
+		t.Fatalf("Rename focused %T renaming %q", hs.focus, hs.tab().b.Renaming())
+	}
+	hs.do(func() { entry.OnActivate("c.txt") })
+	if hs.exists("b.txt") || !hs.exists("c.txt") || !slices.Equal(hs.selected(), []string{"c.txt"}) {
+		t.Errorf("the rename left b.txt %v, c.txt %v, selected %v", hs.exists("b.txt"), hs.exists("c.txt"), hs.selected())
+	}
+	hs.key('z', app.ModCtrl, nil)
+	if !hs.exists("b.txt") || hs.exists("c.txt") {
+		t.Error("Ctrl+Z did not undo the rename")
+	}
+	hs.key('z', app.ModCtrl, nil)
+	if hs.toasts[len(hs.toasts)-1] != msg("files-nothing-to-undo") {
+		t.Errorf("a second Ctrl+Z said %v", hs.toasts)
+	}
+	hs.pick(t, "a.png", "b.txt")
+	hs.key(xkb.KeyF2, 0, nil)
+	if hs.tab().b.Renaming() != "" {
+		t.Error("F2 on two files started a rename")
+	}
+	hs.write(t, "taken.txt", "")
+	hs.pick(t, "b.txt")
+	hs.key(xkb.KeyF2, 0, nil)
+	entry = hs.focus.(*widget.Entry)
+	hs.do(func() { entry.OnActivate("taken.txt") })
+	if !hs.exists("b.txt") || hs.toasts[len(hs.toasts)-1] != locale.T().Get("files-rename-failed", i18n.Str("name", "b.txt")) {
+		t.Errorf("a rename onto a taken name said %v", hs.toasts)
+	}
+}
+
+// Move to Trash trashes the files and says so with an Undo that puts
+// them back; Delete removes them for good once confirmed, and Cancel
+// keeps them.
+func TestTrashAndDelete(t *testing.T) {
+	hs := newHarness(t)
+	hs.open(hs.root)
+	hs.pick(t, "b.txt")
+	hs.menu(t, msg("files-trash"))
+	items, err := fileops.List([]string{hs.trash})
+	if err != nil || len(items) != 1 || items[0].Original != hs.path("b.txt") || hs.exists("b.txt") {
+		t.Fatalf("the trash holds %v (%v), b.txt still there %v", items, err, hs.exists("b.txt"))
+	}
+	if hs.undoToast == nil || hs.toasts[len(hs.toasts)-1] != locale.T().Get("files-trashed", i18n.Int("count", 1), i18n.Str("name", "b.txt")) {
+		t.Fatalf("trashing said %v with an undo %v", hs.toasts, hs.undoToast != nil)
+	}
+	hs.do(hs.undoToast)
+	if !hs.exists("b.txt") {
+		t.Error("the toast's Undo did not restore b.txt")
+	}
+	hs.key('z', app.ModCtrl, nil)
+	if hs.toasts[len(hs.toasts)-1] != msg("files-nothing-to-undo") {
+		t.Error("an undone trash could be undone again")
+	}
+	hs.pick(t, "b.txt")
+	hs.menu(t, msg("files-delete"))
+	hs.answer(t, answerCancel)
+	if !hs.exists("b.txt") {
+		t.Error("a cancelled delete removed b.txt")
+	}
+	hs.pick(t, "b.txt", "docs")
+	hs.key(xkb.KeyDelete, app.ModShift, nil)
+	if q := hs.asking(); q == nil || q.Title != locale.T().Get("files-delete-title", i18n.Int("count", 2), i18n.Str("name", "b.txt")) {
+		t.Fatal("Shift+Delete asked nothing")
+	}
+	hs.answer(t, answerDelete)
+	if hs.exists("b.txt") || hs.exists("docs") {
+		t.Error("a confirmed delete left the files")
+	}
+}
+
+// The trash's menu restores a trashed file where it was, deletes one
+// for good, and empties the trash once confirmed.
+func TestTheTrashsMenu(t *testing.T) {
+	hs := newHarness(t)
+	hs.open(hs.root)
+	hs.pick(t, "a.png", "b.txt")
+	hs.key(xkb.KeyDelete, 0, nil)
+	hs.do(func() { hs.f.active().b.GoTo(filebrowser.TrashLocation) })
+	hs.pick(t, "b.txt")
+	hs.menu(t, msg("files-restore"))
+	if !hs.exists("b.txt") {
+		t.Error("Restore did not put b.txt back")
+	}
+	hs.backgroundMenu(t, msg("files-empty-trash"))
+	hs.answer(t, answerEmpty)
+	if items, err := fileops.List([]string{hs.trash}); err != nil || len(items) != 0 {
+		t.Errorf("an emptied trash holds %v (%v)", items, err)
+	}
+}
+
+// New Folder and New File ask for a name in the tab, make it and
+// select it; a name taken says so and keeps asking.
+func TestNewFolderAndNewFile(t *testing.T) {
+	hs := newHarness(t)
+	hs.open(hs.root)
+	for label, rel := range map[string]string{msg("files-new-folder"): "made", msg("files-new-file"): "made.txt"} {
+		hs.backgroundMenu(t, label)
+		p := hs.tab().prompt
+		if hs.focus != widget.Widget(p.entry) || !p.showing() {
+			t.Fatalf("%s focused %T, prompt showing %v", label, hs.focus, p.showing())
+		}
+		hs.do(func() {
+			p.entry.SetText(rel)
+			p.entry.OnActivate(rel)
+		})
+		info, err := os.Stat(hs.path(rel))
+		if err != nil || info.IsDir() != (rel == "made") || !slices.Equal(hs.selected(), []string{rel}) || p.showing() {
+			t.Errorf("%s made %v (%v), selected %v, prompt showing %v", label, info, err, hs.selected(), p.showing())
+		}
+	}
+	hs.backgroundMenu(t, msg("files-new-file"))
+	p := hs.tab().prompt
+	hs.do(func() {
+		p.entry.SetText("b.txt")
+		p.create()
+	})
+	if !p.showing() || hs.toasts[len(hs.toasts)-1] != locale.T().Get("files-create-failed", i18n.Str("name", "b.txt")) {
+		t.Errorf("a taken name said %v, prompt showing %v", hs.toasts, p.showing())
+	}
+}
+
+// Open Terminal Here opens the terminal in the folder shown, or in the
+// one folder selected.
+func TestOpenTerminalHere(t *testing.T) {
+	hs := newHarness(t)
+	hs.open(hs.root)
+	hs.backgroundMenu(t, msg("files-terminal"))
+	hs.pick(t, "docs")
+	hs.menu(t, msg("files-terminal"))
+	if !slices.Equal(hs.terminals, []string{hs.root, hs.path("docs")}) {
+		t.Errorf("terminals opened in %v", hs.terminals)
+	}
+	hs.pick(t, "b.txt")
+	var items []widget.MenuItem
+	hs.run(func() { items = hs.f.menu(hs.f.active(), hs.f.active().b.Selected()) })
+	if slices.Contains(labels(items), msg("files-terminal")) {
+		t.Error("a file offers a terminal")
+	}
+}
+
+// Properties shows a file's name, type, folder, size, time and
+// permissions, and a folder's contents counted.
+func TestProperties(t *testing.T) {
+	hs := newHarness(t)
+	hs.write(t, "docs/one.txt", "12345")
+	hs.write(t, "docs/sub/two.txt", "123")
+	if err := os.Chmod(hs.path("b.txt"), 0o640); err != nil {
+		t.Fatal(err)
+	}
+	hs.open(hs.root)
+	hs.pick(t, "b.txt")
+	hs.menu(t, msg("files-properties"))
+	q := hs.asking()
+	if q == nil || q.Title != "b.txt" {
+		t.Fatal("Properties asked nothing")
+	}
+	hs.answer(t, answerClose)
+	db := hs.f.cfg.Browser.MIME
+	ft, err := readFacts(db, []string{hs.path("b.txt")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows := ft.rows(db)
+	if rows[0][1] != "b.txt" || rows[2][1] != hs.root || rows[5][1] != "-rw-r----- (0640)" || ft.mimeType != "text/plain" {
+		t.Errorf("b.txt reads %v as %s", rows, ft.mimeType)
+	}
+	ft, err = readFacts(db, []string{hs.path("docs")})
+	if err != nil || ft.size != 8 || ft.contents != 3 {
+		t.Errorf("docs holds %d bytes in %d items (%v), want 8 in 3", ft.size, ft.contents, err)
+	}
+	if _, err := readFacts(db, []string{hs.path("gone")}); err == nil {
+		t.Error("a missing file has properties")
+	}
+}
+
+// Ctrl+T opens a tab on the folder shown, Ctrl+Tab and Ctrl+Shift+Tab
+// step through the tabs, Ctrl+W closes the one showing and closing the
+// last closes the window; the window is titled by the tab showing.
+func TestTabs(t *testing.T) {
+	hs := newHarness(t)
+	hs.open(hs.path("docs"))
+	hs.key('t', app.ModCtrl, nil)
+	hs.do(func() { hs.f.active().b.GoTo(hs.path("pics")) })
+	if got := hs.tabs(); !slices.Equal(got, []string{hs.path("docs"), hs.path("pics")}) || hs.title != "pics" {
+		t.Fatalf("tabs %v titled %q", got, hs.title)
+	}
+	hs.key(xkb.KeyTab, app.ModCtrl, nil)
+	if hs.tab().b.Dir() != hs.path("docs") || hs.title != "docs" {
+		t.Errorf("Ctrl+Tab shows %s titled %q", hs.tab().b.Dir(), hs.title)
+	}
+	hs.key(xkb.KeyISOLeftTab, app.ModCtrl|app.ModShift, nil)
+	if hs.tab().b.Dir() != hs.path("pics") {
+		t.Errorf("Ctrl+Shift+Tab shows %s", hs.tab().b.Dir())
+	}
+	hs.key('w', app.ModCtrl, nil)
+	if got := hs.tabs(); !slices.Equal(got, []string{hs.path("docs")}) || hs.closed {
+		t.Errorf("Ctrl+W left %v, closed %v", got, hs.closed)
+	}
+	hs.key('w', app.ModCtrl, nil)
+	if !hs.closed || len(hs.tabs()) != 0 {
+		t.Error("closing the last tab left the window open")
+	}
+}
+
+// Keys a text field takes stay its: Ctrl+V in the search box pastes no
+// files, Delete trashes nothing.
+func TestATextFieldKeepsItsKeys(t *testing.T) {
+	hs := newHarness(t)
+	hs.open(hs.path("docs"))
+	hs.clip.content = transfer.Files(hs.path("b.txt"))
+	hs.backgroundMenu(t, msg("files-new-file"))
+	hs.key('v', app.ModCtrl, hs.tab().prompt.entry)
+	hs.key(xkb.KeyDelete, 0, hs.tab().prompt.entry)
+	if hs.exists("docs/b.txt") {
+		t.Error("Ctrl+V in a text field pasted the files")
+	}
+}
+
+// Open shows each path in a tab: a folder, or a file selected in its
+// folder; a path that is not there says so, and nothing opens home.
+func TestOpenShowsEachPathInATab(t *testing.T) {
+	hs := newHarness(t)
+	hs.open(hs.path("docs"), hs.path("pics/a.png"), hs.path("gone"))
+	if got := hs.tabs(); !slices.Equal(got, []string{hs.path("docs"), hs.path("pics")}) || !slices.Equal(hs.selected(), []string{"a.png"}) {
+		t.Errorf("tabs on %v with %v selected", got, hs.selected())
+	}
+	if !slices.Contains(hs.toasts, locale.T().Get("files-missing", i18n.Str("path", hs.path("gone")))) {
+		t.Errorf("a missing path said %v", hs.toasts)
+	}
+	hs2 := newHarness(t)
+	hs2.open()
+	if got := hs2.tabs(); !slices.Equal(got, []string{hs2.root}) {
+		t.Errorf("no path opened %v, want home", got)
+	}
+}
+
+// ShowItems opens each folder once with its files selected; byFolder
+// keeps the folders in the order given.
+func TestShowItemsSelectsTheFilesInTheirFolders(t *testing.T) {
+	hs := newHarness(t)
+	hs.do(func() { hs.f.ShowItems([]string{hs.path("pics/a.png"), hs.path("a.png"), hs.path("b.txt")}) })
+	if got := hs.tabs(); !slices.Equal(got, []string{hs.path("pics"), hs.root}) {
+		t.Fatalf("tabs on %v", got)
+	}
+	if !slices.Equal(hs.selected(), []string{"a.png", "b.txt"}) {
+		t.Errorf("the root's tab selected %v", hs.selected())
+	}
+	groups := byFolder([]string{"/b/x", "/a/y", "/b/z"})
+	if len(groups) != 2 || groups[0].dir != "/b" || !slices.Equal(groups[0].paths, []string{"/b/x", "/b/z"}) {
+		t.Errorf("byFolder grouped %v", groups)
+	}
+	hs.do(func() { hs.f.ShowItemProperties([]string{hs.path("b.txt")}) })
+	if q := hs.asking(); q == nil || q.Title != "b.txt" {
+		t.Error("ShowItemProperties showed no properties")
+	}
+}
+
+// messageID is a quoted message id or class of the file manager.
+var messageID = regexp.MustCompile(`"files-[a-z-]+"`)
+
+// cssClass are the ids that name style classes, not messages.
+var cssClass = map[string]bool{
+	"files-tabs": true, "files-jobs": true, "files-job": true, "files-job-cancel": true, "files-name-prompt": true,
+	"files-create": true, "files-conflict-all": true, "files-properties": true, "files-property-value": true,
+}
+
+// Every message the file manager shows is in its catalogue.
+func TestEveryMessageIsInTheCatalogue(t *testing.T) {
+	own, err := filepath.Glob("*.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range own {
+		if strings.HasSuffix(f, "_test.go") {
+			continue
+		}
+		data, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, id := range messageID.FindAllString(string(data), -1) {
+			id = strings.Trim(id, `"`)
+			if !locale.T().Has(id) && !cssClass[id] {
+				t.Errorf("%s names %s, which the catalogue lacks", f, id)
+			}
+		}
+	}
+}

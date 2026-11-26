@@ -1,0 +1,99 @@
+# lys-files dev tasks.
+
+set shell := ["bash", "-euo", "pipefail", "-c"]
+
+# List all recipes with their descriptions.
+default:
+    @just --list
+
+# Run every release gate in order: vet, lint, the FMA check, the tests, the race
+# detector, build. No test starts a compositor; the FileManager1 tests start a
+# private dbus-daemon.
+check: vet lint no-fused test race build
+
+# Static analysis of every package with go vet.
+vet:
+    go vet ./...
+
+# Lint every package; settings live in .golangci.yml.
+lint:
+    golangci-lint fmt --diff
+    golangci-lint run
+
+# Fail on any float product fused into an FMA, which rounds differently from amd64.
+no-fused:
+    no-fused
+
+# Run the test suite for every package, or for $LYS_TEST_PACKAGES, the tests
+# $LYS_TEST_RUN picks and $LYS_TEST_SKIP leaves of one CI part.
+test:
+    go test -run "${LYS_TEST_RUN-}" -skip "${LYS_TEST_SKIP-}" ${LYS_TEST_ARGS--count=1 -shuffle=on} ${LYS_TEST_PACKAGES:-./...}
+
+# Every package under the race detector, which needs cgo, or one CI part of
+# them, as the test recipe picks it.
+race:
+    CGO_ENABLED=1 go test -race -run "${LYS_TEST_RUN-}" -skip "${LYS_TEST_SKIP-}" ${LYS_TEST_ARGS--count=1 -shuffle=on} ${LYS_TEST_PACKAGES:-./...}
+
+# Compile-check every package; the output is discarded.
+build:
+    go build -o /dev/null ./...
+
+# Build the release binary into dist/, as the archive and the packages ship it.
+dist:
+    just --justfile ../packaging/justfile --working-directory "{{ justfile_directory() }}" go-build dist ./cmd/lys-files
+    go tool install-icons dist/icons/hicolor/scalable/actions $(cat resources/icons.txt)
+
+# Run the file manager on the paths given.
+run *args:
+    go run ./cmd/lys-files {{ args }}
+
+# Format every Go source in place.
+fmt:
+    golangci-lint fmt
+
+# Pack the dist/ build into lys-files-<version>-<arch>-linux.tar.gz, the release
+# archive the packages are built from.
+[script("bash")]
+archive version arch=arch() dist="dist":
+    set -euo pipefail
+    staging="lys-files-{{ version }}-{{ arch }}-linux"
+    rm -rf "${staging}"
+    mkdir -p "${staging}/icons"
+    cp "{{ dist }}/lys-files" LICENSE \
+        resources/dev.stubbe.lys.files.desktop \
+        resources/org.freedesktop.FileManager1.service \
+        resources/lys-files.svg \
+        "${staging}/"
+    cp -R "{{ dist }}/icons/hicolor" "${staging}/icons/"
+    tar czf "${staging}.tar.gz" "${staging}"
+    rm -rf "${staging}"
+
+# Build the archive and the .deb and .rpm from dist/: `just files::package 0.5.0 deb`.
+package version format="": (archive version)
+    just --justfile ../packaging/justfile build files "{{ justfile_directory() }}/lys-files-{{ version }}-{{ arch() }}-linux.tar.gz" "{{ version }}" "{{ format }}"
+
+# Install a .deb or .rpm built by package (as root) and check it runs.
+[script("bash")]
+smoke-test package:
+    set -euo pipefail
+    just --justfile ../packaging/justfile install "$(readlink -f "{{ package }}")"
+    fail() {
+        echo "smoke test: $*" >&2
+        exit 1
+    }
+
+    for file in /usr/share/applications/dev.stubbe.lys.files.desktop \
+        /usr/share/dbus-1/services/org.freedesktop.FileManager1.service \
+        /usr/share/icons/hicolor/scalable/apps/lys-files.svg \
+        /usr/share/lys-files/icons/hicolor/scalable/actions/ld-trash-2-symbolic.svg; do
+        [[ -f ${file} ]] || fail "${file} is missing"
+    done
+
+    version="$(lys-files --version)"
+    [[ ${version} == "lys-files "* ]] || fail "--version printed ${version@Q}"
+
+    status=0
+    lys-files --bogus >/dev/null 2>&1 || status=$?
+    [[ ${status} -eq 2 ]] || fail "lys-files --bogus exited ${status}, want 2"
+
+    echo "smoke test: {{ package }} installs and runs"

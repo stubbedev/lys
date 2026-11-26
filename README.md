@@ -22,6 +22,7 @@
 | [`login/`](login) | Display manager, greeter and lock screen | `lys-login` |
 | [`settings/`](settings) | Settings app for lys-shell and lys-wm | `lys-settings` |
 | [`viewer/`](viewer) | Viewer for pictures, videos and documents, the default app for them | `lys-viewer` |
+| [`files/`](files) | File manager, the default app for folders, serving FileManager1 | `lys-files` |
 | [`polkit/`](polkit) | Polkit authentication agent | `lys-polkit` |
 | [`power/`](power) | Adaptive battery charging and power profile switching | `lys-power` |
 | [`secrets/`](secrets) | Secret Service and Bitwarden vault | `lys-secrets` |

@@ -2,8 +2,8 @@
 
 lys is one Go module, `github.com/stubbedev/lys`, in one repository. Each
 component lives in its own directory (`lib/`, `ui/`, `desktop/`, `wm/`,
-`shell/`, `login/`, `settings/`, `viewer/`, `polkit/`, `power/`, `secrets/`,
-`splash/`) with its own justfile, Nix modules and lint config. Everything is
+`shell/`, `login/`, `settings/`, `viewer/`, `files/`, `polkit/`, `power/`,
+`secrets/`, `splash/`) with its own justfile, Nix modules and lint config. Everything is
 driven through `just`; CI calls the same recipes.
 
 ## Dev shells

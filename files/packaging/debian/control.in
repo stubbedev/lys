@@ -1,0 +1,31 @@
+Source: lys-files
+Section: utils
+Priority: optional
+Maintainer: @MAINTAINER@
+Build-Depends:
+ debhelper-compat (= 13),
+ desktop-file-utils
+Standards-Version: 4.7.0
+Rules-Requires-Root: no
+Homepage: https://github.com/stubbedev/lys/tree/main/files
+Vcs-Git: https://github.com/stubbedev/lys.git
+Vcs-Browser: https://github.com/stubbedev/lys/tree/main/files
+
+Package: lys-files
+Architecture: amd64 arm64
+Depends:
+ ${misc:Depends},
+ hicolor-icon-theme,
+ shared-mime-info
+Recommends:
+ bubblewrap,
+ dbus,
+ libvulkan1,
+ mesa-vulkan-drivers,
+ udisks2
+Provides: x-file-manager
+Description: file manager for the lys desktop
+ lys-files browses folders in tabs with previews and Quick Look, copies,
+ moves, renames and trashes files with progress, conflicts and undo, shares
+ them with other apps through the clipboard and drag and drop, and answers
+ org.freedesktop.FileManager1, so "show in folder" from other apps opens it.

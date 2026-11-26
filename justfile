@@ -11,6 +11,7 @@ mod shell
 mod login
 mod settings
 mod viewer
+mod files
 mod polkit
 mod power
 mod secrets

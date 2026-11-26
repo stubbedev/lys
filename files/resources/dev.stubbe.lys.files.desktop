@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=Lys Files
+GenericName=File Manager
+Comment=Browse and manage files
+Exec=lys-files %U
+Icon=lys-files
+Terminal=false
+Categories=System;FileTools;FileManager;
+Keywords=folder;manager;explore;disk;filesystem;files;lys;
+MimeType=inode/directory;
+StartupNotify=true
+StartupWMClass=dev.stubbe.lys.files

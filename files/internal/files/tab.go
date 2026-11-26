@@ -1,0 +1,121 @@
+package files
+
+import (
+	"errors"
+	"os"
+
+	"github.com/stubbedev/lys/shell/shell/filebrowser"
+	"github.com/stubbedev/lys/ui/transfer"
+	"github.com/stubbedev/lys/ui/widget"
+)
+
+// errHidden is a focus asked for by a tab that is not showing.
+var errHidden = errors.New("the tab is not showing")
+
+// tab is one browse: its page, its browser, its name prompt.
+type tab struct {
+	page   *widget.TabPage
+	b      *filebrowser.Browser
+	prompt *prompt
+	home   string
+}
+
+// newTab opens a tab on dir ("" for home) with selected selected, and
+// shows it.
+func (f *Files) newTab(dir string, selected []string) {
+	t := &tab{home: f.cfg.Browser.Home}
+	t.b = filebrowser.New(f.cfg.Browser, func(w widget.Widget) error {
+		if f.active() != t {
+			return errHidden
+		}
+		return f.cfg.Host.Focus(w)
+	})
+	t.prompt = newPrompt(f, t)
+	t.b.Begin(filebrowser.Options{
+		Folder:      dir,
+		Kinds:       filebrowser.FilesAndFolders,
+		Selection:   widget.SelectionMultiple,
+		Gathered:    true,
+		Above:       []widget.Widget{t.prompt.row},
+		OnFile:      func(e filebrowser.Entry) { f.cfg.Host.OpenFile(e.Path) },
+		ContextMenu: func(sel []filebrowser.Entry) []widget.MenuItem { return f.menu(t, sel) },
+		OnDrop:      func(paths []string, offered transfer.Action) { f.drop(t, paths, offered) },
+		DragActions: transfer.ActionCopy | transfer.ActionMove,
+		OnDir:       func(string) { f.dirShown(t) },
+	})
+	content := widget.NewBox(widget.Column, 0, 0)
+	content.Append(t.b.Header(), false)
+	content.Append(t.b.Main(), true)
+	t.page = f.view.Append(content, t.title())
+	f.tabs[t.page] = t
+	f.view.Select(t.page)
+	f.selected()
+	if len(selected) > 0 {
+		t.b.Reveal(t.b.Dir(), selected)
+	}
+}
+
+// dirShown titles the tab, and the window when it shows, by the
+// folder the tab moved to; an inline prompt closes.
+func (f *Files) dirShown(t *tab) {
+	if t.page == nil {
+		return
+	}
+	t.prompt.hide()
+	t.page.SetTitle(t.title())
+	t.page.SetTooltip(t.b.Dir())
+	if f.active() == t {
+		f.cfg.Host.SetTitle(t.title())
+	}
+}
+
+// title is the name of the folder the tab shows.
+func (t *tab) title() string {
+	crumbs := filebrowser.Crumbs(t.b.Dir(), t.home)
+	return crumbs[len(crumbs)-1].Label
+}
+
+// virtual reports a tab showing Recent or Trash.
+func (t *tab) virtual() bool { return filebrowser.VirtualLocation(t.b.Dir()) }
+
+// inTrash reports a tab showing the trash.
+func (t *tab) inTrash() bool { return t.b.Dir() == filebrowser.TrashLocation }
+
+// paths are the selected files.
+func (t *tab) paths() []string {
+	sel := t.b.Selected()
+	paths := make([]string, 0, len(sel))
+	for _, e := range sel {
+		paths = append(paths, e.Path)
+	}
+	return paths
+}
+
+// targets are what an action on the tab acts on: the selected files,
+// else the folder shown.
+func (t *tab) targets() []string {
+	if paths := t.paths(); len(paths) > 0 {
+		return paths
+	}
+	if t.virtual() {
+		return nil
+	}
+	return []string{t.b.Dir()}
+}
+
+// location is a path to open, stated.
+type location struct {
+	path  string
+	isDir bool
+	err   error
+}
+
+// locate states each of paths; safe off the loop.
+func locate(paths []string) []location {
+	found := make([]location, 0, len(paths))
+	for _, p := range paths {
+		info, err := os.Stat(p)
+		found = append(found, location{path: p, isDir: err == nil && info.IsDir(), err: err})
+	}
+	return found
+}

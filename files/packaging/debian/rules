@@ -1,0 +1,23 @@
+#!/usr/bin/make -f
+
+%:
+	dh $@
+
+override_dh_auto_build:
+
+override_dh_dwz:
+
+override_dh_strip:
+	dh_strip --no-automatic-dbgsym
+
+override_dh_auto_install:
+	install -d debian/lys-files/usr/bin
+	install -m 0755 lys-files debian/lys-files/usr/bin/
+
+	install -D -m 0644 dev.stubbe.lys.files.desktop debian/lys-files/usr/share/applications/dev.stubbe.lys.files.desktop
+	desktop-file-validate debian/lys-files/usr/share/applications/dev.stubbe.lys.files.desktop
+	install -D -m 0644 org.freedesktop.FileManager1.service debian/lys-files/usr/share/dbus-1/services/org.freedesktop.FileManager1.service
+	install -D -m 0644 lys-files.svg debian/lys-files/usr/share/icons/hicolor/scalable/apps/lys-files.svg
+
+	install -d debian/lys-files/usr/share/lys-files/icons/hicolor/scalable/actions
+	install -m 0644 icons/hicolor/scalable/actions/*.svg debian/lys-files/usr/share/lys-files/icons/hicolor/scalable/actions/

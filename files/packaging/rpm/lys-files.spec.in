@@ -1,0 +1,50 @@
+%global debug_package %{nil}
+%global _build_id_links none
+
+Name:           lys-files
+Version:        @VERSION@
+Release:        1%{?dist}
+Summary:        File manager for the lys desktop
+License:        MIT
+URL:            https://github.com/stubbedev/lys/tree/main/files
+Source0:        https://github.com/stubbedev/lys/releases/download/v%{version}/lys-files-%{version}-%{_arch}-linux.tar.gz
+ExclusiveArch:  x86_64 aarch64
+
+BuildRequires:  desktop-file-utils
+Requires:       hicolor-icon-theme
+Requires:       shared-mime-info
+Recommends:     bubblewrap
+Recommends:     dbus
+Recommends:     udisks2
+Recommends:     vulkan-loader
+Recommends:     mesa-vulkan-drivers
+
+%description
+lys-files browses folders in tabs with previews and Quick Look, copies, moves, renames and trashes files with progress, conflicts and undo, shares them with other apps through the clipboard and drag and drop, and answers org.freedesktop.FileManager1, so "show in folder" from other apps opens it.
+
+%prep
+%setup -q -n lys-files-%{version}-%{_arch}-linux
+
+%build
+
+%install
+install -d %{buildroot}%{_bindir}
+install -m 0755 lys-files %{buildroot}%{_bindir}/
+install -D -m 0644 dev.stubbe.lys.files.desktop %{buildroot}%{_datadir}/applications/dev.stubbe.lys.files.desktop
+desktop-file-validate %{buildroot}%{_datadir}/applications/dev.stubbe.lys.files.desktop
+install -D -m 0644 org.freedesktop.FileManager1.service %{buildroot}%{_datadir}/dbus-1/services/org.freedesktop.FileManager1.service
+install -D -m 0644 lys-files.svg %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/lys-files.svg
+install -d %{buildroot}%{_datadir}/lys-files/icons/hicolor/scalable/actions
+install -m 0644 icons/hicolor/scalable/actions/*.svg %{buildroot}%{_datadir}/lys-files/icons/hicolor/scalable/actions/
+
+%files
+%license LICENSE
+%{_bindir}/lys-files
+%{_datadir}/applications/dev.stubbe.lys.files.desktop
+%{_datadir}/dbus-1/services/org.freedesktop.FileManager1.service
+%{_datadir}/icons/hicolor/scalable/apps/lys-files.svg
+%{_datadir}/lys-files
+
+%changelog
+* @DATE@ @MAINTAINER@ - @VERSION@-1
+- Packaged upstream binary release
