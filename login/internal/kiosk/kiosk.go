@@ -40,17 +40,20 @@ type Config struct {
 	A11y     greeter.Accessibility
 }
 
+const lid = "lid_action: logind\n"
+
 // YAML is lys-wm's config for the greeter: no binds, so the greeter's
-// keys reach only it, look, the system keyboard layout, the greeter as
-// the one program, and the cursor in the environment, from which lys-wm
-// draws the cursor the greeter asks for and which the greeter inherits.
+// keys reach only it, look, the lid left to logind, the system keyboard
+// layout, the greeter as the one program, and the cursor in the
+// environment, from which lys-wm draws the cursor the greeter asks for
+// and which the greeter inherits.
 func (c Config) YAML() string {
 	quoted := make([]string, len(c.Greet))
 	for i, arg := range c.Greet {
 		quoted[i] = shlex.MustQuote(arg)
 	}
 	var b strings.Builder
-	b.WriteString("binds: []\n" + look)
+	b.WriteString("binds: []\n" + look + lid)
 	writeKeyboard(&b, c.Keyboard, c.A11y)
 	b.WriteString("env:\n  XCURSOR_SIZE: " + yamlString(strconv.FormatUint(uint64(c.Cursor.Size), 10)) + "\n")
 	if c.Cursor.Theme != "" {

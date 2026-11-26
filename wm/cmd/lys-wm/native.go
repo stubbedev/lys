@@ -168,21 +168,32 @@ func openNative(l *loop.Loop, getenv func(string) string, opts nativeOptions, re
 	}); err != nil {
 		return nil, err
 	}
-	subsystems := []session.Subsystem{session.DRM, session.Input}
-	if n.lid, err = n.logind.InhibitLidSwitch(); err != nil {
+	lidSubsystems, err := n.takeLid(opts.lid)
+	if err != nil {
 		return nil, err
 	}
-	n.lidAction = opts.lid
-	if _, ok := opts.lid.Sleep(); ok {
-		if err := n.recheckAfterWake(lidHoldoff); err != nil {
-			return nil, err
-		}
-		subsystems = append(subsystems, session.PowerSupply)
-	}
-	if n.monitor, err = session.Watch(l, n.logind.Seat(), subsystems, n.udev); err != nil {
+	if n.monitor, err = session.Watch(l, n.logind.Seat(), append([]session.Subsystem{session.DRM, session.Input}, lidSubsystems...), n.udev); err != nil {
 		return nil, err
 	}
 	return n, nil
+}
+
+func (n *native) takeLid(action session.LidAction) ([]session.Subsystem, error) {
+	n.lidAction = action
+	if action.LeftToLogind() {
+		return nil, nil
+	}
+	var err error
+	if n.lid, err = n.logind.InhibitLidSwitch(); err != nil {
+		return nil, err
+	}
+	if _, ok := action.Sleep(); !ok {
+		return nil, nil
+	}
+	if err := n.recheckAfterWake(lidHoldoff); err != nil {
+		return nil, err
+	}
+	return []session.Subsystem{session.PowerSupply}, nil
 }
 
 func (n *native) lidPolicy() compositor.LidPolicy {

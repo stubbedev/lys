@@ -269,7 +269,7 @@ func TestErrorsNameFileLineAndKey(t *testing.T) {
 		"binds:\n  - chord: Q\n    acton: kill\n":                               "t.yaml:3: binds[0].acton: unknown key (known: action, chord, cooldown, description, flags, long_press)",
 		"env:\n  LYS_WM_SOCKET: /x\n":                                           "t.yaml:2: env.LYS_WM_SOCKET: is set by lys-wm",
 		"env:\n  A=B: c\n":                                                      "t.yaml:2: env.A=B: is not a valid environment variable",
-		"lid_action: sleep\n":                                                   `t.yaml:1: lid_action: "sleep" is not one of auto, hibernate, hybrid-sleep, ignore, suspend, suspend-then-hibernate`,
+		"lid_action: sleep\n":                                                   `t.yaml:1: lid_action: "sleep" is not one of auto, hibernate, hybrid-sleep, ignore, logind, suspend, suspend-then-hibernate`,
 		"tabs:\n  height: tall\n":                                               "t.yaml: yaml: unmarshal errors:\n  line 2: cannot unmarshal",
 		"borders:\n  active: chartreuse\n":                                      `t.yaml:2: borders.active: "chartreuse" is neither`,
 		"binds:\n  - chord: SUPER + Q\n    action: teleport\n":                  `t.yaml:3: binds[0].action: bad action: unknown action "teleport"`,
@@ -1671,6 +1671,7 @@ func TestTheLidActionIsTheConfiguredSleepAndAutoByDefault(t *testing.T) {
 		"lid_action: hybrid-sleep\n":           lidActions["hybrid-sleep"],
 		"lid_action: suspend-then-hibernate\n": lidActions["suspend-then-hibernate"],
 		"lid_action: ignore\n":                 lidActions["ignore"],
+		"lid_action: logind\n":                 lidActions["logind"],
 	} {
 		cfg, err := Parse("t.yaml", []byte(src))
 		if err != nil {
@@ -1679,6 +1680,21 @@ func TestTheLidActionIsTheConfiguredSleepAndAutoByDefault(t *testing.T) {
 		if cfg.Lid != want {
 			t.Errorf("%q: lid action %+v, want %+v", src, cfg.Lid, want)
 		}
+	}
+}
+
+func TestTheLogindLidActionLeavesTheLidToLogind(t *testing.T) {
+	for src, want := range map[string]bool{"lid_action: logind\n": true, "lid_action: ignore\n": false, "": false} {
+		cfg, err := Parse("t.yaml", []byte(src))
+		if err != nil {
+			t.Fatalf("%q: %v", src, err)
+		}
+		if got := cfg.Lid.LeftToLogind(); got != want {
+			t.Errorf("%q: the lid is left to logind %v, want %v", src, got, want)
+		}
+	}
+	if _, err := Parse("t.yaml", []byte("lid_action: Logind\n")); err == nil || !strings.Contains(err.Error(), `lid_action: "Logind" is not one of`) {
+		t.Errorf("lid_action: Logind: %v, want it rejected", err)
 	}
 }
 

@@ -671,7 +671,9 @@ when the lid is closed, the laptop is not docked and the machine is on
 battery (`compositor/lid.go`). `lid_action` names the sleep, one of logind's
 `HandleLidSwitch` values, which `session.Logind.Sleep` (or the holder, in a
 worker) asks of logind; `ignore` keeps the inhibitor and never sleeps, as
-logind's own `ignore` would.
+logind's own `ignore` would. `logind` takes no inhibitor and applies no
+policy, so logind's `HandleLidSwitch` acts: the greeter's kiosk runs so, as
+the greeter user cannot take the inhibitor under greetd.
 
 Docked is one fact, read by both the clamshell rule (`eDP-*` panels off while
 the lid is closed) and the suspend: an external output in the layout that

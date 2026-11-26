@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"os"
 	"slices"
 	"strings"
 	"testing"
@@ -150,6 +151,82 @@ func TestTheIgnoreLidActionHasNoLidPolicy(t *testing.T) {
 		t.Fatalf("ignore has a lid policy %+v", policy)
 	}
 }
+
+type lidInhibitRecorder struct {
+	broker
+	inhibits int
+}
+
+func (r *lidInhibitRecorder) InhibitLidSwitch() (*os.File, error) {
+	r.inhibits++
+	return os.Open(os.DevNull)
+}
+
+func TestTheLogindLidActionTakesNoInhibitorAndHasNoLidPolicy(t *testing.T) {
+	r := &lidInhibitRecorder{}
+	n := &native{logind: r}
+	subsystems, err := n.takeLid(lidActionNamed(t, "logind"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.inhibits != 0 || n.lid != nil {
+		t.Errorf("logind took the lid switch inhibitor %d times", r.inhibits)
+	}
+	if len(subsystems) != 0 || n.wake != nil {
+		t.Errorf("logind watches %v and rechecks after a wake %v, want neither", subsystems, n.wake != nil)
+	}
+	if policy := n.lidPolicy(); policy.Sleep != nil || policy.OnBattery != nil {
+		t.Errorf("logind has a lid policy %+v", policy)
+	}
+}
+
+func TestTheOtherLidActionsTakeTheInhibitor(t *testing.T) {
+	for _, a := range session.LidActions() {
+		if a.LeftToLogind() {
+			continue
+		}
+		t.Run(a.String(), func(t *testing.T) {
+			l, err := loop.New()
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer l.Close()
+			r := &lidInhibitRecorder{}
+			n := &native{l: l, logind: r}
+			subsystems, err := n.takeLid(a)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer n.lid.Close()
+			if r.inhibits != 1 || n.lid == nil {
+				t.Errorf("%s took the lid switch inhibitor %d times, want once", a, r.inhibits)
+			}
+			_, sleeps := a.Sleep()
+			if watches := slices.Equal(subsystems, []session.Subsystem{session.PowerSupply}); watches != sleeps || (n.wake != nil) != sleeps {
+				t.Errorf("%s watches %v and rechecks after a wake %v, want both only when it sleeps (%v)", a, subsystems, n.wake != nil, sleeps)
+			}
+			if policy := n.lidPolicy(); (policy.Sleep != nil) != sleeps {
+				t.Errorf("%s has a lid policy %v, want one only when it sleeps (%v)", a, policy.Sleep != nil, sleeps)
+			}
+		})
+	}
+}
+
+func TestADeniedLidInhibitorStopsTheStartUnlessTheLidIsLeftToLogind(t *testing.T) {
+	n := &native{logind: failingInhibit{}}
+	if _, err := n.takeLid(lidActionNamed(t, "ignore")); !errors.Is(err, errInhibitDenied) {
+		t.Fatalf("a denied inhibitor: %v, want it reported", err)
+	}
+	if _, err := n.takeLid(lidActionNamed(t, "logind")); err != nil {
+		t.Fatalf("logind asked for the denied inhibitor: %v", err)
+	}
+}
+
+var errInhibitDenied = errors.New("logind: permission denied")
+
+type failingInhibit struct{ broker }
+
+func (failingInhibit) InhibitLidSwitch() (*os.File, error) { return nil, errInhibitDenied }
 
 func lidActionNamed(t *testing.T, name string) session.LidAction {
 	t.Helper()

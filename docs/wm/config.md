@@ -1073,8 +1073,8 @@ stretched until they redraw. `true` waits up to 100 ms for them first.
 lid_action: suspend-then-hibernate
 ```
 
-On the drm backend lys-wm inhibits logind's lid handling and applies the lid
-policy itself: when the lid is closed, no output besides the `eDP-*` panels is
+On the drm backend, unless this key is `logind`, lys-wm inhibits logind's lid
+handling and applies the lid policy itself: when the lid is closed, no output besides the `eDP-*` panels is
 on and displaying (as for the panel rule in [outputs](#outputs)), and the
 machine is on battery, it asks logind for the sleep this key names. `auto`
 (the default) is `suspend-then-hibernate` where logind's
@@ -1083,8 +1083,12 @@ other values are logind's `HandleLidSwitch` sleeps, each calling the logind
 method of that name: `suspend`, `hibernate`, `hybrid-sleep` and
 `suspend-then-hibernate` (which hibernates after logind's `HibernateDelaySec`,
 or, where that is unset, before the battery runs low). `ignore` does nothing on a lid close, and logind does
-nothing either, since lys-wm still holds its inhibitor. lys-shell's idle
-policy takes the same values in [`idle.suspend-action`](/shell/config/idle).
+nothing either, since lys-wm still holds its inhibitor. `logind` takes no
+inhibitor and applies no policy, leaving the lid to logind's
+`HandleLidSwitch`; the greeter's kiosk config sets it, since a user the
+system does not trust with the `handle-lid-switch` inhibitor, as greetd's
+greeter is, cannot take it. lys-shell's idle policy takes the sleeps in
+[`idle.suspend-action`](/shell/config/idle).
 Read at startup.
 
 ## gpu

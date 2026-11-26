@@ -11,13 +11,17 @@ import (
 	"github.com/stubbedev/lys/lib/logind"
 )
 
-type LidAction struct{ sleep logind.PowerAction }
+type LidAction struct {
+	sleep    logind.PowerAction
+	toLogind bool
+}
 
 var DefaultLidAction = LidAction{sleep: logind.AutoSleep}
 
 func LidActions() []LidAction {
 	sleeps := logind.SleepActions()
-	out := make([]LidAction, 1, len(sleeps)+1)
+	out := make([]LidAction, 2, len(sleeps)+2)
+	out[1] = LidAction{toLogind: true}
 	for _, s := range sleeps {
 		out = append(out, LidAction{sleep: s})
 	}
@@ -25,14 +29,22 @@ func LidActions() []LidAction {
 }
 
 func (a LidAction) String() string {
-	if a.sleep == 0 {
+	switch {
+	case a.toLogind:
+		return "logind"
+	case a.sleep == 0:
 		return "ignore"
+	default:
+		return a.sleep.String()
 	}
-	return a.sleep.String()
 }
 
 func (a LidAction) Sleep() (logind.PowerAction, bool) {
 	return a.sleep, a.sleep != 0
+}
+
+func (a LidAction) LeftToLogind() bool {
+	return a.toLogind
 }
 
 func OnBattery(roots Roots) (bool, error) {

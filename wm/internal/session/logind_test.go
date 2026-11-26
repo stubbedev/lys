@@ -328,14 +328,33 @@ func TestTheIgnoreLidActionSleepsThroughNothingAndTheDefaultIsAuto(t *testing.T)
 	}
 }
 
-// The lid actions list ignoring the lid first, then logind's sleeps in
-// the order the idle Sleep choice lists them, so both pickers read alike.
-func TestTheLidActionsListIgnoreThenLogindsSleeps(t *testing.T) {
+func TestTheLogindLidActionLeavesTheLidToLogindAndSleepsThroughNothing(t *testing.T) {
+	a := lidActionNamed(t, "logind")
+	if !a.LeftToLogind() {
+		t.Error("logind does not leave the lid to logind")
+	}
+	if action, ok := a.Sleep(); ok {
+		t.Errorf("logind sleeps through %s", action)
+	}
+	for _, other := range LidActions() {
+		if other != a && other.LeftToLogind() {
+			t.Errorf("lid action %s leaves the lid to logind", other)
+		}
+	}
+	if DefaultLidAction.LeftToLogind() {
+		t.Error("the default lid action leaves the lid to logind")
+	}
+}
+
+// The lid actions list ignoring the lid and leaving it to logind first,
+// then logind's sleeps in the order the idle Sleep choice lists them, so
+// both pickers read alike.
+func TestTheLidActionsListIgnoreAndLogindThenLogindsSleeps(t *testing.T) {
 	var names []string
 	for _, a := range LidActions() {
 		names = append(names, a.String())
 	}
-	if want := []string{"ignore", "auto", "suspend", "hibernate", "hybrid-sleep", "suspend-then-hibernate"}; !slices.Equal(names, want) {
+	if want := []string{"ignore", "logind", "auto", "suspend", "hibernate", "hybrid-sleep", "suspend-then-hibernate"}; !slices.Equal(names, want) {
 		t.Errorf("lid actions %v, want %v", names, want)
 	}
 }

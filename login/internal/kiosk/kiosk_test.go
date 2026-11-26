@@ -25,7 +25,7 @@ func TestTheTestsReachNoHostSession(t *testing.T) { testhome.RequireNoHostSessio
 
 func TestKioskConfigQuotesTheGreeter(t *testing.T) {
 	got := Config{Greet: []string{"/nix/store/x/bin/lys-login", "greet", "--sessions", "/run/my sessions", `--env`, `A="b"`}, Cursor: greeter.Cursor{Size: 24}}.YAML()
-	want := "binds: []\n" + look + "env:\n  XCURSOR_SIZE: \"24\"\nautostart:\n  - \"/nix/store/x/bin/lys-login greet --sessions '/run/my sessions' --env 'A=\\\"b\\\"'\"\n"
+	want := "binds: []\n" + look + lid + "env:\n  XCURSOR_SIZE: \"24\"\nautostart:\n  - \"/nix/store/x/bin/lys-login greet --sessions '/run/my sessions' --env 'A=\\\"b\\\"'\"\n"
 	if got != want {
 		t.Errorf("kiosk config =\n%s\nwant\n%s", got, want)
 	}
@@ -77,6 +77,18 @@ func TestKioskConfigTurnsOffTheDefaultLook(t *testing.T) {
 	}
 	if cfg.Animations.Enabled == nil || *cfg.Animations.Enabled {
 		t.Errorf("animations.enabled = %v, want false so the greeter does not fade in over lys-wm's background", cfg.Animations.Enabled)
+	}
+}
+
+func TestKioskConfigLeavesTheLidToLogind(t *testing.T) {
+	var cfg struct {
+		LidAction *string `yaml:"lid_action"`
+	}
+	if err := yaml.Unmarshal([]byte(Config{Greet: []string{"lys-login", "greet"}, Cursor: greeter.Cursor{Size: 24}}.YAML()), &cfg); err != nil {
+		t.Fatal(err)
+	}
+	if cfg.LidAction == nil || *cfg.LidAction != "logind" {
+		t.Errorf("lid_action = %v, want logind so lys-wm takes no lid inhibitor the greeter user may not hold", cfg.LidAction)
 	}
 }
 

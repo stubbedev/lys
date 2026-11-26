@@ -4267,6 +4267,7 @@
       "type": "string",
       "enum": [
         "ignore",
+        "logind",
         "auto",
         "suspend",
         "hibernate",
