@@ -4,6 +4,8 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/launcherview"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
+
+	"github.com/stubbedev/lys/shell/internal/launcheripc"
 )
 
 // views is one session's widget tree: the frame every session has,
@@ -12,6 +14,7 @@ type views struct {
 	*panelFrame
 	*launcherview.Session
 	pane *previewPane
+	ql   *quickLook
 }
 
 // buildViews builds and fills the tree for session a.
@@ -46,6 +49,12 @@ func (s *Surface) buildViews(a *active) *views {
 	if sheet, ok := look.Stylesheet(s.d.SheetPriority); ok {
 		v.root.AttachStylesheet(sheet)
 	}
+	v.ql = newQuickLook(s.d.Font, px, s.d.Invoke, s.work.Go, lookOpener(s.d.OpenFile, func() {
+		if s.cur == a {
+			s.end(&launcheripc.ServerFrame{Type: launcheripc.FrameCancelled, Code: 1})
+		}
+	}), v.relayout)
+	v.overlay = v.ql.card
 	v.target = v.targetIn
 	v.place = v.PlaceIn
 

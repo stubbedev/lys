@@ -265,10 +265,7 @@ func (l *previewLoader) start(parent context.Context) context.Context {
 
 // stop drops the current row's wait and load.
 func (l *previewLoader) stop() {
-	if l.stopWait != nil {
-		l.stopWait()
-		l.stopWait = nil
-	}
+	l.hurry()
 	if l.stopLoad != nil {
 		l.stopLoad()
 		l.stopLoad = nil
@@ -287,6 +284,15 @@ func (l *previewLoader) close() {
 
 // settle runs fn once the selection has rested.
 func (l *previewLoader) settle(fn func()) { l.stopWait = l.after(previewSettle, fn) }
+
+// hurry ends the current row's wait, its load left running: the caller
+// loads the row now, as Quick Look does the row it moves to.
+func (l *previewLoader) hurry() {
+	if l.stopWait != nil {
+		l.stopWait()
+		l.stopWait = nil
+	}
+}
 
 // fetch shows p in pane: a file at once, as Quick Look does, which
 // loads itself; anything else loaded off the loop, on a goroutine spawn

@@ -31,6 +31,8 @@ const (
 	keyRowLast
 	keyPagePrev
 	keyPageNext
+	// keyQuickLook opens and closes Quick Look on the selected row.
+	keyQuickLook
 	// keyCustom is kb-custom-N; the binding carries N.
 	keyCustom
 )
@@ -76,6 +78,8 @@ func actionFromName(name string) (keyAction, uint8, bool) {
 		return keyPagePrev, 0, true
 	case "page-next":
 		return keyPageNext, 0, true
+	case "quick-look":
+		return keyQuickLook, 0, true
 	}
 	if n, ok := strings.CutPrefix(name, "custom-"); ok {
 		if v, err := strconv.ParseUint(n, 10, 8); err == nil && v >= 1 && v <= 19 {

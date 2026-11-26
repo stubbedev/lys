@@ -31,6 +31,7 @@ type panelViews struct {
 	body    *widget.Box
 	list    *searchList
 	pane    *previewPane
+	ql      *quickLook
 	font    render.Font
 	scale   float64
 	lines   int
@@ -74,6 +75,12 @@ func newPanelViews(d Deps, cfg *config.Config, spawn func(func())) *panelViews {
 		}
 		return v.p.win
 	})
+	v.ql = newQuickLook(d.Font, px, d.Invoke, spawn, lookOpener(d.OpenFile, func() {
+		if p := v.p; p != nil {
+			p.finish(search.Cancel{})
+		}
+	}), v.relayout)
+	v.overlay = v.ql.card
 	v.target = func(render.Rect) (int, int) { return v.targetW(), v.targetH() }
 	v.place = func(out render.Rect, w, h int) render.Rect {
 		return launcherview.Place(out, w, h, config.LauncherCenter, 0, 0)
@@ -96,6 +103,7 @@ func (v *panelViews) bind(p *panel, spawn, invoke func(func())) {
 	v.Notice.SetText("")
 	v.Footer.SetVisible(false)
 	v.withPreview = false
+	v.ql.close()
 	v.pane.box.SetVisible(false)
 	v.pane.show(nil, engine.PreviewContent{}, nil)
 	v.motion.reset(v.baseW, v.fieldH())

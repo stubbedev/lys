@@ -73,6 +73,8 @@ type panel struct {
 	closing     bool
 	preview     *previewLoader
 	previewFor  string
+	// quickLook are the keys that open and close Quick Look.
+	quickLook []app.Accel
 	// afterClose runs once the surface has gone and the keyboard with it.
 	afterClose func()
 }
@@ -81,11 +83,21 @@ type panel struct {
 func (s *Surface) openPanel(sess *launcheripc.Session) {
 	cfg := s.d.Config()
 	ctx, cancel := context.WithCancel(context.Background())
-	p := &panel{s: s, sess: sess, ctx: ctx, cancel: cancel, sel: -1, preview: newPreviewLoader(s.d, s.work.Go, s.previewSources(engine.NewThumbnailer(s.thumbs, mime.System(), previewCmd(sess.Options, cfg.Launcher))))}
+	p := &panel{
+		s: s, sess: sess, ctx: ctx, cancel: cancel, sel: -1,
+		preview:   newPreviewLoader(s.d, s.work.Go, s.previewSources(engine.NewThumbnailer(s.thumbs, mime.System(), previewCmd(sess.Options, cfg.Launcher)))),
+		quickLook: accelsFor(compileKeys(engine.EffectiveKeybindings(engine.MergeOverrides(cfg.Launcher.Keybindings, sess.Options.KbOverrides))), keyQuickLook),
+	}
 	s.panel = p
 	p.v = s.panelViewsFor(p, cfg)
 	win, err := s.d.Open(panelLayer(cfg.Styling.Translucent(), s.outputFor(cfg.Launcher.Monitor), p.v.panelFrame, p.keyCaptured,
-		func() { p.finish(search.Cancel{}) },
+		func() {
+			if p.v.ql.shown() {
+				p.v.ql.close()
+				return
+			}
+			p.finish(search.Cancel{})
+		},
 		func() {
 			if s.panel == p {
 				p.win = nil
@@ -268,6 +280,20 @@ func (p *panel) setSelected(i int, fresh bool) {
 		p.v.setFooter(p)
 	}
 	p.schedulePreview()
+	if p.v.ql.shown() {
+		p.showQuickLook()
+	}
+}
+
+// showQuickLook shows the selected row in Quick Look, and reports
+// whether Quick Look shows it: a row it does not show closes it.
+func (p *panel) showQuickLook() bool {
+	row, ok := p.selected()
+	if !ok || row.Entry == nil || !quickLookable(row.Entry.Preview) {
+		p.v.ql.close()
+		return false
+	}
+	return p.v.ql.show(p.ctx, row.Entry.ID, row.Entry.Preview, p.preview.sources)
 }
 
 // actionsCacheMax bounds what is remembered between clears.
@@ -373,6 +399,21 @@ func (p *panel) tab() {
 func (p *panel) keyCaptured(press app.Accel) bool {
 	if p.closing || p.eng == nil {
 		return false
+	}
+	if p.v.ql.shown() {
+		switch k := quickLookKeyFor(press, p.quickLook); k {
+		case quickLookClose:
+			p.v.ql.close()
+			return true
+		case quickLookPrevious, quickLookNext:
+			p.move(quickLookStep(k))
+			return true
+		}
+	}
+	if slices.Contains(p.quickLook, press) || (press == spaceAccel && p.v.Entry.Text() == "") {
+		if p.showQuickLook() {
+			return true
+		}
 	}
 	k, ok := lookupPanelKey(press)
 	if !ok {
@@ -518,6 +559,7 @@ func (p *panel) teardown() {
 		p.s.panel = nil
 	}
 	p.preview.close()
+	p.v.ql.close()
 	p.cancel()
 	if p.eng != nil {
 		p.eng.Stop()

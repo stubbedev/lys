@@ -7,9 +7,13 @@ type LauncherBinding struct {
 	Keys   string
 }
 
-// LauncherDefaultKeybindings is rofi's default table:
-// action names are rofi's kb- names without the prefix, keys are
-// comma-separated GTK accelerator names.
+// LauncherDefaultKeybindings is rofi's default table, and lys's one
+// action rofi has not, quick-look: action names are rofi's kb- names
+// without the prefix, keys are comma-separated GTK accelerator names.
+// quick-look is Shift+space, never a plain space: in rofi modes space
+// is select-element, and in the search panel it is what you type, so a
+// plain space opens Quick Look only in the panel and only while its
+// field is empty.
 var LauncherDefaultKeybindings = []LauncherBinding{
 	{"accept-entry", "Return,KP_Enter"},
 	{"accept-alt", "Shift+Return"},
@@ -49,6 +53,7 @@ var LauncherDefaultKeybindings = []LauncherBinding{
 	{"paste-primary", "Shift+Insert"},
 	{"paste-secondary", "Control+v,Insert"},
 	{"select-element", "space"},
+	{"quick-look", "Shift+space"},
 	{"custom-1", "Alt+1"},
 	{"custom-2", "Alt+2"},
 	{"custom-3", "Alt+3"},

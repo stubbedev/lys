@@ -12,6 +12,8 @@ import (
 	"github.com/stubbedev/lys/ui/anim"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
+
+	"github.com/stubbedev/lys/shell/shell/quicklook"
 )
 
 // panelFrame is what every launcher session sits in: a surface covering
@@ -28,6 +30,9 @@ type panelFrame struct {
 	target func(out render.Rect) (w, h int)
 	// place is where a panel of a size goes in an output.
 	place func(out render.Rect, w, h int) render.Rect
+	// overlay is the card over the panel, centered on the output while it
+	// shows: Quick Look's; nil for a session without one.
+	overlay *widget.Box
 }
 
 func newPanelFrame(d Deps, content *widget.Box, w, h int, win func() Window) *panelFrame {
@@ -42,6 +47,12 @@ func newPanelFrame(d Deps, content *widget.Box, w, h int, win func() Window) *pa
 	}
 	f.motion = newPanelMotion(f, w, h)
 	return f
+}
+
+// relayout lays the surface out again and repaints it.
+func (f *panelFrame) relayout() {
+	f.root.InvalidateLayout()
+	f.root.Invalidate()
 }
 
 // retarget sends the panel toward its size for what it now shows.
@@ -81,7 +92,7 @@ func panelLayer(translucent bool, output *app.Output, f *panelFrame, keys func(a
 type panelRoot struct {
 	widget.Base
 	f    *panelFrame
-	kids [1]widget.Widget
+	kids [2]widget.Widget
 }
 
 func (r *panelRoot) bounds() render.Rect { return r.Bounds() }
@@ -98,8 +109,18 @@ func (r *panelRoot) Arrange(rect render.Rect) {
 		r.f.motion.snapSize(r.f.target(rect))
 	}
 	r.f.box.Arrange(r.f.motion.shownRect(rect))
-	r.kids[0] = r.f.box
-	widget.SetParents(r, r.kids[:]...)
+	if o := r.overlay(); o != nil {
+		o.Arrange(quicklook.Centered(rect, o))
+	}
+	widget.SetParents(r, r.Children()...)
+}
+
+// overlay is the frame's overlay while it shows.
+func (r *panelRoot) overlay() *widget.Box {
+	if o := r.f.overlay; o != nil && o.Visible() {
+		return o
+	}
+	return nil
 }
 
 // ArrangeRoot mirrors Arrange for the root path.
@@ -110,24 +131,49 @@ func (r *panelRoot) ArrangeRoot(rect render.Rect) { r.Arrange(rect) }
 func (r *panelRoot) Paint(cv *render.Canvas) {
 	if alpha := r.f.motion.paintAlpha(); alpha < 1 {
 		prev := cv.PushAlpha(alpha)
-		widget.PaintChild(cv, r.f.box)
+		r.paintChildren(cv)
 		cv.PopAlpha(prev)
 		return
 	}
-	widget.PaintChild(cv, r.f.box)
+	r.paintChildren(cv)
 }
 
-// Children is the panel.
-func (r *panelRoot) Children() []widget.Widget { r.kids[0] = r.f.box; return r.kids[:] }
+func (r *panelRoot) paintChildren(cv *render.Canvas) {
+	for _, w := range r.Children() {
+		widget.PaintChild(cv, w)
+	}
+}
+
+// Children is the panel, and the overlay above it while it shows.
+func (r *panelRoot) Children() []widget.Widget {
+	r.kids[0] = r.f.box
+	if o := r.overlay(); o != nil {
+		r.kids[1] = o
+		return r.kids[:]
+	}
+	r.kids[1] = nil
+	return r.kids[:1]
+}
 
 // BackdropRegion is what the compositor blurs: the panel's rounded box as
-// it shows this frame, never the output around it.
+// it shows this frame, and the overlay's while it shows, never the
+// output around them.
 func (r *panelRoot) BackdropRegion() []render.Rect {
-	return render.RoundedRectRegion(r.f.box.Bounds(), widget.CornerRadii(r.f.box))
+	region := render.RoundedRectRegion(r.f.box.Bounds(), widget.CornerRadii(r.f.box))
+	if o := r.overlay(); o != nil {
+		region = append(region, render.RoundedRectRegion(o.Bounds(), widget.CornerRadii(o))...)
+	}
+	return region
 }
 
-// HitTest is the panel's, else the root itself: a press to dismiss with.
+// HitTest is the overlay's, else the panel's, else the root itself: a
+// press to dismiss with.
 func (r *panelRoot) HitTest(p widget.Point) widget.Widget {
+	if o := r.overlay(); o != nil {
+		if hit := o.HitTest(p); hit != nil {
+			return hit
+		}
+	}
 	if hit := r.f.box.HitTest(p); hit != nil {
 		return hit
 	}
@@ -375,8 +421,7 @@ func (m *panelMotion) applyReveal() {
 			m.compositorFade = false
 		}
 	}
-	m.f.root.InvalidateLayout()
-	m.f.root.Invalidate()
+	m.f.relayout()
 }
 
 // paintAlpha is the fade the paint must carry.

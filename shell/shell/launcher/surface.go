@@ -96,6 +96,9 @@ type Deps struct {
 	Emoji func() []modes.Emoji
 	// FireHook runs a -on-* hook (engine.FireHook; a test seam).
 	FireHook func(command string, ctx engine.HookContext)
+	// OpenFile opens a file in its default app (app.OpenPath), from Quick
+	// Look's Open button; nil shows no button.
+	OpenFile func(path string)
 }
 
 // pendingSelection is where the next match list puts the selection.
@@ -140,13 +143,20 @@ type active struct {
 	preview    *previewLoader
 	previewGen uint64
 	previewing *rowPreviewRequest
+	// landed is the last preview the mode gave for the row asked for;
+	// quickLook are the keys that open and close Quick Look, and
+	// lookWanted is Quick Look asked for, showing or waiting for its row.
+	landed     enginePreview
+	quickLook  []app.Accel
+	lookWanted bool
 }
 
-// rowPreviewRequest is the row the pane is loading or showing, and the
-// context its load runs under.
+// rowPreviewRequest is the row the pane is loading or showing, the
+// context its load runs under, and whether the mode was asked for it.
 type rowPreviewRequest struct {
-	key rowPreviewKey
-	ctx context.Context
+	key   rowPreviewKey
+	ctx   context.Context
+	asked bool
 }
 
 // Surface is the launcher: it serves the
@@ -303,6 +313,7 @@ func (s *Surface) openSession(sess *launcheripc.Session) {
 		thumbs: engine.NewThumbnailer(s.thumbs, mime.System(), setup.ui.previewCmd), ctx: ctx, cancel: cancel,
 		keys: compileKeys(setup.ui.keybindings), mouse: compileMouse(setup.ui.mouseBindings),
 	}
+	a.quickLook = accelsFor(a.keys, keyQuickLook)
 	a.preview = newPreviewLoader(s.d, s.work.Go, s.previewSources(a.thumbs))
 	s.multi = multiSelect{picked: map[uint32]bool{}, ballotSelected: setup.ui.ballotSelected, ballotUnselected: setup.ui.ballotUnselected}
 	s.model.update(nil, nil)
@@ -518,10 +529,31 @@ func (s *Surface) schedulePreview() {
 	if !ok {
 		a.previewing = nil
 		a.views.pane.show(nil, engine.PreviewContent{}, nil)
+		s.closeQuickLook()
 		return
 	}
-	a.previewing = &rowPreviewRequest{key: key, ctx: ctx}
-	a.preview.settle(func() { s.send(cmdPreview{index: item, key: key}) })
+	req := &rowPreviewRequest{key: key, ctx: ctx}
+	a.previewing = req
+	a.preview.settle(func() { s.askPreview(req) })
+	if a.lookWanted {
+		s.askPreviewNow(req)
+	}
+}
+
+// askPreview asks the mode for req's row, once.
+func (s *Surface) askPreview(req *rowPreviewRequest) {
+	if req.asked {
+		return
+	}
+	req.asked = true
+	s.send(cmdPreview{index: req.key.item, key: req.key})
+}
+
+// askPreviewNow asks for req's row without waiting for the selection to
+// rest.
+func (s *Surface) askPreviewNow(req *rowPreviewRequest) {
+	s.cur.preview.hurry()
+	s.askPreview(req)
 }
 
 // onPreview loads the mode's description of the row still asked for.
@@ -531,6 +563,10 @@ func (s *Surface) onPreview(p enginePreview) {
 	if req == nil || req.key != p.key || req.ctx.Err() != nil {
 		return
 	}
+	a.landed = p
+	if a.lookWanted {
+		s.showQuickLook(p)
+	}
 	if !p.ok {
 		a.views.pane.show(nil, engine.PreviewContent{}, nil)
 		return
@@ -539,6 +575,43 @@ func (s *Surface) onPreview(p enginePreview) {
 		a.views.pane.show(p.preview.Facts, c, err)
 		s.resize()
 	})
+}
+
+// toggleQuickLook opens Quick Look on the selected row, or closes it:
+// a row whose preview has landed shows at once, any other once its
+// preview lands, asked for without waiting for the selection to rest.
+func (s *Surface) toggleQuickLook() {
+	a := s.cur
+	if a.lookWanted {
+		s.closeQuickLook()
+		return
+	}
+	req := a.previewing
+	if req == nil {
+		return
+	}
+	a.lookWanted = true
+	if a.landed.key == req.key {
+		s.showQuickLook(a.landed)
+		return
+	}
+	s.askPreviewNow(req)
+}
+
+// showQuickLook shows p, the selected row's preview, in Quick Look; a
+// row Quick Look does not show closes it.
+func (s *Surface) showQuickLook(p enginePreview) {
+	a := s.cur
+	if !p.ok || !a.views.ql.show(a.ctx, p.key, p.preview, a.preview.sources) {
+		s.closeQuickLook()
+	}
+}
+
+// closeQuickLook closes Quick Look, showing or waiting for its row.
+func (s *Surface) closeQuickLook() {
+	a := s.cur
+	a.lookWanted = false
+	a.views.ql.close()
 }
 
 // fireSelectionHook runs -on-selection-changed for the selected row.
@@ -662,6 +735,8 @@ func (s *Surface) onKey(b keyBinding) {
 		s.moveSelection(-a.ui.look.Lines)
 	case keyPageNext:
 		s.moveSelection(a.ui.look.Lines)
+	case keyQuickLook:
+		s.toggleQuickLook()
 	}
 }
 
@@ -718,6 +793,16 @@ func (s *Surface) listScrolled(dy int, mods engine.MouseModifiers) bool {
 func (s *Surface) keyCaptured(press app.Accel) bool {
 	if s.cur == nil {
 		return false
+	}
+	if s.cur.lookWanted {
+		switch k := quickLookKeyFor(press, s.cur.quickLook); k {
+		case quickLookClose:
+			s.closeQuickLook()
+			return true
+		case quickLookPrevious, quickLookNext:
+			s.moveSelection(quickLookStep(k))
+			return true
+		}
 	}
 	b, ok := lookupKey(s.cur.keys, press)
 	if !ok {
@@ -807,6 +892,7 @@ func (s *Surface) end(frame *launcheripc.ServerFrame) {
 		a.dumpStop()
 	}
 	a.preview.close()
+	a.views.ql.close()
 	a.cancel()
 	if frame != nil {
 		a.sess.Reply(*frame)
@@ -872,7 +958,13 @@ func (s *Surface) outputFor(name string) *app.Output {
 func (s *Surface) reveal(a *active) {
 	cfg := s.d.Config()
 	win, err := s.d.Open(panelLayer(cfg.Styling.Translucent(), s.outputFor(cfg.Launcher.Monitor), a.views.panelFrame, s.keyCaptured,
-		func() { s.onKey(keyBinding{action: keyCancel}) },
+		func() {
+			if s.cur == a && a.lookWanted {
+				s.closeQuickLook()
+				return
+			}
+			s.onKey(keyBinding{action: keyCancel})
+		},
 		func() {
 			// The compositor took the surface away (output gone).
 			if s.cur == a {
