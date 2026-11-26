@@ -23,8 +23,19 @@ import (
 //	       -c:v libx264 -g 10 -bf 2 -c:a aac h264-aac.mp4
 //
 // h265-opus.mkv is the same in H.265 (keyint 10, two B-frames) and Opus
-// at 48 kHz, h264-flac.mkv has FLAC sound, vp9.webm VP9 video and
-// tone.mka the Opus tone alone.
+// at 48 kHz, h264-flac.mkv has a second of 8 kHz FLAC silence, vp9.webm
+// VP9 video and tone.mka the Opus tone alone. The other files of sound
+// alone carry the tone too: tone.m4a in AAC with a 16x16 PNG cover,
+// tone.ogg in 22.05 kHz mono Vorbis and tone.flac in 8 kHz mono FLAC
+// with the same cover:
+//
+//	ffmpeg -f lavfi -i 'color=c=0x3060a0:s=16x16:d=1' -frames:v 1 cover.png
+//	ffmpeg -f lavfi -i 'aevalsrc=…:s=44100:c=stereo:d=1' -i cover.png -map 0 -map 1 -c:a aac -b:a 32k \
+//	       -c:v png -disposition:v attached_pic tone.m4a
+//
+// with FFmpeg's PADDING block taken out of tone.flac. ac3.mka is 200 ms
+// of AC-3, tone.mp3 a second of 8 kHz MP3 and subtitles.mkv a subtitle
+// track alone.
 const (
 	fixtureDuration = time.Second
 	fixtureOnset    = 500 * time.Millisecond
@@ -120,24 +131,29 @@ func TestOpenFileFindsTheTracks(t *testing.T) {
 // PCM's first sample on the target.
 func TestOpenFileSoundKeepsTime(t *testing.T) {
 	for _, c := range fixtures {
-		t.Run(c.name, func(t *testing.T) {
-			a := openFixture(t, c.name).(Audible)
-			f := a.AudioFormat()
-			for _, from := range []time.Duration{0, 250 * time.Millisecond, 0, 400 * time.Millisecond} {
-				pcm := readPCM(t, a, from)
-				if got := onset(pcm, f); !within(got, fixtureOnset-from, c.onsetSlack) {
-					t.Errorf("from %v: the tone sounds %v in, want %v", from, got, fixtureOnset-from)
-				}
-				length := samplesAt(len(pcm)/len(f.Layout), f.Rate)
-				if length < fixtureDuration-from || length > fixtureDuration-from+50*time.Millisecond {
-					t.Errorf("from %v: %v of sound, want the %v to the end", from, length, fixtureDuration-from)
-				}
-			}
-			pcm := readPCM(t, a, 750*time.Millisecond)
-			if got := onset(pcm, f); got < 0 || got > 5*time.Millisecond {
-				t.Errorf("from 750 ms the tone sounds %v in, want at once", got)
-			}
-		})
+		t.Run(c.name, func(t *testing.T) { checkSoundTime(t, openFixture(t, c.name).(Audible), c.onsetSlack) })
+	}
+}
+
+// checkSoundTime checks that the tone of a fixture sounds at 500 ms
+// within slack whatever the PCM starts from, and that the PCM runs to
+// the fixture's end.
+func checkSoundTime(t *testing.T, a Audible, slack time.Duration) {
+	t.Helper()
+	f := a.AudioFormat()
+	for _, from := range []time.Duration{0, 250 * time.Millisecond, 0, 400 * time.Millisecond} {
+		pcm := readPCM(t, a, from)
+		if got := onset(pcm, f); !within(got, fixtureOnset-from, slack) {
+			t.Errorf("from %v: the tone sounds %v in, want %v", from, got, fixtureOnset-from)
+		}
+		length := samplesAt(len(pcm)/len(f.Layout), f.Rate)
+		if length < fixtureDuration-from || length > fixtureDuration-from+50*time.Millisecond {
+			t.Errorf("from %v: %v of sound, want the %v to the end", from, length, fixtureDuration-from)
+		}
+	}
+	pcm := readPCM(t, a, 750*time.Millisecond)
+	if got := onset(pcm, f); got < 0 || got > 5*time.Millisecond {
+		t.Errorf("from 750 ms the tone sounds %v in, want at once", got)
 	}
 }
 
@@ -188,13 +204,16 @@ func TestSteadySoundAllocatesNothing(t *testing.T) {
 }
 
 func TestOpenFileSaysWhatItCannotPlay(t *testing.T) {
-	_, err := OpenFile(fixture(t, "h264-flac.mkv"))
+	_, err := OpenFile(fixture(t, "ac3.mka"))
 	var unsupported *demux.UnsupportedCodecError
-	if !errors.As(err, &unsupported) || !strings.Contains(unsupported.Codec, "FLAC") || unsupported.File != fixture(t, "h264-flac.mkv") {
-		t.Errorf("FLAC sound: %v", err)
+	if !errors.As(err, &unsupported) || !strings.Contains(unsupported.Codec, "A_AC3") || unsupported.File != fixture(t, "ac3.mka") {
+		t.Errorf("AC-3 sound: %v", err)
 	}
-	if _, err := OpenFile(fixture(t, "tone.mka")); err == nil || !strings.Contains(err.Error(), "no video track") || !strings.Contains(err.Error(), "tone.mka") {
-		t.Errorf("a sound file: %v", err)
+	if _, err := OpenFile(fixture(t, "tone.mp3")); !errors.As(err, &unsupported) || unsupported.Codec != "MP3 (MPEG-2.5 Layer III)" {
+		t.Errorf("MP3 sound: %v", err)
+	}
+	if _, err := OpenFile(fixture(t, "subtitles.mkv")); err == nil || !strings.Contains(err.Error(), "neither video nor sound") || !strings.Contains(err.Error(), "subtitles.mkv") {
+		t.Errorf("a file of subtitles: %v", err)
 	}
 	absent := filepath.Join(t.TempDir(), "absent.mkv")
 	if _, err := OpenFile(absent); !errors.Is(err, os.ErrNotExist) || !strings.Contains(err.Error(), absent) {

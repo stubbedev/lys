@@ -5,26 +5,10 @@ import (
 	"fmt"
 
 	"github.com/stubbedev/lys/lib/intconv"
+	"github.com/stubbedev/lys/lib/media/internal/ogg"
 )
 
-const (
-	pageHeaderSize = 27
-	flagContinued  = 0x01
-	flagBOS        = 0x02
-	flagEOS        = 0x04
-	noGranule      = -1
-)
-
-func pageCRC(page []byte) uint32 {
-	var crc uint32
-	for i, b := range page {
-		if i >= 22 && i < 26 {
-			b = 0
-		}
-		crc = crc<<8 ^ crcTable[byte(crc>>24)^b]
-	}
-	return crc
-}
+const noGranule = -1
 
 type packet struct {
 	data    []byte
@@ -78,18 +62,18 @@ func (o *oggReader) nextPage() (bool, error) {
 			}
 			return false, fmt.Errorf("vorbis: no Ogg capture pattern at offset %d: %w", at, ErrCorrupt)
 		}
-		if len(rest) < pageHeaderSize {
+		if len(rest) < ogg.HeaderSize {
 			return false, fmt.Errorf("vorbis: page header at offset %d: %w", at, ErrTruncated)
 		}
 		if rest[4] != 0 {
 			return false, fmt.Errorf("vorbis: page at offset %d has Ogg version %d: %w", at, rest[4], ErrCorrupt)
 		}
 		nseg := int(rest[26])
-		headerLen := pageHeaderSize + nseg
+		headerLen := ogg.HeaderSize + nseg
 		if len(rest) < headerLen {
 			return false, fmt.Errorf("vorbis: segment table at offset %d: %w", at, ErrTruncated)
 		}
-		lacing := rest[pageHeaderSize:headerLen]
+		lacing := rest[ogg.HeaderSize:headerLen]
 		bodyLen := 0
 		for _, l := range lacing {
 			bodyLen += int(l)
@@ -98,7 +82,7 @@ func (o *oggReader) nextPage() (bool, error) {
 			return false, fmt.Errorf("vorbis: page body at offset %d: %w", at, ErrTruncated)
 		}
 		page := rest[:headerLen+bodyLen]
-		if got, want := pageCRC(page), binary.LittleEndian.Uint32(page[22:]); got != want {
+		if got, want := ogg.Checksum(page), binary.LittleEndian.Uint32(page[22:]); got != want {
 			return false, fmt.Errorf("vorbis: page at offset %d: checksum %08x, header says %08x: %w", at, got, want, ErrCorrupt)
 		}
 		o.off += len(page)
@@ -106,7 +90,7 @@ func (o *oggReader) nextPage() (bool, error) {
 		serial := binary.LittleEndian.Uint32(page[14:])
 		seq := binary.LittleEndian.Uint32(page[18:])
 		if !o.started {
-			if flags&flagBOS == 0 {
+			if flags&ogg.BOS == 0 {
 				return false, fmt.Errorf("vorbis: first page at offset %d does not begin a stream: %w", at, ErrNotVorbis)
 			}
 			o.started = true
@@ -119,7 +103,7 @@ func (o *oggReader) nextPage() (bool, error) {
 				return false, fmt.Errorf("vorbis: page at offset %d has sequence %d after %d: %w", at, seq, o.seq, ErrCorrupt)
 			}
 		}
-		continued := flags&flagContinued != 0
+		continued := flags&ogg.Continued != 0
 		if continued != (len(o.pending) > 0) {
 			return false, fmt.Errorf("vorbis: page at offset %d: continuation flag %t with %d bytes pending: %w", at, continued, len(o.pending), ErrCorrupt)
 		}
@@ -137,7 +121,7 @@ func (o *oggReader) nextPage() (bool, error) {
 				o.lastEnd = i
 			}
 		}
-		if flags&flagEOS != 0 {
+		if flags&ogg.EOS != 0 {
 			o.done = true
 		}
 		return true, nil
@@ -171,7 +155,7 @@ func (o *oggReader) next() (p packet, ok bool, err error) {
 			}
 			if end == o.lastEnd {
 				p.granule = o.granule
-				p.eos = o.flags&flagEOS != 0
+				p.eos = o.flags&ogg.EOS != 0
 			}
 			return p, true, nil
 		}
@@ -183,7 +167,7 @@ func (o *oggReader) next() (p packet, ok bool, err error) {
 }
 
 func lastGranule(data []byte, serial uint32) int64 {
-	for at := len(data) - pageHeaderSize; at >= 0; at-- {
+	for at := len(data) - ogg.HeaderSize; at >= 0; at-- {
 		if data[at] != 'O' || string(data[at:at+4]) != "OggS" {
 			continue
 		}

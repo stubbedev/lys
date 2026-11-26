@@ -1,0 +1,27 @@
+Encoded with FFmpeg 9.0.2's FLAC encoder, then FFmpeg's 8 KiB PADDING block
+removed and the remaining last metadata block flagged last.
+
+The stereo files are 80 ms at 44.1 kHz, 16 bits: 10 ms of silence (constant
+subframes), a chirp, 10 ms of full-scale noise (verbatim subframes) and two
+tones, the right channel at 0.7 of the left, coded with -compression_level 8
+and each -ch_mode:
+
+  SIG='aevalsrc=if(lt(t\,0.01)\,0\,if(lt(t\,0.04)\,0.6*sin(2*PI*(200+40000*t)*t)\,if(lt(t\,0.05)\,0.9*(random(0)*2-1)\,0.3*sin(2*PI*440*t)+0.2*sin(2*PI*1250*t+1)))):s=44100:c=stereo:d=0.08'
+  ffmpeg -f lavfi -i "$SIG" -af 'pan=stereo|c0=c0|c1=0.7*c1' -c:a flac \
+         -compression_level 8 -ch_mode $MODE -sample_fmt s16 $MODE.flac
+
+for MODE in indep, left_side, right_side and mid_side.
+
+surround24.flac is 50 ms of six 24-bit channels at 48 kHz, fixed predictors:
+
+  ffmpeg -f lavfi -i 'aevalsrc=0.5*sin(2*PI*220*t)|0.4*sin(2*PI*330*t)|0.3*sin(2*PI*3000*t*t)|0|0.2*sin(2*PI*55*t)|0.25*sin(2*PI*660*t):s=48000:d=0.05' \
+         -c:a flac -compression_level 0 -sample_fmt s32 -bits_per_raw_sample 24 surround24.flac
+
+wasted24.flac is 100 ms of a 16-bit 440 Hz tone at 22.05 kHz coded in 24
+bits, its 8 low bits wasted:
+
+  ffmpeg -f lavfi -i 'aevalsrc=0.5*sin(2*PI*440*t):s=22050:c=mono:d=0.1' -c:a pcm_s16le m16.wav
+  ffmpeg -i m16.wav -c:a flac -sample_fmt s32 -bits_per_raw_sample 24 wasted24.flac
+
+The reference decodes are the encoder's own MD5 in each STREAMINFO, and the
+MD5 of FFmpeg's 16-bit decode (ffmpeg -i X.flac -f s16le - | md5sum).

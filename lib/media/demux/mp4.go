@@ -60,6 +60,7 @@ type mp4File struct {
 	trs      []*mp4Track
 	infos    []Track
 	movieDur time.Duration
+	cover    cover
 }
 
 // box is an ISO BMFF box: its type and payload.
@@ -207,6 +208,15 @@ func (m *mp4File) parseMoov(moov []byte) error {
 			if dur != math.MaxUint32 && dur != math.MaxUint64 {
 				m.movieDur = ticksToTime(intconv.Clamp[int64](dur), movieScale)
 			}
+		case "udta":
+			return eachBox(trimQuickTimeEnd(x.payload), func(y box) error {
+				if y.typ != "meta" {
+					return nil
+				}
+				return m.parseMeta(y.payload)
+			})
+		case "meta":
+			return m.parseMeta(x.payload)
 		case "trak":
 			if movieScale == 0 {
 				return fmt.Errorf("trak before mvhd: %w", ErrMalformed)
@@ -485,7 +495,11 @@ func (t *mp4Track) parseSampleEntry(x box) error {
 			if len(y.payload) < 4 {
 				return fmt.Errorf("dfLa of %d bytes: %w", len(y.payload), ErrMalformed)
 			}
-			t.info.Config = y.payload[4:]
+			info, err := flacStreamInfo(y.payload[4:])
+			if err != nil {
+				return fmt.Errorf("dfLa: %w", err)
+			}
+			t.info.Config = info
 		case y.typ == "dOps" && t.info.Codec == Opus:
 			return t.parseDOps(y.payload)
 		case y.typ == "esds" && t.info.Codec == AAC:
@@ -494,6 +508,55 @@ func (t *mp4Track) parseSampleEntry(x box) error {
 		return nil
 	})
 }
+
+// trimQuickTimeEnd drops the four zero bytes QuickTime may end a
+// udta with, after its last box.
+func trimQuickTimeEnd(b []byte) []byte {
+	rest := b
+	for len(rest) >= 8 {
+		size := binary.BigEndian.Uint32(rest)
+		if size < 8 || uint64(size) > uint64(len(rest)) {
+			break
+		}
+		rest = rest[size:]
+	}
+	if len(rest) == 4 && binary.BigEndian.Uint32(rest) == 0 {
+		return b[:len(b)-4]
+	}
+	return b
+}
+
+// parseMeta takes the cover of a metadata box: the first image of its
+// item list's covr item. ISO BMFF makes meta a full box, QuickTime a
+// plain one, its first child the hdlr.
+func (m *mp4File) parseMeta(b []byte) error {
+	if len(b) < 8 || string(b[4:8]) != "hdlr" {
+		if len(b) < 4 {
+			return fmt.Errorf("meta of %d bytes: %w", len(b), ErrMalformed)
+		}
+		b = b[4:]
+	}
+	ilst, err := child(b, "ilst")
+	if err != nil {
+		return fmt.Errorf("meta: %w", err)
+	}
+	covr, err := child(ilst, "covr")
+	if err != nil {
+		return fmt.Errorf("meta: ilst: %w", err)
+	}
+	return eachBox(covr, func(x box) error {
+		if x.typ != "data" {
+			return nil
+		}
+		if len(x.payload) < 8 {
+			return fmt.Errorf("meta: covr data of %d bytes: %w", len(x.payload), ErrMalformed)
+		}
+		m.cover.offer(x.payload[8:], false)
+		return nil
+	})
+}
+
+func (m *mp4File) coverArt() []byte { return m.cover.data }
 
 const opusRate = 48000
 

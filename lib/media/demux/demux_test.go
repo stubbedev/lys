@@ -302,6 +302,11 @@ func FuzzOpen(f *testing.F) {
 		f.Add(b)
 		f.Add(b[:len(b)/2])
 	}
+	for _, c := range audioFixtures {
+		b := audioFixture(f, c.file)
+		f.Add(b)
+		f.Add(b[:len(b)*2/3])
+	}
 	f.Fuzz(func(t *testing.T, b []byte) {
 		file, err := Open(bytes.NewReader(b), int64(len(b)), "fuzz")
 		if err != nil {

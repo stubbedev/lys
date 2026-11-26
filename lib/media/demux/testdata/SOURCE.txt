@@ -1,0 +1,18 @@
+Made with FFmpeg 9.0.2 (libvorbis, libopus, libmp3lame 3.100, FFmpeg's FLAC
+encoder) from
+
+  T='aevalsrc=if(gte(t\,0.5)\,0.5*sin(2*PI*440*t)\,0.1*sin(2*PI*220*t)):s=8000:c=mono:d=1'
+
+cover.png:  ffmpeg -f lavfi -i 'color=c=0x3060a0:s=16x16:d=1' -frames:v 1 cover.png
+vorbis.ogg: ffmpeg -f lavfi -i "$T" -c:a libvorbis -q:a 0 -metadata METADATA_BLOCK_PICTURE=$P -page_duration 100000 vorbis.ogg
+opus.ogg:   ffmpeg -f lavfi -i "$T" -c:a libopus -b:a 12k -metadata METADATA_BLOCK_PICTURE=$P -page_duration 100000 opus.ogg
+flac.oga:   ffmpeg -f lavfi -i "$T" -c:a flac -frame_size 1024 -page_duration 100000 flac.oga
+tone.flac:  ffmpeg -f lavfi -i "$T" -i cover.png -map 0 -map 1 -c:a flac -frame_size 1024 -c:v png -disposition:v attached_pic tone.flac
+flac.mp4:   ffmpeg -f lavfi -i "$T" -c:a flac -frame_size 1024 flac.mp4
+flac.mka:   ffmpeg -f lavfi -i "$T" -c:a flac -frame_size 1024 flac.mka
+tone.mp3:   ffmpeg -f lavfi -i "$T" -i cover.png -map 0 -map 1 -c:a libmp3lame -b:a 16k -c:v png -disposition:v attached_pic -id3v2_version 3 tone.mp3
+cbr.mp3:    ffmpeg -f lavfi -i "$T" -c:a libmp3lame -b:a 16k -write_xing 0 -id3v2_version 0 cbr.mp3
+
+$P is the base64 of a FLAC PICTURE block (front cover, image/png, 16x16x24)
+holding cover.png. tone.flac had FFmpeg's 8 KiB PADDING block removed and the
+last remaining metadata block flagged last.

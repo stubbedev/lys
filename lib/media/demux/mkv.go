@@ -526,6 +526,17 @@ func (m *mkvFile) parseTrackEntry(b []byte) (*mkvTrack, error) {
 			return nil, err
 		}
 	}
+	if t.info.Codec == FLAC {
+		blocks, ok := bytes.CutPrefix(t.info.Config, []byte(flacMagic))
+		if !ok {
+			return nil, fmt.Errorf("FLAC CodecPrivate of %d bytes without the fLaC marker: %w", len(t.info.Config), ErrMalformed)
+		}
+		info, err := flacStreamInfo(blocks)
+		if err != nil {
+			return nil, fmt.Errorf("FLAC CodecPrivate: %w", err)
+		}
+		t.info.Config = info
+	}
 	if t.info.Codec == AAC && len(t.info.Config) == 0 {
 		t.info.Config = legacyAACConfig(t.info.CodecName, t.info.SampleRate, t.info.Channels)
 	}

@@ -5,11 +5,13 @@
 // a Stream and widget.MediaControls drives it.
 //
 // Built-in sources: animated images (NewAnimation), YUV4MPEG2 (NewY4M),
-// both decoded on the CPU, and MP4 and Matroska/WebM files (OpenFile),
-// demuxed in process, their H.264 and H.265 video decoded on the GPU
-// the windows draw with and their AAC, Opus and Vorbis sound in Go.
-// Sound plays through the PulseAudio native protocol, which PulseAudio
-// and pipewire-pulse serve.
+// both decoded on the CPU, and MP4, Matroska/WebM, Ogg and FLAC files
+// (OpenFile), demuxed in process, their H.264, H.265, AV1 and VP9 video
+// decoded through Vulkan Video on the GPU the windows draw with and
+// their AAC, Opus, Vorbis and FLAC sound in Go. A file of sound alone
+// shows its cover art, or a neutral placeholder, while it plays. Sound
+// plays through the PulseAudio native protocol, which PulseAudio and
+// pipewire-pulse serve.
 //
 //	src, err := media.OpenFile("talk.mp4")
 //	stream := media.NewStream(application, src, "talk")

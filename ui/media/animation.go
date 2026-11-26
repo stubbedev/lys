@@ -54,13 +54,18 @@ func (s *animationSource) ReadFrame(dst *image.RGBA) (time.Duration, error) {
 	if err != nil {
 		return 0, err
 	}
+	return pts, copyStill(dst, frame)
+}
+
+// copyStill copies a still frame into a FrameSource's buffer.
+func copyStill(dst *image.RGBA, frame render.StillImage) error {
 	if dst.Rect.Size() != frame.Rect.Size() {
-		return 0, fmt.Errorf("media: animation frame is %v, the buffer %v", frame.Rect.Size(), dst.Rect.Size())
+		return fmt.Errorf("media: still frame is %v, the buffer %v", frame.Rect.Size(), dst.Rect.Size())
 	}
 	for y := range frame.Rect.Dy() {
 		copy(dst.Pix[y*dst.Stride:y*dst.Stride+4*frame.Rect.Dx()], frame.Pix[frame.PixOffset(frame.Rect.Min.X, frame.Rect.Min.Y+y):])
 	}
-	return pts, nil
+	return nil
 }
 
 func (s *animationSource) Seek(t time.Duration) error {

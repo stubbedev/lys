@@ -449,21 +449,75 @@ func main() {
 
 ## media/demux
 
-`demux` reads MP4/ISOBMFF (moov first or last, and fragmented) and
-Matroska/WebM in process. `OpenFile` gives the tracks (codec, frame size,
-sample rate, channels, codec config, delay and pre-roll) and the duration;
-`ReadPacket` returns packets in file order with PTS and key flag, and `Select`
-skips the data of tracks nobody reads. `Seek` lands on a keyframe from `stss` or
-fragment flags in MP4 and from Cues in Matroska, scanning the clusters once when
-a file has no Cues. A track whose codec lys cannot decode reports it through
-`Unsupported`, an error naming the codec and the file. Every size is checked
-before it is allocated; malformed input wraps `ErrMalformed`.
+`demux` reads MP4/ISOBMFF (moov first or last, and fragmented),
+Matroska/WebM, Ogg, native FLAC and MPEG audio (MP3) in process. `OpenFile` gives the tracks
+(codec, frame size, sample rate, channels, codec config, delay and pre-roll)
+and the duration; `ReadPacket` returns packets in file order with PTS, duration
+and key flag, and `Select` skips the data of tracks nobody reads. `Seek` lands
+on a keyframe from `stss` or fragment flags in MP4 and from Cues in Matroska,
+scanning the clusters once when a file has no Cues. A track whose codec lys
+cannot decode reports it through `Unsupported`, an error naming the codec and
+the file. Every size is checked before it is allocated; malformed input wraps
+`ErrMalformed`, and any other format is `ErrUnknownFormat`.
 
 `Track.CodecDelay` is what the container says to trim from the start: an MP4
-edit list's media time (AAC's encoder priming) or Matroska's CodecDelay. Old
-Matroska AAC tracks that name their profile in the codec ID
-(`A_AAC/MPEG4/LC` and friends) and carry no CodecPrivate get an
-AudioSpecificConfig built from the profile, sample rate and channels.
+edit list's media time (AAC's encoder priming), Matroska's CodecDelay or an Ogg
+Opus stream's pre-skip. Old Matroska AAC tracks that name their profile in the
+codec ID (`A_AAC/MPEG4/LC` and friends) and carry no CodecPrivate get an
+AudioSpecificConfig built from the profile, sample rate and channels. A FLAC
+track's `Config` is the body of its STREAMINFO block in every container.
+
+- **Ogg**: Vorbis, Opus and FLAC streams, one or several multiplexed; Theora,
+  Speex and other streams are tracks whose codec is `Unknown`, named in
+  `CodecName`. Every page's CRC is checked. A packet's PTS and duration come
+  from the page's granule position and the packet's own length: an Opus
+  packet's TOC, a FLAC frame's block size, a Vorbis packet's block size from
+  the modes at the end of the setup header (found back from its end, as FFmpeg
+  finds them). The first seek indexes the pages once and resumes after the last
+  page that ends before the target. A chained file, a second stream beginning
+  after the first one's data, fails with an error saying so.
+- **FLAC**: the frames of a native stream carry no length; each ends where the
+  next frame's header begins and its CRC-16 sums to zero. A seek bisects the
+  file for the frame. A stream whose STREAMINFO leaves its length unknown is
+  timed by its last frame, and an ID3v1 tag at its end is skipped.
+- **MPEG audio**: ID3v2 tags before the frames and APEv2 and ID3v1 tags after
+  them are skipped; Layer III is `MP3`, Layers I and II are `Unknown`, named
+  in `CodecName`. A Xing, Info or VBRI header gives the frame count, and a LAME
+  tag the encoder's delay and padding: the delay (with the 529 samples the
+  synthesis adds) is the track's `CodecDelay`, and both come off its duration.
+  A file without such a header is counted frame by frame on opening; the first
+  seek indexes the frames, so it lands on the frame holding the target. There
+  is no MP3 decoder yet.
+
+`File.Cover` returns the picture a file embeds as its cover art, as stored:
+an MP4's `covr` item, a FLAC `PICTURE` block, an Ogg stream's
+`METADATA_BLOCK_PICTURE` comment or an ID3v2 `APIC` frame, the front cover
+where the file marks one. A
+Matroska file's attachments are not read.
+
+## media/flac
+
+`flac` is a pure-Go FLAC decoder (RFC 9639). `NewDecoder` takes the STREAMINFO
+body that `demux` reports as a FLAC track's `Config` in a native, Ogg, Matroska
+or MP4 file; `Decode` turns one frame into interleaved signed 16-bit samples.
+
+- Every subframe type (constant, verbatim, fixed and LPC up to order 32),
+  wasted bits, both Rice codings with escapes, every channel assignment,
+  sample depths from 4 to 32 bits and up to eight channels in FLAC's (WAVE)
+  order. Each frame's CRC-8 and CRC-16 are checked; a frame that breaks the
+  format or the stream's parameters wraps `ErrInvalidFrame`.
+- Bit-exact: a decode at the stream's depth matches the encoder's MD5 in
+  STREAMINFO. 16-bit output keeps a deeper sample's 16 most significant bits,
+  as FFmpeg's conversion does, and scales a shallower one up.
+- Frames are independent, so `Reset` does nothing; no allocation per frame.
+
+```go
+dec, err := flac.NewDecoder(track.Config)
+if err != nil {
+	return err
+}
+pcm, err := dec.Decode(nil, packet.Data)
+```
 
 ## media/opus
 

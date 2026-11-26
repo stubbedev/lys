@@ -9,6 +9,8 @@ import (
 	"slices"
 	"strconv"
 	"testing"
+
+	"github.com/stubbedev/lys/lib/media/internal/ogg"
 )
 
 type fixture struct {
@@ -150,7 +152,7 @@ func TestDecodeRejects(t *testing.T) {
 	corruptCRC := slices.Clone(good)
 	corruptCRC[pageOffset(pages, 2)+40] ^= 0x10
 	gap := slices.Concat(pages[0], pages[2])
-	opus := page(t, 7, 0, flagBOS, []byte("OpusHead\x01\x02\x38\x01\x80\xbb\x00\x00\x00\x00\x00"))
+	opus := page(t, 7, 0, ogg.BOS, []byte("OpusHead\x01\x02\x38\x01\x80\xbb\x00\x00\x00\x00\x00"))
 	for _, c := range []struct {
 		name string
 		data []byte
@@ -178,7 +180,7 @@ func TestDecodeEndsAtALastPageWithoutEOS(t *testing.T) {
 	good := readFixture(t, "floor0-residue0.ogg")
 	pages := splitPages(t, good)
 	last := slices.Clone(pages[len(pages)-1])
-	last[5] &^= flagEOS
+	last[5] &^= ogg.EOS
 	reseal(last)
 	data := slices.Concat(slices.Concat(pages[:len(pages)-1]...), last)
 	s, err := Decode(data)
@@ -197,7 +199,7 @@ func TestDecodeEndsAtALastPageWithoutEOS(t *testing.T) {
 func TestDecodeSkipsOtherLogicalStreams(t *testing.T) {
 	good := readFixture(t, "stereo-coupled.ogg")
 	pages := splitPages(t, good)
-	foreign := page(t, 99, 0, flagBOS, []byte("\x80theora"))
+	foreign := page(t, 99, 0, ogg.BOS, []byte("\x80theora"))
 	var mixed []byte
 	for i, p := range pages {
 		mixed = append(mixed, p...)
@@ -342,8 +344,8 @@ func splitPages(t *testing.T, data []byte) [][]byte {
 	var pages [][]byte
 	for off := 0; off < len(data); {
 		n := int(data[off+26])
-		size := pageHeaderSize + n
-		for _, l := range data[off+pageHeaderSize : off+pageHeaderSize+n] {
+		size := ogg.HeaderSize + n
+		for _, l := range data[off+ogg.HeaderSize : off+ogg.HeaderSize+n] {
 			size += int(l)
 		}
 		pages = append(pages, data[off:off+size])
@@ -365,7 +367,7 @@ func page(t *testing.T, serial, seq uint32, flags byte, body []byte) []byte {
 	if len(body) >= 255 {
 		t.Fatalf("test page body of %d bytes needs more than one segment", len(body))
 	}
-	p := make([]byte, pageHeaderSize+1, pageHeaderSize+1+len(body))
+	p := make([]byte, ogg.HeaderSize+1, ogg.HeaderSize+1+len(body))
 	copy(p, "OggS")
 	p[5] = flags
 	binary.LittleEndian.PutUint32(p[14:], serial)
@@ -379,7 +381,7 @@ func page(t *testing.T, serial, seq uint32, flags byte, body []byte) []byte {
 
 func reseal(p []byte) {
 	binary.LittleEndian.PutUint32(p[22:], 0)
-	binary.LittleEndian.PutUint32(p[22:], pageCRC(p))
+	binary.LittleEndian.PutUint32(p[22:], ogg.Checksum(p))
 }
 
 func FuzzDecode(f *testing.F) {
@@ -403,13 +405,13 @@ func FuzzDecode(f *testing.F) {
 }
 
 func resealAll(data []byte) {
-	for off := 0; off+pageHeaderSize <= len(data); {
+	for off := 0; off+ogg.HeaderSize <= len(data); {
 		n := int(data[off+26])
-		if off+pageHeaderSize+n > len(data) {
+		if off+ogg.HeaderSize+n > len(data) {
 			return
 		}
-		size := pageHeaderSize + n
-		for _, l := range data[off+pageHeaderSize : off+pageHeaderSize+n] {
+		size := ogg.HeaderSize + n
+		for _, l := range data[off+ogg.HeaderSize : off+ogg.HeaderSize+n] {
 			size += int(l)
 		}
 		if off+size > len(data) {
@@ -482,21 +484,5 @@ func TestDecoderRejectsBadHeadersAndPackets(t *testing.T) {
 	}
 	if _, err := d.Decode(nil, packets[0]); !errors.Is(err, ErrCorrupt) {
 		t.Errorf("header as audio: error %v", err)
-	}
-}
-
-func TestCRCTableDividesByTheOggPolynomial(t *testing.T) {
-	for i, got := range crcTable {
-		want := uint32(i) << 24
-		for range 8 {
-			if want&0x80000000 != 0 {
-				want = want<<1 ^ 0x04c11db7
-			} else {
-				want <<= 1
-			}
-		}
-		if got != want {
-			t.Errorf("crcTable[%d] is %#08x, want %#08x", i, got, want)
-		}
 	}
 }

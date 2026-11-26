@@ -7,6 +7,7 @@ import (
 	"slices"
 
 	"github.com/stubbedev/lys/lib/intconv"
+	"github.com/stubbedev/lys/lib/media/internal/opustoc"
 	"github.com/stubbedev/lys/lib/media/internal/pcm"
 	"github.com/stubbedev/lys/lib/third_party/gomath"
 )
@@ -95,20 +96,17 @@ type toc struct {
 // parseTOC decodes the TOC byte b (RFC 6716 section 3.1).
 func parseTOC(b byte) toc {
 	config := int(b >> 3)
-	t := toc{stereo: b&4 != 0}
+	t := toc{stereo: b&4 != 0, frameSize: opustoc.FrameSize(b)}
 	switch {
 	case config < 12:
 		t.mode = modeSILK
 		t.bandwidth = narrowband + bandwidth(config>>2)
-		t.frameSize = [4]int{f10, f20, 2 * f20, 3 * f20}[config&3]
 	case config < 16:
 		t.mode = modeHybrid
 		t.bandwidth = superWideband + bandwidth((config>>1)&1)
-		t.frameSize = [2]int{f10, f20}[config&1]
 	default:
 		t.mode = modeCELT
 		t.bandwidth = [4]bandwidth{narrowband, wideband, superWideband, fullband}[(config-16)>>2]
-		t.frameSize = f2p5 << (config & 3)
 	}
 	return t
 }

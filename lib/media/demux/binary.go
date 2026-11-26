@@ -79,3 +79,17 @@ func ticksToTime(ticks int64, scale uint64) time.Duration {
 	}
 	return d
 }
+
+// timeToTicks is t in ticks of a clock at scale Hz, rounded down,
+// zero for a negative t and saturated to the range.
+func timeToTicks(t time.Duration, scale uint64) uint64 {
+	if t <= 0 {
+		return 0
+	}
+	hi, lo := bits.Mul64(uint64(t), scale)
+	if hi >= uint64(time.Second) {
+		return math.MaxUint64
+	}
+	q, _ := bits.Div64(hi, lo, uint64(time.Second))
+	return q
+}

@@ -10,6 +10,7 @@ import (
 
 	"github.com/stubbedev/lys/lib/media/aac"
 	"github.com/stubbedev/lys/lib/media/demux"
+	"github.com/stubbedev/lys/lib/media/flac"
 	"github.com/stubbedev/lys/lib/media/opus"
 	"github.com/stubbedev/lys/lib/media/vorbis"
 	"github.com/stubbedev/lys/lib/pulse/native"
@@ -24,7 +25,7 @@ const (
 )
 
 // audioCodec decodes one track's packets to interleaved 16-bit PCM:
-// aac, opus and vorbis decoders all are one.
+// the aac, opus, vorbis and flac decoders all are one.
 type audioCodec interface {
 	Decode(dst []int16, packet []byte) ([]int16, error)
 	Reset()
@@ -44,8 +45,8 @@ type soundCodec struct {
 
 var errNoSoundDecoder = errors.New("no decoder for the codec")
 
-// openSoundCodec opens the decoder of track, an AAC, Opus or Vorbis
-// track.
+// openSoundCodec opens the decoder of track, an AAC, Opus, Vorbis or
+// FLAC track.
 func openSoundCodec(track demux.Track) (soundCodec, error) {
 	switch track.Codec {
 	case demux.AAC:
@@ -89,6 +90,13 @@ func openSoundCodec(track demux.Track) (soundCodec, error) {
 			format:  AudioFormat{Rate: d.SampleRate(), Layout: vorbisLayout(d.Channels())},
 			preRoll: samplesAt(vorbisSeekPreRoll, d.SampleRate()) - track.SeekPreRoll,
 		}, nil
+	case demux.FLAC:
+		d, err := flac.NewDecoder(track.Config)
+		if err != nil {
+			return soundCodec{}, err
+		}
+		layout, err := waveLayout(d.Channels())
+		return soundCodec{codec: d, format: AudioFormat{Rate: d.SampleRate(), Layout: layout}}, err
 	}
 	return soundCodec{}, errNoSoundDecoder
 }
@@ -108,6 +116,22 @@ var (
 		8: {
 			native.ChannelFrontCenter, native.ChannelFrontLeftOfCenter, native.ChannelFrontRightOfCenter, native.ChannelFrontLeft,
 			native.ChannelFrontRight, native.ChannelRearLeft, native.ChannelRearRight, native.ChannelLFE,
+		},
+	}
+	waveLayouts = [...]native.ChannelMap{
+		1: {native.ChannelMono},
+		2: {native.ChannelFrontLeft, native.ChannelFrontRight},
+		3: {native.ChannelFrontLeft, native.ChannelFrontRight, native.ChannelFrontCenter},
+		4: {native.ChannelFrontLeft, native.ChannelFrontRight, native.ChannelRearLeft, native.ChannelRearRight},
+		5: {native.ChannelFrontLeft, native.ChannelFrontRight, native.ChannelFrontCenter, native.ChannelRearLeft, native.ChannelRearRight},
+		6: {native.ChannelFrontLeft, native.ChannelFrontRight, native.ChannelFrontCenter, native.ChannelLFE, native.ChannelRearLeft, native.ChannelRearRight},
+		7: {
+			native.ChannelFrontLeft, native.ChannelFrontRight, native.ChannelFrontCenter, native.ChannelLFE,
+			native.ChannelRearCenter, native.ChannelSideLeft, native.ChannelSideRight,
+		},
+		8: {
+			native.ChannelFrontLeft, native.ChannelFrontRight, native.ChannelFrontCenter, native.ChannelLFE,
+			native.ChannelRearLeft, native.ChannelRearRight, native.ChannelSideLeft, native.ChannelSideRight,
 		},
 	}
 	vorbisLayouts = [...]native.ChannelMap{
@@ -137,6 +161,15 @@ func aacLayout(channels int) (native.ChannelMap, error) {
 		return nil, fmt.Errorf("no speaker layout for %d AAC channels", channels)
 	}
 	return l, nil
+}
+
+// waveLayout is the speakers of a FLAC stream's channels, in the WAVE
+// order FLAC codes them in.
+func waveLayout(channels int) (native.ChannelMap, error) {
+	if channels < 1 || channels >= len(waveLayouts) {
+		return nil, fmt.Errorf("no speaker layout for %d FLAC channels", channels)
+	}
+	return waveLayouts[channels], nil
 }
 
 // vorbisLayout is the speakers of n channels in Vorbis order, which
@@ -170,17 +203,14 @@ type sound struct {
 	closed  bool
 }
 
-func openSound(path string, track demux.Track) (*sound, error) {
+// openSound decodes track of the file at path, read through file,
+// which the sound owns once it is open.
+func openSound(path string, file *demux.File, track demux.Track) (*sound, error) {
 	codec, err := openSoundCodec(track)
 	if err != nil {
 		return nil, fmt.Errorf("media: %s: %s track %d: %w", path, track.Codec, track.Index, err)
 	}
-	file, err := demux.OpenFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("media: open the sound of %s: %w", path, err)
-	}
 	if err := file.Select(track.Index); err != nil {
-		_ = file.Close()
 		return nil, fmt.Errorf("media: %w", err)
 	}
 	return &sound{path: path, track: track, codec: codec, file: file}, nil

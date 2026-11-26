@@ -1,5 +1,6 @@
-// Package demux reads the tracks and packets of MP4 (ISO BMFF) and
-// Matroska/WebM files, in pure Go.
+// Package demux reads the tracks and packets of MP4 (ISO BMFF),
+// Matroska/WebM and Ogg files, native FLAC streams and MPEG audio
+// (MP3) files, in pure Go.
 //
 // Open sniffs the container, enumerates its tracks (codec, frame size
 // or sample rate and channels, the codec's configuration record) and
@@ -7,7 +8,10 @@
 // timestamps and seeks to keyframes: through the sample tables (stss)
 // of an MP4, its fragments' sample flags, or a Matroska file's Cues.
 // A Matroska file without Cues for the track seeks through an index
-// built by scanning its clusters once, on the first seek.
+// built by scanning its clusters once, on the first seek, as an Ogg
+// file does through its pages and an MP3 file through its frames; a
+// FLAC stream bisects the file for the frame. Cover returns the picture
+// a file embeds as its cover art.
 //
 //	f, err := demux.OpenFile("clip.mkv")
 //	for _, t := range f.Tracks() { ... }
@@ -36,6 +40,9 @@ const (
 	MP4 Format = iota + 1
 	Matroska
 	WebM
+	Ogg
+	NativeFLAC
+	MPEGAudio
 )
 
 func (f Format) String() string {
@@ -46,6 +53,12 @@ func (f Format) String() string {
 		return "Matroska"
 	case WebM:
 		return "WebM"
+	case Ogg:
+		return "Ogg"
+	case NativeFLAC:
+		return "FLAC"
+	case MPEGAudio:
+		return "MPEG audio"
 	}
 	return fmt.Sprintf("Format(%d)", uint8(f))
 }
@@ -128,8 +141,8 @@ type Track struct {
 	// hvcC for H.265, av1C for AV1, vpcC for VP9 in MP4 (empty in
 	// Matroska), an OpusHead for Opus (built from dOps in MP4), the
 	// Xiph-laced identification, comment and setup headers for Vorbis
-	// (see XiphHeaders), the AudioSpecificConfig for AAC and the
-	// FLAC stream info for FLAC.
+	// (see XiphHeaders), the AudioSpecificConfig for AAC and the body
+	// of the STREAMINFO block for FLAC.
 	Config []byte
 	// Width and Height are a video track's coded frame size.
 	Width, Height int
@@ -183,8 +196,8 @@ func (e *UnsupportedCodecError) Error() string {
 // with what was being read and where.
 var ErrMalformed = errors.New("malformed file")
 
-// ErrUnknownFormat is a file that is neither MP4 nor Matroska.
-var ErrUnknownFormat = errors.New("not an MP4 or Matroska file")
+// ErrUnknownFormat is a file in none of the formats Open reads.
+var ErrUnknownFormat = errors.New("not an MP4, Matroska, Ogg, FLAC or MP3 file")
 
 // container is what a format implements: its tracks, packets in file
 // order, and positioning before a keyframe.
@@ -193,6 +206,11 @@ type container interface {
 	duration() time.Duration
 	next(selected []bool, buf []byte) (Packet, error)
 	seek(track int, t time.Duration, selected []bool) (time.Duration, error)
+}
+
+// coverHolder is a container that embeds cover art.
+type coverHolder interface {
+	coverArt() []byte
 }
 
 // File is an open media file. A File belongs to one goroutine.
@@ -254,6 +272,24 @@ func Open(r io.ReaderAt, size int64, name string) (*File, error) {
 			return nil, fmt.Errorf("demux: %s: %w", name, err)
 		}
 		f.c, f.format = m, MP4
+	case string(head[:4]) == oggMagic:
+		o, err := openOgg(src)
+		if err != nil {
+			return nil, fmt.Errorf("demux: %s: %w", name, err)
+		}
+		f.c, f.format = o, Ogg
+	case string(head[:4]) == flacMagic:
+		c, err := openFLAC(src)
+		if err != nil {
+			return nil, fmt.Errorf("demux: %s: %w", name, err)
+		}
+		f.c, f.format = c, NativeFLAC
+	case isMP3(src):
+		c, err := openMP3(src)
+		if err != nil {
+			return nil, fmt.Errorf("demux: %s: %w", name, err)
+		}
+		f.c, f.format = c, MPEGAudio
 	default:
 		return nil, fmt.Errorf("demux: %s: %w", name, ErrUnknownFormat)
 	}
@@ -333,6 +369,18 @@ func (f *File) Seek(t time.Duration) (time.Duration, error) {
 		return 0, fmt.Errorf("demux: %s: seek track %d to %v: %w", f.name, track, t, err)
 	}
 	return at, nil
+}
+
+// Cover is the picture the file embeds as its cover art, as stored
+// (JPEG or PNG mostly): an MP4's covr item, a FLAC PICTURE block, an
+// Ogg stream's METADATA_BLOCK_PICTURE comment or an ID3v2 APIC frame,
+// the front cover where the file marks one. It is nil when the file
+// holds none.
+func (f *File) Cover() []byte {
+	if c, ok := f.c.(coverHolder); ok {
+		return c.coverArt()
+	}
+	return nil
 }
 
 // Unsupported is the error for a track whose codec the caller cannot
