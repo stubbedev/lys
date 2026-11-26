@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 
+	"github.com/stubbedev/lys/desktop/argpaths"
 	"github.com/stubbedev/lys/lib/buildinfo"
 
 	"github.com/stubbedev/lys/viewer/internal/viewer"
@@ -60,7 +61,7 @@ func run(args []string, stdout, stderr io.Writer, show func([]string) error) int
 		fmt.Fprintln(stderr, "lys-viewer: find the working directory:", err)
 		return exitError
 	}
-	paths, err := viewer.Paths(flags.Args(), cwd)
+	paths, err := argpaths.Parse(flags.Args(), cwd)
 	if err != nil {
 		fmt.Fprintf(stderr, "error: %v\n\n%s", err, usage)
 		return exitUsage

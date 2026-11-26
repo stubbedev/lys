@@ -1,4 +1,7 @@
-package viewer
+// Package argpaths reads the files a desktop app's command line names:
+// paths, relative to the working directory or not, and file:// URIs,
+// the forms a file manager and a desktop entry's %f and %u hand over.
+package argpaths
 
 import (
 	"errors"
@@ -9,7 +12,10 @@ import (
 	"github.com/stubbedev/lys/ui/transfer"
 )
 
-func Paths(args []string, cwd string) ([]string, error) {
+// Parse is the absolute paths args name, in their order, relative ones
+// joined to cwd; an empty argument or a URI naming no local file is an
+// error.
+func Parse(args []string, cwd string) ([]string, error) {
 	paths := make([]string, 0, len(args))
 	for _, arg := range args {
 		path, err := pathOf(arg, cwd)
