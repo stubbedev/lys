@@ -10,6 +10,7 @@ import (
 
 	"github.com/stubbedev/lys/ui/internal/dragdrop"
 	"github.com/stubbedev/lys/ui/internal/wlsession"
+	"github.com/stubbedev/lys/ui/transfer"
 	"github.com/stubbedev/lys/ui/widget"
 )
 
@@ -282,7 +283,7 @@ func TestSurfaceInputRoutesDrops(t *testing.T) {
 		t.Errorf("zone hovers=%d last=%v", zone.hovers, zone.lastHover)
 	}
 
-	in.Drop(7, 8)
+	in.Drop(7, 8, transfer.ActionMove, false)
 
 	if zone.drops != 1 {
 		t.Fatalf("zone got %d drops", zone.drops)
@@ -301,6 +302,46 @@ func TestSurfaceInputRoutesDrops(t *testing.T) {
 	}
 }
 
+// actionZone is a drop zone that hears how its drops finished.
+type actionZone struct {
+	dropZone
+	how []widget.Dropped
+}
+
+func (z *actionZone) HitTest(p widget.Point) widget.Widget {
+	if z.bounds.Contains(p.X, p.Y) {
+		return z
+	}
+	return nil
+}
+
+func (z *actionZone) DropAs(mime string, data []byte, p widget.Point, how widget.Dropped) {
+	z.Drop(mime, data, p)
+	z.how = append(z.how, how)
+}
+
+// A drop target that acts on the action hears the one the controller
+// says the drop finished with, and whether the drag is this process's;
+// one that does not still gets its payload.
+func TestSurfaceInputHandsTheDropItsAction(t *testing.T) {
+	zone := &actionZone{mime: mimeLysUITile}
+	in := newDragTestInput(rowOf(zone), &fakeDnD{payload: []byte("x")})
+	for _, want := range []widget.Dropped{{Action: transfer.ActionMove, Own: false}, {Action: transfer.ActionCopy, Own: true}} {
+		in.DragEnter([]string{mimeLysUITile}, 5, 5)
+		in.Drop(5, 5, want.Action, want.Own)
+	}
+	if want := []widget.Dropped{{Action: transfer.ActionMove}, {Action: transfer.ActionCopy, Own: true}}; len(zone.how) != 2 || zone.how[0] != want[0] || zone.how[1] != want[1] {
+		t.Errorf("the zone heard %+v, want %+v", zone.how, want)
+	}
+	plain := &dropZone{mime: mimeLysUITile}
+	in = newDragTestInput(rowOf(plain), &fakeDnD{payload: []byte("x")})
+	in.DragEnter([]string{mimeLysUITile}, 5, 5)
+	in.Drop(5, 5, transfer.ActionMove, false)
+	if plain.drops != 1 || string(plain.dropData) != "x" {
+		t.Errorf("a plain drop target got %d drops of %q", plain.drops, plain.dropData)
+	}
+}
+
 func TestSurfaceInputDropCoordinatesAreLogical(t *testing.T) {
 	zone := &dropZone{mime: mimeLysUITile}
 	root := rowOf(zone)
@@ -316,7 +357,7 @@ func TestSurfaceInputDropCoordinatesAreLogical(t *testing.T) {
 	if zone.enterPoint != (widget.Point{X: 5, Y: 3}) {
 		t.Errorf("enter point %v, want the logical (5,3)", zone.enterPoint)
 	}
-	in.Drop(3, 4)
+	in.Drop(3, 4, transfer.ActionCopy, false)
 	if zone.dropPoint != (widget.Point{X: 3, Y: 4}) {
 		t.Errorf("drop point %v, want the logical (3,4)", zone.dropPoint)
 	}
@@ -345,7 +386,7 @@ func TestSurfaceInputRejectsAndLeaves(t *testing.T) {
 	if zone.dragOver {
 		t.Error("leave did not clear the highlight")
 	}
-	in2.Drop(5, 5)
+	in2.Drop(5, 5, transfer.ActionCopy, false)
 	if zone.drops != 0 {
 		t.Errorf("zone got %d drops after leave", zone.drops)
 	}
@@ -359,7 +400,7 @@ func TestSurfaceInputRejectsDropsWhenBlocked(t *testing.T) {
 	if m := in.DragEnter([]string{mimeLysUITile}, 5, 5); m != "" {
 		t.Errorf("blocked window accepted %q", m)
 	}
-	in.Drop(5, 5)
+	in.Drop(5, 5, transfer.ActionCopy, false)
 	if zone.drops != 0 {
 		t.Errorf("blocked window took %d drops", zone.drops)
 	}

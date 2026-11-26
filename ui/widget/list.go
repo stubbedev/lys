@@ -98,9 +98,12 @@ type List struct {
 
 	// view is the content box, the scroll viewport inside the list's
 	// CSS box, where the rows lay out.
-	view     render.Rect
-	offY     int
-	hover    int
+	view  render.Rect
+	offY  int
+	hover int
+	// dropRow is the item a drag over the list would drop into
+	// (SetDropRow), -1 for none.
+	dropRow  int
 	rows     map[int]*listRow
 	order    []*listRow
 	orderBuf []*listRow
@@ -202,7 +205,7 @@ func initList[W Widget](l *List, model ListModel[W], rowHeight int) {
 	l.model = modelAdapter[W]{m: model}
 	l.rowH = rowHeight
 	l.autoH = rowHeight <= 0
-	l.hover = -1
+	l.hover, l.dropRow = -1, -1
 	l.rows = make(map[int]*listRow)
 	l.initSelection(l, SelectionSingle)
 }
@@ -402,7 +405,7 @@ func (l *List) Refresh() {
 func (l *List) Reset() {
 	l.evictAll()
 	l.probe = nil
-	l.offY, l.hover = 0, -1
+	l.offY, l.hover, l.dropRow = 0, -1, -1
 	had := l.clearAll()
 	l.Changed()
 	if had {
@@ -648,9 +651,30 @@ func (l *List) Paint(cv *render.Canvas) {
 			cv.BorderRect(r.Bounds(), 1, th.Accent)
 		}
 		PaintChild(cv, r)
+		if r.idx == l.dropRow {
+			cv.BorderRect(r.Bounds(), dropRingW, th.Accent)
+		}
 	}
 	cv.PopClip(prev)
 }
+
+// dropRingW is the width of the ring around the item a drag would drop
+// into, GTK's :drop(active) outline.
+const dropRingW = 2
+
+// SetDropRow rings item i as the one a drag hovering the list would
+// drop into, the way GTK marks a drop target; -1 rings none. Reset
+// clears it.
+func (l *List) SetDropRow(i int) {
+	if i == l.dropRow {
+		return
+	}
+	l.dropRow = i
+	l.Invalidate()
+}
+
+// DropRow is the item SetDropRow rings, -1 for none.
+func (l *List) DropRow() int { return l.dropRow }
 
 // cardListPad is a card-framed list's (listview.card) padding inside
 // its 1px card border.
@@ -702,7 +726,7 @@ func (l *List) HitTest(p Point) Widget {
 }
 
 func (l *List) claimPointer(e PointerEvent) bool {
-	if l.OnPointer != nil && l.OnPointer(l.rowUnder(e.At), e) {
+	if l.OnPointer != nil && l.OnPointer(l.IndexAt(e.At), e) {
 		return true
 	}
 	return l.node.claimPointer(e)
@@ -711,14 +735,18 @@ func (l *List) claimPointer(e PointerEvent) bool {
 func (l *List) listensScroll() bool { return l.OnScroll != nil || l.node.listensScroll() }
 
 func (l *List) claimScroll(e ScrollEvent) bool {
-	if l.OnScroll != nil && l.OnScroll(l.rowUnder(e.At), e) {
+	if l.OnScroll != nil && l.OnScroll(l.IndexAt(e.At), e) {
 		return true
 	}
 	return l.node.claimScroll(e)
 }
 
-// rowUnder is the row under p, -1 when none is.
-func (l *List) rowUnder(p Point) int {
+// IndexAt is the item under p, in root coordinates: -1 where none is,
+// past the last item or in an item's margin.
+func (l *List) IndexAt(p Point) int {
+	if !l.view.Contains(p.X, p.Y) {
+		return -1
+	}
 	if i, ok := l.itemAt(p); ok {
 		return i
 	}
@@ -920,7 +948,7 @@ func (l *List) HoverMove(p Point) {
 	if !IsEnabled(l) {
 		return
 	}
-	i := l.rowUnder(p)
+	i := l.IndexAt(p)
 	if i == l.hover {
 		return
 	}

@@ -65,12 +65,15 @@ type StartConfig struct {
 // Target receives the drag-and-drop events for one bound surface,
 // with coordinates in that surface's logical space. DragEnter and
 // DragMotion return the accepted mime type, or "" to reject; mimes
-// arrives in advertised (best-first) order.
+// arrives in advertised (best-first) order. Drop hears the action the
+// drop finishes with - the one the compositor negotiated, an ask
+// settled by the target, copy below version 3 - and whether the drag
+// is this process's own, whose source holds the seat's keyboard.
 type Target interface {
 	DragEnter(mimes []string, x, y float64) string
 	DragMotion(x, y float64) string
 	DragLeave()
-	Drop(x, y float64)
+	Drop(x, y float64, action transfer.Action, own bool)
 }
 
 // ActionTarget is a Target that picks the drop action from those the
@@ -345,8 +348,12 @@ func (c *Controller) drop() {
 		c.resetDrag()
 		return
 	}
-	c.resolve = c.dropAction()
-	t.Drop(x, y)
+	action := c.negotiated()
+	if action == transfer.ActionAsk {
+		action = c.settleAsk()
+		c.resolve = action
+	}
+	t.Drop(x, y, action, c.ownDrag(c.accepted))
 	c.resolve = transfer.ActionNone
 	c.resetDrag()
 }
@@ -391,15 +398,25 @@ func (c *Controller) accept(mime string) {
 	_ = c.dragOffer.SetActions(uint32(transfer.ActionCopy|transfer.ActionMove|preferred), uint32(preferred))
 }
 
-// dropAction is the action a cross-process drop finishes with: the
-// negotiated one, with ask resolved to the target's non-ask pick (no
-// drop menu: the destination decides).
-func (c *Controller) dropAction() transfer.Action {
+// negotiated is the action the compositor last named for the drag's
+// offer: copy when it named none, as below version 3, where no action
+// is negotiated and a drop copies.
+func (c *Controller) negotiated() transfer.Action {
 	m := c.offers[c.dragOfferProxy()]
-	if m == nil || m.action != transfer.ActionAsk {
-		return transfer.ActionNone
+	if m == nil || m.action == transfer.ActionNone {
+		return transfer.ActionCopy
 	}
-	offered := m.actions &^ transfer.ActionAsk
+	return m.action
+}
+
+// settleAsk is the single action an ask drop finishes with: the
+// target's non-ask pick among what the source offers (no drop menu:
+// the destination decides), else the default.
+func (c *Controller) settleAsk() transfer.Action {
+	var offered transfer.Action
+	if m := c.offers[c.dragOfferProxy()]; m != nil {
+		offered = m.actions &^ transfer.ActionAsk
+	}
 	if at, ok := c.target.(ActionTarget); ok {
 		if a := at.DragAction(offered); a != transfer.ActionNone && a != transfer.ActionAsk {
 			return a
@@ -500,7 +517,7 @@ func (c *Controller) ReadPayload(mime string, done func([]byte, error)) {
 		refuse(ErrNoPayload)
 		return
 	}
-	if c.src != nil && c.srcData.Write != nil && c.srcData.Has(mime) {
+	if c.ownDrag(mime) {
 		c.readOwn(mime, done)
 		return
 	}
@@ -509,6 +526,12 @@ func (c *Controller) ReadPayload(mime string, done func([]byte, error)) {
 		return
 	}
 	c.receive(c.dragOffer, mime, done)
+}
+
+// ownDrag reports whether this process's running drag offers mime:
+// its drop reads the payload from the source in process.
+func (c *Controller) ownDrag(mime string) bool {
+	return c.src != nil && c.srcData.Write != nil && c.srcData.Has(mime)
 }
 
 func (c *Controller) readOwn(mime string, done func([]byte, error)) {

@@ -197,12 +197,41 @@ func TestRouterDragLeaveClears(t *testing.T) {
 	}
 }
 
+// actionPanel is a drop panel that acts on how drops finish.
+type actionPanel struct {
+	dropPanel
+	how []Dropped
+}
+
+func (p *actionPanel) HitTest(point Point) Widget { return p.HitLeaf(p, point) }
+
+func (p *actionPanel) DropAs(mime string, data []byte, point Point, how Dropped) {
+	p.how = append(p.how, how)
+	p.dropData = data
+}
+
+// An ActionDropper hears the drop with how it finished, in place of
+// Dropper's Drop.
+func TestRouterHandsAnActionDropperHowTheDropFinished(t *testing.T) {
+	p := &actionPanel{nat: Size{W: 20, H: 20}, mime: "text/uri-list"}
+	root := NewBox(Row, 0, 0).Append(p, false)
+	SizeWithin(root, Size{W: 100, H: 100})
+	root.Arrange(render.Rect{X: 0, Y: 0, W: 20, H: 20})
+	r := &Router{Root: root}
+	r.DragEnter([]string{"text/uri-list"}, Point{X: 5, Y: 5})
+	deliver := r.BeginDrop()
+	deliver("text/uri-list", []byte("file:///a"), Point{X: 5, Y: 5}, Dropped{Action: transfer.ActionMove, Own: true})
+	if len(p.how) != 1 || p.how[0] != (Dropped{Action: transfer.ActionMove, Own: true}) || string(p.dropData) != "file:///a" || p.drops != 0 {
+		t.Errorf("the panel heard %+v with %q and %d plain drops, want one move of its own drag as DropAs", p.how, p.dropData, p.drops)
+	}
+}
+
 func TestRouterDropDeliversPayload(t *testing.T) {
 	root, a, _ := arrangeDropPanels()
 	r := &Router{Root: root}
 	r.DragEnter([]string{"application/x-lys-ui-tile"}, Point{X: 5, Y: 5})
 
-	r.Drop("application/x-lys-ui-tile", []byte("tile-7"), Point{X: 7, Y: 9})
+	r.Drop("application/x-lys-ui-tile", []byte("tile-7"), Point{X: 7, Y: 9}, Dropped{Action: transfer.ActionCopy})
 
 	if a.drops != 1 {
 		t.Fatalf("panel got %d drops, want 1", a.drops)
@@ -276,5 +305,46 @@ func TestRouterDragAction(t *testing.T) {
 	r.DragHover(Point{X: 5, Y: 5})
 	if got := r.DragAction(both); got != transfer.ActionNone {
 		t.Errorf("rejecting chooser picked %d", got)
+	}
+}
+
+// SetDropRow rings the item a drag would drop into and nothing else;
+// -1 and Reset take the ring away.
+func TestListRingsTheDropRow(t *testing.T) {
+	l := NewList[*Box](boxModel{5}, 20)
+	paint := func() []uint8 {
+		SizeWithin(l, Size{W: 100, H: 1 << 20})
+		l.Arrange(render.Rect{W: 100, H: 100})
+		data := make([]uint8, 100*100*4)
+		l.Paint(render.New(data, 100*4, 100, 100))
+		return data
+	}
+	px := func(data []uint8, x, y int) [4]uint8 {
+		i := (y*100 + x) * 4
+		return [4]uint8(data[i : i+4])
+	}
+	plain := paint()
+	if got := l.IndexAt(Point{X: 50, Y: 30}); got != 1 {
+		t.Errorf("IndexAt the second row = %d", got)
+	}
+	if got := l.IndexAt(Point{X: 50, Y: 150}); got != -1 {
+		t.Errorf("IndexAt past the rows = %d, want -1", got)
+	}
+	l.SetDropRow(1)
+	ringed := paint()
+	if px(ringed, 50, 20) == px(plain, 50, 20) || px(ringed, 0, 30) == px(plain, 0, 30) {
+		t.Error("the drop row has no ring")
+	}
+	if px(ringed, 50, 10) != px(plain, 50, 10) || px(ringed, 50, 50) != px(plain, 50, 50) || px(ringed, 50, 30) != px(plain, 50, 30) {
+		t.Error("the ring reaches past the drop row's edge")
+	}
+	l.SetDropRow(-1)
+	if cleared := paint(); px(cleared, 50, 20) != px(plain, 50, 20) || l.DropRow() != -1 {
+		t.Error("SetDropRow(-1) left the ring")
+	}
+	l.SetDropRow(2)
+	l.Reset()
+	if l.DropRow() != -1 {
+		t.Errorf("Reset kept the drop row %d", l.DropRow())
 	}
 }

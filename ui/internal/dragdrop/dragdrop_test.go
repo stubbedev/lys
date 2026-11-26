@@ -113,6 +113,8 @@ type recordingTarget struct {
 	drops   int
 	dropX   float64
 	dropY   float64
+	action  transfer.Action
+	own     bool
 }
 
 func (t *recordingTarget) DragEnter(mimes []string, x, y float64) string {
@@ -129,9 +131,10 @@ func (t *recordingTarget) DragMotion(x, y float64) string {
 
 func (t *recordingTarget) DragLeave() { t.leaves++ }
 
-func (t *recordingTarget) Drop(x, y float64) {
+func (t *recordingTarget) Drop(x, y float64, action transfer.Action, own bool) {
 	t.drops++
 	t.dropX, t.dropY = x, y
+	t.action, t.own = action, own
 }
 
 // newTestController builds a controller around a connectionless
@@ -690,6 +693,61 @@ func TestDropActions(t *testing.T) {
 	}
 	if len(resolveOffer.setActions) != 1 || resolveOffer.setActions[0] != [2]uint32{2, 2} || resolveOffer.finished != 1 {
 		t.Errorf("ask resolve set %v finish %d, want move alone then finish", resolveOffer.setActions, resolveOffer.finished)
+	}
+}
+
+// A drop hears the action the compositor negotiated for its offer:
+// copy when none was (below version 3), an ask settled on the target's
+// pick, the latest action event otherwise; and whether this process's
+// own drag offers what it dropped.
+func TestDropHearsTheNegotiatedAction(t *testing.T) {
+	both := transfer.ActionCopy | transfer.ActionMove
+	for _, tc := range []struct {
+		name       string
+		negotiated []transfer.Action
+		pick       transfer.Action
+		want       transfer.Action
+	}{
+		{"none negotiated copies", nil, transfer.ActionNone, transfer.ActionCopy},
+		{"move", []transfer.Action{transfer.ActionMove}, transfer.ActionNone, transfer.ActionMove},
+		{"the latest wins", []transfer.Action{transfer.ActionMove, transfer.ActionCopy}, transfer.ActionMove, transfer.ActionCopy},
+		{"ask settles on the pick", []transfer.Action{transfer.ActionAsk}, transfer.ActionMove, transfer.ActionMove},
+		{"ask without a pick copies", []transfer.Action{transfer.ActionAsk}, transfer.ActionNone, transfer.ActionCopy},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c := newTestController()
+			m := &offerMimes{mimes: []string{"a/b"}, actions: both | transfer.ActionAsk}
+			c.offers[nil] = m
+			target := &actionTarget{accept: "a/b", want: tc.pick}
+			c.enter(target, 1, 2, 9, nil)
+			for _, a := range tc.negotiated {
+				m.HandleDataOfferAction(wl.DataOfferActionEvent{DndAction: uint32(a)})
+			}
+			c.drop()
+			if target.drops != 1 || target.action != tc.want || target.own {
+				t.Errorf("the drop heard %v own %v (%d drops), want %v from another process", target.action, target.own, target.drops, tc.want)
+			}
+			if c.resolve != transfer.ActionNone {
+				t.Errorf("the ask resolution outlived the drop: %v", c.resolve)
+			}
+		})
+	}
+	c := newTestController()
+	c.src, c.srcReq = &wl.DataSource{}, &fakeSource{}
+	c.srcData = transfer.Drag{Mimes: []string{"a/b"}, Write: fakeWriter}
+	c.offers[nil] = &offerMimes{mimes: []string{"a/b"}}
+	target := &recordingTarget{accept: "a/b"}
+	c.enter(target, 1, 2, 9, nil)
+	c.drop()
+	if !target.own {
+		t.Error("a drop of this process's own drag was heard as another's")
+	}
+	c.srcData = transfer.Drag{Mimes: []string{"c/d"}, Write: fakeWriter}
+	c.offers[nil] = &offerMimes{mimes: []string{"a/b"}}
+	c.enter(target, 1, 2, 9, nil)
+	c.drop()
+	if target.own {
+		t.Error("a drop of a mime this process's drag does not offer was heard as its own")
 	}
 }
 

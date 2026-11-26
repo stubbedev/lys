@@ -274,7 +274,7 @@ func TestFloatingPanelHeaderTakesDrops(t *testing.T) {
 	if got := r.DragEnter([]string{"text/uri-list"}, at); got != "text/uri-list" {
 		t.Fatalf("drag over the title accepted %q", got)
 	}
-	r.Drop("text/uri-list", []byte("file:///tmp/a"), at)
+	r.Drop("text/uri-list", []byte("file:///tmp/a"), at, Dropped{})
 	if len(title.dropped) != 1 {
 		t.Errorf("the title got %v", title.dropped)
 	}

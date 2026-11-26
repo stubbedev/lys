@@ -178,7 +178,7 @@ func (in *surfaceInput) DragLeave() {
 // loop. Every ReadPayload error rejects the drop — past xfer.MaxPayload
 // or stalled past the transfer deadline, the payload is refused (and
 // traced), never handed to the widget truncated.
-func (in *surfaceInput) Drop(x, y float64) {
+func (in *surfaceInput) Drop(x, y float64, action transfer.Action, own bool) {
 	if in.dropInput() {
 		return
 	}
@@ -195,7 +195,7 @@ func (in *surfaceInput) Drop(x, y float64) {
 			in.reportTransfer(err)
 			return
 		}
-		deliver(mime, data, p)
+		deliver(mime, data, p, widget.Dropped{Action: action, Own: own})
 		in.request()
 	})
 }

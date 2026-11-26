@@ -279,6 +279,21 @@ type Dropper interface {
 	Drop(mime string, data []byte, p Point)
 }
 
+// Dropped is how a drop finished: the action the compositor negotiated
+// with the drag's source (an ask settled by the target, copy where the
+// compositor negotiates none), and whether the drag is this process's
+// own, whose source holds the seat's keyboard and so its modifiers.
+type Dropped struct {
+	Action transfer.Action
+	Own    bool
+}
+
+// ActionDropper is a drop target that acts on how the drop finished:
+// it receives the drop in place of Dropper, with its Dropped.
+type ActionDropper interface {
+	DropAs(mime string, data []byte, p Point, how Dropped)
+}
+
 // DragOverSetter receives drag-hover tracking from the Router, the
 // highlight bit while a drag sits over the widget — the drop-target
 // counterpart of HoverSetter.
@@ -993,17 +1008,24 @@ func (r *Router) DragLeave() {
 // Drop delivers the drop to the current drop target and clears the
 // hover state. data carries the payload bytes the app fetched from
 // the offer — or through the same-process shortcut.
-func (r *Router) Drop(mime string, data []byte, p Point) { r.BeginDrop()(mime, data, p) }
+func (r *Router) Drop(mime string, data []byte, p Point, how Dropped) {
+	r.BeginDrop()(mime, data, p, how)
+}
 
 // BeginDrop clears the hover state and returns what hands the current
 // drop target its payload once the bytes are in: the target stays the
 // one under the drop, whatever drags come through while they travel.
-func (r *Router) BeginDrop() func(mime string, data []byte, p Point) {
+// An ActionDropper hears how the drop finished; a Dropper the payload
+// alone.
+func (r *Router) BeginDrop() func(mime string, data []byte, p Point, how Dropped) {
 	w := r.dragTarget
 	r.applyDragTarget(nil, false)
 	r.dragMime = ""
-	return func(mime string, data []byte, p Point) {
-		if d, ok := w.(Dropper); ok {
+	return func(mime string, data []byte, p Point, how Dropped) {
+		switch d := w.(type) {
+		case ActionDropper:
+			d.DropAs(mime, data, p, how)
+		case Dropper:
 			d.Drop(mime, data, p)
 		}
 	}

@@ -141,7 +141,7 @@ func TestEmbeddingWrapperIsTheParent(t *testing.T) {
 	if mime := r.DragEnter([]string{"text/plain"}, Point{X: 5, Y: 5}); mime != "text/plain" || len(zone.entered) != 1 {
 		t.Fatalf("drag over the chip: mime %q, zone entered %d times", mime, len(zone.entered))
 	}
-	r.Drop("text/plain", []byte("0:left:1"), Point{X: 5, Y: 5})
+	r.Drop("text/plain", []byte("0:left:1"), Point{X: 5, Y: 5}, Dropped{})
 	if zone.dropped != "0:left:1" {
 		t.Errorf("the zone got %q", zone.dropped)
 	}

@@ -133,7 +133,7 @@ func TestListGridEmptyCellsHitNoItem(t *testing.T) {
 	if l.hover != -1 {
 		t.Errorf("hover on row %d past the last item", l.hover)
 	}
-	if got := l.rowUnder(empty); got != -1 {
+	if got := l.IndexAt(empty); got != -1 {
 		t.Errorf("row under the empty cell = %d, want -1", got)
 	}
 	if got, ok := l.HitTest(Point{X: 10, Y: 30}).(*listRow); !ok || got.idx != 9 {
