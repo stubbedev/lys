@@ -1,0 +1,22 @@
+#!/usr/bin/make -f
+
+%:
+	dh $@
+
+override_dh_auto_build:
+
+override_dh_dwz:
+
+override_dh_strip:
+	dh_strip --no-automatic-dbgsym
+
+override_dh_auto_install:
+	install -d debian/lys-viewer/usr/bin
+	install -m 0755 lys-viewer debian/lys-viewer/usr/bin/
+
+	install -D -m 0644 dev.stubbe.lys.viewer.desktop debian/lys-viewer/usr/share/applications/dev.stubbe.lys.viewer.desktop
+	desktop-file-validate debian/lys-viewer/usr/share/applications/dev.stubbe.lys.viewer.desktop
+	install -D -m 0644 lys-viewer.svg debian/lys-viewer/usr/share/icons/hicolor/scalable/apps/lys-viewer.svg
+
+	install -d debian/lys-viewer/usr/share/lys-viewer/icons/hicolor/scalable/actions
+	install -m 0644 icons/hicolor/scalable/actions/*.svg debian/lys-viewer/usr/share/lys-viewer/icons/hicolor/scalable/actions/

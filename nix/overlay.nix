@@ -5,6 +5,7 @@
       lys-shell = null;
       lys-login = null;
       lys-settings = null;
+      lys-viewer = null;
       lys-polkit = null;
       lys-power = null;
       lys-secrets = null;

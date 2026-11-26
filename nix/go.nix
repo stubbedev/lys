@@ -1,7 +1,7 @@
 {lib, ...}: let
   root = ../.;
   inRoot = rel: root + "/${rel}";
-  components = ["lib" "ui" "desktop" "wm" "shell" "login" "settings" "polkit" "power" "secrets" "splash"];
+  components = ["lib" "ui" "desktop" "wm" "shell" "login" "settings" "viewer" "polkit" "power" "secrets" "splash"];
   tracked = lib.fileset.gitTracked root;
   docsReadByTests = map inRoot (
     lib.filter (lib.hasPrefix "docs/") (

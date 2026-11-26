@@ -1,0 +1,46 @@
+%global debug_package %{nil}
+%global _build_id_links none
+
+Name:           lys-viewer
+Version:        @VERSION@
+Release:        1%{?dist}
+Summary:        Picture and video viewer for the lys desktop
+License:        MIT
+URL:            https://github.com/stubbedev/lys/tree/main/viewer
+Source0:        https://github.com/stubbedev/lys/releases/download/v%{version}/lys-viewer-%{version}-%{_arch}-linux.tar.gz
+ExclusiveArch:  x86_64 aarch64
+
+BuildRequires:  desktop-file-utils
+Requires:       hicolor-icon-theme
+Requires:       shared-mime-info
+Recommends:     bubblewrap
+Recommends:     vulkan-loader
+Recommends:     mesa-vulkan-drivers
+
+%description
+lys-viewer shows pictures, videos and documents one at a time, stepping through the others of their folder, and moves them to the trash, copies a picture or opens a file in another app.
+
+%prep
+%setup -q -n lys-viewer-%{version}-%{_arch}-linux
+
+%build
+
+%install
+install -d %{buildroot}%{_bindir}
+install -m 0755 lys-viewer %{buildroot}%{_bindir}/
+install -D -m 0644 dev.stubbe.lys.viewer.desktop %{buildroot}%{_datadir}/applications/dev.stubbe.lys.viewer.desktop
+desktop-file-validate %{buildroot}%{_datadir}/applications/dev.stubbe.lys.viewer.desktop
+install -D -m 0644 lys-viewer.svg %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/lys-viewer.svg
+install -d %{buildroot}%{_datadir}/lys-viewer/icons/hicolor/scalable/actions
+install -m 0644 icons/hicolor/scalable/actions/*.svg %{buildroot}%{_datadir}/lys-viewer/icons/hicolor/scalable/actions/
+
+%files
+%license LICENSE
+%{_bindir}/lys-viewer
+%{_datadir}/applications/dev.stubbe.lys.viewer.desktop
+%{_datadir}/icons/hicolor/scalable/apps/lys-viewer.svg
+%{_datadir}/lys-viewer
+
+%changelog
+* @DATE@ @MAINTAINER@ - @VERSION@-1
+- Packaged upstream binary release

@@ -61,6 +61,8 @@
         ./settings/nix/shell.nix
         ./settings/nix/modules.nix
         (checks "settings" ./settings/nix/checks.nix)
+        ./viewer/nix/package.nix
+        ./viewer/nix/shell.nix
         ./polkit/nix/package.nix
         ./polkit/nix/shell.nix
         ./polkit/nix/modules.nix

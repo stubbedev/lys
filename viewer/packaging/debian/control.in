@@ -1,0 +1,27 @@
+Source: lys-viewer
+Section: graphics
+Priority: optional
+Maintainer: @MAINTAINER@
+Build-Depends:
+ debhelper-compat (= 13),
+ desktop-file-utils
+Standards-Version: 4.7.0
+Rules-Requires-Root: no
+Homepage: https://github.com/stubbedev/lys/tree/main/viewer
+Vcs-Git: https://github.com/stubbedev/lys.git
+Vcs-Browser: https://github.com/stubbedev/lys/tree/main/viewer
+
+Package: lys-viewer
+Architecture: amd64 arm64
+Depends:
+ ${misc:Depends},
+ hicolor-icon-theme,
+ shared-mime-info
+Recommends:
+ bubblewrap,
+ libvulkan1,
+ mesa-vulkan-drivers
+Description: picture and video viewer for the lys desktop
+ lys-viewer shows pictures, videos and documents one at a time, stepping
+ through the others of their folder, and moves them to the trash, copies a
+ picture or opens a file in another app.

@@ -1,0 +1,8 @@
+/lys-viewer
+/dist
+/result
+*.test
+/.direnv
+/debbuild
+/rpmbuild
+/lys-viewer-*

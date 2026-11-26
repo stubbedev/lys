@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=Lys Viewer
+GenericName=Picture and Video Viewer
+Comment=Show pictures, videos and documents
+Exec=lys-viewer %U
+Icon=lys-viewer
+Terminal=false
+Categories=Graphics;Viewer;
+Keywords=picture;image;photo;video;movie;viewer;lys;
+MimeType=image/bmp;image/gif;image/jpeg;image/png;image/tiff;image/webp;image/x-farbfeld;image/x-portable-anymap;image/x-portable-bitmap;image/x-portable-graymap;image/x-portable-pixmap;image/x-tga;video/matroska;video/mp4;video/webm;video/x-matroska;
+StartupNotify=true
+StartupWMClass=dev.stubbe.lys.viewer

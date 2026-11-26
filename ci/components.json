@@ -302,6 +302,12 @@
         ]
       ]
     },
+    "viewer": {
+      "depends": ["ui", "packaging"],
+      "package": true,
+      "gates": ["vet", "lint", "no-fused", "test", "build"],
+      "race": true
+    },
     "polkit": {
       "gates": ["vet", "lint", "test", "build"]
     },
@@ -361,7 +367,7 @@
       ["shell/4:gates"],
       ["settings/1:race"],
       ["settings/2:race"],
-      ["secrets"],
+      ["secrets", "viewer"],
       ["shell/1:race", "shell/2:race", "shell/2:gates"],
       ["wm/1:race", "wm/2:race", "shell/3:race", "shell/1:gates"],
       ["wm/4:race"]
@@ -369,7 +375,7 @@
     "aarch64": [
       ["shell", "ui"],
       ["lib", "wm", "polkit", "splash"],
-      ["settings", "login", "secrets", "power", "desktop"]
+      ["settings", "login", "secrets", "power", "desktop", "viewer"]
     ]
   }
 }

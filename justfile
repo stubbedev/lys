@@ -10,6 +10,7 @@ mod wm
 mod shell
 mod login
 mod settings
+mod viewer
 mod polkit
 mod power
 mod secrets
