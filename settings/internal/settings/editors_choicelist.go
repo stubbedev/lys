@@ -9,6 +9,7 @@ import (
 	"github.com/stubbedev/lys/desktop/desktopentry"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/ui/widget"
+	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -62,16 +63,30 @@ var namedChoices = choiceShape{
 	item: func(k *kit, o choice, v any, changed func()) listItem {
 		pair, _ := v.([2]string)
 		row := namedChoiceItem{Box: gapBox(widget.Row), key: o.value, name: k.entry()}
+		row.SetHomogeneous(true)
 		row.name.SetPlaceholder(locale.T().Get("settings-map-name-placeholder"))
 		row.name.SetText(pair[1])
 		row.name.OnChanged = func(string) { changed() }
-		row.Append(choiceRow(k, o), true)
-		row.Append(row.name, true)
+		row.AppendAligned(captionedChoice(k, o), true, widget.AlignCenter)
+		row.AppendAligned(row.name, true, widget.AlignCenter)
 		return row
 	},
 	picked: func(value string) any { return [2]string{value, ""} },
 	decode: decodePairs,
 	encode: encodePairs(func(pair [2]string) bool { return pair[0] != "" && pair[1] != "" }),
+}
+
+func captionedChoice(k *kit, o choice) *widget.Box {
+	column := widget.NewBox(widget.Column, 0, 0)
+	label := k.label(o.label, "choice-label")
+	label.SetEllipsize(widget.EllipsizeEnd)
+	column.Append(label, false)
+	if hint := choiceHint(o); hint != "" {
+		caption := k.label(hint, "choice-hint", css.Caption, css.DimLabel)
+		caption.SetEllipsize(widget.EllipsizeEnd)
+		column.Append(caption, false)
+	}
+	return column
 }
 
 type choiceListEditor struct {
