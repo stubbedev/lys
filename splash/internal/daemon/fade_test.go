@@ -2,9 +2,11 @@ package daemon
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"image"
 	"log/slog"
+	"os"
 	"reflect"
 	"slices"
 	"strings"
@@ -233,6 +235,60 @@ func TestARetainedQuitAtTheEndOfAShutdownFadesOutOnceAndTheSplashStays(t *testin
 	}
 }
 
+func (r *run) vblank(t *testing.T) {
+	t.Helper()
+	n := r.display.vblanks.Load()
+	r.display.events <- kms.Event{}
+	waittest.Until(t, func() bool { return r.display.vblanks.Load() > n }, "the display to handle a vblank")
+}
+
+func (r *run) vblanksUntilShown(t *testing.T) {
+	t.Helper()
+	for range 2 {
+		if r.screen().Shown() {
+			return
+		}
+		r.vblank(t)
+	}
+	if !r.screen().Shown() {
+		t.Fatal("the screen's last frame is not on screen two vblanks after the screen stopped presenting")
+	}
+}
+
+func TestAQuitBeforeTheResetIsAnsweredOnceTheFadedFrameIsOnScreen(t *testing.T) {
+	t.Parallel()
+	for _, mode := range []Mode{Shutdown, Reboot, Kexec} {
+		t.Run(mode.String(), func(t *testing.T) {
+			t.Parallel()
+			r := pausedRun(t, setup{mode: mode, vblank: true})
+			r.vblanksUntilShown(t)
+			r.call(t, protocol.ShowMessage{Text: "Rebooting"}, protocol.Ack{})
+			r.settles(t)
+			r.vblanksUntilShown(t)
+			c := r.dial(t)
+			r.send(t, c, protocol.Quit{Retain: true})
+			r.settles(t)
+			if r.screen().Shown() {
+				t.Fatal("the leave's last frame is on screen with no vblank since it was presented")
+			}
+			if err := c.SetReadDeadline(time.Now().Add(stillWindow)); err != nil {
+				t.Fatal(err)
+			}
+			if got, err := protocol.ReadResponse(c); !errors.Is(err, os.ErrDeadlineExceeded) {
+				t.Fatalf("answered %#v (err %v) while the leave's last frame waits for its vblank, want no answer until it is on screen", got, err)
+			}
+			if err := c.SetReadDeadline(time.Now().Add(5 * time.Second)); err != nil {
+				t.Fatal(err)
+			}
+			r.vblanksUntilShown(t)
+			expect(t, c, protocol.Ack{})
+			if !bytes.Equal(r.screen().picture(), lysPicture(t)) {
+				t.Error("the frame on screen once the quit is answered is not the logo alone")
+			}
+		})
+	}
+}
+
 func (r *run) awaitRemovals(t *testing.T, n int32) {
 	t.Helper()
 	waittest.Until(t, func() bool { return r.display.removed.Load() >= n }, fmt.Sprintf("the display to handle %d removals", n))
@@ -241,7 +297,7 @@ func (r *run) awaitRemovals(t *testing.T, n int32) {
 func TestACardGoingAwayBeforeTheResetLeavesTheSplashInText(t *testing.T) {
 	t.Parallel()
 	r := pausedRun(t, setup{mode: Reboot})
-	r.display.removals <- kms.Event{}
+	r.display.events <- kms.Event{}
 	r.awaitRemovals(t, 1)
 	r.vtSettled(t)
 	if _, graphics := r.vt.reclaimed(); graphics {
@@ -256,13 +312,13 @@ func TestACardGoingAwayOnceTheFrameStaysUntilTheResetIsLeftAlone(t *testing.T) {
 			t.Parallel()
 			r := pausedRun(t, setup{mode: mode})
 			r.call(t, protocol.Quit{Retain: true}, protocol.Ack{})
-			r.display.removals <- kms.Event{}
+			r.display.events <- kms.Event{}
 			time.Sleep(stillWindow)
 			r.vtSettled(t)
 			if n := r.display.removed.Load(); n != 0 {
 				t.Errorf("the display handled %d removals after the frame was left until the reset, want none", n)
 			}
-			if len(r.display.removals) != 1 {
+			if len(r.display.events) != 1 {
 				t.Error("the splash read the display's event after the frame was left until the reset")
 			}
 			if _, graphics := r.vt.reclaimed(); !graphics {

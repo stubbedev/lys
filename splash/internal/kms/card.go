@@ -625,6 +625,12 @@ func (o *Output) Present(damage Damage) error {
 	return o.flip()
 }
 
+// Shown says the last presented frame is on screen: its flip landed and no
+// frame waits to go out.
+func (o *Output) Shown() bool {
+	return !o.flipping && !o.pending
+}
+
 func (o *Output) flipped() error {
 	o.flipping = false
 	if !o.pending || o.card.paused {

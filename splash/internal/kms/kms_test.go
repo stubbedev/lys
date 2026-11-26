@@ -449,6 +449,36 @@ func TestFlipsArePacedAndDamageLimited(t *testing.T) {
 	}
 }
 
+func TestAFrameIsShownOnceItsFlipLands(t *testing.T) {
+	t.Parallel()
+	d := newFakeDevice("/dev/dri/card0", 1)
+	d.connect(40, [2]uint32{531, 299}, mode(64, 32, true))
+	c := openFake(t, d, false, &Scaler{})
+	o := c.Outputs()[0]
+	whole := DamageOf(image.Rectangle{Max: o.Frame().Size})
+	if err := o.Present(whole); err != nil {
+		t.Fatal(err)
+	}
+	if o.Shown() {
+		t.Error("shown before the first frame's flip landed")
+	}
+	if err := o.Present(whole); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.Flipped(drm.FlipEvent{UserData: 10}); err != nil {
+		t.Fatal(err)
+	}
+	if o.Shown() {
+		t.Error("shown once the first flip landed, with the second frame's flip still out")
+	}
+	if err := c.Flipped(drm.FlipEvent{UserData: 10}); err != nil {
+		t.Fatal(err)
+	}
+	if !o.Shown() {
+		t.Error("not shown once the last frame's flip landed")
+	}
+}
+
 func TestDamageClipsFollowRotation(t *testing.T) {
 	t.Parallel()
 	d := newFakeDevice("/dev/dri/card0", 1)

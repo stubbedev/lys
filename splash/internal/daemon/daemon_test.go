@@ -36,6 +36,10 @@ type fakeScreen struct {
 	presents []image.Rectangle
 	keep     bool
 	shown    []byte
+	vblank   bool
+	flipping bool
+	pending  bool
+	flying   []byte
 }
 
 func newScreen(size image.Point) *fakeScreen {
@@ -54,10 +58,45 @@ func (s *fakeScreen) Present(d kms.Damage) error {
 		bounds = bounds.Union(r)
 	}
 	s.presents = append(s.presents, bounds)
-	if s.keep {
-		s.shown = append(s.shown[:0], s.frame.Pix...)
+	if !s.vblank {
+		s.show(s.frame.Pix)
+		return nil
+	}
+	s.pending = true
+	if !s.flipping {
+		s.flip()
 	}
 	return nil
+}
+
+func (s *fakeScreen) Shown() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return !s.flipping && !s.pending
+}
+
+func (s *fakeScreen) flip() {
+	s.flying = append(s.flying[:0], s.frame.Pix...)
+	s.flipping, s.pending = true, false
+}
+
+func (s *fakeScreen) landed() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !s.flipping {
+		return
+	}
+	s.flipping = false
+	s.show(s.flying)
+	if s.pending {
+		s.flip()
+	}
+}
+
+func (s *fakeScreen) show(pix []byte) {
+	if s.keep {
+		s.shown = append(s.shown[:0], pix...)
+	}
 }
 
 func (s *fakeScreen) picture() []byte {
@@ -74,14 +113,23 @@ type fakeDisplay struct {
 	deactivated bool
 	closeErr    error
 	onDeactive  func()
-	removals    chan kms.Event
+	events      chan kms.Event
 	removed     atomic.Int32
+	vblank      bool
+	vblanks     atomic.Int32
 	awaiting    bool
 }
 
-func (d *fakeDisplay) Events() <-chan kms.Event { return d.removals }
+func (d *fakeDisplay) Events() <-chan kms.Event { return d.events }
 
 func (d *fakeDisplay) Handle(kms.Event) (bool, error) {
+	if d.vblank {
+		for _, s := range d.Screens() {
+			s.(*fakeScreen).landed()
+		}
+		d.vblanks.Add(1)
+		return false, nil
+	}
 	d.removed.Add(1)
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -325,6 +373,7 @@ type setup struct {
 	keep      bool
 	scale     int
 	bgrt      *splashframe.BGRT
+	vblank    bool
 }
 
 type laterClock struct {
@@ -357,7 +406,7 @@ func saveUnsynced(path string, d time.Duration) error {
 
 func start(t *testing.T, s setup) *run {
 	t.Helper()
-	r := &run{socket: "@lys-splash-daemon-test-" + rand.Text(), display: &fakeDisplay{removals: make(chan kms.Event, 1)}, done: make(chan error, 1), roots: make(chan string, 4), duration: s.duration, console: newConsole(), frames: &lastFrames{}}
+	r := &run{socket: "@lys-splash-daemon-test-" + rand.Text(), display: &fakeDisplay{events: make(chan kms.Event, 1), vblank: s.vblank}, done: make(chan error, 1), roots: make(chan string, 4), duration: s.duration, console: newConsole(), frames: &lastFrames{}}
 	if r.duration == "" {
 		r.duration = filepath.Join(t.TempDir(), "boot-duration")
 	}
@@ -367,7 +416,7 @@ func start(t *testing.T, s setup) *run {
 	}
 	for range s.screens {
 		screen := newScreen(size)
-		screen.keep = s.keep
+		screen.keep, screen.vblank = s.keep, s.vblank
 		if s.scale != 0 {
 			screen.scale = s.scale
 		}
@@ -600,7 +649,7 @@ func TestTheVTStaysInGraphicsUntilTheNativeDriversCardReplacesTheFirmwares(t *te
 		t.Fatal("the VT is in text with a screen to draw on")
 	}
 	r.display.await(true)
-	r.display.removals <- kms.Event{}
+	r.display.events <- kms.Event{}
 	r.awaitRemovals(t, 1)
 	r.vtSettled(t)
 	r.vt.mu.Lock()
@@ -610,7 +659,7 @@ func TestTheVTStaysInGraphicsUntilTheNativeDriversCardReplacesTheFirmwares(t *te
 		t.Errorf("awaiting the native driver's card: graphics %v and the VT got %q, want graphics and nothing written", graphics, out)
 	}
 	r.display.await(false)
-	r.display.removals <- kms.Event{}
+	r.display.events <- kms.Event{}
 	r.awaitRemovals(t, 2)
 	r.vtSettled(t)
 	r.vt.mu.Lock()

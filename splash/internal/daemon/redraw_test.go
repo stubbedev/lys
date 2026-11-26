@@ -38,6 +38,8 @@ func (s *quietScreen) Present(kms.Damage) error {
 	return nil
 }
 
+func (s *quietScreen) Shown() bool { return true }
+
 func newQuietDaemon(t *testing.T, th theme.Theme) (*daemon, *quietScreen) {
 	t.Helper()
 	size := image.Pt(1920, 1080)

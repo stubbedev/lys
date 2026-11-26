@@ -48,6 +48,8 @@ type Screen interface {
 	Frame() kms.Frame
 	Scale() int
 	Present(damage kms.Damage) error
+	// Shown says the last presented frame is on screen.
+	Shown() bool
 }
 
 // Display is every graphical output; with no Screens the splash is text on
@@ -712,7 +714,16 @@ func (d *daemon) leaveFor(add func(*leave)) {
 }
 
 func (d *daemon) left() bool {
-	return !d.showsPicture() || d.state.Leaving && !d.state.Fading() && d.state == d.settled
+	return !d.showsPicture() || d.state.Leaving && !d.state.Fading() && d.state == d.settled && d.framesShown()
+}
+
+func (d *daemon) framesShown() bool {
+	for _, s := range d.screens {
+		if shown, ok := d.drawn[s]; ok && shown.wait == 0 && !s.Shown() {
+			return false
+		}
+	}
+	return true
 }
 
 func (d *daemon) finishLeave() (bool, error) {
