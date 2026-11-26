@@ -45,7 +45,7 @@ func newSidebar(k *kit, sections []navSection, active string, content, search wi
 		if len(items) == 0 {
 			continue
 		}
-		s.AddCollapsibleGroup(t.Get(sec.key), true, items...)
+		s.AddCollapsibleGroup(t.Get(sec.key), k.icon(sec.tileIcon(), "sidebar-group-icon"), true, items...)
 	}
 
 	reset, _ := k.contentButton(roleQuiet, buttonRoles[roleReset].icon, t.Get("settings-reset-all"), onResetAll)
