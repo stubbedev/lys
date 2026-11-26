@@ -24,6 +24,7 @@ screenshot-editor-failed = De editor kon niet worden geopend
 screenshot-copy-edited-failed = De bewerkte schermafbeelding is opgeslagen maar niet gekopieerd
 screenshot-qr-copy-failed = De QR-code is niet gekopieerd
 screenshot-open-folder-failed = De map kon niet worden geopend
+screenshot-open-failed = De schermafbeelding kon niet worden geopend
 screenshot-open-link-failed = De link kon niet worden geopend
 screenshot-read-failed = Het scherm kon niet worden gelezen
 screenshot-read-no-text = Geen tekst gevonden

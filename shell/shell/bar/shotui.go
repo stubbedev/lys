@@ -93,6 +93,9 @@ func (u *shotUI) wire(h *screenshot.Host) {
 	h.OpenFolder = func(dir string) {
 		u.app.Invoke(func() { u.app.OpenPath(dir, u.failedTo("screenshot-open-folder-failed")) })
 	}
+	h.Open = func(path string) {
+		u.app.Invoke(func() { u.app.OpenPath(path, u.failedTo("screenshot-open-failed")) })
+	}
 	h.OpenURL = func(uri string) {
 		u.app.Invoke(func() { u.app.OpenURL(uri, u.failedTo("screenshot-open-link-failed")) })
 	}

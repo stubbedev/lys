@@ -30,11 +30,11 @@ import (
 	"github.com/stubbedev/lys/lib/atomicfile"
 	"github.com/stubbedev/lys/lib/portaldialogs"
 	"github.com/stubbedev/lys/lib/render"
-	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/xdg"
 	"github.com/stubbedev/memory-go"
 
 	"github.com/stubbedev/lys/shell/internal/desktopnotify"
+	"github.com/stubbedev/lys/shell/service/notifications"
 	"github.com/stubbedev/lys/shell/shell/colorpicker"
 	"github.com/stubbedev/lys/shell/shell/regionoverlay"
 )
@@ -91,6 +91,8 @@ type Host struct {
 	// the folder it was saved in: the notification's buttons.
 	Edit       func(Saved)
 	OpenFolder func(dir string)
+	// Open shows a saved capture's file in the default app for it.
+	Open func(path string)
 	// Toast and OpenURL deliver what Read read: a line in a toast, a
 	// decoded link in the browser.
 	Toast   func(text, icon string)
@@ -238,10 +240,11 @@ func (h *Host) save(img *image.RGBA) (string, error) {
 	}
 	if cfg.Notify {
 		n := savedNotice(path, copyErr == nil)
+		n.Default = ActionOpen
 		if !thumbnail {
 			n.Actions = []Action{ActionEdit, ActionOpenFolder, ActionDelete}
-			n.Respond = func(a Action) { h.act(a, shot) }
 		}
+		n.Respond = func(a Action) { h.act(a, shot) }
 		h.announce(n)
 	}
 	return path, nil
@@ -292,6 +295,10 @@ func (h *Host) act(a Action, shot Saved) {
 		if h.Edit != nil {
 			h.Edit(shot)
 		}
+	case ActionOpen:
+		if h.Open != nil {
+			h.Open(shot.Path)
+		}
 	case ActionOpenFolder:
 		if h.OpenFolder != nil {
 			h.OpenFolder(filepath.Dir(shot.Path))
@@ -304,11 +311,13 @@ func (h *Host) act(a Action, shot Saved) {
 }
 
 // Notice is the desktop notification announcing a saved screenshot. With
-// Actions it carries those buttons, and Respond hears the one pressed.
+// Actions it carries those buttons, with Default a click on its body
+// does that action, and Respond hears the one taken.
 type Notice struct {
 	Summary string
 	Body    string
 	Icon    string
+	Default Action
 	Actions []Action
 	Respond func(Action)
 }
@@ -331,7 +340,7 @@ func (h *Host) announce(n Notice) {
 		return
 	}
 	source := i18n.T("notification-source-screenshot")
-	if len(n.Actions) == 0 {
+	if len(n.Actions) == 0 && n.Default == "" {
 		desktopnotify.Notify(source, n.Summary, n.Body, n.Icon)
 		return
 	}
@@ -348,22 +357,32 @@ func (h *Host) announce(n Notice) {
 }
 
 func ask(source string, n Notice) (Action, error) {
-	conn, err := dbus.ConnectSessionBus()
-	if err != nil {
-		return "", fmt.Errorf("session bus: %w", err)
-	}
-	defer func() { _ = conn.Close() }()
-	buttons := make([]desktopnotify.Action, len(n.Actions))
-	for i, a := range n.Actions {
-		buttons[i] = desktopnotify.Action{Key: string(a), Label: i18n.T(actionLabels[a])}
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), actionWait+5*time.Second)
-	defer cancel()
-	key, ok, err := desktopnotify.NewSender(conn).Ask(ctx, source, n.Summary, n.Body, n.Icon, buttons, actionWait)
+	key, ok, err := desktopnotify.AskOnce(source, n.Summary, n.Body, n.Icon, noticeButtons(n), actionWait)
 	if err != nil || !ok {
 		return "", err
 	}
-	return Action(key), nil
+	return noticeAction(n, key), nil
+}
+
+// noticeButtons are the actions n posts: its default under the key a
+// click on the body sends, then its buttons.
+func noticeButtons(n Notice) []desktopnotify.Action {
+	buttons := make([]desktopnotify.Action, 0, len(n.Actions)+1)
+	if n.Default != "" {
+		buttons = append(buttons, desktopnotify.Action{Key: notifications.DefaultActionID, Label: i18n.T(actionLabels[n.Default])})
+	}
+	for _, a := range n.Actions {
+		buttons = append(buttons, desktopnotify.Action{Key: string(a), Label: i18n.T(actionLabels[a])})
+	}
+	return buttons
+}
+
+// noticeAction is the action of n the daemon reported by key.
+func noticeAction(n Notice, key string) Action {
+	if key == notifications.DefaultActionID {
+		return n.Default
+	}
+	return Action(key)
 }
 
 func (h *Host) captureAll(pointer bool) ([]frozenOutput, error) {

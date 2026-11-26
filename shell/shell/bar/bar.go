@@ -483,7 +483,9 @@ func (s *shellStart) startServices(system *dbus.Conn) {
 				if o := s.osdRef.Load(); o != nil {
 					o.ShowToast(widgetipc.ToastRequest{Label: &label, Icon: &icon, DurationMS: &ms})
 				}
-			}, Notify: desktopnotify.Notify}, s.ctx.Clock.Now)
+			}, Notify: desktopnotify.Notify, Saved: func(summary, path, icon string) {
+				announceRecording(s.openRecording, summary, path, icon)
+			}}, s.ctx.Clock.Now)
 		s.ctx.Recorder = recState
 		recState.ConfigureReplay(s.current.Load().Recorder.Replay.Enable)
 		if release, err := recorder.NewDaemon(recState).Export(conn); err == nil {

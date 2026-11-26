@@ -189,8 +189,8 @@ func (s *State) SaveReplay() (string, error) {
 		return "", err
 	}
 	s.toast(i18n.T("recorder-toast-replay-saved"), replayIcon, stopToastMS)
-	if s.hooks.Notify != nil {
-		s.hooks.Notify(i18n.T("notification-source-recorder"), i18n.T("recorder-notification-replay-saved"), path, replayIcon)
+	if s.hooks.Saved != nil {
+		s.hooks.Saved(i18n.T("recorder-notification-replay-saved"), path, replayIcon)
 	}
 	return path, nil
 }

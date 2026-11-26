@@ -15,6 +15,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/lib/portaldialogs"
 
+	"github.com/stubbedev/lys/shell/service/notifications"
 	"github.com/stubbedev/lys/shell/shell/regionoverlay"
 )
 
@@ -26,10 +27,12 @@ func regionHost(t *testing.T) (*Host, *[]Notice) {
 	return h, notified
 }
 
-func TestHostPresentsTheThumbnailAndNotifiesWithoutButtons(t *testing.T) {
+func TestHostPresentsTheThumbnailAndNotifiesWithoutButtonsButOpensOnAClick(t *testing.T) {
 	h, notified := regionHost(t)
 	var shown []Saved
 	h.Present = func(s Saved) { shown = append(shown, s) }
+	var opened []string
+	h.Open = func(path string) { opened = append(opened, path) }
 
 	path, err := h.Capture(portaldialogs.Caller{}, ModeRegion, "")
 	if err != nil {
@@ -39,8 +42,16 @@ func TestHostPresentsTheThumbnailAndNotifiesWithoutButtons(t *testing.T) {
 	if len(shown) != 1 || shown[0].Path != path || shown[0].Image == nil || shown[0].Image.Bounds().Dx() != 10 {
 		t.Fatalf("presented %+v, want the saved 10x10 capture", shown)
 	}
-	if len(*notified) != 1 || len((*notified)[0].Actions) != 0 || (*notified)[0].Respond != nil {
+	if len(*notified) != 1 || len((*notified)[0].Actions) != 0 {
 		t.Fatalf("with a thumbnail the notification carries buttons: %+v", *notified)
+	}
+	n := (*notified)[0]
+	if n.Default != ActionOpen || n.Respond == nil {
+		t.Fatalf("with a thumbnail a click on the notification does %q, want %q", n.Default, ActionOpen)
+	}
+	n.Respond(n.Default)
+	if !slices.Equal(opened, []string{path}) {
+		t.Fatalf("a click on the notification opened %v, want the capture %s", opened, path)
 	}
 }
 
@@ -56,6 +67,8 @@ func TestHostWithoutThumbnailNotifiesWithButtons(t *testing.T) {
 	var folders []string
 	h.Edit = func(s Saved) { edited = append(edited, s) }
 	h.OpenFolder = func(dir string) { folders = append(folders, dir) }
+	var opened []string
+	h.Open = func(path string) { opened = append(opened, path) }
 
 	path, err := h.Capture(portaldialogs.Caller{}, ModeRegion, "")
 	if err != nil {
@@ -65,8 +78,12 @@ func TestHostWithoutThumbnailNotifiesWithButtons(t *testing.T) {
 		t.Fatalf("notified %d times", len(*notified))
 	}
 	n := (*notified)[0]
-	if !slices.Equal(n.Actions, []Action{ActionEdit, ActionOpenFolder, ActionDelete}) || n.Respond == nil {
-		t.Fatalf("buttons %v", n.Actions)
+	if !slices.Equal(n.Actions, []Action{ActionEdit, ActionOpenFolder, ActionDelete}) || n.Default != ActionOpen || n.Respond == nil {
+		t.Fatalf("buttons %v, default %q", n.Actions, n.Default)
+	}
+	n.Respond(n.Default)
+	if !slices.Equal(opened, []string{path}) {
+		t.Fatalf("a click on the notification opened %v, want the capture %s", opened, path)
 	}
 
 	n.Respond(ActionEdit)
@@ -228,5 +245,29 @@ func TestWritePNGReplacesWholeOrNotAtAll(t *testing.T) {
 	img, err := png.Decode(f)
 	if err != nil || img.Bounds().Dx() != 7 {
 		t.Fatalf("replaced file decodes to %v, %v", img, err)
+	}
+}
+
+func TestANoticesDefaultGoesUnderTheBodysKeyAndComesBackAsItsAction(t *testing.T) {
+	n := Notice{Default: ActionOpen, Actions: []Action{ActionEdit, ActionDelete}}
+	buttons := noticeButtons(n)
+	keys := make([]string, len(buttons))
+	for i, b := range buttons {
+		keys[i] = b.Key
+	}
+	if want := []string{notifications.DefaultActionID, string(ActionEdit), string(ActionDelete)}; !slices.Equal(keys, want) {
+		t.Fatalf("posted keys %v, want %v", keys, want)
+	}
+	if got := noticeAction(n, notifications.DefaultActionID); got != ActionOpen {
+		t.Errorf("a click on the body reported %q, want %q", got, ActionOpen)
+	}
+	if got := noticeAction(n, string(ActionEdit)); got != ActionEdit {
+		t.Errorf("the Edit button reported %q", got)
+	}
+	plainNotice := Notice{Actions: []Action{ActionCopy}}
+	for _, b := range noticeButtons(plainNotice) {
+		if b.Key == notifications.DefaultActionID {
+			t.Errorf("a notice without a default posted the body's key: %v", noticeButtons(plainNotice))
+		}
 	}
 }

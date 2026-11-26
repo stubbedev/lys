@@ -36,3 +36,6 @@ recorder-toast-replay-saved = Relecture enregistrée
 recorder-toast-replay-failed = Échec de la relecture instantanée
 recorder-notification-replay-saved = Relecture enregistrée
 recorder-setting-not-saved = Le réglage n'a pas été enregistré
+recorder-action-open = Ouvrir
+recorder-action-open-folder = Ouvrir le dossier
+recorder-open-failed = L’enregistrement n’a pas pu être ouvert

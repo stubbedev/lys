@@ -55,6 +55,20 @@ func (s *Sender) Ask(ctx context.Context, appName, summary, body, appIcon string
 	return q.answer(ctx)
 }
 
+// AskOnce is Ask on a session bus connection of its own, for a caller
+// that keeps none: it waits up to timeout for the user, plus the time
+// the daemon takes to answer.
+func AskOnce(appName, summary, body, appIcon string, actions []Action, timeout time.Duration) (key string, ok bool, err error) {
+	conn, err := dbus.ConnectSessionBus()
+	if err != nil {
+		return "", false, fmt.Errorf("desktopnotify: session bus: %w", err)
+	}
+	defer func() { _ = conn.Close() }()
+	ctx, cancel := context.WithTimeout(context.Background(), timeout+sendTimeout)
+	defer cancel()
+	return NewSender(conn).Ask(ctx, appName, summary, body, appIcon, actions, timeout)
+}
+
 // ask posts the notification and returns once the daemon answered
 // Notify; answer, which must follow, waits for the user.
 func (s *Sender) ask(ctx context.Context, appName, summary, body, appIcon string, actions []Action, timeout time.Duration) (*question, error) {

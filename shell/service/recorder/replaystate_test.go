@@ -66,8 +66,8 @@ func TestReplayArmsSavesAndDisarmsWithTheConfig(t *testing.T) {
 		t.Errorf("a save stopped the replay: %d stops, %v", rp.Stops(), s.Snapshot().Replay)
 	}
 	toasts, notices := log.snapshot()
-	if !slices.Contains(toasts, i18n.T("recorder-toast-replay-saved")) || !slices.Contains(notices, i18n.T("recorder-notification-replay-saved")+": "+path) {
-		t.Errorf("toasts %q, notices %q", toasts, notices)
+	if !slices.Contains(toasts, i18n.T("recorder-toast-replay-saved")) || !slices.Contains(log.savedSnapshot(), i18n.T("recorder-notification-replay-saved")+": "+path) || len(notices) != 0 {
+		t.Errorf("toasts %q, saved %q, plain notices %q", toasts, log.savedSnapshot(), notices)
 	}
 	s.ConfigureReplay(true)
 	if len(engine.Replays()) != 1 {

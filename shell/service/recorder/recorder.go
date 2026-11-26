@@ -103,11 +103,13 @@ type Engine interface {
 	OpenOutput(output string, showCursor bool) (Session, error)
 }
 
-// Hooks are the user-facing reports: an OSD toast and a desktop
-// notification. Nil hooks are skipped.
+// Hooks are the user-facing reports: an OSD toast, a desktop
+// notification, and Saved, the notification for a file saved at path,
+// which opens it. Nil hooks are skipped.
 type Hooks struct {
 	Toast  func(label, icon string, durationMS uint32)
 	Notify func(appName, summary, body, icon string)
+	Saved  func(summary, path, icon string)
 }
 
 // Change is the state the bar module, the dropdown, and the daemon
@@ -394,8 +396,8 @@ func (s *State) Stop() {
 		s.notify()
 		if info, err := os.Stat(path); err == nil && info.Size() > 0 {
 			s.toast(i18n.T("recorder-toast-stopped"), toastIcon, stopToastMS)
-			if s.hooks.Notify != nil {
-				s.hooks.Notify(i18n.T("notification-source-recorder"), i18n.T("recorder-notification-saved"), path, savedIcon)
+			if s.hooks.Saved != nil {
+				s.hooks.Saved(i18n.T("recorder-notification-saved"), path, savedIcon)
 			}
 			return
 		}

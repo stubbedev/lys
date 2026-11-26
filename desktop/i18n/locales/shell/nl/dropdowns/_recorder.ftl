@@ -31,3 +31,6 @@ recorder-toast-replay-saved = Replay opgeslagen
 recorder-toast-replay-failed = Directe replay mislukt
 recorder-notification-replay-saved = Replay opgeslagen
 recorder-setting-not-saved = De instelling is niet opgeslagen
+recorder-action-open = Openen
+recorder-action-open-folder = Map openen
+recorder-open-failed = De opname kon niet worden geopend

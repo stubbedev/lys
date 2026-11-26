@@ -33,3 +33,6 @@ recorder-toast-replay-saved = Replay salvato
 recorder-toast-replay-failed = Replay istantaneo non riuscito
 recorder-notification-replay-saved = Replay salvato
 recorder-setting-not-saved = L'impostazione non è stata salvata
+recorder-action-open = Apri
+recorder-action-open-folder = Apri cartella
+recorder-open-failed = Non è stato possibile aprire la registrazione

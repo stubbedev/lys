@@ -25,6 +25,7 @@ type hookLog struct {
 	mu      sync.Mutex
 	toasts  []string
 	notices []string
+	saved   []string
 	apps    []string
 }
 
@@ -41,7 +42,20 @@ func (h *hookLog) hooks() recorder.Hooks {
 			h.notices = append(h.notices, summary+": "+body)
 			h.mu.Unlock()
 		},
+		Saved: func(summary, path, _ string) {
+			h.mu.Lock()
+			h.saved = append(h.saved, summary+": "+path)
+			h.mu.Unlock()
+		},
 	}
+}
+
+// savedSnapshot is the files announced as saved, which open on a click,
+// apart from the plain notices.
+func (h *hookLog) savedSnapshot() []string {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return slices.Clone(h.saved)
 }
 
 // wantFailure requires a failure notice and toast saying summary, in
@@ -122,13 +136,16 @@ func TestRecordPauseStopSaves(t *testing.T) {
 	if rec.Stops() != 1 || engine.Sessions()[0].Closed() != 1 {
 		t.Errorf("stops %d, session closes %d", rec.Stops(), engine.Sessions()[0].Closed())
 	}
-	waittest.Until(t, func() bool { _, n := log.snapshot(); return len(n) == 1 }, "the saved notice")
+	waittest.Until(t, func() bool { return len(log.savedSnapshot()) == 1 }, "the saved notice")
 	toasts, notices := log.snapshot()
 	if !slices.Contains(toasts, i18n.T("recorder-toast-starting")) || !slices.Contains(toasts, i18n.T("recorder-toast-stopped")) {
 		t.Errorf("toasts = %q", toasts)
 	}
-	if notices[0] != i18n.T("recorder-notification-saved")+": "+opts.OutputPath {
-		t.Errorf("notice = %q", notices[0])
+	if saved := log.savedSnapshot(); saved[0] != i18n.T("recorder-notification-saved")+": "+opts.OutputPath {
+		t.Errorf("saved notice = %q", saved[0])
+	}
+	if len(notices) != 0 {
+		t.Errorf("a saved recording also went out as a plain notice, which opens nothing: %q", notices)
 	}
 }
 

@@ -24,6 +24,7 @@ screenshot-editor-failed = Impossibile aprire l’editor
 screenshot-copy-edited-failed = Lo screenshot modificato è stato salvato ma non copiato
 screenshot-qr-copy-failed = Il codice QR non è stato copiato
 screenshot-open-folder-failed = Non è stato possibile aprire la cartella
+screenshot-open-failed = Non è stato possibile aprire lo screenshot
 screenshot-open-link-failed = Non è stato possibile aprire il link
 screenshot-read-failed = Impossibile leggere lo schermo
 screenshot-read-no-text = Nessun testo trovato
