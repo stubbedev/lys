@@ -3504,7 +3504,7 @@
         "suspend-action": {
           "$ref": "#/$defs/SleepAction",
           "default": "auto",
-          "description": "How the suspend stage sleeps, through logind. lys-wm's `lid_action`\ntakes the same values."
+          "description": "How the suspend stage sleeps, through logind. lys-wm's `lid_action`\nsleeps the same ways, and can also ignore the lid or leave it to\nlogind."
         }
       },
       "type": "object"

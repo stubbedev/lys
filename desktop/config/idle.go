@@ -54,7 +54,8 @@ type IdleConfig struct {
 	// Idle time before the system sleeps.
 	Suspend IdleTimeouts `cfg:"suspend"`
 	// How the suspend stage sleeps, through logind. lys-wm's `lid_action`
-	// takes the same values.
+	// sleeps the same ways, and can also ignore the lid or leave it to
+	// logind.
 	SuspendAction SleepAction `cfg:"suspend-action"`
 	// Lock the session before the system sleeps (a lid close, a suspend
 	// from any program), and hold the sleep until the lock screen is up, so

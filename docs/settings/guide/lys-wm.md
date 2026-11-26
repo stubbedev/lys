@@ -16,8 +16,11 @@ key does.
 | Keyboard | `wm-keyboard` | `input.keyboard`, `cursor`, each keyboard's `input.devices` layout |
 | Mouse & Touchpad | `wm-pointer` | `input.pointer`, `input.touchpad`, `gestures`, `input.trackpoint`, each pointing device's `input.devices` settings |
 | Keyboard Shortcuts | `wm-binds` | `binds` and `submaps` in one table, app shortcuts |
-| Displays | `wm-outputs` | Output layout, `primary_output`, `color_management`, `tearing`, `gpu`, `lid_action` |
+| Displays | `wm-outputs` | Output layout, `primary_output`, `color_management`, `tearing`, `gpu` |
 | Rules & Session | `wm-session` | `rules`, `env`, `xwayland`, `palette` |
+
+`lid_action` sits on the Idle page, beside the idle times it shares its sleeps
+with, while lys-wm is installed.
 
 ## What a change does
 

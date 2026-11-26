@@ -596,7 +596,7 @@ var schemaDocs = map[string]string{
 	"IdleConfig.LockBeforeSleep":                     "Lock the session before the system sleeps (a lid close, a suspend\nfrom any program), and hold the sleep until the lock screen is up, so\nthe machine always wakes locked.",
 	"IdleConfig.ScreenOff":                           "Idle time before the outputs power off. Input powers them back on.",
 	"IdleConfig.Suspend":                             "Idle time before the system sleeps.",
-	"IdleConfig.SuspendAction":                       "How the suspend stage sleeps, through logind. lys-wm's `lid_action`\ntakes the same values.",
+	"IdleConfig.SuspendAction":                       "How the suspend stage sleeps, through logind. lys-wm's `lid_action`\nsleeps the same ways, and can also ignore the lid or leave it to\nlogind.",
 	"IdleDimPercent":                                 "Percentage from 1 to 100.",
 	"IdleInhibitConfig":                              "Toggle that prevents screen dim, lock, and suspend while active.\n\nControllable from the CLI: `lys-shell idle on|off|duration|remaining|status`.",
 	"IdleInhibitConfig.BorderColor":                  "Border color token.",

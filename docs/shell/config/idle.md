@@ -31,7 +31,7 @@ swayidle or hypridle instead.
 | `lock` | [`IdleTimeouts`](/shell/config/types#idle-timeouts) | `{...}` | Idle time before the session locks (through logind, which starts the lock screen). |
 | `screen-off` | [`IdleTimeouts`](/shell/config/types#idle-timeouts) | `{...}` | Idle time before the outputs power off. Input powers them back on. |
 | `suspend` | [`IdleTimeouts`](/shell/config/types#idle-timeouts) | `{...}` | Idle time before the system sleeps. |
-| `suspend-action` | [`SleepAction`](/shell/config/types#sleep-action) | `"auto"` | How the suspend stage sleeps, through logind. lys-wm's `lid_action` takes the same values. |
+| `suspend-action` | [`SleepAction`](/shell/config/types#sleep-action) | `"auto"` | How the suspend stage sleeps, through logind. lys-wm's `lid_action` sleeps the same ways, and can also ignore the lid or leave it to logind. |
 | `lock-before-sleep` | bool | `true` | Lock the session before the system sleeps (a lid close, a suspend from any program), and hold the sleep until the lock screen is up, so the machine always wakes locked. |
 
 ## Default configuration
