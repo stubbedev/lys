@@ -1,0 +1,45 @@
+corpus/ is the screen text the recogniser is measured on: each NAME.png
+beside NAME.txt, the text it shows, exactly. Lines are drawn with their
+baselines 1.25 line heights apart and a margin of one font size around
+the block.
+
+The text is lys's own strings, a short terminal session and the first
+paragraph of the US Declaration of Independence (public domain). The
+images are lys's, under its MIT licence.
+
+ui-geist-1x, ui-geist-2x, ui-geist-dark-1x, ui-geist-bold-1x
+  lys UI strings drawn by lib/render in Geist (ui/internal/uifont, SIL OFL
+  1.1). Sizes: 14 px, 28 px, 13 px light-on-dark, and 14 px at wght 600,
+  a weight the test does not hand the reader.
+
+ui-cantarell-1x
+  The same strings in Cantarell 15 px (lib/render's fixture face, SIL
+  OFL 1.1).
+
+term-geistmono-1x
+  A terminal session in Geist Mono 14 px, light on dark, drawn by
+  lib/render with the face's programming ligatures, as lys draws them.
+
+page-inter-1x
+  The paragraph in Inter 15 px (lib/inter, SIL OFL 1.1), the shape of
+  a browser page.
+
+xrender-inter-1x, xrender-geistmono-1x
+  Four lines of the paragraph in Inter 15 px with full hinting, and
+  four lines of the session in Geist Mono 14 px with no hinting. Both
+  are drawn by golang.org/x/image/font/opentype rather than by lys's
+  rasteriser.
+
+pdf-reading-p1, -p2, -p3
+  The three pages of desktop/docrender/testdata/reading.pdf, rendered by
+  docrender (folio) at 96 dpi (816x1056) and cropped to x 64-480. They
+  are set in folio's substitute for the non-embedded Helvetica, a face
+  the reader is not given. The text is docrender's text layer for the
+  page.
+
+Baseline: tesseract 5.5.4 (`tesseract stdin stdout -l eng` on the image
+upscaled 2x, as lys-shell ran it) reads this corpus at a 0.79% character
+error rate (16 of 2034 characters, all in term-geistmono-1x). The rate
+is the rune Levenshtein distance over the text's length, with every
+line trimmed, runs of white space made one space and blank lines
+dropped. The reader must stay at or below that rate.

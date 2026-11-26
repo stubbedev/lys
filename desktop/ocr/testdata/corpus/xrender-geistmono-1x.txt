@@ -1,0 +1,4 @@
+$ go test ./shell/...
+ok   github.com/stubbedev/lys/shell 0.42s
+--- FAIL: TestReadText (0.01s)
+    read_test.go:236: Read = "", exit 1

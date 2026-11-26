@@ -1,0 +1,8 @@
+$ go test ./shell/...
+ok   github.com/stubbedev/lys/shell 0.42s
+--- FAIL: TestReadText (0.01s)
+    read_test.go:236: Read = "", exit 1
+$ ls -l /etc/hosts
+-rw-r--r-- 1 root root 412 Nov 26 09:15 hosts
+[1] 48213 segmentation fault  ./a.out
+x := map[string]int{"a": 1, "b": 2}
