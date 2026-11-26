@@ -98,9 +98,9 @@ in
               return vm.succeed("cat /tmp/lys-login/session").strip()
 
           def no_greeter_before_the_session():
+              if vm.execute("timeout 60 sh -c 'until scenario-journal -b -o cat --no-pager | grep -qF \"dm: autologin of alice into\"; do sleep 0.2; done'")[0] != 0:
+                  raise Exception("the daemon did not log alice in within 60s:\n" + journal()[-3000:])
               log = journal()
-              if "dm: autologin of alice into" not in log:
-                  raise Exception("the daemon did not log alice in:\n" + log[-3000:])
               if "lys-greeter starting" in log:
                   raise Exception("a greeter came up before the autologin")
 
