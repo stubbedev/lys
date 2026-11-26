@@ -127,6 +127,9 @@ type Deps struct {
 	// ForgetImage drops the renderer's copy of a thumbnail nothing
 	// draws any more (app.Application.ForgetImage).
 	ForgetImage func(render.ImageID)
+	// OpenFile opens a file in its default app, from Quick Look's Open
+	// button; nil shows no button.
+	OpenFile func(path string)
 }
 
 // Options are one browse: where it starts, what it lists and offers,

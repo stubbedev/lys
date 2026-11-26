@@ -18,12 +18,13 @@ const (
 
 // newQuicklook is Quick Look's card: a preview of the selection over
 // the file views, closed by Space and Escape, stepped through the view
-// by the arrows, playing a video at once.
+// by the arrows, playing a video at once, opening the file in its
+// default app from its Open button.
 func (c *Browser) newQuicklook() *preview.View {
 	return preview.New(c.previewConfig(preview.Config{
 		Class: "file-chooser-quicklook", NameChars: 32, Autoplay: true,
 		Image: image.Pt(quicklookImageW, quicklookImageH), Text: image.Pt(quicklookTextW, quicklookTextH),
-		OnClose: c.closeQuicklook, OnStep: c.stepSelection,
+		OnClose: c.closeQuicklook, OnStep: c.stepSelection, Open: c.d.OpenFile,
 	}))
 }
 

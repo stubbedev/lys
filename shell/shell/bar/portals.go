@@ -28,6 +28,7 @@ import (
 	"github.com/stubbedev/lys/shell/shell/filechooser"
 	"github.com/stubbedev/lys/shell/shell/portaldialogs/dialoghost"
 	"github.com/stubbedev/lys/shell/shell/printdialog"
+	"github.com/stubbedev/lys/shell/shell/quicklook"
 )
 
 // userPlaces are the file chooser's favorite places in home, logging a
@@ -100,6 +101,7 @@ func servePortalHosts(conn *dbus.Conn, application *app.Application, outputs fun
 			RecentFile:    filebrowser.RecentFile(),
 			TrashDirs:     filebrowser.SystemTrashDirs(home),
 			ForgetImage:   application.ForgetImage,
+			OpenFile:      quicklook.Opener(application),
 		},
 	})
 	if _, err := filechooser.NewDaemon(chooser).Export(conn); err != nil {
