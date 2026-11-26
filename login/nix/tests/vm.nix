@@ -95,6 +95,9 @@ in {
       nodes.machine = node;
       testScript =
         ''
+          import os
+          import re
+
           GREETER_STATE = ["/var/lib/lys-greeter/" + f for f in ("last-session", "last-user", "last-layout", "accessibility")]
 
           def await_ready(machine, field, occurrence):
@@ -102,6 +105,22 @@ in {
                   f"[ \"$(scenario-journal ${journal} -o cat --no-pager | grep -c 'greeter: ready: .* the {field} field')\" -ge {occurrence} ]",
                   timeout=180,
               )
+
+          class Screendump:
+              def __init__(self, machine, name):
+                  self.path = os.path.join(machine.out_dir, f"{name}.ppm")
+                  machine.send_monitor_command(f"screendump {self.path}")
+                  with open(self.path, "rb") as f:
+                      data = f.read()
+                  header = re.match(rb"P6\s+(\d+)\s+(\d+)\s+255\s", data)
+                  if header is None:
+                      raise Exception(f"the screendump {self.path} is no binary PPM of 8-bit channels")
+                  self.width, self.height = int(header.group(1)), int(header.group(2))
+                  self.pixels = data[header.end():]
+
+              def pixel(self, x, y):
+                  at = 3 * (y * self.width + x)
+                  return tuple(self.pixels[at:at + 3])
 
           def no_user_processes():
               return "[ -z \"$(ps -eo uid= | awk '$1 >= 1000 && $1 < 65534')\" ]"

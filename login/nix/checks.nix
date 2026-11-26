@@ -35,7 +35,7 @@
         args = {inherit pkgs lib self vm;};
         greeter = import ./tests/greeter.nix args;
       in {
-        vms-greeter = greeter "greeter" ["login" "accessibility" "x11_session" "keyboard_german" "keyboard_switching" "keyring" "no_keyring"];
+        vms-greeter = greeter "greeter" ["login" "handover" "accessibility" "x11_session" "keyboard_german" "keyboard_switching" "keyring" "no_keyring"];
         vms-sessions = greeter "sessions" ["lock" "rekey" "switch" "upgrade"];
         vms-greetd = import ./tests/greetd.nix args;
         vms-autologin = import ./tests/autologin.nix args;

@@ -79,8 +79,6 @@ in {
     };
   };
   script = nodes: ''
-    import os
-    import re
     import shlex
     import time
 
@@ -171,22 +169,19 @@ in {
             raise Exception("logind still has the session locked after the unlock")
 
     def console_shown_while(done, what):
-        path = os.path.join(machine.out_dir, "console-probe.ppm")
         end = time.monotonic() + 60
+        shot = None
         while not done():
             if time.monotonic() >= end:
                 raise Exception(f"{what} did not finish")
-            machine.send_monitor_command(f"screendump {path}")
-            with open(path, "rb") as f:
-                data = f.read()
-            header = re.match(rb"P6\s+\d+\s+\d+\s+\d+\s", data)
-            assert header is not None
-            body = data[header.end():]
+            shot = Screendump(machine, "console-probe")
+            body = shot.pixels
             text = sum(1 for at in range(0, len(body) - 3, 21) if body[at:at + 3] == b"\xaa\xaa\xaa")
             if text > 1000:
                 machine.screenshot("upgrade-console-shown")
                 raise Exception(f"the kernel's console shows during {what}: {text} sampled pixels of its text")
-        os.remove(path)
+        if shot is not None:
+            os.remove(shot.path)
 
     def session_env_written():
         return machine.execute("test -s /tmp/lys-login/session-env")[0] == 0

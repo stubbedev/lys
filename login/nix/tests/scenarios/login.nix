@@ -40,25 +40,11 @@ in {
     };
   };
   script = _: ''
-    import os
-    import re
     import time
 
     def background():
-        path = os.path.join(machine.out_dir, "background.ppm")
-        machine.send_monitor_command(f"screendump {path}")
-        with open(path, "rb") as f:
-            data = f.read()
-        m = re.match(rb"P6\s+(\d+)\s+(\d+)\s+\d+\s", data)
-        if m is None:
-            raise Exception("the screendump is not a binary PPM")
-        width, height = int(m.group(1)), int(m.group(2))
-
-        def pixel(x, y):
-            at = m.end() + 3 * (y * width + x)
-            return tuple(data[at:at + 3])
-
-        return {pixel(width // 10, height // 2), pixel(0, height // 2)}
+        shot = Screendump(machine, "background")
+        return {shot.pixel(shot.width // 10, shot.height // 2), shot.pixel(0, shot.height // 2)}
 
     def await_background(want, what, deadline=30.0, step=0.5):
         end = time.monotonic() + deadline

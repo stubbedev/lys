@@ -6,6 +6,7 @@
 }: let
   scenarios = lib.flatten (map (path: import path {inherit pkgs lib self vm;}) [
     ./scenarios/login.nix
+    ./scenarios/handover.nix
     ./scenarios/x11-session.nix
     ./scenarios/accessibility.nix
     ./scenarios/lock.nix
