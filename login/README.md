@@ -15,7 +15,8 @@
 | Command | What it is |
 | --- | --- |
 | `lys-login daemon` | The display manager: a root service that shows the greeter in a lys-wm kiosk and starts sessions through PAM. |
-| `lys-login greet` | The greeter, under `lys-login daemon` or under greetd in a cage kiosk. |
+| `lys-login greet` | The greeter, in the lys-wm kiosk of `lys-login daemon` or of `lys-login kiosk` under greetd. |
+| `lys-login kiosk` | greetd's greeter command: lys-wm with the display manager's kiosk config, hosting `lys-login greet`. |
 | `lys-login lock` | The session lock on `ext-session-lock-v1`, started by [lys-shell](../shell). |
 | `lys-login upgrade` | Moves the running display manager to a new build without ending sessions. |
 

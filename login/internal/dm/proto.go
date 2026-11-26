@@ -2,7 +2,7 @@
 // run as root by its system service on a VT, shows the greeter there and
 // starts the session a user logs in to. It needs PAM with pam_systemd
 // and a running logind, which register each session, and lys-wm, which
-// hosts the greeter. It replaces greetd and cage, and takes the logged-in
+// hosts the greeter. It replaces greetd, and takes the logged-in
 // user's changes of the login screen without polkit.
 //
 // The daemon itself never authenticates or opens a session: each greeter

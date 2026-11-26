@@ -11,7 +11,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"reflect"
 	"runtime"
 	"slices"
 	"strconv"
@@ -22,16 +21,11 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/lib/fdtest"
-	"github.com/stubbedev/lys/lib/logtest"
 	"github.com/stubbedev/lys/lib/testhome"
-	"github.com/stubbedev/lys/lib/xkb"
-	"go.yaml.in/yaml/v3"
 
 	"github.com/stubbedev/lys/login/internal/auth"
 	"github.com/stubbedev/lys/login/internal/fprint"
 	"github.com/stubbedev/lys/login/internal/greeter"
-	"github.com/stubbedev/lys/login/internal/keyboard"
-	"github.com/stubbedev/lys/login/internal/keyboard/keyboardtest"
 )
 
 const quietWindow = 100 * time.Millisecond
@@ -338,84 +332,6 @@ func TestATruncatedRequestIsAnError(t *testing.T) {
 	}
 }
 
-func TestKioskConfigQuotesTheGreeter(t *testing.T) {
-	got := kioskConfig(kiosk{greet: []string{"/nix/store/x/bin/lys-login", "greet", "--sessions", "/run/my sessions", `--env`, `A="b"`}, cursor: greeter.Cursor{Size: 24}})
-	want := "binds: []\n" + kioskLook + "env:\n  XCURSOR_SIZE: \"24\"\nautostart:\n  - \"/nix/store/x/bin/lys-login greet --sessions '/run/my sessions' --env 'A=\\\"b\\\"'\"\n"
-	if got != want {
-		t.Errorf("kiosk config =\n%s\nwant\n%s", got, want)
-	}
-}
-
-func TestKioskConfigDrawsNoBorder(t *testing.T) {
-	var cfg struct {
-		Borders struct {
-			Width *int `yaml:"width"`
-		} `yaml:"borders"`
-	}
-	if err := yaml.Unmarshal([]byte(kioskConfig(kiosk{greet: []string{"lys-login", "greet"}, cursor: greeter.Cursor{Size: 24}})), &cfg); err != nil {
-		t.Fatal(err)
-	}
-	if cfg.Borders.Width == nil || *cfg.Borders.Width != 0 {
-		t.Errorf("borders.width = %v, want 0 so lys-wm draws no border around the greeter", cfg.Borders.Width)
-	}
-}
-
-// A kiosk config leaves out nothing lys-wm's default look would draw around
-// the greeter or animate on the way to it.
-func TestKioskConfigTurnsOffTheDefaultLook(t *testing.T) {
-	var cfg struct {
-		Gaps struct {
-			Inner *int `yaml:"inner"`
-			Outer *int `yaml:"outer"`
-		} `yaml:"gaps"`
-		Decoration struct {
-			Rounding *int `yaml:"rounding"`
-			Shadow   struct {
-				Enabled *bool `yaml:"enabled"`
-			} `yaml:"shadow"`
-		} `yaml:"decoration"`
-		Animations struct {
-			Enabled *bool `yaml:"enabled"`
-		} `yaml:"animations"`
-	}
-	if err := yaml.Unmarshal([]byte(kioskConfig(kiosk{greet: []string{"lys-login", "greet"}, cursor: greeter.Cursor{Size: 24}})), &cfg); err != nil {
-		t.Fatal(err)
-	}
-	if cfg.Gaps.Inner == nil || *cfg.Gaps.Inner != 0 || cfg.Gaps.Outer == nil || *cfg.Gaps.Outer != 0 {
-		t.Errorf("gaps = %+v, want 0 so the greeter reaches the edges", cfg.Gaps)
-	}
-	if cfg.Decoration.Rounding == nil || *cfg.Decoration.Rounding != 0 {
-		t.Errorf("decoration.rounding = %v, want 0 so no corner shows lys-wm's background", cfg.Decoration.Rounding)
-	}
-	if cfg.Decoration.Shadow.Enabled == nil || *cfg.Decoration.Shadow.Enabled {
-		t.Errorf("decoration.shadow.enabled = %v, want false", cfg.Decoration.Shadow.Enabled)
-	}
-	if cfg.Animations.Enabled == nil || *cfg.Animations.Enabled {
-		t.Errorf("animations.enabled = %v, want false so the greeter does not fade in over lys-wm's background", cfg.Animations.Enabled)
-	}
-}
-
-// lys-wm draws the greeter's cursor, from the theme and size in the
-// kiosk config's environment, which the greeter inherits.
-func TestKioskConfigCarriesTheCursor(t *testing.T) {
-	var cfg struct {
-		Env map[string]string `yaml:"env"`
-	}
-	if err := yaml.Unmarshal([]byte(kioskConfig(kiosk{greet: []string{"lys-login", "greet"}, cursor: greeter.Cursor{Theme: `Bibata "Ice"`, Size: 48}})), &cfg); err != nil {
-		t.Fatal(err)
-	}
-	if want := map[string]string{"XCURSOR_THEME": `Bibata "Ice"`, "XCURSOR_SIZE": "48"}; !reflect.DeepEqual(cfg.Env, want) {
-		t.Errorf("env = %v, want %v", cfg.Env, want)
-	}
-	cfg.Env = nil
-	if err := yaml.Unmarshal([]byte(kioskConfig(kiosk{greet: []string{"lys-login", "greet"}, cursor: greeter.Cursor{Size: 24}})), &cfg); err != nil {
-		t.Fatal(err)
-	}
-	if want := map[string]string{"XCURSOR_SIZE": "24"}; !reflect.DeepEqual(cfg.Env, want) {
-		t.Errorf("no theme: env = %v, want %v, lys-wm's own theme", cfg.Env, want)
-	}
-}
-
 func asString(v any) string {
 	s, _ := v.(string)
 	return s
@@ -528,100 +444,6 @@ func TestTheGreeterHandsOverToTheDisplayManager(t *testing.T) {
 	}
 	if got := o.greeterCommand([]string{"spare"}); !slices.Equal(got, want) {
 		t.Errorf("greeter command %q, want %q", got, want)
-	}
-}
-
-type kioskKeyboard struct {
-	Input struct {
-		Keyboard map[string]string `yaml:"keyboard"`
-	} `yaml:"input"`
-	Env map[string]string `yaml:"env"`
-}
-
-func greeterKiosk(t *testing.T, o Options) kioskKeyboard {
-	t.Helper()
-	var cfg kioskKeyboard
-	if err := yaml.Unmarshal([]byte(kioskConfig(kiosk{greet: []string{"lys-login", "greet"}, cursor: greeter.Cursor{Size: 24}, keyboard: o.greeterKeyboard()})), &cfg); err != nil {
-		t.Fatal(err)
-	}
-	return cfg
-}
-
-func keyboardOptions(t *testing.T, xorg string) Options {
-	t.Helper()
-	dir := t.TempDir()
-	o := Options{Keyboard: keyboard.Sources{Xorg: filepath.Join(dir, "00-keyboard.conf"), Vconsole: filepath.Join(dir, "vconsole.conf")}}
-	if xorg != "" {
-		if err := os.WriteFile(o.Keyboard.Xorg, []byte(xorg), 0o600); err != nil {
-			t.Fatal(err)
-		}
-	}
-	return o
-}
-
-func TestTheKioskTypesWithLocaledsLayout(t *testing.T) {
-	keyboardtest.XKBData(t)
-	keyboardtest.ServeLocale1(t, xkb.Names{Model: "pc105", Layout: "de,us", Variant: "nodeadkeys,", Options: "grp:alt_shift_toggle"})
-	cfg := greeterKiosk(t, keyboardOptions(t, `Option "XkbLayout" "fr"`))
-	want := map[string]string{"model": "pc105", "layout": "de,us", "variant": "nodeadkeys,", "options": "grp:alt_shift_toggle"}
-	if !reflect.DeepEqual(cfg.Input.Keyboard, want) {
-		t.Errorf("input.keyboard = %v, want %v", cfg.Input.Keyboard, want)
-	}
-	for name := range cfg.Env {
-		if strings.HasPrefix(name, "XKB_") {
-			t.Errorf("the kiosk sets %s: lys-wm takes the layout from input.keyboard", name)
-		}
-	}
-}
-
-func TestWithoutLocaledTheKioskTypesWithTheXorgFilesLayout(t *testing.T) {
-	keyboardtest.XKBData(t)
-	keyboardtest.NoSystemBus(t)
-	cfg := greeterKiosk(t, keyboardOptions(t, "Section \"InputClass\"\n  Option \"XkbLayout\" \"fr\"\nEndSection\n"))
-	if want := map[string]string{"layout": "fr"}; !reflect.DeepEqual(cfg.Input.Keyboard, want) {
-		t.Errorf("input.keyboard = %v, want %v", cfg.Input.Keyboard, want)
-	}
-}
-
-func TestALayoutLysWMCannotCompileLeavesTheKioskOnItsDefault(t *testing.T) {
-	keyboardtest.XKBData(t)
-	keyboardtest.ServeLocale1(t, xkb.Names{Layout: "no-such-layout"})
-	logged := logtest.Capture(t)
-	cfg := greeterKiosk(t, keyboardOptions(t, ""))
-	if cfg.Input.Keyboard != nil {
-		t.Errorf("input.keyboard = %v, want none, so lys-wm still starts", cfg.Input.Keyboard)
-	}
-	if !strings.Contains(logged.String(), "no-such-layout") {
-		t.Errorf("the refused layout was not logged: %q", logged.String())
-	}
-}
-
-func TestNoSystemLayoutLeavesInputOut(t *testing.T) {
-	if got := kioskConfig(kiosk{greet: []string{"lys-login", "greet"}, cursor: greeter.Cursor{Size: 24}}); strings.Contains(got, "input:") {
-		t.Errorf("a kiosk without a system layout names one:\n%s", got)
-	}
-}
-
-func TestTheRememberedStickyAndSlowKeysReachTheKiosk(t *testing.T) {
-	state := filepath.Join(t.TempDir(), "last-session")
-	if err := greeter.SaveLast(greeter.AccessibilityPath(state), "sticky-keys\nslow-keys\nlarge-text\n"); err != nil {
-		t.Fatal(err)
-	}
-	o := Options{Greeter: greeter.Options{StatePath: state}}
-	var cfg kioskKeyboard
-	if err := yaml.Unmarshal([]byte(kioskConfig(kiosk{greet: []string{"lys-login", "greet"}, cursor: greeter.Cursor{Size: 24}, keyboard: xkb.Names{Layout: "de"}, a11y: o.greeterAccessibility()})), &cfg); err != nil {
-		t.Fatal(err)
-	}
-	want := map[string]string{"layout": "de", "sticky_keys": "true", "slow_keys": "300"}
-	if !reflect.DeepEqual(cfg.Input.Keyboard, want) {
-		t.Errorf("input.keyboard = %v, want %v", cfg.Input.Keyboard, want)
-	}
-	var bare kioskKeyboard
-	if err := yaml.Unmarshal([]byte(kioskConfig(kiosk{greet: []string{"lys-login", "greet"}, cursor: greeter.Cursor{Size: 24}, a11y: greeter.Accessibility{greeter.StickyKeys: true}})), &bare); err != nil {
-		t.Fatal(err)
-	}
-	if want := map[string]string{"sticky_keys": "true"}; !reflect.DeepEqual(bare.Input.Keyboard, want) {
-		t.Errorf("without a layout input.keyboard = %v, want %v", bare.Input.Keyboard, want)
 	}
 }
 
@@ -944,7 +766,7 @@ func TestTheGreetersConfigChoosesTheLoginMethod(t *testing.T) {
 		{"login:\n  greeter:\n    fingerprint: true\n", passwordOrFingerprintLogin},
 		{"login:\n  greeter:\n    fingerprint: false\n", passwordLogin},
 	} {
-		if got := greeterLoginMethod(greeterConfigFile(t, c.yaml).greeterConfig()); got != c.want {
+		if got := greeterLoginMethod(greeterConfigFile(t, c.yaml).kiosk().Settings()); got != c.want {
 			t.Errorf("%q: method %d, want %d", c.yaml, got, c.want)
 		}
 	}

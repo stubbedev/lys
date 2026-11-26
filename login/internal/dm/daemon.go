@@ -17,14 +17,13 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
-	"github.com/stubbedev/lys/desktop/shlex"
 	"github.com/stubbedev/lys/lib/vtconsole"
-	"github.com/stubbedev/lys/lib/xkb"
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/login/internal/auth"
 	"github.com/stubbedev/lys/login/internal/greeter"
 	"github.com/stubbedev/lys/login/internal/keyboard"
+	"github.com/stubbedev/lys/login/internal/kiosk"
 )
 
 // Options configure the daemon.
@@ -202,89 +201,8 @@ func writeVT(vt int, s string) error {
 	return nil
 }
 
-// kioskLook is the part of lys-wm's default look a kiosk turns off: no
-// border, gaps, rounding or shadow, so the greeter fills the screen to
-// its edges, and no animations, so its first frame on screen is the
-// whole greeter, and the hand-over from the splash shows nothing between
-// the two, not lys-wm's empty background through a fade.
-const kioskLook = "borders:\n  width: 0\ngaps:\n  inner: 0\n  outer: 0\ndecoration:\n  rounding: 0\n  shadow:\n    enabled: false\nanimations:\n  enabled: false\n"
-
-type kiosk struct {
-	greet    []string
-	cursor   greeter.Cursor
-	keyboard xkb.Names
-	a11y     greeter.Accessibility
-}
-
-// kioskConfig is lys-wm's config for the greeter: no binds, so the
-// greeter's keys reach only it, kioskLook, the system keyboard layout,
-// the greeter as the one program, and the cursor in the environment, from
-// which lys-wm draws the cursor the greeter asks for and which the greeter
-// inherits.
-func kioskConfig(k kiosk) string {
-	quoted := make([]string, len(k.greet))
-	for i, arg := range k.greet {
-		quoted[i] = shlex.MustQuote(arg)
-	}
-	var b strings.Builder
-	b.WriteString("binds: []\n" + kioskLook)
-	writeKeyboard(&b, k.keyboard, k.a11y)
-	b.WriteString("env:\n  XCURSOR_SIZE: " + yamlString(strconv.FormatUint(uint64(k.cursor.Size), 10)) + "\n")
-	if k.cursor.Theme != "" {
-		b.WriteString("  XCURSOR_THEME: " + yamlString(k.cursor.Theme) + "\n")
-	}
-	b.WriteString("autostart:\n  - " + yamlString(strings.Join(quoted, " ")) + "\n")
-	return b.String()
-}
-
-func writeKeyboard(b *strings.Builder, names xkb.Names, a11y greeter.Accessibility) {
-	keys := a11y.WMConfig()
-	if names == (xkb.Names{}) && keys == "" {
-		return
-	}
-	b.WriteString("input:\n  keyboard:\n" + keys)
-	for _, f := range [...]struct{ key, value string }{{"model", names.Model}, {"layout", names.Layout}, {"variant", names.Variant}, {"options", names.Options}} {
-		if f.value != "" {
-			b.WriteString("    " + f.key + ": " + yamlString(f.value) + "\n")
-		}
-	}
-}
-
-func (o Options) greeterKeyboard() xkb.Names {
-	r, err := o.Keyboard.Read(func(err error) {
-		log.Printf("dm: %v; the greeter's keyboard layout comes from %s, else %s", err, o.Keyboard.Xorg, o.Keyboard.Vconsole)
-	})
-	if err != nil {
-		log.Printf("dm: the greeter types with lys-wm's default keymap: %v", err)
-		return xkb.Names{}
-	}
-	if err := keyboard.Check(r.Names); err != nil {
-		log.Printf("dm: the greeter types with lys-wm's default keymap: the layout from %s: %v", r.From, err)
-		return xkb.Names{}
-	}
-	return r.Names
-}
-
-func (o Options) greeterAccessibility() greeter.Accessibility {
-	a, err := greeter.LoadAccessibility(o.Greeter.StatePath)
-	if err != nil {
-		log.Printf("dm: the greeter starts without sticky or slow keys: %v", err)
-	}
-	return a
-}
-
-func (o Options) greeterConfig() config.LoginGreeterConfig {
-	cfg, err := config.LoadGreeter(o.Greeter.ConfigPath, config.StderrDiagnostics)
-	if err != nil {
-		log.Printf("dm: the greeter's config: %v", err)
-	}
-	return cfg.Login.Greeter
-}
-
-// greeterCursor is the cursor the next greeter shows: the greeter's
-// config, else the record the remembered user's last session left.
-func (o Options) greeterCursor(g config.LoginGreeterConfig, users []greeter.User) greeter.Cursor {
-	return greeter.KioskCursor(g, o.CursorDir, users, greeter.LoadLast(greeter.LastUserPath(o.Greeter.StatePath)))
+func (o Options) kiosk() kiosk.Sources {
+	return kiosk.Sources{ConfigPath: o.Greeter.ConfigPath, StatePath: o.Greeter.StatePath, CursorDir: o.CursorDir, Keyboard: o.Keyboard}
 }
 
 type loginMethod int
@@ -300,25 +218,6 @@ func greeterLoginMethod(g config.LoginGreeterConfig) loginMethod {
 		return passwordOrFingerprintLogin
 	}
 	return passwordLogin
-}
-
-// yamlString is s as a double-quoted YAML scalar.
-func yamlString(s string) string {
-	var b strings.Builder
-	b.WriteByte('"')
-	for _, r := range s {
-		switch r {
-		case '"', '\\':
-			b.WriteByte('\\')
-			b.WriteRune(r)
-		case '\n':
-			b.WriteString(`\n`)
-		default:
-			b.WriteRune(r)
-		}
-	}
-	b.WriteByte('"')
-	return b.String()
 }
 
 // pendingLogin is an authenticated login waiting for its session.
@@ -345,7 +244,8 @@ type greeterRequests struct {
 // greet runs the greeter until a user is authenticated and asks for a
 // session, or an upgrade replaces this program, then stops it.
 func (o Options) greet(ctx context.Context, vt int, upgrades <-chan *pendingUpgrade, drain time.Duration, existing func(user string) bool, handOff func()) (greeted, error) {
-	settings := o.greeterConfig()
+	sources := o.kiosk()
+	settings := sources.Settings()
 	req := greeterRequests{vt: vt, method: greeterLoginMethod(settings), upgrades: upgrades, drain: drain, existing: existing}
 	sock := filepath.Join(o.RuntimeDir, "greeter.sock")
 	ln, err := o.listen(sock)
@@ -353,11 +253,10 @@ func (o Options) greet(ctx context.Context, vt int, upgrades <-chan *pendingUpgr
 		return greeted{}, err
 	}
 	defer func() { _ = ln.Close() }()
-	cfg := filepath.Join(o.RuntimeDir, "kiosk.yaml")
 	users := greeter.ReadUsers()
-	command := o.greeterCommand(greeter.SystemAccounts(greeter.AccountsServiceUsersDir, users))
-	if err := os.WriteFile(cfg, []byte(kioskConfig(kiosk{greet: command, cursor: o.greeterCursor(settings, users), keyboard: o.greeterKeyboard(), a11y: o.greeterAccessibility()})), 0o644); err != nil { //nolint:gosec // the greeter user reads it
-		return greeted{}, fmt.Errorf("write %s: %w", cfg, err)
+	cfg, err := kiosk.Write(o.RuntimeDir, sources.Config(settings, users, o.greeterCommand(greeter.SystemAccounts(greeter.AccountsServiceUsersDir, users))))
+	if err != nil {
+		return greeted{}, err
 	}
 	gw := exec.Command(o.Self, o.greeterWorkerArgs(sock, cfg, vt)...) //nolint:gosec // lys-login itself
 	tail := newOutputTail(os.Stderr)
@@ -409,12 +308,12 @@ func (o Options) greeterCommand(systemAccounts []string) []string {
 	return append([]string{o.Self, "greet"}, g.Args()...)
 }
 
-func (o Options) greeterWorkerArgs(sock, kiosk string, vt int) []string {
+func (o Options) greeterWorkerArgs(sock, kioskConfig string, vt int) []string {
 	args := []string{
 		"worker", "greeter", "--service", o.Service, "--vt", strconv.Itoa(vt), "--user", o.GreeterUser,
 		"--env", auth.GreetdSockEnv + "=" + sock, "--env", RuntimeDirEnv + "=" + o.RuntimeDir, "--",
 	}
-	return append(append(args, o.Compositor...), "--config", kiosk)
+	return append(append(args, o.Compositor...), "--config", kioskConfig)
 }
 
 func (o Options) isGreeter(uid uint32) bool {

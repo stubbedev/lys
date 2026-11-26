@@ -28,7 +28,7 @@ import (
 // GTK settings.ini and ~/.icons/default/index.theme.
 //
 // Like GTK 4.22, lys-ui asks the compositor to draw the cursor
-// (cursor-shape-v1) when it can; on a host without the protocol (cage)
+// (cursor-shape-v1) when it can; on a host without the protocol
 // it draws xcursor themes client-side from XCURSOR_THEME and
 // XCURSOR_SIZE, so the resolved cursor is applied by exporting those
 // before connecting. The bundled-PNG fallback the Rust greeter works

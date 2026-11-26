@@ -14,6 +14,7 @@ func TestNoSessionsIsALoudError(t *testing.T) {
 	for _, args := range [][]string{
 		append([]string{"daemon", "--vt", "7", "--compositor", "/nonexistent/lys-wm", "--"}, greetArgs...),
 		append([]string{"greet"}, greetArgs...),
+		append([]string{"kiosk", "--compositor", "/nonexistent/lys-wm", "--"}, greetArgs...),
 	} {
 		cmd := exec.Command(os.Args[0], args...)
 		cmd.Env = append(os.Environ(), "LYS_LOGIN_TEST_MAIN=1")

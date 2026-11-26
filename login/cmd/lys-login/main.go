@@ -4,6 +4,7 @@
 //	                [--xsessions DIR]... [--no-xsessions] [--state PATH]
 //	                [--env KEY=VAL]... [--system-account NAME]...
 //	                [--hand-over] [-- <session argv...>]
+//	lys-login kiosk [--compositor PATH] [-- <greet args...>]
 //	lys-login lock
 //	lys-login daemon --vt N --service NAME --greeter-user NAME
 //	                 --compositor PATH [--runtime-dir DIR] [--splash PATH]
@@ -17,9 +18,12 @@
 // greet is the greetd greeter: the credential prompt over a session
 // picker and the login users, run as the single client of a kiosk
 // compositor; on success greetd starts the chosen session and replaces
-// this process. lock locks the session with ext-session-lock-v1 and
+// this process. kiosk is greetd's greeter command: it writes the lys-wm
+// kiosk config the display manager's greeter runs in, with greet and
+// its arguments as the one program, under $XDG_RUNTIME_DIR, and becomes
+// lys-wm with it. lock locks the session with ext-session-lock-v1 and
 // exits once it unlocks; the shell starts it for its lock triggers.
-// daemon is the display manager in place of greetd and cage: run as root
+// daemon is the display manager in place of greetd: run as root
 // on a VT, it shows the greeter in a lys-wm kiosk and starts the session
 // a user logs in to (its workers are `lys-login worker`, started by it).
 // apply-config changes the login screen: run by the user logged in
@@ -60,10 +64,11 @@ import (
 	"github.com/stubbedev/lys/login/internal/dm"
 	"github.com/stubbedev/lys/login/internal/greeter"
 	"github.com/stubbedev/lys/login/internal/keyboard"
+	"github.com/stubbedev/lys/login/internal/kiosk"
 	"github.com/stubbedev/lys/login/internal/lock"
 )
 
-const usage = "usage: lys-login greet [options] [-- <session argv...>] | lys-login lock | lys-login daemon [options] [-- <greet args...>] | lys-login apply-config [--config PATH] <STAGED.yaml> | lys-login record-cursor | lys-login check-pam SERVICE | lys-login switch-user | lys-login upgrade [-- <daemon args...>]"
+const usage = "usage: lys-login greet [options] [-- <session argv...>] | lys-login kiosk [--compositor PATH] [-- <greet args...>] | lys-login lock | lys-login daemon [options] [-- <greet args...>] | lys-login apply-config [--config PATH] <STAGED.yaml> | lys-login record-cursor | lys-login check-pam SERVICE | lys-login switch-user | lys-login upgrade [-- <daemon args...>]"
 
 func init() { runtime.LockOSThread() }
 
@@ -83,6 +88,8 @@ func main() {
 	switch os.Args[1] {
 	case "greet":
 		os.Exit(greet(args))
+	case "kiosk":
+		os.Exit(kioskMode(args))
 	case "lock":
 		os.Exit(lockSession(args))
 	case "daemon":
@@ -148,6 +155,33 @@ func greet(args []string) int {
 		return 1
 	}
 	return 0
+}
+
+func kioskMode(args []string) int {
+	fs := flag.NewFlagSet("lys-login kiosk", flag.ContinueOnError)
+	compositor := fs.String("compositor", "lys-wm", "the greeter's compositor, started with the kiosk config")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	greet, err := greeter.ParseOptions(greeter.UserDefaults(xdg.OS), fs.Args())
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "lys-login kiosk: the greeter's arguments:", err)
+		return 2
+	}
+	if _, err := greet.Sessions(); err != nil {
+		fmt.Fprintln(os.Stderr, "lys-login kiosk: the greeter would offer nothing to log into:", err)
+		return 2
+	}
+	exe, err := self()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "lys-login kiosk:", err)
+		return 1
+	}
+	sources := kiosk.Sources{ConfigPath: greet.ConfigPath, StatePath: greet.StatePath, CursorDir: cursorrecord.Dir, Keyboard: keyboard.System}
+	command := append([]string{exe, "greet"}, greet.Args()...)
+	err = kiosk.Exec(xdg.OS, *compositor, sources.Config(sources.Settings(), greeter.ReadUsers(), command))
+	fmt.Fprintln(os.Stderr, "lys-login kiosk:", err)
+	return 1
 }
 
 func lockSession(args []string) int {
