@@ -28,6 +28,14 @@ const (
 
 const userSelfPath = logind.ManagerPath + "/user/self"
 
+// The errors the fake answers a challenged call with: polkit's refusal
+// of a call that may not prompt, and its refusal of a prompt the user
+// dismissed.
+const (
+	ErrInteractiveAuthorizationRequired = "org.freedesktop.DBus.Error.InteractiveAuthorizationRequired"
+	ErrAccessDenied                     = "org.freedesktop.DBus.Error.AccessDenied"
+)
+
 // Config is the user the fake serves, seen from the caller. Own is the
 // session every calling process is in, "" for a caller in none (a
 // service of the systemd user manager); Display is the user's display
@@ -101,13 +109,32 @@ type Logind struct {
 	conn    *dbus.Conn
 	changes *dbusx.PropertyChanges
 
-	mu        sync.Mutex
-	sessions  map[logind.SessionID]*session
-	lidClosed bool
-	lidRead   func()
-	refusals  map[string]*dbus.Error
-	sleeping  bool
-	hooks     hooks
+	mu         sync.Mutex
+	sessions   map[logind.SessionID]*session
+	lidClosed  bool
+	lidRead    func()
+	refusals   map[string]*dbus.Error
+	challenges map[string]chan Prompt
+	sleeping   bool
+	hooks      hooks
+	ended      chan struct{}
+}
+
+// Prompt is one interactive call polkit asks the user about: the call
+// waits until the test answers it, once, with Authorize or Deny.
+type Prompt struct {
+	// Method is the call waiting, such as Manager.PowerOff.
+	Method string
+	answer chan *dbus.Error
+}
+
+// Authorize is the user authenticating: the call goes on.
+func (p Prompt) Authorize() { p.answer <- nil }
+
+// Deny is the user dismissing the prompt: the call is refused with
+// ErrAccessDenied.
+func (p Prompt) Deny() {
+	p.answer <- dbus.NewError(ErrAccessDenied, []any{"Access denied"})
 }
 
 // hooks are the OnLock hooks running now. Once the test is ending no
@@ -168,8 +195,9 @@ func StartUnit(t testing.TB, cfg Config) *Logind {
 func Serve(t testing.TB, bus *dbustest.Bus, cfg Config) *Logind {
 	t.Helper()
 	conn := bus.Conn(t)
-	l := &Logind{Bus: bus, cfg: cfg, conn: conn, changes: dbusx.OrderPropertyChanges(conn), sessions: map[logind.SessionID]*session{}, refusals: map[string]*dbus.Error{}}
+	l := &Logind{Bus: bus, cfg: cfg, conn: conn, changes: dbusx.OrderPropertyChanges(conn), sessions: map[logind.SessionID]*session{}, refusals: map[string]*dbus.Error{}, challenges: map[string]chan Prompt{}, ended: make(chan struct{})}
 	t.Cleanup(l.hooks.wait)
+	t.Cleanup(func() { close(l.ended) })
 	for _, id := range []logind.SessionID{cfg.Own, cfg.Display} {
 		if id != "" {
 			l.sessions[id] = &session{id: id, path: logind.SessionPath(id), active: true}
@@ -278,6 +306,53 @@ func (l *Logind) Refuse(method string, err *dbus.Error) {
 		return
 	}
 	l.refusals[method] = err
+}
+
+// Challenge makes every later call of method (such as Manager.PowerOff)
+// need authentication, as polkit does with another user logged in: a
+// call that may not prompt is refused with
+// ErrInteractiveAuthorizationRequired, and an interactive one is handed
+// to the test on the channel as a Prompt and waits for its answer, or
+// for the test to end.
+func (l *Logind) Challenge(method string) <-chan Prompt {
+	prompts := make(chan Prompt)
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.challenges[method] = prompts
+	return prompts
+}
+
+func (l *Logind) authorize(method string, interactive bool) *dbus.Error {
+	l.mu.Lock()
+	prompts := l.challenges[method]
+	l.mu.Unlock()
+	if prompts == nil {
+		return nil
+	}
+	if !interactive {
+		return dbus.NewError(ErrInteractiveAuthorizationRequired, []any{"Interactive authentication required."})
+	}
+	p := Prompt{Method: method, answer: make(chan *dbus.Error, 1)}
+	unanswered := dbus.NewError(ErrAccessDenied, []any{"The test ended before the prompt was answered"})
+	select {
+	case prompts <- p:
+	case <-l.ended:
+		return unanswered
+	}
+	select {
+	case err := <-p.answer:
+		return err
+	case <-l.ended:
+		return unanswered
+	}
+}
+
+// enterPower is enter for a power action, which polkit authorises.
+func (l *Logind) enterPower(method string, interactive bool) *dbus.Error {
+	if err := l.enter(logind.ManagerPath, method, interactive); err != nil {
+		return err
+	}
+	return l.authorize(method, interactive)
 }
 
 // CallsTo lists the calls of method, in order.
@@ -540,7 +615,7 @@ func (m manager) SuspendThenHibernate(interactive bool) *dbus.Error {
 }
 
 func (m manager) sleep(method string, event Event, interactive bool) *dbus.Error {
-	if err := m.l.enter(logind.ManagerPath, method, interactive); err != nil {
+	if err := m.l.enterPower(method, interactive); err != nil {
 		return err
 	}
 	m.l.mu.Lock()
@@ -582,7 +657,7 @@ func (m manager) can(method string) (string, *dbus.Error) {
 }
 
 func (m manager) Reboot(interactive bool) *dbus.Error {
-	if err := m.l.enter(logind.ManagerPath, "Manager.Reboot", interactive); err != nil {
+	if err := m.l.enterPower("Manager.Reboot", interactive); err != nil {
 		return err
 	}
 	m.l.record(EventReboot)
@@ -590,7 +665,7 @@ func (m manager) Reboot(interactive bool) *dbus.Error {
 }
 
 func (m manager) PowerOff(interactive bool) *dbus.Error {
-	if err := m.l.enter(logind.ManagerPath, "Manager.PowerOff", interactive); err != nil {
+	if err := m.l.enterPower("Manager.PowerOff", interactive); err != nil {
 		return err
 	}
 	m.l.record(EventPowerOff)

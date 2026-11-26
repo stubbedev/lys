@@ -40,7 +40,9 @@ var powerActions = map[config.PowerBuiltin]logind.PowerAction{
 
 // Run runs b: Lock has logind lock the session "auto" resolves to, whose
 // Lock signal the lock screen answers; Suspend, Reboot and PowerOff ask
-// logind for them; Logout is Logout.
+// logind for them interactively, so where polkit needs authentication
+// the session's agent prompts and the action waits for the answer, as
+// long as ctx allows; Logout is Logout.
 func Run(ctx context.Context, system SystemBus, b config.PowerBuiltin) error {
 	if b == config.PowerBuiltinLogout {
 		return Logout(ctx, system)
@@ -53,7 +55,7 @@ func Run(ctx context.Context, system SystemBus, b config.PowerBuiltin) error {
 	if b == config.PowerBuiltinLock {
 		err = m.LockSession(ctx, logind.AutoSession)
 	} else if action, ok := powerActions[b]; ok {
-		err = m.Power(ctx, action)
+		err = m.PowerInteractively(ctx, action)
 	} else {
 		err = fmt.Errorf("unknown built-in %d", uint8(b))
 	}

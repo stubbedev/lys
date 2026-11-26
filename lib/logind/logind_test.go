@@ -341,6 +341,105 @@ func TestPowerActions(t *testing.T) {
 	}
 }
 
+func TestPowerInteractivelyWaitsForTheAuthorisation(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		action logind.PowerAction
+		method string
+		event  logindtest.Event
+	}{
+		{logind.PowerOff, "Manager.PowerOff", logindtest.EventPowerOff},
+		{logind.Reboot, "Manager.Reboot", logindtest.EventReboot},
+		{logind.Suspend, "Manager.Suspend", logindtest.EventSuspend},
+	} {
+		t.Run(tc.action.String(), func(t *testing.T) {
+			t.Parallel()
+			fake, m := manager(t, logindtest.Config{Display: display})
+			prompts := fake.Challenge(tc.method)
+			done := make(chan error, 1)
+			go func() { done <- m.PowerInteractively(t.Context(), tc.action) }()
+			prompt := waittest.For(t, prompts, "polkit's prompt for "+tc.method)
+			if prompt.Method != tc.method {
+				t.Errorf("prompted for %s, want %s", prompt.Method, tc.method)
+			}
+			if got := fake.Events.Load(); len(got) != 0 {
+				t.Errorf("events %v before the prompt was answered", got)
+			}
+			prompt.Authorize()
+			if err := waittest.For(t, done, tc.method+" once authorised"); err != nil {
+				t.Fatalf("PowerInteractively(%s): %v", tc.action, err)
+			}
+			if got := fake.Events.Load(); !slices.Equal(got, []logindtest.Event{tc.event}) {
+				t.Errorf("events %v, want %s", got, tc.event)
+			}
+			if calls := fake.CallsTo(tc.method); len(calls) != 1 || !reflect.DeepEqual(calls[0].Args, []any{true}) {
+				t.Errorf("%s calls %v, want one, interactive", tc.method, calls)
+			}
+		})
+	}
+}
+
+func TestPowerWithoutInteractionIsRefusedWhereAuthenticationIsNeeded(t *testing.T) {
+	t.Parallel()
+	fake, m := manager(t, logindtest.Config{Display: display})
+	fake.Challenge("Manager.PowerOff")
+	err := m.Power(t.Context(), logind.PowerOff)
+	if derr, ok := errors.AsType[dbus.Error](err); !ok || derr.Name != logindtest.ErrInteractiveAuthorizationRequired {
+		t.Errorf("a non-interactive PowerOff that needs authentication = %v, want %s", err, logindtest.ErrInteractiveAuthorizationRequired)
+	}
+	if got := fake.Events.Load(); len(got) != 0 {
+		t.Errorf("events %v after the refusal", got)
+	}
+}
+
+func TestPowerInteractivelyDeniedIsLogindsRefusal(t *testing.T) {
+	t.Parallel()
+	fake, m := manager(t, logindtest.Config{Display: display})
+	prompts := fake.Challenge("Manager.PowerOff")
+	done := make(chan error, 1)
+	go func() { done <- m.PowerInteractively(t.Context(), logind.PowerOff) }()
+	waittest.For(t, prompts, "polkit's prompt").Deny()
+	err := waittest.For(t, done, "the denied PowerOff")
+	if want := "logind Manager.PowerOff(true) on /org/freedesktop/login1: Access denied"; err == nil || err.Error() != want {
+		t.Fatalf("a denied PowerOff = %v, want %q", err, want)
+	}
+	if derr, ok := errors.AsType[dbus.Error](err); !ok || derr.Name != logindtest.ErrAccessDenied {
+		t.Errorf("a denied PowerOff = %v, want %s", err, logindtest.ErrAccessDenied)
+	}
+	if got := fake.Events.Load(); len(got) != 0 {
+		t.Errorf("events %v after the denial", got)
+	}
+}
+
+func TestPowerInteractivelyEndsWithItsContext(t *testing.T) {
+	t.Parallel()
+	fake, m := manager(t, logindtest.Config{Display: display})
+	prompts := fake.Challenge("Manager.Reboot")
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	done := make(chan error, 1)
+	go func() { done <- m.PowerInteractively(ctx, logind.Reboot) }()
+	waittest.For(t, prompts, "polkit's prompt")
+	cancel()
+	if err := waittest.For(t, done, "the cancelled Reboot"); !errors.Is(err, context.Canceled) {
+		t.Fatalf("a Reboot whose context ended = %v, want context.Canceled", err)
+	}
+	if got := fake.Events.Load(); len(got) != 0 {
+		t.Errorf("events %v after the cancel", got)
+	}
+}
+
+func TestPowerInteractivelyOfNoActionReachesNoLogind(t *testing.T) {
+	t.Parallel()
+	fake, m := manager(t, logindtest.Config{Display: display})
+	if err := m.PowerInteractively(t.Context(), logind.PowerAction(0)); err == nil || !strings.Contains(err.Error(), "PowerAction(0)") {
+		t.Errorf("PowerInteractively of no action = %v", err)
+	}
+	if calls := fake.Calls.Load(); len(calls) != 0 {
+		t.Errorf("an invalid power action reached logind: %v", calls)
+	}
+}
+
 func TestCanPowerReadsLogindsAnswer(t *testing.T) {
 	t.Parallel()
 	fake, m := manager(t, logindtest.Config{Display: display, Can: map[string]string{"CanHibernate": "na", "CanHybridSleep": "no", "CanSuspendThenHibernate": "challenge", "CanReboot": "maybe"}})

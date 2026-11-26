@@ -100,12 +100,18 @@ func (o object) call(ctx context.Context, iface, method string, out []any, args 
 // callAt is call, also answering where on the connection the reply came:
 // a signal sequenced before it was sent before logind answered.
 func (o object) callAt(ctx context.Context, iface, method string, out []any, args ...any) (dbus.Sequence, error) {
+	ctx, cancel := context.WithTimeout(ctx, CallTimeout)
+	defer cancel()
+	return o.callUntil(ctx, 0, iface, method, out, args...)
+}
+
+// callUntil is callAt bounded by ctx alone, with the call's flags: what
+// a call that waits on the user, such as a polkit prompt, goes through.
+func (o object) callUntil(ctx context.Context, flags dbus.Flags, iface, method string, out []any, args ...any) (dbus.Sequence, error) {
 	if o.conn == nil {
 		return 0, fmt.Errorf("logind %s: %w", describe(iface, method, args), errZeroHandle)
 	}
-	ctx, cancel := context.WithTimeout(ctx, CallTimeout)
-	defer cancel()
-	c := o.conn.Object(BusName, o.path).CallWithContext(ctx, iface+"."+method, 0, args...)
+	c := o.conn.Object(BusName, o.path).CallWithContext(ctx, iface+"."+method, flags, args...)
 	if c.Err != nil {
 		return 0, fmt.Errorf("logind %s on %s: %w", describe(iface, method, args), o.path, c.Err)
 	}
@@ -232,15 +238,32 @@ func (m Manager) ActivateSession(ctx context.Context, id SessionID) error {
 // interactively: polkit decides without a prompt, as it does for the
 // active local session.
 func (m Manager) Power(ctx context.Context, action PowerAction) error {
-	resolved, err := m.Resolve(ctx, action)
-	if err != nil {
-		return err
-	}
-	method, err := resolved.method()
+	method, err := m.powerMethod(ctx, action)
 	if err != nil {
 		return err
 	}
 	return m.obj.call(ctx, ManagerInterface, method, nil, false)
+}
+
+// PowerInteractively is Power where polkit may ask: where the action
+// needs authentication, such as with another user logged in, the
+// session's authentication agent prompts, and the call waits for the
+// answer as long as ctx allows, never cut off by CallTimeout.
+func (m Manager) PowerInteractively(ctx context.Context, action PowerAction) error {
+	method, err := m.powerMethod(ctx, action)
+	if err != nil {
+		return err
+	}
+	_, err = m.obj.callUntil(ctx, dbus.FlagAllowInteractiveAuthorization, ManagerInterface, method, nil, true)
+	return err
+}
+
+func (m Manager) powerMethod(ctx context.Context, action PowerAction) (string, error) {
+	resolved, err := m.Resolve(ctx, action)
+	if err != nil {
+		return "", err
+	}
+	return resolved.method()
 }
 
 // Dial connects to the system bus, where logind is, giving up when ctx
