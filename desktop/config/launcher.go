@@ -76,14 +76,6 @@ type LauncherConfig struct {
 	// ways someone might want that. `-style compact` then costs one config
 	// entry instead of a schema change.
 	Styles map[string]string `cfg:"styles"`
-	// Command that turns a `thumbnail://` row icon into an image file:
-	// `{input}` the icon's path, `{output}` where to write the thumbnail,
-	// `{size}` the requested pixel size. It runs in the same sandbox as the
-	// XDG thumbnailers, so `{input}` and `{output}` are paths inside it and
-	// the command sees the system, its input and its output, not the rest
-	// of the home directory. Empty uses the system's XDG thumbnailers.
-	// rofi's `-preview-cmd`.
-	PreviewCmd string `cfg:"preview-cmd,type=Command"`
 	// Launch history / frecency.
 	History LauncherHistoryConfig `cfg:"history"`
 	// drun (application) mode.

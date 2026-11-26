@@ -13,7 +13,6 @@ ExclusiveArch:  x86_64 aarch64
 BuildRequires:  desktop-file-utils
 Requires:       hicolor-icon-theme
 Requires:       shared-mime-info
-Recommends:     bubblewrap
 Recommends:     vulkan-loader
 Recommends:     mesa-vulkan-drivers
 

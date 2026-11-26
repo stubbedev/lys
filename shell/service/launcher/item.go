@@ -35,7 +35,7 @@ type IconName string
 type IconFile string
 
 // IconThumbnail is a thumbnail of Path, generated on demand (rofi
-// thumbnail:// and -preview-cmd). It carries its own Fallback because a
+// thumbnail://). It carries its own Fallback because a
 // file nothing can thumbnail still has to show something, and the row
 // is drawn before any thumbnail exists.
 type IconThumbnail struct {

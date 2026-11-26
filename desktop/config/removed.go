@@ -19,11 +19,15 @@ const dashboardRunsThePowerMenu = "the dashboard's session buttons run the power
 
 const sharedThresholds = "one threshold set per resource serves its bar module and the dashboard"
 
+// previewsAreLys is why the launcher's thumbnail command left.
+const previewsAreLys = "removed: lys renders previews and thumbnails itself and runs no thumbnail command"
+
 // removedKeys are, by section path, the keys the section no longer
 // reads. Setting one is an error diagnostic naming where it went, so a
 // setting is never dropped without a word.
 var removedKeys = map[string][]removedKey{
-	"modules": removedModuleSections(),
+	"modules":  removedModuleSections(),
+	"launcher": {{"preview-cmd", previewsAreLys, "delete launcher.preview-cmd: pictures, documents and videos are thumbnailed by lys's own decoders"}},
 	"modules.dashboard": {
 		{"dropdown-lock-command", dashboardRunsThePowerMenu, "modules.power.lock-command"},
 		{"dropdown-logout-command", dashboardRunsThePowerMenu, "modules.power.logout-command"},

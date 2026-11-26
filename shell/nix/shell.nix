@@ -45,8 +45,6 @@
           # wl-paste, the out-of-process data-control reader the screenshot
           # clipboard tests read the selection back with.
           wl-clipboard
-          # bwrap, the sandbox the file chooser runs thumbnailers in.
-          bubblewrap
           # tesseract, the OCR engine `lys-shell screenshot text` runs, which
           # the screen-reading tests read a fixture line with.
           tesseract

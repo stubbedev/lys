@@ -9,7 +9,7 @@ import (
 
 // TestMain runs the package against a scratch home: building a theme
 // or a config reads, and the shell scaffolds, the user's config dir.
-// Started as the fake thumbnailer, the test binary is one instead.
+// Started as the fake lys-docthumb, the test binary is one instead.
 func TestMain(m *testing.M) {
 	thumbnailtest.RunIfFake()
 	testhome.Run(m)

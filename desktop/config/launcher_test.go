@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"reflect"
 	"strings"
 	"testing"
@@ -123,5 +124,30 @@ func TestLauncherOpenersDefaultToTheBuiltInOpener(t *testing.T) {
 	}
 	if got := cfg.Launcher.Drun.URLLauncher; got != "firefox" {
 		t.Errorf("a configured url-launcher = %q, want firefox", got)
+	}
+}
+
+// launcher.preview-cmd is refused with why it went and what to do,
+// and the rest of the section still applies; a section without it has
+// no such error.
+func TestThePreviewCommandIsRefused(t *testing.T) {
+	cfg, err := LoadFile(writeConfig(t, "launcher:\n  preview-cmd: \"mkthumb {input} {output} {size}\"\n  lines: 6\n"))
+	var diags []Diagnostic
+	for _, e := range unwrapJoined(err) {
+		if d, ok := errors.AsType[Diagnostic](e); ok && d.Title == "removed config key" {
+			diags = append(diags, d)
+		}
+	}
+	if len(diags) != 1 {
+		t.Fatalf("removed-key diagnostics %+v from %v, want preview-cmd named once", diags, err)
+	}
+	if d := diags[0]; d.Kind != DiagnosticError || d.Field("Field") != "launcher.preview-cmd" || d.Field("Reason") != previewsAreLys || !strings.HasPrefix(d.Field("Reason"), "removed: lys renders previews") || !strings.Contains(d.Hint, "delete launcher.preview-cmd") {
+		t.Errorf("diagnostic = %+v", d)
+	}
+	if cfg.Launcher.Lines != 6 {
+		t.Errorf("the section's other keys did not apply: lines %v", cfg.Launcher.Lines)
+	}
+	if _, err := LoadFile(writeConfig(t, "launcher:\n  lines: 6\n")); err != nil {
+		t.Errorf("a launcher section without preview-cmd = %v", err)
 	}
 }

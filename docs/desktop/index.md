@@ -29,7 +29,7 @@ go get github.com/stubbedev/lys
 | `identity` | The desktop's directory name under each XDG base directory |
 | `desktopentry`, `mime`, `opener` | Desktop entries, the shared-mime-info database, and opening a file with the default app |
 | `spawn`, `shlex`, `strftime`, `glob`, `jinja`, `pango` | Running configured commands, splitting command lines, time formats, blocklist matching, the label templates module formats are written in, Pango markup read into lys-ui's rich labels |
-| `thumbnail` | Thumbnails for every surface: the freedesktop cache, raster images decoded in process, and documents and other types made by sandboxed programs |
+| `thumbnail` | Thumbnails for every surface, all from lys's own decoders: the freedesktop cache, pictures decoded in process, documents drawn by `lys-docthumb` and videos' frames |
 | `dochelper`, `docrender` | The contract of `lys-docthumb` (its command line, exit statuses and document types), and the renderer only it links |
 
 The package documentation is on
@@ -45,22 +45,34 @@ assembly kernels), but it parses untrusted input with no deadline, so nothing
 but `lys-docthumb` links it: `docrender` wraps it, and `thumbnail`'s tests fail
 if the thumbnailer's binary links it.
 
-The thumbnailer runs `lys-docthumb` for the types `dochelper` lists, ahead of
-any installed `.thumbnailer`, in the same bubblewrap and seccomp sandbox and
-under the same 10 s timeout, killed by process group. The helper limits its
-own data segment (`RLIMIT_DATA`; `RLIMIT_AS` would count the address space Go
-reserves) to `thumbnail.DocumentMemory`, 768 MiB, before it opens the file,
-and the garbage collector to a third of that. Its exit status says why it
-failed: a damaged, encrypted, too large (the limit included) or unsupported
-document is `dochelper.ErrDamaged`, `ErrEncrypted`, `ErrTooLarge` or
-`ErrUnsupported`. The font directories lys finds (fontconfig's, the XDG data
-directories' and the usual system ones) are passed in, those outside the
-sandbox's system bound under `/run/lys-fonts`.
+The thumbnailer runs nothing but `lys-docthumb`: no installed `.thumbnailer`
+program and no thumbnail command of the user's (rofi's `-preview-cmd` and the
+`launcher.preview-cmd` key are refused). A picture is decoded in process within
+the decode budget and turned upright as its EXIF orientation says; a video's
+thumbnail is a frame a tenth into it, decoded in process with `ui/media` (a
+YUV4MPEG2 stream; a video only the GPU decodes keeps its icon, as
+`thumbnail.ErrVideoOnGPU`); any other type keeps its icon
+(`thumbnail.ErrNoDecoder`).
 
-The helper is looked up next to the running program, so lys-shell,
-lys-settings and lys-viewer each install it beside their binaries. Where it
-is missing, the installed thumbnailers make documents' thumbnails, and the
-thumbnailer logs why once.
+For the types `dochelper` lists, the thumbnailer runs `lys-docthumb` as a plain
+child process: an empty environment, a process group of its own killed whole at
+the 10 s timeout, and its output in a temporary directory of its own. The
+helper limits its own data segment (`RLIMIT_DATA`; `RLIMIT_AS` would count the
+address space Go reserves) to `thumbnail.DocumentMemory`, 768 MiB, before it
+opens the file, and the garbage collector to a third of that
+(`dochelper.LimitMemory`). Its exit status says why it failed: a damaged,
+encrypted, too large (the limit included) or unsupported document is
+`dochelper.ErrDamaged`, `ErrEncrypted`, `ErrTooLarge` or `ErrUnsupported`. The
+font directories lys finds (fontconfig's, the XDG data directories' and the
+usual system ones) are passed in by path. A failed thumbnail is recorded in the
+freedesktop cache's `fail/` directory, so it is not tried again until the file
+changes.
+
+The helper is looked up next to the running program, so lys-shell and
+lys-viewer install it beside their binaries; a path to it that is not an
+absolute one to a file called `lys-docthumb` is refused. Where it is missing,
+documents have no thumbnail (`thumbnail.ErrNoHelper`) and keep their icon, and
+the thumbnailer logs why once.
 
 ### Regression suite
 

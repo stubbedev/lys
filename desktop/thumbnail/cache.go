@@ -77,8 +77,8 @@ func cacheFor(path string, info os.FileInfo) (thumbCache, error) {
 // path is the thumbnail's path in the size directory dir.
 func (tc thumbCache) path(dir string) string { return filepath.Join(tc.root, dir, tc.name) }
 
-// failPath is the record that app could not thumbnail the file.
-func (tc thumbCache) failPath(app string) string { return filepath.Join(tc.root, "fail", app, tc.name) }
+// failPath is the record that lys could not thumbnail the file.
+func (tc thumbCache) failPath() string { return filepath.Join(tc.root, "fail", software, tc.name) }
 
 // lookup is the cache's image for the file and the file holding it:
 // the smallest size at least px, else the largest below it, and only
@@ -112,12 +112,12 @@ func (tc thumbCache) lookup(px int) (image.Image, string, error) {
 	return nil, "", ErrNone
 }
 
-// failed reports a fresh record that app failed to thumbnail the file.
-func (tc thumbCache) failed(app string) bool {
+// failed reports a fresh record that lys failed to thumbnail the file.
+func (tc thumbCache) failed() bool {
 	if tc.root == "" {
 		return false
 	}
-	data, err := os.ReadFile(tc.failPath(app))
+	data, err := os.ReadFile(tc.failPath())
 	return err == nil && tc.fresh(data)
 }
 

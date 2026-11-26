@@ -18,7 +18,6 @@ Depends:
  hicolor-icon-theme,
  shared-mime-info
 Recommends:
- bubblewrap,
  libvulkan1,
  mesa-vulkan-drivers
 Description: picture and video viewer for the lys desktop

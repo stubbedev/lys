@@ -13,7 +13,7 @@ import (
 	"github.com/stubbedev/lys/desktop/i18n"
 )
 
-var templateCommands = []string{"launcher.run.run-command", "launcher.run.shell-command", "launcher.ssh.command", "launcher.preview-cmd"}
+var templateCommands = []string{"launcher.run.run-command", "launcher.run.shell-command", "launcher.ssh.command"}
 
 func isFormatField(path, key string) bool {
 	return key == "format" || strings.HasSuffix(key, "-format") || strings.HasPrefix(key, "notify-") || slices.Contains(templateCommands, path)

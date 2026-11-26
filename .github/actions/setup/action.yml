@@ -35,7 +35,7 @@ inputs:
     description: Give the runner KVM, for NixOS VM checks.
     default: "false"
   userns:
-    description: Allow the unprivileged user namespaces bwrap needs.
+    description: Allow unprivileged user namespaces, which lib/gpu's udmabuf test enters with unshare.
     default: "false"
   free-disk:
     description: Remove the runner's preinstalled toolchains, for a build job that writes disk images.

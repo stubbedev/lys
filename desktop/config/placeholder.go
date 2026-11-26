@@ -133,7 +133,6 @@ var formatFields = map[string]formatField{
 	"LauncherRunConfig.RunCommand":         braceFormat(ph("cmd", "htop")),
 	"LauncherRunConfig.ShellCommand":       braceFormat(ph("terminal", "foot"), ph("cmd", "htop")),
 	"LauncherSSHConfig.Command":            braceFormat(ph("terminal", "foot"), ph("ssh-client", "ssh"), ph("host", "example.org")),
-	"LauncherConfig.PreviewCmd":            braceFormat(ph("input", "/home/ada/report.pdf"), ph("output", "/tmp/report.png"), ph("size", "256")),
 	"LauncherQuicklink.URL":                braceFormat(ph("query", "rust")),
 	"CustomModuleDefinition.Format":        jinjaFormat(ph("output", "72")),
 	"CustomModuleDefinition.TooltipFormat": jinjaFormat(ph("output", "72")),

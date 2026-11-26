@@ -35,7 +35,7 @@ func TestExitStatusesTellTheErrors(t *testing.T) {
 // The Go runtime dying out of memory, as the helper's limit makes it, is
 // ErrTooLarge; another status printing the same is not.
 func TestRunningOutOfMemoryIsTooLarge(t *testing.T) {
-	for _, fatal := range []string{"fatal error: out of memory", "fatal error: runtime: out of memory", "fatal error: out of memory allocating heap arena metadata"} {
+	for _, fatal := range []string{"fatal error: out of memory", "fatal error: runtime: out of memory", "fatal error: out of memory allocating heap arena metadata", "fatal error: runtime: cannot allocate memory"} {
 		out := []byte("runtime: out of memory: cannot allocate 100663296-byte block (3866624 in use)\n" + fatal + "\n\ngoroutine 1 [running]:\n")
 		if err := ExitError(exitRuntime, out); !errors.Is(err, ErrTooLarge) {
 			t.Errorf("the runtime dying with %q = %v, want ErrTooLarge", fatal, err)

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"image"
 	"image/png"
 	"os"
 	"os/exec"
@@ -11,36 +12,44 @@ import (
 	"runtime/debug"
 	"testing"
 
+	"github.com/stubbedev/lys/lib/testbuild"
 	"github.com/stubbedev/lys/lib/testhome"
 
 	"github.com/stubbedev/lys/desktop/dochelper"
 	"github.com/stubbedev/lys/desktop/thumbnail"
 )
 
-// helperArg, first on the command line, makes the test binary
-// lys-docthumb.
-const helperArg = "lys-docthumb-under-test"
-
-// TestMain runs the package against a scratch home; started with
-// helperArg, the test binary is the helper instead.
+// TestMain runs the package against a scratch home; started as
+// lys-docthumb, the test binary is the helper instead.
 func TestMain(m *testing.M) {
-	if len(os.Args) > 1 && os.Args[1] == helperArg {
-		os.Exit(run(os.Args[2:], os.Stderr))
+	if filepath.Base(os.Args[0]) == dochelper.Program {
+		os.Exit(run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr))
 	}
 	testhome.Run(m)
 }
 
-func fixture(name string) string { return filepath.Join("..", "..", "docrender", "testdata", name) }
-
-// helper runs the test binary as lys-docthumb on req, outside any
-// sandbox, and is its exit status and output.
-func helper(t *testing.T, req dochelper.Request) (int, []byte) {
+// installed is the test binary installed as lys-docthumb in a fresh
+// directory.
+func installed(t *testing.T) string {
 	t.Helper()
 	exe, err := os.Executable()
 	if err != nil {
 		t.Fatal(err)
 	}
-	cmd := exec.Command(exe, append([]string{helperArg}, req.Args()...)...)
+	path := filepath.Join(t.TempDir(), dochelper.Program)
+	if err := os.Symlink(exe, path); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func fixture(name string) string { return filepath.Join("..", "..", "docrender", "testdata", name) }
+
+// helper runs the test binary as lys-docthumb on req and is its exit
+// status and output.
+func helper(t *testing.T, req dochelper.Request) (int, []byte) {
+	t.Helper()
+	cmd := exec.Command(installed(t), req.Args()...)
 	out, err := cmd.CombinedOutput()
 	var exit *exec.ExitError
 	if err != nil && !errors.As(err, &exit) {
@@ -113,20 +122,16 @@ func TestTheHelperExitsWithWhatWentWrong(t *testing.T) {
 // A request the helper cannot read fails before it opens anything.
 func TestTheHelperRefusesABadRequest(t *testing.T) {
 	var stderr bytes.Buffer
-	if code := run([]string{"-size", "0", "--", "in", "out"}, &stderr); code == 0 || stderr.Len() == 0 {
+	if code := run([]string{"-size", "0", "--", "in", "out"}, nil, nil, &stderr); code == 0 || stderr.Len() == 0 {
 		t.Errorf("a bad request exited %d saying %q", code, stderr.String())
 	}
 }
 
-// The thumbnailer runs the helper in its sandbox for PDFs and EPUBs,
-// and its failures reach the caller as their errors.
+// The thumbnailer runs the helper as a child process for PDFs and
+// EPUBs, and its failures reach the caller as their errors.
 func TestTheThumbnailerRunsTheHelper(t *testing.T) {
-	exe, err := os.Executable()
-	if err != nil {
-		t.Fatal(err)
-	}
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
-	th := thumbnail.New(thumbnail.Config{DocumentHelper: []string{exe, helperArg}})
+	th := thumbnail.New(thumbnail.Config{DocumentHelper: installed(t)})
 	for _, c := range []struct{ file, mimeType string }{{"cairo.pdf", "application/pdf"}, {"blocks.epub", "application/epub+zip"}} {
 		img, err := th.Image(context.Background(), fixture(c.file), c.mimeType, 128)
 		if err != nil {
@@ -157,4 +162,71 @@ func TestTheHelperLinksTheRenderer(t *testing.T) {
 		}
 	}
 	t.Error("lys-docthumb does not link folio")
+}
+
+// reader is a client of the test binary serving the fixture as
+// lys-docthumb does for a reader, holding memory.
+func reader(t *testing.T, file string, memory dochelper.Memory) *dochelper.Client {
+	t.Helper()
+	doc, err := filepath.Abs(fixture(file))
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := dochelper.NewClient(dochelper.Starter(installed(t), dochelper.Serving{Memory: memory}), doc, dochelper.RequestTimeout)
+	t.Cleanup(func() { _ = c.Close() })
+	return c
+}
+
+// Served, the helper says what the document holds, draws its tiles and
+// reads its pages' text and links, as docrender does.
+func TestTheHelperServesADocument(t *testing.T) {
+	c := reader(t, "reading.pdf", dochelper.ReadingMemory)
+	info, err := c.Info()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Pages() != 3 || info.Label(0) != "i" || len(info.Outline) != 2 {
+		t.Errorf("reading.pdf holds %+v", info)
+	}
+	tile := dochelper.Tile{Page: 0, Scale: 1, Rect: image.Rect(60, 40, 320, 140)}
+	img, err := c.Render(tile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if img.Rect.Size() != tile.Rect.Size() || img.Pix[0] != 255 {
+		t.Errorf("the tile is %v starting %v, want %v on white", img.Rect, img.Pix[:4], tile.Rect.Size())
+	}
+	text, err := c.Text(1)
+	if err != nil || len(text.Lines) != 2 || len(text.Lines[0].Chars) != len("Page two holds a needle") {
+		t.Errorf("page 2 says %+v, %v", text, err)
+	}
+	links, err := c.Links(0)
+	if err != nil || len(links) != 2 || links[0].Page != 2 || links[1].URI != "https://example.org/" {
+		t.Errorf("page 1 leads %+v, %v", links, err)
+	}
+	if err := c.Close(); err != nil {
+		t.Errorf("closing: %v", err)
+	}
+}
+
+// A tile past the served helper's memory fails with ErrTooLarge, and
+// the helper started again draws the next.
+func TestAServedTilePastTheHelpersMemoryIsTooLarge(t *testing.T) {
+	if testbuild.Race {
+		t.Skip("the race detector's allocator does not fit the 160 MiB the helper is held to")
+	}
+	c := reader(t, "cairo.pdf", dochelper.Memory{Hard: 160 << 20, Soft: 48 << 20})
+	info, err := c.Info()
+	if err != nil {
+		t.Fatal(err)
+	}
+	const scale = 9
+	page := info.Sizes[0].At(scale)
+	big := dochelper.Tile{Scale: scale, Rect: image.Rect(0, 0, min(page.X, dochelper.MaxSize), min(page.Y, dochelper.MaxSize))}
+	if _, err := c.Render(big); !errors.Is(err, dochelper.ErrTooLarge) {
+		t.Fatalf("a %v tile in 160 MiB = %v, want ErrTooLarge", big.Rect.Size(), err)
+	}
+	if _, err := c.Render(dochelper.Tile{Scale: 1, Rect: image.Rect(0, 0, 64, 64)}); err != nil {
+		t.Errorf("the tile after: %v", err)
+	}
 }

@@ -1,8 +1,11 @@
 // Command lys-docthumb writes the first page of a document as a PNG
-// thumbnail, for the thumbnailer that runs it in its sandbox. It parses
-// untrusted input with folio, so it caps its own memory before it opens
-// the file and leaves its deadline to the thumbnailer, which kills it
-// whole. Its command line and exit statuses are dochelper's.
+// thumbnail, for the thumbnailer that runs it as a child process of its
+// own, or, run with dochelper.ServeCommand, serves one document to a
+// reader over the protocol of dochelper on its standard input and
+// output. It parses untrusted input with folio, so it caps its own
+// memory before it opens the file and leaves its deadlines to the
+// program running it, which kills its process group whole. Its command
+// lines, protocol, memory caps and exit statuses are dochelper's.
 package main
 
 import (
@@ -13,21 +16,27 @@ import (
 	"image/png"
 	"io"
 	"os"
-	"runtime/debug"
-
-	"github.com/stubbedev/lys/lib/intconv"
-	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/desktop/dochelper"
 	"github.com/stubbedev/lys/desktop/docrender"
 )
 
-func main() { os.Exit(run(os.Args[1:], os.Stderr)) }
+func main() { os.Exit(run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr)) }
 
-// run makes the thumbnail args ask for and is the status to exit with,
-// having said on stderr what went wrong. A page drawn in part is still
-// a thumbnail, and what was left out of it is said too.
-func run(args []string, stderr io.Writer) int {
+// run serves the document or makes the thumbnail args ask for and is
+// the status to exit with, having said on stderr what went wrong. A
+// page drawn in part is still a thumbnail, and what was left out of it
+// is said too.
+func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
+	if s, ok, err := dochelper.ParseServing(args); ok {
+		if err == nil {
+			err = serve(s, stdin, stdout)
+		}
+		if err != nil {
+			_, _ = fmt.Fprintln(stderr, err)
+		}
+		return dochelper.ExitCode(err)
+	}
 	left, err := makeThumbnail(args)
 	for _, e := range []error{left, err} {
 		if e != nil {
@@ -44,7 +53,7 @@ func makeThumbnail(args []string) (left, err error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := limitMemory(req.Memory); err != nil {
+	if err := dochelper.LimitMemory(req.Memory); err != nil {
 		return nil, err
 	}
 	docrender.AddFontDirs(req.FontDirs)
@@ -65,24 +74,14 @@ func makeThumbnail(args []string) (left, err error) {
 	return left, nil
 }
 
-// softShare is the part of the hard memory limit the garbage collector
-// keeps the heap within.
-const softShare = 3
-
-// limitMemory caps the data the process maps at limit bytes, past which
-// an allocation kills it, and has the collector work to stay within a
-// third of it. RLIMIT_AS would count the address space the Go runtime
-// reserves without using, which is most of a small limit.
-func limitMemory(limit int64) error {
-	lim, err := intconv.Exact[uint64](limit)
-	if err != nil {
-		return fmt.Errorf("%s: a memory limit of %d bytes: %w", dochelper.Program, limit, err)
+// serve serves one document as s says, reading requests from stdin and
+// answering on stdout until it is told to close or stdin ends.
+func serve(s dochelper.Serving, stdin io.Reader, stdout io.Writer) error {
+	if err := s.Memory.Limit(); err != nil {
+		return err
 	}
-	if err := unix.Setrlimit(unix.RLIMIT_DATA, &unix.Rlimit{Cur: lim, Max: lim}); err != nil {
-		return fmt.Errorf("%s: limiting its memory to %d bytes: %w", dochelper.Program, limit, err)
-	}
-	debug.SetMemoryLimit(limit / softShare)
-	return nil
+	docrender.AddFontDirs(s.FontDirs)
+	return dochelper.Serve(stdin, stdout, &docrender.Reader{})
 }
 
 // writePNG writes img to path as a PNG.

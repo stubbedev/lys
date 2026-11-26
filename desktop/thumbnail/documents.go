@@ -1,16 +1,15 @@
 package thumbnail
 
 import (
+	"context"
+	"errors"
 	"fmt"
-	"log"
+	"image"
 	"os"
 	"os/exec"
-	"path"
 	"path/filepath"
-	"slices"
-	"strconv"
-
-	"github.com/stubbedev/lys/lib/third_party/typesetting/fontscan"
+	"strings"
+	"time"
 
 	"github.com/stubbedev/lys/desktop/dochelper"
 )
@@ -21,78 +20,101 @@ import (
 // and the thumbnail is dochelper.ErrTooLarge.
 const DocumentMemory = 768 << 20
 
-// sandboxFonts is where the font directories the sandbox's system does
-// not hold are read in it.
-const sandboxFonts = "/run/lys-fonts"
+// DefaultRunTimeout is how long lys-docthumb may run before it counts
+// as failed, and helperMaxBytes how large its PNG may be.
+const (
+	DefaultRunTimeout = dochelper.RequestTimeout
+	helperMaxBytes    = 16 << 20
+)
 
-// documentHelper is lys-docthumb as what runs, and the sandbox it runs
-// in.
-type documentHelper struct {
-	sandbox sandbox
-	maker   maker
+// outputName is the file lys-docthumb writes in its own temporary
+// directory.
+const outputName = "thumbnail.png"
+
+// docHelper is lys-docthumb, the one program package thumbnail runs:
+// the executable called dochelper.Program, and the font directories it
+// looks up the fonts a document does not carry in.
+type docHelper struct {
+	path     string
+	fontDirs []string
 }
 
-// helperArgv is the command line lys-docthumb runs by: argv when set,
-// else the program of that name next to the running one.
-func helperArgv(argv []string) ([]string, error) {
-	if len(argv) > 0 {
-		return argv, nil
-	}
-	exe, err := os.Executable()
+// newDocHelper is lys-docthumb at path, as dochelper.Locate finds it,
+// reading the system's font directories.
+func newDocHelper(path string) (docHelper, error) {
+	path, err := dochelper.Locate(path)
 	if err != nil {
-		return nil, fmt.Errorf("finding the running program: %w", err)
+		return docHelper{}, err
 	}
-	return []string{filepath.Join(filepath.Dir(exe), dochelper.Program)}, nil
+	return docHelper{path: path, fontDirs: dochelper.FontDirs()}, nil
 }
 
-// loadDocumentHelper is lys-docthumb run by argv (helperArgv's) in sb,
-// reading the system's font directories, or why there is none.
-func loadDocumentHelper(sb sandbox, argv []string) (documentHelper, error) {
-	argv, err := helperArgv(argv)
+// runError is lys-docthumb's failure and the start of what it printed.
+type runError struct {
+	err    error
+	output []byte
+}
+
+func (e *runError) Error() string {
+	return fmt.Sprintf("%v: %s", e.err, strings.TrimSpace(string(e.output)))
+}
+
+func (e *runError) Unwrap() error { return e.err }
+
+// thumbnail runs lys-docthumb on input at size, as a child process with
+// an empty environment, in a process group of its own killed whole at
+// timeout or once ctx ends, writing into a temporary directory of its
+// own, and decodes its PNG within the budget. A helper that fails is
+// the error its exit status tells (dochelper.ExitError), wrapping what
+// it printed; one that writes nothing, more than helperMaxBytes or an
+// image that does not decode fails too.
+func (h docHelper) thumbnail(ctx context.Context, c *core, input string, size int) (image.Image, error) {
+	dir, err := os.MkdirTemp("", "lys-docthumb-")
 	if err != nil {
-		return documentHelper{}, err
+		return nil, fmt.Errorf("%s on %s: %w", dochelper.Program, input, err)
 	}
-	if _, err := exec.LookPath(argv[0]); err != nil {
-		return documentHelper{}, err
+	defer func() { _ = os.RemoveAll(dir) }()
+	output := filepath.Join(dir, outputName)
+	req := dochelper.Request{Input: input, Output: output, Size: size, Memory: DocumentMemory, FontDirs: h.fontDirs}
+	if err := h.run(ctx, req, c.runTimeout); err != nil {
+		return nil, fmt.Errorf("%s on %s: %w", dochelper.Program, input, err)
 	}
-	binds, dirs := fontBinds(sb, fontDirs())
-	prefix := slices.Clip(slices.Clone(argv))
-	m := maker{
-		name: argv[0],
-		argv: func(input, _, output string, size int) []string {
-			req := dochelper.Request{Input: input, Output: output, Size: size, Memory: DocumentMemory, FontDirs: dirs}
-			return append(prefix, req.Args()...)
-		},
-		binds: binds,
-		exit:  dochelper.ExitError,
-	}
-	return documentHelper{sandbox: sb, maker: m}, nil
-}
-
-// fontDirs are the directories lys finds fonts in: fontconfig's, the
-// XDG data directories' and the usual system ones that exist.
-func fontDirs() []string {
-	dirs, err := fontscan.DefaultFontDirectories(log.Default())
+	info, err := os.Stat(output)
 	if err != nil {
-		log.Printf("thumbnail: documents are drawn with the fonts they carry and folio's own: %v", err)
+		return nil, fmt.Errorf("%s on %s wrote nothing: %w", dochelper.Program, input, err)
 	}
-	return dirs
+	if info.Size() > helperMaxBytes {
+		return nil, fmt.Errorf("%s on %s wrote %d bytes, more than %d", dochelper.Program, input, info.Size(), helperMaxBytes)
+	}
+	img, err := c.decodeWithin(ctx, output)
+	if err != nil {
+		return nil, fmt.Errorf("%s on %s: %w", dochelper.Program, input, err)
+	}
+	return img, nil
 }
 
-// fontBinds are the binds making dirs readable in sb and the paths
-// they are read at there: a directory the sandbox's system holds where
-// it is, any other under sandboxFonts.
-func fontBinds(sb sandbox, dirs []string) ([]bind, []string) {
-	var binds []bind
-	at := make([]string, 0, len(dirs))
-	for i, dir := range dirs {
-		if sb.visible(dir) {
-			at = append(at, dir)
-			continue
+// run runs lys-docthumb on req, started as dochelper.Command starts
+// it, until it exits, timeout passes or ctx
+// ends; a failure is a *runError wrapped in the error its exit status
+// tells, where it tells one.
+func (h docHelper) run(ctx context.Context, req dochelper.Request, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	out := &dochelper.Head{Limit: dochelper.OutputBytes}
+	cmd := dochelper.Command(ctx, h.path, req.Args())
+	cmd.Stdout, cmd.Stderr = out, out
+	err := cmd.Run()
+	if err == nil {
+		return nil
+	}
+	if ctx.Err() != nil {
+		err = fmt.Errorf("%w (%w)", err, ctx.Err())
+	}
+	failed := &runError{err: err, output: out.Bytes()}
+	if exit, ok := errors.AsType[*exec.ExitError](err); ok {
+		if told := dochelper.ExitError(exit.ExitCode(), out.Bytes()); told != nil {
+			return fmt.Errorf("%w: %w", told, failed)
 		}
-		b := bind{host: dir, at: path.Join(sandboxFonts, strconv.Itoa(i))}
-		binds = append(binds, b)
-		at = append(at, b.at)
 	}
-	return binds, at
+	return failed
 }

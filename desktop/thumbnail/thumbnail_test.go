@@ -55,31 +55,26 @@ func countDecodes(th *Thumbnailer) *atomic.Int32 {
 	return &n
 }
 
-// pdfWith is a PDF in a fresh cache whose installed thumbnailer is the
-// fake doing mode, and a Thumbnailer that finds it.
+// pdfWith is a PDF in a fresh cache and a Thumbnailer whose
+// lys-docthumb is the fake doing mode.
 func pdfWith(t *testing.T, mode string) (string, *Thumbnailer) {
 	t.Helper()
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
-	thumbnailtest.Install(t, pdfType, thumbnailtest.Argv(t, mode, "%s", "%u", "%o"))
 	doc := filepath.Join(t.TempDir(), "paper.pdf")
 	if err := os.WriteFile(doc, []byte("%PDF-1.4"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	return doc, New(Config{})
+	return doc, New(Config{DocumentHelper: thumbnailtest.Helper(t, mode)})
 }
 
-// switchThumbnailer makes the PDF thumbnailer th runs the fake doing
-// mode, in the same sandbox.
-func switchThumbnailer(t *testing.T, th *Thumbnailer, mode string) {
+// switchHelper makes the lys-docthumb th runs the fake doing mode.
+func switchHelper(t *testing.T, th *Thumbnailer, mode string) {
 	t.Helper()
-	installed := th.core.installed()
-	if installed.byType == nil {
-		t.Fatal("no thumbnailer is installed to switch")
+	h, err := newDocHelper(thumbnailtest.Helper(t, mode))
+	if err != nil {
+		t.Fatal(err)
 	}
-	entry := thumbnailerEntry{argv: thumbnailtest.Argv(t, mode, "%s", "%u", "%o"), file: mode + ".thumbnailer"}
-	th.core.installed = func() installedThumbnailers {
-		return installedThumbnailers{sandbox: installed.sandbox, byType: map[string]thumbnailerEntry{pdfType: entry}}
-	}
+	th.core.documents = func() (docHelper, error) { return h, nil }
 }
 
 // square is th's px thumbnail of path, freed; it reports its size.
@@ -358,32 +353,31 @@ func TestThumbnailFromTheCache(t *testing.T) {
 	}
 }
 
-// A PDF gets the thumbnail its installed thumbnailer makes, in the
-// sandbox, and the next look reads it from the cache: a thumbnailer
-// that now fails changes nothing.
-func TestThumbnailersMakeThumbnailsOnce(t *testing.T) {
+// A PDF gets the thumbnail lys-docthumb makes, and the next look reads
+// it from the cache: a helper that now fails changes nothing.
+func TestDocumentThumbnailsAreMadeOnce(t *testing.T) {
 	doc, th := pdfWith(t, thumbnailtest.Page)
 	size, err := square(t, th, doc, pdfType, 64)
 	if err != nil || size.X != 64 {
 		t.Fatalf("the PDF's thumbnail = %v, %v", size, err)
 	}
-	switchThumbnailer(t, th, thumbnailtest.Fail)
+	switchHelper(t, th, thumbnailtest.Fail)
 	if _, err := square(t, th, doc, pdfType, 64); err != nil {
 		t.Errorf("the PDF's cached thumbnail = %v", err)
 	}
 }
 
-// A thumbnailer that fails leaves a fail record, and while the file is
-// unchanged no thumbnailer runs for it again; a file changed since gets
-// another try. One that hangs is killed at its timeout and fails the
-// same way.
-func TestAFailingThumbnailerIsNotRetried(t *testing.T) {
+// A helper that fails leaves a fail record, and while the file is
+// unchanged the helper does not run for it again; a file changed since
+// gets another try. One that hangs is killed at its timeout and fails
+// the same way.
+func TestAFailingHelperIsNotRetried(t *testing.T) {
 	for _, mode := range []string{thumbnailtest.Fail, thumbnailtest.Hang} {
 		t.Run(mode, func(t *testing.T) {
 			doc, th := pdfWith(t, mode)
 			th.core.runTimeout = 500 * time.Millisecond
 			if _, err := square(t, th, doc, pdfType, 64); err == nil || errors.Is(err, ErrNone) {
-				t.Fatalf("a thumbnailer that does not finish = %v, want its failure", err)
+				t.Fatalf("a helper that does not finish = %v, want its failure", err)
 			}
 			info, err := os.Stat(doc)
 			if err != nil {
@@ -393,13 +387,13 @@ func TestAFailingThumbnailerIsNotRetried(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if !tc.failed(software) {
-				t.Errorf("no fail record at %s", tc.failPath(software))
+			if !tc.failed() {
+				t.Errorf("no fail record at %s", tc.failPath())
 			}
-			switchThumbnailer(t, th, thumbnailtest.Page)
+			switchHelper(t, th, thumbnailtest.Page)
 			th.core.runTimeout = DefaultRunTimeout
 			if _, err := square(t, th, doc, pdfType, 64); !errors.Is(err, ErrNone) {
-				t.Errorf("a file that failed = %v, want ErrNone without running a thumbnailer", err)
+				t.Errorf("a file that failed = %v, want ErrNone without running the helper", err)
 			}
 			later := time.Now().Add(time.Hour)
 			if err := os.Chtimes(doc, later, later); err != nil {
@@ -412,24 +406,25 @@ func TestAFailingThumbnailerIsNotRetried(t *testing.T) {
 	}
 }
 
-// A file nothing can thumbnail is ErrNone and records no failure, so a
-// thumbnailer installed later is tried.
+// A file of a type lys decodes nothing of is ErrNoDecoder, which is
+// ErrNone, and records no failure, so its next look as a type lys
+// decodes makes one.
 func TestNothingToThumbnailWithRecordsNoFailure(t *testing.T) {
 	doc, th := pdfWith(t, thumbnailtest.Page)
-	if _, err := square(t, th, doc, "application/x-nothing", 64); !errors.Is(err, ErrNone) {
-		t.Fatalf("a type without a thumbnailer = %v, want ErrNone", err)
+	if _, err := square(t, th, doc, "application/x-nothing", 64); !errors.Is(err, ErrNoDecoder) || !errors.Is(err, ErrNone) {
+		t.Fatalf("a type lys decodes nothing of = %v, want ErrNoDecoder", err)
 	}
 	if _, err := square(t, th, doc, pdfType, 64); err != nil {
-		t.Errorf("the type's thumbnailer did not run after a look without one: %v", err)
+		t.Errorf("the helper did not run after a look without one: %v", err)
 	}
 }
 
-// A thumbnailer's output is decoded within the budget: while the budget
+// The helper's output is decoded within the budget: while the budget
 // is held whole it waits, and once it is free it is decoded.
-func TestThumbnailerOutputWaitsForTheBudget(t *testing.T) {
+func TestHelperOutputWaitsForTheBudget(t *testing.T) {
 	doc, _ := pdfWith(t, thumbnailtest.Page)
 	budget := NewBudget(DecodeBudget)
-	th := New(Config{Budget: budget})
+	th := New(Config{Budget: budget, DocumentHelper: thumbnailtest.Helper(t, thumbnailtest.Page)})
 	release, err := budget.Acquire(context.Background(), budget.Total())
 	if err != nil {
 		t.Fatal(err)
@@ -439,7 +434,7 @@ func TestThumbnailerOutputWaitsForTheBudget(t *testing.T) {
 		_, err := square(t, th, doc, pdfType, 64)
 		done <- err
 	}()
-	waittest.Until(t, func() bool { return budget.Waiting() == 1 }, "the thumbnailer's output to wait for the budget")
+	waittest.Until(t, func() bool { return budget.Waiting() == 1 }, "the helper's output to wait for the budget")
 	select {
 	case err := <-done:
 		t.Fatalf("the output was decoded while the budget was held: %v", err)
@@ -452,8 +447,8 @@ func TestThumbnailerOutputWaitsForTheBudget(t *testing.T) {
 }
 
 // Fit is a raster image decoded whole into the box, its aspect kept and
-// never scaled up, with its source size; another type is its
-// thumbnailer's page, of no known source size.
+// never scaled up, with its source size; a document is lys-docthumb's
+// page, of no known source size.
 func TestFitKeepsTheAspect(t *testing.T) {
 	path := photo(t, 400, 300)
 	doc, th := pdfWith(t, thumbnailtest.Page)
@@ -476,7 +471,7 @@ func TestFitKeepsTheAspect(t *testing.T) {
 		t.Fatal(err)
 	}
 	if b := page.Image.Bounds(); b.Dx() != thumbnailtest.PageW || b.Dy() != thumbnailtest.PageH || size != (image.Point{}) {
-		t.Errorf("the PDF's page is %v of %v, want the thumbnailer's %dx%d of no known size", b, size, thumbnailtest.PageW, thumbnailtest.PageH)
+		t.Errorf("the PDF's page is %v of %v, want the helper's %dx%d of no known size", b, size, thumbnailtest.PageW, thumbnailtest.PageH)
 	}
 	if err := th.Free(got, small, page); err != nil {
 		t.Fatal(err)

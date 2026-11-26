@@ -39,7 +39,6 @@ Application launcher / dmenu (rofi replacement).
 | `mouse-bindings` | map of string | `{}` | Mouse binding overrides: action (rofi's `me-`/`ml-` name, prefix included, e.g. `me-accept-entry`, `ml-row-down`) → comma-separated button list (e.g. `"MouseDPrimary"`, `"ScrollDown"`). Unset actions keep their defaults. |
 | `font` | string | `""` | Launcher font, as a Pango description (`"Inter 12"`). Empty keeps the shell's font. rofi's `-font` overrides it per invocation. |
 | `styles` | map of string | `{}` | Named looks selectable per invocation with `-style <name>`: name → the CSS applied for that session, on top of `[styling]`. |
-| `preview-cmd` | [`Command`](/shell/config/types#command) | `""` | Command that turns a `thumbnail://` row icon into an image file: `{input}` the icon's path, `{output}` where to write the thumbnail, `{size}` the requested pixel size. It runs in the same sandbox as the XDG thumbnailers, so `{input}` and `{output}` are paths inside it and the command sees the system, its input and its output, not the rest of the home directory. Empty uses the system's XDG thumbnailers. rofi's `-preview-cmd`. |
 | `history` | [`LauncherHistoryConfig`](/shell/config/types#launcher-history-config) | `{...}` | Launch history / frecency. |
 | `drun` | [`LauncherDrunConfig`](/shell/config/types#launcher-drun-config) | `{...}` | drun (application) mode. |
 | `run` | [`LauncherRunConfig`](/shell/config/types#launcher-run-config) | `{...}` | run (command) mode. |
@@ -56,16 +55,6 @@ CSS rather than a second copy of the display keys: a preset exists to
 say "this invocation looks different", and there is no list of the
 ways someone might want that. `-style compact` then costs one config
 entry instead of a schema change.
-
-:::
-
-::: details More about `preview-cmd`
-
-#### Placeholders
-
-- `{input}` - The file to preview
-- `{output}` - Where to write the thumbnail
-- `{size}` - The thumbnail size in pixels
 
 :::
 
@@ -102,7 +91,6 @@ launcher:
   mouse-bindings: {}
   font: ""
   styles: {}
-  preview-cmd: ""
   history:
     enable: true
     max-size: 25

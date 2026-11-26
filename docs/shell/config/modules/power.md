@@ -24,11 +24,11 @@ bar:
 |---|---|---|---|
 | `icon-name` | string | `"ld-power-symbolic"` | Icon name to display. |
 | `border-show` | bool | `false` | Display border around button. |
-| `lock-command` | [`Command`](/shell/config/types#command) | `"loginctl lock-session"` | Command run by the power menu's Lock button. |
-| `logout-command` | [`Command`](/shell/config/types#command) | `"lys-shell logout"` | Command run by the power menu's Log out button. |
-| `suspend-command` | [`Command`](/shell/config/types#command) | `"systemctl suspend"` | Command run by the power menu's Suspend button. |
-| `reboot-command` | [`Command`](/shell/config/types#command) | `"systemctl reboot"` | Command run by the power menu's Reboot button. |
-| `shutdown-command` | [`Command`](/shell/config/types#command) | `"systemctl poweroff"` | Command run by the power menu's Shut down button. |
+| `lock-command` | [`Command`](/shell/config/types#command) | `":lock"` | What the power menu's Lock button runs. The default `:lock` asks logind to lock the session, which the lock screen answers; any other string is a shell command line. |
+| `logout-command` | [`Command`](/shell/config/types#command) | `":logout"` | What the power menu's Log out button runs. The default `:logout` ends the session through lys-wm, else logind; any other string is a shell command line. |
+| `suspend-command` | [`Command`](/shell/config/types#command) | `":suspend"` | What the power menu's Suspend button runs. The default `:suspend` asks logind to suspend; any other string is a shell command line. |
+| `reboot-command` | [`Command`](/shell/config/types#command) | `":reboot"` | What the power menu's Reboot button runs. The default `:reboot` asks logind to reboot; any other string is a shell command line. |
+| `shutdown-command` | [`Command`](/shell/config/types#command) | `":poweroff"` | What the power menu's Shut down button runs. The default `:poweroff` asks logind to power off; any other string is a shell command line. |
 | `show-lock` | bool | `true` | Show the Lock button in the power menu. |
 | `show-logout` | bool | `true` | Show the Log out button in the power menu. |
 | `show-suspend` | bool | `true` | Show the Suspend button in the power menu. |
@@ -68,11 +68,11 @@ modules:
     scroll-up: ""
     scroll-down: ""
     left-click: :menu
-    lock-command: loginctl lock-session
-    logout-command: lys-shell logout
-    suspend-command: systemctl suspend
-    reboot-command: systemctl reboot
-    shutdown-command: systemctl poweroff
+    lock-command: :lock
+    logout-command: :logout
+    suspend-command: :suspend
+    reboot-command: :reboot
+    shutdown-command: :poweroff
     show-lock: true
     show-logout: true
     show-suspend: true

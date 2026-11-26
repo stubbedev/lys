@@ -1,14 +1,16 @@
 // Package thumbnail makes and reads the thumbnails of files for every
-// surface that shows them: the freedesktop thumbnail cache, raster
-// images decoded in process within a decode budget, and lys-docthumb
-// for documents, installed .thumbnailer programs for other types (or a
-// surface's own command) run in a bubblewrap and seccomp sandbox, at
-// most Workers at once, into rasters held off the Go heap.
+// surface that shows them, all with lys's own decoders: the
+// freedesktop thumbnail cache, pictures decoded in process within a
+// decode budget and turned as their EXIF orientation says, documents
+// drawn by lys-docthumb in a child process of its own, and videos'
+// frames decoded in process; at most Workers at once, into rasters held
+// off the Go heap. Nothing but lys-docthumb is ever run.
 package thumbnail
 
 import (
 	"context"
 	"errors"
+	"fmt"
 	"image"
 	"log"
 	"os"
@@ -18,13 +20,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/stubbedev/lys/lib/exif"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/memory-go"
 	"golang.org/x/image/draw"
 
 	"github.com/stubbedev/lys/desktop/dochelper"
 	"github.com/stubbedev/lys/desktop/imagedecode"
-	"github.com/stubbedev/lys/desktop/mime"
 	"github.com/stubbedev/lys/desktop/offheap"
 )
 
@@ -45,8 +47,20 @@ const (
 var ErrTooLarge = errors.New("thumbnail: image too large to thumbnail")
 
 // ErrNone is a file with no cached thumbnail, nothing to make one with,
-// or a fresh record that making one failed.
+// or a fresh record that making one failed. The reasons nothing makes
+// one are errors that are ErrNone too.
 var ErrNone = errors.New("thumbnail: no thumbnail")
+
+// The reasons a file has no thumbnail to make, each ErrNone: lys
+// decodes no file of its type, its video decodes only on the GPU (which
+// thumbnails are not made on), it holds no video track, or the
+// document helper is not installed.
+var (
+	ErrNoDecoder  = fmt.Errorf("%w: lys decodes no file of this type", ErrNone)
+	ErrVideoOnGPU = fmt.Errorf("%w: the video decodes only on the GPU", ErrNone)
+	ErrNoVideo    = fmt.Errorf("%w: the file holds no video track", ErrNone)
+	ErrNoHelper   = fmt.Errorf("%w: %s is not installed", ErrNone, dochelper.Program)
+)
 
 // rasterExts are the image types decoded in process (imagedecode's
 // formats).
@@ -64,33 +78,27 @@ type Raster struct {
 	pix   memory.Slice[byte]
 }
 
-// Config is what a Thumbnailer shares, how long its thumbnailers run
-// and the command line lys-docthumb runs by, before its request. A nil
-// Budget is one of DecodeBudget bytes of its own, a zero RunTimeout
-// DefaultRunTimeout, and an empty DocumentHelper the lys-docthumb next
-// to the running program.
+// Config is what a Thumbnailer shares, how long lys-docthumb runs and
+// where it is installed. A nil Budget is one of DecodeBudget bytes of
+// its own, a zero RunTimeout DefaultRunTimeout, and an empty
+// DocumentHelper the lys-docthumb next to the running program; a
+// DocumentHelper must be an absolute path to a file called
+// dochelper.Program.
 type Config struct {
 	Budget         *Budget
 	RunTimeout     time.Duration
-	DocumentHelper []string
+	DocumentHelper string
 }
 
 // Thumbnailer makes thumbnails off the loop: at most Workers at once,
-// their decodes within its budget, into rasters it holds. Every view
-// WithCommand makes shares them.
+// their decodes within its budget, into rasters it holds.
 type Thumbnailer struct {
 	core *core
-	// command, when set, makes every thumbnail in place of the in
-	// process decode and the installed thumbnailers; failApp is the
-	// directory under fail/ recording what it could not make.
-	command *maker
-	failApp string
 }
 
-// core is what a Thumbnailer's views share. decode opens a raster
-// image, store writes a cache file whole, and the document helper, the
-// installed thumbnailers and the sandbox (loaded on first use) run for
-// at most runTimeout each.
+// core is what a Thumbnailer holds. decode opens a raster image, store
+// writes a cache file whole, and the document helper (found on first
+// use) runs for at most runTimeout each.
 type core struct {
 	mem        memory.Shared
 	workers    chan struct{}
@@ -98,22 +106,12 @@ type core struct {
 	decode     func(ctx context.Context, path string) (image.Image, error)
 	store      func(path string, data []byte) error
 	runTimeout time.Duration
-	installed  func() installedThumbnailers
-	documents  func() (documentHelper, bool)
-	sandbox    func() (sandbox, error)
+	documents  func() (docHelper, error)
 }
 
-// installedThumbnailers are the thumbnailers per MIME type and the
-// sandbox they run in.
-type installedThumbnailers struct {
-	sandbox sandbox
-	byType  map[string]thumbnailerEntry
-}
-
-// New is a Thumbnailer as cfg says, finding the installed thumbnailers
-// in the XDG data directories and lys-docthumb on first use. Without
-// lys-docthumb, the installed thumbnailers make documents' thumbnails
-// too, and why is logged once.
+// New is a Thumbnailer as cfg says, finding lys-docthumb on first use.
+// Without it documents have no thumbnail (ErrNoHelper), and why is
+// logged once.
 func New(cfg Config) *Thumbnailer {
 	if cfg.Budget == nil {
 		cfg.Budget = NewBudget(DecodeBudget)
@@ -125,51 +123,23 @@ func New(cfg Config) *Thumbnailer {
 		workers: make(chan struct{}, Workers), budget: cfg.Budget,
 		decode: imagedecode.OpenContext, store: storeThumbnail, runTimeout: cfg.RunTimeout,
 	}
-	c.sandbox = sync.OnceValues(func() (sandbox, error) {
-		sb, err := newSandbox(context.Background())
+	c.documents = sync.OnceValues(func() (docHelper, error) {
+		h, err := newDocHelper(cfg.DocumentHelper)
 		if err != nil {
-			log.Printf("thumbnail: thumbnailers are not run without a sandbox: %v", err)
+			log.Printf("thumbnail: documents have no thumbnails, as %s is not run: %v", dochelper.Program, err)
+			return docHelper{}, fmt.Errorf("%w: %w", ErrNoHelper, err)
 		}
-		return sb, err
+		return h, nil
 	})
-	c.installed = sync.OnceValue(func() installedThumbnailers {
-		sb, err := c.sandbox()
-		if err != nil {
-			return installedThumbnailers{}
-		}
-		return installedThumbnailers{sandbox: sb, byType: loadThumbnailers(mime.DataDirs())}
-	})
-	c.documents = sync.OnceValues(func() (documentHelper, bool) {
-		sb, err := c.sandbox()
-		if err != nil {
-			return documentHelper{}, false
-		}
-		h, err := loadDocumentHelper(sb, cfg.DocumentHelper)
-		if err != nil {
-			log.Printf("thumbnail: the installed thumbnailers make documents' thumbnails, as %s is not run: %v", dochelper.Program, err)
-			return documentHelper{}, false
-		}
-		return h, true
-	})
-	return &Thumbnailer{core: c, failApp: software}
-}
-
-// WithCommand is a view of th whose thumbnails cmd makes, for every
-// file, in the same sandbox, workers and budget; name is cmd's in
-// errors and under fail/, so what it fails at records nothing against
-// th's own thumbnailers. Thumbnails it made are cached for every app,
-// and every app's are read back.
-func (th *Thumbnailer) WithCommand(name string, cmd Command) *Thumbnailer {
-	m := commandMaker(name, cmd)
-	return &Thumbnailer{core: th.core, command: &m, failApp: software + "-" + name}
+	return &Thumbnailer{core: c}
 }
 
 // Square is the file's thumbnail as an exact px square, centre-cropped
 // to fill (every thumbnail is the same size, so rows align whatever the
 // source's aspect ratio). It is the one the freedesktop cache holds for
-// it; else, unless a fresh fail entry says making one failed before, a
-// raster image decoded or the output of the thumbnailer installed for
-// mimeType, written to the cache for every app and the next reader. It
+// it; else, unless a fresh fail entry says making one failed before,
+// one made with lys's own decoders (make), written to the cache for
+// every app and the next reader. It
 // waits its turn among the workers and for its decode's bytes in the
 // budget, and gives up with ctx's error once ctx is done. The caller
 // frees the result.
@@ -186,28 +156,27 @@ func (th *Thumbnailer) Square(ctx context.Context, path, mimeType string, px int
 }
 
 // Fit is the file's image fitted into a w x h box, its aspect kept and
-// never scaled up, and the source's pixel size: a raster image decoded
-// whole within the budget, else the thumbnail the cache holds or a
-// thumbnailer makes at the box's size (whose source size is not known).
-// The caller frees the result.
+// never scaled up, and the source's pixel size as shown: a raster image
+// decoded whole within the budget, else the thumbnail the cache holds or
+// one made at the box's size (whose source size is not known). The
+// caller frees the result.
 func (th *Thumbnailer) Fit(ctx context.Context, path, mimeType string, w, h int) (Raster, image.Point, error) {
 	var out Raster
 	var size image.Point
 	err := th.withWorker(ctx, func() error {
 		var src image.Image
 		var err error
-		if th.command == nil && isRaster(path) {
+		if isRaster(path) {
 			var info os.FileInfo
+			var pic made
 			if info, err = os.Stat(path); err == nil {
-				src, err = th.decodeRaster(ctx, path, info)
+				pic, err = th.core.decodePicture(ctx, path, info, max(w, h))
 			}
-			if err == nil {
-				size = src.Bounds().Size()
-			}
+			src, size = pic.img, pic.size
 		} else {
-			var made source
-			made, err = th.source(ctx, path, mimeType, flavorFor(max(w, h)).px)
-			src = made.img
+			var cached source
+			cached, err = th.source(ctx, path, mimeType, flavorFor(max(w, h)).px)
+			src = cached.img
 		}
 		if err == nil {
 			out, err = th.fitRaster(src, w, h)
@@ -282,9 +251,8 @@ type source struct {
 
 // source is the image a thumbnail of px is made from: the one the
 // cache holds, else, unless a fresh fail entry says making one failed
-// before, the command's output, a raster image decoded, lys-docthumb's
-// output for a document or the output of the thumbnailer installed for
-// mimeType, written to the cache fitted to px's size.
+// before, the one make makes, written to the cache fitted to px's size.
+// A failure is recorded unless it is ctx's, ErrTooLarge or ErrNone.
 func (th *Thumbnailer) source(ctx context.Context, path, mimeType string, px int) (source, error) {
 	info, err := os.Stat(path)
 	if err != nil {
@@ -297,10 +265,11 @@ func (th *Thumbnailer) source(ctx context.Context, path, mimeType string, px int
 	if img, file, err := tc.lookup(px); err == nil {
 		return source{img: img, file: file}, nil
 	}
-	if tc.failed(th.failApp) {
+	if tc.failed() {
 		return source{}, ErrNone
 	}
-	img, err := th.make(ctx, path, info, mimeType, flavorFor(px).px)
+	flavor := flavorFor(px)
+	m, err := th.core.make(ctx, path, info, mimeType, flavor.px)
 	if err != nil {
 		if ctx.Err() == nil && !errors.Is(err, ErrTooLarge) && !errors.Is(err, ErrNone) {
 			th.writeFail(tc)
@@ -308,51 +277,86 @@ func (th *Thumbnailer) source(ctx context.Context, path, mimeType string, px int
 		return source{}, err
 	}
 	if tc.root == "" {
-		return source{img: img}, nil
+		return source{img: m.img}, nil
 	}
-	flavor := flavorFor(px)
-	if err := th.cache(tc, img, flavor); err != nil {
+	if err := th.cache(tc, m, flavor); err != nil {
 		log.Printf("thumbnail: caching the thumbnail of %s: %v", tc.uri, err)
-		return source{img: img}, nil
+		return source{img: m.img}, nil
 	}
-	return source{img: img, file: tc.path(flavor.dir)}, nil
+	return source{img: m.img, file: tc.path(flavor.dir)}, nil
 }
 
-// make makes the file's thumbnail at size: with the command when there
-// is one, else decoded when it is a raster image, else with
-// lys-docthumb when it thumbnails mimeType and is installed, else with
-// the thumbnailer installed for mimeType. With none of them it is
-// ErrNone.
-func (th *Thumbnailer) make(ctx context.Context, path string, info os.FileInfo, mimeType string, size int) (image.Image, error) {
-	if th.command != nil {
-		sb, err := th.core.sandbox()
+// made is a thumbnail's image and its source's pixel size as shown,
+// zero where it is not known.
+type made struct {
+	img  image.Image
+	size image.Point
+}
+
+// make makes the file's thumbnail at size with lys's own decoders: a
+// raster image decoded in process, a document of a type lys-docthumb
+// thumbnails drawn by it, a video's frame decoded in process. Any other
+// file is ErrNoDecoder.
+func (c *core) make(ctx context.Context, path string, info os.FileInfo, mimeType string, size int) (made, error) {
+	switch {
+	case isRaster(path):
+		return c.decodePicture(ctx, path, info, size)
+	case dochelper.Thumbnails(mimeType):
+		h, err := c.documents()
 		if err != nil {
-			return nil, ErrNone
+			return made{}, err
 		}
-		return th.core.run(ctx, sb, *th.command, path, size)
+		img, err := h.thumbnail(ctx, c, path, size)
+		return made{img: img}, err
+	case isVideo(mimeType):
+		return c.videoFrame(ctx, path)
 	}
-	if isRaster(path) {
-		return th.decodeRaster(ctx, path, info)
-	}
-	if dochelper.Thumbnails(mimeType) {
-		if h, ok := th.core.documents(); ok {
-			return th.core.run(ctx, h.sandbox, h.maker, path, size)
-		}
-	}
-	installed := th.core.installed()
-	entry, ok := installed.byType[mimeType]
-	if !ok {
-		return nil, ErrNone
-	}
-	return th.core.run(ctx, installed.sandbox, entry.maker(), path, size)
+	return made{}, ErrNoDecoder
 }
 
-// decodeRaster decodes a raster image within the byte budget.
-func (th *Thumbnailer) decodeRaster(ctx context.Context, path string, info os.FileInfo) (image.Image, error) {
+// decodePicture decodes a raster image within the byte budget, as its
+// EXIF orientation shows it: a picture stored turned or mirrored is
+// first scaled to fit a box side square, then turned upright.
+func (c *core) decodePicture(ctx context.Context, path string, info os.FileInfo, box int) (made, error) {
 	if info.Size() > maxSourceBytes {
-		return nil, ErrTooLarge
+		return made{}, ErrTooLarge
 	}
-	return th.core.decodeWithin(ctx, path)
+	img, err := c.decodeWithin(ctx, path)
+	if err != nil {
+		return made{}, err
+	}
+	b := img.Bounds()
+	orient := orientation(path)
+	if orient == exif.TopLeft {
+		return made{img: img, size: b.Size()}, nil
+	}
+	stored := image.NewRGBA(image.Rectangle{Max: FitSize(b, box, box)})
+	draw.ApproxBiLinear.Scale(stored, stored.Rect, img, b, draw.Src, nil)
+	w, h := orient.Size(stored.Rect.Dx(), stored.Rect.Dy())
+	shown := image.NewRGBA(image.Rect(0, 0, w, h))
+	if err := orient.Draw(shown, stored); err != nil {
+		return made{}, fmt.Errorf("thumbnail: turning %s upright: %w", path, err)
+	}
+	sw, sh := orient.Size(b.Dx(), b.Dy())
+	return made{img: shown, size: image.Pt(sw, sh)}, nil
+}
+
+// orientation is the orientation the picture at path records in its
+// EXIF block, as the preview shows it: a block that does not parse is
+// logged, and the picture is thumbnailed as stored.
+func orientation(path string) exif.Orientation {
+	f, err := os.Open(path) //nolint:gosec // the picture being thumbnailed
+	if err != nil {
+		log.Printf("thumbnail: reading the orientation of %s: %v", path, err)
+		return exif.TopLeft
+	}
+	defer func() { _ = f.Close() }()
+	o, err := exif.Read(f)
+	if err != nil {
+		log.Printf("thumbnail: the orientation of %s: %v", path, err)
+		return exif.TopLeft
+	}
+	return o
 }
 
 // decodeWithin decodes the image file at path once the bytes its pixels
@@ -370,16 +374,17 @@ func (c *core) decodeWithin(ctx context.Context, path string) (image.Image, erro
 	return c.decode(ctx, path)
 }
 
-// cache writes src, fitted to flavor, as the file's thumbnail there.
-func (th *Thumbnailer) cache(tc thumbCache, src image.Image, flavor thumbSize) error {
-	if b := src.Bounds(); b.Dx() <= flavor.px && b.Dy() <= flavor.px {
-		return th.encodeAndStore(tc, src, src.Bounds(), flavor)
+// cache writes m, fitted to flavor, as the file's thumbnail there.
+func (th *Thumbnailer) cache(tc thumbCache, m made, flavor thumbSize) error {
+	sourceRect := image.Rectangle{Max: m.size}
+	if b := m.img.Bounds(); b.Dx() <= flavor.px && b.Dy() <= flavor.px {
+		return th.encodeAndStore(tc, m.img, sourceRect, flavor)
 	}
-	fitted, err := th.fitRaster(src, flavor.px, flavor.px)
+	fitted, err := th.fitRaster(m.img, flavor.px, flavor.px)
 	if err != nil {
 		return err
 	}
-	err = th.encodeAndStore(tc, fitted.Image, src.Bounds(), flavor)
+	err = th.encodeAndStore(tc, fitted.Image, sourceRect, flavor)
 	return errors.Join(err, th.Free(fitted))
 }
 
@@ -422,7 +427,7 @@ func (th *Thumbnailer) writeFail(tc thumbCache) {
 	}
 	data, err := tc.encode(image.NewRGBA(image.Rect(0, 0, 1, 1)), image.Rectangle{})
 	if err == nil {
-		err = th.core.store(tc.failPath(th.failApp), data)
+		err = th.core.store(tc.failPath(), data)
 	}
 	if err != nil {
 		log.Printf("thumbnail: recording the failed thumbnail of %s: %v", tc.uri, err)

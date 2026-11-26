@@ -4060,7 +4060,7 @@
         "keybindings": {
           "$ref": "#/$defs/Map_of_string",
           "default": {},
-          "description": "Keybinding overrides: action (rofi `kb-` name without the prefix,\ne.g. `accept`, `cancel`, `mode-next`, `custom-1`) → comma-separated\nkey list (e.g. `\"Control+Tab,F3\"`). Unset actions keep rofi's\ndefaults."
+          "description": "Keybinding overrides: action (rofi `kb-` name without the prefix,\ne.g. `accept`, `cancel`, `mode-next`, `custom-1`, or lys's own\n`quick-look`, Shift+Space by default, which previews the selected\nrow) → comma-separated key list (e.g. `\"Control+Tab,F3\"`). Unset\nactions keep rofi's defaults."
         },
         "lines": {
           "$ref": "#/$defs/uint32",
@@ -4105,31 +4105,6 @@
           "$ref": "#/$defs/boolean",
           "default": true,
           "description": "Strip accents/normalize Unicode while matching."
-        },
-        "preview-cmd": {
-          "$ref": "#/$defs/Command",
-          "default": "",
-          "description": "Command that turns a `thumbnail://` row icon into an image file:\n`{input}` the icon's path, `{output}` where to write the thumbnail,\n`{size}` the requested pixel size. Empty uses the system's XDG\nthumbnailers. rofi's `-preview-cmd`.\n\n## Placeholders\n\n- `{input}` - The file to preview\n- `{output}` - Where to write the thumbnail\n- `{size}` - The thumbnail size in pixels",
-          "x-placeholders": [
-            {
-              "description": "The file to preview",
-              "name": "input",
-              "sample": "/home/ada/report.pdf",
-              "token": "{input}"
-            },
-            {
-              "description": "Where to write the thumbnail",
-              "name": "output",
-              "sample": "/tmp/report.png",
-              "token": "{output}"
-            },
-            {
-              "description": "The thumbnail size in pixels",
-              "name": "size",
-              "sample": "256",
-              "token": "{size}"
-            }
-          ]
         },
         "run": {
           "$ref": "#/$defs/LauncherRunConfig",
@@ -6438,10 +6413,10 @@
             "icon-color": "auto",
             "icon-name": "ld-power-symbolic",
             "left-click": ":menu",
-            "lock-command": "loginctl lock-session",
-            "logout-command": "lys-shell logout",
+            "lock-command": ":lock",
+            "logout-command": ":logout",
             "middle-click": "",
-            "reboot-command": "systemctl reboot",
+            "reboot-command": ":reboot",
             "right-click": "",
             "scroll-down": "",
             "scroll-up": "",
@@ -6450,8 +6425,8 @@
             "show-reboot": true,
             "show-shutdown": true,
             "show-suspend": true,
-            "shutdown-command": "systemctl poweroff",
-            "suspend-command": "systemctl suspend"
+            "shutdown-command": ":poweroff",
+            "suspend-command": ":suspend"
           },
           "description": "Power menu module."
         },
@@ -8095,13 +8070,13 @@
         },
         "lock-command": {
           "$ref": "#/$defs/Command",
-          "default": "loginctl lock-session",
-          "description": "Command run by the power menu's Lock button."
+          "default": ":lock",
+          "description": "What the power menu's Lock button runs. The default `:lock` asks logind\nto lock the session, which the lock screen answers; any other string\nis a shell command line."
         },
         "logout-command": {
           "$ref": "#/$defs/Command",
-          "default": "lys-shell logout",
-          "description": "Command run by the power menu's Log out button."
+          "default": ":logout",
+          "description": "What the power menu's Log out button runs. The default `:logout` ends\nthe session through lys-wm, else logind; any other string is a shell\ncommand line."
         },
         "middle-click": {
           "$ref": "#/$defs/ClickAction",
@@ -8110,8 +8085,8 @@
         },
         "reboot-command": {
           "$ref": "#/$defs/Command",
-          "default": "systemctl reboot",
-          "description": "Command run by the power menu's Reboot button."
+          "default": ":reboot",
+          "description": "What the power menu's Reboot button runs. The default `:reboot` asks\nlogind to reboot; any other string is a shell command line."
         },
         "right-click": {
           "$ref": "#/$defs/ClickAction",
@@ -8155,13 +8130,13 @@
         },
         "shutdown-command": {
           "$ref": "#/$defs/Command",
-          "default": "systemctl poweroff",
-          "description": "Command run by the power menu's Shut down button."
+          "default": ":poweroff",
+          "description": "What the power menu's Shut down button runs. The default `:poweroff`\nasks logind to power off; any other string is a shell command line."
         },
         "suspend-command": {
           "$ref": "#/$defs/Command",
-          "default": "systemctl suspend",
-          "description": "Command run by the power menu's Suspend button."
+          "default": ":suspend",
+          "description": "What the power menu's Suspend button runs. The default `:suspend`\nasks logind to suspend; any other string is a shell command line."
         }
       },
       "type": "object"
@@ -11624,7 +11599,6 @@
         "mouse-bindings": {},
         "negate-char": "-",
         "normalize-match": true,
-        "preview-cmd": "",
         "run": {
           "list-command": "",
           "run-command": "{cmd}",
@@ -12257,10 +12231,10 @@
           "icon-color": "auto",
           "icon-name": "ld-power-symbolic",
           "left-click": ":menu",
-          "lock-command": "loginctl lock-session",
-          "logout-command": "lys-shell logout",
+          "lock-command": ":lock",
+          "logout-command": ":logout",
           "middle-click": "",
-          "reboot-command": "systemctl reboot",
+          "reboot-command": ":reboot",
           "right-click": "",
           "scroll-down": "",
           "scroll-up": "",
@@ -12269,8 +12243,8 @@
           "show-reboot": true,
           "show-shutdown": true,
           "show-suspend": true,
-          "shutdown-command": "systemctl poweroff",
-          "suspend-command": "systemctl suspend"
+          "shutdown-command": ":poweroff",
+          "suspend-command": ":suspend"
         },
         "power-profiles": {
           "auto-saver-at": "never",

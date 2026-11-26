@@ -227,14 +227,13 @@ func TestAVideoStopsDecodingWhenThePreviewCloses(t *testing.T) {
 	}
 }
 
-// A document shows the thumbnail its thumbnailer makes, fitted to the
+// A document shows the thumbnail lys-docthumb makes, fitted to the
 // box; a type nothing thumbnails, text that is not text, and a host
 // without a thumbnailer show the type's icon, never a blank.
 func TestAFileFallsBackToItsThumbnailThenItsIcon(t *testing.T) {
 	h := newHarness(t)
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
-	thumbnailtest.Install(t, "application/pdf", thumbnailtest.Argv(t, thumbnailtest.Page, "%s", "%u", "%o"))
-	h.src.Thumbnails = thumbnail.New(thumbnail.Config{})
+	h.src.Thumbnails = thumbnail.New(thumbnail.Config{DocumentHelper: thumbnailtest.Helper(t, thumbnailtest.Page)})
 	dir := t.TempDir()
 	doc := writeFile(t, filepath.Join(dir, "paper.pdf"), []byte("%PDF-1.4"))
 	thing := writeFile(t, filepath.Join(dir, "blob.thing"), []byte{1, 2, 3})

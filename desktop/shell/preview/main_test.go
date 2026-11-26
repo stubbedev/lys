@@ -12,7 +12,7 @@ import (
 // TestMain runs the package against a scratch home, with times in UTC
 // and numbers and dates formatted as en-US, so the detail lines the
 // goldens show read the same on any host. Started as the fake
-// thumbnailer, the test binary is one instead.
+// lys-docthumb, the test binary is one instead.
 func TestMain(m *testing.M) {
 	thumbnailtest.RunIfFake()
 	for _, kv := range [][2]string{{"TZ", "UTC"}, {"LC_ALL", "en_US.UTF-8"}} {

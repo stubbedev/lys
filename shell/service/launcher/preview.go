@@ -9,7 +9,6 @@ import (
 	"unicode/utf8"
 
 	"github.com/stubbedev/lys/desktop/imagedecode"
-	"github.com/stubbedev/lys/desktop/thumbnail"
 )
 
 // ErrNoPreview is a row with nothing to load: facts alone, text that is
@@ -49,11 +48,6 @@ type PreviewContent struct {
 	Image image.Image
 	Text  string
 }
-
-// Previews is the thumbnailer a file's preview shows a document's
-// thumbnail through: -preview-cmd's when it is set, nil when it does
-// not parse.
-func (t Thumbnailer) Previews() *thumbnail.Thumbnailer { return t.files }
 
 // LoadPreview loads a preview that is not a file's, off the UI loop.
 // Facts alone have nothing to load: ErrNoPreview.

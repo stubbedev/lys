@@ -299,7 +299,7 @@ func TestFolderPreviewCountsItems(t *testing.T) {
 	hs.hide()
 }
 
-// A PDF previews its large thumbnail, made by its thumbnailer.
+// A PDF previews its large thumbnail, made by lys-docthumb.
 func TestQuicklookShowsAThumbnailerPage(t *testing.T) {
 	hs := newHarness(t, "")
 	doc := pdfFile(t, hs)

@@ -37,7 +37,6 @@ type uiSettings struct {
 	keybindings      []config.LauncherBinding
 	mouseBindings    []config.LauncherBinding
 	hooks            engine.Hooks
-	previewCmd       string
 	completer        string
 	cycle            bool
 	autoSelect       bool
@@ -140,7 +139,6 @@ func buildSession(opts launcheripc.SessionOptions, cfg *config.Config, rows <-ch
 			keybindings:      bindings,
 			mouseBindings:    engine.EffectiveMouseBindings(engine.MergeOverrides(l.MouseBindings, opts.MouseOverrides)),
 			hooks:            hooksOf(opts),
-			previewCmd:       previewCmd(opts, l),
 			completer:        deref(opts.CompleterMode, ""),
 			cycle:            deref(opts.Cycle, l.Cycle),
 			autoSelect:       deref(opts.AutoSelect, l.AutoSelect),
@@ -413,15 +411,6 @@ func hooksOf(opts launcheripc.SessionOptions) engine.Hooks {
 		MenuCanceled:     deref(opts.OnMenuCanceled, ""),
 		MenuError:        deref(opts.OnMenuError, ""),
 	}
-}
-
-// previewCmd is -preview-cmd, else the configured one; blank is none.
-func previewCmd(opts launcheripc.SessionOptions, l config.LauncherConfig) string {
-	cmd := deref(opts.PreviewCmd, l.PreviewCmd)
-	if strings.TrimSpace(cmd) == "" {
-		return ""
-	}
-	return cmd
 }
 
 // stylePreset is the CSS of the -style preset, "" without one. A preset

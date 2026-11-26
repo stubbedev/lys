@@ -1,6 +1,8 @@
-// Package docrender opens and renders documents with folio: PDF, EPUB,
-// MOBI and AZW3, FB2, CHM, DOCX, PPTX, XLSX, HTML and plain text, and
-// SVG. It parses untrusted input with no deadline of its own, so only
+// Package docrender opens, renders and reads documents with folio: PDF,
+// EPUB, MOBI and AZW3, FB2, CHM, DOCX, PPTX, XLSX, HTML and plain text,
+// and SVG: a page fitted into a box or a tile of it at a scale, what
+// the document says of itself (page sizes, labels, outline), and a
+// page's text with the box of every character and its links. It parses untrusted input with no deadline of its own, so only
 // lys-docthumb links it, in a sandboxed process lys kills when it runs
 // too long or past its memory; no long-running lys process imports it.
 // Its failures are dochelper's errors.
@@ -81,23 +83,15 @@ func (d *Document) Render(i int, w, h int) (_ *image.RGBA, err error) {
 	if int64(w)*int64(h) > MaxPixels {
 		return nil, fmt.Errorf("%w: %s: over %d pixels", dochelper.ErrTooLarge, what, MaxPixels)
 	}
-	if n := d.d.NumPages(); i < 0 || i >= n {
-		return nil, fmt.Errorf("docrender: %s: the document has %d pages", what, n)
-	}
-	p, err := d.d.Page(i)
+	p, err := d.page(i, what)
 	if err != nil {
-		return nil, classify(what, err)
+		return nil, err
 	}
-	sized, ok := p.(deviceBounds)
-	if !ok {
-		return nil, fmt.Errorf("docrender: %s: a %s page reports no size", what, d.d.Kind())
+	size, err := d.pageSize(p, what)
+	if err != nil {
+		return nil, err
 	}
-	b := sized.DeviceBounds(boundsDPI)
-	pw, ph := float64(b.X1-b.X0), float64(b.Y1-b.Y0)
-	if !(pw > 0 && ph > 0) || math.IsInf(pw, 0) || math.IsInf(ph, 0) {
-		return nil, fmt.Errorf("%w: %s: the page is %gx%g", dochelper.ErrDamaged, what, pw, ph)
-	}
-	scale := min(float64(w)/pw, float64(h)/ph) * (1 - 1e-6)
+	scale := min(float64(w)/size.W, float64(h)/size.H) * (1 - 1e-6)
 	img, err := p.ImageDPI(boundsDPI * scale)
 	if err != nil {
 		err = classify(what, err)
@@ -106,6 +100,33 @@ func (d *Document) Render(i int, w, h int) (_ *image.RGBA, err error) {
 		err = fmt.Errorf("docrender: %s: nothing was drawn", what)
 	}
 	return img, err
+}
+
+// page is page i, counting from zero, for doing what.
+func (d *Document) page(i int, what string) (doc.Page, error) {
+	if n := d.d.NumPages(); i < 0 || i >= n {
+		return nil, fmt.Errorf("docrender: %s: the document has %d pages", what, n)
+	}
+	p, err := d.d.Page(i)
+	if err != nil {
+		return nil, classify(what, err)
+	}
+	return p, nil
+}
+
+// pageSize is p's size in points, measured at boundsDPI, for doing
+// what: ErrDamaged for a page of no size or an infinite one.
+func (d *Document) pageSize(p doc.Page, what string) (dochelper.Size, error) {
+	sized, ok := p.(deviceBounds)
+	if !ok {
+		return dochelper.Size{}, fmt.Errorf("docrender: %s: a %s page reports no size", what, d.d.Kind())
+	}
+	b := sized.DeviceBounds(boundsDPI)
+	pw, ph := float64(b.X1-b.X0), float64(b.Y1-b.Y0)
+	if !(pw > 0 && ph > 0) || math.IsInf(pw, 0) || math.IsInf(ph, 0) {
+		return dochelper.Size{}, fmt.Errorf("%w: %s: the page is %gx%g", dochelper.ErrDamaged, what, pw, ph)
+	}
+	return dochelper.Size{W: pw, H: ph}, nil
 }
 
 // Close releases the document.

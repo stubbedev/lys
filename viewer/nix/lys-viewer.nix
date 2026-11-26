@@ -6,7 +6,6 @@
   xkeyboard-config,
   libva,
   vulkan-loader,
-  bubblewrap,
 }: let
   libs = [libva vulkan-loader];
 in
@@ -36,8 +35,7 @@ in
     '';
 
     postFixup = ''
-      wrapProgram $out/bin/lys-viewer --prefix LD_LIBRARY_PATH : "${lib.makeLibraryPath libs}" \
-        --suffix PATH : "${lib.makeBinPath [bubblewrap]}"
+      wrapProgram $out/bin/lys-viewer --prefix LD_LIBRARY_PATH : "${lib.makeLibraryPath libs}"
     '';
 
     doInstallCheck = true;

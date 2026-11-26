@@ -54,12 +54,10 @@ substituted, one placeholder per argument, and no shell is involved):
     -on-menu-error <cmd>          the menu could not be built
 
 THUMBNAILS:
-    -preview-cmd '<cmd> {input} {output} {size}'
-                     makes a row's picture instead of the system's XDG
-                     thumbnailers. A row asks for one by prefixing its icon
-                     with thumbnail://, e.g.
-                     printf 'Name\\0icon\\x1fthumbnail:///path/to/file'
-                     filebrowser and recursivebrowser ask for one per file.
+    A row asks for a thumbnail by prefixing its icon with thumbnail://, e.g.
+    printf 'Name\\0icon\\x1fthumbnail:///path/to/file'
+    filebrowser and recursivebrowser ask for one per file. lys makes it with
+    its own decoders; rofi's -preview-cmd is refused.
 
 MOUSE BINDINGS (-me-* buttons, -ml-* scroll; see -list-keybindings):
     -me-accept-entry MouseDPrimary     accept on a double click only

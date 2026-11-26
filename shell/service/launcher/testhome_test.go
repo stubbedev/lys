@@ -7,9 +7,8 @@ import (
 	"github.com/stubbedev/lys/lib/testhome"
 )
 
-// TestMain runs the package against a scratch home, which the sandbox
-// tests plant a secret in; started as the fake thumbnailer, the test
-// binary is one instead.
+// TestMain runs the package against a scratch home; started as the
+// fake lys-docthumb, the test binary is one instead.
 func TestMain(m *testing.M) {
 	thumbnailtest.RunIfFake()
 	testhome.Run(m)

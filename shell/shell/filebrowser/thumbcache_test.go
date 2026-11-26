@@ -142,20 +142,19 @@ func TestDecodedThumbnailsAreCached(t *testing.T) {
 	}
 }
 
-// installThumbnailer installs the fake thumbnailer doing mode for PDFs
-// over a fresh cache and gives hs a thumbnailer that finds it.
+// installThumbnailer gives hs a thumbnailer, over a fresh cache, whose
+// lys-docthumb is the fake doing mode.
 func installThumbnailer(t *testing.T, hs *harness, mode string) {
 	t.Helper()
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
 	switchThumbnailer(t, hs, mode, thumbnail.Config{})
 }
 
-// switchThumbnailer installs the fake thumbnailer doing mode for PDFs
-// in place of the one installed, over the same cache, and gives hs a
-// thumbnailer as cfg says that finds it.
+// switchThumbnailer gives hs a thumbnailer as cfg says, over the same
+// cache, whose lys-docthumb is the fake doing mode.
 func switchThumbnailer(t *testing.T, hs *harness, mode string, cfg thumbnail.Config) {
 	t.Helper()
-	thumbnailtest.Install(t, "application/pdf", thumbnailtest.Argv(t, mode, "%s", "%u", "%o"))
+	cfg.DocumentHelper = thumbnailtest.Helper(t, mode)
 	hs.c.thumbnailer = thumbnail.New(cfg)
 }
 
@@ -168,9 +167,8 @@ func pdfFile(t *testing.T, hs *harness) string {
 	return doc
 }
 
-// A PDF gets the thumbnail its installed thumbnailer makes, in the
-// sandbox, and the second opening reads it from the cache: a
-// thumbnailer that now fails changes nothing.
+// A PDF gets the thumbnail lys-docthumb makes, and the second opening
+// reads it from the cache: a helper that now fails changes nothing.
 func TestThumbnailersMakeThumbnailsOnce(t *testing.T) {
 	hs := newHarness(t, "")
 	doc := pdfFile(t, hs)
@@ -184,20 +182,20 @@ func TestThumbnailersMakeThumbnailsOnce(t *testing.T) {
 	}
 }
 
-// A thumbnailer that hangs is killed at its timeout, and the fail
-// entry it leaves stops the next opening from running one again; a
-// file changed since gets another try.
+// A lys-docthumb that hangs is killed at its timeout, and the fail
+// entry it leaves stops the next opening from running it again; a file
+// changed since gets another try.
 func TestHangingThumbnailerFailsOnce(t *testing.T) {
 	hs := newHarness(t, "")
 	doc := pdfFile(t, hs)
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
 	switchThumbnailer(t, hs, thumbnailtest.Hang, thumbnail.Config{RunTimeout: 500 * time.Millisecond})
 	if hs.openRows(t, filepath.Dir(doc), []string{doc}) != 0 {
-		t.Error("a hung thumbnailer made a thumbnail")
+		t.Error("a hung lys-docthumb made a thumbnail")
 	}
 	switchThumbnailer(t, hs, thumbnailtest.Page, thumbnail.Config{})
 	if hs.openRows(t, filepath.Dir(doc), []string{doc}) != 0 {
-		t.Error("a file that failed ran a thumbnailer again")
+		t.Error("a file that failed ran lys-docthumb again")
 	}
 	later := time.Now().Add(time.Hour)
 	if err := os.Chtimes(doc, later, later); err != nil {
@@ -208,20 +206,20 @@ func TestHangingThumbnailerFailsOnce(t *testing.T) {
 	}
 }
 
-// Without bubblewrap no installed thumbnailer runs, a PDF row gets no
-// thumbnail, and the chooser says why once.
-func TestNoSandboxRunsNoThumbnailer(t *testing.T) {
+// Without lys-docthumb a PDF row gets no thumbnail, and the chooser
+// says why once.
+func TestNoHelperMakesNoDocumentThumbnail(t *testing.T) {
 	hs := newHarness(t, "")
 	doc := pdfFile(t, hs)
-	t.Setenv("PATH", t.TempDir())
-	installThumbnailer(t, hs, thumbnailtest.Page)
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	hs.c.thumbnailer = thumbnail.New(thumbnail.Config{DocumentHelper: filepath.Join(t.TempDir(), "lys-docthumb")})
 	logged := logtest.Capture(t)
 	for range 2 {
 		if hs.openRows(t, filepath.Dir(doc), []string{doc}) != 0 {
-			t.Fatal("a thumbnailer ran without a sandbox")
+			t.Fatal("a PDF row got a thumbnail without lys-docthumb")
 		}
 	}
-	if n := strings.Count(logged.String(), "thumbnailers are not run without a sandbox: bubblewrap (bwrap) is not installed"); n != 1 {
-		t.Errorf("the missing sandbox was logged %d times, want once:\n%s", n, logged.String())
+	if n := strings.Count(logged.String(), "documents have no thumbnails, as lys-docthumb is not run"); n != 1 {
+		t.Errorf("the missing helper was logged %d times, want once:\n%s", n, logged.String())
 	}
 }

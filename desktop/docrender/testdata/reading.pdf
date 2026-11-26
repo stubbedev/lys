@@ -1,0 +1,89 @@
+%PDF-1.7
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R /Outlines 4 0 R /PageMode /UseOutlines /PageLabels << /Nums [0 << /S /r >> 1 << /S /D >>] >> >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [5 0 R 6 0 R 7 0 R] /Count 3 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+4 0 obj
+<< /Type /Outlines /First 11 0 R /Last 12 0 R /Count 3 >>
+endobj
+5 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 8 0 R /Annots [14 0 R 15 0 R] >>
+endobj
+6 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 9 0 R >>
+endobj
+7 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 10 0 R >>
+endobj
+8 0 obj
+<< /Length 117 >>
+stream
+BT /F1 18 Tf 72 720 Td 24 TL
+(Reading test, page one) Tj T*
+(Go to the last page) Tj T*
+(Visit example.org) Tj T*
+ET
+endstream
+endobj
+9 0 obj
+<< /Length 90 >>
+stream
+BT /F1 18 Tf 72 720 Td 24 TL
+(Page two holds a needle) Tj T*
+(and one more line) Tj T*
+ET
+endstream
+endobj
+10 0 obj
+<< /Length 83 >>
+stream
+BT /F1 18 Tf 72 720 Td 24 TL
+(Page three: needle, needle) Tj T*
+(The end) Tj T*
+ET
+endstream
+endobj
+11 0 obj
+<< /Title (Start) /Parent 4 0 R /Next 12 0 R /Dest [5 0 R /XYZ 0 792 0] >>
+endobj
+12 0 obj
+<< /Title (Middle) /Parent 4 0 R /Prev 11 0 R /First 13 0 R /Last 13 0 R /Count 1 /Dest [6 0 R /XYZ 0 792 0] >>
+endobj
+13 0 obj
+<< /Title (Needles) /Parent 12 0 R /Dest [7 0 R /XYZ 0 792 0] >>
+endobj
+14 0 obj
+<< /Type /Annot /Subtype /Link /Rect [72 690 300 712] /Border [0 0 0] /Dest [7 0 R /XYZ 0 792 0] >>
+endobj
+15 0 obj
+<< /Type /Annot /Subtype /Link /Rect [72 666 300 688] /Border [0 0 0] /A << /S /URI /URI (https://example.org/) >> >>
+endobj
+xref
+0 16
+0000000000 65535 f 
+0000000015 00000 n 
+0000000157 00000 n 
+0000000226 00000 n 
+0000000323 00000 n 
+0000000396 00000 n 
+0000000546 00000 n 
+0000000672 00000 n 
+0000000799 00000 n 
+0000000966 00000 n 
+0000001105 00000 n 
+0000001238 00000 n 
+0000001329 00000 n 
+0000001457 00000 n 
+0000001538 00000 n 
+0000001654 00000 n 
+trailer
+<< /Size 16 /Root 1 0 R >>
+startxref
+1788
+%%EOF

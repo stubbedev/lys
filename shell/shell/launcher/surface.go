@@ -205,10 +205,10 @@ func New(d Deps) *Surface {
 	return s
 }
 
-// previewSources are what a session's file previews load through: its
-// thumbnailer, and the surface's pictures.
-func (s *Surface) previewSources(thumbs engine.Thumbnailer) preview.Sources {
-	return preview.Sources{MIME: mime.System(), Thumbnails: thumbs.Previews(), Pictures: s.pictures}
+// previewSources are what a session's file previews load through: the
+// surface's thumbnailer and pictures.
+func (s *Surface) previewSources() preview.Sources {
+	return preview.Sources{MIME: mime.System(), Thumbnails: s.thumbs, Pictures: s.pictures}
 }
 
 // Open implements launcheripc.Handler: the session moves onto the loop.
@@ -310,11 +310,11 @@ func (s *Surface) openSession(sess *launcheripc.Session) {
 	ctx, cancel := context.WithCancel(context.Background())
 	a := &active{
 		sess: sess, ui: setup.ui, history: setup.history, dialog: dialog, dump: sess.Options.Dump,
-		thumbs: engine.NewThumbnailer(s.thumbs, mime.System(), setup.ui.previewCmd), ctx: ctx, cancel: cancel,
+		thumbs: engine.NewThumbnailer(s.thumbs, mime.System()), ctx: ctx, cancel: cancel,
 		keys: compileKeys(setup.ui.keybindings), mouse: compileMouse(setup.ui.mouseBindings),
 	}
 	a.quickLook = accelsFor(a.keys, keyQuickLook)
-	a.preview = newPreviewLoader(s.d, s.work.Go, s.previewSources(a.thumbs))
+	a.preview = newPreviewLoader(s.d, s.work.Go, s.previewSources())
 	s.multi = multiSelect{picked: map[uint32]bool{}, ballotSelected: setup.ui.ballotSelected, ballotUnselected: setup.ui.ballotUnselected}
 	s.model.update(nil, nil)
 	s.sel = -1

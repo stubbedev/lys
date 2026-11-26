@@ -206,7 +206,6 @@ type SessionOptions struct {
 
 	Font          *string `json:"font,omitempty"`
 	Style         *string `json:"style,omitempty"`
-	PreviewCmd    *string `json:"preview-cmd,omitempty"`
 	CompleterMode *string `json:"completer-mode,omitempty"`
 }
 

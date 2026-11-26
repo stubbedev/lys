@@ -31,8 +31,8 @@ func TestTheCachePathIsTheMd5OfTheFileURI(t *testing.T) {
 	if want := filepath.Join("/cache/thumbnails/normal", hex.EncodeToString(sum[:])+".png"); tc.path("normal") != want {
 		t.Errorf("path = %s, want %s", tc.path("normal"), want)
 	}
-	if want := filepath.Join("/cache/thumbnails/fail/lys-shell", hex.EncodeToString(sum[:])+".png"); tc.failPath(software) != want {
-		t.Errorf("fail path = %s, want %s", tc.failPath(software), want)
+	if want := filepath.Join("/cache/thumbnails/fail/lys-shell", hex.EncodeToString(sum[:])+".png"); tc.failPath() != want {
+		t.Errorf("fail path = %s, want %s", tc.failPath(), want)
 	}
 	if tc.mtime != "1700000000" || tc.size != "7" {
 		t.Errorf("Thumb::MTime %s, Thumb::Size %s", tc.mtime, tc.size)

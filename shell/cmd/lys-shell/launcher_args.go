@@ -54,11 +54,19 @@ var ignoredBare = []string{
 	"drun-use-desktop-cache", "drun-reload-desktop-cache",
 }
 
+// errPreviewCmd refuses rofi's -preview-cmd: its whole contract is
+// running the command to make a thumbnail, which lys never does, so a
+// script passing it is told rather than shown thumbnails it did not ask
+// for.
+var errPreviewCmd = errors.New("-preview-cmd was removed: lys renders previews and thumbnails itself and runs no thumbnail command; drop the flag")
+
 // parseLauncherArgs maps rofi's single-dash long flags.
 // Session options travel to the shell, unsupported flags warn on
 // stderr and are skipped (friendlier than rofi's hard error for a
 // shim), and a few are handled locally. A value flag missing its value
-// is a usage error, as is a -width that is not a number.
+// is a usage error, as is a -width that is not a number and
+// -preview-cmd (errPreviewCmd), whose value is read so it is never
+// taken for the next flag.
 func parseLauncherArgs(args []string, stderr io.Writer) (launcherInvocation, error) {
 	inv := launcherInvocation{format: "s"}
 	opts := &inv.options
@@ -322,7 +330,9 @@ func parseLauncherArgs(args []string, stderr io.Writer) (launcherInvocation, err
 		case "style":
 			err = str("style", &opts.Style)
 		case "preview-cmd":
-			err = str("preview-cmd", &opts.PreviewCmd)
+			if _, err = value(flag); err == nil {
+				err = errPreviewCmd
+			}
 		case "completer-mode":
 			err = str("completer-mode", &opts.CompleterMode)
 

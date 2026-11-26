@@ -189,7 +189,6 @@ func launcherPage(*config.Config) pageSpec {
 			field("launcher.cycle"),
 			field("launcher.fixed-num-lines"),
 			field("launcher.styles", launcherStylesRow),
-			field("launcher.preview-cmd"),
 		}},
 		{title: "settings-section-launcher-keybindings", rows: []rowSpec{
 			field("launcher.keybindings", launcherKeysRow),

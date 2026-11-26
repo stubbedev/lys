@@ -46,3 +46,15 @@ reference/blocks.png
   folio's own output rather than an independent one; it is compared with
   the same block tolerance, which absorbs the substitute font a machine
   with system fonts may draw its text in.
+
+reading.pdf (2174 bytes, 3 pages)
+  sha256 2f94e103b4ae0dd4635b9711937ba7edc8a31cbe6d04dd1469e46081b4e548f7
+  Made for lys: a hand-written PDF 1.7 of three US Letter pages of
+  Helvetica text (the standard font, not embedded), written out with its
+  cross-reference table by a short script. Its pages are labelled i, 1
+  and 2; its outline is Start (page 1), Middle (page 2) and, under
+  Middle, Needles (page 3); page 1 carries a link to page 3 over its
+  second line and one to https://example.org/ over its third; "needle"
+  is on page 2 once and on page 3 twice. It is what the reading tests
+  page through, search, select and follow links in. MIT, as the rest of
+  lys.

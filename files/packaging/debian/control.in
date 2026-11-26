@@ -18,7 +18,6 @@ Depends:
  hicolor-icon-theme,
  shared-mime-info
 Recommends:
- bubblewrap,
  dbus,
  libvulkan1,
  mesa-vulkan-drivers,

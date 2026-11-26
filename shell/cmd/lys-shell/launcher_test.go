@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"reflect"
 	"strings"
@@ -181,9 +182,25 @@ func TestMouseBindingsKeepTheirNamespacePrefix(t *testing.T) {
 }
 
 func TestAppearanceFlagsReachTheSession(t *testing.T) {
-	inv := parseOK(t, "-font", "Inter 12", "-style", "compact", "-preview-cmd", "thumb {input} {output} {size}")
-	if deref(inv.options.Font) != "Inter 12" || deref(inv.options.Style) != "compact" || deref(inv.options.PreviewCmd) != "thumb {input} {output} {size}" {
+	inv := parseOK(t, "-font", "Inter 12", "-style", "compact")
+	if deref(inv.options.Font) != "Inter 12" || deref(inv.options.Style) != "compact" {
 		t.Errorf("options = %+v", inv.options)
+	}
+}
+
+// -preview-cmd is refused with why, its value read rather than taken
+// for a flag; without its value it is the usual missing-value error.
+func TestThePreviewCommandFlagIsRefused(t *testing.T) {
+	var stderr strings.Builder
+	_, err := parseLauncherArgs([]string{"-preview-cmd", "-show", "-font", "Inter 12"}, &stderr)
+	if !errors.Is(err, errPreviewCmd) || !strings.Contains(err.Error(), "lys renders previews and thumbnails itself") {
+		t.Errorf("-preview-cmd = %v, want errPreviewCmd", err)
+	}
+	if stderr.Len() != 0 {
+		t.Errorf("-preview-cmd also warned %q", stderr.String())
+	}
+	if _, err := parseLauncherArgs([]string{"-preview-cmd"}, io.Discard); err == nil || !strings.Contains(err.Error(), "-preview-cmd requires a value") {
+		t.Errorf("a bare -preview-cmd = %v, want its missing value", err)
 	}
 }
 

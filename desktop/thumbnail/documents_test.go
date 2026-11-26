@@ -3,14 +3,20 @@ package thumbnail
 import (
 	"context"
 	"errors"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"os"
 	"path/filepath"
 	"runtime/debug"
+	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
 	"github.com/stubbedev/lys/lib/logtest"
+	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/desktop/dochelper"
 	"github.com/stubbedev/lys/desktop/thumbnail/thumbnailtest"
@@ -29,67 +35,9 @@ func document(t *testing.T, name string) string {
 	return path
 }
 
-// PDFs and EPUBs are thumbnailed by lys-docthumb, ahead of the
-// thumbnailer installed for them, which here fails.
-func TestDocumentsAreThumbnailedByTheHelper(t *testing.T) {
-	thumbnailtest.Install(t, pdfType+";"+epubType, thumbnailtest.Argv(t, thumbnailtest.Fail, "%o"))
-	for _, c := range []struct{ name, mimeType string }{{"paper.pdf", pdfType}, {"book.epub", epubType}} {
-		t.Run(c.mimeType, func(t *testing.T) {
-			doc := document(t, c.name)
-			th := New(Config{DocumentHelper: thumbnailtest.Argv(t, thumbnailtest.Page)})
-			size, err := square(t, th, doc, c.mimeType, 64)
-			if err != nil || size.X != 64 {
-				t.Fatalf("the %s's thumbnail = %v, %v, want lys-docthumb's", c.mimeType, size, err)
-			}
-		})
-	}
-}
-
-// Without lys-docthumb, the thumbnailer installed for documents makes
-// their thumbnails, and why is logged once.
-func TestWithoutTheHelperTheInstalledThumbnailerServesDocuments(t *testing.T) {
-	doc := document(t, "paper.pdf")
-	thumbnailtest.Install(t, pdfType, thumbnailtest.Argv(t, thumbnailtest.Page, "%o"))
-	missing := filepath.Join(t.TempDir(), dochelper.Program)
-	th := New(Config{DocumentHelper: []string{missing}})
-	logged := logtest.Capture(t)
-	for range 2 {
-		if size, err := square(t, th, doc, pdfType, 64); err != nil || size.X != 64 {
-			t.Fatalf("the PDF's thumbnail = %v, %v, want the installed thumbnailer's", size, err)
-		}
-		t.Setenv("XDG_CACHE_HOME", t.TempDir())
-	}
-	want := "the installed thumbnailers make documents' thumbnails, as " + dochelper.Program + " is not run"
-	if n := strings.Count(logged.String(), want); n != 1 || !strings.Contains(logged.String(), missing) {
-		t.Errorf("the missing helper was logged %d times, want once naming %s:\n%s", n, missing, logged.String())
-	}
-}
-
-// The lys-docthumb a Thumbnailer runs by default is the one next to the
-// running program.
-func TestTheHelperIsFoundNextToTheProgram(t *testing.T) {
-	exe, err := os.Executable()
-	if err != nil {
-		t.Fatal(err)
-	}
-	argv, err := helperArgv(nil)
-	if err != nil || len(argv) != 1 || argv[0] != filepath.Join(filepath.Dir(exe), dochelper.Program) {
-		t.Errorf("the default helper = %q, %v, want %s beside %s", argv, err, dochelper.Program, exe)
-	}
-	set := []string{"/opt/helper", "-x"}
-	if argv, err := helperArgv(set); err != nil || strings.Join(argv, " ") != "/opt/helper -x" {
-		t.Errorf("a set helper = %q, %v, want %q", argv, err, set)
-	}
-}
-
-// A helper that hangs is killed at the run timeout, and the document
-// is recorded as failed.
-func TestAHangingHelperIsKilled(t *testing.T) {
-	doc := document(t, "paper.pdf")
-	th := New(Config{DocumentHelper: thumbnailtest.Argv(t, thumbnailtest.Hang), RunTimeout: 500 * time.Millisecond})
-	if _, err := square(t, th, doc, pdfType, 64); !errors.Is(err, context.DeadlineExceeded) {
-		t.Fatalf("a hanging helper = %v, want its deadline", err)
-	}
+// requireFailRecord fails t unless doc, as it is now, has a fail record.
+func requireFailRecord(t *testing.T, doc string) {
+	t.Helper()
 	info, err := os.Stat(doc)
 	if err != nil {
 		t.Fatal(err)
@@ -98,9 +46,177 @@ func TestAHangingHelperIsKilled(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !tc.failed(software) {
-		t.Errorf("no fail record at %s", tc.failPath(software))
+	if !tc.failed() {
+		t.Errorf("no fail record at %s", tc.failPath())
 	}
+}
+
+// PDFs and EPUBs are thumbnailed by lys-docthumb.
+func TestDocumentsAreThumbnailedByTheHelper(t *testing.T) {
+	for _, c := range []struct{ name, mimeType string }{{"paper.pdf", pdfType}, {"book.epub", epubType}} {
+		t.Run(c.mimeType, func(t *testing.T) {
+			doc := document(t, c.name)
+			th := New(Config{DocumentHelper: thumbnailtest.Helper(t, thumbnailtest.Page)})
+			size, err := square(t, th, doc, c.mimeType, 64)
+			if err != nil || size.X != 64 {
+				t.Fatalf("the %s's thumbnail = %v, %v, want lys-docthumb's", c.mimeType, size, err)
+			}
+		})
+	}
+}
+
+// Without lys-docthumb a document has no thumbnail, ErrNoHelper (which
+// is ErrNone, so no failure is recorded), and why is logged once.
+func TestWithoutTheHelperDocumentsHaveNoThumbnail(t *testing.T) {
+	doc := document(t, "paper.pdf")
+	missing := filepath.Join(t.TempDir(), dochelper.Program)
+	th := New(Config{DocumentHelper: missing})
+	logged := logtest.Capture(t)
+	for range 2 {
+		if _, err := square(t, th, doc, pdfType, 64); !errors.Is(err, ErrNoHelper) || !errors.Is(err, ErrNone) {
+			t.Fatalf("the PDF's thumbnail without the helper = %v, want ErrNoHelper", err)
+		}
+	}
+	want := "documents have no thumbnails, as " + dochelper.Program + " is not run"
+	if n := strings.Count(logged.String(), want); n != 1 || !strings.Contains(logged.String(), missing) {
+		t.Errorf("the missing helper was logged %d times, want once naming %s:\n%s", n, missing, logged.String())
+	}
+}
+
+// The lys-docthumb a Thumbnailer runs by default is the one next to the
+// running program; a set one is run only when it is an absolute path to
+// a file called lys-docthumb, so no other program is ever run.
+func TestOnlyLysDocthumbIsRun(t *testing.T) {
+	exe, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	beside := filepath.Join(filepath.Dir(exe), dochelper.Program)
+	if _, err := newDocHelper(""); err == nil || !strings.Contains(err.Error(), beside) {
+		t.Errorf("the default helper = %v, want %s beside %s, which is not installed", err, beside, exe)
+	}
+	fake := thumbnailtest.Helper(t, thumbnailtest.Page)
+	if h, err := newDocHelper(fake); err != nil || h.path != fake {
+		t.Errorf("an installed helper = %+v, %v, want it run from %s", h, err, fake)
+	}
+	for _, path := range []string{"/bin/sh", exe, dochelper.Program, filepath.Join(".", dochelper.Program), filepath.Join(filepath.Dir(fake), "evince-thumbnailer")} {
+		doc := document(t, "paper.pdf")
+		th := New(Config{DocumentHelper: path})
+		logtest.Capture(t)
+		if _, err := square(t, th, doc, pdfType, 64); !errors.Is(err, ErrNoHelper) {
+			t.Errorf("a document helper of %s = %v, want ErrNoHelper with nothing run", path, err)
+		}
+	}
+}
+
+// The package starts no process but in docHelper.run, and there only
+// lys-docthumb at the path newDocHelper checked, as dochelper starts it.
+func TestNothingButTheHelperIsExecuted(t *testing.T) {
+	files, err := filepath.Glob("*.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	starts := map[string]bool{
+		"exec.Command": true, "exec.CommandContext": true, "os.StartProcess": true,
+		"syscall.Exec": true, "syscall.ForkExec": true, "syscall.StartProcess": true,
+		"unix.Exec": true, "unix.ForkExec": true, "dochelper.Command": true,
+	}
+	var calls []string
+	fset := token.NewFileSet()
+	for _, file := range files {
+		if strings.HasSuffix(file, "_test.go") {
+			continue
+		}
+		f, err := parser.ParseFile(fset, file, nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, decl := range f.Decls {
+			fn, ok := decl.(*ast.FuncDecl)
+			if !ok {
+				continue
+			}
+			ast.Inspect(fn, func(n ast.Node) bool {
+				call, ok := n.(*ast.CallExpr)
+				if !ok {
+					return true
+				}
+				sel, ok := call.Fun.(*ast.SelectorExpr)
+				if !ok {
+					return true
+				}
+				pkg, ok := sel.X.(*ast.Ident)
+				if !ok || !starts[pkg.Name+"."+sel.Sel.Name] {
+					return true
+				}
+				recv := ""
+				if fn.Recv != nil && len(fn.Recv.List) == 1 {
+					if id, ok := fn.Recv.List[0].Type.(*ast.Ident); ok {
+						recv = id.Name
+					}
+				}
+				program := ""
+				if arg := 1; len(call.Args) > arg {
+					if p, ok := call.Args[arg].(*ast.SelectorExpr); ok {
+						if x, ok := p.X.(*ast.Ident); ok {
+							program = x.Name + "." + p.Sel.Name
+						}
+					}
+				}
+				calls = append(calls, recv+"."+fn.Name.Name+": "+pkg.Name+"."+sel.Sel.Name+"("+program+")")
+				return true
+			})
+		}
+	}
+	if want := "docHelper.run: dochelper.Command(h.path)"; len(calls) != 1 || calls[0] != want {
+		t.Errorf("the package starts processes at %q, want only %q", calls, want)
+	}
+}
+
+// A helper that hangs is killed at the run timeout with its whole
+// process group, and the document is recorded as failed.
+func TestAHangingHelperIsKilled(t *testing.T) {
+	doc := document(t, "paper.pdf")
+	helper := thumbnailtest.Helper(t, thumbnailtest.Hang)
+	th := New(Config{DocumentHelper: helper, RunTimeout: 500 * time.Millisecond})
+	if _, err := square(t, th, doc, pdfType, 64); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("a hanging helper = %v, want its deadline", err)
+	}
+	requireFailRecord(t, doc)
+	data, err := os.ReadFile(filepath.Join(filepath.Dir(helper), thumbnailtest.HangPID))
+	if err != nil {
+		t.Fatalf("the hanging helper started no process: %v", err)
+	}
+	pid, err := strconv.Atoi(string(data))
+	if err != nil {
+		t.Fatal(err)
+	}
+	waittest.Until(t, func() bool { return gone(pid) }, "the process the hanging helper started to be killed with it")
+}
+
+// gone reports a process that no longer runs: reaped, or a zombie.
+func gone(pid int) bool {
+	if err := syscall.Kill(pid, 0); errors.Is(err, syscall.ESRCH) {
+		return true
+	}
+	stat, err := os.ReadFile(filepath.Join("/proc", strconv.Itoa(pid), "stat"))
+	if err != nil {
+		return true
+	}
+	end := strings.LastIndexByte(string(stat), ')')
+	return end >= 0 && end+2 < len(stat) && stat[end+2] == 'Z'
+}
+
+// A helper that allocates past the memory it is given dies of it, which
+// is ErrTooLarge, and the document is recorded as failed.
+func TestAHelperPastItsMemoryFails(t *testing.T) {
+	doc := document(t, "paper.pdf")
+	th := New(Config{DocumentHelper: thumbnailtest.Helper(t, thumbnailtest.OverMemory)})
+	_, err := square(t, th, doc, pdfType, 64)
+	if !errors.Is(err, dochelper.ErrTooLarge) || !strings.Contains(err.Error(), "out of memory") && !strings.Contains(err.Error(), "cannot allocate memory") {
+		t.Fatalf("a helper past its memory = %v, want ErrTooLarge saying it ran out of memory", err)
+	}
+	requireFailRecord(t, doc)
 }
 
 // The helper's exit status is the error the thumbnail fails with:
@@ -122,7 +238,7 @@ func TestTheHelpersExitStatusIsTheError(t *testing.T) {
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			doc := document(t, "paper.pdf")
-			th := New(Config{DocumentHelper: thumbnailtest.Argv(t, thumbnailtest.Exit, c.status, c.message)})
+			th := New(Config{DocumentHelper: thumbnailtest.Helper(t, thumbnailtest.Exit, c.status, c.message)})
 			_, err := square(t, th, doc, pdfType, 64)
 			if err == nil || !strings.Contains(err.Error(), c.message) {
 				t.Fatalf("the helper exiting %s = %v, want a failure saying %q", c.status, err, c.message)
@@ -133,57 +249,6 @@ func TestTheHelpersExitStatusIsTheError(t *testing.T) {
 				}
 			}
 		})
-	}
-}
-
-// lys-docthumb sees its input and the font directories, those outside
-// the sandbox's system bound apart from where they lie, and nothing of
-// $HOME, the network or the denied calls.
-func TestTheHelperSeesOnlyItsInputAndTheFonts(t *testing.T) {
-	data := filepath.Join(os.Getenv("HOME"), ".local", "share")
-	if err := os.MkdirAll(filepath.Join(data, "fonts"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("XDG_DATA_HOME", data)
-	doc := document(t, "paper.pdf")
-	probe := thumbnailtest.NewProbe(t)
-	th := New(Config{DocumentHelper: probe.Argv(t, sandboxPath(doc), "unused")})
-	img, err := th.Image(context.Background(), doc, pdfType, 128)
-	if err != nil {
-		t.Fatalf("the probing helper failed: %v", err)
-	}
-	if leaks := thumbnailtest.Leaks(t, img); len(leaks) != 0 {
-		t.Errorf("the sandboxed helper %s", strings.Join(leaks, ", "))
-	}
-	if n := probe.Accepted(); n != 0 {
-		t.Errorf("the listener on loopback accepted %d connections from the sandbox", n)
-	}
-	h, ok := th.core.documents()
-	if !ok {
-		t.Fatal("no document helper")
-	}
-	fonts := filepath.Join(data, "fonts")
-	bound := false
-	for _, b := range h.maker.binds {
-		bound = bound || (b.host == fonts && strings.HasPrefix(b.at, sandboxFonts+"/"))
-	}
-	if !bound {
-		t.Errorf("the font directory %s is not bound under %s: %+v", fonts, sandboxFonts, h.maker.binds)
-	}
-}
-
-// A font directory the sandbox's system holds is read where it lies,
-// and any other at a path of its own under sandboxFonts, in order.
-func TestFontDirectoriesOutsideTheSystemAreBound(t *testing.T) {
-	sb := sandbox{bound: []string{"/usr", "/nix/store"}}
-	binds, at := fontBinds(sb, []string{"/usr/share/fonts", "/home/u/.local/share/fonts", "/nix/store/x-fonts/share", "/opt/fonts"})
-	wantAt := []string{"/usr/share/fonts", sandboxFonts + "/1", "/nix/store/x-fonts/share", sandboxFonts + "/3"}
-	wantBinds := []bind{{"/home/u/.local/share/fonts", sandboxFonts + "/1"}, {"/opt/fonts", sandboxFonts + "/3"}}
-	if strings.Join(at, " ") != strings.Join(wantAt, " ") {
-		t.Errorf("the fonts are read at %q, want %q", at, wantAt)
-	}
-	if len(binds) != len(wantBinds) || binds[0] != wantBinds[0] || binds[1] != wantBinds[1] {
-		t.Errorf("binds = %+v, want %+v", binds, wantBinds)
 	}
 }
 

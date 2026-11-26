@@ -5,7 +5,6 @@
   xkeyboard-config,
   libva,
   vulkan-loader,
-  bubblewrap,
 }:
 let
   # The libraries the binaries dlopen through purego: libvulkan (lys-lib's GPU renderer, which falls back to the
@@ -53,14 +52,11 @@ lysGo.build {
 
   nativeBuildInputs = [ makeWrapper ];
 
-  # The dlopened libraries on the loader path, and bwrap after the
-  # system's own on PATH: the sandbox the file chooser runs installed
-  # thumbnailers in, which it refuses to run without.
+  # The dlopened libraries on the loader path.
   postFixup = ''
     for bin in ${lib.concatStringsSep " " wrapped}; do
       wrapProgram $out/bin/$bin \
-        --prefix LD_LIBRARY_PATH : "${lib.makeLibraryPath libs}" \
-        --suffix PATH : "${lib.makeBinPath [ bubblewrap ]}"
+        --prefix LD_LIBRARY_PATH : "${lib.makeLibraryPath libs}"
     done
   '';
 
