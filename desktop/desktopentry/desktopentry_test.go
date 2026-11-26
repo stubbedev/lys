@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/stubbedev/lys/lib/dbustest"
@@ -202,6 +204,120 @@ func TestExpandExecFieldCodes(t *testing.T) {
 	if _, err := a.ExpandExec("mytool 'unbalanced"); err == nil {
 		t.Error("an unparseable Exec must be an error")
 	}
+}
+
+// Files given to an Exec go where its codes say: a list code takes
+// them all, one argument each, and a word around it keeps its text at
+// either end; a single code, or none, takes the first alone, the rest
+// left for another launch. A path code given a remote URI is an error
+// for every target the launch would take.
+func TestExpandExecOverFiles(t *testing.T) {
+	dir, _ := appsFixture(t)
+	a, _ := FindApp([]string{dir}, "mytool.desktop")
+	targets := func(uris ...string) []launchTarget {
+		out := make([]launchTarget, len(uris))
+		for i, u := range uris {
+			out[i] = newLaunchTarget(u)
+		}
+		return out
+	}
+	for _, tc := range []struct {
+		exec string
+		uris []string
+		want []string
+		took int
+	}{
+		{"app %F", []string{"file:///a", "file:///b%20c"}, []string{"app", "/a", "/b c"}, 2},
+		{"app --files=%F. end", []string{"file:///a", "file:///b", "file:///c"}, []string{"app", "--files=/a", "/b", "/c.", "end"}, 3},
+		{"app %U", []string{"file:///a", "https://x/y"}, []string{"app", "file:///a", "https://x/y"}, 2},
+		{"app %f", []string{"file:///a", "file:///b"}, []string{"app", "/a"}, 1},
+		{"app --uri=%u", []string{"https://x/y", "file:///b"}, []string{"app", "--uri=https://x/y"}, 1},
+		{"app", []string{"file:///a", "file:///b"}, []string{"app", "/a"}, 1},
+		{"app %U", nil, []string{"app"}, 0},
+	} {
+		got, took, err := a.expandExec(tc.exec, targets(tc.uris...))
+		if err != nil || !slices.Equal(got, tc.want) || took != tc.took {
+			t.Errorf("expandExec(%q, %q) = %q took %d, %v; want %q took %d", tc.exec, tc.uris, got, took, err, tc.want, tc.took)
+		}
+	}
+	for _, tc := range []struct {
+		exec string
+		uris []string
+		took int
+	}{
+		{"app %f", []string{"https://x/y", "file:///b"}, 1},
+		{"app %F", []string{"file:///a", "https://x/y", "file:///b"}, 3},
+		{"app", []string{"sftp://h/a"}, 1},
+	} {
+		if got, took, err := a.expandExec(tc.exec, targets(tc.uris...)); err == nil || took != tc.took || got != nil {
+			t.Errorf("expandExec(%q, %q) = %q took %d, %v; want an error taking %d", tc.exec, tc.uris, got, took, err, tc.took)
+		}
+	}
+}
+
+// OpenAll runs an app whose Exec takes a list once with every file,
+// and one that takes a single file once for each; a file a launch
+// cannot take fails that launch alone, named in the error.
+func TestOpenAllRunsOnceForAListAndOnceAFileOtherwise(t *testing.T) {
+	dbustest.Session(t)
+	bin, out := t.TempDir(), t.TempDir()
+	fdtest.WriteExecutable(t, filepath.Join(bin, "rectool"), []byte("#!/bin/sh\nfor a; do printf '[%s]' \"$a\"; done > \""+out+"/$$\"\n"))
+	t.Setenv("PATH", bin+":/bin:/usr/bin:"+os.Getenv("PATH"))
+	dir := t.TempDir()
+	write(t, dir, "list.desktop", "[Desktop Entry]\nType=Application\nName=List\nExec=rectool %F\n")
+	write(t, dir, "single.desktop", "[Desktop Entry]\nType=Application\nName=Single\nExec=rectool %f\n")
+	runs := func(want int) []string {
+		t.Helper()
+		var lines []string
+		waittest.Until(t, func() bool {
+			des, err := os.ReadDir(out)
+			if err != nil || len(des) != want {
+				return false
+			}
+			lines = lines[:0]
+			for _, de := range des {
+				data, err := os.ReadFile(filepath.Join(out, de.Name()))
+				if err != nil || len(data) == 0 {
+					return false
+				}
+				lines = append(lines, string(data))
+			}
+			return true
+		}, "the launched app to record its arguments")
+		slices.Sort(lines)
+		for _, de := range must(os.ReadDir(out)) {
+			if err := os.Remove(filepath.Join(out, de.Name())); err != nil {
+				t.Fatal(err)
+			}
+		}
+		return lines
+	}
+	uris := []string{"file:///tmp/a", "file:///tmp/b%20c"}
+	list, _ := FindApp([]string{dir}, "list.desktop")
+	if err := list.OpenAll(uris, LaunchContext{}); err != nil {
+		t.Fatal(err)
+	}
+	if got := runs(1); !slices.Equal(got, []string{"[/tmp/a][/tmp/b c]"}) {
+		t.Errorf("a list Exec ran %q, want one run with both files", got)
+	}
+	single, _ := FindApp([]string{dir}, "single.desktop")
+	err := single.OpenAll(append(uris, "https://example.com/x"), LaunchContext{})
+	if err == nil || !strings.Contains(err.Error(), "https://example.com/x") {
+		t.Errorf("a single-file Exec given a remote URI = %v, want an error naming it", err)
+	}
+	if got := runs(2); !slices.Equal(got, []string{"[/tmp/a]", "[/tmp/b c]"}) {
+		t.Errorf("a single-file Exec ran %q, want one run per local file", got)
+	}
+	if err := single.OpenAll(nil, LaunchContext{}); err == nil {
+		t.Error("opening nothing ran the app")
+	}
+}
+
+func must[T any](v T, err error) T {
+	if err != nil {
+		panic(err)
+	}
+	return v
 }
 
 func TestActions(t *testing.T) {

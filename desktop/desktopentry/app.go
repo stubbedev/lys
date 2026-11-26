@@ -338,9 +338,12 @@ func (a App) dbusActivatable() bool { return a.file.Bool(DesktopGroup, "DBusActi
 // files: %f %F %u %U vanish, %i is --icon <Icon>, %c the name, %k the
 // entry's path, %% a percent; the deprecated codes vanish. A token that
 // was only a vanishing code is dropped.
-func (a App) ExpandExec(execLine string) ([]string, error) { return a.expandExec(execLine, nil) }
+func (a App) ExpandExec(execLine string) ([]string, error) {
+	argv, _, err := a.expandExec(execLine, nil)
+	return argv, err
+}
 
-// launchTarget is the one file or URI an app is opened on.
+// launchTarget is one file or URI an app is opened on.
 type launchTarget struct {
 	uri  string
 	path string
@@ -358,13 +361,30 @@ func (t launchTarget) local(a App) (string, error) {
 	return t.path, nil
 }
 
-func (a App) expandExec(execLine string, target *launchTarget) ([]string, error) {
+// expandExec expands an Exec line for one launch over targets, as the
+// Desktop Entry spec and gio do: a list code (%F, %U) takes every
+// target, each its own argument, the first joined to what precedes the
+// code in its word and the last to what follows; a single code (%f,
+// %u) takes the first target; a line with neither has the first
+// target's path appended, as %f would put it. It returns how many of
+// targets the launch takes, the rest left for further launches, also
+// when a target cannot be expanded.
+func (a App) expandExec(execLine string, targets []launchTarget) ([]string, int, error) {
 	words, ok := shlex.Split(execLine)
 	if !ok || len(words) == 0 {
-		return nil, fmt.Errorf("desktopentry: %s: unparseable Exec %q", a.ID, execLine)
+		return nil, len(targets), fmt.Errorf("desktopentry: %s: unparseable Exec %q", a.ID, execLine)
 	}
 	var argv []string
-	tookTarget := false
+	var errs []error
+	took, list := false, false
+	name := func(t launchTarget, uri bool) string {
+		if uri {
+			return t.uri
+		}
+		path, err := t.local(a)
+		errs = append(errs, err)
+		return path
+	}
 	for _, w := range words {
 		if w == "%i" {
 			if icon := a.Icon(); icon != "" {
@@ -373,6 +393,7 @@ func (a App) expandExec(execLine string, target *launchTarget) ([]string, error)
 			continue
 		}
 		var b strings.Builder
+		var parts []string
 		codeOnly := true
 		for i := 0; i < len(w); i++ {
 			if w[i] != '%' || i+1 >= len(w) {
@@ -381,7 +402,7 @@ func (a App) expandExec(execLine string, target *launchTarget) ([]string, error)
 				continue
 			}
 			i++
-			switch w[i] {
+			switch c := w[i]; c {
 			case '%':
 				b.WriteByte('%')
 				codeOnly = false
@@ -391,40 +412,44 @@ func (a App) expandExec(execLine string, target *launchTarget) ([]string, error)
 			case 'k':
 				b.WriteString(a.Path)
 				codeOnly = false
-			case 'u', 'U':
-				if target != nil {
-					b.WriteString(target.uri)
-					codeOnly, tookTarget = false, true
+			case 'u', 'f':
+				if len(targets) > 0 {
+					b.WriteString(name(targets[0], c == 'u'))
+					codeOnly, took = false, true
 				}
-			case 'f', 'F':
-				if target != nil {
-					path, err := target.local(a)
-					if err != nil {
-						return nil, err
+			case 'U', 'F':
+				for j, t := range targets {
+					if j > 0 {
+						parts = append(parts, b.String())
+						b.Reset()
 					}
-					b.WriteString(path)
-					codeOnly, tookTarget = false, true
+					b.WriteString(name(t, c == 'U'))
+					codeOnly, took, list = false, true, true
 				}
 			case 'd', 'D', 'n', 'N', 'v', 'm', 'i':
 			default:
 				b.WriteByte('%')
-				b.WriteByte(w[i])
+				b.WriteByte(c)
 				codeOnly = false
 			}
 		}
+		argv = append(argv, parts...)
 		if b.Len() == 0 && codeOnly {
 			continue
 		}
 		argv = append(argv, b.String())
 	}
-	if target != nil && !tookTarget {
-		path, err := target.local(a)
-		if err != nil {
-			return nil, err
-		}
-		argv = append(argv, path)
+	if len(targets) > 0 && !took {
+		argv = append(argv, name(targets[0], false))
 	}
-	return argv, nil
+	n := min(len(targets), 1)
+	if list {
+		n = len(targets)
+	}
+	if err := errors.Join(errs...); err != nil {
+		return nil, n, err
+	}
+	return argv, n, nil
 }
 
 // LaunchContext is what an app is opened with beside its file: the
@@ -455,15 +480,26 @@ func (a App) Launch() error {
 	return a.spawn(a.Exec())
 }
 
-// Open starts the application on one file or URI
-// (g_app_info_launch_uris), a local file passed as its file:// URI. A
-// DBusActivatable entry is sent org.freedesktop.Application.Open; if that
-// fails, or the entry is not activatable, its Exec runs detached with the
-// target in place of its file field code, appended as %f would be when it
-// has none, inside ctx's terminal for a Terminal=true entry.
+// Open starts the application on one file or URI, as OpenAll does.
 func (a App) Open(uri string, ctx LaunchContext) error {
+	return a.OpenAll([]string{uri}, ctx)
+}
+
+// OpenAll starts the application on files or URIs
+// (g_app_info_launch_uris), a local file passed as its file:// URI. A
+// DBusActivatable entry is sent org.freedesktop.Application.Open with
+// every one; if that fails, or the entry is not activatable, its Exec
+// runs detached, inside ctx's terminal for a Terminal=true entry: once
+// with them all when it takes a list (%F, %U), else once for each, in
+// place of its %f or %u or appended as %f would be when it has none. A
+// launch that fails leaves the others to run, and every failure is in
+// the error.
+func (a App) OpenAll(uris []string, ctx LaunchContext) error {
+	if len(uris) == 0 {
+		return fmt.Errorf("desktopentry: %s: nothing to open", a.ID)
+	}
 	if a.dbusActivatable() {
-		err := a.activate("Open", []any{[]string{uri}}, ctx.ActivationToken)
+		err := a.activate("Open", []any{uris}, ctx.ActivationToken)
 		if err == nil {
 			return nil
 		}
@@ -471,12 +507,26 @@ func (a App) Open(uri string, ctx LaunchContext) error {
 			return err
 		}
 	}
-	target := newLaunchTarget(uri)
-	argv, err := a.expandExec(a.Exec(), &target)
-	if err != nil {
-		return err
+	targets := make([]launchTarget, len(uris))
+	for i, uri := range uris {
+		targets[i] = newLaunchTarget(uri)
 	}
-	return a.runIn(argv, ctx, "open "+uri)
+	var errs []error
+	for len(targets) > 0 {
+		argv, n, err := a.expandExec(a.Exec(), targets)
+		launch := targets[:n]
+		targets = targets[n:]
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		names := make([]string, len(launch))
+		for i, t := range launch {
+			names[i] = t.uri
+		}
+		errs = append(errs, a.runIn(argv, ctx, "open "+strings.Join(names, " ")))
+	}
+	return errors.Join(errs...)
 }
 
 // LaunchArgs starts the application on a command line of its own: its
