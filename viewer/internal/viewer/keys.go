@@ -12,37 +12,53 @@ import (
 )
 
 func (v *Viewer) Key(a app.Accel) bool {
+	if v.doc.typing > 0 && !v.whileTyping[a] {
+		return false
+	}
 	act, ok := v.keys[a]
 	return ok && act()
 }
 
+var whileTyping = []string{"Escape", "F3", "shift+F3", "ctrl+f", "ctrl+g", "ctrl+shift+g", "F9", "F11"}
+
 func (v *Viewer) bindings() map[app.Accel]func() bool {
+	d := v.doc
 	table := []struct {
 		keys []string
 		act  func() bool
 	}{
-		{[]string{"Left"}, func() bool { return v.pan(widget.KeyLeft) || v.step(-1) }},
-		{[]string{"Right"}, func() bool { return v.pan(widget.KeyRight) || v.step(1) }},
-		{[]string{"Up"}, func() bool { return v.pan(widget.KeyUp) || v.volume(volumeStep) }},
-		{[]string{"Down"}, func() bool { return v.pan(widget.KeyDown) || v.volume(-volumeStep) }},
-		{[]string{"Prior", "BackSpace"}, func() bool { return v.step(-1) }},
-		{[]string{"Next"}, func() bool { return v.step(1) }},
-		{[]string{"Home"}, func() bool { return v.jump(0) }},
-		{[]string{"End"}, func() bool { return v.jump(v.files.End()) }},
-		{[]string{"space"}, v.playOrNext},
+		{[]string{"Left"}, func() bool { return d.scrollKey(-1, 0) || v.pan(widget.KeyLeft) || v.step(-1) }},
+		{[]string{"Right"}, func() bool { return d.scrollKey(1, 0) || v.pan(widget.KeyRight) || v.step(1) }},
+		{[]string{"Up"}, func() bool { return d.scrollKey(0, -1) || v.pan(widget.KeyUp) || v.volume(volumeStep) }},
+		{[]string{"Down"}, func() bool { return d.scrollKey(0, 1) || v.pan(widget.KeyDown) || v.volume(-volumeStep) }},
+		{[]string{"Prior"}, func() bool { return d.pageStep(-1) || v.step(-1) }},
+		{[]string{"BackSpace"}, func() bool { return v.step(-1) }},
+		{[]string{"Next"}, func() bool { return d.pageStep(1) || v.step(1) }},
+		{[]string{"Home"}, func() bool { return d.firstPage() || v.jump(0) }},
+		{[]string{"End"}, func() bool { return d.lastPage() || v.jump(v.files.End()) }},
+		{[]string{"space"}, func() bool { return d.scrollScreen() || v.playOrNext() }},
 		{[]string{"shift+Left"}, func() bool { return v.seek(-seekStep) }},
 		{[]string{"shift+Right"}, func() bool { return v.seek(seekStep) }},
 		{[]string{"m"}, v.mute},
 		{[]string{"l"}, v.toggleLoop},
 		{[]string{"F11"}, v.toggleFullscreen},
-		{[]string{"Escape"}, v.leaveFullscreen},
+		{[]string{"Escape"}, func() bool { return d.endSearch() || v.leaveFullscreen() }},
 		{[]string{"Delete"}, func() bool { v.trashCurrent(); return true }},
 		{[]string{"ctrl+z"}, v.undoTrash},
-		{[]string{"ctrl+c"}, func() bool { v.copyPicture(); return true }},
-		{[]string{"plus", "shift+plus", "equal", "KP_Add"}, func() bool { return v.zoom('+') }},
-		{[]string{"minus", "KP_Subtract"}, func() bool { return v.zoom('-') }},
-		{[]string{"0", "KP_0"}, func() bool { return v.zoom('0') }},
-		{[]string{"1", "KP_1"}, func() bool { return v.zoom('1') }},
+		{[]string{"ctrl+c"}, func() bool {
+			if !d.copySelection() {
+				v.copyPicture()
+			}
+			return true
+		}},
+		{[]string{"ctrl+f"}, d.startSearch},
+		{[]string{"F3", "ctrl+g"}, func() bool { return d.findNext(1) }},
+		{[]string{"shift+F3", "ctrl+shift+g"}, func() bool { return d.findNext(-1) }},
+		{[]string{"F9"}, d.toggleOutline},
+		{[]string{"plus", "shift+plus", "equal", "KP_Add"}, func() bool { return d.zoom('+') || v.zoom('+') }},
+		{[]string{"minus", "KP_Subtract"}, func() bool { return d.zoom('-') || v.zoom('-') }},
+		{[]string{"0", "KP_0"}, func() bool { return d.zoom('0') || v.zoom('0') }},
+		{[]string{"1", "KP_1"}, func() bool { return d.zoom('1') || v.zoom('1') }},
 	}
 	keys := make(map[app.Accel]func() bool, 2*len(table))
 	for _, b := range table {
@@ -56,6 +72,14 @@ func (v *Viewer) bindings() map[app.Accel]func() bool {
 			}
 			keys[a] = b.act
 		}
+	}
+	v.whileTyping = make(map[app.Accel]bool, len(whileTyping))
+	for _, k := range whileTyping {
+		a, err := app.ParseAccel(k)
+		if err != nil {
+			panic(fmt.Sprintf("viewer: binding %q: %v", k, err))
+		}
+		v.whileTyping[a] = true
 	}
 	return keys
 }

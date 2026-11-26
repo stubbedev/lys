@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/stubbedev/lys/desktop/dochelper"
 	"github.com/stubbedev/lys/desktop/fileops"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/mime"
@@ -46,14 +47,17 @@ type Host interface {
 	Copy(content transfer.Content) error
 	SetFullscreen(on bool)
 	OpenWith(anchor widget.Boundser, path string)
+	OpenURI(uri string)
+	Focus(w widget.Widget)
 }
 
 type Config struct {
-	Font render.Font
-	MIME *mime.Database
-	Load func(context.Context, preview.Request) preview.Content
-	Bin  fileops.Bin
-	Host Host
+	Font      render.Font
+	MIME      *mime.Database
+	Load      func(context.Context, preview.Request) preview.Content
+	Documents func(path string) *dochelper.Client
+	Bin       fileops.Bin
+	Host      Host
 }
 
 type trashed struct {
@@ -63,23 +67,25 @@ type trashed struct {
 }
 
 type Viewer struct {
-	host       Host
-	bin        fileops.Bin
-	opens      opens
-	view       *preview.View
-	root       *widget.Box
-	bar        *widget.Box
-	previous   *widget.Button
-	next       *widget.Button
-	loop       *widget.ToggleButton
-	openWith   *widget.Button
-	copy       *widget.Button
-	trash      *widget.Button
-	files      Collection
-	trashed    []trashed
-	trashing   map[string]bool
-	fullscreen bool
-	keys       map[app.Accel]func() bool
+	host        Host
+	bin         fileops.Bin
+	opens       opens
+	view        *preview.View
+	doc         *document
+	root        *widget.Box
+	bar         *widget.Box
+	previous    *widget.Button
+	next        *widget.Button
+	loop        *widget.ToggleButton
+	openWith    *widget.Button
+	copy        *widget.Button
+	trash       *widget.Button
+	files       Collection
+	trashed     []trashed
+	trashing    map[string]bool
+	fullscreen  bool
+	keys        map[app.Accel]func() bool
+	whileTyping map[app.Accel]bool
 }
 
 func New(cfg Config) *Viewer {
@@ -108,8 +114,10 @@ func New(cfg Config) *Viewer {
 	v.bar.Append(v.openWith, false)
 	v.bar.Append(v.copy, false)
 	v.bar.Append(v.trash, false)
+	v.doc = newDocument(cfg.Font, cfg.Host, cfg.Documents)
 	v.root = widget.NewBox(widget.Column, 0, 0)
 	v.root.Append(v.view.Root(), true)
+	v.root.Append(v.doc.root, true)
 	v.root.Append(v.bar, false)
 	v.keys = v.bindings()
 	return v
@@ -147,7 +155,10 @@ func (v *Viewer) Open(c Collection) {
 	v.show()
 }
 
-func (v *Viewer) Close() { v.view.Close() }
+func (v *Viewer) Close() {
+	v.view.Close()
+	v.doc.Close()
+}
 
 func (v *Viewer) show() {
 	path, ok := v.files.Current()
@@ -155,10 +166,19 @@ func (v *Viewer) show() {
 		v.copy.SetEnabled(false)
 		v.loop.SetVisible(false)
 	}
-	if ok {
+	reading := ok && v.opens.document(path)
+	v.view.Root().SetVisible(!reading)
+	switch {
+	case reading:
+		v.view.Close()
+		v.doc.Open(path)
+		v.host.SetTitle(filepath.Base(path))
+	case ok:
+		v.doc.Close()
 		v.view.Show(path)
 		v.host.SetTitle(filepath.Base(path))
-	} else {
+	default:
+		v.doc.Close()
 		v.view.Close()
 		v.host.SetTitle(locale.T().Get("viewer-empty"))
 	}

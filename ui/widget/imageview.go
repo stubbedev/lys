@@ -193,6 +193,18 @@ func (v *ImageView) ZoomToFit() { v.setView(imageViewState{fit: true}) }
 // per device pixel, about the box's centre.
 func (v *ImageView) ZoomActualSize() { v.SetZoom(1) }
 
+// PictureAt returns the point of the picture, in its pixels as shown,
+// under p in root coordinates.
+func (v *ImageView) PictureAt(p Point) (x, y float64) { return v.sourceAt(p) }
+
+// ViewAt returns where, in root coordinates, the point x, y of the
+// picture, in its pixels as shown, lies: PictureAt's inverse.
+func (v *ImageView) ViewAt(x, y float64) (float64, float64) {
+	s := v.current()
+	c := v.boxCentre()
+	return float64(c.X) + (x-s.cx)*s.zoom, float64(c.Y) + (y-s.cy)*s.zoom
+}
+
 // Frame reports the frame an animated picture shows (0 for a still).
 func (v *ImageView) Frame() int { return v.play.frame }
 

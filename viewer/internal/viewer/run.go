@@ -11,11 +11,13 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/desktopentry"
+	"github.com/stubbedev/lys/desktop/dochelper"
 	"github.com/stubbedev/lys/desktop/fileops"
 	"github.com/stubbedev/lys/desktop/fileuri"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/logging"
 	"github.com/stubbedev/lys/desktop/mime"
+	"github.com/stubbedev/lys/desktop/opener"
 	"github.com/stubbedev/lys/desktop/shell/apptheme"
 	"github.com/stubbedev/lys/desktop/shell/preview"
 	"github.com/stubbedev/lys/desktop/thumbnail"
@@ -78,7 +80,8 @@ func Run(paths []string) error {
 	defer h.work.Wait()
 	v := New(Config{
 		Font: face, MIME: db, Bin: bin, Host: h,
-		Load: func(ctx context.Context, req preview.Request) preview.Content { return preview.Load(ctx, sources, req) },
+		Load:      func(ctx context.Context, req preview.Request) preview.Content { return preview.Load(ctx, sources, req) },
+		Documents: documentReader(),
 	})
 	defer v.Close()
 	theme.Attach(v.Root())
@@ -111,6 +114,18 @@ func Run(paths []string) error {
 		ins.Bind(application)
 	}
 	return app.Ended(application.Run())
+}
+
+func documentReader() func(path string) *dochelper.Client {
+	helper, err := dochelper.Locate("")
+	if err != nil {
+		log.Printf("viewer: documents cannot be read, as %s is not run: %v", dochelper.Program, err)
+		return func(path string) *dochelper.Client {
+			return dochelper.NewClient(func() (*dochelper.Process, error) { return nil, err }, path, dochelper.RequestTimeout)
+		}
+	}
+	start := dochelper.Starter(helper, dochelper.Serving{Memory: dochelper.ReadingMemory, FontDirs: dochelper.FontDirs()})
+	return func(path string) *dochelper.Client { return dochelper.NewClient(start, path, dochelper.RequestTimeout) }
 }
 
 func shipIcons() {
@@ -187,6 +202,28 @@ func (h *host) openWithMenu(anchor widget.Boundser, path string, apps []desktope
 	if _, err := h.app.OpenMenuPopover(h.win, app.MenuPopoverConfig{Anchor: anchor, Face: h.face, Items: items}); err != nil {
 		log.Printf("viewer: open with: %v", err)
 	}
+}
+
+func (h *host) Focus(w widget.Widget) {
+	if err := h.win.SetFocus(w); err != nil {
+		log.Printf("viewer: focus: %v", err)
+	}
+}
+
+func (h *host) OpenURI(uri string) {
+	h.app.RequestActivationToken(func(token string, err error) {
+		if err != nil {
+			log.Printf("viewer: open %s without an activation token: %v", uri, err)
+		}
+		h.Spawn(func() {
+			err := opener.Open(uri, desktopentry.LaunchContext{ActivationToken: token})
+			if err == nil {
+				return
+			}
+			log.Printf("viewer: %v", err)
+			h.Invoke(func() { h.Toast(locale.T().Get("viewer-open-link-failed", i18n.Str("uri", uri)), nil) })
+		})
+	})
 }
 
 func (h *host) launch(a desktopentry.App, path string) {

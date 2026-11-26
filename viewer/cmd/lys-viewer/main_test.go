@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"slices"
 	"strings"
 	"testing"
@@ -13,6 +14,18 @@ import (
 )
 
 func TestMain(m *testing.M) { testhome.Run(m) }
+
+func TestTheViewerLinksNoRenderer(t *testing.T) {
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		t.Fatal("the test binary carries no build information")
+	}
+	for _, m := range info.Deps {
+		if m.Path == "github.com/gen2brain/folio" {
+			t.Errorf("lys-viewer links %s %s, which only lys-docthumb may", m.Path, m.Version)
+		}
+	}
+}
 
 func runCaptured(t *testing.T, args ...string) (stdout, stderr string, code int, shown [][]string) {
 	t.Helper()

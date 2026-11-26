@@ -15,6 +15,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/desktop/dochelper"
+	"github.com/stubbedev/lys/desktop/docrender"
 	"github.com/stubbedev/lys/desktop/fileops"
 	"github.com/stubbedev/lys/desktop/mime"
 	"github.com/stubbedev/lys/desktop/shell/preview"
@@ -27,7 +29,42 @@ import (
 	"github.com/stubbedev/lys/ui/widget"
 )
 
-func TestMain(m *testing.M) { testhome.Run(m) }
+func TestMain(m *testing.M) {
+	if filepath.Base(os.Args[0]) == dochelper.Program {
+		os.Exit(serveDocuments(os.Args[1:]))
+	}
+	testhome.Run(m)
+}
+
+func serveDocuments(args []string) int {
+	s, ok, err := dochelper.ParseServing(args)
+	if err == nil && !ok {
+		err = fmt.Errorf("%s: not a serving command line: %q", dochelper.Program, args)
+	}
+	if err == nil {
+		err = s.Memory.Limit()
+	}
+	if err == nil {
+		err = dochelper.Serve(os.Stdin, os.Stdout, &docrender.Reader{})
+	}
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+	}
+	return dochelper.ExitCode(err)
+}
+
+func installedHelper(t *testing.T) string {
+	t.Helper()
+	exe, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), dochelper.Program)
+	if err := os.Symlink(exe, path); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
 
 func TestTheTestsReachNoHostSession(t *testing.T) { testhome.RequireNoHostSession(t) }
 
@@ -35,7 +72,7 @@ func testDB(t *testing.T) *mime.Database {
 	t.Helper()
 	dir := t.TempDir()
 	globs := "50:image/png:*.png\n50:image/jpeg:*.jpg\n50:image/gif:*.gif\n50:video/mp4:*.mp4\n50:video/x-y4m:*.y4m\n" +
-		"50:text/plain:*.txt\n50:application/pdf:*.pdf\n50:image/x-portable-pixmap:*.ppm\n"
+		"50:text/plain:*.txt\n50:application/pdf:*.pdf\n50:application/epub+zip:*.epub\n50:image/x-portable-pixmap:*.ppm\n"
 	subclasses := "image/x-portable-pixmap image/x-portable-anymap\n"
 	for name, body := range map[string]string{"globs2": globs, "subclasses": subclasses} {
 		path := filepath.Join(dir, "mime", name)
@@ -126,6 +163,9 @@ type harness struct {
 	copyErr    error
 	fullscreen []bool
 	openedWith []string
+	openedURIs []string
+	focused    []widget.Widget
+	helper     string
 }
 
 func newHarness(t *testing.T) *harness {
@@ -135,7 +175,7 @@ func newHarness(t *testing.T) *harness {
 		t: t, db: testDB(t),
 		bin: fileops.Bin{DataHome: data, UID: os.Getuid(), Volume: fileops.SystemVolume, Now: func() time.Time { return time.Date(2026, 11, 26, 12, 0, 0, 0, time.UTC) }},
 	}
-	treetest.IconTheme(t, "ld-file-symbolic", "ld-file-image-symbolic", "ld-file-play-symbolic", "ld-folder-symbolic", previousIcon, nextIcon, loopIcon, openWithIcon, copyIcon, trashIcon)
+	treetest.IconTheme(t, "ld-file-symbolic", "ld-file-image-symbolic", "ld-file-play-symbolic", "ld-folder-symbolic", previousIcon, nextIcon, loopIcon, openWithIcon, copyIcon, trashIcon, outlineIcon, previousPageIcon, nextPageIcon, searchIcon, closeSearchIcon)
 	t.Cleanup(func() {
 		h.work.Wait()
 		h.drain()
@@ -169,6 +209,21 @@ func (h *harness) OpenWith(_ widget.Boundser, path string) {
 	h.openedWith = append(h.openedWith, path)
 }
 
+func (h *harness) OpenURI(uri string) { h.openedURIs = append(h.openedURIs, uri) }
+
+func (h *harness) Focus(w widget.Widget) { h.focused = append(h.focused, w) }
+
+func (h *harness) documents(path string) *dochelper.Client {
+	if h.helper == "" {
+		h.helper = installedHelper(h.t)
+	}
+	helper, err := dochelper.Locate(h.helper)
+	if err != nil {
+		return dochelper.NewClient(func() (*dochelper.Process, error) { return nil, err }, path, dochelper.RequestTimeout)
+	}
+	return dochelper.NewClient(dochelper.Starter(helper, dochelper.Serving{Memory: dochelper.ReadingMemory}), path, dochelper.RequestTimeout)
+}
+
 func (h *harness) drain() {
 	for {
 		h.mu.Lock()
@@ -196,7 +251,7 @@ func (h *harness) viewer() *Viewer {
 	db := h.db
 	pictures := preview.NewPictures(preview.PictureBudget)
 	v := New(Config{
-		Font: treetest.Font(h.t), MIME: db, Bin: h.bin, Host: h,
+		Font: treetest.Font(h.t), MIME: db, Bin: h.bin, Host: h, Documents: h.documents,
 		Load: func(ctx context.Context, req preview.Request) preview.Content {
 			return preview.Load(ctx, preview.Sources{MIME: db, Pictures: pictures}, req)
 		},

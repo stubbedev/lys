@@ -11,12 +11,13 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/desktopentry"
+	"github.com/stubbedev/lys/desktop/dochelper"
 	"github.com/stubbedev/lys/desktop/resources"
 	"github.com/stubbedev/lys/desktop/shell/preview"
 	"github.com/stubbedev/lys/lib/media/demux"
 )
 
-func TestTheViewerClaimsEveryPictureTypeAndTheVideoOfEveryContainer(t *testing.T) {
+func TestTheViewerClaimsEveryPictureTypeTheVideoOfEveryContainerAndEveryDocument(t *testing.T) {
 	types := MimeTypes()
 	for _, picture := range preview.PictureTypes() {
 		if !slices.Contains(types, picture) {
@@ -33,12 +34,17 @@ func TestTheViewerClaimsEveryPictureTypeAndTheVideoOfEveryContainer(t *testing.T
 			t.Errorf("demux reads %v, of which the viewer claims neither video types nor none", f)
 		}
 	}
-	for _, mimeType := range types {
-		if !strings.HasPrefix(mimeType, "image/") && !strings.HasPrefix(mimeType, "video/") {
-			t.Errorf("the viewer claims %s, neither a picture nor a video", mimeType)
+	for _, document := range dochelper.Types() {
+		if !slices.Contains(types, document) {
+			t.Errorf("the viewer does not claim %s, which lys-docthumb reads", document)
 		}
 	}
-	for _, unclaimed := range []string{"audio/ogg", "audio/flac", "audio/mpeg", "application/pdf", "image/svg+xml", "text/plain"} {
+	for _, mimeType := range types {
+		if !strings.HasPrefix(mimeType, "image/") && !strings.HasPrefix(mimeType, "video/") && !dochelper.Thumbnails(mimeType) {
+			t.Errorf("the viewer claims %s, neither a picture, a video nor a document", mimeType)
+		}
+	}
+	for _, unclaimed := range []string{"audio/ogg", "audio/flac", "audio/mpeg", "application/zip", "image/svg+xml", "text/plain", "text/html"} {
 		if slices.Contains(types, unclaimed) {
 			t.Errorf("the viewer claims %s", unclaimed)
 		}

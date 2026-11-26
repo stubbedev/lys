@@ -1,6 +1,8 @@
 ld-calendar-symbolic
+ld-chevron-down-symbolic
 ld-chevron-left-symbolic
 ld-chevron-right-symbolic
+ld-chevron-up-symbolic
 ld-copy-symbolic
 ld-disc-3-symbolic
 ld-external-link-symbolic
@@ -20,8 +22,11 @@ ld-file-type-symbolic
 ld-file-user-symbolic
 ld-folder-symbolic
 ld-house-symbolic
+ld-list-symbolic
 ld-mail-symbolic
 ld-presentation-symbolic
 ld-repeat-symbolic
 ld-save-symbolic
+ld-search-symbolic
 ld-trash-2-symbolic
+ld-x-symbolic

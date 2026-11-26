@@ -3,6 +3,7 @@ package viewer
 import (
 	"slices"
 
+	"github.com/stubbedev/lys/desktop/dochelper"
 	"github.com/stubbedev/lys/desktop/mime"
 	"github.com/stubbedev/lys/desktop/shell/preview"
 	"github.com/stubbedev/lys/lib/media/demux"
@@ -30,6 +31,7 @@ func MimeTypes() []string {
 	for _, claimed := range containerTypes {
 		types = append(types, claimed...)
 	}
+	types = append(types, dochelper.Types()...)
 	slices.Sort(types)
 	return slices.Compact(types)
 }
@@ -41,7 +43,11 @@ type opens struct {
 
 func newOpens(db *mime.Database) opens { return opens{db: db, types: MimeTypes()} }
 
-func (o opens) name(path string) bool {
+func (o opens) name(path string) bool { return o.isA(path, o.types) }
+
+func (o opens) document(path string) bool { return o.isA(path, dochelper.Types()) }
+
+func (o opens) isA(path string, types []string) bool {
 	t := o.db.TypeByName(path)
-	return slices.ContainsFunc(o.types, func(claimed string) bool { return o.db.IsA(t, claimed) })
+	return slices.ContainsFunc(types, func(claimed string) bool { return o.db.IsA(t, claimed) })
 }

@@ -141,7 +141,7 @@ func TestTheArrowsWalkTheFolderAsTheFileChooserSortsIt(t *testing.T) {
 	for _, p := range v.Files().Paths() {
 		names = append(names, filepath.Base(p))
 	}
-	if want := []string{"10.png", "2.png", "A.jpg", "b.png", "d.mp4", "scan.ppm"}; !slices.Equal(names, want) {
+	if want := []string{"10.png", "2.png", "A.jpg", "b.png", "d.mp4", "paper.pdf", "scan.ppm"}; !slices.Equal(names, want) {
 		t.Fatalf("the folder walks %v, want %v", names, want)
 	}
 	if current(t, v) != "b.png" || !v.previous.Enabled() || !v.next.Enabled() {
@@ -149,13 +149,15 @@ func TestTheArrowsWalkTheFolderAsTheFileChooserSortsIt(t *testing.T) {
 	}
 	for _, step := range []struct{ keys, want string }{
 		{"Right", "d.mp4"},
+		{"Right", "paper.pdf"},
 		{"Right", "scan.ppm"},
 		{"Right", "scan.ppm"},
+		{"Left", "paper.pdf"},
 		{"Left", "d.mp4"},
 		{"Home", "10.png"},
 		{"Left", "10.png"},
 		{"End", "scan.ppm"},
-		{"Prior", "d.mp4"},
+		{"Prior", "paper.pdf"},
 		{"Next", "scan.ppm"},
 	} {
 		if !h.press(v, step.keys) || current(t, v) != step.want {
@@ -166,12 +168,12 @@ func TestTheArrowsWalkTheFolderAsTheFileChooserSortsIt(t *testing.T) {
 		t.Errorf("at the last file next is %v and previous %v", v.next.Enabled(), v.previous.Enabled())
 	}
 	h.open(v, filepath.Join(dir, ".hidden.png"))
-	if current(t, v) != ".hidden.png" || len(v.Files().Paths()) != 7 {
-		t.Errorf("a hidden file opened walks %d files from %s, want 7 from itself", len(v.Files().Paths()), current(t, v))
+	if current(t, v) != ".hidden.png" || len(v.Files().Paths()) != 8 {
+		t.Errorf("a hidden file opened walks %d files from %s, want 8 from itself", len(v.Files().Paths()), current(t, v))
 	}
 	h.open(v, dir)
-	if current(t, v) != "10.png" || len(v.Files().Paths()) != 6 {
-		t.Errorf("the folder opened walks %d files from %s, want 6 from 10.png", len(v.Files().Paths()), current(t, v))
+	if current(t, v) != "10.png" || len(v.Files().Paths()) != 7 {
+		t.Errorf("the folder opened walks %d files from %s, want 7 from 10.png", len(v.Files().Paths()), current(t, v))
 	}
 	h.open(v, filepath.Join(dir, "b.png"), filepath.Join(dir, "notes.txt"))
 	if got := v.Files().Paths(); len(got) != 2 || filepath.Base(got[1]) != "notes.txt" {
