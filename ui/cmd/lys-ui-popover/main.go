@@ -2,11 +2,15 @@
 // (internal/headlesstest) drives: one window whose button opens a
 // popover holding a focused Entry and a label a timer keeps changing,
 // so typing through the popup grab and loop-driven repaints of an open
-// popover can be asserted end to end through the compositor.
+// popover can be asserted end to end through the compositor. With
+// -blur-dropdown its dropdown is lys-shell's bar dropdown kind: a
+// translucent card that fades in and out through its own revealer and
+// asks the compositor to blur what is behind it.
 package main
 
 import (
 	"errors"
+	"flag"
 	"log"
 	"os"
 	"strconv"
@@ -16,6 +20,7 @@ import (
 
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
+	"github.com/stubbedev/lys/ui/widget/css"
 )
 
 func main() {
@@ -30,6 +35,8 @@ func main() {
 }
 
 func run() error {
+	blurDropdown := flag.Bool("blur-dropdown", false, "open the dropdown as a blurred card fading through its own revealer")
+	flag.Parse()
 	sess, err := app.Connect()
 	if err != nil {
 		return err
@@ -159,10 +166,18 @@ func run() error {
 		top := dropButton.Bounds().Y + dropButton.Bounds().H - widget.Current().ShadowGutter()
 		app.Trace("demo", "dropdown controls entry y %d more y %d", top+e.Y+e.H/2, top+s.Y+s.H/2)
 	})
+	var rev *widget.Revealer
+	if *blurDropdown {
+		dropBox.AddClass(css.Glass)
+		rev = widget.NewRevealer(dropBox)
+		rev.SetTransition(widget.RevealFade)
+		rev.SetDuration(200 * time.Millisecond)
+		rev.SetFadeFrom(0.4)
+	}
 	dropButton.OnClick = func() {
 		var err error
 		dropTraced = false
-		drop, err = application.OpenPopover(w, app.PopoverConfig{
+		cfg := app.PopoverConfig{
 			Anchor:    dropButton,
 			Content:   dropBox,
 			Dismissal: app.PopoverClickAway,
@@ -176,10 +191,32 @@ func run() error {
 				})
 			},
 			OnClosed: func() { app.Trace("demo", "dropdown closed") },
-		})
+		}
+		if rev != nil {
+			cfg.Content, cfg.OwnMotion, cfg.BackgroundBlur = rev, true, true
+			cfg.Exit = func(done func()) {
+				app.Trace("demo", "dropdown exit")
+				rev.SetOnTransitionDone(func(revealed bool) {
+					if !revealed {
+						app.Trace("demo", "dropdown exit done")
+						done()
+					}
+				})
+				rev.SetRevealed(false)
+			}
+		}
+		drop, err = application.OpenPopover(w, cfg)
 		if err != nil {
 			app.Trace("demo", "dropdown error %v", err)
 			return
+		}
+		if rev != nil {
+			rev.SetOnTransitionDone(func(revealed bool) {
+				if revealed {
+					app.Trace("demo", "dropdown revealed")
+				}
+			})
+			rev.SetRevealed(true)
 		}
 		app.Trace("demo", "dropdown open")
 	}
