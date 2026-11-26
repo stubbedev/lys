@@ -1,33 +1,32 @@
 package launcher
 
 import (
+	"context"
 	"image"
 	"image/png"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
-	"github.com/stubbedev/lys/desktop/imagedecode"
 	"github.com/stubbedev/lys/desktop/shell/apptheme"
+	"github.com/stubbedev/lys/desktop/thumbnail"
+	"github.com/stubbedev/lys/desktop/thumbnail/thumbnailtest"
 	"github.com/stubbedev/lys/ui/app"
 
 	"github.com/stubbedev/lys/shell/internal/apptest"
 	"github.com/stubbedev/lys/shell/internal/keytest"
 	"github.com/stubbedev/lys/shell/internal/launcheripc"
-	engine "github.com/stubbedev/lys/shell/service/launcher"
 )
 
 // headlessWalls makes real thumbnails of real files; what it was told is
 // read on the loop.
 type headlessWalls struct {
 	images   []string
-	thumbs   engine.ImageThumbnails
-	mu       sync.Mutex
-	decodes  int
+	thumbs   *thumbnail.Thumbnailer
 	previews []string
 	ended    int
 }
@@ -42,19 +41,7 @@ func (w *headlessWalls) Commit(_, _ string, saved func(error)) error {
 }
 
 func (w *headlessWalls) LoadThumbnail(path string) (image.Image, error) {
-	img, decoded, err := w.thumbs.Load(path)
-	if decoded {
-		w.mu.Lock()
-		w.decodes++
-		w.mu.Unlock()
-	}
-	return img, err
-}
-
-func (w *headlessWalls) decoded() int {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	return w.decodes
+	return w.thumbs.Image(context.Background(), path, "", thumbnail.LargePx)
 }
 
 // On a real compositor the picker draws its grid with real thumbnails,
@@ -79,7 +66,8 @@ func TestHeadlessPickerPreviewsAndReadsItsThumbnailsBack(t *testing.T) {
 		f.Close()
 		images = append(images, path)
 	}
-	walls := &headlessWalls{images: images, thumbs: engine.ImageThumbnails{Dir: filepath.Join(dir, "large"), Decode: imagedecode.Open}}
+	t.Setenv("XDG_CACHE_HOME", dir)
+	walls := &headlessWalls{images: images, thumbs: thumbnail.New(thumbnail.Config{})}
 	cfg := config.Defaults()
 	sheet := apptheme.New(cfg).Sheet
 	a := apptest.Run(t)
@@ -117,8 +105,9 @@ func TestHeadlessPickerPreviewsAndReadsItsThumbnailsBack(t *testing.T) {
 	apptest.Until(t, a, "every thumbnail", func() bool { return s.picker != nil && len(s.picker.cache.byKey) == len(images) })
 	layer := apptest.On(a, func() *app.LayerWindow { return layers[len(layers)-1] })
 	apptest.Drawn(t, a, layer.HostSurface(), func() { s.picker.frame.root.Invalidate() })
-	if got := walls.decoded(); got != len(images) {
-		t.Errorf("the first picker decoded %d images, want %d", got, len(images))
+	first := thumbnailtest.Cached(t, dir, "large")
+	if len(first) != len(images) {
+		t.Errorf("the first picker cached %d thumbnails, want %d", len(first), len(images))
 	}
 	kb.Tap(keytest.Right)
 	apptest.Until(t, a, "the preview", func() bool { return slices.Equal(walls.previews, images[1:2]) })
@@ -133,8 +122,8 @@ func TestHeadlessPickerPreviewsAndReadsItsThumbnailsBack(t *testing.T) {
 	reply = open(2)
 	keytest.AwaitFocus(t, a)
 	apptest.Until(t, a, "every thumbnail again", func() bool { return s.picker != nil && len(s.picker.cache.byKey) == len(images) })
-	if got := walls.decoded(); got != len(images) {
-		t.Errorf("the second picker decoded %d more images, want 0", got-len(images))
+	if again := thumbnailtest.Cached(t, dir, "large"); !maps.Equal(again, first) {
+		t.Errorf("the second picker cached %v, the first %v: it made thumbnails again", again, first)
 	}
 	kb.Tap(keytest.Escape)
 	apptest.Answer(t, "the second reply", reply)

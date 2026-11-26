@@ -19,6 +19,7 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/reveal"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/desktop/styling"
+	"github.com/stubbedev/lys/desktop/thumbnail"
 	"github.com/stubbedev/lys/lib/intconv"
 	"github.com/stubbedev/lys/lib/portaldialogs"
 	"github.com/stubbedev/lys/lib/render"
@@ -30,6 +31,7 @@ import (
 	"github.com/stubbedev/lys/ui/widget/css"
 	"golang.org/x/sys/unix"
 
+	"github.com/stubbedev/lys/shell/internal/handoff"
 	"github.com/stubbedev/lys/shell/internal/statefile"
 	"github.com/stubbedev/lys/shell/service/udisks"
 	"github.com/stubbedev/lys/shell/shell/dialogqueue"
@@ -198,9 +200,12 @@ type Chooser struct {
 	// one off the loop.
 	pv            previewState
 	previewLoader func(context.Context, previewRequest) (preview, error)
-	// thumbnailer makes the thumbnails; thumbs are the request's.
-	thumbnailer *thumbnailer
+	// thumbnailer makes the thumbnails; thumbs are the request's, and
+	// thumbWork the lookups running and the thumbnails they made that
+	// the loop has not taken yet.
+	thumbnailer *thumbnail.Thumbnailer
 	thumbs      *thumbSet
+	thumbWork   handoff.Handoffs
 	offLoop     sync.WaitGroup
 }
 
@@ -213,7 +218,7 @@ type thumbKey struct {
 // one), waiting the slots each lookup in flight fills, and the context
 // the lookups run under, cancelled when the request ends.
 type thumbSet struct {
-	found   map[thumbKey]*thumbRaster
+	found   map[thumbKey]*thumbnail.Raster
 	waiting map[thumbKey][]func(render.StillImage)
 	ctx     context.Context
 	cancel  context.CancelFunc
@@ -222,7 +227,7 @@ type thumbSet struct {
 func newThumbSet() *thumbSet {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &thumbSet{
-		found: map[thumbKey]*thumbRaster{}, waiting: map[thumbKey][]func(render.StillImage){},
+		found: map[thumbKey]*thumbnail.Raster{}, waiting: map[thumbKey][]func(render.StillImage){},
 		ctx: ctx, cancel: cancel,
 	}
 }
@@ -230,7 +235,7 @@ func newThumbSet() *thumbSet {
 // New builds the host; nothing maps until a request.
 func New(d Deps) *Chooser {
 	c := &Chooser{
-		d: d, view: defaultView, columns: [3]int{90, 150, 90}, thumbnailer: newThumbnailer(), thumbs: newThumbSet(),
+		d: d, view: defaultView, columns: [3]int{90, 150, 90}, thumbnailer: thumbnail.New(thumbnail.Config{}), thumbs: newThumbSet(),
 		reader: newDirReader(), viewFile: statefile.File{Path: d.ViewFile}, folders: loadFolderMemory(foldersFile(d.ViewFile)),
 		size: panelSize,
 	}
@@ -1035,7 +1040,7 @@ func (c *Chooser) thumb(path, mimeType string, px int, fallback widget.Widget) w
 	set, key := c.thumbs, thumbKey{path, px}
 	if done, ok := set.found[key]; ok {
 		if done != nil {
-			show(done.image)
+			show(done.Image)
 		} else {
 			slot.Append(fallback, false)
 		}
@@ -1047,14 +1052,14 @@ func (c *Chooser) thumb(path, mimeType string, px int, fallback widget.Widget) w
 	}
 	if _, pending := set.waiting[key]; !pending {
 		th := c.thumbnailer
-		th.work.Go(c.offLoop.Go, func() {
-			done, err := th.thumbnail(set.ctx, path, mimeType, 2*px)
+		c.thumbWork.Go(c.offLoop.Go, func() {
+			done, err := th.Square(set.ctx, path, mimeType, 2*px)
 			if err != nil {
-				c.d.Invoke(func() { c.landThumb(set, key, thumbRaster{}, err) })
+				c.d.Invoke(func() { c.landThumb(set, key, thumbnail.Raster{}, err) })
 				return
 			}
-			th.work.Deliver(c.d.Invoke, func() { c.landThumb(set, key, done, nil) }, func() {
-				if err := th.free([]thumbRaster{done}); err != nil {
+			c.thumbWork.Deliver(c.d.Invoke, func() { c.landThumb(set, key, done, nil) }, func() {
+				if err := th.Free(done); err != nil {
 					log.Printf("file chooser: freeing the thumbnail of %s that landed after shutdown: %v", key.path, err)
 				}
 			})
@@ -1066,7 +1071,7 @@ func (c *Chooser) thumb(path, mimeType string, px int, fallback widget.Widget) w
 
 // landThumb fills the slots waiting for key with the thumbnail done,
 // or with nothing when err, unless set's request ended.
-func (c *Chooser) landThumb(set *thumbSet, key thumbKey, done thumbRaster, err error) {
+func (c *Chooser) landThumb(set *thumbSet, key thumbKey, done thumbnail.Raster, err error) {
 	if err != nil {
 		if set.ctx.Err() == nil {
 			set.found[key] = nil
@@ -1075,7 +1080,7 @@ func (c *Chooser) landThumb(set *thumbSet, key thumbKey, done thumbRaster, err e
 		return
 	}
 	if set.ctx.Err() != nil {
-		if err := c.thumbnailer.free([]thumbRaster{done}); err != nil {
+		if err := c.thumbnailer.Free(done); err != nil {
 			log.Printf("file chooser: freeing the thumbnail of %s that landed after its dialog: %v", key.path, err)
 		}
 		return
@@ -1084,7 +1089,7 @@ func (c *Chooser) landThumb(set *thumbSet, key thumbKey, done thumbRaster, err e
 	shows := set.waiting[key]
 	delete(set.waiting, key)
 	for _, show := range shows {
-		show(done.image)
+		show(done.Image)
 	}
 }
 
@@ -1096,20 +1101,20 @@ func (c *Chooser) freeThumbs() {
 	c.dropPreview()
 	set := c.thumbs
 	set.cancel()
-	rasters := make([]thumbRaster, 0, len(set.found))
+	rasters := make([]thumbnail.Raster, 0, len(set.found))
 	for _, r := range set.found {
 		if r != nil {
-			c.d.ForgetImage(r.image.ID)
+			c.d.ForgetImage(r.Image.ID)
 			rasters = append(rasters, *r)
 		}
 	}
-	set.found, set.waiting = map[thumbKey]*thumbRaster{}, map[thumbKey][]func(render.StillImage){}
+	set.found, set.waiting = map[thumbKey]*thumbnail.Raster{}, map[thumbKey][]func(render.StillImage){}
 	if len(rasters) == 0 {
 		return
 	}
 	th := c.thumbnailer
 	render.Retire(func() {
-		if err := th.free(rasters); err != nil {
+		if err := th.Free(rasters...); err != nil {
 			log.Printf("file chooser: freeing %d thumbnails: %v", len(rasters), err)
 		}
 	})
@@ -1137,7 +1142,7 @@ func (c *Chooser) Close() {
 	}
 	c.queue.CancelWaiting()
 	c.freeThumbs()
-	c.thumbnailer.work.Close()
+	c.thumbWork.Close()
 	c.awaitOffLoop()
 	c.viewFile.Wait()
 	c.folders.file.Wait()

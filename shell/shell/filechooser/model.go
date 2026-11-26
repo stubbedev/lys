@@ -571,14 +571,6 @@ func FormatTime(t time.Time) string {
 	return i18n.Shell().DateTime(t.Local())
 }
 
-// rasterExts are the image types thumbnailed (imagedecode's formats).
-var rasterExts = []string{"png", "jpg", "jpeg", "gif", "webp", "bmp", "tiff", "tif"}
-
-// isRaster reports a thumbnailable image by extension.
-func isRaster(path string) bool {
-	return slices.Contains(rasterExts, strings.ToLower(strings.TrimPrefix(filepath.Ext(path), ".")))
-}
-
 // previewInfo is the preview card's detail line.
 func previewInfo(e Entry) string {
 	if e.IsDir {

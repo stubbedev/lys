@@ -10,6 +10,7 @@ import (
 	"github.com/rivo/uniseg"
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/mime"
 	"github.com/stubbedev/lys/desktop/shell/launcherview"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
@@ -80,7 +81,7 @@ type panel struct {
 func (s *Surface) openPanel(sess *launcheripc.Session) {
 	cfg := s.d.Config()
 	ctx, cancel := context.WithCancel(context.Background())
-	p := &panel{s: s, sess: sess, ctx: ctx, cancel: cancel, sel: -1, preview: newPreviewLoader(s.d, s.work.Go, engine.NewThumbnailer(previewCmd(sess.Options, cfg.Launcher)))}
+	p := &panel{s: s, sess: sess, ctx: ctx, cancel: cancel, sel: -1, preview: newPreviewLoader(s.d, s.work.Go, engine.NewThumbnailer(s.thumbs, mime.System(), previewCmd(sess.Options, cfg.Launcher)))}
 	s.panel = p
 	p.v = s.panelViewsFor(p, cfg)
 	win, err := s.d.Open(panelLayer(cfg.Styling.Translucent(), s.outputFor(cfg.Launcher.Monitor), p.v.panelFrame, p.keyCaptured,

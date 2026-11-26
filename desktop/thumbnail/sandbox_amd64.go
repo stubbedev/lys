@@ -1,4 +1,4 @@
-package filechooser
+package thumbnail
 
 import "golang.org/x/sys/unix"
 

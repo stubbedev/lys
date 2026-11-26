@@ -1,4 +1,4 @@
-package filechooser
+package thumbnail
 
 import (
 	"bytes"
@@ -12,14 +12,22 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/stubbedev/lys/desktop/fileuri"
 	"github.com/stubbedev/lys/lib/atomicfile"
 	"github.com/stubbedev/lys/lib/xdg"
+
+	"github.com/stubbedev/lys/desktop/fileuri"
 )
 
-// failApp is the directory under the cache's fail/ that records the
-// files lys-shell could not thumbnail.
-const failApp = "lys-shell"
+// software is the Software a cache PNG made here carries, and the
+// directory under the cache's fail/ that records the files the
+// installed thumbnailers and in-process decodes could not thumbnail.
+const software = "lys-shell"
+
+// The edges of the cache's normal and large sizes.
+const (
+	NormalPx = 128
+	LargePx  = 256
+)
 
 // thumbSize is one of the cache's size directories and its edge.
 type thumbSize struct {
@@ -28,7 +36,7 @@ type thumbSize struct {
 }
 
 // thumbSizes are the cache's sizes, smallest first.
-var thumbSizes = []thumbSize{{"normal", 128}, {"large", 256}, {"x-large", 512}, {"xx-large", 1024}}
+var thumbSizes = []thumbSize{{"normal", NormalPx}, {"large", LargePx}, {"x-large", 512}, {"xx-large", 1024}}
 
 // flavorFor is the smallest cache size at least px, else the largest.
 func flavorFor(px int) thumbSize {
@@ -69,15 +77,16 @@ func cacheFor(path string, info os.FileInfo) (thumbCache, error) {
 // path is the thumbnail's path in the size directory dir.
 func (tc thumbCache) path(dir string) string { return filepath.Join(tc.root, dir, tc.name) }
 
-// failPath is the record that lys-shell could not thumbnail the file.
-func (tc thumbCache) failPath() string { return filepath.Join(tc.root, "fail", failApp, tc.name) }
+// failPath is the record that app could not thumbnail the file.
+func (tc thumbCache) failPath(app string) string { return filepath.Join(tc.root, "fail", app, tc.name) }
 
-// lookup is the cache's image for the file: the smallest size at least
-// px, else the largest below it, and only while its Thumb::MTime
-// matches the file's (a stale one is no thumbnail).
-func (tc thumbCache) lookup(px int) (image.Image, error) {
+// lookup is the cache's image for the file and the file holding it:
+// the smallest size at least px, else the largest below it, and only
+// while its Thumb::MTime matches the file's (a stale one is no
+// thumbnail).
+func (tc thumbCache) lookup(px int) (image.Image, string, error) {
 	if tc.root == "" {
-		return nil, errNoThumb
+		return nil, "", ErrNone
 	}
 	start := 0
 	for start < len(thumbSizes)-1 && thumbSizes[start].px < px {
@@ -91,23 +100,24 @@ func (tc thumbCache) lookup(px int) (image.Image, error) {
 		order = append(order, i)
 	}
 	for _, i := range order {
-		data, err := os.ReadFile(tc.path(thumbSizes[i].dir))
+		file := tc.path(thumbSizes[i].dir)
+		data, err := os.ReadFile(file) //nolint:gosec // the spec's cache file for the file
 		if err != nil || !tc.fresh(data) {
 			continue
 		}
 		if img, err := png.Decode(bytes.NewReader(data)); err == nil {
-			return img, nil
+			return img, file, nil
 		}
 	}
-	return nil, errNoThumb
+	return nil, "", ErrNone
 }
 
-// failed reports a fresh record that thumbnailing the file failed.
-func (tc thumbCache) failed() bool {
+// failed reports a fresh record that app failed to thumbnail the file.
+func (tc thumbCache) failed(app string) bool {
 	if tc.root == "" {
 		return false
 	}
-	data, err := os.ReadFile(tc.failPath())
+	data, err := os.ReadFile(tc.failPath(app))
 	return err == nil && tc.fresh(data)
 }
 
@@ -122,7 +132,7 @@ func (tc thumbCache) encode(img image.Image, source image.Rectangle) ([]byte, er
 	if err := png.Encode(&buf, img); err != nil {
 		return nil, err
 	}
-	text := [][2]string{{"Thumb::URI", tc.uri}, {"Thumb::MTime", tc.mtime}, {"Thumb::Size", tc.size}, {"Software", failApp}}
+	text := [][2]string{{"Thumb::URI", tc.uri}, {"Thumb::MTime", tc.mtime}, {"Thumb::Size", tc.size}, {"Software", software}}
 	if !source.Empty() {
 		text = append(text, [2]string{"Thumb::Image::Width", strconv.Itoa(source.Dx())}, [2]string{"Thumb::Image::Height", strconv.Itoa(source.Dy())})
 	}

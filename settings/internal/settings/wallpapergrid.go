@@ -1,6 +1,7 @@
 package settings
 
 import (
+	"context"
 	"log"
 	"path/filepath"
 	"slices"
@@ -8,9 +9,9 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
-	"github.com/stubbedev/lys/desktop/imagedecode"
+	"github.com/stubbedev/lys/desktop/mime"
+	"github.com/stubbedev/lys/desktop/thumbnail"
 	"github.com/stubbedev/lys/lib/render"
-	"github.com/stubbedev/lys/shell/service/launcher"
 	"github.com/stubbedev/lys/shell/service/wallpaper"
 	"github.com/stubbedev/lys/ui/widget"
 
@@ -28,14 +29,11 @@ var wallpaperGridRow rowOpt = func(r *rowSpec) {
 	r.editor = func(k *kit, s slot, _ config.FieldMeta) control { return newWallpaperGrid(k, s) }
 }
 
-func cachedThumb(thumbs launcher.ImageThumbnails) func(path string) wallpaperThumb {
+func cachedThumb(thumbs *thumbnail.Thumbnailer) func(path string) wallpaperThumb {
 	return func(path string) wallpaperThumb {
-		img, _, err := thumbs.Load(path)
-		if img == nil {
-			return wallpaperThumb{err: err}
-		}
+		img, err := thumbs.Image(context.Background(), path, mime.System().TypeByName(path), thumbnail.LargePx)
 		if err != nil {
-			log.Printf("settings: wallpaper thumbnail: %v", err)
+			return wallpaperThumb{err: err}
 		}
 		return wallpaperThumb{img: img}
 	}
@@ -69,7 +67,7 @@ type wallpaperGrid struct {
 func newWallpaperGrid(k *kit, s slot) *wallpaperGrid {
 	g := &wallpaperGrid{Box: widget.NewBox(widget.Row, 0, 0), k: k, slot: s, pictures: picturesDir()}
 	g.AddClass("wallpaper-grid")
-	g.thumbs = newThumbCache(k, cachedThumb(launcher.ImageThumbnails{Dir: launcher.LargeThumbnailDir(), Decode: imagedecode.Open}), g.paintThumbs)
+	g.thumbs = newThumbCache(k, cachedThumb(thumbnail.New(thumbnail.Config{})), g.paintThumbs)
 	g.path = newFileEditor(k, s)
 	g.grid = widget.NewWrapBox(choiceCardGap, choiceCardGap, widget.JustifyStart)
 	g.grid.SetAccessibleName(locale.T().Get("settings-wallpaper-grid"))

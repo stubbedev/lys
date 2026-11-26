@@ -6,6 +6,7 @@
   xkeyboard-config,
   libva,
   vulkan-loader,
+  bubblewrap,
 }: let
   # What the binary dlopens through purego: lys-ui's GPU renderer and the
   # recorder pages' device probes.
@@ -43,8 +44,11 @@ in
       substituteInPlace $out/share/polkit-1/actions/dev.stubbe.lys.settings.users.policy --replace-fail /usr/libexec/ $out/libexec/
     '';
 
+    # bwrap after the system's own on PATH: the sandbox desktop/thumbnail
+    # runs installed thumbnailers in, for wallpapers it cannot decode itself.
     postFixup = ''
-      wrapProgram $out/bin/lys-settings --prefix LD_LIBRARY_PATH : "${lib.makeLibraryPath libs}"
+      wrapProgram $out/bin/lys-settings --prefix LD_LIBRARY_PATH : "${lib.makeLibraryPath libs}" \
+        --suffix PATH : "${lib.makeBinPath [bubblewrap]}"
     '';
 
     doInstallCheck = true;

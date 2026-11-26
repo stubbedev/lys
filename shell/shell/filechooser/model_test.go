@@ -2,10 +2,6 @@ package filechooser
 
 import (
 	"context"
-	"errors"
-	"image"
-	"image/color"
-	"image/png"
 	"os"
 	"path/filepath"
 	"slices"
@@ -295,17 +291,6 @@ func TestSearchRanksCloseAndWellMatchedFirst(t *testing.T) {
 	}
 }
 
-func TestDetectsRasterImagesByExtension(t *testing.T) {
-	for path, want := range map[string]bool{
-		"/x/a.png": true, "/x/a.JPG": true, "/x/photo.jpeg": true, "/x/b.webp": true,
-		"/x/a.txt": false, "/x/a.svg": false, "/x/noext": false,
-	} {
-		if got := isRaster(path); got != want {
-			t.Errorf("isRaster(%s) = %v", path, got)
-		}
-	}
-}
-
 func TestWalkSearchRecursesAndHonorsHidden(t *testing.T) {
 	root := t.TempDir()
 	touch(t, root, "top_match.txt", "plain.txt", "sub/nested_match.txt", ".hidden/buried_match.txt", ".secret_match.txt")
@@ -530,68 +515,6 @@ func TestViewRoundTripsAndDefaults(t *testing.T) {
 	}
 	if got := parseView("bogus sideways mosaic"); got != defaultView {
 		t.Errorf("garbage = %+v, want the default", got)
-	}
-}
-
-func TestThumbnailIsACentreCroppedSquare(t *testing.T) {
-	// 16x8: red left half, blue right half; the centred square crop is
-	// columns 4..12, so the thumbnail's left edge is red, right blue.
-	src := image.NewRGBA(image.Rect(0, 0, 16, 8))
-	for y := range 8 {
-		for x := range 16 {
-			c := color.RGBA{200, 30, 40, 255}
-			if x >= 8 {
-				c = color.RGBA{20, 60, 220, 255}
-			}
-			src.Set(x, y, c)
-		}
-	}
-	path := filepath.Join(t.TempDir(), "t.png")
-	f, err := os.Create(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := png.Encode(f, src); err != nil {
-		t.Fatal(err)
-	}
-	_ = f.Close()
-	th := newThumbnailer()
-	ctx := context.Background()
-	got, err := th.thumbnail(ctx, path, "", 24)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got.image.Bounds() != image.Rect(0, 0, 24, 24) {
-		t.Fatalf("bounds = %v, want a 24px square", got.image.Bounds())
-	}
-	if l, r := got.image.RGBAAt(0, 12), got.image.RGBAAt(23, 12); l.R <= l.B || r.B <= r.R {
-		t.Errorf("left %v / right %v, want red then blue", l, r)
-	}
-	if err := th.free([]thumbRaster{got}); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := th.thumbnail(ctx, filepath.Join(t.TempDir(), "missing.png"), "", 24); err == nil {
-		t.Error("a missing file thumbnailed")
-	}
-	garbage := filepath.Join(t.TempDir(), "g.png")
-	if err := os.WriteFile(garbage, []byte("not an image"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := th.thumbnail(ctx, garbage, "", 24); err == nil {
-		t.Error("garbage thumbnailed")
-	}
-	big := filepath.Join(t.TempDir(), "big.png")
-	if err := os.WriteFile(big, nil, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Truncate(big, thumbMaxBytes+1); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := th.thumbnail(ctx, big, "", 24); !errors.Is(err, errThumbTooLarge) {
-		t.Errorf("an oversized file = %v, want errThumbTooLarge", err)
-	}
-	if live := th.mem.Stats().Live; live != 0 {
-		t.Errorf("%d thumbnails left allocated", live)
 	}
 }
 

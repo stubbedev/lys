@@ -696,7 +696,7 @@ var schemaDocs = map[string]string{
 	"LauncherConfig.MouseBindings":                   "Mouse binding overrides: action (rofi's `me-`/`ml-` name, prefix\nincluded, e.g. `me-accept-entry`, `ml-row-down`) → comma-separated\nbutton list (e.g. `\"MouseDPrimary\"`, `\"ScrollDown\"`). Unset actions\nkeep their defaults.",
 	"LauncherConfig.NegateChar":                      "Token prefix that negates a token.",
 	"LauncherConfig.NormalizeMatch":                  "Strip accents/normalize Unicode while matching.",
-	"LauncherConfig.PreviewCmd":                      "Command that turns a `thumbnail://` row icon into an image file:\n`{input}` the icon's path, `{output}` where to write the thumbnail,\n`{size}` the requested pixel size. Empty uses the system's XDG\nthumbnailers. rofi's `-preview-cmd`.",
+	"LauncherConfig.PreviewCmd":                      "Command that turns a `thumbnail://` row icon into an image file:\n`{input}` the icon's path, `{output}` where to write the thumbnail,\n`{size}` the requested pixel size. It runs in the same sandbox as the\nXDG thumbnailers, so `{input}` and `{output}` are paths inside it and\nthe command sees the system, its input and its output, not the rest\nof the home directory. Empty uses the system's XDG thumbnailers.\nrofi's `-preview-cmd`.",
 	"LauncherConfig.Run":                             "run (command) mode.",
 	"LauncherConfig.SSH":                             "ssh mode.",
 	"LauncherConfig.Scripts":                         "Custom script modes: name → executable (rofi `name:script`).",

@@ -13,6 +13,7 @@ import (
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/desktop/styling"
+	"github.com/stubbedev/lys/desktop/thumbnail"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
@@ -58,7 +59,7 @@ type preview struct {
 	description string
 	text        string
 	read        int
-	raster      thumbRaster
+	raster      thumbnail.Raster
 	size        image.Point
 	items       int
 	more        bool
@@ -194,8 +195,8 @@ func (c *Chooser) applyPreview(p preview) {
 			v.visual.Clear()
 			v.visual.Append(widgets.Pin(v.code, v.textW, v.textH), false)
 		case previewImage:
-			size := fitSize(p.raster.image.Bounds(), v.imageW, v.imageH)
-			img := widget.NewImage(p.raster.image)
+			size := thumbnail.FitSize(p.raster.Image.Bounds(), v.imageW, v.imageH)
+			img := widget.NewImage(p.raster.Image)
 			img.SetScale(widget.ImageFit)
 			img.AddClass("file-chooser-preview-image")
 			v.visual.Clear()
@@ -223,10 +224,10 @@ func (c *Chooser) freePreview(p preview) {
 	if p.kind != previewImage {
 		return
 	}
-	c.d.ForgetImage(p.raster.image.ID)
+	c.d.ForgetImage(p.raster.Image.ID)
 	th := c.thumbnailer
 	render.Retire(func() {
-		if err := th.free([]thumbRaster{p.raster}); err != nil {
+		if err := th.Free(p.raster); err != nil {
 			log.Printf("file chooser: freeing a preview image: %v", err)
 		}
 	})
@@ -252,9 +253,9 @@ func (c *Chooser) loadPreview(ctx context.Context, req previewRequest) (preview,
 		p.kind, p.text = previewText, string(text)
 		return p, nil
 	}
-	raster, size, err := c.thumbnailer.preview(ctx, e.Path, req.mimeType, 2*quicklookImageW, 2*quicklookImageH)
+	raster, size, err := c.thumbnailer.Fit(ctx, e.Path, req.mimeType, 2*quicklookImageW, 2*quicklookImageH)
 	switch {
-	case errors.Is(err, errNoThumb):
+	case errors.Is(err, thumbnail.ErrNone):
 		return p, nil
 	case err != nil:
 		return p, err

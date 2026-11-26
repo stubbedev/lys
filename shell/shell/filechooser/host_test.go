@@ -1,13 +1,7 @@
 package filechooser
 
 import (
-	"bytes"
-	"context"
-	"crypto/md5"
-	"encoding/binary"
-	"encoding/hex"
 	"errors"
-	"hash/crc32"
 	"image"
 	"image/png"
 	"os"
@@ -705,64 +699,6 @@ func TestImageRowsGetThumbnails(t *testing.T) {
 	if len(treetest.All[*widget.Image](row)) != 0 || len(treetest.All[*widget.Icon](row)) == 0 {
 		t.Error("an undecodable image lost its icon")
 	}
-}
-
-// A file with a thumbnail in the freedesktop cache gets it while its
-// Thumb::MTime matches; a stale one is no thumbnail.
-func TestThumbnailFromTheCache(t *testing.T) {
-	cache := t.TempDir()
-	t.Setenv("XDG_CACHE_HOME", cache)
-	doc := filepath.Join(t.TempDir(), "report.pdf")
-	if err := os.WriteFile(doc, []byte("%PDF"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	info, err := os.Stat(doc)
-	if err != nil {
-		t.Fatal(err)
-	}
-	put := func(mtime int64) {
-		var buf bytes.Buffer
-		if err := png.Encode(&buf, image.NewRGBA(image.Rect(0, 0, 8, 8))); err != nil {
-			t.Fatal(err)
-		}
-		withText := insertText(t, buf.Bytes(), "Thumb::MTime", strconv.FormatInt(mtime, 10))
-		sum := md5.Sum([]byte(fileuri.FromPath(doc)))
-		path := filepath.Join(cache, "thumbnails", "large", hex.EncodeToString(sum[:])+".png")
-		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(path, withText, 0o600); err != nil {
-			t.Fatal(err)
-		}
-	}
-	put(info.ModTime().Unix())
-	th := newThumbnailer()
-	if got, err := th.thumbnail(context.Background(), doc, "", 48); err != nil || got.image.Bounds().Dx() != 48 {
-		t.Errorf("a cached thumbnail = %v, %v", got.image.Bounds(), err)
-	} else if err := th.free([]thumbRaster{got}); err != nil {
-		t.Fatal(err)
-	}
-	put(info.ModTime().Unix() - 60)
-	if _, err := th.thumbnail(context.Background(), doc, "", 48); !errors.Is(err, errNoThumb) {
-		t.Errorf("a stale cached thumbnail = %v, want none", err)
-	}
-	if got := pngText([]byte("not a png"), "Thumb::MTime"); got != "" {
-		t.Errorf("garbage carries %q", got)
-	}
-}
-
-// insertText puts a tEXt chunk right after a PNG's header chunk.
-func insertText(t *testing.T, data []byte, key, value string) []byte {
-	t.Helper()
-	const ihdrEnd = 8 + 8 + 13 + 4
-	body := append([]byte(key+"\x00"), value...)
-	chunk := binary.BigEndian.AppendUint32(nil, uint32(len(body)))
-	chunk = append(chunk, "tEXt"...)
-	chunk = append(chunk, body...)
-	chunk = binary.BigEndian.AppendUint32(chunk, crc32.ChecksumIEEE(append([]byte("tEXt"), body...)))
-	out := append([]byte{}, data[:ihdrEnd]...)
-	out = append(out, chunk...)
-	return append(out, data[ihdrEnd:]...)
 }
 
 // A column's grip resizes it by its left edge through the pointer,

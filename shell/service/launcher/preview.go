@@ -64,8 +64,8 @@ type PreviewContent struct {
 	Name  string
 }
 
-// Thumbnailing turns a file into an image file; Thumbnailer over the XDG
-// thumbnailers.
+// Thumbnailing turns a file into an image file; Thumbnailer over the
+// shared thumbnailers.
 type Thumbnailing interface {
 	Generate(ctx context.Context, file string) (string, bool)
 }

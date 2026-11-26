@@ -1,9 +1,10 @@
 package launcher
 
 import (
+	"bytes"
 	"context"
-	"crypto/md5"
-	"encoding/hex"
+	"image"
+	"image/png"
 	"maps"
 	"os"
 	"path/filepath"
@@ -14,102 +15,168 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/mime"
+	"github.com/stubbedev/lys/desktop/shlex"
+	"github.com/stubbedev/lys/desktop/thumbnail"
+	"github.com/stubbedev/lys/desktop/thumbnail/thumbnailtest"
 )
 
-func TestTheCachePathIsTheMd5OfTheFileURI(t *testing.T) {
-	t.Setenv("XDG_CACHE_HOME", "/cache")
-	path := ThumbnailCachePath("/home/user/Photos/me.png")
-	sum := md5.Sum([]byte("file:///home/user/Photos/me.png"))
-	if filepath.Base(path) != hex.EncodeToString(sum[:])+".png" {
-		t.Errorf("name = %s", filepath.Base(path))
+// testTypes is a MIME database that knows PDFs by name.
+func testTypes(t *testing.T) *mime.Database {
+	t.Helper()
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "mime"), 0o700); err != nil {
+		t.Fatal(err)
 	}
-	if filepath.Dir(path) != "/cache/thumbnails/normal" {
-		t.Errorf("dir = %s", filepath.Dir(path))
+	if err := os.WriteFile(filepath.Join(dir, "mime", "globs2"), []byte("50:application/pdf:*.pdf\n"), 0o600); err != nil {
+		t.Fatal(err)
 	}
-	// A relative XDG_CACHE_HOME is not honored.
-	t.Setenv("XDG_CACHE_HOME", "relative")
-	t.Setenv("HOME", "/home/u")
-	if got := ThumbnailCacheDir(); got != "/home/u/.cache/thumbnails/normal" {
-		t.Errorf("relative cache home = %s", got)
+	return mime.Load([]string{dir})
+}
+
+// shellLine is argv as a -preview-cmd line, every word quoted.
+func shellLine(argv []string) string {
+	quoted := make([]string, len(argv))
+	for i, a := range argv {
+		quoted[i] = "'" + a + "'"
 	}
+	return strings.Join(quoted, " ")
+}
+
+// pngOf is a w x h PNG.
+func pngOf(t *testing.T, w, h int) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, image.NewRGBA(image.Rect(0, 0, w, h))); err != nil {
+		t.Fatal(err)
+	}
+	return buf.Bytes()
+}
+
+// sizeOf is the size of the PNG at path.
+func sizeOf(t *testing.T, path string) image.Point {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := png.DecodeConfig(bytes.NewReader(data))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return image.Pt(cfg.Width, cfg.Height)
 }
 
 func TestPreviewCmdPlaceholdersAreArgvNotAShellLine(t *testing.T) {
-	th := NewThumbnailer(`mkthumb "{input}" "{output}" "{size}"`)
-	argv, ok := th.Command("/tmp/a b.raw", "/cache/x.png")
-	if !ok || !reflect.DeepEqual(argv, []string{"mkthumb", "/tmp/a b.raw", "/cache/x.png", "128"}) {
+	words, _ := shlex.Split(`mkthumb "{input}" "{output}" "{size}"`)
+	if argv := previewArgv(words, "/tmp/a b.raw", "/cache/x.png", 128); !reflect.DeepEqual(argv, []string{"mkthumb", "/tmp/a b.raw", "/cache/x.png", "128"}) {
 		t.Errorf("argv = %q", argv)
 	}
-	th = NewThumbnailer("mkthumb '{input}' '{output}'")
-	argv, _ = th.Command("/tmp/x; rm -rf ~/.png", "/cache/x.png")
-	if !reflect.DeepEqual(argv, []string{"mkthumb", "/tmp/x; rm -rf ~/.png", "/cache/x.png"}) {
+	words, _ = shlex.Split("mkthumb '{input}' '{output}'")
+	if argv := previewArgv(words, "/tmp/x; rm -rf ~/.png", "/cache/x.png", 128); !reflect.DeepEqual(argv, []string{"mkthumb", "/tmp/x; rm -rf ~/.png", "/cache/x.png"}) {
 		t.Errorf("a file name smuggled a command: %q", argv)
 	}
 }
 
 func TestABrokenPreviewCmdProducesNothing(t *testing.T) {
-	if _, ok := NewThumbnailer("mkthumb '{input}").Command("/tmp/a", "/cache/x.png"); ok {
-		t.Error("half a command must not run")
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	files := thumbnail.New(thumbnail.Config{})
+	file := writeTemp(t, "a.png", pngOf(t, 4, 3))
+	if _, ok := NewThumbnailer(files, testTypes(t), "mkthumb '{input}").Generate(context.Background(), file); ok {
+		t.Error("half a command must not run, nor the system thumbnailers in its place")
 	}
-	if NewThumbnailer("   ").previewCmd != "" {
+	if NewThumbnailer(files, testTypes(t), "   ").files != files {
 		t.Error("a blank preview-cmd must not shadow the system thumbnailers")
 	}
 }
 
-func TestAThumbnailerDescriptorYieldsExecAndMimes(t *testing.T) {
-	th, ok := ParseThumbnailer("[Thumbnailer Entry]\nTryExec=/bin/sh\nExec=gdk-pixbuf-thumbnailer -s %s %u %o\nMimeType=image/svg+xml;image/png;\n")
-	if !ok || !reflect.DeepEqual(th.MimeTypes, []string{"image/svg+xml", "image/png"}) {
-		t.Fatalf("parsed = %+v %v", th, ok)
-	}
-	argv, _ := th.Argv("/tmp/logo.svg", "/cache/x.png")
-	if !reflect.DeepEqual(argv, []string{"gdk-pixbuf-thumbnailer", "-s", "128", "file:///tmp/logo.svg", "/cache/x.png"}) {
-		t.Errorf("argv = %q", argv)
-	}
-}
-
-func TestADescriptorMissingWhatItNeedsIsNotUsed(t *testing.T) {
-	for name, body := range map[string]string{
-		"no exec":         "[Thumbnailer Entry]\nMimeType=image/png;\n",
-		"no mimetype":     "[Thumbnailer Entry]\nExec=thumb %i %o\n",
-		"outside section": "Exec=thumb %i %o\nMimeType=image/png;\n",
-		"try-exec absent": "[Thumbnailer Entry]\nTryExec=/nonexistent/thumbnailer\nExec=thumb %i %o\nMimeType=image/png;\n",
-	} {
-		if _, ok := ParseThumbnailer(body); ok {
-			t.Errorf("%s: must not be used", name)
-		}
-	}
-}
-
+// -preview-cmd makes a thumbnail in the sandbox, which lands in the
+// freedesktop cache; while the file is unchanged the cached one is
+// reused, and once it changes the command makes it anew.
 func TestGenerateRunsThePreviewCmdAndCaches(t *testing.T) {
-	t.Setenv("XDG_CACHE_HOME", t.TempDir())
-	file := filepath.Join(t.TempDir(), "pic.raw")
-	if err := os.WriteFile(file, []byte("x"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	th := NewThumbnailer("cp {input} {output}")
-	out, ok := th.Generate(context.Background(), file)
-	if !ok || !strings.HasPrefix(out, ThumbnailCacheDir()) {
+	cache := t.TempDir()
+	t.Setenv("XDG_CACHE_HOME", cache)
+	file := writeTemp(t, "pic.raw", pngOf(t, 40, 30))
+	files := thumbnail.New(thumbnail.Config{})
+	out, ok := NewThumbnailer(files, testTypes(t), "cp {input} {output}").Generate(context.Background(), file)
+	if !ok || filepath.Dir(out) != filepath.Join(cache, "thumbnails", "normal") {
 		t.Fatalf("generate = %q %v", out, ok)
 	}
-	if cached, ok := CachedThumbnail(file); !ok || cached != out {
-		t.Errorf("cached = %q %v", cached, ok)
+	if got := sizeOf(t, out); got != image.Pt(40, 30) {
+		t.Errorf("the thumbnail is %v, want the copied 40x30", got)
 	}
-	// An edited file invalidates the cached picture.
+	if cached, ok := NewThumbnailer(files, testTypes(t), "false {input}").Generate(context.Background(), file); !ok || cached != out {
+		t.Errorf("an unchanged file's cached thumbnail = %q %v, want %q reused", cached, ok, out)
+	}
+
+	if err := os.WriteFile(file, pngOf(t, 20, 10), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	later := time.Now().Add(time.Hour)
 	if err := os.Chtimes(file, later, later); err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := CachedThumbnail(file); ok {
-		t.Error("a thumbnail older than its file must not be reused")
+	if again, ok := NewThumbnailer(files, testTypes(t), "cp {input} {output}").Generate(context.Background(), file); !ok || again != out {
+		t.Fatalf("a changed file's thumbnail = %q %v", again, ok)
+	}
+	if got := sizeOf(t, out); got != image.Pt(20, 10) {
+		t.Errorf("a changed file's thumbnail is %v, want the new 20x10", got)
 	}
 }
 
 func TestAThumbnailerThatWritesNothingProducesNothing(t *testing.T) {
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
-	file := filepath.Join(t.TempDir(), "pic.raw")
-	_ = os.WriteFile(file, []byte("x"), 0o600)
-	if _, ok := NewThumbnailer("true {input}").Generate(context.Background(), file); ok {
+	file := writeTemp(t, "pic.raw", pngOf(t, 4, 3))
+	if _, ok := NewThumbnailer(thumbnail.New(thumbnail.Config{}), testTypes(t), "true {input}").Generate(context.Background(), file); ok {
 		t.Error("a successful command that wrote no file must not count")
+	}
+}
+
+// A launcher file preview runs the thumbnailer installed for its type,
+// and -preview-cmd in its place, in the sandbox: neither reads $HOME,
+// reaches the network, opens an IPv4 socket, makes a denied call or
+// writes its input.
+func TestAFilePreviewRunsItsThumbnailerSandboxed(t *testing.T) {
+	probe := thumbnailtest.NewProbe(t)
+	thumbnailtest.Install(t, "application/pdf", probe.Argv(t, "%i", "%o"))
+	for name, previewCmd := range map[string]string{
+		"installed":   "",
+		"preview-cmd": shellLine(probe.Argv(t, "{input}", "{output}")),
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Setenv("XDG_CACHE_HOME", t.TempDir())
+			doc := writeTemp(t, "paper.pdf", []byte("%PDF-1.4\x00\x01"))
+			thumbs := NewThumbnailer(thumbnail.New(thumbnail.Config{}), testTypes(t), previewCmd)
+			got, err := LoadPreview(ctx, Preview{Path: doc}, thumbs)
+			if err != nil || got.Image == nil {
+				t.Fatalf("the PDF's preview = %+v, %v", got, err)
+			}
+			if leaks := thumbnailtest.Leaks(t, got.Image); len(leaks) != 0 {
+				t.Errorf("the thumbnailer %s", strings.Join(leaks, ", "))
+			}
+		})
+	}
+	if n := probe.Accepted(); n != 0 {
+		t.Errorf("the listener on loopback accepted %d connections from the sandbox", n)
+	}
+}
+
+// A file whose thumbnailer fails gets no thumbnail, and while it is
+// unchanged the thumbnailer is not run for it again.
+func TestAFailedThumbnailIsNotRetried(t *testing.T) {
+	cache := t.TempDir()
+	t.Setenv("XDG_CACHE_HOME", cache)
+	thumbnailtest.Install(t, "application/pdf", thumbnailtest.Argv(t, thumbnailtest.Fail, "%o"))
+	doc := writeTemp(t, "paper.pdf", []byte("%PDF-1.4\x00\x01"))
+	if _, ok := NewThumbnailer(thumbnail.New(thumbnail.Config{}), testTypes(t), "").Generate(ctx, doc); ok {
+		t.Fatal("a failing thumbnailer made a thumbnail")
+	}
+	if failed, err := os.ReadDir(filepath.Join(cache, "thumbnails", "fail", "lys-shell")); err != nil || len(failed) != 1 {
+		t.Fatalf("the failing thumbnailer left %d fail records (%v), want one", len(failed), err)
+	}
+	thumbnailtest.Install(t, "application/pdf", thumbnailtest.Argv(t, thumbnailtest.Page, "%o"))
+	if _, ok := NewThumbnailer(thumbnail.New(thumbnail.Config{}), testTypes(t), "").Generate(ctx, doc); ok {
+		t.Error("a file that failed ran a thumbnailer again")
 	}
 }
 
@@ -125,7 +192,7 @@ func TestThePreviewCommandRendersExactlyItsDeclaredPlaceholders(t *testing.T) {
 		declared = append(declared, p.Name)
 	}
 	slices.Sort(declared)
-	if rendered := slices.Sorted(maps.Keys(previewVars("", ""))); len(declared) == 0 || !slices.Equal(rendered, declared) {
+	if rendered := slices.Sorted(maps.Keys(previewVars("", "", 0))); len(declared) == 0 || !slices.Equal(rendered, declared) {
 		t.Errorf("-preview-cmd renders %v, declares %v", rendered, declared)
 	}
 }

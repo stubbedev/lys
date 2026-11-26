@@ -15,6 +15,7 @@ import (
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
+	"github.com/stubbedev/lys/desktop/thumbnail/thumbnailtest"
 	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/xkb"
 	"github.com/stubbedev/lys/ui/widget"
@@ -172,7 +173,7 @@ func TestQuicklookShowsTheWholeImage(t *testing.T) {
 	waittest.Until(t, func() bool {
 		var live int
 		var shown *preview
-		hs.do(func() { live, shown = hs.c.thumbnailer.mem.Stats().Live, hs.c.pv.shown })
+		hs.do(func() { live, shown = hs.c.thumbnailer.Live(), hs.c.pv.shown })
 		if shown != nil {
 			t.Fatal("the closed dialog still holds its preview")
 		}
@@ -284,7 +285,7 @@ func TestFolderPreviewCountsItems(t *testing.T) {
 func TestQuicklookShowsAThumbnailerPage(t *testing.T) {
 	hs := newHarness(t, "")
 	doc := pdfFile(t, hs)
-	installThumbnailer(t, hs, "png")
+	installThumbnailer(t, hs, thumbnailtest.Page)
 	got := hs.quicklookOn(t, filepath.Dir(doc), "paper.pdf")
 	var imgs []*widget.Image
 	hs.run(func() {

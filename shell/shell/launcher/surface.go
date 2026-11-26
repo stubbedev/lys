@@ -9,7 +9,9 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/mime"
 	"github.com/stubbedev/lys/desktop/shell/launcherview"
+	"github.com/stubbedev/lys/desktop/thumbnail"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
@@ -172,6 +174,8 @@ type Surface struct {
 	work sync.WaitGroup
 	// spawn runs the picker's thumbnail work, in work.
 	spawn func(func())
+	// thumbs makes the rows' and previews' thumbnails for every session.
+	thumbs *thumbnail.Thumbnailer
 }
 
 // New builds the surface over its collaborators.
@@ -182,7 +186,7 @@ func New(d Deps) *Surface {
 	if d.Emoji == nil {
 		d.Emoji = modes.AvailableEmoji
 	}
-	s := &Surface{d: d, sel: -1, sources: search.NewSources(d.WatchFiles, time.Now)}
+	s := &Surface{d: d, sel: -1, sources: search.NewSources(d.WatchFiles, time.Now), thumbs: thumbnail.New(thumbnail.Config{})}
 	s.spawn = s.work.Go
 	s.openFrecency = s.sources.Frecency(func() (*search.Frecency, error) { return s.d.OpenFrecency() })
 	return s
@@ -287,7 +291,7 @@ func (s *Surface) openSession(sess *launcheripc.Session) {
 	ctx, cancel := context.WithCancel(context.Background())
 	a := &active{
 		sess: sess, ui: setup.ui, history: setup.history, dialog: dialog, dump: sess.Options.Dump,
-		thumbs: engine.NewThumbnailer(setup.ui.previewCmd), ctx: ctx, cancel: cancel,
+		thumbs: engine.NewThumbnailer(s.thumbs, mime.System(), setup.ui.previewCmd), ctx: ctx, cancel: cancel,
 		keys: compileKeys(setup.ui.keybindings), mouse: compileMouse(setup.ui.mouseBindings),
 	}
 	a.preview = newPreviewLoader(s.d, s.work.Go, a.thumbs)

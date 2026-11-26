@@ -65,10 +65,6 @@ func thumbnailPending(icon engine.Icon) string {
 // could be made).
 func generateThumbnail(ctx context.Context, spawn func(func()), t engine.Thumbnailer, path string, done func(string)) {
 	spawn(func() {
-		if cached, ok := engine.CachedThumbnail(path); ok {
-			done(cached)
-			return
-		}
 		if made, ok := t.Generate(ctx, path); ok {
 			done(made)
 		}

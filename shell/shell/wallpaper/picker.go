@@ -1,13 +1,14 @@
 package wallpaper
 
 import (
+	"context"
 	"fmt"
 	"image"
 
 	"github.com/stubbedev/lys/desktop/config"
-	"github.com/stubbedev/lys/desktop/imagedecode"
+	"github.com/stubbedev/lys/desktop/mime"
+	"github.com/stubbedev/lys/desktop/thumbnail"
 
-	engine "github.com/stubbedev/lys/shell/service/launcher"
 	"github.com/stubbedev/lys/shell/service/wallpaper"
 )
 
@@ -19,7 +20,7 @@ type Picker struct {
 	config    func() *config.Config
 	setConfig func(path string, value any, done func(error))
 	pictures  func() string
-	thumbs    engine.ImageThumbnails
+	thumbs    *thumbnail.Thumbnailer
 }
 
 // NewPicker serves the picker from the shell's service; setConfig queues
@@ -28,7 +29,7 @@ type Picker struct {
 func (s *Shell) NewPicker(cfg func() *config.Config, setConfig func(path string, value any, done func(error))) *Picker {
 	return &Picker{
 		svc: s.svc, config: cfg, setConfig: setConfig, pictures: wallpaper.PicturesDir,
-		thumbs: engine.ImageThumbnails{Dir: engine.LargeThumbnailDir(), Decode: imagedecode.Open},
+		thumbs: thumbnail.New(thumbnail.Config{}),
 	}
 }
 
@@ -66,8 +67,7 @@ func (p *Picker) Commit(path, monitor string, saved func(error)) error {
 // LoadThumbnail is path's large thumbnail, from the thumbnail cache or
 // made and saved there.
 func (p *Picker) LoadThumbnail(path string) (image.Image, error) {
-	img, _, err := p.thumbs.Load(path)
-	return img, err
+	return p.thumbs.Image(context.Background(), path, mime.System().TypeByName(path), thumbnail.LargePx)
 }
 
 // commitChange is the config change that keeps path on monitor ("" every

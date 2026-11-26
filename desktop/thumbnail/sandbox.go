@@ -1,4 +1,4 @@
-package filechooser
+package thumbnail
 
 import (
 	"context"
@@ -11,9 +11,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/stubbedev/lys/desktop/fileuri"
 	"github.com/stubbedev/lys/lib/intconv"
 	"golang.org/x/sys/unix"
+
+	"github.com/stubbedev/lys/desktop/fileuri"
 )
 
 // systemPaths are what a sandboxed thumbnailer sees of the system,
@@ -123,17 +124,17 @@ func sandboxPath(input string) string {
 func sandboxURI(input string) string { return fileuri.FromPath(sandboxPath(input)) }
 
 // run runs argv in the sandbox, with input readable at sandboxPath(input)
-// ("" for none) and dir writable at sandboxDir; argv's program,
-// resolved on the host, is bound where the system does not hold it.
-// bwrap runs in its own process group, killed whole at timeout or when
-// ctx ends. The error carries the start of what the command printed.
+// ("" for none) and dir writable at sandboxDir. argv's program is run
+// by the path it is found at on the host, which a multi-call binary
+// (coreutils, busybox) tells its command by; the file that path
+// resolves to is bound there when the system does not hold the path,
+// else where it lies when the system does not hold that. bwrap runs in
+// its own process group, killed whole at timeout or when ctx ends. The
+// error carries the start of what the command printed.
 func (s sandbox) run(ctx context.Context, input, dir string, argv []string, timeout time.Duration) error {
-	program, err := exec.LookPath(argv[0])
-	if err == nil {
-		program, err = filepath.EvalSymlinks(program)
-	}
+	program, target, err := resolveProgram(argv[0])
 	if err != nil {
-		return fmt.Errorf("sandbox: finding %s: %w", argv[0], err)
+		return err
 	}
 	args := make([]string, 0, len(s.system)+len(argv)+24)
 	args = append(args, s.system...)
@@ -146,8 +147,11 @@ func (s sandbox) run(ctx context.Context, input, dir string, argv []string, time
 	if input != "" {
 		args = append(args, "--ro-bind", input, sandboxPath(input))
 	}
-	if !s.visible(program) {
-		args = append(args, "--ro-bind", program, program)
+	switch {
+	case !s.visible(program):
+		args = append(args, "--ro-bind", target, program)
+	case !s.visible(target):
+		args = append(args, "--ro-bind", target, target)
 	}
 	args = append(args, "--seccomp", "3", "--", program)
 	args = append(args, argv[1:]...)
@@ -172,6 +176,22 @@ func (s sandbox) run(ctx context.Context, input, dir string, argv []string, time
 		return fmt.Errorf("%w: %s", err, strings.TrimSpace(string(out.b)))
 	}
 	return nil
+}
+
+// resolveProgram is the absolute path name is found at on the host,
+// and the file that path resolves to.
+func resolveProgram(name string) (program, target string, err error) {
+	program, err = exec.LookPath(name)
+	if err == nil {
+		program, err = filepath.Abs(program)
+	}
+	if err == nil {
+		target, err = filepath.EvalSymlinks(program)
+	}
+	if err != nil {
+		return "", "", fmt.Errorf("sandbox: finding %s: %w", name, err)
+	}
+	return program, target, nil
 }
 
 // cappedBuffer keeps the first limit bytes written to it and drops the

@@ -31,6 +31,8 @@
           pipewire
           systemd
           wl-clipboard
+          # bwrap, the sandbox desktop/thumbnail runs thumbnailers in.
+          bubblewrap
         ]
         ++ fonts;
 
