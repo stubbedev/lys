@@ -12,7 +12,7 @@ import (
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/lib/atomicfile"
 	"github.com/stubbedev/lys/lib/xdg"
-	"github.com/stubbedev/lys/ui/transfer"
+	"github.com/stubbedev/lys/ui/widget"
 )
 
 // BookmarksFile is GTK 3's bookmarks file, which GTK 4 reads too; ""
@@ -131,7 +131,7 @@ func (c *Browser) bookmarksChanged(err error) {
 
 // droppedOnSidebar bookmarks the first of the folders dropped on the
 // sidebar; a file dropped there opens its folder.
-func (c *Browser) droppedOnSidebar(paths []string, _ transfer.Action) {
+func (c *Browser) droppedOnSidebar(paths []string, _ widget.Dropped) {
 	path := paths[0]
 	OffLoop(c, statPath(path), func(st pathStat) {
 		if st.err == nil && st.info.IsDir() {

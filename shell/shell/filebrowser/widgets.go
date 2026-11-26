@@ -4,41 +4,49 @@ import (
 	"slices"
 
 	"github.com/stubbedev/lys/lib/render"
-	"github.com/stubbedev/lys/ui/transfer"
 	"github.com/stubbedev/lys/ui/widget"
 )
 
 // dropZone is a box that takes files dropped anywhere on it: onDrop
-// receives the dropped local paths and the actions their drag offers.
-// Embedding the box keeps it the parent its children's drop walk
-// reaches.
+// receives the dropped local paths and how the drop finished; over,
+// when set, hears where a file drag moves on the zone, and left that
+// it left or dropped. Embedding the box keeps it the parent its
+// children's drop walk reaches.
 type dropZone struct {
 	*widget.Box
-	onDrop  func(paths []string, offered transfer.Action)
-	offered transfer.Action
+	onDrop func(paths []string, how widget.Dropped)
+	over   func(p widget.Point)
+	left   func()
 }
 
 // DragEnter accepts a file drag.
-func (z *dropZone) DragEnter(mimes []string, _ widget.Point) string {
-	z.offered = transfer.ActionNone
-	if slices.Contains(mimes, uriListMime) {
-		return uriListMime
+func (z *dropZone) DragEnter(mimes []string, p widget.Point) string {
+	if !slices.Contains(mimes, uriListMime) {
+		return ""
 	}
-	return ""
+	z.DragHover(p)
+	return uriListMime
 }
 
-// DropAction implements widget.DropActionChooser: it notes what the
-// drag offers and leaves the pick to the default.
-func (z *dropZone) DropAction(offered transfer.Action) transfer.Action {
-	z.offered = offered
-	return transfer.ActionNone
+// DragHover implements widget.DragHoverer.
+func (z *dropZone) DragHover(p widget.Point) {
+	if z.over != nil {
+		z.over(p)
+	}
 }
 
-// Drop hands on the dropped paths; a drop naming no local file does
-// nothing.
-func (z *dropZone) Drop(_ string, data []byte, _ widget.Point) {
+// DragLeave implements widget.DragLeaver.
+func (z *dropZone) DragLeave() {
+	if z.left != nil {
+		z.left()
+	}
+}
+
+// DropAs implements widget.ActionDropper: it hands on the dropped
+// paths; a drop naming no local file does nothing.
+func (z *dropZone) DropAs(_ string, data []byte, _ widget.Point, how widget.Dropped) {
 	if paths := droppedPaths(data); len(paths) > 0 {
-		z.onDrop(paths, transfer.Drag{Actions: z.offered}.Offered())
+		z.onDrop(paths, how)
 	}
 }
 

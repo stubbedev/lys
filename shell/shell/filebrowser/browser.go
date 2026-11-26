@@ -172,10 +172,12 @@ type Options struct {
 	// outside the selection selects that row alone first, and one below
 	// the rows clears the selection. nil, or no items, opens none.
 	ContextMenu func(selected []Entry) []widget.MenuItem
-	// OnDrop takes the local files dropped on the browse, with the
-	// actions their drag offers, in place of opening the folder of the
-	// first; nil opens it.
-	OnDrop func(paths []string, offered transfer.Action)
+	// OnDrop takes the local files dropped on the browse in place of
+	// opening the folder of the first (nil opens it): the folder they
+	// drop into, which is the folder row they were dropped on - ringed
+	// while a file drag is over it, in a folder that is no Recent or
+	// Trash listing - else the folder shown, and how the drop finished.
+	OnDrop func(paths []string, into string, how widget.Dropped)
 	// DragActions are what dragging rows out offers another app; zero
 	// offers copy alone, so a drop cannot take the files away.
 	DragActions transfer.Action
@@ -221,6 +223,9 @@ type Browser struct {
 	selectNext []string
 	// renaming is the inline rename showing, nil for none.
 	renaming *rename
+	// dropInto is the folder row a file drag over the browse was last
+	// on, "" for the folder shown.
+	dropInto string
 	// navigating is set while one gesture's activations are being
 	// applied: after the first descended, the rest index a listing
 	// that is gone.
@@ -560,7 +565,7 @@ func (c *Browser) build() {
 	u.newFolder.Append(create, false)
 	u.newFolder.SetVisible(false)
 
-	main := &dropZone{Box: widget.NewBox(widget.Column, 0, 0), onDrop: c.droppedOnMain}
+	main := &dropZone{Box: widget.NewBox(widget.Column, 0, 0), onDrop: c.droppedOnMain, over: c.dragOverMain, left: c.dragLeftMain}
 	main.Append(widget.NewSeparator(widget.Horizontal), false)
 	main.Append(crumbBar, false)
 	main.Append(u.newFolder, false)
@@ -1418,14 +1423,40 @@ func (c *Browser) step(back bool) {
 	}
 }
 
+// dragOverMain rings the folder row a file drag is over for a host
+// that takes drops, and keeps it as where the drag drops; anywhere
+// else the drag drops into the folder shown.
+func (c *Browser) dragOverMain(p widget.Point) {
+	c.dropInto = ""
+	view := c.activeView()
+	row := -1
+	if c.o.OnDrop != nil && !c.s.loading && !VirtualLocation(c.s.dir) {
+		if i := view.IndexAt(p); i >= 0 && i < len(c.s.entries) && c.s.entries[i].IsDir {
+			row, c.dropInto = i, c.s.entries[i].Path
+		}
+	}
+	view.SetDropRow(row)
+}
+
+// dragLeftMain takes the ring down once the drag left or dropped;
+// where it drops stays until the next drag enters.
+func (c *Browser) dragLeftMain() {
+	c.ui.list.SetDropRow(-1)
+	c.ui.grid.SetDropRow(-1)
+}
+
 // droppedOnMain hands files dropped on the browse to its host
-// (OnDrop), or opens the first.
-func (c *Browser) droppedOnMain(paths []string, offered transfer.Action) {
-	if c.o.OnDrop != nil {
-		c.o.OnDrop(paths, offered)
+// (OnDrop) with the folder they drop into, or opens the first.
+func (c *Browser) droppedOnMain(paths []string, how widget.Dropped) {
+	if c.o.OnDrop == nil {
+		c.dropped(paths[0])
 		return
 	}
-	c.dropped(paths[0])
+	into := c.dropInto
+	if into == "" {
+		into = c.s.dir
+	}
+	c.o.OnDrop(paths, into, how)
 }
 
 // dropped opens a dropped folder, or the folder of a dropped file with

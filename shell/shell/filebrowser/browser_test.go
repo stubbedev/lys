@@ -135,7 +135,7 @@ func TestDropNavigates(t *testing.T) {
 			if got := r.DragEnter([]string{"text/plain", uriListMime}, p); got != uriListMime {
 				t.Fatalf("a file drag at %v = %q", p, got)
 			}
-			r.Drop(uriListMime, []byte("# comment\r\n"+hs.uri(rel)+"\r\n"), p)
+			r.Drop(uriListMime, []byte("# comment\r\n"+hs.uri(rel)+"\r\n"), p, widget.Dropped{Action: transfer.ActionCopy})
 		})
 	}
 	drop(body, "pics/a.png")
@@ -148,7 +148,7 @@ func TestDropNavigates(t *testing.T) {
 	}
 	hs.do(func() {
 		r.DragEnter([]string{uriListMime}, body)
-		r.Drop(uriListMime, []byte("https://example.com/x\n"), body)
+		r.Drop(uriListMime, []byte("https://example.com/x\n"), body, widget.Dropped{Action: transfer.ActionCopy})
 	})
 	if hs.dir() != hs.root {
 		t.Errorf("a remote drop navigated to %s", hs.dir())

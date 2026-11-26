@@ -126,39 +126,131 @@ func TestNoContextMenuOpensWithoutItems(t *testing.T) {
 	}
 }
 
+// drop is what a host heard of a drop.
+type drop struct {
+	paths []string
+	into  string
+	how   widget.Dropped
+}
+
+func (d drop) equal(o drop) bool {
+	return slices.Equal(d.paths, o.paths) && d.into == o.into && d.how == o.how
+}
+
+// rowPoint is the middle of the row of the entry name in the list.
+func (hs *harness) rowPoint(t *testing.T, name string) widget.Point {
+	t.Helper()
+	var at widget.Point
+	hs.run(func() {
+		lay(hs.cfg.Root, defaultW, defaultH)
+		i := slices.Index(names(hs.c.s.entries), name)
+		if i < 0 {
+			t.Fatalf("no %s in %v", name, names(hs.c.s.entries))
+		}
+		b := hs.c.ui.list.Bounds()
+		at = widget.Point{X: b.X + b.W/2, Y: b.Y + i*ListRowH + ListRowH/2}
+	})
+	return at
+}
+
 // Files dropped on a browse whose host takes drops go to the host,
-// every local one, with the actions the drag offers (copy when it
-// names none), and the browse stays where it is.
-func TestADropGoesToTheHostWithWhatItsDragOffers(t *testing.T) {
+// every local one, into the folder shown and with how the drop
+// finished, and the browse stays where it is.
+func TestADropGoesToTheHostWithHowItFinished(t *testing.T) {
 	hs := newHarness(t, "")
-	type drop struct {
-		paths   []string
-		offered transfer.Action
-	}
 	var drops []drop
 	o := openFiles
-	o.OnDrop = func(paths []string, offered transfer.Action) { drops = append(drops, drop{paths, offered}) }
+	o.OnDrop = func(paths []string, into string, how widget.Dropped) { drops = append(drops, drop{paths, into, how}) }
 	hs.open(t, o)
 	payload := []byte(hs.uri("pics/a.png") + "\r\nhttps://example.com/x\r\n" + hs.uri("b.txt") + "\r\n")
 	var r *widget.Router
 	var body widget.Point
 	hs.run(func() { r, body = treetest.Pointer(hs.cfg.Root, hs.c.ui.list, 1280, 720) })
+	moved, copied := widget.Dropped{Action: transfer.ActionMove}, widget.Dropped{Action: transfer.ActionCopy, Own: true}
 	hs.do(func() {
 		r.DragEnter([]string{uriListMime}, body)
-		r.DragAction(transfer.ActionCopy | transfer.ActionMove)
-		r.Drop(uriListMime, payload, body)
+		r.Drop(uriListMime, payload, body, moved)
 		r.DragEnter([]string{uriListMime}, body)
-		r.Drop(uriListMime, payload, body)
+		r.Drop(uriListMime, payload, body, copied)
 		r.DragEnter([]string{uriListMime}, body)
-		r.Drop(uriListMime, []byte("https://example.com/x\n"), body)
+		r.Drop(uriListMime, []byte("https://example.com/x\n"), body, moved)
 	})
 	files := []string{filepath.Join(hs.root, "pics", "a.png"), filepath.Join(hs.root, "b.txt")}
-	want := []drop{{files, transfer.ActionCopy | transfer.ActionMove}, {files, transfer.ActionCopy}}
-	if !slices.EqualFunc(drops, want, func(a, b drop) bool { return slices.Equal(a.paths, b.paths) && a.offered == b.offered }) {
+	want := []drop{{files, hs.root, moved}, {files, hs.root, copied}}
+	if !slices.EqualFunc(drops, want, drop.equal) {
 		t.Errorf("the host heard %v, want %v", drops, want)
 	}
 	if dir := hs.dir(); dir != hs.root {
 		t.Errorf("a drop the host took navigated to %s", dir)
+	}
+}
+
+// A file drag over a folder row rings it and drops into that folder;
+// over a file row, or off the rows, nothing is ringed and the drop
+// goes into the folder shown. Leaving takes the ring down; a browse
+// whose host takes no drops rings nothing.
+func TestADropOnAFolderRowGoesIntoIt(t *testing.T) {
+	hs := newHarness(t, "")
+	var drops []drop
+	o := openFiles
+	o.OnDrop = func(paths []string, into string, how widget.Dropped) { drops = append(drops, drop{paths, into, how}) }
+	hs.open(t, o)
+	pics, file := hs.rowPoint(t, "pics"), hs.rowPoint(t, "b.txt")
+	payload := []byte(hs.uri("a.png") + "\r\n")
+	how := widget.Dropped{Action: transfer.ActionMove}
+	var r *widget.Router
+	var body widget.Point
+	ringed := func() int {
+		var row int
+		hs.run(func() { row = hs.c.ui.list.DropRow() })
+		return row
+	}
+	var picsRow int
+	hs.run(func() {
+		r, body = treetest.Pointer(hs.cfg.Root, hs.c.ui.list, 1280, 720)
+		picsRow = slices.Index(names(hs.c.s.entries), "pics")
+	})
+	hs.run(func() { r.DragEnter([]string{uriListMime}, body) })
+	if got := ringed(); got != -1 {
+		t.Errorf("a drag off the rows rings row %d", got)
+	}
+	hs.run(func() { r.DragHover(pics) })
+	if got := ringed(); got != picsRow {
+		t.Errorf("a drag over pics rings row %d, want %d", got, picsRow)
+	}
+	hs.run(func() { r.DragHover(file) })
+	if got := ringed(); got != -1 {
+		t.Errorf("a drag over a file rings row %d", got)
+	}
+	hs.run(func() { r.DragHover(pics) })
+	hs.do(func() { r.Drop(uriListMime, payload, pics, how) })
+	if got := ringed(); got != -1 {
+		t.Errorf("the drop left row %d ringed", got)
+	}
+	hs.run(func() { r.DragEnter([]string{uriListMime}, file) })
+	hs.do(func() { r.Drop(uriListMime, payload, file, how) })
+	hs.run(func() {
+		r.DragEnter([]string{uriListMime}, pics)
+		r.DragLeave()
+	})
+	if got := ringed(); got != -1 {
+		t.Errorf("a drag that left keeps row %d ringed", got)
+	}
+	a := []string{filepath.Join(hs.root, "a.png")}
+	want := []drop{{a, filepath.Join(hs.root, "pics"), how}, {a, hs.root, how}}
+	if !slices.EqualFunc(drops, want, drop.equal) {
+		t.Errorf("the host heard %v, want %v", drops, want)
+	}
+
+	hs.hide()
+	hs.open(t, openFiles)
+	pics = hs.rowPoint(t, "pics")
+	hs.run(func() {
+		r.DragEnter([]string{uriListMime}, pics)
+		r.DragHover(pics)
+	})
+	if got := ringed(); got != -1 {
+		t.Errorf("a browse whose host takes no drops rings row %d", got)
 	}
 }
 

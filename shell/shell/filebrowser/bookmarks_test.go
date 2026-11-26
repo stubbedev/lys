@@ -102,7 +102,7 @@ func TestBookmarksAreEditable(t *testing.T) {
 		t.Errorf("a second Ctrl+D made %q", got)
 	}
 	pics := filepath.Join(hs.root, "pics")
-	hs.do(func() { hs.c.droppedOnSidebar([]string{pics}, transfer.ActionCopy) })
+	hs.do(func() { hs.c.droppedOnSidebar([]string{pics}, widget.Dropped{Action: transfer.ActionCopy}) })
 	hs.flush()
 	if got := read(); got != want+fileuri.FromPath(pics)+"\n" {
 		t.Errorf("a folder dropped on the sidebar left %q", got)
