@@ -16,10 +16,11 @@ Architecture: amd64 arm64
 Depends:
  ${misc:Depends},
  hicolor-icon-theme,
- passwd
-Recommends:
- pkexec,
+ default-dbus-system-bus | dbus-system-bus,
  polkitd,
+ systemd,
+ systemd-userdbd
+Recommends:
  libvulkan1,
  mesa-vulkan-drivers,
  lys-shell (= @VERSION@) | lys-wm

@@ -7,11 +7,11 @@ import (
 	"fmt"
 )
 
-// Class is what a request changes, and so which polkit action pkexec
-// asks for: the caller's own account, or the others.
+// Class is what a request changes, and so which polkit action the
+// service asks for: the caller's own account, or the others.
 type Class string
 
-// The classes of request, as lys-users-helper's first argument.
+// The classes of request.
 const (
 	Self   Class = "self"
 	Others Class = "others"
@@ -20,20 +20,10 @@ const (
 // Classes is every Class.
 var Classes = []Class{Self, Others}
 
-// ParseClass is s as a Class.
-func ParseClass(s string) (Class, error) {
-	for _, c := range Classes {
-		if string(c) == s {
-			return c, nil
-		}
-	}
-	return "", fmt.Errorf("accounts: no request class %q", s)
-}
-
 // Action is the polkit action that authorises requests of c.
 func (c Class) Action() string { return "dev.stubbe.lys.settings.users." + string(c) }
 
-// Request is one change lys-users-helper makes.
+// Request is one change the accounts service makes.
 type Request interface {
 	Class() Class
 	op() op
@@ -143,7 +133,7 @@ type envelope struct {
 	Request json.RawMessage `json:"request"`
 }
 
-// Encode is r as lys-users-helper reads it from its standard input.
+// Encode is r as the accounts service's Change method takes it.
 func Encode(r Request) ([]byte, error) {
 	body, err := json.Marshal(r)
 	if err != nil {
@@ -152,9 +142,9 @@ func Encode(r Request) ([]byte, error) {
 	return json.Marshal(envelope{Op: r.op(), Request: body})
 }
 
-// Decode reads a request of class from data, refusing one of another
-// class, an unknown field, and any value its type refuses.
-func Decode(class Class, data []byte) (Request, error) {
+// Decode reads a request from data, refusing an unknown field and any
+// value its type refuses.
+func Decode(data []byte) (Request, error) {
 	var env envelope
 	if err := strictJSON(data, &env); err != nil {
 		return nil, fmt.Errorf("accounts: the request: %w", err)
@@ -177,9 +167,6 @@ func Decode(class Class, data []byte) (Request, error) {
 	}
 	if err != nil {
 		return nil, fmt.Errorf("accounts: the %s request: %w", env.Op, err)
-	}
-	if r.Class() != class {
-		return nil, fmt.Errorf("accounts: a %s request is one of %s, not %s", env.Op, r.Class(), class)
 	}
 	return r, r.check()
 }
@@ -204,13 +191,12 @@ func strictJSON(data []byte, v any) error {
 	return nil
 }
 
-// ErrorKind is why lys-users-helper refused or failed a request.
+// ErrorKind is why the accounts service refused or failed a request.
 type ErrorKind string
 
 // The kinds of Error.
 const (
-	// ErrInvalid is a request that does not decode or is not one the
-	// helper's caller may make.
+	// ErrInvalid is a request that does not decode.
 	ErrInvalid ErrorKind = "invalid"
 	// ErrUnknownUser is a request about an account that does not exist.
 	ErrUnknownUser ErrorKind = "unknown-user"
@@ -218,22 +204,36 @@ const (
 	ErrNotAPerson ErrorKind = "not-a-person"
 	// ErrOwnAccount is a request to delete the caller's own account.
 	ErrOwnAccount ErrorKind = "own-account"
-	// ErrTaken is a new account's login name already being one.
+	// ErrTaken is a new account's login name, group or home folder
+	// already being one.
 	ErrTaken ErrorKind = "taken"
 	// ErrNoAdmins is an administrator asked for where no group makes one.
 	ErrNoAdmins ErrorKind = "no-admin-group"
-	// ErrFailed is a tool that failed to make the change.
+	// ErrExhausted is a new account where login.defs' range has no user
+	// or group ID left.
+	ErrExhausted ErrorKind = "exhausted"
+	// ErrInUse is a request to delete an account a process runs as.
+	ErrInUse ErrorKind = "in-use"
+	// ErrBusy is the account files staying locked by another program.
+	ErrBusy ErrorKind = "busy"
+	// ErrDeclarative is a change the system's configuration makes
+	// instead: an account NixOS declares.
+	ErrDeclarative ErrorKind = "declarative"
+	// ErrFailed is a change the service failed to make.
 	ErrFailed ErrorKind = "failed"
-	// ErrNotAuthorized is pkexec refusing the caller, or the caller
-	// dismissing the authentication; the helper never ran.
+	// ErrNotAuthorized is polkit refusing the caller, or the caller
+	// dismissing the authentication; nothing was changed.
 	ErrNotAuthorized ErrorKind = "not-authorized"
 )
 
-// Error is lys-users-helper's answer to a request it did not carry out,
-// written as JSON to its standard output.
+// ErrorKinds is every ErrorKind.
+var ErrorKinds = []ErrorKind{ErrInvalid, ErrUnknownUser, ErrNotAPerson, ErrOwnAccount, ErrTaken, ErrNoAdmins, ErrExhausted, ErrInUse, ErrBusy, ErrDeclarative, ErrFailed, ErrNotAuthorized}
+
+// Error is the accounts service's answer to a request it did not carry
+// out, sent as the D-Bus error BusError names.
 type Error struct {
-	Kind   ErrorKind `json:"kind"`
-	Detail string    `json:"detail"`
+	Kind   ErrorKind
+	Detail string
 }
 
 func (e *Error) Error() string { return string(e.Kind) + ": " + e.Detail }
@@ -241,37 +241,4 @@ func (e *Error) Error() string { return string(e.Kind) + ": " + e.Detail }
 // Errorf is an Error of kind saying what format says.
 func Errorf(kind ErrorKind, format string, args ...any) *Error {
 	return &Error{Kind: kind, Detail: fmt.Sprintf(format, args...)}
-}
-
-// HelperName is the program that makes the changes, in the libexec
-// directory beside lys-settings' bin directory.
-const HelperName = "lys-users-helper"
-
-// The exit statuses of pkexec that mean the helper never ran: the
-// authentication dialog dismissed, and the caller not authorised.
-const (
-	pkexecDismissed     = 126
-	pkexecNotAuthorized = 127
-)
-
-// Outcome is what a run of `pkexec lys-users-helper` that exited with
-// code says: nil for 0, the helper's Error for 1, ErrNotAuthorized for
-// pkexec's refusals, and an error naming the code and stderr otherwise.
-func Outcome(code int, stdout, stderr []byte) error {
-	said := string(bytes.TrimSpace(stderr))
-	switch code {
-	case 0:
-		return nil
-	case 1:
-		var e Error
-		if err := json.Unmarshal(stdout, &e); err != nil || e.Kind == "" {
-			return fmt.Errorf("%s failed without saying why: %s", HelperName, said)
-		}
-		return &e
-	case pkexecDismissed:
-		return Errorf(ErrNotAuthorized, "the authentication was dismissed")
-	case pkexecNotAuthorized:
-		return Errorf(ErrNotAuthorized, "pkexec refused: %s", said)
-	}
-	return fmt.Errorf("%s exited %d: %s", HelperName, code, said)
 }

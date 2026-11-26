@@ -1,0 +1,34 @@
+[Unit]
+Description=lys-users, the accounts service lys-settings changes user accounts through
+Documentation=https://github.com/stubbedev/lys/tree/main/settings
+Wants=systemd-userdbd.socket
+After=systemd-userdbd.socket
+
+[Service]
+Type=dbus
+BusName=dev.stubbe.lys.Users1
+ExecStart=/usr/libexec/lys-users
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/etc /home
+StateDirectory=lys/avatars
+StateDirectoryMode=0755
+PrivateTmp=true
+PrivateDevices=true
+PrivateNetwork=true
+ProtectHostname=true
+ProtectClock=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_UNIX
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+SystemCallArchitectures=native
+SystemCallFilter=@system-service @chown
+CapabilityBoundingSet=CAP_CHOWN CAP_FOWNER CAP_DAC_OVERRIDE CAP_DAC_READ_SEARCH
+UMask=0077

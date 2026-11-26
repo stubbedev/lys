@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/useraccount"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
 const passwd = `root:x:0:0:root:/root:/bin/bash
@@ -175,7 +176,7 @@ func roundTrip(t *testing.T, r Request) Request {
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, err := Decode(r.Class(), data)
+	got, err := Decode(data)
 	if err != nil {
 		t.Fatalf("%T: %v", r, err)
 	}
@@ -211,14 +212,7 @@ func sameRequest(a, b Request) bool {
 	return bytes.Equal(x, y)
 }
 
-func TestARequestOfAnotherClassOrWithAnInvalidValueIsRefused(t *testing.T) {
-	data, err := Encode(Delete{Login: "bob"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := Decode(Self, data); err == nil || !strings.Contains(err.Error(), "not self") {
-		t.Errorf("a delete as self: %v", err)
-	}
+func TestARequestWithAnInvalidValueIsRefused(t *testing.T) {
 	for name, raw := range map[string]string{
 		"unknown op":       `{"op":"chown","request":{}}`,
 		"unknown field":    `{"op":"delete","request":{"login":"bob","uid":0}}`,
@@ -236,13 +230,9 @@ func TestARequestOfAnotherClassOrWithAnInvalidValueIsRefused(t *testing.T) {
 		"picture not PNG":  `{"op":"picture","request":{"picture":"R0lGODlh"}}`,
 		"envelope field":   `{"op":"delete","request":{"login":"bob"},"as":"root"}`,
 		"not JSON":         `delete bob`,
-		"rename of others": `{"op":"rename","request":{"realName":"x"}}`,
+		"a trailing NUL":   "{\"op\":\"delete\",\"request\":{\"login\":\"bob\"}}\x00",
 	} {
-		class := Others
-		if name == "no picture" || name == "picture not PNG" {
-			class = Self
-		}
-		if _, err := Decode(class, []byte(raw)); err == nil {
+		if _, err := Decode([]byte(raw)); err == nil {
 			t.Errorf("%s: %s was taken", name, raw)
 		}
 	}
@@ -251,14 +241,6 @@ func TestARequestOfAnotherClassOrWithAnInvalidValueIsRefused(t *testing.T) {
 func TestEachClassHasItsOwnAction(t *testing.T) {
 	if Self.Action() == Others.Action() || !strings.HasPrefix(Self.Action(), "dev.stubbe.lys.settings.") {
 		t.Errorf("actions %q %q", Self.Action(), Others.Action())
-	}
-	for _, c := range Classes {
-		if got, err := ParseClass(string(c)); err != nil || got != c {
-			t.Errorf("%q: %q, %v", c, got, err)
-		}
-	}
-	if _, err := ParseClass("root"); err == nil {
-		t.Error("an unknown class was taken")
 	}
 }
 
@@ -269,23 +251,34 @@ func TestAHashNeverPrints(t *testing.T) {
 	}
 }
 
-func TestTheHelpersExitSaysWhatHappened(t *testing.T) {
-	if err := Outcome(0, nil, nil); err != nil {
-		t.Errorf("success: %v", err)
-	}
-	var e *Error
-	if err := Outcome(1, []byte(`{"kind":"taken","detail":"zoe is already an account"}`), nil); !errors.As(err, &e) || e.Kind != ErrTaken {
-		t.Errorf("a refusal: %v", err)
-	}
-	for _, code := range []int{126, 127} {
-		if err := Outcome(code, nil, []byte("Not authorized\n")); !errors.As(err, &e) || e.Kind != ErrNotAuthorized {
-			t.Errorf("pkexec %d: %v", code, err)
+func TestEveryErrorKindTravelsAsItsOwnBusError(t *testing.T) {
+	seen := map[string]ErrorKind{}
+	for _, k := range ErrorKinds {
+		name := BusErrorName(k)
+		if other, dup := seen[name]; dup {
+			t.Errorf("%s and %s are both %s", k, other, name)
+		}
+		seen[name] = k
+		if strings.ContainsAny(strings.TrimPrefix(name, BusName+".Error."), ".-") {
+			t.Errorf("%s travels as %s, not one D-Bus name element", k, name)
+		}
+		e := Errorf(k, "said %d", 1)
+		reply := *e.BusError()
+		got, ok := fromBusError(reply)
+		if !ok || *got != *e {
+			t.Errorf("%s came back as %v, %v", k, got, ok)
 		}
 	}
-	if err := Outcome(1, []byte("garbage"), []byte("boom")); err == nil || errors.As(err, &e) || !strings.Contains(err.Error(), "boom") {
-		t.Errorf("an unreadable answer: %v", err)
+	if BusErrorName(ErrUnknownUser) != "dev.stubbe.lys.Users1.Error.UnknownUser" {
+		t.Errorf("unknown-user is %s", BusErrorName(ErrUnknownUser))
 	}
-	if err := Outcome(2, nil, []byte("usage")); err == nil || !strings.Contains(err.Error(), "exited 2: usage") {
-		t.Errorf("a usage error: %v", err)
+	for name, reply := range map[string]dbus.Error{
+		"another service's error":  {Name: "org.freedesktop.DBus.Error.AccessDenied", Body: []any{"no"}},
+		"no detail":                {Name: BusErrorName(ErrTaken)},
+		"a detail of another type": {Name: BusErrorName(ErrTaken), Body: []any{uint32(1)}},
+	} {
+		if got, ok := fromBusError(reply); ok {
+			t.Errorf("%s read as %v", name, got)
+		}
 	}
 }

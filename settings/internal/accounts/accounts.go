@@ -1,7 +1,8 @@
 // Package accounts is the user accounts as lys-settings reads them
-// without privilege and changes them through lys-users-helper: the
-// passwd and group databases, the validated values a change is made of,
-// and the requests the helper takes from pkexec.
+// without privilege and changes them through lys-users, the accounts
+// service on the system bus: the passwd and group databases, the
+// validated values a change is made of, and the requests the service
+// takes with the errors it answers them with.
 package accounts
 
 import (

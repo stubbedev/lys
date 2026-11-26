@@ -2,11 +2,9 @@
   lib,
   lysGo,
   makeWrapper,
-  shadow,
   xkeyboard-config,
   libva,
   vulkan-loader,
-  bubblewrap,
 }: let
   # What the binary dlopens through purego: lys-ui's GPU renderer and the
   # recorder pages' device probes.
@@ -15,17 +13,15 @@ in
   lysGo.build {
     pname = "lys-settings";
 
-    subPackages = ["settings/cmd/lys-settings" "settings/cmd/lys-users-helper"];
+    subPackages = ["settings/cmd/lys-settings" "settings/cmd/lys-users"];
 
     goPackages = ["desktop/cmd/install-icons"];
 
-    resources = ["settings/resources/dev.stubbe.lys.settings.desktop" "settings/resources/lys-settings.svg" "settings/resources/icons.txt" "settings/resources/dev.stubbe.lys.settings.users.policy"];
+    resources = ["settings/resources/dev.stubbe.lys.settings.desktop" "settings/resources/lys-settings.svg" "settings/resources/icons.txt" "settings/resources/dev.stubbe.lys.settings.users.policy" "settings/resources/dev.stubbe.lys.Users1.conf" "settings/resources/dev.stubbe.lys.Users1.service" "settings/resources/lys-users.service"];
 
     ldflags = [
       "-s"
       "-w"
-      "-X github.com/stubbedev/lys/settings/internal/usershelper.sbinDir=${shadow}/bin"
-      "-X github.com/stubbedev/lys/settings/internal/usershelper.binDir=${shadow}/bin"
       "-X github.com/stubbedev/lys/lib/xkb.defaultRoot=${xkeyboard-config}/share/X11/xkb"
     ];
 
@@ -38,17 +34,19 @@ in
       install -Dm0644 settings/resources/dev.stubbe.lys.settings.desktop -t $out/share/applications
       install -Dm0644 settings/resources/lys-settings.svg -t $out/share/icons/hicolor/scalable/apps
       go tool install-icons $out/share/lys-settings/icons/hicolor/scalable/actions $(cat settings/resources/icons.txt)
-      install -Dm0755 $out/bin/lys-users-helper -t $out/libexec
-      rm $out/bin/lys-users-helper
+      install -Dm0755 $out/bin/lys-users -t $out/libexec
+      rm $out/bin/lys-users
       install -Dm0644 settings/resources/dev.stubbe.lys.settings.users.policy -t $out/share/polkit-1/actions
-      substituteInPlace $out/share/polkit-1/actions/dev.stubbe.lys.settings.users.policy --replace-fail /usr/libexec/ $out/libexec/
+      install -Dm0644 settings/resources/dev.stubbe.lys.Users1.conf -t $out/share/dbus-1/system.d
+      install -d $out/share/dbus-1/system-services $out/lib/systemd/system
+      substitute settings/resources/dev.stubbe.lys.Users1.service $out/share/dbus-1/system-services/dev.stubbe.lys.Users1.service \
+        --replace-fail /usr/libexec/lys-users $out/libexec/lys-users
+      substitute settings/resources/lys-users.service $out/lib/systemd/system/lys-users.service \
+        --replace-fail /usr/libexec/lys-users $out/libexec/lys-users
     '';
 
-    # bwrap after the system's own on PATH: the sandbox desktop/thumbnail
-    # runs installed thumbnailers in, for wallpapers it cannot decode itself.
     postFixup = ''
-      wrapProgram $out/bin/lys-settings --prefix LD_LIBRARY_PATH : "${lib.makeLibraryPath libs}" \
-        --suffix PATH : "${lib.makeBinPath [bubblewrap]}"
+      wrapProgram $out/bin/lys-settings --prefix LD_LIBRARY_PATH : "${lib.makeLibraryPath libs}"
     '';
 
     doInstallCheck = true;
@@ -61,11 +59,12 @@ in
         echo "an unknown flag was accepted" >&2
         exit 1
       fi
-      grep -qF "<annotate key=\"org.freedesktop.policykit.exec.path\">$out/libexec/lys-users-helper</annotate>" $out/share/polkit-1/actions/dev.stubbe.lys.settings.users.policy
+      grep -qxF "Exec=$out/libexec/lys-users" $out/share/dbus-1/system-services/dev.stubbe.lys.Users1.service
+      grep -qxF "ExecStart=$out/libexec/lys-users" $out/lib/systemd/system/lys-users.service
       status=0
-      $out/libexec/lys-users-helper others < /dev/null > /dev/null 2>&1 || status=$?
-      if [ "$status" -ne 1 ]; then
-        echo "lys-users-helper run without pkexec exited $status, want 1" >&2
+      $out/libexec/lys-users --bogus > /dev/null 2>&1 || status=$?
+      if [ "$status" -ne 2 ]; then
+        echo "lys-users with an unknown flag exited $status, want 2" >&2
         exit 1
       fi
       runHook postInstallCheck

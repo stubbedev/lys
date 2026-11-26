@@ -154,11 +154,11 @@ func TestAnAccountThatCannotBeAddedIsSaidAndNotAsked(t *testing.T) {
 }
 
 func TestARefusedCreateKeepsTheDialogOpenAndAddsNobody(t *testing.T) {
-	p, l, pickers, form, f := addUserDialog(t, accounts.Errorf(accounts.ErrFailed, "chpasswd refused; the account was removed again"))
+	p, l, pickers, form, f := addUserDialog(t, accounts.Errorf(accounts.ErrFailed, "pwfiles: write /etc/shadow: no space left on device"))
 	fill(form, "Zoë", "zoe", "pw", "pw")
 	pickers.respond(responseConfirm)
 	l.until("the refusal", func() bool { return form.messages.Visible() })
-	if form.messages.Text() != locale.T().Get("settings-users-add-failed") || !strings.Contains(form.messages.detail.Text(), "chpasswd refused") || pickers.dialogsClosed != 0 {
+	if form.messages.Text() != locale.T().Get("settings-users-add-failed") || !strings.Contains(form.messages.detail.Text(), "no space left on device") || pickers.dialogsClosed != 0 {
 		t.Fatalf("the dialog reads %q over %q, closed %d", form.messages.Text(), form.messages.detail.Text(), pickers.dialogsClosed)
 	}
 	l.drain()

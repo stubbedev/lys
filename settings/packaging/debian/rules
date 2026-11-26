@@ -10,11 +10,17 @@ override_dh_dwz:
 override_dh_strip:
 	dh_strip --no-automatic-dbgsym
 
+override_dh_installsystemd:
+	dh_installsystemd --no-enable --no-start --no-stop-on-upgrade
+
 override_dh_auto_install:
 	install -d debian/lys-settings/usr/bin
 	install -m 0755 lys-settings debian/lys-settings/usr/bin/
-	install -D -m 0755 lys-users-helper debian/lys-settings/usr/libexec/lys-users-helper
+	install -D -m 0755 lys-users debian/lys-settings/usr/libexec/lys-users
 	install -D -m 0644 dev.stubbe.lys.settings.users.policy debian/lys-settings/usr/share/polkit-1/actions/dev.stubbe.lys.settings.users.policy
+	install -D -m 0644 dev.stubbe.lys.Users1.conf debian/lys-settings/usr/share/dbus-1/system.d/dev.stubbe.lys.Users1.conf
+	install -D -m 0644 dev.stubbe.lys.Users1.service debian/lys-settings/usr/share/dbus-1/system-services/dev.stubbe.lys.Users1.service
+	install -D -m 0644 lys-users.service debian/lys-settings/usr/lib/systemd/system/lys-users.service
 
 	install -D -m 0644 dev.stubbe.lys.settings.desktop debian/lys-settings/usr/share/applications/dev.stubbe.lys.settings.desktop
 	desktop-file-validate debian/lys-settings/usr/share/applications/dev.stubbe.lys.settings.desktop

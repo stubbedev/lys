@@ -100,7 +100,7 @@ func Run(page, setting string) error {
 		shellCommand:  runShellCommand,
 		checkPAM:      checkPAMService,
 		readAccounts:  accounts.ReadDatabase,
-		changeAccount: changeAccount,
+		changeAccount: changeAccountOver(dialSystemBus),
 		openURI:       openWithDefaultApp,
 		i2c:           systemHost.i2cAccess,
 		hibernation:   func() ([]hibernate.Blocker, error) { return hibernate.Blockers(os.DirFS("/")) },

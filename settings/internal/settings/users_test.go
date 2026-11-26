@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"image/png"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -20,7 +19,9 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/desktop/useraccount"
 	"github.com/stubbedev/lys/lib/dbustest"
+	"github.com/stubbedev/lys/lib/dbusx"
 	"github.com/stubbedev/lys/lib/logtest"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	secrets "github.com/stubbedev/lys/secrets/control"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
@@ -42,7 +43,7 @@ var (
 )
 
 // fakeAccounts is the passwd and group databases lys-settings reads, and
-// a lys-users-helper that takes every request the real one decodes,
+// an accounts service that takes every request the real one decodes,
 // records it and, unless refused, makes it.
 type fakeAccounts struct {
 	mu       sync.Mutex
@@ -71,7 +72,7 @@ func (f *fakeAccounts) change(_ context.Context, r accounts.Request) error {
 	if err != nil {
 		return err
 	}
-	decoded, err := accounts.Decode(r.Class(), data)
+	decoded, err := accounts.Decode(data)
 	if err != nil {
 		return accounts.Errorf(accounts.ErrInvalid, "%v", err)
 	}
@@ -138,7 +139,7 @@ func serveAccounts(k *kit, self fakeAccount, others ...fakeAccount) *fakeAccount
 	return f
 }
 
-var errNotAuthorized = accounts.Errorf(accounts.ErrNotAuthorized, "pkexec refused: Not authorized")
+var errNotAuthorized = accounts.Errorf(accounts.ErrNotAuthorized, "polkit does not authorize uid 1000 for dev.stubbe.lys.settings.users.others")
 
 func usersFixture(t *testing.T, bus *dbustest.Bus, accts ...fakeAccount) (*usersPanel, *loop, *fakeAccounts) {
 	t.Helper()
@@ -381,45 +382,48 @@ func TestTheUsersPageOfARealAccountFitsTheWindow(t *testing.T) {
 	assertPageFits(t, w)
 }
 
-func TestTheHelperIsInTheLibexecBesideTheBinDirectory(t *testing.T) {
-	for exe, want := range map[string]string{
-		"/usr/bin/lys-settings":                               "/usr/libexec/lys-users-helper",
-		"/nix/store/x-lys-settings/bin/.lys-settings-wrapped": "/nix/store/x-lys-settings/libexec/lys-users-helper",
-	} {
-		if got := usersHelperPath(exe); got != want {
-			t.Errorf("%s: %s, want %s", exe, got, want)
-		}
-	}
+type fakeUsersService struct {
+	requests dbustest.Var[[]accounts.Request]
 }
 
-func TestAChangeGoesToTheHelpersStandardInputAndItsAnswerIsTheError(t *testing.T) {
-	sh, err := exec.LookPath("sh")
+func (f *fakeUsersService) Change(request []byte) *dbus.Error {
+	r, err := accounts.Decode(request)
 	if err != nil {
-		t.Skip("no sh to stand in for pkexec")
+		return accounts.Errorf(accounts.ErrInvalid, "%v", err).BusError()
 	}
-	dir := t.TempDir()
-	got := filepath.Join(dir, "request")
-	helper := filepath.Join(dir, "helper")
-	put(t, helper, "#!"+sh+"\n[ \"$1\" = others ] || exit 2\ncat > "+got+"\ncase \"$(cat "+got+")\" in *zoe*) echo '{\"kind\":\"taken\",\"detail\":\"zoe is already an account\"}'; exit 1 ;; esac\n")
-	if err := os.Chmod(helper, 0o700); err != nil {
+	f.requests.Update(func(rs []accounts.Request) []accounts.Request { return append(rs, r) })
+	if d, ok := r.(accounts.Delete); ok && d.Login == "zoe" {
+		return accounts.Errorf(accounts.ErrTaken, "zoe is already an account").BusError()
+	}
+	return nil
+}
+
+func TestAChangeIsTheServicesChangeAndItsRefusalIsTheError(t *testing.T) {
+	bus := dbustest.Start(t)
+	dial := func() (*dbus.Conn, error) { return dbus.Connect(bus.Address) }
+	change := changeAccountOver(dial)
+	if err := change(t.Context(), accounts.Delete{Login: "bob"}); err == nil || errors.As(err, new(*accounts.Error)) {
+		t.Fatalf("a change with no service on the bus: %v", err)
+	}
+	fake := &fakeUsersService{}
+	release, err := dbusx.Serve(bus.Conn(t), dbusx.Service{Name: accounts.BusName, Path: accounts.BusPath, Interface: accounts.BusInterface, Methods: fake})
+	if err != nil {
 		t.Fatal(err)
 	}
-	if err := runUsersHelper(context.Background(), []string{helper}, accounts.Delete{Login: "bob"}); err != nil {
-		t.Fatalf("a change the helper made: %v", err)
+	t.Cleanup(release)
+	if err := change(t.Context(), accounts.Delete{Login: "bob"}); err != nil {
+		t.Fatalf("a change the service made: %v", err)
 	}
-	data, err := os.ReadFile(got)
-	if err != nil {
-		t.Fatal(err)
+	if got := fake.requests.Load(); len(got) != 1 || got[0] != (accounts.Delete{Login: "bob"}) {
+		t.Fatalf("the service got %#v", got)
 	}
-	if r, err := accounts.Decode(accounts.Others, data); err != nil || r != (accounts.Delete{Login: "bob"}) {
-		t.Fatalf("the helper read %q: %#v, %v", data, r, err)
-	}
-	err = runUsersHelper(context.Background(), []string{helper}, accounts.Delete{Login: "zoe"})
-	if e, ok := errors.AsType[*accounts.Error](err); !ok || e.Kind != accounts.ErrTaken {
+	err = change(t.Context(), accounts.Delete{Login: "zoe"})
+	if e, ok := errors.AsType[*accounts.Error](err); !ok || e.Kind != accounts.ErrTaken || e.Detail != "zoe is already an account" {
 		t.Fatalf("a refusal: %v", err)
 	}
-	if err := runUsersHelper(context.Background(), []string{filepath.Join(dir, "absent")}, accounts.Delete{Login: "bob"}); err == nil {
-		t.Fatal("a missing helper succeeded")
+	unreachable := errors.New("no system bus")
+	if err := changeAccountOver(func() (*dbus.Conn, error) { return nil, unreachable })(t.Context(), accounts.Delete{Login: "bob"}); !errors.Is(err, unreachable) {
+		t.Fatalf("no bus: %v", err)
 	}
 }
 

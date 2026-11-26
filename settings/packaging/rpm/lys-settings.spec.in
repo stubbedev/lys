@@ -11,9 +11,12 @@ Source0:        https://github.com/stubbedev/lys/releases/download/v%{version}/l
 ExclusiveArch:  x86_64 aarch64
 
 BuildRequires:  desktop-file-utils
+BuildRequires:  systemd-rpm-macros
 Requires:       hicolor-icon-theme
-Requires:       shadow-utils
-Recommends:     polkit
+Requires:       dbus
+Requires:       polkit
+Requires:       systemd
+Requires:       /usr/lib/systemd/systemd-userdbd
 Recommends:     vulkan-loader
 Recommends:     mesa-vulkan-drivers
 Recommends:     (lys-shell = @VERSION@ or lys-wm)
@@ -30,19 +33,34 @@ lys-settings configures lys-shell and lys-wm: its pages edit lys-shell's runtime
 %install
 install -d %{buildroot}%{_bindir}
 install -m 0755 lys-settings %{buildroot}%{_bindir}/
-install -D -m 0755 lys-users-helper %{buildroot}%{_libexecdir}/lys-users-helper
+install -D -m 0755 lys-users %{buildroot}%{_libexecdir}/lys-users
 install -D -m 0644 dev.stubbe.lys.settings.users.policy %{buildroot}%{_datadir}/polkit-1/actions/dev.stubbe.lys.settings.users.policy
+install -D -m 0644 dev.stubbe.lys.Users1.conf %{buildroot}%{_datadir}/dbus-1/system.d/dev.stubbe.lys.Users1.conf
+install -D -m 0644 dev.stubbe.lys.Users1.service %{buildroot}%{_datadir}/dbus-1/system-services/dev.stubbe.lys.Users1.service
+install -D -m 0644 lys-users.service %{buildroot}%{_unitdir}/lys-users.service
 install -D -m 0644 dev.stubbe.lys.settings.desktop %{buildroot}%{_datadir}/applications/dev.stubbe.lys.settings.desktop
 desktop-file-validate %{buildroot}%{_datadir}/applications/dev.stubbe.lys.settings.desktop
 install -D -m 0644 lys-settings.svg %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/lys-settings.svg
 install -d %{buildroot}%{_datadir}/lys-settings/icons/hicolor/scalable/actions
 install -m 0644 icons/hicolor/scalable/actions/*.svg %{buildroot}%{_datadir}/lys-settings/icons/hicolor/scalable/actions/
 
+%post
+%systemd_post lys-users.service
+
+%preun
+%systemd_preun lys-users.service
+
+%postun
+%systemd_postun_with_restart lys-users.service
+
 %files
 %license LICENSE
 %{_bindir}/lys-settings
-%{_libexecdir}/lys-users-helper
+%{_libexecdir}/lys-users
 %{_datadir}/polkit-1/actions/dev.stubbe.lys.settings.users.policy
+%{_datadir}/dbus-1/system.d/dev.stubbe.lys.Users1.conf
+%{_datadir}/dbus-1/system-services/dev.stubbe.lys.Users1.service
+%{_unitdir}/lys-users.service
 %{_datadir}/applications/dev.stubbe.lys.settings.desktop
 %{_datadir}/icons/hicolor/scalable/apps/lys-settings.svg
 %{_datadir}/lys-settings

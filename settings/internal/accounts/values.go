@@ -15,7 +15,7 @@ import (
 	"golang.org/x/text/unicode/norm"
 )
 
-// MaxLogin is the longest login name useradd takes everywhere.
+// MaxLogin is the longest login name every system takes.
 const MaxLogin = 32
 
 // The defined refusals of a login name.
@@ -55,7 +55,7 @@ func (l *Login) UnmarshalText(text []byte) error {
 // MaxName is the longest name of an existing account taken.
 const MaxName = 256
 
-// ErrName is text that names no account the shadow tools could be given.
+// ErrName is text that names no account the account files could hold.
 var ErrName = fmt.Errorf("an account's name is at most %d bytes, without :, /, a leading - or blank or control characters", MaxName)
 
 // Name is an existing account's login name as the passwd database holds
@@ -128,7 +128,7 @@ func (n *RealName) UnmarshalText(text []byte) error {
 	return err
 }
 
-// Hash is a whole SHA-512 crypt hash, as chpasswd -e takes it.
+// Hash is a whole SHA-512 crypt hash, as the shadow database holds it.
 type Hash string
 
 // HashPassword is password hashed with a new random setting.

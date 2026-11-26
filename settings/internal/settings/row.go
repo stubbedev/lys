@@ -91,7 +91,7 @@ type kit struct {
 	shellCommand func(args ...string) error
 	checkPAM     func(ctx context.Context, service string) error
 	// readAccounts reads the user accounts; changeAccount makes a change
-	// to them through lys-users-helper.
+	// to them through lys-users.
 	readAccounts  func() (accounts.Database, error)
 	changeAccount func(ctx context.Context, r accounts.Request) error
 	// openURI opens a URI with the user's default app for it.
