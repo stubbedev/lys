@@ -12,16 +12,16 @@ import (
 )
 
 // soundCodecs are the audio codecs OpenFile decodes.
-var soundCodecs = []demux.Codec{demux.AAC, demux.Opus, demux.Vorbis, demux.FLAC}
+var soundCodecs = []demux.Codec{demux.AAC, demux.Opus, demux.Vorbis, demux.FLAC, demux.MP3}
 
 // OpenFile opens a media file demuxed in process: MP4, Matroska/WebM,
-// Ogg or native FLAC. Its first video track decodes on the GPU of the
-// Video showing it (a TextureSource), and its first sound track in
-// AAC-LC, Opus, Vorbis or FLAC decodes in Go, so the source is Audible
-// exactly when the file has sound. A file of sound alone plays with its
-// cover art for a picture, a neutral placeholder when it embeds none. A
-// sound track in any other codec is a demux.UnsupportedCodecError (an
-// MP3 file's, until MP3 decodes), and a file with neither video nor
+// Ogg, native FLAC or MPEG audio (MP3). Its first video track decodes on
+// the GPU of the Video showing it (a TextureSource), and its first sound
+// track in AAC-LC, Opus, Vorbis, FLAC or MP3 decodes in Go, so the source
+// is Audible exactly when the file has sound. A file of sound alone
+// plays with its cover art for a picture, a neutral placeholder when it
+// embeds none. A sound track in any other codec is a
+// demux.UnsupportedCodecError, and a file with neither video nor
 // sound, or with a cover that does not decode, is an error too; a video
 // codec the device does not decode fails when the Video first shows the
 // stream. Seeking lands on the keyframe before the target and decodes

@@ -33,9 +33,16 @@ import (
 //	ffmpeg -f lavfi -i 'aevalsrc=…:s=44100:c=stereo:d=1' -i cover.png -map 0 -map 1 -c:a aac -b:a 32k \
 //	       -c:v png -disposition:v attached_pic tone.m4a
 //
-// with FFmpeg's PADDING block taken out of tone.flac. ac3.mka is 200 ms
-// of AC-3, tone.mp3 a second of 8 kHz MP3 and subtitles.mkv a subtitle
-// track alone.
+// with FFmpeg's PADDING block taken out of tone.flac. tone.mp3 is
+// lib/media/demux/testdata's, 8 kHz mono MP3 with the cover, its quiet
+// 220 Hz tone turning into the 440 Hz one at 500 ms; tone-mp3.mka is
+// its frames copied into Matroska, and tone-mp3.mp4 the stereo tone in
+// 44.1 kHz MP3:
+//
+//	ffmpeg -i tone.mp3 -map 0:a -c:a copy tone-mp3.mka
+//	ffmpeg -f lavfi -i 'aevalsrc=…:s=44100:c=stereo:d=1' -c:a libmp3lame -b:a 64k tone-mp3.mp4
+//
+// ac3.mka is 200 ms of AC-3 and subtitles.mkv a subtitle track alone.
 const (
 	fixtureDuration = time.Second
 	fixtureOnset    = 500 * time.Millisecond
@@ -208,9 +215,6 @@ func TestOpenFileSaysWhatItCannotPlay(t *testing.T) {
 	var unsupported *demux.UnsupportedCodecError
 	if !errors.As(err, &unsupported) || !strings.Contains(unsupported.Codec, "A_AC3") || unsupported.File != fixture(t, "ac3.mka") {
 		t.Errorf("AC-3 sound: %v", err)
-	}
-	if _, err := OpenFile(fixture(t, "tone.mp3")); !errors.As(err, &unsupported) || unsupported.Codec != "MP3 (MPEG-2.5 Layer III)" {
-		t.Errorf("MP3 sound: %v", err)
 	}
 	if _, err := OpenFile(fixture(t, "subtitles.mkv")); err == nil || !strings.Contains(err.Error(), "neither video nor sound") || !strings.Contains(err.Error(), "subtitles.mkv") {
 		t.Errorf("a file of subtitles: %v", err)

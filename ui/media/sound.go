@@ -11,21 +11,26 @@ import (
 	"github.com/stubbedev/lys/lib/media/aac"
 	"github.com/stubbedev/lys/lib/media/demux"
 	"github.com/stubbedev/lys/lib/media/flac"
+	"github.com/stubbedev/lys/lib/media/mp3"
 	"github.com/stubbedev/lys/lib/media/opus"
 	"github.com/stubbedev/lys/lib/media/vorbis"
 	"github.com/stubbedev/lys/lib/pulse/native"
 )
 
 const (
-	opusSeekPreRoll     = 80 * time.Millisecond
-	aacSeekPreRoll      = aac.FrameSize
-	vorbisSeekPreRoll   = 8192
+	opusSeekPreRoll   = 80 * time.Millisecond
+	aacSeekPreRoll    = aac.FrameSize
+	vorbisSeekPreRoll = 8192
+	// mp3SeekPreRoll is ten MPEG-1 frames: a frame's data begins up to
+	// 511 bytes back, nine frames of the smallest, and its output
+	// overlaps the frame before.
+	mp3SeekPreRoll      = 10 * 1152
 	opusFamilyOffset    = 18
 	opusFamilyAmbisonic = 255
 )
 
 // audioCodec decodes one track's packets to interleaved 16-bit PCM:
-// the aac, opus, vorbis and flac decoders all are one.
+// the aac, opus, vorbis, flac and mp3 decoders all are one.
 type audioCodec interface {
 	Decode(dst []int16, packet []byte) ([]int16, error)
 	Reset()
@@ -45,8 +50,8 @@ type soundCodec struct {
 
 var errNoSoundDecoder = errors.New("no decoder for the codec")
 
-// openSoundCodec opens the decoder of track, an AAC, Opus, Vorbis or
-// FLAC track.
+// openSoundCodec opens the decoder of track, an AAC, Opus, Vorbis,
+// FLAC or MP3 track.
 func openSoundCodec(track demux.Track) (soundCodec, error) {
 	switch track.Codec {
 	case demux.AAC:
@@ -97,6 +102,17 @@ func openSoundCodec(track demux.Track) (soundCodec, error) {
 		}
 		layout, err := waveLayout(d.Channels())
 		return soundCodec{codec: d, format: AudioFormat{Rate: d.SampleRate(), Layout: layout}}, err
+	case demux.MP3:
+		d, err := mp3.NewDecoder(track.SampleRate, track.Channels)
+		if err != nil {
+			return soundCodec{}, err
+		}
+		layout, err := waveLayout(d.Channels())
+		return soundCodec{
+			codec:   d,
+			format:  AudioFormat{Rate: d.SampleRate(), Layout: layout},
+			preRoll: samplesAt(mp3SeekPreRoll, d.SampleRate()) - track.SeekPreRoll,
+		}, err
 	}
 	return soundCodec{}, errNoSoundDecoder
 }
@@ -163,11 +179,11 @@ func aacLayout(channels int) (native.ChannelMap, error) {
 	return l, nil
 }
 
-// waveLayout is the speakers of a FLAC stream's channels, in the WAVE
-// order FLAC codes them in.
+// waveLayout is the speakers of a FLAC or MP3 stream's channels, in
+// the WAVE order they code them in.
 func waveLayout(channels int) (native.ChannelMap, error) {
 	if channels < 1 || channels >= len(waveLayouts) {
-		return nil, fmt.Errorf("no speaker layout for %d FLAC channels", channels)
+		return nil, fmt.Errorf("no speaker layout for %d channels in WAVE order", channels)
 	}
 	return waveLayouts[channels], nil
 }

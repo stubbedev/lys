@@ -30,6 +30,8 @@ var soundFixtures = []struct {
 	{"tone.mka", AudioFormat{Rate: 48000, Layout: native.ChannelMap{native.ChannelFrontLeft, native.ChannelFrontRight}}, false, 3 * time.Millisecond},
 	{"tone.ogg", AudioFormat{Rate: 22050, Layout: native.ChannelMap{native.ChannelMono}}, false, 3 * time.Millisecond},
 	{"tone.flac", AudioFormat{Rate: 8000, Layout: native.ChannelMap{native.ChannelMono}}, true, 2 * time.Second / 8000},
+	{"tone.mp3", AudioFormat{Rate: 8000, Layout: native.ChannelMap{native.ChannelMono}}, true, 3 * time.Millisecond},
+	{"tone-mp3.mp4", AudioFormat{Rate: 44100, Layout: native.ChannelMap{native.ChannelFrontLeft, native.ChannelFrontRight}}, false, 3 * time.Millisecond},
 }
 
 func TestASoundFileKeepsTime(t *testing.T) {
@@ -177,6 +179,24 @@ func TestOpenFilePlaysVideoWithFLACSound(t *testing.T) {
 	pcm := readPCM(t, a, 0)
 	if len(pcm) != 8000 || slices.ContainsFunc(pcm, func(v int16) bool { return v != 0 }) {
 		t.Errorf("%d samples, want the fixture's second of silence", len(pcm))
+	}
+}
+
+// MP3 in Matroska plays, every frame of it: Matroska names no encoder
+// delay, so the sound runs late by the 576 samples LAME delays it and
+// the 529 the synthesis does.
+func TestMP3InMatroskaPlaysUntrimmed(t *testing.T) {
+	a := openFixture(t, "tone-mp3.mka").(Audible)
+	if f := a.AudioFormat(); f.Rate != 8000 || len(f.Layout) != 1 {
+		t.Fatalf("audio format %+v, want 8 kHz mono", f)
+	}
+	const delay = (576 + 529) * time.Second / 8000
+	pcm := readPCM(t, a, 0)
+	if got := onset(pcm, a.AudioFormat()); !within(got, fixtureOnset+delay, 3*time.Millisecond) {
+		t.Errorf("the tone sounds %v in, want %v", got, fixtureOnset+delay)
+	}
+	if got := samplesAt(len(pcm), 8000); got < fixtureDuration+delay {
+		t.Errorf("%v of sound, want the second after the delay", got)
 	}
 }
 

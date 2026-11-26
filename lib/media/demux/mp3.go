@@ -185,7 +185,9 @@ func (m *mp3File) sync(off int64) (int64, mpa.Header, error) {
 }
 
 // infoFrame reads a Xing, Info or VBRI header in the first frame,
-// which then holds no sound: the stream's frame count and, from a LAME
+// which then holds no sound; a Xing or Info header follows the side
+// information as if the frame had no CRC, which is where LAME writes
+// it and FFmpeg reads it: the stream's frame count and, from a LAME
 // tag, the encoder's delay and padding. The decoder delays its output
 // by mp3DecoderDelay, so that much more comes off the start and less
 // off the end. frames is zero without one.
@@ -197,9 +199,6 @@ func (m *mp3File) infoFrame() (frames, padding int64, err error) {
 		return 0, 0, err
 	}
 	at := mpa.HeaderSize + h.SideInfoSize()
-	if h.Protected {
-		at += 2
-	}
 	switch {
 	case at+8 <= size && (string(b[at:at+4]) == "Xing" || string(b[at:at+4]) == "Info"):
 		flags := binary.BigEndian.Uint32(b[at+4:])

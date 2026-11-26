@@ -1,0 +1,38 @@
+Encoded with LAME 4.0 from 300 ms of FFmpeg 9.0.2's lavfi, then decoded by
+FFmpeg 9.0.2's MP3 decoder to 16 bits as the reference beside each:
+
+  ffmpeg -i X.mp3 -f s16le X.pcm
+
+which trims what a LAME tag names (the encoder's delay with the 529 samples of
+the synthesis, and its padding) and nothing where there is none. The signals:
+
+  ST='aevalsrc=exprs=0.3*sin(2*PI*440*t)+0.1*sin(2*PI*2500*t)+if(lt(mod(t\,0.1)\,0.004)\,0.5*(random(0)*2-1)\,0)|0.27*sin(2*PI*440*t)+0.12*sin(2*PI*3300*t)+if(lt(mod(t\,0.1)\,0.004)\,0.45*(random(1)*2-1)\,0):d=0.3'
+  MO='aevalsrc=exprs=0.3*sin(2*PI*523*t)+0.2*(random(0)*2-1)*sin(2*PI*3*t)+if(lt(mod(t\,0.1)\,0.004)\,0.5*(random(1)*2-1)\,0):d=0.3'
+
+two correlated channels of tones, or one of a tone and swelling noise, with a
+burst of noise every 100 ms that LAME codes in short blocks. Each file is
+
+  ffmpeg -f lavfi -i "$SIG:s=$RATE" -f wav - | lame --quiet $OPTS - X.mp3
+
+  X                  SIG  RATE   OPTS
+  mpeg1-joint        ST   44100  -m j -b 128
+  mpeg1-vbr-mono     MO   48000  -m m -V 2
+  mpeg1-stereo-crc   ST   32000  -m s -p -b 96
+  mpeg2-joint        ST   22050  -m j -b 64
+  mpeg2-mono         MO   16000  -m m -b 24
+  mpeg25-stereo      ST   11025  -m j -b 32 --resample 11.025
+  mpeg25-mono        MO    8000  -m m -b 16
+
+mpeg2-mono and mpeg25-mono have frames too small for LAME's tag, so they carry
+none. mpeg1-joint.mka and mpeg1-joint.mp4 are mpeg1-joint.mp3's frames copied:
+
+  ffmpeg -i mpeg1-joint.mp3 -c:a copy mpeg1-joint.mka
+  ffmpeg -i mpeg1-joint.mp3 -c:a copy mpeg1-joint.mp4
+
+LAME codes neither mixed blocks nor intensity stereo, so intensity-mixed.mp3
+(MPEG-1, 44.1 kHz) and intensity-lsf.mp3 (MPEG-2, 22.05 kHz) are written by
+synthStream in writer_test.go, which TestTheSyntheticFixturesAreWhatTheWriterWrites
+checks them against; LYS_MP3_REWRITE=1 rewrites them, and their .pcm is then
+FFmpeg's decode again as above.
+
+fuzz/FuzzDecode holds the inputs fuzzing found to break the decoder.
