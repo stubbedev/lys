@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"maps"
 	"os"
 	"path/filepath"
@@ -14,10 +15,12 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/shell/apptheme"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/render"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/secrets/client"
 	"github.com/stubbedev/lys/secrets/secretstest"
 	"github.com/stubbedev/lys/ui/widget"
@@ -303,50 +306,102 @@ func TestTheItemsAreGroupedByWhatStoredThemWithItsIcon(t *testing.T) {
 	}
 }
 
-func (r *passwordsRig) collectionRows() []*settingRow {
-	var out []*settingRow
-	for _, w := range treetest.WithClass(r.p.sidebar, "password-collection") {
-		row, _ := w.(*settingRow)
-		out = append(out, row)
+// collectionText is what heads the items: the shown collection's title,
+// or the picker's choices when there are several, then its count.
+func (r *passwordsRig) collectionText() []string {
+	if pick := r.p.collPick; pick != nil && pick.Visible() {
+		return append(pick.Items(), r.p.collCount.Text())
 	}
-	return out
-}
-
-// sidebarText is what the collection rows read: each title, then its
-// count.
-func (r *passwordsRig) sidebarText() []string {
-	var out []string
-	for _, row := range r.collectionRows() {
-		out = append(out, row.Title(), row.Description())
-	}
-	return out
+	return []string{r.p.collTitle.Text(), r.p.collCount.Text()}
 }
 
 func countText(n int64) string {
 	return locale.T().Get("settings-passwords-count", i18n.Int("count", n))
 }
 
-func TestTheCollectionsAreASidebarCountingTheirItems(t *testing.T) {
+func TestOneCollectionHeadsItsItemsByTitleWithoutAPicker(t *testing.T) {
 	r := startPasswords(t, 3)
 	r.l.settle()
-	rows := r.collectionRows()
-	if len(rows) != 1 || !rows[0].HasState(widget.StateSelected) {
-		t.Fatalf("%d collection rows, the login one selected: %v", len(rows), len(rows) == 1 && rows[0].HasState(widget.StateSelected))
+	if r.p.collPick != nil {
+		t.Fatal("a keyring of one collection offers a collection picker")
 	}
-	labels := r.sidebarText()
-	if !slices.Equal(labels, []string{locale.T().Get("settings-passwords-locked-collection"), countText(3)}) {
-		t.Fatalf("the sidebar reads %q", labels)
+	if !r.p.collTitle.Visible() {
+		t.Fatal("the one collection's title is hidden")
+	}
+	if labels := r.collectionText(); !slices.Equal(labels, []string{locale.T().Get("settings-passwords-locked-collection"), countText(3)}) {
+		t.Fatalf("the items are headed %q", labels)
 	}
 	r.srv.Answer("login-pw")
 	treetest.Button(t, r.p, "Unlock…").OnClick()
-	if labels := r.sidebarText(); !slices.Equal(labels, []string{"Login", countText(3)}) {
-		t.Fatalf("unlocked, the sidebar reads %q", labels)
+	if labels := r.collectionText(); !slices.Equal(labels, []string{"Login", countText(3)}) {
+		t.Fatalf("unlocked, the items are headed %q", labels)
 	}
 	if got := countText(1); got != "One item" {
 		t.Errorf("one item reads %q", got)
 	}
 	if got := countText(0); got != "No items" {
 		t.Errorf("an empty collection reads %q", got)
+	}
+}
+
+const (
+	secretService = "org.freedesktop.secrets"
+	secretPath    = dbus.ObjectPath("/org/freedesktop/secrets")
+)
+
+func (r *passwordsRig) addCollection(t *testing.T, label, password string) {
+	t.Helper()
+	conn := r.bus.Conn(t)
+	var coll, prompt dbus.ObjectPath
+	props := map[string]dbus.Variant{"org.freedesktop.Secret.Collection.Label": dbus.MakeVariant(label)}
+	if err := conn.Object(secretService, secretPath).Call("org.freedesktop.Secret.Service.CreateCollection", 0, props, "").Store(&coll, &prompt); err != nil {
+		t.Fatalf("create the collection %s: %v", label, err)
+	}
+	r.srv.Answer(password)
+	if err := conn.Object(secretService, prompt).Call("org.freedesktop.Secret.Prompt.Prompt", 0, "").Err; err != nil {
+		t.Fatalf("answer the prompt creating %s: %v", label, err)
+	}
+	c, err := client.Open(context.Background(), conn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(c.Close)
+	waittest.Until(t, func() bool {
+		colls, err := c.Collections(context.Background())
+		return err == nil && slices.ContainsFunc(colls, func(c client.Collection) bool { return c.Label == label })
+	}, "the collection "+label+" created")
+	r.p.reload()
+	r.l.until("the panel listing "+label, func() bool {
+		return slices.ContainsFunc(r.p.colls, func(c client.Collection) bool { return c.Label == label })
+	})
+}
+
+func TestSeveralCollectionsArePickedFromADropdownInPlaceOfTheTitle(t *testing.T) {
+	r := startPasswords(t, 2)
+	r.srv.Answer("login-pw")
+	treetest.Button(t, r.p, "Unlock…").OnClick()
+	r.addCollection(t, "Work", "work-pw")
+	pick := r.p.collPick
+	if pick == nil || !pick.Visible() || pick.drop == nil {
+		t.Fatal("two collections offer no collection dropdown")
+	}
+	if r.p.collTitle.Visible() {
+		t.Error("the title shows beside the collection dropdown")
+	}
+	if pick.drop.AccessibleName() != locale.T().Get("settings-passwords-collections") {
+		t.Errorf("the dropdown is named %q", pick.drop.AccessibleName())
+	}
+	work := slices.IndexFunc(r.p.colls, func(c client.Collection) bool { return c.Label == "Work" })
+	if items := pick.Items(); len(items) != 2 || !slices.Contains(items, "Login") || items[work] != "Work" {
+		t.Fatalf("the dropdown offers %q", items)
+	}
+	if got := pick.Selected(); r.p.colls[got].Path != client.LoginCollection {
+		t.Fatalf("the dropdown shows %q, not the shown login collection", pick.Items()[got])
+	}
+	pick.drop.SetSelected(work)
+	r.l.until("the work collection shown", func() bool { return r.p.coll == r.p.colls[work].Path && len(r.itemRows()) == 0 })
+	if got := r.collectionText(); got[len(got)-1] != countText(0) || pick.Selected() != work {
+		t.Errorf("picking Work heads the items %q with %d selected", got, pick.Selected())
 	}
 }
 
@@ -448,8 +503,8 @@ func TestAddItemStoresANewItemInTheShownCollectionAndStaysOpenOverAMissingName(t
 	if f.secret.Text() != "" {
 		t.Error("the password stayed in the closed form")
 	}
-	if !slices.Contains(r.sidebarText(), countText(2)) {
-		t.Errorf("the count did not follow: %q", r.sidebarText())
+	if !slices.Contains(r.collectionText(), countText(2)) {
+		t.Errorf("the count did not follow: %q", r.collectionText())
 	}
 }
 
@@ -475,11 +530,10 @@ func TestTheKeyringActionsShowOnlyOverAShownCollection(t *testing.T) {
 	r.l.until("the collection shown", func() bool { return r.p.head.Visible() })
 }
 
-// With no collection to list, the empty sidebar kept its gap beside the
-// items, so the search field stood 26px into the card on the left and
-// 18px on the right, and the separator under it started 8px in. The
-// sidebar shows only while it lists a collection: the items then span
-// the card.
+// With no collection to list, the empty collections column kept its gap
+// beside the items, so the search field stood 26px into the card on the
+// left and 18px on the right, and the separator under it started 8px
+// in. The items span the card.
 func TestAKeyringWithoutCollectionsSpansItsItemsOverTheCard(t *testing.T) {
 	before := openKeyring
 	openKeyring = func(context.Context) (*client.Client, func(), error) {
@@ -498,9 +552,101 @@ func TestAKeyringWithoutCollectionsSpansItsItemsOverTheCard(t *testing.T) {
 	if left, right := search.X-c.X, c.X+c.W-(search.X+search.W); left != right {
 		t.Errorf("the search field stands %dpx into the card on the left, %dpx on the right", left, right)
 	}
-	if p.sidebar.Visible() {
-		t.Error("the sidebar shows with no collection to list")
-	}
 	r := startPasswords(t, 1)
-	r.l.until("the collection listed", func() bool { return r.p.sidebar.Visible() })
+	r.l.until("the collection listed", func() bool { return r.p.head.Visible() })
+}
+
+func (r *passwordsRig) laidOutPage(t *testing.T, width int) *passwordsPanel {
+	t.Helper()
+	_, p := r.laidOutWindow(t, width)
+	return p
+}
+
+func (r *passwordsRig) laidOutWindow(t *testing.T, width int) (*window, *passwordsPanel) {
+	t.Helper()
+	cfg := r.p.k.store.svc.Config()
+	win := newWindow(r.p.k, cfg, func(_ time.Duration, fn func()) { fn() })
+	win.stack.SetTransition(widget.StackNone, 0)
+	apptheme.New(cfg).Attach(win.root)
+	win.show(passwordsID)
+	p := treetest.First[*passwordsPanel](t, win.page)
+	t.Cleanup(p.close)
+	r.l.until("the page's keyring listed", func() bool { return len(p.colls) == len(r.p.colls) && p.head.Visible() })
+	layOut(win, width)
+	return win, p
+}
+
+func keyringFitsItsCard(t *testing.T, p *passwordsPanel, width int) {
+	t.Helper()
+	cards := treetest.WithClass(p, css.Card)
+	if len(cards) == 0 {
+		t.Fatal("the keyring is on no card")
+	}
+	c, search := cards[0].(widget.Boundser).Bounds(), p.filter.Bounds()
+	if left, right := search.X-c.X, c.X+c.W-(search.X+search.W); left != right || search.W < c.W/2 {
+		t.Errorf("at %dpx the search field stands %dpx in on the left, %dpx on the right, %dpx of the card's %dpx", width, left, right, search.W, c.W)
+	}
+	if shown(p.collTitle) {
+		labelWhole(t, "the collection's title", p.collTitle)
+	}
+	labelWhole(t, "the collection's count", p.collCount)
+	type part struct {
+		name string
+		at   render.Rect
+	}
+	parts := []part{{"the collection", p.collHead.Bounds()}}
+	for _, label := range []string{"Add Item…", "Lock", "Change Password…"} {
+		b := treetest.Button(t, p.head, label)
+		labelWhole(t, "a header button", treetest.LabelReading(t, b, label))
+		parts = append(parts, part{label, b.Bounds()})
+	}
+	for i, a := range parts {
+		if a.at.X < c.X || a.at.X+a.at.W > c.X+c.W {
+			t.Errorf("at %dpx %s at %v leaves the card %v", width, a.name, a.at, c)
+		}
+		for _, b := range parts[i+1:] {
+			if in := a.at.Intersect(b.at); in.W > 0 && in.H > 0 {
+				t.Errorf("at %dpx %s at %v overlaps %s at %v", width, a.name, a.at, b.name, b.at)
+			}
+		}
+	}
+}
+
+func TestTheKeyringCardIsOneColumnAtTheDefaultAndANarrowWidth(t *testing.T) {
+	r := startPasswords(t, 3)
+	r.srv.Answer("login-pw")
+	treetest.Button(t, r.p, "Unlock…").OnClick()
+	for _, width := range []int{windowWidth, narrowWindowWidth} {
+		p := r.laidOutPage(t, width)
+		if p.collPick != nil {
+			t.Errorf("at %dpx one collection shows a picker", width)
+		}
+		keyringFitsItsCard(t, p, width)
+	}
+	r.addCollection(t, "Work", "work-pw")
+	for _, width := range []int{windowWidth, narrowWindowWidth} {
+		p := r.laidOutPage(t, width)
+		if p.collPick == nil || !shown(p.collPick) || shown(p.collTitle) {
+			t.Fatalf("at %dpx two collections show no picker in the title's place", width)
+		}
+		if whole := p.collPick.drop.SelectionWidth(); p.collPick.drop.Bounds().W < whole {
+			t.Errorf("at %dpx the collection dropdown is cut to %dpx of %dpx", width, p.collPick.drop.Bounds().W, whole)
+		}
+		keyringFitsItsCard(t, p, width)
+	}
+}
+
+func TestTheKeyringCardMatchesItsGoldenWithOneCollectionAndWithSeveral(t *testing.T) {
+	r := startPasswords(t, 3)
+	r.srv.Answer("login-pw")
+	treetest.Button(t, r.p, "Unlock…").OnClick()
+	shoot := func(collections string) {
+		for _, width := range []int{windowWidth, narrowWindowWidth} {
+			win, p := r.laidOutWindow(t, width)
+			checkCardGolden(t, win, p.filter, width, fmt.Sprintf("keyring-card-%s-%d", collections, width))
+		}
+	}
+	shoot("one")
+	r.addCollection(t, "Work", "work-pw")
+	shoot("several")
 }

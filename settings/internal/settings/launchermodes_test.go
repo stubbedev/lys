@@ -1,13 +1,18 @@
 package settings
 
 import (
+	"fmt"
+	"path/filepath"
 	"reflect"
 	"slices"
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/lib/golden"
+	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
+	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
@@ -226,76 +231,135 @@ func TestTheLauncherPageLinksToItsModes(t *testing.T) {
 	}
 }
 
-// laidOutModes is the mode list laid out width pixels wide.
-func laidOutModes(t *testing.T, width int) *launcherModeList {
+func labelWhole(t *testing.T, what string, l *widget.Label) {
 	t.Helper()
-	k := testKit(t, "")
-	c := modeList(t, k)
-	root := widget.NewBox(widget.Column, 0, 0)
-	root.Append(c, false)
-	styledLayOut(k, root, width)
-	return c
+	if whole := widget.SizeWithin(l, widget.Size{W: 1 << 20, H: 1 << 20}).W; l.Bounds().W < whole {
+		t.Errorf("%s %q is cut to %dpx of %dpx", what, l.Text(), l.Bounds().W, whole)
+	}
 }
 
-// Where the width holds the modes whole beside the options, the two sit
-// side by side; where it does not, the options sit under the modes,
-// every mode's name whole either way.
-func TestTheModesSitBesideTheirOptionsOnlyWhereTheyFit(t *testing.T) {
-	wide := laidOutModes(t, 1400)
-	if l, o := wide.modePanes.list.Bounds(), wide.options.Bounds(); o.X < l.X+l.W || o.Y != l.Y {
-		t.Errorf("at 1400px the options at %v do not sit beside the modes at %v", o, l)
-	}
-	narrow := laidOutModes(t, 600)
-	if l, o := narrow.modePanes.list.Bounds(), narrow.options.Bounds(); o.Y < l.Y+l.H || o.X != l.X {
-		t.Errorf("at 600px the options at %v do not sit under the modes at %v", o, l)
-	}
-	for _, c := range []*launcherModeList{wide, narrow} {
-		for _, r := range treetest.WithClass(c, "launcher-mode") {
-			title := r.(*settingRow).Title()
-			l := treetest.LabelReading(t, r, title)
-			if l.MaxLines() != 0 {
-				t.Errorf("%q is capped at %d lines", title, l.MaxLines())
+const modeGlyphPx = 16
+
+func laidOutModes(t *testing.T, width int) *launcherModeList {
+	t.Helper()
+	win := laidOutPage(t, "", "launcher-modes", width)
+	return treetest.First[*launcherModeList](t, win.page)
+}
+
+func TestTheModesOptionsSitUnderTheListAcrossItsWidth(t *testing.T) {
+	for _, width := range []int{windowWidth, narrowWindowWidth, sweepW} {
+		c := laidOutModes(t, width)
+		l, o := c.list.Bounds(), c.options.Bounds()
+		if o.Y < l.Y+l.H || o.X != l.X || o.W != l.W {
+			t.Errorf("at %dpx the options at %v do not sit under the modes at %v across their width", width, o, l)
+		}
+		for _, r := range treetest.WithClass(c.list, "launcher-mode") {
+			row := r.(*settingRow)
+			title := treetest.LabelReading(t, row, row.Title())
+			if title.MaxLines() != 0 {
+				t.Errorf("at %dpx %q is capped at %d lines", width, row.Title(), title.MaxLines())
 			}
-			if l.Bounds().W > c.modePanes.list.Bounds().W {
-				t.Errorf("%q runs %dpx wide past its %dpx pane", title, l.Bounds().W, c.modePanes.list.Bounds().W)
+			labelWhole(t, "a mode's name", title)
+			for _, icon := range treetest.All[*widget.Icon](row) {
+				glyph := icon.Bounds()
+				if end := glyph.X + (glyph.W+modeGlyphPx)/2; end > l.X+l.W {
+					t.Errorf("at %dpx %q's move glyph ends at %d past the list's edge at %d", width, row.Title(), end, l.X+l.W)
+				}
 			}
+		}
+		labelWhole(t, "the name row's title", treetest.LabelReading(t, c.options, locale.T().Get("settings-launcher-mode-display-name")))
+	}
+}
+
+func TestTabLeavesTheModeListBeforeReachingTheSelectedModesOptions(t *testing.T) {
+	win := laidOutPage(t, "", "launcher-modes", windowWidth)
+	c := treetest.First[*launcherModeList](t, win.page)
+	switches := treetest.All[*widget.Switch](c.list)
+	router := &widget.Router{Root: win.root}
+	if err := router.SetFocus(switches[0]); err != nil {
+		t.Fatal(err)
+	}
+	inList := map[widget.Widget]bool{}
+	treetest.Walk(c.list, func(w widget.Widget) { inList[w] = true })
+	inOptions := map[widget.Widget]bool{}
+	treetest.Walk(c.options, func(w widget.Widget) { inOptions[w] = true })
+	reached := map[widget.Widget]bool{switches[0]: true}
+	for range maxTabStops {
+		router.FocusNext()
+		f := router.Focused()
+		if inOptions[f] {
+			break
+		}
+		if !inList[f] {
+			t.Fatalf("Tab left the mode list for %T before the options", f)
+		}
+		reached[f] = true
+	}
+	if router.Focused() != widget.Widget(c.name) {
+		t.Errorf("Tab out of the modes lands on %T, not the selected mode's name", router.Focused())
+	}
+	for _, sw := range switches {
+		if !reached[sw] {
+			t.Errorf("Tab skipped the switch %q on its way to the options", sw.AccessibleName())
 		}
 	}
 }
 
-// In the mode's narrow options pane a program row (the URL launcher, the
-// SSH client, the file manager) and a format row held their control at
-// its width beside the row's text, cutting the title to "URL Launc…" and
-// its description to a few words. Those rows stack their control under
-// the text, and every row of the pane reads its title whole.
-func TestTheModePanesRowsReadTheirTitlesWhole(t *testing.T) {
-	for _, mode := range []string{"drun", "window", "ssh", "filebrowser", "combi"} {
-		t.Run(mode, func(t *testing.T) {
-			win := laidOutPage(t, "", "launcher-modes", 1664)
-			lists := treetest.All[*launcherModeList](win.page)
-			if len(lists) != 1 {
-				t.Fatalf("%d mode lists", len(lists))
-			}
-			lists[0].selected = mode
-			lists[0].refresh()
-			layOut(win, 1664)
-			shownRows := 0
-			for _, r := range lists[0].rows {
-				if !shown(r) {
-					continue
+func TestTheModeOptionsRowsReadTheirTitlesWhole(t *testing.T) {
+	for _, width := range []int{windowWidth, sweepW} {
+		for _, mode := range []string{"drun", "window", "ssh", "filebrowser", "combi"} {
+			t.Run(mode, func(t *testing.T) {
+				win := laidOutPage(t, "", "launcher-modes", width)
+				c := treetest.First[*launcherModeList](t, win.page)
+				c.selected = mode
+				c.refresh()
+				layOut(win, width)
+				shownRows := 0
+				for _, r := range c.rows {
+					if !shown(r) {
+						continue
+					}
+					shownRows++
+					labelWhole(t, r.path+"'s title", treetest.WithClass(r, "title")[0].(*widget.Label))
+					if d := rowDescription(r); shown(d) && d.Bounds().H < uncappedHeight(d) {
+						t.Errorf("at %dpx %s's description is cut", width, r.path)
+					}
 				}
-				shownRows++
-				title := treetest.WithClass(r, "title")[0].(*widget.Label)
-				if whole := widget.SizeWithin(title, widget.Size{W: 1 << 20, H: 1 << 20}).W; title.Bounds().W < whole {
-					t.Errorf("%s's title is cut to %dpx of %dpx", r.path, title.Bounds().W, whole)
+				if shownRows == 0 {
+					t.Fatalf("the %s options show no row", mode)
 				}
-				if d := rowDescription(r); shown(d) && d.Bounds().H < uncappedHeight(d) {
-					t.Errorf("%s's description is cut", r.path)
-				}
-			}
-			if shownRows == 0 {
-				t.Fatalf("the %s pane shows no option", mode)
-			}
+			})
+		}
+	}
+}
+
+const cardShotH = 4000
+
+func checkCardGolden(t *testing.T, win *window, holding widget.Widget, width int, name string) {
+	t.Helper()
+	win.root.Arrange(render.Rect{W: width, H: cardShotH})
+	win.root.Arrange(render.Rect{W: width, H: cardShotH})
+	var card render.Rect
+	for _, c := range treetest.WithClass(win.page, css.Card) {
+		if treetest.Contains(c, holding) {
+			card = c.(widget.Boundser).Bounds()
+		}
+	}
+	if card.Empty() || card.Y+card.H > cardShotH {
+		t.Fatalf("%s: the card holding %T lies at %v", name, holding, card)
+	}
+	stride := render.Stride(width)
+	data := make([]byte, stride*cardShotH)
+	win.root.Paint(render.New(data, stride, width, cardShotH))
+	shot := render.NRGBA(data[card.Y*stride+card.X*4:], stride, card.W, card.H)
+	golden.Check(t, filepath.Join("testdata", "golden"), name, shot, golden.Tolerance{})
+}
+
+func TestTheModesCardMatchesItsGoldenAtTheDefaultAndANarrowWidth(t *testing.T) {
+	for _, width := range []int{windowWidth, narrowWindowWidth} {
+		t.Run(fmt.Sprint(width), func(t *testing.T) {
+			win := laidOutPage(t, "", "launcher-modes", width)
+			checkCardGolden(t, win, treetest.First[*launcherModeList](t, win.page), width, fmt.Sprintf("launcher-modes-card-%d", width))
 		})
 	}
 }

@@ -6,7 +6,6 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
-	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
 
@@ -59,7 +58,7 @@ var launcherModeOptions = []struct {
 }
 
 // launcherModeListRow is every mode the launcher can open, each turned on
-// and ordered in launcher.modes, beside the selected one's name in
+// and ordered in launcher.modes, over the selected one's name in
 // launcher.display-names and its own options.
 func launcherModeListRow() rowSpec {
 	var nested []rowSpec
@@ -76,15 +75,16 @@ func launcherModeListRow() rowSpec {
 	})
 }
 
-// launcherModeList is the two panes: the modes, and the selected one's
-// name and options.
+// launcherModeList is the modes, then the selected one's name and
+// options under them across the card's width.
 type launcherModeList struct {
-	*modePanes
+	*widget.Box
 	k        *kit
 	modes    slot
 	names    slot
 	selected string
 	list     *widget.ItemGroup
+	options  *widget.Box
 	title    *settingRow
 	name     *widget.Entry
 	state    *cardState
@@ -95,14 +95,11 @@ type launcherModeList struct {
 
 func newLauncherModeList(k *kit, modes, names slot) *launcherModeList {
 	t := locale.T()
-	c := &launcherModeList{k: k, modes: modes, names: names}
+	c := &launcherModeList{Box: widget.NewBox(widget.Column, sectionGap(), 0), k: k, modes: modes, names: names}
 	c.list = widget.NewItemGroup()
-	left := gapBox(widget.Column)
-	left.AddClass("launcher-mode-list")
-	left.Append(c.list, false)
-
-	pane := gapBox(widget.Column)
-	pane.AddClass("launcher-mode-pane")
+	c.list.AddClass("launcher-mode-list")
+	c.options = gapBox(widget.Column)
+	c.options.AddClass("launcher-mode-pane")
 	c.title = k.row("", "")
 	c.title.SetTitleClass(css.H4, true)
 	c.name = k.entry()
@@ -114,68 +111,23 @@ func newLauncherModeList(k *kit, modes, names slot) *launcherModeList {
 	}
 	nameRow := k.row(t.Get("settings-launcher-mode-display-name"), "").withControl(c.name)
 	c.state = k.cardState()
-	pane.Append(c.title, false)
-	pane.Append(nameRow, false)
-	pane.Append(c.state.lone(), false)
+	c.options.Append(c.title, false)
+	c.options.Append(nameRow, false)
+	c.options.Append(c.state.lone(), false)
 	for _, o := range launcherModeOptions {
 		group := make([]*fieldRow, len(o.rows))
 		for i, rs := range o.rows {
 			row := newFieldRow(k, k.store, rs)
 			group[i] = row
-			pane.Append(row, false)
+			c.options.Append(row, false)
 		}
 		c.groups = append(c.groups, group)
 		c.rows = append(c.rows, group...)
 	}
-	c.modePanes = newModePanes(left, pane)
+	c.Append(c.list, false)
+	c.Append(c.options, false)
 	c.refresh()
 	return c
-}
-
-// modePanes lays the modes list and the selected mode's options side by
-// side where the width holds the list whole beside the options at their
-// narrowest, and the options under the list where it does not.
-type modePanes struct {
-	*widget.Box
-	list, options *widget.Box
-}
-
-func newModePanes(list, options *widget.Box) *modePanes {
-	p := &modePanes{Box: gapBox(widget.Row), list: list, options: options}
-	p.Append(list, false)
-	p.Append(options, true)
-	return p
-}
-
-// sideBySide reports whether width holds the list at its natural width
-// beside the options at their minimum.
-func (p *modePanes) sideBySide(width int) bool {
-	return width >= p.list.Measure(widget.Row, widget.Unknown).Nat+widget.Current().Spacing+p.options.Measure(widget.Row, widget.Unknown).Min
-}
-
-// lay turns the panes for width: along a row side by side, else stacked.
-func (p *modePanes) lay(width int) {
-	if width == widget.Unknown || p.sideBySide(width) {
-		p.SetAxis(widget.Row)
-		return
-	}
-	p.SetAxis(widget.Column)
-}
-
-// Measure asks no more width than the panes stacked, and wants them side
-// by side; across a width, it is as tall as the panes laid out there.
-func (p *modePanes) Measure(axis widget.Axis, forSize int) widget.Sizes {
-	if axis == widget.Row {
-		l, o := p.list.Measure(widget.Row, widget.Unknown), p.options.Measure(widget.Row, widget.Unknown)
-		return widget.Sizes{Min: max(l.Min, o.Min), Nat: l.Nat + widget.Current().Spacing + o.Nat}
-	}
-	p.lay(forSize)
-	return p.Box.Measure(axis, forSize)
-}
-
-func (p *modePanes) Arrange(r render.Rect) {
-	p.lay(r.W)
-	p.Box.Arrange(r)
 }
 
 func (c *launcherModeList) nestedRows() []*fieldRow { return c.rows }

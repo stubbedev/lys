@@ -131,9 +131,10 @@ type passwordsPanel struct {
 	seen       map[dbus.ObjectPath]time.Time
 	now        func() time.Time
 	problem    *inlineState
-	sidebar    *widget.ItemGroup
-	collRows   map[dbus.ObjectPath]*settingRow
 	collTitle  *widget.Label
+	collPick   *choicePick
+	collCount  *widget.Label
+	collHead   *widget.Box
 	head       *insetRow
 	add        *widget.Button
 	lock       *widget.Button
@@ -156,23 +157,28 @@ func passwordsKeyring(k *kit) widget.Widget {
 	p := &passwordsPanel{Box: sectionStack(), k: k, seen: map[dbus.ObjectPath]time.Time{}, now: time.Now}
 	p.problem = k.inlineState()
 	p.Append(p.problem, false)
-	p.sidebar = widget.NewItemGroup()
-	p.sidebar.AddClass("password-collections")
-	p.sidebar.SetAccessibleName(t.Get("settings-passwords-collections"))
-	p.sidebar.SetVisible(false)
 	p.collTitle = k.label("", "password-collection-title", css.H4)
 	p.collTitle.SetEllipsize(widget.EllipsizeEnd)
+	p.collCount = k.label("", "password-collection-count", css.Caption, css.DimLabel)
+	p.collHead = widget.NewBox(widget.Column, widget.Current().Spacing/2, 0)
+	p.collHead.Append(p.collTitle, false)
+	p.collHead.Append(p.collCount, false)
 	p.lock, p.lockFace = k.contentButton(roleSecondary, "ld-lock-symbolic", t.Get("settings-passwords-lock"), p.toggleLock)
 	change, _ := k.contentButton(roleSecondary, "ld-key-round-symbolic", t.Get("settings-passwords-change"), func() {
 		coll := p.coll
 		p.act(func(ctx context.Context) error { return p.c.ChangeLock(ctx, coll) })
 	})
 	p.add = k.listAddButton("settings-passwords-add", p.openAddItem)
-	head := gapBox(widget.Row)
-	head.AppendAligned(p.collTitle, true, widget.AlignCenter)
+	gap := widget.Current().Spacing
+	actions := widget.NewWrapBox(gap, gap, widget.JustifyStart)
 	for _, b := range []*widget.Button{p.add, p.lock, change} {
-		head.AppendAligned(b, false, widget.AlignCenter)
+		actions.Append(b)
 	}
+	actions.SetVAlign(widget.AlignCenter)
+	p.collHead.SetVAlign(widget.AlignCenter)
+	head := widget.NewWrapBox(gap, gap, widget.JustifySpread)
+	head.Append(p.collHead)
+	head.Append(actions)
 	p.filter = widget.NewSearchEntry(k.face, k.textPx(), t.Get("settings-passwords-filter"))
 	p.filter.SetDelay(0)
 	p.filter.OnSearchChanged = func(string) { p.showItems() }
@@ -185,10 +191,7 @@ func passwordsKeyring(k *kit) widget.Widget {
 	items := gapBox(widget.Column)
 	items.Append(p.list, false)
 	items.Append(p.more, false)
-	body := gapBox(widget.Row)
-	body.AppendAligned(p.sidebar, false, widget.AlignStart)
-	body.Append(items, true)
-	p.Append(newSection(k, "settings-section-passwords-keyring", body), false)
+	p.Append(newSection(k, "settings-section-passwords-keyring", items), false)
 	p.detail = widget.NewBox(widget.Column, widget.Current().Spacing, 0)
 	p.detail.AddClass("password-detail")
 	p.detailRow = newInsetRow(p.detail)
@@ -242,36 +245,48 @@ func collectionTitle(c client.Collection) string {
 	return c.Label
 }
 
-func collectionIcon(c client.Collection) string {
-	if c.Locked {
-		return itemLockIcon
-	}
-	return itemKeyIcon
-}
-
 func (p *passwordsPanel) setCollections(colls []client.Collection) {
-	t := locale.T()
 	p.colls = colls
-	p.sidebar.Clear()
-	p.collRows = make(map[dbus.ObjectPath]*settingRow, len(colls))
 	for _, c := range colls {
 		if _, ok := p.seen[c.Path]; !ok && !c.Locked {
 			p.seen[c.Path] = p.now()
 		}
-		row := p.k.row(collectionTitle(c), t.Get("settings-passwords-count", i18n.Int("count", int64(c.Items))))
-		row.AddClass("password-collection")
-		row.SetMedia(p.k.icon(collectionIcon(c)), false)
-		path := c.Path
-		row.SetOnActivate(func() {
-			if path != p.coll {
+	}
+	p.refreshLock()
+}
+
+// showCollection heads the items with the shown collection: its title
+// alone, or a dropdown over every collection when there are several.
+func (p *passwordsPanel) showCollection(c client.Collection) {
+	at := slices.IndexFunc(p.colls, func(o client.Collection) bool { return o.Path == c.Path })
+	several := at >= 0 && len(p.colls) > 1
+	p.collTitle.SetText(collectionTitle(c))
+	p.collTitle.SetVisible(!several)
+	p.collCount.SetText(locale.T().Get("settings-passwords-count", i18n.Int("count", int64(c.Items))))
+	if !several {
+		if p.collPick != nil {
+			p.collPick.SetVisible(false)
+		}
+		return
+	}
+	titles := make([]string, len(p.colls))
+	for i, o := range p.colls {
+		titles[i] = collectionTitle(o)
+	}
+	if p.collPick == nil {
+		p.collPick = newDropdownPick(p.k, titles, at)
+		p.collPick.AddClass("password-collections")
+		p.collPick.SetAccessibleName(locale.T().Get("settings-passwords-collections"))
+		p.collPick.OnSelect = func(i int) {
+			if path := p.colls[i].Path; path != p.coll {
 				p.pick(path)
 			}
-		})
-		p.sidebar.Append(row)
-		p.collRows[c.Path] = row
+		}
+		p.collHead.InsertAt(1, p.collPick, false)
+	} else {
+		p.collPick.setLabels(titles, at)
 	}
-	p.sidebar.SetVisible(len(colls) > 0)
-	p.refreshLock()
+	p.collPick.SetVisible(true)
 }
 
 func (p *passwordsPanel) current() (client.Collection, bool) {
@@ -284,12 +299,9 @@ func (p *passwordsPanel) current() (client.Collection, bool) {
 
 func (p *passwordsPanel) refreshLock() {
 	t := locale.T()
-	for path, row := range p.collRows {
-		row.SetState(widget.StateSelected, path == p.coll)
-	}
 	c, ok := p.current()
 	p.head.SetVisible(ok)
-	p.collTitle.SetText(collectionTitle(c))
+	p.showCollection(c)
 	if c.Locked {
 		p.lockFace.SetIconName("ld-lock-open-symbolic")
 		p.lockFace.SetLabel(t.Get("settings-passwords-unlock"))
