@@ -373,3 +373,44 @@ func TestQuickLookSaysWhyACopiedPictureCannotShow(t *testing.T) {
 		t.Errorf("the undecodable picture leaves the card visible %v, showing %d image views", q.card.Visible(), len(treetest.All[*widget.ImageView](q.card)))
 	}
 }
+
+// footerSays reports the footer naming key for Quick Look.
+func footerSays(p *panel, key string) bool {
+	return strings.Contains(p.v.Hints.Markup(), "<b>"+key+"</b> "+i18n.T("launcher-footer-quick-look"))
+}
+
+// The footer names the configured Quick Look key on a row Quick Look
+// shows, a copied file or picture, and says nothing of it on a row it
+// does not, a quicklink.
+func TestTheFooterNamesTheQuickLookKeyOnARowItShows(t *testing.T) {
+	for _, keys := range []string{"", "F3"} {
+		h := newPanelHarness(t)
+		path, clip := lookedAtHistory(t, h.own)
+		want := "Shift+space"
+		if keys != "" {
+			h.cfg.Launcher.Keybindings = map[string]string{"quick-look": keys}
+			want = keys
+		}
+		h.cfg.Launcher.Search.Providers = append(h.cfg.Launcher.Search.Providers, config.SearchClipboard)
+		deps := h.s.d.Search
+		h.s.d.Search = func() search.Deps {
+			d := deps()
+			d.Clipboard = clip
+			return d
+		}
+		p, _ := h.openPanel()
+		h.typed(p, "notes.txt")
+		h.until("the copied file selected", func() bool { return isFile(path)(p.selectedRow()) })
+		h.until("the footer naming "+want, func() bool { return footerSays(p, want) })
+
+		h.typed(p, "Alpha Docs")
+		h.until("the quicklink selected", func() bool { return p.selectedTitle() == "Alpha Docs" })
+		h.loop.pump()
+		if strings.Contains(p.v.Hints.Markup(), i18n.T("launcher-footer-quick-look")) {
+			t.Errorf("a quicklink's footer offers Quick Look: %q", p.v.Hints.Markup())
+		}
+		if !strings.Contains(p.v.Hints.Markup(), "Esc") {
+			t.Errorf("the quicklink's footer was not written: %q", p.v.Hints.Markup())
+		}
+	}
+}

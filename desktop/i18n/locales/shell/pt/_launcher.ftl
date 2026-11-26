@@ -108,6 +108,7 @@ launcher-script-argument-required = { $name } é obrigatório
 launcher-footer-select = Selecionar
 launcher-footer-actions = Ações
 launcher-footer-complete = Completar
+launcher-footer-quick-look = Vista rápida
 launcher-footer-back = Voltar
 launcher-footer-close = Fechar
 launcher-process-subtitle = { $memory } · PID { $pid }

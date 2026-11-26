@@ -105,6 +105,7 @@ launcher-script-argument-required = { $name } : valeur requise
 launcher-footer-select = Sélectionner
 launcher-footer-actions = Actions
 launcher-footer-complete = Compléter
+launcher-footer-quick-look = Aperçu rapide
 launcher-footer-back = Retour
 launcher-footer-close = Fermer
 launcher-process-subtitle = { $memory } · PID { $pid }

@@ -639,7 +639,8 @@ func lookupPanelKey(press app.Accel) (panelKey, bool) {
 }
 
 // hintFor is the footer's text: the default action, the second, how to
-// open the actions, and how to leave.
+// open the actions, the key for Quick Look on a row it shows, and how
+// to leave.
 func hintFor(p *panel, hints []launcherview.FooterHint) []launcherview.FooterHint {
 	row, ok := p.selected()
 	switch {
@@ -650,6 +651,9 @@ func hintFor(p *panel, hints []launcherview.FooterHint) []launcherview.FooterHin
 		}
 		if row.Entry.Completion != "" {
 			hints = append(hints, launcherview.FooterHint{Key: "Tab", Does: i18n.T("launcher-footer-complete")})
+		}
+		if len(p.quickLook) > 0 && quickLookable(row.Entry.Preview) {
+			hints = append(hints, launcherview.FooterHint{Key: p.quickLook[0].String(), Does: i18n.T("launcher-footer-quick-look")})
 		}
 	case !ok && p.frame.CanSubmit && p.frame.SubmitTitle != "":
 		hints = append(hints, launcherview.FooterHint{Key: "Enter", Does: p.frame.SubmitTitle})
