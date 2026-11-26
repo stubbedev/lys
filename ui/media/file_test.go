@@ -237,3 +237,43 @@ func TestWithoutAudioKeepsTheFileOnTheGPU(t *testing.T) {
 		t.Error("WithoutAudio lost the GPU decoding")
 	}
 }
+
+// OpenFile opens a YUV4MPEG2 file by its magic, whatever its name, as a
+// seekable stream of its frames that closes the file; a file that is
+// neither that nor a container is an error naming it.
+func TestOpenFileOpensAYUV4MPEG2File(t *testing.T) {
+	dir := t.TempDir()
+	clip := filepath.Join(dir, "clip.bin")
+	raw := y4mBytes("YUV4MPEG2 W2 H2 F10:1 XCOLORRANGE=FULL", 2, 2, 1, 1, false, yuv{255, 128, 128}, yuv{0, 128, 128}, yuv{255, 128, 128})
+	if err := os.WriteFile(clip, raw, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	src, err := OpenFile(clip)
+	if err != nil {
+		t.Fatal(err)
+	}
+	frames, ok := src.(FrameSource)
+	if !ok {
+		t.Fatalf("the clip opens as %T, want a FrameSource", src)
+	}
+	if _, ok := src.(Seeker); !ok {
+		t.Fatalf("the clip opens as %T, want it seekable", src)
+	}
+	if info := frames.Info(); info.Width != 2 || info.Height != 2 || info.Duration != 300*time.Millisecond {
+		t.Fatalf("the clip is %+v, want 2x2 for 300ms", info)
+	}
+	if err := src.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	short := filepath.Join(dir, "short.y4m")
+	if err := os.WriteFile(short, []byte("YUV4"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := OpenFile(short); err == nil || !strings.Contains(err.Error(), short) {
+		t.Fatalf("a file of four bytes opens with %v, want an error naming it", err)
+	}
+	if _, err := OpenFile(filepath.Join(dir, "missing.y4m")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("a missing file opens with %v, want os.ErrNotExist", err)
+	}
+}

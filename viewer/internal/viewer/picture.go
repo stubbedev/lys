@@ -6,7 +6,6 @@ import (
 	"image/draw"
 
 	"github.com/stubbedev/lys/desktop/imagedecode"
-	"github.com/stubbedev/lys/desktop/shell/preview"
 	"github.com/stubbedev/lys/lib/exif"
 	"github.com/stubbedev/lys/ui/transfer"
 )
@@ -16,7 +15,7 @@ func pictureContent(path string) (transfer.Content, error) {
 	if err != nil {
 		return transfer.Content{}, fmt.Errorf("decode %s: %w", path, err)
 	}
-	shown, err := asShown(img, preview.Orientation(path))
+	shown, err := asShown(img, imagedecode.Orientation(path))
 	if err != nil {
 		return transfer.Content{}, fmt.Errorf("turn %s as it is shown: %w", path, err)
 	}

@@ -326,7 +326,7 @@ func (c *core) decodePicture(ctx context.Context, path string, info os.FileInfo,
 		return made{}, err
 	}
 	b := img.Bounds()
-	orient := orientation(path)
+	orient := imagedecode.Orientation(path)
 	if orient == exif.TopLeft {
 		return made{img: img, size: b.Size()}, nil
 	}
@@ -339,24 +339,6 @@ func (c *core) decodePicture(ctx context.Context, path string, info os.FileInfo,
 	}
 	sw, sh := orient.Size(b.Dx(), b.Dy())
 	return made{img: shown, size: image.Pt(sw, sh)}, nil
-}
-
-// orientation is the orientation the picture at path records in its
-// EXIF block, as the preview shows it: a block that does not parse is
-// logged, and the picture is thumbnailed as stored.
-func orientation(path string) exif.Orientation {
-	f, err := os.Open(path) //nolint:gosec // the picture being thumbnailed
-	if err != nil {
-		log.Printf("thumbnail: reading the orientation of %s: %v", path, err)
-		return exif.TopLeft
-	}
-	defer func() { _ = f.Close() }()
-	o, err := exif.Read(f)
-	if err != nil {
-		log.Printf("thumbnail: the orientation of %s: %v", path, err)
-		return exif.TopLeft
-	}
-	return o
 }
 
 // decodeWithin decodes the image file at path once the bytes its pixels

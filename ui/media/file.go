@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"slices"
 	"time"
 
@@ -14,19 +15,41 @@ import (
 // soundCodecs are the audio codecs OpenFile decodes.
 var soundCodecs = []demux.Codec{demux.AAC, demux.Opus, demux.Vorbis, demux.FLAC, demux.MP3}
 
-// OpenFile opens a media file demuxed in process: MP4, Matroska/WebM,
-// Ogg, native FLAC or MPEG audio (MP3). Its first video track decodes on
-// the GPU of the Video showing it (a TextureSource), and its first sound
-// track in AAC-LC, Opus, Vorbis, FLAC or MP3 decodes in Go, so the source
-// is Audible exactly when the file has sound. A file of sound alone
-// plays with its cover art for a picture, a neutral placeholder when it
-// embeds none. A sound track in any other codec is a
-// demux.UnsupportedCodecError, and a file with neither video nor
-// sound, or with a cover that does not decode, is an error too; a video
-// codec the device does not decode fails when the Video first shows the
-// stream. Seeking lands on the keyframe before the target and decodes
-// from there.
+// y4mMagic opens a YUV4MPEG2 stream.
+const y4mMagic = "YUV4MPEG2 "
+
+// OpenFile opens a media file: a YUV4MPEG2 stream, known by its magic,
+// read seekable as NewY4M reads one, else a file demuxed in process:
+// MP4, Matroska/WebM, Ogg, native FLAC or MPEG audio (MP3). Its first
+// video track decodes on the GPU of the Video showing it (a
+// TextureSource), and its first sound track in AAC-LC, Opus, Vorbis,
+// FLAC or MP3 decodes in Go, so the source is Audible exactly when the
+// file has sound. A file of sound alone plays with its cover art for a
+// picture, a neutral placeholder when it embeds none. A sound track in
+// any other codec is a demux.UnsupportedCodecError, and a file with
+// neither video nor sound, or with a cover that does not decode, is an
+// error too; a video codec the device does not decode fails when the
+// Video first shows the stream. Seeking lands on the keyframe before
+// the target and decodes from there.
 func OpenFile(path string) (Source, error) {
+	fd, err := os.Open(path) //nolint:gosec // the media file the caller names
+	if err != nil {
+		return nil, fmt.Errorf("media: open %s: %w", path, err)
+	}
+	y4m, err := startsY4M(fd)
+	if err != nil {
+		return nil, errors.Join(fmt.Errorf("media: read %s: %w", path, err), fd.Close())
+	}
+	if y4m {
+		src, err := NewY4M(fd)
+		if err != nil {
+			return nil, errors.Join(fmt.Errorf("media: open %s: %w", path, err), fd.Close())
+		}
+		return src, nil
+	}
+	if err := fd.Close(); err != nil {
+		return nil, fmt.Errorf("media: close %s: %w", path, err)
+	}
 	f, err := demux.OpenFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("media: open %s: %w", path, err)
@@ -36,6 +59,17 @@ func OpenFile(path string) (Source, error) {
 		return nil, errors.Join(err, f.Close())
 	}
 	return src, nil
+}
+
+// startsY4M reports whether f starts with the magic of a YUV4MPEG2
+// stream, and leaves it at its start.
+func startsY4M(f *os.File) (bool, error) {
+	head := make([]byte, len(y4mMagic))
+	n, err := f.ReadAt(head, 0)
+	if err != nil && !errors.Is(err, io.EOF) {
+		return false, err
+	}
+	return n == len(head) && string(head) == y4mMagic, nil
 }
 
 // soundTrack is the index of f's first sound track in a codec OpenFile
