@@ -407,6 +407,9 @@ func TestAFrameTheGPURefusedStaysOwedAndWakesTheLoop(t *testing.T) {
 	if h.surf.commits != commits {
 		t.Error("a refused frame committed")
 	}
+	if w.paintedPixels != 0 || len(w.lastDamage) != 0 {
+		t.Errorf("a refused frame reports %d px painted and damage %v, want none", w.paintedPixels, w.lastDamage)
+	}
 	if bufs[0].Busy() {
 		t.Error("the refused frame's buffer was not given back")
 	}
@@ -458,9 +461,12 @@ func TestAGPUScrollMatchesAWholeRepaint(t *testing.T) {
 		t.Skipf("no GPU: %v", err)
 	}
 	t.Cleanup(dev.Close)
-	onDevice := func(h *paintHarness) {
+	onDevice := func(h *paintHarness) func() {
 		w := h.wnd
-		w.renderer = deviceRenderer(dev)
+		r := deviceRenderer(dev)
+		refused := false
+		r.wake = func(time.Duration) { refused = true }
+		w.renderer = r
 		w.newBuffer = func() (*buffer.Buffer, error) {
 			tg, err := dev.NewOffscreen(400, 300)
 			if err != nil {
@@ -471,23 +477,38 @@ func TestAGPUScrollMatchesAWholeRepaint(t *testing.T) {
 			return b, nil
 		}
 		w.pool = buffer.New(w.allocator(), 3)
+		return func() {
+			t.Helper()
+			commits := h.surf.commits
+			h.frame()
+			if refused {
+				refused = false
+				if err := dev.Finish(); err != nil {
+					t.Fatal(err)
+				}
+				h.frame()
+			}
+			if refused || h.surf.commits != commits+1 {
+				t.Fatalf("the frame went out %d times, refused again %v: want it drawn once the device finished", h.surf.commits-commits, refused)
+			}
+		}
 	}
 	scrolled, sc, _ := scrollWindow(t)
-	onDevice(scrolled)
-	scrolled.frame()
+	scrolledFrame := onDevice(scrolled)
+	scrolledFrame()
 	for _, y := range []int{30, 64, 50, 51} {
 		sc.SetOffset(0, y)
-		scrolled.frame()
+		scrolledFrame()
 	}
 	if limit := 400 * 40; scrolled.wnd.paintedPixels > limit {
 		t.Errorf("the last step painted %d px, want its exposed strip, at most %d", scrolled.wnd.paintedPixels, limit)
 	}
 	whole, wsc, _ := scrollWindow(t)
-	onDevice(whole)
-	whole.frame()
+	wholeFrame := onDevice(whole)
+	wholeFrame()
 	wsc.SetOffset(0, 51)
 	whole.wnd.pool = buffer.New(whole.wnd.allocator(), 3)
-	whole.frame()
+	wholeFrame()
 	if painted := whole.wnd.paintedPixels; painted != 400*300 {
 		t.Fatalf("the reference painted %d px, want the whole window", painted)
 	}

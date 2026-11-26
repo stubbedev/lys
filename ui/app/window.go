@@ -1071,10 +1071,9 @@ func (w *hostWindow) draw() bool {
 	if refitted {
 		w.damage.Full(bufBounds)
 	}
+	w.paintedPixels, w.lastDamage = 0, w.lastDamage[:0]
 	if w.damage.Empty() {
 		debug.Log("frame", "draw skipped: nothing damaged")
-		w.paintedPixels = 0
-		w.lastDamage = nil
 		if w.stateOwed && w.pool.Front() != nil {
 			return w.commitState()
 		}
