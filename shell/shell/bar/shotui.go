@@ -78,7 +78,7 @@ func newShotUI(application *app.Application, outputs func() []*app.Output, curre
 		Edit:   u.edit,
 		Delete: u.discard,
 		Done:   u.release,
-		Look:   quicklook.ForApp(application, font, sheet, func() float64 { return float64(current().Styling.Scale) }, layers.ScreenshotThumbnail).Look,
+		Look:   quicklook.ForApp(application, font, sheet, func() float64 { return float64(current().Styling.Scale) }).Look,
 	})
 	return u
 }

@@ -53,29 +53,25 @@ type Deps struct {
 	// neither picture, video nor text shows, nil showing its icon.
 	MIME       *mime.Database
 	Thumbnails *thumbnail.Thumbnailer
-	// Namespace names the surface to the compositor: the one Quick Look
-	// previews from.
-	Namespace layers.Surface
 	// OpenFile opens the file shown in its default app, from the Open
 	// button; nil shows no button.
 	OpenFile func(path string)
 }
 
-// ForApp is Quick Look on a's surfaces, sized by scale and named ns,
-// opening files in their default apps through a; it shows pictures,
-// videos, text and folders, and any other file as its icon.
-func ForApp(a *app.Application, font render.Font, sheet *widget.Stylesheet, scale func() float64, ns layers.Surface) *QuickLook {
+// ForApp is Quick Look on a's surfaces, sized by scale, opening files
+// in their default apps through a; it shows pictures, videos, text and
+// folders, and any other file as its icon.
+func ForApp(a *app.Application, font render.Font, sheet *widget.Stylesheet, scale func() float64) *QuickLook {
 	return New(Deps{
-		Open:      func(cfg app.LayerConfig) (Window, error) { return a.NewLayer(cfg) },
-		KeySym:    a.KeySym,
-		Invoke:    a.Invoke,
-		Spawn:     func(fn func()) { go fn() },
-		Font:      font,
-		Sheet:     sheet,
-		Scale:     scale,
-		MIME:      mime.System(),
-		Namespace: ns,
-		OpenFile:  Opener(a),
+		Open:     func(cfg app.LayerConfig) (Window, error) { return a.NewLayer(cfg) },
+		KeySym:   a.KeySym,
+		Invoke:   a.Invoke,
+		Spawn:    func(fn func()) { go fn() },
+		Font:     font,
+		Sheet:    sheet,
+		Scale:    scale,
+		MIME:     mime.System(),
+		OpenFile: Opener(a),
 	})
 }
 
@@ -144,7 +140,7 @@ func (q *QuickLook) Show(path string, out *app.Output, closed func()) error {
 		Anchor:        app.AnchorTop | app.AnchorBottom | app.AnchorLeft | app.AnchorRight,
 		ExclusiveZone: -1,
 		Keyboard:      app.KeyboardExclusive,
-		Namespace:     q.d.Namespace.Name(),
+		Namespace:     layers.QuickLook.Name(),
 		Root:          r,
 		OnKey: keys.OnKey(q.d.KeySym, func(_ *widget.Router, sym xkb.Keysym, mods app.Mods) {
 			if sym == xkb.KeyEscape || mods == 0 {

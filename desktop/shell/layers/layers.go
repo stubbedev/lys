@@ -37,12 +37,14 @@ const (
 	ColorPicker         Surface       = "lys-shell-color-picker"
 	RegionOverlay       Surface       = "lys-shell-region-overlay"
 	WindowPick          Surface       = "lys-shell-window-pick"
+	QuickLook           Surface       = "lys-shell-quick-look"
 )
 
 // All are the surfaces lys-shell maps, the panels first.
 var All = []Kind{
 	Bar, Dock, Wallpaper, Launcher, NotificationPopup, OSD, PowerMenu, PortalDialog, FileChooser, Print,
 	SharePicker, ScreenshotReading, ScreenshotThumbnail, ColorPicker, RegionOverlay, WindowPick,
+	QuickLook,
 }
 
 // Name is the surface's namespace.

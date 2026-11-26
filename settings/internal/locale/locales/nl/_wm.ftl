@@ -65,6 +65,7 @@ wm-layer-lys-shell-screenshot-thumbnail = Miniatuur van schermafbeelding
 wm-layer-lys-shell-color-picker = Kleurkiezer
 wm-layer-lys-shell-region-overlay = Gebiedsselectie
 wm-layer-lys-shell-window-pick = Vensterkiezer
+wm-layer-lys-shell-quick-look = Snelle weergave
 wm-section-start = Opstarten
     .description = Wat met de sessie meestart, en de omgeving ervan
 wm-section-xwayland = Xwayland

@@ -51,11 +51,10 @@ func newHarness(t *testing.T, opener bool) *harness {
 			h.queue = append(h.queue, fn)
 			h.mu.Unlock()
 		},
-		Spawn:     h.work.Go,
-		Font:      treetest.Font(t),
-		Scale:     func() float64 { return 1 },
-		MIME:      mime.System(),
-		Namespace: layers.ScreenshotThumbnail,
+		Spawn: h.work.Go,
+		Font:  treetest.Font(t),
+		Scale: func() float64 { return 1 },
+		MIME:  mime.System(),
 	}
 	if opener {
 		d.OpenFile = func(path string) { h.opened = append(h.opened, path) }
@@ -116,7 +115,7 @@ func TestQuickLookShowsTheFileAndSpaceClosesIt(t *testing.T) {
 	h := newHarness(t, false)
 	path := h.file()
 	w := h.show(path)
-	if w.cfg.Keyboard != app.KeyboardExclusive || w.cfg.Layer != app.LayerOverlay || w.cfg.Namespace != layers.ScreenshotThumbnail.Name() {
+	if w.cfg.Keyboard != app.KeyboardExclusive || w.cfg.Layer != app.LayerOverlay || w.cfg.Namespace != layers.QuickLook.Name() {
 		t.Errorf("the surface is %+v", w.cfg)
 	}
 	if got, ok := h.q.Shown(); !ok || got != path {

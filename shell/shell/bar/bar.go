@@ -725,7 +725,7 @@ func (s *shellStart) mount() {
 			return release
 		})
 	}
-	notifyLook := quicklook.ForApp(application, font, theme.Sheet, func() float64 { return float64(current.Load().Styling.Scale) }, layers.NotificationPopup)
+	notifyLook := quicklook.ForApp(application, font, theme.Sheet, func() float64 { return float64(current.Load().Styling.Scale) })
 	baseCtx.NotificationLook = notifyLook.Look
 	rt.ctx = baseCtx
 	rt.mount(application, cfg)

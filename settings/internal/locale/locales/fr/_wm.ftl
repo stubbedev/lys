@@ -67,6 +67,7 @@ wm-layer-lys-shell-screenshot-thumbnail = Miniature de capture
 wm-layer-lys-shell-color-picker = Pipette de couleur
 wm-layer-lys-shell-region-overlay = Sélection de zone
 wm-layer-lys-shell-window-pick = Sélecteur de fenêtre
+wm-layer-lys-shell-quick-look = Aperçu rapide
 wm-section-start = Démarrage
     .description = Ce qui démarre avec la session, et son environnement
 wm-section-xwayland = Xwayland
