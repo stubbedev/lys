@@ -65,20 +65,23 @@ session_background = (0x30, 0x50, 0xa0)
 console_framebuffer = "[fbcon]"
 
 
-def screen_records(records, size, what):
-    planes = {r["plane"] for r in records if r.get("size") == size}
-    assert len(planes) == 1, f"{what}: planes {sorted(planes)} scanned out {size[0]}x{size[1]} frames, want one primary plane"
-    primary = planes.pop()
-    shown = [r for r in records if r["plane"] == primary]
-    off = [r["line"] for r in shown if r["fb"] == 0]
-    assert not off, f"{what}: the primary plane went dark: {off[:4]}"
-    console = [r["line"] for r in shown if r.get("by") == console_framebuffer]
-    assert not console, f"{what}: the kernel's console took the screen: {console[:4]}"
-    unread = [r["line"] for r in shown if "mean" not in r]
-    assert not unread, f"{what}: frames the watch could not read: {unread[:4]}"
-    black = [r["line"] for r in shown if r["dark"] == 1000]
-    assert not black, f"{what}: black frames: {black[:4]}"
-    return shown
+def screen_records(records, size, what, outputs=1):
+    planes = sorted({r["plane"] for r in records if r.get("size") == size})
+    assert len(planes) == outputs, f"{what}: planes {planes} scanned out {size[0]}x{size[1]} frames, want {outputs} primary planes"
+    screens = []
+    for primary in planes:
+        shown = [r for r in records if r["plane"] == primary]
+        on = f"{what} on plane {primary}"
+        off = [r["line"] for r in shown if r["fb"] == 0]
+        assert not off, f"{on}: the primary plane went dark: {off[:4]}"
+        console = [r["line"] for r in shown if r.get("by") == console_framebuffer]
+        assert not console, f"{on}: the kernel's console took the screen: {console[:4]}"
+        unread = [r["line"] for r in shown if "mean" not in r]
+        assert not unread, f"{on}: frames the watch could not read: {unread[:4]}"
+        black = [r["line"] for r in shown if r["dark"] == 1000]
+        assert not black, f"{on}: black frames: {black[:4]}"
+        screens.append((on, shown))
+    return screens
 
 
 def blend_of(colour, a, b):
@@ -173,7 +176,7 @@ def hand_over(m):
     return splash, logo
 
 
-def log_in(m, size):
+def log_in(m, size, outputs=1):
     m.wait_until_succeeds("journalctl -b -t lys-login -o cat | grep -q 'greeter: ready: .* the username field'", timeout=seconds(60))
     m.succeed("echo 'lys-splash vm: alice logs in' > /dev/kmsg")
     watch_scanout(m)
@@ -181,17 +184,19 @@ def log_in(m, size):
     m.wait_until_succeeds("pgrep -u alice swaybg", timeout=seconds(120))
 
     def desktop():
-        shown = [r for r in scanned_lines(m) if r.get("size") == size]
-        settled = shown and max(abs(c - w) for c, w in zip(shown[-1].get("mean", (0, 0, 0)), session_background)) <= 2
-        return None, None if settled else f"the screen shows {shown[-1]['line'] if shown else 'nothing'}"
+        last = {r["plane"]: r for r in scanned_lines(m) if r.get("size") == size}
+        if len(last) < outputs:
+            return None, f"{len(last)} of {outputs} planes show {size[0]}x{size[1]} frames"
+        unsettled = [r["line"] for r in last.values() if max(abs(c - w) for c, w in zip(r["mean"], session_background)) > 2]
+        return None, f"the screen shows {unsettled}" if unsettled else None
 
     await_until(30, desktop)
-    shown = screen_records(scanned_out(m), size, "the login")
-    flips, between = assert_fades(shown, greeter_background, session_background, "the login")
+    fades = [(on, assert_fades(shown, greeter_background, session_background, on)) for on, shown in screen_records(scanned_out(m), size, "the login", outputs)]
     m.wait_until_succeeds("journalctl -b -t lys-login -o cat | grep -q 'bound the framebuffer console .* again: a compositor replaced the greeter.s last frame'", timeout=seconds(60))
     bound = m.succeed("grep -l 'frame buffer device' /sys/class/vtconsole/*/name | xargs -n1 dirname | xargs -I{} cat {}/bind").split()
     assert bound and all(b == "1" for b in bound), f"the framebuffer console is not bound again once the desktop shows: {bound}"
-    print(f"the login: {flips} flips from the greeter's last frame to the desktop, {between} of them between the two")
+    for on, (flips, between) in fades:
+        print(f"{on}: {flips} flips from the greeter's last frame to the desktop, {between} of them between the two")
 
 
 def survives_switch(m):

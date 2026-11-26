@@ -39,3 +39,5 @@ with logs_on_failure(machine, greeter_logs):
     took = dict(re.findall(r"greeter: the first frame on (\S+) takes over the splash's: the logo at \S+ on (\d+x\d+)", greeter_log))
     want = {"Virtual-1": "1024x768", "Virtual-2": "768x1024"}
     assert took == want, f"the greeter took the splash's logo over on {took}, want {want}: lys-wm turns Virtual-2 by its panel orientation as the splash does"
+
+    log_in(machine, splash["Virtual-1"].size, outputs=len(splash))
