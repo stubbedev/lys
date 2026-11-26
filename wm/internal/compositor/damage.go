@@ -772,6 +772,10 @@ func (sc *scene) repaintFor(f backend.Frame, bounds image.Rectangle) *region.Set
 func (sc *scene) presented() {
 	sc.head = (sc.head + maxBufferAge - 1) % maxBufferAge
 	sc.history[sc.head].CopyFrom(&sc.damage)
+	sc.presentedWithoutPrimary()
+}
+
+func (sc *scene) presentedWithoutPrimary() {
 	sc.prev, sc.cur = sc.cur, sc.prev
 	sc.drawn, sc.stale = true, false
 }

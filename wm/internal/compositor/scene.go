@@ -290,7 +290,7 @@ func (c *Compositor) render(o *output.Output) error {
 			return err
 		}
 		c.frames.Scanout(o.Backend().Name())
-		sc.presented()
+		sc.presentedWithoutPrimary()
 		return errors.Join(c.lockBlanked(o), c.runCaptures(o))
 	}
 	if sc.targetStale {
