@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"hash/crc32"
 	"image"
 	"image/color"
@@ -15,6 +16,7 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/lib/exif"
+	"github.com/stubbedev/lys/lib/gpu"
 )
 
 // mediaFixture is a file of ui/media's test data.
@@ -156,19 +158,20 @@ func TestAVideoIsThumbnailedByItsFrame(t *testing.T) {
 	}
 }
 
-// A file lys has no in-process decoder for keeps its icon, each for a
-// defined reason that is ErrNone and records no failure: a video only
-// the GPU decodes, a video file holding sound alone, and a type lys
-// decodes nothing of.
+// A file lys has no decoder for keeps its icon, each for a defined
+// reason that is ErrNone and records no failure: a video no GPU here
+// decodes, a video file holding sound alone, and a type lys decodes
+// nothing of.
 func TestNoDecoderIsADefinedReason(t *testing.T) {
 	cache := t.TempDir()
 	t.Setenv("XDG_CACHE_HOME", cache)
 	th := New(Config{})
+	th.core.frames = failingFrames(fmt.Errorf("media: H.264 in clip.mp4: %w", gpu.ErrNoVideoDecoder))
 	for _, c := range []struct {
 		name, path, mimeType string
 		want                 error
 	}{
-		{"a video only the GPU decodes", mediaFixture("h264-aac.mp4"), "video/mp4", ErrVideoOnGPU},
+		{"a video no GPU here decodes", mediaFixture("h264-aac.mp4"), "video/mp4", ErrVideoOnGPU},
 		{"a video file of sound alone", mediaFixture("tone.mka"), "video/x-matroska", ErrNoVideo},
 		{"a type lys decodes nothing of", mediaFixture("tone.flac"), "audio/flac", ErrNoDecoder},
 	} {

@@ -175,6 +175,11 @@ func main() {
 }
 ```
 
+- `VideoFrame.ReadRGBA(size)` draws a held frame (colour-converted and scaled
+  on the GPU) into an offscreen target and reads that back as RGBA, so a
+  thumbnail moves only its own pixels, not the full-size planes;
+  `media.KeyframeImage` decodes the keyframe at or before a time and returns
+  it read back this way.
 - `DecodeCodecs` lists what the device decodes. `NewVideoDecoder` fails with
   `ErrNoVideoDecoder`, naming the codec and why, for any other; lavapipe
   decodes nothing.

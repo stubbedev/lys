@@ -4,6 +4,7 @@ import (
 	"errors"
 	"image"
 	"image/color"
+	"strings"
 	"testing"
 )
 
@@ -123,4 +124,56 @@ func TestDeviceCloseClosesReadbacks(t *testing.T) {
 	if err := r.Wait(); err == nil {
 		t.Error("Wait on a readback closed with its device took")
 	}
+}
+
+// A frame reads back as the pixels a pass draws of it, at its own size
+// or scaled to another, and the reading refuses a size no target has
+// and a frame handed back, by name.
+func TestAFrameReadsBackAsItDraws(t *testing.T) {
+	t.Parallel()
+	const w, h = 174, 98
+	d, _, f := heldFrame(t, w, h)
+	tg, err := d.NewOffscreen(w, h)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tg.Close()
+	runPass(t, d, tg, []image.Rectangle{{Max: tg.Size()}}, func(p *Pass) {
+		p.DrawFrame(f, FRect{W: w, H: h}, image.Rectangle{Max: tg.Size()}, TransformNormal, 1, Mask{})
+	})
+	drawn := readTarget(t, tg)
+	whole, err := f.ReadRGBA(image.Pt(w, h))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if whole.Rect != drawn.Rect || string(whole.Pix) != string(drawn.Pix) {
+		t.Errorf("the frame read back at its size differs from the frame drawn")
+	}
+	half, err := f.ReadRGBA(image.Pt(w/2, h/2))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if half.Rect != image.Rect(0, 0, w/2, h/2) {
+		t.Errorf("the frame read back at half its size is %v", half.Rect)
+	}
+	if got, want := meanColour(half), meanColour(drawn); !within(got, want, 8) {
+		t.Errorf("the half-size frame's mean colour is %v, the drawn frame's %v", got, want)
+	}
+	if _, err := f.ReadRGBA(image.Point{}); err == nil || !strings.Contains(err.Error(), "0x0") {
+		t.Errorf("reading the frame back at no size: %v, want an error naming the size", err)
+	}
+	f.Release()
+	if _, err := f.ReadRGBA(image.Pt(w, h)); err == nil || !strings.Contains(err.Error(), "does not hold") {
+		t.Errorf("reading back a frame handed back: %v, want an error saying the caller does not hold it", err)
+	}
+}
+
+// meanColour is img's colour averaged over all of it.
+func meanColour(img *image.RGBA) color.RGBA {
+	var sum [4]int
+	for i, v := range img.Pix {
+		sum[i%4] += int(v)
+	}
+	n := len(img.Pix) / 4
+	return color.RGBA{uint8(sum[0] / n), uint8(sum[1] / n), uint8(sum[2] / n), uint8(sum[3] / n)}
 }

@@ -141,3 +141,36 @@ func (d *Device) hostReadBarrier(cb vk.CommandBuffer) {
 	}
 	d.cmds.CmdPipelineBarrier(cb, vk.PipelineStageFlags(vk.PipelineStageTransferBit), vk.PipelineStageFlags(vk.PipelineStageHostBit), 0, 1, b, 0, nil, 0, nil)
 }
+
+// ReadRGBA draws the frame, which the caller holds, scaled to fill a
+// size image, into memory as RGBA, its colours converted as DrawFrame
+// converts them: a still of the video for the CPU, a thumbnail's, read
+// back at the size it is shown rather than as the decoder's YCbCr
+// planes. It waits for the decode and the draw within the device's
+// wait limit, on the device's goroutine with no pass open.
+func (f *VideoFrame) ReadRGBA(size image.Point) (*image.RGBA, error) {
+	if f.state != frameHeld {
+		return nil, errors.New("gpu: ReadRGBA of a frame the caller does not hold")
+	}
+	d := f.v.d
+	tg, err := d.NewOffscreen(size.X, size.Y)
+	if err != nil {
+		return nil, fmt.Errorf("gpu: a %v target to read a frame back through: %w", size, err)
+	}
+	defer tg.Close()
+	bounds := image.Rectangle{Max: size}
+	p, err := d.Begin(tg, []image.Rectangle{bounds})
+	if err != nil {
+		return nil, fmt.Errorf("gpu: drawing a frame to read back: %w", err)
+	}
+	picture := f.Size()
+	p.DrawFrame(f, FRect{W: float64(picture.X), H: float64(picture.Y)}, bounds, TransformNormal, 1, Mask{})
+	if err := p.End(); err != nil {
+		return nil, fmt.Errorf("gpu: drawing a frame to read back: %w", err)
+	}
+	img, err := tg.ReadPixels()
+	if err != nil {
+		return nil, fmt.Errorf("gpu: reading a frame back: %w", err)
+	}
+	return img, nil
+}

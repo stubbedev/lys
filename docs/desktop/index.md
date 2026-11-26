@@ -49,9 +49,11 @@ The thumbnailer runs nothing but `lys-docthumb`: no installed `.thumbnailer`
 program and no thumbnail command of the user's (rofi's `-preview-cmd` and the
 `launcher.preview-cmd` key are refused). A picture is decoded in process within
 the decode budget and turned upright as its EXIF orientation says; a video's
-thumbnail is a frame a tenth into it, decoded in process with `ui/media` (a
-YUV4MPEG2 stream; a video only the GPU decodes keeps its icon, as
-`thumbnail.ErrVideoOnGPU`); any other type keeps its icon
+thumbnail is a frame a tenth into it: a YUV4MPEG2 stream decoded in process,
+any other video's keyframe there decoded on the GPU and read back fitted to the
+thumbnail (`media.KeyframeImage`, `gpu.VideoFrame.ReadRGBA`), by one worker that
+owns the device and closes it after 10 s idle; a video no GPU here decodes keeps
+its icon (`thumbnail.ErrVideoOnGPU`, with the GPU's reason); any other type keeps its icon
 (`thumbnail.ErrNoDecoder`).
 
 For the types `dochelper` lists, the thumbnailer runs `lys-docthumb` as a plain

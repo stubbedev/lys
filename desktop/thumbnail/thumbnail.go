@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/lib/exif"
+	"github.com/stubbedev/lys/lib/gpu"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/memory-go"
 	"golang.org/x/image/draw"
@@ -52,12 +53,12 @@ var ErrTooLarge = errors.New("thumbnail: image too large to thumbnail")
 var ErrNone = errors.New("thumbnail: no thumbnail")
 
 // The reasons a file has no thumbnail to make, each ErrNone: lys
-// decodes no file of its type, its video decodes only on the GPU (which
-// thumbnails are not made on), it holds no video track, or the
+// decodes no file of its type, no GPU here decodes its video (the codec
+// on the device, or Vulkan at all), it holds no video track, or the
 // document helper is not installed.
 var (
 	ErrNoDecoder  = fmt.Errorf("%w: lys decodes no file of this type", ErrNone)
-	ErrVideoOnGPU = fmt.Errorf("%w: the video decodes only on the GPU", ErrNone)
+	ErrVideoOnGPU = fmt.Errorf("%w: no GPU here decodes the video", ErrNone)
 	ErrNoVideo    = fmt.Errorf("%w: the file holds no video track", ErrNone)
 	ErrNoHelper   = fmt.Errorf("%w: %s is not installed", ErrNone, dochelper.Program)
 )
@@ -78,8 +79,8 @@ type Raster struct {
 	pix   memory.Slice[byte]
 }
 
-// Config is what a Thumbnailer shares, how long lys-docthumb runs and
-// where it is installed. A nil Budget is one of DecodeBudget bytes of
+// Config is what a Thumbnailer shares, how long lys-docthumb runs (and
+// a video's frame decodes on the GPU) and where it is installed. A nil Budget is one of DecodeBudget bytes of
 // its own, a zero RunTimeout DefaultRunTimeout, and an empty
 // DocumentHelper the lys-docthumb next to the running program; a
 // DocumentHelper must be an absolute path to a file called
@@ -97,8 +98,9 @@ type Thumbnailer struct {
 }
 
 // core is what a Thumbnailer holds. decode opens a raster image, store
-// writes a cache file whole, and the document helper (found on first
-// use) runs for at most runTimeout each.
+// writes a cache file whole, the document helper (found on first use)
+// runs for at most runTimeout each, and frames reads a video's keyframe
+// back from the GPU within it.
 type core struct {
 	mem        memory.Shared
 	workers    chan struct{}
@@ -107,6 +109,7 @@ type core struct {
 	store      func(path string, data []byte) error
 	runTimeout time.Duration
 	documents  func() (docHelper, error)
+	frames     keyframes
 }
 
 // New is a Thumbnailer as cfg says, finding lys-docthumb on first use.
@@ -122,6 +125,7 @@ func New(cfg Config) *Thumbnailer {
 	c := &core{
 		workers: make(chan struct{}, Workers), budget: cfg.Budget,
 		decode: imagedecode.OpenContext, store: storeThumbnail, runTimeout: cfg.RunTimeout,
+		frames: newGPUWorker(gpu.Open, gpuIdle),
 	}
 	c.documents = sync.OnceValues(func() (docHelper, error) {
 		h, err := newDocHelper(cfg.DocumentHelper)
@@ -309,7 +313,7 @@ func (c *core) make(ctx context.Context, path string, info os.FileInfo, mimeType
 		img, err := h.thumbnail(ctx, c, path, size)
 		return made{img: img}, err
 	case isVideo(mimeType):
-		return c.videoFrame(ctx, path)
+		return c.videoFrame(ctx, path, size)
 	}
 	return made{}, ErrNoDecoder
 }
