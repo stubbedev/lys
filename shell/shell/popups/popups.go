@@ -60,6 +60,8 @@ type Popups struct {
 	look func(path string, closed func()) error
 	// open maps a layer surface; nil maps none (headless).
 	open func(app.LayerConfig) (window, error)
+	// post runs a function on the loop from any goroutine.
+	post func(func())
 	win  window
 	// winOut is the output win is on.
 	winOut *app.Output
@@ -129,6 +131,7 @@ func New(application *app.Application, svc *notifications.Service, cfg *config.C
 	}
 	if application != nil {
 		p.open = func(c app.LayerConfig) (window, error) { return application.NewLayer(c) }
+		p.post = application.Invoke
 	}
 	return p
 }
@@ -495,7 +498,7 @@ func (p *Popups) newCard(n *notifications.Notification) *card {
 			p.svc.ReleasePopup(id)
 		},
 		Link: p.openLink,
-		Post: p.onLoop,
+		Post: p.post,
 		Look: notifyview.Looker("notification popups", p.look),
 	}
 	if _, ok := n.DefaultAction(); ok {
@@ -711,14 +714,6 @@ func (p *Popups) stackOrder() [][]uint32 {
 		}
 	}
 	return out
-}
-
-func (p *Popups) onLoop(fn func()) {
-	if p.app == nil {
-		fn()
-		return
-	}
-	p.app.Invoke(fn)
 }
 
 func (p *Popups) offLoop(fn func()) {

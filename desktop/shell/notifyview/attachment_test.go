@@ -45,7 +45,7 @@ func TestALookButtonLooksAtTheAttachment(t *testing.T) {
 		opened := 0
 		h := Handlers{
 			Close: func() {}, Action: func(int) {}, Reply: func(string) {}, ReplyFocus: func(bool) {}, Link: func(string) {},
-			Post: func(fn func()) { fn() },
+			Post: func(func()) {},
 			Open: func() { opened++ },
 		}
 		if c.look {

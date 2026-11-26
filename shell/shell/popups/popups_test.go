@@ -39,7 +39,8 @@ func newTestPopups(t *testing.T, ncfg config.NotificationConfig) (*Popups, *noti
 
 // newClockedPopups is a popup host whose service and card ages keep
 // time by the returned fake clock: countdowns run out only when it is
-// advanced.
+// advanced. Headless its loop never turns, so nothing posted to it from
+// another goroutine, a decoded file icon, touches the tree.
 func newClockedPopups(t *testing.T, ncfg config.NotificationConfig) (*Popups, *notifications.Service, *fakeclock.Clock) {
 	t.Helper()
 	svc := notifytest.NewService(t)
@@ -49,6 +50,7 @@ func newClockedPopups(t *testing.T, ncfg config.NotificationConfig) (*Popups, *n
 	cfg.Notification = ncfg
 	p := New(nil, svc, cfg, testFont(t), nil, nil, nil)
 	p.now = clock.Now
+	p.post = func(func()) {}
 	return p, svc, clock
 }
 
