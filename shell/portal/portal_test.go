@@ -1,6 +1,7 @@
 package portal
 
 import (
+	"context"
 	"errors"
 	"maps"
 	"os"
@@ -10,9 +11,12 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/useraccount"
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/dbusx/dbusxtest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/lib/userdb"
+	"github.com/stubbedev/lys/lib/userdb/userdbtest"
 	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/wmipc"
 	"github.com/stubbedev/lys/lib/xdg"
@@ -41,8 +45,9 @@ var processDataHome = os.Getenv("XDG_DATA_HOME")
 var processConfigHome = os.Getenv("XDG_CONFIG_HOME")
 
 // newRig serves a backend on a private bus, its state, cache, data and
-// config directories temporary ones so no test reads or writes the
-// user's.
+// config directories temporary ones and its account testUser's in a
+// fake user database, so no test reads or writes the user's or asks
+// the host's userdbd.
 func newRig(t *testing.T, edit func(*Backend)) *rig {
 	t.Helper()
 	t.Setenv("XDG_STATE_HOME", t.TempDir())
@@ -60,6 +65,7 @@ func newRig(t *testing.T, edit func(*Backend)) *rig {
 	client := bus.Conn(t)
 	signals, _ := dbusxtest.Signals(t, client, 64, dbus.WithMatchObjectPath(ObjectPath))
 	b := New(bus.Conn(t), cfg)
+	b.account = userdbAccount(t, testUser(t))
 	if edit != nil {
 		edit(b)
 	}
@@ -69,6 +75,21 @@ func newRig(t *testing.T, edit func(*Backend)) *rig {
 	}
 	t.Cleanup(stop)
 	return &rig{bus: bus, cfg: cfg, backend: b, client: client, obj: client.Object(BusName, ObjectPath), signals: signals}
+}
+
+// testUser is the account the test process runs as, by its own uid.
+func testUser(t *testing.T) userdb.User {
+	t.Helper()
+	uid := userdb.UID(os.Getuid()) //nolint:gosec // a uid is never negative
+	return userdb.User{Name: "tester", UID: uid, GID: userdb.GID(uid), RealName: "Test User", Home: t.TempDir()}
+}
+
+// userdbAccount looks the account up as the Account portal does, in a
+// user database serving user alone, so no test asks the host's.
+func userdbAccount(t *testing.T, user userdb.User) func() (useraccount.Account, error) {
+	t.Helper()
+	socket := userdbtest.Serve(t, userdbtest.DB{Users: []userdb.User{user}})
+	return func() (useraccount.Account, error) { return useraccount.Lookup(context.Background(), socket, user.UID) }
 }
 
 // quietWindow is how long a test watches for something that must not
