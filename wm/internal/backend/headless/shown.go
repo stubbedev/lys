@@ -83,9 +83,9 @@ func composeOverlay(dst *soft.Buffer, l *backend.Overlay) error {
 	area := at.Dst.Intersect(image.Rect(0, 0, dst.W, dst.H))
 	kx, ky := at.Src.W/float64(at.Dst.Dx()), at.Src.H/float64(at.Dst.Dy())
 	for y := area.Min.Y; y < area.Max.Y; y++ {
-		sy := min(int(math.Floor(at.Src.Y+(float64(y-at.Dst.Min.Y)+0.5)*ky)), b.Size.Y-1)
+		sy := min(int(math.Floor(at.Src.Y+float64((float64(y-at.Dst.Min.Y)+0.5)*ky))), b.Size.Y-1)
 		for x := area.Min.X; x < area.Max.X; x++ {
-			sx := min(int(math.Floor(at.Src.X+(float64(x-at.Dst.Min.X)+0.5)*kx)), b.Size.X-1)
+			sx := min(int(math.Floor(at.Src.X+float64((float64(x-at.Dst.Min.X)+0.5)*kx))), b.Size.X-1)
 			s := src[sy*stride+sx*4:]
 			copy(dst.Pix[y*dst.Stride+x*4:], []byte{s[0], s[1], s[2], 0xff})
 		}
