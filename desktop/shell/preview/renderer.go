@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/stubbedev/lys/desktop/imagedecode"
 	"github.com/stubbedev/lys/desktop/mime"
 )
 
@@ -58,12 +59,8 @@ func (r Renderer) String() string {
 	return "renderer(" + strconv.Itoa(int(r)) + ")"
 }
 
-// pictureTypes are the image types imagedecode decodes, with their
-// subtypes.
-var pictureTypes = []string{
-	"image/png", "image/jpeg", "image/gif", "image/webp", "image/bmp", "image/tiff",
-	"image/x-tga", "image/x-portable-anymap", "image/x-farbfeld",
-}
+// pictureTypes are the image types imagedecode decodes.
+var pictureTypes = imagedecode.Types()
 
 // PictureTypes are the image types a view shows as a picture, each
 // with the subtypes the MIME database classes under it.

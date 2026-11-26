@@ -19,7 +19,6 @@ import (
 	"github.com/stubbedev/lys/ui/media"
 	"github.com/stubbedev/memory-go"
 
-	"github.com/stubbedev/lys/desktop/imagedecode"
 	"github.com/stubbedev/lys/desktop/mime"
 	"github.com/stubbedev/lys/desktop/thumbnail"
 )
@@ -36,9 +35,6 @@ const (
 // PictureBudget is the bytes of decoded pixels a host's previews hold
 // by default: one 64-megapixel picture.
 const PictureBudget = 256 << 20
-
-// y4mMagic starts a YUV4MPEG2 stream.
-const y4mMagic = "YUV4MPEG2 "
 
 // Pictures holds the pictures previews decode: their pixels, a JPEG's
 // off the Go heap, within one budget of bytes until the view showing
@@ -66,11 +62,12 @@ type Sources struct {
 	Pictures   *Pictures
 }
 
-// Request is a file to load, and the box in pixels its thumbnail is
-// made to fit.
+// Request is a file to load, or a picture held in memory (Memory, when
+// Path is ""), and the box in pixels a thumbnail is made to fit.
 type Request struct {
-	Path string
-	Fit  image.Point
+	Path   string
+	Memory *Memory
+	Fit    image.Point
 }
 
 // Info is what is known of a file besides its contents: its MIME type
@@ -144,8 +141,12 @@ func failed(info Info, f Failure, err error) Content {
 // holds; a picture decodes whole within the budget; a video opens its
 // demuxer; text reads its first TextBytes. A video without a picture,
 // text that does not read as text, and every other type show their
-// thumbnail fitted into the request's box, else their icon.
+// thumbnail fitted into the request's box, else their icon. A picture
+// held in memory decodes as a picture file does.
 func Load(ctx context.Context, src Sources, req Request) Content {
+	if req.Memory != nil {
+		return loadMemory(ctx, src, *req.Memory)
+	}
 	info, err := stat(src.MIME, req.Path)
 	if err != nil {
 		return failed(info, Unreadable, err)
@@ -186,61 +187,12 @@ func stat(db *mime.Database, path string) (Info, error) {
 	return info, nil
 }
 
-// loadPicture decodes the picture at path whole once its pixels' bytes
-// are free in the budget, in the orientation its file records.
-func loadPicture(ctx context.Context, p *Pictures, path string, info Info) Content {
-	need, err := imagedecode.DecodeBytes(path)
-	if err != nil {
-		return failed(info, Undecodable, err)
-	}
-	if need > p.budget.Total() {
-		return failed(info, TooLarge, fmt.Errorf("preview: %s decodes to %d bytes, past the %d the budget holds", path, need, p.budget.Total()))
-	}
-	release, err := p.budget.Acquire(ctx, need)
-	if err != nil {
-		return failed(info, Unreadable, err)
-	}
-	dec, err := imagedecode.OpenOffHeap(&p.mem, path)
-	if err != nil {
-		release()
-		return failed(info, Undecodable, err)
-	}
-	orient := Orientation(path)
-	w, h := dec.Image.Bounds().Dx(), dec.Image.Bounds().Dy()
-	w, h = orient.Size(w, h)
-	free := func() {
-		if err := dec.Free(); err != nil {
-			log.Printf("preview: freeing the picture of %s: %v", path, err)
-		}
-		release()
-	}
-	return Content{info: info, renderer: Image, picture: picture{img: dec.Image, orient: orient, size: image.Pt(w, h), free: free}}
-}
-
-// Orientation is the orientation path's EXIF block records, as a
-// picture shows; a block that does not parse is logged, and the
-// picture shows as stored.
-func Orientation(path string) exif.Orientation {
-	f, err := os.Open(path) //nolint:gosec // the file being previewed
-	if err != nil {
-		log.Printf("preview: reading the orientation of %s: %v", path, err)
-		return exif.TopLeft
-	}
-	defer func() { _ = f.Close() }()
-	o, err := exif.Read(f)
-	if err != nil {
-		log.Printf("preview: the orientation of %s: %v", path, err)
-		return exif.TopLeft
-	}
-	return o
-}
-
 // loadVideo opens the video at path: a YUV4MPEG2 stream decoded on the
 // CPU, or an MP4 or Matroska file demuxed for the GPU to decode. An
 // audio file without a picture is not one (false); a video lys cannot
 // open is Unsupported.
 func loadVideo(path string, info Info) (Content, bool) {
-	src, err := openVideo(path)
+	src, err := media.OpenFile(path)
 	if err == nil {
 		return Content{info: info, renderer: Video, video: src}, true
 	}
@@ -248,28 +200,6 @@ func loadVideo(path string, info Info) (Content, bool) {
 		return Content{}, false
 	}
 	return failed(info, Unsupported, err), true
-}
-
-func openVideo(path string) (media.Source, error) {
-	f, err := os.Open(path) //nolint:gosec // the file being previewed
-	if err != nil {
-		return nil, err
-	}
-	head := make([]byte, len(y4mMagic))
-	if _, err := io.ReadFull(f, head); err == nil && string(head) == y4mMagic {
-		if _, err := f.Seek(0, io.SeekStart); err != nil {
-			return nil, errors.Join(fmt.Errorf("preview: rewinding %s: %w", path, err), f.Close())
-		}
-		src, err := media.NewY4M(f)
-		if err != nil {
-			return nil, errors.Join(err, f.Close())
-		}
-		return src, nil
-	}
-	if err := f.Close(); err != nil {
-		return nil, fmt.Errorf("preview: closing %s: %w", path, err)
-	}
-	return media.OpenFile(path)
 }
 
 // loadText reads the first TextBytes of path as text, false when they

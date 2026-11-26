@@ -89,6 +89,7 @@ type View struct {
 	video   *widget.Video
 
 	path     string
+	memory   *Memory
 	renderer Renderer
 	shown    Content
 	cancel   context.CancelFunc
@@ -151,7 +152,8 @@ func New(cfg Config) *View {
 // Root is the view's widget.
 func (v *View) Root() *widget.Box { return v.root }
 
-// Path is the file shown or loading, "" for none.
+// Path is the file shown or loading, "" for none and for a picture
+// held in memory.
 func (v *View) Path() string { return v.path }
 
 // Renderer is what the view shows: Empty, Loading while the file
@@ -170,17 +172,30 @@ func (v *View) Stream() *media.Stream { return v.stream }
 // at once, its contents once a load the loop starts on its next pass
 // lands. The file already shown or loading stays as it is.
 func (v *View) Show(path string) {
-	if path == v.path && v.renderer != Empty {
+	if v.memory == nil && path == v.path && v.renderer != Empty {
 		return
 	}
+	v.load(path, nil, filepath.Base(path))
+}
+
+// ShowPicture shows the picture m holds as Show shows a picture file:
+// its name, its line hidden for none, and the picture icon at once, the
+// picture once a load the loop starts on its next pass lands. It has no
+// file to open. Each call loads m afresh.
+func (v *View) ShowPicture(m Memory) {
+	v.load("", &m, m.Name)
+}
+
+// load starts showing the file at path or the picture m holds, by name.
+func (v *View) load(path string, m *Memory, name string) {
 	v.drop()
-	v.path, v.renderer = path, Loading
-	name := filepath.Base(path)
+	v.path, v.memory, v.renderer = path, m, Loading
 	v.name.SetText(name)
+	v.name.SetVisible(name != "")
 	v.info.SetText("")
-	v.showIcon(v.cfg.MIME.FileIcon(v.cfg.MIME.TypeByName(name)))
+	v.showIcon(v.cfg.MIME.FileIcon(v.guessedType()))
 	if v.open != nil {
-		v.open.SetVisible(true)
+		v.open.SetVisible(m == nil)
 	}
 	if v.queued {
 		return
@@ -189,12 +204,36 @@ func (v *View) Show(path string) {
 	v.cfg.Invoke(v.start)
 }
 
+// shownName is the name of what the view shows: the file's, or the
+// picture's held in memory.
+func (v *View) shownName() string {
+	if v.memory != nil {
+		return v.memory.Name
+	}
+	return filepath.Base(v.path)
+}
+
+// guessedType is the type of what the view shows before its load says:
+// the file's by its name, any picture for one held in memory.
+func (v *View) guessedType() string {
+	if v.memory != nil {
+		return anyPicture
+	}
+	return v.cfg.MIME.TypeByName(filepath.Base(v.path))
+}
+
+// request is what loading what the view shows asks for.
+func (v *View) request() Request {
+	return Request{Path: v.path, Memory: v.memory, Fit: image.Pt(2*v.cfg.Image.X, 2*v.cfg.Image.Y)}
+}
+
 // Close shows nothing: the load running gives up, and what the file
 // held goes, its video's decoding with it.
 func (v *View) Close() {
 	v.drop()
-	v.path, v.renderer = "", Empty
+	v.path, v.memory, v.renderer = "", nil, Empty
 	v.name.SetText(v.cfg.Placeholder)
+	v.name.SetVisible(true)
 	v.info.SetText("")
 	v.visual.Clear()
 	if v.open != nil {
@@ -243,18 +282,18 @@ func (v *View) start() {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	v.cancel = cancel
-	req := Request{Path: v.path, Fit: image.Pt(2*v.cfg.Image.X, 2*v.cfg.Image.Y)}
+	req := v.request()
 	load, invoke := v.cfg.Load, v.cfg.Invoke
 	v.cfg.Spawn(func() {
 		c := load(ctx, req)
-		invoke(func() { v.land(ctx, req.Path, c) })
+		invoke(func() { v.land(ctx, req, c) })
 	})
 }
 
 // land shows a load that ended, unless the view moved on, when what it
 // loaded goes at once.
-func (v *View) land(ctx context.Context, path string, c Content) {
-	if ctx.Err() != nil || v.path != path || v.renderer != Loading {
+func (v *View) land(ctx context.Context, req Request, c Content) {
+	if ctx.Err() != nil || v.request() != req || v.renderer != Loading {
 		discard(c)
 		return
 	}
@@ -265,7 +304,7 @@ func (v *View) land(ctx context.Context, path string, c Content) {
 
 // apply shows c, the loaded content of the file shown.
 func (v *View) apply(c Content) {
-	name := filepath.Base(v.path)
+	name := v.shownName()
 	v.renderer, v.shown = c.renderer, c
 	switch c.renderer {
 	case Image, Thumbnail:
@@ -352,7 +391,7 @@ func (v *View) iconOf(info Info) string {
 		return folderIcon
 	}
 	if info.Type == "" {
-		return v.cfg.MIME.FileIcon(v.cfg.MIME.TypeByName(v.path))
+		return v.cfg.MIME.FileIcon(v.guessedType())
 	}
 	return v.cfg.MIME.FileIcon(info.Type)
 }

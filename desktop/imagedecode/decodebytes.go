@@ -2,6 +2,7 @@ package imagedecode
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -21,26 +22,41 @@ func DecodeBytes(path string) (int64, error) {
 		return 0, err
 	}
 	defer f.Close()
-	br := bufio.NewReader(f)
-	if isJPEG(br) {
-		n, err := jpegDecodeBytes(br)
-		if err != nil {
-			return 0, fmt.Errorf("%s: %w", path, err)
-		}
-		return n, nil
-	}
-	cfg, _, err := image.DecodeConfig(br)
-	if err == nil {
-		return int64(cfg.Width) * int64(cfg.Height) * bytesPerPixel(cfg.ColorModel), nil
-	}
-	if _, seekErr := f.Seek(0, io.SeekStart); seekErr != nil {
-		return 0, fmt.Errorf("%s: %w", path, errors.Join(err, seekErr))
-	}
-	t, tgaErr := readTGAHeader(bufio.NewReader(f))
-	if tgaErr != nil {
+	_, n, err := measure(f)
+	if err != nil {
 		return 0, fmt.Errorf("%s: %w", path, err)
 	}
-	return int64(t.w) * int64(t.h) * int64(t.px+4), nil
+	return n, nil
+}
+
+// MeasureData is the MIME type of the encoded image data's format and
+// how many bytes decoding it allocates for its pixels, as DecodeBytes
+// counts a file's.
+func MeasureData(data []byte) (string, int64, error) {
+	return measure(bytes.NewReader(data))
+}
+
+// measure reads the header of the image r holds from its start: the
+// MIME type of its format and the bytes decoding it allocates.
+func measure(r io.ReadSeeker) (string, int64, error) {
+	br := bufio.NewReader(r)
+	if isJPEG(br) {
+		n, err := jpegDecodeBytes(br)
+		return typeJPEG, n, err
+	}
+	cfg, format, err := image.DecodeConfig(br)
+	if err == nil {
+		t, err := typeOf(format)
+		return t, int64(cfg.Width) * int64(cfg.Height) * bytesPerPixel(cfg.ColorModel), err
+	}
+	if _, seekErr := r.Seek(0, io.SeekStart); seekErr != nil {
+		return "", 0, errors.Join(err, seekErr)
+	}
+	t, tgaErr := readTGAHeader(bufio.NewReader(r))
+	if tgaErr != nil {
+		return "", 0, err
+	}
+	return typeTGA, int64(t.w) * int64(t.h) * int64(t.px+4), nil
 }
 
 // bytesPerPixel is what a decoded pixel of model m takes: YCbCr at its

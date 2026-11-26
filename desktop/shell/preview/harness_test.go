@@ -27,7 +27,7 @@ func testDB(t *testing.T) *mime.Database {
 	t.Helper()
 	dir := t.TempDir()
 	files := map[string]string{
-		"globs2": "50:image/png:*.png\n50:image/jpeg:*.jpg\n50:image/svg+xml:*.svg\n50:text/plain:*.txt\n50:text/x-go:*.go\n" +
+		"globs2": "50:image/png:*.png\n50:image/jpeg:*.jpg\n50:image/gif:*.gif\n50:image/svg+xml:*.svg\n50:text/plain:*.txt\n50:text/x-go:*.go\n" +
 			"50:application/pdf:*.pdf\n50:video/x-y4m:*.y4m\n50:video/mp4:*.mp4\n50:audio/x-matroska:*.mka\n50:application/x-thing:*.thing\n",
 		"image/png.xml": `<?xml version="1.0"?><mime-type xmlns="http://www.freedesktop.org/standards/shared-mime-info" type="image/png"><comment>PNG image</comment></mime-type>`,
 	}

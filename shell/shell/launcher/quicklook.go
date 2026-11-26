@@ -3,15 +3,11 @@ package launcher
 import (
 	"context"
 	"image"
-	"log"
 	"slices"
 	"sync/atomic"
 
 	"github.com/stubbedev/lys/desktop/mime"
 	"github.com/stubbedev/lys/desktop/shell/preview"
-	"github.com/stubbedev/lys/desktop/shell/widgets"
-	"github.com/stubbedev/lys/desktop/thumbnail"
-	"github.com/stubbedev/lys/lib/exif"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/xkb"
 	"github.com/stubbedev/lys/ui/app"
@@ -59,40 +55,34 @@ const (
 	quickLookPicture
 )
 
-// quickLook is the launcher's Quick Look: the selected row's file, as
-// the shared preview shows it, or its picture, in a card over the
-// panel and larger than the side pane. The keys stay with the panel,
-// which steps its rows underneath the card. Its widgets are built once.
+// quickLook is the launcher's Quick Look: the selected row's file, or
+// its picture held in memory, as the shared preview shows them, in a
+// card over the panel and larger than the side pane. The keys stay
+// with the panel, which steps its rows underneath the card. Its widgets
+// are built once.
 type quickLook struct {
 	card    *widget.Box
 	file    *preview.View
-	picture *widget.ImageView
-	fit     image.Point
 	sources atomic.Pointer[preview.Sources]
-	invoke  func(func())
-	spawn   func(func())
 	// relayout lays the surface out again: the card comes, goes or
 	// changes size.
 	relayout func()
 	shows    quickLookShows
-	// key is the row shown, as its session names rows; cancel ends its
-	// picture's load.
-	key    any
-	cancel context.CancelFunc
+	// key is the row shown, as its session names rows.
+	key any
 }
 
 func newQuickLook(font render.Font, px func(int) int, invoke, spawn func(func()), open func(string), relayout func()) *quickLook {
-	q := &quickLook{invoke: invoke, spawn: spawn, relayout: relayout, fit: image.Pt(px(quickLookImageW), px(quickLookImageH))}
+	q := &quickLook{relayout: relayout}
+	fit := image.Pt(px(quickLookImageW), px(quickLookImageH))
 	q.file = preview.New(preview.Config{
-		Font: font, Class: "launcher-quicklook-file", Image: q.fit, Text: image.Pt(q.fit.X, px(quickLookTextH)),
+		Font: font, Class: "launcher-quicklook-file", Image: fit, Text: image.Pt(fit.X, px(quickLookTextH)),
 		IconPx: px(quickLookIconSize), NameChars: 48, Autoplay: true, MIME: mime.System(), Invoke: invoke, Spawn: spawn,
 		Open: open,
 		Load: func(ctx context.Context, req preview.Request) preview.Content {
 			return preview.Load(ctx, *q.sources.Load(), req)
 		},
 	})
-	q.picture = widget.NewImageView(nil, exif.TopLeft)
-	q.picture.AddClass("launcher-quicklook-picture")
 	q.card = widget.NewBox(widget.Column, 0, px(quickLookPad))
 	q.card.AddClass(css.Card, "launcher-quicklook")
 	q.card.SetVisible(false)
@@ -102,15 +92,21 @@ func newQuickLook(font render.Font, px func(int) int, invoke, spawn func(func())
 // shown reports the card showing.
 func (q *quickLook) shown() bool { return q.shows != quickLookClosed }
 
-// show shows the row key names, whose preview is p: a file through
-// sources, a picture loaded under ctx. A row Quick Look does not show
-// closes the card, and show reports false.
-func (q *quickLook) show(ctx context.Context, key any, p engine.Preview, sources preview.Sources) bool {
+// show shows the row key names, whose preview is p, through sources: a
+// file, or a picture it loads, each as the shared preview shows it. A
+// row Quick Look does not show closes the card, and show reports
+// false.
+func (q *quickLook) show(_ context.Context, key any, p engine.Preview, sources preview.Sources) bool {
 	switch {
 	case p.Path != "":
-		q.showFile(key, p.Path, sources)
+		q.open(key, quickLookFile, sources)
+		q.file.Show(p.Path)
 	case p.Load != nil && !p.LoadsText:
-		q.showPicture(ctx, key, p)
+		if q.shows == quickLookPicture && q.key == key {
+			return true
+		}
+		q.open(key, quickLookPicture, sources)
+		q.file.ShowPicture(preview.Memory{Read: p.Load})
 	default:
 		q.close()
 		return false
@@ -118,16 +114,15 @@ func (q *quickLook) show(ctx context.Context, key any, p engine.Preview, sources
 	return true
 }
 
-func (q *quickLook) showFile(key any, path string, sources preview.Sources) {
+// open makes the card show the row key names, as shows, through
+// sources.
+func (q *quickLook) open(key any, shows quickLookShows, sources preview.Sources) {
 	q.sources.Store(&sources)
-	if q.shows != quickLookFile {
-		q.clear()
+	if q.shows == quickLookClosed {
 		q.card.Append(q.file.Root(), true)
-		q.shows = quickLookFile
 	}
-	q.key = key
+	q.shows, q.key = shows, key
 	q.reveal()
-	q.file.Show(path)
 }
 
 // reveal shows the card, laying the surface out again if it was hidden.
@@ -139,73 +134,19 @@ func (q *quickLook) reveal() {
 	q.relayout()
 }
 
-// showPicture loads p's picture off the loop, unless the card already
-// shows the row.
-func (q *quickLook) showPicture(parent context.Context, key any, p engine.Preview) {
-	if q.shows == quickLookPicture && q.key == key {
-		return
-	}
-	q.clear()
-	q.shows, q.key = quickLookPicture, key
-	q.card.Append(widgets.Center(q.picture), true)
-	q.reveal()
-	ctx, cancel := context.WithCancel(parent)
-	q.cancel = cancel
-	q.spawn(func() {
-		c, err := engine.LoadPreview(ctx, p)
-		q.invoke(func() {
-			if ctx.Err() != nil {
-				return
-			}
-			q.landPicture(c, err)
-		})
-	})
-}
-
-// landPicture shows a loaded picture; one that did not load closes the
-// card, saying why in the log.
-func (q *quickLook) landPicture(c engine.PreviewContent, err error) {
-	q.cancel()
-	q.cancel = nil
-	if err == nil && c.Image == nil {
-		err = engine.ErrNoPreview
-	}
-	if err != nil {
-		log.Printf("launcher: quick look: %v", err)
-		q.close()
-		return
-	}
-	q.picture.SetImage(c.Image, exif.TopLeft)
-	size := thumbnail.FitSize(c.Image.Bounds(), q.fit.X, q.fit.Y)
-	widgets.Pin(q.picture, size.X, size.Y)
-	q.relayout()
-}
-
-// close hides the card and lets go of what it showed.
+// close hides the card and lets go of what it showed: the preview
+// closes, its load giving up and its pixels going.
 func (q *quickLook) close() {
-	q.clear()
+	if q.shows != quickLookClosed {
+		q.file.Close()
+		q.card.Clear()
+		q.shows, q.key = quickLookClosed, nil
+	}
 	if !q.card.Visible() {
 		return
 	}
 	q.card.SetVisible(false)
 	q.relayout()
-}
-
-// clear empties the card: the file's preview closes, the picture's load
-// gives up and its pixels go.
-func (q *quickLook) clear() {
-	if q.cancel != nil {
-		q.cancel()
-		q.cancel = nil
-	}
-	switch q.shows {
-	case quickLookFile:
-		q.file.Close()
-	case quickLookPicture:
-		q.picture.SetImage(nil, exif.TopLeft)
-	}
-	q.card.Clear()
-	q.shows, q.key = quickLookClosed, nil
 }
 
 // quickLookKey is what a key does while Quick Look shows.

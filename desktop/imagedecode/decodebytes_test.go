@@ -109,3 +109,39 @@ func TestOpenContextGivesUpWhenCancelled(t *testing.T) {
 		t.Errorf("a cancelled context = %v, %v, want context.Canceled", img, err)
 	}
 }
+
+// Encoded bytes are sized as their file is, and named by the MIME type
+// of their format; bytes that are no image are an error.
+func TestMeasureDataNamesTheFormat(t *testing.T) {
+	encoded := func(encode func(*bytes.Buffer) error) []byte {
+		var b bytes.Buffer
+		if err := encode(&b); err != nil {
+			t.Fatal(err)
+		}
+		return b.Bytes()
+	}
+	for name, c := range map[string]struct {
+		data     []byte
+		mimeType string
+	}{
+		"png":  {encoded(func(b *bytes.Buffer) error { return png.Encode(b, sample()) }), "image/png"},
+		"jpeg": {encoded(func(b *bytes.Buffer) error { return jpeg.Encode(b, sample(), nil) }), "image/jpeg"},
+		"gif":  {gifOf(t, 8, 8, 2), "image/gif"},
+		"tga":  {append(tgaHeader(2, 32, 0, 3, 2), make([]byte, 3*2*4)...), "image/x-tga"},
+	} {
+		mimeType, n, err := MeasureData(c.data)
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		want, err := DecodeBytes(write(t, name, c.data))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if mimeType != c.mimeType || n != want {
+			t.Errorf("%s measures as %s of %d bytes, want %s of %d", name, mimeType, n, c.mimeType, want)
+		}
+	}
+	if mimeType, n, err := MeasureData([]byte("definitely not an image")); err == nil {
+		t.Errorf("garbage measures as %s of %d bytes", mimeType, n)
+	}
+}

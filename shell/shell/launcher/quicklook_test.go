@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/config"
@@ -74,13 +75,16 @@ func lookShowsFile(h *harness, q *quickLook, path string) {
 	})
 }
 
-// lookShowsPicture waits for Quick Look to show the 4 by 3 picture at
-// its size.
+// lookShowsPicture waits for Quick Look to show the 4 by 3 picture in
+// the shared preview's zoomable view, at its size, over a detail line
+// giving its kind and size.
 func lookShowsPicture(h *harness, q *quickLook) {
 	h.t.Helper()
 	h.until("Quick Look showing the picture", func() bool {
-		return q.shows == quickLookPicture && q.cancel == nil && q.card.Visible() &&
-			q.picture.Measure(widget.Row, widget.Unknown).Nat == 4 && q.picture.Measure(widget.Column, 4).Nat == 3
+		views := treetest.All[*widget.ImageView](q.card)
+		return q.shows == quickLookPicture && q.card.Visible() && q.file.Renderer() == preview.Image && q.file.Path() == "" &&
+			len(views) == 1 && views[0].Measure(widget.Row, widget.Unknown).Nat == 4 && views[0].Measure(widget.Column, 4).Nat == 3 &&
+			slices.ContainsFunc(treetest.All[*widget.Label](q.card), func(l *widget.Label) bool { return strings.Contains(l.Text(), " · 4 × 3 · ") })
 	})
 }
 
@@ -351,5 +355,21 @@ func TestARofiModesQuickLookOpensTheFile(t *testing.T) {
 	}
 	if q.shown() {
 		t.Error("the ended session's Quick Look still shows")
+	}
+}
+
+// A copied picture that does not decode keeps Quick Look open, saying
+// why as the shared preview says it of a file.
+func TestQuickLookSaysWhyACopiedPictureCannotShow(t *testing.T) {
+	h := newHarness(t)
+	h.s.d.Clipboard = newLauncherClipboard(t, h.own, [2]string{"image/png", "not a picture"})
+	mode := "clipboard"
+	h.open(launcheripc.SessionOptions{Mode: &mode}, false)
+	h.until("the row", func() bool { return h.s.cur != nil && h.s.model.len() == 1 })
+	h.key("Shift+space")
+	q := h.s.cur.views.ql
+	h.until("Quick Look saying why", func() bool { return q.shown() && q.file.Renderer() == preview.Failed })
+	if !q.card.Visible() || len(treetest.All[*widget.ImageView](q.card)) != 0 {
+		t.Errorf("the undecodable picture leaves the card visible %v, showing %d image views", q.card.Visible(), len(treetest.All[*widget.ImageView](q.card)))
 	}
 }

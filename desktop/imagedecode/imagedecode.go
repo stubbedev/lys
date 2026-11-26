@@ -16,6 +16,7 @@ import (
 	_ "image/png"  // PNG decoder
 	"io"
 	"os"
+	"slices"
 
 	_ "golang.org/x/image/bmp"  // BMP decoder
 	_ "golang.org/x/image/tiff" // TIFF decoder
@@ -27,6 +28,50 @@ func init() {
 	for _, magic := range []string{"P1", "P2", "P3", "P4", "P5", "P6"} {
 		image.RegisterFormat("pnm", magic, decodePNM, decodePNMConfig)
 	}
+}
+
+// The MIME types of the formats measure knows without a format name.
+const (
+	typeJPEG = "image/jpeg"
+	typeTGA  = "image/x-tga"
+)
+
+// formats are the formats Open decodes, by the names image.DecodeConfig
+// gives them (a PNG is "apng" where github.com/kettek/apng is linked, as
+// lib/render links it; TGA, which has no magic, has none), and their
+// MIME types.
+var formats = []struct {
+	names    []string
+	mimeType string
+}{
+	{[]string{"png", "apng"}, "image/png"},
+	{[]string{"jpeg"}, typeJPEG},
+	{[]string{"gif"}, "image/gif"},
+	{[]string{"webp"}, "image/webp"},
+	{[]string{"bmp"}, "image/bmp"},
+	{[]string{"tiff"}, "image/tiff"},
+	{nil, typeTGA},
+	{[]string{"pnm"}, "image/x-portable-anymap"},
+	{[]string{"farbfeld"}, "image/x-farbfeld"},
+}
+
+// Types are the MIME types of the formats Open decodes.
+func Types() []string {
+	out := make([]string, len(formats))
+	for i, f := range formats {
+		out[i] = f.mimeType
+	}
+	return out
+}
+
+// typeOf is the MIME type of the format image.DecodeConfig names.
+func typeOf(format string) (string, error) {
+	for _, f := range formats {
+		if slices.Contains(f.names, format) {
+			return f.mimeType, nil
+		}
+	}
+	return "", fmt.Errorf("imagedecode: the format %q has no MIME type", format)
 }
 
 // Decode decodes image bytes, sniffed as Open sniffs a file.

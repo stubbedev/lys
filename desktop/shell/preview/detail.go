@@ -17,14 +17,16 @@ const detailSeparator = " · "
 
 // detail is the line under a loaded file's name: a folder's kind, item
 // count and size, a file's kind, a picture's pixel size, the file's
-// size, and when it was modified. What is not known is left out.
+// size, and when it was modified. What is not known is left out: a file
+// that does not stat says its kind alone, and a picture held in memory
+// has no time.
 func detail(name string, c Content) string {
 	info := c.info
 	if c.renderer == Folder {
 		return joinDetail(i18n.T("preview-kind-folder"), folderItems(c.folder), folderBytes(c.folder), modified(info.Modified))
 	}
 	kind := kindOf(name, info)
-	if info.Modified.IsZero() {
+	if info.Modified.IsZero() && info.Size == 0 {
 		return kind
 	}
 	return joinDetail(kind, pixelSize(c.picture.size), byteSize(info.Size), modified(info.Modified))
