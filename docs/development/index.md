@@ -127,6 +127,26 @@ directories and their importers, since those entries decide what their Nix
 packages build from. A regeneration that changes no component's entry plans
 only the repository job.
 
+The repository job also runs `ci/execsites`, which holds every process lys
+starts at runtime to `ci/exec-allowlist.json`. It parses, with `go/parser`
+alone, the Go packages the flake's packages ship (the import closure, from
+`nix/go-packages.json`, of the main packages their `subPackages` name) and
+finds every `os/exec` `Command`, `CommandContext`, `LookPath` and `Cmd`
+literal, `os.StartProcess`, `syscall` `Exec`, `ForkExec` and `StartProcess`,
+and `unix.Exec`, following import aliases and string constants to the program;
+a program it cannot resolve is `dynamic`. A `go` entry names the package, the
+enclosing function and the program. The same tool reads the Nix files the
+flake's packages and modules are built from (neither checks nor dev shells)
+and the systemd and D-Bus unit files for what they put on `PATH`
+(`makeBinPath`, `--suffix`/`--prefix PATH`, `environment.systemPackages`,
+`home.packages`, a unit's `path`) and the programs their `Exec*` lines run,
+and a non-lys program among them needs a `packaging` entry naming the file and
+the program. Every entry gives a `class` (`integration` for the user's
+programs and those a protocol mandates, `own` for a lys program, `replace`
+for one an issue removes, which `issue` names) and a `reason`. A start without
+an entry fails at its line, and so does an entry nothing in the tree matches,
+so the change that removes a start deletes its entry.
+
 The account runs about twenty jobs at once, so a full run's wall clock is about
 its runner-minutes divided by twenty, plus the longest lane's build, and
 each job pays about a minute of fixed cost (runner, checkout, Nix install, the

@@ -405,6 +405,7 @@ affected base="origin/main":
 
 # The repository's own gate, its parts at the same time: a tidy go.mod, the CI
 # helpers' tests and lint, nix/go-packages.json matching the tree, every
+# process start and runtime PATH addition in ci/exec-allowlist.json, every
 # package, dev shell and check evaluating on both systems, spread over
 # nix-eval-jobs' workers so no evaluation holds them all at once, the NixOS
 # modules evaluating, the VM jobs covering every VM check, and each package
@@ -416,7 +417,7 @@ repository-check:
     dir=$(mktemp -d)
     trap 'jobs -pr | xargs -r kill 2>/dev/null; wait; rm -rf "$dir"' EXIT
     declare -A parts=()
-    nix develop .#lib -c bash -euo pipefail -c 'go mod tidy -diff && go test ./ci/... && golangci-lint run --config lib/.golangci.yml ./ci/... && go run ./ci/gopackages -check nix/go-packages.json' > "${dir}/go" 2>&1 &
+    nix develop .#lib -c bash -euo pipefail -c 'go mod tidy -diff && go test ./ci/... && golangci-lint run --config lib/.golangci.yml ./ci/... && go run ./ci/gopackages -check nix/go-packages.json && go run ./ci/execsites ci/exec-allowlist.json' > "${dir}/go" 2>&1 &
     parts[$!]=go
     # shellcheck disable=SC2016
     just eval-jobs 'flake: flake.inputs.nixpkgs.lib.genAttrs [ "x86_64-linux" "aarch64-linux" ] (system: { packages = flake.outputs.packages.${system}; devShells = flake.outputs.devShells.${system}; checks = flake.outputs.checks.${system}; })' > /dev/null 2> "${dir}/outputs" &
