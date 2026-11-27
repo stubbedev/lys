@@ -126,7 +126,9 @@ in {
     machine.screenshot("switch-02-back-to-carl-locked")
 
     daemon = int(machine.succeed("systemctl show -P MainPID lys-login.service"))
+    machine.succeed("systemctl stop systemd-userdbd.socket systemd-userdbd.service")
     machine.succeed(UPGRADE)
+    machine.succeed("systemctl is-active systemd-userdbd.socket")
     if int(machine.succeed("systemctl show -P MainPID lys-login.service")) != daemon:
         raise Exception("the upgrade changed the daemon's pid")
     if "dm: upgraded in place from" not in journal():

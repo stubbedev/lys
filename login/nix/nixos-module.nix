@@ -139,7 +139,10 @@ self: {
 
   upgradeFailedUnit = "lys-login-upgrade-failed.service";
 
+  userdbSocket = "systemd-userdbd.socket";
+
   upgradeScript = pkgs.writeShellScript "lys-login-upgrade" ''
+    ${config.systemd.package}/bin/systemctl start ${userdbSocket}
     if said=$(${lib.escapeShellArgs ([(lib.getExe' cfg.package "lys-login") "upgrade" "--"] ++ daemonArgs)} 2>&1); then
       printf '%s\n' "$said"
       exit 0
@@ -445,10 +448,11 @@ in {
         description = "lys-login display manager";
         aliases = ["display-manager.service"];
         wantedBy = ["graphical.target"];
-        wants = ["systemd-user-sessions.service"];
+        wants = ["systemd-user-sessions.service" userdbSocket];
         after =
           [
             "systemd-user-sessions.service"
+            userdbSocket
             "plymouth-quit-wait.service"
             "getty@tty${toString cfg.greeter.vt}.service"
           ]
