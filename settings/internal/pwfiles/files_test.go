@@ -87,10 +87,6 @@ func TestACommitBacksUpEachChangedFileAsItWasRead(t *testing.T) {
 	if err := f.Commit(); err != nil {
 		t.Fatal(err)
 	}
-	data, err := os.ReadFile(shadow + "-")
-	if err != nil || string(data) != shadowText {
-		t.Fatalf("shadow- is %q, %v, want shadow as it was read", data, err)
-	}
 	backup, err := os.Stat(shadow + "-")
 	if err != nil {
 		t.Fatal(err)
@@ -101,6 +97,10 @@ func TestACommitBacksUpEachChangedFileAsItWasRead(t *testing.T) {
 	}
 	if !backup.ModTime().Equal(then) || time.Unix(st.Atim.Unix()).UTC() != then {
 		t.Errorf("shadow- has times %v and %v, want shadow's %v", backup.ModTime(), time.Unix(st.Atim.Unix()), then)
+	}
+	data, err := os.ReadFile(shadow + "-")
+	if err != nil || string(data) != shadowText {
+		t.Fatalf("shadow- is %q, %v, want shadow as it was read", data, err)
 	}
 	for _, name := range []string{"passwd-", "group-", "gshadow-"} {
 		if _, err := os.Stat(filepath.Join(dir, name)); !errors.Is(err, fs.ErrNotExist) {

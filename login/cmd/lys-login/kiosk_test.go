@@ -11,11 +11,16 @@ import (
 	"go.yaml.in/yaml/v3"
 )
 
+// deviceFreeSeat is a seat udev tags no device for, so the kiosk under
+// test waits for no device of the machine running the tests.
+const deviceFreeSeat = "lys-login-test-seat"
+
 func kioskCommand(t *testing.T, runtimeDir, compositor string, greetArgs ...string) (*exec.Cmd, *strings.Builder) {
 	t.Helper()
 	cmd := exec.Command(os.Args[0], append([]string{"kiosk", "--compositor", compositor, "--"}, greetArgs...)...)
-	cmd.Env = append(slices.DeleteFunc(os.Environ(), func(e string) bool { return strings.HasPrefix(e, "XDG_RUNTIME_DIR=") }),
-		"LYS_LOGIN_TEST_MAIN=1", "XDG_RUNTIME_DIR="+runtimeDir, "GREETD_SOCK=/run/greetd-test.sock")
+	cmd.Env = append(slices.DeleteFunc(os.Environ(), func(e string) bool {
+		return strings.HasPrefix(e, "XDG_RUNTIME_DIR=") || strings.HasPrefix(e, "XDG_SEAT=")
+	}), "LYS_LOGIN_TEST_MAIN=1", "XDG_RUNTIME_DIR="+runtimeDir, "XDG_SEAT="+deviceFreeSeat, "GREETD_SOCK=/run/greetd-test.sock")
 	var stderr strings.Builder
 	cmd.Stderr = &stderr
 	return cmd, &stderr

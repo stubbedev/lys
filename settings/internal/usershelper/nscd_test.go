@@ -106,7 +106,7 @@ func TestAnNSCDThatDoesNotRunOrClosesUnansweredHasNothingToForget(t *testing.T) 
 	ln.SetUnlinkOnClose(false)
 	_ = ln.Close()
 	closing, _ := fakeNSCD(t, func(nscdRequest) []byte { return []byte{} })
-	for name, path := range map[string]string{"no socket": filepath.Join(t.TempDir(), "socket"), "a stale socket": stale, "an older nscd": closing} {
+	for name, path := range map[string]string{"no socket": filepath.Join(sockdir.Dir(t), "socket"), "a stale socket": stale, "an older nscd": closing} {
 		if err := forgetCached(t.Context(), path); err != nil {
 			t.Errorf("%s: %v", name, err)
 		}
