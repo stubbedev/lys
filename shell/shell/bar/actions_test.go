@@ -127,18 +127,21 @@ func TestNoDefaultPowerCommandStartsAProcess(t *testing.T) {
 	spawned := spawns(t)
 	t.Setenv(wmipc.SocketEnv, "")
 	fake := logindtest.Start(t, logindtest.Config{Display: "2"})
-	r := powerRunner{system: sessionctl.On(fake.Bus.Conn(t)), invoke: func(fn func()) { fn() }, toast: func(label, _ string) {
-		t.Errorf("a default power command failed: %s", label)
-	}}
+	r := powerRunner{system: sessionctl.On(fake.Bus.Conn(t)), invoke: func(fn func()) { fn() }}
 	p := config.DefaultsPower()
 	for _, a := range []powermenu.Action{powermenu.Lock, powermenu.LogOut, powermenu.Suspend, powermenu.Reboot, powermenu.ShutDown} {
-		r.run(a, a.Command(p))
+		b, ok := a.Command(p).Builtin()
+		if !ok {
+			t.Fatalf("the default %s command is not a built-in", a.Label())
+		}
+		if err := r.builtin(t.Context(), b); err != nil {
+			t.Errorf("the default %s command: %v", a.Label(), err)
+		}
 	}
 	want := []string{"Manager.LockSession", "Manager.GetSession", "Session.Terminate", "Manager.Suspend", "Manager.Reboot", "Manager.PowerOff"}
-	waittest.Until(t, func() bool {
-		methods := fake.Methods()
-		return !slices.ContainsFunc(want, func(m string) bool { return !slices.Contains(methods, m) })
-	}, "logind to hear every default")
+	if methods := fake.Methods(); slices.ContainsFunc(want, func(m string) bool { return !slices.Contains(methods, m) }) {
+		t.Errorf("logind heard %v, want every one of %v", methods, want)
+	}
 	if got := spawned(); len(got) != 0 {
 		t.Errorf("the default power commands started %v", got)
 	}
