@@ -16,7 +16,6 @@ Requires:       hicolor-icon-theme
 Requires:       dbus
 Requires:       polkit
 Requires:       systemd
-Requires:       /usr/lib/systemd/systemd-userdbd
 Recommends:     vulkan-loader
 Recommends:     mesa-vulkan-drivers
 Recommends:     (lys-shell = @VERSION@ or lys-wm)
