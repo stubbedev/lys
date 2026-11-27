@@ -107,7 +107,7 @@ clock; a job that grows past that is split or made cheaper, never given a longer
 timeout. Every job's `timeout-minutes` is 10.
 
 `ci/components.json` holds `components`, `sharded-gates`, `static-gates`,
-`gate-runners` and `go-jobs`. Per component it says which recipes of its justfile are its Go gates
+`gate-runners`, `package-inputs` and `go-jobs`. Per component it says which recipes of its justfile are its Go gates
 (`gates`), whether it has a race suite (`race`), how its race suite and the
 gates `sharded-gates` names split into parts (`shards`), its
 further jobs (each a `run` command on named runners, with `after-build` when it
@@ -116,8 +116,8 @@ uses its component's build rather than only a dev shell), its NixOS VM checks
 what besides its Go imports it depends on (a VM test that boots another
 component's package). `gate-runners` names the runners that run only some of
 the Go gates, and which: aarch64 runs only the gates whose result depends on
-the architecture (`vet`, `test`, `build`, `test-lysdebug`, `atspi`,
-`atspi-verify`, `dist`), and lint, formatting, `no-fused`, `vuln` and
+the architecture (`test`, `build`, `test-lysdebug`, `atspi`,
+`atspi-verify`, `dist`), and vet, lint, formatting, `no-fused`, `vuln` and
 `schema-check` run on x86_64 alone; `ci/affected` refuses a gate no runner
 runs, and `just gates` applies the same list on the machine it runs on.
 `go-jobs` lists, per runner, the Go jobs: each a list of
@@ -308,7 +308,15 @@ first runners. The jobs on the builds:
      to restore, and the eviction left Go lib to start cold in run
      44897398937, without one cached test result.
    - **package**: each packaged component's archive, `.deb` and `.rpm`, on
-     the dev shells. Its `dist` recipe compiles the release binaries again
+     the dev shells, for a component whose packages a change touches the
+     inputs of: a path `package-inputs` names, `{component}` standing for
+     its name (its `packaging/`, `resources/`, justfile and `LICENSE`, the
+     shared `packaging/`, `package.yml`, `go.mod` and `go.sum`). A change
+     to its Go code alone packages nothing: the Go jobs and its Nix build
+     compile that code already, and the package jobs were about 24 of a
+     full run's 213 runner-minutes. A run of every component (the weekly
+     schedule, a manual run, a release) changes `go.mod` and so packages
+     every component. Its `dist` recipe compiles the release binaries again
      rather than taking them from the Nix packages: those are linked for the
      Nix store, the archives for the distributions' loader, and the measured
      `dist` and `archive` step takes 15 to 75 seconds of a two to four

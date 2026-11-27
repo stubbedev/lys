@@ -40,11 +40,11 @@ func run(args []string, stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
-	names, err := choose(root, module, cfg.Components, *base, *all)
+	names, changed, err := choose(root, module, cfg.Components, *base, *all)
 	if err != nil {
 		return err
 	}
-	p := plan(cfg, names)
+	p := plan(cfg, names, changed)
 	if *github {
 		return writeGitHub(p)
 	}
@@ -69,23 +69,27 @@ func load(root string) (Config, error) {
 	return cfg, nil
 }
 
-func choose(root, module string, components map[string]Component, base string, all bool) ([]string, error) {
+// choose is the components a change affects and the files it changed;
+// a run of every component changes go.mod, which every component and
+// every package is built from.
+func choose(root, module string, components map[string]Component, base string, all bool) (names, changed []string, err error) {
 	if all || base == "" || strings.Trim(base, "0") == "" {
-		return affected(components, nil, []string{"go.mod"}, nil), nil
+		changed = []string{"go.mod"}
+		return affected(components, nil, changed, nil), changed, nil
 	}
-	changed, err := gitLines(root, "diff", "--name-only", "--no-renames", base+"...HEAD")
+	changed, err = gitLines(root, "diff", "--name-only", "--no-renames", base+"...HEAD")
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	imports, err := goImports(root, module)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	goPackages, err := goPackagesChangedSince(root, components, base, changed)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return affected(components, imports, changed, goPackages), nil
+	return affected(components, imports, changed, goPackages), changed, nil
 }
 
 func goPackagesChangedSince(root string, components map[string]Component, base string, changed []string) ([]string, error) {

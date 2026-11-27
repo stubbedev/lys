@@ -355,8 +355,9 @@
   "sharded-gates": ["test", "test-lysdebug"],
   "static-gates": ["fmt-check", "vet", "lint", "no-fused", "vuln"],
   "gate-runners": {
-    "aarch64": ["vet", "test", "build", "test-lysdebug", "atspi", "atspi-verify", "dist"]
+    "aarch64": ["test", "build", "test-lysdebug", "atspi", "atspi-verify", "dist"]
   },
+  "package-inputs": ["go.mod", "go.sum", "packaging/", ".github/workflows/package.yml", "{component}/packaging/", "{component}/resources/", "{component}/justfile", "{component}/LICENSE"],
   "go-jobs": {
     "x86_64": [
       ["lib:race", "power"],

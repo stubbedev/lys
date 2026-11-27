@@ -21,9 +21,12 @@ var testComponents = map[string]Component{
 	"polkit":     {},
 }
 
+var everything = []string{"go.mod"}
+
 var testConfig = Config{
-	Components:   testComponents,
-	ShardedGates: []string{"test"},
+	Components:    testComponents,
+	ShardedGates:  []string{"test"},
+	PackageInputs: []string{"go.mod", "packaging/", "{component}/packaging/", "{component}/justfile"},
 	GoJobs: map[Runner][][]Target{
 		X86_64:  {{target("ui/3")}, {target("ui/1"), target("ui/2"), target("lib:race")}, {target("lib:gates")}},
 		AArch64: {{target("lib"), target("ui")}},
@@ -168,7 +171,7 @@ func TestTheGoPackageIndexLeavesTheRestOfItsDirectoryShared(t *testing.T) {
 }
 
 func TestAGoJobRunsItsAffectedTargetsAndOffTheRaceRunnerOnlyTheirGoGates(t *testing.T) {
-	p := plan(testConfig, []string{"lib", "ui"})
+	p := plan(testConfig, []string{"lib", "ui"}, everything)
 	want := []Matrix{
 		{ID: "ui-gpu-x86-64", Name: "ui / GPU (x86_64)", Runner: "ubuntu-latest", Run: "just in ui gpu"},
 		{ID: "go-ui-3-x86-64", Name: "Go ui/3 (x86_64)", Runner: "ubuntu-latest", Run: "just gates ui/3", UserNS: true},
@@ -182,7 +185,7 @@ func TestAGoJobRunsItsAffectedTargetsAndOffTheRaceRunnerOnlyTheirGoGates(t *test
 }
 
 func TestAGoJobKeepsItsIDAndCacheWhenOnlyPartOfItIsAffected(t *testing.T) {
-	p := plan(testConfig, []string{"lib"})
+	p := plan(testConfig, []string{"lib"}, everything)
 	want := []Matrix{
 		{ID: "go-ui-1-ui-2-lib-race-x86-64", Name: "Go lib:race (x86_64)", Runner: "ubuntu-latest", Run: "just gates lib:race", UserNS: true},
 		{ID: "go-lib-gates-x86-64", Name: "Go lib:gates (x86_64)", Runner: "ubuntu-latest", Run: "just gates lib:gates", UserNS: true},
@@ -199,7 +202,7 @@ func TestEachComponentWithVMChecksRunsThemAndItsJobsAfterTheBuildInALaneOfItsOwn
 	wm := cfg.Components["wm"]
 	wm.Jobs = []Job{{Name: "image", Runners: []Runner{X86_64}, Run: "just wm::image", AfterBuild: true}}
 	cfg.Components["wm"] = wm
-	p := plan(cfg, []string{"login", "ui", "wm"})
+	p := plan(cfg, []string{"login", "ui", "wm"}, everything)
 	if !slices.Equal(p.Packages, []string{"login", "wm"}) {
 		t.Errorf("packages %v, want login and wm", p.Packages)
 	}
@@ -233,7 +236,7 @@ func TestEachComponentWithVMChecksRunsThemAndItsJobsAfterTheBuildInALaneOfItsOwn
 }
 
 func TestTheDevShellsBuildPerRunnerForItsGoSuitesAndPackages(t *testing.T) {
-	p := plan(testConfig, []string{"lib", "login", "ui", "wm"})
+	p := plan(testConfig, []string{"lib", "login", "ui", "wm"}, everything)
 	want := []Matrix{
 		{ID: "shells-lib-login-ui-wm-x86-64", Name: "dev shells (x86_64)", Runner: "ubuntu-latest", Run: "just build-shells lib login ui wm"},
 		{ID: "shells-lib-ui-aarch64", Name: "dev shells (aarch64)", Runner: "ubuntu-24.04-arm", Run: "just build-shells lib ui"},
@@ -241,7 +244,7 @@ func TestTheDevShellsBuildPerRunnerForItsGoSuitesAndPackages(t *testing.T) {
 	if !slices.Equal(p.Shells, want) {
 		t.Fatalf("shells\n%+v\nwant\n%+v", p.Shells, want)
 	}
-	if p := plan(testConfig, []string{"login"}); len(p.Shells) != 0 {
+	if p := plan(testConfig, []string{"login"}, everything); len(p.Shells) != 0 {
 		t.Fatalf("login runs only a VM job, yet the plan builds the dev shells %+v", p.Shells)
 	}
 }
@@ -299,7 +302,7 @@ func TestValidateRefusesAJobAfterABuildOnARunnerWithoutThatBuild(t *testing.T) {
 }
 
 func TestComponentsWithVMChecksBuildInTheirLanesAndTheRestTogether(t *testing.T) {
-	p := plan(testConfig, []string{"lib", "login", "ui", "wm"})
+	p := plan(testConfig, []string{"lib", "login", "ui", "wm"}, everything)
 	want := []Matrix{
 		{ID: "build-lib-ui-x86-64", Name: "lib ui (x86_64)", Runner: "ubuntu-latest", Run: "just build-stage lib ui"},
 		{ID: "build-lib-ui-aarch64", Name: "lib ui (aarch64)", Runner: "ubuntu-24.04-arm", Run: "just build-stage lib ui"},
@@ -317,7 +320,7 @@ func TestComponentsWithVMChecksBuildInTheirLanesAndTheRestTogether(t *testing.T)
 }
 
 func TestAComponentWithNothingToBuildHasNoBuild(t *testing.T) {
-	p := plan(testConfig, []string{"polkit", "repository"})
+	p := plan(testConfig, []string{"polkit", "repository"}, everything)
 	if len(p.Builds) != 0 || len(p.Lanes) != 0 {
 		t.Fatalf("polkit and repository have no Go suites or VM checks, yet the plan builds %+v and %+v", p.Builds, p.Lanes)
 	}
@@ -327,13 +330,13 @@ func TestAComponentWithNothingToBuildHasNoBuild(t *testing.T) {
 }
 
 func TestAPlanWithoutJobsBuildsNothing(t *testing.T) {
-	if p := plan(testConfig, []string{"polkit"}); len(p.Builds) != 0 || len(p.Jobs) != 0 {
+	if p := plan(testConfig, []string{"polkit"}, everything); len(p.Builds) != 0 || len(p.Jobs) != 0 {
 		t.Fatalf("polkit has no jobs, yet the plan builds %+v and runs %+v", p.Builds, p.Jobs)
 	}
 }
 
 func TestAnEmptyPlanIsEmptyListsNotNull(t *testing.T) {
-	p := plan(testConfig, nil)
+	p := plan(testConfig, nil, everything)
 	if p.Jobs == nil || p.Packages == nil || p.Builds == nil || p.Shells == nil || p.Lanes == nil {
 		t.Fatalf("an empty plan has nil lists, which GitHub reads as null: %+v", p)
 	}
@@ -446,7 +449,7 @@ func TestTheStaticGatesOfAComponentWithShardsRunInAPartOfTheirOwn(t *testing.T) 
 		}
 	}
 	var runs []string
-	for _, m := range plan(staticConfig, []string{"a", "b", "c"}).Jobs {
+	for _, m := range plan(staticConfig, []string{"a", "b", "c"}, everything).Jobs {
 		runs = append(runs, m.Name+": "+m.Run)
 	}
 	want := []string{
@@ -761,4 +764,49 @@ func TestEveryShardedRecipeReadsTheShardVariables(t *testing.T) {
 		"a/justfile's race recipe does not read $LYS_TEST_SKIP",
 	})
 	wantErrors(t, errors.Join(checkShardedRecipes(filepath.Join(root, "nowhere", "justfile"), "a", split, nil)...), []string{"a has shards, but its justfile does not read"})
+}
+
+func TestAComponentIsPackagedOnlyWhenAChangeTouchesWhatItsPackagesAreBuiltFrom(t *testing.T) {
+	for _, tc := range []struct {
+		changed []string
+		want    []string
+	}{
+		{[]string{"wm/internal/session/power.go"}, []string{}},
+		{[]string{"wm/README.md", "lib/dbusx/watch.go"}, []string{}},
+		{[]string{"wm/packaging/rpm/lys-wm.spec.in"}, []string{"wm"}},
+		{[]string{"wm/justfile"}, []string{"wm"}},
+		{[]string{"login/packaging/debian/control", "wm/main.go"}, []string{"login"}},
+		{[]string{"packaging/justfile"}, []string{"login", "wm"}},
+		{[]string{"go.mod"}, []string{"login", "wm"}},
+		{[]string{"ui/packaging/debian/control"}, []string{}},
+	} {
+		p := plan(testConfig, []string{"lib", "login", "ui", "wm"}, tc.changed)
+		if !slices.Equal(p.Packages, tc.want) {
+			t.Errorf("a change to %v packages %v, want %v", tc.changed, p.Packages, tc.want)
+		}
+		packageShell := slices.ContainsFunc(p.Shells, func(m Matrix) bool { return strings.Contains(m.Run, " login") })
+		if packageShell != slices.Contains(tc.want, "login") {
+			t.Errorf("a change to %v builds login's dev shell: %v, want it only for login's packages", tc.changed, packageShell)
+		}
+	}
+}
+
+func TestPackageInputsMustNameGoModAndPaths(t *testing.T) {
+	for _, tc := range []struct {
+		inputs []string
+		want   string
+	}{
+		{[]string{"packaging/"}, "lacks go.mod"},
+		{[]string{"go.mod", ""}, `names ""`},
+		{[]string{"go.mod", "/etc/"}, `names "/etc/"`},
+	} {
+		cfg := testConfig
+		cfg.PackageInputs = tc.inputs
+		if err := validate(cfg); err == nil || !strings.Contains(err.Error(), tc.want) {
+			t.Errorf("package-inputs %q: %v, want an error saying %s", tc.inputs, err, tc.want)
+		}
+	}
+	if err := validate(testConfig); err != nil {
+		t.Errorf("the test config: %v", err)
+	}
 }

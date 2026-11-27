@@ -74,7 +74,13 @@ type Config struct {
 	ShardedGates []string              `json:"sharded-gates"`
 	StaticGates  []string              `json:"static-gates"`
 	GoJobs       map[Runner][][]Target `json:"go-jobs"`
+	// PackageInputs are the paths a packaged component's archive and
+	// packages are built from, {component} standing for its name: its
+	// package jobs run only when a change touches one of them.
+	PackageInputs []string `json:"package-inputs"`
 }
+
+const componentPlaceholder = "{component}"
 
 type Matrix struct {
 	ID     string `json:"id"`
@@ -261,7 +267,24 @@ func validate(cfg Config) error {
 	errs = append(errs, validateGateRunners(cfg)...)
 	errs = append(errs, validateStaticGates(cfg)...)
 	errs = append(errs, validateGoJobs(cfg)...)
+	errs = append(errs, validatePackageInputs(cfg)...)
 	return errors.Join(errs...)
+}
+
+// validatePackageInputs requires go.mod among the package inputs of a
+// repository with packages, since a run of every component plans its
+// packages through a change to go.mod, and every input to name a path.
+func validatePackageInputs(cfg Config) []error {
+	var errs []error
+	if slices.ContainsFunc(slices.Collect(maps.Values(cfg.Components)), func(c Component) bool { return c.Package }) && !slices.Contains(cfg.PackageInputs, "go.mod") {
+		errs = append(errs, errors.New("package-inputs lacks go.mod, through which a run of every component builds every package"))
+	}
+	for _, input := range cfg.PackageInputs {
+		if strings.TrimSpace(input) == "" || strings.HasPrefix(input, "/") {
+			errs = append(errs, fmt.Errorf("package-inputs names %q, which is no path under the repository", input))
+		}
+	}
+	return errs
 }
 
 func validateGateRunners(cfg Config) []error {
@@ -561,11 +584,23 @@ func matches(path, file string) bool {
 	return file == path
 }
 
-func plan(cfg Config, names []string) Plan {
+// packaged reports whether a change to changed rebuilds the archive and
+// packages of the packaged component name.
+func (cfg Config) packaged(name string, changed []string) bool {
+	if !cfg.Components[name].Package {
+		return false
+	}
+	return slices.ContainsFunc(cfg.PackageInputs, func(input string) bool {
+		path := strings.ReplaceAll(input, componentPlaceholder, name)
+		return slices.ContainsFunc(changed, func(file string) bool { return matches(path, file) })
+	})
+}
+
+func plan(cfg Config, names, changed []string) Plan {
 	p := Plan{Components: names, Shells: []Matrix{}, Builds: []Matrix{}, Jobs: []Matrix{}, Lanes: []Lane{}, Packages: []string{}}
 	for _, name := range names {
 		c := cfg.Components[name]
-		if c.Package {
+		if cfg.packaged(name, changed) {
 			p.Packages = append(p.Packages, name)
 		}
 		if l, ok := lane(name, c); ok {
@@ -630,7 +665,7 @@ func (cfg Config) shells(p Plan, names []string, r Runner) (Matrix, bool) {
 	var shells []string
 	for _, name := range names {
 		c := cfg.Components[name]
-		if len(cfg.suites(c, r)) > 0 || c.Package && r == packageRunner {
+		if len(cfg.suites(c, r)) > 0 || slices.Contains(p.Packages, name) && r == packageRunner {
 			shells = append(shells, name)
 		}
 	}
