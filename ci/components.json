@@ -345,8 +345,7 @@
         ["splash-vms-luks"],
         ["splash-vms-luks-headless"],
         ["splash-vms-firmware"]
-      ],
-      "free-disk": true
+      ]
     },
     "desktop-vms": {
       "depends": ["lib", "polkit", "power", "secrets", "settings", "shell"],

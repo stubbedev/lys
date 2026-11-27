@@ -16,7 +16,7 @@ var testComponents = map[string]Component{
 	"repository": {Paths: []string{"go.mod", "nix/"}, GoPackages: "nix/go-packages.json", AffectsAll: true, Jobs: []Job{{Name: "tidy", Runners: []Runner{X86_64}, Run: "just tidy-check"}}},
 	"lib":        {Paths: []string{"docs/lib/xkb.md"}, Gates: []string{"vet", "test"}, Race: true},
 	"ui":         {Gates: []string{"test"}, Shards: [][]ShardEntry{packages("./widget"), packages("./app", "./anim/...")}, Jobs: []Job{{Name: "GPU", Runners: []Runner{X86_64}, Run: "just in ui gpu"}}},
-	"wm":         {Depends: []string{"ui"}, Package: true, VMs: [][]string{{"wm-vm"}, {"wm-vm-apps", "wm-vm-share"}}, FreeDisk: true},
+	"wm":         {Depends: []string{"ui"}, Package: true, VMs: [][]string{{"wm-vm"}, {"wm-vm-apps", "wm-vm-share"}}},
 	"login":      {Depends: []string{"wm"}, Package: true, VMs: [][]string{{"login-vm"}}},
 	"polkit":     {},
 }
@@ -213,7 +213,7 @@ func TestEachComponentWithVMChecksRunsThemAndItsJobsAfterTheBuildInALaneOfItsOwn
 		},
 		{
 			Name:  "wm",
-			Build: Matrix{ID: "build-wm-x86-64", Name: "wm (x86_64)", Runner: "ubuntu-latest", Run: "just build-stage wm wm-vm wm-vm-apps wm-vm-share", FreeDisk: true},
+			Build: Matrix{ID: "build-wm-x86-64", Name: "wm (x86_64)", Runner: "ubuntu-latest", Run: "just build-stage wm wm-vm wm-vm-apps wm-vm-share"},
 			Jobs: []Matrix{
 				{ID: "wm-vm-x86-64", Name: "wm-vm (x86_64)", Runner: "ubuntu-latest", Run: "just vm-checks wm-vm", KVM: true},
 				{ID: "wm-vm-apps-wm-vm-share-x86-64", Name: "wm-vm-apps + wm-vm-share (x86_64)", Runner: "ubuntu-latest", Run: "just vm-checks wm-vm-apps wm-vm-share", KVM: true},
@@ -229,23 +229,6 @@ func TestEachComponentWithVMChecksRunsThemAndItsJobsAfterTheBuildInALaneOfItsOwn
 	}
 	if slices.ContainsFunc(p.Builds, func(m Matrix) bool { return strings.Contains(m.Run, "wm") || strings.Contains(m.Run, "login") }) {
 		t.Fatalf("builds %+v, want login's and wm's builds only in their lanes", p.Builds)
-	}
-}
-
-func TestOnlyTheBuildOfAComponentThatFreesDiskFreesIt(t *testing.T) {
-	p := plan(testConfig, []string{"login", "wm"})
-	if len(p.Lanes) != 2 {
-		t.Fatalf("lanes %+v, want login's and wm's", p.Lanes)
-	}
-	for _, l := range p.Lanes {
-		if l.Build.FreeDisk != (l.Name == "wm") {
-			t.Errorf("%s's build frees disk: %v, want %v", l.Name, l.Build.FreeDisk, l.Name == "wm")
-		}
-		for _, m := range l.Jobs {
-			if m.FreeDisk {
-				t.Errorf("%s's job %s frees disk, but only a build builds the disk images free-disk is for", l.Name, m.Name)
-			}
-		}
 	}
 }
 
@@ -376,13 +359,12 @@ func TestValidateRefusesUnknownNames(t *testing.T) {
 			{Name: "idle", Runners: []Runner{X86_64}},
 			{Name: "nowhere", Run: "true"},
 		}},
-		"ui":    {FreeDisk: true},
 		"shell": {Shards: [][]ShardEntry{packages("./bar", "./..."), {}, packages("bar", "./bar")}, Race: true},
 		"lib":   {Shards: [][]ShardEntry{packages("./xkb")}},
 	}
 	wantErrors(t, validate(Config{Components: bad, ShardedGates: []string{"test", "test-lysdebug"}}), []string{
 		`"wn"`, `"riscv"`, "without a name", "wm / idle has no command", "wm / nowhere runs on no runner", `"login-vm", which is not wm's`,
-		"wm's VM job 2 runs no VM check", "ui frees disk for VM checks it does not have",
+		"wm's VM job 2 runs no VM check",
 		`shell shard 1 names "./...", which is no package directory`, "shell shard 2 names no packages",
 		`shell shard 3 names "bar", which is no package directory`, `shell names "./bar" in two shards`, "lib has shards but neither a test or test-lysdebug gate nor a race suite",
 	})

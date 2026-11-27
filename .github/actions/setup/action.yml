@@ -37,9 +37,6 @@ inputs:
   userns:
     description: Allow unprivileged user namespaces, which lib/gpu's udmabuf test enters with unshare.
     default: "false"
-  free-disk:
-    description: Remove the runner's preinstalled toolchains, for a build job that writes disk images.
-    default: "false"
 
 outputs:
   go-cache-path:
@@ -58,11 +55,6 @@ outputs:
 runs:
   using: composite
   steps:
-    - if: inputs.free-disk == 'true'
-      shell: bash
-      run: |
-        sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL
-
     - if: inputs.kvm == 'true'
       shell: bash
       run: |

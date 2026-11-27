@@ -54,7 +54,6 @@ type Component struct {
 	Race       bool           `json:"race"`
 	Jobs       []Job          `json:"jobs"`
 	VMs        [][]string     `json:"vms"`
-	FreeDisk   bool           `json:"free-disk"`
 	Shards     [][]ShardEntry `json:"shards"`
 }
 
@@ -84,7 +83,6 @@ type Matrix struct {
 	Run      string `json:"run"`
 	KVM      bool   `json:"kvm"`
 	UserNS   bool   `json:"userns"`
-	FreeDisk bool   `json:"free-disk"`
 }
 
 type Lane struct {
@@ -257,9 +255,6 @@ func validate(cfg Config) error {
 					errs = append(errs, fmt.Errorf("%s runs VM check %q, which is not %s's", name, vm, name))
 				}
 			}
-		}
-		if c.FreeDisk && len(c.VMs) == 0 {
-			errs = append(errs, fmt.Errorf("%s frees disk for VM checks it does not have", name))
 		}
 		errs = append(errs, validateShards(name, c, cfg.ShardedGates)...)
 	}
@@ -610,9 +605,7 @@ func lane(name string, c Component) (Lane, bool) {
 	if len(vms) == 0 {
 		return Lane{}, false
 	}
-	b := build([]string{name}, vms, vmRunner)
-	b.FreeDisk = c.FreeDisk
-	l := Lane{Name: name, Build: b, Jobs: []Matrix{}}
+	l := Lane{Name: name, Build: build([]string{name}, vms, vmRunner), Jobs: []Matrix{}}
 	for _, group := range c.VMs {
 		m := matrix(strings.Join(group, " "), strings.Join(group, " + "), vmRunner, "just vm-checks "+strings.Join(group, " "))
 		m.KVM = true

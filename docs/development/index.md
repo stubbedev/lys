@@ -112,9 +112,7 @@ timeout. Every job's `timeout-minutes` is 10.
 gates `sharded-gates` names split into parts (`shards`), its
 further jobs (each a `run` command on named runners, with `after-build` when it
 uses its component's build rather than only a dev shell), its NixOS VM checks
-(`vms`, a list of jobs, each a list of checks run in one job, with `free-disk`
-when building their disk images needs the runner's preinstalled toolchains
-gone), and
+(`vms`, a list of jobs, each a list of checks run in one job), and
 what besides its Go imports it depends on (a VM test that boots another
 component's package). `gate-runners` names the runners that run only some of
 the Go gates, and which: aarch64 runs only the gates whose result depends on
@@ -178,15 +176,12 @@ another lane's build:
 1. **Component lanes**, one per component with VM checks (on x86_64), the
    `lanes` of the plan, run by `.github/workflows/lane.yml`: the component's
    build job, `just build-stage wm wm-vms-desktop ...`, builds its packages,
-   non-VM checks and VM closures, first removing the runner's
-   preinstalled toolchains only when the component sets `free-disk`, and its
-   VM jobs and the further jobs it marks `after-build` start as soon as that
-   build is done, not after the other components' builds: wm's VM jobs no
-   longer wait for splash's build. Only the build removes them: it fetches
-   every closure of the lane at once, 5 GiB for splash's, while a VM job
-   only substitutes its own closure, at most the 6.3 GiB wm-vms-share fits
-   on a runner as it comes, so the 113 s the removal takes would buy a VM
-   job nothing.
+   non-VM checks and VM closures, and its VM jobs and the further jobs it
+   marks `after-build` start as soon as that build is done, not after the
+   other components' builds: wm's VM jobs no longer wait for splash's build.
+   No job frees the runner's disk: no check builds a disk image any more,
+   and a cold build of every component's outputs uses about 4 GiB of the
+   85 GiB a runner has free.
 
    No VM check builds a disk image of its system. `useBootLoader` copies the
    whole system closure, 1.4 to 3.8 GiB, into a qcow2 image that every change
