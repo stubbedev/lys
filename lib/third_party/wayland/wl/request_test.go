@@ -542,26 +542,27 @@ func TestAQueuedFdIsTheOriginalFileHoweverItsNumberIsReused(t *testing.T) {
 	ctx, peer := requestContext(t)
 	defer peer.Close()
 	fillSocket(t, ctx)
-	r, w, err := os.Pipe()
-	if err != nil {
+	var ends [2]int
+	if err := syscall.Pipe2(ends[:], syscall.O_CLOEXEC); err != nil {
 		t.Fatal(err)
 	}
+	r := os.NewFile(uintptr(ends[0]), "read end")
 	defer r.Close()
-	number := w.Fd()
-	if err := NewDataOffer(ctx).Receive("text/plain", number); err != nil {
+	number := ends[1]
+	defer syscall.Close(number)
+	if err := NewDataOffer(ctx).Receive("text/plain", uintptr(number)); err != nil {
 		t.Fatal(err)
 	}
 	if ctx.Backlog() == 0 {
 		t.Fatal("the fd's request was not queued behind the full socket")
 	}
-	w.Close()
 	other, err := os.Open("/dev/null")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer other.Close()
-	if other.Fd() != number {
-		t.Fatalf("the number %d was not reused: got %d", number, other.Fd())
+	if err := syscall.Dup3(int(other.Fd()), number, syscall.O_CLOEXEC); err != nil {
+		t.Fatalf("close the write end at %d and reuse the number for another file: %v", number, err)
 	}
 	var received []int
 	deadline := time.Now().Add(time.Minute)
