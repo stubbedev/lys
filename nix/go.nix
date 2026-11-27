@@ -91,15 +91,20 @@
       ));
     };
 
-  externalImports = {
+  isStandard = path: !lib.hasInfix "." (lib.head (lib.splitString "/" path));
+  entryImports = entry: (entry.external or []) ++ (entry.testExternal or []);
+  moduleImports = lib.sort lib.lessThan (lib.unique (
+    lib.filter (path: !isStandard path) (lib.concatMap entryImports (lib.attrValues goPackages))
+  ));
+  importsModules = {
     name,
     built,
     tests,
   }:
-    lib.sort lib.lessThan (lib.unique (
+    lib.any (path: !isStandard path) (
       lib.concatMap (dir: (goPackage name dir).external or []) built
       ++ lib.concatMap (dir: (goPackage name dir).testExternal or []) tests
-    ));
+    );
 in {
   perSystem = {
     inputs',
@@ -135,23 +140,44 @@ in {
           mkdir "$out"
           tar -xzf "$src" -C "$out" --strip-components=1
         '';
-    modules = {
-      vendorHash = "sha256-mGgLegiYmioXOXlky186iQTd6Xi97jE2KHhQ7GPuDVE=";
+    goEnv = {
       proxyVendor = true;
-      overrideModAttrs = _: {
-        name = "lys-go-modules";
-        src = modulesSource;
-      };
       env.CGO_ENABLED = "0";
     };
-    buildCache = imports:
-      (buildGoModule (modules
-        // {
-          pname = "lys-go-build-cache";
-          version = lib.substring 0 8 (builtins.hashString "sha256" (lib.concatLines imports));
+    modules =
+      goEnv
+      // {
+        vendorHash = "sha256-mGgLegiYmioXOXlky186iQTd6Xi97jE2KHhQ7GPuDVE=";
+        overrideModAttrs = _: {
+          name = "lys-go-modules";
           src = modulesSource;
-          importPaths = lib.concatLines imports;
+        };
+      };
+    seedBuildCache = layers:
+      ''
+        mkdir -p "$GOCACHE"
+      ''
+      + lib.concatMapStrings (layer: ''
+        cp -rs --no-preserve=mode ${layer}/. "$GOCACHE"
+      '')
+      layers
+      + ''
+        date +%s > "$GOCACHE/trim.txt"
+      '';
+    buildCacheLayer = {
+      name,
+      version,
+      config,
+      packages,
+      seeds,
+    }:
+      (buildGoModule (config
+        // {
+          pname = "lys-go-build-cache-${name}";
+          inherit version;
+          importPaths = lib.concatLines packages;
           passAsFile = ["importPaths"];
+          postConfigure = seedBuildCache seeds;
           buildPhase = ''
             runHook preBuild
             mapfile -t buildable < <(xargs go list -e -f '{{if and (not .Error) (not .DepsErrors) .GoFiles}}{{.ImportPath}}{{end}}' < "$importPathsPath")
@@ -160,15 +186,39 @@ in {
           '';
           installPhase = ''
             runHook preInstall
+            rm "$GOCACHE/trim.txt"
             find "$GOCACHE" -type f -name '*-a' -exec sed -i -E 's/.{20}$/                   0/' {} +
-            rm -f "$GOCACHE/trim.txt"
-            cp -r "$GOCACHE" "$out"
+            mkdir "$out"
+            (cd "$GOCACHE" && find . -type f -exec cp --parents -t "$out" {} +)
             runHook postInstall
           '';
           doCheck = false;
           dontFixup = true;
         }))
       .overrideAttrs {disallowedReferences = [];};
+    standardCache = buildCacheLayer {
+      name = "std";
+      inherit (go) version;
+      config =
+        goEnv
+        // {
+          vendorHash = null;
+          src = pkgs.writeTextDir "go.mod" ''
+            module lys-go-build-cache-std
+
+            go ${go.version}
+          '';
+        };
+      packages = ["std"];
+      seeds = [];
+    };
+    modulesCache = buildCacheLayer {
+      name = "modules";
+      version = lib.substring 0 8 (builtins.hashString "sha256" (lib.concatLines moduleImports));
+      config = modules // {src = modulesSource;};
+      packages = moduleImports;
+      seeds = [standardCache];
+    };
   in {
     packages.dist-go = distGo;
     _module.args = {
@@ -203,13 +253,14 @@ in {
                   inherit (targets) name tests;
                   inherit (finalAttrs) resources;
                 };
-                goBuildCache = buildCache (externalImports {
-                  inherit built;
-                  inherit (targets) name tests;
-                });
-                postConfigure = ''
-                  cp -r --no-preserve=mode "$goBuildCache" "$GOCACHE"
-                '';
+                postConfigure = seedBuildCache (
+                  [standardCache]
+                  ++ lib.optional (importsModules {
+                    inherit built;
+                    inherit (targets) name tests;
+                  })
+                  modulesCache
+                );
                 version = "0-unstable-${lib.substring 0 8 (builtins.unsafeDiscardStringContext (baseNameOf finalAttrs.src))}";
                 ldflags = (args.ldflags or []) ++ ["-X github.com/stubbedev/lys/lib/buildinfo.version=${finalAttrs.version}"];
               });

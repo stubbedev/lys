@@ -49,14 +49,24 @@ its install steps read, all repository paths. `lysGo.build` in `nix/go.nix`
 assembles it from `nix/go-packages.json`, which `ci/gopackages` writes from
 the tracked Go files, so a commit rebuilds only the packages, and the VM images
 on them, whose sources it touched. A package's version is the hash of that
-source. A package's build starts from a Go build cache that holds the
-standard library and third-party packages its Go packages import, compiled
-once: `lys-go-build-cache`, a derivation of `go.mod`, `go.sum` and that list
-of imports, which `nix/go-packages.json` records per package (`external`,
-`testExternal`). It changes only with the modules or the package's set of
-outside imports, so the binary cache serves it, and a cold build compiles
-only lys's own packages: lys-shell's build phase takes 30 s on top of it
-against 63 s without, with the same binaries. The flake exposes
+source. A package's build starts from the Go build caches of the code outside
+lys, each compiled once per architecture and shared by every package:
+`lys-go-build-cache-std`, the whole standard library, a derivation of the Go
+toolchain alone, and `lys-go-build-cache-modules`, every third-party package a
+lys package imports (the `external` and `testExternal` imports
+`nix/go-packages.json` records) with its dependencies, a derivation of
+`go.mod`, `go.sum` and that list, built on the standard library's. Each holds
+only the entries it compiled, and a package's build links them into its
+`GOCACHE`, the modules' only when it imports a third-party package, so no
+package outside lys is compiled twice: with one cache per distinct import set
+there were twelve, three of them compiling folio and four modernc.org/libc,
+which took 97 s on twelve x86_64 cores against 15 s and 18 s for the two
+layers. A change to lys's code rebuilds neither; the modules' cache, and with
+it every package that imports a third-party package, rebuilds when `go.mod`,
+`go.sum` or the set of third-party packages lys imports changes, and the
+standard library's only with the toolchain. A cold build compiles only lys's
+own packages on top of them: lys-shell's build phase takes 30 s against 63 s
+without, with the same binaries. The flake exposes
 `packages.lys-<component>`, `nixosModules.lys-<component>`,
 `homeModules.lys-<component>`, `overlays.default`, one dev shell per
 component, and every check as `checks.<system>.<component>-<check>`.
