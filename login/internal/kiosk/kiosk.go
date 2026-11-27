@@ -13,10 +13,12 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/shlex"
 	"github.com/stubbedev/lys/lib/atomicfile"
+	"github.com/stubbedev/lys/lib/uaccess"
 	"github.com/stubbedev/lys/lib/xdg"
 	"github.com/stubbedev/lys/lib/xkb"
 
@@ -148,6 +150,30 @@ func Write(dir string, c Config) (string, error) {
 		return "", fmt.Errorf("write the kiosk config %s: %w", path, err)
 	}
 	return path, nil
+}
+
+// grantWait bounds how long logind has to grant the greeter's session
+// its seat's devices once greetd opened it.
+const grantWait = 10 * time.Second
+
+// AwaitDevices returns once the session env names may open the devices
+// of its seat that logind grants the active session. greetd starts its
+// greeter once PAM opened the session, which logind marks active before
+// udev applied the device ACLs, and a compositor that starts first
+// misses a device it opens once, as lavapipe does /dev/udmabuf.
+func AwaitDevices(env xdg.Env, roots uaccess.Roots) error {
+	seat := env("XDG_SEAT")
+	if seat == "" {
+		seat = uaccess.DefaultSeat
+	}
+	nodes, err := roots.Devices(seat)
+	if err != nil {
+		return fmt.Errorf("find the devices of %s: %w", seat, err)
+	}
+	if err := uaccess.Await(nodes, grantWait); err != nil {
+		return fmt.Errorf("wait for logind to grant the greeter the devices of %s: %w", seat, err)
+	}
+	return nil
 }
 
 var ErrNoRuntimeDir = errors.New("XDG_RUNTIME_DIR names no absolute directory, so there is nowhere to write the kiosk config; run it in a login session, as greetd starts its greeter")

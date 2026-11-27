@@ -10,6 +10,7 @@ import (
 
 	"github.com/stubbedev/lys/lib/logtest"
 	"github.com/stubbedev/lys/lib/testhome"
+	"github.com/stubbedev/lys/lib/uaccess"
 	"github.com/stubbedev/lys/lib/xdg"
 	"github.com/stubbedev/lys/lib/xkb"
 	"go.yaml.in/yaml/v3"
@@ -268,5 +269,44 @@ func runtimeEnv(dir string) xdg.Env {
 			return dir
 		}
 		return ""
+	}
+}
+
+func seatDevice(t *testing.T, roots uaccess.Roots, number, name, seat string, mode os.FileMode) {
+	t.Helper()
+	files := map[string]string{
+		filepath.Join(roots.Tags, "c"+number):                     "",
+		filepath.Join(roots.Data, "c"+number):                     "E:ID_SEAT=" + seat + "\nG:uaccess\n",
+		filepath.Join(roots.Sys, "dev", "char", number, "uevent"): "DEVNAME=" + name + "\n",
+		filepath.Join(roots.Dev, name):                            "",
+	}
+	for path, data := range files {
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(data), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.Chmod(filepath.Join(roots.Dev, name), mode); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestTheGreeterWaitsOnlyForTheDevicesOfItsOwnSeat(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root may open every device, granted or not")
+	}
+	dir := t.TempDir()
+	roots := uaccess.Roots{Tags: filepath.Join(dir, "tags"), Data: filepath.Join(dir, "data"), Sys: filepath.Join(dir, "sys"), Dev: filepath.Join(dir, "dev")}
+	seatDevice(t, roots, "10:125", "udmabuf", "seat0", 0o600)
+	seatDevice(t, roots, "226:129", "renderD129", "seat1", 0o000)
+	env := xdg.Env(func(string) string { return "" })
+	if err := AwaitDevices(env, roots); err != nil {
+		t.Errorf("a greeter on seat0, whose devices are granted: %v", err)
+	}
+	seat0 := xdg.Env(func(name string) string { return map[string]string{"XDG_SEAT": "seat0"}[name] })
+	if err := AwaitDevices(seat0, roots); err != nil {
+		t.Errorf("a greeter on seat0 waited for seat1's device: %v", err)
 	}
 }

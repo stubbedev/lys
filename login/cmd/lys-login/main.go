@@ -55,6 +55,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/shell/lockclient"
+	"github.com/stubbedev/lys/lib/uaccess"
 	"github.com/stubbedev/lys/lib/xdg"
 
 	"github.com/stubbedev/lys/login/dmsocket"
@@ -174,6 +175,10 @@ func kioskMode(args []string) int {
 	}
 	exe, err := self()
 	if err != nil {
+		fmt.Fprintln(os.Stderr, "lys-login kiosk:", err)
+		return 1
+	}
+	if err := kiosk.AwaitDevices(xdg.OS, uaccess.SystemRoots); err != nil {
 		fmt.Fprintln(os.Stderr, "lys-login kiosk:", err)
 		return 1
 	}

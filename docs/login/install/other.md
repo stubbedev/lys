@@ -48,7 +48,13 @@ greetd → lys-login kiosk → lys-wm → lys-login greet → (login) → your s
 `lys-login kiosk` writes the display manager's lys-wm kiosk config (no binds,
 no borders or animations, the system keyboard layout, the greeter's cursor) to
 `$XDG_RUNTIME_DIR/kiosk.yaml` and becomes lys-wm with it, the greeter as its
-one program. The arguments after `--` are `lys-login greet`'s.
+one program. It first waits, up to 10 s, until the greeter account may open
+every device udev tags `uaccess` on its seat (`XDG_SEAT`, else `seat0`):
+logind grants those through ACLs only after it marks the session active, and
+a lys-wm started before the grant misses a device it opens once, such as
+lavapipe's `/dev/udmabuf`. A device still closed after 10 s ends
+`lys-login kiosk` with an error naming it, and greetd starts the greeter again.
+The arguments after `--` are `lys-login greet`'s.
 `--compositor PATH` names lys-wm when it is not `lys-wm` on the `PATH`.
 
 - Create the state directory:
