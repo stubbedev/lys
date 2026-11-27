@@ -36,12 +36,50 @@ type Delete struct {
 
 type move struct{ from, to string }
 
-// copied is a copy put at a name that was free: the tree built there,
-// and what its top was when it was put there.
+// copied is a copy put at a name that was free and what it built
+// there.
 type copied struct {
 	path string
-	id   inode
-	tree node
+	made made
+}
+
+// made is an entry a copy built: its name, its kind, its stamp, and
+// for a folder what the copy put in it.
+type made struct {
+	name     string
+	kind     kind
+	stamp    stamp
+	children []made
+}
+
+// count is the entries m holds, itself included.
+func (m made) count() int64 {
+	n := int64(1)
+	for _, c := range m.children {
+		n += c.count()
+	}
+	return n
+}
+
+// stamp is what an entry is: its inode, and for a file or a link the
+// time it last changed, which any change to either moves. A folder is
+// its inode alone: it is only ever removed once empty.
+type stamp struct {
+	inode
+	ctime unix.Timespec
+}
+
+// stampAt is the stamp of what is at path, its link if it is one.
+func stampAt(path string) (stamp, error) {
+	var st unix.Stat_t
+	if err := unix.Lstat(path, &st); err != nil {
+		return stamp{}, &os.PathError{Op: "stat", Path: path, Err: err}
+	}
+	s := stamp{dev: st.Dev, ino: st.Ino}
+	if st.Mode&unix.S_IFMT != unix.S_IFDIR {
+		s.ctime = st.Ctim
+	}
+	return s, nil
 }
 
 // Undo reverses the last move, rename, trash or copy: run as an [Op],
@@ -50,13 +88,16 @@ type copied struct {
 //
 // A copy's undo removes exactly what the copy created: every copy it
 // put at a free name (a plain copy, Keep Both, or a copy into its own
-// folder), file by file and folder by folder as the copy built it, and
-// a copy's folder only once it is empty. A copy that replaced what was
-// there is not undone, since what it replaced is gone; nothing that
-// was there before the copy is touched. A copy already removed is
-// nothing to undo; a name that now holds something else than the copy
-// made, or a copied folder that holds files put there since, is left
-// as it is and is an error.
+// folder), entry by entry as the copy built it. Each entry is removed
+// only while what is at its path is still exactly what the copy built:
+// a file or a link the same inode, unchanged since the copy finished
+// it, and a folder the same inode, removed only once empty. A copy
+// that replaced what was there is not undone, since what it replaced
+// is gone; nothing that was there before the copy is touched. An entry
+// already removed is nothing to undo. A file or a link changed,
+// replaced or recreated since, which is the user's work now, and a
+// folder that holds anything the copy did not put there, stay as they
+// are, each an error naming it, while the rest is removed.
 type Undo struct {
 	moves   []move
 	trashed []Item
@@ -74,7 +115,7 @@ func undoCopies(done []placed) *Undo {
 	var copies []copied
 	for _, p := range done {
 		if !p.replaced {
-			copies = append(copies, copied{path: p.dst, id: p.id, tree: p.node})
+			copies = append(copies, copied{path: p.dst, made: p.made})
 		}
 	}
 	if len(copies) == 0 {
@@ -130,13 +171,12 @@ func (u *Undo) run(r *runner) (*Undo, error) {
 	return nil, nil
 }
 
-// removeCopies removes what each copy made, going on past one that
-// cannot be removed and reporting every one that was not.
+// removeCopies removes what each copy made, going on past what cannot
+// be removed and reporting all of it.
 func (r *runner) removeCopies(copies []copied) error {
 	var files int64
 	for _, c := range copies {
-		f, _ := c.tree.count()
-		files += f
+		files += c.made.count()
 	}
 	r.begin(files, 0)
 	var errs []error
@@ -144,58 +184,55 @@ func (r *runner) removeCopies(copies []copied) error {
 		if err := r.ctx.Err(); err != nil {
 			return errors.Join(append(errs, fmt.Errorf("undo the copy %s: %w", c.path, err))...)
 		}
-		id, err := identify(c.path)
-		switch {
-		case errors.Is(err, fs.ErrNotExist):
-			f, _ := c.tree.count()
-			r.advance(c.path, f, 0)
-			continue
-		case err != nil:
-			errs = append(errs, fmt.Errorf("undo the copy %s: %w", c.path, err))
-			continue
-		case id != c.id:
-			errs = append(errs, fmt.Errorf("undo the copy %s: it holds something else than the copy now", c.path))
-			continue
-		}
-		if err := r.removeBuilt(c.path, c.tree); err != nil {
+		if err := r.removeBuilt(c.path, c.made); err != nil {
 			errs = append(errs, fmt.Errorf("undo the copy %s: %w", c.path, err))
 		}
 	}
 	return errors.Join(errs...)
 }
 
-// removeBuilt removes the tree a copy built at path: what is gone
-// since is nothing to remove, and a folder that holds more than the
-// copy put in it stays, as an error.
-func (r *runner) removeBuilt(path string, n node) error {
-	if err := r.ctx.Err(); err != nil {
+// removeBuilt removes what a copy built at path, as [Undo] says: what
+// is gone since is nothing to remove, and what is not as the copy
+// built it stays, as an error naming it.
+func (r *runner) removeBuilt(path string, m made) error {
+	s, err := stampAt(path)
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+		r.advance(path, m.count(), 0)
+		return nil
+	case err != nil:
 		return err
+	case s != m.stamp:
+		r.advance(path, m.count(), 0)
+		return fmt.Errorf("%s changed since the copy made it", path)
 	}
-	var err error
-	if n.isDir() {
-		for _, c := range n.children {
-			if err := r.removeBuilt(filepath.Join(path, c.name), c); err != nil {
-				return err
-			}
+	if m.kind != directory {
+		return r.removed(path, unix.Unlink(path))
+	}
+	var errs []error
+	for _, c := range m.children {
+		if err := r.ctx.Err(); err != nil {
+			return errors.Join(append(errs, err)...)
 		}
-		err = unix.Rmdir(path)
-	} else {
-		err = unix.Unlink(path)
+		if err := r.removeBuilt(filepath.Join(path, c.name), c); err != nil {
+			errs = append(errs, err)
+		}
 	}
+	if len(errs) > 0 {
+		r.advance(path, 1, 0)
+		return errors.Join(errs...)
+	}
+	return r.removed(path, unix.Rmdir(path))
+}
+
+// removed counts path as undone once err, its removal's outcome, says
+// it is gone.
+func (r *runner) removed(path string, err error) error {
 	if err != nil && !errors.Is(err, unix.ENOENT) {
 		return &os.PathError{Op: "remove", Path: path, Err: err}
 	}
 	r.advance(path, 1, 0)
 	return nil
-}
-
-// identify is what is at path, its link if it is one.
-func identify(path string) (inode, error) {
-	var st unix.Stat_t
-	if err := unix.Lstat(path, &st); err != nil {
-		return inode{}, &os.PathError{Op: "stat", Path: path, Err: err}
-	}
-	return inode{dev: st.Dev, ino: st.Ino}, nil
 }
 
 // transferAll scans each request's source and its target's folder,

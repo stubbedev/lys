@@ -133,13 +133,12 @@ func (r *runner) decide(c Conflict) (Action, error) {
 }
 
 // placed is one item a transfer put in place: from where, to where,
-// and whether it took the place of what was there.
+// whether it took the place of what was there, and what a copy built
+// there.
 type placed struct {
 	src, dst string
-	node     node
 	replaced bool
-	// id is what a copy put at dst, as it was put there.
-	id inode
+	made     made
 }
 
 // execute carries out a transfer plan item by item, returning what it
@@ -186,7 +185,7 @@ func (r *runner) transfer(p plan, it item) (placed, bool, error) {
 		it = resolved
 		taken[filepath.Base(it.dst)] = it.node.isDir()
 	}
-	done := placed{src: it.src, dst: it.dst, node: it.node, replaced: it.replace}
+	done := placed{src: it.src, dst: it.dst, replaced: it.replace}
 	if it.rename {
 		if err := place(it.src, it.dst, it.replace, it.node.isDir() || it.targetIsDir); err != nil {
 			return placed{}, false, err
@@ -194,15 +193,15 @@ func (r *runner) transfer(p plan, it item) (placed, bool, error) {
 		r.advance(it.dst, files, 0)
 		return done, true, nil
 	}
-	if err := r.copyInto(it); err != nil {
+	m, err := r.copyInto(it)
+	if err != nil {
 		return placed{}, false, err
 	}
 	if p.op == copying {
-		id, err := identify(it.dst)
-		if err != nil {
+		if m.stamp, err = stampAt(it.dst); err != nil {
 			return placed{}, false, err
 		}
-		done.id = id
+		done.made = m
 	}
 	if p.op == moving {
 		if err := os.RemoveAll(it.src); err != nil {
@@ -214,11 +213,12 @@ func (r *runner) transfer(p plan, it item) (placed, bool, error) {
 
 // copyInto builds the item's tree in a private folder beside its
 // destination and renames it into place, so the destination holds the
-// whole copy or nothing of it, whatever stops the copy.
-func (r *runner) copyInto(it item) (err error) {
+// whole copy or nothing of it, whatever stops the copy. It returns what
+// it built, its top as it was before the rename.
+func (r *runner) copyInto(it item) (m made, err error) {
 	stage, err := os.MkdirTemp(filepath.Dir(it.dst), ".fileops-")
 	if err != nil {
-		return err
+		return made{}, err
 	}
 	defer func() {
 		if rmErr := removeStage(stage); rmErr != nil {
@@ -226,45 +226,59 @@ func (r *runner) copyInto(it item) (err error) {
 		}
 	}()
 	built := filepath.Join(stage, it.node.name)
-	if err := r.build(it.src, it.node, built); err != nil {
-		return err
+	if m, err = r.build(it.src, it.node, built); err != nil {
+		return made{}, err
 	}
-	return place(built, it.dst, it.replace, it.node.isDir() || it.targetIsDir)
+	if err := place(built, it.dst, it.replace, it.node.isDir() || it.targetIsDir); err != nil {
+		return made{}, err
+	}
+	return m, nil
 }
 
-func (r *runner) build(src string, n node, at string) error {
+// build copies the tree n at src to at and returns what it built, each
+// entry stamped once its last change is made.
+func (r *runner) build(src string, n node, at string) (made, error) {
 	if err := r.ctx.Err(); err != nil {
-		return err
+		return made{}, err
 	}
+	m := made{name: n.name, kind: n.kind}
 	switch n.kind {
 	case regular:
 		if err := r.copyFile(src, n, at); err != nil {
-			return err
+			return made{}, err
 		}
 	case symlink:
 		if err := os.Symlink(n.target, at); err != nil {
-			return err
+			return made{}, err
 		}
 	case directory:
 		if err := os.Mkdir(at, 0o700); err != nil {
-			return err
+			return made{}, err
 		}
+		m.children = make([]made, 0, len(n.children))
 		for _, c := range n.children {
-			if err := r.build(filepath.Join(src, c.name), c, filepath.Join(at, c.name)); err != nil {
-				return err
+			cm, err := r.build(filepath.Join(src, c.name), c, filepath.Join(at, c.name))
+			if err != nil {
+				return made{}, err
 			}
+			m.children = append(m.children, cm)
 		}
 		if err := unix.Chmod(at, n.perm); err != nil {
-			return &os.PathError{Op: "chmod", Path: at, Err: err}
+			return made{}, &os.PathError{Op: "chmod", Path: at, Err: err}
 		}
 	}
 	if err := unix.UtimesNanoAt(unix.AT_FDCWD, at, []unix.Timespec{{Nsec: unix.UTIME_OMIT}, n.mtime}, unix.AT_SYMLINK_NOFOLLOW); err != nil {
-		return &os.PathError{Op: "set the modification time of", Path: at, Err: err}
+		return made{}, &os.PathError{Op: "set the modification time of", Path: at, Err: err}
 	}
+	s, err := stampAt(at)
+	if err != nil {
+		return made{}, err
+	}
+	m.stamp = s
 	if n.kind != regular {
 		r.advance(src, 1, 0)
 	}
-	return nil
+	return m, nil
 }
 
 func (r *runner) copyFile(src string, n node, at string) (err error) {
