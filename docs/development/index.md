@@ -306,7 +306,11 @@ first runners. The jobs on the builds:
      rather than every entry of the last five days: the repository's caches
      had grown past the 10 GB GitHub keeps, one job's to 1.9 GB that took 90 s
      to restore, and the eviction left Go lib to start cold in run
-     44897398937, without one cached test result.
+     44897398937, without one cached test result. Once saved, the job
+     deletes its older entries on the same ref (the workflows grant
+     `actions: write` for it), so each job keeps one entry: two runs' worth
+     came to 10.7 GB, and the eviction left settings/2:gates desktop to
+     compile cold past its ten minutes in the run on 3e961121a.
    - **package**: each packaged component's archive, `.deb` and `.rpm`, on
      the dev shells, for a component whose packages a change touches the
      inputs of: a path `package-inputs` names, `{component}` standing for
