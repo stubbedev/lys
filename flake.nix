@@ -41,6 +41,7 @@
         ./lib/nix/shell.nix
         (checks "ui" ./ui/nix/checks.nix)
         ./ui/nix/shell.nix
+        ./desktop/nix/package.nix
         ./desktop/nix/shell.nix
         (checks "desktop" ./desktop/nix/checks.nix)
         ./wm/nix/package.nix

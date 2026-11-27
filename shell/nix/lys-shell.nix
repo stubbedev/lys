@@ -1,6 +1,7 @@
 {
   lib,
   lysGo,
+  lys-docthumb,
   makeWrapper,
   xkeyboard-config,
   libva,
@@ -34,7 +35,6 @@ lysGo.build {
   subPackages = [
     "shell/cmd/lys-shell"
     "shell/cmd/lys-lock"
-    "desktop/cmd/lys-docthumb"
   ];
 
   goPackages = [ "desktop/cmd/install-icons" ];
@@ -62,6 +62,7 @@ lysGo.build {
 
   # What the NixOS and home-manager modules read from the package.
   postInstall = ''
+    ln -s ${lib.getExe lys-docthumb} $out/bin/lys-docthumb
     # Handler for the globalprotectcallback: URI scheme (GlobalProtect
     # SAML sign-in answers).
     install -Dm0644 shell/resources/dev.stubbe.lys.vpn-sso-callback.desktop -t $out/share/applications

@@ -1,6 +1,7 @@
 {
   lib,
   lysGo,
+  lys-docthumb,
   makeWrapper,
   desktop-file-utils,
   xkeyboard-config,
@@ -12,7 +13,7 @@ in
   lysGo.build {
     pname = "lys-viewer";
 
-    subPackages = ["viewer/cmd/lys-viewer" "desktop/cmd/lys-docthumb"];
+    subPackages = ["viewer/cmd/lys-viewer"];
 
     goPackages = ["desktop/cmd/install-icons"];
 
@@ -29,6 +30,7 @@ in
     nativeBuildInputs = [makeWrapper];
 
     postInstall = ''
+      ln -s ${lib.getExe lys-docthumb} $out/bin/lys-docthumb
       install -Dm0644 viewer/resources/dev.stubbe.lys.viewer.desktop -t $out/share/applications
       install -Dm0644 viewer/resources/lys-viewer.svg -t $out/share/icons/hicolor/scalable/apps
       go tool install-icons $out/share/lys-viewer/icons/hicolor/scalable/actions $(cat viewer/resources/icons.txt)

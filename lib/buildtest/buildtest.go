@@ -55,7 +55,12 @@ func (d *Dir) Path() string { return d.path }
 // family run one at a time, so concurrent test processes share the
 // go command's cache instead of compiling the same packages side by
 // side. A failed build is an error carrying the go build output.
-func (d *Dir) Build(args ...string) error {
+func (d *Dir) Build(args ...string) error { return d.BuildWith(nil, args...) }
+
+// BuildWith is Build with env, KEY=value entries, set past the test
+// process's environment and CGO_ENABLED=0, as the Nix package of a
+// command that is built in its own environment sets them.
+func (d *Dir) BuildWith(env []string, args ...string) error {
 	root, _, err := srcroot.Module(".")
 	if err != nil {
 		return fmt.Errorf("buildtest: go build %v: %w", args, err)
@@ -65,7 +70,7 @@ func (d *Dir) Build(args ...string) error {
 		return err
 	}
 	defer func() { _ = lock.Close() }()
-	return goBuild(root, d.path, args)
+	return goBuild(root, d.path, env, args)
 }
 
 func holdIn(base string) (*Dir, error) {
@@ -146,7 +151,7 @@ func lockFile(path string, how int) (*os.File, error) {
 	return f, nil
 }
 
-func goBuild(root, dir string, args []string) error {
+func goBuild(root, dir string, env, args []string) error {
 	goTool, err := exec.LookPath("go")
 	if err != nil {
 		return fmt.Errorf("buildtest: go build %v: put a go toolchain on PATH: %w", args, err)
@@ -156,9 +161,9 @@ func goBuild(root, dir string, args []string) error {
 	full := append([]string{"build", "-o", dir + string(filepath.Separator)}, args...)
 	cmd := exec.CommandContext(ctx, goTool, full...) //nolint:gosec // the go command on PATH building commands of this module
 	cmd.Dir = root
-	cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
+	cmd.Env = append(append(os.Environ(), "CGO_ENABLED=0"), env...)
 	if output, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("buildtest: go %v in %s: %w\n%s", full, root, err, output)
+		return fmt.Errorf("buildtest: go %v with %v in %s: %w\n%s", full, env, root, err, output)
 	}
 	return nil
 }

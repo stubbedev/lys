@@ -294,6 +294,7 @@
       "bufio",
       "bytes",
       "context",
+      "embed",
       "encoding/binary",
       "encoding/json",
       "errors",
@@ -303,6 +304,7 @@
       "image",
       "io",
       "log",
+      "maps",
       "math",
       "os",
       "os/exec",
@@ -316,7 +318,11 @@
       "time",
       "unicode/utf8"
     ],
+    "embeds": [
+      "desktop/dochelper/goenv.json"
+    ],
     "testImports": [
+      "desktop/dochelper/memorytest",
       "lib/testbuild",
       "lib/testhome"
     ],
@@ -325,6 +331,29 @@
       "reflect",
       "strings",
       "testing"
+    ]
+  },
+  "desktop/dochelper/memorytest": {
+    "imports": [
+      "desktop/dochelper",
+      "lib/buildtest"
+    ],
+    "external": [
+      "fmt",
+      "path/filepath",
+      "sync"
+    ]
+  },
+  "desktop/dochelper/memorytest/hog": {
+    "imports": [
+      "desktop/dochelper",
+      "desktop/dochelper/memorytest"
+    ],
+    "external": [
+      "fmt",
+      "golang.org/x/sys/unix",
+      "os",
+      "strconv"
     ]
   },
   "desktop/docrender": {
@@ -2394,7 +2423,6 @@
     "testImports": [
       "desktop/thumbnail/thumbnailtest",
       "lib/logtest",
-      "lib/testbuild",
       "lib/testhome",
       "lib/waittest"
     ],
@@ -2412,7 +2440,8 @@
   },
   "desktop/thumbnail/thumbnailtest": {
     "imports": [
-      "desktop/dochelper"
+      "desktop/dochelper",
+      "desktop/dochelper/memorytest"
     ],
     "external": [
       "bytes",
@@ -2695,6 +2724,7 @@
       "lib/testbuild"
     ],
     "testExternal": [
+      "debug/buildinfo",
       "testing"
     ]
   },

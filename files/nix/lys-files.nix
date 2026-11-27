@@ -1,6 +1,7 @@
 {
   lib,
   lysGo,
+  lys-docthumb,
   makeWrapper,
   desktop-file-utils,
   xkeyboard-config,
@@ -12,7 +13,7 @@ in
   lysGo.build {
     pname = "lys-files";
 
-    subPackages = ["files/cmd/lys-files" "desktop/cmd/lys-docthumb"];
+    subPackages = ["files/cmd/lys-files"];
 
     goPackages = ["desktop/cmd/install-icons"];
 
@@ -34,6 +35,7 @@ in
     nativeBuildInputs = [makeWrapper];
 
     postInstall = ''
+      ln -s ${lib.getExe lys-docthumb} $out/bin/lys-docthumb
       install -Dm0644 files/resources/dev.stubbe.lys.files.desktop -t $out/share/applications
       install -Dm0644 files/resources/lys-files.svg -t $out/share/icons/hicolor/scalable/apps
       install -d $out/share/dbus-1/services

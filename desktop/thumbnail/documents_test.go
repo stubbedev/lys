@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/lib/logtest"
-	"github.com/stubbedev/lys/lib/testbuild"
 	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/desktop/dochelper"
@@ -211,9 +210,6 @@ func gone(pid int) bool {
 // A helper that allocates past the memory it is given dies of it, which
 // is ErrTooLarge, and the document is recorded as failed.
 func TestAHelperPastItsMemoryFails(t *testing.T) {
-	if testbuild.Race {
-		t.Skip("the race detector's allocator dies under the memory cap before the Go runtime can say it ran out")
-	}
 	doc := document(t, "paper.pdf")
 	th := New(Config{DocumentHelper: thumbnailtest.Helper(t, thumbnailtest.OverMemory)})
 	_, err := square(t, th, doc, pdfType, 64)

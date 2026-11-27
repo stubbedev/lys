@@ -1,7 +1,9 @@
 // Package thumbnailtest makes a test binary lys-docthumb for the tests
 // of package thumbnail and of the surfaces using it: one that writes a
 // page, fails, exits with a status, hangs, or runs past its memory, as
-// the directory it is installed in says.
+// the directory it is installed in says. The test binary itself is the
+// fake, but for the one running past its memory, which is memorytest's
+// hog, built in lys-docthumb's environment.
 package thumbnailtest
 
 import (
@@ -19,6 +21,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/dochelper"
+	"github.com/stubbedev/lys/desktop/dochelper/memorytest"
 )
 
 // The modes the fake lys-docthumb runs in: Page writes a PageW x PageH
@@ -66,12 +69,11 @@ func RunIfFake() {
 	}
 }
 
-// Helper installs the test binary as lys-docthumb doing mode, then
-// args, in a fresh directory, and is its path, for
-// thumbnail.Config.DocumentHelper.
+// Helper installs the fake as lys-docthumb doing mode, then args, in a
+// fresh directory, and is its path, for thumbnail.Config.DocumentHelper.
 func Helper(t *testing.T, mode string, args ...string) string {
 	t.Helper()
-	bin, err := os.Executable()
+	bin, err := fakeBinary(mode)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -84,6 +86,14 @@ func Helper(t *testing.T, mode string, args ...string) string {
 		t.Fatal(err)
 	}
 	return path
+}
+
+// fakeBinary is the program a fake doing mode runs.
+func fakeBinary(mode string) (string, error) {
+	if mode == OverMemory {
+		return memorytest.Hog()
+	}
+	return os.Executable()
 }
 
 // Cached is the identity of each file in the thumbnail cache's size
@@ -138,8 +148,6 @@ func fake(args []string) int {
 		return status
 	case Hang:
 		return hang(dir)
-	case OverMemory:
-		return overMemory(req.Memory)
 	}
 	fmt.Fprintln(os.Stderr, "fake lys-docthumb: no mode", mode[0])
 	return 2
@@ -158,24 +166,6 @@ func hang(dir string) int {
 		return 1
 	}
 	time.Sleep(time.Hour)
-	return 1
-}
-
-// overMemory holds the process to limit bytes as lys-docthumb does and
-// allocates twice that in steps, keeping each, which the runtime dies
-// of: one allocation could cross the limit, since the kernel holds a
-// mapping to it only once the next one is made.
-func overMemory(limit int64) int {
-	if err := dochelper.LimitMemory(limit); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		return 1
-	}
-	const step = 4 << 20
-	held := make([][]byte, 0, 2*limit/step)
-	for range cap(held) {
-		held = append(held, make([]byte, step))
-	}
-	fmt.Fprintln(os.Stderr, "fake lys-docthumb: allocated", len(held)*step, "bytes past a limit of", limit)
 	return 1
 }
 

@@ -99,7 +99,11 @@ hold:
 | b97429879 | <https://archive.org/details/b97429879> (the PDF) |
 
 1. Fetch each file into a directory of its own, outside the repository.
-2. Build the helper with the new folio: `go build -o lys-docthumb ./desktop/cmd/lys-docthumb`.
+2. Build the helper with the new folio, in the environment its package is built
+   in, which `desktop/dochelper/goenv.json` holds (without the Green Tea
+   collector, which dies of a segmentation fault at the helper's memory limit
+   instead of running out of memory, #425):
+   `CGO_ENABLED=0 GOEXPERIMENT=nogreenteagc go build -o lys-docthumb ./desktop/cmd/lys-docthumb`.
 3. For every file, run `lys-docthumb -size 1024 -memory 805306368 -- <file> <file>.png`
    and `mutool draw -c rgb -w 1024 -h 1024 -o <file>.mupdf.png <file> 1`, each
    under `timeout 10`. Every run exits 0 within the timeout; compare each pair

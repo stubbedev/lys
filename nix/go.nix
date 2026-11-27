@@ -96,15 +96,15 @@
   moduleImports = lib.sort lib.lessThan (lib.unique (
     lib.filter (path: !isStandard path) (lib.concatMap entryImports (lib.attrValues goPackages))
   ));
-  importsModules = {
+  externalModuleImports = {
     name,
     built,
     tests,
   }:
-    lib.any (path: !isStandard path) (
+    lib.sort lib.lessThan (lib.unique (lib.filter (path: !isStandard path) (
       lib.concatMap (dir: (goPackage name dir).external or []) built
       ++ lib.concatMap (dir: (goPackage name dir).testExternal or []) tests
-    );
+    )));
 in {
   perSystem = {
     inputs',
@@ -196,28 +196,42 @@ in {
           dontFixup = true;
         }))
       .overrideAttrs {disallowedReferences = [];};
-    standardCache = buildCacheLayer {
-      name = "std";
-      inherit (go) version;
-      config =
-        goEnv
-        // {
-          vendorHash = null;
-          src = pkgs.writeTextDir "go.mod" ''
-            module lys-go-build-cache-std
+    buildCaches = {
+      env,
+      modulePackages,
+    }: let
+      extra = lib.removeAttrs env (lib.attrNames goEnv.env);
+      suffix = lib.concatMapStrings (name: "-${lib.toLower extra.${name}}") (lib.attrNames extra);
+      std = buildCacheLayer {
+        name = "std${suffix}";
+        inherit (go) version;
+        config =
+          goEnv
+          // {
+            inherit env;
+            vendorHash = null;
+            src = pkgs.writeTextDir "go.mod" ''
+              module lys-go-build-cache-std
 
-            go ${go.version}
-          '';
-        };
-      packages = ["std"];
-      seeds = [];
+              go ${go.version}
+            '';
+          };
+        packages = ["std"];
+        seeds = [];
+      };
+    in {
+      inherit std;
+      modules = buildCacheLayer {
+        name = "modules${suffix}";
+        version = lib.substring 0 8 (builtins.hashString "sha256" (lib.concatLines modulePackages));
+        config = modules // {inherit env; src = modulesSource;};
+        packages = modulePackages;
+        seeds = [std];
+      };
     };
-    modulesCache = buildCacheLayer {
-      name = "modules";
-      version = lib.substring 0 8 (builtins.hashString "sha256" (lib.concatLines moduleImports));
-      config = modules // {src = modulesSource;};
-      packages = moduleImports;
-      seeds = [standardCache];
+    sharedCaches = buildCaches {
+      inherit (goEnv) env;
+      modulePackages = moduleImports;
     };
   in {
     packages.dist-go = distGo;
@@ -239,6 +253,19 @@ in {
                 tests = finalAttrs.goTests;
               };
               built = closure targets;
+              env = goEnv.env // (args.env or {});
+              externals = externalModuleImports {
+                inherit built;
+                inherit (targets) name tests;
+              };
+              caches =
+                if env == goEnv.env
+                then sharedCaches
+                else
+                  buildCaches {
+                    inherit env;
+                    modulePackages = externals;
+                  };
             in
               modules
               // {
@@ -253,14 +280,8 @@ in {
                   inherit (targets) name tests;
                   inherit (finalAttrs) resources;
                 };
-                postConfigure = seedBuildCache (
-                  [standardCache]
-                  ++ lib.optional (importsModules {
-                    inherit built;
-                    inherit (targets) name tests;
-                  })
-                  modulesCache
-                );
+                inherit env;
+                postConfigure = seedBuildCache ([caches.std] ++ lib.optional (externals != []) caches.modules);
                 version = "0-unstable-${lib.substring 0 8 (builtins.unsafeDiscardStringContext (baseNameOf finalAttrs.src))}";
                 ldflags = (args.ldflags or []) ++ ["-X github.com/stubbedev/lys/lib/buildinfo.version=${finalAttrs.version}"];
               });

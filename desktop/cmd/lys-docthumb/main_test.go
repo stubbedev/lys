@@ -28,17 +28,32 @@ var helperPath string
 
 func TestMain(m *testing.M) {
 	os.Exit(testhome.Main(func() int {
-		d, err := buildtest.Hold(dochelper.Program + "-test")
-		if err == nil {
-			err = d.Build("./desktop/cmd/" + dochelper.Program)
-		}
-		if err != nil {
+		if err := buildHelper(); err != nil {
 			_, _ = fmt.Fprintln(os.Stderr, err)
 			return 1
 		}
-		helperPath = filepath.Join(d.Path(), dochelper.Program)
 		return m.Run()
 	}))
+}
+
+// helperDir holds the built helper for as long as the tests run it.
+var helperDir *buildtest.Dir
+
+// buildHelper builds lys-docthumb in the environment its Nix package
+// builds it in, at helperPath.
+func buildHelper() error {
+	env, err := dochelper.BuildEnv()
+	if err != nil {
+		return err
+	}
+	if helperDir, err = buildtest.Hold(dochelper.Program + "-test"); err != nil {
+		return err
+	}
+	if err := helperDir.BuildWith(env, "./desktop/cmd/"+dochelper.Program); err != nil {
+		return err
+	}
+	helperPath = filepath.Join(helperDir.Path(), dochelper.Program)
+	return nil
 }
 
 func fixture(name string) string { return filepath.Join("..", "..", "docrender", "testdata", name) }
@@ -173,6 +188,25 @@ func TestTheHelperLinksTheRenderer(t *testing.T) {
 		}
 	}
 	t.Error("lys-docthumb does not link folio")
+}
+
+// The helper is built without the Green Tea collector, whose span
+// queue dies of a segmentation fault where the helper's memory limit
+// should end it as out of memory, which ErrTooLarge is told by.
+func TestTheHelperIsBuiltWithoutGreenTea(t *testing.T) {
+	info, err := buildinfo.ReadFile(helperPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range info.Settings {
+		if s.Key == "GOEXPERIMENT" {
+			if s.Value != "nogreenteagc" {
+				t.Errorf("lys-docthumb is built with GOEXPERIMENT=%s, want nogreenteagc", s.Value)
+			}
+			return
+		}
+	}
+	t.Errorf("lys-docthumb is built with no GOEXPERIMENT, want nogreenteagc: %v", info.Settings)
 }
 
 // reader is a client of lys-docthumb serving the fixture as it does

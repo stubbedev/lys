@@ -1,6 +1,7 @@
 package buildtest
 
 import (
+	"debug/buildinfo"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -157,6 +158,55 @@ func TestBuildWritesEachCommandUnderItsNameInTheHeldDirectory(t *testing.T) {
 	}
 }
 
+func TestBuildWithSetsItsEnvironmentForTheBuild(t *testing.T) {
+	t.Setenv("TMPDIR", t.TempDir())
+	t.Setenv("GOEXPERIMENT", "")
+	for _, c := range []struct {
+		env  []string
+		want string
+	}{
+		{nil, ""},
+		{[]string{"GOEXPERIMENT=nogreenteagc"}, "nogreenteagc"},
+	} {
+		d, err := Hold("lys-buildtest")
+		if err != nil {
+			t.Fatalf("Hold: %v", err)
+		}
+		if err := d.BuildWith(c.env, "./lib/third_party/wayland/cmd/wayland-scanner"); err != nil {
+			t.Fatalf("BuildWith(%v): %v", c.env, err)
+		}
+		info, err := buildinfo.ReadFile(filepath.Join(d.Path(), "wayland-scanner"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := ""
+		for _, s := range info.Settings {
+			if s.Key == "GOEXPERIMENT" {
+				got = s.Value
+			}
+		}
+		if got != c.want {
+			t.Errorf("built with %v, the command's GOEXPERIMENT is %q, want %q", c.env, got, c.want)
+		}
+	}
+}
+
+func TestAnEnvironmentTheGoCommandRefusesFailsTheBuildNamingIt(t *testing.T) {
+	t.Setenv("TMPDIR", t.TempDir())
+	d, err := Hold("lys-buildtest")
+	if err != nil {
+		t.Fatalf("Hold: %v", err)
+	}
+	env := []string{"GOEXPERIMENT=nosuchexperiment"}
+	err = d.BuildWith(env, "./lib/third_party/wayland/cmd/wayland-scanner")
+	if err == nil {
+		t.Fatalf("BuildWith(%v) succeeded", env)
+	}
+	if !strings.Contains(err.Error(), env[0]) || !strings.Contains(err.Error(), "unknown GOEXPERIMENT") {
+		t.Errorf("build error %q does not name %s and the go command's refusal", err, env[0])
+	}
+}
+
 func TestABrokenTreeFailsTheBuildWithItsOutput(t *testing.T) {
 	root := t.TempDir()
 	if err := os.WriteFile(filepath.Join(root, "go.mod"), []byte("module example.com/broken\n\ngo 1.27\n"), 0o600); err != nil {
@@ -169,7 +219,7 @@ func TestABrokenTreeFailsTheBuildWithItsOutput(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(cmd, "main.go"), []byte("package main\n\nfunc main() { undefinedSymbol() }\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	err := goBuild(root, t.TempDir(), []string{"./cmd/broken"})
+	err := goBuild(root, t.TempDir(), nil, []string{"./cmd/broken"})
 	if err == nil {
 		t.Fatal("the build of a tree whose command does not compile succeeded")
 	}
