@@ -77,12 +77,12 @@ type Config struct {
 }
 
 type Matrix struct {
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	Runner   string `json:"runner"`
-	Run      string `json:"run"`
-	KVM      bool   `json:"kvm"`
-	UserNS   bool   `json:"userns"`
+	ID     string `json:"id"`
+	Name   string `json:"name"`
+	Runner string `json:"runner"`
+	Run    string `json:"run"`
+	KVM    bool   `json:"kvm"`
+	UserNS bool   `json:"userns"`
 }
 
 type Lane struct {
