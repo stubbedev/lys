@@ -134,15 +134,15 @@
     ],
     "testImports": [
       "desktop/thumbnail",
-      "lib/testbuild",
+      "lib/buildtest",
       "lib/testhome"
     ],
     "testExternal": [
       "bytes",
       "context",
+      "debug/buildinfo",
       "os/exec",
       "path/filepath",
-      "runtime/debug",
       "testing"
     ]
   },
