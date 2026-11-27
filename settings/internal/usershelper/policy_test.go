@@ -93,7 +93,7 @@ func TestTheBusActivatesTheServiceThroughItsUnit(t *testing.T) {
 			t.Errorf("the activation file lacks %s", line)
 		}
 	}
-	for _, line := range []string{"Type=dbus", "BusName=" + accounts.BusName, "ExecStart=/usr/libexec/lys-users", "ProtectSystem=strict", "ReadWritePaths=/etc /home", "StateDirectory=" + strings.TrimPrefix(useraccount.AvatarsDir, "/var/lib/")} {
+	for _, line := range []string{"Type=dbus", "BusName=" + accounts.BusName, "ExecStart=/usr/libexec/lys-users", "ProtectSystem=strict", "ReadWritePaths=/etc /home -/var/spool/mail -/var/mail", "StateDirectory=" + strings.TrimPrefix(useraccount.AvatarsDir, "/var/lib/")} {
 		if !slices.Contains(strings.Split(unit, "\n"), line) {
 			t.Errorf("the unit lacks %s", line)
 		}
