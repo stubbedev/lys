@@ -5786,6 +5786,7 @@
       "lib/polkit/polkittest",
       "lib/sockdir",
       "lib/testhome",
+      "lib/third_party/godbus",
       "lib/userdb/userdbtest",
       "lib/waittest",
       "login/internal/keyboard/keyboardtest"
