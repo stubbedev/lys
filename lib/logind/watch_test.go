@@ -226,27 +226,75 @@ func TestWaitLocked(t *testing.T) {
 	}
 }
 
-func TestWaitActive(t *testing.T) {
+func activations(t *testing.T, m logind.Manager) *logind.Activations {
+	t.Helper()
+	a, err := m.WatchActivations(t.Context())
+	if err != nil {
+		t.Fatalf("WatchActivations: %v", err)
+	}
+	t.Cleanup(func() { _ = a.Stop() })
+	return a
+}
+
+// systemd-logind 258 and later answer Active true for a session as soon
+// as it is the seat's foreground session, while udev has yet to grant
+// it the seat's devices; only the announcement follows the grant.
+func TestActivationsWaitForTheAnnouncementNotTheProperty(t *testing.T) {
 	t.Parallel()
 	fake, m := manager(t, logindtest.Config{Own: own})
-	s := session(t, m, own)
-
-	if err := s.WaitActive(t.Context()); err != nil {
-		t.Errorf("WaitActive on an active session = %v", err)
+	a := activations(t, m)
+	if active, err := session(t, m, own).Active(t.Context()); err != nil || !active {
+		t.Fatalf("Active = %v, %v; want the session in the foreground already", active, err)
 	}
-
-	fake.SetActive(t, own, false)
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	if err := s.WaitActive(ctx); !errors.Is(err, context.Canceled) {
-		t.Errorf("WaitActive with its context ended = %v", err)
+	if err := a.Wait(ctx, own); !errors.Is(err, context.Canceled) {
+		t.Fatalf("Wait before logind announced the session active = %v, want its context's end", err)
 	}
-
 	done := make(chan error, 1)
-	go func() { done <- s.WaitActive(t.Context()) }()
+	go func() { done <- a.Wait(t.Context(), own) }()
+	fake.AnnounceProperty(t, own, "Active", true)
+	if err := waittest.For(t, done, "Wait to see the session announced active"); err != nil {
+		t.Fatalf("Wait = %v", err)
+	}
+}
+
+func TestActivationsKeepAnAnnouncementMadeBeforeTheWait(t *testing.T) {
+	t.Parallel()
+	fake, m := manager(t, logindtest.Config{Own: own})
+	a := activations(t, m)
+	fake.SetActive(t, own, false)
 	fake.SetActive(t, own, true)
-	if err := waittest.For(t, done, "WaitActive to see Active turn true"); err != nil {
-		t.Fatalf("WaitActive = %v", err)
+	if err := a.Wait(t.Context(), own); err != nil {
+		t.Fatalf("Wait after logind announced the session active = %v", err)
+	}
+}
+
+func TestActivationsGoByEachSessionsLastAnnouncement(t *testing.T) {
+	t.Parallel()
+	fake, m := manager(t, logindtest.Config{Own: own, Display: display})
+	a := activations(t, m)
+	fake.SetActive(t, own, true)
+	fake.SetActive(t, own, false)
+	fake.SetActive(t, display, true)
+	if err := a.Wait(t.Context(), display); err != nil {
+		t.Fatalf("Wait for the session announced active = %v", err)
+	}
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	if err := a.Wait(ctx, own); !errors.Is(err, context.Canceled) {
+		t.Errorf("Wait for a session announced active, then in the background = %v, want its context's end", err)
+	}
+}
+
+func TestActivationsReportAnAnnouncementTheyCannotRead(t *testing.T) {
+	t.Parallel()
+	fake, m := manager(t, logindtest.Config{Own: own})
+	a := activations(t, m)
+	fake.AnnounceProperty(t, own, "Active", "yes")
+	err := a.Wait(t.Context(), own)
+	if err == nil || !strings.Contains(err.Error(), "Active of "+string(logind.SessionPath(own))+" changed to a s") {
+		t.Errorf("Wait = %v, want the Active that changed to a string", err)
 	}
 }
 

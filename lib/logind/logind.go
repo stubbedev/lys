@@ -59,8 +59,11 @@ type SeatID string
 // SessionPath is the object path logind serves the session id at: the
 // id escaped as systemd escapes an object path label.
 func SessionPath(id SessionID) dbus.ObjectPath {
-	return ManagerPath + "/session/" + dbus.ObjectPath(escapeLabel(string(id)))
+	return sessionNamespace + "/" + dbus.ObjectPath(escapeLabel(string(id)))
 }
+
+// sessionNamespace is the path namespace logind serves its sessions in.
+const sessionNamespace = ManagerPath + "/session"
 
 func escapeLabel(s string) string {
 	if s == "" {

@@ -162,22 +162,22 @@ func openedSession(pamEnv []string) (logind.SessionID, error) {
 	return logind.SessionID(id), nil
 }
 
-// awaitActive returns once logind reports session id active, the one
-// in the foreground of its seat that the seat's devices are granted
-// to, or fails naming the session and its state when it is not active
-// within the bound.
-func awaitActive(ctx context.Context, m logind.Manager, id logind.SessionID, within time.Duration) error {
+// awaitActive returns once logind has announced session id active on
+// activations, the one in the foreground of its seat that udev has
+// granted the seat's devices, or fails naming the session and its state
+// when it is not announced active within the bound.
+func awaitActive(ctx context.Context, m logind.Manager, activations *logind.Activations, id logind.SessionID, within time.Duration) error {
 	s, err := m.GetSession(ctx, id)
 	if err != nil {
 		return err
 	}
 	waitCtx, cancel := context.WithTimeout(ctx, within)
 	defer cancel()
-	err = s.WaitActive(waitCtx)
+	err = activations.Wait(waitCtx, id)
 	if !errors.Is(err, context.DeadlineExceeded) || ctx.Err() != nil {
 		return err
 	}
-	notActive := fmt.Errorf("logind session %s did not become active within %s", id, within)
+	notActive := fmt.Errorf("logind session %s was not announced active within %s", id, within)
 	state, stateErr := s.State(ctx)
 	if stateErr != nil {
 		return errors.Join(notActive, stateErr)
@@ -185,19 +185,42 @@ func awaitActive(ctx context.Context, m logind.Manager, id logind.SessionID, wit
 	return fmt.Errorf("%w: it is %s", notActive, state)
 }
 
-// startAs starts argv as a once logind has made sessionID, which PAM
-// opened for it on the VT the daemon switched to, the active one: the
-// seat's devices, which a compositor opens at once, are granted to the
-// active session alone. It runs in a session of its own with the VT as
-// its controlling terminal and standard input; output goes to the
-// worker's log.
-func (o WorkerOptions) startAs(sessionID logind.SessionID, a account, argv, env []string) (*exec.Cmd, error) {
-	err := withLogind("wait for session "+string(sessionID)+" to become active", func(ctx context.Context, m logind.Manager) error {
-		return awaitActive(ctx, m, sessionID, activeWait)
-	})
+// openActive opens a PAM session with open, on the VT the daemon
+// switched to, and returns its environment and logind session once
+// logind has made the session the active one of its seat: the seat's
+// devices, which a compositor opens at once, are granted to the active
+// session alone. The watch for that is up before PAM opens the session,
+// as logind may announce it before pam_systemd returns.
+func openActive(open func() ([]string, error)) ([]string, logind.SessionID, error) {
+	ctx := context.Background()
+	conn, err := logind.Dial(ctx)
 	if err != nil {
-		return nil, err
+		return nil, "", fmt.Errorf("watch logind for the session to become active: %w", err)
 	}
+	defer func() { _ = conn.Close() }()
+	m := logind.NewManager(conn)
+	activations, err := m.WatchActivations(ctx)
+	if err != nil {
+		return nil, "", fmt.Errorf("watch logind for the session to become active: %w", err)
+	}
+	pamEnv, err := open()
+	if err != nil {
+		return nil, "", err
+	}
+	id, err := openedSession(pamEnv)
+	if err != nil {
+		return nil, "", err
+	}
+	if err := awaitActive(ctx, m, activations, id, activeWait); err != nil {
+		return nil, "", err
+	}
+	return pamEnv, id, nil
+}
+
+// startAs starts argv as a, in the active session openActive opened for
+// it, in a session of its own with the VT as its controlling terminal
+// and standard input; output goes to the worker's log.
+func (o WorkerOptions) startAs(a account, argv, env []string) (*exec.Cmd, error) {
 	tty, err := os.OpenFile(fmt.Sprintf("/dev/tty%d", o.VT), os.O_RDWR|syscall.O_NOCTTY, 0)
 	if err != nil {
 		return nil, fmt.Errorf("open the VT: %w", err)
@@ -234,18 +257,16 @@ func RunGreeter(o WorkerOptions, greeterUser string, compositor, extraEnv []stri
 			log.Printf("dm: greeter: %v", err)
 		}
 	}()
-	pamEnv, err := login.OpenSession(o.sessionEnv("greeter", greeterSessionType))
-	if err != nil {
-		return fmt.Errorf("greeter session: %w", err)
-	}
-	sessionID, err := openedSession(pamEnv)
-	if err != nil {
-		return fmt.Errorf("greeter session: %w", err)
-	}
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGTERM, syscall.SIGINT)
 	defer signal.Stop(stop)
-	cmd, err := o.startAs(sessionID, a, compositor, a.environ(pamEnv, extraEnv))
+	pamEnv, _, err := openActive(func() ([]string, error) {
+		return login.OpenSession(o.sessionEnv("greeter", greeterSessionType))
+	})
+	if err != nil {
+		return fmt.Errorf("greeter session: %w", err)
+	}
+	cmd, err := o.startAs(a, compositor, a.environ(pamEnv, extraEnv))
 	if err != nil {
 		return err
 	}
@@ -513,11 +534,10 @@ func RunSession(o WorkerOptions, rw io.ReadWriter) error {
 	if err != nil {
 		return ch.send(event{Kind: evFailed, Text: err.Error()})
 	}
-	pamEnv, err := login.OpenSession(sessionEnv)
-	if err != nil {
-		return ch.send(event{Kind: evFailed, Text: err.Error()})
-	}
-	sessionID, err := openedSession(pamEnv)
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, syscall.SIGTERM, syscall.SIGINT)
+	defer signal.Stop(stop)
+	pamEnv, sessionID, err := openActive(func() ([]string, error) { return login.OpenSession(sessionEnv) })
 	if err != nil {
 		return ch.send(event{Kind: evFailed, Text: err.Error()})
 	}
@@ -528,10 +548,7 @@ func RunSession(o WorkerOptions, rw io.ReadWriter) error {
 		return ch.send(event{Kind: evFailed, Text: err.Error()})
 	}
 	defer func() { _ = held.Close() }()
-	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, syscall.SIGTERM, syscall.SIGINT)
-	defer signal.Stop(stop)
-	cmd, err := o.startAs(sessionID, a, argv, env)
+	cmd, err := o.startAs(a, argv, env)
 	if err != nil {
 		return ch.send(event{Kind: evFailed, Text: err.Error()})
 	}

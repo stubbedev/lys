@@ -13,7 +13,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/logind"
 	"github.com/stubbedev/lys/lib/logind/logindtest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
@@ -132,63 +131,68 @@ func TestAnAccountWithoutTheUserDatabaseIsRefused(t *testing.T) {
 
 const workerSession logind.SessionID = "42"
 
-// inactiveSession is a fake logind with workerSession in the background
-// of its seat, as pam_systemd leaves it until logind activates it, and
-// the connection a worker waits on.
-func inactiveSession(t *testing.T) (*logindtest.Logind, *dbus.Conn) {
+// watchedSession is a fake logind with workerSession, the manager a
+// worker waits on, and the activations it watches from before PAM opens
+// the session.
+func watchedSession(t *testing.T) (*logindtest.Logind, logind.Manager, *logind.Activations) {
 	t.Helper()
 	fake := logindtest.Start(t, logindtest.Config{Own: workerSession})
-	if !fake.SetActive(t, workerSession, false) {
-		t.FailNow()
+	m := logind.NewManager(fake.Bus.Conn(t))
+	activations, err := m.WatchActivations(t.Context())
+	if err != nil {
+		t.Fatalf("WatchActivations: %v", err)
 	}
-	return fake, fake.Bus.Conn(t)
+	t.Cleanup(func() { _ = activations.Stop() })
+	return fake, m, activations
 }
 
 func TestTheCompositorWaitsUntilItsSessionIsActive(t *testing.T) {
-	fake, conn := inactiveSession(t)
-	done := make(chan error, 1)
-	go func() { done <- awaitActive(t.Context(), logind.NewManager(conn), workerSession, time.Hour) }()
-	waittest.Until(t, func() bool {
-		return slices.ContainsFunc(dbustest.MatchRules(t, conn), func(r string) bool { return strings.Contains(r, "PropertiesChanged") })
-	}, "the worker to watch its session's properties")
-	select {
-	case err := <-done:
-		t.Fatalf("the wait ended with %v while the session was in the background", err)
-	default:
+	fake, m, activations := watchedSession(t)
+	if !fake.SetActive(t, workerSession, false) {
+		t.FailNow()
 	}
+	done := make(chan error, 1)
+	go func() { done <- awaitActive(t.Context(), m, activations, workerSession, time.Hour) }()
 	fake.SetActive(t, workerSession, true)
 	if err := waittest.For(t, done, "the wait to end once the session is active"); err != nil {
 		t.Fatalf("awaitActive = %v, want nil once the session is active", err)
 	}
 }
 
-func TestASessionThatNeverBecomesActiveFailsNamingItsState(t *testing.T) {
-	_, conn := inactiveSession(t)
+// logind answers Active true for the seat's new foreground session
+// before udev has granted it the seat's devices, and announces it
+// active only once udev has: a compositor started on the answer found
+// /dev/udmabuf still closed to it.
+func TestTheCompositorWaitsForLogindToAnnounceItsSessionActive(t *testing.T) {
+	fake, m, activations := watchedSession(t)
+	err := awaitActive(t.Context(), m, activations, workerSession, 50*time.Millisecond)
+	want := "logind session 42 was not announced active within 50ms: it is active"
+	if err == nil || err.Error() != want {
+		t.Fatalf("awaitActive before logind announced the session active = %v, want %q", err, want)
+	}
 	done := make(chan error, 1)
-	go func() {
-		done <- awaitActive(t.Context(), logind.NewManager(conn), workerSession, 50*time.Millisecond)
-	}()
-	err := waittest.For(t, done, "the wait to give up at its bound")
-	want := "logind session 42 did not become active within 50ms: it is online"
+	go func() { done <- awaitActive(t.Context(), m, activations, workerSession, time.Hour) }()
+	fake.AnnounceProperty(t, workerSession, "Active", true)
+	if err := waittest.For(t, done, "the wait to end once logind announces the session active"); err != nil {
+		t.Fatalf("awaitActive = %v, want nil once the session is announced active", err)
+	}
+}
+
+func TestASessionThatNeverBecomesActiveFailsNamingItsState(t *testing.T) {
+	fake, m, activations := watchedSession(t)
+	if !fake.SetActive(t, workerSession, false) {
+		t.FailNow()
+	}
+	err := awaitActive(t.Context(), m, activations, workerSession, 50*time.Millisecond)
+	want := "logind session 42 was not announced active within 50ms: it is online"
 	if err == nil || err.Error() != want {
 		t.Fatalf("awaitActive = %v, want %q", err, want)
 	}
 }
 
-func TestAnActiveSessionStartsItsCompositorAtOnce(t *testing.T) {
-	fake := logindtest.Start(t, logindtest.Config{Own: workerSession})
-	done := make(chan error, 1)
-	go func() {
-		done <- awaitActive(t.Context(), logind.NewManager(fake.Bus.Conn(t)), workerSession, time.Hour)
-	}()
-	if err := waittest.For(t, done, "the wait on an active session to end"); err != nil {
-		t.Fatalf("awaitActive = %v", err)
-	}
-}
-
 func TestAWaitForAnUnknownSessionFails(t *testing.T) {
-	fake := logindtest.Start(t, logindtest.Config{Own: workerSession})
-	err := awaitActive(t.Context(), logind.NewManager(fake.Bus.Conn(t)), "9", time.Hour)
+	_, m, activations := watchedSession(t)
+	err := awaitActive(t.Context(), m, activations, "9", time.Hour)
 	if derr, ok := errors.AsType[dbus.Error](err); !ok || derr.Name != logind.ErrNoSuchSession {
 		t.Fatalf("awaitActive of an unknown session = %v, want logind's %s", err, logind.ErrNoSuchSession)
 	}

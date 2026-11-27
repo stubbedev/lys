@@ -286,15 +286,99 @@ func (s Session) WaitLocked(ctx context.Context) error {
 	})
 }
 
-// WaitActive returns once the session is in the foreground of its seat,
-// its Active true, as WaitLocked does for LockedHint: logind has moved
-// the seat's devices to the session by then.
-func (s Session) WaitActive(ctx context.Context) error {
-	return s.waitTrue(ctx, "Active", s.Active, func(e Event) bool {
-		c, ok := e.(ActiveChanged)
-		return ok && c.Active
-	})
+// Activations follows logind announcing sessions active, from before
+// the session it is asked about exists. Reading a session's Active
+// answers true as soon as logind has made it the seat's foreground
+// session, before udev has granted it the seat's devices; logind
+// announces Active turning true only once udev has. A session that is
+// about to be opened is waited on by watching its activations first:
+// logind may announce it before the session's opener hears of it.
+type Activations struct {
+	watch  *Watch
+	mu     sync.Mutex
+	active map[dbus.ObjectPath]bool
+	moved  chan struct{}
+	unread chan error
 }
+
+// WatchActivations starts following every session's announced Active.
+// The watch holds match rules and a signal channel on the manager's
+// connection until it is stopped or its context ends.
+func (m Manager) WatchActivations(ctx context.Context) (*Activations, error) {
+	if m.obj.conn == nil {
+		return nil, fmt.Errorf("logind: watch session activations: %w", errZeroHandle)
+	}
+	a := &Activations{active: map[dbus.ObjectPath]bool{}, moved: make(chan struct{}, 1), unread: make(chan error, 1)}
+	signals, err := dbusx.WatchSignals(ctx, m.obj.conn, dbusx.FromOwner(BusName),
+		func(err error) { a.report(fmt.Errorf("logind: %w", err)) },
+		dbusx.OnUnder(dbusx.PropertiesChanged, sessionNamespace, func(path dbus.ObjectPath, c dbusx.ChangedProperties, _ dbus.Sequence) error {
+			v, ok := c.Changed["Active"]
+			if !ok {
+				return nil
+			}
+			active, err := changedBool(path, "Active", v)
+			if err != nil {
+				return err
+			}
+			a.announced(path, active)
+			return nil
+		}).WithArg0(SessionInterface))
+	if err != nil {
+		return nil, fmt.Errorf("logind: watch session activations: %w", err)
+	}
+	a.watch = &Watch{signals: signals, object: sessionNamespace}
+	return a, nil
+}
+
+func (a *Activations) announced(path dbus.ObjectPath, active bool) {
+	a.mu.Lock()
+	a.active[path] = active
+	a.mu.Unlock()
+	select {
+	case a.moved <- struct{}{}:
+	default:
+	}
+}
+
+func (a *Activations) report(err error) {
+	select {
+	case a.unread <- err:
+	default:
+	}
+}
+
+func (a *Activations) announcedActive(path dbus.ObjectPath) bool {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.active[path]
+}
+
+// Wait returns once the last Active logind announced for session id,
+// since the watch began, is true: the session is in the foreground of
+// its seat and holds the seat's devices. It returns with ctx's error
+// when ctx ends first, and with the failure to read an announcement
+// that may have been the session's.
+func (a *Activations) Wait(ctx context.Context, id SessionID) error {
+	path := SessionPath(id)
+	for !a.announcedActive(path) {
+		select {
+		case <-a.moved:
+		case err := <-a.unread:
+			return fmt.Errorf("logind: wait for %s to be announced active: %w", path, err)
+		case <-a.watch.Done():
+			if err := a.watch.Stop(); err != nil {
+				return fmt.Errorf("logind: wait for %s to be announced active: %w", path, err)
+			}
+			return fmt.Errorf("logind: wait for %s to be announced active: the watch ended", path)
+		case <-ctx.Done():
+			return fmt.Errorf("logind: wait for %s to be announced active: %w", path, ctx.Err())
+		}
+	}
+	return nil
+}
+
+// Stop ends the watch as Watch.Stop does.
+func (a *Activations) Stop() error { return a.watch.Stop() }
 
 // waitTrue returns once the session's boolean property name is true:
 // read reads it, after the watch for its change is up so that no change
