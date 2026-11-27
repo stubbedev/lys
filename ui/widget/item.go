@@ -256,12 +256,14 @@ func (l *itemLine) actionsWidth(avail int) (int, bool) {
 	return min(s.Nat, beside), false
 }
 
-// titleWhole is the narrowest width the title's line shows the whole
-// title in: its minimum while the title wraps, its natural width while
-// it ends in an ellipsis instead (SetEllipsize, a capped title).
+// titleWhole is the narrowest width the title's line keeps beside the
+// actions: its minimum while the title wraps, or while it is one line
+// that ends in an ellipsis (SetEllipsize), which gives the room up to
+// the actions; its natural width while it is capped at rows, so its
+// whole text shows.
 func (l *itemLine) titleWhole() int {
 	s := measureChild(l, l.it.titleWidget(), Row, Unknown)
-	if l.it.title.ellOf(l.it.title.style(l.it.title)) == EllipsizeNone {
+	if !l.it.title.wrap || l.it.title.ellOf(l.it.title.style(l.it.title)) == EllipsizeNone {
 		return s.Min
 	}
 	return s.Nat

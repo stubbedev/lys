@@ -692,4 +692,35 @@ func TestAnItemWrapsAControlThatWouldCutItsTitle(t *testing.T) {
 	}
 }
 
+// A one-line title that ends in an ellipsis (SetEllipsize) gives its
+// room up to a badge beside it: a branch name too long for the row is
+// cut, and the badge stays beside it on the title's line, at the row's
+// end, where it would otherwise wrap under the title.
+func TestAnEllipsizedTitleKeepsItsBadgeBesideIt(t *testing.T) {
+	face := testFace(t)
+	it := NewItem(face, "feature/KON-14532-extract-extension-map-values-from-the-importer", "")
+	it.SetSmall(true)
+	it.SetEllipsize(true)
+	badge := NewBadge(face, "preparing")
+	it.AddAction(badge)
+	whole := SizeWithin(it.title, Size{W: 1 << 20, H: 1 << 20}).W
+	const width = 360
+	if whole+itemLineGap+SizeWithin(badge, Size{W: 1 << 20, H: 1 << 20}).W <= width {
+		t.Fatalf("a %dpx title fits beside the badge in %dpx: the case under test needs it not to", whole, width)
+	}
+	win := NewBox(Row, 0, 0)
+	win.Append(NewItemGroup(it), true)
+	layOutItems(win, width)
+	title, b, line := it.title.Bounds(), badge.Bounds(), it.line.Bounds()
+	if b.Y >= title.Y+title.H || b.Y+b.H <= title.Y {
+		t.Errorf("the badge %v left the title's line %v", b, title)
+	}
+	if b.X+b.W != line.X+line.W || title.X+title.W > b.X {
+		t.Errorf("the badge %v does not stand beside the title %v at the line's end %d", b, title, line.X+line.W)
+	}
+	if title.W >= whole {
+		t.Errorf("the title keeps its whole %dpx in %dpx, want it cut to an ellipsis", whole, title.W)
+	}
+}
+
 const itemWrapSidebar = 460
