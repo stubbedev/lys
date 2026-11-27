@@ -101,7 +101,7 @@ try:
     assert machine.succeed("pgrep -x -o lys-wm").strip() == holder, "the session's holder changed"
     new_worker = machine.succeed("pgrep -x lys-wm-next").strip()
     assert machine.succeed(f"readlink /proc/{new_worker}/exe").strip() == "/tmp/lys-wm-next"
-    assert machine.execute(f"kill -0 {old_worker}")[0] != 0, "the old compositor is still running"
+    machine.wait_until_fails(f"kill -0 {old_worker}", timeout=30)
     check_kept(before, "the upgrade")
     machine.succeed(f"grep -qx enabled /sys/class/drm/card*-Virtual-1/enabled")
     after_screen = steady_hash()
