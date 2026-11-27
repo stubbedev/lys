@@ -226,6 +226,45 @@ func TestWaitLocked(t *testing.T) {
 	}
 }
 
+func TestWaitActive(t *testing.T) {
+	t.Parallel()
+	fake, m := manager(t, logindtest.Config{Own: own})
+	s := session(t, m, own)
+
+	if err := s.WaitActive(t.Context()); err != nil {
+		t.Errorf("WaitActive on an active session = %v", err)
+	}
+
+	fake.SetActive(t, own, false)
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	if err := s.WaitActive(ctx); !errors.Is(err, context.Canceled) {
+		t.Errorf("WaitActive with its context ended = %v", err)
+	}
+
+	done := make(chan error, 1)
+	go func() { done <- s.WaitActive(t.Context()) }()
+	fake.SetActive(t, own, true)
+	if err := waittest.For(t, done, "WaitActive to see Active turn true"); err != nil {
+		t.Fatalf("WaitActive = %v", err)
+	}
+}
+
+func TestStateFollowsActive(t *testing.T) {
+	t.Parallel()
+	fake, m := manager(t, logindtest.Config{Own: own})
+	s := session(t, m, own)
+	for _, c := range []struct {
+		active bool
+		want   logind.SessionState
+	}{{true, logind.StateActive}, {false, logind.StateOnline}} {
+		fake.SetActive(t, own, c.active)
+		if got, err := s.State(t.Context()); err != nil || got != c.want {
+			t.Errorf("State with Active %v = %q, %v; want %q", c.active, got, err, c.want)
+		}
+	}
+}
+
 // A change WaitLocked cannot read ends the wait with what was wrong
 // with it: it discarded the failure and waited on, for a hint that
 // might have been the one announced.

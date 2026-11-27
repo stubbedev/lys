@@ -279,8 +279,28 @@ func (w *Watch) Stop() error {
 // error when it ends first, or with the failure to read a change of the
 // session's properties that logind announced meanwhile: the hint may
 // have been in it.
-func (s Session) WaitLocked(ctx context.Context) (err error) {
-	locked := make(chan struct{}, 1)
+func (s Session) WaitLocked(ctx context.Context) error {
+	return s.waitTrue(ctx, "LockedHint", s.LockedHint, func(e Event) bool {
+		c, ok := e.(LockedHintChanged)
+		return ok && c.Locked
+	})
+}
+
+// WaitActive returns once the session is in the foreground of its seat,
+// its Active true, as WaitLocked does for LockedHint: logind has moved
+// the seat's devices to the session by then.
+func (s Session) WaitActive(ctx context.Context) error {
+	return s.waitTrue(ctx, "Active", s.Active, func(e Event) bool {
+		c, ok := e.(ActiveChanged)
+		return ok && c.Active
+	})
+}
+
+// waitTrue returns once the session's boolean property name is true:
+// read reads it, after the watch for its change is up so that no change
+// falls between the two, and turned says an Event is it turning true.
+func (s Session) waitTrue(ctx context.Context, name string, read func(context.Context) (bool, error), turned func(Event) bool) (err error) {
+	became := make(chan struct{}, 1)
 	unread := make(chan error, 1)
 	report := func(err error) {
 		select {
@@ -289,9 +309,9 @@ func (s Session) WaitLocked(ctx context.Context) (err error) {
 		}
 	}
 	w, err := s.watch(ctx, report, []dbusx.Route{s.changes(func(e Event) {
-		if c, ok := e.(LockedHintChanged); ok && c.Locked {
+		if turned(e) {
 			select {
-			case locked <- struct{}{}:
+			case became <- struct{}{}:
 			default:
 			}
 		}
@@ -304,18 +324,18 @@ func (s Session) WaitLocked(ctx context.Context) (err error) {
 			err = errors.Join(err, stopErr)
 		}
 	}()
-	if hint, err := s.LockedHint(ctx); err != nil || hint {
+	if now, err := read(ctx); err != nil || now {
 		return err
 	}
 	select {
-	case <-locked:
+	case <-became:
 		return nil
 	case err := <-unread:
-		return fmt.Errorf("logind: wait for LockedHint of %s: %w", s.obj.path, err)
+		return fmt.Errorf("logind: wait for %s of %s: %w", name, s.obj.path, err)
 	case <-w.Done():
 		if err := ctx.Err(); err != nil {
-			return fmt.Errorf("logind: wait for LockedHint of %s: %w", s.obj.path, err)
+			return fmt.Errorf("logind: wait for %s of %s: %w", name, s.obj.path, err)
 		}
-		return fmt.Errorf("logind: wait for LockedHint of %s: %w", s.obj.path, ErrDisconnected)
+		return fmt.Errorf("logind: wait for %s of %s: %w", name, s.obj.path, ErrDisconnected)
 	}
 }

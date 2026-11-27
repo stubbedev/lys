@@ -1,6 +1,7 @@
 package dm
 
 import (
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -10,7 +11,12 @@ import (
 	"strings"
 	"syscall"
 	"testing"
+	"time"
 
+	"github.com/stubbedev/lys/lib/dbustest"
+	"github.com/stubbedev/lys/lib/logind"
+	"github.com/stubbedev/lys/lib/logind/logindtest"
+	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/userdb"
 	"github.com/stubbedev/lys/lib/userdb/userdbtest"
 	"github.com/stubbedev/lys/lib/waittest"
@@ -121,5 +127,79 @@ func TestAnAccountWithoutTheUserDatabaseIsRefused(t *testing.T) {
 	useUserDB(t, path)
 	if a, err := lookupAccount("carol"); err == nil || !strings.Contains(err.Error(), path) {
 		t.Errorf("lookupAccount = %+v, %v; want an error naming %s", a, err, path)
+	}
+}
+
+const workerSession logind.SessionID = "42"
+
+// inactiveSession is a fake logind with workerSession in the background
+// of its seat, as pam_systemd leaves it until logind activates it, and
+// the connection a worker waits on.
+func inactiveSession(t *testing.T) (*logindtest.Logind, *dbus.Conn) {
+	t.Helper()
+	fake := logindtest.Start(t, logindtest.Config{Own: workerSession})
+	if !fake.SetActive(t, workerSession, false) {
+		t.FailNow()
+	}
+	return fake, fake.Bus.Conn(t)
+}
+
+func TestTheCompositorWaitsUntilItsSessionIsActive(t *testing.T) {
+	fake, conn := inactiveSession(t)
+	done := make(chan error, 1)
+	go func() { done <- awaitActive(t.Context(), logind.NewManager(conn), workerSession, time.Hour) }()
+	waittest.Until(t, func() bool {
+		return slices.ContainsFunc(dbustest.MatchRules(t, conn), func(r string) bool { return strings.Contains(r, "PropertiesChanged") })
+	}, "the worker to watch its session's properties")
+	select {
+	case err := <-done:
+		t.Fatalf("the wait ended with %v while the session was in the background", err)
+	default:
+	}
+	fake.SetActive(t, workerSession, true)
+	if err := waittest.For(t, done, "the wait to end once the session is active"); err != nil {
+		t.Fatalf("awaitActive = %v, want nil once the session is active", err)
+	}
+}
+
+func TestASessionThatNeverBecomesActiveFailsNamingItsState(t *testing.T) {
+	_, conn := inactiveSession(t)
+	done := make(chan error, 1)
+	go func() {
+		done <- awaitActive(t.Context(), logind.NewManager(conn), workerSession, 50*time.Millisecond)
+	}()
+	err := waittest.For(t, done, "the wait to give up at its bound")
+	want := "logind session 42 did not become active within 50ms: it is online"
+	if err == nil || err.Error() != want {
+		t.Fatalf("awaitActive = %v, want %q", err, want)
+	}
+}
+
+func TestAnActiveSessionStartsItsCompositorAtOnce(t *testing.T) {
+	fake := logindtest.Start(t, logindtest.Config{Own: workerSession})
+	done := make(chan error, 1)
+	go func() {
+		done <- awaitActive(t.Context(), logind.NewManager(fake.Bus.Conn(t)), workerSession, time.Hour)
+	}()
+	if err := waittest.For(t, done, "the wait on an active session to end"); err != nil {
+		t.Fatalf("awaitActive = %v", err)
+	}
+}
+
+func TestAWaitForAnUnknownSessionFails(t *testing.T) {
+	fake := logindtest.Start(t, logindtest.Config{Own: workerSession})
+	err := awaitActive(t.Context(), logind.NewManager(fake.Bus.Conn(t)), "9", time.Hour)
+	if derr, ok := errors.AsType[dbus.Error](err); !ok || derr.Name != logind.ErrNoSuchSession {
+		t.Fatalf("awaitActive of an unknown session = %v, want logind's %s", err, logind.ErrNoSuchSession)
+	}
+}
+
+func TestTheOpenedSessionIsTheOnePAMNames(t *testing.T) {
+	got, err := openedSession([]string{"XDG_SESSION_ID=3", "LANG=C", "XDG_SESSION_ID=42"})
+	if err != nil || got != workerSession {
+		t.Errorf("openedSession = %q, %v; want %q, the last XDG_SESSION_ID", got, err, workerSession)
+	}
+	if got, err := openedSession([]string{"LANG=C"}); err == nil || !strings.Contains(err.Error(), "XDG_SESSION_ID") {
+		t.Errorf("openedSession without XDG_SESSION_ID = %q, %v; want an error naming it", got, err)
 	}
 }

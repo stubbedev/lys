@@ -33,6 +33,24 @@ func (s Session) Active(ctx context.Context) (bool, error) {
 	return active, err
 }
 
+// SessionState is a session's State: online in the background of its
+// seat, active in the foreground, closing once it is ending.
+type SessionState string
+
+// The states of a session that runs: in the background and in the
+// foreground of its seat.
+const (
+	StateOnline SessionState = "online"
+	StateActive SessionState = "active"
+)
+
+// State reads the session's State.
+func (s Session) State(ctx context.Context) (SessionState, error) {
+	var state string
+	err := s.obj.property(ctx, SessionInterface, "State", &state)
+	return SessionState(state), err
+}
+
 // LockedHint reads whether the session's lock screen says it is locked.
 func (s Session) LockedHint(ctx context.Context) (bool, error) {
 	var locked bool

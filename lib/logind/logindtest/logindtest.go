@@ -229,6 +229,7 @@ func Serve(t testing.TB, bus *dbustest.Bus, cfg Config) *Logind {
 			Properties: dbusx.Getters{
 				"Id":         func() any { return string(s.id) },
 				"Active":     func() any { return l.state(func() bool { return s.active }) },
+				"State":      func() any { return string(l.sessionState(s)) },
 				"LockedHint": func() any { return l.state(func() bool { return s.locked }) },
 				"IdleHint":   func() any { return l.state(func() bool { return s.idle }) },
 				"Seat":       func() any { return objectRef{ID: string(Seat), Path: SeatPath} },
@@ -261,6 +262,13 @@ func (l *Logind) state(read func() bool) bool {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	return read()
+}
+
+func (l *Logind) sessionState(s *session) logind.SessionState {
+	if l.state(func() bool { return s.active }) {
+		return logind.StateActive
+	}
+	return logind.StateOnline
 }
 
 func (l *Logind) resolve(name logind.SessionID) *session {
