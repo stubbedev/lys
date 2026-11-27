@@ -3,6 +3,7 @@ package recorder
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -292,11 +293,11 @@ func TestReplaySavesWithoutDisturbingTheCapture(t *testing.T) {
 	if err := rp.Save(second, config.RecorderFormatMkv); err != nil {
 		t.Fatal(err)
 	}
-	waittest.UntilSlow(t, func() bool { return rp.rec.videoFrames.Load() == uint64(len(video.frames())-1) }, "the last frame in the ring")
+	want := 3 * testFPS
+	waittest.UntilSlow(t, func() bool {
+		return len(video.frames()) == want && rp.rec.videoFrames.Load() == uint64(want-1)
+	}, fmt.Sprintf("all %d ticks encoded and all but the one in flight in the ring, which a save holding up the capture would keep from happening", want))
 	encoded := video.frames()
-	if len(encoded) != 3*testFPS {
-		t.Fatalf("%d frames encoded, want %d: the saves held up the capture", len(encoded), 3*testFPS)
-	}
 	for i, pts := range encoded {
 		if want := time.Duration(i+1) * period; pts != want {
 			t.Fatalf("frame %d at %v, want %v: a frame was dropped or repeated", i, pts, want)
