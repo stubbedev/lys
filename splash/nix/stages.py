@@ -198,6 +198,7 @@ def log_in(m, size, outputs=1):
 def survives_switch(m):
     daemon = m.succeed("systemctl show -P MainPID lys-login").strip()
     session = m.succeed("pgrep -u alice swaybg").strip()
+    m.wait_until_fails("systemctl is-active --quiet user@$(id -u lys-greeter).service", timeout=seconds(60))
     m.succeed("/run/current-system/bin/switch-to-configuration test")
     m.succeed("systemctl start multi-user.target")
     state = m.succeed("systemctl show -P ActiveState lys-login").strip()
