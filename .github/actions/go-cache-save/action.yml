@@ -4,13 +4,11 @@ description: >-
   build and lint cache entries this job used: setup dated every restored entry
   two hours back, Go and golangci-lint date an entry they use to now when it is
   over an hour old, so an entry still older than 90 minutes went unused and is
-  dropped before the save. The downloaded modules are one entry every Go job
-  shares, keyed on go.sum, saved by a job that did not restore that key. Once
-  saved, the entries a save supersedes on this ref are deleted: the job's
-  older build caches and the modules of an older go.sum, so the repository's
-  caches stay under the 10 GB GitHub keeps, past which it evicts whole
-  entries and jobs start cold. The calling workflow grants actions: write for
-  that.
+  dropped before the save. Once saved, the job's older entries on this ref
+  are deleted, so the repository's caches stay under the 10 GB GitHub keeps,
+  past which it evicts whole entries and jobs start cold. The calling
+  workflow grants actions: write for that. The downloaded modules are not
+  the job's: the plan job saves them once for every Go job.
 
 inputs:
   path:
@@ -21,9 +19,6 @@ inputs:
     required: true
   key:
     description: The setup action's go-cache-key output.
-    required: true
-  modules-key:
-    description: The setup action's go-modules-key output.
     required: true
 
 runs:
@@ -46,29 +41,10 @@ runs:
         path: ${{ inputs.path }}
         key: ${{ inputs.key }}
 
-    - if: inputs.modules-key != ''
-      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-      with:
-        path: ~/go/pkg/mod/cache/download
-        key: ${{ inputs.modules-key }}
-
     - shell: bash
       env:
         GH_TOKEN: ${{ github.token }}
         KEY: ${{ inputs.key }}
-        MODULES_KEY: ${{ inputs.modules-key }}
       run: |
         set -euo pipefail
-        supersede() {
-          local key=$1 prefix=$2 rest=$3 entry
-          mapfile -t older < <(KEY="$key" PREFIX="$prefix" REST="$rest" gh api "repos/${GITHUB_REPOSITORY}/actions/caches?per_page=100&ref=${GITHUB_REF}&key=${prefix}" \
-            --jq '.actions_caches[] | select(.key != env.KEY and (.key | ltrimstr(env.PREFIX) | test(env.REST))) | "\(.id) \(.key)"')
-          for entry in "${older[@]}"; do
-            gh api -X DELETE "repos/${GITHUB_REPOSITORY}/actions/caches/${entry%% *}" >/dev/null
-            echo "deleted the superseded cache entry ${entry#* }"
-          done
-        }
-        supersede "$KEY" "${KEY%-*-*}-" '^[0-9]+-[0-9]+$'
-        if [ -n "$MODULES_KEY" ]; then
-          supersede "$MODULES_KEY" "${MODULES_KEY%-*}-" '^[0-9a-f]+$'
-        fi
+        .github/actions/go-cache-save/supersede "$KEY" "${KEY%-*-*}-" '^[0-9]+-[0-9]+$'

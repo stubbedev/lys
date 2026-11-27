@@ -40,6 +40,26 @@ jobs:
         with:
           go-version-file: go.mod
           cache: false
+      - id: modules
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/go/pkg/mod/cache/download
+          key: gomod-${{ runner.os }}-${{ hashFiles('go.sum') }}
+          lookup-only: true
+      - name: Download every module once for the Go jobs, which restore them
+        if: steps.modules.outputs.cache-hit != 'true'
+        run: go mod download
+      - if: steps.modules.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/go/pkg/mod/cache/download
+          key: ${{ steps.modules.outputs.cache-primary-key }}
+      - name: Delete the modules of an older go.sum
+        if: steps.modules.outputs.cache-hit != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          KEY: ${{ steps.modules.outputs.cache-primary-key }}
+        run: .github/actions/go-cache-save/supersede "$KEY" "gomod-${RUNNER_OS}-" '^[0-9a-f]+$'
       - id: plan
         env:
           EVENT: ${{ github.event_name }}

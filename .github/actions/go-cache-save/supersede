@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# supersede KEY PREFIX PATTERN deletes the cache entries on this ref that
+# the entry KEY replaces: every other key that is PREFIX followed by what
+# PATTERN matches whole. Needs actions: write and GH_TOKEN.
+set -euo pipefail
+key=$1
+prefix=$2
+pattern=$3
+if [[ $key != "$prefix"* || ! ${key#"$prefix"} =~ $pattern ]]; then
+	echo "supersede: ${key} is not ${prefix} followed by ${pattern}" >&2
+	exit 1
+fi
+mapfile -t older < <(KEY="$key" PREFIX="$prefix" PATTERN="$pattern" gh api "repos/${GITHUB_REPOSITORY}/actions/caches?per_page=100&ref=${GITHUB_REF}&key=${prefix}" \
+	--jq '.actions_caches[] | select(.key != env.KEY and (.key | ltrimstr(env.PREFIX) | test(env.PATTERN))) | "\(.id) \(.key)"')
+for entry in "${older[@]}"; do
+	gh api -X DELETE "repos/${GITHUB_REPOSITORY}/actions/caches/${entry%% *}" >/dev/null
+	echo "deleted the superseded cache entry ${entry#* }"
+done

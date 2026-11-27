@@ -49,4 +49,3 @@ jobs:
           path: ${{ steps.setup.outputs.go-cache-path }}
           marked: ${{ steps.setup.outputs.go-cache-marked }}
           key: ${{ steps.setup.outputs.go-cache-key }}
-          modules-key: ${{ steps.setup.outputs.go-modules-key }}

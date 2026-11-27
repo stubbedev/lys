@@ -48,9 +48,6 @@ outputs:
   go-cache-key:
     description: The key to save the Go build cache under.
     value: ${{ steps.go-cache.outputs.cache-primary-key }}
-  go-modules-key:
-    description: The key the downloaded modules, shared by every Go job, are saved under; empty once restored under it.
-    value: ${{ steps.go-modules.outputs.cache-hit != 'true' && steps.go-modules.outputs.cache-primary-key || '' }}
   go-cache-save:
     description: Whether the job is to save the Go build cache, "true" unless it restored that exact key.
     value: ${{ inputs.go-cache != '' && steps.go-cache.outputs.cache-hit != 'true' }}
@@ -127,8 +124,6 @@ runs:
       with:
         path: ~/go/pkg/mod/cache/download
         key: gomod-${{ runner.os }}-${{ hashFiles('go.sum') }}
-        restore-keys: |
-          gomod-${{ runner.os }}-
 
     - if: steps.go-cache.outputs.cache-matched-key != ''
       shell: bash

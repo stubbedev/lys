@@ -312,10 +312,13 @@ first runners. The jobs on the builds:
      came to 10.7 GB, and the eviction left settings/2:gates desktop to
      compile cold past its ten minutes in the run on 3e961121a. The
      downloaded modules are not in a job's entry: every Go job restores one
-     shared entry of `~/go/pkg/mod/cache/download`, keyed on `go.sum`, which
-     a job that missed that key saves, deleting the modules of an older
-     `go.sum`; Go extracts what it imports from those zips. Each job had
-     saved the whole module cache, 496 MB unpacked, about thirty times over.
+     shared entry of `~/go/pkg/mod/cache/download`, keyed on `go.sum`, and
+     Go extracts what it imports from those zips. The plan job is its one
+     writer: when `go.sum` has no entry yet it runs `go mod download` for
+     every module, saves it and deletes the modules of an older `go.sum`
+     (a Go job that saved it would hold only the modules its own packages
+     need). Each job had saved the whole module cache, 496 MB unpacked,
+     about thirty times over.
    - **package**: each packaged component's archive, `.deb` and `.rpm`, on
      the dev shells, for a component whose packages a change touches the
      inputs of: a path `package-inputs` names, `{component}` standing for
