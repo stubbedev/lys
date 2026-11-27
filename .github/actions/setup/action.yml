@@ -48,6 +48,9 @@ outputs:
   go-cache-key:
     description: The key to save the Go build cache under.
     value: ${{ steps.go-cache.outputs.cache-primary-key }}
+  go-modules-key:
+    description: The key the downloaded modules, shared by every Go job, are saved under; empty once restored under it.
+    value: ${{ steps.go-modules.outputs.cache-hit != 'true' && steps.go-modules.outputs.cache-primary-key || '' }}
   go-cache-save:
     description: Whether the job is to save the Go build cache, "true" unless it restored that exact key.
     value: ${{ inputs.go-cache != '' && steps.go-cache.outputs.cache-hit != 'true' }}
@@ -102,7 +105,7 @@ runs:
         marked=(~/.cache/go-build ~/.cache/golangci-lint)
         {
           echo 'path<<EOF'
-          printf '%s\n' "${marked[@]}" ~/go/pkg/mod
+          printf '%s\n' "${marked[@]}"
           echo EOF
           echo 'marked<<EOF'
           printf '%s\n' "${marked[@]}"
@@ -117,6 +120,15 @@ runs:
         key: go-${{ runner.os }}-${{ runner.arch }}-${{ inputs.go-cache }}-${{ github.run_id }}-${{ github.run_attempt }}
         restore-keys: |
           go-${{ runner.os }}-${{ runner.arch }}-${{ inputs.go-cache }}-
+
+    - if: inputs.go-cache != ''
+      id: go-modules
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/go/pkg/mod/cache/download
+        key: gomod-${{ runner.os }}-${{ hashFiles('go.sum') }}
+        restore-keys: |
+          gomod-${{ runner.os }}-
 
     - if: steps.go-cache.outputs.cache-matched-key != ''
       shell: bash

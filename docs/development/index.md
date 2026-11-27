@@ -310,7 +310,12 @@ first runners. The jobs on the builds:
      deletes its older entries on the same ref (the workflows grant
      `actions: write` for it), so each job keeps one entry: two runs' worth
      came to 10.7 GB, and the eviction left settings/2:gates desktop to
-     compile cold past its ten minutes in the run on 3e961121a.
+     compile cold past its ten minutes in the run on 3e961121a. The
+     downloaded modules are not in a job's entry: every Go job restores one
+     shared entry of `~/go/pkg/mod/cache/download`, keyed on `go.sum`, which
+     a job that missed that key saves, deleting the modules of an older
+     `go.sum`; Go extracts what it imports from those zips. Each job had
+     saved the whole module cache, 496 MB unpacked, about thirty times over.
    - **package**: each packaged component's archive, `.deb` and `.rpm`, on
      the dev shells, for a component whose packages a change touches the
      inputs of: a path `package-inputs` names, `{component}` standing for
