@@ -145,12 +145,14 @@ func TestAWaitOnACPUDeviceOutlastsRoundsWhileTheDeviceWorks(t *testing.T) {
 	for i := range layers {
 		rec.FillRect(rec.Rect(), render.RGBA(uint8(i), 0x40, 0x80, 0x10))
 	}
-	cpu, rounds := d.work, -1
+	var worked time.Duration
+	rounds := -1
+	d.waitLimit = time.Millisecond
 	d.work = func() (time.Duration, error) {
 		rounds++
-		return cpu()
+		worked += d.waitLimit / idleShare
+		return worked, nil
 	}
-	d.waitLimit = 20 * time.Millisecond
 	if err := d.Render(rec.Recording(), tg); err != nil {
 		t.Fatal(err)
 	}
@@ -161,4 +163,28 @@ func TestAWaitOnACPUDeviceOutlastsRoundsWhileTheDeviceWorks(t *testing.T) {
 		t.Fatalf("%d blended layers of %dx%d finished within one %v round, so no wait outlasted one", layers, w, h, d.waitLimit)
 	}
 	t.Logf("the wait outlasted %d rounds of %v", rounds, d.waitLimit)
+}
+
+func TestTheProcessCPUTimeAdvancesWithTheWorkTheProcessDoes(t *testing.T) {
+	before, err := processCPUTime()
+	if err != nil {
+		t.Fatal(err)
+	}
+	sum := uint64(0)
+	for spins := 1; ; spins++ {
+		for i := range 1 << 16 {
+			sum += uint64(i) ^ sum>>3
+		}
+		now, err := processCPUTime()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if now < before {
+			t.Fatalf("the process's CPU time went from %v back to %v", before, now)
+		}
+		if now > before {
+			t.Logf("the CPU time advanced %v after %d spins (%d)", now-before, spins, sum)
+			return
+		}
+	}
 }
