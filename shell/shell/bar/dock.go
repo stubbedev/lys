@@ -223,7 +223,7 @@ func newDock(ctx ModuleContext, cfg config.DockConfig, output *app.Output, after
 		entries: map[string]*dockEntry{},
 		launch:  launchApp,
 	}
-	d.panel = &arrangedBox{Box: dockview.NewPanel(cfg, ctx.Config), arranged: d.claim}
+	d.panel = &arrangedBox{Box: dockview.NewPanel(cfg, ctx.Config), arranged: d.arranged}
 	if ctx.Style != nil {
 		d.panel.SetInlineStyle(dockItemShades(*ctx.Style))
 	}
@@ -240,7 +240,7 @@ func newDock(ctx ModuleContext, cfg config.DockConfig, output *app.Output, after
 	d.fold = widget.NewRevealer(d.slot)
 	dockview.Seat(d.fold, cfg.Edge)
 	d.fold.SetTransition(dockSlide(cfg.Edge))
-	d.slide = newEdgeSlide(d.fold, dockview.Motion(ctx.Config), d.setFolded)
+	d.slide = newEdgeSlide(d.fold, dockview.Motion(ctx.Config), d.setFolded, d.claim)
 	d.surface.AddClass("dock-surface")
 	d.surface.Append(d.fold, true)
 	d.surface.Append(d.reveal, false)
@@ -414,15 +414,21 @@ func launchApp(app taskApp, failed func(error)) {
 	}()
 }
 
-// claim names each app's entry as the minimize rectangle of its windows.
-func (d *dock) claim() {
+// arranged takes the size of the panel just laid out, when it rests,
+// and names its entries' rectangles.
+func (d *dock) arranged() {
 	if d.hide.hidden {
 		return
 	}
 	if d.resting() {
 		d.measured(widget.Size{W: d.slot.Bounds().W, H: d.slot.Bounds().H})
 	}
-	if d.host == nil {
+	d.claim()
+}
+
+// claim names each app's entry as the minimize rectangle of its windows.
+func (d *dock) claim() {
+	if d.hide.hidden || d.host == nil {
 		return
 	}
 	claims := map[taskWindow]rectClaim{}

@@ -250,7 +250,7 @@ func barArea(edge widget.BarEdge, out *app.Output, thickness int) wmipc.Rect {
 // startSlide slides the bar's content to its edge and back over d
 // as it hides and reveals.
 func (w *barWindow) startSlide(d time.Duration) {
-	w.slide = newEdgeSlide(w.bar.Revealer(), d, w.fold)
+	w.slide = newEdgeSlide(w.bar.Revealer(), d, w.fold, func() {})
 }
 
 // fold collapses the bar to its reveal strip, its zones out of the

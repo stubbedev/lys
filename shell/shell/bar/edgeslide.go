@@ -20,8 +20,10 @@ type edgeSlide struct {
 }
 
 // newEdgeSlide shows reveal's content at once and slides it over d from
-// then on; fold folds the surface to its strip and back.
-func newEdgeSlide(reveal *widget.Revealer, d time.Duration, fold func(folded bool)) *edgeSlide {
+// then on; fold folds the surface to its strip and back, and landed runs
+// once a reveal's slide has brought the content to where it rests, which
+// a slide moves it to without laying it out again.
+func newEdgeSlide(reveal *widget.Revealer, d time.Duration, fold func(folded bool), landed func()) *edgeSlide {
 	s := &edgeSlide{reveal: reveal, fold: fold}
 	reveal.SetDuration(0)
 	reveal.SetRevealed(true)
@@ -29,7 +31,9 @@ func newEdgeSlide(reveal *widget.Revealer, d time.Duration, fold func(folded boo
 	reveal.SetOnTransitionDone(func(revealed bool) {
 		if !revealed {
 			s.setFolded(true)
+			return
 		}
+		landed()
 	})
 	return s
 }

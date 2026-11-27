@@ -22,7 +22,7 @@ type dockStage struct {
 	ease  time.Duration
 }
 
-func newDockStage(t *testing.T, ease time.Duration, tweak func(*config.Config)) *dockStage {
+func newDockStage(t *testing.T, ease time.Duration, tweak func(*config.Config), windows ...*fakeWindow) *dockStage {
 	t.Helper()
 	t.Cleanup(widget.SetAnimationsInstant(false))
 	cfg := config.Defaults()
@@ -35,7 +35,7 @@ func newDockStage(t *testing.T, ease time.Duration, tweak func(*config.Config)) 
 		tweak(cfg)
 	}
 	ctx := styledContext(t, cfg)
-	s := &dockStage{dockRig: newDockRigIn(t, ctx, cfg.Dock), root: widget.NewBox(widget.Row, 0, 0), ease: ease}
+	s := &dockStage{dockRig: newDockRigIn(t, ctx, cfg.Dock, windows...), root: widget.NewBox(widget.Row, 0, 0), ease: ease}
 	ctx.Theme.Attach(s.root)
 	s.root.Append(s.d.surface, true)
 	s.start(t)
@@ -148,6 +148,36 @@ func TestTheDockSlidesToItsEdgeAndBack(t *testing.T) {
 	}
 	if got := s.panelTop(); got != shown {
 		t.Fatalf("with animations instant the revealed panel starts at row %d, want %d", got, shown)
+	}
+}
+
+// A dock revealed while its hide still slides never folded, so nothing
+// lays its panel out again; once the reveal lands it names its entry as
+// the window's rectangle again, the one it withdrew on hiding.
+func TestADockRevealedMidHideNamesItsRectanglesAgain(t *testing.T) {
+	w := &fakeWindow{title: "a", appID: "a", outputs: []string{"DP-1"}}
+	s := newDockStage(t, time.Second, nil, w)
+	entry := func() render.Rect { return s.d.entries["a"].Bounds() }
+	if len(w.rects) == 0 || w.rects[len(w.rects)-1].rect != entry() || entry().Empty() {
+		t.Fatalf("the shown dock sent %v, want its entry %v", w.rects, entry())
+	}
+
+	start := s.start(t)
+	s.hide()
+	s.tick(start.Add(s.ease / 2))
+	if last := w.rects[len(w.rects)-1]; !last.rect.Empty() {
+		t.Fatalf("the hiding dock still names %v, want it withdrawn", last.rect)
+	}
+	if s.d.folded() {
+		t.Fatal("the dock folded halfway through its hide")
+	}
+
+	start = s.start(t)
+	s.d.hide.setHovered(true)
+	s.tick(start.Add(s.ease / 2))
+	s.tick(start.Add(2 * s.ease))
+	if last := w.rects[len(w.rects)-1]; last.rect != entry() || last.rect.Empty() {
+		t.Fatalf("the revealed dock sent %v, want its entry %v again", w.rects, entry())
 	}
 }
 
