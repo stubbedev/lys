@@ -162,15 +162,21 @@ func hang(dir string) int {
 }
 
 // overMemory holds the process to limit bytes as lys-docthumb does and
-// allocates twice that, which the runtime dies of before any of it is
-// touched.
+// allocates twice that in steps, keeping each, which the runtime dies
+// of: one allocation could cross the limit, since the kernel holds a
+// mapping to it only once the next one is made.
 func overMemory(limit int64) int {
 	if err := dochelper.LimitMemory(limit); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
-	buf := make([]byte, 2*limit)
-	return int(buf[len(buf)-1])
+	const step = 4 << 20
+	held := make([][]byte, 0, 2*limit/step)
+	for range cap(held) {
+		held = append(held, make([]byte, step))
+	}
+	fmt.Fprintln(os.Stderr, "fake lys-docthumb: allocated", len(held)*step, "bytes past a limit of", limit)
+	return 1
 }
 
 func writePNG(path string, w, h int) int {
