@@ -120,11 +120,11 @@ func testTheFirstFrameOverAnInheritedOneFadesFromIt(t *testing.T, start func(*te
 		cfg.Animations = table
 		cfg.Report = r.report
 	}, small)
-	h.Freeze()
+	h.Hold()
 	c := testclient.Connect(t, h.Socket())
 	w := c.Window("greeter", quadrants)
 	c.DispatchUntil("the window to map", w.Mapped)
-	h.Eventually("the frame that replaces the inherited one", func(b *headless.Backend, _ *compositor.Compositor) bool {
+	h.stepHeldTo(func(b *headless.Backend, _ *compositor.Compositor) bool {
 		return b.Outputs()[0].Takeover() != nil
 	})
 	inherited := [3]byte{headless.InheritedColor.R, headless.InheritedColor.G, headless.InheritedColor.B}
