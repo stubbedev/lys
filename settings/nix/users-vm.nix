@@ -10,6 +10,8 @@ in {
     imports = [self.nixosModules.lys-settings];
     programs.lys-settings.enable = true;
     services.accounts-daemon.enable = false;
+    security.loginDefs.settings.MAIL_DIR = "/var/spool/mail";
+    systemd.tmpfiles.rules = ["d /var/spool/mail 1777 root root -"];
     users.users = {
       ursula = {
         isNormalUser = true;
@@ -89,6 +91,7 @@ in {
     assert machine.succeed("stat -c '%U:%G %a' /etc/shadow").strip() == shadow_owner
     machine.fail("ls -a /etc | grep -F .lys-")
     machine.succeed("test -e /etc/.pwd.lock")
+    machine.fail("grep -w zoe /etc/subuid /etc/subgid")
     users_refused("ursula", "create", {"login": "zoe", "realName": "", "kind": "standard", "hash": users_hash}, "Taken")
 
     users_other = machine.succeed("${openssl} passwd -6 zoe-second-password").strip()
@@ -111,7 +114,10 @@ in {
     users_refused("ursula", "edit", {"login": "zoe", "hash": "zoe:$6$x\nroot:"}, "Invalid")
     assert users_files() == users_before
 
+    machine.succeed("install -o zoe -m 600 /dev/null /var/spool/mail/zoe && install -o ursula -m 600 /dev/null /var/spool/mail/ursula")
     users_change("ursula", "delete", {"login": "zoe", "removeHome": True})
+    machine.fail("test -e /var/spool/mail/zoe")
+    machine.succeed("test -e /var/spool/mail/ursula")
     machine.fail("getent passwd zoe")
     machine.fail("getent group zoe")
     machine.fail("test -e /home/zoe")

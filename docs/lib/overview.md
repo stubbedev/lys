@@ -78,6 +78,7 @@ Test helpers load `libpipewire-0.3.so.0` (`pipewire/pwtest`) and `libei.so.1`
 | [`pulse/native`](/lib/system#pulse-native) | PulseAudio native-protocol client: introspection, control, subscriptions, record and playback streams, sample cache |
 | [`logind`](/lib/system#logind) | systemd-logind client: sessions, power, inhibitors, devices, lock signals |
 | [`polkit`](/lib/system#polkit) | polkitd Authority client: typed subjects, authorization checks with cancellation, agent registration |
+| [`busauth`](/lib/system#busauth) | Who calls a system-bus service, by the pidfd the bus gives, and polkit's decision about them |
 | [`portaldialogs`](/lib/system#portaldialogs) | The `dev.stubbe.lys.PortalDialogs1` contract |
 | [`wmipc`](/lib/system#wmipc) | The wire contract of lys-wm's IPC socket |
 | [`pam`](/lib/system#pam) | libpam transactions |

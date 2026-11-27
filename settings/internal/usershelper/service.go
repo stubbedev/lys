@@ -16,9 +16,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/stubbedev/lys/lib/busauth"
 	"github.com/stubbedev/lys/lib/dbusx"
-	"github.com/stubbedev/lys/lib/intconv"
-	"github.com/stubbedev/lys/lib/peercred"
 	"github.com/stubbedev/lys/lib/polkit"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
@@ -31,48 +30,6 @@ const (
 	maxRequest  = 2*accounts.MaxPictureBytes + 64<<10
 	busTimeout  = 10 * time.Second
 )
-
-type caller struct{ uid, pid uint32 }
-
-func callerOf(ctx context.Context, conn *dbus.Conn, sender dbus.Sender) (caller, error) {
-	var creds map[string]dbus.Variant
-	if err := conn.BusObject().CallWithContext(ctx, "org.freedesktop.DBus.GetConnectionCredentials", 0, string(sender)).Store(&creds); err != nil {
-		return caller{}, fmt.Errorf("read the credentials of %s: %w", sender, err)
-	}
-	uid, uidOK := creds["UnixUserID"].Value().(uint32)
-	pid, pidOK := creds["ProcessID"].Value().(uint32)
-	if !uidOK || !pidOK {
-		return caller{}, fmt.Errorf("the bus gives %s no uid or pid", sender)
-	}
-	return caller{uid: uid, pid: pid}, nil
-}
-
-func authorize(ctx context.Context, conn *dbus.Conn, c caller, action polkit.Action) *accounts.Error {
-	pid, err := intconv.Exact[int32](c.pid)
-	if err != nil {
-		return accounts.Errorf(accounts.ErrFailed, "ask polkit about pid %d of uid %d: %v", c.pid, c.uid, err)
-	}
-	process, err := polkit.ProcessOf(peercred.Credentials{UID: c.uid, PID: pid})
-	if err != nil {
-		return accounts.Errorf(accounts.ErrFailed, "%v", err)
-	}
-	result, err := polkit.NewAuthority(conn).CheckAuthorization(ctx, process, action, polkit.AllowUserInteraction)
-	if err != nil {
-		return accounts.Errorf(accounts.ErrFailed, "%v", err)
-	}
-	switch v := result.Verdict(); v {
-	case polkit.Authorized:
-		return nil
-	case polkit.Dismissed:
-		return accounts.Errorf(accounts.ErrNotAuthorized, "the authentication for %s was dismissed", action)
-	case polkit.Challenge:
-		return accounts.Errorf(accounts.ErrNotAuthorized, "%s needs authentication and no polkit agent answered for uid %d", action, c.uid)
-	case polkit.Denied:
-		return accounts.Errorf(accounts.ErrNotAuthorized, "polkit does not authorize uid %d for %s", c.uid, action)
-	default:
-		return accounts.Errorf(accounts.ErrFailed, "polkit's verdict %s on %s", v, action)
-	}
-}
 
 // service is the exported object; Change is its one method.
 type service struct {
@@ -101,14 +58,29 @@ func (s service) change(ctx context.Context, sender dbus.Sender, request []byte)
 	if err != nil {
 		return accounts.Errorf(accounts.ErrInvalid, "%v", err)
 	}
-	c, err := callerOf(ctx, s.conn, sender)
-	if err != nil {
-		return accounts.Errorf(accounts.ErrFailed, "%v", err)
+	authorize := busauth.Polkit(s.conn, polkit.Action(r.Class().Action()))
+	return accountsError(busauth.Run(ctx, s.conn, sender, func(ctx context.Context, c busauth.Caller) error {
+		if err := authorize(ctx, c); err != nil {
+			return err
+		}
+		if aerr := s.sys.change(ctx, c.UID, r); aerr != nil {
+			return aerr
+		}
+		return nil
+	}))
+}
+
+func accountsError(err error) *accounts.Error {
+	if err == nil {
+		return nil
 	}
-	if aerr := authorize(ctx, s.conn, c, polkit.Action(r.Class().Action())); aerr != nil {
+	if r, ok := errors.AsType[busauth.Refusal](err); ok {
+		return accounts.Errorf(accounts.ErrNotAuthorized, "%s", r.Reason)
+	}
+	if aerr, ok := errors.AsType[*accounts.Error](err); ok {
 		return aerr
 	}
-	return s.sys.change(ctx, c.uid, r)
+	return accounts.Errorf(accounts.ErrFailed, "%v", err)
 }
 
 // serve exports the service on conn and takes its name.

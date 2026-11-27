@@ -12,12 +12,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/stubbedev/lys/lib/busauth"
 	"github.com/stubbedev/lys/lib/polkit"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/udevmonitor"
 
 	"github.com/stubbedev/lys/power/charge"
-	"github.com/stubbedev/lys/power/internal/busauth"
 	"github.com/stubbedev/lys/power/internal/chargepolicy"
 	"github.com/stubbedev/lys/power/internal/config"
 	"github.com/stubbedev/lys/power/internal/dock"

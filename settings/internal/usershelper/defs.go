@@ -28,26 +28,58 @@ type defaults struct {
 	homeMode   fs.FileMode
 	// passMin, passMax and passWarn are the shadow fields, "" for none.
 	passMin, passMax, passWarn string
+	// subIDs is how a new account's subordinate IDs of each kind are
+	// allocated, and subIDModule the NSS module nsswitch.conf names
+	// for them, "" where they are the files'.
+	subIDs      [2]subIDRule
+	subIDModule string
+	// mailDir is the folder of the mail spools, "" where mail lives in
+	// the home folder (MAIL_FILE).
+	mailDir string
+}
+
+// subIDRule is SUB_UID_* or SUB_GID_* of login.defs: count IDs in ids,
+// at the lowest free start, or deterministic, at the start the new
+// account's offset from UID_MIN picks, wrapping around the range where
+// wrap is set. storeByUID names the owner by its user ID.
+type subIDRule struct {
+	ids                             pwfiles.Range
+	count                           uint32
+	deterministic, wrap, storeByUID bool
 }
 
 // The paths in /etc that hold the defaults, the skeleton of a new home,
-// and the file whose presence makes the system NixOS.
+// the file whose presence makes the system NixOS, and the name service
+// switch.
 const (
 	loginDefsName = "login.defs"
 	useraddName   = "default/useradd"
 	skelName      = "skel"
 	nixosName     = "NIXOS"
+	nsswitchName  = "nsswitch.conf"
 )
 
 // The defaults where the files say nothing: shadow-utils' compiled
-// ones, and the shell an empty passwd field means (passwd(5)).
+// ones, the shell an empty passwd field means (passwd(5)), and the
+// mail spool of paths.h.
 const (
 	defaultHomeBase = "/home"
 	defaultShell    = "/bin/sh"
 	defaultUmask    = 0o022
+	defaultMailDir  = "/var/mail"
+	defaultSubCount = 65536
 )
 
-var defaultGIDs = pwfiles.Range{Min: 1000, Max: 60000}
+var (
+	defaultGIDs = pwfiles.Range{Min: 1000, Max: 60000}
+	// The subordinate IDs useradd allocates where login.defs names no
+	// range: the lowest free start's, and the deterministic start's.
+	defaultSubIDs              = pwfiles.Range{Min: 100000, Max: 600100000}
+	defaultDeterministicSubIDs = pwfiles.Range{Min: 65536, Max: 4294967295}
+)
+
+// subIDKinds is each kind's word in login.defs' keys.
+var subIDKinds = [...]string{pwfiles.SubUIDs: "UID", pwfiles.SubGIDs: "GID"}
 
 func keyValues(text string, split func(string) (string, string, bool)) map[string]string {
 	out := map[string]string{}
@@ -57,9 +89,7 @@ func keyValues(text string, split func(string) (string, string, bool)) map[strin
 			continue
 		}
 		if k, v, ok := split(line); ok {
-			if _, seen := out[k]; !seen {
-				out[k] = strings.Trim(strings.TrimSpace(v), `"`)
-			}
+			out[k] = strings.Trim(strings.TrimSpace(v), `"`)
 		}
 	}
 	return out
@@ -75,7 +105,79 @@ func loginDefsField(line string) (string, string, bool) {
 
 func useraddField(line string) (string, string, bool) { return strings.Cut(line, "=") }
 
-func parseDefaults(loginDefs, useradd string) (defaults, error) {
+func enabled(defs map[string]string, key string) bool { return strings.EqualFold(defs[key], "yes") }
+
+func loginDefsID(defs map[string]string, key string, into *uint32) error {
+	v, ok := defs[key]
+	if !ok {
+		return nil
+	}
+	n, err := strconv.ParseUint(v, 0, 32)
+	if err != nil {
+		return fmt.Errorf("%s: %s %q: %w", loginDefsName, key, v, err)
+	}
+	*into = uint32(n)
+	return nil
+}
+
+func parseSubIDRule(defs map[string]string, kind string) (subIDRule, error) {
+	r := subIDRule{
+		ids: defaultSubIDs, count: defaultSubCount,
+		deterministic: enabled(defs, "SUB_"+kind+"_DETERMINISTIC"),
+		wrap:          enabled(defs, "UNSAFE_SUB_"+kind+"_DETERMINISTIC_WRAP"),
+		storeByUID:    enabled(defs, "SUB_"+kind+"_STORE_BY_UID"),
+	}
+	if r.deterministic {
+		r.ids = defaultDeterministicSubIDs
+	}
+	for _, f := range []struct {
+		key  string
+		into *uint32
+	}{{"MIN", &r.ids.Min}, {"MAX", &r.ids.Max}, {"COUNT", &r.count}} {
+		if err := loginDefsID(defs, "SUB_"+kind+"_"+f.key, f.into); err != nil {
+			return subIDRule{}, err
+		}
+	}
+	return r, nil
+}
+
+// parseNSSwitchSubID is the NSS module the subid line of nsswitch.conf
+// names, as shadow-utils reads it: the first word of the first such
+// line that names one, "" for none or for files.
+func parseNSSwitchSubID(text string) string {
+	for line := range strings.SplitSeq(text, "\n") {
+		key, value, ok := strings.Cut(line, ":")
+		if !ok || strings.HasPrefix(line, "#") || !strings.EqualFold(key, "subid") {
+			continue
+		}
+		module, _, _ := strings.Cut(strings.TrimLeft(value, " \t"), " ")
+		module, _, _ = strings.Cut(module, "\t")
+		if module == "" {
+			continue
+		}
+		if module == "files" {
+			return ""
+		}
+		return module
+	}
+	return ""
+}
+
+func parseMailDir(defs map[string]string) (string, error) {
+	dir, ok := defs["MAIL_DIR"]
+	if !ok {
+		if _, inHome := defs["MAIL_FILE"]; inHome {
+			return "", nil
+		}
+		return defaultMailDir, nil
+	}
+	if !filepath.IsAbs(dir) {
+		return "", fmt.Errorf("%s: MAIL_DIR %q is not an absolute path", loginDefsName, dir)
+	}
+	return filepath.Clean(dir), nil
+}
+
+func parseDefaults(loginDefs, useradd, nsswitch string) (defaults, error) {
 	uids, err := useraccount.ParseUIDRange(loginDefs)
 	if err != nil {
 		return defaults{}, fmt.Errorf("%s: %w", loginDefsName, err)
@@ -85,7 +187,7 @@ func parseDefaults(loginDefs, useradd string) (defaults, error) {
 	d := defaults{
 		uids:       pwfiles.Range{Min: uids.Min, Max: uids.Max},
 		gids:       defaultGIDs,
-		userGroups: strings.EqualFold(defs["USERGROUPS_ENAB"], "yes"),
+		userGroups: enabled(defs, "USERGROUPS_ENAB"),
 		group:      ua["GROUP"],
 		homeBase:   defaultHomeBase,
 		shell:      defaultShell,
@@ -99,14 +201,20 @@ func parseDefaults(loginDefs, useradd string) (defaults, error) {
 	if !filepath.IsAbs(d.homeBase) {
 		return defaults{}, fmt.Errorf("%s: HOME %q is not an absolute path", useraddName, d.homeBase)
 	}
-	for key, into := range map[string]*uint32{"GID_MIN": &d.gids.Min, "GID_MAX": &d.gids.Max} {
-		if v, ok := defs[key]; ok {
-			n, err := strconv.ParseUint(v, 0, 32)
-			if err != nil {
-				return defaults{}, fmt.Errorf("%s: %s %q: %w", loginDefsName, key, v, err)
-			}
-			*into = uint32(n)
+	if err := loginDefsID(defs, "GID_MIN", &d.gids.Min); err != nil {
+		return defaults{}, err
+	}
+	if err := loginDefsID(defs, "GID_MAX", &d.gids.Max); err != nil {
+		return defaults{}, err
+	}
+	for _, ids := range []pwfiles.SubIDs{pwfiles.SubUIDs, pwfiles.SubGIDs} {
+		if d.subIDs[ids], err = parseSubIDRule(defs, subIDKinds[ids]); err != nil {
+			return defaults{}, err
 		}
+	}
+	d.subIDModule = parseNSSwitchSubID(nsswitch)
+	if d.mailDir, err = parseMailDir(defs); err != nil {
+		return defaults{}, err
 	}
 	d.homeMode = 0o777 &^ defaultUmask
 	if v, ok := defs["UMASK"]; ok {
@@ -165,5 +273,9 @@ func readDefaults(etc string) (defaults, error) {
 	if err != nil {
 		return defaults{}, err
 	}
-	return parseDefaults(loginDefs, useradd)
+	nsswitch, err := readOptional(filepath.Join(etc, nsswitchName))
+	if err != nil {
+		return defaults{}, err
+	}
+	return parseDefaults(loginDefs, useradd, nsswitch)
 }

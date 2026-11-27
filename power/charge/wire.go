@@ -6,10 +6,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/stubbedev/lys/lib/busauth"
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
-
-	"github.com/stubbedev/lys/power/internal/busauth"
 )
 
 const propertiesChanged = dbusx.PropertiesInterface + ".PropertiesChanged"

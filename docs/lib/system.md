@@ -304,6 +304,22 @@ checks (with the process a pidfd names) and cancels. It sends `Changed` as
 polkitd 127 does, with one `uint16`; `EmitChangedAs(ChangedBare)` sends it as
 polkitd up to 125 did, without arguments.
 
+## busauth
+
+`busauth` is how a service on the system bus names who calls it and asks polkit
+whether they may. `Run` reads the caller's credentials from the bus
+(`GetConnectionCredentials`) and runs the call for that `Caller`; `Polkit` is
+the `Authorizer` that checks an action for it, letting it authenticate; `Reply`
+answers a polkit refusal with the service's own not-authorized error and any
+other failure with `Failed`, and `Answer` is all three within `AuthTimeout`.
+lys-power and lys-users use it.
+
+Where the bus offers the caller's `ProcessFD` (dbus-broker, dbus-daemon 1.15
+and later), polkit is told about the caller by that pidfd, so polkit 124 and
+later decide about that very process; it is closed when the call returns.
+Where the bus offers none, the caller is named by its pid and start time.
+Errors say which of the two was used.
+
 ## portaldialogs
 
 `portaldialogs` is the `dev.stubbe.lys.PortalDialogs1` contract: native dialogs
@@ -419,10 +435,10 @@ real `localedef` output for tests.
 | --- | --- |
 | `clib` | `Open` dlopens the first loadable candidate, joining all failures. `SystemCandidates` lists a soname's usual paths, including the NixOS system profile. `GoString` copies a C string |
 | `intconv` | Integer conversion without silent wraparound: `Exact` errors, `Must` panics, `Clamp` saturates, `Duration` scales a count. `Uint32Bits`, `Uint64Bits`, `Int32Bits`, `Int64Bits` reinterpret two's-complement bits |
-| `atomicfile` | `Write`, `WriteFile`, `WriteSeekable` replace a file whole and durably: synced temporary, rename, directory sync |
+| `atomicfile` | `Write`, `WriteFile`, `WriteSeekable` replace a file whole: synced temporary, then rename. `WriteFileDurable` also syncs the directory. `WriteFileOwned` is a durable write that gives the replacement the owner, group, mode and SELinux label `OwnershipOf` read from an open file, as root replaces `/etc/shadow` |
 | `assetfile` | `Open` opens an asset without blocking and rejects anything but a regular file within a size limit |
 | `xdg` | `Env` resolves base directories (`ConfigHome`, `StateDir`, …), an app's directory under each, the system directories (`DataDirs`, `ConfigDirs`), the search paths files are looked up along (`DataSearchPath`, `ConfigSearchPath`: the home directory, then the system ones, relative entries ignored), and `user-dirs.dirs` via `UserDir`. `xdg.OS` reads the process environment |
-| `peercred` | Who is at a Unix socket's other end: `Of` reads its `Credentials` (uid, gid, pid, from `SO_PEERCRED`), `PIDFDOf` opens a `PIDFD` of that process (`SO_PEERPIDFD`), which keeps naming it after its pid is reused and tells whether it has `Exited`; `OfFD` and `PIDFDOfFD` do the same for a raw connected socket descriptor. A kernel before Linux 6.5 has none: `ErrNoPIDFD` |
+| `peercred` | Who is at a Unix socket's other end: `Of` reads its `Credentials` (uid, gid, pid, from `SO_PEERCRED`), `PIDFDOf` opens a `PIDFD` of that process (`SO_PEERPIDFD`), which keeps naming it after its pid is reused and tells whether it has `Exited`; `OfFD` and `PIDFDOfFD` do the same for a raw connected socket descriptor. `Adopt` takes over a pidfd handed over by other means, such as a bus's `ProcessFD`. A kernel before Linux 6.5 has none: `ErrNoPIDFD` |
 | `procstat` | A process's `/proc/<pid>/stat`: `Of(pid)` and `Read(path)` return its command name, state, CPU ticks (user plus system) and start time, parsing the command name by its last `)` so a name holding one stays whole |
 | `debug` | `Log` traces only in builds with the `lysdebug` tag; otherwise it compiles out with its arguments. `LYS_DEBUG` selects categories: unset, empty or `*` for all, a comma-separated list for those, `-name` to exclude one |
 | `logutil` | The injectable `*slog.Logger` the libraries emit through; a discarding sink, made when first asked for, until `Set` |

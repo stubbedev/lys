@@ -19,6 +19,7 @@ import (
 	"github.com/stubbedev/lys/lib/dbusx"
 	"github.com/stubbedev/lys/lib/polkit"
 	"github.com/stubbedev/lys/lib/polkit/polkittest"
+	"github.com/stubbedev/lys/lib/sockdir"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/userdb"
 
@@ -37,6 +38,7 @@ type fakeDirectory struct {
 	users  map[string]bool
 	uids   map[uint32]bool
 	groups map[string]bool
+	gids   map[uint32]bool
 }
 
 func (f fakeDirectory) UserByName(_ context.Context, name string) (userdb.User, error) {
@@ -60,11 +62,18 @@ func (f fakeDirectory) GroupByName(_ context.Context, name string) (userdb.Group
 	return userdb.Group{}, userdb.NoRecordFound
 }
 
+func (f fakeDirectory) GroupByGID(_ context.Context, gid userdb.GID) (userdb.Group, error) {
+	if f.gids[uint32(gid)] {
+		return userdb.Group{GID: gid}, nil
+	}
+	return userdb.Group{}, userdb.NoRecordFound
+}
+
 func (fakeDirectory) Close() error { return nil }
 
 type machine struct {
 	system
-	home string
+	home, mail string
 }
 
 func write(t *testing.T, path, text string, mode os.FileMode) {
@@ -79,24 +88,25 @@ func write(t *testing.T, path, text string, mode os.FileMode) {
 
 // newMachine is an /etc whose people are uids me to me+100, holding
 // root, admin alice (uid me+1) and bob (me+2) and the system account
-// svc, whose new accounts go in the group of my gid, and a /proc with
-// no process.
+// svc, whose new accounts go in the group of my gid, a mail spool of
+// its own, an nscd that does not run, and a /proc with no process.
 func newMachine(t *testing.T, people ...string) machine {
 	t.Helper()
 	dir := t.TempDir()
 	m := machine{
-		etc: filepath.Join(dir, "etc"), avatars: filepath.Join(dir, "avatars"), proc: filepath.Join(dir, "proc"),
+		etc: filepath.Join(dir, "etc"), avatars: filepath.Join(dir, "avatars"), proc: filepath.Join(dir, "proc"), nscd: filepath.Join(sockdir.Dir(t), "nscd-socket"),
 		directory: func(context.Context) (directory, error) { return fakeDirectory{}, nil },
 		now:       func() time.Time { return time.Date(2026, 11, 26, 12, 0, 0, 0, time.UTC) },
 		home:      filepath.Join(dir, "home"),
+		mail:      filepath.Join(dir, "mail"),
 	}
 	passwd := "root:x:0:0:root:/root:/bin/bash\n" + strings.Join(people, "")
 	write(t, filepath.Join(m.etc, "passwd"), passwd, 0o644)
 	write(t, filepath.Join(m.etc, "shadow"), "root:!:20000::::::\n", 0o600)
 	write(t, filepath.Join(m.etc, "group"), "root:x:0:\nwheel:x:10:\nmine:x:"+id(myGID)+":\n", 0o644)
-	write(t, filepath.Join(m.etc, "login.defs"), "UID_MIN "+id(me)+"\nUID_MAX "+id(me+100)+"\nPASS_MAX_DAYS 99999\nPASS_WARN_AGE 7\nHOME_MODE 0750\n", 0o644)
+	write(t, filepath.Join(m.etc, "login.defs"), "UID_MIN "+id(me)+"\nUID_MAX "+id(me+100)+"\nPASS_MAX_DAYS 99999\nPASS_WARN_AGE 7\nHOME_MODE 0750\nMAIL_DIR "+m.mail+"\n", 0o644)
 	write(t, filepath.Join(m.etc, useraddName), "GROUP="+id(myGID)+"\nHOME="+m.home+"\nSHELL=/bin/zsh\n", 0o644)
-	for _, d := range []string{m.proc, m.home} {
+	for _, d := range []string{m.proc, m.home, m.mail} {
 		if err := os.MkdirAll(d, 0o755); err != nil {
 			t.Fatal(err)
 		}
@@ -229,6 +239,10 @@ func TestWithUserGroupsANewAccountGetsAGroupOfItsOwnByItsUserID(t *testing.T) {
 	}
 	if _, aerr := m.primaryGroup(t.Context(), files, fakeDirectory{groups: map[string]bool{"yan": true}}, defs, "yan", 4243); aerr == nil || aerr.Kind != accounts.ErrTaken {
 		t.Errorf("a group the user database holds: %v", aerr)
+	}
+	gid, aerr = m.primaryGroup(t.Context(), files, fakeDirectory{gids: map[uint32]bool{4243: true, 4244: true}}, defs, "wen", 4243)
+	if aerr != nil || gid != 4245 || !strings.Contains(files.Text(pwfiles.Group), "wen:x:4245:\n") {
+		t.Errorf("a group ID the user database holds: gid %d, %v, group %q", gid, aerr, files.Text(pwfiles.Group))
 	}
 	if _, aerr := m.primaryGroup(t.Context(), files, fakeDirectory{}, defaults{}, "xia", 4244); aerr == nil || aerr.Kind != accounts.ErrFailed {
 		t.Errorf("neither user groups nor GROUP: %v", aerr)
@@ -438,19 +452,33 @@ func TestTheNixOSFileSaysWhetherAndWhichAccountsAreDeclared(t *testing.T) {
 }
 
 func TestTheDefaultsAreWhatLoginDefsAndUseraddSay(t *testing.T) {
-	d, err := parseDefaults("# c\nUID_MIN 2000\nUID_MAX 3000\nGID_MIN 2000\nUSERGROUPS_ENAB yes\nUMASK 027\nPASS_MIN_DAYS -1\nPASS_MAX_DAYS 90\n", "GROUP=100\nHOME=/srv/home\nSHELL=/bin/fish\n")
+	d, err := parseDefaults("# c\nUID_MIN 2000\nUID_MAX 3000\nGID_MIN 2000\nUSERGROUPS_ENAB yes\nUMASK 027\nPASS_MIN_DAYS -1\nPASS_MAX_DAYS 90\nMAIL_DIR /var/spool/mail/\nSUB_UID_MIN 200000\nSUB_UID_COUNT 0x1000\nSUB_GID_DETERMINISTIC yes\nSUB_GID_MAX 900000\nUNSAFE_SUB_GID_DETERMINISTIC_WRAP yes\nSUB_GID_STORE_BY_UID yes\n", "GROUP=100\nHOME=/srv/home\nSHELL=/bin/fish\n", "passwd: files\nsubid: files sss\n")
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := defaults{uids: pwfiles.Range{Min: 2000, Max: 3000}, gids: pwfiles.Range{Min: 2000, Max: 60000}, userGroups: true, group: "100", homeBase: "/srv/home", shell: "/bin/fish", homeMode: 0o750, passMax: "90"}
+	want := defaults{
+		uids: pwfiles.Range{Min: 2000, Max: 3000}, gids: pwfiles.Range{Min: 2000, Max: 60000}, userGroups: true, group: "100", homeBase: "/srv/home", shell: "/bin/fish", homeMode: 0o750, passMax: "90",
+		subIDs: [2]subIDRule{
+			pwfiles.SubUIDs: {ids: pwfiles.Range{Min: 200000, Max: 600100000}, count: 4096},
+			pwfiles.SubGIDs: {ids: pwfiles.Range{Min: 65536, Max: 900000}, count: 65536, deterministic: true, wrap: true, storeByUID: true},
+		},
+		mailDir: "/var/spool/mail",
+	}
 	if d != want {
 		t.Errorf("%+v, want %+v", d, want)
 	}
-	if d, err := parseDefaults("", ""); err != nil || d.homeBase != "/home" || d.shell != "/bin/sh" || d.homeMode != 0o755 || d.userGroups {
+	if d, err := parseDefaults("", "", ""); err != nil || d.homeBase != "/home" || d.shell != "/bin/sh" || d.homeMode != 0o755 || d.userGroups || d.mailDir != "/var/mail" || d.subIDModule != "" ||
+		d.subIDs != [2]subIDRule{{ids: pwfiles.Range{Min: 100000, Max: 600100000}, count: 65536}, {ids: pwfiles.Range{Min: 100000, Max: 600100000}, count: 65536}} {
 		t.Errorf("no files: %+v, %v", d, err)
 	}
-	for _, c := range [][2]string{{"UID_MIN x\n", ""}, {"UMASK 999\n", ""}, {"HOME_MODE 7777\n", ""}, {"PASS_MAX_DAYS soon\n", ""}, {"GID_MAX -1\n", ""}, {"", "HOME=home\n"}} {
-		if _, err := parseDefaults(c[0], c[1]); err == nil {
+	if d, err := parseDefaults("UID_MIN 1000\nUID_MIN 5000\nUID_MAX 9000\n", "SHELL=/bin/sh\nSHELL=/bin/zsh\n", ""); err != nil || d.uids.Min != 5000 || d.shell != "/bin/zsh" {
+		t.Errorf("a key given twice keeps its last value, as shadow's getdef does: %+v, %v", d, err)
+	}
+	if d, err := parseDefaults("MAIL_FILE .mail\n", "", ""); err != nil || d.mailDir != "" {
+		t.Errorf("mail in the home: %q, %v", d.mailDir, err)
+	}
+	for _, c := range [][2]string{{"UID_MIN x\n", ""}, {"UMASK 999\n", ""}, {"HOME_MODE 7777\n", ""}, {"PASS_MAX_DAYS soon\n", ""}, {"GID_MAX -1\n", ""}, {"", "HOME=home\n"}, {"SUB_UID_COUNT many\n", ""}, {"SUB_GID_MAX 4294967296\n", ""}, {"MAIL_DIR spool\n", ""}} {
+		if _, err := parseDefaults(c[0], c[1], ""); err == nil {
 			t.Errorf("%q %q was taken", c[0], c[1])
 		}
 	}
@@ -514,6 +542,9 @@ func TestACallPolkitRefusesIsNotAuthorizedAndChangesNothing(t *testing.T) {
 		}
 		if p, ok := checks[0].Subject.(polkit.UnixProcess); !ok || p.UID != me || int(p.PID) != os.Getpid() {
 			t.Errorf("%s: polkit was asked about %v", name, checks[0].Subject)
+		}
+		if checks[0].PIDFD != os.Getpid() {
+			t.Errorf("%s: the subject's pidfd names pid %d, want the caller %d", name, checks[0].PIDFD, os.Getpid())
 		}
 	}
 }

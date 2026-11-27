@@ -45,6 +45,9 @@ func TestUsersGroupsAndMembershipsResolveOnOneConnection(t *testing.T) {
 	if g, err := c.GroupByName(t.Context(), "video"); err != nil || g != video {
 		t.Errorf("GroupByName = %+v, %v; want %+v", g, err, video)
 	}
+	if g, err := c.GroupByGID(t.Context(), video.GID); err != nil || g != video {
+		t.Errorf("GroupByGID = %+v, %v; want %+v", g, err, video)
+	}
 	if got, err := c.Memberships(t.Context(), "carol"); err != nil || !slices.Equal(got, []string{"wheel", "video"}) {
 		t.Errorf("Memberships = %q, %v; want wheel and video", got, err)
 	}
@@ -68,7 +71,8 @@ func TestAnUnknownAccountIsNoRecordFound(t *testing.T) {
 	_, userErr := c.UserByName(t.Context(), "mallory")
 	_, uidErr := c.UserByUID(t.Context(), 4242)
 	_, groupErr := c.GroupByName(t.Context(), "nogroup")
-	for _, err := range []error{userErr, uidErr, groupErr} {
+	_, gidErr := c.GroupByGID(t.Context(), 4343)
+	for _, err := range []error{userErr, uidErr, groupErr, gidErr} {
 		if !errors.Is(err, userdb.NoRecordFound) {
 			t.Errorf("err = %v, want NoRecordFound", err)
 		}
@@ -79,10 +83,28 @@ func TestAnUnknownAccountIsNoRecordFound(t *testing.T) {
 	if !strings.Contains(uidErr.Error(), "uid=4242") {
 		t.Errorf("err = %v, want the uid named", uidErr)
 	}
+	if !strings.Contains(gidErr.Error(), "gid=4343") {
+		t.Errorf("err = %v, want the gid named", gidErr)
+	}
+}
+
+func TestGroupByGIDAsksForTheGIDAlone(t *testing.T) {
+	calls := make(chan userdbtest.Call, 1)
+	path := userdbtest.ServeFunc(t, func(c userdbtest.Call) [][]byte {
+		calls <- c
+		return [][]byte{[]byte(`{"parameters":{"record":{"groupName":"video","gid":26}}}`)}
+	})
+	if _, err := dial(t, path).GroupByGID(t.Context(), video.GID); err != nil {
+		t.Fatal(err)
+	}
+	c := <-calls
+	if c.Method != userdb.MethodGetGroupRecord || string(c.Parameters["gid"]) != "26" || c.Parameters["groupName"] != nil {
+		t.Errorf("call = %s %s, want %s with gid 26 and no name", c.Method, c.Parameters, userdb.MethodGetGroupRecord)
+	}
 }
 
 func TestEveryCallNamesTheMultiplexersService(t *testing.T) {
-	calls := make(chan string, 3)
+	calls := make(chan string, 4)
 	path := userdbtest.ServeFunc(t, func(c userdbtest.Call) [][]byte {
 		calls <- c.String("service")
 		return [][]byte{[]byte(`{"error":"io.systemd.UserDatabase.NoRecordFound"}`)}
@@ -90,8 +112,9 @@ func TestEveryCallNamesTheMultiplexersService(t *testing.T) {
 	c := dial(t, path)
 	_, _ = c.UserByUID(t.Context(), 1)
 	_, _ = c.GroupByName(t.Context(), "g")
+	_, _ = c.GroupByGID(t.Context(), 1)
 	_, _ = c.Memberships(t.Context(), "u")
-	for range 3 {
+	for range 4 {
 		if got := <-calls; got != userdb.Service {
 			t.Errorf("service = %q, want %q", got, userdb.Service)
 		}
@@ -155,6 +178,15 @@ func TestAMalformedGroupOrMembershipFails(t *testing.T) {
 	})
 	if g, err := dial(t, groupPath).GroupByName(t.Context(), "video"); err == nil || !strings.Contains(err.Error(), "no valid gid") {
 		t.Errorf("GroupByName = %+v, %v; want no valid gid", g, err)
+	}
+	otherPath := userdbtest.ServeFunc(t, func(userdbtest.Call) [][]byte {
+		return [][]byte{[]byte(`{"parameters":{"record":{"groupName":"audio","gid":17}}}`)}
+	})
+	if g, err := dial(t, otherPath).GroupByGID(t.Context(), video.GID); err == nil || !strings.Contains(err.Error(), "gid 17's") {
+		t.Errorf("GroupByGID = %+v, %v; want the other gid refused", g, err)
+	}
+	if g, err := dial(t, otherPath).GroupByName(t.Context(), "video"); err == nil || !strings.Contains(err.Error(), `"audio"`) {
+		t.Errorf("GroupByName = %+v, %v; want the other group refused", g, err)
 	}
 	memberPath := userdbtest.ServeFunc(t, func(userdbtest.Call) [][]byte {
 		return [][]byte{[]byte(`{"parameters":{"userName":"someone-else","groupName":"video"}}`)}

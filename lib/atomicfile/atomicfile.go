@@ -20,12 +20,95 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-const tempAttempts = 10000
+const (
+	tempAttempts  = 10000
+	selinuxLabel  = "security.selinux"
+	firstAttrSize = 256
+)
+
+// Ownership is how a file is owned: its user, group, permission bits and
+// SELinux label. Only OwnershipOf makes one WriteFileOwned takes.
+type Ownership struct {
+	perm     os.FileMode
+	owned    bool
+	uid, gid int
+	attrs    []xattr
+}
+
+type xattr struct {
+	name  string
+	value []byte
+}
+
+// ErrNoOwnership is WriteFileOwned given an Ownership OwnershipOf did
+// not read, which would give the file to root with no permissions.
+var ErrNoOwnership = errors.New("atomicfile: an Ownership OwnershipOf did not read")
+
+// OwnershipOf reads the ownership of the open file f. A file without an
+// SELinux label, or on a file system that has none, gives one without.
+func OwnershipOf(f *os.File) (Ownership, error) {
+	return ownershipOf(f, selinuxLabel)
+}
+
+func ownershipOf(f *os.File, attrNames ...string) (Ownership, error) {
+	fd := int(f.Fd())
+	var st unix.Stat_t
+	if err := unix.Fstat(fd, &st); err != nil {
+		return Ownership{}, fmt.Errorf("atomicfile: read the ownership of %s: %w", f.Name(), os.NewSyscallError("fstat", err))
+	}
+	own := Ownership{perm: os.FileMode(st.Mode).Perm(), owned: true, uid: int(st.Uid), gid: int(st.Gid)}
+	for _, name := range attrNames {
+		value, err := attrOf(fd, name)
+		if err != nil {
+			return Ownership{}, fmt.Errorf("atomicfile: read the %s of %s: %w", name, f.Name(), err)
+		}
+		if value != nil {
+			own.attrs = append(own.attrs, xattr{name: name, value: value})
+		}
+	}
+	return own, nil
+}
+
+func attrOf(fd int, name string) ([]byte, error) {
+	buf := make([]byte, firstAttrSize)
+	for {
+		n, err := unix.Fgetxattr(fd, name, buf)
+		switch {
+		case errors.Is(err, unix.ENODATA), errors.Is(err, unix.ENOTSUP):
+			return nil, nil
+		case errors.Is(err, unix.ERANGE):
+			buf = make([]byte, 2*len(buf))
+			continue
+		case err != nil:
+			return nil, os.NewSyscallError("fgetxattr", err)
+		}
+		return buf[:n], nil
+	}
+}
+
+func (o Ownership) apply(fd int) error {
+	if o.owned {
+		if err := unix.Fchown(fd, o.uid, o.gid); err != nil {
+			return os.NewSyscallError("fchown", err)
+		}
+	}
+	if err := unix.Fchmod(fd, uint32(o.perm)); err != nil {
+		return os.NewSyscallError("fchmod", err)
+	}
+	for _, a := range o.attrs {
+		if err := unix.Fsetxattr(fd, a.name, a.value, 0); err != nil {
+			return fmt.Errorf("set %s: %w", a.name, os.NewSyscallError("fsetxattr", err))
+		}
+	}
+	return nil
+}
+
+func permOnly(perm os.FileMode) Ownership { return Ownership{perm: perm.Perm()} }
 
 // Write replaces path with what write produces, with permissions perm.
 // On a failure path is untouched and the temporary is removed.
 func Write(path string, perm os.FileMode, write func(io.Writer) error) error {
-	return replace(path, perm, keepRename, func(f tempFile) error {
+	return replace(path, permOnly(perm), keepRename, func(f tempFile) error {
 		buf := bufio.NewWriter(f)
 		if err := write(buf); err != nil {
 			return err
@@ -38,12 +121,12 @@ func Write(path string, perm os.FileMode, write func(io.Writer) error) error {
 // wrote, as a muxer patching its header does: write is handed the
 // temporary itself, unbuffered.
 func WriteSeekable(path string, perm os.FileMode, write func(io.WriteSeeker) error) error {
-	return replace(path, perm, keepRename, func(f tempFile) error { return write(f) })
+	return replace(path, permOnly(perm), keepRename, func(f tempFile) error { return write(f) })
 }
 
 // WriteFile replaces path with data, as os.WriteFile but atomically.
 func WriteFile(path string, data []byte, perm os.FileMode) error {
-	return replace(path, perm, keepRename, writeData(data))
+	return replace(path, permOnly(perm), keepRename, writeData(data))
 }
 
 // WriteFileDurable is WriteFile for data the caller reports as stored,
@@ -51,7 +134,18 @@ func WriteFile(path string, data []byte, perm os.FileMode) error {
 // rename, so the replacement is on disk when it returns. A failure of
 // that sync is reported with path already replaced.
 func WriteFileDurable(path string, data []byte, perm os.FileMode) error {
-	return replace(path, perm, syncDir, writeData(data))
+	return replace(path, permOnly(perm), syncDir, writeData(data))
+}
+
+// WriteFileOwned is WriteFileDurable with the owner, group, permission
+// bits and SELinux label of own. Giving the file to another user or
+// label takes the privilege to; without it path is left untouched and
+// the error is the kernel's.
+func WriteFileOwned(path string, data []byte, own Ownership) error {
+	if !own.owned {
+		return fmt.Errorf("atomicfile: replace %s: %w", path, ErrNoOwnership)
+	}
+	return replace(path, own, syncDir, writeData(data))
 }
 
 func writeData(data []byte) func(tempFile) error {
@@ -77,8 +171,8 @@ func syncDir(dir string) error {
 	return err
 }
 
-func replace(path string, perm os.FileMode, after afterRename, write func(tempFile) error) error {
-	tmp, err := writeTemp(path, perm, write)
+func replace(path string, own Ownership, after afterRename, write func(tempFile) error) error {
+	tmp, err := writeTemp(path, own, write)
 	if err != nil {
 		return err
 	}
@@ -92,14 +186,14 @@ func replace(path string, perm os.FileMode, after afterRename, write func(tempFi
 	return nil
 }
 
-func writeTemp(path string, perm os.FileMode, write func(tempFile) error) (string, error) {
+func writeTemp(path string, own Ownership, write func(tempFile) error) (string, error) {
 	f, tmp, err := createTemp(path)
 	if err != nil {
 		return "", fmt.Errorf("atomicfile: create a temporary beside %s: %w", path, err)
 	}
 	err = write(f)
 	if err == nil {
-		err = os.NewSyscallError("fchmod", unix.Fchmod(f.fd, uint32(perm.Perm())))
+		err = own.apply(f.fd)
 	}
 	if err == nil {
 		err = os.NewSyscallError("fsync", unix.Fsync(f.fd))

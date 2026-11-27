@@ -81,6 +81,14 @@ func PIDFDOfFD(fd int) (*PIDFD, error) {
 	return &PIDFD{file: os.NewFile(intconv.Must[uintptr](pidfd), "pidfd"), cred: cred}, nil
 }
 
+// Adopt is the PIDFD for fd, a pidfd this process was handed rather
+// than read off a socket, such as the ProcessFD a bus names a caller
+// by, of the process whose ids are cred as the giver vouches for them.
+// It takes fd over, for the caller to Close.
+func Adopt(fd int, cred Credentials) *PIDFD {
+	return &PIDFD{file: os.NewFile(intconv.Must[uintptr](fd), "pidfd"), cred: cred}
+}
+
 func noPIDFD(err error) error {
 	if errors.Is(err, unix.ENOPROTOOPT) {
 		return ErrNoPIDFD

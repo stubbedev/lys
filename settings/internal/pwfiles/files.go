@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/stubbedev/lys/lib/atomicfile"
 	"golang.org/x/sys/unix"
 )
 
@@ -66,12 +67,11 @@ func (l *Lock) Unlock() error {
 	return nil
 }
 
-const selinuxLabel = "security.selinux"
+const backupSuffix = "-"
 
 type meta struct {
-	mode     os.FileMode
-	uid, gid int
-	label    []byte
+	own      atomicfile.Ownership
+	times    [2]unix.Timespec
 	original []byte
 }
 
@@ -116,9 +116,9 @@ func read(path string) (meta, []byte, error) {
 	if err := unix.Fstat(int(file.Fd()), &st); err != nil {
 		return meta{}, nil, fmt.Errorf("pwfiles: stat %s: %w", path, err)
 	}
-	label, err := fileLabel(file)
+	own, err := atomicfile.OwnershipOf(file)
 	if err != nil {
-		return meta{}, nil, fmt.Errorf("pwfiles: read the SELinux label of %s: %w", path, err)
+		return meta{}, nil, err
 	}
 	data, err := io.ReadAll(file)
 	if err != nil {
@@ -127,33 +127,19 @@ func read(path string) (meta, []byte, error) {
 	if data == nil {
 		data = []byte{}
 	}
-	return meta{mode: os.FileMode(st.Mode).Perm(), uid: int(st.Uid), gid: int(st.Gid), label: label, original: data}, data, nil
+	return meta{own: own, times: [2]unix.Timespec{st.Atim, st.Mtim}, original: data}, data, nil
 }
 
-func fileLabel(f *os.File) ([]byte, error) {
-	buf := make([]byte, 256)
-	for {
-		n, err := unix.Fgetxattr(int(f.Fd()), selinuxLabel, buf)
-		switch {
-		case errors.Is(err, unix.ENODATA), errors.Is(err, unix.ENOTSUP):
-			return nil, nil
-		case errors.Is(err, unix.ERANGE):
-			buf = make([]byte, 2*len(buf))
-			continue
-		case err != nil:
-			return nil, err
-		}
-		return buf[:n], nil
-	}
-}
+type writeFunc func(path string, data []byte, own atomicfile.Ownership) error
 
-type writeFunc func(path string, data []byte, m meta) error
-
-// Commit writes every file an edit changed, in File order, each
-// replaced whole as it was owned, moded and labelled. When one fails,
-// those already written get their old content back, so the files stay
-// as Load found them, and the error says what failed.
-func (f *Files) Commit() error { return f.commit(replace) }
+// Commit writes every file an edit changed, in File order. As the
+// shadow tools do, each is first backed up, /etc/passwd to
+// /etc/passwd-: the backup replaces the old one whole, with the content,
+// owner, mode, label and times Load read. Then the file is replaced
+// whole as it was owned, moded and labelled. When one fails, those
+// already written get their old content back, so the files stay as Load
+// found them, and the error says what failed.
+func (f *Files) Commit() error { return f.commit(atomicfile.WriteFileOwned) }
 
 func (f *Files) commit(write writeFunc) error {
 	var written []File
@@ -161,14 +147,15 @@ func (f *Files) commit(write writeFunc) error {
 		if !f.Changed(k) {
 			continue
 		}
-		err := write(filepath.Join(f.dir, k.Name()), []byte(f.Text(k)), f.metas[k])
+		err := f.replace(k, write)
 		if err == nil {
 			written = append(written, k)
 			continue
 		}
 		for _, w := range written {
-			if rerr := write(filepath.Join(f.dir, w.Name()), f.metas[w].original, f.metas[w]); rerr != nil {
-				err = errors.Join(err, fmt.Errorf("pwfiles: restore /etc/%s: %w", w.Name(), rerr))
+			path := filepath.Join(f.dir, w.Name())
+			if rerr := write(path, f.metas[w].original, f.metas[w].own); rerr != nil {
+				err = errors.Join(err, fmt.Errorf("pwfiles: restore %s: %w", path, rerr))
 			}
 		}
 		return err
@@ -176,48 +163,15 @@ func (f *Files) commit(write writeFunc) error {
 	return nil
 }
 
-func replace(path string, data []byte, m meta) (err error) {
-	dir := filepath.Dir(path)
-	tmp, err := os.CreateTemp(dir, "."+filepath.Base(path)+".lys-")
-	if err != nil {
-		return fmt.Errorf("pwfiles: write %s: %w", path, err)
+func (f *Files) replace(k File, write writeFunc) error {
+	path := filepath.Join(f.dir, k.Name())
+	m := f.metas[k]
+	backup := path + backupSuffix
+	if err := write(backup, m.original, m.own); err != nil {
+		return fmt.Errorf("pwfiles: back up %s: %w", path, err)
 	}
-	defer func() {
-		if err != nil {
-			_ = tmp.Close()
-			_ = os.Remove(tmp.Name())
-		}
-	}()
-	if err := tmp.Chown(m.uid, m.gid); err != nil {
-		return fmt.Errorf("pwfiles: write %s: %w", path, err)
+	if err := unix.UtimesNano(backup, m.times[:]); err != nil {
+		return fmt.Errorf("pwfiles: give %s the times of %s: %w", backup, path, err)
 	}
-	if err := tmp.Chmod(m.mode); err != nil {
-		return fmt.Errorf("pwfiles: write %s: %w", path, err)
-	}
-	if m.label != nil {
-		if err := unix.Fsetxattr(int(tmp.Fd()), selinuxLabel, m.label, 0); err != nil {
-			return fmt.Errorf("pwfiles: label the new %s: %w", path, err)
-		}
-	}
-	if _, err := tmp.Write(data); err != nil {
-		return fmt.Errorf("pwfiles: write %s: %w", path, err)
-	}
-	if err := tmp.Sync(); err != nil {
-		return fmt.Errorf("pwfiles: sync %s: %w", path, err)
-	}
-	if err := tmp.Close(); err != nil {
-		return fmt.Errorf("pwfiles: write %s: %w", path, err)
-	}
-	if err := os.Rename(tmp.Name(), path); err != nil {
-		return fmt.Errorf("pwfiles: replace %s: %w", path, err)
-	}
-	d, err := os.Open(dir) //nolint:gosec // the account files' directory
-	if err != nil {
-		return fmt.Errorf("pwfiles: sync %s: %w", dir, err)
-	}
-	defer func() { _ = d.Close() }()
-	if err := d.Sync(); err != nil {
-		return fmt.Errorf("pwfiles: sync %s: %w", dir, err)
-	}
-	return nil
+	return write(path, []byte(f.Text(k)), m.own)
 }

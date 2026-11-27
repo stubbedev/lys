@@ -212,18 +212,32 @@ func (c *Conn) user(ctx context.Context, key string, params map[string]any) (Use
 
 // GroupByName is the group record of the group called name.
 func (c *Conn) GroupByName(ctx context.Context, name string) (Group, error) {
-	key := "groupName=" + name
+	g, err := c.group(ctx, "groupName="+name, map[string]any{"groupName": name})
+	if err == nil && g.Name != name {
+		return Group{}, fmt.Errorf("userdb %s groupName=%s: the record is %q's", MethodGetGroupRecord, name, g.Name)
+	}
+	return g, err
+}
+
+// GroupByGID is the group record of gid.
+func (c *Conn) GroupByGID(ctx context.Context, gid GID) (Group, error) {
+	key := "gid=" + strconv.FormatUint(uint64(gid), 10)
+	g, err := c.group(ctx, key, map[string]any{"gid": gid})
+	if err == nil && g.GID != gid {
+		return Group{}, fmt.Errorf("userdb %s %s: the record is gid %d's", MethodGetGroupRecord, key, g.GID)
+	}
+	return g, err
+}
+
+func (c *Conn) group(ctx context.Context, key string, params map[string]any) (Group, error) {
 	var reply struct {
 		Record *Group `json:"record"`
 	}
-	if err := c.one(ctx, MethodGetGroupRecord, key, map[string]any{"groupName": name}, &reply); err != nil {
+	if err := c.one(ctx, MethodGetGroupRecord, key, params, &reply); err != nil {
 		return Group{}, err
 	}
 	if reply.Record == nil {
 		return Group{}, fmt.Errorf("userdb %s %s: the reply holds no record", MethodGetGroupRecord, key)
-	}
-	if reply.Record.Name != name {
-		return Group{}, fmt.Errorf("userdb %s %s: the record is %q's", MethodGetGroupRecord, key, reply.Record.Name)
 	}
 	return *reply.Record, nil
 }

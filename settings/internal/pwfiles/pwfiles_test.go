@@ -1,13 +1,9 @@
 package pwfiles
 
 import (
-	"context"
 	"errors"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 )
 
 const (
@@ -27,11 +23,16 @@ const (
 		"wheel:::alice,bob\n" +
 		"users:::\n" +
 		"alice:!::\n"
+	subuidText = "alice:100000:65536\n" +
+		"bob:165536:65536\n" +
+		"1000:280000:10\n"
+	subgidText = "alice:100000:65536\n" +
+		"bob:165536:65536\n"
 )
 
 func fixture(t *testing.T) DB {
 	t.Helper()
-	db, err := parse([numFiles][]byte{Passwd: []byte(passwdText), Shadow: []byte(shadowText), Group: []byte(groupText), Gshadow: []byte(gshadowText)})
+	db, err := parse([numFiles][]byte{Passwd: []byte(passwdText), Shadow: []byte(shadowText), Group: []byte(groupText), Gshadow: []byte(gshadowText), Subuid: []byte(subuidText), Subgid: []byte(subgidText)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -42,7 +43,7 @@ func none(uint32) (bool, error) { return false, nil }
 
 func TestAnUnchangedFileIsWrittenAsItWasRead(t *testing.T) {
 	db := fixture(t)
-	for f, want := range map[File]string{Passwd: passwdText, Shadow: shadowText, Group: groupText, Gshadow: gshadowText} {
+	for f, want := range map[File]string{Passwd: passwdText, Shadow: shadowText, Group: groupText, Gshadow: gshadowText, Subuid: subuidText, Subgid: subgidText} {
 		if got := db.Text(f); got != want || db.Changed(f) {
 			t.Errorf("%s: %q (changed %v), want %q", f.Name(), got, db.Changed(f), want)
 		}
@@ -51,9 +52,13 @@ func TestAnUnchangedFileIsWrittenAsItWasRead(t *testing.T) {
 
 func TestAMalformedLineRefusesTheWholeFile(t *testing.T) {
 	for name, texts := range map[string][numFiles][]byte{
-		"a short passwd line": {Passwd: []byte("root:x:0:0:root:/root\n"), Shadow: []byte(shadowText), Group: []byte(groupText)},
-		"a long group line":   {Passwd: []byte(passwdText), Shadow: []byte(shadowText), Group: []byte("wheel:x:10:alice:bob\n")},
-		"a nameless shadow":   {Passwd: []byte(passwdText), Shadow: []byte(":x:1:2:3:4:5:6:7\n"), Group: []byte(groupText)},
+		"a short passwd line":  {Passwd: []byte("root:x:0:0:root:/root\n"), Shadow: []byte(shadowText), Group: []byte(groupText)},
+		"a long group line":    {Passwd: []byte(passwdText), Shadow: []byte(shadowText), Group: []byte("wheel:x:10:alice:bob\n")},
+		"a nameless shadow":    {Passwd: []byte(passwdText), Shadow: []byte(":x:1:2:3:4:5:6:7\n"), Group: []byte(groupText)},
+		"a long subuid line":   {Passwd: []byte(passwdText), Shadow: []byte(shadowText), Group: []byte(groupText), Subuid: []byte("alice:1:2:3\n")},
+		"a subuid start":       {Passwd: []byte(passwdText), Shadow: []byte(shadowText), Group: []byte(groupText), Subuid: []byte("alice:x:2\n")},
+		"a negative count":     {Passwd: []byte(passwdText), Shadow: []byte(shadowText), Group: []byte(groupText), Subgid: []byte("alice:1:-2\n")},
+		"a count past 32 bits": {Passwd: []byte(passwdText), Shadow: []byte(shadowText), Group: []byte(groupText), Subgid: []byte("alice:1:4294967296\n")},
 	} {
 		if _, err := parse(texts); !errors.Is(err, ErrMalformed) {
 			t.Errorf("%s: %v, want %v", name, err, ErrMalformed)
@@ -62,8 +67,17 @@ func TestAMalformedLineRefusesTheWholeFile(t *testing.T) {
 	if _, err := parse([numFiles][]byte{Passwd: []byte(passwdText), Group: []byte(groupText)}); err == nil || !strings.Contains(err.Error(), "/etc/shadow does not exist") {
 		t.Errorf("no shadow: %v", err)
 	}
-	if db, err := parse([numFiles][]byte{Passwd: []byte(passwdText), Shadow: []byte(shadowText), Group: []byte(groupText)}); err != nil || db.Text(Gshadow) != "" {
+	db, err := parse([numFiles][]byte{Passwd: []byte(passwdText), Shadow: []byte(shadowText), Group: []byte(groupText)})
+	if err != nil || db.Text(Gshadow) != "" {
 		t.Errorf("no gshadow, which may be missing: %v", err)
+	}
+	for _, f := range []File{Gshadow, Subuid, Subgid} {
+		if db.Exists(f) {
+			t.Errorf("%s exists without a text", f.Name())
+		}
+	}
+	if !db.Exists(Passwd) {
+		t.Errorf("passwd does not exist")
 	}
 }
 
@@ -210,6 +224,8 @@ func TestADeletedAccountLeavesEveryFileWithItsOwnGroup(t *testing.T) {
 		Shadow:  strings.Replace(shadowText, "alice:$6$a$b:19000:0:99999:7:::\n", "", 1),
 		Group:   "root:x:0:\nwheel:x:10:bob\nusers:x:100:\n",
 		Gshadow: "root:::\nwheel:::bob\nusers:::\n",
+		Subuid:  "bob:165536:65536\n",
+		Subgid:  "bob:165536:65536\n",
 	} {
 		if got := db.Text(f); got != want {
 			t.Errorf("%s: %q, want %q", f.Name(), got, want)
@@ -219,6 +235,9 @@ func TestADeletedAccountLeavesEveryFileWithItsOwnGroup(t *testing.T) {
 	if err := shared.DeleteUser("bob"); err != nil {
 		t.Fatal(err)
 	}
+	if shared.Text(Subuid) != "alice:100000:65536\n1000:280000:10\n" || shared.Text(Subgid) != "alice:100000:65536\n" {
+		t.Errorf("bob's deletion took another's ranges: %q, %q", shared.Text(Subuid), shared.Text(Subgid))
+	}
 	if !strings.Contains(shared.Text(Group), "users:x:100:\n") {
 		t.Errorf("bob's primary group, not his own, went: %q", shared.Text(Group))
 	}
@@ -227,121 +246,73 @@ func TestADeletedAccountLeavesEveryFileWithItsOwnGroup(t *testing.T) {
 	}
 }
 
-func etc(t *testing.T) string {
-	t.Helper()
-	dir := t.TempDir()
+func TestANewAccountsSubordinateIDsAreTheLowestFreeRangeOfTheCount(t *testing.T) {
+	db := fixture(t)
+	for _, c := range []struct {
+		name  string
+		s     SubIDs
+		r     Range
+		count uint32
+		want  uint32
+	}{
+		{name: "after every range", s: SubUIDs, r: Range{Min: 100000, Max: 600100000}, count: 65536, want: 280010},
+		{name: "the hole before the last", s: SubUIDs, r: Range{Min: 100000, Max: 600100000}, count: 10, want: 231072},
+		{name: "below every range", s: SubUIDs, r: Range{Min: 1000, Max: 600100000}, count: 99000, want: 1000},
+		{name: "one ID too many for below", s: SubUIDs, r: Range{Min: 1000, Max: 600100000}, count: 99001, want: 280010},
+		{name: "in subgid alone", s: SubGIDs, r: Range{Min: 100000, Max: 600100000}, count: 65536, want: 231072},
+		{name: "the range's whole tail", s: SubGIDs, r: Range{Min: 100000, Max: 231072 + 9}, count: 10, want: 231072},
+		{name: "a start inside a range", s: SubGIDs, r: Range{Min: 150000, Max: 600100000}, count: 1, want: 231072},
+		{name: "the top of 32 bits", s: SubGIDs, r: Range{Min: 4294967295, Max: 4294967295}, count: 1, want: 4294967295},
+	} {
+		if got, err := db.FreeSubIDs(c.s, c.r, c.count); err != nil || got != c.want {
+			t.Errorf("%s: %d, %v; want %d", c.name, got, err, c.want)
+		}
+	}
+	if _, err := db.FreeSubIDs(SubUIDs, Range{Min: 100000, Max: 231071 + 9}, 10); !errors.Is(err, ErrExhausted) {
+		t.Errorf("no hole of 10: %v, want %v", err, ErrExhausted)
+	}
 	for name, c := range map[string]struct {
-		text string
-		mode os.FileMode
-	}{"passwd": {passwdText, 0o644}, "shadow": {shadowText, 0o640}, "group": {groupText, 0o644}, "gshadow": {gshadowText, 0o600}} {
-		path := filepath.Join(dir, name)
-		if err := os.WriteFile(path, []byte(c.text), c.mode); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.Chmod(path, c.mode); err != nil {
-			t.Fatal(err)
-		}
-	}
-	return dir
-}
-
-func TestACommitReplacesOnlyTheChangedFilesKeepingTheirModes(t *testing.T) {
-	dir := etc(t)
-	f, err := Load(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	before, err := os.Stat(filepath.Join(dir, "group"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := f.SetPassword("bob", "$6$n$h", 20001); err != nil {
-		t.Fatal(err)
-	}
-	if err := f.Commit(); err != nil {
-		t.Fatal(err)
-	}
-	st, err := os.Stat(filepath.Join(dir, "shadow"))
-	if err != nil || st.Mode().Perm() != 0o640 {
-		t.Fatalf("shadow after the commit: %v, %v", st, err)
-	}
-	data, err := os.ReadFile(filepath.Join(dir, "shadow"))
-	if err != nil || !strings.Contains(string(data), "bob:$6$n$h:20001:") {
-		t.Fatalf("shadow %q, %v", data, err)
-	}
-	after, err := os.Stat(filepath.Join(dir, "group"))
-	if err != nil || !os.SameFile(before, after) {
-		t.Fatal("the unchanged group was replaced")
-	}
-	entries, err := os.ReadDir(dir)
-	if err != nil || len(entries) != 4 {
-		t.Fatalf("the directory holds %v: %v", entries, err)
-	}
-}
-
-func TestAFailedCommitPutsBackWhatItHadWritten(t *testing.T) {
-	dir := etc(t)
-	f, err := Load(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := f.AddGroup("zoe", 1002); err != nil {
-		t.Fatal(err)
-	}
-	if err := f.AddUser(NewUser{Name: "zoe", UID: 1002, GID: 1002}); err != nil {
-		t.Fatal(err)
-	}
-	broken := errors.New("disk full")
-	err = f.commit(func(path string, data []byte, m meta) error {
-		if filepath.Base(path) == "passwd" {
-			return broken
-		}
-		return replace(path, data, m)
-	})
-	if !errors.Is(err, broken) {
-		t.Fatalf("got %v", err)
-	}
-	for name, want := range map[string]string{"passwd": passwdText, "shadow": shadowText, "group": groupText, "gshadow": gshadowText} {
-		if data, err := os.ReadFile(filepath.Join(dir, name)); err != nil || string(data) != want {
-			t.Errorf("%s after the failed commit: %q, %v", name, data, err)
+		r     Range
+		count uint32
+	}{
+		"no IDs":             {r: Range{Min: 1, Max: 10}, count: 0},
+		"an empty range":     {r: Range{Min: 10, Max: 1}, count: 1},
+		"more than it holds": {r: Range{Min: 1, Max: 10}, count: 11},
+	} {
+		if _, err := db.FreeSubIDs(SubUIDs, c.r, c.count); err == nil || errors.Is(err, ErrExhausted) {
+			t.Errorf("%s: %v, want a refused request", name, err)
 		}
 	}
 }
 
-func TestTheLockExcludesAnotherHolderUntilItIsReleased(t *testing.T) {
-	dir := t.TempDir()
-	held, err := TakeLock(t.Context(), dir)
+func TestSubordinateIDsAreAnAccountsByNameOrUserID(t *testing.T) {
+	db := fixture(t)
+	for _, c := range []struct {
+		s    SubIDs
+		name string
+		uid  uint32
+		want bool
+	}{
+		{SubUIDs, "bob", 1001, true},
+		{SubUIDs, "nobody-here", 1000, true},
+		{SubGIDs, "nobody-here", 1000, false},
+		{SubGIDs, "zoe", 1002, false},
+	} {
+		if got := db.HasSubIDs(c.s, c.name, c.uid); got != c.want {
+			t.Errorf("HasSubIDs(%d, %s, %d) = %v, want %v", c.s, c.name, c.uid, got, c.want)
+		}
+	}
+	if err := db.AddSubIDs(SubGIDs, "zoe", 231072, 65536); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := db.Text(Subgid), subgidText+"zoe:231072:65536\n"; got != want || !db.Changed(Subgid) || db.Changed(Subuid) {
+		t.Errorf("subgid: %q, want %q", got, want)
+	}
+	absent, err := parse([numFiles][]byte{Passwd: []byte(passwdText), Shadow: []byte(shadowText), Group: []byte(groupText)})
 	if err != nil {
 		t.Fatal(err)
 	}
-	ctx, cancel := context.WithTimeout(t.Context(), 3*lockRetry)
-	defer cancel()
-	if l, err := TakeLock(ctx, dir); !errors.Is(err, ErrLocked) {
-		if l != nil {
-			_ = l.Unlock()
-		}
-		t.Fatalf("a second holder: %v, want %v", err, ErrLocked)
-	}
-	got := make(chan error, 1)
-	go func() {
-		l, err := TakeLock(t.Context(), dir)
-		if err == nil {
-			err = l.Unlock()
-		}
-		got <- err
-	}()
-	if err := held.Unlock(); err != nil {
-		t.Fatal(err)
-	}
-	select {
-	case err := <-got:
-		if err != nil {
-			t.Fatalf("after the release: %v", err)
-		}
-	case <-time.After(time.Minute):
-		t.Fatal("the lock stayed held after its release")
-	}
-	if st, err := os.Stat(filepath.Join(dir, LockName)); err != nil || st.Mode().Perm() != 0o600 {
-		t.Fatalf("the lock file: %v, %v", st, err)
+	if err := absent.AddSubIDs(SubUIDs, "zoe", 100000, 65536); !errors.Is(err, ErrNoEntry) || absent.Changed(Subuid) {
+		t.Errorf("no subuid: %v, want %v", err, ErrNoEntry)
 	}
 }

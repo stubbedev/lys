@@ -1,5 +1,5 @@
-// Package pwfiles edits the account files, passwd, shadow, group and
-// gshadow, as the shadow tools do: under /etc/.pwd.lock, the lock
+// Package pwfiles edits the account files, passwd, shadow, group,
+// gshadow, subuid and subgid, as the shadow tools do: under /etc/.pwd.lock, the lock
 // lckpwdf(3) takes, every line kept as it was but the ones an edit
 // changes, and each changed file replaced whole with its owner, mode
 // and SELinux label. The edits are pure, over a DB in memory; Load and
@@ -7,21 +7,27 @@
 package pwfiles
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/stubbedev/lys/lib/intconv"
 )
 
 // File is one of the account files.
 type File uint8
 
 // The account files, in the order Commit writes them: a new account's
-// shadow entry and group before the passwd entry that makes it one.
+// shadow entry, subordinate IDs and group before the passwd entry that
+// makes it one.
 const (
 	Shadow File = iota
 	Gshadow
+	Subuid
+	Subgid
 	Group
 	Passwd
 	numFiles
@@ -31,9 +37,14 @@ var specs = [numFiles]struct {
 	name     string
 	fields   int
 	optional bool
+	// ranges is a file of subordinate ID ranges, whose second and
+	// third fields are a start and a count.
+	ranges bool
 }{
 	Shadow:  {name: "shadow", fields: 9},
 	Gshadow: {name: "gshadow", fields: 4, optional: true},
+	Subuid:  {name: "subuid", fields: 3, optional: true, ranges: true},
+	Subgid:  {name: "subgid", fields: 3, optional: true, ranges: true},
 	Group:   {name: "group", fields: 4},
 	Passwd:  {name: "passwd", fields: 7},
 }
@@ -47,6 +58,7 @@ const (
 	spName, spHash, spLastChange, spMin, spMax, spWarn           = 0, 1, 2, 3, 4, 5
 	grName, grPassword, grMembers                                = 0, 1, 3
 	gsName, gsPassword, gsAdmins, gsMembers                      = 0, 1, 2, 3
+	subOwner, subStart, subCount                                 = 0, 1, 2
 )
 
 // The defined failures of an edit or a load.
@@ -69,9 +81,10 @@ type table struct {
 type DB struct{ tables [numFiles]table }
 
 // parse reads the files' texts, a nil text being a file that does not
-// exist, which only gshadow may be. A line with the wrong number of
-// fields is ErrMalformed, naming the file and line, and nothing of it
-// is guessed at.
+// exist, which only gshadow, subuid and subgid may be. A line with the
+// wrong number of fields, or a range whose start or count is no ID, is
+// ErrMalformed, naming the file and line, and nothing of it is guessed
+// at.
 func parse(texts [numFiles][]byte) (DB, error) {
 	var db DB
 	for f := range numFiles {
@@ -105,6 +118,11 @@ func parseTable(f File, text string) (table, error) {
 		if len(fields) != specs[f].fields || fields[0] == "" {
 			return table{}, fmt.Errorf("pwfiles: /etc/%s line %d has %d fields, want %d: %w", f.Name(), i+1, len(fields), specs[f].fields, ErrMalformed)
 		}
+		if specs[f].ranges {
+			if _, _, err := parseRange(fields); err != nil {
+				return table{}, fmt.Errorf("pwfiles: /etc/%s line %d: %w: %w", f.Name(), i+1, err, ErrMalformed)
+			}
+		}
 		t.lines = append(t.lines, fields)
 	}
 	return t, nil
@@ -119,6 +137,9 @@ func (db DB) Text(f File) string {
 	}
 	return b.String()
 }
+
+// Exists reports whether f exists.
+func (db DB) Exists(f File) bool { return db.tables[f].present }
 
 // Changed reports whether an edit changed f.
 func (db DB) Changed(f File) bool { return db.tables[f].changed }
@@ -137,6 +158,15 @@ func (db *DB) remove(f File, name string) {
 	t := &db.tables[f]
 	if i := db.find(f, name); i >= 0 {
 		t.lines = slices.Delete(t.lines, i, i+1)
+		t.changed = true
+	}
+}
+
+func (db *DB) removeAll(f File, match func([]string) bool) {
+	t := &db.tables[f]
+	kept := slices.DeleteFunc(t.lines, func(fields []string) bool { return fields != nil && match(fields) })
+	if len(kept) != len(t.lines) {
+		t.lines = kept
 		t.changed = true
 	}
 }
@@ -380,8 +410,9 @@ func (db *DB) membership(group, user string, add bool) error {
 	return nil
 }
 
-// DeleteUser removes user name from passwd and shadow, from every
-// group's members and gshadow's administrators, and removes its own
+// DeleteUser removes user name from passwd and shadow, its ranges from
+// subuid and subgid, it from every group's members and gshadow's
+// administrators, and removes its own
 // group, the one of its name that is its primary group, where no other
 // account has that group as its primary one.
 func (db *DB) DeleteUser(name string) error {
@@ -390,8 +421,12 @@ func (db *DB) DeleteUser(name string) error {
 		return err
 	}
 	gid := db.tables[Passwd].lines[p][pwGID]
+	uid := db.tables[Passwd].lines[p][idField]
 	db.remove(Passwd, name)
 	db.remove(Shadow, name)
+	for _, s := range []SubIDs{SubUIDs, SubGIDs} {
+		db.removeAll(s.File(), func(fields []string) bool { return ownsRange(fields, name, uid) })
+	}
 	drop := func(members []string) []string {
 		return slices.DeleteFunc(members, func(m string) bool { return m == name })
 	}
@@ -417,5 +452,88 @@ func (db *DB) DeleteUser(name string) error {
 	}
 	db.remove(Group, name)
 	db.remove(Gshadow, name)
+	return nil
+}
+
+// SubIDs is one kind of subordinate IDs: SubUIDs, in subuid, or
+// SubGIDs, in subgid.
+type SubIDs uint8
+
+// The kinds of subordinate IDs.
+const (
+	SubUIDs SubIDs = iota
+	SubGIDs
+)
+
+// File is the file that holds the kind's ranges.
+func (s SubIDs) File() File { return [...]File{SubUIDs: Subuid, SubGIDs: Subgid}[s] }
+
+func parseRange(fields []string) (start, count uint64, err error) {
+	if start, err = strconv.ParseUint(fields[subStart], 10, 32); err != nil {
+		return 0, 0, fmt.Errorf("the start %q is no ID", fields[subStart])
+	}
+	if count, err = strconv.ParseUint(fields[subCount], 10, 32); err != nil {
+		return 0, 0, fmt.Errorf("the count %q is no count of IDs", fields[subCount])
+	}
+	return start, count, nil
+}
+
+func ownsRange(fields []string, name, uid string) bool {
+	return fields[subOwner] == name || fields[subOwner] == uid
+}
+
+// HasSubIDs reports whether the account name of uid owns a range of s,
+// one naming it or its user ID.
+func (db DB) HasSubIDs(s SubIDs, name string, uid uint32) bool {
+	id := strconv.FormatUint(uint64(uid), 10)
+	return slices.ContainsFunc(db.tables[s.File()].lines, func(fields []string) bool { return fields != nil && ownsRange(fields, name, id) })
+}
+
+// FreeSubIDs is the start of the range of count IDs of s a new account
+// takes in r, as useradd picks it: the lowest start in r from which
+// count IDs overlap no range the file holds. A count r cannot hold is
+// an error, and no such start ErrExhausted.
+func (db DB) FreeSubIDs(s SubIDs, r Range, count uint32) (uint32, error) {
+	lo, hi, n := uint64(r.Min), uint64(r.Max), uint64(count)
+	if n == 0 || hi < lo || n > hi-lo+1 {
+		return 0, fmt.Errorf("pwfiles: %d IDs of /etc/%s in %d-%d: no such range", count, s.File().Name(), r.Min, r.Max)
+	}
+	type span struct{ first, count uint64 }
+	var held []span
+	for _, fields := range db.tables[s.File()].lines {
+		if fields == nil {
+			continue
+		}
+		first, c, _ := parseRange(fields)
+		if c > 0 {
+			held = append(held, span{first, c})
+		}
+	}
+	slices.SortFunc(held, func(a, b span) int { return cmp.Or(cmp.Compare(a.first, b.first), cmp.Compare(a.count, b.count)) })
+	low := lo
+	for _, h := range held {
+		if end := min(h.first, hi+1); end >= low && end-low >= n {
+			return intconv.Must[uint32](low), nil
+		}
+		low = max(low, h.first+h.count)
+		if low > hi {
+			break
+		}
+	}
+	if low <= hi && hi-low+1 >= n {
+		return intconv.Must[uint32](low), nil
+	}
+	return 0, fmt.Errorf("pwfiles: no %d free IDs of /etc/%s in %d-%d: %w", count, s.File().Name(), r.Min, r.Max, ErrExhausted)
+}
+
+// AddSubIDs gives the account name the range of count IDs of s from
+// start; a file that does not exist is ErrNoEntry, as useradd adds
+// ranges only to one that does.
+func (db *DB) AddSubIDs(s SubIDs, name string, start, count uint32) error {
+	f := s.File()
+	if !db.tables[f].present {
+		return fmt.Errorf("pwfiles: /etc/%s does not exist: %w", f.Name(), ErrNoEntry)
+	}
+	db.append(f, []string{name, strconv.FormatUint(uint64(start), 10), strconv.FormatUint(uint64(count), 10)})
 	return nil
 }

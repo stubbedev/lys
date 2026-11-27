@@ -2728,6 +2728,37 @@
       "testing"
     ]
   },
+  "lib/busauth": {
+    "imports": [
+      "lib/dbusx",
+      "lib/intconv",
+      "lib/peercred",
+      "lib/polkit",
+      "lib/third_party/godbus"
+    ],
+    "external": [
+      "context",
+      "errors",
+      "fmt",
+      "strconv",
+      "time"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/fdtest",
+      "lib/peercred/peercredtest",
+      "lib/polkit/polkittest",
+      "lib/procstat",
+      "lib/testbuild",
+      "lib/testhome"
+    ],
+    "testExternal": [
+      "golang.org/x/sys/unix",
+      "os",
+      "strings",
+      "testing"
+    ]
+  },
   "lib/capture": {
     "imports": [
       "lib/dmabuf",
@@ -5167,6 +5198,25 @@
       "testing"
     ]
   },
+  "lib/uaccess": {
+    "external": [
+      "errors",
+      "fmt",
+      "golang.org/x/sys/unix",
+      "io/fs",
+      "os",
+      "path/filepath",
+      "slices",
+      "strings",
+      "time"
+    ],
+    "testImports": [
+      "lib/testbuild"
+    ],
+    "testExternal": [
+      "testing"
+    ]
+  },
   "lib/udevmonitor": {
     "imports": [
       "lib/intconv"
@@ -5608,6 +5658,7 @@
     "imports": [
       "desktop/config",
       "desktop/shell/lockclient",
+      "lib/uaccess",
       "lib/xdg",
       "login/dmsocket",
       "login/greeterconfig",
@@ -5978,6 +6029,7 @@
       "desktop/config",
       "desktop/shlex",
       "lib/atomicfile",
+      "lib/uaccess",
       "lib/xdg",
       "lib/xkb",
       "login/internal/greeter",
@@ -5992,7 +6044,8 @@
       "path/filepath",
       "strconv",
       "strings",
-      "syscall"
+      "syscall",
+      "time"
     ],
     "testImports": [
       "lib/logtest",
@@ -6411,9 +6464,9 @@
   },
   "power/charge": {
     "imports": [
+      "lib/busauth",
       "lib/dbusx",
-      "lib/third_party/godbus",
-      "power/internal/busauth"
+      "lib/third_party/godbus"
     ],
     "external": [
       "context",
@@ -6596,21 +6649,6 @@
       "testing"
     ]
   },
-  "power/internal/busauth": {
-    "imports": [
-      "lib/dbusx",
-      "lib/intconv",
-      "lib/peercred",
-      "lib/polkit",
-      "lib/third_party/godbus"
-    ],
-    "external": [
-      "context",
-      "errors",
-      "fmt",
-      "time"
-    ]
-  },
   "power/internal/camlight": {
     "imports": [
       "lib/v4l2",
@@ -6678,12 +6716,12 @@
   },
   "power/internal/daemon": {
     "imports": [
+      "lib/busauth",
       "lib/dbusx",
       "lib/polkit",
       "lib/third_party/godbus",
       "lib/udevmonitor",
       "power/charge",
-      "power/internal/busauth",
       "power/internal/chargepolicy",
       "power/internal/config",
       "power/internal/devicepower",
@@ -6877,10 +6915,10 @@
   },
   "power/internal/pauser": {
     "imports": [
+      "lib/busauth",
       "lib/dbusx",
       "lib/polkit",
       "lib/third_party/godbus",
-      "power/internal/busauth",
       "power/internal/statefile",
       "power/pause"
     ],
@@ -7109,9 +7147,9 @@
   },
   "power/pause": {
     "imports": [
+      "lib/busauth",
       "lib/dbusx",
-      "lib/third_party/godbus",
-      "power/internal/busauth"
+      "lib/third_party/godbus"
     ],
     "external": [
       "cmp",
@@ -7137,9 +7175,9 @@
   },
   "power/profile": {
     "imports": [
+      "lib/busauth",
       "lib/dbusx",
-      "lib/third_party/godbus",
-      "power/internal/busauth"
+      "lib/third_party/godbus"
     ],
     "external": [
       "context",
@@ -7873,7 +7911,12 @@
     ]
   },
   "settings/internal/pwfiles": {
+    "imports": [
+      "lib/atomicfile",
+      "lib/intconv"
+    ],
     "external": [
+      "cmp",
       "context",
       "errors",
       "fmt",
@@ -7888,6 +7931,7 @@
       "time"
     ],
     "testExternal": [
+      "syscall",
       "testing"
     ]
   },
@@ -8084,9 +8128,9 @@
     "imports": [
       "desktop/useraccount",
       "lib/atomicfile",
+      "lib/busauth",
       "lib/dbusx",
       "lib/intconv",
-      "lib/peercred",
       "lib/polkit",
       "lib/third_party/godbus",
       "lib/userdb",
@@ -8096,6 +8140,7 @@
     "external": [
       "bytes",
       "context",
+      "encoding/binary",
       "encoding/json",
       "errors",
       "flag",
@@ -8103,6 +8148,7 @@
       "io",
       "io/fs",
       "log",
+      "net",
       "os",
       "os/signal",
       "path/filepath",
@@ -8112,13 +8158,15 @@
       "time"
     ],
     "testImports": [
-      "lib/polkit/polkittest"
+      "lib/polkit/polkittest",
+      "lib/sockdir"
     ],
     "testExternal": [
       "encoding/xml",
       "image",
       "image/png",
       "slices",
+      "sync",
       "testing"
     ]
   },

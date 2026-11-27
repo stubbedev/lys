@@ -131,6 +131,32 @@ func checkHome(home string, uid uint32) (exists bool, err error) {
 	return true, nil
 }
 
+// checkSpool is the mail spool of an account of uid that may be
+// removed with it: a regular file that account owns, or nothing to
+// remove where there is none. Anything else, a link or another's file,
+// is refused.
+func checkSpool(spool string, uid uint32) (exists bool, err error) {
+	st, err := os.Lstat(spool)
+	if errors.Is(err, fs.ErrNotExist) {
+		return false, nil
+	}
+	if err != nil {
+		return false, accounts.Errorf(accounts.ErrFailed, "look at the mail spool %s: %v", spool, err)
+	}
+	owner, ok := st.Sys().(*syscall.Stat_t)
+	if !st.Mode().IsRegular() || !ok || owner.Uid != uid {
+		return false, accounts.Errorf(accounts.ErrFailed, "%s is not a file of uid %d, so it stays", spool, uid)
+	}
+	return true, nil
+}
+
+func removeFile(path string) error {
+	if err := os.Remove(path); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("remove %s: %w", path, err)
+	}
+	return nil
+}
+
 func removeTree(path string) error {
 	if err := os.RemoveAll(path); err != nil {
 		return fmt.Errorf("remove %s: %w", path, err)

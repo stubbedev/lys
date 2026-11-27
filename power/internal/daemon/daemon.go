@@ -14,10 +14,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/stubbedev/lys/lib/busauth"
 	"github.com/stubbedev/lys/lib/dbusx"
 
 	"github.com/stubbedev/lys/power/charge"
-	"github.com/stubbedev/lys/power/internal/busauth"
 	"github.com/stubbedev/lys/power/internal/chargepolicy"
 	"github.com/stubbedev/lys/power/internal/config"
 	"github.com/stubbedev/lys/power/internal/energyd"

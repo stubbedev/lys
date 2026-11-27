@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -29,23 +28,24 @@ type directory interface {
 	UserByName(ctx context.Context, name string) (userdb.User, error)
 	UserByUID(ctx context.Context, uid userdb.UID) (userdb.User, error)
 	GroupByName(ctx context.Context, name string) (userdb.Group, error)
+	GroupByGID(ctx context.Context, gid userdb.GID) (userdb.Group, error)
 	Close() error
 }
 
 func dialUserDB(ctx context.Context) (directory, error) { return userdb.Dial(ctx, userdb.SocketPath) }
 
 // system is the machine the service changes: its /etc, the avatars the
-// greeter reads, /proc, what NixOS declares, the user database and the
-// clock.
+// greeter reads, /proc, nscd's socket, what NixOS declares, the user
+// database and the clock.
 type system struct {
-	etc, avatars, proc string
-	nixos              *nixos
-	directory          func(context.Context) (directory, error)
-	now                func() time.Time
+	etc, avatars, proc, nscd string
+	nixos                    *nixos
+	directory                func(context.Context) (directory, error)
+	now                      func() time.Time
 }
 
 func liveSystem(n *nixos) system {
-	return system{etc: "/etc", avatars: useraccount.AvatarsDir, proc: "/proc", nixos: n, directory: dialUserDB, now: time.Now}
+	return system{etc: "/etc", avatars: useraccount.AvatarsDir, proc: "/proc", nscd: nscdSocket, nixos: n, directory: dialUserDB, now: time.Now}
 }
 
 func failed(err error) *accounts.Error {
@@ -103,20 +103,24 @@ func (s system) change(ctx context.Context, uid uint32, r accounts.Request) *acc
 		if err := files.SetGECOS(caller.Name, string(r.RealName)); err != nil {
 			return failed(err)
 		}
-		return commit(files)
+		return s.commit(ctx, files)
 	case accounts.Create:
 		return s.create(ctx, files, db, defs, caller, r)
 	case accounts.Edit:
-		return s.edit(files, db, caller, r)
+		return s.edit(ctx, files, db, caller, r)
 	case accounts.Delete:
-		return s.delete(files, db, caller, r)
+		return s.delete(ctx, files, db, defs, caller, r)
 	}
 	return accounts.Errorf(accounts.ErrInvalid, "no way to make a %T", r)
 }
 
-func commit(files *pwfiles.Files) *accounts.Error {
+// commit writes the files and has nscd forget what it cached of them.
+func (s system) commit(ctx context.Context, files *pwfiles.Files) *accounts.Error {
 	if err := files.Commit(); err != nil {
 		return failed(err)
+	}
+	if err := forgetCached(ctx, s.nscd); err != nil {
+		return accounts.Errorf(accounts.ErrFailed, "the account files are changed, but %v", err)
 	}
 	return nil
 }
@@ -162,6 +166,9 @@ func (s system) create(ctx context.Context, files *pwfiles.Files, db accounts.Da
 	}); err != nil {
 		return failed(err)
 	}
+	if err := s.addSubIDs(files, defs, login, uid); err != nil {
+		return failed(err)
+	}
 	if admins.Name != "" {
 		if err := files.AddMember(admins.Name, login); err != nil {
 			return failed(err)
@@ -170,11 +177,15 @@ func (s system) create(ctx context.Context, files *pwfiles.Files, db accounts.Da
 	if err := makeHome(filepath.Join(s.etc, skelName), home, int(uid), int(gid), defs.homeMode); err != nil {
 		return failed(err)
 	}
-	if aerr := commit(files); aerr != nil {
+	if err := files.Commit(); err != nil {
+		aerr := failed(err)
 		if err := removeTree(home); err != nil {
 			aerr.Detail += "; and the new home folder stays: " + err.Error()
 		}
 		return aerr
+	}
+	if err := forgetCached(ctx, s.nscd); err != nil {
+		return accounts.Errorf(accounts.ErrFailed, "%s is created, but %v", login, err)
 	}
 	return nil
 }
@@ -206,7 +217,7 @@ func (s system) primaryGroup(ctx context.Context, files *pwfiles.Files, dir dire
 	if taken, err := found(dir.GroupByName(ctx, login)); err != nil || taken {
 		return 0, takenOrFailed(err, "the user database holds a group %s", login)
 	}
-	gid, err := files.FreeGID(defs.gids, uid, func(uint32) (bool, error) { return false, nil })
+	gid, err := files.FreeGID(defs.gids, uid, func(id uint32) (bool, error) { return found(dir.GroupByGID(ctx, userdb.GID(id))) })
 	if err != nil {
 		return 0, failed(err)
 	}
@@ -227,7 +238,7 @@ func person(db accounts.Database, login accounts.Name) (accounts.Account, *accou
 	return a, nil
 }
 
-func (s system) edit(files *pwfiles.Files, db accounts.Database, caller accounts.Account, r accounts.Edit) *accounts.Error {
+func (s system) edit(ctx context.Context, files *pwfiles.Files, db accounts.Database, caller accounts.Account, r accounts.Edit) *accounts.Error {
 	a, aerr := person(db, r.Login)
 	if aerr != nil {
 		return aerr
@@ -258,10 +269,10 @@ func (s system) edit(files *pwfiles.Files, db accounts.Database, caller accounts
 			return failed(err)
 		}
 	}
-	return commit(files)
+	return s.commit(ctx, files)
 }
 
-func (s system) delete(files *pwfiles.Files, db accounts.Database, caller accounts.Account, r accounts.Delete) *accounts.Error {
+func (s system) delete(ctx context.Context, files *pwfiles.Files, db accounts.Database, defs defaults, caller accounts.Account, r accounts.Delete) *accounts.Error {
 	a, aerr := person(db, r.Login)
 	if aerr != nil {
 		return aerr
@@ -279,21 +290,30 @@ func (s system) delete(files *pwfiles.Files, db accounts.Database, caller accoun
 	if running {
 		return accounts.Errorf(accounts.ErrInUse, "a process runs as %s: log it out first", a.Name)
 	}
-	removeHome := false
+	removeHome, removeSpool, spool := false, false, ""
 	if r.RemoveHome {
 		if removeHome, err = checkHome(a.Home, a.UID); err != nil {
 			return failed(err)
+		}
+		if defs.mailDir != "" {
+			spool = filepath.Join(defs.mailDir, a.Name)
+			if removeSpool, err = checkSpool(spool, a.UID); err != nil {
+				return failed(err)
+			}
 		}
 	}
 	if err := files.DeleteUser(a.Name); err != nil {
 		return failed(err)
 	}
-	if aerr := commit(files); aerr != nil {
-		return aerr
+	if err := files.Commit(); err != nil {
+		return failed(err)
 	}
-	var errs []error
+	errs := []error{forgetCached(ctx, s.nscd)}
 	if removeHome {
 		errs = append(errs, removeTree(a.Home))
+	}
+	if removeSpool {
+		errs = append(errs, removeFile(spool))
 	}
 	errs = append(errs, s.removeAvatar(a.Name))
 	if err := errors.Join(errs...); err != nil {
@@ -313,10 +333,4 @@ func (s system) writeAvatar(login string, picture accounts.Picture) *accounts.Er
 	return nil
 }
 
-func (s system) removeAvatar(login string) error {
-	path := filepath.Join(s.avatars, login)
-	if err := os.Remove(path); err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return fmt.Errorf("remove %s: %w", path, err)
-	}
-	return nil
-}
+func (s system) removeAvatar(login string) error { return removeFile(filepath.Join(s.avatars, login)) }

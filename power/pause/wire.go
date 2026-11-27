@@ -7,10 +7,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/stubbedev/lys/lib/busauth"
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
-
-	"github.com/stubbedev/lys/power/internal/busauth"
 )
 
 const (
@@ -135,20 +134,11 @@ type methods struct {
 func (m methods) call(timeout time.Duration, sender dbus.Sender, do func(context.Context, Caller) error) *dbus.Error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	c, err := busauth.Of(ctx, m.conn, sender)
-	if err == nil {
-		err = do(ctx, c)
-	}
-	if r, ok := errors.AsType[Refusal](err); ok {
-		return dbus.NewError(ErrNotAuthorized, []any{r.Reason})
-	}
+	err := busauth.Run(ctx, m.conn, sender, do)
 	if errors.Is(err, ErrNotPausable) || errors.Is(err, ErrEssential) {
 		return dbusx.InvalidArgs(err.Error())
 	}
-	if err != nil {
-		return dbusx.Failed(err.Error())
-	}
-	return nil
+	return busauth.Reply(err, ErrNotAuthorized)
 }
 
 func units(names []string, parse func(string) (Unit, error)) ([]Unit, error) {

@@ -207,3 +207,37 @@ func TestAKernelWithoutPeerPIDFDIsErrNoPIDFD(t *testing.T) {
 		}
 	}
 }
+
+func TestAnAdoptedPIDFDNamesItsProcessWithTheGivenCredentialsUntilClosed(t *testing.T) {
+	peer := peercredtest.Start(t)
+	raw, err := unix.PidfdOpen(peer.PID, unix.PIDFD_NONBLOCK)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cred := Credentials{UID: 1000, GID: 100, PID: int32(peer.PID)}
+	pidfd := Adopt(raw, cred)
+	if got := pidfd.Credentials(); got != cred {
+		t.Errorf("the adopted pidfd's credentials %+v, want the given %+v", got, cred)
+	}
+	fd, err := pidfd.FD()
+	if err != nil || fd != raw {
+		t.Fatalf("FD of the adopted pidfd = %d, %v; want the adopted %d", fd, err, raw)
+	}
+	if got := pidOf(t, fd); got != peer.PID {
+		t.Errorf("the adopted pidfd names pid %d, want the peer %d", got, peer.PID)
+	}
+	if exited, err := pidfd.Exited(); err != nil || exited {
+		t.Errorf("Exited of the running peer = %v, %v", exited, err)
+	}
+	peer.Reap(t)
+	if exited, err := pidfd.Exited(); err != nil || !exited {
+		t.Errorf("Exited of the reaped peer = %v, %v", exited, err)
+	}
+	watch := fdtest.WatchFD(t, fd)
+	if err := pidfd.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if watch.Open(t) {
+		t.Errorf("the adopted descriptor %d is still open after Close", fd)
+	}
+}
