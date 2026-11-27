@@ -3,53 +3,50 @@ package main
 import (
 	"bytes"
 	"context"
+	"debug/buildinfo"
 	"errors"
+	"fmt"
 	"image"
 	"image/png"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime/debug"
 	"testing"
 
-	"github.com/stubbedev/lys/lib/testbuild"
+	"github.com/stubbedev/lys/lib/buildtest"
 	"github.com/stubbedev/lys/lib/testhome"
 
 	"github.com/stubbedev/lys/desktop/dochelper"
 	"github.com/stubbedev/lys/desktop/thumbnail"
 )
 
-// TestMain runs the package against a scratch home; started as
-// lys-docthumb, the test binary is the helper instead.
-func TestMain(m *testing.M) {
-	if filepath.Base(os.Args[0]) == dochelper.Program {
-		os.Exit(run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr))
-	}
-	testhome.Run(m)
-}
+// helperPath is lys-docthumb built as it ships, which TestMain builds
+// before any test runs: the test binary links what the tests import
+// and the helper does not, purego's libc threads among it, whose stacks
+// count against the memory the helper holds itself to.
+var helperPath string
 
-// installed is the test binary installed as lys-docthumb in a fresh
-// directory.
-func installed(t *testing.T) string {
-	t.Helper()
-	exe, err := os.Executable()
-	if err != nil {
-		t.Fatal(err)
-	}
-	path := filepath.Join(t.TempDir(), dochelper.Program)
-	if err := os.Symlink(exe, path); err != nil {
-		t.Fatal(err)
-	}
-	return path
+func TestMain(m *testing.M) {
+	os.Exit(testhome.Main(func() int {
+		d, err := buildtest.Hold(dochelper.Program + "-test")
+		if err == nil {
+			err = d.Build("./desktop/cmd/" + dochelper.Program)
+		}
+		if err != nil {
+			_, _ = fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		helperPath = filepath.Join(d.Path(), dochelper.Program)
+		return m.Run()
+	}))
 }
 
 func fixture(name string) string { return filepath.Join("..", "..", "docrender", "testdata", name) }
 
-// helper runs the test binary as lys-docthumb on req and is its exit
-// status and output.
+// helper runs lys-docthumb on req and is its exit status and output.
 func helper(t *testing.T, req dochelper.Request) (int, []byte) {
 	t.Helper()
-	cmd := exec.Command(installed(t), req.Args()...)
+	cmd := exec.Command(helperPath, req.Args()...)
 	out, err := cmd.CombinedOutput()
 	var exit *exec.ExitError
 	if err != nil && !errors.As(err, &exit) {
@@ -106,16 +103,17 @@ func TestTheHelperExitsWithWhatWentWrong(t *testing.T) {
 	}
 }
 
+// tightMemory is less than the pixels of a page drawn MaxSize tall, and
+// more than the helper needs to open a document and draw a small page.
+const tightMemory = 32 << 20
+
 // A page past the helper's memory exits with ErrTooLarge and writes
 // nothing; the same page within DocumentMemory renders.
 func TestAPagePastTheHelpersMemoryIsTooLarge(t *testing.T) {
-	if testbuild.Race {
-		t.Skip("the race detector's allocator does not fit the 48 MiB and DocumentMemory the helper is held to")
-	}
-	requireHelperFails(t, request(t, fixture("cairo.pdf"), dochelper.MaxSize, 48<<20), dochelper.ErrTooLarge)
+	requireHelperFails(t, request(t, fixture("cairo.pdf"), dochelper.MaxSize, tightMemory), dochelper.ErrTooLarge)
 	code, out := helper(t, request(t, fixture("cairo.pdf"), dochelper.MaxSize, thumbnail.DocumentMemory))
 	if code != 0 {
-		t.Errorf("the page that ran out of 48 MiB, within DocumentMemory: exited %d: %s", code, out)
+		t.Errorf("the page that ran out of %d bytes, within DocumentMemory: exited %d: %s", tightMemory, code, out)
 	}
 }
 
@@ -144,7 +142,7 @@ func TestTheHelperRefusesABadRequest(t *testing.T) {
 // EPUBs, and its failures reach the caller as their errors.
 func TestTheThumbnailerRunsTheHelper(t *testing.T) {
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
-	th := thumbnail.New(thumbnail.Config{DocumentHelper: installed(t)})
+	th := thumbnail.New(thumbnail.Config{DocumentHelper: helperPath})
 	for _, c := range []struct{ file, mimeType string }{{"cairo.pdf", "application/pdf"}, {"blocks.epub", "application/epub+zip"}} {
 		img, err := th.Image(context.Background(), fixture(c.file), c.mimeType, 128)
 		if err != nil {
@@ -162,9 +160,9 @@ func TestTheThumbnailerRunsTheHelper(t *testing.T) {
 // The helper is the binary that links folio, which the thumbnailer's
 // own test proves it does not.
 func TestTheHelperLinksTheRenderer(t *testing.T) {
-	info, ok := debug.ReadBuildInfo()
-	if !ok {
-		t.Fatal("the test binary carries no build information")
+	info, err := buildinfo.ReadFile(helperPath)
+	if err != nil {
+		t.Fatal(err)
 	}
 	for _, m := range info.Deps {
 		if m.Path == "github.com/gen2brain/folio" {
@@ -177,15 +175,15 @@ func TestTheHelperLinksTheRenderer(t *testing.T) {
 	t.Error("lys-docthumb does not link folio")
 }
 
-// reader is a client of the test binary serving the fixture as
-// lys-docthumb does for a reader, holding memory.
+// reader is a client of lys-docthumb serving the fixture as it does
+// for a reader, holding memory.
 func reader(t *testing.T, file string, memory dochelper.Memory) *dochelper.Client {
 	t.Helper()
 	doc, err := filepath.Abs(fixture(file))
 	if err != nil {
 		t.Fatal(err)
 	}
-	c := dochelper.NewClient(dochelper.Starter(installed(t), dochelper.Serving{Memory: memory}), doc, dochelper.RequestTimeout)
+	c := dochelper.NewClient(dochelper.Starter(helperPath, dochelper.Serving{Memory: memory}), doc, dochelper.RequestTimeout)
 	t.Cleanup(func() { _ = c.Close() })
 	return c
 }
@@ -225,10 +223,7 @@ func TestTheHelperServesADocument(t *testing.T) {
 // A tile past the served helper's memory fails with ErrTooLarge, and
 // the helper started again draws the next.
 func TestAServedTilePastTheHelpersMemoryIsTooLarge(t *testing.T) {
-	if testbuild.Race {
-		t.Skip("the race detector's allocator does not fit the 160 MiB the helper is held to")
-	}
-	c := reader(t, "cairo.pdf", dochelper.Memory{Hard: 160 << 20, Soft: 48 << 20})
+	c := reader(t, "cairo.pdf", dochelper.Memory{Hard: tightMemory, Soft: tightMemory / 3})
 	info, err := c.Info()
 	if err != nil {
 		t.Fatal(err)
@@ -237,7 +232,7 @@ func TestAServedTilePastTheHelpersMemoryIsTooLarge(t *testing.T) {
 	page := info.Sizes[0].At(scale)
 	big := dochelper.Tile{Scale: scale, Rect: image.Rect(0, 0, min(page.X, dochelper.MaxSize), min(page.Y, dochelper.MaxSize))}
 	if _, err := c.Render(big); !errors.Is(err, dochelper.ErrTooLarge) {
-		t.Fatalf("a %v tile in 160 MiB = %v, want ErrTooLarge", big.Rect.Size(), err)
+		t.Fatalf("a %v tile in %d bytes = %v, want ErrTooLarge", big.Rect.Size(), tightMemory, err)
 	}
 	if _, err := c.Render(dochelper.Tile{Scale: 1, Rect: image.Rect(0, 0, 64, 64)}); err != nil {
 		t.Errorf("the tile after: %v", err)

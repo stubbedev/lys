@@ -13,6 +13,8 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"math"
+	"os"
 	"runtime/debug"
 	"slices"
 	"strconv"
@@ -105,36 +107,86 @@ func ranOutOfMemory(output []byte) bool {
 // keeps the heap within when no soft limit is given.
 const softShare = 3
 
-// Memory is what a helper may hold: Hard bytes of mapped data, past
-// which an allocation kills it, and Soft bytes of heap the collector
-// works to stay within.
+// Memory is what a helper may hold: Hard bytes of data mapped past what
+// the program maps of its own when it limits itself, past which an
+// allocation kills it, and Soft bytes of heap the collector works to
+// stay within.
 type Memory struct {
 	Hard, Soft int64
 }
 
 // LimitMemory caps the data the calling process maps at limit bytes
-// and has the collector work to stay within a third of it, as Memory's
-// Limit does.
+// past what it maps already and has the collector work to stay within
+// a third of it, as Memory's Limit does.
 func LimitMemory(limit int64) error { return Memory{Hard: limit, Soft: limit / softShare}.Limit() }
 
-// Limit caps the data the calling process maps at m.Hard bytes, past
-// which an allocation kills it with the runtime's out of memory error
-// (ErrTooLarge to ExitError), and has the collector work to stay within
-// m.Soft. RLIMIT_AS would count the address space the Go runtime
-// reserves without using, which is most of a small limit.
+// Limit caps the data the calling process maps at m.Hard bytes past
+// what it maps already, past which an allocation kills it with the
+// runtime's out of memory error (ErrTooLarge to ExitError), and has
+// the collector work to stay within m.Soft. What it maps already (its
+// binary's data, the runtime's heap index, the stacks of the threads
+// it runs) is the program's and differs by build, architecture and
+// thread count, so it is left out of what the document may use.
+// RLIMIT_AS would count the address space the Go runtime reserves
+// without using, which is most of a small limit.
 func (m Memory) Limit() error {
 	if err := m.validate(); err != nil {
 		return err
 	}
-	lim, err := intconv.Exact[uint64](m.Hard)
+	hard, err := intconv.Exact[uint64](m.Hard)
 	if err != nil {
 		return fmt.Errorf("%s: a memory limit of %d bytes: %w", Program, m.Hard, err)
 	}
+	status, err := os.ReadFile(procStatus)
+	if err != nil {
+		return fmt.Errorf("%s: reading the data it maps: %w", Program, err)
+	}
+	mapped, err := mappedData(status)
+	if err != nil {
+		return err
+	}
+	if hard > math.MaxUint64-mapped {
+		return fmt.Errorf("%s: a memory limit of %d bytes past the %d it maps overflows", Program, m.Hard, mapped)
+	}
+	lim := mapped + hard
 	if err := unix.Setrlimit(unix.RLIMIT_DATA, &unix.Rlimit{Cur: lim, Max: lim}); err != nil {
-		return fmt.Errorf("%s: limiting its memory to %d bytes: %w", Program, m.Hard, err)
+		return fmt.Errorf("%s: limiting its memory to %d bytes past the %d it maps: %w", Program, m.Hard, mapped, err)
 	}
 	debug.SetMemoryLimit(m.Soft)
 	return nil
+}
+
+// procStatus is the calling process's status, whose VmData line is the
+// data it maps as RLIMIT_DATA counts it.
+const procStatus = "/proc/self/status"
+
+var (
+	vmDataField = []byte("VmData:")
+	kibUnit     = []byte(" kB")
+)
+
+// mappedData is the bytes of data the VmData line of a process status
+// says it maps.
+func mappedData(status []byte) (uint64, error) {
+	for line := range bytes.Lines(status) {
+		rest, ok := bytes.CutPrefix(line, vmDataField)
+		if !ok {
+			continue
+		}
+		kib, ok := bytes.CutSuffix(bytes.TrimSpace(rest), kibUnit)
+		if !ok {
+			return 0, fmt.Errorf("%s: %s says %q, not a size in kB", Program, procStatus, bytes.TrimSpace(line))
+		}
+		n, err := strconv.ParseUint(string(bytes.TrimSpace(kib)), 10, 64)
+		if err != nil {
+			return 0, fmt.Errorf("%s: %s says %q: %w", Program, procStatus, bytes.TrimSpace(line), err)
+		}
+		if n > math.MaxUint64>>10 {
+			return 0, fmt.Errorf("%s: %s says %d kB, past what 64 bits of bytes hold", Program, procStatus, n)
+		}
+		return n << 10, nil
+	}
+	return 0, fmt.Errorf("%s: %s has no %s line", Program, procStatus, vmDataField)
 }
 
 func (m Memory) validate() error {
@@ -149,8 +201,8 @@ const MaxSize = 4096
 
 // Request is one thumbnail: the first page of the document at Input,
 // fitted into a Size square and written to Output as a PNG, by a helper
-// holding at most Memory bytes and looking up the fonts the document
-// does not carry in FontDirs.
+// holding at most Memory bytes as LimitMemory caps it and looking up
+// the fonts the document does not carry in FontDirs.
 type Request struct {
 	Input, Output string
 	Size          int

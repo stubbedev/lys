@@ -63,8 +63,8 @@ For the types `dochelper` lists, the thumbnailer runs `lys-docthumb` as a plain
 child process: an empty environment, a process group of its own killed whole at
 the 10 s timeout, and its output in a temporary directory of its own. The
 helper limits its own data segment (`RLIMIT_DATA`; `RLIMIT_AS` would count the
-address space Go reserves) to `thumbnail.DocumentMemory`, 768 MiB, before it
-opens the file, and the garbage collector to a third of that
+address space Go reserves) to `thumbnail.DocumentMemory`, 768 MiB, past what it
+has mapped of its own at start, before it opens the file, and the garbage collector to a third of that
 (`dochelper.LimitMemory`). Its exit status says why it failed: a damaged,
 encrypted, too large (the limit included) or unsupported document is
 `dochelper.ErrDamaged`, `ErrEncrypted`, `ErrTooLarge` or `ErrUnsupported`. The
