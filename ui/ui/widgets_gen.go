@@ -4752,6 +4752,18 @@ func (b *GridViewBuilder) WatchMaxHeight(get func() int) *GridViewBuilder {
 	return b
 }
 
+// ModifierClicks calls (*widget.GridView).SetModifierClicks.
+func (b *GridViewBuilder) ModifierClicks(on bool) *GridViewBuilder {
+	b.do(func(s *Scope, w *widget.GridView) { w.SetModifierClicks(on) })
+	return b
+}
+
+// WatchModifierClicks re-applies SetModifierClicks with get's value after every update.
+func (b *GridViewBuilder) WatchModifierClicks(get func() bool) *GridViewBuilder {
+	b.watch(func(w *widget.GridView) { w.SetModifierClicks(get()) })
+	return b
+}
+
 // SingleClickActivate calls (*widget.GridView).SetSingleClickActivate.
 func (b *GridViewBuilder) SingleClickActivate(on bool) *GridViewBuilder {
 	b.do(func(s *Scope, w *widget.GridView) { w.SetSingleClickActivate(on) })
@@ -5709,6 +5721,18 @@ func (b *ListBuilder) MaxHeight(h int) *ListBuilder {
 // WatchMaxHeight re-applies SetMaxHeight with get's value after every update.
 func (b *ListBuilder) WatchMaxHeight(get func() int) *ListBuilder {
 	b.watch(func(w *widget.List) { w.SetMaxHeight(get()) })
+	return b
+}
+
+// ModifierClicks calls (*widget.List).SetModifierClicks.
+func (b *ListBuilder) ModifierClicks(on bool) *ListBuilder {
+	b.do(func(s *Scope, w *widget.List) { w.SetModifierClicks(on) })
+	return b
+}
+
+// WatchModifierClicks re-applies SetModifierClicks with get's value after every update.
+func (b *ListBuilder) WatchModifierClicks(get func() bool) *ListBuilder {
+	b.watch(func(w *widget.List) { w.SetModifierClicks(get()) })
 	return b
 }
 
@@ -9432,6 +9456,18 @@ func (b *TypedGridBuilder[T]) WatchMaxHeight(get func() int) *TypedGridBuilder[T
 	return b
 }
 
+// ModifierClicks calls (*widget.TypedGrid).SetModifierClicks.
+func (b *TypedGridBuilder[T]) ModifierClicks(on bool) *TypedGridBuilder[T] {
+	b.do(func(s *Scope, w *widget.TypedGrid[T]) { w.SetModifierClicks(on) })
+	return b
+}
+
+// WatchModifierClicks re-applies SetModifierClicks with get's value after every update.
+func (b *TypedGridBuilder[T]) WatchModifierClicks(get func() bool) *TypedGridBuilder[T] {
+	b.watch(func(w *widget.TypedGrid[T]) { w.SetModifierClicks(get()) })
+	return b
+}
+
 // SingleClickActivate calls (*widget.TypedGrid).SetSingleClickActivate.
 func (b *TypedGridBuilder[T]) SingleClickActivate(on bool) *TypedGridBuilder[T] {
 	b.do(func(s *Scope, w *widget.TypedGrid[T]) { w.SetSingleClickActivate(on) })
@@ -9555,6 +9591,18 @@ func (b *TypedListBuilder[T]) MaxHeight(h int) *TypedListBuilder[T] {
 // WatchMaxHeight re-applies SetMaxHeight with get's value after every update.
 func (b *TypedListBuilder[T]) WatchMaxHeight(get func() int) *TypedListBuilder[T] {
 	b.watch(func(w *widget.TypedList[T]) { w.SetMaxHeight(get()) })
+	return b
+}
+
+// ModifierClicks calls (*widget.TypedList).SetModifierClicks.
+func (b *TypedListBuilder[T]) ModifierClicks(on bool) *TypedListBuilder[T] {
+	b.do(func(s *Scope, w *widget.TypedList[T]) { w.SetModifierClicks(on) })
+	return b
+}
+
+// WatchModifierClicks re-applies SetModifierClicks with get's value after every update.
+func (b *TypedListBuilder[T]) WatchModifierClicks(get func() bool) *TypedListBuilder[T] {
+	b.watch(func(w *widget.TypedList[T]) { w.SetModifierClicks(get()) })
 	return b
 }
 
