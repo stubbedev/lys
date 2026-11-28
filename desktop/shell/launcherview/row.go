@@ -5,6 +5,7 @@ import (
 
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
+	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/desktop/pango"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
@@ -27,6 +28,9 @@ type Row struct {
 	Text string
 	// Markup reads Text as Pango markup.
 	Markup bool
+	// Secondary is plain text after Text, smaller and dimmed: what a
+	// row says about itself besides its name (a file's folder).
+	Secondary string
 	// Icon is nil for none.
 	Icon                         Icon
 	Urgent, Active, Unselectable bool
@@ -127,7 +131,12 @@ func NewRow(row Row, selected bool, st RowStyle) *RowView {
 		}
 		content.Append(r.iconSlot, false)
 	}
-	content.Append(rowLabel(row, st), true)
+	if row.Secondary == "" {
+		content.Append(rowLabel(row, st), true)
+	} else {
+		content.AppendAligned(rowLabel(row, st), false, widget.AlignCenter)
+		content.AppendAligned(secondaryLabel(row.Secondary, st), true, widget.AlignCenter)
+	}
 	r.SetElement("row")
 	r.SetState(widget.StateSelected, selected)
 	r.Append(content, true)
@@ -157,6 +166,13 @@ func rowLabel(row Row, st RowStyle) widget.Widget {
 	rl.SetEllipsize(st.Display.mode())
 	rl.AddClass("launcher-row-label")
 	return rl
+}
+
+func secondaryLabel(text string, st RowStyle) *widget.Label {
+	l := widget.NewLabel(st.Font, SmallPx(), text, 0)
+	l.SetEllipsize(st.Display.mode())
+	l.AddClass("launcher-row-secondary", css.DimLabel)
+	return l
 }
 
 // iconWidget is the icon a row shows: a theme name, or a file decoded off

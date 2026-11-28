@@ -8,7 +8,6 @@ import (
 	"unicode/utf8"
 
 	"github.com/stubbedev/lys/desktop/i18n"
-	"github.com/stubbedev/lys/desktop/pango"
 
 	"github.com/stubbedev/lys/shell/service/fileindex"
 	"github.com/stubbedev/lys/shell/service/launcher"
@@ -98,15 +97,14 @@ func (f *Files) state() launcher.ModeState {
 	return launcher.ModeState{Items: items, Prompt: "files", NoCustom: true}
 }
 
-// item is a file's row: its name over its folder, a thumbnail drawn
-// only once the row is, and the name to match.
+// item is a file's row: its name, then its folder as secondary text, a
+// thumbnail drawn only once the row is, and the name to match.
 func (f *Files) item(h fileindex.Hit) launcher.Item {
 	var icon launcher.Icon = launcher.IconName("ld-folder-symbolic")
 	if !h.Dir {
 		icon = launcher.IconThumbnail{Path: h.Path, Fallback: launcher.MimeIcon(h.Path)}
 	}
-	display := pango.Escape(h.Name) + "  <i>" + pango.Escape(f.folder(h.Path)) + "</i>"
-	return launcher.Item{Display: display, MatchText: h.Name, Icon: icon, Info: &h.Path, Flags: launcher.FlagMarkup}
+	return launcher.Item{Display: h.Name, Secondary: f.folder(h.Path), MatchText: h.Name, Icon: icon, Info: &h.Path}
 }
 
 // folder is path's folder as shown: under the home directory, ~/.

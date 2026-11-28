@@ -72,14 +72,18 @@ func TestFilesFindRecentFilesFirstWithTheirFolderAndThumbnail(t *testing.T) {
 		t.Fatalf("budget lists %v, want %v", got, want)
 	}
 	row := st.Items[1]
-	if row.Display != "budget.ods  <i>~</i>" || row.MatchText != "budget.ods" || !row.Flags.Has(launcher.FlagMarkup) {
-		t.Errorf("a file row = %+v", row)
+	if row.Display != "budget.ods" || row.Secondary != "~" || row.MatchText != "budget.ods" || row.Flags.Has(launcher.FlagMarkup) {
+		t.Errorf("a file row = %+v, want its name over its folder as secondary text", row)
 	}
 	if icon, ok := row.Icon.(launcher.IconThumbnail); !ok || icon.Path != home+"/budget.ods" || icon.Fallback == "" {
 		t.Errorf("a file row's icon = %#v, want its thumbnail over a type icon", row.Icon)
 	}
-	if !strings.Contains(st.Items[2].Display, "~/notes") {
-		t.Errorf("a file in a folder shows %q", st.Items[2].Display)
+	if st.Items[2].Secondary != "~/notes" || strings.Contains(st.Items[2].Display, "notes") {
+		t.Errorf("a file in a folder shows %q over %q", st.Items[2].Display, st.Items[2].Secondary)
+	}
+	odd := m.item(fileindex.Hit{Path: "/srv/a <b>&amp;.txt", Name: "a <b>&amp;.txt"})
+	if odd.Display != "a <b>&amp;.txt" || odd.Secondary != "/srv" || odd.Flags.Has(launcher.FlagMarkup) {
+		t.Errorf("a name that reads as markup shows %+v, want it verbatim", odd)
 	}
 	if _, changed := m.Query(bg, "budget"); changed {
 		t.Error("the same files found again changed the list")

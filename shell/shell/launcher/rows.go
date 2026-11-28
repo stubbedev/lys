@@ -31,7 +31,7 @@ func (m *multiSelect) ballot(index uint32) *string {
 // viewRow is how the list shows an item with ballot.
 func viewRow(it engine.Item, ballot *string) launcherview.Row {
 	return launcherview.Row{
-		Text: it.Display, Markup: it.Flags.Has(engine.FlagMarkup), Icon: viewIcon(it.Icon),
+		Text: it.Display, Markup: it.Flags.Has(engine.FlagMarkup), Secondary: it.Secondary, Icon: viewIcon(it.Icon),
 		Urgent: it.Flags.Has(engine.FlagUrgent), Active: it.Flags.Has(engine.FlagActive),
 		Unselectable: it.Flags.Has(engine.FlagNonselectable), Ballot: ballot,
 	}

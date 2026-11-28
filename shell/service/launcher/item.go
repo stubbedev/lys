@@ -55,6 +55,10 @@ func (IconThumbnail) isIcon() {}
 type Item struct {
 	// Display is the text shown (Pango markup when FlagMarkup is set).
 	Display string
+	// Secondary is plain text shown after Display, smaller and dimmed:
+	// what a row says besides its name (a file's folder). The matcher
+	// does not see it.
+	Secondary string
 	// MatchText is what the matcher sees: the display plus invisible
 	// meta keywords.
 	MatchText string

@@ -1,12 +1,16 @@
 package launcherview
 
 import (
+	"math"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
+	"github.com/stubbedev/lys/ui/widget/css"
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/desktop/shell/treetest"
@@ -117,5 +121,65 @@ func TestARowsFileIconPointingAtAFIFODrawsNothingAndDoesNotBlock(t *testing.T) {
 	}
 	if ink := treetest.Ink(icon); ink != 0 {
 		t.Errorf("the row drew %d pixels for a file that is not one", ink)
+	}
+}
+
+// laidOut is row arranged at its natural height in a row w wide.
+func laidOut(row *RowView, w int) render.Rect {
+	h := row.Measure(widget.Column, w).Nat
+	row.Arrange(render.Rect{W: w, H: h})
+	return render.Rect{W: w, H: h}
+}
+
+func centreY(r render.Rect) int { return r.Y + r.H/2 }
+
+// A row's secondary text follows its name on the same line, smaller and
+// dimmed, read as plain text, and leaves the row as tall as one without.
+func TestARowsSecondaryTextIsDimSmallerAndOnTheNamesLine(t *testing.T) {
+	st := rowStyle(t)
+	plain := NewRow(Row{Text: "budget.ods"}, false, st)
+	row := NewRow(Row{Text: "budget.ods", Secondary: "~/<i>notes</i>"}, false, st)
+	if got, want := laidOut(row, 600).H, laidOut(plain, 600).H; got != want {
+		t.Errorf("a row with secondary text is %dpx tall, want %dpx as without", got, want)
+	}
+	if labels := treetest.Labels(row); !slices.Equal(labels, []string{"budget.ods", "~/<i>notes</i>"}) {
+		t.Fatalf("the row reads %v, want its name then the secondary text verbatim", labels)
+	}
+	secondary := treetest.LabelReading(t, row, "~/<i>notes</i>")
+	name := treetest.LabelReading(t, row, "budget.ods")
+	if !secondary.HasClass("launcher-row-secondary") || !secondary.HasClass(css.DimLabel) || name.HasClass(css.DimLabel) {
+		t.Errorf("classes: secondary %v, name %v; want only the secondary dimmed", secondary.Classes(), name.Classes())
+	}
+	if got, want := treetest.RenderedTextPx(secondary, st.Font), SmallPx(); math.Abs(got-want) > 0.02*want {
+		t.Errorf("the secondary text renders at %.2fpx, want the small %.2fpx", got, want)
+	}
+	if got, body := treetest.RenderedTextPx(name, st.Font), FontPx(); math.Abs(got-body) > 0.02*body {
+		t.Errorf("the name renders at %.2fpx, want the body %.2fpx", got, body)
+	}
+	nb, sb := name.Bounds(), secondary.Bounds()
+	if sb.X < nb.X+nb.W || math.Abs(float64(centreY(sb)-centreY(nb))) > 1 {
+		t.Errorf("the secondary text at %v does not follow the name at %v on its line", sb, nb)
+	}
+	if pb := treetest.LabelReading(t, plain, "budget.ods").Bounds(); math.Abs(float64(centreY(pb)-centreY(nb))) > 1 {
+		t.Errorf("the name sits at %v, %v without secondary text", nb, pb)
+	}
+}
+
+func TestALongSecondaryTextEllipsizesAndRowsWithoutOneShowNone(t *testing.T) {
+	st := rowStyle(t)
+	long := "~/" + strings.Repeat("deeply/nested/", 40)
+	row := NewRow(Row{Text: "report.pdf", Secondary: long}, false, st)
+	frame := laidOut(row, 400)
+	secondary := treetest.LabelReading(t, row, long)
+	if b := secondary.Bounds(); b.X+b.W > frame.W {
+		t.Errorf("a long secondary text runs to %d past the row's %d", b.X+b.W, frame.W)
+	}
+	if name := treetest.LabelReading(t, row, "report.pdf"); name.Bounds().W < name.Measure(widget.Row, widget.Unknown).Nat {
+		t.Errorf("a long secondary text squeezed the name to %dpx", name.Bounds().W)
+	}
+	for _, r := range []Row{{Text: "plain"}, {Text: "<b>bold</b>", Markup: true}} {
+		if got := treetest.WithClass(NewRow(r, false, st), "launcher-row-secondary"); len(got) != 0 {
+			t.Errorf("a row without secondary text %+v holds %d secondary labels", r, len(got))
+		}
 	}
 }

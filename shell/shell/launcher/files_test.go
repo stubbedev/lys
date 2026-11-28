@@ -13,6 +13,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/shell/apptheme"
+	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/render"
 
 	"github.com/stubbedev/lys/shell/internal/launcheripc"
@@ -71,8 +72,8 @@ func TestCombiShowsFileRowsWithTheirFolderAndThumbnail(t *testing.T) {
 		t.Errorf("the first row is %q, want the shallower file", first.MatchText)
 	}
 	second, _ := h.s.model.item(1)
-	if !strings.Contains(second.Display, filepath.Join(root, "notes")) {
-		t.Errorf("the second row shows %q, without its folder", second.Display)
+	if second.Display != "report-draft.txt" || second.Secondary != filepath.Join(root, "notes") {
+		t.Errorf("the second row shows %q over %q, want its name over its folder", second.Display, second.Secondary)
 	}
 	data := make([]byte, render.Stride(renderW)*renderH)
 	red := func() int {
@@ -88,6 +89,9 @@ func TestCombiShowsFileRowsWithTheirFolderAndThumbnail(t *testing.T) {
 		paintFrame(h.s.cur.views.panelFrame, data)
 		return red() > 64
 	})
+	if got := treetest.WithClass(h.s.cur.views.root, "launcher-row-secondary"); len(got) != 2 {
+		t.Errorf("the rows hold %d secondary labels, want one per file", len(got))
+	}
 	savePanel(t, data, "combi-files")
 	h.s.cur.views.Entry.SetText("!files draft")
 	h.until("the bang's one file", func() bool { return h.s.model.len() == 1 && strings.HasPrefix(h.s.model.textAt(0), "report-draft.txt") })
