@@ -84,16 +84,19 @@ func TestMonitorStateWraps(t *testing.T) {
 }
 
 func TestScanPicksSupportedExtensionsOnly(t *testing.T) {
-	dir := imageDir(t, "b.PNG", "a.jpg", "notes.txt", ".png", "c.webp", "noext")
+	dir := imageDir(t, "b.PNG", "a.jpg", "notes.txt", ".png", "c.webp", "noext", "d.heic", "e.tif", "f.ff", "g.svg", "h.avif")
 	c, err := newCycling(dir, Sequential, time.Minute, seeded())
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []string{filepath.Join(dir, "a.jpg"), filepath.Join(dir, "b.PNG"), filepath.Join(dir, "c.webp")}
+	want := []string{
+		filepath.Join(dir, "a.jpg"), filepath.Join(dir, "b.PNG"), filepath.Join(dir, "c.webp"),
+		filepath.Join(dir, "d.heic"), filepath.Join(dir, "e.tif"), filepath.Join(dir, "f.ff"),
+	}
 	if !slices.Equal(c.Images, want) {
 		t.Errorf("images = %v, want %v", c.Images, want)
 	}
-	if img, _ := c.ImageAt(4); img != want[1] {
+	if img, _ := c.ImageAt(len(want) + 1); img != want[1] {
 		t.Errorf("ImageAt wraps to %q", img)
 	}
 }

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/imagedecode"
 	"github.com/stubbedev/lys/lib/xdg"
 )
 
@@ -77,12 +78,6 @@ func (m *MonitorState) previous(count int) {
 			m.CycleIndex--
 		}
 	}
-}
-
-// SupportedExtensions are the image extensions a cycling directory
-// scan picks up, matched case-insensitively (SUPPORTED_EXTENSIONS).
-var SupportedExtensions = []string{
-	"png", "jpg", "jpeg", "gif", "bmp", "tga", "tiff", "webp", "pnm", "farbfeld", "svg", "jxl", "avif",
 }
 
 // Cycling is the shared cycling pool and timing
@@ -174,17 +169,19 @@ func orderImages(images []string, mode CyclingMode, rng *rand.Rand) {
 	}
 }
 
-// ScanImages lists the directory's entries with a supported extension
-// without looking at the entry type, so a directory named x.png is
-// listed too.
+// ScanImages lists the directory's entries with the extension of a
+// format the wallpaper decodes (imagedecode.Extensions), matched
+// case-insensitively, without looking at the entry type, so a directory
+// named x.png is listed too.
 func ScanImages(directory string) ([]string, error) {
 	entries, err := os.ReadDir(directory)
 	if err != nil {
 		return nil, fmt.Errorf("I/O error: %w", err)
 	}
+	decoded := imagedecode.Extensions()
 	images := []string{}
 	for _, e := range entries {
-		if ext, ok := extension(e.Name()); ok && slices.Contains(SupportedExtensions, strings.ToLower(ext)) {
+		if ext, ok := extension(e.Name()); ok && slices.Contains(decoded, strings.ToLower(ext)) {
 			images = append(images, filepath.Join(directory, e.Name()))
 		}
 	}
