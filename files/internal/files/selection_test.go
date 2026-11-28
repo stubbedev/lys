@@ -5,10 +5,9 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/xkb"
 	"github.com/stubbedev/lys/ui/app"
-
-	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
 )
 
@@ -101,7 +100,6 @@ func TestTheSelectionKeys(t *testing.T) {
 			t.Errorf("%v with mods %v in the search field changed the selection to %v", k.sym, k.mods, got)
 		}
 	}
-
 }
 
 // The background menu offers Select All, and the selection's menu the
