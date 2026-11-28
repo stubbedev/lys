@@ -617,7 +617,7 @@ func TestResolvePalette(t *testing.T) {
 	bad := valid
 	bad.Red = "red"
 	got, p, err = resolvePalette(bad)
-	if err == nil || !strings.Contains(err.Error(), "palette red") || !strings.Contains(err.Error(), "got: red") {
+	if err == nil || !strings.Contains(err.Error(), "palette red") || !strings.Contains(err.Error(), `got "red"`) {
 		t.Fatalf("a malformed palette: err %v, want one naming the red slot and its value", err)
 	}
 	want, werr := styling.PaletteFromHex(tokens.LysShell())
