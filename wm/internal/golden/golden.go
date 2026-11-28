@@ -1,20 +1,15 @@
-// Package golden compares rendered frames with PNG images under testdata.
+// Package golden compares rendered frames with PNG images under testdata,
+// through lib/golden: UPDATE_GOLDEN=1 rewrites them.
 package golden
 
 import (
-	"bytes"
-	"flag"
-	"fmt"
 	"image"
-	"image/png"
-	"os"
-	"path/filepath"
 	"testing"
+
+	"github.com/stubbedev/lys/lib/golden"
 
 	"github.com/stubbedev/lys/wm/internal/render/soft"
 )
-
-var update = flag.Bool("update", false, "rewrite golden images instead of comparing against them")
 
 func Assert(t testing.TB, name string, b *soft.Buffer) {
 	t.Helper()
@@ -24,7 +19,12 @@ func Assert(t testing.TB, name string, b *soft.Buffer) {
 // Within is Assert allowing every channel to differ from the golden by
 // tolerance: a GPU's rounding against the software renderer's the
 // goldens were drawn with.
-func Within(t testing.TB, name string, b *soft.Buffer, tolerance int) {
+func Within(t testing.TB, name string, b *soft.Buffer, tolerance uint8) {
+	t.Helper()
+	golden.Check(t, "testdata", name, opaque(t, name, b), golden.Tolerance{ChannelDiff: tolerance})
+}
+
+func opaque(t testing.TB, name string, b *soft.Buffer) *image.NRGBA {
 	t.Helper()
 	img := image.NewNRGBA(image.Rect(0, 0, b.W, b.H))
 	for y := range b.H {
@@ -36,64 +36,5 @@ func Within(t testing.TB, name string, b *soft.Buffer, tolerance int) {
 			copy(img.Pix[y*img.Stride+x*4:], []byte{p[2], p[1], p[0], 0xff})
 		}
 	}
-	path := filepath.Join("testdata", name+".png")
-	if *update {
-		var enc bytes.Buffer
-		if err := png.Encode(&enc, img); err != nil {
-			t.Fatalf("golden %s: encode: %v", name, err)
-		}
-		if err := os.WriteFile(path, enc.Bytes(), 0o600); err != nil {
-			t.Fatalf("golden %s: %v", name, err)
-		}
-		return
-	}
-	f, err := os.Open(path)
-	if err != nil {
-		t.Fatalf("golden %s: %v (run go test -update to create it)", name, err)
-	}
-	defer f.Close()
-	decoded, err := png.Decode(f)
-	if err != nil {
-		t.Fatalf("golden %s: decode %s: %v", name, path, err)
-	}
-	if decoded.Bounds() != img.Bounds() {
-		t.Fatalf("golden %s: golden is %v, frame is %v", name, decoded.Bounds(), img.Bounds())
-	}
-	want := image.NewNRGBA(decoded.Bounds())
-	for y := range b.H {
-		for x := range b.W {
-			want.Set(x, y, decoded.At(x, y))
-		}
-	}
-	var off image.Rectangle
-	count := 0
-	first := ""
-	for y := range b.H {
-		row := y * img.Stride
-		if bytes.Equal(img.Pix[row:row+b.W*4], want.Pix[row:row+b.W*4]) {
-			continue
-		}
-		for x := range b.W {
-			got, wanted := img.Pix[row+x*4:row+x*4+4], want.Pix[row+x*4:row+x*4+4]
-			if !within(got, wanted, tolerance) {
-				if count == 0 {
-					first = fmt.Sprintf("pixel (%d, %d) is %v, golden has %v", x, y, got, wanted)
-				}
-				count++
-				off = off.Union(image.Rect(x, y, x+1, y+1))
-			}
-		}
-	}
-	if count > 0 {
-		t.Fatalf("golden %s: %s; %d pixels off within %v", name, first, count, off)
-	}
-}
-
-func within(got, wanted []byte, tolerance int) bool {
-	for c := range got {
-		if d := int(got[c]) - int(wanted[c]); d > tolerance || d < -tolerance {
-			return false
-		}
-	}
-	return true
+	return img
 }

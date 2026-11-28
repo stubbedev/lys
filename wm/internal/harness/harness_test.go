@@ -266,7 +266,7 @@ func onEachDMABUFRenderer(t *testing.T, test func(t *testing.T, start gpuStarter
 	t.Run("vulkan", func(t *testing.T) { test(t, startVulkanDMABUFs) })
 }
 
-const gpuGoldenTolerance = 1
+const gpuGoldenTolerance uint8 = 1
 
 func (h *Harness) assertGolden(name string) {
 	h.t.Helper()

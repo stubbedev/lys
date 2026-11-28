@@ -51,7 +51,7 @@ func writeGolden(t *testing.T, name string, b *soft.Buffer) {
 	}
 }
 
-func failure(t *testing.T, name string, frame *soft.Buffer, tolerance int) string {
+func failure(t *testing.T, name string, frame *soft.Buffer, tolerance uint8) string {
 	t.Helper()
 	r := &fatalRecorder{TB: t}
 	func() {
@@ -65,7 +65,7 @@ func failure(t *testing.T, name string, frame *soft.Buffer, tolerance int) strin
 	return r.fatal
 }
 
-func TestAMismatchNamesTheFirstPixelHowManyAndWhere(t *testing.T) {
+func TestAMismatchFailsAndCountsThePixelsOff(t *testing.T) {
 	t.Chdir(t.TempDir())
 	writeGolden(t, "frame", grayBuffer(8, 8, 0x40))
 	frame := grayBuffer(8, 8, 0x40)
@@ -73,7 +73,7 @@ func TestAMismatchNamesTheFirstPixelHowManyAndWhere(t *testing.T) {
 		frame.Pix[p.Y*frame.Stride+p.X*4] = 0x90
 	}
 	got := failure(t, "frame", frame, 4)
-	for _, want := range []string{"pixel (2, 1)", "3 pixels off within (2,1)-(6,7)"} {
+	for _, want := range []string{"frame.png mismatched", "3 of 64 pixels differ"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("failure %q, want it to say %q", got, want)
 		}
@@ -85,5 +85,28 @@ func TestAFrameWithinToleranceMatches(t *testing.T) {
 	writeGolden(t, "frame", grayBuffer(4, 4, 0x40))
 	if got := failure(t, "frame", grayBuffer(4, 4, 0x43), 4); got != "" {
 		t.Errorf("a frame within tolerance failed: %s", got)
+	}
+}
+
+func TestATranslucentFrameIsNoGolden(t *testing.T) {
+	t.Chdir(t.TempDir())
+	writeGolden(t, "frame", grayBuffer(4, 4, 0x40))
+	frame := grayBuffer(4, 4, 0x40)
+	frame.Pix[3] = 0x80
+	if got := failure(t, "frame", frame, 0); !strings.Contains(got, "not opaque") {
+		t.Errorf("a translucent frame gave %q, want it refused as not opaque", got)
+	}
+}
+
+func TestUpdateGoldenWritesTheFrame(t *testing.T) {
+	t.Chdir(t.TempDir())
+	t.Setenv("UPDATE_GOLDEN", "1")
+	Assert(t, "frame", grayBuffer(4, 4, 0x40))
+	t.Setenv("UPDATE_GOLDEN", "")
+	if got := failure(t, "frame", grayBuffer(4, 4, 0x40), 0); got != "" {
+		t.Errorf("the frame UPDATE_GOLDEN wrote does not match itself: %s", got)
+	}
+	if got := failure(t, "frame", grayBuffer(4, 4, 0x41), 0); got == "" {
+		t.Error("a different frame matched the written golden")
 	}
 }
