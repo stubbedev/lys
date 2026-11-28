@@ -16,8 +16,6 @@ import (
 	"github.com/stubbedev/lys/ui/internal/uifont"
 )
 
-const unsharedFontLimit = 512 << 20
-
 // UnsharedFonts is a typeface of each face screen text is most often
 // drawn in: Geist regular and bold and Geist Mono, the faces the default
 // look is drawn in, then the faces sans-serif, serif and monospace
@@ -84,7 +82,7 @@ func (f *fontFiles) embedded(family string, data []byte) (*render.Typeface, erro
 
 func (f *fontFiles) installed(loc fontscan.Location) (*render.Typeface, error) {
 	return f.typeface(loc, func() ([]byte, func() error, error) {
-		data, err := mapFontFile(loc.File)
+		data, err := assetfile.Map(loc.File, sysfont.FileLimit)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -122,17 +120,4 @@ func parseFont(data []byte, loc fontscan.Location) (*font.Font, error) {
 		return nil, fmt.Errorf("app: face %d of %s: %w", loc.Index, loc.File, err)
 	}
 	return ft, nil
-}
-
-func mapFontFile(path string) ([]byte, error) {
-	f, size, err := assetfile.Open(path, unsharedFontLimit)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-	data, err := unix.Mmap(int(f.Fd()), 0, int(size), unix.PROT_READ, unix.MAP_PRIVATE)
-	if err != nil {
-		return nil, fmt.Errorf("app: map %s: %w", path, err)
-	}
-	return data, nil
 }

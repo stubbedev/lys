@@ -273,9 +273,9 @@ func remember(loc fontscan.Location, face *font.Face) (*render.Typeface, error) 
 // under a running process faults. The path comes from fontscan's system
 // font index, never from user input.
 func faceFromFile(path string, index uint16) (*font.Face, error) {
-	data, err := mapFile(path)
+	data, err := assetfile.Map(path, FileLimit)
 	if err != nil {
-		return nil, fmt.Errorf("sysfont: map %s: %w", path, err)
+		return nil, fmt.Errorf("sysfont: %w", err)
 	}
 	face, err := parseFace(data, path, index)
 	if err != nil {
@@ -299,16 +299,8 @@ func parseFace(data []byte, path string, index uint16) (*font.Face, error) {
 	return font.NewFace(ft), nil
 }
 
-const fontFileLimit = 512 << 20
-
-func mapFile(path string) ([]byte, error) {
-	f, size, err := assetfile.Open(path, fontFileLimit)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-	return unix.Mmap(int(f.Fd()), 0, int(size), unix.PROT_READ, unix.MAP_PRIVATE)
-}
+// FileLimit is the largest font file lys-ui maps.
+const FileLimit = 512 << 20
 
 // Sans returns the system's default sans-serif face, resolved with the
 // same rules a browser applies to font-family: sans-serif.

@@ -12,6 +12,8 @@ import (
 	"os"
 
 	"golang.org/x/sys/unix"
+
+	"github.com/stubbedev/lys/lib/intconv"
 )
 
 // ErrNotRegular is a path that names something other than a regular file.
@@ -58,6 +60,30 @@ func Read(path string, limit int64) ([]byte, error) {
 	}
 	if int64(len(data)) > limit {
 		return nil, fmt.Errorf("assetfile: %s grew past %d bytes while read (from %d): %w", path, limit, size, ErrTooLarge)
+	}
+	return data, nil
+}
+
+// Map maps the regular file at path, at most limit bytes, read-only
+// and private, opened as Open opens it. The mapping outlives the file,
+// which Map closes; unix.Munmap releases it. An empty file has nothing
+// to map and is an error.
+func Map(path string, limit int64) ([]byte, error) {
+	f, size, err := Open(path, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = f.Close() }()
+	if size == 0 {
+		return nil, fmt.Errorf("assetfile: map %s: the file is empty", path)
+	}
+	n, err := intconv.Exact[int](size)
+	if err != nil {
+		return nil, fmt.Errorf("assetfile: map %s: %w", path, err)
+	}
+	data, err := unix.Mmap(int(f.Fd()), 0, n, unix.PROT_READ, unix.MAP_PRIVATE)
+	if err != nil {
+		return nil, fmt.Errorf("assetfile: map %s: %w", path, err)
 	}
 	return data, nil
 }

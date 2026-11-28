@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/lib/waittest"
+	"golang.org/x/sys/unix"
 )
 
 func within(t *testing.T, fn func()) {
@@ -72,5 +73,39 @@ func TestReadBoundsTheSize(t *testing.T) {
 	}
 	if _, err := Read(filepath.Join(t.TempDir(), "gone"), 10); !errors.Is(err, os.ErrNotExist) {
 		t.Errorf("missing: %v", err)
+	}
+}
+
+func TestMapMapsARegularFileWithinTheLimit(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "font.ttf")
+	if err := os.WriteFile(path, []byte("glyphs"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	data, err := Map(path, 6)
+	if err != nil || string(data) != "glyphs" {
+		t.Fatalf("Map = %q, %v", data, err)
+	}
+	if err := unix.Munmap(data); err != nil {
+		t.Error(err)
+	}
+	if _, err := Map(path, 5); !errors.Is(err, ErrTooLarge) {
+		t.Errorf("over the limit: %v, want ErrTooLarge", err)
+	}
+	empty := filepath.Join(dir, "empty.ttf")
+	if err := os.WriteFile(empty, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Map(empty, 6); err == nil || !strings.Contains(err.Error(), empty) {
+		t.Errorf("empty file: %v, want an error naming it", err)
+	}
+	fifo := filepath.Join(dir, "pipe")
+	if err := syscall.Mkfifo(fifo, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var ferr error
+	within(t, func() { _, ferr = Map(fifo, 6) })
+	if !errors.Is(ferr, ErrNotRegular) {
+		t.Errorf("named pipe: %v, want ErrNotRegular", ferr)
 	}
 }
