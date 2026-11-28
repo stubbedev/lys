@@ -15,6 +15,8 @@ import (
 
 	"github.com/stubbedev/lys/lib/wmipc"
 
+	"github.com/stubbedev/lys/wm/internal/backend"
+	"github.com/stubbedev/lys/wm/internal/backend/virtual"
 	"github.com/stubbedev/lys/wm/internal/binds"
 	"github.com/stubbedev/lys/wm/internal/wm"
 )
@@ -122,6 +124,9 @@ func parseOutput(raw Request) (OutputSpec, error) {
 		if m == nil || m.Width <= 0 || m.Height <= 0 || m.RefreshMHz <= 0 {
 			return OutputSpec{}, fmt.Errorf("%w: createoutput needs a mode with a width, a height and a refresh_mhz above 0", ErrBadRequest)
 		}
+		if err := virtual.Fits(backend.Mode{Size: image.Pt(m.Width, m.Height), RefreshMHz: m.RefreshMHz}); err != nil {
+			return OutputSpec{}, fmt.Errorf("%w: createoutput: %w", ErrBadRequest, err)
+		}
 		if raw.Scale < 0 {
 			return OutputSpec{}, fmt.Errorf("%w: createoutput's scale %g is negative", ErrBadRequest, raw.Scale)
 		}
@@ -168,6 +173,10 @@ func kindList() string {
 
 func RectOf(r image.Rectangle) wmipc.Rect {
 	return wmipc.Rect{X: r.Min.X, Y: r.Min.Y, Width: r.Dx(), Height: r.Dy()}
+}
+
+func RectangleOf(r wmipc.Rect) image.Rectangle {
+	return image.Rect(r.X, r.Y, r.X+r.Width, r.Y+r.Height)
 }
 
 type Output struct {

@@ -51,12 +51,19 @@ type Output struct {
 
 var _ backend.Output = (*Output)(nil)
 
-func New(l *loop.Loop, r render.Renderer, h Handler, name string, m backend.Mode) (*Output, error) {
+func Fits(m backend.Mode) error {
 	if err := m.Valid(); err != nil {
-		return nil, fmt.Errorf("virtual: %s: %w", name, err)
+		return err
 	}
 	if m.Size.X > MaxEdge || m.Size.Y > MaxEdge || m.RefreshMHz > MaxRefreshMHz {
-		return nil, fmt.Errorf("virtual: %s: mode %dx%d@%dmHz is beyond %dx%d at %d Hz", name, m.Size.X, m.Size.Y, m.RefreshMHz, MaxEdge, MaxEdge, MaxRefreshMHz/1000)
+		return fmt.Errorf("mode %dx%d@%dmHz is beyond %dx%d at %d Hz", m.Size.X, m.Size.Y, m.RefreshMHz, MaxEdge, MaxEdge, MaxRefreshMHz/1000)
+	}
+	return nil
+}
+
+func New(l *loop.Loop, r render.Renderer, h Handler, name string, m backend.Mode) (*Output, error) {
+	if err := Fits(m); err != nil {
+		return nil, fmt.Errorf("virtual: %s: %w", name, err)
 	}
 	m.Preferred = true
 	o := &Output{loop: l, name: name, mode: m, state: backend.OutputState{Mode: m}, renderer: r, handler: h}

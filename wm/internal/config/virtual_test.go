@@ -22,6 +22,8 @@ func TestVirtualOutputsParseAndRefuseWhatIsIncomplete(t *testing.T) {
 		"virtual_outputs:\n  - mode: 800x600\n":                                      "virtual_outputs[0].name: is missing",
 		"virtual_outputs:\n  - name: a\n":                                            "virtual_outputs[0].mode: is missing",
 		"virtual_outputs:\n  - name: a\n    mode: big\n":                             `"big" is not <width>x<height>`,
+		"virtual_outputs:\n  - name: a\n    mode: 20000x600\n":                       `virtual_outputs[0].mode: "20000x600": mode 20000x600@60000mHz is beyond`,
+		"virtual_outputs:\n  - name: a\n    mode: 800x600@2000\n":                    `"800x600@2000": mode 800x600@2000000mHz is beyond`,
 		"virtual_outputs:\n  - name: a\n    mode: 8x8\n  - name: a\n    mode: 9x9\n": `virtual_outputs[1].name: "a" names an earlier virtual output too`,
 	} {
 		if _, err := Parse("t.yaml", []byte(text)); err == nil || !strings.Contains(err.Error(), problem) {

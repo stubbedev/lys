@@ -35,20 +35,22 @@ func TestParseRequest(t *testing.T) {
 		t.Fatalf("removeoutput parsed to %+v, %v", r, err)
 	}
 	for text, want := range map[string]string{
-		`{"request":"submap","action":"resize"}`:                                         "only dispatch takes an action",
-		`{"request":"teleport"}`:                                                         `unknown request "teleport" (known: version, outputs,`,
-		`{"request":"windows","action":"kill"}`:                                          "only dispatch takes an action",
-		`{"request":"dispatch"}`:                                                         "only dispatch takes an action",
-		`{"request":"dispatch","action":"fly up"}`:                                       `unknown action "fly"`,
-		`{"request":"windows","verbose":true}`:                                           `unknown field "verbose"`,
-		`{"request":"icon","window":7}`:                                                  "only icon takes a window and a size",
-		`{"request":"icon","window":7,"size":-1}`:                                        "only icon takes a window and a size",
-		`{"request":"icon","size":32}`:                                                   "only icon takes a window and a size",
-		`{"request":"windows","window":7}`:                                               "only icon takes a window and a size",
-		`{"request":"windows","size":7}`:                                                 "only icon takes a window and a size",
-		`{"request":"createoutput"}`:                                                     "createoutput needs a mode",
-		`{"request":"createoutput","mode":{"width":800,"height":600}}`:                   "createoutput needs a mode",
-		`{"request":"createoutput","mode":{"width":0,"height":600,"refresh_mhz":60000}}`: "createoutput needs a mode",
+		`{"request":"submap","action":"resize"}`:   "only dispatch takes an action",
+		`{"request":"teleport"}`:                   `unknown request "teleport" (known: version, outputs,`,
+		`{"request":"windows","action":"kill"}`:    "only dispatch takes an action",
+		`{"request":"dispatch"}`:                   "only dispatch takes an action",
+		`{"request":"dispatch","action":"fly up"}`: `unknown action "fly"`,
+		`{"request":"windows","verbose":true}`:     `unknown field "verbose"`,
+		`{"request":"icon","window":7}`:            "only icon takes a window and a size",
+		`{"request":"icon","window":7,"size":-1}`:  "only icon takes a window and a size",
+		`{"request":"icon","size":32}`:             "only icon takes a window and a size",
+		`{"request":"windows","window":7}`:         "only icon takes a window and a size",
+		`{"request":"windows","size":7}`:           "only icon takes a window and a size",
+		`{"request":"createoutput"}`:               "createoutput needs a mode",
+		`{"request":"createoutput","mode":{"width":16385,"height":600,"refresh_mhz":60000}}`:          "createoutput: mode 16385x600@60000mHz is beyond",
+		`{"request":"createoutput","mode":{"width":800,"height":600,"refresh_mhz":1000001}}`:          "createoutput: mode 800x600@1000001mHz is beyond",
+		`{"request":"createoutput","mode":{"width":800,"height":600}}`:                                "createoutput needs a mode",
+		`{"request":"createoutput","mode":{"width":0,"height":600,"refresh_mhz":60000}}`:              "createoutput needs a mode",
 		`{"request":"createoutput","mode":{"width":800,"height":600,"refresh_mhz":60000},"scale":-1}`: "scale -1 is negative",
 		`{"request":"removeoutput"}`:                                          "removeoutput takes the name",
 		`{"request":"removeoutput","name":"VIRT-1","scale":2}`:                "removeoutput takes the name",
@@ -227,5 +229,16 @@ func TestParseMode(t *testing.T) {
 		if got, err := ParseMode(text); err == nil {
 			t.Errorf("%q parsed to %+v", text, got)
 		}
+	}
+}
+
+func TestARectangleSurvivesTheWireRect(t *testing.T) {
+	for _, r := range []image.Rectangle{image.Rect(0, 0, 1920, 1080), image.Rect(-640, 120, 0, 600), {}} {
+		if got := RectangleOf(RectOf(r)); got != r {
+			t.Errorf("%v came back as %v", r, got)
+		}
+	}
+	if got := RectangleOf(wmipc.Rect{X: 10, Y: 20, Width: 30, Height: 40}); got != image.Rect(10, 20, 40, 60) {
+		t.Errorf("the wire rect at (10,20) of 30x40 is %v", got)
 	}
 }

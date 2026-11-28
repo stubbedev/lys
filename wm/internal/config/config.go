@@ -28,6 +28,7 @@ import (
 
 	"github.com/stubbedev/lys/wm/internal/anim"
 	"github.com/stubbedev/lys/wm/internal/backend"
+	"github.com/stubbedev/lys/wm/internal/backend/virtual"
 	"github.com/stubbedev/lys/wm/internal/binds"
 	"github.com/stubbedev/lys/wm/internal/colorspace"
 	"github.com/stubbedev/lys/wm/internal/compositor"
@@ -1292,7 +1293,11 @@ func (p *parser) output(i int, at At[rawOutput], corners compositor.HotCornerSet
 		rule.Transform = &t
 	}
 	if r.Mirror != nil {
-		if m, ok := p.namedOutput(*r.Mirror, key+".mirror"); ok {
+		m, ok := p.namedOutput(*r.Mirror, key+".mirror")
+		switch {
+		case ok && m == rule.Match:
+			p.fail(r.Mirror.Line, key+".mirror", "%q is the output this rule configures; an output cannot mirror itself", r.Mirror.V)
+		case ok:
 			rule.Mirror = &m
 		}
 	}
@@ -2073,6 +2078,9 @@ func ParseLayers(accent render.Color, layers ...Layer) (Config, error) {
 	for i, o := range raw.Outputs {
 		rule := p.output(i, o, cfg.HotCorners.Corners)
 		if o.V.Match == nil || o.V.Match.V != outputFallback {
+			if rule.Match != (wm.OutputMatch{}) && slices.ContainsFunc(cfg.Outputs.Named, func(r compositor.OutputRule) bool { return r.Match == rule.Match }) {
+				p.fail(o.V.Match.Line, fmt.Sprintf("outputs[%d].match", i), "%q is matched by an earlier rule too; only the first rule for an output applies", o.V.Match.V)
+			}
 			cfg.Outputs.Named = append(cfg.Outputs.Named, rule)
 			continue
 		}
@@ -2581,6 +2589,10 @@ func (p *parser) virtualOutputs(raw []At[rawVirtualOutput]) []compositor.Virtual
 		}
 		if m.RefreshMHz == 0 {
 			m.RefreshMHz = backend.DefaultRefreshMHz
+		}
+		if err := virtual.Fits(backend.Mode{Size: image.Pt(m.Width, m.Height), RefreshMHz: m.RefreshMHz}); err != nil {
+			p.fail(v.Mode.Line, key+".mode", "%q: %v", v.Mode.V, err)
+			continue
 		}
 		out = append(out, compositor.VirtualOutput{Name: v.Name.V, Size: image.Pt(m.Width, m.Height), RefreshMHz: m.RefreshMHz})
 	}
