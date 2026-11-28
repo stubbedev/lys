@@ -38,6 +38,9 @@ type FilesConfig struct {
 	// ShowItem shows a file selected in its folder in the file manager
 	// (launcher.ShowItem).
 	ShowItem func(ctx context.Context, path string) error
+	// Open opens a file in its default app; nil opens it with the
+	// desktop's opener, running a Terminal=true app in Terminal.
+	Open func(path string) error
 }
 
 // Files finds files by name in the index lys-shell keeps: recently used
@@ -49,7 +52,13 @@ type Files struct {
 }
 
 // NewFiles builds the mode over cfg.Index.
-func NewFiles(cfg FilesConfig) *Files { return &Files{cfg: cfg} }
+func NewFiles(cfg FilesConfig) *Files {
+	if cfg.Open == nil {
+		terminal := cfg.Terminal
+		cfg.Open = func(path string) error { return openFile(path, "", terminal) }
+	}
+	return &Files{cfg: cfg}
+}
 
 // Name is "files".
 func (*Files) Name() string { return "files" }
@@ -136,7 +145,7 @@ func (f *Files) Activate(ctx context.Context, target launcher.Target, kind launc
 		}
 		return launcher.ActionClose{}
 	}
-	if err := openFile(h.Path, "", f.cfg.Terminal); err != nil {
+	if err := f.cfg.Open(h.Path); err != nil {
 		return failed(f.state(), RanFailed(h.Name, err), err)
 	}
 	return launcher.ActionClose{}

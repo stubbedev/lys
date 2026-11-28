@@ -9,9 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys/desktop/fileuri"
 	"github.com/stubbedev/lys/desktop/launchermatch"
-	"github.com/stubbedev/lys/desktop/opener/openertest"
 
 	"github.com/stubbedev/lys/shell/service/fileindex"
 	"github.com/stubbedev/lys/shell/service/launcher"
@@ -109,31 +107,47 @@ func TestFilesKeepTheirListWhenANewerQueryEndsTheSearch(t *testing.T) {
 
 func TestEnterOpensAFileInItsDefaultAppAndAltShowsItInTheFileManager(t *testing.T) {
 	home, idx := fileFixture(t)
-	desktop := openertest.New(t)
-	desktop.Write(t, "data/mime/globs2", "50:application/vnd.oasis.opendocument.spreadsheet:*.ods\n")
-	viewer := desktop.Handler(t, "viewer", "application/vnd.oasis.opendocument.spreadsheet")
-	var shown []string
-	m := newFilesMode(home, idx, func(_ context.Context, path string) error {
-		shown = append(shown, path)
-		return nil
+	var opened, shown []string
+	m := NewFiles(FilesConfig{
+		Index: idx, Home: home, Negate: '-',
+		ShowItem: func(_ context.Context, path string) error {
+			shown = append(shown, path)
+			return nil
+		},
+		Open: func(path string) error {
+			opened = append(opened, path)
+			return nil
+		},
 	})
 	m.Query(bg, "budget.ods")
 	wantClosed(t, m.Activate(bg, launcher.RowTarget(0), launcher.ActivateDefault{}, ""))
-	if got := viewer.Ran(t); got != fileuri.FromPath(home+"/budget.ods")+"|" {
-		t.Errorf("the default app ran with %q", got)
+	if !slices.Equal(opened, []string{home + "/budget.ods"}) {
+		t.Errorf("Enter opened %v", opened)
 	}
 	if len(shown) != 0 {
 		t.Errorf("Enter showed %v in the file manager", shown)
 	}
 	wantClosed(t, m.Activate(bg, launcher.RowTarget(0), launcher.ActivateAlt{}, ""))
-	if !slices.Equal(shown, []string{home + "/budget.ods"}) {
-		t.Errorf("the alternate accept showed %v", shown)
+	if !slices.Equal(shown, []string{home + "/budget.ods"}) || len(opened) != 1 {
+		t.Errorf("the alternate accept showed %v and opened %v", shown, opened)
 	}
 	if _, ok := m.Activate(bg, launcher.RowTarget(9), launcher.ActivateDefault{}, "").(launcher.ActionNothing); !ok {
 		t.Error("a row past the list did something")
 	}
 	if launcher.AllowsCustom(m) {
 		t.Error("typed text that names no file is accepted")
+	}
+}
+
+// A file whose app cannot be started leaves the list open with a
+// message, as a failed show does.
+func TestAFileThatCannotBeOpenedLeavesTheListWithAMessage(t *testing.T) {
+	home, idx := fileFixture(t)
+	m := NewFiles(FilesConfig{Index: idx, Home: home, Negate: '-', Open: func(string) error { return errors.New("no app opens it") }})
+	m.Query(bg, "budget.ods")
+	r, ok := m.Activate(bg, launcher.RowTarget(0), launcher.ActivateDefault{}, "").(launcher.ActionReload)
+	if !ok || r.State.Message == nil || len(r.State.Items) != 1 {
+		t.Errorf("a failed open = %#v, want the list again with a message", r)
 	}
 }
 
