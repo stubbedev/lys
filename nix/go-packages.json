@@ -14722,6 +14722,7 @@
       "lib/edid",
       "lib/gpu",
       "wm/internal/gpu",
+      "wm/internal/loop",
       "wm/internal/render",
       "wm/internal/wm",
       "wm/internal/xkb"
@@ -14881,8 +14882,7 @@
     "external": [
       "errors",
       "fmt",
-      "image",
-      "time"
+      "image"
     ],
     "testImports": [
       "lib/testhome",
@@ -14891,7 +14891,8 @@
     ],
     "testExternal": [
       "strings",
-      "testing"
+      "testing",
+      "time"
     ]
   },
   "wm/internal/backgroundeffect": {
