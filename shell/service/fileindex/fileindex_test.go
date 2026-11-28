@@ -133,14 +133,20 @@ func TestReadRecentIsNewestFirstAndOnlyWhatExists(t *testing.T) {
 	touch(t, dir, "older", "newer")
 	xbel := filepath.Join(dir, "r.xbel")
 	writeXbel(t, xbel, older, newer, filepath.Join(dir, "gone"))
-	if got := ReadRecent(xbel, 10); !slices.Equal(got, []string{newer, older}) {
-		t.Errorf("recent = %v", got)
+	if got, err := ReadRecent(xbel, 10); err != nil || !slices.Equal(got, []string{newer, older}) {
+		t.Errorf("recent = %v, %v", got, err)
 	}
-	if got := ReadRecent(xbel, 1); !slices.Equal(got, []string{newer}) {
-		t.Errorf("recent with a limit of 1 = %v", got)
+	if got, err := ReadRecent(xbel, 1); err != nil || !slices.Equal(got, []string{newer}) {
+		t.Errorf("recent with a limit of 1 = %v, %v", got, err)
 	}
-	if got := ReadRecent(filepath.Join(dir, "none"), 10); got != nil {
-		t.Errorf("a missing list = %v", got)
+	if got, err := ReadRecent(filepath.Join(dir, "none"), 10); err != nil || len(got) != 0 {
+		t.Errorf("a missing list = %v, %v", got, err)
+	}
+	if err := os.WriteFile(xbel, []byte("<xbel"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := ReadRecent(xbel, 10); err == nil {
+		t.Errorf("a broken list read as %v without an error", got)
 	}
 }
 

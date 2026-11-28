@@ -1,36 +1,29 @@
-// Package recentfiles tracks recently used files in the XDG
-// recently-used.xbel format (TOML-free, XML as the spec says), so lys-ui
-// apps share the recents list with the desktop's other citizens. The
-// manager keeps the list bounded, most-recent first, and writes
-// atomically; a missing or corrupt file starts an empty list.
+// Package recentfiles tracks the recently used files lys-ui apps open
+// in the desktop's shared recently-used.xbel (lib/recentfiles), so they
+// share the recents list with the desktop's other citizens. The manager
+// keeps the list bounded, most-recent first, and writes atomically; a
+// missing or corrupt file starts an empty list.
 //
 // Load, Save, Add and Remove wait on the disk. An application drives a
 // Manager through Post, which runs everything in order off the loop.
 package recentfiles
 
 import (
-	"encoding/xml"
-	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
 	"time"
 
 	"github.com/stubbedev/lys/lib/atomicfile"
+	"github.com/stubbedev/lys/lib/recentfiles"
 	"github.com/stubbedev/lys/lib/xdg"
 
 	"github.com/stubbedev/lys/ui/internal/worker"
-	"github.com/stubbedev/lys/ui/transfer"
 )
 
-// Entry is one recently used file: its path (decoded from the file://
-// URI on disk), the owning application's name, and when it was last
-// used.
-type Entry struct {
-	Path string
-	App  string
-	When time.Time
-}
+// Entry is one recently used file, as the shared list holds it.
+type Entry = recentfiles.Entry
 
 // maxEntries bounds the list: the spec's consumers show a handful, and
 // an unbounded file grows forever.
@@ -47,21 +40,9 @@ type Manager struct {
 	work    *worker.Queue
 }
 
-// ErrNoDataHome is an environment that names no user data directory
-// for the list to live in.
-var ErrNoDataHome = errors.New("recentfiles: neither XDG_DATA_HOME nor HOME is an absolute path")
-
-// DefaultPath is the spec's location under env's user data directory,
-// $XDG_DATA_HOME or ~/.local/share. An environment with neither is
-// ErrNoDataHome: the list is never kept relative to the working
-// directory.
-func DefaultPath(env xdg.Env) (string, error) {
-	base, ok := env.DataHome()
-	if !ok {
-		return "", ErrNoDataHome
-	}
-	return filepath.Join(base, "recently-used.xbel"), nil
-}
+// DefaultPath is the desktop's shared list under env's user data
+// directory (recentfiles.DefaultPath).
+func DefaultPath(env xdg.Env) (string, error) { return recentfiles.DefaultPath(env) }
 
 // New returns the manager for the given xbel path (DefaultPath for the
 // desktop's shared list).
@@ -109,54 +90,16 @@ func (m *Manager) Remove(path string) error {
 	return m.Save()
 }
 
-// Load reads the xbel file; a missing file is an empty list, a corrupt
-// one is an empty list plus the error (the next Add rewrites it
-// clean). Entries whose URIs are not local file:// paths are skipped.
+// Load reads the list (recentfiles.Load), newest first and bounded; a
+// missing file is an empty list, a corrupt one an empty list plus the
+// error (the next Add rewrites it clean).
 func (m *Manager) Load() error {
-	data, err := os.ReadFile(m.path)
+	entries, err := recentfiles.Load(m.path)
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			m.entries = nil
-			return nil
-		}
-		return err
-	}
-	var doc xbel
-	if err := xml.Unmarshal(data, &doc); err != nil {
 		m.entries = nil
 		return err
 	}
-	m.entries = m.entries[:0]
-	for _, b := range doc.Bookmarks {
-		path, ok := transfer.URIPath(b.Href)
-		if !ok {
-			continue
-		}
-		when, err := time.Parse(time.RFC3339, b.Modified)
-		if err != nil {
-			when = time.Time{}
-		}
-		app := ""
-		if len(b.Infos) > 0 && len(b.Infos[0].Metadatas) > 0 {
-			app = b.Infos[0].Metadatas[0].App.Name
-		}
-		m.entries = append(m.entries, Entry{Path: path, App: app, When: when})
-	}
-	slices.SortStableFunc(m.entries, func(a, b Entry) int {
-		if a.When.After(b.When) {
-			return -1
-		}
-		if a.When.Before(b.When) {
-			return 1
-		}
-		// Ties keep the file's order, which the writer emits newest
-		// first - RFC3339 stamps have second resolution, so a burst of
-		// adds lands tied and the stable sort preserves the truth.
-		return 0
-	})
-	if len(m.entries) > maxEntries {
-		m.entries = m.entries[:maxEntries]
-	}
+	m.entries = entries[:min(len(entries), maxEntries)]
 	return nil
 }
 
@@ -164,61 +107,12 @@ func (m *Manager) Load() error {
 // writes an empty xbel, not a deletion, so a shared desktop list does
 // not flap between present and absent.
 func (m *Manager) Save() error {
-	doc := xbel{Version: "1.0", XMLNSBookmark: "http://www.freedesktop.org/standards/desktop-bookmarks"}
-	for _, e := range m.entries {
-		doc.Bookmarks = append(doc.Bookmarks, xbelBookmark{
-			Href:     transfer.FileURI(e.Path),
-			Added:    e.When.Format(time.RFC3339),
-			Modified: e.When.Format(time.RFC3339),
-			Visited:  e.When.Format(time.RFC3339),
-			Infos: []xbelInfo{{
-				Metadatas: []xbelMetadata{{
-					Owner: "lys-ui",
-					App:   xbelApp{Name: e.App},
-				}},
-			}},
-		})
-	}
-	data, err := xml.MarshalIndent(doc, "", "  ")
+	body, err := recentfiles.Marshal(m.entries, "lys-ui")
 	if err != nil {
 		return err
 	}
-	body := append([]byte(xml.Header), data...)
-	body = append(body, '\n')
-	dir := filepath.Dir(m.path)
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return err
+	if err := os.MkdirAll(filepath.Dir(m.path), 0o700); err != nil {
+		return fmt.Errorf("recentfiles: create the directory of %s: %w", m.path, err)
 	}
 	return atomicfile.WriteFile(m.path, body, 0o600)
-}
-
-// xbel is the on-disk document; only the fields lys-ui writes and reads
-// are modeled, unknown content is dropped on rewrite.
-type xbel struct {
-	XMLName       xml.Name       `xml:"xbel"`
-	Version       string         `xml:"version,attr"`
-	XMLNSBookmark string         `xml:"xmlns:bookmark,attr"`
-	Bookmarks     []xbelBookmark `xml:"bookmark"`
-}
-
-type xbelBookmark struct {
-	Href     string     `xml:"href,attr"`
-	Added    string     `xml:"added,attr,omitempty"`
-	Modified string     `xml:"modified,attr,omitempty"`
-	Visited  string     `xml:"visited,attr,omitempty"`
-	Infos    []xbelInfo `xml:"info"`
-}
-
-type xbelInfo struct {
-	Metadatas []xbelMetadata `xml:"metadata"`
-}
-
-type xbelMetadata struct {
-	Owner string  `xml:"owner,attr"`
-	App   xbelApp `xml:"app"`
-}
-
-type xbelApp struct {
-	Name string `xml:"name,attr,omitempty"`
-	Exec string `xml:"exec,attr,omitempty"`
 }

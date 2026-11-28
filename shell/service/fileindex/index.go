@@ -282,7 +282,10 @@ func (t *tree) refreshRecent(force bool) bool {
 		t.watchDir(filepath.Dir(t.cfg.RecentPath))
 	}
 	t.recentMtime = mtime
-	recent := ReadRecent(t.cfg.RecentPath, RecentMax)
+	recent, err := ReadRecent(t.cfg.RecentPath, RecentMax)
+	if err != nil {
+		log.Printf("fileindex: recent files: %v", err)
+	}
 	if recent == nil {
 		recent = []string{}
 	}

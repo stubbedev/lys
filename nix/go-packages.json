@@ -3516,6 +3516,9 @@
     ]
   },
   "lib/eis": {
+    "imports": [
+      "lib/memfd"
+    ],
     "external": [
       "cmp",
       "encoding/binary",
@@ -4489,6 +4492,22 @@
       "time"
     ]
   },
+  "lib/memfd": {
+    "external": [
+      "errors",
+      "fmt",
+      "golang.org/x/sys/unix"
+    ],
+    "testImports": [
+      "lib/testbuild"
+    ],
+    "testExternal": [
+      "bytes",
+      "io",
+      "os",
+      "testing"
+    ]
+  },
   "lib/motion": {
     "imports": [
       "lib/third_party/gomath"
@@ -4862,6 +4881,30 @@
     "testExternal": [
       "os",
       "strconv"
+    ]
+  },
+  "lib/recentfiles": {
+    "imports": [
+      "lib/fileuri",
+      "lib/xdg"
+    ],
+    "external": [
+      "bytes",
+      "encoding/xml",
+      "errors",
+      "fmt",
+      "io",
+      "os",
+      "path/filepath",
+      "slices",
+      "time"
+    ],
+    "testImports": [
+      "lib/testbuild"
+    ],
+    "testExternal": [
+      "strings",
+      "testing"
     ]
   },
   "lib/render": {
@@ -5864,6 +5907,7 @@
     "imports": [
       "lib/intconv",
       "lib/keymapfd",
+      "lib/memfd",
       "lib/third_party/wayland/wl",
       "lib/third_party/wayland/wlclient",
       "lib/wlr"
@@ -5871,8 +5915,8 @@
     "external": [
       "errors",
       "fmt",
+      "golang.org/x/sys/unix",
       "math",
-      "os",
       "sync",
       "time"
     ],
@@ -5886,6 +5930,7 @@
       "bytes",
       "encoding/binary",
       "net",
+      "os",
       "syscall",
       "testing"
     ]
@@ -6259,6 +6304,24 @@
       "testing"
     ]
   },
+  "login/fprintd": {
+    "imports": [
+      "lib/third_party/godbus"
+    ],
+    "external": [
+      "context",
+      "errors",
+      "fmt",
+      "slices"
+    ],
+    "testImports": [
+      "lib/dbustest",
+      "lib/testhome"
+    ],
+    "testExternal": [
+      "testing"
+    ]
+  },
   "login/greeterconfig": {
     "imports": [
       "desktop/config",
@@ -6419,14 +6482,14 @@
     "imports": [
       "lib/dbusx",
       "lib/logind",
-      "lib/third_party/godbus"
+      "lib/third_party/godbus",
+      "login/fprintd"
     ],
     "external": [
       "context",
       "errors",
       "fmt",
       "log",
-      "slices",
       "time"
     ],
     "testImports": [
@@ -6439,6 +6502,7 @@
     "testExternal": [
       "golang.org/x/sys/unix",
       "os",
+      "slices",
       "sync",
       "testing"
     ]
@@ -8565,6 +8629,7 @@
       "lib/xkb",
       "lib/xkb/registry",
       "login/dmsocket",
+      "login/fprintd",
       "login/greeterconfig",
       "power/charge",
       "power/pause",
@@ -9973,18 +10038,17 @@
   "shell/service/fileindex": {
     "imports": [
       "desktop/feed",
-      "desktop/fswatch"
+      "desktop/fswatch",
+      "lib/recentfiles"
     ],
     "external": [
       "bufio",
       "context",
-      "encoding/xml",
       "errors",
       "fmt",
       "golang.org/x/sys/unix",
       "io",
       "log",
-      "net/url",
       "os",
       "path/filepath",
       "slices",
@@ -10324,6 +10388,7 @@
       "lib/atomicfile",
       "lib/intconv",
       "lib/peercred",
+      "lib/recentfiles",
       "lib/third_party/gomath",
       "lib/xdg",
       "shell/service/fileindex",
@@ -10514,6 +10579,7 @@
       "desktop/tzdb",
       "lib/atomicfile",
       "lib/dbusx",
+      "lib/memfd",
       "lib/third_party/godbus",
       "lib/third_party/gomath",
       "lib/third_party/wayland/wl",
@@ -11496,6 +11562,7 @@
       "lib/fileuri",
       "lib/intconv",
       "lib/procstat",
+      "lib/recentfiles",
       "lib/render",
       "lib/text",
       "lib/third_party/godbus",
@@ -11518,7 +11585,6 @@
       "cmp",
       "context",
       "crypto/x509",
-      "encoding/xml",
       "errors",
       "fmt",
       "golang.org/x/sys/unix",
@@ -13811,20 +13877,18 @@
   "ui/internal/recentfiles": {
     "imports": [
       "lib/atomicfile",
+      "lib/recentfiles",
       "lib/xdg",
-      "ui/internal/worker",
-      "ui/transfer"
+      "ui/internal/worker"
     ],
     "external": [
-      "encoding/xml",
-      "errors",
+      "fmt",
       "os",
       "path/filepath",
       "slices",
       "time"
     ],
     "testExternal": [
-      "fmt",
       "strings",
       "testing"
     ]
@@ -15164,6 +15228,7 @@
   "wm/internal/dmabuf": {
     "imports": [
       "lib/fourcc",
+      "lib/memfd",
       "wm/internal/gpu",
       "wm/internal/loop",
       "wm/internal/protocol/server/linuxdmabuf",
@@ -17323,6 +17388,7 @@
   },
   "wm/internal/xkb": {
     "imports": [
+      "lib/memfd",
       "lib/xkb"
     ],
     "external": [

@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"cmp"
 	"context"
-	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
@@ -24,6 +23,7 @@ import (
 	"github.com/stubbedev/lys/lib/fileuri"
 	"github.com/stubbedev/lys/lib/intconv"
 	"github.com/stubbedev/lys/lib/procstat"
+	"github.com/stubbedev/lys/lib/recentfiles"
 	"github.com/stubbedev/lys/lib/xdg"
 )
 
@@ -533,53 +533,30 @@ const recentLocation = "recent:"
 // maxRecent bounds the Recent listing to the newest files.
 const maxRecent = 100
 
-// RecentFile is the recently-used list GTK writes,
-// $XDG_DATA_HOME/recently-used.xbel; "" without a data home.
+// RecentFile is the desktop's recently-used list
+// (recentfiles.DefaultPath); "" without a data home.
 func RecentFile() string {
-	data, ok := xdg.OS.DataHome()
-	if !ok {
+	path, err := recentfiles.DefaultPath(xdg.OS)
+	if err != nil {
 		return ""
 	}
-	return filepath.Join(data, "recently-used.xbel")
-}
-
-// xbel is the part of a recently-used.xbel the listing reads.
-type xbel struct {
-	Bookmarks []xbelBookmark `xml:"bookmark"`
-}
-
-// xbelBookmark is one used file: its URI and when it was last used
-// (an ISO 8601 UTC stamp, which sorts as text).
-type xbelBookmark struct {
-	Href     string `xml:"href,attr"`
-	Modified string `xml:"modified,attr"`
+	return path
 }
 
 // ListRecent lists the recently used local files that still exist,
-// the newest maxRecent of them; an unreadable list lists none.
+// the newest maxRecent of them (recentfiles.Load); a missing list lists
+// none, and an unreadable one is the error.
 func ListRecent(mounts *vfs.Mounts, path string, kinds Kinds) ([]Entry, error) {
-	data, err := os.ReadFile(path) //nolint:gosec // the user's recently-used list
-	if errors.Is(err, fs.ErrNotExist) {
-		return nil, nil
-	}
+	recent, err := recentfiles.Load(path)
 	if err != nil {
-		return nil, fmt.Errorf("read %s: %w", path, err)
+		return nil, err
 	}
-	var doc xbel
-	if err := xml.Unmarshal(data, &doc); err != nil {
-		return nil, fmt.Errorf("parse %s: %w", path, err)
-	}
-	slices.SortStableFunc(doc.Bookmarks, func(a, b xbelBookmark) int { return strings.Compare(b.Modified, a.Modified) })
 	var entries []Entry
-	for _, b := range doc.Bookmarks {
-		p, ok := fileuri.Path(b.Href)
-		if !ok {
+	for _, r := range recent {
+		if _, err := os.Stat(r.Path); err != nil {
 			continue
 		}
-		if _, err := os.Stat(p); err != nil {
-			continue
-		}
-		if e, ok := statEntry(mounts, p, kinds); ok && !e.IsDir {
+		if e, ok := statEntry(mounts, r.Path, kinds); ok && !e.IsDir {
 			entries = append(entries, e)
 			if len(entries) == maxRecent {
 				break

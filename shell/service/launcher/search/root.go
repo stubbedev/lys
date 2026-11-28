@@ -16,6 +16,7 @@ import (
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/identity"
 	"github.com/stubbedev/lys/desktop/settingspage"
+	"github.com/stubbedev/lys/lib/recentfiles"
 	"github.com/stubbedev/lys/lib/xdg"
 
 	"github.com/stubbedev/lys/shell/service/fileindex"
@@ -201,11 +202,11 @@ func IndexConfig(cfg config.LauncherSearchConfig, home string) (fileindex.Config
 	if len(roots) == 0 {
 		roots = []string{home}
 	}
-	data, ok := rootEnv(home).DataHome()
-	if !ok {
-		return fileindex.Config{}, errors.New("no directory of recent files: neither XDG_DATA_HOME nor HOME is an absolute path")
+	recent, err := recentfiles.DefaultPath(rootEnv(home))
+	if err != nil {
+		return fileindex.Config{}, fmt.Errorf("no list of recent files: %w", err)
 	}
-	return fileindex.Config{Roots: roots, Rules: fileindex.Rules{Exclude: cfg.FileExclude}, RecentPath: filepath.Join(data, "recently-used.xbel")}, nil
+	return fileindex.Config{Roots: roots, Rules: fileindex.Rules{Exclude: cfg.FileExclude}, RecentPath: recent}, nil
 }
 
 func sessionLanguage() string {
