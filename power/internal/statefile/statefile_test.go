@@ -39,3 +39,14 @@ func TestWriteCreatesAndReplaces(t *testing.T) {
 		t.Errorf("mode = %o, want 600", perm)
 	}
 }
+
+func TestWriteUnderAFileFails(t *testing.T) {
+	t.Parallel()
+	parent := filepath.Join(t.TempDir(), "not-a-directory")
+	if err := os.WriteFile(parent, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := Write(filepath.Join(parent, "last-ac"), []byte("1")); err == nil {
+		t.Error("Write under a regular file succeeded, want an error")
+	}
+}
