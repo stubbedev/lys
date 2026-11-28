@@ -20,8 +20,41 @@ import (
 )
 
 // menu is the context menu for sel in t: what the place shown lets be
-// done with the files selected, or with the folder itself.
+// done with the files selected, or with the folder itself, and the
+// selection commands.
 func (f *Files) menu(t *tab, sel []filebrowser.Entry) []widget.MenuItem {
+	items := f.actions(t, sel)
+	if len(sel) == 0 {
+		return appendSection(items, f.selectAll(t))
+	}
+	return appendSection(items, widget.MenuItem{Label: locale.T().Get("files-selection"), Items: []widget.MenuItem{
+		f.selectAll(t),
+		{Label: locale.T().Get("files-select-none"), Accel: "Shift+Ctrl+A", OnClick: t.b.SelectNone},
+		{Label: locale.T().Get("files-invert-selection"), Accel: "Shift+Ctrl+I", OnClick: t.b.InvertSelection},
+	}})
+}
+
+// selectAll is the menu item selecting every file t lists, disabled
+// when they all are.
+func (f *Files) selectAll(t *tab) widget.MenuItem {
+	return widget.MenuItem{
+		Label: locale.T().Get("files-select-all"), Accel: "Ctrl+A", OnClick: t.b.SelectAll,
+		Disabled: len(t.b.Selected()) == len(t.b.Entries()),
+	}
+}
+
+// appendSection is items with more after them, a separator between
+// when items holds any.
+func appendSection(items []widget.MenuItem, more ...widget.MenuItem) []widget.MenuItem {
+	if len(items) > 0 {
+		items = append(items, widget.MenuSeparator())
+	}
+	return append(items, more...)
+}
+
+// actions is what the place t shows lets be done with sel, or with the
+// folder itself.
+func (f *Files) actions(t *tab, sel []filebrowser.Entry) []widget.MenuItem {
 	tr := locale.T()
 	paths := make([]string, len(sel))
 	for i, e := range sel {

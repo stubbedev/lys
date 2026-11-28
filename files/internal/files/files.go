@@ -365,9 +365,11 @@ func (f *Files) CloseRequest() bool {
 // key binds the window's keys: Ctrl+T, Ctrl+W and Ctrl+(Shift+)Tab or
 // Ctrl+Page Up/Down for the tabs anywhere; Ctrl+Shift+T to reopen a
 // tab, Ctrl+1 and Ctrl+2 for the list and the grid, F5 and Ctrl+R to
-// reload, and Ctrl+X, Ctrl+C, Ctrl+V, Ctrl+Z, F2, Delete,
+// reload, Ctrl+A, Ctrl+Shift+A, Ctrl+Shift+I and Escape to select all,
+// none or the rest, and Ctrl+X, Ctrl+C, Ctrl+V, Ctrl+Z, F2, Delete,
 // Shift+Delete, Ctrl+Shift+N and Alt+Enter for the files, unless a
-// text field has the key; the browser's own keys after them.
+// text field has the key; the browser's own keys after them. A text
+// field keeps Escape to itself.
 func (f *Files) key(r *widget.Router, sym xkb.Keysym, mods app.Mods) {
 	t := f.active()
 	if t == nil {
@@ -384,8 +386,15 @@ func (f *Files) key(r *widget.Router, sym xkb.Keysym, mods app.Mods) {
 		f.view.SelectNext()
 	case ctrlShift && (sym == xkb.KeyTab || sym == xkb.KeyISOLeftTab), ctrl && sym == xkb.KeyPageUp:
 		f.view.SelectPrevious()
+	case t.b.Typing(r) && sym == xkb.KeyEscape:
 	case t.b.Typing(r):
 		t.b.Key(r, sym, mods)
+	case ctrl && sym == 'a':
+		t.b.SelectAll()
+	case ctrlShift && sym == 'a':
+		t.b.SelectNone()
+	case ctrlShift && sym == 'i':
+		t.b.InvertSelection()
 	case ctrlShift && sym == 't':
 		f.reopenClosed()
 	case ctrl && sym == '1':

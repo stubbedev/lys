@@ -1018,10 +1018,7 @@ func (l *List) ClickAt(p Point) {
 		return
 	}
 	if l.modifierClicks && l.mode == SelectionMultiple && !l.dragMoved && l.gestureRow < 0 && l.pressMods&(ModCtrl|ModShift) == 0 && l.emptyAt(p) {
-		if l.clearAll() {
-			l.selectionSync()
-			l.notify()
-		}
+		l.UnselectAll()
 	}
 }
 

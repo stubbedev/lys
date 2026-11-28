@@ -18,13 +18,14 @@ import (
 var errHidden = errors.New("the tab is not showing")
 
 // tab is one browse: its page, its browser, its name prompt, its
-// status line.
+// status line with the selection commands it offers.
 type tab struct {
-	page   *widget.TabPage
-	b      *filebrowser.Browser
-	prompt *prompt
-	status *widget.Label
-	home   string
+	page            *widget.TabPage
+	b               *filebrowser.Browser
+	prompt          *prompt
+	status          *widget.Label
+	selectAll, none *widget.Button
+	home            string
 }
 
 // newTab opens a tab on dir ("" for home) after the others with
@@ -62,7 +63,14 @@ func (f *Files) insertTab(at int, dir string) *tab {
 	t.status.AddClass("files-status-label", css.Caption, css.DimLabel)
 	t.status.SetEllipsize(widget.EllipsizeEnd)
 	statusRow := filebrowser.Section(widget.Row, "files-status")
+	pad := statusRow.Padding()
+	pad.Top, pad.Bottom = pad.Top/4, pad.Bottom/4
+	statusRow.SetPadding(pad)
 	statusRow.AppendAligned(t.status, true, widget.AlignCenter)
+	t.selectAll = f.statusAction("files-select-all", func() { t.b.SelectAll() })
+	t.none = f.statusAction("files-select-none", func() { t.b.SelectNone() })
+	statusRow.AppendAligned(t.selectAll, false, widget.AlignCenter)
+	statusRow.AppendAligned(t.none, false, widget.AlignCenter)
 	t.b.Begin(filebrowser.Options{
 		Folder:         dir,
 		Kinds:          filebrowser.FilesAndFolders,
@@ -71,6 +79,7 @@ func (f *Files) insertTab(at int, dir string) *tab {
 		Above:          []widget.Widget{t.prompt.row},
 		Below:          []widget.Widget{statusRow},
 		OnFile:         func(e filebrowser.Entry) { f.open(t, []filebrowser.Entry{e}) },
+		OnEscape:       func() { t.b.SelectNone() },
 		ContextMenu:    func(sel []filebrowser.Entry) []widget.MenuItem { return f.menu(t, sel) },
 		OnDrop:         f.drop,
 		DragActions:    dragActions,
@@ -87,11 +96,25 @@ func (f *Files) insertTab(at int, dir string) *tab {
 	return t
 }
 
+// statusAction is a small text button of the status line, reading the
+// message id, that does do.
+func (f *Files) statusAction(id string, do func()) *widget.Button {
+	b := widget.NewButton(widget.NewLabel(f.cfg.Browser.Font, widgets.TextPx(styling.Caption, 1), locale.T().Get(id), 0), 0, 0)
+	b.AddClass("files-status-action", css.Ghost, css.Small)
+	b.OnClick = do
+	b.SetVisible(false)
+	return b
+}
+
 // showStatus says in the status line how many items the folder holds,
-// or how many of them sel selects and the size of its files; nothing
-// while the folder is being read.
+// or how many of them sel selects and the size of its files, and
+// offers to select all of them while some are not selected and none
+// while some are; nothing while the folder is being read.
 func (t *tab) showStatus(sel []filebrowser.Entry) {
-	t.status.SetText(status(sel, len(t.b.Entries()), t.b.Busy()))
+	total, loading := len(t.b.Entries()), t.b.Busy()
+	t.status.SetText(status(sel, total, loading))
+	t.selectAll.SetVisible(!loading && len(sel) < total)
+	t.none.SetVisible(!loading && len(sel) > 0)
 }
 
 // status is the status line's text for sel of total items.

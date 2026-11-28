@@ -21,3 +21,28 @@ func (c *Browser) Reload() {
 	c.reloading, c.reloadKeep = true, c.selectedPath()
 	c.s.reload()
 }
+
+// SelectAll selects every file the view showing lists, as Ctrl+A on it
+// does; it does nothing outside a browse or when they all are.
+func (c *Browser) SelectAll() {
+	v := c.activeView()
+	if c.active && len(v.Selection()) != len(c.s.entries) {
+		v.SelectAll()
+	}
+}
+
+// SelectNone clears the selection of the view showing; it does nothing
+// outside a browse.
+func (c *Browser) SelectNone() {
+	if c.active {
+		c.activeView().UnselectAll()
+	}
+}
+
+// InvertSelection selects exactly the files of the view showing that
+// were not selected; it does nothing outside a browse.
+func (c *Browser) InvertSelection() {
+	if c.active {
+		c.activeView().InvertSelection()
+	}
+}

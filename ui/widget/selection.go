@@ -220,6 +220,37 @@ func (s *selection) SelectAll() {
 	s.notify()
 }
 
+// UnselectAll empties the selection and notifies when that dropped
+// one. Browse mode keeps its one item, as no gesture clears it there.
+func (s *selection) UnselectAll() {
+	if s.mode == SelectionBrowse || s.mode == SelectionNone {
+		return
+	}
+	if s.clearAll() {
+		s.host.selectionSync()
+		s.notify()
+	}
+}
+
+// InvertSelection selects exactly the items not selected. It does
+// nothing outside multiple mode, where an inverted set is not
+// representable.
+func (s *selection) InvertSelection() {
+	n := s.host.count()
+	if s.mode != SelectionMultiple || n == 0 {
+		return
+	}
+	set := make(map[int]struct{}, n-len(s.multi))
+	for i := range n {
+		if _, ok := s.multi[i]; !ok {
+			set[i] = struct{}{}
+		}
+	}
+	s.keyed = false
+	s.applyMulti(set)
+	s.notify()
+}
+
 // selectOne is the single- and browse-mode core: clamp, move, reveal,
 // sync, and notify on change. Browse keeps one item: a clearing move
 // pins to the first instead.

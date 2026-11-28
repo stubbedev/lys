@@ -957,7 +957,7 @@ var messageID = regexp.MustCompile(`"files-[a-z-]+"`)
 var cssClass = map[string]bool{
 	"files-tabs": true, "files-jobs": true, "files-job": true, "files-job-cancel": true, "files-name-prompt": true,
 	"files-create": true, "files-conflict-all": true, "files-properties": true, "files-property-value": true,
-	"files-status": true, "files-status-label": true,
+	"files-status": true, "files-status-label": true, "files-status-action": true,
 }
 
 // Every message the file manager shows is in its catalogue.

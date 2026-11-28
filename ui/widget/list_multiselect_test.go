@@ -360,6 +360,45 @@ func TestListModifierClicksGridGapClears(t *testing.T) {
 	selEquals(t, &l.List, 1)
 }
 
+// TestListUnselectAllAndInvert pins the selection commands a file view
+// offers: UnselectAll empties the set and notifies only when it held
+// something; InvertSelection selects exactly the rest, and does nothing
+// outside multiple mode.
+func TestListUnselectAllAndInvert(t *testing.T) {
+	l, _, notifications := setupMultiList(t)
+	l.SelectRows(1, 3, 4)
+	*notifications = nil
+	l.InvertSelection()
+	want := []int{0, 2}
+	for i := 5; i < 20; i++ {
+		want = append(want, i)
+	}
+	selEquals(t, l, want...)
+	l.UnselectAll()
+	selEquals(t, l)
+	l.UnselectAll()
+	if len(*notifications) != 2 {
+		t.Errorf("notifications = %d, want 2 (the invert, the one clear that dropped rows)", len(*notifications))
+	}
+	l.InvertSelection()
+	if got := len(l.Selection()); got != 20 {
+		t.Errorf("inverting nothing selected %d rows, want all 20", got)
+	}
+
+	single := NewList(newCountingModel(3), 20)
+	single.Select(1)
+	single.InvertSelection()
+	selEquals(t, single, 1)
+	single.UnselectAll()
+	selEquals(t, single)
+
+	browse := NewList(newCountingModel(3), 20)
+	browse.SetSelectionMode(SelectionBrowse)
+	browse.Select(2)
+	browse.UnselectAll()
+	selEquals(t, browse, 2)
+}
+
 // TestListMultipleChecks pins checkbox rows: in multiple mode the row's
 // CheckButton reflects membership, a click toggles membership through
 // the check, and the check's own click handling stays out of it.

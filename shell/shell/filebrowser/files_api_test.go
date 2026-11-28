@@ -5,6 +5,8 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/stubbedev/lys/ui/widget"
+
 	"github.com/stubbedev/lys/shell/shell/filebrowser/browsertest"
 )
 
@@ -51,5 +53,50 @@ func TestReloadReadsTheListingAgain(t *testing.T) {
 	}
 	if got := hs.selectedNames(); !slices.Equal(got, []string{"notes.txt"}) {
 		t.Errorf("a reload left %v selected", got)
+	}
+}
+
+// SelectAll, SelectNone and InvertSelection act on the view showing, in
+// the list and the grid; SelectAll with every file selected tells the
+// host nothing new, and a single-selection browse selects no more than
+// it can.
+func TestTheSelectionCommands(t *testing.T) {
+	hs := newHarness(t, "")
+	var heard int
+	hs.open(t, Options{Selection: widget.SelectionMultiple, OnSelection: func([]Entry) { heard++ }})
+	all := []string{"docs", "pics", "a.png", "b.txt"}
+	for _, grid := range []bool{false, true} {
+		hs.do(func() { hs.c.SetGrid(grid) })
+		hs.do(hs.c.SelectAll)
+		if got := hs.selectedNames(); !slices.Equal(got, all) {
+			t.Errorf("grid %v: SelectAll selected %v", grid, got)
+		}
+		heard = 0
+		hs.do(hs.c.SelectAll)
+		if heard != 0 {
+			t.Errorf("grid %v: SelectAll with all selected told the host %d times", grid, heard)
+		}
+		hs.pick(t, "pics")
+		hs.do(hs.c.InvertSelection)
+		if got := hs.selectedNames(); !slices.Equal(got, []string{"docs", "a.png", "b.txt"}) {
+			t.Errorf("grid %v: InvertSelection selected %v", grid, got)
+		}
+		hs.do(hs.c.SelectNone)
+		if got := hs.selectedNames(); len(got) != 0 {
+			t.Errorf("grid %v: SelectNone left %v selected", grid, got)
+		}
+	}
+
+	single := newHarness(t, "")
+	single.open(t, openFile)
+	single.pick(t, "a.png")
+	single.do(single.c.SelectAll)
+	single.do(single.c.InvertSelection)
+	if got := single.selectedNames(); !slices.Equal(got, []string{"a.png"}) {
+		t.Errorf("a single-selection browse selected %v after SelectAll and InvertSelection", got)
+	}
+	single.do(single.c.SelectNone)
+	if got := single.selectedNames(); len(got) != 0 {
+		t.Errorf("SelectNone left %v selected in a single-selection browse", got)
 	}
 }
