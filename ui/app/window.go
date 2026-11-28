@@ -40,6 +40,7 @@ import (
 	"github.com/stubbedev/lys/ui/internal/blursync"
 	"github.com/stubbedev/lys/ui/internal/buffer"
 	"github.com/stubbedev/lys/ui/internal/dragdrop"
+	"github.com/stubbedev/lys/ui/internal/framepace"
 	"github.com/stubbedev/lys/ui/internal/inspect"
 	"github.com/stubbedev/lys/ui/internal/repaint"
 	"github.com/stubbedev/lys/ui/internal/scale"
@@ -187,9 +188,13 @@ type hostWindow struct {
 	stateOwed    bool
 	frame        wlsession.FrameDone
 	framePending bool
-	shown        bool
-	firstFrame   firstFrameHold
-	drawErr      error
+	// pace places the window's frames before its output's vblanks;
+	// presentFree holds the per-commit feedback records for reuse.
+	pace        framepace.Pacer
+	presentFree []*presentWait
+	shown       bool
+	firstFrame  firstFrameHold
+	drawErr     error
 	// paintedPixels is the pixel count the last frame actually wrote
 	// on the CPU, and the area of the region it repainted on the GPU;
 	// the paint-count tests pin it.
@@ -833,7 +838,9 @@ type surfaceHandle interface {
 	// Frame arms the compositor callback that fires ready once the
 	// frame may be followed by another.
 	Frame(done *wlsession.FrameDone) error
-	Feedback(done func(shown bool)) error
+	// Feedback asks for p's commit's presentation feedback, or fails
+	// with errNoPresentation.
+	Feedback(p *presentWait) error
 	// BlurAvailable reports whether the compositor blurs behind
 	// surfaces now (its offer can come and go).
 	BlurAvailable() bool
@@ -898,34 +905,40 @@ func (s wireSurface) Frame(done *wlsession.FrameDone) error {
 	return nil
 }
 
-func (s wireSurface) Feedback(done func(shown bool)) error {
-	p := s.sess.Presentation()
-	if p == nil {
+func (s wireSurface) Feedback(p *presentWait) error {
+	pr := s.sess.Presentation()
+	if pr == nil {
 		return errNoPresentation
 	}
-	fb, err := p.Feedback(s.wl)
+	fb, err := pr.Feedback(s.wl)
 	if err != nil {
 		return err
 	}
-	l := &presentationFeedback{fb: fb, done: done}
-	fb.AddPresentedHandler(l)
-	fb.AddDiscardedHandler(l)
+	p.fb, p.sess = fb, s.sess
+	fb.AddPresentedHandler(p)
+	fb.AddDiscardedHandler(p)
 	return nil
 }
 
-type presentationFeedback struct {
-	fb   *wlr.WpPresentationFeedback
-	done func(shown bool)
+// presentWait is one commit's presentation feedback: the frame's plan
+// for the pacer and the callbacks waiting for it to be shown.
+type presentWait struct {
+	w     *hostWindow
+	fb    *wlr.WpPresentationFeedback
+	sess  *wlsession.Session
+	frame framepace.Frame
+	batch []func()
 }
 
-func (p *presentationFeedback) HandleWpPresentationFeedbackPresented(wlr.WpPresentationFeedbackPresentedEvent) {
+func (p *presentWait) HandleWpPresentationFeedbackPresented(ev wlr.WpPresentationFeedbackPresentedEvent) {
 	p.fb.Unregister()
-	p.done(true)
+	at, ok := p.sess.PresentationTime(ev.TvSecHi, ev.TvSecLo, ev.TvNsec)
+	p.w.presented(p, at, time.Duration(ev.Refresh), ok)
 }
 
-func (p *presentationFeedback) HandleWpPresentationFeedbackDiscarded(wlr.WpPresentationFeedbackDiscardedEvent) {
+func (p *presentWait) HandleWpPresentationFeedbackDiscarded(wlr.WpPresentationFeedbackDiscardedEvent) {
 	p.fb.Unregister()
-	p.done(false)
+	p.w.discarded(p)
 }
 
 // SetOpaqueRegion implements surfaceHandle: the compositor's region
@@ -1007,9 +1020,11 @@ func (w *hostWindow) blurActive() bool { return w.blur.Active() }
 
 // draw paints one frame: resize check, acquire, cached measure, arrange,
 // damage collection, region-clipped paint, commit, and frame-callback
-// arming. It reports whether the loop may continue; drawErr carries the
+// and presentation-feedback arming, the frame's plan and cost going to
+// the pacer. It reports whether the loop may continue; drawErr carries the
 // failure.
 func (w *hostWindow) draw() bool {
+	frame := w.pace.Begin(animclock.Now())
 	refitted := w.layer != nil && w.styleRoot != nil && w.layer.refit(w.styleRoot)
 	// Resize before acquiring: Resize retires the free buffers at the
 	// new size and keeps the ones the compositor still holds until
@@ -1163,19 +1178,25 @@ func (w *hostWindow) draw() bool {
 		w.drawErr = fmt.Errorf("app: frame callback: %w", err)
 		return false
 	}
-	if batch := w.takePresentWaiters(); len(batch) > 0 {
-		switch err := w.surf.Feedback(w.presentFeedback(batch)); {
-		case errors.Is(err, errNoPresentation):
-			w.presentOnFrame = append(w.presentOnFrame, batch...)
-		case err != nil:
-			w.whenPresented = append(batch, w.whenPresented...)
-			w.drawErr = fmt.Errorf("app: presentation feedback: %w", err)
-			return false
-		}
+	pw := w.presentWait(w.takePresentWaiters())
+	switch err := w.surf.Feedback(pw); {
+	case errors.Is(err, errNoPresentation):
+		w.presentOnFrame = append(w.presentOnFrame, pw.batch...)
+		w.freePresentWait(pw)
+		pw = nil
+	case err != nil:
+		w.whenPresented = append(pw.batch, w.whenPresented...)
+		w.freePresentWait(pw)
+		w.drawErr = fmt.Errorf("app: presentation feedback: %w", err)
+		return false
 	}
 	if err := w.surf.Commit(); err != nil {
 		w.drawErr = fmt.Errorf("app: commit: %w", err)
 		return false
+	}
+	w.pace.Committed(&frame, animclock.Now())
+	if pw != nil {
+		pw.frame = frame
 	}
 	w.stateOwed = false
 	// The commit just went to the screen through b: b is current now,
@@ -1244,13 +1265,42 @@ func (w *hostWindow) takePresentWaiters() []func() {
 	return batch
 }
 
-func (w *hostWindow) presentFeedback(batch []func()) func(shown bool) {
-	return func(shown bool) {
-		pending := batch
-		batch = nil
-		if pending != nil {
-			w.notePresented(pending, shown)
-		}
+func (w *hostWindow) presentWait(batch []func()) *presentWait {
+	var p *presentWait
+	if n := len(w.presentFree); n > 0 {
+		p = w.presentFree[n-1]
+		w.presentFree[n-1] = nil
+		w.presentFree = w.presentFree[:n-1]
+	} else {
+		p = &presentWait{w: w}
+	}
+	p.batch = batch
+	return p
+}
+
+func (w *hostWindow) freePresentWait(p *presentWait) {
+	*p = presentWait{w: w}
+	w.presentFree = append(w.presentFree, p)
+}
+
+// presented takes p's commit shown at at on an output refreshing every
+// refresh; ok is false when at is not on the local clock.
+func (w *hostWindow) presented(p *presentWait, at time.Time, refresh time.Duration, ok bool) {
+	if ok {
+		w.pace.Presented(p.frame, at, refresh)
+	}
+	batch := p.batch
+	w.freePresentWait(p)
+	if len(batch) > 0 {
+		w.notePresented(batch, true)
+	}
+}
+
+func (w *hostWindow) discarded(p *presentWait) {
+	batch := p.batch
+	w.freePresentWait(p)
+	if len(batch) > 0 {
+		w.notePresented(batch, false)
 	}
 }
 

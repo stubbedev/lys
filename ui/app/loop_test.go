@@ -143,30 +143,30 @@ func TestKeyRepeatLatency(t *testing.T) {
 // resize. The frameOwed rules underneath are pinned in TestFrameOwed.
 func TestShouldDraw(t *testing.T) {
 	t.Run("an idle window never draws", func(t *testing.T) {
-		if shouldDraw(&hostWindow{}, false) {
+		if shouldDraw(&hostWindow{}, false, time.Time{}) {
 			t.Error("undirtied window drew")
 		}
 	})
 	t.Run("a dirty window waits for its frame callback", func(t *testing.T) {
 		w := &hostWindow{dirty: true, framePending: true}
-		if shouldDraw(w, false) {
+		if shouldDraw(w, false, time.Time{}) {
 			t.Error("drew while the previous frame was pending")
 		}
 	})
 	t.Run("a returned callback lets the frame go out", func(t *testing.T) {
-		if !shouldDraw(&hostWindow{dirty: true}, false) {
+		if !shouldDraw(&hostWindow{dirty: true}, false, time.Time{}) {
 			t.Error("pacing blocked a ready frame")
 		}
 	})
 	t.Run("a window the compositor stopped answering commits nothing", func(t *testing.T) {
 		w := &hostWindow{dirty: true, framePending: true}
-		if shouldDraw(w, false) {
+		if shouldDraw(w, false, time.Time{}) {
 			t.Error("a frame went out with the last callback unheard")
 		}
 	})
 	t.Run("a configure resize bypasses pacing", func(t *testing.T) {
 		w := &hostWindow{dirty: true, framePending: true}
-		if !shouldDraw(w, true) {
+		if !shouldDraw(w, true, time.Time{}) {
 			t.Error("resize repaint blocked by pacing; the resize would deadlock")
 		}
 	})

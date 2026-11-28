@@ -1099,8 +1099,8 @@ func (a *Application) tick(step func() error, now time.Time) error {
 		// Draw when something changed: a configure-driven resize
 		// repaint always goes out (a pacing-gated one deadlocks,
 		// see shouldDraw), otherwise the previous frame's callback
-		// must have returned.
-		if shouldDraw(w, resized) {
+		// must have returned and the pacer's start come.
+		if shouldDraw(w, resized, now) {
 			w.dirty = false
 			if !w.draw() {
 				// A wire failure mid-frame (attach/commit on a dead
@@ -1125,6 +1125,9 @@ func (a *Application) tick(step func() error, now time.Time) error {
 			windowNext = t
 		}
 		if t, ok := w.firstFrameDeadline(); ok && (windowNext.IsZero() || t.Before(windowNext)) {
+			windowNext = t
+		}
+		if t, ok := paceDeadline(w); ok && (windowNext.IsZero() || t.Before(windowNext)) {
 			windowNext = t
 		}
 	}

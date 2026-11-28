@@ -34,18 +34,21 @@ func TestOnPresentedFiresOnceWhenPresented(t *testing.T) {
 	if len(h.surf.feedback) != 1 || !slices.Equal(h.surf.calls[len(h.surf.calls)-2:], []string{"feedback", "commit"}) {
 		t.Fatalf("feedback %d, calls %v, want one feedback armed before the commit", len(h.surf.feedback), h.surf.calls)
 	}
-	h.surf.feedback[0](true)
+	h.surf.show(0, true)
 	h.commit()
-	h.surf.feedback[0](true)
-	if h.fired != 1 || len(h.surf.feedback) != 1 {
-		t.Errorf("fired %d, feedback %d, want one call and no feedback once presented", h.fired, len(h.surf.feedback))
+	if len(h.surf.feedback) != 2 {
+		t.Fatalf("feedback %d, want every commit to arm one for the pacer", len(h.surf.feedback))
+	}
+	h.surf.show(1, true)
+	if h.fired != 1 {
+		t.Errorf("fired %d, want one call once presented", h.fired)
 	}
 }
 
 func TestOnPresentedRetriesAfterDiscard(t *testing.T) {
 	h := newPresentedHarness(true)
 	h.commit()
-	h.surf.feedback[0](false)
+	h.surf.show(0, false)
 	if h.fired != 0 {
 		t.Fatalf("fired %d on a discarded buffer", h.fired)
 	}
@@ -53,7 +56,7 @@ func TestOnPresentedRetriesAfterDiscard(t *testing.T) {
 	if len(h.surf.feedback) != 2 {
 		t.Fatalf("feedback %d, want the next commit to arm another", len(h.surf.feedback))
 	}
-	h.surf.feedback[1](true)
+	h.surf.show(1, true)
 	if h.fired != 1 {
 		t.Errorf("fired %d, want 1 once the retried commit was presented", h.fired)
 	}
@@ -88,7 +91,7 @@ func TestWhenPresentedWaitsForTheNextCommit(t *testing.T) {
 	h.commit()
 	ran := 0
 	h.wnd.whenNextPresented(func() { ran++ })
-	h.surf.feedback[0](true)
+	h.surf.show(0, true)
 	if ran != 0 {
 		t.Fatalf("ran %d when the commit before the call was presented", ran)
 	}
@@ -96,15 +99,16 @@ func TestWhenPresentedWaitsForTheNextCommit(t *testing.T) {
 	if len(h.surf.feedback) != 2 {
 		t.Fatalf("feedback %d, want the commit after the call to arm one", len(h.surf.feedback))
 	}
-	h.surf.feedback[1](false)
+	h.surf.show(1, false)
 	h.commit()
-	h.surf.feedback[2](true)
+	h.surf.show(2, true)
 	if ran != 1 || h.fired != 1 {
 		t.Errorf("ran %d, fired %d, want each once, the discarded commit retried", ran, h.fired)
 	}
 	h.commit()
-	if len(h.surf.feedback) != 3 {
-		t.Errorf("feedback %d, want none armed with nothing waiting", len(h.surf.feedback))
+	h.surf.show(3, true)
+	if ran != 1 || h.fired != 1 {
+		t.Errorf("ran %d, fired %d after a commit with nothing waiting, want each once", ran, h.fired)
 	}
 }
 

@@ -2188,8 +2188,6 @@
       "time"
     ],
     "testImports": [
-      "desktop/shell/apptheme",
-      "desktop/shell/reveal",
       "desktop/shell/treetest",
       "lib/testhome"
     ],
@@ -2313,20 +2311,15 @@
   },
   "desktop/shell/treetest": {
     "imports": [
-      "lib/gpu",
-      "lib/gputest",
       "lib/render",
       "lib/waittest",
       "lib/xkb",
-      "ui/anim",
       "ui/app",
       "ui/widget"
     ],
     "external": [
-      "errors",
       "fmt",
       "golang.org/x/image/font/gofont/goregular",
-      "image",
       "math",
       "os",
       "path/filepath",
@@ -12851,6 +12844,7 @@
       "ui/internal/datacontrol",
       "ui/internal/dragdrop",
       "ui/internal/emoji",
+      "ui/internal/framepace",
       "ui/internal/imgcache",
       "ui/internal/inspect",
       "ui/internal/layersurface",
@@ -12902,6 +12896,7 @@
       "unicode/utf8"
     ],
     "testImports": [
+      "desktop/service/lyswm/lyswmtest",
       "lib/dbustest",
       "lib/fdtest",
       "lib/gputest",
@@ -13716,6 +13711,14 @@
   "ui/internal/emoji": {
     "external": [
       "strings"
+    ],
+    "testExternal": [
+      "testing"
+    ]
+  },
+  "ui/internal/framepace": {
+    "external": [
+      "time"
     ],
     "testExternal": [
       "testing"

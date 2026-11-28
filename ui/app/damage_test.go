@@ -59,7 +59,7 @@ type fakeSurface struct {
 	blurOffered  bool
 	blur         [][]render.Rect
 	presentation bool
-	feedback     []func(shown bool)
+	feedback     []*presentWait
 }
 
 func (f *fakeSurface) BlurAvailable() bool { return f.blurOffered }
@@ -89,13 +89,24 @@ func (f *fakeSurface) Frame(done *wlsession.FrameDone) error {
 	return nil
 }
 
-func (f *fakeSurface) Feedback(done func(shown bool)) error {
+func (f *fakeSurface) Feedback(p *presentWait) error {
 	if !f.presentation {
 		return errNoPresentation
 	}
 	f.calls = append(f.calls, "feedback")
-	f.feedback = append(f.feedback, done)
+	f.feedback = append(f.feedback, p)
 	return nil
+}
+
+// show answers the i-th feedback as the compositor does: presented, or
+// discarded.
+func (f *fakeSurface) show(i int, shown bool) {
+	p := f.feedback[i]
+	if shown {
+		p.w.presented(p, time.Time{}, 0, false)
+		return
+	}
+	p.w.discarded(p)
 }
 
 func (f *fakeSurface) SetOpaqueRegion(w, h int, holes []render.Rect) error {

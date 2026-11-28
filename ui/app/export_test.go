@@ -8,6 +8,7 @@ import (
 	"github.com/stubbedev/lys/lib/gpu"
 	"github.com/stubbedev/lys/lib/media/demux"
 
+	"github.com/stubbedev/lys/ui/internal/framepace"
 	"github.com/stubbedev/lys/ui/media"
 )
 
@@ -89,4 +90,13 @@ func (UndecodedTextures) ReadPacket() (demux.Packet, error) { return demux.Packe
 // NewVideoDecoder refuses every device.
 func (UndecodedTextures) NewVideoDecoder(*gpu.Device) (media.VideoDecoder, error) {
 	return nil, errors.New("app test: no device decodes this")
+}
+
+// PaceStats reports how w's frames met the vblanks they aimed at; it
+// runs on the loop goroutine.
+func (w *Window) PaceStats() framepace.Stats {
+	if hw := w.app.hostWindowOf(w); hw != nil {
+		return hw.pace.Stats()
+	}
+	return framepace.Stats{}
 }

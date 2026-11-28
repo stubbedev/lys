@@ -418,9 +418,29 @@ func nextWake(repeat, animFrame, windowNext, timers, now time.Time) (time.Time, 
 // surface's frame callback until it commits at the configured size, so
 // a resize repaint gated on pacing would deadlock the resize - a
 // liveness requirement, not politeness. Otherwise the previous frame's
-// callback must have returned (frameOwed).
-func shouldDraw(w *hostWindow, resized bool) bool {
-	return w.dirty && (resized || w.frameOwed())
+// callback must have returned (frameOwed), and the frame waits until
+// its pacer's start before the next vblank (framepace.Pacer.Wake).
+func shouldDraw(w *hostWindow, resized bool, now time.Time) bool {
+	if !w.dirty {
+		return false
+	}
+	if resized {
+		return true
+	}
+	if !w.frameOwed() {
+		return false
+	}
+	_, wait := w.pace.Wake(now)
+	return !wait
+}
+
+// paceDeadline is when a window holding its owed frame for the pacer
+// starts it.
+func paceDeadline(w *hostWindow) (time.Time, bool) {
+	if !w.dirty || !w.frameOwed() {
+		return time.Time{}, false
+	}
+	return w.pace.Armed()
 }
 
 // buttonStateName renders a wl_pointer.button state for traces.

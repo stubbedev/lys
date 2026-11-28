@@ -121,6 +121,7 @@ type Session struct {
 	layerShell    *wlr.ZwlrLayerShellV1
 	viewporter    *wlr.WpViewporter
 	presentation  *wlr.WpPresentation
+	presentClock  presentClock
 	syncobj       *wlr.WpDrmSyncobjManagerV1
 	subcompositor *wl.Subcompositor
 	dmabuf        *wlr.ZwpDmabufV1
@@ -532,6 +533,7 @@ func (s *Session) HandleRegistryGlobal(ev wl.RegistryGlobalEvent) {
 		s.viewporter = vp
 	case "wp_presentation":
 		p := wlr.NewWpPresentation(s.registry.Context())
+		p.AddClockIdHandler(&s.presentClock)
 		if !s.bindOptional(ev, 1, p) {
 			return
 		}
