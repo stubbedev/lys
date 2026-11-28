@@ -159,14 +159,26 @@ func expectModes(t *testing.T, h *Harness, when string, want map[string]backend.
 	}
 }
 
+// relightPanel turns the internal panel off and on again, as idle
+// DPMS or the lid does: the moment its mode may change unseen.
+func relightPanel(h *Harness) {
+	h.t.Helper()
+	h.dispatch("dpms off eDP-1")
+	h.dispatch("dpms on eDP-1")
+}
+
 func TestPowerSaverDropsOnlyTheInternalPanelToItsSlowerMode(t *testing.T) {
 	t.Parallel()
 	h := panelAndMonitor(t, func(*compositor.Config) {})
 	expectModes(t, h, "before power saver", map[string]backend.Mode{"eDP-1": fast, "DP-1": fast})
 	powerSaver(h, true)
-	expectModes(t, h, "under power saver", map[string]backend.Mode{"eDP-1": slowFast, "DP-1": fast})
+	expectModes(t, h, "under power saver while the panel is lit", map[string]backend.Mode{"eDP-1": fast, "DP-1": fast})
+	relightPanel(h)
+	expectModes(t, h, "under power saver once the panel lit again", map[string]backend.Mode{"eDP-1": slowFast, "DP-1": fast})
 	powerSaver(h, false)
-	expectModes(t, h, "after power saver", map[string]backend.Mode{"eDP-1": fast, "DP-1": fast})
+	expectModes(t, h, "after power saver while the panel is lit", map[string]backend.Mode{"eDP-1": slowFast, "DP-1": fast})
+	relightPanel(h)
+	expectModes(t, h, "after power saver once the panel lit again", map[string]backend.Mode{"eDP-1": fast, "DP-1": fast})
 }
 
 func TestPowerSaverWithoutAFrameRateKeepsThePanelsMode(t *testing.T) {
@@ -192,7 +204,10 @@ func TestPowerSaverTurnsTheInternalPanelsHDROffOutsideFullscreen(t *testing.T) {
 	}
 	expectHDR("before power saver", map[string]bool{"eDP-1": true, "DP-1": true})
 	powerSaver(h, true)
-	expectHDR("under power saver", map[string]bool{"eDP-1": false, "DP-1": true})
+	expectHDR("under power saver while the panel is lit", map[string]bool{"eDP-1": true, "DP-1": true})
+	relightPanel(h)
+	expectHDR("under power saver once the panel lit again", map[string]bool{"eDP-1": false, "DP-1": true})
 	powerSaver(h, false)
-	expectHDR("after power saver", map[string]bool{"eDP-1": true, "DP-1": true})
+	relightPanel(h)
+	expectHDR("after power saver once the panel lit again", map[string]bool{"eDP-1": true, "DP-1": true})
 }

@@ -31,6 +31,12 @@ func (c *Compositor) SetPower(o *output.Output, on bool) error {
 	if st.Power == want {
 		return nil
 	}
+	if on {
+		if err := c.settlePanelSaver(o); err != nil {
+			return fmt.Errorf("compositor: power %s on=%v: %w", b.Name(), on, err)
+		}
+		st = b.State()
+	}
 	st.Power = want
 	if err := b.Commit(st); err != nil {
 		return fmt.Errorf("compositor: power %s on=%v: %w", b.Name(), on, err)

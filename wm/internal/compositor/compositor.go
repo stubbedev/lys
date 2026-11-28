@@ -312,6 +312,7 @@ type Compositor struct {
 	cast               castTarget
 	castSize           image.Point
 	powerSaver         bool
+	panelSaver         bool
 	powerSaverRate     int
 	hooks              Hooks
 	ipcEvents          IPCEvents
@@ -606,6 +607,7 @@ func New(l *loop.Loop, display *server.Display, b backend.Backend, cfg Config) (
 		hooks:          cfg.Hooks,
 		lidClosed:      cfg.LidClosedAtStart,
 		powerSaver:     cfg.PowerSaverAtStart,
+		panelSaver:     cfg.PowerSaverAtStart,
 	}
 	c.adopt(cfg, m)
 	if err := c.setup(l, display, b, cfg); err != nil {

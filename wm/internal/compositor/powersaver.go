@@ -1,6 +1,11 @@
 package compositor
 
-import "github.com/stubbedev/lys/wm/internal/backend"
+import (
+	"slices"
+
+	"github.com/stubbedev/lys/wm/internal/backend"
+	"github.com/stubbedev/lys/wm/internal/output"
+)
 
 const DefaultPowerSaverRate = 60
 
@@ -10,11 +15,29 @@ func (c *Compositor) SetPowerSaver(on bool) error {
 	}
 	c.powerSaver = on
 	c.capFrameRates()
+	if c.panelLit() {
+		return nil
+	}
+	c.panelSaver = on
 	return c.reapplyOutputRules()
 }
 
+func (c *Compositor) panelLit() bool {
+	return slices.ContainsFunc(c.outputs, func(o *output.Output) bool {
+		return internalPanel(o.Backend().Name()) && o.Backend().State().Lit()
+	})
+}
+
+func (c *Compositor) settlePanelSaver(o *output.Output) error {
+	if !internalPanel(o.Backend().Name()) || c.panelSaver == c.powerSaver {
+		return nil
+	}
+	c.panelSaver = c.powerSaver
+	return c.applyEnabledRule(o)
+}
+
 func (c *Compositor) lowPowerRule(b backend.Output, rule OutputRule) OutputRule {
-	if !c.powerSaver || !internalPanel(b.Name()) {
+	if !c.panelSaver || !internalPanel(b.Name()) {
 		return rule
 	}
 	if c.powerSaverRate > 0 {

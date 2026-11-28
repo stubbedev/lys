@@ -779,6 +779,10 @@ func (o *Output) CapFrameRate(hz int) {
 	o.frameCap = hz
 }
 
+func (o *Output) FrameRateCap() int {
+	return o.frameCap
+}
+
 func (o *Output) paceInterval() time.Duration {
 	return o.state.Mode.PacedInterval(o.frameCap, o.vrr)
 }
