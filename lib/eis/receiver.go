@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"golang.org/x/sys/unix"
+
+	"github.com/stubbedev/lys/lib/memfd"
 )
 
 type contextType uint32
@@ -52,18 +54,11 @@ func newKeymap(text string) (*keymap, error) {
 	if len(text) >= math.MaxUint32 {
 		return nil, fmt.Errorf("eis: a keymap of %d bytes exceeds the wire's u32 size", len(text))
 	}
-	fd, err := unix.MemfdCreate("eis-keymap", unix.MFD_CLOEXEC|unix.MFD_ALLOW_SEALING)
+	fd, err := memfd.Sealed("eis-keymap", []byte(text+"\x00"))
 	if err != nil {
-		return nil, fmt.Errorf("eis: create the keymap memfd: %w", err)
+		return nil, fmt.Errorf("eis: the keymap: %w", err)
 	}
-	f := os.NewFile(uintptr(fd), "eis-keymap")
-	if _, err := f.WriteString(text + "\x00"); err != nil {
-		return nil, errors.Join(fmt.Errorf("eis: write the keymap memfd: %w", err), f.Close())
-	}
-	if _, err := unix.FcntlInt(f.Fd(), unix.F_ADD_SEALS, unix.F_SEAL_SHRINK|unix.F_SEAL_GROW|unix.F_SEAL_WRITE|unix.F_SEAL_SEAL); err != nil {
-		return nil, errors.Join(fmt.Errorf("eis: seal the keymap memfd: %w", err), f.Close())
-	}
-	return &keymap{file: f, size: uint32(len(text) + 1)}, nil //nolint:gosec // bounded above
+	return &keymap{file: os.NewFile(uintptr(fd), "eis-keymap"), size: uint32(len(text) + 1)}, nil //nolint:gosec // bounded above
 }
 
 func (k *keymap) message(keyboard uint64) *writer {

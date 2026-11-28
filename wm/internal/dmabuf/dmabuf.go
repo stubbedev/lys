@@ -13,6 +13,7 @@ import (
 	"slices"
 
 	"github.com/stubbedev/lys/lib/fourcc"
+	"github.com/stubbedev/lys/lib/memfd"
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/wm/internal/gpu"
@@ -103,16 +104,9 @@ func formatTable(formats []gpu.FormatModifier) (int, error) {
 		table = binary.NativeEndian.AppendUint32(table, 0)
 		table = binary.NativeEndian.AppendUint64(table, uint64(f.Modifier))
 	}
-	fd, err := unix.MemfdCreate("lys-wm-dmabuf-formats", unix.MFD_CLOEXEC|unix.MFD_ALLOW_SEALING)
+	fd, err := memfd.Sealed("lys-wm-dmabuf-formats", table)
 	if err != nil {
-		return -1, fmt.Errorf("dmabuf: memfd_create: %w", err)
-	}
-	if _, err := unix.Write(fd, table); err != nil {
-		return -1, errors.Join(fmt.Errorf("dmabuf: write the format table: %w", err), unix.Close(fd))
-	}
-	seals := unix.F_SEAL_SHRINK | unix.F_SEAL_GROW | unix.F_SEAL_WRITE | unix.F_SEAL_SEAL
-	if _, err := unix.FcntlInt(uintptr(fd), unix.F_ADD_SEALS, seals); err != nil {
-		return -1, errors.Join(fmt.Errorf("dmabuf: seal the format table: %w", err), unix.Close(fd))
+		return -1, fmt.Errorf("dmabuf: the format table: %w", err)
 	}
 	return fd, nil
 }

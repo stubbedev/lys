@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/stubbedev/lys/lib/memfd"
 	lxkb "github.com/stubbedev/lys/lib/xkb"
 	"golang.org/x/sys/unix"
 )
@@ -67,9 +68,9 @@ func (c *Compiler) Compile(names Names) (*Keymap, error) {
 	if len(text) >= math.MaxUint32 {
 		return nil, fmt.Errorf("xkb: the keymap for %+v is %d bytes, too large for wl_keyboard", names, len(text))
 	}
-	fd, err := sealedMemfd(text + "\x00")
+	fd, err := memfd.Sealed("lys-wm-keymap", []byte(text+"\x00"))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("xkb: the keymap: %w", err)
 	}
 	layouts := make([]string, km.NumLayouts())
 	for i := range layouts {
@@ -78,27 +79,6 @@ func (c *Compiler) Compile(names Names) (*Keymap, error) {
 	k := &Keymap{compiler: c, keymap: km, text: text, fd: fd, size: uint32(len(text) + 1), layouts: layouts} //nolint:gosec // bounded by the check above
 	k.caps, k.num, k.scroll = k.led("Caps Lock"), k.led("Num Lock"), k.led("Scroll Lock")
 	return k, nil
-}
-
-func sealedMemfd(content string) (int, error) {
-	fd, err := unix.MemfdCreate("lys-wm-keymap", unix.MFD_CLOEXEC|unix.MFD_ALLOW_SEALING)
-	if err != nil {
-		return -1, fmt.Errorf("xkb: memfd_create: %w", err)
-	}
-	for b := []byte(content); len(b) > 0; {
-		n, err := unix.Write(fd, b)
-		if err != nil {
-			_ = unix.Close(fd)
-			return -1, fmt.Errorf("xkb: write keymap: %w", err)
-		}
-		b = b[n:]
-	}
-	seals := unix.F_SEAL_SHRINK | unix.F_SEAL_GROW | unix.F_SEAL_WRITE | unix.F_SEAL_SEAL
-	if _, err := unix.FcntlInt(uintptr(fd), unix.F_ADD_SEALS, seals); err != nil {
-		_ = unix.Close(fd)
-		return -1, fmt.Errorf("xkb: seal keymap: %w", err)
-	}
-	return fd, nil
 }
 
 func (k *Keymap) FD() int {

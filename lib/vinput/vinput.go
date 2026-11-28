@@ -10,12 +10,14 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"os"
 	"sync"
 	"time"
 
+	"golang.org/x/sys/unix"
+
 	"github.com/stubbedev/lys/lib/intconv"
 	"github.com/stubbedev/lys/lib/keymapfd"
+	"github.com/stubbedev/lys/lib/memfd"
 	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
 	"github.com/stubbedev/lys/lib/third_party/wayland/wlclient"
 	"github.com/stubbedev/lys/lib/wlr"
@@ -186,28 +188,19 @@ func Dial(display string, opts Options) (*Device, error) {
 	return v, nil
 }
 
-// upload arms the virtual keyboard with keymap text through a temp
-// file (format 1, xkb_v1).
+// upload arms the virtual keyboard with keymap text through a sealed
+// memfd (format 1, xkb_v1).
 func (v *Device) upload(keymap []byte) error {
-	f, err := os.CreateTemp("", "lys-vinput-keymap-*")
-	if err != nil {
-		return err
-	}
-	defer func() {
-		_ = os.Remove(f.Name())
-		_ = f.Close()
-	}()
-	if _, err := f.Write(keymap); err != nil {
-		return err
-	}
-	if _, err := f.Seek(0, 0); err != nil {
-		return err
-	}
 	size, err := intconv.Exact[uint32](len(keymap))
 	if err != nil {
 		return fmt.Errorf("vinput: keymap of %d bytes: %w", len(keymap), err)
 	}
-	return v.vk.Keymap(1, f.Fd(), size)
+	fd, err := memfd.Sealed("lys-vinput-keymap", keymap)
+	if err != nil {
+		return fmt.Errorf("vinput: the keymap: %w", err)
+	}
+	defer func() { _ = unix.Close(fd) }()
+	return v.vk.Keymap(1, uintptr(fd), size)
 }
 
 // Keymap is the xkb_v1 text the virtual keyboard carries (the seat's,

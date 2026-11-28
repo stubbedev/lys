@@ -308,7 +308,7 @@ func TestLegacyEventsWithoutADevice(t *testing.T) {
 	}
 }
 
-func memfd(t *testing.T, size int) int {
+func planeMemory(t *testing.T, size int) int {
 	t.Helper()
 	fd, err := unix.MemfdCreate("plane", unix.MFD_CLOEXEC)
 	if err != nil {
@@ -343,7 +343,7 @@ func (releases) Release(*cw.WlBuffer) error { return nil }
 func TestBuffersAreCheckedAndCreated(t *testing.T) {
 	e := setup(t, gpu.ErrUnsupported)
 	c := e.connect(3)
-	fd := memfd(t, 64*16*4)
+	fd := planeMemory(t, 64*16*4)
 	result := &created{}
 	p, err := c.linux.CreateParams(result)
 	if err != nil {
@@ -390,7 +390,7 @@ func TestBuffersAreCheckedAndCreated(t *testing.T) {
 	if p, err = c.linux.CreateParams(&created{}); err != nil {
 		t.Fatal(err)
 	}
-	if err := p.Add(memfd(t, 64*16*4), 0, 0, 256, 0, 0); err != nil {
+	if err := p.Add(planeMemory(t, 64*16*4), 0, 0, 256, 0, 0); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := p.CreateImmed(releases{}, 64, 16, uint32(fourcc.XRGB8888), 0); err != nil {
@@ -406,7 +406,7 @@ func TestTightlyPackedNV12IsInBounds(t *testing.T) {
 	e := setup(t, gpu.ErrUnsupported)
 	c := e.connect(3)
 	const w, h = 64, 16
-	fd := memfd(t, w*h*3/2)
+	fd := planeMemory(t, w*h*3/2)
 	result := &created{}
 	p, err := c.linux.CreateParams(result)
 	if err != nil {
@@ -472,7 +472,7 @@ func TestParamsErrors(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err := tc.build(t, p, memfd(t, 64*16*4)); err != nil {
+			if err := tc.build(t, p, planeMemory(t, 64*16*4)); err != nil {
 				t.Fatal(err)
 			}
 			var pe *wire.ProtocolError
@@ -507,7 +507,7 @@ func TestTightlyPackedYUVIsInBoundsForEveryFormat(t *testing.T) {
 			offsets[i] = size
 			size += stride * uint32(tc.format.PlaneRows(i, h))
 		}
-		fd := memfd(t, int(size))
+		fd := planeMemory(t, int(size))
 		result := &created{}
 		p, err := c.linux.CreateParams(result)
 		if err != nil {

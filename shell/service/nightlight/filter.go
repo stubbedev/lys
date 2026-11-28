@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/stubbedev/lys/lib/memfd"
 	"github.com/stubbedev/lys/lib/third_party/wayland/wl"
 	"github.com/stubbedev/lys/lib/third_party/wayland/wlclient"
 	"github.com/stubbedev/lys/lib/wlr"
@@ -323,24 +324,15 @@ func (o *output) sendRamps(ramps []uint16) error {
 	if slices.Equal(o.sentRamps, ramps) {
 		return nil
 	}
-	fd, err := unix.MemfdCreate("lys-nightlight", unix.MFD_CLOEXEC|unix.MFD_ALLOW_SEALING)
-	if err != nil {
-		return fmt.Errorf("nightlight: ramp memfd for output %s: %w", o.name, err)
-	}
-	defer func() { _ = unix.Close(fd) }()
 	buf := make([]byte, 2*len(ramps))
 	for i, v := range ramps {
 		binary.NativeEndian.PutUint16(buf[2*i:], v)
 	}
-	if _, err := unix.Write(fd, buf); err != nil {
-		return fmt.Errorf("nightlight: write the ramps of output %s: %w", o.name, err)
+	fd, err := memfd.Sealed("lys-nightlight", buf)
+	if err != nil {
+		return fmt.Errorf("nightlight: the ramps of output %s: %w", o.name, err)
 	}
-	if _, err := unix.Seek(fd, 0, 0); err != nil {
-		return fmt.Errorf("nightlight: rewind the ramps of output %s: %w", o.name, err)
-	}
-	if _, err := unix.FcntlInt(uintptr(fd), unix.F_ADD_SEALS, unix.F_SEAL_SHRINK|unix.F_SEAL_GROW|unix.F_SEAL_WRITE|unix.F_SEAL_SEAL); err != nil {
-		return fmt.Errorf("nightlight: seal the ramps of output %s: %w", o.name, err)
-	}
+	defer func() { _ = unix.Close(fd) }()
 	if err := o.control.SetGamma(uintptr(fd)); err != nil {
 		return fmt.Errorf("nightlight: set the ramps of output %s: %w", o.name, err)
 	}
