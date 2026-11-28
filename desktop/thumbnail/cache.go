@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"time"
 
 	"github.com/stubbedev/lys/lib/atomicfile"
 	"github.com/stubbedev/lys/lib/xdg"
@@ -62,16 +63,21 @@ func cacheFor(path string, info os.FileInfo) (thumbCache, error) {
 	if err != nil {
 		return thumbCache{}, err
 	}
-	uri := fileuri.FromPath(abs)
+	return cacheOf(fileuri.FromPath(abs), info.ModTime(), info.Size()), nil
+}
+
+// cacheOf is the place in the cache of the file at uri, modified at
+// mtime and size bytes long.
+func cacheOf(uri string, mtime time.Time, size int64) thumbCache {
 	sum := md5.Sum([]byte(uri)) //nolint:gosec // the spec's naming, not a security use
 	tc := thumbCache{
 		name: hex.EncodeToString(sum[:]) + ".png", uri: uri,
-		mtime: strconv.FormatInt(info.ModTime().Unix(), 10), size: strconv.FormatInt(info.Size(), 10),
+		mtime: strconv.FormatInt(mtime.Unix(), 10), size: strconv.FormatInt(size, 10),
 	}
 	if cache, ok := xdg.OS.CacheHome(); ok {
 		tc.root = filepath.Join(cache, "thumbnails")
 	}
-	return tc, nil
+	return tc
 }
 
 // path is the thumbnail's path in the size directory dir.

@@ -26,6 +26,7 @@ import (
 	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/desktop/thumbnail"
 	"github.com/stubbedev/lys/desktop/vfs"
+	"github.com/stubbedev/lys/desktop/vfs/localcopy"
 	"github.com/stubbedev/lys/lib/intconv"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/text"
@@ -179,7 +180,18 @@ type Deps struct {
 	// Devices are the phones and cameras plugged in, which Locations
 	// lists to open; nil lists none.
 	Devices Devices
+	// Copies keeps the local copies of files on network locations their
+	// thumbnails and previews are made from; nil makes none, so such a
+	// file shows its type's icon.
+	Copies *localcopy.Cache
+	// RemoteCheck is how often a folder shown on a network location is
+	// listed again to follow its changes; zero is DefaultRemoteCheck.
+	RemoteCheck time.Duration
 }
+
+// DefaultRemoteCheck is how often a folder on a network location is
+// listed again unless Deps says otherwise.
+const DefaultRemoteCheck = 5 * time.Second
 
 // Options are one browse: where it starts, what it lists and offers,
 // and what its host adds to it and hears from it.
@@ -270,7 +282,7 @@ type Browser struct {
 	// watcher follows the folder shown on disk, stopMounts the
 	// locations; reloading marks a listing read again for a change, which
 	// keeps the scroll and the selection.
-	watcher    *fswatch.Watcher
+	watcher    watchSource
 	stopMounts func()
 	reloading  bool
 	// reloadKeep is the path selected when the reload started, and
@@ -841,13 +853,25 @@ func (c *Browser) requestListing(dir string) {
 	c.watch(dir)
 }
 
-// watch follows dir on disk, applying each change to its listing row
-// by row, and reading it again only when changes were lost; Recent,
-// Trash, a network location and a folder that cannot be watched are
+// watch follows dir, applying each change to its listing row by row,
+// and reading it again only when changes were lost: on the local disk
+// through inotify, on a network location by listing it every
+// RemoteCheck. Recent, Trash and a folder that cannot be watched are
 // not followed.
 func (c *Browser) watch(dir string) {
 	c.unwatch()
-	if VirtualLocation(dir) || vfs.IsRemote(dir) {
+	if VirtualLocation(dir) {
+		return
+	}
+	if vfs.IsRemote(dir) {
+		every := c.d.RemoteCheck
+		if every == 0 {
+			every = DefaultRemoteCheck
+		}
+		w := pollFolder(c.mounts, dir, every)
+		c.watcher = w
+		s := c.s
+		c.offLoop.Go(func() { c.followWatched(w, dir, s) })
 		return
 	}
 	w, err := fswatch.NewNamed(fswatch.Changes)
@@ -864,7 +888,7 @@ func (c *Browser) watch(dir string) {
 	c.offLoop.Go(func() { c.followWatched(w, dir, s) })
 }
 
-func (c *Browser) followWatched(w *fswatch.Watcher, dir string, s *session) {
+func (c *Browser) followWatched(w watchSource, dir string, s *session) {
 	followDir(w, c.mounts, dir, s.kinds, func(u dirUpdate) {
 		c.d.Invoke(func() {
 			if c.s != s || c.watcher != w || s.dir != dir {
@@ -1337,26 +1361,54 @@ func (c *Browser) gridCell(e Entry) widget.Widget {
 
 // entryIcon is the folder glyph, or a file's thumbnail (the cached
 // one any app made, or a raster image decoded) over its type's themed
-// icon until one is ready, or for good when there is none; a file on a
-// network location shows its type's icon, as reading it to make a
-// thumbnail would fetch it whole.
+// icon until one is ready, or for good when there is none. A file on a
+// network location is thumbnailed from a copy fetched into Copies, only
+// when the cache holds no thumbnail of it, its type is one lys makes
+// thumbnails of and it is at most remoteThumbMax bytes; else it shows
+// its type's icon.
 func (c *Browser) entryIcon(e Entry, px int) widget.Widget {
 	if e.IsDir {
 		return widget.NewThemeIcon("ld-folder-symbolic", px)
 	}
 	mimeType := c.d.MIME.TypeByName(e.Name())
-	if vfs.IsRemote(e.Path) {
-		return widget.NewThemeIcon(c.d.MIME.FileIcon(mimeType), px)
+	fallback := widget.NewThemeIcon(c.d.MIME.FileIcon(mimeType), px)
+	if !vfs.IsRemote(e.Path) {
+		return c.thumb(e.Path, px, fallback, func(ctx context.Context, th *thumbnail.Thumbnailer) (thumbnail.Raster, error) {
+			return th.Square(ctx, e.Path, mimeType, 2*px)
+		})
 	}
-	return c.thumb(e.Path, mimeType, px, widget.NewThemeIcon(c.d.MIME.FileIcon(mimeType), px))
+	if c.d.Copies == nil || e.Size > remoteThumbMax || !thumbnail.Makes(e.Path, mimeType) {
+		return fallback
+	}
+	r := thumbnail.Remote{URI: vfs.URI(e.Path), Modified: e.Modified, Size: e.Size, Fetch: func(ctx context.Context) (string, error) {
+		return c.fetchCopy(ctx, e)
+	}}
+	return c.thumb(e.Path, px, fallback, func(ctx context.Context, th *thumbnail.Thumbnailer) (thumbnail.Raster, error) {
+		return th.SquareRemote(ctx, r, mimeType, 2*px)
+	})
+}
+
+// remoteThumbMax is the largest file on a network location fetched to
+// make its thumbnail.
+const remoteThumbMax = 64 << 20
+
+// fetchCopy is the local copy of the file e on a network location, as
+// listed, from Copies; safe off the loop.
+func (c *Browser) fetchCopy(ctx context.Context, e Entry) (string, error) {
+	fsys, p, err := c.mounts.Resolve(e.Path)
+	if err != nil {
+		return "", err
+	}
+	return c.d.Copies.Fetch(ctx, fsys, e.Path, p, vfs.Info{Name: vfs.Base(e.Path), Size: e.Size, Modified: e.Modified})
 }
 
 // thumb is a px square showing fallback until one of the bounded
-// workers found the file's thumbnail (at twice the size, for HiDPI);
-// each file is looked up once per browse however often its row is
-// rebuilt, and every row draws the one raster. A lookup that ends
-// after its request did lands nowhere: its raster is freed at once.
-func (c *Browser) thumb(path, mimeType string, px int, fallback widget.Widget) widget.Widget {
+// workers found the thumbnail of the file at path (make, at twice the
+// size, for HiDPI); each file is looked up once per browse however
+// often its row is rebuilt, and every row draws the one raster. A
+// lookup that ends after its request did lands nowhere: its raster is
+// freed at once.
+func (c *Browser) thumb(path string, px int, fallback widget.Widget, make func(context.Context, *thumbnail.Thumbnailer) (thumbnail.Raster, error)) widget.Widget {
 	slot := widget.NewBox(widget.Row, 0, 0)
 	slot.SetHAlign(widget.AlignCenter)
 	slot.SetVAlign(widget.AlignCenter)
@@ -1383,7 +1435,7 @@ func (c *Browser) thumb(path, mimeType string, px int, fallback widget.Widget) w
 	if _, pending := set.waiting[key]; !pending {
 		th := c.thumbnailer
 		c.thumbWork.Go(c.offLoop.Go, func() {
-			done, err := th.Square(set.ctx, path, mimeType, 2*px)
+			done, err := make(set.ctx, th)
 			if err != nil {
 				c.d.Invoke(func() { c.landThumb(set, key, thumbnail.Raster{}, err) })
 				return
@@ -1414,12 +1466,9 @@ func (c *Browser) itemCount(e Entry) (int, bool) {
 // countItems counts folder e off the loop, at most countWorkers at
 // once and once per browse however often its row is rebuilt, and
 // hands the count to show (nil for none) once there is one; a folder
-// that cannot be read shows none, and one on a network location is not
-// counted, which would list every folder shown over the network.
+// that cannot be read shows none. A folder on a network location is
+// counted by listing it there.
 func (c *Browser) countItems(e Entry, show func(int)) {
-	if vfs.IsRemote(e.Path) {
-		return
-	}
 	set, key := c.items, itemKeyOf(e)
 	if n, ok := set.found[key]; ok {
 		if n >= 0 && show != nil {
@@ -1442,7 +1491,7 @@ func (c *Browser) countItems(e Entry, show func(int)) {
 		select {
 		case c.countSlots <- struct{}{}:
 			var err error
-			if n, err = CountItems(key.path); err != nil {
+			if n, err = countItemsOn(c.mounts, key.path); err != nil {
 				n = -1
 			}
 			<-c.countSlots

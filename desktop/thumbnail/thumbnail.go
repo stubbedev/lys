@@ -266,11 +266,54 @@ func (th *Thumbnailer) source(ctx context.Context, path, mimeType string, px int
 	if err != nil {
 		return source{}, err
 	}
+	return th.sourceIn(ctx, tc, mimeType, px, func() (string, os.FileInfo, error) { return path, info, nil })
+}
+
+// Remote is a file on a network location as its listing states it:
+// its URI, which keys its thumbnail in the cache as the spec says, its
+// modification time and size, and Fetch, which makes a local copy of
+// it to make a thumbnail from, only once the cache holds none.
+type Remote struct {
+	URI      string
+	Modified time.Time
+	Size     int64
+	Fetch    func(ctx context.Context) (string, error)
+}
+
+// SquareRemote is the thumbnail of the file r states as Square makes
+// one: the cache's under r's URI, else one made from the copy r
+// fetches and written there for the next reader.
+func (th *Thumbnailer) SquareRemote(ctx context.Context, r Remote, mimeType string, px int) (Raster, error) {
+	var out Raster
+	err := th.withWorker(ctx, func() error {
+		src, err := th.sourceIn(ctx, cacheOf(r.URI, r.Modified, r.Size), mimeType, px, func() (string, os.FileInfo, error) {
+			path, err := r.Fetch(ctx)
+			if err != nil {
+				return "", nil, err
+			}
+			info, err := os.Stat(path)
+			return path, info, err
+		})
+		if err == nil {
+			out, err = th.squareCrop(src.img, px)
+		}
+		return err
+	})
+	return out, err
+}
+
+// sourceIn is source for the file at tc's place in the cache, which
+// local reaches on the local disk once one must be made.
+func (th *Thumbnailer) sourceIn(ctx context.Context, tc thumbCache, mimeType string, px int, local func() (string, os.FileInfo, error)) (source, error) {
 	if img, file, err := tc.lookup(px); err == nil {
 		return source{img: img, file: file}, nil
 	}
 	if tc.failed() {
 		return source{}, ErrNone
+	}
+	path, info, err := local()
+	if err != nil {
+		return source{}, err
 	}
 	flavor := flavorFor(px)
 	m, err := th.core.make(ctx, path, info, mimeType, flavor.px)
@@ -295,6 +338,12 @@ func (th *Thumbnailer) source(ctx context.Context, path, mimeType string, px int
 type made struct {
 	img  image.Image
 	size image.Point
+}
+
+// Makes reports whether lys makes thumbnails of the file at path of
+// mimeType: a raster image, a document lys-docthumb draws, a video.
+func Makes(path, mimeType string) bool {
+	return isRaster(path) || dochelper.Thumbnails(mimeType) || isVideo(mimeType)
 }
 
 // make makes the file's thumbnail at size with lys's own decoders: a

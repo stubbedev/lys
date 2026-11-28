@@ -754,3 +754,22 @@ func (v view) String() string {
 	}
 	return sortNames[v.sort] + " " + dir + " " + layout + "\n"
 }
+
+// countItemsOn counts the items of the folder at loc: a local one as
+// CountItems does, one on a network location by listing it there.
+func countItemsOn(mounts *vfs.Mounts, loc string) (int, error) {
+	if !vfs.IsRemote(loc) {
+		return CountItems(loc)
+	}
+	fsys, p, err := mounts.Resolve(loc)
+	if err != nil {
+		return 0, fmt.Errorf("count the items of %s: %w", loc, err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), remoteTimeout)
+	defer cancel()
+	infos, err := fsys.ReadDir(ctx, p)
+	if err != nil {
+		return 0, fmt.Errorf("count the items of %s: %w", loc, err)
+	}
+	return len(infos), nil
+}

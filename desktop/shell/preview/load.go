@@ -23,6 +23,7 @@ import (
 	"github.com/stubbedev/lys/desktop/dochelper"
 	"github.com/stubbedev/lys/desktop/mime"
 	"github.com/stubbedev/lys/desktop/thumbnail"
+	"github.com/stubbedev/lys/desktop/vfs"
 )
 
 // What a preview reads: a text file's first TextBytes, a folder's
@@ -58,13 +59,20 @@ func (p *Pictures) Held() int64 { return p.budget.Held() }
 // that types them, the thumbnailer that makes a document's thumbnail
 // (nil makes none, so such a file shows its icon), the pictures'
 // budget, and what opens a document whole for a request for its pages
-// (nil opens none, so a document shows its thumbnail).
+// (nil opens none, so a document shows its thumbnail), and what makes a
+// file or folder on a network location readable (nil reads none, so
+// such a file is Unreadable).
 type Sources struct {
 	MIME       *mime.Database
 	Thumbnails *thumbnail.Thumbnailer
 	Pictures   *Pictures
 	Documents  func(path string) *dochelper.Client
+	Remote     func(ctx context.Context, loc string) (Fetched, error)
 }
+
+// errNoRemote is a file on a network location loaded with nothing to
+// reach it through.
+var errNoRemote = errors.New("preview: no network location is reached")
 
 // Request is a file to load, or a picture held in memory (Memory, when
 // Path is ""), the box in pixels a thumbnail is made to fit, and
@@ -74,6 +82,23 @@ type Request struct {
 	Memory *Memory
 	Fit    image.Point
 	Pages  bool
+}
+
+// Fetched is a file or a folder on a network location made readable:
+// a file's local copy, or what a folder's listing found.
+type Fetched struct {
+	Local  string
+	Listed *Listed
+}
+
+// Listed is what a listing of a folder found: its items, the bytes of
+// the files among them, whether it holds folders whose bytes are not
+// counted, and when it was modified.
+type Listed struct {
+	Items    int
+	Bytes    int64
+	Partial  bool
+	Modified time.Time
 }
 
 // documentTypes are the types the document helper reads.
@@ -156,10 +181,24 @@ func failed(info Info, f Failure, err error) Content {
 // thumbnail fitted into the request's box, else their icon. A picture
 // held in memory decodes as a picture file does. A document asked for
 // its pages opens through the helper, falling back to its thumbnail,
-// else its icon, with why.
+// else its icon, with why. A file on a network location loads as its
+// fetched copy, and one that cannot be fetched is Unreadable; a folder
+// there shows what its listing found.
 func Load(ctx context.Context, src Sources, req Request) Content {
 	if req.Memory != nil {
 		return loadMemory(ctx, src, *req.Memory)
+	}
+	if vfs.IsRemote(req.Path) {
+		got, err := fetch(ctx, src, req.Path)
+		switch {
+		case err != nil:
+			return failed(Info{Type: src.MIME.TypeByName(req.Path)}, Unreadable, err)
+		case got.Listed != nil:
+			l := got.Listed
+			info := Info{Type: folderType, Description: src.MIME.Comment(folderType), Dir: true, Modified: l.Modified}
+			return Content{info: info, renderer: Folder, folder: folderStats{items: l.Items, bytes: l.Bytes, bytesMore: l.Partial}}
+		}
+		req.Path = got.Local
 	}
 	info, err := stat(src.MIME, req.Path)
 	if err != nil {
@@ -187,6 +226,18 @@ func Load(ctx context.Context, src Sources, req Request) Content {
 		}
 	}
 	return loadThumbnail(ctx, src.Thumbnails, req, info)
+}
+
+// folderType is a folder's MIME type.
+const folderType = "inode/directory"
+
+// fetch makes the file or folder at the network location loc readable
+// through src.
+func fetch(ctx context.Context, src Sources, loc string) (Fetched, error) {
+	if src.Remote == nil {
+		return Fetched{}, fmt.Errorf("preview %s: %w", loc, errNoRemote)
+	}
+	return src.Remote(ctx, loc)
 }
 
 func isDocument(db *mime.Database, mimeType string) bool {

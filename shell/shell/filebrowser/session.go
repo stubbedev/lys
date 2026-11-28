@@ -182,7 +182,7 @@ type dirChange struct {
 func statChanges(mounts *vfs.Mounts, dir string, names []string, kinds Kinds) []dirChange {
 	changes := make([]dirChange, len(names))
 	for i, name := range names {
-		e, ok := statEntry(mounts, filepath.Join(dir, name), kinds)
+		e, ok := statEntry(mounts, vfs.Join(dir, name), kinds)
 		changes[i] = dirChange{name: name, entry: e, present: ok}
 		if name == ".hidden" {
 			changes[i].hidden = hiddenNames(mounts, dir)

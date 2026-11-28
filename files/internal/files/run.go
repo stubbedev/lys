@@ -22,6 +22,7 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/apptheme"
 	"github.com/stubbedev/lys/desktop/spawn"
 	"github.com/stubbedev/lys/desktop/vfs"
+	"github.com/stubbedev/lys/desktop/vfs/localcopy"
 	"github.com/stubbedev/lys/desktop/vfs/netfs"
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
@@ -150,6 +151,7 @@ func Run(paths []string, service bool) error {
 			Mounts:        mounts,
 			Network:       network,
 			Devices:       usbDevices{},
+			Copies:        copies(),
 		},
 	}
 	defer w.close()
@@ -318,6 +320,26 @@ func fetchDir() string {
 		return ""
 	}
 	return filepath.Join(dir, "network")
+}
+
+// copiesMax bounds the copies of files on network locations kept for
+// their thumbnails and previews.
+const copiesMax = 1 << 30
+
+// copies keeps the copies of files on network locations thumbnails and
+// previews are made from, nil without a cache directory.
+func copies() *localcopy.Cache {
+	dir, ok := xdg.OS.CacheDir("lys-files")
+	if !ok {
+		log.Print("files: no cache directory; files on network locations have no thumbnails or previews")
+		return nil
+	}
+	c, err := localcopy.NewCache(filepath.Join(dir, "copies"), copiesMax)
+	if err != nil {
+		log.Printf("files: files on network locations have no thumbnails or previews: %v", err)
+		return nil
+	}
+	return c
 }
 
 // viewFile keeps the sort and layout across runs, "" without a state

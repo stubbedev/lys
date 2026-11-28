@@ -5,14 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"image"
-	"io"
-	"strings"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/preview"
 	"github.com/stubbedev/lys/desktop/shell/reveal"
-	"github.com/stubbedev/lys/desktop/vfs"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/xkb"
 	"github.com/stubbedev/lys/ui/anim"
@@ -126,43 +123,17 @@ func (c *Browser) refreshPreview() {
 		return
 	}
 	for _, v := range c.openPreviews() {
-		if vfs.IsRemote(e.Path) && !e.IsDir && e.Size <= remotePreviewMax && strings.HasPrefix(c.d.MIME.TypeByName(e.Name()), "image/") {
-			v.ShowPicture(preview.Memory{Name: e.Name(), Read: c.remoteReader(e.Path)})
-			continue
-		}
 		v.Show(e.Path)
 	}
 }
 
-// remotePreviewMax is the largest picture on a network location the
+// remotePreviewMax is the largest file on a network location the
 // previews fetch to show.
-const remotePreviewMax = 32 << 20
+const remotePreviewMax = 256 << 20
 
-// remoteReader reads the file at loc whole through its filesystem, for
-// a preview off the loop.
-func (c *Browser) remoteReader(loc string) func() ([]byte, error) {
-	mounts := c.mounts
-	return func() ([]byte, error) {
-		fsys, p, err := mounts.Resolve(loc)
-		if err != nil {
-			return nil, err
-		}
-		ctx, cancel := context.WithTimeout(context.Background(), remoteTimeout)
-		defer cancel()
-		f, err := fsys.Open(ctx, p)
-		if err != nil {
-			return nil, err
-		}
-		data, err := io.ReadAll(io.LimitReader(f, remotePreviewMax+1))
-		if err = errors.Join(err, f.Close()); err != nil {
-			return nil, fmt.Errorf("read %s: %w", loc, err)
-		}
-		if len(data) > remotePreviewMax {
-			return nil, fmt.Errorf("read %s: past %d bytes", loc, remotePreviewMax)
-		}
-		return data, nil
-	}
-}
+// errNoCopies is a preview of a file on a network location without a
+// cache to fetch it into.
+var errNoCopies = errors.New("no cache keeps copies of files on network locations")
 
 // quicklookBox is the box Quick Look's content fits into over views
 // laid out in area.
@@ -235,10 +206,49 @@ func (c *Browser) previewConfig(cfg preview.Config) preview.Config {
 	return cfg
 }
 
+// fetchRemote makes the file or folder at the network location loc
+// readable for a preview: a file fetched into Copies, at most
+// remotePreviewMax bytes, and a folder listed there; safe off the loop.
+func (c *Browser) fetchRemote(ctx context.Context, loc string) (preview.Fetched, error) {
+	fsys, p, err := c.mounts.Resolve(loc)
+	if err != nil {
+		return preview.Fetched{}, err
+	}
+	listCtx, cancel := context.WithTimeout(ctx, remoteTimeout)
+	defer cancel()
+	info, err := fsys.Stat(listCtx, p)
+	if err != nil {
+		return preview.Fetched{}, err
+	}
+	if !info.IsDir {
+		switch {
+		case c.d.Copies == nil:
+			return preview.Fetched{}, fmt.Errorf("preview %s: %w", loc, errNoCopies)
+		case info.Size > remotePreviewMax:
+			return preview.Fetched{}, fmt.Errorf("preview %s of %d bytes: past %d", loc, info.Size, remotePreviewMax)
+		}
+		local, err := c.d.Copies.Fetch(ctx, fsys, loc, p, info)
+		return preview.Fetched{Local: local}, err
+	}
+	infos, err := fsys.ReadDir(listCtx, p)
+	if err != nil {
+		return preview.Fetched{}, err
+	}
+	l := &preview.Listed{Items: len(infos), Modified: info.Modified}
+	for _, i := range infos {
+		if i.IsDir {
+			l.Partial = true
+			continue
+		}
+		l.Bytes += i.Size
+	}
+	return preview.Fetched{Listed: l}, nil
+}
+
 // loadPreview finds out what to show of a file through the chooser's
 // thumbnailer and pictures; safe off the loop.
 func (c *Browser) loadPreview(ctx context.Context, req preview.Request) preview.Content {
-	return preview.Load(ctx, preview.Sources{MIME: c.d.MIME, Thumbnails: c.thumbnailer, Pictures: c.pictures, Documents: c.d.Documents}, req)
+	return preview.Load(ctx, preview.Sources{MIME: c.d.MIME, Thumbnails: c.thumbnailer, Pictures: c.pictures, Documents: c.d.Documents, Remote: c.fetchRemote}, req)
 }
 
 // openPreviews are the previews showing.
