@@ -232,30 +232,21 @@ type userManager interface {
 	setEnabled(ctx context.Context, name string, on bool) error
 }
 
-const (
-	systemdName    = systemd1.BusName
-	systemdPath    = systemd1.Path
-	systemdManager = systemd1.ManagerInterface
-	systemdUnit    = systemd1.UnitInterface
-)
-
-type listedUnit = systemd1.ListedUnit
-
 type systemdUser struct {
 	conn    *dbus.Conn
 	resolve func(string) (string, error)
 }
 
-func (s systemdUser) manager() dbus.BusObject { return s.conn.Object(systemdName, systemdPath) }
+func (s systemdUser) manager() dbus.BusObject { return s.conn.Object(systemd1.BusName, systemd1.Path) }
 
 func (s systemdUser) units(ctx context.Context) ([]userUnit, error) {
 	var names []string
 	for _, target := range sessionTargets {
 		var path dbus.ObjectPath
-		if err := s.manager().CallWithContext(ctx, systemdManager+".LoadUnit", 0, target).Store(&path); err != nil {
+		if err := s.manager().CallWithContext(ctx, systemd1.ManagerInterface+".LoadUnit", 0, target).Store(&path); err != nil {
 			return nil, fmt.Errorf("load %s: %w", target, err)
 		}
-		wants, err := dbusx.Get[[]string](ctx, s.conn.Object(systemdName, path), systemdUnit, "Wants")
+		wants, err := dbusx.Get[[]string](ctx, s.conn.Object(systemd1.BusName, path), systemd1.UnitInterface, "Wants")
 		if err != nil {
 			return nil, fmt.Errorf("read what %s wants: %w", target, err)
 		}
@@ -273,11 +264,11 @@ func (s systemdUser) units(ctx context.Context) ([]userUnit, error) {
 		Path  string
 		State string
 	}
-	if err := s.manager().CallWithContext(ctx, systemdManager+".ListUnitFilesByPatterns", 0, []string{}, names).Store(&files); err != nil {
+	if err := s.manager().CallWithContext(ctx, systemd1.ManagerInterface+".ListUnitFilesByPatterns", 0, []string{}, names).Store(&files); err != nil {
 		return nil, fmt.Errorf("list the unit files of %v: %w", names, err)
 	}
-	var listed []listedUnit
-	if err := s.manager().CallWithContext(ctx, systemdManager+".ListUnitsByNames", 0, names).Store(&listed); err != nil {
+	var listed []systemd1.ListedUnit
+	if err := s.manager().CallWithContext(ctx, systemd1.ManagerInterface+".ListUnitsByNames", 0, names).Store(&listed); err != nil {
 		return nil, fmt.Errorf("list the units %v: %w", names, err)
 	}
 	out := make([]userUnit, len(names))
@@ -310,14 +301,14 @@ func (s systemdUser) units(ctx context.Context) ([]userUnit, error) {
 func (s systemdUser) setEnabled(ctx context.Context, name string, on bool) error {
 	var call *dbus.Call
 	if on {
-		call = s.manager().CallWithContext(ctx, systemdManager+".EnableUnitFiles", 0, []string{name}, false, true)
+		call = s.manager().CallWithContext(ctx, systemd1.ManagerInterface+".EnableUnitFiles", 0, []string{name}, false, true)
 	} else {
-		call = s.manager().CallWithContext(ctx, systemdManager+".DisableUnitFiles", 0, []string{name}, false)
+		call = s.manager().CallWithContext(ctx, systemd1.ManagerInterface+".DisableUnitFiles", 0, []string{name}, false)
 	}
 	if call.Err != nil {
 		return fmt.Errorf("turn %s %s: %w", name, map[bool]string{true: "on", false: "off"}[on], call.Err)
 	}
-	if err := s.manager().CallWithContext(ctx, systemdManager+".Reload", 0).Err; err != nil {
+	if err := s.manager().CallWithContext(ctx, systemd1.ManagerInterface+".Reload", 0).Err; err != nil {
 		return fmt.Errorf("reload the user manager after %s: %w", name, err)
 	}
 	return nil

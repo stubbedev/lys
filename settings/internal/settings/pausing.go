@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/lib/intconv"
+	"github.com/stubbedev/lys/lib/systemd1"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/power/pause"
 	"github.com/stubbedev/lys/ui/widget"
@@ -80,17 +81,17 @@ func (b *busPausing) pickUser(ctx context.Context, names []string) error {
 
 func (b *busPausing) close() error { return errors.Join(b.system.Close(), b.session.Close()) }
 
-func listUnits(ctx context.Context, conn *dbus.Conn) ([]listedUnit, error) {
-	var listed []listedUnit
-	if err := conn.Object(systemdName, systemdPath).CallWithContext(ctx, systemdManager+".ListUnits", 0).Store(&listed); err != nil {
+func listUnits(ctx context.Context, conn *dbus.Conn) ([]systemd1.ListedUnit, error) {
+	var listed []systemd1.ListedUnit
+	if err := conn.Object(systemd1.BusName, systemd1.Path).CallWithContext(ctx, systemd1.ManagerInterface+".ListUnits", 0).Store(&listed); err != nil {
 		return nil, fmt.Errorf("ListUnits: %w", err)
 	}
 	return listed, nil
 }
 
-func pausable(system, user []listedUnit, uid uint32) []pauseCandidate {
+func pausable(system, user []systemd1.ListedUnit, uid uint32) []pauseCandidate {
 	var out []pauseCandidate
-	add := func(listed []listedUnit, unit func(string) (pause.Unit, error)) {
+	add := func(listed []systemd1.ListedUnit, unit func(string) (pause.Unit, error)) {
 		for _, l := range listed {
 			if l.Load != "loaded" {
 				continue

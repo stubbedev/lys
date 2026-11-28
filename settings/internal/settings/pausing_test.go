@@ -10,6 +10,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/intconv"
+	"github.com/stubbedev/lys/lib/systemd1"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/power/pause"
 	"github.com/stubbedev/lys/ui/widget"
@@ -189,7 +190,7 @@ func TestARefusedPickIsSaidAndAnUnreachableLysPowerOffersNothing(t *testing.T) {
 }
 
 func TestOnlyLoadedUnitsLysPowerWouldPauseAreOffered(t *testing.T) {
-	system := []listedUnit{
+	system := []systemd1.ListedUnit{
 		{Name: "docker.service", Description: "Docker", Load: "loaded"},
 		{Name: "dbus.service", Load: "loaded"},
 		{Name: "multi-user.target", Load: "loaded"},
@@ -197,7 +198,7 @@ func TestOnlyLoadedUnitsLysPowerWouldPauseAreOffered(t *testing.T) {
 		{Name: "nix-gc.timer", Load: "loaded"},
 		{Name: "ghost.service", Load: "not-found"},
 	}
-	user := []listedUnit{
+	user := []systemd1.ListedUnit{
 		{Name: "syncthing.service", Load: "loaded"},
 		{Name: "app-firefox-1.scope", Load: "loaded"},
 		{Name: "pipewire.service", Load: "loaded"},
@@ -212,9 +213,9 @@ func TestOnlyLoadedUnitsLysPowerWouldPauseAreOffered(t *testing.T) {
 	}
 }
 
-func (f *fakeSystemd) ListUnits() ([]listedUnit, *dbus.Error) {
+func (f *fakeSystemd) ListUnits() ([]systemd1.ListedUnit, *dbus.Error) {
 	f.count("ListUnits")
-	return []listedUnit{
+	return []systemd1.ListedUnit{
 		{Name: "syncthing.service", Description: "Syncthing", Load: "loaded", Active: "active", Path: "/", JobPath: "/"},
 		{Name: "graphical-session.target", Load: "loaded", Active: "active", Path: "/", JobPath: "/"},
 	}, nil

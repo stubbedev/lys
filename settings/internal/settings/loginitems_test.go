@@ -19,6 +19,7 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/systemd1"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/ui/widget"
 
@@ -185,11 +186,11 @@ func (f *fakeSystemd) ListUnitFilesByPatterns(_, patterns []string) ([]struct{ P
 	return out, nil
 }
 
-func (f *fakeSystemd) ListUnitsByNames(names []string) ([]listedUnit, *dbus.Error) {
+func (f *fakeSystemd) ListUnitsByNames(names []string) ([]systemd1.ListedUnit, *dbus.Error) {
 	f.count("ListUnitsByNames")
-	out := make([]listedUnit, 0, len(names))
+	out := make([]systemd1.ListedUnit, 0, len(names))
 	for _, n := range names {
-		out = append(out, listedUnit{Name: n, Description: "the " + n, Load: "loaded", Active: "active", Sub: "running", Path: "/", JobPath: "/"})
+		out = append(out, systemd1.ListedUnit{Name: n, Description: "the " + n, Load: "loaded", Active: "active", Sub: "running", Path: "/", JobPath: "/"})
 	}
 	return out, nil
 }
@@ -222,7 +223,7 @@ type fakeUnitProps struct {
 
 func (p fakeUnitProps) Get(iface, prop string) (dbus.Variant, *dbus.Error) {
 	p.f.count("Get " + p.name)
-	if iface != systemdUnit || prop != "Wants" {
+	if iface != systemd1.UnitInterface || prop != "Wants" {
 		return dbus.Variant{}, dbus.MakeFailedError(os.ErrNotExist)
 	}
 	return dbus.MakeVariant(p.f.wants[p.name]), nil
@@ -244,7 +245,7 @@ func startFakeSystemd(t *testing.T) (*fakeSystemd, *dbus.Conn) {
 			"lys-polkit.service": {"/usr/lib/systemd/user/lys-polkit.service", "static"},
 		},
 	}
-	if err := service.Export(f, systemdPath, systemdManager); err != nil {
+	if err := service.Export(f, systemd1.Path, systemd1.ManagerInterface); err != nil {
 		t.Fatal(err)
 	}
 	for target := range f.wants {
@@ -254,8 +255,8 @@ func startFakeSystemd(t *testing.T) (*fakeSystemd, *dbus.Conn) {
 		}
 	}
 	f.calls = map[string]int{}
-	if reply, err := service.RequestName(systemdName, dbus.NameFlagDoNotQueue); err != nil || reply != dbus.RequestNameReplyPrimaryOwner {
-		t.Fatalf("own %s: %v %v", systemdName, reply, err)
+	if reply, err := service.RequestName(systemd1.BusName, dbus.NameFlagDoNotQueue); err != nil || reply != dbus.RequestNameReplyPrimaryOwner {
+		t.Fatalf("own %s: %v %v", systemd1.BusName, reply, err)
 	}
 	return f, bus.Conn(t)
 }
