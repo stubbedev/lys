@@ -12,6 +12,8 @@ import (
 	"github.com/stubbedev/lys/desktop/desktopentry"
 	"github.com/stubbedev/lys/desktop/fileops"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/xkb"
 	"github.com/stubbedev/lys/shell/shell/filebrowser"
@@ -623,6 +625,48 @@ func TestTabs(t *testing.T) {
 	if !hs.closed || len(hs.tabs()) != 0 {
 		t.Error("closing the last tab left the window open")
 	}
+}
+
+// A click on a tab's close button closes that tab and keeps the rest.
+func TestATabsCloseButtonClosesIt(t *testing.T) {
+	hs := newHarness(t)
+	hs.open(hs.path("docs"), hs.path("pics"))
+	hs.do(func() {
+		closers := treetest.WithClass(hs.f.Root(), "tab-close-button")
+		if len(closers) != 2 {
+			t.Fatalf("%d close buttons for two tabs", len(closers))
+		}
+		r, at := treetest.Pointer(hs.f.Root(), closers[0].(*widget.Button), 900, 600)
+		r.Press(widget.BTNLeft, at, 0)
+		r.Release(widget.BTNLeft, at)
+	})
+	if got := hs.tabs(); !slices.Equal(got, []string{hs.path("pics")}) || hs.closed {
+		t.Errorf("closing the first tab left %v, closed %v", got, hs.closed)
+	}
+}
+
+// The tab row sits inside the window's padding, and the New Tab button
+// keeps a gap from the tabs and the window's edge.
+func TestTheTabRowKeepsItsMargins(t *testing.T) {
+	hs := newHarness(t)
+	hs.open()
+	const w, h = 900, 600
+	hs.run(func() {
+		root := hs.f.Root()
+		root.Arrange(render.Rect{W: w, H: h})
+		pad, gap := widget.Current().Padding, widget.Current().Spacing
+		bar := treetest.First[*widget.TabBar](t, root).Bounds()
+		add := treetest.WithClass(root, "files-new-tab")[0].(*widget.Button).Bounds()
+		if bar.X < pad || bar.Y < pad/2 {
+			t.Errorf("the tabs at %v sit on the window's edge (padding %d)", bar, pad)
+		}
+		if add.X+add.W > w-pad {
+			t.Errorf("New Tab at %v reaches within %dpx of the right edge", add, w-add.X-add.W)
+		}
+		if add.X-(bar.X+bar.W) < gap {
+			t.Errorf("New Tab at %v is %dpx from the tabs at %v, want %d", add, add.X-(bar.X+bar.W), bar, gap)
+		}
+	})
 }
 
 // Keys a text field takes stay its: Ctrl+V in the search box pastes no

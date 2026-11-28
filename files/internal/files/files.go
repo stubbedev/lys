@@ -23,6 +23,7 @@ import (
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/transfer"
 	"github.com/stubbedev/lys/ui/widget"
+	"github.com/stubbedev/lys/ui/widget/css"
 
 	"github.com/stubbedev/lys/files/internal/locale"
 )
@@ -112,12 +113,11 @@ func New(cfg Config) *Files {
 	f.view.OnPageDetached = f.detached
 	bar := widget.NewTabBar(cfg.Browser.Font, widgets.TextPx(styling.Body, 1), f.view)
 	add := widget.NewButton(widgets.Center(widget.NewThemeIcon("ld-plus-symbolic", tabIconPx)), 0, 0)
-	add.AddClass("files-new-tab", "flat")
+	add.AddClass("files-new-tab", css.Ghost, css.Icon, css.Small)
 	add.SetTooltip(locale.T().Get("files-new-tab"))
 	add.OnClick = func() { f.newTabHere() }
-	tabRow := widget.NewBox(widget.Row, 0, 0)
-	tabRow.AddClass("files-tabs")
-	tabRow.Append(bar, true)
+	tabRow := filebrowser.Section(widget.Row, "files-tabs")
+	tabRow.AppendAligned(bar, true, widget.AlignCenter)
 	tabRow.AppendAligned(add, false, widget.AlignCenter)
 	f.root = widget.NewBox(widget.Column, 0, 0)
 	f.root.SetElement("window")
