@@ -112,9 +112,15 @@ func (c *Canvas) PaintGradient(r Rect, radii Corners, g Gradient) {
 	}
 	b32, rc32 := b.array(), rc
 	sp := c.span(b)
+	solid := solidSpan(b32, rc32, sp)
 	for y := sp.Y; y < sp.Y+sp.H; y++ {
+		solidRow := y >= solid.Y && y < solid.Y+solid.H
 		for x := sp.X; x < sp.X+sp.W; x++ {
 			px, py := float32(x)+0.5, float32(y)+0.5
+			if solidRow && x >= solid.X && x < solid.X+solid.W {
+				c.blend(x, y, sampleStops(g.Stops, g.Extend, m.At(px, py)))
+				continue
+			}
 			cov := coverage(sdBoxF(px, py, b32, rc32))
 			if cov <= 0 {
 				continue

@@ -305,9 +305,15 @@ func (l *Layer) ApplyPathMask(p *Path, region Rect) {
 
 func (l *Layer) applyRoundedMask(r Rect, radii Corners, region Rect) {
 	b, rc := DeviceBox(r, radii, l.cv.num, l.cv.denom)
+	solid := solidSpan(b, rc, region)
 	for y := region.Y; y < region.Y+region.H; y++ {
 		py := float32(y) + 0.5
+		solidRow := y >= solid.Y && y < solid.Y+solid.H
 		for x := region.X; x < region.X+region.W; x++ {
+			if solidRow && x == solid.X {
+				x += solid.W - 1
+				continue
+			}
 			cov := cov255(coverage(sdBoxF(float32(x)+0.5, py, b, rc)))
 			if cov == 255 {
 				continue

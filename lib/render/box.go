@@ -171,6 +171,24 @@ func sdBoxF(px, py float32, b, rc [4]float32) float32 {
 	return lengthF(max(qx, 0), max(qy, 0)) + min(max(qx, qy), 0) - rad
 }
 
+// solidSpan is the part of the device span sp whose pixel centers lie
+// so far inside the rounded box b that sdBoxF puts its coverage at
+// exactly 1: half a pixel in from each edge of a square box, the
+// largest radius and a pixel and a half of a rounded one, which leaves
+// any rounding of the distance well clear of the antialiased band.
+func solidSpan(b, rc [4]float32, sp Rect) Rect {
+	m := 0.5
+	if r := max(rc[0], rc[1], rc[2], rc[3]); r > 0 {
+		m = float64(r) + 1.5
+	}
+	x0, y0 := int(math.Ceil(float64(b[0])+m-0.5)), int(math.Ceil(float64(b[1])+m-0.5))
+	x1, y1 := int(math.Floor(float64(b[2])-m-0.5))+1, int(math.Floor(float64(b[3])-m-0.5))+1
+	if x1 <= x0 || y1 <= y0 {
+		return Rect{}
+	}
+	return sp.Intersect(Rect{X: x0, Y: y0, W: x1 - x0, H: y1 - y0})
+}
+
 // lengthF is sqrt(x*x + y*y), each product rounded on its own and the
 // root correctly rounded.
 func lengthF(x, y float32) float32 {
