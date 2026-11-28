@@ -277,8 +277,9 @@
       "gates": ["vet", "lint", "no-fused", "test", "build"],
       "race": true,
       "vms": [
-        ["login-vms-sessions", "login-vms-greetd"],
         ["login-vms-greeter"],
+        ["login-vms-sessions"],
+        ["login-vms-greetd"],
         ["login-vms-autologin"]
       ]
     },
