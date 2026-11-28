@@ -22,7 +22,10 @@ type createRequest struct {
 	size   uint64
 }
 
-const ioctlCreate = 0x40187542
+const (
+	ioctlCreate  = 0x40187542
+	flagsCloexec = 0x01
+)
 
 // Buffer is an allocated udmabuf: FD is the dmabuf, Mem maps its
 // memory read-write.
@@ -67,7 +70,7 @@ func (b *Buffer) init(dev *os.File, size int) error {
 	if err != nil {
 		return fmt.Errorf("udmabuf: size %d: %w", size, err)
 	}
-	req := createRequest{memfd: memfd, flags: unix.O_CLOEXEC, size: length}
+	req := createRequest{memfd: memfd, flags: flagsCloexec, size: length}
 	fd, _, errno := unix.Syscall(unix.SYS_IOCTL, dev.Fd(), ioctlCreate, uintptr(unsafe.Pointer(&req))) //nolint:gosec // UDMABUF_CREATE takes its request struct by pointer, and req outlives the syscall
 	if errno != 0 {
 		return fmt.Errorf("udmabuf: UDMABUF_CREATE: %w", errno)
