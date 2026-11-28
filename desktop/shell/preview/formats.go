@@ -26,6 +26,7 @@ import (
 	"github.com/stubbedev/lys/lib/icons"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/sevenzip"
+	"github.com/stubbedev/lys/lib/woff2"
 	"github.com/ulikunitz/xz"
 	"github.com/ulikunitz/xz/lzma"
 
@@ -250,8 +251,8 @@ func formatJSON(text string) (string, bool) {
 	return b.String(), true
 }
 
-// loadFont reads the font at path for its specimen; false when it is
-// past FontBytes or does not parse.
+// loadFont reads the font at path for its specimen, a WOFF2 font
+// unpacked; false when it is past FontBytes or does not parse.
 func loadFont(path string, info Info) (Content, bool) {
 	if info.Size > FontBytes {
 		return Content{}, false
@@ -259,6 +260,11 @@ func loadFont(path string, info Info) (Content, bool) {
 	data, err := os.ReadFile(path) //nolint:gosec // the font being previewed
 	if err != nil {
 		return failed(info, Unreadable, fmt.Errorf("preview: reading %s: %w", path, err)), true
+	}
+	if bytes.HasPrefix(data, []byte(woff2.Signature)) {
+		if data, err = woff2.Decode(data); err != nil {
+			return Content{}, false
+		}
 	}
 	face, err := render.LoadFont(data)
 	if err != nil {

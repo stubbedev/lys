@@ -35,7 +35,7 @@ func TestTheRicherTypesHaveTheirRenderers(t *testing.T) {
 		"image/svg+xml": Image, "text/markdown": Markdown, "text/csv": Table, "text/tab-separated-values": Table,
 		"application/zip": Archive, "application/x-tar": Archive, "application/x-compressed-tar": Archive,
 		"application/x-bzip2-compressed-tar": Archive, "application/x-xz-compressed-tar": Archive, "application/x-lzma-compressed-tar": Archive,
-		"application/x-zstd-compressed-tar": Archive, "application/x-7z-compressed": Archive, "font/ttf": Font, "font/woff": Font,
+		"application/x-zstd-compressed-tar": Archive, "application/x-7z-compressed": Archive, "font/ttf": Font, "font/woff": Font, "font/woff2": Font,
 		"application/json": Text, "application/x-desktop": Text,
 		"application/epub+zip": Thumbnail, "application/x-xz": Thumbnail,
 	} {
@@ -392,8 +392,8 @@ func woffOf(t *testing.T, sfnt []byte) []byte {
 }
 
 // A font shows its specimen, set in the font itself (Inter, where the
-// view's text is in Go) under its family's name, as a TTF and as a
-// WOFF; a file that is no font shows its icon.
+// view's text is in Go) under its family's name, as a TTF, a WOFF and a
+// WOFF2; a file that is no font shows its icon.
 func TestAFontShowsItsSpecimen(t *testing.T) {
 	h := newHarness(t)
 	v := h.view(nil)
@@ -404,7 +404,11 @@ func TestAFontShowsItsSpecimen(t *testing.T) {
 	width := func(face render.Font, text string, px float64) int {
 		return widget.NewLabel(face, px, text, 0).Measure(widget.Row, widget.Unknown).Nat
 	}
-	for name, data := range map[string][]byte{"Inter.ttf": lysinter.Regular, "Inter.woff": woffOf(t, lysinter.Regular)} {
+	packed, err := os.ReadFile(filepath.Join("..", "..", "..", "lib", "woff2", "testdata", "inter.woff2"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, data := range map[string][]byte{"Inter.ttf": lysinter.Regular, "Inter.woff": woffOf(t, lysinter.Regular), "Inter.woff2": packed} {
 		showIn(t, h, v, name, data)
 		if v.Renderer() != Font {
 			t.Errorf("%s shows as %v", name, v.Renderer())
@@ -423,9 +427,11 @@ func TestAFontShowsItsSpecimen(t *testing.T) {
 			t.Errorf("%s's sample line %q is not set large", name, labels[1].Text())
 		}
 	}
-	showIn(t, h, v, "fake.ttf", []byte("not a font at all"))
-	if v.Renderer() != Icon || len(treetest.All[*widget.Label](v.specimen.column)) != 0 {
-		t.Errorf("a file that is no font shows as %v", v.Renderer())
+	for name, data := range map[string]string{"fake.ttf": "not a font at all", "fake.woff2": "wOF2 not a font either, though it starts like one"} {
+		showIn(t, h, v, name, []byte(data))
+		if v.Renderer() != Icon || len(treetest.All[*widget.Label](v.specimen.column)) != 0 {
+			t.Errorf("a %s that is no font shows as %v", name, v.Renderer())
+		}
 	}
 }
 

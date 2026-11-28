@@ -2211,6 +2211,7 @@
       "lib/intconv",
       "lib/render",
       "lib/sevenzip",
+      "lib/woff2",
       "lib/xkb",
       "ui/app",
       "ui/media",
@@ -5969,6 +5970,29 @@
   "lib/wmipc": {
     "external": [
       "encoding/json"
+    ]
+  },
+  "lib/woff2": {
+    "external": [
+      "bytes",
+      "encoding/binary",
+      "errors",
+      "fmt",
+      "github.com/andybalholm/brotli",
+      "io",
+      "math",
+      "math/bits",
+      "slices"
+    ],
+    "testImports": [
+      "lib/inter",
+      "lib/render"
+    ],
+    "testExternal": [
+      "maps",
+      "os",
+      "path/filepath",
+      "testing"
     ]
   },
   "lib/xcursor": {

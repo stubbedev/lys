@@ -30,7 +30,7 @@ func testDB(t *testing.T) *mime.Database {
 			"50:text/markdown:*.md\n50:text/csv:*.csv\n50:text/tab-separated-values:*.tsv\n50:application/json:*.json\n50:application/x-desktop:*.desktop\n" +
 			"50:application/zip:*.zip\n50:application/x-tar:*.tar\n50:application/x-compressed-tar:*.tar.gz\n50:application/x-bzip2-compressed-tar:*.tar.bz2\n" +
 			"50:application/x-xz-compressed-tar:*.tar.xz\n50:application/x-lzma-compressed-tar:*.tar.lzma\n50:application/x-zstd-compressed-tar:*.tar.zst\n" +
-			"50:application/x-7z-compressed:*.7z\n50:application/x-xz:*.xz\n50:application/epub+zip:*.epub\n50:font/ttf:*.ttf\n50:font/woff:*.woff\n",
+			"50:application/x-7z-compressed:*.7z\n50:application/x-xz:*.xz\n50:application/epub+zip:*.epub\n50:font/ttf:*.ttf\n50:font/woff:*.woff\n50:font/woff2:*.woff2\n",
 		"subclasses": "text/x-go text/plain\ntext/markdown text/plain\ntext/csv text/plain\ntext/tab-separated-values text/plain\napplication/json text/plain\n" +
 			"application/x-desktop text/plain\nimage/svg+xml application/xml\napplication/xml text/plain\napplication/epub+zip application/zip\n",
 		"image/png.xml": `<?xml version="1.0"?><mime-type xmlns="http://www.freedesktop.org/standards/shared-mime-info" type="image/png"><comment>PNG image</comment></mime-type>`,

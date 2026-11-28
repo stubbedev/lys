@@ -9,6 +9,7 @@ tool (
 
 require (
 	filippo.io/edwards25519 v1.2.0
+	github.com/andybalholm/brotli v1.3.0
 	github.com/ebitengine/purego v0.11.3
 	github.com/gen2brain/folio v0.3.1
 	github.com/hirochachacha/go-smb2 v1.1.0

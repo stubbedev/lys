@@ -99,7 +99,7 @@ const (
 )
 
 // fontTypes are the font formats a specimen shows.
-var fontTypes = []string{"font/ttf", "font/otf", "font/woff"}
+var fontTypes = []string{"font/ttf", "font/otf", "font/woff", "font/woff2"}
 
 // RendererFor is the renderer a file of mimeType is shown with first:
 // Image for a picture imagedecode decodes and for an SVG drawing, Video
