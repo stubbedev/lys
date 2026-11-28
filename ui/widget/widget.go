@@ -157,6 +157,13 @@ type node struct {
 	damageIcons    uint64
 	restyles       int
 
+	// relayout is set while the widget's own layout may have changed
+	// since it last laid its parts out whole (its measure or cascade went
+	// stale), as against arrangeStale, which a repaint below also sets.
+	// A widget that keeps its layout across arranges clears it when it
+	// lays out again.
+	relayout bool
+
 	// themeSeen stamps the theme generation this widget last joined a
 	// frame with; SetTheme bumps themeGen so every widget repaints once.
 	themeSeen uint64
@@ -592,7 +599,7 @@ func (n *node) markSubInvalid() {
 // painting too).
 func (n *node) InvalidateLayout() {
 	shapeGen.Add(1)
-	n.measureDirty = true
+	n.measureDirty, n.relayout = true, true
 	n.dropMeasureCache()
 	n.layout.dropExpand()
 	n.Invalidate()
@@ -622,7 +629,7 @@ func (n *node) markSubLayout() {
 func (n *node) markMeasureDirty() bool {
 	was := n.measureDirty
 	n.measureDirty = true
-	n.arrangeStale = true
+	n.arrangeStale, n.relayout = true, true
 	n.dropMeasureCache()
 	n.layout.dropExpand()
 	return was

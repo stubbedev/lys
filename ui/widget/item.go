@@ -115,6 +115,29 @@ const (
 type itemLine struct {
 	node
 	it *Item
+	// laid is the last layout and laidAt what it was laid out for, so
+	// a measure and the arrange after it, or a move, lay the parts out
+	// once: laying them out sets the description's flow both ways.
+	laid   itemLineBoxes
+	laidAt lineStamp
+}
+
+// lineStamp is what an itemLine's layout depends on beyond its parts'
+// own layouts, which drop it through relayout.
+type lineStamp struct {
+	w            int
+	style, theme uint64
+}
+
+// layout is lay at width w, reused while neither w, the styles nor a
+// part's layout changed since.
+func (l *itemLine) layout(w int) itemLineBoxes {
+	stamp := lineStamp{w: w, style: styleGen.Load(), theme: themeGen.Load()}
+	if !l.relayout && l.laidAt == stamp {
+		return l.laid
+	}
+	l.laid, l.laidAt, l.relayout = l.lay(w), stamp, false
+	return l.laid
 }
 
 // itemLineBoxes are the parts' rects in an itemLine of some width, from
@@ -311,7 +334,7 @@ func (l *itemLine) Measure(axis Axis, forSize int) Sizes {
 		if w == Unknown {
 			w = l.Measure(Row, Unknown).Nat
 		}
-		return l.measureStore(axis, forSize, FixedSizes(l.lay(w).h))
+		return l.measureStore(axis, forSize, FixedSizes(l.layout(w).h))
 	}
 	req := l.textSizes()
 	if IsVisible(l.it.actions) {
@@ -332,7 +355,7 @@ func (l *itemLine) Arrange(r render.Rect) {
 	l.node.Arrange(r)
 	kids := l.kids()
 	setParents(l, kids...)
-	b := l.lay(r.W)
+	b := l.layout(r.W)
 	at := func(w Widget, box render.Rect) {
 		arrangeChild(w, render.Rect{X: r.X + box.X, Y: r.Y + box.Y, W: box.W, H: box.H})
 	}
@@ -384,6 +407,7 @@ func NewItem(face render.Font, title, description string) *Item {
 	it.desc.SetPrettyWrap(true)
 	it.desc.SetVisible(description != "")
 	it.line = &itemLine{it: it}
+	it.line.relayout = true
 	it.stack.Append(it.line, false)
 	it.initComposite(it, it.stack)
 	it.SetHExpand(true)
