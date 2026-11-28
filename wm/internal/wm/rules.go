@@ -439,8 +439,15 @@ const (
 	BlockCapture
 )
 
-func (b BlockFrom) Blocks(screencast bool) bool {
-	return b == BlockCapture || b == BlockScreencast && screencast
+type CaptureKind uint8
+
+const (
+	Screencast CaptureKind = iota
+	Screenshot
+)
+
+func (b BlockFrom) Blocks(k CaptureKind) bool {
+	return b == BlockCapture || b == BlockScreencast && k == Screencast
 }
 
 type LayerProps struct {

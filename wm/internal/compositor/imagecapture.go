@@ -23,6 +23,7 @@ import (
 	"github.com/stubbedev/lys/wm/internal/shm"
 	"github.com/stubbedev/lys/wm/internal/surface"
 	"github.com/stubbedev/lys/wm/internal/wire"
+	"github.com/stubbedev/lys/wm/internal/wm"
 )
 
 const (
@@ -32,7 +33,7 @@ const (
 
 type captureSource interface {
 	area(c *Compositor) (*output.Output, image.Rectangle, bool)
-	paint(c *Compositor, o *output.Output, area image.Rectangle, cursor, screencast bool) (render.Color, func(render.Pass) error)
+	paint(c *Compositor, o *output.Output, area image.Rectangle, cursor bool, kind wm.CaptureKind) (render.Color, func(render.Pass) error)
 }
 
 type outputSource struct{ output *output.Output }
@@ -271,7 +272,7 @@ type captureSession struct {
 	shown    cursorShot
 	captured bool
 	stopped  bool
-	oneshot  bool
+	kind     wm.CaptureKind
 	blocked  []image.Rectangle
 }
 
@@ -282,8 +283,8 @@ func (src outputSource) area(c *Compositor) (*output.Output, image.Rectangle, bo
 	return src.output, c.captureRegion(src.output, image.Rectangle{}), true
 }
 
-func (src outputSource) paint(c *Compositor, o *output.Output, area image.Rectangle, cursor, screencast bool) (render.Color, func(render.Pass) error) {
-	return opaque, c.outputDraw(o, area, cursor, screencast)
+func (src outputSource) paint(c *Compositor, o *output.Output, area image.Rectangle, cursor bool, kind wm.CaptureKind) (render.Color, func(render.Pass) error) {
+	return opaque, c.outputDraw(o, area, cursor, kind)
 }
 
 func (src windowSource) area(c *Compositor) (*output.Output, image.Rectangle, bool) {
@@ -294,8 +295,8 @@ func (src windowSource) area(c *Compositor) (*output.Output, image.Rectangle, bo
 	return w.output, c.windowRegion(w), true
 }
 
-func (src windowSource) paint(c *Compositor, _ *output.Output, _ image.Rectangle, cursor, screencast bool) (render.Color, func(render.Pass) error) {
-	return opaque, c.windowDraw(src.window, cursor, screencast)
+func (src windowSource) paint(c *Compositor, _ *output.Output, _ image.Rectangle, cursor bool, kind wm.CaptureKind) (render.Color, func(render.Pass) error) {
+	return opaque, c.windowDraw(src.window, cursor, kind)
 }
 
 func (src cursorSource) area(c *Compositor) (*output.Output, image.Rectangle, bool) {
@@ -306,7 +307,7 @@ func (src cursorSource) area(c *Compositor) (*output.Output, image.Rectangle, bo
 	return o, src.session.box, true
 }
 
-func (cursorSource) paint(c *Compositor, o *output.Output, _ image.Rectangle, _, _ bool) (render.Color, func(render.Pass) error) {
+func (cursorSource) paint(c *Compositor, o *output.Output, _ image.Rectangle, _ bool, _ wm.CaptureKind) (render.Color, func(render.Pass) error) {
 	return render.Color{}, c.pointerDraw(o)
 }
 
@@ -314,7 +315,7 @@ func (goneSource) area(*Compositor) (*output.Output, image.Rectangle, bool) {
 	return nil, image.Rectangle{}, false
 }
 
-func (goneSource) paint(*Compositor, *output.Output, image.Rectangle, bool, bool) (render.Color, func(render.Pass) error) {
+func (goneSource) paint(*Compositor, *output.Output, image.Rectangle, bool, wm.CaptureKind) (render.Color, func(render.Pass) error) {
 	return render.Color{}, func(render.Pass) error { return nil }
 }
 
@@ -362,7 +363,7 @@ func (s *captureSession) noteDamage(o *output.Output, frame *region.Set, cursorO
 	if !ok {
 		return
 	}
-	if s.oneshot {
+	if s.kind == wm.Screenshot {
 		addDamage(&s.damage, frame, area)
 		return
 	}
@@ -395,7 +396,7 @@ func (c *Compositor) noteCommit(sf *surface.Surface) error {
 	errs = append(errs, c.noteWindowCopies(sf))
 	for _, s := range c.captureSessions {
 		src, ok := c.resolved(s.source).(windowSource)
-		if !ok || s.stopped || !c.inWindow(src.window, sf) || !s.oneshot && c.decision(src.window).BlockOutFrom.Blocks(true) {
+		if !ok || s.stopped || !c.inWindow(src.window, sf) || s.kind == wm.Screencast && c.decision(src.window).BlockOutFrom.Blocks(s.kind) {
 			continue
 		}
 		o, area, ok := s.target()
@@ -532,7 +533,7 @@ func (f *captureFrame) Capture(obj *seic.ExtImageCopyCaptureFrameV1) error {
 	if err != nil {
 		return f.broke(err)
 	}
-	clear, draw := s.source.paint(s.c, o, area, s.cursor, !s.oneshot)
+	clear, draw := s.source.paint(s.c, o, area, s.cursor, s.kind)
 	k := &capture{output: o, size: size, clear: clear, draw: draw, target: target}
 	f.start(k)
 	k.waits = func(*region.Set) bool {

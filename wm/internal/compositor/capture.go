@@ -16,6 +16,7 @@ import (
 	"github.com/stubbedev/lys/wm/internal/render"
 	"github.com/stubbedev/lys/wm/internal/shm"
 	"github.com/stubbedev/lys/wm/internal/surface"
+	"github.com/stubbedev/lys/wm/internal/wm"
 )
 
 var (
@@ -279,11 +280,11 @@ func (c *Compositor) runCapture(k *capture) error {
 	return errors.Join(err, k.target.fill(c, k, func(err error) error { return k.done(at, err) }))
 }
 
-func (c *Compositor) outputDraw(o *output.Output, region image.Rectangle, cursor, screencast bool) func(render.Pass) error {
+func (c *Compositor) outputDraw(o *output.Output, region image.Rectangle, cursor bool, kind wm.CaptureKind) func(render.Pass) error {
 	return func(p render.Pass) error {
 		last := c.sceneOf(o).prev
 		to := c.captureOut(o)
-		(&frame{ops: c.blockedOut(last.ops[:last.cursorFrom], screencast)}).replayFrom(p, region.Min, to)
+		(&frame{ops: c.blockedOut(last.ops[:last.cursorFrom], kind)}).replayFrom(p, region.Min, to)
 		if !cursor {
 			return nil
 		}
@@ -302,13 +303,13 @@ func (c *Compositor) windowRegion(w *window) image.Rectangle {
 	return w.output.Scale().Rect(w.rect.Sub(w.output.Position()))
 }
 
-func (c *Compositor) windowDraw(w *window, cursor, screencast bool) func(render.Pass) error {
+func (c *Compositor) windowDraw(w *window, cursor bool, kind wm.CaptureKind) func(render.Pass) error {
 	return func(p render.Pass) error {
 		if w.output == nil {
 			return nil
 		}
 		var f frame
-		if c.decision(w).BlockOutFrom.Blocks(screencast) {
+		if c.decision(w).BlockOutFrom.Blocks(kind) {
 			f.FillRect(deviceRect(w.output, w.rect), opaque)
 		} else {
 			c.drawTree(&f, w.output, w.top.Surface(), c.windowOrigin(w), nil)

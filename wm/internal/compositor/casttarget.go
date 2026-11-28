@@ -67,8 +67,8 @@ func (dynamicSource) area(c *Compositor) (*output.Output, image.Rectangle, bool)
 	return o, area, ok
 }
 
-func (dynamicSource) paint(c *Compositor, o *output.Output, area image.Rectangle, cursor, screencast bool) (render.Color, func(render.Pass) error) {
-	return c.castSource().paint(c, o, area, cursor, screencast)
+func (dynamicSource) paint(c *Compositor, o *output.Output, area image.Rectangle, cursor bool, kind wm.CaptureKind) (render.Color, func(render.Pass) error) {
+	return c.castSource().paint(c, o, area, cursor, kind)
 }
 
 func (noneSource) area(c *Compositor) (*output.Output, image.Rectangle, bool) {
@@ -79,7 +79,7 @@ func (noneSource) area(c *Compositor) (*output.Output, image.Rectangle, bool) {
 	return o, image.Rectangle{Max: c.castSize}, true
 }
 
-func (noneSource) paint(*Compositor, *output.Output, image.Rectangle, bool, bool) (render.Color, func(render.Pass) error) {
+func (noneSource) paint(*Compositor, *output.Output, image.Rectangle, bool, wm.CaptureKind) (render.Color, func(render.Pass) error) {
 	return opaque, func(render.Pass) error { return nil }
 }
 

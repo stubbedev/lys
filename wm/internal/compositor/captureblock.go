@@ -23,14 +23,14 @@ func (c *Compositor) layerProps(e *layer) wm.LayerProps {
 	return e.props
 }
 
-func (c *Compositor) blockedBy(s *surface.Surface, screencast bool) bool {
+func (c *Compositor) blockedBy(s *surface.Surface, kind wm.CaptureKind) bool {
 	for _, w := range c.windows {
-		if c.decision(w).BlockOutFrom.Blocks(screencast) && c.inWindow(w, s) {
+		if c.decision(w).BlockOutFrom.Blocks(kind) && c.inWindow(w, s) {
 			return true
 		}
 	}
 	for _, e := range c.layers {
-		if !c.layerProps(e).BlockOutFrom.Blocks(screencast) {
+		if !c.layerProps(e).BlockOutFrom.Blocks(kind) {
 			continue
 		}
 		if inTree(e.surface.Surface(), s) || slices.ContainsFunc(c.layerPopups(e), func(pp placedPopup) bool { return inTree(pp.popup.Surface(), s) }) {
@@ -40,18 +40,18 @@ func (c *Compositor) blockedBy(s *surface.Surface, screencast bool) bool {
 	return false
 }
 
-func (c *Compositor) blocksAny(screencast bool) bool {
-	return slices.ContainsFunc(c.windows, func(w *window) bool { return c.decision(w).BlockOutFrom.Blocks(screencast) }) ||
-		slices.ContainsFunc(c.layers, func(e *layer) bool { return c.layerProps(e).BlockOutFrom.Blocks(screencast) })
+func (c *Compositor) blocksAny(kind wm.CaptureKind) bool {
+	return slices.ContainsFunc(c.windows, func(w *window) bool { return c.decision(w).BlockOutFrom.Blocks(kind) }) ||
+		slices.ContainsFunc(c.layers, func(e *layer) bool { return c.layerProps(e).BlockOutFrom.Blocks(kind) })
 }
 
-func (c *Compositor) blockedOut(ops []drawOp, screencast bool) []drawOp {
-	if !c.blocksAny(screencast) {
+func (c *Compositor) blockedOut(ops []drawOp, kind wm.CaptureKind) []drawOp {
+	if !c.blocksAny(kind) {
 		return ops
 	}
 	out := c.maskedOps[:0]
 	for _, op := range ops {
-		if s := op.shows(); s != nil && c.blockedBy(s, screencast) {
+		if s := op.shows(); s != nil && c.blockedBy(s, kind) {
 			op = drawOp{fill: true, color: opaque, dst: op.dst, mask: op.mask, opaque: true, alpha: 1}
 		}
 		out = append(out, op)
@@ -63,12 +63,12 @@ func (c *Compositor) blockedOut(ops []drawOp, screencast bool) []drawOp {
 func (c *Compositor) blockedRects(o *output.Output, into []image.Rectangle) []image.Rectangle {
 	into = into[:0]
 	for _, w := range c.windows {
-		if w.visible && w.output == o && c.decision(w).BlockOutFrom.Blocks(true) {
+		if w.visible && w.output == o && c.decision(w).BlockOutFrom.Blocks(wm.Screencast) {
 			into = append(into, deviceRect(o, w.rect))
 		}
 	}
 	for _, e := range c.layers {
-		if e.shown() && e.output == o && c.layerProps(e).BlockOutFrom.Blocks(true) {
+		if e.shown() && e.output == o && c.layerProps(e).BlockOutFrom.Blocks(wm.Screencast) {
 			into = append(into, deviceRect(o, e.bounds()))
 		}
 	}
@@ -95,7 +95,7 @@ func (captureHints) OneshotSession(obj *slch.LysCaptureHintManagerV1, res *seic.
 	case s.captured || s.frame != nil && s.frame.state != frameIdle:
 		return obj.ProtocolError(slch.LysCaptureHintManagerV1ErrorAlreadyCaptured, "session@%d already captured a frame", res.Base().ID())
 	}
-	s.oneshot = true
+	s.kind = wm.Screenshot
 	return nil
 }
 
@@ -107,6 +107,6 @@ func (captureHints) OneshotScreencopy(obj *slch.LysCaptureHintManagerV1, res *sw
 	case f.state != frameIdle:
 		return obj.ProtocolError(slch.LysCaptureHintManagerV1ErrorAlreadyCaptured, "frame@%d was already copied", res.Base().ID())
 	}
-	f.oneshot = true
+	f.kind = wm.Screenshot
 	return nil
 }
