@@ -608,7 +608,7 @@ func (c *Browser) Key(r *widget.Router, sym xkb.Keysym, mods app.Mods) {
 	ctrl, alt := mods&app.ModCtrl != 0, mods&app.ModAlt != 0
 	plain := mods&(app.ModCtrl|app.ModAlt|app.ModSuper|app.ModShift) == 0
 	switch {
-	case plain && !typing && c.ui.quicklook.Visible() && (c.ui.ql.Key(sym) || c.quicklookArrow(r, sym)):
+	case plain && !typing && c.quicklookKey(r, sym):
 	case sym == xkb.KeyEscape:
 		c.escape()
 	case sym == xkb.KeySpace && plain && !typing:
@@ -632,7 +632,7 @@ func (c *Browser) Key(r *widget.Router, sym xkb.Keysym, mods app.Mods) {
 }
 
 func (c *Browser) escape() {
-	if c.ui.quicklook.Visible() {
+	if c.quicklookOpen() {
 		c.closeQuicklook()
 		return
 	}
@@ -834,7 +834,8 @@ type ui struct {
 	empty              *widget.Label
 	// quicklook and preview are Quick Look's card and the preview
 	// pane, ql and pv what shows in them.
-	quicklook, preview      *widget.Box
+	preview                 *widget.Box
+	quicklook               *quicklookFrame
 	ql, pv                  *preview.View
 	viewToggle              *widget.Button
 	viewIcon                *widget.Box
@@ -1022,16 +1023,13 @@ func (c *Browser) views(u *ui) widget.Widget {
 	}
 
 	u.empty = c.Label(i18n.T("file-chooser-empty-folder"), "file-chooser-empty", css.DimLabel)
-	u.ql = c.newQuicklook()
-	u.quicklook = u.ql.Root()
-	u.quicklook.AddClass(css.Card)
-	u.quicklook.SetVisible(false)
+	u.ql, u.quicklook = c.newQuicklook()
 
 	stack := widget.NewOverlay()
 	stack.Append(u.listView)
 	stack.Append(u.gridView)
 	stack.AppendAligned(u.empty, widget.AlignCenter, widget.AlignCenter)
-	stack.AppendAligned(u.quicklook, widget.AlignCenter, widget.AlignCenter)
+	stack.Append(u.quicklook)
 
 	inset := widget.NewBox(widget.Column, 0, 0)
 	pad := viewsInset()
@@ -1668,12 +1666,6 @@ func (c *Browser) togglePreview(on bool) {
 	c.refreshPreview()
 }
 
-// closeQuicklook hides Quick Look and lets go of what it showed.
-func (c *Browser) closeQuicklook() {
-	c.ui.quicklook.SetVisible(false)
-	c.ui.ql.Close()
-}
-
 func (c *Browser) sortBy(col SortColumn) {
 	c.s.sortBy(col)
 	c.saveView()
@@ -1714,35 +1706,6 @@ func (c *Browser) selected() (Entry, bool) {
 		return Entry{}, false
 	}
 	return c.s.entries[sel[0]], true
-}
-
-func (c *Browser) toggleQuicklook() {
-	u := c.ui
-	if u.quicklook.Visible() {
-		c.closeQuicklook()
-		return
-	}
-	if _, ok := c.selected(); ok {
-		u.quicklook.SetVisible(true)
-		c.refreshPreview()
-	}
-}
-
-// refreshPreview shows the selected entry in the previews showing, or
-// says nothing is selected.
-func (c *Browser) refreshPreview() {
-	if c.ui == nil || len(c.openPreviews()) == 0 {
-		return
-	}
-	e, ok := c.selected()
-	if !ok {
-		c.closeQuicklook()
-		c.ui.pv.Close()
-		return
-	}
-	for _, v := range c.openPreviews() {
-		v.Show(e.Path)
-	}
 }
 
 // --- system defaults ------------------------------------------------

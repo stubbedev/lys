@@ -6,8 +6,12 @@ import (
 
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/preview"
+	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/xkb"
 	"github.com/stubbedev/lys/ui/widget"
+	"github.com/stubbedev/lys/ui/widget/css"
+
+	"github.com/stubbedev/lys/shell/shell/quicklook"
 )
 
 // The previews' boxes in logical pixels: Quick Look's picture and text,
@@ -18,17 +22,93 @@ const (
 	paneImageH, paneTextH            = 180, 260
 )
 
-// newQuicklook is Quick Look's card: a preview of the selection over
-// the file views, closed by Space and Escape, stepped through the view
-// by the arrows (quicklookArrow), playing a video at once, opening the
-// file in its default app from its Open button.
-func (c *Browser) newQuicklook() *preview.View {
-	return preview.New(c.previewConfig(preview.Config{
+// newQuicklook is Quick Look's card, in the frame that lays it over the
+// file views: a preview of the selection, closed by Space and Escape,
+// stepped through the view by the arrows (quicklookArrow), playing a
+// video at once, opening the file in its default app from its Open
+// button.
+func (c *Browser) newQuicklook() (*preview.View, *quicklookFrame) {
+	v := preview.New(c.previewConfig(preview.Config{
 		Class: "file-chooser-quicklook", NameChars: 32, Autoplay: true,
 		Image: image.Pt(quicklookImageW, quicklookImageH), Text: image.Pt(quicklookTextW, quicklookTextH),
 		OnClose: c.closeQuicklook, Open: c.d.OpenFile,
 	}))
+	v.Root().AddClass(css.Card)
+	f := &quicklookFrame{card: v.Root()}
+	f.SetVisible(false)
+	return v, f
 }
+
+// quicklookOpen reports Quick Look showing.
+func (c *Browser) quicklookOpen() bool { return c.ui.quicklook.Visible() }
+
+// quicklookKey handles a plain key while Quick Look shows: its own
+// keys, then the arrows stepping through the view. It reports whether
+// it handled the key.
+func (c *Browser) quicklookKey(r *widget.Router, sym xkb.Keysym) bool {
+	return c.quicklookOpen() && (c.ui.ql.Key(sym) || c.quicklookArrow(r, sym))
+}
+
+func (c *Browser) toggleQuicklook() {
+	if c.quicklookOpen() {
+		c.closeQuicklook()
+		return
+	}
+	if _, ok := c.selected(); ok {
+		c.ui.quicklook.SetVisible(true)
+		c.refreshPreview()
+	}
+}
+
+// closeQuicklook hides Quick Look and lets go of what it showed.
+func (c *Browser) closeQuicklook() {
+	c.ui.quicklook.SetVisible(false)
+	c.ui.ql.Close()
+}
+
+// refreshPreview shows the selected entry in the previews showing, or
+// says nothing is selected.
+func (c *Browser) refreshPreview() {
+	if c.ui == nil || len(c.openPreviews()) == 0 {
+		return
+	}
+	e, ok := c.selected()
+	if !ok {
+		c.closeQuicklook()
+		c.ui.pv.Close()
+		return
+	}
+	for _, v := range c.openPreviews() {
+		v.Show(e.Path)
+	}
+}
+
+// quicklookFrame covers the file views and centers Quick Look's card on
+// them at the card's own size; presses beside the card pass through to
+// the views.
+type quicklookFrame struct {
+	widget.Base
+	card widget.Widget
+	kids [1]widget.Widget
+}
+
+// Measure wants nothing: the frame is the views' area.
+func (f *quicklookFrame) Measure(widget.Axis, int) widget.Sizes { return widget.Sizes{} }
+
+func (f *quicklookFrame) Arrange(r render.Rect) {
+	f.ArrangeSelf(r)
+	f.card.Arrange(quicklook.Centered(r, f.card))
+	widget.SetParents(f, f.Children()...)
+}
+
+// ArrangeRoot mirrors Arrange for the root path.
+func (f *quicklookFrame) ArrangeRoot(r render.Rect) { f.Arrange(r) }
+
+func (f *quicklookFrame) Paint(cv *render.Canvas) { widget.PaintChild(cv, f.card) }
+
+func (f *quicklookFrame) Children() []widget.Widget { f.kids[0] = f.card; return f.kids[:] }
+
+func (f *quicklookFrame) HitTest(p widget.Point) widget.Widget { return f.card.HitTest(p) }
 
 // newPreviewPane is the preview pane beside the file views, w wide,
 // saying so while nothing is selected.
@@ -56,7 +136,7 @@ func (c *Browser) loadPreview(ctx context.Context, req preview.Request) preview.
 // openPreviews are the previews showing.
 func (c *Browser) openPreviews() []*preview.View {
 	var open []*preview.View
-	if c.ui.quicklook.Visible() {
+	if c.quicklookOpen() {
 		open = append(open, c.ui.ql)
 	}
 	if c.ui.preview.Visible() {
