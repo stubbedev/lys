@@ -173,10 +173,10 @@ func TestTheGoPackageIndexLeavesTheRestOfItsDirectoryShared(t *testing.T) {
 func TestAGoJobRunsItsAffectedTargetsAndOffTheRaceRunnerOnlyTheirGoGates(t *testing.T) {
 	p := plan(testConfig, []string{"lib", "ui"}, everything)
 	want := []Matrix{
-		{ID: "ui-gpu-x86-64", Name: "ui / GPU (x86_64)", Runner: "ubuntu-latest", Run: "just in ui gpu"},
 		{ID: "go-ui-3-x86-64", Name: "Go ui/3 (x86_64)", Runner: "ubuntu-latest", Run: "just gates ui/3", UserNS: true},
 		{ID: "go-ui-1-ui-2-lib-race-x86-64", Name: "Go ui/1 ui/2 lib:race (x86_64)", Runner: "ubuntu-latest", Run: "just gates ui/1 ui/2 lib:race", UserNS: true},
 		{ID: "go-lib-gates-x86-64", Name: "Go lib:gates (x86_64)", Runner: "ubuntu-latest", Run: "just gates lib:gates", UserNS: true},
+		{ID: "ui-gpu-x86-64", Name: "ui / GPU (x86_64)", Runner: "ubuntu-latest", Run: "just in ui gpu"},
 		{ID: "go-lib-ui-aarch64", Name: "Go lib:gates ui:gates (aarch64)", Runner: "ubuntu-24.04-arm", Run: "just gates lib:gates ui:gates", UserNS: true},
 	}
 	if !slices.Equal(p.Jobs, want) {
@@ -227,8 +227,8 @@ func TestEachComponentWithVMChecksRunsThemAndItsJobsAfterTheBuildInALaneOfItsOwn
 	if !reflect.DeepEqual(p.Lanes, want) {
 		t.Fatalf("lanes\n%+v\nwant\n%+v", p.Lanes, want)
 	}
-	if len(p.Jobs) == 0 || p.Jobs[0].Run != "just in ui gpu" || slices.ContainsFunc(p.Jobs, func(m Matrix) bool { return m.KVM || m.Run == "just wm::image" }) {
-		t.Fatalf("jobs %+v, want the further jobs first, and no VM job or job after a build", p.Jobs)
+	if !slices.ContainsFunc(p.Jobs, func(m Matrix) bool { return m.Run == "just in ui gpu" }) || slices.ContainsFunc(p.Jobs, func(m Matrix) bool { return m.KVM || m.Run == "just wm::image" }) {
+		t.Fatalf("jobs %+v, want the further jobs, and no VM job or job after a build", p.Jobs)
 	}
 	if slices.ContainsFunc(p.Builds, func(m Matrix) bool { return strings.Contains(m.Run, "wm") || strings.Contains(m.Run, "login") }) {
 		t.Fatalf("builds %+v, want login's and wm's builds only in their lanes", p.Builds)

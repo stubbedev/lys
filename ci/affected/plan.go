@@ -652,20 +652,17 @@ func plan(cfg Config, names, changed []string) Plan {
 			p.Lanes = append(p.Lanes, l)
 		}
 	}
-	for _, name := range names {
-		for _, j := range cfg.Components[name].Jobs {
-			if j.AfterBuild {
-				continue
-			}
-			for _, r := range j.Runners {
-				p.Jobs = append(p.Jobs, componentJob(name, j, r))
-			}
-		}
-	}
 	for _, r := range runners {
 		for _, job := range cfg.GoJobs[r] {
 			if m, ok := goJob(job, names, r); ok {
 				p.Jobs = append(p.Jobs, m)
+			}
+		}
+		for _, name := range names {
+			for _, j := range cfg.Components[name].Jobs {
+				if !j.AfterBuild && slices.Contains(j.Runners, r) {
+					p.Jobs = append(p.Jobs, componentJob(name, j, r))
+				}
 			}
 		}
 	}

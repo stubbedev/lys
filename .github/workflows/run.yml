@@ -11,6 +11,11 @@ on:
         description: The plan's job entries, as JSON.
         required: true
         type: string
+      max-parallel:
+        description: How many of the entries run at once, at most; the rest start in the matrix's order as those finish.
+        required: false
+        type: number
+        default: 256
 
 permissions:
   contents: read
@@ -25,6 +30,7 @@ jobs:
     name: ${{ matrix.name }}
     strategy:
       fail-fast: false
+      max-parallel: ${{ inputs.max-parallel }}
       matrix:
         include: ${{ fromJSON(inputs.matrix) }}
     runs-on: ${{ matrix.runner }}

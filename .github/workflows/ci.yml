@@ -117,6 +117,7 @@ jobs:
     uses: ./.github/workflows/run.yml
     with:
       matrix: ${{ needs.plan.outputs.jobs }}
+      max-parallel: 14
 
   package:
     needs: [plan, shells]
