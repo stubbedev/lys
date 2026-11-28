@@ -6,9 +6,10 @@ import (
 	"image"
 	"os"
 	"slices"
-	"unsafe"
 
+	"github.com/stubbedev/lys/lib/dmabuf"
 	"github.com/stubbedev/lys/lib/fourcc"
+	"github.com/stubbedev/lys/lib/udmabuf"
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/wm/internal/gpu"
@@ -21,18 +22,9 @@ import (
 )
 
 const (
-	udmabufCreate   = 0x40187542
-	udmabufCloexec  = 0x01
 	feedbackVersion = 4
 	dmabufFormat    = fourcc.XRGB8888
 )
-
-type udmabufCreateArgs struct {
-	memfd  uint32
-	flags  uint32
-	offset uint64
-	size   uint64
-}
 
 type legacyModifiers struct{ linear, implicit bool }
 
@@ -86,15 +78,15 @@ func mapDMABUF(fd, stride int, size image.Point) (*mapping, error) {
 }
 
 func (m *mapping) paint(p Painter) error {
-	if err := gpu.CPUAccess(m.fd, gpu.SyncWrite); err != nil {
+	if err := dmabuf.BeginCPUWrite(m.fd); err != nil {
 		return err
 	}
 	p(m.bytes, m.stride, m.size, 0)
-	return gpu.CPUAccess(m.fd, gpu.SyncWrite|gpu.SyncEnd)
+	return dmabuf.EndCPUWrite(m.fd)
 }
 
 func (m *mapping) pixels() ([]byte, error) {
-	if err := gpu.CPUAccess(m.fd, gpu.SyncRead); err != nil {
+	if err := dmabuf.BeginCPURead(m.fd); err != nil {
 		return nil, err
 	}
 	row := m.size.X * 4
@@ -102,7 +94,7 @@ func (m *mapping) pixels() ([]byte, error) {
 	for y := range m.size.Y {
 		pix = append(pix, m.bytes[y*m.stride:y*m.stride+row]...)
 	}
-	return pix, gpu.CPUAccess(m.fd, gpu.SyncRead|gpu.SyncEnd)
+	return pix, dmabuf.EndCPURead(m.fd)
 }
 
 func (m *mapping) unmap() error {
@@ -119,43 +111,18 @@ type memory struct {
 	close    func() error
 }
 
-func udmabuf(size image.Point, modifier fourcc.Modifier) (m memory, err error) {
-	dev, err := os.OpenFile("/dev/udmabuf", os.O_RDWR, 0)
-	if err != nil {
-		return memory{}, err
-	}
-	defer dev.Close()
+func newUDMABUF(size image.Point, modifier fourcc.Modifier) (memory, error) {
 	stride := size.X * 4
-	length := (stride*size.Y + os.Getpagesize() - 1) &^ (os.Getpagesize() - 1)
-	memfd, err := unix.MemfdCreate("testclient-dmabuf", unix.MFD_CLOEXEC|unix.MFD_ALLOW_SEALING)
+	b, err := udmabuf.New(stride * size.Y)
 	if err != nil {
-		return memory{}, fmt.Errorf("testclient: memfd for a udmabuf: %w", err)
+		return memory{}, fmt.Errorf("testclient: a udmabuf for %v: %w", size, err)
 	}
-	defer func() { err = errors.Join(err, unix.Close(memfd)) }()
-	if err := unix.Ftruncate(memfd, int64(length)); err != nil {
-		return memory{}, fmt.Errorf("testclient: size a udmabuf memfd to %d bytes: %w", length, err)
-	}
-	if _, err := unix.FcntlInt(uintptr(memfd), unix.F_ADD_SEALS, unix.F_SEAL_SHRINK); err != nil {
-		return memory{}, fmt.Errorf("testclient: seal a udmabuf memfd: %w", err)
-	}
-	args := udmabufCreateArgs{memfd: uint32(memfd), flags: udmabufCloexec, size: uint64(length)}         //nolint:gosec // file descriptors and page-rounded sizes fit
-	r, _, errno := unix.Syscall(unix.SYS_IOCTL, dev.Fd(), udmabufCreate, uintptr(unsafe.Pointer(&args))) //nolint:gosec // UDMABUF_CREATE reads this struct during the call
-	if errno != 0 {
-		return memory{}, fmt.Errorf("testclient: UDMABUF_CREATE of %d bytes: %w", length, errno)
-	}
-	fd := int(r)
-	mapped, err := mapDMABUF(fd, stride, size)
-	if err != nil {
-		return memory{}, errors.Join(err, unix.Close(fd))
-	}
-	return memory{
-		format: dmabufFormat, fd: fd, stride: stride, modifier: modifier, mapped: mapped, pixels: mapped.pixels,
-		close: func() error { return errors.Join(mapped.unmap(), unix.Close(fd)) },
-	}, nil
+	mapped := &mapping{fd: b.FD, stride: stride, size: size, bytes: b.Mem}
+	return memory{format: dmabufFormat, fd: b.FD, stride: stride, modifier: modifier, mapped: mapped, pixels: mapped.pixels, close: b.Close}, nil
 }
 
 func UDMABUF(size image.Point, paint Painter) (gpu.DMABUF, func() error, error) {
-	m, err := udmabuf(size, fourcc.Linear)
+	m, err := newUDMABUF(size, fourcc.Linear)
 	if err != nil {
 		return gpu.DMABUF{}, nil, err
 	}
@@ -326,7 +293,7 @@ func (c *Client) legacyMemory(mods *legacyModifiers, size image.Point) memory {
 
 func (c *Client) udmabuf(size image.Point, modifier fourcc.Modifier) memory {
 	c.t.Helper()
-	m, err := udmabuf(size, modifier)
+	m, err := newUDMABUF(size, modifier)
 	if err != nil {
 		c.t.Skipf("testclient: no udmabuf to share memory as a dmabuf: %v", err)
 	}

@@ -6,12 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"image"
-	"unsafe"
 
 	"github.com/ebitengine/purego"
 	"github.com/stubbedev/lys/lib/dmabuf"
 	"github.com/stubbedev/lys/lib/fourcc"
-	"golang.org/x/sys/unix"
 )
 
 const GBMEnv = "LYS_WM_LIBGBM"
@@ -78,21 +76,6 @@ func (d DMABUF) Dmabuf() dmabuf.Buffer {
 		planes[i] = dmabuf.Plane{FD: p.FD, Offset: p.Offset, Stride: p.Stride}
 	}
 	return dmabuf.Buffer{Width: d.Size.X, Height: d.Size.Y, Format: d.Format, Modifier: d.Modifier, Planes: planes}
-}
-
-const (
-	dmabufSync = 0x40086200
-	SyncRead   = 1 << 0
-	SyncWrite  = 1 << 1
-	SyncEnd    = 1 << 2
-)
-
-func CPUAccess(fd int, flags uint64) error {
-	_, _, errno := unix.Syscall(unix.SYS_IOCTL, uintptr(fd), dmabufSync, uintptr(unsafe.Pointer(&flags))) //nolint:gosec // DMA_BUF_IOCTL_SYNC reads the flags during the call
-	if errno != 0 {
-		return fmt.Errorf("gpu: DMA_BUF_IOCTL_SYNC %#x on fd %d: %w", flags, fd, errno)
-	}
-	return nil
 }
 
 func FromDmabuf(b dmabuf.Buffer) DMABUF {
