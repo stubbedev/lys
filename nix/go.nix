@@ -147,7 +147,7 @@ in {
     modules =
       goEnv
       // {
-        vendorHash = "sha256-O6m3T0jDMKnON0A9MiRDJG8eoEuE3iwqIxNHiIK0l/A=";
+        vendorHash = "sha256-+h0h49LxQWXCYtwhi9tEr6o0eJ7eMJz7W3y+lh7D8Y0=";
         overrideModAttrs = _: {
           name = "lys-go-modules";
           src = modulesSource;
