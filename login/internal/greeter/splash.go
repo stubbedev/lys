@@ -100,6 +100,7 @@ type handOver struct {
 
 func (t *takeOver) over(content widget.Widget, anims config.AnimationsConfig, output func() string) *handOver {
 	h := &handOver{t: t, output: output}
+	widget.SetStyleRoot(content)
 	h.area = widget.NewDrawingArea(0, 0)
 	h.area.OnDraw = func(cv *render.Canvas, _ render.Rect) { h.paint(cv) }
 	h.fade = widget.NewRevealer(content)

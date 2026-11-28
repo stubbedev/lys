@@ -413,3 +413,48 @@ func TestAPictureShownByTheWindowAndACoverIsAnnouncedOnce(t *testing.T) {
 		t.Errorf("the window and a cover on DP-2 announced the take-over %d times, want once: %q", n, logs.String())
 	}
 }
+
+func TestTheGreeterTakingTheSplashOverStylesItsButtonsAsTheGreeterAfterALogout(t *testing.T) {
+	size := image.Pt(1920, 1080)
+	boot := splashRig(t, nil, lysFrame(size, 1))
+	later := newRig(t, nil)
+	type look struct {
+		radii      render.Corners
+		background render.Color
+		color      render.Color
+	}
+	looks := func(r *rig) []look {
+		widget.SetStyleRoot(r.s.root)
+		r.s.start()
+		r.s.markPresented()
+		if r.s.over != nil {
+			r.s.over.fade.Finish()
+		}
+		painted(r, size)
+		var got []look
+		for _, class := range []string{"lock-power-button", "lock-a11y-button"} {
+			for _, b := range treetest.WithClass(r.s.root, class) {
+				got = append(got, look{widget.CornerRadii(b), widget.StyleBackground(b), widget.CascadeColor(b)})
+			}
+		}
+		return got
+	}
+	want := looks(later)
+	if len(want) == 0 {
+		t.Fatal("the greeter after a logout shows no action buttons")
+	}
+	for i, w := range want {
+		if w.radii == (render.Corners{}) {
+			t.Errorf("action button %d of the greeter after a logout is square", i)
+		}
+	}
+	got := looks(boot)
+	if len(got) != len(want) {
+		t.Fatalf("the boot greeter shows %d action buttons, the greeter after a logout %d", len(got), len(want))
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("action button %d of the boot greeter looks %+v, after a logout %+v", i, got[i], want[i])
+		}
+	}
+}
