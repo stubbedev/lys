@@ -5,12 +5,13 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
 func registrations(ctx context.Context, conn *dbus.Conn) ([]string, error) {
 	var regs []string
-	if err := conn.Object(WatcherName, WatcherPath).CallWithContext(ctx, PropsIface+".Get", 0, WatcherIface, "RegisteredStatusNotifierItems").Store(&regs); err != nil {
+	if err := conn.Object(WatcherName, WatcherPath).CallWithContext(ctx, dbusx.PropertiesInterface+".Get", 0, WatcherIface, "RegisteredStatusNotifierItems").Store(&regs); err != nil {
 		return nil, fmt.Errorf("read the items registered with %s: %w", WatcherName, err)
 	}
 	return regs, nil

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/lib/dbustest"
+	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/waittest"
 )
@@ -35,7 +36,7 @@ func freeze(t *testing.T, conn *dbus.Conn, props map[string]dbus.Variant) *froze
 		f.asked <- struct{}{}
 		<-thawed
 		return f.props
-	}), "/StatusNotifierItem", PropsIface); err != nil {
+	}), "/StatusNotifierItem", dbusx.PropertiesInterface); err != nil {
 		t.Fatal(err)
 	}
 	return f
@@ -140,7 +141,7 @@ func TestTheHostReportsTheItemThatNeverAnswers(t *testing.T) {
 		t.Errorf("the report is %v, want a deadline that passed", failure)
 	}
 	address := stuck.conn.Names()[0] + "/StatusNotifierItem"
-	for _, part := range []string{address, PropsIface + ".GetAll", "20ms"} {
+	for _, part := range []string{address, dbusx.PropertiesInterface + ".GetAll", "20ms"} {
 		if !strings.Contains(failure.Error(), part) {
 			t.Errorf("the report %q does not name %s", failure, part)
 		}

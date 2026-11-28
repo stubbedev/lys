@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/lib/dbustest"
+	"github.com/stubbedev/lys/lib/dbusx"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/testbuild"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
@@ -316,7 +317,7 @@ func TestRegistrationAndEmbed(t *testing.T) {
 		t.Errorf("toolkit = %q, want lys-ui", toolkit)
 	}
 	var props map[string]dbus.Variant
-	if err := f.obj(proto.RootPath).Call("org.freedesktop.DBus.Properties.GetAll", 0,
+	if err := f.obj(proto.RootPath).Call(dbusx.PropertiesInterface+".GetAll", 0,
 		"org.a11y.atspi.Accessible").Store(&props); err != nil {
 		t.Fatalf("GetAll on root: %v", err)
 	}

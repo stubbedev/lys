@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/stubbedev/lys/lib/dbusx"
 	"github.com/stubbedev/lys/lib/third_party/godbus"
 	"golang.org/x/sys/unix"
 )
@@ -59,13 +60,11 @@ func (k *Kit) HighPriority(tid int, nice int32) error {
 }
 
 func (k *Kit) limitRTTime() error {
-	var v dbus.Variant
-	if err := k.call("org.freedesktop.DBus.Properties.Get", Service, "RTTimeUSecMax").Store(&v); err != nil {
-		return fmt.Errorf("rtkit: read RTTimeUSecMax: %w", err)
-	}
-	var most int64
-	if err := v.Store(&most); err != nil {
-		return fmt.Errorf("rtkit: decode RTTimeUSecMax %v: %w", v, err)
+	ctx, cancel := context.WithTimeout(context.Background(), callTimeout)
+	defer cancel()
+	most, err := dbusx.Get[int64](ctx, k.obj, Service, "RTTimeUSecMax")
+	if err != nil {
+		return fmt.Errorf("rtkit: %w", err)
 	}
 	if most <= 0 {
 		return fmt.Errorf("rtkit: RTTimeUSecMax is %d µs", most)

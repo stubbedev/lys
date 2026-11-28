@@ -202,7 +202,7 @@ func TestMonitoringFollowsDevices(t *testing.T) {
 func TestMonitoringIgnoresForeignSignals(t *testing.T) {
 	f := populated(t)
 	conn := f.bus.Conn(t)
-	for _, iface := range []string{objectManager, propertiesIface, deviceIface} {
+	for _, iface := range []string{objectManager, dbusx.PropertiesInterface, deviceIface} {
 		if err := conn.AddMatchSignal(dbus.WithMatchInterface(iface)); err != nil {
 			t.Fatal(err)
 		}

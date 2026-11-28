@@ -21,7 +21,6 @@ const (
 	WatcherIface = "org.kde.StatusNotifierWatcher"
 	HostIface    = "org.kde.StatusNotifierHost"
 	ItemIface    = "org.kde.StatusNotifierItem"
-	PropsIface   = "org.freedesktop.DBus.Properties"
 	// ProtocolVersion is the watcher's advertised protocol version.
 	ProtocolVersion = int32(0)
 )
@@ -192,7 +191,7 @@ func (h *Host) claimWatcher() error {
 	if err := h.conn.Export(w, WatcherPath, WatcherIface); err != nil {
 		return fmt.Errorf("sni: export watcher: %w", err)
 	}
-	if err := h.conn.Export(w, WatcherPath, PropsIface); err != nil {
+	if err := h.conn.Export(w, WatcherPath, dbusx.PropertiesInterface); err != nil {
 		return fmt.Errorf("sni: export watcher properties: %w", err)
 	}
 	reply, err := h.conn.RequestName(WatcherName, dbus.NameFlagDoNotQueue)
@@ -271,7 +270,7 @@ func (h *Host) release() error {
 		h.owned = false
 	}
 	if h.exported {
-		for _, iface := range []string{WatcherIface, PropsIface} {
+		for _, iface := range []string{WatcherIface, dbusx.PropertiesInterface} {
 			if err := h.conn.Export(nil, WatcherPath, iface); err != nil {
 				errs = append(errs, fmt.Errorf("sni: unexport watcher: %w", err))
 			}
@@ -559,7 +558,7 @@ func (h *Host) probe(name string) bool {
 	ctx, cancel := context.WithTimeout(h.ctx, probeTimeout)
 	defer cancel()
 	var v dbus.Variant
-	return h.conn.Object(name, "/StatusNotifierItem").CallWithContext(ctx, PropsIface+".Get", 0, ItemIface, "Id").Store(&v) == nil
+	return h.conn.Object(name, "/StatusNotifierItem").CallWithContext(ctx, dbusx.PropertiesInterface+".Get", 0, ItemIface, "Id").Store(&v) == nil
 }
 
 // read is one read of an item under way. again says the item was to be
@@ -767,10 +766,10 @@ func (h *Host) notifyMenu(key string) {
 // property the pixmaps picked for sizes; answered is the sequence of
 // the item's answer on conn.
 func readItem(ctx context.Context, conn *dbus.Conn, bus, path string, sizes []int) (it *Item, answered dbus.Sequence, err error) {
-	call := conn.Object(bus, dbus.ObjectPath(path)).CallWithContext(ctx, PropsIface+".GetAll", 0, ItemIface)
+	call := conn.Object(bus, dbus.ObjectPath(path)).CallWithContext(ctx, dbusx.PropertiesInterface+".GetAll", 0, ItemIface)
 	var props map[string]dbus.Variant
 	if err := call.Store(&props); err != nil {
-		return nil, dbus.NoSequence, fmt.Errorf("%s.GetAll: %w", PropsIface, err)
+		return nil, dbus.NoSequence, fmt.Errorf("%s.GetAll: %w", dbusx.PropertiesInterface, err)
 	}
 	it = &Item{Bus: bus, Path: path}
 	str := func(name string) string {

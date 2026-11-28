@@ -19,7 +19,6 @@ const (
 	agentIface      = "org.bluez.Agent1"
 	agentManager    = "org.bluez.AgentManager1"
 	objectManager   = dbusx.ObjectManagerInterface
-	propertiesIface = dbusx.PropertiesInterface
 )
 
 // AddressType is the Bluetooth address type. BlueZ reports it; unknown

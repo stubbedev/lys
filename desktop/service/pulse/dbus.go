@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/stubbedev/lys/lib/dbusx"
 	"github.com/stubbedev/lys/lib/intconv"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/third_party/godbus/introspect"
@@ -20,7 +21,6 @@ const (
 )
 
 const (
-	propertiesInterface = "org.freedesktop.DBus.Properties"
 	errPropertyReadOnly = "org.freedesktop.DBus.Error.PropertyReadOnly"
 	errUnknownProperty  = "org.freedesktop.DBus.Error.UnknownProperty"
 	errFailed           = "org.freedesktop.DBus.Error.Failed"
@@ -42,10 +42,10 @@ func (d *Daemon) Export(conn *dbus.Conn) (func(), error) {
 	if err := conn.Export(obj, ServicePath, Interface); err != nil {
 		return nil, fmt.Errorf("pulse: export: %w", err)
 	}
-	if err := conn.Export(&audioProperties{svc: d.svc}, ServicePath, propertiesInterface); err != nil {
+	if err := conn.Export(&audioProperties{svc: d.svc}, ServicePath, dbusx.PropertiesInterface); err != nil {
 		return nil, fmt.Errorf("pulse: export properties: %w", err)
 	}
-	if err := conn.Export(introspect.NewIntrospectable(introspection()), ServicePath, "org.freedesktop.DBus.Introspectable"); err != nil {
+	if err := conn.Export(introspect.NewIntrospectable(introspection()), ServicePath, dbusx.IntrospectableInterface); err != nil {
 		return nil, fmt.Errorf("pulse: export introspection: %w", err)
 	}
 	reply, err := conn.RequestName(ServiceName, dbus.NameFlagDoNotQueue)
@@ -360,7 +360,7 @@ func introspection() *introspect.Node {
 		Name: ServicePath,
 		Interfaces: []introspect.Interface{
 			introspect.IntrospectData,
-			{Name: propertiesInterface, Methods: []introspect.Method{
+			{Name: dbusx.PropertiesInterface, Methods: []introspect.Method{
 				method("Get", arg("interface_name", "s", "in"), arg("property_name", "s", "in"), arg("value", "v", "out")),
 				method("GetAll", arg("interface_name", "s", "in"), arg("props", "a{sv}", "out")),
 				method("Set", arg("interface_name", "s", "in"), arg("property_name", "s", "in"), arg("value", "v", "in")),
@@ -415,7 +415,7 @@ func (c *Client) call(ctx context.Context, method string, out any, args ...any) 
 func property[T any](ctx context.Context, c *Client, name string) (T, error) {
 	var v dbus.Variant
 	var zero T
-	call := c.obj.CallWithContext(ctx, propertiesInterface+".Get", 0, Interface, name)
+	call := c.obj.CallWithContext(ctx, dbusx.PropertiesInterface+".Get", 0, Interface, name)
 	if call.Err != nil {
 		return zero, call.Err
 	}

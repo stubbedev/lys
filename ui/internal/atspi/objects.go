@@ -11,6 +11,7 @@
 package atspi
 
 import (
+	"github.com/stubbedev/lys/lib/dbusx"
 	"github.com/stubbedev/lys/lib/debug"
 	"github.com/stubbedev/lys/lib/intconv"
 	"github.com/stubbedev/lys/lib/render"
@@ -37,12 +38,10 @@ func rectOf(r render.Rect) atspiRect {
 
 // Interface names.
 const (
-	ifaceComponent      = "org.a11y.atspi.Component"
-	ifaceText           = "org.a11y.atspi.Text"
-	ifaceAction         = "org.a11y.atspi.Action"
-	ifaceValue          = "org.a11y.atspi.Value"
-	ifaceProperties     = "org.freedesktop.DBus.Properties"
-	ifaceIntrospectable = "org.freedesktop.DBus.Introspectable"
+	ifaceComponent = "org.a11y.atspi.Component"
+	ifaceText      = "org.a11y.atspi.Text"
+	ifaceAction    = "org.a11y.atspi.Action"
+	ifaceValue     = "org.a11y.atspi.Value"
 )
 
 // nullPath is the AT-SPI null object reference's path.
@@ -75,13 +74,13 @@ func (b *Bridge) exportNode(id int32, text, action, value, app bool) {
 	if app {
 		mustExport(b, path, proto.IfaceApplication, &applicationIface{b: b})
 	}
-	mustExport(b, path, ifaceProperties, &propertiesIface{b: b, id: id})
-	mustExport(b, path, ifaceIntrospectable, &introspectIface{text: text, action: action, value: value, app: app})
+	mustExport(b, path, dbusx.PropertiesInterface, &propertiesIface{b: b, id: id})
+	mustExport(b, path, dbusx.IntrospectableInterface, &introspectIface{text: text, action: action, value: value, app: app})
 }
 
 func (b *Bridge) unexportNode(id int32) {
 	path := widgetPath(id)
-	for _, iface := range []string{proto.IfaceAccessible, ifaceComponent, ifaceText, ifaceAction, ifaceValue, ifaceProperties, ifaceIntrospectable} {
+	for _, iface := range []string{proto.IfaceAccessible, ifaceComponent, ifaceText, ifaceAction, ifaceValue, dbusx.PropertiesInterface, dbusx.IntrospectableInterface} {
 		if err := b.conn.Export(nil, path, iface); err != nil {
 			debug.Log("a11y", "unexport %s on %s: %v", iface, path, err)
 		}

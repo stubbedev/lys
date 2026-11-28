@@ -74,7 +74,7 @@ func WatchStatus(conn *dbus.Conn, fn func(enabled bool)) (stop func(), err error
 func readStatus(conn *dbus.Conn) (map[string]dbus.Variant, dbus.Sequence, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), busTimeout)
 	defer cancel()
-	call := conn.Object(proto.BusName, proto.BusPath).CallWithContext(ctx, "org.freedesktop.DBus.Properties.GetAll", 0, proto.IfaceStatus)
+	call := conn.Object(proto.BusName, proto.BusPath).CallWithContext(ctx, dbusx.PropertiesInterface+".GetAll", 0, proto.IfaceStatus)
 	var props map[string]dbus.Variant
 	if err := call.Store(&props); err != nil {
 		return nil, call.ResponseSequence, fmt.Errorf("atspi: read %s: %w", proto.IfaceStatus, err)

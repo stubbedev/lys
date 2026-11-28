@@ -38,11 +38,7 @@ type sysService struct {
 func (s sysService) obj() dbus.BusObject { return s.conn.Object(s.name, s.path) }
 
 func (s sysService) props(ctx context.Context) (sysProps, error) {
-	var out sysProps
-	if err := s.obj().CallWithContext(ctx, dbusx.PropertiesInterface+".GetAll", 0, s.iface).Store(&out); err != nil {
-		return nil, fmt.Errorf("read %s's properties: %w", s.name, err)
-	}
-	return out, nil
+	return dbusx.GetAll(ctx, s.obj(), s.iface)
 }
 
 func (s sysService) call(ctx context.Context, method string, args ...any) error {

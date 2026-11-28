@@ -17,7 +17,7 @@ const (
 	BusName     = "org.freedesktop.NetworkManager"
 	nmPath      = "/org/freedesktop/NetworkManager"
 	nmIface     = "org.freedesktop.NetworkManager"
-	properties  = "org.freedesktop.DBus.Properties"
+	properties  = dbusx.PropertiesInterface
 	deviceIface = "org.freedesktop.NetworkManager.Device"
 	apIface     = "org.freedesktop.NetworkManager.AccessPoint"
 	// wiredIface carries the link speed, the IP config objects the

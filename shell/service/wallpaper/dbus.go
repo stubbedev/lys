@@ -24,7 +24,6 @@ var ColorsExtracted = dbusx.NewSignal[struct{}](Interface, "ColorsExtracted")
 const (
 	errFailed      = "org.freedesktop.DBus.Error.Failed"
 	errInvalidArgs = "org.freedesktop.DBus.Error.InvalidArgs"
-	propsInterface = "org.freedesktop.DBus.Properties"
 )
 
 func failed(err error) *dbus.Error {
@@ -50,14 +49,14 @@ func Export(conn *dbus.Conn, svc *Service) (func(), error) {
 	if err := conn.Export(d, ServicePath, Interface); err != nil {
 		return nil, fmt.Errorf("wallpaper: export: %w", err)
 	}
-	if err := conn.Export(properties{svc}, ServicePath, propsInterface); err != nil {
+	if err := conn.Export(properties{svc}, ServicePath, dbusx.PropertiesInterface); err != nil {
 		return nil, fmt.Errorf("wallpaper: export properties: %w", err)
 	}
 	node := &introspect.Node{
 		Name: string(ServicePath),
 		Interfaces: []introspect.Interface{
 			introspect.IntrospectData,
-			{Name: propsInterface, Methods: introspect.Methods(properties{})},
+			{Name: dbusx.PropertiesInterface, Methods: introspect.Methods(properties{})},
 			{
 				Name:    Interface,
 				Methods: introspect.Methods(d),
@@ -69,7 +68,7 @@ func Export(conn *dbus.Conn, svc *Service) (func(), error) {
 			},
 		},
 	}
-	if err := conn.Export(introspect.NewIntrospectable(node), ServicePath, "org.freedesktop.DBus.Introspectable"); err != nil {
+	if err := conn.Export(introspect.NewIntrospectable(node), ServicePath, dbusx.IntrospectableInterface); err != nil {
 		return nil, fmt.Errorf("wallpaper: export introspection: %w", err)
 	}
 	reply, err := conn.RequestName(ServiceName, dbus.NameFlagDoNotQueue)

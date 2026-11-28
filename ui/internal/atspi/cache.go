@@ -3,6 +3,7 @@ package atspi
 import (
 	"slices"
 
+	"github.com/stubbedev/lys/lib/dbusx"
 	"github.com/stubbedev/lys/lib/intconv"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
@@ -75,7 +76,7 @@ func (b *Bridge) cacheItemOf(tr *tree, n *anode) cacheItem {
 // exportCache serves the Cache object.
 func (b *Bridge) exportCache() {
 	mustExport(b, CachePath, ifaceCache, &cacheIface{b: b})
-	mustExport(b, CachePath, ifaceIntrospectable, &xmlIntrospect{xml: introspectionDoc(xmlCache)})
+	mustExport(b, CachePath, dbusx.IntrospectableInterface, &xmlIntrospect{xml: introspectionDoc(xmlCache)})
 }
 
 // cacheEvents are the Cache signals between two passes: objects that

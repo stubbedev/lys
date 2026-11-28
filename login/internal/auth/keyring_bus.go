@@ -223,15 +223,7 @@ func (b *keyringBus) defaultCollectionLocked(ctx context.Context, owner string) 
 	if err != nil {
 		return false, err
 	}
-	var locked dbus.Variant
-	if err := b.conn.Object(owner, collection).CallWithContext(ctx, "org.freedesktop.DBus.Properties.Get", dbus.FlagNoAutoStart, secretbus.CollectionInterface, "Locked").Store(&locked); err != nil {
-		return false, fmt.Errorf("read the Locked property of %s: %w", collection, err)
-	}
-	value, ok := locked.Value().(bool)
-	if !ok {
-		return false, fmt.Errorf("the Locked property of %s is %s, not a boolean", collection, locked.Signature())
-	}
-	return value, nil
+	return dbusx.Get[bool](ctx, b.conn.Object(owner, collection), secretbus.CollectionInterface, "Locked")
 }
 
 func (b *keyringBus) owner(ctx context.Context, name string) (string, error) {

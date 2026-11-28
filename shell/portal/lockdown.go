@@ -1,6 +1,10 @@
 package portal
 
 import (
+	"log"
+	"maps"
+	"slices"
+
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
@@ -50,7 +54,9 @@ func (l lockdown) watch(conn *dbus.Conn) (stop func()) {
 			}
 		}
 		if len(changed) > 0 {
-			_ = conn.Emit(ObjectPath, "org.freedesktop.DBus.Properties.PropertiesChanged", LockdownIface, changed, []string{})
+			if err := dbusx.PropertiesChanged.Emit(conn, ObjectPath, dbusx.ChangedProperties{Interface: LockdownIface, Changed: changed}); err != nil {
+				log.Printf("lockdown: announce %v: %v", slices.Sorted(maps.Keys(changed)), err)
+			}
 		}
 	})
 }

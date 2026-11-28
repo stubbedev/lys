@@ -17,9 +17,8 @@ import (
 
 // dev.stubbe.lys.Shell1.
 const (
-	ServiceName       = "dev.stubbe.lys.Shell1"
-	ServicePath       = dbus.ObjectPath("/dev/stubbe/lys/Shell")
-	propertiesChanged = "org.freedesktop.DBus.Properties.PropertiesChanged"
+	ServiceName = "dev.stubbe.lys.Shell1"
+	ServicePath = dbus.ObjectPath("/dev/stubbe/lys/Shell")
 )
 
 // State is ShellIpcState: the connectors that have a bar, the hidden
@@ -320,7 +319,7 @@ func Serve(conn *dbus.Conn, state *State, hooks Hooks) (func(), error) {
 		return nil, err
 	}
 	state.announceTo(func(changed map[string]dbus.Variant) {
-		if err := conn.Emit(ServicePath, propertiesChanged, ServiceName, changed, []string{}); err != nil {
+		if err := dbusx.PropertiesChanged.Emit(conn, ServicePath, dbusx.ChangedProperties{Interface: ServiceName, Changed: changed}); err != nil {
 			log.Printf("shell ipc: announce %v: %v", slices.Sorted(maps.Keys(changed)), err)
 		}
 	})

@@ -3,6 +3,7 @@ package bluetooth
 import (
 	"context"
 
+	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
@@ -215,12 +216,8 @@ func (d DeviceRef) SetPreferredBearer(ctx context.Context, bearer PreferredBeare
 // Forget removes the device through its adapter (RemoveDevice), reading
 // the Adapter property live.
 func (d DeviceRef) Forget(ctx context.Context) error {
-	var adapter dbus.ObjectPath
-	call := d.conn.Object(BusName, d.Path).CallWithContext(ctx, propertiesIface+".Get", 0, deviceIface, "Adapter")
-	if call.Err != nil {
-		return &OperationError{Operation: "forget", Err: call.Err}
-	}
-	if err := call.Store(&adapter); err != nil {
+	adapter, err := dbusx.Get[dbus.ObjectPath](ctx, d.conn.Object(BusName, d.Path), deviceIface, "Adapter")
+	if err != nil {
 		return &OperationError{Operation: "forget", Err: err}
 	}
 	return AdapterRef{conn: d.conn, Path: adapter}.RemoveDevice(ctx, d.Path)
@@ -228,7 +225,7 @@ func (d DeviceRef) Forget(ctx context.Context) error {
 
 // setProperty writes one BlueZ property through org.freedesktop.DBus.Properties.
 func setProperty(ctx context.Context, conn *dbus.Conn, path dbus.ObjectPath, iface, operation, name string, value any) error {
-	call := conn.Object(BusName, path).CallWithContext(ctx, propertiesIface+".Set", 0, iface, name, dbus.MakeVariant(value))
+	call := conn.Object(BusName, path).CallWithContext(ctx, dbusx.PropertiesInterface+".Set", 0, iface, name, dbus.MakeVariant(value))
 	if call.Err != nil {
 		return &OperationError{Operation: operation, Err: call.Err}
 	}

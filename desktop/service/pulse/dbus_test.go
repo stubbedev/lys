@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/lib/dbustest"
+	"github.com/stubbedev/lys/lib/dbusx"
 	"github.com/stubbedev/lys/lib/pulse/native"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/waittest"
@@ -163,18 +164,18 @@ func TestDaemonProperties(t *testing.T) {
 
 	obj := bus.Conn(t).Object(ServiceName, ServicePath)
 	var all map[string]dbus.Variant
-	if err := obj.Call(propertiesInterface+".GetAll", 0, Interface).Store(&all); err != nil {
+	if err := obj.Call(dbusx.PropertiesInterface+".GetAll", 0, Interface).Store(&all); err != nil {
 		t.Fatal(err)
 	}
 	if len(all) != len(propertyNames) || all["DefaultSink"].Value() != "speakers" {
 		t.Errorf("GetAll = %v", all)
 	}
-	err := obj.Call(propertiesInterface+".Set", 0, Interface, "OutputVolume", dbus.MakeVariant(10.0)).Err
+	err := obj.Call(dbusx.PropertiesInterface+".Set", 0, Interface, "OutputVolume", dbus.MakeVariant(10.0)).Err
 	var derr dbus.Error
 	if !errors.As(err, &derr) || derr.Name != errPropertyReadOnly {
 		t.Errorf("Set = %v, want PropertyReadOnly", err)
 	}
-	if err := obj.Call(propertiesInterface+".Get", 0, Interface, "Nope").Err; err == nil {
+	if err := obj.Call(dbusx.PropertiesInterface+".Get", 0, Interface, "Nope").Err; err == nil {
 		t.Error("an unknown property read")
 	}
 	var xml string

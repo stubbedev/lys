@@ -481,12 +481,13 @@ func (s *Service) refresh(name string) error {
 // read pulls one player's root and player properties.
 func (s *Service) read(ctx context.Context, name string) (Player, error) {
 	obj := s.conn.Object(name, ObjectPath)
-	var root, player map[string]dbus.Variant
-	if err := obj.CallWithContext(ctx, dbusx.PropertiesInterface+".GetAll", 0, RootIface).Store(&root); err != nil {
-		return Player{}, fmt.Errorf("%s root: %w", name, err)
+	root, err := dbusx.GetAll(ctx, obj, RootIface)
+	if err != nil {
+		return Player{}, err
 	}
-	if err := obj.CallWithContext(ctx, dbusx.PropertiesInterface+".GetAll", 0, PlayerIface).Store(&player); err != nil {
-		return Player{}, fmt.Errorf("%s player: %w", name, err)
+	player, err := dbusx.GetAll(ctx, obj, PlayerIface)
+	if err != nil {
+		return Player{}, err
 	}
 	return parsePlayer(name, root, player), nil
 }
@@ -720,8 +721,8 @@ func (s *Service) Position(ctx context.Context, busName string) (time.Duration, 
 	if _, err := s.lookup(busName); err != nil {
 		return 0, err
 	}
-	var v dbus.Variant
-	if err := s.conn.Object(busName, ObjectPath).CallWithContext(ctx, dbusx.PropertiesInterface+".Get", 0, PlayerIface, "Position").Store(&v); err != nil {
+	v, err := dbusx.Get[dbus.Variant](ctx, s.conn.Object(busName, ObjectPath), PlayerIface, "Position")
+	if err != nil {
 		return 0, err
 	}
 	return variantMicros(v), nil

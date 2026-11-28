@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/lib/dbustest"
+	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/third_party/godbus/prop"
 	"github.com/stubbedev/lys/lib/waittest"
@@ -156,7 +157,7 @@ func TestHostAsWatcherTracksItemsAndMenus(t *testing.T) {
 	}
 	// The watcher answers the property clients read.
 	var regs []string
-	if err := item.conn.Object(WatcherName, WatcherPath).Call(PropsIface+".Get", 0, WatcherIface, "RegisteredStatusNotifierItems").Store(&regs); err != nil || len(regs) != 1 {
+	if err := item.conn.Object(WatcherName, WatcherPath).Call(dbusx.PropertiesInterface+".Get", 0, WatcherIface, "RegisteredStatusNotifierItems").Store(&regs); err != nil || len(regs) != 1 {
 		t.Errorf("RegisteredStatusNotifierItems = %v, %v", regs, err)
 	}
 
@@ -317,7 +318,7 @@ func (p *probeCounter) Get(string, string) (dbus.Variant, *dbus.Error) {
 func TestHostScansForOrphanedItemsOnce(t *testing.T) {
 	bus := dbustest.Start(t)
 	probes := &probeCounter{}
-	if err := bus.Conn(t).Export(probes, "/StatusNotifierItem", PropsIface); err != nil {
+	if err := bus.Conn(t).Export(probes, "/StatusNotifierItem", dbusx.PropertiesInterface); err != nil {
 		t.Fatal(err)
 	}
 	host, err := NewHostOn(bus.Conn(t), NewStore())
@@ -391,7 +392,7 @@ func TestWatcherRegistersTheDefaultPathOnce(t *testing.T) {
 	b.register(t)                            // then the path form
 	waitItems(t, store, func(i []Item) bool { return len(i) == 2 })
 	var regs []string
-	if err := a.conn.Object(WatcherName, WatcherPath).Call(PropsIface+".Get", 0, WatcherIface, "RegisteredStatusNotifierItems").Store(&regs); err != nil || len(regs) != 2 {
+	if err := a.conn.Object(WatcherName, WatcherPath).Call(dbusx.PropertiesInterface+".Get", 0, WatcherIface, "RegisteredStatusNotifierItems").Store(&regs); err != nil || len(regs) != 2 {
 		t.Errorf("registered = %v, %v; want one entry per item", regs, err)
 	}
 	// A different path on the same name is a second item.
@@ -609,7 +610,7 @@ func TestHostClosesTheDescriptorsOfTheSignalsItReads(t *testing.T) {
 	for _, emit := range []func() error{
 		func() error { return item.conn.Emit("/StatusNotifierItem", ItemIface+".NewIcon", pipe.Write) },
 		func() error {
-			return item.conn.Emit("/StatusNotifierItem", PropsIface+".PropertiesChanged", ItemIface, map[string]dbus.Variant{"Handed": dbus.MakeVariant(pipe.Write)}, []string{})
+			return item.conn.Emit("/StatusNotifierItem", dbusx.PropertiesInterface+".PropertiesChanged", ItemIface, map[string]dbus.Variant{"Handed": dbus.MakeVariant(pipe.Write)}, []string{})
 		},
 		func() error {
 			return item.conn.Emit("/MenuBar", MenuIface+".LayoutUpdated", uint32(9), int32(0), pipe.Write)
@@ -688,7 +689,7 @@ func startExternalWatcher(t *testing.T, bus *dbustest.Bus, items ...string) *fak
 
 func serveWatcher(t *testing.T, w *fakeWatcher) *fakeWatcher {
 	t.Helper()
-	for _, iface := range []string{WatcherIface, PropsIface} {
+	for _, iface := range []string{WatcherIface, dbusx.PropertiesInterface} {
 		if err := w.conn.Export(w, WatcherPath, iface); err != nil {
 			t.Fatal(err)
 		}

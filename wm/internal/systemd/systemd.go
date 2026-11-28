@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/stubbedev/lys/lib/dbusx"
 	"github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
@@ -39,8 +40,10 @@ func (s *Session) manager() dbus.BusObject {
 }
 
 func (s *Session) environment() (map[string]string, error) {
-	var assignments []string
-	if err := call(s.manager(), "org.freedesktop.DBus.Properties.Get", manager, "Environment").Store(&assignments); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), callTimeout)
+	defer cancel()
+	assignments, err := dbusx.Get[[]string](ctx, s.manager(), manager, "Environment")
+	if err != nil {
 		return nil, fmt.Errorf("systemd: read the user manager's environment: %w", err)
 	}
 	env := make(map[string]string, len(assignments))

@@ -91,8 +91,7 @@ func Follow(conn *dbus.Conn, describe Describe) (*Apps, error) {
 func (a *Apps) refresh(ctx context.Context) {
 	ctx, cancel := context.WithTimeout(ctx, callTimeout)
 	defer cancel()
-	var raw []map[string]dbus.Variant
-	err := a.conn.Object(BusName, Path).CallWithContext(ctx, "org.freedesktop.DBus.Properties.Get", 0, Interface, Property).Store(&raw)
+	raw, err := dbusx.Get[[]map[string]dbus.Variant](ctx, a.conn.Object(BusName, Path), Interface, Property)
 	absent := dbusx.Unowned(err)
 	if err != nil && !absent && ctx.Err() == nil {
 		log.Printf("background apps: read %s: %v", Property, err)

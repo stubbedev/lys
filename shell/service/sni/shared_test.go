@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/lib/dbustest"
+	"github.com/stubbedev/lys/lib/dbusx"
 )
 
 func TestCloseHandsTheWatcherAndASharedConnectionBack(t *testing.T) {
@@ -30,7 +31,7 @@ func TestCloseHandsTheWatcherAndASharedConnectionBack(t *testing.T) {
 		t.Error("the watcher name outlived Close")
 	}
 	other := bus.Conn(t)
-	if err := other.Object(conn.Names()[0], WatcherPath).Call(PropsIface+".GetAll", 0, WatcherIface).Err; err == nil {
+	if err := other.Object(conn.Names()[0], WatcherPath).Call(dbusx.PropertiesInterface+".GetAll", 0, WatcherIface).Err; err == nil {
 		t.Error("the watcher object is still exported after Close")
 	}
 	again, err := NewHostOn(conn, NewStore())

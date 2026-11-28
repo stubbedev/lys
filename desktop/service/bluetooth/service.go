@@ -510,12 +510,8 @@ func (s *Service) SetTrusted(ctx context.Context, device dbus.ObjectPath, truste
 // unpaired device is left alone (a stray trust would linger). It reads
 // Paired and Trusted live, since the model may not have folded the pairing's signals in yet.
 func (s *Service) TrustPaired(ctx context.Context, device dbus.ObjectPath) error {
-	var props map[string]dbus.Variant
-	call := s.conn.Object(BusName, device).CallWithContext(ctx, propertiesIface+".GetAll", 0, deviceIface)
-	if call.Err != nil {
-		return &OperationError{Operation: "read device", Err: call.Err}
-	}
-	if err := call.Store(&props); err != nil {
+	props, err := dbusx.GetAll(ctx, s.conn.Object(BusName, device), deviceIface)
+	if err != nil {
 		return &OperationError{Operation: "read device", Err: err}
 	}
 	paired, _ := variantAs[bool](props["Paired"])

@@ -151,7 +151,7 @@ func (f *fakeBlueZ) add(path dbus.ObjectPath, iface string, props map[string]dbu
 	}
 	f.objects[path][iface] = props
 	f.mu.Unlock()
-	if err := f.conn.Export(fakeProperties{f, path}, path, propertiesIface); err != nil {
+	if err := f.conn.Export(fakeProperties{f, path}, path, dbusx.PropertiesInterface); err != nil {
 		f.t.Fatal(err)
 	}
 	switch iface {

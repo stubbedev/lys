@@ -1714,6 +1714,7 @@
   },
   "desktop/service/pulse": {
     "imports": [
+      "lib/dbusx",
       "lib/intconv",
       "lib/pulse/native",
       "lib/third_party/godbus",
@@ -9676,6 +9677,7 @@
       "io",
       "io/fs",
       "log",
+      "maps",
       "math/bits",
       "os",
       "os/exec",
@@ -9725,7 +9727,6 @@
       "hash/fnv",
       "image/color",
       "image/png",
-      "maps",
       "path",
       "regexp",
       "syscall",
@@ -14793,6 +14794,7 @@
       "math",
       "os",
       "slices",
+      "strings",
       "time"
     ],
     "testImports": [
@@ -14800,7 +14802,6 @@
       "wm/internal/looptest"
     ],
     "testExternal": [
-      "strings",
       "testing"
     ]
   },
@@ -16716,6 +16717,7 @@
   },
   "wm/internal/rtkit": {
     "imports": [
+      "lib/dbusx",
       "lib/third_party/godbus"
     ],
     "external": [
@@ -17174,6 +17176,7 @@
   },
   "wm/internal/systemd": {
     "imports": [
+      "lib/dbusx",
       "lib/third_party/godbus"
     ],
     "external": [

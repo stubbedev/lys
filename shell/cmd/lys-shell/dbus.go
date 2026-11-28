@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
 	"github.com/stubbedev/lys/shell/internal/cli"
@@ -69,7 +70,7 @@ func (p *daemonProxy) call(op, method string, out []any, args ...any) error {
 func (p *daemonProxy) prop(op, name string, out any) error {
 	ctx, cancel := context.WithTimeout(context.Background(), callTimeout)
 	defer cancel()
-	err := p.obj.CallWithContext(ctx, "org.freedesktop.DBus.Properties.Get", 0, p.iface, name).Store(out)
+	err := p.obj.CallWithContext(ctx, dbusx.PropertiesInterface+".Get", 0, p.iface, name).Store(out)
 	if err != nil {
 		return dbusError(p.label, op, err, true)
 	}

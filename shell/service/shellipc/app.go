@@ -111,7 +111,7 @@ func ServeApplication(conn *dbus.Conn, run Actions) (func(), error) {
 			{Name: ActionsIface, Methods: introspect.Methods(a)},
 		},
 	}
-	if err := conn.Export(introspect.NewIntrospectable(node), AppPath, "org.freedesktop.DBus.Introspectable"); err != nil {
+	if err := conn.Export(introspect.NewIntrospectable(node), AppPath, dbusx.IntrospectableInterface); err != nil {
 		return nil, fmt.Errorf("export introspection: %w", err)
 	}
 	claimed, err := Claim(conn)
