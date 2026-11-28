@@ -25,6 +25,10 @@
   font-weight: 700;
   letter-spacing: -0.02em;
 }
+.lock-window .lock-clock.lock-glass-ink {
+  color: transparent;
+  text-shadow: none;
+}
 
 .lock-window .lock-credentials {
   -lys-layout-motion: smooth;

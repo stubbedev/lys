@@ -189,7 +189,7 @@ func newScreen(init Init, font render.Font, sheet *widget.Stylesheet, d deps) *s
 	rows.Power, s.power = lockview.GreeterFooter(font, g.Greeter, func(a logind.PowerAction) { go s.d.power(a) }, s.a11yButton(font))
 	s.bg = s.loadBackground()
 	spec := lockview.Spec{
-		Mode: lockview.Greeter, Config: g, Font: font, Sheet: sheet, Backdrop: s.bg,
+		Mode: lockview.Greeter, Config: g, Font: font, Sheet: sheet, Backdrop: s.bg, Opaque: !init.Config.Styling.Translucent(),
 		Identity: users, Greeter: rows,
 		Focus: d.focus, OnSubmit: s.submit, Fingerprint: lockview.NewFingerprint(s.reader.ChoosePassword),
 	}

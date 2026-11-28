@@ -137,7 +137,10 @@ type face struct {
 // Screen is the lock screen component. Every method runs on the event
 // loop; auth events and signals cross into it through Loop.Invoke.
 type Screen struct {
-	cfg          config.LoginConfig
+	cfg config.LoginConfig
+	// opaque draws the clock in ink rather than glass: reduced
+	// transparency or high contrast.
+	opaque       bool
 	chargingIcon string
 	anims        config.AnimationsConfig
 	wallpaper    string
@@ -207,7 +210,7 @@ type Screen struct {
 // The prompt shapes text with font; sheet (the shell's stylesheet)
 // styles the surfaces through the lock.css rules.
 func New(cfg *config.Config, account string, font render.Font, sheet *widget.Stylesheet, d Deps) *Screen {
-	s := &Screen{cfg: cfg.Login, chargingIcon: cfg.Battery.ChargingIcon, anims: cfg.Animations, wallpaper: cfg.Wallpaper.Wallpaper, account: account, font: font, sheet: sheet, d: d}
+	s := &Screen{cfg: cfg.Login, opaque: !cfg.Styling.Translucent(), chargingIcon: cfg.Battery.ChargingIcon, anims: cfg.Animations, wallpaper: cfg.Wallpaper.Wallpaper, account: account, font: font, sheet: sheet, d: d}
 	s.reader = loginscreen.NewFingerprintReader(s.showPrompt)
 	var shown []func(time.Time) string
 	if s.cfg.ShowClock {
@@ -405,7 +408,7 @@ func (s *Screen) buildFace(*app.Output) app.LockSurface {
 	}
 	f := &face{account: account}
 	spec := lockview.Spec{
-		Mode: lockview.Lock, Config: s.cfg, Font: s.font, Sheet: s.sheet, Backdrop: s.bg,
+		Mode: lockview.Lock, Config: s.cfg, Font: s.font, Sheet: s.sheet, Backdrop: s.bg, Opaque: s.opaque,
 		Identity: account.Root,
 		OnSubmit: s.Submit,
 	}

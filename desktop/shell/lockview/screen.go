@@ -39,6 +39,10 @@ type Spec struct {
 	Sheet  *widget.Stylesheet
 	// Backdrop is the background image, nil for the color fill.
 	Backdrop *Backdrop
+	// Opaque draws the clock in ink rather than filling its glyphs
+	// with the backdrop as glass: reduced transparency or high
+	// contrast.
+	Opaque bool
 	// Identity is who the screen asks for, above the entries: the lock
 	// screen's account, the greeter's user list. nil for none.
 	Identity widget.Widget
@@ -86,8 +90,11 @@ func Build(s Spec) *Surface {
 		o.Password, o.CapsLock = i18n.T("lock-password"), i18n.T("lock-caps-lock")
 		o.Status, o.Corner, o.Footer = s.Lock.Status, s.Lock.Corner, s.Lock.Footer
 	}
+	bg := Background(s.Backdrop, HexFill(s.Config.Background.Color))
+	if s.Backdrop != nil && !s.Opaque {
+		o.glass = glassSource{bg: s.Backdrop, under: bg}
+	}
 	surface := &Surface{Prompt: newPrompt(o, s.OnSubmit), Scrim: Scrim()}
-	surface.Root = Window(s.Sheet,
-		Background(s.Backdrop, HexFill(s.Config.Background.Color)), surface.Prompt.Reveal, surface.Scrim)
+	surface.Root = Window(s.Sheet, bg, surface.Prompt.Reveal, surface.Scrim)
 	return surface
 }

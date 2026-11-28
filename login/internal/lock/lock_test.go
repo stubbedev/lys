@@ -610,6 +610,44 @@ func TestLockBackgroundIsSizedForTheOutputs(t *testing.T) {
 	}
 }
 
+// The clock is liquid glass over an image background, and ink where
+// transparency is reduced, high contrast is on or there is no image.
+func TestTheClockIsGlassUnlessTransparencyIsReduced(t *testing.T) {
+	glassClock := func(h *harness) bool {
+		t.Helper()
+		h.lock(t)
+		glass := 0
+		h.eachFace(t, func(f *face) {
+			if widget.HasClass(f.prompt.Clock, "lock-glass-ink") {
+				glass++
+			}
+		})
+		if glass != 0 && glass != len(h.s.faces) {
+			t.Fatalf("%d of %d faces have a glass clock", glass, len(h.s.faces))
+		}
+		return glass > 0
+	}
+	if !glassClock(imageHarness(t)) {
+		t.Error("the clock over an image is ink")
+	}
+	if glassClock(newHarness(t, nil)) {
+		t.Error("the clock over the color fill is glass")
+	}
+	for _, opaque := range []func(*config.StylingConfig){
+		func(s *config.StylingConfig) { s.ReduceTransparency = true },
+		func(s *config.StylingConfig) { s.HighContrast = true },
+	} {
+		h := imageHarness(t)
+		cfg := config.Defaults()
+		cfg.Login = h.s.cfg
+		opaque(&cfg.Styling)
+		h.s = New(cfg, "Ada Lovelace", treetest.Font(t), apptheme.New(cfg).Sheet, h.s.d)
+		if glassClock(h) {
+			t.Errorf("the clock is glass with %+v", cfg.Styling)
+		}
+	}
+}
+
 // A phone photo stored turned shows upright, decoded as the lock's run
 // decodes it: with no output known it keeps its shown size, portrait,
 // not the stored landscape.

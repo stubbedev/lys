@@ -19,6 +19,12 @@ import (
 	"github.com/stubbedev/lys/desktop/offheap"
 )
 
+// Placed is a widget whose arranged box can be read back.
+type Placed interface {
+	widget.Widget
+	Bounds() render.Rect
+}
+
 // HexFill converts a config color to a premultiplied fill.
 func HexFill(c config.HexColor) render.Color {
 	r, g, b, a := c.RGBA()
@@ -29,7 +35,7 @@ func HexFill(c config.HexColor) render.Color {
 // backdrop scaled to cover under the .lock-bg-scrim legibility layer,
 // or the configured color painted by a .lock-bg area when there is no
 // backdrop.
-func Background(bg *Backdrop, color render.Color) widget.Widget {
+func Background(bg *Backdrop, color render.Color) Placed {
 	if bg == nil {
 		fill := widget.NewDrawingArea(0, 0)
 		fill.AddClass("lock-bg")

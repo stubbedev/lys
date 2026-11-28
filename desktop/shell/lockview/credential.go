@@ -98,6 +98,16 @@ type Options struct {
 	NextLayout func()
 	// Fingerprint adds the fingerprint prompt; nil leaves it out.
 	Fingerprint *Fingerprint
+	// glass fills the clock's glyphs with the backdrop; without a
+	// backdrop the clock is drawn in ink.
+	glass glassSource
+}
+
+// glassSource is the backdrop the clock's glass shows and the widget
+// it is drawn over, whose box its cover placement is worked out in.
+type glassSource struct {
+	bg    *Backdrop
+	under Placed
 }
 
 // Prompt is a built credential prompt and the handles its screen
@@ -116,6 +126,8 @@ type Prompt struct {
 	Fingerprint *FingerprintPrompt
 	// Clock and Date are hidden without ShowClock.
 	Clock, Date *widget.Label
+	// glass fills Clock's glyphs; nil while the clock is drawn in ink.
+	glass *glassClock
 	// Caps is the caps lock warning, hidden until SetCapsLock shows it.
 	Caps *widget.Label
 	// Error is the error and info line, hidden until it has text.
@@ -194,7 +206,14 @@ func newPrompt(o Options, onSubmit func(string)) *Prompt {
 
 	clock := widget.NewBox(widget.Column, 0, 0)
 	clock.AddClass("lock-time")
-	clock.Append(p.Date, false).Append(p.Clock, false)
+	clock.Append(p.Date, false)
+	if o.glass.bg != nil {
+		var shown widget.Widget
+		p.glass, shown = newGlassClock(p.Clock, o.glass.bg, o.glass.under)
+		clock.Append(shown, false)
+	} else {
+		clock.Append(p.Clock, false)
+	}
 	if o.Status != nil {
 		clock.AppendAligned(o.Status, false, widget.AlignCenter)
 	}

@@ -211,3 +211,25 @@ func TestGreeterBackgroundColorFallback(t *testing.T) {
 		}
 	}
 }
+
+// The greeter's clock is liquid glass over an image background, and ink
+// where transparency is reduced or high contrast is on.
+func TestTheGreetersClockIsGlassUnlessTransparencyIsReduced(t *testing.T) {
+	src := image.NewRGBA(image.Rect(0, 0, 8, 8))
+	glass := func(edit func(*config.StylingConfig)) bool {
+		return widget.HasClass(buildRig(t, func(i *Init) {
+			i.Config.Login.Background.Mode = config.BackgroundImage
+			i.Config.Login.Background.Image = "/srv/greeter.jpg"
+			edit(&i.Config.Styling)
+		}, &rig{background: src, outputs: []image.Point{{1920, 1080}}}).s.prompt.Clock, "lock-glass-ink")
+	}
+	if !glass(func(*config.StylingConfig) {}) {
+		t.Error("the clock over an image is ink")
+	}
+	if glass(func(s *config.StylingConfig) { s.ReduceTransparency = true }) {
+		t.Error("the clock is glass with transparency reduced")
+	}
+	if glass(func(s *config.StylingConfig) { s.HighContrast = true }) {
+		t.Error("the clock is glass in high contrast")
+	}
+}
