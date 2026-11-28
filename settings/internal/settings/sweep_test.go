@@ -67,10 +67,10 @@ func buttonPhase(b *widget.Button) sweepPhase {
 
 // sweepActions is everything a user can do to the row's controls
 // without typing, in tree order: every button, switch, check, segment,
-// dropdown row, spin step and clear, slider end and colour pick. With
-// driven, a dropdown goes through only its first and last row where its
-// rows were driven before or an earlier dropdown in the tree shows the same
-// rows; the action picking the last of a full run names the rows it drove.
+// dropdown row, spin step and clear, slider end and colour pick. A
+// dropdown goes through only its first and last row where its rows are in
+// driven or an earlier dropdown in the tree shows the same rows; the
+// action picking the last of a full run names the rows it drove.
 func sweepActions(root widget.Widget, driven map[string]bool, kinds embeddings) []sweepAction {
 	var out []sweepAction
 	edit := func(name string, do func()) {
@@ -117,12 +117,9 @@ func sweepActions(root widget.Widget, driven map[string]bool, kinds embeddings) 
 			}
 		case *widget.Dropdown:
 			items := x.Items()
-			full, key := true, ""
-			if driven != nil {
-				key = strings.Join(items, "\x00")
-				full = !driven[key] && !inTree[key]
-				inTree[key] = true
-			}
+			key := strings.Join(items, "\x00")
+			full := !driven[key] && !inTree[key]
+			inTree[key] = true
 			for i := range items {
 				if !full && i != 0 && i != len(items)-1 {
 					continue
@@ -174,14 +171,11 @@ func sweepActions(root widget.Widget, driven map[string]bool, kinds embeddings) 
 // start, then every edit, then every remove, then the reset; after runs
 // after each step. Steps are taken by position, re-read after each, since
 // a step may rebuild the controls. The dropdown rows it drives all of join
-// driven once the row is done; without driven, every dropdown is driven
-// through every row.
+// driven once the row is done.
 func sweepRow(t *testing.T, row *fieldRow, driven map[string]bool, after func(action string)) {
 	t.Helper()
 	met := map[string]bool{}
-	if driven != nil {
-		defer maps.Copy(driven, met)
-	}
+	defer maps.Copy(driven, met)
 	popovers := &fakePickers{}
 	row.k.pickers = popovers
 	kinds := embeddings{}
@@ -248,7 +242,9 @@ func sweepRow(t *testing.T, row *fieldRow, driven map[string]bool, after func(ac
 
 // Every lys-wm control, driven through every add, edit, remove and reset,
 // writes only what lys-wm's own --check-config takes: each write goes
-// through it before it lands, and a refusal fails the test.
+// through it before it lands, and a refusal fails the test. Each list of
+// dropdown rows goes through every row once, the first time a control
+// shows it.
 func TestEveryWMControlWritesOnlyWhatLysWMAccepts(t *testing.T) {
 	if os.Getenv("LYS_SETTINGS_HEADLESS") == "" {
 		t.Skip("needs the dev shell's lys-wm; set by `just test`")
@@ -262,10 +258,11 @@ func TestEveryWMControlWritesOnlyWhatLysWMAccepts(t *testing.T) {
 		t.Fatal(err)
 	}
 	k.wm = w
+	driven := map[string]bool{}
 	for _, spec := range allWMRows() {
 		row := newFieldRow(k, w, spec)
 		k.onWMChange = row.refresh
-		sweepRow(t, row, nil, func(action string) {
+		sweepRow(t, row, driven, func(action string) {
 			if w.notice.failed() {
 				t.Errorf("%s: %s: %v", spec.path, action, w.notice.err)
 				w.show(wmNotice{})
@@ -324,9 +321,11 @@ func (b refusingBackend) slot(path string) slot {
 // Every lys-shell row whose write is refused says so in the app's
 // words: the row's problem line is a summary over the refusal's error,
 // which waits in its closed detail, and no shown text but an opened
-// detail reads as an error chain.
+// detail reads as an error chain. Each list of dropdown rows goes through
+// every row once, the first time a control shows it.
 func TestEveryShellRowSaysARefusedWriteInTheAppsWords(t *testing.T) {
 	base := testKit(t, "")
+	driven := map[string]bool{}
 	summary := locale.T().Get("settings-row-not-saved")
 	refusals := 0
 	for _, spec := range shellRows() {
@@ -335,7 +334,7 @@ func TestEveryShellRowSaysARefusedWriteInTheAppsWords(t *testing.T) {
 			k.store = testStore(t, "")
 			err := actionFailure("write " + spec.path)
 			row := newFieldRow(&k, refusingBackend{k.store, err}, spec)
-			sweepRow(t, row, nil, func(action string) {
+			sweepRow(t, row, driven, func(action string) {
 				if !problemShown(row.settingRow) {
 					return
 				}
@@ -469,6 +468,8 @@ func controlState(root widget.Widget) []string {
 
 // Every lys-wm control, when lys-wm refuses what it wrote, shows again
 // what a row built from the stored config shows: the last accepted state.
+// Each list of dropdown rows goes through every row once, the first time
+// a control shows it.
 func TestARefusedChangeLeavesEveryWMControlAtTheLastAcceptedState(t *testing.T) {
 	if os.Getenv("LYS_SETTINGS_HEADLESS") == "" {
 		t.Skip("needs the dev shell's lys-wm; set by `just test`")
@@ -488,10 +489,11 @@ func TestARefusedChangeLeavesEveryWMControlAtTheLastAcceptedState(t *testing.T) 
 		t.Fatal(err)
 	}
 	k.wm = w
+	driven := map[string]bool{}
 	for _, spec := range allWMRows() {
 		row := newFieldRow(k, w, spec)
 		k.onWMChange = row.refresh
-		sweepRow(t, row, nil, func(action string) {
+		sweepRow(t, row, driven, func(action string) {
 			if !w.notice.failed() {
 				return
 			}
