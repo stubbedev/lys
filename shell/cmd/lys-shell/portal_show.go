@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/lib/portaldialogs"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
@@ -79,7 +80,11 @@ func showFileChooser(m *cli.Matches) error {
 }
 
 func showScreenshot(m *cli.Matches) error {
-	mode, _ := cli.Value[string](m, "mode")
+	name, _ := cli.Value[string](m, "mode")
+	mode, err := config.ParseScreenshotMode(name)
+	if err != nil {
+		return err
+	}
 	target, _ := cli.Value[string](m, "target")
 	return showDialog(func(ctx context.Context, conn *dbus.Conn) ([]string, string, string, error) {
 		path, err := screenshot.NewClient(conn).CapturePrivate(ctx, portaldialogs.Caller{}, mode, target, false)

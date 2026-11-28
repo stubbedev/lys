@@ -6,6 +6,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/lib/portaldialogs"
 	"github.com/stubbedev/lys/lib/render"
 
@@ -106,7 +107,7 @@ func guardCompositor(t *testing.T) {
 func (r *gateRig) capture(handle string) chan captureAnswer {
 	answers := make(chan captureAnswer, 1)
 	go func() {
-		path, err := r.h.Capture(portaldialogs.Caller{Handle: handle}, ModeRegion, "")
+		path, err := r.h.Capture(portaldialogs.Caller{Handle: handle}, config.ScreenshotRegion, "")
 		answers <- captureAnswer{path, err}
 	}()
 	return answers
@@ -124,7 +125,7 @@ func assertRefused(t *testing.T, h *Host, handle string) {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		for _, mode := range []string{ModeRegion, ModeOutput, ModeScreen, ModeWindow} {
+		for _, mode := range config.ScreenshotModes {
 			if path, err := h.Capture(caller, mode, ""); !errors.Is(err, ErrBusy) || path != "" {
 				t.Errorf("Capture %s = %q %v, want ErrBusy", mode, path, err)
 			}
@@ -280,7 +281,7 @@ func TestAnInstantCaptureRefusesAnOverlay(t *testing.T) {
 	}
 	first := make(chan error, 1)
 	go func() {
-		_, err := r.h.Capture(portaldialogs.Caller{}, ModeScreen, "")
+		_, err := r.h.Capture(portaldialogs.Caller{}, config.ScreenshotScreen, "")
 		first <- err
 	}()
 	apptest.Answer(t, "the instant capture started", entered)
@@ -290,7 +291,7 @@ func TestAnInstantCaptureRefusesAnOverlay(t *testing.T) {
 	if _, _, err := r.h.PickColor(portaldialogs.Caller{}); !errors.Is(err, ErrBusy) {
 		t.Errorf("a pick during an instant capture answered %v, want ErrBusy", err)
 	}
-	if _, err := r.h.Capture(portaldialogs.Caller{}, ModeScreen, ""); err != nil {
+	if _, err := r.h.Capture(portaldialogs.Caller{}, config.ScreenshotScreen, ""); err != nil {
 		t.Errorf("a second instant capture answered %v", err)
 	}
 	close(proceed)

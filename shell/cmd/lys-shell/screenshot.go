@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/lib/portaldialogs"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
@@ -20,25 +21,25 @@ func screenshotCommand() *cli.Command {
 		Name:  "screenshot",
 		About: "Screenshot capture commands",
 		Subcommands: []*cli.Command{
-			{Name: "region", About: "Capture a dragged region or a clicked window", Run: captureScreenshot(screenshot.ModeRegion)},
+			{Name: "region", About: "Capture a dragged region or a clicked window", Run: captureScreenshot(config.ScreenshotRegion)},
 			{
 				Name:  "output",
 				About: "Capture a whole output (the focused output when NAME is omitted)",
 				Args: []*cli.Arg{
 					{ID: "name", Help: "Output connector name (e.g. DP-1)"},
 				},
-				Run: captureScreenshot(screenshot.ModeOutput),
+				Run: captureScreenshot(config.ScreenshotOutput),
 			},
-			{Name: "window", About: "Capture the active window", Run: captureScreenshot(screenshot.ModeWindow)},
-			{Name: "text", About: "Copy the text in a dragged region to the clipboard", Run: readScreen(screenshot.ReadText)},
-			{Name: "qr", About: "Decode the QR code in a dragged region", Run: readScreen(screenshot.ReadQR)},
+			{Name: "window", About: "Capture the active window", Run: captureScreenshot(config.ScreenshotWindow)},
+			{Name: "text", About: "Copy the text in a dragged region to the clipboard", Run: readScreen(config.ScreenReadText)},
+			{Name: "qr", About: "Decode the QR code in a dragged region", Run: readScreen(config.ScreenReadQR)},
 		},
 	}
 }
 
 // captureScreenshot runs one capture mode; output's optional NAME is
 // the target.
-func captureScreenshot(mode string) func(*cli.Matches) error {
+func captureScreenshot(mode config.ScreenshotMode) func(*cli.Matches) error {
 	return func(m *cli.Matches) error {
 		target, _ := cli.Value[string](m, "name")
 		conn, err := dbus.ConnectSessionBus()
@@ -65,7 +66,7 @@ func captureScreenshot(mode string) func(*cli.Matches) error {
 
 // readScreen reads a dragged region for kind and prints what it read;
 // nothing is saved.
-func readScreen(kind screenshot.ReadKind) func(*cli.Matches) error {
+func readScreen(kind config.ScreenReading) func(*cli.Matches) error {
 	return func(m *cli.Matches) error {
 		conn, err := dbus.ConnectSessionBus()
 		if err != nil {

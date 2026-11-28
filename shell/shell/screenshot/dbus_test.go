@@ -3,9 +3,11 @@ package screenshot
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/portaldialogs"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
@@ -17,11 +19,11 @@ import (
 // daemon serves it from the bus goroutine.
 type switchCapturer struct{ err dbustest.Var[error] }
 
-func (s *switchCapturer) Capture(c portaldialogs.Caller, mode, target string) (string, error) {
+func (s *switchCapturer) Capture(c portaldialogs.Caller, mode config.ScreenshotMode, target string) (string, error) {
 	return fakeCapturer{err: s.err.Load()}.Capture(c, mode, target)
 }
 
-func (s *switchCapturer) CapturePrivate(c portaldialogs.Caller, mode, target string, pointer bool) (string, error) {
+func (s *switchCapturer) CapturePrivate(c portaldialogs.Caller, mode config.ScreenshotMode, target string, pointer bool) (string, error) {
 	return fakeCapturer{err: s.err.Load()}.CapturePrivate(c, mode, target, pointer)
 }
 
@@ -33,7 +35,7 @@ func (s *switchCapturer) PickColorText(c portaldialogs.Caller, opts colorpicker.
 	return fakeCapturer{err: s.err.Load()}.PickColorText(c, opts, copyText)
 }
 
-func (s *switchCapturer) Read(c portaldialogs.Caller, kind ReadKind) (string, error) {
+func (s *switchCapturer) Read(c portaldialogs.Caller, kind config.ScreenReading) (string, error) {
 	return fakeCapturer{err: s.err.Load()}.Read(c, kind)
 }
 
@@ -92,17 +94,40 @@ func TestBusyCrossesTheBus(t *testing.T) {
 	c := NewClient(bus.Conn(t))
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
-	if path, err := c.Capture(ctx, portaldialogs.Caller{}, ModeRegion, ""); !errors.Is(err, ErrBusy) || path != "" {
+	if path, err := c.Capture(ctx, portaldialogs.Caller{}, config.ScreenshotRegion, ""); !errors.Is(err, ErrBusy) || path != "" {
 		t.Errorf("Capture = %q %v, want ErrBusy", path, err)
 	}
-	if path, err := c.CapturePrivate(ctx, portaldialogs.Caller{}, ModeOutput, "", false); !errors.Is(err, ErrBusy) || path != "" {
+	if path, err := c.CapturePrivate(ctx, portaldialogs.Caller{}, config.ScreenshotOutput, "", false); !errors.Is(err, ErrBusy) || path != "" {
 		t.Errorf("CapturePrivate = %q %v, want ErrBusy", path, err)
 	}
 	if _, picked, err := c.PickColor(ctx, portaldialogs.Caller{}); !errors.Is(err, ErrBusy) || picked {
 		t.Errorf("PickColor = %v %v, want ErrBusy", picked, err)
 	}
 	host.err.Store(errors.New("no outputs available"))
-	if _, err := c.Capture(ctx, portaldialogs.Caller{}, ModeOutput, ""); err == nil || errors.Is(err, ErrBusy) {
+	if _, err := c.Capture(ctx, portaldialogs.Caller{}, config.ScreenshotOutput, ""); err == nil || errors.Is(err, ErrBusy) {
 		t.Errorf("a failed capture = %v, want it distinct from ErrBusy", err)
+	}
+}
+
+// A mode the shell has not fails at the bus with the mode named, before
+// the host is asked, so even a busy host answers it as the bad request.
+func TestAnUnknownModeFailsAtTheBus(t *testing.T) {
+	d := &Daemon{host: fakeCapturer{err: ErrBusy}}
+	for name, call := range map[string]func() *dbus.Error{
+		"Capture": func() *dbus.Error { _, err := d.Capture(portaldialogs.Caller{}, "regoin", ""); return err },
+		"CapturePrivate": func() *dbus.Error {
+			_, err := d.CapturePrivate(portaldialogs.Caller{}, "regoin", "", false)
+			return err
+		},
+	} {
+		err := call()
+		if err == nil || err.Name != "org.freedesktop.DBus.Error.Failed" || !strings.Contains(err.Body[0].(string), `unknown screenshot mode "regoin"`) {
+			t.Errorf("%s with an unknown mode = %v, want a failure naming it", name, err)
+		}
+	}
+	for _, mode := range config.ScreenshotModes {
+		if _, err := d.Capture(portaldialogs.Caller{}, string(mode), ""); err == nil || err.Name != busyError {
+			t.Errorf("Capture %s = %v, want it to reach the busy host", mode, err)
+		}
 	}
 }

@@ -116,7 +116,7 @@ func TestHeadlessScreenshotOverDBusLandsOnTheClipboardWithoutInput(t *testing.T)
 
 	ctxCall, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
-	path, err := screenshot.NewClient(bus.Conn(t)).Capture(ctxCall, portaldialogs.Caller{}, screenshot.ModeOutput, outputs[0].Name)
+	path, err := screenshot.NewClient(bus.Conn(t)).Capture(ctxCall, portaldialogs.Caller{}, config.ScreenshotOutput, outputs[0].Name)
 	if err != nil {
 		t.Fatalf("Capture over D-Bus: %v", err)
 	}
@@ -196,7 +196,7 @@ func TestHeadlessScreenshotCopyFailureReachesTheNotification(t *testing.T) {
 
 	ctxCall, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
-	path, err := screenshot.NewClient(bus.Conn(t)).Capture(ctxCall, portaldialogs.Caller{}, screenshot.ModeOutput, outputs[0].Name)
+	path, err := screenshot.NewClient(bus.Conn(t)).Capture(ctxCall, portaldialogs.Caller{}, config.ScreenshotOutput, outputs[0].Name)
 	if err != nil {
 		t.Fatalf("a failed copy failed the capture: %v", err)
 	}

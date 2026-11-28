@@ -14,6 +14,7 @@ import (
 
 	"github.com/makiuchi-d/gozxing"
 	"github.com/makiuchi-d/gozxing/qrcode"
+	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/ocr"
 	"github.com/stubbedev/lys/lib/portaldialogs"
@@ -109,7 +110,7 @@ func readHost(t *testing.T, frame *image.RGBA) (*Host, *readRecord, *[]Notice, *
 func TestReadQRAnnouncesTheCodeAndCopiesOnlyWhenAsked(t *testing.T) {
 	const payload = "https://example.org/qr"
 	h, rec, notified, _ := readHost(t, onWhite(200, 100, qrImage(t, payload, 96), image.Pt(52, 2)))
-	got, err := h.Read(portaldialogs.Caller{}, ReadQR)
+	got, err := h.Read(portaldialogs.Caller{}, config.ScreenReadQR)
 	if err != nil || got != payload {
 		t.Fatalf("Read = %q, %v", got, err)
 	}
@@ -127,7 +128,7 @@ func TestReadQRAnnouncesTheCodeAndCopiesOnlyWhenAsked(t *testing.T) {
 	}
 
 	h, _, notified, _ = readHost(t, onWhite(200, 100, qrImage(t, "WIFI:S:home;;", 96), image.Pt(52, 2)))
-	if _, err := h.Read(portaldialogs.Caller{}, ReadQR); err != nil {
+	if _, err := h.Read(portaldialogs.Caller{}, config.ScreenReadQR); err != nil {
 		t.Fatal(err)
 	}
 	if acts := (*notified)[0].Actions; !slices.Equal(acts, []Action{ActionCopy}) {
@@ -138,7 +139,7 @@ func TestReadQRAnnouncesTheCodeAndCopiesOnlyWhenAsked(t *testing.T) {
 func TestReadQRToastsATranslatedCopyFailureAndNothingOnSuccess(t *testing.T) {
 	const payload = "WIFI:S:home;;"
 	h, rec, notified, _ := readHost(t, onWhite(200, 100, qrImage(t, payload, 96), image.Pt(52, 2)))
-	if _, err := h.Read(portaldialogs.Caller{}, ReadQR); err != nil {
+	if _, err := h.Read(portaldialogs.Caller{}, config.ScreenReadQR); err != nil {
 		t.Fatal(err)
 	}
 	(*notified)[0].Respond(ActionCopy)
@@ -160,7 +161,7 @@ func TestReadQRToastsATranslatedCopyFailureAndNothingOnSuccess(t *testing.T) {
 
 func TestReadQRWithoutACodeCopiesNothing(t *testing.T) {
 	h, rec, notified, _ := readHost(t, onWhite(200, 100, nil, image.Point{}))
-	if _, err := h.Read(portaldialogs.Caller{}, ReadQR); !errors.Is(err, ErrNoCode) || err.Error() != "no code found" {
+	if _, err := h.Read(portaldialogs.Caller{}, config.ScreenReadQR); !errors.Is(err, ErrNoCode) || err.Error() != "no code found" {
 		t.Fatalf("Read = %v, want no code found", err)
 	}
 	if len(rec.copied)+len(*notified) != 0 {
@@ -194,7 +195,7 @@ func textFrame(t *testing.T, lines ...string) *image.RGBA {
 
 func TestReadTextCopiesWhatItReadOnceAndToastsTheFirstLine(t *testing.T) {
 	h, rec, _, _ := readHost(t, textFrame(t, "Error 42", "Disk full"))
-	got, err := h.Read(portaldialogs.Caller{}, ReadText)
+	got, err := h.Read(portaldialogs.Caller{}, config.ScreenReadText)
 	if err != nil || got != "Error 42\nDisk full" {
 		t.Fatalf("Read = %q, %v", got, err)
 	}
@@ -205,7 +206,7 @@ func TestReadTextCopiesWhatItReadOnceAndToastsTheFirstLine(t *testing.T) {
 
 func TestReadTextOfABlankRegionCopiesNothing(t *testing.T) {
 	h, rec, _, _ := readHost(t, solid(200, 100, color.RGBA{255, 255, 255, 255}))
-	if _, err := h.Read(portaldialogs.Caller{}, ReadText); !errors.Is(err, ocr.ErrBlank) {
+	if _, err := h.Read(portaldialogs.Caller{}, config.ScreenReadText); !errors.Is(err, ocr.ErrBlank) {
 		t.Fatalf("Read = %v, want ErrBlank", err)
 	}
 	if len(rec.copied)+len(rec.toasts) != 0 {
@@ -215,7 +216,7 @@ func TestReadTextOfABlankRegionCopiesNothing(t *testing.T) {
 
 func TestReadTextOfACodeIsNotText(t *testing.T) {
 	h, rec, _, _ := readHost(t, onWhite(200, 100, qrImage(t, "https://example.org/qr", 96), image.Pt(52, 2)))
-	if _, err := h.Read(portaldialogs.Caller{}, ReadText); !errors.Is(err, ocr.ErrNotText) {
+	if _, err := h.Read(portaldialogs.Caller{}, config.ScreenReadText); !errors.Is(err, ocr.ErrNotText) {
 		t.Fatalf("Read = %v, want ErrNotText", err)
 	}
 	if len(rec.copied)+len(rec.toasts) != 0 {
@@ -227,7 +228,7 @@ func TestReadTextWithoutItsFontsNamesThem(t *testing.T) {
 	h, rec, _, _ := readHost(t, textFrame(t, "Error 42"))
 	missing := errors.New("no sans-serif face found")
 	h.Faces = func() ([]*render.Typeface, error) { return nil, missing }
-	_, err := h.Read(portaldialogs.Caller{}, ReadText)
+	_, err := h.Read(portaldialogs.Caller{}, config.ScreenReadText)
 	if !errors.Is(err, missing) || !strings.Contains(err.Error(), "cannot load the fonts to read the text in") {
 		t.Fatalf("Read = %v, want the fonts named", err)
 	}
@@ -243,7 +244,7 @@ func TestCancellingTheReadingStopsIt(t *testing.T) {
 		cancel()
 		return func() { rec.working-- }
 	}
-	if _, err := h.Read(portaldialogs.Caller{Handle: "/req/1"}, ReadText); !errors.Is(err, context.Canceled) {
+	if _, err := h.Read(portaldialogs.Caller{Handle: "/req/1"}, config.ScreenReadText); !errors.Is(err, context.Canceled) {
 		t.Fatalf("Read = %v, want cancelled", err)
 	}
 	if rec.working != 0 || len(rec.copied) != 0 {
@@ -258,7 +259,7 @@ func TestDismissStopsTheReading(t *testing.T) {
 		h.Dismiss("/req/2")
 		return func() {}
 	}
-	if _, err := h.Read(portaldialogs.Caller{Handle: "/req/2"}, ReadText); !errors.Is(err, context.Canceled) {
+	if _, err := h.Read(portaldialogs.Caller{Handle: "/req/2"}, config.ScreenReadText); !errors.Is(err, context.Canceled) {
 		t.Fatalf("Read = %v, want cancelled", err)
 	}
 	if len(rec.copied) != 0 {
@@ -272,7 +273,7 @@ func TestDismissingAnotherRequestLeavesTheReading(t *testing.T) {
 		h.Dismiss("/req/3")
 		return func() {}
 	}
-	if got, err := h.Read(portaldialogs.Caller{Handle: "/req/2"}, ReadText); err != nil || got != "Error 42" {
+	if got, err := h.Read(portaldialogs.Caller{Handle: "/req/2"}, config.ScreenReadText); err != nil || got != "Error 42" {
 		t.Fatalf("Read = %q, %v", got, err)
 	}
 	if !slices.Equal(rec.copied, []string{"Error 42"}) {

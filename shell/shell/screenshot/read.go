@@ -13,28 +13,11 @@ import (
 
 	"github.com/makiuchi-d/gozxing"
 	"github.com/makiuchi-d/gozxing/qrcode"
+	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/ocr"
 	"github.com/stubbedev/lys/lib/portaldialogs"
 )
-
-// ReadKind is what Read looks for in a region of the screen.
-type ReadKind string
-
-// What Read can read.
-const (
-	ReadText ReadKind = "text"
-	ReadQR   ReadKind = "qr"
-)
-
-// ParseReadKind is the kind a CLI or D-Bus argument names.
-func ParseReadKind(s string) (ReadKind, error) {
-	switch k := ReadKind(s); k {
-	case ReadText, ReadQR:
-		return k, nil
-	}
-	return "", fmt.Errorf("unknown screen reading %q: want %s or %s", s, ReadText, ReadQR)
-}
 
 const ocrTimeout = 30 * time.Second
 
@@ -51,15 +34,15 @@ var (
 // it. "" is a cancelled selection. A region with no text in it fails
 // with ocr.ErrNoText, and Dismiss with the caller's handle stops a
 // running text reading.
-func (h *Host) Read(c portaldialogs.Caller, kind ReadKind) (string, error) {
+func (h *Host) Read(c portaldialogs.Caller, kind config.ScreenReading) (string, error) {
 	img, ok, err := h.captureRegion(c, false)
 	if err != nil || !ok {
 		return "", err
 	}
 	switch kind {
-	case ReadText:
+	case config.ScreenReadText:
 		return h.readText(c, img)
-	case ReadQR:
+	case config.ScreenReadQR:
 		return h.readCode(img)
 	}
 	return "", fmt.Errorf("unknown screen reading %q", kind)

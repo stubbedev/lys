@@ -1246,7 +1246,7 @@ Register-ArgumentCompleter -Native -CommandName 'lys-shell' -ScriptBlock {
             break
         }
         'lys-shell;portal;show;screenshot' {
-            [CompletionResult]::new('--mode', '--mode', [CompletionResultType]::ParameterName, 'Capture mode: `region`, `output`, `screen`, or `window`')
+            [CompletionResult]::new('--mode', '--mode', [CompletionResultType]::ParameterName, 'Capture mode')
             [CompletionResult]::new('--target', '--target', [CompletionResultType]::ParameterName, 'Output connector name (used by `output` mode)')
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')

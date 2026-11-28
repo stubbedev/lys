@@ -124,7 +124,7 @@ func (s *captureServices) serve(conn *dbus.Conn) (stop func()) {
 
 // trigger is the `lys-shell screenshot ...` builtin: a fire-and-forget
 // capture whose reply nobody awaits. A press refused during an open overlay is only logged.
-func (s *captureServices) trigger(mode, target string) {
+func (s *captureServices) trigger(mode config.ScreenshotMode, target string) {
 	go func() {
 		if _, err := s.host.Capture(portaldialogs.Caller{}, mode, target); err != nil {
 			log.Printf("screenshot: %v", err)
@@ -132,7 +132,7 @@ func (s *captureServices) trigger(mode, target string) {
 	}()
 }
 
-func (s *captureServices) read(kind screenshot.ReadKind) {
+func (s *captureServices) read(kind config.ScreenReading) {
 	go func() {
 		if _, err := s.host.Read(portaldialogs.Caller{}, kind); err != nil && !errors.Is(err, context.Canceled) {
 			toastFailure(s.host.Toast, "screenshot: reading the screen", readFailure(err), err)

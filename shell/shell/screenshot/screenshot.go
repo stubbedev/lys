@@ -39,16 +39,6 @@ import (
 	"github.com/stubbedev/lys/shell/shell/regionoverlay"
 )
 
-// The capture modes of Capture: a drag-selected region, one output
-// (the focused one without a target), the whole multi-monitor space
-// composited, or the active window.
-const (
-	ModeRegion = "region"
-	ModeOutput = "output"
-	ModeScreen = "screen"
-	ModeWindow = "window"
-)
-
 // ErrBusy answers a capture or a color pick refused because another capture
 // is in progress: nothing opened, nothing was captured, and what was running
 // goes on untouched. It is neither a capture nor the user's cancel.
@@ -133,7 +123,7 @@ type overlayRequest struct {
 // path, or "" when the user cancelled a region selection. It is saved
 // where [modules.screenshot] says, then copied and announced as it
 // says. Every mode answers ErrBusy while a capture overlay is open.
-func (h *Host) Capture(c portaldialogs.Caller, mode, target string) (string, error) {
+func (h *Host) Capture(c portaldialogs.Caller, mode config.ScreenshotMode, target string) (string, error) {
 	img, ok, err := h.grab(c, mode, target, false)
 	if err != nil || !ok {
 		return "", err
@@ -146,7 +136,7 @@ func (h *Host) Capture(c portaldialogs.Caller, mode, target string) (string, err
 // notification settings applied, the pointer composited in when
 // pointer is set. "" is a cancelled selection; every mode answers ErrBusy
 // while a capture overlay is open.
-func (h *Host) CapturePrivate(c portaldialogs.Caller, mode, target string, pointer bool) (string, error) {
+func (h *Host) CapturePrivate(c portaldialogs.Caller, mode config.ScreenshotMode, target string, pointer bool) (string, error) {
 	img, ok, err := h.grab(c, mode, target, pointer)
 	if err != nil || !ok {
 		return "", err
@@ -188,8 +178,8 @@ func (h *Host) dismissable(handle string) (ctx context.Context, done func()) {
 // grab captures the image for a mode, with the pointer when pointer is
 // set; ok is false for a cancelled region. A region is admitted by its
 // overlay's session, every other mode by the gate here.
-func (h *Host) grab(c portaldialogs.Caller, mode, target string, pointer bool) (*image.RGBA, bool, error) {
-	if mode == ModeRegion {
+func (h *Host) grab(c portaldialogs.Caller, mode config.ScreenshotMode, target string, pointer bool) (*image.RGBA, bool, error) {
+	if mode == config.ScreenshotRegion {
 		return h.captureRegion(c, pointer)
 	}
 	end, err := h.Gate.Instant()
@@ -198,17 +188,17 @@ func (h *Host) grab(c portaldialogs.Caller, mode, target string, pointer bool) (
 	}
 	defer end()
 	switch mode {
-	case ModeOutput:
+	case config.ScreenshotOutput:
 		name := target
 		if name == "" && h.Focus != nil {
 			name, _ = h.Focus.FocusedOutput()
 		}
 		img, err := captureOutput(name, pointer)
 		return img, err == nil, err
-	case ModeScreen:
+	case config.ScreenshotScreen:
 		img, err := h.captureFullScreen(pointer)
 		return img, err == nil, err
-	case ModeWindow:
+	case config.ScreenshotWindow:
 		t := windowTarget{identifier: target}
 		if target == "" && h.Focus != nil {
 			t = h.Focus.ActiveWindow()
@@ -216,7 +206,7 @@ func (h *Host) grab(c portaldialogs.Caller, mode, target string, pointer bool) (
 		img, err := captureWindow(t, pointer)
 		return img, err == nil, err
 	}
-	return nil, false, fmt.Errorf("unknown screenshot mode: %s", mode)
+	return nil, false, fmt.Errorf("unknown screenshot mode %q", mode)
 }
 
 // save writes the PNG under the configured name, then copies it,

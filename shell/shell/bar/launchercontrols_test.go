@@ -15,7 +15,6 @@ import (
 	"github.com/stubbedev/lys/shell/service/launcher/search"
 	"github.com/stubbedev/lys/shell/service/recorder"
 	"github.com/stubbedev/lys/shell/shell/launcher"
-	"github.com/stubbedev/lys/shell/shell/screenshot"
 )
 
 type fakeDND struct{ on bool }
@@ -213,11 +212,11 @@ func TestMediaControlsOfferNothingForAPlayerThatRefusesControl(t *testing.T) {
 }
 
 func TestCaptureWaitsForThePanelToClose(t *testing.T) {
-	var shots []string
+	var shots []config.ScreenshotMode
 	picks := 0
 	rec := &fakeRecorder{}
 	s := controlSources{
-		screenshot: func(mode, _ string) { shots = append(shots, mode) },
+		screenshot: func(mode config.ScreenshotMode, _ string) { shots = append(shots, mode) },
 		recorder:   rec,
 		pickColor:  func() { picks++ },
 	}
@@ -236,7 +235,7 @@ func TestCaptureWaitsForThePanelToClose(t *testing.T) {
 		}
 		closed()
 	}
-	if !slices.Equal(shots, []string{screenshot.ModeRegion, screenshot.ModeOutput, screenshot.ModeWindow}) || rec.starts != 1 || picks != 1 {
+	if !slices.Equal(shots, []config.ScreenshotMode{config.ScreenshotRegion, config.ScreenshotOutput, config.ScreenshotWindow}) || rec.starts != 1 || picks != 1 {
 		t.Errorf("shots %q, starts %d, picks %d", shots, rec.starts, picks)
 	}
 }
@@ -350,8 +349,8 @@ func TestAToneTypedFromTheActionsBecomesTheConfiguredDefault(t *testing.T) {
 }
 
 func TestReadingRowsReadTextAndCodes(t *testing.T) {
-	var reads []screenshot.ReadKind
-	s := controlSources{readScreen: func(k screenshot.ReadKind) { reads = append(reads, k) }}
+	var reads []config.ScreenReading
+	s := controlSources{readScreen: func(k config.ScreenReading) { reads = append(reads, k) }}
 	rows := s.captureControls(context.Background())
 	if got, want := titlesOf(rows), []string{"Copy Text from Screen", "Scan QR Code"}; !slices.Equal(got, want) {
 		t.Fatalf("rows %q, want %q", got, want)
@@ -366,7 +365,7 @@ func TestReadingRowsReadTextAndCodes(t *testing.T) {
 		}
 		closed()
 	}
-	if !slices.Equal(reads, []screenshot.ReadKind{screenshot.ReadText, screenshot.ReadQR}) {
+	if !slices.Equal(reads, []config.ScreenReading{config.ScreenReadText, config.ScreenReadQR}) {
 		t.Fatalf("reads %v", reads)
 	}
 

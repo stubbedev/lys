@@ -59,6 +59,19 @@ func typeOf[T any]() reflect.Type { return reflect.TypeFor[T]() }
 // valueOf returns the addressable value behind a pointer.
 func valueOf[T any](p *T) reflect.Value { return reflect.ValueOf(p).Elem() }
 
+// parseVariant reads s as one of values, what naming the kind of value in
+// the error.
+func parseVariant[T ~string](what string, values []T, s string) (T, error) {
+	if v := T(s); slices.Contains(values, v) {
+		return v, nil
+	}
+	names := make([]string, len(values))
+	for i, v := range values {
+		names[i] = string(v)
+	}
+	return "", fmt.Errorf("unknown %s %q, %s", what, s, expectedOneOf(names))
+}
+
 // expectedOneOf renders the accepted variants for an error message.
 func expectedOneOf(names []string) string {
 	quoted := make([]string, len(names))

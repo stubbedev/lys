@@ -9,15 +9,19 @@ import (
 // ClickAction is one module input binding, parsed from the schema's
 // ClickAction strings: "dropdown:<name>", "brightness:<delta>" or
 // "brightness:toggle", a running shell's own action by its CLI
-// spelling (ShellBuiltin), an empty string for no action, and anything
-// else runs as a shell command. A brightness delta that is not an int32,
-// and a dropdown with no name, do not parse.
+// spelling (ShellBuiltin) or a screenshot or screen reading by its
+// `lys-shell screenshot` command line, an empty string for no action,
+// and anything else runs as a shell command. A brightness delta that is
+// not an int32, a dropdown with no name, and a `lys-shell screenshot`
+// line the shell cannot run do not parse.
 type ClickAction struct {
 	Kind       ClickKind
 	Dropdown   string
 	Command    string
 	Brightness int32
 	Builtin    ShellBuiltin
+	Screenshot ScreenshotBinding
+	Reading    ScreenReading
 }
 
 // ClickKind discriminates the action.
@@ -31,6 +35,8 @@ const (
 	ClickBrightness
 	ClickBrightnessToggle
 	ClickShellBuiltin
+	ClickScreenshot
+	ClickScreenRead
 )
 
 // ShellBuiltin is an action of the running shell's own state a binding
@@ -108,6 +114,9 @@ func parseClickAction(s string) (ClickAction, error) {
 		}
 		return ClickAction{Kind: ClickDropdown, Dropdown: name}, nil
 	}
+	if a, ok, err := parseScreenshotClick(s); ok {
+		return a, err
+	}
 	for _, b := range ShellBuiltins() {
 		if b.String() == s {
 			return ClickAction{Kind: ClickShellBuiltin, Builtin: b}, nil
@@ -129,6 +138,10 @@ func (a ClickAction) String() string {
 		return a.Command
 	case ClickShellBuiltin:
 		return a.Builtin.String()
+	case ClickScreenshot:
+		return a.Screenshot.String()
+	case ClickScreenRead:
+		return screenshotCommand + " " + string(a.Reading)
 	}
 	return ""
 }

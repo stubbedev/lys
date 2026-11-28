@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	shelllocales "github.com/stubbedev/lys/desktop/i18n/locales/shell"
 	"github.com/stubbedev/lys/lib/portaldialogs"
@@ -63,7 +64,7 @@ func noticesIn(t *testing.T, loc string) {
 	}
 
 	h, _, notified, _ := readHost(t, onWhite(200, 100, qrImage(t, "https://example.org/qr", 96), image.Pt(52, 2)))
-	if _, err := h.Read(portaldialogs.Caller{}, ReadQR); err != nil {
+	if _, err := h.Read(portaldialogs.Caller{}, config.ScreenReadQR); err != nil {
 		t.Fatal(err)
 	}
 	if len(*notified) != 1 || (*notified)[0].Summary != catalogue.Get("screenshot-qr-code") {
@@ -71,7 +72,7 @@ func noticesIn(t *testing.T, loc string) {
 	}
 
 	h, _, notified, _ = readHost(t, onWhite(200, 100, nil, image.Point{}))
-	if _, err := h.Read(portaldialogs.Caller{}, ReadQR); !errors.Is(err, ErrNoCode) {
+	if _, err := h.Read(portaldialogs.Caller{}, config.ScreenReadQR); !errors.Is(err, ErrNoCode) {
 		t.Fatalf("Read = %v, want no code found", err)
 	}
 	if len(*notified) != 0 {

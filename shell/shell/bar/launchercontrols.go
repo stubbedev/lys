@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 
+	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/bluetooth"
 	"github.com/stubbedev/lys/desktop/service/mpris"
@@ -11,7 +12,6 @@ import (
 
 	"github.com/stubbedev/lys/shell/service/launcher/search"
 	"github.com/stubbedev/lys/shell/service/recorder"
-	"github.com/stubbedev/lys/shell/shell/screenshot"
 )
 
 // dndSwitch is the notifications' do-not-disturb.
@@ -41,8 +41,8 @@ type controlSources struct {
 	bluetooth  bluetooth.Source
 	audio      pulse.Source
 	media      mpris.Source
-	screenshot func(mode, target string)
-	readScreen func(kind screenshot.ReadKind)
+	screenshot func(mode config.ScreenshotMode, target string)
+	readScreen func(kind config.ScreenReading)
 	recorder   recorderSwitch
 	pickColor  func()
 	// wallpaper opens the wallpaper picker; nil without one.
@@ -202,25 +202,25 @@ func (s controlSources) mediaControls(context.Context) []search.Control {
 func (s controlSources) captureControls(context.Context) []search.Control {
 	var out []search.Control
 	if s.screenshot != nil {
-		shot := func(id, titleKey, icon, mode string) search.Control {
+		shot := func(id, titleKey, icon string, mode config.ScreenshotMode) search.Control {
 			return search.Control{
 				ID: "screenshot-" + id, Title: i18n.T(titleKey), Keywords: "capture screen grab print", Icon: icon,
 				Effect: search.RunOnceClosed(func() { s.screenshot(mode, "") }),
 			}
 		}
 		out = append(out,
-			shot("region", "launcher-control-screenshot-region", "ld-camera-symbolic", screenshot.ModeRegion),
-			shot("output", "launcher-control-screenshot-output", "ld-monitor-symbolic", screenshot.ModeOutput),
-			shot("window", "launcher-control-screenshot-window", "ld-app-window-symbolic", screenshot.ModeWindow),
+			shot("region", "launcher-control-screenshot-region", "ld-camera-symbolic", config.ScreenshotRegion),
+			shot("output", "launcher-control-screenshot-output", "ld-monitor-symbolic", config.ScreenshotOutput),
+			shot("window", "launcher-control-screenshot-window", "ld-app-window-symbolic", config.ScreenshotWindow),
 		)
 	}
 	if s.readScreen != nil {
 		out = append(out, search.Control{
 			ID: "screenshot-text", Title: i18n.T("launcher-control-screenshot-text"), Keywords: "ocr copy text recognize capture screen", Icon: "ld-scan-text-symbolic",
-			Effect: search.RunOnceClosed(func() { s.readScreen(screenshot.ReadText) }),
+			Effect: search.RunOnceClosed(func() { s.readScreen(config.ScreenReadText) }),
 		}, search.Control{
 			ID: "screenshot-qr", Title: i18n.T("launcher-control-screenshot-qr"), Keywords: "qr code scan barcode capture screen", Icon: "ld-scan-qr-code-symbolic",
-			Effect: search.RunOnceClosed(func() { s.readScreen(screenshot.ReadQR) }),
+			Effect: search.RunOnceClosed(func() { s.readScreen(config.ScreenReadQR) }),
 		})
 	}
 	if s.recorder != nil {

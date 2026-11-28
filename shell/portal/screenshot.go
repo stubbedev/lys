@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/lib/dbusx"
 	"github.com/stubbedev/lys/lib/fileuri"
 	"github.com/stubbedev/lys/lib/portaldialogs"
@@ -65,14 +66,14 @@ func requestedShot(options Vardict) (s shot, ask, ok bool) {
 }
 
 // screenshotMode is the shell's capture mode for a target.
-func screenshotMode(target uint32) string {
+func screenshotMode(target uint32) config.ScreenshotMode {
 	switch target {
 	case targetPickedWindow, targetActiveWindow:
-		return screenshot.ModeWindow
+		return config.ScreenshotWindow
 	case targetArea:
-		return screenshot.ModeRegion
+		return config.ScreenshotRegion
 	}
-	return screenshot.ModeScreen
+	return config.ScreenshotScreen
 }
 
 // The interactive chooser's questions and their answers.

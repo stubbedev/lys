@@ -1705,7 +1705,7 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (screenshot)
 _arguments "${_arguments_options[@]}" : \
-'--mode=[Capture mode\: \`region\`, \`output\`, \`screen\`, or \`window\`]:MODE:_default' \
+'--mode=[Capture mode]:MODE:(region output screen window)' \
 '--target=[Output connector name (used by \`output\` mode)]:TARGET:_default' \
 '-h[Print help]' \
 '--help[Print help]' \

@@ -34,7 +34,7 @@ func TestHostPresentsTheThumbnailAndNotifiesWithoutButtonsButOpensOnAClick(t *te
 	var opened []string
 	h.Open = func(path string) { opened = append(opened, path) }
 
-	path, err := h.Capture(portaldialogs.Caller{}, ModeRegion, "")
+	path, err := h.Capture(portaldialogs.Caller{}, config.ScreenshotRegion, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,7 +70,7 @@ func TestHostWithoutThumbnailNotifiesWithButtons(t *testing.T) {
 	var opened []string
 	h.Open = func(path string) { opened = append(opened, path) }
 
-	path, err := h.Capture(portaldialogs.Caller{}, ModeRegion, "")
+	path, err := h.Capture(portaldialogs.Caller{}, config.ScreenshotRegion, "")
 	if err != nil {
 		t.Fatal(err)
 	}

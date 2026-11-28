@@ -94,7 +94,7 @@ func TestHeadlessHostRegionSavesTheCrop(t *testing.T) {
 		Notify: func(Notice) {},
 		Now:    time.Now,
 	}
-	path, err := h.Capture(portaldialogs.Caller{}, ModeRegion, "")
+	path, err := h.Capture(portaldialogs.Caller{}, config.ScreenshotRegion, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -155,7 +155,7 @@ func TestHeadlessHostOverlaysAdmitOneSession(t *testing.T) {
 
 	selection := make(chan string, 1)
 	go func() {
-		path, err := h.Capture(portaldialogs.Caller{Handle: "/r/region"}, ModeRegion, "")
+		path, err := h.Capture(portaldialogs.Caller{Handle: "/r/region"}, config.ScreenshotRegion, "")
 		if err != nil {
 			t.Errorf("the region request failed: %v", err)
 		}

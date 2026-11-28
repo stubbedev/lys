@@ -1007,7 +1007,7 @@ set edit:completion:arg-completer[lys-shell] = {|@words|
             cand --help 'Print help'
         }
         &'lys-shell;portal;show;screenshot'= {
-            cand --mode 'Capture mode: `region`, `output`, `screen`, or `window`'
+            cand --mode 'Capture mode'
             cand --target 'Output connector name (used by `output` mode)'
             cand -h 'Print help'
             cand --help 'Print help'

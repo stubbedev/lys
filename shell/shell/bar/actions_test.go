@@ -52,7 +52,7 @@ func spawns(t *testing.T) func() []string {
 func servicedContext(t *testing.T, cfg *config.Config) ModuleContext {
 	t.Helper()
 	ctx := newTestContext(t, cfg)
-	ctx.Screenshot = func(string, string) {}
+	ctx.Screenshot = func(config.ScreenshotMode, string) {}
 	ctx.Brightness = &fakeBrightnessSource{ticks: make(chan struct{})}
 	ctx.Pulse = &fakePulseSource{err: errors.New("no sink"), ticks: make(chan struct{})}
 	ctx.IdleInhibit = idleinhibit.NewState(inhibitduration.Duration{})

@@ -55,7 +55,7 @@ func TestHeadlessCaptureServicesAdmitOneOverlaySession(t *testing.T) {
 
 	selection := make(chan string, 1)
 	go func() {
-		path, err := client.Capture(call, mine, screenshot.ModeRegion, "")
+		path, err := client.Capture(call, mine, config.ScreenshotRegion, "")
 		if err != nil {
 			t.Errorf("the region request failed: %v", err)
 		}
@@ -65,10 +65,10 @@ func TestHeadlessCaptureServicesAdmitOneOverlaySession(t *testing.T) {
 	if _, picked, err := client.PickColor(call, other); !errors.Is(err, screenshot.ErrBusy) || picked {
 		t.Fatalf("a pick during a selection = %v %v, want ErrBusy", picked, err)
 	}
-	if path, err := client.Capture(call, other, screenshot.ModeRegion, ""); !errors.Is(err, screenshot.ErrBusy) || path != "" {
+	if path, err := client.Capture(call, other, config.ScreenshotRegion, ""); !errors.Is(err, screenshot.ErrBusy) || path != "" {
 		t.Fatalf("a second region = %q %v, want ErrBusy", path, err)
 	}
-	if path, err := client.Capture(call, other, screenshot.ModeOutput, sess.Outputs()[0].Name); !errors.Is(err, screenshot.ErrBusy) || path != "" {
+	if path, err := client.Capture(call, other, config.ScreenshotOutput, sess.Outputs()[0].Name); !errors.Is(err, screenshot.ErrBusy) || path != "" {
 		t.Fatalf("an output capture during a selection = %q %v, want ErrBusy", path, err)
 	}
 	if err := client.Dismiss(call, other.Handle); err != nil {
@@ -97,7 +97,7 @@ func TestHeadlessCaptureServicesAdmitOneOverlaySession(t *testing.T) {
 		pick <- picked
 	}()
 	awaitOpen(true)
-	if path, err := client.Capture(call, other, screenshot.ModeRegion, ""); !errors.Is(err, screenshot.ErrBusy) || path != "" {
+	if path, err := client.Capture(call, other, config.ScreenshotRegion, ""); !errors.Is(err, screenshot.ErrBusy) || path != "" {
 		t.Fatalf("a region during a pick = %q %v, want ErrBusy", path, err)
 	}
 	if err := client.Dismiss(call, mine.Handle); err != nil {
@@ -111,7 +111,7 @@ func TestHeadlessCaptureServicesAdmitOneOverlaySession(t *testing.T) {
 	case <-call.Done():
 		t.Fatal("Dismiss left the pick open")
 	}
-	path, err := client.Capture(call, portaldialogs.Caller{}, screenshot.ModeOutput, sess.Outputs()[0].Name)
+	path, err := client.Capture(call, portaldialogs.Caller{}, config.ScreenshotOutput, sess.Outputs()[0].Name)
 	if err != nil || path == "" {
 		t.Fatalf("an output capture after the sessions = %q %v", path, err)
 	}

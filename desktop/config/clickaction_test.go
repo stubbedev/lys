@@ -63,3 +63,81 @@ func TestAMalformedClickActionIsALoadError(t *testing.T) {
 		t.Errorf("workspace bindings = %+v", w)
 	}
 }
+
+func TestScreenshotModesAndReadingsParse(t *testing.T) {
+	for _, m := range ScreenshotModes {
+		if got, err := ParseScreenshotMode(string(m)); err != nil || got != m {
+			t.Errorf("ParseScreenshotMode(%q) = %q %v", m, got, err)
+		}
+	}
+	for _, r := range ScreenReadings {
+		if got, err := ParseScreenReading(string(r)); err != nil || got != r {
+			t.Errorf("ParseScreenReading(%q) = %q %v", r, got, err)
+		}
+	}
+	if _, err := ParseScreenshotMode("regoin"); err == nil || err.Error() != "unknown screenshot mode \"regoin\", expected one of `region`, `output`, `screen`, `window`" {
+		t.Errorf("ParseScreenshotMode(regoin) = %v", err)
+	}
+	if _, err := ParseScreenshotMode(""); err == nil {
+		t.Error("an empty screenshot mode parsed")
+	}
+	if _, err := ParseScreenReading("ocr"); err == nil || err.Error() != "unknown screen reading \"ocr\", expected `text` or `qr`" {
+		t.Errorf("ParseScreenReading(ocr) = %v", err)
+	}
+}
+
+func TestScreenshotBindingsParseAtLoad(t *testing.T) {
+	for _, c := range []struct {
+		line, canonical string
+		want            ClickAction
+	}{
+		{"lys-shell screenshot", "lys-shell screenshot region", ClickAction{Kind: ClickScreenshot, Screenshot: ScreenshotBinding{Mode: ScreenshotRegion}}},
+		{"lys-shell screenshot region", "", ClickAction{Kind: ClickScreenshot, Screenshot: ScreenshotBinding{Mode: ScreenshotRegion}}},
+		{"lys-shell screenshot output", "", ClickAction{Kind: ClickScreenshot, Screenshot: ScreenshotBinding{Mode: ScreenshotOutput}}},
+		{"lys-shell  screenshot output DP-1 ", "lys-shell screenshot output DP-1", ClickAction{Kind: ClickScreenshot, Screenshot: ScreenshotBinding{Mode: ScreenshotOutput, Output: "DP-1"}}},
+		{"lys-shell screenshot screen", "", ClickAction{Kind: ClickScreenshot, Screenshot: ScreenshotBinding{Mode: ScreenshotScreen}}},
+		{"lys-shell screenshot window", "", ClickAction{Kind: ClickScreenshot, Screenshot: ScreenshotBinding{Mode: ScreenshotWindow}}},
+		{"lys-shell screenshot text", "", ClickAction{Kind: ClickScreenRead, Reading: ScreenReadText}},
+		{"lys-shell screenshot qr", "", ClickAction{Kind: ClickScreenRead, Reading: ScreenReadQR}},
+	} {
+		a := ParseClickAction(c.line)
+		if a != c.want {
+			t.Errorf("%q = %+v, want %+v", c.line, a, c.want)
+		}
+		canonical := c.canonical
+		if canonical == "" {
+			canonical = c.line
+		}
+		if a.String() != canonical {
+			t.Errorf("%q writes back as %q, want %q", c.line, a.String(), canonical)
+		}
+	}
+	for _, line := range []string{"lys-shell screenshots region", "lys-shell recorder screenshot", "screenshot region"} {
+		if a := ParseClickAction(line); a.Kind != ClickShell || a.Command != line {
+			t.Errorf("%q = %+v, want a shell command", line, a)
+		}
+	}
+	d := DefaultsScreenshot()
+	if d.LeftClick.Screenshot.Mode != ScreenshotRegion || d.RightClick.Screenshot.Mode != ScreenshotOutput || d.MiddleClick.Screenshot.Mode != ScreenshotWindow {
+		t.Errorf("screenshot defaults = %+v / %+v / %+v", d.LeftClick, d.RightClick, d.MiddleClick)
+	}
+}
+
+// A `lys-shell screenshot` binding the shell cannot run is a load error
+// naming the key, never a capture that fails at the click.
+func TestAMalformedScreenshotBindingIsALoadError(t *testing.T) {
+	for _, c := range []struct{ line, want string }{
+		{"lys-shell screenshot regoin", "unknown screenshot mode \"regoin\""},
+		{"lys-shell screenshot window 0x1", "window takes no further argument"},
+		{"lys-shell screenshot region DP-1", "region takes no further argument"},
+		{"lys-shell screenshot output DP-1 DP-2", "output takes no further argument"},
+		{"lys-shell screenshot qr now", "qr takes no argument"},
+	} {
+		yaml := "modules:\n  screenshot:\n    left-click: " + c.line + "\n"
+		_, err := LoadFile(writeFile(t, t.TempDir(), "config.yaml", yaml))
+		if err == nil || !strings.Contains(err.Error(), "modules.screenshot.left-click") || !strings.Contains(err.Error(), c.want) ||
+			!strings.Contains(err.Error(), screenshotBindingUsage) {
+			t.Errorf("%q loaded with %v, want an error at modules.screenshot.left-click saying %s", c.line, err, c.want)
+		}
+	}
+}

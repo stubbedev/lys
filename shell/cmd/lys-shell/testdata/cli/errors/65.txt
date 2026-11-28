@@ -1,0 +1,10 @@
+args: portal show screenshot --mode regoin
+code: 2
+--- stdout
+--- stderr
+error: invalid value 'regoin' for '--mode <MODE>'
+  [possible values: region, output, screen, window]
+
+  tip: a similar value exists: 'region'
+
+For more information, try '--help'.

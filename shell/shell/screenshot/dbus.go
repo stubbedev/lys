@@ -41,11 +41,11 @@ func replyErr(err error) error {
 
 // capturer is what the daemon serves: the Host, or a fake in tests.
 type capturer interface {
-	Capture(c portaldialogs.Caller, mode, target string) (string, error)
-	CapturePrivate(c portaldialogs.Caller, mode, target string, pointer bool) (string, error)
+	Capture(c portaldialogs.Caller, mode config.ScreenshotMode, target string) (string, error)
+	CapturePrivate(c portaldialogs.Caller, mode config.ScreenshotMode, target string, pointer bool) (string, error)
 	PickColor(c portaldialogs.Caller) (color [3]float64, picked bool, err error)
 	PickColorText(c portaldialogs.Caller, opts colorpicker.Options, copyText bool) (text string, picked bool, err error)
-	Read(c portaldialogs.Caller, kind ReadKind) (string, error)
+	Read(c portaldialogs.Caller, kind config.ScreenReading) (string, error)
 	Dismiss(handle string)
 }
 
@@ -73,9 +73,14 @@ func (d *Daemon) Export(conn *dbus.Conn) (func(), error) {
 // output connector name (output mode), a window's ext toplevel
 // identifier (window mode; the active window when empty), or empty. Replies the saved PNG
 // path, empty when a region selection was cancelled or dismissed; every
-// mode fails with the Busy error while a capture overlay is open.
+// mode fails with the Busy error while a capture overlay is open, and an
+// unknown mode fails before anything is opened.
 func (d *Daemon) Capture(c portaldialogs.Caller, mode, target string) (string, *dbus.Error) {
-	path, err := d.host.Capture(c, mode, target)
+	m, err := config.ParseScreenshotMode(mode)
+	if err != nil {
+		return "", dbus.MakeFailedError(err)
+	}
+	path, err := d.host.Capture(c, m, target)
 	if err != nil {
 		return "", errorReply(err)
 	}
@@ -86,7 +91,11 @@ func (d *Daemon) Capture(c portaldialogs.Caller, mode, target string) (string, *
 // a private file and with none of the user's save, clipboard or
 // notification settings; pointer composites the pointer in.
 func (d *Daemon) CapturePrivate(c portaldialogs.Caller, mode, target string, pointer bool) (string, *dbus.Error) {
-	path, err := d.host.CapturePrivate(c, mode, target, pointer)
+	m, err := config.ParseScreenshotMode(mode)
+	if err != nil {
+		return "", dbus.MakeFailedError(err)
+	}
+	path, err := d.host.CapturePrivate(c, m, target, pointer)
 	if err != nil {
 		return "", errorReply(err)
 	}
@@ -129,7 +138,7 @@ func (d *Daemon) PickColorText(c portaldialogs.Caller, format string, noLoupe, c
 // its QR code (kind "qr"), replying what it read; empty when the
 // selection was cancelled. Nothing is saved.
 func (d *Daemon) Read(c portaldialogs.Caller, kind string) (string, *dbus.Error) {
-	k, err := ParseReadKind(kind)
+	k, err := config.ParseScreenReading(kind)
 	if err != nil {
 		return "", dbus.MakeFailedError(err)
 	}
@@ -160,17 +169,17 @@ func NewClient(conn *dbus.Conn) *Client {
 
 // Capture asks the shell for a screenshot; see Daemon.Capture. A refused
 // request is ErrBusy.
-func (c *Client) Capture(ctx context.Context, caller portaldialogs.Caller, mode, target string) (string, error) {
+func (c *Client) Capture(ctx context.Context, caller portaldialogs.Caller, mode config.ScreenshotMode, target string) (string, error) {
 	var path string
-	err := c.obj.CallWithContext(ctx, iface+".Capture", 0, caller, mode, target).Store(&path)
+	err := c.obj.CallWithContext(ctx, iface+".Capture", 0, caller, string(mode), target).Store(&path)
 	return path, replyErr(err)
 }
 
 // CapturePrivate asks the shell for an app's screenshot; see
 // Daemon.CapturePrivate. A refused request is ErrBusy.
-func (c *Client) CapturePrivate(ctx context.Context, caller portaldialogs.Caller, mode, target string, pointer bool) (string, error) {
+func (c *Client) CapturePrivate(ctx context.Context, caller portaldialogs.Caller, mode config.ScreenshotMode, target string, pointer bool) (string, error) {
 	var path string
-	err := c.obj.CallWithContext(ctx, iface+".CapturePrivate", 0, caller, mode, target, pointer).Store(&path)
+	err := c.obj.CallWithContext(ctx, iface+".CapturePrivate", 0, caller, string(mode), target, pointer).Store(&path)
 	return path, replyErr(err)
 }
 
@@ -192,7 +201,7 @@ func (c *Client) PickColorText(ctx context.Context, caller portaldialogs.Caller,
 
 // Read asks the shell to read a dragged region; see Daemon.Read. A
 // refused request is ErrBusy.
-func (c *Client) Read(ctx context.Context, caller portaldialogs.Caller, kind ReadKind) (string, error) {
+func (c *Client) Read(ctx context.Context, caller portaldialogs.Caller, kind config.ScreenReading) (string, error) {
 	var text string
 	err := c.obj.CallWithContext(ctx, iface+".Read", 0, caller, string(kind)).Store(&text)
 	return text, replyErr(err)

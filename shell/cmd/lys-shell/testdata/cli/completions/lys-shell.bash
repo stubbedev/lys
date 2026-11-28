@@ -5766,7 +5766,7 @@ _lys-shell() {
             fi
             case "${prev}" in
                 --mode)
-                    COMPREPLY=($(compgen -f "${cur}"))
+                    COMPREPLY=($(compgen -W "region output screen window" -- "${cur}"))
                     return 0
                     ;;
                 --target)

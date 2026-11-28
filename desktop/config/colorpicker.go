@@ -1,9 +1,6 @@
 package config
 
-import (
-	"fmt"
-	"slices"
-)
+import "slices"
 
 // ColorPickerConfig is the colorpicker section: how the color picker
 // writes what it picked.
@@ -48,15 +45,7 @@ var _ = registerEnum(ColorFormats...)
 
 // ParseColorFormat reads a format named on the command line or the bus.
 func ParseColorFormat(s string) (ColorFormat, error) {
-	f := ColorFormat(s)
-	if !slices.Contains(ColorFormats, f) {
-		names := make([]string, len(ColorFormats))
-		for i, v := range ColorFormats {
-			names[i] = string(v)
-		}
-		return "", fmt.Errorf("unknown color format %q, %s", s, expectedOneOf(names))
-	}
-	return f, nil
+	return parseVariant("color format", ColorFormats, s)
 }
 
 // Next is the format after f in ColorFormats, wrapping around.

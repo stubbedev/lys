@@ -2,7 +2,6 @@ package bar
 
 import (
 	"errors"
-	"strings"
 
 	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/ui/widget"
@@ -29,21 +28,3 @@ func newScreenshot(ctx ModuleContext) (Module, error) {
 }
 
 func (m *screenshotModule) Root() widget.Widget { return m.btn }
-
-// screenshotBuiltin reads a `screenshot [mode [target]]` builtin verb:
-// the mode defaults
-// to region, the target to none. ok is false for any other verb.
-func screenshotBuiltin(verb string) (mode, target string, ok bool) {
-	parts := strings.Fields(verb)
-	if len(parts) == 0 || parts[0] != "screenshot" {
-		return "", "", false
-	}
-	mode = "region"
-	if len(parts) > 1 {
-		mode = parts[1]
-	}
-	if len(parts) > 2 {
-		target = parts[2]
-	}
-	return mode, target, true
-}

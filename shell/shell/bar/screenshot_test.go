@@ -1,47 +1,53 @@
 package bar
 
 import (
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/shell/barview"
+	"github.com/stubbedev/lys/lib/logtest"
 	"github.com/stubbedev/lys/ui/widget"
 )
 
-func TestScreenshotBuiltin(t *testing.T) {
-	for _, tc := range []struct {
-		verb, mode, target string
-	}{
-		{"screenshot", "region", ""},
-		{"screenshot region", "region", ""},
-		{"screenshot output DP-1", "output", "DP-1"},
-		{"screenshot  window ", "window", ""},
-	} {
-		mode, target, ok := screenshotBuiltin(tc.verb)
-		if !ok || mode != tc.mode || target != tc.target {
-			t.Errorf("%q = %q %q %v", tc.verb, mode, target, ok)
-		}
+func TestScreenshotBindingRunsInProcess(t *testing.T) {
+	ctx := newTestContext(t, config.Defaults())
+	var shots []string
+	var reads []config.ScreenReading
+	ctx.Screenshot = func(mode config.ScreenshotMode, output string) { shots = append(shots, string(mode)+"|"+output) }
+	ctx.ReadScreen = func(kind config.ScreenReading) { reads = append(reads, kind) }
+	spawned := spawns(t)
+	runClickAction(ctx, ctx.Config.Screenshot.Clicks().RightClick)
+	for _, line := range []string{"lys-shell screenshot output HDMI-A-1", "lys-shell screenshot", "lys-shell screenshot screen", "lys-shell screenshot text", "lys-shell screenshot qr"} {
+		runClickAction(ctx, config.ParseClickAction(line))
 	}
-	for _, verb := range []string{"", "screenshots region", "recorder toggle"} {
-		if _, _, ok := screenshotBuiltin(verb); ok {
-			t.Errorf("%q read as a screenshot builtin", verb)
-		}
+	if !slices.Equal(shots, []string{"output|", "output|HDMI-A-1", "region|", "screen|"}) || !slices.Equal(reads, config.ScreenReadings) {
+		t.Fatalf("captured %v, read %v", shots, reads)
+	}
+	runClickAction(ctx, config.ParseClickAction("lys-shell audio output-mute"))
+	runClickAction(ctx, config.ParseClickAction("lys-shell screenshots region"))
+	if len(shots) != 4 || len(reads) != 2 {
+		t.Fatalf("a foreign binding reached the screenshot host: %v %v", shots, reads)
+	}
+	if got := spawned(); !slices.Equal(got, []string{"lys-shell screenshots region"}) {
+		t.Fatalf("spawned %q, want only the foreign command", got)
 	}
 }
 
-func TestScreenshotBindingRunsInProcess(t *testing.T) {
+func TestAScreenshotBindingWithoutTheHostIsLogged(t *testing.T) {
 	ctx := newTestContext(t, config.Defaults())
-	var got []string
-	ctx.Screenshot = func(mode, target string) { got = append(got, mode+"|"+target) }
-	runClickAction(ctx, ctx.Config.Screenshot.Clicks().RightClick)
-	runShellBuiltin(ctx, "lys-shell screenshot output HDMI-A-1")
-	if len(got) != 2 || got[0] != "output|" || got[1] != "output|HDMI-A-1" {
-		t.Fatalf("triggered %v", got)
+	logs := logtest.Capture(t)
+	spawned := spawns(t)
+	runClickAction(ctx, config.ParseClickAction("lys-shell screenshot window"))
+	runClickAction(ctx, config.ParseClickAction("lys-shell screenshot qr"))
+	for _, want := range []string{"click: lys-shell screenshot window: no screenshot host", "click: lys-shell screenshot qr: no screenshot host"} {
+		if !strings.Contains(logs.String(), want) {
+			t.Errorf("log %q lacks %q", logs.String(), want)
+		}
 	}
-	// Other builtins never reach the screenshot host.
-	runShellBuiltin(ctx, "lys-shell audio output-mute")
-	if len(got) != 2 {
-		t.Fatalf("a foreign builtin triggered a capture: %v", got)
+	if got := spawned(); len(got) != 0 {
+		t.Fatalf("spawned %q", got)
 	}
 }
 

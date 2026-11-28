@@ -36,6 +36,18 @@ func runClickAction(ctx ModuleContext, action config.ClickAction) {
 		toggleBrightness(ctx)
 	case config.ClickShellBuiltin:
 		runBuiltin(ctx, action.Builtin)
+	case config.ClickScreenshot:
+		if ctx.Screenshot == nil {
+			log.Printf("click: %s: no screenshot host", action)
+			return
+		}
+		ctx.Screenshot(action.Screenshot.Mode, action.Screenshot.Output)
+	case config.ClickScreenRead:
+		if ctx.ReadScreen == nil {
+			log.Printf("click: %s: no screenshot host", action)
+			return
+		}
+		ctx.ReadScreen(action.Reading)
 	}
 }
 
@@ -120,14 +132,10 @@ func (r powerRunner) builtin(ctx context.Context, b config.PowerBuiltin) error {
 	return sessionctl.Run(ctx, r.system, b)
 }
 
-// runShellBuiltin handles the `lys-shell` screenshot and audio verbs
-// in-process, and runs any other command line through the shell.
+// runShellBuiltin handles the `lys-shell` audio verbs in-process, and
+// runs any other command line through the shell.
 func runShellBuiltin(ctx ModuleContext, cmd string) {
 	verb, _ := splitBuiltin(cmd)
-	if mode, target, ok := screenshotBuiltin(verb); ok && ctx.Screenshot != nil {
-		ctx.Screenshot(mode, target)
-		return
-	}
 	if b, ok, err := parseAudioBuiltin(verb); ok {
 		if err != nil {
 			log.Printf("click: %s: %v", cmd, err)

@@ -1,11 +1,19 @@
 package main
 
-import "github.com/stubbedev/lys/shell/internal/cli"
+import (
+	"github.com/stubbedev/lys/desktop/config"
+
+	"github.com/stubbedev/lys/shell/internal/cli"
+)
 
 // portalCommand's subcommand is optional: a bare `lys-shell portal` runs the backend, so the installed
 // D-Bus/systemd units can keep execing it.
 func portalCommand() *cli.Command {
 	allowToken := &cli.Arg{ID: "allow_token", Long: "allow-token", Help: `Pre-check the "allow restore token" box`}
+	modes := make([]cli.PossibleValue, len(config.ScreenshotModes))
+	for i, m := range config.ScreenshotModes {
+		modes[i] = cli.PossibleValue{Name: string(m)}
+	}
 	return &cli.Command{
 		Name:               "portal",
 		About:              "xdg-desktop-portal backend, screencast picker stub, and dialog previewer",
@@ -42,7 +50,7 @@ func portalCommand() *cli.Command {
 						Name:  "screenshot",
 						About: "Screenshot capture (`org.freedesktop.impl.portal.Screenshot`)",
 						Args: []*cli.Arg{
-							{ID: "mode", Long: "mode", Value: cli.String, Defaults: []string{"region"}, Help: "Capture mode: `region`, `output`, `screen`, or `window`"},
+							{ID: "mode", Long: "mode", Value: cli.Enum(modes...), Defaults: []string{string(config.ScreenshotRegion)}, Help: "Capture mode"},
 							{ID: "target", Long: "target", Value: cli.String, Defaults: []string{""}, Help: "Output connector name (used by `output` mode)"},
 						},
 						Run: showScreenshot,
