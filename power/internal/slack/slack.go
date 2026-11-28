@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/power/internal/meter"
-	"github.com/stubbedev/lys/power/internal/sysfs"
 	"github.com/stubbedev/lys/power/nap"
 )
 
@@ -34,7 +33,7 @@ func (t Tree) SetTimerSlack(uid uint32, unit nap.Unit, slack time.Duration) erro
 	if err != nil {
 		return err
 	}
-	value := strconv.FormatInt(int64(slack), 10)
+	value := []byte(strconv.FormatInt(int64(slack), 10))
 	for _, tid := range tids {
 		if err := t.set(uid, tid, value); err != nil {
 			return err
@@ -66,7 +65,7 @@ func (t Tree) unitDir(uid uint32, unit nap.Unit) (string, error) {
 	return found, nil
 }
 
-func (t Tree) set(uid, tid uint32, value string) error {
+func (t Tree) set(uid, tid uint32, value []byte) error {
 	task := filepath.Join(t.Proc, strconv.FormatUint(uint64(tid), 10))
 	owner, err := realUID(filepath.Join(task, "status"))
 	if meter.Gone(err) {
@@ -78,11 +77,19 @@ func (t Tree) set(uid, tid uint32, value string) error {
 	if owner != uid {
 		return nil
 	}
-	err = sysfs.Write(filepath.Join(task, "timerslack_ns"), value)
+	f, err := os.OpenFile(filepath.Join(task, "timerslack_ns"), os.O_WRONLY|os.O_TRUNC, 0)
 	if meter.Gone(err) {
 		return nil
 	}
 	if err != nil {
+		return fmt.Errorf("timer slack of thread %d: %w", tid, err)
+	}
+	_, werr := f.Write(value)
+	cerr := f.Close()
+	if meter.Gone(werr) {
+		return nil
+	}
+	if err := errors.Join(werr, cerr); err != nil {
 		return fmt.Errorf("timer slack of thread %d: %w", tid, err)
 	}
 	return nil

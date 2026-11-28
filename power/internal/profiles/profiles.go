@@ -17,7 +17,6 @@ import (
 
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
-	"github.com/stubbedev/lys/power/internal/sysfs"
 	"github.com/stubbedev/lys/power/profile"
 )
 
@@ -123,7 +122,9 @@ func choose(nearest, offered []string) (string, bool) {
 }
 
 // writeAttr writes a sysfs attribute; a var so tests can fail it.
-var writeAttr = sysfs.Write
+var writeAttr = func(path, value string) error {
+	return os.WriteFile(path, []byte(value), 0o644) //nolint:gosec // sysfs ignores the mode; the attribute has its own permissions
+}
 
 func readFields(path string) ([]string, error) {
 	raw, err := os.ReadFile(path)

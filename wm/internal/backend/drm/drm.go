@@ -816,7 +816,7 @@ func (b *Backend) light(c kdrm.Connector, t *tiling) error {
 	if err != nil {
 		return err
 	}
-	o := &Output{b: b, conn: c, connector: kmsObject{c.ID, props}, panel: panelTransform(orientation), renderFence: -1, lateFence: -1, tested: map[planeKey]bool{}}
+	o := &Output{b: b, conn: c, connector: kmsObject{c.ID, props}, panel: panelTransform(orientation), renderFence: backend.NoFence, lateFence: backend.NoFence, tested: map[planeKey]bool{}}
 	if t != nil {
 		o.tiles, o.tileMode, t.tiles = t.tiles, t.mode, nil
 	}
@@ -1064,7 +1064,7 @@ type Output struct {
 	frameStart    time.Duration
 	renderStart   time.Duration
 	layout        layout
-	renderFence   int
+	renderFence   backend.Fence
 	aimedAt       time.Duration
 	untimed       bool
 	lastFlip      time.Duration
@@ -1101,7 +1101,7 @@ type Output struct {
 	tearFrame     bool
 	commitLatch   *loop.Timer
 	late          *scanout
-	lateFence     int
+	lateFence     backend.Fence
 	lateTimed     bool
 	primaryAt     backend.Placement
 	primaryNext   backend.Placement
@@ -1888,10 +1888,11 @@ func (b *Backend) commitHeld() error {
 }
 
 func (o *Output) commitPresent(s *scanout) error {
-	fence, err := s.fence()
+	fd, err := s.fence()
 	if err != nil {
 		return err
 	}
+	fence := backend.Fence(fd)
 	if o.flipping {
 		o.late, o.lateFence = s, fence
 		return nil
@@ -1914,10 +1915,10 @@ func (o *Output) lateDue() error {
 }
 
 func (o *Output) commitLate() error {
-	s, fence := o.late, o.lateFence
-	o.late, o.lateFence = nil, -1
+	s, fence := o.late, o.lateFence.Take()
+	o.late = nil
 	if !o.enabled || o.off || o.b.paused || !slices.Contains(o.buffers, s) {
-		return closeFence(fence)
+		return fence.Close()
 	}
 	return o.heldFailed(o.commitFenced(s, fence))
 }
@@ -1930,22 +1931,14 @@ func (o *Output) commitPipelined() error {
 }
 
 func (o *Output) dropLate() error {
-	fence := o.lateFence
 	if o.lateTimed {
 		o.flipping = false
 	}
-	o.late, o.lateFence, o.lateTimed = nil, -1, false
-	return closeFence(fence)
+	o.late, o.lateTimed = nil, false
+	return o.lateFence.Drop()
 }
 
-func closeFence(fd int) error {
-	if fd < 0 {
-		return nil
-	}
-	return unix.Close(fd)
-}
-
-func (o *Output) commitFenced(s *scanout, fence int) error {
+func (o *Output) commitFenced(s *scanout, fence backend.Fence) error {
 	var err error
 	flags := planeFlags
 	if o.kms == kmsModeset {
@@ -1962,11 +1955,7 @@ func (o *Output) commitFenced(s *scanout, fence int) error {
 	busy := errors.Is(err, unix.EBUSY)
 	if busy && o.b.flipsPending() {
 		o.busy = s
-		err = o.dropRestated()
-		if fence >= 0 {
-			err = errors.Join(err, unix.Close(fence))
-		}
-		return err
+		return errors.Join(o.dropRestated(), fence.Close())
 	}
 	if busy {
 		err = o.submit(s, fence, flags&^kdrm.AtomicNonblock)
@@ -1978,14 +1967,11 @@ func (o *Output) commitFenced(s *scanout, fence int) error {
 		if refused(err) {
 			err = errors.Join(err, o.overlayRefused())
 		}
-		if fence >= 0 {
-			err = errors.Join(err, unix.Close(fence))
-		}
-		return err
+		return errors.Join(err, fence.Close())
 	}
 	o.commitTook()
-	if err := o.dropRenderFence(); err != nil {
-		return errors.Join(err, unix.Close(fence))
+	if err := o.renderFence.Drop(); err != nil {
+		return errors.Join(err, fence.Close())
 	}
 	o.renderFence, o.renderStart = fence, s.started
 	o.aimedAt = 0
@@ -2106,7 +2092,7 @@ func (o *Output) asyncFormat(d gpu.DMABUF) bool {
 	return o.primary.async == nil || slices.Contains(o.primary.async, gpu.FormatModifier{Format: d.Format, Modifier: d.Modifier})
 }
 
-func (o *Output) tearable(fb uint32, at backend.Placement, flags uint32, fence int) bool {
+func (o *Output) tearable(fb uint32, at backend.Placement, flags uint32, fence backend.Fence) bool {
 	if at != o.primaryAt || !o.b.async || o.tiled() || o.front == nil || o.color.dirty() || o.contentDirty || o.vrrDirty() || o.cursor != nil && o.cursor.dirty || o.overlayNext != o.overlayShown {
 		return false
 	}
@@ -2114,8 +2100,8 @@ func (o *Output) tearable(fb uint32, at backend.Placement, flags uint32, fence i
 	r := &o.b.req
 	r.Reset()
 	o.primary.set(r, "FB_ID", uint64(fb))
-	if fence >= 0 {
-		o.primary.set(r, "IN_FENCE_FD", uint64(fence))
+	if fence.Valid() {
+		o.primary.setFence(r, fence)
 		if _, ok := o.primary.props["FB_DAMAGE_CLIPS"]; ok {
 			o.primary.set(r, "FB_DAMAGE_CLIPS", uint64(o.damageBlob))
 		}
@@ -2183,7 +2169,7 @@ func (b *Backend) forgetTests(fb uint32) {
 	}
 }
 
-func (o *Output) submit(s *scanout, fence int, flags uint32) error {
+func (o *Output) submit(s *scanout, fence backend.Fence, flags uint32) error {
 	o.frame(s, fence)
 	err := o.verify(s.fb, flags, false)
 	cursorAtFault := err != nil
@@ -2223,7 +2209,7 @@ func (o *Output) commitFrame(flags uint32) error {
 	return nil
 }
 
-func (o *Output) frame(s *scanout, fence int) {
+func (o *Output) frame(s *scanout, fence backend.Fence) {
 	r := &o.b.req
 	r.Reset()
 	switch o.kms {
@@ -2235,9 +2221,7 @@ func (o *Output) frame(s *scanout, fence int) {
 		if _, ok := o.primary.props["FB_DAMAGE_CLIPS"]; ok {
 			o.primary.set(r, "FB_DAMAGE_CLIPS", uint64(o.damageBlob))
 		}
-		if fence >= 0 {
-			o.primary.set(r, "IN_FENCE_FD", uint64(fence))
-		}
+		o.primary.setFence(r, fence)
 		o.flipTiles(s.fb, fence)
 	case kmsModeset:
 		o.addModeset(r, o.modeBlob)
@@ -2266,16 +2250,20 @@ func (p *plane) setPosition(r *kdrm.Request, at image.Point) {
 	p.set(r, "CRTC_Y", uint64(int64(at.Y))) //nolint:gosec // signed plane positions travel as two's complement
 }
 
-func (o *Output) place(p *plane, fb uint32, at image.Rectangle, fence int) {
+func (o *Output) place(p *plane, fb uint32, at image.Rectangle, fence backend.Fence) {
 	o.placeOn(p, o.crtc, fb, image.Point{}, at, fence)
 }
 
-func (o *Output) placeOn(p *plane, cr *crtc, fb uint32, src image.Point, at image.Rectangle, fence int) {
+func (o *Output) placeOn(p *plane, cr *crtc, fb uint32, src image.Point, at image.Rectangle, fence backend.Fence) {
 	p.set(&o.b.req, "FB_ID", uint64(fb))
 	p.set(&o.b.req, "CRTC_ID", uint64(cr.id))
 	p.setRects(&o.b.req, render.FRect{X: float64(src.X), Y: float64(src.Y), W: float64(at.Dx()), H: float64(at.Dy())}, at)
-	if fence >= 0 {
-		p.set(&o.b.req, "IN_FENCE_FD", uint64(fence))
+	p.setFence(&o.b.req, fence)
+}
+
+func (p *plane) setFence(r *kdrm.Request, f backend.Fence) {
+	if f.Valid() {
+		p.set(r, "IN_FENCE_FD", uint64(f)) //nolint:gosec // a valid fence is a descriptor, never negative
 	}
 }
 
@@ -2352,25 +2340,16 @@ func (o *Output) vblank(now time.Duration) time.Duration {
 	return o.lastVblank
 }
 
-func (o *Output) dropRenderFence() error {
-	if o.renderFence < 0 {
-		return nil
-	}
-	fd := o.renderFence
-	o.renderFence = -1
-	return unix.Close(fd)
-}
-
 func (o *Output) timeFrame(flip time.Duration) error {
 	interval := o.paceInterval()
 	if o.aimedAt != 0 && flip > o.aimedAt+interval/2 {
 		o.budget.Missed(interval)
 	}
 	o.aimedAt = 0
-	if o.renderFence < 0 || o.untimed {
-		return o.dropRenderFence()
+	if !o.renderFence.Valid() || o.untimed {
+		return o.renderFence.Drop()
 	}
-	done, ok, err := o.b.fenceTime(o.renderFence)
+	done, ok, err := o.b.fenceTime(int(o.renderFence))
 	if err != nil {
 		o.untimed = true
 		o.b.report(fmt.Errorf("drm: %s renders on the half-refresh latch, its frame fences report no time: %w", o.Name(), err))
@@ -2378,7 +2357,7 @@ func (o *Output) timeFrame(flip time.Duration) error {
 	if ok && done > o.renderStart {
 		o.budget.Sample(done - o.renderStart)
 	}
-	return o.dropRenderFence()
+	return o.renderFence.Drop()
 }
 
 const planeFlags = uint32(kdrm.AtomicNonblock | kdrm.AtomicPageFlipEvent)
@@ -2616,7 +2595,7 @@ func (o *Output) leaveOnScreen() error {
 
 func (o *Output) release() error {
 	o.setDamageClips(nil)
-	err := errors.Join(o.freeBuffers(), o.releaseColor(), o.releaseSignal(), o.dropRenderFence(), o.dropRestated(), o.releaseTiles())
+	err := errors.Join(o.freeBuffers(), o.releaseColor(), o.releaseSignal(), o.renderFence.Drop(), o.dropRestated(), o.releaseTiles())
 	if o.modeBlob != 0 {
 		err = errors.Join(err, o.b.dev.DestroyBlob(o.modeBlob))
 		o.modeBlob = 0

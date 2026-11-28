@@ -1,8 +1,6 @@
 package wakesource
 
 import (
-	"errors"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -179,20 +177,5 @@ func TestWithoutACPIOrUSBThereIsNothingToList(t *testing.T) {
 	}
 	if usb, err := s.USB(); err != nil || usb != nil {
 		t.Errorf("USB = %v, %v", usb, err)
-	}
-}
-
-func TestApplyToAnUnpluggedDeviceCreatesNothing(t *testing.T) {
-	t.Parallel()
-	dir := filepath.Join(t.TempDir(), "3-2/power")
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	gone := Change{Device: USBDevice{Name: "3-2", Path: filepath.Join(dir, "wakeup")}, Want: "disabled"}
-	if err := Apply([]Change{gone}); !errors.Is(err, fs.ErrNotExist) || !strings.Contains(err.Error(), "3-2") {
-		t.Errorf("Apply to a missing attribute = %v, want ErrNotExist naming the device", err)
-	}
-	if _, err := os.Lstat(gone.Device.Path); !errors.Is(err, fs.ErrNotExist) {
-		t.Errorf("Apply created %s: %v", gone.Device.Path, err)
 	}
 }

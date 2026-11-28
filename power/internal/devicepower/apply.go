@@ -3,8 +3,6 @@ package devicepower
 import (
 	"errors"
 	"fmt"
-
-	"github.com/stubbedev/lys/power/internal/sysfs"
 )
 
 type Radio interface {
@@ -49,7 +47,7 @@ func Apply(decisions []Decision, radio Radio) (Applied, error) {
 		}
 		err := write(d, radio)
 		switch {
-		case errors.Is(err, sysfs.ErrRefused):
+		case errors.Is(err, ErrRefused):
 			applied.Refused = append(applied.Refused, err)
 		case err != nil:
 			errs = append(errs, err)
@@ -63,7 +61,7 @@ func Apply(decisions []Decision, radio Radio) (Applied, error) {
 func write(d Decision, radio Radio) error {
 	switch t := d.Target.(type) {
 	case File:
-		return sysfs.Write(string(t), string(d.Want))
+		return writeAttr(string(t), d.Want)
 	case Station:
 		if err := radio.SetPowerSave(t, d.Want == PowerSaveOn); err != nil {
 			return fmt.Errorf("setting Wi-Fi power save %s on %s: %w", d.Want, t.Name, err)

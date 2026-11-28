@@ -178,7 +178,7 @@ func (b *Backend) AddNamedOutput(name string, modes ...backend.Mode) (*Output, e
 		ctm:         backend.Identity,
 		inherited:   b.inherit,
 		panel:       b.panel,
-		renderFence: -1,
+		renderFence: backend.NoFence,
 		timing:      timingOf(b.loop),
 	}
 	o.clock = backend.NewFrameClock(b.loop.Idle, o.frameReady, o.runFrame, &backend.Latch{
@@ -224,7 +224,7 @@ func (b *Backend) RemoveOutput(o *Output) error {
 	if b.handler != nil {
 		errs = append(errs, b.handler.OutputRemoved(o))
 	}
-	errs = append(errs, o.releaseClientBuffers(), o.timer.Remove(), o.latch.Remove(), o.dropFence(), o.freeSlots())
+	errs = append(errs, o.releaseClientBuffers(), o.timer.Remove(), o.latch.Remove(), o.renderFence.Drop(), o.freeSlots())
 	if o.cursor != nil {
 		errs = append(errs, o.cursor.destroy())
 	}
@@ -254,7 +254,7 @@ type Output struct {
 	budget         backend.RenderBudget
 	frameStart     time.Duration
 	aimedAt        time.Duration
-	renderFence    int
+	renderFence    backend.Fence
 	fenceStart     time.Duration
 	timing         frameTiming
 	armed          bool
@@ -616,15 +616,6 @@ func (o *Output) noTiming(cause error) {
 	o.backend.report(fmt.Errorf("headless: %s renders on the half-refresh latch, its frames report no time: %w", o.name, cause))
 }
 
-func (o *Output) dropFence() error {
-	if o.renderFence < 0 {
-		return nil
-	}
-	fd := o.renderFence
-	o.renderFence = -1
-	return unix.Close(fd)
-}
-
 func (o *Output) fenceFrame() {
 	if o.timing != measuredTiming {
 		return
@@ -639,7 +630,7 @@ func (o *Output) fenceFrame() {
 		return
 	}
 	o.settleFence(o.backend.loop.Now())
-	if err := o.dropFence(); err != nil {
+	if err := o.renderFence.Drop(); err != nil {
 		o.backend.report(fmt.Errorf("headless: close the render fence of %s: %w", o.name, err))
 	}
 	if o.timing != measuredTiming {
@@ -652,15 +643,15 @@ func (o *Output) fenceFrame() {
 	case fd < 0:
 		o.budget.Sample(o.backend.loop.Now() - o.frameStart)
 	default:
-		o.renderFence, o.fenceStart = fd, o.frameStart
+		o.renderFence, o.fenceStart = backend.Fence(fd), o.frameStart
 	}
 }
 
 func (o *Output) settleFence(now time.Duration) {
-	if o.renderFence < 0 {
+	if !o.renderFence.Valid() {
 		return
 	}
-	done, ok, err := o.backend.fenceTime(o.renderFence)
+	done, ok, err := o.backend.fenceTime(int(o.renderFence))
 	switch {
 	case err != nil:
 		o.noTiming(err)
@@ -680,13 +671,13 @@ func (o *Output) timeFrame(flip time.Duration, flipped bool) error {
 	if o.timing == virtualTiming {
 		return nil
 	}
-	if o.renderFence < 0 || o.timing != measuredTiming {
+	if !o.renderFence.Valid() || o.timing != measuredTiming {
 		if missed {
 			o.budget.Missed(interval)
 		}
 		return nil
 	}
-	done, ok, err := o.backend.fenceTime(o.renderFence)
+	done, ok, err := o.backend.fenceTime(int(o.renderFence))
 	if err != nil {
 		o.noTiming(err)
 	}
@@ -699,7 +690,7 @@ func (o *Output) timeFrame(flip time.Duration, flipped bool) error {
 	if ok && done > o.fenceStart {
 		o.budget.Sample(done - o.fenceStart)
 	}
-	if err := o.dropFence(); err != nil {
+	if err := o.renderFence.Drop(); err != nil {
 		return fmt.Errorf("headless: close the render fence of %s: %w", o.name, err)
 	}
 	return nil

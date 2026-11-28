@@ -8,10 +8,9 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 
 	"github.com/stubbedev/lys/lib/intconv"
-
-	"github.com/stubbedev/lys/power/internal/sysfs"
 )
 
 type Sysfs struct {
@@ -223,11 +222,11 @@ func parseASPM(raw string) (Value, error) {
 }
 
 func readAttr(path string, parse func(string) (Value, error)) (Attr, error) {
-	raw, err := sysfs.ReadTrim(path)
+	raw, err := os.ReadFile(path)
 	if err != nil {
-		return Attr{}, err
+		return Attr{}, fmt.Errorf("reading %s: %w", path, err)
 	}
-	v, err := parse(raw)
+	v, err := parse(strings.TrimSpace(string(raw)))
 	if err != nil {
 		return Attr{}, fmt.Errorf("parsing %s: %w", path, err)
 	}
@@ -235,11 +234,11 @@ func readAttr(path string, parse func(string) (Value, error)) (Attr, error) {
 }
 
 func readHex[T uint8 | uint16 | uint32](path string) (T, error) {
-	raw, err := sysfs.ReadTrim(path)
+	raw, err := os.ReadFile(path)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("reading %s: %w", path, err)
 	}
-	text := strings.TrimPrefix(raw, "0x")
+	text := strings.TrimPrefix(strings.TrimSpace(string(raw)), "0x")
 	wide, err := strconv.ParseUint(text, 16, 64)
 	if err != nil {
 		return 0, fmt.Errorf("parsing %s %q as hex: %w", path, text, err)
@@ -249,4 +248,26 @@ func readHex[T uint8 | uint16 | uint32](path string) (T, error) {
 		return 0, fmt.Errorf("parsing %s %q: %w", path, text, err)
 	}
 	return v, nil
+}
+
+var ErrRefused = errors.New("the kernel refused the value")
+
+func writeAttr(path string, v Value) error {
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_TRUNC, 0)
+	if err != nil {
+		return fmt.Errorf("opening %s: %w", path, err)
+	}
+	_, werr := f.Write([]byte(v))
+	return classify(path, v, errors.Join(werr, f.Close()))
+}
+
+func classify(path string, v Value, err error) error {
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, syscall.EPERM):
+		return fmt.Errorf("writing %q to %s: %w: %w", v, path, ErrRefused, err)
+	default:
+		return fmt.Errorf("writing %q to %s: %w", v, path, err)
+	}
 }

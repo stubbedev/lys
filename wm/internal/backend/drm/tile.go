@@ -9,6 +9,8 @@ import (
 	"strconv"
 
 	kdrm "github.com/stubbedev/lys/lib/drm"
+
+	"github.com/stubbedev/lys/wm/internal/backend"
 )
 
 const propTile = "TILE"
@@ -289,22 +291,20 @@ func (o *Output) addModeset(r *kdrm.Request, blob uint32) {
 	}
 }
 
-func (o *Output) placeTiles(fb uint32, fence int) {
+func (o *Output) placeTiles(fb uint32, fence backend.Fence) {
 	for _, t := range o.tiles {
 		o.placeOn(t.primary, t.crtc, fb, t.at, image.Rectangle{Max: image.Pt(int(t.mode.HDisplay), int(t.mode.VDisplay))}, fence)
 	}
 }
 
-func (o *Output) flipTiles(fb uint32, fence int) {
+func (o *Output) flipTiles(fb uint32, fence backend.Fence) {
 	r := &o.b.req
 	for _, t := range o.tiles {
 		t.primary.set(r, "FB_ID", uint64(fb))
 		if _, ok := t.primary.props["FB_DAMAGE_CLIPS"]; ok {
 			t.primary.set(r, "FB_DAMAGE_CLIPS", uint64(o.damageBlob))
 		}
-		if fence >= 0 {
-			t.primary.set(r, "IN_FENCE_FD", uint64(fence))
-		}
+		t.primary.setFence(r, fence)
 	}
 }
 

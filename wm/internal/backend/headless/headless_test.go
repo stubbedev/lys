@@ -467,7 +467,7 @@ func (o *Output) fakeFence(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	o.renderFence = fd
+	o.renderFence = backend.Fence(fd)
 }
 
 func TestAFrameEarnsItsBudgetFromWhenTheGPUFinished(t *testing.T) {
@@ -514,14 +514,14 @@ func TestAFrameTheGPUFinishesLateIsAMiss(t *testing.T) {
 	if got, want := o.budget.Budget(interval), interval/2+3*time.Millisecond; got != want {
 		t.Fatalf("still rendering at the vblank the budget is %v, want %v, a margin over the half-refresh start", got, want)
 	}
-	if o.renderFence < 0 {
+	if !o.renderFence.Valid() {
 		t.Fatal("an unsignalled fence was dropped before its time was read")
 	}
 	b.fenceTime = func(int) (time.Duration, bool, error) { return start + 2*interval, true, nil }
 	if err := o.timeFrame(start+2*interval, false); err != nil {
 		t.Fatal(err)
 	}
-	if o.renderFence >= 0 {
+	if o.renderFence.Valid() {
 		t.Fatal("a signalled fence stays open")
 	}
 }
@@ -559,7 +559,7 @@ func TestAFrameStillRenderingAtItsVblankEarnsItsBudgetBeforeTheNextFrameTakesIts
 			if got := o.budget.Budget(interval); got < gpu {
 				t.Fatalf("a %v frame left a budget of %v", gpu, got)
 			}
-			if o.renderFence >= 0 {
+			if o.renderFence.Valid() {
 				t.Fatal("the old fence stays open")
 			}
 		})
@@ -635,7 +635,7 @@ func TestFramesOnAVirtualLoopEarnNoBudgetFromHowLongTheyTook(t *testing.T) {
 			if got := o.budget.Budget(interval); got != untrained {
 				t.Fatalf("frames that took two refreshes of the loop's clock moved the budget from %v to %v", untrained, got)
 			}
-			if o.renderFence >= 0 {
+			if o.renderFence.Valid() {
 				t.Fatal("a frame on a virtual loop holds a render fence")
 			}
 		})

@@ -7,11 +7,11 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/stubbedev/lys/power/internal/supply"
-	"github.com/stubbedev/lys/power/internal/sysfs"
 )
 
 const (
@@ -57,7 +57,7 @@ func (p Probe) Snapshot(at time.Time) (Snapshot, error) {
 
 func (p Probe) residency() (*Residency, error) {
 	for _, c := range counterPaths {
-		n, err := sysfs.ReadUint(filepath.Join(p.Sys, c.path))
+		n, err := readUint(filepath.Join(p.Sys, c.path))
 		if errors.Is(err, fs.ErrNotExist) {
 			continue
 		}
@@ -101,7 +101,7 @@ func (p Probe) wakeups() (map[string]uint64, error) {
 		if err != nil {
 			return nil, fmt.Errorf("reading the name of %s: %w", source, err)
 		}
-		n, err := sysfs.ReadUint(filepath.Join(source, "wakeup_count"))
+		n, err := readUint(filepath.Join(source, "wakeup_count"))
 		if err != nil {
 			return nil, err
 		}
@@ -161,4 +161,16 @@ func cells(line string) []string {
 		parts[i] = strings.TrimSpace(p)
 	}
 	return parts
+}
+
+func readUint(path string) (uint64, error) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return 0, fmt.Errorf("reading %s: %w", path, err)
+	}
+	n, err := strconv.ParseUint(strings.TrimSpace(string(raw)), 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("parsing %s: %w", path, err)
+	}
+	return n, nil
 }

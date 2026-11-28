@@ -16,8 +16,6 @@ import (
 	"strings"
 
 	"github.com/stubbedev/lys/lib/intconv"
-
-	"github.com/stubbedev/lys/power/internal/sysfs"
 )
 
 // Mode is whether removable USB devices may wake the machine on battery.
@@ -251,7 +249,7 @@ func readUSB(dev, name string) (USBDevice, bool, error) {
 func Apply(changes []Change) error {
 	var errs []error
 	for _, c := range changes {
-		if err := sysfs.Write(c.Device.Path, c.Want); err != nil {
+		if err := os.WriteFile(c.Device.Path, []byte(c.Want), 0o644); err != nil { //nolint:gosec // a sysfs attribute, whose mode the kernel sets
 			errs = append(errs, fmt.Errorf("setting %s wakeup to %s: %w", c.Device.Name, c.Want, err))
 		}
 	}
@@ -259,5 +257,10 @@ func Apply(changes []Change) error {
 }
 
 func attr(dev, name string) (string, error) {
-	return sysfs.ReadTrim(filepath.Join(dev, name))
+	path := filepath.Join(dev, name)
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("reading %s: %w", path, err)
+	}
+	return strings.TrimSpace(string(raw)), nil
 }

@@ -24,7 +24,6 @@ import (
 
 	"github.com/stubbedev/lys/power/energy"
 	"github.com/stubbedev/lys/power/internal/supply"
-	"github.com/stubbedev/lys/power/internal/sysfs"
 )
 
 type Meter struct {
@@ -495,7 +494,7 @@ func (m Meter) energy() ([]energy.Counter, error) {
 		if !strings.HasPrefix(name, "intel-rapl:") || strings.Count(name, ":") != 1 {
 			continue
 		}
-		zone, err := sysfs.ReadTrim(filepath.Join(m.Powercap, name, "name"))
+		zone, err := readTrim(filepath.Join(m.Powercap, name, "name"))
 		if err != nil {
 			return nil, err
 		}
@@ -514,11 +513,11 @@ func (m Meter) energy() ([]energy.Counter, error) {
 	counters := make([]energy.Counter, 0, len(zones))
 	for _, zone := range zones {
 		dir := filepath.Join(m.Powercap, zone)
-		uj, err := sysfs.ReadUint(filepath.Join(dir, "energy_uj"))
+		uj, err := readUint(filepath.Join(dir, "energy_uj"))
 		if err != nil {
 			return nil, err
 		}
-		limit, err := sysfs.ReadUint(filepath.Join(dir, "max_energy_range_uj"))
+		limit, err := readUint(filepath.Join(dir, "max_energy_range_uj"))
 		if err != nil {
 			return nil, err
 		}
@@ -537,4 +536,24 @@ func (m Meter) battery() (*uint64, error) {
 		return nil, err
 	}
 	return &microwatts, nil
+}
+
+func readTrim(path string) (string, error) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("reading %s: %w", path, err)
+	}
+	return strings.TrimSpace(string(raw)), nil
+}
+
+func readUint(path string) (uint64, error) {
+	raw, err := readTrim(path)
+	if err != nil {
+		return 0, err
+	}
+	n, err := strconv.ParseUint(raw, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("parsing %s: %w", path, err)
+	}
+	return n, nil
 }
