@@ -3,14 +3,13 @@ package backlight
 import (
 	"context"
 	"os"
-	"path/filepath"
 	"strconv"
 
 	"github.com/stubbedev/lys/lib/logind"
 )
 
-func writeSysfs(name string, value uint32) error {
-	return os.WriteFile(filepath.Join(Dir, name, "brightness"), //nolint:gosec // sysfs ignores the mode; the kernel file has its own permissions
+func (c Class) write(name string, value uint32) error {
+	return os.WriteFile(c.device(name, "brightness"), //nolint:gosec // sysfs ignores the mode; the kernel file has its own permissions
 		[]byte(strconv.FormatUint(uint64(value), 10)), 0o644)
 }
 

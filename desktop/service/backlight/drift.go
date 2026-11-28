@@ -6,7 +6,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"path/filepath"
 )
 
 // levelProbe holds each backlight's brightness attribute open, so
@@ -27,11 +26,10 @@ const levelAttrSize = 12
 // open replaces the probe's files with the devices now present, and
 // remembers their levels. A device that will not open is logged and
 // left out; hotplug gets another look at it.
-func (p *levelProbe) open(devices []os.DirEntry) {
+func (p *levelProbe) open(class Class, devices []os.DirEntry) {
 	p.close()
 	for _, device := range devices {
-		path := filepath.Join(Dir, device.Name(), "brightness")
-		file, err := os.Open(path) //nolint:gosec // the path is Dir plus a directory entry
+		file, err := os.Open(class.device(device.Name(), "brightness"))
 		if err != nil {
 			log.Printf("backlight: drift probe: %v", err)
 			continue

@@ -43,8 +43,8 @@ func Run(ctx context.Context, cfg config.Paths, log *slog.Logger) (err error) {
 		return err
 	}
 	defer closing.Join(&err, "system bus", system)
-	backlight := backlight.NewSysfs(system)
-	defer closing.Join(&err, "backlight watch", backlight)
+	sysfs := backlight.NewSysfs(backlight.System, system)
+	defer closing.Join(&err, "backlight watch", sysfs)
 
 	sessionBus, err := dbusx.DialSession(ctx, config.BusTimeout)
 	if err != nil {
@@ -52,7 +52,7 @@ func Run(ctx context.Context, cfg config.Paths, log *slog.Logger) (err error) {
 	}
 	defer closing.Join(&err, "session bus", sessionBus)
 
-	d := New(light, backlight, displaySessions{logind.NewManager(system)}, lysProfile{source: powerprofiles.NewOn(system), log: log}, realClock{}, log, p)
+	d := New(light, sysfs, displaySessions{logind.NewManager(system)}, lysProfile{source: powerprofiles.NewOn(system), log: log}, realClock{}, log, p)
 	server, release, err := autobrightness.Serve(sessionBus, autobrightness.Following, d.Resume)
 	if err != nil {
 		return err

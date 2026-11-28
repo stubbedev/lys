@@ -1,4 +1,4 @@
-// Package backlighttest fakes the sysfs backlight class directory for
+// Package backlighttest fakes a sysfs backlight class directory for
 // tests of code that reads or writes backlights.
 package backlighttest
 
@@ -19,25 +19,21 @@ type Device struct {
 	Max        uint32
 }
 
-// Fake points backlight.Dir at a temporary tree holding devices for the
-// test's lifetime, and returns the tree. Tests that use it must not run
-// in parallel.
-func Fake(t testing.TB, devices map[string]Device) string {
+// Fake is a class in a temporary tree holding devices for the test's
+// lifetime.
+func Fake(t testing.TB, devices map[string]Device) backlight.Class {
 	t.Helper()
-	dir := t.TempDir()
-	orig := backlight.Dir
-	backlight.Dir = dir
-	t.Cleanup(func() { backlight.Dir = orig })
+	class := backlight.Class(t.TempDir())
 	for name, d := range devices {
-		Add(t, name, d)
+		Add(t, class, name, d)
 	}
-	return dir
+	return class
 }
 
-// Add puts one more device into the faked tree.
-func Add(t testing.TB, name string, d Device) {
+// Add puts one more device into a faked class.
+func Add(t testing.TB, class backlight.Class, name string, d Device) {
 	t.Helper()
-	base := filepath.Join(backlight.Dir, name)
+	base := filepath.Join(string(class), name)
 	if err := os.MkdirAll(base, 0o750); err != nil {
 		t.Fatal(err)
 	}
@@ -54,9 +50,9 @@ func Add(t testing.TB, name string, d Device) {
 
 // SetLevel writes a device's brightness attribute as the kernel would
 // after a change.
-func SetLevel(t testing.TB, name string, level uint32) {
+func SetLevel(t testing.TB, class backlight.Class, name string, level uint32) {
 	t.Helper()
-	path := filepath.Join(backlight.Dir, name, "brightness")
+	path := filepath.Join(string(class), name, "brightness")
 	if err := os.WriteFile(path, []byte(strconv.FormatUint(uint64(level), 10)), 0o600); err != nil {
 		t.Fatal(err)
 	}

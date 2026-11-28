@@ -23,11 +23,11 @@ func ddcLevel(t *testing.T, sys *System, name string) (Device, bool) {
 }
 
 func TestQueuedDDCLevelShowsAndTicksBeforeTheWriteLands(t *testing.T) {
-	backlighttest.Fake(t, nil)
+	class := backlighttest.Fake(t, nil)
 	fake := newFakeI2C(t)
 	monitor := &fakeMonitor{current: 40, max: 100, hold: make(chan struct{})}
 	fake.plugOn(t, 2, monitor, "card1-DP-2")
-	sys := newTestSystem(t, true)
+	sys := newTestSystem(t, class, true)
 	waittest.Until(t, func() bool { return len(ddcNames(t, sys)) == 1 }, "the initial DDC scan")
 	ticks, stop, err := sys.Subscribe(t.Context())
 	if err != nil {
@@ -66,11 +66,11 @@ func TestQueuedDDCLevelShowsAndTicksBeforeTheWriteLands(t *testing.T) {
 }
 
 func TestFailedDDCWriteFallsBackToTheMonitorsLevel(t *testing.T) {
-	backlighttest.Fake(t, nil)
+	class := backlighttest.Fake(t, nil)
 	fake := newFakeI2C(t)
 	monitor := &fakeMonitor{current: 40, max: 100, failWrites: 1 << 20}
 	fake.plug(t, 2, monitor)
-	sys := newTestSystem(t, true)
+	sys := newTestSystem(t, class, true)
 	waittest.Until(t, func() bool { return len(ddcNames(t, sys)) == 1 }, "the initial DDC scan")
 	if err := sys.Set(context.Background(), "ddci2c-2", 90); err != nil {
 		t.Fatal(err)

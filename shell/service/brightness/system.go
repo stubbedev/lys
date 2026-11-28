@@ -48,14 +48,15 @@ type System struct {
 	settle time.Duration
 }
 
-// NewSystem starts the source. external enables DDC/CI discovery
-// (the enable-external key); the first scan runs detached so internal
-// panels are usable at once. system is the system bus logind's writes
-// go over, and stays the caller's; nil writes through sysfs. A missing
-// udev socket degrades to no DDC hotplug instead of failing.
-func NewSystem(system *dbus.Conn, external bool) *System {
+// NewSystem starts the source on the backlights of class. external
+// enables DDC/CI discovery (the enable-external key); the first scan
+// runs detached so internal panels are usable at once. bus is the
+// system bus logind's writes go over, and stays the caller's; nil
+// writes through sysfs. A missing udev socket degrades to no DDC
+// hotplug instead of failing.
+func NewSystem(class backlight.Class, bus *dbus.Conn, external bool) *System {
 	s := &System{
-		sysfs:     backlight.NewSysfs(system),
+		sysfs:     backlight.NewSysfs(class, bus),
 		ticks:     backlight.NewBroadcast(),
 		pending:   map[string]uint32{},
 		requested: map[string]uint32{},

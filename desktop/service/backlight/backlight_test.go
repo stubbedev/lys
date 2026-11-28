@@ -10,11 +10,11 @@ import (
 )
 
 func TestEnumerateReadsSysfs(t *testing.T) {
-	backlighttest.Fake(t, map[string]backlighttest.Device{
+	class := backlighttest.Fake(t, map[string]backlighttest.Device{
 		"intel_backlight": {Type: "raw", Brightness: 3000, Max: 12000},
 		"acpi_video0":     {Type: "firmware", Brightness: 50, Max: 100},
 	})
-	devices := backlight.Enumerate()
+	devices := class.Enumerate()
 	if len(devices) != 2 {
 		t.Fatalf("devices = %+v, want 2", devices)
 	}
@@ -35,27 +35,43 @@ func TestEnumerateReadsSysfs(t *testing.T) {
 }
 
 func TestEnumerateLeavesOutADeviceThatDoesNotRead(t *testing.T) {
-	dir := backlighttest.Fake(t, map[string]backlighttest.Device{
+	class := backlighttest.Fake(t, map[string]backlighttest.Device{
 		"intel_backlight": {Type: "raw", Brightness: 3000, Max: 12000},
 		"broken":          {Type: "raw", Brightness: 1, Max: 10},
 	})
-	if err := os.WriteFile(filepath.Join(dir, "broken", "max_brightness"), []byte("lots"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(string(class), "broken", "max_brightness"), []byte("lots"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	devices := backlight.Enumerate()
+	devices := class.Enumerate()
 	if len(devices) != 1 || devices[0].Name != "intel_backlight" {
 		t.Errorf("devices = %+v, want intel_backlight alone", devices)
 	}
-	if _, err := backlight.ReadDevice("broken"); err == nil {
+	if _, err := class.ReadDevice("broken"); err == nil {
 		t.Error("ReadDevice on an unparsable maximum succeeded")
 	}
 }
 
 func TestEnumerateWithoutTheClassDirectoryIsEmpty(t *testing.T) {
-	backlighttest.Fake(t, nil)
-	backlight.Dir = filepath.Join(backlight.Dir, "missing")
-	if devices := backlight.Enumerate(); len(devices) != 0 {
+	missing := backlight.Class(filepath.Join(string(backlighttest.Fake(t, nil)), "missing"))
+	if devices := missing.Enumerate(); len(devices) != 0 {
 		t.Errorf("devices = %+v, want none", devices)
+	}
+}
+
+func TestEachClassReadsOnlyItsOwnDevices(t *testing.T) {
+	t.Parallel()
+	panels := backlighttest.Fake(t, map[string]backlighttest.Device{"intel_backlight": {Type: "raw", Brightness: 3000, Max: 12000}})
+	firmware := backlighttest.Fake(t, map[string]backlighttest.Device{"acpi_video0": {Type: "firmware", Brightness: 5, Max: 10}})
+	for _, tc := range []struct {
+		class        backlight.Class
+		want, absent string
+	}{{panels, "intel_backlight", "acpi_video0"}, {firmware, "acpi_video0", "intel_backlight"}} {
+		if devices := tc.class.Enumerate(); len(devices) != 1 || devices[0].Name != tc.want {
+			t.Errorf("%s enumerates %+v, want %s alone", tc.class, devices, tc.want)
+		}
+		if _, err := tc.class.ReadDevice(tc.absent); err == nil {
+			t.Errorf("%s read %s, which another class holds", tc.class, tc.absent)
+		}
 	}
 }
 
@@ -100,10 +116,11 @@ func TestRawLevelRoundsAndClamps(t *testing.T) {
 }
 
 func TestBacklightConnectorFollowsTheSysfsLink(t *testing.T) {
-	dir := backlighttest.Fake(t, map[string]backlighttest.Device{
+	class := backlighttest.Fake(t, map[string]backlighttest.Device{
 		"intel_backlight": {Type: "raw", Brightness: 3000, Max: 12000},
 		"acpi_video0":     {Type: "firmware", Brightness: 50, Max: 100},
 	})
+	dir := string(class)
 	connector := filepath.Join(t.TempDir(), "devices", "pci0000:00", "0000:00:02.0", "drm", "card1", "card1-eDP-1")
 	if err := os.MkdirAll(connector, 0o755); err != nil {
 		t.Fatal(err)
@@ -116,7 +133,7 @@ func TestBacklightConnectorFollowsTheSysfsLink(t *testing.T) {
 		t.Fatal(err)
 	}
 	connectors := map[string]string{}
-	for _, d := range backlight.Enumerate() {
+	for _, d := range class.Enumerate() {
 		connectors[d.Name] = d.Connector
 	}
 	if connectors["intel_backlight"] != "eDP-1" {

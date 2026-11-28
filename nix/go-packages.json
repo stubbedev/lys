@@ -11249,6 +11249,7 @@
       "desktop/ocr",
       "desktop/pango",
       "desktop/region",
+      "desktop/service/backlight",
       "desktop/service/bitwarden/generator",
       "desktop/service/bluetooth",
       "desktop/service/clipboard",

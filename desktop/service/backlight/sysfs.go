@@ -5,7 +5,6 @@ import (
 	"errors"
 	"log"
 	"os"
-	"path/filepath"
 	"sync"
 	"time"
 
@@ -29,10 +28,11 @@ var subsystems = []string{"backlight"}
 // a var so tests can inject events.
 var listenUevents = udevmonitor.Listen
 
-// Sysfs is the backlights under Dir as a Source: read from sysfs,
+// Sysfs is the backlights of a Class as a Source: read from sysfs,
 // written through logind with a sysfs fallback, and watched through
 // inotify, udevd's backlight events and a drift probe.
 type Sysfs struct {
+	class  Class
 	logind *logindBacklight
 
 	writing sync.Mutex
@@ -43,14 +43,14 @@ type Sysfs struct {
 	done    sync.WaitGroup
 }
 
-// NewSysfs starts the watch. system is the system bus logind's writes go
-// over, and stays the caller's; nil writes through sysfs alone. A
-// missing inotify or uevent socket degrades to the drift probe instead
-// of failing.
-func NewSysfs(system *dbus.Conn) *Sysfs {
-	s := &Sysfs{ticks: NewBroadcast(), stop: make(chan struct{})}
-	if system != nil {
-		s.logind = &logindBacklight{manager: logind.NewManager(system)}
+// NewSysfs starts the watch of class. bus is the system bus logind's
+// writes go over, and stays the caller's; nil writes through sysfs
+// alone. A missing inotify or uevent socket degrades to the drift probe
+// instead of failing.
+func NewSysfs(class Class, bus *dbus.Conn) *Sysfs {
+	s := &Sysfs{class: class, ticks: NewBroadcast(), stop: make(chan struct{})}
+	if bus != nil {
+		s.logind = &logindBacklight{manager: logind.NewManager(bus)}
 	}
 	if w, err := fswatch.New(unix.IN_MODIFY, false); err == nil {
 		s.watch = w
@@ -91,17 +91,17 @@ func (s *Sysfs) Close() error {
 // rescan looks at the devices present: a watch per device directory
 // (adding an existing one is a no-op for inotify) and the drift probe.
 func (s *Sysfs) rescan(probe *levelProbe) {
-	entries, err := os.ReadDir(Dir)
+	entries, err := os.ReadDir(string(s.class))
 	if err != nil {
 		log.Printf("backlight: rescan: %v", err)
 		entries = nil
 	}
 	if s.watch != nil {
 		for _, entry := range entries {
-			_ = s.watch.Add(filepath.Join(Dir, entry.Name()))
+			_ = s.watch.Add(s.class.device(entry.Name()))
 		}
 	}
-	probe.open(entries)
+	probe.open(s.class, entries)
 }
 
 // rescanOn says whether ev reports a backlight that came or went, which
@@ -199,9 +199,9 @@ func (s *Sysfs) loop(probe *levelProbe) {
 	}
 }
 
-// Devices reads every device under Dir.
+// Devices reads every device of the class.
 func (s *Sysfs) Devices(context.Context) ([]Device, error) {
-	return Enumerate(), nil
+	return s.class.Enumerate(), nil
 }
 
 // Subscribe ticks whenever a level may have changed or a device came or
@@ -213,7 +213,7 @@ func (s *Sysfs) Subscribe(ctx context.Context) (<-chan struct{}, func(), error) 
 // Set applies a clamped percentage through logind, and writes sysfs
 // directly when logind refuses or there is no system bus.
 func (s *Sysfs) Set(ctx context.Context, name string, percent float64) error {
-	device, err := ReadDevice(name)
+	device, err := s.class.ReadDevice(name)
 	if err != nil {
 		return err
 	}
@@ -221,13 +221,13 @@ func (s *Sysfs) Set(ctx context.Context, name string, percent float64) error {
 	s.writing.Lock()
 	defer s.writing.Unlock()
 	if s.logind == nil {
-		return writeSysfs(name, value)
+		return s.class.write(name, value)
 	}
 	viaLogind := s.logind.set(ctx, name, value)
 	if viaLogind == nil {
 		return nil
 	}
-	if err := writeSysfs(name, value); err != nil {
+	if err := s.class.write(name, value); err != nil {
 		return errors.Join(viaLogind, err)
 	}
 	return nil

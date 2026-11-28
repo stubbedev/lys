@@ -17,9 +17,16 @@ import (
 	"github.com/stubbedev/lys/desktop/drmconn"
 )
 
-// Dir is the sysfs class directory of backlight devices; a var so tests
-// can repoint it at a fake tree.
-var Dir = "/sys/class/backlight"
+// Class is a sysfs class directory of backlight devices, a directory
+// per device.
+type Class string
+
+// System is the kernel's backlight class.
+const System Class = "/sys/class/backlight"
+
+func (c Class) device(name string, attr ...string) string {
+	return filepath.Join(append([]string{string(c), name}, attr...)...)
+}
 
 // Type distinguishes firmware, platform and raw backlights, and external
 // monitors driven over DDC/CI.
@@ -92,7 +99,7 @@ type Source interface {
 }
 
 func readAttr(path string) (string, error) {
-	file, err := os.Open(path) //nolint:gosec // the path is Dir plus a directory entry
+	file, err := os.Open(path) //nolint:gosec // the path is a Class plus a directory entry
 	if err != nil {
 		return "", err
 	}
@@ -116,8 +123,8 @@ func readUint(path string) (uint32, error) {
 	return uint32(value), nil
 }
 
-func connector(name string) (string, error) {
-	path, err := filepath.EvalSymlinks(filepath.Join(Dir, name))
+func (c Class) connector(name string) (string, error) {
+	path, err := filepath.EvalSymlinks(c.device(name))
 	if err != nil {
 		return "", fmt.Errorf("backlight: resolve %s: %w", name, err)
 	}
@@ -125,21 +132,20 @@ func connector(name string) (string, error) {
 }
 
 // ReadDevice reads one device's snapshot from sysfs.
-func ReadDevice(name string) (Device, error) {
-	base := filepath.Join(Dir, name)
-	rawType, err := readAttr(filepath.Join(base, "type"))
+func (c Class) ReadDevice(name string) (Device, error) {
+	rawType, err := readAttr(c.device(name, "type"))
 	if err != nil {
 		return Device{}, err
 	}
-	level, err := readUint(filepath.Join(base, "brightness"))
+	level, err := readUint(c.device(name, "brightness"))
 	if err != nil {
 		return Device{}, err
 	}
-	top, err := readUint(filepath.Join(base, "max_brightness"))
+	top, err := readUint(c.device(name, "max_brightness"))
 	if err != nil {
 		return Device{}, err
 	}
-	wired, err := connector(name)
+	wired, err := c.connector(name)
 	if err != nil {
 		return Device{}, err
 	}
@@ -154,14 +160,14 @@ func ReadDevice(name string) (Device, error) {
 
 // Enumerate lists every backlight device that reads; an unreadable class
 // directory yields an empty list.
-func Enumerate() []Device {
-	entries, err := os.ReadDir(Dir)
+func (c Class) Enumerate() []Device {
+	entries, err := os.ReadDir(string(c))
 	if err != nil {
 		return nil
 	}
 	var devices []Device
 	for _, entry := range entries {
-		if device, err := ReadDevice(entry.Name()); err == nil {
+		if device, err := c.ReadDevice(entry.Name()); err == nil {
 			devices = append(devices, device)
 		}
 	}

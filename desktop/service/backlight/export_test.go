@@ -25,9 +25,9 @@ func LogindWriter(conn *dbus.Conn) func(ctx context.Context, name string, value 
 
 type Probe struct{ levelProbe }
 
-func OpenProbe(entries []os.DirEntry) *Probe {
+func OpenProbe(class Class, entries []os.DirEntry) *Probe {
 	p := &Probe{}
-	p.open(entries)
+	p.open(class, entries)
 	return p
 }
 

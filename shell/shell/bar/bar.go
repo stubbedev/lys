@@ -19,6 +19,7 @@ import (
 	"github.com/stubbedev/lys/desktop/identity"
 	"github.com/stubbedev/lys/desktop/logging"
 	"github.com/stubbedev/lys/desktop/region"
+	"github.com/stubbedev/lys/desktop/service/backlight"
 	"github.com/stubbedev/lys/desktop/service/bluetooth"
 	"github.com/stubbedev/lys/desktop/service/clipboard"
 	"github.com/stubbedev/lys/desktop/service/hyprland"
@@ -347,7 +348,7 @@ func (s *shellStart) startServices(system *dbus.Conn) {
 			hypr = conn
 		})
 	}
-	backlights := brightness.NewSystem(s.system, s.cfg.Brightness.EnableExternal)
+	backlights := brightness.NewSystem(backlight.System, s.system, s.cfg.Brightness.EnableExternal)
 	starts.Go(func() { audio = pulse.Start("") })
 	starts.Go(func() { bt, btErr = startBluetooth(s.system) })
 	starts.Go(func() { netSvc, stopNet, netErr = startNetworkService(s.system, networkVault) })

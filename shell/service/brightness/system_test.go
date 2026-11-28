@@ -12,22 +12,22 @@ import (
 	"github.com/stubbedev/lys/lib/waittest"
 )
 
-// newTestSystem builds a System on the fake trees with injected
-// uevents; the caller has already faked BacklightDir (and devDir for
-// external monitors).
-func newTestSystem(t *testing.T, external bool) *System {
+// newTestSystem builds a System on a faked backlight class with
+// injected uevents; the caller has already faked devDir for external
+// monitors.
+func newTestSystem(t *testing.T, class backlight.Class, external bool) *System {
 	t.Helper()
-	sys, _ := newTestSystemWithEvents(t, external)
+	sys, _ := newTestSystemWithEvents(t, class, external)
 	return sys
 }
 
-func newTestSystemWithEvents(t *testing.T, external bool) (*System, *udevmonitortest.Group) {
+func newTestSystemWithEvents(t *testing.T, class backlight.Class, external bool) (*System, *udevmonitortest.Group) {
 	t.Helper()
 	udev := udevmonitortest.New(t)
 	orig := listenUevents
 	listenUevents = udev.Listen
 	t.Cleanup(func() { listenUevents = orig })
-	sys := NewSystem(nil, external)
+	sys := NewSystem(class, nil, external)
 	sys.settle = 0
 	t.Cleanup(func() { _ = sys.Close() })
 	return sys, udev
@@ -66,18 +66,18 @@ func TestOnlyADRMChangeWithHotplugIsAHotplug(t *testing.T) {
 }
 
 func TestExternalMonitorsAppearAfterTheDetachedScan(t *testing.T) {
-	backlighttest.Fake(t, nil)
+	class := backlighttest.Fake(t, nil)
 	fake := newFakeI2C(t)
 	fake.plug(t, 6, &fakeMonitor{current: 40, max: 100})
-	sys := newTestSystem(t, true)
+	sys := newTestSystem(t, class, true)
 	waittest.Until(t, func() bool { return len(ddcNames(t, sys)) == 1 }, "the initial DDC scan")
 }
 
 func TestExternalDisabledNeverScans(t *testing.T) {
-	backlighttest.Fake(t, nil)
+	class := backlighttest.Fake(t, nil)
 	fake := newFakeI2C(t)
 	fake.plug(t, 6, &fakeMonitor{current: 40, max: 100})
-	sys, events := newTestSystemWithEvents(t, false)
+	sys, events := newTestSystemWithEvents(t, class, false)
 	events.Send("ACTION=change", "SUBSYSTEM=drm", "HOTPLUG=1")
 	time.Sleep(quietWindow)
 	if names := ddcNames(t, sys); len(names) != 0 {
@@ -86,10 +86,10 @@ func TestExternalDisabledNeverScans(t *testing.T) {
 }
 
 func TestDRMHotplugRescansAndTicks(t *testing.T) {
-	backlighttest.Fake(t, nil)
+	class := backlighttest.Fake(t, nil)
 	fake := newFakeI2C(t)
 	fake.plug(t, 1, &fakeMonitor{current: 20, max: 100})
-	sys, events := newTestSystemWithEvents(t, true)
+	sys, events := newTestSystemWithEvents(t, class, true)
 	ticks, stop, err := sys.Subscribe(t.Context())
 	if err != nil {
 		t.Fatal(err)
@@ -123,11 +123,11 @@ func TestDRMHotplugRescansAndTicks(t *testing.T) {
 }
 
 func TestSetRoutesDDCNamesToTheMonitor(t *testing.T) {
-	backlighttest.Fake(t, map[string]backlighttest.Device{"intel_backlight": {Type: "raw", Brightness: 3000, Max: 12000}})
+	class := backlighttest.Fake(t, map[string]backlighttest.Device{"intel_backlight": {Type: "raw", Brightness: 3000, Max: 12000}})
 	fake := newFakeI2C(t)
 	monitor := &fakeMonitor{current: 10, max: 200}
 	fake.plug(t, 2, monitor)
-	sys := newTestSystem(t, true)
+	sys := newTestSystem(t, class, true)
 	waittest.Until(t, func() bool { return len(ddcNames(t, sys)) == 1 }, "the initial DDC scan")
 
 	if err := sys.Set(context.Background(), "ddci2c-2", 50); err != nil {
@@ -144,7 +144,7 @@ func TestSetRoutesDDCNamesToTheMonitor(t *testing.T) {
 		}
 	}
 	// The internal panel still goes through sysfs, untouched by DDC.
-	if device, _ := backlight.ReadDevice("intel_backlight"); device.Brightness != 3000 {
+	if device, _ := class.ReadDevice("intel_backlight"); device.Brightness != 3000 {
 		t.Errorf("a DDC write moved the panel to %d", device.Brightness)
 	}
 	// An unknown name is neither: it errors instead of being dropped.
@@ -154,8 +154,8 @@ func TestSetRoutesDDCNamesToTheMonitor(t *testing.T) {
 }
 
 func TestSubscribeStopsAndRefusesAfterClose(t *testing.T) {
-	backlighttest.Fake(t, nil)
-	sys := newTestSystem(t, false)
+	class := backlighttest.Fake(t, nil)
+	sys := newTestSystem(t, class, false)
 	ticks, stop, err := sys.Subscribe(context.Background())
 	if err != nil {
 		t.Fatal(err)
@@ -170,11 +170,11 @@ func TestSubscribeStopsAndRefusesAfterClose(t *testing.T) {
 }
 
 func TestSetExternalOffClosesTheBusesAndStopsScanning(t *testing.T) {
-	backlighttest.Fake(t, nil)
+	class := backlighttest.Fake(t, nil)
 	fake := newFakeI2C(t)
 	monitor := &fakeMonitor{current: 40, max: 100}
 	fake.plug(t, 6, monitor)
-	sys, events := newTestSystemWithEvents(t, true)
+	sys, events := newTestSystemWithEvents(t, class, true)
 	waittest.Until(t, func() bool { return len(ddcNames(t, sys)) == 1 }, "the initial DDC scan")
 	ticks, stop, err := sys.Subscribe(t.Context())
 	if err != nil {
@@ -209,10 +209,10 @@ func TestSetExternalOffClosesTheBusesAndStopsScanning(t *testing.T) {
 }
 
 func TestSetExternalOnScansAndARepeatDoesNot(t *testing.T) {
-	backlighttest.Fake(t, nil)
+	class := backlighttest.Fake(t, nil)
 	fake := newFakeI2C(t)
 	fake.plug(t, 6, &fakeMonitor{current: 40, max: 100})
-	sys, _ := newTestSystemWithEvents(t, false)
+	sys, _ := newTestSystemWithEvents(t, class, false)
 	if names := ddcNames(t, sys); len(names) != 0 {
 		t.Fatalf("enable-external off found %v", names)
 	}

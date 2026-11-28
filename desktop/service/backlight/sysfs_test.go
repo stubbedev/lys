@@ -18,18 +18,18 @@ import (
 	"github.com/stubbedev/lys/desktop/service/backlight/backlighttest"
 )
 
-func newSysfs(t *testing.T, system *dbus.Conn, drift time.Duration) (*backlight.Sysfs, *udevmonitortest.Group) {
+func newSysfs(t *testing.T, class backlight.Class, system *dbus.Conn, drift time.Duration) (*backlight.Sysfs, *udevmonitortest.Group) {
 	t.Helper()
 	udev := udevmonitortest.New(t)
 	backlight.Inject(t, udev.Listen, drift)
-	s := backlight.NewSysfs(system)
+	s := backlight.NewSysfs(class, system)
 	t.Cleanup(func() { _ = s.Close() })
 	return s, udev
 }
 
-func quietSysfs(t *testing.T) (*backlight.Sysfs, *udevmonitortest.Group) {
+func quietSysfs(t *testing.T, class backlight.Class) (*backlight.Sysfs, *udevmonitortest.Group) {
 	t.Helper()
-	return newSysfs(t, nil, time.Hour)
+	return newSysfs(t, class, nil, time.Hour)
 }
 
 func subscribe(t *testing.T, s *backlight.Sysfs) <-chan struct{} {
@@ -53,9 +53,9 @@ func ticksSoon(ticks <-chan struct{}) bool {
 	}
 }
 
-func level(t *testing.T, name string) uint32 {
+func level(t *testing.T, class backlight.Class, name string) uint32 {
 	t.Helper()
-	d, err := backlight.ReadDevice(name)
+	d, err := class.ReadDevice(name)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,18 +63,18 @@ func level(t *testing.T, name string) uint32 {
 }
 
 func TestSetWithoutASystemBusWritesSysfs(t *testing.T) {
-	backlighttest.Fake(t, map[string]backlighttest.Device{"intel_backlight": {Type: "raw", Brightness: 3000, Max: 12000}})
-	s, _ := quietSysfs(t)
+	class := backlighttest.Fake(t, map[string]backlighttest.Device{"intel_backlight": {Type: "raw", Brightness: 3000, Max: 12000}})
+	s, _ := quietSysfs(t, class)
 	if err := s.Set(context.Background(), "intel_backlight", 50); err != nil {
 		t.Fatalf("Set: %v", err)
 	}
-	if got := level(t, "intel_backlight"); got != 6000 {
+	if got := level(t, class, "intel_backlight"); got != 6000 {
 		t.Errorf("brightness = %d, want 6000 (50%% of 12000)", got)
 	}
 	if err := s.Set(context.Background(), "intel_backlight", 900); err != nil {
 		t.Fatal(err)
 	}
-	if got := level(t, "intel_backlight"); got != 12000 {
+	if got := level(t, class, "intel_backlight"); got != 12000 {
 		t.Errorf("clamped brightness = %d, want max", got)
 	}
 	if err := s.Set(context.Background(), "nothing", 50); err == nil {
@@ -83,9 +83,9 @@ func TestSetWithoutASystemBusWritesSysfs(t *testing.T) {
 }
 
 func TestSetGoesThroughLogindWhenItAnswers(t *testing.T) {
-	backlighttest.Fake(t, map[string]backlighttest.Device{"intel_backlight": {Type: "raw", Brightness: 3000, Max: 12000}})
+	class := backlighttest.Fake(t, map[string]backlighttest.Device{"intel_backlight": {Type: "raw", Brightness: 3000, Max: 12000}})
 	fake := logindtest.Start(t, logindtest.Config{Display: "2"})
-	s, _ := newSysfs(t, fake.Bus.Conn(t), time.Hour)
+	s, _ := newSysfs(t, class, fake.Bus.Conn(t), time.Hour)
 	if err := s.Set(context.Background(), "intel_backlight", 50); err != nil {
 		t.Fatal(err)
 	}
@@ -93,46 +93,46 @@ func TestSetGoesThroughLogindWhenItAnswers(t *testing.T) {
 	if len(calls) != 1 || !slices.Equal(calls[0].Args, []any{"backlight", "intel_backlight", uint32(6000)}) {
 		t.Fatalf("SetBrightness calls %v, want one for 6000", calls)
 	}
-	if got := level(t, "intel_backlight"); got != 3000 {
+	if got := level(t, class, "intel_backlight"); got != 3000 {
 		t.Errorf("a write logind took also went to sysfs: %d", got)
 	}
 }
 
 func TestSetFallsBackToSysfsWhenLogindRefuses(t *testing.T) {
-	backlighttest.Fake(t, map[string]backlighttest.Device{"intel_backlight": {Type: "raw", Brightness: 3000, Max: 12000}})
+	class := backlighttest.Fake(t, map[string]backlighttest.Device{"intel_backlight": {Type: "raw", Brightness: 3000, Max: 12000}})
 	fake := logindtest.Start(t, logindtest.Config{})
-	s, _ := newSysfs(t, fake.Bus.Conn(t), time.Hour)
+	s, _ := newSysfs(t, class, fake.Bus.Conn(t), time.Hour)
 	if err := s.Set(context.Background(), "intel_backlight", 50); err != nil {
 		t.Fatal(err)
 	}
-	if got := level(t, "intel_backlight"); got != 6000 {
+	if got := level(t, class, "intel_backlight"); got != 6000 {
 		t.Errorf("brightness = %d, want the sysfs fallback's 6000", got)
 	}
 }
 
 func TestSubscribeTicksOnWrites(t *testing.T) {
-	backlighttest.Fake(t, map[string]backlighttest.Device{"intel_backlight": {Type: "raw", Brightness: 3000, Max: 12000}})
-	s, _ := quietSysfs(t)
+	class := backlighttest.Fake(t, map[string]backlighttest.Device{"intel_backlight": {Type: "raw", Brightness: 3000, Max: 12000}})
+	s, _ := quietSysfs(t, class)
 	ticks := subscribe(t, s)
-	backlighttest.SetLevel(t, "intel_backlight", 9000)
+	backlighttest.SetLevel(t, class, "intel_backlight", 9000)
 	waittest.For(t, ticks, "a tick for a brightness write")
 }
 
 func TestBacklightHotplugWatchesTheNewDevice(t *testing.T) {
-	backlighttest.Fake(t, nil)
-	s, events := quietSysfs(t)
+	class := backlighttest.Fake(t, nil)
+	s, events := quietSysfs(t, class)
 	ticks := subscribe(t, s)
-	backlighttest.Add(t, "acpi_video0", backlighttest.Device{Type: "firmware", Brightness: 5, Max: 10})
+	backlighttest.Add(t, class, "acpi_video0", backlighttest.Device{Type: "firmware", Brightness: 5, Max: 10})
 	events.Send("ACTION=add", "SUBSYSTEM=backlight", "DEVPATH=/devices/virtual/backlight/acpi_video0")
 	waittest.For(t, ticks, "a tick for the hotplugged device")
 	time.Sleep(10 * time.Millisecond)
-	backlighttest.SetLevel(t, "acpi_video0", 7)
+	backlighttest.SetLevel(t, class, "acpi_video0", 7)
 	waittest.For(t, ticks, "a tick for a write to the hotplugged device")
 }
 
 func TestSubscribeStopsAndRefusesAfterClose(t *testing.T) {
-	backlighttest.Fake(t, nil)
-	s, _ := quietSysfs(t)
+	class := backlighttest.Fake(t, nil)
+	s, _ := quietSysfs(t, class)
 	ticks, stop, err := s.Subscribe(context.Background())
 	if err != nil {
 		t.Fatal(err)
@@ -147,8 +147,8 @@ func TestSubscribeStopsAndRefusesAfterClose(t *testing.T) {
 }
 
 func TestCloseEndsEverySubscription(t *testing.T) {
-	backlighttest.Fake(t, nil)
-	s, _ := quietSysfs(t)
+	class := backlighttest.Fake(t, nil)
+	s, _ := quietSysfs(t, class)
 	ticks := subscribe(t, s)
 	_ = s.Close()
 	waittest.Until(t, func() bool {
@@ -166,13 +166,13 @@ func TestCloseEndsEverySubscription(t *testing.T) {
 }
 
 func TestDriftWithoutADeviceWakesNobodyUntilOneAppears(t *testing.T) {
-	backlighttest.Fake(t, nil)
-	s, events := newSysfs(t, nil, time.Millisecond)
+	class := backlighttest.Fake(t, nil)
+	s, events := newSysfs(t, class, nil, time.Millisecond)
 	ticks := subscribe(t, s)
 	if ticksSoon(ticks) {
 		t.Fatal("a machine without a backlight ticked")
 	}
-	backlighttest.Add(t, "acpi_video0", backlighttest.Device{Type: "firmware", Brightness: 5, Max: 10})
+	backlighttest.Add(t, class, "acpi_video0", backlighttest.Device{Type: "firmware", Brightness: 5, Max: 10})
 	events.Send("ACTION=add", "SUBSYSTEM=backlight", "DEVPATH=/devices/virtual/backlight/acpi_video0")
 	waittest.For(t, ticks, "a tick from the hotplugged device")
 	if ticksSoon(ticks) {
@@ -181,8 +181,8 @@ func TestDriftWithoutADeviceWakesNobodyUntilOneAppears(t *testing.T) {
 }
 
 func TestDriftWithAStillLevelWakesNobody(t *testing.T) {
-	backlighttest.Fake(t, map[string]backlighttest.Device{"acpi_video0": {Type: "firmware", Brightness: 5, Max: 10}})
-	s, _ := newSysfs(t, nil, time.Millisecond)
+	class := backlighttest.Fake(t, map[string]backlighttest.Device{"acpi_video0": {Type: "firmware", Brightness: 5, Max: 10}})
+	s, _ := newSysfs(t, class, nil, time.Millisecond)
 	ticks := subscribe(t, s)
 	if ticksSoon(ticks) {
 		t.Fatal("an unmoved level ticked")
@@ -190,8 +190,8 @@ func TestDriftWithAStillLevelWakesNobody(t *testing.T) {
 }
 
 func TestBacklightChangeUeventTicksAndOthersDoNot(t *testing.T) {
-	backlighttest.Fake(t, nil)
-	s, events := quietSysfs(t)
+	class := backlighttest.Fake(t, nil)
+	s, events := quietSysfs(t, class)
 	ticks := subscribe(t, s)
 	events.Send("ACTION=change", "SUBSYSTEM=drm", "HOTPLUG=1")
 	if ticksSoon(ticks) {
@@ -202,17 +202,17 @@ func TestBacklightChangeUeventTicksAndOthersDoNot(t *testing.T) {
 }
 
 func TestLevelProbeSeesAChangeOnTheFileItHoldsOpen(t *testing.T) {
-	dir := backlighttest.Fake(t, map[string]backlighttest.Device{"acpi_video0": {Type: "firmware", Brightness: 5, Max: 10}})
-	entries, err := os.ReadDir(dir)
+	class := backlighttest.Fake(t, map[string]backlighttest.Device{"acpi_video0": {Type: "firmware", Brightness: 5, Max: 10}})
+	entries, err := os.ReadDir(string(class))
 	if err != nil {
 		t.Fatal(err)
 	}
-	probe := backlight.OpenProbe(entries)
+	probe := backlight.OpenProbe(class, entries)
 	defer probe.Close()
 	if moved, err := probe.Moved(); moved || err != nil {
 		t.Fatalf("unchanged level: moved %v, err %v", moved, err)
 	}
-	backlighttest.SetLevel(t, "acpi_video0", 7)
+	backlighttest.SetLevel(t, class, "acpi_video0", 7)
 	if moved, err := probe.Moved(); !moved || err != nil {
 		t.Fatalf("changed level: moved %v, err %v", moved, err)
 	}
