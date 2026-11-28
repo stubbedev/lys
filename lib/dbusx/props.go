@@ -64,11 +64,11 @@ func ChangedProperty[T any](sig *dbus.Signal, path dbus.ObjectPath, iface, name 
 }
 
 func variantAs[T any](value dbus.Variant) (T, error) {
+	if v, ok := any(value).(T); ok {
+		return v, nil
+	}
 	var v T
 	want := reflect.TypeFor[T]()
-	if want == reflect.TypeFor[dbus.Variant]() {
-		return any(value).(T), nil
-	}
 	if got, sig := value.Signature(), dbus.SignatureOfType(want); got != sig {
 		return v, fmt.Errorf("the value is a %T of signature %s, not a %s of signature %s", value.Value(), got, want, sig)
 	}
