@@ -9845,6 +9845,7 @@
     "imports": [
       "desktop/feed",
       "desktop/fswatch",
+      "lib/xdg",
       "shell/internal/clock"
     ],
     "external": [
@@ -10239,6 +10240,7 @@
       "lib/intconv",
       "lib/third_party/gomath",
       "lib/wmipc",
+      "lib/xdg",
       "shell/internal/gvariant",
       "shell/service/fileindex",
       "shell/service/launcher",
@@ -11642,6 +11644,7 @@
       "desktop/styling",
       "desktop/thumbnail",
       "lib/render",
+      "lib/xdg",
       "lib/xkb",
       "shell/internal/launcheripc",
       "shell/service/fileindex",

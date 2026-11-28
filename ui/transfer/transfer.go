@@ -24,10 +24,7 @@ const (
 	MimeGIF     = "image/gif"
 )
 
-// TextMimes are the text types offered and accepted, best first: the
-// X11 atoms after the mime types, for clients bridged through
-// Xwayland.
-var TextMimes = []string{
+var textMimes = [...]string{
 	MimeText,
 	"UTF8_STRING",
 	"text/plain",
@@ -36,9 +33,20 @@ var TextMimes = []string{
 	"STRING",
 }
 
+var imageMimes = [...]string{MimePNG, MimeWebP, MimeJPEG, MimeGIF}
+
+// TextMimes are the text types offered and accepted, best first: the
+// X11 atoms after the mime types, for clients bridged through
+// Xwayland. Each call returns a new slice, the caller's to keep.
+func TextMimes() []string { return slices.Clone(textMimes[:]) }
+
+// IsTextMime reports whether mime is one of [TextMimes].
+func IsTextMime(mime string) bool { return slices.Contains(textMimes[:], mime) }
+
 // ImageMimes are the image types accepted, best first: PNG
-// round-trips exactly, the rest decode lossy or flattened.
-var ImageMimes = []string{MimePNG, MimeWebP, MimeJPEG, MimeGIF}
+// round-trips exactly, the rest decode lossy or flattened. Each call
+// returns a new slice, the caller's to keep.
+func ImageMimes() []string { return slices.Clone(imageMimes[:]) }
 
 // Content is one transfer's payload: the mimes it is offered as, best
 // first, and Write, which writes the bytes for one of them. Write runs
@@ -118,11 +126,11 @@ func Merge(parts ...Content) Content {
 // Text is s offered under every text mime.
 func Text(s string) Content {
 	b := []byte(s)
-	data := make(map[string][]byte, len(TextMimes))
-	for _, m := range TextMimes {
+	data := make(map[string][]byte, len(textMimes))
+	for _, m := range textMimes {
 		data[m] = b
 	}
-	return Payloads(TextMimes, data)
+	return Payloads(TextMimes(), data)
 }
 
 // Bytes is data offered as one mime.

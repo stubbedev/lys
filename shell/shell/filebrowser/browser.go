@@ -75,7 +75,7 @@ const (
 )
 
 // uriListMime is what a file drag offers.
-const uriListMime = "text/uri-list"
+const uriListMime = transfer.MimeURIList
 
 type thumbKey struct {
 	path string

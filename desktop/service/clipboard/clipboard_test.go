@@ -292,7 +292,7 @@ func TestCopyingTextOffersEveryTextAlias(t *testing.T) {
 
 	c.Copy(ids(c)[0])
 
-	if got := dev.claims[0].src.Mimes; got[0] != textMime || len(got) != len(TextMimes) {
+	if got := dev.claims[0].src.Mimes; got[0] != textMime || len(got) != len(transfer.TextMimes()) {
 		t.Fatalf("offered %v", got)
 	}
 	if got := dev.claims[0].paste(t, "STRING"); got != "hi" {

@@ -103,7 +103,7 @@ func TestReadOfferTextCutsOffASilentPeer(t *testing.T) {
 		return nil
 	}
 	ch := make(chan error, 1)
-	c.fetchText(selectionView{receive: receive, mimes: map[string]bool{"text/plain": true}}, transfer.TextMimes, bytesToString,
+	c.fetchText(selectionView{receive: receive, mimes: map[string]bool{"text/plain": true}}, transfer.TextMimes(), bytesToString,
 		func(_ string, err error) { ch <- err })
 	if err := waittest.For(t, ch, "the silent peer's read to time out"); !errors.Is(err, xfer.ErrTimeout) {
 		t.Fatalf("read = %v, want xfer.ErrTimeout", err)
@@ -119,7 +119,7 @@ func TestReadReturnsBeforeASilentPeerAndStopEndsIt(t *testing.T) {
 		return nil
 	}
 	delivered := make(chan error, 1)
-	c.fetchText(selectionView{receive: receive, mimes: map[string]bool{"text/plain": true}}, transfer.TextMimes, bytesToString,
+	c.fetchText(selectionView{receive: receive, mimes: map[string]bool{"text/plain": true}}, transfer.TextMimes(), bytesToString,
 		func(_ string, err error) { delivered <- err })
 	if receives != 1 {
 		t.Fatalf("receive ran %d times before the read returned, want the request out", receives)
@@ -145,10 +145,10 @@ func TestReadsPastTheBoundAreRefused(t *testing.T) {
 	}
 	view := selectionView{receive: receive, mimes: map[string]bool{"text/plain": true}}
 	for range xfer.MaxTransfers {
-		c.fetchText(view, transfer.TextMimes, bytesToString, func(string, error) {})
+		c.fetchText(view, transfer.TextMimes(), bytesToString, func(string, error) {})
 	}
 	ch := make(chan error, 1)
-	c.fetchText(view, transfer.TextMimes, bytesToString, func(_ string, err error) { ch <- err })
+	c.fetchText(view, transfer.TextMimes(), bytesToString, func(_ string, err error) { ch <- err })
 	if err := waittest.For(t, ch, "the refused read's result"); !errors.Is(err, xfer.ErrBusy) {
 		t.Errorf("read past the bound = %v, want xfer.ErrBusy", err)
 	}
@@ -209,7 +209,7 @@ func readOfferText(t *testing.T, receive func(string, uintptr) error, mimes map[
 	t.Helper()
 	c := testClipboard(t)
 	return collectText(t, func(done func(string, error)) {
-		c.fetchText(selectionView{receive: receive, mimes: mimes}, transfer.TextMimes, bytesToString, done)
+		c.fetchText(selectionView{receive: receive, mimes: mimes}, transfer.TextMimes(), bytesToString, done)
 	})
 }
 
@@ -217,7 +217,7 @@ func readOfferImage(t *testing.T, receive func(string, uintptr) error, mimes map
 	t.Helper()
 	c := testClipboard(t)
 	r := collectRead(t, func(done func([]byte, string, error)) {
-		c.fetch(selectionView{receive: receive, mimes: mimes}, transfer.ImageMimes, func(data []byte, mime string, err error) func() {
+		c.fetch(selectionView{receive: receive, mimes: mimes}, transfer.ImageMimes(), func(data []byte, mime string, err error) func() {
 			return func() { done(data, mime, err) }
 		})
 	})
@@ -226,11 +226,11 @@ func readOfferImage(t *testing.T, receive func(string, uintptr) error, mimes map
 
 // pickTextMime and pickImageMime are the read preferences.
 func pickTextMime(present func(string) bool) string {
-	return transfer.Pick(transfer.TextMimes, present)
+	return transfer.Pick(transfer.TextMimes(), present)
 }
 
 func pickImageMime(present func(string) bool) string {
-	return transfer.Pick(transfer.ImageMimes, present)
+	return transfer.Pick(transfer.ImageMimes(), present)
 }
 
 // Every send request's fd is closed, regular and primary: one served,

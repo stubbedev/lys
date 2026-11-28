@@ -37,18 +37,8 @@ import (
 // dropped.
 const DefaultCapacity = 200
 
-// TextMimes are the mime types a plain-text selection arrives under,
-// best first.
-var TextMimes = []string{
-	"text/plain;charset=utf-8",
-	"text/plain",
-	"UTF8_STRING",
-	"STRING",
-	"TEXT",
-}
-
 // URIListMime is the mime type a file manager copies files under.
-const URIListMime = "text/uri-list"
+const URIListMime = transfer.MimeURIList
 
 // SensitiveMimes are the mime types lys-shell will not remember, however
 // they are offered. Password managers mark a selection with one of
@@ -261,7 +251,7 @@ func (c content) line(maxChars int) (string, bool) {
 
 // IsTextMime reports whether a mime type names plain text.
 func IsTextMime(mime string) bool {
-	return slices.Contains(TextMimes, mime) || strings.HasPrefix(mime, "text/")
+	return transfer.IsTextMime(mime) || strings.HasPrefix(mime, "text/")
 }
 
 // IsSensitive reports whether a selection offering these mimes must
@@ -274,7 +264,7 @@ func IsSensitive(mimes []string) bool {
 // owner offered. Files beat images beat text: a file manager also
 // offers the file's name as text/plain, and remembering that instead
 // would put a bare filename on the clipboard where a file was copied.
-// Within text, the order of TextMimes wins so the entry is UTF-8
+// Within text, the order of [transfer.TextMimes] wins so the entry is UTF-8
 // wherever the owner can provide it. Anything else is still worth
 // being able to paste back, byte for byte, so the first offered mime
 // is the last resort; false only when nothing was offered.
@@ -285,7 +275,7 @@ func BestMime(mimes []string) (string, bool) {
 	if i := slices.IndexFunc(mimes, func(m string) bool { return strings.HasPrefix(m, "image/") }); i >= 0 {
 		return mimes[i], true
 	}
-	for _, text := range TextMimes {
+	for _, text := range transfer.TextMimes() {
 		if slices.Contains(mimes, text) {
 			return text, true
 		}
@@ -310,8 +300,10 @@ func offerMimes(mime string) []string {
 	if kindOf(mime) != KindText {
 		return []string{mime}
 	}
-	mimes := []string{mime}
-	for _, m := range TextMimes {
+	flavours := transfer.TextMimes()
+	mimes := make([]string, 0, len(flavours)+1)
+	mimes = append(mimes, mime)
+	for _, m := range flavours {
 		if m != mime {
 			mimes = append(mimes, m)
 		}
