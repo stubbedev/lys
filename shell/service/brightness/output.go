@@ -11,23 +11,23 @@ import (
 	"github.com/stubbedev/lys/desktop/drmconn"
 )
 
-// DRMDir is the sysfs class directory of DRM cards and connectors; a
+// drmDir is the sysfs class directory of DRM cards and connectors; a
 // var so tests can repoint it.
-var DRMDir = drmconn.Dir
+var drmDir = drmconn.Dir
 
-// I2CAdapterDir lists every I²C adapter as a link into its device
+// i2cAdapterDir lists every I²C adapter as a link into its device
 // tree; a var so tests can repoint it.
-var I2CAdapterDir = "/sys/bus/i2c/devices"
+var i2cAdapterDir = "/sys/bus/i2c/devices"
 
 func i2cConnector(bus uint32) (string, error) {
-	adapter, err := filepath.EvalSymlinks(filepath.Join(I2CAdapterDir, i2cNodePrefix+strconv.FormatUint(uint64(bus), 10)))
+	adapter, err := filepath.EvalSymlinks(filepath.Join(i2cAdapterDir, i2cNodePrefix+strconv.FormatUint(uint64(bus), 10)))
 	if err != nil {
 		return "", fmt.Errorf("brightness: resolve i2c adapter %d: %w", bus, err)
 	}
 	if name := drmconn.Ancestor(adapter); name != "" {
 		return name, nil
 	}
-	entries, err := os.ReadDir(DRMDir)
+	entries, err := os.ReadDir(drmDir)
 	if err != nil {
 		return "", fmt.Errorf("brightness: list DRM connectors: %w", err)
 	}
@@ -36,7 +36,7 @@ func i2cConnector(bus uint32) (string, error) {
 		if !ok {
 			continue
 		}
-		if ddc, err := filepath.EvalSymlinks(filepath.Join(DRMDir, entry.Name(), "ddc")); err == nil && ddc == adapter {
+		if ddc, err := filepath.EvalSymlinks(filepath.Join(drmDir, entry.Name(), "ddc")); err == nil && ddc == adapter {
 			return name, nil
 		}
 	}

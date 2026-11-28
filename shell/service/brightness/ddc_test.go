@@ -118,7 +118,7 @@ func (silentBus) Write(p []byte) (int, error) { return len(p), nil }
 func (silentBus) Read([]byte) (int, error)    { return 0, errNAK }
 func (silentBus) Close() error                { return nil }
 
-// fakeI2C repoints DevDir at a temp dir holding i2c-N nodes and routes
+// fakeI2C repoints devDir at a temp dir holding i2c-N nodes and routes
 // openBus to the given buses; nodes without an entry fail to open.
 type fakeI2C struct {
 	mu    sync.Mutex
@@ -130,8 +130,8 @@ type fakeI2C struct {
 func newFakeI2C(t *testing.T) *fakeI2C {
 	t.Helper()
 	f := &fakeI2C{dir: t.TempDir(), buses: map[uint32]i2cBus{}, sysfs: newFakeSysfs(t)}
-	origDir, origOpen, origSleep := DevDir, openBus, ddcSleep
-	DevDir = f.dir
+	origDir, origOpen, origSleep := devDir, openBus, ddcSleep
+	devDir = f.dir
 	openBus = func(path string) (i2cBus, error) {
 		n, err := strconv.ParseUint(filepath.Base(path)[len(i2cNodePrefix):], 10, 32)
 		if err != nil {
@@ -149,7 +149,7 @@ func newFakeI2C(t *testing.T) *fakeI2C {
 		return bus, nil
 	}
 	ddcSleep = func(time.Duration) {}
-	t.Cleanup(func() { DevDir, openBus, ddcSleep = origDir, origOpen, origSleep })
+	t.Cleanup(func() { devDir, openBus, ddcSleep = origDir, origOpen, origSleep })
 	return f
 }
 
@@ -165,7 +165,7 @@ func (f *fakeI2C) plugOn(t *testing.T, n uint32, bus i2cBus, connector string) {
 
 func (f *fakeI2C) plugAt(t *testing.T, n uint32, bus i2cBus, parent string) {
 	t.Helper()
-	if _, err := os.Lstat(filepath.Join(I2CAdapterDir, i2cNodePrefix+strconv.FormatUint(uint64(n), 10))); os.IsNotExist(err) {
+	if _, err := os.Lstat(filepath.Join(i2cAdapterDir, i2cNodePrefix+strconv.FormatUint(uint64(n), 10))); os.IsNotExist(err) {
 		f.sysfs.adapter(n, parent)
 	}
 	path := filepath.Join(f.dir, i2cNodePrefix+strconv.FormatUint(uint64(n), 10))

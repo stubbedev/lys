@@ -13,7 +13,7 @@ import (
 )
 
 // newTestSystem builds a System on the fake trees with injected
-// uevents; the caller has already faked BacklightDir (and DevDir for
+// uevents; the caller has already faked BacklightDir (and devDir for
 // external monitors).
 func newTestSystem(t *testing.T, external bool) *System {
 	t.Helper()

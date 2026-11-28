@@ -55,13 +55,13 @@ const (
 	// and "i2c" so the dropdown's friendly-name lookup reads them as
 	// external monitors.
 	ddcNamePrefix = "ddci2c-"
-	// i2cNodePrefix is the per-bus node name under DevDir.
+	// i2cNodePrefix is the per-bus node name under devDir.
 	i2cNodePrefix = "i2c-"
 )
 
-// DevDir is where Linux exposes i2c bus nodes; a var so tests can
+// devDir is where Linux exposes i2c bus nodes; a var so tests can
 // repoint it.
-var DevDir = "/dev"
+var devDir = "/dev"
 
 // i2cBus is one opened bus with the DDC/CI slave selected: plain
 // write(2)/read(2) transfers to that address.
@@ -74,7 +74,7 @@ type i2cBus interface {
 // openBus opens a /dev/i2c-N node for DDC/CI; a var so tests can
 // substitute fake monitors.
 var openBus = func(path string) (i2cBus, error) {
-	file, err := os.OpenFile(path, os.O_RDWR, 0) //nolint:gosec // the path is DevDir plus a parsed i2c-N entry
+	file, err := os.OpenFile(path, os.O_RDWR, 0) //nolint:gosec // the path is devDir plus a parsed i2c-N entry
 	if err != nil {
 		return nil, err
 	}
@@ -280,7 +280,7 @@ type scannedDisplay struct {
 func scan() []scannedDisplay {
 	var found []scannedDisplay
 	for _, bus := range i2cBuses() {
-		path := filepath.Join(DevDir, i2cNodePrefix+strconv.FormatUint(uint64(bus), 10))
+		path := filepath.Join(devDir, i2cNodePrefix+strconv.FormatUint(uint64(bus), 10))
 		dev, err := openBus(path)
 		if err != nil {
 			continue
@@ -306,9 +306,9 @@ func scan() []scannedDisplay {
 // i2cBuses lists the bus numbers of every /dev/i2c-N node, sorted;
 // empty when i2c-dev is not loaded.
 func i2cBuses() []uint32 {
-	entries, err := os.ReadDir(DevDir)
+	entries, err := os.ReadDir(devDir)
 	if err != nil {
-		log.Printf("brightness: cannot read %s to find i2c buses: %v", DevDir, err)
+		log.Printf("brightness: cannot read %s to find i2c buses: %v", devDir, err)
 		return nil
 	}
 	var buses []uint32

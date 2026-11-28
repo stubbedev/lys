@@ -23,9 +23,9 @@ func newFakeSysfs(t *testing.T) *fakeSysfs {
 			t.Fatal(err)
 		}
 	}
-	origDRM, origAdapters := DRMDir, I2CAdapterDir
-	DRMDir, I2CAdapterDir = drm, adapters
-	t.Cleanup(func() { DRMDir, I2CAdapterDir = origDRM, origAdapters })
+	origDRM, origAdapters := drmDir, i2cAdapterDir
+	drmDir, i2cAdapterDir = drm, adapters
+	t.Cleanup(func() { drmDir, i2cAdapterDir = origDRM, origAdapters })
 	return f
 }
 
@@ -42,7 +42,7 @@ func (f *fakeSysfs) connector(sysname string) string {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		f.t.Fatal(err)
 	}
-	f.link(dir, filepath.Join(DRMDir, sysname))
+	f.link(dir, filepath.Join(drmDir, sysname))
 	return dir
 }
 
@@ -52,7 +52,7 @@ func (f *fakeSysfs) adapter(bus uint32, parent string) string {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		f.t.Fatal(err)
 	}
-	f.link(dir, filepath.Join(I2CAdapterDir, filepath.Base(dir)))
+	f.link(dir, filepath.Join(i2cAdapterDir, filepath.Base(dir)))
 	return dir
 }
 
