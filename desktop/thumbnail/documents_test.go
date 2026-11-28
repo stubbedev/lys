@@ -173,25 +173,56 @@ func TestNothingButTheHelperIsExecuted(t *testing.T) {
 	}
 }
 
-// A helper that hangs is killed at the run timeout with its whole
-// process group, and the document is recorded as failed.
-func TestAHangingHelperIsKilled(t *testing.T) {
+// A helper that hangs fails at the run timeout, and the document is
+// recorded as failed.
+func TestAHangingHelperFailsAtTheRunTimeout(t *testing.T) {
 	doc := document(t, "paper.pdf")
-	helper := thumbnailtest.Helper(t, thumbnailtest.Hang)
-	th := New(Config{DocumentHelper: helper, RunTimeout: 500 * time.Millisecond})
+	th := New(Config{DocumentHelper: thumbnailtest.Helper(t, thumbnailtest.Hang), RunTimeout: 100 * time.Millisecond})
 	if _, err := square(t, th, doc, pdfType, 64); !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("a hanging helper = %v, want its deadline", err)
 	}
 	requireFailRecord(t, doc)
-	data, err := os.ReadFile(filepath.Join(filepath.Dir(helper), thumbnailtest.HangPID))
-	if err != nil {
-		t.Fatalf("the hanging helper started no process: %v", err)
+}
+
+// A helper ended while it hangs is killed with its whole process
+// group, here the process it started, and the document is not
+// recorded as failed.
+func TestAnEndedHelperIsKilledWithItsProcessGroup(t *testing.T) {
+	doc := document(t, "paper.pdf")
+	helper := thumbnailtest.Helper(t, thumbnailtest.Hang)
+	th := New(Config{DocumentHelper: helper, RunTimeout: time.Minute})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	ended := make(chan error, 1)
+	go func() {
+		_, err := th.Square(ctx, doc, pdfType, 64)
+		ended <- err
+	}()
+	pid := 0
+	waittest.UntilSlow(t, func() bool {
+		data, err := os.ReadFile(filepath.Join(filepath.Dir(helper), thumbnailtest.HangPID))
+		if err != nil {
+			return false
+		}
+		pid, err = strconv.Atoi(string(data))
+		return err == nil
+	}, "the hanging helper to start its process")
+	cancel()
+	if err := waittest.For(t, ended, "the ended helper's thumbnail"); !errors.Is(err, context.Canceled) {
+		t.Fatalf("an ended hanging helper = %v, want context.Canceled", err)
 	}
-	pid, err := strconv.Atoi(string(data))
+	waittest.Until(t, func() bool { return gone(pid) }, "the process the hanging helper started to be killed with it")
+	info, err := os.Stat(doc)
 	if err != nil {
 		t.Fatal(err)
 	}
-	waittest.Until(t, func() bool { return gone(pid) }, "the process the hanging helper started to be killed with it")
+	tc, err := cacheFor(doc, info)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tc.failed() {
+		t.Errorf("an ended helper left a fail record at %s", tc.failPath())
+	}
 }
 
 // gone reports a process that no longer runs: reaped, or a zombie.
