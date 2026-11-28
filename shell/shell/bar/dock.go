@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/desktopentry"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/dockview"
 	"github.com/stubbedev/lys/desktop/shell/layers"
@@ -18,6 +19,7 @@ import (
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
 
+	engine "github.com/stubbedev/lys/shell/service/launcher"
 	"github.com/stubbedev/lys/shell/shell/layering"
 )
 
@@ -221,7 +223,9 @@ func newDock(ctx ModuleContext, cfg config.DockConfig, output *app.Output, after
 		axis:    dockview.Axis(cfg.Edge),
 		zoom:    dockview.ZoomOf(cfg, ctx.Config),
 		entries: map[string]*dockEntry{},
-		launch:  launchApp,
+		launch: func(app taskApp, failed func(error)) {
+			launchApp(app, engine.AppContext(ctx.Config.Launcher.Terminal, ""), failed)
+		},
 	}
 	d.panel = &arrangedBox{Box: dockview.NewPanel(cfg, ctx.Config), arranged: d.arranged}
 	if ctx.Style != nil {
@@ -405,10 +409,11 @@ func (d *dock) writePinned(pinned []any, failed, appID string) {
 	})
 }
 
-// launchApp starts an app from its desktop entry off the loop.
-func launchApp(app taskApp, failed func(error)) {
+// launchApp starts an app from its desktop entry off the loop, a
+// Terminal=true one inside the launcher's terminal.
+func launchApp(app taskApp, ctx desktopentry.LaunchContext, failed func(error)) {
 	go func() {
-		if err := app.entry.Launch(); err != nil {
+		if err := app.entry.Launch(ctx); err != nil {
 			failed(fmt.Errorf("launch %s: %w", app.entry.ID, err))
 		}
 	}()

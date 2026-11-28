@@ -120,8 +120,15 @@ func InPath(program string) bool {
 // resolves it, which is asked only for such an app: with no terminal the
 // error wraps its *NoTerminalError.
 func Open(target, terminal, token string) error {
-	return opener.Open(target, desktopentry.LaunchContext{
+	return opener.Open(target, AppContext(terminal, token))
+}
+
+// AppContext is what the shell starts a desktop entry with: token raises
+// its window ("" hands none), and a Terminal=true entry runs inside
+// terminal as DetectTerminal resolves it, asked only for such an entry.
+func AppContext(terminal, token string) desktopentry.LaunchContext {
+	return desktopentry.LaunchContext{
 		ActivationToken: token,
 		Terminal:        func() (string, error) { return DetectTerminal(terminal) },
-	})
+	}
 }

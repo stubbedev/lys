@@ -255,12 +255,6 @@ func TestDrunCategoryFiltering(t *testing.T) {
 	}
 }
 
-func TestFieldCodesDetected(t *testing.T) {
-	if !isFieldCode("%U") || isFieldCode("100%") || isFieldCode("file.txt") {
-		t.Error("field codes")
-	}
-}
-
 func TestDrunMatchTextRespectsSelectedFields(t *testing.T) {
 	got := buildMatchText([]DrunField{DrunFieldName, DrunFieldKeywords}, []fieldValue{
 		{DrunFieldName, "Firefox"}, {DrunFieldExec, "firefox"}, {DrunFieldKeywords, "web browser"},
