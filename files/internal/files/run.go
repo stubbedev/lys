@@ -13,6 +13,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/desktopentry"
+	"github.com/stubbedev/lys/desktop/dochelper"
 	"github.com/stubbedev/lys/desktop/fileops"
 	"github.com/stubbedev/lys/desktop/fileuri"
 	"github.com/stubbedev/lys/desktop/i18n"
@@ -129,6 +130,7 @@ func Run(paths []string, service bool) error {
 			ForgetImage:   application.ForgetImage,
 			OpenFile:      h.OpenFile,
 			Animations:    func() config.AnimationsConfig { return h.svc.Config().Animations },
+			Documents:     dochelper.Opener(""),
 		},
 	}
 	defer w.close()

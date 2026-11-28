@@ -34,14 +34,14 @@ const (
 const quicklookShare = 0.85
 
 // newQuicklook is Quick Look's card, in the frame that lays it over the
-// file views: a preview of the selection, closed by Space, Escape and a
-// click beside it, stepped through the view by the arrows
+// file views: a preview of the selection, a document's pages scrolling,
+// closed by Space, Escape and a click beside it, stepped through the view by the arrows
 // (quicklookArrow), playing a video at once, opening the file in its
 // default app from its Open button.
 func (c *Browser) newQuicklook() (*preview.View, *quicklookFrame) {
 	least := image.Pt(quicklookMinW, quicklookMinH)
 	v := preview.New(c.previewConfig(preview.Config{
-		Class: "file-chooser-quicklook", NameChars: 48, Autoplay: true, Bare: true,
+		Class: "file-chooser-quicklook", NameChars: 48, Autoplay: true, Bare: true, Pages: true,
 		Image: least, Text: least, OnClose: c.closeQuicklook, Open: c.d.OpenFile,
 	}))
 	v.Root().AddClass(css.Card)
@@ -199,7 +199,7 @@ func (c *Browser) previewConfig(cfg preview.Config) preview.Config {
 // loadPreview finds out what to show of a file through the chooser's
 // thumbnailer and pictures; safe off the loop.
 func (c *Browser) loadPreview(ctx context.Context, req preview.Request) preview.Content {
-	return preview.Load(ctx, preview.Sources{MIME: c.d.MIME, Thumbnails: c.thumbnailer, Pictures: c.pictures}, req)
+	return preview.Load(ctx, preview.Sources{MIME: c.d.MIME, Thumbnails: c.thumbnailer, Pictures: c.pictures, Documents: c.d.Documents}, req)
 }
 
 // openPreviews are the previews showing.

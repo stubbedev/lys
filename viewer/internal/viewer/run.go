@@ -81,7 +81,7 @@ func Run(paths []string) error {
 	v := New(Config{
 		Font: face, MIME: db, Bin: bin, Host: h,
 		Load:      func(ctx context.Context, req preview.Request) preview.Content { return preview.Load(ctx, sources, req) },
-		Documents: documentReader(),
+		Documents: dochelper.Opener(""),
 	})
 	defer v.Close()
 	theme.Attach(v.Root())
@@ -114,18 +114,6 @@ func Run(paths []string) error {
 		ins.Bind(application)
 	}
 	return app.Ended(application.Run())
-}
-
-func documentReader() func(path string) *dochelper.Client {
-	helper, err := dochelper.Locate("")
-	if err != nil {
-		log.Printf("viewer: documents cannot be read, as %s is not run: %v", dochelper.Program, err)
-		return func(path string) *dochelper.Client {
-			return dochelper.NewClient(func() (*dochelper.Process, error) { return nil, err }, path, dochelper.RequestTimeout)
-		}
-	}
-	start := dochelper.Starter(helper, dochelper.Serving{Memory: dochelper.ReadingMemory, FontDirs: dochelper.FontDirs()})
-	return func(path string) *dochelper.Client { return dochelper.NewClient(start, path, dochelper.RequestTimeout) }
 }
 
 func shipIcons() {

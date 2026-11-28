@@ -89,6 +89,22 @@ func Starter(path string, s Serving) func() (*Process, error) {
 	}
 }
 
+// Opener opens documents for a reader through the helper at path, or
+// the one next to the running program for "" (Locate's), serving each
+// within ReadingMemory with the system's fonts (FontDirs). Without the
+// helper it logs why, and every client it makes fails with that.
+func Opener(path string) func(path string) *Client {
+	helper, err := Locate(path)
+	if err != nil {
+		log.Printf("%s: documents cannot be read: %v", Program, err)
+		return func(doc string) *Client {
+			return NewClient(func() (*Process, error) { return nil, err }, doc, RequestTimeout)
+		}
+	}
+	start := Starter(helper, Serving{Memory: ReadingMemory, FontDirs: FontDirs()})
+	return func(doc string) *Client { return NewClient(start, doc, RequestTimeout) }
+}
+
 // Kill kills the helper's process group, unless it was reaped.
 func (p *Process) Kill() {
 	p.mu.Lock()

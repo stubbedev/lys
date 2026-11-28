@@ -11,6 +11,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -19,6 +20,7 @@ import (
 	"github.com/stubbedev/lys/ui/media"
 	"github.com/stubbedev/memory-go"
 
+	"github.com/stubbedev/lys/desktop/dochelper"
 	"github.com/stubbedev/lys/desktop/mime"
 	"github.com/stubbedev/lys/desktop/thumbnail"
 )
@@ -54,21 +56,28 @@ func (p *Pictures) Held() int64 { return p.budget.Held() }
 
 // Sources are what loading reads files through: the MIME database
 // that types them, the thumbnailer that makes a document's thumbnail
-// (nil makes none, so such a file shows its icon), and the pictures'
-// budget.
+// (nil makes none, so such a file shows its icon), the pictures'
+// budget, and what opens a document whole for a request for its pages
+// (nil opens none, so a document shows its thumbnail).
 type Sources struct {
 	MIME       *mime.Database
 	Thumbnails *thumbnail.Thumbnailer
 	Pictures   *Pictures
+	Documents  func(path string) *dochelper.Client
 }
 
 // Request is a file to load, or a picture held in memory (Memory, when
-// Path is ""), and the box in pixels a thumbnail is made to fit.
+// Path is ""), the box in pixels a thumbnail is made to fit, and
+// whether a document loads its pages rather than its thumbnail.
 type Request struct {
 	Path   string
 	Memory *Memory
 	Fit    image.Point
+	Pages  bool
 }
+
+// documentTypes are the types the document helper reads.
+var documentTypes = dochelper.Types()
 
 // Info is what is known of a file besides its contents: its MIME type
 // and the type's description ("" when the database has none), whether
@@ -95,8 +104,9 @@ const (
 )
 
 // Content is a loaded preview of one file: its Info and what it shows
-// as, by its renderer. A view frees what it holds once nothing shows it
-// (discard).
+// as, by its renderer, and for a document shown as its thumbnail or
+// icon, why its pages are not (docErr). A view frees what it holds
+// once nothing shows it (discard).
 type Content struct {
 	info     Info
 	renderer Renderer
@@ -104,8 +114,10 @@ type Content struct {
 	text     string
 	video    media.Source
 	folder   folderStats
+	document document
 	failure  Failure
 	err      error
+	docErr   error
 }
 
 // Renderer is what the content shows as.
@@ -142,7 +154,9 @@ func failed(info Info, f Failure, err error) Content {
 // demuxer; text reads its first TextBytes. A video without a picture,
 // text that does not read as text, and every other type show their
 // thumbnail fitted into the request's box, else their icon. A picture
-// held in memory decodes as a picture file does.
+// held in memory decodes as a picture file does. A document asked for
+// its pages opens through the helper, falling back to its thumbnail,
+// else its icon, with why.
 func Load(ctx context.Context, src Sources, req Request) Content {
 	if req.Memory != nil {
 		return loadMemory(ctx, src, *req.Memory)
@@ -150,6 +164,9 @@ func Load(ctx context.Context, src Sources, req Request) Content {
 	info, err := stat(src.MIME, req.Path)
 	if err != nil {
 		return failed(info, Unreadable, err)
+	}
+	if req.Pages && src.Documents != nil && isDocument(src.MIME, info.Type) {
+		return loadDocument(ctx, src, req, info)
 	}
 	switch RendererFor(src.MIME, info.Type) {
 	case Folder:
@@ -170,6 +187,30 @@ func Load(ctx context.Context, src Sources, req Request) Content {
 		}
 	}
 	return loadThumbnail(ctx, src.Thumbnails, req, info)
+}
+
+func isDocument(db *mime.Database, mimeType string) bool {
+	return slices.ContainsFunc(documentTypes, func(t string) bool { return db.IsA(mimeType, t) })
+}
+
+// loadDocument opens the document at path through the helper and reads
+// what it says of itself. One that does not open shows its thumbnail,
+// else its icon, saying why; the helper it started is closed.
+func loadDocument(ctx context.Context, src Sources, req Request, info Info) Content {
+	client := src.Documents(req.Path)
+	pages, err := client.Info()
+	if err == nil && ctx.Err() == nil {
+		return Content{info: info, renderer: Document, document: document{client: client, info: pages}}
+	}
+	if cerr := client.Close(); cerr != nil {
+		log.Printf("preview: closing %s: %v", req.Path, cerr)
+	}
+	if err == nil {
+		return failed(info, Unreadable, ctx.Err())
+	}
+	c := loadThumbnail(ctx, src.Thumbnails, req, info)
+	c.docErr = fmt.Errorf("preview: reading %s: %w", req.Path, err)
+	return c
 }
 
 // stat is what the file is: its type by name and contents, a folder's

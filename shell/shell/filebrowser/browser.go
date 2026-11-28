@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/dochelper"
 	"github.com/stubbedev/lys/desktop/fileuri"
 	"github.com/stubbedev/lys/desktop/fswatch"
 	"github.com/stubbedev/lys/desktop/i18n"
@@ -134,6 +135,9 @@ type Deps struct {
 	// Animations is the [animations] config Quick Look enters and leaves
 	// with, as the launcher does (config.AnimLauncher).
 	Animations func() config.AnimationsConfig
+	// Documents opens a document for Quick Look to show whole
+	// (dochelper.Opener); nil shows a document's thumbnail.
+	Documents func(path string) *dochelper.Client
 }
 
 // Options are one browse: where it starts, what it lists and offers,

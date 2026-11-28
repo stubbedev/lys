@@ -2,6 +2,7 @@ package preview
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"image"
 	"log"
@@ -14,6 +15,7 @@ import (
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
 
+	"github.com/stubbedev/lys/desktop/dochelper"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/mime"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
@@ -60,6 +62,10 @@ type Config struct {
 	// Open opens a file in its default app, from the Open button; nil
 	// shows no button.
 	Open func(path string)
+	// Pages shows a document whole, its pages scrolled one under
+	// another in the Image box, through the host's Sources.Documents; a
+	// document otherwise shows its thumbnail.
+	Pages bool
 	// Bare shows the preview alone, as macOS's Quick Look does: the name
 	// and the Open button, an icon, in a slim title strip over it, and
 	// no detail line.
@@ -93,6 +99,7 @@ type View struct {
 	code    *widgets.CodeView
 	picture *widget.ImageView
 	video   *widget.Video
+	pages   *pages
 
 	path     string
 	memory   *Memory
@@ -123,6 +130,7 @@ func New(cfg Config) *View {
 	v.picture.AddClass("preview-picture")
 	v.video = widget.NewVideo(cfg.Font, small, nil)
 	v.video.SetAutoplay(cfg.Autoplay)
+	v.pages = newPages(cfg.Invoke, cfg.Spawn)
 	if cfg.Bare {
 		v.frameBare()
 	} else {
@@ -220,6 +228,14 @@ func (v *View) Renderer() Renderer { return v.renderer }
 // a host's zoom and pan keys; it shows nothing under another renderer.
 func (v *View) Picture() *widget.ImageView { return v.picture }
 
+// Pages is how many pages the document shown has, 0 while no
+// document's pages show.
+func (v *View) Pages() int { return v.pages.Pages() }
+
+// PageDrawn reports whether page (from zero) of the document shown
+// shows drawn: pages draw as they scroll near and let go far away.
+func (v *View) PageDrawn(page int) bool { return v.pages.Drawn(page) }
+
 // Stream is the video playing, for a host's playback keys; nil while
 // no video plays.
 func (v *View) Stream() *media.Stream { return v.stream }
@@ -280,7 +296,7 @@ func (v *View) guessedType() string {
 
 // request is what loading what the view shows asks for.
 func (v *View) request() Request {
-	return Request{Path: v.path, Memory: v.memory, Fit: image.Pt(2*v.cfg.Image.X, 2*v.cfg.Image.Y)}
+	return Request{Path: v.path, Memory: v.memory, Fit: image.Pt(2*v.cfg.Image.X, 2*v.cfg.Image.Y), Pages: v.cfg.Pages}
 }
 
 // Close shows nothing: the load running gives up, and what the file
@@ -338,7 +354,7 @@ func (v *View) start() {
 // loaded goes at once.
 func (v *View) land(ctx context.Context, req Request, c Content) {
 	if ctx.Err() != nil || v.request() != req || v.renderer != Loading {
-		discard(c)
+		v.discard(c)
 		return
 	}
 	v.cancel()
@@ -367,10 +383,18 @@ func (v *View) apply(c Content) {
 		v.showIcon(folderIcon)
 	case Icon:
 		v.showIcon(v.iconOf(c.info))
+	case Document:
+		v.pages.show(c.document, v.cfg.Image)
+		v.fit(v.pages.scroll, v.pagesSize())
 	case Failed:
 		v.fail(c.failure, c.err)
 	default:
 		panic(fmt.Sprintf("preview: a load landed as %v", c.renderer))
+	}
+	if c.docErr != nil {
+		log.Print(c.docErr)
+		v.message.SetText(documentMessage(c.docErr))
+		v.visual.Append(v.message, false)
 	}
 	v.setDetail(detail(name, c))
 	v.rendered()
@@ -427,6 +451,26 @@ func message(f Failure) string {
 	panic(fmt.Sprintf("preview: failure %d has no message", f))
 }
 
+// documentMessage is what a view says of a document whose pages do
+// not show, for err.
+func documentMessage(err error) string {
+	for _, f := range []struct {
+		err error
+		id  string
+	}{
+		{dochelper.ErrDamaged, "preview-document-damaged"},
+		{dochelper.ErrEncrypted, "preview-document-encrypted"},
+		{dochelper.ErrTooLarge, "preview-document-too-large"},
+		{dochelper.ErrTimeout, "preview-document-timeout"},
+		{dochelper.ErrUnsupported, "preview-document-unsupported"},
+	} {
+		if errors.Is(err, f.err) {
+			return i18n.T(f.id)
+		}
+	}
+	return i18n.T("preview-document-failed")
+}
+
 func (v *View) iconOf(info Info) string {
 	if info.Dir {
 		return folderIcon
@@ -464,8 +508,15 @@ func (v *View) Fit(img, text image.Point) {
 		v.fitVideo()
 	case Text:
 		v.fit(v.code, v.cfg.Text)
+	case Document:
+		v.pages.fit(v.cfg.Image)
+		v.fit(v.pages.scroll, v.pagesSize())
 	}
 }
+
+// pagesSize is the size a document's pages show in: as wide as they
+// are, as tall as the Image box.
+func (v *View) pagesSize() image.Point { return image.Pt(v.pages.width, v.cfg.Image.Y) }
 
 // fitPicture fits the picture shown into the Image box.
 func (v *View) fitPicture() {
@@ -510,7 +561,8 @@ func (v *View) drop() {
 	if v.shown.picture.img != nil {
 		v.picture.SetImage(nil, exif.TopLeft)
 	}
-	discard(v.shown)
+	v.pages.clear()
+	v.discard(v.shown)
 	v.shown = Content{}
 }
 
@@ -526,9 +578,18 @@ func (v *View) stopVideo() {
 	v.stream = nil
 }
 
-// discard lets go of what c holds: an unshown video at once, pixels
-// once no frame recorded until now draws them.
-func discard(c Content) {
+// discard lets go of what c holds: an unshown video and a document's
+// helper at once (the helper off the loop, as a page it draws may hold
+// it), pixels once no frame recorded until now draws them.
+func (v *View) discard(c Content) {
+	if client := c.document.client; client != nil {
+		path := v.path
+		v.cfg.Spawn(func() {
+			if err := client.Close(); err != nil {
+				log.Printf("preview: closing %s: %v", path, err)
+			}
+		})
+	}
 	if c.video != nil {
 		if err := c.video.Close(); err != nil {
 			log.Printf("preview: closing an unshown video: %v", err)

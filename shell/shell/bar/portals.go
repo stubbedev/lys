@@ -10,6 +10,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/desktopentry"
+	"github.com/stubbedev/lys/desktop/dochelper"
 	"github.com/stubbedev/lys/desktop/fileuri"
 	"github.com/stubbedev/lys/desktop/identity"
 	"github.com/stubbedev/lys/desktop/mime"
@@ -103,6 +104,7 @@ func servePortalHosts(conn *dbus.Conn, application *app.Application, outputs fun
 			ForgetImage:   application.ForgetImage,
 			OpenFile:      quicklook.Opener(application),
 			Animations:    func() config.AnimationsConfig { return current().Animations },
+			Documents:     dochelper.Opener(""),
 		},
 	})
 	if _, err := filechooser.NewDaemon(chooser).Export(conn); err != nil {

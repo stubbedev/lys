@@ -16,7 +16,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/dochelper"
-	"github.com/stubbedev/lys/desktop/docrender"
+	"github.com/stubbedev/lys/desktop/dochelper/dochelpertest"
 	"github.com/stubbedev/lys/desktop/fileops"
 	"github.com/stubbedev/lys/desktop/mime"
 	"github.com/stubbedev/lys/desktop/shell/preview"
@@ -30,40 +30,8 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	if filepath.Base(os.Args[0]) == dochelper.Program {
-		os.Exit(serveDocuments(os.Args[1:]))
-	}
+	dochelpertest.RunIfServing()
 	testhome.Run(m)
-}
-
-func serveDocuments(args []string) int {
-	s, ok, err := dochelper.ParseServing(args)
-	if err == nil && !ok {
-		err = fmt.Errorf("%s: not a serving command line: %q", dochelper.Program, args)
-	}
-	if err == nil {
-		err = s.Memory.Limit()
-	}
-	if err == nil {
-		err = dochelper.Serve(os.Stdin, os.Stdout, &docrender.Reader{})
-	}
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-	}
-	return dochelper.ExitCode(err)
-}
-
-func installedHelper(t *testing.T) string {
-	t.Helper()
-	exe, err := os.Executable()
-	if err != nil {
-		t.Fatal(err)
-	}
-	path := filepath.Join(t.TempDir(), dochelper.Program)
-	if err := os.Symlink(exe, path); err != nil {
-		t.Fatal(err)
-	}
-	return path
 }
 
 func TestTheTestsReachNoHostSession(t *testing.T) { testhome.RequireNoHostSession(t) }
@@ -215,13 +183,9 @@ func (h *harness) Focus(w widget.Widget) { h.focused = append(h.focused, w) }
 
 func (h *harness) documents(path string) *dochelper.Client {
 	if h.helper == "" {
-		h.helper = installedHelper(h.t)
+		h.helper = dochelpertest.Installed(h.t)
 	}
-	helper, err := dochelper.Locate(h.helper)
-	if err != nil {
-		return dochelper.NewClient(func() (*dochelper.Process, error) { return nil, err }, path, dochelper.RequestTimeout)
-	}
-	return dochelper.NewClient(dochelper.Starter(helper, dochelper.Serving{Memory: dochelper.ReadingMemory}), path, dochelper.RequestTimeout)
+	return dochelper.Opener(h.helper)(path)
 }
 
 func (h *harness) drain() {

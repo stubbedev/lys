@@ -2,8 +2,8 @@
 // richest form lys renders, its renderer chosen by the file's MIME
 // type. A picture shows zoomable, a video plays with its controls,
 // text and code show highlighted, a folder counts its items and their
-// size, and anything else shows its sandboxed thumbnail, else its type's
-// icon. A file that cannot be shown says why. Every surface that
+// size, a document shows its pages where the host reads documents, and
+// anything else shows its sandboxed thumbnail, else its type's icon. A file that cannot be shown says why. Every surface that
 // previews files (the file chooser, the launcher, lys-viewer) shows
 // this one view.
 package preview
@@ -21,7 +21,8 @@ import (
 type Renderer uint8
 
 // The renderers. Empty is a view showing nothing and Loading one
-// finding out what to show; Icon is the last fallback, and Failed a
+// finding out what to show; Document is a document's pages, which a
+// view asks for (Config.Pages); Icon is the last fallback, and Failed a
 // file that cannot be shown, which says why.
 const (
 	Empty Renderer = iota
@@ -30,6 +31,7 @@ const (
 	Video
 	Text
 	Folder
+	Document
 	Thumbnail
 	Icon
 	Failed
@@ -49,6 +51,8 @@ func (r Renderer) String() string {
 		return "text"
 	case Folder:
 		return "folder"
+	case Document:
+		return "document"
 	case Thumbnail:
 		return "thumbnail"
 	case Icon:
