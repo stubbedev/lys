@@ -2633,6 +2633,7 @@
       "bytes",
       "context",
       "crypto/sha256",
+      "crypto/tls",
       "crypto/x509",
       "encoding/binary",
       "errors",
@@ -2658,6 +2659,176 @@
       "desktop/vfs/vfstest"
     ],
     "testExternal": [
+      "testing"
+    ]
+  },
+  "desktop/vfs/davfs": {
+    "imports": [
+      "desktop/fileuri",
+      "desktop/vfs"
+    ],
+    "external": [
+      "context",
+      "encoding/xml",
+      "errors",
+      "fmt",
+      "io",
+      "io/fs",
+      "maps",
+      "net",
+      "net/http",
+      "net/url",
+      "path",
+      "slices",
+      "strconv",
+      "strings",
+      "time"
+    ],
+    "testImports": [
+      "desktop/vfs/vfstest"
+    ],
+    "testExternal": [
+      "crypto/x509",
+      "golang.org/x/net/webdav",
+      "net/http/httptest",
+      "testing"
+    ]
+  },
+  "desktop/vfs/ftpfs": {
+    "imports": [
+      "desktop/vfs",
+      "lib/intconv"
+    ],
+    "external": [
+      "context",
+      "crypto/tls",
+      "errors",
+      "fmt",
+      "github.com/jlaffaye/ftp",
+      "io",
+      "io/fs",
+      "net",
+      "net/textproto",
+      "path",
+      "sync"
+    ],
+    "testImports": [
+      "desktop/vfs/ftpfs/ftptest",
+      "desktop/vfs/vfstest"
+    ],
+    "testExternal": [
+      "crypto/x509",
+      "testing"
+    ]
+  },
+  "desktop/vfs/ftpfs/ftptest": {
+    "imports": [
+      "desktop/vfs"
+    ],
+    "external": [
+      "bufio",
+      "crypto/tls",
+      "errors",
+      "fmt",
+      "io",
+      "net",
+      "net/http/httptest",
+      "os",
+      "path",
+      "path/filepath",
+      "strconv",
+      "strings",
+      "sync",
+      "testing"
+    ]
+  },
+  "desktop/vfs/netfs": {
+    "imports": [
+      "desktop/vfs",
+      "desktop/vfs/davfs",
+      "desktop/vfs/ftpfs",
+      "desktop/vfs/sftpfs",
+      "desktop/vfs/smbfs"
+    ],
+    "external": [
+      "context",
+      "fmt"
+    ],
+    "testImports": [
+      "desktop/vfs/ftpfs/ftptest"
+    ],
+    "testExternal": [
+      "errors",
+      "golang.org/x/net/webdav",
+      "net/http/httptest",
+      "testing"
+    ]
+  },
+  "desktop/vfs/sftpfs": {
+    "imports": [
+      "desktop/vfs"
+    ],
+    "external": [
+      "context",
+      "errors",
+      "fmt",
+      "github.com/pkg/sftp",
+      "golang.org/x/crypto/ssh",
+      "golang.org/x/crypto/ssh/agent",
+      "golang.org/x/crypto/ssh/knownhosts",
+      "io",
+      "io/fs",
+      "net",
+      "os",
+      "strings",
+      "time"
+    ],
+    "testImports": [
+      "desktop/vfs/sftpfs/sftptest",
+      "desktop/vfs/vfstest"
+    ],
+    "testExternal": [
+      "path/filepath",
+      "testing"
+    ]
+  },
+  "desktop/vfs/sftpfs/sftptest": {
+    "imports": [
+      "desktop/vfs"
+    ],
+    "external": [
+      "crypto/ed25519",
+      "crypto/rand",
+      "errors",
+      "github.com/pkg/sftp",
+      "golang.org/x/crypto/ssh",
+      "net",
+      "strconv",
+      "sync",
+      "testing"
+    ]
+  },
+  "desktop/vfs/smbfs": {
+    "imports": [
+      "desktop/vfs"
+    ],
+    "external": [
+      "context",
+      "errors",
+      "fmt",
+      "github.com/hirochachacha/go-smb2",
+      "io",
+      "io/fs",
+      "os",
+      "path",
+      "strings",
+      "sync"
+    ],
+    "testExternal": [
+      "encoding/asn1",
+      "encoding/binary",
+      "net",
+      "strconv",
       "testing"
     ]
   },
@@ -16229,6 +16400,47 @@
     ],
     "external": [
       "golang.org/x/sys/unix",
+      "testing"
+    ]
+  },
+  "wm/internal/scanner": {
+    "imports": [
+      "lib/protocols",
+      "lib/srcroot",
+      "wm/internal/wire"
+    ],
+    "external": [
+      "bytes",
+      "cmp",
+      "encoding/json",
+      "encoding/xml",
+      "errors",
+      "flag",
+      "fmt",
+      "go/format",
+      "go/token",
+      "go/types",
+      "io",
+      "maps",
+      "os",
+      "path",
+      "path/filepath",
+      "slices",
+      "strconv",
+      "strings"
+    ],
+    "testImports": [
+      "lib/testhome",
+      "wm/internal/protocol/client/wayland",
+      "wm/internal/protocol/server/cursorshape",
+      "wm/internal/protocol/server/presentationtime",
+      "wm/internal/protocol/server/wayland",
+      "wm/internal/protocol/server/wlrlayershell",
+      "wm/internal/protocol/server/xdgshell"
+    ],
+    "testExternal": [
+      "golang.org/x/sys/unix",
+      "runtime",
       "testing"
     ]
   },
