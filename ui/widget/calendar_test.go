@@ -308,3 +308,16 @@ func TestCalendarFillsItsWidth(t *testing.T) {
 		t.Errorf("selection shape %v in column %v, want a %dpx square centered", s, sel, c.cell)
 	}
 }
+
+func TestADateFormatsAnyYear(t *testing.T) {
+	for d, want := range map[Date]string{
+		{Year: 2026, Month: time.November, Day: 3}:     "2026-11-03",
+		{Year: 123456789, Month: time.January, Day: 2}: "123456789-01-02",
+		{Year: -44, Month: time.March, Day: 15}:        "-44-03-15",
+		{Year: 0, Month: time.December, Day: 31}:       "0-12-31",
+	} {
+		if got := formatDate(CalendarCatalog{}, "%Y-%m-%d", d); got != want {
+			t.Errorf("%+v formats as %q, want %q", d, got, want)
+		}
+	}
+}

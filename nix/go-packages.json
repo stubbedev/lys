@@ -13735,6 +13735,7 @@
     "external": [
       "context",
       "errors",
+      "strconv",
       "sync",
       "sync/atomic",
       "time"
@@ -13749,7 +13750,6 @@
       "os",
       "runtime",
       "slices",
-      "strconv",
       "strings",
       "testing"
     ]

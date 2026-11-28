@@ -6,6 +6,7 @@ package widget
 // case is today's pixels.
 
 import (
+	"strconv"
 	"testing"
 
 	"github.com/stubbedev/lys/lib/render"
@@ -85,7 +86,7 @@ func installFixtureResolver(t *testing.T) *[]string {
 	}
 	var calls []string
 	SetFaceResolver(func(family string, weight int) (render.Font, bool) {
-		calls = append(calls, family+"/"+itoa(weight))
+		calls = append(calls, family+"/"+strconv.Itoa(weight))
 		if family == "hebrew" || weight >= 600 {
 			return hebrew, true
 		}

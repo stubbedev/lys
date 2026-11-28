@@ -1,6 +1,7 @@
 package widget
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/stubbedev/lys/lib/render"
@@ -97,7 +98,7 @@ func formatDate(names CalendarNames, layout string, d Date) string {
 		case 'B':
 			b = append(b, names.MonthName(d.Month)...)
 		case 'Y':
-			b = append(b, itoa(d.Year)...)
+			b = strconv.AppendInt(b, int64(d.Year), 10)
 		case 'd':
 			b = appendTwo(b, d.Day, pad)
 		case 'm':
@@ -114,7 +115,7 @@ func appendTwo(b []byte, v int, pad bool) []byte {
 	if pad && v < 10 {
 		b = append(b, '0')
 	}
-	return append(b, itoa(v)...)
+	return strconv.AppendInt(b, int64(v), 10)
 }
 
 // MonthName implements CalendarNames.
@@ -548,7 +549,7 @@ func (c *Calendar) Paint(cv *render.Canvas) {
 	for i := range c.months {
 		m := c.view.AddMonths(i)
 		x, y := c.monthOrigin(i)
-		title := names.MonthName(m.Month) + " " + itoa(m.Year)
+		title := names.MonthName(m.Month) + " " + strconv.Itoa(m.Year)
 		c.face.DrawAligned(cv, title, render.Rect{X: x, Y: y, W: c.monthWidth(), H: c.titleH}, c.sizePx, th.Text, render.AlignCenter)
 		gx, _ := c.dayGrid(i)
 		start := c.firstWeekday()
@@ -628,21 +629,6 @@ var dayNumbers = [...]string{
 }
 
 func dayNumber(d int) string { return dayNumbers[d-1] }
-
-// itoa renders a small integer without fmt.
-func itoa(v int) string {
-	if v == 0 {
-		return "0"
-	}
-	var buf [8]byte
-	i := len(buf)
-	for v > 0 {
-		i--
-		buf[i] = byte('0' + v%10)
-		v /= 10
-	}
-	return string(buf[i:])
-}
 
 // Role implements Roleer.
 func (c *Calendar) Role() Role { return RoleCalendar }

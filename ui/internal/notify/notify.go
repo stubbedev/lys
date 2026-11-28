@@ -15,6 +15,7 @@ package notify
 import (
 	"context"
 	"errors"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -328,7 +329,7 @@ func (n *Notifier) release(bus Bus, unwatch func() error) {
 // here, stable across transports, safe to hand to Close. The body is
 // capped at maxBodyRunes runes.
 func (n *Notifier) Notify(nf Notification) string {
-	id := "lys-ui-" + time.Now().Format("20060102T150405.000000000") + "-" + itoa(n.nextID.Add(1))
+	id := "lys-ui-" + time.Now().Format("20060102T150405.000000000") + "-" + strconv.FormatInt(n.nextID.Add(1), 10)
 	nf.Body = capBody(nf.Body)
 	if !n.queue.Post(func() { n.send(id, nf) }) {
 		logutil.L().Debug("notify: dropped a notification, the worker is stuck or stopped", "id", id)
@@ -469,18 +470,4 @@ func (n *Notifier) forgetClassic(classic uint32) {
 	defer n.mu.Unlock()
 	delete(n.classicOf, n.classicIDs[classic])
 	delete(n.classicIDs, classic)
-}
-
-func itoa(v int64) string {
-	if v == 0 {
-		return "0"
-	}
-	var buf [20]byte
-	i := len(buf)
-	for v > 0 {
-		i--
-		buf[i] = byte('0' + v%10)
-		v /= 10
-	}
-	return string(buf[i:])
 }

@@ -1,6 +1,8 @@
 package widget
 
 import (
+	"strconv"
+
 	"github.com/stubbedev/lys/lib/render"
 
 	"github.com/stubbedev/lys/ui/internal/style"
@@ -403,7 +405,7 @@ func (s *SegmentIndicator) SetCount(n int) {
 		slot.SetVAlign(AlignCenter)
 		seg := NewButton(slot, 0, 0)
 		seg.AddClass("segment")
-		seg.SetAccessibleName(Tr("Segment") + " " + itoa(i+1))
+		seg.SetAccessibleName(Tr("Segment") + " " + strconv.Itoa(i+1))
 		seg.OnClick = func() {
 			if s.OnSelect != nil {
 				s.OnSelect(i)
