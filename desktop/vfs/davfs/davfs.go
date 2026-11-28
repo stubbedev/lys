@@ -21,8 +21,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/stubbedev/lys/desktop/fileuri"
 	"github.com/stubbedev/lys/desktop/vfs"
-	"github.com/stubbedev/lys/lib/fileuri"
 )
 
 // headerTimeout bounds how long a server may take to answer a request.

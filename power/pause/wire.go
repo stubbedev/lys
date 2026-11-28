@@ -28,8 +28,6 @@ const (
 	callTimeout = 5 * time.Second
 )
 
-const propertiesChanged = dbusx.PropertiesInterface + ".PropertiesChanged"
-
 type wireEntry struct {
 	Unit   string
 	Status string
@@ -120,7 +118,7 @@ func (s *Server) Publish(st State) error {
 	s.mu.Lock()
 	s.state = wire
 	s.mu.Unlock()
-	if err := s.conn.Emit(ServicePath, propertiesChanged, Interface, map[string]dbus.Variant{Property: dbus.MakeVariant(wire)}, []string{}); err != nil {
+	if err := dbusx.PropertiesChanged.Emit(s.conn, ServicePath, dbusx.ChangedProperties{Interface: Interface, Changed: map[string]dbus.Variant{Property: dbus.MakeVariant(wire)}}); err != nil {
 		return fmt.Errorf("emit %s: %w", Property, err)
 	}
 	return nil
@@ -184,11 +182,11 @@ func NewClient(conn *dbus.Conn) *Client {
 }
 
 func (c *Client) State(ctx context.Context) (State, error) {
-	var v dbus.Variant
-	if err := c.obj.CallWithContext(ctx, dbusx.PropertiesInterface+".Get", 0, Interface, Property).Store(&v); err != nil {
-		return State{}, fmt.Errorf("read %s from %s: %w", Property, ServiceName, err)
+	w, err := dbusx.Get[wireState](ctx, c.obj, Interface, Property)
+	if err != nil {
+		return State{}, err
 	}
-	s, err := decode(v)
+	s, err := fromWire(w)
 	if err != nil {
 		return State{}, fmt.Errorf("read %s from %s: %w", Property, ServiceName, err)
 	}
@@ -217,31 +215,13 @@ func (c *Client) Resume(ctx context.Context) error {
 }
 
 func Changed(sig *dbus.Signal) (State, bool, error) {
-	if sig.Path != ServicePath || sig.Name != propertiesChanged || len(sig.Body) != 3 {
-		return State{}, false, nil
+	w, ok, err := dbusx.ChangedProperty[wireState](sig, ServicePath, Interface, Property)
+	if err != nil || !ok {
+		return State{}, false, err
 	}
-	if iface, _ := sig.Body[0].(string); iface != Interface {
-		return State{}, false, nil
-	}
-	changed, ok := sig.Body[1].(map[string]dbus.Variant)
-	if !ok {
-		return State{}, false, fmt.Errorf("%s from %s: changed properties of type %T", propertiesChanged, sig.Sender, sig.Body[1])
-	}
-	v, ok := changed[Property]
-	if !ok {
-		return State{}, false, nil
-	}
-	s, err := decode(v)
+	s, err := fromWire(w)
 	if err != nil {
-		return State{}, false, fmt.Errorf("%s from %s: %w", propertiesChanged, sig.Sender, err)
+		return State{}, false, fmt.Errorf("%s from %s: %w", dbusx.PropertiesChanged.Name(), sig.Sender, err)
 	}
 	return s, true, nil
-}
-
-func decode(v dbus.Variant) (State, error) {
-	var w wireState
-	if err := v.Store(&w); err != nil {
-		return State{}, fmt.Errorf("%s of signature %s: %w", Property, v.Signature(), err)
-	}
-	return fromWire(w)
 }

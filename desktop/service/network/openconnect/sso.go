@@ -22,8 +22,8 @@ import (
 	"unicode/utf8"
 
 	"github.com/stubbedev/lys/desktop/desktopentry"
+	"github.com/stubbedev/lys/desktop/fileuri"
 	"github.com/stubbedev/lys/desktop/opener"
-	"github.com/stubbedev/lys/lib/fileuri"
 )
 
 // AnyConnect single sign-on through the system browser: the

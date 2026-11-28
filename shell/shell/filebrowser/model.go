@@ -17,11 +17,11 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/stubbedev/lys/desktop/fileuri"
 	"github.com/stubbedev/lys/desktop/glob"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/mime"
 	"github.com/stubbedev/lys/desktop/vfs"
-	"github.com/stubbedev/lys/lib/fileuri"
 	"github.com/stubbedev/lys/lib/intconv"
 	"github.com/stubbedev/lys/lib/xdg"
 )

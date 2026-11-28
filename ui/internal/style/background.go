@@ -3,8 +3,6 @@ package style
 import (
 	"slices"
 	"strings"
-
-	"github.com/stubbedev/lys/lib/fileuri"
 )
 
 // Background and mask image layers (css-backgrounds-3 §3, css-images-4
@@ -276,11 +274,7 @@ func imageSetOf(args []token, cx *ctx) (ImageSource, bool) {
 		}
 		var img ImageSource
 		if len(comps[0]) == 1 && comps[0][0].kind == tkString {
-			u, ok := fileuri.PathOf(comps[0][0].s)
-			if !ok {
-				return ImageSource{}, false
-			}
-			img = ImageSource{URL: u}
+			img = ImageSource{URL: strings.TrimPrefix(comps[0][0].s, "file://")}
 		} else if s, ok := imageOf(comps[0], cx); ok && !s.None() {
 			img = s
 		} else {

@@ -59,7 +59,7 @@ func (s *Server) Publish(state State) error {
 	if same {
 		return nil
 	}
-	if err := s.conn.Emit(ServicePath, propertiesChanged, Interface, map[string]dbus.Variant{Property: dbus.MakeVariant(state.String())}, []string{}); err != nil {
+	if err := dbusx.PropertiesChanged.Emit(s.conn, ServicePath, dbusx.ChangedProperties{Interface: Interface, Changed: map[string]dbus.Variant{Property: dbus.MakeVariant(state.String())}}); err != nil {
 		return fmt.Errorf("emit %s change to %s: %w", Property, state, err)
 	}
 	return nil

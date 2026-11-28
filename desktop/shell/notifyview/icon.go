@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/stubbedev/lys/lib/fileuri"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
@@ -52,7 +51,7 @@ func IsFileIcon(icon Icon) bool {
 // or the cached PNG of inline image data; "" when the icon shows
 // anything else.
 func Attachment(icon Icon, imagePath string) string {
-	if path, ok := fileuri.PathOf(imagePath); icon.File == "" || !ok || path != icon.File {
+	if icon.File == "" || strings.TrimPrefix(imagePath, "file://") != icon.File {
 		return ""
 	}
 	return icon.File

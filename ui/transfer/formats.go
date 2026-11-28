@@ -9,11 +9,10 @@ import (
 	"image/draw"
 	"image/jpeg"
 	"image/png"
+	"net/url"
 	"path/filepath"
 	"strings"
 	"unicode/utf16"
-
-	"github.com/stubbedev/lys/lib/fileuri"
 )
 
 // jpegQuality is the offered JPEG's quality: the image editors that
@@ -74,11 +73,21 @@ func FileURI(path string) string {
 	if !filepath.IsAbs(path) {
 		return path
 	}
-	return fileuri.FromPath(path)
+	return (&url.URL{Scheme: "file", Path: path}).String()
 }
 
-// URIPath decodes a local file:// uri to its path, by [fileuri.Path].
-func URIPath(uri string) (string, bool) { return fileuri.Path(uri) }
+// URIPath decodes a local file:// uri to its path; remote hosts,
+// other schemes, bad escapes, and empty paths are not local files.
+func URIPath(uri string) (string, bool) {
+	if !strings.HasPrefix(uri, "file:") {
+		return "", false
+	}
+	u, err := url.Parse(uri)
+	if err != nil || u.Scheme != "file" || u.Host != "" && u.Host != "localhost" || u.Path == "" {
+		return "", false
+	}
+	return u.Path, true
+}
 
 // HTML is formatted text: html for rich targets, plain for the rest.
 func HTML(html, plain string) Content {

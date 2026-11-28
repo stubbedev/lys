@@ -1,6 +1,5 @@
 // Package fileuri is the percent-encoding and file:// URI handling
-// every lys component shares: one rule for which URIs name a local
-// file and how their paths decode.
+// lys-shell's portal, clipboard and VPN code share.
 package fileuri
 
 import (
@@ -44,45 +43,19 @@ func Encode(s, keep string) string {
 	return b.String()
 }
 
-// Path decodes a local file URI's path: file:/p, file:///p or
-// file://localhost/p, its query and fragment dropped. A remote host
-// (file://host/p), another scheme, a path that is not absolute and one
-// that decodes to a NUL byte are not local paths.
+// Path decodes a file:// URI's path, dropping any authority
+// (file://host/path); another scheme, or a file URI with no path, is
+// not a path.
 func Path(uri string) (string, bool) {
-	rest, ok := strings.CutPrefix(uri, "file:")
+	rest, ok := strings.CutPrefix(uri, "file://")
 	if !ok {
 		return "", false
 	}
-	if authority, ok := strings.CutPrefix(rest, "//"); ok {
-		slash := strings.IndexByte(authority, '/')
-		if slash < 0 {
-			return "", false
-		}
-		if host := authority[:slash]; host != "" && !strings.EqualFold(host, "localhost") {
-			return "", false
-		}
-		rest = authority[slash:]
-	}
-	if end := strings.IndexAny(rest, "?#"); end >= 0 {
-		rest = rest[:end]
-	}
-	if !strings.HasPrefix(rest, "/") {
+	slash := strings.IndexByte(rest, '/')
+	if slash < 0 {
 		return "", false
 	}
-	path := DecodeString(rest)
-	if strings.IndexByte(path, 0) >= 0 {
-		return "", false
-	}
-	return path, true
-}
-
-// PathOf is the local path s names: a file URI decodes by [Path], and
-// anything else is s itself, unless empty.
-func PathOf(s string) (string, bool) {
-	if strings.HasPrefix(s, "file:") {
-		return Path(s)
-	}
-	return s, s != ""
+	return DecodeString(rest[slash:]), true
 }
 
 // FromPath is the file:// URI of an absolute path, as

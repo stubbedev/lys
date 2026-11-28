@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/stubbedev/lys/desktop/fileuri"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/lib/atomicfile"
-	"github.com/stubbedev/lys/lib/fileuri"
 	"github.com/stubbedev/lys/lib/xdg"
 	"github.com/stubbedev/lys/ui/widget"
 )

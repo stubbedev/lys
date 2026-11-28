@@ -142,7 +142,7 @@ func TestChangeLockAndFirstLoginRunTheKDFWithoutTheLock(t *testing.T) {
 		t.Fatal(derr)
 	}
 	conn := f.bus.Conn(t)
-	if err := conn.Object(BusName, path).Call(secretbus.PromptInterface+".Prompt", 0, "").Err; err != nil {
+	if err := conn.Object(secretbus.BusName, path).Call(secretbus.PromptInterface+".Prompt", 0, "").Err; err != nil {
 		t.Fatal(err)
 	}
 	f.kdf.reached(t, "the new password's KDF")
@@ -379,7 +379,7 @@ func TestAnAliasSaveHoldsNoLock(t *testing.T) {
 	go func() { done <- serviceMethods{f.svc}.SetAlias("other", collectionPath(LoginID)) }()
 	disk.reached(t, "the alias save")
 	f.search(t)
-	if got, _ := (serviceMethods{f.svc}).ReadAlias("other"); got != noPrompt {
+	if got, _ := (serviceMethods{f.svc}).ReadAlias("other"); got != secretbus.NoObject {
 		t.Errorf("a read during the write sees the alias at %s, which a crash would still undo", got)
 	}
 	close(disk.release)

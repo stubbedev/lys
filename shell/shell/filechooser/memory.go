@@ -11,7 +11,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/stubbedev/lys/lib/fileuri"
+	"github.com/stubbedev/lys/desktop/fileuri"
 
 	"github.com/stubbedev/lys/shell/internal/statefile"
 )

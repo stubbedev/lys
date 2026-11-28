@@ -8,7 +8,6 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
-	"github.com/stubbedev/lys/desktop/service/mpris"
 	"github.com/stubbedev/lys/desktop/shell/lockview"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/render"
@@ -424,19 +423,4 @@ func TestWithFingerprintOffThereIsNoFingerprintPrompt(t *testing.T) {
 			t.Error("fingerprint off built a fingerprint prompt")
 		}
 	})
-}
-
-func TestNowPlayingArtIsALocalFileOnly(t *testing.T) {
-	for art, want := range map[string]string{
-		"file:///covers/kind%20of%20blue.png": "/covers/kind of blue.png",
-		"file://localhost/covers/a.png":       "/covers/a.png",
-		"file://otherhost/covers/a.png":       "",
-		"https://example.org/covers/a.png":    "",
-		"":                                    "",
-	} {
-		np, ok := nowPlayingOf(mpris.Player{Title: "Blue in Green", ArtURL: art}, true)
-		if !ok || np.ArtPath != want {
-			t.Errorf("art %q: path %q, %v; want %q", art, np.ArtPath, ok, want)
-		}
-	}
 }

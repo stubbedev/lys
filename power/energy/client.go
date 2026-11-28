@@ -15,11 +15,11 @@ func NewClient(conn *dbus.Conn) *Client {
 }
 
 func (c *Client) Report(ctx context.Context) (Report, error) {
-	var v dbus.Variant
-	if err := c.obj.CallWithContext(ctx, dbusx.PropertiesInterface+".Get", 0, Interface, Property).Store(&v); err != nil {
-		return Report{}, fmt.Errorf("read %s from %s: %w", Property, ServiceName, err)
+	w, err := dbusx.Get[wireReport](ctx, c.obj, Interface, Property)
+	if err != nil {
+		return Report{}, err
 	}
-	r, err := decode(v)
+	r, err := fromWire(w)
 	if err != nil {
 		return Report{}, fmt.Errorf("read %s from %s: %w", Property, ServiceName, err)
 	}
@@ -34,31 +34,13 @@ func (c *Client) Watch(ctx context.Context) error {
 }
 
 func Changed(sig *dbus.Signal) (Report, bool, error) {
-	if sig.Path != ServicePath || sig.Name != propertiesChanged || len(sig.Body) != 3 {
-		return Report{}, false, nil
+	w, ok, err := dbusx.ChangedProperty[wireReport](sig, ServicePath, Interface, Property)
+	if err != nil || !ok {
+		return Report{}, false, err
 	}
-	if iface, _ := sig.Body[0].(string); iface != Interface {
-		return Report{}, false, nil
-	}
-	changed, ok := sig.Body[1].(map[string]dbus.Variant)
-	if !ok {
-		return Report{}, false, fmt.Errorf("%s from %s: changed properties of type %T", propertiesChanged, sig.Sender, sig.Body[1])
-	}
-	v, ok := changed[Property]
-	if !ok {
-		return Report{}, false, nil
-	}
-	r, err := decode(v)
+	r, err := fromWire(w)
 	if err != nil {
-		return Report{}, false, fmt.Errorf("%s from %s: %w", propertiesChanged, sig.Sender, err)
+		return Report{}, false, fmt.Errorf("%s from %s: %w", dbusx.PropertiesChanged.Name(), sig.Sender, err)
 	}
 	return r, true, nil
-}
-
-func decode(v dbus.Variant) (Report, error) {
-	var w wireReport
-	if err := v.Store(&w); err != nil {
-		return Report{}, fmt.Errorf("%s of signature %s: %w", Property, v.Signature(), err)
-	}
-	return fromWire(w)
 }

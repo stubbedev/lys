@@ -12,6 +12,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"io"
 	"math/big"
 )
 
@@ -21,18 +22,53 @@ const (
 	AlgDH    = "dh-ietf1024-sha256-aes128-cbc-pkcs7"
 )
 
-// Prime is the 1024-bit MODP group of RFC 2409 §6.2 (Oakley group 2),
-// generator Generator, the group the spec names for its DH transport.
-var Prime, _ = new(big.Int).SetString(
-	"FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1"+
-		"29024E088A67CC74020BBEA63B139B22514A08798E3404DD"+
-		"EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245"+
-		"E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7ED"+
-		"EE386BFB5A899FA5AE9F24117C4B1FE649286651ECE65381"+
-		"FFFFFFFFFFFFFFFF", 16)
+var prime = mustParseHex(
+	"FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
+		"29024E088A67CC74020BBEA63B139B22514A08798E3404DD" +
+		"EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245" +
+		"E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7ED" +
+		"EE386BFB5A899FA5AE9F24117C4B1FE649286651ECE65381" +
+		"FFFFFFFFFFFFFFFF")
 
-// Generator is the group's generator.
-var Generator = big.NewInt(2)
+var (
+	one       = big.NewInt(1)
+	generator = big.NewInt(2)
+	primeLess = new(big.Int).Sub(prime, one)
+)
+
+func mustParseHex(s string) *big.Int {
+	n, ok := new(big.Int).SetString(s, 16)
+	if !ok {
+		panic("transport: the prime " + s + " is not hexadecimal")
+	}
+	return n
+}
+
+// Prime is a copy of the 1024-bit MODP group of RFC 2409 §6.2 (Oakley
+// group 2), generator 2, the group the spec names for its DH transport.
+func Prime() *big.Int { return new(big.Int).Set(prime) }
+
+// KeyPair draws a private key in [1, p−1) from random and its public key,
+// the generator to its power.
+func KeyPair(random io.Reader) (priv *big.Int, public []byte, err error) {
+	priv, err = rand.Int(random, primeLess)
+	if err != nil {
+		return nil, nil, fmt.Errorf("DH private key: %w", err)
+	}
+	priv.Add(priv, one)
+	return priv, new(big.Int).Exp(generator, priv, prime).Bytes(), nil
+}
+
+// Shared is the secret the other end's public key peer and priv agree
+// on, padded to PrimeLen. A peer outside 1 < y < p−1 is refused: 0, 1 and
+// p−1 make the secret one an eavesdropper predicts.
+func Shared(peer []byte, priv *big.Int) ([]byte, error) {
+	y := new(big.Int).SetBytes(peer)
+	if y.Cmp(one) <= 0 || y.Cmp(primeLess) >= 0 {
+		return nil, fmt.Errorf("the other end's DH public key %x is outside 1 < y < p−1", peer)
+	}
+	return new(big.Int).Exp(y, priv, prime).FillBytes(make([]byte, PrimeLen)), nil
+}
 
 // PrimeLen is the prime's length in bytes, the shared secret's padded
 // encoding.

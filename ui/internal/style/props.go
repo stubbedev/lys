@@ -7,7 +7,6 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/stubbedev/lys/lib/fileuri"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/third_party/gomath"
 )
@@ -625,7 +624,8 @@ func parseOpacity(ts []token, cx *ctx, v *Values) bool {
 }
 
 // backgroundImageURL parses url(...) — a quoted string — to a local
-// file path by [fileuri.PathOf]. lys-ui loads no network images; a bare (unquoted) path
+// file path: a file:// URL strips the scheme, anything else is the
+// path itself. lys-ui loads no network images; a bare (unquoted) path
 // tokenizes piecemeal and is not accepted, the way producers write
 // quoted urls anyway.
 func backgroundImageURL(ts []token) (string, bool) {
@@ -636,7 +636,12 @@ func backgroundImageURL(ts []token) (string, bool) {
 	if len(args) != 1 || args[0].kind != tkString {
 		return "", false
 	}
-	return fileuri.PathOf(strings.Trim(strings.TrimSpace(args[0].s), "\"'"))
+	path := strings.Trim(strings.TrimSpace(args[0].s), "\"'")
+	path = strings.TrimPrefix(path, "file://")
+	if path == "" {
+		return "", false
+	}
+	return path, true
 }
 
 // gradientFuncs maps the gradient functions onto their kind and

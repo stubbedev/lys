@@ -4,12 +4,10 @@ import (
 	"context"
 	"encoding/base64"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/stubbedev/lys/lib/fileuri"
 	"github.com/stubbedev/lys/lib/waittest"
 )
 
@@ -166,18 +164,14 @@ func TestARedirectToSomethingThatIsNotAWebAddressIsRefused(t *testing.T) {
 }
 
 func TestAPostRequestBecomesAPrivateFileTheBrowserCanOpen(t *testing.T) {
-	tmp := filepath.Join(t.TempDir(), "my tmp#1")
-	if err := os.Mkdir(tmp, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("TMPDIR", tmp)
+	t.Setenv("TMPDIR", t.TempDir())
 	html := `<html><body onload="f.submit()"></body></html>`
 	url, err := browserURL(samlRequest{method: samlPost, payload: html})
 	if err != nil {
 		t.Fatal(err)
 	}
-	path, ok := fileuri.Path(url)
-	if !ok || filepath.Dir(path) != tmp {
+	path, ok := strings.CutPrefix(url, "file://")
+	if !ok {
 		t.Fatalf("url = %q", url)
 	}
 	if raw, _ := os.ReadFile(path); string(raw) != html {

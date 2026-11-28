@@ -3,8 +3,8 @@ package portal
 import (
 	"context"
 	"errors"
+	"net/url"
 
-	"github.com/stubbedev/lys/lib/fileuri"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
@@ -52,9 +52,9 @@ func OpenFile(ctx context.Context, conn *dbus.Conn, title string, filters ...Fil
 	if len(uris) == 0 {
 		return "", errors.New("portal: OpenFile returned no file")
 	}
-	path, ok := fileuri.Path(uris[0])
-	if !ok {
+	u, err := url.Parse(uris[0])
+	if err != nil || u.Scheme != "file" {
 		return "", errors.New("portal: OpenFile returned a non-local file: " + uris[0])
 	}
-	return path, nil
+	return u.Path, nil
 }

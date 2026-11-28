@@ -12,8 +12,6 @@ import (
 	"time"
 	"unicode"
 	"unicode/utf8"
-
-	"github.com/stubbedev/lys/lib/fileuri"
 )
 
 // GlobalProtect SAML sign-in through the system browser.
@@ -302,7 +300,7 @@ func browserURL(request samlRequest) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		return fileuri.FromPath(path), nil
+		return "file://" + path, nil
 	}
 	if !isOpenableURL(request.payload) {
 		return "", authError("the gateway asked to open something that is not a web address")

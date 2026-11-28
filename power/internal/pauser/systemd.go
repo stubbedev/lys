@@ -52,27 +52,15 @@ func (s Systemd) Running(ctx context.Context, name string) (bool, error) {
 		return false, fmt.Errorf("find %s: %w", name, err)
 	}
 	unit := s.Conn.Object(SystemdName, path)
-	active, err := stringProperty(ctx, unit, "ActiveState")
+	active, err := dbusx.Get[string](ctx, unit, SystemdUnit, "ActiveState")
 	if err != nil {
 		return false, fmt.Errorf("read whether %s is active: %w", name, err)
 	}
-	freezer, err := stringProperty(ctx, unit, "FreezerState")
+	freezer, err := dbusx.Get[string](ctx, unit, SystemdUnit, "FreezerState")
 	if err != nil {
 		return false, fmt.Errorf("read whether %s is frozen: %w", name, err)
 	}
 	return (active == "active" || active == "reloading") && freezer == "running", nil
-}
-
-func stringProperty(ctx context.Context, unit dbus.BusObject, name string) (string, error) {
-	var v dbus.Variant
-	if err := unit.CallWithContext(ctx, dbusx.PropertiesInterface+".Get", 0, SystemdUnit, name).Store(&v); err != nil {
-		return "", err
-	}
-	text, ok := v.Value().(string)
-	if !ok {
-		return "", fmt.Errorf("%s is a %s, not a string", name, v.Signature())
-	}
-	return text, nil
 }
 
 func (s Systemd) Freeze(ctx context.Context, name string) error {

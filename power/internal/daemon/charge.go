@@ -95,7 +95,7 @@ func ReadDeparture(path string) (time.Time, error) {
 }
 
 // RequestFull asks for a full charge until the next unplug.
-func RequestFull(cfg config.Config, now time.Time) error {
+func RequestFull(cfg config.Paths, now time.Time) error {
 	path := cfg.FullNowPath()
 	err := os.WriteFile(path, []byte(strconv.FormatInt(now.Unix(), 10)), 0o600)
 	if errors.Is(err, fs.ErrNotExist) {
@@ -196,7 +196,7 @@ func (c *charges) ChargeFull(ctx context.Context, caller charge.Caller) error {
 	if err := c.allowed(ctx, caller); err != nil {
 		return err
 	}
-	return RequestFull(c.cfg, time.Now())
+	return RequestFull(c.cfg.Paths, time.Now())
 }
 
 func (c *charges) SetDeparture(ctx context.Context, caller charge.Caller, at time.Time) error {

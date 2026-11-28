@@ -9,8 +9,6 @@ import (
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
-const propertiesChanged = dbusx.PropertiesInterface + ".PropertiesChanged"
-
 // Server publishes the reports.
 type Server struct {
 	conn *dbus.Conn
@@ -47,7 +45,7 @@ func (s *Server) Publish(reports []Report) error {
 	s.mu.Lock()
 	s.reports = wire
 	s.mu.Unlock()
-	if err := s.conn.Emit(ServicePath, propertiesChanged, Interface, map[string]dbus.Variant{Property: dbus.MakeVariant(wire)}, []string{}); err != nil {
+	if err := dbusx.PropertiesChanged.Emit(s.conn, ServicePath, dbusx.ChangedProperties{Interface: Interface, Changed: map[string]dbus.Variant{Property: dbus.MakeVariant(wire)}}); err != nil {
 		return fmt.Errorf("emit %s with %d sleeps: %w", Property, len(reports), err)
 	}
 	return nil
@@ -63,11 +61,11 @@ func NewClient(conn *dbus.Conn) *Client {
 
 // Sleeps is the reports, oldest first.
 func (c *Client) Sleeps(ctx context.Context) ([]Report, error) {
-	var v dbus.Variant
-	if err := c.obj.CallWithContext(ctx, dbusx.PropertiesInterface+".Get", 0, Interface, Property).Store(&v); err != nil {
-		return nil, fmt.Errorf("read %s from %s: %w", Property, ServiceName, err)
+	w, err := dbusx.Get[[]Wire](ctx, c.obj, Interface, Property)
+	if err != nil {
+		return nil, err
 	}
-	rs, err := decode(v)
+	rs, err := fromWires(w)
 	if err != nil {
 		return nil, fmt.Errorf("read %s from %s: %w", Property, ServiceName, err)
 	}
@@ -77,31 +75,13 @@ func (c *Client) Sleeps(ctx context.Context) ([]Report, error) {
 // Changed reads the reports out of a PropertiesChanged, false when the
 // signal does not carry them.
 func Changed(sig *dbus.Signal) ([]Report, bool, error) {
-	if sig.Path != ServicePath || sig.Name != propertiesChanged || len(sig.Body) != 3 {
-		return nil, false, nil
+	w, ok, err := dbusx.ChangedProperty[[]Wire](sig, ServicePath, Interface, Property)
+	if err != nil || !ok {
+		return nil, false, err
 	}
-	if iface, _ := sig.Body[0].(string); iface != Interface {
-		return nil, false, nil
-	}
-	changed, ok := sig.Body[1].(map[string]dbus.Variant)
-	if !ok {
-		return nil, false, fmt.Errorf("%s from %s: changed properties of type %T", propertiesChanged, sig.Sender, sig.Body[1])
-	}
-	v, ok := changed[Property]
-	if !ok {
-		return nil, false, nil
-	}
-	rs, err := decode(v)
+	rs, err := fromWires(w)
 	if err != nil {
-		return nil, false, fmt.Errorf("%s from %s: %w", propertiesChanged, sig.Sender, err)
+		return nil, false, fmt.Errorf("%s from %s: %w", dbusx.PropertiesChanged.Name(), sig.Sender, err)
 	}
 	return rs, true, nil
-}
-
-func decode(v dbus.Variant) ([]Report, error) {
-	var ws []Wire
-	if err := v.Store(&ws); err != nil {
-		return nil, fmt.Errorf("%s of signature %s: %w", Property, v.Signature(), err)
-	}
-	return fromWires(ws)
 }

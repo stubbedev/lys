@@ -47,8 +47,6 @@ func Parse(name string) (Profile, error) {
 	return p, nil
 }
 
-const propertiesChanged = dbusx.PropertiesInterface + ".PropertiesChanged"
-
 type (
 	Caller  = busauth.Caller
 	Refusal = busauth.Refusal
@@ -98,7 +96,7 @@ func (s *Server) Publish(p Profile) error {
 	if same {
 		return nil
 	}
-	if err := s.conn.Emit(ServicePath, propertiesChanged, Interface, map[string]dbus.Variant{Property: dbus.MakeVariant(string(p))}, []string{}); err != nil {
+	if err := dbusx.PropertiesChanged.Emit(s.conn, ServicePath, dbusx.ChangedProperties{Interface: Interface, Changed: map[string]dbus.Variant{Property: dbus.MakeVariant(string(p))}}); err != nil {
 		return fmt.Errorf("emit %s: %w", Property, err)
 	}
 	return nil
@@ -128,9 +126,9 @@ func NewClient(conn *dbus.Conn) *Client {
 
 // Active reads the active profile.
 func (c *Client) Active(ctx context.Context) (Profile, error) {
-	var name string
-	if err := c.obj.CallWithContext(ctx, dbusx.PropertiesInterface+".Get", 0, Interface, Property).Store(&name); err != nil {
-		return "", fmt.Errorf("read %s from %s: %w", Property, ServiceName, err)
+	name, err := dbusx.Get[string](ctx, c.obj, Interface, Property)
+	if err != nil {
+		return "", err
 	}
 	p, err := Parse(name)
 	if err != nil {
@@ -150,27 +148,13 @@ func (c *Client) SetActive(ctx context.Context, p Profile) error {
 // Changed reads the active profile out of a PropertiesChanged, false
 // when the signal does not carry it.
 func Changed(sig *dbus.Signal) (Profile, bool, error) {
-	if sig.Path != ServicePath || sig.Name != propertiesChanged || len(sig.Body) != 3 {
-		return "", false, nil
-	}
-	if iface, _ := sig.Body[0].(string); iface != Interface {
-		return "", false, nil
-	}
-	changed, ok := sig.Body[1].(map[string]dbus.Variant)
-	if !ok {
-		return "", false, fmt.Errorf("%s from %s: changed properties of type %T", propertiesChanged, sig.Sender, sig.Body[1])
-	}
-	v, ok := changed[Property]
-	if !ok {
-		return "", false, nil
-	}
-	name, ok := v.Value().(string)
-	if !ok {
-		return "", false, fmt.Errorf("%s from %s: %s of signature %s", propertiesChanged, sig.Sender, Property, v.Signature())
+	name, ok, err := dbusx.ChangedProperty[string](sig, ServicePath, Interface, Property)
+	if err != nil || !ok {
+		return "", false, err
 	}
 	p, err := Parse(name)
 	if err != nil {
-		return "", false, fmt.Errorf("%s from %s: %w", propertiesChanged, sig.Sender, err)
+		return "", false, fmt.Errorf("%s from %s: %w", dbusx.PropertiesChanged.Name(), sig.Sender, err)
 	}
 	return p, true, nil
 }

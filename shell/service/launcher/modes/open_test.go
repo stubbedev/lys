@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/stubbedev/lys/desktop/fileuri"
 	"github.com/stubbedev/lys/desktop/opener/openertest"
-	"github.com/stubbedev/lys/lib/fileuri"
 )
 
 func TestDrunLinksOpenWithTheBuiltInOpenerByDefault(t *testing.T) {

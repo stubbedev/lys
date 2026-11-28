@@ -18,8 +18,6 @@ func TestAnAttachmentIsTheImagePathTheIconShows(t *testing.T) {
 	}{
 		{Icon{File: "/tmp/shot.png"}, "/tmp/shot.png", "/tmp/shot.png"},
 		{Icon{File: "/tmp/shot.png"}, "file:///tmp/shot.png", "/tmp/shot.png"},
-		{Icon{File: "/tmp/My Music/cover.png"}, "file:///tmp/My%20Music/cover.png", "/tmp/My Music/cover.png"},
-		{Icon{File: "/tmp/shot.png"}, "file://otherhost/tmp/shot.png", ""},
 		{Icon{File: "/usr/share/icons/app.png"}, "", ""},
 		{Icon{File: "/usr/share/icons/app.png"}, "/tmp/shot.png", ""},
 		{Icon{Name: "mail"}, "/tmp/shot.png", ""},

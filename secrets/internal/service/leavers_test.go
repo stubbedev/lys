@@ -9,6 +9,7 @@ import (
 	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/secrets/internal/keyring"
+	"github.com/stubbedev/lys/secrets/secretbus"
 )
 
 const testInterface = "org.example.Test"
@@ -51,7 +52,7 @@ func TestTheLeaverWatchLeavesNoMatchRule(t *testing.T) {
 		t.Errorf("match rules after Close = %q, want %q", got, before)
 	}
 	other := bus.Conn(t)
-	if _, err := other.RequestName(BusName, dbus.NameFlagDoNotQueue); err != nil {
+	if _, err := other.RequestName(secretbus.BusName, dbus.NameFlagDoNotQueue); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := Start(conn, Config{Dir: t.TempDir(), KDF: testKDF, Stretch: keyring.Argon2id, Prompter: &fakePrompter{}}); err == nil {

@@ -8,11 +8,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stubbedev/lys/desktop/fileuri"
 	"github.com/stubbedev/lys/desktop/icons"
 	"github.com/stubbedev/lys/desktop/icons/icontest"
 	"github.com/stubbedev/lys/desktop/opener/openertest"
 	"github.com/stubbedev/lys/desktop/resources"
-	"github.com/stubbedev/lys/lib/fileuri"
 )
 
 // TestIconsCLISession replays testdata/icons/steps.txt, the session

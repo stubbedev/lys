@@ -28,7 +28,7 @@ func (realClock) After(d time.Duration) <-chan time.Time { return time.After(d) 
 // Run is lys-power brightness: automatic brightness for the user's
 // display session, on its session bus as autobrightness.ServiceName,
 // until ctx ends.
-func Run(ctx context.Context, cfg config.Config, log *slog.Logger) (err error) {
+func Run(ctx context.Context, cfg config.Paths, log *slog.Logger) (err error) {
 	light, interval, err := findLight(cfg, log)
 	if err != nil {
 		return err
@@ -85,7 +85,7 @@ func (p lysProfile) Saver(ctx context.Context) (<-chan bool, error) {
 
 // findLight prefers an ambient light sensor to the camera, and says how
 // often the one found is sampled.
-func findLight(cfg config.Config, log *slog.Logger) (Light, time.Duration, error) {
+func findLight(cfg config.Paths, log *slog.Logger) (Light, time.Duration, error) {
 	sensor, err := lightsensor.Find(cfg.IIODir)
 	if err == nil {
 		log.Info("following the room with the ambient light sensor", "sensor", sensor.String())

@@ -116,29 +116,6 @@ func TestImageSet(t *testing.T) {
 	}
 }
 
-// TestImageFileURLs pins how a file URL names its image: escapes
-// decode, in url() and image-set alike, and a remote host names no
-// local file, so the declaration drops.
-func TestImageFileURLs(t *testing.T) {
-	s := parseOne(t, `
-		a { background-image: url("file:///My%20Pictures/a.png"); }
-		b { background-image: image-set("file://localhost/My%20Pictures/b.png" 1x); }
-	`)
-	for name, want := range map[string]string{"a": "/My Pictures/a.png", "b": "/My Pictures/b.png"} {
-		v := computeTree(s, el(name))
-		if got := v.Bg.Layer(0).Image.URL; got != want {
-			t.Errorf("%s: image %q, want %q", name, got, want)
-		}
-	}
-	for _, decl := range []string{`url("file://otherhost/etc/c.png")`, `image-set("file://otherhost/etc/d.png" 1x)`} {
-		warns := capture(t)
-		Parse("a { background-image: " + decl + "; }")
-		if len(*warns) != 1 {
-			t.Errorf("%s: warnings %q, want the declaration skipped", decl, *warns)
-		}
-	}
-}
-
 // TestGradientForms pins the radial, conic and repeating parses: shape,
 // size keyword, explicit radii, positions, from-angles, angle stops.
 func TestGradientForms(t *testing.T) {

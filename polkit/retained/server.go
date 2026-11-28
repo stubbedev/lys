@@ -61,7 +61,7 @@ func (s *Server) Publish(list []Authorization) error {
 	if same {
 		return nil
 	}
-	if err := s.conn.Emit(ServicePath, propertiesChanged, Interface, map[string]dbus.Variant{Property: dbus.MakeVariant(next)}, []string{}); err != nil {
+	if err := dbusx.PropertiesChanged.Emit(s.conn, ServicePath, dbusx.ChangedProperties{Interface: Interface, Changed: map[string]dbus.Variant{Property: dbus.MakeVariant(next)}}); err != nil {
 		return fmt.Errorf("emit %s change: %w", Property, err)
 	}
 	return nil

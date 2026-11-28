@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
@@ -59,7 +60,7 @@ func (s *Server) PublishRoom(room Room) error {
 	if same {
 		return nil
 	}
-	if err := s.conn.Emit(ServicePath, propertiesChanged, Interface, map[string]dbus.Variant{RoomProperty: dbus.MakeVariant(room.String())}, []string{}); err != nil {
+	if err := dbusx.PropertiesChanged.Emit(s.conn, ServicePath, dbusx.ChangedProperties{Interface: Interface, Changed: map[string]dbus.Variant{RoomProperty: dbus.MakeVariant(room.String())}}); err != nil {
 		return fmt.Errorf("emit %s change to %s: %w", RoomProperty, room, err)
 	}
 	return nil
@@ -73,9 +74,9 @@ func (s *Server) roomSnapshot() Room {
 
 // Room reads how lit the room is.
 func (c *Client) Room(ctx context.Context) (Room, error) {
-	var wire string
-	if err := c.obj.CallWithContext(ctx, propertiesIface+".Get", 0, Interface, RoomProperty).Store(&wire); err != nil {
-		return 0, fmt.Errorf("read %s from %s: %w", RoomProperty, ServiceName, err)
+	wire, err := dbusx.Get[string](ctx, c.obj, Interface, RoomProperty)
+	if err != nil {
+		return 0, err
 	}
 	room, err := ParseRoom(wire)
 	if err != nil {
@@ -87,13 +88,13 @@ func (c *Client) Room(ctx context.Context) (Room, error) {
 // RoomChanged is the room a PropertiesChanged of the service announces,
 // false when it announces none.
 func RoomChanged(sig *dbus.Signal) (Room, bool, error) {
-	wire, ok, err := changedString(sig, RoomProperty)
+	wire, ok, err := dbusx.ChangedProperty[string](sig, ServicePath, Interface, RoomProperty)
 	if err != nil || !ok {
 		return 0, false, err
 	}
 	room, err := ParseRoom(wire)
 	if err != nil {
-		return 0, false, fmt.Errorf("%s from %s: %w", propertiesChanged, sig.Sender, err)
+		return 0, false, fmt.Errorf("%s from %s: %w", dbusx.PropertiesChanged.Name(), sig.Sender, err)
 	}
 	return room, true, nil
 }

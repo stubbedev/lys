@@ -8,10 +8,10 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/stubbedev/lys/desktop/fileuri"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/vfs"
 	"github.com/stubbedev/lys/desktop/vfs/vfstest"
-	"github.com/stubbedev/lys/lib/fileuri"
 	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/shell/shell/filebrowser"

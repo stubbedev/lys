@@ -122,33 +122,8 @@ func (d *Drun) launch(e drunEntry) error {
 		return d.openLink(e.url)
 	case e.action != "":
 		return e.app.LaunchAction(e.action)
-	case e.app.Terminal():
-		return d.launchInTerminal(*e.app)
 	}
-	return e.app.Launch()
-}
-
-// launchInTerminal runs the Exec line, field codes stripped, inside a
-// terminal: gio's own terminal lookup rarely fits Wayland setups.
-func (d *Drun) launchInTerminal(app desktopentry.App) error {
-	argv, ok := shlex.Split(app.Exec())
-	if !ok {
-		return fmt.Errorf("unparseable Exec line %q", app.Exec())
-	}
-	in, err := launcher.InTerminal(d.cfg.Terminal, slices.DeleteFunc(argv, isFieldCode)...)
-	if err != nil {
-		return err
-	}
-	launcher.RunArgv(in)
-	return nil
-}
-
-func isFieldCode(token string) bool {
-	switch token {
-	case "%f", "%F", "%u", "%U", "%d", "%D", "%n", "%N", "%i", "%c", "%k", "%v", "%m":
-		return true
-	}
-	return false
+	return e.app.Launch(launcher.AppContext(d.cfg.Terminal, ""))
 }
 
 // Load lists the apps (and links), frecency first, then by name.

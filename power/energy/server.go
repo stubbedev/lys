@@ -8,8 +8,6 @@ import (
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
-const propertiesChanged = dbusx.PropertiesInterface + ".PropertiesChanged"
-
 type Server struct {
 	conn *dbus.Conn
 
@@ -51,7 +49,7 @@ func (s *Server) Publish(r Report) error {
 	s.mu.Lock()
 	s.report = wire
 	s.mu.Unlock()
-	if err := s.conn.Emit(ServicePath, propertiesChanged, Interface, map[string]dbus.Variant{Property: dbus.MakeVariant(wire)}, []string{}); err != nil {
+	if err := dbusx.PropertiesChanged.Emit(s.conn, ServicePath, dbusx.ChangedProperties{Interface: Interface, Changed: map[string]dbus.Variant{Property: dbus.MakeVariant(wire)}}); err != nil {
 		return fmt.Errorf("emit %s covering %s: %w", Property, r.Covered, err)
 	}
 	return nil

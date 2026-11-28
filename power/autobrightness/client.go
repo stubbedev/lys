@@ -4,12 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
-)
-
-const (
-	propertiesIface   = "org.freedesktop.DBus.Properties"
-	propertiesChanged = propertiesIface + ".PropertiesChanged"
 )
 
 type Client struct{ obj dbus.BusObject }
@@ -19,9 +15,9 @@ func NewClient(conn *dbus.Conn) *Client {
 }
 
 func (c *Client) State(ctx context.Context) (State, error) {
-	var wire string
-	if err := c.obj.CallWithContext(ctx, propertiesIface+".Get", 0, Interface, Property).Store(&wire); err != nil {
-		return 0, fmt.Errorf("read %s from %s: %w", Property, ServiceName, err)
+	wire, err := dbusx.Get[string](ctx, c.obj, Interface, Property)
+	if err != nil {
+		return 0, err
 	}
 	state, err := ParseState(wire)
 	if err != nil {
@@ -38,35 +34,13 @@ func (c *Client) Resume(ctx context.Context) error {
 }
 
 func Changed(sig *dbus.Signal) (State, bool, error) {
-	wire, ok, err := changedString(sig, Property)
+	wire, ok, err := dbusx.ChangedProperty[string](sig, ServicePath, Interface, Property)
 	if err != nil || !ok {
 		return 0, false, err
 	}
 	state, err := ParseState(wire)
 	if err != nil {
-		return 0, false, fmt.Errorf("%s from %s: %w", propertiesChanged, sig.Sender, err)
+		return 0, false, fmt.Errorf("%s from %s: %w", dbusx.PropertiesChanged.Name(), sig.Sender, err)
 	}
 	return state, true, nil
-}
-
-func changedString(sig *dbus.Signal, property string) (string, bool, error) {
-	if sig.Path != ServicePath || sig.Name != propertiesChanged || len(sig.Body) != 3 {
-		return "", false, nil
-	}
-	if iface, _ := sig.Body[0].(string); iface != Interface {
-		return "", false, nil
-	}
-	changed, ok := sig.Body[1].(map[string]dbus.Variant)
-	if !ok {
-		return "", false, fmt.Errorf("%s from %s: changed properties of type %T", propertiesChanged, sig.Sender, sig.Body[1])
-	}
-	v, ok := changed[property]
-	if !ok {
-		return "", false, nil
-	}
-	wire, ok := v.Value().(string)
-	if !ok {
-		return "", false, fmt.Errorf("%s from %s: %s of type %T", propertiesChanged, sig.Sender, property, v.Value())
-	}
-	return wire, true, nil
 }

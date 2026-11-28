@@ -18,12 +18,6 @@ import (
 	"github.com/stubbedev/lys/secrets/transport"
 )
 
-const (
-	busName     = "org.freedesktop.secrets"
-	servicePath = dbus.ObjectPath("/org/freedesktop/secrets")
-	noPath      = dbus.ObjectPath("/")
-)
-
 // ErrDismissed is the user (or the client) dismissing a prompt.
 var ErrDismissed = errors.New("secrets: the prompt was dismissed")
 
@@ -44,17 +38,17 @@ type Client struct {
 
 // Open starts a session; without a provider on the bus it fails.
 func Open(ctx context.Context, conn *dbus.Conn) (*Client, error) {
-	c := &Client{conn: conn, svc: conn.Object(busName, servicePath), tr: transport.Plain{}}
+	c := &Client{conn: conn, svc: conn.Object(secretbus.BusName, secretbus.ServicePath), tr: transport.Plain{}}
 	var out dbus.Variant
 	if err := c.svc.CallWithContext(ctx, secretbus.ServiceInterface+".OpenSession", 0, transport.AlgPlain, dbus.MakeVariant("")).Store(&out, &c.session); err != nil {
-		return nil, fmt.Errorf("secrets: open a session with %s: %w", busName, err)
+		return nil, fmt.Errorf("secrets: open a session with %s: %w", secretbus.BusName, err)
 	}
 	return c, nil
 }
 
 // Close ends the session.
 func (c *Client) Close() {
-	_ = c.conn.Object(busName, c.session).Call(secretbus.SessionInterface+".Close", 0).Err
+	_ = c.conn.Object(secretbus.BusName, c.session).Call(secretbus.SessionInterface+".Close", 0).Err
 }
 
 // Lookup finds the first item holding attrs and returns its secret,
@@ -86,7 +80,7 @@ func (c *Client) lookup(ctx context.Context, attrs map[string]string, unlock boo
 		if err := c.svc.CallWithContext(ctx, secretbus.ServiceInterface+".Unlock", 0, []dbus.ObjectPath{item}).Store(&done, &prompt); err != nil {
 			return nil, false, fmt.Errorf("secrets: unlock: %w", err)
 		}
-		if prompt != noPath {
+		if prompt != secretbus.NoObject {
 			if _, err := c.prompt(ctx, prompt); err != nil {
 				return nil, false, fmt.Errorf("secrets: unlock: %w", err)
 			}
@@ -117,18 +111,18 @@ func (c *Client) Store(ctx context.Context, label string, attrs map[string]strin
 	if err := c.svc.CallWithContext(ctx, secretbus.ServiceInterface+".ReadAlias", 0, "default").Store(&coll); err != nil {
 		return fmt.Errorf("secrets: read the default alias: %w", err)
 	}
-	if coll == noPath {
+	if coll == secretbus.NoObject {
 		var prompt dbus.ObjectPath
 		props := map[string]dbus.Variant{secretbus.CollectionInterface + ".Label": dbus.MakeVariant("Login")}
 		if err := c.svc.CallWithContext(ctx, secretbus.ServiceInterface+".CreateCollection", 0, props, "default").Store(&coll, &prompt); err != nil {
 			return fmt.Errorf("secrets: create the default collection: %w", err)
 		}
-		if prompt != noPath {
+		if prompt != secretbus.NoObject {
 			result, err := c.prompt(ctx, prompt)
 			if err != nil {
 				return fmt.Errorf("secrets: create the default collection: %w", err)
 			}
-			if coll, _ = result.Value().(dbus.ObjectPath); coll == "" || coll == noPath {
+			if coll, _ = result.Value().(dbus.ObjectPath); coll == "" || coll == secretbus.NoObject {
 				return errors.New("secrets: the provider created no default collection")
 			}
 		}
@@ -149,8 +143,8 @@ func (c *Client) StoreLogin(ctx context.Context, label string, attrs map[string]
 
 func (c *Client) storeIn(ctx context.Context, coll dbus.ObjectPath, label string, attrs map[string]string, value []byte, replace bool) error {
 	props := map[string]dbus.Variant{
-		"org.freedesktop.Secret.Item.Label":      dbus.MakeVariant(label),
-		"org.freedesktop.Secret.Item.Attributes": dbus.MakeVariant(attrs),
+		secretbus.ItemLabel:      dbus.MakeVariant(label),
+		secretbus.ItemAttributes: dbus.MakeVariant(attrs),
 	}
 	var item, prompt dbus.ObjectPath
 	params, enc, err := c.tr.Encode(value)
@@ -158,10 +152,10 @@ func (c *Client) storeIn(ctx context.Context, coll dbus.ObjectPath, label string
 		return fmt.Errorf("secrets: encrypt for %s: %w", coll, err)
 	}
 	s := secret{Session: c.session, Parameters: params, Value: enc, ContentType: "application/octet-stream"}
-	if err := c.conn.Object(busName, coll).CallWithContext(ctx, secretbus.CollectionInterface+".CreateItem", 0, props, s, replace).Store(&item, &prompt); err != nil {
+	if err := c.conn.Object(secretbus.BusName, coll).CallWithContext(ctx, secretbus.CollectionInterface+".CreateItem", 0, props, s, replace).Store(&item, &prompt); err != nil {
 		return fmt.Errorf("secrets: store in %s: %w", coll, err)
 	}
-	if prompt != noPath {
+	if prompt != secretbus.NoObject {
 		if _, err := c.prompt(ctx, prompt); err != nil {
 			return fmt.Errorf("secrets: store in %s: %w", coll, err)
 		}
@@ -176,10 +170,10 @@ func (c *Client) Delete(ctx context.Context, attrs map[string]string) error {
 	}
 	for _, item := range append(unlocked, locked...) {
 		var prompt dbus.ObjectPath
-		if err := c.conn.Object(busName, item).CallWithContext(ctx, secretbus.ItemInterface+".Delete", 0).Store(&prompt); err != nil {
+		if err := c.conn.Object(secretbus.BusName, item).CallWithContext(ctx, secretbus.ItemInterface+".Delete", 0).Store(&prompt); err != nil {
 			return fmt.Errorf("secrets: delete %s: %w", item, err)
 		}
-		if prompt == noPath {
+		if prompt == secretbus.NoObject {
 			continue
 		}
 		if _, err := c.prompt(ctx, prompt); err != nil {
@@ -198,7 +192,7 @@ const dismissTimeout = 5 * time.Second
 func (c *Client) prompt(ctx context.Context, path dbus.ObjectPath) (result dbus.Variant, err error) {
 	completed := make(chan secretbus.Completion, 1)
 	unread := make(chan error, 1)
-	w, err := dbusx.WatchSignals(ctx, c.conn, dbusx.FromOwner(busName),
+	w, err := dbusx.WatchSignals(ctx, c.conn, dbusx.FromOwner(secretbus.BusName),
 		func(err error) {
 			select {
 			case unread <- err:
@@ -221,7 +215,7 @@ func (c *Client) prompt(ctx context.Context, path dbus.ObjectPath) (result dbus.
 			err = errors.Join(err, fmt.Errorf("stop watching the prompt: %w", serr))
 		}
 	}()
-	obj := c.conn.Object(busName, path)
+	obj := c.conn.Object(secretbus.BusName, path)
 	if err := obj.CallWithContext(ctx, secretbus.PromptInterface+".Prompt", 0, "").Err; err != nil {
 		return dbus.Variant{}, fmt.Errorf("show the prompt: %w", err)
 	}

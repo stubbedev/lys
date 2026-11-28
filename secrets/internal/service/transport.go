@@ -1,11 +1,8 @@
 package service
 
 import (
-	"crypto/rand"
-	"errors"
 	"fmt"
 	"io"
-	"math/big"
 
 	"github.com/stubbedev/lys/secrets/transport"
 )
@@ -23,33 +20,26 @@ const maxDHTries = 64
 // libsecret built on GnuTLS drops its leading zero bytes. The private key
 // is drawn until the secret has no leading zero byte, where the two
 // encodings are the same bytes, so every client derives this key.
-func negotiateDH(peer []byte, random io.Reader) (public []byte, t transport.Transport, err error) {
-	y := new(big.Int).SetBytes(peer)
-	pMinus1 := new(big.Int).Sub(transport.Prime, big.NewInt(1))
-	if y.Cmp(big.NewInt(1)) <= 0 || y.Cmp(pMinus1) >= 0 {
-		return nil, nil, errors.New("the client's DH public key is out of range")
-	}
-	var priv, k *big.Int
+func negotiateDH(peer []byte, random io.Reader) ([]byte, transport.Transport, error) {
 	for range maxDHTries {
-		if priv, err = rand.Int(random, pMinus1); err != nil {
-			return nil, nil, fmt.Errorf("DH private key: %w", err)
+		priv, public, err := transport.KeyPair(random)
+		if err != nil {
+			return nil, nil, err
 		}
-		priv.Add(priv, big.NewInt(1))
-		k = new(big.Int).Exp(y, priv, transport.Prime)
-		if k.BitLen() > 8*(transport.PrimeLen-1) {
-			break
+		shared, err := transport.Shared(peer, priv)
+		if err != nil {
+			return nil, nil, fmt.Errorf("the client's key: %w", err)
 		}
-		k = nil
+		if shared[0] == 0 {
+			clear(shared)
+			continue
+		}
+		session, err := transport.NewAES(shared)
+		clear(shared)
+		if err != nil {
+			return nil, nil, err
+		}
+		return public, session, nil
 	}
-	if k == nil {
-		return nil, nil, fmt.Errorf("no DH private key in %d draws gives a full-length secret", maxDHTries)
-	}
-	public = new(big.Int).Exp(transport.Generator, priv, transport.Prime).Bytes()
-	shared := k.FillBytes(make([]byte, transport.PrimeLen))
-	defer clear(shared)
-	session, err := transport.NewAES(shared)
-	if err != nil {
-		return nil, nil, err
-	}
-	return public, session, nil
+	return nil, nil, fmt.Errorf("no DH private key in %d draws gives a full-length secret", maxDHTries)
 }

@@ -127,8 +127,9 @@ const (
 	AttentionWindowScale  = 1.1
 )
 
-// Config is the resolved configuration.
-type Config struct {
+// Paths are where lys-power reads and writes, which every command needs
+// and no setting can make invalid.
+type Paths struct {
 	SupplyDir  string
 	StateDir   string
 	RuntimeDir string
@@ -144,23 +145,21 @@ type Config struct {
 	// systemd manager listens.
 	UserRunDir string
 	SysDir     string
-	Devices    devicepower.Overrides
+}
+
+// Config is the resolved configuration of the commands that manage
+// devices: the paths and the device and wake policy.
+type Config struct {
+	Paths
+	Devices devicepower.Overrides
 	// USBWake is whether removable USB devices may wake the machine on
 	// battery.
 	USBWake wakesource.Mode
 }
 
-// Load reads the configuration, applying LYS_POWER_* environment overrides.
-func Load() (Config, error) {
-	devices, err := loadDevices()
-	if err != nil {
-		return Config{}, err
-	}
-	usbWake, err := wakesource.ParseMode(env("LYS_POWER_USB_WAKE", wakesource.ModeKeep.String()))
-	if err != nil {
-		return Config{}, fmt.Errorf("reading LYS_POWER_USB_WAKE: %w", err)
-	}
-	return Config{
+// LoadPaths reads the paths, applying LYS_POWER_*_DIR overrides.
+func LoadPaths() Paths {
+	return Paths{
 		SupplyDir:   env("LYS_POWER_SUPPLY_DIR", powersupply.Dir),
 		StateDir:    env("LYS_POWER_STATE_DIR", DefaultStateDir),
 		RuntimeDir:  env("LYS_POWER_RUNTIME_DIR", DefaultRuntimeDir),
@@ -172,9 +171,21 @@ func Load() (Config, error) {
 		DRIDebugDir: env("LYS_POWER_DRI_DEBUG_DIR", DefaultDRIDebugDir),
 		UserRunDir:  env("LYS_POWER_USER_RUN_DIR", DefaultUserRunDir),
 		SysDir:      env("LYS_POWER_SYS_DIR", DefaultSysDir),
-		Devices:     devices,
-		USBWake:     usbWake,
-	}, nil
+	}
+}
+
+// Load reads the device and wake policy beside paths, from
+// LYS_POWER_DEVICE_POLICY, LYS_POWER_DEVICE_DENY and LYS_POWER_USB_WAKE.
+func Load(paths Paths) (Config, error) {
+	devices, err := loadDevices()
+	if err != nil {
+		return Config{}, err
+	}
+	usbWake, err := wakesource.ParseMode(env("LYS_POWER_USB_WAKE", wakesource.ModeKeep.String()))
+	if err != nil {
+		return Config{}, fmt.Errorf("reading LYS_POWER_USB_WAKE: %w", err)
+	}
+	return Config{Paths: paths, Devices: devices, USBWake: usbWake}, nil
 }
 
 func loadDevices() (devicepower.Overrides, error) {
@@ -194,8 +205,8 @@ func loadDevices() (devicepower.Overrides, error) {
 }
 
 // HistoryPath is the unplug log.
-func (c Config) HistoryPath() string {
-	return HistoryIn(c.StateDir)
+func (p Paths) HistoryPath() string {
+	return HistoryIn(p.StateDir)
 }
 
 // HistoryIn is the unplug log of the state directory dir.
@@ -204,51 +215,51 @@ func HistoryIn(dir string) string {
 }
 
 // LastACPath remembers the previous AC state for edge detection.
-func (c Config) LastACPath() string {
-	return filepath.Join(c.StateDir, "last-ac")
+func (p Paths) LastACPath() string {
+	return filepath.Join(p.StateDir, "last-ac")
 }
 
 // ProfilePath holds the power profile last set.
-func (c Config) ProfilePath() string {
-	return filepath.Join(c.StateDir, "profile")
+func (p Paths) ProfilePath() string {
+	return filepath.Join(p.StateDir, "profile")
 }
 
 // PausePath records the units chosen to pause on battery and those
 // paused.
-func (c Config) PausePath() string {
-	return filepath.Join(c.StateDir, "pause")
+func (p Paths) PausePath() string {
+	return filepath.Join(p.StateDir, "pause")
 }
 
 // LimitPath holds the charge limit the user chose.
-func (c Config) LimitPath() string {
-	return filepath.Join(c.StateDir, "charge-limit")
+func (p Paths) LimitPath() string {
+	return filepath.Join(p.StateDir, "charge-limit")
 }
 
 // DockedPath marks that the laptop was docked while on AC since the last
 // plug, so an unplug that undocks it too is recorded as one from the
 // dock whichever the kernel announces first.
-func (c Config) DockedPath() string {
-	return filepath.Join(c.StateDir, "docked")
+func (p Paths) DockedPath() string {
+	return filepath.Join(p.StateDir, "docked")
 }
 
 // DeparturePath holds the start of the next calendar event away from
 // the desk, in seconds since the epoch.
-func (c Config) DeparturePath() string {
-	return filepath.Join(c.RuntimeDir, "departure")
+func (p Paths) DeparturePath() string {
+	return filepath.Join(p.RuntimeDir, "departure")
 }
 
 // SleepsPath keeps the reports on the last few sleeps.
-func (c Config) SleepsPath() string {
-	return filepath.Join(c.StateDir, "sleeps")
+func (p Paths) SleepsPath() string {
+	return filepath.Join(p.StateDir, "sleeps")
 }
 
 // FullNowPath is the charge-to-full request flag.
-func (c Config) FullNowPath() string {
-	return filepath.Join(c.RuntimeDir, "full-now")
+func (p Paths) FullNowPath() string {
+	return filepath.Join(p.RuntimeDir, "full-now")
 }
 
-func (c Config) Meter() meter.Meter {
-	return meter.Meter{Cgroup: c.CgroupDir, Proc: c.ProcDir, Powercap: c.PowercapDir, DRIDebug: c.DRIDebugDir, Supply: supply.Supply{Dir: c.SupplyDir}}
+func (p Paths) Meter() meter.Meter {
+	return meter.Meter{Cgroup: p.CgroupDir, Proc: p.ProcDir, Powercap: p.PowercapDir, DRIDebug: p.DRIDebugDir, Supply: supply.Supply{Dir: p.SupplyDir}}
 }
 
 func env(key, fallback string) string {
