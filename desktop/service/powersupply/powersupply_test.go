@@ -404,3 +404,21 @@ func TestOnACReadsNoBattery(t *testing.T) {
 		t.Errorf("OnAC = %v, %v; want offline", on, err)
 	}
 }
+
+func TestSystemBatteriesAreTheMachinesOwn(t *testing.T) {
+	t.Parallel()
+	tr := newTree(t)
+	tr.mouse("hid-mouse-battery", 40)
+	tr.set("BAT0", "type", "Battery", "scope", "System")
+	tr.set("BAT1", "type", "Battery", "present", "0")
+	tr.set("CMB0", "type", "Battery")
+	tr.ac(true)
+	got, err := SystemBatteries(tr.dir)
+	if err != nil || !slices.Equal(got, []string{"BAT0", "CMB0"}) {
+		t.Errorf("SystemBatteries = %q, %v; want BAT0 and CMB0 without the mouse or the empty bay", got, err)
+	}
+	tr.set("broken", "scope", "System")
+	if _, err := SystemBatteries(tr.dir); !errors.Is(err, ErrMissing) {
+		t.Errorf("SystemBatteries over a supply without a type = %v, want ErrMissing", err)
+	}
+}

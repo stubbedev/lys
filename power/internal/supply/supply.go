@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 
 	"github.com/stubbedev/lys/desktop/service/powersupply"
@@ -18,6 +19,7 @@ import (
 )
 
 const (
+	preferred = "BAT0"
 	startAttr = "charge_control_start_threshold"
 	endAttr   = "charge_control_end_threshold"
 )
@@ -39,34 +41,20 @@ func (s Supply) OnAC() (bool, error) {
 	return powersupply.OnAC(s.Dir)
 }
 
-// Battery finds the battery to manage: BAT0 when present, else the first
-// supply of type Battery. It returns nil, nil on machines without a
+// Battery finds the battery to manage: BAT0 when it powers the machine,
+// else the first battery that does. A peripheral's battery, a mouse's or
+// a keyboard's, is never one. It returns nil, nil on machines without a
 // battery, where only profile handling applies.
 func (s Supply) Battery() (*Battery, error) {
-	if b, ok := s.batteryNamed("BAT0"); ok {
-		return b, nil
+	names, err := powersupply.SystemBatteries(s.Dir)
+	if err != nil || len(names) == 0 {
+		return nil, err
 	}
-	entries, err := os.ReadDir(s.Dir)
-	if err != nil {
-		return nil, fmt.Errorf("reading %s: %w", s.Dir, err)
+	name := names[0]
+	if slices.Contains(names, preferred) {
+		name = preferred
 	}
-	for _, entry := range entries {
-		if b, ok := s.batteryNamed(entry.Name()); ok {
-			return b, nil
-		}
-	}
-	return nil, nil
-}
-
-// batteryNamed reports whether name is a battery supply. A missing or
-// unreadable type file just means "not a battery".
-func (s Supply) batteryNamed(name string) (*Battery, bool) {
-	dir := filepath.Join(s.Dir, name)
-	typ, err := sysfs.ReadTrim(filepath.Join(dir, "type"))
-	if err != nil || typ != "Battery" {
-		return nil, false
-	}
-	return &Battery{Name: name, Path: dir}, true
+	return &Battery{Name: name, Path: filepath.Join(s.Dir, name)}, nil
 }
 
 // Thresholds is a battery's charge_control start/end pair, in percent of

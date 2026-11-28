@@ -527,6 +527,38 @@ func (snap *snapshot) add(s supply) error {
 	return nil
 }
 
+// SystemBatteries names the batteries under dir that power the
+// machine, in directory order: present, and not a peripheral's.
+func SystemBatteries(dir string) ([]string, error) {
+	list, err := supplies(dir)
+	if err != nil {
+		return nil, err
+	}
+	var names []string
+	for _, s := range list {
+		ok, err := s.systemBattery()
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			names = append(names, s.name)
+		}
+	}
+	return names, nil
+}
+
+func (s supply) systemBattery() (bool, error) {
+	typ, err := s.kind()
+	if err != nil || typ != typeBattery {
+		return false, err
+	}
+	present, err := s.present()
+	if err != nil || !present {
+		return false, err
+	}
+	return s.powersSystem()
+}
+
 // OnAC reports whether any mains or USB source under dir is online,
 // reading no battery.
 func OnAC(dir string) (bool, error) {

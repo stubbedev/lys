@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/stubbedev/lys/desktop/service/powersupply"
+
 	"github.com/stubbedev/lys/power/internal/devicepower"
 	"github.com/stubbedev/lys/power/internal/meter"
 	"github.com/stubbedev/lys/power/internal/supply"
@@ -17,7 +19,6 @@ import (
 )
 
 const (
-	DefaultSupplyDir   = "/sys/class/power_supply"
 	DefaultStateDir    = "/var/lib/lys-power"
 	DefaultRuntimeDir  = "/run/battery-charge"
 	DefaultIIODir      = "/sys/bus/iio/devices"
@@ -160,7 +161,7 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("reading LYS_POWER_USB_WAKE: %w", err)
 	}
 	return Config{
-		SupplyDir:   env("LYS_POWER_SUPPLY_DIR", DefaultSupplyDir),
+		SupplyDir:   env("LYS_POWER_SUPPLY_DIR", powersupply.Dir),
 		StateDir:    env("LYS_POWER_STATE_DIR", DefaultStateDir),
 		RuntimeDir:  env("LYS_POWER_RUNTIME_DIR", DefaultRuntimeDir),
 		IIODir:      env("LYS_POWER_IIO_DIR", DefaultIIODir),

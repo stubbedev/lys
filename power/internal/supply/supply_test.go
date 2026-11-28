@@ -227,3 +227,25 @@ func TestEnergyReadsEnergyNowOrChargeAtVoltage(t *testing.T) {
 		})
 	}
 }
+
+func TestBatteryIsNeverAPeripherals(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	mouse := filepath.Join(dir, "hidpp_battery_0")
+	if err := os.MkdirAll(mouse, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	for file, content := range map[string]string{"type": "Battery", "scope": "Device"} {
+		if err := os.WriteFile(filepath.Join(mouse, file), []byte(content+"\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	sup := Supply{Dir: dir}
+	if battery, err := sup.Battery(); err != nil || battery != nil {
+		t.Errorf("Battery() beside only a mouse = (%v, %v), want (nil, nil)", battery, err)
+	}
+	batteryFixture(t, dir, "CMB0", "70", "75")
+	if battery, err := sup.Battery(); err != nil || battery == nil || battery.Name != "CMB0" {
+		t.Errorf("Battery() beside a mouse = (%v, %v), want CMB0", battery, err)
+	}
+}
