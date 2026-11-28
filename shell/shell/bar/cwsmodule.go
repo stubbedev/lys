@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/stubbedev/lys/desktop/compositor"
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/shell/barview"
 	"github.com/stubbedev/lys/desktop/spawn"
@@ -50,7 +51,7 @@ type cwsAction func(ctx context.Context) error
 type cwsView struct {
 	ctx          ModuleContext
 	cfg          config.CompositorWorkspacesConfig
-	kind         string
+	kind         compositor.Kind
 	flavor       barview.WorkspaceFlavor
 	strip        *barview.WorkspaceStrip
 	actions      cwsActions
@@ -79,7 +80,7 @@ type cwsModule struct {
 
 // newCwsModule builds the module over a connected backend and, with a
 // live loop, subscribes to its events.
-func newCwsModule(ctx ModuleContext, kind string, flavor barview.WorkspaceFlavor, cfg config.CompositorWorkspacesConfig, backend cwsBackend) *cwsModule {
+func newCwsModule(ctx ModuleContext, kind compositor.Kind, flavor barview.WorkspaceFlavor, cfg config.CompositorWorkspacesConfig, backend cwsBackend) *cwsModule {
 	m := &cwsModule{ctx: ctx, cfg: cfg, kind: kind, flavor: flavor, backend: backend}
 	m.actions = cwsActions{
 		focus: func(ws barview.Workspace) cwsAction {
@@ -91,7 +92,7 @@ func newCwsModule(ctx ModuleContext, kind string, flavor barview.WorkspaceFlavor
 	}
 	newCwsRow(&m.cwsView, m.workspaceWindows)
 	m.hideUntilRead(m.strip.Segments())
-	reads := newOffLoopRead(ctx, kind+"-workspaces", m.read, m.apply)
+	reads := newOffLoopRead(ctx, kind.String()+"-workspaces", m.read, m.apply)
 	if ctx.App == nil {
 		reads.first()
 		return m
@@ -270,7 +271,7 @@ func (m *cwsModule) closeIPC() {
 // windows, placed where lys-wm's geometry says on lys-wm.
 func (m *cwsModule) workspaceWindows(ws barview.Workspace) []previewWindow {
 	rects := map[uint64]wmipc.Rect{}
-	if m.kind == "lys-wm" && m.ctx.Tasks != nil {
+	if m.kind == compositor.LysWM && m.ctx.Tasks != nil {
 		if windows, ok := m.ctx.Tasks.geometry(); ok {
 			for _, w := range windows {
 				rects[w.ID] = w.Rect

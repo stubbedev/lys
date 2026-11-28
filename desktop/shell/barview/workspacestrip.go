@@ -9,6 +9,7 @@ import (
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
 
+	"github.com/stubbedev/lys/desktop/compositor"
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/styling"
 )
@@ -76,9 +77,9 @@ func WorkspaceFace(font render.Font) render.Font {
 
 // NewWorkspaceStrip is an empty strip under cfg's bar and the
 // workspaces config c, its labels in face. kind names the compositor
-// as a class; otherMonitor is Hyprland's active-on-other-monitor
+// as a class (none for compositor.Unknown); otherMonitor is Hyprland's active-on-other-monitor
 // color, nil elsewhere.
-func NewWorkspaceStrip(cfg *config.Config, c config.CompositorWorkspacesConfig, kind string, otherMonitor *config.ColorValue, face render.Font, h WorkspaceHandlers) *WorkspaceStrip {
+func NewWorkspaceStrip(cfg *config.Config, c config.CompositorWorkspacesConfig, kind compositor.Kind, otherMonitor *config.ColorValue, face render.Font, h WorkspaceHandlers) *WorkspaceStrip {
 	s := &WorkspaceStrip{
 		segs: widget.NewSegmentIndicator(0), cfg: c, vertical: cfg.Bar.Location.IsVertical(), face: face,
 		sizes: newWorkspaceSizes(c, float64(cfg.Bar.Scale)), handlers: h,
@@ -87,8 +88,8 @@ func NewWorkspaceStrip(cfg *config.Config, c config.CompositorWorkspacesConfig, 
 		s.segs.OnSelect = h.Select
 	}
 	s.segs.AddClass("workspaces")
-	if kind != "" {
-		s.segs.AddClass(kind)
+	if kind != compositor.Unknown {
+		s.segs.AddClass(kind.String())
 	}
 	if class, ok := cfg.Bar.ButtonBorderLocation.CSSClass(); ok && c.BorderShow {
 		s.segs.AddClass(class)

@@ -25,7 +25,7 @@ import (
 // newSwayWorkspaces is the workspaces module on sway.
 func newSwayWorkspaces(ctx ModuleContext) (Module, error) {
 	cfg := ctx.Config.Workspaces.View(compositor.Sway)
-	return newCwsModule(ctx, "sway", barview.FlavorWorkspaces, cfg, &connectingBackend{connect: func() (cwsBackend, error) {
+	return newCwsModule(ctx, compositor.Sway, barview.FlavorWorkspaces, cfg, &connectingBackend{connect: func() (cwsBackend, error) {
 		conn, err := sway.Connect()
 		if err != nil {
 			return nil, err
@@ -36,7 +36,7 @@ func newSwayWorkspaces(ctx ModuleContext) (Module, error) {
 
 // newNiriWorkspaces is the workspaces module on niri.
 func newNiriWorkspaces(ctx ModuleContext) (Module, error) {
-	return newCwsModule(ctx, "niri", barview.FlavorWorkspaces, ctx.Config.Workspaces.View(compositor.Niri), &connectingBackend{connect: func() (cwsBackend, error) {
+	return newCwsModule(ctx, compositor.Niri, barview.FlavorWorkspaces, ctx.Config.Workspaces.View(compositor.Niri), &connectingBackend{connect: func() (cwsBackend, error) {
 		conn, err := niri.Connect()
 		if err != nil {
 			return nil, err
@@ -263,7 +263,7 @@ func (b *niriBackend) close()                                      { _ = b.conn.
 // from construction.
 func newMangoWorkspaces(ctx ModuleContext) (Module, error) {
 	cfg := ctx.Config.Workspaces
-	return newCwsModule(ctx, "mango", barview.FlavorTags, cfg.View(compositor.Mango), &connectingBackend{connect: func() (cwsBackend, error) {
+	return newCwsModule(ctx, compositor.Mango, barview.FlavorTags, cfg.View(compositor.Mango), &connectingBackend{connect: func() (cwsBackend, error) {
 		w, err := mango.Watch()
 		if err != nil {
 			return nil, err
@@ -360,7 +360,7 @@ func newLysWMWorkspaces(ctx ModuleContext) (Module, error) {
 	if cwsFollowsTitles(cfg) {
 		titles = &lysWMTitles{}
 	}
-	return newCwsModule(ctx, "lys-wm", barview.FlavorWorkspaces, cfg, lysWMBackend{titles: titles}), nil
+	return newCwsModule(ctx, compositor.LysWM, barview.FlavorWorkspaces, cfg, lysWMBackend{titles: titles}), nil
 }
 
 var lysWMWorkspaceEvents = []wmipc.EventKind{

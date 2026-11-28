@@ -266,7 +266,7 @@ func TestHeadlessLoopRunsWhileAReadIsBlocked(t *testing.T) {
 			return Create("battery", ctx)
 		}},
 		{name: "workspaces", create: func(ctx ModuleContext, h *heldRead, ticks chan struct{}) (Module, error) {
-			return newCwsModule(ctx, "niri", barview.FlavorWorkspaces, config.DefaultsWorkspaces().View(compositor.Niri), heldCws{newFakeCws(nil, nil), h, ticks}), nil
+			return newCwsModule(ctx, compositor.Niri, barview.FlavorWorkspaces, config.DefaultsWorkspaces().View(compositor.Niri), heldCws{newFakeCws(nil, nil), h, ticks}), nil
 		}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

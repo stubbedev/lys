@@ -48,7 +48,7 @@ func threeWorkspaces(active int) []barview.Workspace {
 func cwsDropModule(t *testing.T, ctx ModuleContext, wcfg config.CompositorWorkspacesConfig, workspaces []barview.Workspace) (*cwsModule, *fakeCws, *widget.Bar, widget.Size) {
 	t.Helper()
 	f := newFakeCws(workspaces, nil)
-	m := newCwsModuleOnHeadlessLoop(ctx, "niri", barview.FlavorWorkspaces, wcfg, f)
+	m := newCwsModuleOnHeadlessLoop(ctx, compositor.Niri, barview.FlavorWorkspaces, wcfg, f)
 	bar, size := cwsBar(t, ctx, m)
 	return m, f, bar, size
 }
@@ -515,13 +515,13 @@ func assertSharedLook(t *testing.T, name string, segs *widget.SegmentIndicator) 
 }
 
 func TestEveryWorkspacesModuleSharesTheLook(t *testing.T) {
-	for _, kind := range []string{"sway", "niri", "lys-wm"} {
+	for _, kind := range []compositor.Kind{compositor.Sway, compositor.Niri, compositor.LysWM} {
 		ctx := cwsDropContext(t, config.LocationTop, 1)
 		m := newCwsModuleOnHeadlessLoop(ctx, kind, barview.FlavorWorkspaces, config.DefaultsWorkspaces().View(compositor.Niri), newFakeCws(threeWorkspaces(0), nil))
-		assertSharedLook(t, kind, m.strip.Segments())
+		assertSharedLook(t, kind.String(), m.strip.Segments())
 	}
 	ctx := cwsDropContext(t, config.LocationTop, 1)
-	tags := newCwsModuleOnHeadlessLoop(ctx, "mango", barview.FlavorTags, config.DefaultsWorkspaces().View(compositor.Niri), newFakeCws(threeWorkspaces(0), nil))
+	tags := newCwsModuleOnHeadlessLoop(ctx, compositor.Mango, barview.FlavorTags, config.DefaultsWorkspaces().View(compositor.Niri), newFakeCws(threeWorkspaces(0), nil))
 	assertSharedLook(t, "mango", tags.strip.Segments())
 	_, hypr := newTestHypr(t, nil)
 	assertSharedLook(t, "hyprland", hypr.strip.Segments())

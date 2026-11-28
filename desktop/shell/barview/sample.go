@@ -130,7 +130,7 @@ func Sample(cfg *config.Config, font render.Font, item config.BarItem, on compos
 // bound to a second monitor.
 func SampleWorkspaces(cfg *config.Config, font render.Font, on compositor.Kind) *WorkspaceStrip {
 	c := cfg.Workspaces.View(on)
-	strip := NewWorkspaceStrip(cfg, c, "", nil, WorkspaceFace(font), WorkspaceHandlers{})
+	strip := NewWorkspaceStrip(cfg, c, compositor.Unknown, nil, WorkspaceFace(font), WorkspaceHandlers{})
 	switch on {
 	case compositor.Mango:
 		strip.Set(WorkspaceButtons(FlavorTags, sampleWorkspaces, sampleWindows(c, 0), c, "", strip.Vertical(), false))

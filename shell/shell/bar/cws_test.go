@@ -75,7 +75,7 @@ func newTestCws(t *testing.T, cfg config.CompositorWorkspacesConfig, backend cws
 	t.Helper()
 	ctx := newTestContext(t, config.Defaults())
 	ctx.Connector = "DP-1"
-	return newCwsModuleOnHeadlessLoop(ctx, "niri", barview.FlavorWorkspaces, cfg, backend)
+	return newCwsModuleOnHeadlessLoop(ctx, compositor.Niri, barview.FlavorWorkspaces, cfg, backend)
 }
 
 func TestCwsModuleBuildsOneSegmentPerDisplayedWorkspace(t *testing.T) {
@@ -183,7 +183,7 @@ func TestCwsPaintsTheConfiguredColors(t *testing.T) {
 	wcfg.WorkspaceMap = map[string]config.WorkspaceStyle{"4": {Color: &red}}
 	active := occupiedWS(1, 1, "DP-1")
 	active.Active = true
-	m := newCwsModuleOnHeadlessLoop(ctx, "niri", barview.FlavorWorkspaces, wcfg, newFakeCws([]barview.Workspace{active, occupiedWS(2, 2, "DP-1"), emptyWS(3, 3, "DP-1"), occupiedWS(4, 4, "DP-1")}, nil))
+	m := newCwsModuleOnHeadlessLoop(ctx, compositor.Niri, barview.FlavorWorkspaces, wcfg, newFakeCws([]barview.Workspace{active, occupiedWS(2, 2, "DP-1"), emptyWS(3, 3, "DP-1"), occupiedWS(4, 4, "DP-1")}, nil))
 	bar, size := cwsBar(t, ctx, m)
 	has, rest := paintCwsBar(m, bar, size)
 	accent, onAccent := resolve(wcfg.ActiveColor), resolve(mustToken(config.TokenFgOnAccent))
@@ -214,7 +214,7 @@ func TestCwsUnderlinesTheActiveWorkspace(t *testing.T) {
 	wcfg.ActiveIndicator = config.ActiveUnderline
 	active := occupiedWS(1, 1, "DP-1")
 	active.Active = true
-	m := newCwsModuleOnHeadlessLoop(ctx, "niri", barview.FlavorWorkspaces, wcfg, newFakeCws([]barview.Workspace{active}, nil))
+	m := newCwsModuleOnHeadlessLoop(ctx, compositor.Niri, barview.FlavorWorkspaces, wcfg, newFakeCws([]barview.Workspace{active}, nil))
 	bar, size := cwsBar(t, ctx, m)
 	accent, _ := styling.ResolveColor(wcfg.ActiveColor, palette)
 	widget.SizeWithin(bar, availSize(size.W, size.H))
@@ -243,7 +243,7 @@ func TestCwsSegmentShadesUnderThePointer(t *testing.T) {
 	ctx.Connector = "DP-1"
 	active := occupiedWS(1, 1, "DP-1")
 	active.Active = true
-	m := newCwsModuleOnHeadlessLoop(ctx, "niri", barview.FlavorWorkspaces, config.DefaultsWorkspaces().View(compositor.Niri), newFakeCws([]barview.Workspace{active, occupiedWS(2, 2, "DP-1")}, nil))
+	m := newCwsModuleOnHeadlessLoop(ctx, compositor.Niri, barview.FlavorWorkspaces, config.DefaultsWorkspaces().View(compositor.Niri), newFakeCws([]barview.Workspace{active, occupiedWS(2, 2, "DP-1")}, nil))
 	bar, size := cwsBar(t, ctx, m)
 	_, rest := paintCwsBar(m, bar, size)
 	before, activeRest := rest(1), rest(0)
@@ -270,7 +270,7 @@ func TestCwsSegmentMinSize(t *testing.T) {
 		wcfg := config.DefaultsWorkspaces().View(compositor.Niri)
 		wcfg.LabelSize = config.Size{Value: tc.label, Unit: config.SizePixels}
 		wcfg.WorkspacePad = config.Size{Value: tc.pad, Unit: config.SizePixels}
-		m := newCwsModuleOnHeadlessLoop(ctx, "niri", barview.FlavorWorkspaces, wcfg, newFakeCws([]barview.Workspace{occupiedWS(1, 1, "DP-1")}, nil))
+		m := newCwsModuleOnHeadlessLoop(ctx, compositor.Niri, barview.FlavorWorkspaces, wcfg, newFakeCws([]barview.Workspace{occupiedWS(1, 1, "DP-1")}, nil))
 		cwsBar(t, ctx, m)
 		if r := m.strip.Segments().Segment(0).Bounds(); r.W < tc.atLeast || r.H < 24 || (tc.atLeast == 24 && (r.W != 24 || r.H != 24)) {
 			t.Errorf("label %vpx, padding %vpx: segment %v, want at least %dx24", tc.label, tc.pad, r, tc.atLeast)
@@ -288,7 +288,7 @@ func TestCwsSegmentsCenterInASideBar(t *testing.T) {
 	ctx.Connector = "DP-1"
 	palette := ctx.Theme.RenderPalette()
 	wcfg := config.DefaultsWorkspaces().View(compositor.Niri)
-	m := newCwsModuleOnHeadlessLoop(ctx, "niri", barview.FlavorWorkspaces, wcfg, newFakeCws([]barview.Workspace{occupiedWS(1, 1, "DP-1"), occupiedWS(2, 2, "DP-1")}, nil))
+	m := newCwsModuleOnHeadlessLoop(ctx, compositor.Niri, barview.FlavorWorkspaces, wcfg, newFakeCws([]barview.Workspace{occupiedWS(1, 1, "DP-1"), occupiedWS(2, 2, "DP-1")}, nil))
 	factories["test-cws"] = func(ModuleContext) (Module, error) { return m, nil }
 	defer delete(factories, "test-cws")
 	bar := buildRootOnHeadlessLoop(ctx, config.BarLayout{Monitor: "*", Left: []config.BarItem{{Module: "test-cws"}, {Module: "clock"}}}, "DP-1")
@@ -406,7 +406,7 @@ func TestCwsUrgentPulseFadesTheSegment(t *testing.T) {
 	wcfg := config.DefaultsWorkspaces().View(compositor.Niri)
 	urgent := occupiedWS(1, 1, "DP-1")
 	urgent.Urgent = true
-	m := newCwsModuleOnHeadlessLoop(ctx, "niri", barview.FlavorWorkspaces, wcfg, newFakeCws([]barview.Workspace{urgent}, nil))
+	m := newCwsModuleOnHeadlessLoop(ctx, compositor.Niri, barview.FlavorWorkspaces, wcfg, newFakeCws([]barview.Workspace{urgent}, nil))
 	occupied, _ := styling.ResolveColor(wcfg.OccupiedColor, palette)
 	bar, size := cwsBar(t, ctx, m)
 	if has, _ := paintCwsBar(m, bar, size); has(0, occupied) {
@@ -521,7 +521,7 @@ func TestCwsSwitchMovesTheLabelColors(t *testing.T) {
 	one, two := occupiedWS(1, 1, "DP-1"), occupiedWS(2, 2, "DP-1")
 	one.Active = true
 	f := newFakeCws([]barview.Workspace{one, two}, nil)
-	m := newCwsModuleOnHeadlessLoop(ctx, "niri", barview.FlavorWorkspaces, wcfg, f)
+	m := newCwsModuleOnHeadlessLoop(ctx, compositor.Niri, barview.FlavorWorkspaces, wcfg, f)
 	bar, size := cwsBar(t, ctx, m)
 	has, _ := paintCwsBar(m, bar, size)
 	occupied := resolve(wcfg.OccupiedColor)

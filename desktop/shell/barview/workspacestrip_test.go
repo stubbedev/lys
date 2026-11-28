@@ -24,7 +24,7 @@ func classesIn(w widget.Widget) []string {
 
 func testStrip(t *testing.T, cfg *config.Config, c config.CompositorWorkspacesConfig) *WorkspaceStrip {
 	t.Helper()
-	return NewWorkspaceStrip(cfg, c, "niri", nil, treetest.Font(t), WorkspaceHandlers{})
+	return NewWorkspaceStrip(cfg, c, compositor.Niri, nil, treetest.Font(t), WorkspaceHandlers{})
 }
 
 func TestWorkspaceSegmentContent(t *testing.T) {
@@ -64,7 +64,7 @@ func TestAStripBindsOnlyTheHandlersItIsGiven(t *testing.T) {
 	cfg := config.Defaults()
 	c := cfg.Workspaces.View(compositor.Niri)
 	var selected []int
-	s := NewWorkspaceStrip(cfg, c, "", nil, treetest.Font(t), WorkspaceHandlers{Select: func(i int) { selected = append(selected, i) }})
+	s := NewWorkspaceStrip(cfg, c, compositor.Unknown, nil, treetest.Font(t), WorkspaceHandlers{Select: func(i int) { selected = append(selected, i) }})
 	s.Set(WorkspaceButtons(FlavorWorkspaces, []Workspace{occupiedWS(1, 1, "DP-1"), occupiedWS(2, 2, "DP-1")}, nil, c, "", false, false))
 	router, p := treetest.Pointer(s.Segments(), s.Segments().Segment(1), 500, 40)
 	router.Press(widget.BTNLeft, p, 0)
