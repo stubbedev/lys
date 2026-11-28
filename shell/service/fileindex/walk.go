@@ -148,10 +148,10 @@ func Walk(ctx context.Context, roots []string, rules Rules, limit int, visit fun
 	for i, r := range roots {
 		starts[i] = start{path: r}
 	}
-	return walk(ctx, starts, rules, limit, visit)
+	return walk(ctx, starts, rules.List, limit, visit)
 }
 
-func walk(ctx context.Context, queue []start, rules Rules, limit int, visit func(Dir)) End {
+func walk(ctx context.Context, queue []start, list func(string) (Listing, error), limit int, visit func(Dir)) End {
 	left := limit
 	for len(queue) > 0 {
 		if ctx.Err() != nil {
@@ -159,7 +159,7 @@ func walk(ctx context.Context, queue []start, rules Rules, limit int, visit func
 		}
 		s := queue[0]
 		queue = queue[1:]
-		l, err := rules.List(s.path)
+		l, err := list(s.path)
 		if err != nil || (s.dev != 0 && l.Dev != s.dev) {
 			continue
 		}

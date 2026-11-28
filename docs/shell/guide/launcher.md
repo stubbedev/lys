@@ -128,7 +128,7 @@ Person and hand emoji use `launcher.emoji.skin-tone`. The actions panel on such 
 
 ## File index
 
-While the panel is open, an index older than 10 minutes is refreshed in the background: breadth first from each root (default: home), at most 30,000 paths, 8 levels and 3 seconds, on one filesystem, skipping hidden names and `node_modules`, `vendor`, `target`, `build`, `dist`, `venv`, `__pycache__` and `result`. It is cached in `$XDG_CACHE_HOME/lys-shell/launcher-files.idx`. Recent files from `recently-used.xbel` rank higher. Set `launcher.search.file-roots` when the home directory is too large to index fully.
+lys-shell keeps one index of file names for the search panel and combi's file search, opened the first time either asks for files and kept for the shell's lifetime. It is walked once, breadth first from each root (default: home), at most 50,000 entries and 8 levels, on one filesystem, skipping hidden names, the names a folder's `.hidden` file lists and `node_modules`, `vendor`, `target`, `build`, `dist`, `venv`, `__pycache__` and `result`; after that it follows every indexed folder through inotify, so a file created, renamed or deleted shows in the next search without a walk. Recent files from `recently-used.xbel` rank higher. Set `launcher.search.file-roots` when the home directory is too large to index fully, and `launcher.search.file-exclude` for more folder names to skip.
 
 ## Configuration
 

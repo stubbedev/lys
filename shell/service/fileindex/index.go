@@ -11,6 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/stubbedev/lys/desktop/feed"
 	"github.com/stubbedev/lys/desktop/fswatch"
 	"golang.org/x/sys/unix"
 )
@@ -59,7 +60,8 @@ type Snapshot struct {
 	Files []File
 	// Recent are the recently used files that exist, newest first.
 	Recent []string
-	// Ready is false until the first walk has finished.
+	// Ready is false until the first walk has finished; until then the
+	// recent files may already be read and Files empty.
 	Ready bool
 	// Full reports that the index holds Max entries and leaves the rest
 	// out until something is deleted.
@@ -71,6 +73,7 @@ type Snapshot struct {
 // from any.
 type Index struct {
 	snap    atomic.Pointer[Snapshot]
+	changes *feed.Tick
 	watcher *fswatch.Watcher
 	cancel  context.CancelFunc
 	done    chan struct{}
@@ -83,7 +86,7 @@ func Open(cfg Config) (*Index, error) {
 	return open(cfg, disk{list: cfg.Rules.List, mtime: dirMtime})
 }
 
-// disk is how an index looks again at a directory it holds.
+// disk is how an index reads its directories.
 type disk struct {
 	list  func(string) (Listing, error)
 	mtime func(string) (int64, error)
@@ -100,7 +103,7 @@ func dirMtime(p string) (int64, error) {
 	return st.Mtim.Nano(), nil
 }
 
-// open is Open looking again at the directories it holds through d.
+// open is Open reading its directories through d.
 func open(cfg Config, d disk) (*Index, error) {
 	if len(cfg.Roots) == 0 {
 		return nil, errors.New("fileindex: no roots to index")
@@ -113,7 +116,7 @@ func open(cfg Config, d disk) (*Index, error) {
 		return nil, fmt.Errorf("fileindex: watch %v: %w", cfg.Roots, err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	ix := &Index{watcher: w, cancel: cancel, done: make(chan struct{})}
+	ix := &Index{changes: feed.NewTick(), watcher: w, cancel: cancel, done: make(chan struct{})}
 	ix.snap.Store(&Snapshot{})
 	t := &tree{cfg: cfg, dirs: map[string]*node{}, watch: w.Add, disk: d}
 	go ix.run(ctx, t)
@@ -123,22 +126,36 @@ func open(cfg Config, d disk) (*Index, error) {
 // Snapshot is the index as it stands.
 func (ix *Index) Snapshot() *Snapshot { return ix.snap.Load() }
 
+// Changes ticks after each new Snapshot, coalesced, until stop or
+// Close closes it. A reader subscribes before it reads the Snapshot, so
+// none published between the two is missed.
+func (ix *Index) Changes() (ticks <-chan struct{}, stop func()) { return ix.changes.Subscribe() }
+
+func (ix *Index) publish(s *Snapshot) {
+	ix.snap.Store(s)
+	feed.Notify(ix.changes)
+}
+
 // Close stops following the files and waits for the goroutine to end.
 func (ix *Index) Close() {
 	ix.once.Do(func() {
 		ix.cancel()
 		_ = ix.watcher.Close()
 		<-ix.done
+		ix.changes.Close()
 	})
 }
 
 func (ix *Index) run(ctx context.Context, t *tree) {
 	defer close(ix.done)
+	if t.refreshRecent(false) {
+		ix.publish(&Snapshot{Recent: t.recent})
+	}
 	t.update(ctx, fswatch.Batch{})
 	if ctx.Err() != nil {
 		return
 	}
-	ix.snap.Store(t.snapshot())
+	ix.publish(t.snapshot())
 	timer := time.NewTimer(0)
 	<-timer.C
 	pending := false
@@ -158,7 +175,7 @@ func (ix *Index) run(ctx context.Context, t *tree) {
 		case <-timer.C:
 			pending = false
 			if t.update(ctx, ix.watcher.Take()) {
-				ix.snap.Store(t.snapshot())
+				ix.publish(t.snapshot())
 			}
 		}
 	}
@@ -284,7 +301,7 @@ func (t *tree) walkFrom(ctx context.Context, starts []start) bool {
 		return false
 	}
 	added := false
-	end := walk(ctx, starts, t.cfg.Rules, left, func(d Dir) {
+	end := walk(ctx, starts, t.disk.list, left, func(d Dir) {
 		t.dirs[d.Path] = &node{depth: d.Depth, dev: d.Dev, mtime: d.Mtime, children: d.Children}
 		t.count += len(d.Children)
 		t.watchDir(d.Path)

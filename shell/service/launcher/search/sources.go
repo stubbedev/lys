@@ -48,10 +48,13 @@ func (s *Sources) Frecency(open func() (*Frecency, error)) func() (*Frecency, er
 }
 
 // keepSpec says when a kept source is stale: something under paths
-// changed, or it is older than maxAge. No paths and no maxAge is never.
+// changed, or for a source that follows its own changes what changes
+// subscribes to ticked instead; or it is older than maxAge. None of
+// them is never.
 type keepSpec struct {
 	paths     []string
 	recursive bool
+	changes   func() (ticks <-chan struct{}, stop func())
 	maxAge    time.Duration
 }
 
@@ -132,7 +135,15 @@ func (s *Sources) keep(key string, p source, spec keepSpec) Provider {
 	k := s.kept[key]
 	if k == nil {
 		k = &keptRows{maxAge: spec.maxAge}
-		if len(spec.paths) > 0 {
+		if spec.changes != nil {
+			ticks, stop := spec.changes()
+			go func() {
+				for range ticks {
+					k.invalidate()
+				}
+			}()
+			k.stop = stop
+		} else if len(spec.paths) > 0 {
 			k.unwatched = true
 			if s.watch != nil {
 				if stop, err := s.watch(spec.paths, spec.recursive, k.invalidate); err == nil {

@@ -20,7 +20,6 @@ import (
 	"github.com/stubbedev/lys/lib/logtest"
 	"github.com/stubbedev/lys/lib/waittest"
 
-	"github.com/stubbedev/lys/shell/service/fileindex"
 	"github.com/stubbedev/lys/shell/service/launcher"
 	"github.com/stubbedev/lys/shell/service/launcher/modes"
 )
@@ -694,127 +693,6 @@ func TestScriptArgumentsStayData(t *testing.T) {
 	}
 }
 
-func TestWalkFilesRespectsItsBounds(t *testing.T) {
-	root := t.TempDir()
-	for _, p := range []string{"a.txt", "sub/b.txt", ".hidden/c.txt", "node_modules/d.txt", "skipme/e.txt"} {
-		full := filepath.Join(root, p)
-		if err := os.MkdirAll(filepath.Dir(full), 0o700); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(full, nil, 0o600); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if err := os.Symlink(root, filepath.Join(root, "loop")); err != nil {
-		t.Fatal(err)
-	}
-	got, end := walkFiles(context.Background(), []string{root}, []string{"skipme"}, 100)
-	slices.Sort(got)
-	want := []string{filepath.Join(root, "a.txt"), filepath.Join(root, "sub") + "/", filepath.Join(root, "sub", "b.txt")}
-	if end != fileindex.Done || !slices.Equal(got, want) {
-		t.Errorf("walk = %v (end %v), want %v and Done", got, end, want)
-	}
-	if got, end := walkFiles(context.Background(), []string{root}, nil, 1); end != fileindex.Full || len(got) != 1 {
-		t.Errorf("limit: %v, end %v, want one path and Full", got, end)
-	}
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	if got, end := walkFiles(ctx, []string{root}, nil, 100); end != fileindex.Cut || len(got) != 0 {
-		t.Errorf("a cancelled walk: %v, end %v, want nothing and Cut", got, end)
-	}
-}
-
-// keptFiles is a Files over a home holding notes.txt, with no index yet,
-// kept by a Sources: the provider a session loads, and the rows kept of
-// it.
-func keptFiles(t *testing.T) (Provider, func() (titles []string, has bool)) {
-	t.Helper()
-	home := t.TempDir()
-	if err := os.WriteFile(filepath.Join(home, "notes.txt"), nil, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	state := t.TempDir()
-	files := NewFiles(Env{}, FilesConfig{
-		Roots: []string{home}, CachePath: filepath.Join(state, "idx"), RecentPath: filepath.Join(state, "recently-used.xbel"),
-		Home: home, Now: time.Now,
-	})
-	p := NewSources(nil, time.Now).keep("files", stagedSource(files), keepSpec{maxAge: fileIndexMaxAge})
-	return p, func() ([]string, bool) {
-		entries, has, _ := p.(*kept).rows.snapshot(time.Now())
-		titles := make([]string, len(entries))
-		for i, e := range entries {
-			titles[i] = e.Title
-		}
-		return titles, has
-	}
-}
-
-// A walk that finishes as the session ends is kept: the session ending
-// while the walked rows are published, before Load returns, loses
-// nothing of a load that ran to its end.
-func TestAFilesWalkThatFinishesAsTheSessionEndsIsKept(t *testing.T) {
-	p, keptRows := keptFiles(t)
-	session, end := context.WithCancel(context.Background())
-	defer end()
-	publishes := 0
-	p.Load(session, func([]Entry) {
-		if publishes++; publishes == 2 {
-			end()
-		}
-	})
-	if publishes != 2 {
-		t.Fatalf("%d publishes, want the index and then the walk", publishes)
-	}
-	if titles, has := keptRows(); !has || !slices.Equal(titles, []string{"notes.txt"}) {
-		t.Errorf("kept %q (any: %v), want the walk that finished: notes.txt", titles, has)
-	}
-}
-
-// A walk the session's end cut short is not kept: the next session walks
-// again.
-func TestAFilesWalkTheSessionCutShortIsNotKept(t *testing.T) {
-	p, keptRows := keptFiles(t)
-	session, end := context.WithCancel(context.Background())
-	defer end()
-	publishes := 0
-	p.Load(session, func([]Entry) {
-		if publishes++; publishes == 1 {
-			end()
-		}
-	})
-	if titles, has := keptRows(); has {
-		t.Errorf("kept %q of a walk the session ended before it began", titles)
-	}
-}
-
-func TestFilesLoadPublishesTheCacheThenIndexes(t *testing.T) {
-	root := t.TempDir()
-	if err := os.WriteFile(filepath.Join(root, "fresh.txt"), nil, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	cache := filepath.Join(t.TempDir(), "idx")
-	if err := os.WriteFile(cache, []byte("/old/cached.txt\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	stale := time.Now().Add(2 * fileIndexMaxAge)
-	f := NewFiles(Env{}, FilesConfig{Roots: []string{root}, CachePath: cache, Home: "/home/x", Now: func() time.Time { return stale }})
-	var published [][]Entry
-	f.Load(context.Background(), func(e []Entry) { published = append(published, e) })
-	if len(published) != 2 || published[0][0].Title != "cached.txt" || published[1][0].Title != "fresh.txt" {
-		t.Fatalf("published %+v", published)
-	}
-	data, err := os.ReadFile(cache)
-	if err != nil || !strings.Contains(string(data), "fresh.txt") {
-		t.Errorf("cache: %s %v", data, err)
-	}
-	published = nil
-	f.cfg.Now = time.Now
-	f.Load(context.Background(), func(e []Entry) { published = append(published, e) })
-	if len(published) != 1 {
-		t.Errorf("a fresh index walks nothing: %d publishes", len(published))
-	}
-}
-
 func TestTypedPathListsItsDirectory(t *testing.T) {
 	home := t.TempDir()
 	for _, name := range []string{"Documents", "Downloads", "Pictures", ".hidden"} {
@@ -822,7 +700,7 @@ func TestTypedPathListsItsDirectory(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	f := NewFiles(Env{}, FilesConfig{Home: home, Now: time.Now})
+	f := NewFiles(Env{}, FilesConfig{Home: home})
 	got := f.Answer("~/do")
 	if len(got) != 2 || got[0].Completion != "~/Documents/" {
 		t.Fatalf("answer = %+v", got)

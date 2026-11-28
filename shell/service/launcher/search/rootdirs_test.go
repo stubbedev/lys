@@ -2,6 +2,7 @@ package search
 
 import (
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -26,18 +27,16 @@ func TestTheRootsDirectoriesFollowXDG(t *testing.T) {
 	env := rootEnv(home)
 	for name, tc := range map[string]struct {
 		configHome, cacheHome, dataHome string
-		commands, index, recent         string
+		commands, recent                string
 	}{
 		"set": {
 			configHome, cacheHome, dataHome,
 			filepath.Join(configHome, identity.Name, "launcher", "commands"),
-			filepath.Join(cacheHome, identity.Name, fileIndexFileName),
 			filepath.Join(dataHome, "recently-used.xbel"),
 		},
 		"unset or relative": {
 			"relative", "", "also/relative",
 			filepath.Join(home, ".config", identity.Name, "launcher", "commands"),
-			filepath.Join(home, ".cache", identity.Name, fileIndexFileName),
 			filepath.Join(home, ".local", "share", "recently-used.xbel"),
 		},
 	} {
@@ -45,9 +44,9 @@ func TestTheRootsDirectoriesFollowXDG(t *testing.T) {
 		if dir, err := commandsDir("", home, env); err != nil || dir != tc.commands {
 			t.Errorf("%s: commands in %q (%v), want %q", name, dir, err, tc.commands)
 		}
-		fc, err := filesConfig(cfg, home, env)
-		if err != nil || fc.CachePath != tc.index || fc.RecentPath != tc.recent {
-			t.Errorf("%s: index %q, recent files %q (%v), want %q and %q", name, fc.CachePath, fc.RecentPath, err, tc.index, tc.recent)
+		ic, err := IndexConfig(cfg, home)
+		if err != nil || ic.RecentPath != tc.recent || !slices.Equal(ic.Roots, []string{home}) {
+			t.Errorf("%s: roots %q, recent files %q (%v), want %q and %q", name, ic.Roots, ic.RecentPath, err, home, tc.recent)
 		}
 	}
 	if dir, err := commandsDir("~/cmds", home, env); err != nil || dir != filepath.Join(home, "cmds") {
@@ -57,7 +56,8 @@ func TestTheRootsDirectoriesFollowXDG(t *testing.T) {
 
 // With neither an XDG directory nor a home, the sources that need one
 // are left out and logged instead of reading paths relative to the
-// working directory; a configured commands directory still serves.
+// working directory, and without the shell's file index there are no
+// files; a configured commands directory still serves.
 func TestARootWithoutItsDirectoriesLeavesTheirSourcesOut(t *testing.T) {
 	setXDGHomes(t, "", "", "")
 	logged := logtest.Capture(t)
@@ -67,10 +67,11 @@ func TestARootWithoutItsDirectoriesLeavesTheirSourcesOut(t *testing.T) {
 	if len(root.Providers) != 1 {
 		t.Errorf("%d providers without a home, want the web search alone", len(root.Providers))
 	}
-	for _, want := range []string{"launcher: no scripts: no commands directory", "launcher: no files: no directory for the index"} {
-		if !strings.Contains(logged.String(), want) {
-			t.Errorf("logged %q, want %q", logged.String(), want)
-		}
+	if want := "launcher: no scripts: no commands directory"; !strings.Contains(logged.String(), want) {
+		t.Errorf("logged %q, want %q", logged.String(), want)
+	}
+	if _, err := IndexConfig(cfg, ""); err == nil {
+		t.Error("an index without a directory of recent files was configured")
 	}
 	cfg.CommandsDir = t.TempDir()
 	if root := NewRoot(cfg, config.DefaultsPower(), Deps{Env: Env{}}, ""); len(root.Providers) != 2 {

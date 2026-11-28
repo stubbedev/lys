@@ -1,56 +1,40 @@
 package search
 
 import (
-	"bufio"
 	"context"
-	"errors"
-	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
-	"unsafe"
 
 	"github.com/stubbedev/lys/desktop/i18n"
-	"github.com/stubbedev/lys/lib/atomicfile"
 
 	"github.com/stubbedev/lys/shell/service/fileindex"
 	"github.com/stubbedev/lys/shell/service/launcher"
 )
 
-// The file index's bounds. It is a breadth-first walk, so what falls off
-// the end of a tree too large to index is what lies deepest; it runs
-// while the launcher is open and never otherwise, with no daemon.
 const (
-	fileIndexMax    = 30000
-	fileIndexBudget = 3 * time.Second
-	fileIndexMaxAge = 10 * time.Minute
 	// recentRank lifts a recent file over one merely indexed.
 	recentRank = 24
 	// pathRowsMax bounds a directory listing answered for a typed path.
 	pathRowsMax = 30
 )
 
-// FilesConfig bounds what Files reads.
+// FileIndex is the index the files source reads (*fileindex.Index).
+type FileIndex interface {
+	Snapshot() *fileindex.Snapshot
+	Changes() (ticks <-chan struct{}, stop func())
+}
+
+// FilesConfig is what Files reads and how it shows it.
 type FilesConfig struct {
-	// Roots are walked; a walk stays on each root's filesystem.
-	Roots []string
-	// Exclude are directory names to skip, on top of fileindex.Rules' own.
-	Exclude []string
-	// CachePath is the index's file.
-	CachePath string
-	// RecentPath is the desktop's recently-used.xbel.
-	RecentPath string
+	Index FileIndex
 	// Home abbreviates paths and resolves a leading ~.
 	Home string
 	// Previews asks for the side pane.
 	Previews bool
-	// Now is the clock (the index's age).
-	Now func() time.Time
 }
 
-// Files searches recent files and an index of the home directory, and
+// Files searches the recent files and the shell's file index, and
 // answers a typed path with its directory's contents.
 type Files struct {
 	env Env
@@ -68,76 +52,84 @@ func (*Files) Spec() Spec {
 // Load implements Provider.
 func (f *Files) Load(ctx context.Context, publish func([]Entry)) { f.LoadStaged(ctx, publish) }
 
-// LoadStaged implements Staged: what it can have at once first, the walk
-// behind it if the index has gone stale. Only the session's end cuts it
-// short: a walk its own bounds stopped is as whole as the index gets.
+// LoadStaged implements Staged: the index as it stands, and once more
+// when its first walk ends if it had not. Only the session's end before
+// that cuts it short.
 func (f *Files) LoadStaged(session context.Context, publish func([]Entry)) bool {
-	recent := fileindex.ReadRecent(f.cfg.RecentPath, fileindex.RecentMax)
-	indexed, age, err := readFileIndex(f.cfg.CachePath, f.cfg.Now)
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		log.Printf("launcher: file index: %v", err)
+	ticks, stop := f.cfg.Index.Changes()
+	defer stop()
+	snap := f.cfg.Index.Snapshot()
+	publish(f.entries(snap))
+	for !snap.Ready {
+		select {
+		case <-session.Done():
+			return false
+		case _, open := <-ticks:
+			if !open {
+				return false
+			}
+		}
+		snap = f.cfg.Index.Snapshot()
+		publish(f.entries(snap))
 	}
-	publish(f.entries(recent, indexed))
-	if indexed != nil && age < fileIndexMaxAge {
-		return true
-	}
-	budget, cancel := context.WithTimeout(session, fileIndexBudget)
-	defer cancel()
-	walked, end := walkFiles(budget, f.cfg.Roots, f.cfg.Exclude, fileIndexMax)
-	whole := end != fileindex.Cut || errors.Is(budget.Err(), context.DeadlineExceeded)
-	if end == fileindex.Cut && len(walked) < len(indexed) {
-		return whole
-	}
-	publish(f.entries(recent, walked))
-	if err := writeFileIndex(f.cfg.CachePath, walked); err != nil {
-		log.Printf("launcher: file index: %v", err)
-	}
-	return whole
+	return true
 }
 
-// entries are the rows: recents first and only once. A row shares its
-// path's bytes for its id and title, and the rows share one block for
-// what they hold besides, so thirty thousand rows are a few allocations
+// entries are the rows: recents first and only once. A row's path and
+// its folder as shown live in one block the rows share, its title in
+// the index's own name, so fifty thousand rows are a few allocations
 // rather than a few per row.
-func (f *Files) entries(recent, indexed []string) []Entry {
-	total := len(recent) + len(indexed)
-	seen := make(map[string]struct{}, len(recent))
+func (f *Files) entries(snap *fileindex.Snapshot) []Entry {
+	total := len(snap.Recent) + len(snap.Files)
+	seen := make(map[string]struct{}, len(snap.Recent))
 	out := make([]Entry, 0, total)
 	data := make([]fileData, total)
-	var dirs strings.Builder
 	size := 0
-	for _, p := range indexed {
+	for _, p := range snap.Recent {
 		size += len(p)
 	}
-	for _, p := range recent {
-		size += len(p)
+	for _, file := range snap.Files {
+		size += len(file.Folder) + 1 + len(file.Name)
 	}
-	dirs.Grow(size)
+	var block strings.Builder
+	block.Grow(size)
 	icons := map[string]launcher.Icon{}
-	add := func(path string, dir bool, rank int) {
+	add := func(path, title, shown string, dir bool, rank int) {
 		d := &data[len(out)]
 		*d = fileData{path: path, dir: dir}
-		out = append(out, f.entry(d, &dirs, icons, rank))
+		out = append(out, f.entry(d, title, shown, icons, rank))
 	}
-	for _, p := range recent {
+	for _, p := range snap.Recent {
 		seen[p] = struct{}{}
-		add(p, false, recentRank)
+		add(p, p[strings.LastIndexByte(p, '/')+1:], f.displayDir(folderOf(p), &block), false, recentRank)
 	}
-	for _, p := range indexed {
-		if _, dup := seen[p]; dup {
+	folder, shown := "", ""
+	for _, file := range snap.Files {
+		if file.Folder != folder {
+			folder, shown = file.Folder, f.displayDir(file.Folder, &block)
+		}
+		at := block.Len()
+		block.WriteString(folder)
+		if !strings.HasSuffix(folder, "/") {
+			block.WriteByte('/')
+		}
+		block.WriteString(file.Name)
+		path := block.String()[at:]
+		if _, dup := seen[path]; dup {
 			continue
 		}
-		dir := strings.HasSuffix(p, "/")
-		add(strings.TrimSuffix(p, "/"), dir, 0)
+		add(path, file.Name, shown, file.Dir, 0)
 	}
 	return out
 }
 
-// displayDir is path's folder as shown: under the home directory, ~/.
-// Outside it the path's own bytes serve, and within it the shortened form
-// goes in the shared block.
-func (f *Files) displayDir(path string, block *strings.Builder) string {
-	dir := path[:max(strings.LastIndexByte(path, '/'), 1)]
+// folderOf is the folder path is in.
+func folderOf(path string) string { return path[:max(strings.LastIndexByte(path, '/'), 1)] }
+
+// displayDir is dir as shown: under the home directory, ~/. Outside it
+// dir's own bytes serve, and within it the shortened form goes in the
+// shared block.
+func (f *Files) displayDir(dir string, block *strings.Builder) string {
 	if f.cfg.Home == "" || !strings.HasPrefix(dir, f.cfg.Home) {
 		return dir
 	}
@@ -151,12 +143,9 @@ func (f *Files) displayDir(path string, block *strings.Builder) string {
 	return block.String()[start:]
 }
 
-func (f *Files) entry(d *fileData, block *strings.Builder, icons map[string]launcher.Icon, rank int) Entry {
+func (f *Files) entry(d *fileData, title, shown string, icons map[string]launcher.Icon, rank int) Entry {
 	path := d.path
-	e := Entry{
-		ID: path, Learn: path, Title: path[strings.LastIndexByte(path, '/')+1:], Subtitle: f.displayDir(path, block),
-		Data: d, Rank: rank,
-	}
+	e := Entry{ID: path, Learn: path, Title: title, Subtitle: shown, Data: d, Rank: rank}
 	if d.dir {
 		e.Icon = iconFolder
 		e.Completion = strings.TrimSuffix(e.Subtitle, "/") + "/" + e.Title + "/"
@@ -212,6 +201,7 @@ func (f *Files) Answer(query string) []Entry {
 	}
 	folded := strings.ToLower(prefix)
 	var block strings.Builder
+	shown := f.displayDir(filepath.Clean(dir), &block)
 	out := make([]Entry, 0, min(len(listing), pathRowsMax))
 	for _, d := range listing {
 		name := d.Name()
@@ -222,7 +212,7 @@ func (f *Files) Answer(query string) []Entry {
 			continue
 		}
 		data := &fileData{path: filepath.Join(dir, name), dir: d.IsDir()}
-		out = append(out, f.entry(data, &block, nil, 0))
+		out = append(out, f.entry(data, name, shown, nil, 0))
 		if len(out) == pathRowsMax {
 			break
 		}
@@ -255,62 +245,4 @@ func (f *Files) Actions(e Entry) []Action {
 		copyAction(i18n.T("launcher-action-copy-path"), d.path),
 		copyAction(i18n.T("launcher-action-copy-name"), filepath.Base(d.path)),
 	}
-}
-
-// readFileIndex reads the cached paths and how old they are.
-func readFileIndex(path string, now func() time.Time) ([]string, time.Duration, error) {
-	file, err := os.Open(path) //nolint:gosec // the launcher's own cache
-	if err != nil {
-		return nil, 0, err
-	}
-	defer func() { _ = file.Close() }()
-	info, err := file.Stat()
-	if err != nil {
-		return nil, 0, err
-	}
-	// One read of the known size; the lines are slices of one string.
-	data := make([]byte, info.Size())
-	if _, err := io.ReadFull(file, data); err != nil {
-		return nil, 0, err
-	}
-	if len(data) == 0 {
-		return nil, now().Sub(info.ModTime()), nil
-	}
-	text := unsafe.String(&data[0], len(data)) //nolint:gosec // data is never written again, and copying the index is what this avoids
-	return strings.Split(strings.TrimSuffix(text, "\n"), "\n"), now().Sub(info.ModTime()), nil
-}
-
-func writeFileIndex(path string, paths []string) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		return err
-	}
-	return atomicfile.Write(path, 0o600, func(w io.Writer) error {
-		buf := bufio.NewWriter(w)
-		for _, p := range paths {
-			if strings.ContainsAny(p, "\n") {
-				continue
-			}
-			if _, err := buf.WriteString(p + "\n"); err != nil {
-				return err
-			}
-		}
-		return buf.Flush()
-	})
-}
-
-// walkFiles lists files and directories under roots breadth first, up
-// to limit paths, directories marked by a trailing slash, as the index
-// file holds them.
-func walkFiles(ctx context.Context, roots, exclude []string, limit int) ([]string, fileindex.End) {
-	var paths []string
-	end := fileindex.Walk(ctx, roots, fileindex.Rules{Exclude: exclude}, limit, func(d fileindex.Dir) {
-		for _, c := range d.Children {
-			p := d.Path + "/" + c.Name
-			if c.Dir {
-				p += "/"
-			}
-			paths = append(paths, p)
-		}
-	})
-	return paths, end
 }

@@ -51,14 +51,13 @@ type Deps struct {
 	// Sources keeps the stable sources' rows between sessions; nil loads
 	// every source in every session.
 	Sources *Sources
+	// Files is the shell's file index; nil offers no files.
+	Files FileIndex
 }
 
-// frecencyFileName and fileIndexFileName are the session's files, under
-// the state and cache directories.
-const (
-	frecencyFileName  = "launcher-frecency.json"
-	fileIndexFileName = "launcher-files.idx"
-)
+// frecencyFileName is where the session remembers uses, under the state
+// directory.
+const frecencyFileName = "launcher-frecency.json"
 
 // FrecencyPath is where uses are remembered.
 func FrecencyPath() (string, bool) {
@@ -132,13 +131,10 @@ func NewRoot(cfg config.LauncherSearchConfig, power config.PowerConfig, d Deps, 
 	if has(config.SearchSettings) && d.SettingsPages != nil {
 		root.Providers = append(root.Providers, keep("settings", wholeSource(NewSettings(d.Env, d.SettingsPages)), keepSpec{}))
 	}
-	if has(config.SearchFiles) {
-		if fc, err := filesConfig(cfg, home, env); err != nil {
-			log.Printf("launcher: no files: %v", err)
-		} else {
-			key := fmt.Sprintf("files\x00%q\x00%q\x00%s\x00%s\x00%t", fc.Roots, fc.Exclude, fc.CachePath, fc.RecentPath, fc.Previews)
-			root.Providers = append(root.Providers, keep(key, stagedSource(NewFiles(d.Env, fc)), keepSpec{paths: []string{filepath.Dir(fc.RecentPath), filepath.Dir(fc.CachePath)}, maxAge: fileIndexMaxAge}))
-		}
+	if has(config.SearchFiles) && d.Files != nil {
+		fc := FilesConfig{Index: d.Files, Home: home, Previews: cfg.Previews}
+		key := fmt.Sprintf("files\x00%p\x00%s\x00%t", d.Files, home, cfg.Previews)
+		root.Providers = append(root.Providers, keep(key, stagedSource(NewFiles(d.Env, fc)), keepSpec{changes: d.Files.Changes}))
 	}
 	if has(config.SearchClipboard) && d.Clipboard != nil {
 		root.Providers = append(root.Providers, NewClipboard(d.Clipboard, cfg.Previews))
@@ -205,10 +201,10 @@ func commandsDir(configured, home string, env xdg.Env) (string, error) {
 	return filepath.Join(dir, "launcher", "commands"), nil
 }
 
-// filesConfig is what the files source reads: the configured roots, home
-// without any, the index under the shell's XDG cache directory and the
-// desktop's recent files under the XDG data home.
-func filesConfig(cfg config.LauncherSearchConfig, home string, env xdg.Env) (FilesConfig, error) {
+// IndexConfig is what the shell's file index covers: the configured
+// roots, home without any, their exclusions, and the desktop's recent
+// files under the XDG data home.
+func IndexConfig(cfg config.LauncherSearchConfig, home string) (fileindex.Config, error) {
 	roots := make([]string, 0, max(len(cfg.FileRoots), 1))
 	for _, r := range cfg.FileRoots {
 		roots = append(roots, expandHome(r, home))
@@ -216,28 +212,11 @@ func filesConfig(cfg config.LauncherSearchConfig, home string, env xdg.Env) (Fil
 	if len(roots) == 0 {
 		roots = []string{home}
 	}
-	cache, ok := env.CacheDir(identity.Name)
+	data, ok := rootEnv(home).DataHome()
 	if !ok {
-		return FilesConfig{}, errors.New("no directory for the index: neither XDG_CACHE_HOME nor HOME is an absolute path")
+		return fileindex.Config{}, errors.New("no directory of recent files: neither XDG_DATA_HOME nor HOME is an absolute path")
 	}
-	data, ok := env.DataHome()
-	if !ok {
-		return FilesConfig{}, errors.New("no directory of recent files: neither XDG_DATA_HOME nor HOME is an absolute path")
-	}
-	return FilesConfig{
-		Roots: roots, Exclude: cfg.FileExclude, CachePath: filepath.Join(cache, fileIndexFileName), RecentPath: filepath.Join(data, "recently-used.xbel"), Home: home,
-		Previews: cfg.Previews, Now: time.Now,
-	}, nil
-}
-
-// IndexConfig is what the shell's file index covers: the roots and
-// exclusions the panel's files walk, and the desktop's recent files.
-func IndexConfig(cfg config.LauncherSearchConfig, home string) (fileindex.Config, error) {
-	fc, err := filesConfig(cfg, home, rootEnv(home))
-	if err != nil {
-		return fileindex.Config{}, err
-	}
-	return fileindex.Config{Roots: fc.Roots, Rules: fileindex.Rules{Exclude: fc.Exclude}, RecentPath: fc.RecentPath}, nil
+	return fileindex.Config{Roots: roots, Rules: fileindex.Rules{Exclude: cfg.FileExclude}, RecentPath: filepath.Join(data, "recently-used.xbel")}, nil
 }
 
 func sessionLanguage() string {

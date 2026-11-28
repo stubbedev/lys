@@ -9,6 +9,7 @@ import (
 	"github.com/stubbedev/lys/desktop/desktopentry"
 	"github.com/stubbedev/lys/desktop/launchermatch"
 
+	"github.com/stubbedev/lys/shell/service/fileindex"
 	"github.com/stubbedev/lys/shell/service/launcher/modes"
 )
 
@@ -110,14 +111,15 @@ func BenchmarkLoadEmoji(b *testing.B) {
 
 // BenchmarkFilesEntries builds thirty thousand file rows.
 func BenchmarkFilesEntries(b *testing.B) {
-	paths := make([]string, 30000)
-	for i := range paths {
-		paths[i] = "/home/x/Documents/project/report-" + strconv.Itoa(i) + ".txt"
+	snap := &fileindex.Snapshot{Ready: true, Files: make([]fileindex.File, 30000)}
+	for i := range snap.Files {
+		name := "report-" + strconv.Itoa(i) + ".txt"
+		snap.Files[i] = fileindex.File{Folder: "/home/x/Documents/project-" + strconv.Itoa(i/100), Name: name, Fold: name}
 	}
 	f := NewFiles(Env{}, FilesConfig{Home: "/home/x", Previews: true})
 	b.ReportAllocs()
 	for b.Loop() {
-		f.entries(nil, paths)
+		f.entries(snap)
 	}
 }
 

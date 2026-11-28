@@ -123,6 +123,9 @@ func (s *Surface) openPanel(sess *launcheripc.Session) {
 	} else {
 		deps := s.d.Search()
 		deps.Sources = s.sources
+		if slices.Contains(cfg.Launcher.Search.Providers, config.SearchFiles) {
+			deps.Files = s.files.get(cfg.Launcher.Search)
+		}
 		root = search.NewRoot(cfg.Launcher.Search, cfg.Power, deps, os.Getenv("HOME"))
 	}
 	if sess.Options.Filter != nil {

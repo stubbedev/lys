@@ -9890,6 +9890,7 @@
   },
   "shell/service/fileindex": {
     "imports": [
+      "desktop/feed",
       "desktop/fswatch"
     ],
     "external": [
@@ -10278,10 +10279,10 @@
       "sync",
       "sync/atomic",
       "syscall",
-      "time",
-      "unsafe"
+      "time"
     ],
     "testImports": [
+      "desktop/feed",
       "desktop/i18n/locales/shell",
       "desktop/service/clipboard/historybudget",
       "lib/fdtest",

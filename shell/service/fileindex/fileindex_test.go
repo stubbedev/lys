@@ -258,8 +258,8 @@ func TestAnIndexLooksAgainOnlyAtTheDirectoriesThatChanged(t *testing.T) {
 	}
 	t.Cleanup(ix.Close)
 	waittest.Until(t, func() bool { return ix.Snapshot().Ready }, "the first walk")
-	if got := counted.take(); len(got) != 0 {
-		t.Fatalf("the first walk looked again at %v", got)
+	if got := counted.take(); len(got) != 21 {
+		t.Fatalf("the first walk read %d directories, want the root and its 20 once each", len(got))
 	}
 
 	if err := os.WriteFile(filepath.Join(root, "d01/f.txt"), []byte("edited"), 0o600); err != nil {
@@ -296,6 +296,53 @@ func TestARescanSweepsWhatNoDirectoryNamed(t *testing.T) {
 	}
 	if !tr.update(context.Background(), fswatch.Batch{Rescan: true}) || !slices.Contains(paths(tr.snapshot()), root+"/a/new.txt") {
 		t.Errorf("a rescan missed the new file: %v", paths(tr.snapshot()))
+	}
+}
+
+func TestAnIndexTicksAfterEachNewSnapshot(t *testing.T) {
+	root := t.TempDir()
+	ix := openIndex(t, Config{Roots: []string{root}})
+	ticks, stop := ix.Changes()
+	defer stop()
+	before := ix.Snapshot()
+	touch(t, root, "new.txt")
+	waittest.For(t, ticks, "a tick for the new file")
+	if after := ix.Snapshot(); after == before || !slices.Contains(paths(after), root+"/new.txt") {
+		t.Errorf("after the tick the snapshot holds %v", paths(after))
+	}
+	late, lateStop := ix.Changes()
+	defer lateStop()
+	ix.Close()
+	if _, open := <-late; open {
+		t.Error("a subscription outlived Close")
+	}
+}
+
+func TestTheRecentFilesComeBeforeTheFirstWalkEnds(t *testing.T) {
+	root, data := t.TempDir(), t.TempDir()
+	touch(t, root, "one.txt")
+	xbel := filepath.Join(data, "recently-used.xbel")
+	writeXbel(t, xbel, root+"/one.txt")
+	release := make(chan struct{})
+	held := disk{list: func(dir string) (Listing, error) {
+		if dir == root {
+			<-release
+		}
+		return Rules{}.List(dir)
+	}, mtime: dirMtime}
+	ix, err := open(Config{Roots: []string{root}, RecentPath: xbel}, held)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(ix.Close)
+	waittest.Until(t, func() bool { return len(ix.Snapshot().Recent) == 1 }, "the recent files")
+	if s := ix.Snapshot(); s.Ready || len(s.Files) != 0 {
+		t.Errorf("before the walk the snapshot is %+v, want the recent files alone and not Ready", s)
+	}
+	close(release)
+	waittest.Until(t, func() bool { return ix.Snapshot().Ready }, "the first walk")
+	if got := paths(ix.Snapshot()); !slices.Equal(got, []string{root + "/one.txt"}) {
+		t.Errorf("after the walk the index holds %v", got)
 	}
 }
 
