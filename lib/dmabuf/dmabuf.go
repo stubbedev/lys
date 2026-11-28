@@ -13,6 +13,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/lib/fourcc"
+	"github.com/stubbedev/lys/lib/internal/ioctl"
 )
 
 const maxPlanes = 4
@@ -127,16 +128,7 @@ func ExportSyncFile(fd int, a Access) (int, error) {
 }
 
 func syncFileIoctl(fd int, req uintptr, arg *syncFileArg) error {
-	for {
-		_, _, errno := unix.Syscall(unix.SYS_IOCTL, uintptr(fd), req, uintptr(unsafe.Pointer(arg))) //nolint:gosec // the kernel reads and fills the struct during the call
-		switch errno {
-		case 0:
-			return nil
-		case unix.EINTR, unix.EAGAIN:
-			continue
-		}
-		return errno
-	}
+	return ioctl.Retry(fd, req, unsafe.Pointer(arg)) //nolint:gosec // the kernel reads and fills the struct during the call
 }
 
 // ErrWaitTimeout reports a Wait whose fences did not signal in time.
@@ -194,14 +186,8 @@ func BeginCPURead(fd int) error { return cpuSync(fd, dmaBufSyncStart|uint64(Read
 func EndCPURead(fd int) error { return cpuSync(fd, dmaBufSyncEnd|uint64(Read), "end") }
 
 func cpuSync(fd int, flags uint64, what string) error {
-	for {
-		_, _, errno := unix.Syscall(unix.SYS_IOCTL, uintptr(fd), dmaBufIoctlSync, uintptr(unsafe.Pointer(&flags))) //nolint:gosec // the kernel reads the flags during the call
-		switch errno {
-		case 0:
-			return nil
-		case unix.EINTR, unix.EAGAIN:
-			continue
-		}
-		return fmt.Errorf("dmabuf: DMA_BUF_IOCTL_SYNC %s of a CPU %s of dmabuf %d: %w", what, Access(flags&uint64(Read|Write)), fd, errno)
+	if err := ioctl.Retry(fd, dmaBufIoctlSync, unsafe.Pointer(&flags)); err != nil { //nolint:gosec // the kernel reads the flags during the call
+		return fmt.Errorf("dmabuf: DMA_BUF_IOCTL_SYNC %s of a CPU %s of dmabuf %d: %w", what, Access(flags&uint64(Read|Write)), fd, err)
 	}
+	return nil
 }

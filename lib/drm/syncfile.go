@@ -9,6 +9,8 @@ import (
 	"unsafe"
 
 	"golang.org/x/sys/unix"
+
+	"github.com/stubbedev/lys/lib/internal/ioctl"
 )
 
 const (
@@ -131,14 +133,5 @@ func SyncFileSignalled(fd int) (bool, error) {
 }
 
 func syncFileIoctl(fd int, arg unsafe.Pointer) error {
-	for {
-		_, _, errno := unix.Syscall(unix.SYS_IOCTL, uintptr(fd), ioctlSyncFileInfo, uintptr(arg))
-		switch errno {
-		case 0:
-			return nil
-		case unix.EINTR, unix.EAGAIN:
-			continue
-		}
-		return errno
-	}
+	return ioctl.Retry(fd, ioctlSyncFileInfo, arg)
 }

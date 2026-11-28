@@ -11,6 +11,8 @@ import (
 	"unsafe"
 
 	"golang.org/x/sys/unix"
+
+	"github.com/stubbedev/lys/lib/internal/ioctl"
 )
 
 // Sync object capabilities, as Cap reads them.
@@ -88,16 +90,10 @@ func (d *Device) ioctl(name string, nr uintptr, arg unsafe.Pointer, size uintptr
 }
 
 func (d *Device) call(name string, request uintptr, arg unsafe.Pointer) error {
-	for {
-		_, _, errno := unix.Syscall(unix.SYS_IOCTL, uintptr(d.fd), request, uintptr(arg))
-		switch errno {
-		case 0:
-			return nil
-		case unix.EINTR, unix.EAGAIN:
-			continue
-		}
-		return fmt.Errorf("drm: %s on %s: %w", name, d.path, errno)
+	if err := ioctl.Retry(d.fd, request, arg); err != nil {
+		return fmt.Errorf("drm: %s on %s: %w", name, d.path, err)
 	}
+	return nil
 }
 
 // Cap reads a device capability, one of the Cap* constants, with
