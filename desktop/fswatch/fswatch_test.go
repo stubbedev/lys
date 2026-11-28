@@ -444,3 +444,49 @@ func TestTickWatcherKeepsNoNames(t *testing.T) {
 		t.Errorf("a tick watcher kept %+v, want only its directory", b)
 	}
 }
+
+// A recursive named watcher names a change inside a directory created
+// after Add by that directory, as it names one at the root.
+func TestARecursiveNamedWatchNamesChangesInLaterDirectories(t *testing.T) {
+	root := t.TempDir()
+	w, err := NewRecursiveNamed(Changes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = w.Close() })
+	if err := w.Add(root); err != nil {
+		t.Fatal(err)
+	}
+	later := filepath.Join(root, "later")
+	mkdirs(t, later)
+	waittest.Until(t, func() bool {
+		w.mu.Lock()
+		defer w.mu.Unlock()
+		return slices.Contains(slices.Collect(maps.Values(w.dirs)), later)
+	}, "the new directory to be watched")
+	write(t, filepath.Join(later, "inner"), "x")
+	events, rescan := takeUntil(t, w, func(e []Event, _ bool) bool {
+		return slices.ContainsFunc(e, func(e Event) bool { return e.Name == "inner" })
+	})
+	i := slices.IndexFunc(events, func(e Event) bool { return e.Name == "inner" })
+	if rescan || events[i].Dir != later || events[0] != (Event{Dir: root, Name: "later", Mask: events[0].Mask}) {
+		t.Errorf("events %+v (rescan %v), want later created at the root and inner in later", events, rescan)
+	}
+}
+
+// A named event says whether its name is a directory, so a consumer of
+// files can leave directories out.
+func TestANamedEventMarksADirectory(t *testing.T) {
+	root := t.TempDir()
+	w := newNamed(t, root)
+	mkdirs(t, filepath.Join(root, "dir"))
+	write(t, filepath.Join(root, "file"), "x")
+	events, _ := takeUntil(t, w, func(e []Event, _ bool) bool {
+		return slices.ContainsFunc(e, func(e Event) bool { return e.Name == "file" })
+	})
+	for _, e := range events {
+		if isDir := e.Mask&unix.IN_ISDIR != 0; isDir != (e.Name == "dir") {
+			t.Errorf("event %+v: directory bit %v", e, isDir)
+		}
+	}
+}

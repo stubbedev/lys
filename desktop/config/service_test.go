@@ -336,6 +336,52 @@ func TestWatcherReloadsAfterTheDebounce(t *testing.T) {
 	}
 }
 
+// A change in a directory made after the watch started reloads, and a
+// batch the kernel lost events from reloads every layer and signals the
+// secrets and themes, though it names no path.
+func TestWatcherFollowsNewDirectoriesAndReloadsAllOnLostEvents(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir, "config.yaml", "imports: [nested/more.yaml]\n")
+	svc := Load(dir, DiscardDiagnostics)
+	if err := svc.startWatcher(); err != nil {
+		t.Fatal(err)
+	}
+	defer svc.Close()
+	changed := make(chan Location, 4)
+	Watch(svc, func(c *Config) Location { return c.Bar.Location }, func(l Location) { changed <- l })
+	if err := os.Mkdir(filepath.Join(dir, "nested"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	waittest.Until(t, func() bool {
+		writeFile(t, filepath.Join(dir, "nested"), "more.yaml", "bar:\n  location: left\n")
+		select {
+		case l := <-changed:
+			return l == LocationLeft
+		case <-time.After(maxDebounceDelay):
+			return false
+		}
+	}, "a reload after a write in a directory made after the watch started")
+
+	themes, secrets := make(chan struct{}, 1), make(chan struct{}, 1)
+	svc.SubscribeThemes(func() { themes <- struct{}{} })
+	svc.SubscribeSecrets(func() { secrets <- struct{}{} })
+	writeFile(t, dir, "config.yaml", "bar:\n  location: right\n")
+	if err := svc.reloadChanges(nil, false); err != nil {
+		t.Fatal(err)
+	}
+	if got := svc.Config().Bar.Location; got != LocationLeft {
+		t.Fatalf("a batch naming nothing reloaded the config: location %q", got)
+	}
+	if err := svc.reloadChanges(nil, true); err != nil {
+		t.Fatal(err)
+	}
+	if got := svc.Config().Bar.Location; got != LocationRight {
+		t.Errorf("a lost batch did not reload the config: location %q", got)
+	}
+	waittest.For(t, themes, "the themes signalled after a lost batch")
+	waittest.For(t, secrets, "the secrets signalled after a lost batch")
+}
+
 func TestDebounceCeiling(t *testing.T) {
 	start := time.Unix(0, 0)
 	ceiling := start.Add(maxDebounceDelay)
@@ -727,13 +773,13 @@ func TestASavesTemporaryReloadsOnlyTheRuntimeLayer(t *testing.T) {
 		t.Fatalf("no temporary seen during a write: %v", err)
 	}
 	writeFile(t, dir, "config.yaml", "bar:\n  location: left\n")
-	if err := svc.reloadPaths([]string{tmp}); err != nil {
+	if err := svc.reloadChanges([]string{tmp}, false); err != nil {
 		t.Fatal(err)
 	}
 	if got := svc.Config().Bar.Location; got != LocationBottom {
 		t.Errorf("runtime.yaml's temporary reloaded the config file: location %q", got)
 	}
-	if err := svc.reloadPaths([]string{filepath.Join(dir, "config.yaml")}); err != nil {
+	if err := svc.reloadChanges([]string{filepath.Join(dir, "config.yaml")}, false); err != nil {
 		t.Fatal(err)
 	}
 	if got := svc.Config().Bar.Location; got != LocationLeft {

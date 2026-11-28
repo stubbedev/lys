@@ -69,6 +69,8 @@ type Event struct {
 	// recursive walk below it) named it.
 	Dir  string
 	Name string
+	// Mask is the events' bits within the watcher's mask, with
+	// IN_ISDIR when the name was a directory.
 	Mask uint32
 }
 
@@ -103,6 +105,12 @@ func New(mask uint32, recursive bool) (*Watcher, error) {
 // keeps the names that changed for Take.
 func NewNamed(mask uint32) (*Watcher, error) {
 	return start(mask, false, true)
+}
+
+// NewRecursiveNamed starts a recursive watcher for mask, as New with
+// recursive set, that also keeps the names that changed for Take.
+func NewRecursiveNamed(mask uint32) (*Watcher, error) {
+	return start(mask, true, true)
 }
 
 func start(mask uint32, recursive, named bool) (*Watcher, error) {
@@ -332,7 +340,7 @@ func (w *Watcher) handle(buf []byte) bool {
 		}
 		if mask&(w.mask|unix.IN_Q_OVERFLOW) != 0 {
 			changed = true
-			w.note(wd, name, mask&(w.mask|lost))
+			w.note(wd, name, mask&(w.mask|lost|unix.IN_ISDIR))
 		}
 		if mask&unix.IN_IGNORED != 0 {
 			w.mu.Lock()

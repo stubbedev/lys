@@ -1,82 +1,78 @@
 package wallpaper
 
 import (
-	"encoding/binary"
 	"log"
-	"os"
 
+	"github.com/stubbedev/lys/desktop/fswatch"
 	"golang.org/x/sys/unix"
 )
 
-// dirWatcher reports file-level changes in one cycling directory:
-// a file created or deleted, or any entry renamed
-// in or out. Data writes and subdirectory creation do not count.
+// dirWatcher reports file-level changes in one cycling directory on
+// events: a file created or deleted, any entry renamed in or out, or
+// events the kernel lost. Data writes and subdirectory creation do not
+// count.
 type dirWatcher struct {
-	file   *os.File
+	w      *fswatch.Watcher
 	events chan struct{}
 }
 
 const watchMask = unix.IN_CREATE | unix.IN_DELETE | unix.IN_MOVED_FROM | unix.IN_MOVED_TO
 
-// watchDirectory starts an inotify watch; nil (logged) when the watch
+// watchDirectory starts a watch on dir; nil (logged) when the watch
 // cannot be set up, which leaves cycling running without rescans.
 func watchDirectory(dir string) *dirWatcher {
-	fd, err := unix.InotifyInit1(unix.IN_NONBLOCK | unix.IN_CLOEXEC)
+	w, err := fswatch.NewNamed(watchMask)
 	if err != nil {
 		log.Printf("wallpaper: cannot create directory watcher: %v", err)
 		return nil
 	}
-	if _, err := unix.InotifyAddWatch(fd, dir, watchMask|unix.IN_ONLYDIR); err != nil {
-		_ = unix.Close(fd)
+	if err := w.Add(dir); err != nil {
+		_ = w.Close()
 		log.Printf("wallpaper: cannot watch directory %s: %v", dir, err)
 		return nil
 	}
-	// A non-blocking fd joins the runtime poller, so Close unblocks Read.
-	w := &dirWatcher{file: os.NewFile(uintptr(fd), "inotify:"+dir), events: make(chan struct{}, 1)}
-	go w.read()
-	return w
+	d := &dirWatcher{w: w, events: make(chan struct{}, 1)}
+	go d.read()
+	return d
 }
 
-func (w *dirWatcher) read() {
-	buf := make([]byte, 64*(unix.SizeofInotifyEvent+unix.NAME_MAX+1))
-	for {
-		n, err := w.file.Read(buf)
-		if err != nil {
-			return
+func (d *dirWatcher) read() {
+	for range d.w.Changed() {
+		if !filesChanged(d.w.Take()) {
+			continue
 		}
-		if fileEvent(buf[:n]) {
-			select {
-			case w.events <- struct{}{}:
-			default:
-			}
+		select {
+		case d.events <- struct{}{}:
+		default:
 		}
 	}
 }
 
-// fileEvent reports whether a read batch carries a relevant change.
-func fileEvent(batch []byte) bool {
-	for len(batch) >= unix.SizeofInotifyEvent {
-		mask := binary.NativeEndian.Uint32(batch[4:8])
-		nameLen := binary.NativeEndian.Uint32(batch[12:16])
-		isDir := mask&unix.IN_ISDIR != 0
-		switch {
-		case mask&(unix.IN_MOVED_FROM|unix.IN_MOVED_TO) != 0:
-			return true
-		case mask&(unix.IN_CREATE|unix.IN_DELETE) != 0 && !isDir:
+// filesChanged reports whether b changes a directory's files: it lost
+// events, or one of them is fileEvent.
+func filesChanged(b fswatch.Batch) bool {
+	if b.Rescan {
+		return true
+	}
+	for _, e := range b.Events {
+		if fileEvent(e.Mask) {
 			return true
 		}
-		next := unix.SizeofInotifyEvent + int(nameLen)
-		if next > len(batch) {
-			break
-		}
-		batch = batch[next:]
 	}
 	return false
 }
 
+// fileEvent reports whether an event's mask is a file-level change.
+func fileEvent(mask uint32) bool {
+	if mask&(unix.IN_MOVED_FROM|unix.IN_MOVED_TO) != 0 {
+		return true
+	}
+	return mask&(unix.IN_CREATE|unix.IN_DELETE) != 0 && mask&unix.IN_ISDIR == 0
+}
+
 // close stops the watch; nil-safe.
-func (w *dirWatcher) close() {
-	if w != nil {
-		_ = w.file.Close()
+func (d *dirWatcher) close() {
+	if d != nil {
+		_ = d.w.Close()
 	}
 }

@@ -14,10 +14,12 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/fswatch"
 	"github.com/stubbedev/lys/desktop/service/wallpaper/extract"
 	"github.com/stubbedev/lys/desktop/styling/material"
 	"github.com/stubbedev/lys/lib/fdtest"
 	"github.com/stubbedev/lys/lib/waittest"
+	"golang.org/x/sys/unix"
 )
 
 func seeded() *rand.Rand { return rand.New(rand.NewPCG(1, 2)) }
@@ -355,19 +357,19 @@ func TestDirectoryChangeRefreshesThePool(t *testing.T) {
 }
 
 func TestFileEventFilter(t *testing.T) {
-	ev := func(mask uint32) []byte {
-		b := make([]byte, 16)
-		b[4], b[5], b[6], b[7] = byte(mask), byte(mask>>8), byte(mask>>16), byte(mask>>24)
-		return b
-	}
-	const inCreate, inDelete, inMovedTo, inIsDir, inModify = 0x100, 0x200, 0x80, 0x40000000, 0x2
 	for mask, want := range map[uint32]bool{
-		inCreate: true, inDelete: true, inMovedTo: true, inMovedTo | inIsDir: true,
-		inCreate | inIsDir: false, inDelete | inIsDir: false, inModify: false,
+		unix.IN_CREATE: true, unix.IN_DELETE: true, unix.IN_MOVED_TO: true, unix.IN_MOVED_TO | unix.IN_ISDIR: true,
+		unix.IN_CREATE | unix.IN_ISDIR: false, unix.IN_DELETE | unix.IN_ISDIR: false, unix.IN_MODIFY: false,
 	} {
-		if got := fileEvent(ev(mask)); got != want {
+		if got := filesChanged(fswatch.Batch{Events: []fswatch.Event{{Name: "a.png", Mask: mask}}}); got != want {
 			t.Errorf("mask %#x = %v, want %v", mask, got, want)
 		}
+	}
+	if !filesChanged(fswatch.Batch{Rescan: true}) {
+		t.Error("a batch the kernel lost events from did not rescan the pool")
+	}
+	if filesChanged(fswatch.Batch{}) {
+		t.Error("an empty batch rescanned the pool")
 	}
 }
 
