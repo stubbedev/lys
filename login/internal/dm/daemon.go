@@ -59,6 +59,22 @@ const (
 	FingerprintService = "lys-login-fingerprint"
 )
 
+// The modes of lys-login the display manager starts itself in: the
+// greeter, and a worker that runs a WorkerKind.
+const (
+	GreetMode  = "greet"
+	WorkerMode = "worker"
+)
+
+// WorkerKind is what a worker runs: the greeter's compositor or a
+// user's session.
+type WorkerKind string
+
+const (
+	GreeterWorker WorkerKind = "greeter"
+	SessionWorker WorkerKind = "session"
+)
+
 const greeterShowWait = 30 * time.Second
 
 // StopSignals end a daemon: systemd stops one with SIGTERM and, as the service
@@ -305,12 +321,12 @@ func (o Options) greeterCommand(systemAccounts []string) []string {
 	g := o.Greeter
 	g.HandOver = true
 	g.SystemAccounts = append(slices.Clone(g.SystemAccounts), systemAccounts...)
-	return append([]string{o.Self, "greet"}, g.Args()...)
+	return append([]string{o.Self, GreetMode}, g.Args()...)
 }
 
 func (o Options) greeterWorkerArgs(sock, kioskConfig string, vt int) []string {
 	args := []string{
-		"worker", "greeter", "--service", o.Service, "--vt", strconv.Itoa(vt), "--user", o.GreeterUser,
+		WorkerMode, string(GreeterWorker), "--service", o.Service, "--vt", strconv.Itoa(vt), "--user", o.GreeterUser,
 		"--env", auth.GreetdSockEnv + "=" + sock, "--env", RuntimeDirEnv + "=" + o.RuntimeDir, "--",
 	}
 	return append(append(args, o.Compositor...), "--config", kioskConfig)
@@ -718,7 +734,7 @@ func (o Options) startSessionWorker(user string, vt int, method loginMethod) (*w
 }
 
 func (o Options) sessionWorkerArgs(vt int, method loginMethod) ([]string, error) {
-	args := []string{"worker", "session", "--vt", strconv.Itoa(vt), "--runtime-dir", o.RuntimeDir}
+	args := []string{WorkerMode, string(SessionWorker), "--vt", strconv.Itoa(vt), "--runtime-dir", o.RuntimeDir}
 	switch method {
 	case autoLogin:
 		return append(args, "--service", AutologinService, "--autologin"), nil

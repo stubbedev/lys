@@ -71,10 +71,14 @@ import (
 
 const usage = "usage: lys-login greet [options] [-- <session argv...>] | lys-login kiosk [--compositor PATH] [-- <greet args...>] | lys-login lock | lys-login daemon [options] [-- <greet args...>] | lys-login apply-config [--config PATH] <STAGED.yaml> | lys-login record-cursor | lys-login check-pam SERVICE | lys-login switch-user | lys-login upgrade [-- <daemon args...>]"
 
+// vaultUnlockMode is the mode the lock screen runs lys-login in to
+// unlock the vault with the session.
+const vaultUnlockMode = "vault-unlock"
+
 func init() { runtime.LockOSThread() }
 
 func releaseMainThreadUnlessWorker(mode string) {
-	if mode != "worker" {
+	if mode != dm.WorkerMode {
 		runtime.UnlockOSThread()
 	}
 }
@@ -87,7 +91,7 @@ func main() {
 	releaseMainThreadUnlessWorker(os.Args[1])
 	args := os.Args[2:]
 	switch os.Args[1] {
-	case "greet":
+	case dm.GreetMode:
 		os.Exit(greet(args))
 	case "kiosk":
 		os.Exit(kioskMode(args))
@@ -99,9 +103,9 @@ func main() {
 		os.Exit(daemonResume(args))
 	case "upgrade":
 		os.Exit(upgrade(args))
-	case "worker":
+	case dm.WorkerMode:
 		os.Exit(worker(args))
-	case "vault-unlock":
+	case vaultUnlockMode:
 		os.Exit(vaultUnlock(args))
 	case "apply-config":
 		os.Exit(applyConfig(args))
@@ -183,7 +187,7 @@ func kioskMode(args []string) int {
 		return 1
 	}
 	sources := kiosk.Sources{ConfigPath: greet.ConfigPath, StatePath: greet.StatePath, CursorDir: cursorrecord.Dir, Keyboard: keyboard.System}
-	command := append([]string{exe, "greet"}, greet.Args()...)
+	command := append([]string{exe, dm.GreetMode}, greet.Args()...)
 	err = kiosk.Exec(xdg.OS, *compositor, sources.Config(sources.Settings(), greeter.ReadUsers(), command))
 	fmt.Fprintln(os.Stderr, "lys-login kiosk:", err)
 	return 1
@@ -207,7 +211,7 @@ func lockSession(args []string) int {
 	if exe, err := self(); err != nil {
 		log.Printf("lock: vault: %v; not unlocking it with the session", err)
 	} else {
-		vaultHelper = []string{exe, "vault-unlock"}
+		vaultHelper = []string{exe, vaultUnlockMode}
 	}
 	switch err := lock.Run(cfg, os.Stdout, vaultHelper); {
 	case err == nil:
@@ -473,8 +477,8 @@ func worker(args []string) int {
 		fmt.Fprintln(os.Stderr, "lys-login worker: greeter or session")
 		return 2
 	}
-	kind := args[0]
-	fs := flag.NewFlagSet("lys-login worker "+kind, flag.ContinueOnError)
+	kind := dm.WorkerKind(args[0])
+	fs := flag.NewFlagSet("lys-login worker "+string(kind), flag.ContinueOnError)
 	wo := workerFlags(fs)
 	user := fs.String("user", "lys-greeter", "the greeter's account")
 	var env multiFlag
@@ -495,13 +499,13 @@ func worker(args []string) int {
 		return 1
 	}
 	switch kind {
-	case "greeter":
+	case dm.GreeterWorker:
 		if fs.NArg() == 0 {
 			fmt.Fprintln(os.Stderr, "lys-login worker greeter: no compositor command after --")
 			return 2
 		}
 		err = dm.RunGreeter(*wo, *user, fs.Args(), env)
-	case "session":
+	case dm.SessionWorker:
 		ch := os.NewFile(3, "dm")
 		if ch == nil {
 			fmt.Fprintln(os.Stderr, "lys-login worker session: no channel on fd 3")
