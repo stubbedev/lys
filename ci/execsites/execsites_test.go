@@ -62,6 +62,7 @@ in {
 `,
 		"app/units/app.service":              "[Service]\nExecStart=@lys_app@ serve\nExecStartPost=-/usr/bin/logger started\nExecReload=\n",
 		"app/units/testdata/ignored.service": "[Service]\nExecStart=/usr/bin/ignored\n",
+		"ci/components.json":                 `{"components": {"repository": {"go-packages": "nix/go-packages.json"}, "app": {}}}`,
 		"nix/go-packages.json": `{
   "app/cmd/lys-app": {"imports": ["app/internal/run", "app/internal/names"]},
   "app/cmd/dev": {"imports": ["app/internal/devonly"]},
@@ -324,6 +325,23 @@ func TestAnUnlistedSubPackageFails(t *testing.T) {
 	_, err := scanFixture(t, files)
 	if err == nil || !strings.Contains(err.Error(), "nix/go-packages.json names no package app/cmd/missing") {
 		t.Fatalf("scan error = %v, want the missing package named", err)
+	}
+}
+
+func TestTheGoPackageGraphIsTheOneTheComponentsName(t *testing.T) {
+	files := fixture()
+	files["ci/components.json"] = `{"components": {"repository": {"go-packages": "nix/graph.json"}}}`
+	files["nix/graph.json"] = files["nix/go-packages.json"]
+	delete(files, "nix/go-packages.json")
+	mustScanFixture(t, files)
+	for _, components := range []string{
+		`{"components": {"app": {}}}`,
+		`{"components": {"repository": {"go-packages": "nix/graph.json"}, "app": {"go-packages": "nix/other.json"}}}`,
+	} {
+		files["ci/components.json"] = components
+		if _, err := scanFixture(t, files); err == nil || !strings.Contains(err.Error(), "want one") {
+			t.Errorf("components %s: scan error = %v, want one graph asked for", components, err)
+		}
 	}
 }
 

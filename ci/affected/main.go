@@ -32,7 +32,7 @@ func run(args []string, stdout io.Writer) error {
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
-	root, module, err := srcroot.Module(".")
+	root, _, err := srcroot.Module(".")
 	if err != nil {
 		return err
 	}
@@ -40,7 +40,7 @@ func run(args []string, stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
-	names, changed, err := choose(root, module, cfg.Components, *base, *all)
+	names, changed, err := choose(root, cfg.Components, *base, *all)
 	if err != nil {
 		return err
 	}
@@ -72,7 +72,7 @@ func load(root string) (Config, error) {
 // choose is the components a change affects and the files it changed;
 // a run of every component changes go.mod, which every component and
 // every package is built from.
-func choose(root, module string, components map[string]Component, base string, all bool) (names, changed []string, err error) {
+func choose(root string, components map[string]Component, base string, all bool) (names, changed []string, err error) {
 	if all || base == "" || strings.Trim(base, "0") == "" {
 		changed = []string{"go.mod"}
 		return affected(components, nil, changed, nil), changed, nil
@@ -81,7 +81,7 @@ func choose(root, module string, components map[string]Component, base string, a
 	if err != nil {
 		return nil, nil, err
 	}
-	imports, err := goImports(root, module)
+	imports, err := componentImports(root, components)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -141,43 +141,90 @@ func git(root string, args ...string) ([]byte, error) {
 	return out, nil
 }
 
-func goImports(root, module string) (map[string][]string, error) {
-	cmd := exec.Command("go", "list", "-test", "-deps=false", "-f", "{{.ImportPath}} {{join .Deps \" \"}}", "./...")
-	cmd.Dir = root
-	out, err := cmd.Output()
-	if err != nil {
-		return nil, fmt.Errorf("go list the module's imports: %w", err)
+// componentImports is the components each component's Go packages
+// import, directly or through any other package, their tests' own
+// imports included, as the Go package graphs the components name record
+// them.
+func componentImports(root string, components map[string]Component) (map[string][]string, error) {
+	graph := packageGraph{}
+	for _, name := range slices.Sorted(maps.Keys(components)) {
+		path := components[name].GoPackages
+		if path == "" {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(root, path)) //nolint:gosec // a package graph ci/components.json names
+		if err != nil {
+			return nil, fmt.Errorf("read the Go package graph: %w", err)
+		}
+		if err := graph.add(path, data); err != nil {
+			return nil, err
+		}
 	}
-	return importsOf(module, string(out)), nil
+	return graph.componentImports()
 }
 
-func importsOf(module, list string) map[string][]string {
+type packageGraph map[string]struct {
+	Imports     []string `json:"imports"`
+	TestImports []string `json:"testImports"`
+}
+
+func (g packageGraph) add(path string, data []byte) error {
+	var more packageGraph
+	if err := json.Unmarshal(data, &more); err != nil {
+		return fmt.Errorf("parse %s: %w", path, err)
+	}
+	maps.Copy(g, more)
+	return nil
+}
+
+// componentImports is, for each component, the other components of
+// every package one of its packages or their tests import, directly or
+// not, as go list -test -deps walks them.
+func (g packageGraph) componentImports() (map[string][]string, error) {
+	deps := map[string][]string{}
 	imports := map[string][]string{}
-	for line := range strings.Lines(list) {
-		fields := strings.Fields(line)
-		if len(fields) == 0 {
-			continue
-		}
-		owner := componentOf(module, strings.TrimSuffix(fields[0], ".test"))
-		if owner == "" {
-			continue
-		}
-		for _, dep := range fields[1:] {
-			if c := componentOf(module, dep); c != "" && c != owner && !slices.Contains(imports[owner], c) {
-				imports[owner] = append(imports[owner], c)
+	for _, dir := range slices.Sorted(maps.Keys(g)) {
+		owner := componentOfDir(dir)
+		for _, imported := range slices.Concat(g[dir].Imports, g[dir].TestImports) {
+			reached, err := g.deps(imported, deps)
+			if err != nil {
+				return nil, fmt.Errorf("the imports of %s: %w", dir, err)
+			}
+			for _, d := range append(reached, imported) {
+				if c := componentOfDir(d); c != owner && !slices.Contains(imports[owner], c) {
+					imports[owner] = append(imports[owner], c)
+				}
 			}
 		}
 	}
-	return imports
+	for _, c := range imports {
+		slices.Sort(c)
+	}
+	return imports, nil
 }
 
-func componentOf(module, importPath string) string {
-	rest, ok := strings.CutPrefix(importPath, module+"/")
-	if !ok {
-		return ""
+// deps is every package dir imports, directly or not, without tests,
+// memoized in known.
+func (g packageGraph) deps(dir string, known map[string][]string) ([]string, error) {
+	if d, ok := known[dir]; ok {
+		return d, nil
 	}
-	name, _, _ := strings.Cut(componentOfDir(rest), " ")
-	return name
+	p, ok := g[dir]
+	if !ok {
+		return nil, fmt.Errorf("the Go package graph names no package %s: run just go-packages", dir)
+	}
+	var all []string
+	for _, imported := range p.Imports {
+		reached, err := g.deps(imported, known)
+		if err != nil {
+			return nil, err
+		}
+		all = append(append(all, imported), reached...)
+	}
+	slices.Sort(all)
+	all = slices.Compact(all)
+	known[dir] = all
+	return all, nil
 }
 
 func writeText(w io.Writer, p Plan) error {

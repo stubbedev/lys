@@ -603,14 +603,66 @@ func TestGoJobsDecodeTheirTargetsWhenTheConfigurationLoads(t *testing.T) {
 	}
 }
 
-func TestImportsOfMapsPackagesAndTestsToComponents(t *testing.T) {
-	list := "m/wm/internal/x m/lib/dbusx m/wm/internal/y fmt\n" +
-		"m/wm/internal/x [m/wm/internal/x.test] m/ui/widget m/lib/dbusx\n" +
-		"m/wm/internal/x.test m/wm/internal/x [m/wm/internal/x.test] testing\n" +
-		"m/ci/affected m/lib/srcroot\n"
-	got := importsOf("m", list)
-	if !slices.Equal(got["wm"], []string{"lib", "ui"}) || !slices.Equal(got["ci"], []string{"lib"}) {
-		t.Fatalf("importsOf = %v", got)
+func TestAComponentImportsWhatItsPackagesAndTheirTestsReach(t *testing.T) {
+	const graph = `{
+  "wm/internal/x": {"imports": ["lib/dbusx", "wm/internal/y"], "testImports": ["ui/widget"]},
+  "wm/internal/y": {"imports": ["power/profile"], "external": ["fmt"]},
+  "power/profile": {"imports": ["lib/busauth"]},
+  "power/internal/supply": {"imports": ["desktop/powersupply"]},
+  "desktop/powersupply": {},
+  "ui/widget": {"imports": ["lib/render"], "testImports": ["tools/golden"]},
+  "tools/golden": {"imports": ["secrets/vault"]},
+  "secrets/vault": {},
+  "lib/dbusx": {},
+  "lib/busauth": {},
+  "lib/render": {},
+  "ci/affected": {"imports": ["lib/srcroot"]},
+  "lib/srcroot": {}
+}`
+	g := packageGraph{}
+	if err := g.add("nix/go-packages.json", []byte(graph)); err != nil {
+		t.Fatal(err)
+	}
+	got, err := g.componentImports()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string][]string{"wm": {"lib", "power", "ui"}, "power": {"desktop", "lib"}, "ui": {"lib", "secrets", "tools"}, "tools": {"secrets"}, "ci": {"lib"}}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("componentImports = %v, want %v: a package's own tests count, its imports' tests and the rest of a component it imports do not", got, want)
+	}
+}
+
+func TestABrokenPackageGraphIsAnError(t *testing.T) {
+	g := packageGraph{}
+	if err := g.add("nix/go-packages.json", []byte("[")); err == nil || !strings.Contains(err.Error(), "nix/go-packages.json") {
+		t.Errorf("a graph that does not parse = %v, want an error naming it", err)
+	}
+	if err := g.add("nix/go-packages.json", []byte(`{"wm/x": {"imports": ["lib/gone"]}}`)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := g.componentImports(); err == nil || !strings.Contains(err.Error(), "lib/gone") {
+		t.Errorf("an import the graph does not list = %v, want an error naming it", err)
+	}
+}
+
+func TestTheRepositorysImportsAreRead(t *testing.T) {
+	root := filepath.Join("..", "..")
+	cfg, err := load(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	imports, err := componentImports(root, cfg.Components)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, edge := range [][2]string{{"wm", "lib"}, {"login", "ui"}, {"login", "lib"}, {"ci", "lib"}} {
+		if !slices.Contains(imports[edge[0]], edge[1]) {
+			t.Errorf("%s imports %v, want %s among them", edge[0], imports[edge[0]], edge[1])
+		}
+	}
+	if slices.Contains(imports["lib"], "wm") {
+		t.Errorf("lib imports %v, which names wm", imports["lib"])
 	}
 }
 

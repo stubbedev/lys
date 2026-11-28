@@ -18,7 +18,7 @@ import (
 
 const dynamic = "dynamic"
 
-const goPackagesFile = "nix/go-packages.json"
+const componentsFile = "ci/components.json"
 
 var processStarts = map[string]map[string]int{
 	"os/exec":               {"Command": 0, "CommandContext": 1, "LookPath": 0},
@@ -50,25 +50,58 @@ type goPackageGraph map[string]struct {
 	Imports []string `json:"imports"`
 }
 
-func readGoPackages(fsys fs.FS) (goPackageGraph, error) {
-	data, err := fs.ReadFile(fsys, goPackagesFile)
+// goPackagesPath is the Go package graph the one component of
+// componentsFile that names one names.
+func goPackagesPath(fsys fs.FS) (string, error) {
+	data, err := fs.ReadFile(fsys, componentsFile)
 	if err != nil {
-		return nil, fmt.Errorf("read the Go packages: %w", err)
+		return "", fmt.Errorf("read the components: %w", err)
+	}
+	var cfg struct {
+		Components map[string]struct {
+			GoPackages string `json:"go-packages"`
+		} `json:"components"`
+	}
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return "", fmt.Errorf("parse %s: %w", componentsFile, err)
+	}
+	var paths []string
+	for _, c := range cfg.Components {
+		if c.GoPackages != "" {
+			paths = append(paths, c.GoPackages)
+		}
+	}
+	slices.Sort(paths)
+	if paths = slices.Compact(paths); len(paths) != 1 {
+		return "", fmt.Errorf("%s names %d Go package graphs %q, want one", componentsFile, len(paths), paths)
+	}
+	return paths[0], nil
+}
+
+func readGoPackages(fsys fs.FS) (string, goPackageGraph, error) {
+	path, err := goPackagesPath(fsys)
+	if err != nil {
+		return "", nil, err
+	}
+	data, err := fs.ReadFile(fsys, path)
+	if err != nil {
+		return "", nil, fmt.Errorf("read the Go packages: %w", err)
 	}
 	var graph goPackageGraph
 	if err := json.Unmarshal(data, &graph); err != nil {
-		return nil, fmt.Errorf("parse %s: %w", goPackagesFile, err)
+		return "", nil, fmt.Errorf("parse %s: %w", path, err)
 	}
-	return graph, nil
+	return path, graph, nil
 }
 
 type goTree struct {
-	fsys     fs.FS
-	module   string
-	graph    goPackageGraph
-	contexts []build.Context
-	fset     *token.FileSet
-	packages map[string]*goPackage
+	fsys      fs.FS
+	module    string
+	graphPath string
+	graph     goPackageGraph
+	contexts  []build.Context
+	fset      *token.FileSet
+	packages  map[string]*goPackage
 }
 
 type goPackage struct {
@@ -91,11 +124,11 @@ type constDef struct {
 }
 
 func newGoTree(fsys fs.FS, module string) (*goTree, error) {
-	graph, err := readGoPackages(fsys)
+	graphPath, graph, err := readGoPackages(fsys)
 	if err != nil {
 		return nil, err
 	}
-	t := &goTree{fsys: fsys, module: module, graph: graph, fset: token.NewFileSet(), packages: map[string]*goPackage{}}
+	t := &goTree{fsys: fsys, module: module, graphPath: graphPath, graph: graph, fset: token.NewFileSet(), packages: map[string]*goPackage{}}
 	for _, arch := range targetArchitectures {
 		ctx := build.Default
 		ctx.GOOS, ctx.GOARCH, ctx.CgoEnabled = "linux", arch, false
@@ -132,7 +165,7 @@ func (t *goTree) mains(patterns []string) ([]string, error) {
 			}
 		}
 		if len(matched) == 0 {
-			errs = append(errs, fmt.Errorf("subPackages names %s, which matches no package of %s", pattern, goPackagesFile))
+			errs = append(errs, fmt.Errorf("subPackages names %s, which matches no package of %s", pattern, t.graphPath))
 		}
 		for _, dir := range matched {
 			pkg, err := t.load(dir)
@@ -160,7 +193,7 @@ func (t *goTree) closure(roots []string) ([]string, error) {
 		}
 		p, ok := t.graph[dir]
 		if !ok {
-			return nil, fmt.Errorf("%s names no package %s: run just go-packages", goPackagesFile, dir)
+			return nil, fmt.Errorf("%s names no package %s: run just go-packages", t.graphPath, dir)
 		}
 		seen[dir] = true
 		queue = append(queue, p.Imports...)
@@ -178,7 +211,7 @@ func (t *goTree) load(dir string) (*goPackage, error) {
 		return pkg, nil
 	}
 	if _, ok := t.graph[dir]; !ok {
-		return nil, fmt.Errorf("%s names no package %s: run just go-packages", goPackagesFile, dir)
+		return nil, fmt.Errorf("%s names no package %s: run just go-packages", t.graphPath, dir)
 	}
 	entries, err := fs.ReadDir(t.fsys, dir)
 	if err != nil {
