@@ -53,7 +53,7 @@ func (s *Surface) buildViews(a *active) *views {
 		if s.cur == a {
 			s.end(&launcheripc.ServerFrame{Type: launcheripc.FrameCancelled, Code: 1})
 		}
-	}), v.relayout)
+	}), v.overlayMoved)
 	v.overlay = v.ql.card
 	v.target = v.targetIn
 	v.place = v.PlaceIn

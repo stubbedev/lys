@@ -43,6 +43,15 @@ func lookedAtHistory(t *testing.T, own func(func())) (string, *launcherClipboard
 // quickLookPanel is a search panel over that history, and the file.
 func quickLookPanel(t *testing.T) (*panelHarness, *panel, string) {
 	t.Helper()
+	h, path := quickLookHarness(t)
+	p, _ := h.openPanel()
+	return h, p, path
+}
+
+// quickLookHarness is the harness of a search panel over that history,
+// the panel not open yet, and the file.
+func quickLookHarness(t *testing.T) (*panelHarness, string) {
+	t.Helper()
 	h := newPanelHarness(t)
 	path, clip := lookedAtHistory(t, h.own)
 	h.cfg.Launcher.Search.Providers = append(h.cfg.Launcher.Search.Providers, config.SearchClipboard)
@@ -52,8 +61,7 @@ func quickLookPanel(t *testing.T) (*panelHarness, *panel, string) {
 		d.Clipboard = clip
 		return d
 	}
-	p, _ := h.openPanel()
-	return h, p, path
+	return h, path
 }
 
 func (p *panel) selectedRow() search.Row {

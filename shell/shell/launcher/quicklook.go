@@ -64,16 +64,16 @@ type quickLook struct {
 	card    *widget.Box
 	file    *preview.View
 	sources atomic.Pointer[preview.Sources]
-	// relayout lays the surface out again: the card comes, goes or
-	// changes size.
-	relayout func()
-	shows    quickLookShows
+	// moved repaints where the card was and where it goes as it comes
+	// or goes.
+	moved func()
+	shows quickLookShows
 	// key is the row shown, as its session names rows.
 	key any
 }
 
-func newQuickLook(font render.Font, px func(int) int, invoke, spawn func(func()), open func(string), relayout func()) *quickLook {
-	q := &quickLook{relayout: relayout}
+func newQuickLook(font render.Font, px func(int) int, invoke, spawn func(func()), open func(string), moved func()) *quickLook {
+	q := &quickLook{moved: moved}
 	fit := image.Pt(px(quickLookImageW), px(quickLookImageH))
 	q.file = preview.New(preview.Config{
 		Font: font, Class: "launcher-quicklook-file", Image: fit, Text: image.Pt(fit.X, px(quickLookTextH)),
@@ -125,13 +125,13 @@ func (q *quickLook) open(key any, shows quickLookShows, sources preview.Sources)
 	q.reveal()
 }
 
-// reveal shows the card, laying the surface out again if it was hidden.
+// reveal shows the card if it was hidden.
 func (q *quickLook) reveal() {
 	if q.card.Visible() {
 		return
 	}
 	q.card.SetVisible(true)
-	q.relayout()
+	q.moved()
 }
 
 // close hides the card and lets go of what it showed: the preview
@@ -145,8 +145,8 @@ func (q *quickLook) close() {
 	if !q.card.Visible() {
 		return
 	}
+	q.moved()
 	q.card.SetVisible(false)
-	q.relayout()
 }
 
 // quickLookKey is what a key does while Quick Look shows.

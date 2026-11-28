@@ -49,10 +49,23 @@ func newPanelFrame(d Deps, content *widget.Box, w, h int, win func() Window) *pa
 	return f
 }
 
-// relayout lays the surface out again and repaints it.
-func (f *panelFrame) relayout() {
-	f.root.InvalidateLayout()
-	f.root.Invalidate()
+// overlayMoved repaints where the overlay last showed and where it
+// shows now, as it comes, goes or changes, never the output around
+// them: the root lays it out at the frame that follows.
+func (f *panelFrame) overlayMoved() {
+	o := f.overlay
+	f.root.InvalidateRect(widget.InkRect(o))
+	f.root.InvalidateRect(widget.InkOutset(o).Grow(quicklook.Centered(f.root.bounds(), o)))
+}
+
+// move lays the panel out again where the motion now puts it: the
+// panel's old and new rects repaint, never the output around them,
+// and the overlay too while the paint carries the fade.
+func (f *panelFrame) move() {
+	f.box.InvalidateLayout()
+	if o := f.root.overlay(); o != nil && f.motion.paintAlpha() < 1 {
+		o.Invalidate()
+	}
 }
 
 // retarget sends the panel toward its size for what it now shows.
@@ -291,7 +304,7 @@ func newPanelMotion(f *panelFrame, w, h int) *panelMotion {
 	m.sizeS = anim.NewSpring(f.root, panelSizeSpring, []float64{0, 0}, func(pos []float64) {
 		m.w, m.h = pos[0], pos[1]
 		if m.alive {
-			f.root.InvalidateLayout()
+			f.move()
 		}
 	})
 	m.sizeS.SetPrecision(0.2)
@@ -421,7 +434,7 @@ func (m *panelMotion) applyReveal() {
 			m.compositorFade = false
 		}
 	}
-	m.f.relayout()
+	m.f.move()
 }
 
 // paintAlpha is the fade the paint must carry.

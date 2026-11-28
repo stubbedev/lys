@@ -79,7 +79,7 @@ func newPanelViews(d Deps, cfg *config.Config, spawn func(func())) *panelViews {
 		if p := v.p; p != nil {
 			p.finish(search.Cancel{})
 		}
-	}), v.relayout)
+	}), v.overlayMoved)
 	v.overlay = v.ql.card
 	v.target = func(render.Rect) (int, int) { return v.targetW(), v.targetH() }
 	v.place = func(out render.Rect, w, h int) render.Rect {
