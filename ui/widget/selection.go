@@ -32,6 +32,9 @@ type selection struct {
 	sel    int
 	multi  map[int]struct{}
 	cursor int
+	// keyed reports the cursor last moved by a key, not a pointer: the
+	// only time it is ringed apart from the selection.
+	keyed bool
 	// held defers notifications while a pointer gesture is in flight;
 	// pending records one was owed.
 	held, pending bool
@@ -172,7 +175,7 @@ func (s *selection) Select(i int) {
 		if i >= 0 {
 			set[i] = struct{}{}
 		}
-		s.sel, s.cursor = i, i
+		s.sel, s.cursor, s.keyed = i, i, false
 		s.applyMulti(set)
 		s.notify()
 	default:
@@ -262,14 +265,23 @@ func (s *selection) toggle(i int) {
 	} else {
 		set[i] = struct{}{}
 	}
-	s.sel, s.cursor = i, i
+	s.sel, s.cursor, s.keyed = i, i, false
 	s.applyMulti(set)
 	s.notify()
+}
+
+// cursorRinged reports item i as the multiple-mode cursor a key moved
+// off the selection, the one place the cursor shows as a ring: on a
+// selected item, or after a pointer gesture, the selection fill alone
+// marks where the user is.
+func (s *selection) cursorRinged(i int) bool {
+	return s.mode == SelectionMultiple && s.keyed && i == s.cursor && !s.isSelected(i)
 }
 
 // band selects exactly the items from a to b inclusive (a rubber band,
 // a shift extension); the anchor stays.
 func (s *selection) band(a, b int) {
+	s.keyed = false
 	set := make(map[int]struct{}, max(a, b)-min(a, b)+1)
 	for i := min(a, b); i <= max(a, b); i++ {
 		set[i] = struct{}{}
@@ -327,6 +339,7 @@ func (s *selection) key(a KeyAction, mods Mods, nav func(from int, a KeyAction) 
 	case KeySpace:
 		if multiple && ctrl {
 			s.toggle(s.cursor)
+			s.keyed = true
 		}
 		return
 	case KeyHome:
@@ -356,6 +369,7 @@ func (s *selection) key(a KeyAction, mods Mods, nav func(from int, a KeyAction) 
 		s.applyMulti(map[int]struct{}{target: {}})
 		s.notify()
 	}
+	s.keyed = true
 	s.host.reveal(target)
 }
 
@@ -374,7 +388,7 @@ func (s *selection) clampTo(n int) {
 // selection was dropped.
 func (s *selection) clearAll() bool {
 	had := len(s.Selection()) > 0
-	s.sel, s.cursor = -1, -1
+	s.sel, s.cursor, s.keyed = -1, -1, false
 	if s.multi != nil {
 		s.multi = map[int]struct{}{}
 	}

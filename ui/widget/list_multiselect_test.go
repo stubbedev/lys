@@ -476,3 +476,37 @@ func TestListAutoScrollReducedMotion(t *testing.T) {
 	}
 	r.Release(BTNLeft, Point{X: 50, Y: 50})
 }
+
+// The cursor shows as a ring only where the selection does not already
+// mark it: after ctrl+arrows walked it off the selection. A clicked or
+// key-selected row is marked by its fill alone, and a pointer gesture
+// after a ringed walk takes the ring away.
+func TestListCursorRingOnlyOffTheSelection(t *testing.T) {
+	l, _, _ := setupMultiList(t)
+	ringed := func() []int {
+		var rows []int
+		for i := range 20 {
+			if l.cursorRinged(i) {
+				rows = append(rows, i)
+			}
+		}
+		return rows
+	}
+	l.click(3)
+	if got := ringed(); got != nil {
+		t.Errorf("a clicked row is ringed: %v", got)
+	}
+	l.KeyAction(KeyDown, 0)
+	if got := ringed(); got != nil {
+		t.Errorf("a key-selected row is ringed: %v", got)
+	}
+	l.KeyAction(KeyDown, ModCtrl)
+	if got := ringed(); !reflect.DeepEqual(got, []int{5}) {
+		t.Errorf("ctrl+down off the selection rings %v, want [5]", got)
+	}
+	l.click(5)
+	l.click(5)
+	if got := ringed(); got != nil {
+		t.Errorf("a row clicked off again is ringed: %v", got)
+	}
+}
