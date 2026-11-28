@@ -302,7 +302,7 @@ func TestQuicklookStepsThroughTheFiles(t *testing.T) {
 	hs.key(xkb.KeySpace, 0, nil)
 	var open bool
 	var path string
-	hs.do(func() { open, path = hs.c.ui.quicklook.Visible(), hs.c.ui.ql.Path() })
+	hs.do(func() { open, path = hs.c.ui.quicklook.shown, hs.c.ui.ql.Path() })
 	if open || path != "" {
 		t.Errorf("Space left Quick Look open %v, showing %q", open, path)
 	}

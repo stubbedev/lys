@@ -221,7 +221,7 @@ func TestSpaceInATextFieldTypes(t *testing.T) {
 		r.SetFocus(hs.c.ui.search)
 		hs.cfg.OnKey(r, treetest.Code(xkb.KeySpace), 0)
 	})
-	if hs.c.ui.quicklook.Visible() {
+	if hs.c.ui.quicklook.shown {
 		t.Error("space in the search box opened quick look")
 	}
 }
@@ -580,12 +580,12 @@ func TestChooserKeys(t *testing.T) {
 	hs.pick(t, "a.png")
 	hs.key(xkb.KeySpace, app.ModCtrl, nil)
 	var ql bool
-	hs.do(func() { ql = hs.c.ui.quicklook.Visible() })
+	hs.do(func() { ql = hs.c.ui.quicklook.shown })
 	if ql {
 		t.Error("Ctrl+Space opened quick look")
 	}
 	hs.key(xkb.KeySpace, 0, nil)
-	hs.do(func() { ql = hs.c.ui.quicklook.Visible() })
+	hs.do(func() { ql = hs.c.ui.quicklook.shown })
 	if !ql {
 		t.Error("Space did not open quick look")
 	}

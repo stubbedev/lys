@@ -37,12 +37,12 @@ func TestStandaloneBrowsesAFolderAndOpensQuickLook(t *testing.T) {
 	hs.key(xkb.KeySpace, 0, nil)
 	var shown bool
 	var path string
-	hs.do(func() { shown, path = hs.c.ui.quicklook.Visible(), hs.c.ui.ql.Path() })
+	hs.do(func() { shown, path = hs.c.ui.quicklook.shown, hs.c.ui.ql.Path() })
 	if !shown || path != filepath.Join(hs.root, "pics", "a.png") {
 		t.Errorf("Space showed Quick Look %v on %q, want it on pics/a.png", shown, path)
 	}
 	hs.key(xkb.KeyEscape, 0, nil)
-	hs.do(func() { shown = hs.c.ui.quicklook.Visible() })
+	hs.do(func() { shown = hs.c.ui.quicklook.shown })
 	if shown || hs.windows[0].closed {
 		t.Errorf("the first Escape left Quick Look %v and closed the window %v, want Quick Look closed alone", shown, hs.windows[0].closed)
 	}
@@ -51,7 +51,7 @@ func TestStandaloneBrowsesAFolderAndOpensQuickLook(t *testing.T) {
 		t.Error("Escape with Quick Look closed left the window mapped")
 	}
 	hs.key(xkb.KeySpace, 0, nil)
-	hs.do(func() { shown = hs.c.ui.quicklook.Visible() })
+	hs.do(func() { shown = hs.c.ui.quicklook.shown })
 	if shown {
 		t.Error("a hidden browse took a key")
 	}

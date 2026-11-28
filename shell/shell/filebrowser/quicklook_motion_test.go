@@ -23,7 +23,7 @@ func (hs *harness) qlState() qlState {
 	var s qlState
 	hs.do(func() {
 		f := hs.c.ui.quicklook
-		s = qlState{visible: f.Visible(), open: hs.c.quicklookOpen(), progress: f.rev.Progress(), path: hs.c.ui.ql.Path()}
+		s = qlState{visible: f.shown, open: hs.c.quicklookOpen(), progress: f.rev.Progress(), path: hs.c.ui.ql.Path()}
 	})
 	return s
 }

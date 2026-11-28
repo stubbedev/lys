@@ -65,7 +65,6 @@ func (c *Browser) newQuicklook() (*preview.View, *quicklookFrame) {
 		box := quicklookBox(area)
 		v.Fit(box, image.Pt(min(box.X, quicklookTextW), box.Y))
 	}
-	f.SetVisible(false)
 	return v, f
 }
 
@@ -93,7 +92,7 @@ func (c *Browser) toggleQuicklook() {
 		return
 	}
 	f := c.ui.quicklook
-	f.SetVisible(true)
+	f.show(true)
 	f.awaiting = anim.Play(f, anim.Delay(quicklookPatience), anim.Animate(0, func(float64) { c.enterQuicklook() }))
 	c.ui.ql.Show(e.Path)
 	if c.ui.ql.Renderer() != preview.Loading {
@@ -113,7 +112,7 @@ func (c *Browser) enterQuicklook() {
 // what it showed, unless it opened again meanwhile.
 func (c *Browser) closeQuicklook() {
 	f := c.ui.quicklook
-	if !f.Visible() {
+	if !f.shown {
 		return
 	}
 	reveal.Hide(f.rev, c.quicklookMotion(), config.AnimLauncher, c.dropQuicklook)
@@ -126,7 +125,7 @@ func (c *Browser) dropQuicklook() {
 	f.rev.SetOnTransitionDone(nil)
 	f.rev.SetDuration(0)
 	f.rev.SetRevealed(false)
-	f.SetVisible(false)
+	f.show(false)
 	c.ui.ql.Close()
 }
 
@@ -178,11 +177,15 @@ func quicklookBox(area render.Rect) image.Point {
 // in the revealer playing its enter and exit, on them at the card's own
 // size, its content fitted to the views' area (fit). While the card
 // awaits its content it is laid out but not revealed, and awaiting
-// cancels the wait's patience. A click beside the open card runs
-// outside; while the card awaits or leaves, presses pass through to the
-// views.
+// cancels the wait's patience; shown is the card being up, from the
+// key that asked for it until its exit played. Closed, the frame lies
+// empty over nothing, so a view scrolling under it moves its pixels and
+// opening it repaints only the card, never the views. A click beside
+// the open card runs outside; while the card awaits or leaves, presses
+// pass through to the views.
 type quicklookFrame struct {
 	widget.Base
+	shown    bool
 	rev      *widget.Revealer
 	fit      func(area render.Rect)
 	outside  func()
@@ -198,12 +201,25 @@ func (f *quicklookFrame) stopAwaiting() {
 	}
 }
 
+// show opens the frame over the views, or closes it to nothing. The
+// card lays out again, the frame around it with it: the frame itself
+// paints nothing, so only the card's rect repaints as it opens.
+func (f *quicklookFrame) show(on bool) {
+	f.shown = on
+	f.rev.InvalidateLayout()
+}
+
 // Measure wants nothing: the frame is the views' area.
 func (f *quicklookFrame) Measure(widget.Axis, int) widget.Sizes { return widget.Sizes{} }
 
 func (f *quicklookFrame) Arrange(r render.Rect) {
+	if !f.shown {
+		r = render.Rect{}
+	}
 	f.ArrangeSelf(r)
-	f.fit(r)
+	if f.shown {
+		f.fit(r)
+	}
 	f.rev.Arrange(quicklook.Centered(r, f.rev))
 	widget.SetParents(f, f.Children()...)
 }
