@@ -381,7 +381,7 @@ func TestPowerOffAndDisableDuringAFlipOnASeat(t *testing.T) {
 			s, o := onASeat(t, driver)
 			mode := modeOf(o.mode)
 			n := s.duringAFlip(o, func() error { return o.Commit(backend.OutputState{Power: backend.PoweredOff, Mode: mode}) })
-			s.until("the output off", func() bool { return o.off && !o.flipping && !o.offDue })
+			s.until("the output off", func() bool { return o.power == poweredOff && !o.flipping })
 			if active := s.property(o.crtc.id, kdrm.ObjectCRTC, "ACTIVE"); active != 0 {
 				t.Fatalf("CRTC %d is still active after power-off", o.crtc.id)
 			}
@@ -395,7 +395,7 @@ func TestPowerOffAndDisableDuringAFlipOnASeat(t *testing.T) {
 				t.Fatal(err)
 			}
 			s.until("a frame after power-on", func() bool {
-				return !o.off && s.h.presents > 0 && !o.flipping && s.property(o.crtc.id, kdrm.ObjectCRTC, "ACTIVE") == 1
+				return o.power == powerOn && s.h.presents > 0 && !o.flipping && s.property(o.crtc.id, kdrm.ObjectCRTC, "ACTIVE") == 1
 			})
 			n = s.duringAFlip(o, func() error { return o.Commit(backend.OutputState{Power: backend.Disabled, Mode: mode}) })
 			if o.enabled {

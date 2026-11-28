@@ -1856,7 +1856,7 @@ func TestClientBuffersAreReleasedWhenTheOutputStopsShowingThem(t *testing.T) {
 				return err
 			}
 			r.dev.flip(r.t, 10, 2)
-			r.until("the power off after the flip", func() bool { return !o.offDue })
+			r.until("the power off after the flip", func() bool { return o.power != offAfterFlip })
 			return nil
 		},
 		"paused and resumed": func(r *rig, _ *Output) error {

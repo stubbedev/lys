@@ -1,6 +1,7 @@
 package drm
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -75,7 +76,7 @@ func TestAPowerOffDuringAFlipFreesTheBuffersOnceTheFlipLands(t *testing.T) {
 		t.Fatalf("buffers the kernel still scans out were freed before their flip: %d left", live)
 	}
 	r.dev.flip(t, 10, 2)
-	r.until("the power off after the flip", func() bool { return !o.offDue })
+	r.until("the power off after the flip", func() bool { return o.power != offAfterFlip })
 	if live := r.liveBuffers(); live != 0 || len(o.buffers) != 0 {
 		t.Fatalf("an output powered off after its flip holds %d buffers, %d listed", live, len(o.buffers))
 	}
@@ -103,11 +104,11 @@ func TestAPowerOffHeldBusyFreesTheBuffersWhenItCommits(t *testing.T) {
 	if err := r.power(second, backend.PoweredOff); err != nil {
 		t.Fatal(err)
 	}
-	if !second.offBusy || len(second.buffers) != held || r.alloc.freed != freed {
+	if second.power != offAfterBusy || len(second.buffers) != held || r.alloc.freed != freed {
 		t.Fatalf("a power off held busy freed %d buffers, %d of %d listed", r.alloc.freed-freed, len(second.buffers), held)
 	}
 	r.dev.flip(t, 10, 2)
-	r.until("DP-2's power off after DP-1's flip", func() bool { return !second.offBusy })
+	r.until("DP-2's power off after DP-1's flip", func() bool { return second.power != offAfterBusy })
 	if len(second.buffers) != 0 || r.alloc.freed != freed+held {
 		t.Fatalf("a held power off freed %d buffers, %d still listed, want all %d freed", r.alloc.freed-freed, len(second.buffers), held)
 	}
@@ -147,5 +148,37 @@ func TestAPowerOnTheAllocatorRefusesLeaksNothingAndDrawsOnceItAllocates(t *testi
 	}
 	if live := r.liveBuffers(); live != buffersPerOut || len(o.buffers) != buffersPerOut {
 		t.Fatalf("the recovered power-on holds %d buffers, %d listed, want %d", live, len(o.buffers), buffersPerOut)
+	}
+}
+
+func TestAModesetThatLightsTheOutputCancelsAPowerOffDueAfterTheFlip(t *testing.T) {
+	r := start(t)
+	o := r.lit()
+	frames := len(r.dev.commits)
+	if err := o.ScheduleFrame(); err != nil {
+		t.Fatal(err)
+	}
+	r.committedSince("a frame in flight", o, frames)
+	if err := r.power(o, backend.PoweredOff); err != nil {
+		t.Fatal(err)
+	}
+	modes := o.Modes()
+	other := modes[slices.IndexFunc(modes, func(m backend.Mode) bool {
+		return m.Size != o.State().Mode.Size || m.RefreshMHz != o.State().Mode.RefreshMHz
+	})]
+	state := o.State()
+	state.Mode, state.Power = other, backend.PoweredOn
+	if err := o.Commit(state); err != nil {
+		t.Fatal(err)
+	}
+	r.dev.flip(t, 10, 2)
+	r.settle()
+	if got := o.State(); got.Power != backend.PoweredOn || got.Mode.Size != other.Size {
+		t.Fatalf("an output lit in %+v during a pending power off is at %+v after the flip", other, got)
+	}
+	for _, c := range r.dev.commits[frames:] {
+		if v, ok := c.values[[2]uint32{10, propActive}]; ok && v == 0 {
+			t.Fatalf("the output lit again was powered off by the earlier request: %+v", c)
+		}
 	}
 }

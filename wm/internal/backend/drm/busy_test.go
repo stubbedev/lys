@@ -163,11 +163,11 @@ func TestAPowerOffRefusedBusyWaitsForTheDevicesFlips(t *testing.T) {
 	if err := second.Commit(state); err != nil {
 		t.Fatal(err)
 	}
-	if !second.offBusy || second.State().Power != backend.PoweredOff || len(r.dev.commits) != n+1 {
-		t.Fatalf("a busy power off: held %v, state %+v, commits %+v", second.offBusy, second.State(), r.dev.commits[n:])
+	if second.power != offAfterBusy || second.State().Power != backend.PoweredOff || len(r.dev.commits) != n+1 {
+		t.Fatalf("a busy power off: held %v, state %+v, commits %+v", second.power == offAfterBusy, second.State(), r.dev.commits[n:])
 	}
 	r.dev.flip(t, 10, 2)
-	r.until("DP-2's power off after DP-1's flip", func() bool { return !second.offBusy })
+	r.until("DP-2's power off after DP-1's flip", func() bool { return second.power != offAfterBusy })
 	off := r.dev.commits[len(r.dev.commits)-1]
 	if off.flags != kdrm.AtomicAllowModeset|kdrm.AtomicNonblock || off.values[[2]uint32{11, propActive}] != 0 || len(r.reports) != 0 {
 		t.Fatalf("power off commit %+v, reports %v", off, r.reports)
@@ -184,7 +184,7 @@ func TestAPowerOffRefusedBusyWithNoFlipPendingCommitsBlocking(t *testing.T) {
 	if err := o.Commit(state); err != nil {
 		t.Fatal(err)
 	}
-	if got := r.dev.commits[n:]; len(got) != 2 || got[1].flags != kdrm.AtomicAllowModeset || o.offBusy {
+	if got := r.dev.commits[n:]; len(got) != 2 || got[1].flags != kdrm.AtomicAllowModeset || o.power == offAfterBusy {
 		t.Fatalf("a busy power off with nothing flipping committed %+v", got)
 	}
 }

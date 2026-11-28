@@ -955,7 +955,10 @@ func (b *Backend) Resume() error {
 	for _, o := range b.outputs {
 		kms, err := b.resumedKMS(o)
 		errs = append(errs, err)
-		o.kms, o.flipping, o.busy, o.planesBusy, o.offDue, o.offBusy = kms, false, nil, false, o.offDue || o.offBusy, false
+		o.kms, o.flipping, o.busy, o.planesBusy = kms, false, nil, false
+		if o.power == offAfterBusy {
+			o.power = offAfterFlip
+		}
 		errs = append(errs, o.dropLate(), o.dropScanout(o.queued))
 		o.queued = nil
 		if o.cursor != nil {
@@ -1004,6 +1007,15 @@ func (b *Backend) shutdown(leave bool) error {
 	return errors.Join(append(errs, b.alloc.close())...)
 }
 
+type powerState uint8
+
+const (
+	powerOn powerState = iota
+	offAfterFlip
+	offAfterBusy
+	poweredOff
+)
+
 type kmsState uint8
 
 const (
@@ -1024,7 +1036,6 @@ type Output struct {
 	damageBlob    uint32
 	damageRects   render.Region
 	damageBytes   []byte
-	offDue        bool
 	b             *Backend
 	identity      edid.Info
 	conn          kdrm.Connector
@@ -1036,7 +1047,7 @@ type Output struct {
 	depth         backend.BitDepth
 	modeBlob      uint32
 	enabled       bool
-	off           bool
+	power         powerState
 	kms           kmsState
 	lit           bool
 	buffers       []*scanout
@@ -1078,7 +1089,6 @@ type Output struct {
 	extraFlips    int
 	busy          *scanout
 	planesBusy    bool
-	offBusy       bool
 	bpcFound      uint64
 	bpc           uint64
 	bpcRefused    bool
@@ -1177,7 +1187,7 @@ func (o *Output) State() backend.OutputState {
 	switch {
 	case !o.enabled:
 		power = backend.Disabled
-	case o.off:
+	case o.power != powerOn:
 		power = backend.PoweredOff
 	}
 	return backend.OutputState{Power: power, Mode: modeOf(o.mode), Depth: o.depth, HDR: o.signal.meta}
@@ -1364,7 +1374,7 @@ func (o *Output) testMode(m kdrm.Mode, d backend.BitDepth, blob uint32, s *scano
 func (b *Backend) litBeside(o *Output) []*Output {
 	var lit []*Output
 	for _, l := range b.outputs {
-		if l != o && l.enabled && l.lit && !l.off && l.bound() {
+		if l != o && l.enabled && l.lit && l.power == powerOn && l.bound() {
 			lit = append(lit, l)
 		}
 	}
@@ -1490,7 +1500,12 @@ func (o *Output) Commit(s backend.OutputState) error {
 		}
 		return err
 	}
-	o.off = !s.Lit()
+	switch {
+	case s.Lit():
+		o.power = powerOn
+	case o.power == powerOn:
+		o.power = poweredOff
+	}
 	return o.ScheduleFrame()
 }
 
@@ -1530,15 +1545,15 @@ func (o *Output) recheckLink(c kdrm.Connector) error {
 }
 
 func (o *Output) setPower(on bool) error {
-	if on == !o.off {
+	if on == (o.power == powerOn) {
 		return nil
 	}
 	if on {
-		o.off, o.offDue, o.offBusy, o.kms = false, false, false, kmsModeset
+		o.power, o.kms = powerOn, kmsModeset
 		return o.b.handler.OutputDamaged(o)
 	}
 	if o.lit && o.flipping {
-		o.off, o.offDue = true, true
+		o.power = offAfterFlip
 		o.clock.Cancel()
 		return nil
 	}
@@ -1554,7 +1569,7 @@ func (o *Output) powerOff() error {
 		o.detachTiles(r, false)
 		err := o.b.dev.Commit(r, kdrm.AtomicAllowModeset|kdrm.AtomicNonblock, 0)
 		if errors.Is(err, unix.EBUSY) && o.b.flipsPending() {
-			o.off, o.offBusy, o.offDue, o.busy = true, true, false, nil
+			o.power, o.busy = offAfterBusy, nil
 			o.clock.Cancel()
 			return nil
 		}
@@ -1565,17 +1580,21 @@ func (o *Output) powerOff() error {
 			return fmt.Errorf("drm: power off %s: %w", o.Name(), err)
 		}
 	}
-	o.off, o.flipping, o.offDue, o.offBusy, o.busy = true, false, false, false, nil
+	o.power, o.flipping, o.busy = poweredOff, false, nil
 	o.clock.Cancel()
 	return o.freeBuffers()
 }
 
 func (o *Output) powerOffAfterFlip() {
-	if !o.offDue || o.b.paused {
+	if o.power != offAfterFlip || o.b.paused {
 		return
 	}
+	o.finishPowerOff()
+}
+
+func (o *Output) finishPowerOff() {
 	if err := o.powerOff(); err != nil {
-		o.offDue = false
+		o.power = poweredOff
 		o.b.report(fmt.Errorf("%w; the output stays lit until it next changes", err))
 	}
 }
@@ -1704,7 +1723,7 @@ func (o *Output) detach() {
 }
 
 func (o *Output) ScheduleFrame() error {
-	if !o.enabled || o.off || o.b.paused {
+	if !o.enabled || o.power != powerOn || o.b.paused {
 		return nil
 	}
 	return o.clock.Request()
@@ -1715,7 +1734,7 @@ func (o *Output) Inherited() bool {
 }
 
 func (o *Output) testable() bool {
-	return o.lit && o.kms != kmsInherited && !o.off && !o.b.paused
+	return o.lit && o.kms != kmsInherited && o.power == powerOn && !o.b.paused
 }
 
 func (o *Output) frameReady() bool {
@@ -1737,7 +1756,7 @@ func (o *Output) runFrame() error {
 	o.framing = true
 	err := o.b.handler.Frame(o)
 	o.framing = false
-	if err == nil && !o.flipping && o.busy == nil && o.enabled && !o.off {
+	if err == nil && !o.flipping && o.busy == nil && o.enabled && o.power == powerOn {
 		err = o.emptyFrame()
 	}
 	return errors.Join(err, o.flushPlanes())
@@ -1768,7 +1787,7 @@ func (o *Output) seqAt(at time.Duration) uint64 {
 func (o *Output) paceElapsed() error {
 	o.empties = 0
 	var err error
-	if o.queued == nil && o.enabled && !o.off {
+	if o.queued == nil && o.enabled && o.power == powerOn {
 		err = o.b.handler.Presented(o, backend.Presentation{Time: o.idleAt, Refresh: o.paceInterval(), Seq: o.idleSeq, Idle: true})
 	}
 	return errors.Join(err, o.clock.Kick(), o.flushPlanes())
@@ -1851,7 +1870,7 @@ func (o *Output) prepared(s *scanout, err error) error {
 }
 
 func (o *Output) presentLater(s *scanout, err error) error {
-	if !o.enabled || o.off || o.b.paused || !slices.Contains(o.buffers, s) {
+	if !o.enabled || o.power != powerOn || o.b.paused || !slices.Contains(o.buffers, s) {
 		return err
 	}
 	if err == nil {
@@ -1882,11 +1901,8 @@ func (b *Backend) commitHeld() error {
 			o.busy = nil
 			errs = append(errs, o.presentLater(s, nil))
 		}
-		if o.offBusy {
-			o.offBusy = false
-			if err := o.powerOff(); err != nil {
-				o.b.report(fmt.Errorf("%w; the output stays lit until it next changes", err))
-			}
+		if o.power == offAfterBusy {
+			o.finishPowerOff()
 		}
 		if o.planesBusy {
 			o.planesBusy = false
@@ -1926,7 +1942,7 @@ func (o *Output) lateDue() error {
 func (o *Output) commitLate() error {
 	s, fence := o.late, o.lateFence.Take()
 	o.late = nil
-	if !o.enabled || o.off || o.b.paused || !slices.Contains(o.buffers, s) {
+	if !o.enabled || o.power != powerOn || o.b.paused || !slices.Contains(o.buffers, s) {
 		return fence.Close()
 	}
 	return o.heldFailed(o.commitFenced(s, fence))
@@ -2043,7 +2059,7 @@ func (o *Output) ForgetScanout(key backend.ScanoutKey) error {
 
 func (o *Output) Scanout(key backend.ScanoutKey, d gpu.DMABUF, at backend.Placement, release func() error, tear bool) (bool, error) {
 	size := modeOf(o.mode).Size
-	if !o.enabled || o.off || o.b.paused || o.kms != kmsFlip || o.drawing != nil || o.flipping || !at.Valid(d.Size, size) || o.tiled() && at != backend.Whole(size) || !slices.Contains(o.primary.clients, gpu.FormatModifier{Format: d.Format, Modifier: d.Modifier}) {
+	if !o.enabled || o.power != powerOn || o.b.paused || o.kms != kmsFlip || o.drawing != nil || o.flipping || !at.Valid(d.Size, size) || o.tiled() && at != backend.Whole(size) || !slices.Contains(o.primary.clients, gpu.FormatModifier{Format: d.Format, Modifier: d.Modifier}) {
 		return false, nil
 	}
 	o.setDamageClips(nil)
@@ -2330,7 +2346,7 @@ func (o *Output) frameWait() time.Duration {
 }
 
 func (o *Output) vblank(now time.Duration) time.Duration {
-	if o.lastVblank == 0 || now-o.lastVblank <= modeOf(o.mode).Interval() || o.unanchored || !o.lit || o.off || o.kms != kmsFlip {
+	if o.lastVblank == 0 || now-o.lastVblank <= modeOf(o.mode).Interval() || o.unanchored || !o.lit || o.power != powerOn || o.kms != kmsFlip {
 		return o.lastVblank
 	}
 	v, err := o.b.dev.CRTCSequence(o.crtc.id)
@@ -2406,7 +2422,7 @@ func (o *Output) pendingPlanes() (cursor, pending bool) {
 	if cursor && c.settled() {
 		c.dirty, cursor = false, false
 	}
-	if !cursor && !o.color.dirty() || !o.lit || o.kms != kmsFlip || o.off || o.b.paused || o.flipping || o.frameCarriesPlanes() {
+	if !cursor && !o.color.dirty() || !o.lit || o.kms != kmsFlip || o.power != powerOn || o.b.paused || o.flipping || o.frameCarriesPlanes() {
 		return cursor, false
 	}
 	return cursor, true
@@ -2577,11 +2593,11 @@ func (o *Output) freeBuffers() error {
 }
 
 func (o *Output) leaveOnScreen() error {
-	if o.kms == kmsInherited && o.enabled && !o.off && !o.b.paused {
+	if o.kms == kmsInherited && o.enabled && o.power == powerOn && !o.b.paused {
 		o.enabled, o.lit = false, false
 		return o.freeBuffers()
 	}
-	if !o.enabled || !o.lit || o.off || o.b.paused || o.front == nil {
+	if !o.enabled || !o.lit || o.power != powerOn || o.b.paused || o.front == nil {
 		return o.disable()
 	}
 	shown := []*scanout{o.front, o.queued}

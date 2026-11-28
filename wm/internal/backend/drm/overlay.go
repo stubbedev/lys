@@ -65,7 +65,7 @@ type overlayFlip struct {
 }
 
 func (o *Output) overlaysUsable() bool {
-	return len(o.overlays) > 0 && o.enabled && o.lit && !o.off && !o.b.paused && o.kms == kmsFlip && !o.flipping && o.drawing == nil && o.front != nil
+	return len(o.overlays) > 0 && o.enabled && o.lit && o.power == powerOn && !o.b.paused && o.kms == kmsFlip && !o.flipping && o.drawing == nil && o.front != nil
 }
 
 func (o *Output) OverlayPlanes() int {
