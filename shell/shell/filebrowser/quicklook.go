@@ -14,13 +14,21 @@ import (
 	"github.com/stubbedev/lys/shell/shell/quicklook"
 )
 
-// The previews' boxes in logical pixels: Quick Look's picture and text,
-// and the pane's, whose width the pane gives.
+// The previews' boxes in logical pixels: Quick Look's least, before it
+// knows the views' area, and the pane's, whose width the pane gives.
+// Quick Look's box is the views' area but for quicklookShare of it
+// left around the card and quicklookChrome over the content for the
+// title strip; text is at most quicklookTextW wide, a page's width.
 const (
-	quicklookImageW, quicklookImageH = 480, 360
-	quicklookTextW, quicklookTextH   = 480, 320
-	paneImageH, paneTextH            = 180, 260
+	quicklookMinW, quicklookMinH = 240, 160
+	quicklookChrome              = 56
+	quicklookTextW               = 720
+	paneImageH, paneTextH        = 180, 260
 )
+
+// quicklookShare is the part of the views' area Quick Look's content
+// may take along each axis.
+const quicklookShare = 0.85
 
 // newQuicklook is Quick Look's card, in the frame that lays it over the
 // file views: a preview of the selection, closed by Space and Escape,
@@ -28,13 +36,16 @@ const (
 // video at once, opening the file in its default app from its Open
 // button.
 func (c *Browser) newQuicklook() (*preview.View, *quicklookFrame) {
+	least := image.Pt(quicklookMinW, quicklookMinH)
 	v := preview.New(c.previewConfig(preview.Config{
-		Class: "file-chooser-quicklook", NameChars: 32, Autoplay: true,
-		Image: image.Pt(quicklookImageW, quicklookImageH), Text: image.Pt(quicklookTextW, quicklookTextH),
-		OnClose: c.closeQuicklook, Open: c.d.OpenFile,
+		Class: "file-chooser-quicklook", NameChars: 48, Autoplay: true, Bare: true,
+		Image: least, Text: least, OnClose: c.closeQuicklook, Open: c.d.OpenFile,
 	}))
 	v.Root().AddClass(css.Card)
-	f := &quicklookFrame{card: v.Root()}
+	f := &quicklookFrame{card: v.Root(), fit: func(area render.Rect) {
+		box := quicklookBox(area)
+		v.Fit(box, image.Pt(min(box.X, quicklookTextW), box.Y))
+	}}
 	f.SetVisible(false)
 	return v, f
 }
@@ -83,12 +94,22 @@ func (c *Browser) refreshPreview() {
 	}
 }
 
+// quicklookBox is the box Quick Look's content fits into over views
+// laid out in area.
+func quicklookBox(area render.Rect) image.Point {
+	return image.Pt(
+		max(quicklookMinW, int(float64(area.W)*quicklookShare)),
+		max(quicklookMinH, int(float64(area.H)*quicklookShare)-quicklookChrome),
+	)
+}
+
 // quicklookFrame covers the file views and centers Quick Look's card on
-// them at the card's own size; presses beside the card pass through to
-// the views.
+// them at the card's own size, its content fitted to the views' area
+// (fit); presses beside the card pass through to the views.
 type quicklookFrame struct {
 	widget.Base
 	card widget.Widget
+	fit  func(area render.Rect)
 	kids [1]widget.Widget
 }
 
@@ -97,6 +118,7 @@ func (f *quicklookFrame) Measure(widget.Axis, int) widget.Sizes { return widget.
 
 func (f *quicklookFrame) Arrange(r render.Rect) {
 	f.ArrangeSelf(r)
+	f.fit(r)
 	f.card.Arrange(quicklook.Centered(r, f.card))
 	widget.SetParents(f, f.Children()...)
 }

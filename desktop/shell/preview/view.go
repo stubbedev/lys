@@ -21,8 +21,13 @@ import (
 	"github.com/stubbedev/lys/desktop/thumbnail"
 )
 
-// folderIcon is a folder's glyph.
-const folderIcon = "ld-folder-symbolic"
+// folderIcon is a folder's glyph, and openIcon the bare frame's Open
+// button's, openIconPx its size.
+const (
+	folderIcon = "ld-folder-symbolic"
+	openIcon   = "ld-external-link-symbolic"
+	openIconPx = 16
+)
 
 // Config is how a View shows files and what its host does for it.
 type Config struct {
@@ -55,6 +60,10 @@ type Config struct {
 	// Open opens a file in its default app, from the Open button; nil
 	// shows no button.
 	Open func(path string)
+	// Bare shows the preview alone, as macOS's Quick Look does: the name
+	// and the Open button, an icon, in a slim title strip over it, and
+	// no detail line.
+	Bare bool
 	// Fill shows pictures, videos and text over all the space the view
 	// is given rather than fitted into the Image and Text boxes, as a
 	// window-sized viewer does; Image is then the box thumbnails are
@@ -68,8 +77,8 @@ type Config struct {
 
 // View shows one file at a time, as its renderer says: its picture, its
 // video, its text, its folder's count or its thumbnail over its name
-// and a detail line, else its icon, or a message saying why it cannot
-// be shown. It loads off the loop, at most one load per loop pass
+// and a detail line (under a title strip, bare), else its icon, or a
+// message saying why it cannot be shown. It loads off the loop, at most one load per loop pass
 // however often the file shown changes, and lets go of everything the
 // last file held (its pixels, its video's decoding) as soon as another
 // shows or it closes. Its widgets are built once.
@@ -100,19 +109,10 @@ func New(cfg Config) *View {
 	th := widget.Current()
 	small := widgets.TextPx(styling.Caption, 1)
 	v := &View{cfg: cfg}
-	v.root = widget.NewBox(widget.Column, th.Spacing, 2*th.Padding)
-	v.root.AddClass(cfg.Class)
 	v.visual = widget.NewBox(widget.Column, th.Spacing, 0)
 	v.visual.AddClass("preview-visual")
 	v.name = widget.NewLabel(cfg.Font, widgets.TextPx(styling.Body, 1), cfg.Placeholder, 0)
 	v.name.AddClass("preview-name")
-	v.name.SetAlignment(render.AlignCenter)
-	v.name.SetWrap(true)
-	v.name.SetMaxWidthChars(cfg.NameChars)
-	v.info = widget.NewLabel(cfg.Font, small, "", 0)
-	v.info.AddClass("preview-info", css.Caption, css.DimLabel)
-	v.info.SetAlignment(render.AlignCenter)
-	v.info.SetWrap(true)
 	v.message = widget.NewLabel(cfg.Font, small, "", 0)
 	v.message.AddClass("preview-message", css.Caption)
 	v.message.SetAlignment(render.AlignCenter)
@@ -123,27 +123,86 @@ func New(cfg Config) *View {
 	v.picture.AddClass("preview-picture")
 	v.video = widget.NewVideo(cfg.Font, small, nil)
 	v.video.SetAutoplay(cfg.Autoplay)
-	if cfg.Fill {
+	if cfg.Bare {
+		v.frameBare()
+	} else {
+		v.stack(small)
+	}
+	v.root.AddClass(cfg.Class)
+	return v
+}
+
+// stack lays the view out as a column: what it shows, the name, the
+// detail line and the Open button under it.
+func (v *View) stack(small float64) {
+	th := widget.Current()
+	v.root = widget.NewBox(widget.Column, th.Spacing, 2*th.Padding)
+	v.name.SetAlignment(render.AlignCenter)
+	v.name.SetWrap(true)
+	v.name.SetMaxWidthChars(v.cfg.NameChars)
+	v.info = widget.NewLabel(v.cfg.Font, small, "", 0)
+	v.info.AddClass("preview-info", css.Caption, css.DimLabel)
+	v.info.SetAlignment(render.AlignCenter)
+	v.info.SetWrap(true)
+	if v.cfg.Fill {
 		v.root.Append(v.visual, true)
 	} else {
 		v.root.Append(widgets.Center(v.visual), false)
 	}
 	v.root.Append(v.name, false)
 	v.root.Append(v.info, false)
-	if cfg.Open != nil {
-		label := widget.NewLabel(cfg.Font, widgets.TextPx(styling.Body, 1), i18n.T("preview-open"), 0)
-		label.SetAlignment(render.AlignCenter)
-		v.open = widget.NewButton(label, 0, 0)
-		v.open.AddClass("preview-open", css.SuggestedAction)
-		v.open.OnClick = func() {
-			if v.path != "" {
-				cfg.Open(v.path)
-			}
-		}
-		v.open.SetVisible(false)
-		v.root.Append(widgets.Center(v.open), false)
+	if v.cfg.Open == nil {
+		return
 	}
-	return v
+	label := widget.NewLabel(v.cfg.Font, widgets.TextPx(styling.Body, 1), i18n.T("preview-open"), 0)
+	label.SetAlignment(render.AlignCenter)
+	v.open = v.openButton(label)
+	v.open.AddClass(css.SuggestedAction)
+	v.root.Append(widgets.Center(v.open), false)
+}
+
+// frameBare lays the view out bare: a title strip of the name and the
+// Open icon over what it shows.
+func (v *View) frameBare() {
+	th := widget.Current()
+	v.root = widget.NewBox(widget.Column, 0, 0)
+	strip := widget.NewBox(widget.Row, th.Spacing, th.Padding)
+	strip.AddClass("preview-title")
+	v.name.SetEllipsize(widget.EllipsizeMiddle)
+	v.name.SetMaxWidthChars(v.cfg.NameChars)
+	strip.Append(v.name, true)
+	if v.cfg.Open != nil {
+		v.open = v.openButton(widget.NewThemeIcon(openIcon, openIconPx))
+		v.open.AddClass(css.Flat)
+		v.open.SetTooltip(i18n.T("preview-open"))
+		v.open.SetAccessibleName(i18n.T("preview-open"))
+		strip.Append(v.open, false)
+	}
+	v.visual.SetPadding(render.Insets{Right: th.Padding, Bottom: th.Padding, Left: th.Padding})
+	v.root.Append(strip, false)
+	v.root.Append(widgets.Center(v.visual), true)
+}
+
+// openButton is the Open button showing face, hidden until a file
+// shows.
+func (v *View) openButton(face widget.Widget) *widget.Button {
+	b := widget.NewButton(face, 0, 0)
+	b.AddClass("preview-open")
+	b.OnClick = func() {
+		if v.path != "" {
+			v.cfg.Open(v.path)
+		}
+	}
+	b.SetVisible(false)
+	return b
+}
+
+// setDetail shows text as the detail line, which a bare view has none
+// of.
+func (v *View) setDetail(text string) {
+	if v.info != nil {
+		v.info.SetText(text)
+	}
 }
 
 // Root is the view's widget.
@@ -189,7 +248,7 @@ func (v *View) load(path string, m *Memory, name string) {
 	v.path, v.memory, v.renderer = path, m, Loading
 	v.name.SetText(name)
 	v.name.SetVisible(name != "")
-	v.info.SetText("")
+	v.setDetail("")
 	v.showIcon(v.cfg.MIME.FileIcon(v.guessedType()))
 	if v.open != nil {
 		v.open.SetVisible(m == nil)
@@ -231,7 +290,7 @@ func (v *View) Close() {
 	v.path, v.memory, v.renderer = "", nil, Empty
 	v.name.SetText(v.cfg.Placeholder)
 	v.name.SetVisible(true)
-	v.info.SetText("")
+	v.setDetail("")
 	v.visual.Clear()
 	if v.open != nil {
 		v.open.SetVisible(false)
@@ -294,9 +353,7 @@ func (v *View) apply(c Content) {
 	switch c.renderer {
 	case Image, Thumbnail:
 		v.picture.SetImage(c.picture.img, c.picture.orient)
-		b := c.picture.img.Bounds()
-		w, h := c.picture.orient.Size(b.Dx(), b.Dy())
-		v.fit(v.picture, thumbnail.FitSize(image.Rect(0, 0, w, h), v.cfg.Image.X, v.cfg.Image.Y))
+		v.fitPicture()
 	case Video:
 		v.playVideo(c, name)
 		v.rendered()
@@ -315,7 +372,7 @@ func (v *View) apply(c Content) {
 	default:
 		panic(fmt.Sprintf("preview: a load landed as %v", c.renderer))
 	}
-	v.info.SetText(detail(name, c))
+	v.setDetail(detail(name, c))
 	v.rendered()
 }
 
@@ -331,9 +388,8 @@ func (v *View) playVideo(c Content, name string) {
 	v.stream = media.NewStream(v.video, c.video, name)
 	v.shown.video = nil
 	v.video.SetStream(v.stream)
-	w, h := v.stream.Size()
-	v.fit(v.video, thumbnail.FitSize(image.Rect(0, 0, w, h), v.cfg.Image.X, v.cfg.Image.Y))
-	v.info.SetText(detail(name, c))
+	v.fitVideo()
+	v.setDetail(detail(name, c))
 	stream := v.stream
 	v.unsub = stream.Subscribe(func() {
 		if err := stream.Err(); err != nil && v.stream == stream {
@@ -389,6 +445,39 @@ func (v *View) showContent(w widget.Widget) {
 	v.visual.Clear()
 	v.fillAs(widget.AlignCenter)
 	v.visual.Append(widgets.Center(w), false)
+}
+
+// Fit sets the boxes pictures, videos and thumbnails fit into and text
+// fills (Config's Image and Text), fitting what shows into them again;
+// a load under way starts over, so a thumbnail is made for the new box.
+func (v *View) Fit(img, text image.Point) {
+	if img == v.cfg.Image && text == v.cfg.Text {
+		return
+	}
+	v.cfg.Image, v.cfg.Text = img, text
+	switch v.renderer {
+	case Loading:
+		v.load(v.path, v.memory, v.name.Text())
+	case Image, Thumbnail:
+		v.fitPicture()
+	case Video:
+		v.fitVideo()
+	case Text:
+		v.fit(v.code, v.cfg.Text)
+	}
+}
+
+// fitPicture fits the picture shown into the Image box.
+func (v *View) fitPicture() {
+	b := v.shown.picture.img.Bounds()
+	w, h := v.shown.picture.orient.Size(b.Dx(), b.Dy())
+	v.fit(v.picture, thumbnail.FitSize(image.Rect(0, 0, w, h), v.cfg.Image.X, v.cfg.Image.Y))
+}
+
+// fitVideo fits the video playing into the Image box.
+func (v *View) fitVideo() {
+	w, h := v.stream.Size()
+	v.fit(v.video, thumbnail.FitSize(image.Rect(0, 0, w, h), v.cfg.Image.X, v.cfg.Image.Y))
 }
 
 // fit shows w, a picture, video or text, size big, or over the whole

@@ -18,6 +18,7 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/desktop/thumbnail/thumbnailtest"
+	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/xkb"
 	"github.com/stubbedev/lys/ui/widget"
@@ -92,6 +93,15 @@ func (hs *harness) quicklookOn(t *testing.T, folder, name string) {
 	hs.waitPreview(t, name)
 }
 
+// paneOn opens folder, selects name and shows the preview pane.
+func (hs *harness) paneOn(t *testing.T, folder, name string) {
+	t.Helper()
+	hs.open(t, in(openFile, folder))
+	hs.pick(t, name)
+	hs.do(func() { hs.c.ui.previewToggle.SetActive(true) })
+	hs.waitPreview(t, name)
+}
+
 // detailOf is the label of root reading like a detail line: one with a
 // separator in it.
 func detailOf(root widget.Widget) string {
@@ -111,7 +121,7 @@ func writeFile(t *testing.T, path string, data []byte) {
 }
 
 // Space on source shows its first lines highlighted; on a binary file
-// it shows the card alone, with the file's size.
+// it shows the card alone, and the pane the file's size.
 func TestQuicklookShowsTextHighlighted(t *testing.T) {
 	hs := newHarness(t, "")
 	dir := filepath.Join(hs.root, "docs")
@@ -137,21 +147,28 @@ func TestQuicklookShowsTextHighlighted(t *testing.T) {
 	hs.pick(t, "blob.txt")
 	hs.key(xkb.KeySpace, 0, nil)
 	hs.waitPreview(t, "blob.txt")
-	var info string
 	var shown preview.Renderer
 	hs.run(func() {
 		code = treetest.All[*widgets.CodeView](hs.c.ui.ql.Root())
-		info, shown = detailOf(hs.c.ui.ql.Root()), hs.c.ui.ql.Renderer()
+		shown = hs.c.ui.ql.Renderer()
 	})
-	if len(code) != 0 || shown != preview.Icon || !strings.Contains(info, "B ·") {
-		t.Errorf("a binary file shows as %v with %d code views, detail %q", shown, len(code), info)
+	if len(code) != 0 || shown != preview.Icon {
+		t.Errorf("a binary file shows as %v with %d code views", shown, len(code))
+	}
+	hs.key(xkb.KeyEscape, 0, nil)
+	hs.do(func() { hs.c.ui.previewToggle.SetActive(true) })
+	hs.waitPreview(t, "blob.txt")
+	var info string
+	hs.run(func() { info = detailOf(hs.c.ui.pv.Root()) })
+	if !strings.Contains(info, "B ·") {
+		t.Errorf("the pane's detail line of a binary file is %q", info)
 	}
 	hs.hide()
 }
 
-// A wide picture previews whole at its aspect ratio with its pixel size
-// in the detail line, never cropped square, and closing the dialog
-// lets its pixels go.
+// A wide picture previews whole at its aspect ratio, never cropped
+// square, with its pixel size in the pane's detail line, and closing
+// the dialog lets its pixels go.
 func TestQuicklookShowsTheWholeImage(t *testing.T) {
 	hs := newHarness(t, "")
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
@@ -166,18 +183,21 @@ func TestQuicklookShowsTheWholeImage(t *testing.T) {
 	_ = f.Close()
 	hs.quicklookOn(t, dir, "pano.png")
 	var views []*widget.ImageView
-	var info string
 	hs.run(func() {
 		lay(hs.cfg.Root, 1400, 1000)
 		views = treetest.All[*widget.ImageView](hs.c.ui.ql.Root())
-		info = detailOf(hs.c.ui.ql.Root())
 	})
 	if len(views) != 1 {
 		t.Fatalf("Quick Look on an image shows %d image views", len(views))
 	}
-	if b := views[0].Bounds(); b.W != 4*b.H || b.W == 0 {
+	if b := views[0].Bounds(); max(b.W-4*b.H, 4*b.H-b.W) > 4 || b.W == 0 {
 		t.Errorf("the 4000x1000 image shows at %dx%d, want 4:1", b.W, b.H)
 	}
+	hs.key(xkb.KeyEscape, 0, nil)
+	hs.do(func() { hs.c.ui.previewToggle.SetActive(true) })
+	hs.waitPreview(t, "pano.png")
+	var info string
+	hs.run(func() { info = detailOf(hs.c.ui.pv.Root()) })
 	if !strings.Contains(info, "4000 × 1000") {
 		t.Errorf("the detail line %q has no pixel size", info)
 	}
@@ -185,7 +205,7 @@ func TestQuicklookShowsTheWholeImage(t *testing.T) {
 	waittest.Until(t, func() bool {
 		var held int64
 		var path string
-		hs.do(func() { held, path = hs.c.pictures.Held(), hs.c.ui.ql.Path() })
+		hs.do(func() { held, path = hs.c.pictures.Held(), hs.c.ui.pv.Path() })
 		if path != "" {
 			t.Fatal("the closed dialog still shows its preview")
 		}
@@ -289,12 +309,12 @@ func TestQuicklookStepsThroughTheFiles(t *testing.T) {
 	hs.hide()
 }
 
-// A folder previews its item count.
+// A folder previews its item count in the pane.
 func TestFolderPreviewCountsItems(t *testing.T) {
 	hs := newHarness(t, "")
-	hs.quicklookOn(t, hs.root, "docs")
+	hs.paneOn(t, hs.root, "docs")
 	var info string
-	hs.run(func() { info = detailOf(hs.c.ui.ql.Root()) })
+	hs.run(func() { info = detailOf(hs.c.ui.pv.Root()) })
 	if !strings.HasPrefix(info, i18n.T("preview-kind-folder")+" · "+i18n.T("preview-folder-items", i18n.Int("count", 0), i18n.Str("shown", "0"))) {
 		t.Errorf("an empty folder's detail line is %q", info)
 	}
@@ -407,6 +427,90 @@ func TestQuicklookArrowsFollowTheView(t *testing.T) {
 	hs.key(xkb.KeyDown, 0, nil)
 	if got := hs.quicklookIndex(t); got != cols {
 		t.Errorf("Down with the grid unfocused shows %d, want %d", got, cols)
+	}
+	hs.hide()
+}
+
+// Quick Look is the preview alone under a title strip: the name and an
+// Open icon over the content, no detail line and no text button, while
+// the pane beside the views keeps the file's details.
+func TestQuicklookIsTheBarePreview(t *testing.T) {
+	hs := newHarness(t, "")
+	hs.do(func() { hs.c.d.OpenFile = func(string) {} })
+	dir := filepath.Join(hs.root, "docs")
+	writeFile(t, filepath.Join(dir, "note.txt"), []byte("a note\n"))
+	hs.quicklookOn(t, dir, "note.txt")
+	var labels []string
+	var buttons []*widget.Button
+	var names []*widget.Label
+	hs.run(func() {
+		root := hs.c.ui.ql.Root()
+		lay(hs.cfg.Root, 1400, 1000)
+		labels = treetest.Labels(root)
+		buttons = treetest.All[*widget.Button](root)
+		names = treetest.All[*widget.Label](root)
+	})
+	if d := detailOf(hs.c.ui.ql.Root()); d != "" {
+		t.Errorf("Quick Look shows the detail line %q", d)
+	}
+	if !slices.Contains(labels, "note.txt") {
+		t.Errorf("Quick Look's labels %q do not name the file", labels)
+	}
+	if len(buttons) != 1 || len(treetest.All[*widget.Label](buttons[0])) != 0 || len(treetest.All[*widget.Icon](buttons[0])) != 1 {
+		t.Fatalf("Quick Look offers %d buttons, want one Open icon and no text", len(buttons))
+	}
+	var title *widget.Label
+	for _, l := range names {
+		if l.Text() == "note.txt" {
+			title = l
+		}
+	}
+	var visual []*widgets.CodeView
+	hs.run(func() { visual = treetest.All[*widgets.CodeView](hs.c.ui.ql.Root()) })
+	if title == nil || len(visual) != 1 || title.Bounds().Y >= visual[0].Bounds().Y {
+		t.Errorf("the name does not sit in a strip over the content")
+	}
+	hs.key(xkb.KeyEscape, 0, nil)
+	hs.do(func() { hs.c.ui.previewToggle.SetActive(true) })
+	hs.waitPreview(t, "note.txt")
+	var info string
+	hs.run(func() { info = detailOf(hs.c.ui.pv.Root()) })
+	if !strings.Contains(info, " · ") {
+		t.Errorf("the pane's detail line is %q, want the file's details", info)
+	}
+	hs.hide()
+}
+
+// Quick Look's content fits the views' area: a picture grows with a
+// larger window and keeps its aspect.
+func TestQuicklookFitsTheWindow(t *testing.T) {
+	hs := newHarness(t, "")
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	dir := filepath.Join(hs.root, "pics")
+	f, err := os.Create(filepath.Join(dir, "wide.png"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := png.Encode(f, image.NewGray(image.Rect(0, 0, 3000, 1500))); err != nil {
+		t.Fatal(err)
+	}
+	_ = f.Close()
+	hs.quicklookOn(t, dir, "wide.png")
+	size := func(w, h int) render.Rect {
+		var b render.Rect
+		hs.run(func() {
+			lay(hs.cfg.Root, w, h)
+			lay(hs.cfg.Root, w, h)
+			b = treetest.All[*widget.ImageView](hs.c.ui.ql.Root())[0].Bounds()
+		})
+		return b
+	}
+	small, large := size(900, 700), size(1800, 1300)
+	if max(small.W-2*small.H, 2*small.H-small.W) > 2 || max(large.W-2*large.H, 2*large.H-large.W) > 2 {
+		t.Errorf("the 2:1 picture shows at %dx%d and %dx%d", small.W, small.H, large.W, large.H)
+	}
+	if large.W <= small.W || small.W < 400 {
+		t.Errorf("the picture shows %d wide in a 900 window and %d in an 1800 one, want it to fill the larger", small.W, large.W)
 	}
 	hs.hide()
 }

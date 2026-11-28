@@ -11,6 +11,11 @@
   box-shadow: var(--shadow);
 }
 
+.file-chooser-quicklook > .preview-title {
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: 8px;
+}
+
 .file-chooser-sidebar-scroll {
   background: var(--bg-elevated);
   border-right: 1px solid var(--border-subtle);

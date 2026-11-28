@@ -500,3 +500,76 @@ func TestThePictureTypesAreTheTypesShownAsAPicture(t *testing.T) {
 		t.Error("changing the copy changed the picture types")
 	}
 }
+
+// A bare view shows the name and an Open icon in a strip over the
+// content and no detail line; a stacked one shows the detail line and
+// a text Open button under the content.
+func TestABareViewShowsNoDetailLineAndAnOpenIcon(t *testing.T) {
+	h := newHarness(t)
+	treetest.IconTheme(t, openIcon)
+	path := writeFile(t, filepath.Join(t.TempDir(), "pano.png"), pngData(t, gradient(800, 200)))
+	var opened []string
+	open := func(p string) { opened = append(opened, p) }
+	for _, bare := range []bool{true, false} {
+		v := h.view(func(c *Config) { c.Bare, c.Open = bare, open })
+		h.show(v, path)
+		lay(v.Root())
+		var detail string
+		for _, l := range treetest.Labels(v.Root()) {
+			if strings.Contains(l, detailSeparator) {
+				detail = l
+			}
+		}
+		buttons := treetest.All[*widget.Button](v.Root())
+		if len(buttons) != 1 {
+			t.Fatalf("bare %v: %d buttons, want the Open button", bare, len(buttons))
+		}
+		icons, texts := treetest.All[*widget.Icon](buttons[0]), treetest.All[*widget.Label](buttons[0])
+		picture := treetest.All[*widget.ImageView](v.Root())[0].Bounds()
+		name := v.name.Bounds()
+		if bare && (detail != "" || len(icons) != 1 || len(texts) != 0 || name.Y >= picture.Y) {
+			t.Errorf("bare: detail %q, Open of %d icons and %d labels, name at %v over the picture at %v", detail, len(icons), len(texts), name, picture)
+		}
+		if !bare && (!strings.HasPrefix(detail, "PNG image") || len(texts) != 1 || name.Y <= picture.Y) {
+			t.Errorf("stacked: detail %q, Open of %d labels, name at %v under the picture at %v", detail, len(texts), name, picture)
+		}
+		buttons[0].OnClick()
+	}
+	if !slices.Equal(opened, []string{path, path}) {
+		t.Errorf("Open opened %q, want the file shown each time", opened)
+	}
+}
+
+// Fit fits what shows into new boxes: a picture shown takes the new
+// box at its aspect, and a load under way starts over for it.
+func TestFitRefitsWhatShows(t *testing.T) {
+	h := newHarness(t)
+	dir := t.TempDir()
+	wide := writeFile(t, filepath.Join(dir, "pano.png"), pngData(t, gradient(800, 200)))
+	other := writeFile(t, filepath.Join(dir, "other.png"), pngData(t, gradient(800, 200)))
+	v := h.view(nil)
+	h.show(v, wide)
+	v.Fit(image.Pt(600, 400), image.Pt(600, 400))
+	lay(v.Root())
+	if b := treetest.All[*widget.ImageView](v.Root())[0].Bounds(); b.W != 600 || b.H != 150 {
+		t.Errorf("after Fit the 800x200 picture shows at %dx%d, want 600x150", b.W, b.H)
+	}
+	v.Fit(image.Pt(600, 400), image.Pt(600, 400))
+	h.holdLoads()
+	v.Show(other)
+	h.drain()
+	h.until("the held load to start", func() bool { return h.ctxOf(other) != nil })
+	first := h.ctxOf(other)
+	v.Fit(image.Pt(200, 100), image.Pt(200, 100))
+	h.drain()
+	h.until("the load to start over", func() bool { return h.ctxOf(other) != first })
+	h.releaseLoads()
+	h.until("the preview of other.png", func() bool { return v.Renderer() != Loading })
+	lay(v.Root())
+	if first.Err() == nil {
+		t.Error("the load for the old box was not given up")
+	}
+	if b := treetest.All[*widget.ImageView](v.Root())[0].Bounds(); b.W != 200 || b.H != 50 {
+		t.Errorf("the picture loaded after Fit shows at %dx%d, want 200x50", b.W, b.H)
+	}
+}
