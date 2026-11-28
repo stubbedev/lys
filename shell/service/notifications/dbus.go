@@ -14,46 +14,40 @@ import (
 // Server serves org.freedesktop.Notifications on the session bus and
 // lys-shell's dev.stubbe.lys.Notifications1 extension beside it.
 type Server struct {
-	conn        *dbus.Conn
-	svc         *Service
-	releaseExts func()
+	svc     *Service
+	release func()
 }
 
-// Serve requests the well-known names and exports the objects; Release
-// drops them.
+// Serve takes the well-known names and exports the objects; Release
+// drops them. A name already owned is dbusx.ErrNameTaken and leaves
+// nothing exported.
 func Serve(conn *dbus.Conn, svc *Service) (*Server, error) {
 	svc.SetEmitter(func(signal string, args ...any) {
 		if err := conn.Emit(ObjPath, signal, args...); err != nil {
-			return
+			log.Printf("notifications: emit %s: %v", signal, err)
 		}
 	})
-	server := &Server{conn: conn, svc: svc}
-	if err := conn.Export(server, ObjPath, Interface); err != nil {
-		return nil, fmt.Errorf("notifications: export: %w", err)
-	}
-	reply, err := conn.RequestName(Interface, dbus.NameFlagDoNotQueue)
+	server := &Server{svc: svc}
+	release, err := dbusx.Serve(conn, dbusx.Service{Name: Interface, Path: ObjPath, Interface: Interface, Methods: server})
 	if err != nil {
-		return nil, fmt.Errorf("notifications: request name: %w", err)
+		return nil, fmt.Errorf("notifications: serve %s: %w", Interface, err)
 	}
-	if reply != dbus.RequestNameReplyPrimaryOwner {
-		return nil, fmt.Errorf("notifications: %s is already owned", Interface)
-	}
-	release, err := ServeLysShell(conn, svc)
+	releaseExts, err := ServeLysShell(conn, svc)
 	if err != nil {
-		_, _ = conn.ReleaseName(Interface)
+		release()
 		return nil, err
 	}
-	server.releaseExts = release
+	server.release = func() {
+		releaseExts()
+		release()
+	}
 	return server, nil
 }
 
-// Release drops the names.
+// Release drops the names and unexports the objects.
 func (s *Server) Release() error {
-	if s.releaseExts != nil {
-		s.releaseExts()
-	}
-	_, err := s.conn.ReleaseName(Interface)
-	return err
+	s.release()
+	return nil
 }
 
 // Notify handles the spec's Notify call.

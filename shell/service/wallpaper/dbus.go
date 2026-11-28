@@ -3,11 +3,11 @@ package wallpaper
 import (
 	"context"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
-	"github.com/stubbedev/lys/lib/third_party/godbus/introspect"
 )
 
 // D-Bus identity.
@@ -21,62 +21,31 @@ const (
 // time an extraction finished.
 var ColorsExtracted = dbusx.NewSignal[struct{}](Interface, "ColorsExtracted")
 
-const (
-	errFailed      = "org.freedesktop.DBus.Error.Failed"
-	errInvalidArgs = "org.freedesktop.DBus.Error.InvalidArgs"
-)
-
-func failed(err error) *dbus.Error {
-	return &dbus.Error{Name: errFailed, Body: []any{err.Error()}}
-}
-
-func invalidArgs(err error) *dbus.Error {
-	return &dbus.Error{Name: errInvalidArgs, Body: []any{err.Error()}}
-}
-
 // Daemon serves a Service as dev.stubbe.lys.Wallpaper1. An
 // empty monitor argument targets every monitor.
 type Daemon struct {
 	svc *Service
 }
 
-// Export exports the object, its read-only properties, and
-// introspection, requests the well-known name, and forwards every
-// finished extraction as the ColorsExtracted signal. The returned
-// function releases the name and stops the forwarding.
+// Export serves the object and its read-only properties under the
+// well-known name and forwards every finished extraction as the
+// ColorsExtracted signal. The returned function stops the forwarding,
+// releases the name and unexports the object. A name already owned is
+// dbusx.ErrNameTaken and leaves nothing exported.
 func Export(conn *dbus.Conn, svc *Service) (func(), error) {
-	d := &Daemon{svc: svc}
-	if err := conn.Export(d, ServicePath, Interface); err != nil {
-		return nil, fmt.Errorf("wallpaper: export: %w", err)
-	}
-	if err := conn.Export(properties{svc}, ServicePath, dbusx.PropertiesInterface); err != nil {
-		return nil, fmt.Errorf("wallpaper: export properties: %w", err)
-	}
-	node := &introspect.Node{
-		Name: string(ServicePath),
-		Interfaces: []introspect.Interface{
-			introspect.IntrospectData,
-			{Name: dbusx.PropertiesInterface, Methods: introspect.Methods(properties{})},
-			{
-				Name:    Interface,
-				Methods: introspect.Methods(d),
-				Properties: []introspect.Property{
-					{Name: "IsCycling", Type: "b", Access: "read"},
-					{Name: "ThemingMonitor", Type: "s", Access: "read"},
-				},
-				Signals: []introspect.Signal{{Name: "ColorsExtracted"}},
-			},
+	release, err := dbusx.Serve(conn, dbusx.Service{
+		Name:      ServiceName,
+		Path:      ServicePath,
+		Interface: Interface,
+		Methods:   &Daemon{svc: svc},
+		Properties: dbusx.Getters{
+			"IsCycling":      func() any { return svc.CyclingConfig() != nil },
+			"ThemingMonitor": func() any { return svc.ThemingMonitor() },
 		},
-	}
-	if err := conn.Export(introspect.NewIntrospectable(node), ServicePath, dbusx.IntrospectableInterface); err != nil {
-		return nil, fmt.Errorf("wallpaper: export introspection: %w", err)
-	}
-	reply, err := conn.RequestName(ServiceName, dbus.NameFlagDoNotQueue)
+		Signals: []dbusx.SignalDecl{ColorsExtracted},
+	})
 	if err != nil {
-		return nil, fmt.Errorf("wallpaper: cannot acquire D-Bus name '%s': %w", ServiceName, err)
-	}
-	if reply != dbus.RequestNameReplyPrimaryOwner {
-		return nil, fmt.Errorf("wallpaper: cannot acquire D-Bus name '%s': already owned", ServiceName)
+		return nil, fmt.Errorf("wallpaper: serve %s: %w", ServiceName, err)
 	}
 	extracted, unsubscribe := svc.Extracted()
 	done := make(chan struct{})
@@ -86,21 +55,23 @@ func Export(conn *dbus.Conn, svc *Service) (func(), error) {
 			case <-done:
 				return
 			case <-extracted:
-				_ = ColorsExtracted.Emit(conn, ServicePath, struct{}{})
+				if err := ColorsExtracted.Emit(conn, ServicePath, struct{}{}); err != nil {
+					log.Printf("wallpaper: %v", err)
+				}
 			}
 		}
 	}()
 	return func() {
 		close(done)
 		unsubscribe()
-		_, _ = conn.ReleaseName(ServiceName)
+		release()
 	}, nil
 }
 
 // SetWallpaper sets path on a monitor, or all monitors for "".
 func (d *Daemon) SetWallpaper(path, monitor string) *dbus.Error {
 	if err := d.svc.SetWallpaper(path, monitor); err != nil {
-		return failed(err)
+		return dbusx.Failed(err.Error())
 	}
 	return nil
 }
@@ -109,7 +80,7 @@ func (d *Daemon) SetWallpaper(path, monitor string) *dbus.Error {
 func (d *Daemon) SetFitMode(mode, monitor string) *dbus.Error {
 	fit, err := ParseFitMode(mode)
 	if err != nil {
-		return invalidArgs(err)
+		return dbusx.InvalidArgs(err.Error())
 	}
 	d.svc.SetFitMode(fit, monitor)
 	return nil
@@ -119,10 +90,10 @@ func (d *Daemon) SetFitMode(mode, monitor string) *dbus.Error {
 func (d *Daemon) StartCycling(directory string, intervalSecs uint32, mode string) *dbus.Error {
 	m, err := ParseCyclingMode(mode)
 	if err != nil {
-		return invalidArgs(err)
+		return dbusx.InvalidArgs(err.Error())
 	}
 	if err := d.svc.StartCycling(directory, time.Duration(intervalSecs)*time.Second, m); err != nil {
-		return failed(err)
+		return dbusx.Failed(err.Error())
 	}
 	return nil
 }
@@ -148,7 +119,7 @@ func (d *Daemon) Previous() *dbus.Error {
 // ExtractColors extracts colors from the theming wallpaper.
 func (d *Daemon) ExtractColors() *dbus.Error {
 	if err := d.svc.ExtractColors(context.Background()); err != nil {
-		return failed(err)
+		return dbusx.Failed(err.Error())
 	}
 	return nil
 }
@@ -192,42 +163,6 @@ func (d *Daemon) UnregisterMonitor(monitor string) *dbus.Error {
 // ListMonitors lists the registered monitors.
 func (d *Daemon) ListMonitors() ([]string, *dbus.Error) {
 	return d.svc.MonitorNames(), nil
-}
-
-// properties serves the interface's read-only properties, computed on
-// each read; they never emit PropertiesChanged.
-type properties struct{ svc *Service }
-
-func (p properties) values() map[string]dbus.Variant {
-	return map[string]dbus.Variant{
-		"IsCycling":      dbus.MakeVariant(p.svc.CyclingConfig() != nil),
-		"ThemingMonitor": dbus.MakeVariant(p.svc.ThemingMonitor()),
-	}
-}
-
-// Get reads one property.
-func (p properties) Get(iface, name string) (dbus.Variant, *dbus.Error) {
-	if iface != Interface {
-		return dbus.Variant{}, &dbus.Error{Name: "org.freedesktop.DBus.Error.UnknownInterface", Body: []any{"Unknown interface '" + iface + "'"}}
-	}
-	v, ok := p.values()[name]
-	if !ok {
-		return dbus.Variant{}, &dbus.Error{Name: "org.freedesktop.DBus.Error.UnknownProperty", Body: []any{"Unknown property '" + name + "'"}}
-	}
-	return v, nil
-}
-
-// GetAll reads every property of the interface.
-func (p properties) GetAll(iface string) (map[string]dbus.Variant, *dbus.Error) {
-	if iface != Interface {
-		return nil, &dbus.Error{Name: "org.freedesktop.DBus.Error.UnknownInterface", Body: []any{"Unknown interface '" + iface + "'"}}
-	}
-	return p.values(), nil
-}
-
-// Set refuses: both properties are read-only.
-func (p properties) Set(_, name string, _ dbus.Variant) *dbus.Error {
-	return &dbus.Error{Name: "org.freedesktop.DBus.Error.PropertyReadOnly", Body: []any{"Property '" + name + "' is read-only"}}
 }
 
 // Client drives a running daemon (the WallpaperProxy the CLI uses).

@@ -9,7 +9,6 @@ import (
 	"github.com/stubbedev/lys/lib/dbusx"
 	"github.com/stubbedev/lys/lib/intconv"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
-	"github.com/stubbedev/lys/lib/third_party/godbus/introspect"
 )
 
 // D-Bus identity.
@@ -18,12 +17,6 @@ const (
 	ServicePath = "/dev/stubbe/lys/Audio"
 	// Interface is the object's interface name.
 	Interface = "dev.stubbe.lys.Audio1"
-)
-
-const (
-	errPropertyReadOnly = "org.freedesktop.DBus.Error.PropertyReadOnly"
-	errUnknownProperty  = "org.freedesktop.DBus.Error.UnknownProperty"
-	errFailed           = "org.freedesktop.DBus.Error.Failed"
 )
 
 // Daemon serves the audio service on the session bus for the
@@ -35,27 +28,21 @@ type Daemon struct {
 // NewDaemon wraps the service for export.
 func NewDaemon(svc *Service) *Daemon { return &Daemon{svc: svc} }
 
-// Export exports the object, its properties, and its introspection
-// data, then requests the well-known name; release drops the name.
+// Export serves the object and its properties under the well-known
+// name; release drops the name and unexports it. A name already owned
+// is dbusx.ErrNameTaken and leaves nothing exported.
 func (d *Daemon) Export(conn *dbus.Conn) (func(), error) {
-	obj := &audioObject{svc: d.svc}
-	if err := conn.Export(obj, ServicePath, Interface); err != nil {
-		return nil, fmt.Errorf("pulse: export: %w", err)
-	}
-	if err := conn.Export(&audioProperties{svc: d.svc}, ServicePath, dbusx.PropertiesInterface); err != nil {
-		return nil, fmt.Errorf("pulse: export properties: %w", err)
-	}
-	if err := conn.Export(introspect.NewIntrospectable(introspection()), ServicePath, dbusx.IntrospectableInterface); err != nil {
-		return nil, fmt.Errorf("pulse: export introspection: %w", err)
-	}
-	reply, err := conn.RequestName(ServiceName, dbus.NameFlagDoNotQueue)
+	release, err := dbusx.Serve(conn, dbusx.Service{
+		Name:       ServiceName,
+		Path:       ServicePath,
+		Interface:  Interface,
+		Methods:    &audioObject{svc: d.svc},
+		Properties: properties(d.svc),
+	})
 	if err != nil {
-		return nil, fmt.Errorf("pulse: request name: %w", err)
+		return nil, fmt.Errorf("pulse: serve %s: %w", ServiceName, err)
 	}
-	if reply != dbus.RequestNameReplyPrimaryOwner {
-		return nil, fmt.Errorf("pulse: %s is already owned", ServiceName)
-	}
-	return func() { _, _ = conn.ReleaseName(ServiceName) }, nil
+	return release, nil
 }
 
 // audioObject carries the dev.stubbe.lys.Audio1 methods; godbus exports
@@ -65,8 +52,8 @@ type audioObject struct {
 }
 
 var (
-	errNoOutput = dbus.NewError(errFailed, []any{"No default output device"})
-	errNoInput  = dbus.NewError(errFailed, []any{"No default input device"})
+	errNoOutput = dbusx.Failed("No default output device")
+	errNoInput  = dbusx.Failed("No default input device")
 )
 
 func failed(err error) *dbus.Error { return dbus.MakeFailedError(err) }
@@ -269,125 +256,30 @@ func deviceInfoMap(d Device) map[string]string {
 	return info
 }
 
-// audioProperties is org.freedesktop.DBus.Properties for the object:
-// every property is computed on read.
-type audioProperties struct {
-	svc *Service
-}
-
-// propertyNames lists the read-only properties in introspection order.
-var propertyNames = []string{
-	"OutputVolume", "OutputMuted", "InputVolume", "InputMuted",
-	"DefaultSink", "DefaultSource", "SinkCount", "SourceCount",
-}
-
-func (p *audioProperties) value(name string) (any, bool) {
-	out, hasOut := p.svc.DefaultOutput()
-	in, hasIn := p.svc.DefaultInput()
-	switch name {
-	case "OutputVolume":
-		if !hasOut {
-			return 0.0, true
-		}
-		return out.Volume.AveragePercentage(), true
-	case "OutputMuted":
-		return hasOut && out.Muted, true
-	case "InputVolume":
-		if !hasIn {
-			return 0.0, true
-		}
-		return in.Volume.AveragePercentage(), true
-	case "InputMuted":
-		return hasIn && in.Muted, true
-	case "DefaultSink":
-		return out.Name, true
-	case "DefaultSource":
-		return in.Name, true
-	case "SinkCount":
-		return intconv.Clamp[uint32](len(p.svc.OutputDevices())), true
-	case "SourceCount":
-		return intconv.Clamp[uint32](len(p.svc.InputDevices())), true
-	}
-	return nil, false
-}
-
-// Get implements org.freedesktop.DBus.Properties.Get.
-func (p *audioProperties) Get(iface, name string) (dbus.Variant, *dbus.Error) {
-	if iface != Interface {
-		return dbus.Variant{}, dbus.NewError(errUnknownProperty, []any{"unknown interface " + iface})
-	}
-	v, ok := p.value(name)
-	if !ok {
-		return dbus.Variant{}, dbus.NewError(errUnknownProperty, []any{"unknown property " + name})
-	}
-	return dbus.MakeVariant(v), nil
-}
-
-// GetAll implements org.freedesktop.DBus.Properties.GetAll.
-func (p *audioProperties) GetAll(iface string) (map[string]dbus.Variant, *dbus.Error) {
-	if iface != Interface {
-		return nil, dbus.NewError(errUnknownProperty, []any{"unknown interface " + iface})
-	}
-	out := make(map[string]dbus.Variant, len(propertyNames))
-	for _, name := range propertyNames {
-		v, _ := p.value(name)
-		out[name] = dbus.MakeVariant(v)
-	}
-	return out, nil
-}
-
-// Set implements org.freedesktop.DBus.Properties.Set: all read-only.
-func (p *audioProperties) Set(_, name string, _ dbus.Variant) *dbus.Error {
-	return dbus.NewError(errPropertyReadOnly, []any{"property " + name + " is read-only"})
-}
-
-func introspection() *introspect.Node {
-	arg := func(name, sig, dir string) introspect.Arg {
-		return introspect.Arg{Name: name, Type: sig, Direction: dir}
-	}
-	method := func(name string, args ...introspect.Arg) introspect.Method {
-		return introspect.Method{Name: name, Args: args}
-	}
-	props := make([]introspect.Property, 0, len(propertyNames))
-	sigs := map[string]string{
-		"OutputVolume": "d", "OutputMuted": "b", "InputVolume": "d", "InputMuted": "b",
-		"DefaultSink": "s", "DefaultSource": "s", "SinkCount": "u", "SourceCount": "u",
-	}
-	for _, name := range propertyNames {
-		props = append(props, introspect.Property{Name: name, Type: sigs[name], Access: "read"})
-	}
-	return &introspect.Node{
-		Name: ServicePath,
-		Interfaces: []introspect.Interface{
-			introspect.IntrospectData,
-			{Name: dbusx.PropertiesInterface, Methods: []introspect.Method{
-				method("Get", arg("interface_name", "s", "in"), arg("property_name", "s", "in"), arg("value", "v", "out")),
-				method("GetAll", arg("interface_name", "s", "in"), arg("props", "a{sv}", "out")),
-				method("Set", arg("interface_name", "s", "in"), arg("property_name", "s", "in"), arg("value", "v", "in")),
-			}},
-			{
-				Name: Interface,
-				Methods: []introspect.Method{
-					method("SetOutputVolume", arg("volume", "d", "in"), arg("", "d", "out")),
-					method("AdjustOutputVolume", arg("delta", "d", "in"), arg("", "d", "out")),
-					method("SetOutputMute", arg("muted", "b", "in")),
-					method("ToggleOutputMute", arg("", "b", "out")),
-					method("SetInputVolume", arg("volume", "d", "in"), arg("", "d", "out")),
-					method("AdjustInputVolume", arg("delta", "d", "in"), arg("", "d", "out")),
-					method("SetInputMute", arg("muted", "b", "in")),
-					method("ToggleInputMute", arg("", "b", "out")),
-					method("SetDefaultSink", arg("device_index", "u", "in")),
-					method("SetDefaultSource", arg("device_index", "u", "in")),
-					method("ListSinks", arg("", "a(uss)", "out")),
-					method("ListSources", arg("", "a(uss)", "out")),
-					method("ListCards", arg("cards", "a(usssas)", "out")),
-					method("SetCardProfile", arg("card", "u", "in"), arg("profile", "s", "in")),
-					method("GetDefaultSinkInfo", arg("", "a{ss}", "out")),
-					method("GetDefaultSourceInfo", arg("", "a{ss}", "out")),
-				},
-				Properties: props,
-			},
+// properties are the object's read-only properties, each computed on
+// read.
+func properties(svc *Service) dbusx.Getters {
+	return dbusx.Getters{
+		"OutputVolume": func() any {
+			out, ok := svc.DefaultOutput()
+			if !ok {
+				return 0.0
+			}
+			return out.Volume.AveragePercentage()
 		},
+		"OutputMuted": func() any { out, ok := svc.DefaultOutput(); return ok && out.Muted },
+		"InputVolume": func() any {
+			in, ok := svc.DefaultInput()
+			if !ok {
+				return 0.0
+			}
+			return in.Volume.AveragePercentage()
+		},
+		"InputMuted":    func() any { in, ok := svc.DefaultInput(); return ok && in.Muted },
+		"DefaultSink":   func() any { out, _ := svc.DefaultOutput(); return out.Name },
+		"DefaultSource": func() any { in, _ := svc.DefaultInput(); return in.Name },
+		"SinkCount":     func() any { return intconv.Clamp[uint32](len(svc.OutputDevices())) },
+		"SourceCount":   func() any { return intconv.Clamp[uint32](len(svc.InputDevices())) },
 	}
 }
 

@@ -10,6 +10,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/service/wallpaper/extract"
 	"github.com/stubbedev/lys/lib/dbustest"
+	"github.com/stubbedev/lys/lib/dbusx"
 	"github.com/stubbedev/lys/lib/dbusx/dbusxtest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/waittest"
@@ -61,11 +62,11 @@ func TestDaemonRoundTrip(t *testing.T) {
 	// A bad mode is InvalidArgs carrying the parse message.
 	var dbusErr dbus.Error
 	if err := client.SetFitMode(ctx, "tile", ""); !errors.As(err, &dbusErr) ||
-		dbusErr.Name != errInvalidArgs || dbusErr.Body[0] != "Invalid fit mode: tile" {
+		dbusErr.Name != dbusx.ErrInvalidArgs || dbusErr.Body[0] != "Invalid fit mode: tile" {
 		t.Errorf("tile = %#v", err)
 	}
 	if err := client.SetWallpaper(ctx, "/nonexistent.png", ""); !errors.As(err, &dbusErr) ||
-		dbusErr.Name != errFailed || dbusErr.Body[0] != "image not found: /nonexistent.png" {
+		dbusErr.Name != dbusx.ErrFailed || dbusErr.Body[0] != "image not found: /nonexistent.png" {
 		t.Errorf("missing image = %#v", err)
 	}
 
@@ -78,7 +79,7 @@ func TestDaemonRoundTrip(t *testing.T) {
 	if on, _ := client.GetIsCycling(ctx); !on {
 		t.Error("not cycling after start")
 	}
-	if err := client.StartCycling(ctx, dir, 300, "random"); !errors.As(err, &dbusErr) || dbusErr.Name != errInvalidArgs {
+	if err := client.StartCycling(ctx, dir, 300, "random"); !errors.As(err, &dbusErr) || dbusErr.Name != dbusx.ErrInvalidArgs {
 		t.Errorf("bad cycling mode = %#v", err)
 	}
 	if err := client.Next(ctx); err != nil {
@@ -143,13 +144,30 @@ func TestDaemonEmitsColorsExtracted(t *testing.T) {
 }
 
 func TestExportRefusesAnOwnedName(t *testing.T) {
-	addr := dbustest.Start(t).Address
-	release, err := Export(dial(t, addr), New(Options{}))
+	dbusxtest.RequireTakenNameRefused(t, dbustest.Start(t), ServiceName, ServicePath, Interface, func(conn *dbus.Conn) error {
+		_, err := Export(conn, New(Options{}))
+		return err
+	})
+}
+
+func TestTheDaemonIntrospectsItsMethodsPropertiesAndSignal(t *testing.T) {
+	bus := dbustest.Start(t)
+	release, err := Export(bus.Conn(t), New(Options{}))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer release()
-	if _, err := Export(dial(t, addr), New(Options{})); err == nil {
-		t.Error("a second daemon took the owned name")
+	var xml string
+	if err := bus.Conn(t).Object(ServiceName, ServicePath).Call(dbusx.IntrospectableInterface+".Introspect", 0).Store(&xml); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`name="` + Interface + `"`, `name="SetWallpaper"`, `name="IsCycling" type="b" access="read"`, `name="ThemingMonitor" type="s" access="read"`, `name="ColorsExtracted"`} {
+		if !strings.Contains(xml, want) {
+			t.Errorf("the introspection lacks %s:\n%s", want, xml)
+		}
+	}
+	var all map[string]dbus.Variant
+	if err := bus.Conn(t).Object(ServiceName, ServicePath).Call(dbusx.PropertiesInterface+".GetAll", 0, Interface).Store(&all); err != nil || len(all) != 2 || all["IsCycling"].Value() != false {
+		t.Fatalf("GetAll = %v, %v", all, err)
 	}
 }

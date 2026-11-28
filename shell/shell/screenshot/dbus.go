@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/lib/dbusx"
 	"github.com/stubbedev/lys/lib/portaldialogs"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
@@ -56,20 +57,15 @@ type Daemon struct {
 // NewDaemon wraps the host for export.
 func NewDaemon(h *Host) *Daemon { return &Daemon{host: h} }
 
-// Export exports the object and claims the well-known name; the
-// returned release drops the name.
+// Export serves the object under the well-known name; the returned
+// release drops the name and unexports it. A name already owned is
+// dbusx.ErrNameTaken and leaves nothing exported.
 func (d *Daemon) Export(conn *dbus.Conn) (func(), error) {
-	if err := conn.Export(d, ServicePath, iface); err != nil {
-		return nil, fmt.Errorf("screenshot: export: %w", err)
-	}
-	reply, err := conn.RequestName(ServiceName, dbus.NameFlagDoNotQueue)
+	release, err := dbusx.Serve(conn, dbusx.Service{Name: ServiceName, Path: ServicePath, Interface: iface, Methods: d})
 	if err != nil {
-		return nil, fmt.Errorf("screenshot: request name: %w", err)
+		return nil, fmt.Errorf("screenshot: serve %s: %w", ServiceName, err)
 	}
-	if reply != dbus.RequestNameReplyPrimaryOwner {
-		return nil, fmt.Errorf("screenshot: %s is already owned", ServiceName)
-	}
-	return func() { _, _ = conn.ReleaseName(ServiceName) }, nil
+	return release, nil
 }
 
 // Capture captures a screenshot and blocks until it is saved or

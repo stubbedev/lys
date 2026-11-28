@@ -1717,8 +1717,7 @@
       "lib/dbusx",
       "lib/intconv",
       "lib/pulse/native",
-      "lib/third_party/godbus",
-      "lib/third_party/godbus/introspect"
+      "lib/third_party/godbus"
     ],
     "external": [
       "cmp",
@@ -1736,6 +1735,7 @@
     ],
     "testImports": [
       "lib/dbustest",
+      "lib/dbusx/dbusxtest",
       "lib/pulse/pulsetest",
       "lib/testhome",
       "lib/waittest"
@@ -3355,11 +3355,13 @@
   },
   "lib/dbusx/dbusxtest": {
     "imports": [
+      "lib/dbustest",
       "lib/dbusx",
       "lib/third_party/godbus"
     ],
     "external": [
       "errors",
+      "strings",
       "sync",
       "testing"
     ]
@@ -11151,7 +11153,6 @@
       "desktop/styling/material",
       "lib/dbusx",
       "lib/third_party/godbus",
-      "lib/third_party/godbus/introspect",
       "lib/xdg"
     ],
     "external": [
@@ -12197,6 +12198,7 @@
       "desktop/service/sway",
       "lib/atomicfile",
       "lib/capture",
+      "lib/dbusx",
       "lib/portaldialogs",
       "lib/render",
       "lib/third_party/godbus",
@@ -12238,6 +12240,7 @@
     "testImports": [
       "desktop/i18n/locales/shell",
       "lib/dbustest",
+      "lib/dbusx/dbusxtest",
       "lib/testhome",
       "shell/internal/apptest",
       "shell/internal/keytest",
@@ -12261,6 +12264,7 @@
       "desktop/shell/widgets",
       "desktop/styling",
       "lib/capture",
+      "lib/dbusx",
       "lib/intconv",
       "lib/portaldialogs",
       "lib/render",
@@ -12291,6 +12295,7 @@
       "desktop/shell/apptheme",
       "desktop/shell/treetest",
       "lib/dbustest",
+      "lib/dbusx/dbusxtest",
       "lib/logtest",
       "lib/testhome",
       "lib/third_party/wayland/wl",
@@ -15149,6 +15154,7 @@
       "lib/wmipc",
       "wm/internal/anim",
       "wm/internal/backend",
+      "wm/internal/backend/virtual",
       "wm/internal/binds",
       "wm/internal/colorspace",
       "wm/internal/compositor",
@@ -15619,6 +15625,8 @@
       "lib/peercred",
       "lib/procstat",
       "lib/wmipc",
+      "wm/internal/backend",
+      "wm/internal/backend/virtual",
       "wm/internal/binds",
       "wm/internal/loop",
       "wm/internal/wm"

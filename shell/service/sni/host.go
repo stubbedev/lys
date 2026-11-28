@@ -49,7 +49,9 @@ type Host struct {
 	conn  *dbus.Conn
 	store *Store
 
-	owned   bool
+	// unserve drops the watcher's name and object, nil unless the
+	// watcher role is ours.
+	unserve func()
 	watcher *watcher // non-nil: we serve the watcher role ourselves
 	// externalAsOf sequences the bus's answer naming the watcher
 	// another process serves, which the signal loop follows when
@@ -98,7 +100,6 @@ type Host struct {
 	// when the set of sizes changes.
 	pixmapSizes map[int]int
 	retrack     chan struct{}
-	exported    bool
 }
 
 // Synced closes once the host has first looked over the bus for the
@@ -187,21 +188,14 @@ func (h *Host) claimWatcher() error {
 		return nil
 	}
 	w := newWatcher(h)
-	h.exported = true
-	if err := h.conn.Export(w, WatcherPath, WatcherIface); err != nil {
-		return fmt.Errorf("sni: export watcher: %w", err)
-	}
-	if err := h.conn.Export(w, WatcherPath, dbusx.PropertiesInterface); err != nil {
-		return fmt.Errorf("sni: export watcher properties: %w", err)
-	}
-	reply, err := h.conn.RequestName(WatcherName, dbus.NameFlagDoNotQueue)
-	if err != nil {
-		return fmt.Errorf("sni: request watcher name: %w", err)
-	}
-	if reply != dbus.RequestNameReplyPrimaryOwner {
+	release, err := dbusx.Serve(h.conn, dbusx.Service{Name: WatcherName, Path: WatcherPath, Interface: WatcherIface, Methods: w, Properties: w.properties()})
+	if errors.Is(err, dbusx.ErrNameTaken) {
 		return nil
 	}
-	h.owned = true
+	if err != nil {
+		return fmt.Errorf("sni: serve the watcher: %w", err)
+	}
+	h.unserve = release
 	h.watcher = w
 	return nil
 }
@@ -263,19 +257,9 @@ func (h *Host) release() error {
 		errs = append(errs, f.stop())
 		delete(h.follows, key)
 	}
-	if h.owned {
-		if _, err := h.conn.ReleaseName(WatcherName); err != nil {
-			errs = append(errs, fmt.Errorf("sni: release watcher name: %w", err))
-		}
-		h.owned = false
-	}
-	if h.exported {
-		for _, iface := range []string{WatcherIface, dbusx.PropertiesInterface} {
-			if err := h.conn.Export(nil, WatcherPath, iface); err != nil {
-				errs = append(errs, fmt.Errorf("sni: unexport watcher: %w", err))
-			}
-		}
-		h.exported = false
+	if h.unserve != nil {
+		h.unserve()
+		h.unserve = nil
 	}
 	return errors.Join(errs...)
 }
@@ -1010,37 +994,20 @@ func (w *watcher) RegisterStatusNotifierHost(service string) *dbus.Error {
 	return nil
 }
 
-// Get implements the Properties read of the watcher's three
-// properties.
-func (w *watcher) Get(iface, prop string) (dbus.Variant, *dbus.Error) {
-	if iface != WatcherIface {
-		return dbus.Variant{}, dbus.MakeFailedError(fmt.Errorf("unknown interface %s", iface))
+// properties are the watcher's three read-only properties.
+func (w *watcher) properties() dbusx.Getters {
+	locked := func(read func() any) func() any {
+		return func() any {
+			w.mu.Lock()
+			defer w.mu.Unlock()
+			return read()
+		}
 	}
-	all, _ := w.GetAll(iface)
-	v, ok := all[prop]
-	if !ok {
-		return dbus.Variant{}, &dbus.Error{Name: "org.freedesktop.DBus.Error.UnknownProperty", Body: []any{prop}}
+	return dbusx.Getters{
+		"RegisteredStatusNotifierItems":  locked(func() any { return slices.Clone(w.items) }),
+		"IsStatusNotifierHostRegistered": locked(func() any { return len(w.hosts) > 0 }),
+		"ProtocolVersion":                func() any { return ProtocolVersion },
 	}
-	return v, nil
-}
-
-// GetAll implements the Properties read of the watcher.
-func (w *watcher) GetAll(iface string) (map[string]dbus.Variant, *dbus.Error) {
-	if iface != WatcherIface {
-		return nil, dbus.MakeFailedError(fmt.Errorf("unknown interface %s", iface))
-	}
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	return map[string]dbus.Variant{
-		"RegisteredStatusNotifierItems":  dbus.MakeVariant(append([]string{}, w.items...)),
-		"IsStatusNotifierHostRegistered": dbus.MakeVariant(len(w.hosts) > 0),
-		"ProtocolVersion":                dbus.MakeVariant(ProtocolVersion),
-	}, nil
-}
-
-// Set rejects writes: the watcher's properties are read-only.
-func (w *watcher) Set(string, string, dbus.Variant) *dbus.Error {
-	return &dbus.Error{Name: "org.freedesktop.DBus.Error.PropertyReadOnly"}
 }
 
 // Actions drives one item (the bar's click handlers).

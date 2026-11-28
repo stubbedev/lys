@@ -8,6 +8,7 @@ import (
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/dbusx"
+	"github.com/stubbedev/lys/lib/dbusx/dbusxtest"
 	"github.com/stubbedev/lys/lib/pulse/native"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/waittest"
@@ -167,12 +168,12 @@ func TestDaemonProperties(t *testing.T) {
 	if err := obj.Call(dbusx.PropertiesInterface+".GetAll", 0, Interface).Store(&all); err != nil {
 		t.Fatal(err)
 	}
-	if len(all) != len(propertyNames) || all["DefaultSink"].Value() != "speakers" {
+	if len(all) != 8 || all["DefaultSink"].Value() != "speakers" {
 		t.Errorf("GetAll = %v", all)
 	}
 	err := obj.Call(dbusx.PropertiesInterface+".Set", 0, Interface, "OutputVolume", dbus.MakeVariant(10.0)).Err
 	var derr dbus.Error
-	if !errors.As(err, &derr) || derr.Name != errPropertyReadOnly {
+	if !errors.As(err, &derr) || derr.Name != dbusx.ErrPropertyRO {
 		t.Errorf("Set = %v, want PropertyReadOnly", err)
 	}
 	if err := obj.Call(dbusx.PropertiesInterface+".Get", 0, Interface, "Nope").Err; err == nil {
@@ -248,9 +249,10 @@ func TestDaemonSurfacesServerErrors(t *testing.T) {
 
 func TestDaemonNameIsExclusive(t *testing.T) {
 	_, svc, bus := daemonFixture(t)
-	if _, err := NewDaemon(svc).Export(bus.Conn(t)); err == nil {
-		t.Fatal("a second daemon took the name")
-	}
+	dbusxtest.RequireTakenNameRefused(t, bus, ServiceName, ServicePath, Interface, func(conn *dbus.Conn) error {
+		_, err := NewDaemon(svc).Export(conn)
+		return err
+	})
 }
 
 func TestDaemonCards(t *testing.T) {

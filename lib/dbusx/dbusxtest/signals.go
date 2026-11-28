@@ -1,4 +1,5 @@
-// Package dbusxtest reads signals for a test without keeping their descriptors.
+// Package dbusxtest reads signals for a test without keeping their
+// descriptors, and checks how a service meets a taken name.
 package dbusxtest
 
 import (
