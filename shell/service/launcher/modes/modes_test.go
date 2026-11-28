@@ -845,7 +845,7 @@ func TestClipboardRestoresAndForgets(t *testing.T) {
 	if _, ok := m.Activate(bg, launcher.RowTarget(0), launcher.ActivateKbCustom{N: 2}, "").(launcher.ActionReload); !ok || !f.cleared {
 		t.Error("kb-custom-2 forgets every unpinned entry")
 	}
-	if _, ok := m.idAt(launcher.RowTarget(5)); ok {
+	if _, ok := m.rowAt(launcher.RowTarget(5)); ok {
 		t.Error("a row past the end resolves to nothing")
 	}
 }

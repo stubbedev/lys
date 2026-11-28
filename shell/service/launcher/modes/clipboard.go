@@ -55,11 +55,16 @@ type Clipboard struct {
 	history ClipboardHistory
 	// l is the language the mode speaks.
 	l *i18n.Loader
-	// ids are the entry ids in row order, so a row index resolves to
-	// the entry it was drawn for even after something new arrives;
-	// pinned says which of them are pinned.
-	ids    []uint64
-	pinned []bool
+	// rows are the entries in row order, so a row index resolves to
+	// the entry it was drawn for even after something new arrives.
+	rows []clipboardRow
+}
+
+// clipboardRow is the entry a row was drawn for: its id, and whether it
+// was pinned.
+type clipboardRow struct {
+	id     uint64
+	pinned bool
 }
 
 // NewClipboard builds the mode; a nil history is a compositor without
@@ -77,38 +82,36 @@ func (*Clipboard) Name() string { return "clipboard" }
 func (c *Clipboard) state() launcher.ModeState {
 	prompt := c.l.Get("launcher-clipboard-prompt")
 	if c.history == nil {
-		c.ids, c.pinned = nil, nil
+		c.rows = nil
 		msg := c.l.Get("launcher-clipboard-unsupported")
 		return launcher.ModeState{Prompt: prompt, Message: &msg, NoCustom: true, UseHotKeys: true}
 	}
 	snap := c.history.Entries()
 	defer snap.Release()
 	entries := snap.Entries()
-	c.ids = make([]uint64, len(entries))
-	c.pinned = make([]bool, len(entries))
+	c.rows = make([]clipboardRow, len(entries))
 	items := make([]launcher.Item, len(entries))
 	for i, e := range entries {
-		c.ids[i] = e.ID
+		c.rows[i] = clipboardRow{id: e.ID, pinned: e.Pinned}
 		preview := EntryLabel(c.l, e, previewChars)
 		info := strconv.FormatUint(e.ID, 10)
 		items[i] = launcher.Item{Display: preview, MatchText: preview, Info: &info, Icon: iconFor(e)}
 		if e.Pinned {
 			items[i].Flags = launcher.FlagActive
 		}
-		c.pinned[i] = e.Pinned
 	}
 	// Typed text matching nothing must not land on the clipboard: this
 	// mode restores, it does not compose.
 	return launcher.ModeState{Items: items, Prompt: prompt, NoCustom: true, UseHotKeys: true}
 }
 
-// idAt is the entry id a row was drawn for.
-func (c *Clipboard) idAt(target launcher.Target) (uint64, bool) {
+// rowAt is the entry a row was drawn for.
+func (c *Clipboard) rowAt(target launcher.Target) (clipboardRow, bool) {
 	i, ok := target.Row()
-	if !ok || int(i) >= len(c.ids) {
-		return 0, false
+	if !ok || int(i) >= len(c.rows) {
+		return clipboardRow{}, false
 	}
-	return c.ids[i], true
+	return c.rows[i], true
 }
 
 // Load lists the history, most recent first.
@@ -117,20 +120,20 @@ func (c *Clipboard) Load(context.Context) launcher.ModeState { return c.state() 
 // Activate restores the entry; kb-custom-1/2 forget one or every
 // unpinned one, kb-custom-3 pins or unpins it.
 func (c *Clipboard) Activate(_ context.Context, target launcher.Target, kind launcher.ActivateKind, _ string) launcher.Action {
-	id, ok := c.idAt(target)
+	row, ok := c.rowAt(target)
 	if c.history == nil || !ok {
 		return launcher.ActionNothing{}
 	}
 	if k, ok := kind.(launcher.ActivateKbCustom); ok {
 		switch k.N {
 		case forgetOne:
-			c.history.Forget(id)
+			c.history.Forget(row.id)
 			return launcher.ActionReload{State: c.state()}
 		case forgetAll:
 			c.history.ClearUnpinned()
 			return launcher.ActionReload{State: c.state()}
 		case togglePin:
-			if pinning, err := c.togglePin(target, id); err != nil {
+			if pinning, err := c.togglePin(row); err != nil {
 				return failed(c.state(), PinFailure(err, pinning), err)
 			}
 			return launcher.ActionReload{State: c.state()}
@@ -138,7 +141,7 @@ func (c *Clipboard) Activate(_ context.Context, target launcher.Target, kind lau
 	}
 	// Every other accept restores, the alternate one included: there
 	// is no second thing to do with a clipboard entry.
-	c.history.Copy(id)
+	c.history.Copy(row.id)
 	return launcher.ActionClose{}
 }
 
@@ -221,14 +224,14 @@ func fileName(path string) string { return path[strings.LastIndexByte(path, '/')
 // RowPreview is the row's entry in full, read from the history only once
 // the row is selected; false once the entry has left the history.
 func (c *Clipboard) RowPreview(index uint32) (launcher.Preview, bool) {
-	id, ok := c.idAt(launcher.RowTarget(index))
+	row, ok := c.rowAt(launcher.RowTarget(index))
 	if c.history == nil || !ok {
 		return launcher.Preview{}, false
 	}
 	snap := c.history.Entries()
 	defer snap.Release()
 	for _, e := range snap.Entries() {
-		if e.ID == id {
+		if e.ID == row.id {
 			return EntryPreview(c.history, e), true
 		}
 	}
@@ -291,10 +294,9 @@ func PinFailure(err error, pinning bool) string {
 
 // togglePin pins the row's entry, or unpins a pinned one, saying
 // which it tried.
-func (c *Clipboard) togglePin(target launcher.Target, id uint64) (pinning bool, err error) {
-	i, _ := target.Row()
-	if c.pinned[i] {
-		return false, c.history.Unpin(id)
+func (c *Clipboard) togglePin(row clipboardRow) (pinning bool, err error) {
+	if row.pinned {
+		return false, c.history.Unpin(row.id)
 	}
-	return true, c.history.Pin(id)
+	return true, c.history.Pin(row.id)
 }
