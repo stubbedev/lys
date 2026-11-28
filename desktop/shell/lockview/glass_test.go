@@ -9,6 +9,7 @@ import (
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/memory-go"
+	"golang.org/x/image/font/gofont/gobold"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/shell/apptheme"
@@ -70,21 +71,27 @@ func glassSurface(t *testing.T, src image.Image, opaque bool, text string) *Surf
 	t.Helper()
 	var mem memory.Shared
 	bg := newBackdrop(t, &mem, src, 0, image.Pt(shotW*2, shotH*2))
-	cfg := config.Defaults()
-	palette := cfg.Styling.ActivePalette()
-	theme, err := styling.PaletteFromHex(palette)
-	if err != nil {
-		t.Fatal(err)
-	}
 	s := Build(Spec{
-		Mode: Lock, Config: cfg.Login, Font: treetest.Font(t), Backdrop: &bg, Opaque: opaque,
-		Sheet:    widget.NewStylesheet(styling.BundleCSS(cfg, palette, theme), apptheme.Priority),
+		Mode: Lock, Config: config.Defaults().Login, Font: treetest.Font(t), Backdrop: &bg, Opaque: opaque,
+		Sheet:    widget.NewStylesheet(bundleCSS(t), apptheme.Priority),
 		OnSubmit: func(string) {},
 	})
 	s.Prompt.SetTime(text, "Saturday 28 November")
 	s.Prompt.Reveal.SetRevealed(true)
 	s.Prompt.Reveal.Finish()
 	return s
+}
+
+// bundleCSS is the shell's stylesheet bundle for the default config.
+func bundleCSS(t *testing.T) string {
+	t.Helper()
+	cfg := config.Defaults()
+	palette := cfg.Styling.ActivePalette()
+	theme, err := styling.PaletteFromHex(palette)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return styling.BundleCSS(cfg, palette, theme)
 }
 
 // shot paints root at num/denom onto a fresh canvas and returns it as
@@ -233,7 +240,7 @@ func TestTheMinuteChangeReshapesOnlyTheGlyphs(t *testing.T) {
 	if g.frost != frost {
 		t.Error("the minute change frosted the backdrop again")
 	}
-	if g.shown == face || g.shown.key.text != "09:42" {
+	if g.shown == face {
 		t.Error("the minute change kept the old glyphs")
 	}
 	if string(before.Pix) == string(after.Pix) {
@@ -243,5 +250,45 @@ func TestTheMinuteChangeReshapesOnlyTheGlyphs(t *testing.T) {
 	shot(s.Root, 1, 1)
 	if g.frost == frost {
 		t.Error("a new scale kept the frost of the old one")
+	}
+}
+
+func TestAFontChangeReshapesTheGlassAtOnce(t *testing.T) {
+	bold, err := render.LoadFont(gobold.TTF)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []struct {
+		name   string
+		change func(s *Surface)
+	}{
+		{"face", func(s *Surface) { s.Prompt.Clock.SetFace(bold) }},
+		{"theme", func(s *Surface) {
+			widget.AttachedStylesheets(s.Root)[0].Load(bundleCSS(t) + ".lock-window .lock-clock { letter-spacing: 0.2em; }")
+		}},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			s := glassSurface(t, wallpaper(800, 500), false, "09:41")
+			before := shot(s.Root, 1, 1)
+			g := s.Prompt.glass
+			frost, face := g.frost, g.shown
+
+			shot(s.Root, 1, 1)
+			if g.frost != frost || g.shown != face {
+				t.Fatal("a repaint of the same font and minute rebuilt the glass")
+			}
+
+			c.change(s)
+			after := shot(s.Root, 1, 1)
+			if g.shown.key != face.key || g.frost != frost {
+				t.Fatalf("the %s change moved the clock from %+v to %+v, so it does not show the glass keeps its glyphs", c.name, face.key, g.shown.key)
+			}
+			if g.shown == face {
+				t.Errorf("the %s change kept the old glyphs", c.name)
+			}
+			if string(before.Pix) == string(after.Pix) {
+				t.Errorf("the %s change drew the same clock", c.name)
+			}
+		})
 	}
 }

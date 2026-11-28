@@ -1,6 +1,7 @@
 package lockview
 
 import (
+	"bytes"
 	"image"
 	"math"
 
@@ -51,7 +52,10 @@ var lightDir = [2]float64{-0.34, -0.94}
 //
 // The frost depends on where the clock sits over the background, not on
 // what it reads, so the clock's minute change reshapes only the glyph
-// mask and the composite over it.
+// mask and the composite over it. The composite is keyed on the glyphs
+// as the label paints them, so whatever reshapes them - the text, a
+// theme's or the desktop's font, weight or spacing - composites again
+// at once, and nothing else does.
 type glassClock struct {
 	label *widget.Label
 	bg    *Backdrop
@@ -60,6 +64,8 @@ type glassClock struct {
 	under Placed
 	frost *frostField
 	shown *glassFace
+	// spare is the raster the next paint of the glyphs reuses.
+	spare []byte
 }
 
 // frostField is the frosted backdrop over a device region: rgba at
@@ -75,18 +81,19 @@ type frostKey struct {
 	dev, box render.Rect
 }
 
-// glassFace is one composited clock: img, at device origin at, still
+// glassFace is one composited clock: the glyphs it fills, as the
+// label painted them over key.dev, and img, at device origin at, still
 // once made so a GPU renderer uploads it once; nil pixels when the
 // clock shows no glyph.
 type glassFace struct {
-	key   faceKey
-	frost *frostField
-	img   render.StillImage
-	at    image.Point
+	key    faceKey
+	glyphs []byte
+	frost  *frostField
+	img    render.StillImage
+	at     image.Point
 }
 
 type faceKey struct {
-	text       string
 	dev        render.Rect
 	num, denom int
 }
@@ -114,24 +121,39 @@ func (g *glassClock) draw(cv *render.Canvas, r render.Rect) {
 	if g.frost == nil || g.frost.key != fk {
 		g.frost = newFrostField(g.bg.Image.RGBA, fk)
 	}
-	key := faceKey{text: g.label.Text(), dev: dev, num: num, denom: denom}
-	if g.shown == nil || g.shown.key != key || g.shown.frost != g.frost {
-		g.shown = g.compose(key, r)
+	key := faceKey{dev: dev, num: num, denom: denom}
+	glyphs := g.paintGlyphs(key, r)
+	if g.shown == nil || g.shown.key != key || g.shown.frost != g.frost || !bytes.Equal(g.shown.glyphs, glyphs) {
+		g.compose(key, glyphs)
 	}
 	if g.shown.img.RGBA != nil {
 		cv.DrawImageDevice(g.shown.img, g.shown.at.X, g.shown.at.Y)
 	}
 }
 
-// compose draws the label's glyphs as a coverage mask and fills them
-// with the frost.
-func (g *glassClock) compose(key faceKey, r render.Rect) *glassFace {
+// paintGlyphs paints the label's glyphs, laid out in r, over key.dev
+// into the spare raster.
+func (g *glassClock) paintGlyphs(key faceKey, r render.Rect) []byte {
 	dev := key.dev
-	pix := make([]byte, render.Stride(dev.W)*dev.H)
+	n := render.Stride(dev.W) * dev.H
+	if cap(g.spare) < n {
+		g.spare = make([]byte, n)
+	}
+	pix := g.spare[:n]
+	clear(pix)
 	g.label.PaintGlyphs(render.NewScaled(pix, render.Stride(dev.W), dev.W, dev.H, key.num, key.denom), render.RGB(255, 255, 255), -r.X, -r.Y)
-	f := &glassFace{key: key, frost: g.frost}
-	f.fill(maskOf(pix, dev))
-	return f
+	return pix
+}
+
+// compose fills glyphs, the spare raster, with the frost as the face
+// shown, and keeps the face it replaces' raster as the spare.
+func (g *glassClock) compose(key faceKey, glyphs []byte) {
+	g.spare = nil
+	if g.shown != nil {
+		g.spare = g.shown.glyphs
+	}
+	g.shown = &glassFace{key: key, glyphs: glyphs, frost: g.frost}
+	g.shown.fill(maskOf(glyphs, key.dev))
 }
 
 // glyphMask is coverage in [0, 1] over a device rect.
