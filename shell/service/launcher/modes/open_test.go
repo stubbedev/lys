@@ -42,7 +42,7 @@ func TestFileBrowserOpensFilesWithTheBuiltInOpenerByDefault(t *testing.T) {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	wantClosed(t, NewFileBrowser(DefaultFileBrowserConfig()).open(dir))
+	wantClosed(t, NewFileBrowser(DefaultFileBrowserConfig()).open(bg, dir))
 	if got := files.Ran(t); got != fileuri.FromPath(dir)+"|" {
 		t.Errorf("the directory handler ran with %q, want the directory's file URI", got)
 	}

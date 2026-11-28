@@ -13,6 +13,7 @@ import (
 	"github.com/stubbedev/lys/lib/xdg"
 	"golang.org/x/sys/unix"
 
+	"github.com/stubbedev/lys/shell/service/fileindex"
 	"github.com/stubbedev/lys/shell/service/launcher"
 )
 
@@ -93,10 +94,10 @@ type listed struct {
 	isDir bool
 }
 
-func (f *FileBrowser) state() launcher.ModeState {
+func (f *FileBrowser) state(ctx context.Context) launcher.ModeState {
 	var entries []listed
 	if f.cfg.Recursive {
-		entries = walkFiles(f.current, f.cfg.ShowHidden)
+		entries = walkFiles(ctx, f.current, f.cfg.ShowHidden)
 	} else {
 		entries = listDir(f.current, f.cfg.ShowHidden)
 	}
@@ -118,9 +119,9 @@ func (f *FileBrowser) state() launcher.ModeState {
 	return launcher.ModeState{Items: items, Prompt: xdg.CollapseHome(f.current, os.Getenv("HOME"))}
 }
 
-func (f *FileBrowser) open(path string) launcher.Action {
+func (f *FileBrowser) open(ctx context.Context, path string) launcher.Action {
 	if err := openFile(path, f.cfg.Command, f.cfg.Terminal); err != nil {
-		return failed(f.state(), RanFailed(filepath.Base(path), err), err)
+		return failed(f.state(ctx), RanFailed(filepath.Base(path), err), err)
 	}
 	return launcher.ActionClose{}
 }
@@ -136,17 +137,17 @@ func openFile(path, command, terminal string) error {
 }
 
 // Load lists the current directory.
-func (f *FileBrowser) Load(context.Context) launcher.ModeState { return f.state() }
+func (f *FileBrowser) Load(ctx context.Context) launcher.ModeState { return f.state(ctx) }
 
 // Activate enters a directory, opens a file, or follows a typed path.
-func (f *FileBrowser) Activate(_ context.Context, target launcher.Target, kind launcher.ActivateKind, _ string) launcher.Action {
+func (f *FileBrowser) Activate(ctx context.Context, target launcher.Target, kind launcher.ActivateKind, _ string) launcher.Action {
 	if i, ok := target.Row(); ok && int(i) < len(f.entries) {
 		e := f.entries[i]
 		if e.kind == entryFile {
-			return f.open(e.path)
+			return f.open(ctx, e.path)
 		}
 		f.current = e.path
-		return launcher.ActionReload{State: f.state()}
+		return launcher.ActionReload{State: f.state(ctx)}
 	}
 	custom, ok := kind.(launcher.ActivateCustom)
 	if !ok {
@@ -159,9 +160,9 @@ func (f *FileBrowser) Activate(_ context.Context, target launcher.Target, kind l
 		return launcher.ActionNothing{}
 	case st.IsDir():
 		f.current = path
-		return launcher.ActionReload{State: f.state()}
+		return launcher.ActionReload{State: f.state(ctx)}
 	case st.Mode().IsRegular():
-		return f.open(path)
+		return f.open(ctx, path)
 	}
 	return launcher.ActionNothing{}
 }
@@ -188,36 +189,21 @@ func listDir(dir string, showHidden bool) []listed {
 	return out
 }
 
-// walkFiles is a breadth-first recursive walk, symlinks skipped (no
-// cycles), capped at maxEntries files.
-func walkFiles(root string, showHidden bool) []listed {
+// walkFiles lists the files under root as the file index walks
+// (fileindex.Walk): breadth first, no symlinks, no dependency or build
+// trees, at most fileindex.MaxDepth deep and maxEntries entries in all,
+// hidden names only with showHidden.
+func walkFiles(ctx context.Context, root string, showHidden bool) []listed {
 	var out []listed
-	queue := []string{root}
-	for len(queue) > 0 {
-		dir := queue[0]
-		queue = queue[1:]
-		entries, err := os.ReadDir(dir)
-		if err != nil {
-			continue
-		}
-		for _, e := range entries {
-			path := filepath.Join(dir, e.Name())
-			if !showHidden && isHidden(path) {
-				continue
-			}
-			if e.Type()&os.ModeSymlink != 0 {
-				continue
-			}
-			if e.IsDir() {
-				queue = append(queue, path)
-			} else {
-				out = append(out, listed{path: path})
-			}
-			if len(out) >= maxEntries {
-				log.Printf("launcher: recursive browser hit the %d entry cap; listing truncated", maxEntries)
-				return out
+	end := fileindex.Walk(ctx, []string{root}, fileindex.Rules{ShowHidden: showHidden}, maxEntries, func(d fileindex.Dir) {
+		for _, c := range d.Children {
+			if !c.Dir {
+				out = append(out, listed{path: filepath.Join(d.Path, c.Name)})
 			}
 		}
+	})
+	if end == fileindex.Full {
+		log.Printf("launcher: recursive browser hit the %d entry cap; listing truncated", maxEntries)
 	}
 	return out
 }

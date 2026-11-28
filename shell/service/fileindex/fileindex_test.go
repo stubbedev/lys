@@ -75,6 +75,25 @@ func TestWalkLeavesOutHiddenSkippedAndLinkedNames(t *testing.T) {
 	}
 }
 
+// ShowHidden keeps dot names and those .hidden lists, and still leaves
+// out the skipped trees and links.
+func TestShowHiddenKeepsHiddenNamesOnly(t *testing.T) {
+	root := t.TempDir()
+	touch(t, root, "a.txt", ".env", "secret.txt", "node_modules/e.txt")
+	if err := os.WriteFile(filepath.Join(root, ".hidden"), []byte("secret.txt\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(root, filepath.Join(root, "loop")); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := walked(t, context.Background(), root, Rules{ShowHidden: true}, 100); !slices.Equal(got, []string{".env", ".hidden", "a.txt", "secret.txt"}) {
+		t.Errorf("walk showing hidden = %v", got)
+	}
+	if got, _ := walked(t, context.Background(), root, Rules{}, 100); !slices.Equal(got, []string{"a.txt"}) {
+		t.Errorf("walk = %v, want only a.txt", got)
+	}
+}
+
 func TestListFoldsNamesForSearch(t *testing.T) {
 	root := t.TempDir()
 	touch(t, root, "Report.PDF", "plain")

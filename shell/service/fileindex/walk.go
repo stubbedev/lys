@@ -29,11 +29,14 @@ var skippedDirs = map[string]bool{
 	"venv": true, "dist": true, "build": true, "result": true,
 }
 
-// Rules say what a walk leaves out besides hidden names, the names a
-// directory's .hidden file lists, symlinks and skippedDirs.
+// Rules say what a walk leaves out besides symlinks and skippedDirs:
+// hidden names, those starting with a dot and those a directory's
+// .hidden file lists, unless ShowHidden keeps them.
 type Rules struct {
 	// Exclude are directory names to skip.
 	Exclude []string
+	// ShowHidden keeps hidden names.
+	ShowHidden bool
 }
 
 func (r Rules) skipsDir(name string) bool {
@@ -74,7 +77,7 @@ func (r Rules) List(dir string) (Listing, error) {
 	}
 	var hidden map[string]bool
 	for _, e := range entries {
-		if e.Name() == ".hidden" && e.Type().IsRegular() {
+		if !r.ShowHidden && e.Name() == ".hidden" && e.Type().IsRegular() {
 			hidden = readHidden(dir + "/.hidden")
 			break
 		}
@@ -82,7 +85,7 @@ func (r Rules) List(dir string) (Listing, error) {
 	out := Listing{Children: make([]Child, 0, len(entries)), Mtime: st.Mtim.Nano(), Dev: uint64(st.Dev)} //nolint:unconvert // Dev is uint32 on some architectures
 	for _, e := range entries {
 		name := e.Name()
-		if strings.HasPrefix(name, ".") || hidden[name] || e.Type()&os.ModeSymlink != 0 {
+		if e.Type()&os.ModeSymlink != 0 || !r.ShowHidden && (strings.HasPrefix(name, ".") || hidden[name]) {
 			continue
 		}
 		isDir := e.IsDir()

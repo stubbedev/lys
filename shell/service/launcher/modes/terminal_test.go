@@ -155,7 +155,7 @@ func TestFileBrowserTerminalHandlerWithoutATerminalStaysAndSaysSo(t *testing.T) 
 	}
 	cfg := DefaultFileBrowserConfig()
 	cfg.Directory = filepath.Dir(dir)
-	wantNoTerminalMessage(t, NewFileBrowser(cfg).open(dir), "a dir")
+	wantNoTerminalMessage(t, NewFileBrowser(cfg).open(bg, dir), "a dir")
 	if files.HasRun() {
 		t.Error("the handler ran without a terminal")
 	}

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -21,6 +22,7 @@ import (
 	"github.com/stubbedev/lys/lib/logtest"
 	"github.com/stubbedev/lys/lib/wmipc"
 
+	"github.com/stubbedev/lys/shell/service/fileindex"
 	"github.com/stubbedev/lys/shell/service/launcher"
 	"github.com/stubbedev/lys/shell/service/mango"
 )
@@ -412,8 +414,46 @@ func TestListingSortsDirsFirstAndHidesDotfiles(t *testing.T) {
 	}
 }
 
+// The recursive browser walks as the file index does: dependency trees
+// and hidden names stay out unless shown, and it stops at the index's
+// depth.
+func TestRecursiveWalkLeavesOutWhatTheIndexLeavesOut(t *testing.T) {
+	root := t.TempDir()
+	deep := root
+	for i := range fileindex.MaxDepth + 1 {
+		deep = filepath.Join(deep, "d"+strconv.Itoa(i))
+	}
+	for _, name := range []string{"node_modules/pkg/index.js", ".git/config", "src/main.go", ".env", filepath.Join(deep, "bottom.txt")} {
+		path := filepath.Join(root, name)
+		if filepath.IsAbs(name) {
+			path = name
+		}
+		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, nil, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	names := func(showHidden bool) []string {
+		var out []string
+		for _, e := range walkFiles(bg, root, showHidden) {
+			rel, _ := filepath.Rel(root, e.path)
+			out = append(out, rel)
+		}
+		slices.Sort(out)
+		return out
+	}
+	if got := names(false); !slices.Equal(got, []string{"src/main.go"}) {
+		t.Errorf("walk = %v, want only src/main.go", got)
+	}
+	if got := names(true); !slices.Equal(got, []string{".env", ".git/config", "src/main.go"}) {
+		t.Errorf("walk showing hidden = %v", got)
+	}
+}
+
 func TestRecursiveWalkFindsNestedFiles(t *testing.T) {
-	entries := walkFiles(fbFixture(t), false)
+	entries := walkFiles(bg, fbFixture(t), false)
 	found := false
 	for _, e := range entries {
 		if e.isDir {
