@@ -39,48 +39,48 @@ import (
 	shelllocales "github.com/stubbedev/lys/desktop/i18n/locales/shell"
 )
 
-// domain lazily builds one loader from the desktop locale.
-type domain struct {
-	assets Assets
-	once   sync.Once
-	loader *Loader
+// Shipped is every language each catalogue carries, sorted by name as
+// Assets.Available lists them.
+func Shipped() []LangID {
+	return []LangID{MustLangID("de"), Fallback, MustLangID("es"), MustLangID("fr"), MustLangID("it"), MustLangID("nl"), MustLangID("pt")}
 }
 
-func (d *domain) get() *Loader {
-	d.once.Do(func() {
-		l, err := Select(d.assets, requestedLanguages(os.Getenv))
+// Lazy is the loader of assets for the desktop locale, negotiated on
+// its first call. The embedded fallback is validated by tests, so a
+// failure to load is a build defect and panics.
+func Lazy(assets Assets) func() *Loader {
+	return sync.OnceValue(func() *Loader {
+		l, err := Select(assets, RequestedLanguages())
 		if err != nil {
-			// The embedded fallback is validated by tests; failing here
-			// is a build defect.
 			panic(err)
 		}
-		d.loader = l
+		return l
 	})
-	return d.loader
 }
 
 var (
-	shellDomain    = &domain{assets: NewAssets(shelllocales.FS)}
-	settingsDomain = &domain{assets: NewAssets(settingslocales.FS)}
-	greeterDomain  = &domain{assets: NewFileAssets(greeterlocales.FS, "lys-greeter.ftl")}
+	settingsAssets = NewAssets(settingslocales.FS)
+	shellDomain    = Lazy(NewAssets(shelllocales.FS))
+	settingsDomain = Lazy(settingsAssets)
+	greeterDomain  = Lazy(NewFileAssets(greeterlocales.FS, "lys-greeter.ftl"))
 )
 
 // Shell returns the shell-domain loader.
-func Shell() *Loader { return shellDomain.get() }
+func Shell() *Loader { return shellDomain() }
 
 // Settings returns the settings-domain loader.
-func Settings() *Loader { return settingsDomain.get() }
+func Settings() *Loader { return settingsDomain() }
 
 // ConfigAssets is the config's field labels and common messages, for
 // a program that edits the config and adds messages of its own.
-func ConfigAssets() Assets { return settingsDomain.assets }
+func ConfigAssets() Assets { return settingsAssets }
 
 // RequestedLanguages is the desktop locale's languages, as every
 // domain negotiates them.
 func RequestedLanguages() []LangID { return requestedLanguages(os.Getenv) }
 
 // Greeter returns the greeter-domain loader.
-func Greeter() *Loader { return greeterDomain.get() }
+func Greeter() *Loader { return greeterDomain() }
 
 // T formats a shell message.
 func T(id string, args ...Arg) string { return Shell().Get(id, args...) }

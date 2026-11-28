@@ -5,7 +5,6 @@ package locale
 import (
 	"embed"
 	"io/fs"
-	"sync"
 
 	"github.com/stubbedev/lys/desktop/i18n"
 )
@@ -22,12 +21,5 @@ func Assets() i18n.Assets {
 	return i18n.ConfigAssets().With(own)
 }
 
-// T is the loader for the desktop's language. The embedded fallback is
-// validated by tests, so failing here is a build defect.
-var T = sync.OnceValue(func() *i18n.Loader {
-	l, err := i18n.Select(Assets(), i18n.RequestedLanguages())
-	if err != nil {
-		panic(err)
-	}
-	return l
-})
+// T is the loader for the desktop's language.
+var T = i18n.Lazy(Assets())

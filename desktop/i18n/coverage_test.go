@@ -24,7 +24,7 @@ var domains = map[string]Assets{
 	"greeter":  NewFileAssets(greeterlocales.FS, "lys-greeter.ftl"),
 }
 
-const shipped = "de,en-US,es,fr,it,nl,pt"
+var shipped = langs(Shipped())
 
 func TestEveryDomainShipsEveryLanguage(t *testing.T) {
 	for name, assets := range domains {
