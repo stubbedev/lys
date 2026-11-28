@@ -27,11 +27,32 @@
 
 .file-chooser-list row:nth-child(even):not(:selected):not(:hover) > .file-chooser-row {
   border-radius: var(--rounding-element);
-  background: color-mix(in srgb, var(--fg-default) 4%, transparent);
+  background: color-mix(in srgb, var(--fg-default) 3%, transparent);
 }
 
-.file-chooser-list row:selected .file-chooser-cell {
-  color: var(--fg-on-accent);
+.file-chooser-list row {
+  margin: 1px 0;
+}
+
+.file-chooser-list row,
+.file-chooser-grid > child {
+  border-radius: var(--rounding-element);
+  transition: background var(--duration-fast);
+}
+
+.file-chooser-list row:hover,
+.file-chooser-grid > child:hover {
+  background: color-mix(in srgb, var(--fg-default) 8%, transparent);
+}
+
+.file-chooser-list row:selected,
+.file-chooser-grid > child:selected {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.file-chooser-list row:selected:hover,
+.file-chooser-grid > child:selected:hover {
+  background: color-mix(in srgb, var(--accent) 28%, transparent);
 }
 
 .file-chooser-thumb {
@@ -72,31 +93,23 @@
 }
 
 .portal-dialog-app-list row,
-.file-chooser-list row,
-.file-chooser-grid > child,
 .print-printer-list row {
   border-radius: var(--rounding-element);
   transition: background var(--duration-fast), box-shadow var(--duration-fast);
 }
 
 .portal-dialog-app-list row:hover,
-.file-chooser-list row:hover,
-.file-chooser-grid > child:hover,
 .print-printer-list row:hover {
   background: var(--bg-hover);
 }
 
 .portal-dialog-app-list row:selected,
-.file-chooser-list row:selected,
-.file-chooser-grid > child:selected,
 .print-printer-list row:selected {
   background: var(--accent);
   color: var(--fg-on-accent);
 }
 
 .portal-dialog-app-list row:focus-visible,
-.file-chooser-list row:focus-visible,
-.file-chooser-grid > child:focus-visible,
 .print-printer-list row:focus-visible {
   outline: var(--focus-ring-width) solid var(--accent);
   outline-offset: calc(-0.125rem * var(--global-scale));

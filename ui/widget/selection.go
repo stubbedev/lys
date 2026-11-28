@@ -274,11 +274,12 @@ func (s *selection) toggle(i int) {
 }
 
 // cursorRinged reports item i as the multiple-mode cursor a key moved
-// off the selection, the one place the cursor shows as a ring: on a
-// selected item, or after a pointer gesture, the selection fill alone
-// marks where the user is.
+// last, the one place the cursor shows as a ring: off the selection,
+// or inside a selection of several, where the fill alone does not say
+// which item the keys move from. On the one item selected, or after a
+// pointer gesture, the selection fill alone marks where the user is.
 func (s *selection) cursorRinged(i int) bool {
-	return s.mode == SelectionMultiple && s.keyed && i == s.cursor && !s.isSelected(i)
+	return s.mode == SelectionMultiple && s.keyed && i == s.cursor && (!s.isSelected(i) || len(s.multi) > 1)
 }
 
 // band selects exactly the items from a to b inclusive (a rubber band,

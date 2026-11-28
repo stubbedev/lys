@@ -651,10 +651,11 @@ func findCheckButton(w Widget) *CheckButton {
 }
 
 // Paint draws the list's CSS box (its background, the theme's surface
-// where none is declared, inside its rounded border), the ring of a
-// cursor keys moved off the selection,
-// and exactly the visible rows; the rows paint their own hover and selection fills
-// (the `row` node's CSS box).
+// where none is declared, inside its rounded border) and exactly the
+// visible rows, which paint their own hover and selection fills (the
+// `row` node's CSS box); over a row go the ring of the keyboard cursor
+// (cursorRinged) and the ring of a drop target, both following the
+// row's rounded corners.
 func (l *List) Paint(cv *render.Canvas) {
 	th := Current()
 	v := l.style(l)
@@ -662,15 +663,21 @@ func (l *List) Paint(cv *render.Canvas) {
 	prev := cv.PushClip(l.view)
 
 	for _, r := range l.realized() {
-		if l.cursorRinged(r.idx) {
-			cv.BorderRect(r.Bounds(), 1, th.Accent)
-		}
 		PaintChild(cv, r)
+		if l.cursorRinged(r.idx) {
+			r.ring(cv, 1)
+		}
 		if r.idx == l.dropRow {
-			cv.BorderRect(r.Bounds(), dropRingW, th.Accent)
+			r.ring(cv, dropRingW)
 		}
 	}
 	cv.PopClip(prev)
+}
+
+// ring strokes the theme's accent w pixels wide inside the row's
+// border box, along its rounded corners.
+func (r *listRow) ring(cv *render.Canvas, w int) {
+	cv.RoundedBorder(r.Bounds(), radiusOr(r.style(r), 0), render.UniformInsets(w), Current().Accent)
 }
 
 // dropRingW is the width of the ring around the item a drag would drop

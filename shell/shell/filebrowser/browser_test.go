@@ -773,10 +773,22 @@ func TestPlaceIconFallsBackAlongTheName(t *testing.T) {
 	}
 }
 
-// The list's rows paint the stylesheet's fills behind their cells: the
-// accent behind the selected row, the hover tint under the pointer,
-// and the zebra tint on every other row by model index, never on the
-// rows between, however far the list scrolled.
+// tinted reports got as a tint of toward over the color over: every
+// channel between theirs, and nearer over than toward, as a translucent
+// fill of toward paints on over.
+func tinted(got, over, toward render.Color) bool {
+	d := func(x, y uint8) int { return max(int(x), int(y)) - min(int(x), int(y)) }
+	dist := func(a, b render.Color) int { return d(a.R(), b.R()) + d(a.G(), b.G()) + d(a.B(), b.B()) }
+	in := func(c, a, b uint8) bool { return c >= min(a, b) && c <= max(a, b) }
+	return got != over && dist(got, over) < dist(got, toward) &&
+		in(got.R(), over.R(), toward.R()) && in(got.G(), over.G(), toward.G()) && in(got.B(), over.B(), toward.B())
+}
+
+// The list's rows paint the stylesheet's fills behind their cells: a
+// tint of the accent behind the selected row, a fainter tint of the
+// text color under the pointer, and the zebra tint on every other row
+// by model index, never on the rows between, however far the list
+// scrolled.
 func TestListRowsPaintTheirFills(t *testing.T) {
 	hs := newHarness(t, "")
 	browsertest.Touch(t, hs.root, "c.txt", "d.txt")
@@ -794,8 +806,10 @@ func TestListRowsPaintTheirFills(t *testing.T) {
 	rowY := func(i int) int { return lb.Y + i*ListRowH + ListRowH/2 }
 	n := len(hs.shown())
 	blank := at(x, lb.Y+lb.H-2)
-	if got, want := at(x, rowY(sel)), hs.token(t, config.TokenAccent); got != want {
-		t.Errorf("selected row paints %v, want the accent %v", got, want)
+	accent, fg := hs.token(t, config.TokenAccent), hs.token(t, config.TokenFgDefault)
+	selected := at(x, rowY(sel))
+	if !tinted(selected, blank, accent) {
+		t.Errorf("selected row paints %v, want a tint of the accent %v over the view's %v", selected, accent, blank)
 	}
 	for i := range n {
 		if i == sel {
@@ -815,8 +829,8 @@ func TestListRowsPaintTheirFills(t *testing.T) {
 		r.Move(widget.Point{X: lb.X + lb.W/2, Y: rowY(0)})
 	})
 	at = hs.frame(W, H)
-	if got, want := at(x, rowY(0)), hs.token(t, config.TokenBgHover); got != want {
-		t.Errorf("hovered row paints %v, want the hover tint %v", got, want)
+	if got := at(x, rowY(0)); !tinted(got, blank, fg) || !tinted(got, blank, selected) {
+		t.Errorf("hovered row paints %v, want a tint of the text %v over the view's %v fainter than the selection %v", got, fg, blank, selected)
 	}
 	if got := at(x, rowY(2)); got != blank {
 		t.Errorf("row 2 paints %v with the pointer elsewhere, want the view's own %v", got, blank)

@@ -122,9 +122,9 @@ func TestGridCellsAreGappedAndInset(t *testing.T) {
 	})
 }
 
-// The grid's cells paint the list's fills with its rounding: the
-// accent behind the selected cell, the hover tint under the pointer,
-// neither in a cell's corner nor on the cells between.
+// The grid's cells paint the list's fills with its rounding: a tint of
+// the accent behind the selected cell, a fainter tint under the
+// pointer, neither in a cell's corner nor on the cells between.
 func TestGridCellsPaintRoundedFills(t *testing.T) {
 	hs := gridded(t)
 	hs.pick(t, "pics")
@@ -138,9 +138,10 @@ func TestGridCellsPaintRoundedFills(t *testing.T) {
 		sel, hov, plain = cells[slices.Index(ns, "pics")], cells[slices.Index(ns, "a.png")], cells[slices.Index(ns, "docs")]
 	})
 	edge := func(r render.Rect) (int, int) { return r.X + 2, r.Y + r.H/2 }
-	accent, hover := hs.token(t, config.TokenAccent), hs.token(t, config.TokenBgHover)
-	if got := at(edge(sel)); got != accent {
-		t.Errorf("selected cell paints %v, want the accent %v", got, accent)
+	accent, fg := hs.token(t, config.TokenAccent), hs.token(t, config.TokenFgDefault)
+	selected := at(edge(sel))
+	if !tinted(selected, blank, accent) {
+		t.Errorf("selected cell paints %v, want a tint of the accent %v over the view's %v", selected, accent, blank)
 	}
 	if got := at(sel.X, sel.Y); got != blank {
 		t.Errorf("selected cell's corner paints %v, want it rounded off to the view's %v", got, blank)
@@ -150,14 +151,14 @@ func TestGridCellsPaintRoundedFills(t *testing.T) {
 		r.Move(widget.Point{X: hov.X + hov.W/2, Y: hov.Y + hov.H/2})
 	})
 	at = hs.frame(outW, outH)
-	if got := at(edge(hov)); got != hover {
-		t.Errorf("hovered cell paints %v, want the hover tint %v", got, hover)
+	if got := at(edge(hov)); !tinted(got, blank, fg) || !tinted(got, blank, selected) {
+		t.Errorf("hovered cell paints %v, want a tint of the text %v over the view's %v fainter than the selection %v", got, fg, blank, selected)
 	}
 	if got := at(hov.X, hov.Y+hov.H-1); got != blank {
 		t.Errorf("hovered cell's corner paints %v, want it rounded off to the view's %v", got, blank)
 	}
-	if got := at(edge(sel)); got != accent {
-		t.Errorf("selected cell paints %v with the pointer elsewhere, want the accent %v", got, accent)
+	if got := at(edge(sel)); got != selected {
+		t.Errorf("selected cell paints %v with the pointer elsewhere, want the selection %v", got, selected)
 	}
 	if got := at(edge(plain)); got != blank {
 		t.Errorf("a cell neither selected nor hovered paints %v, want the view's %v", got, blank)
