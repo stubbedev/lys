@@ -42,3 +42,27 @@ func TestGoldenDrawingArea(t *testing.T) {
 	}
 	NewGolden(t, area, "drawingarea-stylus", goldenTheme(DarkTheme()))
 }
+
+func TestADrawingAreaDrawsOnlyWhereTheClipReaches(t *testing.T) {
+	area := NewDrawingArea(100, 50)
+	draws := 0
+	area.OnDraw = func(cv *render.Canvas, r render.Rect) { draws++ }
+	area.Arrange(render.Rect{X: 10, Y: 100, W: 100, H: 50})
+	cv := render.New(make([]byte, render.Stride(200)*300), render.Stride(200), 200, 300)
+	for _, tc := range []struct {
+		clip render.Rect
+		want int
+	}{
+		{render.Rect{W: 200, H: 40}, 0},
+		{render.Rect{Y: 140, W: 200, H: 40}, 1},
+		{render.Rect{X: 120, W: 80, H: 300}, 0},
+	} {
+		draws = 0
+		prev := cv.PushClipDevice(tc.clip)
+		area.Paint(cv)
+		cv.PopClip(prev)
+		if draws != tc.want {
+			t.Errorf("under clip %+v OnDraw ran %d times, want %d", tc.clip, draws, tc.want)
+		}
+	}
+}

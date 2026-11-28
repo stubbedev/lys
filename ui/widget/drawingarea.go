@@ -38,13 +38,16 @@ func (d *DrawingArea) Measure(axis Axis, forSize int) Sizes {
 	return FixedSizes(Size{W: d.w, H: d.h}.Along(axis))
 }
 
-// Paint runs OnDraw clipped to the area.
+// Paint runs OnDraw clipped to the area, and not at all where the clip
+// leaves none of it.
 func (d *DrawingArea) Paint(cv *render.Canvas) {
 	if d.OnDraw == nil {
 		return
 	}
 	prev := cv.PushClip(d.bounds)
-	d.OnDraw(cv, d.bounds)
+	if !cv.MapRect(d.bounds).Intersect(prev).Empty() {
+		d.OnDraw(cv, d.bounds)
+	}
 	cv.PopClip(prev)
 }
 
