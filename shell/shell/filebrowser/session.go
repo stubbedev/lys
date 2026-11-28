@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/stubbedev/lys/desktop/vfs"
+	"github.com/stubbedev/lys/lib/xdg"
 )
 
 // session is one browse's state, free of widgets: where it is, how
@@ -370,10 +371,11 @@ func ResolvePath(text, dir, home string) string {
 			return l.String()
 		}
 		return text
-	case text == "~" || strings.HasPrefix(text, "~/"):
-		text = filepath.Join(home, strings.TrimPrefix(text, "~"))
 	case !filepath.IsAbs(text):
-		return vfs.Clean(vfs.Join(dir, text))
+		if _, ok := xdg.CutTilde(text); !ok {
+			return vfs.Clean(vfs.Join(dir, text))
+		}
+		text = xdg.ExpandHome(text, home)
 	}
 	return filepath.Clean(text)
 }

@@ -68,17 +68,6 @@ func FrecencyPath() (string, bool) {
 	return filepath.Join(dir, frecencyFileName), true
 }
 
-// expandHome resolves a leading ~.
-func expandHome(path, home string) string {
-	if path == "~" {
-		return home
-	}
-	if rest, ok := strings.CutPrefix(path, "~/"); ok {
-		return filepath.Join(home, rest)
-	}
-	return path
-}
-
 // rootEnv is the environment the root's directories are found in: the
 // process's, with home for its HOME.
 func rootEnv(home string) xdg.Env {
@@ -192,7 +181,7 @@ func NewRoot(cfg config.LauncherSearchConfig, power config.PowerConfig, d Deps, 
 // launcher/commands under the shell's XDG config directory.
 func commandsDir(configured, home string, env xdg.Env) (string, error) {
 	if configured != "" {
-		return expandHome(configured, home), nil
+		return xdg.ExpandHome(configured, home), nil
 	}
 	dir, ok := env.ConfigDir(identity.Name)
 	if !ok {
@@ -207,7 +196,7 @@ func commandsDir(configured, home string, env xdg.Env) (string, error) {
 func IndexConfig(cfg config.LauncherSearchConfig, home string) (fileindex.Config, error) {
 	roots := make([]string, 0, max(len(cfg.FileRoots), 1))
 	for _, r := range cfg.FileRoots {
-		roots = append(roots, expandHome(r, home))
+		roots = append(roots, xdg.ExpandHome(r, home))
 	}
 	if len(roots) == 0 {
 		roots = []string{home}

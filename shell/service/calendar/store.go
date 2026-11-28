@@ -16,6 +16,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/feed"
 	"github.com/stubbedev/lys/desktop/fswatch"
+	"github.com/stubbedev/lys/lib/xdg"
 
 	"github.com/stubbedev/lys/shell/internal/clock"
 )
@@ -189,15 +190,14 @@ func (s *Store) Close() {
 }
 
 func expandHome(dir string) (string, error) {
-	rest, ok := strings.CutPrefix(dir, "~/")
-	if !ok && dir != "~" {
+	if _, ok := xdg.CutTilde(dir); !ok {
 		return dir, nil
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("calendar: expand %s: %w", dir, err)
 	}
-	return filepath.Join(home, rest), nil
+	return xdg.ExpandHome(dir, home), nil
 }
 
 func (s *Store) loadDirLocked(source int) error {

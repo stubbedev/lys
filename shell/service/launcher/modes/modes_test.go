@@ -454,6 +454,37 @@ func TestFileBrowserNavigates(t *testing.T) {
 	}
 }
 
+// The browser expands only ~ and ~/… to the home directory and shows a
+// directory under home as ~/…; a sibling of home that shares its name
+// as a prefix is shown whole, and ~name is no home path.
+func TestFileBrowserExpandsAndShowsHomeByWholeElements(t *testing.T) {
+	root := t.TempDir()
+	home, sibling := filepath.Join(root, "me"), filepath.Join(root, "me2")
+	for _, d := range []string{filepath.Join(home, "docs"), sibling} {
+		if err := os.MkdirAll(d, 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Setenv("HOME", home)
+	cfg := DefaultFileBrowserConfig()
+	cfg.Directory = "~/docs"
+	if got := NewFileBrowser(cfg).Load(bg).Prompt; got != "~/docs" {
+		t.Errorf("~/docs shows as %q", got)
+	}
+	cfg.Directory = sibling
+	if got := NewFileBrowser(cfg).Load(bg).Prompt; got != sibling {
+		t.Errorf("the sibling of home %s shows as %q", sibling, got)
+	}
+	f := NewFileBrowser(cfg)
+	if _, ok := f.Activate(bg, launcher.NoRow, launcher.ActivateCustom{Text: "~2"}, "").(launcher.ActionNothing); !ok {
+		t.Error("~2 was taken for a path under home")
+	}
+	r, ok := f.Activate(bg, launcher.NoRow, launcher.ActivateCustom{Text: "~"}, "").(launcher.ActionReload)
+	if !ok || r.State.Prompt != "~" {
+		t.Errorf("~ opened %#v, want home", r)
+	}
+}
+
 func TestCalcArithmetic(t *testing.T) {
 	calc := func(in string) string {
 		v, ok := Eval(in)

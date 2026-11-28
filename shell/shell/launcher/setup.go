@@ -14,6 +14,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/launchermatch"
 	"github.com/stubbedev/lys/desktop/shell/launcherview"
+	"github.com/stubbedev/lys/lib/xdg"
 
 	"github.com/stubbedev/lys/shell/internal/launcheripc"
 	engine "github.com/stubbedev/lys/shell/service/launcher"
@@ -253,19 +254,12 @@ func buildMode(name string, opts launcheripc.SessionOptions, cfg *config.Config,
 	}
 	// Custom script modes: name:script inline, or a [launcher.scripts] key.
 	if n, script, ok := strings.Cut(name, ":"); ok {
-		return modes.NewScript(n, expandHome(script))
+		return modes.NewScript(n, xdg.ExpandHome(script, os.Getenv("HOME")))
 	}
 	if script, ok := l.Scripts[name]; ok {
-		return modes.NewScript(name, expandHome(script))
+		return modes.NewScript(name, xdg.ExpandHome(script, os.Getenv("HOME")))
 	}
 	return nil
-}
-
-func expandHome(path string) string {
-	if rest, ok := strings.CutPrefix(path, "~"); ok {
-		return os.Getenv("HOME") + rest
-	}
-	return path
 }
 
 func dmenuConfig(opts launcheripc.SessionOptions) modes.DmenuConfig {

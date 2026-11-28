@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/lib/xdg"
 
 	"github.com/stubbedev/lys/shell/service/fileindex"
 	"github.com/stubbedev/lys/shell/service/launcher"
@@ -130,11 +131,8 @@ func folderOf(path string) string { return path[:max(strings.LastIndexByte(path,
 // dir's own bytes serve, and within it the shortened form goes in the
 // shared block.
 func (f *Files) displayDir(dir string, block *strings.Builder) string {
-	if f.cfg.Home == "" || !strings.HasPrefix(dir, f.cfg.Home) {
-		return dir
-	}
-	rest := dir[len(f.cfg.Home):]
-	if rest != "" && rest[0] != '/' {
+	rest, ok := xdg.CutHome(dir, f.cfg.Home)
+	if !ok {
 		return dir
 	}
 	start := block.Len()
@@ -171,14 +169,6 @@ type fileData struct {
 	dir  bool
 }
 
-// expandPath resolves a typed ~.
-func (f *Files) expandPath(q string) string {
-	if q == "~" || strings.HasPrefix(q, "~/") {
-		return f.cfg.Home + q[1:]
-	}
-	return q
-}
-
 // Answer implements Answerer: a query that is a path lists its directory
 // filtered by the name being typed. It is one directory read, on the
 // engine goroutine.
@@ -187,7 +177,7 @@ func (f *Files) Answer(query string) []Entry {
 	if !strings.HasPrefix(q, "/") && q != "~" && !strings.HasPrefix(q, "~/") {
 		return nil
 	}
-	full := f.expandPath(q)
+	full := xdg.ExpandHome(q, f.cfg.Home)
 	dir, prefix := full, ""
 	if !strings.HasSuffix(full, "/") {
 		dir, prefix = filepath.Dir(full), filepath.Base(full)

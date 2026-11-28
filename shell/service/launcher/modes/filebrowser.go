@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/desktop/shlex"
+	"github.com/stubbedev/lys/lib/xdg"
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/shell/service/launcher"
@@ -74,7 +75,7 @@ type FileBrowser struct {
 func NewFileBrowser(cfg FileBrowserConfig) *FileBrowser {
 	current := os.Getenv("HOME")
 	if cfg.Directory != "" {
-		current = expandHome(cfg.Directory)
+		current = xdg.ExpandHome(cfg.Directory, os.Getenv("HOME"))
 	}
 	return &FileBrowser{cfg: cfg, current: current}
 }
@@ -114,7 +115,7 @@ func (f *FileBrowser) state() launcher.ModeState {
 		}
 		f.entries = append(f.entries, fileEntry{kind: kind, path: e.path})
 	}
-	return launcher.ModeState{Items: items, Prompt: displayDir(f.current)}
+	return launcher.ModeState{Items: items, Prompt: xdg.CollapseHome(f.current, os.Getenv("HOME"))}
 }
 
 func (f *FileBrowser) open(path string) launcher.Action {
@@ -151,8 +152,8 @@ func (f *FileBrowser) Activate(_ context.Context, target launcher.Target, kind l
 	if !ok {
 		return launcher.ActionNothing{}
 	}
-	path := expandHome(strings.TrimSpace(custom.Text))
-	st, err := os.Stat(path)
+	path := xdg.ExpandHome(strings.TrimSpace(custom.Text), os.Getenv("HOME"))
+	st, err := os.Stat(path) //nolint:gosec // the path the user typed into the browser
 	switch {
 	case err != nil:
 		return launcher.ActionNothing{}
@@ -163,20 +164,6 @@ func (f *FileBrowser) Activate(_ context.Context, target launcher.Target, kind l
 		return f.open(path)
 	}
 	return launcher.ActionNothing{}
-}
-
-func expandHome(path string) string {
-	if rest, ok := strings.CutPrefix(path, "~"); ok {
-		return os.Getenv("HOME") + rest
-	}
-	return path
-}
-
-func displayDir(path string) string {
-	if home := os.Getenv("HOME"); home != "" && strings.HasPrefix(path, home) {
-		return strings.Replace(path, home, "~", 1)
-	}
-	return path
 }
 
 func isHidden(path string) bool { return strings.HasPrefix(filepath.Base(path), ".") }
