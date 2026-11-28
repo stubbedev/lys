@@ -59,7 +59,7 @@ func decodeCover(data []byte) (render.StillImage, error) {
 	}
 	switch v := img.(type) {
 	case *render.Animation:
-		return v.Frames[0], nil
+		return v.Frames[0].Image, nil
 	case *image.RGBA:
 		return render.NewStillImage(v), nil
 	}

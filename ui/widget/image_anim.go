@@ -43,7 +43,7 @@ func (p *imagePlayback) sync(w Widget, a *render.Animation, live func() bool) {
 	if p.cancel != nil {
 		return
 	}
-	p.cancel = anim.Play(nodeOf(w), anim.Delay(a.Delays[p.frame]), anim.Animate(0, func(float64) {
+	p.cancel = anim.Play(nodeOf(w), anim.Delay(a.Frames[p.frame].Delay), anim.Animate(0, func(float64) {
 		p.cancel = nil
 		if !live() || !onScreen(w) {
 			return
@@ -64,7 +64,7 @@ func (p *imagePlayback) sync(w Widget, a *render.Animation, live func() bool) {
 
 func frameOf(img image.Image, i int) (image.Image, int) {
 	if a := animationOf(img); a != nil {
-		return a.Frames[i], i
+		return a.Frames[i].Image, i
 	}
 	return img, 0
 }

@@ -59,7 +59,10 @@ func TestDecodeAnimatedGIF(t *testing.T) {
 	if !ok || len(a.Frames) != 4 {
 		t.Fatalf("decoded %T with %v frames", img, a)
 	}
-	f := a.Frames
+	f := make([]StillImage, len(a.Frames))
+	for i, fr := range a.Frames {
+		f[i] = fr.Image
+	}
 	seen := map[ImageID]bool{}
 	for i, fr := range f {
 		if fr.ID == 0 || seen[fr.ID] {
@@ -80,8 +83,8 @@ func TestDecodeAnimatedGIF(t *testing.T) {
 	}
 	want := []time.Duration{100 * time.Millisecond, gifZeroDelay, gifMinDelay, 500 * time.Millisecond}
 	for i, d := range want {
-		if a.Delays[i] != d {
-			t.Errorf("delay %d = %v, want %v", i, a.Delays[i], d)
+		if a.Frames[i].Delay != d {
+			t.Errorf("delay %d = %v, want %v", i, a.Frames[i].Delay, d)
 		}
 	}
 	if a.Loops != 3 || a.Bounds() != image.Rect(0, 0, 4, 4) || a.PixelBytes() != 4*4*4*4 {
@@ -116,8 +119,9 @@ func TestDecodeAPNG(t *testing.T) {
 	if !ok || len(a.Frames) != 2 {
 		t.Fatalf("decoded %T", img)
 	}
-	if at(a.Frames[1], 3, 3) != blue || at(a.Frames[1], 0, 0) != red || a.Delays[1] != 250*time.Millisecond || a.Loops != 0 {
-		t.Errorf("apng frame 1: %v %v delay %v loops %d", at(a.Frames[1], 3, 3), at(a.Frames[1], 0, 0), a.Delays[1], a.Loops)
+	f := a.Frames[1]
+	if at(f.Image, 3, 3) != blue || at(f.Image, 0, 0) != red || f.Delay != 250*time.Millisecond || a.Loops != 0 {
+		t.Errorf("apng frame 1: %v %v delay %v loops %d", at(f.Image, 3, 3), at(f.Image, 0, 0), f.Delay, a.Loops)
 	}
 }
 

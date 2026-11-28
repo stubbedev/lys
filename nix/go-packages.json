@@ -1922,15 +1922,18 @@
     "imports": [
       "desktop/config",
       "desktop/icons",
+      "desktop/logging",
       "desktop/styling",
       "lib/render",
       "ui/app",
       "ui/widget"
     ],
     "external": [
+      "fmt",
       "log",
       "os",
       "path/filepath",
+      "slices",
       "strconv",
       "strings",
       "sync",
@@ -1944,7 +1947,6 @@
     ],
     "testExternal": [
       "errors",
-      "slices",
       "testing"
     ]
   },
@@ -3009,7 +3011,6 @@
       "desktop/dochelper",
       "desktop/fileops",
       "desktop/i18n",
-      "desktop/logging",
       "desktop/mime",
       "desktop/shell/apptheme",
       "desktop/shell/widgets",
@@ -4749,6 +4750,7 @@
       "math",
       "os",
       "strconv",
+      "strings",
       "sync",
       "time"
     ],
@@ -8506,7 +8508,6 @@
       "desktop/imagedecode",
       "desktop/jinja",
       "desktop/launchermatch",
-      "desktop/logging",
       "desktop/mime",
       "desktop/opener",
       "desktop/pango",
@@ -10953,6 +10954,9 @@
     ]
   },
   "shell/service/sysinfo": {
+    "imports": [
+      "lib/procstat"
+    ],
     "external": [
       "bytes",
       "errors",
@@ -11491,6 +11495,7 @@
       "lib/atomicfile",
       "lib/fileuri",
       "lib/intconv",
+      "lib/procstat",
       "lib/render",
       "lib/text",
       "lib/third_party/godbus",
@@ -14373,7 +14378,6 @@
       "desktop/fileops",
       "desktop/i18n",
       "desktop/imagedecode",
-      "desktop/logging",
       "desktop/mime",
       "desktop/opener",
       "desktop/shell/apptheme",

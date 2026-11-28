@@ -1,6 +1,7 @@
 package media
 
 import (
+	"errors"
 	"fmt"
 	"image"
 	"io"
@@ -21,16 +22,17 @@ type animationSource struct {
 // seekable source; the image's own loop count is left to the Stream's
 // SetLoop.
 func NewAnimation(a *render.Animation) (FrameSource, error) {
-	if len(a.Frames) == 0 || len(a.Frames) != len(a.Delays) {
-		return nil, fmt.Errorf("media: animation has %d frames and %d delays", len(a.Frames), len(a.Delays))
+	if len(a.Frames) == 0 {
+		return nil, errors.New("media: animation has no frames")
 	}
-	s := &animationSource{frames: a.Frames, starts: make([]time.Duration, len(a.Frames))}
-	for i, d := range a.Delays {
-		if d <= 0 {
-			return nil, fmt.Errorf("media: animation frame %d has delay %v", i, d)
+	s := &animationSource{frames: make([]render.StillImage, len(a.Frames)), starts: make([]time.Duration, len(a.Frames))}
+	for i, f := range a.Frames {
+		if f.Delay <= 0 {
+			return nil, fmt.Errorf("media: animation frame %d has delay %v", i, f.Delay)
 		}
+		s.frames[i] = f.Image
 		s.starts[i] = s.total
-		s.total += d
+		s.total += f.Delay
 	}
 	return s, nil
 }

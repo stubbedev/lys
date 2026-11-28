@@ -16,7 +16,7 @@ import (
 )
 
 // Animation is a decoded animated image (GIF, APNG): every frame fully
-// composited over the canvas, how long each shows, and how many times
+// composited over the canvas with how long it shows, and how many times
 // the sequence plays (0: forever). It is an image.Image as its first
 // frame, so every still-image path - sizing, a static paint, a cache -
 // takes it unchanged; an animating painter steps through Frames. Each
@@ -24,26 +24,32 @@ import (
 // painter of the animation, so a GPU renderer keeps one texture per
 // frame however many widgets show it.
 type Animation struct {
-	Frames []StillImage
-	Delays []time.Duration
+	Frames []AnimFrame
 	Loops  int
+}
+
+// AnimFrame is one frame of an [Animation]: its picture and how long
+// it shows.
+type AnimFrame struct {
+	Image StillImage
+	Delay time.Duration
 }
 
 // ColorModel implements image.Image (the first frame's).
 func (a *Animation) ColorModel() color.Model { return color.RGBAModel }
 
 // Bounds implements image.Image: the canvas.
-func (a *Animation) Bounds() image.Rectangle { return a.Frames[0].Bounds() }
+func (a *Animation) Bounds() image.Rectangle { return a.Frames[0].Image.Bounds() }
 
 // At implements image.Image: the first frame.
-func (a *Animation) At(x, y int) color.Color { return a.Frames[0].At(x, y) }
+func (a *Animation) At(x, y int) color.Color { return a.Frames[0].Image.At(x, y) }
 
 // PixelBytes is the frames' combined pixel cost, what a byte-budget
 // cache charges for the animation.
 func (a *Animation) PixelBytes() int {
 	n := 0
 	for _, f := range a.Frames {
-		n += len(f.Pix)
+		n += len(f.Image.Pix)
 	}
 	return n
 }
@@ -94,12 +100,11 @@ func decodeGIF(data []byte) (*Animation, error) {
 			restore = cloneRGBA(canvas)
 		}
 		draw.Draw(canvas, fr.Bounds(), fr, fr.Bounds().Min, draw.Over)
-		a.Frames = append(a.Frames, NewStillImage(cloneRGBA(canvas)))
 		d := gifZeroDelay
 		if i < len(g.Delay) && g.Delay[i] > 0 {
 			d = max(time.Duration(g.Delay[i])*10*time.Millisecond, gifMinDelay)
 		}
-		a.Delays = append(a.Delays, d)
+		a.Frames = append(a.Frames, AnimFrame{Image: NewStillImage(cloneRGBA(canvas)), Delay: d})
 		switch disposal {
 		case gif.DisposalBackground:
 			draw.Draw(canvas, fr.Bounds(), image.Transparent, image.Point{}, draw.Src)
@@ -150,8 +155,7 @@ func decodeAPNG(data []byte) (*Animation, error) {
 			op = draw.Src
 		}
 		draw.Draw(canvas, r, fr.Image, fr.Image.Bounds().Min, op)
-		a.Frames = append(a.Frames, NewStillImage(cloneRGBA(canvas)))
-		a.Delays = append(a.Delays, max(time.Duration(fr.GetDelay()*float64(time.Second)), apngMinDelay))
+		a.Frames = append(a.Frames, AnimFrame{Image: NewStillImage(cloneRGBA(canvas)), Delay: max(time.Duration(fr.GetDelay()*float64(time.Second)), apngMinDelay)})
 		switch fr.DisposeOp {
 		case apng.DISPOSE_OP_BACKGROUND:
 			draw.Draw(canvas, r, image.Transparent, image.Point{}, draw.Src)

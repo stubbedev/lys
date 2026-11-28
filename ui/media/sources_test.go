@@ -20,10 +20,11 @@ func solid(c color.RGBA) *image.RGBA {
 }
 
 func TestAnimationPlaysItsFramesOnTheirDelays(t *testing.T) {
-	a := &render.Animation{
-		Frames: []render.StillImage{render.NewStillImage(solid(color.RGBA{1, 0, 0, 255})), render.NewStillImage(solid(color.RGBA{2, 0, 0, 255})), render.NewStillImage(solid(color.RGBA{3, 0, 0, 255}))},
-		Delays: []time.Duration{100 * time.Millisecond, 50 * time.Millisecond, 200 * time.Millisecond},
-	}
+	a := &render.Animation{Frames: []render.AnimFrame{
+		{Image: render.NewStillImage(solid(color.RGBA{1, 0, 0, 255})), Delay: 100 * time.Millisecond},
+		{Image: render.NewStillImage(solid(color.RGBA{2, 0, 0, 255})), Delay: 50 * time.Millisecond},
+		{Image: render.NewStillImage(solid(color.RGBA{3, 0, 0, 255})), Delay: 200 * time.Millisecond},
+	}}
 	src, err := NewAnimation(a)
 	if err != nil {
 		t.Fatal(err)
@@ -52,11 +53,11 @@ func TestAnimationPlaysItsFramesOnTheirDelays(t *testing.T) {
 	}
 	for _, bad := range []*render.Animation{
 		{},
-		{Frames: a.Frames, Delays: a.Delays[:1]},
-		{Frames: a.Frames[:1], Delays: []time.Duration{0}},
+		{Frames: []render.AnimFrame{a.Frames[0], {Image: a.Frames[1].Image}}},
+		{Frames: []render.AnimFrame{{Image: a.Frames[0].Image, Delay: -time.Millisecond}}},
 	} {
 		if _, err := NewAnimation(bad); err == nil {
-			t.Errorf("animation %d frames %v delays accepted", len(bad.Frames), bad.Delays)
+			t.Errorf("animation %+v accepted", bad.Frames)
 		}
 	}
 }

@@ -14,8 +14,7 @@ func tenFrameAnimation(t *testing.T) *render.Animation {
 	for i := range 10 {
 		rgba := image.NewRGBA(image.Rect(0, 0, 2, 2))
 		rgba.Pix[0] = byte(i)
-		a.Frames = append(a.Frames, render.NewStillImage(rgba))
-		a.Delays = append(a.Delays, fakeStep)
+		a.Frames = append(a.Frames, render.AnimFrame{Image: render.NewStillImage(rgba), Delay: fakeStep})
 	}
 	return a
 }
@@ -39,8 +38,8 @@ func TestALoopingAnimationShowsItsOwnFramesAndCopiesNone(t *testing.T) {
 				t.Fatal("no frame")
 			}
 			i := int(frame.Pix[0])
-			if frame.RGBA != a.Frames[i].RGBA || frame.ID != a.Frames[i].ID || frame.Version != 0 {
-				t.Fatalf("frame %d shows raster %p id %v version %d, want the animation's own %p id %v at version 0", i, frame.RGBA, frame.ID, frame.Version, a.Frames[i].RGBA, a.Frames[i].ID)
+			if frame.RGBA != a.Frames[i].Image.RGBA || frame.ID != a.Frames[i].Image.ID || frame.Version != 0 {
+				t.Fatalf("frame %d shows raster %p id %v version %d, want the animation's own %p id %v at version 0", i, frame.RGBA, frame.ID, frame.Version, a.Frames[i].Image.RGBA, a.Frames[i].Image.ID)
 			}
 			if seq := h.s.FrameSeq(); seq != last {
 				seen[frame.ID]++

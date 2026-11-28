@@ -37,8 +37,7 @@ func testStream(t *testing.T, frames int) *media.Stream {
 	t.Helper()
 	a := &render.Animation{}
 	for range frames {
-		a.Frames = append(a.Frames, render.NewStillImage(halves(red, blue)))
-		a.Delays = append(a.Delays, 100*time.Millisecond)
+		a.Frames = append(a.Frames, render.AnimFrame{Image: render.NewStillImage(halves(red, blue)), Delay: 100 * time.Millisecond})
 	}
 	src, err := media.NewAnimation(a)
 	if err != nil {
