@@ -36,8 +36,9 @@ func TestParseClickActionForms(t *testing.T) {
 			t.Errorf("round trip %q -> %q", raw, got)
 		}
 	}
-	if got := config.ParseClickAction("brightness:louder"); got.Kind != config.ClickNone {
-		t.Errorf("bad delta = %+v, want no action", got)
+	var bad config.ClickAction
+	if err := bad.UnmarshalConfig("brightness:louder"); err == nil {
+		t.Errorf("a bad brightness delta loaded as %+v, want a load error", bad)
 	}
 }
 
