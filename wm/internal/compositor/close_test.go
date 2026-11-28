@@ -3,6 +3,7 @@ package compositor
 import (
 	"errors"
 	"image"
+	"slices"
 	"testing"
 	"time"
 
@@ -37,6 +38,34 @@ func TestCloseRemovesEveryTimerTheCompositorAdded(t *testing.T) {
 		}
 		if err := r.comp.Close(); err != nil {
 			t.Error(err)
+		}
+	})
+	for i, timer := range timers {
+		if err := timer.Arm(time.Hour); !errors.Is(err, loop.ErrClosed) {
+			t.Errorf("timer %d is still on the loop after Close: arming it gave %v", i, err)
+		}
+	}
+}
+
+func TestClosingTheDisplayBeforeTheCompositorRemovesEveryTimerUnderLiveClients(t *testing.T) {
+	r, base := floatingRig(t)
+	for range 2 {
+		r.floater(base, func(*floater) error { return nil }).draw(image.Pt(64, 48))
+	}
+	var timers []*loop.Timer
+	r.on(func() {
+		if len(r.comp.windows) != 2 {
+			t.Errorf("%d windows before the teardown, want 2", len(r.comp.windows))
+		}
+		timers = slices.Clone(r.comp.timers)
+		if err := r.comp.display.Close(); err != nil {
+			t.Errorf("closing the display under live clients: %v", err)
+		}
+		if len(r.comp.windows) != 0 {
+			t.Errorf("%d windows outlive the display", len(r.comp.windows))
+		}
+		if err := r.comp.Close(); err != nil {
+			t.Errorf("closing the compositor after its clients: %v", err)
 		}
 	})
 	for i, timer := range timers {

@@ -105,7 +105,7 @@ func (c *Compositor) holdingPointer() bool {
 
 func (c *Compositor) armCursorIdle() error {
 	p := &c.presence
-	if p.behavior.HideAfter == 0 || p.armed || p.idle || !p.timer.Live() {
+	if p.behavior.HideAfter == 0 || p.armed || p.idle {
 		return nil
 	}
 	p.armed = true

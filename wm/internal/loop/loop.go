@@ -291,10 +291,6 @@ func (t *Timer) Disarm() error {
 	return nil
 }
 
-func (t *Timer) Live() bool {
-	return t != nil && !t.removed
-}
-
 func (t *Timer) Remove() error {
 	if t == nil || t.removed {
 		return nil

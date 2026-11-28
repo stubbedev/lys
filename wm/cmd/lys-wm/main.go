@@ -710,7 +710,12 @@ func run(args []string) (err error) {
 	if hold != nil {
 		display.KeepHandoverJournal()
 	}
-	defer leave(func() error { return display.Close() })
+	defer leave(func() error {
+		if s.comp == nil {
+			return display.Close()
+		}
+		return errors.Join(display.Close(), s.comp.Close())
+	})
 	if b.native != nil {
 		saver, err := powerprofile.Read(session.SystemBus(os.Getenv))
 		if err != nil {
@@ -721,7 +726,6 @@ func run(args []string) (err error) {
 	if s.comp, err = compositor.New(l, display, b, cfg); err != nil {
 		return err
 	}
-	defer leave(func() error { return s.comp.Close() })
 	s.comp.TraceFrames(frames)
 	s.comp.ShowConfigProblems(compositor.ConfigProblems{Messages: errorLines(errors.Join(first.warnings...))})
 	if *swipes {

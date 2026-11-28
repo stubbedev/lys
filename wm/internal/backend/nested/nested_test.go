@@ -136,13 +136,12 @@ func TestNestedInSway(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer display.Close()
 	comp, err := compositor.New(l, display, b, compositor.PlainConfig(testenv.Keymap(t), testenv.Font(t)))
 	if err != nil {
-		t.Fatal(err)
+		t.Fatal(errors.Join(err, display.Close()))
 	}
 	defer func() {
-		if err := comp.Close(); err != nil {
+		if err := errors.Join(display.Close(), comp.Close()); err != nil {
 			t.Error(err)
 		}
 	}()

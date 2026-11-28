@@ -85,7 +85,7 @@ func startNestedOn(t *testing.T, host *Harness, renderer nested.Renderer, config
 		if err := <-done; err != nil && !errors.Is(err, nested.ErrClosed) {
 			t.Error(err)
 		}
-		if err := errors.Join(n.comp.Close(), spawner.Close(), display.Close(), b.Close(), n.loop.Close()); err != nil {
+		if err := errors.Join(display.Close(), n.comp.Close(), spawner.Close(), b.Close(), n.loop.Close()); err != nil {
 			t.Error(err)
 		}
 	})

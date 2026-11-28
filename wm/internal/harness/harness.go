@@ -318,14 +318,14 @@ func (h *Harness) stop() {
 	if h.ipc != nil {
 		errs = append(errs, h.ipc.Close())
 	}
+	if h.display != nil {
+		errs = append(errs, h.display.Close())
+	}
 	if h.compositor != nil {
 		errs = append(errs, h.compositor.Close())
 	}
 	if h.spawner != nil {
 		errs = append(errs, h.spawner.Close())
-	}
-	if h.display != nil {
-		errs = append(errs, h.display.Close())
 	}
 	if h.backend != nil {
 		errs = append(errs, testenv.CloseDriver(h.backend.Close))

@@ -130,11 +130,6 @@ func boot(t *testing.T, open func(*loop.Loop, server.Options) (*server.Display, 
 	if r.comp, err = New(l, disp, back(l, r.renderer), cfg); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() {
-		if err := r.comp.Close(); err != nil {
-			t.Error(err)
-		}
-	})
 	done := make(chan error, 1)
 	go func() { done <- l.Run() }()
 	t.Cleanup(func() {
@@ -143,6 +138,9 @@ func boot(t *testing.T, open func(*loop.Loop, server.Options) (*server.Display, 
 			t.Errorf("Run: %v", err)
 		}
 		_ = disp.Close()
+		if err := r.comp.Close(); err != nil {
+			t.Error(err)
+		}
 		_ = l.Close()
 	})
 	return r

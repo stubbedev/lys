@@ -57,7 +57,7 @@ func (c *Compositor) drawnAnywhere(s *surface.Surface) bool {
 }
 
 func (c *Compositor) throttleFrames(s *surface.Surface) error {
-	if !s.WantsFrame() || !c.hidden.timer.Live() || c.asleep(s) {
+	if !s.WantsFrame() || c.asleep(s) {
 		return nil
 	}
 	if c.hidden.waiting == nil {
@@ -68,7 +68,7 @@ func (c *Compositor) throttleFrames(s *surface.Surface) error {
 }
 
 func (c *Compositor) armHidden() error {
-	if c.hidden.armed || !c.hidden.timer.Live() {
+	if c.hidden.armed {
 		return nil
 	}
 	c.hidden.armed = true
