@@ -6980,6 +6980,18 @@ func (b *RichLabelBuilder) OnLinkClick(fn func(href string)) *RichLabelBuilder {
 	return b
 }
 
+// ScaleWatchBuilder builds a widget.ScaleWatch.
+type ScaleWatchBuilder struct {
+	base[*widget.ScaleWatch, *ScaleWatchBuilder]
+}
+
+// ScaleWatch builds a widget.ScaleWatch with widget.NewScaleWatch.
+func ScaleWatch(onScale func(num int, denom int)) *ScaleWatchBuilder {
+	b := &ScaleWatchBuilder{}
+	b.init(b, func(s *Scope) *widget.ScaleWatch { return widget.NewScaleWatch(onScale) })
+	return b
+}
+
 // ScreenPickBuilder builds a widget.ScreenPick.
 type ScreenPickBuilder struct {
 	base[*widget.ScreenPick, *ScreenPickBuilder]
