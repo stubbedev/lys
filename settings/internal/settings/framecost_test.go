@@ -14,6 +14,7 @@ import (
 	"github.com/stubbedev/lys/lib/gpu"
 	"github.com/stubbedev/lys/lib/gputest"
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/testbuild"
 	"github.com/stubbedev/lys/ui/anim"
 	"github.com/stubbedev/lys/ui/widget"
 )
@@ -357,7 +358,8 @@ func touchpadStep(s *widget.Scroll) { s.ScrollPixels(0, 7.3) }
 // size, 2880x1800 at scale 1.5, with the GPU path's recording: a scroll
 // step copies its view and paints only what it exposed and what floats
 // over it, and a page cross-fade, once its first frame painted both
-// pages, records no page again. It counts work, never time.
+// pages, records no page again. It counts work, never time, and
+// allocations only in a build whose instrumentation does not allocate.
 func TestScrollAndSwitchFramesDoBoundedWork(t *testing.T) {
 	d, win := frameWindow(t, drawRecorded, 1920, 1200, 180, "launcher")
 	view := render.MapRect(win.page.Bounds(), 180, 120)
@@ -373,7 +375,7 @@ func TestScrollAndSwitchFramesDoBoundedWork(t *testing.T) {
 		if got, limit := median(s.frames, func(f frameStat) int { return f.painted }), view.W*view.H/6; got > limit {
 			t.Errorf("%s steps paint %d device px at the median, want the exposed strip and the close button, at most %d", s.name, got, limit)
 		}
-		if got, limit := median(s.frames, func(f frameStat) uint64 { return f.allocs }), uint64(64); got > limit {
+		if got, limit := median(s.frames, func(f frameStat) uint64 { return f.allocs }), uint64(64); testbuild.AllocBudgetsHold && got > limit {
 			t.Errorf("%s steps allocate %d times at the median, budget %d", s.name, got, limit)
 		}
 	}
@@ -381,7 +383,7 @@ func TestScrollAndSwitchFramesDoBoundedWork(t *testing.T) {
 	if got, limit := median(fade.frames, func(f frameStat) int { return f.ops }), 16; got > limit {
 		t.Errorf("a cross-fade frame records %d ops at the median, want only the composite of the pages it kept, at most %d", got, limit)
 	}
-	if got, limit := median(fade.frames, func(f frameStat) uint64 { return f.allocs }), uint64(16); got > limit {
+	if got, limit := median(fade.frames, func(f frameStat) uint64 { return f.allocs }), uint64(16); testbuild.AllocBudgetsHold && got > limit {
 		t.Errorf("a cross-fade frame allocates %d times at the median, budget %d", got, limit)
 	}
 }
