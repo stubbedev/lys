@@ -707,6 +707,32 @@ func TestTheEmptyStateSaysWhy(t *testing.T) {
 	hs.hide()
 }
 
+// The sidebar marks the place whose folder shows, as Nautilus's does,
+// and no place inside one: Home while home shows, nothing in a folder
+// under it, Computer at the root.
+func TestTheSidebarMarksThePlaceShown(t *testing.T) {
+	hs := newHarness(t, "")
+	hs.open(t, openFile)
+	marked := func() (home, computer bool) {
+		hs.run(func() {
+			home = treetest.Button(t, hs.cfg.Root, "Home").HasClass("current")
+			computer = treetest.Button(t, hs.cfg.Root, "Computer").HasClass("current")
+		})
+		return home, computer
+	}
+	if home, computer := marked(); !home || computer {
+		t.Errorf("at home: Home marked %v, Computer %v; want Home alone", home, computer)
+	}
+	hs.do(func() { hs.c.goTo(filepath.Join(hs.root, "docs")) })
+	if home, computer := marked(); home || computer {
+		t.Errorf("in a folder under home: Home marked %v, Computer %v; want neither", home, computer)
+	}
+	hs.do(func() { hs.c.goTo("/") })
+	if home, computer := marked(); home || !computer {
+		t.Errorf("at the root: Home marked %v, Computer %v; want Computer alone", home, computer)
+	}
+}
+
 // A folder still being read says so, not that it is empty.
 func TestListingShowsLoading(t *testing.T) {
 	hs := newHarness(t, "")

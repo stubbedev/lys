@@ -424,3 +424,16 @@ func (e *emptyState) show(icon, text string) {
 
 // Text is the line the empty state shows.
 func (e *emptyState) Text() string { return e.label.Text() }
+
+// eachButton calls fn on every button at or under w.
+func eachButton(w widget.Widget, fn func(*widget.Button)) {
+	if b, ok := w.(*widget.Button); ok {
+		fn(b)
+		return
+	}
+	if c, ok := w.(interface{ Children() []widget.Widget }); ok {
+		for _, k := range c.Children() {
+			eachButton(k, fn)
+		}
+	}
+}

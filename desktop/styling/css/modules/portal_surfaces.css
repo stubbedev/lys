@@ -25,6 +25,10 @@
   color: var(--accent);
 }
 
+.file-chooser-place.current {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
 .file-chooser-list row:nth-child(even):not(:selected):not(:hover) > .file-chooser-row {
   border-radius: var(--rounding-element);
   background: color-mix(in srgb, var(--fg-default) 3%, transparent);

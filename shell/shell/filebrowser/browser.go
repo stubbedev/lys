@@ -391,8 +391,10 @@ func (c *Browser) Begin(o Options) {
 	c.shownDir()
 }
 
-// shownDir tells the host the folder shown (OnDir).
+// shownDir marks the sidebar's place for the folder shown and tells
+// the host the folder (OnDir).
 func (c *Browser) shownDir() {
+	c.markPlaces()
 	if c.o.OnDir != nil {
 		c.o.OnDir(c.s.dir)
 	}
@@ -574,7 +576,8 @@ func Section(dir widget.Axis, class string) *widget.Box {
 }
 
 func (c *Browser) build() {
-	u := &ui{}
+	u := &ui{places: map[*widget.Button]string{}}
+	c.ui = u
 	o := c.o
 
 	// Header: the title, when there is one, over one row of the
@@ -694,8 +697,6 @@ func (c *Browser) build() {
 	}
 
 	u.header, u.main = header, main
-
-	c.ui = u
 	c.updateSortLabels()
 }
 
@@ -988,7 +989,10 @@ type ui struct {
 	// connect is the band connecting to a server, nil without a
 	// network.
 	connect *connectPanel
-	// favorites is the sidebar's Favorites list.
+	// sidebar holds the places, places the folder each of its rows
+	// opens; favorites is its Favorites list.
+	sidebar   widget.Widget
+	places    map[*widget.Button]string
 	favorites *widget.Box
 	// locations is the sidebar's Locations list, unlock the passphrase
 	// prompt of a locked volume under it.
@@ -1043,6 +1047,7 @@ func (c *Browser) sidebar(u *ui) widget.Widget {
 	th := widget.Current()
 	box := &dropZone{Box: widget.NewBox(widget.Column, th.Spacing/4, th.Padding), onDrop: c.droppedOnSidebar}
 	box.AddClass("file-chooser-sidebar")
+	u.sidebar = box
 	section := func(title string, places []Place) *widget.Box {
 		header := widget.NewBox(widget.Row, 0, 0)
 		header.SetPadding(render.Insets{Top: th.Padding / 2, Right: th.Padding, Bottom: th.Padding / 2, Left: th.Padding})
@@ -1114,7 +1119,7 @@ func (c *Browser) fillPlaces(list *widget.Box, places []Place) {
 }
 
 // placeButton is a sidebar row: the place's icon and label, open on a
-// click.
+// click, marked current while its folder shows (markPlaces).
 func (c *Browser) placeButton(p Place, open func()) *widget.Button {
 	row := widget.NewBox(widget.Row, widget.Current().Spacing, 0)
 	row.AppendAligned(placeIcon(p), false, widget.AlignCenter)
@@ -1124,7 +1129,24 @@ func (c *Browser) placeButton(p Place, open func()) *widget.Button {
 	b := widget.NewButton(row, 0, 0)
 	b.AddClass("file-chooser-place", css.Ghost)
 	b.OnClick = open
+	if p.Path != "" {
+		c.ui.places[b] = p.Path
+		b.SetClass("current", c.s != nil && p.Path == c.s.dir)
+	}
 	return b
+}
+
+// markPlaces marks current the sidebar rows that open the folder
+// shown, and forgets the rows the sidebar no longer holds.
+func (c *Browser) markPlaces() {
+	held := make(map[*widget.Button]string, len(c.ui.places))
+	eachButton(c.ui.sidebar, func(b *widget.Button) {
+		if path, ok := c.ui.places[b]; ok {
+			held[b] = path
+			b.SetClass("current", path == c.s.dir)
+		}
+	})
+	c.ui.places = held
 }
 
 // views is the column header over the list and grid, with the empty
