@@ -138,14 +138,16 @@ func TestTheMenusOfferTheSelectionCommands(t *testing.T) {
 }
 
 // The status line offers Select All while some file is not selected and
-// Select None while some is, and each does what it says.
+// Select None while some is, and each does what it says; an offer that
+// does not apply stays in place, disabled, so the line keeps its
+// height.
 func TestTheStatusLineOffersSelectAllAndNone(t *testing.T) {
 	hs := newHarness(t)
 	hs.open(hs.root)
 	offers := func() (all, none bool) {
 		hs.run(func() {
 			tb := hs.f.active()
-			all, none = widget.IsVisible(tb.selectAll), widget.IsVisible(tb.none)
+			all, none = widget.IsEnabled(tb.selectAll), widget.IsEnabled(tb.none)
 		})
 		return all, none
 	}
@@ -167,8 +169,18 @@ func TestTheStatusLineOffersSelectAllAndNone(t *testing.T) {
 	if got := hs.selected(); len(got) != 0 {
 		t.Errorf("the status line's Select None left %v selected", got)
 	}
+	statusH := func() int {
+		hs.shot(nil)
+		var h int
+		hs.run(func() { h = treetest.WithClass(hs.f.Root(), "files-status")[0].(widget.Boundser).Bounds().H })
+		return h
+	}
+	full := statusH()
 	hs.do(func() { hs.f.active().b.GoTo(hs.path("docs")) })
 	if all, none := offers(); all || none {
 		t.Errorf("an empty folder: offers Select All %v, Select None %v; want neither", all, none)
+	}
+	if got := statusH(); got != full {
+		t.Errorf("the status line is %dpx tall in an empty folder, %dpx with files", got, full)
 	}
 }

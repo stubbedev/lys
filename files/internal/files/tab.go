@@ -102,19 +102,20 @@ func (f *Files) statusAction(id string, do func()) *widget.Button {
 	b := widget.NewButton(widget.NewLabel(f.cfg.Browser.Font, widgets.TextPx(styling.Caption, 1), locale.T().Get(id), 0), 0, 0)
 	b.AddClass("files-status-action", css.Ghost, css.Small)
 	b.OnClick = do
-	b.SetVisible(false)
 	return b
 }
 
 // showStatus says in the status line how many items the folder holds,
 // or how many of them sel selects and the size of its files, and
 // offers to select all of them while some are not selected and none
-// while some are; nothing while the folder is being read.
+// while some are; nothing while the folder is being read. The offers
+// stay in place, disabled, so the line keeps its height and its
+// layout.
 func (t *tab) showStatus(sel []filebrowser.Entry) {
 	total, loading := len(t.b.Entries()), t.b.Busy()
 	t.status.SetText(status(sel, total, loading))
-	t.selectAll.SetVisible(!loading && len(sel) < total)
-	t.none.SetVisible(!loading && len(sel) > 0)
+	t.selectAll.SetEnabled(!loading && len(sel) < total)
+	t.none.SetEnabled(!loading && len(sel) > 0)
 }
 
 // status is the status line's text for sel of total items.
