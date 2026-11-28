@@ -347,3 +347,51 @@ func TestUploadOverSFTP(t *testing.T) {
 		t.Errorf("the server holds %d entries, f.txt %q", len(des), read(t, remote))
 	}
 }
+
+// A copy that is not there yet, as a file an app is to save, goes once
+// it is saved, expecting nothing on the server; a save over a file made
+// there meanwhile is a conflict.
+func TestAFollowedNewFileGoesOnceSaved(t *testing.T) {
+	mem := vfstest.NewMemFS()
+	mem.MkdirAll("/d")
+	local := filepath.Join(t.TempDir(), "new.txt")
+	var mu sync.Mutex
+	var got []Report
+	reports := func() []Report { mu.Lock(); defer mu.Unlock(); return slices.Clone(got) }
+	f, err := Follow(local, func() (vfs.FS, string, error) { return mem, "/d/new.txt", nil }, Absent(), func(r Report) {
+		mu.Lock()
+		got = append(got, r)
+		mu.Unlock()
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = f.Close() })
+	write(t, local, "first save")
+	waittest.Until(t, func() bool { return len(reports()) == 1 }, "the first save to report")
+	if r := reports()[0]; r.Outcome != Uploaded {
+		t.Fatalf("the first save reported %+v", r)
+	}
+	if data, ok := mem.ReadFile("/d/new.txt"); !ok || string(data) != "first save" {
+		t.Errorf("the server holds %q, %v", data, ok)
+	}
+
+	other := filepath.Join(t.TempDir(), "other.txt")
+	f2, err := Follow(other, func() (vfs.FS, string, error) { return mem, "/d/new.txt", nil }, Absent(), func(r Report) {
+		mu.Lock()
+		got = append(got, r)
+		mu.Unlock()
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = f2.Close() })
+	write(t, other, "a second file of that name")
+	waittest.Until(t, func() bool { return len(reports()) == 2 }, "the second save to report")
+	if r := reports()[1]; r.Outcome != Conflicted {
+		t.Errorf("a new file over one made meanwhile reported %+v", r)
+	}
+	if data, _ := mem.ReadFile("/d/new.txt"); string(data) != "first save" {
+		t.Errorf("the conflict left %q", data)
+	}
+}

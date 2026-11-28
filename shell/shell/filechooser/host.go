@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/rivo/uniseg"
@@ -15,6 +16,8 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/reveal"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/desktop/styling"
+	"github.com/stubbedev/lys/desktop/vfs"
+	"github.com/stubbedev/lys/desktop/vfs/localcopy"
 	"github.com/stubbedev/lys/lib/portaldialogs"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/app"
@@ -60,6 +63,15 @@ type Deps struct {
 	// Browser is what the dialog browses with. Its ViewFile keeps,
 	// beside the view, the folder each app last picked in.
 	Browser filebrowser.Deps
+	// Copies is the folder a file on a network location is fetched
+	// into for the app to open, or saved in first and followed, so each
+	// version the app saves goes there (localcopy.Follow); "" offers no
+	// file on a network location.
+	Copies string
+	// Tell says what became of a version an app saved to a network
+	// location once the dialog is gone: one that could not be sent, or
+	// that was not because the file changed there meanwhile.
+	Tell func(summary, body string)
 }
 
 // Chooser is the dev.stubbe.lys.FileChooser1 host: one overlay showing one
@@ -102,6 +114,12 @@ type Chooser struct {
 
 	// folders is the folder each app last picked in.
 	folders *folderMemory
+
+	// serial counts the requests shown, so a fetch that lands after its
+	// request ended answers nothing; follows are the copies of files on
+	// network locations handed to apps, followed until Close.
+	serial  uint64
+	follows []*localcopy.Follower
 }
 
 // New builds the host; nothing maps until a request.
@@ -177,14 +195,21 @@ func (c *Chooser) ask(caller portaldialogs.Caller, r request) Result {
 // finish answers the request showing with uris (none for a cancel),
 // the filter active and the choices made, ends its browse, plays the
 // exit, and shows the next request waiting.
-func (c *Chooser) finish(uris []string) {
+func (c *Chooser) finish(uris []string) { c.answer(uris, true) }
+
+// answer is finish, remembering the folder of what was picked only with
+// remember: a copy of a file on a network location lies in no folder
+// the app picked in.
+func (c *Chooser) answer(uris []string, remember bool) {
 	c.b.End()
 	if c.reply == nil {
 		return
 	}
 	res := Result{URIs: uris}
 	if len(uris) > 0 {
-		c.rememberFolder(uris[0])
+		if remember {
+			c.rememberFolder(uris[0])
+		}
 		if c.active >= 0 && c.active < len(c.filters) {
 			res.Filter = c.filters[c.active]
 		}
@@ -201,6 +226,7 @@ func (c *Chooser) begin(r request) {
 	if c.win != nil {
 		c.closeWindow()
 	}
+	c.serial++
 	c.mode, c.filters, c.active = r.mode, withAllFiles(r.filters), 0
 	if r.currentFilter > 0 && int(r.currentFilter) < len(c.filters) {
 		c.active = int(r.currentFilter)
@@ -280,6 +306,7 @@ func (c *Chooser) Close() {
 	c.queue.CancelWaiting()
 	c.b.Close()
 	c.folders.file.Wait()
+	c.closeFollows()
 }
 
 // --- surface --------------------------------------------------------
@@ -447,9 +474,11 @@ func (c *Chooser) typedPath(path string, exists bool) bool {
 	switch {
 	case c.mode == ModeSave:
 		c.b.HideLocation()
-		c.b.GoTo(filepath.Dir(path))
-		c.name.SetText(filepath.Base(path))
+		c.b.GoTo(vfs.Dir(path))
+		c.name.SetText(vfs.Base(path))
 		c.b.Focus(c.name)
+	case exists && !c.mode.folders() && vfs.IsRemote(path):
+		c.openRemote([]string{path})
 	case exists && !c.mode.folders():
 		c.finish([]string{fileuri.FromPath(path)})
 	default:
@@ -466,30 +495,39 @@ func (c *Chooser) confirm() {
 		c.confirmSave()
 		return
 	}
-	if uris, ok := result(c.mode, c.b.Dir(), c.b.Selected()); ok {
+	locs, ok := picked(c.mode, c.b.Dir(), c.b.Selected())
+	switch {
+	case !ok:
+	case slices.ContainsFunc(locs, vfs.IsRemote):
+		c.openRemote(locs)
+	default:
+		uris := make([]string, len(locs))
+		for i, l := range locs {
+			uris[i] = fileuri.FromPath(l)
+		}
 		c.finish(uris)
 	}
 }
 
-// result is what confirming an open in mode answers given the selected
+// picked is what confirming an open in mode answers given the selected
 // rows in dir; false keeps the dialog open (nothing to answer yet). A
 // folder pick answers the selected folders, else dir, as GTK's chooser
 // does; an open answers the selected files, never folders.
-func result(mode Mode, dir string, selected []filebrowser.Entry) ([]string, bool) {
-	var uris []string
+func picked(mode Mode, dir string, selected []filebrowser.Entry) ([]string, bool) {
+	var locs []string
 	for _, e := range selected {
 		if e.IsDir != mode.folders() {
 			continue
 		}
-		uris = append(uris, fileuri.FromPath(e.Path))
+		locs = append(locs, e.Path)
 		if mode.folders() && !mode.multiple() {
 			break
 		}
 	}
-	if mode.folders() && len(uris) == 0 {
-		uris = []string{fileuri.FromPath(dir)}
+	if mode.folders() && len(locs) == 0 {
+		locs = []string{dir}
 	}
-	return uris, len(uris) > 0
+	return locs, len(locs) > 0
 }
 
 // confirmSave answers the path the name entry names, once it can be
@@ -499,6 +537,10 @@ func result(mode Mode, dir string, selected []filebrowser.Entry) ([]string, bool
 func (c *Chooser) confirmSave() {
 	path := filebrowser.ResolvePath(strings.TrimSpace(c.name.Text()), c.b.Dir(), c.d.Browser.Home)
 	if path == "" {
+		return
+	}
+	if vfs.IsRemote(path) {
+		c.saveRemote(path)
 		return
 	}
 	dir := filepath.Dir(path)

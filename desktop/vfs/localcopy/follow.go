@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sync"
@@ -65,14 +66,20 @@ type Follower struct {
 }
 
 // localStamp is a version of the local copy: its size and modification
-// time.
+// time; noCopy while there is none.
 type localStamp struct {
 	size     int64
 	modified int64
 }
 
+var noCopy = localStamp{size: -1}
+
+// stampLocal is the version of the copy at path, noCopy for none.
 func stampLocal(path string) (localStamp, error) {
 	st, err := os.Stat(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return noCopy, nil
+	}
 	if err != nil {
 		return localStamp{}, err
 	}
@@ -85,7 +92,8 @@ func stampLocal(path string) (localStamp, error) {
 // (Upload), and report is told the outcome, off the caller's goroutine.
 // A version saved while the file on the server changed since is
 // Conflicted, and every later one too, until Overwrite replaces it.
-// The copy as it is now counts as sent.
+// The copy as it is now counts as sent; there may be none yet, as for
+// a file an app is to save, which then goes when it is first saved.
 func Follow(local string, reach Reach, want Expect, report func(Report)) (*Follower, error) {
 	sent, err := stampLocal(local)
 	if err != nil {
@@ -160,7 +168,7 @@ func (f *Follower) sync(force bool) {
 		f.report(Report{Outcome: Failed, Err: fmt.Errorf("state the copy %s: %w", f.local, err)})
 		return
 	}
-	if now == f.sent && !force {
+	if now == noCopy || now == f.sent && !force {
 		return
 	}
 	want := f.want

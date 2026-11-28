@@ -7,12 +7,14 @@ import (
 	"io/fs"
 	"log"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/stubbedev/lys/desktop/vfs"
+	"github.com/stubbedev/lys/desktop/vfs/netfs"
 
 	"github.com/stubbedev/lys/shell/internal/statefile"
 )
@@ -62,6 +64,18 @@ const maxRecentServers = 10
 // recentFile ("" keeps them in memory alone).
 func NewNetwork(dial Dialer, trust *vfs.Trust, keyring Keyring, recentFile string) *Network {
 	return &Network{dial: dial, trust: trust, keyring: keyring, recent: &statefile.File{Path: recentFile}, session: map[vfs.Server]vfs.Credentials{}}
+}
+
+// NewSystemNetwork connects through lys's own clients (netfs), trying
+// the SSH agent at agentSocket ("" for none) first and trusting the
+// hosts in home's ~/.ssh/known_hosts, keeping passwords in keyring (nil
+// offers none) and the servers connected to in recentFile ("" keeps
+// them in memory alone).
+func NewSystemNetwork(home, agentSocket string, keyring Keyring, recentFile string) *Network {
+	dial := func(ctx context.Context, loc vfs.Location, cred vfs.Credentials, trust *vfs.Trust) (vfs.Conn, error) {
+		return netfs.Connect(ctx, loc, cred, trust, netfs.Options{AgentSocket: agentSocket})
+	}
+	return NewNetwork(dial, &vfs.Trust{KnownHosts: filepath.Join(home, ".ssh", "known_hosts")}, keyring, recentFile)
 }
 
 // keyringAttrs are the attributes a server's password is stored under.

@@ -14,13 +14,17 @@ import (
 	"github.com/stubbedev/lys/desktop/fileuri"
 	"github.com/stubbedev/lys/desktop/identity"
 	"github.com/stubbedev/lys/desktop/mime"
+	"github.com/stubbedev/lys/desktop/vfs"
+	"github.com/stubbedev/lys/desktop/vfs/localcopy"
 	"github.com/stubbedev/lys/lib/portaldialogs"
 	"github.com/stubbedev/lys/lib/render"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/xdg"
+	"github.com/stubbedev/lys/secrets/client"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
 
+	"github.com/stubbedev/lys/shell/internal/desktopnotify"
 	"github.com/stubbedev/lys/shell/internal/ipp"
 	"github.com/stubbedev/lys/shell/service/dnssd"
 	"github.com/stubbedev/lys/shell/service/udisks"
@@ -77,6 +81,7 @@ func servePortalHosts(conn *dbus.Conn, application *app.Application, outputs fun
 	} else {
 		log.Print("print: no state directory; network printers' capabilities are not read")
 	}
+	net := newChooserNetwork(conn, home)
 	chooser := filechooser.New(filechooser.Deps{
 		Config: current,
 		Open:   dialogOpener[filechooser.Window](application),
@@ -105,7 +110,12 @@ func servePortalHosts(conn *dbus.Conn, application *app.Application, outputs fun
 			OpenFile:      quicklook.Opener(application),
 			Animations:    func() config.AnimationsConfig { return current().Animations },
 			Documents:     dochelper.Opener(""),
+			Mounts:        net.mounts,
+			Network:       net.network,
+			Copies:        net.cache,
 		},
+		Copies: net.copies,
+		Tell:   net.tell,
 	})
 	if _, err := filechooser.NewDaemon(chooser).Export(conn); err != nil {
 		log.Printf("file chooser: daemon: %v", err)
@@ -152,7 +162,71 @@ func servePortalHosts(conn *dbus.Conn, application *app.Application, outputs fun
 	if _, err := printdialog.NewDaemon(printer).Export(conn); err != nil {
 		log.Printf("print: daemon: %v", err)
 	}
-	return chooser.Close
+	return func() {
+		chooser.Close()
+		net.close()
+	}
+}
+
+// chooserNetwork is what the file chooser reaches network locations
+// with: the locations it connected, how it connects, where it keeps
+// the copies thumbnails and previews are made from, where it puts the
+// copies of files apps open or save there (the runtime directory, gone
+// at logout like the apps' hold on them), and how it tells of a version
+// saved that could not be sent.
+type chooserNetwork struct {
+	mounts  *vfs.Mounts
+	network *filebrowser.Network
+	cache   *localcopy.Cache
+	copies  string
+	tell    func(summary, body string)
+}
+
+// chooserCopiesMax bounds the chooser's copies for thumbnails and
+// previews.
+const chooserCopiesMax = 256 << 20
+
+// notifyTimeout bounds sending a notification.
+const notifyTimeout = 5 * time.Second
+
+func newChooserNetwork(conn *dbus.Conn, home string) chooserNetwork {
+	servers := ""
+	if dir, ok := xdg.OS.StateDir(identity.Name); ok {
+		servers = filepath.Join(dir, "network-servers")
+	}
+	n := chooserNetwork{
+		mounts:  vfs.NewMounts(),
+		network: filebrowser.NewSystemNetwork(home, os.Getenv("SSH_AUTH_SOCK"), client.NewKeychain(conn), servers),
+	}
+	if dir, ok := xdg.OS.CacheDir(identity.Name); ok {
+		cache, err := localcopy.NewCache(filepath.Join(dir, "network-copies"), chooserCopiesMax)
+		if err != nil {
+			log.Printf("file chooser: files on network locations have no thumbnails or previews: %v", err)
+		}
+		n.cache = cache
+	}
+	if dir, ok := xdg.OS.RuntimeDir(identity.Name); ok {
+		n.copies = filepath.Join(dir, "network-files")
+	} else {
+		log.Print("file chooser: no runtime directory; files on network locations cannot be chosen")
+	}
+	sender := desktopnotify.NewSender(conn)
+	n.tell = func(summary, body string) {
+		ctx, cancel := context.WithTimeout(context.Background(), notifyTimeout)
+		defer cancel()
+		if _, err := sender.Send(ctx, identity.Name, summary, body, ""); err != nil {
+			log.Printf("file chooser: tell %q: %v", summary, err)
+		}
+	}
+	return n
+}
+
+// close disconnects every location the chooser connected.
+func (n chooserNetwork) close() {
+	if err := n.mounts.Close(); err != nil {
+		log.Printf("file chooser: %v", err)
+	}
+	n.network.Close()
 }
 
 // dialogOutput is the output a portal dialog maps on: the focused one,

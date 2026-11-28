@@ -34,32 +34,32 @@ func TestOpenModeAndConfirmLabel(t *testing.T) {
 // Confirming answers by mode what is selected: an open the files only
 // (none of them keeps the dialog), a folder pick the folders selected,
 // the first alone for a single one, else the folder shown.
-func TestResult(t *testing.T) {
+func TestPicked(t *testing.T) {
 	root := browsertest.Tree(t)
-	uri := func(rel string) string { return "file://" + filepath.Join(root, rel) }
+	path := func(rel string) string { return filepath.Join(root, rel) }
 	entry := func(rel string, dir bool) filebrowser.Entry {
 		return filebrowser.Entry{Path: filepath.Join(root, rel), IsDir: dir}
 	}
 	a, b, docs, pics := entry("a.png", false), entry("b.txt", false), entry("docs", true), entry("pics", true)
 
-	got, ok := result(ModeOpenMultiple, root, []filebrowser.Entry{a, docs, b})
-	if !ok || !slices.Equal(got, []string{uri("a.png"), uri("b.txt")}) {
+	got, ok := picked(ModeOpenMultiple, root, []filebrowser.Entry{a, docs, b})
+	if !ok || !slices.Equal(got, []string{path("a.png"), path("b.txt")}) {
 		t.Errorf("open = %v %v, want the files only", got, ok)
 	}
-	if got, ok := result(ModeOpenMultiple, root, []filebrowser.Entry{docs}); ok {
+	if got, ok := picked(ModeOpenMultiple, root, []filebrowser.Entry{docs}); ok {
 		t.Errorf("only a folder selected answered %v, want the dialog kept", got)
 	}
-	if _, ok := result(ModeOpenFile, root, nil); ok {
+	if _, ok := picked(ModeOpenFile, root, nil); ok {
 		t.Error("nothing selected answered")
 	}
 
-	if got, ok := result(ModeFolder, root, nil); !ok || !slices.Equal(got, []string{"file://" + root}) {
+	if got, ok := picked(ModeFolder, root, nil); !ok || !slices.Equal(got, []string{root}) {
 		t.Errorf("folder with none selected = %v, want the folder shown", got)
 	}
-	if got, _ := result(ModeFolder, root, []filebrowser.Entry{pics, docs}); !slices.Equal(got, []string{uri("pics")}) {
+	if got, _ := picked(ModeFolder, root, []filebrowser.Entry{pics, docs}); !slices.Equal(got, []string{path("pics")}) {
 		t.Errorf("a single-folder pick with two selected = %v, want the first", got)
 	}
-	if got, _ := result(ModeFolders, root, []filebrowser.Entry{pics, docs}); !slices.Equal(got, []string{uri("pics"), uri("docs")}) {
+	if got, _ := picked(ModeFolders, root, []filebrowser.Entry{pics, docs}); !slices.Equal(got, []string{path("pics"), path("docs")}) {
 		t.Errorf("a multiple-folder pick = %v, want both", got)
 	}
 }

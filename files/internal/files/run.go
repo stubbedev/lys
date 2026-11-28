@@ -23,7 +23,6 @@ import (
 	"github.com/stubbedev/lys/desktop/spawn"
 	"github.com/stubbedev/lys/desktop/vfs"
 	"github.com/stubbedev/lys/desktop/vfs/localcopy"
-	"github.com/stubbedev/lys/desktop/vfs/netfs"
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/xdg"
@@ -296,10 +295,6 @@ func userPlaces(home string) []filebrowser.Place {
 // the keyring over session (none without a bus) and the servers
 // connected to in the state directory.
 func newNetwork(home string, session *dbus.Conn) *filebrowser.Network {
-	agent := os.Getenv("SSH_AUTH_SOCK")
-	dial := func(ctx context.Context, loc vfs.Location, cred vfs.Credentials, trust *vfs.Trust) (vfs.Conn, error) {
-		return netfs.Connect(ctx, loc, cred, trust, netfs.Options{AgentSocket: agent})
-	}
 	var keyring filebrowser.Keyring
 	if session != nil {
 		keyring = client.NewKeychain(session)
@@ -308,7 +303,7 @@ func newNetwork(home string, session *dbus.Conn) *filebrowser.Network {
 	if dir, ok := xdg.OS.StateDir("lys-files"); ok {
 		servers = filepath.Join(dir, "servers")
 	}
-	return filebrowser.NewNetwork(dial, &vfs.Trust{KnownHosts: filepath.Join(home, ".ssh", "known_hosts")}, keyring, servers)
+	return filebrowser.NewSystemNetwork(home, os.Getenv("SSH_AUTH_SOCK"), keyring, servers)
 }
 
 // fetchDir is where files on network locations are copied to be opened,

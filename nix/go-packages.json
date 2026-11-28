@@ -2996,7 +2996,6 @@
       "desktop/vfs",
       "desktop/vfs/localcopy",
       "desktop/vfs/mtpfs",
-      "desktop/vfs/netfs",
       "files/internal/filemanager1",
       "files/internal/locale",
       "lib/dbusx",
@@ -11021,6 +11020,8 @@
       "desktop/styling",
       "desktop/tzdb",
       "desktop/useraccount",
+      "desktop/vfs",
+      "desktop/vfs/localcopy",
       "lib/dbusx",
       "lib/glibclocale",
       "lib/intconv",
@@ -11038,6 +11039,7 @@
       "power/energy",
       "power/nap",
       "power/pause",
+      "secrets/client",
       "secrets/vault",
       "shell/cava",
       "shell/internal/appicons",
@@ -11327,6 +11329,7 @@
       "desktop/thumbnail",
       "desktop/vfs",
       "desktop/vfs/localcopy",
+      "desktop/vfs/netfs",
       "lib/atomicfile",
       "lib/intconv",
       "lib/render",
@@ -11374,7 +11377,6 @@
       "desktop/shell/apptheme",
       "desktop/shell/treetest",
       "desktop/thumbnail/thumbnailtest",
-      "desktop/vfs/netfs",
       "desktop/vfs/sftpfs/sftptest",
       "desktop/vfs/vfstest",
       "lib/logtest",
@@ -11423,6 +11425,8 @@
       "desktop/shell/reveal",
       "desktop/shell/widgets",
       "desktop/styling",
+      "desktop/vfs",
+      "desktop/vfs/localcopy",
       "lib/dbusx",
       "lib/portaldialogs",
       "lib/render",
@@ -11441,6 +11445,7 @@
       "bytes",
       "context",
       "errors",
+      "fmt",
       "github.com/rivo/uniseg",
       "golang.org/x/sys/unix",
       "io/fs",
@@ -11449,11 +11454,13 @@
       "path/filepath",
       "slices",
       "strings",
-      "sync"
+      "sync",
+      "time"
     ],
     "testImports": [
       "desktop/shell/apptheme",
       "desktop/shell/treetest",
+      "desktop/vfs/vfstest",
       "lib/testhome",
       "lib/waittest",
       "lib/xkb",
@@ -11463,10 +11470,8 @@
       "shell/shell/filebrowser/browsertest"
     ],
     "testExternal": [
-      "fmt",
       "strconv",
-      "testing",
-      "time"
+      "testing"
     ]
   },
   "shell/shell/keys": {
