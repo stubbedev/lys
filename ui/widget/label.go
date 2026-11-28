@@ -783,15 +783,35 @@ func (l *Label) Paint(cv *render.Canvas) {
 	}
 	paintPseudos(cv, l, nodeOf(l), v)
 	content := b.padding.Shrink(b.border.Shrink(l.bounds))
+	face, px := l.effStyleIn(v)
+	tp := l.textPaint(v, face, px)
 	if clip, ok := overflowClipOf(v, l.bounds); ok {
 		prev := cv.PushClip(clip)
-		l.paintText(cv, v, content)
+		l.paintText(cv, v, content, tp)
 		cv.PopClip(prev)
 	} else {
-		l.paintText(cv, v, content)
+		l.paintText(cv, v, content, tp)
 	}
 	paintOutline(cv, v, l.bounds, radii)
 	fx.pop()
+}
+
+// PaintGlyphs draws the label's text alone, laid out as Paint lays it
+// out, in col and shifted by (dx, dy) logical pixels: no CSS box,
+// shadow or decoration, and no ::first-letter color. It is the glyphs'
+// coverage for an effect that fills them with something other than
+// ink, drawn onto a canvas of its own.
+func (l *Label) PaintGlyphs(cv *render.Canvas, col render.Color, dx, dy int) {
+	l.freshFaces()
+	v := l.style(l)
+	b := boxOf(v, render.Insets{})
+	content := b.padding.Shrink(b.border.Shrink(l.bounds))
+	content.X += dx
+	content.Y += dy
+	face, px := l.effStyleIn(v)
+	tp := l.textPaint(v, face, px)
+	tp.col, tp.deco, tp.shadows, tp.inkOnly = col, render.Decoration{}, &style.Shadows{}, true
+	l.paintText(cv, v, content, tp)
 }
 
 func (l *Label) outsideClip(cv *render.Canvas) bool {
@@ -816,9 +836,7 @@ func hasCombiningMark(s string) bool {
 // paintText draws the text inside the content box: the rows when the
 // label is multiline, the single line ellipsized as configured
 // otherwise.
-func (l *Label) paintText(cv *render.Canvas, v *style.Values, content render.Rect) {
-	face, px := l.effStyleIn(v)
-	tp := l.textPaint(v, face, px)
+func (l *Label) paintText(cv *render.Canvas, v *style.Values, content render.Rect, tp textPaint) {
 	if l.multiline(v) {
 		l.paintWrapped(cv, tp, content, v)
 		return
@@ -826,7 +844,7 @@ func (l *Label) paintText(cv *render.Canvas, v *style.Values, content render.Rec
 	text := l.shown()
 	line := l.indented(content, l.indentOf(v))
 	if ell := l.ellOf(v); ell != EllipsizeNone && l.shaped.Advance() > float64(line.W) {
-		text = render.EllipsizeText(face, text, ell, float64(line.W), px)
+		text = render.EllipsizeText(tp.face, text, ell, float64(line.W), tp.px)
 	}
 	// The CSS line box, centered in the content box (or overflowing a
 	// shorter one), holds the glyphs centered in it: half-leading for a
@@ -852,6 +870,7 @@ func (l *Label) paintText(cv *render.Canvas, v *style.Values, content render.Rec
 // textPaint is what one label draw needs beyond the text and its box:
 // the face and size, the ink, the decoration and shadows, the
 // alignment and direction, and the CSS line box a row needs to draw.
+// inkOnly keeps every glyph in col, a ::first-letter's too.
 type textPaint struct {
 	face    render.Font
 	px      float64
@@ -861,6 +880,7 @@ type textPaint struct {
 	align   render.Alignment
 	dir     Direction
 	lineH   int
+	inkOnly bool
 }
 
 // textPaint gathers the label's draw parameters under v.
@@ -911,7 +931,7 @@ func (l *Label) drawFirstLetter(cv *render.Canvas, fl *style.Values, tp textPain
 		}
 	}
 	fCol := tp.col
-	if fl.Has(style.PropColor) {
+	if fl.Has(style.PropColor) && !tp.inkOnly {
 		fCol = fl.Color
 	}
 	shF := fFace.Shape(first, fPx)
