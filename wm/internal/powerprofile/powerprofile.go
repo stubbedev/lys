@@ -68,6 +68,18 @@ func Watch(l *loop.Loop, address string, changed func(saver bool) error, report 
 	return w, nil
 }
 
+// Read reports whether lys-power's profile is power-saver now, asked
+// once on the system bus at address: what lys-wm lights its outputs for
+// before Watch follows the profile. No lys-power is no power saver.
+func Read(address string) (bool, error) {
+	conn, err := dbus.Connect(address)
+	if err != nil {
+		return false, fmt.Errorf("powerprofile: connect to the system bus: %w", err)
+	}
+	st, err := read(context.Background(), conn)
+	return st.owned && st.saver, errors.Join(err, conn.Close())
+}
+
 func (w *Watcher) signalled(c dbusx.ChangedProperties, sent dbus.Sequence) error {
 	v, ok := c.Changed[profile.Property]
 	if !ok {

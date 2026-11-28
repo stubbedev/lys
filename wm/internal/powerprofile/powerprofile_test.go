@@ -195,3 +195,23 @@ func TestTheDescriptorsOfAPropertiesChangedAreClosed(t *testing.T) {
 		t.Fatalf("changes %v and errors %v, want one change to power-saver", r.saver, r.errors)
 	}
 }
+
+// Read answers the profile once: power-saver is power saver, any other
+// profile and no lys-power at all are not.
+func TestReadAsksTheProfileOnce(t *testing.T) {
+	bus := dbustest.Start(t)
+	if saver, err := Read(bus.Address); err != nil || saver {
+		t.Fatalf("with no lys-power Read = %v, %v; want false and no error", saver, err)
+	}
+	d := runDaemon(t, bus.Address, "balanced")
+	if saver, err := Read(bus.Address); err != nil || saver {
+		t.Fatalf("under balanced Read = %v, %v; want false", saver, err)
+	}
+	d.set("power-saver")
+	if saver, err := Read(bus.Address); err != nil || !saver {
+		t.Fatalf("under power-saver Read = %v, %v; want true", saver, err)
+	}
+	if _, err := Read("unix:path=/nonexistent/bus"); err == nil {
+		t.Fatal("Read of a bus that is not there returned no error")
+	}
+}

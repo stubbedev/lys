@@ -711,6 +711,13 @@ func run(args []string) (err error) {
 		display.KeepHandoverJournal()
 	}
 	defer leave(func() error { return display.Close() })
+	if b.native != nil {
+		saver, err := powerprofile.Read(session.SystemBus(os.Getenv))
+		if err != nil {
+			cfg.Report(fmt.Errorf("%w; the outputs light as if no power saver were on until the profile is read", err))
+		}
+		cfg.PowerSaverAtStart = saver
+	}
 	if s.comp, err = compositor.New(l, display, b, cfg); err != nil {
 		return err
 	}
