@@ -4,6 +4,8 @@ package config
 // module shows by default. Modules that swap icons by state build the
 // view for the state's icon with IconWith.
 
+import "github.com/stubbedev/lys/power/profile"
+
 // IconWith builds an icon view.
 func IconWith(show bool, name string, color ColorValue) IconConfig {
 	return IconConfig{Show: show, Name: name, Color: color}
@@ -98,7 +100,7 @@ func (c IdleInhibitConfig) Icon() IconConfig { return c.Icons()[IdleInhibitInact
 
 // Icon is the balanced profile's icon, the module's icon before the
 // daemon reports a profile.
-func (c PowerProfilesConfig) Icon() IconConfig { return c.Icons()[ProfileBalanced] }
+func (c PowerProfilesConfig) Icon() IconConfig { return c.Icons()[profile.Balanced] }
 
 // Icon is the locked vault's icon, the module's icon before the vault
 // reports.

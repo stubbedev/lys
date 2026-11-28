@@ -11,6 +11,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/service/powerprofiles"
+	"github.com/stubbedev/lys/power/profile"
 
 	"github.com/stubbedev/lys/shell/internal/apptest"
 )
@@ -38,18 +39,31 @@ func (f *fakePPSource) Read(context.Context) (powerprofiles.Snapshot, error) {
 	return f.snap, f.err
 }
 
-func (f *fakePPSource) SetActive(_ context.Context, profile string) error {
+func (f *fakePPSource) SetActive(_ context.Context, name string) error {
 	if f.setGate != nil {
 		<-f.setGate
 	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.set = append(f.set, profile)
+	f.set = append(f.set, name)
 	if f.setErr != nil {
 		return f.setErr
 	}
-	f.snap.Active = profile
+	f.snap.Active = name
 	return nil
+}
+
+func TestTheShownProfileIsTheActiveOneOrBalanced(t *testing.T) {
+	for _, p := range profile.All() {
+		if got := profileOf(string(p)); got != p {
+			t.Errorf("active %q shows %q", p, got)
+		}
+	}
+	for _, name := range []string{"", "mystery", "Performance"} {
+		if got := profileOf(name); got != profile.Balanced {
+			t.Errorf("unknown profile %q shows %q, want balanced", name, got)
+		}
+	}
 }
 
 // sets are the SetActive arguments so far.
@@ -91,7 +105,7 @@ func TestLoadFileAppliesPowerProfiles(t *testing.T) {
 	if c.PowerProfiles.Format != "P: {{ profile }}" || !c.PowerProfiles.LabelShow {
 		t.Errorf("config = %+v", c.PowerProfiles)
 	}
-	if got := c.PowerProfiles.Icons()[config.ProfilePerformance].Name; got != "ld-zap-symbolic" {
+	if got := c.PowerProfiles.Icons()[profile.Performance].Name; got != "ld-zap-symbolic" {
 		t.Errorf("performance icon = %q", got)
 	}
 	// The schema's default left-click is :cycle.
@@ -161,22 +175,22 @@ func TestPowerProfilesColorsAndUnknown(t *testing.T) {
 		t.Fatalf("Create: %v", err)
 	}
 	pp := module.(*powerProfilesModule)
-	check := func(profile string, color config.ColorValue, icon string) {
+	check := func(state string, color config.ColorValue, icon string) {
 		t.Helper()
 		th := pp.btn.Thresholds()
 		if th.IconColor == nil || th.LabelColor == nil || *th.IconColor != color || *th.LabelColor != color {
-			t.Errorf("%s: thresholds %+v, want icon and label %v", profile, th, color)
+			t.Errorf("%s: thresholds %+v, want icon and label %v", state, th, color)
 		}
 		if pp.icon.Name() != icon || pp.btn.Label().Color() != 0 {
-			t.Errorf("%s: icon %q ink %#08x, want %q in the stylesheet's ink", profile, pp.icon.Name(), pp.btn.Label().Color(), icon)
+			t.Errorf("%s: icon %q ink %#08x, want %q in the stylesheet's ink", state, pp.icon.Name(), pp.btn.Label().Color(), icon)
 		}
 	}
-	check("performance", cfg.PowerProfiles.ColorPerformance, cfg.PowerProfiles.Icons()[config.ProfilePerformance].Name)
+	check("performance", cfg.PowerProfiles.ColorPerformance, cfg.PowerProfiles.Icons()[profile.Performance].Name)
 	src.snap = powerprofiles.Snapshot{Available: true, Active: "mystery"}
 	if err := readAndApply(pp.src.Read, pp.apply); err != nil {
 		t.Fatal(err)
 	}
-	check("unknown", cfg.PowerProfiles.ColorBalanced, cfg.PowerProfiles.Icons()[config.ProfileBalanced].Name)
+	check("unknown", cfg.PowerProfiles.ColorBalanced, cfg.PowerProfiles.Icons()[profile.Balanced].Name)
 }
 
 func TestPowerProfilesCycleLeavesTheLoop(t *testing.T) {

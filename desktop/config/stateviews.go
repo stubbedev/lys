@@ -4,6 +4,8 @@ package config
 // color) follows a service state: the schema declares one key per
 // state, the bar looks them up by state name.
 
+import "github.com/stubbedev/lys/power/profile"
+
 // Recorder states.
 const (
 	RecorderIdle      = "idle"
@@ -50,28 +52,21 @@ func (c IdleInhibitConfig) Icons() map[string]IconConfig {
 	}
 }
 
-// Power profiles, as lys-power names them.
-const (
-	ProfilePowerSaver  = "power-saver"
-	ProfileBalanced    = "balanced"
-	ProfilePerformance = "performance"
-)
-
 // Icons maps each power profile to its icon.
-func (c PowerProfilesConfig) Icons() map[string]IconConfig {
-	return map[string]IconConfig{
-		ProfilePowerSaver:  IconWith(c.IconShow, c.IconPowerSaver, c.IconColor),
-		ProfileBalanced:    IconWith(c.IconShow, c.IconBalanced, c.IconColor),
-		ProfilePerformance: IconWith(c.IconShow, c.IconPerformance, c.IconColor),
+func (c PowerProfilesConfig) Icons() map[profile.Profile]IconConfig {
+	return map[profile.Profile]IconConfig{
+		profile.PowerSaver:  IconWith(c.IconShow, c.IconPowerSaver, c.IconColor),
+		profile.Balanced:    IconWith(c.IconShow, c.IconBalanced, c.IconColor),
+		profile.Performance: IconWith(c.IconShow, c.IconPerformance, c.IconColor),
 	}
 }
 
 // Colors maps each power profile to its icon color.
-func (c PowerProfilesConfig) Colors() map[string]ColorValue {
-	return map[string]ColorValue{
-		ProfilePowerSaver:  c.ColorPowerSaver,
-		ProfileBalanced:    c.ColorBalanced,
-		ProfilePerformance: c.ColorPerformance,
+func (c PowerProfilesConfig) Colors() map[profile.Profile]ColorValue {
+	return map[profile.Profile]ColorValue{
+		profile.PowerSaver:  c.ColorPowerSaver,
+		profile.Balanced:    c.ColorBalanced,
+		profile.Performance: c.ColorPerformance,
 	}
 }
 

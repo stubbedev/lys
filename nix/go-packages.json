@@ -194,7 +194,8 @@
       "lib/intconv",
       "lib/logind",
       "lib/vaultserver",
-      "lib/xdg"
+      "lib/xdg",
+      "power/profile"
     ],
     "external": [
       "bufio",
@@ -2112,6 +2113,7 @@
       "ui/widget/css"
     ],
     "external": [
+      "bytes",
       "errors",
       "fmt",
       "github.com/stubbedev/memory-go",
@@ -2131,6 +2133,7 @@
       "lib/waittest"
     ],
     "testExternal": [
+      "golang.org/x/image/font/gofont/gobold",
       "image/color",
       "math/rand/v2",
       "os",
@@ -11286,6 +11289,7 @@
       "power/energy",
       "power/nap",
       "power/pause",
+      "power/profile",
       "secrets/client",
       "secrets/vault",
       "shell/cava",

@@ -9,17 +9,18 @@ import (
 	"github.com/stubbedev/lys/desktop/jinja"
 	"github.com/stubbedev/lys/desktop/service/powerprofiles"
 	"github.com/stubbedev/lys/desktop/shell/barview"
+	"github.com/stubbedev/lys/power/profile"
 	"github.com/stubbedev/lys/ui/widget"
 )
 
 // powerProfilesLabel renders format: the only variable
 // is the active profile's name.
-func powerProfilesLabel(format, profile string) string {
-	return jinja.ReplaceVars(format, powerProfilesVars(profile))
+func powerProfilesLabel(format, active string) string {
+	return jinja.ReplaceVars(format, powerProfilesVars(active))
 }
 
-func powerProfilesVars(profile string) map[string]string {
-	return map[string]string{"profile": profile}
+func powerProfilesVars(active string) map[string]string {
+	return map[string]string{"profile": active}
 }
 
 // powerProfiles is the module: the active power profile, cycling on
@@ -54,22 +55,22 @@ func (m *powerProfilesModule) apply(snap powerprofiles.Snapshot) {
 		text = powerProfilesLabel(cfg.Format, snap.Active)
 	}
 	m.btn.SetLabel(text)
-	profile := profileOf(snap.Active)
+	shown := profileOf(snap.Active)
 	if setter := m.icon; setter != nil {
-		setter.SetThemeName(cfg.Icons()[profile].Name)
+		setter.SetThemeName(cfg.Icons()[shown].Name)
 	}
-	color := cfg.Colors()[profile]
+	color := cfg.Colors()[shown]
 	m.btn.SetThresholds(config.ThresholdColors{IconColor: &color, LabelColor: &color})
 }
 
-// profileOf is the profile the icon and colors use: power-saver and
-// performance as they are, balanced for anything else (Unknown).
-func profileOf(active string) string {
-	switch active {
-	case config.ProfilePowerSaver, config.ProfilePerformance:
-		return active
+// profileOf is the profile the icon and colors use: the active one,
+// balanced for a name that is none (Unknown).
+func profileOf(active string) profile.Profile {
+	p, err := profile.Parse(active)
+	if err != nil {
+		return profile.Balanced
 	}
-	return config.ProfileBalanced
+	return p
 }
 
 // RunAction handles the module's own bindings: `:cycle` moves to the
