@@ -79,43 +79,68 @@ func main() {
 	}
 
 	log := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	cfg, err := config.Load()
-	if err != nil {
+	err := dispatch(os.Args[1:], config.LoadPaths(), log)
+	switch {
+	case err == nil:
+	case errors.Is(err, errUnknownCommand):
+		fmt.Fprint(os.Stderr, err)
+		os.Exit(2)
+	case errors.Is(err, errConfiguration):
 		log.Error("lys-power configuration", "err", err)
 		os.Exit(2)
-	}
-
-	err = dispatch(os.Args[1:], cfg, log)
-	if err != nil {
-		if errors.Is(err, errUnknownCommand) {
-			fmt.Fprint(os.Stderr, err)
-			os.Exit(2)
-		}
+	default:
 		log.Error("lys-power failed", "err", err)
 		os.Exit(1)
 	}
 }
 
-// errUnknownCommand marks dispatch failures that are usage problems and
-// exit non-zero after printing the rendered message.
-var errUnknownCommand = errors.New("unknown command")
+var (
+	// errUnknownCommand marks dispatch failures that are usage problems and
+	// exit non-zero after printing the rendered message.
+	errUnknownCommand = errors.New("unknown command")
+	// errConfiguration is a LYS_POWER_* policy setting that does not
+	// parse, which fails only the commands that manage devices.
+	errConfiguration = errors.New("configuration")
+)
 
-func dispatch(args []string, cfg config.Config, log *slog.Logger) error {
+func loadConfig(paths config.Paths) (config.Config, error) {
+	cfg, err := config.Load(paths)
+	if err != nil {
+		return config.Config{}, fmt.Errorf("%w: %w", errConfiguration, err)
+	}
+	return cfg, nil
+}
+
+func dispatch(args []string, paths config.Paths, log *slog.Logger) error {
 	command := args[0]
 	switch command {
+	case "version", "--version":
+		fmt.Println("lys-power", buildinfo.Version())
+		return nil
+	case "-h", "--help", "help":
+		fmt.Print(usage)
+		return nil
 	case "run":
+		cfg, err := loadConfig(paths)
+		if err != nil {
+			return err
+		}
 		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 		defer stop()
 		return daemon.Run(ctx, cfg, log, func() error { return sdnotify.Notify(os.Getenv(sdnotify.Env), "READY=1") })
 	case "brightness":
 		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 		defer stop()
-		return autobright.Run(ctx, cfg, log)
+		return autobright.Run(ctx, paths, log)
 	case "attention":
 		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 		defer stop()
-		return attend.Run(ctx, cfg, log)
+		return attend.Run(ctx, paths, log)
 	case "once":
+		cfg, err := loadConfig(paths)
+		if err != nil {
+			return err
+		}
 		return withBus(log, func(conn *dbus.Conn) error {
 			pp, err := daemon.OpenProfile(context.Background(), cfg, log, conn)
 			if err != nil {
@@ -138,8 +163,12 @@ func dispatch(args []string, cfg config.Config, log *slog.Logger) error {
 			return errors.Join(err, daemon.ApplyDevices(context.Background(), cfg, conn, log, source))
 		})
 	case "full":
-		return requestFull(cfg)
+		return requestFull(paths)
 	case "status":
+		cfg, err := loadConfig(paths)
+		if err != nil {
+			return err
+		}
 		return withBus(log, func(conn *dbus.Conn) error {
 			out, err := status(cfg, time.Now(), conn)
 			if err != nil {
@@ -149,7 +178,7 @@ func dispatch(args []string, cfg config.Config, log *slog.Logger) error {
 			return nil
 		})
 	case "predict":
-		out, err := showPrediction(cfg, time.Now())
+		out, err := showPrediction(paths, time.Now())
 		if err != nil {
 			return err
 		}
@@ -160,17 +189,11 @@ func dispatch(args []string, cfg config.Config, log *slog.Logger) error {
 		if err != nil {
 			return err
 		}
-		r, gaps, err := measureEnergy(cfg.Meter(), o.over, time.Sleep)
+		r, gaps, err := measureEnergy(paths.Meter(), o.over, time.Sleep)
 		if err != nil {
 			return err
 		}
 		return writeEnergy(os.Stdout, r, gaps, o)
-	case "version", "--version":
-		fmt.Println("lys-power", buildinfo.Version())
-		return nil
-	case "-h", "--help", "help":
-		fmt.Print(usage)
-		return nil
 	default:
 		return fmt.Errorf("%w: %q\n\n%s", errUnknownCommand, command, usage)
 	}
@@ -193,7 +216,7 @@ func withBus(log *slog.Logger, fn func(*dbus.Conn) error) error {
 	return fn(conn)
 }
 
-func requestFull(cfg config.Config) error {
+func requestFull(cfg config.Paths) error {
 	if err := daemon.RequestFull(cfg, time.Now()); err != nil {
 		return err
 	}
@@ -341,7 +364,7 @@ func appendProfile(out []byte, client *profile.Client) []byte {
 	return fmt.Appendf(out, "profile:     %s\n", active)
 }
 
-func showPrediction(cfg config.Config, now time.Time) (string, error) {
+func showPrediction(cfg config.Paths, now time.Time) (string, error) {
 	entries, err := history.Load(cfg.HistoryPath())
 	if err != nil {
 		return "", err
