@@ -179,7 +179,10 @@ eval-jobs select *flags:
 # for wm's three shards, runs the rest of them and every other gate but the
 # ones `static-gates` names, which run in a last part of their own, `wm/5`, so
 # they run beside the tests rather than after them: `just gates wm/2:race
-# wm:gates`. A shard entry that names tests of a package
+# wm:gates`. A target without a part runs as every part of it, `wm` as `wm/1`
+# to `wm/5`, so a suite CI splits never runs in one process locally; ci/affected
+# `-gates`, built in the first target component's dev shell, plans the
+# processes from ci/components.json. A shard entry that names tests of a package
 # splits that one package: its part runs only those tests, with `go test -run`,
 # and the last part runs the package with every test a shard names skipped. A
 # split recipe runs once per package it splits, beside the run of its whole
@@ -194,101 +197,10 @@ gates *targets:
     if (( ${#targets[@]} == 0 )); then
         mapfile -t targets < <(jq -r '.components | to_entries[] | select(.value.gates or .value.race) | .key' ci/components.json)
     fi
-    tasks=()
-    compile=0
-    declare -A pkgs=() runs=() skips=() rest=() selects=() dropped=() seen=() splits=([race]=1)
-    arch={{ quote(arch()) }}
-    while read -r gate; do splits[$gate]=1; done < <(jq -r '.["sharded-gates"][]' ci/components.json)
-    # shellcheck disable=SC2016
-    units='
-        .components[$c].shards as $shards
-        | if $part <= ($shards | length) then
-            $shards[$part - 1]
-            | ([.[] | strings] | select(length > 0) | "packages - " + join(" ")),
-              (.[] | objects | "run ^(\(.tests | join("|")))$ " + .package)
-          else
-            ([$shards[][] | if type == "string" then . else .package end] | unique | "rest - " + join(" ")),
-            ([$shards[][] | objects] | group_by(.package)[] | "skip ^(\([.[].tests[]] | join("|")))$ " + .[0].package)
-          end'
-    for spec in "${targets[@]}"; do
-        target=${spec%%:*}
-        suite=${spec#"$target"}
-        suite=${suite#:}
-        case "$suite" in
-            "") kinds=(gates race) ;;
-            gates | race) kinds=("$suite") ;;
-            *)
-                echo "gates: ${spec} names the suite ${suite}, which is neither gates nor race" >&2
-                exit 1
-                ;;
-        esac
-        c=${target%%/*}
-        part=${target#"$c"}
-        part=${part#/}
-        if ! jq -e --arg c "$c" '.components | has($c)' ci/components.json >/dev/null; then
-            echo "gates: ${c} is no component of ci/components.json" >&2
-            exit 1
-        fi
-        read -r shards parts < <(jq -r --arg c "$c" --arg arch "$arch" '
-            .["gate-runners"][$arch] as $only
-            | (.["static-gates"] // []) as $static
-            | .components[$c] | (.shards // [] | length) as $n
-            | [$n, if $n == 0 then 0 elif any((.gates // [])[]; . as $g | ($only == null or ($only | index($g))) and ($static | index($g))) then $n + 2 else $n + 1 end]
-            | @tsv
-        ' ci/components.json)
-        if [[ "$target" == */* ]] && ! (( shards > 0 )); then
-            echo "gates: ${target} is no part of ${c}, which has no shards" >&2
-            exit 1
-        fi
-        if [[ "$target" == */* ]] && ! [[ "$part" =~ ^[1-9][0-9]*$ && "$part" -le "$parts" ]]; then
-            echo "gates: ${target} is no part of ${c}, which has parts 1 to ${parts} on ${arch}" >&2
-            exit 1
-        fi
-        count=${#tasks[@]}
-        for kind in "${kinds[@]}"; do
-            while read -r recipe; do
-                task="${target} ${recipe}"
-                if [[ -v seen[$task] ]]; then
-                    echo "gates: ${spec} runs ${task} a second time" >&2
-                    exit 1
-                fi
-                seen[$task]=1
-                if [[ "$kind" == gates ]]; then compile=1; fi
-                if [[ ! -v splits[$recipe] ]] || [[ -z "$part" ]] || (( shards == 0 )); then
-                    tasks+=("$task")
-                    continue
-                fi
-                while read -r scope pattern list; do
-                    case "$scope" in
-                        packages) unit=$task; pkgs[$unit]=$list ;;
-                        rest) unit=$task; rest[$unit]=$list ;;
-                        run) unit="${task} ${list}"; pkgs[$unit]=$list; runs[$unit]=$pattern ;;
-                        skip) unit="${task} ${list}"; pkgs[$unit]=$list; skips[$unit]=$pattern; selects[$task]=1 ;;
-                    esac
-                    tasks+=("$unit")
-                done < <(jq -r --arg c "$c" --argjson part "$part" "$units" ci/components.json)
-            done < <(jq -r --arg c "$c" --arg kind "$kind" --arg arch "$arch" --argjson part "${part:-0}" '
-                .["gate-runners"][$arch] as $only
-                | .["sharded-gates"] as $split
-                | (.["static-gates"] // []) as $static
-                | .components[$c] | (.shards // [] | length) as $n
-                | if $kind == "race" then (select(.race) | "race") else (.gates // [])[] | select(. as $g | $only == null or ($only | index($g))) end
-                | select(. as $g | ($static | index($g)) as $checks
-                    | $part == 0
-                    or $part <= $n and ($g == "race" or ($split | index($g)))
-                    or $part == $n + 1 and ($checks | not)
-                    or $part == $n + 2 and $checks)
-            ' ci/components.json)
-        done
-        if (( ${#tasks[@]} == count )); then
-            echo "gates: ${spec} runs nothing, since ${target} has no ${kinds[*]} to run on ${arch}" >&2
-            exit 1
-        fi
-    done
+    mapfile -t components < <(printf '%s\n' "${targets[@]%%[/:]*}" | sort -u)
     dir=$(mktemp -d)
     trap 'jobs -pr | xargs -r kill 2>/dev/null; wait; rm -rf "$dir"' EXIT
     declare -A running=() started=() envs=()
-    mapfile -t components < <(printf '%s\n' "${tasks[@]}" | cut -d' ' -f1 | cut -d/ -f1 | sort -u)
     for c in "${components[@]}"; do
         if ! just --fmt --check --justfile "${c}/justfile" > "${dir}/fmt.log" 2>&1; then
             echo "gates: ${c}/justfile is not formatted; just --fmt --justfile ${c}/justfile fixes it:" >&2
@@ -308,6 +220,33 @@ gates *targets:
             exit 1
         fi
     done
+    # shellcheck source=/dev/null
+    if ! (
+        set +euo pipefail
+        source "${envs[${components[0]}]}"
+        set -euo pipefail
+        go build -o "${dir}/affected" ./ci/affected
+        "${dir}/affected" -gates {{ quote(arch()) }} "${targets[@]}"
+    ) > "${dir}/plan" 2> "${dir}/plan.log"; then
+        echo "gates: ${targets[*]} plan no run:" >&2
+        cat "${dir}/plan.log" >&2
+        exit 1
+    fi
+    tasks=()
+    compile=0
+    declare -A pkgs=() runs=() skips=() rest=() selects=() dropped=()
+    while read -r target recipe scope pattern list; do
+        task="${target} ${recipe}"
+        if [[ "$recipe" != race ]]; then compile=1; fi
+        case "$scope" in
+            whole) unit=$task ;;
+            packages) unit=$task; pkgs[$unit]=$list ;;
+            rest) unit=$task; rest[$unit]=$list ;;
+            run) unit="${task} ${list}"; pkgs[$unit]=$list; runs[$unit]=$pattern ;;
+            skip) unit="${task} ${list}"; pkgs[$unit]=$list; skips[$unit]=$pattern; selects[$task]=1 ;;
+        esac
+        tasks+=("$unit")
+    done < "${dir}/plan"
     running=()
     for task in "${!rest[@]}"; do
         read -r target recipe <<< "$task"

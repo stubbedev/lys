@@ -29,8 +29,12 @@ func run(args []string, stdout io.Writer) error {
 	base := flags.String("base", "", "the commit the change is measured from")
 	all := flags.Bool("all", false, "plan every component")
 	github := flags.Bool("github", false, "write the plan to $GITHUB_OUTPUT")
+	gates := flags.String("gates", "", "print the processes `just gates` starts on this runner for the targets that follow")
 	if err := flags.Parse(args); err != nil {
 		return err
+	}
+	if *gates == "" && flags.NArg() > 0 {
+		return fmt.Errorf("targets need -gates, not %q alone", flags.Args())
 	}
 	root, _, err := srcroot.Module(".")
 	if err != nil {
@@ -39,6 +43,9 @@ func run(args []string, stdout io.Writer) error {
 	cfg, err := load(root)
 	if err != nil {
 		return err
+	}
+	if *gates != "" {
+		return writeGates(stdout, cfg, Runner(*gates), flags.Args())
 	}
 	names, changed, err := choose(root, cfg.Components, *base, *all)
 	if err != nil {
@@ -241,6 +248,33 @@ func writeText(w io.Writer, p Plan) error {
 		}
 	}
 	return nil
+}
+
+func writeGates(w io.Writer, cfg Config, r Runner, args []string) error {
+	if _, ok := runnerLabels[r]; !ok {
+		return fmt.Errorf("-gates names %q, which is no runner", r)
+	}
+	if len(args) == 0 {
+		return errors.New("-gates names no target")
+	}
+	specs := make([]Target, len(args))
+	for i, arg := range args {
+		t, err := parseTarget(arg)
+		if err != nil {
+			return err
+		}
+		specs[i] = t
+	}
+	units, err := cfg.gateUnits(specs, r)
+	if err != nil {
+		return err
+	}
+	var out bytes.Buffer
+	for _, u := range units {
+		fmt.Fprintln(&out, u)
+	}
+	_, err = w.Write(out.Bytes())
+	return err
 }
 
 func writeGitHub(p Plan) error {
