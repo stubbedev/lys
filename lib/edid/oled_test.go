@@ -48,7 +48,9 @@ func TestParseOLEDReadsTheDisplayTechnology(t *testing.T) {
 		"DisplayID 1 parameters ignored":  {withExtension(t, displayID(0x12, parameters(2))), false},
 		"DisplayID 2 device ignored":      {withExtension(t, displayID(displayIDVersion2, device(0x50))), false},
 		"no DisplayID":                    {base(t), false},
-		"a real OLED without DisplayID":   {readEDID(t, "oled-no-range.bin"), false},
+		"a real OLED without DisplayID":   {readEDID(t, "oled-no-range.bin"), true},
+		"an HDR LCD's black level":        {readEDID(t, "amd-vsdb-over-range-limits.bin"), false},
+		"an unstated black level":         {readEDID(t, "range-limits-offset.bin"), false},
 		"DisplayID without the parameter": {readEDID(t, "displayid2-adaptive-sync.bin"), false},
 	} {
 		got, err := ParseOLED(c.edid)
