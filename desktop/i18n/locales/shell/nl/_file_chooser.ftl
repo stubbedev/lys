@@ -7,8 +7,19 @@ file-chooser-nav-up = Omhoog
 file-chooser-nav-new-folder = Map aanmaken
 file-chooser-nav-grid = Rasterweergave omschakelen
 file-chooser-nav-preview = Voorbeeldpaneel
-file-chooser-nav-hidden = Verborgen bestanden tonen
 file-chooser-nav-recursive = Submappen doorzoeken
+file-chooser-nav-menu = Weergaveopties
+
+## Weergavemenu
+file-chooser-menu-list = Lijst
+file-chooser-menu-grid = Raster
+file-chooser-menu-ascending = Oplopend
+file-chooser-menu-descending = Aflopend
+file-chooser-menu-hidden = Verborgen bestanden tonen
+file-chooser-menu-reload = Opnieuw laden
+file-chooser-menu-select-all = Alles selecteren
+file-chooser-menu-select-none = Niets selecteren
+file-chooser-menu-invert-selection = Selectie omkeren
 
 ## Invoervelden
 file-chooser-placeholder-location = Typ een pad

@@ -7,8 +7,19 @@ file-chooser-nav-up = Subir
 file-chooser-nav-new-folder = Criar pasta
 file-chooser-nav-grid = Alternar vista em grelha
 file-chooser-nav-preview = Painel de pré-visualização
-file-chooser-nav-hidden = Mostrar ficheiros ocultos
 file-chooser-nav-recursive = Pesquisar nas subpastas
+file-chooser-nav-menu = Opções de vista
+
+## Menu de vista
+file-chooser-menu-list = Lista
+file-chooser-menu-grid = Grelha
+file-chooser-menu-ascending = Ascendente
+file-chooser-menu-descending = Descendente
+file-chooser-menu-hidden = Mostrar ficheiros ocultos
+file-chooser-menu-reload = Recarregar
+file-chooser-menu-select-all = Selecionar tudo
+file-chooser-menu-select-none = Desmarcar tudo
+file-chooser-menu-invert-selection = Inverter a seleção
 
 ## Campos
 file-chooser-placeholder-location = Escreva um caminho

@@ -23,7 +23,6 @@ files-properties = Propriedades
 files-selection = Seleção
 files-select-all = Selecionar tudo
 files-select-none = Desmarcar tudo
-files-invert-selection = Inverter a seleção
 files-restore = Restaurar
 files-empty-trash = Esvaziar o lixo
 files-undo = Anular

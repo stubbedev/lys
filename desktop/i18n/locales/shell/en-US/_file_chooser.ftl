@@ -7,8 +7,19 @@ file-chooser-nav-up = Up
 file-chooser-nav-new-folder = Create Folder
 file-chooser-nav-grid = Toggle grid view
 file-chooser-nav-preview = Preview pane
-file-chooser-nav-hidden = Show hidden files
 file-chooser-nav-recursive = Search subfolders
+file-chooser-nav-menu = View options
+
+## View menu
+file-chooser-menu-list = List
+file-chooser-menu-grid = Grid
+file-chooser-menu-ascending = Ascending
+file-chooser-menu-descending = Descending
+file-chooser-menu-hidden = Show Hidden Files
+file-chooser-menu-reload = Reload
+file-chooser-menu-select-all = Select All
+file-chooser-menu-select-none = Select None
+file-chooser-menu-invert-selection = Invert Selection
 
 ## Entries
 file-chooser-placeholder-location = Type a path

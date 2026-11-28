@@ -258,8 +258,8 @@ type Options struct {
 
 // Browser is the file browser: one browse at a time, Begin to End, on
 // whatever surface its host maps Header and Main on. What the user
-// chose of the view (the sort, the layout, the hidden and subfolder
-// toggles, the column widths) sticks across browses. It runs on the
+// chose of the view (the sort, the layout, hidden files, the subfolder
+// toggle, the column widths) sticks across browses. It runs on the
 // loop.
 type Browser struct {
 	// checking counts the disk checks out off the loop.
@@ -630,12 +630,13 @@ func (c *Browser) build() {
 	toggles := widget.NewBox(widget.Row, th.Spacing/4, 0)
 	u.viewToggle, u.viewIcon = c.swappableIconButton(viewIcon(c.view.grid), i18n.T("file-chooser-nav-grid"), c.toggleView)
 	u.previewToggle = c.iconToggle("ld-panel-right-symbolic", i18n.T("file-chooser-nav-preview"), false, c.togglePreview)
-	u.hiddenTg = c.iconToggle("ld-eye-symbolic", i18n.T("file-chooser-nav-hidden"), c.hidden, c.toggleHidden)
 	u.recursiveToggle = c.iconToggle("ld-folder-search-symbolic", i18n.T("file-chooser-nav-recursive"), c.recursive, c.toggleRecursive)
 	toggles.Append(u.viewToggle, false)
-	for _, b := range []*widget.ToggleButton{u.previewToggle, u.hiddenTg, u.recursiveToggle} {
+	for _, b := range []*widget.ToggleButton{u.previewToggle, u.recursiveToggle} {
 		toggles.Append(b, false)
 	}
+	u.viewMenu = c.iconButton("ld-ellipsis-symbolic", i18n.T("file-chooser-nav-menu"), c.openViewMenu)
+	toggles.Append(u.viewMenu, false)
 	nav.AppendAligned(toggles, false, widget.AlignCenter)
 	header.Append(nav, false)
 
@@ -703,18 +704,21 @@ func (c *Browser) build() {
 // Key binds GTK's chooser keys: Escape closes Quick Look, then goes to
 // the host (OnEscape); plain Space toggles Quick Look, whose arrows step
 // through the view (quicklookArrow); Backspace and Alt+Up go up,
-// Alt+Left and Alt+Right walk the history (none of these while a text
-// field has the key); Ctrl+H shows hidden files, Ctrl+L the location
-// entry, Ctrl+F the search, Ctrl+D bookmarks the folder.
+// Alt+Left and Alt+Right walk the history, and the view menu's keys run
+// its commands (viewMenuKey; none of these while a text field has the
+// key); Ctrl+H shows hidden files, Ctrl+L the location entry, Ctrl+F
+// the search, Ctrl+D bookmarks the folder.
 func (c *Browser) Key(r *widget.Router, sym xkb.Keysym, mods app.Mods) {
 	if !c.active {
 		return
 	}
 	typing := c.Typing(r)
 	ctrl, alt := mods&app.ModCtrl != 0, mods&app.ModAlt != 0
-	plain := mods&(app.ModCtrl|app.ModAlt|app.ModSuper|app.ModShift) == 0
+	held := mods & (app.ModCtrl | app.ModAlt | app.ModSuper | app.ModShift)
+	plain := held == 0
 	switch {
 	case plain && !typing && c.quicklookKey(r, sym):
+	case !typing && c.viewMenuKey(sym, held):
 	case sym == xkb.KeyEscape:
 		c.escape()
 	case sym == xkb.KeySpace && plain && !typing:
@@ -726,8 +730,7 @@ func (c *Browser) Key(r *widget.Router, sym xkb.Keysym, mods app.Mods) {
 	case sym == xkb.KeyRight && alt:
 		c.step(false)
 	case sym == 'h' && ctrl:
-		// The toggle's handler applies it.
-		c.ui.hiddenTg.SetActive(!c.hidden)
+		c.flipHidden()
 	case sym == 'l' && ctrl:
 		c.showLocation("")
 	case sym == 'f' && ctrl:
@@ -968,13 +971,16 @@ type ui struct {
 	empty              *emptyState
 	// quicklook and preview are Quick Look's card and the preview
 	// pane, ql and pv what shows in them.
-	preview                 *widget.Box
-	quicklook               *quicklookFrame
-	ql, pv                  *preview.View
-	viewToggle              *widget.Button
-	viewIcon                *widget.Box
-	previewToggle, hiddenTg *widget.ToggleButton
-	recursiveToggle         *widget.ToggleButton
+	preview         *widget.Box
+	quicklook       *quicklookFrame
+	ql, pv          *preview.View
+	viewToggle      *widget.Button
+	viewIcon        *widget.Box
+	previewToggle   *widget.ToggleButton
+	recursiveToggle *widget.ToggleButton
+	// viewMenu opens the view menu: the layout, the sort, hidden files,
+	// the reload and the selection commands.
+	viewMenu *widget.Button
 	// notice is a warning or a question with the host's action, and
 	// asking what the question showing asks about.
 	notice      *widget.Box
@@ -1954,13 +1960,15 @@ func (c *Browser) setSearch(query string) {
 	})
 }
 
-// restartSearch re-runs the query: a walk depends on the hidden and
-// subfolder toggles.
+// restartSearch re-runs the query: a walk depends on hidden files
+// showing and the subfolder toggle.
 func (c *Browser) restartSearch() { c.setSearch(c.s.search) }
 
-func (c *Browser) toggleHidden(on bool) {
-	c.hidden = on
-	c.s.hidden = on
+// flipHidden shows hidden files, or stops: Ctrl+H, or the view menu's
+// item.
+func (c *Browser) flipHidden() {
+	c.hidden = !c.hidden
+	c.s.hidden = c.hidden
 	if c.s.searching() {
 		c.restartSearch()
 		return
@@ -1991,8 +1999,21 @@ func (c *Browser) togglePreview(on bool) {
 	c.refreshPreview()
 }
 
+// sortBy sorts by col, ascending, or the other way when col sorts
+// already: a click on its column's header.
 func (c *Browser) sortBy(col SortColumn) {
 	c.s.sortBy(col)
+	c.sorted()
+}
+
+// setSort sorts by col, ascending when asc.
+func (c *Browser) setSort(col SortColumn, asc bool) {
+	c.s.setSort(col, asc)
+	c.sorted()
+}
+
+// sorted keeps the sort for the next browse and shows it.
+func (c *Browser) sorted() {
 	c.saveView()
 	c.updateSortLabels()
 	c.relist()

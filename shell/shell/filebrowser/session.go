@@ -348,11 +348,12 @@ func (s *session) setFiles(files func(string) bool) {
 
 // sortBy sorts by column, flipping the direction when it already is.
 func (s *session) sortBy(column SortColumn) {
-	if s.view.sort == column {
-		s.view.asc = !s.view.asc
-	} else {
-		s.view.sort, s.view.asc = column, true
-	}
+	s.setSort(column, column != s.view.sort || !s.view.asc)
+}
+
+// setSort sorts by column, ascending when asc.
+func (s *session) setSort(column SortColumn, asc bool) {
+	s.view.sort, s.view.asc = column, asc
 	s.refresh()
 }
 

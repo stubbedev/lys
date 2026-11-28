@@ -23,7 +23,6 @@ files-properties = Eigenschappen
 files-selection = Selectie
 files-select-all = Alles selecteren
 files-select-none = Niets selecteren
-files-invert-selection = Selectie omkeren
 files-restore = Terugzetten
 files-empty-trash = Prullenbak legen
 files-undo = Ongedaan maken

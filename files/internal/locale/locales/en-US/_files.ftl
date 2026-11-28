@@ -23,7 +23,6 @@ files-properties = Properties
 files-selection = Selection
 files-select-all = Select All
 files-select-none = Select None
-files-invert-selection = Invert Selection
 files-restore = Restore
 files-empty-trash = Empty Trash
 files-undo = Undo

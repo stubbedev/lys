@@ -3,6 +3,7 @@ package filechooser
 import (
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -21,13 +22,16 @@ import (
 const outW, outH = 1280, 720
 
 // popoverHost is the overlay's surface host in a test: it records the
-// popovers the chooser's widgets open and closes them on cue.
+// popovers and menus the chooser's widgets open and closes the
+// popovers on cue.
 type popoverHost struct {
 	opened []widget.Widget
 	closed int
+	menus  [][]widget.MenuItem
 }
 
-func (h *popoverHost) OpenMenu(widget.Boundser, render.Font, float64, []widget.MenuItem, widget.MenuOptions) {
+func (h *popoverHost) OpenMenu(_ widget.Boundser, _ render.Font, _ float64, items []widget.MenuItem, _ widget.MenuOptions) {
+	h.menus = append(h.menus, items)
 }
 
 func (h *popoverHost) OpenPopover(_ widget.Boundser, content widget.Widget, opts widget.PopoverOptions) func() {
@@ -288,6 +292,42 @@ func TestSaveNameIsPaddedFromTheSeparator(t *testing.T) {
 					}
 				})
 			})
+		})
+	}
+}
+
+// The header's view menu offers the selection commands only where the
+// chooser picks several files: opening one file or saving, it holds
+// the view's items alone.
+func TestTheViewMenuOffersTheSelectionOnlyPickingSeveral(t *testing.T) {
+	selectAll := i18n.T("file-chooser-menu-select-all")
+	for _, tc := range []struct {
+		name string
+		req  OpenRequest
+		want bool
+	}{{"open one", OpenRequest{}, false}, {"open several", OpenRequest{Multiple: true}, true}, {"pick folders", OpenRequest{Directory: true, Multiple: true}, true}} {
+		t.Run(tc.name, func(t *testing.T) {
+			hs := newHarness(t, "")
+			hs.open(t, tc.req)
+			host := &popoverHost{}
+			hs.run(func() {
+				hs.laidOut(t)
+				widget.SetSurfaceHost(hs.cfg.Root, host)
+			})
+			hs.click(t, i18n.T("file-chooser-nav-menu"))
+			if len(host.menus) != 1 {
+				t.Fatalf("the view menu button opened %d menus", len(host.menus))
+			}
+			var labels []string
+			for _, it := range host.menus[0] {
+				labels = append(labels, it.Label)
+			}
+			if got := slices.Contains(labels, selectAll); got != tc.want {
+				t.Errorf("the view menu %v offers Select All: %v, want %v", labels, got, tc.want)
+			}
+			if !slices.Contains(labels, i18n.T("file-chooser-menu-grid")) {
+				t.Errorf("the view menu %v offers no Grid", labels)
+			}
 		})
 	}
 }

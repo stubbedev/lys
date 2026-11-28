@@ -1,6 +1,9 @@
 package filechooser
 
 import (
+	"os"
+	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/config"
@@ -32,6 +35,9 @@ func TestHeadlessKeysFollowTheKeymap(t *testing.T) {
 	})
 	a := apptest.Run(t)
 	home := t.TempDir()
+	if err := os.WriteFile(filepath.Join(home, ".dot"), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
 	c = headlessChooser(t, a, home)
 	const handle = "/r/headless"
 	t.Cleanup(func() { c.Dismiss(handle) })
@@ -46,13 +52,7 @@ func TestHeadlessKeysFollowTheKeymap(t *testing.T) {
 	apptest.Never(t, "Return on a physical keyboard's Escape code", answers)
 
 	hidden := func() bool {
-		on := false
-		treetest.Walk(c.b.Header(), func(w widget.Widget) {
-			if tb, ok := w.(*widget.ToggleButton); ok && widget.Describe(tb).Name == "Show hidden files" {
-				on = tb.Active()
-			}
-		})
-		return on
+		return slices.ContainsFunc(c.b.Entries(), func(e filebrowser.Entry) bool { return e.Name() == ".dot" })
 	}
 	locating := func() bool {
 		return widget.IsVisible(classed(t, c.b.Header(), "file-chooser-location").(widget.Widget))

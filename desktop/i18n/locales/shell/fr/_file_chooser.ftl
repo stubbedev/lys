@@ -7,8 +7,19 @@ file-chooser-nav-up = Dossier parent
 file-chooser-nav-new-folder = Créer un dossier
 file-chooser-nav-grid = Basculer la vue en grille
 file-chooser-nav-preview = Panneau d’aperçu
-file-chooser-nav-hidden = Afficher les fichiers cachés
 file-chooser-nav-recursive = Rechercher dans les sous-dossiers
+file-chooser-nav-menu = Options d’affichage
+
+## Menu d’affichage
+file-chooser-menu-list = Liste
+file-chooser-menu-grid = Grille
+file-chooser-menu-ascending = Croissant
+file-chooser-menu-descending = Décroissant
+file-chooser-menu-hidden = Afficher les fichiers cachés
+file-chooser-menu-reload = Recharger
+file-chooser-menu-select-all = Tout sélectionner
+file-chooser-menu-select-none = Ne rien sélectionner
+file-chooser-menu-invert-selection = Inverser la sélection
 
 ## Champs
 file-chooser-placeholder-location = Saisissez un chemin

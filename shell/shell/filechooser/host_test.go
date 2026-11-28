@@ -504,7 +504,7 @@ func TestFiltersHiddenAndSort(t *testing.T) {
 	if hs.c.active != 1 {
 		t.Errorf("an out-of-range filter changed the active one to %d", hs.c.active)
 	}
-	hs.click(t, "Show hidden files")
+	hs.key('h', app.ModCtrl, nil)
 	if got := hs.shown(); !slices.Contains(got, ".dot.txt") {
 		t.Errorf("hidden shown = %v", got)
 	}

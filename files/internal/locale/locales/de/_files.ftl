@@ -23,7 +23,6 @@ files-properties = Eigenschaften
 files-selection = Auswahl
 files-select-all = Alles auswählen
 files-select-none = Nichts auswählen
-files-invert-selection = Auswahl umkehren
 files-restore = Wiederherstellen
 files-empty-trash = Papierkorb leeren
 files-undo = Rückgängig

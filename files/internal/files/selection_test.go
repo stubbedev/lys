@@ -4,6 +4,7 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/xkb"
@@ -109,7 +110,7 @@ func TestTheMenusOfferTheSelectionCommands(t *testing.T) {
 	hs := newHarness(t)
 	hs.open(hs.root)
 	all := []string{"docs", "pics", "a.png", "b.txt"}
-	hs.backgroundMenu(t, msg("files-select-all"))
+	hs.backgroundMenu(t, i18n.T("file-chooser-menu-select-all"))
 	if got := hs.selected(); !slices.Equal(got, all) {
 		t.Errorf("Select All selected %v, want %v", got, all)
 	}
@@ -120,17 +121,17 @@ func TestTheMenusOfferTheSelectionCommands(t *testing.T) {
 		t.Errorf("the selection's menu ends in %q %v, want Selection with Select All disabled first", sub.Label, labels(sub.Items))
 	}
 	hs.pick(t, "docs", "b.txt")
-	hs.menu(t, msg("files-selection"), msg("files-invert-selection"))
+	hs.menu(t, msg("files-selection"), i18n.T("file-chooser-menu-invert-selection"))
 	if got := hs.selected(); !slices.Equal(got, []string{"pics", "a.png"}) {
 		t.Errorf("Invert Selection selected %v, want [pics a.png]", got)
 	}
-	hs.menu(t, msg("files-selection"), msg("files-select-none"))
+	hs.menu(t, msg("files-selection"), i18n.T("file-chooser-menu-select-none"))
 	if got := hs.selected(); len(got) != 0 {
 		t.Errorf("Select None left %v selected", got)
 	}
 	hs.do(func() { hs.f.active().b.GoTo(hs.path("docs")) })
 	hs.run(func() { items = hs.f.menu(hs.f.active(), nil) })
-	if last := items[len(items)-1]; last.Label != msg("files-select-all") || !last.Disabled {
+	if last := items[len(items)-1]; last.Label != i18n.T("file-chooser-menu-select-all") || !last.Disabled {
 		t.Errorf("an empty folder's menu ends in %q (disabled %v), want Select All disabled", last.Label, last.Disabled)
 	}
 }

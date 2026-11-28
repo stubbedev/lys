@@ -7,8 +7,19 @@ file-chooser-nav-up = Nach oben
 file-chooser-nav-new-folder = Ordner erstellen
 file-chooser-nav-grid = Rasteransicht umschalten
 file-chooser-nav-preview = Vorschaubereich
-file-chooser-nav-hidden = Versteckte Dateien anzeigen
 file-chooser-nav-recursive = Unterordner durchsuchen
+file-chooser-nav-menu = Ansichtsoptionen
+
+## Ansichtsmenü
+file-chooser-menu-list = Liste
+file-chooser-menu-grid = Raster
+file-chooser-menu-ascending = Aufsteigend
+file-chooser-menu-descending = Absteigend
+file-chooser-menu-hidden = Versteckte Dateien anzeigen
+file-chooser-menu-reload = Neu laden
+file-chooser-menu-select-all = Alles auswählen
+file-chooser-menu-select-none = Nichts auswählen
+file-chooser-menu-invert-selection = Auswahl umkehren
 
 ## Eingabefelder
 file-chooser-placeholder-location = Pfad eingeben

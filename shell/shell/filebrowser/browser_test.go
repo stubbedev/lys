@@ -237,7 +237,7 @@ func TestRecursiveSearchStreamsMatchesForTheLiveQuery(t *testing.T) {
 	want := []string{"a.png", filepath.Join("pics", "a.png")}
 	waittest.Until(t, func() bool { return slices.Equal(hs.shown(), want) }, "the recursive search to show the match in pics")
 	// The walk skipped the dot folder; showing hidden files walks again.
-	hs.click(t, "Show hidden files")
+	hs.key('h', app.ModCtrl, nil)
 	want = []string{"a.png", filepath.Join(".hidden", "a.png"), filepath.Join("pics", "a.png")}
 	waittest.Until(t, func() bool { return slices.Equal(hs.shown(), want) }, "the recursive search to show the match in the hidden folder")
 	// Navigating drops the query and its walk.
@@ -1129,22 +1129,19 @@ func TestActivatingAFolderEntersItAndAFileGoesToTheHost(t *testing.T) {
 	}
 }
 
-// The hidden toggle shows dot files and sticks to the next browse; the
-// header toggles read as toggle buttons; a sort column flips its
-// direction; the sort and layout persist across restarts.
+// Ctrl+H shows dot files, which sticks to the next browse; the header
+// toggles read as toggle buttons; a sort column flips its direction;
+// the sort and layout persist across restarts.
 func TestHiddenAndSort(t *testing.T) {
 	viewFile := filepath.Join(t.TempDir(), "state", "file-chooser-view")
 	hs := newHarness(t, viewFile)
 	hs.open(t, openFile)
-	hs.click(t, "Show hidden files")
+	hs.key('h', app.ModCtrl, nil)
 	if got := hs.shown(); !slices.Contains(got, ".dot.txt") {
 		t.Errorf("hidden shown = %v", got)
 	}
-	if st := widget.Describe(hs.c.ui.hiddenTg); st.Role != widget.RoleToggleButton || !st.Pressed {
-		t.Errorf("hidden toggle reads %s pressed %v, want a pressed toggle button", st.Role, st.Pressed)
-	}
-	if widget.Describe(hs.c.ui.recursiveToggle).Pressed {
-		t.Error("the untouched subfolder toggle reads pressed")
+	if st := widget.Describe(hs.c.ui.recursiveToggle); st.Role != widget.RoleToggleButton || st.Pressed {
+		t.Errorf("the untouched subfolder toggle reads %s pressed %v, want an unpressed toggle button", st.Role, st.Pressed)
 	}
 	hs.click(t, "Name ↑")
 	if got := hs.shown(); !slices.Equal(got[:2], []string{"pics", "docs"}) {
@@ -1165,8 +1162,8 @@ func TestHiddenAndSort(t *testing.T) {
 	}
 	hs.hide()
 	hs.open(t, openFile)
-	if !slices.Contains(hs.shown(), ".dot.txt") || !hs.c.ui.hiddenTg.Active() {
-		t.Error("the hidden toggle did not stick")
+	if !slices.Contains(hs.shown(), ".dot.txt") {
+		t.Error("showing hidden files did not stick")
 	}
 }
 

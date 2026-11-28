@@ -21,26 +21,13 @@ import (
 
 // menu is the context menu for sel in t: what the place shown lets be
 // done with the files selected, or with the folder itself, and the
-// selection commands.
+// browser's selection commands: Select All alone off the files.
 func (f *Files) menu(t *tab, sel []filebrowser.Entry) []widget.MenuItem {
 	items := f.actions(t, sel)
 	if len(sel) == 0 {
-		return appendSection(items, f.selectAll(t))
+		return appendSection(items, t.b.SelectAllItem())
 	}
-	return appendSection(items, widget.MenuItem{Label: locale.T().Get("files-selection"), Items: []widget.MenuItem{
-		f.selectAll(t),
-		{Label: locale.T().Get("files-select-none"), Accel: "Shift+Ctrl+A", OnClick: t.b.SelectNone},
-		{Label: locale.T().Get("files-invert-selection"), Accel: "Shift+Ctrl+I", OnClick: t.b.InvertSelection},
-	}})
-}
-
-// selectAll is the menu item selecting every file t lists, disabled
-// when they all are.
-func (f *Files) selectAll(t *tab) widget.MenuItem {
-	return widget.MenuItem{
-		Label: locale.T().Get("files-select-all"), Accel: "Ctrl+A", OnClick: t.b.SelectAll,
-		Disabled: len(t.b.Selected()) == len(t.b.Entries()),
-	}
+	return appendSection(items, widget.MenuItem{Label: locale.T().Get("files-selection"), Items: t.b.SelectionItems()})
 }
 
 // appendSection is items with more after them, a separator between

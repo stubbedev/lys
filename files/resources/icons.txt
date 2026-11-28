@@ -6,8 +6,8 @@ ld-camera-symbolic
 ld-disc-3-symbolic
 ld-download-symbolic
 ld-eject-symbolic
+ld-ellipsis-symbolic
 ld-external-link-symbolic
-ld-eye-symbolic
 ld-file-archive-symbolic
 ld-file-box-symbolic
 ld-file-code-symbolic

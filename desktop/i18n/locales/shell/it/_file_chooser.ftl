@@ -7,8 +7,19 @@ file-chooser-nav-up = Su
 file-chooser-nav-new-folder = Crea cartella
 file-chooser-nav-grid = Attiva/disattiva vista a griglia
 file-chooser-nav-preview = Riquadro di anteprima
-file-chooser-nav-hidden = Mostra file nascosti
 file-chooser-nav-recursive = Cerca nelle sottocartelle
+file-chooser-nav-menu = Opzioni di visualizzazione
+
+## Menu di visualizzazione
+file-chooser-menu-list = Elenco
+file-chooser-menu-grid = Griglia
+file-chooser-menu-ascending = Crescente
+file-chooser-menu-descending = Decrescente
+file-chooser-menu-hidden = Mostra file nascosti
+file-chooser-menu-reload = Ricarica
+file-chooser-menu-select-all = Seleziona tutto
+file-chooser-menu-select-none = Deseleziona tutto
+file-chooser-menu-invert-selection = Inverti la selezione
 
 ## Campi
 file-chooser-placeholder-location = Digita un percorso
