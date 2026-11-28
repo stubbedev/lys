@@ -8753,6 +8753,8 @@
       "lib/fdtest",
       "lib/glibclocale/glibclocaletest",
       "lib/golden",
+      "lib/gpu",
+      "lib/gputest",
       "lib/logind/logindtest",
       "lib/logtest",
       "lib/pulse/pulsetest",
